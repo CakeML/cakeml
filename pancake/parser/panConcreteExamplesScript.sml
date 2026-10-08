@@ -251,6 +251,17 @@ val ex9 = ‘
 
 val treeEx9 = check_success $ parse_pancake ex9;
 
+(** @top is a separate keyword from @base. *)
+val top_ex = ‘
+ fun testfun() {
+   return @top;
+ }’;
+
+val top_ex_parse = check_success $ parse_pancake top_ex;
+val has_top_addr =
+  assert (can (find_term (same_const “panLang$TopAddr”)) o rhs o concl)
+         top_ex_parse;
+
 (** Shifts *)
 val ex10 = ‘
  fun testfun() {
@@ -652,3 +663,22 @@ val exception_declaration =
   ’
 
 val exception_declaration_parse = check_success $ parse_pancake exception_declaration;
+
+(* A number directly followed by a letter or an underscore is a lexer
+   error, rather than a number followed by a name *)
+val malformed_number_exs =
+  [‘var 1g = 0;’,
+   ‘fun 1f() { return 0; }’,
+   ‘fun f(1a) { return a; }’,
+   ‘fun f() { var 1x = 0; return x; }’,
+   ‘struct p { 1x }’,
+   ‘fun f() { var y = lds 1x; return y; }’,
+   ‘fun f() { return 0x10; }’,
+   ‘fun f() { return 1_000; }’,
+   ‘fun f() { return -1x; }’]
+
+val malformed_number_parses =
+  map (fn ex =>
+         assert (can (find_term (same_const “LexErrorT”)) o rhs o concl) $
+           lex_pancake ex)
+      malformed_number_exs

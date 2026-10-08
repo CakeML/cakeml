@@ -81,6 +81,8 @@ Datatype:
   | Mat tra exp ((pat # exp) list)
   | Let tra (varN option) exp exp
   | Letrec varN ((varN # varN # exp) list) exp
+  (* evaluate the body, then consume one clock tick *)
+  | Tick tra exp
 End
 
 val exp_size_def = definition"exp_size_def";

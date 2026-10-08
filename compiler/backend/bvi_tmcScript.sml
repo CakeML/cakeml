@@ -543,6 +543,93 @@ Proof
   >> gvs []
 QED
 
+(* Floating let-bound expressions into their body.
+
+   subst xs e substitutes the bindings xs for the variables 0 .. LENGTH xs - 1
+   of an expression e built from Var and Op only, and lowers the other
+   variables by LENGTH xs.  It returns the result together with the indices
+   of the bindings it used, one entry per occurrence. *)
+Definition subst_def:
+  (subst xs (Var v) =
+     case LLOOKUP xs v of
+     | SOME x => SOME (x, [v])
+     | NONE => SOME (Var (v - LENGTH xs), [])) ∧
+  (subst xs (Op op es) =
+     case substs xs es of
+     | NONE => NONE
+     | SOME (es', us) => SOME (Op op es', us)) ∧
+  (subst xs (If _ _ _) = NONE) ∧
+  (subst xs (Let _ _) = NONE) ∧
+  (subst xs (Raise _) = NONE) ∧
+  (subst xs (Tick _) = NONE) ∧
+  (subst xs (Call _ _ _ _) = NONE) ∧
+  (subst xs (Force _ _) = NONE) ∧
+  (subst xs (LetCall _ _ _ _ _) = NONE) ∧
+  (subst xs (Return _) = NONE) ∧
+  (substs xs [] = SOME ([], [])) ∧
+  (substs xs (e::es) =
+     case subst xs e of
+     | NONE => NONE
+     | SOME (e', u1) =>
+         case substs xs es of
+         | NONE => NONE
+         | SOME (es', u2) => SOME (e'::es', u1 ++ u2))
+Termination
+  WF_REL_TAC ‘measure $ λx. case x of
+                            | INL (_,e) => exp_size e
+                            | INR (_,es) => list_size exp_size es’
+End
+
+(* inline m b folds the lets at the head of b into their body when all their
+   bindings are pure and each is used at most once, where b is evaluated in
+   an environment of at least m values. *)
+Definition inline_def:
+  (inline m (Let xs b) =
+     if EVERY (pure_exp m) xs then
+       case inline (m + LENGTH xs) b of
+       | NONE => NONE
+       | SOME b' =>
+           (case subst xs b' of
+            | SOME (e, us) => if ALL_DISTINCT us then SOME e else NONE
+            | NONE => NONE)
+     else NONE) ∧
+  (inline m (Var v) = SOME (Var v)) ∧
+  (inline m (Op op es) = SOME (Op op es)) ∧
+  (inline m _ = NONE)
+End
+
+(* find_call n loc xs i is the index, counted from i, of the only impure
+   binding of xs, provided it is a call to loc in a position bvi_to_cb
+   accepts. *)
+Definition find_call_def:
+  (find_call n loc [] (i:num) = NONE) ∧
+  (find_call n loc (x::xs) i =
+     if pure_exp n x then find_call n loc xs (i + 1)
+     else if IS_SOME (bvi_to_cb n loc x) ∧ EVERY (pure_exp n) xs then SOME i
+     else NONE)
+End
+
+(* float_call n loc (Let xs b) moves the call found by find_call into the
+   position of its single use when the inlined body is pure and uses every
+   other binding at most once, so that a call bound by a let can become the
+   argument of a constructor. *)
+Definition float_call_def:
+  (float_call n loc (Let xs b) =
+     case find_call n loc xs 0 of
+     | NONE => NONE
+     | SOME j =>
+         case inline (n + LENGTH xs) b of
+         | SOME (Op op es) =>
+             if pure_exp (n + LENGTH xs) (Op op es) then
+               (case subst xs (Op op es) of
+                | SOME (e, us) =>
+                    if ALL_DISTINCT us ∧ MEM j us then SOME e else NONE
+                | NONE => NONE)
+             else NONE
+         | _ => NONE) ∧
+  (float_call n loc _ = NONE)
+End
+
 (* Convert back to BlockOp Cons for comparing semantics *)
 Definition cb_to_bvi_def:
   (cb_to_bvi loc (CallBlock tag l child r) =
@@ -710,9 +797,16 @@ Definition rewrite_wrapper_def:
     | (NONE, SOME ye) => SOME $ If xi xt ye
     | (SOME yt, SOME ye) => SOME $ If xi yt ye) ∧
   (rewrite_wrapper loc loc_opt n (Let xs x) =
-    case rewrite_wrapper loc loc_opt (n + LENGTH xs) x of
-    | NONE => NONE
-    | SOME y => SOME $ Let xs y) ∧
+    case float_call n loc (Let xs x) of
+    | SOME e =>
+        (case bvi_to_cb n loc e of
+         | SOME (bs,CallBlock tag left child right) =>
+             SOME $ Let bs $ cb_to_bvi_wrapper tag left child right loc_opt
+         | _ => NONE)
+    | NONE =>
+        (case rewrite_wrapper loc loc_opt (n + LENGTH xs) x of
+         | NONE => NONE
+         | SOME y => SOME $ Let xs y)) ∧
   (rewrite_wrapper loc loc_opt _ (Raise x) = NONE) ∧
   (rewrite_wrapper loc loc_opt n (Tick x) = OPTION_MAP Tick $ rewrite_wrapper loc loc_opt n x) ∧
   (rewrite_wrapper loc loc_opt _ (Force _ n) = NONE) ∧
@@ -732,8 +826,17 @@ Definition rewrite_worker_def:
     let ye = rewrite_worker loc loc_opt i_old_ptr i_old_idx n xe in
     If xi yt ye) ∧
   (rewrite_worker loc loc_opt i_old_ptr i_old_idx n (Let xs x) =
-    let offset = LENGTH xs in
-      Let xs $ rewrite_worker loc loc_opt (i_old_ptr + offset) (i_old_idx + offset) (n + offset) x) ∧
+    case float_call n loc (Let xs x) of
+    | SOME e =>
+        (case bvi_to_cb n loc e of
+         | SOME (bs,cb) =>
+             (let offset = LENGTH bs in
+                Let bs $ cb_to_bvi_worker cb loc_opt (offset + i_old_ptr) (offset + i_old_idx))
+         | NONE =>
+             fill_hole i_old_ptr i_old_idx e)
+    | NONE =>
+        let offset = LENGTH xs in
+          Let xs $ rewrite_worker loc loc_opt (i_old_ptr + offset) (i_old_idx + offset) (n + offset) x) ∧
   (rewrite_worker loc loc_opt i_old_ptr i_old_idx _ (Raise x) = Raise x) ∧
   (rewrite_worker loc loc_opt i_old_ptr i_old_idx n (Op op op_args) =
    case bvi_to_cb n loc (Op op op_args) of
@@ -766,14 +869,15 @@ End
 
 Definition compile_each_def:
   (compile_each next [] = (next, [])) ∧
-  (compile_each next ((loc, arity, exp)::xs) =
+  (compile_each next ((loc, arity, exp, md)::xs) =
     case compile_exp loc next arity exp of
     | NONE =>
         let (n, ys) = compile_each next xs in
-          (n, (loc, arity, exp)::ys)
+          (n, (loc, arity, exp, md)::ys)
     | SOME (exp_wrapper, exp_worker) =>
         let (n, ys) = compile_each (next + bvl_to_bvi_namespaces) xs in
-        (n, (loc, arity, exp_wrapper)::(next, arity + 2, exp_worker)::ys))
+        (n, (loc, arity, exp_wrapper, md)::
+            (next, arity + 2, exp_worker, add_annotation BVI_Worker md)::ys))
 End
 
 Definition compile_prog_def:

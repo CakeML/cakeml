@@ -395,6 +395,8 @@ Proof
   \\ map_every imp_res_tac
       [do_app_add_to_clock_NONE,
        do_app_add_to_clock] \\ fs []
+  \\ ‘extra + s.clock − 1 = extra + (s.clock − 1)’ by decide_tac
+  \\ asm_rewrite_tac []
 QED
 
 Theorem evaluate_decs_add_to_clock:
@@ -804,6 +806,31 @@ Proof
          initial_state_with_clock, FST, ADD_SYM]
 QED
 
+Theorem semantics_Fail[local]:
+  semantics ec ffi ds = Fail ⇔
+  ∃k. SND (evaluate_decs (initial_state ffi k ec) ds) = SOME (Rabort Rtype_error)
+Proof
+  rw [semantics_def] \\ DEEP_INTRO_TAC some_intro \\ rw [] \\ fs []
+QED
+
+Theorem IMP_semantics_eq_no_fail:
+   eval_sim ffi ds1 ds2 ec ec2 rel T /\ rel ds1 ds2 ==>
+   semantics ec (ffi:'ffi ffi_state) ds1 =
+   semantics ec2 ffi ds2
+Proof
+  rw []
+  \\ Cases_on `semantics ec ffi ds1 = Fail`
+  >- (
+    `semantics ec2 ffi ds2 = Fail` suffices_by simp []
+    \\ fs [semantics_Fail, SND_SND_lemma]
+    \\ fs [eval_sim_def]
+    \\ first_x_assum drule \\ simp []
+    \\ strip_tac \\ qexists_tac `k + ck` \\ simp [])
+  \\ irule IMP_semantics_eq
+  \\ fs [eval_sim_def]
+  \\ metis_tac []
+QED
+
 Definition op_gbag_def:
   op_gbag (GlobalVarInit n) = BAG_INSERT n {||} /\
   op_gbag _ = {||}
@@ -821,6 +848,7 @@ Definition set_globals_def[simp]:
   (set_globals (Let t v e1 e2) = set_globals e1 ⊎ set_globals e2) /\
   (set_globals (Letrec t fs e) =
     set_globals e ⊎ elist_globals (MAP (SND o SND) fs)) /\
+  (set_globals (Tick t e) = set_globals e) /\
   (set_globals _ = {||}) /\
   (elist_globals [] = {||}) /\
   (elist_globals (e::es) = set_globals e ⊎ elist_globals es)
@@ -854,6 +882,7 @@ Definition esgc_free_def:
   (esgc_free (Let t v e1 e2) <=> esgc_free e1 /\ esgc_free e2) /\
   (esgc_free (Letrec t fs e) <=>
     esgc_free e /\ elist_globals (MAP (SND o SND) fs) = {||}) /\
+  (esgc_free (Tick t e) <=> esgc_free e) /\
   (esgc_free _ <=> T)
 Termination
   WF_REL_TAC `measure exp_size` \\ rw []
@@ -1180,7 +1209,7 @@ Proof
     \\ imp_res_tac semanticPrimitivesPropsTheory.do_arith_check_type
     \\ rename [`check_type ty`]
     \\ Cases_on `ty` using semanticPrimitivesPropsTheory.prim_type_cases
-    \\ gvs[semanticPrimitivesTheory.do_arith_def,CaseEq"list",CaseEq"arith"]
+    \\ gvs[semanticPrimitivesTheory.do_arith_def,CaseEq"list",TypeBase.case_eq_of ``:ast$arith``]
     \\ gvs[simple_val_rel_simps,v_to_flat_def]
     >~ [`check_type BoolT`] >-
      (Cases_on `flat_to_v x0 = Boolv T` \\ gvs []
@@ -1515,7 +1544,8 @@ Definition no_Mat_def[simp]:
   (no_Mat (Mat t e pes) <=> F) /\
   (no_Mat (Handle t e pes) <=> no_Mat e /\ EVERY no_Mat (MAP SND pes) /\
     (case pes of [(Pvar _, _)] => T | _ => F)) /\
-  (no_Mat (Letrec t funs e) <=> EVERY no_Mat (MAP (SND o SND) funs) /\ no_Mat e)
+  (no_Mat (Letrec t funs e) <=> EVERY no_Mat (MAP (SND o SND) funs) /\ no_Mat e) /\
+  (no_Mat (Tick t e) <=> no_Mat e)
 Termination
   WF_REL_TAC `measure (flatLang$exp_size)` \\ rw []
   \\ imp_res_tac MEM_list_size

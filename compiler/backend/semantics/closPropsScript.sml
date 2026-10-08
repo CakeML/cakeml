@@ -1857,12 +1857,12 @@ Theorem esgc_free_def[simp,compute,allow_rebind] =
 (* state is setglobal-closure free *)
 Definition ssgc_free_def:
   ssgc_free ^s ⇔
-    (∀n m e. FLOOKUP s.code n = SOME (m,e) ⇒ set_globals e = {||}) ∧
+    (∀n m e md. FLOOKUP s.code n = SOME (m,e,md) ⇒ set_globals e = {||}) ∧
     (∀n vl. FLOOKUP s.refs n = SOME (ValueArray vl) ⇒ EVERY vsgc_free vl) ∧
     (∀n m v. FLOOKUP s.refs n = SOME (Thunk m v) ⇒ vsgc_free v) ∧
     (∀v. MEM (SOME v) s.globals ⇒ vsgc_free v) ∧
     (∀n exp aux. SND (s.compile_oracle n) = (exp, aux) ⇒ EVERY esgc_free exp ∧
-         elist_globals (MAP (SND o SND) aux) = {||})
+         elist_globals (MAP (FST o SND o SND) aux) = {||})
 End
 
 Theorem ssgc_free_clockupd[simp]:
@@ -3378,7 +3378,7 @@ Theorem find_code_SUBMAP:
    find_code dest vs code2 = SOME p
 Proof
   rw[closSemTheory.find_code_def, CaseEq"option", pair_case_eq]
-  \\ imp_res_tac FLOOKUP_SUBMAP
+  \\ imp_res_tac FLOOKUP_SUBMAP \\ fs []
 QED
 
 Definition SUBMAP_rel_def:

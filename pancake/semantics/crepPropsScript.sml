@@ -5,6 +5,7 @@ Theory crepProps
 Libs
   preamble
 Ancestors
+  wordSem
   panSem panLang pan_common panProps crepLang crepSem pan_commonProps
 
 
@@ -52,7 +53,7 @@ Proof
    fs [eval_def, OPT_MMAP_def] >>
    TOP_CASE_TAC >> fs [] >>
    TOP_CASE_TAC >> fs [] >>
-   fs [wordLangTheory.word_op_def]) >>
+   fs [wordSemTheory.word_op_def]) >>
   rw [] >>
   fs [ADD1] >>
   fs [GSYM word_add_n2w, WORD_LEFT_ADD_DISTRIB]
@@ -120,7 +121,7 @@ Theorem update_locals_not_vars_eval_eq:
 Proof
   ho_match_mp_tac eval_ind >> rpt strip_tac >>
   gvs[eval_def,var_cexp_def, FLOOKUP_UPDATE,AllCaseEqs(),
-      mem_load_def, wordLangTheory.word_op_def, PULL_EXISTS,
+      mem_load_def, wordSemTheory.word_op_def, PULL_EXISTS,
       oneline crep_op_def, MAP_EQ_CONS, MEM_FLAT, MEM_MAP,
       opt_mmap_eq_some, SF DNF_ss] >>
   irule_at (Pos last) EQ_REFL >>
@@ -554,7 +555,7 @@ Proof
       strip_tac >> fs []) >>
     drule FUPDATE_FUPDATE_LIST_COMMUTES >>
     disch_then (qspecl_then [‘Word addr’, ‘s.locals’] assume_tac) >>
-    fs [FLOOKUP_UPDATE, wordLangTheory.word_op_def]) >> fs [] >>
+    fs [FLOOKUP_UPDATE, wordSemTheory.word_op_def]) >> fs [] >>
    rfs [] >> rveq >> fs [] >>
    pop_assum kall_tac >>
    pop_assum kall_tac >>

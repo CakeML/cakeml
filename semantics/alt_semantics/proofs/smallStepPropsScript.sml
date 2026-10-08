@@ -997,7 +997,7 @@ Proof
     simp[Once RTC_CASES_RTC_TWICE] >> goal_assum drule >>
     irule $ cj 2 RTC_rules >>
     simp[e_step_reln_def, e_step_def, continue_def, application_thm,
-         astTheory.getOpClass_def]
+         semanticPrimitivesTheory.getOpClass_def]
     ) >>
   qmatch_goalsub_abbrev_tac `Capp _ _ _ l` >>
   `l ≠ []` by (unabbrev_all_tac >> gvs[]) >> qpat_x_assum `Abbrev _` kall_tac >>
@@ -1013,7 +1013,7 @@ Proof
   simp[Once RTC_CASES_RTC_TWICE] >> goal_assum dxrule >>
   irule $ cj 2 RTC_rules >> gvs[REVERSE_APPEND] >>
   simp[e_step_reln_def, e_step_def, continue_def, application_thm,
-       astTheory.getOpClass_def]
+       semanticPrimitivesTheory.getOpClass_def]
 QED
 
 (**********
@@ -1747,7 +1747,7 @@ Proof
   (
     strip_tac >> Cases_on `∀s. op ≠ FFI s` >> gvs[]
     >- (drule_all application_ffi_unchanged >> gvs[]) >>
-    gvs[application_def, do_app_def, call_FFI_def, astTheory.getOpClass_def] >>
+    gvs[application_def, do_app_def, call_FFI_def, semanticPrimitivesTheory.getOpClass_def] >>
     every_case_tac >> gvs[return_def, store_lookup_def, store_assign_def]
   ) >>
   fs[combinTheory.o_DEF]
@@ -1790,7 +1790,7 @@ Proof
   every_case_tac >> gvs[Abbr `foo`, state_component_equality] >> rw[] >> gvs[] >>
   gvs[e_step_def, continue_def, application_thm, do_app_def, call_FFI_def,
       return_def, store_assign_def, store_lookup_def, store_v_same_type_def,
-      astTheory.getOpClass_def, combinTheory.o_DEF]
+      semanticPrimitivesTheory.getOpClass_def, combinTheory.o_DEF]
 QED
 
 Theorem io_events_mono_e_step:

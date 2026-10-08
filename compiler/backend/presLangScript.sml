@@ -75,11 +75,11 @@ Definition num_to_hex_mlstring_def:
 End
 
 Definition word_to_display_def:
-  word_to_display w = empty_item (num_to_hex_mlstring (w2n w))
+  word_to_display (n:num) = empty_item (num_to_hex_mlstring n)
 End
 
 Definition item_with_word_def:
-  item_with_word name w = Item NONE name [word_to_display w]
+  item_with_word name (n:num) = Item NONE name [word_to_display n]
 End
 
 Definition lit_to_display_def:
@@ -93,13 +93,13 @@ Definition lit_to_display_def:
     Item NONE «StrLit» [string_imp s])
   /\
   (lit_to_display (Word8 w) =
-    Item NONE «Word8» [word_to_display w])
+    Item NONE «Word8» [word_to_display (w2n w)])
   /\
   (lit_to_display (Word64 w) =
-    Item NONE «Word64» [word_to_display w])
+    Item NONE «Word64» [word_to_display (w2n w)])
   /\
   (lit_to_display (Float64 w) =
-    Item NONE «Float64» [word_to_display w])
+    Item NONE «Float64» [word_to_display (w2n w)])
 End
 
 Overload list_to_display = ``λf xs. displayLang$Tuple (MAP f xs)``
@@ -525,6 +525,8 @@ Definition flat_to_display_def:
     Item (SOME None) (add_name_hint «letrec» name_hint)
         [Tuple (fun_flat_to_display_list funs); flat_to_display exp]
   )  ∧
+  (flat_to_display (flatLang$Tick tra exp) =
+    Item (SOME tra) «tick» [flat_to_display exp]) ∧
   (flat_to_display_list [] = []) ∧
   (flat_to_display_list (x::xs) =
     flat_to_display x :: flat_to_display_list xs)  ∧
@@ -577,7 +579,7 @@ Definition const_part_to_display_def:
   const_part_to_display (Str s) =
     Item NONE «Str» [String (concat [strlit "\""; s; strlit "\""])] ∧
   const_part_to_display (W64 w) =
-    Item NONE «W64» [word_to_display w]
+    Item NONE «W64» [word_to_display (w2n w)]
 End
 
 Definition const_to_display_def:
@@ -588,7 +590,7 @@ Definition const_to_display_def:
   const_to_display (ConstStr s) =
     Item NONE «ConstStr» [String (concat [strlit "\""; s; strlit "\""])] ∧
   const_to_display (ConstWord64 w) =
-    Item NONE «ConstWord64» [word_to_display w] ∧
+    Item NONE «ConstWord64» [word_to_display (w2n w)] ∧
   (const_to_display_list [] = []) ∧
   (const_to_display_list (x::xs) =
     const_to_display x :: const_to_display_list xs)
@@ -763,7 +765,7 @@ Termination
 End
 
 Definition clos_fun_to_display_def:
-  clos_fun_to_display names (n,argc,body) =
+  clos_fun_to_display names (n,argc,body,md) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
            Tuple (REVERSE $ GENLIST display_num_as_varn argc);
@@ -829,7 +831,7 @@ Termination
 End
 
 Definition bvl_fun_to_display_def:
-  bvl_fun_to_display names (n,argc,body) =
+  bvl_fun_to_display names (n,argc,body,md) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
            Tuple (REVERSE $ GENLIST display_num_as_varn argc);
@@ -898,7 +900,7 @@ Termination
 End
 
 Definition bvi_fun_to_display_def:
-  bvi_fun_to_display names (n,argc,body) =
+  bvi_fun_to_display names (n,argc,body,md) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
            Tuple (REVERSE $ GENLIST display_num_as_varn argc);
@@ -994,7 +996,7 @@ Termination
 End
 
 Definition data_fun_to_display_def:
-  data_fun_to_display names (n,argc,body) =
+  data_fun_to_display names (n,argc,body,md) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
            Tuple (GENLIST num_to_display argc);
@@ -1034,6 +1036,8 @@ Definition asm_arith_to_display_def:
     | AddCarry n1 n2 n3 n4 => item_with_nums «AddCarry» [n1; n2; n3; n4]
     | AddOverflow n1 n2 n3 n4 => item_with_nums «AddOverflow» [n1; n2; n3; n4]
     | SubOverflow n1 n2 n3 n4 => item_with_nums «SubOverflow» [n1; n2; n3; n4]
+    | IMul rd ra rb ro => item_with_nums «IMul» [rd; ra; rb; ro]
+    | IDiv rq rr ra rb => item_with_nums «IDiv» [rq; rr; ra; rb]
 End
 
 Definition asm_addr_to_display_def:
@@ -1130,7 +1134,7 @@ Definition store_name_to_display_def:
     | CodeBufferEnd => empty_item «CodeBufferEnd»
     | BitmapBuffer => empty_item «BitmapBuffer»
     | BitmapBufferEnd => empty_item «BitmapBufferEnd»
-    | Temp w => item_with_word «Temp» w
+    | Temp w => item_with_word «Temp» (w2n w)
 End
 
 Definition stack_seqs_def:
@@ -1254,7 +1258,7 @@ Termination
 End
 
 Definition stack_fun_to_display_def:
-  stack_fun_to_display names (n,body) =
+  stack_fun_to_display names (n,body,md) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
            stack_prog_to_display 1000000000 names body]
@@ -1296,7 +1300,7 @@ Definition lab_line_to_display_def:
 End
 
 Definition lab_fun_to_display_def:
-  lab_fun_to_display names (Section n lines) =
+  lab_fun_to_display names (Section n lines _) =
     List (String (attach_name names (SOME n))
            :: MAP (lab_line_to_display names) lines)
 End
@@ -1311,18 +1315,17 @@ Definition word_seqs_def:
 End
 
 Theorem MEM_append_word_seqs[local]:
-  ∀x. MEM a (append (word_seqs x)) ⇒ prog_size ARB a ≤ prog_size ARB x
+  ∀x. MEM a (append (word_seqs x)) ⇒ prog_size a ≤ prog_size x
 Proof
   Induct \\ simp [Once word_seqs_def,wordLangTheory.prog_size_def]
   \\ rw [] \\ res_tac \\ gvs []
 QED
 
-Theorem MEM_word_exps_size_ARB[local] =
-  wordLangTheory.MEM_IMP_exp_size |> Q.GEN `l` |> Q.SPEC `ARB`;
+Theorem MEM_word_exps_size[local] = wordLangTheory.MEM_IMP_exp_size;
 
 Definition word_exp_to_display_def:
   (word_exp_to_display (wordLang$Const v)
-    = item_with_word «Const» v) /\
+    = Item NONE «Const» [int_to_display v]) /\
   (word_exp_to_display (Var n)
     = item_with_num «Var» n) /\
   (word_exp_to_display (Lookup st)
@@ -1342,13 +1345,13 @@ Definition word_exp_to_display_def:
   (word_exp_to_display_list (x::xs) =
     word_exp_to_display x :: word_exp_to_display_list xs)
 Termination
-  WF_REL_TAC ‘measure $ λx. case x of INL v => wordLang$exp_size ARB v | INR v => list_size wordLang$exp_size ARB v’
+  WF_REL_TAC ‘measure $ λx. case x of INL v => wordLang$exp_size v | INR v => list_size wordLang$exp_size v’
 End
 
 Definition ws_to_display_def:
   ws_to_display [] = [] ∧
   ws_to_display ((b,x)::xs) =
-    Tuple [bool_to_display b; word_to_display x] :: ws_to_display xs
+    Tuple [bool_to_display b; int_to_display x] :: ws_to_display xs
 End
 
 Definition num_sets_to_display_def:
@@ -1464,7 +1467,7 @@ Termination
 End
 
 Definition word_fun_to_display_def:
-  word_fun_to_display names (n,argc,body) =
+  word_fun_to_display names (n,argc,body,md) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
            Tuple (GENLIST (λn. num_to_display (2 * n)) argc);
@@ -1504,7 +1507,7 @@ End
 
 Definition clos_to_strs_def:
   clos_to_strs (decs,funs) =
-    let names = clos_to_bvl$get_src_names (decs ++ MAP (SND o SND) funs) LN in
+    let names = clos_to_bvl$get_src_names (decs ++ MAP (FST o SND o SND) funs) LN in
       Append (map_to_append (str_tree_to_strs «\n\n» o
                              display_to_str_tree o
                              clos_dec_to_display names) decs)
@@ -1524,9 +1527,9 @@ val bvl_test =
   “concat $ append $ bvl_to_strs
      (insert 50 «foo» (insert 60 «bar» LN))
      [(50,2,Let [Var 0; Var 1]
-              $ Op (IntOp Add) [Var 0; Var 1; Var 2; Var 3]);
+              $ Op (IntOp Add) [Var 0; Var 1; Var 2; Var 3],empty_metadata);
       (60,2,Let [Var 0; Var 1]
-              $ Call 0 (SOME 50) [Var 2; Var 0])]”
+              $ Call 0 (SOME 50) [Var 2; Var 0],empty_metadata)]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
   |> (fn t => (print "\n\n"; print t; print "\n"))
 
@@ -1541,9 +1544,9 @@ val bvi_test =
   “concat $ append $ bvi_to_strs
      (insert 50 «foo» (insert 60 «bar» LN))
      [(50,2,Let [Var 0]
-              $ Op (IntOp Add) [Var 0; Var 1; Var 2; Var 3]);
+              $ Op (IntOp Add) [Var 0; Var 1; Var 2; Var 3],empty_metadata);
       (60,2,Let [Var 0; Var 1]
-              $ Call 0 (SOME 50) [Var 2; Var 0] (SOME (Var 0)))]”
+              $ Call 0 (SOME 50) [Var 2; Var 0] (SOME (Var 0)),empty_metadata)]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
   |> (fn t => (print "\n\n"; print t; print "\n"))
 
@@ -1559,8 +1562,8 @@ val data_test =
      (insert 50 «foo» (insert 60 «bar» LN))
      [(50,2,Seq (Move 5 1) $
             Seq (Assign 3 (IntOp Add) [0;1] NONE) $
-            Seq (Assign 6 (IntOp Sub) [5;3] NONE) $ Return [6]);
-      (60,2,Skip)]”
+            Seq (Assign 6 (IntOp Sub) [5;3] NONE) $ Return [6],empty_metadata);
+      (60,2,Skip,empty_metadata)]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
   |> (fn t => (print "\n\n"; print t; print "\n"));
 
@@ -1590,8 +1593,8 @@ val lab_test =
      (insert 50 «foo» (insert 60 «bar» LN))
      [Section 50 [Label 50 1 0;
                   Asm (Asmi (Inst (Const 5 70))) [] 0;
-                  Label 50 2 0];
-      Section 60 [Label 50 5 0]]”
+                  Label 50 2 0] empty_metadata;
+      Section 60 [Label 50 5 0] empty_metadata]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
   |> (fn t => (print "\n\n"; print t; print "\n"));
 

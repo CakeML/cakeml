@@ -3,7 +3,7 @@
 *)
 Theory backend_arm8_cv[no_sig_docs]
 Ancestors
-  cv_std backend_cv backend_64_cv backend_arm8 arm8 arm8_target
+  cv_std backend_cv backend_word_cv backend_arm8 arm8 arm8_target
   to_data_cv export_arm8 arm8_config
 Libs
   preamble cv_transLib
@@ -160,8 +160,6 @@ fun word_tyvars ty =
     NONE => []
   | SOME {Thy="fcp",Tyop="cart",Args=[_,v]} =>
       if is_vartype v then [v] else word_tyvars v
-  | SOME {Thy="wordLang",Tyop=("prog"|"exp"),Args=[v]} =>
-      if is_vartype v then [v] else word_tyvars v
   | SOME {Args,...} => List.concat (map word_tyvars Args);
 
 fun arch_spec th =
@@ -179,7 +177,7 @@ val pre = cv_auto_trans_pre "" (comp_arm8_def |> arch_spec);
 Theorem comp_arm8_pre[cv_pre,local]:
   ∀perf v bs kf. comp_arm8_pre perf v bs kf
 Proof
-  gen_tac \\ gen_tac \\ completeInduct_on ‘prog_size (K 0) v’
+  gen_tac \\ gen_tac \\ completeInduct_on ‘prog_size v’
   \\ rw [] \\ gvs [PULL_FORALL]
   \\ rw [] \\ simp [Once pre]
   \\ rw [] \\ gvs []
@@ -247,7 +245,7 @@ val pre = cv_trans_pre "" (get_forced_arm8_def |> arch_spec);
 Theorem get_forced_arm8_pre[cv_pre,local]:
   ∀v acc. get_forced_arm8_pre v acc
 Proof
-  gen_tac \\ completeInduct_on ‘prog_size (K 0) v’
+  gen_tac \\ completeInduct_on ‘prog_size v’
   \\ rw [] \\ gvs [PULL_FORALL]
   \\ simp [Once pre] \\ rw []
   \\ gvs [] \\ last_x_assum $ irule
@@ -258,9 +256,9 @@ val _ = cv_trans (word_alloc_inlogic_arm8_def |> arch_spec);
 
 val pre = cv_trans_pre "" (inst_select_exp_arm8_def |> arch_spec);
 Theorem inst_select_exp_arm8_pre[cv_pre]:
-  ∀v tar temp. inst_select_exp_arm8_pre tar temp v
+  ∀bits v tar temp. inst_select_exp_arm8_pre bits tar temp v
 Proof
-  gen_tac \\ completeInduct_on ‘exp_size (K 0) v’
+  gen_tac \\ gen_tac \\ completeInduct_on ‘exp_size v’
   \\ rw [] \\ gvs [PULL_FORALL]
   \\ rw [] \\ simp [Once pre]
   \\ rw [] \\ gvs []
@@ -270,9 +268,9 @@ QED
 
 val pre = cv_trans_pre "" (inst_select_arm8_def |> arch_spec);
 Theorem inst_select_arm8_pre[cv_pre,local]:
-  ∀v temp. inst_select_arm8_pre temp v
+  ∀bits v temp. inst_select_arm8_pre bits temp v
 Proof
-  gen_tac \\ completeInduct_on ‘prog_size (K 0) v’
+  gen_tac \\ gen_tac \\ completeInduct_on ‘prog_size v’
   \\ rw [] \\ gvs [PULL_FORALL]
   \\ simp [Once pre] \\ rw []
   \\ first_x_assum irule \\ gvs [wordLangTheory.prog_size_def]
@@ -288,13 +286,17 @@ QED
 val _ = cv_trans (word_to_word_inlogic_arm8_def |> arch_spec);
 val _ = cv_trans (from_word_0_arm8_def |> arch_spec);
 
-val _ = cv_trans ((compile_0_arm8_def |> arch_spec)
-                    |> SRULE [data_to_wordTheory.stubs_def,
-                              backend_64_cvTheory.inline,
+Theorem stubs_md_def[cv_inline,local] =
+  data_to_wordTheory.stubs_md_def |> arch_spec;
+
+val _ = cv_auto_trans ((compile_0_arm8_def |> arch_spec)
+                    |> SRULE [stubs_md_def,data_to_wordTheory.stubs_def,
+                              backend_word_cvTheory.inline,
                               to_map_compile_part]);
 
 val _ = cv_trans (backend_arm8Theory.to_word_0_arm8_def |> arch_spec);
-val _ = cv_auto_trans (backend_arm8Theory.to_livesets_0_arm8_def |> arch_spec);
+val _ = cv_auto_trans (backend_arm8Theory.to_livesets_0_arm8_def
+                        |> arch_spec |> INST_TYPE [beta |-> “:metadata”]);
 
 (* export *)
 

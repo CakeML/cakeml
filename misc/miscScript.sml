@@ -1151,19 +1151,6 @@ Definition between_def:
   between x y z ⇔ x:num ≤ z ∧ z < y
 End
 
-(* Re-expressing folds *)
-
-(* only used in flat_elimProof *)
-Theorem FOLDR_CONS_triple:
- !f ls a. FOLDR (\(x,y,z) w. f x y z :: w) a ls = (MAP (\(x,y,z). f x y z) ls)++a
-Proof
-GEN_TAC THEN
-Induct THEN1 SRW_TAC[][] THEN
-Q.X_GEN_TAC `p` THEN
-PairCases_on `p` THEN
-SRW_TAC[][]
-QED
-
 (* Re-expressing curried lambdas *)
 
 Theorem FST_triple:
@@ -3345,6 +3332,13 @@ Theorem TotOrd_pair_cmp:
   TotOrd (pair_cmp c1 c2)
 Proof
   rw [comparisonTheory.pair_cmp_lexTO, totoTheory.TO_lexTO]
+QED
+
+Theorem ALOOKUP_MAP_3:
+  ALOOKUP (MAP (λ(x,y,z). (x, f x y, z)) al) x =
+  OPTION_MAP (f x ## I) (ALOOKUP al x)
+Proof
+  fs [GSYM ALOOKUP_MAP_2, LAMBDA_PROD]
 QED
 
 Theorem SWAP_IMP:

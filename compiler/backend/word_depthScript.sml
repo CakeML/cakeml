@@ -56,7 +56,7 @@ Definition call_graph_def:
        if MEM d ns /\ ret = NONE then Leaf else
        case lookup d funs of
        | NONE => Unknown
-       | SOME (a:num,body) =>
+       | SOME (a:num,body,md) =>
          case ret of
          | NONE =>
            (if LENGTH ns < total then
@@ -80,7 +80,7 @@ Definition call_graph_def:
   (call_graph funs n ns _ _ = Leaf)
 Termination
   WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure I)
-      (\(funs,n,ns,total,p). (size funs, total - LENGTH ns, prog_size (K 0) p)))`
+      (\(funs,n,ns,total,p). (size funs, total - LENGTH ns, prog_size p)))`
   \\ rpt strip_tac \\ fs [size_delete]
   \\ imp_res_tac miscTheory.lookup_zero \\ fs []
 End
@@ -89,7 +89,7 @@ Definition full_call_graph_def:
   full_call_graph n funs =
     case lookup n funs of
     | NONE => Unknown
-    | SOME (a,prog) => Branch (Call n Leaf)
+    | SOME (a,prog,md) => Branch (Call n Leaf)
                               (call_graph funs n [n] (size funs) prog)
 End
 
@@ -98,7 +98,7 @@ Definition max_depth_graphs_def:
   max_depth_graphs ss (n::ns) all funs all_funs =
     case lookup n all_funs of
     | NONE => NONE
-    | SOME (a,body) =>
+    | SOME (a,body,md) =>
         OPTION_MAP2 MAX (lookup n ss)
        (OPTION_MAP2 MAX (max_depth ss (call_graph funs n all (size all_funs) body))
                         (max_depth_graphs ss ns all funs all_funs))

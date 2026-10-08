@@ -293,7 +293,7 @@ Proof
   \\ simp [] \\ rpt (disch_then drule) \\ rw []
   \\ fs [cfHeapsBaseTheory.POSTv_def, cfHeapsBaseTheory.POST_def]
   \\ FULL_CASE_TAC \\ fs [set_sepTheory.cond_def]
-  \\ rw [evaluate_def, astTheory.getOpClass_def, PULL_EXISTS]
+  \\ rw [evaluate_def, semanticPrimitivesTheory.getOpClass_def, PULL_EXISTS]
   \\ CONV_TAC SWAP_EXISTS_CONV
   \\ rename1 `RET_TYPE r val`
   \\ qexists_tac `Rval [val]` \\ fs [PULL_EXISTS]
@@ -412,7 +412,7 @@ Proof
   \\ simp [] \\ rpt (disch_then drule) \\ rw []
   \\ fs [cfHeapsBaseTheory.POSTv_def, cfHeapsBaseTheory.POST_def]
   \\ FULL_CASE_TAC \\ fs [set_sepTheory.cond_def]
-  \\ rw [evaluate_def, astTheory.getOpClass_def, PULL_EXISTS]
+  \\ rw [evaluate_def, semanticPrimitivesTheory.getOpClass_def, PULL_EXISTS]
   \\ CONV_TAC SWAP_EXISTS_CONV
   \\ rename1 `RET_TYPE r val`
   \\ qexists_tac `Rval [val]` \\ fs [PULL_EXISTS]

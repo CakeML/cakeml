@@ -1,0 +1,350 @@
+(*
+  Translate the final part of the compiler backend for all targets.
+*)
+Theory to_targetProg[no_sig_docs]
+Ancestors
+  evaluate ml_translator to_wordProg std_prelude word_to_stack
+  stack_alloc stack_remove stack_names stack_to_lab lab_filter
+  lab_to_target asm monadic_enc monadic_enc64
+Libs
+  preamble ml_translatorLib ml_monad_translatorLib
+
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
+
+val _ = translation_extends "to_wordProg";
+val _ = ml_translatorLib.use_sub_check true;
+
+val _ = computeLib.upd_compset (fn c => computeLib.set_skip c “COND” (SOME 1));
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_targetProg");
+
+val RW = REWRITE_RULE
+
+val _ = add_preferred_thy "-";
+
+Theorem NOT_NIL_AND_LEMMA[local]:
+  (b <> [] /\ x) = if b = [] then F else x
+Proof
+  Cases_on `b` THEN FULL_SIMP_TAC std_ss []
+QED
+
+val extra_preprocessing = ref [MEMBER_INTRO,MAP];
+
+fun def_of_const tm = let
+  val {Thy,Name,...} = dest_thy_const tm
+  val def = DB.fetch Thy (Name ^ "_pmatch") handle HOL_ERR _ =>
+            DB.fetch Thy (Name ^ "_def") handle HOL_ERR _ =>
+            DB.fetch Thy (Name ^ "_DEF") handle HOL_ERR _ =>
+            DB.fetch Thy (Name ^ "_thm") handle HOL_ERR _ =>
+            DB.fetch Thy Name
+  val insts = match_type (type_of (prim_mk_const {Thy = Thy, Name = Name}))
+                         (type_of tm)
+  in def |> INST_TYPE insts |> REWRITE_RULE (!extra_preprocessing)
+         |> CONV_RULE (DEPTH_CONV BETA_CONV)
+         |> REWRITE_RULE [NOT_NIL_AND_LEMMA] end;
+
+val _ = find_def_for_const := def_of_const;
+val _ = use_long_names := true;
+
+val _ = translate word_to_stackTheory.bits_to_word_def;
+val _ = translate word_to_stackTheory.word_list_def;
+val _ = translate word_to_stackTheory.chunk_to_bits_def;
+val _ = translate word_to_stackTheory.chunk_to_bitmap_def;
+val _ = translate word_to_stackTheory.const_words_to_bitmap_def;
+Theorem word_to_stack_chunk_to_bitmap_side_total[local]:
+  ∀bits ws. word_to_stack_chunk_to_bitmap_side bits ws
+Proof
+  rw [fetch "-" "word_to_stack_chunk_to_bitmap_side_def"]
+  \\ mp_tac (Q.SPECL [`v1`,`&(2 ** bits)`] integerTheory.INT_MOD_BOUNDS)
+  \\ simp []
+QED
+val _ = update_precondition word_to_stack_chunk_to_bitmap_side_total;
+
+Theorem word_to_stack_const_words_to_bitmap_side_total[local]:
+  ∀bits ws ws_len. word_to_stack_const_words_to_bitmap_side bits ws ws_len
+Proof
+  ho_match_mp_tac word_to_stackTheory.const_words_to_bitmap_ind
+  \\ rpt strip_tac
+  \\ once_rewrite_tac [fetch "-" "word_to_stack_const_words_to_bitmap_side_def"]
+  \\ gvs [word_to_stack_chunk_to_bitmap_side_total]
+QED
+val _ = update_precondition word_to_stack_const_words_to_bitmap_side_total;
+
+val _ = translate (word_to_stackTheory.write_bitmap_def
+  |> REWRITE_RULE (!extra_preprocessing));
+val _ = translate (word_to_stackTheory.wLive_def |> SIMP_RULE std_ss [LET_THM]);
+
+(* TODO: the name is messed up (pair_) *)
+val _ = translate PAIR_MAP
+
+val _ = translate parmoveTheory.fstep_def
+
+val parmove_fstep_side = Q.prove(`
+  ∀x. parmove_fstep_side x ⇔ T`,
+  EVAL_TAC>>rw[]>>Cases_on`v18`>>fs[]) |> update_precondition
+
+val _ = translate (word_to_stackTheory.wMove_def)
+
+val _ = translate (word_to_stackTheory.call_dest_def)
+
+val _ = translate (word_to_stackTheory.wInst_def)
+
+val _ = translate (word_to_stackTheory.perf_call_prefix_def)
+val _ = translate (word_to_stackTheory.perf_call_suffix_def)
+
+val _ = translate (word_to_stackTheory.num_stack_ret_def |> INST_TYPE [alpha|->``:num``])
+val _ = translate (word_to_stackTheory.skip_free_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
+val _ = translate (word_to_stackTheory.copy_ret_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
+val _ = translate (word_to_stackTheory.stack_arg_count_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
+val _ = translate (word_to_stackTheory.StackArgs_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
+val _ = translate (word_to_stackTheory.StackHandlerArgs_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
+val _ = translate (word_to_stackTheory.PushHandler_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
+val _ = translate (word_to_stackTheory.PopHandler_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])
+
+val _ = translate word_to_stackTheory.comp_def;
+val _ = translate (word_to_stackTheory.compile_word_to_stack_def
+  |> INST_TYPE [alpha |-> “:num”]);
+val _ = translate word_to_stackTheory.compile_def;
+
+(* stack_rawcall *)
+
+val res = translate (stack_rawcallTheory.dest_case_pmatch);
+val res = translate (stack_rawcallTheory.comp_seq_def);
+val res = translate (stack_rawcallTheory.seq_stack_alloc_pmatch);
+val res = translate (stack_rawcallTheory.collect_info_def);
+val res = translate (stack_rawcallTheory.comp_pmatch);
+val res = translate (stack_rawcallTheory.comp_top_pmatch);
+val res = translate (stack_rawcallTheory.compile_def);
+
+val inline_simp = SIMP_RULE std_ss [backend_commonTheory.word_shift_def]
+val _ = translate (stack_allocTheory.SetNewTrigger_def |> inline_simp)
+val _ = translate (stack_allocTheory.clear_top_inst_def)
+val _ = translate (stack_allocTheory.memcpy_code_def |> inline_simp)
+val _ = translate (stack_allocTheory.word_gc_move_code_def |> inline_simp)
+
+val _ = translate (stack_allocTheory.word_gc_move_bitmap_code_def |> inline_simp);
+val _ = translate (stack_allocTheory.word_gc_move_bitmaps_code_def |> inline_simp);
+val _ = translate (stack_allocTheory.word_gc_move_roots_bitmaps_code_def |> inline_simp);
+val _ = translate (stack_allocTheory.word_gc_move_list_code_def |> inline_simp);
+val _ = translate (stack_allocTheory.word_gc_move_loop_code_def |> inline_simp);
+
+val _ = translate (stack_allocTheory.word_gen_gc_move_code_def |> inline_simp);
+val _ = translate (stack_allocTheory.word_gen_gc_move_bitmap_code_def |> inline_simp);
+val _ = translate (stack_allocTheory.word_gen_gc_move_bitmaps_code_def |> inline_simp);
+val _ = translate (stack_allocTheory.word_gen_gc_move_roots_bitmaps_code_def |> inline_simp);
+val _ = translate (stack_allocTheory.word_gen_gc_move_list_code_def |> inline_simp);
+val _ = translate (stack_allocTheory.word_gen_gc_move_data_code_def |> inline_simp);
+val _ = translate (stack_allocTheory.word_gen_gc_move_refs_code_def |> inline_simp);
+val _ = translate (stack_allocTheory.word_gen_gc_move_loop_code_def |> inline_simp);
+val _ = translate (stack_allocTheory.word_gen_gc_partial_move_code_def |> inline_simp);
+val _ = translate (stack_allocTheory.word_gen_gc_partial_move_bitmap_code_def |> inline_simp);
+val _ = translate (stack_allocTheory.word_gen_gc_partial_move_bitmaps_code_def |> inline_simp);
+val _ = translate (stack_allocTheory.word_gen_gc_partial_move_roots_bitmaps_code_def |> inline_simp);
+val _ = translate (stack_allocTheory.word_gen_gc_partial_move_list_code_def |> inline_simp);
+val _ = translate (stack_allocTheory.word_gen_gc_partial_move_ref_list_code_def |> inline_simp);
+val _ = translate (stack_allocTheory.word_gen_gc_partial_move_data_code_def |> inline_simp);
+val r = translate (stack_allocTheory.word_gc_partial_or_full_def |> INST_TYPE [alpha|->``:num``]);
+
+val r = translate (stack_allocTheory.word_gc_code_def |> inline_simp);
+
+val _ = translate (stack_allocTheory.stubs_def);
+
+val _ = translate (stack_allocTheory.comp_def(*pmatch*));
+
+val _ = translate (stack_allocTheory.compile_def);
+
+
+val each_def =
+  stack_removeTheory.copy_each_def |> inline_simp;
+val loop_def =
+  (stack_removeTheory.copy_loop_def |> inline_simp
+    |> REWRITE_RULE [GSYM each_def]);
+
+val _ = translate each_def;
+val _ = translate loop_def;
+
+(* Might be better to inline this *)
+val _ = translate (stack_removeTheory.word_offset_def)
+val _ = translate (stack_removeTheory.store_offset_def |> SIMP_RULE std_ss [word_mul_def,word_2comp_def])
+
+val _ = translate (stack_removeTheory.comp_def |> inline_simp)
+
+val _ = translate (stack_removeTheory.prog_comp_def)
+
+val _ = translate (stack_removeTheory.store_list_code_def |> inline_simp)
+val _ = translate (stack_removeTheory.init_memory_def |> inline_simp)
+val _ = translate (stack_removeTheory.init_code_def |> inline_simp |> SIMP_RULE std_ss [word_mul_def]|>SIMP_RULE std_ss[w2n_n2w])
+
+val _ = translate (stack_removeTheory.compile_def)
+
+val _ = translate (stack_namesTheory.comp_def)
+val _ = translate (stack_namesTheory.prog_comp_def)
+val _ = translate (stack_namesTheory.compile_def)
+
+
+val _ = translate (stack_to_labTheory.flatten_def)
+
+val _ = translate (stack_to_labTheory.is_Seq_def)
+
+val _ = translate (stack_to_labTheory.compile_def)
+
+val _ = translate (stack_to_labTheory.compile_no_stubs_def)
+
+(* The record types used for the monadic state and exceptions *)
+val exn_type   = ``:monadic_enc64$state_exn_64``;
+val _          = register_exn_type exn_type;
+val STATE_EXN_TYPE_def =  theorem "MONADIC_ENC64_STATE_EXN_64_TYPE_def"
+val exn_ri_def         = STATE_EXN_TYPE_def;
+
+val exn_functions = [
+    (monadic_enc64Theory.raise_Fail_def, monadic_enc64Theory.handle_Fail_def),
+    (monadic_enc64Theory.raise_Subscript_def, monadic_enc64Theory.handle_Subscript_def)
+];
+val refs_manip_list = [] : (string * thm * thm) list;
+val rarrays_manip_list = [] : (string * thm * thm * thm * thm * thm * thm) list;
+
+val add_type_theories  = ([] : string list);
+val store_pinv_def_opt = NONE : thm option;
+
+val state_type_64 = ``:enc_state_64``;
+val store_hprop_name_64   = "ENC_STATE_64";
+val farrays_manip_list_64 = [
+    ("hash_tab_64", monadic_enc64Theory.get_hash_tab_64_def,
+     monadic_enc64Theory.set_hash_tab_64_def,
+     monadic_enc64Theory.hash_tab_64_length_def,
+     monadic_enc64Theory.hash_tab_64_sub_def,
+     monadic_enc64Theory.update_hash_tab_64_def)];
+
+val _ = translate (monadic_encTheory.hash_reg_imm_def)
+val _ = translate monadic_encTheory.hash_binop_def
+val _ = translate monadic_encTheory.hash_cmp_def
+val _ = translate monadic_encTheory.hash_shift_def
+val _ = translate (monadic_encTheory.hash_arith_def |> SIMP_RULE std_ss [monadic_encTheory.roll_hash_def])
+val _ = translate monadic_encTheory.hash_memop_def
+val _ = translate (monadic_encTheory.hash_fp_def |> SIMP_RULE std_ss [monadic_encTheory.roll_hash_def])
+val _ = translate (monadic_encTheory.hash_inst_def |> SIMP_RULE std_ss [monadic_encTheory.roll_hash_def])
+val _ = translate (monadic_encTheory.hash_asm_def |> SIMP_RULE std_ss [monadic_encTheory.roll_hash_def])
+
+(* Initialization *)
+
+val res = start_dynamic_init_fixed_store_translation
+            refs_manip_list
+            rarrays_manip_list
+            farrays_manip_list_64
+            store_hprop_name_64
+            state_type_64
+            exn_ri_def
+            exn_functions
+            add_type_theories
+            store_pinv_def_opt;
+
+val _ = translate (lab_to_targetTheory.lab_inst_def)
+val _ = translate (lab_to_targetTheory.compile_shmem_def)
+val _ = m_translate monadic_enc64Theory.lookup_ins_table_64_def;
+val _ = m_translate monadic_enc64Theory.enc_line_hash_64_def;
+val _ = m_translate monadic_enc64Theory.enc_line_hash_64_ls_def;
+val _ = m_translate monadic_enc64Theory.enc_sec_hash_64_ls_def;
+val _ = m_translate monadic_enc64Theory.enc_sec_hash_64_ls_full_def;
+
+val _ = m_translate_run monadic_enc64Theory.enc_secs_64_aux_def;
+
+val _ = translate monadic_enc64Theory.enc_secs_64_def;
+
+Theorem monadic_enc64_enc_line_hash_64_ls_side_def[local]:
+  ∀a b c d e.
+  d ≠ 0 ⇒
+  monadic_enc64_enc_line_hash_64_ls_side a b c d e ⇔ T
+Proof
+  Induct_on`e`>>
+  simp[Once (fetch "-" "monadic_enc64_enc_line_hash_64_ls_side_def")]>>
+  EVAL_TAC>>rw[]>>fs[]
+QED
+
+Theorem monadic_enc64_enc_sec_hash_64_ls_side_def[local]:
+  ∀a b c d e.
+  d ≠ 0 ⇒
+  monadic_enc64_enc_sec_hash_64_ls_side a b c d e ⇔ T
+Proof
+  Induct_on`e`>>
+  simp[Once (fetch "-" "monadic_enc64_enc_sec_hash_64_ls_side_def")]>>
+  metis_tac[monadic_enc64_enc_line_hash_64_ls_side_def]
+QED
+
+Theorem monadic_enc64_enc_secs_64_side_def[allow_rebind] = Q.prove(`
+  monadic_enc64_enc_secs_64_side a b c ⇔ T`,
+  EVAL_TAC>>
+  rw[]>>
+  metis_tac[monadic_enc64_enc_sec_hash_64_ls_side_def,DECIDE``1n ≠ 0``])
+  |> update_precondition;
+
+val _ = translate (lab_filterTheory.filter_skip_def)
+
+val _ = translate (lab_to_targetTheory.get_jump_offset_def)
+
+Theorem word_2compl_eq[local]:
+    !w:'a word. -w = 0w - w
+Proof
+  fs []
+QED
+
+val _ = translate (asmTheory.reg_imm_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY,
+                                               word_2compl_eq])
+
+val _ = translate (asmTheory.arith_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY])
+
+val _ = translate (asmTheory.fp_ok_def)
+val _ = translate (asmTheory.inst_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY])
+
+(* TODO: there may be a better rewrite for aligned (in to_wordProg's translation of offset_ok) *)
+
+val _ = translate (asmTheory.asm_ok_def)
+
+val res = translate (lab_to_targetTheory.zero_labs_acc_of_def)
+val res = translate (lab_to_targetTheory.line_get_zero_labs_acc_def)
+val res = translate (lab_to_targetTheory.sec_get_zero_labs_acc_def)
+val res = translate (lab_to_targetTheory.get_zero_labs_acc_def)
+val res = translate (lab_to_targetTheory.zero_labs_acc_exist_def |> INST_TYPE[alpha |-> ``:num``])
+
+(* Add in hidden argument to compile_lab *)
+Definition remove_labels_hash_def:
+  remove_labels_hash init_clock c pos labs ffis hash_size sec_list =
+    remove_labels_loop init_clock c pos labs ffis (enc_secs_64 c.encode hash_size sec_list)
+End
+
+Theorem remove_labels_hash_correct[local]:
+  remove_labels_hash c.init_clock ac c.pos c.labels ffis c.hash_size sec_list =
+  remove_labels c.init_clock ac c.pos c.labels ffis sec_list
+Proof
+  simp [FUN_EQ_THM, remove_labels_hash_def, lab_to_targetTheory.remove_labels_def,
+        monadic_enc64Theory.enc_secs_64_correct]
+QED
+
+val res = translate (remove_labels_hash_def);
+
+val res = translate $ INST_TYPE[alpha|->``:8``] $ lab_to_targetTheory.get_memop_info_def;
+
+val res = translate lab_to_targetTheory.get_shmem_info_def;
+
+val compile_lab_thm = lab_to_targetTheory.compile_lab_def
+  |> REWRITE_RULE [GSYM remove_labels_hash_correct];
+
+val res = translate compile_lab_thm;
+
+val res = translate (lab_to_targetTheory.compile_def);
+
+(* explorer specific functions *)
+
+val res = presLangTheory.asm_cmp_to_display_def |> translate;
+val res = presLangTheory.asm_asm_to_display_def |> translate;
+val res = presLangTheory.lab_asm_to_display_def
+          |> REWRITE_RULE [presLangTheory.string_imp_def] |> translate;
+val res = presLangTheory.lab_line_to_display_def |> translate;
+val res = presLangTheory.lab_fun_to_display_def |> translate;
+val res = presLangTheory.stack_prog_to_display_def
+          |> REWRITE_RULE [presLangTheory.string_imp_def] |> translate;
+val res = presLangTheory.stack_fun_to_display_def |> translate;
+
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
+
+val _ = (ml_translatorLib.clean_on_exit := true);

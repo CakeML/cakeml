@@ -33,7 +33,8 @@ Definition compile_prog_def:
                                 ::xs
                 | (xs,y::ys) => y::xs ++ ys in
     (* Compiler passes *)
-    let prog2 = pan_to_word$compile_prog asm_conf.ISA prog1 in
+    let prog2 = add_metadata empty_metadata
+                  (pan_to_word$compile_prog asm_conf.ISA prog1) in
     let (col,prog3) = word_to_word$compile c.word_to_word_conf asm_conf prog2 in
     let c = c with
             word_to_word_conf updated_by (λc. c with col_oracle := col) in
@@ -70,7 +71,8 @@ Theorem compile_prog_eq:
                                 ::xs
                 | (xs,y::ys) => y::xs ++ ys in
     (* Compiler passes *)
-    let prog2 = pan_to_word$compile_prog asm_conf.ISA prog1 in
+    let prog2 = add_metadata empty_metadata
+                  (pan_to_word$compile_prog asm_conf.ISA prog1) in
     (* Add user functions to name mapping *)
     let names = fromAList (ZIP (sort $< (MAP FST prog2), (* func numbers *)
                                 «generated_main»::

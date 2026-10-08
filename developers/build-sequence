@@ -110,6 +110,8 @@ pancake/semantics
 pancake/parser
 pancake/static_checker
 pancake/proofs
+pancake/decompiler
+pancake/decompiler/examples
 
 # dafny compiler
 compiler/dafny
@@ -233,6 +235,9 @@ compiler/benchmarks/mlton_benchmarks/cakeml
 
 # compiler HOL bootstrap
 compiler/bootstrap/translation
+unverified/sexpr-bootstrap/export/32
+unverified/sexpr-bootstrap/export/x64/64
+unverified/sexpr-bootstrap/export/arm8/64
 compiler/bootstrap/compilation/x64/64:cake-x64-64.tar.gz
 compiler/bootstrap/compilation/x64/32:cake-x64-32.tar.gz
 compiler/bootstrap/compilation/x64/32/proofs

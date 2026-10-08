@@ -2639,92 +2639,86 @@ end
    if NONE then foo is not recursive, if SOME th then th is an
    induction theorem that matches the structure of foo. *)
 
-fun pattern_complete def vs = let
-  val lines = def |> SPEC_ALL |> CONJUNCTS |> map SPEC_ALL
-                  |> map (fst o dest_eq o concl)
-  val const = hd lines |> repeat rator
-  val ws = map (fn v => (v,genvar (type_of v))) vs
-  val tm = foldl (fn (x,y) => mk_comb(y,snd x)) const ws
-  fun tt line = let
-    val i = fst (match_term tm line)
-    val x = list_mk_exists(rev (free_vars line),
-              list_mk_conj (map (fn v => mk_eq(snd v,subst i (snd v))) ws))
-    in x end
-  val pat_tm = list_mk_disj (map tt lines)
-  val pat_tm = subst (map (fn (y,x) => x |-> y) ws) pat_tm
-  val pre_tm = mk_PRECONDITION pat_tm
-  in pre_tm end
+local
+  val preferred = ref ([]:string list);
+in
+  fun add_preferred_thy thy_name = (preferred := thy_name::(!preferred))
+  fun fetch_from_thy thy name = let
+    fun aux [] name = failwith ("cannot find theorem: " ^ name)
+      | aux (thy::ts) name = fetch thy name handle HOL_ERR _ => aux ts name
+    in aux ((!preferred) @ [thy]) name end
+end
 
-fun single_line_def ctxt def = let
+
+fun single_line_def def = let
   val lhs = def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
                 |> concl |> dest_eq |> fst
   val const = lhs |> repeat rator
-  in if List.null (filter (not o is_var) (dest_args lhs)) then (def,NONE) else let
-  val name = const |> dest_const |> fst
-  val thy = #Thy (dest_thy_const const)
-  val rw = fetch thy (name ^ "_curried_def")
-           handle HOL_ERR _ =>
-           fetch thy (name ^ "_curried_DEF")
-           handle HOL_ERR _ => let
-           val arg = mk_var("x",const |> type_of |> dest_type |> snd |> hd)
-           in REFL (mk_comb(const,arg)) end
-  val tpc = rw |> SPEC_ALL |> concl |> dest_eq |> snd |> rator
-  val args = rw |> SPEC_ALL |> concl |> dest_eq |> snd |> rand
-  val tp = fetch thy (name ^ "_tupled_primitive_def")
-           handle HOL_ERR _ =>
-           fetch thy (name ^ "_tupled_primitive_DEF")
-           handle HOL_ERR _ =>
-           fetch thy (name ^ "_primitive_def")
-           handle HOL_ERR _ =>
-           fetch thy (name ^ "_primitive_DEF")
-  val (v,tm) = tp |> concl |> rand |> rand |> dest_abs
-  val goal = mk_eq(mk_comb(tpc,args),mk_comb(subst [v|->tpc] tm,args))
-  val pre_tm =
-    if not (can (find_term is_arb) tm) then T else let
-      val vs = rw |> SPEC_ALL |> concl |> dest_eq |> fst |> dest_args
-      val pre_tm = pattern_complete def vs
-      in pre_tm end
-  val goal = mk_imp(pre_tm,goal)
-  val lemma = auto_prove ctxt "single_line_def-1" (goal,
-    SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD,GSYM rw]
-    \\ REPEAT STRIP_TAC
-    \\ CONV_TAC (BINOP_CONV (REWR_CONV (GSYM CONTAINER_def)))
-    \\ SRW_TAC [] []
-    \\ BasicProvers.EVERY_CASE_TAC
-    \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [def]))
-    \\ SRW_TAC [] []
-    \\ POP_ASSUM MP_TAC \\ REWRITE_TAC [PRECONDITION_def])
-  val lemma = lemma |> RW [] |> UNDISCH_ALL
-  val new_def =
-    rw |> SPEC_ALL |> CONV_RULE (RAND_CONV (ONCE_REWRITE_CONV [lemma]))
-       |> CONV_RULE (RAND_CONV BETA_CONV)
-       |> REWRITE_RULE [I_THM]
-       |> ONCE_REWRITE_RULE [GSYM rw]
-  in (new_def,NONE) end handle HOL_ERR _ => let
-  val v = mk_var("generated_definition",mk_type("fun",[oneSyntax.one_ty,type_of const]))
-  val lemma  = def |> SPEC_ALL |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
-  val def_tm = (subst [const|->mk_comb(v,oneSyntax.one_tm)] (concl lemma))
-  val _ = Pmatch.with_classic_heuristic quietDefine [ANTIQUOTE def_tm]
-(*
-  val qDefine = TotalDefn.qDefine "generated_definition[notuserdef]"
-  val _ = Pmatch.with_classic_heuristic qDefine [ANTIQUOTE def_tm]
-*)
-  fun find_def name =
-    Theory.current_definitions ()
-    |> first (fn (s,_) => s = name) |> snd
-  val ind = fetch "-" "generated_definition_ind"
-  val _ = (delete_const "generated_definition" handle HOL_ERR e => ())
-  val _ = (Theory.delete_binding "generated_definition_def" handle HOL_ERR e => ())
-  val _ = (Theory.delete_binding "generated_definition_ind" handle HOL_ERR e => ())
-  val tys = ind |> concl |> dest_forall |> fst |> type_of |> dest_type |> snd
-  val vv = mk_var("very unlikely name",el 2 tys)
-  val ind = ind |> SPEC (mk_abs(mk_var("x",hd tys),vv))
-                |> CONV_RULE (DEPTH_CONV BETA_CONV)
-                |> CONV_RULE (RAND_CONV (SIMP_CONV std_ss []))
-                |> GEN vv
-  val lemma = DefnBase.one_line_ify NONE def
-  in (lemma,SOME ind) end end
-  handle HOL_ERR _ => failwith("Preprocessor failed: unable to reduce definition to single line.")
+  val oneline = DefnBase.one_line_ify NONE def
+  fun wrap_precondition (h, th) =
+    if is_PRECONDITION h then th else
+      PROVE_HYP
+        (ASSUME (mk_PRECONDITION h) |> REWRITE_RULE [PRECONDITION_def]) th
+  val oneline = foldl wrap_precondition oneline (hyp oneline)
+  (* Prefer saved function induction, including strengthened local theorems.
+     Relation induction assumes the function itself in its conclusion and
+     cannot establish evaluation for every argument. *)
+  fun named_ind () = let
+    val r = dest_thy_const const
+    fun function_ind th = let
+      val conclusion = th |> concl |> strip_forall |> snd |> dest_imp |> snd
+      fun functional goal = let
+        val (guards,result) = strip_imp (snd (strip_forall goal))
+        in is_var (repeat rator result) andalso
+           all (fn guard => not (same_const (repeat rator guard) const)) guards
+        end
+      val _ = all functional (strip_conj conclusion) orelse
+              failwith "not function induction"
+      in th end
+    fun search [] = failwith "no saved function induction"
+      | search (name::names) =
+          function_ind (fetch_from_thy (#Thy r) name)
+          handle HOL_ERR _ => search names
+    in search (map (fn suffix => #Name r ^ suffix)
+                   ["_trans_ind", "_ind", "_IND"]) end
+  (* Reconstruct induction when no suitable saved theorem exists.
+     Failed termination must not discard HOL's successful conversion. *)
+  fun reconstruct_ind () = let
+    val used_names = map (fst o dest_const) (constants "-") @
+                     map fst (DB.thms "-")
+    fun fresh_name name =
+      if exists (String.isPrefix name) used_names then fresh_name (name ^ "_")
+      else name
+    val name = fresh_name "generated_definition"
+    val v = mk_var(name,oneSyntax.one_ty --> type_of const)
+    val lemma = def |> SPEC_ALL |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
+    val def_tm = subst [const |-> mk_comb(v,oneSyntax.one_tm)] (concl lemma)
+    (* The API reports failed termination without exiting a batch build. *)
+    fun define tm =
+      case TotalDefn.std_apiDefine (name,tm) of
+        Lib.PASS (defn,_) => defn
+      | Lib.FAIL (_,e) => raise e
+    val snapshot = constants "-"
+    val defn = Pmatch.with_classic_heuristic
+      (Theory.try_theory_extension define) def_tm
+    val ind = Defn.ind_of defn
+    val _ = DefnBase.delete_support defn (constants "-") snapshot
+    val _ = delete_const name
+    val _ = Theory.delete_binding (name ^ "_def")
+    val ind = case ind of SOME th => th | NONE => failwith "no function induction"
+    val tys = ind |> concl |> dest_forall |> fst |> type_of |> dest_type |> snd
+    val predicate = mk_var("induction_predicate",el 2 tys)
+    val ind = ind |> SPEC (mk_abs(mk_var("x",hd tys),predicate))
+                  |> CONV_RULE (DEPTH_CONV BETA_CONV)
+                  |> CONV_RULE (RAND_CONV (SIMP_CONV std_ss []))
+                  |> GEN predicate
+    in ind end
+  val ind = SOME (named_ind ()) handle HOL_ERR _ =>
+              if all is_var (dest_args lhs) then NONE else
+                SOME (reconstruct_ind ()) handle HOL_ERR _ => NONE
+  in (oneline,ind) end
+  handle HOL_ERR _ =>
+    failwith "Preprocessor failed: unable to reduce definition to single line."
 
 fun remove_pair_abs ctxt def = let
   fun args tm = let val (x,y) = dest_comb tm in args x @ [y] end
@@ -2754,15 +2748,6 @@ fun is_rec_def def = let
 
 fun is_NONE NONE = true | is_NONE _ = false
 
-local
-  val preferred = ref ([]:string list);
-in
-  fun add_preferred_thy thy_name = (preferred := thy_name::(!preferred))
-  fun fetch_from_thy thy name = let
-    fun aux [] name = failwith ("cannot find theorem: " ^ name)
-      | aux (thy::ts) name = fetch thy name handle HOL_ERR _ => aux ts name
-    in aux ((!preferred) @ [thy]) name end
-end
 
 fun find_ind_thm def = let
   val const = def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL |> concl
@@ -2926,7 +2911,14 @@ fun mutual_to_single_line_def ctxt def = let
              |> CONV_RULE (DEPTH_CONV BETA_CONV)
              |> CONJUNCTS |> map SPEC_ALL
   in (def2,SOME ind) end end handle HOL_ERR _ => let
-  val (def,ind) = single_line_def ctxt def
+  (* DefnBase.one_line_ify can return an all-variable clause
+     before checking the remaining function names. *)
+  val clauses = def |> SPEC_ALL |> CONJUNCTS
+  fun head th = th |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
+  val const = head (hd clauses)
+  val _ = all (aconv const o head) clauses orelse
+          failwith "Preprocessor failed: definition defines more than one function."
+  val (def,ind) = single_line_def def
   in ([def],ind) end
 
 val builtin_terops =

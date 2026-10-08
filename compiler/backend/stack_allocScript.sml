@@ -448,7 +448,7 @@ Definition SetNewTrigger_def:
               If Lower 1 (Reg 7)
                 (If Lower 4 (Reg 7)
                    (Set TriggerGC endh)
-                   (If Test 7 (Imm (if arch_width_bits aw = 32 then 3 else 7))
+                   (If Test 7 (Imm (&(arch_bytes aw - 1)))
                      (Seq (add_inst 7 ib) (Set TriggerGC 7))
                      (Set TriggerGC endh)))
                 (If Lower 4 (Reg 1)
@@ -636,7 +636,8 @@ Definition word_gc_code_def:
 End
 
 Definition stubs_def:
-  stubs aw conf = [(gc_stub_location, Seq (word_gc_code aw conf) (Return 0))]
+  stubs aw conf = [(gc_stub_location, Seq (word_gc_code aw conf) (Return 0),
+                 Metadata «_GC» [Stub])]
 End
 
 Definition stub_names_def:
@@ -714,7 +715,7 @@ Theorem comp_pmatch = Q.prove(
 end
 
 Definition prog_comp_def:
-  prog_comp (n,p) = (n,FST (comp n (next_lab p 2) p))
+  prog_comp (n,p,md) = (n,FST (comp n (next_lab p 2) p),md)
 End
 
 Definition compile_def:

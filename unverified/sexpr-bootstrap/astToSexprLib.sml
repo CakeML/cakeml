@@ -219,4 +219,11 @@ fun write_ast_to_file filename prog =
     TextIO.closeOut fd
   end
 
+fun write_program_def_to_file filename program_def =
+  program_def
+  |> CONV_RULE (RAND_CONV EVAL)
+  |> concl
+  |> rhs
+  |> write_ast_to_file filename
+
 end

@@ -39,7 +39,7 @@ Datatype:
      ; clock   : num
      ; compile : 'c clos_cc
      ; compile_oracle : 'c clos_co
-     ; code    : num |-> (num # closLang$exp)
+     ; code    : num |-> (num # closLang$exp # metadata)
      ; max_app : num
      ; ptr_eq_oracle : num -> num -> bool
     |>
@@ -587,7 +587,7 @@ Definition find_code_def:
   find_code p args code =
     case FLOOKUP code p of
     | NONE => NONE
-    | SOME (arity,exp) => if LENGTH args = arity then SOME (args,exp)
+    | SOME (arity,exp,md) => if LENGTH args = arity then SOME (args,exp)
                                                  else NONE
 End
 

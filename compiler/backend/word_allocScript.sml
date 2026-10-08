@@ -54,7 +54,7 @@ Definition list_next_var_rename_def:
 End
 
 Definition fake_move_def:
-  fake_move v : α wordLang$prog = Inst (Const v 0)
+  fake_move v : wordLang$prog = Inst (Const v 0)
 End
 
 (*Do the merging moves only*)
@@ -95,7 +95,7 @@ End
 
 (*Separately do the fake moves*)
 Definition fake_moves_def:
-  (fake_moves prio [] ssa_L ssa_R (na:num) = (Skip:'a wordLang$prog,Skip:'a wordLang$prog,na,ssa_L,ssa_R)) ∧
+  (fake_moves prio [] ssa_L ssa_R (na:num) = (Skip:wordLang$prog,Skip:wordLang$prog,na,ssa_L,ssa_R)) ∧
   (fake_moves prio (x::xs) ssa_L ssa_R na =
     let (seqL,seqR,na',ssa_L',ssa_R') =
       fake_moves prio xs ssa_L ssa_R na in
@@ -127,11 +127,11 @@ End
 (* Note: this needs to return a prog to support specific registers for AddCarry and other special insts
 *)
 Definition ssa_cc_trans_inst_def:
-  (ssa_cc_trans_inst Skip ssa na = (Skip:'a prog,ssa,na)) ∧
-  (ssa_cc_trans_inst (Const reg w) ssa na =
+  (ssa_cc_trans_inst (bits:num) Skip ssa na = (Skip:prog,ssa,na)) ∧
+  (ssa_cc_trans_inst bits (Const reg w) ssa na =
     let (reg',ssa',na') = next_var_rename reg ssa na in
       (Inst (Const reg' w),ssa',na')) ∧
-  (ssa_cc_trans_inst (Arith (Binop bop r1 r2 ri)) ssa na =
+  (ssa_cc_trans_inst bits (Arith (Binop bop r1 r2 ri)) ssa na =
     case ri of
       Reg r3 =>
       let r3' = option_lookup ssa r3 in
@@ -142,7 +142,7 @@ Definition ssa_cc_trans_inst_def:
       let r2' = option_lookup ssa r2 in
       let (r1',ssa',na') = next_var_rename r1 ssa na in
         (Inst (Arith (Binop bop r1' r2' ri)),ssa',na')) ∧
-  (ssa_cc_trans_inst (Arith (Shift shift r1 r2 ri)) ssa na =
+  (ssa_cc_trans_inst bits (Arith (Shift shift r1 r2 ri)) ssa na =
     case ri of
     | Reg r3 =>
       let r3' = option_lookup ssa r3 in
@@ -154,12 +154,12 @@ Definition ssa_cc_trans_inst_def:
       let r2' = option_lookup ssa r2 in
       let (r1',ssa',na') = next_var_rename r1 ssa na in
         (Inst (Arith (Shift shift r1' r2' ri)),ssa',na')) ∧
-  (ssa_cc_trans_inst (Arith (Div r1 r2 r3)) ssa na =
+  (ssa_cc_trans_inst bits (Arith (Div r1 r2 r3)) ssa na =
     let r2' = option_lookup ssa r2 in
     let r3' = option_lookup ssa r3 in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
     (Inst (Arith (Div r1' r2' r3')),ssa',na')) ∧
-  (ssa_cc_trans_inst (Arith (AddCarry r1 r2 r3 r4)) ssa na =
+  (ssa_cc_trans_inst bits (Arith (AddCarry r1 r2 r3 r4)) ssa na =
     let r2' = option_lookup ssa r2 in
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
@@ -172,7 +172,7 @@ Definition ssa_cc_trans_inst_def:
      However, this helps with word_to_stack which currently only spills
      one register on writes
   *)
-  (ssa_cc_trans_inst (Arith (AddOverflow r1 r2 r3 r4)) ssa na =
+  (ssa_cc_trans_inst bits (Arith (AddOverflow r1 r2 r3 r4)) ssa na =
     let r2' = option_lookup ssa r2 in
     let r3' = option_lookup ssa r3 in
     (* TODO: This might need to be made a strong preference *)
@@ -180,14 +180,29 @@ Definition ssa_cc_trans_inst_def:
     let (r4'',ssa'',na'') = next_var_rename r4 ssa' na' in
     let mov_out = Move1 [(r4'',0)] in
       (Seq (Inst (Arith (AddOverflow r1' r2' r3' 0))) mov_out, ssa'',na'')) ∧
-  (ssa_cc_trans_inst (Arith (SubOverflow r1 r2 r3 r4)) ssa na =
+  (ssa_cc_trans_inst bits (Arith (SubOverflow r1 r2 r3 r4)) ssa na =
     let r2' = option_lookup ssa r2 in
     let r3' = option_lookup ssa r3 in
     let (r1',ssa',na') = next_var_rename r1 ssa na in
     let (r4'',ssa'',na'') = next_var_rename r4 ssa' na' in
     let mov_out = Move1 [(r4'',0)] in
       (Seq (Inst (Arith (SubOverflow r1' r2' r3' 0))) mov_out, ssa'',na'')) ∧
-  (ssa_cc_trans_inst (Arith (LongMul r1 r2 r3 r4)) ssa na =
+  (ssa_cc_trans_inst bits (Arith (IMul rd ra rb ro)) ssa na =
+    let ra' = option_lookup ssa ra in
+    let rb' = option_lookup ssa rb in
+    let (rd',ssa',na') = next_var_rename rd ssa na in
+    let (ro',ssa'',na'') = next_var_rename ro ssa' na' in
+    let mov_out = Move1 [(ro',0)] in
+      (Seq (Inst (Arith (IMul rd' ra' rb' 0))) mov_out, ssa'',na'')) ∧
+  (ssa_cc_trans_inst bits (Arith (IDiv rq rr ra rb)) ssa na =
+    let ra' = option_lookup ssa ra in
+    let rb' = option_lookup ssa rb in
+    let mov_in = Move1 [(0,ra')] in
+    let (rr',ssa',na') = next_var_rename rr ssa na in
+    let (rq',ssa'',na'') = next_var_rename rq ssa' na' in
+    let mov_out = Move1 [(rr',6);(rq',0)] in
+      (Seq mov_in (Seq (Inst (Arith (IDiv 0 6 0 rb'))) mov_out),ssa'',na'')) ∧
+  (ssa_cc_trans_inst bits (Arith (LongMul r1 r2 r3 r4)) ssa na =
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
     let mov_in = Move1 [(0,r3');(4,r4')] in
@@ -195,7 +210,7 @@ Definition ssa_cc_trans_inst_def:
     let (r2',ssa'',na'') = next_var_rename r2 ssa' na' in
     let mov_out = Move1 [(r2',0);(r1',6)] in
       (Seq mov_in  (Seq (Inst (Arith (LongMul 6 0 0 4))) mov_out),ssa'',na'')) ∧
-  (ssa_cc_trans_inst (Arith (LongDiv r1 r2 r3 r4 r5)) ssa na =
+  (ssa_cc_trans_inst bits (Arith (LongDiv r1 r2 r3 r4 r5)) ssa na =
     let r3' = option_lookup ssa r3 in
     let r4' = option_lookup ssa r4 in
     let r5' = option_lookup ssa r5 in
@@ -204,49 +219,49 @@ Definition ssa_cc_trans_inst_def:
     let (r1',ssa'',na'') = next_var_rename r1 ssa' na' in
     let mov_out = Move1 [(r2',6);(r1',0)] in
       (Seq mov_in  (Seq (Inst (Arith (LongDiv 0 6 6 0 r5'))) mov_out),ssa'',na'')) ∧
-  (ssa_cc_trans_inst (Mem Load r (Addr a w)) ssa na =
+  (ssa_cc_trans_inst bits (Mem Load r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let (r',ssa',na') = next_var_rename r ssa na in
       (Inst (Mem Load r' (Addr a' w)),ssa',na')) ∧
-  (ssa_cc_trans_inst (Mem Store r (Addr a w)) ssa na =
+  (ssa_cc_trans_inst bits (Mem Store r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let r' = option_lookup ssa r in
       (Inst (Mem Store r' (Addr a' w)),ssa,na)) ∧
-  (ssa_cc_trans_inst (Mem Load32 r (Addr a w)) ssa na =
+  (ssa_cc_trans_inst bits (Mem Load32 r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let (r',ssa',na') = next_var_rename r ssa na in
       (Inst (Mem Load32 r' (Addr a' w)),ssa',na')) ∧
-  (ssa_cc_trans_inst (Mem Store32 r (Addr a w)) ssa na =
+  (ssa_cc_trans_inst bits (Mem Store32 r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let r' = option_lookup ssa r in
       (Inst (Mem Store32 r' (Addr a' w)),ssa,na)) ∧
-  (ssa_cc_trans_inst (Mem Load8 r (Addr a w)) ssa na =
+  (ssa_cc_trans_inst bits (Mem Load8 r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let (r',ssa',na') = next_var_rename r ssa na in
       (Inst (Mem Load8 r' (Addr a' w)),ssa',na')) ∧
-  (ssa_cc_trans_inst (Mem Store8 r (Addr a w)) ssa na =
+  (ssa_cc_trans_inst bits (Mem Store8 r (Addr a w)) ssa na =
     let a' = option_lookup ssa a in
     let r' = option_lookup ssa r in
       (Inst (Mem Store8 r' (Addr a' w)),ssa,na)) ∧
-  (ssa_cc_trans_inst (FP (FPLess r f1 f2)) ssa na =
+  (ssa_cc_trans_inst bits (FP (FPLess r f1 f2)) ssa na =
     let (r',ssa',na') = next_var_rename r ssa na in
       (Inst (FP (FPLess r' f1 f2)),ssa',na')) ∧
-  (ssa_cc_trans_inst (FP (FPLessEqual r f1 f2)) ssa na =
+  (ssa_cc_trans_inst bits (FP (FPLessEqual r f1 f2)) ssa na =
     let (r',ssa',na') = next_var_rename r ssa na in
       (Inst (FP (FPLessEqual r' f1 f2)),ssa',na')) ∧
-  (ssa_cc_trans_inst (FP (FPEqual r f1 f2)) ssa na =
+  (ssa_cc_trans_inst bits (FP (FPEqual r f1 f2)) ssa na =
     let (r',ssa',na') = next_var_rename r ssa na in
       (Inst (FP (FPEqual r' f1 f2)),ssa',na')) ∧
-  (ssa_cc_trans_inst (FP (FPMovToReg r1 r2 d):inst) ssa na =
-    if dimindex(:'a) = 64 then
+  (ssa_cc_trans_inst bits (FP (FPMovToReg r1 r2 d):inst) ssa na =
+    if bits = 64 then
       let (r1',ssa',na') = next_var_rename r1 ssa na in
         (Inst (FP (FPMovToReg r1' r2 d)),ssa',na')
     else
       let (r1',ssa',na') = next_var_rename r1 ssa na in
       let (r2',ssa'',na'') = next_var_rename r2 ssa' na' in
         (Inst (FP (FPMovToReg r1' r2' d)),ssa'',na'')) ∧
-  (ssa_cc_trans_inst (FP (FPMovFromReg d r1 r2)) ssa na =
-    if dimindex(:'a) = 64 then
+  (ssa_cc_trans_inst bits (FP (FPMovFromReg d r1 r2)) ssa na =
+    if bits = 64 then
       let r1' = option_lookup ssa r1 in
         (Inst (FP (FPMovFromReg d r1' 0)),ssa,na)
     else
@@ -262,7 +277,7 @@ Definition ssa_cc_trans_inst_def:
       else
         (Inst (FP (FPMovFromReg d r1' r2')),ssa,na)) ∧
         (*Catchall -- for future instructions to be added, and all other FP *)
-  (ssa_cc_trans_inst x ssa na = (Inst x,ssa,na))
+  (ssa_cc_trans_inst bits x ssa na = (Inst x,ssa,na))
 End
 
 (*Expressions only ever need to lookup a variable's current ssa map
@@ -323,7 +338,7 @@ Definition ssa_reconcile_def:
         case lookup v cur_ssa of
         | NONE => []
         | SOME cur_v => [(option_lookup tgt_ssa v, cur_v)]) vars)) in
-    if moves = [] then (Skip:'a wordLang$prog) else Move 1 moves
+    if moves = [] then (Skip:wordLang$prog) else Move 1 moves
 End
 
 (* Loop entry setup: refresh ssa for vars in (names ∪ exit_names) so that
@@ -337,7 +352,7 @@ Definition loop_setup_def:
     let refresh_ls = FILTER (λv. IS_SOME (lookup v ssa)) all_vars_ls in
     let (fresh_pos_ls, ssa_ext, na_ext) =
       list_next_var_rename extend_ls ssa na in
-    let fake_prog = FOLDR Seq (Skip:'a wordLang$prog)
+    let fake_prog = FOLDR Seq (Skip:wordLang$prog)
       (MAP (λr. fake_move r) fresh_pos_ls) in
     let (refresh_mov, ssa_refreshed, na_refreshed) =
       list_next_var_rename_move ssa_ext na_ext refresh_ls in
@@ -345,8 +360,8 @@ Definition loop_setup_def:
 End
 
 Definition ssa_cc_trans_def:
-  (ssa_cc_trans (Skip:'a prog) ssa na lt = (Skip,ssa,na)) ∧
-  (ssa_cc_trans (Move pri ls) ssa na lt =
+  (ssa_cc_trans bits (Skip:prog) ssa na lt = (Skip,ssa,na)) ∧
+  (ssa_cc_trans bits (Move pri ls) ssa na lt =
     let ls_1 = MAP FST ls in
     let ls_2 = MAP SND ls in
     let ren_ls2 = MAP (option_lookup ssa) ls_2 in
@@ -354,7 +369,7 @@ Definition ssa_cc_trans_def:
     let force =
       FILTER (λ(x,y). ¬ MEM x ls_1) (ZIP(ls_2,ren_ls1)) in
       (Move pri (ZIP(ren_ls1,ren_ls2)),force_rename force ssa',na')) ∧
-  (ssa_cc_trans (StoreConsts a b c d ws) ssa na lt =
+  (ssa_cc_trans bits (StoreConsts a b c d ws) ssa na lt =
     let c1 = option_lookup ssa c in
     let d1 = option_lookup ssa d in
     let (d2,ssa',na') = next_var_rename d ssa na in
@@ -364,39 +379,39 @@ Definition ssa_cc_trans_def:
            (Move1 [(c2,4);(d2,6)])) in
     (prog, ssa'',na'')
   ) ∧
-  (ssa_cc_trans (Inst i) ssa na lt =
-    let (i',ssa',na') = ssa_cc_trans_inst i ssa na in
+  (ssa_cc_trans bits (Inst i) ssa na lt =
+    let (i',ssa',na') = ssa_cc_trans_inst bits i ssa na in
       (i',ssa',na')) ∧
-  (ssa_cc_trans (Assign num exp) ssa na lt =
+  (ssa_cc_trans bits (Assign num exp) ssa na lt =
     let exp' = ssa_cc_trans_exp ssa exp in
     let (num',ssa',na') = next_var_rename num ssa na in
       (Assign num' exp',ssa',na')) ∧
-  (ssa_cc_trans (Get num store) ssa na lt =
+  (ssa_cc_trans bits (Get num store) ssa na lt =
     let (num',ssa',na') = next_var_rename num ssa na in
       (Get num' store,ssa',na')) ∧
-  (ssa_cc_trans (Store exp num) ssa na lt =
+  (ssa_cc_trans bits (Store exp num) ssa na lt =
     let exp' = ssa_cc_trans_exp ssa exp in
     let num' = option_lookup ssa num in
       (Store exp' num',ssa,na)) ∧
-  (ssa_cc_trans (Seq s1 s2) ssa na lt =
-    let (s1',ssa',na') = ssa_cc_trans s1 ssa na lt in
-    let (s2',ssa'',na'') = ssa_cc_trans s2 ssa' na' lt in
+  (ssa_cc_trans bits (Seq s1 s2) ssa na lt =
+    let (s1',ssa',na') = ssa_cc_trans bits s1 ssa na lt in
+    let (s2',ssa'',na'') = ssa_cc_trans bits s2 ssa' na' lt in
       (Seq s1' s2',ssa'',na'')) ∧
-  (ssa_cc_trans (MustTerminate s1) ssa na lt =
-    let (s1',ssa',na') = ssa_cc_trans s1 ssa na lt in
+  (ssa_cc_trans bits (MustTerminate s1) ssa na lt =
+    let (s1',ssa',na') = ssa_cc_trans bits s1 ssa na lt in
       (MustTerminate s1',ssa',na')) ∧
   (*Tricky pmatch 1: we need to merge the ssa results from both branches by
     unSSA-ing the phi functions
   *)
-  (ssa_cc_trans (If cmp r1 ri e2 e3) ssa na lt =
+  (ssa_cc_trans bits (If cmp r1 ri e2 e3) ssa na lt =
     let r1' = option_lookup ssa r1 in
     let ri' = case ri of Reg r => Reg (option_lookup ssa r)
                       |  Imm v => Imm v in
     (*ssa is the copy for both branches,
       however, we can use new na2 and ns2*)
-    let (e2',ssa2,na2) = ssa_cc_trans e2 ssa na lt in
+    let (e2',ssa2,na2) = ssa_cc_trans bits e2 ssa na lt in
     (*ssa2 is the ssa map for the first branch*)
-    let (e3',ssa3,na3) = ssa_cc_trans e3 ssa na2 lt in
+    let (e3',ssa3,na3) = ssa_cc_trans bits e3 ssa na2 lt in
     (*ssa3 is the ssa map for the second branch, notice we
       continued using na2 here though!*)
     (* prioritizing original skips *)
@@ -405,7 +420,7 @@ Definition ssa_cc_trans_def:
       fix_inconsistencies prio ssa2 ssa3 na3 in
     (If cmp r1' ri' (Seq e2' e2_cons) (Seq e3' e3_cons),ssa_fin,na_fin)) ∧
   (*For cutsets, we must restart the ssa mapping to maintain consistency*)
-  (ssa_cc_trans (Alloc num numset) ssa na lt =
+  (ssa_cc_trans bits (Alloc num numset) ssa na lt =
     let all_names = union (FST numset) (SND numset) in
     let ls = MAP FST (toAList all_names) in
     (*This trick allows us to not keep the "next stack" variable by
@@ -422,28 +437,28 @@ Definition ssa_cc_trans_def:
                (Seq (Move1 [(2,num')])
                (Seq (Alloc 2 stack_set) (ret_mov)))) in
     (prog,ssa'',na'')) ∧
-  (ssa_cc_trans (Raise num) ssa na lt =
+  (ssa_cc_trans bits (Raise num) ssa na lt =
     let num' = option_lookup ssa num in
     let mov = Move1 [(2,num')] in
     (Seq mov (Raise 2),ssa,na)) ∧
-  (ssa_cc_trans (OpCurrHeap b dst src) ssa na lt =
+  (ssa_cc_trans bits (OpCurrHeap b dst src) ssa na lt =
     let src' = option_lookup ssa src in
     let (dst',ssa',na') = next_var_rename dst ssa na in
       (OpCurrHeap b dst' src',ssa',na')) ∧
-  (ssa_cc_trans (Return num nums) ssa na lt =
+  (ssa_cc_trans bits (Return num nums) ssa na lt =
     let num' = option_lookup ssa num in
     let nums' = MAP (option_lookup ssa) nums in
     let rets = GENLIST (\x.2*(x+1)) (LENGTH nums') in
     let mov = Move 0 (ZIP (rets,nums')) in
     (Seq mov (Return num' rets),ssa,na)) ∧
-  (ssa_cc_trans Tick ssa na lt = (Tick,ssa,na)) ∧
-  (ssa_cc_trans (Set n exp) ssa na lt =
+  (ssa_cc_trans bits Tick ssa na lt = (Tick,ssa,na)) ∧
+  (ssa_cc_trans bits (Set n exp) ssa na lt =
     let exp' = ssa_cc_trans_exp ssa exp in
     (Set n exp',ssa,na)) ∧
-  (ssa_cc_trans (LocValue r l1) ssa na lt =
+  (ssa_cc_trans bits (LocValue r l1) ssa na lt =
     let (r',ssa',na') = next_var_rename r ssa na in
       (LocValue r' l1,ssa',na')) ∧
-  (ssa_cc_trans (Install ptr len cptr dptr dptr_end numset) ssa na lt =
+  (ssa_cc_trans bits (Install ptr len cptr dptr dptr_end numset) ssa na lt =
     let all_names = union (FST numset) (SND numset) in
     let ls = MAP FST (toAList all_names) in
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
@@ -462,11 +477,11 @@ Definition ssa_cc_trans_def:
                (Seq (Install 2 4 6 dptr' dptr_end' stack_set)
                (Seq (Move1 [(ptr'',2)]) ret_mov)))) in
     (prog,ssa''',na''')) ∧
-  (ssa_cc_trans (DataBufferWrite r1 r2) ssa na lt =
+  (ssa_cc_trans bits (DataBufferWrite r1 r2) ssa na lt =
     let r1' = option_lookup ssa r1 in
     let r2' = option_lookup ssa r2 in
     (DataBufferWrite r1' r2',ssa,na)) ∧
-  (ssa_cc_trans (FFI ffi_index ptr1 len1 ptr2 len2 numset) ssa na lt =
+  (ssa_cc_trans bits (FFI ffi_index ptr1 len1 ptr2 len2 numset) ssa na lt =
     let all_names = union (FST numset) (SND numset) in
     let ls = MAP FST (toAList all_names) in
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
@@ -482,13 +497,13 @@ Definition ssa_cc_trans_def:
                (Seq (Move1 [(2,cptr1);(4,clen1);(6,cptr2);(8,clen2)])
                (Seq (FFI ffi_index 2 4 6 8 stack_set) (ret_mov)))) in
     (prog,ssa'',na'')) ∧
-  (ssa_cc_trans (Call NONE dest args h) ssa na lt =
+  (ssa_cc_trans bits (Call NONE dest args h) ssa na lt =
     let names = MAP (option_lookup ssa) args in
     let conv_args = GENLIST (\x.2*x) (LENGTH names) in
     let move_args = (Move1 (ZIP (conv_args,names))) in
     let prog = Seq move_args (Call NONE dest conv_args h) in
       (prog,ssa,na)) ∧
-  (ssa_cc_trans (Call (SOME(ret,numset,ret_handler,l1,l2)) dest args h) ssa na lt =
+  (ssa_cc_trans bits (Call (SOME(ret,numset,ret_handler,l1,l2)) dest args h) ssa na lt =
     let all_names = union (FST numset) (SND numset) in
     let ls = MAP FST (toAList all_names) in
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
@@ -503,7 +518,7 @@ Definition ssa_cc_trans_def:
     (*This recurses on the returning handler*)
     let (ret',ssa_2_p,na_2_p) = list_next_var_rename ret ssa'' na'' in
     let (ren_ret_handler,ssa_2,na_2) =
-      ssa_cc_trans ret_handler ssa_2_p na_2_p lt in
+      ssa_cc_trans bits ret_handler ssa_2_p na_2_p lt in
     let regs = GENLIST (\x.2*(x+1)) (LENGTH ret) in
     let mov_ret_handler =
         (Seq ret_mov (Seq (Move1 (ZIP (ret',regs))) (ren_ret_handler))) in
@@ -517,7 +532,7 @@ Definition ssa_cc_trans_def:
     | SOME(n,h,l1',l2') =>
         let (n',ssa_3_p,na_3_p) = next_var_rename n ssa'' na_2 in
         let (ren_exc_handler,ssa_3,na_3) =
-            (ssa_cc_trans h ssa_3_p na_3_p lt) in
+            (ssa_cc_trans bits h ssa_3_p na_3_p lt) in
         let mov_exc_handler =
             (Seq ret_mov (Seq(Move1 [n',2]) (ren_exc_handler))) in
         let prio = mk_prio mov_ret_handler mov_exc_handler in
@@ -530,7 +545,7 @@ Definition ssa_cc_trans_def:
             (Call (SOME(regs,stack_set,cons_ret_handler,l1,l2))
                dest conv_args (SOME(2,cons_exc_handler,l1',l2'))))) in
         (prog,ssa_fin,na_fin))) /\
-  (ssa_cc_trans (ShareInst op v exp) ssa na lt =
+  (ssa_cc_trans bits (ShareInst op v exp) ssa na lt =
     let exp' = ssa_cc_trans_exp ssa exp in
       if op = Store ∨ op = Store8 ∨ op = Store16 ∨ op = Store32
       then
@@ -542,14 +557,14 @@ Definition ssa_cc_trans_def:
     the Loop, establishing INJ on their domains by construction. Body sees
     ssa restricted to names; lt carries ssa_refreshed (full) for
     Break/Continue reconciliation.*)
-  (ssa_cc_trans (Loop names body exit_names) ssa na lt =
+  (ssa_cc_trans bits (Loop names body exit_names) ssa na lt =
     let (setup_prog, ssa_refreshed, na_refreshed) =
       loop_setup names exit_names ssa na in
     let ssa_names = apply_nummap_key (option_lookup ssa_refreshed) names in
     let ssa_exit = apply_nummap_key (option_lookup ssa_refreshed) exit_names in
     let ssa_body = inter ssa_refreshed names in
     let (body', ssa', na') =
-      ssa_cc_trans body ssa_body na_refreshed
+      ssa_cc_trans bits body ssa_body na_refreshed
         ((ssa_refreshed, names, exit_names)::lt) in
     let back_moves = ssa_reconcile ssa' ssa_refreshed names in
     let body_final = if back_moves = Skip then body'
@@ -557,20 +572,20 @@ Definition ssa_cc_trans_def:
     (Seq setup_prog (Loop ssa_names body_final ssa_exit),
      inter ssa_refreshed exit_names, na')) /\
   (*Break n: reconcile current ssa with target exit ssa*)
-  (ssa_cc_trans (Break n) ssa na lt =
+  (ssa_cc_trans bits (Break n) ssa na lt =
     case oEL n lt of
       NONE => (Break n, ssa, na)
     | SOME (tgt_ssa, names, exit_names) =>
         let moves = ssa_reconcile ssa tgt_ssa exit_names in
         (if moves = Skip then Break n else Seq moves (Break n), ssa, na)) /\
   (*Continue n: reconcile current ssa with target entry ssa*)
-  (ssa_cc_trans (Continue n) ssa na lt =
+  (ssa_cc_trans bits (Continue n) ssa na lt =
     case oEL n lt of
       NONE => (Continue n, ssa, na)
     | SOME (tgt_ssa, names, exit_names) =>
         let moves = ssa_reconcile ssa tgt_ssa names in
         (if moves = Skip then Continue n else Seq moves (Continue n), ssa, na)) /\
-  (ssa_cc_trans (PtrEq dst v1 v2 tw fw) ssa na lt =
+  (ssa_cc_trans bits (PtrEq dst v1 v2 tw fw) ssa na lt =
     let v1' = option_lookup ssa v1 in
     let v2' = option_lookup ssa v2 in
     let (dst',ssa',na') = next_var_rename dst ssa na in
@@ -607,6 +622,10 @@ Definition apply_colour_inst_def[simp]:
     Arith (AddOverflow (f r1) (f r2) (f r3) (f r4))) ∧
   (apply_colour_inst f (Arith (SubOverflow r1 r2 r3 r4)) =
     Arith (SubOverflow (f r1) (f r2) (f r3) (f r4))) ∧
+  (apply_colour_inst f (Arith (IMul rd ra rb ro)) =
+    Arith (IMul (f rd) (f ra) (f rb) (f ro))) ∧
+  (apply_colour_inst f (Arith (IDiv rq rr ra rb)) =
+    Arith (IDiv (f rq) (f rr) (f ra) (f rb))) ∧
   (apply_colour_inst f (Arith (LongMul r1 r2 r3 r4)) =
     Arith (LongMul (f r1) (f r2) (f r3) (f r4))) ∧
   (apply_colour_inst f (Arith (LongDiv r1 r2 r3 r4 r5)) =
@@ -682,12 +701,14 @@ End
 (*Writes made by any inst as a sptree*)
 Definition get_writes_inst_def:
   (get_writes_inst (bits:num) (Const reg w) = insert reg () LN) ∧
-  (get_writes_inst bits (Arith (Binop bop r1 r2 ri)) = insert r1 () LN) ∧
+  (get_writes_inst (bits:num) (Arith (Binop bop r1 r2 ri)) = insert r1 () LN) ∧
   (get_writes_inst bits (Arith (Shift shift r1 r2 ri)) = insert r1 () LN) ∧
   (get_writes_inst bits (Arith (Div r1 r2 r3)) = insert r1 () LN) ∧
   (get_writes_inst bits (Arith (AddCarry r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
   (get_writes_inst bits (Arith (AddOverflow r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
   (get_writes_inst bits (Arith (SubOverflow r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
+  (get_writes_inst bits (Arith (IMul rd ra rb ro)) = insert ro () (insert rd () LN)) ∧
+  (get_writes_inst bits (Arith (IDiv rq rr ra rb)) = insert rq () (insert rr () LN)) ∧
   (get_writes_inst bits (Arith (LongMul r1 r2 r3 r4)) = insert r2 () (insert r1 () LN)) ∧
   (get_writes_inst bits (Arith (LongDiv r1 r2 r3 r4 r5)) = insert r2 () (insert r1 () LN)) ∧
   (get_writes_inst bits (Mem Load r (Addr a w)) = insert r () LN) ∧
@@ -707,7 +728,7 @@ End
   live-sets are num_sets a.k.a. unit-sptrees*)
 Definition get_live_inst_def:
   (get_live_inst (bits:num) Skip live:num_set = live) ∧
-  (get_live_inst bits (Const reg w) live = delete reg live) ∧
+  (get_live_inst (bits:num) (Const reg w) live = delete reg live) ∧
   (get_live_inst bits (Arith (Binop bop r1 r2 ri)) live =
     case ri of Reg r3 => insert r2 () (insert r3 () (delete r1 live))
     | _ => insert r2 () (delete r1 live)) ∧
@@ -723,6 +744,10 @@ Definition get_live_inst_def:
     insert r3 () (insert r2 () (delete r4 (delete r1 live)))) ∧
   (get_live_inst bits (Arith (SubOverflow r1 r2 r3 r4)) live =
     insert r3 () (insert r2 () (delete r4 (delete r1 live)))) ∧
+  (get_live_inst bits (Arith (IMul rd ra rb ro)) live =
+    insert rb () (insert ra () (delete ro (delete rd live)))) ∧
+  (get_live_inst bits (Arith (IDiv rq rr ra rb)) live =
+    insert rb () (insert ra () (delete rq (delete rr live)))) ∧
   (get_live_inst bits (Arith (LongMul r1 r2 r3 r4)) live =
     insert r4 () (insert r3 () (delete r2 (delete r1 live)))) ∧
   (get_live_inst bits (Arith (LongDiv r1 r2 r3 r4 r5)) live =
@@ -773,54 +798,54 @@ Definition numset_list_insert_def:
 End
 
 Definition get_live_def:
-  (get_live (Skip:'a prog) live lt = live) ∧
+  (get_live bits (Skip:prog) live lt = live) ∧
   (*All SNDs are read and all FSTs are written*)
-  (get_live (Move pri ls) live lt =
+  (get_live bits (Move pri ls) live lt =
     let killed = FOLDR delete live (MAP FST ls) in
       numset_list_insert (MAP SND ls) killed) ∧
-  (get_live (Inst i) live lt = get_live_inst (dimindex (:'a)) i live) ∧
+  (get_live bits (Inst i) live lt = get_live_inst bits i live) ∧
   (*num is written, exp is read*)
-  (get_live (Assign num exp) live lt =
+  (get_live bits (Assign num exp) live lt =
     let sub = get_live_exp exp in
       union sub (delete num live)) ∧
-  (get_live (Get num store) live lt = delete num live) ∧
+  (get_live bits (Get num store) live lt = delete num live) ∧
   (*Everything is read*)
-  (get_live (Store exp num) live lt =
+  (get_live bits (Store exp num) live lt =
     insert num () (union (get_live_exp exp) live))∧
   (*Find liveset just before s2 which is the input liveset to s1*)
-  (get_live (Seq s1 s2) live lt =
-    get_live s1 (get_live s2 live lt) lt) ∧
-  (get_live (MustTerminate s1) live lt =
-    get_live s1 live lt) ∧
+  (get_live bits (Seq s1 s2) live lt =
+    get_live bits s1 (get_live bits s2 live lt) lt) ∧
+  (get_live bits (MustTerminate s1) live lt =
+    get_live bits s1 live lt) ∧
   (*First pmatch where branching appears:
     We get the livesets for e2 and e3, union them, add the if variable
     then pass the resulting liveset upwards
   *)
-  (get_live (If cmp r1 ri e2 e3) live lt =
-    let e2_live = get_live e2 live lt in
-    let e3_live = get_live e3 live lt in
+  (get_live bits (If cmp r1 ri e2 e3) live lt =
+    let e2_live = get_live bits e2 live lt in
+    let e3_live = get_live bits e3 live lt in
     let union_live = union e2_live e3_live in
        case ri of Reg r2 => insert r2 () (insert r1 () union_live)
       | _ => insert r1 () union_live) ∧
-  (get_live (Alloc num numset) live lt = insert num () (union (FST numset) (SND numset))) ∧
-  (get_live (StoreConsts a b c d ws) live lt =
+  (get_live bits (Alloc num numset) live lt = insert num () (union (FST numset) (SND numset))) ∧
+  (get_live bits (StoreConsts a b c d ws) live lt =
     insert c () (insert d () (delete a (delete b live)))) ∧
-  (get_live (Install r1 r2 r3 r4 r5 numset) live lt =
+  (get_live bits (Install r1 r2 r3 r4 r5 numset) live lt =
     list_insert [r1;r2;r3;r4;r5] (union (FST numset) (SND numset))) ∧
-  (get_live (DataBufferWrite r1 r2) live lt =
+  (get_live bits (DataBufferWrite r1 r2) live lt =
     list_insert [r1;r2] live) ∧
-  (get_live (FFI ffi_index ptr1 len1 ptr2 len2 numset) live lt =
+  (get_live bits (FFI ffi_index ptr1 len1 ptr2 len2 numset) live lt =
    insert ptr1 () (insert len1 ()
      (insert ptr2 () (insert len2 () (union (FST numset) (SND numset)) )))) ∧
-  (get_live (StoreConsts a b c d ws) live lt =
+  (get_live bits (StoreConsts a b c d ws) live lt =
      (insert c () (insert d () live))) ∧
-  (get_live (Raise num) live lt = insert num () live) ∧
-  (get_live (Return num1 nums) live lt = insert num1 () (numset_list_insert nums live)) ∧
-  (get_live Tick live lt = live) ∧
-  (get_live (LocValue r l1) live lt = delete r live) ∧
-  (get_live (Set n exp) live lt = union (get_live_exp exp) live) ∧
-  (get_live (OpCurrHeap b n1 n2) live lt = insert n2 () (delete n1 live)) ∧
-  (get_live (ShareInst mop v exp) live lt =
+  (get_live bits (Raise num) live lt = insert num () live) ∧
+  (get_live bits (Return num1 nums) live lt = insert num1 () (numset_list_insert nums live)) ∧
+  (get_live bits Tick live lt = live) ∧
+  (get_live bits (LocValue r l1) live lt = delete r live) ∧
+  (get_live bits (Set n exp) live lt = union (get_live_exp exp) live) ∧
+  (get_live bits (OpCurrHeap b n1 n2) live lt = insert n2 () (delete n1 live)) ∧
+  (get_live bits (ShareInst mop v exp) live lt =
     let sub = get_live_exp exp in
       if mop = Store ∨ mop = Store8 ∨ mop = Store16 ∨ mop = Store32
       then union sub (insert v () live)
@@ -829,14 +854,14 @@ Definition get_live_def:
     covered by cut state (domain names), handled via strong_locals_rel
     extension at proof time.
     Break/Continue handle exit_names/names via lt.*)
-  (get_live (Loop names body exit_names) live lt = names) ∧
+  (get_live bits (Loop names body exit_names) live lt = names) ∧
   (*Break n: exit_names from enclosing Loop at nesting level n*)
-  (get_live (Break n) live lt =
+  (get_live bits (Break n) live lt =
     case oEL n lt of
       NONE => LN
     | SOME (names,exit_names) => exit_names) ∧
   (*Continue n: names from enclosing Loop at nesting level n*)
-  (get_live (Continue n) live lt =
+  (get_live bits (Continue n) live lt =
     case oEL n lt of
       NONE => LN
     | SOME (names,exit_names) => names) ∧
@@ -845,10 +870,10 @@ Definition get_live_def:
     never return into the same instance
     Otherwise, both args + cutsets live
   *)
-  (get_live (Call NONE dest args h) live lt = numset_list_insert args LN) ∧
-  (get_live (Call (SOME(_,cutset,_)) dest args h) live lt =
+  (get_live bits (Call NONE dest args h) live lt = numset_list_insert args LN) ∧
+  (get_live bits (Call (SOME(_,cutset,_)) dest args h) live lt =
     union (union (FST cutset) (SND cutset)) (numset_list_insert args LN)) ∧
-  (get_live (PtrEq dst v1 v2 tw fw) live lt =
+  (get_live bits (PtrEq dst v1 v2 tw fw) live lt =
     insert v1 () (insert v2 () (delete dst live)))
 End
 
@@ -865,6 +890,10 @@ Definition remove_dead_inst_def:
     (lookup r1 live = NONE ∧ lookup r4 live = NONE)) ∧
   (remove_dead_inst bits (Arith (SubOverflow r1 r2 r3 r4)) live =
     (lookup r1 live = NONE ∧ lookup r4 live = NONE)) ∧
+  (remove_dead_inst bits (Arith (IMul rd ra rb ro)) live =
+    (lookup rd live = NONE ∧ lookup ro live = NONE)) ∧
+  (remove_dead_inst bits (Arith (IDiv rq rr ra rb)) live =
+    (lookup rq live = NONE ∧ lookup rr live = NONE)) ∧
   (remove_dead_inst bits (Arith (LongMul r1 r2 r3 r4)) live =
     (lookup r1 live = NONE ∧ lookup r2 live = NONE)) ∧
   (remove_dead_inst bits (Arith (LongDiv r1 r2 r3 r4 r5)) live =
@@ -891,31 +920,31 @@ End
     so many trivial cases are omitted.
 *)
 Definition remove_dead_def:
-  (remove_dead (Move pri ls : 'a prog) live nlive lt =
+  (remove_dead bits (Move pri ls : prog) live nlive lt =
     let ls = FILTER (λx,y. lookup x live = SOME ()) ls in
     if ls = [] then (Skip,live,nlive)
     else
     let killed = FOLDR delete live (MAP FST ls) in
       (Move pri ls, numset_list_insert (MAP SND ls) killed,nlive)) ∧
-  (remove_dead (Inst i) live nlive lt =
-    if remove_dead_inst (dimindex (:'a)) i live
+  (remove_dead bits (Inst i) live nlive lt =
+    if remove_dead_inst bits i live
     then (Skip,live,nlive)
-    else (Inst i, get_live_inst (dimindex (:'a)) i live,nlive)) ∧
-  (remove_dead (Get num store) live nlive lt =
+    else (Inst i, get_live_inst bits i live,nlive)) ∧
+  (remove_dead bits (Get num store) live nlive lt =
     if lookup num live = NONE then
       (Skip,live,nlive)
     else (Get num store, delete num live, FILTER (λs. store ≠ s) nlive)) ∧
-  (remove_dead (OpCurrHeap b num src) live nlive lt =
+  (remove_dead bits (OpCurrHeap b num src) live nlive lt =
     if lookup num live = NONE then
       (Skip,live,nlive)
     else (
       OpCurrHeap b num src,
         insert src () (delete num live), FILTER (λs. CurrHeap ≠ s) nlive)) ∧
-  (remove_dead (LocValue r l1) live nlive lt =
+  (remove_dead bits (LocValue r l1) live nlive lt =
     if lookup r live = NONE then
       (Skip, live,nlive)
     else (LocValue r l1, delete r live,nlive)) ∧
-  (remove_dead (Set store_name exp) live nlive lt =
+  (remove_dead bits (Set store_name exp) live nlive lt =
     case exp of
       Var r =>
       if MEM store_name nlive then
@@ -924,11 +953,11 @@ Definition remove_dead_def:
         (Set store_name (Var r), insert r () live, store_name::nlive)
     | _ =>
       let prog = Set store_name exp in
-        (prog,get_live prog live lt,[])
+        (prog,get_live bits prog live lt,[])
   ) ∧
-  (remove_dead (Seq s1 s2) live nlive lt =
-    let (s2,s2live,s2nlive) = remove_dead s2 live nlive lt in
-    let (s1,s1live,s1nlive) = remove_dead s1 s2live s2nlive lt in
+  (remove_dead bits (Seq s1 s2) live nlive lt =
+    let (s2,s2live,s2nlive) = remove_dead bits s2 live nlive lt in
+    let (s1,s1live,s1nlive) = remove_dead bits s1 s2live s2nlive lt in
     let prog =
       if s1 = Skip then
         s2
@@ -936,15 +965,15 @@ Definition remove_dead_def:
         if s2 = Skip then s1
         else Seq s1 s2
     in (prog,s1live,s1nlive)) ∧
-  (remove_dead (MustTerminate s1) live nlive lt =
+  (remove_dead bits (MustTerminate s1) live nlive lt =
     (* This can technically be optimized away if it was a Skip,
        but we should never use MustTerminate to wrap completely dead code
     *)
-    let (s1,s1live,s1nlive) = remove_dead s1 live nlive lt in
+    let (s1,s1live,s1nlive) = remove_dead bits s1 live nlive lt in
       (MustTerminate s1,s1live,s1nlive)) ∧
-  (remove_dead (If cmp r1 ri e2 e3) live nlive lt =
-    let (e2,e2_live,e2_nlive) = remove_dead e2 live nlive lt in
-    let (e3,e3_live,e3_nlive) = remove_dead e3 live nlive lt in
+  (remove_dead bits (If cmp r1 ri e2 e3) live nlive lt =
+    let (e2,e2_live,e2_nlive) = remove_dead bits e2 live nlive lt in
+    let (e3,e3_live,e3_nlive) = remove_dead bits e3 live nlive lt in
     let union_live = union e2_live e3_live in
     let liveset =
        case ri of Reg r2 => insert r2 () (insert r1 () union_live)
@@ -954,88 +983,88 @@ Definition remove_dead_def:
       if e2 = Skip ∧ e3 = Skip then Skip
       else If cmp r1 ri e2 e3 in
     (prog,liveset,nliveset)) ∧
-  (remove_dead (Call(SOME(v,cutsets,ret_handler,l1,l2))dest args h) live nlive lt =
+  (remove_dead bits (Call(SOME(v,cutsets,ret_handler,l1,l2))dest args h) live nlive lt =
     (*top level*)
     let args_set = numset_list_insert args LN in
     let cutset = union (FST cutsets) (SND cutsets) in
     let live_set = union cutset args_set in
-    let (ret_handler,_) = remove_dead ret_handler live nlive lt in
+    let (ret_handler,_) = remove_dead bits ret_handler live nlive lt in
     let h =
       (case h of
         NONE => NONE
       | SOME(v',prog,l1,l2) =>
-        SOME(v',FST (remove_dead prog live nlive lt),l1,l2)) in
+        SOME(v',FST (remove_dead bits prog live nlive lt),l1,l2)) in
     (Call (SOME (v,cutsets,ret_handler,l1,l2)) dest args h,(live_set,[]))) ∧
   (* we should not remove the ShareInst Load instructions.
     * It produces a ffi event even if the variable is not in
     * the live set *)
   (* In the cases below, we either return nlive unchanged
     or we return [] because of control flow *)
-  (remove_dead (Call NONE a b c) live nlive lt =
+  (remove_dead bits (Call NONE a b c) live nlive lt =
     let prog = Call NONE a b c in
-      (prog, get_live prog live lt, [])) ∧
-  (remove_dead (Alloc a b) live nlive lt =
+      (prog, get_live bits prog live lt, [])) ∧
+  (remove_dead bits (Alloc a b) live nlive lt =
     let prog = Alloc a b in
-      (prog, get_live prog live lt, [])) ∧
-  (remove_dead (Raise a) live nlive lt =
+      (prog, get_live bits prog live lt, [])) ∧
+  (remove_dead bits (Raise a) live nlive lt =
     let prog = Raise a in
-      (prog, get_live prog live lt, [])) ∧
-  (remove_dead (Return a b) live nlive lt =
+      (prog, get_live bits prog live lt, [])) ∧
+  (remove_dead bits (Return a b) live nlive lt =
     let prog = Return a b in
-      (prog, get_live prog live lt, [])) ∧
+      (prog, get_live bits prog live lt, [])) ∧
   (* Conservative: nlive reset to [] at Loop boundary so all stores are
      treated as live across loop iterations (otherwise backward nlive
      analysis could eliminate Sets whose overwrites live on a later
      iteration).  Cost: no store-DCE across Loops; ordinary locals-DCE
      inside the body still applies. *)
-  (remove_dead (Loop names body exit_names) live nlive lt =
+  (remove_dead bits (Loop names body exit_names) live nlive lt =
     let lt' = (names,exit_names)::lt in
-    let (body', _, _) = remove_dead body names [] lt' in
+    let (body', _, _) = remove_dead bits body names [] lt' in
     (Loop names body' exit_names, names, [])) ∧
   (* Break/Continue reset nlive to [] because they jump past whatever
      follows, so store-DCE cannot propagate dead-set info across them. *)
-  (remove_dead (Break n) live nlive lt =
+  (remove_dead bits (Break n) live nlive lt =
     let prog = Break n in
-      (prog, get_live prog live lt, [])) ∧
-  (remove_dead (Continue n) live nlive lt =
+      (prog, get_live bits prog live lt, [])) ∧
+  (remove_dead bits (Continue n) live nlive lt =
     let prog = Continue n in
-      (prog, get_live prog live lt, [])) ∧
+      (prog, get_live bits prog live lt, [])) ∧
   (* PtrEq's result depends on the whole store: wordSem$evaluate applies
      ptr_eq_rel to s.store, so no store may be dead across a PtrEq. *)
-  (remove_dead (PtrEq dst v1 v2 t f) live nlive lt =
+  (remove_dead bits (PtrEq dst v1 v2 t f) live nlive lt =
     let prog = PtrEq dst v1 v2 t f in
-      (prog, get_live prog live lt, [])) ∧
-  (remove_dead prog live nlive lt = (prog,get_live prog live lt,nlive))
+      (prog, get_live bits prog live lt, [])) ∧
+  (remove_dead bits prog live nlive lt = (prog,get_live bits prog live lt,nlive))
 End
 
 Definition remove_dead_prog_def:
-  remove_dead_prog prog = FST (remove_dead prog LN [] [])
+  remove_dead_prog bits prog = FST (remove_dead bits prog LN [] [])
 End
 
 (*Single step immediate writes by a prog*)
 Definition get_writes_def:
-  (get_writes (Move pri ls : 'a prog) = numset_list_insert (MAP FST ls) LN)∧
-  (get_writes (Inst i) = get_writes_inst (dimindex (:'a)) i) ∧
-  (get_writes (Assign num exp) = insert num () LN)∧
-  (get_writes (Get num store) = insert num () LN) ∧
-  (get_writes (LocValue r l1) = insert r () LN) ∧
-  (get_writes (Install r1 _ _ _ _ _) = insert r1 () LN) ∧
-  (get_writes (OpCurrHeap b r1 _) = insert r1 () LN) ∧
-  (get_writes (StoreConsts a b c d _) = insert a () (insert b () (insert c () (insert d () LN)))) ∧
-  (get_writes (ShareInst Load v _) = insert v () LN) ∧
-  (get_writes (ShareInst Load8 v _) = insert v () LN) ∧
-  (get_writes (ShareInst Load16 v _) = insert v () LN) ∧
-  (get_writes (ShareInst Load32 v _) = insert v () LN) ∧
-  (get_writes (PtrEq dst _ _ _ _) = insert dst () LN) ∧
-  (get_writes prog = LN)
+  (get_writes bits (Move pri ls : prog) = numset_list_insert (MAP FST ls) LN)∧
+  (get_writes bits (Inst i) = get_writes_inst bits i) ∧
+  (get_writes bits (Assign num exp) = insert num () LN)∧
+  (get_writes bits (Get num store) = insert num () LN) ∧
+  (get_writes bits (LocValue r l1) = insert r () LN) ∧
+  (get_writes bits (Install r1 _ _ _ _ _) = insert r1 () LN) ∧
+  (get_writes bits (OpCurrHeap b r1 _) = insert r1 () LN) ∧
+  (get_writes bits (StoreConsts a b c d _) = insert a () (insert b () (insert c () (insert d () LN)))) ∧
+  (get_writes bits (ShareInst Load v _) = insert v () LN) ∧
+  (get_writes bits (ShareInst Load8 v _) = insert v () LN) ∧
+  (get_writes bits (ShareInst Load16 v _) = insert v () LN) ∧
+  (get_writes bits (ShareInst Load32 v _) = insert v () LN) ∧
+  (get_writes bits (PtrEq dst _ _ _ _) = insert dst () LN) ∧
+  (get_writes bits prog = LN)
 End
 
 Theorem get_writes_pmatch:
   !inst.
-  get_writes (inst:'a prog) =
+  get_writes bits (inst:prog) =
     pmatch inst of
     | Move pri ls => numset_list_insert (MAP FST ls) LN
-    | Inst i => get_writes_inst (dimindex (:'a)) i
+    | Inst i => get_writes_inst bits i
     | Assign num exp => insert num () LN
     | Get num store => insert num () LN
     | LocValue r l1 => insert r () LN
@@ -1086,8 +1115,8 @@ QED
         (live_set,h_clash::ret_clash::hd::hd'::ls++ls'))) ∧
   (*Catchall for cases where we dont have in sub programs live sets*)
   (get_clash_sets prog live =
-    let i_set = union (get_writes prog) live in
-      (get_live prog live,[i_set]))
+    let i_set = union (get_writes bits prog) live in
+      (get_live bits prog live,[i_set]))
   End
 *)
 
@@ -1105,6 +1134,8 @@ Definition get_delta_inst_def:
   (get_delta_inst bits (Arith (AddCarry r1 r2 r3 r4)) = Delta [r1;r4] [r4;r3;r2]) ∧
   (get_delta_inst bits (Arith (AddOverflow r1 r2 r3 r4)) = Delta [r1;r4] [r3;r2]) ∧
   (get_delta_inst bits (Arith (SubOverflow r1 r2 r3 r4)) = Delta [r1;r4] [r3;r2]) ∧
+  (get_delta_inst bits (Arith (IMul rd ra rb ro)) = Delta [rd;ro] [rb;ra]) ∧
+  (get_delta_inst bits (Arith (IDiv rq rr ra rb)) = Delta [rq;rr] [rb;ra]) ∧
   (get_delta_inst bits (Arith (LongMul r1 r2 r3 r4)) = Delta [r1;r2] [r4;r3]) ∧
   (get_delta_inst bits (Arith (LongDiv r1 r2 r3 r4 r5)) = Delta [r1;r2] [r5;r4;r3]) ∧
   (get_delta_inst bits (Mem Load r (Addr a w)) = Delta [r] [a]) ∧
@@ -1138,56 +1169,56 @@ Definition get_reads_exp_def:
 End
 
 Definition get_clash_tree_def:
-  (get_clash_tree (Skip:'a prog) lt = Delta [] []) ∧
-  (get_clash_tree (Move pri ls) lt =
+  (get_clash_tree bits (Skip:prog) lt = Delta [] []) ∧
+  (get_clash_tree bits (Move pri ls) lt =
     Delta (MAP FST ls) (MAP SND ls)) ∧
-  (get_clash_tree (Inst i) lt = get_delta_inst (dimindex (:'a)) i) ∧
-  (get_clash_tree (Assign num exp) lt = Delta [num] (get_reads_exp exp)) ∧
-  (get_clash_tree (Get num store) lt = Delta [num] []) ∧
-  (get_clash_tree (Store exp num) lt = Delta [] (num::get_reads_exp exp)) ∧
-  (get_clash_tree (Seq s1 s2) lt = Seq (get_clash_tree s1 lt) (get_clash_tree s2 lt)) ∧
-  (get_clash_tree (If cmp r1 ri e2 e3) lt =
-    let e2t = get_clash_tree e2 lt in
-    let e3t = get_clash_tree e3 lt in
+  (get_clash_tree bits (Inst i) lt = get_delta_inst bits i) ∧
+  (get_clash_tree bits (Assign num exp) lt = Delta [num] (get_reads_exp exp)) ∧
+  (get_clash_tree bits (Get num store) lt = Delta [num] []) ∧
+  (get_clash_tree bits (Store exp num) lt = Delta [] (num::get_reads_exp exp)) ∧
+  (get_clash_tree bits (Seq s1 s2) lt = Seq (get_clash_tree bits s1 lt) (get_clash_tree bits s2 lt)) ∧
+  (get_clash_tree bits (If cmp r1 ri e2 e3) lt =
+    let e2t = get_clash_tree bits e2 lt in
+    let e3t = get_clash_tree bits e3 lt in
     case ri of
       Reg r2 => Seq (Delta [] [r1;r2]) (Branch NONE e2t e3t)
     | _      => Seq (Delta [] [r1]) (Branch NONE e2t e3t)) ∧
-  (get_clash_tree (MustTerminate s) lt =
-    get_clash_tree s lt) ∧
-  (get_clash_tree (Alloc num numset) lt =
+  (get_clash_tree bits (MustTerminate s) lt =
+    get_clash_tree bits s lt) ∧
+  (get_clash_tree bits (Alloc num numset) lt =
     Seq (Delta [] [num]) (Set (union (FST numset) (SND numset)))) ∧
-  (get_clash_tree (Install r1 r2 r3 r4 r5 numset) lt =
+  (get_clash_tree bits (Install r1 r2 r3 r4 r5 numset) lt =
     Seq (Delta [] [r5;r4;r3;r2;r1]) (Seq (Set (union (FST numset) (SND numset))) (Delta [r1] []))) ∧
-  (get_clash_tree (DataBufferWrite r1 r2) lt =
+  (get_clash_tree bits (DataBufferWrite r1 r2) lt =
     Delta [] [r2;r1]) ∧
-  (get_clash_tree (FFI ffi_index ptr1 len1 ptr2 len2 numset) lt =
+  (get_clash_tree bits (FFI ffi_index ptr1 len1 ptr2 len2 numset) lt =
     Seq (Delta [] [ptr1;len1;ptr2;len2]) (Set (union (FST numset) (SND numset)))) ∧
-  (get_clash_tree (Raise num) lt = Delta [] [num]) ∧
-  (get_clash_tree (Return num1 nums) lt = Delta [] (num1::nums)) ∧
-  (get_clash_tree Tick lt = Delta [] []) ∧
-  (get_clash_tree (LocValue r l1) lt = Delta [r] []) ∧
-  (get_clash_tree (Set n exp) lt = Delta [] (get_reads_exp exp)) ∧
-  (get_clash_tree (OpCurrHeap b dst src) lt = Delta [dst] [src]) ∧
-  (get_clash_tree (StoreConsts a b c d ws) lt = Delta [a;b;c;d] [c;d]) ∧
-  (get_clash_tree (ShareInst op v exp) lt = if op = Store ∨ op = Store8 ∨ op = Store16 ∨ op = Store32
+  (get_clash_tree bits (Raise num) lt = Delta [] [num]) ∧
+  (get_clash_tree bits (Return num1 nums) lt = Delta [] (num1::nums)) ∧
+  (get_clash_tree bits Tick lt = Delta [] []) ∧
+  (get_clash_tree bits (LocValue r l1) lt = Delta [r] []) ∧
+  (get_clash_tree bits (Set n exp) lt = Delta [] (get_reads_exp exp)) ∧
+  (get_clash_tree bits (OpCurrHeap b dst src) lt = Delta [dst] [src]) ∧
+  (get_clash_tree bits (StoreConsts a b c d ws) lt = Delta [a;b;c;d] [c;d]) ∧
+  (get_clash_tree bits (ShareInst op v exp) lt = if op = Store ∨ op = Store8 ∨ op = Store16 ∨ op = Store32
     then Delta [] (v::get_reads_exp exp)
     else Delta [v] $ get_reads_exp exp) ∧
-  (get_clash_tree (Loop names body exit_names) lt =
+  (get_clash_tree bits (Loop names body exit_names) lt =
     Seq (Set names)
       (Seq (Set exit_names)
-        (Seq (get_clash_tree body ((names,exit_names)::lt))
+        (Seq (get_clash_tree bits body ((names,exit_names)::lt))
           (Set names)))) ∧
   (*Break n: exit_names vars must all be live*)
-  (get_clash_tree (Break n) lt =
+  (get_clash_tree bits (Break n) lt =
     case oEL n lt of
       NONE => Set LN
     | SOME (names,exit_names) => Set exit_names) ∧
   (*Continue n: names vars must all be live*)
-  (get_clash_tree (Continue n) lt =
+  (get_clash_tree bits (Continue n) lt =
     case oEL n lt of
       NONE => Set LN
     | SOME (names,exit_names) => Set names) ∧
-  (get_clash_tree (Call ret dest args h) lt =
+  (get_clash_tree bits (Call ret dest args h) lt =
     let args_set = numset_list_insert args LN in
     case ret of
       NONE => Set args_set
@@ -1195,14 +1226,14 @@ Definition get_clash_tree_def:
       let cutset = union (FST cutsets) (SND cutsets) in
       let live_set = union cutset args_set in
       (*Might be inefficient..*)
-      let ret_tree = Seq (Set (numset_list_insert vs cutset)) (get_clash_tree ret_handler lt) in
+      let ret_tree = Seq (Set (numset_list_insert vs cutset)) (get_clash_tree bits ret_handler lt) in
       case h of
         NONE => Seq (Set live_set) ret_tree
       | SOME (v',prog,_,_) =>
         let handler_tree =
-          Seq (Set (insert v' () cutset)) (get_clash_tree prog lt) in
+          Seq (Set (insert v' () cutset)) (get_clash_tree bits prog lt) in
         Branch (SOME live_set) ret_tree handler_tree) ∧
-  (get_clash_tree (PtrEq dst v1 v2 tw fw) lt = Delta [dst] [v1;v2])
+  (get_clash_tree bits (PtrEq dst v1 v2 tw fw) lt = Delta [dst] [v1;v2])
 End
 
 (* Preference edges
@@ -1346,6 +1377,12 @@ Definition get_heu_inst_def:
     (*r1,r4 := r2,r3 *)
      (add1_lhs_reg r4 (add1_lhs_reg r1
      (add1_rhs_reg r3 (add1_rhs_reg r2 lr))))) ∧
+  (get_heu_inst (Arith (IMul rd ra rb ro)) lr =
+    add1_lhs_reg ro (add1_lhs_reg rd
+      (add1_rhs_reg rb (add1_rhs_reg ra lr)))) ∧
+  (get_heu_inst (Arith (IDiv rq rr ra rb)) lr =
+    add1_lhs_reg rr (add1_lhs_reg rq
+      (add1_rhs_reg rb (add1_rhs_reg ra lr)))) ∧
   (get_heu_inst (Arith (LongMul r1 r2 r3 r4)) lr =
     (*r1,r2 := r3,r4 *)
      (add1_lhs_reg r2 (add1_lhs_reg r1
@@ -1472,7 +1509,7 @@ End
 
 (* Forced edges for certain instructions *)
 Definition get_forced_def:
-  (get_forced (c:asm_config) ((Inst i):'a prog) acc =
+  (get_forced (c:asm_config) ((Inst i):prog) acc =
     case i of
       Arith (AddCarry r1 r2 r3 r4) =>
        if (c.ISA = MIPS ∨ c.ISA = RISC_V) then
@@ -1490,6 +1527,11 @@ Definition get_forced_def:
           (if r1=r3 then [] else [(r1,r3)]) ++
           acc
        else acc
+    | Arith (IMul rd ra rb ro) =>
+        (if rd = ro then [] else [(rd,ro)]) ++ acc
+    | Arith (IDiv rq rr ra rb) =>
+        (if rq = rr then [] else [(rq,rr)]) ++
+        (if c.ISA = x86_64 ∧ rb ≠ rr then [(rb,rr)] else []) ++ acc
     | Arith (LongMul r1 r2 r3 r4) =>
        if (c.ISA = ARMv7) then
          (if (r1=r2) then [] else [(r1,r2)]) ++ acc
@@ -1500,10 +1542,10 @@ Definition get_forced_def:
        else
          acc
     | FP (FPMovToReg r1 r2 d) =>
-        (if dimindex(:'a) = 32 ∧ r1 ≠ r2 then [(r1,r2)]
+        (if isa_bits c = 32 ∧ r1 ≠ r2 then [(r1,r2)]
         else []) ++ acc
     | FP (FPMovFromReg d r1 r2) =>
-        (if dimindex(:'a) = 32 ∧ r1 ≠ r2 then [(r1,r2)]
+        (if isa_bits c = 32 ∧ r1 ≠ r2 then [(r1,r2)]
         else []) ++ acc
     | _ => acc) ∧
   (get_forced c (MustTerminate s1) acc =
@@ -1522,7 +1564,7 @@ End
 
 Theorem get_forced_pmatch:
   !c prog acc.
-  (get_forced (c:asm_config) (prog:'a wordLang$prog) acc =
+  (get_forced (c:asm_config) (prog:wordLang$prog) acc =
     pmatch prog of
       Inst(Arith (AddCarry r1 r2 r3 r4)) =>
        if (c.ISA = MIPS ∨ c.ISA = RISC_V) then
@@ -1540,6 +1582,11 @@ Theorem get_forced_pmatch:
           (if r1=r3 then [] else [(r1,r3)]) ++
           acc
        else acc
+    | Inst (Arith (IMul rd ra rb ro)) =>
+        (if rd = ro then [] else [(rd,ro)]) ++ acc
+    | Inst (Arith (IDiv rq rr ra rb)) =>
+        (if rq = rr then [] else [(rq,rr)]) ++
+        (if c.ISA = x86_64 ∧ rb ≠ rr then [(rb,rr)] else []) ++ acc
     | Inst(Arith (LongMul r1 r2 r3 r4)) =>
        if (c.ISA = ARMv7) then
          (if (r1=r2) then [] else [(r1,r2)]) ++ acc
@@ -1550,10 +1597,10 @@ Theorem get_forced_pmatch:
        else
          acc
     | Inst (FP (FPMovToReg r1 r2 d)) =>
-        (if dimindex(:'a) = 32 ∧ r1 ≠ r2 then [(r1,r2)]
+        (if isa_bits c = 32 ∧ r1 ≠ r2 then [(r1,r2)]
         else []) ++ acc
     | Inst (FP (FPMovFromReg d r1 r2)) =>
-        (if dimindex(:'a) = 32 ∧ r1 ≠ r2 then [(r1,r2)]
+        (if isa_bits c = 32 ∧ r1 ≠ r2 then [(r1,r2)]
         else []) ++ acc
     | MustTerminate s1 => get_forced c s1 acc
     | Seq s1 s2 => get_forced c s1 (get_forced c s2 acc)
@@ -1572,10 +1619,12 @@ Proof
   >> rpt strip_tac
   >> every_case_tac
   >> fs[get_forced_def]
+  >> gvs[]
   >> rpt(POP_ASSUM MP_TAC)
   >> (fn (asms,g) => (asms,g) |> EVERY(map UNDISCH_TAC asms))
   >> Q.SPEC_TAC (`acc`,`acc`) >> Q.SPEC_TAC (`prog`,`prog`) >> Q.SPEC_TAC (`c`,`c`)
-  >> ho_match_mp_tac (theorem "get_forced_ind")
+  >> (ho_match_mp_tac (theorem "get_forced_ind") ORELSE
+      (rpt strip_tac >> IF_CASES_TAC >> gvs []))
   >> rpt strip_tac
   >> fs[get_forced_def]
   >> every_case_tac
@@ -1747,41 +1796,41 @@ End
 (* Alloc variables that are already stack or
   only ever involved in stack moves *)
 Definition get_stack_only_aux_def:
-  (get_stack_only_aux tfs (Move pri ls) =
+  (get_stack_only_aux (bits:num) tfs (Move pri ls) =
     FOLDR merge_stack_only tfs ls) ∧
-  (get_stack_only_aux tfs (Seq s1 s2) =
-    get_stack_only_aux (get_stack_only_aux tfs s2) s1) ∧
-  (get_stack_only_aux tfs (If cmp r1 ri e2 e3) =
-    let tfsL = get_stack_only_aux tfs e2 in
-    let tfsR = get_stack_only_aux tfs e3 in
+  (get_stack_only_aux bits tfs (Seq s1 s2) =
+    get_stack_only_aux bits (get_stack_only_aux bits tfs s2) s1) ∧
+  (get_stack_only_aux bits tfs (If cmp r1 ri e2 e3) =
+    let tfsL = get_stack_only_aux bits tfs e2 in
+    let tfsR = get_stack_only_aux bits tfs e3 in
     let tfsM = merge_stack_sets tfs tfsL tfsR in
       case ri of
         Reg r2 => remove_temp_stack [r1;r2] tfsM
       | _ => remove_temp_stack [r1] tfsM
   ) ∧
-  (get_stack_only_aux tfs (MustTerminate s) =
-    get_stack_only_aux tfs s) ∧
-  (get_stack_only_aux tfs (Call ret dest args h) =
+  (get_stack_only_aux bits tfs (MustTerminate s) =
+    get_stack_only_aux bits tfs s) ∧
+  (get_stack_only_aux bits tfs (Call ret dest args h) =
     (case ret of
       NONE => tfs
     | SOME (v,cutset,ret_handler,_,_) =>
-      let rettfs = get_stack_only_aux tfs ret_handler in
+      let rettfs = get_stack_only_aux bits tfs ret_handler in
       case h of
         NONE => rettfs
       | SOME (v',handler,_,_) =>
         let handlertfs =
-          get_stack_only_aux tfs handler in
+          get_stack_only_aux bits tfs handler in
         merge_stack_sets tfs rettfs handlertfs)) ∧
-  (get_stack_only_aux tfs (Loop names body exit_names) =
-    get_stack_only_aux tfs body) ∧
-  (get_stack_only_aux tfs prog =
-    case get_clash_tree prog [] of
+  (get_stack_only_aux bits tfs (Loop names body exit_names) =
+    get_stack_only_aux bits tfs body) ∧
+  (get_stack_only_aux bits tfs prog =
+    case get_clash_tree bits prog [] of
       Delta ws rs => remove_temp_stack (ws++rs) tfs
     | _ => tfs)
 End
 
 Definition get_stack_only_def:
-  get_stack_only prog = SND (get_stack_only_aux (LN,LN) prog)
+  get_stack_only bits prog = SND (get_stack_only_aux bits (LN,LN) prog)
 End
 
 (*
@@ -1797,9 +1846,9 @@ End
   col_opt is an optional oracle colour
 *)
 Definition word_alloc_def:
-  word_alloc fc c alg k prog col_opt =
-  let tree = get_clash_tree prog [] in
-  let fs = get_stack_only prog in
+  word_alloc bits fc c alg k prog col_opt =
+  let tree = get_clash_tree bits prog [] in
+  let fs = get_stack_only bits prog in
   (*let moves = get_prefs_sp prog [] in*)
   let forced = get_forced c prog [] in
   case oracle_colour_ok k col_opt tree prog forced of
@@ -1815,22 +1864,22 @@ End
 
 (*The initial move, ssa and limit vars*)
 Definition setup_ssa_def:
-  setup_ssa n lim (prog:'a wordLang$prog) =
+  setup_ssa (bits:num) n lim (prog:wordLang$prog) =
   let args = even_list n in
   let (new_ls,ssa',n') = list_next_var_rename args LN lim in
     (Move1 (ZIP(new_ls,args)),ssa',n')
 End
 
 Definition limit_var_def:
-  limit_var prog =
-    let x = max_var prog in
+  limit_var bits prog =
+    let x = max_var bits prog in
     x + (4 - (x MOD 4)) +1
 End
 
 Definition full_ssa_cc_trans_def:
-  full_ssa_cc_trans n prog =
-    let lim = limit_var prog in
-    let (mov,ssa,na) = setup_ssa n lim prog in
-    let (prog',ssa',na') = ssa_cc_trans prog ssa na [] in
+  full_ssa_cc_trans bits n prog =
+    let lim = limit_var bits prog in
+    let (mov,ssa,na) = setup_ssa bits n lim prog in
+    let (prog',ssa',na') = ssa_cc_trans bits prog ssa na [] in
       Seq mov prog'
 End

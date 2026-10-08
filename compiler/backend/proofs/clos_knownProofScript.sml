@@ -2852,7 +2852,7 @@ Definition co_every_Fn_vs_NONE_def:
   co_every_Fn_vs_NONE co =
     !n exps aux. SND (co n) = (exps, aux) ==>
       every_Fn_vs_NONE exps /\
-      every_Fn_vs_NONE (MAP (SND o SND) aux)
+      every_Fn_vs_NONE (MAP (FST o SND o SND) aux)
 End
 
 Theorem co_every_Fn_vs_NONE_shift_seq:

@@ -335,6 +335,7 @@ Proof
   >~ [`flatLang$Mat`] >- suspend "Mat"
   >~ [`flatLang$Let`] >- suspend "Let"
   >~ [`flatLang$Letrec`] >- suspend "Letrec"
+  >~ [`flatLang$Tick`] >- suspend "Tick"
   >~ [`evaluate_dec _ _`] >- suspend "dec"
   >~ [`evaluate_decs _ []`] >- suspend "decs_nil"
   >~ [`evaluate_decs _ (_ :: _)`] >- suspend "decs_cons"
@@ -370,6 +371,20 @@ Resume compile_correct[Lit]:
   \\ Cases_on `l` \\ fs [PULL_EXISTS]
   \\ once_rewrite_tac [CONJUNCT2 v_rel_cases] \\ fs []
   \\ fs [compile_lit_def,evaluate_def,do_app_def,do_int_app_def,make_const_def]
+QED
+
+Resume compile_correct[Tick]:
+  rpt strip_tac
+  \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def]
+  \\ fs [pair_case_eq] \\ fs []
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ impl_tac THEN1 (CCONTR_TAC \\ fs [])
+  \\ strip_tac \\ fs []
+  \\ fs [result_case_eq] \\ rveq \\ fs []
+  \\ imp_res_tac flatPropsTheory.evaluate_sing \\ gvs []
+  \\ drule_then strip_assume_tac state_rel_dec_clock
+  \\ Cases_on ‘t1.clock = 0’ \\ gvs []
 QED
 
 Resume compile_correct[Raise]:

@@ -1444,7 +1444,7 @@ QED
 (* TODO: generated names *)
 
 val goal = “
-  λ(p:'a wordLang$prog,s:('a,'c,'ffi) wordSem$state).
+  λ(p:wordLang$prog,s:('a,'c,'ffi) wordSem$state).
      ∀r s'.
       evaluate (p, s) = (r, s') ⇒
       s'.clock = s.clock”
@@ -1468,7 +1468,7 @@ Proof
 QED
 
 val clock_goal = “
-  λ(p:'a wordLang$prog,s:('a,'c,'ffi) wordSem$state).
+  λ(p:wordLang$prog,s:('a,'c,'ffi) wordSem$state).
     ∀k.
       evaluate (p, s with clock := k) = (λ(r,s). (r,s with clock := k)) (evaluate (p,s))”
 val ind_thm2 = evaluate_ind |> ISPEC clock_goal |> CONV_RULE (DEPTH_CONV PAIRED_BETA_CONV);
@@ -1488,7 +1488,7 @@ Proof
 QED
 
 val ptr_eq_oracle_goal = “
-  λ(p:'a wordLang$prog,s:('a,'c,'ffi) wordSem$state).
+  λ(p:wordLang$prog,s:('a,'c,'ffi) wordSem$state).
     ∀po.
       evaluate (p, s with ptr_eq_oracle := po) =
         (λ(r,s). (r,s with ptr_eq_oracle := po)) (evaluate (p,s))”
@@ -1512,7 +1512,7 @@ Proof
 QED
 
 val compile_oracle_goal = “
-  λ(p:'a wordLang$prog,s:('a,'c,'ffi) wordSem$state).
+  λ(p:wordLang$prog,s:('a,'c,'ffi) wordSem$state).
     ∀co.
       evaluate (p, s with compile_oracle := co) =
         (λ(r,s). (r,s with compile_oracle := co)) (evaluate (p,s))”
@@ -2078,7 +2078,7 @@ Definition ptr_eq_trace_def:
                            | _ => b1))))) ∧
   (ptr_eq_trace prog s = [[]])
 Termination
-  WF_REL_TAC `inv_image (measure I LEX measure I LEX measure (prog_size (K 0)))
+  WF_REL_TAC `inv_image (measure I LEX measure I LEX measure wordLang$prog_size)
                (λ(xs,s). (s.termdep,s.clock,xs))`
   \\ rpt strip_tac
   \\ gvs [STOP_def,dec_clock_def]
@@ -6008,10 +6008,10 @@ QED
   do not affect evaluation
   TODO: theorem statement needs to be changed *)
 Theorem locals_rel_evaluate_thm:
-  ∀prog st res rst loc temp.
+  ∀prog (st:(α,β,γ) state) res rst loc temp.
     evaluate (prog,st) = (res,rst) ∧
     res ≠ SOME Error ∧
-    every_var (λx.x < temp) prog ∧
+    every_var (dimindex (:α)) (λx.x < temp) prog ∧
     locals_rel temp st.locals loc ⇒
     ∃loc'.
       evaluate (prog,st with locals:=loc) = (res,rst with locals:=loc') ∧
@@ -6021,7 +6021,7 @@ Theorem locals_rel_evaluate_thm:
       | SOME (Continue _) => locals_rel temp rst.locals loc'
       | SOME _ => rst.locals = loc'
 Proof
-  completeInduct_on`prog_size (K 0) prog`>>
+  completeInduct_on`prog_size prog`>>
   rpt strip_tac>>
   Cases_on`prog` >> fs[every_var_def]
   >~[`Move`] >- suspend "Move"
@@ -7061,8 +7061,8 @@ QED
 (* ---- code that leaves the pointer-equality oracle alone ---- *)
 
 Definition code_ptr_eq_free_def:
-  code_ptr_eq_free ns (code : (num # 'a wordLang$prog) num_map) ⇔
-    ∀n. n ∈ ns ⇒ ∃a p. lookup n code = SOME (a,p) ∧ ptr_eq_free ns p
+  code_ptr_eq_free ns (code : (num # wordLang$prog # metadata) num_map) ⇔
+    ∀n. n ∈ ns ⇒ ∃a p md. lookup n code = SOME (a,p,md) ∧ ptr_eq_free ns p
 End
 
 Theorem code_ptr_eq_free_subspt:
@@ -7188,8 +7188,8 @@ Proof
 QED
 
 Definition no_alloc_code_def:
-  no_alloc_code (code : (num # ('a wordLang$prog)) num_map) ⇔
-  ∀ k n p . lookup k code = SOME (n, p) ⇒ no_alloc p
+  no_alloc_code (code : (num # (wordLang$prog) # metadata) num_map) ⇔
+  ∀ k n p md. lookup k code = SOME (n, p, md) ⇒ no_alloc p
 End
 
 Theorem no_alloc_find_code:
@@ -7205,8 +7205,8 @@ Proof
 QED
 
 Definition no_install_code_def:
-    no_install_code (code : (num # ('a wordLang$prog)) num_map) ⇔
-        ∀ k n p . lookup k code = SOME (n, p) ⇒ no_install p
+    no_install_code (code : (num # (wordLang$prog) # metadata) num_map) ⇔
+        ∀ k n p md. lookup k code = SOME (n, p, md) ⇒ no_install p
 End
 
 Theorem no_install_find_code:
@@ -7270,8 +7270,8 @@ Proof
 QED
 
 Definition no_mt_code_def:
-  no_mt_code (code : (num # ('a wordLang$prog)) num_map) <=>
-  ! k n p . lookup k code = SOME (n, p) ==> no_mt p
+  no_mt_code (code : (num # (wordLang$prog) # metadata) num_map) <=>
+  ! k n p md. lookup k code = SOME (n, p, md) ==> no_mt p
 End
 
 Theorem no_mt_find_code:

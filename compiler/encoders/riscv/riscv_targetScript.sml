@@ -142,6 +142,18 @@ Definition riscv_ast_def:
      [MulDiv (MULHU (n2w r1, n2w r3, n2w r4));
       MulDiv (MUL (n2w r2, n2w r3, n2w r4))]) /\
    (riscv_ast (Inst (Arith (LongDiv _ _ _ _ _))) = riscv_encode_fail) /\
+   (riscv_ast (Inst (Arith (IMul rd ra rb ro))) =
+     [MulDiv (MULH (temp_reg, n2w ra, n2w rb));
+      MulDiv (MUL (n2w rd, n2w ra, n2w rb));
+      Shift (SRAI (n2w ro, n2w rd, 63w));
+      ArithR (XOR (n2w ro, n2w ro, temp_reg));
+      ArithR (SLTU (n2w ro, 0w, n2w ro))]) /\
+   (riscv_ast (Inst (Arith (IDiv rq rr ra rb))) =
+     let q = if rq = ra \/ rq = rb then temp_reg else n2w rq in
+     [MulDiv (riscv$DIV (q, n2w ra, n2w rb));
+      MulDiv (REM (n2w rr, n2w ra, n2w rb))] ++
+     (if rq = ra \/ rq = rb then [ArithI (ADDI (n2w rq, temp_reg, 0w))]
+      else [])) /\
    (riscv_ast (Inst (Arith (AddCarry r1 r2 r3 r4))) =
      [ArithR (SLTU (temp_reg, 0w, n2w r4));
       ArithR (ADD (n2w r1, n2w r2, n2w r3));

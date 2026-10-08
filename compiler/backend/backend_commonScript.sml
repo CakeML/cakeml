@@ -3,12 +3,33 @@
 *)
 Theory backend_common
 Ancestors[qualified]
-  arithmetic integer words
+  arithmetic integer words mlstring
 Ancestors
+  asm
   sptree (* for delete *)
   mlstring (* for bytes_to_mlstring *)
 Libs
   preamble
+
+Datatype:
+  annotation = MustInline | Stub | BVI_Worker
+End
+
+Datatype:
+  metadata = Metadata mlstring (annotation list)
+End
+
+Definition empty_metadata_def:
+  empty_metadata = Metadata (strlit "") []
+End
+
+Definition add_annotation_def:
+  add_annotation a (Metadata s annots) = Metadata s (annots ++ [a])
+End
+
+Definition add_metadata_def:
+  add_metadata md xs = MAP (\(n,args,e). (n,args,e,md)) xs
+End
 
 Datatype:
   opw = Andw | Orw | Xor | Add | Sub
@@ -163,17 +184,10 @@ Definition word_shift_def:
     if bits = 32 then 2 else 3:num
 End
 
-Definition upper_w2w_def:
-  upper_w2w (w:'a word) =
-    if dimindex (:'a) = 32 then w2w w << 32 else (w2w w):word64
-End
-
-Definition word_add_carry_def:
-  word_add_carry (l: α word) (r: α word) (c: α word) : (α word # α word) =
-  let
-    res = w2n l + w2n r + (if c = 0w then 0 else 1)
-  in
-    (n2w res, if dimword(:α) ≤ res then 1w else 0w)
+(* The evaluator stores each target word in a 64-bit data slot. *)
+Definition upper_n2w_def:
+  upper_n2w aw (n:num) =
+    n2w (if aw = Arch32 then n * 2 ** 32 else n):word64
 End
 
 (* TODO: prefer this over `FOLDR delete`? Consider upstreaming this and

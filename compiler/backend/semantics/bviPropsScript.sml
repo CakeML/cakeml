@@ -724,7 +724,7 @@ Theorem get_code_labels_def[simp,compute,allow_rebind] =
 
 Definition good_code_labels_def:
   good_code_labels p elabs ⇔
-    BIGUNION (set (MAP (get_code_labels o SND o SND) p)) ⊆ set (MAP FST p) ∪ elabs
+    BIGUNION (set (MAP (get_code_labels o FST o SND o SND) p)) ⊆ set (MAP FST p) ∪ elabs
 End
 
 (* --- switching a compiler pass off --------------------------------------

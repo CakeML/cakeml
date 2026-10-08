@@ -132,6 +132,18 @@ Definition copy_prop_inst_def:
     let r3' = lookup_eq cs r3 in
     let r3'' = if r3'=r1 then r3 else r3' in
     (Inst (Arith (SubOverflow r1 r2' r3'' r4)), cs')) ∧
+  (copy_prop_inst (Arith (IMul r1 r2 r3 r4)) cs =
+    let cs' = remove_eqs cs [r1;r4] in
+    let r2' = lookup_eq cs r2 in
+    let r3' = lookup_eq cs r3 in
+    let r3'' = if r3'=r1 then r3 else r3' in
+    (Inst (Arith (IMul r1 r2' r3'' r4)), cs')) ∧
+  (copy_prop_inst (Arith (IDiv r1 r2 r3 r4)) cs =
+    let r3' = lookup_eq cs r3 in
+    let r4' = lookup_eq cs r4 in
+    let r4'' = if r4'=r2 then r4 else r4' in
+    (Inst (Arith (IDiv r1 r2 r3' r4'')),
+        remove_eqs cs [r2;r1])) ∧
   (copy_prop_inst (Arith (LongMul r1 r2 r3 r4)) cs =
     let r3' = lookup_eq cs r3 in
     let r4' = lookup_eq cs r4 in
@@ -290,7 +302,7 @@ Definition copy_prop_share_def:
 End
 
 Definition copy_prop_prog_def:
-  (copy_prop_prog (Skip:'a wordLang$prog) cs =
+  (copy_prop_prog (Skip:wordLang$prog) cs =
     (Skip, cs)) ∧
   (copy_prop_prog (Move pri xs) cs =
     let tt = MAP FST xs; ss = MAP SND xs in
@@ -380,7 +392,6 @@ Definition copy_prop_prog_def:
 End
 
 Definition copy_prop_def:
-  copy_prop (e:'a wordLang$prog) =
+  copy_prop (e:wordLang$prog) =
     FST (copy_prop_prog e empty_eq)
 End
-
