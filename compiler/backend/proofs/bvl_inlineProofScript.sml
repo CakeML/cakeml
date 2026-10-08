@@ -320,7 +320,7 @@ Proof
              (REWRITE_RULE [CONJ_ASSOC] evaluate_remove_ticks_thm))
   \\ disch_then (qspec_then `initial_state ffi0 prog co
         (λcfg prog'. cc cfg (MAP (I ## I ## (λx. HD (remove_ticks [x])) ## I) prog'))
-            k` mp_tac)
+            pe k` mp_tac)
   \\ impl_tac THEN1 fs [state_rel_def, bvlSemTheory.initial_state_def]
   \\ strip_tac \\ fs []
   \\ qexists_tac `ck` \\ fs [state_rel_def]
@@ -1686,11 +1686,12 @@ Proof
   \\ unabbrev_all_tac \\ fs [initial_state_def]
 QED
 
-val semantics_let_op = prove(
-  ``semantics ffi prog co (let_op_cc q4 l4 cc) pe start <> Fail ==>
+Theorem semantics_let_op[local]:
+  semantics ffi prog co (let_op_cc q4 l4 cc) pe start <> Fail ==>
     semantics ffi (map (let_opt q4 l4) prog)
                   ((I ## MAP (I ## let_opt q4 l4)) o co) cc pe start =
-    semantics (ffi:'b ffi_state) prog co (let_op_cc q4 l4 cc) pe start``,
+    semantics (ffi:'b ffi_state) prog co (let_op_cc q4 l4 cc) pe start
+Proof
   simp [Once semantics_def]
   \\ simp [Once semantics_def, SimpRHS]
   \\ IF_CASES_TAC \\ fs []

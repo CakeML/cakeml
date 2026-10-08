@@ -99,7 +99,7 @@ Definition read_limits_def:
 End
 
 Definition is_safe_for_space_def:
-  is_safe_for_space (:'a) ffi cc = backendProof$is_safe_for_space (:'a) ffi cc.asm_config cc.backend_config
+  is_safe_for_space (:'a) ffi po cc = backendProof$is_safe_for_space (:'a) ffi po cc.asm_config cc.backend_config
 End
 
 Theorem compile_correct_gen:
@@ -117,14 +117,15 @@ Theorem compile_correct_gen:
         (semantics st prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
         ∀ms.
-          installed code cbspace data data_sp c.lab_conf.ffi_names
+          installed code cbspace (MAP n2w data) data_sp c.lab_conf.ffi_names
             (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms
             ⇒
-            machine_sem mc st.sem_st.ffi ms ⊆
+            ∃po. machine_sem mc st.sem_st.ffi ms ⊆
               extend_with_resource_limit'
-                (is_safe_for_space (:α) st.sem_st.ffi cc
+                (is_safe_for_space (:α) st.sem_st.ffi po cc
                    (prelude ++ source_decs) (read_limits cc mc ms))
-                behaviours
+                (semantics_determ (st.sem_st with ptr_eq_oracle := po)
+                   st.sem_env (prelude ++ source_decs))
 Proof
   rpt strip_tac
   \\ simp[compilerTheory.compile_def,read_limits_def,is_safe_for_space_def]
@@ -193,12 +194,14 @@ Theorem compile_correct_lemma:
         (semantics_init ffi prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
         ∀ms.
-          installed code cbspace data data_sp c.lab_conf.ffi_names (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms ⇒
-            machine_sem mc ffi ms ⊆
+          installed code cbspace (MAP n2w data) data_sp c.lab_conf.ffi_names (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms ⇒
+            ∃po. machine_sem mc ffi ms ⊆
               extend_with_resource_limit'
-                (is_safe_for_space (:α) ffi cc
+                (is_safe_for_space (:α) ffi po cc
                    (prelude ++ source_decs) (read_limits cc mc ms))
-                behaviours
+                (semantics_determ
+                   (FST (THE (prim_sem_env ffi)) with ptr_eq_oracle := po)
+                   (SND (THE (prim_sem_env ffi))) (prelude ++ source_decs))
 Proof
   rw[semantics_init_def]
   \\ qmatch_goalsub_abbrev_tac`semantics$semantics st`
@@ -242,25 +245,26 @@ Theorem compile_correct_safe_for_space:
         (semantics_init ffi prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
         ∀ms.
-          is_safe_for_space (:α) ffi cc (prelude ++ source_decs)          (* cost semantics *)
-            (read_limits cc mc ms) ∧
-          installed code cbspace data data_sp c.lab_conf.ffi_names
+          (∀po. is_safe_for_space (:α) ffi po cc (prelude ++ source_decs)
+            (read_limits cc mc ms)) ∧
+          installed code cbspace (MAP n2w data) data_sp c.lab_conf.ffi_names
             (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms ⇒
-          machine_sem mc ffi ms = behaviours                             (* <-- equality *)
+          ∃po. machine_sem mc ffi ms =
+            semantics_determ
+              (FST (THE (prim_sem_env ffi)) with ptr_eq_oracle := po)
+              (SND (THE (prim_sem_env ffi))) (prelude ++ source_decs)
 Proof
   rw [] \\ mp_tac (SPEC_ALL compile_correct_lemma) \\ fs []
   \\ strip_tac \\ fs [] \\ rw []
+  \\ first_x_assum drule \\ strip_tac
+  \\ qexists_tac `po`
+  \\ qpat_x_assum `∀po. is_safe_for_space _ _ _ _ _ _`
+       (qspec_then `po` assume_tac)
   \\ fs [semanticsPropsTheory.extend_with_resource_limit'_def]
-  \\ first_x_assum drule
-  \\ fs [semanticsTheory.semantics_init_def]
-  \\ imp_res_tac (MP_CANON semanticsPropsTheory.semantics_deterministic)
-  \\ pop_assum mp_tac
-  \\ impl_tac THEN1
-   (fs [semanticsPropsTheory.state_invariant_def]
-    \\ qspec_then `{}` mp_tac (primSemEnvTheory.prim_type_sound_invariants
-                             |> INST_TYPE [alpha|->``:'ffi``])
-    \\ Cases_on `THE (prim_sem_env ffi)` \\ fs [] \\ metis_tac [])
-  \\ strip_tac \\ rveq \\ fs []
+  \\ qmatch_goalsub_abbrev_tac `semantics_determ ss ee pp`
+  \\ `?b. semantics_determ ss ee pp = {b}` by
+       MATCH_ACCEPT_TAC backendProofTheory.semantics_determ_sing
+  \\ fs []
   \\ `?x. machine_sem mc ffi ms x` by metis_tac [targetPropsTheory.machine_sem_total]
   \\ fs [SUBSET_DEF,IN_DEF,EXTENSION]
   \\ metis_tac []
@@ -279,7 +283,7 @@ Theorem compile_correct = Q.prove(`
       ∃behaviours.
         (semantics_init ffi prelude input = Execute behaviours) ∧
         ∀ms.
-          installed code cbspace data data_sp c.lab_conf.ffi_names
+          installed code cbspace (MAP n2w data) data_sp c.lab_conf.ffi_names
             (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms ⇒
           machine_sem mc ffi ms ⊆
             extend_with_resource_limit behaviours
@@ -291,7 +295,13 @@ Theorem compile_correct = Q.prove(`
   \\ PairCases_on `a` \\ fs [] \\ strip_tac \\ fs []
   \\ rw [] \\ first_x_assum drule \\ rw []
   \\ match_mp_tac SUBSET_TRANS
-  \\ asm_exists_tac \\ fs [semanticsPropsTheory.extend_with_resource_limit'_SUBSET])
+  \\ asm_exists_tac \\ fs [semanticsPropsTheory.extend_with_resource_limit'_SUBSET]
+  \\ fs [semanticsTheory.semantics_init_def,semanticsTheory.semantics_def]
+  \\ every_case_tac \\ fs []
+  \\ fs [FUN_EQ_THM,semanticsTheory.semantics_prog_def]
+  \\ rw [semanticsPropsTheory.extend_with_resource_limit'_def,
+          semanticsPropsTheory.extend_with_resource_limit_def,SUBSET_DEF,IN_DEF]
+  \\ metis_tac [])
   |> check_thm;
 
 Theorem type_config_ok:

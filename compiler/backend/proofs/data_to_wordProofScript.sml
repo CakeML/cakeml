@@ -822,15 +822,17 @@ Resume data_compile_correct[MakeSpace]:
           FLOOKUP t.store NextFree = SOME (Word next)` by
             fs [state_rel_def,heap_in_memory_store_def]
     \\ fs [wordSemTheory.the_words_def,wordSemTheory.get_store_def]
-    \\ reverse CASE_TAC
+    \\ reverse (Cases_on `asm$word_cmp Lower (end - next) (alloc_size k)`)
     >- (
       every_case_tac \\ fs [] \\ srw_tac[][]
       \\ fs [wordSemTheory.set_var_def,state_rel_insert_1,add_space_def]
-      THEN1 fs [state_rel_def]
-      >- (match_mp_tac state_rel_cut_env \\ reverse (srw_tac[][])
-          \\ fs [] \\ match_mp_tac has_space_state_rel
-          \\ fs [wordSemTheory.has_space_def,WORD_LO,NOT_LESS,
-                 asmTheory.word_cmp_def,wordSemTheory.get_store_def])
+      \\ TRY (fs [state_rel_def] \\ NO_TAC)
+      \\ TRY (
+        `state_rel c l1 l2 (s with space := k) t NONE locs` by
+          (match_mp_tac has_space_state_rel
+           \\ fs [wordSemTheory.has_space_def,WORD_LO,NOT_LESS,
+                  asmTheory.word_cmp_def,wordSemTheory.get_store_def])
+        \\ imp_res_tac state_rel_cut_env \\ fs [] \\ metis_tac [])
       \\ fs [ptr_eq_link_def])
     \\ reverse (Cases_on `c.call_empty_ffi`)
     >- (
@@ -2027,7 +2029,7 @@ Theorem compile_semantics:
        (evaluate (Call NONE (SOME start) [0] NONE, t with clock := k))) ∧
   t.handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
   init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ∧
-  good_dimindex (:α) ∧ lookup 0 t.locals = SOME (Loc 1 0) ∧ t.stack = [] ∧
+  good_dimindex (:α) ∧ isa_bits coo = dimindex (:α) ∧ lookup 0 t.locals = SOME (Loc 1 0) ∧ t.stack = [] ∧
   conf_ok (dimindex (:α)) c ∧ t.termdep = 0 ∧ code_rel c (fromAList prog) x1 ∧
   cc =
   (λcfg.
@@ -2035,15 +2037,15 @@ Theorem compile_semantics:
        MAP (compile_part c)) ∧
   Abbrev (tco = (I ## MAP (compile_part c)) ∘ co) ∧
   (∀n. EVERY (λ(n,_). data_num_stubs <= n) (SND (co n))) ∧
-  code_rel_ext x1 t.code ∧ domain x1 = domain t.code ∧ t.be = c.be ∧
+  code_rel_ext (dimindex (:α)) x1 t.code ∧ domain x1 = domain t.code ∧ t.be = c.be ∧
   t.stack_max = SOME 1 ∧ t.locals_size = SOME 0 ∧ t.stack_limit <> 0 ∧
   t.compile_oracle =
-  (I ## MAP (λp. full_compile_single tt kk aa coo (p,NONE))) ∘ tco ∧
+  (I ## MAP (λp. full_compile_single (dimindex (:α)) tt kk aa coo (p,NONE))) ∘ tco ∧
   Abbrev
     (tcc =
      (λconf progs.
           t.compile conf
-            (MAP (λp. full_compile_single tt kk aa coo (p,NONE)) progs))) ∧
+            (MAP (λp. full_compile_single (dimindex (:α)) tt kk aa coo (p,NONE)) progs))) ∧
   fs = t.stack_size ∧
   t.ptr_eq_rel = word_ptr_eq c ∧ t.ptr_eq_oracle = NONE ∧
   Fail ≠ semantics t.ffi (fromAList prog) co cc po zero_limits fs start ⇒
@@ -2681,7 +2683,7 @@ Theorem data_to_word_compile_conventions:
     good_dimindex(:'a) ==>
   let (c,p) = compile data_conf wc ac prog in
   EVERY (λ(n,m,prog,md).
-    flat_exp_conventions (progwordLang$prog) ∧
+    flat_exp_conventions (prog:wordLang$prog) ∧
     post_alloc_conventions (isa_bits ac) (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
     (isa_bits ac = dimindex (:'a) ∧
     arch_width_bits data_conf.arch_width = isa_bits ac ∧

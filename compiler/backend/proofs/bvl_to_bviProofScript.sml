@@ -4580,7 +4580,7 @@ Theorem compile_prog_semantics:
    handle_ok (MAP (FST o SND o SND) prog) ∧
    (∀n. EVERY ((λe. handle_ok [e]) o FST o SND o SND) (SND (co n))) ∧
    n' ≤ FST (FST ((co:num -> (num # 'c) # (num # num # bvl$exp # metadata) list) 0)) ∧
-   semantics (ffi0:'ffi ffi_state) (fromAList prog) co (state_cc compile_inc cc) start ≠ Fail
+   semantics (ffi0:'ffi ffi_state) (fromAList prog) co (state_cc compile_inc cc) pe start ≠ Fail
    ⇒
    semantics ffi0 (fromAList prog') (state_co compile_inc co) cc pe start' =
    semantics ffi0 (fromAList prog) co (state_cc compile_inc cc) pe start

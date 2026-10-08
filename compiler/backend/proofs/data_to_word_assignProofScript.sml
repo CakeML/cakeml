@@ -353,7 +353,7 @@ Proof
   \\ simp [Once wordSemTheory.word_exp_def,
            ``wordSem$word_exp ss (Var reg)``
            |> REWRITE_CONV [wordSemTheory.word_exp_def], get_var_set_var,
-           wordSemTheory.the_words_def, wordLangTheory.word_op_def]
+           wordSemTheory.the_words_def, wordSemTheory.word_op_def]
   \\ simp [Once wordSemTheory.evaluate_def, wordSemTheory.get_var_imm_def,
            get_var_set_var, integer_wordTheory.i2w_0,
            small_int_Smallnum_xor_sign, EQ_SYM_EQ]
@@ -374,8 +374,9 @@ Proof
            |> REWRITE_CONV [wordSemTheory.word_exp_def],
            ``wordSem$word_exp ss (Const ww)``
            |> REWRITE_CONV [wordSemTheory.word_exp_def], get_var_set_var,
-           wordSemTheory.the_words_def, wordLangTheory.word_op_def]
-  \\ simp [Smallnum_i2w, integer_wordTheory.word_i2w_add,
+           wordSemTheory.the_words_def, wordSemTheory.word_op_def]
+  \\ simp [Smallnum_i2w, integer_wordTheory.i2w_pos,
+           integer_wordTheory.word_i2w_add,
            integerTheory.INT_LDISTRIB, integerTheory.INT_ADD_COMM]
   \\ PURE_REWRITE_TAC [GSYM integer_wordTheory.i2w_minus_1,
                        integer_wordTheory.word_i2w_add, integerTheory.int_sub]
@@ -2319,13 +2320,13 @@ Proof
 QED
 
 Theorem StoreEach_ptr_eq_free:
-  !v xs offset. ptr_eq_free ns (StoreEach v xs offset)
+  !c v xs offset. ptr_eq_free ns (StoreEach c v xs offset)
 Proof
   Induct_on `xs` \\ gvs [StoreEach_def, ptr_eq_free_def]
 QED
 
 Theorem MemEqList_ptr_eq_free:
-  !a xs. ptr_eq_free ns (MemEqList a xs)
+  !c a xs. ptr_eq_free ns (MemEqList c a xs)
 Proof
   Induct_on `xs` \\ gvs [MemEqList_def, ptr_eq_free_def]
 QED
@@ -2333,13 +2334,11 @@ QED
 Theorem StoreAnyConsts_ptr_eq_free:
   !r1 r2 r3 vs v. ptr_eq_free ns (StoreAnyConsts r1 r2 r3 vs v)
 Proof
-  ho_match_mp_tac StoreAnyConsts_ind
-  \\ rw [ptr_eq_free_def, StoreAnyConsts_def]
-  \\ TOP_CASE_TAC
-  \\ simp [ptr_eq_free_def, list_Seq_ptr_eq_free]
-  \\ pairarg_tac
-  \\ gvs [ptr_eq_free_def]
+  Cases_on `v` \\ rw [StoreAnyConsts_def, ptr_eq_free_def]
 QED
+
+val ptr_eq_free_eval_tac = computeLib.RESTR_EVAL_TAC
+  [``int_bitwise$int_or``, ``int_bitwise$int_and``, ``int_bitwise$int_xor``];
 
 Theorem stubs_ptr_eq_free:
   EVERY (λ(n,a,p).
@@ -2348,7 +2347,7 @@ Theorem stubs_ptr_eq_free:
         {Install_location; InstallData_location}) p)
     (stubs c)
 Proof
-  EVAL_TAC \\ rw [] \\ EVAL_TAC
+  ptr_eq_free_eval_tac \\ rw [] \\ ptr_eq_free_eval_tac
 QED
 
 Theorem code_rel_ptr_eq_free:
@@ -2358,8 +2357,8 @@ Theorem code_rel_ptr_eq_free:
 Proof
   rw [code_rel_def, stubs_md_def, code_ptr_eq_free_def, MEM_MAP, EXISTS_PROD]
   \\ assume_tac stubs_ptr_eq_free
-  \\ gvs [EVERY_MEM, FORALL_PROD]
-  \\ res_tac \\ simp []
+  \\ gvs [EVERY_MEM, FORALL_PROD, MEM_MAP, EXISTS_PROD]
+  \\ res_tac \\ simp [] \\ metis_tac []
 QED
 
 Theorem assign_ptr_eq_free:
@@ -2383,7 +2382,7 @@ Proof
   \\ gvs []
   \\ TRY ((rename1 `WordShiftVar64_on_32 sh` ORELSE rename1 `WordShiftVar64 sh`)
           \\ Cases_on `sh`)
-  \\ EVAL_TAC
+  \\ ptr_eq_free_eval_tac
 QED
 
 Theorem assign_ptr_eq_link:

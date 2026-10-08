@@ -10976,7 +10976,7 @@ val init_state_ok_semantics' =
   |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
 Theorem compile_semantics:
-    ^t.code = fromAList (SND (SND (SND (compile asm_conf F code : num list # word_to_stack$config # num list # (num # stackLang$prog) list)))) /\
+    ^t.code = fromAList (SND (SND (SND (compile asm_conf F code : num list # word_to_stack$config # num list # (num # stackLang$prog # metadata) list)))) /\
     k = (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) /\
     init_state_ok asm_conf k t coracle /\
     (ALOOKUP code raise_stub_location = NONE) /\
@@ -11290,7 +11290,8 @@ Proof
   ho_match_mp_tac comp_ind >> rw[]
   >~ [`PtrEq`] >- simp [comp_PtrEq_stack_asm_name]
   >>
-  PairCases_on `kf` >> fs[comp_def,stack_asm_name_def]
+  qmatch_goalsub_rename_tac `FST (_ alloc_kf)` >>
+  PairCases_on `alloc_kf` >> fs[comp_def,stack_asm_name_def]
   >- suspend "Move"
   >- suspend "Inst"
   >- suspend "Return"
@@ -11603,7 +11604,7 @@ QED
 
 Theorem word_to_stack_stack_asm_convs:
   isa_bits c = dimindex (:'a) ∧
-  EVERY (λ(n,m,pwordLang$prog,md).
+  EVERY (λ(n,m,p:wordLang$prog,md).
     full_inst_ok_less c p ∧
     (c.two_reg_arith ⇒ every_inst two_reg_inst p) ∧
     (no_share_inst p ∨ c.ISA ≠ Ag32) ∧

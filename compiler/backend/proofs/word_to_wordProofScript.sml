@@ -811,7 +811,8 @@ Resume compile_single_correct[Install]:
   fs[compile_single_def,shift_seq_def,o_DEF,PAIR_MAP]>>
   conj_tac>- (
     drule_all (Q.INST [`bits` |-> `dimindex(:α)`, `t` |-> `tt`,
-      `k` |-> `kk`, `c` |-> `co`, `a` |-> `aa`] code_rel_union_fromAList)>>
+      `k` |-> `kk`, `c` |-> `co`, `a` |-> `aa`]
+      (INST_TYPE [alpha |-> ``:metadata``] code_rel_union_fromAList))>>
     disch_then(qspecl_then[`tt`,`kk`,`aa`,`(loc,body0,body1,body2)::rest`] assume_tac)>>
     gvs[compile_single_def,fromAList_def])>>
   simp[domain_union]>>AP_TERM_TAC>>

@@ -807,21 +807,21 @@ Proof
 QED
 
 Theorem semantics_Fail[local]:
-  semantics ec ffi ds = Fail ⇔
-  ∃k. SND (evaluate_decs (initial_state ffi k ec) ds) = SOME (Rabort Rtype_error)
+  semantics ec ffi pe ds = Fail ⇔
+  ∃k. SND (evaluate_decs (initial_state ffi k ec pe) ds) = SOME (Rabort Rtype_error)
 Proof
   rw [semantics_def] \\ DEEP_INTRO_TAC some_intro \\ rw [] \\ fs []
 QED
 
 Theorem IMP_semantics_eq_no_fail:
-   eval_sim ffi ds1 ds2 ec ec2 rel T /\ rel ds1 ds2 ==>
-   semantics ec (ffi:'ffi ffi_state) ds1 =
-   semantics ec2 ffi ds2
+   eval_sim ffi pe ds1 ds2 ec ec2 rel T /\ rel ds1 ds2 ==>
+   semantics ec (ffi:'ffi ffi_state) pe ds1 =
+   semantics ec2 ffi pe ds2
 Proof
   rw []
-  \\ Cases_on `semantics ec ffi ds1 = Fail`
+  \\ Cases_on `semantics ec ffi pe ds1 = Fail`
   >- (
-    `semantics ec2 ffi ds2 = Fail` suffices_by simp []
+    `semantics ec2 ffi pe ds2 = Fail` suffices_by simp []
     \\ fs [semantics_Fail, SND_SND_lemma]
     \\ fs [eval_sim_def]
     \\ first_x_assum drule \\ simp []

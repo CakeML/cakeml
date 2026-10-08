@@ -1256,21 +1256,21 @@ Resume evaluate_apply_colour[Inst]:
   exists_tac>>
   Cases_on`i`>> (TRY (Cases_on`a`))>> (TRY(Cases_on`m`))>>
   full_simp_tac(srw_ss())[get_live_def,get_live_inst_def,inst_def,assign_def,word_add_carry_def]
-  >~ [`get_writes (Inst (Arith (Div rd ra rb)))`]
+  >~ [`get_writes bits (Inst (Arith (Div rd ra rb)))`]
   >- inst_arith_tac
-  >~ [`get_writes (Inst (Arith (LongMul rh rl ra rb)))`]
+  >~ [`get_writes bits (Inst (Arith (LongMul rh rl ra rb)))`]
   >- inst_arith_tac
-  >~ [`get_writes (Inst (Arith (LongDiv rq rr rh rl rb)))`]
+  >~ [`get_writes bits (Inst (Arith (LongDiv rq rr rh rl rb)))`]
   >- inst_arith_tac
-  >~ [`get_writes (Inst (Arith (AddCarry rd ra rb rc)))`]
+  >~ [`get_writes bits (Inst (Arith (AddCarry rd ra rb rc)))`]
   >- inst_arith_tac
-  >~ [`get_writes (Inst (Arith (AddOverflow rd ra rb ro)))`]
+  >~ [`get_writes bits (Inst (Arith (AddOverflow rd ra rb ro)))`]
   >- inst_arith_tac
-  >~ [`get_writes (Inst (Arith (SubOverflow rd ra rb ro)))`]
+  >~ [`get_writes bits (Inst (Arith (SubOverflow rd ra rb ro)))`]
   >- inst_arith_tac
-  >~ [`get_writes (Inst (Arith (IMul rd ra rb ro)))`]
+  >~ [`get_writes bits (Inst (Arith (IMul rd ra rb ro)))`]
   >- inst_arith_tac
-  >~ [`get_writes (Inst (Arith (IDiv rq rr ra rb)))`]
+  >~ [`get_writes bits (Inst (Arith (IDiv rq rr ra rb)))`]
   >- inst_arith_tac
   >-
   (rename1 `word_exp st (Const imm)` >>
@@ -2932,7 +2932,7 @@ Proof
       subset_tac>>
     fs[LIST_TO_SET_MAP,INJ_IMP_IMAGE_DIFF])
   >- (
-    qspecl_then [`dimindex (:'a)`,`i`,`live`] mp_tac get_delta_inst_live >>
+    qspecl_then [`bits`,`i`,`live`] mp_tac get_delta_inst_live >>
     simp[] >>
     disch_then (qx_choosel_then [`writes`,`reads`] strip_assume_tac) >>
     fs[] >> drule_all check_clash_tree_delta >> strip_tac >>
@@ -7885,7 +7885,7 @@ Resume ssa_cc_trans_correct[Inst]:
     exists_tac>>
     Cases_on`i`>> (TRY (Cases_on`a`))>> (TRY(Cases_on`m`))>>
     fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,evaluate_def,LET_THM]
-    >~[`every_var _ (Inst (Arith (IMul rd ra rb ro)))`]
+    >~[`every_var _ _ (Inst (Arith (IMul rd ra rb ro)))`]
     >- (
       Cases_on `get_var ra st` >> fs[get_vars_def] >>
       rename1 `get_var ra st = SOME left_value` >>
@@ -7905,7 +7905,7 @@ Resume ssa_cc_trans_correct[Inst]:
       fs[every_var_def,every_var_inst_def] >>
       irule ssa_locals_rel_ignore_insert >> simp[is_phy_var_def] >>
       irule ssa_locals_rel_insert >> simp[])
-    >~[`every_var _ (Inst (Arith (IDiv rq rr ra rb)))`]
+    >~[`every_var _ _ (Inst (Arith (IDiv rq rr ra rb)))`]
     >- (
       Cases_on `get_var ra st` >> fs[get_vars_def] >>
       rename1 `get_var ra st = SOME left_value` >>
@@ -7940,7 +7940,7 @@ Resume ssa_cc_trans_correct[Inst]:
       irule ssa_locals_rel_ignore_insert >> simp[is_phy_var_def] >>
       irule ssa_locals_rel_ignore_insert >> simp[is_phy_var_def] >>
       irule ssa_locals_rel_ignore_insert >> simp[is_phy_var_def])
-    >~[`every_var _ (Inst (asm$Const rd literal))`]
+    >~[`every_var _ _ (Inst (asm$Const rd literal))`]
     >- (
       Cases_on `word_exp st (Const literal)` >>
       fs[set_var_def,word_exp_def] >>

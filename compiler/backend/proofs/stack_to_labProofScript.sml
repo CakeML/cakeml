@@ -3146,29 +3146,29 @@ Definition full_make_init_def:
 End
 
 Theorem full_make_init_compile_oracle:
-   FST (full_make_init stack_conf data_conf max_heap sp offset bitmaps code s4
+   FST (full_make_init aw stack_conf data_conf max_heap sp offset bitmaps code s4
           save_regs data_sp coracle) =
-   FST (full_make_init stack_conf data_conf max_heap sp offset bitmaps code s4
+   FST (full_make_init aw stack_conf data_conf max_heap sp offset bitmaps code s4
           save_regs data_sp coracle') with compile_oracle := coracle
 Proof
   simp [full_make_init_def,stack_allocProofTheory.make_init_def]
-  \\ qmatch_goalsub_abbrev_tac `make_init_any GGC MH BM DSP CO1 JP OFF SP CD S2`
+  \\ qmatch_goalsub_abbrev_tac `make_init_any aw GGC MH BM DSP CO1 JP OFF SP CD S2`
   \\ qabbrev_tac `CO1' = (I ## MAP prog_comp ## I) o coracle'`
-  \\ qmatch_goalsub_abbrev_tac `make_init_any GGC MH BM DSP CO1' JP OFF SP CD S2'`
-  \\ `make_init_any GGC MH BM DSP CO1 JP OFF SP CD S2 =
-      make_init_any GGC MH BM DSP CO1' JP OFF SP CD S2' with
+  \\ qmatch_goalsub_abbrev_tac `make_init_any aw GGC MH BM DSP CO1' JP OFF SP CD S2'`
+  \\ `make_init_any aw GGC MH BM DSP CO1 JP OFF SP CD S2 =
+      make_init_any aw GGC MH BM DSP CO1' JP OFF SP CD S2' with
         compile_oracle := CO1`
        by (irule make_init_any_oracle_cong
-           \\ qexists_tac `(I ## MAP (prog_comp JP OFF SP) ## I) o CO1`
+           \\ qexists_tac `(I ## MAP (prog_comp aw JP OFF SP) ## I) o CO1`
            \\ simp [Abbr `S2`,Abbr `S2'`,stack_namesProofTheory.make_init_def,
                     make_init_def])
   \\ simp []
 QED
 
 Theorem full_make_init_lab_oracle:
-   full_make_init stack_conf data_conf max_heap sp offset bitmaps code
+   full_make_init aw stack_conf data_conf max_heap sp offset bitmaps code
      (s4 with compile_oracle := co) save_regs data_sp coracle =
-   full_make_init stack_conf data_conf max_heap sp offset bitmaps code s4
+   full_make_init aw stack_conf data_conf max_heap sp offset bitmaps code s4
      save_regs data_sp coracle
 Proof
   simp [full_make_init_def, make_init_def]

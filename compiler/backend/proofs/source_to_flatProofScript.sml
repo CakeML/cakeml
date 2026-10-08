@@ -6185,7 +6185,7 @@ Theorem compile_flat_correct:
    semantics ec2 ffi pe (compile_flat cfg prog)
 Proof
   rw [compile_flat_def]
-  \\ drule_then (qspecl_then [‘ffi’, ‘prog’] assume_tac)
+  \\ drule_then (qspecl_then [‘pe’, ‘ffi’, ‘prog’] assume_tac)
        flat_ticksProofTheory.remove_ticks_decs_semantics
   \\ metis_tac [flat_patternProofTheory.compile_decs_semantics]
 QED
@@ -6210,7 +6210,7 @@ Proof
   \\ imp_res_tac compile_prog_semantics \\ rfs []
   \\ ‘c'.pattern_cfg = cfg.pattern_cfg’
     by (fs [compile_prog_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [])
-  \\ ‘semantics ec1 s.ffi p' ≠ Fail’ by (strip_tac \\ fs [])
+  \\ ‘semantics ec1 s.ffi s.ptr_eq_oracle p' ≠ Fail’ by (strip_tac \\ fs [])
   \\ drule_all compile_flat_correct
   \\ disch_then (assume_tac o GSYM) \\ fs []
 QED

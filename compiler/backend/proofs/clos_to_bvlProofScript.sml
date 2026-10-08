@@ -1627,7 +1627,8 @@ Proof
         (∀x y bs. FLOOKUP f x = SOME y ⇒
                   FLOOKUP t1.refs y ≠ SOME (ByteArray T bs))`
           by (fs [state_rel_def] \\ metis_tac[])
-    \\ old_drule (do_eq |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> GEN_ALL)
+    \\ old_drule (do_eq |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |>
+                Q.GEN `c` |> Q.ISPEC `t1.code` |> GEN_ALL)
     \\ disch_then old_drule \\ strip_tac
     \\ gvs []
     \\ fs [state_rel_def]
@@ -6500,7 +6501,7 @@ Theorem chain_exps_semantics:
   ⇒
    ∃e.
    semantics ffi max_app (alist_to_fmap (chain_exps start es) ⊌ code) co cc pe [e] =
-   semantics ffi max_app code co cc es ∧
+   semantics ffi max_app code co cc pe es ∧
    ∃md. ALOOKUP (chain_exps start es) start = SOME (0,e,md)
 Proof
   rw[]

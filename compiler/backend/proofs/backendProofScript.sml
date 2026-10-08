@@ -638,7 +638,7 @@ QED
 Theorem cake_configs_state_prefix[local]:
   ∀i src src'.
     (∀j. j < i ⇒ src j = src' j) ⇒
-    cake_configs (:\'a) asm_conf c src i = cake_configs (:\'a) asm_conf c src' i
+    cake_configs (:'a) asm_conf c src i = cake_configs (:'a) asm_conf c src' i
 Proof
   simp [cake_configs_def]
   \\ Induct \\ simp [state_orac_states_def]
@@ -653,21 +653,21 @@ QED
 
 Theorem cake_configs_prefix:
   (∀j. j < i ⇒ src j = src' j) ⇒
-  FST (cake_orac (:\'a) asm_conf c src f g i) = FST (cake_orac (:\'a) asm_conf c src' f g i)
+  FST (cake_orac (:'a) asm_conf c src f g i) = FST (cake_orac (:'a) asm_conf c src' f g i)
 Proof
   rw [cake_orac_def]
   \\ rpt (pairarg_tac \\ fs [])
-  \\ `cake_configs (:\'a) asm_conf c src i = cake_configs (:\'a) asm_conf c src' i` by
+  \\ `cake_configs (:'a) asm_conf c src i = cake_configs (:'a) asm_conf c src' i` by
        (irule cake_configs_state_prefix \\ simp [])
   \\ fs []
 QED
 
 Theorem cake_orac_prefix:
   (∀j. j ≤ i ⇒ src j = src' j) ⇒
-  cake_orac (:\'a) asm_conf c src f g i = cake_orac (:\'a) asm_conf c src' f g i
+  cake_orac (:'a) asm_conf c src f g i = cake_orac (:'a) asm_conf c src' f g i
 Proof
   rw [cake_orac_def]
-  \\ `cake_configs (:\'a) asm_conf c src i = cake_configs (:\'a) asm_conf c src' i` by
+  \\ `cake_configs (:'a) asm_conf c src i = cake_configs (:'a) asm_conf c src' i` by
        (irule cake_configs_state_prefix \\ rw []
         \\ first_x_assum irule \\ simp [])
   \\ `src i = src' i` by simp []
@@ -3341,7 +3341,7 @@ Theorem put_oracle_syntax[local]:
   (I ## SND) o
     (source_evalProof$orac_s (source_evalProof$put_oracle ci
        ((\ (cfg,id,ds). (id, ci.config_v cfg, ds)) o
-        cake_orac (:\'a) asm_conf c' syntax I (\ps. (ps.env_id,ps.source_prog))))).oracle =
+        cake_orac (:'a) asm_conf c' syntax I (\ps. (ps.env_id,ps.source_prog))))).oracle =
   syntax
 Proof
   simp [source_evalProofTheory.put_oracle_def,
@@ -3634,33 +3634,61 @@ Theorem source_to_flat_semantics_no_eval:
   c.source_conf = prim_src_config ==>
   semantics_determ (s0 with ptr_eq_oracle := po) env prog (flatSem$semantics
     (mk_flat_install_conf
-        (backend_from_flat_tuple_cc (:\'a) asm_conf c)
-        (cake_orac (:\'a) asm_conf c' syn (SND o config_tuple1) (\ps. ps.flat_prog)))
+        (backend_from_flat_tuple_cc (:'a) asm_conf c)
+        (cake_orac (:'a) asm_conf c' syn (SND o config_tuple1) (\ps. ps.flat_prog)))
     s0.ffi po p')
 Proof
   rw []
   \\ fs [Q.ISPEC `compile prim_src_config _` PAIR_FST_SND_EQ]
   \\ rveq \\ fs []
-  \\ `flat_patternProof$install_conf_rel
+  \\ qabbrev_tac ‘prog_co = state_co (λc (env_id,decs).
+                         source_to_flat$inc_compile_prog env_id c (source_to_source$inc_compile decs))
+                (cake_orac (:'a) asm_conf c' syn
+                    config_tuple1 (\ps. (ps.env_id, ps.source_prog)))’
+  \\ reverse (qsuff_tac
+    `flat_ticksProof$install_conf_rel
+        (mk_flat_install_conf
+            (pure_cc (source_to_flat$compile_flat prim_src_config.pattern_cfg)
+                (backend_from_flat_tuple_cc (:'a) asm_conf c)) prog_co)
+        (mk_flat_install_conf
+            (pure_cc (MAP (flat_pattern$compile_dec prim_src_config.pattern_cfg))
+                (backend_from_flat_tuple_cc (:'a) asm_conf c))
+            (pure_co flat_ticks$remove_ticks_decs o prog_co)) ∧
+     flat_patternProof$install_conf_rel
         prim_src_config.pattern_cfg
         (mk_flat_install_conf
             (pure_cc (MAP (flat_pattern$compile_dec prim_src_config.pattern_cfg))
-                (backend_from_flat_tuple_cc (:\'a) asm_conf c))
-            (state_co (λc (env_id,decs).
-                         source_to_flat$inc_compile_prog env_id c (source_to_source$compile decs))
-                (cake_orac (:\'a) asm_conf c' syn config_tuple1 (\ps. (ps.env_id, ps.source_prog)))))
-        (mk_flat_install_conf (backend_from_flat_tuple_cc (:\'a) asm_conf c)
-            (cake_orac (:\'a) asm_conf c' syn (SND ∘ config_tuple1) (λps. ps.flat_prog)))` by
-    (simp [flat_patternProofTheory.install_conf_rel_def, mk_flat_install_conf_def]
-     \\ drule state_co_inc_compile_has_flat_comp
-     \\ simp [GSYM source_to_flat_orac_eq])
+                (backend_from_flat_tuple_cc (:'a) asm_conf c))
+            (pure_co flat_ticks$remove_ticks_decs o prog_co))
+        (mk_flat_install_conf (backend_from_flat_tuple_cc (:'a) asm_conf c)
+            (cake_orac (:'a) asm_conf c' syn
+                (SND ∘ config_tuple1) (λps. ps.flat_prog)))`
+    )
+  >- (
+    simp [flat_ticksProofTheory.install_conf_rel_def,
+          flat_patternProofTheory.install_conf_rel_def, mk_flat_install_conf_def]
+    \\ conj_tac
+    >- simp [FUN_EQ_THM, pure_cc_def, source_to_flatTheory.compile_flat_def]
+    \\ fs [markerTheory.Abbrev_def]
+    \\ drule state_co_inc_compile_has_flat_comp
+    \\ simp [GSYM source_to_flat_orac_eq]
+    \\ simp [FUN_EQ_THM, pure_co_def, source_to_flatTheory.compile_flat_def,
+             PAIR_MAP]
+  )
+  \\ strip_tac
+  \\ qunabbrev_tac ‘prog_co’
+  \\ `env.v = nsEmpty /\ s0.eval_state = NONE` by
+        gvs [prim_sem_env_eq, namespaceTheory.nsEmpty_def]
   \\ simp [Once (GSYM source_to_source_semantics_determ_equiv)]
   \\ irule (source_to_flatProofTheory.compile_semantics
         |> Q.INST [`s` |-> `_ with ptr_eq_oracle := _`]
         |> SIMP_RULE (srw_ss ()) [])
   \\ simp [source_to_source_semantics_determ_equiv]
+  \\ qpat_x_assum `env.v = _` kall_tac
+  \\ qpat_x_assum `s0.eval_state = _` kall_tac
   \\ qexists_tac `NONE`
   \\ simp [source_to_flatProofTheory.precondition_def]
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
   \\ goal_assum (first_assum o mp_then Any mp_tac)
   \\ simp [source_to_flatProofTheory.precondition1_def]
   \\ fs [prim_sem_env_eq]
@@ -3832,15 +3860,15 @@ Theorem flat_to_data_semantics:
   ¬semantics_determ s env prog Fail ∧
   semantics_determ s env prog
     (flatSem$semantics
-       (mk_flat_install_conf (backend_from_flat_tuple_cc (:\'a) asm_conf c)
-          (cake_orac (:\'a) asm_conf c' syn (SND ∘ config_tuple1) (λps. ps.flat_prog)))
+       (mk_flat_install_conf (backend_from_flat_tuple_cc (:'a) asm_conf c)
+          (cake_orac (:'a) asm_conf c' syn (SND ∘ config_tuple1) (λps. ps.flat_prog)))
        s0.ffi po p') ∧
   backend_config_ok asm_conf c ⇒
   semantics_determ s env prog =
   {dataSem$semantics ffi (fromAList (FST (SND (to_data c prog))))
-     (cake_orac (:\'a) asm_conf c' syn (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+     (cake_orac (:'a) asm_conf c' syn (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
         (λps. ps.data_prog))
-     (backend_from_data_tuple_cc (:\'a) asm_conf c) po dataProps$zero_limits LN
+     (backend_from_data_tuple_cc (:'a) asm_conf c) po dataProps$zero_limits LN
      InitGlobals_location}
 Proof
   strip_tac
@@ -3952,12 +3980,12 @@ QED
    oracle: neither make_init reads the oracle of the state it is built from *)
 Theorem word_init_compile_oracle[local]:
   word_to_stackProof$make_init ac kk
-    (FST (stack_to_labProof$full_make_init sc dc mh sp off bm scode
+    (FST (stack_to_labProof$full_make_init aw sc dc mh sp off bm scode
             (lab_to_targetProof$make_init mconf ffi tst mm dmn sdmn ms lcode lcmp
                cbpos cbsp lo) srg dsp so))
     wcode wo pe =
   word_to_stackProof$make_init ac kk
-    (FST (stack_to_labProof$full_make_init sc dc mh sp off bm scode
+    (FST (stack_to_labProof$full_make_init aw sc dc mh sp off bm scode
             (lab_to_targetProof$make_init mconf ffi tst mm dmn sdmn ms lcode lcmp
                cbpos cbsp lo') srg dsp so'))
     wcode wo' pe with compile_oracle := wo
@@ -4014,8 +4042,8 @@ Proof
   `∀po.
      semantics_determ (add_eval_state ev s0 with ptr_eq_oracle := po) env prog
        (flatSem$semantics
-          (mk_flat_install_conf (backend_from_flat_tuple_cc (:\'a) mc.target.config c)
-             (cake_orac (:\'a) mc.target.config c' (Syn po) (SND ∘ config_tuple1)
+          (mk_flat_install_conf (backend_from_flat_tuple_cc (:'a) mc.target.config c)
+             (cake_orac (:'a) mc.target.config c' (Syn po) (SND ∘ config_tuple1)
                 (λps. ps.flat_prog))) s0.ffi po flat_code)` by
     (simp [Abbr `Syn`]
      \\ gen_tac
@@ -4024,15 +4052,15 @@ Proof
      \\ asm_exists_tac \\ simp [])
   \\ `∀po. semantics_determ (add_eval_state ev s0 with ptr_eq_oracle := po) env prog =
         {dataSem$semantics ffi (fromAList (FST (SND (to_data c prog))))
-           (cake_orac (:\'a) mc.target.config c' (Syn po)
+           (cake_orac (:'a) mc.target.config c' (Syn po)
               (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.data_prog))
-           (backend_from_data_tuple_cc (:\'a) mc.target.config c) po dataProps$zero_limits LN
+           (backend_from_data_tuple_cc (:'a) mc.target.config c) po dataProps$zero_limits LN
            InitGlobals_location}` by
     (gen_tac \\ irule flat_to_data_semantics \\ simp [backend_config_ok_def])
   \\ `∀po. dataSem$semantics ffi (fromAList (FST (SND (to_data c prog))))
-           (cake_orac (:\'a) mc.target.config c' (Syn po)
+           (cake_orac (:'a) mc.target.config c' (Syn po)
               (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.data_prog))
-           (backend_from_data_tuple_cc (:\'a) mc.target.config c) po dataProps$zero_limits LN
+           (backend_from_data_tuple_cc (:'a) mc.target.config c) po dataProps$zero_limits LN
            InitGlobals_location ≠ Fail` by
     (gen_tac
      \\ qpat_x_assum `∀po. ¬semantics_determ _ _ _ Fail` (qspec_then `po` mp_tac)
@@ -4065,19 +4093,9 @@ Proof
   qhdtm_x_assum`from_word`mp_tac \\
   simp[from_word_def] \\ pairarg_tac \\ fs[] \\ strip_tac \\
 
-  qmatch_goalsub_abbrev_tac`cake_orac (:'a) _ _ orac_syntax _ (\ps. ps.bvi_prog)` \\
-  simp [simple_orac_eqs] \\
-  qabbrev_tac `data_oracle = cake_orac (:'a) mc.target.config c' orac_syntax
-        (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.data_prog)` \\
-  qabbrev_tac `word_oracle = cake_orac (:'a) mc.target.config c' orac_syntax
-        (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.word_prog)` \\
   qmatch_assum_rename_tac`compile _ _ p5 = (bm,c6,_,p6)` \\
   fs[from_stack_def,from_lab_def] \\
 
-  qabbrev_tac `stack_oracle = cake_orac (:'a) mc.target.config c' orac_syntax
-        (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. (ps.stack_prog, (MAP n2w ps.cur_bm:'a word list)))` \\
-  qabbrev_tac `lab_oracle = cake_orac (:'a) mc.target.config c' orac_syntax
-        (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.lab_prog)` \\
   qmatch_assum_abbrev_tac`_ _ (compile _ c4.lab_conf p7) = SOME (bytes,bitmaps,c')`
   \\ drule attach_bitmaps_SOME
   \\ disch_tac \\ fs []
@@ -4085,7 +4103,7 @@ Proof
   \\ fs [targetSemTheory.installed_def]
   \\ qmatch_assum_abbrev_tac `good_init_state mc ms bytes cbspace tar_st m dm sdm`
   \\ qpat_x_assum `Abbrev(p7 = _)` mp_tac
-  \\ qmatch_goalsub_abbrev_tac `compile _ _ _ stk stoff`
+  \\ qmatch_goalsub_abbrev_tac `compile _ _ _ _ stk stoff`
   \\ strip_tac
   \\ qabbrev_tac `kkk = stk - 2` >>
   qabbrev_tac `c4_data_conf =
@@ -4094,20 +4112,20 @@ Proof
         has_fp_tern := (mc.target.config.ISA = ARMv7 /\ 2 < mc.target.config.fp_reg_count) |>)`
   \\ qmatch_asmsub_abbrev_tac `compile mc.target.config c prog = SOME (bytes,bitmaps,cnf)`
   \\ qabbrev_tac `wst = λs. word_to_stackProof$make_init mc.target.config kkk
-       (FST (stack_to_labProof$full_make_init c4.stack_conf c4.data_conf
-               (2 * max_heap_limit (:'a) c4_data_conf - 1) stk stoff bitmaps p6
+       (FST (stack_to_labProof$full_make_init (arch_wordsize mc.target.config.ISA) c4.stack_conf c4.data_conf
+               (2 * max_heap_limit (dimindex (:'a)) c4_data_conf - 1) stk stoff (MAP n2w bitmaps) p6
                (lab_to_targetProof$make_init mc ffi tar_st m (dm ∩ byte_aligned)
                   (sdm ∩ byte_aligned) ms p7 (lab_to_target$compile mc.target.config)
                   (mc.target.get_pc ms + n2w (LENGTH bytes)) cbspace
-                  (cake_orac (:\'a) mc.target.config cnf s
+                  (cake_orac (:'a) mc.target.config cnf s
                      (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
                      (λps. ps.lab_prog)))
                (set mc.callee_saved_regs) data_sp
-               (cake_orac (:\'a) mc.target.config cnf s
+               (cake_orac (:'a) mc.target.config cnf s
                   (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
-                  (λps. (ps.stack_prog, ps.cur_bm)))))
+                  (λps. (ps.stack_prog, (MAP n2w ps.cur_bm:'a word list))))))
        (fromAList p5)
-       (cake_orac (:\'a) mc.target.config cnf s
+       (cake_orac (:'a) mc.target.config cnf s
           (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.word_prog))
        (data_to_word_memoryProof$word_ptr_eq c4_data_conf)`
   \\ sg `∃po.
@@ -4121,7 +4139,7 @@ Proof
     qexists_tac `wordProps$ptr_eq_fix Syn wst InitGlobals_location`
     \\ irule wordPropsTheory.ptr_eq_fix_thm
     \\ conj_tac >- simp []
-    \\ qexists_tac `λs. cake_orac (:\'a) mc.target.config cnf s
+    \\ qexists_tac `λs. cake_orac (:'a) mc.target.config cnf s
           (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.word_prog)`
     \\ qexists_tac `wst (K ((0,0),[]))`
     \\ rpt conj_tac
@@ -4131,13 +4149,13 @@ Proof
     >- (rpt strip_tac \\ BETA_TAC \\ irule cake_orac_prefix \\ simp [])
     >- (simp [Abbr `wst`] \\ gen_tac \\ MATCH_ACCEPT_TAC word_init_compile_oracle)
     \\ simp [Abbr `wst`, word_to_stackProofTheory.make_init_def])
-  \\ qabbrev_tac `data_oracle = cake_orac (:\'a) mc.target.config cnf (Syn po)
+  \\ qabbrev_tac `data_oracle = cake_orac (:'a) mc.target.config cnf (Syn po)
         (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.data_prog)`
-  \\ qabbrev_tac `word_oracle = cake_orac (:\'a) mc.target.config cnf (Syn po)
+  \\ qabbrev_tac `word_oracle = cake_orac (:'a) mc.target.config cnf (Syn po)
         (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.word_prog)`
-  \\ qabbrev_tac `stack_oracle = cake_orac (:\'a) mc.target.config cnf (Syn po)
-        (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. (ps.stack_prog, ps.cur_bm))`
-  \\ qabbrev_tac `lab_oracle = cake_orac (:\'a) mc.target.config cnf (Syn po)
+  \\ qabbrev_tac `stack_oracle = cake_orac (:'a) mc.target.config cnf (Syn po)
+        (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. (ps.stack_prog, (MAP n2w ps.cur_bm:'a word list)))`
+  \\ qabbrev_tac `lab_oracle = cake_orac (:'a) mc.target.config cnf (Syn po)
         (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.lab_prog)`
   \\ qunabbrev_tac `cnf`
   \\ qabbrev_tac`lab_st:('a,lab_to_target$config,'ffi) labSem$state =
@@ -4771,7 +4789,7 @@ Resume compile_correct'[stack_init]:
         Abbr `data_oracle`]
     \\ simp [GSYM simple_orac_eqs, ensure_fp_conf_ok_def, backend_from_data_tuple_cc_def]
     \\ rpt gen_tac
-    \\ simp[EVAL``(word_to_stackProof$make_init _ a b c e).compile``]
+    \\ simp[EVAL``(word_to_stackProof$make_init _ a b c e pe).compile``]
     \\ rfs[Abbr`stack_st`]
     \\ qhdtm_assum`stack_to_labProof$full_make_init`(mp_tac o Q.AP_TERM`FST`)
     \\ simp_tac std_ss []
