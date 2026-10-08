@@ -809,9 +809,11 @@ Resume compile_single_correct[Install]:
   PairCases_on`body`>>
   fs[compile_single_def,shift_seq_def,o_DEF,PAIR_MAP]>>
   conj_tac>- (
-    drule_all (Q.INST [`bits` |-> `dimindex(:α)`, `t` |-> `tt`,
-      `k` |-> `kk`, `c` |-> `co`, `a` |-> `aa`] code_rel_union_fromAList)>>
-    disch_then(qspecl_then[`tt`,`kk`,`aa`,`(loc,body0,body1,body2)::rest`] assume_tac)>>
+    qspecl_then [`st.code`,`l`,`(loc,body0,body1,body2)::rest`] mp_tac
+      (Q.INST [`bits` |-> `dimindex(:α)`, `t` |-> `tt`,
+        `k` |-> `kk`, `c` |-> `co`, `a` |-> `aa`]
+        (INST_TYPE [alpha |-> ``:metadata``] code_rel_union_fromAList))>>
+    impl_tac >- gvs[] >> strip_tac >>
     gvs[compile_single_def,fromAList_def])>>
   simp[domain_union]>>AP_TERM_TAC>>
   simp[domain_fromAList]>>AP_TERM_TAC>>
@@ -1753,7 +1755,7 @@ Finalise no_install_no_alloc_compile_single_correct;
                      no_alloc_find_code)>>gs[])>>
        rw[])>>
      srw_tac[][]>>
-     Q.ISPECL_THEN [`n`,`md`,`q'`,`LENGTH q`,`stt with permute:=perm'`]
+     Q.ISPECL_THEN [`n`,`md`,`bits`,`q'`,`LENGTH q`,`stt with permute:=perm'`]
       mp_tac (Q.GENL [`name`,`md`] compile_single_lem) >>
      impl_tac >-
       (full_simp_tac(srw_ss())[Abbr`stt`,call_env_def,flush_state_def] >>
@@ -1815,7 +1817,7 @@ Finalise no_install_no_alloc_compile_single_correct;
                    no_alloc_find_code)>>gs[])>>
      rw[])>>
    rw[]>>
-   Q.ISPECL_THEN [`n`,`md`,`q'`,`LENGTH q`,`stt with permute:=perm'`] mp_tac
+   Q.ISPECL_THEN [`n`,`md`,`bits`,`q'`,`LENGTH q`,`stt with permute:=perm'`] mp_tac
     (Q.GENL [`name`,`md`] compile_single_lem)>>
    impl_tac>-
     (fs[Abbr`stt`,call_env_def] >>

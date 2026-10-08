@@ -353,7 +353,7 @@ Proof
   \\ simp [Once wordSemTheory.word_exp_def,
            ``wordSem$word_exp ss (Var reg)``
            |> REWRITE_CONV [wordSemTheory.word_exp_def], get_var_set_var,
-           wordSemTheory.the_words_def, wordLangTheory.word_op_def]
+           wordSemTheory.the_words_def, wordSemTheory.word_op_def]
   \\ simp [Once wordSemTheory.evaluate_def, wordSemTheory.get_var_imm_def,
            get_var_set_var, integer_wordTheory.i2w_0,
            small_int_Smallnum_xor_sign, EQ_SYM_EQ]
@@ -374,8 +374,8 @@ Proof
            |> REWRITE_CONV [wordSemTheory.word_exp_def],
            ``wordSem$word_exp ss (Const ww)``
            |> REWRITE_CONV [wordSemTheory.word_exp_def], get_var_set_var,
-           wordSemTheory.the_words_def, wordLangTheory.word_op_def]
-  \\ simp [Smallnum_i2w, integer_wordTheory.word_i2w_add,
+           wordSemTheory.the_words_def, wordSemTheory.word_op_def]
+  \\ simp [Smallnum_i2w, integer_wordTheory.i2w_pos, integer_wordTheory.word_i2w_add,
            integerTheory.INT_LDISTRIB, integerTheory.INT_ADD_COMM]
   \\ PURE_REWRITE_TAC [GSYM integer_wordTheory.i2w_minus_1,
                        integer_wordTheory.word_i2w_add, integerTheory.int_sub]

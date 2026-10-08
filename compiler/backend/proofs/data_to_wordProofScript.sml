@@ -2572,7 +2572,7 @@ Theorem data_to_word_compile_conventions:
     good_dimindex(:'a) ==>
   let (c,p) = compile data_conf wc ac prog in
   EVERY (λ(n,m,prog,md).
-    flat_exp_conventions (progwordLang$prog) ∧
+    flat_exp_conventions (prog:wordLang$prog) ∧
     post_alloc_conventions (isa_bits ac) (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
     (isa_bits ac = dimindex (:'a) ∧
     arch_width_bits data_conf.arch_width = isa_bits ac ∧

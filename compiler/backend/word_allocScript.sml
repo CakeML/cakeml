@@ -1603,11 +1603,11 @@ Proof
   >> every_case_tac
   >> fs[get_forced_def]
   >> gvs[]
+  >>~- ([`(if c.ISA = x86_64 ∧ _ then [(r,r)] else []) = []`],
+        IF_CASES_TAC >> gvs[])
   >> rpt(POP_ASSUM MP_TAC)
   >> (fn (asms,g) => (asms,g) |> EVERY(map UNDISCH_TAC asms))
   >> Q.SPEC_TAC (`acc`,`acc`) >> Q.SPEC_TAC (`prog`,`prog`) >> Q.SPEC_TAC (`c`,`c`)
-  >>~- ([`_ = Inst (Arith (IDiv _ _ _ _))`],
-        rpt strip_tac >> IF_CASES_TAC >> gvs[])
   >> ho_match_mp_tac (theorem "get_forced_ind")
   >> rpt strip_tac
   >> fs[get_forced_def]
