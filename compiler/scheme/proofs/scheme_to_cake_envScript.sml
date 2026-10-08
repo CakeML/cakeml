@@ -55,26 +55,13 @@ fun lookup_cons str = let
 *)
 
 Theorem example =
-  “nsLookup_Short scheme_to_cake_env_env.c «SNum»”
-  |> SCONV [nsLookup_write_cons_eqs,fetch "-" "scheme_to_cake_env_env_def" ,ALOOKUP_def,
-            alist_treeTheory.option_choice_f_def]
+  “nsLookup_Short scheme_to_cake_env_env_1.c «SNum»”
+  |> nsLookup_conv
   |> SRULE [nsLookup_Short_def];
 
 Theorem example1 =
-  “nsLookup scheme_to_cake_env.c (Short «SNum»)”
-  |> SCONV [scheme_to_cake_env_def,merge_env_def,nsLookup_nsAppend]
-  |> SRULE [Once most_scheme_init_env_defs]
-  |> SRULE [Once most_scheme_init_env_defs]
-  |> SRULE [Once most_scheme_init_env_defs]
-  |> SRULE [Once most_scheme_init_env_defs]
-  |> SRULE [Once most_scheme_init_env_defs]
-  |> SRULE [Once most_scheme_init_env_defs]
-  |> SRULE [Once most_scheme_init_env_defs]
-  |> SRULE [Once most_scheme_init_env_defs]
-  |> SRULE [Once most_scheme_init_env_defs]
-  |> SRULE [Once most_scheme_init_env_defs]
-  |> SRULE [Once most_scheme_init_env_defs]
-  |> SRULE [Once most_scheme_init_env_defs]
-  |> SRULE [example];
+  “nsLookup_Short scheme_to_cake_env.c «SNum»”
+  |> (REWRITE_CONV [scheme_to_cake_env_def] THENC nsLookup_conv)
+  |> SRULE [nsLookup_Short_def];
 
 end
