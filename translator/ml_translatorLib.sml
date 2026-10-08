@@ -5058,7 +5058,5 @@ val translate = fn d => Profile.profile "translate" translate d
 val translate_no_ind = fn d => Profile.profile "translate_no_ind" translate_no_ind d
 val register_type = fn t => Profile.profile "register_type" register_type t
 val abs_register_type = fn t => Profile.profile "abs_register_type" abs_register_type t
-val hol2deep = fn t => Profile.profile "hol2deep" hol2deep t
-val hol2val = fn t => Profile.profile "hol2val" hol2val t
 
 end

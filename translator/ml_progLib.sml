@@ -1151,7 +1151,6 @@ end
 
 (* PROFILE *)
 val nsLookup_conv = Profile.profile "nsLookup_conv" nsLookup_conv
-val nsLookup_tree_conv = Profile.profile "nsLookup_tree_conv" nsLookup_tree_conv
 
 val () = [nsLookup_Mod1_tm, nsLookup_Short_tm]
   |> map (fn t => (t, 2, QCHANGED_CONV nsLookup_conv)) |> computeLib.add_convs
@@ -1445,17 +1444,6 @@ fun close_local_blocks code = case get_block_names code of
   | ("Local", "local") :: _ => open_local_in_block code |> close_local_block |> close_local_blocks
   | _ => code
 
-(* PROFILE: rebind so that internal callers (add_dec) hit the profiled versions *)
-val add_Dlet    = fn t => fn s => fn st => Profile.profile "add_Dlet"    (fn () => add_Dlet t s st) ()
-val add_Dtype   = fn l => fn t => fn st => Profile.profile "add_Dtype"   (fn () => add_Dtype l t st) ()
-val add_Dletrec = fn l => fn f => fn n => fn st => Profile.profile "add_Dletrec" (fn () => add_Dletrec l f n st) ()
-val add_Dexn    = fn l => fn n => fn t => fn st => Profile.profile "add_Dexn" (fn () => add_Dexn l n t st) ()
-val add_Dtabbrev = fn l => fn a => fn b => fn c => fn st => Profile.profile "add_Dtabbrev" (fn () => add_Dtabbrev l a b c st) ()
-val add_Dlet_Fun = fn l => fn n => fn v => fn e => fn s => fn st => Profile.profile "add_Dlet_Fun" (fn () => add_Dlet_Fun l n v e s st) ()
-val add_Dlet_Var_Var = fn l => fn n => fn vn => fn st => Profile.profile "add_Dlet_Var_Var" (fn () => add_Dlet_Var_Var l n vn st) ()
-val add_Dlet_Var_Ref_Var = fn l => fn n => fn vn => fn vnm => fn st => Profile.profile "add_Dlet_Var_Ref_Var" (fn () => add_Dlet_Var_Ref_Var l n vn vnm st) ()
-val add_Denv = fn t => fn s => fn st => Profile.profile "add_Denv" (fn () => add_Denv t s st) ()
-
 (*
 val dec_tm = dec1_tm
 *)
@@ -1576,10 +1564,6 @@ fun add_prog prog_tm pick_name s = let
   val ts = fst (listSyntax.dest_list prog_tm)
   in remove_snocs (foldl (fn (x, y) => add_dec x pick_name y) s ts) end
 
-(* PROFILE *)
-val add_dec  = fn d => fn p => fn st => Profile.profile "add_dec"  (fn () => add_dec d p st) ()
-val add_prog = fn p => fn pn => fn st => Profile.profile "add_prog" (fn () => add_prog p pn st) ()
-
 fun pack_ml_prog_state (ML_code (ss,envs,vs,th)) =
   pack_4tuple (pack_list pack_thm) (pack_list pack_thm)
     (pack_list pack_thm) pack_thm (ss, envs, vs, th)
@@ -1645,18 +1629,16 @@ val th = get_env s
 
 *)
 
-(* PROFILE: dump on exit *)
-
-(* Phase timing: measure script work vs theory export. *)
-local
+(* If CAKEML_PROFILE names a file, append each theory's script/export
+   phase times and Profile results to it on exit. *)
+val () = case OS.Process.getEnv "CAKEML_PROFILE" of NONE => () | SOME file => let
   val mlpL_load_time = Time.now ()
   val export_start = ref NONE : Time.time option ref
-in
   val () = Theory.register_hook ("ml_progLib_profile_phase",
     fn TheoryDelta.ExportTheory _ =>
       (case !export_start of NONE => export_start := SOME (Time.now ()) | _ => ())
     | _ => ())
-  val () = OS.Process.atExit (fn () =>
+  in OS.Process.atExit (fn () =>
     let
       val thy = Theory.current_theory () handle _ => "?"
       val now = Time.now ()
@@ -1666,15 +1648,14 @@ in
       val t_export = case !export_start of
         SOME t => Time.toReal (Time.- (now, t))
       | NONE => 0.0
-      val out = TextIO.openAppend "/tmp/ml_progLib_profile.log"
+      val out = TextIO.openAppend file
     in
-      TextIO.output (out, "=== " ^ thy ^ " (cakeml-3) ===\n");
+      TextIO.output (out, "=== " ^ thy ^ " ===\n");
       TextIO.output (out, "[phase] script=" ^ Real.fmt (StringCvt.FIX (SOME 2)) t_script
         ^ "s  export=" ^ Real.fmt (StringCvt.FIX (SOME 2)) t_export ^ "s\n");
       Profile.output_profile_results out (Profile.results ());
       TextIO.output (out, "\n");
       TextIO.closeOut out
-    end handle _ => ())
-end
+    end handle _ => ()) end
 
 end
