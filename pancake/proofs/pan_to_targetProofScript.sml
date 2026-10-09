@@ -63,10 +63,12 @@ Proof
   \\ drule stack_to_labProofTheory.stack_to_lab_stack_good_handler_labels
   \\ simp []
   \\ disch_then match_mp_tac
-  \\ drule pan_to_word_good_handlers
-  \\ disch_tac
+  \\ ‘EVERY (λ(n,m,pp). word_good_handlers n pp)
+        (pan_to_word_compile_prog asm_conf3.ISA pan_prog)’ by
+    (metis_tac [pan_to_word_good_handlers])
   \\ ‘EVERY (λ(n,m,pp,md). word_good_handlers n pp)
-          (add_metadata empty_metadata word_prog0)’ by simp []
+          (add_metadata empty_metadata
+            (pan_to_word_compile_prog asm_conf3.ISA pan_prog))’ by simp []
   \\ drule word_good_handlers_word_to_word
   \\ disch_then (qspecl_then [‘word_conf’, ‘asm_conf3’] assume_tac)
   \\ drule (INST_TYPE [beta|->alpha] word_to_stackProofTheory.word_to_stack_good_handler_labels)
@@ -152,7 +154,7 @@ Proof
     by (gs[EVERY2_EVERY]>>gs[EVERY_EL]>>ntac 2 strip_tac>>
         ntac 3 (first_x_assum $ qspec_then ‘n’ assume_tac)>>
         pairarg_tac>>gs[EL_ZIP, wordConvsTheory.labels_rel_def]>>
-        pairarg_tac>>gs[EL_MAP]>>strip_tac>>strip_tac>>
+        pairarg_tac>>gs[EL_MAP,backend_commonTheory.add_metadata_def]>>strip_tac>>strip_tac>>
         ‘EL n (MAP FST wprog) = EL n (MAP FST wprog0)’ by rfs[]>>
         gs[EL_MAP]>>
         pairarg_tac>>gs[]>>
@@ -210,7 +212,7 @@ Theorem word_to_stack_good_code_lemma:
 Proof
   (* a bit slow *)
   gs[stack_to_labProofTheory.good_code_def]>>strip_tac>>
-  qmatch_asmsub_abbrev_tac ‘word_to_word_compile _ _ wprog0 = _’>>
+  qmatch_asmsub_abbrev_tac ‘word_to_word_compile _ _ (add_metadata _ wprog0) = _’>>
   qpat_x_assum ‘Abbrev (wprog0 = _)’ (assume_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def])>>
   drule_at (Pat ‘word_to_word_compile _ _ _ = _’) pan_to_stack_compile_lab_pres>>
   disch_then drule_all>>strip_tac>>gs[]>>
