@@ -1829,14 +1829,16 @@ Proof
   simp[o_DEF]>>strip_tac>>gs[]>>
 
   (* introduce init_code_thm *)
-  ‘lookup stack_err_lab ssx.code = SOME (halt_inst 2)’
+  ‘lookup stack_err_lab ssx.code =
+     SOME (halt_inst 2,Metadata (implode "_Halt2") [Stub])’
     by
     (gs[Abbr ‘ssx’]>>
      gs[lookup_fromAList,stack_removeTheory.compile_def]>>
      gs[stack_removeTheory.init_stubs_def,
         stack_removeTheory.stack_err_lab_def])>>
   gs[Abbr ‘initc’]>>
-  drule_at Any stack_removeProofTheory.init_code_thm>>
+  drule_at Any (stack_removeProofTheory.init_code_thm
+    |> INST_TYPE [beta |-> “:lab_to_target$config”, gamma |-> “:'ffi”])>>
   ‘ssx.compile_oracle =
    (I ## MAP (stack_remove_prog_comp (arch_wordsize mc.target.config.ISA) jump off sp) ## I)
    ∘ (I ## MAP stack_alloc_prog_comp ## I) ∘ (λn. (ltconf,[],[]))’
@@ -1857,12 +1859,7 @@ Proof
       simp[stack_removeTheory.init_stubs_def]>>
       rewrite_tac[Once UNION_COMM]>>
       gs[MAP_MAP_o,o_DEF,LAMBDA_PROD]>>
-      ‘set (MAP (λ(p1,p2). p1) (compile (arch_wordsize mc.target.config.ISA) c.data_conf (compile p))) =
-       set (MAP FST (compile (arch_wordsize mc.target.config.ISA) c.data_conf (compile p)))’
-        by (
-        gs[LIST_TO_SET_MAP]>>
-        irule IMAGE_CONG>>rw[]>>pairarg_tac>>gs[])>>
-      gs[])>>
+      simp[EXTENSION,MEM_MAP,EXISTS_PROD])>>
     ntac 3 strip_tac>>
     conj_tac >- (
       qpat_x_assum ‘good_code _ p’ mp_tac>>
@@ -1878,11 +1875,12 @@ Proof
       pop_assum $ irule_at Any>>gs[])>>
     irule EQ_TRANS>>
     irule_at Any (ALOOKUP_prefix |> BODY_CONJUNCTS |> tl |> hd)>>
-    reverse conj_asm2_tac>-gs[ALOOKUP_MAP]>>
+    reverse conj_asm2_tac>- (Cases_on ‘x''’>>gs[ALOOKUP_MAP_3])>>
     gs[stack_removeTheory.init_stubs_def]>>
     mp_tac (GEN_ALL pan_to_wordProofTheory.pan_to_word_compile_prog_lab_min)>>
-    disch_then $ qspecl_then [‘wprog0’,‘pan_code’, ‘mc.target.config.ISA’] mp_tac>>
-    impl_tac>- gs[Abbr ‘wprog0’]>>
+    disch_then $ qspecl_then [‘pan_to_word_compile_prog mc.target.config.ISA pan_code’,
+      ‘pan_code’, ‘mc.target.config.ISA’] mp_tac>>
+    impl_tac>- simp[]>>
     simp[GSYM EVERY_MAP]>>
     qpat_assum ‘MAP FST wprog = MAP FST _’ (fn h => PURE_REWRITE_TAC[GSYM h])>>
 
@@ -1936,7 +1934,6 @@ Proof
      (qpat_x_assum ‘MEM (_ _ (_+2)) _’ $ irule_at Any>>
       simp[Once EQ_SYM_EQ]>>irule LINV_DEF>>
       gs[BIJ_DEF]>>metis_tac[]))>>
-  disch_then $ drule_at Any>>
   disch_then $ drule_at Any>>
   disch_then $ qspec_then ‘gck’ assume_tac>>gs[]>>
 
