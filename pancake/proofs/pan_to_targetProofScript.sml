@@ -1033,7 +1033,7 @@ Proof
   ‘no_install prg /\ no_alloc prg /\ no_mt prg’
     by gs[wordConvsTheory.no_alloc_def, wordConvsTheory.no_install_def,
           wordConvsTheory.no_mt_def, Abbr ‘prg’]>>
-  qmatch_asmsub_abbrev_tac ‘word_to_word_compile _ _ wprog0’>>
+  qmatch_asmsub_abbrev_tac ‘word_to_word_compile _ _ (add_metadata _ wprog0)’>>
   qpat_x_assum ‘Abbrev (_ = _)’ (assume_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def])>>
   ‘ALL_DISTINCT (MAP FST wprog0)’
     by (drule pan_to_wordProofTheory.first_compile_prog_all_distinct>>
