@@ -58,7 +58,6 @@ compiler/backend/mips
 compiler/backend/riscv
 compiler/backend/ag32
 compiler/backend/pattern_matching
-compiler/parsing/ocaml
 compiler/printing
 
 # compiler verification

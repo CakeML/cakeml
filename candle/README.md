@@ -10,8 +10,9 @@ consistency.
 The parser for Candle's OCaml-like syntax, written in CakeML. `cake --candle`
 loads `candle_boot.cml`, which is this directory's parser sources followed by
 `candle_glue.cml`; Candle input then reaches the verified REPL as parsed
-declarations. The parser is a port of the definitions in
-`compiler/parsing/ocaml`.
+declarations. The parser is a port of the HOL definitions formerly in
+`compiler/parsing/ocaml`, which remain available in the git history
+(`git log -- compiler/parsing/ocaml`).
 
 [prover](prover):
 Proof of soundness for the Candle theorem prover.

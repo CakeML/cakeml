@@ -1,6 +1,6 @@
 (*
-  The camlPEG rule table, with choice and list order unchanged. Each original
-  nonterminal nFoo is called NFoo here.
+  The PEG rule table of Candle's grammar, one rule per nonterminal NFoo.
+  Choices are tried in the order listed.
 *)
 structure CandleGrammar = struct
   open CandleGrammarSupport;

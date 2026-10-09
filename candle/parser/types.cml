@@ -1,5 +1,5 @@
 (*
-  Types and literals, ported from camlPtreeConversionScript.sml.
+  Conversion of types and literals from parse trees.
 *)
 structure CandleTypes = struct
   open CandleNames;

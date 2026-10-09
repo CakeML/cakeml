@@ -1,7 +1,7 @@
 (*
   Parse trees from grammar.ptree, restricted to token leaves: the executable
-  grammar never builds a nonterminal leaf. Nonterminal names keep the
-  reference's sum shape.
+  grammar never builds a nonterminal leaf. Node labels have the
+  ('b,int) sum shape of grammar.ptree's nonterminals.
 *)
 structure CandleTree = struct
   datatype ('a,'b) tree = Lf ('a * CandleLocation.locs)

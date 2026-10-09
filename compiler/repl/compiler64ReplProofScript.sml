@@ -1175,14 +1175,14 @@ Proof
   (* let input_str = «» *)
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def,evaluate_Lit]
-  (* call init_next_string *)
+  (* call boot_marker *)
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def,evaluate_Lit]
   \\ rename [`evaluate _ _ [App Opapp _]`]
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_list,build_rec_env_def]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ rename [`do_opapp [compiler64mainprog_init_next_string_v;_]`]
-  \\ assume_tac compiler64mainprog_init_next_string_v_thm
+  \\ rename [`do_opapp [compiler64mainprog_boot_marker_v;_]`]
+  \\ assume_tac compiler64mainprog_boot_marker_v_thm
   \\ drule_all Arrow_IMP
   \\ fs [dec_clock_def]
   \\ qmatch_goalsub_abbrev_tac `(st2, Rerr (Rabort Rtimeout_error))`
@@ -1195,7 +1195,7 @@ Proof
     (st with <|clock := st.clock - (source_ck + 2);
                refs := st.refs ++ source_junk|>,
      Rval [source_value])’
-  (* Wrap the initial source text in Inl. *)
+  (* Wrap the boot marker in Inl. *)
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
        namespaceTheory.nsOptBind_def,evaluate_Lit,do_con_check_def,build_conv_def]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
@@ -1233,12 +1233,12 @@ Proof
   \\ ‘repl_types repl_input_catalogue repl_input_slots T (ffi,repl_rs)
        (repl_prog_types,
         startup_state with <|refs := LUPDATE
-          (Refv (repl_source_value (init_next_string cl))) repl_input_location
+          (Refv (repl_source_value (boot_marker cl))) repl_input_location
           startup_state.refs; eval_state := NONE|>,repl_init_env)’ by (
     irule repl_input_source_assign
     \\ simp [repl_input_location_def,store_assign_def,store_lookup_def,
          store_v_same_type_def]
-    \\ qexists_tac ‘init_next_string cl’ \\ simp [])
+    \\ qexists_tac ‘boot_marker cl’ \\ simp [])
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
        namespaceTheory.nsOptBind_def,evaluate_Lit]
   \\ irule (GEN_ALL evaluate_repl_thm)

@@ -1,6 +1,6 @@
 (*
-  Expression lowering helpers from camlPtreeConversionScript.sml. Ast.Ident is
-  the runtime spelling of HOL's Var.
+  Expression lowering helpers. Ast.Ident is the runtime spelling of HOL's
+  Var.
 *)
 structure CandleExpressionSupport = struct
   open CandlePatterns;

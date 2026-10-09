@@ -1,5 +1,6 @@
 (*
-  The caml_parser entry point up to, but not including, AST conversion.
+  The parser front end: lexing and parsing up to, but not including, AST
+  conversion.
 *)
 structure CandleFrontEnd = struct
   fun run_lexer input =

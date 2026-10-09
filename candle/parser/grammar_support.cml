@@ -1,5 +1,6 @@
 (*
-  Grammar-building helpers of camlPEG, with native string predicates.
+  Grammar-building helpers for the PEG rule table, with native string
+  predicates.
 *)
 structure CandleGrammarSupport = struct
   open CandleTokens;

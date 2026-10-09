@@ -1,6 +1,6 @@
 (*
-  Candle declaration lowering from camlPtreeConversionScript.sml. Embedded
-  CakeML pragmas are reported as unsupported.
+  Candle declaration lowering. Embedded CakeML pragmas are reported as
+  unsupported.
 *)
 structure CandleDeclarations = struct
   open CandleTypeDeclarations;

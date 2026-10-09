@@ -1,6 +1,6 @@
 (*
-  Name and operator conversion, keeping the reference's error strings and
-  compatibility renamings. Node checks precede child conversion.
+  Name and operator conversion, with its error strings and compatibility
+  renamings. Node checks precede child conversion.
 *)
 structure CandleNames = struct
   open CandleGrammar;

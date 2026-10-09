@@ -1,5 +1,5 @@
 (*
-  The lexer, ported from compiler/parsing/ocaml/caml_lexScript.sml.
+  The lexer for Candle's syntax.
 *)
 structure CandleLexer = struct
   open CandleSupport;

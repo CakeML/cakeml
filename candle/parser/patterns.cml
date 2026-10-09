@@ -1,7 +1,6 @@
 (*
   Pre-patterns, precedence resolution, compatibility currying and pattern
-  conversion from camlPtreeConversionScript.sml, including its record
-  restrictions and or-pattern distribution.
+  conversion, including record restrictions and or-pattern distribution.
 *)
 structure CandlePatterns = struct
   open CandleTypes;

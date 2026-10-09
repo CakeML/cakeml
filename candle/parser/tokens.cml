@@ -1,5 +1,5 @@
 (*
-  Token vocabulary and reserved spellings, ported from caml_lexScript.sml.
+  Token vocabulary and reserved spellings of Candle's syntax.
 *)
 structure CandleTokens = struct
   datatype token

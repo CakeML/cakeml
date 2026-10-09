@@ -1,6 +1,6 @@
 (*
-  CandleParser.parse, the string entry point of caml_parser.run: Ast
-  declarations or a located error, with no I/O or state.
+  CandleParser.parse, the string entry point of the parser: Ast declarations
+  or a located error, with no I/O or state.
 *)
 structure CandleParser = struct
   open CandleLocation;

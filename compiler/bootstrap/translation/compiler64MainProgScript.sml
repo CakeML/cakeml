@@ -225,12 +225,12 @@ End
 val _ = next_ml_names := ["parse_cakeml_syntax"];
 val r = translate parse_cakeml_syntax_def;
 
-Definition init_next_string_def:
-  init_next_string cl = if MEM «--candle» cl then «candle» else «»
+Definition boot_marker_def:
+  boot_marker cl = if MEM «--candle» cl then «candle» else «»
 End
 
-val _ = next_ml_names := ["init_next_string"];
-val r = translate (init_next_string_def |> REWRITE_RULE [MEMBER_INTRO]);
+val _ = next_ml_names := ["boot_marker"];
+val r = translate (boot_marker_def |> REWRITE_RULE [MEMBER_INTRO]);
 
 Quote add_cakeml:
   fun start_repl (host,cl,s1) =
@@ -241,7 +241,7 @@ Quote add_cakeml:
       val env = (repl_init_env, 0)
       val decs = []
       val input_str = ""
-      val _ = Repl.nextInput := Inl (init_next_string cl)
+      val _ = Repl.nextInput := Inl (boot_marker cl)
     in
       repl (host, parse, types, conf, env, decs, input_str)
     end

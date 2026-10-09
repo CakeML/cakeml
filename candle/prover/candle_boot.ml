@@ -68,9 +68,9 @@ let int_of_string = Option.valOf o Int.fromString;;
 (* Left shifting integers. HOL Light expects these to not be bigints, so I
    suppose we can just map in and out of word64. *)
 let (lsl) x y =
-  Word64.toInt (Word64.(<<) (Word64.fromInt x) y);;
+  Word64.toInt (Word64.(<<) (Word64.fromInt x) (Word64.fromInt y));;
 let (lsr) x y =
-  Word64.toInt (Word64.(>>) (Word64.fromInt x) y);;
+  Word64.toInt (Word64.(>>) (Word64.fromInt x) (Word64.fromInt y));;
 
 let (land) x y =
   Word64.toInt (Word64.andb (Word64.fromInt x) (Word64.fromInt y));;

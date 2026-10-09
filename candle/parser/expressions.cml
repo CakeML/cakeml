@@ -1,7 +1,7 @@
 (*
-  The mutually recursive ptree_Expr family from camlPtreeConversionScript.sml.
-  check_tokens sequences expect_tok calls; expr_binary shares the identical
-  binary-tier clauses, keeping the reference's evaluation order.
+  The mutually recursive ptree_Expr family, converting expression parse
+  trees. check_tokens sequences expect_tok calls; expr_binary shares the
+  identical binary-tier clauses and their evaluation order.
 *)
 structure CandleExpressions = struct
   open CandleExpressionSupport;

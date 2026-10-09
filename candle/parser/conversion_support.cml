@@ -1,6 +1,6 @@
 (*
-  Conversion helpers from camlPtreeConversionScript.sml. All errors are
-  values. Choice is left-biased and evaluates its alternative only on failure.
+  Parse-tree conversion helpers. All errors are values. Choice is left-biased
+  and evaluates its alternative only on failure.
 *)
 structure CandleConversionSupport = struct
   open CandleSupport;
