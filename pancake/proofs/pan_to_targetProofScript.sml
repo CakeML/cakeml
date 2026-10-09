@@ -2335,7 +2335,9 @@ Proof
        wordConvsTheory.no_mt_def,
        wordConvsTheory.no_alloc_def,
        wordConvsTheory.no_install_def]>>
-    drule_all word_to_word_compile_no_install_no_alloc>>strip_tac>>
+    drule word_to_word_compile_no_install_no_alloc>>
+    impl_tac >- gs[Abbr ‘wprog0’,backend_commonTheory.add_metadata_def,
+      MAP_MAP_o,o_DEF,LAMBDA_PROD]>>strip_tac>>
     gs[])>>
   strip_tac>>
 
