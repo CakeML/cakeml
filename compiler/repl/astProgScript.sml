@@ -54,7 +54,7 @@ val _ = ml_prog_update (addPrettyPrintersLib.add_pps
 
 val _ = ml_prog_update (close_module NONE);
 
-(* These partitions are extracted from generated code, not an AST schema. *)
+(* Partitions of the generated Ast module, used to stage its initialization. *)
 val ast_state = get_ml_prog_state () |> remove_snocs;
 val ast_prog_tm = get_prog ast_state;
 val ast_module_body = ast_prog_tm |> listSyntax.dest_list |> fst |> last

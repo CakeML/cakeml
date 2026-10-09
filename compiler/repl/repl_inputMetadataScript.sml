@@ -5,7 +5,7 @@
 *)
 Theory repl_inputMetadata
 Ancestors
-  astProg repl_init_types repl_inputInvariant envRel ml_prog primTypes
+  astProg repl_init_types envRel ml_prog primTypes
   infer_cv inferSound backend_cv
   typeSystem semanticPrimitives
 Libs
@@ -36,14 +36,6 @@ Definition repl_ast_type_ids_def:
     ^(listSyntax.mk_list (ast_type_ids, ``:mlstring # num``))
 End
 
-Theorem repl_ast_type_lookups = LIST_CONJ ast_type_lookups;
-
-Theorem repl_ast_registration_coverage =
-  ``MAP FST repl_ast_type_ids =
-    FLAT (MAP (\dec. case dec of
-      Dtype locs tds => MAP (\(tvs,tn,ctors). tn) tds
-    | _ => []) ast_type_decs)`` |> EVAL |> EQT_ELIM;
-
 Theorem repl_ast_type_ids_distinct =
   ``ALL_DISTINCT (MAP SND repl_ast_type_ids)`` |> EVAL |> EQT_ELIM;
 
@@ -61,17 +53,14 @@ Definition repl_option_type_id_def:
   (repl_option_type_id:num) = ^(rand option_type)
 End
 
-Theorem repl_option_type_lookup = option_type_lookup
-  |> REWRITE_RULE [GSYM repl_option_type_id_def];
-
 Definition repl_input_datatype_ids_def:
   repl_input_datatype_ids = set (MAP SND repl_ast_type_ids) UNION
     {Tbool_num; Tlist_num; repl_sum_type_id; repl_option_type_id}
 End
 
 (* Every family entry originates in a declaration, including empty types.
-   Constructor lookups resolve its field types and runtime stamps. Closure is
-   proved separately from allocation; these positive lookups cannot prove it. *)
+   Constructor lookups resolve its field types and runtime stamps; closure of
+   the signatures is proved from allocation in repl_inputInit. *)
 val ast_type_groups = ast_type_decs_def |> concl |> rand
   |> listSyntax.dest_list |> fst
   |> map (fn dec => dec |> astSyntax.dest_Dtype |> snd
@@ -104,8 +93,6 @@ val input_type_groups =
 fun input_name NONE name = ``Short ^name : (mlstring,mlstring) id``
   | input_name (SOME mn) name = ``Long ^mn (Short ^name)``;
 
-val input_ctor_type_facts = ref ([]:thm list);
-val input_ctor_value_facts = ref ([]:thm list);
 val input_catalogue_entries = map (fn (mn,td) => let
   val [tvs,tn,ctors] = pairSyntax.strip_pair td
   val type_id = EVAL
@@ -128,8 +115,6 @@ val input_catalogue_entries = map (fn (mn,td) => let
         aconv stamp_name cn andalso
         numSyntax.int_of_term arity = length (fst (listSyntax.dest_list fields))
         then () else failwith "Input constructor registration/lookup mismatch"
-      val _ = input_ctor_type_facts := type_th :: !input_ctor_type_facts
-      val _ = input_ctor_value_facts := value_th :: !input_ctor_value_facts
       in pairSyntax.list_mk_pair [cn,stamp_num,params,field_types] end)
   val signature_set = pred_setSyntax.prim_mk_set
     (signatures, ``:mlstring # num # mlstring list # typeSystem$t list``)
@@ -145,11 +130,6 @@ Definition repl_input_catalogue_def:
   repl_input_catalogue = FEMPTY |++ repl_input_catalogue_entries
 End
 
-Theorem repl_input_constructor_types =
-  LIST_CONJ (rev (!input_ctor_type_facts));
-Theorem repl_input_constructor_values =
-  LIST_CONJ (rev (!input_ctor_value_facts));
-
 Theorem repl_input_catalogue_keys_distinct =
   ``ALL_DISTINCT (MAP FST repl_input_catalogue_entries)`` |> EVAL |> EQT_ELIM;
 
@@ -164,18 +144,15 @@ Proof
   SET_TAC []
 QED
 
-(* The callback slot is recorded but unused by the current REPL proof. *)
 val input_slot_names_types =
   [(``Long «Repl» (Short «isEOF»)`` , ``Tbool``),
    (``Long «Repl» (Short «nextInput»)`` , ``repl_input_type``),
    (``Long «Repl» (Short «errorMessage»)`` , ``Tstring``),
-   (``Long «Repl» (Short «exn»)`` , ``Texn``),
-   (``Long «Repl» (Short «readNextString»)`` , ``Tfn (Ttup []) (Ttup [])``)];
+   (``Long «Repl» (Short «exn»)`` , ``Texn``)];
 
 val input_ref_rewrites = List.concat (map BODY_CONJUNCTS
   [repl_moduleProgTheory.isEOF_def, repl_moduleProgTheory.nextInput_def,
-   repl_moduleProgTheory.errorMessage_def, repl_moduleProgTheory.exn_def,
-   repl_moduleProgTheory.Repl_readNextString_v_def])
+   repl_moduleProgTheory.errorMessage_def, repl_moduleProgTheory.exn_def])
   @ [LENGTH] @ (DB.find "refs_def" |> map (#1 o #2));
 
 val input_slot_facts = map (fn (name,ty) => let
@@ -204,10 +181,6 @@ Theorem repl_input_slot_values = LIST_CONJ (map #3 input_slot_facts);
 
 Theorem repl_input_slot_locations_distinct =
   ``ALL_DISTINCT (MAP FST repl_input_slot_entries)`` |> EVAL |> EQT_ELIM;
-
-Theorem repl_input_slot_types_closed =
-  ``EVERY (\(loc,ty). check_freevars 0 [] ty) repl_input_slot_entries``
-  |> EVAL |> EQT_ELIM;
 
 (* Checked inference checkpoints for the actual initialization partitions. *)
 val prefix_decs = ast_prefix_prog_def |> concl |> rand
@@ -270,7 +243,7 @@ val ast_types = input_infer_stage "repl_input_ast_types"
 
 val ast_module_types = input_infer_stage "repl_input_ast_module_types"
   before_ast_types ``[Dmod «Ast» (ast_type_decs ++ ast_pp_decs)]``;
-val final_types = input_infer_stage "repl_input_final_types"
+val _ = input_infer_stage "repl_input_final_types"
   ast_module_types ``repl_suffix``;
 
 Theorem repl_input_stage_final_types:

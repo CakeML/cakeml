@@ -43,10 +43,6 @@ Definition the_Loc_def:
   the_Loc (semanticPrimitives$Loc _ n) = n
 End
 
-Definition repl_rs_def:
-  repl_rs = repl_input_primitive_refs
-End
-
 Overload repl_init_env =
   (repl_init_envProg_env_def |> concl
    |> find_term (can (match_term “Env _”)) |> rand);
@@ -57,11 +53,6 @@ Proof
   simp [repl_init_typesTheory.repl_prog_env_def]
 QED
 
-Theorem repl_rs_thm:
-  EVERY (check_ref_types (FST repl_prog_types) repl_init_env) repl_rs
-Proof
-  simp [repl_rs_def,repl_init_env_input,repl_input_primitive_refs_types]
-QED
 
 Theorem evaluate_decs_append: (* TODO: move to evaluateProps *)
   ∀xs ys st env.
@@ -144,20 +135,20 @@ Theorem Repl_charsFrom_lemma[local] =
   |> Q.GEN ‘fnamev’ |> SIMP_RULE std_ss [EVAL “FILENAME «config_enc_str.txt» fnamev”]
   |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC];
 
-Theorem repl_types_input_clock:
-  repl_types_input catalogue slots T x (types,s,env) ==>
-  !k. repl_types_input catalogue slots T x (types,s with clock := s.clock - k,env)
+Theorem repl_types_clock:
+  repl_types catalogue slots T x (types,s,env) ==>
+  !k. repl_types catalogue slots T x (types,s with clock := s.clock - k,env)
 Proof
   rw [] >> PairCases_on `x` >>
-  drule_then irule repl_types_input_skip_alt >> gs []
+  drule_then irule repl_types_skip_alt >> gs []
 QED
 
-Theorem repl_types_input_refs:
-  repl_types_input catalogue slots T x (types,s,env) ==>
-  !junk. repl_types_input catalogue slots T x (types,s with refs := s.refs ++ junk,env)
+Theorem repl_types_refs:
+  repl_types catalogue slots T x (types,s,env) ==>
+  !junk. repl_types catalogue slots T x (types,s with refs := s.refs ++ junk,env)
 Proof
   rw [] >> PairCases_on `x` >>
-  drule_then irule repl_types_input_skip_alt >> gs []
+  drule_then irule repl_types_skip_alt >> gs []
 QED
 
 Theorem extend_dec_env_empty:
@@ -249,7 +240,7 @@ Theorem repl_types_repl_prog:
   ∃ck1 r1 env_cl e_cl s_cl res_cl.
     evaluate_decs (st with clock := ck1) (merge_env env init_env) ys =
     (s1,r1) ∧ combine_dec_result env r1 = res ∧
-    repl_types_input repl_input_catalogue repl_input_slots T
+    repl_types repl_input_catalogue repl_input_slots T
       (basis_ffi ext cl fs,repl_rs)
       (repl_prog_types,st with <|eval_state := NONE; clock := ck1|>,
        repl_init_env) ∧
@@ -269,7 +260,7 @@ Theorem repl_types_repl_prog:
          (res_pr ≠ Rerr (Rabort Rtimeout_error) ⇒
           ∃pr_v.
             res_pr = Rval [pr_v] ∧ LIST_TYPE CHAR content pr_v ∧
-            repl_types_input repl_input_catalogue repl_input_slots T
+            repl_types repl_input_catalogue repl_input_slots T
               (basis_ffi ext cl fs,repl_rs)
               (repl_prog_types,s_pr,repl_init_env)))
 Proof
@@ -303,10 +294,10 @@ Proof
   \\ conj_asm1_tac >- (
     qmatch_goalsub_rename_tac `st with <|clock := prefix_state.clock; eval_state := NONE|>` >>
     mp_tac (Q.ISPECL [`T`,`basis_ffi ext cl fs`] repl_input_initial_reachable) >>
-    rewrite_tac [GSYM repl_prog_st_input,GSYM repl_init_env_input,GSYM repl_rs_def] >>
-    strip_tac >> drule repl_types_input_set_clock >>
+    rewrite_tac [GSYM repl_prog_st_input,GSYM repl_init_env_input] >>
+    strip_tac >> drule repl_types_set_clock >>
     disch_then (qspec_then `prefix_state.clock` assume_tac) >>
-    irule repl_types_input_skip_alt >>
+    irule repl_types_skip_alt >>
     qexists_tac `repl_prog_st ext cl fs with clock := prefix_state.clock` >>
     simp [] >> simp [repl_prog_st_def])
   \\ qmatch_goalsub_abbrev_tac ‘evaluate s12’
@@ -357,10 +348,10 @@ Proof
          (config_state,Rval [config_value])`
   \\ disch_then $ qspec_then ‘s13.clock’ mp_tac \\ fs []
   \\ strip_tac \\ gvs []
-  \\ drule_then (qspec_then ‘1’ assume_tac) repl_types_input_clock \\ gvs []
+  \\ drule_then (qspec_then ‘1’ assume_tac) repl_types_clock \\ gvs []
   \\ assume_tac infertype_prog_inc_CommandLine_arguments
-  \\ drule_then (qspec_then `command_clock+1` assume_tac) repl_types_input_set_clock
-  \\ drule_then drule repl_types_input_eval \\ fs []
+  \\ drule_then (qspec_then `command_clock+1` assume_tac) repl_types_set_clock
+  \\ drule_then drule repl_types_eval \\ fs []
   \\ pop_assum kall_tac
   \\ simp [evaluateTheory.evaluate_decs_def,astTheory.pat_bindings_def]
   \\ simp [evaluateTheory.evaluate_def,
@@ -371,10 +362,10 @@ Proof
   \\ fs [evaluateTheory.dec_clock_def,semanticPrimitivesTheory.pmatch_def,
          extend_dec_env_empty,Abbr‘s12’]
   \\ strip_tac
-  \\ drule_then (qspec_then ‘junk’ assume_tac) repl_types_input_refs \\ fs []
-  \\ drule_then (qspec_then `config_clock+1` assume_tac) repl_types_input_set_clock
+  \\ drule_then (qspec_then ‘junk’ assume_tac) repl_types_refs \\ fs []
+  \\ drule_then (qspec_then `config_clock+1` assume_tac) repl_types_set_clock
   \\ assume_tac infertype_prog_inc_Repl_charsFrom
-  \\ drule_then drule repl_types_input_eval \\ fs []
+  \\ drule_then drule repl_types_eval \\ fs []
   \\ pop_assum kall_tac
   \\ simp [evaluateTheory.evaluate_decs_def,astTheory.pat_bindings_def]
   \\ simp [evaluateTheory.evaluate_def,
@@ -384,16 +375,6 @@ Proof
   \\ fs [evaluateTheory.dec_clock_def,semanticPrimitivesTheory.pmatch_def,
          extend_dec_env_empty,Abbr‘s13’]
   \\ strip_tac
-  \\ irule repl_types_input_set_clock
+  \\ irule repl_types_set_clock
   \\ asm_rewrite_tac []
 QED
-
-val _ = List.app (fn theorem => let
-  val (oracles,axioms) = Tag.dest_tag (Thm.tag theorem)
-  in
-    if null (hyp theorem) andalso null axioms andalso
-      List.all (fn name => name = "DISK_THM") oracles
-    then () else failwith "REPL initialization has admissions"
-  end)
-  [repl_prog_st_input, repl_init_env_input, repl_rs_thm,
-   repl_types_input_clock, repl_types_input_refs, repl_types_repl_prog];

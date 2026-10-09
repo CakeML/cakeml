@@ -437,25 +437,25 @@ QED
 
 val _ = map Parse.hide ["types","types_v","parse","parse_v"];
 
-Theorem repl_types_input_alt:
-  repl_types_input catalogue slots T (ffi,rs) (types,s,env) ∧
+Theorem repl_types_alt:
+  repl_types catalogue slots T (ffi,rs) (types,s,env) ∧
   infertype_prog_inc types decs = M_success new_t ⇒
   evaluate_decs s env decs ≠ (new_s,Rerr (Rabort Rtype_error))
 Proof
-  strip_tac \\ drule repl_types_input_thm \\ strip_tac
+  strip_tac \\ drule repl_types_thm \\ strip_tac
   \\ first_x_assum (qspecl_then
        [‘decs’,‘new_t’,‘new_s’,‘Rerr (Rabort Rtype_error)’] mp_tac) \\ simp []
 QED
 
-Theorem repl_types_input_clock_refs:
-  repl_types_input catalogue slots T (ffi,rs)
+Theorem repl_types_clock_refs:
+  repl_types catalogue slots T (ffi,rs)
     (types,st with eval_state := NONE,env1) ⇒
-  repl_types_input catalogue slots T (ffi,rs)
+  repl_types catalogue slots T (ffi,rs)
     (types, st with <| clock := st.clock − ck;
                        refs := st.refs ++ junk;
                        eval_state := NONE |>,env1)
 Proof
-  strip_tac \\ drule_then irule repl_types_input_skip_alt \\ simp []
+  strip_tac \\ drule_then irule repl_types_skip_alt \\ simp []
 QED
 
 Theorem evaluate_clock_decs:
@@ -583,7 +583,7 @@ Theorem evaluate_repl:
      (STRING_TYPE --> SUM_TYPE STRING_TYPE (LIST_TYPE DEC_TYPE)) parse parse_v ∧
      env_v = Conv NONE [Env env1 (env_id,0); Litv (IntLit (&env_id))] ∧
      conf_v = Conv NONE [s1_v; Litv (IntLit (&next_gen))] ∧
-     repl_types_input repl_input_catalogue repl_input_slots T (ffi,repl_rs)
+     repl_types repl_input_catalogue repl_input_slots T (ffi,repl_rs)
        (SND types,st with eval_state := NONE,env1) ∧
      nsLookup env.v repl_str = SOME repl_v ⇒
      nsLookup env.v arg_str =
@@ -662,21 +662,21 @@ Resume evaluate_repl[CheckError]:
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def,do_app_def]
   \\ simp [repl_moduleProgTheory.errorMessage_def]
-  \\ ‘repl_types_input repl_input_catalogue repl_input_slots T (ffi,repl_rs)
+  \\ ‘repl_types repl_input_catalogue repl_input_slots T (ffi,repl_rs)
         (SND types,st with <| eval_state := NONE ; refs := st.refs ++ junk |>,env1)’
-       by (drule_then irule repl_types_input_skip_alt \\ fs [])
+       by (drule_then irule repl_types_skip_alt \\ fs [])
   \\ ‘MEM (Long «Repl» (Short «errorMessage»),Str,
            the_Loc errorMessage_loc) repl_rs’ by (
-    simp [repl_rs_def,repl_input_primitive_refs_def,
+    simp [repl_rs_def,
           repl_moduleProgTheory.errorMessage_def,the_Loc_def])
-  \\ drule_then drule repl_types_input_str_assign
+  \\ drule_then drule repl_types_str_assign
   \\ simp [store_assign_def,repl_moduleProgTheory.errorMessage_def,the_Loc_def]
   \\ Cases_on ‘msg’ \\ gvs [STRING_TYPE_def]
   \\ rename [‘(Refv (Litv (StrLit sss)))’]
   \\ disch_then (qspec_then ‘sss’ mp_tac)
   \\ impl_keep_tac
   >-
-   (drule repl_types_input_thm \\ simp [EVERY_MEM]
+   (drule repl_types_thm \\ simp [EVERY_MEM]
     \\ strip_tac \\ first_x_assum drule
     \\ simp [ref_lookup_ok_def]
     \\ simp [store_lookup_def,repl_moduleProgTheory.errorMessage_def,the_Loc_def]
@@ -690,7 +690,7 @@ Resume evaluate_repl[CheckError]:
   \\ assume_tac compiler64mainprog_report_error_dec_v_thm
   \\ rpt (first_assum $ irule_at Any)
   \\ simp []
-  \\ drule_then irule repl_types_input_skip_alt \\ fs []
+  \\ drule_then irule repl_types_skip_alt \\ fs []
 QED
 
 Resume evaluate_repl[CheckSuccess]:
@@ -725,10 +725,10 @@ Resume evaluate_repl[CheckSuccess]:
   \\ impl_tac
   THEN1
    (gvs [Abbr‘st6’] \\ rw []
-    \\ irule_at Any repl_types_input_alt
+    \\ irule_at Any repl_types_alt
     \\ first_assum $ irule_at Any
     \\ rewrite_tac [GSYM APPEND_ASSOC]
-    \\ irule_at Any repl_types_input_clock_refs
+    \\ irule_at Any repl_types_clock_refs
     \\ first_assum $ irule_at Any)
   \\ disch_then (qx_choosel_then
        [`res`,`eval_result_state`,`eval_cost`,`msg`,`eval_junk`] strip_assume_tac)
@@ -768,19 +768,19 @@ Resume evaluate_repl[CompileError]:
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def,do_app_def]
   \\ simp [repl_moduleProgTheory.errorMessage_def]
-  \\ ‘repl_types_input repl_input_catalogue repl_input_slots T (ffi,repl_rs)
+  \\ ‘repl_types repl_input_catalogue repl_input_slots T (ffi,repl_rs)
         (SND types,st6 with <| eval_state := NONE ; refs := st6.refs ++ eval_junk |>,env1)’
-       by (drule_then irule repl_types_input_skip_alt \\ fs [Abbr‘st6’]
+       by (drule_then irule repl_types_skip_alt \\ fs [Abbr‘st6’]
            \\ simp_tac std_ss [GSYM APPEND_ASSOC,rich_listTheory.IS_PREFIX_APPEND3])
   \\ ‘MEM (Long «Repl» (Short «errorMessage»),Str,
-           the_Loc errorMessage_loc) repl_rs’ by simp [repl_rs_def,repl_input_primitive_refs_def,
+           the_Loc errorMessage_loc) repl_rs’ by simp [repl_rs_def,
           repl_moduleProgTheory.errorMessage_def,the_Loc_def]
-  \\ drule_then drule repl_types_input_str_assign
+  \\ drule_then drule repl_types_str_assign
   \\ simp [store_assign_def,repl_moduleProgTheory.errorMessage_def,the_Loc_def]
   \\ disch_then (qspec_then ‘msg’ mp_tac)
   \\ impl_keep_tac
   >-
-   (drule repl_types_input_thm \\ simp [EVERY_MEM]
+   (drule repl_types_thm \\ simp [EVERY_MEM]
     \\ strip_tac \\ pop_assum kall_tac \\ pop_assum drule
     \\ simp [ref_lookup_ok_def] \\ unabbrev_all_tac \\ fs []
     \\ simp [store_lookup_def,repl_moduleProgTheory.errorMessage_def,the_Loc_def]
@@ -794,7 +794,7 @@ Resume evaluate_repl[CompileError]:
   \\ assume_tac compiler64mainprog_report_error_dec_v_thm
   \\ rpt (first_assum $ irule_at Any)
   \\ simp []
-  \\ drule_then irule repl_types_input_skip_alt \\ fs []
+  \\ drule_then irule repl_types_skip_alt \\ fs []
 QED
 
 Resume evaluate_repl[EvalException]:
@@ -830,23 +830,23 @@ Resume evaluate_repl[EvalException]:
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def,do_app_def]
   \\ simp [repl_moduleProgTheory.exn_def]
-  \\ ‘repl_types_input repl_input_catalogue repl_input_slots T (ffi,repl_rs)
+  \\ ‘repl_types repl_input_catalogue repl_input_slots T (ffi,repl_rs)
         (SND types,st6 with <| clock := st6.clock - decl_cost ;
                                refs := st6.refs ++ eval_junk ;
                                eval_state := NONE |>,env1)’
-       by (drule_then irule repl_types_input_skip_alt \\ fs [Abbr‘st6’]
+       by (drule_then irule repl_types_skip_alt \\ fs [Abbr‘st6’]
            \\ simp_tac std_ss [GSYM APPEND_ASSOC,rich_listTheory.IS_PREFIX_APPEND3])
-  \\ ‘MEM (Long «Repl» (Short «exn»),Exn,the_Loc exn) repl_rs’ by simp [repl_rs_def,repl_input_primitive_refs_def,
+  \\ ‘MEM (Long «Repl» (Short «exn»),Exn,the_Loc exn) repl_rs’ by simp [repl_rs_def,
           repl_moduleProgTheory.exn_def,the_Loc_def]
-  \\ drule_then drule repl_types_input_exn_assign
+  \\ drule_then drule repl_types_exn_assign
   \\ disch_then drule
   \\ disch_then drule
   \\ Cases_on ‘store_assign (the_Loc exn) (Refv raised_exn) evaluated_state.refs’
   >-
    (qsuff_tac ‘F’ \\ fs [] \\ pop_assum mp_tac \\ simp []
     \\ fs [store_assign_def]
-    \\ drule_all repl_types_input_exn \\ strip_tac
-    \\ drule repl_types_input_thm \\ simp [EVERY_MEM]
+    \\ drule_all repl_types_exn \\ strip_tac
+    \\ drule repl_types_thm \\ simp [EVERY_MEM]
     \\ strip_tac \\ pop_assum kall_tac \\ pop_assum drule
     \\ simp [ref_lookup_ok_def] \\ unabbrev_all_tac \\ fs []
     \\ simp [store_lookup_def,repl_moduleProgTheory.exn_def,the_Loc_def]
@@ -868,14 +868,14 @@ Resume evaluate_repl[EvalException]:
   \\ simp [repl_moduleProgTheory.errorMessage_def]
   \\ qmatch_goalsub_abbrev_tac ‘StrLit msg_e’
   \\ ‘MEM (Long «Repl» (Short «errorMessage»),Str,
-           the_Loc errorMessage_loc) repl_rs’ by simp [repl_rs_def,repl_input_primitive_refs_def,
+           the_Loc errorMessage_loc) repl_rs’ by simp [repl_rs_def,
           repl_moduleProgTheory.errorMessage_def,the_Loc_def]
-  \\ drule_then drule repl_types_input_str_assign
+  \\ drule_then drule repl_types_str_assign
   \\ simp [store_assign_def,repl_moduleProgTheory.errorMessage_def,the_Loc_def]
   \\ disch_then (qspec_then ‘msg_e’ mp_tac)
   \\ impl_keep_tac
   >-
-   (drule repl_types_input_thm \\ simp [EVERY_MEM]
+   (drule repl_types_thm \\ simp [EVERY_MEM]
     \\ strip_tac \\ first_x_assum drule
     \\ simp [ref_lookup_ok_def]
     \\ simp [store_lookup_def,repl_moduleProgTheory.errorMessage_def,the_Loc_def]
@@ -916,7 +916,7 @@ Resume evaluate_repl[EvalException]:
   \\ ‘SND (roll_back (types,new_types)) = roll_back (SND types) (SND new_types)’
      by (PairCases_on ‘types’ \\ PairCases_on ‘new_types’ \\ fs [] \\ EVAL_TAC)
   \\ fs []
-  \\ drule_then irule repl_types_input_skip_alt \\ fs []
+  \\ drule_then irule repl_types_skip_alt \\ fs []
   \\ drule evaluate_decs_with_NONE \\ fs []
   \\ simp [semanticPrimitivesTheory.state_component_equality]
 QED
@@ -936,17 +936,17 @@ Resume evaluate_repl[EvalSuccess]:
   \\ simp [Once evaluate_def]
   \\ gvs [can_pmatch_all_def,pmatch_def,evaluate_Var,astTheory.pat_bindings_def]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
-  \\ ‘repl_types_input repl_input_catalogue repl_input_slots T (ffi,repl_rs)
+  \\ ‘repl_types repl_input_catalogue repl_input_slots T (ffi,repl_rs)
                  (SND new_types,
                   evaluated_state with eval_state := NONE,
                   extend_dec_env evaluated_env env1)’ by
-   (irule repl_types_input_eval
+   (irule repl_types_eval
     \\ drule check_and_tweak \\ strip_tac
     \\ first_assum $ irule_at (Pos hd)
     \\ irule_at Any evaluate_decs_with_NONE
     \\ first_assum $ irule_at Any \\ simp [Abbr‘st6’]
     \\ rewrite_tac [GSYM APPEND_ASSOC]
-    \\ irule repl_types_input_clock_refs \\ simp [])
+    \\ irule repl_types_clock_refs \\ simp [])
   \\ simp [Once evaluate_def,evaluate_Var]
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_list]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [same_ctor_def]
@@ -956,8 +956,8 @@ Resume evaluate_repl[EvalSuccess]:
   \\ simp [Once evaluate_def,evaluate_Var,do_app_def]
   \\ ‘∃eof_n oef_b bv. isEOF_loc = Loc oef_b eof_n ∧
        store_lookup eof_n evaluated_state.refs = SOME (Refv (Boolv bv))’ by
-   (drule repl_types_input_thm \\ strip_tac
-    \\ fs [repl_rs_def,repl_input_primitive_refs_def]
+   (drule repl_types_thm \\ strip_tac
+    \\ fs [repl_rs_def]
     \\ fs [repl_moduleProgTheory.isEOF_def,the_Loc_def,ref_lookup_ok_def])
   \\ fs []
   (* evaluate if *)
@@ -972,7 +972,7 @@ Resume evaluate_repl[EvalSuccess]:
   \\ IF_CASES_TAC \\ fs [dec_clock_def]
   \\ simp [Once evaluate_def,evaluate_Var,do_app_def]
   \\ qpat_assum
-       ‘repl_types_input _ _ _ _ (SND new_types,_,_)’
+       ‘repl_types _ _ _ _ (SND new_types,_,_)’
        (mp_tac o MATCH_MP repl_input_read)
   \\ disch_then (qx_choosel_then [‘next_input’,‘next_value’] strip_assume_tac)
   \\ fs [repl_moduleProgTheory.nextInput_def,repl_input_location_def]
@@ -1002,12 +1002,12 @@ Resume evaluate_repl[EvalSuccess]:
   \\ gvs [ml_translatorTheory.PAIR_TYPE_def]
   \\ qmatch_asmsub_rename_tac ‘SUM_TYPE STRING_TYPE (LIST_TYPE DEC_TYPE) parsed_input parsed_value’
   \\ qmatch_asmsub_rename_tac ‘STRING_TYPE input_text input_text_value’
-  \\ ‘repl_types_input repl_input_catalogue repl_input_slots T (ffi,repl_rs)
+  \\ ‘repl_types repl_input_catalogue repl_input_slots T (ffi,repl_rs)
         (SND new_types,input_state with <|clock := input_state.clock - input_ck;
           refs := input_state.refs ++ input_junk; eval_state := NONE|>,
          evaluated_env +++ env1)’ by (
     simp [Abbr ‘input_state’]
-    \\ drule_then irule repl_types_input_skip_alt \\ simp [])
+    \\ drule_then irule repl_types_skip_alt \\ simp [])
   \\ simp [Once evaluate_def,evaluate_Var,namespaceTheory.nsOptBind_def,
        namespacePropsTheory.nsLookup_nsBind]
   \\ simp [can_pmatch_all_def,pmatch_def,same_ctor_def,astTheory.pat_bindings_def]
@@ -1050,27 +1050,26 @@ Resume evaluate_repl[EvalSuccess]:
     \\ ‘∃previous_error.
           store_lookup repl_error_location (input_state.refs ++ input_junk) =
             SOME (Refv (Litv (StrLit previous_error)))’ by (
-      qpat_x_assum ‘repl_types_input _ _ _ _ (SND new_types,input_state with <|clock := _;
+      qpat_x_assum ‘repl_types _ _ _ _ (SND new_types,input_state with <|clock := _;
         refs := _; eval_state := NONE|>,_)’
-        (mp_tac o MATCH_MP repl_types_input_thm)
-      \\ simp [PULL_EXISTS,repl_rs_def,repl_input_primitive_refs_def,ref_lookup_ok_def,
+        (mp_tac o MATCH_MP repl_types_thm)
+      \\ simp [PULL_EXISTS,repl_rs_def,ref_lookup_ok_def,
            repl_moduleProgTheory.errorMessage_def,the_Loc_def])
     \\ gvs [ml_translatorTheory.STRING_TYPE_def,store_lookup_def,
          store_assign_def,store_v_same_type_def]
-    \\ ‘repl_types_input repl_input_catalogue repl_input_slots T (ffi,repl_rs)
+    \\ ‘repl_types repl_input_catalogue repl_input_slots T (ffi,repl_rs)
           (SND new_types,
            (input_state with <|clock := input_state.clock - input_ck;
              refs := input_state.refs ++ input_junk; eval_state := NONE|>) with
              refs := LUPDATE (Refv (Litv (StrLit input_error))) repl_error_location
                (input_state.refs ++ input_junk),evaluated_env +++ env1)’ by (
-      irule repl_types_input_str_assign
+      irule repl_types_str_assign
       \\ conj_tac
       >- (
         qexistsl_tac [‘repl_error_location’,‘Long «Repl» (Short «errorMessage»)’,
           ‘input_error’]
         \\ simp [store_assign_def,store_v_same_type_def,repl_rs_def,
-             repl_input_primitive_refs_def,repl_moduleProgTheory.errorMessage_def,
-             the_Loc_def])
+             repl_moduleProgTheory.errorMessage_def,the_Loc_def])
       \\ simp [])
     \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
          namespaceTheory.nsOptBind_def,evaluate_Lit]
@@ -1085,7 +1084,7 @@ Resume evaluate_repl[EvalSuccess]:
     \\ assume_tac compiler64mainprog_report_error_dec_v_thm
     \\ rpt (first_assum $ irule_at Any)
     \\ simp [integerTheory.INT_ADD_CALCULATE]
-    \\ drule_then irule repl_types_input_skip_alt \\ simp [])
+    \\ drule_then irule repl_types_skip_alt \\ simp [])
   \\ qmatch_asmsub_rename_tac ‘LIST_TYPE DEC_TYPE input_decs input_decs_value’
   \\ simp [astTheory.pat_bindings_def,Once evaluate_def,evaluate_Var,
        namespaceTheory.nsOptBind_def,namespacePropsTheory.nsLookup_nsBind]
@@ -1115,7 +1114,7 @@ Resume evaluate_repl[EvalSuccess]:
   \\ conj_tac >- rewrite_tac [GSYM repl_v_def]
   \\ rpt (first_assum $ irule_at Any)
   \\ simp [integerTheory.INT_ADD_CALCULATE]
-  \\ drule_then irule repl_types_input_skip_alt \\ simp []
+  \\ drule_then irule repl_types_skip_alt \\ simp []
 QED
 
 Finalise evaluate_repl;
@@ -1134,7 +1133,7 @@ Theorem evaluate_start_repl:
   s.env_id_counter = (0,1,1) ∧
   BACKEND_CONFIG_TYPE s1 s.compiler_state ∧
   LIST_TYPE STRING_TYPE cl cl_v ∧
-  repl_types_input repl_input_catalogue repl_input_slots T (ffi,repl_rs)
+  repl_types repl_input_catalogue repl_input_slots T (ffi,repl_rs)
     (repl_prog_types, st with eval_state := NONE, repl_init_env) ∧
   nsLookup env.v start_repl_str = SOME start_repl_v ⇒
   nsLookup env.v arg_str = SOME (Conv NONE [host_v; cl_v; s.compiler_state]) ⇒
@@ -1217,11 +1216,11 @@ Proof
        namespaceTheory.nsOptBind_def,evaluate_Lit]
   \\ IF_CASES_TAC >- fs []
   \\ qmatch_goalsub_abbrev_tac ‘evaluate startup_state assignment_env [App Opassign _]’
-  \\ ‘repl_types_input repl_input_catalogue repl_input_slots T (ffi,repl_rs)
+  \\ ‘repl_types repl_input_catalogue repl_input_slots T (ffi,repl_rs)
        (repl_prog_types, startup_state with eval_state := NONE, repl_init_env)’ by (
     simp [Abbr ‘startup_state’] \\ rewrite_tac [GSYM APPEND_ASSOC]
-    \\ irule repl_types_input_clock_refs \\ simp [])
-  \\ qpat_assum ‘repl_types_input _ _ _ _
+    \\ irule repl_types_clock_refs \\ simp [])
+  \\ qpat_assum ‘repl_types _ _ _ _
       (repl_prog_types,startup_state with eval_state := NONE,repl_init_env)’
       (mp_tac o MATCH_MP repl_input_read)
   \\ disch_then (qx_choosel_then [‘initial_input’,‘initial_value’] strip_assume_tac)
@@ -1231,7 +1230,7 @@ Proof
        store_lookup_def,store_assign_def,store_v_same_type_def]
   \\ simp (LENGTH :: (DB.find "refs_def" |> map (#1 o #2)))
   \\ fs [STRING_TYPE_def]
-  \\ ‘repl_types_input repl_input_catalogue repl_input_slots T (ffi,repl_rs)
+  \\ ‘repl_types repl_input_catalogue repl_input_slots T (ffi,repl_rs)
        (repl_prog_types,
         startup_state with <|refs := LUPDATE
           (Refv (repl_source_value (init_next_string cl))) repl_input_location

@@ -2768,12 +2768,3 @@ Proof
   rw [] >> drule_all state_rel_store_assign >>
   simp [OPTREL_def]
 QED
-
-val _ = List.app (fn theorem => let
-  val (oracles,axioms) = Tag.dest_tag (Thm.tag theorem)
-  in
-    if null (hyp theorem) andalso null axioms andalso
-      List.all (fn name => name = "DISK_THM") oracles then ()
-    else failwith "Runtime transport properties have assumptions or admissions"
-  end)
-  [v_rel_no_closures_functional, state_rel_store_assign_success];

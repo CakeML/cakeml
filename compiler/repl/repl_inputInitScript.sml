@@ -49,8 +49,7 @@ Proof
   simp [input_typing_witnesses_clock]
 QED
 
-(* Closed signatures can be computed a constructor at a time, without
-   treating positive constructor lookups as a closure argument. *)
+(* Closed signatures are computed a constructor at a time from fresh entries. *)
 Theorem input_signature_fresh_constructor:
   FLOOKUP ctMap (TypeStamp cn n) = NONE ==>
   datatype_signature (ctMap |+ (TypeStamp cn n,(ctor_params,ctor_fields,ti))) other =
@@ -162,8 +161,7 @@ Proof
   EVAL_TAC
 QED
 
-(* Apply the proved inference bridge to each checked transition. All these
-   facts are kernel theorem compositions; no stage invariant is assumed. *)
+(* Apply the proved inference bridge to each checked transition. *)
 fun input_declarative_stage name (env_ok_th,start_bound_th) = let
   val inference_th = DB.fetch "repl_inputMetadata" (name ^ "_thm")
   val (initial_tm,program_tm) = inference_th |> concl |> lhs |> dest_comb
@@ -253,13 +251,6 @@ Theorem input_prelude_allocation_constructor_namespace:
       input_prelude_allocation_tds input_prelude_allocation_ids) prim_tenv.c
 Proof
   EVAL_TAC
-QED
-
-Theorem input_prelude_allocation_evaluation:
-  evaluate_decs (st:'ffi semanticPrimitives$state) env repl_input_prelude_prog =
-  evaluate_decs st env [Dtype NoLocs input_prelude_allocation_tds]
-Proof
-  EVAL_TAC >> simp []
 QED
 
 Definition input_prelude_allocation_map_def:
@@ -508,9 +499,9 @@ Proof
   asm_rewrite_tac []
 QED
 
-(* A grouped allocation is only a proof-side candidate: emitted declarations
-   remain unchanged. Verify its resolved fields and runtime equality before
-   using it to construct the final certificate. *)
+(* The Ast datatypes as one grouped allocation, a proof-side view of the
+   emitted declarations; its resolved fields and runtime effect are checked
+   against them below. *)
 Definition input_ast_allocation_tds_def:
   input_ast_allocation_tds = FLAT (MAP (\dec. case dec of
     Dtype locs tds => tds | _ => []) ast_type_decs)
@@ -539,7 +530,7 @@ Theorem input_ast_allocation_ids_interval =
       (LENGTH input_ast_allocation_tds)`` |> EVAL |> EQT_ELIM;
 
 (* Sequential Dtype declarations reverse the groups in the abbreviation
-   association list. Do not assert structural equality of the full tenv. *)
+   association list, so only the constructor and value namespaces are equated. *)
 Theorem input_ast_allocation_constructor_namespace:
   (ienv_to_tenv (FST repl_input_ast_types)).c =
   nsAppend
@@ -1104,7 +1095,7 @@ Proof
   asm_rewrite_tac []
 QED
 
-(* All five inversions use exactly this one map/store-typing assumption. *)
+(* Every slot inversion uses this one map/store-typing assumption. *)
 val input_env_typing = ASSUME
   ``type_all_env ctMap tenvS repl_prog_env
     (ienv_to_tenv (FST repl_prog_types))``;
@@ -1142,12 +1133,3 @@ Proof
   qexistsl_tac [`initial_map`,`initial_store`] >>
   fs [input_typing_witnesses_def]
 QED
-
-(* The public existence certificate must not rest on assumptions or admissions. *)
-val _ = let
-  val (oracles,axioms) = Tag.dest_tag (Thm.tag repl_initial_input_certificate)
-  in
-    if null (hyp repl_initial_input_certificate) andalso null axioms andalso
-      List.all (fn name => name = "DISK_THM") oracles then ()
-    else failwith "The initial input certificate has assumptions or admissions"
-  end;

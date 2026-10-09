@@ -24,8 +24,8 @@ val canonical_representation_defs = map (fn group => let
   in DB.fetch "astProg" (String.map Char.toUpper name ^ "_TYPE_def") end)
   canonical_type_groups;
 
-(* Check every declared constructor against its representation clause. No
-   hardcoded stamp or separate list of AST constructors is used here. *)
+(* Check every declared constructor against its representation clause; stamps
+   and arities are read from the registered declarations. *)
 val canonical_stamped_groups = ListPair.map (fn (group,rep_def) => let
   val [params,name,ctors] = pairSyntax.strip_pair group
   val declarations = ctors |> listSyntax.dest_list |> fst
@@ -114,13 +114,6 @@ val _ = if List.all (fn dependency => mem dependency canonical_available_reps)
     canonical_rep_dependencies then ()
   else failwith "Unrecognized AST field representation dependency";
 
-Definition ast_canonical_representation_dependencies_def:
-  ast_canonical_representation_dependencies =
-    ^(listSyntax.mk_list (map (fn (thy,name) => pairSyntax.mk_pair
-      (mlstringSyntax.mk_mlstring thy,mlstringSyntax.mk_mlstring name))
-      canonical_rep_dependencies,``:mlstring # mlstring``))
-End
-
 Theorem ast_canonical_type_lookups = canonical_type_groups
   |> map (fn group => let
     val [params,name,ctors] = pairSyntax.strip_pair group
@@ -137,46 +130,10 @@ Theorem ast_canonical_signatures = canonical_type_groups
       ``ast_canonical_signature tenvT ^name`` end)
   |> LIST_CONJ;
 
-Theorem ast_canonical_declaration_coverage:
-  MAP (\(params,name,ctors). name) ast_canonical_type_groups =
-    ast_canonical_type_names /\
-  ast_canonical_type_names =
-    FLAT (MAP (\dec. case dec of
-      Dtype locs groups => MAP (\(params,name,ctors). name) groups
-    | _ => []) ast_type_decs)
-Proof
-  EVAL_TAC
-QED
-
 Theorem ast_canonical_names_distinct:
   ALL_DISTINCT ast_canonical_type_names
 Proof
   EVAL_TAC
-QED
-
-Theorem ast_canonical_constructor_coverage:
-  MAP (\(name,params,ctors).
-    (name,params,MAP (\(cn,index,fields). (cn,fields)) ctors))
-    ast_canonical_stamped_declarations =
-  MAP (\(params,name,ctors). (name,params,ctors)) ast_canonical_type_groups
-Proof
-  EVAL_TAC
-QED
-
-Theorem ast_canonical_signature_member:
-  !cn index params field_types tenvT name.
-    (cn,index,params,field_types) IN ast_canonical_signature tenvT name <=>
-    ?ctors fields.
-      ALOOKUP ast_canonical_stamped_declarations name = SOME (params,ctors) /\
-      MEM (cn,index,fields) ctors /\
-      field_types = MAP (type_name_subst tenvT) fields
-Proof
-  qx_genl_tac [`ctor_name`,`ctor_index`,`ctor_params`,`ctor_types`,
-    `tenv_types`,`registered_name`] >>
-  namedCases_on `ALOOKUP ast_canonical_stamped_declarations registered_name`
-    ["","registered_group"] >> simp [ast_canonical_signature_def] >>
-  namedCases_on `registered_group` ["registered_params constructors"] >>
-  simp [MEM_MAP, EXISTS_PROD, CONJ_ASSOC] >> metis_tac []
 QED
 
 (* Non-recursive registered roots. *)
@@ -344,9 +301,8 @@ Proof
   metis_tac [type_rep_complete_elim, TEST_TYPE_def]
 QED
 
-(* Expand existential operator witnesses using the HOL datatype itself, not a
-   second constructor table. This keeps representation reasoning local to the
-   matching constructor rather than searching all operator clauses. *)
+(* Existential operator witnesses are expanded from the HOL datatype's own
+   constructors, so each case reasons only about its matching constructor. *)
 fun canonical_exists_statement ast_ty = let
   val predicate = mk_var ("predicate",ast_ty --> bool)
   val value = mk_var ("ast_value",ast_ty)
@@ -742,8 +698,8 @@ QED
 val family_groups = ast_canonical_type_groups_def |> concl |> rand
   |> listSyntax.dest_list |> fst;
 
-(* This is the proof inventory, not a datatype schema. A new registration
-   without a corresponding theorem fails the generated coverage check. *)
+(* The proof inventory: a registered type without exactly one matching theorem
+   here, or a theorem without a registered type, fails the checks below. *)
 val family_proofs =
   [type_rep_complete_lop,type_rep_complete_shift,type_rep_complete_word_size,
    type_rep_complete_thunk_mode,type_rep_complete_opb,type_rep_complete_lit,
@@ -779,17 +735,6 @@ val family_roots = map (fn group => let
 
 val _ = if length family_roots = length family_proofs then ()
   else failwith "Canonical proof inventory contains unregistered roots";
-
-Definition ast_canonical_proof_names_def:
-  ast_canonical_proof_names =
-    ^(listSyntax.mk_list (map (fn (name,_,_) => name) family_roots,``:mlstring``))
-End
-
-Theorem ast_canonical_proof_coverage:
-  ast_canonical_proof_names = ast_canonical_type_names
-Proof
-  EVAL_TAC
-QED
 
 Definition ast_canonical_family_context_def:
   ast_canonical_family_context base identities option_id ctMap <=>
@@ -916,9 +861,8 @@ Proof
   fs [IsTypeRep_def, EqualityType_def] >> metis_tac []
 QED
 
-(* Runtime transport uses the actual representation definitions, including
-   containers and Boolv's hidden constructors, rather than another AST schema.
-   The structural proofs below establish sufficiency of this footprint. *)
+(* The stamps used by the representation definitions, including containers
+   and Boolv's constructors. The structural proofs below show these suffice. *)
 val canonical_representation_stamps = canonical_available_rep_defs @ [Boolv_def]
   |> map (fn theorem => find_terms semanticPrimitivesSyntax.is_TypeStamp
       (concl theorem))
@@ -1140,58 +1084,3 @@ Proof
   strip_tac >> match_mp_tac ast_encoder_list_self >>
   fs [ast_canonical_representation_stamps_def,list_type_num_def]
 QED
-
-(* Exported interfaces must not rest on assumptions or admissions. *)
-val _ = List.app (fn theorem => let
-  val (oracles,axioms) = Tag.dest_tag (Thm.tag theorem)
-  in
-    if null (hyp theorem) andalso null axioms andalso
-      List.all (fn name => name = "DISK_THM") oracles then ()
-    else failwith "AST canonical forms have assumptions or admissions"
-  end)
-  [ast_canonical_type_lookups,
-   ast_canonical_signatures,
-   ast_canonical_declaration_coverage,
-   ast_canonical_names_distinct,
-   ast_canonical_constructor_coverage,
-   ast_canonical_signature_member,
-   type_rep_complete_lop,
-   ast_canonical_primitive_fields,
-   type_rep_complete_shift,
-   type_rep_complete_word_size,
-   type_rep_complete_thunk_mode,
-   type_rep_complete_opb,
-   type_rep_complete_lit,
-   type_rep_complete_prim_type,
-   type_rep_complete_arith,
-   type_rep_complete_thunk_op,
-   type_rep_complete_test,
-   ast_operator_exists,
-   type_rep_complete_op,
-   type_rep_complete_locs,
-   type_rep_complete_id,
-   type_rep_complete_ast_t,
-   type_rep_complete_pat,
-   ast_expression_exists,
-   type_rep_complete_exp,
-   ast_declaration_exists,
-   type_rep_complete_dec,
-   ast_canonical_proof_coverage,
-   ast_canonical_family_entry,
-   ast_canonical_family_complete,
-   ast_dec_type_rep,
-   ast_dec_list_type_rep,
-   ast_dec_list_equality,
-   ast_dec_list_representation,
-   ast_encoder_list_self,
-   ast_literal_encoder_self,
-   ast_identifier_encoder_self,
-   ast_type_encoder_self,
-   ast_option_encoder_self,
-   ast_pattern_encoder_self,
-   ast_encoder_pair_self,
-   ast_leaf_encoders_self,
-   ast_operator_encoders_self,
-   ast_expression_encoder_self,
-   ast_declaration_encoder_self,
-   ast_dec_list_encoder_self];

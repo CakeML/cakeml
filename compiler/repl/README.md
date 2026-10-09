@@ -53,7 +53,7 @@ preservation interface carries them through the remaining initialization.
 
 [repl_inputInvariantScript.sml](repl_inputInvariantScript.sml):
 Immutable input metadata and the joint typing certificate used at the
-direct-AST REPL boundary. No AST-specific constructor map is assumed here.
+direct-AST REPL boundary, for any catalogue and slots.
 
 [repl_inputMetadataScript.sml](repl_inputMetadataScript.sml):
 Concrete input metadata derived from the generated initialization program.
@@ -63,7 +63,7 @@ by themselves prove constructor-signature closure or the joint certificate.
 [repl_inputRepresentationScript.sml](repl_inputRepresentationScript.sml):
 Instantiate the registered AST family at the actual inferred REPL
 identities, then strengthen the same initial witnesses with representations.
-These facts establish representation, not Candle declaration allowedness.
+Candle declaration allowedness is checked separately, at runtime.
 
 [repl_moduleProgScript.sml](repl_moduleProgScript.sml):
 This file defines two modules:

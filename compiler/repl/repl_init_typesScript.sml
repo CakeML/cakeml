@@ -60,20 +60,9 @@ Definition repl_sum_type_id_def:
       |> pairSyntax.dest_pair |> snd |> rand)
 End
 
-Theorem repl_dec_type_lookup = dec_type_lookup
-  |> REWRITE_RULE [GSYM repl_dec_type_id_def];
-
-Theorem repl_sum_type_lookup = sum_type_lookup
-  |> REWRITE_RULE [GSYM repl_sum_type_id_def];
-
 Definition repl_input_type_def:
   repl_input_type = Tapp [Tstring; Tlist (Tapp [] repl_dec_type_id)] repl_sum_type_id
 End
-
-Theorem repl_nextInput_type =
-  ``nsLookup (ienv_to_tenv (FST repl_prog_types)).v
-      (Long «Repl» (Short «nextInput»)) = SOME (0,Tref repl_input_type)``
-  |> EVAL |> EQT_ELIM;
 
 Definition repl_init_types_def:
   repl_init_types = (init_type_names (FST repl_prog_types), repl_prog_types)

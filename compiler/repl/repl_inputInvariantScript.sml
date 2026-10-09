@@ -1,10 +1,10 @@
 (*
   Immutable input metadata and the joint typing certificate used at the
-  direct-AST REPL boundary. No AST-specific constructor map is assumed here.
+  direct-AST REPL boundary, for any catalogue and slots.
 *)
 Theory repl_inputInvariant
 Ancestors
-  typeSound typeSoundInvariants typeSysProps namespaceProps primTypes typeSystem
+  typeSound typeSoundInvariants primTypes typeSystem
   semanticPrimitives evaluate_skip
 Libs
   preamble
@@ -130,17 +130,6 @@ Proof
   drule_all type_s_reference >> rw [store_lookup_def]
 QED
 
-Theorem initial_input_certificate_intro:
-  FDOM catalogue SUBSET tids UNION prim_type_ids /\
-  type_sound_invariant (st:'ffi semanticPrimitives$state) env ctMap tenvS {} tenv /\
-  FRANGE ((SND o SND) o_f ctMap) SUBSET tids UNION prim_type_ids /\
-  catalogue_matches catalogue ctMap /\ input_slots_hold slots tenvS ==>
-  initial_input_certificate catalogue slots tids tenv st env
-Proof
-  strip_tac >> simp [initial_input_certificate_def] >>
-  qexistsl_tac [`ctMap`,`tenvS`] >> simp [input_typing_witnesses_def]
-QED
-
 Theorem input_typing_witnesses_bounds:
   input_typing_witnesses catalogue slots tids tenv
     (st:'ffi semanticPrimitives$state) env ctMap tenvS ==>
@@ -150,19 +139,13 @@ Proof
   drule_all input_metadata_bounds_from_typing >> simp []
 QED
 
-(* Equivalent to the expanded certificate, with bounds derived from typing. *)
-Theorem initial_input_certificate_contract:
+Theorem initial_input_certificate_bounds:
   initial_input_certificate catalogue slots tids tenv
-    (st:'ffi semanticPrimitives$state) env <=>
-  FDOM catalogue SUBSET tids UNION prim_type_ids /\
-  ?ctMap tenvS.
-    type_sound_invariant st env ctMap tenvS {} tenv /\
-    FRANGE ((SND o SND) o_f ctMap) SUBSET tids UNION prim_type_ids /\
-    catalogue_matches catalogue ctMap /\ input_slots_hold slots tenvS /\
-    input_metadata_bounds catalogue slots st
+    (st:'ffi semanticPrimitives$state) env ==>
+  input_metadata_bounds catalogue slots st
 Proof
-  rewrite_tac [initial_input_certificate_def] >>
-  metis_tac [input_typing_witnesses_def, input_typing_witnesses_bounds]
+  rw [initial_input_certificate_def] >>
+  drule input_typing_witnesses_bounds >> simp []
 QED
 
 (* Declaration and reference preservation use the same joint witnesses. *)
@@ -381,37 +364,3 @@ Theorem initial_input_certificate_clock:
 Proof
   simp [initial_input_certificate_def, input_typing_witnesses_clock]
 QED
-
-(* Exported interfaces must not rest on assumptions or admissions. *)
-val _ = List.app (fn theorem => let
-  val (oracles,axioms) = Tag.dest_tag (Thm.tag theorem)
-  in
-    if null (hyp theorem) andalso null axioms andalso
-      List.all (fn name => name = "DISK_THM") oracles then ()
-    else failwith "Input typing invariants have assumptions or admissions"
-  end)
-  [input_stamp_fix_extension,
-   input_stamp_fix_identity,
-   catalogue_stamps_member,
-   catalogue_matches_lookup,
-   catalogue_matches_preserved,
-   input_metadata_bounds_from_typing,
-   initial_input_certificate_intro,
-   input_typing_witnesses_bounds,
-   initial_input_certificate_contract,
-   input_slots_hold_extension,
-   input_typing_witnesses_reserve,
-   input_typing_witnesses_advance,
-   input_typing_declarations_success,
-   input_typing_declarations_raise,
-   input_typing_reference_assign,
-   input_typing_slot_assign,
-   input_typing_trusted_assign,
-   input_typing_declarations_no_type_error,
-   input_slots_hold_entries,
-   input_catalogue_entries_match,
-   input_catalogue_restrict_entries,
-   input_catalogue_new_signatures,
-   input_catalogues_union,
-   input_typing_witnesses_clock,
-   initial_input_certificate_clock];

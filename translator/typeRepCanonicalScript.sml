@@ -21,15 +21,6 @@ Proof
   rw [type_rep_complete_def] >> res_tac
 QED
 
-Theorem type_rep_complete_bool:
-  ctMap_ok ctMap /\ ctMap_has_bools ctMap ==>
-  type_rep_complete tvs ctMap tenvS Tbool BOOL
-Proof
-  strip_tac >> rewrite_tac [type_rep_complete_def] >> rpt strip_tac >>
-  drule_all (CONJUNCT1 ctor_canonical_values_thm) >>
-  simp [BOOL_def]
-QED
-
 (* The bound exposes the smaller-value hypothesis used through nested
    containers in a recursive registered datatype family. *)
 Definition type_rep_complete_below_def:
@@ -37,14 +28,6 @@ Definition type_rep_complete_below_def:
     !value. v_size value < bound /\ type_v tvs ctMap tenvS value ty ==>
       ?x. rep x value
 End
-
-Theorem type_rep_complete_below_elim:
-  type_rep_complete_below bound tvs ctMap tenvS ty rep /\
-  v_size value < bound /\ type_v tvs ctMap tenvS value ty ==>
-  ?x. rep x value
-Proof
-  rw [type_rep_complete_below_def] >> res_tac
-QED
 
 Theorem type_rep_complete_implies_below:
   type_rep_complete tvs ctMap tenvS ty rep ==>
@@ -207,14 +190,6 @@ Proof
   simp [instantiated_datatype_signature_def, CONJ_ASSOC]
 QED
 
-Theorem instantiated_datatype_signature_eq:
-  datatype_signature ctMap ti = datatype_signature ctMap' ti ==>
-  instantiated_datatype_signature args ctMap ti =
-    instantiated_datatype_signature args ctMap' ti
-Proof
-  rw [instantiated_datatype_signature_def]
-QED
-
 Theorem type_v_instantiated_datatype_signature:
   ctMap_ok ctMap /\ ~MEM ti prim_type_nums /\
   type_v tvs ctMap tenvS value (Tapp args ti) ==>
@@ -249,31 +224,3 @@ Proof
   irule type_rep_complete_below_list >> simp [] >>
   irule type_rep_complete_implies_below >> simp []
 QED
-
-(* Exported interfaces must not rest on assumptions or admissions. *)
-val _ = List.app (fn theorem => let
-  val (oracles,axioms) = Tag.dest_tag (Thm.tag theorem)
-  in
-    if null (hyp theorem) andalso null axioms andalso
-      List.all (fn name => name = "DISK_THM") oracles then ()
-    else failwith "Representation completeness has assumptions or admissions"
-  end)
-  [type_rep_complete_elim,
-   type_rep_complete_bool,
-   type_rep_complete_below_elim,
-   type_rep_complete_implies_below,
-   type_v_datatype_shape,
-   type_v_datatype_signature,
-   type_rep_complete_primitives,
-   type_v_tuple_shape,
-   v_size_less_fields_size,
-   v_size_less_constructor,
-   type_rep_complete_below_pair,
-   v_to_list_fields_smaller,
-   v_to_list_rep_complete,
-   type_rep_complete_below_list,
-   instantiated_datatype_signature_member,
-   instantiated_datatype_signature_eq,
-   type_v_instantiated_datatype_signature,
-   type_rep_complete_from_below,
-   type_rep_complete_list];

@@ -94,14 +94,6 @@ Proof
   rw [preserves_datatype_signatures_def]
 QED
 
-Theorem preserves_datatype_signatures_lookup:
-  preserves_datatype_signatures tids ctMap ctMap' /\ ti NOTIN tids ==>
-  (FLOOKUP ctMap' (TypeStamp cn n) = SOME (tvs,ts,ti) <=>
-   FLOOKUP ctMap (TypeStamp cn n) = SOME (tvs,ts,ti))
-Proof
-  rw [preserves_datatype_signatures_def, GSYM datatype_signature_member]
-QED
-
 Theorem preserves_datatype_signatures_fresh:
   ctMap SUBMAP ctMap' /\
   (!cn n tvs ts ti.

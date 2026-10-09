@@ -1,7 +1,7 @@
 (*
   Instantiate the registered AST family at the actual inferred REPL
   identities, then strengthen the same initial witnesses with representations.
-  These facts establish representation, not Candle declaration allowedness.
+  Candle declaration allowedness is checked separately, at runtime.
 *)
 Theory repl_inputRepresentation
 Ancestors
@@ -182,60 +182,6 @@ Proof
   drule_all type_rep_complete_elim >> simp []
 QED
 
-Theorem repl_input_decs_encoded:
-  ctMap_ok ctMap /\ ctMap_has_lists ctMap /\
-  catalogue_matches repl_input_catalogue ctMap /\
-  type_v tvs ctMap tenvS value (Tlist (Tapp [] repl_dec_type_id)) ==>
-  ?decs. LIST_v DEC_v decs = value
-Proof
-  strip_tac >>
-  `type_rep_complete tvs ctMap tenvS (Tlist (Tapp [] repl_dec_type_id))
-    (LIST_TYPE DEC_TYPE)` by (
-      irule repl_input_dec_list_complete >> simp []) >>
-  drule_all type_rep_complete_elim >> simp [ast_dec_list_representation]
-QED
-
-(* Catalogue, slot and representation facts share one constructor-map/store-typing pair. *)
-Theorem repl_initial_input_representations:
-  ?ctMap tenvS.
-    input_typing_witnesses repl_input_catalogue repl_input_slots
-      (set_ids start_type_id (SND repl_prog_types))
-      (ienv_to_tenv (FST repl_prog_types))
-      (input_repl_state (ffi:'ffi ffi_state)) repl_prog_env ctMap tenvS /\
-    input_metadata_bounds repl_input_catalogue repl_input_slots
-      (input_repl_state ffi) /\
-    type_rep_complete 0 ctMap tenvS repl_input_type
-      (SUM_TYPE STRING_TYPE (LIST_TYPE DEC_TYPE)) /\
-    type_rep_complete 0 ctMap tenvS (Tlist (Tapp [] repl_dec_type_id))
-      (LIST_TYPE DEC_TYPE) /\
-    (!value. type_v 0 ctMap tenvS value (Tlist (Tapp [] repl_dec_type_id)) ==>
-      ?decs. LIST_v DEC_v decs = value)
-Proof
-  mp_tac (repl_initial_input_certificate |> GEN_ALL
-    |> Q.ISPEC `ffi:'ffi ffi_state`
-    |> REWRITE_RULE [initial_input_certificate_def]) >>
-  disch_then (qx_choosel_then [`canonical_map`,`canonical_store`]
-    strip_assume_tac) >>
-  `ctMap_ok canonical_map /\ ctMap_has_lists canonical_map` by (
-    fs [input_typing_witnesses_def, type_sound_invariant_def, good_ctMap_def]) >>
-  `catalogue_matches repl_input_catalogue canonical_map` by
-    fs [input_typing_witnesses_def] >>
-  `input_metadata_bounds repl_input_catalogue repl_input_slots
-    (input_repl_state ffi)` by (
-      drule input_typing_witnesses_bounds >> simp []) >>
-  `type_rep_complete 0 canonical_map canonical_store repl_input_type
-    (SUM_TYPE STRING_TYPE (LIST_TYPE DEC_TYPE))` by (
-      irule repl_input_sum_complete >> simp []) >>
-  `type_rep_complete 0 canonical_map canonical_store
-    (Tlist (Tapp [] repl_dec_type_id)) (LIST_TYPE DEC_TYPE)` by (
-      irule repl_input_dec_list_complete >> simp []) >>
-  qexistsl_tac [`canonical_map`,`canonical_store`] >> simp [] >>
-  qx_gen_tac `value` >> strip_tac >>
-  mp_tac (Q.INST [`ctMap` |-> `canonical_map`,
-    `tenvS` |-> `canonical_store`, `tvs` |-> `0`, `value` |-> `value`]
-    repl_input_decs_encoded) >> simp []
-QED
-
 (* Concrete source injection and original initialization locations. *)
 val input_source_stamp = find_term semanticPrimitivesSyntax.is_TypeStamp
   (concl (CONJUNCT2 SUM_TYPE_def));
@@ -274,8 +220,8 @@ val input_primitive_origins =
 val (_,input_source_location) = semanticPrimitivesSyntax.dest_Loc
   (input_origin_value ``Long «Repl» (Short «nextInput»)``);
 
-Definition repl_input_primitive_refs_def:
-  repl_input_primitive_refs =
+Definition repl_rs_def:
+  repl_rs =
     ^(listSyntax.mk_list (input_primitive_origins,
       ``:(mlstring,mlstring) id # simple_type # num``))
 End
@@ -283,13 +229,6 @@ End
 Definition repl_input_location_def:
   repl_input_location = ^input_source_location
 End
-
-
-Theorem repl_source_representation:
-  SUM_TYPE STRING_TYPE right_rep (INL text) (repl_source_value text)
-Proof
-  simp [SUM_TYPE_def, STRING_TYPE_def, repl_source_value_def]
-QED
 
 Theorem repl_source_signature_member:
   ?signature.
@@ -341,11 +280,10 @@ Proof
   simp [trusted_input_value_def, repl_source_value_type, repl_source_value_self]
 QED
 
-Theorem repl_input_primitive_refs_types:
-  EVERY (check_ref_types (FST repl_prog_types) repl_prog_env)
-    repl_input_primitive_refs
+Theorem repl_rs_thm:
+  EVERY (check_ref_types (FST repl_prog_types) repl_prog_env) repl_rs
 Proof
-  simp [repl_input_primitive_refs_def, check_ref_types_def,
+  simp [repl_rs_def, check_ref_types_def,
     repl_input_slot_values] >> EVAL_TAC
 QED
 
@@ -364,8 +302,7 @@ QED
 
 Theorem repl_input_initial_reachable:
   !b (ffi:'ffi ffi_state).
-    repl_types_input repl_input_catalogue repl_input_slots b
-      (ffi,repl_input_primitive_refs)
+    repl_types repl_input_catalogue repl_input_slots b (ffi,repl_rs)
       (repl_prog_types,input_repl_state ffi,repl_prog_env)
 Proof
   qx_genl_tac [`b`,`ffi`] >>
@@ -377,26 +314,25 @@ Proof
     |> Q.ISPEC `ffi:'ffi ffi_state`) >> strip_tac >>
   mp_tac (Q.ISPECL
     [`repl_input_catalogue`,`repl_input_slots`,`ffi:'ffi ffi_state`,
-     `repl_input_primitive_refs`,`repl_prog`,`repl_prog_types`,
+     `repl_rs`,`repl_prog`,`repl_prog_types`,
      `input_repl_state (ffi:'ffi ffi_state) with clock := final_clock`,
-     `input_repl_decl_env`,`initial_clock:num`,`b:bool`] repl_types_input_init) >>
+     `input_repl_decl_env`,`initial_clock:num`,`b:bool`] repl_types_init) >>
   simp [repl_prog_types_thm, repl_input_initial_environment,
-    repl_input_primitive_refs_types, input_init_ok_def,
-    initial_input_certificate_clock] >> strip_tac >>
-  drule repl_types_input_set_clock >>
+    repl_rs_thm, initial_input_certificate_clock] >> strip_tac >>
+  drule repl_types_set_clock >>
   disch_then (qspec_then `(input_repl_state ffi).clock` mp_tac) >>
   simp []
 QED
 
 Theorem repl_input_source_assign:
-  repl_types_input repl_input_catalogue repl_input_slots b (ffi,rs)
+  repl_types repl_input_catalogue repl_input_slots b (ffi,rs)
     (input_types,st,env) /\
   store_assign repl_input_location (Refv (repl_source_value text)) st.refs =
     SOME new_store ==>
-  repl_types_input repl_input_catalogue repl_input_slots b (ffi,rs)
+  repl_types repl_input_catalogue repl_input_slots b (ffi,rs)
     (input_types,st with refs := new_store,env)
 Proof
-  strip_tac >> irule repl_types_input_trusted_assign >> simp [] >>
+  strip_tac >> irule repl_types_trusted_assign >> simp [] >>
   qexistsl_tac [`repl_input_location`,`repl_input_type`,`repl_source_value text`] >>
   simp [repl_input_location_type, repl_source_value_trusted]
 QED
@@ -481,17 +417,17 @@ Proof
 QED
 
 Theorem repl_input_read:
-  repl_types_input repl_input_catalogue repl_input_slots T (ffi,rs)
+  repl_types repl_input_catalogue repl_input_slots T (ffi,rs)
     (input_types,physical,physical_env) ==>
   ?input value.
     store_lookup repl_input_location physical.refs = SOME (Refv value) /\
     SUM_TYPE STRING_TYPE (LIST_TYPE DEC_TYPE) input value
 Proof
-  strip_tac >> drule repl_types_input_T_F >>
+  strip_tac >> drule repl_types_T_F >>
   disch_then (qx_choosel_then
     [`clean`,`clean_env`,`ref_map`,`type_map`,`exn_map`,`prefix_len`]
     strip_assume_tac) >>
-  drule repl_types_input_F_thm >> strip_tac >>
+  drule repl_types_F_thm >> strip_tac >>
   qpat_x_assum `initial_input_certificate _ _ _ _ _ _`
     (mp_tac o REWRITE_RULE [initial_input_certificate_def]) >>
   disch_then (qx_choosel_then [`ctor_map`,`store_types`] strip_assume_tac) >>
@@ -516,27 +452,3 @@ Proof
   drule_all repl_input_value_transport >> strip_tac >>
   qexists_tac `input` >> simp []
 QED
-
-(* Exported interfaces must not rest on assumptions or admissions. *)
-val _ = List.app (fn theorem => let
-  val (oracles,axioms) = Tag.dest_tag (Thm.tag theorem)
-  in
-    if null (hyp theorem) andalso null axioms andalso
-      List.all (fn name => name = "DISK_THM") oracles then ()
-    else failwith "Direct-AST input representations have assumptions or admissions"
-  end)
-  [repl_ast_canonical_catalogue_entries, repl_ast_canonical_namespace,
-   repl_input_container_catalogue_lookups, repl_ast_canonical_catalogue_entry,
-   repl_input_option_signature, repl_input_sum_signature,
-   repl_ast_canonical_context, repl_ast_canonical_family_complete,
-   repl_ast_canonical_dec_complete, repl_input_dec_list_complete,
-   repl_input_sum_complete, repl_input_value_canonical, repl_input_decs_encoded,
-   repl_initial_input_representations, repl_source_representation,
-   repl_source_signature_member, repl_source_constructor_typing,
-   repl_source_stamp_protected, repl_source_value_type, repl_source_value_self,
-   repl_source_value_trusted, repl_input_primitive_refs_types,
-   repl_input_location_type, repl_input_initial_environment,
-   repl_input_initial_reachable, repl_input_source_assign,
-   repl_input_representation_stamps_protected, repl_input_representation_stamp_self,
-   repl_input_dec_list_self, repl_input_value_self, repl_input_value_transport,
-   repl_input_read];

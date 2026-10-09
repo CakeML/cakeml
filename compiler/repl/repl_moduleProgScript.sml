@@ -147,7 +147,9 @@ val _ = ml_prog_update (add_Dlet eval_thm "exn");
 
 Theorem exn_def[allow_rebind]          = fetch "-" "exn_def"                        |> tidy_up;
 Theorem isEOF_def[allow_rebind]        = declare_new_ref "isEOF"        “F”         |> tidy_up;
-(* Retain Tannot, which cfNormaliseTheory.strip_annot_exp removes. *)
+(* The type annotation gives nextInput a closed inferred type. The declaration
+   is added directly because cfNormaliseTheory.strip_annot_exp removes such
+   annotations. *)
 val nextInput_e = cfTacticsBaseLib.parse_exp
   `(Ref (Inl "") : (string, Ast.dec list) sum ref)`;
 val nextInput_env = get_ml_prog_state () |> ml_progLib.get_env;

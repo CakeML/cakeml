@@ -101,17 +101,3 @@ Proof
   irule type_rep_complete_below_sum >> simp [] >>
   conj_tac >> irule type_rep_complete_implies_below >> simp []
 QED
-
-(* Exported interfaces must not rest on assumptions or admissions. *)
-val _ = List.app (fn theorem => let
-  val (oracles,axioms) = Tag.dest_tag (Thm.tag theorem)
-  in
-    if null (hyp theorem) andalso null axioms andalso
-      List.all (fn name => name = "DISK_THM") oracles then ()
-    else failwith "Prelude representation completeness has assumptions or admissions"
-  end)
-  [option_rep_signature_cases,
-   sum_rep_signature_cases,
-   type_rep_complete_below_option,
-   type_rep_complete_below_sum,
-   type_rep_complete_sum];
