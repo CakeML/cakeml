@@ -1203,7 +1203,8 @@ Proof
   drule pan_to_word_compile_prog_no_install_code>>strip_tac>>
   drule pan_to_word_compile_prog_no_mt_code>>strip_tac>>
   gs[]>>
-  drule_all word_to_word_compile_no_install_no_alloc>>strip_tac>>
+  drule word_to_word_compile_no_install_no_alloc>>
+  impl_tac >- (simp [] >> metis_tac []) >> strip_tac>>
   ‘MAP FST wprog0 = MAP FST wprog’ by
     (drule compile_to_word_conventions2>>
      impl_tac
@@ -1364,7 +1365,7 @@ Proof
   (* compiler_orackle_ok *)
   qmatch_asmsub_abbrev_tac ‘stack_to_lab_compile _ _ _ max_heap sp _ _’>>
   qabbrev_tac ‘lorac = λn:num.
-                         (ltconf, []:(num # stack_rawcallProof$prog) list, []:'a word list)’>>
+                         (ltconf, []:(num # stack_rawcallProof$prog # metadata) list, []:'a word list)’>>
   qabbrev_tac ‘sorac =
                (λn:num.
                   (λ(c',p,b:'a word list).
@@ -1398,8 +1399,8 @@ Proof
   first_assum $ irule_at Any>>gs[]>> (* no_install_or_no_share_mem *)
   first_assum $ irule_at Any>>gs[]>>  (* lab_to_target$compile *)
 
-  ‘EVERY (λ(_,_,_). T) (add_metadata empty_metadata
-    (pan_to_word_compile_prog mc.target.config.ISA pan_code))’ by
+  ‘EVERY (λ(_,_,_). T)
+    (pan_to_word_compile_prog mc.target.config.ISA pan_code)’ by
     (rw[]>>simp[EVERY_MEM,FORALL_PROD])>>fs[]>>
 
   ‘good_code mc.target.config (LN:num sptree$num_map sptree$num_map) lprog’
@@ -1410,7 +1411,7 @@ Proof
     qpat_x_assum ‘Abbrev (lprog = _)’
                  (assume_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def])>>
     first_assum $ irule_at Any>>
-    qmatch_asmsub_abbrev_tac ‘word_to_word_compile _ _ wprog0 = _’>>
+    qmatch_asmsub_abbrev_tac ‘word_to_word_compile _ _ (add_metadata _ wprog0) = _’>>
     qpat_x_assum ‘Abbrev (wprog0 = _)’
                  (assume_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def])>>
     (* labels_ok *)
@@ -1427,9 +1428,7 @@ Proof
      gs[stackPropsTheory.reg_name_def, Abbr ‘sp’]>>
      irule stack_allocProofTheory.stack_alloc_stack_asm_convs>>
      gs[stackPropsTheory.reg_name_def]>>
-     assume_tac (GEN_ALL stack_rawcallProofTheory.stack_alloc_stack_asm_convs)>>
-
-     first_x_assum (qspecl_then [‘p’, ‘mc.target.config’] assume_tac)>>gs[]>>
+     gs[stack_rawcallProofTheory.stack_alloc_stack_asm_convs]>>
      (* reshaping... *)
      gs[GSYM EVERY_CONJ]>>
      simp[LAMBDA_PROD]>>
@@ -1635,7 +1634,7 @@ Proof
   ‘ALOOKUP wprog raise_stub_location = NONE ∧
    ALOOKUP wprog store_consts_stub_location = NONE’
     by (
-    qmatch_asmsub_abbrev_tac ‘word_to_word_compile _ _ wprog0 = _’>>
+    qmatch_asmsub_abbrev_tac ‘word_to_word_compile _ _ (add_metadata _ wprog0) = _’>>
     qpat_x_assum ‘Abbrev (wprog0 = _)’ (assume_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def])>>
     drule pan_to_word_compile_prog_lab_min>>
     gs[GSYM EVERY_MAP]>>
