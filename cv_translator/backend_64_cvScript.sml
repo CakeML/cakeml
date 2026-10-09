@@ -13,9 +13,11 @@ Libs
 val arch_size = if String.isSubstring "32" (current_theory()) then “:32” else “:64”;
 
 val arch_spec = INST_TYPE [alpha |-> arch_size];
-val arch_spec_beta = INST_TYPE [beta |-> arch_size];
 val arch_spec_both = INST_TYPE [alpha |-> arch_size,beta |-> arch_size];
 val arch_bool_spec = INST_TYPE [alpha |-> “:bool”,beta |-> arch_size];
+
+(* Specialize the generic labels and metadata carried by stack pass wrappers. *)
+val prog_spec = INST_TYPE [alpha |-> “:num”,beta |-> “:metadata”];
 
 val _ = cv_memLib.use_long_names := true;
 
@@ -44,8 +46,8 @@ val _ = stack_to_labTheory.prog_to_section_def |> arch_spec |> cv_trans;
 val _ = stack_namesTheory.ri_find_name_def |> arch_spec |> cv_trans;
 val _ = stack_namesTheory.inst_find_name_def |> arch_spec |> cv_trans;
 val _ = stack_namesTheory.comp_def |> arch_spec |> cv_trans;
-val _ = stack_namesTheory.prog_comp_def |> arch_spec_beta |> cv_trans;
-val _ = stack_namesTheory.compile_def |> arch_spec |> cv_auto_trans;
+val _ = stack_namesTheory.prog_comp_def |> prog_spec |> cv_trans;
+val _ = stack_namesTheory.compile_def |> prog_spec |> cv_auto_trans;
 val _ = stack_removeTheory.word_offset_def |> arch_spec |> cv_trans;
 val _ = stack_removeTheory.store_offset_def |> arch_spec |> cv_trans;
 val _ = stack_removeTheory.halt_inst_def |> arch_spec |> cv_trans;
@@ -63,7 +65,7 @@ val _ = cv_trans_rec (stack_removeTheory.downshift_def |> arch_spec)
 val _ = stack_removeTheory.stack_store_def |> arch_spec |> cv_trans;
 val _ = stack_removeTheory.stack_load_def |> arch_spec |> cv_trans;
 val _ = stack_removeTheory.comp_def |> arch_spec |> cv_trans;
-val _ = stack_removeTheory.prog_comp_def |> arch_spec_beta |> cv_trans;
+val _ = stack_removeTheory.prog_comp_def |> prog_spec |> cv_trans;
 val _ = stack_removeTheory.store_list_code_def |> arch_spec |> cv_trans;
 val _ = stack_removeTheory.init_memory_def |> arch_spec |> cv_trans;
 val _ = (stack_removeTheory.init_code_def |> arch_spec
@@ -109,7 +111,8 @@ Proof
   ho_match_mp_tac stack_allocTheory.comp_ind \\ rw [] \\ simp [Once pre]
 QED
 
-val _ = stack_allocTheory.prog_comp_def |> arch_spec |> cv_trans;
+val _ = stack_allocTheory.prog_comp_def
+  |> INST_TYPE [alpha |-> “:metadata”] |> cv_trans;
 val _ = stack_allocTheory.compile_def |> arch_spec |> SRULE [stack_allocTheory.stubs_def]
                                                    |> cv_auto_trans;
 
