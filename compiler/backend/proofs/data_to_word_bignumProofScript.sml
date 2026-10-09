@@ -19,7 +19,6 @@ val _ = temp_delsimps ["NORMEQ_CONV", "fromAList_def", "domain_union",
                        "domain_map", "sptree.map_def", "sptree.lookup_rwts",
                        "sptree.insert_notEmpty", "sptree.isEmpty_union"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 val _ = augment_srw_ss [rewrites [integer_wordTheory.i2w_pos, integer_wordTheory.i2w_w2i,
   integer_wordTheory.i2w_minus_1,
   data_to_wordTheory.get_lowerbits_def,data_to_wordTheory.make_ptr_def,

@@ -1236,7 +1236,7 @@ Proof
   Induct \\ rw[fake_moves_def] \\ rw[]
   \\ pairarg_tac \\ fs[]
   \\ fs[CaseEq"option"] \\ rw[]
-  \\ first_x_assum old_drule \\ rw[]
+  \\ first_x_assum drule \\ rw[]
   \\ rw[fake_move_def]
 QED
 
@@ -1303,7 +1303,7 @@ Proof
   \\ fs[setup_ssa_def]
   \\ pairarg_tac \\ fs[]
   \\ rveq \\ fs[]
-  \\ old_drule word_get_code_labels_ssa_cc_trans
+  \\ drule word_get_code_labels_ssa_cc_trans
   \\ rw[]
 QED
 
@@ -1316,7 +1316,7 @@ Proof
   Induct \\ rw[fake_moves_def] \\ rw[]
   \\ pairarg_tac \\ fs[]
   \\ fs[CaseEq"option"] \\ rw[]
-  \\ first_x_assum old_drule \\ rw[]
+  \\ first_x_assum drule \\ rw[]
   \\ rw[fake_move_def]
 QED
 
@@ -1383,7 +1383,7 @@ Proof
   \\ fs[setup_ssa_def]
   \\ pairarg_tac \\ fs[]
   \\ rveq \\ fs[]
-  \\ old_drule word_good_handlers_ssa_cc_trans
+  \\ drule word_good_handlers_ssa_cc_trans
   \\ rw[]
 QED
 

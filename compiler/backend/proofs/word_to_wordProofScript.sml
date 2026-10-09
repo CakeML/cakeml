@@ -12,7 +12,6 @@ Libs
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = bring_to_front_overload "Call" {Thy="wordLang",Name="Call"};
 
@@ -84,7 +83,7 @@ Proof
   (* inst select *)
   Q.ISPECL_THEN [`(dimindex (:α))`,`c`,`max_var (dimindex (:α)) p0 +1`,`p0`,`st with permute:=perm''`,`res`,`rst`,`st.locals`] mp_tac inst_select_thm>>
   impl_tac >- (
-    old_drule (GEN_ALL word_simpProofTheory.compile_exp_thm) \\ fs [] \\ strip_tac \\
+    drule (GEN_ALL word_simpProofTheory.compile_exp_thm) \\ fs [] \\ strip_tac \\
     simp[locals_rel_def]>>
     Q.SPECL_THEN [`(dimindex (:α))`,`p0`] assume_tac max_var_max>>
     irule every_var_mono>>
@@ -110,7 +109,7 @@ Proof
   rw[]>>
 
   (* word cse *)
-  old_drule word_common_subexp_elim_correct >>
+  drule word_common_subexp_elim_correct >>
   impl_keep_tac >- (
     fs [] >>
     (* requires flat_exp_conventions up to p3 *)
@@ -124,7 +123,7 @@ Proof
   `evaluate (p4, st with permute := perm') = (res, rcst with locals := t')` by
     (simp[Abbr `p4`] >> simp[Once evaluate_copy_prop] >> gvs[]) >>
   (* three_to_two_reg_prog *)
-  old_drule evaluate_three_to_two_reg_prog>>
+  drule_then (qspec_then `t` mp_tac) evaluate_three_to_two_reg_prog>>
   simp[]>>
   impl_tac >- (
     (* requires every_inst distinct_tar_reg up to p4 *)
@@ -230,7 +229,7 @@ Proof
     simp[ALOOKUP_MAP_2]>>
     metis_tac[])
   >>
-    first_x_assum old_drule>>rw[]>>
+    first_x_assum drule>>rw[]>>
     simp[]>>metis_tac[]
 QED
 
@@ -304,7 +303,7 @@ QED
 
 Resume compile_single_correct[Inst]:
   fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
-  old_drule inst_const_full >> simp[state_component_equality]
+  drule inst_const_full >> simp[state_component_equality]
 QED
 
 Resume compile_single_correct[Assign]:
@@ -324,7 +323,7 @@ QED
 
 Resume compile_single_correct[Store]:
   fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
-  old_drule mem_store_const >> simp[state_component_equality]
+  drule mem_store_const >> simp[state_component_equality]
 QED
 
 Resume compile_single_correct[MustTerminate]:
@@ -388,8 +387,6 @@ Resume compile_single_correct[Call]:
     rw[]>>
     qpat_x_assum`(λ(x,y). _) _`mp_tac >>
     pairarg_tac>>fs[]>>
-    qpat_x_assum`Abbrev( (_,_,_,_) = _)` (mp_tac o GSYM)>>
-    simp[Once markerTheory.Abbrev_def]>>rw[]>>
     rw[]>>fs[dec_clock_def,call_env_def,flush_state_def]>>
     qmatch_asmsub_abbrev_tac`evaluate (q',stt)`>>
     Q.ISPECL_THEN [`q'`,`stt`,`rcst.permute`] mp_tac permute_swap_lemma>>
@@ -463,9 +460,9 @@ Resume compile_single_correct[Call]:
            (imp_res_tac evaluate_clock>>
            full_simp_tac(srw_ss())[call_env_def,flush_state_def,dec_clock_def]>>
            DECIDE_TAC)>>
-         old_drule pop_env_const >> fs[] >> disch_then kall_tac >>
-         old_drule pop_env_termdep>> fs[] >> disch_then kall_tac >>
-         old_drule pop_env_code_gc_fun_clock >>
+         drule pop_env_const >> fs[] >> disch_then kall_tac >>
+         drule pop_env_termdep>> fs[] >> disch_then kall_tac >>
+         drule pop_env_code_gc_fun_clock >>
          disch_then (mp_tac o LIST_CONJ o (map SYM) o CONJUNCTS) >>
          fs[] >> disch_then kall_tac >>
          imp_res_tac evaluate_consts >> fs[] >>
@@ -881,7 +878,7 @@ Proof
   qexists_tac`perm'`>>pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
   Cases_on`res=SOME Error`>>fs[]>>
-  old_drule (GEN_ALL word_remove_correct)>>fs[]>>
+  drule (GEN_ALL word_remove_correct)>>fs[]>>
   disch_then(qspec_then`cc` assume_tac)>>rfs[]>>
   qexists_tac`clk`>>
   fs[Abbr`prog`,word_removeTheory.remove_must_terminate_def,compile_state_def]>>
@@ -1150,7 +1147,7 @@ QED
 
 Resume no_install_no_alloc_compile_single_correct[ni_Inst]:
   fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
-  old_drule inst_const_full >> simp[state_component_equality]
+  drule inst_const_full >> simp[state_component_equality]
 QED
 
 Resume no_install_no_alloc_compile_single_correct[ni_Assign]:
@@ -1170,7 +1167,7 @@ QED
 
 Resume no_install_no_alloc_compile_single_correct[ni_Store]:
   fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
-  old_drule mem_store_const >> simp[state_component_equality]
+  drule mem_store_const >> simp[state_component_equality]
 QED
 
 Resume no_install_no_alloc_compile_single_correct[ni_MustTerminate]:
@@ -1303,7 +1300,7 @@ Resume no_install_no_alloc_compile_single_correct[ni_Seq]:
         gs[no_install_def, no_alloc_def]>>
         `no_install_code rst.code ∧ no_alloc_code rst.code`
           by (qpat_assum `_ = (_, rst)` assume_tac>>
-              old_drule no_install_evaluate_const_code>>
+              drule no_install_evaluate_const_code>>
               strip_tac>>gs[]>>
               imp_res_tac wordPropsTheory.evaluate_consts>>fs[])>>
         imp_res_tac wordPropsTheory.evaluate_consts>>
@@ -1322,7 +1319,7 @@ Resume no_install_no_alloc_compile_single_correct[ni_Seq]:
       imp_res_tac wordPropsTheory.evaluate_consts>>
       fs[]>>
       qpat_assum `_ = (_, rst)` assume_tac>>
-      old_drule no_install_evaluate_const_code>>
+      drule no_install_evaluate_const_code>>
       strip_tac>>gs[])>>
     rw[]>>
     Q.ISPECL_THEN[`p`,`st with permute:=perm'`,`perm''`]
@@ -1374,7 +1371,7 @@ Resume no_install_no_alloc_compile_single_correct[ni_Loop]:
       simp[STOP_def] >>
       `no_install_code rst.code ∧ no_alloc_code rst.code` by (
         qpat_x_assum `evaluate (body, stt with permute := perm') = _` assume_tac >>
-        old_drule no_install_evaluate_const_code >>
+        drule no_install_evaluate_const_code >>
         impl_tac >- gs[] >>
         strip_tac >> fs[]) >>
       first_x_assum(qspecl_then[`dec_clock rst`,
@@ -1453,13 +1450,13 @@ Resume no_install_no_alloc_compile_single_correct[ni_Call]:
       full_simp_tac(srw_ss())[Abbr`stt`,dec_clock_def,call_env_def,flush_state_def] >>
       conj_tac>-DECIDE_TAC >>
       qpat_x_assum `find_code _ _ st.code _ = _` assume_tac >>
-      old_drule (GEN_ALL code_rel_no_install) >>
-      disch_then old_drule>>gs[] >>
+      drule (GEN_ALL code_rel_no_install) >>
+      disch_then drule>>gs[] >>
       impl_tac
       >- (metis_tac[no_install_find_code]) >>
       rw[] >>
-      old_drule (GEN_ALL code_rel_no_alloc) >>
-      disch_then old_drule>>gs[] >>
+      drule (GEN_ALL code_rel_no_alloc) >>
+      disch_then drule>>gs[] >>
       impl_tac
       >- (metis_tac[no_alloc_find_code]) >>
       rw[]) >>
@@ -1484,8 +1481,8 @@ Resume no_install_no_alloc_compile_single_correct[ni_Call]:
     rw[] >>
     qpat_x_assum`(λ(x,y). _) _`mp_tac >>
     pairarg_tac>>fs[] >>
-    qpat_x_assum`Abbrev ((_,_,_) = _)` mp_tac >>
-    simp[Once markerTheory.Abbrev_def]>>rw[] >>
+    qpat_x_assum`compile_single _ _ _ _ _ = (_,_,_)` (mp_tac o GSYM) >>
+    rw[] >>
     rw[]>>fs[dec_clock_def] >>
     qmatch_asmsub_abbrev_tac`evaluate (q',stt)` >>
     Q.ISPECL_THEN [`q'`,`stt`,`rcst.permute`] mp_tac permute_swap_lemma >>
@@ -1508,13 +1505,13 @@ Resume no_install_no_alloc_compile_single_correct[ni_Call]:
    (
     fs[Abbr`stt`,dec_clock_def] >>
     qpat_x_assum `find_code _ _ st.code _ = _` assume_tac>>
-    old_drule (GEN_ALL code_rel_no_install)>>
-    disch_then old_drule>>gs[]>>
+    drule (GEN_ALL code_rel_no_install)>>
+    disch_then drule>>gs[]>>
     impl_tac
     >-(metis_tac[no_install_find_code])>>
     rw[]>>
-    old_drule (GEN_ALL code_rel_no_alloc)>>
-    disch_then old_drule>>gs[]>>
+    drule (GEN_ALL code_rel_no_alloc)>>
+    disch_then drule>>gs[]>>
     impl_tac
     >-(metis_tac[no_alloc_find_code])>>
     rw[])>>
@@ -1572,9 +1569,9 @@ Resume no_install_no_alloc_compile_single_correct[ni_Call]:
          (imp_res_tac evaluate_clock>>
           full_simp_tac(srw_ss())[call_env_def,flush_state_def,dec_clock_def]>>
           DECIDE_TAC)>>
-       old_drule pop_env_const >> fs[] >> disch_then kall_tac >>
-       old_drule pop_env_termdep>> fs[] >> disch_then kall_tac >>
-       old_drule pop_env_code_gc_fun_clock >>
+       drule pop_env_const >> fs[] >> disch_then kall_tac >>
+       drule pop_env_termdep>> fs[] >> disch_then kall_tac >>
+       drule pop_env_code_gc_fun_clock >>
        disch_then (mp_tac o LIST_CONJ o (map SYM) o CONJUNCTS) >>
        fs[] >> disch_then kall_tac >>
        imp_res_tac evaluate_consts >> fs[] >>
@@ -1692,7 +1689,7 @@ Finalise no_install_no_alloc_compile_single_correct;
   >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
       simp[state_component_equality])
   >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
-      old_drule inst_const_full >> simp[state_component_equality])
+      drule inst_const_full >> simp[state_component_equality])
   >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
       simp[state_component_equality])
   >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
@@ -1700,7 +1697,7 @@ Finalise no_install_no_alloc_compile_single_correct;
   >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
       simp[state_component_equality])
   >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
-      old_drule mem_store_const >> simp[state_component_equality])
+      drule mem_store_const >> simp[state_component_equality])
    (* Must_Terminate *)
   >- (fs[evaluate_def,no_install_def,no_alloc_def] >>
      rpt (TOP_CASE_TAC >> simp[]) >>
@@ -1742,14 +1739,14 @@ Finalise no_install_no_alloc_compile_single_correct;
         flush_state_def]>>
        conj_tac>-DECIDE_TAC>>
        qpat_x_assum ‘find_code _ _ st.code _ = _’ assume_tac>>
-       old_drule (GEN_ALL code_rel_no_install)>>
-       disch_then old_drule>>gs[]>>
+       drule (GEN_ALL code_rel_no_install)>>
+       disch_then drule>>gs[]>>
        impl_tac
        >-(drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
                      no_install_find_code)>>gs[])>>
        rw[]>>
-       old_drule (GEN_ALL code_rel_no_alloc)>>
-       disch_then old_drule>>gs[]>>
+       drule (GEN_ALL code_rel_no_alloc)>>
+       disch_then drule>>gs[]>>
        impl_tac
        >-(drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
                      no_alloc_find_code)>>gs[])>>
@@ -1804,14 +1801,14 @@ Finalise no_install_no_alloc_compile_single_correct;
     (
      fs[Abbr`stt`,dec_clock_def] >>
      qpat_x_assum ‘find_code _ _ st.code _ = _’ assume_tac>>
-     old_drule (GEN_ALL code_rel_no_install)>>
-     disch_then old_drule>>gs[]>>
+     drule (GEN_ALL code_rel_no_install)>>
+     disch_then drule>>gs[]>>
      impl_tac
      >-(drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
                    no_install_find_code)>>gs[])>>
      rw[]>>
-     old_drule (GEN_ALL code_rel_no_alloc)>>
-     disch_then old_drule>>gs[]>>
+     drule (GEN_ALL code_rel_no_alloc)>>
+     disch_then drule>>gs[]>>
      impl_tac
      >-(drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
                    no_alloc_find_code)>>gs[])>>
@@ -1880,9 +1877,9 @@ Finalise no_install_no_alloc_compile_single_correct;
           full_simp_tac(srw_ss())[call_env_def,flush_state_def,dec_clock_def]>>
           DECIDE_TAC)>>
        (*Why are there 3 different lemmas*)
-       old_drule pop_env_const >> fs[] >> disch_then kall_tac >>
-       old_drule pop_env_termdep>> fs[] >> disch_then kall_tac >>
-       old_drule pop_env_code_gc_fun_clock >>
+       drule pop_env_const >> fs[] >> disch_then kall_tac >>
+       drule pop_env_termdep>> fs[] >> disch_then kall_tac >>
+       drule pop_env_code_gc_fun_clock >>
        disch_then (mp_tac o LIST_CONJ o (map SYM) o CONJUNCTS) >>
        fs[] >> disch_then kall_tac >>
        (*Yet another duplication*)
@@ -2018,7 +2015,7 @@ Finalise no_install_no_alloc_compile_single_correct;
        gs[no_install_def, no_alloc_def]>>
        ‘no_install_code rst.code ∧ no_alloc_code rst.code’
          by (qpat_assum ‘_ = (_, rst)’ assume_tac>>
-             old_drule no_install_evaluate_const_code>>
+             drule no_install_evaluate_const_code>>
              strip_tac>>gs[call_env_def,
                            push_env_def]>>
              qpat_x_assum ‘find_code _ _ st.code _ = _’ assume_tac>>
@@ -2043,7 +2040,7 @@ Finalise no_install_no_alloc_compile_single_correct;
      imp_res_tac wordPropsTheory.evaluate_consts>>
      fs[]>>
      qpat_assum ‘_ = (_, rst)’ assume_tac>>
-     old_drule no_install_evaluate_const_code>>
+     drule no_install_evaluate_const_code>>
      strip_tac>>gs[call_env_def,
                    push_env_def]>>
      qpat_x_assum ‘find_code _ _ st.code _ = _’ assume_tac>>
@@ -2187,7 +2184,7 @@ Proof
   pop_assum (assume_tac o GSYM)>>gs[]>>
   qmatch_asmsub_abbrev_tac ‘full_compile_single bits _ _ _ _ x’>>
   ‘r = FST (SND (SND (FST x)))’ by gs[Abbr ‘x’]>>gs[]>>
-  old_drule (GEN_ALL no_mt_full_compile_single)>>gs[]>>metis_tac[]
+  metadata_drule (GEN_ALL no_mt_full_compile_single)>>gs[]>>metis_tac[]
 QED
 
 (**** more on no_share_inst ****)
@@ -2242,7 +2239,7 @@ Proof
   drule_at (Pos (el 2)) no_install_no_alloc_compile_single_correct>>
   fs[]>>
   disch_then(qspec_then`prog`mp_tac)>>
-  rpt (disch_then old_drule)>>
+  rpt (disch_then drule)>>
   rw[]>>
   qexists_tac`perm'`>>pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
@@ -2274,7 +2271,7 @@ Theorem word_to_word_compile_semantics:
   wordSem$semantics (t:(α,β,'ffi) wordSem$state) start
 Proof
   strip_tac>>pop_assum mp_tac>>
-  old_drule code_rel_ext_word_to_word>>
+  drule code_rel_ext_word_to_word>>
   strip_tac>>
   drule_all no_mt_code_rel_ext>>strip_tac>>
   gs[word_to_wordTheory.compile_def]>>
@@ -2353,13 +2350,13 @@ Proof
     strip_tac>>
     pairarg_tac>>gs[]>>
     qpat_x_assum ‘_ = (q, r''')’ assume_tac>>
-    old_drule (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
+    drule (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
     simp[RIGHT_FORALL_IMP_THM] >>
     impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
     disch_then(qspec_then`k`mp_tac) >>
     strip_tac>>
     qpat_x_assum ‘_ = (r', t')’ assume_tac>>
-    old_drule (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
+    drule (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
     simp[RIGHT_FORALL_IMP_THM] >>
     impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
     disch_then(qspec_then`k'`mp_tac) >>
