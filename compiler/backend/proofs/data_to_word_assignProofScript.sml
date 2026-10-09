@@ -21,7 +21,6 @@ val _ = temp_delsimps ["fromAList_def", "domain_union",
                        "domain_map", "sptree.map_def", "sptree.lookup_rwts",
                        "sptree.insert_notEmpty", "sptree.isEmpty_union"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 Theorem signed_floor_decomposition[local]:
   (b:int) <> 0 /\ ABS r < ABS b ==>
@@ -2752,7 +2751,6 @@ Proof
   \\ `x = s with locals := x.locals` by
        (qpat_x_assum `cut_state kept_names s = SOME x` mp_tac
         \\ simp [dataSemTheory.cut_state_def, AllCaseEqs()] \\ rw [] \\ fs [])
-  \\ qabbrev_tac `s1 = x`
   \\ qpat_x_assum `state_rel c l1 l2 s t NONE locs` (fn th => NTAC 2 (mp_tac th)) \\ strip_tac
   \\ simp_tac std_ss [Once state_rel_thm] \\ strip_tac \\ fs []
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -2800,7 +2798,7 @@ Proof
   \\ fs [wordSemTheory.get_var_def,lookup_insert,wordSemTheory.get_var_imm_def]
   \\ IF_CASES_TAC THEN1
    (qmatch_goalsub_abbrev_tac `GiveUp, t6`
-    \\ qsuff_tac `state_rel c l1 l2 s1 t6 NONE locs`
+    \\ qsuff_tac `state_rel c l1 l2 x t6 NONE locs`
     THEN1 (rw [] \\ imp_res_tac evaluate_GiveUp \\ fs [])
     \\ fs [Abbr `t6`]
     \\ full_simp_tac(srw_ss())[state_rel_def] \\ srw_tac[][]
@@ -2824,8 +2822,8 @@ Proof
   \\ qpat_x_assum `v_to_mlstring _ _ = SOME _` mp_tac
   \\ simp [dataSemTheory.v_to_mlstring_def, AllCaseEqs()]
   \\ strip_tac \\ gvs []
-  \\ `s1.refs = s.refs` by
-   (qpat_x_assum `cut_state kept_names s = SOME s1` mp_tac
+  \\ `x.refs = s.refs` by
+   (qpat_x_assum `cut_state kept_names s = SOME x` mp_tac
     \\ simp [dataSemTheory.cut_state_def, AllCaseEqs()] \\ rw [] \\ fs [])
   \\ `lookup p s.refs = SOME (ByteArray T bs)` by fs []
   \\ rpt_drule0 memory_rel_ByteArray_IMP \\ strip_tac
@@ -2868,7 +2866,7 @@ Proof
   \\ fs [wordSemTheory.get_var_def,lookup_insert,wordSemTheory.get_var_imm_def]
   \\ IF_CASES_TAC THEN1
    (qmatch_goalsub_abbrev_tac `GiveUp, t6`
-    \\ qsuff_tac `state_rel c l1 l2 s1 t6 NONE locs`
+    \\ qsuff_tac `state_rel c l1 l2 x t6 NONE locs`
     THEN1 (rw [] \\ imp_res_tac evaluate_GiveUp \\ fs [])
     \\ fs [Abbr `t6`]
     \\ full_simp_tac(srw_ss())[state_rel_def] \\ srw_tac[][]
@@ -2940,8 +2938,8 @@ Proof
        (match_mp_tac IMP_read_bytearray_GENLIST \\ fs [])
   \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
   \\ fs [lookup_insert,wordSemTheory.code_buffer_install_def,w2n_n2w,LESS_MOD]
-  \\ `s1.compile = s.compile ∧ s1.compile_oracle = s.compile_oracle` by
-       (qpat_x_assum `cut_state kept_names s = SOME s1` mp_tac
+  \\ `x.compile = s.compile ∧ x.compile_oracle = s.compile_oracle` by
+       (qpat_x_assum `cut_state kept_names s = SOME x` mp_tac
         \\ simp [dataSemTheory.cut_state_def, AllCaseEqs()] \\ rw [] \\ fs [])
   \\ Cases_on `s.compile_oracle 0`
   \\ fs [lookup_insert,wordSemTheory.get_var_def,wordSemTheory.cut_env_def,
@@ -2986,7 +2984,7 @@ Proof
   \\ LABEL_X_ASSUM "with_locals" mp_tac
   \\ simp [state_rel_thm]
   \\ strip_tac \\ gvs [FLOOKUP_SIMP,lookup_insert,adjust_var_11]
-  \\ gvs [Abbr‘s1’]
+  \\ gvs []
   (* single-cut: result state_rel is in terms of the cut state x; bridge each
      non-locals field x.f = s.f (x = s with locals := x.locals) in both goal and
      assumptions, so the code_rel asm and the cut memory_rel asm line up. *)
