@@ -13,15 +13,20 @@
 *)
 Theory source_to_flat
 Ancestors
-  ast flatLang evaluate flat_elim flat_pattern
+  ast flatLang evaluate flat_ticks flat_pattern
 Libs
   preamble
 
 val _ = numLib.temp_prefer_num();
 val _ = temp_tight_equality ();
 
+(* what is known about the value of a global variable *)
 Datatype:
-  var_name = Glob tra num | Local tra mlstring
+  glob_info = NoInfo | InfoLit lit | InfoPrim num ast$op
+End
+
+Datatype:
+  var_name = Glob tra num glob_info | Local tra mlstring
 End
 
 Datatype:
@@ -44,7 +49,7 @@ Datatype:
 End
 
 Definition compile_var_def:
-  compile_var t (Glob _ i) = App t (GlobalVarLookup i) [] /\
+  compile_var t (Glob _ i _) = App t (GlobalVarLookup i) [] /\
   compile_var t (Local _ s) = Var_local t s
 End
 
@@ -132,6 +137,80 @@ Definition open_compile_env_def:
       | SOME env_c => SOME <|v := env_v; c := env_c|>
 End
 
+Definition inline_op_def:
+  inline_op op ⇔ getOpClass op = Simple ∧ op ≠ AallocEmpty ∧ op ≠ Env_id
+End
+
+(* small numeric literals and wrappers around primitives, e.g. + *)
+Definition exp_info_def:
+  exp_info (e:ast$exp) =
+    case e of
+    | Lit (IntLit i) =>
+        if small_enough_int i then InfoLit (IntLit i) else NoInfo
+    | Lit (Word8 w) => InfoLit (Word8 w)
+    | Fun x (App op [Var (Short x1)]) =>
+        if x1 = x ∧ inline_op op then InfoPrim 1 op else NoInfo
+    | Fun x (Fun y (App op [Var (Short x1); Var (Short y1)])) =>
+        if x1 = x ∧ y1 = y ∧ x ≠ y ∧ inline_op op then InfoPrim 2 op
+        else NoInfo
+    | Fun x (Fun y (Fun z (App op [Var (Short x1); Var (Short y1);
+                                   Var (Short z1)]))) =>
+        if x1 = x ∧ y1 = y ∧ z1 = z ∧ ALL_DISTINCT [x; y; z] ∧ inline_op op
+        then InfoPrim 3 op
+        else NoInfo
+    | _ => NoInfo
+End
+
+(* evaluates e, then consumes n ticks, as the calls of a wrapper would *)
+Definition tick_n_def:
+  tick_n (n:num) e = if n = 0 then e else flatLang$Tick None (tick_n (n - 1) e)
+End
+
+(* c is a wrapper of arity n applied to n - k arguments *)
+Definition dest_prim_call_def:
+  (dest_prim_call (env:environment) k (Var f) =
+     case nsLookup env.v f of
+     | SOME (Glob _ _ (InfoPrim n p)) => if n = k then SOME (p, n) else NONE
+     | _ => NONE) ∧
+  (dest_prim_call env k (App op cs) =
+     case cs of
+     | [c; _] => if op = Opapp ∧ k < 3 then dest_prim_call env (k + 1) c else NONE
+     | _ => NONE) ∧
+  (dest_prim_call env k _ = NONE)
+End
+
+(* fully applied calls of known primitive wrappers: the primitive and arity *)
+Definition dest_inline_def:
+  dest_inline env op es =
+    if op = Opapp then
+      case es of
+      | [c; _] => dest_prim_call env 1 c
+      | _ => NONE
+    else NONE
+End
+
+Definition dest_call_def:
+  (dest_call (flatLang$App _ _ [f; x]) = SOME (f, x)) ∧
+  (dest_call _ = NONE)
+End
+
+(* turns the compiled call of a primitive wrapper into the primitive *)
+Definition inline_app_def:
+  inline_app p (n:num) xs =
+    case xs of
+    | [c; x3] =>
+        if n = 1 then App None (astOp_to_flatOp p) [tick_n 1 x3] else
+        (case dest_call c of
+         | NONE => App None (Src Opapp) xs
+         | SOME (c1, x2) =>
+           if n = 2 then App None (astOp_to_flatOp p) [tick_n 2 x2; x3] else
+           case dest_call c1 of
+           | NONE => App None (Src Opapp) xs
+           | SOME (_, x1) =>
+               App None (astOp_to_flatOp p) [tick_n 3 x1; x2; x3])
+    | _ => App None (Src Opapp) xs
+End
+
 Definition compile_exp_def:
   (compile_exp (t:mlstring list) (env:environment) (Raise e) =
     Raise None (compile_exp t env e)) ∧
@@ -144,11 +223,15 @@ Definition compile_exp_def:
   (compile_exp t env (Var x) =
     case nsLookup env.v x of
     | NONE => Var_local None «» (* Can't happen *)
+    | SOME (Glob _ _ (InfoLit l)) => Lit None l
     | SOME x => compile_var None x) ∧
   (compile_exp t env (Fun x e) =
     Fun (join_all_names t) x
       (compile_exp t (env with v := nsBind x (Local None x) env.v) e)) ∧
   (compile_exp t env (ast$App op es) =
+    case dest_inline env op es of
+    | SOME (p, n) => inline_app p n (compile_exps t env es)
+    | NONE =>
     if op = AallocEmpty then
       FOLDR (Let None NONE) (flatLang$App None (Src Aalloc) [Lit None (IntLit (&0));
                                                        Lit None (IntLit (&0))])
@@ -278,7 +361,7 @@ End
 Definition alloc_defs_def:
   (alloc_defs n next [] = []) ∧
   (alloc_defs n next (x::xs) =
-    (x, Glob om_tra next) :: alloc_defs (n + 1) (next + 1) xs)
+    (x, Glob om_tra next NoInfo) :: alloc_defs (n + 1) (next + 1) xs)
 End
 
 Theorem fst_alloc_defs:
@@ -360,8 +443,8 @@ Definition compile_decs_def:
      case simple_dlet p e of
      | SOME (pv,v) =>
          (case nsLookup env.v v of
-          | SOME (Glob t i) =>
-                 (n, next, <| v := alist_to_ns [(pv, Glob t i)]; c := nsEmpty |>, envs, [])
+          | SOME (Glob t i k) =>
+                 (n, next, <| v := alist_to_ns [(pv, Glob t i k)]; c := nsEmpty |>, envs, [])
           | _ => (n, next, <| v := nsEmpty; c := nsEmpty |>, envs, []))
      | NONE =>
          let n' = n + 4 in
@@ -370,7 +453,11 @@ Definition compile_decs_def:
          let l = LENGTH xs in
          let n'' = n' + l in
            (n'', (next with vidx := next.vidx + l),
-            <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
+            <| v := alist_to_ns (case (p, alloc_defs n' next.vidx xs) of
+                                 | (Pvar _, [(x, Glob t i _)]) =>
+                                     [(x, Glob t i (exp_info e))]
+                                 | (_, defs) => defs);
+               c := nsEmpty |>,
             envs,
             [Mat None e'
                [(compile_pat env p, make_varls 0 None next.vidx xs)]])) ∧
@@ -413,7 +500,7 @@ Definition compile_decs_def:
      in (n'', next2, new_env2, envs'', lds'++ds')) ∧
   (compile_decs t n next env envs [Denv nenv] =
      (n + 1, next with vidx := next.vidx + 1,
-        <| v := nsBind nenv (Glob None next.vidx) nsEmpty; c := nsEmpty |>,
+        <| v := nsBind nenv (Glob None next.vidx NoInfo) nsEmpty; c := nsEmpty |>,
         envs with <| next := envs.next + 1;
             envs := insert envs.next env envs.envs |>,
         [(App None (GlobalVarInit next.vidx)
@@ -448,8 +535,7 @@ Definition empty_config_def:
 End
 
 Definition compile_flat_def:
-  compile_flat pcfg = MAP (flat_pattern$compile_dec pcfg)
-    o flat_elim$remove_flat_prog
+  compile_flat pcfg p = MAP (flat_pattern$compile_dec pcfg) (flat_ticks$remove_ticks_decs p)
 End
 
 Definition glob_alloc_def:
@@ -510,10 +596,9 @@ Definition compile_def:
       (c', p')
 End
 
-(* note that flat_elim is always disabled in the eval/incremental case *)
 Definition inc_compile_def:
   inc_compile env_id c p =
     let (c', p') = inc_compile_prog env_id c p in
-    let p' = MAP (flat_pattern$compile_dec c'.pattern_cfg) p' in
+    let p' = compile_flat c'.pattern_cfg p' in
       (c', p')
 End

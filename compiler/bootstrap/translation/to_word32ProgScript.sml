@@ -150,6 +150,7 @@ val _ = translate (data_to_wordTheory.WriteWord64_on_32_def |> inline_simp |> co
 val _ = translate (data_to_wordTheory.WordOp64_on_32_def |> inline_simp |> SIMP_RULE std_ss [word_mul_def,word_2comp_def]|> conv32)
 
 val _ = translate (data_to_wordTheory.ShiftVar_def |> inline_simp |> conv32);
+val _ = translate (data_to_wordTheory.SmallDivMod_def |> inline_simp |> conv32);
 val _ = translate (data_to_wordTheory.WordShift64_on_32_def |> inline_simp |> conv32)
 val _ = translate (data_to_wordTheory.WordShiftVar64_on_32_def |> inline_simp |> conv32)
 val _ = translate (data_to_wordTheory.ShiftW8_def |> inline_simp |> conv32)

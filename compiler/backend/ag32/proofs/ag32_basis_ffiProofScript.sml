@@ -13,7 +13,6 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 (* TODO: move *)
 
@@ -1242,6 +1241,8 @@ Proof
       \\ fs[fsFFIPropsTheory.STD_streams_def]
       \\ last_x_assum(qspecl_then[`0`,`ReadMode`,`inp`]mp_tac)
       \\ simp[] \\ rfs[])
+    \\ qpat_x_assum`Abbrev(o1 = _)`kall_tac
+    \\ qpat_x_assum`Abbrev(_ ∨ _)`kall_tac
     \\ fs[] \\ rveq
     \\ simp[LUPDATE_def]
     \\ qmatch_goalsub_abbrev_tac`A ∧ (B ∧ A)`
@@ -1790,6 +1791,8 @@ Proof
       \\ first_x_assum(qspecl_then[`w82n conf`,`WriteMode`,`LENGTH err`]mp_tac)
       \\ first_x_assum(qspecl_then[`w82n conf`,`WriteMode`,`LENGTH out`]mp_tac)
       \\ rw[])
+    \\ qpat_x_assum`Abbrev(o1 = _)`kall_tac
+    \\ qpat_x_assum`Abbrev(_ ∨ _)`kall_tac
     \\ fs[] \\ rveq
     \\ simp[LUPDATE_def]
     \\ qmatch_goalsub_abbrev_tac`A ∧ (B ∧ A)`
@@ -2969,11 +2972,6 @@ Proof
   \\ strip_tac
   \\ TRY (
     first_x_assum(qspecl_then[`2`,`WriteMode`,`LENGTH err`]mp_tac)
-    \\ simp[] \\ strip_tac \\ rveq
-    \\ first_x_assum(qspecl_then[`fd`,`WriteMode`,`LENGTH out`]mp_tac)
-    \\ simp[] \\ NO_TAC )
-  \\ TRY (
-    first_x_assum(qspecl_then[`fd`,`WriteMode`,`LENGTH err`]mp_tac)
     \\ simp[] \\ strip_tac \\ rveq
     \\ first_x_assum(qspecl_then[`1`,`WriteMode`,`LENGTH out`]mp_tac)
     \\ simp[] \\ NO_TAC )
@@ -7452,8 +7450,9 @@ Proof
   \\ qpat_x_assum`machine_sem _ _ _ ⊆ _`mp_tac
   \\ simp[SUBSET_DEF, IN_DEF] \\ strip_tac
   \\ first_x_assum drule
-  \\ disch_then(assume_tac o ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def])
-  \\ `∃x y. b = Terminate x y` by fs[markerTheory.Abbrev_def] \\ rveq
+  \\ disch_then(ASSUME_NAMED_TAC "result")
+  \\ `∃x y. b = Terminate x y`
+       by (LABEL_ASSUM "result" strip_assume_tac \\ simp[]) \\ rveq
   \\ first_x_assum(mp_then Any mp_tac (GEN_ALL machine_sem_Terminate_FUNPOW_next))
   \\ first_assum(mp_then Any mp_tac (GEN_ALL ag32_interference_implemented))
   \\ simp[]
@@ -7774,7 +7773,6 @@ Proof
     \\ simp[]
     \\ rewrite_tac[GSYM APPEND_ASSOC]
     \\ DEP_REWRITE_TAC[EL_APPEND1]
-    \\ qpat_x_assum`_ ∨ _`kall_tac
     \\ fs[LENGTH_words_of_bytes, bitstringTheory.length_pad_right,
           LENGTH_FLAT, bytes_in_word_def, MAP_MAP_o, o_DEF, ADD1, SUM_MAP_PLUS]
     \\ fs[Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]
@@ -7842,6 +7840,7 @@ Proof
       \\ fs[Abbr`ms`, FUNPOW_ADD]
       \\ fs[EVAL``(ag32_machine_config _ _ _).target.next``]
       \\ first_x_assum irule
+      \\ LABEL_ASSUM "result" assume_tac
       \\ fs[markerTheory.Abbrev_def] )
     \\ fs[Abbr`mc`]
     \\ fs[EVAL``(ag32_machine_config _ _ _).target.next``]
@@ -7853,7 +7852,8 @@ Proof
     \\ `a ∉ ag32_startup_addresses`
     by (
       EVAL_TAC
-      \\ ntac 2 (pop_assum mp_tac)
+      \\ qpat_x_assum`a <₊ _`mp_tac
+      \\ qpat_x_assum`_ ≤₊ a`mp_tac
       \\ qpat_x_assum`_ < memory_size`mp_tac
       \\ EVAL_TAC
       \\ fs[FFI_codes_def]
@@ -7903,8 +7903,11 @@ Proof
     \\ EVAL_TAC
     \\ fs[word_add_n2w, word_ls_n2w, word_lo_n2w] )
   \\ conj_tac
-  >- ( fs[IS_PREFIX_APPEND] \\ fs[markerTheory.Abbrev_def] )
+  >- (
+    LABEL_ASSUM "result" assume_tac \\ fs[IS_PREFIX_APPEND]
+    \\ fs[markerTheory.Abbrev_def] )
   \\ strip_tac \\ fs[]
   \\ Cases_on`x` \\ fs[]
+  \\ LABEL_X_ASSUM "result" assume_tac
   \\ fs[markerTheory.Abbrev_def]
 QED

@@ -524,6 +524,8 @@ Definition flat_to_display_def:
     Item (SOME None) (add_name_hint «letrec» name_hint)
         [Tuple (fun_flat_to_display_list funs); flat_to_display exp]
   )  ∧
+  (flat_to_display (flatLang$Tick tra exp) =
+    Item (SOME tra) «tick» [flat_to_display exp]) ∧
   (flat_to_display_list [] = []) ∧
   (flat_to_display_list (x::xs) =
     flat_to_display x :: flat_to_display_list xs)  ∧
@@ -1032,6 +1034,8 @@ Definition asm_arith_to_display_def:
     | AddCarry n1 n2 n3 n4 => item_with_nums «AddCarry» [n1; n2; n3; n4]
     | AddOverflow n1 n2 n3 n4 => item_with_nums «AddOverflow» [n1; n2; n3; n4]
     | SubOverflow n1 n2 n3 n4 => item_with_nums «SubOverflow» [n1; n2; n3; n4]
+    | IMul rd ra rb ro => item_with_nums «IMul» [rd; ra; rb; ro]
+    | IDiv rq rr ra rb => item_with_nums «IDiv» [rq; rr; ra; rb]
 End
 
 Definition asm_addr_to_display_def:

@@ -126,6 +126,16 @@ Definition wInst_def:
     let (l',n3) = wReg2 n3 kf in
     wStackLoad (l++l')
       (wRegWrite1 (\n1. Inst (Arith (SubOverflow n1 n2 n3 n4))) n1 kf)) /\
+  (wInst aw (Arith (IMul n1 n2 n3 n4)) kf =
+    let (l,n2) = wReg1 n2 kf in
+    let (l',n3) = wReg2 n3 kf in
+    wStackLoad (l++l')
+      (wRegWrite1 (\n1. Inst (Arith (IMul n1 n2 n3 n4))) n1 kf)) /\
+  (wInst aw (Arith (IDiv n1 n2 n3 n4)) kf =
+    (* n1 = n3 = 0, n2 = 6; only the divisor can spill. *)
+    let (l,n4) = wReg1 n4 kf in
+    wStackLoad l
+      (Inst (Arith (IDiv 0 3 0 n4)))) /\
   (wInst aw (Arith (LongMul n1 n2 n3 n4)) kf =
     (*n1 = 2, n2 = 0, n3 = 0, n4 = 1 no spills necessary*)
       (Inst (Arith (LongMul 3 0 0 2)))) /\

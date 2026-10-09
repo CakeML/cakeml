@@ -13,3 +13,6 @@ instruction description (without labels).
 
 [asmSemScript.sml](asmSemScript.sml):
 The semantics of the asm instruction description.
+
+[asmSignedScript.sml](asmSignedScript.sml):
+Arithmetic facts shared by the signed ASM encoder proofs.

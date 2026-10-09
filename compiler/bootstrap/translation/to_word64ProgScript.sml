@@ -146,6 +146,7 @@ QED
 *)
 
 val _ = translate (data_to_wordTheory.ShiftVar_def |> inline_simp |> conv64);
+val _ = translate (data_to_wordTheory.SmallDivMod_def |> inline_simp |> conv64);
 val _ = translate (data_to_wordTheory.WordShiftVar64_def |> inline_simp |> conv64)
 val _ = translate (data_to_wordTheory.ShiftW8_def |> inline_simp |> conv64)
 val _ = translate (data_to_wordTheory.LoadWord64_def |> inline_simp |> conv64)

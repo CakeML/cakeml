@@ -15,20 +15,6 @@ Overload CONTAINER[local] = ``ml_translator$CONTAINER``;
 
 val _ = hide "state";
 
-fun imp1_fvs th =
-    let
-      val (bvs, c) = th |> concl |> strip_forall
-      val fvs = c |> strip_imp |> #1 |> hd |> strip_conj |> hd |> free_vars
-    in
-      op_set_diff aconv fvs bvs
-    end
-
-fun old_drule th =
-    let val fvs = imp1_fvs th
-    in
-      FREEZE_THEN drule (GENL fvs th)
-    end
-
 (* TODO: move *)
 Theorem s_with_same_clock[simp]:
    !s. (s with clock := s.clock) = s
@@ -518,7 +504,7 @@ Proof
   \\ first_x_assum drule \\ strip_tac
   \\ fs [do_opapp_def,GSYM PULL_FORALL]
   \\ strip_tac
-  \\ old_drule REFS_PRED_append \\ rw[]
+  \\ drule_then (qspec_then `junk` assume_tac) REFS_PRED_append
   \\ first_x_assum drule \\ strip_tac
   \\ asm_exists_tac \\ fs []
   \\ asm_exists_tac \\ fs []
@@ -553,7 +539,7 @@ Proof
   \\ first_x_assum drule \\ strip_tac
   \\ fs [do_opapp_def,GSYM PULL_FORALL]
   \\ strip_tac
-  \\ old_drule REFS_PRED_append \\ rw[]
+  \\ drule_then (qspec_then `junk` assume_tac) REFS_PRED_append
   \\ first_x_assum drule \\ strip_tac
   \\ asm_exists_tac \\ fs []
   \\ asm_exists_tac \\ fs []
@@ -587,7 +573,7 @@ Proof
   \\ first_x_assum drule \\ strip_tac
   \\ fs [do_opapp_def,GSYM PULL_FORALL]
   \\ strip_tac
-  \\ old_drule REFS_PRED_append \\ rw[]
+  \\ drule_then (qspec_then `junk` assume_tac) REFS_PRED_append
   \\ first_x_assum drule \\ strip_tac
   \\ asm_exists_tac \\ fs []
   \\ asm_exists_tac \\ fs []
@@ -611,7 +597,7 @@ Proof
   \\ qexists_tac `s` \\ fs []
   \\ fs [REFS_PRED_FRAME_same]
   \\ rw [do_opapp_def,find_recfun_def]
-  \\ old_drule REFS_PRED_append \\ rw[]
+  \\ drule_then (qspec_then `junk` assume_tac) REFS_PRED_append
   \\ last_x_assum drule \\ rw[]
   \\ first_x_assum drule \\ rw[] \\ fs [write_def,write_rec_def,build_rec_env_def]
   \\ asm_exists_tac \\ fs []
@@ -703,7 +689,7 @@ Proof
   \\ first_x_assum drule \\ rw[]
   \\ first_assum(qspec_then`ARB`strip_assume_tac) \\ fs[]
   \\ first_assum drule \\ disch_then strip_assume_tac \\ rw[]
-  \\ old_drule REFS_PRED_append \\ rw[]
+  \\ drule_then (qspec_then `junk` assume_tac) REFS_PRED_append
   \\ first_x_assum drule \\ disch_then strip_assume_tac
   \\ fs[]
   \\ first_x_assum(qspecl_then[`[]`]strip_assume_tac)
@@ -864,7 +850,7 @@ Theorem EvalM_Let:
     EvalM ro env st (Let (SOME name) exp body) (b (LET f res)) ^H
 Proof
   rw[]
-  \\ old_drule Eval_IMP_PURE \\ rw[]
+  \\ `EvalM ro env st exp (PURE a res) H` by (irule Eval_IMP_PURE \\ simp[])
   \\ fs[EvalM_def]
   \\ rpt strip_tac
   \\ first_x_assum drule
