@@ -87,6 +87,8 @@ specifically, `flat_elim` has been replaced by `source_dce` (#1508).
 The compiler backend now attaches a bit of metadata to every function (#1535).
 This is completely internal to the compiler.
 
+Debug names for functions now come from metadata rather than a separate mapping.
+
 ## Pancake
 
 Queryable feature tags (#1470).
