@@ -8,10 +8,6 @@ Ancestors
 Libs
   preamble ml_translatorLib cfLib basis
 
-open preamble compiler64CommonProgTheory compilerTheory
-     exportTheory ml_translatorLib ml_translatorTheory
-open cfLib basis
-
 Datatype:
   compiler64_host = HostX64 | HostArm8
 End

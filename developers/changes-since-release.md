@@ -19,6 +19,16 @@ The shift and rotate functions `<<`, `>>`, `~>>` and `ror` in the `Word8` and
 of an int, e.g. `Word8.<< : Word8.word -> Word8.word -> Word8.word` (#1500).
 Programs that call these functions with an int amount need to be updated.
 
+### List
+
+`List.intersperse`,
+which inserts a given element between every consecutive pair of elements in a list,
+has been added to basis.
+
+### Char
+
+`isLower`, `isUpper`, `isDigit`, `isAlpha` and `isAlphaNum` have been added to the Char module.
+
 ### String
 
 `String.Fast.compare` has been added.
@@ -31,6 +41,10 @@ length first and only compares contents when the lengths are equal, which is fas
 key that occurs in `m2`. The inputs can have different value types.
 
 ### TextIO
+
+`TextIO.output`'s behavior is now linear in the size of the string
+(previously quadratic -- oops!). This should allow users to output large strings
+(as in: much larger than 2kB) without the program hanging (#1425).
 
 `TextIO.inputAllFrom` has been added to basis. It reads all input from stdin
 (on `None`) or from a named file (on `Some fname`), closing the stream
@@ -64,6 +78,9 @@ The exported assembly marks the stack as non-executable on ELF platforms, so
 `cake` and the programs it compiles no longer get an executable stack from the
 linker (#1517).
 
+The backend now supports IMul and IDiv instructions and optimizes to the
+(#1533). Some further cleanup of the asm ops might be expected in the future.
+
 ## Pancake
 
 Queryable feature tags (#1470).
@@ -82,6 +99,13 @@ The CNF checker(s) have various improvements, especially the RUP algorithm has b
 ## Build infrastructure
 
 ## Proof engineering and tooling
+
+### New function for proving whole program correctness theorems
+
+The `basis_ffiLib.whole_prog_thm`, which is used to prove `semantics`
+results, has been deleted and a new `basis_ffiLib.prove_sem_thm` is to
+be used instead from now on. The old one used to be slow and clunky to
+use; the new one runs within a few seconds at each call site.
 
 ### Translation of HOL finite maps
 
@@ -104,4 +128,19 @@ before translation, e.g. with `INST_TYPE [alpha |-> “:mlstring”]`, and `|++`
 must be rewritten into `FOLDL` over `|+`. The bootstrap translation calls
 `add_fmap_for_cmp` for `mlstring`, `int` and `num` keys in `decProg`.
 
+### simp additions
+
+The following simps have been added:
+
+#### fsFFIProps
+
+```
+Theorem get_mode_fsupdate[simp]:
+  get_mode (fsupdate fs fd' k pos content) fd = get_mode fs fd
+```
+
 ## Miscellaneous
+
+Combined fix for some small issues (PR #1530 fixing #1313, #1373, #1449, #1480, #1503).
+
+Combined fix for some small issues (PR #1536 fixing #1408, #1171, #1104).

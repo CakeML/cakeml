@@ -347,7 +347,9 @@ Definition compile_def:
      let new_m = MAP (\n. SOME (FST n)) funs ++ m in
        [Letrec (MAP (\n. join_strings t (FST n)) funs) NONE NONE
           (MAP ( \ (f,v,x). (1, HD (compile (SOME v :: new_m) [x]))) funs)
-          (HD (compile new_m [e]))])
+          (HD (compile new_m [e]))]) /\
+  (compile m [flatLang$Tick t e] =
+     [closLang$Let t [HD (compile m [e])] (closLang$Tick t (Var t 0))])
 Termination
   WF_REL_TAC `measure (flatLang$exp6_size o SND)` \\ rw []
   \\ `!funs f v x. MEM (f,v,x) funs ==> exp_size x < flatLang$exp1_size funs` by

@@ -531,6 +531,8 @@ Resume ag32_encoder_correct[Arith]:
              Arith
            --------------*)
          Cases_on `a`
+         >~ [`asm$IMul rd ra rb ro`] >- fs enc_rwts
+         >~ [`asm$IDiv rq rr ra rb`] >- fs enc_rwts
          >- (
             (*--------------
                 Binop

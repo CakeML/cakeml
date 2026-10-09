@@ -1767,10 +1767,8 @@ fun xlet_app_auto ctxt app_info env let_pre opt_app_spec (g as (asl, w)) =
       (final_app_spec, let_post_condition')
   end;
 
-(* [xlet_expr_con]
-   Construct the post-condition for an expression of the form:
-   `let x = Conv ... ... in ... end` *)
-fun xlet_expr_con let_expr_args asl w env pre post =
+(* Construct the post-condition for a literal or constructor expression. *)
+fun xlet_expr_value let_expr asl w env pre =
   let
       (* Create a new variable for the Postv abstraction *)
       val nvar_ = mk_var("v",semanticPrimitivesSyntax.v_ty)
@@ -1778,19 +1776,25 @@ fun xlet_expr_con let_expr_args asl w env pre post =
       val nvar = variant varsl nvar_
 
       (* Compute the value of the expression *)
-      val xx = let_expr_args
-      val con_name = el 1 xx
-      val con_args = el 2 xx
-      val (con_args_exprs, _) = listSyntax.dest_list con_args
-      val con_args_tms = List.map (get_value env) con_args_exprs
-      val con_args_list_tm = listSyntax.mk_list (con_args_tms,
-                                                 semanticPrimitivesSyntax.v_ty)
-      val con_tm = mk_build_conv (mk_sem_env_c env,con_name,con_args_list_tm)
-                                 |> CONV_TERM cfTacticsLib.reduce_conv
-                                 |> optionSyntax.dest_some
+      val (expr_op, expr_args) = strip_comb let_expr
+      val value_tm =
+        if same_const expr_op cf_lit_tm then
+          semanticPrimitivesSyntax.mk_Litv (hd expr_args)
+        else let
+          val con_name = el 1 expr_args
+          val con_args = el 2 expr_args
+          val (con_args_exprs, _) = listSyntax.dest_list con_args
+          val con_args_tms = List.map (get_value env) con_args_exprs
+          val con_args_list_tm = listSyntax.mk_list
+            (con_args_tms, semanticPrimitivesSyntax.v_ty)
+        in
+          mk_build_conv (mk_sem_env_c env,con_name,con_args_list_tm)
+          |> CONV_TERM cfTacticsLib.reduce_conv
+          |> optionSyntax.dest_some
+        end
 
       (* Build the post-condition *)
-      val nvar_eqn = mk_eq(nvar,con_tm)
+      val nvar_eqn = mk_eq(nvar,value_tm)
       val post_condition =
         cfHeapsBaseSyntax.mk_postv(nvar,helperLib.mk_star(mk_cond_hprop nvar_eqn,pre))
 
@@ -1819,12 +1823,13 @@ fun xlet_expr_con let_expr_args asl w env pre post =
 (* [xlet_expr_auto] *)
 fun xlet_expr_auto let_expr env pre post (g as (asl, w))   =
   let
-      val (let_expr_op, let_expr_args) = strip_comb let_expr
+      val (let_expr_op, _) = strip_comb let_expr
   in
-      if same_const let_expr_op cf_con_tm then
+      if same_const let_expr_op cf_con_tm orelse
+         same_const let_expr_op cf_lit_tm then
         let
             val let_post_condition =
-                xlet_expr_con let_expr_args asl w env pre post
+                xlet_expr_value let_expr asl w env pre
 
             (* Rename the variable introduced by POSTv/POSTe/POST *)
             val ri_thms = get_equality_type_thms ()
@@ -1840,8 +1845,10 @@ fun xlet_expr_auto let_expr env pre post (g as (asl, w))   =
   end;
 
 (* Auxiliary functions to test that a given term is of the given form (the standard is_cf_con,... don't work in the cases I need them) *)
-fun is_cf_con_aux let_expr =
-  same_const cf_con_tm (let_expr |> strip_comb |> #1)
+fun is_cf_value_aux let_expr =
+  let val expr_op = let_expr |> strip_comb |> #1 in
+    same_const cf_con_tm expr_op orelse same_const cf_lit_tm expr_op
+  end
   handle HOL_ERR _ => false;
 
 fun is_cf_app_aux let_expr =
@@ -1858,7 +1865,7 @@ fun xlet_find_auto ctxt (g as (asl, w)) =
           val pre = List.nth (goal_args, 4)
           val post = List.nth (goal_args, 5)
       in
-          if is_cf_con_aux let_expr then
+          if is_cf_value_aux let_expr then
               xlet_expr_auto let_expr env pre post g
           else if is_cf_app_aux let_expr then
               let val (_, c) =
@@ -1883,7 +1890,7 @@ fun xlet_auto_spec (opt_spec : thm option) (g as (asl, w)) ctxt =
           val pre = List.nth (goal_args, 4)
           val post = List.nth (goal_args, 5)
       in
-          if is_cf_con_aux let_expr then
+          if is_cf_value_aux let_expr then
               let val c = xlet_expr_auto let_expr env pre post g
               in xlet `^c` g ctxt end
           else if is_cf_app_aux let_expr then

@@ -501,4 +501,3 @@ Proof
   \\ fs[asmSemTheory.asm_step_def]
   \\ metis_tac[asm_consts]
 QED
-

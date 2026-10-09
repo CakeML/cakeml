@@ -1039,8 +1039,8 @@ Definition static_check_exp_def:
           (strlit "shift expression")
           (sh_bd_to_str eret2.sh_bd) ctxt.loc ctxt.scope)
       else return ();
-      (* return exp info *)
-      return eret2
+      (* return shifted exp info *)
+      return eret1
     od ∧
   static_check_exp ctxt BaseAddr =
     (* return exp info *)

@@ -39,8 +39,6 @@ val _ = remove_ovl_mapping "abs" {Name="abs", Thy="realax"}
 val _ = remove_ovl_mapping "inf" {Name="inf", Thy="real"}
 
 (* this is copied in preamble.sml, but needed here to avoid cyclic dep *)
-fun drule th =
-  first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 val rveq = rpt BasicProvers.VAR_EQ_TAC
 val match_exists_tac = part_match_exists_tac (hd o strip_conj)
 val asm_exists_tac = first_assum(match_exists_tac o concl)
@@ -1150,19 +1148,6 @@ QED
 Definition between_def:
   between x y z ⇔ x:num ≤ z ∧ z < y
 End
-
-(* Re-expressing folds *)
-
-(* only used in flat_elimProof *)
-Theorem FOLDR_CONS_triple:
- !f ls a. FOLDR (\(x,y,z) w. f x y z :: w) a ls = (MAP (\(x,y,z). f x y z) ls)++a
-Proof
-GEN_TAC THEN
-Induct THEN1 SRW_TAC[][] THEN
-Q.X_GEN_TAC `p` THEN
-PairCases_on `p` THEN
-SRW_TAC[][]
-QED
 
 (* Re-expressing curried lambdas *)
 
