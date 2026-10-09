@@ -1,7 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/developers $(CAKEMLDIR)/misc $(HOLDIR)/examples/algorithms \
-					 $(CAKEMLDIR)/semantics $(CAKEMLDIR)/basis/pure $(CAKEMLDIR)/basis $(CAKEMLDIR)/examples \
-					 $(CAKEMLDIR)/translator $(CAKEMLDIR)/characteristic ..
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

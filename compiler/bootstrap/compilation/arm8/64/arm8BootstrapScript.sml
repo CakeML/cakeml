@@ -3,10 +3,35 @@
 *)
 Theory arm8Bootstrap
 Ancestors
-  compiler64Prog
+  compiler64Arm8Prog
 Libs
   preamble eval_cake_compile_arm8Lib
 
-Theorem compiler64_compiled =
-  eval_cake_compile_arm8 "" compiler64_prog_def "cake.S";
+Definition init_conf_def:
+  init_conf =
+    arm8_config$arm8_backend_config with
+    <| source_conf := prim_src_config;
+       clos_conf   := clos_to_bvl$default_config
+                        with known_conf := SOME
+                         <| inline_max_body_size := 8; inline_factor := 0;
+                            initial_inline_factor := 0; val_approx_spt := LN |>;
+       bvl_conf    := bvl_to_bvi$default_config with
+                        <| inline_size_limit := 3; exp_cut := 200 |>;
+       word_to_word_conf :=
+        (arm8_config$arm8_backend_config.word_to_word_conf with
+           reg_alg := 4) |>
+End
 
+val init_conf_eq =
+  init_conf_def |> SRULE [arm8_configTheory.arm8_backend_config_def,
+                         backendTheory.prim_src_config_eq];
+
+Theorem compiler64_compiled =
+  eval_cake_compile_arm8_general
+    { prefix               = ""
+    , conf_def             = init_conf_eq
+    , prog_def             = compiler64_arm8_prog_def
+    , run_as_explorer      = false
+    , main_return          = false
+    , output_filename      = "cake.S"
+    , output_conf_filename = SOME "config_enc_str.txt" };

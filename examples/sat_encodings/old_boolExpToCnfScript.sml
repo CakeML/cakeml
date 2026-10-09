@@ -3,7 +3,7 @@
 *)
 Theory old_boolExpToCnf
 Ancestors
-  misc ASCIInumbers cnf
+  misc ASCIInumbers satCnf
 Libs
   preamble
 
@@ -44,9 +44,9 @@ End
 (* ----------------------- Satisfiability ------------------------------ *)
 
 Definition eval_nnf_def:
-  (eval_nnf (w: assignment) NnfTrue = T) ∧
+  (eval_nnf (w:num assignment) NnfTrue = T) ∧
   (eval_nnf w NnfFalse = F) ∧
-  (eval_nnf w (NnfLit l) = eval_literal w l) ∧
+  (eval_nnf w (NnfLit l) = satisfies_lit w l) ∧
   (eval_nnf w (NnfAnd nnf1 nnf2) =
    (eval_nnf w nnf1 ∧ eval_nnf w nnf2)) ∧
   (eval_nnf w (NnfOr nnf1 nnf2) =
@@ -54,10 +54,10 @@ Definition eval_nnf_def:
 End
 
 Definition eval_noImp_def:
-  (eval_noImp (w: assignment) NoImpTrue = T) ∧
+  (eval_noImp (w:num assignment) NoImpTrue = T) ∧
   (eval_noImp w NoImpFalse = F) ∧
   (eval_noImp w (NoImpLit l) =
-   eval_literal w l) ∧
+   satisfies_lit w l) ∧
   (eval_noImp w (NoImpNot b) =
    ¬ (eval_noImp w b)) ∧
   (eval_noImp w (NoImpAnd b1 b2) =
@@ -67,9 +67,9 @@ Definition eval_noImp_def:
 End
 
 Definition eval_boolExp_def:
-  (eval_boolExp (w: assignment) True = T) ∧
+  (eval_boolExp (w:num assignment) True = T) ∧
   (eval_boolExp w False = F) ∧
-  (eval_boolExp w (Lit l) = eval_literal w l) ∧
+  (eval_boolExp w (Lit l) = satisfies_lit w l) ∧
   (eval_boolExp w (Not b) = ¬ (eval_boolExp w b)) ∧
   (eval_boolExp w (And b1 b2) =
    (eval_boolExp w b1 ∧ eval_boolExp w b2)) ∧
@@ -88,11 +88,7 @@ End
 (* ----------------- Simplification functions -------------------------- *)
 
 Definition distr_def:
-  (distr CnfEmpty _ = CnfEmpty) ∧
-  (distr _ CnfEmpty = CnfEmpty) ∧
-  (distr (CnfAnd a b) c = CnfAnd (distr a c) (distr b c)) ∧
-  (distr a (CnfAnd b c) = CnfAnd (distr a b) (distr a c)) ∧
-  (distr (CnfClause a) (CnfClause b) = CnfClause (ClauseOr a b))
+  distr a b = FLAT (MAP (λc. MAP (λd. c ++ d) b) a)
 End
 
 Definition nnf_to_cnf_def:
@@ -177,31 +173,39 @@ End
 
 (* ----------------------- Theorems ------------------------------------ *)
 
+Theorem mem_distr:
+  MEM c (distr b1 b2) ⇔
+    ∃c1 c2. MEM c1 b1 ∧ MEM c2 b2 ∧ c = c1 ++ c2
+Proof
+  simp[distr_def, MEM_FLAT, MEM_MAP, PULL_EXISTS] >>
+  metis_tac[]
+QED
+
 Theorem distr_preserves_sat:
   ∀ b1 b2.
-    eval_cnf w (distr b1 b2) ⇔
-    (eval_cnf w b1 ∨ eval_cnf w b2)
+    satisfies_cnf w (set (distr b1 b2)) ⇔
+    (satisfies_cnf w (set b1) ∨ satisfies_cnf w (set b2))
 Proof
-  ho_match_mp_tac distr_ind
-  >> rpt strip_tac
-  >> rw[distr_def, eval_cnf_def, eval_clause_def]
-  >> metis_tac[]
+  simp[cnfTheory.satisfies_cnf_def,
+       cnfTheory.satisfies_fml_gen_def,
+       mem_distr, satisfies_clause_append, PULL_EXISTS] >>
+  metis_tac[]
 QED
 
 Theorem nnf_to_cnf_preserves_sat:
-  eval_nnf w b = eval_cnf w (nnf_to_cnf b)
+  eval_nnf w b = satisfies_cnf w (set (nnf_to_cnf b))
 Proof
   Induct_on ‘b’
   >> simp[eval_nnf_def, nnf_to_cnf_def,
-          eval_cnf_def, eval_clause_def,
+          satisfies_cnf_constructors, satisfies_clause_constructors,
           distr_preserves_sat]
 QED
 
 Theorem negate_literal_thm:
-  eval_literal w (negate_literal l) ⇔ ¬ eval_literal w l
+  satisfies_lit w (negate_literal l) ⇔ ¬ satisfies_lit w l
 Proof
   Cases_on ‘l’
-  >> rw[negate_literal_def, eval_literal_def]
+  >> rw[negate_literal_def, cnfTheory.satisfies_lit_def]
 QED
 
 Theorem noImpNot_thm:
@@ -237,7 +241,7 @@ Proof
 QED
 
 Theorem boolExp_to_cnf_preserves_sat:
-  eval_boolExp w b = eval_cnf w (boolExp_to_cnf b)
+  eval_boolExp w b = satisfies_cnf w (set (boolExp_to_cnf b))
 Proof
   rw[boolExp_to_noImp_preserves_sat,
      noImp_to_nnf_preserves_sat,
@@ -249,30 +253,22 @@ QED
 (* --------------------- Pretty printing ------------------------- *)
 
 Definition lit_to_str_def:
-  lit_to_str (INL l) = "b" ++ num_to_dec_string l ∧
-  lit_to_str (INR l) = "~b" ++ num_to_dec_string l
+  lit_to_str (Pos l) = "b" ++ num_to_dec_string l ∧
+  lit_to_str (Neg l) = "~b" ++ num_to_dec_string l
 End
 
 Definition clause_to_str_def:
-  clause_to_str ClauseEmpty = "False" ∧
-  clause_to_str (ClauseLit l) = lit_to_str l ∧
-  clause_to_str (ClauseOr b1 b2) =
-  clause_to_str b1 ++ " \\/ " ++ clause_to_str b2
+  clause_to_str [] = "False" ∧
+  clause_to_str (l::ls) =
+    if NULL ls then lit_to_str l
+    else lit_to_str l ++ " \\/ " ++ clause_to_str ls
 End
 
 Definition cnf_to_str_def:
-  cnf_to_str CnfEmpty = "True" ∧
-  cnf_to_str (CnfClause c) = clause_to_str c ∧
-  cnf_to_str (CnfAnd b1 b2) =
-  let b1_str =
-      case b1 of
-        (CnfClause (ClauseOr _ _)) => "(" ++ cnf_to_str b1 ++ ")"
-      | _ => cnf_to_str b1
-  in let b2_str =
-         case b2 of
-           (CnfClause (ClauseOr _ _)) => "(" ++ cnf_to_str b2 ++ ")"
-         | _ => cnf_to_str b2
-     in b1_str ++ " /\\ " ++ b2_str
+  cnf_to_str [] = "True" ∧
+  cnf_to_str (c::cs) =
+    if NULL cs then clause_to_str c
+    else clause_to_str c ++ " /\\ " ++ cnf_to_str cs
 End
 
 Theorem example1 =
@@ -280,30 +276,29 @@ Theorem example1 =
               (boolExp_to_cnf
                (And
                 (Not (And
-                      (Lit (INL 2))
-                      (Lit (INR 1))))
+                      (Lit (Pos 2))
+                      (Lit (Neg 1))))
                 (Or
-                 (Lit (INL 0))
-                 (Lit (INR 1)))))”;
+                 (Lit (Pos 0))
+                 (Lit (Neg 1)))))”;
 
 Theorem example2 =
         EVAL “cnf_to_str
               (boolExp_to_cnf
                (And
-                (Lit (INL 0))
+                (Lit (Pos 0))
                 (And
-                 (Lit (INL 2))
+                 (Lit (Pos 2))
                  (And
-                  (Lit (INR 1))
-                  (Lit (INR 3))))))”;
+                  (Lit (Neg 1))
+                  (Lit (Neg 3))))))”;
 
 Theorem example3 =
         EVAL “(boolExp_to_cnf
                (Or
-                (Lit (INL 0))
+                (Lit (Pos 0))
                 (Or
-                 (Lit (INL 2))
+                 (Lit (Pos 2))
                  (Or
-                  (Lit (INR 1))
-                  (Lit (INR 3))))))”;
-
+                  (Lit (Neg 1))
+                  (Lit (Neg 3))))))”;

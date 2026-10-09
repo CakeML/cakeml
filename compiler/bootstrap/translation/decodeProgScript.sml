@@ -8,10 +8,6 @@ Ancestors
 Libs
   preamble basisFunctionsLib ml_translatorLib cfLib
 
-open preamble basisFunctionsLib
-     num_list_enc_decTheory num_tree_enc_decTheory backend_enc_decTheory
-     explorerProgTheory ml_translatorLib ml_translatorTheory cfLib;
-
 val _ = translation_extends "explorerProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "decodeProg");
@@ -72,7 +68,15 @@ val _ = register_type “:backend$config”
 Theorem IsTypeRep_BACKEND_CONFIG_v:
   IsTypeRep BACKEND_CONFIG_v BACKEND_CONFIG_TYPE
 Proof
-  irule_at Any (fetch_v_fun “:backend$config” |> snd |> hd) \\ fs []
+  `IsTypeRep SOURCE_TO_FLAT_ENVIRONMENT_v SOURCE_TO_FLAT_ENVIRONMENT_TYPE` by
+   (irule (fetch_v_fun “:source_to_flat$environment” |> snd |> hd)
+    \\ irule (fetch_v_fun “:('a,'b,'c) namespace” |> snd |> hd)
+    \\ fs [IsTypeRep_NUM_BOOL]
+    \\ irule IsTypeRep_LIST \\ irule IsTypeRep_PAIR \\ simp [IsTypeRep_NUM_BOOL]
+    \\ irule (fetch_v_fun “:source_to_flat$var_name” |> snd |> hd) \\ fs []
+    \\ irule (fetch_v_fun “:source_to_flat$glob_info” |> snd |> hd) \\ fs []
+    \\ irule (fetch_v_fun “:ast$lit” |> snd |> hd) \\ fs [IsTypeRep_NUM_BOOL])
+  \\ irule_at Any (fetch_v_fun “:backend$config” |> snd |> hd) \\ fs []
   \\ irule_at Any (fetch_v_fun “:bvl_to_bvi$config” |> snd |> hd) \\ fs []
   \\ irule_at Any (fetch_v_fun “:clos_to_bvl$config” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:'a num_map” |> snd |> hd) \\ fs []
@@ -84,6 +88,7 @@ Proof
   \\ rpt $ irule_at Any (fetch_v_fun “:clos_known$config” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:'a list” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:closLang$exp” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:bvi$exp” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:bvl$exp” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:closLang$op” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:'a list” |> snd |> hd) \\ fs []
@@ -98,10 +103,14 @@ Proof
   \\ rpt $ irule_at Any (fetch_v_fun “:closLang$const_part” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:closLang$const” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:word64” |> snd |> hd) \\ fs []
-  \\ irule (fetch_v_fun “:lab_to_target$config” |> snd |> hd) \\ fs []
-  \\ irule (fetch_v_fun “:'a list” |> snd |> hd) \\ fs []
-  \\ irule (fetch_v_fun “:lab_to_target$shmem_info_num” |> snd |> hd) \\ fs []
-  \\ irule (fetch_v_fun “:word8” |> snd |> hd) \\ fs []
+  \\ conj_tac
+  >- (irule (fetch_v_fun “:lab_to_target$config” |> snd |> hd) \\ fs []
+      \\ irule (fetch_v_fun “:'a list” |> snd |> hd) \\ fs []
+      \\ irule (fetch_v_fun “:lab_to_target$shmem_info_num” |> snd |> hd) \\ fs []
+      \\ irule (fetch_v_fun “:word8” |> snd |> hd) \\ fs [])
+  \\ irule (fetch_v_fun “:source_to_flat$config” |> snd |> hd) \\ fs []
+  \\ irule (fetch_v_fun “:source_to_flat$environment_store” |> snd |> hd)
+  \\ rpt $ irule (fetch_v_fun “:'a num_map” |> snd |> hd) \\ fs []
 QED
 
 Theorem EqualityType_BACKEND_CONFIG_TYPE =
@@ -118,7 +127,8 @@ QED
 (* --- *)
 
 val res = translate dec_next_def;
-val res = translate chars_to_nums_def;
+val res = translate chars_to_nums_acc_def;
+val res = translate chars_to_nums_eq;
 val res = translate num_list_enc_decTheory.mlstring_dec_def;
 val res = translate mlstring_dec'_def;
 
@@ -126,6 +136,16 @@ Theorem list_dec'_eq_MAP:
   ∀f t. list_dec' f t = MAP f (list_dec' I t)
 Proof
   Cases_on ‘t’ \\ fs [list_dec'_def]
+QED
+
+Theorem option_dec'_eq_OPTION_MAP:
+  ∀f t. option_dec' f t =
+  case option_dec' I t of
+    NONE => NONE
+  | SOME res => SOME (f res)
+Proof
+  Cases_on ‘t’ \\ fs [option_dec'_def]
+  \\ rw[]
 QED
 
 val res = translate num_list_enc_decTheory.list_dec'_def;
@@ -194,6 +214,27 @@ val def = bvl_exp_dec'_def |> DefnBase.one_line_ify NONE
           |> ONCE_REWRITE_RULE [list_dec'_eq_MAP]
 val res = translate def;
 
+val def = bvi_exp_dec'_def |> DefnBase.one_line_ify NONE
+          |> ONCE_REWRITE_RULE [list_dec'_eq_MAP,option_dec'_eq_OPTION_MAP];
+val res = translate_no_ind def;
+
+Theorem bvi_exp_dec'_ind[local]:
+  bvi_exp_dec'_ind
+Proof
+  once_rewrite_tac [fetch "-" "bvi_exp_dec'_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD]
+  \\ gvs[oneline option_dec'_def,oneline list_dec'_def]
+  \\ every_case_tac \\ gvs[]
+QED
+
+val _ = bvi_exp_dec'_ind |> update_precondition;
+
 val res = translate bvl_to_bvi_config_dec_def;
 
 Theorem pair_dec'_eq:
@@ -252,7 +293,6 @@ val res = translate def;
 val res = translate backend_config_dec_def;
 
 val res = translate decode_backend_config_def;
-
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

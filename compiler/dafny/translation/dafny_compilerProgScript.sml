@@ -138,9 +138,6 @@ QED
 
 val r = translate listsexp_alt;
 
-val r = translate (fromSexpTheory.locnsexp_def |> SIMP_RULE list_ss []);
-val r = translate fromSexpTheory.locssexp_def;
-
 val r = translate ASCIInumbersTheory.HEX_def;
 
 Definition hex_alt_def:
@@ -221,6 +218,10 @@ Proof
 QED
 
 val _ = litsexp_side_thm |> update_precondition;
+
+val r = translate fromSexpTheory.intsexp_def;
+val r = translate (fromSexpTheory.locnsexp_def |> SIMP_RULE list_ss []);
+val r = translate fromSexpTheory.locssexp_def;
 
 val r = translate fromSexpTheory.optsexp_def;
 val r = translate fromSexpTheory.idsexp_def;

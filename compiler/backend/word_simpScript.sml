@@ -224,12 +224,14 @@ Definition const_fp_move_cs_def:
 End
 
 Definition const_fp_inst_cs_def:
-  (const_fp_inst_cs (Const r _) cs = delete r cs) /\
+  (const_fp_inst_cs (Const r _) (cs:'a word num_map) = delete r cs) /\
   (const_fp_inst_cs (Arith (Binop _ r _ _)) cs = delete r cs) /\
   (const_fp_inst_cs (Arith (Shift _ r _ _)) cs = delete r cs) /\
   (const_fp_inst_cs (Arith (AddCarry r1 _ _ r2)) cs = delete r2 (delete r1 cs)) /\
   (const_fp_inst_cs (Arith (AddOverflow r1 _ _ r2)) cs = delete r2 (delete r1 cs)) /\
   (const_fp_inst_cs (Arith (SubOverflow r1 _ _ r2)) cs = delete r2 (delete r1 cs)) /\
+  (const_fp_inst_cs (Arith (IMul r1 _ _ r2)) cs = delete r2 (delete r1 cs)) /\
+  (const_fp_inst_cs (Arith (IDiv r1 r2 _ _)) cs = delete r1 (delete r2 cs)) /\
   (const_fp_inst_cs (Arith (LongMul r1 r2 _ _)) cs = delete r1 (delete r2 cs)) /\
   (const_fp_inst_cs (Arith (LongDiv r1 r2 _ _ _)) cs = delete r1 (delete r2 cs)) /\
   (const_fp_inst_cs (Arith (Div r1 _ _)) cs = delete r1 cs) /\
@@ -239,7 +241,7 @@ Definition const_fp_inst_cs_def:
   (const_fp_inst_cs (FP (FPLess r f1 f2)) cs = delete r cs) ∧
   (const_fp_inst_cs (FP (FPLessEqual r f1 f2)) cs = delete r cs) ∧
   (const_fp_inst_cs (FP (FPEqual r f1 f2)) cs = delete r cs) ∧
-  (const_fp_inst_cs ((FP (FPMovToReg r1 r2 d)):'a inst) cs =
+  (const_fp_inst_cs ((FP (FPMovToReg r1 r2 d)):inst) cs =
     if dimindex(:'a) = 64 then delete r1 cs
     else delete r2 (delete r1 cs)) ∧
   (const_fp_inst_cs _ cs = cs)
@@ -247,7 +249,7 @@ End
 
 Definition get_var_imm_cs_def:
   (get_var_imm_cs (Reg r) cs = lookup r cs) /\
-  (get_var_imm_cs (Imm i) _ = SOME i)
+  (get_var_imm_cs (Imm i) _ = SOME (i2w i))
 End
 
 Definition is_gc_const_def:
@@ -271,7 +273,7 @@ Definition drop_consts_def:
 End
 
 Definition const_fp_loop_def:
-  (const_fp_loop (Move pri moves) cs = (Move pri moves, const_fp_move_cs moves cs cs)) /\
+  (const_fp_loop (Move pri moves : 'a prog) cs = (Move pri moves, const_fp_move_cs moves cs cs)) /\
   (const_fp_loop (Inst i) cs = (Inst i, const_fp_inst_cs i cs)) /\
   (const_fp_loop (Assign v e) cs =
      let const_fp_e = const_fp_exp e cs in
@@ -313,9 +315,9 @@ Definition const_fp_loop_def:
   (const_fp_loop (Alloc n names) cs =
     (SmartSeq (drop_consts cs [n]) (Alloc n names), filter_v is_gc_const (inter cs (all_names names)))) /\
   (const_fp_loop (StoreConsts a b c d ws) cs = (StoreConsts a b c d ws, delete a (delete b (delete c (delete d cs))))) /\
-  (const_fp_loop (Install r1 r2 r3 r4 names) cs =
-    (SmartSeq (drop_consts cs [r1;r2;r3;r4])
-      (Install r1 r2 r3 r4 names), delete r1 (filter_v is_gc_const (inter cs (all_names names))))) /\
+  (const_fp_loop (Install r1 r2 r3 r4 r5 names) cs =
+    (SmartSeq (drop_consts cs [r1;r2;r3;r4;r5])
+      (Install r1 r2 r3 r4 r5 names), delete r1 (filter_v is_gc_const (inter cs (all_names names))))) /\
   (const_fp_loop (Store e v) cs =
     (Store (const_fp_exp e cs) v, cs)) /\
   (const_fp_loop (ShareInst Load v e) cs =
@@ -496,4 +498,3 @@ Definition compile_exp_def:
     let e = push_out_if e in
       e
 End
-

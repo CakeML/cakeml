@@ -16,6 +16,11 @@ deeply embedded ag32 code.
 Verify the deep embeddings of the ag32 implementation of the CakeML
 basis FFI primitives.
 
+[ag32_ffi_returnSpecScript.sml](ag32_ffi_returnSpecScript.sml):
+Derives a machine-code Hoare triple for the ag32 implementation of
+the return FFI primitive. The derivation uses ag32_decompilerLib,
+which is why it cannot live in ag32_progScript.
+
 [ag32_machine_configScript.sml](ag32_machine_configScript.sml):
 Define the Sliver machine configuration.
 This includes the FFI interference oracle.

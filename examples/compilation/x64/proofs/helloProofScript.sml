@@ -12,7 +12,7 @@ Libs
 
 val hello_io_events_def =
   new_specification("hello_io_events_def",["hello_io_events"],
-  hello_semantics |> Q.GENL[`cl`,`fs`]
+  hello_semantics |> Q.GENL[`ext`,`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (hello_sem,hello_output) = hello_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR

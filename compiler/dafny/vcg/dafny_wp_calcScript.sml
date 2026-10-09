@@ -1182,7 +1182,7 @@ Proof
   >~ [‘ArrSel’] >-
     gvs[evaluate_exp_def,AllCaseEqs(),no_Prev_def,index_array_def]
   >~ [‘FunCall’] >-
-    gvs[evaluate_exp_def,AllCaseEqs(),no_Prev_def,set_up_call_def,restore_caller_def]
+    (gvs[evaluate_exp_def,AllCaseEqs(),no_Prev_def,set_up_call_def,restore_caller_def] \\ gvs [state_component_equality])
   >~ [‘Forall’] >- (
     gvs[evaluate_exp_def,AllCaseEqs(),no_Prev_def]
     \\ rename1`push_local (ss with <| locals_prev :=l; heap_prev :=h|>) vn _`
@@ -1535,7 +1535,7 @@ Proof
    (gvs [evaluate_exp_def, no_Old_def, index_array_def, AllCaseEqs()])
   >~ [‘FunCall name args’] >-
    (gvs [evaluate_exp_def, no_Old_def, set_up_call_def, restore_caller_def,
-         AllCaseEqs()])
+         AllCaseEqs()] \\ gvs [state_component_equality])
   >~ [‘Prev e’] >-
    (gvs [evaluate_exp_def, no_Old_def, AllCaseEqs(),use_prev_def,unuse_prev_def])
   >~ [‘PrevHeap e’] >-

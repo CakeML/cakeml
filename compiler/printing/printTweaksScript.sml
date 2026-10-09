@@ -9,7 +9,7 @@ Libs
 
 Definition print_failure_message_def:
   print_failure_message (s:mlstring) =
-  Dlet unknown_loc Pany (App Opapp [Var (Short «print_pp»);
+  Dlet NoLocs Pany (App Opapp [Var (Short «print_pp»);
         (App Opapp [Var (Long «PrettyPrinter» (Short «failure_message»));
             Lit (StrLit s)])])
 End
@@ -70,7 +70,7 @@ End
 
 Definition read_next_dec_def:
   read_next_dec =
-    [Dlet (Locs UNKNOWNpt UNKNOWNpt) Pany
+    [Dlet NoLocs Pany
        (App Opapp
           [App Opderef [Var (Long «Repl» (Short «readNextString»))];
            Con NONE []])]

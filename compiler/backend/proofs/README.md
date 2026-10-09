@@ -7,10 +7,19 @@ Composes the correctness theorems for all of the compiler phases.
 [backend_itreeProofScript.sml](backend_itreeProofScript.sml):
 Compiler correctness for the itree CakeML semantics
 
+[bvi_inlineProofScript.sml](bvi_inlineProofScript.sml):
+Correctness of the CPR worker-wrapper BVI inliner. The cache [cs] is
+persistent across incremental compilation: a cache hit causes the
+matching call to be inlined, and cache entries are trusted only when
+their bodies and arities agree with the compiled code table.
+
 [bvi_letProofScript.sml](bvi_letProofScript.sml):
 Correctness proof for bvi_let
 
 [bvi_tailrecProofScript.sml](bvi_tailrecProofScript.sml):
+Correctness proof for bvi_tailrec
+
+[bvi_tmcProofScript.sml](bvi_tmcProofScript.sml):
 Correctness proof for bvi_tailrec
 
 [bvi_to_dataProofScript.sml](bvi_to_dataProofScript.sml):
@@ -102,11 +111,13 @@ Part of the correctness proof for data_to_word
 Some proof tools, mostly quite experimental, used in some of
 the proofs in this directory
 
-[flat_elimProofScript.sml](flat_elimProofScript.sml):
-Correctness proof for flatLang dead code elimination
-
 [flat_patternProofScript.sml](flat_patternProofScript.sml):
 Correctness proof for flat_pattern
+
+[flat_ticksProofScript.sml](flat_ticksProofScript.sml):
+Correctness proof for flat_ticks, the removal of Tick in flatLang.
+The simulation goes from the tick-free program to the original one,
+which needs more clock to perform its ticks.
 
 [flat_to_closProofScript.sml](flat_to_closProofScript.sml):
 Correctness proof for flat_to_clos
@@ -116,6 +127,9 @@ Correctness proof for lab_filter
 
 [lab_to_targetProofScript.sml](lab_to_targetProofScript.sml):
 Correctness proof for lab_to_target
+
+[source_dceProofScript.sml](source_dceProofScript.sml):
+Correctness for the source_dce pass.
 
 [source_evalProofScript.sml](source_evalProofScript.sml):
 Proofs that the eval mode of the source semantics can

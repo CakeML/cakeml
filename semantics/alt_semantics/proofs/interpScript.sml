@@ -282,6 +282,12 @@ Theorem run_eval_def:
      run_eval env (Lannot e l)
      =
      run_eval env e) ∧
+  (!env path e.
+     run_eval env (Open path e)
+     =
+     case open_dec_env path env of
+       NONE => raise (Rabort Rtype_error)
+     | SOME opened => run_eval (extend_dec_env opened env) e) ∧
   (!env.
      run_eval_list env []
      =
@@ -313,6 +319,8 @@ Proof
   rw [GSYM evaluate_run_eval, FUN_EQ_THM, result_raise_def, result_return_def,
       result_bind_def, get_store_def, set_store_def] >>
   rw [Once evaluate_cases]
+  >~ [`open_dec_env _ _`] >- (
+    Cases_on `open_dec_env path env` >> simp [evaluate_run_eval])
   >- (every_case_tac >>
       fs [GSYM evaluate_run_eval] >>
       metis_tac [run_eval_spec])
@@ -413,7 +421,7 @@ QED
 Definition run_eval_dec_def:
   (run_eval_dec env ^st (Dlet _ p e) =
    if ALL_DISTINCT (pat_bindings p) ∧
-      every_exp (one_con_check env.c) e then
+      check_exp_constructors env.c e then
      case run_eval env e st of
      | (st', Rval v) =>
          (case pmatch env.c st'.refs p v [] of
@@ -425,7 +433,7 @@ Definition run_eval_dec_def:
      (st, Rerr (Rabort Rtype_error))) ∧
   (run_eval_dec env ^st (Dletrec _ funs) =
    if ALL_DISTINCT (MAP FST funs) ∧
-      EVERY (λ(_,_,e). every_exp (one_con_check env.c) e) funs then
+      EVERY (λ(_,_,e). check_exp_constructors env.c e) funs then
      (st, Rval <| v := build_rec_env funs env nsEmpty; c := nsEmpty |>)
    else
      (st, Rerr (Rabort Rtype_error))) ∧
@@ -445,6 +453,10 @@ Definition run_eval_dec_def:
   (run_eval_dec env ^st (Dexn _ cn ts) =
    (st with next_exn_stamp := st.next_exn_stamp + 1,
     Rval <| v := nsEmpty; c := nsSing cn (LENGTH ts, ExnStamp st.next_exn_stamp) |>)) ∧
+  (run_eval_dec env st (Dopen locs path) =
+   case open_dec_env path env of
+     NONE => (st, Rerr (Rabort Rtype_error))
+   | SOME opened => (st, Rval opened)) ∧
   (run_eval_dec env st (Dmod mn ds) =
    case run_eval_decs env st ds of
      (st', Rval env') =>
@@ -503,4 +515,3 @@ Proof
   drule $ cj 2 run_eval_decs_spec >> rw[] >>
   metis_tac[decs_determ]
 QED
-

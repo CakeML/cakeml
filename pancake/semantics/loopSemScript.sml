@@ -80,9 +80,9 @@ Definition eval_def:
      case the_words (MAP (eval s) wexps) of
      | SOME ws => (OPTION_MAP Word (word_op op ws))
      | _ => NONE) /\
-  (eval s (Shift sh wexp n) =
-     case eval s wexp of
-     | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
+  (eval s (Shift sh wexp1 wexp2) =
+     case (eval s wexp1, eval s wexp2) of
+     | (SOME (Word w1), SOME (Word w2)) => OPTION_MAP Word (word_sh sh w1 (w2n w2))
      | _ => NONE) /\
   (eval s BaseAddr =
         SOME (Word s.base_addr)) /\
@@ -163,8 +163,8 @@ Definition find_code_def:
 End
 
 Definition get_var_imm_def:
-  (get_var_imm ((Reg n):'a reg_imm) ^s = sptree$lookup n s.locals) ∧
-  (get_var_imm (Imm w) s = SOME(Word w))
+  (get_var_imm (Reg n) ^s = sptree$lookup n s.locals) ∧
+  (get_var_imm (Imm w) s = SOME(Word (i2w w)))
 End
 
 Theorem fix_clock_IMP_LESS_EQ:

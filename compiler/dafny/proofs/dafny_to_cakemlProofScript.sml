@@ -4380,288 +4380,287 @@ Proof
   \\ simp [GSYM o_DEF, GSYM MAP_MAP_o]
 QED
 
-(* Proving that a generated CakeML expression e satisfies
-   every_exp (one_con_check env_c) e *)
+(* Proving that generated CakeML expressions pass the scoped constructor check. *)
 
-Theorem Apps_one_con_check[local]:
+Theorem Apps_con_check[local]:
   ∀xs env_c f.
-    every_exp (one_con_check env_c) f ∧
-    EVERY (every_exp (one_con_check env_c)) xs ⇒
-    every_exp (one_con_check env_c) (Apps f xs)
+    check_exp_constructors env_c f ∧
+    EVERY (check_exp_constructors env_c) xs ⇒
+    check_exp_constructors env_c (Apps f xs)
 Proof
-  Induct \\ gvs [Apps_def]
+  Induct \\ gvs [Apps_def, check_exp_constructors_def]
 QED
 
-Theorem Funs_one_con_check[local]:
+Theorem Funs_con_check[local]:
   ∀xs env_c body.
-    every_exp (one_con_check env_c) body ⇒
-    every_exp (one_con_check env_c) (Funs xs body)
+    check_exp_constructors env_c body ⇒
+    check_exp_constructors env_c (Funs xs body)
 Proof
-  Induct \\ gvs [Funs_def]
+  Induct \\ gvs [check_exp_constructors_def, Funs_def]
 QED
 
-Theorem from_exp_one_con_check[local]:
+Theorem from_exp_con_check[local]:
   (∀body cml_body envc.
      from_exp body = INR cml_body ∧
      has_cons envc ⇒
-     every_exp (one_con_check envc) cml_body) ∧
+     check_exp_constructors envc cml_body) ∧
   (∀bodys cml_bodys envc.
      map_from_exp bodys = INR cml_bodys ∧
      has_cons envc ⇒
-     EVERY (every_exp (one_con_check envc)) cml_bodys)
+     EVERY (check_exp_constructors envc) cml_bodys)
 Proof
   Induct \\ rpt gen_tac
-  >~ [‘FunCall name args’] >-
-   (simp [from_exp_def, oneline bind_def, CaseEq "sum"]
+  >~ [‘FunCall name args’] >- (
+    simp [check_exp_constructors_def, from_exp_def, oneline bind_def, CaseEq "sum"]
     \\ rpt strip_tac
-    \\ gvs [cml_fapp_def, mk_id_def]
+    \\ gvs [check_exp_constructors_def, cml_fapp_def, mk_id_def]
     \\ namedCases_on ‘REVERSE cml_args’ ["", "cml_arg cml_args'"]
-    \\ gvs [cml_apps_def, do_con_check_def]
-    \\ DEP_REWRITE_TAC [Apps_one_con_check] \\ simp []
+    \\ gvs [check_exp_constructors_def, cml_apps_def, do_con_check_def]
+    \\ DEP_REWRITE_TAC [Apps_con_check] \\ simp [check_exp_constructors_def]
     \\ last_x_assum $ drule_then assume_tac
     \\ pop_assum mp_tac
     \\ rewrite_tac [Once $ GSYM EVERY_REVERSE]
     \\ disch_tac
     \\ rev_full_simp_tac std_ss [EVERY_DEF])
-  >~ [‘Lit l’] >-
-   (simp [from_exp_def] \\ disch_tac
-    \\ gvs [oneline from_lit_def, do_con_check_def, has_cons_def,
+  >~ [‘Lit l’] >- (
+    simp [check_exp_constructors_def, from_exp_def] \\ disch_tac
+    \\ gvs [check_exp_constructors_def, oneline from_lit_def, do_con_check_def, has_cons_def,
             AllCaseEqs()])
-  >~ [‘Var name’] >-
-   (simp [from_exp_def] \\ disch_tac \\ gvs [cml_read_var_def])
-  >~ [‘If grd thn els’] >-
-   (simp [from_exp_def, oneline bind_def, CaseEq "sum"]
-    \\ rpt strip_tac \\ res_tac \\ gvs [])
-  >~ [‘UnOp uop e’] >-
-   (simp [from_exp_def, oneline bind_def, CaseEq "sum"]
+  >~ [‘Var name’] >- (
+    simp [check_exp_constructors_def, from_exp_def] \\ disch_tac \\ gvs [check_exp_constructors_def, cml_read_var_def])
+  >~ [‘If grd thn els’] >- (
+    simp [check_exp_constructors_def, from_exp_def, oneline bind_def, CaseEq "sum"]
+    \\ rpt strip_tac \\ res_tac \\ gvs [check_exp_constructors_def])
+  >~ [‘UnOp uop e’] >- (
+    simp [check_exp_constructors_def, from_exp_def, oneline bind_def, CaseEq "sum"]
     \\ rpt strip_tac
-    \\ gvs [oneline from_un_op_def, do_con_check_def, has_cons_def])
-  >~ [‘BinOp bop e₀ e₁’] >-
-   (simp [from_exp_def, oneline bind_def, CaseEq "sum"]
-    \\ rpt strip_tac \\ gvs []
+    \\ gvs [check_exp_constructors_def, oneline from_un_op_def, do_con_check_def, has_cons_def])
+  >~ [‘BinOp bop e₀ e₁’] >- (
+    simp [check_exp_constructors_def, from_exp_def, oneline bind_def, CaseEq "sum"]
+    \\ rpt strip_tac \\ gvs [check_exp_constructors_def]
     \\ Cases_on ‘bop’
-    \\ gvs [from_bin_op_def, do_con_check_def, has_cons_def])
-  >~ [‘ArrLen arr’] >-
-   (simp [from_exp_def, oneline bind_def, CaseEq "sum"]
+    \\ gvs [check_exp_constructors_def, from_bin_op_def, do_con_check_def, has_cons_def])
+  >~ [‘ArrLen arr’] >- (
+    simp [check_exp_constructors_def, from_exp_def, oneline bind_def, CaseEq "sum"]
     \\ rpt strip_tac
-    \\ gvs [cml_get_arr_dim_def, cml_tup_select_def, cml_tup_case_def])
-  >~ [‘ArrSel arr idx’] >-
-   (simp [from_exp_def, oneline bind_def, CaseEq "sum"]
+    \\ gvs [check_exp_constructors_def, cml_get_arr_dim_def, cml_tup_select_def, cml_tup_case_def])
+  >~ [‘ArrSel arr idx’] >- (
+    simp [check_exp_constructors_def, from_exp_def, oneline bind_def, CaseEq "sum"]
     \\ rpt strip_tac
-    \\ gvs [cml_get_arr_data_def, cml_tup_select_def, cml_tup_case_def])
-  >~ [‘map_from_exp []’] >-
-   (simp [from_exp_def])
-  >~ [‘map_from_exp (e::es)’] >-
-   (simp [from_exp_def, oneline bind_def, CaseEq "sum"]
-    \\ rpt strip_tac \\ gvs [])
+    \\ gvs [check_exp_constructors_def, cml_get_arr_data_def, cml_tup_select_def, cml_tup_case_def])
+  >~ [‘map_from_exp []’] >- (
+    simp [check_exp_constructors_def, from_exp_def])
+  >~ [‘map_from_exp (e::es)’] >- (
+    simp [check_exp_constructors_def, from_exp_def, oneline bind_def, CaseEq "sum"]
+    \\ rpt strip_tac \\ gvs [check_exp_constructors_def])
   (* Uncompiled expressions *)
-  \\ simp [from_exp_def]
+  \\ simp [check_exp_constructors_def, from_exp_def]
 QED
 
-Theorem cml_new_refs_one_con_check[local]:
+Theorem cml_new_refs_con_check[local]:
   ∀names env_c body.
-    every_exp (one_con_check env_c) body ⇒
-    every_exp (one_con_check env_c) (cml_new_refs names body)
+    check_exp_constructors env_c body ⇒
+    check_exp_constructors env_c (cml_new_refs names body)
 Proof
-  Induct \\ gvs [cml_new_refs_def]
+  Induct \\ gvs [check_exp_constructors_def, cml_new_refs_def]
 QED
 
-Theorem from_rhs_exp_one_con_check[local]:
+Theorem from_rhs_exp_con_check[local]:
   ∀rhs cml_rhs envc.
     from_rhs_exp rhs = INR cml_rhs ∧
     has_cons envc ⇒
-    every_exp (one_con_check envc) cml_rhs
+    check_exp_constructors envc cml_rhs
 Proof
   Induct \\ rpt gen_tac
-  >~ [‘ExpRhs e’] >-
-   (simp [from_rhs_exp_def] \\ rpt strip_tac
-    \\ imp_res_tac (cj 1 from_exp_one_con_check) \\ gvs [])
-  >~ [‘ArrAlloc len init’] >-
-   (simp [from_rhs_exp_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
-    \\ imp_res_tac (cj 1 from_exp_one_con_check)
-    \\ gvs [cml_alloc_arr_def, do_con_check_def])
+  >~ [‘ExpRhs e’] >- (
+    simp [check_exp_constructors_def, from_rhs_exp_def] \\ rpt strip_tac
+    \\ imp_res_tac (cj 1 from_exp_con_check) \\ gvs [check_exp_constructors_def])
+  >~ [‘ArrAlloc len init’] >- (
+    simp [check_exp_constructors_def, from_rhs_exp_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
+    \\ imp_res_tac (cj 1 from_exp_con_check)
+    \\ gvs [check_exp_constructors_def, cml_alloc_arr_def, do_con_check_def])
 QED
 
-Theorem map_from_rhs_exp_one_con_check[local]:
+Theorem map_from_rhs_exp_con_check[local]:
   ∀rhss cml_rhss envc.
     result_mmap from_rhs_exp rhss = INR cml_rhss ∧
     has_cons envc ⇒
-    EVERY (λe. every_exp (one_con_check envc) e) cml_rhss
+    EVERY (λe. check_exp_constructors envc e) cml_rhss
 Proof
   Induct
   \\ simp [result_mmap_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
-  \\ imp_res_tac from_rhs_exp_one_con_check \\ gvs []
+  \\ imp_res_tac from_rhs_exp_con_check \\ gvs []
 QED
 
-Theorem Seqs_one_con_check[local]:
+Theorem Seqs_con_check[local]:
   ∀es env.
-    EVERY (λe. every_exp (one_con_check envc) e) es ⇒
-    every_exp (one_con_check envc) (Seqs es)
+    EVERY (λe. check_exp_constructors envc e) es ⇒
+    check_exp_constructors envc (Seqs es)
 Proof
-  Induct \\ gvs [Seqs_def, do_con_check_def]
+  Induct \\ gvs [check_exp_constructors_def, Seqs_def, do_con_check_def]
 QED
 
-Theorem assign_single_one_con_check[local]:
+Theorem assign_single_con_check[local]:
   assign_single lhs (Var (Short n)) = INR ass ∧
   has_cons envc ⇒
-  every_exp (one_con_check envc) ass
+  check_exp_constructors envc ass
 Proof
   Cases_on ‘lhs’
   \\ simp [assign_single_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
-  \\ imp_res_tac (cj 1 from_exp_one_con_check)
-  \\ gvs [cml_get_arr_data_def, cml_tup_select_def, cml_tup_case_def]
+  \\ imp_res_tac (cj 1 from_exp_con_check)
+  \\ gvs [check_exp_constructors_def, cml_get_arr_data_def, cml_tup_select_def, cml_tup_case_def]
 QED
 
-Theorem map_assign_single_one_con_check[local]:
+Theorem map_assign_single_con_check[local]:
   ∀lhss ns ass envc.
     result_mmap2 assign_single lhss (MAP (Var ∘ Short) ns) = INR ass ∧
     has_cons envc ⇒
-    EVERY (λe. every_exp (one_con_check envc) e) ass
+    EVERY (λe. check_exp_constructors envc e) ass
 Proof
   Induct \\ Cases_on ‘ns’
   \\ simp [result_mmap2_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
-  \\ imp_res_tac assign_single_one_con_check
+  \\ imp_res_tac assign_single_con_check
   \\ res_tac \\ gvs []
 QED
 
-Theorem Stuple_one_con_check[local]:
-  EVERY (λe. every_exp (one_con_check env_c) e) es ⇒
-  every_exp (one_con_check env_c) (Stuple es)
+Theorem Stuple_con_check[local]:
+  EVERY (λe. check_exp_constructors env_c e) es ⇒
+  check_exp_constructors env_c (Stuple es)
 Proof
   Cases_on ‘LENGTH es = 1’
   >- (gvs [LENGTH_EQ_1, Stuple_def])
   \\ DEP_REWRITE_TAC [Stuple_Tuple]
-  \\ simp [do_con_check_def]
+  \\ simp [check_exp_constructors_def, do_con_check_def]
 QED
 
-Theorem par_assign_one_con_check[local]:
+Theorem par_assign_con_check[local]:
   par_assign lhss cml_rhss = INR cml_body ∧
-  EVERY (λe. every_exp (one_con_check envc) e) cml_rhss ∧
+  EVERY (λe. check_exp_constructors envc e) cml_rhss ∧
   has_cons envc ⇒
-  every_exp (one_con_check envc) cml_body
+  check_exp_constructors envc cml_body
 Proof
-  simp [par_assign_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
-  \\ Cases_on ‘LENGTH lhss = LENGTH cml_rhss’ \\ gvs []
-  \\ DEP_REWRITE_TAC [Seqs_one_con_check, Stuple_one_con_check]
-  \\ imp_res_tac map_assign_single_one_con_check \\ gvs []
+  simp [check_exp_constructors_def, par_assign_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
+  \\ Cases_on ‘LENGTH lhss = LENGTH cml_rhss’ \\ gvs [check_exp_constructors_def]
+  \\ DEP_REWRITE_TAC [Seqs_con_check, Stuple_con_check]
+  \\ imp_res_tac map_assign_single_con_check \\ gvs [check_exp_constructors_def]
 QED
 
-Theorem to_string_one_con_check[local]:
+Theorem to_string_con_check[local]:
   to_string cml_e t = INR cml_str ∧
-  every_exp (one_con_check env_c) cml_e ⇒
-  every_exp (one_con_check env_c) cml_str
+  check_exp_constructors env_c cml_e ⇒
+  check_exp_constructors env_c cml_str
 Proof
   Cases_on ‘t’ \\ simp [to_string_def] \\ rpt strip_tac
-  \\ gvs [cml_fapp_def, cml_apps_def, Apps_def]
+  \\ gvs [check_exp_constructors_def, cml_fapp_def, cml_apps_def, Apps_def]
 QED
 
-Theorem from_stmt_one_con_check[local]:
+Theorem from_stmt_con_check[local]:
   ∀body lvl cml_body envc.
     from_stmt body lvl = INR cml_body ∧
     has_cons envc ⇒
-    every_exp (one_con_check envc) cml_body
+    check_exp_constructors envc cml_body
 Proof
   Induct \\ rpt gen_tac
-  >~ [‘Skip’] >-
-   (simp [from_stmt_def, do_con_check_def])
-  >~ [‘Assert e’] >-
-   (simp [from_stmt_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
-    \\ imp_res_tac (cj 1 from_exp_one_con_check) \\ simp [do_con_check_def])
-  >~ [‘Then stmt₁ stmt₂’] >-
-   (simp [from_stmt_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
-    \\ res_tac \\ gvs [])
-  >~ [‘If tst thn els’] >-
-   (simp [from_stmt_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
-    \\ imp_res_tac (cj 1 from_exp_one_con_check) \\ res_tac \\ gvs [])
-  >~ [‘Return’] >-
-   (simp [from_stmt_def, mk_id_def, do_con_check_def, has_cons_def])
-  >~ [‘Dec local scope’] >-
-   (Cases_on ‘local’
-    \\ simp [from_stmt_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
-    \\ res_tac \\ drule_then assume_tac cml_new_refs_one_con_check \\ gvs [])
-  >~ [‘Assign ass’] >-
-   (simp [from_stmt_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
-    \\ imp_res_tac map_from_rhs_exp_one_con_check
-    \\ imp_res_tac par_assign_one_con_check)
-  >~ [‘While grd _ _ _ body’] >-
-   (simp [from_stmt_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
-    \\ imp_res_tac (cj 1 from_exp_one_con_check) \\ res_tac
-    \\ gvs [cml_fapp_def, cml_apps_def, mk_id_def, Apps_def, do_con_check_def])
-  >~ [‘Print e t’] >-
-   (simp [from_stmt_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
-    \\ imp_res_tac (cj 1 from_exp_one_con_check)
-    \\ imp_res_tac to_string_one_con_check
-    \\ gvs [cml_fapp_def, cml_apps_def, mk_id_def, Apps_def])
-  >~ [‘MetCall lhss name args’] >-
-   (simp [from_stmt_def, oneline bind_def, CaseEq "sum", cml_tup_case_def,
+  >~ [‘Skip’] >- (
+    simp [check_exp_constructors_def, from_stmt_def, do_con_check_def])
+  >~ [‘Assert e’] >- (
+    simp [check_exp_constructors_def, from_stmt_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
+    \\ imp_res_tac (cj 1 from_exp_con_check) \\ simp [check_exp_constructors_def, do_con_check_def])
+  >~ [‘Then stmt₁ stmt₂’] >- (
+    simp [check_exp_constructors_def, from_stmt_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
+    \\ res_tac \\ gvs [check_exp_constructors_def])
+  >~ [‘If tst thn els’] >- (
+    simp [check_exp_constructors_def, from_stmt_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
+    \\ imp_res_tac (cj 1 from_exp_con_check) \\ res_tac \\ gvs [check_exp_constructors_def])
+  >~ [‘Return’] >- (
+    simp [check_exp_constructors_def, from_stmt_def, mk_id_def, do_con_check_def, has_cons_def])
+  >~ [‘Dec local scope’] >- (
+    Cases_on ‘local’
+    \\ simp [check_exp_constructors_def, from_stmt_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
+    \\ res_tac \\ drule_then assume_tac cml_new_refs_con_check \\ gvs [check_exp_constructors_def])
+  >~ [‘Assign ass’] >- (
+    simp [check_exp_constructors_def, from_stmt_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
+    \\ imp_res_tac map_from_rhs_exp_con_check
+    \\ imp_res_tac par_assign_con_check)
+  >~ [‘While grd _ _ _ body’] >- (
+    simp [check_exp_constructors_def, from_stmt_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
+    \\ imp_res_tac (cj 1 from_exp_con_check) \\ res_tac
+    \\ gvs [check_exp_constructors_def, cml_fapp_def, cml_apps_def, mk_id_def, Apps_def, do_con_check_def])
+  >~ [‘Print e t’] >- (
+    simp [check_exp_constructors_def, from_stmt_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
+    \\ imp_res_tac (cj 1 from_exp_con_check)
+    \\ imp_res_tac to_string_con_check
+    \\ gvs [check_exp_constructors_def, cml_fapp_def, cml_apps_def, mk_id_def, Apps_def])
+  >~ [‘MetCall lhss name args’] >- (
+    simp [check_exp_constructors_def, from_stmt_def, oneline bind_def, CaseEq "sum", cml_tup_case_def,
           cml_fapp_def]
     \\ rpt strip_tac
-    \\ drule par_assign_one_con_check
+    \\ drule par_assign_con_check
     \\ disch_then $ drule_at (Pos last)
-    \\ impl_tac >- (simp [EVERY_GENLIST])
-    \\ rename [‘map_from_exp _ = INR cml_args’] \\ gvs []
+    \\ impl_tac >- (simp [check_exp_constructors_def, EVERY_GENLIST])
+    \\ rename [‘map_from_exp _ = INR cml_args’] \\ gvs [check_exp_constructors_def]
     \\ Cases_on ‘REVERSE cml_args = []’
-    >- (gvs [cml_apps_def, do_con_check_def])
-    \\ DEP_REWRITE_TAC [cml_apps_apps, Apps_one_con_check] \\ simp []
-    \\ imp_res_tac (cj 2 from_exp_one_con_check))
+    >- (gvs [check_exp_constructors_def, cml_apps_def, do_con_check_def])
+    \\ DEP_REWRITE_TAC [cml_apps_apps, Apps_con_check] \\ simp [check_exp_constructors_def]
+    \\ imp_res_tac (cj 2 from_exp_con_check))
 QED
 
-Theorem set_up_in_refs_one_con_check[local]:
+Theorem set_up_in_refs_con_check[local]:
   ∀names env_c body.
-    every_exp (one_con_check env_c) body ⇒
-    every_exp (one_con_check env_c) (set_up_in_refs names body)
+    check_exp_constructors env_c body ⇒
+    check_exp_constructors env_c (set_up_in_refs names body)
 Proof
-  Induct \\ gvs [set_up_in_refs_def]
+  Induct \\ gvs [check_exp_constructors_def, set_up_in_refs_def]
 QED
 
-Theorem set_up_cml_fun_one_con_check[local]:
-  every_exp (one_con_check env_c) body ⇒
-  (λ(f,n,e). every_exp (one_con_check env_c) e)
+Theorem set_up_cml_fun_con_check[local]:
+  check_exp_constructors env_c body ⇒
+  (λ(f,n,e). check_exp_constructors env_c e)
     (set_up_cml_fun n ins body)
 Proof
   disch_tac
-  \\ simp [set_up_cml_fun_def, cml_fun_def]
-  \\ drule_then assume_tac set_up_in_refs_one_con_check
-  \\ rpt (pairarg_tac \\ gvs [])
-  \\ gvs [AllCaseEqs()]
-  \\ DEP_REWRITE_TAC [Funs_one_con_check] \\ simp []
+  \\ simp [check_exp_constructors_def, set_up_cml_fun_def, cml_fun_def]
+  \\ drule_then assume_tac set_up_in_refs_con_check
+  \\ rpt (pairarg_tac \\ gvs [check_exp_constructors_def])
+  \\ gvs [check_exp_constructors_def, AllCaseEqs()]
+  \\ DEP_REWRITE_TAC [Funs_con_check] \\ simp [check_exp_constructors_def]
 QED
 
-Theorem MAP_cml_read_var_one_con_check[local]:
+Theorem MAP_cml_read_var_con_check[local]:
   ∀ns env_c e.
-    EVERY (λe. every_exp (one_con_check env_c) e) (MAP cml_read_var ns)
+    EVERY (λe. check_exp_constructors env_c e) (MAP cml_read_var ns)
 Proof
-  Induct \\ gvs [one_con_check_def, cml_read_var_def]
+  Induct \\ gvs [check_exp_constructors_def, cml_read_var_def]
 QED
 
-Theorem from_member_decl_one_con_check[local]:
+Theorem from_member_decl_con_check[local]:
   from_member_decl member = INR cml_f ∧
   has_cons envc ⇒
-  (λ(f,n,e). every_exp (one_con_check envc) e) cml_f
+  (λ(f,n,e). check_exp_constructors envc e) cml_f
 Proof
   rpt strip_tac
   \\ gvs [from_member_decl_def, oneline bind_def, AllCaseEqs()]
-  >- (* Method *)
-   (DEP_REWRITE_TAC [set_up_cml_fun_one_con_check, cml_new_refs_one_con_check]
-    \\ simp []
-    \\ DEP_REWRITE_TAC [Stuple_one_con_check] \\ simp []
-    \\ gvs [MAP_cml_read_var_one_con_check]
-    \\ imp_res_tac from_stmt_one_con_check \\ simp [])
+  >- ( (* Method *)
+    DEP_REWRITE_TAC [set_up_cml_fun_con_check, cml_new_refs_con_check]
+    \\ simp [check_exp_constructors_def]
+    \\ DEP_REWRITE_TAC [Stuple_con_check] \\ simp []
+    \\ gvs [MAP_cml_read_var_con_check]
+    \\ imp_res_tac from_stmt_con_check \\ simp [])
   (* Function *)
-  \\ DEP_REWRITE_TAC [set_up_cml_fun_one_con_check, cj 1 from_exp_one_con_check]
+  \\ DEP_REWRITE_TAC [set_up_cml_fun_con_check, cj 1 from_exp_con_check]
   \\ last_assum $ irule_at (Pos hd) \\ simp []
 QED
 
-Theorem map_from_member_decl_one_con_check[local]:
+Theorem map_from_member_decl_con_check[local]:
   ∀members cml_fs envc.
     result_mmap from_member_decl members = INR cml_fs ∧
     has_cons envc ⇒
-    EVERY (λ(f,n,e). every_exp (one_con_check envc) e) cml_fs
+    EVERY (λ(f,n,e). check_exp_constructors envc e) cml_fs
 Proof
   Induct
   \\ simp [result_mmap_def, oneline bind_def, CaseEq "sum"]
   \\ rpt strip_tac
-  \\ imp_res_tac from_member_decl_one_con_check
+  \\ imp_res_tac from_member_decl_con_check
   \\ res_tac \\ gvs []
 QED
 
@@ -4810,18 +4809,21 @@ Proof
   (* dec_to_string *)
   \\ simp [cml_dec_to_string_dlet_def, cml_dec_to_string_body_def]
   \\ simp [Ntimes evaluate_decs_def 2, extend_dec_env_def]
-  \\ simp [cml_list_def, do_con_check_def, pat_bindings_def]
+  \\ simp [cml_list_def, check_exp_constructors_def,
+           do_con_check_def, pat_bindings_def]
   \\ simp [evaluate_def, pmatch_def]
   \\ qmatch_goalsub_abbrev_tac ‘nsBind «dec_to_string» dts_clos’
   (* nat_to_string *)
   \\ simp [cml_nat_to_string_dletrec_def, cml_nat_to_string_body_def]
   \\ simp [Ntimes evaluate_decs_def 2, extend_dec_env_def]
-  \\ simp [cml_list_def, do_con_check_def, build_rec_env_def]
+  \\ simp [cml_list_def, check_exp_constructors_def,
+           do_con_check_def, build_rec_env_def]
   \\ qmatch_goalsub_abbrev_tac ‘nsBind «nat_to_string» nts_clos’
   (* int_to_string *)
   \\ simp [cml_int_to_string_dlet_def, cml_int_to_string_body_def]
   \\ simp [Ntimes evaluate_decs_def 2, extend_dec_env_def]
-  \\ simp [cml_list_def, do_con_check_def, pat_bindings_def]
+  \\ simp [cml_list_def, check_exp_constructors_def,
+           do_con_check_def, pat_bindings_def]
   \\ simp [evaluate_def, pmatch_def]
   \\ qmatch_goalsub_abbrev_tac
        ‘nsBind «int_to_string» (Closure its_clos_env _ _)’
@@ -4830,13 +4832,14 @@ Proof
   (* compiled function *)
   \\ simp [Ntimes evaluate_decs_def 2, extend_dec_env_def]
   \\ drule_all_then assume_tac ALL_DISTINCT_member_name \\ simp []
-  \\ DEP_REWRITE_TAC [map_from_member_decl_one_con_check] \\ simp []
+  \\ DEP_REWRITE_TAC [map_from_member_decl_con_check] \\ simp []
   \\ last_assum $ irule_at (Pos hd)
   \\ simp [has_cons_def]
   (* call to main *)
   \\ simp [Ntimes evaluate_decs_def 2, extend_dec_env_def]
   \\ simp [pat_bindings_def, cml_fapp_def, cml_apps_def, Apps_def, evaluate_def,
-           do_con_check_def, build_conv_def, mk_id_def, extend_dec_env_def]
+           check_exp_constructors_def, do_con_check_def, build_conv_def,
+           mk_id_def, extend_dec_env_def]
   \\ qmatch_goalsub_abbrev_tac ‘nsAppend (build_rec_env _ cl_env _) env_cml₁v’
   \\ drule_all valid_main_nslookup
   \\ disch_then $ qspecl_then [‘env_cml₁v’, ‘nsEmpty’, ‘cl_env’] mp_tac

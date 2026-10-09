@@ -1,5 +1,3 @@
-INCLUDES = $(CAKEMLDIR)/compiler/scheme $(CAKEMLDIR)/translator # $(CAKEMLDIR)/basis
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

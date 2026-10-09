@@ -157,7 +157,6 @@ val _ = reg_enc_dec backend_common_tra_enc'_thm;
 
 (* some simple ones *)
 
-val res = define_enc_dec “:var_name”
 val res = define_enc_dec “:word_size”
 val res = define_enc_dec “:mlstring”
 val res = define_enc_dec “:shmem_op”
@@ -207,6 +206,27 @@ val res = define_enc_dec “:opw”;
 val res = define_enc_dec “:ast$shift”;
 val res = define_enc_dec “:ast$thunk_mode”
 val res = define_enc_dec “:ast$thunk_op”;
+
+Definition word8_enc'_def:
+  word8_enc' (n:word8) = Tree (w2n n) []
+End
+
+Definition word8_dec'_def[simp]:
+  word8_dec' (Tree n xs) = n2w n :word8
+End
+
+Theorem word8_dec_enc'[simp]:
+  word8_dec' (word8_enc' n) = n
+Proof
+  fs [word8_dec'_def,word8_enc'_def]
+QED
+
+val _ = reg_enc_dec_only “:word8” “word8_enc'” “word8_dec'”;
+val res = define_enc_dec “:ast$arith”;
+val res = define_enc_dec “:ast$lit”;
+val res = define_enc_dec “:ast$op”;
+val res = define_enc_dec “:glob_info”;
+val res = define_enc_dec “:var_name”;
 val res = define_enc_dec “:fp_cmp”;
 val res = define_enc_dec “:fp_uop”;
 val res = define_enc_dec “:fp_bop”;
@@ -315,6 +335,57 @@ QED
 
 val _ = reg_enc_dec bvl_exp_enc'_thm;
 
+(* BVI's exp *)
+
+Theorem bvi_MEM_exp_size[local]:
+  (∀xs x. MEM x xs ⇒ bvi$exp_size x ≤ bvi$exp2_size xs)
+Proof
+  Induct \\ fs [] \\ rw [] \\ fs [bviTheory.exp_size_def]
+  \\ res_tac \\ fs []
+QED
+
+val (e,d) = enc_dec_for “:bvi$exp”
+
+Definition bvi_exp_enc'_def:
+  ^e
+Termination
+  WF_REL_TAC ‘measure bvi$exp_size’ \\ rw []
+  \\ imp_res_tac bvi_MEM_exp_size \\ gvs [bviTheory.exp_size_def]
+End
+
+Definition bvi_exp_dec'_def:
+  ^d
+Termination
+  WF_REL_TAC `measure num_tree_size`
+  \\ reverse (rw [])
+  (* the handler recurses under an option, so its call sits one [nth]
+     deeper than the list cases below *)
+  >~ [‘list_dec' I (nth 3 ys)’] >-
+   (qspecl_then [‘ys’,‘0’,‘3’] mp_tac num_tree_size_nth_nth \\ fs [])
+  \\ imp_res_tac MEM_list_size
+  \\ rpt (pop_assum $ qspec_then ‘num_tree_size’ mp_tac)
+  \\ rpt (goal_term (fn tm =>
+            tmCases_on (rand (find_term (can (match_term “nth _ _”)) tm)) []
+            \\ fs [num_tree_size_def,list_dec'_def]))
+  \\ rename [‘list_dec' I xs’] \\ Cases_on ‘xs’
+  \\ fs [list_dec'_def] \\ rw []
+End
+
+Theorem bvi_exp_enc'_thm[simp]:
+  ∀x. bvi_exp_dec' (bvi_exp_enc' x) = x
+Proof
+  ho_match_mp_tac bvi_exp_enc'_ind \\ rw []
+  \\ fs [bvi_exp_enc'_def]
+  \\ once_rewrite_tac [bvi_exp_dec'_def] \\ gvs []
+  \\ fs [SF ETA_ss]
+  \\ rpt conj_tac
+  >~ [‘option_enc' bvi_exp_enc' h’] >-
+   (irule option_enc'_some \\ fs [])
+  \\ irule list_enc'_mem \\ fs []
+QED
+
+val _ = reg_enc_dec bvi_exp_enc'_thm;
+
 (* val_approx *)
 
 val (e,d) = enc_dec_for “:val_approx”
@@ -395,7 +466,7 @@ val mem_enc_dec' = ref ([]:thm list);
 
 fun get_enc_dec_ok'_thm (name, ty) =
   if can (match_type “:'a -> 'b”) ty orelse
-     can (match_type “:'a asm_config”) ty then
+     can (match_type “:asm_config”) ty then
     ISPEC (mk_var(name,ty)) enc_dec_ok'_const
   else if can get_enc_dec_ok_thm ty then
     MATCH_MP IMP_enc_dec_ok (get_enc_dec_ok_thm ty)

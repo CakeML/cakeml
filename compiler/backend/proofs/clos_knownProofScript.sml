@@ -13,7 +13,6 @@ Libs
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"];
 
 val _ = diminish_srw_ss ["ABBREV"];
-val _ = set_trace "BasicProvers.var_eq_old" 1;
 val _ = augment_srw_ss [rewrites [SNOC_APPEND]];
 
 val _ = temp_bring_to_front_overload "domain" {Name = "domain", Thy = "sptree"};
@@ -739,6 +738,8 @@ Proof
   >>~- ([`WordFromWord`], dsimp[])
   >>~- ([`BoundsCheckByte`], dsimp[])
   >~ [‘XorByte’] >-
+   (dsimp[ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq] \\ rw[] \\ metis_tac[])
+  >~ [‘UpdateBit’] >-
    (dsimp[ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq] \\ rw[] \\ metis_tac[])
   >- (rename [‘Ref’]
       \\ dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
@@ -2705,25 +2706,11 @@ Proof
   simp[Unit_def] >> Cases_on `v` >> simp[] >> metis_tac[]
 QED
 
-Theorem v_rel_IMP_v_to_bytes_lemma[local]:
-    !x y c g.
-      v_rel c g x y ==>
-      !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
-           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))
+Theorem v_rel_IMP_v_to_mlstring[local]:
+    v_rel c g x y ==> v_to_mlstring y = v_to_mlstring x
 Proof
-  ho_match_mp_tac v_to_list_ind \\ rw []
-  \\ fs [v_to_list_def]
-  \\ Cases_on `tag = backend_common$cons_tag` \\ fs []
-  \\ res_tac \\ fs [case_eq_thms]
-  \\ Cases_on `ns` \\ fs []
-  \\ eq_tac \\ rw [] \\ fs []
-  \\ Cases_on `h` \\ fs []
-QED
-
-Theorem v_rel_IMP_v_to_bytes[local]:
-    v_rel c g x y ==> v_to_bytes y = v_to_bytes x
-Proof
-  rw [v_to_bytes_def] \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []
+  rw [v_to_mlstring_def]
+  \\ Cases_on `x` \\ gvs [v_rel_def]
 QED
 
 Theorem v_rel_IMP_v_to_words_lemma[local]:
@@ -3521,8 +3508,8 @@ Proof
       \\ fs [do_install_def, pair_case_eq]
       \\ fs [list_case_eq, option_case_eq]
       \\ rveq \\ fs [] \\ rveq \\ fs []
-      \\ rename1 `[x1;x2] = REVERSE vs1`
-      \\ patresolve `v_rel _ _ x1 _` hd v_rel_IMP_v_to_bytes \\ strip_tac
+      \\ rename1 `REVERSE vs1 = [x1;x2]`
+      \\ patresolve `v_rel _ _ x1 _` hd v_rel_IMP_v_to_mlstring \\ strip_tac
       \\ patresolve `v_rel _ _ x2 _` hd v_rel_IMP_v_to_words \\ strip_tac
       \\ pairarg_tac \\ fs []
       \\ fs [bool_case_eq, option_case_eq] \\ rveq \\ fs []

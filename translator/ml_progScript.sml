@@ -458,6 +458,15 @@ Proof
   \\ pop_assum (assume_tac o GSYM) \\ fs []
 QED
 
+Theorem Decls_Dopen:
+   Decls env s1 [Dopen locs path] env2 s2 ⇔
+   s2 = s1 ∧ open_dec_env path env = SOME env2
+Proof
+  simp [Decls_def, evaluate_dec_list_def, AllCaseEqs(),
+        state_component_equality] >>
+  metis_tac []
+QED
+
 Theorem Decls_Dmod:
    Decls env1 s1 [Dmod mn ds] env2 s2 <=>
    ?s env.

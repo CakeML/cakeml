@@ -69,6 +69,11 @@ val preamble_tm =
        "#define CODE_BUFFER_SIZE  5242880";
        "";
        "     .file        \"cake.S\"";
+       "";
+       "/* The generated code does not need an executable stack */";
+       "#if defined(__ELF__)";
+       "     .section .note.GNU-stack,\"\",%progbits";
+       "#endif";
        ""])`` |> EVAL |> rconc;
 Definition preamble_def:
   preamble = ^preamble_tm

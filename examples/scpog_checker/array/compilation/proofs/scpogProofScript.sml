@@ -12,7 +12,7 @@ Libs
   preamble blastLib
 
 val cake_scpog_io_events_def = new_specification("cake_scpog_io_events_def",["cake_scpog_io_events"],
-  main_semantics |> Q.GENL[`cl`,`fs`]
+  main_semantics |> Q.GENL[`ext`,`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (cake_scpog_sem,cake_scpog_output) = cake_scpog_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
@@ -31,7 +31,7 @@ Proof
   simp[backend_config_ok_def,x64_config'_def]>>
   rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[x64_configTheory.x64_backend_config_def]
-  >- (EVAL_TAC>> blastLib.FULL_BBLAST_TAC)
+  >- (EVAL_TAC >> intLib.ARITH_TAC)
   >- names_tac
   >- (
     fs [stack_removeTheory.store_offset_def,
@@ -48,9 +48,7 @@ Proof
     \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
     \\ rveq \\ fs [] \\ EVAL_TAC)
   \\ fs[stack_removeTheory.max_stack_alloc_def]
-  \\ EVAL_TAC>>fs[]
-  \\ match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP
-  \\ fs[]
+  \\ EVAL_TAC \\ intLib.ARITH_TAC
 QED
 
 Theorem x64_init_ok':
@@ -114,11 +112,11 @@ End
 
 Theorem machine_code_sound:
   cake_scpog_run cl fs mc ms ⇒
-  machine_sem mc (basis_ffi cl fs) ms ⊆
+  machine_sem mc (basis_ffi ext cl fs) ms ⊆
     extend_with_resource_limit
-      {Terminate Success (cake_scpog_io_events cl fs)} ∧
+      {Terminate Success (cake_scpog_io_events ext cl fs)} ∧
   ∃out err.
-    extract_fs fs (cake_scpog_io_events cl fs) =
+    extract_fs ext (cl,fs) (cake_scpog_io_events ext cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
   if LENGTH cl = 3 then
     out ≠ «» ⇒
@@ -146,7 +144,7 @@ Proof
   drule_at (Pos last) cake_scpog_compiled_thm>>
   simp[AND_IMP_INTRO]>>
   disch_then drule>>
-  disch_then (qspecl_then [`ms`,`mc`,`data_sp`,`cbspace`] mp_tac)>>
+  disch_then (qspecl_then [`ms`,`mc`,`ext`,`data_sp`,`cbspace`] mp_tac)>>
   simp[]>> strip_tac>>
   fs[main_sem_def]>>
   Cases_on`cl`>>fs[]

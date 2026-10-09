@@ -3,11 +3,13 @@
   array primitives, i.e. primitives that crash if the index is
   out of bounds. This is not part of the basis.
 
-  This script defines four functions:
+  This script defines the following functions:
     Unsafe.sub -- unsafe version of Array.sub
     Unsafe.update -- unsafe version of Array.update
     Unsafe.w8sub -- unsafe version of Word8Array.sub
     Unsafe.w8update -- unsafe version of Word8Array.update
+    Unsafe.w8subBit -- unsafe version of Word8Array.subBit
+    Unsafe.w8updateBit -- unsafe version of Word8Array.updateBit
 *)
 Theory UnsafeProg
 Ancestors
@@ -21,15 +23,21 @@ val () = ml_prog_update (open_module "Unsafe");
 
 val () = append_decs
    ``[mk_binop «sub» Asub_unsafe;
-      Dlet unknown_loc (Pvar «update»)
+      Dlet NoLocs (Pvar «update»)
        (Fun «x» (Fun «y» (Fun «z»
          (App Aupdate_unsafe [Var (Short «x»); Var (Short «y»); Var (Short «z»)])))) ]``;
 
 val () = append_decs
    ``[mk_binop «w8sub» Aw8sub_unsafe;
-      Dlet unknown_loc (Pvar «w8update»)
+      Dlet NoLocs (Pvar «w8update»)
        (Fun «x» (Fun «y» (Fun «z»
          (App Aw8update_unsafe [Var (Short «x»); Var (Short «y»); Var (Short «z»)])))) ]``;
+
+val () = append_decs
+   ``[mk_binop «w8subBit» Aw8subBit_unsafe;
+      Dlet NoLocs (Pvar «w8updateBit»)
+       (Fun «x» (Fun «y» (Fun «z»
+         (App Aw8updateBit_unsafe [Var (Short «x»); Var (Short «y»); Var (Short «z»)])))) ]``;
 
 val () = append_decs
    ``[mk_binop «w8xor_str» XorAw8Str_unsafe]``;

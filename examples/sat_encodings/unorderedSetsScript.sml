@@ -3,7 +3,7 @@
 *)
 Theory unorderedSets
 Ancestors
-  misc mlint cnf boolExpToCnf quantifierExp numBoolRange
+  misc mlint satCnf boolExpToCnf quantifierExp numBoolRange
 Libs
   preamble
 
@@ -152,7 +152,7 @@ End
 (* ----------------------- Satisfiability --------------------------- *)
 
 Definition eval_equation_def:
-  (eval_equation (w:assignment) (w':elementVarAssignment) EqTrue = T) ∧
+  (eval_equation (w:num assignment) (w':elementVarAssignment) EqTrue = T) ∧
   (eval_equation w w' EqFalse = F) ∧
   (eval_equation w w' (EqBoolVar bv) = w bv) ∧
   (eval_equation w w' (EqVarCon evn c) = (w' (FST evn) = c)) ∧
@@ -585,9 +585,7 @@ Theorem equation_to_cnf_preserves_sat:
     eq_elementVarAssignment_ok w' l e ∧
     equation_ok e ⇒
     (eval_equation w w' e ⇔
-       eval_cnf
-       (encode_assignment_unorderedSet w w' l e)
-       (equation_to_cnf l e))
+       satisfies_cnf (encode_assignment_unorderedSet w w' l e) (set (equation_to_cnf l e)))
 Proof
   rw[]
   >> qspecl_then [‘e’, ‘l’, ‘w’, ‘w'’]
@@ -607,4 +605,3 @@ Proof
   >- gs[eq_varList_ok_lemma, exp_rangeList_ok_lemma]
   >> gs[numVarAssignment_range_ok_lemma, encode_assignment_unorderedSet_def]
 QED
-

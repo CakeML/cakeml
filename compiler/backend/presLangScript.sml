@@ -211,7 +211,8 @@ Definition arith_to_display_def:
   arith_to_display Not = empty_item «Not» ∧
   arith_to_display Abs = empty_item «Abs» ∧
   arith_to_display Sqrt = empty_item «Sqrt» ∧
-  arith_to_display FMA = empty_item «FMA»
+  arith_to_display FMA = empty_item «FMA» ∧
+  arith_to_display (Shift sh) = Item NONE «Shift» [shift_to_display sh]
 End
 
 Definition prim_type_to_display_def:
@@ -232,10 +233,6 @@ End
 Definition op_to_display_def:
   op_to_display (p:ast$op) =
   case p of
-  | Shift ws sh num => Item NONE «Shift»
-                            [word_size_to_display ws;
-                             shift_to_display sh;
-                             num_to_display num]
   | Arith a ty => Item NONE «Arith»
                          [arith_to_display a;
                           prim_type_to_display ty]
@@ -278,6 +275,10 @@ Definition op_to_display_def:
   | Aw8sub_unsafe => empty_item «Aw8sub_unsafe»
   | Aw8update_unsafe => empty_item «Aw8update_unsafe»
   | XorAw8Str_unsafe => empty_item «XorAw8Str_unsafe»
+  | Aw8subBit => empty_item «Aw8subBit»
+  | Aw8updateBit => empty_item «Aw8updateBit»
+  | Aw8subBit_unsafe => empty_item «Aw8subBit_unsafe»
+  | Aw8updateBit_unsafe => empty_item «Aw8updateBit_unsafe»
   | ListAppend => empty_item «ListAppend»
   | ConfigGC => empty_item «ConfigGC»
   | FFI v35 => empty_item «FFI v35»
@@ -335,7 +336,7 @@ Definition exp_to_display_def:
   | Raise e => Item NONE «Raise» [exp_to_display e]
   | Con opt_id es => Item NONE «Con» [option_to_display id_to_display opt_id;
                                       Tuple (exp_to_display_list es)]
-  | Var id => Item NONE «Var» [id_to_display id]
+  | Var id => Item NONE «Ident» [id_to_display id]
   | Fun n e => Item NONE «Fun» [String n; exp_to_display e]
   | App op es => Item NONE «App» (op_to_display op ::
                                   exp_to_display_list es)
@@ -362,6 +363,8 @@ Definition exp_to_display_def:
       [Tuple (fun_to_display_list fns);
        exp_to_display e]
   | Tannot e _ => Item NONE «Tannot» [exp_to_display e]
+  | Open path e =>
+      Item NONE «Open» [Tuple (MAP String path); exp_to_display e]
   | Lannot e _ => Item NONE «Lannot» [exp_to_display e]) ∧
   (exp_to_display_list [] = []) ∧
   (exp_to_display_list (x::xs) =
@@ -401,6 +404,7 @@ Definition source_to_display_dec_def:
                                    Tuple (source_to_display_dec_list ds)]
   | Dlocal xs ys => Item NONE «Dlocal» [Tuple (source_to_display_dec_list xs);
                                         Tuple (source_to_display_dec_list ys)]
+  | Dopen _ path => Item NONE «Dopen» [Tuple (MAP String path)]
   | Denv n => Item NONE «Denv» [String n])  ∧
   (source_to_display_dec_list [] = []) ∧
   (source_to_display_dec_list (x::xs) =
@@ -520,6 +524,8 @@ Definition flat_to_display_def:
     Item (SOME None) (add_name_hint «letrec» name_hint)
         [Tuple (fun_flat_to_display_list funs); flat_to_display exp]
   )  ∧
+  (flat_to_display (flatLang$Tick tra exp) =
+    Item (SOME tra) «tick» [flat_to_display exp]) ∧
   (flat_to_display_list [] = []) ∧
   (flat_to_display_list (x::xs) =
     flat_to_display x :: flat_to_display_list xs)  ∧
@@ -623,6 +629,8 @@ Definition clos_op_to_display_def:
     | MemOp RefArray => String «RefArray»
     | MemOp DerefByte => String «DerefByte»
     | MemOp UpdateByte => String «UpdateByte»
+    | MemOp DerefBit => String «DerefBit»
+    | MemOp UpdateBit => String «UpdateBit»
     | MemOp ConcatByteVec => String «ConcatByteVec»
     | MemOp (CopyByte b) => Item NONE «CopyByte» [bool_to_display b]
     | MemOp FromListByte => String «FromListByte»
@@ -630,11 +638,15 @@ Definition clos_op_to_display_def:
     | MemOp LengthByteVec => String «LengthByteVec»
     | MemOp DerefByteVec => String «DerefByteVec»
     | MemOp BoundsCheckArray => String «BoundsCheckArray»
+    | MemOp BoundsCheckBit => String «BoundsCheckBit»
     | MemOp (BoundsCheckByte b) => Item NONE «BoundsCheckByte» [bool_to_display b]
     | MemOp closLang$ConfigGC => String «ConfigGC»
     | MemOp (StringCmp b opb) => Item NONE «StringCmp» [bool_to_display b;
                                                                  opb_to_display opb]
     | MemOp XorByte => String «XorByte»
+    | MemOp (MutCons tag i) => item_with_nums «MutCons» [tag; i]
+    | MemOp UpdateCons => String «UpdateCons»
+    | MemOp FinaliseCons => String «FinaliseCons»
     | Label num => Item NONE «Label» [String (attach_name ns (SOME num))]
     | FFI s => Item NONE «FFI» [string_imp s]
     | IntOp (Const i) => Item NONE «Const» [int_to_display i]
@@ -655,6 +667,9 @@ Definition clos_op_to_display_def:
                                            [word_size_to_display ws;
                                             shift_to_display sh;
                                             num_to_display num]
+    | WordOp (WordShiftVar ws sh) => Item NONE «WordShiftVar»
+                                           [word_size_to_display ws;
+                                            shift_to_display sh]
     | WordOp (WordTest ws test) => Item NONE «WordTest»
                                         [word_size_to_display ws;
                                          test_to_display test]
@@ -1000,7 +1015,7 @@ End
 Definition asm_reg_imm_to_display_def:
   asm_reg_imm_to_display reg_imm = case reg_imm of
     | asm$Reg reg => item_with_num «Reg» reg
-    | Imm imm => item_with_word «Imm» imm
+    | Imm imm => Item NONE «Imm» [int_to_display imm]
 End
 
 Definition asm_arith_to_display_def:
@@ -1019,12 +1034,14 @@ Definition asm_arith_to_display_def:
     | AddCarry n1 n2 n3 n4 => item_with_nums «AddCarry» [n1; n2; n3; n4]
     | AddOverflow n1 n2 n3 n4 => item_with_nums «AddOverflow» [n1; n2; n3; n4]
     | SubOverflow n1 n2 n3 n4 => item_with_nums «SubOverflow» [n1; n2; n3; n4]
+    | IMul rd ra rb ro => item_with_nums «IMul» [rd; ra; rb; ro]
+    | IDiv rq rr ra rb => item_with_nums «IDiv» [rq; rr; ra; rb]
 End
 
 Definition asm_addr_to_display_def:
   asm_addr_to_display addr = case addr of
     | Addr reg w => Item NONE «Addr»
-                         [num_to_display reg; word_to_display w]
+                         [num_to_display reg; int_to_display w]
 End
 
 Definition asm_memop_to_display_def:
@@ -1075,7 +1092,7 @@ Definition asm_inst_to_display_def:
   asm_inst_to_display inst = case inst of
     | asm$Skip => empty_item «Skip»
     | Const reg w => Item NONE «Const» [num_to_display reg;
-                                                 word_to_display w]
+                                                 int_to_display w]
     | Arith a => Item NONE «Arith» [asm_arith_to_display a]
     | Mem mop r addr => Item NONE «Mem» [asm_memop_to_display mop;
         num_to_display r; asm_addr_to_display addr]
@@ -1085,13 +1102,13 @@ End
 Definition asm_asm_to_display_def:
   asm_asm_to_display inst = case inst of
     | Inst i => asm_inst_to_display i
-    | Jump w => item_with_word «Jump» w
+    | Jump w => Item NONE «Jump» [int_to_display w]
     | JumpCmp c r to w => Item NONE «JumpCmp»
       [asm_cmp_to_display c; num_to_display r; asm_reg_imm_to_display to;
-       word_to_display w]
-    | Call w => item_with_word «Call» w
+       int_to_display w]
+    | Call w => Item NONE «Call» [int_to_display w]
     | JumpReg r => item_with_num «JumpReg>» r
-    | Loc r w => Item NONE «Loc» [num_to_display r; word_to_display w]
+    | Loc r w => Item NONE «Loc» [num_to_display r; int_to_display w]
 End
 
 (* stackLang *)
@@ -1126,7 +1143,7 @@ Definition stack_seqs_def:
 End
 
 Theorem MEM_append_stack_seqs[local]:
-  ∀x. MEM a (append (stack_seqs x)) ⇒ prog_size ARB a ≤ prog_size ARB x
+  ∀x. MEM a (append (stack_seqs x)) ⇒ prog_size a ≤ prog_size x
 Proof
   Induct \\ simp [Once stack_seqs_def,stackLangTheory.prog_size_def]
   \\ rw [] \\ res_tac \\ gvs []
@@ -1134,8 +1151,8 @@ QED
 
 Theorem list_size_append_stack_seqs[local]:
   ∀x.
-  list_size (prog_size ARB) (append (stack_seqs x)) =
-  prog_size ARB x + 1
+  list_size prog_size (append (stack_seqs x)) =
+  prog_size x + 1
 Proof
   Induct \\ simp [Once stack_seqs_def,stackLangTheory.prog_size_def,list_size_def,list_size_append]
 QED
@@ -1195,13 +1212,11 @@ Definition stack_prog_to_display_def:
      Item NONE «loc_value» [num_to_display n1;
                             String (attach_name ns (SOME n2));
                             num_to_display n3] ∧
-   stack_prog_to_display (SUC k) ns (Install n1 n2 n3 n4 n5) =
-     item_with_nums «install» [n1; n2; n3; n4; n5] ∧
+   stack_prog_to_display (SUC k) ns (Install n1 n2 n3 n4 n5 n6) =
+     item_with_nums «install» [n1; n2; n3; n4; n5; n6] ∧
    stack_prog_to_display (SUC k) ns (ShMemOp mop r a) =
      Item NONE «sh_mem» [asm_memop_to_display mop;
                                   num_to_display r; asm_addr_to_display a] ∧
-   stack_prog_to_display (SUC k) ns (CodeBufferWrite n1 n2) =
-     item_with_nums «code_buffer_write» [n1; n2] ∧
    stack_prog_to_display (SUC k) ns (DataBufferWrite n1 n2) =
      item_with_nums «data_buffer_write» [n1; n2] ∧
    stack_prog_to_display (SUC k) ns (RawCall n) =
@@ -1276,7 +1291,6 @@ Definition lab_line_to_display_def:
         Item NONE «label» [String (attach_name ns (SOME s)); num_to_display n]
     | Asm aoc enc len => (case aoc of
       | Asmi i => Item NONE «asm» [asm_asm_to_display i]
-      | Cbw r1 r2 => item_with_nums «cbw» [r1; r2]
       | ShareMem mop r a => Item NONE «share_mem» [asm_memop_to_display mop;
                                                    num_to_display r;
                                                    asm_addr_to_display a])
@@ -1411,11 +1425,9 @@ Definition word_prog_to_display_def:
   (word_prog_to_display (SUC k) ns Tick = empty_item «tick») /\
   (word_prog_to_display (SUC k) ns (LocValue n1 n2) =
     Item NONE «loc_value» [String (attach_name ns (SOME n1)); num_to_display n2]) /\
-  (word_prog_to_display (SUC k) ns (Install n1 n2 n3 n4 ms) =
-    Item NONE «install» (MAP num_to_display [n1; n2; n3; n4]
+  (word_prog_to_display (SUC k) ns (Install n1 n2 n3 n4 n5 ms) =
+    Item NONE «install» (MAP num_to_display [n1; n2; n3; n4; n5]
         ++ [num_sets_to_display ms])) /\
-  (word_prog_to_display (SUC k) ns (CodeBufferWrite n1 n2) =
-    item_with_nums «code_buffer_write» [n1; n2]) /\
   (word_prog_to_display (SUC k) ns (DataBufferWrite n1 n2) =
     item_with_nums «data_buffer_write» [n1; n2]) /\
   (word_prog_to_display (SUC k) ns (FFI nm n1 n2 n3 n4 ms) =
@@ -1576,7 +1588,7 @@ val lab_test =
   “concat $ append $ lab_to_strs
      (insert 50 «foo» (insert 60 «bar» LN))
      [Section 50 [Label 50 1 0;
-                  Asm (Asmi (Inst (Const 5 (70w:word32)))) [] 0;
+                  Asm (Asmi (Inst (Const 5 70))) [] 0;
                   Label 50 2 0];
       Section 60 [Label 50 5 0]]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring

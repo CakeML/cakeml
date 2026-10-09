@@ -8,14 +8,13 @@ Ancestors
   backend_common[qualified] misc[qualified] backendProps
   source_evalProof
   semanticPrimitives flatLang flatSem
-  flat_elimProof[qualified] flat_patternProof[qualified]
+  flat_ticksProof[qualified] flat_patternProof[qualified]
 Libs
   preamble experimentalLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "getOpClass_def"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val build_rec_env_merge = flatPropsTheory.build_rec_env_merge;
 
@@ -179,6 +178,132 @@ Definition genv_c_tys_ok_def:
       MEM (cn, arity) ctors
 End
 
+(* Visibility follows the compilation map, not every physical local binding.
+   Qualified names cannot refer to physical locals. *)
+(* what the value of a global is known to be, see source_to_flat$exp_info *)
+Definition glob_info_rel_def[simp]:
+  glob_info_rel NoInfo (v:semanticPrimitives$v) = T ∧
+  glob_info_rel (InfoLit l) v = (v = Litv l) ∧
+  glob_info_rel (InfoPrim n op) v =
+    (inline_op op ∧
+     ((n = 1 ∧ ∃env x. v = Closure env x (App op [Var (Short x)])) ∨
+      (n = 2 ∧ ∃env x y. x ≠ y ∧
+         v = Closure env x (Fun y (App op [Var (Short x); Var (Short y)]))) ∨
+      (n = 3 ∧ ∃env x y z. ALL_DISTINCT [x; y; z] ∧
+         v = Closure env x (Fun y (Fun z
+               (App op [Var (Short x); Var (Short y); Var (Short z)]))))))
+End
+
+Definition lookup_var_rel_def:
+  lookup_var_rel R globals locals id value name ⇔
+    case name of
+    | Glob t n k =>
+        n < LENGTH globals ∧ glob_info_rel k value ∧
+        ∃value'. EL n globals = SOME value' ∧ R value value'
+    | Local t n =>
+        id = Short n ∧
+        ∃value'. ALOOKUP locals n = SOME value' ∧ R value value'
+End
+
+Definition lookup_env_rel_def:
+  lookup_env_rel R (genv:global_env) (comp_map:source_to_flat$environment)
+      (env:semanticPrimitives$v sem_env) locals ⇔
+    nsAll2 (lookup_var_rel R genv.v locals) env.v comp_map.v ∧
+    nsAll2 (λid (arity,stamp) (cn,ty_gp).
+      FLOOKUP genv.c ((cn, OPTION_MAP FST ty_gp), arity) = SOME stamp ∧
+      ∀ty_id ctors. ty_gp = SOME (ty_id,ctors) ⇒
+        FLOOKUP genv.tys ty_id = SOME ctors) env.c comp_map.c
+End
+
+Theorem lookup_var_rel_mono[local]:
+  (∀value value'. R1 value value' ⇒ R2 value value') ⇒
+  lookup_var_rel R1 globals locals id value name ⇒
+  lookup_var_rel R2 globals locals id value name
+Proof
+  Cases_on `name` >> rw [lookup_var_rel_def] >> metis_tac []
+QED
+
+Theorem lookup_env_rel_mono[mono]:
+  (∀value value'. R1 value value' ⇒ R2 value value') ⇒
+  lookup_env_rel R1 genv comp_map env locals ⇒
+  lookup_env_rel R2 genv comp_map env locals
+Proof
+  rw [lookup_env_rel_def] >>
+  irule nsAll2_mono >> goal_assum (drule_at Any) >>
+  metis_tac [lookup_var_rel_mono]
+QED
+
+Theorem lookup_env_rel_open[local]:
+  lookup_env_rel R genv comp_map env locals ∧
+  open_dec_env path env = SOME opened ⇒
+  ∃opened_map.
+    open_compile_env path comp_map = SOME opened_map ∧
+    lookup_env_rel R genv opened_map opened locals
+Proof
+  rw [lookup_env_rel_def, open_dec_env_def] >>
+  gvs [AllCaseEqs()] >>
+  drule_all nsAll2_after_nsOpen >>
+  disch_then (qx_choose_then `opened_map_c` strip_assume_tac) >>
+  qpat_x_assum `nsAll2 _ env.c comp_map.c` kall_tac >>
+  drule_all nsAll2_after_nsOpen >>
+  disch_then (qx_choose_then `opened_map_v` strip_assume_tac) >>
+  qexists_tac `<|v := opened_map_v; c := opened_map_c|>` >>
+  simp [open_compile_env_def] >>
+  fs [] >> irule nsAll2_mono >> goal_assum (drule_at Any) >>
+  rpt strip_tac >>
+  rename1 `lookup_var_rel _ _ _ id value name` >>
+  Cases_on `path` >> gvs [namespaceTheory.nsOpen_def] >>
+  Cases_on `name` >>
+  gvs [lookup_var_rel_def, namespaceTheory.mk_id_def]
+QED
+
+Theorem lookup_env_rel_extend[local]:
+  lookup_env_rel R genv map1 env1 locals ∧
+  lookup_env_rel R genv map2 env2 locals ⇒
+  lookup_env_rel R genv (extend_env map1 map2)
+    (extend_dec_env env1 env2) locals
+Proof
+  rw [lookup_env_rel_def, extend_env_def, extend_dec_env_def] >>
+  irule nsAll2_nsAppend >> simp []
+QED
+
+Theorem lookup_env_rel_bind[local]:
+  lookup_env_rel R genv comp_map env locals ∧ R value value' ⇒
+  lookup_env_rel R genv
+    (comp_map with v := nsBind name (Local trace name) comp_map.v)
+    (env with v := nsBind name value env.v) ((name,value')::locals)
+Proof
+  rw [lookup_env_rel_def] >>
+  rw [namespaceTheory.nsAll2_def, namespaceTheory.nsSub_def]
+  >- (
+    Cases_on `id = Short name` >> gvs []
+    >- simp [lookup_var_rel_def] >>
+    drule_all nsAll2_nsLookup1 >>
+    disch_then (qx_choose_then `compiled_name` strip_assume_tac) >>
+    qexists_tac `compiled_name` >> simp [] >>
+    Cases_on `compiled_name` >> gvs [lookup_var_rel_def])
+  >- (
+    fs [namespaceTheory.nsAll2_def, namespaceTheory.nsSub_def] >>
+    qpat_x_assum `∀p. nsLookupMod comp_map.v p = NONE ⇒ _`
+      (qspec_then `path` mp_tac) >>
+    Cases_on `path` >> Cases_on `env.v` >> Cases_on `comp_map.v` >>
+    gvs [namespaceTheory.nsBind_def, namespaceTheory.nsLookupMod_def])
+  >- (
+    rename1 `nsLookup _ id = SOME compiled_name` >>
+    Cases_on `id = Short name` >> gvs []
+    >- simp [lookup_var_rel_def] >>
+    drule_all nsAll2_nsLookup2 >>
+    disch_then (qx_choose_then `source_value` strip_assume_tac) >>
+    qexists_tac `source_value` >> simp [] >>
+    Cases_on `compiled_name` >> gvs [lookup_var_rel_def])
+  >- (
+    fs [namespaceTheory.nsAll2_def, namespaceTheory.nsSub_def] >>
+    qpat_x_assum `∀p. nsLookupMod env.v p = NONE ⇒ _`
+      (qspec_then `path` mp_tac) >>
+    Cases_on `path` >> Cases_on `env.v` >> Cases_on `comp_map.v` >>
+    gvs [namespaceTheory.nsBind_def, namespaceTheory.nsLookupMod_def])
+QED
+
 Inductive v_rel:
   (!genv lit.
     v_rel genv ((Litv lit):semanticPrimitives$v) ((Litv lit):flatSem$v)) ∧
@@ -191,33 +316,30 @@ Inductive v_rel:
     LIST_REL (v_rel genv) vs vs'
     ⇒
     v_rel genv (Conv NONE vs) (Conv NONE vs')) ∧
-  (!genv comp_map env env_v_local x e env_v_local' t ts.
-    env_rel genv env_v_local env_v_local'.v ∧
-    global_env_inv genv comp_map (set (MAP FST env_v_local'.v)) env ∧
-    LENGTH ts = LENGTH env_v_local'.v + 1
+  (!genv comp_map env x e flat_env t arg_trace.
+    lookup_env_rel (v_rel genv) genv comp_map env flat_env.v
     ⇒
     v_rel genv
-      (Closure (env with v := nsAppend env_v_local env.v) x e)
-      (Closure env_v_local' x
+      (Closure env x e)
+      (Closure flat_env x
         (compile_exp t
-          (comp_map with v := bind_locals ts (x::MAP FST env_v_local'.v) comp_map.v)
+          (comp_map with v := nsBind x (Local arg_trace x) comp_map.v)
           e))) ∧
   (* For expression level let recs *)
-  (!genv comp_map env env_v_local funs x env_v_local' t ts.
-    env_rel genv env_v_local env_v_local'.v ∧
-    global_env_inv genv comp_map (set (MAP FST env_v_local'.v)) env ∧
-    LENGTH ts = LENGTH funs + LENGTH env_v_local'.v
+  (!genv comp_map env funs x flat_env t ts.
+    lookup_env_rel (v_rel genv) genv comp_map env flat_env.v ∧
+    LENGTH ts = LENGTH funs
     ⇒
     v_rel genv
-      (Recclosure (env with v := nsAppend env_v_local env.v) funs x)
-      (Recclosure env_v_local'
+      (Recclosure env funs x)
+      (Recclosure flat_env
         (compile_funs t
-          (comp_map with v := bind_locals ts (MAP FST funs++MAP FST env_v_local'.v) comp_map.v) funs)
+          (comp_map with v := bind_locals ts (MAP FST funs) comp_map.v) funs)
           x)) ∧
   (* For top-level let recs *)
   (!genv comp_map env funs flat_env x y e new_vars t1 t2.
     MAP FST new_vars = MAP FST (REVERSE funs) ∧
-    global_env_inv genv comp_map {} env ∧
+    lookup_env_rel (v_rel genv) genv comp_map env [] ∧
     flat_env.v = [] ∧
     find_recfun x funs = SOME (y, e) ∧
     (* A syntactic way of relating the recursive function environment, rather
@@ -225,7 +347,7 @@ Inductive v_rel:
      * require step-indexing *)
     (!x. x ∈ set (MAP FST funs) ⇒
        ?n y e t1 t2 t3.
-         ALOOKUP new_vars x = SOME (Glob t1 n) ∧
+         ALOOKUP new_vars x = SOME (Glob t1 n NoInfo) ∧
          n < LENGTH genv.v ∧
          find_recfun x funs = SOME (y,e) ∧
          EL n genv.v =
@@ -245,7 +367,7 @@ Inductive v_rel:
     ⇒
     v_rel genv (Vectorv vs) (Vectorv vs')) ∧
   (!genv.
-    env_rel genv nsEmpty []) ∧
+    env_rel genv (nsEmpty : (modN,varN,semanticPrimitives$v) namespace) []) ∧
   (!genv x v env env' v'.
     env_rel genv env env' ∧
     v_rel genv v v'
@@ -256,11 +378,11 @@ Inductive v_rel:
        x ∉ IMAGE Short shadowers ∧
        nsLookup env.v x = SOME v
        ⇒
-       ?n v' t.
-         nsLookup comp_map.v x = SOME (Glob t n) ∧
+       ?n v' t k.
+         nsLookup comp_map.v x = SOME (Glob t n k) ∧
          n < LENGTH genv.v ∧
          EL n genv.v = SOME v' ∧
-         v_rel genv v v') ∧
+         v_rel genv v v' ∧ glob_info_rel k v) ∧
     (!x arity stamp.
       nsLookup env.c x = SOME (arity, stamp) ⇒
       ∃cn ty_gp. nsLookup comp_map.c x = SOME (cn, ty_gp) ∧
@@ -466,6 +588,33 @@ Proof
       srw_tac[][])
 QED
 
+Theorem lookup_env_rel_bind_locals[local]:
+  ∀bindings flat_bindings traces comp_map env locals.
+    env_rel genv (alist_to_ns bindings) flat_bindings ∧
+    lookup_env_rel (v_rel genv) genv comp_map env locals ∧
+    LENGTH traces = LENGTH flat_bindings ⇒
+    lookup_env_rel (v_rel genv) genv
+      (comp_map with v := bind_locals traces (MAP FST flat_bindings) comp_map.v)
+      (env with v := nsAppend (alist_to_ns bindings) env.v)
+      (flat_bindings ++ locals)
+Proof
+  Induct_on `bindings` >>
+  Cases_on `flat_bindings` >> Cases_on `traces` >>
+  simp [env_rel_LIST_REL, FORALL_PROD, bind_locals_def,
+        namespaceTheory.nsBindList_def, alist_to_ns_cons] >>
+  rpt strip_tac >>
+  rename1 `v_rel genv source_value (SND flat_binding)` >>
+  namedCases_on `flat_binding` ["name flat_value"] >>
+  rename1 `LENGTH tail_traces = LENGTH tail_bindings` >>
+  rename1 `Local head_trace _` >>
+  first_x_assum (qspecl_then
+    [`tail_bindings`, `tail_traces`, `comp_map`, `env`, `locals`] mp_tac) >>
+  simp [env_rel_LIST_REL] >> strip_tac >>
+  fs [] >> drule_all lookup_env_rel_bind >>
+  disch_then (qspecl_then [`head_trace`, `name`] mp_tac) >>
+  simp [lookup_env_rel_def, bind_locals_def, namespaceTheory.nsBindList_def]
+QED
+
 Definition subglobals_def:
   subglobals g1 g2 ⇔
     LENGTH g1 ≤ LENGTH g2 ∧
@@ -511,6 +660,23 @@ Proof
     fs [])
 QED
 
+Theorem lookup_env_rel_weak[local]:
+  subglobals genv.v genv'.v ∧ genv.c ⊑ genv'.c ∧
+  genv.tys ⊑ genv'.tys ∧
+  (∀value value'. R1 value value' ⇒ R2 value value') ∧
+  lookup_env_rel R1 genv comp_map env locals ⇒
+  lookup_env_rel R2 genv' comp_map env locals
+Proof
+  rw [lookup_env_rel_def] >>
+  irule nsAll2_mono >> goal_assum (drule_at Any)
+  >- (
+    map_every qx_gen_tac [`id`, `value`, `name`] >>
+    Cases_on `name` >> rw [lookup_var_rel_def] >>
+    fs [subglobals_def] >>
+    metis_tac [IS_SOME_DEF, LESS_LESS_EQ_TRANS]) >>
+  simp [FORALL_PROD] >> metis_tac [SUBMAP_FLOOKUP_EQN]
+QED
+
 Theorem v_rel_weakening[local]:
   (!genv v v'.
     v_rel genv v v'
@@ -529,26 +695,25 @@ Theorem v_rel_weakening[local]:
         subglobals genv.v genv'.v ⇒ global_env_inv genv' comp_map shadowers env)
 Proof
   ho_match_mp_tac v_rel_ind >>
-  srw_tac[][v_rel_eqns, subglobals_def] >> fs[]
-  >- fs [LIST_REL_EL_EQN]
-  >- fs [LIST_REL_EL_EQN]
-  >- (srw_tac[][Once v_rel_cases] >>
-      MAP_EVERY qexists_tac [`comp_map`, `env`, `env'`, `t`, `ts`] >>
-      full_simp_tac(srw_ss())[FDOM_FUPDATE_LIST, SUBSET_DEF, v_rel_eqns])
-  >- (srw_tac[][Once v_rel_cases] >>
-      MAP_EVERY qexists_tac [`comp_map`, `env`, `env'`, `t`,`ts`] >>
-      full_simp_tac(srw_ss())[FDOM_FUPDATE_LIST, SUBSET_DEF, v_rel_eqns])
-  >- (srw_tac[][Once v_rel_cases] >>
-      MAP_EVERY qexists_tac [`comp_map`, `new_vars`, `t1`, `t2`] >>
-      full_simp_tac(srw_ss())[FDOM_FUPDATE_LIST, SUBSET_DEF, v_rel_eqns, EL_APPEND1] >>
-      srw_tac[][] >>
-      res_tac >>
-      qexists_tac `n` >>
-      srw_tac[][EL_APPEND1] >>
-      map_every qexists_tac [`t2`,`t3`] >>
-      rw [] >>
-      metis_tac [IS_SOME_DEF])
-  >- fs [LIST_REL_EL_EQN]
+  srw_tac[][v_rel_eqns, subglobals_def] >> fs [LIST_REL_EL_EQN]
+  >- (
+    simp [Once v_rel_cases] >>
+    qexistsl_tac [`comp_map`, `t`, `arg_trace`] >> simp [] >>
+    irule lookup_env_rel_weak >> goal_assum (drule_at Any) >>
+    simp [subglobals_def])
+  >- (
+    simp [Once v_rel_cases] >>
+    qexistsl_tac [`comp_map`, `t`, `ts`] >> simp [] >>
+    irule lookup_env_rel_weak >> goal_assum (drule_at Any) >>
+    simp [subglobals_def])
+  >- (
+    simp [Once v_rel_cases] >>
+    qexistsl_tac [`comp_map`, `new_vars`, `t1`, `t2`] >> simp [] >>
+    conj_tac
+    >- (
+      irule lookup_env_rel_weak >> goal_assum (drule_at Any) >>
+      simp [subglobals_def]) >>
+    metis_tac [IS_SOME_DEF, LESS_LESS_EQ_TRANS])
   >- (
     rw [v_rel_global_eqn] >>
     res_tac >>
@@ -579,16 +744,22 @@ Theorem v_rel_weakening2[local]:
 Proof
   ho_match_mp_tac v_rel_ind >>
   srw_tac[][v_rel_eqns] >>
-  fs [SUBMAP_FLOOKUP_EQN]
-  >- fs [LIST_REL_EL_EQN]
-  >- fs [LIST_REL_EL_EQN]
-  >- (simp [Once v_rel_cases] >> metis_tac [])
-  >- (simp [Once v_rel_cases] >> metis_tac [])
-  >- (simp [Once v_rel_cases] >>
-      MAP_EVERY qexists_tac [`comp_map`, `new_vars`, `t1`, `t2`] >>
-      simp []
-  )
-  >- fs [LIST_REL_EL_EQN]
+  fs [SUBMAP_FLOOKUP_EQN, LIST_REL_EL_EQN]
+  >- (
+    simp [Once v_rel_cases] >>
+    qexistsl_tac [`comp_map`, `t`, `arg_trace`] >> simp [] >>
+    irule lookup_env_rel_weak >> goal_assum (drule_at Any) >>
+    simp [subglobals_refl, SUBMAP_FLOOKUP_EQN])
+  >- (
+    simp [Once v_rel_cases] >>
+    qexistsl_tac [`comp_map`, `t`, `ts`] >> simp [] >>
+    irule lookup_env_rel_weak >> goal_assum (drule_at Any) >>
+    simp [subglobals_refl, SUBMAP_FLOOKUP_EQN])
+  >- (
+    simp [Once v_rel_cases] >>
+    qexistsl_tac [`comp_map`, `new_vars`, `t1`, `t2`] >> simp [] >>
+    irule lookup_env_rel_weak >> goal_assum (drule_at Any) >>
+    simp [subglobals_refl, SUBMAP_FLOOKUP_EQN])
   >- (
     fs [v_rel_global_eqn] >>
     rw [] >>
@@ -729,32 +900,24 @@ Inductive s_rel:
 End
 
 Inductive env_all_rel:
-  (!genv map env_v_local env env' locals.
-    (?l. env_v_local = alist_to_ns l ∧ MAP FST l = locals) ∧
-    global_env_inv genv map (set locals) env ∧
-    env_rel genv env_v_local env'
+  (!genv map env (env':flatSem$v flatSem$environment).
+    lookup_env_rel (v_rel genv) genv map env env'.v
     ⇒
-    env_all_rel genv map
-      <| c := env.c; v := nsAppend env_v_local env.v |>
-      <| v := env' |>
-      locals)
+    env_all_rel genv map env env')
 End
 
 Theorem env_all_rel_weak[local]:
-  !genv map locals env env' genv'.
-   env_all_rel genv map env env' locals ∧
+  !genv map env env' genv'.
+   env_all_rel genv map env env' ∧
    genv.c ⊑ genv'.c ∧
    genv.tys ⊑ genv'.tys ∧
    subglobals genv.v genv'.v
    ⇒
-   env_all_rel genv' map env env' locals
+   env_all_rel genv' map env env'
 Proof
   rw [env_all_rel_cases] >>
-  imp_res_tac env_rel_weak >>
-  imp_res_tac global_env_inv_weak >>
-  MAP_EVERY qexists_tac [`alist_to_ns l`, `env''`, `env'''`] >>
-  rw [] >>
-  metis_tac [SUBMAP_FDOM_SUBSET, SUBSET_TRANS]
+  irule lookup_env_rel_weak >> goal_assum (drule_at Any) >>
+  simp [] >> metis_tac [v_rel_weak]
 QED
 
 Definition match_result_rel_def:
@@ -1061,6 +1224,16 @@ QED
 val s_i1 = ``s_i1 : ('f_orac_st, 'ffi) flatSem$state``;
 val s1_i1 = mk_var ("s1_i1", type_of s_i1);
 
+Theorem v_rel_Bool_eqn:
+  genv_c_ok genv.c ==> (v_rel genv (Boolv b) v <=> (v = Boolv b))
+Proof
+  rw [v_rel_eqns, Boolv_def, semanticPrimitivesTheory.Boolv_def, genv_c_ok_def,
+    has_bools_def, PULL_EXISTS]
+  \\ EQ_TAC \\ fs []
+  \\ rw []
+  \\ metis_tac []
+QED
+
 Theorem do_app[local]:
   ∀genv s1 s2 op vs r ^s1_i1 vs_i1.
     do_app s1 op vs = SOME (s2, r) ∧
@@ -1091,15 +1264,7 @@ Proof
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, Unitv_def]) >>
   pop_assum mp_tac >>
   Cases_on `op` >>
-  simp [astOp_to_flatOp_def, astTheory.getOpClass_def]
-  >~ [‘Shift’] >- (
-      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases] >>
-      full_simp_tac(srw_ss())[v_rel_eqns] >>
-      fs[flatSemTheory.do_app_def] >>
-      TRY (rename1 `shift8_lookup s11 w11 n11`) >>
-      TRY (rename1 `shift64_lookup s11 w11 n11`) >>
-      full_simp_tac(srw_ss())[v_rel_eqns]
-      \\ Cases_on`w11` \\ Cases_on`s11` \\ fs[shift8_lookup_def,shift64_lookup_def, result_rel_cases, Once v_rel_eqns])
+  simp [astOp_to_flatOp_def, semanticPrimitivesTheory.getOpClass_def]
   >~ [‘Equality’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
@@ -1207,6 +1372,36 @@ Proof
       fsrw_tac[][] >>
       srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
       srw_tac[][v_rel_lems])
+  >~ [‘Aw8subBit’] >- (
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      full_simp_tac(srw_ss())[store_lookup_def] >>
+      full_simp_tac(srw_ss())[ADD1, REWRITE_RULE [ADD1] EL] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      every_case_tac >>
+      full_simp_tac(srw_ss())[LIST_REL_EL_EQN, sv_rel_cases] >>
+      res_tac >>
+      srw_tac[][] >>
+      full_simp_tac(srw_ss())[] >>
+      srw_tac[][markerTheory.Abbrev_def, v_rel_lems] >>
+      intLib.ARITH_TAC)
+  >~ [‘Aw8updateBit’] >- (
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      gvs [v_rel_Bool_eqn] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      full_simp_tac(srw_ss())[store_lookup_def, store_assign_def, store_v_same_type_def] >>
+      full_simp_tac(srw_ss())[ADD1, REWRITE_RULE [ADD1] EL, REWRITE_RULE [ADD1] LUPDATE_def] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      srw_tac[][Unitv_def] >>
+      every_case_tac >>
+      full_simp_tac(srw_ss())[LIST_REL_EL_EQN, sv_rel_cases] >>
+      res_tac >>
+      srw_tac[][] >>
+      fsrw_tac[][] >>
+      srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
+      srw_tac[][v_rel_lems] >>
+      fs [flatSemTheory.Boolv_def, backend_commonTheory.true_tag_def,
+      backend_commonTheory.false_tag_def])
   >~ [‘CopyStrStr’] >- (
     rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
     \\ fs[v_rel_eqns,IMPLODE_EXPLODE_I,result_rel_cases]
@@ -1443,6 +1638,36 @@ Proof
       fsrw_tac[][] >>
       srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
       srw_tac[][v_rel_lems] >> CCONTR_TAC >> rfs [] >> rveq >> fs [])
+  >~ [‘Aw8subBit_unsafe’] >- (
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      full_simp_tac(srw_ss())[store_lookup_def] >>
+      fs [REWRITE_RULE [ADD1] EL, ADD1, REWRITE_RULE [ADD1] LUPDATE_def] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      every_case_tac >>
+      full_simp_tac(srw_ss())[LIST_REL_EL_EQN, sv_rel_cases] >>
+      res_tac >>
+      srw_tac[][] >>
+      full_simp_tac(srw_ss())[] >>
+      rfs[] >>
+      srw_tac[][markerTheory.Abbrev_def, v_rel_lems])
+  >~ [‘Aw8updateBit_unsafe’] >- (
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      gvs [v_rel_Bool_eqn] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      full_simp_tac(srw_ss())[store_lookup_def, store_assign_def, store_v_same_type_def] >>
+      fs [REWRITE_RULE [ADD1] EL, ADD1, REWRITE_RULE [ADD1] LUPDATE_def] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      srw_tac[][] >>
+      every_case_tac >>
+      full_simp_tac(srw_ss())[LIST_REL_EL_EQN, Unitv_def, sv_rel_cases] >>
+      res_tac >>
+      srw_tac[][] >>
+      fsrw_tac[][] >>
+      srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
+      srw_tac[][v_rel_lems] >> CCONTR_TAC >> rfs [] >> rveq >>
+      fs [flatSemTheory.Boolv_def, backend_commonTheory.true_tag_def,
+          backend_commonTheory.false_tag_def])
   >- ((* ThunkOp *)
     srw_tac[][semanticPrimitivesPropsTheory.do_app_cases,
               flatSemTheory.do_app_def, thunk_op_def] >>
@@ -1523,44 +1748,33 @@ Proof
 QED
 
 Theorem do_app_rec_help[local]:
-  !genv comp_map env_v_local env_v_local' env_v_top funs t.
-    env_rel genv env_v_local env_v_local'.v ∧
-    global_env_inv genv comp_map (set (MAP FST env_v_local'.v)) env' ∧
-    LENGTH ts = LENGTH funs' + LENGTH env_v_local'.v
+  !genv comp_map env flat_env funs t.
+    lookup_env_rel (v_rel genv) genv comp_map env flat_env.v ∧
+    LENGTH ts = LENGTH funs'
     ⇒
      env_rel genv
        (alist_to_ns
           (MAP
              (λ(f,n,e).
                 (f,
-                 Recclosure
-                   (env' with v := nsAppend env_v_local env'.v)
-                   funs' f)) funs))
+                 Recclosure env funs' f)) funs))
        (MAP
           (λ(fn,n,e).
              (fn,
-              Recclosure env_v_local'
+              Recclosure flat_env
                 (compile_funs t
                    (comp_map with v :=
-                     (FOLDR (λ(x,v) e. nsBind x v e) comp_map.v
-                      (MAP2 (λt x. (x,Local t x)) ts
-                         (MAP FST funs' ++ MAP FST env_v_local'.v)))) funs')
+                     bind_locals ts (MAP FST funs') comp_map.v) funs')
                 fn))
           (compile_funs t
              (comp_map with v :=
-               (FOLDR (λ(x,v) e. nsBind x v e) comp_map.v
-                (MAP2 (λt x. (x,Local t x)) ts
-                   (MAP FST funs' ++ MAP FST env_v_local'.v)))) funs))
+               bind_locals ts (MAP FST funs') comp_map.v) funs))
 Proof
-  induct_on `funs`
-  >- srw_tac[][v_rel_eqns, compile_exp_def] >>
-  rw [] >>
-  PairCases_on`h`>>fs[compile_exp_def]>>
-  simp[v_rel_eqns]>>
+  Induct_on `funs` >>
+  simp [FORALL_PROD, compile_exp_def, v_rel_eqns] >>
+  rpt strip_tac >>
   simp [Once v_rel_cases] >>
-  MAP_EVERY qexists_tac [`comp_map`, `env'`, `env_v_local`, `t`,`ts`] >>
-  simp[compile_exp_def,bind_locals_def]>>
-  simp_tac (std_ss) [GSYM APPEND, namespaceTheory.nsBindList_def]
+  qexistsl_tac [`comp_map`, `t`, `ts`] >> simp []
 QED
 
 Theorem global_env_inv_add_locals[local]:
@@ -1594,7 +1808,8 @@ Proof
   fs [] >> rw []
   >- (
     `Short n' ∉ nsDom env'` by metis_tac [nsLookup_nsDom, NOT_SOME_NONE] >>
-    qexists_tac`t` >>
+    qexistsl_tac [`t`, `k`] >>
+    reverse conj_tac >- simp [] >>
     disj2_tac >>
     rw [ALOOKUP_NONE] >>
     qpat_x_assum `_ = nsDom _` (assume_tac o GSYM) >>
@@ -1633,120 +1848,128 @@ Theorem do_opapp[local]:
     semanticPrimitives$do_opapp vs = SOME (env, e) ∧
     LIST_REL (v_rel genv) vs vs_i1
     ⇒
-     ∃comp_map env_i1 locals t1 ts.
-       env_all_rel genv comp_map env env_i1 locals ∧
-       LENGTH ts = LENGTH locals ∧
-       flatSem$do_opapp vs_i1 = SOME (env_i1, compile_exp t1 (comp_map with v := bind_locals ts locals comp_map.v) e)
+     ∃comp_map env_i1 t.
+       env_all_rel genv comp_map env env_i1 ∧
+       flatSem$do_opapp vs_i1 = SOME (env_i1, compile_exp t comp_map e)
 Proof
-  srw_tac[][do_opapp_cases, flatSemTheory.do_opapp_def] >>
-   full_simp_tac(srw_ss())[LIST_REL_CONS1] >>
-   srw_tac[][]
-   >- (
-       qpat_x_assum `v_rel genv (Closure _ _ _) _` mp_tac >>
-       srw_tac[][Once v_rel_cases] >>
-       srw_tac[][] >>
-       rename [`v_rel _ v v'`, `env_rel _ envL env'.v`, `nsBind name _ _`] >>
-       MAP_EVERY qexists_tac [`comp_map`, `name :: MAP FST env'.v`, `t`, `ts`] >>
-       srw_tac[][bind_locals_def, env_all_rel_cases, namespaceTheory.nsBindList_def, FOLDR_MAP] >>
-       fs[ADD1]>>
-       MAP_EVERY qexists_tac [`nsBind name v envL`, `env`] >>
-       simp [flatSemTheory.environment_component_equality,
-         sem_env_component_equality] >>
-       srw_tac[][v_rel_eqns]
-       >- (
-         drule env_rel_dom >>
-         rw [MAP_o] >>
-         rw_tac list_ss [GSYM alist_to_ns_cons] >>
-         qexists_tac`(name,v)::l`>>simp[])>>
-       full_simp_tac(srw_ss())[v_rel_eqns, v_rel_global_eqn] >>
-       metis_tac [])
-   >- (
-     rename [`find_recfun name funs = SOME (arg, e)`,
-             `v_rel _ (Recclosure env _ _) fun_v'`,
-             `v_rel _ v v'`] >>
-     qpat_x_assum `v_rel genv (Recclosure _ _ _) _` mp_tac >>
-     srw_tac[][Once v_rel_cases] >>
-     srw_tac[][] >>
-     imp_res_tac find_recfun >>
-     srw_tac[][]
-     >- (
-       MAP_EVERY qexists_tac [`comp_map`, `arg :: MAP FST funs ++ MAP FST env_v_local'.v`,`name::t`,`None::ts`] >>
-       srw_tac[][bind_locals_def, env_all_rel_cases, namespaceTheory.nsBindList_def] >>
-       srw_tac[][]>>fs[]
-       >- (
-         rw [sem_env_component_equality, flatSemTheory.environment_component_equality] >>
-         MAP_EVERY qexists_tac [`nsBind arg v (build_rec_env funs (env' with v := nsAppend env_v_local env'.v) env_v_local)`, `env'`] >>
-         srw_tac[][semanticPrimitivesPropsTheory.build_rec_env_merge, EXTENSION]
-         >- (
-           imp_res_tac env_rel_dom >>
-           simp [] >>
-           rw_tac list_ss [GSYM alist_to_ns_cons] >>
-           simp [] >>
-           simp [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-           rpt (pop_assum kall_tac) >>
-           induct_on `funs` >>
-           rw [] >>
-           pairarg_tac >>
-           rw [])
-         >- metis_tac [INSERT_SING_UNION, global_env_inv_add_locals, UNION_COMM]
-         >- (
-           simp [v_rel_eqns, build_rec_env_merge] >>
-           match_mp_tac env_rel_append >>
-           simp [] >>
-           metis_tac [do_app_rec_help]))
-       >- (
-         simp[compile_funs_map,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
-         full_simp_tac(srw_ss())[FST_triple]))
-     >- (
-       MAP_EVERY qexists_tac [`comp_map with v := nsBindList new_vars comp_map.v`, `[arg]`, `t1`, `[t2]`] >>
-       srw_tac[][env_all_rel_cases, namespaceTheory.nsBindList_def,bind_locals_def] >>
-       rw [GSYM namespaceTheory.nsBindList_def] >>
-       MAP_EVERY qexists_tac [`nsSing arg v`, `env with v := build_rec_env funs env env.v`] >>
-       simp [semanticPrimitivesTheory.sem_env_component_equality,
-             environment_component_equality] >>
-       srw_tac[][semanticPrimitivesTheory.sem_env_component_equality,
-             semanticPrimitivesPropsTheory.build_rec_env_merge, EXTENSION,
-             environment_component_equality]
-       >- (
-         qexists_tac `[(arg,v)]` >>
-         rw [namespaceTheory.nsSing_def, namespaceTheory.nsBind_def,
-             namespaceTheory.nsEmpty_def])
-       >- (
-         irule global_env_inv_extend2 >>
-         rw []
-         >- (
-           `MAP (Short:tvarN -> (tvarN, tvarN) id) (MAP FST new_vars) = MAP Short (MAP FST (REVERSE funs))` by metis_tac [] >>
-           fs [MAP_REVERSE, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD])
-         >- metis_tac [global_env_inv_add_locals, UNION_EMPTY]
-         >- (
-           qexists_tac `env.c` >>
-           srw_tac[][v_rel_eqns, v_rel_global_eqn] >>
-           fs [nsLookup_alist_to_ns_some] >>
-           rw []
-           >- (
-             `MEM x' (MAP FST funs)`
-                     by (imp_res_tac ALOOKUP_MEM >>
-                         full_simp_tac(srw_ss())[MEM_MAP] >>
-                         PairCases_on `y` >>
-                         srw_tac[][] >>
-                         full_simp_tac(srw_ss())[] >>
-                         metis_tac [FST, MEM_MAP, pair_CASES]) >>
-             res_tac >>
-             qexists_tac `n` >>
-             srw_tac[][] >>
-             drule lookup_build_rec_env_lem >>
-             srw_tac[][Once v_rel_cases] >>
-             MAP_EVERY qexists_tac [`comp_map`, `new_vars`, `t2`, `t3`] >>
-             srw_tac[][find_recfun_ALOOKUP])
-           >- fs [v_rel_eqns, v_rel_global_eqn]))
-       >- (
-         simp [Once v_rel_cases] >>
-         qexists_tac `v` >>
-         qexists_tac `nsEmpty` >>
-         rw [namespaceTheory.nsSing_def, namespaceTheory.nsEmpty_def,
-             namespaceTheory.nsBind_def] >>
-         simp [Once v_rel_cases, namespaceTheory.nsEmpty_def])))
+  rw [do_opapp_cases, flatSemTheory.do_opapp_def, LIST_REL_CONS1] >>
+  fs [LIST_REL_CONS1] >> rveq
+  >- (
+    qpat_x_assum `v_rel genv (semanticPrimitives$Closure _ _ _) _` mp_tac >>
+    rw [Once v_rel_cases] >>
+    rename1 `v_rel genv argument target_argument` >>
+    rename1 `lookup_env_rel _ genv code_env captured target_env.v` >>
+    rename1 `nsBind parameter argument captured.v` >>
+    rename1 `Local binding_trace parameter` >>
+    rename1 `compile_exp body_trace _ e` >>
+    qexistsl_tac
+      [`code_env with v := nsBind parameter (Local binding_trace parameter) code_env.v`,
+       `target_env with v := (parameter,target_argument)::target_env.v`,
+       `body_trace`] >>
+    simp [env_all_rel_cases, flatSemTheory.environment_component_equality] >>
+    irule lookup_env_rel_bind >> simp [])
+  >> qpat_x_assum `v_rel genv (semanticPrimitives$Recclosure _ _ _) _` mp_tac >>
+  rw [Once v_rel_cases]
+  >- (
+    rename1 `lookup_env_rel _ genv code_env captured target_env.v` >>
+    rename1 `find_recfun function_name funs = SOME (parameter,e)` >>
+    rename1 `v_rel genv argument target_argument` >>
+    drule find_recfun >>
+    disch_then (qspecl_then
+      [`code_env with v := bind_locals ts (MAP FST funs) code_env.v`, `t`]
+      assume_tac) >>
+    simp [] >>
+    qexistsl_tac
+      [`code_env with v := nsBind parameter (Local None parameter)
+         (bind_locals ts (MAP FST funs) code_env.v)`, `function_name::t`] >>
+    conj_tac
+    >- (
+      drule_all do_app_rec_help >>
+      disch_then (qspecl_then [`funs`, `t`] assume_tac) >>
+      drule lookup_env_rel_bind_locals >>
+      disch_then (qspecl_then [`ts`, `code_env`, `captured`, `target_env.v`] mp_tac) >>
+      simp [compile_funs_map, MAP_MAP_o, o_DEF, LAMBDA_PROD] >>
+      strip_tac >>
+      drule_all lookup_env_rel_bind >>
+      disch_then (qspecl_then [`None`, `parameter`] mp_tac) >>
+      simp [env_all_rel_cases, semanticPrimitivesPropsTheory.build_rec_env_merge,
+            flatPropsTheory.build_rec_env_merge, MAP_MAP_o, o_DEF,
+            LAMBDA_PROD, FST_triple])
+    >> fs [compile_funs_map, MAP_MAP_o, o_DEF, LAMBDA_PROD, FST_triple])
+  >> rename1 `lookup_env_rel _ genv code_env captured []` >>
+  rename1 `find_recfun function_name funs = SOME (parameter,e)` >>
+  rename1 `v_rel genv argument target_argument` >>
+  rename1 `compile_exp body_trace _ e` >>
+  rename1 `Local binding_trace parameter` >>
+  simp [] >>
+  qexistsl_tac
+    [`code_env with v := nsBindList
+       ((parameter,Local binding_trace parameter)::new_vars) code_env.v`,
+     `body_trace`] >>
+  simp [env_all_rel_cases] >>
+  `nsAll2 (lookup_var_rel (v_rel genv) genv.v [])
+     (alist_to_ns (MAP (\(f,n,e). (f,semanticPrimitives$Recclosure captured funs f)) funs)
+       : (modN,varN,semanticPrimitives$v) namespace)
+     (alist_to_ns new_vars)`
+    by (
+      rw [namespaceTheory.nsAll2_def, namespaceTheory.nsSub_def,
+          nsLookup_alist_to_ns_some, nsLookupMod_alist_to_ns]
+      >- (
+        rename1 `ALOOKUP _ recursive_name = SOME source_closure` >>
+        `MEM recursive_name (MAP FST funs)`
+          by (
+            imp_res_tac ALOOKUP_MEM >>
+            fs [MEM_MAP, EXISTS_PROD] >> metis_tac []) >>
+        drule lookup_build_rec_env_lem >> strip_tac >> fs [] >>
+        qpat_assum `∀x. MEM x (MAP FST funs) ⇒ _`
+          (qspec_then `recursive_name` (mp_tac o UNDISCH)) >>
+        disch_then (qx_choosel_then
+          [`global_index`, `formal`, `body`, `global_trace`, `closure_trace`, `param_trace`]
+          strip_assume_tac) >>
+        qexists_tac `Glob global_trace global_index NoInfo` >>
+        simp [lookup_var_rel_def] >>
+        simp [Once v_rel_cases] >>
+        qexistsl_tac [`code_env`, `new_vars`, `closure_trace`, `param_trace`] >>
+        simp [])
+      >- (Cases_on `path` >> fs [namespaceTheory.nsLookupMod_def])
+      >- (
+        rename1 `ALOOKUP new_vars recursive_name = SOME compiled_name` >>
+        `MEM recursive_name (MAP FST new_vars)`
+          by metis_tac [ALOOKUP_NONE, NOT_SOME_NONE] >>
+        `MEM recursive_name (MAP FST funs)`
+          by (
+            fs [MAP_REVERSE] >>
+            metis_tac [MEM_REVERSE]) >>
+        qpat_assum `∀x. MEM x (MAP FST funs) ⇒ _`
+          (qspec_then `recursive_name` (mp_tac o UNDISCH)) >>
+        disch_then (qx_choosel_then
+          [`global_index`, `formal`, `body`, `global_trace`, `closure_trace`, `param_trace`]
+          strip_assume_tac) >>
+        fs [] >> rveq >>
+        qexists_tac `semanticPrimitives$Recclosure captured funs recursive_name`
+        >> conj_tac
+        >- (
+          qspecl_then
+            [`recursive_name`, `MAP FST funs`,
+             `\name. semanticPrimitives$Recclosure captured funs name`]
+            mp_tac (GEN_ALL ALOOKUP_TABULATE) >>
+          simp [MAP_MAP_o, o_DEF, ELIM_UNCURRY])
+        >> simp [lookup_var_rel_def, Once v_rel_cases] >>
+        qexistsl_tac [`code_env`, `new_vars`, `closure_trace`, `param_trace`] >>
+        simp [])
+      >> Cases_on `path` >> fs [namespaceTheory.nsLookupMod_def]) >>
+  `lookup_env_rel (v_rel genv) genv
+     (code_env with v := nsBindList new_vars code_env.v)
+     (captured with v := build_rec_env funs captured captured.v) []`
+    by (
+      fs [lookup_env_rel_def, semanticPrimitivesPropsTheory.build_rec_env_merge,
+          GSYM nsAppend_to_nsBindList] >>
+      irule nsAll2_nsAppend >> simp []) >>
+  drule_all lookup_env_rel_bind >>
+  disch_then (qspecl_then [`binding_trace`, `parameter`] mp_tac) >>
+  simp [namespaceTheory.nsBindList_def]
 QED
+
 
 Theorem pat_bindings_compile_pat[simp]:
  !comp_map (p:ast$pat). pat_bindings (compile_pat comp_map p) = pat_bindings p
@@ -1975,6 +2198,103 @@ Definition env_domain_eq_def:
     nsDom var_map.c = nsDom env.c ∧
     nsDomMod var_map.c = nsDomMod env.c
 End
+
+Theorem nsAll2_from_lookup_domains[local]:
+  nsDom comp_ns = nsDom env ∧ nsDomMod comp_ns = nsDomMod env ∧
+  (∀id value. nsLookup env id = SOME value ⇒
+    ∃compiled. nsLookup comp_ns id = SOME compiled ∧ R id value compiled) ⇒
+  nsAll2 R env comp_ns
+Proof
+  rw [namespaceTheory.nsAll2_def, namespaceTheory.nsSub_def]
+  >> fs [namespaceTheory.nsDomMod_def, EXTENSION, GSPECIFICATION,
+         EXISTS_PROD] >>
+  metis_tac [nsLookup_nsDom, option_nchotomy, NOT_SOME_NONE, SOME_11]
+QED
+
+Theorem global_env_inv_lookup_env_rel[local]:
+  global_env_inv genv comp_map {} env ∧ env_domain_eq comp_map env ⇒
+  lookup_env_rel (v_rel genv) genv comp_map env []
+Proof
+  rw [v_rel_global_eqn, env_domain_eq_def, lookup_env_rel_def] >>
+  irule nsAll2_from_lookup_domains >> simp [FORALL_PROD]
+  >- (
+    rw [] >> first_x_assum drule >>
+    disch_then (qx_choosel_then [`slot`, `flat_value`, `trace`, `info`]
+      strip_assume_tac) >>
+    qexists_tac `Glob trace slot info` >> simp [lookup_var_rel_def] >>
+    metis_tac []) >>
+  simp [EXISTS_PROD]
+QED
+
+Theorem nsDomMod_eq_lookup_none[local]:
+  nsDomMod env1 = nsDomMod env2 ⇒
+  ∀path. nsLookupMod env1 path = NONE ⇔ nsLookupMod env2 path = NONE
+Proof
+  rw [namespaceTheory.nsDomMod_def, EXTENSION, GSPECIFICATION,
+      EXISTS_PROD] >>
+  metis_tac [option_nchotomy, NOT_SOME_NONE]
+QED
+
+Theorem nsOpen_domain_eq[local]:
+  nsDom env1 = nsDom env2 ∧
+  nsDomMod env1 = nsDomMod env2 ∧
+  nsOpen path env1 = SOME opened1 ∧
+  nsOpen path env2 = SOME opened2 ⇒
+  nsDom opened1 = nsDom opened2 ∧
+  nsDomMod opened1 = nsDomMod opened2
+Proof
+  rw [namespaceTheory.nsDom_def, namespaceTheory.nsDomMod_def,
+      EXTENSION, GSPECIFICATION, EXISTS_PROD] >>
+  metis_tac [nsLookup_after_nsOpen, nsLookupMod_after_nsOpen,
+             option_nchotomy, NOT_SOME_NONE]
+QED
+
+Theorem open_env_invs[local]:
+  env_domain_eq comp_map env ∧
+  global_env_inv genv comp_map {} env ∧
+  open_dec_env path env = SOME opened ⇒
+  ∃opened_map.
+    open_compile_env path comp_map = SOME opened_map ∧
+    env_domain_eq opened_map opened ∧
+    global_env_inv genv opened_map {} opened
+Proof
+  rw [env_domain_eq_def, open_dec_env_def, open_compile_env_def,
+      AllCaseEqs()] >>
+  `∃opened_v. nsOpen path comp_map.v = SOME opened_v` by
+    metis_tac [nsOpen_some_from_same_mod_domain,
+               nsDomMod_eq_lookup_none] >>
+  `∃opened_c. nsOpen path comp_map.c = SOME opened_c` by
+    metis_tac [nsOpen_some_from_same_mod_domain,
+               nsDomMod_eq_lookup_none] >>
+  qexists_tac `<|v := opened_v; c := opened_c|>` >>
+  simp [] >>
+  rpt conj_tac
+  >- metis_tac [nsOpen_domain_eq]
+  >- metis_tac [nsOpen_domain_eq]
+  >- metis_tac [nsOpen_domain_eq]
+  >- metis_tac [nsOpen_domain_eq]
+  >- (
+    fs [v_rel_global_eqn] >>
+    rw []
+    >- (
+      qpat_x_assum `∀x v. nsLookup env.v x = SOME v ⇒ _`
+        (qspecl_then
+          [`mk_id (path ++ id_to_mods x) (id_to_n x)`, `v`] mp_tac) >>
+      impl_tac >- metis_tac [nsLookup_after_nsOpen] >>
+      rw [] >>
+      qexistsl_tac [`n`, `v'`, `t`] >>
+      metis_tac [nsLookup_after_nsOpen])
+    >- (
+      qpat_x_assum
+        `∀x arity stamp. nsLookup env.c x = SOME (arity,stamp) ⇒ _`
+        (qspecl_then
+          [`mk_id (path ++ id_to_mods x) (id_to_n x)`, `arity`, `stamp`]
+          mp_tac) >>
+      impl_tac >- metis_tac [nsLookup_after_nsOpen] >>
+      rw [] >>
+      qexistsl_tac [`cn`, `ty_gp`] >>
+      metis_tac [nsLookup_after_nsOpen]))
+QED
 
 Theorem env_domain_eq_append[local]:
   env_domain_eq env1 env1' ∧
@@ -2205,7 +2525,8 @@ Definition src_orac_env_invs_def:
         ?comp_map_gen comp_map.
         lookup g_id c.envs.env_gens = SOME comp_map_gen /\
         lookup id comp_map_gen = SOME comp_map /\
-        global_env_inv genv comp_map {} (EL id (EL g_id s.envs))
+        global_env_inv genv comp_map {} (EL id (EL g_id s.envs)) /\
+        env_domain_eq comp_map (EL id (EL g_id s.envs))
     ))
     | _ => F
   )
@@ -2397,21 +2718,37 @@ Proof
     eval_state_call_rel_refl]
 QED
 
+Theorem env_all_rel_global_env_inv[local]:
+  env_all_rel genv comp_map env flat_env ⇒
+  global_env_inv genv comp_map UNIV env
+Proof
+  rw [env_all_rel_cases, lookup_env_rel_def, v_rel_global_eqn] >>
+  drule_all nsAll2_nsLookup1
+  >- (
+    disch_then (qx_choose_then `compiled_name` strip_assume_tac) >>
+    Cases_on `compiled_name` >> fs [lookup_var_rel_def] >>
+    metis_tac []) >>
+  simp [EXISTS_PROD]
+QED
+
 Theorem can_pmatch_all_IMP_pmatch_rows:
   can_pmatch_all env.c st.refs (MAP FST pes) v /\
   invariant interp g gen genv idxs st s_i1 /\
-  env_all_rel genv comp_map env env_i1 locals /\
+  env_all_rel genv comp_map env env_i1 /\
   v_rel genv v v' ==>
   pmatch_rows
-    (compile_pes t (comp_map with v := bind_locals ts locals comp_map.v) pes)
+    (compile_pes t comp_map pes)
     s_i1 v' ≠ Match_type_error
 Proof
   Induct_on `pes`
   \\ fs [pmatch_rows_def,compile_exp_def,FORALL_PROD]
   \\ rw []
   \\ fs [can_pmatch_all_def]
+  \\ rename1 `semanticPrimitives$pmatch env.c st.refs pattern v [] ≠ Match_type_error`
+  \\ imp_res_tac env_all_rel_global_env_inv
   \\ fs [invariant_def, env_all_rel_cases]
-  \\ imp_res_tac (Q.prove (`x <> Match_type_error ==> (?y. x = y)`, simp []))
+  \\ `∃res. semanticPrimitives$pmatch env.c st.refs pattern v [] = res`
+       by simp []
   \\ drule_then drule (pmatch |> CONJUNCT1)
   \\ rpt (disch_then drule)
   \\ disch_then (qsubterm_then `pmatch _ _ _ _` mp_tac)
@@ -2451,16 +2788,6 @@ Theorem invariant_dec_clock:
 Proof
   simp [invariant_def, dec_clock_def, evaluateTheory.dec_clock_def]
   \\ simp [s_rel_cases]
-QED
-
-Theorem v_rel_Bool_eqn:
-  genv_c_ok genv.c ==> (v_rel genv (Boolv b) v <=> (v = Boolv b))
-Proof
-  rw [v_rel_eqns, Boolv_def, semanticPrimitivesTheory.Boolv_def, genv_c_ok_def,
-    has_bools_def, PULL_EXISTS]
-  \\ EQ_TAC \\ fs []
-  \\ rw []
-  \\ metis_tac []
 QED
 
 Theorem evaluate_Bool:
@@ -2621,13 +2948,14 @@ QED
 
 Theorem pmatch_invariant:
   invariant interp g gen genv idxs st st' ∧
-  env_all_rel genv comp_map2 env env' locals ∧
+  env_all_rel genv comp_map2 env env' ∧
   comp_map2.c = comp_map.c ∧
   v_rel genv v v' ⇒
   match_result_rel genv [] (pmatch env.c st.refs p v [])
     (pmatch st' (compile_pat comp_map p) v' [])
 Proof
   rw [invariant_def]
+  \\ imp_res_tac env_all_rel_global_env_inv
   \\ `?res. pmatch env.c st.refs p v [] = res` by simp []
   \\ drule_then drule (CONJUNCT1 pmatch)
   \\ simp [semanticPrimitivesTheory.state_component_equality]
@@ -2747,7 +3075,7 @@ Theorem ALOOKUP_alloc_defs_EL[local]:
     ⇒
     ∃tt.
     ALOOKUP (alloc_defs m l (MAP FST (REVERSE funs))) (EL n (MAP FST funs)) =
-      SOME (Glob tt (l + LENGTH funs − (n + 1)))
+      SOME (Glob tt (l + LENGTH funs − (n + 1)) NoInfo)
 Proof
   gen_tac >>
   Induct_on `LENGTH funs` >>
@@ -2789,7 +3117,7 @@ Theorem ALOOKUP_alloc_defs[local]:
     ALOOKUP (REVERSE env) x = SOME v
     ⇒
     ∃n t.
-      ALOOKUP (alloc_defs tt l (MAP FST (REVERSE env))) x = SOME (Glob t (l + n)) ∧
+      ALOOKUP (alloc_defs tt l (MAP FST (REVERSE env))) x = SOME (Glob t (l + n) NoInfo) ∧
       n < LENGTH (MAP FST env) ∧
       EL n (REVERSE (MAP SOME (MAP SND env))) = SOME v
 Proof
@@ -3087,26 +3415,16 @@ Proof
   \\ rfs [INJ_DEF]
 QED
 
-Theorem v_to_word8_list_rel:
-  v_to_word8_list bytes_v = SOME bytes /\
+Theorem v_to_mlstring_rel:
+  semanticPrimitives$v_to_mlstring bytes_v = SOME bytes /\
   v_rel genv bytes_v v' /\
   genv_c_ok genv.c ==>
-  v_to_bytes v' = SOME bytes
+  flatSem$v_to_mlstring v' = SOME bytes
 Proof
-  rw [v_to_word8_list_def]
-  \\ fs [case_eq_thms]
-  \\ drule_then drule v_to_list
-  \\ drule maybe_all_list_SOME
-  \\ rw [v_to_bytes_def]
-  \\ simp []
-  \\ irule some_f_inj_eq
-  \\ simp [INJ_DEF, INJ_MAP_EQ_IFF]
-  \\ fs [LIST_REL_EL_EQN, LIST_EQ_REWRITE]
-  \\ rfs []
-  \\ rw []
-  \\ rpt (first_x_assum drule)
-  \\ simp [v_to_word8_def, EL_MAP]
-  \\ every_case_tac \\ simp [v_rel_eqns]
+  rw [semanticPrimitivesTheory.v_to_mlstring_def]
+  \\ fs [AllCaseEqs()] \\ rveq
+  \\ fs [v_rel_eqns]
+  \\ rw [flatSemTheory.v_to_mlstring_def]
 QED
 
 Theorem v_to_word64_list_rel:
@@ -3131,12 +3449,6 @@ Proof
   \\ every_case_tac \\ simp [v_rel_eqns]
 QED
 
-Theorem keep_glob_alloc:
-  flat_elim$keep calc (glob_alloc next st)
-Proof
-  simp [glob_alloc_def, flat_elimTheory.keep_def, flat_elimTheory.is_pure_def]
-QED
-
 Theorem inc_compile_prog_nonempty:
   inc_compile_prog env_id st decs = (st', fdecs) ==> fdecs ≠ []
 Proof
@@ -3154,7 +3466,8 @@ Theorem src_orac_env_invs_lookup_env:
   (THE interp) st_v = SOME (c, x) /\
   lookup (FST env_id) c.envs.env_gens = SOME gen /\
   lookup (SND env_id) gen = SOME comp_map /\
-  global_env_inv genv comp_map {} env
+  global_env_inv genv comp_map {} env /\
+  env_domain_eq comp_map env
 Proof
   PairCases_on `env_id`
   \\ rw [lookup_env_def, case_eq_thms]
@@ -3228,6 +3541,7 @@ Theorem do_eval:
     <|next := 0; generation := c.envs.next; envs := LN|> decs in
     env_gen_future_rel interp gen eval_state) /\
   global_env_inv genv' (lookup_env_id env_id c.envs) ∅ env /\
+  env_domain_eq (lookup_env_id env_id c.envs) env /\
   src_orac_next_cfg interp eval_state = SOME c' /\
   idx_prev end_idx c'.next /\
   genv.c ⊑ genv'.c /\
@@ -3253,7 +3567,7 @@ Proof
   \\ fs [case_eq_thms, pair_case_eq]
   \\ rveq \\ fs []
   \\ drule_then drule v_to_word64_list_rel
-  \\ drule_then drule v_to_word8_list_rel
+  \\ drule_then drule v_to_mlstring_rel
   \\ rw []
   \\ fs []
   \\ every_case_tac \\ fs []
@@ -3390,6 +3704,11 @@ Proof
     \\ simp [lookup_env_id_def]
     \\ drule_then irule global_env_inv_weak
     \\ simp []
+  )
+  >- (
+    drule_then drule src_orac_env_invs_lookup_env
+    \\ rw []
+    \\ simp [lookup_env_id_def]
   )
   >- (
     fs [idx_range_rel_def]
@@ -3744,15 +4063,208 @@ Proof
   simp [abort_def]
 QED
 
+Theorem evaluate_tick_n[local]:
+  ∀n env s e.
+    flatSem$evaluate env s [tick_n n e] =
+      case evaluate env s [e] of
+      | (s1, Rval vs) =>
+          if s1.clock < n then (s1 with clock := 0, Rerr (Rabort Rtimeout_error))
+          else (s1 with clock := s1.clock - n, Rval vs)
+      | res => res
+Proof
+  Induct \\ ONCE_REWRITE_TAC [tick_n_def] \\ simp []
+  >- (rpt strip_tac \\ Cases_on ‘evaluate env s [e]’ \\ Cases_on ‘r’ \\ gvs [])
+  \\ rpt strip_tac \\ simp [evaluate_def]
+  \\ Cases_on ‘evaluate env s [e]’ \\ Cases_on ‘r’ \\ gvs []
+  \\ rw [dec_clock_def] \\ gvs [state_component_equality]
+QED
+
+Theorem do_app_subglobals[local]:
+  flatSem$do_app s op vs = SOME (s', r) ⇒ subglobals s.globals s'.globals
+Proof
+  rw [do_app_def] \\ gvs [AllCaseEqs(), subglobals_refl]
+  \\ rpt (pairarg_tac \\ gvs [subglobals_refl])
+  \\ gvs [subglobals_def, EL_LUPDATE, EL_APPEND1] \\ rw [] \\ gvs [IS_SOME_EXISTS]
+QED
+
+Theorem evaluate_subglobals[local]:
+  (∀env (s:('c,'ffi) flatSem$state) es s' r.
+     flatSem$evaluate env s es = (s',r) ⇒
+     subglobals s.globals s'.globals) ∧
+  (∀(s:('c,'ffi) flatSem$state) d s' r. flatSem$evaluate_dec s d = (s',r) ⇒
+     subglobals s.globals s'.globals) ∧
+  (∀(s:('c,'ffi) flatSem$state) ds s' r. flatSem$evaluate_decs s ds = (s',r) ⇒
+     subglobals s.globals s'.globals)
+Proof
+  ho_match_mp_tac flatSemTheory.evaluate_ind
+  \\ rpt strip_tac
+  \\ pop_assum mp_tac
+  \\ simp [Once evaluate_def]
+  \\ rpt (TOP_CASE_TAC \\ gvs [fix_clock_def, dec_clock_def])
+  \\ rw [] \\ gvs [subglobals_refl]
+  \\ imp_res_tac do_app_subglobals
+  \\ res_tac \\ gvs []
+  \\ metis_tac [subglobals_trans, subglobals_refl]
+QED
+
+Theorem evaluate_inline_Prim2[local]:
+  i < LENGTH s.globals ∧
+  EL i s.globals =
+    SOME (Closure cenv x (Fun tr y (App t3 fop [Var_local t4 x; Var_local t5 y]))) ∧
+  x ≠ y ∧ fop ≠ Src Opapp ∧ fop ≠ Src Eval ∧ fop ≠ Src (ThunkOp ForceThunk) ⇒
+  flatSem$evaluate env s [App t0 fop [tick_n 2 e1; e2]] =
+  evaluate env s
+    [App t1 (Src Opapp) [App t2 (Src Opapp) [App t6 (GlobalVarLookup i) []; e1]; e2]]
+Proof
+  rpt strip_tac
+  \\ simp [evaluate_def, evaluate_tick_n]
+  \\ Cases_on ‘evaluate env s [e2]’ \\ rename1 ‘_ = (sa, ra)’
+  \\ Cases_on ‘ra’ \\ simp []
+  \\ imp_res_tac evaluate_subglobals \\ imp_res_tac evaluate_sing \\ gvs []
+  \\ Cases_on ‘evaluate env sa [e1]’ \\ rename1 ‘_ = (sb, rb)’
+  \\ Cases_on ‘rb’ \\ simp []
+  \\ imp_res_tac evaluate_subglobals \\ imp_res_tac evaluate_sing \\ gvs []
+  \\ ‘i < LENGTH sb.globals ∧ EL i sb.globals = EL i s.globals’
+    by (gvs [subglobals_def] \\ metis_tac [IS_SOME_DEF, LESS_LESS_EQ_TRANS])
+  \\ ‘do_app sb (GlobalVarLookup i) [] = SOME (sb, Rval (THE (EL i s.globals)))’
+    by gvs [do_app_def]
+  \\ asm_rewrite_tac [] \\ simp [do_opapp_def, evaluate_def, dec_clock_def]
+  \\ Cases_on ‘sb.clock = 0’ \\ simp [] \\ Cases_on ‘sb.clock = 1’ \\ simp [evaluate_def]
+  \\ simp [state_component_equality]
+QED
+
+Theorem evaluate_inline_Prim1[local]:
+  i < LENGTH s.globals ∧
+  EL i s.globals = SOME (Closure cenv x (App t3 fop [Var_local t4 x])) ∧
+  fop ≠ Src Opapp ∧ fop ≠ Src Eval ∧ fop ≠ Src (ThunkOp ForceThunk) ⇒
+  flatSem$evaluate env s [App t0 fop [tick_n 1 e1]] =
+  evaluate env s [App t1 (Src Opapp) [App t6 (GlobalVarLookup i) []; e1]]
+Proof
+  rpt strip_tac
+  \\ simp [evaluate_def, evaluate_tick_n]
+  \\ Cases_on ‘evaluate env s [e1]’ \\ rename1 ‘_ = (sb, rb)’
+  \\ Cases_on ‘rb’ \\ simp []
+  \\ imp_res_tac evaluate_subglobals \\ imp_res_tac evaluate_sing \\ gvs []
+  \\ ‘i < LENGTH sb.globals ∧ EL i sb.globals = EL i s.globals’
+    by (gvs [subglobals_def] \\ metis_tac [IS_SOME_DEF, LESS_LESS_EQ_TRANS])
+  \\ ‘do_app sb (GlobalVarLookup i) [] = SOME (sb, Rval (THE (EL i s.globals)))’
+    by gvs [do_app_def]
+  \\ asm_rewrite_tac [] \\ simp [do_opapp_def, evaluate_def, dec_clock_def]
+  \\ Cases_on ‘sb.clock = 0’ \\ simp [state_component_equality]
+QED
+
+Theorem evaluate_inline_Prim3[local]:
+  i < LENGTH s.globals ∧
+  EL i s.globals =
+    SOME (Closure cenv x (Fun tr y (Fun tr2 z
+      (App t3 fop [Var_local t4 x; Var_local t5 y; Var_local t7 z])))) ∧
+  ALL_DISTINCT [x; y; z] ∧
+  fop ≠ Src Opapp ∧ fop ≠ Src Eval ∧ fop ≠ Src (ThunkOp ForceThunk) ⇒
+  flatSem$evaluate env s [App t0 fop [tick_n 3 e1; e2; e3]] =
+  evaluate env s
+    [App t1 (Src Opapp)
+       [App t2 (Src Opapp)
+          [App t8 (Src Opapp) [App t6 (GlobalVarLookup i) []; e1]; e2]; e3]]
+Proof
+  rpt strip_tac
+  \\ simp [evaluate_def, evaluate_tick_n]
+  \\ Cases_on ‘evaluate env s [e3]’ \\ rename1 ‘_ = (sa, ra)’
+  \\ Cases_on ‘ra’ \\ simp []
+  \\ imp_res_tac evaluate_subglobals \\ imp_res_tac evaluate_sing \\ gvs []
+  \\ Cases_on ‘evaluate env sa [e2]’ \\ rename1 ‘_ = (sb, rb)’
+  \\ Cases_on ‘rb’ \\ simp []
+  \\ imp_res_tac evaluate_subglobals \\ imp_res_tac evaluate_sing \\ gvs []
+  \\ Cases_on ‘evaluate env sb [e1]’ \\ rename1 ‘_ = (sc, rc)’
+  \\ Cases_on ‘rc’ \\ simp []
+  \\ imp_res_tac evaluate_subglobals \\ imp_res_tac evaluate_sing \\ gvs []
+  \\ ‘i < LENGTH sc.globals ∧ EL i sc.globals = EL i s.globals’
+    by (gvs [subglobals_def] \\ metis_tac [IS_SOME_DEF, LESS_LESS_EQ_TRANS])
+  \\ ‘do_app sc (GlobalVarLookup i) [] = SOME (sc, Rval (THE (EL i s.globals)))’
+    by gvs [do_app_def]
+  \\ asm_rewrite_tac [] \\ simp [do_opapp_def, evaluate_def, dec_clock_def]
+  \\ Cases_on ‘sc.clock = 0’ \\ simp [] \\ Cases_on ‘sc.clock = 1’ \\ simp [evaluate_def]
+  \\ Cases_on ‘sc.clock = 2’ \\ simp [evaluate_def]
+  \\ simp [state_component_equality]
+QED
+
+Theorem inline_op_props[local]:
+  inline_op p ⇒
+  p ≠ Opapp ∧ p ≠ Eval ∧ p ≠ AallocEmpty ∧ p ≠ Env_id ∧
+  astOp_to_flatOp p ≠ Src Opapp ∧ astOp_to_flatOp p ≠ Src Eval ∧
+  astOp_to_flatOp p ≠ Src (ThunkOp ForceThunk)
+Proof
+  rw [inline_op_def] \\ strip_tac
+  \\ gvs [astOp_to_flatOp_def, AllCaseEqs(), semanticPrimitivesTheory.getOpClass_def]
+QED
+
+Theorem dest_inline_SOME[local]:
+  dest_inline comp_map op es = SOME (p, k) ⇒
+  op = Opapp ∧ ∃f t n.
+    nsLookup comp_map.v f = SOME (Glob t n (InfoPrim k p)) ∧
+    ((∃e1. es = [Var f; e1] ∧ k = 1) ∨
+     (∃e1 e2. es = [App Opapp [Var f; e1]; e2] ∧ k = 2) ∨
+     (∃e1 e2 e3. es = [App Opapp [App Opapp [Var f; e1]; e2]; e3] ∧ k = 3))
+Proof
+  rw [dest_inline_def, AllCaseEqs()]
+  \\ rpt (qpat_x_assum ‘dest_prim_call _ _ _ = _’ mp_tac
+          \\ rename1 ‘dest_prim_call _ _ cc’ \\ Cases_on ‘cc’
+          \\ simp [dest_prim_call_def, AllCaseEqs()] \\ rpt strip_tac \\ gvs [])
+QED
+
+Theorem evaluate_compile_App_inline[local]:
+  env_all_rel genv comp_map env env_i1 ∧ s_i1.globals = genv.v ∧
+  dest_inline comp_map op es = SOME (p, k) ⇒
+  flatSem$evaluate env_i1 s_i1 [inline_app p k (compile_exps t comp_map es)] =
+  evaluate env_i1 s_i1 [App None (Src Opapp) (compile_exps t comp_map es)]
+Proof
+  rpt strip_tac
+  \\ drule dest_inline_SOME \\ strip_tac \\ gvs []
+  \\ gvs [env_all_rel_cases, lookup_env_rel_def]
+  \\ drule_all nsAll2_nsLookup2 \\ strip_tac
+  \\ gvs [lookup_var_rel_def]
+  \\ qpat_x_assum ‘v_rel _ _ _’ mp_tac
+  \\ imp_res_tac inline_op_props
+  \\ simp [Once v_rel_cases] \\ strip_tac
+  \\ gvs [compile_exp_def, dest_inline_def, compile_var_def]
+  \\ simp [compile_exp_def, dest_inline_def, dest_prim_call_def, compile_var_def,
+          inline_app_def, dest_call_def, EVAL “astOp_to_flatOp Opapp”]
+  \\ FIRST (map (fn th => irule th \\ simp [] \\ NO_TAC)
+       [evaluate_inline_Prim1, evaluate_inline_Prim2, evaluate_inline_Prim3])
+QED
+
+Theorem evaluate_App_inline_case[local]:
+  env_all_rel genv comp_map env env_i1 ⇒
+  invariant interp g gen genv idxs s s_i1 ⇒
+  ∀op es B t.
+    (op = Opapp ⇒ B = App None (Src Opapp) (compile_exps t comp_map es)) ⇒
+    flatSem$evaluate env_i1 s_i1
+      [case dest_inline comp_map op es of
+       | SOME (p, n) => inline_app p n (compile_exps t comp_map es)
+       | NONE => B] =
+    evaluate env_i1 s_i1 [B]
+Proof
+  rpt strip_tac \\ imp_res_tac invariant_globals
+  \\ Cases_on ‘dest_inline comp_map op es’ \\ simp []
+  \\ rename1 ‘SOME x’ \\ PairCases_on ‘x’
+  \\ drule dest_inline_SOME \\ strip_tac \\ gvs []
+  \\ drule_all evaluate_compile_App_inline \\ simp []
+QED
+
+Theorem evaluate_exp_info[local]:
+  evaluate s env [e] = (s', Rval [x]) ⇒ glob_info_rel (exp_info e) x
+Proof
+  rw [exp_info_def] \\ every_case_tac
+  \\ gvs [evaluateTheory.evaluate_def] \\ metis_tac []
+QED
+
 Theorem compile_correct:
-  (∀ ^s env es s' r genv comp_map env_i1 ^s_i1 es_i1 locals t ts gen idxs.
+  (∀ ^s env es s' r genv comp_map env_i1 ^s_i1 es_i1 t gen idxs.
     evaluate$evaluate s env es = (s', r) ∧
     invariant interp g gen genv idxs s s_i1 ∧
-    env_all_rel genv comp_map env env_i1 locals ∧
-    LENGTH ts = LENGTH locals ∧
+    env_all_rel genv comp_map env env_i1 ∧
     env_gen_rel gen s.eval_state ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
-    es_i1 = compile_exps t (comp_map with v := bind_locals ts locals comp_map.v) es
+    es_i1 = compile_exps t comp_map es
     ⇒
     ?s'_i1 r_i1 genv'.
     flatSem$evaluate env_i1 s_i1 es_i1 = (s'_i1, r_i1) ∧
@@ -3767,15 +4279,14 @@ Theorem compile_correct:
       subglobals genv.v genv'.v)
   ) ∧
   (∀ ^s env v pes err_v genv comp_map s' r env_i1 ^s_i1 v_i1 pes_i1
-         err_v_i1 locals t ts gen idxs.
+         err_v_i1 t gen idxs.
     evaluate$evaluate_match s env v pes err_v = (s', r) ∧
     invariant interp g gen genv idxs s s_i1 ∧
-    env_all_rel genv comp_map env env_i1 locals ∧
+    env_all_rel genv comp_map env env_i1 ∧
     v_rel genv v v_i1 ∧
-    LENGTH ts = LENGTH locals ∧
     env_gen_rel gen s.eval_state ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
-    pes_i1 = compile_pes t (comp_map with v := bind_locals ts locals comp_map.v) pes ∧
+    pes_i1 = compile_pes t comp_map pes ∧
     pmatch_rows pes_i1 s_i1 v_i1 <> Match_type_error ∧
     v_rel genv err_v err_v_i1
     ⇒
@@ -3798,6 +4309,7 @@ Theorem compile_correct:
     source_to_flat$compile_decs path t idx comp_map gen ds =
         (t', idx', comp_map', gen', ds_i1) ∧
     global_env_inv genv comp_map {} env ∧
+    env_domain_eq comp_map env ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
     env_gen_rel gen s.eval_state ∧
     env_gen_future_rel interp gen' s.eval_state ∧
@@ -3845,6 +4357,7 @@ Proof
   >~ [‘Case [Mat _ _]’] >- suspend "Mat"
   >~ [‘Case [Let _ _ _]’] >- suspend "Let"
   >~ [‘Case [Letrec _ _]’] >- suspend "Letrec"
+  >~ [`Case [Open _ _]`] >- suspend "Open"
   >~ [‘Case ((_, _) :: _)’] >- suspend "pattern"
   >~ [‘Case ([] : ast$dec list)’] >- suspend "empty_decs"
   >~ [‘Case ((_ :: _ :: _) : ast$dec list)’] >- suspend "cons_decs"
@@ -3854,16 +4367,23 @@ Proof
   >~ [‘Case [Dtabbrev _ _ _ _]’] >- suspend "Dtabbrev"
   >~ [‘Case [Denv _]’] >- suspend "Denv"
   >~ [‘Case [Dexn _ _ _]’] >- suspend "Dexn"
+  >~ [‘Case [Dopen _ _]’] >- suspend "Dopen"
   >~ [‘Case [Dmod _ _]’] >- suspend "Dmod"
   >~ [‘Case [Dlocal _ _]’] >- suspend "Dlocal"
-  \\ TRY (
-    rw []
-    \\ goal_assum (first_assum o mp_then (Pat `invariant`) mp_tac)
-    \\ simp [subglobals_refl]
-    \\ NO_TAC
-  )
-  \\ TRY (Cases_on`l`>>fs[evaluate_def,compile_exp_def])
-  \\ fs[s_rel_cases]
+  \\ qexists_tac `genv`
+  \\ simp [subglobals_refl]
+QED
+
+Resume compile_correct[Open]:
+  Cases_on `open_dec_env path env` >> fs [] >>
+  rename1 `open_dec_env path env = SOME opened` >>
+  fs [env_all_rel_cases] >>
+  drule_all lookup_env_rel_open >>
+  disch_then (qx_choose_then `opened_map` strip_assume_tac) >>
+  `lookup_env_rel (v_rel genv) genv (extend_env opened_map comp_map)
+     (extend_dec_env opened env) env_i1.v`
+    by metis_tac [lookup_env_rel_extend] >>
+  simp []
 QED
 
 val trans_thms = [SUBMAP_TRANS, SUBSET_TRANS,
@@ -3953,6 +4473,7 @@ Resume compile_correct[Con]:
   )
   (* named constructor *)
   \\ rveq \\ fs [build_conv_def, compile_exps_reverse, evaluate_def]
+  \\ imp_res_tac env_all_rel_global_env_inv
   \\ fs [env_all_rel_cases] \\ rveq \\ fs []
   \\ fs [v_rel_global_eqn]
   \\ first_x_assum drule
@@ -3968,73 +4489,22 @@ Resume compile_correct[Con]:
 QED
 
 Resume compile_correct[Var]:
-  rw []
-  \\ fs [option_case_eq]
-  \\ fs [env_all_rel_cases]
-  \\ rveq \\ fs []
-  \\ fs [nsLookup_nsAppend_some]
-  >- ((* Local variable *)
-    fs [nsLookup_alist_to_ns_some,bind_locals_def] >>
-    rw [] >>
-    drule env_rel_lookup >>
-    disch_then drule >>
-    rw [GSYM nsAppend_to_nsBindList] >>
-    simp[MAP2_MAP]>>
-    every_case_tac >>
-    fs [nsLookup_nsAppend_some, nsLookup_nsAppend_none, nsLookup_alist_to_ns_some,
-        nsLookup_alist_to_ns_none,evaluate_def]>>
-    fs[ALOOKUP_NONE,MAP_MAP_o,o_DEF,LAMBDA_PROD]>>
-    `(λ(p1:tra,p2:tvarN). p2) = SND` by fs[FUN_EQ_THM,FORALL_PROD]>>
-    fs[]>>rfs[MAP_ZIP]
-    >- metis_tac [ALOOKUP_MEM,PAIR,FST,MEM_MAP, SUBMAP_REFL, subglobals_refl]
-    >- metis_tac [ALOOKUP_MEM,PAIR,FST,MEM_MAP, SUBMAP_REFL, subglobals_refl]
-    >- (
-      drule ALOOKUP_MEM >>
-      rw [MEM_MAP] >>
-      pairarg_tac>>fs[compile_var_def]>>
-      simp [evaluate_def, result_rel_cases] >>
-      metis_tac [SUBMAP_REFL, subglobals_refl])
-    >- metis_tac [ALOOKUP_MEM,PAIR,FST,MEM_MAP])
-  >- ( (* top-level variable *)
-    rw [GSYM nsAppend_to_nsBindList,bind_locals_def] >>
-    fs [nsLookup_alist_to_ns_none] >>
-    fs [v_rel_global_eqn, ALOOKUP_NONE, METIS_PROVE [] ``~x ∨ y ⇔ x ⇒ y``] >>
-    first_x_assum drule >>
-    rw [] >>
-    simp[MAP2_MAP]>>
-    every_case_tac >>
-    fs [nsLookup_nsAppend_some, nsLookup_nsAppend_none, nsLookup_alist_to_ns_some,
-        nsLookup_alist_to_ns_none]>>
-    fs[ALOOKUP_NONE,MAP_MAP_o,o_DEF,LAMBDA_PROD]
-    >- (Cases_on`p1`>>fs[])
-    >- (
-      drule ALOOKUP_MEM >>
-      simp[MEM_MAP,MEM_ZIP,EXISTS_PROD]>>
-      rw[]>>
-      metis_tac[MEM_EL,LENGTH_MAP])
-    >- (
-      rfs [ALOOKUP_TABULATE] >>
-      rw [] >>
-      simp [evaluate_def, result_rel_cases,compile_var_def] >>
-      simp [do_app_def] >>
-      imp_res_tac invariant_globals >>
-      fs [] >>
-      metis_tac [subglobals_refl, SUBMAP_REFL]))
+  rw [] >> fs [option_case_eq, env_all_rel_cases, lookup_env_rel_def] >>
+  drule_all nsAll2_nsLookup1 >>
+  disch_then (qx_choose_then `compiled_name` strip_assume_tac) >>
+  Cases_on `compiled_name` >>
+  fs [lookup_var_rel_def, compile_var_def, evaluate_def] >>
+  imp_res_tac invariant_globals >> rveq >>
+  TRY TOP_CASE_TAC >>
+  fs [evaluate_def, do_app_def, result_rel_eqns] >>
+  qexists_tac `genv` >> simp [subglobals_refl] >>
+  gvs [v_rel_eqns]
 QED
 
 Resume compile_correct[Fun]:
-  rw [Once v_rel_cases] >>
-  goal_assum (first_assum o mp_then (Pat `invariant`) mp_tac) >>
-  fs [env_all_rel_cases, subglobals_refl] >>
-  srw_tac[][] >>
-  rename [`global_env_inv genv comp_map (set (MAP FST locals)) env`] >>
-  MAP_EVERY qexists_tac [`comp_map`, `env`, `alist_to_ns locals`,`t`,`None::ts`] >>
-  imp_res_tac env_rel_dom >>
-  srw_tac[][] >>
-  simp [bind_locals_def, namespaceTheory.nsBindList_def] >>
-  fs [ADD1]
-  >- metis_tac [sem_env_eq_lemma]
-  >- metis_tac[LENGTH_MAP]
+  qexists_tac `genv` >> simp [subglobals_refl] >>
+  simp [Once v_rel_cases] >> fs [env_all_rel_cases] >>
+  qexistsl_tac [`comp_map`, `t`, `None`] >> simp []
 QED
 
 Theorem invariant_change_eval_ref:
@@ -4059,7 +4529,7 @@ Theorem declare_env_store_env_id:
       | NONE => F
       | SOME gen' => (case lookup id gen' of
         | NONE => F
-        | SOME e => global_env_inv genv e {} env)))
+        | SOME e => global_env_inv genv e {} env /\ env_domain_eq e env)))
   ==>
   ?y.
   evaluate_decs s_i1 [store_env_id gen_id id] =
@@ -4144,6 +4614,8 @@ QED
 
 Resume compile_correct[App]:
   rpt disch_tac
+  \\ drule_then (drule_then assume_tac) evaluate_App_inline_case
+  \\ pop_assum (fn th => simp [Once th, EVAL “astOp_to_flatOp Opapp”])
   \\ fs [pair_case_eq] \\ fs []
   \\ first_x_assum (drule_then (drule_then drule))
   \\ disch_then (qspec_then ‘t’ mp_tac)
@@ -4152,8 +4624,8 @@ Resume compile_correct[App]:
   \\ Cases_on `op = AallocEmpty`
   >- (
     (* empty array creation *)
-    rw []
-    \\ fs [semanticPrimitivesTheory.do_app_def, astTheory.getOpClass_def]
+    rpt strip_tac
+    \\ fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.getOpClass_def]
     \\ every_case_tac \\ fs [] \\ rveq \\ fs []
     >- (
       drule (CONJUNCT1 evaluatePropsTheory.evaluate_length) >>
@@ -4195,8 +4667,8 @@ Resume compile_correct[App]:
   )
   \\ Cases_on `op = Eval`
   >- (
-    rw[]
-    \\ fs [evaluateTheory.do_eval_res_def, astTheory.getOpClass_def]
+    rpt strip_tac
+    \\ fs [evaluateTheory.do_eval_res_def, semanticPrimitivesTheory.getOpClass_def]
     \\ fs [astOp_to_flatOp_def, evaluate_def, compile_exps_reverse,
         evaluate_decs_append, miscTheory.opt_bind_def]
     \\ fs [list_case_eq, option_case_eq, pair_case_eq]
@@ -4254,10 +4726,16 @@ Resume compile_correct[App]:
       \\ fs []
       \\ first_x_assum (qsubterm_then `lookup _ _.envs.env_gens` mp_tac)
       \\ rw []
-      \\ irule global_env_inv_append
-      \\ simp []
-      \\ drule_then irule global_env_inv_weak
-      \\ fsrw_tac [SATISFY_ss] trans_thms
+      >- (
+        irule global_env_inv_append
+        \\ simp []
+        \\ drule_then irule global_env_inv_weak
+        \\ fsrw_tac [SATISFY_ss] trans_thms
+      )
+      >- (
+        irule env_domain_eq_append
+        \\ simp []
+      )
     )
     \\ rw []
     \\ simp [store_lookup_def]
@@ -4281,7 +4759,7 @@ Resume compile_correct[App]:
   \\ Cases_on `op = Opapp`
   >- (
     (* Opapp *)
-    fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, pair_case_eq, option_case_eq, astTheory.getOpClass_def] >>
+    fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, pair_case_eq, option_case_eq, semanticPrimitivesTheory.getOpClass_def] >>
     rw [] >>
     rveq >> fs [] >>
     fs [astOp_to_flatOp_def, evaluate_def, compile_exps_reverse] >>
@@ -4299,8 +4777,14 @@ Resume compile_correct[App]:
       simp []
     ) >>
     fs [Q.ISPEC `(a, b)` EQ_SYM_EQ] >>
-    first_x_assum (drule_then (drule_then drule)) >>
-    simp [dec_clock_def] >>
+    qpat_x_assum
+      `∀genv2 comp_map2 env_i12 s_i12 t2 gen2 idxs2.
+        invariant interp g gen2 genv2 idxs2 (dec_clock st') s_i12 ∧
+        env_all_rel genv2 comp_map2 env' env_i12 ∧
+        env_gen_rel gen2 (dec_clock st').eval_state ⇒ _`
+      mp_tac >>
+    disch_then (drule_then drule) >>
+    simp [evaluateTheory.dec_clock_def, dec_clock_def] >>
     disch_then (qsubterm_then `evaluate _ _ _` mp_tac) >>
     rw [] >>
     fs [evaluateTheory.dec_clock_def, dec_clock_def] >>
@@ -4308,7 +4792,7 @@ Resume compile_correct[App]:
   )
   \\ Cases_on `op = Env_id`
   >- (
-    fs [option_case_eq, pair_case_eq, result_rel_eqns, astTheory.getOpClass_def]
+    fs [option_case_eq, pair_case_eq, result_rel_eqns, semanticPrimitivesTheory.getOpClass_def]
     \\ rw []
     \\ fs [semanticPrimitivesTheory.do_app_def]
     \\ fs [case_eq_thms, semanticPrimitivesTheory.v_case_eq, pair_case_eq]
@@ -4325,14 +4809,14 @@ Resume compile_correct[App]:
   ) >>
   Cases_on ‘getOpClass op’ >> gs[]
   >- (
-    Cases_on ‘op’ >> gs[astTheory.getOpClass_def] >>
+    Cases_on ‘op’ >> gs[semanticPrimitivesTheory.getOpClass_def] >>
     Cases_on ‘t'’ >> gvs[])
   >- (
-    Cases_on ‘op’ >> gs[astTheory.getOpClass_def] >>
+    Cases_on ‘op’ >> gs[semanticPrimitivesTheory.getOpClass_def] >>
     Cases_on ‘t'’ >> gvs[])
   >~ [‘getOpClass op = Force’]
   >- (
-    Cases_on ‘op’ >> gvs[astTheory.getOpClass_def] >>
+    Cases_on ‘op’ >> gvs[semanticPrimitivesTheory.getOpClass_def] >>
     Cases_on ‘t'’ >> gvs[] >>
     gvs[AllCaseEqs(), evaluateTheory.dec_clock_def, flatSemTheory.dec_clock_def,
         PULL_EXISTS] >> rw[]
@@ -4362,7 +4846,10 @@ Resume compile_correct[App]:
       gvs[store_lookup_def, s_rel_cases, LIST_REL_EL_EQN] >>
       `∃v'. EL n (TL s'_i1.refs) = Thunk NotEvaluated v' ∧
              v_rel genv' v v'` by (
-        first_x_assum (qspec_then`n` mp_tac) >>
+        qpat_x_assum
+          `∀n'. n' < LENGTH s'_i1.refs - 1 ⇒
+            sv_rel genv' (EL n' st'.refs) (EL n' (TL s'_i1.refs))`
+          (qspec_then `n` mp_tac) >>
         gvs[] >> rw[Once sv_rel_cases]) >>
       simp[REWRITE_RULE [ADD1] EL, Once result_rel_cases, PULL_EXISTS] >>
       simp[AppUnit_def, dec_clock_def] >>
@@ -4391,7 +4878,9 @@ Resume compile_correct[App]:
       disch_then drule >> simp[Once v_rel_cases] >> strip_tac >> gvs[] >>
       dxrule invariant_dec_clock >> strip_tac >>
       gvs[evaluateTheory.dec_clock_def, flatSemTheory.dec_clock_def] >>
-      last_x_assum drule_all >> disch_then $ qspec_then ‘t1’ assume_tac >> gvs[] >>
+      qmatch_asmsub_rename_tac `do_opapp _ = SOME (_,compile_exp force_trace _ _)` >>
+      last_x_assum drule_all >>
+      disch_then (qspec_then `force_trace` assume_tac) >> gvs[] >>
       gvs[Once result_rel_cases] >>
       gvs[oneline semanticPrimitivesTheory.update_thunk_def,
           oneline flatSemTheory.update_thunk_def, AllCaseEqs()] >>
@@ -4430,7 +4919,7 @@ Resume compile_correct[App]:
       >- (
         gvs[evaluateTheory.dec_clock_def] >>
         drule_then irule orac_forward_rel_trans >> gvs[])
-      )
+    )
     >- (
       gvs[astOp_to_flatOp_def, evaluate_def, compile_exps_reverse,
           AllCaseEqs()] >>
@@ -4451,13 +4940,16 @@ Resume compile_correct[App]:
       disch_then drule >> simp[Once v_rel_cases] >> strip_tac >> gvs[] >>
       dxrule invariant_dec_clock >> strip_tac >>
       gvs[evaluateTheory.dec_clock_def, flatSemTheory.dec_clock_def] >>
-      last_x_assum drule_all >> disch_then $ qspec_then ‘t1’ assume_tac >> gvs[] >>
+      qmatch_asmsub_rename_tac `do_opapp _ = SOME (_,compile_exp force_trace _ _)` >>
+      last_x_assum drule_all >>
+      disch_then (qspec_then `force_trace` assume_tac) >> gvs[] >>
       qpat_x_assum `result_rel _ _ _ r_i1` mp_tac >> rw[Once result_rel_cases] >>
       goal_assum drule >> simp[] >>
       imp_res_tac SUBMAP_TRANS >> gvs[] >>
       imp_res_tac subglobals_trans >> gvs[] >>
       drule_then irule orac_forward_rel_trans >> gvs[]
-      )) >>
+    )
+  ) >>
   fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, option_case_eq, pair_case_eq] >>
   rw [] >>
   rveq >> fs [] >>
@@ -4474,7 +4966,7 @@ Resume compile_correct[App]:
     rw [astOp_to_flatOp_def] >>
     Cases_on `op` >>
     simp [] >>
-    fs [astTheory.getOpClass_def] >>
+    fs [semanticPrimitivesTheory.getOpClass_def] >>
     Cases_on `t'` >> gvs []) >>
   fs [evaluate_def, compile_exps_reverse] >>
   imp_res_tac do_app_state_unchanged >>
@@ -4482,17 +4974,23 @@ Resume compile_correct[App]:
   rename [`result_rel v_rel genv2`] >>
   qexists_tac `genv2` >>
   simp [] >>
-  conj_tac >> TRY (fs [result_rel_cases] \\ NO_TAC) >>
-  fs [invariant_def, s_rel_cases] >>
-  rpt (TOP_CASE_TAC >> gs[result_rel_cases, semanticPrimitivesTheory.Boolv_def, Boolv_def, v_rel_eqns]) >>
-  TRY COND_CASES_TAC >> gs[] >>
-  simp[ Once v_rel_rules]
+  conj_tac >- fs [result_rel_cases] >>
+  qpat_x_assum `invariant interp g gen genv2 idxs st' s'_i1` mp_tac >>
+  simp [invariant_def, s_rel_cases] >>
+  rpt (TOP_CASE_TAC >> gs[result_rel_cases, semanticPrimitivesTheory.Boolv_def, Boolv_def, v_rel_eqns])
 QED
 
 Resume compile_correct[Log]:
   rw [] >>
   fs [pair_case_eq] >> fs [] >>
-  first_x_assum (drule_then (drule_then drule)) >>
+  qpat_x_assum
+    `∀genv2 comp_map2 env_i12 s_i12 t2 gen2 idxs2.
+      invariant interp g gen2 genv2 idxs2 s s_i12 ∧
+      env_all_rel genv2 comp_map2 env env_i12 ∧
+      env_gen_rel gen2 s.eval_state ∧
+      v3 ≠ Rerr (Rabort Rtype_error) ⇒ _`
+    mp_tac >>
+  disch_then (drule_then (drule_then drule)) >>
   disch_then (qspec_then ‘t’ mp_tac) >>
   simp [] >>
   impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
@@ -4517,7 +5015,13 @@ Resume compile_correct[Log]:
   fs [] >> rveq >> fs [] >>
   drule_then drule env_all_rel_weak >>
   rw [] >>
-  first_x_assum (drule_then (drule_then drule)) >>
+  qpat_x_assum
+    `∀genv2 comp_map2 env_i12 s_i12 t2 gen2 idxs2.
+      invariant interp g gen2 genv2 idxs2 st' s_i12 ∧
+      env_all_rel genv2 comp_map2 env env_i12 ∧
+      env_gen_rel gen2 st'.eval_state ⇒ _`
+    mp_tac >>
+  disch_then (drule_then (drule_then drule)) >>
   disch_then (qspec_then ‘t’ mp_tac) >>
   rw [] >>
   goal_assum (qsubterm_then `invariant _ _ _ _` mp_tac) >>
@@ -4528,7 +5032,14 @@ QED
 
 Resume compile_correct[If]:
   rw [] >> fs [pair_case_eq] >> fs [] >>
-  first_x_assum (drule_then (drule_then drule)) >>
+  qpat_x_assum
+    `∀genv2 comp_map2 env_i12 s_i12 t2 gen2 idxs2.
+      invariant interp g gen2 genv2 idxs2 s s_i12 ∧
+      env_all_rel genv2 comp_map2 env env_i12 ∧
+      env_gen_rel gen2 s.eval_state ∧
+      _ ≠ Rerr (Rabort Rtype_error) ⇒ _`
+    mp_tac >>
+  disch_then (drule_then (drule_then drule)) >>
   disch_then (qspec_then ‘t’ mp_tac) >>
   simp [] >>
   (impl_tac >- (CCONTR_TAC >> fs [])) >>
@@ -4538,7 +5049,13 @@ Resume compile_correct[If]:
   fs [option_case_eq] >> fs [] >>
   drule_then drule env_all_rel_weak >>
   rw [] >>
-  first_x_assum (drule_then (drule_then drule)) >>
+  qpat_x_assum
+    `∀genv2 comp_map2 env_i12 s_i12 t2 gen2 idxs2.
+      invariant interp g gen2 genv2 idxs2 st' s_i12 ∧
+      env_all_rel genv2 comp_map2 env env_i12 ∧
+      env_gen_rel gen2 st'.eval_state ⇒ _`
+    mp_tac >>
+  disch_then (drule_then (drule_then drule)) >>
   disch_then (qspec_then ‘t’ mp_tac) >>
   rw [] >>
   imp_res_tac evaluatePropsTheory.evaluate_sing >>
@@ -4551,7 +5068,14 @@ QED
 
 Resume compile_correct[Mat]:
   rw [] \\ fs [pair_case_eq] \\ fs []
-  \\ first_x_assum (drule_then (drule_then drule))
+  \\ qpat_x_assum
+    `∀genv2 comp_map2 env_i12 s_i12 t2 gen2 idxs2.
+      invariant interp g gen2 genv2 idxs2 s s_i12 ∧
+      env_all_rel genv2 comp_map2 env env_i12 ∧
+      env_gen_rel gen2 s.eval_state ∧
+      _ ≠ Rerr (Rabort Rtype_error) ⇒ _`
+    mp_tac
+  \\ disch_then (drule_then (drule_then drule))
   \\ disch_then (qspec_then ‘t’ mp_tac)
   \\ simp []
   \\ (impl_tac >- (CCONTR_TAC >> fs []))
@@ -4576,87 +5100,79 @@ QED
 
 Resume compile_correct[Let]:
   rw [] \\ fs [pair_case_eq] \\ fs []
-  \\ first_x_assum (drule_then (drule_then drule))
+  \\ qpat_x_assum
+    `∀genv2 comp_map2 env_i12 s_i12 t2 gen2 idxs2.
+      invariant interp g gen2 genv2 idxs2 s s_i12 ∧
+      env_all_rel genv2 comp_map2 env env_i12 ∧
+      env_gen_rel gen2 s.eval_state ∧
+      _ ≠ Rerr (Rabort Rtype_error) ⇒ _`
+    mp_tac
+  \\ disch_then (drule_then (drule_then drule))
   \\ simp [GSYM PULL_FORALL]
   \\ (impl_tac >- (CCONTR_TAC >> fs []))
   \\ rw []
   \\ rename [`Let opt_name _ _`]
-  \\ Cases_on `opt_name`
+  \\ namedCases_on `opt_name` ["", "binder"]
   >- (
-    (* anonymous bind *)
-    pop_assum (qspec_then ‘t’ strip_assume_tac)
-    \\ simp [compile_exp_def, evaluate_def]
-    \\ imp_res_tac result_rel_imp \\ fs [] \\ rveq \\ fs [result_rel_eqns]
-    \\ TRY (asm_exists_tac \\ simp [])
-    \\ fs [namespaceTheory.nsOptBind_def]
-    \\ drule_then drule env_all_rel_weak
-    \\ rw []
-    \\ first_x_assum (drule_then (drule_then drule))
-    \\ disch_then (qspec_then ‘t’ mp_tac)
-    \\ rw []
-    \\ simp [Q.prove (`env with v updated_by opt_bind NONE x = env`,
-          simp [environment_component_equality,miscTheory.opt_bind_def] )]
-    \\ metis_tac trans_thms
+    pop_assum (qspec_then `t` strip_assume_tac) >>
+    simp [compile_exp_def, evaluate_def] >>
+    reverse (imp_res_tac result_rel_imp >> fs [] >> rveq >> fs [result_rel_eqns])
+    >- (asm_exists_tac >> simp [])
+    >- (asm_exists_tac >> simp []) >>
+    fs [namespaceTheory.nsOptBind_def, miscTheory.opt_bind_def] >>
+    drule_then drule env_all_rel_weak >> rw [] >>
+    qpat_x_assum
+      `∀genv2 comp_map2 env_i12 s_i12 t2 gen2 idxs2.
+        invariant interp g gen2 genv2 idxs2 st' s_i12 ∧
+        env_all_rel genv2 comp_map2 _ env_i12 ∧
+        env_gen_rel gen2 st'.eval_state ⇒ _`
+      mp_tac >>
+    disch_then (drule_then (drule_then drule)) >>
+    disch_then (qspec_then `t` mp_tac) >> rw [] >>
+    simp [opt_bind_lem, env_updated_lem] >>
+    metis_tac trans_thms
   )
-  \\ pop_assum (qspec_then ‘x::t’ strip_assume_tac)
-  \\ simp [compile_exp_def, evaluate_def]
-  \\ imp_res_tac result_rel_imp \\ fs [] \\ rveq \\ fs [result_rel_eqns]
-  \\ TRY (asm_exists_tac \\ simp [])
-  \\ drule_then drule env_all_rel_weak
-  \\ rw []
-  \\ imp_res_tac evaluate_sing
-  \\ fs [] \\ rveq \\ fs []
-  \\ simp [bind_locals_fold_nsBind]
-  \\ last_x_assum mp_tac
-  \\ disch_then (qsubterm_then `evaluate _ _ _ ` mp_tac)
-  \\ disch_then drule
-  \\ impl_tac >- (
-    fs [env_all_rel_cases]
-    \\ fs [namespaceTheory.nsOptBind_def, miscTheory.opt_bind_def]
-    \\ simp [PULL_EXISTS, listTheory.MAP_EQ_CONS, EXISTS_PROD]
-    \\ metis_tac [env_rel_bind_one, pred_setTheory.INSERT_SING_UNION,
-      global_env_inv_add_locals]
-  )
-  \\ rw []
-  \\ simp []
-  \\ metis_tac trans_thms
+  >> pop_assum (qspec_then `binder::t` strip_assume_tac) >>
+  simp [compile_exp_def, evaluate_def] >>
+  reverse (imp_res_tac result_rel_imp >> fs [] >> rveq >> fs [result_rel_eqns])
+  >- (asm_exists_tac >> simp [])
+  >- (asm_exists_tac >> simp []) >>
+  drule_then drule env_all_rel_weak >> rw [] >>
+  imp_res_tac evaluate_sing >> fs [] >> rveq >> fs [] >>
+  last_x_assum mp_tac >>
+  disch_then (qsubterm_then `evaluate _ _ _` mp_tac) >>
+  disch_then drule >>
+  impl_tac
+  >- (
+    fs [env_all_rel_cases, namespaceTheory.nsOptBind_def,
+        miscTheory.opt_bind_def] >>
+    irule lookup_env_rel_bind >> simp []) >>
+  rw [] >> simp [] >> metis_tac trans_thms
 QED
 
 Resume compile_correct[Letrec]:
   rw [] >> fs [pair_case_eq] >>
-  rw [evaluate_def] >>
-  TRY (fs [compile_funs_map,MAP_MAP_o,o_DEF,UNCURRY] >>
-       full_simp_tac(srw_ss())[FST_triple,ETA_AX] >>
-       NO_TAC) >>
-  fs [GSYM nsAppend_to_nsBindList] >>
-  rw_tac std_ss [GSYM MAP_APPEND] >>
-  simp[nsAppend_bind_locals]>>
-  first_x_assum match_mp_tac >> simp[] >>
-  full_simp_tac(srw_ss())[env_all_rel_cases] >>
-  rw [] >>
-  qexists_tac `build_rec_env funs <|v := nsAppend (alist_to_ns l) env'.v; c := env'.c|> (alist_to_ns l)` >>
-  qexists_tac `env'` >>
-  rw [semanticPrimitivesPropsTheory.build_rec_env_merge,build_rec_env_merge]
-  >- (
-    simp [MAP_MAP_o, UNCURRY, combinTheory.o_DEF] >>
-    metis_tac [])
-  >- metis_tac [global_env_inv_add_locals] >>
-  rw_tac std_ss [GSYM nsAppend_alist_to_ns] >>
-  match_mp_tac env_rel_append >>
-  rw [compile_funs_map, MAP_MAP_o, combinTheory.o_DEF, UNCURRY] >>
-  rw [env_rel_el, EL_MAP, UNCURRY] >>
-  simp [Once v_rel_cases] >>
-  qexists_tac `comp_map` >>
-  qexists_tac `env'` >>
-  qexists_tac `alist_to_ns l` >>
-  qexists_tac `t` >>
-  qexists_tac `REPLICATE (LENGTH funs) None ++ ts` >>
-  drule env_rel_dom >>
-  rw [compile_funs_map, MAP_MAP_o, combinTheory.o_DEF, UNCURRY,
-      bind_locals_def, nsAppend_to_nsBindList] >>
-  rw [sem_env_component_equality]
-  >- metis_tac[]
-  >- metis_tac [LENGTH_MAP]
+  fs [compile_funs_dom2, ELIM_UNCURRY, ETA_THM] >>
+  first_x_assum match_mp_tac >> simp [] >>
+  fs [env_all_rel_cases] >>
+  qspecl_then [`genv`, `comp_map`, `env`, `env_i1`, `funs`, `t`] mp_tac
+    (Q.INST [`ts` |-> `REPLICATE (LENGTH (funs : (mlstring # mlstring # ast$exp) list)) None`,
+             `funs'` |-> `funs`]
+      do_app_rec_help) >>
+  simp [] >> strip_tac >>
+  drule lookup_env_rel_bind_locals >>
+  disch_then (qspecl_then
+    [`REPLICATE (LENGTH funs) None`, `comp_map`, `env`, `env_i1.v`] mp_tac) >>
+  simp [compile_funs_map, MAP_MAP_o, o_DEF, LAMBDA_PROD,
+        semanticPrimitivesPropsTheory.build_rec_env_merge,
+        flatPropsTheory.build_rec_env_merge] >>
+  qspecl_then [`comp_map.v`, `funs`] mp_tac
+    (Q.GEN `comp_map`
+      (Q.INST [`ts` |-> `[]`, `locals` |-> `[]`, `t` |-> `None`]
+        nsAppend_bind_locals)) >>
+  simp [bind_locals_def, nsAppend_to_nsBindList] >>
+  simp [namespaceTheory.nsBindList_def, MAP_MAP_o, o_DEF,
+        LAMBDA_PROD, FST_triple]
 QED
 
 Resume compile_correct[pattern]:
@@ -4672,30 +5188,24 @@ Resume compile_correct[pattern]:
     disch_then drule >>
     fs [pmatch_rows_def]
   ) >>
-  qsubterm_then `nsBindList _ _` assume_tac
-    (GEN_ALL nsBindList_pat_tups_bind_locals) >>
-  fs [] >>
+  qspecl_then [`comp_map.v`, `pat_bindings p`] mp_tac
+    (Q.GEN `comp_map`
+      (Q.INST [`ts` |-> `[]`, `locals` |-> `[]`, `t` |-> `None`]
+        nsBindList_pat_tups_bind_locals)) >>
+  simp [EVAL ``bind_locals [] [] ns``] >>
+  disch_then (qx_choose_then `pattern_traces` strip_assume_tac) >> fs [] >>
   last_x_assum (qsubterm_then `evaluate _ _ _` mp_tac) >>
-  disch_then drule >>
-  simp[]>>
-  reverse IF_CASES_TAC THEN1 fs [pmatch_rows_def] >>
-  impl_tac >> fs [] >>
-  simp[s_rel_cases] >>
-  fs [env_all_rel_cases, match_result_rel_def] >>
-  rveq >> fs [] >>
-  rw [environment_component_equality, sem_env_component_equality] >>
-  qexists_tac `alist_to_ns (env1 ++ l)` >>
-  qexists_tac`env'` >>
-  rw []
-  >- (
-    drule (CONJUNCT1 pmatch_extend) >>
-    drule env_rel_dom >>
-    rw [])
-  >- metis_tac [global_env_inv_add_locals]
-  >- (
-    rw_tac std_ss [GSYM nsAppend_alist_to_ns] >>
-    match_mp_tac env_rel_append >>
-    rw [])
+  disch_then drule >> simp [] >>
+  reverse IF_CASES_TAC >- fs [pmatch_rows_def] >>
+  impl_tac >> fs [] >> simp [s_rel_cases] >>
+  fs [env_all_rel_cases, match_result_rel_def] >> rveq >> fs [] >>
+  drule (CONJUNCT1 pmatch_extend) >> strip_tac >>
+  drule env_rel_dom >> strip_tac >> fs [] >>
+  drule lookup_env_rel_bind_locals >>
+  disch_then (qspecl_then
+    [`pattern_traces`, `comp_map`, `env`, `env_i1.v`] mp_tac) >>
+  simp [] >>
+  impl_tac >- metis_tac [LENGTH_MAP] >> simp []
 QED
 
 Resume compile_correct[empty_decs]:
@@ -4703,6 +5213,17 @@ Resume compile_correct[empty_decs]:
   rw [] \\ asm_exists_tac \\ simp []
   \\ simp [v_rel_global_eqn, subglobals_refl,
       empty_env_def, env_domain_eq_def]
+QED
+
+Resume compile_correct[Dopen]:
+  rpt disch_tac >>
+  Cases_on `open_dec_env path env`
+  >- fs [] >>
+  drule_all open_env_invs >>
+  strip_tac >>
+  gvs [] >>
+  qexistsl_tac [`s_i1`, `genv`] >>
+  simp [flatSemTheory.evaluate_def, subglobals_refl]
 QED
 
 Theorem abort_compile_dec_result[local]:
@@ -4779,7 +5300,11 @@ Resume compile_correct[cons_decs]:
   \\ first_x_assum (drule_then drule)
   \\ simp [global_env_inv_append]
   \\ imp_res_tac env_gen_future_rel_forward
-  \\ (impl_tac >- (rpt strip_tac \\ fs [combine_dec_result_def]))
+  \\ (impl_tac >- (
+    conj_tac
+    >- (irule env_domain_eq_append \\ simp [])
+    \\ rpt strip_tac \\ fs [combine_dec_result_def]
+  ))
   \\ rw []
   \\ simp [abort_compile_dec_result]
   \\ simp [combine_dec_result_def, result_case_eq]
@@ -4811,7 +5336,7 @@ Resume compile_correct[Dlet]:
     qpat_x_assum ‘_ = (s',r)’ mp_tac >>
     simp [AllCaseEqs(),semanticPrimitivesTheory.pmatch_def] >>
     strip_tac >> gvs [] >>
-    ‘∃t1 i1. nsLookup comp_map.v p_1 = SOME (Glob t1 i1)’ by
+    ‘∃t1 i1 k1. nsLookup comp_map.v p_1 = SOME (Glob t1 i1 k1)’ by
       (gvs [v_rel_global_eqn] >> res_tac >> gvs []) >>
     gvs [flatSemTheory.evaluate_def] >>
     first_x_assum $ irule_at $ Pos hd >>
@@ -4822,13 +5347,11 @@ Resume compile_correct[Dlet]:
     res_tac \\ gvs []) >>
   pop_assum $ full_simp_tac std_ss o single >>
   rw [] >> fs [pair_case_eq] >> fs [] >>
-  `env_all_rel genv comp_map env <|v := []|> []`
-    by (simp [env_all_rel_cases] \\ simp [v_rel_rules]) >>
+  `env_all_rel genv comp_map env <|v := []|>` by (
+    simp [env_all_rel_cases] >>
+    irule global_env_inv_lookup_env_rel >> simp []) >>
   first_x_assum (drule_then drule) >>
-  simp [bind_locals_def, EVAL ``nsBindList [] ns``] >>
-  simp [bind_locals_def] >>
-  simp [Q.prove (`(x with v := x.v) = (x : source_to_flat$environment)`,
-      simp [source_to_flatTheory.environment_component_equality])] >>
+  simp [] >>
   disch_then $ qspec_then ‘(REVERSE (pat_bindings p) ++ path)’ mp_tac >>
   (impl_tac >- (CCONTR_TAC >> fs [])) >>
   rw [] >>
@@ -4869,22 +5392,35 @@ Resume compile_correct[Dlet]:
   simp [] >>
   imp_res_tac invariant_IMP_s_rel >>
   asm_exists_tac >> simp [] >>
-  rw []
+  qpat_x_assum ‘evaluate s env [e] = _’ (assume_tac o MATCH_MP evaluate_exp_info) >>
+  conj_tac >- metis_tac [subglobals_trans] >>
+  reverse (Cases_on ‘∃v. p = Pvar v’)
   >- (
-    metis_tac [subglobals_trans]
-  )
-  >- (
-    simp [env_domain_eq_def] >>
-    simp [GSYM MAP_MAP_o, fst_alloc_defs, EXTENSION] >>
-    rw [MEM_MAP] >>
-    imp_res_tac env_rel_dom >>
-    fs [] >>
-    metis_tac [FST, MEM_MAP]
-  )
-  >- (
+    Cases_on ‘p’ >> fs [] >> (conj_tac
+    >- (
+      simp [env_domain_eq_def] >>
+      simp [GSYM MAP_MAP_o, fst_alloc_defs, EXTENSION] >>
+      rw [MEM_MAP] >>
+      imp_res_tac env_rel_dom >>
+      fs [] >>
+      metis_tac [FST, MEM_MAP]
+    ) >>
     first_x_assum irule >>
-    metis_tac [env_rel_weak, SUBMAP_REFL]
-  )
+    metis_tac [env_rel_weak, SUBMAP_REFL])
+  ) >>
+  gvs [alloc_defs_def, astTheory.pat_bindings_def,
+       semanticPrimitivesTheory.pmatch_def] >>
+  conj_tac >- simp [env_domain_eq_def] >>
+  qpat_x_assum ‘env_rel genv' _ _’ assume_tac >>
+  drule_then (qspec_then ‘genv''’ mp_tac) env_rel_weak >>
+  impl_tac >- simp [SUBMAP_REFL] >> strip_tac >>
+  first_x_assum (qspec_then ‘[(FST x0, x)]’ mp_tac) >>
+  impl_tac >- (fs [] >> EVAL_TAC >> fs []) >>
+  ‘alist_to_ns [(FST x0,x)] = nsBind (FST x0) x nsEmpty’ by EVAL_TAC >>
+  pop_assum SUBST1_TAC >>
+  simp [Once v_rel_cases] >> strip_tac >>
+  simp [Once v_rel_cases] >> rw [] >>
+  gvs [nsLookup_nsBind_If, AllCaseEqs()]
 QED
 
 Resume compile_correct[Dletrec]:
@@ -4921,11 +5457,12 @@ Resume compile_correct[Dletrec]:
   \\ simp [FORALL_PROD]
   \\ simp [Once v_rel_cases]
   \\ rw [source_to_flatTheory.compile_funs_map, MAP_EQ_f, FORALL_PROD]
-  \\ qexistsl_tac [`comp_map`, `env`, `nsEmpty`, `path`, `MAP (K None) funs`]
+  \\ qexistsl_tac [`comp_map`, `path`, `MAP (K None) funs`]
+  \\ simp [bind_locals_def, MAP2_MAP, ZIP_MAP, MAP_MAP_o, o_DEF]
+  \\ irule global_env_inv_lookup_env_rel
   \\ simp []
-  \\ drule_then (fn t => simp [t]) global_env_inv_weak
-  \\ rw []
-  \\ simp [bind_locals_def, MAP2_MAP, ZIP_MAP, MAP_MAP_o, o_DEF, v_rel_rules]
+  \\ drule_then irule global_env_inv_weak
+  \\ simp []
 QED
 
 Resume compile_correct[Dtype]:
@@ -5220,7 +5757,13 @@ Resume compile_correct[Dlocal]:
   first_x_assum (drule_then drule) >>
   imp_res_tac env_gen_future_rel_forward >>
   impl_tac
-  >- metis_tac [global_env_inv_append, global_env_inv_weak] >>
+  >- (
+    conj_tac
+    >- metis_tac [global_env_inv_append, global_env_inv_weak]
+    \\ conj_tac
+    >- (irule env_domain_eq_append \\ simp [])
+    \\ metis_tac [global_env_inv_append, global_env_inv_weak]
+  ) >>
   rw [] >>
   imp_res_tac evaluate_decs_append >>
   fs [] >>
@@ -5295,7 +5838,8 @@ Definition init_global_env_inv_def:
         FLOOKUP genv.c ((cn, OPTION_MAP FST ty_gp), arity) = SOME stamp ∧
         (case ty_gp of NONE => T | SOME (ty_id, ctors) =>
             FLOOKUP genv.tys ty_id = SOME ctors)
-    ) ns)
+    ) ns) /\
+  env_domain_eq comp_map env
 End
 
 Theorem init_global_env_inv_imp:
@@ -5457,6 +6001,9 @@ Proof
       \\ simp [subglobals_def, init_genv_def]
     )
     >- (
+      fs [init_global_env_inv_def]
+    )
+    >- (
       simp [env_gen_rel_def]
       \\ every_case_tac \\ fs [init_eval_state_ok_def, empty_config_def]
     )
@@ -5592,21 +6139,24 @@ QED
 (* - connect semantics theorems of flat-to-flat passes --------------------- *)
 
 Theorem compile_flat_correct:
-   flat_patternProof$install_conf_rel cfg ec1 ec2 /\
+   flat_ticksProof$install_conf_rel ec1 ec /\
+   flat_patternProof$install_conf_rel cfg ec ec2 /\
    semantics ec1 ffi prog <> Fail
    ==>
    semantics ec1 ffi prog =
    semantics ec2 ffi (compile_flat cfg prog)
 Proof
   rw [compile_flat_def]
-  \\ metis_tac [flat_patternProofTheory.compile_decs_semantics,
-        flat_elimProofTheory.flat_remove_semantics]
+  \\ drule_then (qspecl_then [‘ffi’, ‘prog’] assume_tac)
+       flat_ticksProofTheory.remove_ticks_decs_semantics
+  \\ metis_tac [flat_patternProofTheory.compile_decs_semantics]
 QED
 
 Definition precondition_def:
   precondition interp s env cfg ec prog <=>
-  ?ec1 g. precondition1 interp g s env cfg ec1 prog /\
-    flat_patternProof$install_conf_rel cfg.pattern_cfg ec1 ec
+  ?ec1 ec2 g. precondition1 interp g s env cfg ec1 prog /\
+    flat_ticksProof$install_conf_rel ec1 ec2 /\
+    flat_patternProof$install_conf_rel cfg.pattern_cfg ec2 ec
 End
 
 Theorem compile_semantics:
@@ -5620,12 +6170,11 @@ Proof
   \\ pairarg_tac \\ fs []
   \\ fs [precondition_def]
   \\ imp_res_tac compile_prog_semantics \\ rfs []
-  \\ DEP_REWRITE_TAC [GSYM compile_flat_correct]
-  \\ simp []
-  \\ fs [compile_prog_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ rveq \\ fs []
-  \\ strip_tac \\ fs []
+  \\ ‘c'.pattern_cfg = cfg.pattern_cfg’
+    by (fs [compile_prog_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [])
+  \\ ‘semantics ec1 s.ffi p' ≠ Fail’ by (strip_tac \\ fs [])
+  \\ drule_all compile_flat_correct
+  \\ disch_then (assume_tac o GSYM) \\ fs []
 QED
 
 (* - esgc_free theorems for compile_exp ------------------------------------ *)
@@ -5634,6 +6183,22 @@ Theorem op_gbag_astOp_to_flatOp:
   op_gbag (astOp_to_flatOp op) = {||}
 Proof
   Cases_on `op` \\ simp [astOp_to_flatOp_def, op_gbag_def]
+QED
+
+Theorem tick_n_esgc_free[local,simp]:
+  ∀n e. set_globals (tick_n n e) = set_globals e ∧
+        (esgc_free (tick_n n e) ⇔ esgc_free e)
+Proof
+  Induct \\ ONCE_REWRITE_TAC [tick_n_def] \\ rw []
+QED
+
+Theorem inline_app_esgc_free[local]:
+  EVERY esgc_free xs ∧ elist_globals xs = {||} ⇒
+  esgc_free (inline_app p n xs) ∧ set_globals (inline_app p n xs) = {||}
+Proof
+  rw [inline_app_def] \\ every_case_tac
+  \\ gvs [oneline dest_call_def, AllCaseEqs(), op_gbag_def,
+          op_gbag_astOp_to_flatOp]
 QED
 
 Theorem compile_exp_esgc_free:
@@ -5657,17 +6222,12 @@ Proof
   \\ fs [compile_exp_def]
   \\ rpt (TOP_CASE_TAC \\ fs [])
   \\ fs [compile_exp_def]
-  \\ simp [op_gbag_def, Bool_def, op_gbag_astOp_to_flatOp]
-  >- (
-   rename [`compile_var _ x`] \\ Cases_on `x` \\ fs [compile_var_def]
-   \\ simp [op_gbag_def]
-  )
-  >- (
-    fs [FOLDR_REVERSE, FOLDL_invariant, EVERY_MEM]
-    \\ fs [flatPropsTheory.elist_globals_eq_empty]
-    \\ DEEP_INTRO_TAC FOLDL_invariant
-    \\ fs [op_gbag_def]
-  )
+  \\ simp [op_gbag_def, Bool_def, op_gbag_astOp_to_flatOp, compile_var_def,
+          inline_app_esgc_free]
+  \\ fs [FOLDR_REVERSE, FOLDL_invariant, EVERY_MEM]
+  \\ fs [flatPropsTheory.elist_globals_eq_empty]
+  \\ DEEP_INTRO_TAC FOLDL_invariant
+  \\ fs [op_gbag_def]
 QED
 
 (* - esgc_free theorems for compile_decs ----------------------------------- *)
@@ -5739,7 +6299,7 @@ Theorem compile_flat_esgc_free:
 Proof
   rw [compile_flat_def, compile_def]
   \\ irule flat_patternProofTheory.compile_decs_esgc_free
-  \\ simp [flat_elimProofTheory.remove_flat_prog_esgc_free]
+  \\ simp [flat_ticksProofTheory.remove_ticks_decs_esgc_free]
 QED
 
 Theorem compile_esgc_free:
@@ -5765,8 +6325,7 @@ Theorem inc_compile_esgc_free:
 Proof
   rw [inc_compile_def]
   \\ rpt (pairarg_tac \\ fs [])
-  \\ irule flat_patternProofTheory.compile_decs_esgc_free
-  \\ metis_tac [inc_compile_prog_esgc_free, SND]
+  \\ metis_tac [compile_flat_esgc_free, inc_compile_prog_esgc_free, SND]
 QED
 
 Theorem compile_no_Mat:
@@ -5877,8 +6436,8 @@ Theorem compile_flat_sub_bag:
 Proof
   fs [source_to_flatTheory.compile_flat_def]
   \\ metis_tac [
-       flat_elimProofTheory.remove_flat_prog_sub_bag,
        flat_patternProofTheory.compile_decs_elist_globals,
+       flat_ticksProofTheory.remove_ticks_decs_elist_globals,
        SUB_BAG_TRANS]
 QED
 
@@ -5910,8 +6469,7 @@ Proof
   \\ fs [inc_compile_def, inc_compile_prog_def]
   \\ rpt (pairarg_tac \\ full_simp_tac bool_ss [UNCURRY_DEF])
   \\ simp[]
-  \\ match_mp_tac BAG_ALL_DISTINCT_SUB_BAG
-  \\ (irule_at Any) flat_patternProofTheory.compile_decs_elist_globals
+  \\ irule compile_flat_BAG_ALL_DISTINCT
   \\ rw []
   \\ fs [glob_alloc_def, op_gbag_def, store_env_id_def, FILTER_APPEND,
         elist_globals_append, env_id_tuple_def]

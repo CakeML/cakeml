@@ -48,8 +48,8 @@ Datatype:
     <| locals      : varname |-> 'a v
      ; globals     : varname |-> 'a v
      ; structs     : (stcname # struct_info) list
-     ; code        : funname |-> ((varname # shape) list # ('a panLang$prog))
-                     (* arguments (with shape), body *)
+     ; code        : funname |-> ((varname # shape) list # ('a panLang$prog) # shape)
+                     (* arguments (with shape), body, return shape *)
      ; eshapes     : eid |-> shape
      ; memory      : 'a word -> 'a word_lab
      ; memaddrs    : ('a word) set
@@ -280,9 +280,9 @@ Definition eval_def:
      | (SOME (ValWord w1), SOME (ValWord w2)) =>
           SOME (ValWord (if word_cmp cmp w1 w2 then 1w else 0w))
      | _ => NONE) /\
-  (eval s (Shift sh e n) =
-    case eval s e of
-     | SOME (ValWord w) => OPTION_MAP ValWord (word_sh sh w n)
+  (eval s (Shift sh e1 e2) =
+    case (eval s e1, eval s e2) of
+     | (SOME (ValWord w1), SOME (ValWord w2)) => OPTION_MAP ValWord (word_sh sh w1 (w2n w2))
      | _ => NONE) /\
   (eval s BaseAddr =
         SOME (ValWord s.base_addr)) /\
@@ -458,10 +458,10 @@ QED
 Definition lookup_code_def:
   lookup_code code fname args =
     case (FLOOKUP code fname) of
-      | SOME (vshapes, prog) =>
+      | SOME (vshapes, prog, rshape) =>
          if ALL_DISTINCT (MAP FST vshapes) ∧
             LIST_REL (\vshape arg. SND vshape = shape_of arg) vshapes args
-         then SOME (prog, FEMPTY |++ ZIP (MAP FST vshapes,args))
+         then SOME (prog, FEMPTY |++ ZIP (MAP FST vshapes,args), rshape)
          else NONE
       | _ => NONE
 End
@@ -658,7 +658,7 @@ Definition evaluate_def:
     case OPT_MMAP (eval s) argexps of
      | SOME args =>
         (case lookup_code s.code fname args of
-          | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s)
+          | SOME (prog, newlocals, return_sh) => if s.clock = 0 then (SOME TimeOut,empty_locals s)
            else
            let eval_prog = fix_clock ((dec_clock s) with locals := newlocals)
                                      (evaluate (prog, (dec_clock s) with locals:= newlocals)) in
@@ -667,13 +667,14 @@ Definition evaluate_def:
               | (SOME Break,st) => (SOME Error,st)
               | (SOME Continue,st) => (SOME Error,st)
               | (SOME (Return retv),st) =>
+                  (if shape_of retv ≠ return_sh then (SOME Error, st) else
                   (case caltyp of
                     | NONE      => (SOME (Return retv),empty_locals st)
                     | SOME (NONE, _) => (NONE, st with locals := s.locals)
                     | SOME (SOME (rk, rt),  _) =>
                        if is_valid_value s rk rt retv
                        then (NONE, set_kvar rk rt retv (st with locals := s.locals))
-                       else (SOME Error,st))
+                       else (SOME Error,st)))
               | (SOME (Exception eid exn),st) =>
                   (case caltyp of
                     | NONE        => (SOME (Exception eid exn),empty_locals st)
@@ -694,7 +695,8 @@ Definition evaluate_def:
     case OPT_MMAP (eval s) argexps of
      | SOME args =>
         (case lookup_code s.code fname args of
-          | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s)
+          | SOME (prog, newlocals, return_sh) =>
+            (if s.clock = 0 then (SOME TimeOut,empty_locals s)
            else
            let eval_prog = fix_clock ((dec_clock s) with locals := newlocals)
                                      (evaluate (prog, (dec_clock s) with locals:= newlocals)) in
@@ -703,12 +705,12 @@ Definition evaluate_def:
               | (SOME Break,st) => (SOME Error,st)
               | (SOME Continue,st) => (SOME Error,st)
               | (SOME (Return retv),st) =>
-                  if shape_of retv = shape then
+                  (if shape_of retv = shape ∧ shape_of retv = return_sh then
                     let (res',st') = evaluate (prog1, set_var rt retv (st with locals := s.locals)) in
                       (res',st' with locals := res_var st'.locals (rt, FLOOKUP s.locals rt))
                   else
-                    (SOME Error, st)
-              | (res,st) => (res,empty_locals st))
+                    (SOME Error, st))
+              | (res,st) => (res,empty_locals st)))
            | _ => (SOME Error,s))
      | _ => (SOME Error,s)) /\
   (evaluate (ExtCall ffi_index ptr1 len1 ptr2 len2,s) =
@@ -823,10 +825,15 @@ Definition evaluate_decls_def:
             NONE)
     | NONE => NONE) ∧
   evaluate_decls s (Function fi::ds) =
-    if EVERY ((is_wf_shape s.structs) o SND) fi.params
-       /\ is_wf_shape s.structs fi.return then
-      evaluate_decls (s with code := s.code |+ (fi.name,(fi.params,fi.body))) ds
-    else NONE
+    (if EVERY ((is_wf_shape s.structs) o SND) fi.params
+       ∧ is_wf_shape s.structs fi.return then
+      evaluate_decls (s with code := s.code |+ (fi.name,(fi.params,(fi.body,fi.return)))) ds
+    else NONE) ∧
+  evaluate_decls s (ExnDecl eid sh :: ds) =
+    if FLOOKUP s.eshapes eid = NONE ∧ is_wf_shape s.structs sh then
+      evaluate_decls (s with eshapes := s.eshapes |+ (eid, sh)) ds
+    else
+      NONE
 End
 
 Definition decs_stcnames_def:
@@ -846,6 +853,8 @@ Definition decs_stcnames_def:
   decs_stcnames st_ctxt (Decl sh v e::ds) =
     (decs_stcnames st_ctxt ds) ∧
   decs_stcnames st_ctxt (Function fi::ds) =
+    (decs_stcnames st_ctxt ds) ∧
+  decs_stcnames st_ctxt (ExnDecl eid sh::ds) =
     (decs_stcnames st_ctxt ds)
 End
 

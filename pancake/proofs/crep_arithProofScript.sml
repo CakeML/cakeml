@@ -7,6 +7,59 @@ Ancestors
 Libs
   preamble
 
+Theorem dest_2exp_bound:
+  ∀n w m.
+    dest_2exp n (w:'a word) = SOME m ⇒
+    m ≤ n + w2n(word_log2 w)
+Proof
+  recInduct dest_2exp_ind >>
+  rw[] >>
+  pop_assum mp_tac >>
+  rw[Once dest_2exp_def] >>
+  first_x_assum dxrule >>
+  rw[] >>
+  irule LESS_EQ_TRANS >>
+  first_x_assum $ irule_at $ Pos hd >>
+  gvs [wordLangTheory.word_sh_def, wordsTheory.WORD_MUL_LSL,
+       word_log2_def,w2n_lsr] >>
+  Cases_on ‘w’ >> gvs[] >>
+  rename1 ‘k DIV 2’ >>
+  Cases_on ‘k = 0’ >- gvs[Once dest_2exp_def] >>
+  PURE_ONCE_REWRITE_TAC[bitTheory.LOG2_def] >>
+  CONV_TAC (RAND_CONV (PURE_ONCE_REWRITE_CONV [numeral_bitTheory.LOG_compute])) >>
+  simp[] >> rw[ADD1] >>
+  dep_rewrite.DEP_REWRITE_TAC[LESS_MOD] >>
+  simp[] >>
+  conj_asm2_tac >- intLib.COOPER_TAC >>
+  irule LESS_LESS_EQ_TRANS >>
+  irule_at (Pos hd) LESS_MONO_ADD >>
+  irule_at (Pos hd) logrootTheory.LOG2_LT_SELF >>
+  intLib.COOPER_TAC
+QED
+
+Theorem dest_2exp_bound':
+  ∀n w m.
+    dest_2exp 0 (w:'a word) = SOME m ⇒
+    m < dimindex(:'a)
+Proof
+  rpt strip_tac >>
+  ‘w ≠ 0w’ by gvs[Once dest_2exp_def] >>
+  drule dest_2exp_bound >>
+  simp[word_log2_def] >>
+  dep_rewrite.DEP_REWRITE_TAC[LESS_MOD] >>
+  conj_tac
+  >- (irule LESS_LESS_EQ_TRANS >>
+      PURE_ONCE_REWRITE_TAC[bitTheory.LOG2_def] >>
+      irule_at (Pos hd) logrootTheory.LOG2_LT_SELF >>
+      conj_tac >- (Cases_on ‘w’ >> gvs[]) >>
+      irule LT_IMP_LE >>
+      irule w2n_lt) >>
+  strip_tac >>
+  irule LESS_EQ_LESS_TRANS >>
+  first_x_assum $ irule_at $ Pos last >>
+  irule LOG2_w2n_lt >>
+  simp[]
+QED
 
 Theorem dest_const_thm:
   dest_const exp = SOME v ==> exp = Const v
@@ -22,8 +75,19 @@ Proof
   \\ every_case_tac
   \\ fs [eval_def, crep_op_def]
   \\ imp_res_tac dest_2exp_thm
-  \\ simp [wordLangTheory.word_sh_def, wordsTheory.WORD_MUL_LSL]
-  \\ CCONTR_TAC \\ fs []
+  \\ imp_res_tac dest_2exp_bound'
+  \\ dep_rewrite.DEP_REWRITE_TAC[LESS_MOD]
+  \\ conj_tac
+  >- (irule LESS_LESS_EQ_TRANS >>
+      first_x_assum $ irule_at $ Pos hd >>
+      simp[dimword_def] >>
+      irule LT_IMP_LE >>
+      irule X_LT_EXP_X >>
+      simp[])
+  \\ rename1 ‘dest_2exp _ _ = SOME x’
+  \\ Cases_on ‘x = 0’ >- gvs[Once dest_2exp_def]
+  \\ gvs [wordLangTheory.word_sh_def, wordsTheory.WORD_MUL_LSL]
+  \\ rw[GE,NOT_LE]
 QED
 
 Theorem OPT_MMAP_EQ_SOME_MONO[local]:
@@ -83,6 +147,16 @@ Proof
   rw [simp_exp_correct1]
 QED
 
+Theorem opt_mmap_simp_exp_correct:
+  OPT_MMAP (crepSem$eval s) es = SOME vs ⇒
+  OPT_MMAP (eval (mapc f s)) (MAP simp_exp es) = SOME vs
+Proof
+  strip_tac \\ fs[OPT_MMAP_MAP_o]
+  \\ qpat_assum `OPT_MMAP _ _ = _` $ REWRITE_TAC o single o GSYM
+  \\ irule OPT_MMAP_CONG \\ rw[]
+  \\ imp_res_tac pan_commonPropsTheory.opt_mmap_mem_func \\ gvs[simp_exp_correct]
+QED
+
 Overload mapcs[local] = ``mapc (\(s,n,p). (n, simp_prog p))``
 
 Theorem lookup_code[local]:
@@ -127,7 +201,7 @@ Proof
     \\ simp [simp_exp_correct, lookup_code]
     \\ fs [AllCaseEqs ()]
     \\ gvs [empty_locals_def, dec_clock_def]
-    \\ TRY (rename [`Case (Call (SOME (_, _, handler)) _ _ )`] \\ Cases_on `handler`)
+    \\ TRY (rename [`Case (Call (SOME (_, handler)) _ _ )`] \\ Cases_on `handler`)
     \\ simp []
     \\ simp [PAIR_FST_SND_EQ]
   )
@@ -145,6 +219,5 @@ Proof
   \\ gvs [set_globals_def, empty_locals_def, dec_clock_def]
   \\ res_tac
   \\ rw [] \\ fs []
-  \\ fs [sh_mem_op_code]
+  \\ fs [sh_mem_op_code, opt_mmap_simp_exp_correct]
 QED
-

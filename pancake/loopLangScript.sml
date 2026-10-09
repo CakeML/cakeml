@@ -18,7 +18,7 @@ Datatype:
       | Lookup (5 word)
       | Load exp
       | Op binop (exp list)
-      | Shift shift exp num
+      | Shift shift exp exp
       | BaseAddr
       | TopAddr
 End
@@ -39,7 +39,7 @@ Datatype:
        | Store32 num num
        | StoreByte num num
        | Seq prog prog
-       | If cmp num ('a reg_imm) prog prog num_set
+       | If cmp num reg_imm prog prog num_set
        | Loop num_set prog num_set     (* names in, body, names out *)
        | Break num
        | Continue num
@@ -80,7 +80,7 @@ Definition locals_touched_def:
   (locals_touched (Lookup name) = []) /\
   (locals_touched (Load addr) = locals_touched addr) /\
   (locals_touched (Op op wexps) = FLAT (MAP locals_touched wexps)) /\
-  (locals_touched (Shift sh wexp n) = locals_touched wexp) ∧
+  (locals_touched (Shift sh wexp1 wexp2) = locals_touched wexp1 ++ locals_touched wexp2) ∧
   (locals_touched BaseAddr = []) ∧
   (locals_touched TopAddr = [])
 Termination

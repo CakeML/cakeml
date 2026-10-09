@@ -1,5 +1,3 @@
-INCLUDES = .. ../../misc ../ffi
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

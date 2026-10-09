@@ -20,6 +20,11 @@ Function inlining pass in crepLang
 [crep_to_loopScript.sml](crep_to_loopScript.sml):
 Compilation from crepLang to loopLang.
 
+[decompiler](decompiler):
+The proof-producing Pancake decompiler into Interaction trees,
+i.e. a shallow-embedding extractor that generate interaction trees
+representing the program with their correspondance proofs.
+
 [loopLangScript.sml](loopLangScript.sml):
 loopLang intermediate language
 
@@ -31,6 +36,9 @@ Liveness analysis for loopLang.
 
 [loop_to_wordScript.sml](loop_to_wordScript.sml):
 Compilation from loopLang to wordLang.
+
+[newsScript.sml](newsScript.sml):
+Pancake news presentation and validation
 
 [panLangScript.sml](panLangScript.sml):
 Abstract syntax for Pancake language.

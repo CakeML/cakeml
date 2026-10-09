@@ -12,7 +12,6 @@ Ancestors
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = augment_srw_ss [rewrites [aty_def, bool_ty_def]];
 
-val _ = ParseExtras.temp_loose_equality();
 val _ = hide"str";
 
 val _ = monadsyntax.temp_enable_monad "st_ex";
@@ -64,7 +63,7 @@ Definition TERM_def:
 End
 
 Definition CONTEXT_def:
-  CONTEXT ctxt = ctxt extends init_ctxt
+  CONTEXT ctxt ⇔ ctxt extends init_ctxt
 End
 
 Definition THM_def:
@@ -76,7 +75,7 @@ Definition lift_tm_def:
 End
 
 Definition STATE_def:
-  STATE ctxt state =
+  STATE ctxt state <=>
       (ctxt = state.the_context) /\ CONTEXT ctxt /\
       (state.the_type_constants = type_list ctxt) /\
       (state.the_term_constants = const_list ctxt) /\

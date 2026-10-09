@@ -759,6 +759,19 @@ Proof
   \\ fs []
 QED
 
+Definition contains_def:
+  contains s c = IS_SOME (str_findi (λx. x = c) 0 s)
+End
+
+Theorem contains_thm:
+  contains s c ⇔ MEM c (explode s)
+Proof
+  Cases_on ‘s’
+  \\ simp [contains_def, str_findi_OLEAST, MEM_EL,
+           optionTheory.IS_SOME_EQ_NOT_NONE, WhileTheory.OLEAST_EQ_NONE]
+  \\ metis_tac []
+QED
+
 Definition isStringThere_aux_def:
   (isStringThere_aux s1 s2 s1i s2i 0 = T) /\
   (isStringThere_aux s1 s2 s1i s2i (SUC len) =
@@ -984,6 +997,12 @@ End
 Definition fast_ge_def:
   fast_ge s1 s2 =
     if strlen s1 = strlen s2 then mlstring_ge s1 s2 else strlen s1 ≥ strlen s2
+End
+
+Definition fast_compare_def:
+  fast_compare s1 s2 =
+    if fast_lt s1 s2 then LESS else
+    if fast_le s1 s2 then EQUAL else GREATER
 End
 
 (* Properties of string orderings *)
@@ -1383,6 +1402,21 @@ Theorem StrongLinearOrder_fast_lt:
 Proof
   rw[StrongLinearOrder, StrongOrder, trichotomous_fast_lt, irreflexive_fast_lt,
      transitive_fast_lt]
+QED
+
+Theorem fast_compare_thm:
+   fast_compare = TO_of_LinearOrder fast_lt
+Proof
+  rw[FUN_EQ_THM, fast_compare_def, TO_of_LinearOrder, fast_le_thm]
+  >> rpt (IF_CASES_TAC >> gvs[fast_lt_nonrefl])
+QED
+
+Theorem TotOrd_fast_compare:
+   TotOrd fast_compare
+Proof
+  rw[fast_compare_thm]
+  >> irule TotOrd_TO_of_Strong
+  >> rw[StrongLinearOrder_fast_lt]
 QED
 
 Definition collate_aux_def:

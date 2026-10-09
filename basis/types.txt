@@ -17,6 +17,7 @@ Option.composePartial: ('a -> 'b option) -> ('c -> 'a option) -> 'c -> 'b option
 Option.isNone: 'a option -> bool
 Option.map2: ('a -> 'b -> 'c) -> 'a option -> 'b option -> 'c option
 Option.compare: ('a -> 'b -> ordering) -> 'a option -> 'b option -> ordering
+Option.filter: ('a -> bool) -> 'a -> 'a option
 List.null: 'a list -> bool
 List.length: 'a list -> int
 List.rev: 'a list -> 'a list
@@ -94,6 +95,7 @@ String.Fast.<: string -> string -> bool
 String.Fast.<=: string -> string -> bool
 String.Fast.>: string -> string -> bool
 String.Fast.>=: string -> string -> bool
+String.Fast.compare: string -> string -> ordering
 String.<: string -> string -> bool
 String.<=: string -> string -> bool
 String.>: string -> string -> bool
@@ -141,6 +143,7 @@ Int.>: int -> int -> bool
 Int.<=: int -> int -> bool
 Int.>=: int -> int -> bool
 Int.~: int -> int
+Int.abs: int -> int
 Int.int_to_string: char -> int -> string
 Int.toString: int -> string
 Int.fromString: string -> int option
@@ -200,6 +203,7 @@ Char.isAlpha: char -> bool
 Char.isAlphaNum: char -> bool
 Char.fromByte: Word8.word -> char
 Char.some: char -> char option
+Char.contains: string -> char -> bool
 Word64.fromInt: int -> Word64.word
 Word64.toInt: Word64.word -> int
 Word64.toIntSigned: Word64.word -> int
@@ -214,10 +218,10 @@ Word64.<: Word64.word -> Word64.word -> bool
 Word64.>: Word64.word -> Word64.word -> bool
 Word64.<=: Word64.word -> Word64.word -> bool
 Word64.>=: Word64.word -> Word64.word -> bool
-Word64.<<: Word64.word -> int -> Word64.word
-Word64.>>: Word64.word -> int -> Word64.word
-Word64.~>>: Word64.word -> int -> Word64.word
-Word64.ror: Word64.word -> int -> Word64.word
+Word64.<<: Word64.word -> Word64.word -> Word64.word
+Word64.>>: Word64.word -> Word64.word -> Word64.word
+Word64.~>>: Word64.word -> Word64.word -> Word64.word
+Word64.ror: Word64.word -> Word64.word -> Word64.word
 Word64.concatAll: Word8.word -> Word8.word -> Word8.word -> Word8.word -> Word8.word -> Word8.word -> Word8.word -> Word8.word -> Word64.word
 Word8.fromInt: int -> Word8.word
 Word8.fromChar: char -> Word8.word
@@ -234,14 +238,16 @@ Word8.<: Word8.word -> Word8.word -> bool
 Word8.>: Word8.word -> Word8.word -> bool
 Word8.<=: Word8.word -> Word8.word -> bool
 Word8.>=: Word8.word -> Word8.word -> bool
-Word8.<<: Word8.word -> int -> Word8.word
-Word8.>>: Word8.word -> int -> Word8.word
-Word8.~>>: Word8.word -> int -> Word8.word
-Word8.ror: Word8.word -> int -> Word8.word
+Word8.<<: Word8.word -> Word8.word -> Word8.word
+Word8.>>: Word8.word -> Word8.word -> Word8.word
+Word8.~>>: Word8.word -> Word8.word -> Word8.word
+Word8.ror: Word8.word -> Word8.word -> Word8.word
 Word8Array.array: int -> Word8.word -> byte_array
 Word8Array.sub: byte_array -> int -> Word8.word
+Word8Array.subBit: byte_array -> int -> bool
 Word8Array.length: byte_array -> int
 Word8Array.update: byte_array -> int -> Word8.word -> unit
+Word8Array.updateBit: byte_array -> int -> bool -> unit
 Word8Array.copy: byte_array -> int -> int -> byte_array -> int -> unit
 Word8Array.copyVec: string -> int -> int -> byte_array -> int -> unit
 Word8Array.substring: byte_array -> int -> int -> string
@@ -270,6 +276,7 @@ Array.all: ('a -> bool) -> 'a Array.array -> bool
 Array.collate: ('a -> 'b -> ordering) -> 'a Array.array -> 'b Array.array -> ordering
 Array.lookup: 'a Array.array -> 'a -> int -> 'a
 Array.updateResize: 'a Array.array -> 'a -> int -> 'a -> 'a Array.array
+Map.diff: ('a, 'b) map -> ('a, 'c) map -> ('a, 'b) map
 Map.lookup: ('a, 'b) map -> 'a -> 'b option
 Map.member: 'a -> ('a, 'b) map -> bool
 Map.insert: ('a, 'b) map -> 'a -> 'b -> ('a, 'b) map

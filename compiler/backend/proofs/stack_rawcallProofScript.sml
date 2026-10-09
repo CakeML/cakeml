@@ -18,7 +18,7 @@ val isWord_def = wordSemTheory.isWord_def;
 Overload good_dimindex[local] = ``misc$good_dimindex``
 Overload comp[local] = ``stack_rawcall$comp``
 Overload compile[local] = ``stack_rawcall$compile``
-Type prog[pp] = “:α stackLang$prog”
+Type prog[pp] = “:stackLang$prog”
 
 Definition state_ok_def:
   state_ok i code <=>
@@ -128,7 +128,7 @@ Theorem evaluate_comp_Inst:
      k1 = t1.stack_space)
 Proof
   rw [] \\ reverse simple_case
-  THEN1 (pairarg_tac \\ fs [] \\ fs [bool_case_eq] \\ rveq \\ fs [])
+  THEN1 (pairarg_tac \\ fs [] \\ fs [bool_case_eq] \\ rveq \\ fs [state_component_equality])
   \\ every_case_tac \\ fs [word_exp_def]
 QED
 
@@ -553,8 +553,6 @@ Proof
     \\ fs [state_rel_thm,state_component_equality,empty_env_def]
     \\ fs [state_rel_thm,state_component_equality,empty_env_def,dec_clock_def])
   THEN1
-   (rename [`CodeBufferWrite`] \\ simple_case)
-  THEN1
    (rename [`DataBufferWrite`] \\ simple_case)
   THEN1
    (rename [`FFI`] \\ simple_case)
@@ -638,7 +636,7 @@ Proof
     gen_tac >> ntac 2 strip_tac >>
     IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
       first_x_assum(qspec_then`k'`mp_tac)>>simp[]>>
-      (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
+      goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >>
       simp[] >>
       qmatch_assum_rename_tac`_ = (res,_)` >>
       Cases_on`res=SOME Error`>>simp[]>>
@@ -655,7 +653,7 @@ Proof
         \\ fs [ALOOKUP_toAList,lookup_fromAList]) >>
       strip_tac >>
       qpat_x_assum`_ ≠ SOME TimeOut`mp_tac >>
-      (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
+      goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >>
       strip_tac >>
       drule (Q.GEN`extra`evaluate_add_clock) >>
       disch_then(qspec_then`ck`mp_tac) >> full_simp_tac(srw_ss())[] >>
@@ -678,7 +676,7 @@ Proof
         \\ simp [compile_def,lookup_fromAList,ALOOKUP_MAP]
         \\ fs [ALOOKUP_toAList,lookup_fromAList]) >>
       strip_tac >>
-      old_dxrule(GEN_ALL evaluate_add_clock) >>
+      dxrule(GEN_ALL evaluate_add_clock) >>
       disch_then(qspec_then `k'` mp_tac) >>
       impl_tac >- (CCONTR_TAC >> fs[]) >> simp [] >>
       dxrule evaluate_add_clock >>
@@ -709,7 +707,7 @@ Proof
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
     first_x_assum(qspec_then`k`mp_tac)>>simp[]>>
     first_x_assum(qspec_then`k`mp_tac)>>
-    (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >>
     simp[] >> strip_tac >> fs[] >>
     drule comp_correct >>
     fs [comp_top_def] >> simp [Once comp_def] >>
@@ -724,14 +722,14 @@ Proof
       \\ fs [ALOOKUP_toAList,lookup_fromAList]) >>
     srw_tac[][] >>
     qpat_x_assum`_ ≠ SOME TimeOut`mp_tac >>
-    (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >> srw_tac[][] >>
+    goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >> srw_tac[][] >>
     drule (GEN_ALL evaluate_add_clock) >>
     disch_then(qspec_then`ck`mp_tac)>>simp[]) >>
   DEEP_INTRO_TAC some_intro >> full_simp_tac(srw_ss())[] >>
   conj_tac >- (
     srw_tac[][] >>
     qpat_x_assum`∀k t. _`(qspec_then`k`mp_tac) >>
-    (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >>
     simp[] >>
     last_x_assum mp_tac >>
     last_x_assum mp_tac >>
@@ -783,8 +781,8 @@ Proof
   simp[LNTH_fromList,PULL_EXISTS] >>
   simp[GSYM FORALL_AND_THM] >>
   rpt gen_tac >>
-  (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
-  (fn g => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm (#2 g)) tm)`) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
+  goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >> full_simp_tac(srw_ss())[] >>
+  goal_term (fn w => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm w) tm)`) w) >> full_simp_tac(srw_ss())[] >>
   `q' <> SOME Error` by
     (last_x_assum (qspec_then `k` mp_tac) \\ fs [] \\ rw [] \\ fs []) >>
   drule comp_correct >>

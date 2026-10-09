@@ -186,6 +186,15 @@ val constrain_op_pre = cv_trans_pre "" constrain_op_expand;
 val _ = cv_trans nsBind_def;
 val _ = cv_trans nsOptBind_def;
 
+(* Both expression-local and declaration opens use this selection code. *)
+val _ = cv_auto_trans namespaceTheory.nsLookupMod_def;
+val _ = cv_trans namespaceTheory.nsOpen_def;
+val _ = cv_auto_trans open_ienv_def;
+val _ = cv_trans mod_path_to_string_def;
+val _ = cv_auto_trans
+  (infer_open_def |> expand |>
+   SRULE [option_case_rand, failwith_def, st_ex_return_def, FUN_EQ_THM]);
+
 val infer_e_pre = cv_auto_trans_pre_rec ""
           (infer_e_expand |> SRULE [namespaceTheory.alist_to_ns_def])
  (WF_REL_TAC ‘measure $ λx. case x of
@@ -202,6 +211,7 @@ Definition exp_is_value_def:
   exp_is_value (Fun _ _) = T ∧
   exp_is_value (Tannot e v5) = exp_is_value e ∧
   exp_is_value (Lannot e v6) = exp_is_value e ∧
+  exp_is_value (Open path e) = exp_is_value e ∧
   exp_is_value _ = F ∧
   exp_is_value_list [] = T ∧
   exp_is_value_list (x::xs) = (exp_is_value x ∧ exp_is_value_list xs)
@@ -347,6 +357,8 @@ Theorem IMP_infer_e_pre:
   (∀l ienv funs s. t_wfs s.subst ⇒ infer_funs_pre l ienv funs s)
 Proof
   ho_match_mp_tac infer_e_ind \\ rpt strip_tac
+  >~ [`infer_e_pre _ _ (Open _ _) _`] >- (
+    simp [Once infer_e_pre] >> rw [] >> gvs [infer_open_success])
   \\ simp [Once infer_e_pre]
   \\ gvs [lookup_st_ex_def,AllCaseEqs()]
   \\ gvs [add_constraint_pre_eq,add_constraints_pre_eq] \\ rw []
@@ -371,6 +383,7 @@ Proof
   >~ [‘Dtype’] >- (once_rewrite_tac [infer_d_pre] \\ gvs [])
   >~ [‘Dtabbrev’] >- (once_rewrite_tac [infer_d_pre] \\ gvs [])
   >~ [‘Dexn’] >- (once_rewrite_tac [infer_d_pre] \\ gvs [])
+  >~ [‘Dopen’] >- (once_rewrite_tac [infer_d_pre] \\ gvs [])
   >~ [‘Dmod’] >- (once_rewrite_tac [infer_d_pre] \\ gvs [])
   >~ [‘Denv’] >- (once_rewrite_tac [infer_d_pre] \\ gvs [])
   >~ [‘infer_ds_pre ienv [] s’] >- (once_rewrite_tac [infer_d_pre] \\ gvs [])

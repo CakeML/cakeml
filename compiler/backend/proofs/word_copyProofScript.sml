@@ -591,8 +591,8 @@ QED
 Theorem CPstate_modelsD_lookup_eq_imm:
   CPstate_inv cs ⇒
   CPstate_models cs st ⇒
-  word_exp st (case lookup_eq_imm cs x of Reg r => Var r | Imm w => Const w) =
-  word_exp st (case x of Reg r => Var r | Imm w => Const w)
+  word_exp st (case lookup_eq_imm cs x of Reg r => Var r | Imm w => Const (i2w w)) =
+  word_exp st (case x of Reg r => Var r | Imm w => Const (i2w w))
 Proof
   Cases_on‘x’>>
   rw[lookup_eq_imm_def,word_exp_def]>>
@@ -1352,12 +1352,6 @@ Proof
     fs[evaluate_def]>>
     metis_tac[empty_eq_model]
   )
-  >~[`CodeBufferWrite`]
-  >- (
-    rpt gen_tac >> strip_tac>>
-    gvs[copy_prop_prog_def,evaluate_def] >>
-    fs[CPstate_modelsD_get_var,CPstate_modelsD_get_vars] >>
-    gvs[AllCaseEqs()])
   >~[`DataBufferWrite`]
   >- (
     rpt gen_tac >> strip_tac>>

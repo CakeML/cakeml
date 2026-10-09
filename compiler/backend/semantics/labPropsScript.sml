@@ -167,7 +167,9 @@ Theorem update_simps[simp]:
     ((labSem$inc_pc s).mem_domain = s.mem_domain) ∧
     ((labSem$inc_pc s).shared_mem_domain = s.shared_mem_domain) ∧
     ((labSem$inc_pc s).io_regs = s.io_regs) ∧
+    ((labSem$inc_pc s).io_fp_regs = s.io_fp_regs) ∧
     ((labSem$inc_pc s).cc_regs = s.cc_regs) ∧
+    ((labSem$inc_pc s).cc_fp_regs = s.cc_fp_regs) ∧
     ((labSem$inc_pc s).compile = s.compile) ∧
     ((labSem$inc_pc s).compile_oracle = s.compile_oracle) ∧
     ((labSem$inc_pc s).code_buffer = s.code_buffer) ∧
@@ -192,7 +194,9 @@ Theorem binop_upd_consts[simp]:
    (labSem$binop_upd a b c d x).be = x.be ∧
    (labSem$binop_upd a b c d x).mem = x.mem ∧
    (labSem$binop_upd a b c d x).io_regs = x.io_regs ∧
+   (labSem$binop_upd a b c d x).io_fp_regs = x.io_fp_regs ∧
    (labSem$binop_upd a b c d x).cc_regs = x.cc_regs ∧
+   (labSem$binop_upd a b c d x).cc_fp_regs = x.cc_fp_regs ∧
    (labSem$binop_upd a b c d x).compile = x.compile ∧
    (labSem$binop_upd a b c d x).compile_oracle = x.compile_oracle ∧
    (labSem$binop_upd a b c d x).code_buffer = x.code_buffer ∧
@@ -214,7 +218,9 @@ Theorem arith_upd_consts[simp]:
    (labSem$arith_upd a x).be = x.be ∧
    (labSem$arith_upd a x).mem = x.mem ∧
    (labSem$arith_upd a x).io_regs = x.io_regs ∧
+   (labSem$arith_upd a x).io_fp_regs = x.io_fp_regs ∧
    (labSem$arith_upd a x).cc_regs = x.cc_regs ∧
+   (labSem$arith_upd a x).cc_fp_regs = x.cc_fp_regs ∧
    (labSem$arith_upd a x).compile = x.compile ∧
    (labSem$arith_upd a x).compile_oracle = x.compile_oracle ∧
    (labSem$arith_upd a x).code_buffer = x.code_buffer ∧
@@ -235,12 +241,14 @@ Theorem fp_upd_consts[simp]:
    (labSem$fp_upd f x).link_reg = x.link_reg ∧
    (labSem$fp_upd f x).code = x.code ∧
    (labSem$fp_upd f x).cc_regs = x.cc_regs ∧
+   (labSem$fp_upd f x).cc_fp_regs = x.cc_fp_regs ∧
    (labSem$fp_upd f x).code_buffer = x.code_buffer ∧
    (labSem$fp_upd f x).compile = x.compile ∧
    (labSem$fp_upd f x).compile_oracle = x.compile_oracle ∧
    (labSem$fp_upd f x).be = x.be ∧
    (labSem$fp_upd f x).mem = x.mem ∧
    (labSem$fp_upd f x).io_regs = x.io_regs ∧
+   (labSem$fp_upd f x).io_fp_regs = x.io_fp_regs ∧
    (labSem$fp_upd f x).pc = x.pc ∧
    (labSem$fp_upd f x).ffi = x.ffi
 Proof
@@ -264,8 +272,8 @@ Theorem case_eq_thms =
   (pair_case_eq::
    bool_case_eq::
    map TypeBase.case_eq_of
-       [``:'a line``,``:'a option``,``:'a asm_with_lab``,``:'a asm_or_cbw``,
-        ``:'a asm``, ``:'a word_loc``,``:'a list``,``:'a sec``,``:'a ffi_result``])
+       [``:line``,``:'a option``,``:asm_with_lab``,``:asm_or_shmem``,
+        ``:asm``, ``:'a word_loc``,``:'a list``,``:sec``,``:'a ffi_result``])
   |> LIST_CONJ
 
 Theorem evaluate_io_events_mono:
@@ -448,6 +456,7 @@ Theorem align_dm_const[simp]:
    (align_dm s).ptr2_reg = s.ptr2_reg ∧
    (align_dm s).len2_reg = s.len2_reg ∧
    (align_dm s).io_regs = s.io_regs ∧
+   (align_dm s).io_fp_regs = s.io_fp_regs ∧
    (align_dm s).code_buffer = s.code_buffer ∧
    (align_dm s).compile = s.compile ∧
    (align_dm s).compile_oracle = s.compile_oracle ∧
@@ -527,7 +536,7 @@ QED
 
 Theorem mem_load_align_dm:
    good_dimindex (:α) ⇒
-   mem_load n (a:α addr) (align_dm s) = align_dm (mem_load n a s)
+   mem_load n a (align_dm (s:(α,'c,'ffi) labSem$state)) = align_dm (mem_load n a s)
 Proof
   strip_tac
   \\ simp[mem_load_def]
@@ -574,7 +583,7 @@ QED
 
 Theorem mem_load32_align_dm:
    good_dimindex (:α) ⇒
-   mem_load32 n (a:α addr) (align_dm s) = align_dm (mem_load32 n a s)
+   mem_load32 n a (align_dm (s:(α,'c,'ffi) labSem$state)) = align_dm (mem_load32 n a s)
 Proof
   strip_tac
   \\ simp[mem_load32_def]
@@ -600,7 +609,7 @@ QED
 
 Theorem mem_load_byte_align_dm:
    good_dimindex (:α) ⇒
-   mem_load_byte n (a:α addr) (align_dm s) = align_dm (mem_load_byte n a s)
+   mem_load_byte n a (align_dm (s:(α,'c,'ffi) labSem$state)) = align_dm (mem_load_byte n a s)
 Proof
   strip_tac
   \\ simp[mem_load_byte_def]
@@ -614,7 +623,7 @@ QED
 
 Theorem mem_store_align_dm:
    good_dimindex (:α) ⇒
-   mem_store n (a:α addr) (align_dm s) = align_dm (mem_store n a s)
+   mem_store n a (align_dm (s:(α,'c,'ffi) labSem$state)) = align_dm (mem_store n a s)
 Proof
   strip_tac
   \\ simp[mem_store_def]
@@ -661,7 +670,7 @@ QED
 
 Theorem mem_store32_align_dm:
    good_dimindex (:α) ⇒
-   mem_store32 n (a:α addr) (align_dm s) = align_dm (mem_store32 n a s)
+   mem_store32 n a (align_dm (s:(α,'c,'ffi) labSem$state)) = align_dm (mem_store32 n a s)
 Proof
   strip_tac
   \\ simp[mem_store32_def]
@@ -687,7 +696,7 @@ QED
 
 Theorem mem_store_byte_align_dm:
    good_dimindex (:α) ⇒
-   mem_store_byte n (a:α addr) (align_dm s) = align_dm (mem_store_byte n a s)
+   mem_store_byte n a (align_dm (s:(α,'c,'ffi) labSem$state)) = align_dm (mem_store_byte n a s)
 Proof
   strip_tac
   \\ simp[mem_store_byte_def]
@@ -701,7 +710,7 @@ QED
 
 Theorem mem_op_align_dm:
    good_dimindex (:α) ⇒
-   mem_op m n (a:α addr) (align_dm s) = align_dm (mem_op m n a s)
+   mem_op m n a (align_dm (s:(α,'c,'ffi) labSem$state)) = align_dm (mem_op m n a s)
 Proof
   Cases_on`m`
   \\ simp[mem_op_def,
@@ -711,7 +720,7 @@ QED
 
 Theorem asm_inst_align_dm:
    good_dimindex (:α) ⇒
-   asm_inst (i:α inst) (align_dm s) = align_dm (asm_inst i s)
+   asm_inst i (align_dm (s:(α,'c,'ffi) labSem$state)) = align_dm (asm_inst i s)
 Proof
   Cases_on`i` \\ simp[asm_inst_def,mem_op_align_dm]
 QED
@@ -760,6 +769,15 @@ Proof
     \\ simp[align_dm_def] )
   \\ imp_res_tac mem_load_byte_aux_align_dm
   \\ simp[]
+QED
+
+Theorem code_buffer_install_align_dm[simp]:
+   code_buffer_install ptr len cptr
+     (mem_load_byte_aux s.mem (align_dm s).mem_domain s.be) cb =
+   code_buffer_install ptr len cptr
+     (mem_load_byte_aux s.mem s.mem_domain s.be) cb
+Proof
+  simp[code_buffer_install_def]
 QED
 
 Theorem write_bytearray_align_dm[simp]:
@@ -876,6 +894,7 @@ Theorem align_sdm_const[simp]:
    (align_sdm s).ptr2_reg = s.ptr2_reg ∧
    (align_sdm s).len2_reg = s.len2_reg ∧
    (align_sdm s).io_regs = s.io_regs ∧
+   (align_sdm s).io_fp_regs = s.io_fp_regs ∧
    (align_sdm s).code_buffer = s.code_buffer ∧
    (align_sdm s).compile = s.compile ∧
    (align_sdm s).compile_oracle = s.compile_oracle ∧
@@ -954,49 +973,49 @@ Proof
 QED
 
 Theorem mem_load_align_sdm:
-   mem_load n (a:α addr) (align_sdm s) = align_sdm (mem_load n a s)
+   mem_load n (a:addr) (align_sdm s) = align_sdm (mem_load n a s)
 Proof
   simp[mem_load_def]
   \\ every_case_tac \\ fs[]
 QED
 
 Theorem mem_load32_align_sdm:
-   mem_load32 n (a:α addr) (align_sdm s) = align_sdm (mem_load32 n a s)
+   mem_load32 n (a:addr) (align_sdm s) = align_sdm (mem_load32 n a s)
 Proof
   simp[mem_load32_def]
   \\ every_case_tac \\ fs[]
 QED
 
 Theorem mem_load_byte_align_sdm:
-   mem_load_byte n (a:α addr) (align_sdm s) = align_sdm (mem_load_byte n a s)
+   mem_load_byte n (a:addr) (align_sdm s) = align_sdm (mem_load_byte n a s)
 Proof
   simp[mem_load_byte_def]
   \\ every_case_tac \\ fs[]
 QED
 
 Theorem mem_store_align_sdm:
-   mem_store n (a:α addr) (align_sdm s) = align_sdm (mem_store n a s)
+   mem_store n (a:addr) (align_sdm s) = align_sdm (mem_store n a s)
 Proof
   simp[mem_store_def]
   \\ every_case_tac \\ fs[]
 QED
 
 Theorem mem_store32_align_sdm:
-   mem_store32 n (a:α addr) (align_sdm s) = align_sdm (mem_store32 n a s)
+   mem_store32 n (a:addr) (align_sdm s) = align_sdm (mem_store32 n a s)
 Proof
   simp[mem_store32_def]
   \\ every_case_tac \\ fs[align_sdm_def]
 QED
 
 Theorem mem_store_byte_align_sdm:
-   mem_store_byte n (a:α addr) (align_sdm s) = align_sdm (mem_store_byte n a s)
+   mem_store_byte n (a:addr) (align_sdm s) = align_sdm (mem_store_byte n a s)
 Proof
   simp[mem_store_byte_def]
   \\ every_case_tac \\ fs[align_sdm_def]
 QED
 
 Theorem mem_op_align_sdm:
-   mem_op m n (a:α addr) (align_sdm s) = align_sdm (mem_op m n a s)
+   mem_op m n (a:addr) (align_sdm s) = align_sdm (mem_op m n a s)
 Proof
   Cases_on`m`
   \\ simp[mem_op_def,
@@ -1005,7 +1024,7 @@ Proof
 QED
 
 Theorem asm_inst_align_sdm:
-   asm_inst (i:α inst) (align_sdm s) = align_sdm (asm_inst i s)
+   asm_inst (i:inst) (align_sdm s) = align_sdm (asm_inst i s)
 Proof
   Cases_on`i` \\ simp[asm_inst_def,mem_op_align_sdm]
 QED
@@ -1084,7 +1103,7 @@ QED
 
 Theorem share_mem_load_align_sdm:
   good_dimindex (:'a) ⇒
-  (share_mem_load r (ad:'a addr) (align_sdm s) n = NONE ⇔
+  (share_mem_load r ad (align_sdm (s:('a,'c,'ffi) labSem$state)) n = NONE ⇔
      share_mem_load r ad s n = NONE) ∧
   (share_mem_load r ad s n = SOME (res, s') ⇒
    share_mem_load r ad (align_sdm s) n = SOME (res, align_sdm s'))
@@ -1118,7 +1137,7 @@ QED
 
 Theorem share_mem_store_align_sdm:
   good_dimindex (:'a) ⇒
-  (share_mem_store r (ad:'a addr) (align_sdm s) n = NONE ⇔
+  (share_mem_store r ad (align_sdm (s:('a,'c,'ffi) labSem$state)) n = NONE ⇔
      share_mem_store r ad s n = NONE) ∧
   (share_mem_store r ad s n = SOME (res, s') ⇒
    share_mem_store r ad (align_sdm s) n = SOME (res, align_sdm s'))
@@ -1152,7 +1171,7 @@ QED
 
 Theorem share_mem_op_align_sdm_simp[simp]:
   good_dimindex (:'a) ⇒
-  (share_mem_op m r (a:'a addr) s = NONE ⇔ share_mem_op m r a (align_sdm s) = NONE) /\
+  (share_mem_op m r a (s:('a,'c,'ffi) labSem$state) = NONE ⇔ share_mem_op m r a (align_sdm s) = NONE) /\
   (share_mem_op m r a s = SOME (res, s') ==>
   share_mem_op m r a (align_sdm s) = SOME (res, align_sdm s'))
 Proof
@@ -1235,7 +1254,7 @@ QED
 
 (* asm_ok checks coming into lab_to_target *)
 Definition line_ok_pre_def:
-  (line_ok_pre (c:'a asm_config) (Asm b bytes l) ⇔ asm_ok (cbw_to_asm b) c) ∧
+  (line_ok_pre (c:asm_config) (Asm b bytes l) ⇔ asm_ok (compile_shmem b) c) ∧
   (line_ok_pre c _ ⇔ T)
 End
 

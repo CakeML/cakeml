@@ -17,18 +17,18 @@ Libs
 
 Datatype:
   keyword = SkipK | StK | StwK | St8K | St16K | St32K | IfK | ElseK | WhileK
-  | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK | BiwK | NamedK
+  | BrK | ContK | ThrowK | RetK | TicK | VarK | TryK | CatchK | BiwK | NamedK
   | LdsK | Ld8K | LdwK | Ld16K | Ld32K | BaseK | TopK | InK | FunK | ExportK | TrueK | FalseK
-  | InlineK
+  | InlineK | ExceptionK
 End
 
 Datatype:
-  token = AndT | OrT | BoolAndT | BoolOrT | XorT | NotT
+  token = AndT | OrT | BoolAndT | BoolOrT | XorT | NotT | ArrowT
   | EqT | NeqT | LessT | GreaterT | GeqT | LeqT | LowerT | HigherT | HigheqT | LoweqT
   | PlusT | MinusT | DotT | StarT
   | LslT | LsrT | AsrT | RorT
   | IntT int | IdentT string | ForeignIdent string (* @ffi_str except @base, @biw, @top *)
-  | LParT | RParT | CommaT | SemiT | ColonT | DArrowT | AddrT
+  | LParT | RParT | CommaT | SemiT | ColonT | AddrT
   | LBrakT | RBrakT | LCurT | RCurT
   | AssignT
   | StaticT
@@ -80,6 +80,7 @@ Definition get_token_def:
   if s = "|" then OrT else
   if s = "^" then XorT else
   if s = "==" then EqT else
+  if s = "=>" then ArrowT else
   if s = "!=" then NeqT else
   if s = "<" then LessT else
   if s = ">" then GreaterT else
@@ -89,7 +90,6 @@ Definition get_token_def:
   if s = ">+" then HigherT else
   if s = ">=+" then HigheqT else
   if s = "<=+" then LoweqT else
-  if s = "=>" then DArrowT else
   if s = "!" then NotT else
   if s = "+" then PlusT else
   if s = "-" then MinusT else
@@ -125,26 +125,27 @@ Definition get_keyword_def:
   if s = "while" then (KeywordT WhileK) else
   if s = "break" then (KeywordT BrK) else
   if s = "continue" then (KeywordT ContK) else
-  if s = "raise" then (KeywordT RaiseK) else
+  if s = "throw" then (KeywordT ThrowK) else
   if s = "return" then (KeywordT RetK) else
   if s = "tick" then (KeywordT TicK) else
   if s = "var" then (KeywordT VarK) else
   if s = "in" then (KeywordT InK) else
-  if s = "with" then (KeywordT WithK) else
-  if s = "handle" then (KeywordT HandleK) else
+  if s = "try" then (KeywordT TryK) else
+  if s = "catch" then (KeywordT CatchK) else
   if s = "lds" then (KeywordT LdsK) else
   if s = "ldw" then (KeywordT LdwK) else
   if s = "ld8" then (KeywordT Ld8K) else
   if s = "ld16" then (KeywordT Ld16K) else
   if s = "ld32" then (KeywordT Ld32K) else
   if s = "@base" then (KeywordT BaseK) else
-  if s = "@top" then (KeywordT BaseK) else
+  if s = "@top" then (KeywordT TopK) else
   if s = "@biw" then (KeywordT BiwK) else
   if s = "true" then (KeywordT TrueK) else
   if s = "false" then (KeywordT FalseK) else
   if s = "fun" then (KeywordT FunK) else
   if s = "export" then (KeywordT ExportK) else
   if s = "inline" then (KeywordT InlineK) else
+  if s = "exception" then (KeywordT ExceptionK) else
   if s = "struct" then (KeywordT NamedK) else
   if s = "" then LexErrorT $ «Expected keyword, found empty string» else
   if 2 <= LENGTH s ∧ EL 0 s = #"@" then ForeignIdent (DROP 1 s)
@@ -192,7 +193,7 @@ Definition loc_row_def:
 End
 
 Definition skip_comment_def:
-  skip_comment "" _ _ = NONE ∧
+  skip_comment "" loc i = SOME (loc, i) ∧
   skip_comment (x::xs) loc i =
   (case x of
    | #"\n" => SOME (next_line loc, i + 1n)
@@ -229,13 +230,19 @@ Definition next_atom_def:
     else if isSpace c then
       next_atom cs (next_loc 1 loc)
     else if isDigit c then
-      let (n, cs') = read_while isDigit cs [c] in
-        SOME (NumberA &(num_from_dec_string_alt n),
+      let (n, cs') = read_while isAlphaNumOrWild cs [c] in
+        SOME (if EVERY isDigit n then
+                NumberA &(num_from_dec_string_alt n)
+              else
+                ErrA $ concat [«Malformed number: »; implode n],
               Locs loc (next_loc (LENGTH n) loc),
               cs')
     else if c = #"-" ∧ cs ≠ "" ∧ isDigit (HD cs) then
-      let (n, rest) = read_while isDigit cs [] in
-      SOME (NumberA (0 - &(num_from_dec_string_alt n)),
+      let (n, rest) = read_while isAlphaNumOrWild cs [] in
+      SOME (if EVERY isDigit n then
+              NumberA (0 - &(num_from_dec_string_alt n))
+            else
+              ErrA $ concat [«Malformed number: -»; implode n],
             Locs loc (next_loc (LENGTH n) loc),
             rest)
     else if isPREFIX "//" (c::cs) then (* comment *)
@@ -296,7 +303,7 @@ Proof
 QED
 
 Definition init_loc_def:
-  init_loc = POSN 1 1
+  init_loc = POSN 0 1
 End
 
 Definition pancake_lex_aux_def:

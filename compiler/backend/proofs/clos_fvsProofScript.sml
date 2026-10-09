@@ -119,25 +119,11 @@ End
 
 (* *)
 
-Theorem v_rel_IMP_v_to_bytes_lemma[local]:
-    !x y.
-      v_rel x y ==>
-      !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
-           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))
+Theorem v_rel_IMP_v_to_mlstring[local]:
+    v_rel x y ==> v_to_mlstring y = v_to_mlstring x
 Proof
-  ho_match_mp_tac v_to_list_ind \\ rw []
-  \\ fs [v_to_list_def]
-  \\ Cases_on `tag = cons_tag` \\ fs []
-  \\ res_tac \\ fs [case_eq_thms]
-  \\ Cases_on `ns` \\ fs []
-  \\ eq_tac \\ rw [] \\ fs []
-  \\ Cases_on `h` \\ fs []
-QED
-
-Theorem v_rel_IMP_v_to_bytes[local]:
-    v_rel x y ==> v_to_bytes y = v_to_bytes x
-Proof
-  rw [v_to_bytes_def] \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []
+  rw [v_to_mlstring_def]
+  \\ Cases_on `x` \\ gvs []
 QED
 
 Theorem v_rel_IMP_v_to_words_lemma[local]:

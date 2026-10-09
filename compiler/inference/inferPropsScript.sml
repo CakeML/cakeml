@@ -229,7 +229,7 @@ Proof
     REPEAT GEN_TAC  >>
     STRIP_TAC >>
     fs[]>>pairarg_tac>>fs[]>>
-    first_x_assum old_drule>> simp[]>>
+    first_x_assum drule>> simp[]>>
     rveq>>fs[]>>
     rw [EXTENSION, infer_subst_def] >>
     fs [t_vars_eqn] >>
@@ -731,7 +731,7 @@ val success_eqns =
              read_def, option_case_eq, check_dups_success,
              type_name_check_subst_success,
              check_ctor_types_success,
-             check_ctors_success];
+             check_ctors_success, infer_open_success];
 
 Theorem success_eqns =
   success_eqns
@@ -1257,14 +1257,14 @@ Theorem t_walkstar_uncheck_lem[local]:
     check_t max_tvs (uvs ∪ FDOM s) t
 Proof
   ntac 2 strip_tac
- >> old_drule t_walkstar_ind
+ >> drule t_walkstar_ind
  >> fs [GSYM PULL_FORALL]
  >> disch_then ho_match_mp_tac
  >> rw []
  >> Cases_on `t`
  >> rfs [check_t_def, t_walkstar_eqn, t_walk_eqn, EVERY_MAP, EVERY_MEM]
  >> pop_assum mp_tac
- >> old_drule t_vwalk_eqn
+ >> drule t_vwalk_eqn
  >> strip_tac
  >> ONCE_ASM_REWRITE_TAC []
  >> pop_assum kall_tac
@@ -1309,7 +1309,7 @@ Proof
       cases_on `t2`) >>
     fs [t_walk_eqn, t_ext_s_check_eqn, check_t_def]
     >- (
-      old_drule t_vwalk_check >>
+      drule t_vwalk_check >>
       disch_then imp_res_tac>>
       fs[infer_tTheory.infer_t_case_eq]>>
       rveq>>rfs[check_t_def]>>
@@ -1319,8 +1319,8 @@ Proof
            NO_TAC) >>
       metis_tac [])
    >>
-     old_drule t_vwalk_check>>
-     rpt(disch_then old_drule)>>
+     drule t_vwalk_check>>
+     rpt(disch_then drule)>>
      fs[infer_tTheory.infer_t_case_eq,check_s_def]>>
      rw[check_t_def]>>
      rw [check_t_def, FAPPLY_FUPDATE_THM]>>
@@ -1602,10 +1602,10 @@ Proof
   >- (rename1 `infer_ps _ _ _ _ = (M_success v1, st1)` >>
       PairCases_on `v1` >>
       fs [] >>
-      first_x_assum old_drule >>
-      rpt (disch_then old_drule) >>
-      old_drule (CONJUNCT2 infer_p_wfs) >>
-      rpt (disch_then old_drule) >>
+      first_x_assum drule >>
+      rpt (disch_then drule) >>
+      drule (CONJUNCT2 infer_p_wfs) >>
+      rpt (disch_then drule) >>
       rw []>>
       `st1.next_uvar ≤ st1.next_uvar + LENGTH (FST v')` by decide_tac >>
       `check_s tvs (count st'.next_uvar) st1.subst` by metis_tac [check_s_more2,ADD_COMM] >>
@@ -1718,6 +1718,19 @@ rw [check_t_def, infer_deBruijn_subst_alt, LENGTH_COUNT_LIST,
 metis_tac []
 QED
 
+Theorem ienv_val_ok_open_extend:
+  open_ienv path ienv = SOME opened ∧
+  ienv_val_ok uvars ienv.inf_v ⇒
+  ienv_val_ok uvars (extend_dec_ienv opened ienv).inf_v
+Proof
+  rw [ienv_val_ok_def, extend_dec_ienv_def]
+  >> irule nsAll_nsAppend
+  >> simp []
+  >> imp_res_tac open_ienv_success_components
+  >> drule_all nsAll_after_nsOpen
+  >> simp [LAMBDA_PROD]
+QED
+
 Theorem infer_e_check_t:
   (∀l ienv e st st' t.
      infer_e l ienv e st = (M_success t, st') ∧
@@ -1745,6 +1758,8 @@ Proof
  fsrw_tac[] [check_t_def] >>
  imp_res_tac infer_e_next_uvar_mono >>
  fsrw_tac[] [EVERY_MAP, check_t_def, check_t_infer_db_subst]
+ >~ [`open_ienv path ienv = SOME opened`]
+ >- metis_tac [ienv_val_ok_open_extend]
  >- metis_tac [check_t_more4]
  >- (fs [ienv_val_ok_def] >>
      imp_res_tac nsLookup_nsAll >>
@@ -1781,8 +1796,8 @@ Proof
      >> metis_tac [check_env_more, DECIDE ``x:num ≤ x + 1``])
  >- ( first_x_assum drule \\ rw[] )
  >- (
-   first_x_assum old_drule
-   >> first_x_assum old_drule
+   first_x_assum drule
+   >> first_x_assum drule
    >> simp []
    >> fs [ienv_val_ok_def]
    >> metis_tac [arithmeticTheory.LESS_EQ_TRANS, check_env_more, check_t_more4])
@@ -1797,8 +1812,8 @@ Proof
      >> simp [option_nchotomy]
      >> metis_tac [check_env_more, DECIDE ``x:num ≤ x + 1``])
  >- (
-   first_x_assum old_drule
-   >> first_x_assum old_drule
+   first_x_assum drule
+   >> first_x_assum drule
    >> simp []
    >> fs [ienv_val_ok_def]
    >> rw []
@@ -1941,6 +1956,46 @@ Proof
  >> metis_tac [check_env_more]
 QED
 
+Theorem nsAll_after_nsOpen_id_invariant:
+  nsOpen path env = SOME opened ∧
+  nsAll P env ∧
+  (∀id1 id2 v. P id1 v ⇔ P id2 v) ⇒
+  nsAll P opened
+Proof
+  strip_tac >>
+  drule nsAll_after_nsOpen >>
+  disch_then (qspec_then `P` mp_tac) >>
+  impl_tac >- simp [] >>
+  strip_tac >>
+  qpat_x_assum `nsAll _ opened` mp_tac >>
+  match_mp_tac nsAll_mono >>
+  simp [] >>
+  metis_tac []
+QED
+
+Theorem ienv_ok_extend_dec_ienv:
+   !e1 e2 n. ienv_ok n e1 ∧ ienv_ok n e2 ⇒ ienv_ok n (extend_dec_ienv e1 e2)
+Proof
+ rw [ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_ctor_ok_def,
+     typeSoundInvariantsTheory.tenv_abbrev_ok_def, extend_dec_ienv_def]
+ >> metis_tac [nsAll_nsAppend]
+QED
+
+Theorem ienv_ok_open_ienv:
+   !uvars ienv path opened.
+    ienv_ok uvars ienv ∧ open_ienv path ienv = SOME opened ⇒
+    ienv_ok uvars opened
+Proof
+  rw [ienv_ok_def, ienv_val_ok_def,
+      typeSoundInvariantsTheory.tenv_ctor_ok_def,
+      typeSoundInvariantsTheory.tenv_abbrev_ok_def] >>
+  imp_res_tac open_ienv_success_components >>
+  rpt conj_tac >>
+  irule nsAll_after_nsOpen_id_invariant >>
+  simp [] >>
+  metis_tac []
+QED
+
 Theorem infer_e_check_s:
  (!l ienv e st st' t tvs.
     infer_e l ienv e st = (M_success t, st') ∧
@@ -1976,8 +2031,10 @@ Proof
  ho_match_mp_tac infer_e_ind
  >> rw [infer_e_def, success_eqns]
  >> rw []
+ >~ [`open_ienv path ienv = SOME opened`]
+ >- metis_tac [ienv_ok_open_ienv, ienv_ok_extend_dec_ienv]
  >- (
-   old_drule (CONJUNCT1 infer_e_wfs)
+   drule (CONJUNCT1 infer_e_wfs)
    >> rw []
    >> irule check_s_more
    >> irule t_unify_check_s
@@ -1986,8 +2043,8 @@ Proof
    >> rw [check_t_def]
    >> metis_tac [ienv_ok_def, infer_e_check_t, arithmeticTheory.ADD_0, check_t_more2])
  >- (
-   first_x_assum old_drule
-   >> first_x_assum old_drule
+   first_x_assum drule
+   >> first_x_assum drule
    >> simp []
    >> rw []
    >> first_x_assum irule
@@ -2005,17 +2062,17 @@ Proof
    pairarg_tac
    >> fs [success_eqns]
    >> rw []
-   >> first_x_assum old_drule
+   >> first_x_assum drule
    >> simp []
-   >> disch_then old_drule
+   >> disch_then drule
    >> rw []
-   >> old_drule pure_add_constraints_check_s
+   >> drule pure_add_constraints_check_s
    >> simp []
    >> disch_then irule
    >> simp []
    >> conj_tac >- metis_tac [infer_e_wfs]
    >> conj_tac >- (
-     old_drule (List.nth (CONJUNCTS infer_e_check_t, 1))
+     drule (List.nth (CONJUNCTS infer_e_check_t, 1))
      >> rfs [ienv_ok_def]
      >> fs [EVERY_MEM]
      >> rw []
@@ -2025,28 +2082,28 @@ Proof
      >> rfs []
      >> qpat_x_assum `_ + _ = (_:num)` (assume_tac o GSYM)
      >- (
-       first_x_assum old_drule
+       first_x_assum drule
        >> rw []
        >> fs []
-       >> old_drule (CONJUNCT1 check_t_more2)
+       >> drule (CONJUNCT1 check_t_more2)
        >> fs []
        >> metis_tac [check_t_more4, DECIDE ``x ≤ y+x:num``])
      >- (
-       old_drule tenv_ctor_ok_lookup
-       >> disch_then old_drule
+       drule tenv_ctor_ok_lookup
+       >> disch_then drule
        >> rw [EVERY_MEM, MEM_EL, PULL_EXISTS]
-       >> first_x_assum old_drule
+       >> first_x_assum drule
        >> rw []
-       >> old_drule (CONJUNCT1 check_infer_type_subst)
+       >> drule (CONJUNCT1 check_infer_type_subst)
        >> disch_then (qspec_then `st''.next_uvar` mp_tac)
        >> rw []
-       >> old_drule (CONJUNCT1 check_t_more2)
+       >> drule (CONJUNCT1 check_t_more2)
        >> rw []))
    >- (
      `st''.next_uvar ≤ st'.next_uvar` by simp []
      >> metis_tac [check_s_more2]))
  >- (
-   first_x_assum old_drule
+   first_x_assum drule
    >> simp []
    >> disch_then irule
    >> conj_tac >- (
@@ -2058,28 +2115,28 @@ Proof
      >> simp [])
    >> metis_tac [check_s_more])
  >- (
-   old_drule (List.nth (CONJUNCTS infer_e_wfs, 1))
+   drule (List.nth (CONJUNCTS infer_e_wfs, 1))
    >> rw []
-   >> old_drule constrain_op_check_s
+   >> drule constrain_op_check_s
    >> disch_then irule
    >> simp []
    >> metis_tac [infer_e_check_t, ienv_ok_def])
  >- (
    gvs []
-   >> first_x_assum old_drule
+   >> first_x_assum drule
    >> rw []
-   >> first_x_assum old_drule
+   >> first_x_assum drule
    >> rw []
-   >> old_drule t_unify_check_s
+   >> drule t_unify_check_s
    >> qpat_x_assum `t_unify _ _ _ = _` mp_tac
-   >> old_drule t_unify_check_s
-   >> old_drule (CONJUNCT1 infer_e_next_uvar_mono)
-   >> old_drule (CONJUNCT1 infer_e_check_t)
-   >> old_drule (CONJUNCT1 infer_e_wfs)
+   >> drule t_unify_check_s
+   >> drule (CONJUNCT1 infer_e_next_uvar_mono)
+   >> drule (CONJUNCT1 infer_e_check_t)
+   >> drule (CONJUNCT1 infer_e_wfs)
    >> qpat_x_assum `infer_e _ _ _ _ = _` mp_tac
-   >> old_drule (CONJUNCT1 infer_e_next_uvar_mono)
-   >> old_drule (CONJUNCT1 infer_e_wfs)
-   >> old_drule (CONJUNCT1 infer_e_check_t)
+   >> drule (CONJUNCT1 infer_e_next_uvar_mono)
+   >> drule (CONJUNCT1 infer_e_wfs)
+   >> drule (CONJUNCT1 infer_e_check_t)
    >> fs [ienv_ok_def]
    >> rw [check_t_def]
    >> first_x_assum irule
@@ -2093,26 +2150,26 @@ Proof
      >> metis_tac [check_t_more4, check_t_more2, DECIDE ``0n ≤ x ∧ y + 0n = y``])
    >> metis_tac [ienv_ok_more, ienv_ok_def, check_t_more4, check_t_more2, DECIDE ``0n ≤ x ∧ y + 0n = y``])
  >- (
-   first_x_assum old_drule
+   first_x_assum drule
    >> rw []
-   >> first_x_assum old_drule
+   >> first_x_assum drule
    >> rw []
-   >> first_x_assum old_drule
+   >> first_x_assum drule
    >> rw []
-   >> old_drule t_unify_check_s
+   >> drule t_unify_check_s
    >> qpat_x_assum `t_unify _ _ _ = _` mp_tac
-   >> old_drule t_unify_check_s
-   >> old_drule (CONJUNCT1 infer_e_next_uvar_mono)
-   >> old_drule (CONJUNCT1 infer_e_check_t)
-   >> old_drule (CONJUNCT1 infer_e_wfs)
+   >> drule t_unify_check_s
+   >> drule (CONJUNCT1 infer_e_next_uvar_mono)
+   >> drule (CONJUNCT1 infer_e_check_t)
+   >> drule (CONJUNCT1 infer_e_wfs)
    >> qpat_x_assum `infer_e _ _ _ _ = _` mp_tac
-   >> old_drule (CONJUNCT1 infer_e_next_uvar_mono)
-   >> old_drule (CONJUNCT1 infer_e_wfs)
-   >> old_drule (CONJUNCT1 infer_e_check_t)
+   >> drule (CONJUNCT1 infer_e_next_uvar_mono)
+   >> drule (CONJUNCT1 infer_e_wfs)
+   >> drule (CONJUNCT1 infer_e_check_t)
    >> qpat_x_assum `infer_e _ _ _ _ = _` mp_tac
-   >> old_drule (CONJUNCT1 infer_e_next_uvar_mono)
-   >> old_drule (CONJUNCT1 infer_e_wfs)
-   >> old_drule (CONJUNCT1 infer_e_check_t)
+   >> drule (CONJUNCT1 infer_e_next_uvar_mono)
+   >> drule (CONJUNCT1 infer_e_wfs)
+   >> drule (CONJUNCT1 infer_e_check_t)
    >> fs [ienv_ok_def]
    >> rw [check_t_def]
    >> first_x_assum irule
@@ -2134,25 +2191,25 @@ Proof
    >> metis_tac [ienv_ok_more, ienv_ok_def, check_t_more4, check_t_more2,
                  DECIDE ``0n ≤ x ∧ y + 0n = y``])
  >- (
-   first_x_assum old_drule
-   >> first_x_assum old_drule
+   first_x_assum drule
+   >> first_x_assum drule
    >> rw [check_t_def]
    >> first_x_assum irule
    >> rw []
    >- metis_tac [infer_e_wfs]
    >- metis_tac [infer_e_next_uvar_mono, ienv_ok_more, DECIDE ``x ≤ x+1n``]
    >- metis_tac [check_s_more]
-   >> old_drule (CONJUNCT1 infer_e_check_t)
+   >> drule (CONJUNCT1 infer_e_check_t)
    >> fs [ienv_ok_def]
    >> metis_tac [check_t_more3])
  >- (
-   first_x_assum old_drule
-   >> first_x_assum old_drule
+   first_x_assum drule
+   >> first_x_assum drule
    >> rw [check_t_def]
    >> first_x_assum irule
    >> rw []
    >- metis_tac [infer_e_wfs]
-   >> old_drule ienv_ok_more
+   >> drule ienv_ok_more
    >> disch_then (qspec_then `st''.next_uvar` mp_tac)
    >> rw []
    >> fs [ienv_ok_def, ienv_val_ok_def]
@@ -2161,8 +2218,8 @@ Proof
    >> metis_tac [infer_e_check_t, ienv_val_ok_def, infer_e_next_uvar_mono,
                  option_nchotomy, infer_e_wfs])
  >- (
-   first_x_assum old_drule
-   >> first_x_assum old_drule
+   first_x_assum drule
+   >> first_x_assum drule
    >> rw []
    >> qmatch_assum_abbrev_tac `infer_e _ (ienv with inf_v := nsAppend bindings ienv.inf_v) _ _ = _`
    >> `ienv_ok (count (LENGTH funs + st.next_uvar)) (ienv with inf_v := nsAppend bindings ienv.inf_v)`
@@ -2184,27 +2241,27 @@ Proof
    >> first_x_assum irule
    >> rw []
    >- (
-     old_drule (List.nth (CONJUNCTS infer_e_wfs, 3))
+     drule (List.nth (CONJUNCTS infer_e_wfs, 3))
      >> simp []
      >> metis_tac [pure_add_constraints_wfs])
    >- (
      irule ienv_ok_more
      >> HINT_EXISTS_TAC
      >> rw []
-     >> old_drule (List.nth (CONJUNCTS infer_e_next_uvar_mono, 3))
+     >> drule (List.nth (CONJUNCTS infer_e_next_uvar_mono, 3))
      >> rw [])
-   >> old_drule pure_add_constraints_check_s
+   >> drule pure_add_constraints_check_s
    >> disch_then irule
    >> conj_tac >- (
-     old_drule (List.nth (CONJUNCTS infer_e_wfs, 3))
+     drule (List.nth (CONJUNCTS infer_e_wfs, 3))
      >> rw [])
    >> conj_tac >- (
      fs [EVERY_MEM, LENGTH_COUNT_LIST, LENGTH_MAP, MEM_ZIP]
      >> rw []
      >> rw [EL_MAP, LENGTH_COUNT_LIST, check_t_def]
-     >> old_drule (List.nth (CONJUNCTS infer_e_next_uvar_mono, 3))
+     >> drule (List.nth (CONJUNCTS infer_e_next_uvar_mono, 3))
      >> rw [EL_COUNT_LIST]
-     >> old_drule (List.nth (CONJUNCTS infer_e_check_t, 3))
+     >> drule (List.nth (CONJUNCTS infer_e_check_t, 3))
      >> rfs [ienv_ok_def]
      >> rw [EVERY_MEM, MEM_EL, PULL_EXISTS]
      >> metis_tac [check_t_more2, DECIDE ``x+0n = x``, MEM_EL])
@@ -2215,26 +2272,26 @@ Proof
    imp_res_tac type_name_check_subst_state >>
    imp_res_tac type_name_check_subst_thm >>
    fs [] >>
-   old_drule (CONJUNCT1 infer_e_wfs)
-   >> first_x_assum old_drule
+   drule (CONJUNCT1 infer_e_wfs)
+   >> first_x_assum drule
    >> rw []
-   >> old_drule t_unify_check_s
+   >> drule t_unify_check_s
    >> simp []
    >> disch_then irule
    >> simp []
    >> conj_tac >- (
-     old_drule (CONJUNCT1 infer_e_check_t)
+     drule (CONJUNCT1 infer_e_check_t)
      >> fs [ienv_ok_def]
      >> metis_tac [check_t_more2, DECIDE ``y + 0n = y``])
    >> fs [ienv_ok_def]
    >> imp_res_tac check_freevars_type_name_subst
    >> pop_assum (qspec_then`0n` assume_tac)
-   >> old_drule (CONJUNCT1 infer_type_subst_empty_check)
+   >> drule (CONJUNCT1 infer_type_subst_empty_check)
    >> rw []
    >> metis_tac [COUNT_ZERO, check_t_more2, check_t_more4, DECIDE ``!y. y + 0n = y ∧ 0n ≤ y``])
  >- (
-   first_x_assum old_drule
-   >> first_x_assum old_drule
+   first_x_assum drule
+   >> first_x_assum drule
    >> rw []
    >> first_x_assum irule
    >> metis_tac [infer_e_wfs, ienv_ok_more, infer_e_next_uvar_mono])
@@ -2242,21 +2299,21 @@ Proof
    pairarg_tac
    >> fs [success_eqns]
    >> rename1 `infer_p _ _ _ _ = (M_success (t1',bindings1),st1)`
-   >> old_drule (REWRITE_RULE [Once CONJ_SYM] (CONJUNCT1 infer_p_wfs))
+   >> drule (REWRITE_RULE [Once CONJ_SYM] (CONJUNCT1 infer_p_wfs))
    >> rw []
-   >> old_drule (CONJUNCT1 infer_p_check_t)
+   >> drule (CONJUNCT1 infer_p_check_t)
    >> rw []
-   >> old_drule (CONJUNCT1 infer_p_next_uvar_mono)
-   >> old_drule (CONJUNCT1 infer_p_check_s)
+   >> drule (CONJUNCT1 infer_p_next_uvar_mono)
+   >> drule (CONJUNCT1 infer_p_check_s)
    >> `tenv_ctor_ok ienv.inf_c ∧ tenv_abbrev_ok ienv.inf_t` by fs [ienv_ok_def]
    >> simp []
-   >> disch_then old_drule
+   >> disch_then drule
    >> rw []
    >> qpat_x_assum `t_unify _ _ _ = _` mp_tac
    >> rename1 `t_unify _ t1 t1' = SOME s1`
-   >> old_drule (REWRITE_RULE [Once CONJ_SYM] t_unify_wfs)
-   >> old_drule t_unify_check_s
-   >> rpt (disch_then old_drule)
+   >> drule (REWRITE_RULE [Once CONJ_SYM] t_unify_wfs)
+   >> drule t_unify_check_s
+   >> rpt (disch_then drule)
    >> `check_t tvs (count st1.next_uvar) t1 ∧ check_t tvs (count st1.next_uvar) t1'`
      by metis_tac [check_t_more2, check_t_more4, DECIDE ``!y. y + 0n = y``]
    >> rw []
@@ -2271,7 +2328,7 @@ Proof
          >> rw []
          >> rpt (pairarg_tac >> fs [])
          >> rw []
-         >> first_x_assum old_drule
+         >> first_x_assum drule
          >> rw [])
        >- (
          irule nsAll_mono
@@ -2279,33 +2336,33 @@ Proof
          >> rw []
          >> rpt (pairarg_tac >> fs [])
          >> metis_tac [check_t_more4]))
-   >> old_drule (CONJUNCT1 infer_e_check_t)
+   >> drule (CONJUNCT1 infer_e_check_t)
    >> simp []
-   >> old_drule (CONJUNCT1 infer_e_next_uvar_mono)
-   >> old_drule (CONJUNCT1 infer_e_wfs)
+   >> drule (CONJUNCT1 infer_e_next_uvar_mono)
+   >> drule (CONJUNCT1 infer_e_wfs)
    >> simp [ienv_ok_def]
    >> rw []
    >> rename1 `t_unify _ t2 t2' = SOME s2`
-   >> old_drule (REWRITE_RULE [Once CONJ_SYM] t_unify_wfs)
-   >> old_drule t_unify_check_s
+   >> drule (REWRITE_RULE [Once CONJ_SYM] t_unify_wfs)
+   >> drule t_unify_check_s
    >> simp []
-   >> rpt (disch_then old_drule)
+   >> rpt (disch_then drule)
    >> `check_t tvs (count st2.next_uvar) t2 ∧ check_t tvs (count st2.next_uvar) t2'`
      by metis_tac [check_t_more2, check_t_more4, DECIDE ``!y. y + 0n = y``]
    >> rw []
-   >> first_x_assum old_drule
+   >> first_x_assum drule
    >> simp []
    >> disch_then irule
    >> simp []
    >> conj_tac >- metis_tac [ienv_ok_more]
    >> conj_tac >- (
      fs [Abbr `bindings2`]
-     >> first_x_assum old_drule
+     >> first_x_assum drule
      >> simp [ienv_ok_def])
    >> metis_tac [check_t_more4])
  >- (
-   first_x_assum old_drule
-   >> first_x_assum old_drule
+   first_x_assum drule
+   >> first_x_assum drule
    >> rw []
    >> qmatch_assum_abbrev_tac `infer_e _ (ienv with inf_v := bindings) _ _ = _`
    >> `ienv_ok (count (st.next_uvar+1)) (ienv with inf_v := bindings)`
@@ -2321,10 +2378,10 @@ Proof
        >> metis_tac [check_t_more3])
    >> first_x_assum irule
    >> conj_tac >- (
-     old_drule (CONJUNCT1 infer_e_wfs)
+     drule (CONJUNCT1 infer_e_wfs)
      >> rw [])
    >> conj_tac >- (
-     old_drule (CONJUNCT1 infer_e_next_uvar_mono)
+     drule (CONJUNCT1 infer_e_next_uvar_mono)
      >> rw []
      >> metis_tac [ienv_ok_more, DECIDE ``x ≤ x+1n``])
    >> first_x_assum irule
@@ -2529,13 +2586,13 @@ Proof
   >- (
     TOP_CASE_TAC>>
     fs[set_tids_def]>>
-    old_drule (GEN_ALL FEVERY_FLOOKUP)>>fs[]>>
+    drule (GEN_ALL FEVERY_FLOOKUP)>>fs[]>>
     metis_tac[])
   >- (
     fs[set_tids_subset_def,set_tids_def]>>
     fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP]>>rw[]>>
-    last_x_assum old_drule>>
-    disch_then old_drule>>
+    last_x_assum drule>>
+    disch_then drule>>
     disch_then match_mp_tac>>
     metis_tac[])
 QED
@@ -2615,6 +2672,32 @@ Definition inf_set_tids_ienv_def:
   nsAll (λi (n,t). inf_set_tids_subset tids t) ienv.inf_v
 End
 
+Theorem inf_set_tids_ienv_extend_dec_ienv:
+  inf_set_tids_ienv tids added ∧ inf_set_tids_ienv tids base ⇒
+  inf_set_tids_ienv tids (extend_dec_ienv added base)
+Proof
+  rw [inf_set_tids_ienv_def, extend_dec_ienv_def]
+  >> irule nsAll_nsAppend
+  >> simp []
+QED
+
+Theorem inf_set_tids_ienv_open_ienv:
+  inf_set_tids_ienv tids ienv ∧
+  open_ienv path ienv = SOME opened ⇒
+  inf_set_tids_ienv tids opened
+Proof
+  rw [inf_set_tids_ienv_def] >>
+  imp_res_tac open_ienv_success_components >>
+  rpt conj_tac >>
+  irule nsAll_after_nsOpen_id_invariant >>
+  simp [] >>
+  metis_tac []
+QED
+
+Theorem inf_set_tids_ienv_open_ienv_components =
+  inf_set_tids_ienv_open_ienv
+  |> SRULE [inf_set_tids_ienv_def]
+
 Definition inf_set_tids_subst_def:
   inf_set_tids_subst tids subst ⇔
   !t. t ∈ FRANGE subst ⇒ inf_set_tids_subset tids t
@@ -2655,7 +2738,7 @@ Proof
         fs[EL_MAP]>>
         metis_tac[MEM_EL])
       >>
-        old_drule nsLookup_nsAll >> disch_then old_drule>>
+        drule nsLookup_nsAll >> disch_then drule>>
         simp[]
 QED
 
@@ -2900,35 +2983,34 @@ rw[]
 QED
 
 val let_tac =
-   old_drule (CONJUNCT1 infer_e_check_t)
-   >> old_drule (CONJUNCT1 infer_e_check_s)
+   drule (CONJUNCT1 infer_e_check_t)
+   >> drule (CONJUNCT1 infer_e_check_s)
    >> simp []
-   >> disch_then old_drule
-   >> old_drule (CONJUNCT1 infer_e_wfs)
-   >> old_drule (CONJUNCT1 infer_p_check_t)
+   >> disch_then drule
+   >> drule (CONJUNCT1 infer_e_wfs)
+   >> drule (CONJUNCT1 infer_p_check_t)
    >> fs [ienv_ok_def]
    >> rw []
-   >> old_drule (CONJUNCT1 infer_p_check_s)
+   >> drule (CONJUNCT1 infer_p_check_s)
    >> simp []
-   >> disch_then old_drule
+   >> disch_then drule
    >> rw []
-   >> old_drule (CONJUNCT1 infer_p_wfs)
-   >> disch_then old_drule
+   >> drule (CONJUNCT1 infer_p_wfs)
+   >> disch_then drule
    >> rw []
-   >> old_drule t_unify_check_s
-   >> rpt (disch_then old_drule)
-   >> old_drule (CONJUNCT1 infer_e_next_uvar_mono)
-   >> old_drule (CONJUNCT1 infer_p_next_uvar_mono)
+   >> drule t_unify_check_s
+   >> rpt (disch_then drule)
+   >> drule (CONJUNCT1 infer_e_next_uvar_mono)
+   >> drule (CONJUNCT1 infer_p_next_uvar_mono)
    >> rw []
    >> rename1 `infer_p _ _ _ st2 = (M_success (t2, env2), st3)`
    >> `check_t 0 (count st3.next_uvar) t1` by metis_tac [check_t_more4]
    >> fs []
-   >> old_drule t_unify_wfs
-   >> disch_then old_drule
+   >> drule t_unify_wfs
+   >> disch_then drule
    >> rw []
-   >> old_drule generalise_complete
-   >> rpt (disch_then old_drule)
    >> fs [every_shim]
+   >> drule_all_then (strip_assume_tac o SPEC_ALL) generalise_complete
    >> rw [ienv_val_ok_def]
    >> irule nsAll_alist_to_ns
    >> simp [EVERY_MEM, MEM_ZIP]
@@ -2957,14 +3039,6 @@ Proof
  >> simp []
 QED
 
-Theorem ienv_ok_extend_dec_ienv:
-   !e1 e2 n. ienv_ok n e1 ∧ ienv_ok n e2 ⇒ ienv_ok n (extend_dec_ienv e1 e2)
-Proof
- rw [ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_ctor_ok_def,
-     typeSoundInvariantsTheory.tenv_abbrev_ok_def, extend_dec_ienv_def]
- >> metis_tac [nsAll_nsAppend]
-QED
-
 Theorem infer_d_check:
  (!d ienv st1 st2 ienv'.
   infer_d ienv d st1 = (M_success ienv', st2) ∧
@@ -2978,7 +3052,7 @@ Theorem infer_d_check:
   ienv_ok {} ienv')
 Proof
  Induct>>rw[]>>
- fs [infer_d_def, success_eqns]>>
+ fs [infer_d_def, success_eqns, infer_open_success]>>
  rpt (pairarg_tac >> fs [success_eqns])>>
  fs [init_state_def]>> rw[]>>
  strip_assume_tac init_infer_state_wfs
@@ -3004,27 +3078,28 @@ Proof
        >> metis_tac [check_t_more4, COUNT_ZERO, DECIDE ``0n≤ x``])
    >> `check_s 0 (count (LENGTH funs)) (init_infer_state s0).subst`
      by rw [init_infer_state_def, check_s_def]
-   >> old_drule (List.nth (CONJUNCTS infer_e_check_t, 3))
-   >> old_drule (List.nth (CONJUNCTS infer_e_wfs, 3))
+   >> drule (List.nth (CONJUNCTS infer_e_check_t, 3))
+   >> drule (List.nth (CONJUNCTS infer_e_wfs, 3))
    >> fs [ienv_ok_def]
-   >> old_drule (List.nth (CONJUNCTS infer_e_check_s, 3))
+   >> drule (List.nth (CONJUNCTS infer_e_check_s, 3))
    >> simp [ienv_ok_def]
-   >> disch_then old_drule
+   >> disch_then drule
    >> rw []
-   >> old_drule (List.nth (CONJUNCTS infer_e_next_uvar_mono, 3))
+   >> drule (List.nth (CONJUNCTS infer_e_next_uvar_mono, 3))
    >> simp [ienv_ok_def]
-   >> old_drule pure_add_constraints_wfs
+   >> drule pure_add_constraints_wfs
    >> rw []
    >> `EVERY (\t. check_t 0 (count st2.next_uvar) t) (MAP (λn. Infer_Tuvar n) (COUNT_LIST (LENGTH funs)))`
       by rw [EVERY_MAP, every_count_list, check_t_def]
-   >> old_drule pure_add_constraints_check_s
+   >> drule pure_add_constraints_check_s
    >> fs [every_zip_split, eta2_thm, ETA_THM]
    >> simp [GSYM CONJ_ASSOC]
-   >> rpt (disch_then old_drule)
+   >> rpt (disch_then drule)
    >> rw []
-   >> old_drule generalise_complete
+   >> drule generalise_complete
    >> simp [eta2_thm]
-   >> rpt (disch_then old_drule)
+   >> rpt (disch_then drule)
+   >> disch_then (strip_assume_tac o SPEC_ALL)
    >> rw [ienv_val_ok_def]
    >> irule nsAll_alist_to_ns
    >> rw [EVERY_MEM, MEM_ZIP]
@@ -3080,14 +3155,15 @@ Proof
      typeSoundInvariantsTheory.tenv_abbrev_ok_def]
   \\ metis_tac[])
  >- (
-  rpt (first_x_assum old_drule)
+  rpt (first_x_assum drule)
   \\ rw []
   \\ metis_tac [ienv_ok_extend_dec_ienv]
  )
- >- fs[ienv_ok_def,ienv_val_ok_def]
+ >- (irule ienv_ok_open_ienv >> metis_tac [])
+ >- fs [ienv_ok_def, ienv_val_ok_def]
  >>
    match_mp_tac ienv_ok_extend_dec_ienv>>
-   rpt (first_x_assum old_drule)>> rw[]>>
+   rpt (first_x_assum drule)>> rw[]>>
    metis_tac[ienv_ok_extend_dec_ienv]
 QED
 
@@ -3149,7 +3225,7 @@ Theorem infer_d_next_id_mono:
   st.next_id ≤ st'.next_id))
 Proof
   Induct>>rw[]>>
-  fs [infer_d_def, success_eqns]>>
+  fs [infer_d_def, success_eqns, infer_open_success]>>
   rpt (pairarg_tac >> fs [success_eqns])>>
   fs[init_state_def,init_infer_state_def]>>
   rw[]>>
@@ -3319,7 +3395,7 @@ Proof
   >> rw [check_t_def, infer_deBruijn_subst_alt]
   >> fs [EVERY_MAP, EVERY_EL]
   >> rw []
-  >> first_x_assum old_drule
+  >> first_x_assum drule
   >> fs [MEM_EL, PULL_EXISTS]
 QED
 
@@ -3343,7 +3419,7 @@ Theorem t_walkstar_db_subst:
 Proof
   gen_tac \\ ho_match_mp_tac infer_t_ind
   >> rw [infer_deBruijn_subst_alt]
-  >> old_drule inc_wfs
+  >> drule inc_wfs
   >> disch_then (qspec_then `LENGTH inst` mp_tac)
   >> rw [t_walkstar_eqn1, infer_deBruijn_subst_alt, EL_MAP,
          MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_f]
@@ -3484,6 +3560,14 @@ Definition remap_tenv_def:
    |>
 End
 
+Theorem remap_tenv_open_tenv:
+  open_tenv path tenv = SOME opened ⇒
+  open_tenv path (remap_tenv f tenv) = SOME (remap_tenv f opened)
+Proof
+  rw [open_tenv_def, remap_tenv_def, nsOpen_nsMap] >>
+  every_case_tac >> gvs []
+QED
+
 Theorem remap_tenv_I[simp]:
    remap_tenv I = I
 Proof
@@ -3539,10 +3623,10 @@ Proof
   \\ rw[]
   \\ rw[Once t_walkstar_eqn]
   \\ CASE_TAC \\ fs[inf_set_tids_subset_def, inf_set_tids_def]
-  \\ old_drule t_walk_set_tids
-  \\ fs[inf_set_tids_subset_def]
-  \\ disch_then old_drule
-  \\ fs[inf_set_tids_def]
+  \\ `inf_set_tids_subset tids (Infer_Tapp l n)`
+       by (irule t_walk_set_tids \\ first_assum (irule_at Any) \\
+           fs[inf_set_tids_subset_def])
+  \\ fs[inf_set_tids_subset_def, inf_set_tids_def]
   \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_MAP]
   \\ metis_tac[]
 QED
@@ -3620,18 +3704,18 @@ Proof
   TRY(fs[hide_def,prim_tids_def,prim_type_nums_def]>>NO_TAC)
   >- (
     rename1`infer_ps _ _ _ _ = (M_success vv,_)`>>
-    Cases_on`vv`>> first_x_assum old_drule>>
+    Cases_on`vv`>> first_x_assum drule>>
     fs[hide_def,SUBSET_DEF,MEM_MAP,PULL_EXISTS,EVERY_MEM,inf_set_tids_subset_def]>>
     fs[prim_tids_def,prim_type_nums_def]>>
     metis_tac[])
   >- (
     rename1`infer_ps _ _ _ _ = (M_success vv,_)`>>
-    Cases_on`vv`>> first_x_assum old_drule>>
+    Cases_on`vv`>> first_x_assum drule>>
     fs[hide_def,SUBSET_DEF,MEM_MAP,PULL_EXISTS,EVERY_MEM,inf_set_tids_subset_def,MEM_COUNT_LIST]>>
     rw[]
     >- (
       fs[inf_set_tids_ienv_def,namespaceTheory.nsAll_def]>>
-      first_x_assum old_drule>> pairarg_tac>> fs[])
+      first_x_assum drule>> pairarg_tac>> fs[])
     >-
       fs[inf_set_tids_def]
     >-
@@ -3662,13 +3746,13 @@ Proof
         simp[MEM_MAP,PULL_EXISTS,MEM_COUNT_LIST,inf_set_tids_def]))
   >- (
     rename1`infer_p _ _ _ _ = (M_success vv,_)`>>
-    Cases_on`vv`>> first_x_assum old_drule>>
+    Cases_on`vv`>> first_x_assum drule>>
     fs[hide_def,SUBSET_DEF,MEM_MAP,PULL_EXISTS,EVERY_MEM,inf_set_tids_subset_def]>>
     fs[prim_tids_def,prim_type_nums_def]>>
     metis_tac[])
   >- ( (* Pas case *)
     rename1`infer_p _ _ _ _ = (M_success vv,_)`>>
-    Cases_on`vv`>> first_x_assum old_drule>>
+    Cases_on`vv`>> first_x_assum drule>>
     fs[hide_def,SUBSET_DEF,MEM_MAP,PULL_EXISTS,EVERY_MEM,inf_set_tids_subset_def]>>
     fs[prim_tids_def,prim_type_nums_def]>>
     metis_tac[])
@@ -3676,7 +3760,7 @@ Proof
     imp_res_tac type_name_check_subst_state >>
     imp_res_tac type_name_check_subst_thm >>
     fs [] >>
-    first_x_assum old_drule>>
+    first_x_assum drule>>
     fs[hide_def,SUBSET_DEF,MEM_MAP,PULL_EXISTS,EVERY_MEM,inf_set_tids_subset_def]>>
     fs[prim_tids_def,prim_type_nums_def]>>
     rw[]
@@ -3684,7 +3768,7 @@ Proof
       metis_tac[]
     >>
      imp_res_tac infer_p_wfs >>
-     old_drule (t_unify_set_tids |> CONJUNCT1)>>
+     drule (t_unify_set_tids |> CONJUNCT1)>>
      disch_then match_mp_tac>> simp[]>>
     goal_assum(first_assum o mp_then(Pat`t_unify`)mp_tac) >>
     simp[inf_set_tids_subset_def]>>
@@ -3696,11 +3780,11 @@ Proof
     fs[inf_set_tids_ienv_def,prim_tids_def,prim_type_nums_def,inf_set_tids_unconvert,inf_set_tids_subset_def,set_tids_subset_def])
   >- (
     rename1`infer_p _ _ _ _ = (M_success vv,_)`>>
-    Cases_on`vv`>> first_x_assum old_drule>>
+    Cases_on`vv`>> first_x_assum drule>>
     simp[]>>
     strip_tac>>
     rename1`infer_ps _ _ _ _ = (M_success vv,_)`>>
-    Cases_on`vv`>> first_x_assum old_drule>>
+    Cases_on`vv`>> first_x_assum drule>>
     impl_tac>- (
       imp_res_tac infer_p_wfs>>
       fs[hide_def])>>
@@ -3787,10 +3871,18 @@ Proof
   Q.ISPEC_THEN`EVERY _ _ ∧ _ `(fn th => once_rewrite_tac[th])(GSYM hide_def)
   \\ Q.ISPEC_THEN`inf_set_tids_subset _ _ ∧ _ `(fn th => once_rewrite_tac[th])(GSYM hide_def)
   \\ ho_match_mp_tac infer_e_ind >>
-  rw [pat_bindings_def, infer_e_def, success_eqns, remove_pair_lem] >>
-  fs[inf_set_tids_subset_def,inf_set_tids_def]>>
+  rw [pat_bindings_def, infer_e_def, success_eqns, remove_pair_lem]
+  >~ [`open_ienv path cenv = SOME opened`]
+  >- (
+    first_x_assum irule
+    >> simp []
+    >> qexistsl_tac [`opened`, `st`]
+    >> simp []
+    >> irule inf_set_tids_ienv_extend_dec_ienv
+    >> metis_tac [inf_set_tids_ienv_open_ienv])
+  >> fs[inf_set_tids_subset_def,inf_set_tids_def]>>
   TRY(fs[prim_tids_def,prim_type_nums_def,hide_def]>> NO_TAC)>>
-  rpt(first_x_assum old_drule) >> rw[] >>
+  rpt(first_x_assum drule) >> rw[] >>
   fs[hide_def] >>
   imp_res_tac infer_e_wfs
   \\ rpt(qpat_x_assum`∀x. _`kall_tac)
@@ -3850,7 +3942,7 @@ Proof
           inf_set_tids_def,inf_set_tids_unconvert]
     \\ metis_tac[])
   >- (
-    old_drule constrain_op_set_tids
+    drule constrain_op_set_tids
     \\ simp[inf_set_tids_subset_def] )
   >- (
     irule (CONJUNCT1 t_unify_set_tids)
@@ -4039,9 +4131,11 @@ Theorem infer_d_inf_set_tids:
      inf_set_tids_ienv (count st'.next_id) ienv')
 Proof
   Induct
-  \\ rw[infer_d_def, success_eqns]
+  \\ rw[infer_d_def, success_eqns, infer_open_success]
   \\ rpt(pairarg_tac \\ fs[success_eqns]) \\ rw[]
-  \\ rpt(first_x_assum old_drule \\ rw[])
+  >~ [`open_ienv path ienv = SOME opened`]
+  >- metis_tac [inf_set_tids_ienv_open_ienv]
+  \\ rpt(first_x_assum drule \\ rw[])
   \\ imp_res_tac generalise_list_length
   \\ imp_res_tac start_type_id_prim_tids_count
   \\ fs[inf_set_tids_ienv_def, ZIP_MAP, MAP_MAP_o, o_DEF]
@@ -4056,27 +4150,27 @@ Proof
     \\ pop_assum(assume_tac o SYM)
     \\ simp[]
     \\ simp[EVERY_MAP]
-    \\ old_drule(GEN_ALL(CONJUNCT1 infer_p_inf_set_tids))
-    \\ disch_then old_drule
+    \\ drule(GEN_ALL(CONJUNCT1 infer_p_inf_set_tids))
+    \\ disch_then drule
     \\ simp[inf_set_tids_ienv_def,inf_set_tids_subset_def,inf_set_tids_unconvert,GSYM set_tids_subset_def]
-    \\ old_drule(GEN_ALL(CONJUNCT1 infer_e_inf_set_tids))
-    \\ disch_then old_drule
+    \\ drule(GEN_ALL(CONJUNCT1 infer_e_inf_set_tids))
+    \\ disch_then drule
     \\ simp[inf_set_tids_ienv_def,inf_set_tids_subset_def,inf_set_tids_unconvert,GSYM set_tids_subset_def]
     \\ fs[init_state_def] \\ rveq \\ fs[]
     \\ strip_tac
-    \\ old_drule(GEN_ALL(CONJUNCT1 infer_e_wfs))
+    \\ drule(GEN_ALL(CONJUNCT1 infer_e_wfs))
     \\ fs[] \\ rw[]
-    \\ old_drule(GEN_ALL(CONJUNCT1 infer_p_wfs))
-    \\ disch_then old_drule \\ strip_tac
-    \\ old_drule(GEN_ALL(CONJUNCT1 t_unify_set_tids))
-    \\ disch_then old_drule
+    \\ drule(GEN_ALL(CONJUNCT1 infer_p_wfs))
+    \\ disch_then drule \\ strip_tac
+    \\ drule(GEN_ALL(CONJUNCT1 t_unify_set_tids))
+    \\ disch_then drule
     \\ fs[inf_set_tids_subset_def]
     \\ disch_then(first_assum o mp_then (Pat`t_unify`)mp_tac)
     \\ fs[] \\ strip_tac
-    \\ old_drule(GEN_ALL(t_unify_wfs))
-    \\ disch_then old_drule \\ strip_tac
-    \\ old_drule (GEN_ALL t_walkstar_set_tids)
-    \\ disch_then old_drule
+    \\ drule(GEN_ALL(t_unify_wfs))
+    \\ disch_then drule \\ strip_tac
+    \\ drule (GEN_ALL t_walkstar_set_tids)
+    \\ disch_then drule
     \\ fs[inf_set_tids_subset_def]
     \\ fs[EVERY_MEM] \\ rw[]
     \\ res_tac
@@ -4184,8 +4278,8 @@ Proof
       rw[]>>TRY(pairarg_tac>>fs[])>>
       fs[set_tids_subset_def,SUBSET_DEF,EVERY_MEM]>>
       rw[]>>
-      first_x_assum old_drule>>fs[]>>
-      disch_then old_drule>>fs[])
+      first_x_assum drule>>fs[]>>
+      disch_then drule>>fs[])
     >>
       strip_tac>>
       fs[extend_dec_ienv_def]>>
@@ -4197,8 +4291,8 @@ Proof
       rw[]>>TRY(pairarg_tac>>fs[])>>
       fs[set_tids_subset_def,SUBSET_DEF,EVERY_MEM]>>
       rw[]>>
-      first_x_assum old_drule>>fs[]>>
-      disch_then old_drule>>fs[])
+      first_x_assum drule>>fs[]>>
+      disch_then drule>>fs[])
 QED
 
 Theorem infer_d_wfs:
@@ -4214,7 +4308,7 @@ Theorem infer_d_wfs:
      t_wfs st'.subst)
 Proof
   Induct
-  \\ rw[infer_d_def, success_eqns, init_state_def]
+  \\ rw[infer_d_def, success_eqns, infer_open_success, init_state_def]
   \\ rpt(pairarg_tac \\ fs[success_eqns])
   \\ rw[] >>
   imp_res_tac type_name_check_subst_state >>

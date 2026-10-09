@@ -94,11 +94,12 @@ val ffi_code' =
     SmartAppend
      (ffi_asm (REVERSE ffi_names))
      (List (MAP (\n. strlit(n ++ "\n"))
-      (["cake_clear:";
-       "     pushq   %rax";
-       "     pushq   %rdi";
-       "     callq   wcdecl(cml_clear)";
-       "     popq    %rdi";
+      (["cake_install:";
+       "     pushq   %rax                            # return address";
+       "     pushq   %rax                            # keep %rsp 16-byte aligned";
+       "     callq   wcdecl(cml_install)";
+       "     movq    %rax, %rdi                      # destination back in ptr_reg";
+       "     popq    %rax";
        "     ret";
        "     .p2align 4";
        "";
@@ -143,12 +144,12 @@ val windows_ffi_code' =
     SmartAppend
      (windows_ffi_asm (REVERSE ffi_names))
      (List (MAP (\n. strlit(n ++ "\n"))
-      (["windows_cml_clear:";
+      (["windows_cml_install:";
         "     movq    %rcx, %r9";
         "     movq    %rdx, %r8";
         "     movq    %rsi, %rdx";
         "     movq    %rdi, %rcx";
-        "     jmp     cdecl(cml_clear)"] ++
+        "     jmp     cdecl(cml_install)"] ++
        (if ret then (* don't need to treat cake_exit as a function *)
          []
        else

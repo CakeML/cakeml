@@ -73,7 +73,7 @@ val ffi_code' =
     SmartAppend
      (ffi_asm (REVERSE ffi_names))
      (List (MAP (\n. strlit(n ++ "\n"))
-      (["cake_clear:";
+      (["cake_install:";
        "     dla   $t9,cdecl(cml_exit)";
        "     jr    $t9";
        "     .p2align 4";

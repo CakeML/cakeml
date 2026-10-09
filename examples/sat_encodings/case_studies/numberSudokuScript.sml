@@ -127,7 +127,7 @@ Definition cellAssignment_to_assignment_def:
 End
 
 Definition assignment_to_cellAssignment_def:
-  assignment_to_cellAssignment (w:assignment) (sudoku:sudoku) =
+  assignment_to_cellAssignment (w:num assignment) (sudoku:sudoku) =
   assignment_to_numVarAssignment_numBoolRange
   w get_sudoku_rangeList (ns_sudoku_to_numBoolRange sudoku)
 End
@@ -577,9 +577,7 @@ Theorem numberSudoku_to_cnf_preserves_sat:
     sudoku_ok sudoku ∧
     assignment_ok w sudoku ⇒
     (eval_sudoku w sudoku ⇔
-       eval_cnf
-       (numberSudoku_to_assignment w sudoku)
-       (numberSudoku_to_cnf sudoku))
+       satisfies_cnf (numberSudoku_to_assignment w sudoku) (set (numberSudoku_to_cnf sudoku)))
 Proof
   rw[]
   >> imp_res_tac ns_sudoku_to_numBoolRange_preserves_sat >> rgs[]

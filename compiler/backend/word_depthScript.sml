@@ -75,7 +75,7 @@ Definition call_graph_def:
                            (call_graph funs n ns total ret_prog)))) /\
   (call_graph funs n ns total (MustTerminate p) = call_graph funs n ns total p) /\
   (call_graph funs n ns total (Alloc _ _) = Call n Leaf) /\
-  (call_graph funs n ns total (Install _ _ _ _ _) = Unknown) /\
+  (call_graph funs n ns total (Install _ _ _ _ _ _) = Unknown) /\
   (call_graph funs n ns total (Loop _ body _) = call_graph funs n ns total body) /\
   (call_graph funs n ns _ _ = Leaf)
 Termination

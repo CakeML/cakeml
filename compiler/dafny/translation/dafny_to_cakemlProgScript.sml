@@ -12,7 +12,6 @@ val _ = translation_extends "sexp_to_dafnyProg";
 
 val r = translate dafny_to_cakemlTheory.cml_list_def;
 
-val r = translate locationTheory.unknown_loc_def;
 
 val r = translate dafny_to_cakemlTheory.cml_dec_to_string_name_def;
 val r = translate dafny_to_cakemlTheory.cml_dec_to_string_param_def;

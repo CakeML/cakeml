@@ -38,11 +38,11 @@
 *)
 Theory repl_moduleProg
 Ancestors
-  ml_translator candle_kernelProg
+  ml_translator astProg
 Libs
   preamble ml_translatorLib ml_progLib basisFunctionsLib cfLib
 
-val _ = translation_extends "candle_kernelProg";
+val _ = translation_extends "astProg";
 
 Quote add_cakeml:
   fun pp_type ty =

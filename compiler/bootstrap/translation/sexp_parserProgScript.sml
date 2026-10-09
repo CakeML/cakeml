@@ -8,10 +8,6 @@ Ancestors
 Libs
   preamble ml_translatorLib
 
-open preamble decodeProgTheory
-     ml_translatorLib ml_translatorTheory
-     pegTheory simpleSexpTheory simpleSexpPEGTheory simpleSexpParseTheory fromSexpTheory;
-
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = translation_extends "decodeProg";
@@ -49,7 +45,19 @@ val r = translate (simpleSexpTheory.valid_first_symchar_def
 val r = translate (simpleSexpTheory.valid_symchar_def
                   |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY])
 val r = translate pairTheory.PAIR_MAP_THM; (* TODO: isn't this done earlier? *)
-val r = translate simpleSexpPEGTheory.sexpPEG_def
+
+Definition peg_sexp_rules_def:
+  peg_sexp_rules n fk k tf3 errs eo r i =
+  case FLOOKUP sexpPEG.rules n of
+  | NONE => Looped
+  | SOME x => pegexec$EV x i r eo errs (appf1 tf3 k) fk
+End
+
+val r = peg_sexp_rules_def
+  |> REWRITE_RULE [simpleSexpPEGTheory.sexpPEG_def, oneline OPTION_BIND_def]
+  |> SRULE [FUPDATE_LIST, parserProgTheory.option_CASE_FLOOKUP_SIMP, FOLDL]
+  |> translate;
+
 val () = next_ml_names := ["destResult"];
 val r = translate pegexecTheory.destResult_def
 
@@ -58,30 +66,33 @@ val r =
   |> SIMP_RULE std_ss[monad_unitbind_assert,OPTION_BIND_THM,
                   pegexecTheory.pegparse_def,
                   simpleSexpPEGTheory.wfG_sexpPEG,UNCURRY,GSYM NULL_EQ]
+  |> REWRITE_RULE [pegexecTheory.peg_exec_def, GSYM peg_sexp_rules_def,
+                   pegexecTheory.coreloop_def, parserProgTheory.INTRO_FLOOKUP]
+  |> SRULE [simpleSexpPEGTheory.sexpPEG_def]
   |> translate;
 
-val parse_sexp_side = Q.prove(
-  `∀x. parse_sexp_side x = T`,
-  simp[definition"parse_sexp_side_def",
-     parserProgTheory.peg_exec_side_def,
-     parserProgTheory.coreloop_side_def] \\
-  qx_gen_tac`i` \\
-  (MATCH_MP pegexecTheory.peg_exec_total simpleSexpPEGTheory.wfG_sexpPEG |> strip_assume_tac)
-  \\ fs[definition"destresult_1_side_def"] \\
-  (MATCH_MP pegexecTheory.coreloop_total simpleSexpPEGTheory.wfG_sexpPEG |> strip_assume_tac)
-  \\ fs[pegexecTheory.coreloop_def]
-  \\ qmatch_abbrev_tac`IS_SOME (OWHILE a b c)`
-  \\ qmatch_assum_abbrev_tac`OWHILE a b' c = _`
-  \\ qsuff_tac `b = b'` THEN1 fs []
-  \\ simp[Abbr`b`,Abbr`b'`,FUN_EQ_THM]
-  \\ rpt gen_tac
-  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
-  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
-  \\ Cases_on ‘k’ \\ TRY (fs [] \\ NO_TAC)
-  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
-  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
-  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]
-  \\ TOP_CASE_TAC \\ simp[FLOOKUP_DEF] \\ rw[]) |> update_precondition;
+Theorem parse_sexp_side[local]:
+  ∀x. parse_sexp_side x = T
+Proof
+  rewrite_tac [fetch "-" "parse_sexp_side_def"] \\ gen_tac
+  \\ strip_assume_tac
+       (MATCH_MP pegexecTheory.peg_exec_total simpleSexpPEGTheory.wfG_sexpPEG
+        |> Q.INST [`i` |-> `x`])
+  \\ pop_assum mp_tac
+  \\ rewrite_tac [pegexecTheory.coreloop_def,
+                  pegexecTheory.peg_exec_def, GSYM peg_sexp_rules_def,
+                  parserProgTheory.INTRO_FLOOKUP]
+  \\ simp [simpleSexpPEGTheory.sexpPEG_def]
+  \\ qmatch_goalsub_abbrev_tac ‘OWHILE f1 f2’ \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac ‘OWHILE g1 g2’
+  \\ qsuff_tac ‘f2 = g2’
+  >- (strip_tac \\ gvs [AllCaseEqs(), fetch "-" "destresult_1_side_def"])
+  \\ unabbrev_all_tac
+  \\ rpt $ pop_assum kall_tac
+  \\ simp [simpleSexpPEGTheory.sexpPEG_def, SF ETA_ss]
+QED
+
+val _ = update_precondition parse_sexp_side;
 
 val r = fromSexpTheory.sexplist_def
         |> SIMP_RULE std_ss [OPTION_BIND_THM]
@@ -255,14 +266,6 @@ val r = fromSexpTheory.sexpopt_def
         |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
         |> translate;
 
-val r = fromSexpTheory.sexplocpt_def
-        |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
-        |> translate;
-
-val r = fromSexpTheory.sexplocn_def
-        |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
-        |> translate;
-
 val r = fromSexpTheory.sexplit_def
         |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
         |> translate;
@@ -271,6 +274,16 @@ val sexplit_side = Q.prove(
   `∀x. sexplit_side x = T`,
   EVAL_TAC \\ rw[] \\ strip_tac \\ fs[])
   |> update_precondition;
+
+val r = translate fromSexpTheory.sexpint_def;
+
+val r = fromSexpTheory.sexplocpt_def
+        |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
+        |> translate;
+
+val r = fromSexpTheory.sexplocn_def
+        |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
+        |> translate;
 
 val r = translate sexppat_alt_def;
 
@@ -388,8 +401,6 @@ QED
 
 val _ = translate listsexp_alt
 
-val _ = translate (locnsexp_def |> SIMP_RULE list_ss []);
-
 val _ = translate HEX_def
 
 Theorem l2n_side_thm[local]:
@@ -472,6 +483,8 @@ val _ = translate testsexp_def;
 val _ = translate arithsexp_def;
 val _ = translate opsexp_def;
 val _ = translate logsexp_def;
+val _ = translate intsexp_def;
+val _ = translate (locnsexp_def |> SIMP_RULE list_ss []);
 val _ = translate locssexp_def;
 val _ = translate expsexp_def;
 val _ = translate type_defsexp_def;

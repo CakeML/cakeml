@@ -25,8 +25,17 @@ Translation of the functions in caml_parserScript.sml
 [compiler32ProgScript.sml](compiler32ProgScript.sml):
 Finish translation of the 32-bit version of the compiler.
 
-[compiler64ProgScript.sml](compiler64ProgScript.sml):
-Finish translation of the 64-bit version of the compiler.
+[compiler64Arm8ProgScript.sml](compiler64Arm8ProgScript.sml):
+Native ARM8 entry point for the 64-bit compiler.
+
+[compiler64CommonProgScript.sml](compiler64CommonProgScript.sml):
+Shared translation of the 64-bit compiler backends and command-line interface.
+
+[compiler64MainProgScript.sml](compiler64MainProgScript.sml):
+Shared host selection and entry points for the native 64-bit compiler programs.
+
+[compiler64X64ProgScript.sml](compiler64X64ProgScript.sml):
+Native x64 entry point for the 64-bit compiler.
 
 [decProgScript.sml](decProgScript.sml):
 Translation of CakeML source AST

@@ -50,6 +50,13 @@ Definition nsLookupMod_def:
   case ALOOKUP m mn of NONE => NONE | SOME env => nsLookupMod env path
 End
 
+(* Resolve a source-level module-open path.  Unlike nsLookupMod, an empty
+   path is not a valid open and must not select the entire current namespace. *)
+Definition nsOpen_def:
+  nsOpen path (env:('m,'n,'v)namespace) =
+    if NULL path then NONE else nsLookupMod env path
+End
+
 Definition nsEmpty_def:
   nsEmpty = Bind [] []
 End
@@ -114,4 +121,3 @@ Definition nsMap_def:
   nsMap (f:'v -> 'w) ((Bind v m):('m,'n,'v)namespace) =
     Bind (MAP (λ(n,x). (n,f x)) v) (MAP (λ(mn,e). (mn,nsMap f e)) m)
 End
-

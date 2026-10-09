@@ -100,7 +100,7 @@ fun println s = print (strcat s "\n");
 (* -- *)
 
 (* TODO: move to listLib (and move MAP3 to listTheory) *)
-val (map3_tm,mk_map3,dest_map3,is_map3) = syntax_fns4 "misc" "MAP3"
+(* val (map3_tm,mk_map3,dest_map3,is_map3) = syntax_fns4 "misc" "MAP3"
 
 local
   val (m3n,m3c) = CONJ_PAIR MAP3_def
@@ -128,6 +128,7 @@ in
       itlist3 itfn els1 els2 els3 nth
     end
 end
+*)
 (* -- *)
 
 (* parlist num_threads chunk_size eval_fn ls :
@@ -272,15 +273,6 @@ fun any_match_mp impth th =
       |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
   in
     MATCH_MP th2 th  end
-
-val SWAP_IMP = let
-  val P = mk_var("P", bool)
-  val Q = mk_var("Q", bool)
-  val R = mk_var("R", bool)
-in
-  Feedback.trace ("meson", 0) (PROVE[])
-    (mk_imp(list_mk_imp([P,Q], R), list_mk_imp([Q,P], R)))
-end
 
 fun prove_hyps_by tac th = foldr (uncurry PROVE_HYP) th (map (fn h => prove(h,tac)) (hyp th));
 
@@ -542,45 +534,6 @@ in
       ORELSEC
       (REWR_CONV set_cons THENC RAND_CONV set_conv)
     )
-end
-local
-fun BRING_NAME_TO_FRONT_CONV n t =
-    let val (vs, b) = strip_forall t
-    in
-      case vs of
-          [] => NO_CONV
-        | v::rest => if #1 (dest_var v) = n then ALL_CONV
-                     else BINDER_CONV (BRING_NAME_TO_FRONT_CONV n) THENC
-                          SWAP_VARS_CONV
-    end t
-
-fun SPECtop th =
-    let val (v, _) = dest_forall (concl th)
-    in
-      SPEC v th
-    end
-
-fun SPECnames [] th = th
-  | SPECnames (n::ns) th =
-    case Lib.total (CONV_RULE (BRING_NAME_TO_FRONT_CONV n)) th of
-        NONE => SPECnames ns th
-      | SOME th' => SPECnames ns (SPECtop th')
-
-fun specnames_then fvnms ttac th = ttac (SPECnames fvnms th)
-in
-fun old_drule_then ttac th =
-    let val fvnames = map (#1 o dest_var) (th |> concl |> free_vars)
-    in
-      drule_then (specnames_then fvnames ttac) th
-    end
-val old_drule = old_drule_then mp_tac
-fun old_dxrule_then ttac th =
-    let val fvnames = map (#1 o dest_var) (th |> concl |> free_vars)
-    in
-      dxrule_then (specnames_then fvnames ttac) th
-    end
-val old_dxrule = old_dxrule_then mp_tac
-
 end
 
 val () = Cache.set_capacity numSimps.arith_cache 200000;

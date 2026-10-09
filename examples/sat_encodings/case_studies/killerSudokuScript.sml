@@ -147,7 +147,7 @@ Definition killerSudoku_to_cnf_def:
 End
 
 Definition assignment_to_cellAssignment_killerSudoku_def:
-  assignment_to_cellAssignment_killerSudoku (w:assignment) (cages:cageList) =
+  assignment_to_cellAssignment_killerSudoku (w:num assignment) (cages:cageList) =
   assignment_to_numVarAssignment_numBoolRange
   w
   (get_killerSudoku_rangeList cages)

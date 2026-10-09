@@ -1,8 +1,3 @@
-INCLUDES=$(CAKEMLDIR)/examples/deflate\
-		 $(CAKEMLDIR)/examples/deflate/translation\
-		 $(CAKEMLDIR)/compiler\
-		 $(CAKEMLDIR)/cv_translator
-
 CFLAGS+=-O2
 LDLIBS+=-lm
 

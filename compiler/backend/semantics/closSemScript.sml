@@ -120,9 +120,11 @@ End
 Overload Error[local] =
   ``(Rerr(Rabort Rtype_error)):(closSem$v#(('c,'ffi) closSem$state), closSem$v)result``
 
-Definition v_to_bytes_def:
-  v_to_bytes lv = some ns:word8 list.
-                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)
+Definition v_to_mlstring_def:
+  v_to_mlstring lv =
+    case lv of
+    | ByteVector bs => SOME (bytes_to_mlstring bs)
+    | _ => NONE
 End
 
 Definition v_to_words_def:
@@ -135,7 +137,7 @@ Definition do_install_def:
   do_install vs ^s =
       (case vs of
        | [v1;v2] =>
-           (case (v_to_bytes v1, v_to_words v2) of
+           (case (v_to_mlstring v1, v_to_words v2) of
             | (SOME bytes, SOME data) =>
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in
@@ -221,6 +223,12 @@ Definition do_word_app_def:
         | SOME w => SOME (Number &(w2n (shift_lookup sh w n)))) /\
   do_word_app (WordShift W64 sh n) [Word64 w] =
        SOME (Word64 (shift_lookup sh w n)) /\
+  do_word_app (WordShiftVar W8 sh) [Number i; Number n] =
+       (case some (w:word8,count:word8). i = &(w2n w) /\ n = &(w2n count) of
+        | NONE => NONE
+        | SOME (w,count) => SOME (Number &(w2n (shift_lookup sh w (w2n count))))) /\
+  do_word_app (WordShiftVar W64 sh) [Word64 w; Word64 count] =
+       SOME (Word64 (shift_lookup sh w (w2n count))) /\
   do_word_app (WordFromInt) [Number i] =
        SOME (Word64 (i2w i)) /\
   do_word_app WordToInt [Word64 w] =
@@ -250,6 +258,23 @@ Definition do_word_app_def:
          | _ => NONE) /\
   do_word_app (op:closLang$word_op) (vs:closSem$v list) = NONE
 End
+
+Theorem do_word_app_WordShiftVar8:
+  do_word_app (WordShiftVar W8 sh)
+    [Number (&(w2n (w:word8))); Number (&(w2n (n:word8)))] =
+  SOME (Number (&(w2n (shift_lookup sh w (w2n n)))))
+Proof
+  simp [do_word_app_def] >>
+  DEEP_INTRO_TAC some_intro >>
+  simp [FORALL_PROD]
+QED
+
+Theorem do_word_app_WordShiftVar64:
+  do_word_app (WordShiftVar W64 sh) [Word64 w; Word64 n] =
+  SOME (Word64 (shift_lookup sh w (w2n n)))
+Proof
+  simp [do_word_app_def]
+QED
 
 Datatype:
   dest_thunk_ret
@@ -381,6 +406,24 @@ Definition do_app_def:
                  (ptr, ByteArray (LUPDATE (i2w b) (Num i) bs)))
              else Error)
          | _ => Error)
+    | (MemOp DerefBit,[RefPtr _ ptr; Number i]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray ws) =>
+            (if 0 ≤ i ∧ i < 8 * &LENGTH ws
+             then Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8)),s)
+             else Error)
+         | _ => Error)
+    | (MemOp UpdateBit,[RefPtr _ ptr; Number i; v]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray bs) =>
+            (if 0 ≤ i ∧ i < 8 * &LENGTH bs ∧ (v = Boolv T ∨ v = Boolv F)
+             then
+               Rval (Unit, s with refs := s.refs |+
+                 (ptr, ByteArray (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                           (EL (Num i DIV 8) bs))
+                                          (Num i DIV 8) bs)))
+             else Error)
+         | _ => Error)
     | (MemOp ConcatByteVec,[lv]) =>
         (case (some wss. v_to_list lv = SOME (MAP ByteVector wss)) of
          | SOME wss => Rval (ByteVector (FLAT wss), s)
@@ -493,6 +536,11 @@ Definition do_app_def:
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
              Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
+         | _ => Error)
+    | (MemOp BoundsCheckBit,[RefPtr _ ptr; Number i]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray ws) =>
+             Rval (Boolv (0 <= i /\ i < 8 * & LENGTH ws),s)
          | _ => Error)
     | (MemOp BoundsCheckArray,[RefPtr _ ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of

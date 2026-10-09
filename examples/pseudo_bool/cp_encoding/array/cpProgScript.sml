@@ -909,6 +909,7 @@ val res = translate encode_nivar_def;
 val res = translate proj_ivar_def;
 val res = translate encode_prob_type_def;
 val res = translate format_string_def;
+val res = translate annot_list_def;
 val res = translate full_encode_def;
 val res = translate conv_concl_def;
 
