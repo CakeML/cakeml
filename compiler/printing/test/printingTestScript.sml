@@ -10,11 +10,10 @@
 Theory printingTest
 Ancestors
   basisTypeCheck addPrintVals typeDecToPP printTweaks infer_cv
-  fromSexp[qualified]
   infer addPrintVals_cv
 Libs
   preamble basicComputeLib ml_translatorLib ml_progLib
-  basisFunctionsLib cv_transLib astToSexprLib[qualified]
+  basisFunctionsLib cv_transLib (* astToSexprLib[qualified] *)
 
 val _ = (max_print_depth := 20);
 

@@ -104,11 +104,13 @@ val _ = translate keep_int_def;
 
 val _ = translate pancake_peg_def;
 
-val _ = translate parse_def;
+val _ = (next_ml_names := ["parse"])
+val _ = with_flag (use_long_names, true) translate parse_def
 
-Theorem parse_side_lemma = Q.prove(`
-  !x. parse_side x = T`,
-  SIMP_TAC std_ss [fetch "-" "parse_side_def",
+Theorem panpeg_parse_side_lemma:
+  !x. panpeg_parse_side x = T
+Proof
+  SIMP_TAC std_ss [fetch "-" "panpeg_parse_side_def",
                    parserProgTheory.peg_exec_side_def,
                    parserProgTheory.coreloop_side_def] \\
   rpt strip_tac \\
@@ -127,8 +129,10 @@ Theorem parse_side_lemma = Q.prove(`
   rpt (AP_THM_TAC ORELSE AP_TERM_TAC) \\
   rw[FUN_EQ_THM] \\
   rpt(PURE_FULL_CASE_TAC >> gvs[FDOM_FLOOKUP]) \\
-  gvs [flookup_thm])
-  |> update_precondition;
+  gvs [flookup_thm]
+QED
+
+val _ = panpeg_parse_side_lemma |> update_precondition
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

@@ -1,10 +1,9 @@
 (*
   Translation of the CakeML AST and related types for use with cv_compute.
 *)
-Theory source_cv[no_sig_docs]
+Theory ast_cv[no_sig_docs]
 Ancestors
-  location namespace ast
-  cv_std basis_cv
+  location namespace ast cv_std
 Libs
   preamble cv_typeLib
 
