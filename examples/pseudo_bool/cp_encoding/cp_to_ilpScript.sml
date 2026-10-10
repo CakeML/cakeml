@@ -326,7 +326,7 @@ End
 Definition needs_escaping_def:
   needs_escaping depth s n (l:num) =
     if l ≤ n then depth ≠ 0i else
-      let c = strsub s n in
+      let c = strsub_unsafe s n in
         if c = CHR 92 ∨ c = CHR 255 then T else
         if c = CHR 91 then needs_escaping (depth+1) s (n+1) l else
         if c = CHR 93 then
@@ -362,7 +362,7 @@ Proof
     naive_needs_escaping d ys’
   >- (disch_then $ qspecl_then [‘xs’,‘[]’,‘0’] mp_tac \\ simp [])
   \\ Induct
-  \\ simp [naive_needs_escaping_def, Once needs_escaping_def]
+  \\ simp [naive_needs_escaping_def, Once needs_escaping_def, strsub_unsafe_eq_strsub]
   \\ simp [EL_APPEND2]
   \\ rpt gen_tac
   \\ Cases_on ‘h = #"\\"’ \\ fs []

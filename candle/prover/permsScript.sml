@@ -475,6 +475,10 @@ Proof
   >- (
     rw [do_app_cases] \\ gs []
     \\ simp [perms_ok_def])
+  \\ Cases_on ‘op = Strsub_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
   \\ Cases_on ‘op = Explode’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []

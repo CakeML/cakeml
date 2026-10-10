@@ -235,6 +235,7 @@ Definition compile_op_def:
     | Src Strsub => Let t xs (If t (Op t (MemOp (BoundsCheckByte F)) [Var t 0; Var t 1])
                                (Op t (MemOp DerefByteVec) [Var t 0; Var t 1])
                                (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+    | Src Strsub_unsafe => Op t (MemOp DerefByteVec) xs
     | Src Eval => Op t Install xs
     | Src (ThunkOp op) => Op t (ThunkOp op) xs
     | Src (Arith a ty) => compile_arith t a ty xs

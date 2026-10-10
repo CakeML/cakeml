@@ -10,6 +10,7 @@
     Unsafe.w8update -- unsafe version of Word8Array.update
     Unsafe.w8subBit -- unsafe version of Word8Array.subBit
     Unsafe.w8updateBit -- unsafe version of Word8Array.updateBit
+    Unsafe.strsub -- unsafe version of String.sub
 *)
 Theory UnsafeProg
 Ancestors
@@ -49,5 +50,13 @@ End
 val _ = (next_ml_names := ["vsub"]);
 val _ = translate vsub_def;
 val _ = update_precondition (fetch "-" "vsub_side_def");
+
+Definition unsafe_strsub_def[simp]:
+  unsafe_strsub s n = strsub_unsafe s n
+End
+
+val _ = (next_ml_names := ["strsub"]);
+val _ = translate unsafe_strsub_def;
+val _ = update_precondition (fetch "-" "unsafe_strsub_side_def");
 
 val _ = ml_prog_update (close_module NONE);

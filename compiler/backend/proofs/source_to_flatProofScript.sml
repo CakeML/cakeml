@@ -1473,6 +1473,10 @@ Proof
       srw_tac[][markerTheory.Abbrev_def] >>
       full_simp_tac(srw_ss())[v_rel_lems]
       >> rename1 ‘explode str’ >> Cases_on ‘str’ >> fs [])
+  >~ [‘Strsub_unsafe’] >- (
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      rename1 ‘explode str’ >> Cases_on ‘str’ >> fs [])
   >~ [‘Strlen’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])

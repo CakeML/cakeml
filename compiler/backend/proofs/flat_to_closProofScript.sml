@@ -1091,6 +1091,20 @@ Proof
   \\ fs [MAP_MAP_o,o_DEF,ORD_BOUND,CHR_ORD]
 QED
 
+Theorem op_str_unsafe:
+  op = Src Strsub_unsafe ==>
+  ^op_goal
+Proof
+  rpt strip_tac \\ rveq \\ fs []
+  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
+         CaseEq "ast$lit",option_case_eq]
+  \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
+  \\ fs [compile_op_def,evaluate_def,do_app_def,v_rel_def]
+  \\ rename1 ‘strsub str (Num i)’
+  \\ ‘i < &strlen str’ by intLib.COOPER_TAC
+  \\ namedCases_on ‘str’ ["s"] \\ fs [EL_MAP,ORD_BOUND]
+QED
+
 Theorem op_globals:
   (?n. op = GlobalVarLookup n) \/
   (?n. op = GlobalVarInit n) \/
@@ -1709,7 +1723,7 @@ Theorem compile_op_correct:
   ^op_goal
 Proof
   EVERY (map assume_tac
-    [op_refs, op_str, op_thunk, op_eq_gc, op_byte_arrays,
+    [op_refs, op_str, op_str_unsafe, op_thunk, op_eq_gc, op_byte_arrays,
      op_arrays, op_test, op_arith, op_from_to, op_globals, op_blocks,
      op_ffi, op_byte_copy, op_byte_bits, op_byte_bits_safe, op_eval, op_vectors, op_id])
   \\ `?this_is_case. this_is_case op` by (qexists_tac `K T` \\ fs [])

@@ -754,6 +754,7 @@ Definition sexpop_def:
   if s = "VfromList" then SOME VfromList else
   if s = "Vsub" then SOME Vsub else
   if s = "Vsubunsafe" then SOME Vsub_unsafe else
+  if s = "Strsubunsafe" then SOME Strsub_unsafe else
   if s = "Vlength" then SOME Vlength else
   if s = "ListAppend" then SOME ListAppend else
   if s = "Aalloc" then SOME Aalloc else
@@ -1586,6 +1587,7 @@ Definition opsexp_def:
   (opsexp VfromList = SX_SYM "VfromList") ∧
   (opsexp Vsub = SX_SYM "Vsub") ∧
   (opsexp Vsub_unsafe = SX_SYM "Vsubunsafe") ∧
+  (opsexp Strsub_unsafe = SX_SYM "Strsubunsafe") ∧
   (opsexp Vlength = SX_SYM "Vlength") ∧
   (opsexp ListAppend = SX_SYM "ListAppend") ∧
   (opsexp Aalloc = SX_SYM "Aalloc") ∧

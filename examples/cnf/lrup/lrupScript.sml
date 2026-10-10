@@ -179,7 +179,7 @@ Definition parse_lrup_chunk_def:
   parse_lrup_chunk s =
   if strlen s = 0 then NONE
   else
-  let c = strsub s 0 in
+  let c = strsub_unsafe s 0 in
   if c = #"d"
   then SOME (INL (Delvb s))
   else if c = #"a"

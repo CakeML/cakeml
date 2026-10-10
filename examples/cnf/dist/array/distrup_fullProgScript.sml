@@ -15,10 +15,10 @@ val _ = translation_extends "distrup_arrayProg";
 Definition string_to_num_def:
   string_to_num s =
   let
-    b0 = &ORD (strsub s 0);
-    b1 = &ORD (strsub s 1);
-    b2 = &ORD (strsub s 2);
-    b3 = &ORD (strsub s 3)
+    b0 = &ORD (strsub_unsafe s 0);
+    b1 = &ORD (strsub_unsafe s 1);
+    b2 = &ORD (strsub_unsafe s 2);
+    b3 = &ORD (strsub_unsafe s 3)
   in
     b0 + b1 * 256 + b2 * 65536 + b3 * (16777216:num)
 End
@@ -937,7 +937,7 @@ Theorem string_to_num_eq_bytes_to_num:
 Proof
   rw[LENGTH_EQ_NUM_compute]>>
   simp[string_to_num_def,bytes_to_num_def]>>
-  simp[strsub_def]>>
+  simp[strsub_def,mlstringTheory.strsub_unsafe_eq_strsub]>>
   DEP_REWRITE_TAC[ORD_CHR_RWT]>>
   rw[w2n_lt_256]
 QED
