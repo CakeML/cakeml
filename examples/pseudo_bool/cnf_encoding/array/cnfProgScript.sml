@@ -508,7 +508,7 @@ QED
   everything else uses the mapping *)
 Definition plainLim_nf_def:
   plainLim_nf l s nhm =
-  if strlen s ≥ 1 ∧ strsub s 0 = #"x" then
+  if strlen s ≥ 1 ∧ strsub_unsafe s 0 = #"x" then
     case mlint$fromNatString (substring s 1 (strlen s - 1)) of
       NONE => NONE
     | SOME n =>

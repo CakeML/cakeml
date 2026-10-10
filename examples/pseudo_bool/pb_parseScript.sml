@@ -174,7 +174,7 @@ End
 *)
 Definition parse_lit_def:
   parse_lit s =
-  if strlen s ≥ 2 ∧ strsub s 0 = #"~" then
+  if strlen s ≥ 2 ∧ strsub_unsafe s 0 = #"~" then
     let ss = substring s 1 (strlen s - 1) in
     if goodString ss then
         SOME (Neg ss)
@@ -207,7 +207,7 @@ End
 (* Strip ; terminator from the end of a string *)
 Definition strip_term_def:
   strip_term s =
-  if strlen s ≥ 1 ∧ strsub s (strlen s - 1) = #";"
+  if strlen s ≥ 1 ∧ strsub_unsafe s (strlen s - 1) = #";"
   then SOME (substring s 0 (strlen s - 1))
   else NONE
 End
@@ -320,7 +320,7 @@ Definition parse_annot_def:
   parse_annot line =
   case line of
     (INL s)::ls =>
-    if strlen s ≥ 1 ∧ strsub s 0 = #"@" then
+    if strlen s ≥ 1 ∧ strsub_unsafe s 0 = #"@" then
       (let (annots,rest) = parse_annot ls in
         (substring s 1 (strlen s - 1)::annots, rest))
     else ([], line)
@@ -383,7 +383,7 @@ End
 
 Definition nocomment_line_def:
   (nocomment_line (INL c::cs) =
-    (strlen c < 1 ∨ strsub c 0 ≠ #"*")) ∧
+    (strlen c < 1 ∨ strsub_unsafe c 0 ≠ #"*")) ∧
   (nocomment_line _ = T)
 End
 
@@ -503,7 +503,7 @@ Definition skip_annot_def:
   skip_annot line =
   case line of
     (INL s)::ls =>
-    if strlen s ≥ 1 ∧ strsub s 0 = #"@" then skip_annot ls
+    if strlen s ≥ 1 ∧ strsub_unsafe s 0 = #"@" then skip_annot ls
     else line
   | _ => line
 End
@@ -588,7 +588,8 @@ Proof
   strip_tac>>
   `¬goodChar #";"` by EVAL_TAC>>
   namedCases_on`s`["l"]>>
-  gvs[parse_lit_def,goodString_eq_EVERY_goodChar]>>
+  gvs[parse_lit_def,goodString_eq_EVERY_goodChar,
+      mlstringTheory.strsub_unsafe_eq_strsub]>>
   `¬EVERY goodChar l` by (
     simp[EXISTS_MEM,MEM_EL]>>
     qexists_tac`#";"`>>
@@ -1025,8 +1026,8 @@ Definition fromString_unsafe_def:
   fromString_unsafe str =
     if strlen str = 0
     then 0i
-    else if strsub str 0 = #"~" ∨
-            strsub str 0 = #"-"
+    else if strsub_unsafe str 0 = #"~" ∨
+            strsub_unsafe str 0 = #"-"
       then ~&fromChars_unsafe (strlen str - 1)
                               (substring str 1 (strlen str - 1))
       else &fromChars_unsafe (strlen str) str
@@ -1048,12 +1049,12 @@ Definition int_start_def:
   int_start s =
   if strlen s > 0
   then
-    if strsub s (strlen s - 1) = #";" then F
+    if strsub_unsafe s (strlen s - 1) = #";" then F
     else
-      is_numeric (strsub s 0) ∨
+      is_numeric (strsub_unsafe s 0) ∨
       (strlen s > 1 ∧
-      is_num_prefix (strsub s 0) ∧
-      is_numeric (strsub s 1))
+      is_num_prefix (strsub_unsafe s 0) ∧
+      is_numeric (strsub_unsafe s 1))
   else
     F
 End
@@ -1101,7 +1102,7 @@ Proof
   \\ qspec_then ‘STRING c cs’ mp_tac fromChars_not_digits
   \\ Cases_on ‘cs’
   \\ fs [int_start_def,mlintTheory.fromString_def,is_numeric_def,
-         is_num_prefix_def,isDigit_def]
+         is_num_prefix_def,isDigit_def,mlstringTheory.strsub_unsafe_eq_strsub]
   \\ rpt strip_tac
   \\ rpt IF_CASES_TAC
   \\ gvs []
@@ -1182,7 +1183,7 @@ Definition parse_cutting_aux_def:
   | INL s =>
   if strlen s = 1
   then
-    let c = strsub s 0 in
+    let c = strsub_unsafe s 0 in
       if c = #"+" then
         (case stack of
           a::b::rest => parse_cutting_aux f_ns xs (Add b a::rest)
@@ -1607,7 +1608,7 @@ End
 (* We map #n to n-1 internally *)
 Definition parse_hash_num_def:
   parse_hash_num s =
-  if strlen s ≥ 1 ∧ strsub s 0 = #"#" then
+  if strlen s ≥ 1 ∧ strsub_unsafe s 0 = #"#" then
     OPTION_MAP (λn. n-1)
       (mlint$fromNatString (substring s 1 (strlen s - 1)))
   else NONE
@@ -2395,7 +2396,7 @@ EVAL ``parse_sol (plainVar_nf,()) (INL «soli») (toks_fast «x1 ~x2 ~x3»)``
 Definition parse_solx_aux_def:
   (parse_solx_aux f_ns [] assg free = SOME ((assg,free),f_ns)) ∧
   (parse_solx_aux f_ns (INL s::ss) assg free =
-    if strlen s > 0 ∧ strsub s 0 = #"*" then
+    if strlen s > 0 ∧ strsub_unsafe s 0 = #"*" then
       case parse_var f_ns (substring s 1 (strlen s - 1)) of
         NONE => NONE
       | SOME (v,f_ns') => parse_solx_aux f_ns' ss assg (insert v () free)

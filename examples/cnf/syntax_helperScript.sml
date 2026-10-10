@@ -665,7 +665,7 @@ Definition fromString_unsafe_def:
   fromString_unsafe str =
     if strlen str = 0
     then 0i
-    else if strsub str 0 = #"-"
+    else if strsub_unsafe str 0 = #"-"
       then ~&fromChars_unsafe (strlen str - 1)
                               (substring str 1 (strlen str - 1))
       else &fromChars_unsafe (strlen str) str
@@ -680,7 +680,7 @@ End
 Definition tokenize_fast_def:
   tokenize_fast (s:mlstring) =
   if strlen s = 0 then INL s
-  else if is_int (strsub s 0) then INR (fromString_unsafe s)
+  else if is_int (strsub_unsafe s 0) then INR (fromString_unsafe s)
   else INL s
 End
 
@@ -695,7 +695,7 @@ End
 Definition parse_vb_num_aux_def:
   parse_vb_num_aux (s:mlstring) (i:num) (len:num) (ex:num) (n:num) =
   if i < len then
-    let v = ORD (strsub s i) in
+    let v = ORD (strsub_unsafe s i) in
       if v >= 128 then (* msb is set *)
         parse_vb_num_aux s (i+1) len (ex*128) ((v-128)*ex+n)
       else
@@ -755,22 +755,22 @@ End
 Definition vb_int_lo_def:
   vb_int_lo (s:mlstring) (i:num) (len:num) =
   if i < len then
-    (let c = strsub s i in
+    (let c = strsub_unsafe s i in
      let b = ORD c in
      let w = char_to_word8 c in
      let neg = (w2n (w && 1w) = 1) in
      let h = w2n ((w && 127w) >>> 1) in
      if b < 128 then (vb_sgn neg h, i + 1)
      else if i + 1 < len then
-       (let b = ORD (strsub s (i + 1)) in
+       (let b = ORD (strsub_unsafe s (i + 1)) in
         if b < 128 then (vb_sgn neg (h + b * 64), i + 2)
         else if i + 2 < len then
           (let h = h + (b - 128) * 64 in
-           let b = ORD (strsub s (i + 2)) in
+           let b = ORD (strsub_unsafe s (i + 2)) in
            if b < 128 then (vb_sgn neg (h + b * 8192), i + 3)
            else if i + 3 < len then
              (let h = h + (b - 128) * 8192 in
-              let b = ORD (strsub s (i + 3)) in
+              let b = ORD (strsub_unsafe s (i + 3)) in
               if b < 128 then (vb_sgn neg (h + b * 1048576), i + 4)
               else
                 (let h = h + (b - 128) * 1048576 in
@@ -814,7 +814,7 @@ Theorem vb_int_step[local]:
     (let (m,j) = parse_vb_num_aux s i len (2 * ex) (2 * g + par) in
        ((if m MOD 2 = 0n then (&(m DIV 2):int) else (-&(m DIV 2):int)), j)) =
     if i < len then
-      (let b = ORD (strsub s i) in
+      (let b = ORD (strsub_unsafe s i) in
        if b < 128 then (vb_sgn (par = 1) (g + b * ex), i + 1)
        else
          (let (m,j) =
@@ -840,11 +840,11 @@ Proof
   `!m:num. (if m = 0 then 0i
             else if m MOD 2 = 0 then (&(m DIV 2):int) else (-&(m DIV 2):int)) =
            (if m MOD 2 = 0 then (&(m DIV 2):int) else (-&(m DIV 2):int))` by rw[] >>
-  Cases_on `i < len` >> Cases_on `ORD (strsub s i) < 128` >>
+  Cases_on `i < len` >> Cases_on `ORD (strsub_unsafe s i) < 128` >>
   simp[vb_int_lo_def, ORD_BOUND, vb_half_bits]
   >- simp[vb_sgn_decode] >>
-  `?r. r < 128 /\ ORD (strsub s i) = 128 + r` by
-    (qexists_tac `ORD (strsub s i) - 128` >> simp[ORD_BOUND]) >>
+  `?r. r < 128 /\ ORD (strsub_unsafe s i) = 128 + r` by
+    (qexists_tac `ORD (strsub_unsafe s i) - 128` >> simp[ORD_BOUND]) >>
   gvs[] >>
   `r = 2 * (r DIV 2) + r MOD 2` by
     simp[Once (Q.SPEC `r` (MATCH_MP DIVISION (DECIDE ``0n < 2``))), MULT_COMM] >>

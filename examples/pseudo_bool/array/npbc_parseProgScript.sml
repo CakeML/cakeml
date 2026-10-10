@@ -148,7 +148,7 @@ Definition fromChars_range_unsafe_tail_def:
   else
     let m = n - 1 in
     fromChars_range_unsafe_tail b m str (mul * 10)
-      (acc + fromChar_unsafe (strsub str m) * mul)
+      (acc + fromChar_unsafe (strsub_unsafe str m) * mul)
 Termination
   WF_REL_TAC`measure (λ(b,n,_). n)`>>
   rw[]
@@ -163,7 +163,8 @@ Proof
   >-
     rw[Once fromChars_range_unsafe_tail_def,fromChars_range_unsafe_def]>>
   rw[]>>
-  simp[Once fromChars_range_unsafe_tail_def,ADD1,fromChars_range_unsafe_def]>>
+  simp[Once fromChars_range_unsafe_tail_def,ADD1,fromChars_range_unsafe_def,
+       mlstringTheory.strsub_unsafe_eq_strsub]>>
   fs[ADD1]
 QED
 
@@ -184,7 +185,7 @@ Theorem fromchars_range_unsafe_tail_side_def[allow_rebind]:
    ¬(a1 ≤ a0) ⇒
    (T ∧ a1 < 1 + strlen a2 ∧ 0 < strlen a2) ∧
    fromchars_range_unsafe_tail_side a0 (a1 − 1) a2 (a3 * 10)
-     (a4 + fromChar_unsafe (strsub a2 (a1 − 1)) * a3)
+     (a4 + fromChar_unsafe (strsub_unsafe a2 (a1 − 1)) * a3)
 Proof
   Induct>>
   rw[Once fromchars_range_unsafe_tail_side_def]>>
@@ -3523,7 +3524,7 @@ Definition hash_str_def:
   hash_str (s:mlstring) =
     let l = strlen s in
       if l = 0 then 0:num else
-        l + ORD (strsub s (l-1))
+        l + ORD (strsub_unsafe s (l-1))
 End
 
 (* not used

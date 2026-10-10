@@ -97,7 +97,7 @@ QED
 Definition goodChars_def:
   (goodChars 0 str = T) ∧
   (goodChars (SUC n) str =
-    (goodChar (strsub str n) ∧
+    (goodChar (strsub_unsafe str n) ∧
     goodChars n str))
 End
 
@@ -113,7 +113,7 @@ Proof
   >- metis_tac [APPEND_NIL]
   \\ Induct using SNOC_INDUCT
   >- (EVAL_TAC \\ fs [])
-  \\ fs [goodChars_def,EVERY_SNOC]
+  \\ fs [goodChars_def,EVERY_SNOC,mlstringTheory.strsub_unsafe_eq_strsub]
   \\ rewrite_tac [SNOC_APPEND,GSYM APPEND_ASSOC,APPEND]
   \\ fs [EL_LENGTH_APPEND]
   \\ rw [] \\ eq_tac \\ rw []

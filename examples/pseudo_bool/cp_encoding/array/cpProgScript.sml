@@ -288,8 +288,6 @@ val res = translate encode_iconstraint_one_def;
 
 (* cp_to_ilp *)
 
-(* has_char_to_escape_thm rewrites the strsub-based recursion to a safe
-   EXISTS over (explode s), avoiding a non-trivial strsub side condition *)
 val res = translate escape_chars_def;
 
 val res = translate needs_escaping_def;

@@ -38,7 +38,7 @@ End
 (* Makes sure we start with cID or c ID and return the rest *)
 Definition fix_hd_def:
   (fix_hd c (INL s::cs) =
-    if strlen s ≥ 1 ∧ strsub s 0 = c then
+    if strlen s ≥ 1 ∧ strsub_unsafe s 0 = c then
     if strlen s = 1 then SOME cs
     else
       case mlint$fromString (substring s 1 (strlen s - 1)) of
@@ -178,7 +178,7 @@ Proof
   rw[]>>
   DEP_ONCE_REWRITE_TAC[tokens_unchanged]>>
   simp[tokenize_def]>>
-  EVAL_TAC>>gvs[isDigit_def,fix_hd_def]
+  EVAL_TAC>>gvs[isDigit_def,fix_hd_def,strsub_unsafe_eq_strsub]
 QED
 
 Theorem parse_xor_print_xor:
