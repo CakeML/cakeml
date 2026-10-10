@@ -198,9 +198,10 @@ Theorem deBruijn_inc0:
  (!t sk. deBruijn_inc sk 0 t = t) ∧
  (!ts sk. MAP (deBruijn_inc sk 0) ts = ts)
 Proof
-ho_match_mp_tac t_induction >>
-srw_tac[][deBruijn_inc_def] >>
-metis_tac []
+  reverse conj_asm1_tac 
+  >- (simp[Cong MAP_CONG]) >>
+  Induct >>
+  simp[deBruijn_inc_def, Cong MAP_CONG]
 QED
 
 Theorem deBruijn_inc_deBruijn_inc:
@@ -444,12 +445,12 @@ Theorem deBruijn_subst2:
   (MAP (deBruijn_subst sk (MAP (deBruijn_inc 0 sk) targs')) (MAP (deBruijn_subst 0 targs) ts) =
   (MAP (deBruijn_subst 0 (MAP (deBruijn_subst sk (MAP (deBruijn_inc 0 sk) targs')) targs)) ts)))
 Proof
-ho_match_mp_tac t_induction >>
-srw_tac[][deBruijn_subst_def, deBruijn_inc_def] >>
-full_simp_tac(srw_ss())[EL_MAP, MAP_MAP_o, combinTheory.o_DEF] >>
-srw_tac[][] >>
-full_simp_tac (srw_ss()++ARITH_ss) [deBruijn_subst_def, check_freevars_def] >>
-metis_tac []
+  reverse conj_asm1_tac 
+  >- (simp[EVERY_MEM, Cong MAP_CONG, MAP_MAP_o]) >>
+  Induct >>
+  simp[deBruijn_subst_def, deBruijn_inc_def, check_freevars_def, EL_MAP,
+       MAP_MAP_o, combinTheory.o_DEF, EVERY_MEM, Cong MAP_CONG] >>
+  simp[SF ETA_ss] 
 QED
 
 Theorem type_e_subst_lem3:
@@ -483,11 +484,12 @@ Theorem type_e_subst_lem5[local]:
    MAP (deBruijn_subst (n + inc + n') (MAP (deBruijn_inc 0 (n + inc + n')) targs))
          (MAP (deBruijn_inc n inc) ts))
 Proof
-  ho_match_mp_tac t_induction >>
-srw_tac[][deBruijn_subst_def, deBruijn_inc_def] >>
-srw_tac[][] >>
-full_simp_tac (srw_ss()++ARITH_ss) [EL_MAP] >>
-metis_tac [deBuijn_inc_lem1]
+  reverse conj_asm1_tac 
+  >- (simp[MAP_MAP_o, Cong MAP_CONG]) >>
+  Induct >>
+  rw[deBruijn_subst_def, deBruijn_inc_def, EL_MAP] >>
+  gvs[MAP_MAP_o, combinTheory.o_DEF, Cong MAP_CONG] >>
+  metis_tac [deBuijn_inc_lem1]
 QED
 
 Theorem subst_inc_cancel:
@@ -500,10 +502,12 @@ Theorem subst_inc_cancel:
   =
   MAP (deBruijn_inc 0 inc) ts')
 Proof
-ho_match_mp_tac t_induction >>
-srw_tac[][deBruijn_subst_def, deBruijn_inc_def] >>
-full_simp_tac (srw_ss()++ARITH_ss) [] >>
-metis_tac []
+  reverse conj_asm1_tac 
+  >- (simp[MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss]) >>
+  Induct >>
+  srw_tac[][deBruijn_subst_def, deBruijn_inc_def] >>
+  gvs[MAP_MAP_o, combinTheory.o_DEF, Cong MAP_CONG] >>
+  simp[SF ETA_ss]
 QED
 
 Theorem type_e_subst_lem7[local]:
@@ -516,23 +520,24 @@ Theorem type_e_subst_lem7[local]:
   (MAP (deBruijn_subst 0 (MAP (deBruijn_subst sk (MAP (deBruijn_inc 0 sk) targs')) targs))
        (MAP (deBruijn_subst (LENGTH targs + sk) (MAP (deBruijn_inc 0 (LENGTH targs + sk)) targs')) ts))))
 Proof
-  ho_match_mp_tac t_induction >>
-srw_tac[][deBruijn_subst_def, deBruijn_inc_def] >>
-full_simp_tac(srw_ss())[EL_MAP, MAP_MAP_o, combinTheory.o_DEF] >>
-srw_tac[][] >>
-full_simp_tac (srw_ss()++ARITH_ss) [EL_MAP, deBruijn_subst_def, check_freevars_def] >>
-rw[] >> fs[] >>
-metis_tac [subst_inc_cancel, LENGTH_MAP]
+  reverse conj_asm1_tac 
+  >- (simp[MAP_MAP_o, combinTheory.o_DEF]) >>
+  Induct >>
+  rw[deBruijn_subst_def, deBruijn_inc_def, EL_MAP, MAP_MAP_o] >>
+  gvs[combinTheory.o_DEF, Cong MAP_CONG] >>
+  metis_tac [subst_inc_cancel, LENGTH_MAP]
 QED
 
 Theorem deBruijn_subst_id:
  (!t n. check_freevars n [] t ⇒ (deBruijn_subst 0 (MAP Tvar_db (COUNT_LIST n)) t = t)) ∧
  (!ts n. EVERY (check_freevars n []) ts ⇒ (MAP (deBruijn_subst 0 (MAP Tvar_db (COUNT_LIST n))) ts = ts))
 Proof
-Induct >>
-srw_tac[][deBruijn_subst_def, LENGTH_COUNT_LIST, EL_MAP, EL_COUNT_LIST,
-    check_freevars_def] >>
-metis_tac []
+  reverse conj_asm1_tac
+  >- simp[EVERY_MEM, Cong MAP_CONG] >>
+  Induct >>
+  rw[deBruijn_subst_def, LENGTH_COUNT_LIST, EL_MAP, EL_COUNT_LIST,
+     check_freevars_def] >>
+  gvs[EVERY_MEM, Cong MAP_CONG]
 QED
 
 Theorem deBruijn_subst_freevars:
@@ -1015,17 +1020,28 @@ Proof
   metis_tac [check_freevars_add]
 QED
 
+Theorem type_p_tenvV_indep0[local]:
+ (!tvs tenv p t bindings.
+   type_p tvs tenv p t bindings ⇒ 
+   ∀tenvV. type_p tvs (tenv with v := tenvV) p t bindings) ∧
+ (!tvs tenv ps ts bindings.
+   type_ps tvs tenv ps ts bindings ⇒
+   ∀tenvV. type_ps tvs (tenv with v := tenvV) ps ts bindings)
+Proof
+  ho_match_mp_tac type_p_strongind >> rw[] >>
+  simp[Once type_p_cases] >> metis_tac[]
+QED
+
 Theorem type_p_tenvV_indep:
  (!p tvs tenv t bindings tenvV.
   type_p tvs tenv p t bindings = type_p tvs (tenv with v := tenvV) p t bindings) ∧
  (!ps tvs tenv t bindings tenvV.
   type_ps tvs tenv ps t bindings = type_ps tvs (tenv with v := tenvV) ps t bindings)
 Proof
- Induct >>
- rw [] >>
- ONCE_REWRITE_TAC [type_p_cases] >>
- simp [] >>
- metis_tac []
+  rpt strip_tac >> iff_tac >> simp[type_p_tenvV_indep0] >>
+  strip_tac >>
+  FIRST $ map drule $ CONJUNCTS type_p_tenvV_indep0 >>
+  disch_then $ qspec_then ‘tenv.v’ mp_tac >> simp[]
 QED
 
 (* ---------- type_e, type_es, type_funs ---------- *)
