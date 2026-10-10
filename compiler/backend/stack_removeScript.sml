@@ -222,7 +222,7 @@ Definition comp_def:
 End
 
 Definition prog_comp_def:
-  prog_comp aw jump off k (n,p) = (n,comp aw jump off k p)
+  prog_comp aw jump off k (n,p,md) = (n,comp aw jump off k p,md)
 End
 
 (* -- init code -- *)
@@ -327,9 +327,10 @@ End
 
 Definition init_stubs_def:
   init_stubs aw gen_gc max_heap k start =
-    [(0n,Seq (init_code aw gen_gc max_heap k) (Call NONE (INL start) NONE));
-     (1n,halt_inst 0);
-     (2n,halt_inst 2)]
+    [(0n,Seq (init_code aw gen_gc max_heap k) (Call NONE (INL start) NONE),
+        Metadata (implode "_Init") [Stub]);
+     (1n,halt_inst 0, Metadata (implode "_Halt0") [Stub]);
+     (2n,halt_inst 2, Metadata (implode "_Halt2") [Stub])]
 End
 
 Definition stub_names_def:

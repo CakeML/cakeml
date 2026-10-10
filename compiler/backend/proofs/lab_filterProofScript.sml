@@ -16,13 +16,13 @@ Definition adjust_pc_def:
     if p = 0n then 0n else
       case xs of
       | [] => p
-      | (Section n [] :: rest) => adjust_pc p rest
-      | (Section n (l::lines) :: rest) =>
+      | (Section n [] md :: rest) => adjust_pc p rest
+      | (Section n (l::lines) md :: rest) =>
           if is_Label l then
-            adjust_pc p (Section n lines :: rest)
+            adjust_pc p (Section n lines md :: rest)
           else if not_skip l then
-            adjust_pc (p-1) (Section n lines :: rest) + 1
-          else adjust_pc (p-1) (Section n lines :: rest)
+            adjust_pc (p-1) (Section n lines md :: rest) + 1
+          else adjust_pc (p-1) (Section n lines md :: rest)
 End
 
 (*All skips for the next k*)
@@ -87,11 +87,11 @@ Proof
   >-
     (Cases_on`h`>>full_simp_tac(srw_ss())[asm_fetch_aux_def,is_Label_def,filter_skip_def,not_skip_def,all_skips_def]
     >-
-      (first_x_assum(qspecl_then[`n`,`0`] assume_tac)>>
+      (first_x_assum(qspecl_then[`n`,`m`,`0`] assume_tac)>>
       full_simp_tac(srw_ss())[]>>
       qexists_tac`k`>>ntac 2 (simp[Once adjust_pc_def]))
     >-
-      (first_x_assum(qspecl_then[`n`,`0`] assume_tac)>>
+      (first_x_assum(qspecl_then[`n`,`m`,`0`] assume_tac)>>
       full_simp_tac(srw_ss())[]>>
       EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
       full_simp_tac(srw_ss())[Once adjust_pc_def,asm_fetch_aux_def]
@@ -115,7 +115,7 @@ Proof
   >>
     (EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
     simp[Once asm_fetch_aux_def,SimpRHS,is_Label_def]>>
-    first_x_assum(qspecl_then[`n`,`pc-1`] assume_tac)>>full_simp_tac(srw_ss())[]>>
+    first_x_assum(qspecl_then[`n`,`m`,`pc-1`] assume_tac)>>full_simp_tac(srw_ss())[]>>
     `∀x. pc - 1 + x = pc + x -1` by DECIDE_TAC>>
     `∀x. pc - 1 + x = x + pc -1` by DECIDE_TAC>>
     metis_tac[])
@@ -233,7 +233,7 @@ Proof
       (first_assum(qspec_then`0` mp_tac)>>
       full_simp_tac(srw_ss())[]>>impl_tac>-DECIDE_TAC>>strip_tac>>
       full_simp_tac(srw_ss())[not_skip_def]>>
-      first_x_assum(qspecl_then[`0`,`Section k' ys::xs`]mp_tac)>>impl_tac>-
+      first_x_assum(qspecl_then[`0`,`Section k' ys md::xs`]mp_tac)>>impl_tac>-
       (full_simp_tac(srw_ss())[]>>srw_tac[][]>>
       first_x_assum(qspec_then`i+1` mp_tac)>>impl_tac>-DECIDE_TAC>>
       srw_tac[][])>>
@@ -291,7 +291,7 @@ Proof
     (simp[Once adjust_pc_def]>>
     qexists_tac`k`>>full_simp_tac(srw_ss())[asm_fetch_aux_def])
   >>
-    pop_assum(qspec_then`n` assume_tac)>>full_simp_tac(srw_ss())[]>>
+    pop_assum(qspecl_then[`n`,`m`] assume_tac)>>full_simp_tac(srw_ss())[]>>
     Cases_on`h`>>
     simp[Once adjust_pc_def,asm_fetch_aux_def,is_Label_def,not_skip_def]
     >-
@@ -449,7 +449,7 @@ Proof
       Cases_on`i`>>fs[])>>
     full_simp_tac(srw_ss())[get_lab_after_def]>>
     mp_tac next_label_filter_skip>>
-    disch_then(qspec_then`Section n l::code` assume_tac)>>
+    disch_then(qspec_then`Section n l m::code` assume_tac)>>
     full_simp_tac(srw_ss())[filter_skip_def])
   >>
     `¬not_skip h` by

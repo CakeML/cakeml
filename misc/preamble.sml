@@ -536,6 +536,40 @@ in
     )
 end
 
+(* Metadata proof adaptations need the original free-variable specialization. *)
+local
+fun BRING_NAME_TO_FRONT_CONV n t =
+    let val (vs, b) = strip_forall t
+    in
+      case vs of
+          [] => NO_CONV
+        | v::rest => if #1 (dest_var v) = n then ALL_CONV
+                     else BINDER_CONV (BRING_NAME_TO_FRONT_CONV n) THENC
+                          SWAP_VARS_CONV
+    end t
+
+fun SPECtop th =
+    let val (v, _) = dest_forall (concl th)
+    in
+      SPEC v th
+    end
+
+fun SPECnames [] th = th
+  | SPECnames (n::ns) th =
+    case Lib.total (CONV_RULE (BRING_NAME_TO_FRONT_CONV n)) th of
+        NONE => SPECnames ns th
+      | SOME th' => SPECnames ns (SPECtop th')
+
+fun specnames_then fvnms ttac th = ttac (SPECnames fvnms th)
+in
+fun metadata_drule_then ttac th =
+    let val fvnames = map (#1 o dest_var) (th |> concl |> free_vars)
+    in
+      drule_then (specnames_then fvnames ttac) th
+    end
+val metadata_drule = metadata_drule_then mp_tac
+end
+
 val () = Cache.set_capacity numSimps.arith_cache 200000;
 val () = Cache.set_per_key_cap numSimps.arith_cache 5000;
 
