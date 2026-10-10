@@ -812,3 +812,46 @@ val _ = let
                                   (Feedback.exn_to_string e)
   in if ok then () else
        failwith "register_type accepted clashing constructor names" end;
+
+(* strsub_unsafe translates to Strsub_unsafe; plain strsub keeps Strsub *)
+
+Definition char_at_def:
+  char_at s n = strsub s n
+End
+
+Definition char_at_unsafe_def:
+  char_at_unsafe s n = strsub_unsafe s n
+End
+
+val res = translate char_at_def;
+val res = translate char_at_unsafe_def;
+
+val _ = let
+  fun uses op_tm name =
+    can (find_term (aconv op_tm)) (concl (fetch "-" (name ^ "_v_def")))
+  in if uses “Strsub” "char_at" andalso
+        not (uses “Strsub_unsafe” "char_at") andalso
+        uses “Strsub_unsafe” "char_at_unsafe" andalso
+        not (uses “Strsub” "char_at_unsafe")
+     then () else
+       failwith "strsub/strsub_unsafe translated to the wrong primitive" end;
+
+Theorem char_at_unsafe_side_bound[local]:
+  char_at_unsafe_side s n ⇔ n < strlen s
+Proof
+  simp [fetch "-" "char_at_unsafe_side_def"]
+QED
+
+Definition count_char_def:
+  count_char c s i =
+    if i < strlen s then
+      (if strsub_unsafe s i = c then 1 else 0) + count_char c s (i + 1)
+    else 0n
+Termination
+  WF_REL_TAC ‘measure (λ(c,s,i). strlen s - i)’
+End
+
+val res = translate count_char_def;
+
+val _ = not (can (fetch "-") "count_char_side_def") orelse
+        failwith "count_char retained the strsub_unsafe bound as a precondition";

@@ -267,6 +267,11 @@ Definition do_app_def:
               SOME (s, Rraise sub_exn_v)
             else
               SOME (s, Rval (Litv (Char (EL n (explode str)))))
+    | (Strsub_unsafe, [Litv (StrLit str); Litv (IntLit i)]) =>
+        if 0 ≤ i ∧ Num i < strlen str then
+          SOME (s, Rval (Litv (Char (EL (Num i) (explode str)))))
+        else
+          NONE
     | (Strlen, [Litv (StrLit str)]) =>
         SOME (s, Rval (Litv(IntLit(int_of_num(strlen str)))))
     | (Strcat, [v]) =>

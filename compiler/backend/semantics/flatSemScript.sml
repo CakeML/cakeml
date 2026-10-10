@@ -512,6 +512,11 @@ Definition do_app_def:
           SOME (s, Rerr (Rraise subscript_exn_v))
         else
           SOME (s, Rval (Litv (Char (strsub str n))))
+  | (Src Strsub_unsafe, [Litv (StrLit str); Litv (IntLit i)]) =>
+    if 0 ≤ i ∧ Num i < strlen str then
+      SOME (s, Rval (Litv (Char (strsub str (Num i)))))
+    else
+      NONE
   | (Src Strlen, [Litv (StrLit str)]) =>
     SOME (s, Rval (Litv(IntLit(int_of_num(strlen str)))))
   | (Src Strcat, [v]) =>
