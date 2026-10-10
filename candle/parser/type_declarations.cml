@@ -118,8 +118,8 @@ structure CandleTypeDeclarations = struct
       | [td,andt,rest] => bind (expect_tok andt AndT) (fn _ =>
           bind (ptree_TypeDef td) (fn t => fmap (fn ts => t::ts) (ptree_TypeDefs rest)))
       | _ => Inl (l,"Impossible: nTypeDefs");
-  (* sorting.PARTITION prepends to each accumulator, reversing both groups.
-     The final converter separately reverses its input before partitioning. *)
+  (* Splits type definitions into abbreviations and datatypes, each group in
+     reverse input order. *)
   fun partition_types tdefs =
     let fun loop xs abbrevs datas = case xs of [] => (abbrevs,datas)
       | (l,vs,n,tr)::rest => (case tr of

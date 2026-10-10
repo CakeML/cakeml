@@ -59,16 +59,15 @@ Pre-patterns, precedence resolution, compatibility currying and pattern
 conversion, including record restrictions and or-pattern distribution.
 
 [peg.cml](peg.cml):
-PEG execution, ported from pegexec.coreloop. The continuation machine keeps
-backtracking, error-stack order and list-tail sharing as in the reference.
+PEG execution as a continuation machine, with backtracking and tracking of
+the furthest error.
 
 [precedence.cml](precedence.cml):
-Operator-precedence resolution, ported from precparser's precparse1 and
-precparse.
+Operator-precedence resolution: shift/reduce over a stack of operators and
+operands.
 
 [support.cml](support.cml):
-Parser locations and list helpers, ported from HOL's location theory and
-CakeML's lexer_fun.
+Parser locations, and list, character and digit helpers.
 
 [tokens.cml](tokens.cml):
 Token vocabulary and reserved spellings of Candle's syntax.

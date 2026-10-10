@@ -171,7 +171,6 @@ structure CandleGrammar = struct
                       pnt NOpen,
                       pnt NModuleTypeDef,
                       pnt NModuleDef,
-
                       pnt NCakeMLPragma])
             (bindNT NDefinition);
   fun rule_NExcType u : rule =
@@ -392,7 +391,7 @@ structure CandleGrammar = struct
        choicel [
          pegf (pnt NLiteral) (bindNT NEBase),
          pegf (pnt NValuePath) (bindNT NEBase),
-
+         (* NERecUpdate goes before NConstr, because they coincide *)
          pegf (pnt NERecUpdate) (bindNT NEBase),
          pegf (pnt NConstr) (bindNT NEBase),
          pegf (pnt NEList) (bindNT NEBase),
@@ -520,7 +519,6 @@ structure CandleGrammar = struct
             (bindNT NEFor);
   fun rule_NENeg u : rule =
        seql [try (choicel [tokeq MinusT, tokeq MinusFT]),
-
              pnt NEUnclosed]
             (bindNT NENeg);
   fun rule_NShiftOp u : rule =

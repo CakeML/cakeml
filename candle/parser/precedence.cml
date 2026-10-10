@@ -1,6 +1,6 @@
 (*
-  Operator-precedence resolution, ported from precparser's precparse1 and
-  precparse.
+  Operator-precedence resolution: shift/reduce over a stack of operators and
+  operands.
 *)
 structure CandlePrecedence = struct
   datatype action = Reduce | Shift;

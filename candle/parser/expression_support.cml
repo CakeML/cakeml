@@ -57,7 +57,7 @@ structure CandleExpressionSupport = struct
     | Inl (c,fs)::rest => (f,("",mk_record_match c fs "" (build_fun_lam x rest)))
     | Inr (Ast.Pvar v)::rest => (f,(v,build_fun_lam x rest))
     | Inr p::rest => (f,("",Ast.Mat (Ast.Ident (Ast.Short "")) [(p,build_fun_lam x rest)]))) binds;
-  (* HOL's formal names are misleading: its FOLDR takes body first, binds second. *)
+  (* Wraps body in binds, the first binding outermost. *)
   fun build_lets body binds = List.foldr (fn b => fn rest => case b of
       Inl (Inl (c,fs),x) => Ast.Let (Some " r") x (mk_record_match c fs " r" rest)
     | Inl (Inr (Ast.Pvar v),x) => Ast.Let (Some v) x rest

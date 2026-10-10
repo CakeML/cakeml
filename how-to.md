@@ -54,28 +54,29 @@ Providing REPL input
 --------------------
 
 On GNU/Linux, `./cake --repl` starts the CakeML REPL and `./cake --candle`
-starts the Candle REPL. Run from the directory containing `config_enc_str.txt`
-from the same bootstrap and `repl_boot.cml`, or for Candle `candle_boot.cml`
-and `candle_boot.ml`. The existing boot readers provide interactive source
-input and file loading.
+starts the Candle REPL. Run them from a directory that holds the boot files
+(`repl_boot.cml`, or for Candle `candle_boot.cml` and `candle_boot.ml`) and a
+`config_enc_str.txt` from the same bootstrap as the binary. The boot files
+provide interactive input and file loading. Input is read from standard input,
+so `./cake --repl < file.cml` runs a script.
 
-Candle input is parsed by the Candle parser in `candle_boot.cml`, which is
-loaded at startup, and reaches the REPL as declarations. A `(*CML ... *)` block
-at the start of a phrase is CakeML source. Candle diagnostics give line numbers
-relative to the current phrase, and type errors show no source excerpt.
+Candle input is parsed by the Candle parser, which `candle_boot.cml` loads at
+startup, and reaches the REPL as declarations. A `(*CML ... *)` block where a
+phrase begins is a phrase by itself, with no `;;` needed, and its body is read
+as CakeML source. Candle diagnostics give line numbers relative to the current
+phrase, and type errors show no source excerpt.
 
-The user-visible `Ast` module also allows a custom reader to supply declarations
-directly. The input reference is
-`Repl.nextInput : (string, Ast.dec list) sum ref`: assign `Inl text` to parse
-CakeML source, or `Inr declarations` to bypass source parsing. Both forms use
-the same type checking, reserved-name restrictions and evaluation. Direct AST
-input uses empty source text for diagnostics; it is not serialized or
-reparsed.
-
-Install a reader by assigning `Repl.readNextString`, whose historical name is
-retained. This reference holds a `unit -> unit` function. Each call should set
-`Repl.isEOF := False` and supply `Repl.nextInput`, or set `Repl.isEOF := True`
-when finished. For example, enter these declarations in the CakeML REPL:
+A custom reader can supply input too, including declarations built directly
+with the REPL's `Ast` module. Install it by assigning
+`Repl.readNextString`, a `unit -> unit` function that the REPL calls to fetch
+each phrase. Each call either sets `Repl.isEOF := True` to finish, or sets
+`Repl.isEOF := False` and assigns
+`Repl.nextInput : (string, Ast.dec list) sum ref`: `Inl text` to have the text
+parsed as CakeML source, or `Inr decs` to skip parsing. Both forms go through
+the same type checking, reserved constructor and FFI name restrictions, and
+evaluation. Declarations given as `Inr` are used as built, so they may bind
+names that CakeML syntax cannot express; their diagnostics show locations but
+no source text. For example, enter these declarations in the CakeML REPL:
 
     val pending = Ref (Some [Ast.Dlet Ast.Nolocs (Ast.Pvar "answer")
       (Ast.Lit (Ast.Intlit 42))]);
@@ -86,9 +87,13 @@ when finished. For example, enter these declarations in the CakeML REPL:
           Repl.nextInput := Inr decs);
     Repl.readNextString := read_ast;
 
-This evaluates the supplied declaration and then exits. Custom readers should
-also inspect and handle `Repl.errorMessage` and `Repl.exn` as appropriate;
-rejected declarations do not bypass the normal REPL error path.
+This evaluates the supplied declaration and then exits.
+
+The REPL prints errors itself. After a phrase fails, `Repl.errorMessage` is
+non-empty, and after an uncaught exception `Repl.exn` holds it. The REPL never
+clears `Repl.errorMessage`, so a reader that reacts to failures clears it after
+each check, as the boot readers do to abandon the rest of the input being
+loaded.
 
 A simple but complete program
 -----------------------------

@@ -4,9 +4,10 @@
   reading candle_boot.ml through CandleParser.
 *)
 
-(* TODO: the Candle parser cannot read ~ (as in Int.~), so these bindings,
-   which the prelude in candle_boot.ml uses, are written here in CakeML
-   syntax. Once the parser accepts ~, move them into candle_boot.ml. *)
+(* TODO: the Candle parser cannot read ~ (as in Int.~), so these bindings
+   are written here in CakeML syntax: candle_boot.ml uses negint and
+   negfloat, and Candle's nums.ml uses rat_minus. Once the parser accepts ~,
+   move them into candle_boot.ml. *)
 val negint = Int.~;
 val negfloat = Double.~;
 val rat_minus = Rat.~;

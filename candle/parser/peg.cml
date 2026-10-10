@@ -1,6 +1,6 @@
 (*
-  PEG execution, ported from pegexec.coreloop. The continuation machine keeps
-  backtracking, error-stack order and list-tail sharing as in the reference.
+  PEG execution as a continuation machine, with backtracking and tracking of
+  the furthest error.
 *)
 structure CandlePeg = struct
   datatype ('a,'b,'c,'e) symbol =

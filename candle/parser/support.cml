@@ -1,6 +1,5 @@
 (*
-  Parser locations and list helpers, ported from HOL's location theory and
-  CakeML's lexer_fun.
+  Parser locations, and list, character and digit helpers.
 *)
 structure CandleLocation = struct
   datatype locn = Posn int int | Unknownpt | Eofpt;

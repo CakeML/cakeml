@@ -36,7 +36,7 @@ structure ReplInputTest = struct
       (* Binding and reading an identifier with spaces cannot use source parsing. *)
       ast None 42 [binding "not a source identifier" (lit 42),
         record (ident "not a source identifier")],
-      (* Nested declaration/constructor/pattern encodings and current arithmetic. *)
+      (* Nested declaration/constructor/pattern encodings and Ast.Arith. *)
       ast None 43 [
         Ast.Dmod "AstInputModule" [
           Ast.Dtype loc [([], ("payload", [("Box", [Ast.Atapp [] (Ast.Short "int")])]))],
