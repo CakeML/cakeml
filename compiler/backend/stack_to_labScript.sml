@@ -127,10 +127,10 @@ Definition is_Seq_def:
 End
 
 Definition prog_to_section_def:
-  prog_to_section (n,p) =
+  prog_to_section (n,p,md) =
     let (lines,_,m) = (flatten T p n (next_lab p 2) [] []) in
       Section n (append (Append lines
-        (List [Label n (if is_Seq p then m else 1) 0])))
+        (List [Label n (if is_Seq p then m else 1) 0]))) md
 End
 
 Definition is_gen_gc_def:

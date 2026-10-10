@@ -409,7 +409,7 @@ End
 Definition compile_inc_def:
   compile_inc d (e,xs) =
     let (ea, d1, new_code) = calls e (d,[]) in
-      (d1, ea, new_code)
+      (d1, ea, add_metadata empty_metadata new_code)
 End
 
 Theorem compile_eq:
@@ -422,7 +422,7 @@ QED
 Theorem compile_inc_eq:
   compile_inc d (e,xs) =
     let (ea, d1, new_code) = calls_sing_list e (d,[]) in
-      (d1, ea, new_code)
+      (d1, ea, add_metadata empty_metadata new_code)
 Proof
   simp[compile_inc_def, calls_sing_eq]
 QED

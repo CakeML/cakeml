@@ -230,7 +230,8 @@ Definition ConcatByte_code_def:
 End
 
 Definition stubs_def:
-  stubs start n = [(AllocGlobal_location, AllocGlobal_code);
+  stubs start n = MAP (\(loc,args,x). (loc, args, x, Metadata (strlit "") [Stub]))
+                  [(AllocGlobal_location, AllocGlobal_code);
                    (CopyGlobals_location, CopyGlobals_code);
                    (InitGlobals_location, InitGlobals_code start n);
                    (ListLength_location, ListLength_code);
@@ -478,17 +479,19 @@ Proof
 QED
 
 Definition compile_single_def:
-  compile_single n (name,arg_count,exp) =
+  compile_single n (name,arg_count,exp,md) =
     let (c,aux,n1) = compile_exps n [exp] in
-      (List [(num_stubs + nss * name,arg_count,bvi_let$compile_exp (HD c))]
-        ++ aux, n1)
+      (List [(num_stubs + nss * name,arg_count,
+              bvi_let$compile_exp (HD c),md)] ++
+       List (add_metadata md (append aux)), n1)
 End
 
 Theorem compile_single_eq:
-  compile_single n (name,arg_count,exp) =
+  compile_single n (name,arg_count,exp,md) =
     let (c,aux,n1) = compile_exps_sing n exp in
-      (List [(num_stubs + nss * name,arg_count,bvi_let$compile_exp c)]
-        ++ aux, n1)
+      (List [(num_stubs + nss * name,arg_count,
+              bvi_let$compile_exp c,md)] ++
+       List (add_metadata md (append aux)), n1)
 Proof
   gvs [compile_single_def,compile_exps_sing]
   \\ rpt (pairarg_tac \\ gvs [])
@@ -510,7 +513,7 @@ End
 
 Definition compile_prog_def:
   compile_prog start n prog =
-    let k = alloc_glob_count (MAP (\(_,_,p). p) prog) in
+    let k = alloc_glob_count (MAP (\(_,_,p,_). p) prog) in
     let (code,n1) = compile_list n prog in
       (InitGlobals_location, bvl_to_bvi$stubs (num_stubs + nss * start) k ++ append code, n1)
 End
