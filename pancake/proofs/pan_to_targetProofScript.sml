@@ -1175,7 +1175,7 @@ Definition compile_prog_max_def:
     let (col,wprog) = word_to_word$compile c.word_to_word_conf asm_conf prog in
     let (bm,c',fs,p) = word_to_stack$compile asm_conf F wprog in
     let max = max_depth c'.stack_frame_size (full_call_graph InitGlobals_location (fromAList wprog)) in
-      (from_stack asm_conf c LN p bm, max)
+      (from_stack asm_conf c p bm, max)
 End
 
 Definition option_lt_def[simp]:
@@ -1334,7 +1334,7 @@ Proof
   pairarg_tac>>gs[]>>
   pairarg_tac>>gs[]>>
   rename1 ‘_ = (col, wprog)’>>
-  qmatch_asmsub_abbrev_tac ‘attach_bitmaps _ _ _ tprog = _’>>
+  qmatch_asmsub_abbrev_tac ‘attach_bitmaps _ _ tprog = _’>>
   qmatch_asmsub_abbrev_tac ‘Abbrev (_ = compile _ _ lprog)’>>
   (* unfolding done *)
 

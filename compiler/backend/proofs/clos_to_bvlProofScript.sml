@@ -3979,6 +3979,7 @@ Proof
   \\ match_mp_tac code_installed_fromAList \\ fs []
   \\ `MAP (I ## I ## FST) (add_metadata empty_metadata aux) = aux` by
     simp [add_metadata_def,MAP_MAP_o,MAP_EQ_ID,FORALL_PROD,o_DEF]
+  \\ qpat_x_assum `progs ++ aux = _` (fn th => REWRITE_TAC [GSYM th])
   \\ simp [IS_SUBLIST_APPEND1,IS_SUBLIST_REFL])
       \\ simp [] \\ strip_tac
       \\ qpat_x_assum `progs ++ aux = _` (ASSUME_NAMED_TAC "chain")
