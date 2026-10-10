@@ -198,7 +198,7 @@ Theorem deBruijn_inc0:
  (!t sk. deBruijn_inc sk 0 t = t) ∧
  (!ts sk. MAP (deBruijn_inc sk 0) ts = ts)
 Proof
-  reverse conj_asm1_tac 
+  reverse conj_asm1_tac
   >- (simp[Cong MAP_CONG]) >>
   Induct >>
   simp[deBruijn_inc_def, Cong MAP_CONG]
@@ -445,12 +445,12 @@ Theorem deBruijn_subst2:
   (MAP (deBruijn_subst sk (MAP (deBruijn_inc 0 sk) targs')) (MAP (deBruijn_subst 0 targs) ts) =
   (MAP (deBruijn_subst 0 (MAP (deBruijn_subst sk (MAP (deBruijn_inc 0 sk) targs')) targs)) ts)))
 Proof
-  reverse conj_asm1_tac 
+  reverse conj_asm1_tac
   >- (simp[EVERY_MEM, Cong MAP_CONG, MAP_MAP_o]) >>
   Induct >>
   simp[deBruijn_subst_def, deBruijn_inc_def, check_freevars_def, EL_MAP,
        MAP_MAP_o, combinTheory.o_DEF, EVERY_MEM, Cong MAP_CONG] >>
-  simp[SF ETA_ss] 
+  simp[SF ETA_ss]
 QED
 
 Theorem type_e_subst_lem3:
@@ -484,7 +484,7 @@ Theorem type_e_subst_lem5[local]:
    MAP (deBruijn_subst (n + inc + n') (MAP (deBruijn_inc 0 (n + inc + n')) targs))
          (MAP (deBruijn_inc n inc) ts))
 Proof
-  reverse conj_asm1_tac 
+  reverse conj_asm1_tac
   >- (simp[MAP_MAP_o, Cong MAP_CONG]) >>
   Induct >>
   rw[deBruijn_subst_def, deBruijn_inc_def, EL_MAP] >>
@@ -502,7 +502,7 @@ Theorem subst_inc_cancel:
   =
   MAP (deBruijn_inc 0 inc) ts')
 Proof
-  reverse conj_asm1_tac 
+  reverse conj_asm1_tac
   >- (simp[MAP_MAP_o, combinTheory.o_DEF, SF ETA_ss]) >>
   Induct >>
   srw_tac[][deBruijn_subst_def, deBruijn_inc_def] >>
@@ -520,7 +520,7 @@ Theorem type_e_subst_lem7[local]:
   (MAP (deBruijn_subst 0 (MAP (deBruijn_subst sk (MAP (deBruijn_inc 0 sk) targs')) targs))
        (MAP (deBruijn_subst (LENGTH targs + sk) (MAP (deBruijn_inc 0 (LENGTH targs + sk)) targs')) ts))))
 Proof
-  reverse conj_asm1_tac 
+  reverse conj_asm1_tac
   >- (simp[MAP_MAP_o, combinTheory.o_DEF]) >>
   Induct >>
   rw[deBruijn_subst_def, deBruijn_inc_def, EL_MAP, MAP_MAP_o] >>
@@ -1022,7 +1022,7 @@ QED
 
 Theorem type_p_tenvV_indep0[local]:
  (!tvs tenv p t bindings.
-   type_p tvs tenv p t bindings ⇒ 
+   type_p tvs tenv p t bindings ⇒
    ∀tenvV. type_p tvs (tenv with v := tenvV) p t bindings) ∧
  (!tvs tenv ps ts bindings.
    type_ps tvs tenv ps ts bindings ⇒
