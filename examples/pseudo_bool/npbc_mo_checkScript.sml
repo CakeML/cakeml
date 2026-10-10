@@ -9,314 +9,11 @@ Libs
 
 val _ = numLib.temp_prefer_num();
 
-(*** The Pareto dominance order ***)
-
-(* The variables occurring in a list of objectives *)
-Definition mo_obj_vars_def:
-  mo_obj_vars objs = FLAT (MAP (λ(f,c). MAP SND f) objs)
-End
-
-(* Order objective terms by variable *)
-Definition var_le_def[simp]:
-  var_le ((_:int),u:num) ((_:int),v:num) ⇔ u ≤ v
-End
-
-(* Rename the variables of an objective through rn, restoring the order by
-  variable that obj_constraint's add_lists (npbcScript.sml) requires *)
-Definition rename_obj_def:
-  rename_obj rn ((f,c):((int # var) list # int)) =
-    (sort var_le
-      (MAP (λ(a,v). (a, case sptree$lookup v rn of NONE => v | SOME u => u)) f), c)
-End
-
-(* The substitution described by su *)
-Definition vs_to_us_def:
-  vs_to_us su v =
-    case sptree$lookup v su of
-      NONE => NONE
-    | SOME u => SOME (INR (Pos u))
-End
-
-(* One constraint per objective, each saying O(us) ≤ O(vs) *)
-Definition pareto_constrs_def:
-  pareto_constrs objs xvars us vs =
-    let su = list_list_insert vs us in
-    let rn = list_list_insert xvars vs in
-      MAP (λob. obj_constraint (vs_to_us su) (rename_obj rn ob)) objs
-End
-
-(* Some constraint in cs implies c *)
-Definition check_imp_any_def:
-  check_imp_any c cs =
-    EXISTS (λd. imp d c) cs
-End
-
-(* An order is accepted when it has no auxiliaries, no specification, and
-  each Pareto constraint follows from one of its constraints *)
-Definition pareto_ord_ok_def:
-  pareto_ord_ok objs (((f,g,us,vs,as),asv):aord_s) xs ⇔
-    as = [] ∧ g = [] ∧
-    EVERY SND xs ∧
-    (let xsv = list_to_num_set (MAP FST xs) in
-      EVERY (λv. sptree$lookup v xsv ≠ NONE) (mo_obj_vars objs)) ∧
-    EVERY (λc. check_imp_any c f)
-      (pareto_constrs objs (MAP FST xs) us vs)
-End
-
-(* With no auxiliary variables, the specification obligation is vacuous *)
-Theorem the_spec_NIL:
-  the_spec fml [] ws w ⇔ ws = [] ∧ satisfies w fml
-Proof
-  Cases_on`ws`>>simp[the_spec_def]>>
-  qmatch_goalsub_abbrev_tac`satisfies (assign al w) fml`>>
-  `assign al w = w` by
-    simp[FUN_EQ_THM,assign_def,Abbr`al`]>>
-  simp[]
-QED
-
-Theorem po_of_aspo_no_aux:
-  po_of_aspo ((f,[],us,vs,[]),xs) w1 w2 ⇔
-  ∃ww. satisfies
-    (assign (ALOOKUP
-      (ZIP (us,get_bits w1 xs) ++ ZIP (vs,get_bits w2 xs))) ww) (set f)
-Proof
-  rw[po_of_aspo_def,the_spec_NIL]>>
-  metis_tac[]
-QED
-
-(* Renaming an objective and evaluating agrees with the original *)
-Theorem eval_obj_rename_obj:
-  (∀v. MEM v (MAP SND (FST ob)) ⇒
-     B (case sptree$lookup v rn of NONE => v | SOME u => u) = w v) ⇒
-  eval_obj (SOME (rename_obj rn ob)) B = eval_obj (SOME ob) w
-Proof
-  PairCases_on`ob`>>
-  rw[rename_obj_def,eval_obj_def]>>
-  `SUM (MAP (eval_term B) (sort var_le
-     (MAP (λ(a,v). (a, case sptree$lookup v rn of NONE => v | SOME u => u)) ob0))) =
-   SUM (MAP (eval_term B)
-     (MAP (λ(a,v). (a, case sptree$lookup v rn of NONE => v | SOME u => u)) ob0))` by (
-    irule PERM_SUM>>
-    irule PERM_MAP>>
-    metis_tac[mllistTheory.sort_PERM,PERM_SYM])>>
-  pop_assum SUBST_ALL_TAC>>
-  simp[MAP_MAP_o]>>
-  AP_TERM_TAC>>
-  rw[MAP_EQ_f,FORALL_PROD]>>
-  gvs[MEM_MAP,PULL_EXISTS]>>
-  first_x_assum drule>>
-  simp[]
-QED
-
-(* The ambient assignment of the order reads off w1 on us and w2 on vs *)
-Theorem assign_ord_EL[local]:
-  ∀us vs xs w1 w2 ww j.
-  ALL_DISTINCT (us ++ vs) ∧
-  LENGTH us = LENGTH xs ∧ LENGTH vs = LENGTH xs ∧
-  EVERY SND xs ∧ j < LENGTH xs ⇒
-  assign (ALOOKUP
-    (ZIP (us,get_bits w1 xs) ++ ZIP (vs,get_bits w2 xs))) ww (EL j us) =
-    w1 (EL j (MAP FST xs)) ∧
-  assign (ALOOKUP
-    (ZIP (us,get_bits w1 xs) ++ ZIP (vs,get_bits w2 xs))) ww (EL j vs) =
-    w2 (EL j (MAP FST xs))
-Proof
-  rpt gen_tac>>strip_tac>>
-  gvs[ALL_DISTINCT_APPEND]>>
-  `ALOOKUP (ZIP (us,xs)) (EL j us) = SOME (EL j xs)` by
-    (irule ALOOKUP_ALL_DISTINCT_EL_IMP>>simp[])>>
-  `ALOOKUP (ZIP (us,xs)) (EL j vs) = NONE` by
-    (irule IMP_ALOOKUP_NONE>>
-    simp[]>>
-    metis_tac[MEM_EL])>>
-  `ALOOKUP (ZIP (vs,xs)) (EL j vs) = SOME (EL j xs)` by
-    (irule ALOOKUP_ALL_DISTINCT_EL_IMP>>simp[])>>
-  `SND (EL j xs)` by metis_tac[EVERY_EL]>>
-  simp[ALOOKUP_APPEND,assign_def,get_bits_def,EL_MAP]
-QED
-
-Theorem ALOOKUP_ZIP_index[local]:
-  ∀v xvars ys.
-  MEM v xvars ∧ LENGTH xvars = LENGTH ys ⇒
-  ∃k. k < LENGTH ys ∧ EL k xvars = v ∧
-      ALOOKUP (ZIP (xvars,ys)) v = SOME (EL k ys)
-Proof
-  rw[]>>
-  `ALOOKUP (ZIP (xvars,ys)) v ≠ NONE` by
-    simp[ALOOKUP_NONE,MAP_ZIP]>>
-  Cases_on`ALOOKUP (ZIP (xvars,ys)) v`>>gvs[]>>
-  drule ALOOKUP_MEM>>
-  simp[MEM_ZIP]>>
-  rw[]>>
-  first_x_assum (irule_at Any)>>
-  simp[]
-QED
-
-Theorem MEM_mo_obj_vars:
-  MEM ob objs ∧ MEM v (MAP SND (FST ob)) ⇒
-  MEM v (mo_obj_vars objs)
-Proof
-  rw[mo_obj_vars_def,MEM_FLAT,MEM_MAP,PULL_EXISTS]>>
-  qexists_tac`ob`>>
-  PairCases_on`ob`>>gvs[MEM_MAP]>>
-  metis_tac[]
-QED
-
-
-(* An objective's variables are all order variables *)
-Theorem mo_obj_vars_SUBSET[local]:
-  EVERY (λv. MEM v (MAP FST (xs:(num # bool) list)))
-    (mo_obj_vars (objs:((int # num) list # int) list)) ∧
-  MEM ob objs ⇒
-  ∀u. MEM u (MAP SND (FST ob)) ⇒ MEM u (MAP FST xs)
-Proof
-  rw[EVERY_MEM]>>
-  first_x_assum irule>>
-  metis_tac[MEM_mo_obj_vars]
-QED
-
-(* Every Pareto constraint follows from the accepted order *)
-Theorem pareto_constrs_sat[local]:
-  ∀f objs xvars us vs ob A.
-  EVERY (λc. check_imp_any c f) (pareto_constrs objs xvars us vs) ⇒
-  MEM ob objs ⇒
-  satisfies A (set f) ⇒
-  satisfies_npbc A (obj_constraint (vs_to_us (list_list_insert vs us))
-    (rename_obj (list_list_insert xvars vs) ob))
-Proof
-  rpt gen_tac>>
-  rw[pareto_constrs_def,check_imp_any_def,EVERY_MAP,EVERY_MEM,MEM_MAP,
-    PULL_EXISTS]>>
-  first_x_assum drule>>
-  simp[EXISTS_MEM]>>
-  strip_tac>>
-  gvs[satisfies_def]>>
-  metis_tac[imp_thm]
-QED
-
-(* Each objective variable is read off the us side as w1 and the vs side as w2 *)
-Theorem ord_lookup_vals[local]:
-  ∀vs us xs A w1 w2 v.
-  ALL_DISTINCT vs ⇒
-  LENGTH us = LENGTH vs ⇒
-  LENGTH vs = LENGTH xs ⇒
-  (∀j. j < LENGTH xs ⇒
-     A (EL j us) = w1 (EL j (MAP FST xs)) ∧
-     A (EL j vs) = w2 (EL j (MAP FST xs))) ⇒
-  MEM v (MAP FST xs) ⇒
-  A (case sptree$lookup v (list_list_insert (MAP FST xs) vs) of
-       NONE => v | SOME u => u) = w2 v ∧
-  assign (vs_to_us (list_list_insert vs us)) A
-    (case sptree$lookup v (list_list_insert (MAP FST xs) vs) of
-       NONE => v | SOME u => u) = w1 v
-Proof
-  rpt gen_tac>>rpt strip_tac>>
-  rewrite_tac[lookup_list_list_insert]>>
-  `∃k. k < LENGTH vs ∧ EL k (MAP FST xs) = v ∧
-     ALOOKUP (ZIP (MAP FST xs,vs)) v = SOME (EL k vs)` by
-    metis_tac[ALOOKUP_ZIP_index,LENGTH_MAP]>>
-  gvs[]>>
-  `ALOOKUP (ZIP (vs,us)) (EL k vs) = SOME (EL k us)` by
-    (irule ALOOKUP_ALL_DISTINCT_EL_IMP>>simp[])>>
-  first_x_assum drule>>
-  simp[vs_to_us_def,assign_def,lookup_list_list_insert]
-QED
-
-Theorem pareto_ord_ok_sound:
-  pareto_ord_ok objs (((f,g,us,vs,as),asv):aord_s) xs ∧
-  good_aspo ((f,g,us,vs,as),xs) ∧
-  po_of_aspo ((f,g,us,vs,as),xs) w1 w2 ⇒
-  vec_le (obj_vecs objs w1) (obj_vecs objs w2)
-Proof
-  simp[pareto_ord_ok_def,lookup_list_to_num_set]>>
-  strip_tac>>
-  gvs[po_of_aspo_no_aux,good_aspo_def,good_aord_def,ALL_DISTINCT_APPEND]>>
-  simp[vec_le_obj_vecs,EVERY_MEM]>>
-  rw[]>>
-  `∀j. j < LENGTH xs ⇒
-     assign (ALOOKUP
-       (ZIP (us,get_bits w1 xs) ++ ZIP (vs,get_bits w2 xs))) ww (EL j us) =
-       w1 (EL j (MAP FST xs)) ∧
-     assign (ALOOKUP
-       (ZIP (us,get_bits w1 xs) ++ ZIP (vs,get_bits w2 xs))) ww (EL j vs) =
-       w2 (EL j (MAP FST xs))` by (
-    rpt strip_tac>>
-    qspecl_then [`us`,`vs`,`xs`,`w1`,`w2`,`ww`,`j`] mp_tac assign_ord_EL>>
-    simp[ALL_DISTINCT_APPEND])>>
-  qabbrev_tac`A = assign (ALOOKUP
-    (ZIP (us,get_bits w1 xs) ++ ZIP (vs,get_bits w2 xs))) ww`>>
-  `LENGTH vs = LENGTH xs` by simp[]>>
-  (* the reference constraint for ob is satisfied *)
-  qspecl_then [`f`,`objs`,`MAP FST xs`,`us`,`vs`,`ob`,`A`] mp_tac
-    pareto_constrs_sat>>
-  simp[]>>
-  strip_tac>>
-  qpat_x_assum`satisfies_npbc _ _` mp_tac>>
-  rewrite_tac[satisfies_npbc_obj_constraint]>>
-  strip_tac>>
-  mp_tac mo_obj_vars_SUBSET>>
-  simp[]>>
-  strip_tac>>
-  `eval_obj (SOME (rename_obj (list_list_insert (MAP FST xs) vs) ob)) A =
-     eval_obj (SOME ob) w2 ∧
-   eval_obj (SOME (rename_obj (list_list_insert (MAP FST xs) vs) ob))
-     (assign (vs_to_us (list_list_insert vs us)) A) = eval_obj (SOME ob) w1` by (
-    conj_tac>>
-    irule eval_obj_rename_obj>>
-    rw[]>>
-    first_x_assum drule>>
-    strip_tac>>
-    drule_all ord_lookup_vals>>
-    simp[])>>
-  qpat_x_assum`eval_obj _ (assign _ _) ≤ _` mp_tac>>
-  asm_rewrite_tac[]
-QED
-
-(* An objective depends only on its own variables *)
-Theorem eval_obj_vars_cong:
-  (∀v. MEM v (MAP SND (FST ob)) ⇒ (w1 v ⇔ w2 v)) ⇒
-  eval_obj (SOME ob) w1 = eval_obj (SOME ob) w2
-Proof
-  Cases_on`ob`>>
-  rw[eval_obj_def]>>
-  AP_TERM_TAC>>
-  irule MAP_CONG>>
-  rw[]>>
-  rename1`MEM cv _`>>
-  PairCases_on`cv`>>
-  gvs[eval_lit_def]>>
-  `w1 cv1 ⇔ w2 cv1` by (
-    first_x_assum irule>>
-    simp[MEM_MAP]>>
-    qexists_tac`(cv0,cv1)`>>
-    simp[])>>
-  simp[]
-QED
-
-(* The semantic content of an accepted order: it refines Pareto dominance *)
-Definition pareto_sound_def:
-  pareto_sound objs aspo ⇔
-  ∀w1 w2. po_of_aspo aspo w1 w2 ⇒
-    vec_le (obj_vecs objs w1) (obj_vecs objs w2)
-End
-
-Theorem pareto_ord_ok_pareto_sound:
-  pareto_ord_ok objs aord xs ∧
-  good_aspo (FST aord,xs) ⇒
-  pareto_sound objs (FST aord,xs)
-Proof
-  PairCases_on`aord`>>
-  rename1`((f,g,us,vs,as),asv)`>>
-  rw[pareto_sound_def]>>
-  irule pareto_ord_ok_sound>>
-  metis_tac[]
-QED
-
 (*** The selected objective ordering ***)
 
-(* The order check for each ordering *)
+(* The order check: the loaded order refines the reference of the ordering *)
 Definition ord_ok_def:
-  ord_ok Pareto objs aord xs = pareto_ord_ok objs aord xs
+  ord_ok mord objs aord xs = ref_ord_ok mord objs aord xs
 End
 
 (* The semantic content of an accepted order: it refines the ordering *)
@@ -326,27 +23,13 @@ Definition ord_sound_def:
     ord_le mord (obj_vecs objs w1) (obj_vecs objs w2)
 End
 
-(* Everything the checker needs from an ordering *)
+(* Everything the checker needs from an ordering: the order check is sound *)
 Definition mo_ord_ok_def:
   mo_ord_ok mord ⇔
-    good_mo_ord mord ∧
     ∀objs aord xs.
       ord_ok mord objs aord xs ∧ good_aspo (FST aord,xs) ⇒
       ord_sound mord objs (FST aord,xs)
 End
-
-Theorem mo_ord_ok_refl:
-  mo_ord_ok mord ⇒ ord_le mord x x
-Proof
-  rw[mo_ord_ok_def,good_mo_ord_def]
-QED
-
-Theorem mo_ord_ok_trans:
-  mo_ord_ok mord ∧ ord_le mord x y ∧ ord_le mord y z ⇒ ord_le mord x z
-Proof
-  rw[mo_ord_ok_def,good_mo_ord_def]>>
-  metis_tac[]
-QED
 
 Theorem mo_ord_ok_sound:
   ord_ok mord objs aord xs ∧ good_aspo (FST aord,xs) ∧ mo_ord_ok mord ⇒
@@ -505,7 +188,7 @@ Theorem mo_esc_upward[local]:
 Proof
   rw[mo_esc_def,ord_sound_def]>>
   first_x_assum drule>>
-  metis_tac[mo_ord_ok_trans]
+  metis_tac[ord_le_trans]
 QED
 
 Theorem sat_obj_po_esc_refl[local]:
@@ -699,7 +382,7 @@ Proof
     rw[sat_obj_po_esc_refl,sat_implies_def]>>
     disj1_tac>>
     qexists_tac`w`>>
-    simp[mo_ord_ok_refl]>>
+    simp[]>>
     drule_all satisfies_SUBSET>>
     simp[])
   >~ [`Transfer`] >- (
@@ -710,14 +393,14 @@ Proof
     rw[]
     >- (gvs[sat_implies_def]>>metis_tac[satisfies_SUBSET])
     >- metis_tac[sat_obj_po_esc_more]
-    >- metis_tac[mo_ord_ok_refl]>>
-    metis_tac[satisfies_SUBSET,mo_ord_ok_refl])
+    >- metis_tac[ord_le_refl]>>
+    metis_tac[satisfies_SUBSET,ord_le_refl])
   >~ [`StrengthenToCore`] >- (
     gvs[AllCaseEqs(),check_cstep_def]>>
     Cases_on`pc.ord`>>
     gvs[OPTION_ALL_def]>>
     rw[core_only_fml_map_core,id_ok_map,sat_obj_po_esc_refl]>>
-    metis_tac[mo_ord_ok_refl,satisfies_SUBSET,core_only_fml_T_SUBSET_F])
+    metis_tac[ord_le_refl,satisfies_SUBSET,core_only_fml_T_SUBSET_F])
   >~ [`LoadOrder`] >- (
     gvs[AllCaseEqs(),check_cstep_def]>>
     drule ALOOKUP_MEM>>
@@ -744,27 +427,27 @@ Proof
     >- (
       disj1_tac>>
       qexists_tac`w`>>
-      simp[mo_ord_ok_refl])>>
+      simp[])>>
     qexists_tac`w`>>
-    simp[mo_ord_ok_refl]>>
+    simp[]>>
     irule satisfies_SUBSET>>
     irule_at Any core_only_fml_T_SUBSET_F>>
     simp[])
   >~ [`UnloadOrder`] >- (
     gvs[AllCaseEqs(),check_cstep_def]>>
     rw[]>>
-    metis_tac[mo_ord_ok_refl])
+    metis_tac[ord_le_refl])
   >~ [`StoreOrder`] >- (
     gvs[AllCaseEqs()]>>
     drule_all check_cstep_storeorder_str>>
     strip_tac>>
     gvs[]>>
     rw[]>>
-    metis_tac[mo_ord_ok_refl])
+    metis_tac[ord_le_refl])
   >~ [`Obj`] >- (
     gvs[AllCaseEqs(),check_cstep_def]>>
     rw[]>>
-    metis_tac[mo_ord_ok_refl])
+    metis_tac[ord_le_refl])
   >~ [`model_banning`] >- (
     gvs[AllCaseEqs(),lookup_list_to_num_set]>>
     `pc.id ∉ domain fml` by gvs[id_ok_def]>>
@@ -818,20 +501,20 @@ Proof
       >- (
         disj1_tac>>
         qexists_tac`w`>>
-        simp[mo_ord_ok_refl])>>
+        simp[])>>
       disj2_tac>>
       qexists_tac`obj_vecs objs wsol`>>
       `obj_vecs objs w = obj_vecs objs wsol` by (
         first_x_assum irule>>
         simp[])>>
-      simp[mo_ord_ok_refl])
+      simp[])
     >- (
       qexists_tac`w`>>
-      simp[mo_ord_ok_refl])
+      simp[])
     >- (
       disj2_tac>>
       qexists_tac`wsol`>>
-      simp[mo_ord_ok_refl])>>
+      simp[])>>
     simp[])>>
   gvs[check_cstep_def,check_change_obj_def,check_eq_obj_def,
       check_change_pres_def,check_eq_pres_def]
@@ -863,7 +546,7 @@ Proof
   Induct
   >- (
     rw[check_mo_csteps_def]>>
-    metis_tac[mo_ord_ok_refl])>>
+    metis_tac[ord_le_refl])>>
   rpt gen_tac>>
   strip_tac>>
   gvs[check_mo_csteps_def,AllCaseEqs()]>>
@@ -871,8 +554,32 @@ Proof
   strip_tac>>
   first_x_assum drule_all>>
   strip_tac>>
-  rw[]>>
-  metis_tac[mo_ord_ok_trans]
+  rw[]
+  >- (
+    qpat_x_assum `∀w. satisfies w (core_only_fml F fml) ⇒ _` drule>>
+    rw[]
+    >- (
+      qpat_x_assum `∀w. satisfies w (core_only_fml F fml'') ⇒ _` drule>>
+      rw[]>>
+      drule_all ord_le_trans>>
+      metis_tac[])>>
+    metis_tac[])
+  >- (
+    gvs[]>>
+    qpat_x_assum `∀w. satisfies w (core_only_fml T fml') ⇒ _` drule>>
+    strip_tac>>
+    qpat_x_assum `∀w. satisfies w (core_only_fml T fml'') ⇒ _` drule>>
+    strip_tac>>
+    drule_all ord_le_trans>>
+    metis_tac[])>>
+  gvs[]>>
+  qpat_x_assum `∀v. MEM v sols' ⇒ _` drule>>
+  rw[]
+  >- metis_tac[]>>
+  qpat_x_assum `∀w. satisfies w (core_only_fml T fml'') ⇒ _` drule>>
+  strip_tac>>
+  drule_all ord_le_trans>>
+  metis_tac[]
 QED
 
 (* The printed front is the non-dominated set of the input, up to the
@@ -908,8 +615,9 @@ QED
 Theorem mo_ord_ok_thm:
   mo_ord_ok mord
 Proof
-  Cases_on`mord`>>
-  rw[mo_ord_ok_def,ord_ok_def,ord_sound_def,ord_le_def]>>
-  drule_all pareto_ord_ok_pareto_sound>>
-  simp[pareto_sound_def]
+  rw[mo_ord_ok_def,ord_ok_def,ord_sound_def]>>
+  PairCases_on`aord`>>
+  gvs[]>>
+  irule ref_ord_ok_sound>>
+  metis_tac[]
 QED

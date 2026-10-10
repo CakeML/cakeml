@@ -157,3 +157,38 @@ Proof
 QED
 
 val chk = machine_code_sound_pareto |> check_thm;
+
+(* Under the Leximax ordering the printed front is empty exactly when the
+  hard clauses are unsatisfiable. Otherwise it is one vector v, the hard
+  clauses are satisfiable, and the non-dominated cost vectors are exactly the
+  attainable ones that are permutations of v; v itself need not be attained *)
+Theorem machine_code_sound_leximax:
+  cake_pb_mcnf_run cl fs mc ms ⇒
+  ∃out err.
+    extract_fs ext (cl,fs) (cake_pb_mcnf_io_events ext cl fs) =
+      SOME (add_stdout (add_stderr fs err) out) ∧
+    (
+    LENGTH cl = 4 ∧ EL 1 cl = «leximax» ∧ out ≠ «» ⇒
+      ∃mfml vs.
+        get_mfml fs (EL 2 cl) = SOME mfml ∧
+        out = print_front_str Leximax vs ∧
+        ((vs = [] ∧ ∀w. ¬msat_hard w mfml) ∨
+         ∃v. vs = [v] ∧ (∃w. msat_hard w mfml) ∧
+           ∀u. u ∈ nondom_costs Leximax mfml ⇔
+             (∃w. msat_hard w mfml ∧ u = cost_vec w mfml) ∧ PERM u v)
+    )
+Proof
+  rw[]>>
+  drule machine_code_sound_front>>rw[]>>
+  first_x_assum (qspec_then `ext` mp_tac)>>rw[]>>
+  first_x_assum (irule_at Any)>>
+  rw[]>>
+  gvs[pbc_moTheory.parse_mo_ord_def,mcnf_to_pbTheory.nondom_costs_def]>>
+  drule_at (Pos last) pbc_moTheory.is_front_total>>
+  simp[mcnf_to_pbTheory.FINITE_costs,pbc_moTheory.total_ord_thm]>>
+  rw[]>>
+  gvs[EXTENSION,pbc_moTheory.ord_equiv_Leximax]>>
+  metis_tac[]
+QED
+
+val chk = machine_code_sound_leximax |> check_thm;

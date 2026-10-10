@@ -157,3 +157,38 @@ Proof
 QED
 
 val chk = machine_code_sound_pareto |> check_thm;
+
+(* Under the Leximax ordering the printed front is empty exactly when there
+  are no solutions. Otherwise it is one vector v, there is a solution, and
+  the non-dominated objective vectors are exactly the attainable ones that
+  are permutations of v; v itself need not be attained *)
+Theorem machine_code_sound_leximax:
+  cake_pb_mo_run cl fs mc ms ⇒
+  ∃out err.
+    extract_fs ext (cl,fs) (cake_pb_mo_io_events ext cl fs) =
+      SOME (add_stdout (add_stderr fs err) out) ∧
+    (
+    LENGTH cl = 4 ∧ EL 1 cl = «leximax» ∧ out ≠ «» ⇒
+      ∃objs fml vs.
+        get_mo_fml fs (EL 2 cl) = SOME (objs,fml) ∧
+        out = print_front_str Leximax vs ∧
+        ((vs = [] ∧ ∀w. ¬satisfies w (set fml)) ∨
+         ∃v. vs = [v] ∧ (∃w. satisfies w (set fml)) ∧
+           ∀u. u ∈ pbc_mo$nondom_set Leximax (set fml) objs ⇔
+             u ∈ pbc_mo$obj_img (set fml) objs ∧ PERM u v)
+    )
+Proof
+  rw[]>>
+  drule machine_code_sound_front>>rw[]>>
+  first_x_assum (qspec_then `ext` mp_tac)>>rw[]>>
+  first_x_assum (irule_at Any)>>
+  rw[]>>
+  gvs[pbc_moTheory.parse_mo_ord_def,pbc_moTheory.nondom_set_def]>>
+  drule_at (Pos last) pbc_moTheory.is_front_total>>
+  simp[pbc_moTheory.FINITE_obj_img,pbc_moTheory.total_ord_thm]>>
+  rw[]>>
+  gvs[EXTENSION,pbc_moTheory.in_obj_img,pbc_moTheory.ord_equiv_Leximax]>>
+  metis_tac[]
+QED
+
+val chk = machine_code_sound_leximax |> check_thm;

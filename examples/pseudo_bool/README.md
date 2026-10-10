@@ -22,7 +22,8 @@ Pseudo-boolean constraints proof format and checker
 Structural facts about the individual core proof steps of the PB checker
 
 [npbc_moScript.sml](npbc_moScript.sml):
-Multi-objective semantics for npbc and the pbc to npbc bridge
+Multi-objective semantics for npbc, the pbc to npbc bridge, and the
+recognition of loaded orders that refine an objective ordering
 
 [npbc_mo_checkScript.sml](npbc_mo_checkScript.sml):
 Checker for the restricted (multi-objective) proof format
@@ -41,7 +42,10 @@ pseudo-boolean problems with 'a var type
 Helper lemmas for developing PB encodings
 
 [pbc_moScript.sml](pbc_moScript.sml):
-Multi-objective semantics for pbc, under a selectable objective ordering
+Multi-objective semantics for pbc, under the Pareto or the Leximax
+ordering. A front holds one vector per class of equivalent non-dominated
+vectors; under Leximax that is a single vector, unique up to permutation
+and not necessarily attained itself
 
 [pbc_normaliseScript.sml](pbc_normaliseScript.sml):
 Normalizes pbc into npbc

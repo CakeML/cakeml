@@ -261,7 +261,7 @@ Proof
 QED
 
 Definition usage_string_def:
-  usage_string = «Usage: cake_pb_mo <ordering: pareto> <OPB file> <optional: PB proof file>\n»
+  usage_string = «Usage: cake_pb_mo <ordering: pareto|leximax> <OPB file> <optional: PB proof file>\n»
 End
 
 val r = translate usage_string_def;

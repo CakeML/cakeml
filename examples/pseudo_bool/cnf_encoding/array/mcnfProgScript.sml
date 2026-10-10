@@ -505,7 +505,7 @@ Proof
 QED
 
 Definition usage_string_def:
-  usage_string = «Usage: cake_pb_mcnf <ordering: pareto> <mcnf file> <optional: PB proof file>\n»
+  usage_string = «Usage: cake_pb_mcnf <ordering: pareto|leximax> <mcnf file> <optional: PB proof file>\n»
 End
 
 val r = translate usage_string_def;

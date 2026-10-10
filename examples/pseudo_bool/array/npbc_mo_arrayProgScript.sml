@@ -28,6 +28,10 @@ QED
 
 val res = translate vec_le_eqn;
 
+val res = translate lex_le_def;
+
+val res = translate sort_desc_def;
+
 val res = translate ord_le_def;
 
 val res = translate ord_lt_def;
@@ -40,7 +44,7 @@ val res = translate ord_min_def;
 
 val res = translate npbc_moTheory.obj_vecs_def;
 
-(* The Pareto dominance order check *)
+(* The order check: the loaded order refines the ordering's reference *)
 
 val res = translate mo_obj_vars_def;
 
@@ -56,7 +60,33 @@ val res = translate pareto_constrs_def;
 
 val res = translate check_imp_any_def;
 
-val res = translate pareto_ord_ok_def;
+val res = translate miscTheory.any_el_def;
+
+val res = translate npbc_lin_def;
+
+val res = translate var_sum_def;
+
+val res = translate thr_core_def;
+
+val res = translate sort_core_def;
+
+val res = translate lex_cmp_core_def;
+
+val res = translate leximax_aux_len_def;
+
+val res = translate leximax_constrs_def;
+
+val res = translate sptreeTheory.union_def;
+
+val res = translate subset_sums_def;
+
+val res = translate dedup_sorted_def;
+
+val res = translate mo_vals_def;
+
+val res = translate (ref_core_def |> REWRITE_RULE [GSYM mllistTheory.drop_def]);
+
+val res = translate ref_ord_ok_def;
 
 val res = translate ord_ok_def;
 

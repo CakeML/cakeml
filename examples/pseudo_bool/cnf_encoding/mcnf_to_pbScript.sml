@@ -308,6 +308,20 @@ Proof
   simp[]
 QED
 
+(* An assignment's cost vector takes finitely many values *)
+Theorem FINITE_costs:
+  FINITE {cost_vec w mfml | w | msat_hard w mfml}
+Proof
+  Cases_on`mfml_to_pbf mfml :
+    ((num + num lit list) lin_term # int) list # (num + num lit list) pbc list`>>
+  rename1`_ = (objs,pbf)`>>
+  irule SUBSET_FINITE>>
+  qexists_tac`obj_img (set pbf) objs`>>
+  rw[FINITE_obj_img,SUBSET_DEF,in_obj_img]>>
+  drule_all mencode_correct_cnf_pbf>>
+  metis_tac[]
+QED
+
 
 Theorem mfml_to_pbf_nondom:
   mfml_to_pbf mfml = (objs,pbf) ⇒
