@@ -1281,7 +1281,7 @@ QED
 
 (* resource_limit' *)
 Theorem pan_to_target_compile_semantics:
-  compile_prog_max c mc pan_code = (SOME (bytes, bitmaps, c'), stack_max) ∧
+  compile_prog_max c mc pan_code = (SOME (bytes, nbitmaps, c'), stack_max) ∧
   pancake_good_code pan_code ∧
   distinct_params (functions pan_code) ∧
   ALL_DISTINCT (MAP FST(functions pan_code)) ∧
@@ -1313,7 +1313,7 @@ Theorem pan_to_target_compile_semantics:
   w2n (bytes_in_word:'a word) * (2 * max_heap_limit (dimindex (:'a)) c.data_conf -1) < dimword (:'a) ∧
   s.ffi = ffi ∧ mc.target.config.big_endian = s.be ∧
   OPTION_ALL (EVERY $ \x. ∃s. x = ExtCall s) c.lab_conf.ffi_names ∧
-  pan_installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
+  pan_installed bytes cbspace (MAP n2w nbitmaps) data_sp c'.lab_conf.ffi_names
                 (heap_regs c.stack_conf.reg_names) mc
                 c'.lab_conf.shmem_extra ms
                 (wlab_wloc o s.memory)
@@ -1327,6 +1327,8 @@ Theorem pan_to_target_compile_semantics:
 Proof
 
   strip_tac>>
+  qmatch_asmsub_abbrev_tac ‘pan_installed bytes cbspace bitmaps data_sp _ _ _ _ _ _ _ _’>>
+  ‘LENGTH bitmaps = LENGTH nbitmaps’ by simp[Abbr ‘bitmaps’]>>
   last_x_assum mp_tac>>
   rewrite_tac[compile_prog_max_def]>>
   rewrite_tac[backendTheory.from_stack_def]>>
@@ -1406,7 +1408,8 @@ Proof
 
   ‘good_code mc.target.config (LN:num sptree$num_map sptree$num_map) lprog’
     by (
-    irule (INST_TYPE [beta|->alpha] pan_to_lab_good_code_lemma)>>
+    irule (pan_to_lab_good_code_lemma |>
+           Q.INST [‘pan_prog’ |-> ‘pan_code’])>>
     gs[]>>
     rpt (first_assum $ irule_at Any)>>
     qpat_x_assum ‘Abbrev (lprog = _)’
@@ -1436,7 +1439,8 @@ Proof
      gs[GSYM EVERY_CONJ]>>
      simp[LAMBDA_PROD]>>
      ‘p = SND (SND (SND (word_to_stack_compile mc.target.config F wprog :
-        α word list # word_to_stack$config # num list # (num # stackLang$prog) list)))’
+        num list # word_to_stack$config # num list #
+          (num # stackLang$prog # metadata) list)))’
        by gs[]>>
      pop_assum $ (fn h => rewrite_tac[h])>>
      irule word_to_stackProofTheory.word_to_stack_stack_asm_convs>>
@@ -1592,7 +1596,7 @@ Proof
   (* word_to_stack *)
 
   (* instantiate / discharge *)
-  ‘FST (word_to_stack_compile mc.target.config F wprog) ≼ sst.bitmaps ∧
+  ‘MAP n2w (FST (word_to_stack_compile mc.target.config F wprog)) ≼ sst.bitmaps ∧
    sst.code = fromAList p’
     by (
     gs[stack_to_labProofTheory.full_make_init_def]>>
@@ -1613,10 +1617,10 @@ Proof
     gs[stack_removeProofTheory.make_init_opt_def]>>
     gs[stack_removeProofTheory.init_reduce_def]>>
     gs[stack_removeProofTheory.init_prop_def]>>
-    rveq>>gs[stackSemTheory.state_component_equality])>>
+    rveq>>gs[stackSemTheory.state_component_equality,Abbr ‘bitmaps’])>>
 
   ‘sst.code = fromAList (SND (SND (SND (word_to_stack_compile mc.target.config F wprog :
-      α word list # word_to_stack$config # num list # (num # stackLang$prog) list))))’
+      num list # word_to_stack$config # num list # (num # stackLang$prog # metadata) list))))’
     by gs[]>>
   drule_at Any word_to_stackProofTheory.compile_semantics>>
   gs[]>>
@@ -1637,7 +1641,7 @@ Proof
 
   ‘¬ NULL bitmaps ∧ HD bitmaps = 4w’
     by (drule word_to_stackProofTheory.compile_word_to_stack_bitmaps>>
-        strip_tac>>Cases_on ‘bitmaps’>>gs[])>>
+        strip_tac>>Cases_on ‘nbitmaps’>>gs[Abbr ‘bitmaps’])>>
   ‘ALOOKUP wprog raise_stub_location = NONE ∧
    ALOOKUP wprog store_consts_stub_location = NONE’
     by (
@@ -1666,11 +1670,12 @@ Proof
     MAP_EVERY qexists_tac [‘arch_wordsize mc.target.config.ISA’, ‘data_sp’, ‘c.data_conf’, ‘labst’, ‘max_heap’, ‘p’, ‘set mc.callee_saved_regs’,
                            ‘c.stack_conf’, ‘sp’, ‘mc.target.config.addr_offset’, ‘TL bitmaps’, ‘xxx’]>>
 
-    ‘4w::TL bitmaps = bitmaps’ by (rveq>>gs[]>>metis_tac[CONS])>>gs[]>>
+    ‘4w::TL bitmaps = bitmaps’ by (Cases_on ‘bitmaps’>>gs[])>>gs[]>>
     conj_tac >-
      (strip_tac>>gs[Abbr ‘worac’]>>strip_tac>>
       pop_assum kall_tac>>
-      pop_assum (fn h => once_rewrite_tac[GSYM h])>>gs[])>>
+      pop_assum (fn h => once_rewrite_tac[GSYM h])>>
+      gs[Abbr ‘bitmaps’]>>Cases_on ‘nbitmaps’>>gs[])>>
     gs[Abbr ‘worac’]>>
     qpat_x_assum ‘_ = (sst, SOME _)’ mp_tac>>
     gs[Abbr ‘lorac’]>>
@@ -2394,7 +2399,7 @@ Proof
            (compile_prog mc.target.config F prog arg_count
             (mc.target.config.reg_count −
              (LENGTH mc.target.config.avoid_regs + 5))
-            (Nil:α word app_list,0)))) (fromAList (toAList (fromAList wprog)))’
+            (Nil:num app_list,0)))) (fromAList (toAList (fromAList wprog)))’
     by (irule EQ_TRANS>>
         irule_at Any (GSYM map_fromAList)>>
         gs[Abbr ‘f’]>>gs[LAMBDA_PROD])>>
