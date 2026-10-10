@@ -3332,6 +3332,13 @@ Proof
   rw [comparisonTheory.pair_cmp_lexTO, totoTheory.TO_lexTO]
 QED
 
+Theorem ALOOKUP_MAP_3:
+  ALOOKUP (MAP (λ(x,y,z). (x, f x y, z)) al) x =
+  OPTION_MAP (f x ## I) (ALOOKUP al x)
+Proof
+  fs [GSYM ALOOKUP_MAP_2, LAMBDA_PROD]
+QED
+
 Theorem SWAP_IMP:
   (P ⇒ Q ⇒ R) ⇒ Q ⇒ P ⇒ R
 Proof

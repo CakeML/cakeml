@@ -102,7 +102,7 @@ Theorem comp_pmatch = Q.prove(
 end
 
 Definition prog_comp_def:
-  prog_comp f (n,p) = (n,comp f p)
+  prog_comp f (n,p,md) = (n,comp f p,md)
 End
 
 Definition compile_def:

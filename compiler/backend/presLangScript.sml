@@ -764,7 +764,7 @@ Termination
 End
 
 Definition clos_fun_to_display_def:
-  clos_fun_to_display names (n,argc,body) =
+  clos_fun_to_display names (n,argc,body,md) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
            Tuple (REVERSE $ GENLIST display_num_as_varn argc);
@@ -830,7 +830,7 @@ Termination
 End
 
 Definition bvl_fun_to_display_def:
-  bvl_fun_to_display names (n,argc,body) =
+  bvl_fun_to_display names (n,argc,body,md) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
            Tuple (REVERSE $ GENLIST display_num_as_varn argc);
@@ -899,7 +899,7 @@ Termination
 End
 
 Definition bvi_fun_to_display_def:
-  bvi_fun_to_display names (n,argc,body) =
+  bvi_fun_to_display names (n,argc,body,md) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
            Tuple (REVERSE $ GENLIST display_num_as_varn argc);
@@ -995,7 +995,7 @@ Termination
 End
 
 Definition data_fun_to_display_def:
-  data_fun_to_display names (n,argc,body) =
+  data_fun_to_display names (n,argc,body,md) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
            Tuple (GENLIST num_to_display argc);
@@ -1257,7 +1257,7 @@ Termination
 End
 
 Definition stack_fun_to_display_def:
-  stack_fun_to_display names (n,body) =
+  stack_fun_to_display names (n,body,md) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
            stack_prog_to_display 1000000000 names body]
@@ -1299,7 +1299,7 @@ Definition lab_line_to_display_def:
 End
 
 Definition lab_fun_to_display_def:
-  lab_fun_to_display names (Section n lines) =
+  lab_fun_to_display names (Section n lines _) =
     List (String (attach_name names (SOME n))
            :: MAP (lab_line_to_display names) lines)
 End
@@ -1464,7 +1464,7 @@ Termination
 End
 
 Definition word_fun_to_display_def:
-  word_fun_to_display names (n,argc,body) =
+  word_fun_to_display names (n,argc,body,md) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
            Tuple (GENLIST (λn. num_to_display (2 * n)) argc);
@@ -1504,7 +1504,7 @@ End
 
 Definition clos_to_strs_def:
   clos_to_strs (decs,funs) =
-    let names = clos_to_bvl$get_src_names (decs ++ MAP (SND o SND) funs) LN in
+    let names = clos_to_bvl$get_src_names (decs ++ MAP (FST o SND o SND) funs) LN in
       Append (map_to_append (str_tree_to_strs «\n\n» o
                              display_to_str_tree o
                              clos_dec_to_display names) decs)
@@ -1524,9 +1524,9 @@ val bvl_test =
   “concat $ append $ bvl_to_strs
      (insert 50 «foo» (insert 60 «bar» LN))
      [(50,2,Let [Var 0; Var 1]
-              $ Op (IntOp Add) [Var 0; Var 1; Var 2; Var 3]);
+              $ Op (IntOp Add) [Var 0; Var 1; Var 2; Var 3],empty_metadata);
       (60,2,Let [Var 0; Var 1]
-              $ Call 0 (SOME 50) [Var 2; Var 0])]”
+              $ Call 0 (SOME 50) [Var 2; Var 0],empty_metadata)]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
   |> (fn t => (print "\n\n"; print t; print "\n"))
 
@@ -1541,9 +1541,9 @@ val bvi_test =
   “concat $ append $ bvi_to_strs
      (insert 50 «foo» (insert 60 «bar» LN))
      [(50,2,Let [Var 0]
-              $ Op (IntOp Add) [Var 0; Var 1; Var 2; Var 3]);
+              $ Op (IntOp Add) [Var 0; Var 1; Var 2; Var 3],empty_metadata);
       (60,2,Let [Var 0; Var 1]
-              $ Call 0 (SOME 50) [Var 2; Var 0] (SOME (Var 0)))]”
+              $ Call 0 (SOME 50) [Var 2; Var 0] (SOME (Var 0)),empty_metadata)]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
   |> (fn t => (print "\n\n"; print t; print "\n"))
 
@@ -1559,8 +1559,8 @@ val data_test =
      (insert 50 «foo» (insert 60 «bar» LN))
      [(50,2,Seq (Move 5 1) $
             Seq (Assign 3 (IntOp Add) [0;1] NONE) $
-            Seq (Assign 6 (IntOp Sub) [5;3] NONE) $ Return [6]);
-      (60,2,Skip)]”
+            Seq (Assign 6 (IntOp Sub) [5;3] NONE) $ Return [6],empty_metadata);
+      (60,2,Skip,empty_metadata)]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
   |> (fn t => (print "\n\n"; print t; print "\n"));
 
@@ -1590,8 +1590,8 @@ val lab_test =
      (insert 50 «foo» (insert 60 «bar» LN))
      [Section 50 [Label 50 1 0;
                   Asm (Asmi (Inst (Const 5 70))) [] 0;
-                  Label 50 2 0];
-      Section 60 [Label 50 5 0]]”
+                  Label 50 2 0] empty_metadata;
+      Section 60 [Label 50 5 0] empty_metadata]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
   |> (fn t => (print "\n\n"; print t; print "\n"));
 

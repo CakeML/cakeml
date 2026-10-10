@@ -62,18 +62,18 @@ Theorem incremental_wrapper_example:
   ∃cs p1 p2.
     compile_inc LN
       [(10,0,LetCall 0 0 11 []
-        (Op (BlockOp (Cons 7)) []))] = (cs,p1) ∧
+        (Op (BlockOp (Cons 7)) []),empty_metadata)] = (cs,p1) ∧
     compile_inc cs
-      [(12,0,Call 0 (SOME 10) [] NONE)] = (cs,p2) ∧
+      [(12,0,Call 0 (SOME 10) [] NONE,empty_metadata)] = (cs,p2) ∧
     p2 = [(12,0,
-      Let [] (LetCall 0 0 11 [] (Op (BlockOp (Cons 7)) [])))]
+      Let [] (LetCall 0 0 11 [] (Op (BlockOp (Cons 7)) [])),empty_metadata)]
 Proof
   qexistsl
     [‘insert 10 (0,LetCall 0 0 11 []
         (Op (BlockOp (Cons 7)) [])) LN’,
-     ‘[(10,0,LetCall 0 0 11 [] (Op (BlockOp (Cons 7)) []))]’,
+     ‘[(10,0,LetCall 0 0 11 [] (Op (BlockOp (Cons 7)) []),empty_metadata)]’,
      ‘[(12,0,Let []
-        (LetCall 0 0 11 [] (Op (BlockOp (Cons 7)) [])))]’]
+        (LetCall 0 0 11 [] (Op (BlockOp (Cons 7)) [])),empty_metadata)]’]
   >> EVAL_TAC
 QED
 
@@ -108,8 +108,8 @@ QED
 
 Theorem MAP_FST_remove_ticks_prog[simp]:
   ∀prog.
-    MAP FST (MAP (λ(name,arity,body).
-      (name,arity,remove_ticks_exp body)) prog) = MAP FST prog
+    MAP FST (MAP (λ(name,arity,body,md).
+      (name,arity,remove_ticks_exp body,md)) prog) = MAP FST prog
 Proof
   Induct_on ‘prog’ >> fs [FORALL_PROD]
 QED
@@ -141,10 +141,10 @@ QED
 
 Theorem remove_ticks_prog_code_labels:
   ∀prog.
-    BIGUNION (set (MAP (get_code_labels o SND o SND)
-      (MAP (λ(name,arity,body).
-        (name,arity,remove_ticks_exp body)) prog))) =
-    BIGUNION (set (MAP (get_code_labels o SND o SND) prog))
+    BIGUNION (set (MAP (get_code_labels o FST o SND o SND)
+      (MAP (λ(name,arity,body,md).
+        (name,arity,remove_ticks_exp body,md)) prog))) =
+    BIGUNION (set (MAP (get_code_labels o FST o SND o SND) prog))
 Proof
   Induct_on ‘prog’
   >> simp [FORALL_PROD, remove_ticks_get_code_labels]
@@ -152,8 +152,8 @@ QED
 
 Theorem compile_inc_code_labels:
   compile_inc cs prog = (cs1,prog1) ⇒
-  BIGUNION (set (MAP (get_code_labels o SND o SND) prog1)) =
-  BIGUNION (set (MAP (get_code_labels o SND o SND)
+  BIGUNION (set (MAP (get_code_labels o FST o SND o SND) prog1)) =
+  BIGUNION (set (MAP (get_code_labels o FST o SND o SND)
     (SND (inline_all cs prog))))
 Proof
   rw [compile_inc_def]
@@ -214,9 +214,9 @@ QED
 
 Theorem inline_all_code_labels:
   ∀cs prog.
-    BIGUNION (set (MAP (get_code_labels ∘ SND ∘ SND)
+    BIGUNION (set (MAP (get_code_labels ∘ FST ∘ SND ∘ SND)
       (SND (inline_all cs prog)))) ⊆
-      BIGUNION (set (MAP (get_code_labels ∘ SND ∘ SND) prog)) ∪
+      BIGUNION (set (MAP (get_code_labels ∘ FST ∘ SND ∘ SND) prog)) ∪
       cache_code_labels cs
 Proof
   Induct_on ‘prog’
@@ -239,8 +239,8 @@ QED
 
 Theorem compile_prog_code_labels:
   compile_prog prog = (cs1,prog1) ⇒
-  BIGUNION (set (MAP (get_code_labels ∘ SND ∘ SND) prog1)) ⊆
-    BIGUNION (set (MAP (get_code_labels ∘ SND ∘ SND) prog))
+  BIGUNION (set (MAP (get_code_labels ∘ FST ∘ SND ∘ SND) prog1)) ⊆
+    BIGUNION (set (MAP (get_code_labels ∘ FST ∘ SND ∘ SND) prog))
 Proof
   rw [compile_prog_def, compile_inc_def, UNCURRY]
   >> qspecl_then [‘LN’,‘prog’] mp_tac inline_all_code_labels
@@ -264,19 +264,33 @@ Proof
   >> fs [lookup_union]
 QED
 
+Definition md_off_def:
+  md_off (code:(num # bvi$exp # metadata) num_map) = map (I ## FST) code
+End
+
+Theorem md_off_simps[local,simp]:
+  md_off LN = LN ∧
+  md_off (insert k (arity,body,md) code) = insert k (arity,body) (md_off code) ∧
+  md_off (union code code1) = union (md_off code) (md_off code1) ∧
+  domain (md_off code) = domain code ∧
+  lookup k (md_off code) = OPTION_MAP (I ## FST) (lookup k code)
+Proof
+  simp [md_off_def,lookup_map,map_insert,map_union,domain_map]
+QED
+
 Theorem inline_all_cache_subspt:
   ∀prog cs old final_cache out.
     inline_all cs prog = (final_cache,out) ∧
     subspt cs old ∧
     DISJOINT (set (MAP FST prog)) (domain old) ∧
     ALL_DISTINCT (MAP FST prog) ⇒
-    subspt final_cache (union old (fromAList out))
+    subspt final_cache (union old (md_off (fromAList out)))
 Proof
   Induct_on ‘prog’
   >- simp [inline_all_def, fromAList_def, union_LN]
   >> simp [FORALL_PROD]
   >> qx_genl_tac
-       [‘name’,‘arity’,‘body’,‘cs’,‘old’,‘final_cache’,‘out’]
+       [‘name’,‘arity’,‘body’,‘md’,‘cs’,‘old’,‘final_cache’,‘out’]
   >> simp [inline_all_def, UNCURRY]
   >> strip_tac
   >> gvs []
@@ -300,7 +314,7 @@ Proof
        (qspecl_then
           [‘cs1’,‘union old (insert name (arity,inline_exp cs body) LN)’,
            ‘FST (inline_all cs1 prog)’,‘SND (inline_all cs1 prog)’] mp_tac)
-  >> gvs []
+  >> gvs [union_assoc]
 QED
 
 (* [exp_rel c] relates a source expression to its image under the inlining
@@ -308,7 +322,7 @@ QED
    [exp_rel_inline] is the only rule that removes a Call boundary. *)
 Inductive exp_rel:
 [~Var:]
-  (∀c n. exp_rel c (Var n) (Var n))
+  (∀c n. exp_rel (c:(num # bvi$exp # metadata) num_map) (Var n) (Var n))
 [~Force:]
   (∀c loc n. exp_rel c (Force loc n) (Force loc n))
 [~If:]
@@ -340,8 +354,8 @@ Inductive exp_rel:
   (∀c xs ys. LIST_REL (exp_rel c) xs ys ⇒
      exp_rel c (Return xs) (Return ys))
 [~inline:]
-  (∀c ticks n xs ys arity body.
-     LIST_REL (exp_rel c) xs ys ∧ lookup n c = SOME (arity,body) ∧
+  (∀c ticks n xs ys arity body md.
+     LIST_REL (exp_rel c) xs ys ∧ lookup n c = SOME (arity,body,md) ∧
      LENGTH ys = arity ⇒
      exp_rel c (bvi$Call ticks (SOME n) xs NONE)
        (Let ys (bvi_mk_tick (SUC ticks) body)))
@@ -390,7 +404,7 @@ Proof
 QED
 
 Theorem inline_call_none_exp_rel:
-  subspt cs c ∧ LIST_REL (exp_rel c) es (inline_exps cs es) ⇒
+  subspt cs (md_off c) ∧ LIST_REL (exp_rel c) es (inline_exps cs es) ⇒
   exp_rel c (Call ticks dest es NONE)
     (inline_exp cs (Call ticks dest es NONE))
 Proof
@@ -408,18 +422,22 @@ Proof
   >> IF_CASES_TAC
   >- (irule exp_rel_inline
       >> simp []
-      >> metis_tac [subspt_lookup])
+      >> fs [subspt_lookup]
+      >> first_x_assum drule
+      >> Cases_on ‘lookup name c’
+      >> simp [md_off_def,lookup_map]
+      >> PairCases_on ‘x’ >> simp [])
   >> metis_tac [exp_rel_rules, OPTREL_THM]
 QED
 
 Theorem inline_exp_rel:
-  subspt cs c ⇒
+  subspt cs (md_off c) ⇒
     (∀e. exp_rel c e (inline_exp cs e)) ∧
     (∀es. LIST_REL (exp_rel c) es (inline_exps cs es))
 Proof
   qsuff_tac
-    ‘(∀cs e. subspt cs c ⇒ exp_rel c e (inline_exp cs e)) ∧
-     (∀cs es. subspt cs c ⇒
+    ‘(∀cs e. subspt cs (md_off c) ⇒ exp_rel c e (inline_exp cs e)) ∧
+     (∀cs es. subspt cs (md_off c) ⇒
        LIST_REL (exp_rel c) es (inline_exps cs es))’
   >- metis_tac []
   >> ho_match_mp_tac inline_exp_ind
@@ -494,12 +512,12 @@ Definition in_state_rel_def:
     t.global = s.global ∧
     t.ffi = s.ffi ∧
     t.compile_oracle = in_co s.compile_oracle ∧
-    subspt (FST (FST (s.compile_oracle 0))) t.code ∧
+    subspt (FST (FST (s.compile_oracle 0))) (md_off t.code) ∧
     s.compile = in_cc t.compile ∧
     domain t.code = domain s.code ∧
-    (∀k arity exp.
-       lookup k s.code = SOME (arity,exp) ⇒
-       ∃exp1. lookup k t.code = SOME (arity,exp1) ∧
+    (∀k arity exp md.
+       lookup k s.code = SOME (arity,exp,md) ⇒
+       ∃exp1. lookup k t.code = SOME (arity,exp1,md) ∧
               exp_rel t.code exp exp1)
 End
 
@@ -517,22 +535,22 @@ Proof
 QED
 
 Theorem inline_all_ALOOKUP:
-  ∀prog cs old_target final_cache out k wanted_arity wanted_body.
+  ∀prog cs old_target final_cache out k wanted_arity wanted_body wanted_md.
     inline_all cs prog = (final_cache,out) ∧
-    subspt cs old_target ∧
+    subspt cs (md_off old_target) ∧
     DISJOINT (set (MAP FST prog)) (domain old_target) ∧
     ALL_DISTINCT (MAP FST prog) ∧
-    ALOOKUP prog k = SOME (wanted_arity,wanted_body) ⇒
+    ALOOKUP prog k = SOME (wanted_arity,wanted_body,wanted_md) ⇒
     ∃body1.
-      ALOOKUP out k = SOME (wanted_arity,body1) ∧
+      ALOOKUP out k = SOME (wanted_arity,body1,wanted_md) ∧
       exp_rel (union old_target (fromAList out)) wanted_body body1
 Proof
   Induct_on ‘prog’
   >- simp [inline_all_def]
   >> simp [FORALL_PROD]
   >> qx_genl_tac
-       [‘head_name’,‘head_arity’,‘head_body’,‘cs’,‘old_target’,
-        ‘final_cache’,‘out’,‘k’,‘wanted_arity’,‘wanted_body’]
+       [‘head_name’,‘head_arity’,‘head_body’,‘head_md’,‘cs’,‘old_target’,
+        ‘final_cache’,‘out’,‘k’,‘wanted_arity’,‘wanted_body’,‘wanted_md’]
   >> simp [inline_all_def, UNCURRY]
   >> strip_tac
   >> gvs []
@@ -540,29 +558,29 @@ Proof
   >> Cases_on ‘k = head_name’
   >- (gvs []
       >> ‘subspt cs
-            (union old_target
+            (md_off (union old_target
               (fromAList
-                ((head_name,head_arity,inline_exp cs head_body)::
-                 SND (inline_all cs1 prog))))’
+                ((head_name,head_arity,inline_exp cs head_body,head_md)::
+                 SND (inline_all cs1 prog)))))’
            by (irule subspt_trans
-               >> qexists ‘old_target’
+               >> qexists ‘md_off old_target’
                >> simp [subspt_union])
       >> drule inline_exp_rel
       >> simp [])
   >> ‘subspt cs1
-        (union old_target
-          (insert head_name (head_arity,inline_exp cs head_body) LN))’
+        (md_off (union old_target
+          (insert head_name (head_arity,inline_exp cs head_body,head_md) LN)))’
        by (rw [Abbr ‘cs1’]
            >- (irule subspt_insert_union_fresh
                >> fs [DISJOINT_DEF, EXTENSION]
                >> metis_tac [])
            >> irule subspt_trans
-           >> qexists ‘old_target’
+           >> qexists ‘md_off old_target’
            >> fs [subspt_union])
   >> ‘DISJOINT (set (MAP FST prog))
         (domain
           (union old_target
-            (insert head_name (head_arity,inline_exp cs head_body) LN)))’
+            (insert head_name (head_arity,inline_exp cs head_body,head_md) LN)))’
        by (fs [domain_union, DISJOINT_DEF, EXTENSION]
            >> metis_tac [])
   >> once_rewrite_tac [fromAList_def]
@@ -572,9 +590,9 @@ Proof
        (qspecl_then
           [‘cs1’,
            ‘union old_target
-             (insert head_name (head_arity,inline_exp cs head_body) LN)’,
+             (insert head_name (head_arity,inline_exp cs head_body,head_md) LN)’,
            ‘FST (inline_all cs1 prog)’,‘SND (inline_all cs1 prog)’,
-           ‘k’,‘wanted_arity’,‘wanted_body’] mp_tac)
+           ‘k’,‘wanted_arity’,‘wanted_body’,‘wanted_md’] mp_tac)
   >> gvs []
 QED
 
@@ -655,31 +673,31 @@ Proof
 QED
 
 Theorem inline_all_head_names[local]:
-  inline_all cs ((name,arity,body)::rest) = (final_cache,out) ⇒
+  inline_all cs ((name,arity,body,md)::rest) = (final_cache,out) ⇒
   ∃tail.
-    out = (name,arity,inline_exp cs body)::tail ∧
+    out = (name,arity,inline_exp cs body,md)::tail ∧
     MAP FST tail = MAP FST rest
 Proof
   rw [inline_all_def]
   >> pairarg_tac
   >> gvs []
-  >> qspecl_then [`cs`,`(name,arity,body)::rest`] mp_tac inline_all_MAP_FST
+  >> qspecl_then [`cs`,`(name,arity,body,md)::rest`] mp_tac inline_all_MAP_FST
   >> simp [inline_all_def, UNCURRY]
 QED
 
 Theorem inline_all_lookup_union[local]:
   inline_all cs prog = (final_cache,out) ∧
-  subspt cs target ∧
+  subspt cs (md_off target) ∧
   domain target = domain source ∧
-  (∀k arity exp. lookup k source = SOME (arity,exp) ⇒
-     ∃exp1. lookup k target = SOME (arity,exp1) ∧
+  (∀k arity exp md. lookup k source = SOME (arity,exp,md) ⇒
+     ∃exp1. lookup k target = SOME (arity,exp1,md) ∧
             exp_rel target exp exp1) ∧
   DISJOINT (set (MAP FST prog)) (domain target) ∧
   ALL_DISTINCT (MAP FST prog) ⇒
-  ∀k arity exp.
-    lookup k (union source (fromAList prog)) = SOME (arity,exp) ⇒
+  ∀k arity exp md.
+    lookup k (union source (fromAList prog)) = SOME (arity,exp,md) ⇒
     ∃exp1.
-      lookup k (union target (fromAList out)) = SOME (arity,exp1) ∧
+      lookup k (union target (fromAList out)) = SOME (arity,exp1,md) ∧
       exp_rel (union target (fromAList out)) exp exp1
 Proof
   rpt strip_tac
@@ -731,7 +749,8 @@ Proof
   >> gvs []
   >> pairarg_tac
   >> gvs []
-  >> `∃prog_arity prog_body. prog = (prog_arity,prog_body)` by metis_tac [PAIR]
+  >> rename1 `inline_all oracle_cs ((k,prog)::v7) = (cs1,prog1)`
+  >> `∃prog_arity prog_body prog_md. prog = (prog_arity,prog_body,prog_md)` by metis_tac [PAIR]
   >> gvs []
   >> drule inline_all_head_names
   >> strip_tac
@@ -742,12 +761,12 @@ Proof
   >> gvs [UNCURRY]
   >> conj_tac
   >- (irule inline_all_cache_subspt
-      >> qexistsl [`oracle_cs`,`(k,prog_arity,prog_body)::v7`]
+      >> qexistsl [`oracle_cs`,`(k,prog_arity,prog_body,prog_md)::v7`]
       >> gvs [DISJOINT_SYM])
   >> rpt gen_tac
   >> strip_tac
   >> irule inline_all_lookup_union
-  >> qexistsl [`oracle_cs`,`cs1`,`(k,prog_arity,prog_body)::v7`,`s1.code`]
+  >> qexistsl [`oracle_cs`,`cs1`,`(k,prog_arity,prog_body,prog_md)::v7`,`s1.code`]
   >> gvs [DISJOINT_SYM]
 QED
 
@@ -805,10 +824,10 @@ Theorem exp_rel_inv[local,simp]:
   (exp_rel c (bvi$Call ticks dest xs handler) y ⇔
      (∃ys handler1. y = bvi$Call ticks dest ys handler1 ∧
         LIST_REL (exp_rel c) xs ys ∧ OPTREL (exp_rel c) handler handler1) ∨
-     (∃n ys arity body.
+     (∃n ys arity body md.
         dest = SOME n ∧ handler = NONE ∧
         y = Let ys (bvi_mk_tick (SUC ticks) body) ∧
-        LIST_REL (exp_rel c) xs ys ∧ lookup n c = SOME (arity,body) ∧
+        LIST_REL (exp_rel c) xs ys ∧ lookup n c = SOME (arity,body,md) ∧
         LENGTH ys = arity))
 Proof
   rpt conj_tac
@@ -820,7 +839,7 @@ QED
    the extra environment entries are unreachable, and the two differ on a
    [Ret]-raise only, which the side condition excludes. *)
 Theorem evaluate_inlined_call[local]:
-  lookup n t.code = SOME (LENGTH ys,body) ∧
+  lookup n t.code = SOME (LENGTH ys,body,md) ∧
   FST (evaluate ([Call ticks (SOME n) ys NONE],env,t)) ≠
     Rerr (Rabort Rtype_error) ⇒
   evaluate ([Let ys (bvi_mk_tick (SUC ticks) body)],env,t) =
@@ -834,7 +853,7 @@ Proof
   >> drule bviPropsTheory.evaluate_IMP_LENGTH
   >> imp_res_tac evaluate_code_mono
   >> strip_tac
-  >> `lookup n args_state.code = SOME (LENGTH args_vals,body)`
+  >> `lookup n args_state.code = SOME (LENGTH args_vals,body,md)`
        by gvs [subspt_lookup]
   >> gvs [ADD1]
   >> IF_CASES_TAC
@@ -1202,7 +1221,7 @@ Finalise evaluate_inline;
 
 Definition clean_prog_def:
   clean_prog prog =
-    MAP (λ(name,arity,body). (name,arity,remove_ticks_exp body)) prog
+    MAP (λ(name,arity,body,md). (name,arity,remove_ticks_exp body,md)) prog
 End
 
 Definition remove_ticks_cc_def:
@@ -1217,7 +1236,7 @@ Definition remove_state_rel_def:
   remove_state_rel (s:('c,'ffi) bviSem$state)
       (t:('c,'ffi) bviSem$state) ⇔
     t.refs = s.refs ∧ t.clock = s.clock ∧ t.global = s.global ∧ t.ffi = s.ffi ∧
-    t.code = map (I ## remove_ticks_exp) s.code ∧
+    t.code = map (I ## remove_ticks_exp ## I) s.code ∧
     t.compile_oracle = remove_ticks_co ∘ s.compile_oracle ∧
     s.compile = remove_ticks_cc t.compile
 End
@@ -1267,14 +1286,14 @@ QED
 
 Theorem clean_prog_CONS[local,simp]:
   clean_prog [] = [] ∧
-  clean_prog (p::ps) = (I ## I ## remove_ticks_exp) p :: clean_prog ps
+  clean_prog (p::ps) = (I ## I ## remove_ticks_exp ## I) p :: clean_prog ps
 Proof
   simp [clean_prog_def, PAIR_MAP, ELIM_UNCURRY]
 QED
 
 Theorem clean_prog_simps[local,simp]:
   MAP FST (clean_prog prog) = MAP FST prog ∧
-  map (I ## remove_ticks_exp) (fromAList prog) = fromAList (clean_prog prog)
+  map (I ## remove_ticks_exp ## I) (fromAList prog) = fromAList (clean_prog prog)
 Proof
   conj_tac
   >> Induct_on `prog`
@@ -1784,7 +1803,7 @@ Proof
   rpt strip_tac
   >> `MAP FST prog1 = MAP FST prog`
        by (qspecl_then [`LN`,`prog`] mp_tac inline_all_MAP_FST >> fs [])
-  >> `subspt cs1 (fromAList prog1)`
+  >> `subspt cs1 (md_off (fromAList prog1))`
        by (qspecl_then [`prog`,`LN`,`LN`,`cs1`,`prog1`] mp_tac
              inline_all_cache_subspt
            >> fs [union_LN])

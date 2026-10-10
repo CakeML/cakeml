@@ -57,7 +57,7 @@ Definition pan_to_target_all_def:
         prog_b1 = MAP2 (λn (name,params,body).
                     (n,(GENLIST I ∘ LENGTH) params, comp params body)) fnums prog_b;
         prog_c = MAP (λ(name,params,body). (name,params,loop_live$optimise body)) prog_b1;
-        prog2 = loop_to_word$compile_prog prog_c;
+        prog2 = add_metadata empty_metadata (loop_to_word$compile_prog prog_c);
         names = fromAList (ZIP (sort $< (MAP FST prog2), «generated_main»::MAP FST (functions prog1)));
         names = union (fromAList (word_to_stack$stub_names () ++
                                   stack_alloc$stub_names () ++
