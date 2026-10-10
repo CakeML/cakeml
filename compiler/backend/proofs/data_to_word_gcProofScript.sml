@@ -878,7 +878,9 @@ Proof
   \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
   \\ `n2w (LENGTH ts) + 1w = n2w (LENGTH (Word h::ts)):'a word` by
         full_simp_tac(srw_ss())[LENGTH,ADD1,word_add_n2w]
-  \\ full_simp_tac bool_ss []
+  \\ qpat_x_assum `decode_length conf h = _`
+       (fn th => SUBST_ALL_TAC th \\ assume_tac th)
+  \\ qpat_x_assum `n2w (LENGTH ts) + 1w = _` SUBST_ALL_TAC
   \\ drule memcpy_thm
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ full_simp_tac(srw_ss())[gc_forward_ptr_thm] \\ rev_full_simp_tac(srw_ss())[]
@@ -1221,9 +1223,9 @@ Proof
    (fs [X_LE_DIV] \\ Cases_on `2n ** shift_length conf` \\ fs [MULT_CLAUSES])
   \\ disch_then drule
   \\ disch_then drule
+  \\ disch_then drule
   \\ `conf.len_size + 2 < dimindex (:'a)` by decide_tac
-  \\ strip_tac \\ SEP_F_TAC
-  \\ full_simp_tac(srw_ss())[AC STAR_ASSOC STAR_COMM]
+  \\ fs []
   \\ strip_tac \\ rpt var_eq_tac
   \\ full_simp_tac(srw_ss())[word_heap_APPEND,word_heap_heap_expand]
   \\ pop_assum mp_tac

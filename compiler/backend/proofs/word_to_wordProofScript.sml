@@ -1481,7 +1481,7 @@ Resume no_install_no_alloc_compile_single_correct[ni_Call]:
     rw[] >>
     qpat_x_assum`(λ(x,y). _) _`mp_tac >>
     pairarg_tac>>fs[] >>
-    qpat_x_assum`compile_single _ _ _ _ _ = (_,_,_)` (mp_tac o GSYM) >>
+    qpat_x_assum`compile_single _ _ _ _ _ _ = (_,_,_,_)` (mp_tac o GSYM) >>
     rw[] >>
     rw[]>>fs[dec_clock_def] >>
     qmatch_asmsub_abbrev_tac`evaluate (q',stt)` >>
