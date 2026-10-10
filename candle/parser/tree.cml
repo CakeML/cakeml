@@ -1,0 +1,15 @@
+(*
+  Parse trees from grammar.ptree, restricted to token leaves: the executable
+  grammar never builds a nonterminal leaf. Node labels have the
+  ('b,int) sum shape of grammar.ptree's nonterminals.
+*)
+structure CandleTree = struct
+  datatype ('a,'b) tree = Lf ('a * CandleLocation.locs)
+    | Nd ((('b,int) sum) * CandleLocation.locs) (('a,'b) tree list);
+  fun loc tree = case tree of Lf (_,l) => l | Nd (_,l) _ => l;
+  fun list_loc trees = CandleSupport.merge_list_locs (List.map loc trees);
+  fun mkNd nt children = Nd (nt,list_loc children) children;
+  fun fringe tree = case tree of
+      Lf (t,l) => [(t,l)]
+    | Nd _ children => List.concat (List.map fringe children);
+end;

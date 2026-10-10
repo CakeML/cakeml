@@ -1,0 +1,165 @@
+(*
+  Pre-patterns, precedence resolution, compatibility currying and pattern
+  conversion, including record restrictions and or-pattern distribution.
+*)
+structure CandlePatterns = struct
+  open CandleTypes;
+  datatype ppat = Pp_any | Pp_var string | Pp_lit Ast.lit
+    | Pp_con ((string,string) Ast.id option) (ppat list)
+    | Pp_record ((string,string) Ast.id) (string list)
+    | Pp_prod (ppat list) | Pp_or ppat ppat | Pp_tannot ppat Ast.ast_t
+    | Pp_alias ppat (string list) | Pp_as ppat string;
+  fun ppat_to_pat pp = case pp of
+      Pp_any => Inr [Ast.Pany]
+    | Pp_var v => Inr [Ast.Pvar v]
+    | Pp_lit l => Inr [Ast.Plit l]
+    | Pp_tannot p t => fmap (List.map (fn q => Ast.Ptannot q t)) (ppat_to_pat p)
+    | Pp_con id ps => bind (ppat_to_pats ps) (fn qs =>
+        Inr (List.map (fn args => Ast.Pcon id args) (list_cart_prod qs)))
+    | Pp_record _ _ => Inl (unknown_loc,"")
+    | Pp_prod ps => bind (ppat_to_pats ps) (fn qs =>
+        Inr (List.map (fn args => Ast.Pcon None args) (list_cart_prod qs)))
+    | Pp_alias p ns => fmap (List.map (fn q =>
+        List.foldl (fn n => fn r => Ast.Pas r n) q ns)) (ppat_to_pat p)
+    | Pp_as p n => fmap (List.map (fn q => Ast.Pas q n)) (ppat_to_pat p)
+    | Pp_or p q => bind (ppat_to_pat p) (fn ps =>
+        fmap (fn qs => ps @ qs) (ppat_to_pat q))
+  and ppat_to_pats ps = case ps of [] => Inr [] | p::rest =>
+    bind (ppat_to_pat p) (fn q => fmap (fn qs => q::qs) (ppat_to_pats rest));
+  fun compatCurryP id p = case id of
+      Ast.Long mn vn =>
+        if mn = "PrettyPrinter" andalso vn = Ast.Short "PP_Data" then
+          (case p of Pp_con None ps => Pp_con (Some id) ps
+                   | _ => Pp_con (Some id) [p])
+        else Pp_con (Some id) [p]
+    | Ast.Short nm =>
+        if member nm ["Abs","Var","Const","Comb","Tyapp","Sequent","Append"] then
+          (case p of Pp_any => Pp_con (Some id) [Pp_any,Pp_any]
+           | Pp_con None ps => Pp_con (Some id) ps
+           | _ => Pp_con (Some id) [p])
+        else Pp_con (Some id) [p];
+  datatype pp_op = Po_cons | Po_prod | Po_or | Po_alias;
+  fun rank oper = case oper of Po_cons => 3 | Po_prod => 2 | Po_or => 1 | Po_alias => 0;
+  fun tok_action pair = case pair of (Inl stk,Inl inp) =>
+      if stk = Po_alias then Some CandlePrecedence.Reduce
+      else if rank inp < rank stk then Some CandlePrecedence.Reduce
+      else if rank stk < rank inp then Some CandlePrecedence.Shift
+      else if stk = Po_cons then Some CandlePrecedence.Shift
+      else Some CandlePrecedence.Reduce
+    | _ => None;
+  fun dest_alias pp = case pp of Pp_alias p ns => Some (p,ns) | _ => None;
+  fun tok2ppo pt = bind (token pt) (fn tk => case tk of
+      ColonsT => Inr Po_cons | CommaT => Inr Po_prod | BarT => Inr Po_or
+    | _ => Inl (unknown_loc,"ppatOp: impossible"));
+  fun ppat_close pp = case pp of Pp_prod ps => Pp_con None ps
+    | Pp_alias p ns => List.foldl (fn n => fn q => Pp_as q n) p ns
+    | _ => pp;
+  fun ppat_reduce a oper b = case oper of
+      Inl Po_or => (case (a,b) of (Inl x,Inl y) => Some (Inl (Pp_or (ppat_close x) y))
+                                 | _ => None)
+    | Inl Po_prod => (case (a,b) of
+        (Inl (Pp_prod ps),Inl y) => Some (Inl (Pp_prod (ps @ [y])))
+      | (Inl x,Inl y) => Some (Inl (Pp_prod [x,y])) | _ => None)
+    | Inl Po_cons => (case (a,b) of (Inl x,Inl y) =>
+        Some (Inl (Pp_con (Some (Ast.Short "::")) [ppat_close x,y])) | _ => None)
+    | Inl Po_alias => (case (a,b) of (Inl x,Inr y) =>
+        Some (Inl (Pp_alias (ppat_close x) y)) | _ => None)
+    | _ => None;
+  fun resolve_precs xs = case CandlePrecedence.precparse tok_action ppat_reduce
+      (fn x => case x of Inr y => y | _ => Inr [])
+      (fn x => case x of Inl _ => True | _ => False)
+      (fn x => fn y => None) ([],xs) of
+      Some (Inl pp) => Inr (ppat_close pp)
+    | _ => Inl (unknown_loc,"resolve_precs");
+  fun ptree_AsIds pts = case pts of [] => Inr []
+    | [_] => Inl (unknown_loc,"Impossible: ptree_AsIds")
+    | x::y::xs => bind (expect_tok x AsT) (fn _ => bind (ptree_Ident y) (fn n =>
+        fmap (fn ns => n::ns) (ptree_AsIds xs)));
+  fun build_list_ppat ps = List.foldr (fn t => fn p =>
+      Pp_con (Some (Ast.Short "::")) [t,p]) (Pp_con (Some (Ast.Short "[]")) []) ps;
+  fun ptree_FieldsList pts = case pts of
+      [rb] => bind (expect_tok rb RbraceT) (fn _ => Inr [])
+    | [semi,rb] => bind (expect_tok semi SemiT) (fn _ =>
+        bind (expect_tok rb RbraceT) (fn _ => Inr []))
+    | semi::fname::fs => bind (expect_tok semi SemiT) (fn _ =>
+        bind (ptree_FieldName fname) (fn n => fmap (fn ns => n::ns) (ptree_FieldsList fs)))
+    | [] => Inl (unknown_loc,"Impossible: ptree_FieldsList");
+  fun ptree_PRecFields pt = case pt of
+      Lf (_,l) => Inl (l,"Expected a pattern record fields non-terminal")
+    | Nd (n,l) args => if n <> Inl NPRecFields then Inl (l,"Expected a pattern record fields non-terminal")
+      else case args of lb::fname::rest => bind (expect_tok lb LbraceT) (fn _ =>
+        bind (ptree_FieldName fname) (fn name => fmap (fn ns => name::ns) (ptree_FieldsList rest)))
+      | _ => Inl (l,"Impossible: nPRecFields");
+  fun constr_id l cn = bind (ptree_Constr cn) (path_to_ns l);
+  fun ptree_PPattern pt = case pt of Lf (_,l) => Inl (l,"Expected a pattern non-terminal")
+    | Nd (n,l) args =>
+      if n = Inl NPAny then
+        (case args of [arg] => bind (expect_tok arg AnyT) (fn _ => Inr Pp_any)
+         | _ => Inl (l,"Impossible: nPAny"))
+      else if n = Inl NPList then
+        (case args of lb::rest => bind (expect_tok lb LbrackT) (fn _ =>
+           fmap build_list_ppat (ptree_PPatternList rest))
+         | _ => Inl (l,"Impossible: nPList"))
+      else if n = Inl NPPar then
+        (case args of [lp,rp] => bind (expect_tok lp LparT) (fn _ =>
+           bind (expect_tok rp RparT) (fn _ => Inr (Pp_con None [])))
+         | [lp,p,rp] => bind (expect_tok lp LparT) (fn _ =>
+           bind (expect_tok rp RparT) (fn _ => ptree_PPattern p))
+         | [lp,p,colon,ty,rp] => bind (expect_tok lp LparT) (fn _ =>
+           bind (expect_tok rp RparT) (fn _ => bind (expect_tok colon ColonT) (fn _ =>
+           bind (ptree_PPattern p) (fn pp => fmap (fn t => Pp_tannot pp t) (ptree_Type ty)))))
+         | _ => Inl (l,"Impossible: nPPar"))
+      else if n = Inl NPatLiteral then
+        (case args of [arg] => choice (fmap (fn lit => Pp_lit lit) (ptree_Literal arg))
+           (fn _ => fmap (fn b => Pp_con (Some b) []) (ptree_Bool arg))
+         | [minus,arg] => bind (expect_tok minus MinusT) (fn _ =>
+           bind (token arg) (fn tk => case tk of IntT i => Inr (Pp_lit (Ast.Intlit (~i)))
+             | _ => Inl (l,"Impossible: nPatLiteral")))
+         | _ => Inl (l,"Impossible: nPatLiteral"))
+      else if n = Inl NPBase then
+        (case args of [arg] => bind (nterm_of arg) (fn nt =>
+           if nt = Inl NValueName then fmap (fn v => Pp_var v) (ptree_ValueName arg)
+           else if nt = Inl NConstr then fmap (fn id => Pp_con (Some id) []) (constr_id l arg)
+           else if member nt [Inl NPatLiteral,Inl NPAny,Inl NPList,Inl NPPar] then ptree_PPattern arg
+           else Inl (l,"Impossible: nPBase"))
+         | _ => Inl (l,"Impossible: nPBase"))
+      else if n = Inl NPCons then
+        (case args of [cn] => choice
+           (fmap (fn id => Pp_con (Some id) []) (constr_id l cn)) (fn _ => ptree_PPattern cn)
+         | [cn,arg] => choice (bind (constr_id l cn) (fn id =>
+             fmap (fn fs => Pp_record id fs) (ptree_PRecFields arg)))
+           (fn _ => bind (constr_id l cn) (fn id => fmap (compatCurryP id) (ptree_PPattern arg)))
+         | _ => Inl (l,"Impossible: nPCons"))
+      else if n = Inl NPAs then
+        (case args of p::asids => bind (ptree_PPattern p) (fn pp =>
+           fmap (fn ns => case ns of [] => pp | _ => Pp_alias pp ns) (ptree_AsIds asids))
+         | _ => Inl (l,"Impossible: nPAs"))
+      else if n = Inl NPOps then
+        (case args of [] => Inl (l,"Impossible: nPOps")
+         | p::rest => bind (ptree_PPattern p) (fn pp =>
+           let val start = case dest_alias pp of None => [Inr (Inl pp)]
+                 | Some (q,ns) => [Inr (Inr ns),Inl Po_alias,Inr (Inl q)];
+           in bind (grabPairs start rest) resolve_precs end))
+      else if n = Inl NPattern then
+        (case args of [p] => ptree_PPattern p | _ => Inl (l,"Impossible: nPattern"))
+      else Inl (l,"Expected a pattern non-terminal")
+  and ptree_PPatternList pts = case pts of [] => Inl (unknown_loc,"Pattern lists cannot be empty")
+    | [t] => bind (expect_tok t RbrackT) (fn _ => Inr [])
+    | p::ps => choice (bind (expect_tok p SemiT) (fn _ => ptree_PPatternList ps))
+        (fn _ => bind (ptree_PPattern p) (fn q => fmap (fn qs => q::qs) (ptree_PPatternList ps)))
+  and grabPairs acc pts = case pts of [] => Inr (List.rev acc)
+    | [_] => Inl (unknown_loc,"grabPairs")
+    | pt1::pt2::rest => bind (tok2ppo pt1) (fn oper => bind (ptree_PPattern pt2) (fn v =>
+        case dest_alias v of Some (pp,ns) =>
+          grabPairs (Inr (Inr ns)::Inl Po_alias::Inr (Inl pp)::Inl oper::acc) rest
+        | None => grabPairs (Inr (Inl v)::Inl oper::acc) rest));
+  fun ptree_Pattern pt = bind (ptree_PPattern pt) (fn pp => case pp of
+      Pp_record id fs => Inr [Inl (id,fs)]
+    | _ => choice (fmap (List.map (fn p => Inr p)) (ppat_to_pat pp))
+             (fn _ => Inl (unknown_loc,"Record patterns may only appear at the top level")));
+  fun ptree_Patterns pt = case pt of Lf (_,l) => Inl (l,"Expected pattern list non-terminal")
+    | Nd (n,l) args => if n <> Inl NPatterns then Inl (l,"Expected pattern list non-terminal")
+      else case args of [p] => fmap (fn ps => [ps]) (ptree_Pattern p)
+        | [p,rest] => bind (ptree_Pattern p) (fn ps => fmap (fn qs => ps::qs) (ptree_Patterns rest))
+        | _ => Inl (l,"Impossible: nPatterns");
+end;

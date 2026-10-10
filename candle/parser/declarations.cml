@@ -1,0 +1,169 @@
+(*
+  Candle declaration lowering. Embedded CakeML pragmas are reported as
+  unsupported.
+*)
+structure CandleDeclarations = struct
+  open CandleTypeDeclarations;
+  open CandleExpressions;
+  val pragma_error = "CakeML pragmas are not supported by this Candle-only parser";
+  fun build_rec_funs triple = case triple of (l,cn,fs) =>
+    let val ast_locs = to_locs l
+        val vars = List.map (fn f => Ast.Ident (Ast.Short f)) fs
+        val rhs = Ast.Con (Some (Ast.Short cn))
+          (case vars of _::_::_ => [Ast.Con None vars] | _ => vars)
+        val constr = Ast.Dlet ast_locs (Ast.Pvar (mk_record_constr_name cn fs))
+          (List.foldr (fn f => fn x => Ast.Fun f x) rhs fs)
+        val pvars = List.map (fn f => Ast.Pvar f) fs
+        val pat = Ast.Pcon (Some (Ast.Short cn))
+          (case pvars of _::_::_ => [Ast.Pcon None pvars] | _ => pvars)
+        val projs = List.map (fn f => Ast.Dlet ast_locs (Ast.Pvar (mk_record_proj_name f cn))
+          (Ast.Fun "" (Ast.Mat (Ast.Ident (Ast.Short "")) [(pat,Ast.Ident (Ast.Short f))]))) fs
+        val upds = List.map (fn f => Ast.Dlet ast_locs (Ast.Pvar (mk_record_update_name f cn))
+          (Ast.Fun "" (Ast.Mat (Ast.Ident (Ast.Short "")) [(pat,Ast.Fun f rhs)]))) fs
+    in constr::(projs @ upds) end;
+  fun distinct xs = case xs of [] => True | x::rest => not (member x rest) andalso distinct rest;
+  fun ptree_TypeDefinition pt = case pt of
+      Lf (_,l) => Inl (l,"Expected a type definition non-terminal")
+    | Nd (n,l) args => if n <> Inl NTypeDefinition then Inl (l,"Expected a type definition non-terminal")
+      else case args of
+        [t,nr,ds] => bind (check_tokens [(t,TypeT),(nr,NonrecT)])
+          (fn _ => Inl (l,"nonrec type definitions are not supported"))
+      | [t,ds] => bind (expect_tok t TypeT) (fn _ => bind (ptree_TypeDefs ds) (fn tdefs =>
+          let val (abbrevs,datas) = partition_types (List.rev tdefs)
+          in if abbrevs <> [] andalso datas <> [] then
+            Inl (l,"datatypes and type abbreviations cannot be made mutually recursive")
+          else let val abs = List.map (fn (loc,tvs,nm,ty) => Ast.Dtabbrev (to_locs loc) tvs nm ty) abbrevs
+          in case datas of [] => Inr abs | _ =>
+            let val defs = List.map sort_records datas
+                val recs = List.concat (List.map extract_record_defns defs)
+            in if not (List.all (fn (_,_,fs) => distinct fs) recs) then
+              Inl (l,"record field names must be distinct")
+            else let val recfuns = List.concat (List.map build_rec_funs recs)
+                     val defs = List.map strip_record_fields defs
+                     val dt = Ast.Dtype (to_locs l) (List.map (fn (_,tvs,nm,cs) => (tvs,(nm,cs))) defs)
+                 in Inr (dt::(abs @ recfuns)) end end end end))
+      | _ => Inl (l,"Impossible: nTypeDefinition");
+  fun build_dlet l binds =
+    let val ast_locs = to_locs l
+    in List.map (fn b => case b of
+      Inl (Inl (c,fs),x) => Ast.Dlocal [Ast.Dlet ast_locs (Ast.Pvar " c") x]
+        (List.map (fn f => Ast.Dlet ast_locs (Ast.Pvar f)
+          (build_record_proj c f (Ast.Ident (Ast.Short " c")))) fs)
+    | Inl (Inr p,x) => Ast.Dlet ast_locs p x
+    | Inr (f,ps,bd) => Ast.Dlet ast_locs (Ast.Pvar f) (build_fun_lam bd ps)) binds end;
+  fun ptree_ExprDec l pt = fmap (fn x => [Ast.Dlet (to_locs l) (Ast.Pvar "it") x]) (ptree_Expr NExpr pt);
+  fun ptree_ModuleType pt = case pt of Lf (_,l) => Inl (l,"Expected a module-type declaration non-terminal")
+    | Nd (n,l) args => if n <> Inl NModuleType then Inl (l,"Expected a module-type declaration non-terminal")
+      else case args of [a] => bind (nterm_of a) (fn nt => case nt of
+          Inl NModTypePath => fmap (fn _ => ()) (ptree_ModTypePath a)
+        | Inl NSigSpec => fmap (fn _ => ()) (ptree_SigSpec a)
+        | _ => Inl (l,"Impossible: nModuleType"))
+      | [lp,t,rp] => bind (check_tokens [(lp,LparT),(rp,RparT)])
+          (fn _ => fmap (fn _ => ()) (ptree_ModuleType t))
+      | _ => Inl (l,"Impossible: nModuleType")
+  and ptree_SigSpec pt = case pt of Lf (_,l) => Inl (l,"Expected a signature spec non-terminal")
+    | Nd (n,l) args => if n <> Inl NSigSpec then Inl (l,"Expected a signature spec non-terminal")
+      else case args of [s,its,e] => bind (check_tokens [(s,SigT),(e,EndT)])
+          (fn _ => fmap (fn _ => ()) (ptree_SigItems its))
+      | [s,e] => check_tokens [(s,SigT),(e,EndT)]
+      | _ => Inl (l,"Impossible: nSigSpec")
+  and ptree_SigItems pt = case pt of Lf (_,l) => Inl (l,"Expected a signature item list non-terminal")
+    | Nd (n,l) args => if n <> Inl NSigItems then Inl (l,"Expected a signature item list non-terminal")
+      else case args of [it,s,its] => bind (ptree_Semis s) (fn _ => bind (ptree_SigItem it)
+          (fn x => fmap (fn xs => x::xs) (ptree_SigItems its)))
+      | [it,rest] => choice (bind (ptree_Semis rest) (fn _ => fmap (fn x => [x]) (ptree_SigItem it)))
+          (fn _ => bind (ptree_SigItem it) (fn x => fmap (fn xs => x::xs) (ptree_SigItems rest)))
+      | [it] => choice (bind (ptree_Semis it) (fn _ => Inr []))
+          (fn _ => fmap (fn x => [x]) (ptree_SigItem it))
+      | _ => Inl (l,"Impossible: nSigItems")
+  and ptree_SigItem pt = case pt of Lf (_,l) => Inl (l,"Expected a signature item non-terminal")
+    | Nd (n,l) args => if n <> Inl NSigItem then Inl (l,"Expected a signature item non-terminal")
+      else case args of [a] => bind (nterm_of a) (fn nt => case nt of
+          Inl NTypeDefinition => fmap (fn _ => ()) (ptree_TypeDefinition a)
+        | Inl NExcType => ptree_ExcType a
+        | Inl NValType => ptree_ValType a
+        | Inl NModTypeAsc => ptree_ModTypeAsc a
+        | Inl NModTypeAssign => ptree_ModTypeAssign a
+        | Inl NOpenMod => ptree_OpenMod a
+        | Inl NIncludeMod => ptree_IncludeMod a
+        | _ => Inl (l,"Impossible: nSigItem"))
+      | _ => Inl (l,"Impossible: nSigItem")
+  and ptree_ModTypeAssign pt = case pt of Lf (_,l) => Inl (l,"Expected a signature assignment non-terminal")
+    | Nd (n,l) args => if n <> Inl NModTypeAssign then Inl (l,"Expected a signature assignment non-terminal")
+      else case args of [m,t,name] => bind (check_tokens [(m,ModuleT),(t,TypeT)])
+          (fn _ => fmap (fn _ => ()) (ptree_ModTypeName name))
+      | [m,t,name,eq,ty] => bind (check_tokens [(m,ModuleT),(t,TypeT),(eq,EqualT)])
+          (fn _ => bind (ptree_ModTypeName name) (fn _ => ptree_ModuleType ty))
+      | _ => Inl (l,"Impossible: nModTypeAssign")
+  and ptree_ModTypeAsc pt = case pt of Lf (_,l) => Inl (l,"Expected a signature ascription non-terminal")
+    | Nd (n,l) args => if n <> Inl NModTypeAsc then Inl (l,"Expected a module ascription non-terminal")
+      else case args of [m,t,name,apps,c,ty] =>
+          Inl (l,"Functor syntax is not supported (you attempted to apply a functor type)")
+      | [m,t,name,c,ty] => bind (check_tokens [(m,ModuleT),(t,TypeT),(c,ColonT)])
+          (fn _ => bind (ptree_ModuleName name) (fn _ => ptree_ModuleType ty))
+      | _ => Inl (l,"Impossible: nModTypeAsc");
+  fun ptree_Definition pt = case pt of Lf (_,l) => Inl (l,"Expected a top-level definition non-terminal")
+    | Nd (n,l) args =>
+      let fun err s = Inl (l,s)
+          fun module_result nm mx = case mx of Inl _ => err "Structure assignment is not supported (yet?)"
+            | Inr ds => Inr [Ast.Dmod nm ds]
+      in case n of
+        Inl NDefinition => (case args of [a] => ptree_Definition a | _ => err "Impossible: nDefinition")
+      | Inl NCakeMLPragma => err pragma_error
+      | Inl NTopLet => (case args of [lt,bs] => bind (expect_tok lt LetT)
+          (fn _ => fmap (build_dlet l) (ptree_LetBindings bs)) | _ => err "Impossible: nTopLet")
+      | Inl NTopLetRec => (case args of [lt,rc,bs] => bind (check_tokens [(lt,LetT),(rc,RecT)])
+          (fn _ => fmap (fn binds => [Ast.Dletrec (to_locs l) (build_letrec binds)]) (ptree_LetRecBindings bs))
+        | _ => err "Impossible: nTopLetRec")
+      | Inl NTypeDefinition => ptree_TypeDefinition pt
+      | Inl NExcDefinition => fmap (fn d => [d]) (ptree_ExcDefinition pt)
+      | Inl NOpen => err "open-declarations are not supported (yet)"
+      | Inl NModuleTypeDef => (case args of [m,t,name,eq,ty] =>
+          bind (check_tokens [(m,ModuleT),(t,TypeT),(eq,EqualT)]) (fn _ =>
+          bind (ptree_ModTypeName name) (fn _ => fmap (fn _ => []) (ptree_ModuleType ty)))
+        | _ => err "Impossible: nModuleTypeDef")
+      | Inl NModuleDef => (case args of [m,id,eq,e] =>
+          bind (check_tokens [(m,ModuleT),(eq,EqualT)]) (fn _ => bind (ptree_ModuleName id)
+          (fn nm => bind (ptree_ModExpr e) (module_result nm)))
+        | [m,id,c,ty,eq,e] => bind (check_tokens [(m,ModuleT),(eq,EqualT),(c,ColonT)]) (fn _ =>
+          bind (ptree_ModuleType ty) (fn _ => bind (ptree_ModuleName id)
+          (fn nm => bind (ptree_ModExpr e) (module_result nm))))
+        | _ => err "Impossible: nModuleDef")
+      | _ => err "Expected a top-level definition non-terminal" end
+  and ptree_ModExpr pt = case pt of Lf (_,l) => Inl (l,"Expected a module expression non-terminal")
+    | Nd (n,l) args => if n <> Inl NModExpr then Inl (l,"Expected a module expression non-terminal")
+      else case args of [p] => fmap (fn x => Inl x) (ptree_ModulePath p)
+      | [s,e] => bind (check_tokens [(s,StructT),(e,EndT)]) (fn _ => Inr (Inr []))
+      | [s,its,e] => bind (check_tokens [(s,StructT),(e,EndT)])
+          (fn _ => fmap (fn ds => Inr ds) (ptree_ModuleItems its))
+      | _ => Inl (l,"Impossible: nModExpr")
+  and ptree_ModuleItems pt = case pt of Lf (_,l) => Inl (l,"Expected a module item list non-terminal")
+    | Nd (n,l) args => if n <> Inl NModuleItems then Inl (l,"Expected a module item list non-terminal")
+      else case args of [a] => ptree_ExprOrDefn a
+      | [a,b] => bind (ptree_ExprOrDefn a) (fn d =>
+          choice (fmap (fn ds => d @ ds) (ptree_ModuleItem b))
+            (fn _ => fmap (fn _ => d) (ptree_Semis b)))
+      | [a,b,s] => bind (ptree_ExprOrDefn a) (fn d => bind (ptree_ModuleItem b)
+          (fn ds => fmap (fn _ => d @ ds) (ptree_Semis s)))
+      | _ => Inl (l,"Impossible: nModuleItems")
+  and ptree_ModuleItem pt = case pt of Lf (_,l) => Inl (l,"Expected a module item non-terminal")
+    | Nd (n,l) args => if n <> Inl NModuleItem then Inl (l,"Expected a module item non-terminal")
+      else case args of [a] => ptree_ExprOrDefn a
+      | [a,b] => bind (ptree_ExprOrDefn a) (fn d => fmap (fn ds => d @ ds) (ptree_ModuleItem b))
+      | _ => Inl (l,"Impossible: nModuleItem")
+  and ptree_ExprOrDefn pt = case pt of Lf (_,l) => Inl (l,"Expected a top-level expression/definition non-terminal")
+    | Nd (n,l) args => case n of
+        Inl NExprItems => (case args of [e] => ptree_ExprDec l e
+          | [s,e] => bind (ptree_Semis s) (fn _ => ptree_ExprDec l e)
+          | _ => Inl (l,"Impossible: nExprItems"))
+      | Inl NExprItem => (case args of [s,e] => bind (ptree_Semis s) (fn _ => ptree_ExprDec l e)
+          | _ => Inl (l,"Impossible: nExprItem"))
+      | Inl NDefItem => (case args of [d] => ptree_Definition d
+          | [s,d] => bind (ptree_Semis s) (fn _ => ptree_Definition d)
+          | _ => Inl (l,"Impossible: nExprItem"))
+      | _ => Inl (l,"Expected a top-level expression/definition non-terminal");
+  fun ptree_Start pt = case pt of Lf (_,l) => Inl (l,"Expected the start non-terminal")
+    | Nd (n,l) args => if n <> Inl NStart then Inl (l,"Expected the start non-terminal")
+      else case args of [] => Inr [] | [its] => ptree_ModuleItems its
+      | _ => Inl (l,"Impossible: nStart");
+end;

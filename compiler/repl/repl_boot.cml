@@ -448,7 +448,7 @@ end (* struct *)
         case List.find isFile paths of
           None =>
             (print ("- No such file: " ^ fname ^ "\n");
-             Repl.nextString := "";
+             Repl.nextInput := Inl "";
              failwith ("No such file : " ^ fname))
         | Some fname =>
             let val loader =
@@ -570,17 +570,17 @@ end (* struct *)
      case scan 0 of
        None =>
          (Repl.isEOF := True;
-          Repl.nextString := "")
+          Repl.nextInput := Inl "")
      | Some ts =>
          (Repl.isEOF := False;
-          Repl.nextString :=
-            String.concat
-              (List.map (Lexer.tok2string (Some (!unquote))) ts)))
+          Repl.nextInput := Inl
+            (String.concat
+              (List.map (Lexer.tok2string (Some (!unquote))) ts))))
     handle Repl_error =>
       (if not (!userInput) then print (!prompt1) else ();
        Buffer.flush input_buffer;
        Buffer.flush output_buffer;
-       Repl.nextString := "");
+       Repl.nextInput := Inl "");
   in
     val _ = Repl.readNextString := (fn () =>
       (print (!prompt1);

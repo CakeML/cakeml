@@ -27,6 +27,9 @@ compset for the definitions in ml_progTheory.
 Functions for constructing a CakeML program (a list of declarations) together
 with the semantic environment resulting from evaluation of the program.
 
+[ml_progPropsScript.sml](ml_progPropsScript.sml):
+Clock-erased successful execution interfaces for program composition.
+
 [ml_progScript.sml](ml_progScript.sml):
 Definitions and theorems supporting ml_progLib, which constructs a
 CakeML program and its semantic environment.
@@ -65,3 +68,11 @@ A few other examples of HOL functions that can be translated into CakeML.
 [std_preludeScript.sml](std_preludeScript.sml):
 Translations of various useful HOL functions and datatypes, to serve as a
 starting point for further translations.
+
+[typeRepCanonicalScript.sml](typeRepCanonicalScript.sml):
+Typed-value interfaces for translator representation completeness.
+These facts are independent of any particular registered datatype family.
+
+[typeRepPreludeCanonicalScript.sml](typeRepPreludeCanonicalScript.sml):
+Canonical forms for registered prelude containers. Static identities are
+parameters; runtime constructors come from the representation definitions.

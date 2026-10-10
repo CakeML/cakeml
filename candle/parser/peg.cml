@@ -1,0 +1,105 @@
+(*
+  PEG execution as a continuation machine, with backtracking and tracking of
+  the furthest error.
+*)
+structure CandlePeg = struct
+  datatype ('a,'b,'c,'e) symbol =
+      Empty 'c | Any ('a * CandleLocation.locs -> 'c)
+    | Tok ('a -> bool) ('a * CandleLocation.locs -> 'c)
+    | Nt 'b ('c -> 'c)
+    | Seq (('a,'b,'c,'e) symbol) (('a,'b,'c,'e) symbol) ('c -> 'c -> 'c)
+    | Choice (('a,'b,'c,'e) symbol) (('a,'b,'c,'e) symbol) (('c,'c) sum -> 'c)
+    | Rpt (('a,'b,'c,'e) symbol) ('c list -> 'c)
+    | Not (('a,'b,'c,'e) symbol) 'c | Error 'e;
+  datatype ('a,'b,'c,'e) kont =
+      Ksym (('a,'b,'c,'e) symbol) (('a,'b,'c,'e) kont) (('a,'b,'c,'e) kont)
+    | Appf1 ('c -> 'c) (('a,'b,'c,'e) kont)
+    | Appf2 ('c -> 'c -> 'c) (('a,'b,'c,'e) kont)
+    | DropErr (('a,'b,'c,'e) kont)
+    | AddErr CandleLocation.locs 'e (('a,'b,'c,'e) kont)
+    | CmpErrs (('a,'b,'c,'e) kont)
+    | CmpEO ((CandleLocation.locs * 'e) option) (('a,'b,'c,'e) kont)
+    | ReturnTo (('a * CandleLocation.locs) list) ('c option list) (('a,'b,'c,'e) kont)
+    | RestoreEO ((CandleLocation.locs * 'e) option) (('a,'b,'c,'e) kont)
+    | Poplist ('c list -> 'c) (('a,'b,'c,'e) kont)
+    | Listsym (('a,'b,'c,'e) symbol) ('c list -> 'c) (('a,'b,'c,'e) kont)
+    | Done | Failed;
+  datatype ('a,'c,'e) result = Success 'a 'c ((CandleLocation.locs * 'e) option)
+                           | Failure CandleLocation.locs 'e;
+  datatype ('a,'b,'c,'e) state =
+      EV (('a,'b,'c,'e) symbol) (('a * CandleLocation.locs) list) ('c option list)
+         ((CandleLocation.locs * 'e) option) ((CandleLocation.locs * 'e) list)
+         (('a,'b,'c,'e) kont) (('a,'b,'c,'e) kont)
+    | AP (('a,'b,'c,'e) kont) (('a * CandleLocation.locs) list) ('c option list)
+         ((CandleLocation.locs * 'e) option) ((CandleLocation.locs * 'e) list)
+    | Result ((('a * CandleLocation.locs) list,'c,'e) result) | Looped;
+
+  val eof = CandleLocation.Locs CandleLocation.Eofpt CandleLocation.Eofpt;
+  fun sloc input = case input of [] => eof | (_,l)::_ => l;
+  fun maxerr (l1,e1) (l2,e2) =
+    if CandleSupport.locsle l1 l2 then (l2,e2) else (l1,e1);
+  fun ome x y = case (x,y) of
+      (None,_) => y | (_,None) => x | (Some a,Some b) => Some (maxerr a b);
+  fun poplist_aux acc r = case r of
+      Some h::t => poplist_aux (h::acc) t
+    | None::t => (acc,t) | [] => (acc,[]);
+  fun poplistval f r =
+    let val (values,rest) = poplist_aux [] r in Some (f values)::rest end;
+
+  fun coreloop (rules,anyEOF,tokFALSE,tokEOF,notFAIL) state =
+    let
+      fun loop state = case state of
+        EV (Empty v) i r eo errs k fk => loop (AP k i (Some v::r) eo errs)
+      | EV (Any tf) i r eo errs k fk =>
+          (case i of
+            [] => let val err = (eof,anyEOF)
+                  in loop (AP fk i r (ome eo (Some err)) (err::errs)) end
+          | h::t => loop (AP k t (Some (tf h)::r) eo errs))
+      | EV (Tok p tf) i r eo errs k fk =>
+          (case i of
+            [] => let val err = (eof,tokEOF)
+                  in loop (AP fk i r (ome eo (Some err)) (err::errs)) end
+          | (token,l)::t => if p token then loop (AP k t (Some (tf (token,l))::r) eo errs)
+                    else let val err = (sloc i,tokFALSE)
+                         in loop (AP fk i r (ome eo (Some err)) (err::errs)) end)
+      | EV (Nt n tf) i r eo errs k fk =>
+          (case rules n of None => Looped
+           | Some e => loop (EV e i r eo errs (Appf1 tf k) fk))
+      | EV (Seq e1 e2 f) i r eo errs k fk =>
+          loop (EV e1 i r eo errs
+            (RestoreEO eo (Ksym e2 (Appf2 f k) (CmpEO eo (ReturnTo i r fk)))) fk)
+      | EV (Choice e1 e2 cf) i r eo errs k fk =>
+          loop (EV e1 i r eo errs (Appf1 (fn v => cf (Inl v)) k)
+            (ReturnTo i r (Ksym e2 (DropErr (Appf1 (fn v => cf (Inr v)) k)) (CmpErrs fk))))
+      | EV (Rpt e lf) i r eo errs k fk =>
+          loop (EV e i (None::r) eo errs (RestoreEO eo (Listsym e lf k)) (Poplist lf k))
+      | EV (Not e v) i r eo errs k fk =>
+          loop (EV e i r eo errs
+            (RestoreEO eo (ReturnTo i r (AddErr (sloc i) notFAIL fk)))
+            (RestoreEO eo (ReturnTo i (Some v::r) (DropErr k))))
+      | EV (Error e) i r eo errs k fk =>
+          let val err = (sloc i,e)
+          in loop (AP fk i r (ome eo (Some err)) (err::errs)) end
+      | AP Done i (Some v::_) eo errs => Result (Success i v eo)
+      | AP Failed i r eo ((l,e)::_) => Result (Failure l e)
+      | AP (DropErr k) i r eo (_::t) => loop (AP k i r eo t)
+      | AP (AddErr l e k) i r eo errs =>
+          loop (AP k i r (ome eo (Some (l,e))) ((l,e)::errs))
+      | AP (CmpErrs k) i r eo (e2::e1::rest) => loop (AP k i r eo (maxerr e1 e2::rest))
+      | AP (CmpEO eo1 k) i r eo2 (err::rest) =>
+          loop (AP k i r (ome eo1 (Some err)) (err::rest))
+      | AP (Ksym e k fk) i r eo errs => loop (EV e i r eo errs k fk)
+      | AP (Appf1 f k) i (Some v::r) eo errs => loop (AP k i (Some (f v)::r) eo errs)
+      | AP (Appf2 f k) i (Some v1::Some v2::r) eo errs =>
+          loop (AP k i (Some (f v2 v1)::r) eo errs)
+      | AP (ReturnTo i r k) oldi oldr eo errs => loop (AP k i r eo errs)
+      | AP (RestoreEO eo k) i r oldeo errs => loop (AP k i r eo errs)
+      | AP (Listsym e f k) i r eo errs =>
+          loop (EV e i r eo errs (RestoreEO eo (Listsym e f k)) (Poplist f k))
+      | AP (Poplist f k) i r eo (_::errs) => loop (AP k i (poplistval f r) eo errs)
+      | Result r => Result r
+      | _ => Looped;
+    in loop state end;
+
+  fun execute grammar sym input = coreloop grammar (EV sym input [] None [] Done Failed);
+end;

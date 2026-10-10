@@ -1,6 +1,11 @@
 Some definitions and proofs used in the proof of the CakeML
 and Candle read-eval-print loop (REPL).
 
+[astCanonicalScript.sml](astCanonicalScript.sml):
+Canonical forms for the actual registered AST family. Metadata, root
+proofs, recursive families and encoder correspondence share this owner.
+Identities remain parameters; signatures come from the registered module.
+
 [astProgScript.sml](astProgScript.sml):
 Translates the CakeML source AST types into an Ast module, with generated
 pretty-printers, so that they are part of the REPL's initial environment.
@@ -40,6 +45,25 @@ This file partially instantiates the eval_state and inserts a Denv declaration.
 This file runs the type inferencer on the declarations of the basis,
 Candle kernel and REPL module, i.e. everything in the user-visible
 initial environment of the read-eval-print loop.
+
+[repl_inputInitScript.sml](repl_inputInitScript.sml):
+Compose the generated initialization execution with joint input witnesses.
+Concrete allocation establishes closed signatures; the common declaration
+preservation interface carries them through the remaining initialization.
+
+[repl_inputInvariantScript.sml](repl_inputInvariantScript.sml):
+Immutable input metadata and the joint typing certificate used at the
+direct-AST REPL boundary, for any catalogue and slots.
+
+[repl_inputMetadataScript.sml](repl_inputMetadataScript.sml):
+Concrete input metadata derived from the generated initialization program.
+These lookups identify the datatype family and reference slots; they do not
+by themselves prove constructor-signature closure or the joint certificate.
+
+[repl_inputRepresentationScript.sml](repl_inputRepresentationScript.sml):
+Instantiate the registered AST family at the actual inferred REPL
+identities, then strengthen the same initial witnesses with representations.
+Candle declaration allowedness is checked separately, at runtime.
 
 [repl_moduleProgScript.sml](repl_moduleProgScript.sml):
 This file defines two modules:

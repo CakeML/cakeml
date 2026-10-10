@@ -2109,12 +2109,13 @@ QED
 
 val let_tac =
   rw []
-  >> Cases_on `r1`
+  >> qmatch_assum_rename_tac `store_type_extension tenvS bindingStore`
+  >> namedCases_on `r1` ["resultValues", "bindingError"]
   >> fs []
   >> rw []
   >- ( (* a value *)
-    `type_all_env ctMap tenvS'' env tenv`
-      by metis_tac [good_ctMap_def, type_all_env_weakening, weakCT_refl, store_type_extension_weakS]
+    `type_all_env ctMap bindingStore env tenv`
+      by metis_tac [good_ctMap_def, type_all_env_weakening, weakCT_refl, preserves_datatype_signatures_refl, store_type_extension_weakS]
     >> fs [good_ctMap_def, type_all_env_def]
     >> drule (CONJUNCT1 pat_type_sound)
     >> rpt (disch_then drule)
@@ -2122,13 +2123,13 @@ val let_tac =
     >> rw []
     >- ( (* No match *)
       qexists_tac `ctMap`
-      >> qexists_tac `tenvS''`
-      >> rw [weakCT_refl, type_v_exn, bind_exn_v_def] >>
+      >> qexists_tac `bindingStore`
+      >> rw [weakCT_refl, preserves_datatype_signatures_refl, type_v_exn, bind_exn_v_def] >>
       metis_tac [consistent_ctMap_def])
     >- ( (* match *)
       qexists_tac `ctMap`
-      >> qexists_tac `tenvS''`
-      >> simp [weakCT_refl]
+      >> qexists_tac `bindingStore`
+      >> simp [weakCT_refl, preserves_datatype_signatures_refl]
       >> simp [extend_dec_env_def, extend_dec_tenv_def]
       >> fs []
       >> conj_asm1_tac
@@ -2140,12 +2141,12 @@ val let_tac =
       >> irule nsAll2_nsAppend
       >> simp []))
   >- ( (* An exception *)
-    Cases_on `e'`
+    Cases_on `bindingError`
     >> fs []
     >- (
       qexists_tac `ctMap`
-      >> qexists_tac `tenvS''`
-      >> fs [weakCT_refl, type_all_env_def, good_ctMap_def]
+      >> qexists_tac `bindingStore`
+      >> fs [weakCT_refl, preserves_datatype_signatures_refl, type_all_env_def, good_ctMap_def]
       >> conj_tac
       >- metis_tac [consistent_ctMap_def]
       >> irule nsAll2_mono
@@ -2153,8 +2154,8 @@ val let_tac =
       >> rw []
       >> pairarg_tac
       >> fs []
-      >> metis_tac [weakCT_refl, type_v_weakening, store_type_extension_weakS])
-    >- metis_tac [DIFF_EQ_EMPTY, weakCT_refl]);
+      >> metis_tac [weakCT_refl, preserves_datatype_signatures_refl, type_v_weakening, store_type_extension_weakS])
+    >- metis_tac [DIFF_EQ_EMPTY, weakCT_refl, preserves_datatype_signatures_refl]);
 
 Theorem build_tdefs_build_tenv[local]:
   !tenvT (tds : type_def) (tids : type_ident list) next (ctMap : ctMap).
@@ -2311,6 +2312,211 @@ Proof
   >> irule nsAll2_nsAppend >> simp []
 QED
 
+Theorem datatype_allocation_type_sound:
+  ALL_DISTINCT type_identities /\
+  DISJOINT (set type_identities) (set (Tlist_num :: Tbool_num :: prim_type_nums)) /\
+  LENGTH type_identities = LENGTH tds /\
+  tenvT = alist_to_ns
+    (MAP2 (\(tvs,tn,ctors) ti. (tn,(tvs,Tapp (MAP Tvar tvs) ti)))
+      tds type_identities) /\
+  check_ctor_tenv (nsAppend tenvT tenv.t) tds /\
+  type_sound_invariant (st:'ffi semanticPrimitives$state) env ctMap tenvS
+    (set type_identities) tenv
+  ==>
+  let allocated = FEMPTY |++ REVERSE
+        (type_def_to_ctMap (nsAppend tenvT tenv.t) st.next_type_stamp tds type_identities);
+      ctMap' = FUNION allocated ctMap;
+      env' = <|v := nsEmpty; c := build_tdefs st.next_type_stamp tds|>;
+      tenv' = <|v := nsEmpty;
+        c := build_ctor_tenv (nsAppend tenvT tenv.t) tds type_identities; t := tenvT|>
+  in
+    weakCT ctMap' ctMap /\
+    FRANGE ((SND o SND) o_f ctMap') DIFF FRANGE ((SND o SND) o_f ctMap)
+      SUBSET set type_identities /\
+    preserves_datatype_signatures (set type_identities) ctMap ctMap' /\
+    (!ti. MEM ti type_identities ==>
+      datatype_signature ctMap' ti = datatype_signature allocated ti) /\
+    type_all_env ctMap' tenvS env' tenv' /\
+    type_sound_invariant (st with next_type_stamp := st.next_type_stamp + LENGTH tds)
+      (extend_dec_env env' env) ctMap' tenvS {} (extend_dec_tenv tenv' tenv)
+Proof
+  strip_tac >>
+  `type_d F tenv (Dtype NoLocs tds) (set type_identities)
+    <|v := nsEmpty;
+      c := build_ctor_tenv (nsAppend tenvT tenv.t) tds type_identities; t := tenvT|>`
+    by (
+      simp [Once type_d_cases] >>
+      qexists_tac `type_identities` >> gvs []) >>
+  rveq >>
+  drule type_d_tenv_ok >>
+  fs [type_sound_invariant_def] >>
+  strip_tac >>
+  simp [] >>
+  qmatch_assum_abbrev_tac `check_ctor_tenv new_tabbrev _` >>
+  `!cn1 cn2 tid.
+    FLOOKUP ctMap (TypeStamp cn1 tid) <> NONE ==>
+    ALOOKUP (type_def_to_ctMap new_tabbrev st.next_type_stamp tds type_identities)
+      (TypeStamp cn2 tid) = NONE` by (
+    fs [consistent_ctMap_def] >>
+    rw [ALOOKUP_NONE] >>
+    `tid < st.next_type_stamp` by metis_tac [FDOM_FLOOKUP, option_nchotomy] >>
+    CCONTR_TAC >>
+    fs [MEM_MAP] >>
+    rename1 `TypeStamp cn2 tid = FST entry` >>
+    PairCases_on `entry` >>
+    imp_res_tac mem_type_def_to_ctMap >>
+    rfs [] >> rw [] >> decide_tac) >>
+  conj_asm1_tac
+  >- (
+    irule disjoint_env_weakCT >>
+    fs [DISJOINT_DEF, EXTENSION, consistent_ctMap_def, FDOM_FUPDATE_LIST, MEM_MAP] >>
+    rw [] >> CCONTR_TAC >> fs [FDOM_FUPDATE_LIST] >> rw [] >>
+    rename1 `FST entry IN FDOM ctMap` >>
+    PairCases_on `entry` >>
+    drule mem_type_def_to_ctMap >> rw [] >>
+    CCONTR_TAC >> fs [] >> res_tac >> decide_tac) >>
+  conj_asm1_tac
+  >- (
+    rw [SUBSET_DEF, FRANGE_FLOOKUP, FLOOKUP_o_f] >>
+    qmatch_asmsub_rename_tac `FLOOKUP (FUNION _ ctMap) stamp` >>
+    Cases_on `ALOOKUP (type_def_to_ctMap new_tabbrev st.next_type_stamp tds type_identities) stamp` >>
+    gvs [FLOOKUP_FUNION, flookup_fupdate_list] >>
+    drule type_def_to_ctMap_mem >> simp []) >>
+  conj_asm1_tac
+  >- (
+    irule type_def_to_ctMap_preserves >>
+    fs [weakCT_def]) >>
+  conj_tac
+  >- (
+    rw [] >>
+    irule type_def_to_ctMap_new_signature >>
+    fs [consistent_ctMap_def]) >>
+  conj_asm1_tac
+  >- (
+    fs [type_all_env_def, GSYM fupdate_list_funion] >>
+    irule build_tdefs_build_tenv >> simp [] >>
+    drule check_ctor_tenv_dups >>
+    simp [check_dup_ctors_thm, EVERY_MEM, FORALL_PROD]) >>
+  conj_asm1_tac
+  >- (
+    fs [good_ctMap_def] >>
+    rw []
+    >- (
+      irule ctMap_ok_merge_imp >> simp [] >>
+      conj_tac
+      >- (
+        irule ctMap_ok_type_defs >> simp [] >>
+        fs [tenv_ok_def, extend_dec_tenv_def, Abbr `new_tabbrev`]) >>
+      fs [consistent_ctMap_def, DISJOINT_DEF, EXTENSION,
+          flookup_fupdate_list, FRANGE_FLOOKUP, FLOOKUP_o_f] >>
+      CCONTR_TAC >> fs [] >>
+      qmatch_asmsub_rename_tac
+        `ALOOKUP (type_def_to_ctMap new_tabbrev _ _ _) new_stamp` >>
+      namedCases_on `ALOOKUP (type_def_to_ctMap new_tabbrev st.next_type_stamp tds type_identities) new_stamp`
+        ["", "new_entry"] >> gvs [] >>
+      drule type_def_to_ctMap_mem >> simp [] >>
+      CCONTR_TAC >>
+      qpat_x_assum `!x. ~MEM x type_identities \/ _`
+        (qspec_then `SND (SND new_entry)` mp_tac) >>
+      simp [] >> metis_tac [])
+    >- (
+      fs [ctMap_has_bools_def] >>
+      `!cn. ALOOKUP
+        (type_def_to_ctMap new_tabbrev st.next_type_stamp tds type_identities)
+        (TypeStamp cn bool_type_num) = NONE` by (
+        gen_tac >>
+        qpat_x_assum `!cn1 cn2 tid. FLOOKUP _ (TypeStamp cn1 tid) <> NONE ==> _`
+          (qspecl_then [`«True»`, `cn`, `bool_type_num`] mp_tac) >> simp []) >>
+      simp [FLOOKUP_FUNION, flookup_fupdate_list])
+    >- (
+      fs [ctMap_has_exns_def, weakCT_def] >>
+      imp_res_tac FLOOKUP_SUBMAP >> simp [])
+    >> fs [ctMap_has_lists_def] >>
+    `!cn. ALOOKUP
+      (type_def_to_ctMap new_tabbrev st.next_type_stamp tds type_identities)
+      (TypeStamp cn list_type_num) = NONE` by (
+      gen_tac >>
+      qpat_x_assum `!cn1 cn2 tid. FLOOKUP _ (TypeStamp cn1 tid) <> NONE ==> _`
+        (qspecl_then [`«[]»`, `cn`, `list_type_num`] mp_tac) >> simp []) >>
+    simp [FLOOKUP_FUNION, flookup_fupdate_list]) >>
+  conj_tac
+  >- (
+    fs [consistent_ctMap_def] >>
+    rw [FDOM_FUPDATE_LIST, MEM_MAP]
+    >- (
+      rename1 `TypeStamp _ _ = FST entry` >>
+      PairCases_on `entry` >> fs [] >>
+      drule mem_type_def_to_ctMap >> simp [] >> strip_tac >> gvs [])
+    >- (
+      res_tac >> decide_tac)
+    >- (
+      rename1 `ExnStamp _ = FST entry` >>
+      PairCases_on `entry` >> fs [] >>
+      drule mem_type_def_to_ctMap >> simp [] >> strip_tac >> gvs [])
+    >> res_tac >> decide_tac) >>
+  conj_tac
+  >- (
+    qmatch_goalsub_abbrev_tac `type_all_env extendedMap _ _ _` >>
+    `type_all_env extendedMap tenvS env tenv`
+      by metis_tac [type_all_env_weakening, weakS_refl] >>
+    fs [type_all_env_def, extend_dec_tenv_def, extend_dec_env_def] >>
+    rw [] >> irule nsAll2_nsAppend >> simp []) >>
+  metis_tac [type_s_weakening, good_ctMap_def]
+QED
+
+(* Allocate exactly the declared signatures, then retarget the static
+   abbreviation environment without changing value/constructor typing. *)
+Theorem datatype_allocation_type_sound_retarget:
+  ALL_DISTINCT type_identities /\
+  DISJOINT (set type_identities) (set (Tlist_num :: Tbool_num :: prim_type_nums)) /\
+  LENGTH type_identities = LENGTH tds /\
+  tenvT = alist_to_ns
+    (MAP2 (\(tvs,tn,ctors) ti. (tn,(tvs,Tapp (MAP Tvar tvs) ti)))
+      tds type_identities) /\
+  check_ctor_tenv (nsAppend tenvT tenv.t) tds /\
+  type_sound_invariant (st:'ffi semanticPrimitives$state) env ctMap tenvS {} tenv /\
+  DISJOINT (set type_identities) (FRANGE ((SND o SND) o_f ctMap)) /\
+  tenv_ok target_tenv /\
+  target_tenv.c = nsAppend
+    (build_ctor_tenv (nsAppend tenvT tenv.t) tds type_identities) tenv.c /\
+  target_tenv.v = tenv.v
+  ==>
+  let allocated = FEMPTY |++ REVERSE
+        (type_def_to_ctMap (nsAppend tenvT tenv.t) st.next_type_stamp tds type_identities);
+      ctMap' = FUNION allocated ctMap;
+      env' = <|v := nsEmpty; c := build_tdefs st.next_type_stamp tds|>;
+      tenv' = <|v := nsEmpty;
+        c := build_ctor_tenv (nsAppend tenvT tenv.t) tds type_identities; t := tenvT|>
+  in
+    weakCT ctMap' ctMap /\
+    FRANGE ((SND o SND) o_f ctMap') DIFF FRANGE ((SND o SND) o_f ctMap)
+      SUBSET set type_identities /\
+    preserves_datatype_signatures (set type_identities) ctMap ctMap' /\
+    (!ti. MEM ti type_identities ==>
+      datatype_signature ctMap' ti = datatype_signature allocated ti) /\
+    type_all_env ctMap' tenvS env' tenv' /\
+    type_sound_invariant (st with next_type_stamp := st.next_type_stamp + LENGTH tds)
+      (extend_dec_env env' env) ctMap' tenvS {} target_tenv
+Proof
+  strip_tac >>
+  drule_all type_sound_invariant_reserve >> strip_tac >>
+  drule_all datatype_allocation_type_sound >>
+  simp [extend_dec_tenv_def] >> strip_tac >> simp [] >>
+  qpat_x_assum `type_sound_invariant (_ with next_type_stamp := _) _ _ _ _ _`
+    (mp_then (Pos hd) match_mp_tac type_sound_invariant_retarget) >> simp []
+QED
+
+Theorem type_all_env_module:
+  type_all_env ctMap tenvS body_env body_tenv ==>
+  type_all_env ctMap tenvS
+    <|v := nsLift mn body_env.v; c := nsLift mn body_env.c|>
+    (tenvLift mn body_tenv)
+Proof
+  rw [type_all_env_def, tenvLift_def, nsAll2_nsLift] >>
+  irule nsAll2_mono >> qexists_tac `type_ctor ctMap` >>
+  simp [FORALL_PROD, type_ctor_def]
+QED
+
 Theorem decs_type_sound_no_check:
   ∀(st:'ffi semanticPrimitives$state) env ds st' r ctMap tenvS tenv tids tenv'.
    evaluate_decs st env ds = (st',r) ∧
@@ -2319,6 +2525,7 @@ Theorem decs_type_sound_no_check:
    ⇒
    ∃ctMap' tenvS'.
      weakCT ctMap' ctMap ∧
+     preserves_datatype_signatures tids ctMap ctMap' ∧
      FRANGE ((SND o SND) o_f ctMap') DIFF FRANGE ((SND o SND) o_f ctMap) ⊆ tids ∧
      store_type_extension tenvS tenvS' ∧
      case r of
@@ -2333,518 +2540,417 @@ Theorem decs_type_sound_no_check:
      | Rerr (Rabort Rtimeout_error) => T
      | Rerr (Rabort(Rffi_error _)) => T
 Proof
- ho_match_mp_tac evaluate_decs_ind
- >> rw [evaluate_decs_def]
- >> rw []
- >> TRY (qpat_x_assum `type_ds _ _ _ _ _ _ _` mp_tac >> simp [Once type_d_cases])
- >> rw []
- >- ( (* case [] *)
-   simp [extend_dec_env_def, extend_dec_tenv_def, type_all_env_def]
-   >> metis_tac [store_type_extension_refl, weakCT_refl, DIFF_EQ_EMPTY])
- >- ( (* case d1::d2::ds *)
-   qpat_x_assum `type_ds _ _ (_::_::_) _ _` mp_tac >>
-   simp [Once type_d_cases] >>
-   rw [] >>
-   split_pair_case_tac
-   >> fs []
-   >> rename1 `evaluate_decs _ _ _ = (st1, r1)`
-   >> Cases_on `r1`
-   >> fs []
-   >- (
-     split_pair_case_tac
-     >> fs []
-     >> rw []
-     >> rename1 `evaluate_decs _ (extend_dec_env env1 _) _ = (st2, r2)`
-     >> first_x_assum drule
-     >> drule type_sound_invariant_union
-     >> strip_tac
-     >> disch_then drule
-     >> rw []
-     >> first_x_assum drule
-     >> disch_then (qspecl_then [`ctMap''`, `tenvS''`] mp_tac)
-     >> impl_keep_tac
-     >- (
-       fs [type_sound_invariant_def, consistent_ctMap_def]
-       >> rw []
-       >> fs [EXTENSION, SUBSET_DEF, DISJOINT_DEF]
-       >> metis_tac [])
-     >> rw []
-     >> simp [combine_dec_result_def]
-     >> rename[`weakCT ctMap1 ctMap`,`weakCT ctMap0 ctMap1`]
-     >> qexists_tac `ctMap0`
-     >> rename[`store_type_extenison tenvS tenvS0`,`store_type_extension tenvS0 tenvS1`]
-     >> qexists_tac `tenvS1`
-     >> rw []
-     >- metis_tac [weakCT_trans]
-     >- (
-       fs [SUBSET_DEF, EXTENSION]
-       >- metis_tac [])
-     >- metis_tac [store_type_extension_trans]
-     >> Cases_on `r2`
-     >> fs []
-     >- (
-       fs [type_sound_invariant_def, good_ctMap_def, extend_dec_env_def]
-       >> fs [extend_dec_tenv_def, extend_dec_env_def]
-       >> `type_all_env ctMap0 tenvS1 env1 tenv1`
-         by metis_tac [type_all_env_weakening, store_type_extension_weakS]
-       >> fs [type_all_env_def]
-       >> metis_tac [nsAll2_nsAppend])
-     >- (
-       Cases_on `e`
-       >> fs []
-       >> fs [type_sound_invariant_def]
-       >- metis_tac [type_all_env_weakening, weakCT_trans,
-                     store_type_extension_weakS, store_type_extension_trans]))
-   >- (
-     rw []
-     >> fs []
-     >> first_x_assum drule
-     >> drule type_sound_invariant_union
-     >> strip_tac
-     >> disch_then drule
-     >> rw []
-     >> qexists_tac `ctMap''`
-     >> qexists_tac `tenvS''`
-     >> rw[]
-     >> fs [type_sound_invariant_def, consistent_ctMap_def,
-            DISJOINT_DEF, EXTENSION, SUBSET_DEF]))
- >- ( (* case let *)
-   split_pair_case_tac
-   >> fs []
-   >> rename1 `evaluate _ _ _ = (st1, r1)`
-   >> FREEZE_THEN drule (hd (CONJUNCTS exp_type_sound))
-   >> fs [type_sound_invariant_def]
-   >> disch_then drule
-   >> disch_then (qspec_then `Empty` mp_tac)
-   >> simp [tenv_val_exp_ok_def, add_tenvE_def]
-   >> rpt (disch_then drule)
-   >> simp [type_es_list_rel, PULL_EXISTS]
-   >> drule type_d_tenv_ok
-   >> fs [Once type_d_cases]
-   >> DISCH_TAC
-   >> TRY ( (* Only for let poly case *)
-     disch_then drule
-     >> simp [bind_tvar_def])
-   >> TRY ( (* Only for let mono case *)
-     disch_then (qspec_then `0` mp_tac)
-     >> simp [bind_tvar_def]
-     >> disch_then drule)
-   >- let_tac
-   >- let_tac)
- >- ( (* case let, duplicate bindings *)
-   fs [Once type_d_cases]
-   >> fs [type_sound_invariant_def,type_all_env_def]
-   >> metis_tac[type_e_con_check])
- >- ( (* case letrec *)
-   drule type_d_tenv_ok
-   >> fs [Once type_d_cases]
-   >> rw []
-   >> qexists_tac `ctMap`
-   >> qexists_tac `tenvS`
-   >> simp [weakCT_refl, store_type_extension_refl, build_rec_env_merge]
-   >> fs [type_sound_invariant_def]
-   >> fs [extend_dec_env_def, extend_dec_tenv_def]
-   >> reverse conj_asm1_tac
-   >- (
-     fs [type_all_env_def]
-     >> irule nsAll2_nsAppend
-     >> simp [])
-   >> `type_all_env ctMap tenvS env (tenv with v := add_tenvE Empty tenv.v)`
-     by rw [add_tenvE_def]
-   >> drule type_recfun_env
-   >> rpt (disch_then drule)
-   >> simp [tenv_val_exp_ok_def]
-   >> disch_then drule
-   >> strip_tac
-   >> fs [type_all_env_def, fst_triple]
-   >> irule nsAll2_alist_to_ns
-   >> rfs [EVERY2_MAP, tenv_add_tvs_def])
- >- ( (* case letrec duplicate bindings *)
-   fs [Once type_d_cases]
-   >- metis_tac [type_funs_distinct]
-   >> fs [type_sound_invariant_def,type_all_env_def]
-   >> metis_tac[type_e_con_check,NOT_EVERY])
- >- ( (* case type definition *)
-   drule type_d_tenv_ok
-   >> fs [Once type_d_cases]
-   >> rw [extend_dec_env_def]
-   >> fs [type_sound_invariant_def]
-   >> qmatch_assum_abbrev_tac `check_ctor_tenv new_tabbrev _`
-   >> qexists_tac `FUNION (FEMPTY |++ REVERSE (type_def_to_ctMap new_tabbrev st.next_type_stamp tds type_identities)) ctMap`
-   >> qexists_tac `tenvS`
-   >> simp [store_type_extension_refl] >>
-   `!cn1 cn2 tid.
-     FLOOKUP ctMap (TypeStamp cn1 tid) ≠ NONE ⇒
-     ALOOKUP (type_def_to_ctMap new_tabbrev st.next_type_stamp tds type_identities)
-       (TypeStamp cn2 tid) = NONE`
-   by (
-     fs [consistent_ctMap_def] >>
-     rw [ALOOKUP_NONE] >>
-     `tid < st.next_type_stamp` by metis_tac [FDOM_FLOOKUP, option_nchotomy] >>
-     CCONTR_TAC >>
-     fs [MEM_MAP] >>
-     rename [`TypeStamp _ _ = FST x`] >>
-     PairCases_on `x` >>
-     imp_res_tac mem_type_def_to_ctMap >>
-     rfs [] >>
-     rw [] >>
-     decide_tac) >>
-   conj_asm1_tac
-   >- (
-     irule disjoint_env_weakCT >>
-     fs [DISJOINT_DEF, EXTENSION, consistent_ctMap_def, FDOM_FUPDATE_LIST,
-         MEM_MAP] >>
-     rw [] >>
-     CCONTR_TAC >>
-     fs [FDOM_FUPDATE_LIST] >>
-     rw [] >>
-     rename1 `FST stamp ∈ FDOM _` >>
-     PairCases_on `stamp` >>
-     drule mem_type_def_to_ctMap >>
-     rw [] >>
-     CCONTR_TAC >>
-     fs [] >>
-     res_tac >>
-     decide_tac) >>
-   conj_asm1_tac
-   >- (
-     rw [SUBSET_DEF, FRANGE_FLOOKUP, FLOOKUP_o_f] >>
-     every_case_tac >>
-     fs [FLOOKUP_FUNION, flookup_fupdate_list] >>
-     Cases_on `ALOOKUP
-                (type_def_to_ctMap new_tabbrev st.next_type_stamp tds type_identities)
-                k` >>
-     fs []
-     >- (
-       first_x_assum (qspec_then `k` mp_tac) >>
-       simp []) >>
-     drule type_def_to_ctMap_mem >>
-     simp []) >>
-   conj_asm1_tac
-   >- (
-     fs [type_all_env_def, GSYM fupdate_list_funion] >>
-     irule build_tdefs_build_tenv >>
-     simp [] >>
-     qpat_x_assum `check_ctor_tenv _ _` mp_tac >>
-     rpt (pop_assum kall_tac) >>
-     induct_on `tds` >>
-     rw [] >>
-     rename1 `check_ctor_tenv _ (td::_)` >>
-     PairCases_on `td` >>
-     fs [check_ctor_tenv_def, check_dup_ctors_thm])
-   >> conj_asm1_tac
-   >- (
-     fs [good_ctMap_def]
-     >> rw []
-     >- (
-       irule ctMap_ok_merge_imp
-       >> simp []
-       >> conj_tac >- (
-         irule ctMap_ok_type_defs >>
-         simp [] >>
-         fs [tenv_ok_def, extend_dec_tenv_def, Abbr `new_tabbrev`]) >>
-       fs [consistent_ctMap_def, DISJOINT_DEF, EXTENSION, flookup_fupdate_list, FRANGE_FLOOKUP, FLOOKUP_o_f] >>
-       CCONTR_TAC >>
-       fs [] >>
-       every_case_tac >>
-       fs [] >>
-       rw [] >>
-       drule type_def_to_ctMap_mem >>
-       rw [] >>
-       fs [] >>
-       CCONTR_TAC >>
-       fs [PROVE [] ``~x ∨ y ⇔ x ⇒ y``] >>
-       rpt (last_x_assum drule) >>
-       rename [`FLOOKUP ctMap k = SOME v`] >>
-       rpt strip_tac >>
-       first_x_assum (qspec_then `k` mp_tac) >>
-       simp [])
-     >- (
-       fs [ctMap_has_bools_def, FLOOKUP_FUNION] >>
-       rw [flookup_fupdate_list] >>
-       every_case_tac >>
-       metis_tac [NOT_SOME_NONE])
-     >- (
-       fs [ctMap_has_exns_def, FLOOKUP_FUNION] >>
-       rw [flookup_fupdate_list] >>
-       every_case_tac >>
-       imp_res_tac ALOOKUP_MEM >>
-       imp_res_tac mem_type_def_to_ctMap >>
-       rfs [bind_stamp_def, chr_stamp_def, div_stamp_def, subscript_stamp_def])
-     >- (
-       fs [ctMap_has_lists_def, FLOOKUP_FUNION] >>
-       rw [flookup_fupdate_list] >>
-       every_case_tac >>
-       metis_tac [NOT_SOME_NONE]))
-   >> conj_tac
-   >- (
-     fs [consistent_ctMap_def] >>
-     rw [FDOM_FUPDATE_LIST, MEM_MAP]
-     >- (
-       rename [`TypeStamp _ _ = FST x`] >>
-       PairCases_on `x` >>
-       imp_res_tac mem_type_def_to_ctMap >>
-       rfs [] >>
-       rw [] >>
-       rw [])
-     >- (
-       res_tac >>
-       decide_tac)
-     >- (
-       rename [`ExnStamp _ = FST YYY`] >>
-       PairCases_on `YYY` >>
-       imp_res_tac mem_type_def_to_ctMap >>
-       rfs [] >>
-       rw [])
-     >- (
-       res_tac >>
-       decide_tac))
-   >> conj_tac
-   >- (
-     `type_all_env (FEMPTY |++ REVERSE (type_def_to_ctMap new_tabbrev st.next_type_stamp tds type_identities) ⊌ ctMap) tenvS env tenv`
-     by metis_tac [type_all_env_weakening, weakS_refl] >>
-     fs [type_all_env_def, extend_dec_tenv_def] >>
-     rw [] >>
-     irule nsAll2_nsAppend
-     >> simp [])
-   >- metis_tac [type_s_weakening, good_ctMap_def])
- >- ( (* case type def not distinct *)
-   fs [Once type_d_cases] >>
-   rw [] >>
-   drule check_ctor_tenv_dups >>
-   rw [])
- >- ( (* case type abbrev *)
-   drule type_d_tenv_ok
-   >> fs [Once type_d_cases]
-   >> rw [extend_dec_env_def, extend_dec_tenv_def]
-   >> qexists_tac `ctMap`
-   >> qexists_tac `tenvS`
-   >> rw [weakCT_refl, store_type_extension_refl]
-   >> fs [type_sound_invariant_def, type_all_env_def])
- >- (rename [`Denv`] \\ fs [Once type_d_cases])
- >- ( (* case exception *)
-   drule type_d_tenv_ok
-   >> fs [Once type_d_cases]
-   >> rw []
-   >> fs [type_sound_invariant_def]
-   >> qexists_tac `FUNION (FEMPTY |+ (ExnStamp st.next_exn_stamp,([],MAP (type_name_subst tenv.t) ts, Texn_num))) ctMap`
-   >> qexists_tac `tenvS`
-   >> simp [store_type_extension_refl]
-   >> rfs []
-   >> conj_asm1_tac
-   >- (
-     irule disjoint_env_weakCT
-     >> simp []
-     >> CCONTR_TAC
-     >> fs [consistent_ctMap_def, RES_FORALL]
-     >> res_tac
-     >> fs []) >>
-   conj_asm1_tac
-   >- (
-     rw [o_f_FUPDATE, o_f_FUNION] >>
-     rw [EXTENSION, IN_FRANGE, FUNION_DEF] >>
-     CCONTR_TAC >>
-     fs [consistent_ctMap_def, good_ctMap_def, ctMap_has_exns_def, FLOOKUP_DEF] >>
-     rw []
-     >- (
-       pop_assum (qspec_then `bind_stamp` mp_tac) >>
-       rw []) >>
-     pop_assum (qspec_then `k` mp_tac) >>
-     rw [] >>
-     res_tac >>
-     fs [])
-   >> conj_asm1_tac
-   >- (
-     fs [type_all_env_def]
-     >> simp [type_ctor_def, FLOOKUP_FUNION, namespaceTheory.id_to_n_def, FLOOKUP_UPDATE])
-   >> conj_asm1_tac
-   >- (
-     fs [good_ctMap_def, ctMap_ok_def] >>
-     rw []
-     >- (
-       irule fevery_funion >>
-       rw [FEVERY_FUPDATE, FEVERY_FEMPTY] >>
-       simp [EVERY_MAP] >>
-       fs [EVERY_MEM] >>
-       rw [MEM_MAP] >>
-       metis_tac [check_freevars_type_name_subst, tenv_ok_def])
-     >- (
-       fs [FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
-       every_case_tac >>
-       fs [] >>
-       metis_tac [])
-     >- (
-       fs [FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
-       every_case_tac >>
-       fs [] >>
-       metis_tac [])
-     >- (
-       fs [FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
-       every_case_tac >>
-       fs [] >>
-       metis_tac [])
-     >- (
-       fs [FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
-       every_case_tac >>
-       fs [same_type_refl] >>
-       rw []
-       >- (
-         Cases_on `stamp1` >>
-         fs [] >>
-         res_tac >>
-         fs [prim_type_nums_def, same_type_def])
-       >- (
-         Cases_on `stamp2` >>
-         fs [] >>
-         res_tac >>
-         fs [prim_type_nums_def, same_type_def]))
-     >- (
-       simp [ctMap_has_bools_def, FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
-       metis_tac [ctMap_has_bools_def])
-     >- (
-       simp [ctMap_has_exns_def, FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
-       rw [] >>
-       fs [consistent_ctMap_def, ctMap_has_exns_def] >>
-       fs [FLOOKUP_DEF, bind_stamp_def, chr_stamp_def, div_stamp_def, subscript_stamp_def] >>
-       res_tac >>
-       fs [])
-     >- (
-       simp [ctMap_has_lists_def, FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
-       metis_tac [ctMap_has_lists_def, Tlist_def]))
-   >> conj_tac
-   >- (
-     fs [consistent_ctMap_def] >>
-     rw [] >>
-     rw []
-     >- metis_tac [] >>
-     res_tac >>
-     decide_tac)
-   >> conj_tac
-   >- (
-     qmatch_assum_abbrev_tac `weakCT ctMap' _`
-     >> `type_all_env ctMap' tenvS env tenv`
-       by metis_tac [type_all_env_weakening, weakS_refl]
-     >> fs [type_all_env_def, extend_dec_tenv_def, extend_dec_env_def]
-     >> irule nsAll2_nsBind
-     >> simp [])
-   >- metis_tac [type_s_weakening, good_ctMap_def])
- >- ( (* case open *)
-   fs [Once type_d_cases] >>
-   rveq >>
-   imp_res_tac dopen_type_sound_invariant >>
-   fs [] >>
-   rveq >>
-   qexists_tac `ctMap` >>
-   qexists_tac `tenvS` >>
-   simp [weakCT_refl, store_type_extension_refl])
- >- ( (* Case module *)
-   qpat_x_assum `type_d _ _ (Dmod _ _) _ _` mp_tac >>
-   rw [Once type_d_cases] >>
-   split_pair_case_tac >>
-   fs [] >>
-   rename [`evaluate_decs _ _ _ = (st1, r1)`] >>
-   Cases_on `r1` >>
-   fs [] >>
-   rw []
-   >- (
-     first_x_assum drule >>
-     disch_then drule >>
-     rw [] >>
-     rename [`weakCT ctMap1 _`] >>
-     qexists_tac `ctMap1` >>
-     rw [] >>
-     rename [`store_type_extension _ tenvS1`] >>
-     qexists_tac `tenvS1` >>
-     rw []
-     >- (
-       fs [type_all_env_def, tenvLift_def] >>
-       irule nsAll2_mono >>
-       qexists_tac `type_ctor ctMap1` >>
-       rw [] >>
-       rename [`type_ctor _ _ arg1 arg2`] >>
-       PairCases_on `arg1` >>
-       PairCases_on `arg2` >>
-       fs [type_ctor_def])
-     >- (
-       fs [type_sound_invariant_def] >>
-       rw []
-       >- (
-         irule extend_dec_tenv_ok >>
-         fs [tenvLift_def, tenv_ok_def, tenv_val_ok_def,
-             tenv_ctor_ok_def, tenv_abbrev_ok_def,
-             extend_dec_tenv_def] >>
-         metis_tac [nsAll_nsAppend_left])
-       >- (
-         `type_all_env ctMap1 tenvS1 env tenv`
-         by metis_tac [type_all_env_weakening, store_type_extension_weakS] >>
-         fs [type_all_env_def, extend_dec_env_def, extend_dec_tenv_def] >>
-         rw [] >>
-         irule nsAll2_nsAppend >>
-         rw [tenvLift_def] >>
-         irule nsAll2_mono >>
-         qexists_tac `type_ctor ctMap1` >>
-         rw [] >>
-         rename [`type_ctor _ _ arg1 arg2`] >>
-         PairCases_on `arg1` >>
-         PairCases_on `arg2` >>
-         fs [type_ctor_def])))
-   >- (
-     first_x_assum drule >>
-     disch_then drule >>
-     rw []))
- >- ( (* case local *)
-   qpat_x_assum `type_d _ _ (Dlocal _ _) _ _` mp_tac
-   >> rw [Once type_d_cases]
-   >> Cases_on `evaluate_decs st env ds`
-   >> fs []
-   >> rename1 `evaluate_decs st _ _ = (st1, r1)`
-   >> first_x_assum drule
-   >> first_assum (assume_tac o MATCH_MP type_sound_invariant_union)
-   >> disch_then drule
-   >> Cases_on `r1` >> fs []
-   >- (
-     rw []
-     >> rename1 `evaluate_decs _ (extend_dec_env env1 _) _ = (st2, r2)`
-     >> first_x_assum drule
-     >> disch_then (mp_tac o Q.SPECL [`ctMap'`, `tenvS'`])
-     >> impl_keep_tac
-     >- (
-       fs [type_sound_invariant_def, consistent_ctMap_def,
-         boolTheory.FORALL_AND_THM, DISJOINT_DEF, SUBSET_DEF, EXTENSION]
-       >> metis_tac []
-     )
-     >> rpt (ho_match_mp_tac boolTheory.MONO_EXISTS \\ GEN_TAC)
-     >> rw []
-     >- metis_tac [weakCT_trans]
-     >- (
-       fs [SUBSET_DEF, EXTENSION]
-       >- metis_tac [])
-     >- metis_tac [store_type_extension_trans]
-     >- (
-       CASE_TAC \\ fs []
-       >- (
-         fs [type_sound_invariant_def]
-         \\ fs (BODY_CONJUNCTS type_d_tenv_ok_helper @ [extend_dec_tenv_ok])
-         \\ conj_tac
-         >- metis_tac [type_d_tenv_ok_helper, extend_dec_tenv_ok]
-         >> match_mp_tac type_all_env_extend
-         >> fs []
-         >> metis_tac [type_all_env_weakening, weakCT_trans, store_type_extension_weakS]
-       )
-       >> CASE_TAC >> fs []
-       >> fs [type_sound_invariant_def]
-       >> metis_tac [type_all_env_weakening, weakCT_trans, store_type_extension_weakS]
-     )
-   )
-   >- (
-     rveq
-     >> fs []
-     >> rpt (ho_match_mp_tac boolTheory.MONO_EXISTS \\ GEN_TAC)
-     >> rw []
-     >> metis_tac [SUBSET_TRANS, SUBSET_UNION]
-   )
- )
+  ho_match_mp_tac evaluate_decs_ind >>
+  rw [evaluate_decs_def] >> rw []
+  >- suspend "Nil"
+  >- suspend "Cons"
+  >- suspend "Let"
+  >- suspend "LetInvalid"
+  >- suspend "Letrec"
+  >- suspend "LetrecInvalid"
+  >- suspend "Datatype"
+  >- suspend "DatatypeInvalid"
+  >- suspend "Abbrev"
+  >- suspend "Denv"
+  >- suspend "Exception"
+  >- suspend "Open"
+  >- suspend "Module"
+  >- suspend "Local"
 QED
+
+Resume decs_type_sound_no_check[Nil]:
+  simp [extend_dec_env_def, extend_dec_tenv_def, type_all_env_def]
+  >> metis_tac [store_type_extension_refl, weakCT_refl, preserves_datatype_signatures_refl, DIFF_EQ_EMPTY]
+QED
+
+Resume decs_type_sound_no_check[Cons]:
+  qpat_x_assum `type_ds _ _ (_::_::_) _ _` mp_tac >>
+  simp [Once type_d_cases] >>
+  rw [] >>
+  split_pair_case_tac
+  >> fs []
+  >> rename1 `evaluate_decs _ _ _ = (st1, r1)`
+  >> Cases_on `r1`
+  >> fs []
+  >- (
+    split_pair_case_tac
+    >> gvs []
+    >> rename1 `evaluate_decs _ (extend_dec_env env1 _) _ = (st2, r2)`
+    >> first_x_assum drule
+    >> drule type_sound_invariant_union
+    >> strip_tac
+    >> disch_then drule
+    >> rw []
+    >> rename1 `weakCT firstMap ctMap`
+    >> rename1 `store_type_extension tenvS firstStore`
+    >> first_x_assum drule
+    >> disch_then (qspecl_then [`firstMap`, `firstStore`] mp_tac)
+    >> impl_keep_tac
+    >- (
+      fs [type_sound_invariant_def, consistent_ctMap_def,
+          EXTENSION, SUBSET_DEF, DISJOINT_DEF]
+      >> metis_tac [])
+    >> rw []
+    >> simp [combine_dec_result_def]
+    >> rename[`weakCT ctMap1 ctMap`,`weakCT ctMap0 ctMap1`]
+    >> qexists_tac `ctMap0`
+    >> rename[`store_type_extension tenvS tenvS0`,`store_type_extension tenvS0 tenvS1`]
+    >> qexists_tac `tenvS1`
+    >> rw []
+    >- metis_tac [weakCT_trans]
+    >- metis_tac [preserves_datatype_signatures_trans]
+    >- (
+      fs [SUBSET_DEF, EXTENSION]
+      >- metis_tac [])
+    >- metis_tac [store_type_extension_trans]
+    >> namedCases_on `r2` ["returnedEnv", "declarationError"]
+    >> fs []
+    >- (
+      fs [type_sound_invariant_def, good_ctMap_def, extend_dec_env_def]
+      >> fs [extend_dec_tenv_def, extend_dec_env_def]
+      >> `type_all_env ctMap0 tenvS1 env1 tenv1`
+        by metis_tac [type_all_env_weakening, store_type_extension_weakS]
+      >> fs [type_all_env_def]
+      >> metis_tac [nsAll2_nsAppend])
+    >> (
+      Cases_on `declarationError`
+      >> fs [type_sound_invariant_def]
+      >- metis_tac [type_all_env_weakening, weakCT_trans,
+                    store_type_extension_weakS, store_type_extension_trans]))
+  >> (
+    gvs []
+    >> first_x_assum drule
+    >> drule type_sound_invariant_union
+    >> strip_tac
+    >> disch_then drule
+    >> rw []
+    >> rename1 `weakCT firstMap ctMap`
+    >> rename1 `store_type_extension tenvS firstStore`
+    >> qexistsl_tac [`firstMap`, `firstStore`]
+    >> rw[]
+    >> fs [type_sound_invariant_def, consistent_ctMap_def,
+           DISJOINT_DEF, EXTENSION, SUBSET_DEF]
+    >> metis_tac [preserves_datatype_signatures_mono, SUBSET_UNION])
+QED
+
+Resume decs_type_sound_no_check[Let]:
+  split_pair_case_tac
+  >> fs []
+  >> rename1 `evaluate _ _ _ = (st1, r1)`
+  >> FREEZE_THEN drule (hd (CONJUNCTS exp_type_sound))
+  >> fs [type_sound_invariant_def]
+  >> disch_then drule
+  >> disch_then (qspec_then `Empty` mp_tac)
+  >> simp [tenv_val_exp_ok_def, add_tenvE_def]
+  >> rpt (disch_then drule)
+  >> simp [type_es_list_rel, PULL_EXISTS]
+  >> drule type_d_tenv_ok
+  >> fs [Once type_d_cases]
+  >> DISCH_TAC
+  >- (disch_then drule >> simp [bind_tvar_def] >> let_tac) >>
+  disch_then (qspec_then `0` mp_tac) >>
+  simp [bind_tvar_def] >> disch_then drule >> let_tac
+QED
+
+Resume decs_type_sound_no_check[LetInvalid]:
+  fs [Once type_d_cases]
+  >> fs [type_sound_invariant_def,type_all_env_def]
+  >> metis_tac[type_e_con_check]
+QED
+
+Resume decs_type_sound_no_check[Letrec]:
+  drule type_d_tenv_ok
+  >> fs [Once type_d_cases]
+  >> rw []
+  >> qexistsl_tac [`ctMap`, `tenvS`]
+  >> simp [weakCT_refl, preserves_datatype_signatures_refl, store_type_extension_refl, build_rec_env_merge]
+  >> fs [type_sound_invariant_def]
+  >> fs [extend_dec_env_def, extend_dec_tenv_def]
+  >> reverse conj_asm1_tac
+  >- (
+    fs [type_all_env_def]
+    >> irule nsAll2_nsAppend
+    >> simp [])
+  >> `type_all_env ctMap tenvS env (tenv with v := add_tenvE Empty tenv.v)`
+    by rw [add_tenvE_def]
+  >> drule type_recfun_env
+  >> rpt (disch_then drule)
+  >> simp [tenv_val_exp_ok_def]
+  >> disch_then drule
+  >> strip_tac
+  >> fs [type_all_env_def, fst_triple]
+  >> irule nsAll2_alist_to_ns
+  >> rfs [EVERY2_MAP, tenv_add_tvs_def]
+QED
+
+Resume decs_type_sound_no_check[LetrecInvalid]:
+  fs [Once type_d_cases]
+  >- metis_tac [type_funs_distinct]
+  >> fs [type_sound_invariant_def,type_all_env_def]
+  >> metis_tac[type_e_con_check,NOT_EVERY]
+QED
+
+Resume decs_type_sound_no_check[Datatype]:
+  fs [Once type_d_cases] >> rveq >>
+  rename1 `ALL_DISTINCT identities` >>
+  qmatch_assum_abbrev_tac `check_ctor_tenv (nsAppend type_abbrev tenv.t) tds` >>
+  mp_tac (Q.INST [`type_identities` |-> `identities`, `tenvT` |-> `type_abbrev`]
+    datatype_allocation_type_sound) >>
+  impl_tac
+  >- (unabbrev_all_tac >> simp []) >>
+  simp [] >> strip_tac >>
+  qexists_tac `FUNION (FEMPTY |++ REVERSE
+    (type_def_to_ctMap (nsAppend type_abbrev tenv.t) st.next_type_stamp tds identities)) ctMap` >>
+  qexists_tac `tenvS` >> simp [store_type_extension_refl]
+QED
+
+Resume decs_type_sound_no_check[DatatypeInvalid]:
+  fs [Once type_d_cases] >>
+  rw [] >>
+  drule check_ctor_tenv_dups >>
+  rw []
+QED
+
+Resume decs_type_sound_no_check[Abbrev]:
+  drule type_d_tenv_ok
+  >> fs [Once type_d_cases]
+  >> rw [extend_dec_env_def, extend_dec_tenv_def]
+  >> qexistsl_tac [`ctMap`, `tenvS`]
+  >> rw [weakCT_refl, preserves_datatype_signatures_refl, store_type_extension_refl]
+  >> fs [type_sound_invariant_def, type_all_env_def]
+QED
+
+Resume decs_type_sound_no_check[Denv]:
+  fs [Once type_d_cases]
+QED
+
+Resume decs_type_sound_no_check[Exception]:
+  drule type_d_tenv_ok
+  >> fs [Once type_d_cases]
+  >> rpt strip_tac
+  >> fs [type_sound_invariant_def]
+  >> qexistsl_tac
+    [`FUNION (FEMPTY |+ (ExnStamp st.next_exn_stamp,([],MAP (type_name_subst tenv.t) ts, Texn_num))) ctMap`,
+     `tenvS`]
+  >> simp [store_type_extension_refl]
+  >> rfs []
+  >> conj_asm1_tac
+  >- (
+    irule disjoint_env_weakCT
+    >> simp []
+    >> CCONTR_TAC
+    >> fs [consistent_ctMap_def, RES_FORALL]
+    >> res_tac
+    >> fs []) >>
+  conj_tac
+  >- simp [FUNION_FUPDATE_1, preserves_datatype_signatures_exn] >>
+  conj_asm1_tac
+  >- (
+    rw [o_f_FUPDATE, o_f_FUNION] >>
+    rw [EXTENSION, IN_FRANGE, FUNION_DEF] >>
+    CCONTR_TAC >>
+    fs [consistent_ctMap_def, good_ctMap_def, ctMap_has_exns_def, FLOOKUP_DEF] >>
+    rw []
+    >- (
+      pop_assum (qspec_then `bind_stamp` mp_tac) >>
+      rw []) >>
+    pop_assum (qspec_then `k` mp_tac) >>
+    rw [] >>
+    res_tac >>
+    fs [])
+  >> conj_asm1_tac
+  >- (
+    fs [type_all_env_def]
+    >> simp [type_ctor_def, FLOOKUP_FUNION, namespaceTheory.id_to_n_def, FLOOKUP_UPDATE])
+  >> conj_asm1_tac
+  >- (
+    fs [good_ctMap_def, ctMap_ok_def] >>
+    rw []
+    >- (
+      irule fevery_funion >>
+      rw [FEVERY_FUPDATE, FEVERY_FEMPTY] >>
+      simp [EVERY_MAP] >>
+      fs [EVERY_MEM] >>
+      rw [MEM_MAP] >>
+      metis_tac [check_freevars_type_name_subst, tenv_ok_def])
+    >- (
+      Cases_on `ex = st.next_exn_stamp` >>
+      gvs [FLOOKUP_FUNION, FLOOKUP_UPDATE] >> metis_tac [])
+    >- (
+      fs [FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
+      every_case_tac >> fs [] >> metis_tac [])
+    >- (
+      fs [FUNION_FUPDATE_1, FLOOKUP_UPDATE] >> metis_tac [])
+    >- (
+      fs [FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
+      every_case_tac >>
+      fs [same_type_refl] >>
+      rw []
+      >- (
+        Cases_on `stamp1` >>
+        fs [] >>
+        res_tac >>
+        fs [prim_type_nums_def, same_type_def])
+      >> (
+        Cases_on `stamp2` >>
+        fs [] >>
+        res_tac >>
+        fs [prim_type_nums_def, same_type_def]))
+    >- (
+      simp [ctMap_has_bools_def, FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
+      metis_tac [ctMap_has_bools_def])
+    >- (
+      simp [ctMap_has_exns_def, FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
+      rw [] >>
+      fs [consistent_ctMap_def, ctMap_has_exns_def] >>
+      fs [FLOOKUP_DEF, bind_stamp_def, chr_stamp_def, div_stamp_def, subscript_stamp_def] >>
+      res_tac >>
+      fs [])
+    >- (
+      simp [ctMap_has_lists_def, FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
+      metis_tac [ctMap_has_lists_def, Tlist_def]))
+  >> conj_tac
+  >- (
+    fs [consistent_ctMap_def] >>
+    rw [] >>
+    rw []
+    >- metis_tac [] >>
+    res_tac >>
+    decide_tac)
+  >> conj_tac
+  >- (
+    qmatch_assum_abbrev_tac `weakCT ctMap' _`
+    >> `type_all_env ctMap' tenvS env tenv`
+      by metis_tac [type_all_env_weakening, weakS_refl]
+    >> fs [type_all_env_def, extend_dec_tenv_def, extend_dec_env_def]
+    >> irule nsAll2_nsBind
+    >> simp [])
+  >- metis_tac [type_s_weakening, good_ctMap_def]
+QED
+
+Resume decs_type_sound_no_check[Open]:
+  fs [Once type_d_cases] >>
+  rveq >>
+  imp_res_tac dopen_type_sound_invariant >>
+  fs [] >>
+  rveq >>
+  qexistsl_tac [`ctMap`, `tenvS`] >>
+  simp [weakCT_refl, preserves_datatype_signatures_refl, store_type_extension_refl]
+QED
+
+Resume decs_type_sound_no_check[Module]:
+  qpat_x_assum `type_d _ _ (Dmod _ _) _ _` mp_tac >>
+  rw [Once type_d_cases] >>
+  split_pair_case_tac >>
+  fs [] >>
+  rename [`evaluate_decs _ _ _ = (st1, r1)`] >>
+  Cases_on `r1` >>
+  fs [] >>
+  rw []
+  >- (
+    first_x_assum drule >>
+    disch_then drule >>
+    rw [] >>
+    rename [`weakCT ctMap1 _`] >>
+    qexists_tac `ctMap1` >>
+    rw [] >>
+    rename [`store_type_extension _ tenvS1`] >>
+    qexists_tac `tenvS1` >>
+    rw []
+    >- (
+      fs [type_all_env_def, tenvLift_def] >>
+      irule nsAll2_mono >>
+      qexists_tac `type_ctor ctMap1` >>
+      rw [] >>
+      rename [`type_ctor _ _ arg1 arg2`] >>
+      PairCases_on `arg1` >>
+      PairCases_on `arg2` >>
+      fs [type_ctor_def])
+    >> (
+      fs [type_sound_invariant_def] >>
+      rw []
+      >- (
+        irule extend_dec_tenv_ok >>
+        fs [tenvLift_def, tenv_ok_def, tenv_val_ok_def,
+            tenv_ctor_ok_def, tenv_abbrev_ok_def,
+            extend_dec_tenv_def] >>
+        metis_tac [nsAll_nsAppend_left])
+      >> (
+        `type_all_env ctMap1 tenvS1 env tenv`
+        by metis_tac [type_all_env_weakening, store_type_extension_weakS] >>
+        fs [type_all_env_def, extend_dec_env_def, extend_dec_tenv_def] >>
+        rw [] >>
+        irule nsAll2_nsAppend >>
+        rw [tenvLift_def] >>
+        irule nsAll2_mono >>
+        qexists_tac `type_ctor ctMap1` >>
+        rw [] >>
+        rename [`type_ctor _ _ arg1 arg2`] >>
+        PairCases_on `arg1` >>
+        PairCases_on `arg2` >>
+        fs [type_ctor_def])))
+  >> (
+    first_x_assum drule >>
+    disch_then drule >>
+    rw [])
+QED
+
+Resume decs_type_sound_no_check[Local]:
+  qpat_x_assum `type_d _ _ (Dlocal _ _) _ _` mp_tac
+  >> rw [Once type_d_cases]
+  >> Cases_on `evaluate_decs st env ds`
+  >> fs []
+  >> rename1 `evaluate_decs st _ _ = (st1, r1)`
+  >> first_x_assum drule
+  >> first_assum (assume_tac o MATCH_MP type_sound_invariant_union)
+  >> disch_then drule
+  >> Cases_on `r1` >> fs []
+  >- (
+    rw []
+    >> rename1 `evaluate_decs _ (extend_dec_env env1 _) _ = (st2, r2)`
+    >> rename1 `weakCT firstMap ctMap`
+    >> rename1 `store_type_extension tenvS firstStore`
+    >> first_x_assum drule
+    >> disch_then (mp_tac o Q.SPECL [`firstMap`, `firstStore`])
+    >> impl_keep_tac
+    >- (
+      fs [type_sound_invariant_def, consistent_ctMap_def,
+        boolTheory.FORALL_AND_THM, DISJOINT_DEF, SUBSET_DEF, EXTENSION]
+      >> metis_tac []
+    )
+    >> rpt (ho_match_mp_tac boolTheory.MONO_EXISTS \\ GEN_TAC)
+    >> rw []
+    >- metis_tac [weakCT_trans]
+    >- metis_tac [preserves_datatype_signatures_trans]
+    >- (
+      fs [SUBSET_DEF, EXTENSION]
+      >- metis_tac [])
+    >- metis_tac [store_type_extension_trans]
+    >- (
+      CASE_TAC \\ fs []
+      >- (
+        fs [type_sound_invariant_def]
+        \\ fs (BODY_CONJUNCTS type_d_tenv_ok_helper @ [extend_dec_tenv_ok])
+        \\ conj_tac
+        >- metis_tac [type_d_tenv_ok_helper, extend_dec_tenv_ok]
+        >> match_mp_tac type_all_env_extend
+        >> fs []
+        >> metis_tac [type_all_env_weakening, weakCT_trans, store_type_extension_weakS]
+      )
+      >> CASE_TAC >> fs []
+      >> fs [type_sound_invariant_def]
+      >> metis_tac [type_all_env_weakening, weakCT_trans, store_type_extension_weakS]
+    )
+  )
+  >> (
+    gvs []
+    >> rpt (ho_match_mp_tac boolTheory.MONO_EXISTS \\ GEN_TAC)
+    >> rw []
+    >> metis_tac [SUBSET_TRANS, SUBSET_UNION, preserves_datatype_signatures_mono]
+  )
+QED
+
+Finalise decs_type_sound_no_check;
 
 Theorem decs_type_sound:
   ∀(st:'ffi semanticPrimitives$state) env ds extra_checks st' r ctMap tenvS tenv tids tenv'.
@@ -2854,6 +2960,7 @@ Theorem decs_type_sound:
    ⇒
    ∃ctMap' tenvS'.
      weakCT ctMap' ctMap ∧
+     preserves_datatype_signatures tids ctMap ctMap' ∧
      FRANGE ((SND o SND) o_f ctMap') DIFF FRANGE ((SND o SND) o_f ctMap) ⊆ tids ∧
      store_type_extension tenvS tenvS' ∧
      case r of
@@ -2871,8 +2978,9 @@ Proof
   rw [] >>
   imp_res_tac type_d_check_uniq >>
   imp_res_tac decs_type_sound_no_check >>
-  qexists_tac `ctMap'` >>
-  qexists_tac `tenvS'` >>
+  rename1 `weakCT resultMap ctMap` >>
+  rename1 `store_type_extension tenvS resultStore` >>
+  qexistsl_tac [`resultMap`, `resultStore`] >>
   Cases_on `r` >>
   fs []
 QED

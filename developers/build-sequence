@@ -58,7 +58,6 @@ compiler/backend/mips
 compiler/backend/riscv
 compiler/backend/ag32
 compiler/backend/pattern_matching
-compiler/parsing/ocaml
 compiler/printing
 
 # compiler verification
@@ -104,6 +103,7 @@ candle/overloading/ml_kernel
 candle/overloading/ml_checker
 candle/prover
 candle/prover/compute
+candle/parser
 
 # pancake
 pancake

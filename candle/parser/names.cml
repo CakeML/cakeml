@@ -1,0 +1,94 @@
+(*
+  Name and operator conversion, with its error strings and compatibility
+  renamings. Node checks precede child conversion.
+*)
+structure CandleNames = struct
+  open CandleGrammar;
+  open CandleConversionSupport;
+  fun name nt expected impossible rename pt = case pt of
+      Lf (_,l) => Inl (l,expected)
+    | Nd (n,l) args => if n <> Inl nt then Inl (l,expected)
+        else case args of [arg] => fmap rename (ident arg)
+           | _ => Inl (l,impossible);
+  fun ptree_Ident pt = name NIdent "Expected ident non-terminal"
+    "Impossible: nIdent" (fn x => x) pt;
+  fun ptree_ConstrName pt = name NConstrName "Expected constr-name non-terminal"
+    "Impossible: nConstrName" compatCons pt;
+  fun ptree_TypeConstrName pt = name NTypeConstrName "Expected typeconstr-name non-terminal"
+    "Impossible: nTypeConstrName" (fn x => x) pt;
+  fun ptree_FieldName pt = name NFieldName "Expected fieldname non-terminal"
+    "Impossible: nFieldName" (fn x => x) pt;
+  fun ptree_ModuleName pt = name NModuleName "Expected modulename non-terminal"
+    "Impossible: nModuleName" compatModName pt;
+  fun ptree_ModTypeName pt = name NModTypeName "Expected modtypename non-terminal"
+    "Impossible: nModTypeName" (fn x => x) pt;
+  fun op_name l msg allow_symbol table tk =
+    case List.find (fn (t,_) => t = tk) table of
+      Some (_,s) => Inr s
+    | None => (case tk of SymbolT s => if allow_symbol then Inr s else Inl (l,msg)
+                         | _ => Inl (l,msg));
+  fun ptree_Op pt = case pt of Lf (_,l) => Inl (l,"Expected operator non-terminal")
+    | Nd (n,l) args => case args of [arg] => bind (token arg) (fn tk =>
+        if n = Inl NShiftOp then op_name l "Impossible: nShiftOp" True
+          [(LslT,"lsl"),(LsrT,"lsr"),(AsrT,"asr")] tk
+        else if n = Inl NMultOp then op_name l "Impossible: nMultOp" True
+          [(StarT,"*"),(ModT,"mod"),(LandT,"land"),(LorT,"lor"),(LxorT,"lxor")] tk
+        else if n = Inl NAddOp then op_name l "Impossible: nAddOp" True
+          [(PlusT,"+"),(MinusT,"-"),(MinusFT,"-.")] tk
+        else if n = Inl NRelOp then op_name l "Impossible: nRelOp" True
+          [(LessT,"<"),(GreaterT,">"),(EqualT,"=")] tk
+        else if n = Inl NAndOp then op_name l "Impossible: nAndOp" True
+          [(AndalsoT,"&&"),(AmpT,"&")] tk
+        else if n = Inl NOrOp then op_name l "Impossible: nOrOp" True
+          [(OrelseT,"||"),(OrT,"|")] tk
+        else if n = Inl NHolInfixOp then op_name l "Impossible: nHolInfixOp" False
+          [(FuncompT,"o"),(F_FT,"F_F"),(THEN_T,"THEN"),(THENC_T,"THENC"),
+           (THENL_T,"THENL"),(THEN_TCL_T,"THEN_TCL"),(ORELSE_T,"ORELSE"),
+           (ORELSEC_T,"ORELSEC"),(ORELSE_TCL_T,"ORELSE_TCL")] tk
+        else if n = Inl NCatOp then op_name l "Impossible: nCatOp" True [] tk
+        else if n = Inl NPrefixOp then op_name l "Impossible: nPrefixOp" True [] tk
+        else if n = Inl NAssignOp then op_name l "Impossible: nAssignOp" False
+          [(LarrowT,"<-"),(UpdateT,":=")] tk
+        else Inl (l,"Expected operator non-terminal"))
+      | _ => Inl (l,"Expected operator non-terminal");
+  fun ptree_OperatorName pt = case pt of
+      Lf (_,l) => Inl (l,"Expected operator-name non-terminal")
+    | Nd (n,l) args => if n <> Inl NOperatorName then Inl (l,"Expected operator-name non-terminal")
+        else case args of [arg] => ptree_Op arg | _ => Inl (l,"Impossible: nOperatorName");
+  fun ptree_ValueName pt = case pt of Lf (_,l) => Inl (l,"Expected value-name non-terminal")
+    | Nd (n,l) args => if n <> Inl NValueName then Inl (l,"Expected value-name non-terminal")
+        else case args of [arg] => ident arg
+          | [lp,opn,rp] => bind (expect_tok lp LparT) (fn _ =>
+              bind (expect_tok rp RparT) (fn _ => ptree_OperatorName opn))
+          | _ => Inl (l,"Impossible: nValueName");
+  fun ptree_ModulePath pt = case pt of Lf (_,l) => Inl (l,"Expected module-path non-terminal")
+    | Nd (n,l) args => if n <> Inl NModulePath then Inl (l,"Expected module-path non-terminal")
+        else case args of [arg] => fmap (fn x => [x]) (ptree_ModuleName arg)
+          | [arg,dot,path] => bind (expect_tok dot DotT) (fn _ =>
+              bind (ptree_ModulePath path) (fn vp =>
+              fmap (fn vn => vn::vp) (ptree_ModuleName arg)))
+          | _ => Inl (l,"Impossible: nModulePath");
+  fun qualified nt expected impossible conv pt = case pt of
+      Lf (_,l) => Inl (l,expected)
+    | Nd (n,l) args => if n <> Inl nt then Inl (l,expected)
+        else case args of [arg] => fmap (fn x => [x]) (conv arg)
+          | [path,dot,arg] => bind (expect_tok dot DotT) (fn _ =>
+              bind (ptree_ModulePath path) (fn vp => fmap (fn vn => vp @ [vn]) (conv arg)))
+          | _ => Inl (l,impossible);
+  fun ptree_ValuePath pt = qualified NValuePath "Expected value-path non-terminal"
+    "Impossible: nValuePath" ptree_ValueName pt;
+  fun ptree_TypeConstr pt = qualified NTypeConstr "Expected typeconstr non-terminal"
+    "Impossible: nTypeConstr" ptree_TypeConstrName pt;
+  fun ptree_Constr pt = case pt of Lf (_,l) => Inl (l,"Expected constr non-terminal")
+    | Nd (n,l) args => if n <> Inl NConstr then Inl (l,"Expected constr non-terminal")
+        else case args of [arg] => fmap (fn x => [x]) (ptree_ConstrName arg)
+          | [name,dot,rest] => bind (expect_tok dot DotT) (fn _ =>
+              bind (ptree_ModuleName name) (fn vp => fmap (fn vn => vp::vn) (ptree_Constr rest)))
+          | _ => Inl (l,"Impossible: nConstr");
+  fun ptree_ModTypePath pt = case pt of Lf (_,l) => Inl (l,"Expected modtypepath non-terminal")
+    | Nd (n,l) args => if n <> Inl NModTypePath then Inl (l,"Expected typeconstr non-terminal")
+        else case args of [arg] => fmap (fn x => [x]) (ptree_ModTypeName arg)
+          | [name,dot,rest] => bind (expect_tok dot DotT) (fn _ =>
+              bind (ptree_ModuleName name) (fn vm => fmap (fn vp => vm::vp) (ptree_ModTypePath rest)))
+          | _ => Inl (l,"Impossible: nModTypePath");
+end;

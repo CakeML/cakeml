@@ -1,0 +1,41 @@
+(*
+  Parse-tree conversion helpers. All errors are values. Choice is left-biased
+  and evaluates its alternative only on failure.
+*)
+structure CandleConversionSupport = struct
+  open CandleSupport;
+  open CandleTokens;
+  open CandleTree;
+  (* cmlPtreeConversion.to_locs: sentinels belong to parser errors, not Ast. *)
+  fun to_locs loc = case loc of
+      Locs (Posn r1 c1) (Posn r2 c2) => Ast.Locs (r1,c1) (r2,c2)
+    | _ => Ast.Nolocs;
+  fun bind m f = case m of Inl e => Inl e | Inr x => f x;
+  fun fmap f m = bind m (fn x => Inr (f x));
+  fun choice m other = case m of Inl _ => other () | Inr x => Inr x;
+  fun option m = case m of None => Inl (unknown_loc,"option") | Some x => Inr x;
+  fun mapM f xs = case xs of [] => Inr [] | x::rest =>
+    bind (f x) (fn y => bind (mapM f rest) (fn ys => Inr (y::ys)));
+  fun list_cart_prod xss = case xss of [] => [[]] | xs::rest =>
+    let val ys = list_cart_prod rest;
+    in List.concat (List.map (fn x => List.map (fn y => x::y) ys) xs) end;
+  fun compatCons cn =
+    if cn = "Bad_file_name" then "BadFileName"
+    else if cn = "Pp_data" then "PP_Data" else cn;
+  fun compatModName mn =
+    if mn = "Text_io" then "TextIO"
+    else if mn = "Pretty_printer" then "PrettyPrinter"
+    else if mn = "Command_line" then "CommandLine"
+    else if mn = "Word8_array" then "Word8Array" else mn;
+  fun destLf pt = case pt of Lf x => Inr x | Nd (_,l) _ => Inl (l,"destLf");
+  fun token pt = fmap (fn (tk,_) => tk) (destLf pt);
+  fun ident pt = bind (token pt) (fn tk =>
+    option (case tk of IdentT s => Some s | _ => None));
+  fun expect_tok pt expected = bind (destLf pt) (fn (tk,l) =>
+    if tk = expected then Inr tk else Inl (l,"Unexpected token"));
+  fun path_to_ns l ns = case ns of [] => Inl (l,"Empty path")
+    | [n] => Inr (Ast.Short n)
+    | n::rest => fmap (fn tail => Ast.Long n tail) (path_to_ns l rest);
+  fun nterm_of pt = case pt of Lf (_,l) => Inl (l,"nterm_of: Not a parsetree node")
+    | Nd (nt,_) _ => Inr nt;
+end;

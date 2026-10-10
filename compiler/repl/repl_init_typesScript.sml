@@ -5,7 +5,7 @@
 *)
 Theory repl_init_types[no_sig_docs]
 Ancestors
-  infer_cv repl_moduleProg repl_check_and_tweak
+  infer_cv repl_moduleProg addPrintVals envRel
 Libs
   preamble basicComputeLib cv_transLib
 
@@ -41,6 +41,28 @@ val result = eval_res_thm
                |> CONV_RULE (PATH_CONV "rr" (REWR_CONV (GSYM repl_prog_types_def)));
 
 Theorem repl_prog_types_thm = result;
+
+(* Recover identities from the actual inferred type abbreviations. *)
+val dec_type_lookup = EVAL
+  ``nsLookup (FST repl_prog_types).inf_t (Long «Ast» (Short «dec»))``;
+val sum_type_lookup = EVAL
+  ``nsLookup (FST repl_prog_types).inf_t (Short «sum»)``;
+
+Definition repl_dec_type_id_def:
+  (repl_dec_type_id:num) =
+    ^(dec_type_lookup |> concl |> rand |> optionSyntax.dest_some
+      |> pairSyntax.dest_pair |> snd |> rand)
+End
+
+Definition repl_sum_type_id_def:
+  (repl_sum_type_id:num) =
+    ^(sum_type_lookup |> concl |> rand |> optionSyntax.dest_some
+      |> pairSyntax.dest_pair |> snd |> rand)
+End
+
+Definition repl_input_type_def:
+  repl_input_type = Tapp [Tstring; Tlist (Tapp [] repl_dec_type_id)] repl_sum_type_id
+End
 
 Definition repl_init_types_def:
   repl_init_types = (init_type_names (FST repl_prog_types), repl_prog_types)

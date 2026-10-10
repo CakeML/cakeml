@@ -65,7 +65,7 @@ val preamble_tm =
        "# define makesym(name,base,len) _makesym name, base, len";
        "#endif";
        "";
-       "#define DATA_BUFFER_SIZE    65536";
+       "#define DATA_BUFFER_SIZE 16777216";
        "#define CODE_BUFFER_SIZE  5242880";
        "";
        "     .file        \"cake.S\"";
