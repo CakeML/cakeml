@@ -2130,8 +2130,6 @@ QED
 
 val _ = cv_trans (clos_to_bvlTheory.get_src_names_sing_eq |> CONJUNCT2);
 
-val _ = cv_auto_trans clos_to_bvlTheory.make_name_alist_eq;
-
 val pre = cv_auto_trans_pre "" clos_to_bvlTheory.recc_Lets_def;
 Theorem clos_to_bvl_recc_Lets_pre[cv_pre]:
   ∀n nargs k rest.
@@ -2694,7 +2692,6 @@ val _ = cv_trans bvi_tmcTheory.compile_prog_def;
 
 (* bvl_to_bvi *)
 
-val _ = cv_auto_trans bvl_to_bviTheory.get_names_def;
 val _ = cv_auto_trans bvl_to_bviTheory.stubs_def;
 val _ = cv_trans bvl_to_bviTheory.destLet_def;
 

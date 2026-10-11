@@ -91,7 +91,7 @@ Definition names_ok_def:
 End
 
 Overload stub_entry[local] =
-  “λc:num # bvi$exp. (FST c, SND c, Metadata (strlit "") [Stub])”
+  “λname (c:num # bvi$exp). (FST c, SND c, Metadata name [Stub])”
 
 Definition state_rel_def:
   state_rel (b:num->num) s (t:('c,'ffi) bviSem$state) <=>
@@ -115,14 +115,14 @@ Definition state_rel_def:
     (s.clock = t.clock) /\
     t.compile_oracle = state_co compile_inc s.compile_oracle /\
     s.compile = state_cc compile_inc t.compile /\
-    (lookup AllocGlobal_location t.code = SOME (stub_entry AllocGlobal_code)) ∧
-    (lookup CopyGlobals_location t.code = SOME (stub_entry CopyGlobals_code)) ∧
-    (lookup ListLength_location t.code = SOME (stub_entry ListLength_code)) ∧
-    (lookup FromListByte_location t.code = SOME (stub_entry FromListByte_code)) ∧
-    (lookup ToListByte_location t.code = SOME (stub_entry ToListByte_code)) ∧
+    (lookup AllocGlobal_location t.code = SOME (stub_entry «AllocGlobal» AllocGlobal_code)) ∧
+    (lookup CopyGlobals_location t.code = SOME (stub_entry «CopyGlobals» CopyGlobals_code)) ∧
+    (lookup ListLength_location t.code = SOME (stub_entry «ListLength» ListLength_code)) ∧
+    (lookup FromListByte_location t.code = SOME (stub_entry «FromListByte» FromListByte_code)) ∧
+    (lookup ToListByte_location t.code = SOME (stub_entry «ToListByte» ToListByte_code)) ∧
     (lookup SumListLength_location t.code =
-       SOME (stub_entry SumListLength_code)) ∧
-    (lookup ConcatByte_location t.code = SOME (stub_entry ConcatByte_code)) ∧
+       SOME (stub_entry «SumListLength» SumListLength_code)) ∧
+    (lookup ConcatByte_location t.code = SOME (stub_entry «ConcatByte» ConcatByte_code)) ∧
     (* (lookup InitGlobals_location t.code = SOME InitGlobals_code start) ∧ *)
     names_ok s.code t.code s.compile_oracle /\
     (!name arity exp md.
@@ -5157,7 +5157,7 @@ Proof
 QED
 
 Theorem compile_semantics:
-   compile start c names prog = (start',prog',inlines,bvi_inlines,n1,n2,n3,names') ∧
+   compile start c prog = (start',prog',inlines,bvi_inlines,n1,n2,n3) ∧
    FST (FST (co 0)) = inlines /\
    FST (SND (FST (co 0))) = n1 /\
    FST (SND (SND (FST (co 0)))) = n2 /\
@@ -5448,7 +5448,7 @@ QED
 
 
 Theorem compile_distinct_names:
-    bvl_to_bvi$compile n0 c ns p2 = (k,p3,l,bl,n1,n2,ns') /\
+    bvl_to_bvi$compile n0 c p2 = (k,p3,l,bl,n1,n2,n3) /\
    ALL_DISTINCT (MAP FST p2) /\
    c.next_name2 = bvl_num_stubs + 2 + n02 * nss
    ==>
@@ -5845,9 +5845,9 @@ QED
    so the shape matches compile_prog_get_code_labels above, widened by the
    fresh names bvi_tailrec allocates. *)
 Theorem compile_get_code_labels:
-   ∀start c names prog loc code inlines bvi_inlines n1 n2 n3 names'.
-   bvl_to_bvi$compile start c names prog =
-     (loc,code,inlines,bvi_inlines,n1,n2,n3,names') ⇒
+   ∀start c prog loc code inlines bvi_inlines n1 n2 n3.
+   bvl_to_bvi$compile start c prog =
+     (loc,code,inlines,bvi_inlines,n1,n2,n3) ⇒
    BIGUNION (set (MAP (get_code_labels o FST o SND o SND) code)) ⊆
      num_stubs + start * nss INSERT
      set (MAP FST code) ∪

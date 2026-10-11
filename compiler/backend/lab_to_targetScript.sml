@@ -239,8 +239,8 @@ End
 
 Definition get_symbols_def:
   (get_symbols pos [] = []) /\
-  (get_symbols pos ((Section k l _)::secs) =
-    let len = sec_length l 0 in (k, pos, len)::get_symbols (pos+len) secs)
+  (get_symbols pos ((Section k l (Metadata name _))::secs) =
+    let len = sec_length l 0 in (name, pos, len)::get_symbols (pos+len) secs)
 End
 
 (* Compute the labels whose second part is 0 *)
@@ -359,7 +359,7 @@ End
 Datatype:
   config = <|
     labels : num num_map num_map
-    ; sec_pos_len : (num # num # num) list
+    ; sec_pos_len : (mlstring # num # num) list
     ; pos : num
     ; init_clock : num
     ; ffi_names : ffiname list option
