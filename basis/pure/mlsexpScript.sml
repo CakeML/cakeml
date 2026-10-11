@@ -515,6 +515,8 @@ Proof
   Induct \\ rw [] \\ simp [Once lex_aux_def]
 QED
 
+val oldind = legacyInduction.mutual_ind_from_ops (TypeBase.induction_of “:sexp”)
+
 Theorem lex_aux_sexp2tree:
   (∀x s ts depth m n indent.
      (s ≠ "" ⇒ isSpace (HD s) ∨ HD s = #")") ∧
@@ -558,7 +560,7 @@ Theorem lex_aux_sexp2tree:
                   []))) s) ts =
      (lex_aux depth s (REVERSE (FLAT (MAP to_tokens xs)) ++ ts)))
 Proof
-  Induct
+  ho_match_mp_tac oldind >> rpt conj_tac
   >-
    (simp [sexp2tree_def]
     \\ simp [str_tree_to_strs_def,v2pretty_def]
@@ -569,7 +571,7 @@ Proof
     \\ Cases_on ‘make_str_safe m’ \\ simp []
      \\ disch_then $ qspec_then ‘m’ mp_tac \\ simp [])
   >-
-   (rpt gen_tac \\ strip_tac
+   (rpt gen_tac >> strip_tac >> rpt gen_tac \\ strip_tac
     \\ simp [sexp2tree_def]
     \\ once_rewrite_tac [v2pretty_def]
     \\ simp [annotate_def,remove_all_def,smart_remove_def]
@@ -597,6 +599,7 @@ Proof
     \\ simp [v2pretty_def]
     \\ simp [newlines_def,annotate_def,smart_remove_def,
              remove_all_def,flatten_def,concat_def])
+  \\ rpt gen_tac \\ strip_tac
   \\ Cases_on ‘xs’ \\ fs []
   \\ simp [REVERSE_APPEND,sexp2tree_def]
   \\ once_rewrite_tac [v2pretty_def |> cj 2] \\ simp []
@@ -640,7 +643,7 @@ Theorem lex_aux_sexp_to_list:
      lex_aux depth (explode (concat (append (sexps_to_app_list xs))) ++ s) ts =
      lex_aux depth s (REVERSE (FLAT (MAP (λx. to_tokens x) xs)) ++ ts))
 Proof
-  Induct
+  ho_match_mp_tac oldind >> rpt conj_tac >> strip_tac
   >-
    (fs [to_tokens_def]
     \\ simp [sexp_to_app_list_def,concat_def]
