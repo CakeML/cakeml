@@ -78,6 +78,7 @@ evaluation. Declarations given as `Inr` are used as built, so they may bind
 names that CakeML syntax cannot express; their diagnostics show locations but
 no source text. For example, enter these declarations in the CakeML REPL:
 
+    $ ./cake --repl
     val pending = Ref (Some [Ast.Dlet Ast.Nolocs (Ast.Pvar "answer")
       (Ast.Lit (Ast.Intlit 42))]);
     fun read_ast () =
