@@ -21,7 +21,7 @@ Datatype:
   state =
     <| locals      : varname |-> 'a word_lab
      ; globals     : 5 word  |-> 'a word_lab
-     ; code        : funname |-> (varname list # ('a crepLang$prog))
+     ; code        : funname |-> (varname list # (crepLang$prog))
      ; memory      : 'a word -> 'a word_lab
      ; memaddrs    : ('a word) set
      ; sh_memaddrs    : ('a word) set
@@ -89,7 +89,7 @@ Definition crep_op_def:
 End
 
 Definition eval_def:
-  (eval (s:('a,'ffi) crepSem$state) ((Const w):'a crepLang$exp) = SOME (Word w)) ∧
+  (eval (s:('a,'ffi) crepSem$state) ((Const i):crepLang$exp) = SOME (Word (i2w i))) ∧
   (eval s (Var v) = FLOOKUP s.locals v) ∧
   (eval s (Load addr) =
     case eval s addr of
@@ -137,9 +137,8 @@ Definition eval_def:
   (eval s TopAddr =
         SOME (Word s.top_addr))
 Termination
-  wf_rel_tac `measure (exp_size ARB o SND)`
+  wf_rel_tac `measure (exp_size o SND)`
   \\ rpt strip_tac \\ imp_res_tac MEM_IMP_exp_size
-  \\ TRY (first_x_assum (assume_tac o Q.SPEC `ARB`))
   \\ decide_tac
 End
 
@@ -239,7 +238,7 @@ Definition exit_loop_def[simp]:
 End
 
 Definition evaluate_def:
-  (evaluate (Skip:'a crepLang$prog,^s) = (NONE,s)) /\
+  (evaluate (Skip:crepLang$prog,^s) = (NONE,s)) /\
   (evaluate (Dec v e prog, s) =
     case (eval s e) of
      | SOME value =>
@@ -329,7 +328,7 @@ Definition evaluate_def:
     case OPT_MMAP (eval s) es of
      | SOME ws => (SOME (Return ws),empty_locals s)
      | _ => (SOME Error,s)) /\
- (evaluate (Raise eid,s) = (SOME (Exception eid), empty_locals s)) /\
+ (evaluate (Raise eid,s) = (SOME (Exception (i2w eid)), empty_locals s)) /\
  (evaluate (Tick,s) =
    if s.clock = 0 then (SOME TimeOut,empty_locals s)
    else (NONE,dec_clock s)) /\
@@ -359,7 +358,7 @@ Definition evaluate_def:
                     | NONE    => (SOME (Exception eid),empty_locals st)
                     | SOME (_, NONE) => (SOME (Exception eid),empty_locals st)
                     | SOME (_, SOME (eid', p)) =>
-                      if eid = eid' then
+                      if eid = i2w eid' then
                         evaluate (p, st with locals := s.locals)
                       else (SOME (Exception eid), empty_locals st))
               | (res,st) => (res,empty_locals st)))
@@ -379,15 +378,11 @@ Definition evaluate_def:
         | _ => (SOME Error,s))
      | res => (SOME Error,s))
 Termination
-  wf_rel_tac `(inv_image (measure I LEX measure (prog_size (K 0)))
+  wf_rel_tac `(inv_image (measure I LEX measure prog_size)
                (\(xs,^s). (s.clock,xs)))` >>
-  rpt strip_tac >> TRY (full_simp_tac(srw_ss())[] >> DECIDE_TAC) >>
-  imp_res_tac fix_clock_IMP_LESS_EQ >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac (GSYM fix_clock_IMP_LESS_EQ) >>
-  full_simp_tac(srw_ss())[set_var_def,set_globals_def,upd_locals_def,dec_clock_def, LET_THM] >>
-  rpt (pairarg_tac >> full_simp_tac(srw_ss())[]) >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >>
-  decide_tac
+  rw [] >>
+  gvs [set_var_def, set_globals_def, upd_locals_def, dec_clock_def,
+       UNCURRY_eq_pair, oneline fix_clock_def, AllCaseEqs()]
 End
 
 Theorem clock_eq_simp[local,simp]:

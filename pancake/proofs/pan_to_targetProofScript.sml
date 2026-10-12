@@ -1419,8 +1419,7 @@ Proof
     qpat_x_assum ‘Abbrev (wprog0 = _)’
                  (assume_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def])>>
     (* labels_ok *)
-    drule_all (INST_TYPE [beta|->alpha,gamma|->beta,
-                          “:δ”|->gamma,“:ε”|->alpha] pan_to_lab_labels_ok)>>
+    drule_all pan_to_lab_labels_ok>>
     strip_tac>>gs[]>>
     (* all_enc_ok_pre mc.target.config lprog *)
     ‘byte_offset_ok mc.target.config 0’
@@ -2431,6 +2430,11 @@ Proof
   qpat_x_assum ‘_ ≤ max_heap’ assume_tac>>
   qpat_x_assum ‘max_heap * _ < _’ assume_tac>>
   blastLib.BBLAST_TAC>>
+  POP_ASSUM_LIST (fn hs =>
+    MAP_EVERY assume_tac (List.rev (List.filter (fn h =>
+      List.all (fn v => List.exists (aconv v)
+        [``w2:'a word``, ``w3:'a word``, ``w4:'a word``, ``max_heap:num``])
+        (free_vars (concl h))) hs)))>>
   rewrite_tac[SUC_ONE_ADD]>>
 
   rewrite_tac[Once (GSYM WORD_ADD_ASSOC)]>>

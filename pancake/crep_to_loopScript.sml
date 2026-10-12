@@ -36,7 +36,7 @@ Definition prog_if_def:
    p ++ q ++ [
     Assign n e; Assign m e';
     If cmp n (Reg m)
-    (Assign n (Const 1w)) (Assign n (Const 0w)) (list_insert [n; m] l)]
+    (Assign n (Const 1)) (Assign n (Const 0)) (list_insert [n; m] l)]
 End
 
 Definition compile_crepop_def:
@@ -48,9 +48,9 @@ Definition compile_crepop_def:
 End
 
 Definition compile_exp_def:
-  (compile_exp ctxt tmp l ((BaseAddr):'a crepLang$exp) = ([], BaseAddr, tmp, l)) /\
-  (compile_exp ctxt tmp l ((TopAddr):'a crepLang$exp) = ([], TopAddr, tmp, l)) /\
-  (compile_exp ctxt tmp l ((Const c):'a crepLang$exp) = ([], Const c, tmp, l)) /\
+  (compile_exp ctxt tmp l ((BaseAddr):crepLang$exp) = ([], BaseAddr, tmp, l)) /\
+  (compile_exp ctxt tmp l ((TopAddr):crepLang$exp) = ([], TopAddr, tmp, l)) /\
+  (compile_exp ctxt tmp l ((Const c):crepLang$exp) = ([], Const c, tmp, l)) /\
   (compile_exp ctxt tmp l (Var v) = ([], Var (find_var ctxt v), tmp, l)) /\
   (compile_exp ctxt tmp l (Load ad) =
    let (p, le, tmp, l) = compile_exp ctxt tmp l ad in (p, Load le, tmp, l)) /\
@@ -88,14 +88,9 @@ Definition compile_exp_def:
       (p ++ p1, le::les, tmp, l))
 Termination
   wf_rel_tac ‘measure (\x. case ISR x of
-                       | T => list_size (crepLang$exp_size ARB) (SND(SND(SND (OUTR x))))
-                       | F => crepLang$exp_size ARB (SND(SND(SND (OUTL x)))))’ >>
-  rw [] >>
-  TRY (rw [list_size_def,
-           crepLangTheory.exp_size_def] >> NO_TAC) >>
-  qid_spec_tac ‘es’ >>
-  Induct >> rw [] >>
-  fs [list_size_def, crepLangTheory.exp_size_def]
+                       | T => list_size (crepLang$exp_size) (SND(SND(SND (OUTR x))))
+                       | F => crepLang$exp_size (SND(SND(SND (OUTL x)))))’ >>
+  rw []
 End
 
 Definition gen_temps_def:
@@ -118,7 +113,7 @@ Definition rt_vars_def:
 End
 
 Definition compile_def:
-  (compile _ _ (Skip:'a crepLang$prog) = (Skip:'a loopLang$prog)) /\
+  (compile _ _ (Skip:crepLang$prog) = (Skip:loopLang$prog)) /\
   (compile _ _ (Break n) = (Break n)) /\
   (compile _ _ (Continue n) = (Continue n)) /\
   (compile _ _ Tick = Tick) /\
@@ -200,7 +195,7 @@ Definition compile_def:
                   | NONE => Raise en
                   | SOME (eid, ep) =>
                     let cpe = compile ctxt l ep in
-                      (If NotEqual en (Imm (w2i eid)) (Raise en) (Seq Tick cpe) l)
+                      (If NotEqual en (Imm eid) (Raise en) (Seq Tick cpe) l)
            in (SOME (rns, l), SOME (en, pe, Skip, l))
    in
       nested_seq (p ++ MAP2 Assign nargs les ++ [Call rt1 (SOME dest) nargs rt2])) /\
@@ -261,6 +256,6 @@ Definition compile_prog_def:
    MAP2 (λn (name, params, body).
          (n,
           (GENLIST I o LENGTH) params,
-          loop_live$optimise (comp params (crep_arith$simp_prog body))))
+          loop_live$optimise (comp params (crep_arith$simp_prog (arch_wordsize target) body))))
    fnums prog
 End

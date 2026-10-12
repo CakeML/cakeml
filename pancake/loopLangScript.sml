@@ -13,7 +13,7 @@ Libs
 Type shift = ``:ast$shift``
 
 Datatype:
-  exp = Const ('a word)
+  exp = Const int
       | Var num
       | Lookup (5 word)
       | Load exp
@@ -29,11 +29,11 @@ End
 
 Datatype:
   prog = Skip
-       | Assign num ('a exp)           (* dest, source *)
+       | Assign num exp           (* dest, source *)
        | Primitive (num list) panLang$primop (num list)
        | Arith loop_arith
-       | Store ('a exp) num            (* dest, source *)
-       | SetGlobal (5 word) ('a exp)   (* dest, source *)
+       | Store exp num            (* dest, source *)
+       | SetGlobal (5 word) exp   (* dest, source *)
        | Load32 num num                (* TODISC: have removed imm, why num num? *)
        | LoadByte num num              (* TODISC: have removed imm, why num num? *)
        | Store32 num num
@@ -45,7 +45,7 @@ Datatype:
        | Continue num
        | Raise num
        | Return (num list)
-       | ShMem memop num ('a exp)
+       | ShMem memop num exp
        | Tick
        | Mark prog
        | Fail
@@ -62,7 +62,7 @@ Datatype:
 End
 
 Theorem MEM_IMP_exp_size:
-   !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)
+   !xs a. MEM a xs ==> (exp_size a < exp1_size xs)
 Proof
   Induct \\ FULL_SIMP_TAC (srw_ss()) []
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] [definition"exp_size_def"]
@@ -84,10 +84,9 @@ Definition locals_touched_def:
   (locals_touched BaseAddr = []) ∧
   (locals_touched TopAddr = [])
 Termination
-  wf_rel_tac `measure (\e. exp_size ARB e)` >>
+  wf_rel_tac `measure (\e. exp_size e)` >>
   rpt strip_tac >>
   imp_res_tac MEM_IMP_exp_size >>
-  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
   decide_tac
 End
 

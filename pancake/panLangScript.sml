@@ -47,7 +47,7 @@ Datatype:
 End
 
 Datatype:
-  exp = Const ('a word)
+  exp = Const int
       | Var varkind varname
       | RStruct (exp list)
       | RField index exp
@@ -75,26 +75,26 @@ End
 
 Datatype:
   prog = Skip
-       | Dec varname shape ('a exp) prog
-       | Assign varkind varname ('a exp)  (* dest, source *)
-       | Primitive varname primop ('a exp list)
+       | Dec varname shape exp prog
+       | Assign varkind varname exp  (* dest, source *)
+       | Primitive varname primop (exp list)
          (* Primitives directly target constructs in wordLang. *)
-       | Store     ('a exp) ('a exp) (* dest, source *)
-       | Store32   ('a exp) ('a exp) (* dest, source *)
-       | StoreByte ('a exp) ('a exp) (* dest, source *)
+       | Store     exp exp (* dest, source *)
+       | Store32   exp exp (* dest, source *)
+       | StoreByte exp exp (* dest, source *)
        | Seq prog prog
-       | If    ('a exp) prog prog
-       | While ('a exp) prog
+       | If    exp prog prog
+       | While exp prog
        | Break
        | Continue
-       | Call (((varkind # varname) option # ((eid # varname # prog) option)) option) funname (('a exp) list)
-       | DecCall varname shape funname ('a exp list) prog
-       | ExtCall funname ('a exp) ('a exp) ('a exp) ('a exp)
+       | Call (((varkind # varname) option # ((eid # varname # prog) option)) option) funname (exp list)
+       | DecCall varname shape funname (exp list) prog
+       | ExtCall funname exp exp exp exp
          (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
-       | Raise eid ('a exp)
-       | Return ('a exp)
-       | ShMemLoad opsize varkind varname ('a exp)
-       | ShMemStore opsize ('a exp) ('a exp)
+       | Raise eid exp
+       | Return exp
+       | ShMemLoad opsize varkind varname exp
+       | ShMemStore opsize exp exp
        | Tick
        | Annot mlstring mlstring
 End
@@ -105,14 +105,14 @@ Datatype:
    ; inline      : bool
    ; export      : bool
    ; params      : (varname # shape) list
-   ; body        : 'a prog
+   ; body        : prog
    ; return      : shape
   |>
 End
 
 Datatype:
-  decl = Function ('a fun_decl)
-       | Decl shape mlstring ('a exp)
+  decl = Function fun_decl
+       | Decl shape mlstring exp
        | ExnDecl eid shape
        | Name stcname ((fldname # shape) list)
 End
@@ -188,23 +188,23 @@ Definition shape_to_str_def:
 End
 
 Definition shape_val_def:
-  shape_val One = Const 0w ∧
+  shape_val One = Const 0 ∧
   shape_val (Comb shapes) = RStruct (shape_vals shapes) ∧
-  shape_val (Named nm) = Const 0w (* should never happen *) ∧
+  shape_val (Named nm) = Const 0 (* should never happen *) ∧
   shape_vals [] = [] ∧
   shape_vals (sh::shs) = shape_val sh :: shape_vals shs
 End
 
 Theorem MEM_IMP_exp_size:
-  (!xs a. MEM a xs ==> (exp_size l a < exp3_size l xs)) ∧
-  (!xs a. MEM a xs ==> (exp_size l (SND a) < exp1_size l xs))
+  (!xs a. MEM a xs ==> (exp_size a < exp3_size xs)) ∧
+  (!xs a. MEM a xs ==> (exp_size (SND a) < exp1_size xs))
 Proof
-  rpt conj_tac \\ Induct \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ REPEAT STRIP_TAC \\ SRW_TAC [] [definition"exp_size_def"]
-  \\ RES_TAC \\ TRY DECIDE_TAC
-  \\ Cases_on ‘a’
-  \\ fs [definition "exp_size_def"]
-  \\ RES_TAC \\ DECIDE_TAC
+  conj_tac
+  >- (
+    Induct >> simp [] >> rpt strip_tac >>
+    gvs [definition "exp_size_def"] >> res_tac >> decide_tac) >>
+  Induct >> simp [] >> rpt strip_tac >>
+  Cases_on ‘a’ >> gvs [definition "exp_size_def"] >> res_tac >> decide_tac
 QED
 
 
@@ -269,7 +269,7 @@ Definition var_exp_def:
   (var_exp TopAddr = []) ∧
   (var_exp BytesInWord = [])
 Termination
-  wf_rel_tac `measure (\e. exp_size ARB e)` >>
+  wf_rel_tac `measure (\e. exp_size e)` >>
     simp[MEM_MAP, EXISTS_PROD] >>
     rw [MEM_SPLIT] >>
     simp [list_size_append]
@@ -290,10 +290,9 @@ Definition global_var_exp_def:
   (global_var_exp (Cmp c e1 e2) = global_var_exp e1 ++ global_var_exp e2) ∧
   (global_var_exp (Shift sh e1 e2) = global_var_exp e1 ++ global_var_exp e2)
 Termination
-  wf_rel_tac `measure (\e. exp_size ARB e)` >>
+  wf_rel_tac `measure (\e. exp_size e)` >>
   rpt strip_tac >>
   imp_res_tac MEM_IMP_exp_size >>
-  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
   decide_tac
 End
 

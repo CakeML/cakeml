@@ -25,7 +25,7 @@ Datatype:
 End
 
 Datatype:
-  exp = Const ('a word)
+  exp = Const int
       | Var varname
       | Load exp
       | Load32 exp
@@ -41,38 +41,38 @@ End
 
 Datatype:
   prog = Skip
-       | Dec varname ('a exp) prog
-       | Assign    varname  ('a exp)   (* dest, source *)
+       | Dec varname exp prog
+       | Assign    varname  exp   (* dest, source *)
        | Primitive (varname list) panLang$primop (varname list)
          (* Since pan_to_crep invents variable names already, we use variables
             on the RHS (instead of expressions) to piggy-back off of that. *)
-       | Store     ('a exp) ('a exp)   (* dest, source *)
-       | Store32 ('a exp) ('a exp)   (* dest, source *)
-       | StoreByte ('a exp) ('a exp)   (* dest, source *)
-       | StoreGlob (5 word) ('a exp)   (* dest, source *)
+       | Store     exp exp   (* dest, source *)
+       | Store32 exp exp   (* dest, source *)
+       | StoreByte exp exp   (* dest, source *)
+       | StoreGlob (5 word) exp   (* dest, source *)
        | Seq prog prog
-       | If    ('a exp) prog prog
-       | While ('a exp) prog
+       | If    exp prog prog
+       | While exp prog
        | Break num
        | Continue num
-       | Call (((varname list) # ((('a word) # prog) option)) option)
-              funname (('a exp) list)
+       | Call (((varname list) # ((int # prog) option)) option)
+              funname (exp list)
        | ExtCall funname varname varname varname varname
-       | Raise ('a word)
-       | Return (('a exp) list)
-       | ShMem memop varname ('a exp)
+       | Raise int
+       | Return (exp list)
+       | ShMem memop varname exp
        | Tick;
 End
 
 (* NONE is Tail *)
-(* SOME (((varname option) # prog # ((('a word) # prog) option))) is Ret *)
-(* (('a word) # prog) is handler *)
+(* SOME (((varname option) # prog # ((int # prog) option))) is Ret *)
+(* (int # prog) is handler *)
 
 (* we can make return varaiable an option, but then might not be able to
    compile to loopLang *)
 
 Theorem MEM_IMP_exp_size:
-   !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)
+   !xs a. MEM a xs ==> (exp_size a < exp1_size xs)
 Proof
   Induct \\ FULL_SIMP_TAC (srw_ss()) []
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] [definition"exp_size_def"]
@@ -80,10 +80,10 @@ Proof
 QED
 
 Definition load_shape_def:
-  (load_shape a 0 e = []) ∧
-  (load_shape a (SUC i) e =
-     if a = 0w then (Load e) :: load_shape (a + byte$bytes_in_word) i e
-     else (Load (Op Add [e; Const a])) :: load_shape (a + byte$bytes_in_word) i e)
+  (load_shape aw a 0 e = []) ∧
+  (load_shape aw a (SUC i) e =
+     if a = 0 then (Load e) :: load_shape aw (a + &(arch_bytes aw)) i e
+     else (Load (Op Add [e; Const a])) :: load_shape aw (a + &(arch_bytes aw)) i e)
 End
 
 Definition nested_seq_def:
@@ -93,10 +93,10 @@ End
 
 
 Definition stores_def:
-  (stores ad [] a = []) /\
-  (stores ad (e::es) a =
-     if a = 0w then Store ad e :: stores ad es (a + byte$bytes_in_word)
-     else Store (Op Add [ad; Const a]) e :: stores ad es (a + byte$bytes_in_word))
+  (stores aw ad [] a = []) /\
+  (stores aw ad (e::es) a =
+     if a = 0 then Store ad e :: stores aw ad es (a + &(arch_bytes aw))
+     else Store (Op Add [ad; Const a]) e :: stores aw ad es (a + &(arch_bytes aw)))
 End
 
 Definition nested_decs_def:
@@ -139,10 +139,9 @@ Definition var_cexp_def:
   (var_cexp BaseAddr = []) ∧
   (var_cexp TopAddrl = [])
 Termination
-  wf_rel_tac `measure (\e. exp_size ARB e)` >>
+  wf_rel_tac `measure (\e. exp_size e)` >>
   rpt strip_tac >>
   imp_res_tac MEM_IMP_exp_size >>
-  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
   decide_tac
 End
 
@@ -204,10 +203,9 @@ Definition exps_def:
   (exps BaseAddr = [BaseAddr]) ∧
   (exps TopAddr = [TopAddr])
 Termination
-  wf_rel_tac `measure (\e. exp_size ARB e)` >>
+  wf_rel_tac `measure (\e. exp_size e)` >>
   rpt strip_tac >>
   imp_res_tac MEM_IMP_exp_size >>
-  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
   decide_tac
 End
 
