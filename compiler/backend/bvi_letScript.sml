@@ -59,6 +59,8 @@ Definition delete_var_def:
   (delete_var x = x)
 End
 
+Overload exp2_size[local] = “list_size exp_size”
+
 Theorem exp2_size_APPEND:
    !xs ys. exp2_size (xs++ys) = exp2_size xs + exp2_size ys
 Proof
@@ -108,7 +110,7 @@ Definition compile_def:
      [LetCall rets t dest (compile env d xs)
         (HD (compile (REPLICATE rets 0 ++ env) d [y]))])
 Termination
-  WF_REL_TAC `measure (bvi$exp2_size o SND o SND)`
+  WF_REL_TAC `measure (list_size bvi$exp_size o SND o SND)`
   \\ rw [] \\ fs [LENGTH_NIL]
   \\ imp_res_tac (METIS_PROVE [SNOC_CASES] ``m <> [] ==> ?x y. m = SNOC x y``)
   \\ full_simp_tac std_ss [LAST_SNOC,LENGTH_SNOC,FRONT_SNOC]

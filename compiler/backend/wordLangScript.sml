@@ -21,6 +21,7 @@ Datatype:
 End
 
 Overload ShiftN = “λsh e n. Shift sh e (Const (n2w n))”;
+Overload exp1_size[local] = “λl el. list_size (exp_size l) el”
 
 Theorem MEM_IMP_exp_size:
    !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)

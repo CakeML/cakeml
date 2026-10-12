@@ -171,13 +171,6 @@ Termination
   \\ rw [] \\ fs [basicSizeTheory.pair_size_def]
 End
 
-Theorem exp1_size_lemma:
-  !fns n x. MEM (n,x) fns ==> exp_size x < exp1_size fns
-Proof
-  Induct \\ fs [FORALL_PROD,exp_size_def] \\ REPEAT STRIP_TAC
-  \\ RES_TAC \\ SRW_TAC [] [] \\ DECIDE_TAC
-QED
-
 Definition pure_op_def:
   pure_op op ⇔
     case op of
