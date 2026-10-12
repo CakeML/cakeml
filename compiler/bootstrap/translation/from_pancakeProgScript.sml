@@ -34,6 +34,40 @@ Proof
   Cases_on `x` \\ rw[]
 QED
 
+Definition pancake_log2_def:
+  pancake_log2 n =
+    if n < 2 then 0 else SUC (pancake_log2 (n DIV 2))
+End
+
+Theorem pancake_log2_correct[local]:
+  0 < n ==> pancake_log2 n = LOG2 n
+Proof
+  completeInduct_on `n`
+  \\ rw [Once pancake_log2_def]
+  >- (
+    `n = 1` by decide_tac
+    \\ simp[]
+  )
+  \\ `0 < n DIV 2 /\ n DIV 2 < n` by
+       simp[bitTheory.DIV_GT0, arithmeticTheory.DIV_LESS]
+  \\ `pancake_log2 (n DIV 2) = LOG2 (n DIV 2)` by metis_tac[]
+  \\ `LOG2 n = SUC (LOG2 (n DIV 2))` by (
+    mp_tac (Q.SPECL [`2`,`n`] logrootTheory.LOG_RWT)
+    \\ simp[GSYM bitTheory.LOG2_def]
+  )
+  \\ simp[]
+QED
+
+Theorem dest_2exp_pancake_log2[local]:
+  dest_2exp n w =
+    if w = 0 then NONE
+    else if w = 2 ** pancake_log2 w then SOME (n + pancake_log2 w)
+    else NONE
+Proof
+  Cases_on `w = 0`
+  \\ simp[dest_2exp_def,pancake_log2_correct]
+QED
+
 val extra_preprocessing = ref [MEMBER_INTRO,MAP,parserProgTheory.OPTION_BIND_THM,option_map_thm];
 
 fun preprocess def =
@@ -300,9 +334,24 @@ val _ = translate $ loop_liveTheory.optimise_def;
 
 val _ = translate $ crep_arithTheory.dest_const_def;
 
-val _ = translate $ crep_arithTheory.dest_2exp_def;
+val _ = translate pancake_log2_def;
+
+val _ = translate dest_2exp_pancake_log2;
 
 val _ = translate $ crep_arithTheory.mul_const_def;
+
+Theorem crep_arith_mul_const_side_total[local]:
+  ∀aw e c. crep_arith_mul_const_side aw e c
+Proof
+  simp [fetch "-" "crep_arith_mul_const_side_def",
+        integerTheory.INT_MOD_BOUNDS]
+  \\ rpt gen_tac
+  \\ mp_tac (Q.SPECL [`c`, `&(2 ** arch_width_bits aw)`]
+               integerTheory.INT_MOD_BOUNDS)
+  \\ simp[]
+QED
+
+val _ = update_precondition crep_arith_mul_const_side_total;
 
 val _ = translate $ crep_arithTheory.simp_exp_def;
 
@@ -447,7 +496,7 @@ val res = panPtreeConversionTheory.conv_Exp_def
   |> time translate_no_ind
 
 Theorem panptreeconversion_conv_arglist_ind[local]:
-  panptreeconversion_conv_arglist_ind
+  panptreeconversion_conv_arglist_ind (:'b)
 Proof
   ONCE_REWRITE_TAC [fetch "-" "panptreeconversion_conv_arglist_ind_def"]
   >> rpt gen_tac
