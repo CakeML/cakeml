@@ -12,6 +12,8 @@ The monadic translator now targets CakeML's byte arrays for arrays of type word8
 
 The monadic translator also has new support for space-efficient bool arrays represented as byte arrays (#1498).
 
+The compiler now supports unsafe strsub (#1538).
+
 ## Basis library
 
 The shift and rotate functions `<<`, `>>`, `~>>` and `ror` in the `Word8` and
