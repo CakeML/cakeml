@@ -42,6 +42,8 @@ Definition trace_to_json_def:
   (trace_to_json None = Null)
 End
 
+Overload sExp1_size = “list_size sExp_size”
+
 Theorem MEM_sExp_size:
   !es a. MEM a es ==> sExp_size a < sExp1_size es
 Proof
