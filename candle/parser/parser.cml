@@ -1,0 +1,11 @@
+(*
+  CandleParser.parse, the string entry point of the parser: Ast declarations
+  or a located error, with no I/O or state.
+*)
+structure CandleParser = struct
+  open CandleLocation;
+  fun parse input = case CandleFrontEnd.parse_tree input of
+      Inl error => Inl error
+    | Inr [pt] => CandleDeclarations.ptree_Start pt
+    | Inr _ => Inl (CandleSupport.unknown_loc,"Impossible: run_parser");
+end;

@@ -38,6 +38,17 @@ val _ = export_rewrites [
 
 (* ----------- Basic stuff ----------- *)
 
+Theorem type_d_tids_disjoint:
+  (!b tenv d tids tenv'.
+   type_d b tenv d tids tenv' ==>
+     DISJOINT tids (set (Tlist_num::Tbool_num::prim_type_nums))) /\
+  (!b tenv ds tids tenv'.
+   type_ds b tenv ds tids tenv' ==>
+     DISJOINT tids (set (Tlist_num::Tbool_num::prim_type_nums)))
+Proof
+  ho_match_mp_tac type_d_ind >> rw []
+QED
+
 Theorem unchanged_tenv[simp]:
   !(tenv : type_env).
   <| v := tenv.v; c := tenv.c; t := tenv.t |> = tenv
@@ -1883,6 +1894,41 @@ Proof
   rw [MEM_MAP] >>
   pairarg_tac >>
   fs []
+QED
+
+Theorem type_def_to_ctMap_preserves:
+  LENGTH tds = LENGTH tids /\
+  ctMap SUBMAP
+    (FUNION (FEMPTY |++ REVERSE (type_def_to_ctMap tenvT next tds tids)) ctMap)
+  ==>
+  preserves_datatype_signatures (set tids) ctMap
+    (FUNION (FEMPTY |++ REVERSE (type_def_to_ctMap tenvT next tds tids)) ctMap)
+Proof
+  strip_tac >>
+  irule preserves_datatype_signatures_funion >>
+  simp [] >>
+  rw [flookup_fupdate_list] >>
+  Cases_on `ALOOKUP (type_def_to_ctMap tenvT next tds tids) (TypeStamp cn n)` >>
+  gvs [] >>
+  drule_all type_def_to_ctMap_mem >> simp []
+QED
+
+Theorem type_def_to_ctMap_new_signature:
+  DISJOINT (set tids) (FRANGE ((SND o SND) o_f ctMap)) /\
+  MEM ti tids ==>
+  datatype_signature
+    (FUNION (FEMPTY |++ REVERSE (type_def_to_ctMap tenvT next tds tids)) ctMap)
+    ti =
+  datatype_signature (FEMPTY |++ REVERSE (type_def_to_ctMap tenvT next tds tids)) ti
+Proof
+  strip_tac >>
+  irule datatype_signature_funion_new >>
+  REWRITE_TAC [datatype_signature_empty] >>
+  rpt gen_tac >> strip_tac >>
+  `ti IN FRANGE ((SND o SND) o_f ctMap)` by (
+    simp [IN_FRANGE_FLOOKUP, FLOOKUP_o_f] >>
+    qexists_tac `TypeStamp cn n` >> simp []) >>
+  fs [IN_DISJOINT] >> metis_tac []
 QED
 
 Theorem fupdate2_union[local]:

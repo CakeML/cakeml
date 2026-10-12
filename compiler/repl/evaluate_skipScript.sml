@@ -6,7 +6,7 @@
 Theory evaluate_skip
 Ancestors
   evaluate semanticPrimitives evaluateProps namespaceProps
-  ml_prog
+  ml_prog ml_translator
 Libs
   preamble helperLib[qualified]
 
@@ -2735,4 +2735,36 @@ Proof
   \\ first_assum (irule_at Any) \\ rw []
   \\ irule env_rel_extend_dec_env \\ gs []
   \\ drule_all env_rel_update \\  gs []
+QED
+
+(* Data without closures has a unique image under fixed renaming maps. *)
+Theorem v_rel_no_closures_functional:
+  !value. no_closures value ==>
+    !fr ft fe left right.
+      v_rel fr ft fe value left /\ v_rel fr ft fe value right ==>
+      left = right
+Proof
+  ho_match_mp_tac no_closures_ind >> rw [Once no_closures_def] >>
+  fs [v_rel_def] >> gvs [Once no_closures_def]
+  >~ [‘tag1 = tag2 /\ fields1 = fields2’] >- (
+    ‘tag1 = tag2’ by (
+      qmatch_asmsub_rename_tac ‘OPTREL (stamp_rel ft fe) tag tag1’ >>
+      Cases_on ‘tag’ >> gvs [OPTREL_def, stamp_rel_cases]) >>
+    simp [] >> fs [LIST_REL_EL_EQN, EVERY_MEM] >>
+    irule LIST_EQ >> simp [] >> rw [] >> metis_tac [MEM_EL]) >>
+  fs [LIST_REL_EL_EQN, EVERY_MEM] >>
+  irule LIST_EQ >> simp [] >> rw [] >> metis_tac [MEM_EL]
+QED
+
+(* A successful physical write has a matching write in the clean store. *)
+Theorem state_rel_store_assign_success:
+  state_rel l fr ft fe s t /\ FLOOKUP fr n = SOME m /\
+  ref_rel (v_rel fr ft fe) value physical_value /\
+  store_assign m physical_value t.refs = SOME physical_refs ==>
+  ?refs. store_assign n value s.refs = SOME refs /\
+    state_rel l fr ft fe (s with refs := refs)
+      (t with refs := physical_refs)
+Proof
+  rw [] >> drule_all state_rel_store_assign >>
+  simp [OPTREL_def]
 QED

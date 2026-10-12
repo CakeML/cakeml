@@ -13,6 +13,10 @@ Libs
 
 val _ = translation_extends "to_target32Prog";
 
+(* TODO: OPTION_BIND belongs in the basis. The 64-bit chain gets its
+   translation from printingProg, which the 32-bit chain does not extend. *)
+val r = translate OPTION_BIND_def;
+
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "from_pancake32Prog");
 val _ = ml_translatorLib.use_sub_check true;
 

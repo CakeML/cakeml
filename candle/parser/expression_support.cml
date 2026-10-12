@@ -1,0 +1,90 @@
+(*
+  Expression lowering helpers. Ast.Ident is the runtime spelling of HOL's
+  Var.
+*)
+structure CandleExpressionSupport = struct
+  open CandlePatterns;
+  fun compatCurryE id e = case id of
+      Ast.Long mn vn =>
+        if mn = "PrettyPrinter" andalso vn = Ast.Short "PP_Data" then
+          (case e of Ast.Con None xs => Ast.Con (Some id) xs
+           | _ => Ast.Con (Some id) [e])
+        else Ast.Con (Some id) [e]
+    | Ast.Short nm =>
+        if member nm ["Abs","Var","Const","Comb","Tyapp","Sequent","Append"] then
+          (case e of Ast.Con None xs => Ast.Con (Some id) xs
+           | _ => Ast.Con (Some id) [e])
+        else if nm = "Ref" then Ast.App Ast.Opref [e]
+        else Ast.Con (Some id) [e];
+  fun build_binop s x y = if s = "&&" then Ast.Log Ast.Andalso x y
+    else if s = "||" then Ast.Log Ast.Orelse x y
+    else Ast.App Ast.Opapp [Ast.App Ast.Opapp [Ast.Ident (Ast.Short s),x],y];
+  fun build_list_exp xs = List.foldr (fn t => fn e =>
+      Ast.Con (Some (Ast.Short "::")) [t,e]) (Ast.Con (Some (Ast.Short "[]")) []) xs;
+  fun build_funapp f xs = List.foldl (fn b => fn a => case a of
+      Ast.Ident (Ast.Short "raise") => Ast.Raise b
+    | _ => Ast.App Ast.Opapp [a,b]) f xs;
+  fun mk_record_update_name field cons = "{record_update(" ^ cons ^ "." ^ field ^ ")}";
+  fun id_map f id = case id of Ast.Long mn vn => Ast.Long mn (id_map f vn)
+    | Ast.Short nm => Ast.Short (f nm);
+  fun build_record_upd cons b pair = case pair of (f,x) =>
+    Ast.App Ast.Opapp [Ast.App Ast.Opapp
+      [Ast.Ident (id_map (mk_record_update_name f) cons),b],x];
+  fun mk_record_proj_name field cons = "{record_projection(" ^ cons ^ "." ^ field ^ ")}";
+  fun build_record_proj cons f x = Ast.App Ast.Opapp
+    [Ast.Ident (id_map (mk_record_proj_name f) cons),x];
+  fun mk_record_constr_name cons fields = String.concat
+    (["{record_constructor(",cons,")"] @ List.map (fn f => "(" ^ f ^ ")") fields @ ["}"]);
+  fun build_record_cons_id fields path = case path of
+      [] => Inl (unknown_loc,"build_record_cons_id: empty path")
+    | [cn] => Inr (Ast.Short (mk_record_constr_name cn fields))
+    | c::cs => fmap (fn id => Ast.Long c id) (build_record_cons_id fields cs);
+  fun build_record_cons path upds =
+    let val sorted = List.sort (fn (f,_) => fn (g,_) => String.< f g) upds
+    in fmap (fn id => build_funapp (Ast.Ident id) (List.map (fn (_,e) => e) sorted))
+      (build_record_cons_id (List.map (fn (f,_) => f) sorted) path) end;
+  fun mk_record_match_aux recv cons body fields = case fields of [] => body
+    | f::fs => Ast.Let (Some f) (build_record_proj cons f (Ast.Ident (Ast.Short recv)))
+        (mk_record_match_aux recv cons body fs);
+  fun mk_record_match cons fs recv body = Ast.Mat (Ast.Ident (Ast.Short recv))
+    [(Ast.Pcon (Some cons) [Ast.Pany],mk_record_match_aux recv cons body fs)];
+  fun build_fun_lam body pats = List.foldr (fn p => fn b => case p of
+      Inl (c,fs) => Ast.Fun "" (mk_record_match c fs "" b)
+    | Inr (Ast.Pvar x) => Ast.Fun x b
+    | Inr p => Ast.Fun "" (Ast.Mat (Ast.Ident (Ast.Short "")) [(p,b)])) body pats;
+  fun build_letrec binds = List.map (fn (f,ps,x) => case ps of
+      [] => (f,("",Ast.App Ast.Opapp [x,Ast.Ident (Ast.Short "")]))
+    | Inl (c,fs)::rest => (f,("",mk_record_match c fs "" (build_fun_lam x rest)))
+    | Inr (Ast.Pvar v)::rest => (f,(v,build_fun_lam x rest))
+    | Inr p::rest => (f,("",Ast.Mat (Ast.Ident (Ast.Short "")) [(p,build_fun_lam x rest)]))) binds;
+  (* Wraps body in binds, the first binding outermost. *)
+  fun build_lets body binds = List.foldr (fn b => fn rest => case b of
+      Inl (Inl (c,fs),x) => Ast.Let (Some " r") x (mk_record_match c fs " r" rest)
+    | Inl (Inr (Ast.Pvar v),x) => Ast.Let (Some v) x rest
+    | Inl (Inr Ast.Pany,x) => Ast.Let None x rest
+    | Inl (Inr p,x) => Ast.Mat x [(p,rest)]
+    | Inr (f,ps,bd) => Ast.Let (Some f) (build_fun_lam bd ps) rest) body binds;
+  fun build_match_row mvar row = case row of
+      (Inl (c,fs),x) => (Ast.Pcon (Some c) [Ast.Pany],mk_record_match c fs mvar x)
+    | (Inr p,x) => (p,x);
+  fun smartMat mvar rows = case rows of [(Inr Ast.Pany,y)] => y
+    | _ => Ast.Mat (Ast.Ident (Ast.Short mvar)) (List.map (build_match_row mvar) rows);
+  fun build_pmatch mvar acc rows = case rows of [] => smartMat mvar acc
+    | (pat,e,None)::ps => build_pmatch mvar ((pat,e)::acc) ps
+    | (pat,e,Some guard)::ps =>
+        let val mexp = smartMat mvar acc
+            val call = Ast.App Ast.Opapp [Ast.Ident (Ast.Short " p"),Ast.Con None []]
+            val mat = smartMat mvar [(pat,Ast.If guard e call),(Inr Ast.Pany,call)]
+            val clos = Ast.Let (Some " p") (Ast.Fun " u" mexp) mat
+        in build_pmatch mvar [(Inr Ast.Pany,clos)] ps end;
+  fun build_match x rows = Ast.Let (Some " m") x
+    (if List.exists (fn (_,_,g) => case g of Some _ => True | _ => False) rows then
+       build_pmatch " m" [] (List.rev rows)
+     else Ast.Mat (Ast.Ident (Ast.Short " m"))
+       (List.map (fn (p,e,_) => build_match_row " m" (p,e)) rows));
+  fun build_handle x rows = Ast.Handle x [(Ast.Pvar " e",build_pmatch " e" []
+    ((Inr Ast.Pany,Ast.Raise (Ast.Ident (Ast.Short " e")),None)::List.rev rows))];
+  fun build_function rows = Ast.Fun "" (build_pmatch "" [] (List.rev rows));
+  fun flatten_pmatch rows = List.concat
+    (List.map (fn (ps,x,w) => List.map (fn p => (p,x,w)) ps) rows);
+end;

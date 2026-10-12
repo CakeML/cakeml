@@ -95,6 +95,12 @@ The initial version of the decompiler-into-itree of Pancake---DecompIt (#1492).
 
 ## Candle
 
+The Candle parser has been moved out of HOL into user code (#1537).
+One user-facing change is that CakeML itself in EVAL mode now starts with a
+larger data buffer to accommodate the user code (Candle already patches to start
+with an even larger one). Another is that a `(*CML ...*)` block in Candle input
+is now only accepted where a phrase begins.
+
 ## Examples
 
 The PB checker has been reorganized with minor fixes, and also supports solutions cubes (#1496).

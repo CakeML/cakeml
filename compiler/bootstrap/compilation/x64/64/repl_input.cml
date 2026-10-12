@@ -1,0 +1,111 @@
+(*
+  Self-checking source/direct-AST REPL boundary test. The callback and payloads
+  capture the original references and constructors before namespace shadowing.
+  Only the terminal callback prints the PASS marker; reaching EOF is not enough.
+*)
+structure ReplInputTest = struct
+  val events = Ref 0;
+  val reader = Repl.readNextString;
+  val errorMessage = Repl.errorMessage;
+  val exn = Repl.exn;
+  local
+    val input = Repl.nextInput;
+    val eof = Repl.isEOF;
+    val error = errorMessage;
+    val expected = Ref ((None : string option), 0);
+    val loc = Ast.Locs (2, 3) (2, 17);
+    fun lit n = Ast.Lit (Ast.Intlit n);
+    fun ident s = Ast.Ident (Ast.Short s);
+    fun binding s e = Ast.Dlet loc (Ast.Pvar s) e;
+    fun effect e = Ast.Dlet Ast.Nolocs Ast.Pany e;
+    fun record e = effect (Ast.App Ast.Opassign
+      [Ast.Ident (Ast.Long "ReplInputTest" (Ast.Short "events")), e]);
+    fun failure s = Ast.Raise (Ast.Con (Some (Ast.Short "Failure"))
+      [Ast.Lit (Ast.Strlit s)]);
+    fun feed diagnostic count value () =
+      (expected := (diagnostic, count); input := value);
+    fun source diagnostic count text = feed diagnostic count (Inl text);
+    fun ast diagnostic count decs = feed diagnostic count (Inr decs);
+    (* A pure dummy user parser: no grammar or parser theorem is required. *)
+    fun dummy_parse (_ : string) = [record (lit 41)];
+    val steps = Ref [
+      ast None 0 [],
+      source None 1 "ReplInputTest.events := 1;",
+      (* Invoke the parser in the reader, on text invalid in either source syntax. *)
+      (fn () => feed None 41 (Inr (dummy_parse "@@not source syntax@@")) ()),
+      (* Binding and reading an identifier with spaces cannot use source parsing. *)
+      ast None 42 [binding "not a source identifier" (lit 42),
+        record (ident "not a source identifier")],
+      (* Nested declaration/constructor/pattern encodings and Ast.Arith. *)
+      ast None 43 [
+        Ast.Dmod "AstInputModule" [
+          Ast.Dtype loc [([], ("payload", [("Box", [Ast.Atapp [] (Ast.Short "int")])]))],
+          binding "boxed" (Ast.Con (Some (Ast.Short "Box")) [lit 40])],
+        Ast.Dlet loc (Ast.Pcon (Some (Ast.Long "AstInputModule" (Ast.Short "Box")))
+          [Ast.Pvar "unboxed"])
+          (Ast.Ident (Ast.Long "AstInputModule" (Ast.Short "boxed"))),
+        Ast.Dlocal [binding "private_offset" (lit 3)]
+          [binding "public_total" (Ast.App (Ast.Arith Ast.Add Ast.Intt)
+            [ident "unboxed", ident "private_offset"])],
+        record (ident "public_total")],
+      source (Some "Parsing failed") 43 "val syntax_error = ;",
+      source None 4 "ReplInputTest.events := 4;",
+      (* The leading effect must not execute when the whole input is rejected. *)
+      ast (Some "ERROR: ") 4 [record (lit 999),
+        binding "ill_typed" (Ast.App (Ast.Arith Ast.Add Ast.Intt)
+          [lit 1, Ast.Lit (Ast.Strlit "wrong type")])],
+      source None 5 "ReplInputTest.events := 5;",
+      ast (Some "reserved constructor/FFI names") 5 [record (lit 999),
+        binding "forbidden" (Ast.Con
+          (Some (Ast.Short "Tyvar"))
+          [Ast.Lit (Ast.Strlit "a")])],
+      source None 6 "ReplInputTest.events := 6;",
+      (* Advance the queue before raising so the callback can recover once. *)
+      (fn () => (expected := (Some "EXCEPTION: ", 6);
+        raise Failure "intentional callback exception")),
+      source None 7 "ReplInputTest.events := 7;",
+      (* Allocate a constructor stamp, then abort the declaration evaluation. *)
+      ast (Some "EXCEPTION: ") 7 [
+        Ast.Dmod "AllocBeforeFailure" [
+          Ast.Dtype loc [([], ("ghost", [("Ghost", [])]))]],
+        effect (failure "intentional declaration exception")],
+      (* The static namespace must not commit the failed module. Runtime
+         environment rollback is established separately by the REPL proof. *)
+      source (Some "ERROR: ") 7 "val leaked = AllocBeforeFailure.Ghost;",
+      source None 8
+        "datatype after_failure = AfterFailure; ReplInputTest.events := 8;",
+      (* Preserve callback/diagnostic aliases required by existing generated
+         declarations, but shadow the input/EOF names with unrelated refs. *)
+      source None 8
+        ("structure Ast = struct datatype noise = Noise end; " ^
+         "structure Repl = struct datatype noise = Noise " ^
+         "val nextInput = Ref 0 val isEOF = Ref 0 " ^
+         "val readNextString = ReplInputTest.reader " ^
+         "val errorMessage = ReplInputTest.errorMessage " ^
+         "val exn = ReplInputTest.exn end;"),
+      ast None 42 [record (ident "not a source identifier")],
+      source None 9
+        "if !Repl.nextInput = 0 andalso !Repl.isEOF = 0 then ReplInputTest.events := 9 else raise Failure \"wrong reference updated\";"
+    ];
+    fun next () =
+      let
+        val (diagnostic, count) = !expected
+        val correct_error = case diagnostic of
+            None => !error = ""
+          | Some fragment => String.isSubstring fragment (!error)
+      in
+        if not correct_error orelse !events <> count then
+          (print (String.concat ["\nrepl_input:FAIL: ", !error, "\n"]);
+           eof := True)
+        else
+          (error := "";
+           case !steps of
+             [] => (print (String.concat ["\nrepl_input:", "PASS\n"]);
+               eof := True)
+           | step::rest => (steps := rest; step ()))
+      end;
+  in
+    fun start () = reader := next;
+  end;
+end;
+ReplInputTest.start ();

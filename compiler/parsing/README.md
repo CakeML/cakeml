@@ -33,9 +33,6 @@ Definition of the lexer: code for consuming tokens until a top-level
 semicolon is found (semicolons can be hidden in `let`-`in`-`end` blocks,
 structures, signatures, and between parentheses).
 
-[ocaml](ocaml):
-OCaml lexer and parser frontend for the Candle theorem prover.
-
 [pegexec_cml_foScript.sml](pegexec_cml_foScript.sml):
 First-order PEG exec instantiated to CakeML surface types:
   input: (token # location$locs) list
