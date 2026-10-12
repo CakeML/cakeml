@@ -85,28 +85,35 @@ Datatype:
   | Tick tra exp
 End
 
-val exp_size_def = definition"exp_size_def";
+val exp_size_def = definition"exp_size_def"
+Overload flatLang_exp6_size = “list_size exp_size”
 
 Theorem exp6_size_APPEND[simp]:
-   flatLang$exp6_size (e ++ e2) = exp6_size e + exp6_size e2
+   flatLang_exp6_size (e ++ e2) = flatLang_exp6_size e + flatLang_exp6_size e2
 Proof
   Induct_on`e`>>simp[exp_size_def]
 QED
 
 Theorem exp6_size_REVERSE[simp]:
-   flatLang$exp6_size (REVERSE es) = exp6_size es
+   flatLang_exp6_size (REVERSE es) = flatLang_exp6_size es
 Proof
   Induct_on`es`>>simp[exp_size_def]
 QED
 
 Theorem exp6_size:
-  exp6_size xs = LENGTH xs + SUM (MAP exp_size xs)
+  flatLang_exp6_size xs = LENGTH xs + SUM (MAP exp_size xs)
 Proof
   Induct_on `xs` \\ simp [exp_size_def]
 QED
 
+Overload flatLang_exp1_size =
+  “λa2. list_size (pair_size pat_size (λx. x)) (MAP (I ## exp_size) a2)”
+(*Overload flatLang_exp2_size =
+  “”
+
+
 Theorem exp1_size:
-  exp1_size xs = LENGTH xs + SUM (MAP exp2_size xs)
+  flatLang_exp1_size xs = LENGTH xs + SUM (MAP exp2_size xs)
 Proof
   Induct_on `xs` \\ simp [exp_size_def]
 QED
@@ -149,6 +156,7 @@ Proof
   \\ res_tac
   \\ decide_tac
 QED
+*)
 
 Definition bool_id_def:
   bool_id = 0n
