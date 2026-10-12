@@ -152,6 +152,8 @@ val r = translate clos_to_bvlTheory.compile_common_def;
 val r = translate (clos_to_bvlTheory.init_code_def |> REWRITE_RULE [GSYM sub_check_def]);
 val r = translate (clos_to_bvlTheory.partial_app_fn_location_def |> REWRITE_RULE [GSYM sub_check_def]);
 
+val r = translate (clos_to_bvlTheory.compile_prog_def |> REWRITE_RULE [GSYM sub_check_def]);
+
 val r = translate clos_to_bvlTheory.compile_def;
 
 (* N.B.

@@ -57,16 +57,15 @@ Definition pan_to_target_all_def:
         prog_b1 = MAP2 (λn (name,params,body).
                     (n,(GENLIST I ∘ LENGTH) params, comp params body)) fnums prog_b;
         prog_c = MAP (λ(name,params,body). (name,params,loop_live$optimise body)) prog_b1;
-        prog2 = add_metadata empty_metadata (loop_to_word$compile_prog prog_c);
+        prog2 = loop_to_word$compile_prog prog_c;
         names = fromAList (ZIP (sort $< (MAP FST prog2), «generated_main»::MAP FST (functions prog1)));
-        names = union (fromAList (word_to_stack$stub_names () ++
-                                  stack_alloc$stub_names () ++
-                                  stack_remove$stub_names ())) names;
+        prog2 = MAP (λ(n,args,p).
+                      (n,args,p,Metadata (lookup_any n names «NOTFOUND») [])) prog2;
         ps = ps ++ [(«after crep_to_loop»,Loop prog_b1 names)];
         ps = ps ++ [(«after loop_optimise»,Loop prog_c names)];
-        ps = ps ++ [(«after loop_to_word»,Cake (Word prog2 names))];
+        ps = ps ++ [(«after loop_to_word»,Cake (Word prog2))];
         c = c with exported := exports prog;
-        (ps1,out) = from_word_0_all [] asm_conf c names prog2
+        (ps1,out) = from_word_0_all [] asm_conf c prog2
       in
         (ps ++ MAP (λ(n,p). (n,Cake p)) ps1,out)
 End
