@@ -117,7 +117,8 @@ Datatype:
   | Asub
   | Alength
   | Aupdate
-  (* Unsafe vector/array accesses *)
+  (* Unsafe string/vector/array accesses *)
+  | Strsub_unsafe
   | Vsub_unsafe
   | Asub_unsafe
   | Aupdate_unsafe

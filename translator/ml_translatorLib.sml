@@ -2963,6 +2963,7 @@ val builtin_binops =
    Eval_fast_ge,
    Eval_sub,
    Eval_sub_unsafe,
+   Eval_strsub_unsafe,
    Eval_Implies,
    Eval_pure_seq]
  |> map (fn th =>

@@ -30,8 +30,8 @@ cake-sexpr-64: $(CAKEMLDIR)/unverified/sexpr-bootstrap/export/arm8/64/cake-sexpr
 #	./cake --candle < candle_records.ml | tail -n29 > candle.out
 #	diff candle.out candle.expected
 
-cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile hello.cml how-to.md cake-sexpr-32 cake-sexpr-64 config_enc_str.txt candle_boot.ml repl_boot.cml
-	tar -chzf $@ --transform='s|^|cake-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile hello.cml how-to.md cake-sexpr-32 cake-sexpr-64 config_enc_str.txt candle_boot.ml repl_boot.cml
+cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile hello.cml how-to.md cake-sexpr-32 cake-sexpr-64 config_enc_str.txt candle_boot.cml candle_boot.ml repl_boot.cml
+	tar -chzf $@ --transform='s|^|cake-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile hello.cml how-to.md cake-sexpr-32 cake-sexpr-64 config_enc_str.txt candle_boot.cml candle_boot.ml repl_boot.cml
 
 EXTRA_CLEANS = cake.S cake-$(ARCH)-$(WORD_SIZE).tar.gz cake test-hello.cake output expected_output
 
