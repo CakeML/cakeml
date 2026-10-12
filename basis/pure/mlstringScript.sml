@@ -33,6 +33,16 @@ Definition strsub_def[simp]:
   strsub (strlit s) n = EL n s
 End
 
+Definition strsub_unsafe_def: (* same as strsub_def, but translator targets Strsub_unsafe *)
+  strsub_unsafe (strlit s) n = EL n s
+End
+
+Theorem strsub_unsafe_eq_strsub:
+  strsub_unsafe s n = strsub s n
+Proof
+  Cases_on ‘s’ \\ simp [strsub_unsafe_def]
+QED
+
 (* the test here is because underspecification is annoying (and SEG is underspecified) *)
 (* the underlying primitive (CopyStrStr) raises an exception if the test is false *)
 Definition substring_def:

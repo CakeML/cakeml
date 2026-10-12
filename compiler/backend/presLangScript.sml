@@ -263,6 +263,7 @@ Definition op_to_display_def:
   | VfromList => empty_item «VfromList»
   | Vsub => empty_item «Vsub»
   | Vsub_unsafe => empty_item «Vsub_unsafe»
+  | Strsub_unsafe => empty_item «Strsub_unsafe»
   | Vlength => empty_item «Vlength»
   | Aalloc => empty_item «Aalloc»
   | AallocEmpty => empty_item «AallocEmpty»

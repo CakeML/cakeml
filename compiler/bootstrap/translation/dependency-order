@@ -17,8 +17,6 @@ to_bvi
 to_data
 lexer
 parser
-caml_lex
-caml_parser
 pancake_lex
 pancake_parse
 reg_alloc
