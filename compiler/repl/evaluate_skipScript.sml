@@ -1560,6 +1560,13 @@ Proof
     \\ first_assum (irule_at Any) \\ gs []
     \\ gs [v_rel_def, sub_exn_v_def, stamp_rel_cases, subscript_stamp_def,
            state_rel_def])
+  \\ Cases_on ‘op = Strsub_unsafe’ \\ gs []
+  >- (
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘op = Explode’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,

@@ -591,7 +591,7 @@ End
 
 Definition wnocomment_line_def:
   (wnocomment_line (INL c::cs) ⇔
-  (if strlen c > 0 then strsub c 0 ≠ #"c" else T)) ∧
+  (if strlen c > 0 then strsub_unsafe c 0 ≠ #"c" else T)) ∧
   (wnocomment_line _ ⇔ T)
 End
 
