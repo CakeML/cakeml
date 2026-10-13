@@ -42,9 +42,11 @@ in
           e_opsize_imm_def, not_byte_def, e_rax_imm_def, e_rm_imm_def,
           e_imm_8_32_def, e_imm_def, e_imm8_def, e_imm16_def, e_imm32_def,
           e_imm64_def, Zsize_width_def, is_rax_def, x64_encode_rwts,
+          x64_encode_def, encode_def,
           asmSemTheory.is_test_def, total_num2Zreg_def],
        computeLib.Extenders
-         [add_x64_datatypes, optionLib.OPTION_rws, pairLib.add_pair_compset]])
+         [asmLib.add_asm_compset, add_x64_datatypes, optionLib.OPTION_rws,
+          pairLib.add_pair_compset]])
 end
 
 val add_x64_encode_compset = computeLib.extend_compset

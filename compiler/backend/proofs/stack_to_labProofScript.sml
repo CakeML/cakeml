@@ -18,7 +18,6 @@ val _ = temp_delsimps ["fromAList_def", "domain_union",
                        "domain_map", "sptree.map_def", "sptree.lookup_rwts",
                        "sptree.insert_notEmpty", "sptree.isEmpty_union"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val get_labels_def = stackSemTheory.get_labels_def;
 val get_reg_value_def = targetSemTheory.get_reg_value_def;
@@ -62,11 +61,12 @@ End
 
 Theorem find_code_lookup:
    find_code dest regs code = SOME p ⇒
-    lookup (dest_to_loc regs dest) code = SOME p ∧
+    (∃md. lookup (dest_to_loc regs dest) code = SOME (p,md)) ∧
     (∀r. dest = INR r ⇒ r ∈ FDOM regs)
 Proof
   Cases_on`dest`>>srw_tac[][find_code_def,dest_to_loc_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[FLOOKUP_DEF] >> srw_tac[][]
+  >> metis_tac[PAIR]
 QED
 
 Theorem not_is_Label_compile_jump[simp]:
@@ -226,11 +226,11 @@ Proof
 QED
 
 Theorem MAP_prog_to_section_FST[local]:
-  MAP (λs. case s of Section n v => n) (MAP prog_to_section prog) =
+  MAP (λs. case s of Section n v _ => n) (MAP prog_to_section prog) =
   MAP FST prog
 Proof
-  match_mp_tac LIST_EQ>>rw[EL_MAP]>>Cases_on`EL x prog`>>fs[prog_to_section_def]>>
-  pairarg_tac>>fs[]
+  simp [MAP_MAP_o,o_DEF,MAP_EQ_f,FORALL_PROD,prog_to_section_def]
+  \\ rpt strip_tac \\ pairarg_tac \\ fs []
 QED
 
 Theorem MAP_prog_to_section_Section_num:
@@ -290,9 +290,9 @@ Proof
   IF_CASES_TAC
   >-
     (Cases_on`h`>>fs[]>>
-    first_x_assum old_drule>>
-    disch_then old_drule>>
-    disch_then old_drule>>
+    first_x_assum drule>>
+    disch_then drule>>
+    disch_then drule>>
     fs[] >> strip_tac>>
     match_mp_tac loc_to_pc_append2>>fs[]>>
     metis_tac[])
@@ -301,8 +301,8 @@ Proof
     CONJ_TAC>-
       metis_tac[asm_fetch_aux_SOME_append2,ADD_COMM]>>
     fs[]>>
-    first_x_assum old_drule>>
-    rpt(disch_then old_drule)>>
+    first_x_assum drule>>
+    rpt(disch_then drule)>>
     fs[]
 QED
 
@@ -318,7 +318,7 @@ Proof
     (qexists_tac`[]`>>
     simp[])
   >>
-    first_x_assum old_drule>>rw[]>>
+    first_x_assum drule>>rw[]>>
     qexists_tac`(q,r)::ls1`>>simp[]
 QED
 
@@ -332,8 +332,8 @@ End
 Theorem code_installed'_cons_label:
    !lines pos.
       is_Label h ==>
-      code_installed' pos lines (Section n (h::xs)::other) =
-      code_installed' pos lines (Section n xs::other)
+      code_installed' pos lines (Section n (h::xs) md::other) =
+      code_installed' pos lines (Section n xs md::other)
 Proof
   Induct \\ fs [code_installed'_def]
   \\ rw [] \\ fs [labSemTheory.asm_fetch_aux_def]
@@ -342,14 +342,14 @@ QED
 Theorem code_installed'_cons_non_label = Q.prove(`
   !lines pos.
       ~is_Label h ==>
-      code_installed' (pos+1) lines (Section n (h::xs)::other) =
-      code_installed' pos lines (Section n xs::other)`,
+      code_installed' (pos+1) lines (Section n (h::xs) md::other) =
+      code_installed' pos lines (Section n xs md::other)`,
   Induct \\ fs [code_installed'_def]
   \\ rw [] \\ fs [labSemTheory.asm_fetch_aux_def])
   |> Q.SPECL [`lines`,`0`] |> SIMP_RULE std_ss [];
 
 Theorem code_installed'_simp:
-   !lines. code_installed' 0 lines (Section n (lines ++ rest)::other)
+   !lines. code_installed' 0 lines (Section n (lines ++ rest) md::other)
 Proof
   Induct \\ fs [code_installed'_def]
   \\ fs [labSemTheory.asm_fetch_aux_def]
@@ -360,7 +360,7 @@ QED
 Theorem loc_to_pc_skip_section:
    !lines.
       n <> p ==>
-      loc_to_pc n 0 (Section p lines :: xs) =
+      loc_to_pc n 0 (Section p lines md :: xs) =
       case loc_to_pc n 0 xs of
       | NONE => NONE
       | SOME k => SOME (k + LENGTH (FILTER (\x. ~(is_Label x)) lines))
@@ -373,7 +373,7 @@ QED
 Theorem asm_fetch_aux_add:
    !ys pc rest.
       asm_fetch_aux (pc + LENGTH (FILTER (λx. ¬is_Label x) ys))
-        (Section pos ys::rest) = asm_fetch_aux pc rest
+        (Section pos ys md::rest) = asm_fetch_aux pc rest
 Proof
   Induct \\ fs [labSemTheory.asm_fetch_aux_def,ADD1]
 QED
@@ -407,7 +407,7 @@ Theorem code_installed_cons:
    !xs ys pos pc.
       code_installed' pc xs rest ==>
       code_installed' (pc + LENGTH (FILTER (λx. ¬is_Label x) ys)) xs
-        (Section pos ys :: rest)
+        (Section pos ys md :: rest)
 Proof
   Induct \\ fs [] \\ fs [code_installed'_def]
   \\ ntac 4 strip_tac \\ IF_CASES_TAC \\ fs []
@@ -415,14 +415,14 @@ Proof
 QED
 
 Theorem code_installed_prog_to_section_lemma[local]:
-  !prog4 n prog3.
-      ALOOKUP prog4 n = SOME prog3 ==>
+  !prog4 n prog3 md.
+      ALOOKUP prog4 n = SOME (prog3,md) ==>
       ?pc.
         code_installed' pc (append (FST (flatten T prog3 n (next_lab prog3 2) [] [])))
           (MAP prog_to_section prog4) /\
         loc_to_pc n 0 (MAP prog_to_section prog4) = SOME pc
 Proof
-  Induct_on `prog4` \\ fs [] \\ Cases \\ fs [ALOOKUP_def] \\ rw []
+  Induct_on `prog4` \\ fs [FORALL_PROD] \\ rw []
   THEN1
    (fs [stack_to_labTheory.prog_to_section_def] \\ pairarg_tac \\ fs []
     \\ once_rewrite_tac [labSemTheory.loc_to_pc_def]
@@ -438,7 +438,7 @@ Theorem labs_correct_hd:
     ∀extra l.
   ALL_DISTINCT (extract_labels (extra++l)) ∧
   EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels (extra++l)) ⇒
-  labs_correct (LENGTH (FILTER (\x. ~(is_Label x)) extra)) l (Section n (extra++l) ::code)
+  labs_correct (LENGTH (FILTER (\x. ~(is_Label x)) extra)) l (Section n (extra++l) m ::code)
 Proof
   Induct_on`l`>>fs[labs_correct_def]>>rw[]
   >-
@@ -468,8 +468,8 @@ QED
 Definition labels_ok_def:
   labels_ok code ⇔
   (*Section names are distinct*)
-  ALL_DISTINCT (MAP (λs. case s of Section n _ => n) code) ∧
-  EVERY (λs. case s of Section n lines =>
+  ALL_DISTINCT (MAP (λs. case s of Section n _ _ => n) code) ∧
+  EVERY (λs. case s of Section n lines _ =>
     let labs = extract_labels lines in
     EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) labs ∧
     ALL_DISTINCT labs) code
@@ -499,7 +499,7 @@ QED
 Theorem labels_ok_labs_correct:
     ∀code.
   labels_ok code ⇒
-  EVERY ( λs. case s of Section n lines =>
+  EVERY ( λs. case s of Section n lines _ =>
       case loc_to_pc n 0 code of
        SOME pc => labs_correct pc lines code
       | _ => T) code
@@ -515,7 +515,7 @@ Proof
     `n ≠ n'` by
       (fs[MEM_MAP]>>
       last_x_assum kall_tac>>
-      last_x_assum (qspec_then`Section n' l'` assume_tac)>>rfs[])>>
+      last_x_assum (qspec_then`Section n' l' m'` assume_tac)>>rfs[])>>
     fs[loc_to_pc_skip_section]>>
     BasicProvers.EVERY_CASE_TAC>>fs[]>>
     pop_assum mp_tac>>
@@ -575,21 +575,21 @@ Proof
 QED
 
 Theorem code_installed_prog_to_section:
-   !prog4 n prog3.
+   !prog4 n prog3 md.
       labels_ok (MAP prog_to_section prog4) ∧
-      ALOOKUP prog4 n = SOME prog3 ==>
+      ALOOKUP prog4 n = SOME (prog3,md) ==>
       ?pc.
         code_installed pc (append (FST (flatten T prog3 n (next_lab prog3 2) [] [])))
           (MAP prog_to_section prog4) /\
         loc_to_pc n 0 (MAP prog_to_section prog4) = SOME pc
 Proof
   rpt strip_tac \\ fs [code_installed_eq]
-  \\ old_drule code_installed_prog_to_section_lemma \\ strip_tac
+  \\ drule code_installed_prog_to_section_lemma \\ strip_tac
   \\ asm_exists_tac \\ fs []
   \\ imp_res_tac labels_ok_labs_correct
   \\ fs[EVERY_MEM,MEM_MAP]
   \\ imp_res_tac ALOOKUP_MEM
-  \\ first_x_assum (qspec_then`prog_to_section (n,prog3)` mp_tac)
+  \\ first_x_assum (qspec_then`prog_to_section (n,prog3,md)` mp_tac)
   \\ impl_tac >- metis_tac[]
   \\ BasicProvers.TOP_CASE_TAC>>fs[stack_to_labTheory.prog_to_section_def]
   \\ pairarg_tac>>fs[]>>rveq>>fs[]
@@ -608,7 +608,7 @@ Definition state_rel_def:
     t.be = s.be ∧
     t.ffi = s.ffi ∧
     t.clock = s.clock ∧
-    (∀n prog. lookup n s.code = SOME prog ⇒
+    (∀n prog md. lookup n s.code = SOME (prog,md) ⇒
       call_args prog t.ptr_reg t.len_reg t.ptr2_reg t.len2_reg t.link_reg ∧
       ∃pc. code_installed pc
              (append (FST (flatten T prog n (next_lab prog 2) [] []))) t.code ∧
@@ -630,7 +630,7 @@ Definition state_rel_def:
     (t.compile_oracle = λn. let (c,p,_)  = s.compile_oracle n in
                            (c,MAP prog_to_section p)) ∧
     (∀k. let (c,ps,_) = s.compile_oracle k in
-      EVERY (λ(n,p).
+      EVERY (λ(n,p,md).
         call_args p t.ptr_reg t.len_reg t.ptr2_reg t.len2_reg t.link_reg ∧
         EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) (extract_labels p) ∧
         ALL_DISTINCT (extract_labels p)) ps ∧
@@ -648,7 +648,9 @@ Theorem loc_check_IMP_loc_to_pc:
 Proof
   rw [loc_check_def] \\ fs [state_rel_def,EXTENSION]>>
   qpat_x_assum`!x._ ⇔ _`(qspec_then `l1` assume_tac)>> rfs[]>>
-  fs [domain_lookup] \\ res_tac \\ fs []
+  fs [domain_lookup]
+  \\ rename1 `lookup _ s.code = SOME entry`
+  \\ Cases_on `entry` \\ fs [] \\ res_tac \\ fs []
   \\ imp_res_tac code_installed_get_labels_IMP \\ fs []
 QED
 
@@ -793,15 +795,15 @@ Proof
     \\ qpat_x_assum`IS_SOME _`mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ old_drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
-    \\ disch_then old_drule
+    \\ drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
+    \\ disch_then drule
     \\ disch_then (assume_tac o SYM)
     \\ fs[]
     \\ fs[get_var_def]
-    \\ old_drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
+    \\ drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
     \\ qhdtm_x_assum`FLOOKUP`mp_tac
     \\ match_mp_tac SWAP_IMP
-    \\ disch_then old_drule
+    \\ disch_then drule
     \\ disch_then (assume_tac o SYM)
     \\ simp[wordSemTheory.mem_store_32_alt]
     \\ `s1.memory = t1.mem ∧ t1.mem_domain = s1.mdomain ∧ t1.be = s1.be` by fs[state_rel_def]
@@ -822,15 +824,15 @@ Proof
     \\ qpat_x_assum`IS_SOME _`mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ old_drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
-    \\ disch_then old_drule
+    \\ drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
+    \\ disch_then drule
     \\ disch_then (assume_tac o SYM) \\ fs[]
     \\ fs[get_var_def]
-    \\ old_drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
+    \\ drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
     \\ qhdtm_x_assum`FLOOKUP`mp_tac
     \\ match_mp_tac SWAP_IMP
     \\ TRY (
-         disch_then old_drule
+         disch_then drule
          \\ disch_then (assume_tac o SYM) \\ fs[] )
     \\ `s1.memory = t1.mem ∧ t1.mem_domain = s1.mdomain ∧ t1.be = s1.be` by fs[state_rel_def]
     \\ fs[] \\ strip_tac) >>
@@ -843,15 +845,15 @@ Proof
     \\ qpat_x_assum`IS_SOME _`mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ old_drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
-    \\ disch_then old_drule
+    \\ drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
+    \\ disch_then drule
     \\ disch_then (assume_tac o SYM)
     \\ fs[]
     \\ fs[get_var_def]
-    \\ old_drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
+    \\ drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
     \\ qhdtm_x_assum`FLOOKUP`mp_tac
     \\ match_mp_tac SWAP_IMP
-    \\ disch_then old_drule
+    \\ disch_then drule
     \\ disch_then (assume_tac o SYM)
     \\ simp[wordSemTheory.mem_store_byte_aux_def]
     \\ `s1.memory = t1.mem ∧ t1.mem_domain = s1.mdomain ∧ t1.be = s1.be` by fs[state_rel_def]
@@ -872,15 +874,15 @@ Proof
     \\ qpat_x_assum`IS_SOME _`mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ old_drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
-    \\ disch_then old_drule
+    \\ drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
+    \\ disch_then drule
     \\ disch_then (assume_tac o SYM) \\ fs[]
     \\ fs[get_var_def]
-    \\ old_drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
+    \\ drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
     \\ qhdtm_x_assum`FLOOKUP`mp_tac
     \\ match_mp_tac SWAP_IMP
     \\ TRY (
-         disch_then old_drule
+         disch_then drule
          \\ disch_then (assume_tac o SYM) \\ fs[] )
     \\ `s1.memory = t1.mem ∧ t1.mem_domain = s1.mdomain ∧ t1.be = s1.be` by fs[state_rel_def]
     \\ fs[] \\ strip_tac) >>
@@ -1145,7 +1147,7 @@ Proof
 QED
 
 Theorem prog_to_section_labels_ok:
-  EVERY (λn,p.
+  EVERY (λ(n,p,md).
            let labs = extract_labels p in
              EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧
              ALL_DISTINCT labs) prog ∧
@@ -1154,11 +1156,11 @@ Theorem prog_to_section_labels_ok:
 Proof
   strip_tac>>
   fs[labels_ok_def,MAP_prog_to_section_FST,Once EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]>>
-  rw[]>>fs[prog_to_section_def]>>
-  first_x_assum old_drule>> rw[]>>
+  rw[]>>rename1 `MEM (name,body,md) prog`>>fs[prog_to_section_def]>>
+  first_x_assum metadata_drule>> rw[]>>
   pairarg_tac>>fs[]>>
-  old_drule stack_to_lab_lab_pres_T>>fs[]>>
-  disch_then(qspecl_then[`next_lab p_2 2`,`[]`,`[]`] assume_tac)>>rfs[]>>
+  metadata_drule stack_to_lab_lab_pres_T>>fs[]>>
+  disch_then(qspecl_then[`next_lab body 2`,`[]`,`[]`] assume_tac)>>rfs[]>>
   simp[extract_labels_append]>>rw[]
   >-
     (qsuff_tac`2 ≤ m` >> fs[]>>
@@ -1168,16 +1170,16 @@ Proof
     CCONTR_TAC>>fs[]>>res_tac>>fs[]>>
     imp_res_tac extract_labels_next_lab>>fs[]
   >- (fs [EVERY_MEM] \\ res_tac \\ fs [])
-  \\ Cases_on `MEM (p_1,1) (extract_labels p_2)`
+  \\ Cases_on `MEM (name,1) (extract_labels body)`
   >- (fs [EVERY_MEM] \\ res_tac \\ fs [])
   \\ fs [flatten_T_F]
   \\ drule stack_to_lab_lab_pres \\ fs []
-  \\ qexists_tac `next_lab p_2 2` \\ fs []
+  \\ qexists_tac `next_lab body 2` \\ fs []
   \\ qexists_tac `[]` \\ fs []
   \\ qexists_tac `[]` \\ fs []
   \\ disj2_tac \\ CCONTR_TAC \\ fs []
-  \\ pop_assum (qspec_then `(p_1,1)` mp_tac) \\ fs []
-  \\ `2 ≤ next_lab p_2 2` by fs [next_lab_non_zero]  \\ fs []
+  \\ pop_assum (qspec_then `(name,1)` mp_tac) \\ fs []
+  \\ `2 ≤ next_lab body 2` by fs [next_lab_non_zero]  \\ fs []
 QED
 
 Theorem NOT_MEM_find_lab_IMP:
@@ -1238,7 +1240,7 @@ Theorem flatten_correct:
                state_rel s2 t2
        | SOME (Vcont n1 n2) =>
            state_rel s2 t2 ∧
-           code_installed t2.pc [LabAsm (Jump (Lab n1 n2)) 0w [] 0] t2.code
+           code_installed t2.pc [LabAsm (Jump (Lab n1 n2)) 0 [] 0] t2.code
        | SOME Vtimeout => t2.ffi = s2.ffi ∧ t2.clock = 0
        | _ => F
 Proof
@@ -1379,9 +1381,9 @@ Resume flatten_correct[Seq]:
       full_simp_tac(srw_ss())[call_args_def] >>
       reverse (Cases_on`res`)>>full_simp_tac(srw_ss())[]>-(
         rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
-        first_x_assum old_drule >>
-        disch_then old_drule >>
-        disch_then old_drule >>
+        first_x_assum drule >>
+        disch_then drule >>
+        disch_then drule >>
         impl_tac >- simp [] >>
         strip_tac >>
         rename1`halt_view (SOME x)` \\ Cases_on`x` \\ fs[] >>
@@ -1390,17 +1392,17 @@ Resume flatten_correct[Seq]:
         qexists_tac`ck`>>fsrw_tac[ARITH_ss][]>>
         TRY ( qexists_tac`t2` >> simp[] >> NO_TAC) >>
         metis_tac[] ) >>
-      first_x_assum old_drule >>
-      disch_then old_drule >>
+      first_x_assum drule >>
+      disch_then drule >>
       simp[] >>
-      disch_then old_drule >> simp[] >>
+      disch_then drule >> simp[] >>
       strip_tac >>
-      first_x_assum old_drule >>
+      first_x_assum drule >>
       CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``code_installed`` o fst o strip_comb))))) >>
       imp_res_tac code_installed_isPREFIX>>
       fsrw_tac[ARITH_ss][] >>
       fs [code_installed_def] >>
-      disch_then old_drule >>
+      disch_then drule >>
       impl_tac >-
        (imp_res_tac every_is_some_loc_to_pc_prefix >>
         imp_res_tac is_some_loc_to_pc_prefix >>
@@ -1431,9 +1433,9 @@ Resume flatten_correct[Seq]:
     full_simp_tac(srw_ss())[call_args_def] >>
     reverse (Cases_on`res`)>>full_simp_tac(srw_ss())[]>-(
       rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
-      first_x_assum old_drule >>
-      disch_then old_drule >>
-      disch_then old_drule >>
+      first_x_assum drule >>
+      disch_then drule >>
+      disch_then drule >>
       impl_tac >- simp [] >>
       strip_tac >>
       rename1`halt_view (SOME x)` \\ Cases_on`x` \\ fs[] >>
@@ -1442,16 +1444,16 @@ Resume flatten_correct[Seq]:
       qexists_tac`ck`>>fsrw_tac[ARITH_ss][]>>
       TRY ( qexists_tac`t2` >> simp[] >> NO_TAC) >>
       metis_tac[] ) >>
-    first_x_assum old_drule >>
-    disch_then old_drule >>
+    first_x_assum drule >>
+    disch_then drule >>
     simp[] >>
-    disch_then old_drule >> simp[] >>
+    disch_then drule >> simp[] >>
     strip_tac >>
-    first_x_assum old_drule >>
+    first_x_assum drule >>
     CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``code_installed`` o fst o strip_comb))))) >>
     imp_res_tac code_installed_isPREFIX>>
     fsrw_tac[ARITH_ss][] >>
-    disch_then old_drule >>
+    disch_then drule >>
     impl_tac >-
      (imp_res_tac every_is_some_loc_to_pc_prefix >>
       imp_res_tac is_some_loc_to_pc_prefix >>
@@ -1493,13 +1495,13 @@ Resume flatten_correct[Return]:
     CASE_TAC >> full_simp_tac(srw_ss())[] >- (
       qexists_tac`t1 with clock := t1.clock + 1` >> simp[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-      fs[state_rel_def] \\ metis_tac[IS_SOME_EXISTS]) >>
+      fs[state_rel_def] \\ fs [IS_SOME_EXISTS,EXISTS_PROD] >> metis_tac[]) >>
     simp[dec_clock_def] >>
     qmatch_assum_rename_tac`_ = SOME pc` >>
     qexists_tac`upd_pc pc t1` >>
     simp[upd_pc_def] >>
     full_simp_tac(srw_ss())[state_rel_def] >>
-    metis_tac[IS_SOME_EXISTS]
+    fs [IS_SOME_EXISTS,EXISTS_PROD] >> metis_tac[]
 QED
 
 Resume flatten_correct[Raise]:
@@ -1518,13 +1520,13 @@ Resume flatten_correct[Raise]:
     CASE_TAC >> full_simp_tac(srw_ss())[] >- (
       qexists_tac`t1 with clock := t1.clock + 1` >> simp[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-      fs[state_rel_def] \\ metis_tac[IS_SOME_EXISTS]) >>
+      fs[state_rel_def] \\ fs [IS_SOME_EXISTS,EXISTS_PROD] >> metis_tac[]) >>
     simp[dec_clock_def] >>
     qmatch_assum_rename_tac`_ = SOME pc` >>
     qexists_tac`upd_pc pc t1` >>
     simp[upd_pc_def] >>
     full_simp_tac(srw_ss())[state_rel_def] >>
-    metis_tac[IS_SOME_EXISTS]
+    fs [IS_SOME_EXISTS,EXISTS_PROD] >> metis_tac[]
 QED
 
 Resume flatten_correct[Break]:
@@ -1545,7 +1547,7 @@ Resume flatten_correct[Break]:
     qexists_tac`upd_pc pc t1` >>
     simp[upd_pc_def] >>
     full_simp_tac(srw_ss())[state_rel_def] >>
-    metis_tac[IS_SOME_EXISTS]
+    fs [IS_SOME_EXISTS,EXISTS_PROD] >> metis_tac[]
 QED
 
 Resume flatten_correct[Continue]:
@@ -1594,8 +1596,8 @@ Resume flatten_correct[If]:
         full_simp_tac(srw_ss())[code_installed_def] >>
         simp[dec_clock_def,ADD1,upd_pc_def] >>
         qpat_abbrev_tac`pc = LENGTH _ + _` >>
-        old_drule state_rel_with_pc >> strip_tac >>
-        first_x_assum old_drule >>
+        drule_then (qspec_then `pc` assume_tac) state_rel_with_pc >>
+        first_x_assum drule >>
         simp[call_args_def,next_lab_thm] >>
         disch_then $ drule_all >>
         simp[upd_pc_def] >> strip_tac >>
@@ -1603,9 +1605,9 @@ Resume flatten_correct[If]:
         qexists_tac`t2`>>simp[] >>
         simp[Abbr`pc`,FILTER_APPEND] ) >>
       full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _`next_lab_thm] >>
-      old_drule (GEN_ALL state_rel_with_pc) >>
+      drule (GEN_ALL state_rel_with_pc) >>
       disch_then(qspec_then`t1.pc+1`strip_assume_tac) >>
-      first_x_assum old_drule >>
+      first_x_assum drule >>
       full_simp_tac(srw_ss())[call_args_def] >>
       imp_res_tac code_installed_append_imp >>
       disch_then(qspecl_then[`F`,`n`,`l`,`cs`,`bs`]mp_tac)>>simp[] >>
@@ -1613,7 +1615,7 @@ Resume flatten_correct[If]:
       simp[dec_clock_def,ADD1] >>
       fs[inc_pc_def,upd_pc_def] >>
       Cases_on`r`>>fs[] >- (
-        first_x_assum(old_drule)>>simp[]>>
+        first_x_assum(drule)>>simp[]>>
         simp[FILTER_APPEND]>> strip_tac >>
         qexists_tac`ck`>>simp[] >>
         qexists_tac`t2`>>fs[] ) >>
@@ -1622,10 +1624,10 @@ Resume flatten_correct[If]:
       >- (
         simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
         simp[dec_clock_def,inc_pc_def] >>
-        first_x_assum(old_drule)>>simp[] >>
+        first_x_assum(drule)>>simp[] >>
         strip_tac >> gvs [] >>
         first_x_assum $ irule_at $ Pos hd >> fs [])
-      \\ first_x_assum old_drule \\ simp[] \\ strip_tac >>
+      \\ first_x_assum drule \\ simp[] \\ strip_tac >>
       TOP_CASE_TAC \\ fs[] >>
       qexists_tac`ck`>>simp[] >>
       qexists_tac`t2`>>simp[FILTER_APPEND]) >>
@@ -1650,8 +1652,8 @@ Resume flatten_correct[If]:
         full_simp_tac(srw_ss())[code_installed_def] >>
         simp[dec_clock_def,ADD1,upd_pc_def] >>
         qpat_abbrev_tac`pc = LENGTH _ + _` >>
-        old_drule state_rel_with_pc >> strip_tac >>
-        first_x_assum old_drule >>
+        drule_then (qspec_then `pc` assume_tac) state_rel_with_pc >>
+        first_x_assum drule >>
         simp[call_args_def,next_lab_thm] >>
         disch_then $ drule_all >>
         simp[upd_pc_def] >> strip_tac >>
@@ -1659,9 +1661,9 @@ Resume flatten_correct[If]:
         qexists_tac`t2`>>simp[] >>
         simp[Abbr`pc`,FILTER_APPEND] ) >>
       full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _`next_lab_thm] >>
-      old_drule (GEN_ALL state_rel_with_pc) >>
+      drule (GEN_ALL state_rel_with_pc) >>
       disch_then(qspec_then`t1.pc+1`strip_assume_tac) >>
-      first_x_assum old_drule >>
+      first_x_assum drule >>
       full_simp_tac(srw_ss())[call_args_def] >>
       imp_res_tac code_installed_append_imp >>
       disch_then(qspecl_then[`F`,`n`,`l`,`cs`,`bs`]mp_tac)>>simp[] >>
@@ -1669,11 +1671,11 @@ Resume flatten_correct[If]:
       simp[dec_clock_def,ADD1] >>
       fs[inc_pc_def,upd_pc_def] >>
       Cases_on`r`>>fs[] >- (
-        first_x_assum old_drule >>
+        first_x_assum drule >>
         simp[] >> strip_tac >>
         qexists_tac`ck`>>simp[] >>
         qexists_tac`t2`>>fs[FILTER_APPEND] ) >>
-      first_x_assum old_drule >>
+      first_x_assum drule >>
       simp[] >> strip_tac >>
       reverse TOP_CASE_TAC \\ fs[]
       >- (
@@ -1701,10 +1703,10 @@ Resume flatten_correct[If]:
         imp_res_tac code_installed_append_imp >>
         imp_res_tac code_installed_append_imp >>
         full_simp_tac(srw_ss())[code_installed_def] >>
-        old_drule (GEN_ALL state_rel_with_pc) >>
+        drule (GEN_ALL state_rel_with_pc) >>
         disch_then(qspec_then`t1.pc+1`mp_tac) >>
         strip_tac >> rfs[] >>
-        first_x_assum old_drule >> fs[] >>
+        first_x_assum drule >> fs[] >>
         disch_then(qspecl_then[`F`,`n`,`l`,`cs`,`bs`]mp_tac)>>simp[] >>
         strip_tac >>
         reverse TOP_CASE_TAC \\ fs[upd_pc_def] >>
@@ -1720,9 +1722,9 @@ Resume flatten_correct[If]:
       full_simp_tac(srw_ss())[code_installed_def] >>
       fs[FILTER_APPEND] >>
       qmatch_assum_abbrev_tac`code_installed pc (append ys) _` >>
-      old_drule state_rel_with_pc >> strip_tac >>
+      drule_then (qspec_then `pc` assume_tac) state_rel_with_pc >>
       rfs[] >>
-      first_x_assum old_drule >>
+      first_x_assum drule >>
       full_simp_tac(srw_ss())[call_args_def] >>
       full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _ `next_lab_thm] >>
       disch_then(qspecl_then[`F`,`n`,`m'`,`cs`,`bs`]mp_tac)>>simp[] >>
@@ -1754,10 +1756,10 @@ Resume flatten_correct[If]:
         imp_res_tac code_installed_append_imp >>
         imp_res_tac code_installed_append_imp >>
         full_simp_tac(srw_ss())[code_installed_def] >>
-        old_drule (GEN_ALL state_rel_with_pc) >>
+        drule (GEN_ALL state_rel_with_pc) >>
         disch_then(qspec_then`t1.pc+1`mp_tac) >>
         strip_tac >> rfs[] >>
-        first_x_assum old_drule >> fs[] >>
+        first_x_assum drule >> fs[] >>
         disch_then(qspecl_then[`F`,`n`,`m'`,`cs`,`bs`]mp_tac)>>simp[] >>
         strip_tac >>
         reverse TOP_CASE_TAC \\ fs[upd_pc_def] >>
@@ -1772,13 +1774,13 @@ Resume flatten_correct[If]:
       full_simp_tac(srw_ss())[code_installed_def] >>
       fs[FILTER_APPEND] >>
       qmatch_assum_abbrev_tac`code_installed pc (append xs) _` >>
-      old_drule state_rel_with_pc >> strip_tac >>
-      first_x_assum old_drule >>
+      drule_then (qspec_then `pc` assume_tac) state_rel_with_pc >>
+      first_x_assum drule >>
       full_simp_tac(srw_ss())[call_args_def] >>
       full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _ `next_lab_thm] >>
       disch_then(qspecl_then[`F`,`n`,`l`,`cs`,`bs`]mp_tac)>>simp[] >>
       strip_tac >>
-      fs[upd_pc_def,ADD1] >> first_x_assum old_drule >> fs[] >> strip_tac >>
+      fs[upd_pc_def,ADD1] >> first_x_assum drule >> fs[] >> strip_tac >>
       qexists_tac`ck` >>
       TOP_CASE_TAC >> fs[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
@@ -1798,8 +1800,8 @@ Resume flatten_correct[If]:
       imp_res_tac code_installed_append_imp >>
       full_simp_tac(srw_ss())[code_installed_def] >>
       qmatch_assum_abbrev_tac`code_installed pc (append xs) _` >>
-      old_drule state_rel_with_pc >> strip_tac >> rfs[] >>
-      first_x_assum old_drule >>
+      drule_then (qspec_then `pc` assume_tac) state_rel_with_pc >> rfs[] >>
+      first_x_assum drule >>
       full_simp_tac(srw_ss())[call_args_def] >>
       disch_then(qspecl_then[`F`,`n`,`l`,`cs`,`bs`]mp_tac)>>simp[] >>
       full_simp_tac(srw_ss())[FILTER_APPEND,ADD1,upd_pc_def] >>
@@ -1816,8 +1818,8 @@ Resume flatten_correct[If]:
     full_simp_tac(srw_ss())[code_installed_def] >>
     simp[dec_clock_def,ADD1,upd_pc_def,inc_pc_def] >>
     qmatch_assum_abbrev_tac`code_installed pc (append ys) _` >>
-    old_drule state_rel_with_pc >> strip_tac >> rfs[] >>
-    first_x_assum old_drule >>
+    drule_then (qspec_then `pc` assume_tac) state_rel_with_pc >> rfs[] >>
+    first_x_assum drule >>
     full_simp_tac(srw_ss())[call_args_def] >>
     disch_then(qspecl_then[`F`,`n`,`m'`,`cs`,`bs`]mp_tac)>>simp[] >>
     strip_tac >>
@@ -1963,7 +1965,7 @@ Resume flatten_correct[Loop]:
     \\ simp [Once flatten_def,FILTER_APPEND]
     \\ ‘state_rel s1 t2 ∧
         asm_fetch_aux t2.pc t2.code =
-        SOME (LabAsm (Jump (Lab n l)) 0w [] 0)’ by
+        SOME (LabAsm (Jump (Lab n l)) 0 [] 0)’ by
      (drule cont_loop_IMP \\ strip_tac
       \\ gvs [] \\ simp [find_lab_def,oEL_def])
     \\ gvs [] \\ reverse $ Cases_on ‘halt_view r’ \\ gvs []
@@ -2017,15 +2019,15 @@ Resume flatten_correct[JumpLower]:
     ntac 2 CASE_TAC >> full_simp_tac(srw_ss())[]>>
     srw_tac[][] >> simp[] >> full_simp_tac(srw_ss())[] >>
     full_simp_tac(srw_ss())[find_code_def] >>
+    Cases_on `z` >> gvs [] >>
     first_assum(fn th => first_assum(
       tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
     imp_res_tac state_rel_dec_clock >>
-    old_drule state_rel_with_pc >>
+    drule_then (qspec_then `pc` mp_tac) state_rel_with_pc >>
     pop_assum kall_tac >> strip_tac >>
-    first_x_assum old_drule >> full_simp_tac(srw_ss())[] >>
-    disch_then old_drule >> simp[] >>
+    first_x_assum drule >> full_simp_tac(srw_ss())[] >>
+    disch_then drule >> simp[] >>
     strip_tac >>
-    pop_assum drule >> strip_tac >>
     CASE_TAC >> full_simp_tac(srw_ss())[] >>
     rename [‘¬bad_fun_return (SOME res)’] >>
     ‘∀n cs bs. result_view res n cs bs = result_view res ARB [] []’ by
@@ -2048,13 +2050,14 @@ Resume flatten_correct[RawCall]:
     full_simp_tac(srw_ss())[Q.SPECL[`b`,`RawCall _`]flatten_def] >>
     qhdtm_x_assum`evaluate`mp_tac >>
     simp[Once stackSemTheory.evaluate_def] >>
-    simp [CaseEq"option"] >> strip_tac >>
+    simp [CaseEq"option",pair_case_eq] >> strip_tac >>
+    rveq >>
     first_assum(fn th => first_assum(
       tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
     imp_res_tac state_rel_dec_clock >>
-    old_drule state_rel_with_pc >>
+    drule state_rel_with_pc >>
     pop_assum kall_tac >> strip_tac >>
-    first_x_assum old_drule >> full_simp_tac(srw_ss())[pair_case_eq] >>
+    first_x_assum drule >> full_simp_tac(srw_ss())[pair_case_eq] >>
     Cases_on `s.clock = 0` THEN1
      (fs [] \\ rveq \\ fs []
       \\ qexists_tac `0` \\ fs []
@@ -2123,13 +2126,15 @@ Resume flatten_correct[Call]:
       srw_tac[][] >> simp[] >> full_simp_tac(srw_ss())[] >>
       imp_res_tac state_rel_dec_clock >>
       Cases_on`dest`>>full_simp_tac(srw_ss())[find_code_def,compile_jump_def,code_installed_def] >- (
+        PairCases_on `z` >> gvs [] >>
+        rename1 `evaluate (x,dec_clock s) = _` >>
         first_assum(fn th => first_assum(
           tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
-        old_drule state_rel_with_pc >>
+        drule_then (qspec_then `pc` mp_tac) state_rel_with_pc >>
         qhdtm_x_assum`state_rel`kall_tac >>
         strip_tac >>
         Cases_on ‘q = SOME Error’ >> fs [] >>
-        first_x_assum old_drule >>
+        first_x_assum drule >>
         disch_then $ qspecl_then [‘T’,‘x'’,‘next_lab x 2’,‘[]’,‘[]’] mp_tac >>
         impl_tac >- gvs [] >>
         strip_tac >> full_simp_tac(srw_ss())[] >>
@@ -2150,14 +2155,15 @@ Resume flatten_correct[Call]:
       CASE_TAC >> full_simp_tac(srw_ss())[] >>
       CASE_TAC >> full_simp_tac(srw_ss())[] >>
       strip_tac >>
+      PairCases_on `z` >> gvs [] >>
+      rename1 `evaluate (x,dec_clock s) = _` >>
       first_assum(fn th => first_assum(
         tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
-      old_drule state_rel_with_pc >>
+      drule_then (qspec_then `pc` mp_tac) state_rel_with_pc >>
       qhdtm_x_assum`state_rel`kall_tac >>
       strip_tac >>
-      first_x_assum old_drule >>
+      first_x_assum drule >>
       simp[] >>
-      disch_then old_drule >> simp[] >>
       disch_then $ qspecl_then [‘T’,‘n'’,‘next_lab x 2’,‘[]’,‘[]’] mp_tac >>
       impl_tac >- gvs [] >>
       strip_tac >> full_simp_tac(srw_ss())[] >>
@@ -2226,8 +2232,8 @@ Resume flatten_correct[Call]:
       simp[dest_to_loc'_def] >>
       CASE_TAC >> simp[] >>
       full_simp_tac(srw_ss())[Abbr`regs`,APPLY_UPDATE_THM] ) >>
-    old_drule(GEN_ALL compile_jump_correct) >>
-    disch_then old_drule >>
+    drule(GEN_ALL compile_jump_correct) >>
+    disch_then drule >>
     strip_tac >>
     qmatch_assum_abbrev_tac`code_installed pc (append (FST (flatten T _ nx lx _ _))) _` >>
     last_x_assum(qspecl_then[`T`,`nx`,`lx`,`[]`,`[]`,`t1 with <| pc := pc; regs := regs; clock := s.clock-1 |>`]mp_tac) >>
@@ -2267,11 +2273,11 @@ Resume flatten_correct[Call]:
         IF_CASES_TAC >> simp[] >> strip_tac >>
         qpat_x_assum`¬ _`mp_tac >> simp_tac bool_ss [] >> strip_tac >> rveq >>
         rev_full_simp_tac(srw_ss())[] >>
-        first_x_assum old_drule >>
+        first_x_assum drule >>
         simp[] >> full_simp_tac(srw_ss())[] >>
         imp_res_tac loc_to_pc_isPREFIX>>fs[]>>
         imp_res_tac code_installed_isPREFIX>>fs[]>>
-        disch_then old_drule >> simp[] >>
+        disch_then drule >> simp[] >>
         disch_then(qspecl_then[`F`,`n`,`l`,`cs`,`bs`]mp_tac)>>simp[] >>
         impl_tac >- (
           imp_res_tac is_some_loc_to_pc_prefix
@@ -2340,7 +2346,7 @@ Resume flatten_correct[Call]:
       fs[] >> rveq >>
       imp_res_tac loc_to_pc_isPREFIX>>fs[]>>
       qpat_x_assum`_ = t2.pc`(assume_tac o SYM) >>
-      first_x_assum old_drule >> simp[] >>
+      first_x_assum drule >> simp[] >>
       disch_then(qspecl_then[`F`,`n`,`m'`,`cs`,`bs`]mp_tac)>>simp[] >>
       imp_res_tac code_installed_isPREFIX>>
       imp_res_tac is_some_loc_to_pc_prefix >>
@@ -2366,7 +2372,7 @@ Resume flatten_correct[Call]:
       IF_CASES_TAC >> simp[] >> strip_tac >> fs[] >> rveq >> rfs[] >>
       imp_res_tac loc_to_pc_isPREFIX>>fs[]>>
       imp_res_tac code_installed_isPREFIX>>fs[]>>
-      first_x_assum old_drule >> simp[] >>
+      first_x_assum drule >> simp[] >>
       disch_then(qspecl_then[`F`,`n`,`l`,`cs`,`bs`]mp_tac)>>simp[] >>
       qpat_x_assum`_ = t2.pc`(assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
       impl_tac >- (
@@ -2414,7 +2420,7 @@ Resume flatten_correct[Call]:
       qpat_x_assum`∀x. (loc_to_pc _ _ _ = _) ⇒ _`mp_tac >>
       simp[] >> strip_tac >> rev_full_simp_tac(srw_ss())[] >>
       imp_res_tac loc_to_pc_isPREFIX \\ fs[] \\
-      first_x_assum old_drule >>
+      first_x_assum drule >>
       disch_then(qspecl_then[`F`,`n`,`m'`,`cs`,`bs`]mp_tac)>>simp[] >>
       impl_tac >- (
         imp_res_tac is_some_loc_to_pc_prefix >>
@@ -2469,6 +2475,8 @@ Resume flatten_correct[Install]:
     imp_res_tac state_rel_read_reg_FLOOKUP_regs>>
     fs[case_eq_thms]>>
     rw[]>> rfs[]>>
+    qmatch_assum_rename_tac `s.compile_oracle 0 = (cfg,(k,entry)::progs,bm)` >>
+    PairCases_on `entry` >> fs [] >>
     qpat_x_assum`code_installed _ _ _` mp_tac>>
     simp[Once flatten_def]>> strip_tac>>
     fs[code_installed_def]>>
@@ -2525,7 +2533,7 @@ Resume flatten_correct[Install]:
       match_mp_tac prog_to_section_labels_ok>>
       fs[EVERY_MEM,FORALL_PROD]>>
       metis_tac[])>>
-    old_drule labels_ok_imp>>
+    drule labels_ok_imp>>
     simp[]>>
     rw[]
     >-
@@ -2552,27 +2560,27 @@ Resume flatten_correct[Install]:
       (pop_assum mp_tac>>simp[lookup_union]>>
       reverse TOP_CASE_TAC>> strip_tac
       >-
-        (first_x_assum old_drule>>rw[]>>
+        (first_x_assum drule>>rw[]>>
         metis_tac[loc_to_pc_APPEND,code_installed_APPEND])
       >>
         fs[lookup_fromAList]>>
-        old_drule code_installed_prog_to_section >>
-        disch_then old_drule>>strip_tac>>
+        drule code_installed_prog_to_section >>
+        disch_then drule>>strip_tac>>
         `~MEM n' (MAP Section_num t1.code)` by
            (unabbrev_all_tac>>fs[EXTENSION,domain_lookup]>>
            simp[MAP_prog_to_section_Section_num]>>
            metis_tac[option_CLAUSES])>>
-        old_drule loc_to_pc_append2>>simp[]>>
-        disch_then old_drule>>
+        drule loc_to_pc_append2>>simp[]>>
+        disch_then drule>>
         simp[]>> strip_tac>>
-        old_drule code_installed_append2>> simp[]>>
+        drule code_installed_append2>> simp[]>>
         rewrite_tac[Once CONJ_COMM]>>
-        disch_then old_drule>>
+        disch_then drule>>
         simp[]>>
         disch_then match_mp_tac>>
         imp_res_tac ALOOKUP_MEM>>
         fs[EVERY_MEM,MEM_MAP,EXISTS_PROD,FORALL_PROD,prog_to_section_def,PULL_EXISTS]>>
-        rpt (first_x_assum old_drule)>>
+        rpt (first_x_assum drule)>>
         pairarg_tac>>fs[EVERY_MEM])
     >-
       (fs[domain_union]>>AP_TERM_TAC>>
@@ -2770,7 +2778,7 @@ Resume flatten_correct[FFI]:
     full_simp_tac(srw_ss())[] >>
     `t1.ffi = s.ffi` by(fs[state_rel_def]) >>
     fs[] >>
-    (fn g => subterm (fn tm => qexists_tac `^tm with <| clock := t1.clock|>` g) (#2 g)) >> simp[] >>
+    (fn g => fn c => subterm (fn tm => qexists_tac `^tm with <| clock := t1.clock|>` g c) (#2 g)) >> simp[] >>
     full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_DRESTRICT] >> rev_full_simp_tac(srw_ss())[] >>
     simp[] >>
     reverse conj_tac
@@ -2793,8 +2801,8 @@ Resume flatten_correct[LocValue]:
     \\ CASE_TAC
     THEN1 (imp_res_tac loc_check_IMP_loc_to_pc \\ fs [])
     \\ full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def,upd_reg_def]
-    \\ (fn g => subterm (fn tm =>
-         qexists_tac `^tm with <| clock := t1.clock|>` g) (#2 g))
+    \\ (fn g => fn c => subterm (fn tm =>
+         qexists_tac `^tm with <| clock := t1.clock|>` g c) (#2 g))
     \\ fs[state_rel_def,set_var_def,FLOOKUP_UPDATE,APPLY_UPDATE_THM]
     \\ srw_tac[][] \\ res_tac \\ fs [])
 QED
@@ -2841,13 +2849,14 @@ Proof
   BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
   srw_tac[][] >> srw_tac[][] >>
   full_simp_tac(srw_ss())[find_code_def] >>
+  Cases_on `z` >> gvs [] >>
   first_assum(fn th => first_assum(
     tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
   full_simp_tac(srw_ss())[] >> rveq >>
-  old_drule flatten_correct >> simp[] >>
+  drule flatten_correct >> simp[] >>
   imp_res_tac state_rel_dec_clock >>
-  disch_then old_drule >> simp[] >>
-  disch_then old_drule >> simp[] >>
+  disch_then drule >> simp[] >>
+  disch_then drule >> simp[] >>
   simp[dec_clock_def] >>
   `t1.clock ≠ 0` by full_simp_tac(srw_ss())[state_rel_def] >>
   Cases_on ‘q’ >> gvs [] >>
@@ -2868,19 +2877,20 @@ Proof
     fs[] ) >>
   simp [AllCaseEqs()] >>
   strip_tac >>
+  Cases_on `x` >> fs [] >>
   first_assum(fn th => first_assum(
     tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
   gvs[] >>
-  old_drule flatten_correct >> simp[] >>
+  drule flatten_correct >> simp[] >>
   `loc_to_pc n 0 t2.code = SOME t2.pc` by metis_tac[IS_SOME_EXISTS] \\ fs[] \\
   simp[stackSemTheory.dec_clock_def] >>
   `r with clock := r.clock = r` by simp[stackSemTheory.state_component_equality] >> simp[] >>
-  disch_then old_drule >> simp[] >>
+  disch_then drule >> simp[] >>
   once_rewrite_tac[CONJ_COMM] >>
   fs[state_rel_def] >>
   res_tac >>
   rfs[] >>
-  disch_then old_drule >> strip_tac >>
+  disch_then drule >> strip_tac >>
   fs [] >> rfs [] >>
   ntac 6 (first_x_assum(qspec_then`ck'`mp_tac)) >>
   rw[] \\
@@ -2888,7 +2898,7 @@ Proof
 QED
 
 Definition halt_assum_def:
-  halt_assum (:('ffi#'c)) code <=>
+  halt_assum (:(α#'ffi#'c)) code <=>
    !(s:(α,'c,'ffi)stackSem$state).
      subspt code s.code /\ s.clock <> 0 ==>
      ∃t. evaluate (Call NONE (INL 1) NONE,s) = (SOME (Halt (Word 0w)),t) /\
@@ -2896,7 +2906,7 @@ Definition halt_assum_def:
 End
 
 Theorem flatten_semantics:
-   halt_assum (:'ffi#'c) (s1:(α,'c,'ffi)stackSem$state).code /\
+   halt_assum (:α#'ffi#'c) (s1:(α,'c,'ffi)stackSem$state).code /\
    state_rel s1 (s2:('a,'c,'ffi)labSem$state) /\
    loc_to_pc start 0 s2.code = SOME s2.pc /\
    semantics start s1 <> Fail ==>
@@ -2914,21 +2924,21 @@ Proof
       (*qhdtm_x_assum`stackSem$evaluate`kall_tac >>*)
       last_x_assum(qspec_then`k+k'+1`mp_tac) >> simp[] >>
       spose_not_then strip_assume_tac >>
-      old_drule(GEN_ALL stackPropsTheory.evaluate_add_clock) >>
+      drule(GEN_ALL stackPropsTheory.evaluate_add_clock) >>
       disch_then(qspec_then `k' + 1` mp_tac) >>
       impl_tac >- (CCONTR_TAC >> fs[]) >>
       strip_tac >> fs[] >>
-      old_drule(GEN_ALL flatten_call_correct) >>
+      drule(GEN_ALL flatten_call_correct) >>
       imp_res_tac state_rel_with_clock >>
       first_x_assum(qspec_then`k+(k'+1)`strip_assume_tac) >>
-      disch_then old_drule >> simp[] >>
+      disch_then drule >> simp[] >>
       `r <> TimeOut` by(CCONTR_TAC >> fs[]) >> fs[] >>
       `r <> Error` by(CCONTR_TAC >> fs[]) >> fs[] >>
       Cases_on `r` >> fs[] >>
       qpat_x_assum `FST _ = _` mp_tac >>
-      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`)) >>
       strip_tac >> fs[] >> rveq >>
-      old_drule(GEN_ALL evaluate_ADD_clock) >> simp[] >>
+      drule(GEN_ALL evaluate_ADD_clock) >> simp[] >>
       rpt strip_tac >> first_x_assum(qspec_then `ck + k` assume_tac) >>
       fs[] >> rw[]) >>
     DEEP_INTRO_TAC some_intro >> simp[] >>
@@ -2941,9 +2951,9 @@ Proof
       simp[Abbr`s`,Abbr`l`] >>
       ntac 2 strip_tac >>
       unabbrev_all_tac >>
-      old_drule(GEN_ALL flatten_call_correct) >>
-      old_drule state_rel_with_clock >> strip_tac >>
-      disch_then old_drule >>
+      drule(GEN_ALL flatten_call_correct) >>
+      drule_then (qspec_then `k` assume_tac) state_rel_with_clock >>
+      disch_then drule >>
       impl_tac
       >- (simp[] >> Cases_on `r` >> fs[] >>
           last_x_assum(qspec_then `k` mp_tac) >> simp[]) >>
@@ -2966,10 +2976,10 @@ Proof
     disch_then(qspec_then`1`strip_assume_tac) >> rev_full_simp_tac(srw_ss())[] >>
     first_assum(subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl) >>
     unabbrev_all_tac >>
-    old_drule (GEN_ALL flatten_call_correct) >> simp[] >>
-    old_drule (GEN_ALL state_rel_with_clock) >>
+    drule (GEN_ALL flatten_call_correct) >> simp[] >>
+    drule (GEN_ALL state_rel_with_clock) >>
     disch_then(qspec_then`k+1`strip_assume_tac) >>
-    disch_then old_drule >> simp[] >>
+    disch_then drule >> simp[] >>
     impl_tac >- (
       last_x_assum(qspec_then`k+1`mp_tac) >>full_simp_tac(srw_ss())[]>> srw_tac[][]) >>
     strip_tac >>
@@ -2984,12 +2994,12 @@ Proof
   simp[labSemTheory.semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
     last_x_assum(qspec_then`k+1`mp_tac) >>
-    (fn g => subterm(fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >>
     simp[] >> spose_not_then strip_assume_tac >>
-    old_drule (GEN_ALL flatten_call_correct) >>
-    old_drule (GEN_ALL state_rel_with_clock) >>
+    drule (GEN_ALL flatten_call_correct) >>
+    drule (GEN_ALL state_rel_with_clock) >>
     disch_then(qspec_then`k+1`strip_assume_tac) >>
-    disch_then old_drule >> simp[] >>
+    disch_then drule >> simp[] >>
     conj_tac >- (
       spose_not_then strip_assume_tac >>
       first_x_assum(qspec_then`k+1`mp_tac) >> full_simp_tac(srw_ss())[] >>
@@ -3005,20 +3015,20 @@ Proof
     qmatch_assum_abbrev_tac`FST p = _` >>
     Cases_on`p`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def] >>
     pop_assum (assume_tac o SYM) >>
-    old_drule labPropsTheory.evaluate_ADD_clock >> simp[] >>
+    drule labPropsTheory.evaluate_ADD_clock >> simp[] >>
     qexists_tac`ck`>>simp[]) >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
   conj_tac >- (
     spose_not_then strip_assume_tac >>
     fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
     last_x_assum(qspec_then`k+1`mp_tac) >>
-    (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g)) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)`)) >>
     simp[] >>
     spose_not_then strip_assume_tac >>
-    old_drule (GEN_ALL flatten_call_correct) >>
-    old_drule (GEN_ALL state_rel_with_clock) >>
+    drule (GEN_ALL flatten_call_correct) >>
+    drule (GEN_ALL state_rel_with_clock) >>
     disch_then(qspec_then`k+1`strip_assume_tac) >>
-    disch_then old_drule >> simp[] >>
+    disch_then drule >> simp[] >>
     conj_tac >- (
       Cases_on`q`>>full_simp_tac(srw_ss())[]>>
       Cases_on`x'`>>full_simp_tac(srw_ss())[]>> srw_tac[][]>>
@@ -3029,7 +3039,7 @@ Proof
     Cases_on`q`>>full_simp_tac(srw_ss())[]>>
     BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[]>>
     qhdtm_x_assum`labSem$evaluate`mp_tac >>
-    old_drule(labPropsTheory.evaluate_ADD_clock)>>
+    drule(labPropsTheory.evaluate_ADD_clock)>>
     disch_then(qspec_then`ck`mp_tac)>>simp[]) >>
   strip_tac >>
   qmatch_abbrev_tac`build_lprefix_lub l1 = build_lprefix_lub l2` >>
@@ -3062,17 +3072,17 @@ Proof
   simp[LNTH_fromList,PULL_EXISTS] >>
   simp[GSYM FORALL_AND_THM] >>
   rpt gen_tac >>
-  (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g)) >> full_simp_tac(srw_ss())[] >>
-  (fn g => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm (#2 g)) tm)` g) (#2 g)) >> full_simp_tac(srw_ss())[] >>
+  goal_term (subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)`)) >> full_simp_tac(srw_ss())[] >>
+  goal_term (fn w => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm w) tm)`) w) >> full_simp_tac(srw_ss())[] >>
   qmatch_assum_abbrev_tac`stackSem$evaluate (e,s) = _` >>
   qispl_then[`e`,`s`](mp_tac o Q.GEN`extra`) stackPropsTheory.evaluate_add_clock_io_events_mono >>
   disch_then(qspec_then`1`strip_assume_tac) >> rev_full_simp_tac(srw_ss())[] >>
   first_assum(subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl) >>
   unabbrev_all_tac >>
-  old_drule (GEN_ALL flatten_call_correct) >> simp[] >>
-  old_drule (GEN_ALL state_rel_with_clock) >>
+  drule (GEN_ALL flatten_call_correct) >> simp[] >>
+  drule (GEN_ALL state_rel_with_clock) >>
   disch_then(qspec_then`k+1`strip_assume_tac) >>
-  disch_then old_drule >> simp[] >>
+  disch_then drule >> simp[] >>
   impl_tac >- (
     last_x_assum(qspec_then`k+1`mp_tac) >>full_simp_tac(srw_ss())[]>> srw_tac[][]) >>
   strip_tac >>
@@ -3117,25 +3127,25 @@ Overload stack_alloc_compile[local] = ``stack_alloc$compile``
 Overload stack_remove_compile[local] = ``stack_remove$compile``
 
 Definition full_make_init_def:
-  full_make_init stack_conf data_conf max_heap sp offset bitmaps code s4 save_regs data_sp coracle =
+  full_make_init aw stack_conf data_conf max_heap sp offset bitmaps code s4 save_regs data_sp coracle =
   let ggc = is_gen_gc data_conf.gc_kind in
   let jump = stack_conf.jump in
-  let code1 = stack_alloc$compile data_conf (stack_rawcall$compile code) in
-  let code2 = compile jump offset ggc max_heap sp InitGlobals_location code1 in
-  let code3 = fromAList (compile stack_conf.reg_names code2) in
+  let code1 = stack_alloc$compile aw data_conf (stack_rawcall$compile code) in
+  let code2 = compile aw jump offset ggc max_heap sp InitGlobals_location code1 in
+  let code3 = fromAList (stack_names$compile stack_conf.reg_names code2) in
   let coracle1 = (I ## MAP prog_comp ## I) o coracle in
-  let coracle2 = (I ## MAP (prog_comp jump offset sp) ## I) o coracle1 in
-  let coracle3 = (I ## compile stack_conf.reg_names ## I) o coracle2 in
+  let coracle2 = (I ## MAP (prog_comp aw jump offset sp) ## I) o coracle1 in
+  let coracle3 = (I ## stack_names$compile stack_conf.reg_names ## I) o coracle2 in
   let s3 = make_init code3 coracle3 (MAP (find_name stack_conf.reg_names) [2;3;4]) save_regs s4 in
   let s2 = make_init stack_conf.reg_names (fromAList code2) coracle2 s3 in
-  let s1 = make_init_any ggc max_heap bitmaps data_sp coracle1 jump offset sp (fromAList code1) s2 in
+  let s1 = make_init_any aw ggc max_heap bitmaps data_sp coracle1 jump offset sp (fromAList code1) s2 in
     (make_init data_conf (fromAList code) coracle s1,
-     make_init_opt ggc max_heap bitmaps data_sp coracle1 jump offset sp (fromAList code1) s2)
+     make_init_opt aw ggc max_heap bitmaps data_sp coracle1 jump offset sp (fromAList code1) s2)
 End
 
 Theorem full_make_init_buffer:
-    (FST(full_make_init a b c d e f g h i j k)).code_buffer.buffer = [] ∧
-  (FST(full_make_init a b c d e f g h i j k)).data_buffer.buffer = []
+    (FST(full_make_init aw a b c d e f g h i j k)).code_buffer.buffer = [] ∧
+  (FST(full_make_init aw a b c d e f g h i j k)).data_buffer.buffer = []
 Proof
   fs [full_make_init_def,stack_allocProofTheory.make_init_def,
      stack_removeProofTheory.make_init_any_def] >>
@@ -3147,15 +3157,15 @@ Proof
 QED
 
 Theorem full_make_init_ffi:
-    (FST(full_make_init a b c d e f g h i j k)).ffi = h.ffi
+    (FST(full_make_init aw a b c d e f g h i j k)).ffi = h.ffi
 Proof
   fs [full_make_init_def,stack_allocProofTheory.make_init_def] >>
   fs [stack_removeProofTheory.make_init_any_ffi] \\ EVAL_TAC
 QED
 
 Theorem full_make_init_compile:
-   (FST(full_make_init a b c d e f g h i j k)).compile =
-   (λc. (λp. h.compile c (MAP prog_to_section (MAP (prog_comp a.reg_names) (MAP (prog_comp a.jump e d) p)))) o MAP prog_comp)
+   (FST(full_make_init aw a b c d e f g h i j k)).compile =
+   (λc. (λp. h.compile c (MAP prog_to_section (MAP (prog_comp a.reg_names) (MAP (prog_comp aw a.jump e d) p)))) o MAP prog_comp)
 Proof
   fs [full_make_init_def,stack_allocProofTheory.make_init_def]
   \\ simp[stack_removeProofTheory.make_init_any_def,
@@ -3193,9 +3203,9 @@ Definition memory_assumption_def:
 End
 
 Theorem halt_assum_lemma[local]:
-  halt_assum (:'ffi#'c)
+  halt_assum (:α#'ffi#'c)
      (fromAList (stack_names$compile f
-       (compile jump off gen max_heap k l code)))
+       (compile aw jump off gen max_heap k l code)))
 Proof
   fs [halt_assum_def] \\ rw []
   \\ fs [stackSemTheory.evaluate_def,
@@ -3206,9 +3216,9 @@ Proof
          stack_removeTheory.init_stubs_def,
          subspt_def,
          lookup_fromAList,domain_fromAList,
-         EVAL ``stack_names$comp f (halt_inst 0w)``]
+         EVAL ``stack_names$comp f (halt_inst 0)``]
   \\ first_x_assum(qspec_then`1`mp_tac) \\ simp[]
-  \\ fs [stackSemTheory.evaluate_def,EVAL ``inst (Const n 0w) (dec_clock s)``,
+  \\ fs [stackSemTheory.evaluate_def,EVAL ``inst (Const n 0) (dec_clock s)``,
          get_var_def,FLOOKUP_UPDATE]
 QED
 
@@ -3223,8 +3233,8 @@ QED
 
 Theorem state_rel_make_init:
    state_rel (make_init code coracle regs save_regs s) (s:('a,'c,'ffi) labSem$state) <=>
-    (∀n prog.
-     lookup n code = SOME (prog) ⇒
+    (∀n prog md.
+     lookup n code = SOME (prog,md) ⇒
      call_args prog s.ptr_reg s.len_reg s.ptr2_reg s.len2_reg s.link_reg ∧
      ∃pc.
        code_installed pc (append (FST (flatten T prog n (next_lab prog 2) [] []))) s.code ∧
@@ -3233,7 +3243,7 @@ Theorem state_rel_make_init:
     (∀k.
       (λ(c,ps,_).
          EVERY
-           (λ(n,p).
+           (λ(n,p,md).
               call_args p s.ptr_reg s.len_reg s.ptr2_reg s.len2_reg s.link_reg ∧
               EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) (extract_labels p) ∧
               ALL_DISTINCT (extract_labels p)) ps ∧
@@ -3255,8 +3265,8 @@ Proof
 QED
 
 Theorem MAP_FST_compile_compile[local]:
-  MAP FST (compile jump off gen max_heap k InitGlobals_location
-              (stack_alloc$compile c
+  MAP FST (compile aw jump off gen max_heap k InitGlobals_location
+              (stack_alloc$compile aw c
                  (stack_rawcall$compile code))) =
     0::1::2::gc_stub_location::MAP FST code
 Proof
@@ -3333,16 +3343,16 @@ QED
 *)
 
 Theorem MAP_prog_to_section_FST[local]:
-  MAP (λs. case s of Section n v => n) (MAP prog_to_section prog) =
+  MAP (λs. case s of Section n v _ => n) (MAP prog_to_section prog) =
   MAP FST prog
 Proof
-  match_mp_tac LIST_EQ>>rw[EL_MAP]>>Cases_on`EL x prog`>>fs[prog_to_section_def]>>
-  pairarg_tac>>fs[]
+  simp [MAP_MAP_o,o_DEF,MAP_EQ_f,FORALL_PROD,prog_to_section_def]
+  \\ rpt strip_tac \\ pairarg_tac \\ fs []
 QED
 
 Theorem extract_label_store_list_code[local]:
-  ∀a t ls.
-  extract_labels (store_list_code a t ls) = []
+  ∀aw a t ls.
+  extract_labels (store_list_code aw a t ls) = []
 Proof
   ho_match_mp_tac stack_removeTheory.store_list_code_ind>>
   EVAL_TAC>>fs[]
@@ -3350,73 +3360,56 @@ QED
 
 Theorem stack_to_lab_compile_lab_pres:
   EVERY (λn. n ≠ 0 ∧ n ≠ 1 ∧ n ≠ 2 ∧ n ≠ gc_stub_location) (MAP FST prog) ∧
-  EVERY (λn,p.
+  EVERY (λ(n,p,md).
            let labs = extract_labels p in
              EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) labs ∧
              ALL_DISTINCT labs) prog ∧
   ALL_DISTINCT (MAP FST prog) ⇒
-  labels_ok (compile c c2 c3 sp offset prog)
+  labels_ok (compile aw c c2 c3 sp offset prog)
 Proof
-  rw[labels_ok_def,stack_to_labTheory.compile_def]
-  >-
-    (fs[MAP_prog_to_section_FST,MAP_FST_compile_compile]>>
-    fs[EVERY_MEM]>>CCONTR_TAC>>fs[]>>res_tac>>fs[] >>
+  rw [stack_to_labTheory.compile_def] >>
+  irule prog_to_section_labels_ok >>
+  conj_tac >-
+   (fs [MAP_FST_compile_compile] >>
+    fs [EVERY_MEM] >> CCONTR_TAC >> fs [] >> res_tac >> fs [] >>
     pop_assum mp_tac >> EVAL_TAC) >>
-  fs[EVERY_MAP,prog_to_section_def,EVERY_MEM,FORALL_PROD]>>
-  rw[]>>pairarg_tac>>fs[extract_labels_def,extract_labels_append]>>
-  Q.ISPECL_THEN [`T`,`p_2`,`p_1`,`next_lab p_2 2`] mp_tac stack_to_lab_lab_pres_T>>
-  disch_then $ qspecl_then [‘[]’,‘[]’] mp_tac >>
-  impl_keep_tac>-
-      (*stack_names*)
-    (fs[stack_namesTheory.compile_def,MEM_MAP]>>
-     Cases_on`y`>>fs[stack_namesTheory.prog_comp_def,GSYM stack_names_lab_pres]>>
-     (*stack_remove*)
-     fs[stack_removeTheory.compile_def,stack_removeTheory.init_stubs_def,MEM_MAP]>>
-     EVAL_TAC>>BasicProvers.EVERY_CASE_TAC>>
-     EVAL_TAC>>fs[extract_label_store_list_code]>>
-     Cases_on`y`>>fs[stack_removeTheory.prog_comp_def,GSYM stack_remove_lab_pres]>>
-     (*stack_alloc*)
-      fs[stack_allocTheory.compile_def,stack_allocTheory.stubs_def,MEM_MAP]>>
-      EVAL_TAC >> TRY TOP_CASE_TAC >>
-      EVAL_TAC >> TRY TOP_CASE_TAC >>
-      EVAL_TAC >> Cases_on`y`>>
-      TRY (rw [] \\ EVAL_TAC) >>
-      fs[stack_allocTheory.prog_comp_def]>>
-      Q.SPECL_THEN [`q''`,`next_lab r'' 2`,`r''`] mp_tac stack_alloc_lab_pres>>
-      fs [] >>
-      (impl_tac>-
-        (fs [stack_rawcallTheory.compile_def] >>
-         rename [`comp_top ii`] >>
-         fs [MEM_MAP,EXISTS_PROD] >>
-         rveq >> fs [stack_rawcallProofTheory.extract_labels_comp]>>
-         res_tac>>fs[EVERY_MEM,FORALL_PROD]>>
-         metis_tac[]))>>
-      rw[]>>pairarg_tac>>fs[])>>
-  Cases_on `is_Seq p_2` THEN1
-   (fs[EVERY_MEM]>>rw[]>>res_tac>>fs[ALL_DISTINCT_APPEND]
-    >- (qsuff_tac`2 ≤ m` >> fs[]>>
-        metis_tac[LESS_EQ_TRANS,next_lab_non_zero])
-    >> CCONTR_TAC>>fs[]>>res_tac>>fs[]
-    >> imp_res_tac extract_labels_next_lab>>fs[])
-  >> fs [flatten_T_F]
-  >> Q.ISPECL_THEN [`F`,`p_2`,`p_1`,`next_lab p_2 2`] mp_tac stack_to_lab_lab_pres
-  >> disch_then $ qspecl_then [‘[]’,‘[]’] mp_tac
-  >> impl_tac THEN1 fs []
-  >> simp [] >> ntac 2 strip_tac
-  >> rpt strip_tac >> fs [ALL_DISTINCT_APPEND]
-  THEN1 (fs [EVERY_MEM] \\ res_tac \\ fs [])
-  THEN1 (fs [EVERY_MEM] \\ res_tac \\ fs [])
-  \\ CCONTR_TAC \\ fs [EVERY_MEM] \\ res_tac \\ fs []
+  fs [EVERY_MEM,FORALL_PROD] >> rpt gen_tac >> strip_tac >>
+  fs [stack_namesTheory.compile_def,MEM_MAP] >>
+  PairCases_on `y` >>
+  fs [stack_namesTheory.prog_comp_def,GSYM stack_names_lab_pres] >> rveq >>
+  fs [GSYM stack_names_lab_pres] >>
+  fs [stack_removeTheory.compile_def,stack_removeTheory.init_stubs_def,MEM_MAP] >>
+  rveq >> EVAL_TAC >> BasicProvers.EVERY_CASE_TAC >>
+  EVAL_TAC >> fs [extract_label_store_list_code] >>
+  PairCases_on `y` >>
+  fs [stack_removeTheory.prog_comp_def,GSYM stack_remove_lab_pres] >> rveq >>
+  fs [GSYM stack_remove_lab_pres] >>
+  fs [stack_allocTheory.compile_def,stack_allocTheory.stubs_def,MEM_MAP] >>
+  EVAL_TAC >> TRY TOP_CASE_TAC >>
+  EVAL_TAC >> TRY TOP_CASE_TAC >>
+  EVAL_TAC >> fs [] >> TRY (rw [] \\ EVAL_TAC \\ NO_TAC) >>
+  PairCases_on `y` >>
+  fs [stack_allocTheory.prog_comp_def] >>
+  rename1 `stack_alloc$comp name (next_lab body 2) body` >>
+  Q.SPECL_THEN [`name`,`next_lab body 2`,`body`] mp_tac stack_alloc_lab_pres >>
+  fs [] >> impl_tac >-
+   (fs [stack_rawcallTheory.compile_def] >>
+    rename [`comp_top ii`] >>
+    fs [MEM_MAP,EXISTS_PROD] >>
+    rveq >> fs [stack_rawcallProofTheory.extract_labels_comp] >>
+    res_tac >> fs [EVERY_MEM,FORALL_PROD] >>
+    metis_tac []) >>
+  rw [] >> pairarg_tac >> fs [EVERY_MEM] >> res_tac >> fs []
 QED
 
 Definition good_code_def:
   good_code sp code ⇔
    ALL_DISTINCT (MAP FST code) ∧
-   EVERY (λ(k,prog). stack_num_stubs ≤ k ∧ alloc_arg prog) code ∧
-   EVERY (λp. call_args p 1 2 3 4 0) (MAP SND code) ∧
-   EVERY (λp. reg_bound p sp) (MAP SND code) ∧
+   EVERY (λ(k,prog,md). stack_num_stubs ≤ k ∧ alloc_arg prog) code ∧
+   EVERY (λp. call_args p 1 2 3 4 0) (MAP (FST o SND) code) ∧
+   EVERY (λp. reg_bound p sp) (MAP (FST o SND) code) ∧
    EVERY
-   (λ(n,p).
+   (λ(n,p,md).
       EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0 ∧ l2 ≠ 1) (extract_labels p) ∧
       ALL_DISTINCT (extract_labels p)) code
 End
@@ -3426,13 +3419,13 @@ Definition contain_def:
 End
 
 Theorem full_make_init_semantics:
-   full_make_init stack_conf data_conf max_heap sp offset
+   full_make_init aw stack_conf data_conf max_heap sp offset
     (bitmaps:'a word list) code t save_regs data_sp coracle = (s,opt) ∧
-   good_dimindex(:'a) ∧
-   t.code = stack_to_lab$compile stack_conf data_conf max_heap sp offset code ∧
+   good_dimindex(:'a) ∧ arch_width_bits aw = dimindex (:'a) ∧
+   t.code = stack_to_lab$compile aw stack_conf data_conf max_heap sp offset code ∧
    t.compile_oracle = (λn.
      let (c,p,b) = coracle n in
-       (c,compile_no_stubs stack_conf.reg_names stack_conf.jump offset sp p)) ∧
+       (c,compile_no_stubs aw stack_conf.reg_names stack_conf.jump offset sp p)) ∧
    ¬t.failed ∧
    memory_assumption stack_conf.reg_names bitmaps data_sp t ∧
    max_stack_alloc ≤ max_heap ∧
@@ -3498,7 +3491,7 @@ Proof
         simp[Abbr`code3`,lookup_fromAList]
         \\ simp[stack_to_labTheory.compile_def]
         \\ qmatch_goalsub_abbrev_tac`ALOOKUP code3`
-        \\ `EVERY (λp. call_args p t.ptr_reg t.len_reg t.ptr2_reg t.len2_reg t.link_reg) (MAP SND code3)`
+        \\ `EVERY (λp. call_args p t.ptr_reg t.len_reg t.ptr2_reg t.len2_reg t.link_reg) (MAP (FST o SND) code3)`
         by (
           rpt(qpat_x_assum`find_name _ _ = _`(sym_sub_tac))
           \\ match_mp_tac (GEN_ALL stack_namesProofTheory.stack_names_call_args)
@@ -3508,7 +3501,7 @@ Proof
           \\ simp[Abbr`code1`]
           \\ match_mp_tac (GEN_ALL stack_allocProofTheory.stack_alloc_call_args)
           \\ simp [stack_rawcallProofTheory.stack_alloc_call_args])
-        \\ ntac 3 strip_tac
+        \\ ntac 4 strip_tac
         \\ conj_tac
         >- (
           imp_res_tac ALOOKUP_MEM \\
@@ -3532,27 +3525,27 @@ Proof
         first_x_assum(qspec_then`k` assume_tac)>>fs[]>>
         Cases_on`coracle k`>>Cases_on`r`>>rfs[]>>
         unabbrev_all_tac>>fs[]>>
-        old_drule stack_alloc_call_args>>
-        strip_tac>>
+        drule_then (qspecl_then [`ARB`,`aw`] assume_tac) stack_alloc_call_args>>
         fs[stack_allocTheory.compile_def,PAIR_MAP]>>
         (* call_args preservation *)
-        old_drule (stack_remove_call_args |> SIMP_RULE (srw_ss()) [EQ_SYM_EQ,Once CONJ_COMM] |> GEN_ALL) >> simp[]>>
+        drule (stack_remove_call_args |> SIMP_RULE (srw_ss()) [EQ_SYM_EQ,Once CONJ_COMM] |> GEN_ALL) >> simp[]>>
         fs[stack_removeTheory.compile_def,FORALL_AND_THM,GSYM AND_IMP_INTRO]>>
         disch_then kall_tac>>
-        disch_then(qspecl_then[`offset`,`sp`,`stack_conf.jump`] assume_tac)>>
-        old_drule (stack_names_call_args |> SIMP_RULE (srw_ss()) [EQ_SYM_EQ,Once CONJ_COMM] |> GEN_ALL)>>
+        disch_then(qspecl_then[`offset`,`sp`,`stack_conf.jump`,`aw`] assume_tac)>>
+        drule (stack_names_call_args |> SIMP_RULE (srw_ss()) [EQ_SYM_EQ,Once CONJ_COMM] |> GEN_ALL)>>
         simp[]>>
         disch_then(qspec_then`stack_conf.reg_names` assume_tac)>>rfs[]>>
         fs[Once EVERY_MEM,stack_namesTheory.compile_def,MEM_MAP,PULL_EXISTS,UNCURRY]>>
         reverse conj_tac>-
           fs[MAP_MAP_o,o_DEF,ETA_AX,prog_comp_eta,stack_allocProofTheory.prog_comp_lambda,UNCURRY]>>
         simp[FORALL_PROD,PULL_FORALL,prog_comp_eta,stack_allocProofTheory.prog_comp_lambda,stack_namesTheory.prog_comp_def]>>
-        ntac 3 strip_tac>>
-        rpt(first_x_assum old_drule>>strip_tac)>>
+        ntac 4 strip_tac>>
+        rpt(first_x_assum metadata_drule>>strip_tac)>>
         fs[]>>
+        rename1 `stack_alloc$comp name (next_lab body 2) body` >>
         imp_res_tac stack_alloc_lab_pres>>
         ntac 2 (pop_assum kall_tac)>>
-        pop_assum(qspec_then`next_lab p_2 2` assume_tac)>>fs[]>>
+        pop_assum(qspec_then`next_lab body 2` assume_tac)>>fs[]>>
         pairarg_tac>>fs[]>>
         metis_tac[stack_names_lab_pres,stack_remove_lab_pres])
       \\ conj_tac
@@ -3587,7 +3580,7 @@ Proof
            prog_to_section_def] \\
       pairarg_tac \\ fs[Once loc_to_pc_def] )
     \\ rfs[])
-  \\ `discharge_these stack_conf.jump offset ggc max_heap sp InitGlobals_location coracle1 code1 s2`
+  \\ `discharge_these aw stack_conf.jump offset ggc max_heap sp InitGlobals_location coracle1 code1 s2`
   by (
     simp[discharge_these_def] \\ fs[good_code_def]
     \\ simp[Abbr`s2`]
@@ -3596,8 +3589,8 @@ Proof
       imp_res_tac stack_rawcallProofTheory.stack_rawcall_reg_bound \\
       imp_res_tac stack_alloc_reg_bound \\
       rfs[EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS,Abbr`code1`] \\
-      first_x_assum(qspec_then`data_conf`mp_tac) \\ simp[] \\
-      ntac 4 strip_tac \\
+      first_x_assum(qspecl_then[`data_conf`,`aw`]mp_tac) \\ simp[] \\
+      ntac 5 strip_tac \\
       conj_tac >- metis_tac[] \\
       fs[stack_allocTheory.compile_def,stack_allocTheory.stubs_def]
       >- EVAL_TAC
@@ -3607,20 +3600,20 @@ Proof
     \\ simp[stack_namesProofTheory.make_init_def,Abbr`code2`,Abbr`s3`,make_init_def]
     \\ simp[domain_fromAList]
     \\ conj_tac >-(
-      ntac 4 strip_tac>>
+      ntac 5 strip_tac>>
       first_x_assum(qspec_then`n` assume_tac)>>
       Cases_on`coracle n`>>Cases_on`r`>>fs[]>>
       fs[Abbr`coracle1`]>>
-      old_drule (GEN_ALL stack_alloc_reg_bound)>>
-      disch_then old_drule>>
-      disch_then(qspec_then `ARB` assume_tac)>>
+      drule (GEN_ALL stack_alloc_reg_bound)>>
+      disch_then drule>>
+      disch_then(qspecl_then [`ARB`,`aw`] assume_tac)>>
       fs[stack_allocTheory.compile_def]>>
       fs[Once EVERY_MAP,LAMBDA_PROD,EVERY_MEM,FORALL_PROD]>>
       conj_tac>-
         metis_tac[]>>
       fs[stack_allocProofTheory.prog_comp_lambda,MEM_MAP,UNCURRY]>>
-      Cases_on`y`>>fs[]>>
-      rpt(first_x_assum old_drule)>>
+      PairCases_on`y`>>fs[]>>
+      rpt(first_x_assum metadata_drule)>>
       fs[])
     \\ conj_tac >- EVAL_TAC
     \\ fs[]
@@ -3647,7 +3640,8 @@ Proof
     conj_tac >- (
       simp [stack_rawcallTheory.compile_def,ALOOKUP_MAP,PULL_EXISTS]
       \\ ntac 3 strip_tac \\ imp_res_tac ALOOKUP_MEM
-      \\ fs[EVERY_MEM,FORALL_PROD,stack_rawcallProofTheory.call_arg_comp]
+      \\ fs[EVERY_MEM,FORALL_PROD,MEM_MAP,EXISTS_PROD,
+            stack_rawcallProofTheory.call_arg_comp]
       \\ metis_tac[]) \\
     conj_tac >- (
       `!k. stack_num_stubs ≤ k ⇒ k ≠ gc_stub_location` by
@@ -3661,7 +3655,8 @@ Proof
     \\ fs[make_init_opt_def,case_eq_thms,init_prop_def,init_reduce_def]
     \\ rw[] \\ fs [good_dimindex_def,dimword_def])
   \\ disch_then(assume_tac o GSYM)
-  \\ old_drule stack_removeProofTheory.make_init_semantics
+  \\ drule_then (qspecl_then [`data_sp`,`bitmaps`] mp_tac)
+       stack_removeProofTheory.make_init_semantics
   \\ simp [] \\ strip_tac \\ simp []
   \\ fs [] \\ rveq \\ fs []
   \\ rewrite_tac [markerTheory.Abbrev_def] \\ rw []
@@ -3683,7 +3678,7 @@ Theorem full_make_init_semantics[allow_rebind] =
 Theorem EVERY_sec_ends_with_label_MAP_prog_to_section[simp]:
    ∀prog. EVERY sec_ends_with_label (MAP prog_to_section prog)
 Proof
-  Induct \\ simp[] \\ Cases \\ simp[prog_to_section_def]
+  Induct \\ simp[FORALL_PROD] \\ rpt gen_tac \\ simp[prog_to_section_def]
   \\ pairarg_tac \\ fs[sec_ends_with_label_def]
 QED
 
@@ -3691,7 +3686,7 @@ val stack_asm_ok_def = stackPropsTheory.stack_asm_ok_def
 
 Theorem flatten_line_ok_pre[local]:
   ∀t p n m cs bs ls a b c.
-  byte_offset_ok c 0w /\
+  byte_offset_ok c 0 /\
   stack_asm_ok c p ∧
   flatten t p n m cs bs = (ls,a,b) ⇒
   EVERY (line_ok_pre c) (append ls)
@@ -3724,8 +3719,8 @@ Proof
 QED
 
 Theorem compile_all_enc_ok_pre:
-    byte_offset_ok c 0w ∧
-    EVERY (λ(n,p).stack_asm_ok c p) prog ⇒
+    byte_offset_ok c 0 ∧
+    EVERY (λ(n,p,md).stack_asm_ok c p) prog ⇒
     all_enc_ok_pre c (MAP prog_to_section prog)
 Proof
   fs[EVERY_MEM,MEM_MAP,FORALL_PROD,EXISTS_PROD]>>rw[]>>
@@ -3740,33 +3735,34 @@ QED
 *)
 
 Theorem stack_to_lab_compile_all_enc_ok:
-  EVERY (λ(n,p). stack_asm_name c p) prog ∧
-  EVERY (λ(n,p). stack_asm_remove c p) prog ∧
-  names_ok c1.reg_names (c:'a asm_config).reg_count c.avoid_regs ∧
+  EVERY (λ(n,p,md). stack_asm_name c p) prog ∧
+  EVERY (λ(n,p,md). stack_asm_remove c p) prog ∧
+  names_ok c1.reg_names (c:asm_config).reg_count c.avoid_regs ∧
   fixed_names c1.reg_names c ∧
-  addr_offset_ok c 0w ∧ good_dimindex (:α) ∧
-  byte_offset_ok c 0w ∧
+  addr_offset_ok c 0 ∧ good_dimindex (:α) ∧
+  arch_width_bits aw = dimindex (:α) ∧ isa_bits c = dimindex (:α) ∧
+  byte_offset_ok c 0 ∧
   (∀n. n ≤ max_stack_alloc ⇒
-  c.valid_imm (INL Sub) (n2w (n * (dimindex (:'a) DIV 8))) ∧
-  c.valid_imm (INL Add) (n2w (n * (dimindex (:'a) DIV 8)))) ∧
-  c.valid_imm (INL Add) 1w ∧ c.valid_imm (INL Sub) 1w ∧
-  c.valid_imm (INL Add) 4w ∧ c.valid_imm (INL Add) 8w ∧
-  (∀s. addr_offset_ok c (store_offset s)) ∧ reg_name 10 c ∧
+  c.valid_imm (INL Sub) (&(n * arch_bytes aw)) ∧
+  c.valid_imm (INL Add) (&(n * arch_bytes aw))) ∧
+  c.valid_imm (INL Add) 1 ∧ c.valid_imm (INL Sub) 1 ∧
+  c.valid_imm (INL Add) 4 ∧ c.valid_imm (INL Add) 8 ∧
+  (∀s. addr_offset_ok c (store_offset aw s)) ∧ reg_name 10 c ∧
   reg_name (sp + 2) c ∧ reg_name (sp + 1) c ∧ reg_name sp c  ∧
-  conf_ok (:'a) c2 ∧ sp ≠ 0 ⇒
-  all_enc_ok_pre c (compile c1 c2 c3 sp c.addr_offset prog)
+  conf_ok (arch_width_bits aw) c2 ∧ sp ≠ 0 ⇒
+  all_enc_ok_pre c (compile aw c1 c2 c3 sp c.addr_offset prog)
 Proof
   rw[stack_to_labTheory.compile_def]>>
   match_mp_tac compile_all_enc_ok_pre>>fs[]>>
   match_mp_tac stack_names_stack_asm_ok>>fs[]>>
-  match_mp_tac stack_remove_stack_asm_name>>fs[stackPropsTheory.reg_name_def]>>
+  match_mp_tac stack_remove_stack_asm_name>>gvs[stackPropsTheory.reg_name_def]>>
   match_mp_tac stack_alloc_stack_asm_convs>>fs[stackPropsTheory.reg_name_def]>>
   fs [stack_rawcallProofTheory.stack_alloc_stack_asm_convs]
 QED
 
 Theorem IMP_init_store_ok:
-   max_heap = 2 * max_heap_limit (:'a) c1 -1 /\
-  (fmis,xxx) = full_make_init stack_conf c1 max_heap sp offset (bitmaps:'a word list) code s save_regs data_sp coracle
+   max_heap = 2 * max_heap_limit (dimindex (:'a)) c1 -1 /\
+  (fmis,xxx) = full_make_init aw stack_conf c1 max_heap sp offset (bitmaps:'a word list) code s save_regs data_sp coracle
   ==>
     init_store_ok c1
       (fmis.store \\ Handler)
@@ -3801,12 +3797,12 @@ QED
 Theorem IMP_init_state_ok:
   4 < kkk /\
   (bitmaps:'a word list) = 4w::t ∧
-  good_dimindex (:α) /\
+  good_dimindex (:α) /\ isa_bits ac = dimindex (:'a) /\
   (∀n.
     (λ((bm0,cfg),progs).
      EVERY
-       (post_alloc_conventions kkk ∘ SND ∘ SND) progs ∧
-     EVERY (flat_exp_conventions ∘ SND ∘ SND) progs ∧
+       (post_alloc_conventions kkk ∘ FST ∘ SND ∘ SND) progs ∧
+     EVERY (flat_exp_conventions ∘ FST ∘ SND ∘ SND) progs ∧
      EVERY ((λy. raise_stub_location ≠ y) ∘ FST) progs ∧
      EVERY ((λy. store_consts_stub_location ≠ y) ∘ FST) progs ∧
      (n = 0 ⇒ bm0 = LENGTH bitmaps)) (word_oracle n)) ∧
@@ -3817,7 +3813,7 @@ Theorem IMP_init_state_ok:
         (compile_word_to_stack
            ac F kkk progs
            (Nil, bm0))) (word_oracle n)) ∧
-    (full_make_init scc dc max_heap stk stoff bitmaps p6 lab_st save_regs data_sp stack_oracle = (fmis,SOME xxx))
+    (full_make_init aw scc dc max_heap stk stoff bitmaps p6 lab_st save_regs data_sp stack_oracle = (fmis,SOME xxx))
     ==>
     init_state_ok ac kkk fmis word_oracle
 Proof
@@ -3850,10 +3846,10 @@ Proof
 QED
 
 Theorem full_make_init_has_fp_ops[simp]:
-  full_make_init stack_conf
+  full_make_init aw stack_conf
       (dconf with <| has_fp_ops := b1; has_fp_tern := b2 |>)
       mheap sp offset bitmaps code s save_regs dsp cor =
-    full_make_init stack_conf dconf
+    full_make_init aw stack_conf dconf
       mheap sp offset bitmaps code s save_regs dsp cor
 Proof
   rewrite_tac [full_make_init_def] \\ fs []
@@ -3943,7 +3939,7 @@ Theorem flatten_labels[local]:
      ⇒
      BIGUNION (IMAGE line_get_labels (set (append l))) ⊆
      set (MAP (λl. (n,l)) (cs ++ bs)) ∪
-     sec_get_code_labels (Section n (append l)) ∪
+     sec_get_code_labels (Section n (append l) md) ∪
      get_code_labels m
 Proof
   recInduct stack_to_labTheory.flatten_ind
@@ -3995,7 +3991,7 @@ Theorem get_labels_MAP_prog_to_section_SUBSET_code_labels_lemma:
    ∀p. EVERY sec_labels_ok (MAP prog_to_section p) ⇒
     get_labels (MAP prog_to_section p) ⊆
     get_code_labels (MAP prog_to_section p) ∪
-    BIGUNION (IMAGE get_code_labels (set (MAP SND p)))
+    BIGUNION (IMAGE get_code_labels (set (MAP (FST o SND) p)))
 Proof
   Induct \\ simp[FORALL_PROD] >- (EVAL_TAC \\ simp[])
   \\ rw[stack_to_labTheory.prog_to_section_def]
@@ -4007,7 +4003,7 @@ Proof
   \\ qspecl_then[`q`,`n`,`z`,`t`,`[]`,`[]`]mp_tac flatten_labels
   \\ simp[]
   \\ simp[SUBSET_DEF, PULL_EXISTS, labPropsTheory.sec_get_code_labels_def]
-  \\ rw[] \\ first_x_assum old_drule \\ rw[]
+  \\ rw[] \\ first_x_assum drule \\ rw[]
   \\ metis_tac[]
 QED
 
@@ -4024,7 +4020,7 @@ Proof
 QED
 
 Theorem prog_to_section_labels:
-    prog_to_section (n,p) = pp ⇒
+    prog_to_section (n,p,md) = pp ⇒
   sec_get_labels pp
   ⊆
   sec_get_code_labels pp ∪ complex_get_code_labels p
@@ -4049,7 +4045,7 @@ Theorem flatten_preserves_handler_labels:
    flatten t m n p cs bs = (l,x,y)
    ⇒
    stack_get_handler_labels n m ⊆
-     sec_get_code_labels (Section n (append l))
+     sec_get_code_labels (Section n (append l) md)
 Proof
   recInduct stack_to_labTheory.flatten_ind
   \\ rpt gen_tac \\ strip_tac
@@ -4088,7 +4084,7 @@ QED
 
 Theorem MAP_prog_to_section_preserves_handler_labels:
    ∀p.
-    BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ⊆
+    BIGUNION (set (MAP (λ(n,pp,md). stack_get_handler_labels n pp) p)) ⊆
     get_code_labels (MAP prog_to_section p)
 Proof
   Induct \\ simp[FORALL_PROD]
@@ -4097,9 +4093,9 @@ Proof
   \\ pairarg_tac \\ fs[]
   \\ simp[labPropsTheory.get_code_labels_cons, labPropsTheory.sec_get_code_labels_def]
   \\ fs[SUBSET_DEF, PULL_EXISTS, EXISTS_PROD, FORALL_PROD] \\ rw[]
-  \\ old_drule flatten_preserves_handler_labels
+  \\ drule flatten_preserves_handler_labels
   \\ rw[SUBSET_DEF, PULL_EXISTS, EXISTS_PROD, FORALL_PROD]
-  \\ first_x_assum old_drule
+  \\ first_x_assum drule
   \\ rw[labPropsTheory.sec_get_code_labels_def]
   \\ metis_tac[]
 QED
@@ -4111,7 +4107,7 @@ Proof
   fs [SUBSET_DEF,get_code_labels_def,MEM_MAP,PULL_EXISTS,FORALL_PROD]
   \\ fs [prog_to_section_def,EXISTS_PROD]
   \\ rw []
-  \\ rename [`MEM (x1,y1) _`]
+  \\ rename [`MEM (x1,y1,md) _`]
   \\ goal_assum (first_assum o mp_then Any mp_tac)
   \\ pairarg_tac \\ fs [] \\ reverse (rw [])
   THEN1 fs [sec_get_code_labels_def]
@@ -4132,7 +4128,7 @@ Theorem get_labels_MAP_prog_to_section_SUBSET_code_labels:
     IMAGE (λn. n,1) elabs
 Proof
   rw[stack_good_code_labels_def]>>
-  old_drule get_labels_MAP_prog_to_section_SUBSET_code_labels_lemma >>
+  drule get_labels_MAP_prog_to_section_SUBSET_code_labels_lemma >>
   strip_tac >> match_mp_tac SUBSET_TRANS>>
   asm_exists_tac >> asm_rewrite_tac [] >> simp [] >>
   conj_tac THEN1 fs [SUBSET_DEF] >>
@@ -4161,7 +4157,7 @@ QED
 
 Theorem stack_names_get_code_labels:
     LIST_REL (λcp p. complex_get_code_labels cp = complex_get_code_labels p)
-  (MAP SND (stack_names$compile f prog)) (MAP SND prog)
+  (MAP (FST o SND) (stack_names$compile f prog)) (MAP (FST o SND) prog)
 Proof
   rw[LIST_REL_EL_EQN,stack_namesTheory.compile_def]>>
   fs[MAP_MAP_o,o_DEF,LAMBDA_PROD,stack_namesTheory.prog_comp_def]>>
@@ -4171,7 +4167,7 @@ QED
 
 (* stack_remove *)
 Theorem get_code_labels_comp[local]:
-  !a b c p. get_code_labels (comp a b c p) SUBSET (stack_err_lab,0) INSERT get_code_labels p
+  !aw a b c p. get_code_labels (comp aw a b c p) SUBSET (stack_err_lab,0) INSERT get_code_labels p
 Proof
   HO_MATCH_MP_TAC stack_removeTheory.comp_ind \\ rw []
   \\ Cases_on `p` \\ once_rewrite_tac [stack_removeTheory.comp_def]
@@ -4215,7 +4211,7 @@ Proof
 QED
 
 Theorem init_stubs_labels[local]:
-  EVERY (λp. get_code_labels p SUBSET (set [(1n,0n);(start,0n)])) (MAP SND (init_stubs ggc mh k start))
+  EVERY (λp. get_code_labels p SUBSET (set [(1n,0n);(start,0n)])) (MAP (FST o SND) (init_stubs aw ggc mh k start))
 Proof
   rpt(EVAL_TAC>>rw[]>>fs[])
 QED
@@ -4261,8 +4257,8 @@ QED
 
 (* ---- stack_remove ---- *)
 Theorem stack_remove_get_code_labels_comp[local]:
-  !a b c p.
-  get_code_labels (comp a b c p) SUBSET (stack_err_lab,0) INSERT get_code_labels p
+  !aw a b c p.
+  get_code_labels (comp aw a b c p) SUBSET (stack_err_lab,0) INSERT get_code_labels p
 Proof
   HO_MATCH_MP_TAC stack_removeTheory.comp_ind \\ rw []
   \\ Cases_on `p` \\ once_rewrite_tac [stack_removeTheory.comp_def]
@@ -4306,8 +4302,8 @@ Proof
 QED
 
 Theorem stack_remove_stack_get_handler_labels_comp[local]:
-  !a b c p m.
-  stack_get_handler_labels m (comp a b c p) =
+  !aw a b c p m.
+  stack_get_handler_labels m (comp aw a b c p) =
   stack_get_handler_labels m p
 Proof
   HO_MATCH_MP_TAC stack_removeTheory.comp_ind \\ rw []
@@ -4347,7 +4343,7 @@ Proof
 QED
 
 Theorem stack_remove_init_code_labels[local]:
-  x ∈ get_code_labels (init_code ggc mh sp) ⇒ x = (1n,0n)
+  x ∈ get_code_labels (init_code aw ggc mh sp) ⇒ x = (1n,0n)
 Proof
   rpt(EVAL_TAC>>rw[]>>fs[])
 QED
@@ -4356,7 +4352,7 @@ Theorem stack_remove_stack_good_code_labels:
   ∀prog.
   MEM loc (MAP FST prog) ∧
   stack_good_code_labels prog elabs ⇒
-  stack_good_code_labels (stack_remove$compile jump off ggc mh sp loc prog) elabs
+  stack_good_code_labels (stack_remove$compile aw jump off ggc mh sp loc prog) elabs
 Proof
   rw[]>>
   simp[stack_removeTheory.compile_def]>>
@@ -4374,7 +4370,7 @@ Proof
     fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF,stack_removeTheory.prog_comp_def,UNCURRY,LAMBDA_PROD]>>
     simp[stack_remove_stack_get_handler_labels_comp]>>
     fs[SUBSET_DEF,MEM_MAP,PULL_EXISTS,UNCURRY]>> rw[]>>
-    old_drule (stack_remove_get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
+    drule (stack_remove_get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
     rw[]
     >-
       fs[stack_removeTheory.init_stubs_def,stack_removeTheory.stack_err_lab_def,EXISTS_PROD]
@@ -4390,7 +4386,7 @@ Theorem stack_remove_stack_good_code_labels_incr:
   ∀prog.
   stack_err_lab ∈ elabs ∧
   stack_good_code_labels prog elabs ⇒
-  stack_good_code_labels (MAP (prog_comp jump offset sp) prog) elabs
+  stack_good_code_labels (MAP (prog_comp aw jump offset sp) prog) elabs
 Proof
   rw[]>>
   fs[stack_good_code_labels_def]>>rw[]>>
@@ -4428,7 +4424,7 @@ Proof
 QED
 
 Theorem stack_alloc_init_code_labels[local]:
-  get_code_labels (word_gc_code c) = {}
+  get_code_labels (word_gc_code aw c) = {}
 Proof
   simp[stack_allocTheory.word_gc_code_def]>>
   EVAL_TAC>>
@@ -4439,7 +4435,7 @@ QED
 Theorem stack_alloc_stack_good_code_labels:
   ∀prog c.
   stack_good_code_labels prog elabs ⇒
-  stack_good_code_labels (stack_alloc$compile c prog) elabs
+  stack_good_code_labels (stack_alloc$compile aw c prog) elabs
 Proof
   simp[stack_allocTheory.compile_def]>>
   fs[stack_good_code_labels_def]>>rw[]
@@ -4451,7 +4447,7 @@ Proof
     fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF,stack_allocTheory.prog_comp_def,UNCURRY,LAMBDA_PROD]>>
     simp[stack_alloc_stack_get_handler_labels_comp]>>
     fs[SUBSET_DEF,MEM_MAP,PULL_EXISTS,UNCURRY]>> rw[]>>
-    old_drule (stack_alloc_get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
+    drule (stack_alloc_get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
     rw[]
     >-
       fs[stack_allocTheory.stubs_def]
@@ -4547,14 +4543,15 @@ Proof
   \\ fs [stack_rawcallProofTheory.stack_get_handler_labels_comp]
   \\ fs [SUBSET_DEF,PULL_EXISTS,EXISTS_PROD,FORALL_PROD,MEM_MAP]
   \\ rw [] \\ drule IN_get_code_labels_comp_top \\ strip_tac
-  \\ Cases_on `p_2 = k` THEN1 metis_tac []
+  \\ (Cases_on `p_2 = k` THEN1
+       (rveq \\ first_x_assum drule \\ disch_then drule \\ simp []))
   \\ fs [] \\ rveq \\ fs []
   \\ fs [MEM_MAP,EXISTS_PROD] \\ metis_tac []
 QED
 
 (* stack_to_lab *)
 Theorem stack_to_lab_stack_good_code_labels:
-  compile stack_conf data_conf max_heap sp offset prog = prog' ∧
+  compile aw stack_conf data_conf max_heap sp offset prog = prog' ∧
   MEM InitGlobals_location (MAP FST prog) ∧
   stack_good_code_labels prog elabs ∧
   EVERY sec_labels_ok  prog' ⇒
@@ -4573,7 +4570,6 @@ Proof
     metis_tac[])
   >>
   match_mp_tac stack_alloc_stack_good_code_labels>>
-
   match_mp_tac stack_rawcall_stack_good_code_labels>>
   fs[]
 QED
@@ -4581,7 +4577,7 @@ QED
 Theorem stack_to_lab_stack_good_code_labels_incr:
   stack_err_lab ∈ elabs ∧
   gc_stub_location ∈ elabs ∧
-  compile_no_stubs f jump offset sp prog = prog' ∧
+  compile_no_stubs aw f jump offset sp prog = prog' ∧
   stack_good_code_labels prog elabs ∧
   EVERY sec_labels_ok  prog' ⇒
   get_labels prog' ⊆ get_code_labels prog' ∪ IMAGE (λn. n,0) elabs ∪ IMAGE (λn. n,1) elabs
@@ -4658,7 +4654,7 @@ QED
 Theorem stack_remove_stack_good_handler_labels_incr:
   ∀prog.
   stack_good_handler_labels prog ⇒
-  stack_good_handler_labels (MAP (prog_comp jump offset sp) prog)
+  stack_good_handler_labels (MAP (prog_comp aw jump offset sp) prog)
 Proof
   simp[stack_good_handler_labels_def]>>
   rw[]>>
@@ -4686,7 +4682,7 @@ QED
 Theorem stack_remove_stack_good_handler_labels:
   ∀prog.
   stack_good_handler_labels prog ⇒
-  stack_good_handler_labels (stack_remove$compile jump off ggc mh sp loc prog)
+  stack_good_handler_labels (stack_remove$compile aw jump off ggc mh sp loc prog)
 Proof
   rw[]>>
   simp[stack_removeTheory.compile_def]>>
@@ -4729,7 +4725,7 @@ QED
 Theorem stack_alloc_stack_good_handler_labels:
   ∀prog c.
   stack_good_handler_labels prog ⇒
-  stack_good_handler_labels (stack_alloc$compile c prog)
+  stack_good_handler_labels (stack_alloc$compile aw c prog)
 Proof
   rw[stack_allocTheory.compile_def]>>
   match_mp_tac stack_good_handler_labels_append>>rw[]
@@ -4760,7 +4756,7 @@ Proof
 QED
 
 Theorem stack_to_lab_stack_good_handler_labels:
-  compile stack_conf data_conf max_heap sp offset prog = prog' ∧
+  compile aw stack_conf data_conf max_heap sp offset prog = prog' ∧
   stack_good_handler_labels prog ∧
   EVERY sec_labels_ok  prog' ⇒
   restrict_nonzero (get_labels prog') ⊆ get_code_labels prog'
@@ -4776,7 +4772,7 @@ Proof
 QED
 
 Theorem stack_to_lab_stack_good_handler_labels_incr:
-  compile_no_stubs f jump offset sp prog = prog' ∧
+  compile_no_stubs aw f jump offset sp prog = prog' ∧
   stack_good_handler_labels prog ∧
   EVERY sec_labels_ok prog' ⇒
   restrict_nonzero (get_labels prog') ⊆ get_code_labels prog'
@@ -4813,22 +4809,12 @@ Proof
 QED
 
 Theorem stack_rawcall_compile_no_shmemop:
-  ∀prog. EVERY (\(a,p). no_shmemop p) prog ⇒
-      EVERY (\(a,p). no_shmemop p) (compile prog)
+  ∀prog. EVERY (\(a,p,md). no_shmemop p) prog ⇒
+      EVERY (\(a,p,md). no_shmemop p) (compile prog)
 Proof
-  Induct>>rw[]>>
-  simp[stack_rawcallTheory.compile_def]>>
-  rpt (pairarg_tac>>fs[])>>
-  drule stack_rawcall_comp_top_no_shmemop>>
-  qmatch_asmsub_abbrev_tac ‘comp_top i _’>>
-  disch_then $ qspec_then ‘i’ assume_tac>>gvs[]>>
-  fs[EVERY_MEM]>>rpt strip_tac>>
-  fs[MEM_MAP]>>
-  pairarg_tac>>fs[]>>
-  pairarg_tac>>fs[]>>rename1 ‘MEM (a',b') prog’>>
-  rveq>>fs[]>>
-  irule stack_rawcall_comp_top_no_shmemop>>
-  first_x_assum $ qspec_then ‘(a',b')’ assume_tac>>gvs[]
+  rw [stack_rawcallTheory.compile_def,EVERY_MEM,FORALL_PROD] >>
+  fs [MEM_MAP,EXISTS_PROD] >> gvs [] >>
+  irule stack_rawcall_comp_top_no_shmemop >> res_tac >> fs []
 QED
 
 Theorem stack_alloc_comp_no_shmemop:
@@ -4844,8 +4830,8 @@ QED
 
 Theorem stack_alloc_prog_comp_no_shmemop:
   ∀prog.
-  EVERY (\(a,p). no_shmemop p) prog ⇒
-  EVERY (\(a,p). no_shmemop p) (MAP prog_comp prog)
+  EVERY (\(a,p,md). no_shmemop p) prog ⇒
+  EVERY (\(a,p,md). no_shmemop p) (MAP prog_comp prog)
 Proof
   Induct>>fs[prog_comp_def]>>rpt strip_tac>>
   pairarg_tac>>fs[]>>
@@ -4854,8 +4840,8 @@ Proof
 QED
 
 Theorem stack_alloc_compile_no_shmemop:
-  EVERY (λ(a,p). no_shmemop p) prog ⇒
-  EVERY (λ(a,p). no_shmemop p) (stack_alloc_compile data prog)
+  EVERY (λ(a,p,md). no_shmemop p) prog ⇒
+  EVERY (λ(a,p,md). no_shmemop p) (stack_alloc_compile aw data prog)
 Proof
   rw[stack_allocTheory.compile_def]>-
    (EVAL_TAC>>every_case_tac>>fs[no_shmemop_def])>>
@@ -4863,7 +4849,7 @@ Proof
 QED
 
 Theorem upshift_no_shmemop[simp]:
-  ∀k n. no_shmemop (upshift k n)
+  ∀aw k n. no_shmemop (upshift aw k n)
 Proof
   recInduct stack_removeTheory.upshift_ind \\ rw []
   \\ once_rewrite_tac [stack_removeTheory.upshift_def] \\ rw []
@@ -4871,7 +4857,7 @@ Proof
 QED
 
 Theorem downshift_no_shmemop[simp]:
-  ∀k n. no_shmemop (downshift k n)
+  ∀aw k n. no_shmemop (downshift aw k n)
 Proof
   recInduct stack_removeTheory.downshift_ind \\ rw []
   \\ once_rewrite_tac [stack_removeTheory.downshift_def] \\ rw []
@@ -4879,7 +4865,7 @@ Proof
 QED
 
 Theorem stack_free_no_shmemop[simp]:
-  ∀k n. no_shmemop (stack_free k n)
+  ∀aw k n. no_shmemop (stack_free aw k n)
 Proof
   recInduct stack_removeTheory.stack_free_ind \\ rw []
   \\ once_rewrite_tac [stack_removeTheory.stack_free_def] \\ rw []
@@ -4887,7 +4873,7 @@ Proof
 QED
 
 Theorem stack_alloc_no_shmemop[simp]:
-  ∀jump k n. no_shmemop (stack_alloc jump k n)
+  ∀aw jump k n. no_shmemop (stack_alloc aw jump k n)
 Proof
   recInduct stack_removeTheory.stack_alloc_ind \\ rw []
   \\ once_rewrite_tac [stack_removeTheory.stack_alloc_def] \\ rw []>>
@@ -4896,7 +4882,7 @@ Proof
 QED
 
 Theorem stack_remove_comp_no_shmemop:
-  ∀jump off k p. no_shmemop p ⇒ no_shmemop (comp jump off k p)
+  ∀aw jump off k p. no_shmemop p ⇒ no_shmemop (comp aw jump off k p)
 Proof
   recInduct stack_removeTheory.comp_ind \\ rw []
   \\ Cases_on `p` \\ fs []
@@ -4912,15 +4898,15 @@ Proof
 QED
 
 Theorem stack_remove_prog_comp_no_shmemop:
-  ∀p. no_shmemop p ⇒ no_shmemop (SND (prog_comp jump off k (n,p)))
+  ∀p. no_shmemop p ⇒ no_shmemop (FST (SND (prog_comp aw jump off k (n,p,md))))
 Proof
   Induct>>fs[stack_removeTheory.prog_comp_def]>>rpt strip_tac>>
   irule stack_remove_comp_no_shmemop>>fs[]
 QED
 
 Theorem stack_remove_compile_no_shmemop:
-  EVERY (λ(a,p). no_shmemop p) prog ⇒
-  EVERY (λ(a,p). no_shmemop p) (stack_remove_compile jump offset gckind mh sp loc prog)
+  EVERY (λ(a,p,md). no_shmemop p) prog ⇒
+  EVERY (λ(a,p,md). no_shmemop p) (stack_remove_compile aw jump offset gckind mh sp loc prog)
 Proof
   rw[stack_removeTheory.compile_def]>-
    (EVAL_TAC>>every_case_tac>>fs[no_shmemop_def])>>
@@ -4929,7 +4915,7 @@ Proof
   rpt (pairarg_tac>>fs[])>>
   last_x_assum $ qspec_then ‘y’ assume_tac>>gvs[]>>
   rpt (pairarg_tac>>fs[])>>
-  ‘p = SND (prog_comp jump offset sp y)’ by gvs[]>>
+  ‘p = FST (SND (prog_comp aw jump offset sp y))’ by gvs[]>>
   gvs[]>>
   irule stack_remove_prog_comp_no_shmemop>>fs[]
 QED
@@ -4947,8 +4933,8 @@ QED
 
 Theorem stack_names_prog_comp_no_shmemop:
   ∀prog.
-  EVERY (\(a,p). no_shmemop p) prog ⇒
-  EVERY (\(a,p). no_shmemop p) (MAP (prog_comp f) prog)
+  EVERY (\(a,p,md). no_shmemop p) prog ⇒
+  EVERY (\(a,p,md). no_shmemop p) (MAP (prog_comp f) prog)
 Proof
   Induct>>fs[stack_namesTheory.prog_comp_def]>>rpt strip_tac>>
   pairarg_tac>>fs[]>>
@@ -4957,8 +4943,8 @@ Proof
 QED
 
 Theorem stack_names_compile_no_shmemop:
-  EVERY (λ(a,p). no_shmemop p) prog ⇒
-  EVERY (λ(a,p). no_shmemop p) (stack_names_compile names prog)
+  EVERY (λ(a,p,md). no_shmemop p) prog ⇒
+  EVERY (λ(a,p,md). no_shmemop p) (stack_names_compile names prog)
 Proof
   rw[stack_namesTheory.compile_def]>>
   irule stack_names_prog_comp_no_shmemop>>fs[]
@@ -4983,7 +4969,7 @@ Theorem asm_fetch_aux_no_share_mem_inst_CONS:
   ∀xs.
   EVERY (λln. ∀op re a inst len. ln ≠ Asm (ShareMem op re a) inst len) xs ∧
   no_share_mem_inst ls ⇒
-  no_share_mem_inst (Section k xs::ls)
+  no_share_mem_inst (Section k xs md::ls)
 Proof
   Induct>>rw[no_share_mem_inst_def, asm_fetch_aux_def]>>
   IF_CASES_TAC>>fs[]>-fs[no_share_mem_inst_def]>>
@@ -4991,7 +4977,7 @@ Proof
 QED
 
 Theorem prog_to_section_no_share_mem_inst:
-  ∀prog. EVERY (λ(a,p). no_shmemop p) prog ⇒
+  ∀prog. EVERY (λ(a,p,md). no_shmemop p) prog ⇒
          no_share_mem_inst (MAP prog_to_section prog)
 Proof
   Induct>>rw[]>-fs[no_share_mem_inst_def,asm_fetch_aux_def]>>
@@ -5009,8 +4995,8 @@ QED
 
 Theorem compile_no_share_mem_inst:
   ∀prog prog'.
-  EVERY (\(a,p). no_shmemop p) prog ∧
-  compile stack_conf data_conf max_heap sp offset prog = prog' ==>
+  EVERY (\(a,p,md). no_shmemop p) prog ∧
+  compile aw stack_conf data_conf max_heap sp offset prog = prog' ==>
   labProps$no_share_mem_inst prog'
 Proof
   rw[stack_to_labTheory.compile_def]>>
@@ -5022,20 +5008,17 @@ Proof
 QED
 
 Theorem stack_remove_prog_comp_no_shmemop_MAP:
-  EVERY (\(a,p). no_shmemop p) prog ⇒
-  EVERY (\(a,p). no_shmemop p) (MAP (prog_comp jump offset sp) prog)
+  EVERY (\(a,p,md). no_shmemop p) prog ⇒
+  EVERY (\(a,p,md). no_shmemop p) (MAP (prog_comp aw jump offset sp) prog)
 Proof
-  rw[EVERY_MEM]>>
-  pairarg_tac>>fs[MEM_MAP]>>
-  first_x_assum $ qspec_then ‘y’ assume_tac>>gvs[]>>
-  rpt (pairarg_tac>>fs[])>>gvs[]>>
-  ‘p = SND (prog_comp jump offset sp (a'',p''))’ by gvs[]>>
-  gvs[]>>irule stack_remove_prog_comp_no_shmemop>>fs[]
+  rw [EVERY_MEM,FORALL_PROD] >>
+  fs [MEM_MAP,EXISTS_PROD,stack_removeTheory.prog_comp_def] >> gvs [] >>
+  irule stack_remove_comp_no_shmemop >> res_tac >> fs []
 QED
 
 Theorem compile_no_stubs_no_share_mem_inst:
-  EVERY (\(a,p). no_shmemop p) prog ∧
-  compile_no_stubs f jump offset sp prog = prog' ==>
+  EVERY (\(a,p,md). no_shmemop p) prog ∧
+  compile_no_stubs aw f jump offset sp prog = prog' ==>
   labProps$no_share_mem_inst prog'
 Proof
   rw[compile_no_stubs_def]>>
@@ -5069,22 +5052,12 @@ Proof
 QED
 
 Theorem stack_rawcall_compile_no_install:
-  ∀prog. EVERY (\(a,p). no_install p) prog ⇒
-      EVERY (\(a,p). no_install p) (compile prog)
+  ∀prog. EVERY (\(a,p,md). no_install p) prog ⇒
+      EVERY (\(a,p,md). no_install p) (compile prog)
 Proof
-  Induct>>rw[]>>
-  simp[stack_rawcallTheory.compile_def]>>
-  rpt (pairarg_tac>>fs[])>>
-  drule stack_rawcall_comp_top_no_install>>
-  qmatch_asmsub_abbrev_tac ‘comp_top i _’>>
-  disch_then $ qspec_then ‘i’ assume_tac>>gvs[]>>
-  fs[EVERY_MEM]>>rpt strip_tac>>
-  fs[MEM_MAP]>>
-  pairarg_tac>>fs[]>>
-  pairarg_tac>>fs[]>>rename1 ‘MEM (a',b') prog’>>
-  rveq>>fs[]>>
-  irule stack_rawcall_comp_top_no_install>>
-  first_x_assum $ qspec_then ‘(a',b')’ assume_tac>>gvs[]
+  rw [stack_rawcallTheory.compile_def,EVERY_MEM,FORALL_PROD] >>
+  fs [MEM_MAP,EXISTS_PROD] >> gvs [] >>
+  irule stack_rawcall_comp_top_no_install >> res_tac >> fs []
 QED
 
 Theorem stack_alloc_comp_no_install:
@@ -5100,8 +5073,8 @@ QED
 
 Theorem stack_alloc_prog_comp_no_install:
   ∀prog.
-  EVERY (\(a,p). no_install p) prog ⇒
-  EVERY (\(a,p). no_install p) (MAP prog_comp prog)
+  EVERY (\(a,p,md). no_install p) prog ⇒
+  EVERY (\(a,p,md). no_install p) (MAP prog_comp prog)
 Proof
   Induct>>fs[prog_comp_def]>>rpt strip_tac>>
   pairarg_tac>>fs[]>>
@@ -5110,8 +5083,8 @@ Proof
 QED
 
 Theorem stack_alloc_compile_no_install:
-  EVERY (λ(a,p). no_install p) prog ⇒
-  EVERY (λ(a,p). no_install p) (stack_alloc_compile data prog)
+  EVERY (λ(a,p,md). no_install p) prog ⇒
+  EVERY (λ(a,p,md). no_install p) (stack_alloc_compile aw data prog)
 Proof
   rw[stack_allocTheory.compile_def]>-
    (EVAL_TAC>>every_case_tac>>fs[stackPropsTheory.no_install_def])>>
@@ -5119,7 +5092,7 @@ Proof
 QED
 
 Theorem upshift_no_install[simp]:
-  ∀k n. no_install (upshift k n)
+  ∀aw k n. no_install (upshift aw k n)
 Proof
   recInduct stack_removeTheory.upshift_ind \\ rw []
   \\ once_rewrite_tac [stack_removeTheory.upshift_def] \\ rw []
@@ -5127,7 +5100,7 @@ Proof
 QED
 
 Theorem downshift_no_install[simp]:
-  ∀k n. no_install (downshift k n)
+  ∀aw k n. no_install (downshift aw k n)
 Proof
   recInduct stack_removeTheory.downshift_ind \\ rw []
   \\ once_rewrite_tac [stack_removeTheory.downshift_def] \\ rw []
@@ -5135,7 +5108,7 @@ Proof
 QED
 
 Theorem stack_free_no_install[simp]:
-  ∀k n. no_install (stack_free k n)
+  ∀aw k n. no_install (stack_free aw k n)
 Proof
   recInduct stack_removeTheory.stack_free_ind \\ rw []
   \\ once_rewrite_tac [stack_removeTheory.stack_free_def] \\ rw []
@@ -5144,7 +5117,7 @@ Proof
 QED
 
 Theorem stack_alloc_no_install[simp]:
-  ∀jump k n. no_install (stack_alloc jump k n)
+  ∀aw jump k n. no_install (stack_alloc aw jump k n)
 Proof
   recInduct stack_removeTheory.stack_alloc_ind \\ rw []
   \\ once_rewrite_tac [stack_removeTheory.stack_alloc_def] \\ rw []>>
@@ -5155,7 +5128,7 @@ Proof
 QED
 
 Theorem stack_remove_comp_no_install:
-  ∀jump off k p. no_install p ⇒ no_install (comp jump off k p)
+  ∀aw jump off k p. no_install p ⇒ no_install (comp aw jump off k p)
 Proof
   recInduct stack_removeTheory.comp_ind \\ rw []
   \\ Cases_on `p` \\ fs []
@@ -5173,15 +5146,15 @@ Proof
 QED
 
 Theorem stack_remove_prog_comp_no_install:
-  ∀p. no_install p ⇒ no_install (SND (prog_comp jump off k (n,p)))
+  ∀p. no_install p ⇒ no_install (FST (SND (prog_comp aw jump off k (n,p,md))))
 Proof
   Induct>>fs[stack_removeTheory.prog_comp_def]>>rpt strip_tac>>
   irule stack_remove_comp_no_install>>fs[]
 QED
 
 Theorem stack_remove_compile_no_install:
-  EVERY (λ(a,p). no_install p) prog ⇒
-  EVERY (λ(a,p). no_install p) (stack_remove_compile jump offset gckind mh sp loc prog)
+  EVERY (λ(a,p,md). no_install p) prog ⇒
+  EVERY (λ(a,p,md). no_install p) (stack_remove_compile aw jump offset gckind mh sp loc prog)
 Proof
   rw[stack_removeTheory.compile_def]>-
    (EVAL_TAC>>every_case_tac>>fs[stackPropsTheory.no_install_def])>>
@@ -5190,7 +5163,7 @@ Proof
   rpt (pairarg_tac>>fs[])>>
   last_x_assum $ qspec_then ‘y’ assume_tac>>gvs[]>>
   rpt (pairarg_tac>>fs[])>>
-  ‘p = SND (prog_comp jump offset sp y)’ by gvs[]>>
+  ‘p = FST (SND (prog_comp aw jump offset sp y))’ by gvs[]>>
   gvs[]>>
   irule stack_remove_prog_comp_no_install>>fs[]
 QED
@@ -5208,8 +5181,8 @@ QED
 
 Theorem stack_names_prog_comp_no_install:
   ∀prog.
-  EVERY (\(a,p). no_install p) prog ⇒
-  EVERY (\(a,p). no_install p) (MAP (prog_comp f) prog)
+  EVERY (\(a,p,md). no_install p) prog ⇒
+  EVERY (\(a,p,md). no_install p) (MAP (prog_comp f) prog)
 Proof
   Induct>>fs[stack_namesTheory.prog_comp_def]>>rpt strip_tac>>
   pairarg_tac>>fs[]>>
@@ -5218,8 +5191,8 @@ Proof
 QED
 
 Theorem stack_names_compile_no_install:
-  EVERY (λ(a,p). no_install p) prog ⇒
-  EVERY (λ(a,p). no_install p) (stack_names_compile names prog)
+  EVERY (λ(a,p,md). no_install p) prog ⇒
+  EVERY (λ(a,p,md). no_install p) (stack_names_compile names prog)
 Proof
   rw[stack_namesTheory.compile_def]>>
   irule stack_names_prog_comp_no_install>>fs[]
@@ -5245,7 +5218,7 @@ Theorem asm_fetch_aux_no_install_CONS:
   ∀xs.
   EVERY (λln. ∀w bytes l. ln ≠ LabAsm Install w bytes l) xs ∧
   no_install ls ⇒
-  no_install (Section k xs::ls)
+  no_install (Section k xs md::ls)
 Proof
   Induct>>rw[labPropsTheory.no_install_def, asm_fetch_aux_def]>>
   IF_CASES_TAC>>fs[]>-fs[labPropsTheory.no_install_def]>>
@@ -5253,7 +5226,7 @@ Proof
 QED
 
 Theorem prog_to_section_no_install:
-  ∀prog. EVERY (λ(a,p). no_install p) prog ⇒
+  ∀prog. EVERY (λ(a,p,md). no_install p) prog ⇒
          no_install (MAP prog_to_section prog)
 Proof
   Induct>>rw[]>-fs[labPropsTheory.no_install_def,asm_fetch_aux_def]>>
@@ -5271,8 +5244,8 @@ QED
 
 Theorem stack_to_lab_compile_no_install:
   ∀prog prog'.
-  EVERY (\(a,p). no_install p) prog ∧
-  compile stack_conf data_conf max_heap sp offset prog = prog' ==>
+  EVERY (\(a,p,md). no_install p) prog ∧
+  compile aw stack_conf data_conf max_heap sp offset prog = prog' ==>
   labProps$no_install prog'
 Proof
   rw[stack_to_labTheory.compile_def]>>

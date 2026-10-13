@@ -27,6 +27,7 @@ val bw0_v_thm = fetch "ccnf_arrayProg" "bw0_v_thm";
 
 val res = translate toByte_def;
 
+(* Unused: strxor_c_arr is implemented with Unsafe.w8xor_str *)
 Quote add_cakeml:
   fun strxor_aux_c_arr cs ds n =
   if n = 0 then cs

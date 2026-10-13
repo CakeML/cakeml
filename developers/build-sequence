@@ -58,7 +58,6 @@ compiler/backend/mips
 compiler/backend/riscv
 compiler/backend/ag32
 compiler/backend/pattern_matching
-compiler/parsing/ocaml
 compiler/printing
 
 # compiler verification
@@ -81,6 +80,7 @@ compiler/backend/arm8/proofs
 compiler/backend/arm8_asl
 compiler/backend/mips/proofs
 compiler/backend/riscv/proofs
+compiler/backend/San
 compiler/backend/ag32/proofs
 compiler/backend/cv_compute
 cv_translator
@@ -103,6 +103,7 @@ candle/overloading/ml_kernel
 candle/overloading/ml_checker
 candle/prover
 candle/prover/compute
+candle/parser
 
 # pancake
 pancake
@@ -110,6 +111,8 @@ pancake/semantics
 pancake/parser
 pancake/static_checker
 pancake/proofs
+pancake/decompiler
+pancake/decompiler/examples
 
 # dafny compiler
 compiler/dafny
@@ -233,6 +236,9 @@ compiler/benchmarks/mlton_benchmarks/cakeml
 
 # compiler HOL bootstrap
 compiler/bootstrap/translation
+unverified/sexpr-bootstrap/export/32
+unverified/sexpr-bootstrap/export/x64/64
+unverified/sexpr-bootstrap/export/arm8/64
 compiler/bootstrap/compilation/x64/64:cake-x64-64.tar.gz
 compiler/bootstrap/compilation/x64/32:cake-x64-32.tar.gz
 compiler/bootstrap/compilation/x64/32/proofs

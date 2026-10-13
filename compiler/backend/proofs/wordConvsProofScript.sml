@@ -908,8 +908,8 @@ QED
 
 (*Less restrictive version of inst_ok guaranteed by inst_select*)
 Theorem inst_select_exp_full_inst_ok_less[local]:
-  ∀c tar temp exp.
-  addr_offset_ok c 0w ⇒
+  ∀c tar temp (exp:'a wordLang$exp).
+  isa_bits c = dimindex (:'a) ∧ addr_offset_ok c 0 ⇒
   full_inst_ok_less c (inst_select_exp c tar temp exp)
 Proof
   ho_match_mp_tac inst_select_exp_ind>>rw[]>>
@@ -918,10 +918,10 @@ Proof
 QED
 
 Theorem inst_select_full_inst_ok_less:
-  ∀c temp prog.
-    addr_offset_ok c 0w ∧
-    hw_offset_ok c 0w ∧
-    byte_offset_ok c 0w ∧
+  ∀c temp (prog:'a wordLang$prog).
+    isa_bits c = dimindex (:'a) ∧ addr_offset_ok c 0 ∧
+    hw_offset_ok c 0 ∧
+    byte_offset_ok c 0 ∧
     every_inst (inst_ok_less c) prog
     ⇒
     full_inst_ok_less c (inst_select c temp prog)
@@ -1236,7 +1236,7 @@ Proof
   Induct \\ rw[fake_moves_def] \\ rw[]
   \\ pairarg_tac \\ fs[]
   \\ fs[CaseEq"option"] \\ rw[]
-  \\ first_x_assum old_drule \\ rw[]
+  \\ first_x_assum drule \\ rw[]
   \\ rw[fake_move_def]
 QED
 
@@ -1303,7 +1303,7 @@ Proof
   \\ fs[setup_ssa_def]
   \\ pairarg_tac \\ fs[]
   \\ rveq \\ fs[]
-  \\ old_drule word_get_code_labels_ssa_cc_trans
+  \\ drule word_get_code_labels_ssa_cc_trans
   \\ rw[]
 QED
 
@@ -1316,7 +1316,7 @@ Proof
   Induct \\ rw[fake_moves_def] \\ rw[]
   \\ pairarg_tac \\ fs[]
   \\ fs[CaseEq"option"] \\ rw[]
-  \\ first_x_assum old_drule \\ rw[]
+  \\ first_x_assum drule \\ rw[]
   \\ rw[fake_move_def]
 QED
 
@@ -1383,7 +1383,7 @@ Proof
   \\ fs[setup_ssa_def]
   \\ pairarg_tac \\ fs[]
   \\ rveq \\ fs[]
-  \\ old_drule word_good_handlers_ssa_cc_trans
+  \\ drule word_good_handlers_ssa_cc_trans
   \\ rw[]
 QED
 
@@ -2043,19 +2043,26 @@ Proof
   >> rpt(pairarg_tac>>fs[])
   >> fs[wordLangTheory.every_stack_var_def,call_arg_convention_def]
   >~[`copy_prop_inst`]
-  >-(
-    rpt $ pop_assum mp_tac >>
-    qid_spec_tac‘cs’>>qid_spec_tac‘i’
+  >- (
+    rpt (pop_assum mp_tac)
+    >> map_every qid_spec_tac [`cs`, `i`]
     >> ho_match_mp_tac copy_prop_inst_ind
-    >> rpt conj_tac >> rpt (gen_tac ORELSE disch_tac)
-    >> fs[copy_prop_inst_def,wordLangTheory.every_stack_var_def,
-       inst_arg_convention_def, call_arg_convention_def]
-    >- (Cases_on`n`>>fs[inst_arg_convention_def,lookup_eq_imm_def,lookup_eq_def,reg_allocTheory.is_alloc_var_def])
-    >- fs[reg_allocTheory.is_alloc_var_def,lookup_eq_def]
-    >> rpt(pairarg_tac>>fs[]) >> rw[]
-    >> fs[copy_prop_inst_def,wordLangTheory.every_stack_var_def,
-       inst_arg_convention_def, call_arg_convention_def]
-  )
+    >> rpt conj_tac >> rpt gen_tac >> rpt strip_tac
+    >> fs [copy_prop_inst_def, wordLangTheory.every_stack_var_def,
+           inst_arg_convention_def, call_arg_convention_def]
+    >~ [`inst_arg_convention (Arith (Shift _ _ _ _))`]
+    >- (
+      qmatch_asmsub_rename_tac
+        `inst_arg_convention (Arith (Shift _ _ _ shift_amount))`
+      >> namedCases_on `shift_amount` ["amount_reg", "amount_value"]
+      >> fs [inst_arg_convention_def, lookup_eq_imm_def, lookup_eq_def,
+             reg_allocTheory.is_alloc_var_def])
+    >~ [`lookup_eq _ 6 = 6`]
+    >- fs [reg_allocTheory.is_alloc_var_def, lookup_eq_def]
+    >~ [`lookup_eq _ 0 = 0`]
+    >- fs [reg_allocTheory.is_alloc_var_def, lookup_eq_def]
+    >> simp [COND_RAND, every_stack_var_def, call_arg_convention_def,
+             inst_arg_convention_def])
   >- (qpat_abbrev_tac `ysl = LENGTH _` >> gvs[] >>
   fs[MAP_GENLIST,GENLIST_FUN_EQ] >>
   rw[] >>
@@ -2970,9 +2977,9 @@ QED
 
 (*** word_to_word ***)
 Theorem compile_single_not_created_subprogs:
-  not_created_subprogs P (SND (SND (FST prog_opt))) ==>
-  not_created_subprogs P (SND (SND
-    (compile_single two_reg_arith reg_count alg c prog_opt)))
+  not_created_subprogs P (FST (SND (SND (FST prog_opt)))) ==>
+  not_created_subprogs P (FST (SND (SND
+    (compile_single two_reg_arith reg_count alg c prog_opt))))
 Proof
   PairCases_on `prog_opt`>>
   strip_tac>>
@@ -2992,15 +2999,15 @@ QED
 Theorem word_good_handlers_word_to_word_incr_helper[local]:
   ∀oracles.
   LENGTH progs = LENGTH oracles ⇒
-  EVERY (λ(n,m,pp). word_good_handlers n pp) progs ⇒
-  EVERY (λ(n,m,pp). word_good_handlers n pp)
+  EVERY (λ(n,m,pp,md). word_good_handlers n pp) progs ⇒
+  EVERY (λ(n,m,pp,md). word_good_handlers n pp)
   (MAP (full_compile_single tra reg_count1
         ralg asm_c) (ZIP (progs,oracles)))
 Proof
   rw[]>>
   rfs[EVERY_MAP,LENGTH_GENLIST,EVERY_MEM,MEM_ZIP,PULL_EXISTS]>>
   rw[full_compile_single_def]>>
-  Cases_on`EL n progs`>>Cases_on`r`>>
+  Cases_on`EL n progs`>>Cases_on`r`>>Cases_on`r'`>>
   fs[compile_single_def]>>
   fs[word_good_handlers_remove_must_terminate,word_good_handlers_word_alloc]>>
   simp[word_good_handlers_remove_dead_prog]>>
@@ -3013,8 +3020,8 @@ Proof
 QED
 
 Theorem word_good_handlers_word_to_word_incr:
-  EVERY (λ(n,m,pp). word_good_handlers n pp) progs ⇒
-  EVERY (λ(n,m,pp). word_good_handlers n pp)
+  EVERY (λ(n,m,pp,md). word_good_handlers n pp) progs ⇒
+  EVERY (λ(n,m,pp,md). word_good_handlers n pp)
     (MAP (\p. full_compile_single tra reg_count1 ralg asm_c (p, NONE)) progs)
 Proof
   strip_tac>>
@@ -3023,8 +3030,8 @@ Proof
 QED
 
 Theorem word_good_handlers_word_to_word:
-  EVERY (λ(n,m,pp). word_good_handlers n pp) progs ⇒
-  EVERY (λ(n,m,pp). word_good_handlers n pp) (SND (compile wc ac progs))
+  EVERY (λ(n,m,pp,md). word_good_handlers n pp) progs ⇒
+  EVERY (λ(n,m,pp,md). word_good_handlers n pp) (SND (compile wc ac progs))
 Proof
   fs[word_to_wordTheory.compile_def]>>
   rpt(pairarg_tac>>fs[])>>
@@ -3050,7 +3057,7 @@ Proof
     fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP,MEM_ZIP]>>
     rw[full_compile_single_def]>>
     rpt(pairarg_tac>>gvs[])>>
-    Cases_on`EL n progs`>>Cases_on`r`>>
+    Cases_on`EL n progs`>>Cases_on`r`>>Cases_on`r'`>>
     gvs[compile_single_def]>>
     fs[word_get_code_labels_remove_must_terminate,word_get_code_labels_word_alloc]>>
     dxrule (word_get_code_labels_remove_dead_prog|>SIMP_RULE std_ss [SUBSET_DEF])>>
@@ -3076,7 +3083,7 @@ Proof
       rename1`nn < LENGTH _`>>
       DISJ1_TAC>>
       qexists_tac`nn`>>simp[]>>
-      Cases_on`EL nn progs`>>Cases_on`r`>>
+      Cases_on`EL nn progs`>>Cases_on`r`>>Cases_on`r'`>>
       fs[compile_single_def])>>
     simp[]
 QED
@@ -3103,4 +3110,3 @@ Proof
   every_case_tac>>fs[]>>
   rveq>>fs[]
 QED
-

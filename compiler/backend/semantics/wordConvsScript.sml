@@ -10,11 +10,11 @@ Libs
 val _ = temp_delsimps ["misc.max3_def"];
 (*** Mono and conj lemmas for every_var/every_stack_var ***)
 Theorem every_var_inst_mono:
-  ∀P inst Q.
+  ∀bits P inst Q.
   (∀x. P x ⇒ Q x) ∧
-  every_var_inst P inst
+  every_var_inst bits P inst
   ⇒
-  every_var_inst Q inst
+  every_var_inst bits Q inst
 Proof
   ho_match_mp_tac every_var_inst_ind>>srw_tac[][every_var_inst_def]>>
   Cases_on`ri`>>full_simp_tac(srw_ss())[every_var_imm_def]
@@ -56,9 +56,9 @@ QED
 
 (*Conjunct*)
 Theorem every_var_inst_conj:
-  ∀P inst Q.
-  every_var_inst P inst ∧ every_var_inst Q inst ⇔
-  every_var_inst (λx. P x ∧ Q x) inst
+  ∀bits P inst Q.
+  every_var_inst bits P inst ∧ every_var_inst bits Q inst ⇔
+  every_var_inst bits (λx. P x ∧ Q x) inst
 Proof
   ho_match_mp_tac every_var_inst_ind>>srw_tac[][every_var_inst_def]>>
   TRY(Cases_on`ri`>>full_simp_tac(srw_ss())[every_var_imm_def])>>
@@ -206,10 +206,10 @@ End
 
 (*** Well-formed instructions. This also includes the FP conditions since we do not allocate them ***)
 Definition inst_ok_less_def:
-  (inst_ok_less (c:'a asm_config) (Arith (Binop b r1 r2 (Imm w))) ⇔
+  (inst_ok_less (c:asm_config) ((Arith (Binop b r1 r2 (Imm w))):inst) ⇔
     c.valid_imm (INL b) w) ∧
   (inst_ok_less c (Arith (Shift l r1 r2 (Imm i))) ⇔
-    (((i = 0w) ==> (l = Lsl)) ∧ w2n i < dimindex(:'a))) ∧
+    (((i = 0) ==> (l = Lsl)) ∧ 0 ≤ i ∧ i < &isa_bits c)) ∧
   (inst_ok_less c (Arith (Div r1 r2 r3)) ⇔
     (c.ISA ∈ {ARMv8; MIPS; RISC_V})) ∧
   (inst_ok_less c (Arith (LongMul r1 r2 r3 r4)) ⇔
@@ -223,6 +223,11 @@ Definition inst_ok_less_def:
     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
   (inst_ok_less c (Arith (SubOverflow r1 r2 r3 r4)) ⇔
     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
+  (inst_ok_less c (Arith (IMul rd ra rb ro)) ⇔
+    c.ISA ∈ {x86_64; ARMv7; ARMv8; MIPS; RISC_V} ∧ rd ≠ ro) ∧
+  (inst_ok_less c (Arith (IDiv rq rr ra rb)) ⇔
+    c.ISA ∈ {x86_64; ARMv8; MIPS; RISC_V} ∧ rq ≠ rr ∧
+    (c.ISA = x86_64 ⇒ rb ≠ rr)) ∧
   (inst_ok_less c (Mem m r (Addr r' w)) ⇔
      if m IN {Load; Store; Load16; Store16; Load32; Store32}
      then addr_offset_ok c w
@@ -255,9 +260,9 @@ Definition inst_ok_less_def:
     fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
   (inst_ok_less c (FP (FPMov d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPMovToReg r1 r2 d)) ⇔
-      ((dimindex(:'a) = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧
+      ((isa_bits c = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧
   (inst_ok_less c (FP (FPMovFromReg d r1 r2)) ⇔
-      ((dimindex(:'a) = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧
+      ((isa_bits c = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧
   (inst_ok_less c (FP (FPToInt d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPFromInt d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less _ _ = T)
@@ -275,6 +280,8 @@ Definition distinct_tar_reg_def:
     ⇔ r1 ≠ r3) ∧
   (distinct_tar_reg (Arith (SubOverflow r1 r2 r3 r4))
     ⇔ r1 ≠ r3) ∧
+  (distinct_tar_reg (Arith (IMul rd ra rb ro))
+    ⇔ rd ≠ rb) ∧
   (distinct_tar_reg _ ⇔ T)
 End
 
@@ -292,6 +299,8 @@ Definition two_reg_inst_def:
     ⇔ (r1 = r2)) ∧
   (two_reg_inst (Arith (SubOverflow r1 r2 r3 r4))
     ⇔ (r1 = r2)) ∧
+  (two_reg_inst (Arith (IMul rd ra rb ro))
+    ⇔ (rd = ra)) ∧
   (two_reg_inst _ ⇔ T)
 End
 
@@ -381,6 +390,8 @@ Definition inst_arg_convention_def:
   (* Note: these are not necessary *)
   (inst_arg_convention (Arith (AddOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
   (inst_arg_convention (Arith (SubOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
+  (inst_arg_convention (Arith (IMul rd ra rb ro)) ⇔ ro = 0) ∧
+  (inst_arg_convention (Arith (IDiv rq rr ra rb)) ⇔ rq = 0 ∧ rr = 6 ∧ ra = 0) ∧
   (inst_arg_convention (Arith (LongMul r1 r2 r3 r4)) ⇔ r1 = 6 ∧ r2 = 0 ∧ r3 = 0 ∧ r4 = 4) ∧
   (* LongDiv follows conventions for x86 as it is the only possibility *)
   (inst_arg_convention (Arith (LongDiv r1 r2 r3 r4 r5)) ⇔ r1 = 0 ∧ r2 = 6 ∧ r3 = 6 ∧ r4 = 0) ∧
@@ -480,7 +491,8 @@ Proof
   >~ [`Inst`]
   >- (fs[every_var_def,max_var_def,max_var_exp_IMP] >>
       rpt $ pop_assum mp_tac >>
-      MAP_EVERY qid_spec_tac $ List.rev [`P`,`i`] >>
+      qmatch_goalsub_abbrev_tac `every_var_inst bits` >>
+      MAP_EVERY qid_spec_tac $ List.rev [`bits`,`P`,`i`] >>
       ho_match_mp_tac every_var_inst_ind >> rpt strip_tac >>
       fs[every_var_inst_def,max_var_inst_def] >>
       simp_tac(pure_ss)[MAX_DEF,max3_def] >>
@@ -525,8 +537,8 @@ End
 
 Definition good_code_labels_def:
   good_code_labels p elabs ⇔
-  EVERY (λ(n,m,pp). good_handlers n pp) p ∧
-  (BIGUNION (set (MAP (λ(n,m,pp). (get_code_labels pp)) p))) ⊆
+  EVERY (λ(n,m,pp,md). good_handlers n pp) p ∧
+  (BIGUNION (set (MAP (λ(n,m,pp,md). (get_code_labels pp)) p))) ⊆
   (set (MAP FST p) ∪ elabs)
 End
 

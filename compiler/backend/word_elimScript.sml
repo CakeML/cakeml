@@ -2,7 +2,7 @@
   Implementation for wordLang dead-code elimination.
 
   Analyses code to give a next-step function as a num_set num_map.
-  Uses flat_elim functions to close the next-step function and give a set of
+  Uses spt_closure functions to close the next-step function and give a set of
     reachable functions.
   Removes unreachable functions from the code.
 *)
@@ -42,7 +42,7 @@ val find_word_ref_ind = theorem "find_word_ref_ind";
 
 Definition analyse_word_code_def:
     (analyse_word_code [] = LN:num_set num_map) ∧
-    (analyse_word_code ((n, args, prog)::t) =
+    (analyse_word_code ((n, args, prog, md)::t) =
         insert n (find_word_ref prog) (analyse_word_code t))
 End
 

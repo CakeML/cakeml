@@ -50,12 +50,12 @@ End
 
 Definition eval_ri_pre_def:
 (eval_ri_pre s (Reg r) <=> eval_exp_pre (s:'a state) ((Var r):'a wordLang$exp)) /\
-  (eval_ri_pre s (Imm (w:'a word)) <=> T)
+  (eval_ri_pre s (Imm (w:int)) <=> T)
 End
 
 Definition eval_ri_def:
   eval_ri s (Reg r) = eval_exp s (Var r) /\
-  eval_ri s (Imm w) = w
+  eval_ri s (Imm w) = i2w w
 End
 
 Definition dec_clock_def:
@@ -215,7 +215,7 @@ Definition code_rel_def:
        ALOOKUP (SND cs) prog = SOME (n,p2) ==>
        ?cs1 l2 i2 cs2.
          compile n 2 1 cs1 prog = (p2,l2,i2,cs2) /\
-         lookup n code = SOME (1n,Seq p2 (Return 0 [0])) /\
+         (?md. lookup n code = SOME (1n,Seq p2 (Return 0 [0]),md)) /\
          code_subset cs2 cs
 End
 
@@ -403,7 +403,7 @@ Theorem has_compiled_lemma[local]:
     has_compiled p cs = INL x /\ code_subset cs cs2 ==>
     ?cs0 p1 l1 i1 cs' cs1.
       compile x 2 1 cs' p = (p1,l1,i1,cs1) /\ code_subset cs1 cs2 /\
-      lookup x t1.code = SOME (1,Seq p1 (Return 0 [0]))
+      (?md. lookup x t1.code = SOME (1,Seq p1 (Return 0 [0]),md))
 Proof
   Cases_on `cs`
   \\ Cases_on `cs2`
@@ -463,7 +463,7 @@ QED
 Theorem evaluate_SeqTempImm[local]:
     evaluate (SeqTempImm i ri p,t) =
     if !r. ri = Reg r ==> Temp (n2w r) IN FDOM t.store then
-       evaluate (p,set_var i (case ri of Imm w => Word w
+       evaluate (p,set_var i (case ri of Imm w => Word (i2w w)
                               | Reg r => t.store ' (Temp (n2w r))) t)
     else evaluate (SeqTempImm i ri p,t)
 Proof
@@ -477,7 +477,7 @@ Theorem evaluate_SeqTempImmNot[local]:
     evaluate (SeqTempImmNot i ri p,t) =
     if !r. ri = Reg r ==> Temp (n2w r) IN FDOM t.store /\
                           ?w. t.store ' (Temp (n2w r)) = Word w then
-       evaluate (p,set_var i (case ri of Imm w => Word (~w)
+       evaluate (p,set_var i (case ri of Imm w => Word (~(i2w w))
                               | Reg r => case t.store ' (Temp (n2w r)) of
                                          | Word w => Word (~w)) t)
     else evaluate (SeqTempImmNot i ri p,t)
@@ -506,7 +506,7 @@ QED
 
 Theorem shift_eq_bytes_in_word[local]:
     good_dimindex (:α) ==>
-    (w << (shift (:α) MOD dimword (:α)) = w * bytes_in_word:α word)
+    (w << (shift (dimindex (:α)) MOD dimword (:α)) = w * bytes_in_word:α word)
 Proof
   fs [shift_def,good_dimindex_def] \\ rw []
   \\ fs [WORD_MUL_LSL,bytes_in_word_def,dimword_def]
@@ -689,10 +689,10 @@ Theorem compile_thm:
                 ?l i cs p1 l1 i1 cs1.
                   compile n l i cs body = (p1,l1,i1,cs1) /\
                   0 < i ∧ syntax_ok_aux body ∧ code_subset cs1 cs2 /\
-                  lookup n t1.code = SOME (1,Seq p1 (Return 0 [0]))) /\
+                  (?md. lookup n t1.code = SOME (1,Seq p1 (Return 0 [0]),md))) /\
         (!body. prog = LoopBody body ==>
                 p9 = Return 0 [0] /\
-                lookup n t1.code = SOME (1,Seq p1 (Return 0 [0]))) /\
+                (?md. lookup n t1.code = SOME (1,Seq p1 (Return 0 [0]),md))) /\
         get_var 0 t1 = SOME ret_val /\ good_dimindex (:'a) ==>
         ?t2 res.
           (evaluate (Seq p1 p9,t1) = res) /\
@@ -788,7 +788,7 @@ Proof
     \\ fs [SeqIndex_def,evaluate_def,array_rel_def]
     \\ Cases_on `a`
     \\ fs [word_exp_def,get_store_def,FLOOKUP_DEF,word_sh_def]
-    \\ `shift (:α) MOD dimword (:α) < dimindex (:α)` by
+    \\ `shift (dimindex (:α)) MOD dimword (:α) < dimindex (:α)` by
           (fs [good_dimindex_def,shift_def,dimword_def])
     \\ fs [the_words_def,word_op_def,get_var_def,set_var_def,lookup_insert,
            mem_load_def]
@@ -814,7 +814,7 @@ Proof
     \\ fs [SeqIndex_def,evaluate_def,array_rel_def]
     \\ once_rewrite_tac [evaluate_SeqTemp] \\ fs [evaluate_def]
     \\ fs [word_exp_def,get_store_def,FLOOKUP_DEF,word_sh_def,set_var_def]
-    \\ `shift (:α) MOD dimword (:α) < dimindex (:α)` by
+    \\ `shift (dimindex (:α)) MOD dimword (:α) < dimindex (:α)` by
           (fs [good_dimindex_def,shift_def,dimword_def])
     \\ fs [the_words_def,word_op_def,set_var_def,lookup_insert,get_var_def,
            mem_store_def]
@@ -1939,7 +1939,7 @@ val Skip_tm = ``Skip:'a word_bignum$mini``
 val Swap_tm = ``Swap:'a word_bignum$mini``
 val Continue_tm = ``Continue:'a word_bignum$mini``
 
-val If_pat = ``word_bignum$If c r (ri:'a reg_imm) p1 p2``
+val If_pat = ``word_bignum$If c r (ri:reg_imm) p1 p2``
 fun dest_If tm = let
   val i = fst (match_term If_pat tm)
   fun list_dest f tm = let
@@ -2014,7 +2014,7 @@ fun derive_corr_thm const_def = let
       val p1 = get_corr (tm |> rator |> rand)
       val p2 = get_corr (tm |> rand)
       val th = REWRITE_RULE [eval_exp_def,eval_exp_pre_def,asmTheory.word_cmp_def,
-                 eval_ri_pre_def,eval_ri_def] (INST i Corr_If)
+                 eval_ri_pre_def,eval_ri_def,integer_wordTheory.i2w_pos] (INST i Corr_If)
                |> CONV_RULE (DEPTH_CONV read_conv) |> REWRITE_RULE []
       in MATCH_MP th (CONJ p1 p2) end
     else if is_Seq tm then let
@@ -2027,7 +2027,7 @@ fun derive_corr_thm const_def = let
       val lemma = first (fn th => can (match_term (get_pat th)) p1) lemmas
       val i = fst (match_term (get_pat lemma) p1)
       val th1 = REWRITE_RULE [eval_exp_def,eval_exp_pre_def,
-                  eval_ri_pre_def,eval_ri_def] (INST i lemma)
+                  eval_ri_pre_def,eval_ri_def,integer_wordTheory.i2w_pos] (INST i lemma)
       val th1 = CONV_RULE (DEPTH_CONV read_conv) th1
       val th1 = make_new_vars th1
       val th = MATCH_MP (MATCH_MP Corr_Seq_alt th2) th1 |> REWRITE_RULE []

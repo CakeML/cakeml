@@ -263,6 +263,7 @@ Definition op_to_display_def:
   | VfromList => empty_item «VfromList»
   | Vsub => empty_item «Vsub»
   | Vsub_unsafe => empty_item «Vsub_unsafe»
+  | Strsub_unsafe => empty_item «Strsub_unsafe»
   | Vlength => empty_item «Vlength»
   | Aalloc => empty_item «Aalloc»
   | AallocEmpty => empty_item «AallocEmpty»
@@ -524,6 +525,8 @@ Definition flat_to_display_def:
     Item (SOME None) (add_name_hint «letrec» name_hint)
         [Tuple (fun_flat_to_display_list funs); flat_to_display exp]
   )  ∧
+  (flat_to_display (flatLang$Tick tra exp) =
+    Item (SOME tra) «tick» [flat_to_display exp]) ∧
   (flat_to_display_list [] = []) ∧
   (flat_to_display_list (x::xs) =
     flat_to_display x :: flat_to_display_list xs)  ∧
@@ -761,7 +764,7 @@ Termination
 End
 
 Definition clos_fun_to_display_def:
-  clos_fun_to_display names (n,argc,body) =
+  clos_fun_to_display names (n,argc,body,md) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
            Tuple (REVERSE $ GENLIST display_num_as_varn argc);
@@ -827,7 +830,7 @@ Termination
 End
 
 Definition bvl_fun_to_display_def:
-  bvl_fun_to_display names (n,argc,body) =
+  bvl_fun_to_display names (n,argc,body,md) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
            Tuple (REVERSE $ GENLIST display_num_as_varn argc);
@@ -896,7 +899,7 @@ Termination
 End
 
 Definition bvi_fun_to_display_def:
-  bvi_fun_to_display names (n,argc,body) =
+  bvi_fun_to_display names (n,argc,body,md) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
            Tuple (REVERSE $ GENLIST display_num_as_varn argc);
@@ -992,7 +995,7 @@ Termination
 End
 
 Definition data_fun_to_display_def:
-  data_fun_to_display names (n,argc,body) =
+  data_fun_to_display names (n,argc,body,md) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
            Tuple (GENLIST num_to_display argc);
@@ -1013,7 +1016,7 @@ End
 Definition asm_reg_imm_to_display_def:
   asm_reg_imm_to_display reg_imm = case reg_imm of
     | asm$Reg reg => item_with_num «Reg» reg
-    | Imm imm => item_with_word «Imm» imm
+    | Imm imm => Item NONE «Imm» [int_to_display imm]
 End
 
 Definition asm_arith_to_display_def:
@@ -1032,12 +1035,14 @@ Definition asm_arith_to_display_def:
     | AddCarry n1 n2 n3 n4 => item_with_nums «AddCarry» [n1; n2; n3; n4]
     | AddOverflow n1 n2 n3 n4 => item_with_nums «AddOverflow» [n1; n2; n3; n4]
     | SubOverflow n1 n2 n3 n4 => item_with_nums «SubOverflow» [n1; n2; n3; n4]
+    | IMul rd ra rb ro => item_with_nums «IMul» [rd; ra; rb; ro]
+    | IDiv rq rr ra rb => item_with_nums «IDiv» [rq; rr; ra; rb]
 End
 
 Definition asm_addr_to_display_def:
   asm_addr_to_display addr = case addr of
     | Addr reg w => Item NONE «Addr»
-                         [num_to_display reg; word_to_display w]
+                         [num_to_display reg; int_to_display w]
 End
 
 Definition asm_memop_to_display_def:
@@ -1088,7 +1093,7 @@ Definition asm_inst_to_display_def:
   asm_inst_to_display inst = case inst of
     | asm$Skip => empty_item «Skip»
     | Const reg w => Item NONE «Const» [num_to_display reg;
-                                                 word_to_display w]
+                                                 int_to_display w]
     | Arith a => Item NONE «Arith» [asm_arith_to_display a]
     | Mem mop r addr => Item NONE «Mem» [asm_memop_to_display mop;
         num_to_display r; asm_addr_to_display addr]
@@ -1098,13 +1103,13 @@ End
 Definition asm_asm_to_display_def:
   asm_asm_to_display inst = case inst of
     | Inst i => asm_inst_to_display i
-    | Jump w => item_with_word «Jump» w
+    | Jump w => Item NONE «Jump» [int_to_display w]
     | JumpCmp c r to w => Item NONE «JumpCmp»
       [asm_cmp_to_display c; num_to_display r; asm_reg_imm_to_display to;
-       word_to_display w]
-    | Call w => item_with_word «Call» w
+       int_to_display w]
+    | Call w => Item NONE «Call» [int_to_display w]
     | JumpReg r => item_with_num «JumpReg>» r
-    | Loc r w => Item NONE «Loc» [num_to_display r; word_to_display w]
+    | Loc r w => Item NONE «Loc» [num_to_display r; int_to_display w]
 End
 
 (* stackLang *)
@@ -1139,7 +1144,7 @@ Definition stack_seqs_def:
 End
 
 Theorem MEM_append_stack_seqs[local]:
-  ∀x. MEM a (append (stack_seqs x)) ⇒ prog_size ARB a ≤ prog_size ARB x
+  ∀x. MEM a (append (stack_seqs x)) ⇒ prog_size a ≤ prog_size x
 Proof
   Induct \\ simp [Once stack_seqs_def,stackLangTheory.prog_size_def]
   \\ rw [] \\ res_tac \\ gvs []
@@ -1147,8 +1152,8 @@ QED
 
 Theorem list_size_append_stack_seqs[local]:
   ∀x.
-  list_size (prog_size ARB) (append (stack_seqs x)) =
-  prog_size ARB x + 1
+  list_size prog_size (append (stack_seqs x)) =
+  prog_size x + 1
 Proof
   Induct \\ simp [Once stack_seqs_def,stackLangTheory.prog_size_def,list_size_def,list_size_append]
 QED
@@ -1252,7 +1257,7 @@ Termination
 End
 
 Definition stack_fun_to_display_def:
-  stack_fun_to_display names (n,body) =
+  stack_fun_to_display names (n,body,md) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
            stack_prog_to_display 1000000000 names body]
@@ -1294,7 +1299,7 @@ Definition lab_line_to_display_def:
 End
 
 Definition lab_fun_to_display_def:
-  lab_fun_to_display names (Section n lines) =
+  lab_fun_to_display names (Section n lines _) =
     List (String (attach_name names (SOME n))
            :: MAP (lab_line_to_display names) lines)
 End
@@ -1459,7 +1464,7 @@ Termination
 End
 
 Definition word_fun_to_display_def:
-  word_fun_to_display names (n,argc,body) =
+  word_fun_to_display names (n,argc,body,md) =
     Tuple [String «func»;
            String (attach_name names (SOME n));
            Tuple (GENLIST (λn. num_to_display (2 * n)) argc);
@@ -1499,7 +1504,7 @@ End
 
 Definition clos_to_strs_def:
   clos_to_strs (decs,funs) =
-    let names = clos_to_bvl$get_src_names (decs ++ MAP (SND o SND) funs) LN in
+    let names = clos_to_bvl$get_src_names (decs ++ MAP (FST o SND o SND) funs) LN in
       Append (map_to_append (str_tree_to_strs «\n\n» o
                              display_to_str_tree o
                              clos_dec_to_display names) decs)
@@ -1509,7 +1514,8 @@ Definition clos_to_strs_def:
 End
 
 Definition bvl_to_strs_def:
-  bvl_to_strs names xs =
+  bvl_to_strs xs =
+    let names = fromAList (MAP (λ(n,_,_,md). (n, case md of Metadata name _ => name)) xs) in
     map_to_append (str_tree_to_strs «\n\n» o
                    display_to_str_tree o
                    bvl_fun_to_display names) xs
@@ -1517,16 +1523,16 @@ End
 
 val bvl_test =
   “concat $ append $ bvl_to_strs
-     (insert 50 «foo» (insert 60 «bar» LN))
      [(50,2,Let [Var 0; Var 1]
-              $ Op (IntOp Add) [Var 0; Var 1; Var 2; Var 3]);
+              $ Op (IntOp Add) [Var 0; Var 1; Var 2; Var 3],Metadata «foo» []);
       (60,2,Let [Var 0; Var 1]
-              $ Call 0 (SOME 50) [Var 2; Var 0])]”
+              $ Call 0 (SOME 50) [Var 2; Var 0],Metadata «bar» [])]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
   |> (fn t => (print "\n\n"; print t; print "\n"))
 
 Definition bvi_to_strs_def:
-  bvi_to_strs names xs =
+  bvi_to_strs xs =
+    let names = fromAList (MAP (λ(n,_,_,md). (n, case md of Metadata name _ => name)) xs) in
     map_to_append (str_tree_to_strs «\n\n» o
                    display_to_str_tree o
                    bvi_fun_to_display names) xs
@@ -1534,16 +1540,16 @@ End
 
 val bvi_test =
   “concat $ append $ bvi_to_strs
-     (insert 50 «foo» (insert 60 «bar» LN))
      [(50,2,Let [Var 0]
-              $ Op (IntOp Add) [Var 0; Var 1; Var 2; Var 3]);
+              $ Op (IntOp Add) [Var 0; Var 1; Var 2; Var 3],Metadata «foo» []);
       (60,2,Let [Var 0; Var 1]
-              $ Call 0 (SOME 50) [Var 2; Var 0] (SOME (Var 0)))]”
+              $ Call 0 (SOME 50) [Var 2; Var 0] (SOME (Var 0)),Metadata «bar» [])]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
   |> (fn t => (print "\n\n"; print t; print "\n"))
 
 Definition data_to_strs_def:
-  data_to_strs names xs =
+  data_to_strs xs =
+    let names = fromAList (MAP (λ(n,_,_,md). (n, case md of Metadata name _ => name)) xs) in
     map_to_append (str_tree_to_strs «\n\n» o
                    display_to_str_tree o
                    data_fun_to_display names) xs
@@ -1551,30 +1557,33 @@ End
 
 val data_test =
   “concat $ append $ data_to_strs
-     (insert 50 «foo» (insert 60 «bar» LN))
      [(50,2,Seq (Move 5 1) $
             Seq (Assign 3 (IntOp Add) [0;1] NONE) $
-            Seq (Assign 6 (IntOp Sub) [5;3] NONE) $ Return [6]);
-      (60,2,Skip)]”
+            Seq (Assign 6 (IntOp Sub) [5;3] NONE) $ Return [6],Metadata «foo» []);
+      (60,2,Skip,Metadata «bar» [])]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
   |> (fn t => (print "\n\n"; print t; print "\n"));
 
 Definition word_to_strs_def:
-  word_to_strs names xs =
+  word_to_strs xs =
+    let names = fromAList (MAP (λ(n,_,_,md). (n, case md of Metadata name _ => name)) xs) in
     map_to_append (str_tree_to_strs «\n\n» o
                    display_to_str_tree o
                    word_fun_to_display names) xs
 End
 
 Definition stack_to_strs_def:
-  stack_to_strs names xs =
+  stack_to_strs xs =
+    let names = fromAList (MAP (λ(n,_,md). (n, case md of Metadata name _ => name)) xs) in
     map_to_append (str_tree_to_strs «\n\n» o
                    display_to_str_tree o
                    stack_fun_to_display names) xs
 End
 
 Definition lab_to_strs_def:
-  lab_to_strs names xs =
+  lab_to_strs xs =
+    let names = fromAList (MAP (λsec. (Section_num sec,
+      case Section_metadata sec of Metadata name _ => name)) xs) in
     map_to_append (str_tree_to_strs «\n\n» o
                    display_to_str_tree o
                    lab_fun_to_display names) xs
@@ -1582,11 +1591,10 @@ End
 
 val lab_test =
   “concat $ append $ lab_to_strs
-     (insert 50 «foo» (insert 60 «bar» LN))
      [Section 50 [Label 50 1 0;
-                  Asm (Asmi (Inst (Const 5 (70w:word32)))) [] 0;
-                  Label 50 2 0];
-      Section 60 [Label 50 5 0]]”
+                  Asm (Asmi (Inst (Const 5 70))) [] 0;
+                  Label 50 2 0] (Metadata «foo» []);
+      Section 60 [Label 50 5 0] (Metadata «bar» [])]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
   |> (fn t => (print "\n\n"; print t; print "\n"));
 

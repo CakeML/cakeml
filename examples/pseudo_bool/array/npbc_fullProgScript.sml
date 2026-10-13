@@ -172,7 +172,39 @@ val inputLineTokens_specialize =
 Overload "ntn_TYPE" = ``PBC_NORMALISE_NAME_TO_NUM_STATE_TYPE STRING_TYPE``
 
 Overload "nprob_TYPE" = ``
-  PAIR_TYPE pres_TYPE (PAIR_TYPE obj_TYPE (LIST_TYPE constraint_TYPE))``
+  PAIR_TYPE pres_TYPE (PAIR_TYPE obj_TYPE (LIST_TYPE fslot_TYPE))``
+
+(* The parsed problem with its constraints stored *)
+Definition enc_prob_def:
+  enc_prob (((pres,obj,fml),t):
+    (num_set option # ((int # num) list # int) option # npbc list) # 'a) =
+  ((pres,obj,enc_list fml),t)
+End
+
+(* Stores the new constraints in front of acc *)
+Definition app_enc_def:
+  (app_enc [] acc = acc) ∧
+  (app_enc (c::cs) acc = enc c T :: app_enc cs acc)
+End
+
+val r = translate app_enc_def;
+
+Theorem app_enc_enc_list:
+  ∀new. app_enc new (enc_list acc) = enc_list (new ++ acc)
+Proof
+  Induct>>rw[app_enc_def,enc_list_def]
+QED
+
+Theorem parse_norm_line_acc:
+  parse_norm_line l s acc =
+  case parse_norm_line l s [] of
+    NONE => NONE
+  | SOME (new,s1) => SOME (new ++ acc,s1)
+Proof
+  rw[parse_norm_line_def,name_norm_pbc_def]>>
+  TOP_CASE_TAC>>
+  rpt (pairarg_tac>>gvs[])
+QED
 
 (* lno counts the lines read so far *)
 Quote add_cakeml:
@@ -262,10 +294,10 @@ Quote add_cakeml:
     None => Inr (acc, s)
   | Some l =>
     if nocomment_line l then
-      (case parse_norm_line l s acc of
+      (case parse_norm_line l s [] of
         None => Inl (lno+1)
-      | Some res => case res of (acc1,s1) =>
-        parse_norm_body_arr (lno+1) fd s1 acc1)
+      | Some res => case res of (new,s1) =>
+        parse_norm_body_arr (lno+1) fd s1 (app_enc new acc))
     else parse_norm_body_arr (lno+1) fd s acc
 End
 
@@ -273,7 +305,7 @@ Theorem parse_norm_body_arr_spec:
   ∀lines fd fdv fs s sv acc accv lno lnov.
   NUM lno lnov ∧
   ntn_TYPE s sv ∧
-  LIST_TYPE constraint_TYPE acc accv
+  LIST_TYPE fslot_TYPE (enc_list acc) accv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_norm_body_arr" (get_ml_prog_state()))
@@ -281,10 +313,10 @@ Theorem parse_norm_body_arr_spec:
     (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTv v.
       &(∃n.
-        SUM_TYPE NUM (PAIR_TYPE (LIST_TYPE constraint_TYPE) ntn_TYPE)
+        SUM_TYPE NUM (PAIR_TYPE (LIST_TYPE fslot_TYPE) ntn_TYPE)
           (case parse_norm_lines (MAP toks lines) s acc of
             NONE => INL n
-          | SOME x => INR x) v) *
+          | SOME (x,t) => INR (enc_list x,t)) v) *
       SEP_EXISTS k lines'.
         STDIO (forwardFD fs fd k) *
         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k))
@@ -337,29 +369,36 @@ Proof
     simp[forwardFD_o]>>
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
   xif>>asm_exists_tac>>simp[]>>
+  rpt xlet_autop>>
+  gvs[]>>
+  `LIST_TYPE constraint_TYPE [] (Conv (SOME (TypeStamp «[]» 1)) [])` by
+    simp[LIST_TYPE_def]>>
   xlet_autop>>
-  Cases_on`parse_norm_line (toks h) s acc`>>
+  simp[Once parse_norm_line_acc]>>
+  Cases_on`parse_norm_line (toks h) s []`>>
   fs[OPTION_TYPE_def]
   >- (
     xmatch>>
     xlet_autop>>
-    xcon>>
-    xsimpl>>
+    xcon>>xsimpl>>
     qexistsl_tac [`k`,`lines`]>>
     xsimpl>>
     simp[SUM_TYPE_def]>>
     metis_tac[])>>
-  rename1`parse_norm_line (toks h) s acc = SOME res`>>
+  rename1`parse_norm_line (toks h) s [] = SOME res`>>
   PairCases_on`res`>>
   fs[PAIR_TYPE_def]>>
   xmatch>>
   xmatch>>
+  gvs[npbc_arrayProgTheory.LIST_TYPE_fslot_TYPE]>>
   xlet_autop>>
-  xapp>>
+  xlet_autop>>
+  fs[app_enc_enc_list]>>
+  xapp>>xsimpl>>
+  qexistsl_tac [`emp`,`res1`,`forwardFD fs fd k`,`fd`,`res0 ++ acc`,
+    `lno + 1`]>>
   xsimpl>>
-  rpt (first_x_assum (irule_at Any))>>
-  qexistsl_tac [`forwardFD fs fd k`,`fd`]>>
-  xsimpl>>
+  simp[enc_list_def,EVERY_MAP]>>
   rw[]>>
   simp[forwardFD_o]>>
   metis_tac[STDIO_INSTREAM_LINES_refl_gc]
@@ -372,7 +411,7 @@ Quote add_cakeml:
   case parse_norm_header l1 l2 s of
     None => Inl lno2
   | Some res => case res of (pres,(obj,(acc,s1))) =>
-    (case parse_norm_body_arr lno2 fd s1 acc of
+    (case parse_norm_body_arr lno2 fd s1 (enc_list acc) of
       Inl n => Inl n
     | Inr res => case res of (acc1,t) =>
       Inr ((pres,(obj,List.rev acc1)),t))
@@ -390,7 +429,7 @@ Theorem parse_norm_toks_arr_spec:
         SUM_TYPE NUM (PAIR_TYPE nprob_TYPE ntn_TYPE)
           (case parse_norm_pbf_toks (MAP toks lines) s of
             NONE => INL n
-          | SOME x => INR x) v) *
+          | SOME x => INR (enc_prob x)) v) *
       SEP_EXISTS k lines'.
         STDIO (forwardFD fs fd k) *
         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k))
@@ -447,12 +486,13 @@ Proof
   fs[PAIR_TYPE_def]>>
   xmatch>>
   xmatch>>
+  xlet_autop>>
   xlet`(POSTv v.
       &(∃n.
-        SUM_TYPE NUM (PAIR_TYPE (LIST_TYPE constraint_TYPE) ntn_TYPE)
+        SUM_TYPE NUM (PAIR_TYPE (LIST_TYPE fslot_TYPE) ntn_TYPE)
           (case parse_norm_lines (MAP toks lines2) hdr3 hdr2 of
             NONE => INL n
-          | SOME x => INR x) v) *
+          | SOME (x,t) => INR (enc_list x,t)) v) *
       SEP_EXISTS k3 lines3.
         STDIO (forwardFD fs fd k3) *
         INSTREAM_LINES #"\n" fd fdv lines3 (forwardFD fs fd k3))`
@@ -461,6 +501,7 @@ Proof
     qexistsl_tac [`emp`,`hdr3`,`lines2`,`forwardFD fs fd k2`,`fd`,`hdr2`,
       `lno2`]>>
     xsimpl>>
+    simp[npbc_arrayProgTheory.LIST_TYPE_fslot_TYPE,enc_list_def,EVERY_MAP]>>
     rw[]>>
     fs[forwardFD_o]>>
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
@@ -480,7 +521,7 @@ Proof
     metis_tac[])>>
   rename1`parse_norm_lines _ hdr3 hdr2 = SOME body`>>
   PairCases_on`body`>>
-  fs[PAIR_TYPE_def]>>
+  fs[SUM_TYPE_def,PAIR_TYPE_def]>>
   xmatch>>
   xmatch>>
   rpt xlet_autop>>
@@ -488,7 +529,7 @@ Proof
   xsimpl>>
   qexistsl_tac [`k3`,`lines3`]>>
   xsimpl>>
-  simp[SUM_TYPE_def,PAIR_TYPE_def]
+  fs[SUM_TYPE_def,PAIR_TYPE_def,enc_prob_def,enc_list_def,MAP_REVERSE]
 QED
 
 Quote add_cakeml:
@@ -518,7 +559,7 @@ Theorem parse_norm_pbf_full_spec:
     & (∃err. SUM_TYPE STRING_TYPE (PAIR_TYPE nprob_TYPE ntn_TYPE)
     (case get_fml fs f of
       NONE => INL err
-    | SOME prob => INR (name_norm_prob prob s)) v) * STDIO fs)
+    | SOME prob => INR (enc_prob (name_norm_prob prob s))) v) * STDIO fs)
 Proof
   rw[]>>
   xcf"parse_norm_pbf_full"(get_ml_prog_state()) >>
@@ -553,7 +594,7 @@ Proof
         SUM_TYPE NUM (PAIR_TYPE nprob_TYPE ntn_TYPE)
           (case parse_norm_pbf_toks (MAP toks lines) s of
             NONE => INL n
-          | SOME x => INR x) v) *
+          | SOME x => INR (enc_prob x)) v) *
       SEP_EXISTS k lines'.
          STDIO (forwardFD fss fdd k) *
          INSTREAM_LINES #"\n" fdd fddv lines' (forwardFD fss fdd k))`
@@ -668,7 +709,7 @@ Proof
   `∃pres obj fml t.
     name_norm_prob (prob0,prob1,prob2) init_ntn = ((pres,obj,fml),t)` by
     metis_tac[PAIR]>>
-  simp[SUM_TYPE_def,PAIR_TYPE_def]>>rw[]>>
+  simp[SUM_TYPE_def,PAIR_TYPE_def,enc_prob_def]>>rw[]>>
   xmatch>>
   xmatch>>
   ntac 5 xlet_autop>>
@@ -692,7 +733,7 @@ Proof
       `ntn_TYPE`,`(name_to_num_var_nf,t)`]>>
     xsimpl>>
     fs[validArg_def,FILENAME_def,LIST_TYPE_def,OPTION_TYPE_def,
-      PAIR_TYPE_def]>>
+      PAIR_TYPE_def,enc_list_def]>>
     CONJ_TAC
     >- simp[name_to_num_var_nf_v_thm]>>
     rw[]>>
@@ -876,7 +917,7 @@ Proof
   `∃pres obj fml t.
     name_norm_prob (prob0,prob1,prob2) init_ntn = ((pres,obj,fml),t)` by
     metis_tac[PAIR]>>
-  simp[SUM_TYPE_def,PAIR_TYPE_def]>>rw[]>>
+  simp[SUM_TYPE_def,PAIR_TYPE_def,enc_prob_def]>>rw[]>>
   xmatch>>
   xmatch>>
   xlet_autop>>
@@ -898,7 +939,7 @@ Proof
   `∃prest objt fmlt u.
     name_norm_prob (probt0,probt1,probt2) t = ((prest,objt,fmlt),u)` by
     metis_tac[PAIR]>>
-  simp[SUM_TYPE_def,PAIR_TYPE_def]>>rw[]>>
+  simp[SUM_TYPE_def,PAIR_TYPE_def,enc_prob_def]>>rw[]>>
   xmatch>>
   xmatch>>
   ntac 2 xlet_autop>>
@@ -920,6 +961,7 @@ Proof
     xapp_spec (check_unsat_top_spec
       |> INST_TYPE[alpha|->``:mlstring name_to_num_state``])>>
     xsimpl>>
+    fs[enc_list_def]>>
     rw[]
     >- (
       qexists_tac`T`>>

@@ -37,7 +37,7 @@ Theorem map_ok_mk_bnd_map:
   ∀bnd. map_ok (mk_bnd_map bnd)
 Proof
   Induct
-  >- rw[mk_bnd_map_def,mlmapTheory.empty_thm,TotOrd_fast_compare]>>
+  >- rw[mk_bnd_map_def,mlmapTheory.empty_thm,mlstringTheory.TotOrd_fast_compare]>>
   Cases_on`h`>>
   rw[mk_bnd_map_def,mlmapTheory.insert_thm]
 QED
@@ -47,7 +47,7 @@ Theorem lookup_mk_bnd_map:
 Proof
   Induct
   >- rw[mk_bnd_map_def,mlmapTheory.lookup_thm,mlmapTheory.empty_thm,
-        TotOrd_fast_compare]>>
+        mlstringTheory.TotOrd_fast_compare]>>
   Cases_on`h`>>
   rw[mk_bnd_map_def,mlmapTheory.lookup_insert,map_ok_mk_bnd_map]
 QED

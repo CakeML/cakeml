@@ -14,12 +14,12 @@ End
 
 Definition filter_skip_def:
   (filter_skip [] = []) /\
-  (filter_skip (Section n xs :: rest) =
-     Section n (FILTER not_skip xs) :: filter_skip rest)
+  (filter_skip (Section n xs md :: rest) =
+     Section n (FILTER not_skip xs) md :: filter_skip rest)
 End
 
 Theorem filter_skip_MAP:
-   ∀ls. filter_skip ls = MAP (λx. case x of Section n xs => Section n (FILTER not_skip xs)) ls
+   ∀ls. filter_skip ls = MAP (λx. case x of Section n xs md => Section n (FILTER not_skip xs) md) ls
 Proof
   Induct \\ simp[filter_skip_def] \\ Cases \\ simp[filter_skip_def]
 QED

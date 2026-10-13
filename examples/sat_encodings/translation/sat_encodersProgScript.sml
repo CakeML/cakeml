@@ -5,7 +5,7 @@ Theory sat_encodersProg
 Ancestors
   misc set_sep list lispProg boolExpToCnf quantifierExp
   orderEncodingBool numBoolExp numBoolExtended numBoolRange
-  unorderedSets toCnfHelper cnf
+  unorderedSets toCnfHelper satCnf
   (* for parsing: *) parsing source_values
 Libs
   preamble basis
@@ -13,6 +13,14 @@ Libs
 val _ = translation_extends "lispProg";
 
 val _ = show_assums := true;
+
+val res = translate ClauseEmpty_def;
+val res = translate ClauseLit_def;
+val res = translate ClauseOr_def;
+val res = translate CnfEmpty_def;
+val res = translate CnfClause_def;
+val res = translate CnfAnd_def;
+val res = translate cnfTheory.var_lit_def;
 
 (* boolExp *)
 val res = translate bind_def;
@@ -150,7 +158,7 @@ val res = translate elementVarAssignment_to_numVarAssignment_def;
 val res = translate get_max_def;
 val res = translate equation_to_rangeList_inner_def;
 val res = translate equation_to_rangeList_def;
-val res = translate eval_literal_def;
+val res = translate cnfTheory.satisfies_lit_def;
 val res = translate eval_rhs_def;
 val res = translate make_assignments_def;
 val res = translate constFree_to_assignment_def;

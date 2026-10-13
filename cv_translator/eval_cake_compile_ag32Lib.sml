@@ -6,14 +6,17 @@ struct
 
 local
 
-  open eval_cake_compileLib;
+  open HolKernel Parse boolLib eval_cake_compileLib;
+
+  (* the backend definitions are polymorphic in the word size *)
+  val arch_spec = INST_TYPE [alpha |-> “:32”];
 
   val ag32_arch_thms =
     { default_config_def       = ag32_configTheory.ag32_backend_config_def
-    , to_livesets_def          = backend_ag32Theory.to_livesets_ag32_def
-    , compile_cake_def         = backend_ag32Theory.compile_cake_ag32_def
-    , compile_cake_imp         = backend_ag32Theory.compile_cake_ag32_thm
-    , compile_cake_explore_def = backend_ag32Theory.compile_cake_explore_ag32_def
+    , to_livesets_def          = arch_spec backend_ag32Theory.to_livesets_ag32_def
+    , compile_cake_def         = arch_spec backend_ag32Theory.compile_cake_ag32_def
+    , compile_cake_imp         = arch_spec backend_ag32Theory.compile_cake_ag32_thm
+    , compile_cake_explore_def = arch_spec backend_ag32Theory.compile_cake_explore_ag32_def
     , cv_export_def            = backend_ag32_cvTheory.cv_ag32_export_def } : arch_thms;
 
 in

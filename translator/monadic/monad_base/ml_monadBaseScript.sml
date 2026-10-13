@@ -27,7 +27,6 @@ Definition liftM_def:
 End
 
 (* Definitions using monadic syntax *)
-val _ = ParseExtras.temp_loose_equality ();
 val _ = patternMatchesSyntax.temp_enable_pmatch();
 val _ = monadsyntax.temp_add_monadsyntax ();
 
@@ -91,7 +90,7 @@ End
 val _ = add_infix ("otherwise", 400, HOLgrammars.RIGHT);
 
 Definition otherwise_def:
-  x otherwise y =
+  (x otherwise y) =
     λs. case ((x : ('a, 'b, 'c) M) s) of
           (M_success y, s) => (M_success y, s)
         | (M_failure e, s) => (y : ('a, 'b, 'c) M) s
@@ -362,8 +361,6 @@ End
 Definition Mset_ref_def:
   Mset_ref set_var x = \s. (M_success (), set_var x s)
 End
-
-val _ = ParseExtras.temp_tight_equality ();
 
 (* Rules to deal with the monads *)
 Theorem st_ex_return_success[local]:

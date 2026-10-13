@@ -201,11 +201,13 @@ unique global identifier. It removes andalso and orelse and
 replaces them with if, and removes the AallocEmpty primitive op and
 replaces it with an alloc call with 0.
 
-[flat_elimScript.sml](flat_elimScript.sml):
-Implementation for flatLang dead-code elimination.
-
 [flat_patternScript.sml](flat_patternScript.sml):
 Interface between flatLang and pattern compiler.
+
+[flat_ticksScript.sml](flat_ticksScript.sml):
+This compiler phase removes all Tick expressions from flatLang
+programs. Ticks are introduced by source_to_flat when it inlines
+calls to primitive wrappers. They have no observable behaviour.
 
 [flat_to_closScript.sml](flat_to_closScript.sml):
 Compilation from flatLang to closLang. This compiler phase converts
@@ -274,6 +276,11 @@ intermediate language.
 
 [serialiser](serialiser):
 Proofs and automation for serialising HOL values.
+
+[source_dceScript.sml](source_dceScript.sml):
+This is a source-to-source transformation that removes declarations
+that bind values that are never used and whose evaluation cannot have
+any externally observable effect on the state.
 
 [source_letScript.sml](source_letScript.sml):
 This is a source-to-source transformation that lifts Let/Letrec expressions

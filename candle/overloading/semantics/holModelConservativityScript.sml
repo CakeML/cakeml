@@ -16,9 +16,9 @@ Libs
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+val _ = temp_delsimps ["mapPartial_EQ_NIL"]
 
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = Parse.hide "mem";
 
@@ -2747,7 +2747,7 @@ Proof
          fs[is_frag_interpretation_def,total_fragment_def,is_type_frag_interpretation_def]) >>
       TOP_CASE_TAC >- metis_tac[mem_one] >>
       reverse TOP_CASE_TAC >- rw[mem_one] >>
-      qpat_assum ‘~(_ ∧ (∀tm. upd ≠ NewAxiom tm))’ (fn thm => ABBREV_TAC “a1 = ^(concl thm)”) >>
+      qpat_x_assum ‘~(_ ∧ (∀tm. upd ≠ NewAxiom tm))’ (ASSUME_NAMED_TAC "nonaxiom") >>
       PairCases_on `h` >> rename1 `pred,ty',tvs` >>
       simp[] >>
       drule type_matches_is_instance' >>
@@ -2767,7 +2767,7 @@ Proof
       conj_tac >- (rw[SUBSET_DEF] >> imp_res_tac allTypes'_nonbuiltin) >>
       rw[] >>
       first_x_assum(match_mp_tac o MP_CANON) >>
-      simp[] >>
+      LABEL_ASSUM "nonaxiom" (fn th => simp[th]) >>
       reverse(rpt conj_tac) >- (imp_res_tac allTypes'_nonbuiltin) >- metis_tac[] >>
       match_mp_tac(TYPE_SUBST_allTypes'_ground_types' |> REWRITE_RULE[SUBSET_DEF] |> MP_CANON) >>
       HINT_EXISTS_TAC >> rw[] >>
@@ -2880,7 +2880,7 @@ Proof
                  suffices_by metis_tac[] >>
                drule_then match_mp_tac (MP_CANON ext_inhabited_frag_inhabited') >>
                metis_tac[]) >>
-            qpat_assum ‘~(_ ∧ (∀tm. upd ≠ NewAxiom tm))’ (fn thm => ABBREV_TAC “aaa = ^(concl thm)”) >>
+            qpat_x_assum ‘~(_ ∧ (∀tm. upd ≠ NewAxiom tm))’ (ASSUME_NAMED_TAC "nonaxiom") >>
             (* Hilbert choice *)
             fs[] >>
             fs[term_ok_def] >>
@@ -2911,6 +2911,7 @@ Proof
                fs[type_ok_def]) >>
             rw[mem_one,allTypes'_defn] >>
             first_x_assum(match_mp_tac o MP_CANON) >>
+            LABEL_X_ASSUM "nonaxiom" assume_tac >>
             simp[allTypes'_defn] >>
             metis_tac[]) >>
          reverse TOP_CASE_TAC >-
@@ -2928,7 +2929,7 @@ Proof
                drule_then match_mp_tac (MP_CANON ext_inhabited_frag_inhabited') >>
                metis_tac[]) >>
             (* Hilbert choice *)
-            qpat_assum ‘~(_ ∧ (∀tm. upd ≠ NewAxiom tm))’ (fn thm => ABBREV_TAC “aaa = ^(concl thm)”) >>
+            qpat_x_assum ‘~(_ ∧ (∀tm. upd ≠ NewAxiom tm))’ (ASSUME_NAMED_TAC "nonaxiom") >>
             fs[] >>
             fs[term_ok_def] >>
             simp[ext_type_frag_builtins_Fun] >>
@@ -2958,6 +2959,7 @@ Proof
                fs[type_ok_def]) >>
             rw[mem_one,allTypes'_defn] >>
             first_x_assum(match_mp_tac o MP_CANON) >>
+            LABEL_X_ASSUM "nonaxiom" assume_tac >>
             simp[allTypes'_defn] >>
             metis_tac[]) >>
          (* abs and rep *)
@@ -2966,7 +2968,7 @@ Proof
          rw[] >>
          MAP_FIRST drule [rep_matches_is_instance,abs_matches_is_instance] >>
          disch_then(MAP_EVERY assume_tac o CONJUNCTS) >>
-         qpat_assum ‘~(_ ∧ (∀tm. upd ≠ NewAxiom tm))’ (fn thm => ABBREV_TAC “aaa = ^(concl thm)”) >>
+         qpat_x_assum ‘~(_ ∧ (∀tm. upd ≠ NewAxiom tm))’ (ASSUME_NAMED_TAC "nonaxiom") >>
          FULL_SIMP_TAC bool_ss [instance_subst_completeness] >>
          rveq >>
          fs[IS_SOME_EXISTS] >>
@@ -2996,7 +2998,7 @@ Proof
              conj_tac >- (rw[SUBSET_DEF] >> imp_res_tac allTypes'_nonbuiltin) >>
              rpt strip_tac >>
              first_x_assum(match_mp_tac o MP_CANON) >>
-             simp[allTypes'_defn] >>
+             LABEL_ASSUM "nonaxiom" (fn th => simp[allTypes'_defn,th]) >>
              reverse(rpt conj_tac) >- imp_res_tac allTypes'_nonbuiltin >- metis_tac[] >>
              fs[ground_consts_def] >>
              fs[ground_types_def,tyvars_def,LIST_UNION_EQ_NIL,type_ok_def] >>
@@ -3014,8 +3016,7 @@ Proof
                   ` >-
            (
             CCONTR_TAC >>
-            (* What wrecked the abbreviation? *)
-            reverse(qpat_x_assum ‘Abbrev (_ ∨ _)’ (strip_assume_tac o REWRITE_RULE[markerTheory.Abbrev_def])) >-
+            reverse(LABEL_X_ASSUM "nonaxiom" (strip_assume_tac o SIMP_RULE bool_ss [DE_MORGAN_THM,NOT_FORALL_THM])) >-
               (rveq >> fs[]) >>
             qpat_x_assum ‘_ ∧ _’ strip_assume_tac >>
             qpat_x_assum `_ ∈ FST _` mp_tac >>
@@ -3055,18 +3056,14 @@ Proof
             rfs[] >>
             goal_assum drule
            ) >>
-         qpat_assum ‘~(_ ∧ (∀tm. upd ≠ NewAxiom tm))’ (fn thm => ABBREV_TAC “aaa = ^(concl thm)”) >>
          qpat_x_assum `_ ⋲ _` (assume_tac o REWRITE_RULE[Once type_interpretation_ext_of_def]) >>
          Q.SUBGOAL_THEN `upd::ctxt = actxt` SUBST_ALL_TAC >- rw[Abbr`actxt`] >>
          rfs[] >>
          fs[] >> rfs[] >>
          drule_then (drule_then strip_assume_tac) abs_or_rep_matches_type_matches >>
          rveq >>
-         qmatch_asmsub_abbrev_tac ‘if aaa then _ else _’ >>
-         ‘~aaa’ by(fs[markerTheory.Abbrev_def]) >>
-         qunabbrev_tac ‘aaa’ >>
          fs[IS_SOME_EXISTS] >>
-         fs[mapPartial_APPEND,mllistTheory.mapPartial_def] >>
+         fs[mapPartial_APPEND,listTheory.mapPartial_def] >>
          rename1 `type_matches _ _ = SOME tymtch` >>
          PairCases_on `tymtch` >>
          fs[] >>
@@ -3119,7 +3116,7 @@ Proof
          unabbrev_all_tac >>
          match_mp_tac ext_type_frag_mono_eq >>
          rw[MEM_MAP,MEM_FLAT,PULL_EXISTS]) >>
-      qpat_assum ‘~(_ ∧ (∀tm. upd ≠ NewAxiom tm))’ (fn thm => ABBREV_TAC “aaa = ^(concl thm)”) >>
+      qpat_x_assum ‘~(_ ∧ (∀tm. upd ≠ NewAxiom tm))’ (ASSUME_NAMED_TAC "nonaxiom") >>
       fs[FILTER_EQ_CONS] >>
       rpt(pairarg_tac >> fs[] >> rveq) >>
       rename1 `HD ll` >> Cases_on `ll` >> fs[] >> rveq >>
@@ -3151,6 +3148,7 @@ Proof
                               ty'' ∧ (c',ty'') ∈ consts_of_term trm0 ∧
                               (c',ty') ∈ nonbuiltin_constinsts}` >>
       qmatch_asmsub_abbrev_tac `orth_ctxt actxt` >>
+      qpat_x_assum `upd::ctxt = actxt` kall_tac >>
       `is_sig_fragment (sigof actxt) (tyfrag,tmfrag)`
         by(MAP_EVERY qunabbrev_tac [`tyfrag`,`tmfrag`] >>
            rw[is_sig_fragment_def]
@@ -3200,7 +3198,7 @@ Proof
            >- (rw[is_type_frag_interpretation_def,Abbr `σ`,Abbr `σ'`,Abbr `actxt`] >>
                rfs[] >>
                first_x_assum(match_mp_tac o MP_CANON) >>
-               simp[] >>
+               LABEL_ASSUM "nonaxiom" (fn th => simp[SIMP_RULE (srw_ss()) [] th]) >>
                reverse(rpt conj_tac) >-
                  (fs[MEM_FLAT,MEM_MAP] >> rveq >> imp_res_tac allTypes'_nonbuiltin) >-
                  (metis_tac[]) >>
@@ -3244,13 +3242,13 @@ Proof
                  first_assum drule >> rw[]) >>
            pop_assum SUBST_ALL_TAC >> pop_assum kall_tac >>
            first_x_assum(match_mp_tac o MP_CANON) >>
-           simp[] >>
+           LABEL_ASSUM "nonaxiom" (fn th => simp[Abbr `actxt`,SIMP_RULE (srw_ss()) [] th]) >>
            conj_tac >- metis_tac[nonbuiltin_constinsts_TYPE_SUBSTf,TYPE_SUBST_eq_TYPE_SUBSTf] >>
            simp[GSYM TYPE_SUBST_eq_TYPE_SUBSTf] >>
            reverse conj_tac >- metis_tac[] >>
            match_mp_tac(ground_consts_TYPE_SUBST_lemma) >>
            rw[] >>
-           fs[Abbr `actxt`]
+           fs[]
            ) >>
       `is_frag_interpretation (tyfrag,tmfrag) σ' γ`
         by(fs[Abbr `σ`] >> metis_tac[is_frag_intepretation_ifE]) >>
@@ -3433,7 +3431,7 @@ Proof
   (IF_CASES_TAC >- rw[]) >>
   (IF_CASES_TAC >- (fs[extends_init_def,ground_consts_def] >> fs[])) >>
   (IF_CASES_TAC >- rw[]) >>
-  qpat_assum ‘~(_ ∧ (∀tm. upd ≠ NewAxiom tm))’ (fn thm => ABBREV_TAC “aaa = ^(concl thm)”)
+  qpat_x_assum ‘~(_ ∧ (∀tm. upd ≠ NewAxiom tm))’ kall_tac
   >-
     ((* type interpretation *)
      qpat_abbrev_tac ‘a1 = upd::ctxt’ >>
@@ -3838,6 +3836,7 @@ Proof
      pop_assum kall_tac >>
      match_mp_tac(GEN_ALL is_frag_intepretation_ifI) >>
      HINT_EXISTS_TAC >> simp[] >>
+     qpat_x_assum `upd'::ctxt' = _` (assume_tac o GSYM) >>
      fs[markerTheory.Abbrev_def] >>
      rveq >>
      drule_then match_mp_tac is_frag_interpretation_mono >>
@@ -4108,7 +4107,6 @@ Proof
      >> fs[] >> imp_res_tac term_ok_welltyped
      >> fs[welltyped_equation,EQUATION_HAS_TYPE_BOOL]) >>
   rw[] >>
-  qpat_x_assum ‘Abbrev (TYPE_SUBST _ _ = TYPE_SUBST _ _)’ (assume_tac o REWRITE_RULE[markerTheory.Abbrev_def]) >>
   fs[TYPE_SUBST_tyvars] >>
   ‘ctxt_ext extends []’ by (drule_then (ACCEPT_TAC o C MATCH_MP init_ctxt_extends) extends_trans) >>
   drule_all extends_update_ok_ConstSpec' >>
@@ -5489,28 +5487,30 @@ Theorem const_list_mk_infinity_ctxt_NOT_upd_introduces:
 Proof
   Cases >> fs[GSYM AND_IMP_INTRO]
   >> rpt gen_tac >> rpt (disch_then assume_tac)
-  >> qpat_x_assum `_ ∨ _` (assume_tac o ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def])
-  >> drule_then (assume_tac o CONJUNCT1) extends_init_NIL_orth_ctxt
-  >> dxrule_then assume_tac extends_NIL_CONS_updates
-  >> fs[updates_cases] >> rveq >> fs[upd_introduces_def] >> rveq
-  >> fs[INST_def,INST_CORE_def,LR_TYPE_SUBST_def] >> rveq
-  >- (
-    qpat_x_assum `~MEM _ (MAP FST (const_list (mk_infinity_ctxt _)))` (assume_tac o REWRITE_RULE[mk_infinity_ctxt_def,consts_of_upd_def])
-    >> fs[markerTheory.Abbrev_def]
+  >> qpat_x_assum `_ ∨ _` (DISJ_CASES_THEN SUBST_ALL_TAC)
+  >> (
+    drule_then (assume_tac o CONJUNCT1) extends_init_NIL_orth_ctxt
+    >> dxrule_then assume_tac extends_NIL_CONS_updates
+    >> fs[updates_cases] >> rveq >> fs[upd_introduces_def] >> rveq
+    >> fs[INST_def,INST_CORE_def,LR_TYPE_SUBST_def] >> rveq
+    >- (
+      qpat_x_assum `~MEM _ (MAP FST (const_list (mk_infinity_ctxt _)))` (assume_tac o REWRITE_RULE[mk_infinity_ctxt_def,consts_of_upd_def])
+      >> fs[]
+    )
+    >> drule_then (mp_tac o CONJUNCT1) extends_init_NIL_orth_ctxt
+    >> PURE_ONCE_REWRITE_TAC[CONS_APPEND] >> PURE_REWRITE_TAC[APPEND_ASSOC]
+    >> qmatch_goalsub_abbrev_tac `ctxt1 ++ mk_infinity_ctxt _`
+    >> strip_tac
+    >> drule_then assume_tac ConstDef_extends_not_overloadable''
+    >> qunabbrev_tac `ctxt1`
+    >> fs[LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,DISJ_IMP_THM,FORALL_AND_THM,consts_of_upd_def,Once mk_infinity_ctxt_nil_eq]
+    >> qpat_x_assum `!name defn. MEM _ (mk_infinity_ctxt []) ⇒  ~MEM _ (MAP FST eqs)` (assume_tac o REWRITE_RULE[Q.SPEC `[]` mk_infinity_ctxt_def])
+    >> qpat_x_assum `MEM _ (MAP _ _)` (strip_assume_tac o REWRITE_RULE[MEM_MAP,PULL_EXISTS,ELIM_UNCURRY,Once (GSYM PAIR)])
+    >> imp_res_tac (Q.ISPEC `FST:mlstring # term -> mlstring` MEM_MAP_f)
+    >> rveq
+    >> fs[DISJ_IMP_THM,FORALL_AND_THM,INST_def,INST_CORE_def]
+    >> rfs[]
   )
-  >> drule_then (mp_tac o CONJUNCT1) extends_init_NIL_orth_ctxt
-  >> PURE_REWRITE_TAC[Once CONS_APPEND,APPEND_ASSOC]
-  >> qmatch_goalsub_abbrev_tac `ctxt1 ++ mk_infinity_ctxt _`
-  >> strip_tac
-  >> drule_then assume_tac ConstDef_extends_not_overloadable''
-  >> qunabbrev_tac `ctxt1`
-  >> fs[LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,DISJ_IMP_THM,FORALL_AND_THM,consts_of_upd_def,Once mk_infinity_ctxt_nil_eq]
-  >> qpat_x_assum `!name defn. MEM _ (mk_infinity_ctxt []) ⇒  ~MEM _ (MAP FST eqs)` (assume_tac o REWRITE_RULE[Q.SPEC `[]` mk_infinity_ctxt_def])
-  >> qpat_x_assum `MEM _ (MAP _ _)` (strip_assume_tac o REWRITE_RULE[MEM_MAP,PULL_EXISTS,ELIM_UNCURRY,Once (GSYM PAIR)])
-  >> imp_res_tac (Q.ISPEC `FST:mlstring # term -> mlstring` MEM_MAP_f)
-  >> rveq
-  >> fs[markerTheory.Abbrev_def,DISJ_IMP_THM,FORALL_AND_THM,INST_def,INST_CORE_def]
-  >> rfs[]
 QED
 
 Theorem MEM_Bool_indep_frag:
@@ -6071,7 +6071,7 @@ Proof
                ∧ ∀tm. HD ctxt ≠ NewAxiom tm’
       >- suspend "new_axiom_fst" >>
       qunabbrev_tac ‘ctxt’ >>
-      first_assum (fn thm => qabbrev_tac ‘aaa = ^(concl thm)’) >>
+      qpat_x_assum ‘~(_ ∧ _ ∧ ∀tm. _)’ (ASSUME_NAMED_TAC "nonaxiom") >>
       fs[admissible_axiom_def]
       >- suspend "eta_axiom"
       >- suspend "axiom_of_choice"
@@ -6435,10 +6435,9 @@ Resume interpretation_models_axioms_lemma[axiom_of_choice]:
        IF_CASES_TAC >-
          ((* it should be possible to prove a contradiction here *)
           spose_not_then kall_tac >>
-          qpat_x_assum ‘Abbrev(_ ∨ _)’ (mp_tac o REWRITE_RULE[markerTheory.Abbrev_def]) >>
+          LABEL_X_ASSUM "nonaxiom" mp_tac >>
           fs[] >>
           simp[allCInsts_def,allTypes_def,allTypes'_defn,builtin_const_def,init_ctxt_def] >>
-          simp[Once DISJ_EQ_IMP] >>
           simp[DISJ_IMP_THM,FORALL_AND_THM] >>
           drule(indep_frag_upd_is_frag |> REWRITE_RULE[extends_init_def]) >>
           disch_then(qspec_then ‘HD ctxt’ strip_assume_tac) >>
@@ -6447,27 +6446,6 @@ Resume interpretation_models_axioms_lemma[axiom_of_choice]:
           simp[allTypes'_defn] >>
           simp[GSYM IMP_DISJ_THM] >>
           strip_tac >>
-          reverse conj_tac >-
-            (rw[] >> first_x_assum drule >>
-             simp[Abbr‘ctxt’] >>
-             simp[GSYM FUNION_ASSOC,FUNION_FUPDATE_1]) >>
-          qmatch_asmsub_abbrev_tac `indep_frag_upd _ _ tf1` >>
-          qmatch_goalsub_abbrev_tac `indep_frag_upd _ _ tf2` >>
-          `tf1 = tf2` by (
-            unabbrev_all_tac >>
-            rpt (dxrule_then (assume_tac o CONJUNCT1) (REWRITE_RULE[extends_init_def] extends_init_NIL_orth_ctxt)) >>
-            imp_res_tac extends_APPEND_NIL >>
-            imp_res_tac extends_NIL_CONS_updates >>
-            imp_res_tac extends_NIL_DISJOINT >>
-            imp_res_tac updates_DISJOINT >>
-            imp_res_tac FUNION_COMM >>
-            fs[] >>
-            fs[FUNION_ASSOC] >>
-            ONCE_REWRITE_TAC[FUPDATE_EQ_FUNION] >>
-            fs[FUNION_ASSOC,FUNION_FUPDATE_1,FUNION_FEMPTY_1,FUNION_FEMPTY_2]
-          ) >>
-          reverse conj_tac
-          >- (rveq >> asm_rewrite_tac[]) >>
           qunabbrev_tac `ctxt` >>
           drule (REWRITE_RULE[extends_init_def] MEM_Implies_indep_frag) >>
           qmatch_asmsub_abbrev_tac`ctxt1 ++ ctxt2 ++ mk_bool_ctxt ctxt3` >>
@@ -6662,10 +6640,9 @@ Resume interpretation_models_axioms_lemma[axiom_of_infinity]:
           fs[Abbr `ctxt`,mk_infinity_ctxt_def]) >>
        IF_CASES_TAC >-
          (spose_not_then kall_tac >>
-          qpat_x_assum ‘Abbrev(_ ∨ _)’ (mp_tac o REWRITE_RULE[markerTheory.Abbrev_def]) >>
+          LABEL_X_ASSUM "nonaxiom" mp_tac >>
           fs[] >>
           simp[allCInsts_def,allTypes_def,allTypes'_defn,builtin_const_def,init_ctxt_def] >>
-          simp[Once DISJ_EQ_IMP] >>
           simp[DISJ_IMP_THM,FORALL_AND_THM] >>
           reverse conj_tac >-
             (rw[] >> qpat_x_assum ‘Ind ∈ FST _’ mp_tac >>
@@ -7122,8 +7099,8 @@ Resume interpretation_models_axioms_lemma[const_spec]:
            rename1 `MEM (name,typ) eqs` >>
            res_tac >>
            qpat_x_assum `MEM (NewConst _ _) _` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >>
-           rw[IMP_CONJ_THM,FORALL_AND_THM]) >>
-      TRY(rename1 `ConstSpec T` >> (* overloads case *)
+           rw[IMP_CONJ_THM,FORALL_AND_THM])
+      >~ [`ConstSpec T`] >- ((* overloads case *)
           drule proves_theory_mono >>
           qmatch_asmsub_abbrev_tac `total_fragment (tyenv,tmenv)` >>
           disch_then(qspecl_then [`tysof ctxt2`,`tmsof ctxt2`,`axsof ctxt2`,
@@ -7185,8 +7162,7 @@ Resume interpretation_models_axioms_lemma[const_spec]:
                 fs[ALOOKUP_SOME_EQ] >>
                 fs[MAP_EQ_APPEND] >> rveq >>
                 pairarg_tac >> fs[] >> rveq >>
-                qpat_x_assum `Abbrev (_ ++ _ ++ _ = _)` (assume_tac o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-                fs[MAP_EQ_APPEND |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[] >>
+                fs[MAP_EQ_APPEND] >> rveq >> fs[] >>
                 pairarg_tac >> fs[] >> rveq >>
                 fs[] >>
                 SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND] >>
@@ -7353,8 +7329,8 @@ Resume interpretation_models_axioms_lemma[const_spec]:
              MAP_EVERY qunabbrev_tac [`a1`,`a2`,`a3`,`a4`,`a5`] >>
              fs[TYPE_SUBST_eq_TYPE_SUBSTf,TYPE_SUBSTf_eq_TYPE_SUBSTf] >>
              metis_tac[SND]) >>
-          simp[]) >>
-      TRY(rename1 `ConstSpec F` >> (* fresh constants case *)
+          simp[])
+      >~ [`ConstSpec F`] >- ((* fresh constants case *)
           drule proves_theory_mono >>
           qmatch_asmsub_abbrev_tac `total_fragment (tyenv,tmenv)` >>
           disch_then(qspecl_then [`tysof ctxt2`,`tmsof ctxt2`,`axsof ctxt2`,
@@ -7419,8 +7395,7 @@ Resume interpretation_models_axioms_lemma[const_spec]:
                 fs[ALOOKUP_SOME_EQ] >>
                 fs[MAP_EQ_APPEND] >> rveq >>
                 pairarg_tac >> fs[] >> rveq >>
-                qpat_x_assum `Abbrev (_ ++ _ ++ _ = _)` (assume_tac o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-                fs[MAP_EQ_APPEND |> CONV_RULE(LHS_CONV SYM_CONV)] >> rveq >> fs[] >>
+                fs[MAP_EQ_APPEND] >> rveq >> fs[] >>
                 pairarg_tac >> fs[] >> rveq >>
                 fs[] >>
                 SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND] >>
@@ -8183,7 +8158,8 @@ Resume interpretation_models_axioms_lemma[type_defn]:
      rw[RIGHT_AND_OVER_OR,EXISTS_OR_THM]) >>
   simp[] >>
   MAP_EVERY qunabbrev_tac [‘a1’,‘a2’,‘a3’] >>
-  ntac 2 (qpat_x_assum ‘~_’ (assume_tac o PURE_ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def])) >>
+  qpat_x_assum ‘~((rep,_) ∈ _ ∧ _)’ kall_tac >>
+  qpat_x_assum ‘~((abs,_) ∈ _ ∧ _)’ (ASSUME_NAMED_TAC "abs_discarded") >>
   qpat_x_assum `inhabited ind` kall_tac >>
   simp[FILTER_APPEND] >>
   IF_CASES_TAC >- fs[defn_matches_def] >>
@@ -8253,7 +8229,7 @@ Resume interpretation_models_axioms_lemma[type_defn]:
     pop_assum SUBST_ALL_TAC >>
     MAP_EVERY qunabbrev_tac [`ff`,`ll`]) >>
   simp[] >>
-  simp[mllistTheory.mapPartial_def,mapPartial_APPEND] >>
+  simp[listTheory.mapPartial_def,mapPartial_APPEND] >>
   rpt
     (qmatch_goalsub_abbrev_tac `mapPartial a1 a2` >>
     `mapPartial a1 a2 = []`
@@ -8388,8 +8364,8 @@ Resume interpretation_models_axioms_lemma[type_defn]:
        IF_CASES_TAC >-
          ((* we know the old model was discarded for abs and rep, so it must be for the type too *)
           spose_not_then kall_tac >>
-          qpat_x_assum ‘Abbrev(_ ∨ _)’ mp_tac >>
-          fs[markerTheory.Abbrev_def] >>
+          LABEL_X_ASSUM "abs_discarded" mp_tac >>
+          fs[] >>
           qspecl_then [‘ctxt1 ++ TypeDefn name pred abs rep::ctxt2’,‘HD(ctxt1 ++ TypeDefn name pred abs rep::ctxt2)’,‘sigma’]
             (MAP_FIRST match_mp_tac o CONJUNCTS o SIMP_RULE (srw_ss()) [FORALL_AND_THM,IMP_CONJ_THM,LET_THM,mlstring_sort_def]) rep_abs_indep_frag_upd'_TYPE_SUBSTf >>
           qexists_tac ‘rep’ >>
@@ -9221,7 +9197,7 @@ Resume interpretation_models_axioms_lemma[type_defn]:
      drule_then match_mp_tac (extends_init_TypeDefn_nonbuiltin_types |> REWRITE_RULE[extends_init_def]) >>
      rw[RIGHT_AND_OVER_OR,EXISTS_OR_THM]
     ) >>
-  qpat_x_assum ‘~_’ (assume_tac o PURE_ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def]) >>
+  qpat_x_assum ‘~((rep,_) ∈ _ ∧ _)’ (ASSUME_NAMED_TAC "rep_discarded") >>
   simp[FILTER_APPEND] >>
   IF_CASES_TAC >- fs[defn_matches_def] >>
   Cases_on `[] ≠
@@ -9289,7 +9265,7 @@ Resume interpretation_models_axioms_lemma[type_defn]:
     pop_assum SUBST_ALL_TAC >>
     MAP_EVERY qunabbrev_tac [`ff`,`ll`]) >>
   simp[] >>
-  simp[mllistTheory.mapPartial_def,mapPartial_APPEND] >>
+  simp[listTheory.mapPartial_def,mapPartial_APPEND] >>
   rpt
     (qmatch_goalsub_abbrev_tac `mapPartial a1 a2` >>
     `mapPartial a1 a2 = []`
@@ -9360,8 +9336,7 @@ Resume interpretation_models_axioms_lemma[type_defn]:
   rpt(qpat_x_assum `Fun _ _ = TYPE_SUBST _ _` (mp_tac o GSYM)) >>
   IF_CASES_TAC >-
    (spose_not_then kall_tac >>
-    fs[markerTheory.Abbrev_def] >>
-    qpat_x_assum ‘_ ∉ _’ mp_tac >> simp[] >>
+    LABEL_X_ASSUM "rep_discarded" mp_tac >> simp[] >>
     qspecl_then [‘sigma’,
                  ‘ctxt1 ++ TypeDefn name pred abs rep::ctxt2’,
                  ‘HD(ctxt1 ++ TypeDefn name pred abs rep::ctxt2)’]
@@ -9373,7 +9348,7 @@ Resume interpretation_models_axioms_lemma[type_defn]:
     match_mp_tac extends_init_TypeDefn_nonbuiltin_types >>
     simp[extends_init_def] >> goal_assum drule >>
     rw[RIGHT_AND_OVER_OR,EXISTS_OR_THM]) >>
-  qpat_x_assum ‘~_’ (assume_tac o PURE_ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def]) >>
+  qpat_x_assum ‘~((abs,_) ∈ _ ∧ _)’ (ASSUME_NAMED_TAC "abs_discarded") >>
   rw[] >> fs[MAP_EQ_f,MEM_MAP,PULL_EXISTS] >>
   qmatch_goalsub_abbrev_tac `ext_type_frag_builtins _ (Tyapp name ntys)` >>
   `Tyapp name ntys ∈ nonbuiltin_types`
@@ -9438,8 +9413,8 @@ Resume interpretation_models_axioms_lemma[type_defn]:
        IF_CASES_TAC >-
          ((* we know the old model was discarded for abs and rep, so it must be for the type too *)
           spose_not_then kall_tac >>
-          qpat_x_assum ‘Abbrev(_ ∨ _)’ mp_tac >>
-          fs[markerTheory.Abbrev_def] >>
+          LABEL_X_ASSUM "abs_discarded" mp_tac >>
+          unabbrev_all_tac >> fs[] >>
           FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND] >>
           qspecl_then [‘ctxt1 ++ TypeDefn name pred abs rep::ctxt2’,‘HD(ctxt1 ++ TypeDefn name pred abs rep::ctxt2)’,‘sigma’]
             (MAP_FIRST match_mp_tac o CONJUNCTS o SIMP_RULE (srw_ss()) [FORALL_AND_THM,IMP_CONJ_THM,LET_THM,mlstring_sort_def]) rep_abs_indep_frag_upd'_TYPE_SUBSTf >>

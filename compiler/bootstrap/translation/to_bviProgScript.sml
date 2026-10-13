@@ -7,8 +7,6 @@ Ancestors
 Libs
   preamble ml_translatorLib
 
-open preamble ml_translatorLib ml_translatorTheory to_bvlProgTheory
-
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "to_bvlProg";
@@ -146,6 +144,31 @@ val r = translate bvi_tmcTheory.pure_exp_eq;
 
 val r = translate bvi_tmcTheory.bvi_to_cb_aux_def;
 
+(* subst/substs recurse over expressions and expression lists, skipping the
+   optional-expression predicate in the datatype induction theorem. *)
+Theorem subst_trans_ind =
+  bviTheory.exp_induction
+  |> Q.SPECL [`\e. !xs:bvi$exp list. P xs e`, `\h. T`,
+              `\es. !xs:bvi$exp list. Q xs es`]
+  |> SIMP_RULE std_ss []
+  |> Q.GENL [`P`, `Q`]
+  |> CONV_RULE (BINDER_CONV (BINDER_CONV
+       (RAND_CONV (BINOP_CONV SWAP_FORALL_CONV))));
+
+val r = translate bvi_tmcTheory.subst_def;
+
+Theorem bvi_tmc_subst_side[local]:
+  (∀xs e. bvi_tmc_subst_side xs e) ∧
+  (∀xs es. bvi_tmc_substs_side xs es)
+Proof
+  ho_match_mp_tac subst_trans_ind>>
+  rw[]>>
+  simp[Once (fetch "-" "bvi_tmc_subst_side_def")]>>
+  rw[LLOOKUP_THM]
+QED
+
+val _ = bvi_tmc_subst_side |> update_precondition;
+
 (* ------------------------------------------------------------------------- *)
 (* bvl_to_bvi                                                                *)
 (* ------------------------------------------------------------------------- *)
@@ -172,12 +195,6 @@ val bvl_to_bvi_compile_single_side = Q.prove(`
   EVAL_TAC \\ rw[]
   \\ imp_res_tac bvl_to_bviTheory.compile_exps_LENGTH
   \\ CCONTR_TAC \\ fs[]) |> update_precondition;
-
-val r = translate bvl_to_bviTheory.get_names_def;
-
-val bvl_to_bvi_get_names_side = Q.prove(`
-  ∀x y. bvl_to_bvi_get_names_side x y ⇔ T`,
-  EVAL_TAC \\ fs []) |> update_precondition;
 
 val r = translate bvl_to_bviTheory.compile_list_def;
 val r = translate bvl_to_bviTheory.compile_prog_def;

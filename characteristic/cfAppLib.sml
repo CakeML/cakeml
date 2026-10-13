@@ -118,12 +118,12 @@ fun mk_Arrow_of_app_goal t = let
         list_mk_comb (arrows, [f, fv])))
 in mk_imp (t, arrows_full_tm) end
 
-fun auto_prove proof_name (goal,tac) = let
-  val (rest,validation) = tac ([],goal) handle Empty => fail()
+fun auto_prove ctxt proof_name (goal,tac) = let
+  val (rest,validation) = tac ([],goal) ctxt handle Empty => fail()
   in if length rest = 0 then validation [] else let
   in failwith("auto_prove failed for " ^ proof_name) end end
 
-fun app_of_Arrow_rule ffi_ty thm = let
+fun app_of_Arrow_rule ctxt ffi_ty thm = let
   val thm' = DISCH_ALL thm
   val proof_tac =
     rpt strip_tac \\
@@ -134,17 +134,15 @@ fun app_of_Arrow_rule ffi_ty thm = let
       (assume_tac asm)) \\
     ASSUM_LIST (fn assums =>
       foldr (fn (asm, tac_acc) =>
-        (* use old_drule and hope that p in theorem will be the same as p
-           in the goal *)
-        old_drule (INST_TYPE [ffi_varty |-> ffi_ty] Arrow_IMP_app_basic) \\
-        disch_then (fn th => mp_tac (MATCH_MP th asm)) \\
-        match_mp_tac app_basic_weaken \\
+        drule_then (fn th =>
+            irule app_basic_weaken \\ irule_at Any (MATCH_MP th asm))
+          (INST_TYPE [ffi_varty |-> ffi_ty] Arrow_IMP_app_basic) \\
         Cases THEN_LT REVERSE_LT THEN1 (simp [cfHeapsBaseTheory.POSTv_def]) \\
         fs [cond_def, SEP_EXISTS_THM] \\ rpt strip_tac \\
         qexists_tac `emp` \\ fs [SEP_CLAUSES] \\ tac_acc
       ) all_tac (rev assums)
     )
-  val rule_thm = auto_prove "app_of_Arrow_rule"
+  val rule_thm = auto_prove ctxt "app_of_Arrow_rule"
     (mk_app_of_Arrow_goal ffi_ty (concl thm'), proof_tac)
 in MATCH_MP rule_thm thm' |> SIMP_RULE std_ss [PRECONDITION_def, Eq_def] end
 

@@ -7,8 +7,6 @@ Ancestors
 Libs
   preamble ml_translatorLib
 
-open preamble ml_translatorLib ml_translatorTheory to_bviProgTheory;
-
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "to_bviProg";

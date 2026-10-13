@@ -33,7 +33,7 @@ Definition code_rel_def:
   code_rel s_code t_code =
     ∀name params body.
       lookup name s_code = SOME (params,body) ⇒
-      lookup name t_code = SOME (LENGTH params+1, comp_func name params body) ∧
+      lookup name t_code = SOME (LENGTH params+1, comp_func name params body, empty_metadata) ∧
       ALL_DISTINCT params
 End
 
@@ -146,7 +146,7 @@ Theorem code_rel_intro:
   code_rel s_code t_code ==>
     ∀name params body.
       lookup name s_code = SOME (params,body) ⇒
-      lookup name t_code = SOME (LENGTH params+1, comp_func name params body) ∧
+      lookup name t_code = SOME (LENGTH params+1, comp_func name params body, empty_metadata) ∧
       ALL_DISTINCT params
 Proof
   rw [code_rel_def] >> metis_tac []
@@ -891,7 +891,7 @@ Resume compile_correct[Store32]:
   fs [loopSemTheory.evaluate_def,
       comp_def, evaluate_def] >>
   fs [CaseEq "option", CaseEq "word_loc"] >> rveq >>
-  fs [inst_def, word_exp_def] >>
+  fs [inst_def, word_exp_def, integer_wordTheory.i2w_0] >>
   drule locals_rel_intro >>
   strip_tac >>
   res_tac >> fs [] >>
@@ -905,7 +905,7 @@ Resume compile_correct[StoreByte]:
   fs [loopSemTheory.evaluate_def,
       comp_def, evaluate_def] >>
   fs [CaseEq "option", CaseEq "word_loc"] >> rveq >>
-  fs [inst_def, word_exp_def] >>
+  fs [inst_def, word_exp_def, integer_wordTheory.i2w_0] >>
   drule locals_rel_intro >>
   strip_tac >>
   res_tac >> fs [] >>
@@ -919,7 +919,7 @@ Resume compile_correct[Load32]:
   fs [loopSemTheory.evaluate_def,
       comp_def, evaluate_def] >>
   fs [CaseEq "option", CaseEq "word_loc"] >> rveq >>
-  fs [inst_def, word_exp_def] >>
+  fs [inst_def, word_exp_def, integer_wordTheory.i2w_0] >>
   drule locals_rel_intro >>
   strip_tac >>
   res_tac >> fs [] >>
@@ -943,7 +943,7 @@ Resume compile_correct[LoadByte]:
   fs [loopSemTheory.evaluate_def,
       comp_def, evaluate_def] >>
   fs [CaseEq "option", CaseEq "word_loc"] >> rveq >>
-  fs [inst_def, word_exp_def] >>
+  fs [inst_def, word_exp_def, integer_wordTheory.i2w_0] >>
   drule locals_rel_intro >>
   strip_tac >>
   res_tac >> fs [] >>
@@ -1906,6 +1906,40 @@ Proof
   TOP_CASE_TAC >> fs []
 QED
 
+Theorem MAP_FST_add_metadata[simp]:
+  MAP FST (add_metadata md xs) = MAP FST xs
+Proof
+  simp [backend_commonTheory.add_metadata_def,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]
+QED
+
+Theorem EVERY_add_metadata[simp]:
+  EVERY (\(n,args,p,md). P n args p) (add_metadata md xs) =
+  EVERY (\(n,args,p). P n args p) xs
+Proof
+  simp [backend_commonTheory.add_metadata_def,EVERY_MAP,o_DEF,UNCURRY]
+  >> AP_THM_TAC >> AP_TERM_TAC
+  >> simp [FUN_EQ_THM,FORALL_PROD]
+QED
+
+Theorem ALOOKUP_add_metadata:
+  ALOOKUP (add_metadata md xs) name =
+  OPTION_MAP (\(arity,body). (arity,body,md)) (ALOOKUP xs name)
+Proof
+  Induct_on `xs`
+  \\ simp [backend_commonTheory.add_metadata_def,FORALL_PROD]
+  \\ rw [] \\ fs [backend_commonTheory.add_metadata_def]
+QED
+
+Theorem lookup_prog_some_lookup_compile_prog_metadata:
+  lookup name (fromAList prog) = SOME (params,body) ==>
+  lookup name (fromAList (add_metadata md (compile_prog prog))) =
+  SOME (LENGTH params + 1,comp_func name params body,md)
+Proof
+  strip_tac
+  \\ drule lookup_prog_some_lookup_compile_prog
+  \\ simp [lookup_fromAList,ALOOKUP_add_metadata]
+QED
+
 (*** no_install/no_alloc/no_mt lemmas ***)
 
 Theorem loop_to_word_comp_not_created:
@@ -1964,33 +1998,36 @@ Proof
 QED
 
 Theorem loop_compile_no_install_code:
-  no_install_code (fromAList (compile prog))
+  no_install_code (fromAList (add_metadata md (compile prog)))
 Proof
   gs[compile_def]>>
   rw[no_install_code_def, no_install_subprogs_def]>>
-  gs[lookup_fromAList, EVERY_MEM, MEM_MAP]>>
+  gs[lookup_fromAList, ALOOKUP_add_metadata,
+     optionTheory.OPTION_MAP_EQ_SOME,EXISTS_PROD,EVERY_MEM,MEM_MAP]>>
   drule ALOOKUP_MEM>>strip_tac>>
   drule_then irule loop_to_word_compile_not_created_MEM>>
   simp []
 QED
 
 Theorem loop_compile_no_alloc_code:
-  no_alloc_code (fromAList (compile prog))
+  no_alloc_code (fromAList (add_metadata md (compile prog)))
 Proof
   gs[compile_def]>>
   rw[no_alloc_code_def, no_alloc_subprogs_def]>>
-  gs[lookup_fromAList, EVERY_MEM, MEM_MAP]>>
+  gs[lookup_fromAList, ALOOKUP_add_metadata,
+     optionTheory.OPTION_MAP_EQ_SOME,EXISTS_PROD,EVERY_MEM,MEM_MAP]>>
   drule ALOOKUP_MEM>>strip_tac>>
   drule_then irule loop_to_word_compile_not_created_MEM>>
   simp []
 QED
 
 Theorem loop_compile_no_mt_code:
-  no_mt_code (fromAList (compile prog))
+  no_mt_code (fromAList (add_metadata md (compile prog)))
 Proof
   gs[compile_def]>>
   rw[no_mt_code_def, no_mt_subprogs_def]>>
-  gs[lookup_fromAList, EVERY_MEM, MEM_MAP]>>
+  gs[lookup_fromAList, ALOOKUP_add_metadata,
+     optionTheory.OPTION_MAP_EQ_SOME,EXISTS_PROD,EVERY_MEM,MEM_MAP]>>
   drule ALOOKUP_MEM>>strip_tac>>
   drule_then irule loop_to_word_compile_not_created_MEM>>
   simp []
@@ -2293,7 +2330,7 @@ End
 
 Theorem loop_to_word_comp_every_inst_ok_less:
   ∀ctxt prog l.
-    byte_offset_ok c 0w ∧ addr_offset_ok c 0w ∧
+    byte_offset_ok c 0 ∧ addr_offset_ok c 0 ∧
     every_prog (loop_inst_ok c) prog ∧
     domain(acc_vars prog LN) ⊆ domain ctxt ∧
     INJ (find_var ctxt) (domain ctxt) 𝕌(:num) ∧
@@ -2337,7 +2374,7 @@ QED
 Theorem loop_to_word_comp_func_every_inst_ok_less:
   comp_func n params body = p ∧
   every_prog (loop_inst_ok c) body ∧
-  addr_offset_ok c 0w ∧ byte_offset_ok c 0w ⇒
+  addr_offset_ok c 0 ∧ byte_offset_ok c 0 ⇒
   every_inst (inst_ok_less c) p
 Proof
   strip_tac>>gs[loop_to_wordTheory.comp_func_def]>>
@@ -2354,7 +2391,7 @@ QED
 
 Theorem loop_to_word_compile_prog_every_inst_ok_less:
   compile_prog lprog = wprog0 ∧
-  byte_offset_ok c 0w ∧ addr_offset_ok c 0w ∧
+  byte_offset_ok c 0 ∧ addr_offset_ok c 0 ∧
   EVERY (λ(n,params,body). every_prog (loop_inst_ok c) body) lprog
   ⇒
   EVERY (λ(n,m,p). every_inst (inst_ok_less c) p) wprog0
@@ -2371,7 +2408,7 @@ QED
 
 Theorem loop_to_word_every_inst_ok_less:
   compile lprog = wprog0 ∧
-  byte_offset_ok c 0w ∧ addr_offset_ok c 0w ∧
+  byte_offset_ok c 0 ∧ addr_offset_ok c 0 ∧
   EVERY (λ(n,params,body). every_prog (loop_inst_ok c) body) lprog ⇒
   EVERY (λ(n,m,p). every_inst (inst_ok_less c) p) wprog0
 Proof

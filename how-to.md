@@ -50,6 +50,52 @@ use the system's C compiler to build `basis_ffi.c` and to connect the
 CakeML generated machine code with the C code that is accessed through
 CakeML's foreign function interface (FFI).
 
+Providing REPL input
+--------------------
+
+On GNU/Linux, `./cake --repl` starts the CakeML REPL and `./cake --candle`
+starts the Candle REPL. Run them from a directory that holds the boot files
+(`repl_boot.cml`, or for Candle `candle_boot.cml` and `candle_boot.ml`) and a
+`config_enc_str.txt` from the same bootstrap as the binary. The boot files
+provide interactive input and file loading. Input is read from standard input,
+so `./cake --repl < file.cml` runs a script.
+
+Candle input is parsed by the Candle parser, which `candle_boot.cml` loads at
+startup, and reaches the REPL as declarations. A `(*CML ... *)` block where a
+phrase begins is a phrase by itself, with no `;;` needed, and its body is read
+as CakeML source. Candle diagnostics give line numbers relative to the current
+phrase, and type errors show no source excerpt.
+
+A custom reader can supply input too, including declarations built directly
+with the REPL's `Ast` module. Install it by assigning
+`Repl.readNextString`, a `unit -> unit` function that the REPL calls to fetch
+each phrase. Each call either sets `Repl.isEOF := True` to finish, or sets
+`Repl.isEOF := False` and assigns
+`Repl.nextInput : (string, Ast.dec list) sum ref`: `Inl text` to have the text
+parsed as CakeML source, or `Inr decs` to skip parsing. Both forms go through
+the same type checking, reserved constructor and FFI name restrictions, and
+evaluation. Declarations given as `Inr` are used as built, so they may bind
+names that CakeML syntax cannot express; their diagnostics show locations but
+no source text. For example, enter these declarations in the CakeML REPL:
+
+    $ ./cake --repl
+    val pending = Ref (Some [Ast.Dlet Ast.Nolocs (Ast.Pvar "answer")
+      (Ast.Lit (Ast.Intlit 42))]);
+    fun read_ast () =
+      case !pending of
+        None => Repl.isEOF := True
+      | Some decs => (pending := None; Repl.isEOF := False;
+          Repl.nextInput := Inr decs);
+    Repl.readNextString := read_ast;
+
+This evaluates the supplied declaration and then exits.
+
+The REPL prints errors itself. After a phrase fails, `Repl.errorMessage` is
+non-empty, and after an uncaught exception `Repl.exn` holds it. The REPL never
+clears `Repl.errorMessage`, so a reader that reacts to failures clears it after
+each check, as the boot readers do to abandon the rest of the input being
+loaded.
+
 A simple but complete program
 -----------------------------
 
@@ -120,9 +166,9 @@ If program execution aborts with a message saying that the heap or
 stack space has been exhausted, then it might be worth trying to run
 the program with more heap or stack space.
 
-The default heap and stack size is set to 1024 MB each.
-One can run the factorial program from above with 2048 MB of heap
-space and 512 MB of stack space by invoking it as follows:
+The default heap and stack size is set to 1024 MiB each.
+One can run the factorial program from above with 2048 MiB of heap
+space and 512 MiB of stack space by invoking it as follows:
 
     $ export CML_HEAP_SIZE=2048 ; export CML_STACK_SIZE=512 ; ./fac.cake 50
 
@@ -132,15 +178,9 @@ CakeML compiler. Note that, since the CakeML compiler is just another
 CakeML program, the values of these environment variables also affect
 the compiler's execution.
 
-Alternatively, the allocated heap and stack size can be set in `basis_ffi.c`
-by modifying these lines in the file.
-Note that `cml_heap_sz` and `cml_stack_sz` are given in bytes here.
-
-```
-unsigned long sz = 1024*1024; // 1 MB unit
-unsigned long cml_heap_sz = 1024 * sz;    // Default: 1 GB heap
-unsigned long cml_stack_sz = 1024 * sz;   // Default: 1 GB stack
-```
+Both variables accept positive decimal numbers of mebibytes (1024 * 1024
+bytes). To change the compiled-in default, adjust the default returned by
+`cml_memory_size` in `basis_ffi.c` and rebuild the executable.
 
 Huge pages on Linux
 -------------------

@@ -94,16 +94,16 @@ Definition comp_def:
      (Set (Temp a) (comp_exp ctxt e), l)) /\
   (comp ctxt (Load32 a v) l =
      (Inst (Mem Load32 (find_var ctxt v)
-            (Addr (find_var ctxt a) 0w)), l)) /\
+            (Addr (find_var ctxt a) 0)), l)) /\
   (comp ctxt (LoadByte a v) l =
      (Inst (Mem Load8 (find_var ctxt v)
-            (Addr (find_var ctxt a) 0w)), l)) /\
+            (Addr (find_var ctxt a) 0)), l)) /\
   (comp ctxt (Store32 a v) l =
      (Inst (Mem Store32 (find_var ctxt v)
-            (Addr (find_var ctxt a) 0w)), l)) /\
+            (Addr (find_var ctxt a) 0)), l)) /\
   (comp ctxt (StoreByte a v) l =
      (Inst (Mem Store8 (find_var ctxt v)
-            (Addr (find_var ctxt a) 0w)), l)) /\
+            (Addr (find_var ctxt a) 0)), l)) /\
   (comp ctxt (Seq p q) l =
     let (wp,l) = comp ctxt p l in
      let (wq,l) = comp ctxt q l in

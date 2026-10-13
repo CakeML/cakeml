@@ -7,10 +7,6 @@ Ancestors
 Libs
   preamble ml_translatorLib
 
-open preamble
-     ml_translatorLib
-     inferProgTheory;
-
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = translation_extends "inferProg";
@@ -109,7 +105,6 @@ val r = presLangTheory.clos_to_display_def
 
 val r = translate presLangTheory.clos_dec_to_display_def;
 val r = translate presLangTheory.clos_to_strs_def;
-
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

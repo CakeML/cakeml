@@ -3,12 +3,32 @@
 *)
 Theory backend_common
 Ancestors[qualified]
-  arithmetic integer words
+  arithmetic integer words mlstring
 Ancestors
   sptree (* for delete *)
   mlstring (* for bytes_to_mlstring *)
 Libs
   preamble
+
+Datatype:
+  annotation = MustInline | Stub | BVI_Worker
+End
+
+Datatype:
+  metadata = Metadata mlstring (annotation list)
+End
+
+Definition empty_metadata_def:
+  empty_metadata = Metadata (strlit "") []
+End
+
+Definition add_annotation_def:
+  add_annotation a (Metadata s annots) = Metadata s (annots ++ [a])
+End
+
+Definition add_metadata_def:
+  add_metadata md xs = MAP (\(n,args,e). (n,args,e,md)) xs
+End
 
 Datatype:
   opw = Andw | Orw | Xor | Add | Sub
@@ -154,13 +174,13 @@ Proof
   EVAL_TAC
 QED
 
-(* shift values, per dimindex(:α) *)
+(* shift values, per word width *)
 Definition word_shift_def:
-  word_shift (:'a) =
-    (* this could be defined as LOG 2 (dimindex(:'a)) - 3, but I want
+  word_shift (bits:num) =
+    (* this could be defined as LOG 2 bits - 3, but I want
        to be sure that LOG doesn't unnecessarily end up in the
        generated CakeML code *)
-    if dimindex (:'a) = 32 then 2 else 3:num
+    if bits = 32 then 2 else 3:num
 End
 
 Definition upper_w2w_def:
