@@ -2428,14 +2428,6 @@ Proof
   \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
 QED
 
-Theorem EVERY_IMP_ALOOKUP:
-  !xs P. EVERY P xs ==> !x y. ALOOKUP xs x = SOME y ==> P (x, y)
-Proof
-  Induct \\ fs [FORALL_PROD] \\ rw []
-  \\ res_tac \\ fs []
-  \\ every_case_tac \\ fs []
-QED
-
 Theorem structure_le_IMP_option_le:
   !l x y.
     structure_le x y ==>
@@ -2553,7 +2545,7 @@ Proof
    (simp [] \\ fs [state_rel_thm,code_rel_def]
     \\ qpat_x_assum `EVERY (λ(n,x). lookup n t.code = SOME x) (stubs c)` mp_tac
     \\ simp [subspt_lookup,lookup_fromAList]
-    \\ strip_tac \\ imp_res_tac EVERY_IMP_ALOOKUP \\ fs [])
+    \\ strip_tac \\ imp_res_tac miscTheory.EVERY_ALOOKUP \\ fs [])
   \\ strip_tac \\ fs []
   \\ pop_assum mp_tac
   \\ fs [wordSemTheory.push_env_def]

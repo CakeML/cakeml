@@ -483,12 +483,12 @@ Proof
   simp [semanticPrimitivesTheory.bind_exn_v_def, Once v_rel_cases]
 QED
 
-Theorem ALOOKUP_rec_env[local]:
-  ∀xs funs env x.
-    ALOOKUP (MAP (λ(f,n,e). (f,Recclosure env funs f)) xs) x =
-    if MEM x (MAP FST xs) then SOME (Recclosure env funs x) else NONE
+Theorem map_rec_env_names[local]:
+  ∀xs env funs.
+    MAP (λ(f,n,e). (f,Recclosure env funs f)) xs =
+    MAP (λname. (name,Recclosure env funs name)) (MAP FST xs)
 Proof
-  Induct \\ gvs [] \\ PairCases \\ rw [] \\ gvs []
+  Induct >> simp [] >> rpt gen_tac >> PairCases_on ‘h’ >> simp []
 QED
 
 Theorem env_rel_build_rec_env[local]:
@@ -502,7 +502,8 @@ Proof
   rw [env_rel_def, build_rec_env_merge,
       namespacePropsTheory.nsLookup_nsAppend_some]
   \\ gvs [namespacePropsTheory.nsLookup_alist_to_ns_some,
-          namespacePropsTheory.nsLookup_alist_to_ns_none, ALOOKUP_rec_env]
+          namespacePropsTheory.nsLookup_alist_to_ns_none,
+          map_rec_env_names, miscTheory.ALOOKUP_MAP_names]
   \\ gvs [AllCaseEqs()]
   >- (irule v_rel_Recclosure \\ gvs [SUBSET_DEF] \\ metis_tac [])
   \\ ‘x ∈ names’ by
@@ -519,7 +520,8 @@ Theorem env_rel_build_rec_env_unused[local]:
 Proof
   rw [env_rel_def, build_rec_env_merge,
       namespacePropsTheory.nsLookup_nsAppend_some]
-  \\ gvs [namespacePropsTheory.nsLookup_alist_to_ns_some, ALOOKUP_rec_env]
+  \\ gvs [namespacePropsTheory.nsLookup_alist_to_ns_some,
+          map_rec_env_names, miscTheory.ALOOKUP_MAP_names]
   \\ gvs [AllCaseEqs(), EVERY_MEM, MEM_MAP, FORALL_PROD]
   \\ PairCases_on ‘y’ \\ gvs [] \\ res_tac \\ gvs []
 QED
@@ -1855,7 +1857,7 @@ Proof
       \\ Cases_on ‘can_remove used (Dletrec locs funs)’ \\ gvs []
       \\ gvs [update_names_def, dec_binds_def, free_vars_dec_def,
               names_set_free_vars, names_set_delete_names, build_rec_env_merge,
-              nsLookup_alist_to_ns_eq, ALOOKUP_rec_env, AllCaseEqs()])
+              nsLookup_alist_to_ns_eq, map_rec_env_names, miscTheory.ALOOKUP_MAP_names, AllCaseEqs()])
   >~ [‘evaluate_decs s1 env1 [Denv n]’]
   >- (gvs [dce_decs_def, evaluate_decs_def, AllCaseEqs(), prune_dec_def,
            can_remove_def, update_names_def, dec_binds_def, free_vars_dec_def,
@@ -1953,7 +1955,8 @@ Proof
            can_remove_def]
       \\ gvs [build_rec_env_merge,
               namespacePropsTheory.nsLookup_nsAppend_some,
-              namespacePropsTheory.nsLookup_alist_to_ns_some, ALOOKUP_rec_env]
+              namespacePropsTheory.nsLookup_alist_to_ns_some,
+              map_rec_env_names, miscTheory.ALOOKUP_MAP_names]
       \\ gvs [AllCaseEqs(), EVERY_MEM, FORALL_PROD, is_used_names_set, MEM_MAP]
       \\ rw [] \\ res_tac \\ gvs []
       \\ Cases_on ‘∀p_1 p_1' p_2.
@@ -2066,7 +2069,7 @@ Theorem new_rel_build_rec_env[local]:
                      <|v := build_rec_env funs env2 nsEmpty; c := nsEmpty|>
 Proof
   rw [new_rel_def, build_rec_env_merge] \\ Cases_on ‘x’
-  \\ gvs [nsLookup_alist_to_ns_eq, ALOOKUP_rec_env]
+  \\ gvs [nsLookup_alist_to_ns_eq, map_rec_env_names, miscTheory.ALOOKUP_MAP_names]
   \\ rw [] \\ irule v_rel_Recclosure
   \\ gvs [env_rel_def, SUBSET_DEF] \\ metis_tac []
 QED
@@ -2397,9 +2400,9 @@ Resume evaluate_decs_v_rel[Dletrec]:
           \\ gvs [EVERY_MEM, FORALL_PROD]
           \\ asm_rewrite_tac [])
       \\ irule new_rel_unused
-      \\ gvs [build_rec_env_merge, ALOOKUP_rec_env]
+      \\ gvs [build_rec_env_merge, map_rec_env_names, miscTheory.ALOOKUP_MAP_names]
       \\ rpt gen_tac \\ Cases_on ‘x’
-      \\ gvs [nsLookup_alist_to_ns_eq, ALOOKUP_rec_env]
+      \\ gvs [nsLookup_alist_to_ns_eq, map_rec_env_names, miscTheory.ALOOKUP_MAP_names]
       \\ rw [] \\ gvs [MEM_MAP] \\ PairCases_on ‘y’ \\ gvs [] \\ res_tac)
   \\ ‘env1.c = env2.c’ by gvs [env_rel_def]
   \\ ‘EVERY (λ(f,n,e). check_exp_constructors env2.c e) funs’ by

@@ -3605,13 +3605,6 @@ Proof
   \\ metis_tac[]
 QED
 
-Theorem ALOOKUP_ID_TABULATE:
-   ALOOKUP (MAP (λx. (x,x)) ls) x =
-   if MEM x ls then SOME x else NONE
-Proof
-  Induct_on`ls`\\simp[]\\rw[]\\fs[]
-QED
-
 Theorem alist_insert_get_vars:
    ∀moves s x ls.
    ALL_DISTINCT (MAP FST moves) ∧
@@ -3683,7 +3676,7 @@ Proof
     \\ rw[] \\ fs[] )
   \\ simp[Abbr`f`]
   \\ disch_then kall_tac
-  \\ simp[ALOOKUP_ID_TABULATE]
+  \\ simp[miscTheory.ALOOKUP_MAP_names]
   \\ simp[Abbr`ll`,MEM_FILTER]
   \\ qmatch_goalsub_abbrev_tac`ALOOKUP (MAP f ll)`
   \\ qispl_then[`ll`,`f`,`SOME x`]mp_tac ALOOKUP_MAP_INJ_FST
@@ -3694,7 +3687,7 @@ Proof
     \\ rw[] \\ fs[] )
   \\ simp[Abbr`f`]
   \\ disch_then kall_tac
-  \\ simp[ALOOKUP_ID_TABULATE]
+  \\ simp[miscTheory.ALOOKUP_MAP_names]
   \\ simp[Abbr`ll`,MEM_FILTER]
   \\ reverse(Cases_on`MEM (SOME x) ls`) \\ fs[]
   >- (
