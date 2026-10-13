@@ -545,7 +545,8 @@ Theorem state_rel_imp_semantics:
   byte_aligned s.top_addr ∧
   globals_allocatable s pan_code ∧
   s.code = FEMPTY ∧
-  t.code = fromAList (pan_to_word$compile_prog c pan_code) ∧
+  t.code = fromAList (add_metadata empty_metadata
+                         (pan_to_word$compile_prog c pan_code)) ∧
   s.globals = FEMPTY ∧
   s.locals = FEMPTY ∧ size_of_eids pan_code < dimword (:α) ∧
   s.eshapes = FEMPTY ∧
@@ -653,7 +654,7 @@ Proof
        pan_to_wordTheory.compile_prog_def,
        loop_to_wordTheory.compile_def] >>
   rpt strip_tac
-  >- (irule loop_to_wordProofTheory.lookup_prog_some_lookup_compile_prog >>
+  >- (irule loop_to_wordProofTheory.lookup_prog_some_lookup_compile_prog_metadata >>
       first_assum ACCEPT_TAC) >>
   fs [lookup_fromAList] >>
   ‘EVERY (λ(name,params,body). ALL_DISTINCT params)
@@ -670,7 +671,7 @@ QED
 
 Theorem pan_to_word_compile_prog_no_install_code:
   compile_prog c prog = prog' ⇒
-  no_install_code (fromAList prog')
+  no_install_code (fromAList (add_metadata md prog'))
 Proof
   gs[compile_prog_def]>>strip_tac>>
   metis_tac[loop_to_wordProofTheory.loop_compile_no_install_code]
@@ -678,7 +679,7 @@ QED
 
 Theorem pan_to_word_compile_prog_no_alloc_code:
   compile_prog c prog = prog' ⇒
-  no_alloc_code (fromAList prog')
+  no_alloc_code (fromAList (add_metadata md prog'))
 Proof
   gs[compile_prog_def]>>strip_tac>>
   metis_tac[loop_to_wordProofTheory.loop_compile_no_alloc_code]
@@ -686,7 +687,7 @@ QED
 
 Theorem pan_to_word_compile_prog_no_mt_code:
   compile_prog c prog = prog' ⇒
-  no_mt_code (fromAList prog')
+  no_mt_code (fromAList (add_metadata md prog'))
 Proof
   gs[compile_prog_def]>>strip_tac>>
   metis_tac[loop_to_wordProofTheory.loop_compile_no_mt_code]

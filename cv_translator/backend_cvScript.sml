@@ -10,6 +10,8 @@ Ancestors
 
 val _ = cv_memLib.use_long_names := true;
 
+val _ = cv_trans backend_commonTheory.empty_metadata_def;
+
 (* Deduplicate constructor uses within a scope, retaining local-open boundaries.
    An open is checked even when its body contains no constructor uses. *)
 Datatype:

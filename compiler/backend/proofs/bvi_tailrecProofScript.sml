@@ -275,16 +275,17 @@ Overload in_ns_2[local] = ``λn. n MOD bvl_to_bvi_namespaces = 2``
 
 Definition code_rel_def:
   code_rel c1 c2 ⇔
-    ∀loc arity exp op.
-      lookup loc c1 = SOME (arity, exp) ⇒
+    ∀loc arity exp op md.
+      lookup loc c1 = SOME (arity, exp, md) ⇒
       (check_exp loc arity exp = NONE ⇒
-        lookup loc c2 = SOME (arity, exp)) ∧
+        lookup loc c2 = SOME (arity, exp, md)) ∧
       (check_exp loc arity exp = SOME op ⇒
         ∃n.
           ∀exp_aux exp_opt.
           compile_exp loc n arity exp = SOME (exp_aux, exp_opt) ⇒
-            lookup loc c2 = SOME (arity, exp_aux) ∧
-            lookup n c2 = SOME (arity + 1, exp_opt))
+            lookup loc c2 = SOME (arity, exp_aux, md) ∧
+            lookup n c2 = SOME (arity + 1, exp_opt,
+                                add_annotation BVI_Worker md))
 End
 
 Theorem code_rel_find_code_SOME[local]:
@@ -654,12 +655,21 @@ QED
 
 Definition optimized_code_def:
   optimized_code loc arity exp n c op =
-    ∃exp_aux exp_opt.
+    ∃exp_aux exp_opt md.
         compile_exp loc n arity exp = SOME (exp_aux, exp_opt) ∧
         check_exp loc arity exp     = SOME op ∧
-        lookup loc c                = SOME (arity, exp_aux) ∧
-        lookup n c                  = SOME (arity + 1, exp_opt)
+        lookup loc c                = SOME (arity, exp_aux, md) ∧
+        lookup n c                  = SOME (arity + 1, exp_opt,
+                                            add_annotation BVI_Worker md)
 End
+
+Theorem optimized_code_subspt:
+  optimized_code loc arity exp n c1 op ∧ subspt c1 c2 ⇒
+  optimized_code loc arity exp n c2 op
+Proof
+  rw [optimized_code_def, subspt_lookup]
+  \\ metis_tac []
+QED
 
 Theorem code_rel_subspt:
    code_rel c1 x1 ∧ subspt x1 x2 ⇒ code_rel c1 x2
@@ -716,13 +726,13 @@ Proof
 QED
 
 Theorem compile_each_untouched:
-   ∀next prog prog2 loc exp arity.
+   ∀next prog prog2 loc exp arity md.
      free_names next loc ∧
-     lookup loc (fromAList prog) = SOME (arity, exp) ∧
+     lookup loc (fromAList prog) = SOME (arity, exp, md) ∧
      check_exp loc arity exp = NONE ∧
      compile_exp loc next arity exp = NONE ∧
      compile_each next prog = (next1, prog2) ⇒
-       lookup loc (fromAList prog2) = SOME (arity, exp)
+       lookup loc (fromAList prog2) = SOME (arity, exp, md)
 Proof
   ho_match_mp_tac compile_each_ind \\ rw []
   \\ fs [fromAList_def, lookup_def]
@@ -766,13 +776,14 @@ Theorem compile_each_touched:
      ALL_DISTINCT (MAP FST prog) ∧
      EVERY (free_names next o FST) prog ∧
      free_names next loc ∧
-     lookup loc (fromAList prog) = SOME (arity, exp) ∧
+     lookup loc (fromAList prog) = SOME (arity, exp, md) ∧
      check_exp loc arity exp = SOME op ∧
      compile_each next prog = (next1, prog2) ⇒
        ∃k. ∀exp_aux exp_opt.
          compile_exp loc (next + bvl_to_bvi_namespaces * k) arity exp = SOME (exp_aux, exp_opt) ⇒
-           lookup loc (fromAList prog2) = SOME (arity, exp_aux) ∧
-           lookup (next + bvl_to_bvi_namespaces * k) (fromAList prog2) = SOME (arity + 1, exp_opt)
+           lookup loc (fromAList prog2) = SOME (arity, exp_aux, md) ∧
+           lookup (next + bvl_to_bvi_namespaces * k) (fromAList prog2) =
+             SOME (arity + 1, exp_opt, add_annotation BVI_Worker md)
 Proof
   ho_match_mp_tac compile_each_ind \\ rw []
   \\ fs [fromAList_def, lookup_def]
@@ -888,7 +899,7 @@ Proof
   >- fs [compile_each_def]
   \\ gen_tac
   \\ PairCases_on `h`
-  \\ rename1 `(name, arity, exp)`
+  \\ rename1 `(name, arity, exp, md)`
   \\ simp [compile_each_def]
   \\ rpt gen_tac
   \\ rpt (pairarg_tac \\ fs [])
@@ -956,7 +967,7 @@ Proof
   >- fs [compile_each_def]
   \\ gen_tac
   \\ PairCases_on `h`
-  \\ rename1 `(name, arity, exp)`
+  \\ rename1 `(name, arity, exp, md)`
   \\ simp [compile_each_def]
   \\ rpt gen_tac
   \\ rpt (pairarg_tac \\ fs [])
@@ -1300,8 +1311,8 @@ Theorem evaluate_rewrite_tail:
        evaluate (xs, env2, s') = (r, t') /\
        state_rel t t' /\
        (opt ⇒
-         ∀op n exp arity.
-           lookup loc s.code = SOME (arity, exp) ∧
+         ∀op n exp arity md.
+           lookup loc s.code = SOME (arity, exp, md) ∧
            optimized_code loc arity exp n s'.code op ∧
            op_type op = ty /\
            (∃op1 tt ty r.
@@ -1453,7 +1464,7 @@ Resume evaluate_rewrite_tail[Let]:
     \\ imp_res_tac evaluate_code_mono \\ fs [] \\ rw [] \\ fs []
     \\ `lookup loc s2.code = lookup loc s.code` by fs [subspt_lookup]
     \\ `optimized_code loc arity exp n t'.code op`
-      by fs [optimized_code_def, subspt_lookup]
+      by (drule_all optimized_code_subspt \\ simp [])
     \\ first_x_assum (qspec_then `op` mp_tac) \\ fs []
     \\ disch_then drule \\ fs [scan_expr_def]
     \\ rpt (pairarg_tac \\ fs [])
@@ -1537,7 +1548,7 @@ Resume evaluate_rewrite_tail[If]:
         \\ sg `optimized_code loc arity exp n t'.code op`
         >-
          (imp_res_tac evaluate_code_mono
-          \\ fs [optimized_code_def, subspt_lookup])
+          \\ drule_all optimized_code_subspt \\ simp [])
         \\ fs []
         \\ first_x_assum drule
         \\ disch_then drule \\ fs []
@@ -1559,7 +1570,7 @@ Resume evaluate_rewrite_tail[If]:
       \\ sg `optimized_code loc arity exp n t'.code op`
       >-
        (imp_res_tac evaluate_code_mono
-        \\ fs [optimized_code_def, subspt_lookup])
+        \\ drule_all optimized_code_subspt \\ simp [])
       \\ fs []
       \\ disch_then drule
       \\ disch_then (qspec_then `T` drule)
@@ -1588,7 +1599,7 @@ Resume evaluate_rewrite_tail[If]:
         \\ sg `optimized_code loc arity exp n t'.code op`
         >-
          (imp_res_tac evaluate_code_mono
-          \\ fs [optimized_code_def, subspt_lookup])
+          \\ drule_all optimized_code_subspt \\ simp [])
         \\ disch_then drule
         \\ disch_then (qspec_then `T` drule)
         \\ rpt (disch_then drule)
@@ -1610,7 +1621,7 @@ Resume evaluate_rewrite_tail[If]:
       \\ sg `optimized_code loc arity exp n t'.code op`
       >-
        (imp_res_tac evaluate_code_mono
-        \\ fs [optimized_code_def, subspt_lookup])
+        \\ drule_all optimized_code_subspt \\ simp [])
       \\ rpt (disch_then drule) \\ fs []
       \\ `acc < LENGTH env2` by fs [env_rel_def]
       \\ rw [evaluate_def, apply_op_def] \\ rw [] \\ rfs [] \\ fs []
@@ -1637,7 +1648,7 @@ Resume evaluate_rewrite_tail[If]:
       \\ sg `optimized_code loc arity exp n t'.code op`
       >-
        (imp_res_tac evaluate_code_mono
-        \\ fs [optimized_code_def, subspt_lookup])
+        \\ drule_all optimized_code_subspt \\ simp [])
       \\ disch_then drule
       \\ disch_then (qspec_then `T` drule)
       \\ rpt (disch_then drule)
@@ -1768,7 +1779,7 @@ Resume evaluate_rewrite_tail[Op]:
         >- ( drule compile_each_ALL_DISTINCT \\ fs[input_condition_def] )
         \\ conj_tac >- (
           Cases_on`prog2` \\ fs[compile_each_def,Abbr`prog1`]
-          \\ Cases_on`prog` \\ fs[compile_each_def,case_eq_thms]
+          \\ PairCases_on`v21` \\ fs[compile_each_def,case_eq_thms]
           \\ pairarg_tac \\ fs[] \\ rw[] )
         \\ conj_asm1_tac
         >- (
@@ -1991,7 +2002,8 @@ Resume evaluate_rewrite_tail[Op]:
     \\ rpt (disch_then drule)
     \\ disch_then (qspec_then `loc` mp_tac) \\ rw []
     \\ first_x_assum (qspecl_then [`op`,`n`] mp_tac) \\ fs []
-    \\ (impl_tac >- (imp_res_tac evaluate_code_mono \\ fs [subspt_lookup]))
+    \\ (impl_tac >- (imp_res_tac evaluate_code_mono \\ fs [subspt_lookup]
+        \\ qexists_tac `md'` \\ fs []))
     \\ pairarg_tac \\ fs []
     \\ simp [apply_op_def]
     \\ strip_tac
@@ -2175,6 +2187,7 @@ Resume evaluate_rewrite_tail[Call]:
       \\ pop_assum kall_tac
       \\ qpat_assum `code_rel _ _` mp_tac
       \\ simp_tac std_ss [code_rel_def]
+      \\ fs [pair_case_eq] \\ rveq
       \\ disch_then drule
       \\ simp [compile_exp_def]
       \\ CASE_TAC \\ fs []
@@ -2280,13 +2293,14 @@ Resume evaluate_rewrite_tail[Call]:
       \\ imp_res_tac evaluate_clock \\ fs [dec_clock_def])
     \\ rw []
     \\ pairarg_tac \\ fs [] \\ rw []
+    \\ rename1 `rewrite x n call_op _ _ _ = _`
     \\ imp_res_tac scan_expr_not_Noop \\ fs []
     \\ simp [evaluate_let_wrap]
     \\ first_assum (qspecl_then [`[exp]`,`dec_clock (ticks+1) t1`] mp_tac)
     \\ impl_tac >- (imp_res_tac evaluate_clock \\ fs [dec_clock_def])
-    \\ sg `env_rel (op_type x') T (LENGTH a) a (a ++ [op_id_val x'] ++ a)`
+    \\ sg `env_rel (op_type call_op) T (LENGTH a) a (a ++ [op_id_val call_op] ++ a)`
     >-
-     (Cases_on `x'`
+     (Cases_on `call_op`
       \\ fs [op_id_val_def, op_type_def, env_rel_def, EL_LENGTH_APPEND,
              EL_APPEND1, IS_PREFIX_APPEND, bvlSemTheory.v_to_list_def])
     \\ sg `ty_rel a (REPLICATE (LENGTH a) Any)`
@@ -2296,7 +2310,7 @@ Resume evaluate_rewrite_tail[Call]:
     \\ impl_tac >- (strip_tac \\ gvs [])
     \\ simp [optimized_code_def, compile_exp_def, check_exp_def, apply_op_def, evaluate_def]
     \\ rw []
-    \\ first_x_assum (qspecl_then [`x'`,`n`] mp_tac)
+    \\ first_x_assum (qspecl_then [`call_op`,`n`] mp_tac)
     \\ simp [optimized_code_def,compile_exp_def, check_exp_def]
     \\ simp [apply_op_def, evaluate_def]
     \\ reverse (PURE_CASE_TAC \\ fs [])
@@ -2322,7 +2336,7 @@ Resume evaluate_rewrite_tail[Call]:
     \\ pop_assum mp_tac
     \\ simp [ty_rel_def] \\ strip_tac \\ fs []
     \\ PRED_ASSUM is_forall kall_tac
-    \\ Cases_on `x'`
+    \\ Cases_on `call_op`
     \\ fs [to_op_def, op_type_def, do_app_def, do_app_aux_def, op_id_val_def,
            bvlSemTheory.do_app_def,bvlSemTheory.do_int_app_def,
            bvl_to_bvi_id, bvlSemTheory.v_to_list_def]
@@ -2371,7 +2385,7 @@ Resume evaluate_rewrite_tail[LetCall]:
     \\ PairCases_on `x` \\ fs []
     \\ `t2.clock = t1.clock` by (imp_res_tac state_rel_const \\ fs [])
     \\ fs []
-    \\ `x0 = args` by (fs [find_code_def, AllCaseEqs()])
+    \\ `x0 = args` by (fs [find_code_def, AllCaseEqs(), pair_case_eq] \\ gvs [])
     \\ gvs []
     \\ Cases_on `evaluate ([exp],args,dec_clock (ticks + 1) t1)` \\ fs []
     \\ first_assum (qspecl_then [`[exp]`, `dec_clock (ticks+1) t1`] mp_tac)
@@ -2403,13 +2417,14 @@ Resume evaluate_rewrite_tail[LetCall]:
     \\ rpt (disch_then drule) \\ fs [])
     >- (rw []
     \\ pairarg_tac \\ fs [] \\ rw []
+    \\ rename1 `rewrite dest n call_op _ _ _ = _`
     \\ imp_res_tac scan_expr_not_Noop \\ fs []
     \\ simp [evaluate_let_wrap]
     \\ first_assum (qspecl_then [`[exp]`,`dec_clock (ticks+1) t1`] mp_tac)
     \\ impl_tac >- (imp_res_tac evaluate_clock \\ fs [dec_clock_def])
-    \\ sg `env_rel (op_type x) T (LENGTH a) a (a ++ [op_id_val x] ++ a)`
+    \\ sg `env_rel (op_type call_op) T (LENGTH a) a (a ++ [op_id_val call_op] ++ a)`
     >-
-     (Cases_on `x`
+     (Cases_on `call_op`
       \\ fs [op_id_val_def, op_type_def, env_rel_def, EL_LENGTH_APPEND,
              EL_APPEND1, IS_PREFIX_APPEND, bvlSemTheory.v_to_list_def])
     \\ sg `ty_rel a (REPLICATE (LENGTH a) Any)`
@@ -2418,7 +2433,7 @@ Resume evaluate_rewrite_tail[LetCall]:
     \\ disch_then (qspec_then `dest` mp_tac)
     \\ impl_tac >- (strip_tac \\ gvs [])
     \\ strip_tac
-    \\ first_x_assum (qspecl_then [`x`,`n`] mp_tac)
+    \\ first_x_assum (qspecl_then [`call_op`,`n`] mp_tac)
     \\ simp [optimized_code_def, compile_exp_def, check_exp_def]
     \\ simp [apply_op_def, evaluate_def]
     \\ strip_tac
@@ -2753,9 +2768,9 @@ QED
 Theorem compile_each_good_code_labels:
    ∀n c n2 c2.
    bvi_tailrec$compile_each n c = (n2,c2) ∧
-   BIGUNION (set (MAP (bviProps$get_code_labels o SND o SND) c)) ⊆ all ∧
+   BIGUNION (set (MAP (bviProps$get_code_labels o FST o SND o SND) c)) ⊆ all ∧
    { n + k * bvl_to_bvi_namespaces | k | n + k * bvl_to_bvi_namespaces < n2 } ⊆ all ⇒
-   BIGUNION (set (MAP (bviProps$get_code_labels o SND o SND) c2)) ⊆ all
+   BIGUNION (set (MAP (bviProps$get_code_labels o FST o SND o SND) c2)) ⊆ all
 Proof
   recInduct bvi_tailrecTheory.compile_each_ind
   \\ simp[bvi_tailrecTheory.compile_each_def]
@@ -2787,9 +2802,9 @@ QED
 Theorem compile_prog_good_code_labels:
    ∀b n c n2 c2.
    bvi_tailrec$compile_prog b n c = (n2,c2) ∧
-   BIGUNION (set (MAP (bviProps$get_code_labels o SND o SND) c)) ⊆ all ∧
+   BIGUNION (set (MAP (bviProps$get_code_labels o FST o SND o SND) c)) ⊆ all ∧
    { n + k * bvl_to_bvi_namespaces | k | n + k * bvl_to_bvi_namespaces < n2 } ⊆ all ⇒
-   BIGUNION (set (MAP (bviProps$get_code_labels o SND o SND) c2)) ⊆ all
+   BIGUNION (set (MAP (bviProps$get_code_labels o FST o SND o SND) c2)) ⊆ all
 Proof
   rw [bvi_tailrecTheory.compile_prog_def] \\ gvs []
   \\ metis_tac [compile_each_good_code_labels]

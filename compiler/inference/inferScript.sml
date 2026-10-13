@@ -627,6 +627,7 @@ Definition op_to_string_def:
   (op_to_string VfromList = («VfromList», 1)) ∧
   (op_to_string Vsub = («Vsub», 2)) ∧
   (op_to_string Vsub_unsafe = («Vsub_unsafe», 2)) ∧
+  (op_to_string Strsub_unsafe = («Strsub_unsafe», 2)) ∧
   (op_to_string Vlength = («Vlength», 1)) ∧
   (op_to_string Aalloc = («Aalloc», 2)) ∧
   (op_to_string AallocEmpty = («AallocEmpty», 1)) ∧
@@ -783,6 +784,7 @@ constrain_op l op ts s =
           return (Infer_Tapp [uvar] Tlist_num)
        od s
    | (Vsub_unsafe, _) => failwith l («Unsafe ops do not have a type») s
+   | (Strsub_unsafe, _) => failwith l («Unsafe ops do not have a type») s
    | (Asub_unsafe, _) => failwith l («Unsafe ops do not have a type») s
    | (Aupdate_unsafe, _) => failwith l («Unsafe ops do not have a type») s
    | (Aw8sub_unsafe, _) => failwith l («Unsafe ops do not have a type») s

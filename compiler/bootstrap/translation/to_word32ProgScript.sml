@@ -29,6 +29,18 @@ val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
 val matches = ref ([]: term list);
 
+fun word_width_vars ty =
+  if is_vartype ty then []
+  else if wordsSyntax.is_word_type ty then
+    type_vars (wordsSyntax.dest_word_type ty)
+  else let
+    val {Thy,Tyop,Args} = dest_thy_type ty
+  in
+    if Thy = "wordLang" andalso mem Tyop ["prog","exp"] then
+      type_vars (hd Args)
+    else List.concat (map word_width_vars Args)
+  end;
+
 fun def_of_const tm = let
   val res = dest_thy_const tm handle HOL_ERR _ =>
               failwith ("Unable to translate: " ^ term_to_string tm)
@@ -42,7 +54,10 @@ fun def_of_const tm = let
   val def = def_from_thy (#Thy res) name handle HOL_ERR _ =>
             failwith ("Unable to find definition of " ^ name)
 
-  val insts = if exists (fn term => can (find_term (can (match_term term))) (concl def)) (!matches) then [alpha |-> ``:32``,beta|->``:32``] else []
+  val word_vars = mk_set (List.concat (map (word_width_vars o type_of)
+                                           (find_terms (K true) (concl def))))
+  val insts = if exists (fn term => can (find_term (can (match_term term))) (concl def)) (!matches)
+              then map (fn ty => ty |-> ``:32``) word_vars else []
 
   val def = def |> RW (!extra_preprocessing)
                 |> INST_TYPE insts
@@ -734,7 +749,8 @@ val _ = translate word_to_stackTheory.stub_names_def
 val _ = translate stack_allocTheory.stub_names_def
 val _ = translate stack_removeTheory.stub_names_def
 val res = translate (data_to_wordTheory.compile_def
-                     |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def, loc_values]
+                     |> SIMP_RULE std_ss [data_to_wordTheory.stubs_md_def,
+                                         data_to_wordTheory.stubs_def, loc_values]
                      |> conv32_RHS);
 
 val _ = res |> hyp |> null orelse

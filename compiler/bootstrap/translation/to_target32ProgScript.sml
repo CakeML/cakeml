@@ -31,7 +31,24 @@ QED
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
 val matches = ref ([]: term list);
-val inst_tyargs = ref ([]:hol_type list);
+
+fun word_width_vars ty =
+  if is_vartype ty then []
+  else if wordsSyntax.is_word_type ty then
+    type_vars (wordsSyntax.dest_word_type ty)
+  else let
+    val {Thy,Tyop,Args} = dest_thy_type ty
+  in
+    if Thy = "wordLang" andalso mem Tyop ["prog","exp"] then
+      type_vars (hd Args)
+    else List.concat (map word_width_vars Args)
+  end;
+
+fun specialize_word_widths th =
+  let
+    val widths = mk_set (List.concat (map (word_width_vars o type_of)
+                                          (find_terms (K true) (concl th))))
+  in INST_TYPE (map (fn ty => ty |-> ``:32``) widths) th end;
 
 fun def_of_const tm = let
   val res = dest_thy_const tm handle HOL_ERR _ =>
@@ -46,10 +63,13 @@ fun def_of_const tm = let
   val def = def_from_thy (#Thy res) name handle HOL_ERR _ =>
             failwith ("Unable to find definition of " ^ name)
 
-  val insts = if exists (fn term => can (find_term (can (match_term term))) (concl def)) (!matches) then map (fn x => x |-> ``:32``) (!inst_tyargs)  else []
+  val specialize =
+    if exists (fn term => can (find_term (can (match_term term)))
+                            (concl def)) (!matches)
+    then specialize_word_widths else I
 
   val def = def |> RW (!extra_preprocessing)
-                |> INST_TYPE insts
+                |> specialize
                 |> CONV_RULE (DEPTH_CONV BETA_CONV)
                 (* TODO: This ss messes up defs containing if-then-else
                 with constant branches
@@ -61,7 +81,7 @@ val _ = (find_def_for_const := def_of_const);
 
 val _ = use_long_names:=true;
 
-val spec32 = INST_TYPE[alpha|->``:32``]
+val spec32 = specialize_word_widths
 
 val conv32 = GEN_ALL o CONV_RULE (wordsLib.WORD_CONV) o spec32 o SPEC_ALL
 
@@ -72,8 +92,6 @@ val gconv = CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV)
 val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
 
 val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo:reg_imm``,``foo:arith``,``foo:addr``,``foo:stackLang$prog``]
-
-val _ = inst_tyargs := [alpha]
 
 val r = translate (word_to_stackTheory.chunk_to_bits_def |> conv32);
 val r = translate (word_to_stackTheory.chunk_to_bitmap_def |> conv32);
@@ -114,9 +132,9 @@ val _ = translate (word_to_stackTheory.PopHandler_def |> INST_TYPE [alpha|->``:n
 
 val _ = translate (spec32 word_to_stackTheory.comp_def)
 
-val _ = translate (word_to_stackTheory.compile_word_to_stack_def |> INST_TYPE [beta |-> ``:32``])
+val _ = translate (word_to_stackTheory.compile_word_to_stack_def |> specialize_word_widths)
 
-val _ = translate (word_to_stackTheory.compile_def |> INST_TYPE [alpha|->``:32``,beta|->``:32``]);
+val _ = translate (word_to_stackTheory.compile_def |> specialize_word_widths);
 
 (* stack_rawcall *)
 
@@ -204,7 +222,7 @@ val _ = translate (conv32 stack_removeTheory.store_offset_def |> SIMP_RULE std_s
 
 val _ = translate (stack_removeTheory.comp_def |> inline_simp |> conv32)
 
-val _ = translate (stack_removeTheory.prog_comp_def |> INST_TYPE [beta|->``:32``])
+val _ = translate stack_removeTheory.prog_comp_def
 
 val _ = translate (stack_removeTheory.store_list_code_def |> inline_simp |> conv32)
 val _ = translate (stack_removeTheory.init_memory_def |> inline_simp |> conv32)
@@ -213,8 +231,8 @@ val _ = translate (stack_removeTheory.init_code_def |> inline_simp |> conv32 |> 
 val _ = translate (spec32 stack_removeTheory.compile_def)
 
 val _ = translate (spec32 stack_namesTheory.comp_def)
-val _ = translate (stack_namesTheory.prog_comp_def |> INST_TYPE [beta |-> ``:32``])
-val _ = translate (stack_namesTheory.compile_def |> INST_TYPE [beta |-> ``:32``])
+val _ = translate stack_namesTheory.prog_comp_def
+val _ = translate stack_namesTheory.compile_def
 
 val _ = matches := [``foo:labLang$prog``,``foo:labLang$sec``,
   ``foo:labLang$line``,``foo:labLang$asm_with_lab``,

@@ -636,7 +636,8 @@ Definition word_gc_code_def:
 End
 
 Definition stubs_def:
-  stubs aw conf = [(gc_stub_location, Seq (word_gc_code aw conf) (Return 0))]
+  stubs aw conf = [(gc_stub_location, Seq (word_gc_code aw conf) (Return 0),
+                 Metadata «_GC» [Stub])]
 End
 
 Definition stub_names_def:
@@ -714,7 +715,7 @@ Theorem comp_pmatch = Q.prove(
 end
 
 Definition prog_comp_def:
-  prog_comp (n,p) = (n,FST (comp n (next_lab p 2) p))
+  prog_comp (n,p,md) = (n,FST (comp n (next_lab p 2) p),md)
 End
 
 Definition compile_def:

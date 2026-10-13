@@ -196,8 +196,13 @@ Quote add_cakeml:
                 report_exn e, "")
       | Eval_result new_env new_conf =>
           if !Repl.isEOF then () else
-            let val new_input = !Repl.nextString in
-              case parse new_input of
+            let
+              val (parsed_input, new_input) =
+                case !Repl.nextInput of
+                  Inl text => (parse text, text)
+                | Inr decs => (Inr decs, "")
+            in
+              case parsed_input of
                 Inl msg =>
                   repl (host, parse, new_types, new_conf, new_env,
                         report_error msg, "")
@@ -217,41 +222,26 @@ Definition parse_cakeml_syntax_def:
   | Failure l _ => INL («Parsing failed at » ^ locs_to_string input (SOME l))
 End
 
-Definition parse_ocaml_syntax_def:
-  parse_ocaml_syntax input =
-  case caml_parser$run (explode input) of
-  | INR res => INR res
-  | INL (l,err) =>
-      INL (err ^ «\nParsing failed at » ^ locs_to_string input (SOME l))
-End
-
-Definition select_parse_def:
-  select_parse cl =
-  if MEMBER «--candle» cl then parse_ocaml_syntax else parse_cakeml_syntax
-End
-
+val _ = next_ml_names := ["parse_cakeml_syntax"];
 val r = translate parse_cakeml_syntax_def;
-val r = translate parse_ocaml_syntax_def;
-val _ = next_ml_names := ["select_parse"];
-val r = translate select_parse_def;
 
-Definition init_next_string_def:
-  init_next_string cl = if MEM «--candle» cl then «candle» else «»
+Definition boot_marker_def:
+  boot_marker cl = if MEM «--candle» cl then «candle» else «»
 End
 
-val _ = next_ml_names := ["init_next_string"];
-val r = translate (init_next_string_def |> REWRITE_RULE [MEMBER_INTRO]);
+val _ = next_ml_names := ["boot_marker"];
+val r = translate (boot_marker_def |> REWRITE_RULE [MEMBER_INTRO]);
 
 Quote add_cakeml:
   fun start_repl (host,cl,s1) =
     let
-      val parse = select_parse cl
+      val parse = parse_cakeml_syntax
       val types = init_types
       val conf = (s1,1)
       val env = (repl_init_env, 0)
       val decs = []
       val input_str = ""
-      val _ = Repl.nextString := init_next_string cl
+      val _ = Repl.nextInput := Inl (boot_marker cl)
     in
       repl (host, parse, types, conf, env, decs, input_str)
     end

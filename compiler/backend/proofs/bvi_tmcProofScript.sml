@@ -74,16 +74,16 @@ End
 
 Definition code_rel_def:
   code_rel c1 c2 ⇔
-    ∀loc arity exp.
-      lookup loc c1 = SOME (arity, exp) ⇒
+    ∀loc arity exp md.
+      lookup loc c1 = SOME (arity, exp, md) ⇒
       no_mutcons exp ∧
       ∃n.
         (compile_exp loc n arity exp = NONE ⇒
-         lookup loc c2 = SOME (arity, exp)) ∧
+         lookup loc c2 = SOME (arity, exp, md)) ∧
         ∀wrap work.
           compile_exp loc n arity exp = SOME (wrap,work) ⇒
-          lookup loc c2 = SOME (arity, wrap) ∧
-          lookup n c2 = SOME (arity + 2, work)
+          lookup loc c2 = SOME (arity, wrap, md) ∧
+          lookup n c2 = SOME (arity + 2, work, add_annotation BVI_Worker md)
 End
 
 Theorem code_rel_domain:
@@ -97,7 +97,7 @@ Proof
   >> fs [GSYM lookup_NONE_domain]
   >> rename1 `SOME z`
   >> PairCases_on `z`
-  >> rename [‘lookup x c1 = SOME (arity,exp)’]
+  >> rename [‘lookup x c1 = SOME (arity,exp,md)’]
   >> first_x_assum drule
   >> strip_tac >> pop_assum mp_tac
   >> fs [compile_exp_def]
@@ -120,7 +120,7 @@ End
 Definition input_condition_def:
   input_condition next prog ⇔
     EVERY (free_names next o FST) prog ∧
-    EVERY (no_mutcons o SND o SND) prog ∧
+    EVERY (no_mutcons o FST o SND o SND) prog ∧
     ALL_DISTINCT (MAP FST prog) ∧
     EVERY ($~ o in_ns_3 o FST) (FILTER ((<=) bvl_num_stubs o FST) prog) ∧
     bvl_num_stubs ≤ next ∧ in_ns_3 next
@@ -285,7 +285,7 @@ Proof
   qspec_tac (`e`,`e`) >> qspec_tac (`n1`,`n1`) >> qspec_tac (`ys`,`ys`)
   >> qspec_tac (`n`,`n`) >> qspec_tac (`xs`,`xs`) >> Induct
   >- fs [bvi_tmcTheory.compile_each_def]
-  >> gen_tac >> PairCases_on `h` >> rename1 `(name, arity, exp)`
+  >> gen_tac >> PairCases_on `h` >> rename1 `(name, arity, exp, md)`
   >> simp [bvi_tmcTheory.compile_each_def] >> rpt gen_tac
   >> rpt (pairarg_tac >> fs []) >> PURE_CASE_TAC >> fs []
   >> TRY (PURE_CASE_TAC >> fs []) >> fs [MEM_MAP, PULL_EXISTS, FORALL_PROD]
@@ -327,7 +327,7 @@ Theorem compile_each_ALL_DISTINCT:
 Proof
   qspec_tac (`n1`,`n1`) >> qspec_tac (`ys`,`ys`) >> qspec_tac (`n`,`n`)
   >> qspec_tac (`xs`,`xs`) >> Induct >- fs [bvi_tmcTheory.compile_each_def]
-  >> gen_tac >> PairCases_on `h` >> rename1 `(name, arity, exp)`
+  >> gen_tac >> PairCases_on `h` >> rename1 `(name, arity, exp, md)`
   >> simp [bvi_tmcTheory.compile_each_def] >> rpt gen_tac
   >> rpt (pairarg_tac >> fs []) >> PURE_CASE_TAC >> fs []
   >- (rpt strip_tac >> fs [] >> rveq >> qpat_x_assum `_ = (_, ys'')` kall_tac
@@ -393,11 +393,11 @@ Proof
 QED
 
 Theorem compile_each_untouched[local]:
-  ∀next prog prog2 loc exp arity.
-    free_names next loc ∧ lookup loc (fromAList prog) = SOME (arity, exp) ∧
+  ∀next prog prog2 loc exp arity md.
+    free_names next loc ∧ lookup loc (fromAList prog) = SOME (arity, exp, md) ∧
     compile_exp loc next arity exp = NONE ∧
     compile_each next prog = (next1, prog2) ⇒
-      lookup loc (fromAList prog2) = SOME (arity, exp)
+      lookup loc (fromAList prog2) = SOME (arity, exp, md)
 Proof
   ho_match_mp_tac bvi_tmcTheory.compile_each_ind >> rw []
   >> fs [fromAList_def, lookup_def]
@@ -416,15 +416,15 @@ Proof
 QED
 
 Theorem compile_each_touched[local]:
-  ∀next prog prog2 loc exp arity.
+  ∀next prog prog2 loc exp arity md.
     ALL_DISTINCT (MAP FST prog) ∧ EVERY (free_names next o FST) prog ∧
-    free_names next loc ∧ lookup loc (fromAList prog) = SOME (arity, exp) ∧
+    free_names next loc ∧ lookup loc (fromAList prog) = SOME (arity, exp, md) ∧
     (∃w. compile_exp loc next arity exp = SOME w) ∧
     compile_each next prog = (next1, prog2) ⇒
       ∃k. ∀wrap work.
         compile_exp loc (next + bvl_to_bvi_namespaces * k) arity exp = SOME (wrap, work) ⇒
-          lookup loc (fromAList prog2) = SOME (arity, wrap) ∧
-          lookup (next + bvl_to_bvi_namespaces * k) (fromAList prog2) = SOME (arity + 2, work)
+          lookup loc (fromAList prog2) = SOME (arity, wrap, md) ∧
+          lookup (next + bvl_to_bvi_namespaces * k) (fromAList prog2) = SOME (arity + 2, work, add_annotation BVI_Worker md)
 Proof
   ho_match_mp_tac bvi_tmcTheory.compile_each_ind >> rw []
   >> fs [fromAList_def, lookup_def]
@@ -446,7 +446,7 @@ Proof
   >> `free_names (next + bvl_to_bvi_namespaces) loc'` by imp_res_tac more_free_names
   >> `EVERY (free_names (next + bvl_to_bvi_namespaces) o FST) prog`
        by imp_res_tac EVERY_free_names_SUCSUC
-  >> qpat_x_assum `∀a b c. _` (qspecl_then [`loc'`,`exp'`,`arity'`] mp_tac)
+  >> qpat_x_assum `∀a b c d. _` (qspecl_then [`loc'`,`exp'`,`arity'`,`md'`] mp_tac)
   >> impl_tac >- gvs []
   >> strip_tac >> qexists_tac `k + 1`
   >> `loc' ≠ next` by metis_tac [is_free_name]
@@ -463,7 +463,7 @@ QED
 
 Theorem compile_each_code_rel:
   compile_each next prog = (next1, prog2) ∧ ALL_DISTINCT (MAP FST prog) ∧
-  EVERY (free_names next o FST) prog ∧ EVERY (no_mutcons o SND o SND) prog ⇒
+  EVERY (free_names next o FST) prog ∧ EVERY (no_mutcons o FST o SND o SND) prog ⇒
   code_rel (fromAList prog) (fromAList prog2)
 Proof
   rw [code_rel_def]
@@ -1549,10 +1549,10 @@ Resume do_app_op_rel[Label]:
   gvs [AllCaseEqs (), v_rel_cases, do_app_def, do_app_aux_def]
   >> first_assum $ irule_at Any
   >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl, state_rel_def, code_rel_def, domain_lookup]
-  >> Cases_on ‘v’
+  >> PairCases_on ‘v’
   >> last_x_assum $ drule
   >> strip_tac
-  >> Cases_on ‘compile_exp n n' q r’
+  >> Cases_on ‘compile_exp n n' v0 v1’
   >- gvs []
   >> gvs []
   >> Cases_on ‘x’
@@ -2025,6 +2025,7 @@ Resume do_app_op_rel[Install]:
   >> Cases_on `compile_each state0 progs0`
   >> rename1 `compile_each state0 progs0 = (state1,progs1)`
   >> gvs [AllCaseEqs ()]
+  >> rename1 `compile_each state0 ((k,prog)::v7) = (state1,progs1)`
   >> `∃w rest. progs1 = (k,w)::rest` by
        (qpat_x_assum `compile_each state0 ((k,prog)::v7) = _` mp_tac
         >> PairCases_on `prog` >> simp [bvi_tmcTheory.compile_each_def]
@@ -3342,10 +3343,10 @@ QED
 
 Definition optimised_code_def:
   optimised_code loc loc_opt c1 c2 ⇔
-    ∃arity body body_wrap body_work.
-      lookup loc c1 = SOME (arity,body) ∧
-      lookup loc c2 = SOME (arity,body_wrap) ∧
-      lookup loc_opt c2 = SOME (arity + 2,body_work) ∧
+    ∃arity body body_wrap body_work md.
+      lookup loc c1 = SOME (arity,body,md) ∧
+      lookup loc c2 = SOME (arity,body_wrap,md) ∧
+      lookup loc_opt c2 = SOME (arity + 2,body_work,add_annotation BVI_Worker md) ∧
       rewrite_wrapper loc loc_opt arity body = SOME body_wrap ∧
       rewrite_worker loc loc_opt arity (arity + 1) arity body = body_work
 End
@@ -3736,12 +3737,12 @@ Proof
 QED
 
 Theorem code_rel_cases:
-  ∀loc arity body1 c1 c2.
-    lookup loc c1 = SOME (arity,body1) ∧
+  ∀loc arity body1 md c1 c2.
+    lookup loc c1 = SOME (arity,body1,md) ∧
     code_rel c1 c2 ⇒
     no_mutcons body1 ∧
     ∃loc_opt body2.
-      lookup loc c2 = SOME (arity,body2) ∧
+      lookup loc c2 = SOME (arity,body2,md) ∧
       (body1 ≠ body2 ⇒
        optimised_code loc loc_opt c1 c2 ∧
        rewrite_wrapper loc loc_opt arity body1 = SOME body2)
@@ -5479,6 +5480,7 @@ Proof
     >> first_x_assum drule
     >> strip_tac
     >> first_assum $ irule_at Any
+    >> simp [EXISTS_PROD]
     >> qexists ‘loc’
     >> conj_tac
     >- (Cases_on ‘vs'’ >> gvs [])
@@ -5502,6 +5504,7 @@ Proof
   >> first_x_assum drule
   >> strip_tac
   >> first_assum $ irule_at Any
+  >> simp [EXISTS_PROD]
   >> qexists ‘loc’
   >> conj_tac
   >- imp_res_tac list_rel_env_rel
@@ -6697,9 +6700,9 @@ QED
 Theorem compile_each_good_code_labels:
   ∀n c n2 c2.
     compile_each n c = (n2,c2) ∧
-    BIGUNION (set (MAP (get_code_labels o SND o SND) c)) ⊆ all ∧
+    BIGUNION (set (MAP (get_code_labels o FST o SND o SND) c)) ⊆ all ∧
     { n + k * bvl_to_bvi_namespaces | k | n + k * bvl_to_bvi_namespaces < n2 } ⊆ all ⇒
-    BIGUNION (set (MAP (get_code_labels o SND o SND) c2)) ⊆ all
+    BIGUNION (set (MAP (get_code_labels o FST o SND o SND) c2)) ⊆ all
 Proof
   recInduct bvi_tmcTheory.compile_each_ind
   \\ simp [bvi_tmcTheory.compile_each_def]
@@ -6726,9 +6729,9 @@ QED
 Theorem compile_prog_good_code_labels:
   ∀b n c n2 c2.
     compile_prog b n c = (n2,c2) ∧
-    BIGUNION (set (MAP (get_code_labels o SND o SND) c)) ⊆ all ∧
+    BIGUNION (set (MAP (get_code_labels o FST o SND o SND) c)) ⊆ all ∧
     { n + k * bvl_to_bvi_namespaces | k | n + k * bvl_to_bvi_namespaces < n2 } ⊆ all ⇒
-    BIGUNION (set (MAP (get_code_labels o SND o SND) c2)) ⊆ all
+    BIGUNION (set (MAP (get_code_labels o FST o SND o SND) c2)) ⊆ all
 Proof
   rw [bvi_tmcTheory.compile_prog_def] \\ gvs []
   \\ metis_tac [compile_each_good_code_labels]
