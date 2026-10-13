@@ -223,12 +223,6 @@ Definition calls_list_def:
           calls_list t (i+1) (loc+2n) xs)
 End
 
-Theorem exp3_size_MAP_SND[local]:
-  !fns. exp3_size (MAP SND fns) <= exp1_size fns
-Proof
-  Induct \\ fs [exp_size_def,FORALL_PROD]
-QED
-
 Definition calls_def:
   (calls [] g = ([],g)) /\
   (calls ((x:closLang$exp)::y::xs) g =
@@ -307,13 +301,14 @@ Definition calls_def:
          let (e1,g) = calls [x1] g in
            ([Letrec t loc_opt ws (ZIP (MAP FST fns,fns1)) (HD e1)],g))
 Termination
-  WF_REL_TAC `measure (exp3_size o FST)`
+  WF_REL_TAC `measure (list_size exp_size o FST)`
   \\ REPEAT STRIP_TAC
-  \\ fs [GSYM NOT_LESS,exp_size_def]
-  \\ IMP_RES_TAC EL_MEM_LEMMA
-  \\ IMP_RES_TAC exp1_size_lemma
-  \\ assume_tac (SPEC_ALL exp3_size_MAP_SND)
-  \\ DECIDE_TAC
+  \\ gvs [GSYM NOT_LESS,exp_size_def]
+  \\ ‘list_size (λx. exp_size (SND x)) fns ≤
+      list_size (pair_size (λa. a) exp_size) fns’ suffices_by simp[]
+  \\ rpt (pop_assum kall_tac)
+  \\ Induct_on ‘fns’
+  \\ simp[FORALL_PROD]
 End
 
 Definition calls_sing_def:
