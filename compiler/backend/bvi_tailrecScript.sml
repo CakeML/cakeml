@@ -19,7 +19,7 @@ Definition dummy_def:
 End
 
 Theorem MEM_exp_size_imp:
-   ∀xs a. MEM a xs ⇒ bvi$exp_size a < exp2_size xs
+   ∀xs a. MEM a xs ⇒ bvi$exp_size a < list_size bvi$exp_size xs
 Proof
   Induct \\ rw [bviTheory.exp_size_def] \\ res_tac \\ fs []
 QED
