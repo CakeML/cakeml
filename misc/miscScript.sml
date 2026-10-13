@@ -1178,7 +1178,6 @@ Proof
 rw[BIJ_DEF, INJ_DEF, SURJ_DEF]
 QED
 
-
 Theorem MAP_EQ_ID:
  !f ls. (MAP f ls = ls) = (!x. MEM x ls ==> (f x = x))
 Proof
@@ -1212,8 +1211,6 @@ Proof
 DECIDE_TAC
 QED
 
-
-
   (* --------- SO additions --------- *)
 
 Theorem map_fst:
@@ -1224,7 +1221,6 @@ srw_tac[][] >>
 PairCases_on `h` >>
 full_simp_tac(srw_ss())[]
 QED
-
 
 (* list misc *)
 
@@ -1667,7 +1663,6 @@ Theorem ALL_DISTINCT_APPEND_APPEND_IMP:
 Proof
   fs [ALL_DISTINCT_APPEND]
 QED
-
 
 (* TODO - candidate for move to HOL *)
 Theorem o_PAIR_MAP:
@@ -3166,7 +3161,6 @@ Proof
   simp[irreflexive_def]
 QED
 
-
 Definition good_dimindex_def:
   good_dimindex (:'a) ⇔ dimindex (:'a) = 32 ∨ dimindex (:'a) = 64
 End
@@ -3336,4 +3330,62 @@ Theorem SWAP_IMP:
   (P ⇒ Q ⇒ R) ⇒ Q ⇒ P ⇒ R
 Proof
   simp []
+QED
+
+(* Lemmas about ALOOKUP, LIST_REL and oEL *)
+
+Theorem LIST_REL_oEL:
+  LIST_REL R xs ys ⇒ OPTREL R (oEL n xs) (oEL n ys)
+Proof
+  rw [LIST_REL_EL_EQN,oEL_THM]
+QED
+
+Theorem EVERY_ALOOKUP:
+  EVERY P bindings ∧ ALOOKUP bindings name = SOME value ⇒ P (name,value)
+Proof
+  strip_tac
+  >> drule ALOOKUP_MEM
+  >> disch_tac
+  >> fs [EVERY_MEM]
+  >> qpat_x_assum ‘∀entry. MEM entry bindings ⇒ _’
+       (qspec_then ‘(name,value)’ mp_tac)
+  >> simp []
+QED
+
+Theorem ALOOKUP_MAP_names:
+  ALOOKUP (MAP (λname. (name,values name)) names) lookup_name =
+    if MEM lookup_name names then SOME (values lookup_name) else NONE
+Proof
+  Induct_on ‘names’
+  >> simp [ALOOKUP_def]
+  >> qx_gen_tac ‘name’
+  >> Cases_on ‘name = lookup_name’
+  >> simp []
+QED
+
+Theorem ALOOKUP_MAP_const:
+  ALOOKUP (MAP (λname. (name,value)) names) lookup_name =
+    if MEM lookup_name names then SOME value else NONE
+Proof
+  Induct_on ‘names’
+  >> simp [ALOOKUP_def]
+  >> qx_gen_tac ‘name’
+  >> Cases_on ‘name = lookup_name’
+  >> simp []
+QED
+
+Theorem LIST_REL_MAP_FST:
+  LIST_REL (λ(x,v) (y,w). x = y ∧ R v w) bindings bindings' ⇒
+  MAP FST bindings = MAP FST bindings'
+Proof
+  rw [MAP_EQ_LIST_REL]
+  >- metis_tac [LIST_REL_LENGTH]
+  >> irule LIST_REL_mono
+  >> simp [Once CONJ_COMM]
+  >> asm_exists_tac
+  >> rw []
+  >> qmatch_goalsub_rename_tac ‘FST source_binding = FST target_binding’
+  >> PairCases_on ‘source_binding’
+  >> PairCases_on ‘target_binding’
+  >> gvs []
 QED

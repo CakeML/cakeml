@@ -9,7 +9,6 @@ Ancestors
 Libs
   preamble
 
-
 Definition fvs_def:
   fvs (Raise e) = fvs e ∧
   fvs (Handle e pes) = fvs e ∪ fvs_pes pes ∧
@@ -523,14 +522,6 @@ Proof
   \\ gvs [namespacePropsTheory.nsLookup_alist_to_ns_some, ALOOKUP_rec_env]
   \\ gvs [AllCaseEqs(), EVERY_MEM, MEM_MAP, FORALL_PROD]
   \\ PairCases_on ‘y’ \\ gvs [] \\ res_tac \\ gvs []
-QED
-
-Theorem extend_dec_env_build_rec_env[local]:
-  extend_dec_env <|v := build_rec_env funs env nsEmpty; c := nsEmpty|> env =
-  env with v := build_rec_env funs env env.v
-Proof
-  gvs [extend_dec_env_def, build_rec_env_merge, sem_env_component_equality,
-       namespacePropsTheory.nsAppend_assoc]
 QED
 
 Theorem names_set_delete_names[local]:
