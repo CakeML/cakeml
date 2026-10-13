@@ -277,12 +277,12 @@ Definition parse_xlrupb_chunk_def:
   parse_xlrupb_chunk s =
   if strlen s = 0 then NONE
   else
-  let c = strsub s 0 in
+  let c = strsub_unsafe s 0 in
   if c = #"x"
   then
     if strlen s < 2 then NONE
     else
-    let k = strsub s 1 in
+    let k = strsub_unsafe s 1 in
     if k = #"d" then SOME (INL (XDelvb s))
     else
     let len = strlen s in
