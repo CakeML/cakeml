@@ -81,6 +81,9 @@ linker (#1517).
 The backend now supports IMul and IDiv instructions and optimizes to the
 (#1533). Some further cleanup of the asm ops might be expected in the future.
 
+A new constant lifting pass has been added as a source-to-source pass to the
+compiler backend (#1542).
+
 ## Pancake
 
 Queryable feature tags (#1470).
