@@ -4262,7 +4262,7 @@ Quote add_cakeml:
 End
 
 Theorem spt_Ln[local,simp]:
-  v = Conv (SOME (TypeStamp «Ln» 26)) [] ⇔
+  v = Conv (SOME (TypeStamp «Ln» 27)) [] ⇔
   SPTREE_SPT_TYPE UNIT_TYPE LN v
 Proof
   EVAL_TAC
