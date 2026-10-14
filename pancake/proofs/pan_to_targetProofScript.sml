@@ -320,7 +320,7 @@ Definition pan_installed_def:
     Word (mc_conf.target.get_pc ms + n2w (LENGTH bytes)) ∧
     m (t.regs r1 + 4w * bytes_in_word) =
     Word (mc_conf.target.get_pc ms + n2w cbspace + n2w (LENGTH bytes)) ∧
-    (word_list bitmap_ptr (MAP Word bitmaps) *
+    (word_list bitmap_ptr (MAP (Word o n2w) bitmaps) *
      word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) data_sp)
     (fun2set (m,byte_aligned ∩ bitmaps_dm)) ∧
     ffi_names = SOME mc_conf.ffi_names ∧
@@ -1313,7 +1313,7 @@ Theorem pan_to_target_compile_semantics:
   w2n (bytes_in_word:'a word) * (2 * max_heap_limit (dimindex (:'a)) c.data_conf -1) < dimword (:'a) ∧
   s.ffi = ffi ∧ mc.target.config.big_endian = s.be ∧
   OPTION_ALL (EVERY $ \x. ∃s. x = ExtCall s) c.lab_conf.ffi_names ∧
-  pan_installed bytes cbspace (MAP n2w nbitmaps) data_sp c'.lab_conf.ffi_names
+  pan_installed bytes cbspace nbitmaps data_sp c'.lab_conf.ffi_names
                 (heap_regs c.stack_conf.reg_names) mc
                 c'.lab_conf.shmem_extra ms
                 (wlab_wloc o s.memory)
@@ -1327,8 +1327,10 @@ Theorem pan_to_target_compile_semantics:
 Proof
 
   strip_tac>>
-  qmatch_asmsub_abbrev_tac ‘pan_installed bytes cbspace bitmaps data_sp _ _ _ _ _ _ _ _’>>
+  qabbrev_tac ‘bitmaps = MAP n2w nbitmaps : 'a word list’>>
   ‘LENGTH bitmaps = LENGTH nbitmaps’ by simp[Abbr ‘bitmaps’]>>
+  ‘MAP (Word o n2w) nbitmaps = MAP Word bitmaps’
+    by simp[Abbr ‘bitmaps’, MAP_MAP_o]>>
   last_x_assum mp_tac>>
   rewrite_tac[compile_prog_max_def]>>
   rewrite_tac[backendTheory.from_stack_def]>>
@@ -1541,6 +1543,7 @@ Proof
     rewrite_tac[Once UNION_COMM]>>
     irule miscTheory.fun2set_disjoint_union>>
     gs[]>>
+    simp[Abbr ‘bitmaps’, MAP_MAP_o]>>
     conj_tac >- (
       irule backendProofTheory.word_list_exists_imp>>
       gs[]>>

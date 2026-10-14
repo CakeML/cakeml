@@ -3706,7 +3706,7 @@ Theorem compile_correct':
    ¬semantics_prog s env prog Fail ∧
    backend_config_ok asm_conf c ∧ lab_to_targetProof$mc_conf_ok (mc:('a,'b,'c) machine_config) ∧ mc_init_ok asm_conf c mc ∧
    opt_eval_config_wf (:'a) asm_conf c' ev ∧
-   installed bytes cbspace (MAP n2w bitmaps) data_sp c'.lab_conf.ffi_names (heap_regs c.stack_conf.reg_names) mc
+   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names (heap_regs c.stack_conf.reg_names) mc
       c'.lab_conf.shmem_extra ms ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit'
@@ -3859,7 +3859,7 @@ Proof
   \\ drule attach_bitmaps_SOME
   \\ disch_tac \\ fs []
   \\ fs [attach_bitmaps_def] \\ rveq \\ fs [] \\
-  fs[targetSemTheory.installed_def] \\
+  fs[targetSemTheory.installed_def, GSYM MAP_MAP_o] \\
   qmatch_assum_abbrev_tac`good_init_state mc ms bytes cbspace tar_st m dm sdm` \\
   qpat_x_assum`Abbrev(p7 = _)` mp_tac>>
   qmatch_goalsub_abbrev_tac`compile _ _ _ _ stk stoff`>>
@@ -4625,7 +4625,7 @@ Theorem compile_correct:
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
    ¬semantics_prog s env prog Fail ∧
    backend_config_ok asm_conf c ∧ lab_to_targetProof$mc_conf_ok (mc:('a,'b,'c) machine_config) ∧ mc_init_ok asm_conf c mc ∧
-   installed bytes cbspace (MAP n2w bitmaps) data_sp c'.lab_conf.ffi_names
+   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
         (heap_regs c.stack_conf.reg_names) mc
         c'.lab_conf.shmem_extra ms ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
@@ -4653,7 +4653,7 @@ Theorem compile_correct_is_safe_for_space:
   let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
   ¬semantics_prog s env prog Fail ∧
   backend_config_ok asm_conf c ∧ lab_to_targetProof$mc_conf_ok (mc:('a,'b,'c) machine_config) ∧ mc_init_ok asm_conf c mc ∧
-  installed bytes cbspace (MAP n2w bitmaps) data_sp c'.lab_conf.ffi_names
+  installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
        (heap_regs c.stack_conf.reg_names) mc
        c'.lab_conf.shmem_extra ms ⇒
   machine_sem (mc:(α,β,γ) machine_config) ffi ms =
@@ -4678,7 +4678,7 @@ Theorem compile_correct_eval:
    let (s0,env) = THE (prim_sem_env (ffi: 'ffi ffi_state)) in
    ¬semantics_prog (add_eval_state ev s0) env prog Fail ∧ backend_config_ok asm_conf c ∧
    lab_to_targetProof$mc_conf_ok (mc:('a,'b,'c) machine_config) ∧ mc_init_ok asm_conf c mc ∧ opt_eval_config_wf (:'a) asm_conf c' ev ∧
-   installed bytes cbspace (MAP n2w bitmaps) data_sp c'.lab_conf.ffi_names
+   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
      (heap_regs c.stack_conf.reg_names) mc
      c'.lab_conf.shmem_extra ms ⇒
    machine_sem mc ffi ms ⊆
