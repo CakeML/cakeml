@@ -192,7 +192,7 @@ Definition export_funcs_def:
 End
 
 Definition mips_export_def:
-  mips_export ffi_names bytes (data:word64 list) syms exp ret pk =
+  mips_export ffi_names bytes (data:num list) syms exp ret pk =
     let lsyms = get_sym_labels syms in
     SmartAppend
       (SmartAppend (List preamble)

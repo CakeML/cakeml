@@ -448,7 +448,7 @@ Definition SetNewTrigger_def:
               If Lower 1 (Reg 7)
                 (If Lower 4 (Reg 7)
                    (Set TriggerGC endh)
-                   (If Test 7 (Imm (if arch_width_bits aw = 32 then 3 else 7))
+                   (If Test 7 (Imm (&(arch_bytes aw - 1)))
                      (Seq (add_inst 7 ib) (Set TriggerGC 7))
                      (Set TriggerGC endh)))
                 (If Lower 4 (Reg 1)

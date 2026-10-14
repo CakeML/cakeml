@@ -52,20 +52,25 @@ val _ = translation_extends "compiler64CommonProg";
 val _ = ml_translatorLib.use_sub_check true;
 val _ = use_long_names := true;
 
-val spec64 = INST_TYPE [alpha |-> ``:64``];
-
 val _ = register_type ``:compiler64_host``;
 val _ = next_ml_names := ["host_args"];
 val r = translate host_args_def;
 
 Definition compiler_for_eval_def:
-  compiler_for_eval host = compile_inc_progs_for_eval (:64) (host_config host)
+  compiler_for_eval host = compile_inc_progs_for_eval (host_config host)
 End
 
-Theorem upper_w2w_eq_I[local]:
-  backend_common$upper_w2w = (I:word64 -> word64)
+Definition bitmap_to_word64_def:
+  bitmap_to_word64 (n:num) = (n2w n :word64)
+End
+
+val r = translate bitmap_to_word64_def;
+
+Theorem upper_n2w_Arch64[local]:
+  upper_n2w Arch64 = bitmap_to_word64
 Proof
-  fs [backend_commonTheory.upper_w2w_def,FUN_EQ_THM]
+  simp [FUN_EQ_THM, backend_commonTheory.upper_n2w_def,
+        bitmap_to_word64_def]
 QED
 
 val compiler_for_eval_alt =
@@ -84,12 +89,11 @@ val compiler_for_eval_alt =
              EVAL ``x64_config.addr_offset``, EVAL ``arm8_config.addr_offset``,
              EVAL ``x64_config.ISA``, EVAL ``arm8_config.ISA``,
              EVAL ``x86_64 = ARMv7``, EVAL ``ARMv8 = ARMv7``,
-             listTheory.MAP_ID, upper_w2w_eq_I])
+             asmTheory.arch_wordsize_def, upper_n2w_Arch64,
+             listTheory.MAP_ID])
   |> LIST_CONJ;
 
-val r = translate (word_to_wordTheory.compile_single_def |> spec64);
-val r = translate (word_to_wordTheory.full_compile_single_def |> spec64);
-val r = translate (word_to_wordTheory.full_compile_single_for_eval_def |> spec64);
+val r = translate word_to_wordTheory.full_compile_single_for_eval_def;
 
 Theorem ws_to_chars_eq[local]:
   ws_to_chars [] = [] /\

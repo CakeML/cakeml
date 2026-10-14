@@ -351,13 +351,13 @@ QED
 
 Definition code_rel_def:
     code_rel (reachable:num_set) s_code
-        (t_code :(num # ('a wordLang$prog) # metadata) num_map) =
+        (t_code :(num # (wordLang$prog) # metadata) num_map) =
         ∀ n . n ∈ domain reachable ⇒
             lookup n s_code = lookup n t_code
 End
 
 Definition code_closed_def:
-    code_closed reachable (c1:(num # ('a wordLang$prog) # metadata) num_map) ⇔
+    code_closed reachable (c1:(num # (wordLang$prog) # metadata) num_map) ⇔
         ∃ code1 . c1 = fromAList code1 ∧
         ∀ n m . n ∈ domain reachable ∧
         is_reachable (analyse_word_code code1) n m ⇒

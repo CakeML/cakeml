@@ -3,6 +3,7 @@
 *)
 Theory pan_to_crepProof
 Ancestors
+  wordSem
   crep_inlineProof[qualified]
   panSem panProps crepLang crepSem pan_common
   listRange crepProps pan_commonProps pan_to_crep
@@ -239,7 +240,7 @@ Proof
     gs [eval_def, OPT_MMAP_def] >>
     every_case_tac >> fs [] >> rveq >>
     fs[EVERY_DEF] >> cases_on ‘h’ >> fs [] >>
-    fs [wordLangTheory.word_op_def] >> rveq >>
+    fs [wordSemTheory.word_op_def] >> rveq >>
     qpat_x_assum ‘mem_load _ _ = _’ (mp_tac o GSYM) >>
     strip_tac >> fs [])
   >~ [‘eval s (LoadByte e)’] >-

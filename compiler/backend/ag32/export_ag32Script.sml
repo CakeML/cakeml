@@ -8,7 +8,7 @@ Libs
   preamble
 
 Definition ag32_export_def:
-  ag32_export (ffi_names:mlstring list) bytes (data:word32 list)
+  ag32_export (ffi_names:mlstring list) bytes (data:num list)
       (syms: (mlstring # num # num) list) exp ret pk =
     SmartAppend
      (split16 (words_line «.data_word » word_to_string) data)

@@ -17,7 +17,7 @@ End
 
 Datatype:
   mini = Skip
-       | Assign num ('a wordLang$exp)
+       | Assign num wordLang$exp
        | Delete (num list)
        | Seq mini mini
        | Load num num address
@@ -38,9 +38,9 @@ End
 
 (* syntax helper funs *)
 
-val Skip_tm = ``Skip:'a word_bignum$mini``
-val Swap_tm = ``Swap:'a word_bignum$mini``
-val Continue_tm = ``Continue:'a word_bignum$mini``
+val Skip_tm = ``Skip:word_bignum$mini``
+val Swap_tm = ``Swap:word_bignum$mini``
+val Continue_tm = ``Continue:word_bignum$mini``
 
 local val s = HolKernel.syntax_fns1 "word_bignum" in
   val (Delete_tm,mk_Delete,dest_Delete,is_Delete) = s "Delete"
@@ -111,7 +111,7 @@ fun get_exp x =
   in wordLangSyntax.mk_Var n end handle HOL_ERR _ =>
   (* Const *) let
   val _ = wordsSyntax.dest_n2w x
-  in wordLangSyntax.mk_Const x end handle HOL_ERR _ =>
+  in wordLangSyntax.mk_Const (intSyntax.mk_injected (fst (wordsSyntax.dest_n2w x))) end handle HOL_ERR _ =>
   (* Op *) let
   val (_,name) = first (fn (pat,_) => can (match_term pat) x) binops
   val x1 = get_exp (x |> rator |> rand)
@@ -122,7 +122,7 @@ fun get_exp x =
   val (_,name) = first (fn (pat,_) => can (match_term pat) x) shifts
   val x1 = get_exp (x |> rator |> rand)
   val x2 = x |> rand
-  in wordLangSyntax.mk_Shift(name,x1,``Const (n2w ^x2)``) end
+  in wordLangSyntax.mk_Shift(name,x1,``Const (& ^x2)``) end
   handle HOL_ERR _ =>
   (* ~ *) let
   val r = wordsSyntax.dest_word_1comp x
@@ -349,14 +349,14 @@ fun get_full_prog inp tm = let
                                  handle HOL_ERR _ => true)
              |> LIST_CONJ |> CONJ (REFL init_prog) |> concl
   fun is_delete tm =
-    can (match_term ``(Delete n):'a mini``) tm
-  val Add_tm = ``(Add n1 n2):num -> reg_imm -> reg_imm -> α mini``
-  val Sub_tm = ``(Sub n1 n2):num -> reg_imm -> reg_imm -> α mini``
-  val Mul_tm = ``(Mul n1 n2):num -> num -> α mini``
-  val Div_tm = ``(Div n1 n2):num -> num -> num -> α mini``
+    can (match_term ``(Delete n):mini``) tm
+  val Add_tm = ``(Add n1 n2):num -> reg_imm -> reg_imm -> mini``
+  val Sub_tm = ``(Sub n1 n2):num -> reg_imm -> reg_imm -> mini``
+  val Mul_tm = ``(Mul n1 n2):num -> num -> mini``
+  val Div_tm = ``(Div n1 n2):num -> num -> num -> mini``
   fun is_assign tm =
-    can (match_term ``(Assign n):α wordLang$exp -> α mini``) tm orelse
-    can (match_term ``(Load n):num -> address -> α mini``) tm orelse
+    can (match_term ``(Assign n):wordLang$exp -> mini``) tm orelse
+    can (match_term ``(Load n):num -> address -> mini``) tm orelse
     can (match_term Add_tm) tm orelse can (match_term (rator Add_tm)) tm orelse
     can (match_term Sub_tm) tm orelse can (match_term (rator Sub_tm)) tm orelse
     can (match_term Mul_tm) tm orelse can (match_term (rator Mul_tm)) tm orelse
@@ -443,7 +443,7 @@ Definition compile_exp_def:
   compile_exp (Var n) = Lookup (Temp (n2w n)) /\
   compile_exp (Const w) = Const w /\
   compile_exp (Shift sh x y) = Shift sh (compile_exp x) (compile_exp y) /\
-  compile_exp _ = Const 0w
+  compile_exp _ = Const 0
 End
 
 Definition TempIn1_def:
@@ -462,21 +462,21 @@ End
 
 Definition SeqTempImm_def:
   SeqTempImm i (Reg r) p = SeqTemp i r p /\
-  SeqTempImm i (Imm w) p = Seq (wordLang$Assign i (Const (i2w w))) p
+  SeqTempImm i (Imm w) p = Seq (wordLang$Assign i (Const w)) p
 End
 
 Definition SeqTempImmNot_def:
   SeqTempImmNot i (Reg r) p =
-    SeqTemp i r (Seq (Assign i (Op Xor [Var i; Const (~0w)])) p) /\
-  SeqTempImmNot i (Imm w) p = Seq (wordLang$Assign i (Const (~(i2w w)))) p
+    SeqTemp i r (Seq (Assign i (Op Xor [Var i; Const (-1)])) p) /\
+  SeqTempImmNot i (Imm w) p = Seq (wordLang$Assign i (Const (-w - 1))) p
 End
 
 Definition SeqIndex_def:
-  SeqIndex i r arr p =
+  SeqIndex bits i r arr p =
     let t = (case arr of Out => TempOut | In2 => TempIn2 | In1 => TempIn1) in
       Seq (Assign i (Op Add [Lookup t;
-           ShiftN Lsl (Lookup (Temp (n2w r))) (shift (dimindex (:'a)))])) p
-              :'a wordLang$prog
+           ShiftN Lsl (Lookup (Temp (n2w r))) (shift (bits))])) p
+              :wordLang$prog
 End
 
 Definition div_location_def:
@@ -491,87 +491,87 @@ Definition DivCode_def:
 End
 
 Definition LoadRegs_def:
-  (LoadRegs [] p = p:'a wordLang$prog) /\
+  (LoadRegs [] p = p:wordLang$prog) /\
   (LoadRegs (n::ns) p = Seq (Get (n+2) (Temp (n2w n))) (LoadRegs ns p))
 End
 
 Definition SaveRegs_def:
-  (SaveRegs [] = Skip:'a wordLang$prog) /\
+  (SaveRegs [] = Skip:wordLang$prog) /\
   (SaveRegs (n::ns) = Seq (Set (Temp (n2w n)) (Var (n+2))) (SaveRegs ns))
 End
 
 Definition compile_def:
-  (compile n l i cs Skip = (wordLang$Skip,l,i,cs)) /\
-  (compile n l i cs Continue = (Call NONE (SOME n) [0] NONE,l,i,cs)) /\
-  (compile n l i cs (Rec save_regs names) =
+  (compile bits n l i cs Skip = (wordLang$Skip,l,i,cs)) /\
+  (compile bits n l i cs Continue = (Call NONE (SOME n) [0] NONE,l,i,cs)) /\
+  (compile bits n l i cs (Rec save_regs names) =
      (LoadRegs save_regs
        (Call (SOME ([1],(LS (),list_insert (MAP (\n.n+2) save_regs) LN),
           SaveRegs save_regs,n,l)) (SOME n) [] NONE),l+1,i,cs)) /\
-  (compile n l i cs (Loop rec_calls vs body) =
+  (compile bits n l i cs (Loop rec_calls vs body) =
      case has_compiled body cs of
      | INL existing_index =>
          (Call (SOME ([i],(LS (),LN),Skip,n,l)) (SOME existing_index) [] NONE,l+1,i+1,cs)
      | INR new_index =>
-         let (new_code,a,b,cs) = compile new_index 2 1 (code_acc_next cs) body in
+         let (new_code,a,b,cs) = compile bits new_index 2 1 (code_acc_next cs) body in
            (Call (SOME ([i],(LS (),LN),Skip,n,l)) (SOME new_index) [] NONE,l+1,i+1,
             install (body,new_index,new_code) cs)) /\
-  (compile n l i cs (LoopBody b) = compile n l i cs b) /\
-  (compile n l i cs (Seq p1 p2) =
-     let (p1,l,i,cs) = compile n l i cs p1 in
-     let (p2,l,i,cs) = compile n l i cs p2 in
+  (compile bits n l i cs (LoopBody b) = compile bits n l i cs b) /\
+  (compile bits n l i cs (Seq p1 p2) =
+     let (p1,l,i,cs) = compile bits n l i cs p1 in
+     let (p2,l,i,cs) = compile bits n l i cs p2 in
        (Seq p1 p2,l,i,cs)) /\
-  (compile n l i cs (If t r ri p1 p2) =
-     let (p1,l,i,cs) = compile n l i cs p1 in
-     let (p2,l,i,cs) = compile n l i cs p2 in
+  (compile bits n l i cs (If t r ri p1 p2) =
+     let (p1,l,i,cs) = compile bits n l i cs p1 in
+     let (p2,l,i,cs) = compile bits n l i cs p2 in
        case ri of
        | Reg r2 => (SeqTemp i r (SeqTemp (i+1) r2 (If t i (Reg (i+1)) p1 p2)),
                     l,i+2,cs)
        | Imm im => (SeqTemp i r (If t i ri p1 p2),l,i+1,cs)) /\
-  (compile n l i cs (Assign j e) =
+  (compile bits n l i cs (Assign j e) =
      (Seq (Assign i (compile_exp e)) (Set (Temp (n2w j)) (Var i)),l,i+1,cs)) /\
-  (compile n l i cs (Delete _) = (Skip:'a wordLang$prog,l,i,cs)) /\
-  (compile n l i cs Swap =
+  (compile bits n l i cs (Delete _) = (Skip:wordLang$prog,l,i,cs)) /\
+  (compile bits n l i cs Swap =
      (Seq (Assign i (Lookup (TempIn1)))
      (Seq (Set (TempIn1) (Lookup (TempIn2)))
           (Set (TempIn2) (Var i))),l,i+1,cs)) /\
-  (compile n l i cs (Store r1 r2) =
+  (compile bits n l i cs (Store r1 r2) =
      (SeqTemp i r1
-     (SeqIndex (i+1) r2 Out
+     (SeqIndex bits (i+1) r2 Out
         (Store (Var (i+1)) i)),l,i+2,cs)) /\
-  (compile n l i cs (Load r1 r2 arr) =
-     (SeqIndex i r2 arr
+  (compile bits n l i cs (Load r1 r2 arr) =
+     (SeqIndex bits i r2 arr
      (Seq (Assign (i+1) (Load (Var i)))
           (Set (Temp (n2w r1)) (Var (i+1)))),l,i+2,cs)) /\
-  (compile n l i cs (Add r0 r1 r2 r3 r4) =
+  (compile bits n l i cs (Add r0 r1 r2 r3 r4) =
      (SeqTempImm (i+4) r4 (SeqTempImm (i+3) r3 (SeqTemp (i+2) r2
      (Seq (Inst (Arith (AddCarry (i+1) (i+2) (i+3) (i+4))))
      (Seq (Set (Temp (n2w r0)) (Var (i+1)))
           (Set (Temp (n2w r1)) (Var (i+4))))))),l,i+5,cs)) /\
-  (compile n l i cs (Sub r0 r1 r2 r3 r4) =
+  (compile bits n l i cs (Sub r0 r1 r2 r3 r4) =
      (SeqTempImm (i+4) r4 (SeqTempImmNot (i+3) r3 (SeqTemp (i+2) r2
      (Seq (Inst (Arith (AddCarry (i+1) (i+2) (i+3) (i+4))))
      (Seq (Set (Temp (n2w r0)) (Var (i+1)))
           (Set (Temp (n2w r1)) (Var (i+4))))))),l,i+5,cs)) /\
-  (compile n l i cs (Mul r0 r1 r2 r3) =
+  (compile bits n l i cs (Mul r0 r1 r2 r3) =
      (SeqTemp (i+3) r3 (SeqTemp (i+2) r2
      (Seq (Inst (Arith (LongMul (i+0) (i+1) (i+2) (i+3))))
      (Seq (Set (Temp (n2w r1)) (Var (i+0)))
           (Set (Temp (n2w r0)) (Var (i+1)))))),l,i+4,cs)) /\
-  (compile n l i cs (Div r0 r1 r2 r3 r4) =
+  (compile bits n l i cs (Div r0 r1 r2 r3 r4) =
      (SeqTemp (i+4) r4 (SeqTemp (i+3) r3 (SeqTemp (i+2) r2
      (Seq (DivCode n l (i+0) (i+1) (i+2) (i+3) (i+4))
      (Seq (Set (Temp (n2w r0)) (Var (i+0)))
           (Set (Temp (n2w r1)) (Var (i+1))))))),l+1,i+5,cs)) /\
-  (compile n l i cs _ = (Skip,l,i,cs))
+  (compile bits n l i cs _ = (Skip,l,i,cs))
 End
 
 val _ = (max_print_depth := 25);
 
 Definition generated_bignum_stubs_def:
-  generated_bignum_stubs n =
-    let (x1,_,_,(_,cs)) = compile n 2 1 (n+1,[]) mc_iop_code in
+  generated_bignum_stubs bits n =
+    let (x1,_,_,(_,cs)) = compile bits n 2 1 (n+1,[]) mc_iop_code in
       (n,1n,Seq x1 (Return 0 [0])) :: MAP (\(x,y,z). (y,1,Seq z (Return 0 [0]))) cs
 End
 
 Theorem generated_bignum_stubs_eq =
-  EVAL ``generated_bignum_stubs n`` |> SIMP_RULE std_ss [GSYM ADD_ASSOC]
+  EVAL ``generated_bignum_stubs bits n`` |> SIMP_RULE std_ss [GSYM ADD_ASSOC]

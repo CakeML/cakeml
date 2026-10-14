@@ -3,6 +3,7 @@
 *)
 Theory crep_arithProof
 Ancestors
+  wordSem
   crepSem crepProps crep_arith
 Libs
   preamble
@@ -20,7 +21,7 @@ Proof
   rw[] >>
   irule LESS_EQ_TRANS >>
   first_x_assum $ irule_at $ Pos hd >>
-  gvs [wordLangTheory.word_sh_def, wordsTheory.WORD_MUL_LSL,
+  gvs [wordSemTheory.word_sh_def, wordsTheory.WORD_MUL_LSL,
        word_log2_def,w2n_lsr] >>
   Cases_on ‘w’ >> gvs[] >>
   rename1 ‘k DIV 2’ >>
@@ -86,7 +87,7 @@ Proof
       simp[])
   \\ rename1 ‘dest_2exp _ _ = SOME x’
   \\ Cases_on ‘x = 0’ >- gvs[Once dest_2exp_def]
-  \\ gvs [wordLangTheory.word_sh_def, wordsTheory.WORD_MUL_LSL]
+  \\ gvs [wordSemTheory.word_sh_def, wordsTheory.WORD_MUL_LSL]
   \\ rw[GE,NOT_LE]
 QED
 

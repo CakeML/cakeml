@@ -3,6 +3,7 @@
 *)
 Theory crep_to_loopProof
 Ancestors
+  wordSem
   listRange rich_list crepProps loopProps pan_commonProps
   loop_liveProof crepSem loopLang loopSem pan_common
   crep_arithProof crep_to_loop
@@ -43,7 +44,7 @@ End
 *)
 
 Definition wlab_wloc_def:
-  (wlab_wloc (panSem$Word w) = wordLang$Word w)
+  (wlab_wloc (panSem$Word w) = wordSem$Word w)
 End
 
 Definition mem_rel_def:
