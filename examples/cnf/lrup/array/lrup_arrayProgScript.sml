@@ -381,7 +381,7 @@ QED
 Quote add_cakeml:
   fun check_unsat' vcfml fname n nc =
   let
-    val fd = TextIO.openIn fname
+    val fd = TextIO.openInSetBufferSize fname 65531
     val fml = build_cfml_arr nc 1 vcfml
     val carr = Array.array n 0
     val chk = Inr (check_unsat'' fd 1 fml carr 1)
@@ -425,7 +425,7 @@ Proof
       &BadFileName_exn ev *
       &(~inFS_fname fs f) *
       STDIO fs`
-    >- (xlet_auto_spec (SOME openIn_STDIO_spec)>>xsimpl)>>
+    >- (xlet_auto_spec (SOME openInSetBufferSize_STDIO_spec)>>xsimpl)>>
     fs[BadFileName_exn_def]>>
     xcases>>rw[]>>
     xlet_auto>>xsimpl>>
@@ -436,7 +436,7 @@ Proof
   xhandle`$POSTv Qval`>>xsimpl>>
   qunabbrev_tac`Qval`>>
   xlet_auto_spec
-    (SOME (openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `nulc`))>>xsimpl>>
+    (SOME (openInSetBufferSize_spec_lines |> Q.GEN `c0` |> Q.SPEC `nulc`))>>xsimpl>>
   qmatch_goalsub_abbrev_tac`STDIO fss`>>
   xlet_autop>>
   xlet_auto_spec (SOME NUM_ARRAY_alloc_zero_spec)

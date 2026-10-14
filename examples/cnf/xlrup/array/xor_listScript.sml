@@ -116,6 +116,21 @@ Proof
   fs[]
 QED
 
+Theorem is_emp_xor_list_TAKE_8:
+  n + 8 ≤ LENGTH cs ⇒
+  (is_emp_xor_list (TAKE (n + 8) cs) ⇔
+    is_emp_xor_list (TAKE n cs) ∧
+    EL n cs = 0w ∧ EL (n + 1) cs = 0w ∧ EL (n + 2) cs = 0w ∧
+    EL (n + 3) cs = 0w ∧ EL (n + 4) cs = 0w ∧ EL (n + 5) cs = 0w ∧
+    EL (n + 6) cs = 0w ∧ EL (n + 7) cs = 0w)
+Proof
+  rw[is_emp_xor_list_def]>>
+  `n + 8 = SUC (SUC (SUC (SUC (SUC (SUC (SUC (SUC n)))))))` by simp[]>>
+  pop_assum SUBST1_TAC>>
+  DEP_REWRITE_TAC[GSYM SNOC_EL_TAKE]>>
+  simp[EVERY_SNOC,ADD1,CONJ_ASSOC]
+QED
+
 Definition flip_bit_word_def:
   flip_bit_word (w:word8) n =
   let b = ¬ (w ' n) in
@@ -208,6 +223,14 @@ Definition extend_s_list_def:
   else
     s ++ REPLICATE (n - LENGTH s) (0w :word8)
 End
+
+Theorem extend_s_list_id:
+  n ≤ LENGTH s ⇒ extend_s_list s n = s
+Proof
+  rw[extend_s_list_def]>>
+  `n - LENGTH s = 0` by simp[]>>
+  simp[]
+QED
 
 Theorem extend_s_list:
   extend_s_list s n =

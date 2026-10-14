@@ -2314,6 +2314,19 @@ Proof
 QED
 
 (* STDIO version *)
+Theorem openStdInSetBufferSize_STDIO_spec:
+   ∀bsize bsizev fs.
+     NUM bsize bsizev ⇒
+     app (p:'ffi ffi_proj) TextIO_openStdInSetBufferSize_v [bsizev]
+       (STDIO fs)
+       (POSTv is. INSTREAM_BUFFERED_FD [] 0 is * STDIO fs)
+Proof
+ rw[STDIO_def] >> xpull >> xapp_spec openStdInSetBufferSize_spec >>
+ map_every qexists_tac [`emp`,`fs with numchars := ll`] >>
+ conj_tac >- (first_assum (irule_at Any)) >>
+ xsimpl >> rw[] >> qexists_tac`ll` >> xsimpl
+QED
+
 Theorem openStdIn_STDIO_spec:
    ∀uv fs.
      UNIT_TYPE () uv ⇒
@@ -2321,9 +2334,11 @@ Theorem openStdIn_STDIO_spec:
        (STDIO fs)
        (POSTv is. INSTREAM_BUFFERED_FD [] 0 is * STDIO fs)
 Proof
- rw[STDIO_def] >> xpull >> xapp_spec openStdIn_spec >>
- map_every qexists_tac [`emp`,`fs with numchars := ll`] >>
- xsimpl >> rw[] >> qexists_tac`ll` >> fs[openFileFS_fupd_numchars] >> xsimpl
+  rpt strip_tac
+  \\ xcf_with_def TextIO_openStdIn_v_def
+  \\ xmatch \\ fs[UNIT_TYPE_def] \\ conj_tac
+  >- (xapp_spec openStdInSetBufferSize_STDIO_spec \\ fs[INT_NUM_EXISTS])
+  \\ EVAL_TAC \\ simp[]
 QED
 
 Theorem openInSetBufferSize_spec:
@@ -2385,6 +2400,29 @@ Proof
 QED
 
 (* STDIO version *)
+Theorem openInSetBufferSize_STDIO_spec:
+   ∀s sv bsize bsizev fs.
+     FILENAME s sv ∧
+     NUM bsize bsizev ∧
+     hasFreeFD fs ⇒
+     app (p:'ffi ffi_proj) TextIO_openInSetBufferSize_v [sv;bsizev]
+       (STDIO fs)
+       (POSTve
+          (\is. &(validFD (nextFD fs) (openFileFS s fs ReadMode 0) ∧
+                  inFS_fname fs s) *
+                INSTREAM_BUFFERED_FD [] (nextFD fs) is *
+                STDIO (openFileFS s fs ReadMode 0))
+          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs s) * STDIO fs))
+Proof
+ rw[STDIO_def] >> xpull >> xapp_spec openInSetBufferSize_spec >>
+ map_every qexists_tac [`emp`,`s`,`fs with numchars := ll`] >>
+ xsimpl >> rw[] >> qexists_tac`bsize` >> rw[] >>
+ qexists_tac`ll` >> fs[openFileFS_fupd_numchars] >> xsimpl >>
+ rw[] >>
+ fs[nextFD_numchars,nextFD_numchars,openFileFS_fupd_numchars,STD_streams_openFileFS] >>
+ fs[GSYM validFD_numchars,GSYM openFileFS_fupd_numchars,inFS_fname_numchars] \\ xsimpl
+QED
+
 Theorem openIn_STDIO_spec:
    ∀s sv fs.
      FILENAME s sv ∧
@@ -2398,12 +2436,9 @@ Theorem openIn_STDIO_spec:
                 STDIO (openFileFS s fs ReadMode 0))
           (\e. &(BadFileName_exn e ∧ ~inFS_fname fs s) * STDIO fs))
 Proof
- rw[STDIO_def] >> xpull >> xapp_spec openIn_spec >>
- map_every qexists_tac [`emp`,`s`,`fs with numchars := ll`] >>
- xsimpl >> rw[] >> qexists_tac`ll` >> fs[openFileFS_fupd_numchars] >> xsimpl >>
- rw[] >>
- fs[nextFD_numchars,nextFD_numchars,openFileFS_fupd_numchars,STD_streams_openFileFS] >>
- fs[GSYM validFD_numchars,GSYM openFileFS_fupd_numchars,inFS_fname_numchars] \\ xsimpl
+  rpt strip_tac
+  \\ xcf_with_def TextIO_openIn_v_def
+  \\ xapp_spec openInSetBufferSize_STDIO_spec \\ fs[INT_NUM_EXISTS]
 QED
 
 Theorem closeIn_spec:
@@ -5986,10 +6021,10 @@ Definition stdin_content_def:
     else NONE
 End
 
-Theorem openStdIn_spec_str:
+Theorem openStdInSetBufferSize_spec_str:
   stdin_content fs = SOME text ∧
-  UNIT_TYPE () uv ⇒
-  app (p:'ffi ffi_proj) TextIO_openStdIn_v [uv]
+  NUM bsize bsizev ⇒
+  app (p:'ffi ffi_proj) TextIO_openStdInSetBufferSize_v [bsizev]
      (STDIO fs)
      (POSTv is. STDIO fs * INSTREAM_STR 0 is text fs)
 Proof
@@ -6011,7 +6046,7 @@ Proof
           \\ imp_res_tac ALOOKUP_FAILS \\ fs[])
   \\ rw [INSTREAM_STR_def,SEP_CLAUSES]
   \\ match_mp_tac (MP_CANON app_wgframe)
-  \\ mp_tac (GEN_ALL openStdIn_STDIO_spec)
+  \\ mp_tac (GEN_ALL openStdInSetBufferSize_STDIO_spec)
   \\ disch_then drule
   \\ disch_then (qspecl_then [‘p’,‘fs’] assume_tac)
   \\ asm_exists_tac
@@ -6019,9 +6054,24 @@ Proof
   \\ gvs [get_file_content_def,AllCaseEqs(),get_mode_def]
 QED
 
-Theorem openIn_spec_str:
-  FILENAME s sv /\ hasFreeFD fs /\ file_content fs s = SOME text ==>
-  app (p:'ffi ffi_proj) TextIO_openIn_v [sv]
+Theorem openStdIn_spec_str:
+  stdin_content fs = SOME text ∧
+  UNIT_TYPE () uv ⇒
+  app (p:'ffi ffi_proj) TextIO_openStdIn_v [uv]
+     (STDIO fs)
+     (POSTv is. STDIO fs * INSTREAM_STR 0 is text fs)
+Proof
+  rpt strip_tac
+  \\ xcf_with_def TextIO_openStdIn_v_def
+  \\ xmatch \\ fs[UNIT_TYPE_def] \\ conj_tac
+  >- (xapp_spec openStdInSetBufferSize_spec_str \\ fs[INT_NUM_EXISTS])
+  \\ EVAL_TAC \\ simp[]
+QED
+
+Theorem openInSetBufferSize_spec_str:
+  FILENAME s sv /\ NUM bsize bsizev /\ hasFreeFD fs /\
+  file_content fs s = SOME text ==>
+  app (p:'ffi ffi_proj) TextIO_openInSetBufferSize_v [sv;bsizev]
      (STDIO fs)
      (POSTv is.
         STDIO (openFileFS s fs ReadMode 0) *
@@ -6029,7 +6079,7 @@ Theorem openIn_spec_str:
 Proof
   rw [INSTREAM_STR_def,SEP_CLAUSES]
   \\ match_mp_tac (MP_CANON app_wgframe)
-  \\ mp_tac (GEN_ALL openIn_STDIO_spec)
+  \\ mp_tac (GEN_ALL openInSetBufferSize_STDIO_spec)
   \\ rpt (disch_then drule) \\ fs []
   \\ rpt (disch_then drule)
   \\ `inFS_fname fs s` by fs [inFS_fname_def,file_content_def,CaseEq"option"]
@@ -6044,6 +6094,19 @@ Proof
   \\ imp_res_tac nextFD_ltX
   \\ fs [inFS_fname_def,file_content_def,CaseEq"option",openFileFS_def,openFile_def]
   \\ fs [get_file_content_def,get_mode_def]
+QED
+
+Theorem openIn_spec_str:
+  FILENAME s sv /\ hasFreeFD fs /\ file_content fs s = SOME text ==>
+  app (p:'ffi ffi_proj) TextIO_openIn_v [sv]
+     (STDIO fs)
+     (POSTv is.
+        STDIO (openFileFS s fs ReadMode 0) *
+        INSTREAM_STR (nextFD fs) is text (openFileFS s fs ReadMode 0))
+Proof
+  rpt strip_tac
+  \\ xcf_with_def TextIO_openIn_v_def
+  \\ xapp_spec openInSetBufferSize_spec_str \\ fs[INT_NUM_EXISTS]
 QED
 
 Theorem closeIn_spec_str:
@@ -6086,6 +6149,23 @@ Proof
   fs [TOKENS_def,UNCURRY,SPLITP]
 QED
 
+Theorem openStdInSetBufferSize_spec_lines:
+  stdin_content fs = SOME text ∧
+  NUM bsize bsizev ⇒
+  app (p:'ffi ffi_proj) TextIO_openStdInSetBufferSize_v [bsizev]
+     (STDIO fs)
+     (POSTv is. STDIO fs * INSTREAM_LINES c0 0 is (lines_of_gen c0 (implode text)) fs)
+Proof
+  rw [INSTREAM_LINES_def,SEP_CLAUSES]
+  \\ xapp_spec openStdInSetBufferSize_spec_str
+  \\ qexists_tac ‘emp’
+  \\ first_x_assum $ irule_at (Pos hd)
+  \\ first_assum $ irule_at Any
+  \\ xsimpl \\ rw []
+  \\ qexists_tac ‘text’ \\ fs []
+  \\ xsimpl
+QED
+
 Theorem openStdIn_spec_lines:
   stdin_content fs = SOME text ∧
   UNIT_TYPE () uv ⇒
@@ -6093,13 +6173,11 @@ Theorem openStdIn_spec_lines:
      (STDIO fs)
      (POSTv is. STDIO fs * INSTREAM_LINES c0 0 is (lines_of_gen c0 (implode text)) fs)
 Proof
-  rw [INSTREAM_LINES_def,SEP_CLAUSES]
-  \\ xapp_spec openStdIn_spec_str
-  \\ qexists_tac ‘emp’
-  \\ first_x_assum $ irule_at (Pos hd)
-  \\ xsimpl \\ rw []
-  \\ qexists_tac ‘text’ \\ fs []
-  \\ xsimpl
+  rpt strip_tac
+  \\ xcf_with_def TextIO_openStdIn_v_def
+  \\ xmatch \\ fs[UNIT_TYPE_def] \\ conj_tac
+  >- (xapp_spec openStdInSetBufferSize_spec_lines \\ fs[INT_NUM_EXISTS])
+  \\ EVAL_TAC \\ simp[]
 QED
 
 (* TODO: copied from fsFFIProps *)
@@ -6131,9 +6209,9 @@ Proof
   \\ simp [all_lines_file_gen_def, lines_of_gen_def]
 QED
 
-Theorem openIn_spec_lines:
-  FILENAME s sv /\ hasFreeFD fs /\ inFS_fname fs s ==>
-  app (p:'ffi ffi_proj) TextIO_openIn_v [sv]
+Theorem openInSetBufferSize_spec_lines:
+  FILENAME s sv /\ NUM bsize bsizev /\ hasFreeFD fs /\ inFS_fname fs s ==>
+  app (p:'ffi ffi_proj) TextIO_openInSetBufferSize_v [sv;bsizev]
      (STDIO fs)
      (POSTv is.
         STDIO (openFileFS s fs ReadMode 0) *
@@ -6145,7 +6223,7 @@ Proof
     \\ fs [consistentFS_def] \\ metis_tac [])
   \\ rw [INSTREAM_LINES_def,SEP_CLAUSES]
   \\ match_mp_tac (MP_CANON app_wgframe)
-  \\ mp_tac (GEN_ALL openIn_spec_str)
+  \\ mp_tac (GEN_ALL openInSetBufferSize_spec_str)
   \\ rpt (disch_then drule) \\ fs []
   \\ rpt (disch_then drule)
   \\ fs [all_lines_file_gen_def,file_content_def]
@@ -6158,6 +6236,20 @@ Proof
   \\ fs [] \\ rw []
   \\ qexists_tac `content`
   \\ xsimpl \\ fs []
+QED
+
+Theorem openIn_spec_lines:
+  FILENAME s sv /\ hasFreeFD fs /\ inFS_fname fs s ==>
+  app (p:'ffi ffi_proj) TextIO_openIn_v [sv]
+     (STDIO fs)
+     (POSTv is.
+        STDIO (openFileFS s fs ReadMode 0) *
+        INSTREAM_LINES c0 (nextFD fs) is (all_lines_file_gen c0 fs s)
+          (openFileFS s fs ReadMode 0))
+Proof
+  rpt strip_tac
+  \\ xcf_with_def TextIO_openIn_v_def
+  \\ xapp_spec openInSetBufferSize_spec_lines \\ fs[INT_NUM_EXISTS]
 QED
 
 Theorem closeIn_spec_lines:
