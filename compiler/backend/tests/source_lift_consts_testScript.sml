@@ -1,5 +1,5 @@
 (*
-  Readiness challenges for source_lift_consts, based on plan.txt.
+  Basic tests and readiness challenges for source_lift_consts, based on plan.txt.
 
   These are specifications, not snapshots of current compiler output.
   Some intentionally require behaviour the pass does not yet implement.
@@ -1166,6 +1166,78 @@ Theorem test_repeated_shadowing_helper_application[local]:
   evaluate_decs (s with clock := 5) <|v := nsEmpty; c := nsEmpty|> prog =
     (s with clock := 3,
       Rval <|v := nsBind «answer» (Litv (IntLit 1)) nsEmpty; c := nsEmpty|>)
+Proof
+  EVAL_TAC
+QED
+
+(* --------------------------------------------------------- *
+    Some simple sanity tests
+ * --------------------------------------------------------- *)
+
+Theorem test1[local]: (* no lift outside of closures *)
+  compile_dec (Dlet NoLocs (Pvar «a») (Con NONE [Lit (IntLit 1); Lit (IntLit 2)]))
+  =
+  Dlet NoLocs (Pvar «a») (Con NONE [Lit (IntLit 1); Lit (IntLit 2)])
+Proof
+  EVAL_TAC
+QED
+
+Theorem test2[local]: (* constants lifted from within closures *)
+  compile_dec (Dlet NoLocs (Pvar «a»)
+    (Fun «a» (Con NONE [Lit (IntLit 1); Lit (IntLit 2)])))
+  =
+  Dlocal
+     [Dlet NoLocs (Pvar «constant_») (Con NONE [Lit (IntLit 1); Lit (IntLit 2)])]
+     [Dlet NoLocs (Pvar «a») (Fun «a» (Var (Short «constant_»)))]
+Proof
+  EVAL_TAC
+QED
+
+Theorem test3[local]: (* constants are *not* lifted under Equality *)
+  compile_dec
+    (Dlet NoLocs (Pvar «a»)
+      (Fun «a» (App Equality [Var (Short «a»);
+                              Con NONE [Lit (IntLit 1); Lit (IntLit 2)]])))
+  =
+    (Dlet NoLocs (Pvar «a»)
+      (Fun «a» (App Equality [Var (Short «a»);
+                              Con NONE [Lit (IntLit 1); Lit (IntLit 2)]])))
+Proof
+  EVAL_TAC
+QED
+
+Theorem test4[local]: (* constants are lifted under App *)
+  compile_dec
+    (Dlet NoLocs (Pvar «a»)
+      (Fun «a» (App ListAppend [Var (Short «a»);
+                                Con NONE [Lit (IntLit 1); Lit (IntLit 2)]])))
+  =
+  Dlocal
+     [Dlet NoLocs (Pvar «constant_»)
+        (Con NONE [Lit (IntLit 1); Lit (IntLit 2)])]
+     [Dlet NoLocs (Pvar «a»)
+        (Fun «a» (App ListAppend [Var (Short «a»); Var (Short «constant_»)]))]
+Proof
+  EVAL_TAC
+QED
+
+Theorem test5[local]: (* curried functions are not taken apart *)
+  compile_dec
+    (Dlet NoLocs (Pvar «a») (Fun «a» (Fun «b» (Lit (IntLit 5)))))
+  =
+  Dlet NoLocs (Pvar «a») (Fun «a» (Fun «b» (Lit (IntLit 5))))
+Proof
+  EVAL_TAC
+QED
+
+Theorem test6[local]: (* functions inside constant data are lifted separately *)
+  compile_dec
+    (Dlet NoLocs (Pvar «a») (Fun «a» (Con NONE [Fun «b» (Lit (IntLit 5))])))
+  =
+  Dlocal
+     [Dlet NoLocs (Pvar «constant_») (Fun «b» (Lit (IntLit 5)));
+      Dlet NoLocs (Pvar «constant__») (Con NONE [Var (Short «constant_»)])]
+     [Dlet NoLocs (Pvar «a») (Fun «a» (Var (Short «constant__»)))]
 Proof
   EVAL_TAC
 QED
