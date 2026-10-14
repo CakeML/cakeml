@@ -82,9 +82,10 @@ Definition nfa_run_def:
          nfa_accepts trans finals nstates q' (DROP (SUC i) xs)
 End
 
-(* mdd_run: as nfa_run, but generalized to per-layer node counts/transitions
-   — at step SUC i the chosen node lives in layer SUC i, reached from the
-   layer-i node via mdd_edges at layer i. *)
+(* mdd_run reconstructs a canonical accepting run, similar to nfa_run,
+   starting from node 0 in layer 0, and at each layer i picking a node
+   in layer (SUC i) that follows an edge on xs[i] from which the remaining
+   string is still accepted. *)
 Definition mdd_run_def:
   mdd_run trans finals nodes_per_layer xs 0 = 0 ∧
   mdd_run trans finals nodes_per_layer xs (SUC i) =

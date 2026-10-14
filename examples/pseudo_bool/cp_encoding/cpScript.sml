@@ -165,14 +165,10 @@ Datatype:
   | SmartTable (('a smart_entry) list list)
     (* Mdd vars nodes_per_layer trans finals :
        vars (n of them, read as a value string) is accepted by the layered
-       MDD with n+1 layers, 0..n; layer 0 has a single root node, node 0.
-       nodes_per_layer[i] is the node count of layer i.
-       trans[i] indexed by source node q in layer i gives EL q (EL i trans),
-       the list of (symbol,target) edges from that node into layer i+1
-       (so trans has n entries, one per variable/transition step).
-       finals indexes accepting nodes of the final layer, n.
-       A strict generalisation of Regular: a DFA/NFA is an Mdd whose layers
-       all share one node set and one transition function. *)
+       MDD with n+1 layers, 0..n; nodes_per_layer[i] is the node count of
+       layer i; trans[i][q] gives a list of (symbol,target) edges from node
+       q in layer i to target nodes in layer i+1 indicated by the respective
+       symbols; finals indexes accepting nodes at the final layer n. *)
   | Mdd ('a varc list) (num list) ((int # num) list list list) (num list)
 End
 
@@ -735,16 +731,18 @@ Definition smart_table_sem_def:
   ∃row. MEM row rows ∧ EVERY (λe. smart_entry_holds e w) row
 End
 
-(* The next functions help define semantics for Mdd, generalizing
-   nfa_edges/nfa_accepts/regular_sem to per-layer node counts and
-   transitions: idx tracks the current layer (0 at the root, n at the
-   final layer once all of Xs has been consumed). *)
+(* mdd_edges trans idx q gives the transition edges specific to node q at
+   layer idx *)
 Definition mdd_edges_def:
   mdd_edges trans idx q =
     if idx < LENGTH trans ∧ q < LENGTH (EL idx trans)
     then EL q (EL idx trans) else []
 End
 
+(* mdd_accepts trans finals nodes_per_layer idx q vs formulates that
+   given trans and nodes_per_layer, the value sequence vs traces out
+   a path from node q in layer idx to an accepting node among finals
+   (in the final layer) *)
 Definition mdd_accepts_def:
   (mdd_accepts trans finals nodes_per_layer idx q [] ⇔
     idx < LENGTH nodes_per_layer ∧ q < EL idx nodes_per_layer ∧
@@ -755,6 +753,11 @@ Definition mdd_accepts_def:
          mdd_accepts trans finals nodes_per_layer (idx+1) q' vs)
 End
 
+(* mdd_sem XS nodes_per_layer trans finals w formulates that there are
+   n+1 layers, that there are n transition functions, where n = LENGTH Xs,
+   one per each pair of consecutive layers (indexed by the nodes), and that
+   the value of Xs traces a path from node 0 in layer 0 to an accepting node
+   among finals (at the final layer) *)
 Definition mdd_sem_def:
   mdd_sem Xs nodes_per_layer trans finals w ⇔
   LENGTH nodes_per_layer = LENGTH Xs + 1 ∧ LENGTH trans = LENGTH Xs ∧
