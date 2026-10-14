@@ -6619,8 +6619,8 @@ Proof
   \\ reverse (rw [EQ_IMP_THM])
   \\ fs [word_mul_n2w, word_add_n2w, word_lo_n2w, word_ls_n2w,
          memory_size_def, EL_MAP]
-  >- fs [Abbr`hi`]
-  >- fs [Abbr`hi`]
+  >- fs [Abbr`hi`, Abbr`low`, memory_size_def]
+  >- fs [Abbr`hi`, Abbr`low`, memory_size_def]
   >-
    (simp [IN_DEF]
     \\ simp [GSYM word_add_n2w]

@@ -505,7 +505,7 @@ Definition installed_def:
         Word (mc_conf.target.get_pc ms + n2w (LENGTH bytes)) ∧
       m (t.regs r1 + 4w * bytes_in_word) =
         Word (mc_conf.target.get_pc ms + n2w cbspace + n2w (LENGTH bytes)) ∧
-      (word_list bitmap_ptr (MAP Word bitmaps) *
+      (word_list bitmap_ptr (MAP (Word o n2w) bitmaps) *
         word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) data_sp)
        (fun2set (m,byte_aligned ∩ bitmaps_dm)) ∧
       ffi_names = SOME mc_conf.ffi_names /\
