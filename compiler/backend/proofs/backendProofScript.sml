@@ -3,6 +3,7 @@
 *)
 Theory backendProof
 Ancestors
+  wordSem
   primSemEnv semanticsProps backend source_to_sourceProof
   source_to_flatProof flat_to_closProof clos_to_bvlProof
   bvl_to_bviProof bvi_inlineProof bvi_to_dataProof data_to_wordProof
@@ -22,6 +23,24 @@ val _ = Parse.set_grammar_ancestry
     "labProps",
     "source_evalProof" (* for compiler instance structure *)
   ];
+
+Theorem upper_n2w_eq_upper_w2w:
+  dimindex (:α) = arch_width_bits aw ⇒
+  upper_n2w aw n = wordSem$upper_w2w (n2w n:α word)
+Proof
+  Cases_on `aw`
+  >> rw [asmTheory.arch_width_bits_def,upper_n2w_def,wordSemTheory.upper_w2w_def]
+  >> simp [w2w_def,w2n_n2w,dimword_def,word_lsl_n2w]
+  >> simp [Once MULT_COMM,MOD_COMMON_FACTOR]
+QED
+
+Theorem MAP_upper_n2w_eq_upper_w2w[simp]:
+  isa_bits asm_conf = dimindex (:α) ⇒
+  MAP wordSem$upper_w2w (MAP n2w ns:α word list) =
+  MAP (upper_n2w (arch_wordsize asm_conf.ISA)) ns
+Proof
+  rw [MAP_MAP_o,o_DEF,MAP_EQ_f,GSYM upper_n2w_eq_upper_w2w]
+QED
 
 (* TODO: move/rephrase *)
 
@@ -326,11 +345,11 @@ Definition cake_configs_def:
   cake_configs (:'a) asm_conf c source =
   state_orac_states
     (compile_inc_progs T asm_conf : config -> (num # num) # ast$dec list ->
-      config # 'a backend_progs) c source
+      config # backend_progs) c source
 End
 
 Definition cake_orac_def:
-  cake_orac (:'a) asm_conf c source f (g:'a backend_progs -> 'b) i =
+  cake_orac (:'a) asm_conf c source f (g:backend_progs -> 'b) i =
     let c = cake_configs (:'a) asm_conf c source i in
     let (_, progs) = compile_inc_progs T asm_conf c (source i) in
     (f c, g progs)
@@ -349,13 +368,13 @@ Definition config_tuple1_def:
 End
 
 Theorem cake_configs_eq:
-  !f. compile asm_conf c prog = SOME (b,bm:'a word list,c') /\
-    f c' = f c /\ (!c p. f (FST (compile_inc_progs T asm_conf c p : config # 'a backend_progs)) = f c) ==>
+  !f. compile asm_conf c prog = SOME (b,bm:num list,c') /\
+    f c' = f c /\ (!c p. f (FST (compile_inc_progs T asm_conf c p : config # backend_progs)) = f c) ==>
   f c' = f c /\ (!i. f (cake_configs (:'a) asm_conf c' src x) = f c)
 Proof
   rw []
   \\ fs [cake_configs_def]
-  \\ Q.ISPECL_THEN [`c'`, `src`, `x`, `compile_inc_progs T asm_conf : config -> (num # num) # ast$dec list -> config # 'a backend_progs`, `\x. f x = f c`]
+  \\ Q.ISPECL_THEN [`c'`, `src`, `x`, `compile_inc_progs T asm_conf : config -> (num # num) # ast$dec list -> config # backend_progs`, `\x. f x = f c`]
     mp_tac (GEN_ALL state_orac_states_inv)
   \\ simp [PAIR_FST_SND_EQ]
 QED
@@ -513,7 +532,7 @@ Theorem cake_orac_eqs:
     o cake_orac (:'a) asm_conf c' src f1 (\ps. ps.flat_prog) =
   cake_orac (:'a) asm_conf c' src f1 (\ps. ps.clos_prog)
   /\ (
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') /\ clos_c = c.clos_conf ==>
+  compile asm_conf c prog = SOME (b,bm:num list,c') /\ clos_c = c.clos_conf ==>
   pure_co (clos_to_bvl$compile_inc clos_c.max_app) o
   pure_co clos_annotate$compile_inc o
   state_co (clos_call$cond_call_compile_inc clos_c.do_call)
@@ -525,7 +544,7 @@ Theorem cake_orac_eqs:
   cake_orac (:'a) asm_conf c' src config_tuple2 (\ps. ps.bvl_prog)
   )
   /\ (
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') /\ bvl_c = c.bvl_conf ==>
+  compile asm_conf c prog = SOME (b,bm:num list,c') /\ bvl_c = c.bvl_conf ==>
   bvl_to_bviProof$full_co bvl_c
     (cake_orac (:'a) asm_conf c' src config_tuple2 (\ps. ps.bvl_prog)) =
   cake_orac (:'a) asm_conf c' src (SND o SND o SND o SND o SND o config_tuple2) (\ps. ps.bvi_prog)
@@ -535,36 +554,36 @@ Theorem cake_orac_eqs:
     cake_orac (:'a) asm_conf c' src f3 (\ps. ps.bvi_prog) =
   cake_orac (:'a) asm_conf c' src f3 (\ps. ps.data_prog)
   /\ (
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') /\
+  compile asm_conf c prog = SOME (b,bm:num list,c') /\
     dc = ensure_fp_conf_ok asm_conf c.data_conf /\
     tr_c = asm_conf.two_reg_arith /\
     reg_c = asm_conf.reg_count -
         (LENGTH asm_conf.avoid_regs + 5) /\
     reg_alg = c.word_to_word_conf.reg_alg
     ==>
-  pure_co (MAP (λp. full_compile_single tr_c reg_c reg_alg asm_conf (p,NONE))) o
+  pure_co (MAP (λp. full_compile_single (isa_bits asm_conf) tr_c reg_c reg_alg asm_conf (p,NONE))) o
     pure_co (MAP (compile_part dc)) o cake_orac (:'a) asm_conf c' src f4 (\ps. ps.data_prog) =
   cake_orac (:'a) asm_conf c' src f4 (\ps. ps.word_prog)
   )
   /\
   (
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') ∧ c.stack_conf.perf_calls = F ==>
-  (λ((bm0,cfg),prg). (λ(prg2,fs,bm). (cfg,prg2,append(FST bm)))
+  compile asm_conf c prog = SOME (b,bm:num list,c') ∧ c.stack_conf.perf_calls = F ==>
+  (λ((bm0,cfg),prg). (λ(prg2,fs,bm). (cfg,prg2,MAP n2w (append(FST bm))))
     (compile_word_to_stack asm_conf F (asm_conf.reg_count -
       (LENGTH asm_conf.avoid_regs + 5)) prg (Nil, bm0))) ∘
   cake_orac (:'a) asm_conf c' src (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.word_prog) =
   cake_orac (:'a) asm_conf c' src (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
-    (λps. (ps.stack_prog,ps.cur_bm))
+    (λps. (ps.stack_prog,(MAP n2w ps.cur_bm:'a word list)))
   )
   /\
   (
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') /\ reg_nm = c.stack_conf.reg_names /\
+  compile asm_conf c prog = SOME (b,bm:num list,c') /\ reg_nm = c.stack_conf.reg_names /\
     jump = c.stack_conf.jump /\ sp = asm_conf.reg_count -
       (LENGTH asm_conf.avoid_regs + 3) /\
     offs = asm_conf.addr_offset
     ==>
   pure_co (stack_to_lab$compile_no_stubs (arch_wordsize asm_conf.ISA) reg_nm jump offs sp ∘ FST) ∘
-  cake_orac (:'a) asm_conf c' src f5 (λps. (ps.stack_prog, ps.cur_bm)) =
+  cake_orac (:'a) asm_conf c' src f5 (λps. (ps.stack_prog, (MAP n2w ps.cur_bm:'a word list))) =
   cake_orac (:'a) asm_conf c' src f5 (λps. ps.lab_prog)
   )
 Proof
@@ -607,7 +626,7 @@ QED
 
 Theorem cake_orac_SUC:
   cake_orac (:'a) asm_conf c' src f g (SUC i) = (let (c'', ps) = cake_orac (:'a) asm_conf c' src I I i in
-    let c''' = FST (compile_inc_progs T asm_conf c'' (src i) : config # 'a backend_progs) in
+    let c''' = FST (compile_inc_progs T asm_conf c'' (src i) : config # backend_progs) in
     (f c''', g (SND (compile_inc_progs T asm_conf c''' (src (SUC i))))))
 Proof
   simp [cake_orac_def, cake_configs_def, state_orac_states_def]
@@ -627,7 +646,7 @@ QED
 Theorem cake_orac_SUC2:
   cake_orac (:'a) asm_conf c' src f g (SUC i) = (
     let (c'', ps) = cake_orac (:'a) asm_conf c' src I I i in
-    let c''' = FST (compile_inc_progs T asm_conf c'' (ps.env_id, ps.source_prog) : config # 'a backend_progs) in
+    let c''' = FST (compile_inc_progs T asm_conf c'' (ps.env_id, ps.source_prog) : config # backend_progs) in
     (f c''', g (SND (compile_inc_progs T asm_conf c''' (src (SUC i))))))
 Proof
   simp [cake_orac_def, cake_configs_def, state_orac_states_def]
@@ -750,7 +769,7 @@ QED
 
 Theorem cake_orac_invariant:
   P (f c) /\
-  (!c prog. P (f c) ==> P (f (FST (compile_inc_progs T asm_conf c prog : config # 'a backend_progs)))) ==>
+  (!c prog. P (f c) ==> P (f (FST (compile_inc_progs T asm_conf c prog : config # backend_progs)))) ==>
   (!i. P (FST (cake_orac (:'a) asm_conf c syntax f g i)))
 Proof
   disch_tac
@@ -931,7 +950,7 @@ Proof
 QED
 
 Theorem configs_nn2_MOD_namespaces_ok:
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') /\ backend_config_ok asm_conf c ==>
+  compile asm_conf c prog = SOME (b,bm:num list,c') /\ backend_config_ok asm_conf c ==>
   c'.bvl_conf.next_name2 MOD bvl_to_bvi_namespaces = 2
 Proof
   fs [backendTheory.compile_def, compile_tap_def, bvl_to_bviTheory.compile_def]
@@ -945,7 +964,7 @@ Proof
 QED
 
 Theorem configs_nn3_MOD_namespaces_ok:
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') /\ backend_config_ok asm_conf c ==>
+  compile asm_conf c prog = SOME (b,bm:num list,c') /\ backend_config_ok asm_conf c ==>
   c'.bvl_conf.next_name3 MOD bvl_to_bvi_namespaces = 3
 Proof
   fs [backendTheory.compile_def, compile_tap_def, bvl_to_bviTheory.compile_def]
@@ -985,7 +1004,7 @@ Proof
 QED
 
 Theorem bvl_num_stubs_LE_bvi_prog:
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') ==>
+  compile asm_conf c prog = SOME (b,bm:num list,c') ==>
   EVERY ($<= bvl_num_stubs)
     (MAP FST (SND (cake_orac (:'a) asm_conf c' syntax f (\ps. ps.bvi_prog) n)))
 Proof
@@ -1078,7 +1097,7 @@ Theorem SND_flat_to_clos_inc_compile[local] =
 
 Theorem is_state_oracle_cake_orac_to_comp:
   is_state_oracle f_inc (cake_orac (:'a) asm_conf c' syntax st_f ps_f) ==>
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') ==>
+  compile asm_conf c prog = SOME (b,bm:num list,c') ==>
   (!c'' ps c''' g_p'.
     ^cake_orac_config_inv_f c'' = ^cake_orac_config_inv_f c ==>
     (* f step *)
@@ -1127,7 +1146,7 @@ Proof
 QED
 
 Theorem cake_orac_clos_syntax_oracle_ok:
-  compile asm_conf (c : config) prog = SOME (b, bm:'a word list, c') /\
+  compile asm_conf (c : config) prog = SOME (b, bm:num list, c') /\
   compile c2 clos_prog = (clos_c', clos_prog') /\
   (?st. c'.clos_conf = clos_c' with start := st) /\
   c2 = c.clos_conf /\ clos_prog = SND (to_clos c prog) /\
@@ -1204,7 +1223,7 @@ clos_knownTheory.option_val_approx_spt_def, clos_knownTheory.option_upd_val_spt_
 QED
 
 Theorem cake_orac_bvl_ALL_DISTINCT:
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') ==>
+  compile asm_conf c prog = SOME (b,bm:num list,c') ==>
   ALL_DISTINCT (MAP FST (SND (cake_orac (:'a) asm_conf c' syntax f (λps. ps.bvl_prog) n)))
 Proof
   rw []
@@ -1247,10 +1266,10 @@ Proof
 QED
 
 Theorem cake_orac_stack_ALL_DISTINCT:
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') ==>
+  compile asm_conf c prog = SOME (b,bm:num list,c') ==>
   ALL_DISTINCT (MAP FST (FST (SND (cake_orac (:'a) asm_conf c' syntax
     (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
-    (λps. (ps.stack_prog,ps.cur_bm)) n))))
+    (λps. (ps.stack_prog,(MAP n2w ps.cur_bm:'a word list))) n))))
 Proof
   rw []
   \\ drule_then (qspecl_then [`syntax`,`n`] mp_tac) cake_orac_bvl_ALL_DISTINCT
@@ -1276,9 +1295,10 @@ Proof
 QED
 
 Theorem MAP_full_compile_single_to_compile:
-  Abbrev (pp = MAP (\p. full_compile_single asm_c.two_reg_arith reg_count
+  Abbrev (pp = MAP (\p. full_compile_single bits asm_c.two_reg_arith reg_count
       reg_alg asm_c (p, NONE)) pp0) /\
-  reg_count = (asm_c.reg_count - (LENGTH asm_c.avoid_regs + 5)) ==>
+  reg_count = (asm_c.reg_count - (LENGTH asm_c.avoid_regs + 5)) /\
+  bits = isa_bits asm_c ==>
   ∃wc ign. word_to_word$compile wc asm_c pp0 = (ign, pp)
 Proof
   rw [word_to_wordTheory.compile_def]
@@ -1291,7 +1311,7 @@ Proof
 QED
 
 Theorem compile_to_word_conventions2:
-  compile wc ac (p:(num # num # 'a wordLang$prog # metadata) list) = (_,ps) ∧
+  compile wc ac (p:(num # num # wordLang$prog # metadata) list) = (_,ps) ∧
   EVERY (λ(_,_,prg,_). wordConvs$no_share_inst prg ∨ ac.ISA ≠ Ag32) p ==>
   MAP FST ps = MAP FST p ∧
   LIST_REL wordConvs$labels_rel
@@ -1299,7 +1319,7 @@ Theorem compile_to_word_conventions2:
     (MAP (wordConvs$extract_labels ∘ FST ∘ SND ∘ SND) ps) ∧
   EVERY (λ(n,m,prog,md).
     wordConvs$flat_exp_conventions prog ∧
-    wordConvs$post_alloc_conventions
+    wordConvs$post_alloc_conventions (isa_bits ac)
       (ac.reg_count - (5 + LENGTH ac.avoid_regs)) prog ∧
     (isa_bits ac = dimindex (:'a) ∧
      EVERY (λ(n,m,prog,md).
@@ -1345,7 +1365,7 @@ Proof
 QED
 
 Theorem lab_labels_ok_oracle:
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') /\
+  compile asm_conf c prog = SOME (b,bm:num list,c') /\
   cake_orac (:'a) asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
     (λps. ps.lab_prog) i = (cfg,code) ==>
   stack_to_labProof$labels_ok code
@@ -1440,7 +1460,7 @@ Proof
 QED
 
 Theorem accum_lab_conf_labels:
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') ==>
+  compile asm_conf c prog = SOME (b,bm:num list,c') ==>
   domain (cake_configs (:'a) asm_conf c' syntax i).lab_conf.labels ⊆
   domain c'.lab_conf.labels ∪ BIGUNION (set (MAP (set ∘ MAP Section_num ∘
     SND ∘ cake_orac (:'a) asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
@@ -1490,7 +1510,7 @@ Proof
 QED
 
 Theorem to_data_labels_ok:
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') /\ backend_config_ok asm_conf c
+  compile asm_conf c prog = SOME (b,bm:num list,c') /\ backend_config_ok asm_conf c
   ==>
   let (_, p) = to_data c prog in
   EVERY (λn. data_num_stubs <= n) (MAP FST p) /\ ALL_DISTINCT (MAP FST p)
@@ -1506,6 +1526,11 @@ Proof
   \\ fs [backend_config_ok_def]
   \\ qexists_tac `0` \\ simp []
 QED
+
+(* Structural checks do not need to evaluate symbolic integer payloads. *)
+val EVAL = computeLib.RESTR_EVAL_CONV
+  [``int_bitwise$int_or``, ``int_bitwise$int_and``, ``int_bitwise$int_xor``];
+val EVAL_TAC = CONV_TAC EVAL;
 
 Theorem data_to_word_stubs_above_store_consts_stub:
   EVERY (λn. n > store_consts_stub_location) (MAP FST (data_to_word$stubs dc))
@@ -1527,9 +1552,9 @@ fun specl_compile_args_of_then th ttac (g as (_,w)) =
   end;
 
 Theorem to_word_labels_ok:
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') /\ backend_config_ok asm_conf c
+  compile asm_conf c prog = SOME (b,bm:num list,c') /\ backend_config_ok asm_conf c
   ==>
-  let (_, p : (num # num # 'a wordLang$prog # metadata) list) = to_word asm_conf c prog in
+  let (_, p : (num # num # wordLang$prog # metadata) list) = to_word asm_conf c prog in
   ALL_DISTINCT (MAP FST p) /\
   EVERY (λn. n > store_consts_stub_location) (MAP FST p) /\
   EVERY (λ(n,m,p,md).
@@ -1586,9 +1611,9 @@ Proof
 QED
 
 Theorem to_lab_labels_ok:
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') /\ backend_config_ok asm_conf c
+  compile asm_conf c prog = SOME (b,bm:num list,c') /\ backend_config_ok asm_conf c
   ==>
-  stack_to_labProof$labels_ok (SND (SND (to_lab asm_conf c prog : 'a word list # config # labLang$prog)))
+  stack_to_labProof$labels_ok (SND (SND (to_lab asm_conf c prog : num list # config # labLang$prog)))
 Proof
   simp [to_lab_def, to_stack_def]
   \\ rpt (pairarg_tac \\ fs [])
@@ -1727,7 +1752,7 @@ Proof
 QED
 
 Theorem is_state_oracle_tailrec_cake_orac:
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') ==>
+  compile asm_conf c prog = SOME (b,bm:num list,c') ==>
   is_state_oracle (bvi_tailrec_compile_prog c.bvl_conf.do_tailrec)
     (state_co bvl_to_bvi_compile_inc (state_co
       (bvl_inline_compile_inc c.bvl_conf.inline_size_limit
@@ -1750,7 +1775,7 @@ Proof
 QED
 
 Theorem is_state_oracle_tmc_cake_orac:
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') ==>
+  compile asm_conf c prog = SOME (b,bm:num list,c') ==>
   is_state_oracle (bvi_tmc_compile_prog c.bvl_conf.do_tmc)
     (state_co (bvi_tailrec_compile_prog c.bvl_conf.do_tailrec)
       (state_co bvl_to_bvi_compile_inc (state_co
@@ -1864,7 +1889,7 @@ Proof
 QED
 
 Theorem monotonic_DISJOINT_labels_lab:
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') /\
+  compile asm_conf c prog = SOME (b,bm:num list,c') /\
   oracle_monotonic (set ∘ MAP Section_num ∘ SND) (≠)
     (domain c'.lab_conf.labels)
     (cake_orac (:'a) asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
@@ -1897,12 +1922,12 @@ Proof
 QED
 
 Theorem monotonic_labels_stack_to_lab:
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') /\ backend_config_ok asm_conf c
+  compile asm_conf c prog = SOME (b,bm:num list,c') /\ backend_config_ok asm_conf c
   ==>
   oracle_monotonic (set o MAP FST o FST o SND) (≠)
-    (set (MAP FST (SND (SND (to_stack asm_conf c prog : 'a word list # config # (num # stackLang$prog # metadata) list)))) ∪ count (SUC gc_stub_location))
+    (set (MAP FST (SND (SND (to_stack asm_conf c prog : num list # config # (num # stackLang$prog # metadata) list)))) ∪ count (SUC gc_stub_location))
     (cake_orac (:'a) asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
-        (λps. (ps.stack_prog,ps.cur_bm)))
+        (λps. (ps.stack_prog,(MAP n2w ps.cur_bm:'a word list))))
  ==>
   oracle_monotonic (set ∘ MAP Section_num ∘ SND) (≠)
     (domain c'.lab_conf.labels)
@@ -1938,16 +1963,16 @@ Proof
 QED
 
 Theorem monotonic_labels_bvi_down_to_stack:
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') /\ backend_config_ok asm_conf c
+  compile asm_conf c prog = SOME (b,bm:num list,c') /\ backend_config_ok asm_conf c
   ==>
   oracle_monotonic (set o MAP FST o SND) (≠)
     (set (MAP FST (SND (to_bvi c prog))) ∪ count (SUC data_num_stubs))
     (cake_orac (:'a) asm_conf c' syntax (SND o SND o SND o SND o SND o config_tuple2) (\ps. ps.bvi_prog))
   ==>
   oracle_monotonic (set o MAP FST o FST o SND) (≠)
-    (set (MAP FST (SND (SND (to_stack asm_conf c prog : 'a word list # config # (num # stackLang$prog # metadata) list)))) ∪ count (SUC gc_stub_location))
+    (set (MAP FST (SND (SND (to_stack asm_conf c prog : num list # config # (num # stackLang$prog # metadata) list)))) ∪ count (SUC gc_stub_location))
     (cake_orac (:'a) asm_conf c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
-        (λps. (ps.stack_prog,ps.cur_bm)))
+        (λps. (ps.stack_prog,(MAP n2w ps.cur_bm:'a word list))))
 Proof
   disch_tac
   \\ match_mp_tac oracle_monotonic_subset
@@ -1992,7 +2017,7 @@ Proof
 QED
 
 Theorem monotonic_labels_bvl_to_bvi:
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') /\ backend_config_ok asm_conf c
+  compile asm_conf c prog = SOME (b,bm:num list,c') /\ backend_config_ok asm_conf c
   ==>
   oracle_monotonic (set o MAP FST o SND) (≠)
     (set (MAP FST (SND (to_bvl c prog))))
@@ -2313,7 +2338,7 @@ Proof
 QED
 
 Theorem monotonic_labels_bvl:
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') /\ backend_config_ok asm_conf c
+  compile asm_conf c prog = SOME (b,bm:num list,c') /\ backend_config_ok asm_conf c
   ==>
   oracle_monotonic (set o MAP FST o SND) (≠)
     (set (MAP FST (SND (to_bvl c prog))))
@@ -2357,7 +2382,7 @@ Proof
 QED
 
 Theorem good_code_lab_oracle:
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') /\
+  compile asm_conf c prog = SOME (b,bm:num list,c') /\
   (* validity of the code produced in the oracle at step i
     - the tricky bit is cfg.labels, which gathers past and current labels
     - older labels must always be there
@@ -2514,7 +2539,8 @@ Resume good_code_lab_oracle[word_convs]:
       \\ irule data_to_wordProofTheory.comp_no_inst
       \\ simp []
       \\ EVAL_TAC
-      \\ fs[backend_config_ok_def, asmTheory.int_offset_ok_def]
+      \\ fs[backend_config_ok_def, asmTheory.int_offset_ok_def,
+            data_to_wordTheory.conf_ok_def]
       \\ pairarg_tac \\ fs[]
       \\ pairarg_tac \\ fs[]
       \\ fsrw_tac[DNF_ss][]
@@ -2526,14 +2552,14 @@ QED
 Finalise good_code_lab_oracle;
 
 Theorem oracle_stack_good_code:
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') /\
+  compile asm_conf c prog = SOME (b,bm:num list,c') /\
   reg_count_sub = (asm_conf.reg_count
     - (LENGTH asm_conf.avoid_regs + 3)) /\
   isa_bits asm_conf = dimindex (:'a) /\
   backend_config_ok asm_conf c /\ lab_to_targetProof$mc_conf_ok (mc:('a,'b,'c) machine_config) /\
   asm_conf = mc.target.config ==>
   stack_to_labProof$good_code reg_count_sub
-    (FST (SND (cake_orac (:'a) asm_conf c' syntax f (\ps. (ps.stack_prog, ps.cur_bm)) n)))
+    (FST (SND (cake_orac (:'a) asm_conf c' syntax f (\ps. (ps.stack_prog, (MAP n2w ps.cur_bm:'a word list))) n)))
 Proof
   strip_tac
   \\ drule_then (qspecl_then [`syntax`,`n`] mp_tac) cake_orac_stack_ALL_DISTINCT
@@ -2600,7 +2626,8 @@ Proof
     \\ irule data_to_wordProofTheory.comp_no_inst
     \\ simp []
     \\ drule_then (fn t => simp [t]) cake_orac_config_eqs
-    \\ fs[backend_config_ok_def, asmTheory.int_offset_ok_def, ensure_fp_conf_ok_def]
+    \\ fs[backend_config_ok_def, asmTheory.int_offset_ok_def, ensure_fp_conf_ok_def,
+          data_to_wordTheory.conf_ok_def]
     \\ rpt (pairarg_tac \\ fs[])
     \\ fsrw_tac[DNF_ss][]
     \\ conj_tac \\ first_x_assum irule
@@ -2664,7 +2691,7 @@ QED
 
 Theorem to_lab_good_code_lemma:
   compile aw c.stack_conf c.data_conf lim1 lim2 offs stack_prog = code /\
-  compile (asm_conf3:asm_config) F (word_prog:(num # num # 'a wordLang$prog # metadata) list) = (bm, wc, fs, stack_prog) /\
+  compile (asm_conf3:asm_config) F (word_prog:(num # num # wordLang$prog # metadata) list) = (bm, wc, fs, stack_prog) /\
   compile data_conf word_conf asm_conf2 data_prog = (col, word_prog) /\
   stack_to_labProof$labels_ok code /\
   all_enc_ok_pre conf code
@@ -2722,7 +2749,7 @@ Definition compute_stack_frame_sizes_def:
     let reg_count = c.reg_count - LENGTH c.avoid_regs - 5 in
       mapi (λn (arg_count,prog,md).
               let stack_arg_count = arg_count - reg_count ;
-                  stack_var_count = MAX (max_var prog DIV 2 + 1 - reg_count) stack_arg_count ;
+                  stack_var_count = MAX (max_var (isa_bits c) prog DIV 2 + 1 - reg_count) stack_arg_count ;
               in if stack_var_count = 0 then 0 else stack_var_count + 1)
         (fromAList (word_prog))
 End
@@ -2752,7 +2779,7 @@ End
 Definition is_safe_for_space_def:
   is_safe_for_space (:'a) ffi asm_conf c prog stack_heap_limit =
     let data_prog = SND (to_data c prog) in
-    let word_prog : (num # num # 'a wordLang$prog # metadata) list =
+    let word_prog : (num # num # wordLang$prog # metadata) list =
       SND (to_word (asm_conf:asm_config) c prog) in
       dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
         (dataSem$compute_limits c.data_conf.len_size (is_64_bits (:'a)) c.data_conf.has_fp_ops c.data_conf.has_fp_tern stack_heap_limit)
@@ -2762,8 +2789,8 @@ End
 
 Theorem compile_word_conf_eq:
   ∀c prog code data conf w_conf stack_prog.
-    (backend$compile asm_conf c prog = SOME (code,data:'a word list,conf)) ∧
-    (to_stack asm_conf c prog = (bm:'a word list, w_conf,stack_prog))
+    (backend$compile asm_conf c prog = SOME (code,data:num list,conf)) ∧
+    (to_stack asm_conf c prog = (bm:num list, w_conf,stack_prog))
     ⇒ conf.word_conf.stack_frame_size = w_conf.word_conf.stack_frame_size
 Proof
   srw_tac[][FUN_EQ_THM,backendTheory.compile_def,compile_tap_def,
@@ -2827,20 +2854,21 @@ QED
 
 Theorem compile_word_to_stack_sfs_aux:
 ∀ac perf k p bm progs' fs' bitmaps.
-  compile_word_to_stack ac perf k p bm = (progs',fs',bitmaps) ∧ perf = F ⇒
+  compile_word_to_stack ac perf k p (bm:num app_list # num) =
+    (progs',fs',bitmaps) ∧ perf = F ⇒
    fromAList
      (MAP
         (λkv.
              (FST kv,
               (λ(arg_count,prog,md).
-                   FST (SND (compile_prog ac perf prog arg_count k (Nil,0)))) (SND kv))) p)
+                   FST (SND (compile_prog ac perf prog arg_count k (Nil:num app_list,0)))) (SND kv))) p)
    = fromAList (MAP (λ((i,_,_),n). (i,n)) (ZIP (progs',fs')))
 Proof
   ho_match_mp_tac compile_word_to_stack_ind
   \\ rw [fromAList_def,compile_word_to_stack_def] \\ fs [fromAList_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
   \\ rw [fromAList_def] \\ rveq \\ rfs []
-  \\ Cases_on `compile_prog ac F p n k (Nil,0)`
+  \\ Cases_on `compile_prog ac F p n k (Nil:num app_list,0)`
   \\ PairCases_on `r` \\ rfs [] \\ rveq \\ fs []
   \\  `f = r0` suffices_by fs []
   \\ fs [compile_prog_def]
@@ -2852,7 +2880,7 @@ QED
 
 Theorem IMP_is_safe_for_space:
   backend_config_ok (asm_conf:asm_config) c ⇒
-  compile asm_conf c prog = SOME (code,data:'a word list,conf) ⇒
+  compile asm_conf c prog = SOME (code,data:num list,conf) ⇒
   to_data c prog = (bvi_conf,data_prog) ⇒
   c.data_conf.gc_kind <> None ⇒
   dataSem$data_lang_safe_for_space ffi (fromAList data_prog)
@@ -2933,7 +2961,7 @@ Proof
 QED
 
 Theorem state_co_inc_compile_has_flat_comp:
-  compile asm_conf c prog = SOME (b,bm:'a word list,c') ==>
+  compile asm_conf c prog = SOME (b,bm:num list,c') ==>
   state_co (\c (env_id,decs:ast$dec list). inc_compile env_id c (f decs)) (cake_orac (:'a) asm_conf c' src config_tuple1 g) =
   pure_co (source_to_flat$compile_flat c.source_conf.pattern_cfg) o
   state_co (\c (env_id,decs). inc_compile_prog env_id c (f decs)) (cake_orac (:'a) asm_conf c' src config_tuple1 g)
@@ -2962,14 +2990,14 @@ QED
 
 Definition opt_eval_config_wf_def:
   opt_eval_config_wf (:'a) asm_conf c' (SOME ci) = (
-    ci.compiler_fun = compile_inc_progs_for_eval (:'a) asm_conf /\
+    ci.compiler_fun = compile_inc_progs_for_eval asm_conf /\
     INJ ci.config_v UNIV UNIV /\ ci.init_state = c') /\
   opt_eval_config_wf (:'a) asm_conf c' NONE = T
 End
 
 Definition backend_from_data_tuple_cc_def:
   backend_from_data_tuple_cc (:'a) asm_conf (c : config) cfg =
-    OPTION_MAP (bytes_to_mlstring ## MAP (upper_w2w : 'a word -> word64) ## I) o
+    OPTION_MAP (bytes_to_mlstring ## MAP (upper_n2w (arch_wordsize asm_conf.ISA)) ## I) o
       (λprogs.
         (λ(bm0,cfg) progs.
           (λ(progs,fs,bm).
@@ -2987,7 +3015,7 @@ Definition backend_from_data_tuple_cc_def:
                       (MAP prog_comp progs))))))
            (compile_word_to_stack asm_conf F
             ((asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3))-2) progs (Nil, bm0)))
-              cfg (MAP (λp. full_compile_single asm_conf.two_reg_arith (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 5))
+              cfg (MAP (λp. full_compile_single (isa_bits asm_conf) asm_conf.two_reg_arith (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 5))
               c.word_to_word_conf.reg_alg
               asm_conf (p,NONE)) progs)) o
               MAP (compile_part (ensure_fp_conf_ok asm_conf c.data_conf))
@@ -3046,7 +3074,7 @@ Theorem backend_from_flat_tuple_cc_eq_compile_inc_progs:
       (SND (inc_compile_prog env_id src_cfg (source_to_source$inc_compile decs)))) =
   let (c'', ps) = compile_inc_progs T asm_conf c' (env_id, decs) in
     OPTION_MAP (\(bs, ws). (bs,
-        MAP upper_w2w (ws:'a word list),
+        MAP (upper_n2w (arch_wordsize asm_conf.ISA)) (ws:num list),
         SND (config_tuple1 c''))) ps.target_prog
 Proof
   disch_tac
@@ -3106,7 +3134,7 @@ Proof
 QED
 
 Theorem cake_orac_extended_wf[local]:
-  compile asm_conf (c : config) prog = SOME (b,bm:'a word list,c') /\
+  compile asm_conf (c : config) prog = SOME (b,bm:num list,c') /\
   opt_eval_config_wf (:'a) asm_conf c' (SOME ci) ==>
   orac_extended_wf (mk_compiler_fun_from_ci ci)
     ((\(cfg,id,ds). (id, ci.config_v cfg, ds)) ∘
@@ -3280,7 +3308,7 @@ QED
 
 Theorem source_eval_to_flat_semantics:
   ~ semantics_prog (add_eval_state ev s0) env prog Fail /\
-  compile asm_conf (c : config) prog = SOME (b,bm:'a word list,c') /\
+  compile asm_conf (c : config) prog = SOME (b,bm:num list,c') /\
   source_to_flat$compile prim_src_config (source_to_source$compile prog) = (src_c', p') /\
   THE (prim_sem_env (ffi:'ffi ffi_state)) = (s0, env) /\
   opt_eval_config_wf (:'a) asm_conf c' ev /\
@@ -3824,14 +3852,14 @@ Proof
   fs[from_stack_def,from_lab_def] \\
 
   qabbrev_tac `stack_oracle = cake_orac (:'a) mc.target.config c' orac_syntax
-        (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. (ps.stack_prog, ps.cur_bm))` \\
+        (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. (ps.stack_prog, (MAP n2w ps.cur_bm:'a word list)))` \\
   qabbrev_tac `lab_oracle = cake_orac (:'a) mc.target.config c' orac_syntax
         (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.lab_prog)` \\
   qmatch_assum_abbrev_tac`_ _ (compile _ c4.lab_conf p7) = SOME (bytes,bitmaps,c')`
   \\ drule attach_bitmaps_SOME
   \\ disch_tac \\ fs []
   \\ fs [attach_bitmaps_def] \\ rveq \\ fs [] \\
-  fs[targetSemTheory.installed_def] \\
+  fs[targetSemTheory.installed_def, GSYM MAP_MAP_o] \\
   qmatch_assum_abbrev_tac`good_init_state mc ms bytes cbspace tar_st m dm sdm` \\
   qpat_x_assum`Abbrev(p7 = _)` mp_tac>>
   qmatch_goalsub_abbrev_tac`compile _ _ _ _ stk stoff`>>
@@ -3854,7 +3882,7 @@ Proof
       (2 * max_heap_limit (dimindex (:'a)) c4_data_conf - 1)
       stk
       stoff
-      bitmaps
+      (MAP n2w bitmaps)
       p6
       lab_st
       (set mc.callee_saved_regs)
@@ -3874,7 +3902,9 @@ Proof
 QED
 
 Resume compile_correct'[data_word]:
-  (data_to_wordProofTheory.compile_semantics
+  `arch_width_bits c.data_conf.arch_width = dimindex (:'a)` by
+    fs[data_to_wordTheory.conf_ok_def]
+  \\ (data_to_wordProofTheory.compile_semantics
    |> GEN_ALL
    |> SIMP_RULE (srw_ss()) [markerTheory.Abbrev_def]
    |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["t","co","x1","start","prog","c"]))
@@ -3895,9 +3925,10 @@ Resume compile_correct'[data_word]:
   imp_res_tac (word_to_stack_compile_lab_pres |> INST_TYPE [beta|->alpha])>>
   pop_assum (qspec_then`mc.target.config` assume_tac)>>fs[]>>
   rfs[]>>
-  (word_to_stack_stack_asm_convs |> GEN_ALL |> Q.SPECL_THEN[`p5`,`mc.target.config`] mp_tac)>>
+  (word_to_stack_stack_asm_convs |> INST_TYPE [beta|->alpha] |> GEN_ALL
+   |> Q.SPECL_THEN[`p5`,`mc.target.config`] mp_tac)>>
   impl_tac>-
-    (fs[Abbr`c4`,EVERY_MEM,FORALL_PROD]>>
+    (fs[Abbr`c4`,EVERY_MEM,FORALL_PROD,data_to_wordTheory.conf_ok_def]>>
      unabbrev_all_tac \\ fs[] >>
     rpt gen_tac>>
     strip_tac >>
@@ -3930,7 +3961,7 @@ Resume compile_correct'[data_word]:
   \\ drule clos_to_bvlProofTheory.compile_all_distinct_locs
   \\ strip_tac
   \\ disch_then(qspec_then`0`mp_tac) \\ simp[] \\ strip_tac
-  \\ `stubs_md (:α) c4.data_conf = stubs_md (:α) c4_data_conf`
+  \\ `stubs_md c4.data_conf = stubs_md c4_data_conf`
     by simp[data_to_wordTheory.stubs_md_def,Abbr`c4_data_conf`]
   \\ qmatch_assum_rename_tac`bvi_tmc_compile_prog _ _ _ = (_,p3)`
   (* bvi_inline runs after bvi_tmc and preserves names *)
@@ -3967,7 +3998,7 @@ Resume compile_correct'[data_word]:
     simp[MAP_MAP_o,o_DEF,UNCURRY,ETA_AX,data_to_wordTheory.compile_part_def,
          FST_triple,MEM_MAP,EXISTS_PROD] \\
     metis_tac[ALOOKUP_MEM] ) \\
-  `word_to_wordProof$code_rel_ext (fromAList t_code) (fromAList p5)` by metis_tac[word_to_wordProofTheory.code_rel_ext_word_to_word] \\
+  `word_to_wordProof$code_rel_ext (dimindex (:'a)) (fromAList t_code) (fromAList p5)` by metis_tac[word_to_wordProofTheory.code_rel_ext_word_to_word] \\
   (* syntactic properties from stack_to_lab *)
   `all_enc_ok_pre mc.target.config p7` by (
     fs[Abbr`p7`,Abbr`stoff`,Abbr`stk`]>>
@@ -4055,6 +4086,8 @@ Resume compile_correct'[data_word]:
     conj_tac >- (
       simp [Abbr `data_oracle`]
       \\ simp [GSYM pure_co_def]
+      \\ qpat_assum `isa_bits _ = dimindex (:'a)`
+           (fn th => rewrite_tac [GSYM th])
       \\ drule_then (irule o GSYM) data_to_word_orac_eq
       \\ fs [markerTheory.Abbrev_def, ensure_fp_conf_ok_def]
     )
@@ -4067,14 +4100,13 @@ Resume compile_correct'[data_word]:
           (once_rewrite_tac [dataPropsTheory.semantics_zero_limits] \\ simp[])
     \\ simp[Abbr`TODO_cc`,Abbr`TODO_cc'`, FUN_EQ_THM]
     \\ rpt gen_tac
-    \\ simp [backend_from_data_tuple_cc_def]
-    \\ AP_TERM_TAC
-    \\ simp[Abbr`kkk`,Abbr`stk`]
-    \\ simp[ensure_fp_conf_ok_def]
-    \\ AP_THM_TAC \\ AP_THM_TAC
-    \\ simp[full_make_init_compile]
-    \\ simp[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l).compile``]
-    \\ simp[Abbr`stoff`] ) \\
+    \\ simp [backend_from_data_tuple_cc_def,Abbr`kkk`,Abbr`stk`,
+             ensure_fp_conf_ok_def,full_make_init_compile,
+             EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l).compile``,
+             Abbr`stoff`]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ drule MAP_upper_n2w_eq_upper_w2w
+    \\ disch_then (fn th => simp [th,OPTION_MAP_COMPOSE,o_DEF,LAMBDA_PROD,PAIR_MAP]) ) \\
 
   `lab_st.ffi = ffi` by ( fs[Abbr`lab_st`] ) \\
   `word_st.ffi = ffi` by (
@@ -4344,13 +4376,16 @@ Resume compile_correct'[stack_init]:
        \\ fs [extend_with_resource_limit'_def])
     \\ simp[Abbr`foo1`,Abbr`foo2`]
     \\ simp[backend_from_data_tuple_cc_def, FUN_EQ_THM, ensure_fp_conf_ok_def]
-    \\ rpt gen_tac \\ AP_TERM_TAC
+    \\ rpt gen_tac
     \\ qhdtm_assum`stack_to_labProof$full_make_init`(mp_tac o Q.AP_TERM`FST`)
     \\ simp_tac std_ss []
     \\ disch_then(SUBST1_TAC o SYM)
     \\ simp[full_make_init_compile, Abbr`lab_st`]
     \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l).compile``]
-    \\ simp[append_def]) \\
+    \\ simp[append_def]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ drule MAP_upper_n2w_eq_upper_w2w
+    \\ disch_then (fn th => simp [th,OPTION_MAP_COMPOSE,o_DEF,LAMBDA_PROD,PAIR_MAP])) \\
   simp[Abbr`z`] \\
   match_mp_tac implements'_strengthen \\
   qmatch_goalsub_abbrev_tac `semantics s_tmp start_tmp` \\
@@ -4382,7 +4417,7 @@ Resume compile_correct'[stack_init]:
       fs[Abbr`kkk`,Abbr`stk`]>>
       fs[mc_conf_ok_def,backend_config_ok_def,Abbr`stack_st`] >>
       drule compile_word_to_stack_bitmaps>>
-      CASE_TAC>>strip_tac>>
+      CASE_TAC>>strip_tac>>fs[]>>
       reverse conj_tac >- (
         simp [Abbr `stack_oracle`, Abbr `word_oracle`]
         \\ drule_then (fn t => simp [GSYM t]) word_to_stack_orac_eq
@@ -4395,7 +4430,7 @@ Resume compile_correct'[stack_init]:
       \\ rpt (pairarg_tac \\ fs [])
       \\ qmatch_goalsub_abbrev_tac`EVERY _ fcs_pp`
       \\ drule_then assume_tac (GEN_ALL MAP_full_compile_single_to_compile)
-      \\ fs []
+      \\ rfs []
       \\ drule compile_to_word_conventions2
       \\ impl_tac >- (
             irule_at Any EVERY_MONOTONIC>>
@@ -4450,8 +4485,7 @@ Resume compile_correct'[stack_init]:
     \\ simp[Abbr`foo1`,Abbr`foo2`,Abbr`orac1`,Abbr`orac2`,FUN_EQ_THM,
         Abbr `data_oracle`]
     \\ simp [GSYM simple_orac_eqs, ensure_fp_conf_ok_def, backend_from_data_tuple_cc_def]
-    \\ rpt gen_tac \\ AP_TERM_TAC
-    \\ AP_THM_TAC
+    \\ rpt gen_tac
     \\ simp[EVAL``(word_to_stackProof$make_init _ a b c e).compile``]
     \\ rfs[Abbr`stack_st`]
     \\ qhdtm_assum`stack_to_labProof$full_make_init`(mp_tac o Q.AP_TERM`FST`)
@@ -4459,7 +4493,10 @@ Resume compile_correct'[stack_init]:
     \\ disch_then(SUBST_ALL_TAC o SYM)
     \\ fs[full_make_init_compile, Abbr`lab_st`]
     \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l).compile``]
-    \\ simp[append_def]) \\
+    \\ simp[append_def]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ drule MAP_upper_n2w_eq_upper_w2w
+    \\ disch_then (fn th => simp [th,OPTION_MAP_COMPOSE,o_DEF,LAMBDA_PROD,PAIR_MAP])) \\
 
   strip_tac \\
   match_mp_tac implements'_trans \\

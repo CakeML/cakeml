@@ -229,10 +229,6 @@ End
 
 (* SEEN INSTRUCTIONS MEMORY *)
 
-Definition wordToNum_def:
-  wordToNum w = w2n w
-End
-
 Definition intToNum_def:
   intToNum (i:int) = if i < 0 then 2 * Num (-i) - 1 else 2 * Num i
 End
@@ -495,7 +491,7 @@ Definition word_cseInst_def:
 End
 
 Definition dest_Var_def:
-  dest_Var (Var v :'a wordLang$exp) = SOME v ∧
+  dest_Var (Var v :wordLang$exp) = SOME v ∧
   dest_Var _ = NONE
 End
 
@@ -600,7 +596,7 @@ Definition word_cse_def:
     let (data1, p1') = word_cse data p1 in
     let (data2, p2') = word_cse data p2 in
       (merge_data data1 data2, If c r1 r2 p1' p2')) ∧
-  (word_cse data ((OpCurrHeap b r1 r2):'a prog) =
+  (word_cse data ((OpCurrHeap b r1 r2):prog) =
     let data = invalidate_data data r1 in
       (* r2 = r1 reads the register the instruction overwrites; such a fact
          would not describe the post-state, so it is not stored. *)

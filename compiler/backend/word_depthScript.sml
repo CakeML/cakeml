@@ -80,7 +80,7 @@ Definition call_graph_def:
   (call_graph funs n ns _ _ = Leaf)
 Termination
   WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure I)
-      (\(funs,n,ns,total,p). (size funs, total - LENGTH ns, prog_size (K 0) p)))`
+      (\(funs,n,ns,total,p). (size funs, total - LENGTH ns, prog_size p)))`
   \\ rpt strip_tac \\ fs [size_delete]
   \\ imp_res_tac miscTheory.lookup_zero \\ fs []
 End

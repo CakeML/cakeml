@@ -156,6 +156,7 @@ val _ = reg_enc_dec backend_common_tra_enc'_thm;
 (* some simple ones *)
 
 val res = define_enc_dec “:word_size”
+val res = define_enc_dec “:arch_width”
 val res = define_enc_dec “:mlstring”
 val res = define_enc_dec “:shmem_op”
 val res = define_enc_dec “:ffiname”

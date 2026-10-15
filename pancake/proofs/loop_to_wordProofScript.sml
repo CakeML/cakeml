@@ -466,7 +466,8 @@ Theorem comp_exp_preserves_eval:
 Proof
   ho_match_mp_tac eval_ind >>
   rw [] >>
-  fs [eval_def, comp_exp_def, word_exp_def, get_var_def]
+  fs [eval_def, comp_exp_def, word_exp_def, get_var_def,
+      integer_wordTheory.i2w_w2i,integer_wordTheory.i2w_pos]
   >-
    (fs [find_var_def, locals_rel_def] >>
     TOP_CASE_TAC >> fs [] >>

@@ -263,7 +263,7 @@ Definition export_funcs_def:
 End
 
 Definition x64_export_def:
-  x64_export ffi_names bytes (data:word64 list) syms exp ret pk =
+  x64_export ffi_names bytes (data:num list) syms exp ret pk =
     let lsyms = get_sym_labels syms in
     SmartAppend
       (SmartAppend
@@ -282,7 +282,7 @@ Definition x64_export_def:
 End
 
 (*
-  EVAL``append(split16 (words_line «\t.quad » word_to_string) [100w:word64;393w;392w])``
+  EVAL``append(split16 (words_line «\t.quad » word_to_string) [100n;393n;392n])``
 
   EVAL ``append (x64_export ["getArgs";"putChar";"getChar"] 400 300
     [3w;4w;5w;9w;11w;12w;13w;14w;79w;12w;91w;21w;34w;32w;53w;255w;128w;122w;127w]
