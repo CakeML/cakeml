@@ -7,7 +7,7 @@
 *)
 Theory pattern_comp
 Ancestors
-  pattern_common semanticPrimitives pattern_semantics pattern_exh ast
+  semanticPrimitives pattern_semantics pattern_exh
 Libs
   preamble
 

@@ -4,8 +4,8 @@
 Theory source_dceProof
 Ancestors
   source_dce evaluate evaluateProps semanticPrimitives
-  semanticPrimitivesProps misc[qualified] semantics ast
-  source_evalProof namespace primSemEnv[qualified]
+  semanticPrimitivesProps semantics ast
+  source_evalProof namespace
 Libs
   preamble
 

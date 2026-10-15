@@ -6,7 +6,7 @@
 *)
 Theory displayLang
 Ancestors
-  jsonLang mlint backend_common mlsexp (* for str_tree *)
+  jsonLang backend_common mlsexp (* for str_tree *)
 Libs
   preamble
 

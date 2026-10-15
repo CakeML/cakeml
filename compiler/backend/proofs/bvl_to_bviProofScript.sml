@@ -3,9 +3,9 @@
 *)
 Theory bvl_to_bviProof
 Ancestors
-  ffi[qualified] bvlSem bviSem
+  bvlSem bviSem
   bvl_handleProof[qualified] backendProps bvlProps
-  bvl_constProof[qualified] bvi_letProof[qualified]
+  bvi_letProof[qualified]
   bvl_inlineProof[qualified] bvi_tailrecProof[qualified]
   bvi_inlineProof[qualified] bvi_tmcProof[qualified]
   bvl_to_bvi bviProps

@@ -3,7 +3,7 @@
 *)
 Theory bvi_tmcProof
 Ancestors
-  bvi_tmc bviProps bviSem bvlSem[qualified] backend_common[qualified] semanticPrimitivesProps[qualified]
+  bvi_tmc bviProps bviSem bvlSem[qualified] backend_common[qualified]
 Libs
   preamble
 

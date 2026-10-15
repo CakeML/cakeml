@@ -3,9 +3,8 @@
  *)
 Theory source_to_sourceProof
 Ancestors
-  source_letProof source_dceProof source_to_source evaluate evaluateProps
-  semanticPrimitives semanticPrimitivesProps misc[qualified]
-  semantics ast source_evalProof semanticsProps
+  source_letProof source_dceProof source_to_source
+  semanticsProps
 Libs
   preamble
 

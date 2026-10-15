@@ -5,7 +5,7 @@ Theory word_simpProof
 Libs
   preamble
 Ancestors
-  mllist wordLang wordSem wordProps word_simp alist
+  mllist wordSem wordProps word_simp alist
 
 val s = ``s:('a,'c,'ffi) wordSem$state``
 

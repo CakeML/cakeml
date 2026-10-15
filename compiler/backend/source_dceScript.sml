@@ -5,7 +5,7 @@
 *)
 Theory source_dce
 Ancestors
-  ast namespace finite_map misc[qualified]
+  ast
 Libs
   preamble
 

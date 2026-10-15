@@ -8,10 +8,9 @@ Ancestors
   backend_common (* for word_add_carry *)
   data_to_word_memoryProof data_to_word_gcProof dataSem
   wordSem[qualified] data_to_word int_bitwise dataProps
-  copying_gc data_to_word_bignumProof wordProps While set_sep
+  data_to_word_bignumProof wordProps While set_sep
   semanticsProps alignment backendProps word_bignum wordLang
-  word_bignumProof gen_gc_partial gc_shared word_gcFunctions
-  gen_gc[qualified] bvi_to_data[qualified]
+  word_bignumProof gc_shared word_gcFunctions
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]

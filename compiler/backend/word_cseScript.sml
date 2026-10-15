@@ -4,7 +4,7 @@
 *)
 Theory word_cse
 Ancestors
-  wordLang words bool balanced_map sptree
+  wordLang balanced_map
 Libs
   preamble
 

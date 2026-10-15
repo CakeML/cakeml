@@ -4,7 +4,7 @@
 *)
 Theory bvi_tailrec
 Ancestors
-  bvi backend_common
+  bvi
 Libs
   preamble
 

@@ -5,7 +5,7 @@ Theory word_instProof
 Libs
   preamble
 Ancestors
-  wordLang wordProps word_inst wordSem wordConvs asm
+  wordLang wordProps word_inst wordSem wordConvs
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 

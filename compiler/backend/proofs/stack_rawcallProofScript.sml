@@ -6,7 +6,6 @@ Libs
   preamble
 Ancestors
   stack_rawcall stackLang stackSem stackProps wordSem[qualified]
-  labProps[qualified]
 
 
 

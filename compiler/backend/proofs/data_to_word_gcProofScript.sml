@@ -8,7 +8,7 @@ Ancestors
   mllist dataSem wordSem[qualified] data_to_word backendProps
   data_to_word_memoryProof dataProps copying_gc int_bitwise
   finite_map wordProps While set_sep semanticsProps alignment
-  word_bignum wordLang word_bignumProof gen_gc_partial gc_shared
+  wordLang word_bignumProof gen_gc_partial gc_shared
   word_gcFunctions gen_gc[qualified]
 
 val _ = temp_delsimps ["NORMEQ_CONV"]

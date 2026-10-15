@@ -12,7 +12,7 @@ Libs
 Ancestors
   mllist
   asm[qualified] (* for arity-2 Const *)
-  reg_alloc misc[qualified] wordLang linear_scan
+  reg_alloc wordLang linear_scan
 
 val _ = patternMatchesSyntax.temp_enable_pmatch();
 

@@ -2,8 +2,6 @@
   Definitions that are common for many parts of the compiler backend.
 *)
 Theory backend_common
-Ancestors[qualified]
-  arithmetic integer words mlstring
 Ancestors
   sptree (* for delete *)
   mlstring (* for bytes_to_mlstring *)

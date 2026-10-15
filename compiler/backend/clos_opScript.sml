@@ -5,7 +5,7 @@
 *)
 Theory clos_op
 Ancestors
-  closLang backend_common[qualified] misc[qualified]
+  closLang
 Libs
   preamble
 

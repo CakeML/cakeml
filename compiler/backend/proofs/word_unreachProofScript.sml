@@ -3,7 +3,7 @@
 *)
 Theory word_unreachProof
 Ancestors
-  wordLang wordSem wordProps word_unreach wordConvs
+  wordSem word_unreach
 Libs
   preamble
 

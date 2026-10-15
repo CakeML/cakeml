@@ -6,8 +6,8 @@
 *)
 Theory word_to_word
 Ancestors
-  asm wordLang word_alloc word_remove word_simp word_cse
-  word_unreach word_copy word_inst mlstring
+  word_alloc word_remove word_simp word_cse
+  word_unreach word_copy word_inst
 Libs
   preamble
 

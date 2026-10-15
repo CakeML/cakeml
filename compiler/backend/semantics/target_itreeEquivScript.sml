@@ -3,8 +3,8 @@
 *)
 Theory target_itreeEquiv
 Ancestors
-  semanticsProps evaluateProps ffi targetSem targetProps
-  target_itreeSem target_itreeProps itree_semantics
+  evaluateProps ffi targetSem
+  target_itreeSem target_itreeProps
   itree_semanticsProps
 Libs
   preamble

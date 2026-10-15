@@ -4,7 +4,7 @@
 Theory wordConvsProof
 Ancestors
   wordLang word_to_word wordConvs word_simp word_alloc word_inst
-  word_unreach word_remove word_cse word_elim word_copy
+  word_unreach word_remove word_cse word_copy
 Libs
   preamble
 

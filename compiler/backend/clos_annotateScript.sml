@@ -6,7 +6,7 @@
 *)
 Theory clos_annotate
 Ancestors
-  closLang db_vars misc[qualified]
+  closLang db_vars
 Libs
   preamble
 

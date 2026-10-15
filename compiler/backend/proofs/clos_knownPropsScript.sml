@@ -3,7 +3,7 @@
 *)
 Theory clos_knownProps
 Ancestors
-  closProps clos_known
+  clos_known
 Libs
   preamble
 

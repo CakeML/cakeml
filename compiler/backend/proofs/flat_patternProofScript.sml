@@ -5,7 +5,7 @@ Theory flat_patternProof
 Libs
   preamble bagSimps[qualified] induct_tweakLib[qualified]
 Ancestors
-  flat_pattern misc[qualified] ffi[qualified] bag[qualified]
+  flat_pattern misc[qualified]
   flatProps backendProps backend_common[qualified]
   pattern_semantics
   semanticPrimitives semanticPrimitivesProps flatLang

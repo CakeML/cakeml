@@ -7,7 +7,6 @@
 *)
 Theory stackLang
 Ancestors
-  misc[qualified] (* for bytes_in_word *)
   asm backend_common
 Libs
   preamble

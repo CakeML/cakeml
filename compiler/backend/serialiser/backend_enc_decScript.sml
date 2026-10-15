@@ -3,9 +3,7 @@
 *)
 Theory backend_enc_dec
 Ancestors
-  integer ml_prog ast semanticPrimitives semanticPrimitivesProps
-  evaluateProps fpSem mlvector mlstring ml_translator misc
-  backend backend_common num_list_enc_dec num_tree_enc_dec
+  backend num_list_enc_dec num_tree_enc_dec
 Libs
   preamble
 

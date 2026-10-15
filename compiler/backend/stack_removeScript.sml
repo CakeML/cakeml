@@ -5,8 +5,6 @@
 Theory stack_remove
 Ancestors
   stackLang
-  misc[qualified] (* for bytes_in_word *)
-  mlstring
 Libs
   preamble
 

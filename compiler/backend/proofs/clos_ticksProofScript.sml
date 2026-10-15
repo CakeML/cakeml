@@ -3,7 +3,7 @@
 *)
 Theory clos_ticksProof
 Ancestors
-  closProps clos_ticks closSem closLang backendProps
+  closProps clos_ticks closSem backendProps
 Libs
   preamble
 

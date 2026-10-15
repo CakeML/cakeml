@@ -8,9 +8,9 @@ Ancestors
   backend_common
   mllist dataSem wordSem[qualified] data_to_word
   data_to_word_memoryProof data_to_word_gcProof word_bignumProof
-  dataProps copying_gc int_bitwise finite_map wordProps set_sep
-  semanticsProps alignment word_bignum wordLang gen_gc_partial
-  gc_shared word_gcFunctions word_depthProof gen_gc[qualified]
+  dataProps int_bitwise finite_map wordProps set_sep
+  semanticsProps alignment word_bignum wordLang
+  gc_shared word_gcFunctions word_depthProof
 
 val _ = temp_delsimps ["NORMEQ_CONV", "fromAList_def", "domain_union",
                        "domain_inter", "domain_difference",

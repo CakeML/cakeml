@@ -4,8 +4,8 @@
 Theory word_to_wordProof
 Ancestors
   word_to_word wordSem word_simpProof wordProps wordConvs
-  word_allocProof word_instProof word_unreach word_removeProof
-  word_cseProof word_elim word_elimProof word_unreachProof
+  word_allocProof word_instProof word_removeProof
+  word_cseProof word_elimProof word_unreachProof
   word_copyProof wordConvsProof
 Libs
   preamble

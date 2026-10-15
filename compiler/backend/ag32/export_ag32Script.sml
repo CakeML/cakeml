@@ -3,7 +3,7 @@
 *)
 Theory export_ag32
 Ancestors
-  export mlstring
+  export
 Libs
   preamble
 

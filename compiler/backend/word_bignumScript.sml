@@ -5,7 +5,7 @@
 *)
 Theory word_bignum
 Ancestors
-  ast wordLang mc_multiword
+  wordLang mc_multiword
 Libs
   preamble
 

@@ -5,9 +5,9 @@
 *)
 Theory stack_to_lab
 Ancestors
-  stackLang labLang stack_alloc[qualified]
+  labLang stack_alloc[qualified]
   stack_remove[qualified] stack_names[qualified]
-  word_to_stack[qualified] bvl_to_bvi[qualified]
+  bvl_to_bvi[qualified]
   stack_rawcall[qualified]
 Libs
   preamble
