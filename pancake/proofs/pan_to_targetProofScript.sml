@@ -10,7 +10,6 @@ Ancestors
 Libs
   preamble blastLib[qualified]
 
-
 Overload stack_remove_prog_comp[local] = ``stack_remove$prog_comp``
 Overload stack_alloc_prog_comp[local] = ``stack_alloc$prog_comp``
 Overload stack_names_prog_comp[local] = ``stack_names$prog_comp``
@@ -1190,7 +1189,6 @@ Proof
   Cases_on ‘x’>>fs[]
 QED
 
-
 Theorem from_pan_to_lab_no_install:
   ALL_DISTINCT (MAP FST (functions pan_code)) ∧ ac.ISA ≠ Ag32 ∧
   pan_to_word_compile_prog isa pan_code = wprog0 ∧
@@ -1954,7 +1952,7 @@ Proof
 
   ‘(w2n:'a word -> num) bytes_in_word = dimindex (:α) DIV 8’
     by fs[good_dimindex_def,bytes_in_word_def,dimword_def]>>
-  ‘sss.regs ' (sp + 2) = Word (s.base_addr) ∧
+  ‘sss.regs ' (sp + 2) = Word s.base_addr ∧
    sss.regs ' (sp + 1) = Word (mc.target.get_reg ms mc.ptr2_reg
                                + 48w * bytes_in_word:'a word) ∧
 
@@ -2433,11 +2431,20 @@ Proof
   qpat_x_assum ‘_ ≤ max_heap’ assume_tac>>
   qpat_x_assum ‘max_heap * _ < _’ assume_tac>>
   blastLib.BBLAST_TAC>>
-  POP_ASSUM_LIST (fn hs =>
-    MAP_EVERY assume_tac (List.rev (List.filter (fn h =>
-      List.all (fn v => List.exists (aconv v)
-        [``w2:'a word``, ``w3:'a word``, ``w4:'a word``, ``max_heap:num``])
-        (free_vars (concl h))) hs)))>>
+  (* Keep the bounds and alignment facts for the stack-size arithmetic. *)
+  map_every (C qpat_x_assum mp_tac)
+    [`w3 ≤₊ w4 + -1w * (bytes_in_word * n2w max_stack_alloc)`,
+     `0 < dimindex (:'a) DIV 8`,
+     `aligned _ (-1w * w2 + w3)`,
+     `w2n (bytes_in_word:'a word) = dimindex (:'a) DIV 8`,
+     `w2n w2 < w2n w4`,
+     `byte_aligned w4`, `byte_aligned w2`,
+     `1024w * bytes_in_word ≤₊ -1w * w2 + w4`,
+     `w2 ≤₊ w4`,
+     `w2 + bytes_in_word * n2w max_stack_alloc ≤₊ w3`,
+     `w2n w2 < w2n w3`, `0 < w2n w2`,
+     `good_dimindex (:'a)`] >>
+  rpt (pop_assum kall_tac) >> rpt strip_tac >>
   rewrite_tac[SUC_ONE_ADD]>>
 
   rewrite_tac[Once (GSYM WORD_ADD_ASSOC)]>>
@@ -2508,7 +2515,7 @@ Proof
   fs[GSYM byte_aligned_def]>>
   drule_all (byte_aligned_MOD |> REWRITE_RULE[SPECIFICATION])>>strip_tac>>
   gs[MOD_EQ_0_DIVISOR]>>
-  simp[Q.SPECL [‘dimindex (:'a) DIV 8’, ‘0’] DIV_MULT |> SIMP_RULE (std_ss)[]]>>
+  simp[Q.SPECL [‘dimindex (:'a) DIV 8’, ‘0’] DIV_MULT |> SIMP_RULE std_ss[]]>>
 
   drule (iffLR WORD_LS)>>strip_tac>>
   gs[]>>
@@ -2539,7 +2546,7 @@ Proof
   qpat_x_assum ‘byte_aligned w4’ assume_tac>>
   drule_all (byte_aligned_MOD |> REWRITE_RULE[SPECIFICATION])>>strip_tac>>
   gs[MOD_EQ_0_DIVISOR]>>
-  simp[Q.SPECL [‘dimindex (:'a) DIV 8’, ‘0’] DIV_MULT |> SIMP_RULE (std_ss)[]]>>
+  simp[Q.SPECL [‘dimindex (:'a) DIV 8’, ‘0’] DIV_MULT |> SIMP_RULE std_ss[]]>>
 
   rewrite_tac[SUB_PLUS]>>
   rewrite_tac[SUB_RIGHT_ADD]>>

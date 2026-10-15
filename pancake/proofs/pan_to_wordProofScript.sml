@@ -91,7 +91,6 @@ Proof
   rw[loop_state_def]
 QED
 
-
 Theorem first_compile_prog_all_distinct:
   !prog. ALL_DISTINCT (MAP FST(functions prog)) ==>
    ALL_DISTINCT (MAP FST (pan_to_word$compile_prog c prog))
@@ -553,7 +552,7 @@ Theorem state_rel_imp_semantics:
   s.eshapes = FEMPTY ∧
   lookup 0 t.locals = SOME (Loc 1 0) /\ good_dimindex (:'a) ∧
   semantics_decls s start pan_code <> Fail ==>
-  semantics (t:('a,'b, 'ffi) wordSem$state) (first_name) =
+  semantics (t:('a,'b, 'ffi) wordSem$state) first_name =
   semantics_decls (s:('a,'ffi) panSem$state) start pan_code
 Proof
 
@@ -759,16 +758,14 @@ Proof
      loop_inst_ok_def]
 QED
 
-val prog = “prog:loopLang$prog”
-
 Theorem every_inst_ok_loop_live:
   ∀prog.
-    every_prog (loop_inst_ok c) ^prog ⇒
+    every_prog (loop_inst_ok c) prog ⇒
     every_prog (loop_inst_ok c) (loop_live$comp prog)
 Proof
   rw[loop_liveTheory.comp_def] \\
-  ‘(∀p prog q. every_prog (loop_inst_ok c) ^prog ⇒ every_prog (loop_inst_ok c) (FST $ shrink p prog q)) ∧
-   (∀p q r s prog. every_prog (loop_inst_ok c) ^prog ⇒ OPTION_ALL (every_prog (loop_inst_ok c) o FST) (fixedpoint p q r s prog))
+  ‘(∀p prog q. every_prog (loop_inst_ok c) prog ⇒ every_prog (loop_inst_ok c) (FST $ shrink p prog q)) ∧
+   (∀p q r s prog. every_prog (loop_inst_ok c) prog ⇒ OPTION_ALL (every_prog (loop_inst_ok c) o FST) (fixedpoint p q r s prog))
   ’
     by(pop_assum kall_tac \\
        ho_match_mp_tac loop_liveTheory.shrink_ind \\ rw[] \\
@@ -784,7 +781,7 @@ Proof
        simp[Once loop_liveTheory.shrink_def] \\
        rpt(pairarg_tac \\ gvs[]) \\
        rw[]) \\
-  ‘∀prog. every_prog (loop_inst_ok c) ^prog ⇒
+  ‘∀prog. every_prog (loop_inst_ok c) prog ⇒
           every_prog (loop_inst_ok c) (FST $ mark_all prog)’
     by(rpt $ pop_assum kall_tac \\
        ho_match_mp_tac loop_liveTheory.mark_all_ind \\
@@ -809,12 +806,12 @@ Proof
 QED
 
 Theorem every_inst_ok_less_crep_to_loop_compile_exp:
-  (∀ctxt n ns (e:crepLang$exp).
+  (∀ctxt n ns e.
      ctxt.target = c.ISA ∧
      every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2) e
      ⇒
      EVERY (every_prog (loop_inst_ok c)) (FST $ crep_to_loop$compile_exp ctxt n ns e)) ∧
-  (∀ctxt n ns (es: crepLang$exp list).
+  (∀ctxt n ns es.
      ctxt.target = c.ISA ∧
      EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) es
      ⇒
@@ -900,6 +897,14 @@ Proof
   rw[crep_to_loopTheory.mk_ctxt_def]
 QED
 
+Theorem every_inst_ok_arith_mul_const[local]:
+  !aw exp c.
+  every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2) exp ==>
+  every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2) (mul_const aw exp c)
+Proof
+  rw [crep_arithTheory.mul_const_def, crepPropsTheory.every_exp_def]
+QED
+
 Theorem every_inst_ok_arith_simp_exp:
   !aw exp.
   every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2) exp ==>
@@ -907,10 +912,10 @@ Theorem every_inst_ok_arith_simp_exp:
 Proof
   ho_match_mp_tac crep_arithTheory.simp_exp_ind
   \\ simp [crep_arithTheory.simp_exp_def, crepPropsTheory.every_exp_def]
-  \\ rw [crep_arithTheory.mul_const_def]
+  \\ rw []
   \\ every_case_tac \\ fs []
   \\ gvs [listTheory.MAP_EQ_CONS]
-  \\ fs [crepPropsTheory.every_exp_def]
+  \\ fs [crepPropsTheory.every_exp_def, every_inst_ok_arith_mul_const]
   \\ simp [EVERY_MAP]
   \\ fs [EVERY_MEM]
 QED
@@ -1165,7 +1170,6 @@ Proof
   fs[every_inst_ok_less_pan_to_crep_compile_to_crep, every_inst_w_inline]
 QED
 
-
 Theorem every_inst_ok_less_ret_to_tail:
   ∀p.
     EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (exps_of $ ret_to_tail p) ⇔
@@ -1244,17 +1248,17 @@ QED
 
 Theorem every_inst_ok_less_pan_structs_compile_exp:
   (∀ctxt e.
-    every_exp (λx : panLang$exp. ∀op es. x = Panop op es ⇒ LENGTH es = 2) e ⇒
+    every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2) e ⇒
     every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2) (pan_structs$compile_exp ctxt e)
   ) ∧
   (∀ctxt es.
-    EVERY (every_exp (λx : panLang$exp. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) es ⇒
+    EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) es ⇒
     EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2))
         (pan_structs$compile_exps ctxt es)  ∧
     LENGTH (pan_structs$compile_exps ctxt es) = LENGTH es
   ) ∧
   (∀ctxt flds.
-    EVERY (every_exp (λx : panLang$exp. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (MAP SND flds) ⇒
+    EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (MAP SND flds) ⇒
     EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2))
         (MAP SND (pan_structs$compile_fields ctxt flds))
   )
@@ -1273,8 +1277,8 @@ QED
 
 Theorem every_inst_ok_less_pan_structs_compile:
   (∀ctxt p.
-    EVERY (every_exp (λx : panLang$exp. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (exps_of p) ⇒
-    EVERY (every_exp (λx : panLang$exp. ∀op es. x = Panop op es ⇒ LENGTH es = 2))
+    EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (exps_of p) ⇒
+    EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2))
         (exps_of (pan_structs$compile ctxt p)))
 Proof
   recInduct pan_structsTheory.compile_ind >>
@@ -1319,8 +1323,8 @@ Proof
 QED
 
 Theorem every_inst_ok_less_shape_val:
-  (∀e. every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2) ((shape_val e):panLang$exp)) ∧
-  (∀es. EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) ((shape_vals es):panLang$exp list))
+  (∀e. every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2) (shape_val e)) ∧
+  (∀es. EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (shape_vals es))
 Proof
   Induct >>
   rw[panLangTheory.shape_val_def,panPropsTheory.every_exp_def] >>

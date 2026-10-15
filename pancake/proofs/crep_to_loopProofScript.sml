@@ -318,7 +318,6 @@ Proof
   fs [wlab_wloc_def]
 QED
 
-
 Theorem globals_rel_ctxt_vmax_preserve:
   globals_rel (ctxt with vmax := m) s.globals t.globals ==>
   globals_rel ctxt s.globals t.globals
@@ -419,10 +418,10 @@ Proof
 QED
 
 Theorem compile_exp_out_rel_cases:
-  (!ct tmp l (e:crepLang$exp) p le ntmp nl.
+  (!ct tmp l e p le ntmp nl.
     compile_exp ct tmp l e = (p,le,ntmp, nl) ==>
     comp_syntax_ok l (nested_seq p) /\ tmp <= ntmp /\ nl = cut_sets l (nested_seq p)) /\
-  (!ct tmp l (e:crepLang$exp list) p le ntmp nl.
+  (!ct tmp l e p le ntmp nl.
     compile_exps ct tmp l e = (p,le,ntmp, nl) ==>
     comp_syntax_ok l (nested_seq p) /\ tmp <= ntmp /\ nl = cut_sets l (nested_seq p) /\
     LENGTH le = LENGTH e)
@@ -590,12 +589,11 @@ QED
 Theorem compile_exp_out_rel = compile_exp_out_rel_cases |> CONJUNCT1
 Theorem compile_exps_out_rel = compile_exp_out_rel_cases |> CONJUNCT2
 
-
 Theorem comp_exp_assigned_vars_tmp_bound_cases:
-  (!ct tmp l (e :crepLang$exp) p le ntmp nl n.
+  (!ct tmp l e p le ntmp nl n.
     compile_exp ct tmp l e = (p,le,ntmp,nl) /\ MEM n (assigned_vars (nested_seq p)) ==>
       tmp <= n /\ n < ntmp) /\
-  (!ct tmp l (e :crepLang$exp list) p le ntmp nl n.
+  (!ct tmp l e p le ntmp nl n.
     compile_exps ct tmp l e = (p,le,ntmp,nl) /\ MEM n (assigned_vars (nested_seq p)) ==>
       tmp <= n /\ n < ntmp)
 Proof
@@ -681,12 +679,12 @@ Theorem comp_exp_assigned_vars_tmp_bound = comp_exp_assigned_vars_tmp_bound_case
 Theorem comp_exps_assigned_vars_tmp_bound = comp_exp_assigned_vars_tmp_bound_cases |> CONJUNCT2
 
 Theorem compile_exp_le_tmp_domain_cases:
-  (!ct tmp l (e:crepLang$exp) p le tmp' l' n.
+  (!ct tmp l e p le tmp' l' n.
     ctxt_max ct.vmax ct.vars /\
     compile_exp ct tmp l e = (p,le,tmp', l') /\ ct.vmax < tmp /\
     (!n. MEM n (var_cexp e) ==> ?m. FLOOKUP ct.vars n = SOME m /\ m ∈ domain l) /\
     MEM n (locals_touched le) ==> n < tmp' /\ n ∈ domain l') /\
-  (!ct tmp l (es:crepLang$exp list) p les tmp' l' n.
+  (!ct tmp l es p les tmp' l' n.
     ctxt_max ct.vmax ct.vars /\
     compile_exps ct tmp l es = (p,les,tmp', l') /\ ct.vmax < tmp /\
     (!n. MEM n (FLAT (MAP var_cexp es)) ==> ?m. FLOOKUP ct.vars n = SOME m /\ m ∈ domain l) /\
@@ -1318,13 +1316,12 @@ Proof
   fs []
 QED
 
-
 Theorem member_cutset_survives_comp_exp_cases:
-  (!ct tmp l (e:crepLang$exp) p le ntmp nl n.
+  (!ct tmp l e p le ntmp nl n.
    n ∈ domain l /\
    compile_exp ct tmp l e = (p,le,ntmp,nl) ==>
      survives n (nested_seq p)) /\
-  (!ct tmp l (e:crepLang$exp list) p le ntmp nl n.
+  (!ct tmp l e p le ntmp nl n.
    n ∈ domain l /\
    compile_exps ct tmp l e = (p,le,ntmp,nl) ==>
      survives n (nested_seq p))
@@ -1423,19 +1420,15 @@ Proof
   fs [SUBSET_DEF]
 QED
 
-
 Theorem member_cutset_survives_comp_exp =
      member_cutset_survives_comp_exp_cases |> CONJUNCT1
 Theorem member_cutset_survives_comp_exps =
      member_cutset_survives_comp_exp_cases |> CONJUNCT2
 
-
 Theorem member_cutset_survives_comp_exp_flip[local] =
     member_cutset_survives_comp_exp |> ONCE_REWRITE_RULE [CONJ_COMM]
 Theorem member_cutset_survives_comp_exps_flip[local] =
     member_cutset_survives_comp_exps |> ONCE_REWRITE_RULE [CONJ_COMM]
-
-
 
 Theorem member_cutset_survives_comp_prog:
   !ctxt l p n.
@@ -1463,14 +1456,13 @@ Proof
   \\ fs []
 QED
 
-
 Theorem not_mem_assigned_mem_gt_comp_exp_cases:
-  (!ctxt tmp l (e:crepLang$exp) p le ntmp nl n.
+  (!ctxt tmp l e p le ntmp nl n.
     compile_exp ctxt tmp l e = (p,le,ntmp,nl) /\
     ctxt_max ctxt.vmax ctxt.vars /\
     (!v m. FLOOKUP ctxt.vars v = SOME m ==> n <> m) ∧ n < tmp ==>
       ~MEM n (assigned_vars (nested_seq p))) /\
-  (!ctxt tmp l (e:crepLang$exp list) p le ntmp nl n.
+  (!ctxt tmp l e p le ntmp nl n.
     compile_exps ctxt tmp l e = (p,le,ntmp,nl) /\
      ctxt_max ctxt.vmax ctxt.vars /\
      (!v m. FLOOKUP ctxt.vars v = SOME m ==> n <> m) ∧ n < tmp ==>
@@ -1561,8 +1553,8 @@ Theorem not_mem_assigned_mem_gt_comp_exps =
       not_mem_assigned_mem_gt_comp_exp_cases |> CONJUNCT2
 
 Theorem assigned_vars_nested_seq_assign:
-  !vs (es:loopLang$exp list).
-    LENGTH vs = LENGTH es ⇒ assigned_vars (nested_seq (MAP2 Assign vs es)) = vs
+  !vs es.
+    LENGTH vs = LENGTH es ⇒ assigned_vars (nested_seq (MAP2 loopLang$Assign vs es)) = vs
 Proof
   Induct \\ rw[nested_seq_def, assigned_vars_def]
   \\ Cases_on `es` \\ fs[nested_seq_def, assigned_vars_def]
@@ -1643,8 +1635,6 @@ Proof
   \\ imp_res_tac assigned_vars_nested_seq_assign \\ fs[]
   \\ CCONTR_TAC \\ fs[Abbr `ntmps`, gen_temps_def, MEM_GENLIST]
 QED
-
-
 
 Resume ncompile_correct[Skip]:
   rpt strip_tac >>
@@ -1853,7 +1843,6 @@ Resume ncompile_correct[Store]:
   rw [mem_rel_def] >>
   rw [APPLY_UPDATE_THM]
 QED
-
 
 Resume ncompile_correct[Store32]:
   rw [] >>
@@ -2679,7 +2668,6 @@ Resume ncompile_correct[If]:
   fs [asmTheory.word_cmp_def, cut_res_def]
 QED
 
-
 Resume ncompile_correct[ExtCall]:
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
@@ -2713,7 +2701,6 @@ Resume ncompile_correct[ExtCall]:
    gvs []) >>
   fs [call_env_def,mem_rel_def]
 QED
-
 
 Resume ncompile_correct[While]:
   rpt gen_tac >> rpt strip_tac >>
@@ -3129,7 +3116,6 @@ Resume ncompile_correct[While]:
   strip_tac >> fs [] >> rveq >>
   fs []
 QED
-
 
 Theorem call_preserve_state_code_locals_rel:
   !ns lns args s st ctxt nl fname argexps prog loc.
@@ -3717,7 +3703,6 @@ QED
 
 Finalise ncompile_correct;
 
-
 Theorem ocompile_correct:
   evaluate (p,s) = (res,s1) ∧ state_rel s t ∧
   mem_rel s.memory t.memory s.memaddrs ∧
@@ -3753,7 +3738,6 @@ Proof
   cases_on ‘res’ >> fs [] >>
   cases_on ‘x’ >> fs []
 QED
-
 
 Theorem distinct_make_funcs:
   !crep_code. distinct_funcs (make_funcs crep_code)
@@ -3796,7 +3780,6 @@ Proof
   fs [] >> rveq >> fs []
 QED
 
-
 Theorem map_map2_fst:
   !xs ys h. LENGTH xs = LENGTH ys ==>
    MAP FST
@@ -3828,7 +3811,6 @@ Proof
   first_x_assum (qspec_then ‘(n,x)’ mp_tac) >>
   fs []
 QED
-
 
 Theorem first_compile_prog_all_distinct:
   !c crep_code.
@@ -3938,7 +3920,6 @@ Proof
   strip_tac >>
   metis_tac [el_pair_map_fst_el]
 QED
-
 
 Theorem initial_prog_make_funcs_el:
   !prog start n. FLOOKUP (make_funcs prog) start = SOME (n + first_name,0) ==>

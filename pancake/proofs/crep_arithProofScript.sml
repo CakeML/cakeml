@@ -8,18 +8,6 @@ Ancestors
 Libs
   preamble
 
-Theorem dest_2exp_bound:
-  dest_2exp n w = SOME m ==> m = n + LOG2 w
-Proof
-  rw [dest_2exp_def] >> gvs []
-QED
-
-Theorem dest_2exp_bound':
-  dest_2exp 0 w = SOME m /\ w < 2 ** bits ==> m < bits
-Proof
-  strip_tac >> imp_res_tac dest_2exp_thm >> gvs [EXP_BASE_LT_MONO]
-QED
-
 Theorem dest_const_thm:
   dest_const exp = SOME v ==> exp = Const v
 Proof
@@ -40,14 +28,18 @@ Proof
   >- (
     ‘(i2w c:'a word) = 1w’ by metis_tac [n2w_w2n] >>
     simp []) >>
-  Cases_on ‘dest_2exp 0 (w2n (i2w c:'a word))’ >>
+  Cases_on `w2n (i2w c:'a word) = 2 ** LOG2 (w2n (i2w c:'a word))` >>
   fs [eval_def, crep_op_def, OPT_MMAP_def, integer_wordTheory.i2w_pos] >>
-  ‘x < dimindex(:'a)’ by
-    metis_tac [dest_2exp_bound', w2n_lt, dimword_def] >>
-  ‘x < dimword(:'a)’ by metis_tac [LESS_TRANS, dimindex_lt_dimword] >>
-  imp_res_tac dest_2exp_thm >>
-  ‘(i2w c:'a word) = n2w (2 ** x)’ by metis_tac [n2w_w2n] >>
-  simp [LESS_MOD, wordSemTheory.word_sh_def, WORD_MUL_LSL]
+  `LOG2 (w2n (i2w c:'a word)) < dimindex(:'a)`
+  by (
+    qspec_then `i2w c:'a word` mp_tac w2n_lt >>
+    simp [dimword_def, logrootTheory.LT_EXP_LOG, GSYM bitTheory.LOG2_def]) >>
+  `LOG2 (w2n (i2w c:'a word)) < dimword(:'a)` by
+    metis_tac [LESS_TRANS, dimindex_lt_dimword] >>
+  `(i2w c:'a word) = n2w (2 ** LOG2 (w2n (i2w c:'a word)))` by
+    metis_tac [n2w_w2n] >>
+  simp [LESS_MOD, wordSemTheory.word_sh_def, WORD_MUL_LSL] >>
+  qpat_x_assum `i2w _ = _` (fn h => rewrite_tac [GSYM h])
 QED
 
 Theorem OPT_MMAP_EQ_SOME_MONO[local]:
@@ -102,10 +94,6 @@ Proof
   )
 QED
 
-
-
-
-
 Theorem simp_exp_correct:
   arch_width_bits aw = dimindex(:'a) /\
   crepSem$eval (s:('a,'ffi) crepSem$state) exp = SOME v ==>
@@ -149,7 +137,6 @@ Theorem ind_thm[local] = crepSemTheory.evaluate_ind
     |> Q.SPEC `UNCURRY Q`
     |> REWRITE_RULE [UNCURRY_DEF]
     |> Q.GEN `Q`
-
 
 Theorem simp_prog_correct:
   ! p (s:('a,'ffi) crepSem$state) r s'.

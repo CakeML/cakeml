@@ -12,28 +12,13 @@ Definition dest_const_def:
   dest_const _ = NONE
 End
 
-Definition dest_2exp_def:
-  dest_2exp n w =
-    if w = 0 then NONE
-    else if w = 2 ** LOG2 w then SOME (n + LOG2 w)
-    else NONE
-End
-
-Theorem dest_2exp_thm:
-  dest_2exp 0 w = SOME n ==>
-  w = 2 ** n
-Proof
-  rw [dest_2exp_def] >> gvs []
-QED
-
 Definition mul_const_def:
   mul_const aw exp c =
     let u = Num (c % &(2 ** arch_width_bits aw)) in
     if u = 0 then Const 0
     else if u = 1 then exp
-    else (case dest_2exp 0 u of
-      | NONE => Crepop Mul [exp; Const c]
-      | SOME i => Shift Lsl exp (Const (&i)))
+    else if u = 2 ** LOG2 u then Shift Lsl exp (Const (&(LOG2 u)))
+    else Crepop Mul [exp; Const c]
 End
 
 Definition simp_exp_def:

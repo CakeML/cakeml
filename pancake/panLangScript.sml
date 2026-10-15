@@ -13,7 +13,6 @@ Ancestors
 Libs
   preamble
 
-
 (* for overloading the shift operation *)
 
 Type shift = ``:ast$shift``
@@ -207,7 +206,6 @@ Proof
   Cases_on ‘a’ >> gvs [definition "exp_size_def"] >> res_tac >> decide_tac
 QED
 
-
 Definition nested_seq_def:
   (nested_seq [] = Skip) /\
   (nested_seq (e::es) = Seq e (nested_seq es))
@@ -269,7 +267,7 @@ Definition var_exp_def:
   (var_exp TopAddr = []) ∧
   (var_exp BytesInWord = [])
 Termination
-  wf_rel_tac `measure (\e. exp_size e)` >>
+  wf_rel_tac `measure exp_size` >>
     simp[MEM_MAP, EXISTS_PROD] >>
     rw [MEM_SPLIT] >>
     simp [list_size_append]
@@ -290,7 +288,7 @@ Definition global_var_exp_def:
   (global_var_exp (Cmp c e1 e2) = global_var_exp e1 ++ global_var_exp e2) ∧
   (global_var_exp (Shift sh e1 e2) = global_var_exp e1 ++ global_var_exp e2)
 Termination
-  wf_rel_tac `measure (\e. exp_size e)` >>
+  wf_rel_tac `measure exp_size` >>
   rpt strip_tac >>
   imp_res_tac MEM_IMP_exp_size >>
   decide_tac

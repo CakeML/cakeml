@@ -48,9 +48,9 @@ Definition compile_crepop_def:
 End
 
 Definition compile_exp_def:
-  (compile_exp ctxt tmp l ((BaseAddr):crepLang$exp) = ([], BaseAddr, tmp, l)) /\
-  (compile_exp ctxt tmp l ((TopAddr):crepLang$exp) = ([], TopAddr, tmp, l)) /\
-  (compile_exp ctxt tmp l ((Const c):crepLang$exp) = ([], Const c, tmp, l)) /\
+  (compile_exp ctxt tmp l (BaseAddr:crepLang$exp) = ([], BaseAddr, tmp, l)) /\
+  (compile_exp ctxt tmp l TopAddr = ([], TopAddr, tmp, l)) /\
+  (compile_exp ctxt tmp l (Const c) = ([], Const c, tmp, l)) /\
   (compile_exp ctxt tmp l (Var v) = ([], Var (find_var ctxt v), tmp, l)) /\
   (compile_exp ctxt tmp l (Load ad) =
    let (p, le, tmp, l) = compile_exp ctxt tmp l ad in (p, Load le, tmp, l)) /\
@@ -66,7 +66,7 @@ Definition compile_exp_def:
    (p, Op bop les, tmp, l)) /\
   (compile_exp ctxt tmp'' l (Crepop cop es) =
    let (p, les, tmp, l) = compile_exps ctxt tmp'' l es;
-       (p',tmp') = compile_crepop cop ctxt.target (tmp) (tmp+1) (tmp+LENGTH les) $ list_insert (GENLIST ($+ tmp) (LENGTH les)) l
+       (p',tmp') = compile_crepop cop ctxt.target tmp (tmp+1) (tmp+LENGTH les) $ list_insert (GENLIST ($+ tmp) (LENGTH les)) l
     in
    (p ++ MAPi (λn. Assign (tmp+n)) les ++ p',
     Var tmp', tmp'+1, insert tmp' () $ list_insert (GENLIST ($+ tmp) (tmp'-tmp)) l)) /\
@@ -88,7 +88,7 @@ Definition compile_exp_def:
       (p ++ p1, le::les, tmp, l))
 Termination
   wf_rel_tac ‘measure (\x. case ISR x of
-                       | T => list_size (crepLang$exp_size) (SND(SND(SND (OUTR x))))
+                       | T => list_size crepLang$exp_size (SND(SND(SND (OUTR x))))
                        | F => crepLang$exp_size (SND(SND(SND (OUTL x)))))’ >>
   rw []
 End
@@ -207,11 +207,9 @@ Definition compile_def:
      | _ => Skip)
 End
 
-
 Definition ocompile_def:
   ocompile ctxt l p = (loop_live$optimise o compile ctxt l) p
 End
-
 
 Definition mk_ctxt_def:
   mk_ctxt target vmap fs vmax =

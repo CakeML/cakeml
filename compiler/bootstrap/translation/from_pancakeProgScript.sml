@@ -58,14 +58,17 @@ Proof
   \\ simp[]
 QED
 
-Theorem dest_2exp_pancake_log2[local]:
-  dest_2exp n w =
-    if w = 0 then NONE
-    else if w = 2 ** pancake_log2 w then SOME (n + pancake_log2 w)
-    else NONE
+Theorem mul_const_pancake_log2[local]:
+  mul_const aw exp c =
+    let u = Num (c % &(2 ** arch_width_bits aw)) in
+    if u = 0 then Const 0
+    else if u = 1 then exp
+    else if u = 2 ** pancake_log2 u then
+      Shift Lsl exp (Const (&(pancake_log2 u)))
+    else Crepop Mul [exp; Const c]
 Proof
-  Cases_on `w = 0`
-  \\ simp[dest_2exp_def,pancake_log2_correct]
+  Cases_on `Num (c % &(2 ** arch_width_bits aw)) = 0`
+  \\ simp [mul_const_def, pancake_log2_correct]
 QED
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP,parserProgTheory.OPTION_BIND_THM,option_map_thm];
@@ -336,9 +339,7 @@ val _ = translate $ crep_arithTheory.dest_const_def;
 
 val _ = translate pancake_log2_def;
 
-val _ = translate dest_2exp_pancake_log2;
-
-val _ = translate $ crep_arithTheory.mul_const_def;
+val _ = translate mul_const_pancake_log2;
 
 Theorem crep_arith_mul_const_side_total[local]:
   ∀aw e c. crep_arith_mul_const_side aw e c

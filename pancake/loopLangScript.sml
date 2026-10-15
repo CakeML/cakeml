@@ -84,7 +84,7 @@ Definition locals_touched_def:
   (locals_touched BaseAddr = []) ∧
   (locals_touched TopAddr = [])
 Termination
-  wf_rel_tac `measure (\e. exp_size e)` >>
+  wf_rel_tac `measure exp_size` >>
   rpt strip_tac >>
   imp_res_tac MEM_IMP_exp_size >>
   decide_tac
