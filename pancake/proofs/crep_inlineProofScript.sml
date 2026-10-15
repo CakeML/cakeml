@@ -3390,7 +3390,7 @@ Proof
       disch_then $ qspecl_then [`t with clock := k`, `inl_fs`] mp_tac >> impl_tac
       >- (
         gvs[AllCaseEqs(), state_rel_code_def, locals_strong_rel_def, code_inl_rel_def] >>
-        namedCases_on `q` ["", "result"] >> fs[] >> Cases_on `result` >> fs[]
+        namedCases_on `q` ["_", "result"] >> fs[] >> Cases_on `result` >> fs[]
       ) >>
       disch_tac >> gvs[]
     ) >>
@@ -3403,7 +3403,7 @@ Proof
     Cases_on `evaluate (Call NONE start [],s with clock := k)` >> gs[] >>
     Cases_on `evaluate (Call NONE start [],t with clock := k)` >> gs[] >>
     subgoal `q ≠ SOME Error`
-    >- (namedCases_on `q` ["", "result"] >> gs[] >> Cases_on `result` >> gs[]) >>
+    >- (namedCases_on `q` ["_", "result"] >> gs[] >> Cases_on `result` >> gs[]) >>
     rev_drule evaluate_call_same_result_state >>
     disch_then $ qspecl_then [`t with clock := k`, `inl_fs`] mp_tac >> impl_tac
     >- gvs[state_rel_code_def, locals_strong_rel_def, code_inl_rel_def] >>
@@ -3433,7 +3433,7 @@ Proof
   rpt strip_tac >> gvs[]
   >- (
     subgoal `r ≠ SOME Error`
-    >- (namedCases_on `r` ["", "result"] >> gs[] >> Cases_on `result` >> gs[]) >>
+    >- (namedCases_on `r` ["_", "result"] >> gs[] >> Cases_on `result` >> gs[]) >>
     rev_drule evaluate_call_same_result_state >>
     disch_then $ qspecl_then [`t with clock := k`, `inl_fs`] mp_tac >> impl_tac
     >- gvs[state_rel_code_def, locals_strong_rel_def, code_inl_rel_def] >>
@@ -3444,7 +3444,7 @@ Proof
       Cases_on `q = SOME TimeOut` >> gs[] >>
       drule evaluate_add_clock_eq >>
       disch_then $ qspec_then `k' - k` assume_tac >> gvs[state_rel_code_def] >>
-      namedCases_on `q` ["", "result"] >> fs[] >> Cases_on `result` >> fs[]
+      namedCases_on `q` ["_", "result"] >> fs[] >> Cases_on `result` >> fs[]
     ) >>
     Cases_on `evaluate (Call NONE start [], t with clock := k)` >> gs[] >>
     `k' ≤ k` by fs[] >>
@@ -3452,7 +3452,7 @@ Proof
     qpat_x_assum `evaluate (Call _ _ _, t with clock := k') = _` assume_tac >>
     drule evaluate_add_clock_eq >>
     disch_then $ qspec_then `k - k'` assume_tac >> gvs[state_rel_code_def] >>
-    namedCases_on `q` ["", "result"] >> fs[] >> Cases_on `result` >> fs[]
+    namedCases_on `q` ["_", "result"] >> fs[] >> Cases_on `result` >> fs[]
   ) >>
   Cases_on `r = SOME Error` >> fs[] >>
   drule evaluate_call_same_result_state >>
