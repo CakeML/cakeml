@@ -173,9 +173,15 @@ Theorem annotate_free_name_bound[local]:
 Proof
   ho_match_mp_tac annotate_exp_ind >> rpt conj_tac >> rpt gen_tac
   >> rw [Once annotate_exp_def] >> rpt (pairarg_tac >> gvs [])
-  >> gvs [FDOM_FUNION,FDOM_DOMSUB,delete_all_domain,str_empty_def,AllCaseEqs()]
-  >> rpt (CASE_TAC >> gvs [FDOM_DOMSUB])
-  >> metis_tac [bump_le,bump_all_le,bump_patterns_le,MAX_LE,LESS_EQ_TRANS]
+  >> gvs [FDOM_FUNION,FDOM_DOMSUB,delete_all_domain,str_empty_def]
+  >>~- ([‘_ ≤ bump_all _ _’], metis_tac [bump_all_le,MAX_LE,LESS_EQ_TRANS])
+  >- metis_tac [bump_le,LESS_EQ_TRANS]
+  >- (Cases_on ‘x’ >> gvs [])
+  >- (Cases_on ‘name’ >> simp [] >> metis_tac [bump_le,MAX_LE,LESS_EQ_TRANS])
+  >- (Cases_on ‘name’ >> gvs [FDOM_DOMSUB] >> metis_tac [bump_le,MAX_LE,LESS_EQ_TRANS])
+  >- (Cases_on ‘NULL es’ >> gvs [FDOM_FUNION])
+  >- metis_tac [bump_patterns_le,LESS_EQ_TRANS]
+  >- metis_tac [bump_le,LESS_EQ_TRANS]
 QED
 
 Inductive constant_exp:
@@ -844,12 +850,14 @@ Theorem choose_names_fresh[local]:
 Proof
   Induct_on ‘xs’
   >- (rw [choose_names_def] >> gvs [])
+  >> qpat_x_assum ‘∀bound n ds used ys n1 ds1 used1. _’ (assume_named_tac "IH")
   >> rpt gen_tac >> strip_tac >> gvs [Once choose_names_def]
   >> rpt (pairarg_tac >> gvs [])
   >> qmatch_asmsub_rename_tac ‘choose_name bound x _ = (y,middle)’
   >> PairCases_on ‘middle’ >> gvs [lift_state_fresh_def]
   >> drule_all choose_name_fresh >> strip_tac >> gvs []
-  >> first_x_assum (drule_at (Pat ‘choose_names _ _ _ = _’))
+  >> asm_x "IH"
+    (drule_at (Pat ‘choose_names _ _ _ = _’) o REWRITE_RULE [lift_state_fresh_def])
   >> impl_tac >- (fs [EVERY_MEM] >> metis_tac [LESS_EQ_TRANS])
   >> strip_tac >> gvs [FLOOKUP_UPDATE] >> rpt conj_tac
   >- metis_tac []
@@ -1659,6 +1667,12 @@ Theorem lift_scope_mono[local]:
   lift_scope R' captures bound ren st source global locals
 Proof
   PairCases_on ‘st’ >> rw [lift_scope_def] >> metis_tac [lift_env_rel_mono]
+QED
+
+Theorem lift_scope_constructors[local]:
+  lift_scope R captures bound ren st source global locals ⇒ source.c = global.c
+Proof
+  PairCases_on ‘st’ >> rw [lift_scope_def,lift_env_rel_def]
 QED
 
 Definition lift_function_certificate_def:
@@ -3342,9 +3356,9 @@ Proof
   >> drule_all lift_function_body_constructors >> disch_tac
   >> ‘source.c = initial.c’ by fs [lift_scope_def,lift_env_rel_def]
   >> imp_res_tac lift_global_decs_constructors >> ‘source.c = final.c’ by fs []
-  >> simp [lift_function_certificate_def]
+  >> rewrite_tac [lift_function_certificate_def]
   >> first_assum $ irule_at (Pat ‘lift_function_body _ _ _ _ _ = _’)
-  >> qexistsl_tac [‘locals’,‘initial’,‘final’,‘base’] >> simp [] >> metis_tac []
+  >> qexistsl_tac [‘locals’,‘limit’,‘initial’,‘final’,‘captures’,‘base’] >> gvs [] >> metis_tac []
 QED
 
 Theorem rename_var_updates_distinct[local]:
@@ -4180,7 +4194,7 @@ Proof
        renamed ∉ exp_names body’
   >- (rw [delete_all_lookup] >> metis_tac [])
   >> drule_all lift_exp_sim_lift >> disch_then (qx_choose_then ‘final’ strip_assume_tac)
-  >> qexists_tac ‘final’ >> simp [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
+  >> qexists_tac ‘final’ >> asm_rewrite_tac [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
   >> drule_all lift_annotated_state_properties_lift >> strip_tac
   >> drule_all lift_scope_decs_avoid >> simp [] >> disch_tac
   >> qx_genl_tac [‘bindings’,‘bindings'’] >> strip_tac
@@ -4338,7 +4352,7 @@ Proof
   >> disch_then (qspecl_then [‘tail_trees’,‘tail_limit’,‘tail_captures’]
        (drule_all o REWRITE_RULE []))
   >> disch_then (qx_choose_then ‘final’ strip_assume_tac)
-  >> qexists_tac ‘final’ >> simp [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
+  >> qexists_tac ‘final’ >> asm_rewrite_tac [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
   >> have ‘lift_scope lift_runtime_rel (delete_all (pat_bindings pattern) body_captures)
        bound ren (n,ds,used) source initial locals’
   >- (
@@ -4366,7 +4380,7 @@ Proof
   >> qpat_assum ‘lift_scope _ (FUNION _ _) bound ren
        (middle_n,middle_ds,middle_used) source head_final locals’
     (mp_then (Pos hd) drule_all lift_scope_decs_avoid)
-  >> disch_tac >> simp []
+  >> disch_tac >> asm_rewrite_tac []
   >> ‘head_final.c = final.c’ by metis_tac [lift_global_decs_constructors]
   >> qx_gen_tac ‘target’ >> strip_tac >> reverse conj_tac
   >- (
@@ -4448,7 +4462,7 @@ Proof
   >> drule_all lift_annotated_state_properties_lift >> strip_tac
   >> drule_all lift_exp_sim_lift >> disch_then (qx_choose_then ‘final’ strip_assume_tac)
   >> ‘n ≤ n2’ by fs [lift_state_extends_def]
-  >> qexists_tac ‘final’ >> simp [] >> qx_genl_tac [‘c2’,‘source’,‘locals’] >> strip_tac
+  >> qexists_tac ‘final’ >> asm_rewrite_tac [] >> qx_genl_tac [‘c2’,‘source’,‘locals’] >> strip_tac
   >> have ‘lift_scope lift_runtime_rel c1 bound ren (n,ds,used) source initial locals’
   >- (
     irule lift_scope_domain_subset >> qexists_tac ‘FUNION c1 c2’ >> simp [FDOM_FUNION])
@@ -4606,7 +4620,7 @@ Theorem lift_exps_simulation[local]:
             (evaluate s source (REVERSE es)) (evaluate s' target (REVERSE compiled))
 Proof
   rpt strip_tac
-  >> drule_all lift_exps_sim >> strip_tac >> qexists_tac ‘final’ >> simp []
+  >> drule_all lift_exps_sim >> strip_tac >> qexists_tac ‘final’ >> asm_rewrite_tac []
   >> qx_genl_tac [‘source’,‘locals’] >> strip_tac >> first_x_assum drule >> rw []
   >> irule lift_evaluate_list_refinement >> simp [LIST_REL_REVERSE_EQ]
   >> qexists_tac ‘clock’ >> simp [] >> first_x_assum irule >> simp []
@@ -4784,7 +4798,7 @@ Proof
       >> simp [])
     >> drule_all lift_exp_sim_lift >> disch_then (qx_choose_then ‘final’ strip_assume_tac)
     >> drule_all lift_annotated_state_properties_lift >> strip_tac
-    >> qexists_tac ‘final’ >> simp [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
+    >> qexists_tac ‘final’ >> asm_rewrite_tac [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
     >> qpat_assum ‘lift_scope _ _ _ _ (n,ds,used) source initial locals’
       (assume_tac o CONJUNCT1 o REWRITE_RULE [lift_scope_def])
     >> drule_all choose_names_renaming_wf >> disch_tac
@@ -4960,11 +4974,12 @@ Proof
         >> qpat_assum ‘MAP FST (ZIP (MAP FST funs,compiled_names)) = MAP FST funs’
           (simp_tac (srw_ss()) o single)
         >> first_assum ACCEPT_TAC)
-      >> ‘source.c = initial.c’ by fs [lift_scope_def,lift_env_rel_def]
+      >> qpat_assum ‘lift_scope _ _ _ _ _ source initial _’
+        (assume_tac o MATCH_MP lift_scope_constructors)
       >> qpat_assum ‘lift_global_decs _ base initial’
            (assume_tac o MATCH_MP lift_global_decs_constructors)
       >> ‘EVERY (λ(f,x,e). source_dce$no_Open e ∧ check_exp_constructors source.c e) funs’
-        by gvs []
+        by simp []
       >> have ‘∀name mapped.
            FLOOKUP (ren |++ ZIP (MAP FST funs,compiled_names)) name = SOME mapped ∧
            mapped ≠ name ⇒ ∀original. original ∈ exp_names_funs funs ⇒ mapped ≠ original’
@@ -5075,7 +5090,7 @@ Proof
     >> drule_all lift_bound_exp_simulation
     >> disch_then (qx_choose_then ‘final’ strip_assume_tac)
     >> drule_all lift_annotated_state_properties_lift >> strip_tac
-    >> qexists_tac ‘final’ >> simp [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
+    >> qexists_tac ‘final’ >> asm_rewrite_tac [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
     >> have ‘lift_scope lift_runtime_rel (delete_all (MAP FST funs) function_captures)
          bound ren (n,ds,used) source initial locals’
     >- (
@@ -5151,11 +5166,12 @@ Proof
            MAP (λ(f,x,e). (f,x)) funs’ (fn names =>
         qpat_assum ‘lift_funs _ _ _ (MAP (λ(f,x,e). (f,x)) funs) function_trees = _’
           (assume_tac o REWRITE_RULE [GSYM names]))
-      >> ‘source.c = initial.c’ by fs [lift_scope_def,lift_env_rel_def]
+      >> qpat_assum ‘lift_scope _ _ _ _ _ source initial _’
+        (assume_tac o MATCH_MP lift_scope_constructors)
       >> qpat_assum ‘lift_global_decs _ base initial’
            (assume_tac o MATCH_MP lift_global_decs_constructors)
       >> ‘EVERY (λ(f,x,e). source_dce$no_Open e ∧ check_exp_constructors source.c e) funs’
-        by gvs []
+        by simp []
       >> drule_all lift_scope_rec_certificate >> disch_tac
       >> drule lift_scope_captures_protected
       >> disch_tac >> drule_all (cj 4 annotate_free_names) >> disch_tac
@@ -5173,7 +5189,7 @@ Proof
            (assume_tac o MATCH_MP lift_global_decs_constructors)
       >> qpat_assum ‘lift_global_decs _ base function_env’
            (assume_tac o MATCH_MP lift_global_decs_constructors)
-      >> ‘target.c = function_env.c’ by gvs []
+      >> ‘target.c = function_env.c’ by simp []
       >> have ‘∀id. (∀name. id = Short name ⇒
            name ∈ exp_free_names_funs compiled_funs DIFF set (MAP FST compiled_funs)) ⇒
            nsLookup target.v id = nsLookup (nsBindList locals function_env.v) id’
@@ -5194,7 +5210,7 @@ Proof
         >> qx_gen_tac ‘entry’ >> strip_tac >> simp_tac (srw_ss()) []
         >> irule lift_rec_certificate_runtime_rel
         >> qpat_assum ‘lift_rec_certificate _ _ _ target _ _’ (irule_at Any)
-        >> ‘MEM (FST entry) (MAP FST funs)’ by (simp [MEM_MAP] >> qexists_tac ‘entry’ >> simp [])
+        >> qpat_assum ‘MEM entry _’ (assume_tac o MATCH_MP (ISPEC “FST” MEM_MAP_f))
         >> simp [rename_var_delete_all])
       >> qpat_x_assum ‘∀bindings bindings'. _ ⇒ lift_scope _ _ _ _ _ _ _ _ ∧ ∀s s' target. _’
         (qspecl_then [
@@ -5269,7 +5285,7 @@ Proof
        ‘used’,‘initial’,‘base’,‘r1’] mp_tac)
   >> (impl_tac >- (fs [EVERY_MEM,FORALL_PROD] >> metis_tac []))
   >> disch_then (qx_choose_then ‘final’ strip_assume_tac)
-  >> qexists_tac ‘final’ >> simp [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
+  >> qexists_tac ‘final’ >> asm_rewrite_tac [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
   >> first_x_assum drule >> strip_tac >> simp [] >> rpt strip_tac
   >> first_x_assum (qspec_then ‘target’ mp_tac)
   >> (impl_tac >- (
@@ -5303,7 +5319,7 @@ Proof
              lift_result_rel_def,lift_runtime_rel_refl])
   >> ‘lift_pure_value initial (Lit lit) (Litv lit)’ by simp [lift_pure_value_rules]
   >> ‘check_exp_constructors initial.c (Lit lit)’ by simp [check_exp_constructors_def]
-  >> drule_all lift_emit_value_sim >> strip_tac >> qexists_tac ‘final’ >> simp []
+  >> drule_all lift_emit_value_sim >> strip_tac >> qexists_tac ‘final’ >> asm_rewrite_tac []
   >> rpt gen_tac >> strip_tac >> first_x_assum drule >> strip_tac >> simp []
   >> qx_genl_tac [‘s’,‘s'’,‘target’] >> strip_tac
   >> qpat_x_assum ‘∀target. _’ (drule_then (qspec_then ‘s'’ SUBST1_TAC))
@@ -5351,7 +5367,7 @@ Proof
        bound ren (n,ds,used) trees’ ["arguments list_n list_ds list_used"]
   >> gvs [exp_names_def,no_Open_thm,check_exp_constructors_def,SF ETA_ss]
   >> first_x_assum drule_all >> disch_then (qx_choose_then ‘final’ strip_assume_tac)
-  >> qexists_tac ‘final’ >> simp [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
+  >> qexists_tac ‘final’ >> asm_rewrite_tac [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
   >> first_x_assum drule >> strip_tac >> simp [] >> qx_genl_tac [‘s’,‘s'’,‘target’]
   >> strip_tac
   >> have ‘lift_eval_refinement lift_runtime_rel D (LIST_REL lift_runtime_rel)
@@ -5384,7 +5400,7 @@ Proof
        ‘FUNION c1 c2’,‘base’,‘initial’] mp_tac)
   >> impl_tac >- (simp [annotate_exp_def,exp_names_def] >> metis_tac [])
   >> disch_then (qx_choose_then ‘final’ strip_assume_tac)
-  >> qexists_tac ‘final’ >> simp [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
+  >> qexists_tac ‘final’ >> asm_rewrite_tac [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
   >> first_x_assum drule >> strip_tac >> simp [] >> rpt strip_tac
   >> first_x_assum (qspec_then ‘target’ mp_tac)
   >> impl_tac >- (
@@ -5415,7 +5431,7 @@ Proof
        ‘FUNION c1 (FUNION c2 c3)’,‘base’,‘initial’] mp_tac)
   >> impl_tac >- (simp [annotate_exp_def,exp_names_def] >> metis_tac [])
   >> disch_then (qx_choose_then ‘final’ strip_assume_tac)
-  >> qexists_tac ‘final’ >> simp [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
+  >> qexists_tac ‘final’ >> asm_rewrite_tac [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
   >> first_x_assum drule >> strip_tac >> simp [] >> rpt strip_tac
   >> first_x_assum (qspec_then ‘target’ mp_tac)
   >> impl_tac >- (
@@ -5449,7 +5465,7 @@ Proof
   >- metis_tac [annotate_LENGTH,cj 1 lift_output_lengths]
   >> qpat_x_assum ‘(_ ∧ _ ∧ _) ∨ _’ strip_assume_tac >> gvs []
   >- (
-    qexists_tac ‘list_env’ >> simp [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
+    qexists_tac ‘list_env’ >> asm_rewrite_tac [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
     >> qpat_x_assum ‘∀source locals. _’ drule >> strip_tac >> simp []
     >> ‘source.c = list_env.c’ by fs [lift_scope_def,lift_env_rel_def]
     >> qx_genl_tac [‘s’,‘s'’,‘target’] >> strip_tac
@@ -5468,7 +5484,7 @@ Proof
   >> drule_all (cj 3 lift_exp_fresh) >> strip_tac
   >> drule_all lift_emit_value_sim
   >> disch_then (qx_choose_then ‘emitted_env’ strip_assume_tac)
-  >> qexists_tac ‘emitted_env’ >> simp [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
+  >> qexists_tac ‘emitted_env’ >> asm_rewrite_tac [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
   >> qpat_assum ‘∀source locals. lift_scope _ _ _ _ (n,ds,used) _ _ _ ⇒ _’ drule
   >> strip_tac
   >> qpat_x_assum ‘∀R captures bound ren source locals. _’ drule >> strip_tac >> simp []
@@ -5521,12 +5537,13 @@ Proof
   >> drule lift_function_body_state_extends >> disch_tac
   >> qpat_x_assum ‘(_ = Fun _ _ ∧ _) ∨ _’ strip_assume_tac >> rveq
   >- (
-    qexists_tac ‘body_env’ >> simp [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
-    >> drule_all lift_scope_decs_avoid >> disch_tac >> simp []
-    >> ‘source.c = initial.c’ by fs [lift_scope_def,lift_env_rel_def]
+    qexists_tac ‘body_env’ >> asm_rewrite_tac [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
+    >> drule_all lift_scope_decs_avoid >> disch_tac >> asm_rewrite_tac []
+    >> qpat_assum ‘lift_scope _ _ _ _ _ source initial _’
+      (assume_tac o MATCH_MP lift_scope_constructors)
     >> qpat_assum ‘lift_global_decs _ base initial’
          (assume_tac o MATCH_MP lift_global_decs_constructors)
-    >> ‘check_exp_constructors source.c body’ by gvs []
+    >> ‘check_exp_constructors source.c body’ by simp []
     >> drule_all lift_scope_function_certificate >> disch_tac
     >> qx_genl_tac [‘s’,‘s'’,‘target’] >> strip_tac
     >> have ‘lift_function_certificate lift_runtime_rel source arg body target
@@ -5545,18 +5562,19 @@ Proof
   >> qpat_assum ‘lift_global_decs _ base body_env’
        (assume_tac o MATCH_MP lift_global_decs_constructors)
   >> ‘check_exp_constructors body_env.c (Fun arg compiled_body)’
-    by gvs [check_exp_constructors_def]
+    by simp [check_exp_constructors_def]
   >> ‘lift_pure_value body_env (Fun arg compiled_body)
         (Closure body_env arg compiled_body)’ by simp [lift_pure_value_rules]
   >> drule_all lift_emit_value_sim
   >> disch_then (qx_choose_then ‘emitted_env’ strip_assume_tac)
-  >> qexists_tac ‘emitted_env’ >> simp [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
+  >> qexists_tac ‘emitted_env’ >> asm_rewrite_tac [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
   >> drule_all lift_scope_decs_avoid >> disch_tac
   >> qpat_x_assum ‘∀R captures bound ren source locals. _’ drule >> strip_tac >> simp []
-  >> ‘source.c = initial.c’ by fs [lift_scope_def,lift_env_rel_def]
+  >> qpat_assum ‘lift_scope _ _ _ _ _ source initial _’
+    (assume_tac o MATCH_MP lift_scope_constructors)
   >> qpat_assum ‘lift_global_decs _ base initial’
        (assume_tac o MATCH_MP lift_global_decs_constructors)
-  >> ‘check_exp_constructors source.c body’ by gvs []
+  >> ‘check_exp_constructors source.c body’ by simp []
   >> qpat_assum ‘lift_scope _ (fdomsub body_captures arg) bound ren
        (n,ds,used) source initial locals’
     (mp_then (Pos hd) mp_tac lift_scope_closed)
@@ -5590,7 +5608,7 @@ Proof
          ‘FUNION c1 c2’,‘base’,‘initial’] mp_tac)
     >> impl_tac >- (simp [annotate_exp_def,exp_names_def] >> metis_tac [])
     >> disch_then (qx_choose_then ‘final’ strip_assume_tac)
-    >> qexists_tac ‘final’ >> simp [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
+    >> qexists_tac ‘final’ >> asm_rewrite_tac [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
     >> first_x_assum drule >> strip_tac >> simp [] >> rpt strip_tac
     >> first_x_assum (qspec_then ‘target’ mp_tac)
     >> impl_tac >- (
@@ -5734,7 +5752,7 @@ Proof
       >> ‘lift_state_extends (middle_n,chosen_ds,middle_used) (out_n,out_ds,out_used) ∧
           lift_state_decs_avoid (middle_n,chosen_ds,middle_used) (out_n,out_ds,out_used)’
         by metis_tac [lift_state_extends_trans,lift_state_decs_avoid_trans]
-      >> qexists_tac ‘final’ >> simp [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
+      >> qexists_tac ‘final’ >> asm_rewrite_tac [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
       >> qpat_assum ‘lift_scope _ _ bound ren (n,ds,used) source initial locals’
         (mp_then (Pos hd) drule_all lift_scope_decs_avoid)
       >> disch_tac
@@ -5745,7 +5763,8 @@ Proof
         >> qexists_tac ‘FUNION (fdomsub function_captures rhs_arg)
              (fdomsub body_captures name)’
         >> simp [FDOM_FUNION])
-      >> ‘source.c = initial.c’ by fs [lift_scope_def,lift_env_rel_def]
+      >> qpat_assum ‘lift_scope _ _ _ _ _ source initial _’
+        (assume_tac o MATCH_MP lift_scope_constructors)
       >> qpat_assum ‘lift_global_decs _ base initial’
         (assume_tac o MATCH_MP lift_global_decs_constructors)
       >> ‘check_exp_constructors source.c rhs_body’ by gvs []
@@ -5765,7 +5784,8 @@ Proof
         >> qexists_tac ‘FUNION (fdomsub function_captures rhs_arg)
              (fdomsub body_captures name)’
         >> simp [FDOM_FUNION])
-      >> ‘lift_renaming_wf ren middle_used’ by fs [lift_scope_def]
+      >> qpat_assum ‘lift_scope _ _ _ ren (_,_,middle_used) _ _ _’
+        (assume_tac o CONJUNCT1 o REWRITE_RULE [lift_scope_def])
       >> drule_all choose_name_renaming_wf >> disch_tac
       >> qpat_assum ‘lift_scope _ (fdomsub body_captures name) bound ren
            (middle_n,chosen_ds,middle_used) source rhs_env locals’
@@ -5799,7 +5819,7 @@ Proof
       >> qpat_assum ‘lift_scope _ (FUNION _ _) bound ren (middle_n,chosen_ds,middle_used)
            source rhs_env locals’
         (mp_then (Pos hd) drule_all lift_scope_decs_avoid)
-      >> disch_tac >> simp []
+      >> disch_tac >> asm_rewrite_tac []
       >> qx_genl_tac [‘s’,‘s'’,‘target’] >> strip_tac
       >> qpat_assum ‘annotate_exp [] rhs = _’
         (mp_then (Pos hd) mp_tac annotate_exp_evaluate)
@@ -5840,7 +5860,7 @@ Proof
         rw [exp_names_def,pat_bindings_def,DISJ_IMP_THM]
         >> qpat_x_assum ‘∀name' renamed. FLOOKUP ren _ = _ ∧ _ ⇒ _’ drule_all >> simp [])
       >> disch_then (qx_choose_then ‘final’ strip_assume_tac)
-      >> qexists_tac ‘final’ >> simp [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
+      >> qexists_tac ‘final’ >> asm_rewrite_tac [] >> qx_genl_tac [‘source’,‘locals’] >> strip_tac
       >> first_x_assum drule >> strip_tac >> simp [] >> rpt strip_tac
       >> first_x_assum (qspec_then ‘target’ mp_tac)
       >> impl_tac >- (
@@ -5936,7 +5956,7 @@ Proof
     fs [str_empty_def,lift_global_decs_rules,lift_runtime_env_def]
     >> metis_tac [cj 1 bump_patterns_le])
   >> disch_then (qx_choose_then ‘final’ strip_assume_tac)
-  >> qexists_tac ‘final’ >> simp []
+  >> qexists_tac ‘final’ >> asm_rewrite_tac []
   >> qpat_x_assum ‘∀source locals. _’ (qspecl_then [‘source’,‘[]’] mp_tac)
   >> impl_tac >- fs [str_empty_def]
   >> strip_tac >> qx_genl_tac [‘s’,‘s'’] >> strip_tac
