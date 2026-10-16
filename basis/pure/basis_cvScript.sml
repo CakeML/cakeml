@@ -167,3 +167,20 @@ Proof
   \\ AP_TERM_TAC
   \\ rw [fmap_eq_flookup, FLOOKUP_MAP_KEYS_explode, FLOOKUP_FUNION]
 QED
+
+Theorem cv_rep_mlstring_FINTER[cv_rep]:
+  from_mlstring_fmap f (FINTER m1 m2) =
+  cv_st_inter (from_mlstring_fmap f m1) (from_mlstring_fmap (g:'b -> cv) m2)
+Proof
+  simp [from_mlstring_fmap_def, GSYM cv_rep_string_FINTER]
+  \\ AP_TERM_TAC
+  \\ rw [fmap_eq_flookup, FLOOKUP_MAP_KEYS_explode, FLOOKUP_FINTER]
+QED
+
+Theorem cv_rep_mlstring_FCARD[cv_rep]:
+  cv$Num (FCARD m) = cv_st_card (from_mlstring_fmap (f:'a -> cv) m)
+Proof
+  simp [from_mlstring_fmap_def, GSYM cv_rep_string_FCARD]
+  \\ simp [FCARD_DEF, MAP_KEYS_def, pred_setTheory.CARD_IMAGE_INJ,
+           mlstringTheory.explode_11]
+QED

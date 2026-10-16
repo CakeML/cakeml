@@ -93,6 +93,9 @@ The backend now supports IMul and IDiv instructions and optimizes to the
 The global dead code elimination pass has moved from flatLang to source,
 specifically, `flat_elim` has been replaced by `source_dce` (#1508).
 
+A new constant lifting pass has been added as a source-to-source pass to the
+compiler backend (#1542).
+
 The compiler backend now attaches a bit of metadata to every function (#1535).
 This is completely internal to the compiler. Debug names for functions now come
 from metadata rather than a separate mapping (#1539).
