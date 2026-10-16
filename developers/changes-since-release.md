@@ -42,6 +42,13 @@ length first and only compares contents when the lengths are equal, which is fas
 `Map.diff` has been added to basis. `Map.diff m1 m2` removes from `m1` every
 key that occurs in `m2`. The inputs can have different value types.
 
+### SocketIO
+
+A new module for socket I/O, `SocketIO`, has been added to basis.
+`SocketIO` currently supports Unix domain sockets and Linux raw sockets.
+Use of the module is demonstrated by two new examples.
+CF specs and proofs are still TODO, for now.
+
 ### TextIO
 
 `TextIO.output`'s behavior is now linear in the size of the string
@@ -110,6 +117,10 @@ The PB checker has been reorganized with minor fixes, and also supports solution
 Its backing representation and corresponding algorithms have been optimized heavily (#1528).
 
 The CNF checker(s) have various improvements, especially the RUP algorithm has been updated. Additionally, there is now a centralized and cleaned up basis FFI C file for the checkers (#1495).
+
+The new `socketEchoProg` contains a simple echo server meant for testing the Unix domain sockets from `SocketIO`.
+
+Similarly, `rawBridgeProg` showcases `SocketIO`'s raw sockets.
 
 ## Build infrastructure
 
