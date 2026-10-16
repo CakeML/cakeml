@@ -4,7 +4,7 @@
 Theory source_to_flatProof
 Ancestors
   source_to_flat flatProps namespaceProps semantics
-  semanticPrimitivesProps ffi[qualified] lprefix_lub[qualified]
+  semanticPrimitivesProps lprefix_lub[qualified]
   backend_common[qualified] misc[qualified] backendProps
   source_evalProof
   semanticPrimitives flatLang flatSem

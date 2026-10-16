@@ -5,7 +5,7 @@ Theory reg_alloc
 Libs
   preamble ml_monadBaseLib
 Ancestors
-  mllist state_transformer ml_monadBase sorting
+  mllist state_transformer ml_monadBase
 
 
 val _ = ParseExtras.temp_tight_equality();

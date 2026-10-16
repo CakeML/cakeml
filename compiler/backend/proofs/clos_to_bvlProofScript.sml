@@ -6,12 +6,12 @@ Libs
   preamble
 Ancestors
   closSem bvlSem closProps bvlProps clos_to_bvl
-  backendProps[qualified] ffi[qualified] lprefix_lub[qualified]
+  backendProps[qualified] lprefix_lub[qualified]
 Ancestors[ignore_grammar]
   closLang bvl_jumpProof clos_constantProof backend_common
   clos_mtiProof[qualified] clos_numberProof[qualified]
   clos_knownProof[qualified] clos_annotateProof[qualified]
-  clos_callProof[qualified] clos_fvsProof[qualified]
+  clos_callProof[qualified]
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]

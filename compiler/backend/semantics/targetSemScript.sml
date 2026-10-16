@@ -5,7 +5,7 @@
 *)
 Theory targetSem
 Ancestors
-  ffi lab_to_target wordSem evaluateProps asmProps
+  lab_to_target wordSem evaluateProps asmProps
 Libs
   preamble
 

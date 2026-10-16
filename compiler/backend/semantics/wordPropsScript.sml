@@ -5,7 +5,7 @@ Theory wordProps
 Libs
   preamble BasicProvers helperLib
 Ancestors
-  mllist backendProps wordConvs wordLang wordSem asm reg_alloc
+  mllist backendProps wordConvs wordLang wordSem asm
 
 val _ = temp_bring_to_front_overload "Set" {Name="Set", Thy="wordLang"};
 

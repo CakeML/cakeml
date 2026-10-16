@@ -7,7 +7,7 @@ Theory backend
 Ancestors
   source_to_source source_to_flat flat_to_clos clos_to_bvl
   bvl_to_bvi bvi_to_data data_to_word word_to_stack stack_to_lab
-  lab_to_target word_to_word jsonLang presLang
+  lab_to_target word_to_word presLang
   primTypes[qualified]
 Libs
   preamble

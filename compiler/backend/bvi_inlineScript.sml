@@ -7,7 +7,7 @@
 *)
 Theory bvi_inline
 Ancestors
-  bvi backend_common
+  bvi
 Libs
   preamble
 

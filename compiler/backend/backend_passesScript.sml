@@ -4,7 +4,7 @@
 *)
 Theory backend_passes
 Ancestors
-  backend presLang
+  backend
 Libs
   preamble
 

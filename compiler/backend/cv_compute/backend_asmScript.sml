@@ -5,7 +5,7 @@
 Theory backend_asm
 Ancestors
   backend lab_to_target backend_enc_dec backend_passes
-  evaluate_dec
+  ml_prog
 Libs
   preamble
 

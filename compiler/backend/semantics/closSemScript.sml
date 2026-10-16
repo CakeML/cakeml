@@ -3,7 +3,7 @@
 *)
 Theory closSem
 Ancestors
-  backend_common closLang flatLang
+  closLang flatLang
   semanticPrimitivesProps (* for opw_lookup_def and others *)
 Libs
   preamble

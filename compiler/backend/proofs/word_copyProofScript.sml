@@ -5,7 +5,7 @@ Theory word_copyProof
 Libs
   preamble
 Ancestors
-  wordLang[qualified] wordSem wordProps word_copy wordConvs
+  wordSem wordProps word_copy
 
 val s = ``s:('a,'c,'ffi) wordSem$state``
 

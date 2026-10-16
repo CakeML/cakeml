@@ -7,7 +7,6 @@ Libs
 Ancestors
   wordSem
   stack_rawcall stackLang stackSem stackProps wordSem[qualified]
-  labProps[qualified]
 
 
 

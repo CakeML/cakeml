@@ -3,7 +3,7 @@
  *)
 Theory source_to_source
 Ancestors
-  source_dce source_let source_lift_consts misc[qualified]
+  source_dce source_let source_lift_consts
 Libs
   preamble
 

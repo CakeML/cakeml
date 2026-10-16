@@ -8,10 +8,9 @@
 *)
 Theory bvl_to_bvi
 Ancestors
-  bvl bvi backend_common bvl_inline[qualified]
-  bvl_const[qualified] bvl_handle[qualified] bvi_let[qualified]
+  bvl backend_common bvl_inline[qualified]
+  bvi_let[qualified]
   bvi_tailrec[qualified] bvi_inline[qualified] bvi_tmc[qualified]
-  dataLang[qualified]
 Libs
   preamble
 

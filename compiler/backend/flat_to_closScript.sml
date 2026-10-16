@@ -6,7 +6,7 @@
 *)
 Theory flat_to_clos
 Ancestors
-  flatLang closLang clos_interp backend_common[qualified]
+  flatLang clos_interp
 Libs
   preamble
 

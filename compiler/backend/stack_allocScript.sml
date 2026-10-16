@@ -7,7 +7,7 @@
 *)
 Theory stack_alloc
 Ancestors
-  stackLang data_to_word
+  data_to_word
 Libs
   preamble
 

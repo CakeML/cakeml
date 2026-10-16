@@ -5,7 +5,7 @@ Theory linear_scan
 Libs
   preamble ml_monadBaseLib
 Ancestors
-  mllist sptree reg_alloc state_transformer ml_monadBase
+  reg_alloc
 
 val _ = ParseExtras.temp_tight_equality();
 val _ = monadsyntax.temp_add_monadsyntax()

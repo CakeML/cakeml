@@ -4,7 +4,7 @@
 *)
 Theory word_inst
 Ancestors
-  wordLang stackLang sorting word_simp
+  wordLang word_simp
 Libs
   preamble
 

@@ -5,7 +5,7 @@
 *)
 Theory bvl_inline
 Ancestors
-  bvl bvl_handle
+  bvl_handle
 Libs
   preamble
 

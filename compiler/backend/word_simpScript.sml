@@ -5,7 +5,7 @@
 *)
 Theory word_simp
 Ancestors
-  wordLang asm sptree int_bitwise
+  wordLang asm int_bitwise
 Libs
   preamble
 

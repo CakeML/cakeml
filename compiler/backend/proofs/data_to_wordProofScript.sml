@@ -4,13 +4,12 @@
 Theory data_to_wordProof
 Ancestors
   wordSem
-  backend[qualified] dataLang[qualified] dataSem
+  backend[qualified] dataSem
   data_to_word_gcProof word_to_wordProof wordProps data_to_word
-  wordLang wordSem[qualified] dataProps copying_gc int_bitwise
+  wordLang wordSem[qualified] dataProps int_bitwise
   finite_map data_to_word_memoryProof data_to_word_bignumProof
   data_to_word_assignProof wordConvs wordConvsProof While set_sep
   semanticsProps alignment word_bignum word_bignumProof
-  gen_gc_partial gc_shared gen_gc[qualified]
 Libs
   preamble helperLib blastLib match_goal
 

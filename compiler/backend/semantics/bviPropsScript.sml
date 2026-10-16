@@ -3,7 +3,7 @@
 *)
 Theory bviProps
 Ancestors
-  bviSem bvlProps[qualified] backendProps
+  bviSem backendProps
 Libs
   preamble
 

@@ -8,7 +8,7 @@
 Theory data_to_word
 Ancestors
   asm wordLang dataLang word_to_word multiword word_bignum
-  backend_common[qualified] word_depth[qualified]
+  word_depth[qualified]
 Libs
   preamble
 

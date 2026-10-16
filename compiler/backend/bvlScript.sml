@@ -22,7 +22,6 @@
 Theory bvl
 Ancestors
   closLang (* for op *)
-  backend_common (* for tags *)
 Libs
   preamble
 

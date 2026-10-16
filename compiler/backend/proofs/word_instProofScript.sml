@@ -5,7 +5,7 @@ Theory word_instProof
 Libs
   preamble
 Ancestors
-  wordLang wordProps word_inst wordSem wordConvs asm word_simpProof
+  wordLang wordProps word_inst wordSem wordConvs word_simpProof
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = augment_srw_ss [rewrites [integer_wordTheory.i2w_pos,

@@ -4,7 +4,7 @@
 *)
 Theory presLang
 Ancestors
-  ast mlint mloption flatLang closLang displayLang source_to_flat
+  ast mlint mloption flatLang closLang displayLang
   dataLang wordLang labLang stackLang bvl bvi clos_to_bvl
 Libs
   preamble
