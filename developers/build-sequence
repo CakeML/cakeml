@@ -41,6 +41,7 @@ compiler/inference
 compiler/backend/reg_alloc
 compiler/backend/gc
 compiler/backend
+compiler/backend/tests
 compiler/encoders/asm
 compiler/encoders/x64
 compiler/encoders/arm7

@@ -914,7 +914,7 @@ QED
 Theorem simple_val_rel:
   simple_val_rel v_rel
 Proof
-  simp [simple_val_rel_def, v_rel_cases]
+  simp [flatPropsTheory.simple_val_rel_def, v_rel_cases]
   \\ rw [] \\ simp []
   \\ EQ_TAC \\ rw [] \\ fs []
   \\ metis_tac [simple_val_rel_step_isClosure]
