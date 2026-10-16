@@ -3,7 +3,7 @@
 *)
 Theory loop_to_word
 Ancestors
-  loopLang wordLang backend_common[qualified]
+  loopLang wordLang integer_word backend_common[qualified]
 Libs
   preamble
 
@@ -20,11 +20,11 @@ Definition find_reg_imm_def:
 End
 
 Definition comp_exp_def :
-  (comp_exp ctxt (loopLang$Const w) = wordLang$Const w) /\
+  (comp_exp ctxt (loopLang$Const w) = wordLang$Const (w2i w)) /\
   (comp_exp ctxt (Var n) = Var (find_var ctxt n)) /\
   (comp_exp ctxt (Lookup m) = Lookup (Temp m)) /\
   (comp_exp ctxt (BaseAddr) = Lookup CurrHeap) /\
-  (comp_exp ctxt (TopAddr) = Op Add [Lookup CurrHeap; Shift Lsl (Lookup HeapLength) (Const 1w)]) /\
+  (comp_exp ctxt (TopAddr) = Op Add [Lookup CurrHeap; Shift Lsl (Lookup HeapLength) (Const 1)]) /\
   (comp_exp ctxt (Load exp) = Load (comp_exp ctxt exp)) /\
   (comp_exp ctxt (Shift s exp1 exp2) = Shift s (comp_exp ctxt exp1) (comp_exp ctxt exp2)) /\
   (comp_exp ctxt (Op op wexps) =

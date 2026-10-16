@@ -19,7 +19,7 @@ val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 val word_to_word_conf = ``<| reg_alg:=2; col_oracle := [] |>``
 val ag32_data_conf =
   ``<| tag_bits := 0; len_bits := 0; pad_bits := 1; len_size := 20;
-       has_div := F; has_longdiv := F; has_imul := F; has_idiv := F;
+       arch_width := Arch32; has_div := F; has_longdiv := F; has_imul := F; has_idiv := F;
        has_fp_ops := F; has_fp_tern := F; be := F; call_empty_ffi := F;
        gc_kind := Simple |>``
 val ag32_word_conf = ``<| bitmaps_length := 0; stack_frame_size := LN |>``

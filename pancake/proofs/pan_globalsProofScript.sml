@@ -3,6 +3,7 @@
 *)
 Theory pan_globalsProof
 Ancestors
+  wordSem
   panSem pan_globals panProps panLang stack_removeProof
 Libs
   preamble
@@ -111,7 +112,7 @@ Proof
   >~ [‘Var Global’]
   >- (gvs[eval_def,compile_exp_def,AllCaseEqs(),state_rel_def] >>
       first_x_assum drule >>
-      rw[] >> rw[eval_def,wordLangTheory.word_op_def])
+      rw[] >> rw[eval_def,wordSemTheory.word_op_def])
   >~ [‘RStruct’]
   >- (gvs[eval_def,compile_exp_def,AllCaseEqs()] >>
       simp[OPT_MMAP_MAP_o] >>
@@ -158,7 +159,7 @@ Proof
   >- (gvs[eval_def,compile_exp_def,AllCaseEqs()] >>
       imp_res_tac state_rel_structs >>
       fs []) >>
-  gvs[wordLangTheory.word_op_def,state_rel_def,eval_def,compile_exp_def,AllCaseEqs()]
+  gvs[wordSemTheory.word_op_def,state_rel_def,eval_def,compile_exp_def,AllCaseEqs()]
 QED
 
 Definition good_res_def:
@@ -539,7 +540,7 @@ Resume compile_correct[Assign]:
   simp[] >>
   gvs[state_rel_def,good_res_def] >>
   res_tac >>
-  fs[evaluate_def,eval_def,wordLangTheory.word_op_def] >>
+  fs[evaluate_def,eval_def,wordSemTheory.word_op_def] >>
   drule $ cj 1 mem_load_mem_store >>
   simp [] >>
   disch_then drule >>
@@ -769,7 +770,7 @@ Resume compile_correct[ShMemLoad]:
   drule_then drule FLOOKUP_globals_val_state_rel >>
   rw [] >>
   simp [shape_of_val, evaluate_def, eval_def] >>
-  simp [evaluate_def,eval_def,FLOOKUP_UPDATE,v_neq_v', wordLangTheory.word_op_def] >>
+  simp [evaluate_def,eval_def,FLOOKUP_UPDATE,v_neq_v', wordSemTheory.word_op_def] >>
   rpt (pairarg_tac >> fs []) >>
   gvs [shape_of_val] >>
   ‘s.locals = t.locals’ by gvs[state_rel_def] >>
@@ -779,7 +780,7 @@ Resume compile_correct[ShMemLoad]:
   simp[shape_of_val] >>
   gvs[evaluate_def,eval_def,FLOOKUP_UPDATE,v_neq_v',
           sh_mem_load_def,AllCaseEqs(),
-          wordLangTheory.word_op_def,kvar_defs,
+          wordSemTheory.word_op_def,kvar_defs,
           mem_stores_def,mem_store_def,mem_load_def,flatten_def]
   >- (gvs[state_rel_def,good_res_def] >>
           conj_tac
@@ -1245,7 +1246,7 @@ Resume compile_correct[Call]:
               res_tac >>
               gvs[]) >>
           fs[] >>
-          gvs[eval_def,wordLangTheory.word_op_def,set_var_def,FLOOKUP_UPDATE] >>
+          gvs[eval_def,wordSemTheory.word_op_def,set_var_def,FLOOKUP_UPDATE] >>
           gvs[is_valid_value_def] >>
           Cases_on ‘FLOOKUP s.globals rt’ >>
           gvs[] >>
@@ -1331,7 +1332,7 @@ Resume compile_correct[Call]:
           gvs[state_rel_def,is_valid_value_def] >>
           PURE_FULL_CASE_TAC >> gvs[] >>
           res_tac >> gvs[]) >>
-      simp[kvar_defs,eval_def,wordLangTheory.word_op_def,
+      simp[kvar_defs,eval_def,wordSemTheory.word_op_def,
            FLOOKUP_UPDATE,evaluate_def] >>
       gvs[is_valid_value_def] >>
       Cases_on ‘FLOOKUP s.globals rt’ >>
@@ -1439,7 +1440,7 @@ Resume compile_correct[Call]:
           imp_res_tac evaluate_unchanged_local >>
           gvs[good_res_def,FLOOKUP_UPDATE]) >>
       gvs[good_res_def] >>
-      simp[kvar_defs,eval_def,wordLangTheory.word_op_def,
+      simp[kvar_defs,eval_def,wordSemTheory.word_op_def,
            FLOOKUP_UPDATE] >>
       gvs[is_valid_value_def,Abbr ‘vv2’,panSemTheory.shape_of_def,FLOOKUP_UPDATE,
           evaluate_def] >>
@@ -2147,7 +2148,7 @@ Proof
   rw[evaluate_decls_def,compile_decs_def,AllCaseEqs(),UNCURRY_eq_pair,
      nested_seq_def,evaluate_def] >>
   gvs[nested_seq_def,evaluate_def,UNCURRY_eq_pair,
-      eval_def,wordLangTheory.word_op_def,is_decl_def,dec_shapes_def] >>
+      eval_def,wordSemTheory.word_op_def,is_decl_def,dec_shapes_def] >>
   drule $ cj 2 state_rel_empty_locals >>
   disch_then $ qspec_then ‘T’ mp_tac >>
   strip_tac >>

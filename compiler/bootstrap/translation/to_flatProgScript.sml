@@ -4,7 +4,7 @@
 Theory to_flatProg[no_sig_docs]
 Ancestors
   ml_translator decProg source_to_flat[qualified]
-  source_to_source[qualified]
+  source_to_source[qualified] source_lift_consts[qualified]
 Libs
   preamble ml_translatorLib
 
@@ -204,6 +204,99 @@ QED
 val _ = source_dce_dce_decs_ind |> update_precondition;
 
 val res = translate source_dceTheory.has_Denv_dec_def;
+
+(* ------------------------------------------------------------------------- *)
+(* source_lift_consts                                                        *)
+(* ------------------------------------------------------------------------- *)
+
+(* The translator supports finite maps only at the key types set up in
+   decProg, so the helpers that are polymorphic in the key are translated
+   at the key type the pass uses: mlstring. *)
+
+val res = translate source_lift_constsTheory.delete_all_def;
+val res = translate source_lift_constsTheory.bind_all_def;
+val res = translate source_lift_constsTheory.rename_var_def;
+val res = translate (FUPDATE_LIST_THM |> INST_TYPE [alpha |-> “:mlstring”]);
+
+(* maps_disjoint compares finite maps, which the translator cannot do;
+   it is implemented by a check over the underlying mlmap instead. *)
+
+Definition mlmap_disjoint_def:
+  mlmap_disjoint m1 m2 = mlmap$all (λk v. IS_NONE (mlmap$lookup m2 k)) m1
+End
+
+val mlmap_disjoint_v_thm = translate mlmap_disjoint_def;
+
+Theorem mlmap_disjoint_thm[local]:
+  mlmap$map_ok m1 ∧ mlmap$map_ok m2 ⇒
+  (mlmap_disjoint m1 m2 ⇔
+   source_lift_consts$maps_disjoint (mlmap$to_fmap m1) (mlmap$to_fmap m2))
+Proof
+  rw [mlmap_disjoint_def, mlmapTheory.all_thm, mlmapTheory.lookup_thm,
+      source_lift_constsTheory.maps_disjoint_def,
+      source_lift_constsTheory.str_empty_def, Once EQ_SYM_EQ,
+      GSYM DRESTRICT_EQ_FEMPTY, IN_DISJOINT, FLOOKUP_DEF]
+  \\ metis_tac []
+QED
+
+Theorem IMP_maps_disjoint_v[local]:
+  (MAP_TYPE a UNIT_TYPE --> MAP_TYPE a b --> BOOL) mlmap_disjoint v ⇒
+  (FMAP_TYPE cmp a UNIT_TYPE --> FMAP_TYPE cmp a b --> BOOL)
+    source_lift_consts$maps_disjoint v
+Proof
+  rw [Arrow_def, AppReturns_def, MapProgTheory.FMAP_TYPE_def]
+  \\ last_x_assum drule \\ strip_tac
+  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac
+  \\ first_x_assum $ irule_at Any \\ rw []
+  \\ last_x_assum drule \\ strip_tac
+  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac
+  \\ gvs [mlmap_disjoint_thm]
+  \\ metis_tac []
+QED
+
+val _ = add_user_proved_v_thm
+  (MATCH_MP IMP_maps_disjoint_v
+     (mlmap_disjoint_v_thm
+      |> INST_TYPE [alpha |-> “:mlstring”, beta |-> “:unit”]
+      |> INST [“a:mlstring -> v -> bool” |-> “STRING_TYPE”,
+               “b:unit -> v -> bool” |-> “UNIT_TYPE”])
+   |> INST [“cmp:mlstring -> mlstring -> ordering” |->
+            “mlstring$fast_compare”]);
+
+(* the translator expects the single lift_exp clause to have variable
+   arguments *)
+
+Theorem lift_exp_eq[local] =
+  CONJ (DefnBase.one_line_ify NONE
+          (CONJUNCT1 source_lift_constsTheory.lift_exp_def))
+       (CONJUNCT2 source_lift_constsTheory.lift_exp_def);
+
+val res = translate lift_exp_eq;
+
+(* the translator's preprocessing turns λ(f,x,e). (f,x) into a case *)
+Theorem case_triple_eq[local]:
+  (λx. case x of (a,b,c) => (a,b)) = (λ(f,x,e). (f,x))
+Proof
+  simp [FUN_EQ_THM, FORALL_PROD]
+QED
+
+(* keeps the large case hypotheses out of the assumptions *)
+Theorem source_lift_consts_lift_exp_ind[local]:
+  source_lift_consts_lift_exp_ind
+Proof
+  once_rewrite_tac [fetch "-" "source_lift_consts_lift_exp_ind_def"]
+  \\ rpt gen_tac
+  \\ disch_then $ fn th =>
+       ho_match_mp_tac source_lift_constsTheory.lift_exp_ind
+       \\ rpt strip_tac
+       \\ FIRST (map match_mp_tac (CONJUNCTS th))
+  \\ rpt strip_tac
+  \\ gvs [case_triple_eq]
+QED
+
+val _ = source_lift_consts_lift_exp_ind |> update_precondition;
+
+val res = translate source_lift_constsTheory.compile_dec_def;
 
 (* ------------------------------------------------------------------------- *)
 (* source_to_source                                                          *)

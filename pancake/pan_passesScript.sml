@@ -14,7 +14,7 @@ Datatype:
       Pan ('a decl list)
     | Crep ((mlstring # num list # α crepLang$prog) list)
     | Loop ((num # num list # α loopLang$prog) list) (mlstring sptree$num_map)
-    | Cake ('a backend_passes$any_prog)
+    | Cake backend_passes$any_prog
 End
 
 Definition pan_to_target_all_def:
@@ -59,14 +59,13 @@ Definition pan_to_target_all_def:
         prog_c = MAP (λ(name,params,body). (name,params,loop_live$optimise body)) prog_b1;
         prog2 = loop_to_word$compile_prog prog_c;
         names = fromAList (ZIP (sort $< (MAP FST prog2), «generated_main»::MAP FST (functions prog1)));
-        names = union (fromAList (word_to_stack$stub_names () ++
-                                  stack_alloc$stub_names () ++
-                                  stack_remove$stub_names ())) names;
+        prog2 = MAP (λ(n,args,p).
+                      (n,args,p,Metadata (lookup_any n names «NOTFOUND») [])) prog2;
         ps = ps ++ [(«after crep_to_loop»,Loop prog_b1 names)];
         ps = ps ++ [(«after loop_optimise»,Loop prog_c names)];
-        ps = ps ++ [(«after loop_to_word»,Cake (Word prog2 names))];
+        ps = ps ++ [(«after loop_to_word»,Cake (Word prog2))];
         c = c with exported := exports prog;
-        (ps1,out) = from_word_0_all [] asm_conf c names prog2
+        (ps1,out) = from_word_0_all [] asm_conf c prog2
       in
         (ps ++ MAP (λ(n,p). (n,Cake p)) ps1,out)
 End
@@ -134,7 +133,7 @@ End
 
 Definition pan_exp_to_display_def:
   (pan_exp_to_display (panLang$Const v)
-    = item_with_word «Const» v) ∧
+    = item_with_word «Const» (w2n v)) ∧
   (pan_exp_to_display (Var vk n)
     = Item NONE «Var»
           [String (varkind_to_str vk);
@@ -347,9 +346,9 @@ End
 
 Definition crep_exp_to_display_def:
   (crep_exp_to_display (crepLang$Const v)
-    = item_with_word «Const» v) ∧
+    = item_with_word «Const» (w2n v)) ∧
   (crep_exp_to_display (LoadGlob w)
-    = item_with_word «LoadGlob» w) ∧
+    = item_with_word «LoadGlob» (w2n w)) ∧
   (crep_exp_to_display (Var n)
     = Item NONE «Var» [num_to_display n]) ∧
   (crep_exp_to_display BaseAddr
@@ -414,7 +413,7 @@ Definition crep_prog_to_display_def:
            num_to_display e4]) ∧
   (crep_prog_to_display (StoreGlob w e) =
      Item NONE «store_glob»
-          [word_to_display w;
+          [word_to_display (w2n w);
            crep_exp_to_display e]) ∧
   (crep_prog_to_display (If e p1 p2) =
      Item NONE «if»
@@ -452,7 +451,7 @@ Definition crep_prog_to_display_def:
   (crep_prog_to_display (Return es) =
      Item NONE «return» (MAP crep_exp_to_display es)) ∧
   (crep_prog_to_display (Raise w) =
-     item_with_word «raise» w) ∧
+     item_with_word «raise» (w2n w)) ∧
   (crep_prog_to_display (Seq prog1 prog2) =
     (let xs = append (Append (crep_seqs prog1) (crep_seqs prog2)) in
        separate_lines «seq» (MAP crep_prog_to_display xs))) ∧
@@ -477,7 +476,7 @@ Definition crep_prog_to_display_def:
   (crep_prog_to_display_handler NONE = empty_item «no_handler») ∧
   (crep_prog_to_display_handler (SOME (w,p)) =
     Item NONE «handler»
-      [Tuple [word_to_display w; crep_prog_to_display p]])
+      [Tuple [word_to_display (w2n w); crep_prog_to_display p]])
 Termination
   WF_REL_TAC ‘measure $ \x. case x of
         | INL p => crepLang$prog_size ARB p
@@ -507,7 +506,7 @@ End
 
 Definition loop_exp_to_display_def:
   (loop_exp_to_display (loopLang$Const v)
-    = item_with_word «Const» v) ∧
+    = item_with_word «Const» (w2n v)) ∧
   (loop_exp_to_display (Var n)
     = item_with_num «Var» n) ∧
   (loop_exp_to_display BaseAddr
@@ -515,7 +514,7 @@ Definition loop_exp_to_display_def:
   (loop_exp_to_display TopAddr
     = Item NONE «TopAddr» []) ∧
   (loop_exp_to_display (Lookup st)
-    = item_with_word «Lookup» st) ∧
+    = item_with_word «Lookup» (w2n st)) ∧
   (loop_exp_to_display (Load exp2)
     = Item NONE «MemLoad» [loop_exp_to_display exp2]) /\
   (loop_exp_to_display (Op bop exs)
@@ -566,7 +565,7 @@ Definition loop_prog_to_display_def:
             insert_es (primop_to_display pop) (MAP num_to_display rhss)]) ∧
   (loop_prog_to_display ns (SetGlobal w exp) =
      Item NONE «set_global»
-          [word_to_display w;
+          [word_to_display (w2n w);
            loop_exp_to_display exp]) ∧
   (loop_prog_to_display ns (Seq prog1 prog2) =
     (let xs = append (Append (loop_seqs prog1) (loop_seqs prog2)) in

@@ -286,6 +286,10 @@ any externally observable effect on the state.
 This is a source-to-source transformation that lifts Let/Letrec expressions
 that sit at the top of Dlet:s into their own Dlet/Dletrec:s.
 
+[source_lift_constsScript.sml](source_lift_constsScript.sml):
+This is a source-to-source transformation that lifts constants
+from within function expressions to top-level local-declarations.
+
 [source_to_flatScript.sml](source_to_flatScript.sml):
 This is the compiler phase that translates the CakeML source
 language into flatLang.
@@ -326,6 +330,9 @@ load/store operations.
 This compiler phase maps stackLang programs, which have structure
 such as If, While, Return etc, to labLang programs that are a soup
 of goto-like jumps.
+
+[tests](tests):
+Tests for individual compiler backend passes.
 
 [wordLangScript.sml](wordLangScript.sml):
 The wordLang intermediate language consists of structured programs

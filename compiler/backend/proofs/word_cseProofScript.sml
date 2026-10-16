@@ -5,8 +5,8 @@ Theory word_cseProof
 Libs
   preamble helperLib
 Ancestors
-  wordLang wordSem wordProps word_cse alist toto reg_alloc
-  word_simp wordConvs
+  wordLang wordSem wordProps word_cse alist toto
+  wordConvs
 
 (* The reads of a stored arith fact, tracked as self-mappings in
    to_canonical (registered at fact creation), so that a later write to any
@@ -128,12 +128,6 @@ Proof
   \\ gvs [canonicalImmReg'_def, word_exp_def, GSYM get_var_def]
 QED
 
-Theorem wordToNum_unique[simp]:
-  ∀c1 c2. wordToNum c1 = wordToNum c2 ⇔ c1 = c2
-Proof
-  gvs [wordToNum_def]
-QED
-
 Theorem intToNum_unique[simp]:
   ∀i1 i2. intToNum i1 = intToNum i2 ⇔ i1 = i2
 Proof
@@ -249,10 +243,10 @@ Proof
   \\ gvs [evaluate_def, inst_def, word_exp_def, the_words_def, set_var_def,
           lookup_insert, mem_load_def, get_var_def]
   >- (Cases_on ‘lookup a s.locals’ \\ gvs []
-      \\ Cases_on ‘x’ \\ gvs [wordLangTheory.word_op_def]
+      \\ Cases_on ‘x’ \\ gvs [wordSemTheory.word_op_def]
       \\ IF_CASES_TAC \\ gvs [state_component_equality, insert_eq])
   \\ Cases_on ‘lookup a s.locals’ \\ gvs []
-  \\ Cases_on ‘x’ \\ gvs [wordLangTheory.word_op_def]
+  \\ Cases_on ‘x’ \\ gvs [wordSemTheory.word_op_def]
   \\ TOP_CASE_TAC
   \\ gvs [AllCaseEqs()] \\ gvs [state_component_equality, insert_eq]
 QED
@@ -396,10 +390,10 @@ Proof
   \\ gvs [evaluate_def, inst_def, word_exp_def, the_words_def, set_var_def,
           unset_var_def, lookup_delete, mem_load_def, get_var_def]
   >- (Cases_on ‘lookup a s.locals’ \\ gvs []
-      \\ Cases_on ‘x’ \\ gvs [wordLangTheory.word_op_def]
+      \\ Cases_on ‘x’ \\ gvs [wordSemTheory.word_op_def]
       \\ IF_CASES_TAC \\ gvs [state_component_equality, insert_eq])
   \\ Cases_on ‘lookup a s.locals’ \\ gvs []
-  \\ Cases_on ‘x’ \\ gvs [wordLangTheory.word_op_def]
+  \\ Cases_on ‘x’ \\ gvs [wordSemTheory.word_op_def]
   \\ TOP_CASE_TAC
   \\ gvs [AllCaseEqs()] \\ gvs [state_component_equality, insert_eq]
 QED
@@ -2266,10 +2260,10 @@ Proof
   \\ gvs [evaluate_def, inst_def, word_exp_def, the_words_def, set_var_def,
           mem_load_def, get_var_def]
   >- (Cases_on ‘lookup a s.locals’ \\ gvs []
-      \\ Cases_on ‘x’ \\ gvs [wordLangTheory.word_op_def]
+      \\ Cases_on ‘x’ \\ gvs [wordSemTheory.word_op_def]
       \\ IF_CASES_TAC \\ gvs [state_component_equality, insert_eq])
   \\ Cases_on ‘lookup a s.locals’ \\ gvs []
-  \\ Cases_on ‘x’ \\ gvs [wordLangTheory.word_op_def]
+  \\ Cases_on ‘x’ \\ gvs [wordSemTheory.word_op_def]
   \\ TOP_CASE_TAC
   \\ gvs [AllCaseEqs()] \\ gvs [state_component_equality, insert_eq]
 QED
@@ -2490,7 +2484,7 @@ QED
    destination at the stored (self-mapped) holder; the family-specific
    miss case arrives as a premise in the same nested-with form. *)
 Theorem wf_add_to_data_aux:
-  ∀data r i (p:'a prog) data' p'.
+  ∀data r i (p:prog) data' p'.
     wf_data data ∧
     sptree$lookup r data.to_canonical = NONE ∧
     add_to_data_aux data r i p = (data', p') ∧
@@ -2603,7 +2597,7 @@ Proof
 QED
 
 Theorem wf_add_to_load_aux:
-  ∀data r i (p:'a prog) data' p'.
+  ∀data r i (p:prog) data' p'.
     wf_data data ∧
     sptree$lookup r data.to_canonical = NONE ∧
     add_to_load_aux data r i p = (data', p') ∧
@@ -2917,7 +2911,7 @@ QED
    not-taken branch. *)
 Theorem word_cse_wf_data:
   ∀p data.
-    wf_data data ⇒ wf_data (FST (word_cse data (p:'a prog)))
+    wf_data data ⇒ wf_data (FST (word_cse data (p:prog)))
 Proof
   Induct
   \\ simp []
@@ -3810,7 +3804,7 @@ QED
    ------------------------------------------------------------------------ *)
 
 Theorem word_cse_full_inst_ok_less:
-  ∀p data c data' (q:'a prog).
+  ∀p data c data' (q:prog).
     full_inst_ok_less c p ∧ word_cse data p = (data',q) ⇒
     full_inst_ok_less c q
 Proof
@@ -3853,7 +3847,7 @@ Proof
 QED
 
 Theorem word_cse_pre_alloc_conventions:
-  ∀p data data' (q:'a prog).
+  ∀p data data' (q:prog).
     pre_alloc_conventions p ∧ word_cse data p = (data',q) ⇒
     pre_alloc_conventions q
 Proof
@@ -3925,7 +3919,7 @@ Proof
 QED
 
 Theorem word_cse_every_inst_distinct_tar_reg:
-  ∀p data data' (q:'a prog).
+  ∀p data data' (q:prog).
     every_inst distinct_tar_reg p ∧ word_cse data p = (data',q) ⇒
     every_inst distinct_tar_reg q
 Proof
@@ -3967,7 +3961,7 @@ Proof
 QED
 
 Theorem word_cse_every_inst_two_reg:
-  ∀p data data' (q:'a prog).
+  ∀p data data' (q:prog).
     every_inst two_reg_inst p ∧ word_cse data p = (data',q) ⇒
     every_inst two_reg_inst q
 Proof

@@ -522,6 +522,11 @@ Proof
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
+  \\ Cases_on ‘op = Strsub_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [SF SFY_ss]
+    \\ first_assum (irule_at Any)
+    \\ simp [v_ok_def])
   \\ Cases_on ‘op = Explode’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]

@@ -60,7 +60,7 @@ End
 Definition san_ffi_interfer_def:
   san_ffi_interfer info_func = K (\((n:num),bytes,state).
     if n = 0 then
-      let (nb,ad,reg,new_pc) = info_func n in
+      let (nb,ad,reg,new_pc) = THE (ALOOKUP info_func n) in
       state with
       <|c_gpr := (\pid r.
           if pid = state.procID /\ r = n2w reg
@@ -68,7 +68,7 @@ Definition san_ffi_interfer_def:
           else state.c_gpr pid r);
         c_PC := (state.procID =+ new_pc) state.c_PC |>
     else if n = 1 then
-      let (_,_,_,new_pc) = info_func n in
+      let (_,_,_,new_pc) = THE (ALOOKUP info_func n) in
         state with
       <|c_PC := (state.procID =+ new_pc) state.c_PC |>
     else state)
@@ -76,9 +76,8 @@ End
 
 Definition san_mmio_info_def:
   san_mmio_info =
-    ((0:num) =+ (0w:word8,Addr 5 20000,(6:num),EL 0 san_end_ffi_pcs)) $
-    (1 =+ (0w,Addr 5 20008,7,EL 1 san_end_ffi_pcs)) $
-    K ARB
+    [(0:num, (0w:word8,Addr 5 20000,6:num,EL 0 san_end_ffi_pcs));
+     (1, (0w,Addr 5 20008,7,EL 1 san_end_ffi_pcs))]
 End
 
 val san_ffi_pcs_simp = CONV_RULE (SIMP_CONV (srw_ss()) [san_ffi_pcs_def]) $
@@ -96,20 +95,21 @@ Definition san_config_def:
    ; ptr2_reg := ARB
    ; len2_reg := ARB
    ; ffi_interfer := san_ffi_interfer
-      (san_mmio_info: num -> word8 # addr # num # word64)
+      (san_mmio_info: (num # (word8 # addr # num # word64)) list)
    ; callee_saved_regs := []
    ; next_interfer := K I
    ; halt_pc := n2w ffi_offset
    ; install_pc := 0w
    ; install_interfer :=ARB
    ; target := riscv_target
-   ; mmio_info := MAP (\n. (n,san_mmio_info n)) [0;1]|>
+   ; mmio_info := san_mmio_info|>
 End
 
 Definition san_oracle_def:
   san_oracle s () l1 l2 =
     Oracle_return ()
-      (PAD_RIGHT 0w (LENGTH l2) [20w])
+      (if s = SharedMem MappedRead then PAD_RIGHT 0w (LENGTH l2) [20w]
+       else l2)
 End
 
 Definition san_init_ffi_state_def:
@@ -154,9 +154,10 @@ Definition san_result_def:
   evaluate san_config san_init_ffi_state n san_init_machine_state
 End
 
-val riscv_inst_defs = map (#1 o snd) $
-  filter (fn n => substring (snd (fst n),0, 4) = "dfn'") $
-  filter (fn n => #2 (snd n) = Def) $ DB.match ["riscv"] ``_``;
+val riscv_inst_defs = DB.match ["riscv"] ``_``
+  |> filter (fn ((_,name),(_,cl,_)) =>
+       cl = Def andalso String.isPrefix "dfn'" name)
+  |> map (fn (_, (th,_,_)) => th);
 
 val _ = computeLib.add_funs
   [Encode_def,Itype_def,Stype_def,UJtype_def,opc_def,word_concat_def,v2w_def];
@@ -280,7 +281,10 @@ Proof
   simp[apply_oracle_def,shift_seq_def] \\
   next_state_tac \\
   riscv_ok_tac \\
-  simp[Once evaluate_def, APPLY_UPDATE_THM]
+  simp[Once evaluate_def, APPLY_UPDATE_THM] \\
+  simp[EVAL ``i2w 20000:word64``, EVAL ``i2w 20008:word64``] \\
+  rpt IF_CASES_TAC \\
+  simp[]
 QED
 
 Theorem leq_2_cases:

@@ -3,7 +3,7 @@
 *)
 Theory clos_letopProof
 Ancestors
-  closProps clos_letop closSem closLang backendProps
+  closProps clos_letop closSem
 Libs
   preamble
 

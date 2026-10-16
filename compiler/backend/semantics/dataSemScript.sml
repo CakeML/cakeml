@@ -5,7 +5,6 @@ Theory dataSem
 Ancestors
   data_simp data_live data_space dataLang bvlSem
   data_to_word (* TODO: immoral, semantics shouldn't depend on compiler *)
-  backendProps[qualified]
 Libs
   preamble
 
@@ -61,16 +60,16 @@ Datatype:
      ; global      : num option
      ; handler     : num
      ; refs        : v ref num_map
-     ; compile     : 'c -> (num # num # dataLang$prog) list -> (mlstring # word64 list # 'c) option
+     ; compile     : 'c -> (num # num # dataLang$prog # metadata) list -> (mlstring # word64 list # 'c) option
      ; clock       : num
-     ; code        : (num # dataLang$prog) num_map
+     ; code        : (num # dataLang$prog # metadata) num_map
      ; ffi         : 'ffi ffi_state
      ; space       : num
      ; tstamps     : num option
      ; limits      : limits
      ; safe_for_space   : bool
      ; peak_heap_length : num
-     ; compile_oracle   : num -> 'c # (num # num # dataLang$prog) list |>
+     ; compile_oracle   : num -> 'c # (num # num # dataLang$prog # metadata) list |>
 End
 
 val s = ``(s:('c,'ffi) dataSem$state)``
@@ -515,7 +514,7 @@ Definition do_install_def:
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in
                  (case s.compile cfg progs, progs of
-                  | SOME (bytes',data',cfg'), (k,prog)::_ =>
+                  | SOME (bytes',data',cfg'), (k,_)::_ =>
                       if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then
                         let s' =
                           s with <|
@@ -1354,7 +1353,7 @@ Definition find_code_def:
   (find_code (SOME p) args code ssize =
      case sptree$lookup p code of
      | NONE => NONE
-     | SOME (arity,exp) =>
+     | SOME (arity,exp,md) =>
         if LENGTH args = arity
         then SOME (args,exp,lookup p ssize)
         else NONE)
@@ -1364,7 +1363,7 @@ Definition find_code_def:
        | CodePtr loc =>
            (case sptree$lookup loc code of
             | NONE => NONE
-            | SOME (arity,exp) =>
+            | SOME (arity,exp,md) =>
                if LENGTH args = arity + 1
                then SOME (FRONT args,exp,lookup loc ssize)
                else NONE)

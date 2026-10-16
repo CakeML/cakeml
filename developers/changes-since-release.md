@@ -12,6 +12,8 @@ The monadic translator now targets CakeML's byte arrays for arrays of type word8
 
 The monadic translator also has new support for space-efficient bool arrays represented as byte arrays (#1498).
 
+The compiler now supports unsafe strsub (#1538).
+
 ## Basis library
 
 The shift and rotate functions `<<`, `>>`, `~>>` and `ror` in the `Word8` and
@@ -39,6 +41,13 @@ length first and only compares contents when the lengths are equal, which is fas
 
 `Map.diff` has been added to basis. `Map.diff m1 m2` removes from `m1` every
 key that occurs in `m2`. The inputs can have different value types.
+
+### SocketIO
+
+A new module for socket I/O, `SocketIO`, has been added to basis.
+`SocketIO` currently supports Unix domain sockets and Linux raw sockets.
+Use of the module is demonstrated by two new examples.
+CF specs and proofs are still TODO, for now.
 
 ### TextIO
 
@@ -81,6 +90,16 @@ linker (#1517).
 The backend now supports IMul and IDiv instructions and optimizes to the
 (#1533). Some further cleanup of the asm ops might be expected in the future.
 
+The global dead code elimination pass has moved from flatLang to source,
+specifically, `flat_elim` has been replaced by `source_dce` (#1508).
+
+A new constant lifting pass has been added as a source-to-source pass to the
+compiler backend (#1542).
+
+The compiler backend now attaches a bit of metadata to every function (#1535).
+This is completely internal to the compiler. Debug names for functions now come
+from metadata rather than a separate mapping (#1539).
+
 ## Pancake
 
 Queryable feature tags (#1470).
@@ -89,12 +108,22 @@ The initial version of the decompiler-into-itree of Pancake---DecompIt (#1492).
 
 ## Candle
 
+The Candle parser has been moved out of HOL into user code (#1537).
+One user-facing change is that CakeML itself in EVAL mode now starts with a
+larger data buffer to accommodate the user code (Candle already patches to start
+with an even larger one). Another is that a `(*CML ...*)` block in Candle input
+is now only accepted where a phrase begins.
+
 ## Examples
 
 The PB checker has been reorganized with minor fixes, and also supports solutions cubes (#1496).
 Its backing representation and corresponding algorithms have been optimized heavily (#1528).
 
 The CNF checker(s) have various improvements, especially the RUP algorithm has been updated. Additionally, there is now a centralized and cleaned up basis FFI C file for the checkers (#1495).
+
+The new `socketEchoProg` contains a simple echo server meant for testing the Unix domain sockets from `SocketIO`.
+
+Similarly, `rawBridgeProg` showcases `SocketIO`'s raw sockets.
 
 ## Build infrastructure
 

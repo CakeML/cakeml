@@ -210,9 +210,7 @@ Proof
   \\ impl_tac
   >- (
     CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [dec_clock_def]
-    \\ irule repl_types_clock_refs
-    \\ qsuff_tac ‘(s_pr with eval_state := NONE) = s_pr’ >- fs []
-    \\ fs [semanticPrimitivesTheory.state_component_equality])
+    \\ drule_then irule repl_types_skip_alt \\ simp [])
   \\ strip_tac \\ simp []
   \\ rename [‘res9 ≠ Rerr (Rabort Rtype_error)’]
   \\ Cases_on ‘res9 = Rerr (Rabort Rtype_error)’ >- fs [combine_dec_result_def]
@@ -346,3 +344,8 @@ val _ = check_thm repl_prog_isPREFIX;
 val _ = check_thm evaluate_decs_compiler64_arm8_prog;
 val _ = check_thm semantics_prog_compiler64_arm8_prog;
 val _ = check_thm compiler64_arm8_prog_eq_candle_code_append;
+
+(* check_thm inspects only tags; an open hypothesis of any lemma used would
+   appear here. *)
+val _ = if null (hyp semantics_prog_compiler64_arm8_prog) then ()
+        else failwith "semantics_prog_compiler64_arm8_prog has hypotheses";

@@ -297,7 +297,7 @@ Definition compile_def:
 End
 
 Definition compile_pancake_def:
-  compile_pancake asm_conf c input =
+  compile_pancake (:'a) asm_conf c input =
   let _ = empty_ffi «finished: start up» in
   case panPtreeConversion$parse_topdecs_to_ast input of
   | INR errs =>
@@ -305,14 +305,14 @@ Definition compile_pancake_def:
        MAP (λ(msg,loc). concat [msg; « at »;
                                 locs_to_string (implode input) (SOME loc); «\n»])
            errs), Nil, [])
-  | INL funs =>
+  | INL (funs:'a decl list) =>
       case static_check funs of
       | (error e, warns) => (M_failure $ StaticError e, Nil, MAP StaticError warns)
       | (return (), warns) =>
           let _ = empty_ffi «finished: lexing and parsing» in
           case pan_passes$pan_compile_tap asm_conf c funs of
           | (NONE,td) => (M_failure AssembleError, td, MAP StaticError warns)
-          | (SOME (bytes,data,c),td) => (M_success (bytes,data,c), td, MAP StaticError warns)
+          | (SOME (bytes,data:num list,c),td) => (M_success (bytes,data,c), td, MAP StaticError warns)
 End
 
 (* The top-level compiler *)
@@ -552,6 +552,7 @@ EVAL ``parse_gc [«--gc=gen1234,1234,1234»] def``
 (* Copy of conf_ok from data_to_word *)
 Definition conf_ok_check_def:
   conf_ok_check (:'a) c <=>
+    arch_width_bits c.arch_width = dimindex (:α) ∧
     shift_length c < dimindex (:α) ∧
     backend_common$word_shift (dimindex (:α)) ≤ shift_length c ∧ c.len_size ≠ 0 ∧
     c.len_size + 9 < dimindex (:α)
@@ -702,7 +703,7 @@ Definition format_compiler_result_def:
   format_compiler_result bytes_export (M_failure err) =
     (List[]:mlstring app_list, error_to_str err) ∧
   format_compiler_result bytes_export
-    (M_success ((bytes:word8 list),(data:'a word list),(c:backend$config))) =
+    (M_success ((bytes:word8 list),(data:num list),(c:backend$config))) =
     (bytes_export (the [] c.lab_conf.ffi_names) bytes data, implode "")
 End
 
@@ -770,7 +771,7 @@ Definition compile_pancake_64_def:
               (List[], error_to_str (ConfigError (get_err_str ext_conf)))
           | INL ext_conf =>
               let ext_conf = pancake_backend_conf ext_conf in
-              case compiler$compile_pancake aconf ext_conf input of
+              case compiler$compile_pancake (:64) aconf ext_conf input of
               | (M_failure err, td, warns) =>
                   (List[], concat (MAP error_to_str (err::(if nowarn then [] else warns))))
               | (M_success (bytes, data, c), td, warns) =>
@@ -849,7 +850,7 @@ Definition compile_pancake_32_def:
               (List[], error_to_str (ConfigError (get_err_str ext_conf)))
           | INL ext_conf =>
               let ext_conf = pancake_backend_conf ext_conf in
-              case compiler$compile_pancake aconf ext_conf input of
+              case compiler$compile_pancake (:32) aconf ext_conf input of
               | (M_failure err, td, warns) =>
                   (List[], concat (MAP error_to_str (err::(if nowarn then [] else warns))))
               | (M_success (bytes, data, c), td, warns) =>

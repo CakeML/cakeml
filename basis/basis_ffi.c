@@ -6,6 +6,11 @@
 #define _POSIX_C_SOURCE 200809L
 #endif
 
+/* The Linux raw socket FFI needs struct ifreq, which is not POSIX. */
+#if defined(__linux__) && !defined(_DEFAULT_SOURCE)
+#define _DEFAULT_SOURCE
+#endif
+
 #include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
@@ -21,6 +26,20 @@
 
 /* Double FFI */
 #include <math.h>
+
+#ifdef __linux__
+/* Socket FFI (POSIX) */
+#include <sys/socket.h>
+#include <sys/un.h>
+
+/* Socket FFI (Linux raw sockets) */
+#include <linux/if_packet.h>
+#include <net/ethernet.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
+#include <arpa/inet.h>
+#include <poll.h>
+#endif
 
 /* GC and tracing */
 #ifdef DEBUG_FFI
@@ -262,6 +281,356 @@ void ffidouble_floor(char *c, long clen, char *a, long alen) {
     d.num = floor(d.num);
     memcpy(a, d.bytes, sizeof d.bytes);
 }
+
+#ifdef __linux__
+/* Socket FFI (Unix domain sockets) */
+/* Descriptors are passed as 8-byte integers (see int_to_byte8). Unless
+ * stated otherwise, a[0] is 0 on success and 1 on error. Functions that
+ * take a byte count or offset from a report 3, and do nothing, when the
+ * request does not fit in a. */
+
+/* c: NUL-terminated socket path. a[1..8]: listening descriptor. */
+void ffiunix_socket_listen(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(9 <= alen);
+  const char *socket_path = (const char *) c;
+  int sock_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+  if (sock_fd < 0) {
+    a[0] = 1;
+    return;
+  }
+  struct sockaddr_un addr;
+  memset(&addr, 0, sizeof(addr));
+  addr.sun_family = AF_UNIX;
+  if (strlen(socket_path) >= sizeof(addr.sun_path)) {
+    close(sock_fd);
+    a[0] = 1;
+    return;
+  }
+  strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
+  /* remove a stale socket file left by a previous run */
+  unlink(socket_path);
+  if (bind(sock_fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+    close(sock_fd);
+    a[0] = 1;
+    return;
+  }
+  if (listen(sock_fd, 5) < 0) {
+    close(sock_fd);
+    a[0] = 1;
+    return;
+  }
+  a[0] = 0;
+  int_to_byte8(sock_fd, &a[1]);
+}
+
+/* c: listening descriptor. a[0]: 2 if no connection is pending.
+ * a[1..8]: connected descriptor. */
+void ffiunix_socket_accept(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(clen == 8);
+  assert(9 <= alen);
+  int sock_fd = byte8_to_int(c);
+  struct sockaddr_un client_addr;
+  socklen_t client_len = sizeof(client_addr);
+  int conn_fd = accept(sock_fd, (struct sockaddr *) &client_addr, &client_len);
+  if (conn_fd < 0) {
+    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+      a[0] = 2;
+    } else {
+      a[0] = 1;
+    }
+    return;
+  }
+  a[0] = 0;
+  int_to_byte8(conn_fd, &a[1]);
+}
+
+/* Same layout as ffiread. a[0]: 2 if the peer closed the connection. */
+void ffiunix_socket_read(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(clen == 8);
+  assert(alen >= 4);
+  int sock_fd = byte8_to_int(c);
+  int max_bytes = byte2_to_int(a);
+  if (max_bytes + 4 > alen) {
+    a[0] = 3;  /* request does not fit in the array */
+    return;
+  }
+  int bytes_read = read(sock_fd, &a[4], max_bytes);
+  if (bytes_read < 0) {
+    a[0] = 1;
+    return;
+  }
+  if (bytes_read == 0) {
+    a[0] = 2;
+    return;
+  }
+  a[0] = 0;
+  int_to_byte2(bytes_read, &a[1]);
+}
+
+/* Same layout as ffiwrite. */
+void ffiunix_socket_write(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(clen == 8);
+  assert(alen >= 4);
+  int sock_fd = byte8_to_int(c);
+  int bytes_to_write = byte2_to_int(a);
+  int offset = byte2_to_int(&a[2]);
+  if (bytes_to_write + offset + 4 > alen) {
+    a[0] = 3;  /* request does not fit in the array */
+    return;
+  }
+  /* MSG_NOSIGNAL: a closed peer is reported as an error, not as SIGPIPE */
+  int bytes_written = send(sock_fd, &a[4 + offset], bytes_to_write, MSG_NOSIGNAL);
+  if (bytes_written < 0) {
+    a[0] = 1;
+    return;
+  }
+  a[0] = 0;
+  int_to_byte2(bytes_written, &a[1]);
+}
+
+/* Socket FFI (Linux raw sockets on network interfaces) */
+
+/* c: unused. a[1..8]: descriptor of an AF_PACKET socket for all protocols. */
+void ffiraw_socket_create(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(9 <= alen);
+  int sock_fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+  if (sock_fd < 0) {
+    a[0] = 1;
+    return;
+  }
+  a[0] = 0;
+  int_to_byte8(sock_fd, &a[1]);
+}
+
+/* c[0..7]: descriptor; c[8..]: NUL-terminated interface name.
+ * a[1..8]: interface index. */
+void ffiget_interface_index(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(9 <= alen);
+  assert(clen >= 9 && memchr(c + 8, '\0', clen - 8) != NULL);
+  int sock_fd = byte8_to_int(c);
+  const char *interface_name = (const char *) (c + 8);
+  if (strlen(interface_name) >= IFNAMSIZ) {
+    a[0] = 1;
+    return;
+  }
+  struct ifreq ifr;
+  memset(&ifr, 0, sizeof(ifr));
+  strncpy(ifr.ifr_name, interface_name, IFNAMSIZ - 1);
+  ifr.ifr_name[IFNAMSIZ - 1] = '\0';
+  if (ioctl(sock_fd, SIOCGIFINDEX, &ifr) < 0) {
+    a[0] = 1;
+    return;
+  }
+  a[0] = 0;
+  int_to_byte8(ifr.ifr_ifindex, &a[1]);
+}
+
+/* c[0..7]: descriptor; c[8..]: NUL-terminated interface name.
+ * a[1..8]: interface MTU. */
+void ffiget_interface_mtu(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(9 <= alen);
+  assert(clen >= 9 && memchr(c + 8, '\0', clen - 8) != NULL);
+  int sock_fd = byte8_to_int(c);
+  const char *interface_name = (const char *) (c + 8);
+  if (strlen(interface_name) >= IFNAMSIZ) {
+    a[0] = 1;
+    return;
+  }
+  struct ifreq ifr;
+  memset(&ifr, 0, sizeof(ifr));
+  strncpy(ifr.ifr_name, interface_name, IFNAMSIZ - 1);
+  ifr.ifr_name[IFNAMSIZ - 1] = '\0';
+  if (ioctl(sock_fd, SIOCGIFMTU, &ifr) < 0) {
+    a[0] = 1;
+    return;
+  }
+  a[0] = 0;
+  int_to_byte8(ifr.ifr_mtu, &a[1]);
+}
+
+/* c[0..7]: descriptor; c[8..15]: interface index to bind to. */
+void ffiraw_socket_bind(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(1 <= alen);
+  if (clen < 16) {
+    a[0] = 1;
+    return;
+  }
+  int sock_fd = byte8_to_int(c);
+  int if_index = byte8_to_int(c + 8);
+  struct sockaddr_ll addr;
+  memset(&addr, 0, sizeof(addr));
+  addr.sll_family = AF_PACKET;
+  addr.sll_protocol = htons(ETH_P_ALL);
+  addr.sll_ifindex = if_index;
+  if (bind(sock_fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+    a[0] = 1;
+    return;
+  }
+  a[0] = 0;
+}
+
+/* Same layout as ffiread; receives one frame from a bound socket.
+ * a[0]: 2 if the frame was longer than requested; a[1..2] then holds the
+ * number of bytes stored and the rest of the frame is discarded. */
+void ffiraw_socket_recv(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(clen == 8);
+  assert(alen >= 4);
+  int sock_fd = byte8_to_int(c);
+  int max_bytes = byte2_to_int(a);
+  if (max_bytes + 4 > alen) {
+    a[0] = 3;  /* request does not fit in the array */
+    return;
+  }
+  /* MSG_TRUNC: the real frame length is returned even when it was cut */
+  int frame_len = recv(sock_fd, &a[4], max_bytes, MSG_TRUNC);
+  if (frame_len < 0) {
+    a[0] = 1;
+    return;
+  }
+  if (frame_len > max_bytes) {
+    a[0] = 2;
+    int_to_byte2(max_bytes, &a[1]);
+    return;
+  }
+  a[0] = 0;
+  int_to_byte2(frame_len, &a[1]);
+}
+
+/* Same layout as ffiwrite; sends one frame on a bound socket. */
+void ffiraw_socket_send(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(clen == 8);
+  assert(alen >= 4);
+  int sock_fd = byte8_to_int(c);
+  int bytes_to_write = byte2_to_int(a);
+  int offset = byte2_to_int(&a[2]);
+  if (bytes_to_write + offset + 4 > alen) {
+    a[0] = 3;  /* request does not fit in the array */
+    return;
+  }
+  int bytes_written = send(sock_fd, &a[4 + offset], bytes_to_write, 0);
+  if (bytes_written < 0) {
+    a[0] = 1;
+    return;
+  }
+  a[0] = 0;
+  int_to_byte2(bytes_written, &a[1]);
+}
+
+/* c[0..7]: descriptor; c[8..15]: interface index. a: as in ffiwrite;
+ * sends one frame on the given interface. */
+void ffiraw_socket_sendto(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(clen >= 16);
+  assert(alen >= 4);
+  int sock_fd = byte8_to_int(c);
+  int if_index = byte8_to_int(c + 8);
+  int bytes_to_write = byte2_to_int(a);
+  int offset = byte2_to_int(&a[2]);
+  if (bytes_to_write + offset + 4 > alen) {
+    a[0] = 3;  /* request does not fit in the array */
+    return;
+  }
+  struct sockaddr_ll addr;
+  memset(&addr, 0, sizeof(addr));
+  addr.sll_family = AF_PACKET;
+  addr.sll_protocol = htons(ETH_P_ALL);
+  addr.sll_ifindex = if_index;
+  int bytes_written = sendto(sock_fd, &a[4 + offset], bytes_to_write, 0,
+                             (struct sockaddr *) &addr, sizeof(addr));
+  if (bytes_written < 0) {
+    a[0] = 1;
+    return;
+  }
+  a[0] = 0;
+  int_to_byte2(bytes_written, &a[1]);
+}
+
+static int byte4_to_int(unsigned char *b){
+    /* this assumes bytes in big-endian order; 0xFFFFFFFF decodes to -1 */
+    return (int32_t) (((uint32_t) b[0] << 24) | ((uint32_t) b[1] << 16) |
+                      ((uint32_t) b[2] << 8) | (uint32_t) b[3]);
+}
+
+/* c: nfds entries of 8-byte descriptor followed by 2-byte poll events.
+ * a[0..3]: nfds; a[4..7]: timeout in milliseconds, -1 for none.
+ * a[0]: 2 on timeout. a[1..4]: number of ready descriptors.
+ * a[8..]: 2-byte revents per entry, in input order. */
+void ffiraw_socket_poll(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(alen >= 8);
+  int nfds = byte4_to_int(a);
+  int timeout = byte4_to_int(&a[4]);
+  if (nfds < 0 || nfds > clen / 10 || nfds > (alen - 8) / 2) {
+    a[0] = 3;  /* entry count does not fit in c or a */
+    return;
+  }
+  struct pollfd *fds = malloc(nfds * sizeof(struct pollfd));
+  if (!fds) {
+    a[0] = 1;
+    return;
+  }
+  for (int i = 0; i < nfds; i++) {
+    int fd_offset = i * 10;
+    fds[i].fd = byte8_to_int(c + fd_offset);
+    fds[i].events = (c[fd_offset + 8] << 8) | c[fd_offset + 9];
+    fds[i].revents = 0;
+  }
+  int ret = poll(fds, nfds, timeout);
+  if (ret < 0) {
+    a[0] = 1;
+    free(fds);
+    return;
+  }
+  if (ret == 0) {
+    a[0] = 2;
+    free(fds);
+    return;
+  }
+  a[0] = 0;
+  a[1] = (ret >> 24) & 0xFF;
+  a[2] = (ret >> 16) & 0xFF;
+  a[3] = (ret >> 8) & 0xFF;
+  a[4] = ret & 0xFF;
+  for (int i = 0; i < nfds; i++) {
+    a[8 + (i * 2)] = (fds[i].revents >> 8) & 0xFF;
+    a[8 + (i * 2) + 1] = fds[i].revents & 0xFF;
+  }
+  free(fds);
+}
+
+/* c[0..7]: descriptor; c[8..15]: buffer size; c[16]: 0 for the receive
+ * buffer, 1 for the send buffer. a[1..8]: size actually set by the kernel. */
+void ffiset_socket_buffer_size(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(clen >= 17);
+  assert(alen >= 9);
+  int sock_fd = byte8_to_int(c);
+  int buffer_size = byte8_to_int(c + 8);
+  int buffer_type = c[16];
+  int option = (buffer_type == 0) ? SO_RCVBUF : SO_SNDBUF;
+  if (setsockopt(sock_fd, SOL_SOCKET, option, &buffer_size, sizeof(buffer_size)) < 0) {
+    a[0] = 1;
+    return;
+  }
+  int actual_size = 0;
+  socklen_t size_len = sizeof(actual_size);
+  if (getsockopt(sock_fd, SOL_SOCKET, option, &actual_size, &size_len) < 0) {
+    a[0] = 1;
+    return;
+  }
+  a[0] = 0;
+  int_to_byte8(actual_size, &a[1]);
+}
+
+/* Same layout as fficlose. */
+void ffiraw_socket_close(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(clen == 8);
+  assert(alen >= 1);
+  int sock_fd = byte8_to_int(c);
+  if (close(sock_fd) < 0) {
+    a[0] = 1;
+  } else {
+    a[0] = 0;
+  }
+}
+#endif
 
 /* Interactive evaluation: Interrupt and Candle kernel FFIs */
 #ifdef EVAL

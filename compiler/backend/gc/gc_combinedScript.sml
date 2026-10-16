@@ -3,7 +3,7 @@
 *)
 Theory gc_combined
 Ancestors
-  gc_shared copying_gc gen_gc gen_gc_partial data_to_word
+  copying_gc gen_gc_partial data_to_word
 Libs
   preamble
 

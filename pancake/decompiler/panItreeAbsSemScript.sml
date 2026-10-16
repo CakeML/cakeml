@@ -4,6 +4,7 @@
 *)
 Theory panItreeAbsSem
 Ancestors
+  wordSem
   itreeTau panLang panSem
   pan_itreeSem pan_itreeProps
 Libs
@@ -2175,14 +2176,14 @@ Proof
      )
   >- (iff_tac
       >- (rpt strip_tac
-          \\ gvs[eval_def, word_of_val_def, wordLangTheory.word_op_def]
+          \\ gvs[eval_def, word_of_val_def, wordSemTheory.word_op_def]
           \\ EVERY_CASE_TAC \\ gvs[word_of_val_def]
           \\ EVERY_CASE_TAC \\ gvs[]
           \\ Cases_on ‘w’ \\ rw[]
           \\ Cases_on ‘w'’ \\ rw[]
          )
       \\ rpt strip_tac
-      \\ gvs[word_of_val_def, eval_def, wordLangTheory.word_op_def]
+      \\ gvs[word_of_val_def, eval_def, wordSemTheory.word_op_def]
      )
   >- (iff_tac
       >- (rpt strip_tac
@@ -2203,11 +2204,11 @@ Proof
      )
   >- (iff_tac
       >- (rpt strip_tac
-          \\ gvs[eval_def, word_of_val_def, wordLangTheory.word_sh_def]
+          \\ gvs[eval_def, word_of_val_def, wordSemTheory.word_sh_def]
           \\ EVERY_CASE_TAC \\ gvs[word_of_val_def]
          )
       \\ rpt strip_tac
-      \\ gvs[word_of_val_def, eval_def, wordLangTheory.word_sh_def]
+      \\ gvs[word_of_val_def, eval_def, wordSemTheory.word_sh_def]
       \\ EVERY_CASE_TAC
      )
 QED
@@ -2288,7 +2289,7 @@ Proof
       \\ rw[]
      )
   >- (rpt strip_tac
-      \\ gvs[eval_def, word_of_val_def, wordLangTheory.word_op_def]
+      \\ gvs[eval_def, word_of_val_def, wordSemTheory.word_op_def]
       \\ EVERY_CASE_TAC \\ gvs[word_of_val_def, word_of_Word_def]
       \\ EVERY_CASE_TAC \\ gvs[word_of_val_def, word_of_Word_def]
      )
@@ -2302,7 +2303,7 @@ Proof
       \\ EVERY_CASE_TAC \\ gvs[word_of_val_def, word_of_Word_def]
      )
   >- (rpt strip_tac
-      \\ gvs[eval_def, word_of_val_def, wordLangTheory.word_sh_def]
+      \\ gvs[eval_def, word_of_val_def, wordSemTheory.word_sh_def]
       \\ EVERY_CASE_TAC \\ gvs[word_of_val_def, word_of_Word_def]
      )
 QED
@@ -2381,8 +2382,8 @@ Proof
   rpt conj_tac
   \\  iff_tac
   \\ rw[eval_def]
-  \\ EVERY_CASE_TAC \\ gvs[mem_load_32_def, mem_load_byte_def, wordLangTheory.word_op_def, pan_op_def,
-                           asmTheory.word_cmp_def, wordLangTheory.word_sh_def, mem_load_def]
+  \\ EVERY_CASE_TAC \\ gvs[mem_load_32_def, mem_load_byte_def, wordSemTheory.word_op_def, pan_op_def,
+                           asmTheory.word_cmp_def, wordSemTheory.word_sh_def, mem_load_def]
   >- (Cases_on ‘UNZIP ls’ \\ gvs[]
       \\ Cases_on ‘UNZIP x.fields’ \\ gvs[]
       \\ FULL_CASE_TAC \\ gvs[]

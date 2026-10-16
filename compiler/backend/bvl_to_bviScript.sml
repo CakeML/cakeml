@@ -8,10 +8,9 @@
 *)
 Theory bvl_to_bvi
 Ancestors
-  bvl bvi backend_common bvl_inline[qualified]
-  bvl_const[qualified] bvl_handle[qualified] bvi_let[qualified]
+  bvl backend_common bvl_inline[qualified]
+  bvi_let[qualified]
   bvi_tailrec[qualified] bvi_inline[qualified] bvi_tmc[qualified]
-  dataLang[qualified]
 Libs
   preamble
 
@@ -230,14 +229,16 @@ Definition ConcatByte_code_def:
 End
 
 Definition stubs_def:
-  stubs start n = [(AllocGlobal_location, AllocGlobal_code);
-                   (CopyGlobals_location, CopyGlobals_code);
-                   (InitGlobals_location, InitGlobals_code start n);
-                   (ListLength_location, ListLength_code);
-                   (FromListByte_location, FromListByte_code);
-                   (ToListByte_location, ToListByte_code);
-                   (SumListLength_location, SumListLength_code);
-                   (ConcatByte_location, ConcatByte_code)]
+  stubs start n =
+    MAP (λ(loc,(args,x),name). (loc,args,x,Metadata name [Stub]))
+      [(AllocGlobal_location, AllocGlobal_code, «AllocGlobal»);
+       (CopyGlobals_location, CopyGlobals_code, «CopyGlobals»);
+       (InitGlobals_location, InitGlobals_code start n, «start»);
+       (ListLength_location, ListLength_code, «ListLength»);
+       (FromListByte_location, FromListByte_code, «FromListByte»);
+       (ToListByte_location, ToListByte_code, «ToListByte»);
+       (SumListLength_location, SumListLength_code, «SumListLength»);
+       (ConcatByte_location, ConcatByte_code, «ConcatByte»)]
 End
 
 Overload num_stubs[local] = ``backend_common$bvl_num_stubs``
@@ -478,17 +479,19 @@ Proof
 QED
 
 Definition compile_single_def:
-  compile_single n (name,arg_count,exp) =
+  compile_single n (name,arg_count,exp,md) =
     let (c,aux,n1) = compile_exps n [exp] in
-      (List [(num_stubs + nss * name,arg_count,bvi_let$compile_exp (HD c))]
-        ++ aux, n1)
+      (List [(num_stubs + nss * name,arg_count,
+              bvi_let$compile_exp (HD c),md)] ++
+       List (add_metadata md (append aux)), n1)
 End
 
 Theorem compile_single_eq:
-  compile_single n (name,arg_count,exp) =
+  compile_single n (name,arg_count,exp,md) =
     let (c,aux,n1) = compile_exps_sing n exp in
-      (List [(num_stubs + nss * name,arg_count,bvi_let$compile_exp c)]
-        ++ aux, n1)
+      (List [(num_stubs + nss * name,arg_count,
+              bvi_let$compile_exp c,md)] ++
+       List (add_metadata md (append aux)), n1)
 Proof
   gvs [compile_single_def,compile_exps_sing]
   \\ rpt (pairarg_tac \\ gvs [])
@@ -510,7 +513,7 @@ End
 
 Definition compile_prog_def:
   compile_prog start n prog =
-    let k = alloc_glob_count (MAP (\(_,_,p). p) prog) in
+    let k = alloc_glob_count (MAP (\(_,_,p,_). p) prog) in
     let (code,n1) = compile_list n prog in
       (InitGlobals_location, bvl_to_bvi$stubs (num_stubs + nss * start) k ++ append code, n1)
 End
@@ -547,38 +550,15 @@ Definition default_config_def:
      |>
 End
 
-Definition get_names_def:
-  get_names final_nums old_names =
-    fromAList (MAP (λn. (n,
-      if n = InitGlobals_location then implode "start" else
-      if n = AllocGlobal_location then implode "AllocGlobal" else
-      if n = CopyGlobals_location then implode "CopyGlobals" else
-      if n = ListLength_location then implode "ListLength" else
-      if n = FromListByte_location then implode "FromListByte" else
-      if n = ToListByte_location then implode "ToListByte" else
-      if n = SumListLength_location then implode "SumListLength" else
-      if n = ConcatByte_location then implode "ConcatByte" else
-      if n < num_stubs then implode "bvi_unknown" else
-        let k = n - num_stubs in
-        let kd = k DIV nss in
-        let km = k MOD nss in
-        let n = (case lookup kd old_names of
-          | NONE => implode "bvi_unmapped"
-          | SOME name => name) in
-        let aux = (if km = 0 then implode "" else implode "_bvi_aux") in
-          n ^ aux)) final_nums)
-End
-
 Definition compile_def:
-  compile start c names prog =
+  compile start c prog =
     let (inlines, prog) = bvl_inline$compile_prog c.inline_size_limit
            c.split_main_at_seq c.exp_cut prog in
     let (loc, code, n1) = compile_prog start 0 prog in
     let (n2, code') = bvi_tailrec$compile_prog c.do_tailrec (num_stubs + 2) code in
     let (n3, code') = bvi_tmc$compile_prog c.do_tmc (num_stubs + 3) code' in
     let (bvi_inlines, code') = bvi_inline$compile_prog code' in
-      (loc, code', inlines, bvi_inlines, n1, n2, n3,
-       get_names (MAP FST code') names)
+      (loc, code', inlines, bvi_inlines, n1, n2, n3)
 End
 
 Definition bvl_to_bvi_compile_inc_all_def:

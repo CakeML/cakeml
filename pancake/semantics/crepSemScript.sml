@@ -3,6 +3,7 @@
 *)
 Theory crepSem
 Ancestors
+  wordSem
   crepLang alignment[qualified] finite_map[qualified]
   misc[qualified] (* for read_bytearray *)
   wordLang[qualified] (* for word_op and word_sh *)

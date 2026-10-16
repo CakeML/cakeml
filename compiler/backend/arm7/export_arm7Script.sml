@@ -168,7 +168,7 @@ Definition export_funcs_def:
 End
 
 Definition arm7_export_def:
-  arm7_export ffi_names bytes (data:word32 list) syms exp ret pk =
+  arm7_export ffi_names bytes (data:num list) syms exp ret pk =
     let lsyms = get_sym_labels syms in
     SmartAppend
       (SmartAppend (List preamble)

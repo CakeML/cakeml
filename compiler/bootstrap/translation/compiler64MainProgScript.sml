@@ -52,20 +52,25 @@ val _ = translation_extends "compiler64CommonProg";
 val _ = ml_translatorLib.use_sub_check true;
 val _ = use_long_names := true;
 
-val spec64 = INST_TYPE [alpha |-> ``:64``];
-
 val _ = register_type ``:compiler64_host``;
 val _ = next_ml_names := ["host_args"];
 val r = translate host_args_def;
 
 Definition compiler_for_eval_def:
-  compiler_for_eval host = compile_inc_progs_for_eval (:64) (host_config host)
+  compiler_for_eval host = compile_inc_progs_for_eval (host_config host)
 End
 
-Theorem upper_w2w_eq_I[local]:
-  backend_common$upper_w2w = (I:word64 -> word64)
+Definition bitmap_to_word64_def:
+  bitmap_to_word64 (n:num) = (n2w n :word64)
+End
+
+val r = translate bitmap_to_word64_def;
+
+Theorem upper_n2w_Arch64[local]:
+  upper_n2w Arch64 = bitmap_to_word64
 Proof
-  fs [backend_commonTheory.upper_w2w_def,FUN_EQ_THM]
+  simp [FUN_EQ_THM, backend_commonTheory.upper_n2w_def,
+        bitmap_to_word64_def]
 QED
 
 val compiler_for_eval_alt =
@@ -84,12 +89,11 @@ val compiler_for_eval_alt =
              EVAL ``x64_config.addr_offset``, EVAL ``arm8_config.addr_offset``,
              EVAL ``x64_config.ISA``, EVAL ``arm8_config.ISA``,
              EVAL ``x86_64 = ARMv7``, EVAL ``ARMv8 = ARMv7``,
-             listTheory.MAP_ID, upper_w2w_eq_I])
+             asmTheory.arch_wordsize_def, upper_n2w_Arch64,
+             listTheory.MAP_ID])
   |> LIST_CONJ;
 
-val r = translate (word_to_wordTheory.compile_single_def |> spec64);
-val r = translate (word_to_wordTheory.full_compile_single_def |> spec64);
-val r = translate (word_to_wordTheory.full_compile_single_for_eval_def |> spec64);
+val r = translate word_to_wordTheory.full_compile_single_for_eval_def;
 
 Theorem ws_to_chars_eq[local]:
   ws_to_chars [] = [] /\
@@ -196,8 +200,13 @@ Quote add_cakeml:
                 report_exn e, "")
       | Eval_result new_env new_conf =>
           if !Repl.isEOF then () else
-            let val new_input = !Repl.nextString in
-              case parse new_input of
+            let
+              val (parsed_input, new_input) =
+                case !Repl.nextInput of
+                  Inl text => (parse text, text)
+                | Inr decs => (Inr decs, "")
+            in
+              case parsed_input of
                 Inl msg =>
                   repl (host, parse, new_types, new_conf, new_env,
                         report_error msg, "")
@@ -217,41 +226,26 @@ Definition parse_cakeml_syntax_def:
   | Failure l _ => INL («Parsing failed at » ^ locs_to_string input (SOME l))
 End
 
-Definition parse_ocaml_syntax_def:
-  parse_ocaml_syntax input =
-  case caml_parser$run (explode input) of
-  | INR res => INR res
-  | INL (l,err) =>
-      INL (err ^ «\nParsing failed at » ^ locs_to_string input (SOME l))
-End
-
-Definition select_parse_def:
-  select_parse cl =
-  if MEMBER «--candle» cl then parse_ocaml_syntax else parse_cakeml_syntax
-End
-
+val _ = next_ml_names := ["parse_cakeml_syntax"];
 val r = translate parse_cakeml_syntax_def;
-val r = translate parse_ocaml_syntax_def;
-val _ = next_ml_names := ["select_parse"];
-val r = translate select_parse_def;
 
-Definition init_next_string_def:
-  init_next_string cl = if MEM «--candle» cl then «candle» else «»
+Definition boot_marker_def:
+  boot_marker cl = if MEM «--candle» cl then «candle» else «»
 End
 
-val _ = next_ml_names := ["init_next_string"];
-val r = translate (init_next_string_def |> REWRITE_RULE [MEMBER_INTRO]);
+val _ = next_ml_names := ["boot_marker"];
+val r = translate (boot_marker_def |> REWRITE_RULE [MEMBER_INTRO]);
 
 Quote add_cakeml:
   fun start_repl (host,cl,s1) =
     let
-      val parse = select_parse cl
+      val parse = parse_cakeml_syntax
       val types = init_types
       val conf = (s1,1)
       val env = (repl_init_env, 0)
       val decs = []
       val input_str = ""
-      val _ = Repl.nextString := init_next_string cl
+      val _ = Repl.nextInput := Inl (boot_marker cl)
     in
       repl (host, parse, types, conf, env, decs, input_str)
     end

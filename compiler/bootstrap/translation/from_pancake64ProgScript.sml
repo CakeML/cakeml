@@ -3,7 +3,7 @@
 *)
 Theory from_pancake64Prog
 Ancestors
-  ml_translator to_target64Prog std_prelude panLang crepLang
+  ml_translator to_targetProg std_prelude panLang crepLang
   pan_simp loopLang loop_to_word pan_to_crep
   loop_call loop_live crep_arith crep_to_loop pan_to_word
   word_to_word backend pan_to_target panPtreeConversion
@@ -11,7 +11,7 @@ Ancestors
 Libs
   preamble ml_translatorLib
 
-val _ = translation_extends "to_target64Prog";
+val _ = translation_extends "to_targetProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "from_pancake64Prog");
 val _ = ml_translatorLib.use_sub_check true;
@@ -40,8 +40,6 @@ def |> RW (!extra_preprocessing)
     |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]
     |> REWRITE_RULE [NOT_NIL_AND_LEMMA];
 
-val matches = ref ([]: term list);
-
 fun def_of_const tm = let
 val res = dest_thy_const tm handle HOL_ERR _ =>
   failwith ("Unable to translate: " ^ term_to_string tm)
@@ -55,9 +53,8 @@ DB.fetch thy (name ^ "_pmatch") handle HOL_ERR _ =>
 val def = def_from_thy (#Thy res) name handle HOL_ERR _ =>
   failwith ("Unable to find definition of " ^ name)
 
-val insts = if exists (fn term => can (find_term (can (match_term term))) (concl def))
-                      (!matches)
-            then [alpha |-> ``:64``,beta|->``:64``] else []
+val insts = match_type
+  (type_of (prim_mk_const {Thy = #Thy res, Name = name})) (type_of tm)
 
 val def = def |> RW (!extra_preprocessing)
               |> INST_TYPE insts
@@ -81,10 +78,6 @@ val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SP
 val gconv = CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV)
 
 val econv = CONV_RULE wordsLib.WORD_EVAL_CONV
-
-val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,
-                   ``foo:reg_imm``,``foo:arith``,``foo:addr``,
-                   ``foo:stackLang$prog``, “foo:'a pan_to_crep$context”]
 
 val _ = register_type “:64 panLang$exp”;
 
@@ -350,33 +343,20 @@ val _ = translate $ spec64 crep_to_loopTheory.compile_prog_def;
 
 val _ = translate $ spec64 pan_to_wordTheory.compile_prog_def;
 
-(* TODO: duplicate *)
-val _ = translate $ spec64 word_to_wordTheory.compile_single_def;
+val _ = translate backendTheory.attach_bitmaps_def;
 
-val _ = translate $ spec64 word_to_wordTheory.full_compile_single_def;
+val _ = translate backendTheory.from_lab_def;
 
-val _ = translate $ spec64 word_to_wordTheory.compile_def;
+val _ = translate $ SIMP_RULE std_ss
+  [data_to_wordTheory.max_heap_limit_def, backend_commonTheory.word_shift_def]
+  backendTheory.from_stack_def;
 
-
-(* TODO: duplicated from compiler64CommonProgScript. *)
-val _ = translate $ INST_TYPE[alpha|->“:word8 list”,
-                              beta|->“:word64 list”,
-                              gamma|->“:64”,
-                              delta|->“:64”] backendTheory.attach_bitmaps_def;
-
-val _ = translate $ INST_TYPE[alpha|->“:64 word list”,
-                              beta|->“:64”] backendTheory.from_lab_def;
-
-val _ = translate $ SIMP_RULE std_ss [dimword_def,lem,backend_commonTheory.word_shift_def]
-                  $ SIMP_RULE std_ss [data_to_wordTheory.max_heap_limit_def]
-                  $ INST_TYPE[alpha|->“:64”,
-                              beta|->“:64 word list”] backendTheory.from_stack_def;
-
-val _ = translate $ spec64 backendTheory.from_word_def;
+val _ = translate backendTheory.from_word_def;
 
 val _ = translate $ spec64 pan_to_targetTheory.exports_def;
 
-val _ = translate $ spec64 pan_to_targetTheory.compile_prog_def;
+val _ = translate $ INST_TYPE[alpha|->“:64”, beta|->“:64”]
+                    pan_to_targetTheory.compile_prog_def;
 
 (* ptree conversion *)
 

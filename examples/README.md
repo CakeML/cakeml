@@ -79,11 +79,17 @@ using CF.
 [quicksortProgScript.sml](quicksortProgScript.sml):
 In-place quick sort on a polymorphic array.
 
+[rawBridgeProgScript.sml](rawBridgeProgScript.sml):
+rawBridge program example: forward Ethernet frames between two interfaces.
+
 [sat_encodings](sat_encodings):
 Encodings of puzzles to CNF, to use as SAT-solver input.
 
 [scpog_checker](scpog_checker):
 A checker for SCPOG format in CakeML.
+
+[socketEchoProgScript.sml](socketEchoProgScript.sml):
+socketEcho program example: echo a client's data over a Unix domain socket.
 
 [sortProgScript.sml](sortProgScript.sml):
 Program to sort the lines in a file, built on top of the quick sort example.

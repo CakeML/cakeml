@@ -38,7 +38,7 @@ val tree_simp_rules = [mem_stores_def, mem_store_def, pair_case_def, flatten_def
                        state_update_locals_locals, upds_multi_memory, DOMSUB_FEMPTY,
                        state_fupdcanon, state_accfupds, option_case_ID, FUPDATE_LIST,
                        bstate_fupdcanon, FOLDR_MAP,FOLDR, option_case_same, bstate_accfupds, result_case_def, con_dif,
-                       neq_1w_0w, asmTheory.word_cmp_def, OPTION_BIND_def, wordLangTheory.word_op_def, pan_op_def, is_valid_value_def,
+                       neq_1w_0w, asmTheory.word_cmp_def, OPTION_BIND_def, wordSemTheory.word_op_def, pan_op_def, is_valid_value_def,
                        shape_of_def, size_of_shape_def, FLOOKUP_SIMP, FUPDATE_LIST_THM,
                        bool_case_ID, bool_case_rev_ID, nb_op_def, eval_simps, size_of_shape_def, shape_of_def,
                        itree_bind_assoc_tuple, itree_bind_v_case_assoc, itree_bind_option_case_assoc, itree_bind_cond_assoc,
@@ -392,21 +392,21 @@ fun mk_eval_word_op_exps trm_some =
           val biim_goal = mk_eq (eval_impl_hyps, list_mk_conj eval_biimpl_list)
           val biim_thm = prove (biim_goal, iff_tac
                                            \\ imp_res_tac eval_eq_SOME_strip_eval
-                                           \\ gvs[word_of_val_def, pan_op_def, eval_def, word_op_def, asmTheory.word_cmp_def,
+                                           \\ gvs[word_of_val_def, pan_op_def, eval_def, wordSemTheory.word_op_def, asmTheory.word_cmp_def,
                                                   word_lab_exists_word]
-                                           \\ rpt (FULL_CASE_TAC \\ gvs[word_of_val_def, pan_op_def, eval_def, word_sh_def,
-                                                                        word_op_def, asmTheory.word_cmp_def, word_lab_exists_word])
-                                           \\ rpt (FULL_CASE_TAC \\ gvs[word_of_val_def, pan_op_def, eval_def, word_sh_def,
-                                                                        word_op_def, asmTheory.word_cmp_def, word_lab_exists_word]))
+                                           \\ rpt (FULL_CASE_TAC \\ gvs[word_of_val_def, pan_op_def, eval_def, wordSemTheory.word_sh_def,
+                                                                        wordSemTheory.word_op_def, asmTheory.word_cmp_def, word_lab_exists_word])
+                                           \\ rpt (FULL_CASE_TAC \\ gvs[word_of_val_def, pan_op_def, eval_def, wordSemTheory.word_sh_def,
+                                                                        wordSemTheory.word_op_def, asmTheory.word_cmp_def, word_lab_exists_word]))
           val impl_thm = prove (impl_goal, PURE_REWRITE_TAC[biim_thm]
                                            \\ rpt strip_tac
                                            \\ imp_res_tac eval_eq_SOME_eval_to_let
-                                           \\ gvs[word_of_val_def, pan_op_def, eval_def, word_op_def, asmTheory.word_cmp_def,
+                                           \\ gvs[word_of_val_def, pan_op_def, eval_def, wordSemTheory.word_op_def, asmTheory.word_cmp_def,
                                                   word_lab_exists_word]
-                                           \\ rpt (FULL_CASE_TAC \\ gvs[word_of_val_def, pan_op_def, eval_def, word_sh_def,
-                                                                        word_op_def, asmTheory.word_cmp_def, word_lab_exists_word])
-                                           \\ rpt (FULL_CASE_TAC \\ gvs[word_of_val_def, pan_op_def, eval_def, word_sh_def,
-                                                                        word_op_def, asmTheory.word_cmp_def, word_lab_exists_word]))
+                                           \\ rpt (FULL_CASE_TAC \\ gvs[word_of_val_def, pan_op_def, eval_def, wordSemTheory.word_sh_def,
+                                                                        wordSemTheory.word_op_def, asmTheory.word_cmp_def, word_lab_exists_word])
+                                           \\ rpt (FULL_CASE_TAC \\ gvs[word_of_val_def, pan_op_def, eval_def, wordSemTheory.word_sh_def,
+                                                                        wordSemTheory.word_op_def, asmTheory.word_cmp_def, word_lab_exists_word]))
       in
         SOME (impl_thm, biim_thm)
         end
@@ -487,27 +487,27 @@ fun mk_eval_let_exps_thms exists_trm =
           val biim_thm = prove (biim_goal, iff_tac
                                            \\ imp_res_tac eval_eq_SOME_strip_eval
                                            \\ rpt strip_tac
-                                           \\ gvs[word_of_val_def, pan_op_def, eval_def, word_op_def, mem_load_byte_def, word_sh_def,
+                                           \\ gvs[word_of_val_def, pan_op_def, eval_def, wordSemTheory.word_op_def, mem_load_byte_def, wordSemTheory.word_sh_def,
                                                   word_of_Word_def, asmTheory.word_cmp_def, word_lab_exists_word, mem_load_def,
                                                   is_wf_shape_def]
                                            \\ rpt (FULL_CASE_TAC \\ gvs[word_of_val_def, pan_op_def, eval_def, mem_load_byte_def,
-                                                                        word_of_Word_def, word_op_def, asmTheory.word_cmp_def,
-                                                                        word_lab_exists_word, mem_load_def, word_sh_def])
+                                                                        word_of_Word_def, wordSemTheory.word_op_def, asmTheory.word_cmp_def,
+                                                                        word_lab_exists_word, mem_load_def, wordSemTheory.word_sh_def])
                                            \\ rpt (FULL_CASE_TAC \\ gvs[word_of_val_def, pan_op_def, eval_def, mem_load_byte_def,
-                                                                        word_of_Word_def, word_op_def, asmTheory.word_cmp_def,
-                                                                        word_lab_exists_word, mem_load_def, word_sh_def]))
+                                                                        word_of_Word_def, wordSemTheory.word_op_def, asmTheory.word_cmp_def,
+                                                                        word_lab_exists_word, mem_load_def, wordSemTheory.word_sh_def]))
           val impl_thm = prove (impl_goal, PURE_REWRITE_TAC[biim_thm]
                                            \\ rpt strip_tac
                                            \\ imp_res_tac eval_eq_SOME_eval_to_let
-                                           \\ gvs[word_of_val_def, pan_op_def, eval_def, word_op_def, mem_load_byte_def, word_sh_def,
+                                           \\ gvs[word_of_val_def, pan_op_def, eval_def, wordSemTheory.word_op_def, mem_load_byte_def, wordSemTheory.word_sh_def,
                                                   word_of_Word_def, asmTheory.word_cmp_def, word_lab_exists_word, mem_load_def,
                                                   is_wf_shape_def]
                                            \\ rpt (FULL_CASE_TAC \\ gvs[word_of_val_def, pan_op_def, eval_def, mem_load_byte_def,
-                                                                        word_of_Word_def, word_op_def, asmTheory.word_cmp_def,
-                                                                        word_lab_exists_word, mem_load_def, word_sh_def])
+                                                                        word_of_Word_def, wordSemTheory.word_op_def, asmTheory.word_cmp_def,
+                                                                        word_lab_exists_word, mem_load_def, wordSemTheory.word_sh_def])
                                            \\ rpt (FULL_CASE_TAC \\ gvs[word_of_val_def, pan_op_def, eval_def, mem_load_byte_def,
-                                                                        word_of_Word_def, word_op_def, asmTheory.word_cmp_def,
-                                                                        word_lab_exists_word, mem_load_def, word_sh_def]))
+                                                                        word_of_Word_def, wordSemTheory.word_op_def, asmTheory.word_cmp_def,
+                                                                        word_lab_exists_word, mem_load_def, wordSemTheory.word_sh_def]))
       in
         SOME (impl_thm, biim_thm)
       end
