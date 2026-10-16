@@ -25,6 +25,12 @@ Compiles the patch example by evaluation inside the logic of HOL
 Prove end-to-end correctness theorems for the examples as compiled to
 x64 machine code.
 
+[rawBridgeCompileScript.sml](rawBridgeCompileScript.sml):
+Compiles the rawBridge example by evaluation inside the logic of HOL
+
+[socketEchoCompileScript.sml](socketEchoCompileScript.sml):
+Compiles the socketEcho example by evaluation inside the logic of HOL
+
 [sortCompileScript.sml](sortCompileScript.sml):
 Compiles the sort example by evaluation inside the logic of HOL
 

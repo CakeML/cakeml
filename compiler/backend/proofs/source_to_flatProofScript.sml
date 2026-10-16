@@ -1826,25 +1826,20 @@ Proof
     rw [])
 QED
 
-Theorem lookup_build_rec_env_lem[local]:
-  !x cl_env funs' funs.
-    ALOOKUP (MAP (λ(fn,n,e). (fn,Recclosure cl_env funs' fn)) funs) x = SOME v
-    ⇒
-    v = semanticPrimitives$Recclosure cl_env funs' x
-Proof
-  induct_on `funs` >>
-  srw_tac[][] >>
-  PairCases_on `h` >>
-  full_simp_tac(srw_ss())[] >>
-  every_case_tac >>
-  full_simp_tac(srw_ss())[]
-QED
-
 Theorem sem_env_eq_lemma[local]:
   !(env:'a sem_env) x. (env with v := x) = <| v := x; c := env.c |>
 Proof
   rw [] >>
   rw [sem_env_component_equality]
+QED
+
+Theorem map_rec_env_names[local]:
+  ∀xs env funs.
+    MAP (λ(f,n,e). (f,semanticPrimitives$Recclosure env funs f)) xs =
+    MAP (λname. (name,semanticPrimitives$Recclosure env funs name))
+      (MAP FST xs)
+Proof
+  Induct >> simp [] >> rpt gen_tac >> PairCases_on ‘h’ >> simp []
 QED
 
 Theorem do_opapp[local]:
@@ -1921,10 +1916,9 @@ Proof
       >- (
         rename1 `ALOOKUP _ recursive_name = SOME source_closure` >>
         `MEM recursive_name (MAP FST funs)`
-          by (
-            imp_res_tac ALOOKUP_MEM >>
-            fs [MEM_MAP, EXISTS_PROD] >> metis_tac []) >>
-        drule lookup_build_rec_env_lem >> strip_tac >> fs [] >>
+          by (imp_res_tac ALOOKUP_MEM >>
+              fs [MEM_MAP, EXISTS_PROD] >> metis_tac []) >>
+        gvs [map_rec_env_names, miscTheory.ALOOKUP_MAP_names] >>
         qpat_assum `∀x. MEM x (MAP FST funs) ⇒ _`
           (qspec_then `recursive_name` (mp_tac o UNDISCH)) >>
         disch_then (qx_choosel_then

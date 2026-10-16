@@ -1455,3 +1455,121 @@ Proof
     fs [] >>
     metis_tac [option_nchotomy])
 QED
+
+(* Lemmas about nsBindList *)
+
+Theorem nsBindList_clauses:
+  nsBindList [] env = env ∧
+  nsBindList ((name,value)::bindings) env = nsBind name value (nsBindList bindings env)
+Proof
+  simp [namespaceTheory.nsBindList_def]
+QED
+
+Theorem nsBindList_append:
+  nsBindList (bindings ++ locals) env =
+  nsBindList bindings (nsBindList locals env)
+Proof
+  simp [namespaceTheory.nsBindList_def,FOLDR_APPEND]
+QED
+
+Theorem nsBindList_short_lookup:
+  ∀bindings name env.
+    nsLookup (nsBindList bindings env) (Short name) =
+    case ALOOKUP bindings name of NONE => nsLookup env (Short name)
+                               | SOME v => SOME v
+Proof
+  Induct_on ‘bindings’
+  >- simp [namespaceTheory.nsBindList_def]
+  >> qx_genl_tac [‘binding’,‘name’,‘env’]
+  >> PairCases_on ‘binding’
+  >> qmatch_goalsub_rename_tac ‘(binding_name,binding_value)::bindings’
+  >> Cases_on ‘name = binding_name’
+  >> fs [namespaceTheory.nsBindList_def]
+QED
+
+Theorem nsBindList_long_lookup:
+  ∀bindings env m name.
+    nsLookup (nsBindList bindings env) (Long m name) =
+    nsLookup env (Long m name)
+Proof
+  Induct_on ‘bindings’
+  >- simp [namespaceTheory.nsBindList_def]
+  >> qx_genl_tac [‘binding’,‘env’,‘m’,‘name’]
+  >> PairCases_on ‘binding’
+  >> fs [namespaceTheory.nsBindList_def]
+QED
+
+Theorem nsBindList_global_bind_commute_lookup:
+  ALOOKUP locals fresh = NONE ⇒
+  nsLookup (nsBindList locals (nsBind fresh value globals)) id =
+    nsLookup (nsBind fresh value (nsBindList locals globals)) id
+Proof
+  strip_tac
+  >> namedCases_on ‘id’ ["lookup_name","module_name nested_id"]
+  >> simp [nsBindList_short_lookup,nsBindList_long_lookup]
+  >> Cases_on ‘lookup_name = fresh’
+  >> simp [nsBindList_short_lookup]
+QED
+
+Theorem nsBindList_LIST_REL_lookup:
+  ∀bindings bindings' env env' id.
+    LIST_REL (λ(x,v) (y,w). x = y ∧ R v w) bindings bindings' ∧
+    OPTREL R (nsLookup env id) (nsLookup env' id) ⇒
+    OPTREL R (nsLookup (nsBindList bindings env) id)
+             (nsLookup (nsBindList bindings' env') id)
+Proof
+  Induct_on ‘bindings’
+  >- simp [namespaceTheory.nsBindList_def]
+  >> qx_genl_tac [‘binding’,‘bindings'’,‘env’,‘env'’,‘id’]
+  >> PairCases_on ‘binding’
+  >> rw [LIST_REL_CONS1]
+  >> qmatch_goalsub_rename_tac
+    ‘nsBindList (target_binding::remaining) env'’
+  >> PairCases_on ‘target_binding’
+  >> gvs [namespaceTheory.nsBindList_def]
+  >> Cases_on ‘id’
+  >- (
+    qmatch_goalsub_rename_tac ‘nsBind binding_name source_value _’
+    >> qmatch_goalsub_rename_tac ‘Short lookup_name’
+    >> Cases_on ‘lookup_name = binding_name’
+    >> simp []
+    >> metis_tac [])
+  >> simp []
+  >> metis_tac []
+QED
+
+Theorem ALOOKUP_LIST_REL_OPTREL:
+  LIST_REL (λ(x,v) (y,w). x = y ∧ R v w) bindings bindings' ⇒
+  OPTREL R (ALOOKUP bindings name) (ALOOKUP bindings' name)
+Proof
+  strip_tac
+  >> drule nsBindList_LIST_REL_lookup
+  >> disch_then (qspecl_then [‘nsEmpty’,‘nsEmpty’,‘Short name’] mp_tac)
+  >> simp [nsBindList_short_lookup]
+  >> Cases_on ‘ALOOKUP bindings name’
+  >> Cases_on ‘ALOOKUP bindings' name’
+  >> simp []
+QED
+
+Theorem namespace_lookup_self_rel:
+  EVERY (λentry. R (SND entry) (SND entry)) bindings ∧
+  EVERY (λentry. ∀id.
+    OPTREL R (nsLookup (SND entry) id) (nsLookup (SND entry) id)) modules ⇒
+  ∀id. OPTREL R (nsLookup (Bind bindings modules) id)
+    (nsLookup (Bind bindings modules) id)
+Proof
+  strip_tac
+  >> qx_gen_tac ‘id’
+  >> namedCases_on ‘id’ ["name","module_name nested_id"]
+  >- (
+    simp [CONJUNCT1 namespaceTheory.nsLookup_def]
+    >> namedCases_on ‘ALOOKUP bindings name’ ["","value"]
+    >> simp [OPTREL_def]
+    >> drule_all EVERY_ALOOKUP
+    >> simp [])
+  >> once_rewrite_tac [namespaceTheory.nsLookup_def]
+  >> namedCases_on ‘ALOOKUP modules module_name’ ["","inner"]
+  >> simp []
+  >> drule_all EVERY_ALOOKUP
+  >> simp []
+QED
