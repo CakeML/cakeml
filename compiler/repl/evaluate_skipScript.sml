@@ -968,6 +968,34 @@ Proof
   \\ qpat_x_assum ‘INJ ($' ft) _ _’ mp_tac \\ rw [INJ_DEF]
 QED
 
+Theorem state_rel_index_witness_length:
+  state_rel l fr ft fe s t ∧ v_rel fr ft fe v w ⇒
+  index_witness_length s.refs v = index_witness_length t.refs w
+Proof
+  strip_tac
+  \\ Cases_on ‘v’ \\ gvs [v_rel_def, index_witness_length_def]
+  >- (
+    rename [‘FLOOKUP fr source_loc = SOME target_loc’]
+    \\ drule_all state_rel_store_lookup \\ strip_tac
+    \\ Cases_on ‘store_lookup source_loc s.refs’ \\ gvs [OPTREL_def]
+    \\ rename [‘ref_rel _ source_value target_value’]
+    \\ Cases_on ‘source_value’ \\ Cases_on ‘target_value’
+    \\ gvs [ref_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ simp [])
+  \\ metis_tac [LIST_REL_LENGTH]
+QED
+
+Theorem state_rel_unsafe_index_bound:
+  state_rel l fr ft fe s t ∧ LIST_REL (v_rel fr ft fe) vs ws ⇒
+  unsafe_index_bound s.refs vs = unsafe_index_bound t.refs ws
+Proof
+  strip_tac
+  \\ Cases_on ‘vs’ \\ gvs [LIST_REL_CONS1, unsafe_index_bound_def]
+  \\ rename [‘LIST_REL _ source_rest target_rest’]
+  \\ drule_all state_rel_index_witness_length \\ strip_tac
+  \\ Cases_on ‘source_rest’ \\ Cases_on ‘target_rest’
+  \\ gvs [unsafe_index_bound_def]
+QED
+
 Theorem do_app_update:
   do_app (s.refs,s.ffi) op vs = res ∧
   state_rel l fr ft fe s t ∧
@@ -992,6 +1020,20 @@ Theorem do_app_update:
               res res1
 Proof
   strip_tac
+  \\ Cases_on ‘(∃a. op = UnsafeIndexArith a) ∨ ∃test. op = UnsafeIndexTest test’
+  >- (
+    Cases_on ‘res’ \\ gvs [do_app_def, AllCaseEqs()]
+    \\ qexistsl_tac [‘fr’, ‘ft’, ‘fe’] \\ simp []
+    \\ gvs [do_unsafe_index_arith_def, do_unsafe_index_test_def,
+            AllCaseEqs(), v_rel_def]
+    \\ imp_res_tac state_rel_unsafe_index_bound \\ gvs []
+    \\ qexistsl_tac [‘s’, ‘t’] \\ gvs [v_rel_def]
+    >~ [‘do_arith arith _ _ = SOME (INL _)’] >- (
+      Cases_on ‘arith’
+      \\ gvs [do_arith_def, AllCaseEqs(), v_rel_def, div_exn_v_def,
+              div_stamp_def, stamp_rel_cases, state_rel_def])
+    \\ rw [Boolv_def, v_rel_def, stamp_rel_cases]
+    \\ gvs [state_rel_def])
   \\ Cases_on ‘∃a ty. op = Arith a ty’ \\ gs []
   >- (
     gvs [do_app_def] \\ rpt $ irule_at Any SUBMAP_REFL

@@ -76,6 +76,9 @@ Datatype:
   op =
   (* primitive operations for the primitive types: +, -, and, sqrt, etc. *)
     Arith arith prim_type
+  (* Bounded integer operations; the witness is an optional third argument. *)
+  | UnsafeIndexArith arith
+  | UnsafeIndexTest test
   (* conversions between primitive types: char<->int, word<->double, word<->int *)
   | FromTo prim_type prim_type
   (* Equality and comparisons *)

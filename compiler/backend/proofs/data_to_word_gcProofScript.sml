@@ -7083,20 +7083,26 @@ Proof
     \\ fs [SUBSET_DEF]
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs [])
-  >~ [‘Number’] >-
-   (fs [] \\ rveq \\ fs [] \\ fs [v_inv_def]
-    \\ Cases_on `small_int (dimindex (:α)) i` \\ fs [] \\ rveq \\ fs []
-    THEN1
-     (qexists_tac `p1` \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
-      \\ fs [size_of_def])
-    \\ fs [size_of_def] \\ rveq \\ fs [Bignum_def,multiwordTheory.i2mw_def]
-    \\ IF_CASES_TAC THEN1
-     (qsuff_tac `F` \\ fs [] \\ fs [small_num_def,small_int_def,dimword_def]
-      \\ rfs [good_dimindex_def] \\ rfs [] \\ intLib.COOPER_TAC)
-    \\ qexists_tac `ptr :: p1` \\ fs []
-    \\ fs [lookup_len_def,el_length_def,bignum_size_def,
-           LENGTH_n2mw_LE_bignum_digits]
-    \\ fs [SUBSET_DEF]
+  >~ [`Number`] >- (
+    qmatch_asmsub_rename_tac `size_of lims [Number integer_value] _ _ = _`
+    \\ fs [] \\ rveq \\ fs [v_inv_def]
+    \\ Cases_on `small_int (dimindex (:'a)) integer_value`
+    \\ fs [] \\ rveq \\ fs []
+    >- (
+      qexists_tac `p1`
+      \\ once_rewrite_tac [traverse_heap_cases]
+      \\ fs [] \\ fs [size_of_def])
+    \\ qmatch_asmsub_rename_tac `heap_lookup heap_ptr heap = SOME _`
+    \\ fs [size_of_def] \\ rveq
+    \\ fs [Bignum_def,multiwordTheory.i2mw_def]
+    \\ qexists_tac `heap_ptr :: p1`
+    \\ fs [lookup_len_def,el_length_def,bignum_size_def,SUBSET_DEF]
+    \\ conj_tac
+    >- (
+      qsuff_tac `LENGTH ((n2mw (Num (ABS integer_value))) :'a word list) <=
+        bignum_digits (dimindex (:'a) = 64) (Num (ABS integer_value))`
+      >- decide_tac
+      \\ irule LENGTH_n2mw_LE_bignum_digits \\ simp [])
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs [])
   >~ [‘CodePtr’] >-

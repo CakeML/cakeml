@@ -773,7 +773,11 @@ Definition sexpop_def:
      if s = "FFI" then OPTION_MAP (FFI ∘ implode) (decode_control s') else NONE
    ) ∧
   (sexpop (SX_CONS (SX_SYM s) (SX_SYM t)) =
-     case decode_thunk_mode t of
+     if s = "UnsafeIndexArith" then
+       OPTION_MAP UnsafeIndexArith (sexparith (SX_SYM t))
+     else if s = "UnsafeIndexTest" then
+       OPTION_MAP UnsafeIndexTest (decode_test (SX_SYM t))
+     else case decode_thunk_mode t of
      | NONE => NONE
      | SOME m =>
          if s = "AllocThunk" then SOME (ThunkOp (AllocThunk m)) else
@@ -1559,6 +1563,10 @@ Proof
 QED
 
 Definition opsexp_def:
+  (opsexp (UnsafeIndexArith a) =
+    SX_CONS (SX_SYM "UnsafeIndexArith") (arithsexp a)) ∧
+  (opsexp (UnsafeIndexTest test) =
+    SX_CONS (SX_SYM "UnsafeIndexTest") (testsexp test)) ∧
   (opsexp Equality = SX_SYM "Equality") ∧
   (opsexp Opapp = SX_SYM "Opapp") ∧
   (opsexp Opassign = SX_SYM "Opassign") ∧
@@ -1629,6 +1637,17 @@ Proof
       \\ gvs [sexpop_def,opsexp_def]
       \\ rw [] \\ gvs [AllCaseEqs()]
       \\ Cases_on ‘t'’ \\ gvs [encode_thunk_mode_def,decode_thunk_mode_def]) >>
+  Cases_on ‘∃arith. op = UnsafeIndexArith arith’
+  >- (
+    gvs [] >> Cases_on ‘arith’ >>
+    simp [opsexp_def, arithsexp_def, sexpop_def, sexparith_def] >>
+    rename1 ‘Shift sh’ >> Cases_on ‘sh’ >>
+    simp [arithsexp_def, sexpop_def, sexparith_def]) >>
+  Cases_on ‘∃test. op = UnsafeIndexTest test’
+  >- (
+    gvs [] >> namedCases_on ‘test’ ["", "cmp", "cmp"] >>
+    simp [opsexp_def, testsexp_def, sexpop_def, decode_test_def] >>
+    Cases_on ‘cmp’ >> simp [testsexp_def, sexpop_def, decode_test_def]) >>
   Cases_on`op`>>fs []>>rw[sexpop_def,opsexp_def] >>
   rw[sexpop_def,opsexp_def,SEXSTR_def]
 QED

@@ -855,3 +855,41 @@ val res = translate count_char_def;
 
 val _ = not (can (fetch "-") "count_char_side_def") orelse
         failwith "count_char retained the strsub_unsafe bound as a precondition";
+
+Definition smallnum_div_test_def:
+  smallnum_div_test x y = smallnum_div x y
+End
+
+val _ = translate smallnum_div_test_def;
+
+Definition smallint_div_test_def:
+  smallint_div_test x y = smallint_div x y
+End
+
+val _ = translate smallint_div_test_def;
+
+Definition smallnum_add_vec_test_def:
+  smallnum_add_vec_test x y witness = smallnum_add_vec x y witness
+End
+
+val _ = translate smallnum_add_vec_test_def;
+
+Definition smallint_lt_vec_test_def:
+  smallint_lt_vec_test x y witness = smallint_lt_vec x y witness
+End
+
+val _ = translate smallint_lt_vec_test_def;
+
+val _ = let
+  fun check name primitive arity = let
+    val code = fetch "-" (name ^ "_v_def") |> concl |> rhs
+    val call = find_term (can (match_term “App ^primitive args”)) code
+    val args = call |> rand |> listSyntax.dest_list |> fst
+    in length args = arity orelse
+       failwith (name ^ " translated with the wrong primitive arity") end
+  in
+    check "smallnum_div_test" “UnsafeIndexArith Div” 2;
+    check "smallint_div_test" “UnsafeIndexArith Div” 2;
+    check "smallnum_add_vec_test" “UnsafeIndexArith Add” 3;
+    check "smallint_lt_vec_test" “UnsafeIndexTest (Compare Lt)” 3
+  end;

@@ -1796,3 +1796,47 @@ Proof
   >> irule LIST_REL_LUPDATE_same
   >> simp []
 QED
+
+Theorem default_index_bounds:
+  index_in_bounds NONE (-(2 ** 30)) ∧
+  index_in_bounds NONE (2 ** 30 - 1) ∧
+  ¬index_in_bounds NONE (2 ** 30) ∧
+  ¬index_in_bounds NONE (-(2 ** 30) - 1)
+Proof
+  EVAL_TAC
+QED
+
+Theorem witnessed_index_arith:
+  do_unsafe_index_arith [] Add
+    [Litv (IntLit 256); Litv (IntLit 256);
+     Vectorv [Litv (IntLit 0); Litv (IntLit 0)]] =
+    SOME (INR (Litv (IntLit 512))) ∧
+  do_unsafe_index_arith [] Add
+    [Litv (IntLit 256); Litv (IntLit 257);
+     Vectorv [Litv (IntLit 0); Litv (IntLit 0)]] = NONE ∧
+  do_unsafe_index_arith [] Add
+    [Litv (IntLit (2 ** 30 - 1)); Litv (IntLit 1)] = NONE
+Proof
+  EVAL_TAC
+QED
+
+Theorem index_witness_shapes:
+  index_witness_length [Varray [Litv (IntLit 0)]] (Loc T 0) = SOME 256 ∧
+  index_witness_length [W8array [0w:word8; 0w]] (Loc T 0) = SOME 64
+Proof
+  EVAL_TAC
+QED
+
+Theorem witnessed_index_comparison:
+  do_unsafe_index_test [] (Compare Lt)
+    [Litv (IntLit 1); Litv (IntLit 2)] = SOME T ∧
+  do_unsafe_index_test [] Equal
+    [Litv (IntLit 1); Litv (IntLit 2);
+     Vectorv [Litv (IntLit 0)]] = SOME F
+Proof
+  conj_tac
+  >- EVAL_TAC
+  >> simp[do_unsafe_index_test_def, unsafe_index_bound_def,
+          index_witness_length_def, index_in_bounds_def,
+          do_test_def, check_type_def, do_eq_def, lit_same_type_def]
+QED

@@ -5,6 +5,7 @@ Theory closSem
 Ancestors
   closLang flatLang
   semanticPrimitivesProps (* for opw_lookup_def and others *)
+  backendProps[qualified]
 Libs
   preamble
 
@@ -176,6 +177,17 @@ Termination
   \\ pop_assum (qspec_then ‘t’ assume_tac) \\ fs []
 End
 
+Definition smallnum_witness_length_def:
+  smallnum_witness_length refs (Block tag xs) =
+    (if tag = 0 then SOME (256 * LENGTH xs) else NONE) /\
+  smallnum_witness_length refs (RefPtr _ ptr) =
+    (case FLOOKUP refs ptr of
+       SOME (ValueArray xs) => SOME (256 * LENGTH xs)
+     | SOME (ByteArray xs) => SOME (32 * LENGTH xs)
+     | _ => NONE) /\
+  smallnum_witness_length refs v = NONE
+End
+
 Definition do_int_app_def:
   do_int_app (Const n) [] = SOME (Number n) /\
   do_int_app (Add) [Number n1;Number n2] = SOME (Number (n1 + n2)) /\
@@ -192,6 +204,9 @@ Definition do_int_app_def:
   do_int_app (LessConstSmall n) [Number i] =
         (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then
           SOME (Boolv (i < &n)) else NONE) /\
+  do_int_app (Smallnum op) [Number i; Number j] =
+    OPTION_MAP (\r. case r of INL n => Number n | INR b => Boolv b)
+      (backendProps$bounded_smallnum_app NONE op i j) /\
   do_int_app (op:closLang$int_op) (vs:closSem$v list) = NONE
 End
 
@@ -509,6 +524,14 @@ Definition do_app_def:
                               (ptr,ValueArray (LUPDATE x (Num i) xs)))
              else Error)
          | _ => Error)
+    | (IntOp (Smallnum smallop), [Number i; Number j; witness]) =>
+        (case smallnum_witness_length s.refs witness of
+           NONE => Error
+         | SOME len =>
+             case backendProps$bounded_smallnum_app (SOME len) smallop i j of
+               NONE => Error
+             | SOME (INL n) => Rval (Number n,s)
+             | SOME (INR b) => Rval (Boolv b,s))
     | (IntOp int_op, vs) =>
         (case do_int_app int_op vs of
         | SOME res => Rval (res ,s)

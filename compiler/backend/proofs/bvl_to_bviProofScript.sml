@@ -1327,6 +1327,20 @@ Proof
   Cases_on`v_to_list x`>>full_simp_tac(srw_ss())[]
 QED
 
+Theorem smallnum_witness_length_adjust[local]:
+  state_rel b s t /\ bvlSem$smallnum_witness_length s.refs v = SOME len ==>
+  bvlSem$smallnum_witness_length t.refs (adjust_bv b v) = SOME len
+Proof
+  rpt strip_tac
+  \\ Cases_on `v`
+  \\ gvs [bvlSemTheory.smallnum_witness_length_def, adjust_bv_def, AllCaseEqs()]
+  \\ fs [state_rel_def]
+  \\ qmatch_asmsub_rename_tac `FLOOKUP s.refs ptr = SOME _`
+  \\ qpat_x_assum `!k. option_CASE (FLOOKUP s.refs k) _ _`
+       (qspec_then `ptr` mp_tac)
+  \\ simp []
+QED
+
 Theorem do_eq_adjust_lemma[local]:
   (!refs x1 x2 b.
               refs = r.refs /\
@@ -1683,12 +1697,15 @@ Proof
     rw [MAP_TAKE, MAP_DROP] >>
     metis_tac [bvl_to_bvi_id])
   \\ cases_on_op `op` \\ full_simp_tac(srw_ss())[]
-  >~ [`IntOp`]
-  >- (
-     disch_then (mp_tac o SRULE[AllCaseEqs(),oneline do_int_app_def]) >>
-     strip_tac >> rveq >>
-     full_simp_tac(srw_ss())[bEvalOp_def,adjust_bv_def,do_int_app_def] >>
-     asm_simp_tac(srw_ss())[bvl_to_bvi_id])
+  >~ [`IntOp`] >- (
+    qmatch_asmsub_rename_tac `debug () = IntOp intop`
+    \\ Cases_on `intop`
+    \\ rw [oneline bvlSemTheory.do_int_app_def, AllCaseEqs()]
+    \\ gvs []
+    \\ simp [bEvalOp_def, adjust_bv_def, bvlSemTheory.do_int_app_def]
+    \\ simp [bvl_to_bvi_id]
+    \\ imp_res_tac smallnum_witness_length_adjust
+    \\ simp [bvl_to_bvi_id])
   >~ [`WordOp`]
   >- (
      disch_then (mp_tac o SRULE[AllCaseEqs(),oneline do_word_app_def]) >>

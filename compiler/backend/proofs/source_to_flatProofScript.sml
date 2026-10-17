@@ -1234,6 +1234,68 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem index_witness_length_rel[local]:
+  !genv refs refs' v v' n.
+    genv_c_ok genv.c /\ ~NULL refs' /\
+    LIST_REL (sv_rel genv) refs (TL refs') /\
+    v_rel genv v v' /\
+    semanticPrimitives$index_witness_length refs v = SOME n
+    ==>
+    flatSem$index_witness_length refs' v' = SOME n
+Proof
+  rpt strip_tac
+  \\ Cases_on `v`
+  \\ gvs [semanticPrimitivesTheory.index_witness_length_def,
+          flatSemTheory.index_witness_length_def, v_rel_eqns]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ gvs []
+  \\ Cases_on `refs'`
+  \\ gvs [store_lookup_def, LIST_REL_EL_EQN,
+          REWRITE_RULE [ADD1] EL, ADD1]
+  \\ rename1 `if ptr < LENGTH target_refs then SOME _ else NONE`
+  \\ Cases_on `ptr < LENGTH target_refs`
+  \\ gvs [sv_rel_cases, LIST_REL_LENGTH]
+  \\ qpat_x_assum `!k. k < LENGTH target_refs ==> _`
+       (qspec_then `ptr` assume_tac)
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ gvs [LIST_REL_EL_EQN]
+QED
+
+Theorem unsafe_index_bound_rel[local]:
+  genv_c_ok genv.c /\ ~NULL refs' /\
+  LIST_REL (sv_rel genv) refs (TL refs') /\
+  LIST_REL (v_rel genv) witnesses witnesses' /\
+  semanticPrimitives$unsafe_index_bound refs witnesses = SOME bound
+  ==>
+  backendProps$unsafe_index_bound
+    (flatSem$index_witness_length refs') witnesses' = SOME bound
+Proof
+  rpt strip_tac
+  \\ Cases_on `witnesses`
+  \\ gvs [semanticPrimitivesTheory.unsafe_index_bound_def,
+          backendPropsTheory.unsafe_index_bound_def]
+  \\ Cases_on `t`
+  \\ gvs [semanticPrimitivesTheory.unsafe_index_bound_def,
+          backendPropsTheory.unsafe_index_bound_def]
+  \\ drule_all index_witness_length_rel
+  \\ simp []
+QED
+
+Theorem unsafe_index_bound_rel_cons[local]:
+  genv_c_ok genv.c /\
+  LIST_REL (sv_rel genv) refs target_refs /\
+  LIST_REL (v_rel genv) witnesses witnesses' /\
+  semanticPrimitives$unsafe_index_bound refs witnesses = SOME bound
+  ==>
+  backendProps$unsafe_index_bound
+    (flatSem$index_witness_length (head::target_refs)) witnesses' = SOME bound
+Proof
+  rpt strip_tac
+  \\ irule unsafe_index_bound_rel
+  \\ simp []
+  \\ metis_tac []
+QED
+
 Theorem do_app[local]:
   ∀genv s1 s2 op vs r ^s1_i1 vs_i1.
     do_app s1 op vs = SOME (s2, r) ∧
@@ -1282,6 +1344,38 @@ Proof
       \\ simp [Once v_rel_cases]
       \\ gvs [genv_c_ok_def,has_exns_def,EVAL “div_tag”]
       \\ EVAL_TAC)
+  >~ [‘UnsafeIndexArith a’] >- (
+    rpt strip_tac
+    \\ gvs [oneline semanticPrimitivesTheory.do_app_def,
+            oneline flatSemTheory.do_app_def, AllCaseEqs()]
+    \\ gvs [do_unsafe_index_arith_def, AllCaseEqs(), v_rel_eqns]
+    >~ [`do_arith _ IntT _ = SOME (INL _)`] >- (
+      `backendProps$unsafe_index_bound
+         (flatSem$index_witness_length (h::t)) ys' = SOME bound`
+        by (irule unsafe_index_bound_rel_cons \\ simp [] \\ metis_tac [])
+      \\ gvs [semanticPrimitivesTheory.do_arith_def, AllCaseEqs(),
+              result_rel_cases, div_exn_v_def, v_rel_eqns]
+      \\ gvs [genv_c_ok_def, has_exns_def, EVAL ``div_tag``]
+      \\ EVAL_TAC
+      \\ simp [Once v_rel_cases, semanticPrimitivesTheory.div_stamp_def]
+    )
+    >~ [`do_arith _ IntT _ = SOME (INR _)`] >- (
+      `backendProps$unsafe_index_bound
+         (flatSem$index_witness_length (h::t)) ys' = SOME bound`
+        by (irule unsafe_index_bound_rel_cons \\ simp [] \\ metis_tac [])
+      \\ gvs [result_rel_cases, v_rel_eqns]
+    )
+  )
+  >~ [‘UnsafeIndexTest test’] >- (
+    rpt strip_tac
+    \\ gvs [oneline semanticPrimitivesTheory.do_app_def,
+            oneline flatSemTheory.do_app_def, AllCaseEqs()]
+    \\ gvs [do_unsafe_index_test_def, AllCaseEqs(), v_rel_eqns]
+    \\ `backendProps$unsafe_index_bound
+          (flatSem$index_witness_length (h::t)) ys' = SOME bound`
+         by (irule unsafe_index_bound_rel_cons \\ simp [] \\ metis_tac [])
+    \\ gvs [result_rel_cases, v_rel_Bool_eqn]
+  )
   >~ [‘FromTo ty1 ty2’] >- (
       gvs [oneline semanticPrimitivesTheory.do_app_def,AllCaseEqs()]
       \\ gvs [oneline flatSemTheory.do_app_def,AllCaseEqs()]

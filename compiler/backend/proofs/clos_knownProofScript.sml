@@ -622,6 +622,12 @@ Proof
   rpt gen_tac
   \\ `?this_is_case. this_is_case opn` by (qexists_tac `K T` \\ fs [])
   \\ cases_on_op `opn`
+  >~ [`known_op (IntOp _) _ _`] >- (
+    rename1 `IntOp intop`
+    \\ Cases_on `intop`
+    \\ gvs [known_op_def, do_app_def, oneline do_int_app_def, AllCaseEqs()]
+    \\ rpt strip_tac
+    \\ gvs [AllCaseEqs()])
   \\ simp [known_op_def, do_app_def, case_eq_thms, va_case_eq, bool_case_eq,
            pair_case_eq]
   \\ rpt strip_tac \\ rveq \\ fs[]
@@ -643,9 +649,6 @@ Proof
     \\ gvs [EL_REPLICATE])
   >- (fs [CaseEq"ffi_result"] \\ rveq
     \\ fs [state_globals_approx_def] \\ metis_tac [])
-  >-(Cases_on `i` >> gvs[known_op_def])
-  >-(Cases_on `i` >> gvs[known_op_def] >>
-    gvs[oneline do_int_app_def,AllCaseEqs()])
   >- (
     rename1 `FLOOKUP _ _ = SOME (Thunk m _)`
     \\ Cases_on `m` \\ gvs [])
@@ -728,8 +731,12 @@ Proof
   cases_on_op `opn` >>
   simp[do_app_def, case_eq_thms, op_gbag_def, PULL_EXISTS, bool_case_eq,
        pair_case_eq]
-  >~ [`IntOp`]
-  >- (Cases_on `i` >> simp[oneline do_int_app_def,case_eq_thms,PULL_EXISTS])
+  >~ [`IntOp`] >- (
+    rename1 `IntOp intop`
+    \\ Cases_on `intop`
+    \\ simp [oneline do_int_app_def, AllCaseEqs(), PULL_EXISTS]
+    \\ rpt strip_tac
+    \\ gvs [AllCaseEqs()])
   >~ [`WordOp`]
   >- (Cases_on `w` >> dsimp[oneline do_word_app_def,AllCaseEqs(),PULL_EXISTS])
   >~ [`BoolNot`]

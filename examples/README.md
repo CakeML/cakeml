@@ -105,6 +105,9 @@ using CF.
 A simple example of how a standalone CakeML program can be produced from
 a functional program defined as functions in HOL.
 
+[unsafe_arith_exampleScript.sml](unsafe_arith_exampleScript.sml):
+Circular-buffer index arithmetic with and without size witnesses.
+
 [vipr](vipr):
 Formalisation of VIPR: Verifying Integer Programming Results
 https://github.com/ambros-gleixner/VIPR

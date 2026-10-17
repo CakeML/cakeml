@@ -279,7 +279,8 @@ Proof
   \\ cases_on_op_fs `op`
   \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
   \\ full_simp_tac(srw_ss()) [LET_DEF,
-      do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+      do_app_aux_def,CaseEq "sum",closLangTheory.int_op_case_eq,
+      list_case_eq,option_case_eq,v_case_eq,
       bool_case_eq,Once do_app_def,do_stack_def,do_space_def,
       with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
       ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
@@ -307,7 +308,8 @@ Proof
   \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
   \\ (
     full_simp_tac(srw_ss()) [LET_THM,
-        do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+        do_app_aux_def,CaseEq "sum",closLangTheory.int_op_case_eq,
+        list_case_eq,option_case_eq,v_case_eq,
         bool_case_eq,do_app_def,do_stack_def,do_space_def,
         with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
         ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
@@ -328,7 +330,8 @@ Proof
   \\ cases_on_op_fs `op`
   \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
   \\ (
-    full_simp_tac(srw_ss()) [LET_THM,do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+    full_simp_tac(srw_ss()) [LET_THM,do_app_aux_def,CaseEq "sum",closLangTheory.int_op_case_eq,
+        list_case_eq,option_case_eq,v_case_eq,
       bool_case_eq,do_app_def,do_stack_def,do_space_def,
       with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
       ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
@@ -346,7 +349,8 @@ Proof
   \\ cases_on_op_fs `op`
   \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
   \\ (
-    full_simp_tac(srw_ss()) [LET_THM,do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+    full_simp_tac(srw_ss()) [LET_THM,do_app_aux_def,CaseEq "sum",closLangTheory.int_op_case_eq,
+        list_case_eq,option_case_eq,v_case_eq,
       bool_case_eq,do_app_def,do_stack_def,do_space_def,
       with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
       ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
@@ -370,7 +374,8 @@ Proof
   \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
   \\ (
     full_simp_tac(srw_ss()) [LET_THM,
-      do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+      do_app_aux_def,CaseEq "sum",closLangTheory.int_op_case_eq,
+      list_case_eq,option_case_eq,v_case_eq,
       bool_case_eq,do_app_def,do_stack_def,do_space_def,
       with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
       ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
@@ -1878,7 +1883,8 @@ Proof
   fs[do_app_def,do_stack_def,do_space_def] >>
   cases_on_op_fs `op` >> TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) >>
   ntac 2 (
-    full_simp_tac(srw_ss()) [LET_THM,do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+    full_simp_tac(srw_ss()) [LET_THM,do_app_aux_def,CaseEq "sum",closLangTheory.int_op_case_eq,
+      list_case_eq,option_case_eq,v_case_eq,
       bool_case_eq,stack_consumed_def,
       with_fresh_ts_def,bvlSemTheory.ref_case_eq,space_consumed_with_clock,
       ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
@@ -2072,7 +2078,8 @@ Proof
   srw_tac[][do_app_def,do_stack_def,do_space_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   cases_on_op_fs `x` >> TRY (rename [‘EqualConst cc’] >> Cases_on ‘cc’) >>
-  ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+  ntac 2 (fs [do_app_aux_def,CaseEq "sum",closLangTheory.int_op_case_eq,
+              list_case_eq,option_case_eq,v_case_eq,
               bool_case_eq,ffiTheory.call_FFI_def,
               with_fresh_ts_def,bvlSemTheory.ref_case_eq,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
@@ -2261,7 +2268,8 @@ Theorem do_app_safe_for_space_mono:
 Proof
   cases_on_op_fs `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) \\
   full_simp_tac(srw_ss()) [LET_THM,
-      do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+      do_app_aux_def,CaseEq "sum",closLangTheory.int_op_case_eq,
+      list_case_eq,option_case_eq,v_case_eq,
       bool_case_eq,do_app_def,do_stack_def,do_space_def,
       with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
       ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,check_lim_def,
@@ -2995,20 +3003,15 @@ Theorem do_app_cc_co_only_diff_rval:
 Proof
   rpt strip_tac >>
   cases_on_op_fs ‘op’ \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) \\ fs []
-  >~[`IntOp`]
-  >-(
-   qpat_x_assum `do_app _ _ _ = _` mp_tac >>
-   simp[Once do_app_def,AllCaseEqs(),do_app_aux_def,
-   Once $ oneline do_int_app_def] >>
-   strip_tac  >> rveq >>
-   fs[do_stack_def,do_space_def,do_app_def,consume_space_def,
-   op_space_reset_def,data_spaceTheory.op_space_req_def,
-   space_consumed_def,stack_consumed_def,size_of_heap_def,
-   size_of_heap_args_def,stack_to_vs_def] >>
-   rveq >>
-   simp[do_app_aux_def,do_int_app_def] >>
-   fs[cc_co_only_diff_def] >>
-   gvs[]) >>
+  >~[`IntOp`] >- (
+    rename1 `IntOp intop`
+    \\ Cases_on `intop`
+    \\ gvs [cc_co_only_diff_def, do_app_def, do_app_aux_def,
+            do_space_def, do_stack_def, consume_space_def, op_space_reset_def,
+            data_spaceTheory.op_space_req_def, space_consumed_def,
+            stack_consumed_def, size_of_heap_def, size_of_heap_args_def,
+            stack_to_vs_def, AllCaseEqs()]
+    \\ gvs [oneline do_int_app_def, space_consumed_def, AllCaseEqs()]) >>
   ntac 2(
   full_simp_tac(srw_ss())[LET_THM,do_app_aux_def,cc_co_only_diff_def,do_app_def,do_stack_def,list_case_eq,option_case_eq,v_case_eq,
      bool_case_eq,do_app_def,do_stack_def,do_space_def,
@@ -3054,6 +3057,7 @@ Proof
   rpt(qpat_x_assum `do_space _ _ _ = _` kall_tac) >>
   cases_on_op_fs ‘op’ \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) \\ fs [] >>
   full_simp_tac(srw_ss())[LET_THM,do_app_aux_def,cc_co_only_diff_def,do_app_def,list_case_eq,option_case_eq,v_case_eq,
+     CaseEq "sum", closLangTheory.int_op_case_eq,
      bool_case_eq,do_app_def,do_stack_def,do_space_def,
      with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
@@ -3308,6 +3312,7 @@ Proof
   rpt strip_tac >>
   cases_on_op_fs ‘op’ \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) \\ fs [] >>
   full_simp_tac(srw_ss())[LET_THM,do_app_aux_def,cc_co_only_diff_def,do_app_def,do_stack_def,list_case_eq,option_case_eq,v_case_eq,
+     CaseEq "sum", closLangTheory.int_op_case_eq,
      bool_case_eq,do_app_def,do_stack_def,do_space_def,
      with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,

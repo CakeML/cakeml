@@ -623,6 +623,74 @@ Proof
   \\ PROVE_TAC[v_rel_check_type]
 QED
 
+Theorem index_witness_length_rel[local]:
+  LIST_REL (sv_rel (v_rel es)) refs refs' /\
+  v_rel es v v' /\
+  index_witness_length refs v = SOME n
+  ==>
+  index_witness_length refs' v' = SOME n
+Proof
+  rpt strip_tac
+  \\ Cases_on `v`
+  \\ gvs [index_witness_length_def, v_rel_l_simps]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ simp []
+  \\ rename1 `store_lookup ptr refs`
+  \\ Cases_on `store_lookup ptr refs`
+  \\ gvs [AllCaseEqs()]
+  \\ drule_all store_lookup
+  \\ strip_tac
+  \\ gvs [sv_rel_l_cases, LIST_REL_LENGTH]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ simp []
+QED
+
+Theorem unsafe_index_bound_rel[local]:
+  LIST_REL (sv_rel (v_rel es)) refs refs' /\
+  LIST_REL (v_rel es) witnesses1 witnesses2 /\
+  unsafe_index_bound refs witnesses1 = SOME bound
+  ==>
+  unsafe_index_bound refs' witnesses2 = SOME bound
+Proof
+  rpt strip_tac
+  \\ Cases_on `witnesses1`
+  \\ gvs [unsafe_index_bound_def, LIST_REL_EL_EQN]
+  \\ rename1 `LENGTH source_tail = LENGTH target_tail`
+  \\ Cases_on `source_tail`
+  \\ gvs [unsafe_index_bound_def, LENGTH_NIL]
+  >~ [`index_witness_length refs' _ = SOME _`] >- (
+    `LIST_REL (sv_rel (v_rel es)) refs refs'`
+      by simp [LIST_REL_EL_EQN]
+    \\ drule_all index_witness_length_rel
+    \\ simp [])
+QED
+
+Theorem do_unsafe_index_arith_rel[local]:
+  LIST_REL (sv_rel (v_rel es)) refs refs' /\
+  LIST_REL (v_rel es) vs vs' /\
+  do_unsafe_index_arith refs a vs = SOME result
+  ==>
+  do_unsafe_index_arith refs' a vs' = SOME result
+Proof
+  rpt strip_tac
+  \\ gvs [do_unsafe_index_arith_def, AllCaseEqs()]
+  \\ drule_all unsafe_index_bound_rel
+  \\ simp []
+QED
+
+Theorem do_unsafe_index_test_rel[local]:
+  LIST_REL (sv_rel (v_rel es)) refs refs' /\
+  LIST_REL (v_rel es) vs vs' /\
+  do_unsafe_index_test refs test vs = SOME result
+  ==>
+  do_unsafe_index_test refs' test vs' = SOME result
+Proof
+  rpt strip_tac
+  \\ gvs [do_unsafe_index_test_def, AllCaseEqs()]
+  \\ drule_all unsafe_index_bound_rel
+  \\ simp []
+QED
+
 Theorem do_app_sim:
   do_app (s.refs, s.ffi) op (REVERSE xs) = SOME ((refs, ffi), r) /\
   s_rel ^ci s t /\
@@ -642,8 +710,9 @@ Proof
   \\ fs [CaseEq "ffi_result", option_case_eq] \\ rveq \\ fs []
   \\ simp [do_app_def]
   >~ [`do_test`] >- (
-    imp_res_tac v_rel_check_type
-    \\ Cases_on ‘test’ \\ gvs [do_test_def,AllCaseEqs()]
+    rename1 `do_test source_test _ _ _ = Eq_val _`
+    \\ imp_res_tac v_rel_check_type
+    \\ Cases_on `source_test` \\ gvs [do_test_def,AllCaseEqs()]
     >- (Cases_on ‘y’ \\ Cases_on ‘y'’ \\ gvs [check_type_def]
         \\ gvs [dest_Litv_def]
         \\ gvs [oneline dest_Litv_def,AllCaseEqs()])
@@ -661,6 +730,20 @@ Proof
     >- (EVAL_TAC \\ rw[])
     >- (EVAL_TAC \\ rw[])
     \\ Cases_on`t` \\ gvs[check_type_def])
+  >~ [‘do_unsafe_index_arith’] >- (
+    `LIST_REL (v_rel orac_s') (REVERSE xs) (REVERSE ys)`
+      by simp [LIST_REL_REVERSE_EQ]
+    \\ drule_all do_unsafe_index_arith_rel
+    \\ strip_tac
+    \\ Cases_on `v'`
+    \\ gvs [result_rel_def]
+    \\ gvs [do_unsafe_index_arith_def, AllCaseEqs(),
+            do_arith_def, div_exn_v_def, v_rel_l_simps])
+  >~ [‘do_unsafe_index_test’] >- (
+    `LIST_REL (v_rel orac_s') (REVERSE xs) (REVERSE ys)`
+      by simp [LIST_REL_REVERSE_EQ]
+    \\ drule_all do_unsafe_index_test_rel
+    \\ simp [])
   >~ [‘do_conversion’] >- (
     imp_res_tac v_rel_check_type \\ rw[]
     \\ Cases_on ‘ty1’ using prim_type_cases

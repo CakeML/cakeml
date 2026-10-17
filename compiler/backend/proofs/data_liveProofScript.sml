@@ -156,7 +156,8 @@ Proof
   cases_on_op `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
   \\ fs [is_pure_def,do_app_def,do_app_aux_def]
   \\ simp[do_space_def,data_spaceTheory.op_space_req_def,
-          case_eq_thms,do_install_def,UNCURRY] \\ rw[]
+          case_eq_thms,CaseEq "sum",closLangTheory.int_op_case_eq,
+          do_install_def,UNCURRY] \\ rw[]
 QED
 
 Theorem is_pure_do_app_Rval_IMP[local]:

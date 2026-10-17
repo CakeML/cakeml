@@ -1892,18 +1892,17 @@ Theorem do_app_thm:
         ?w' s'. (do_app op (REVERSE v) t = Rval (w',s')) /\
                 v_rel g2 l2 t.code w w' /\ state_rel g2 l2 s s')
 Proof
-  reverse CASE_TAC THEN1
-   (pop_assum mp_tac
-    \\ Cases_on `op` \\ Cases_on `REVERSE a`
-    \\ simp[do_app_def, case_eq_thms, bool_case_eq, pair_case_eq, CaseEq"ffi$ffi_result"]
-    \\ strip_tac \\ rveq \\ fs []
-    \\ TRY (
-      rename [`case v of Evaluated => _ | NotEvaluated => _`]
-      \\ Cases_on `v` \\ gvs [])
-    \\ Cases_on`a` \\ fs[] \\ rveq \\ fs[]
-    \\ strip_tac \\ fs[v_rel_def, PULL_EXISTS] \\ rveq
-    \\ imp_res_tac state_rel_flookup_refs \\ fs[]
-    \\ fs[state_rel_def])
+  reverse CASE_TAC >- (
+    pop_assum mp_tac
+    \\ Cases_on `op`
+    \\ Cases_on `REVERSE a`
+    \\ simp [do_app_def, AllCaseEqs()]
+    \\ rpt strip_tac
+    \\ gvs []
+    \\ Cases_on `a` \\ fs [] \\ rveq \\ fs []
+    \\ strip_tac \\ fs [v_rel_def, PULL_EXISTS] \\ rveq
+    \\ imp_res_tac state_rel_flookup_refs \\ fs []
+    \\ fs [state_rel_def])
   \\ rename1 `_ = _ b`
   \\ PairCases_on `b` \\ fs []
   \\ reverse strip_tac

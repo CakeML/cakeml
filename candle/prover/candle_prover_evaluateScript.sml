@@ -328,6 +328,14 @@ Theorem do_app_ok:
         | _ => T
 Proof
   strip_tac
+  \\ Cases_on ‘(∃a. op = UnsafeIndexArith a) ∨ ∃t. op = UnsafeIndexTest t’
+  >- (
+    gvs [do_app_cases, do_unsafe_index_arith_def,
+         do_unsafe_index_test_def, AllCaseEqs()]
+    \\ qexists_tac ‘st’ \\ gvs [Boolv_def, v_ok_def, SF SFY_ss]
+    >~ [‘do_arith arith _ _ = SOME (INL _)’] >- (
+      Cases_on ‘arith’ \\ gvs [do_arith_def, AllCaseEqs()])
+    \\ rw [v_ok_def])
   \\ qpat_x_assum ‘do_app _ _ _ = _’ mp_tac
   \\ Cases_on ‘op = Env_id’ \\ gs []
   >- (

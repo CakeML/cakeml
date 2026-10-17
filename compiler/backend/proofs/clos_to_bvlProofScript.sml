@@ -1457,6 +1457,25 @@ Proof
   srw_tac[][bvlSemTheory.v_to_list_def] >> res_tac >> srw_tac[][]
 QED
 
+Theorem smallnum_witness_bound[local]:
+  state_rel f s t /\
+  v_rel s.max_app f t.refs t.code v w /\
+  closSem$smallnum_witness_length s.refs v = SOME len ==>
+  ?limit. bvlSem$smallnum_witness_length t.refs w = SOME limit /\ len <= limit
+Proof
+  rpt strip_tac
+  \\ Cases_on `v`
+  \\ gvs [closSemTheory.smallnum_witness_length_def, AllCaseEqs(),
+          v_rel_SIMP, clos_tag_shift_def, bvlSemTheory.smallnum_witness_length_def]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ simp []
+  \\ drule_all state_rel_refs_lookup
+  \\ strip_tac
+  \\ gvs [ref_rel_def]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ simp [bvlSemTheory.smallnum_witness_length_def]
+QED
+
 Theorem not_isClos[simp]:
    ~isClos (if n < ^(closure_tag_def |> concl |> rand) then n else (n + 2)) ys
 Proof
@@ -1702,11 +1721,20 @@ Proof
     \\ rename [‘REPLICATE n’] \\ qid_spec_tac ‘n’ \\ Induct \\ fs []) >>
   `?this_is_case. this_is_case op` by (qexists_tac `K T` \\ simp []) >>
   cases_on_op`op` \\ fs[]
-  >~ [`IntOp`]
-  >-(
-   fsrw_tac[][closSemTheory.do_app_def,oneline closSemTheory.do_int_app_def] >>
-   rw[AllCaseEqs()] >> gvs[v_rel_SIMP] >>
-   simp[bvlSemTheory.do_app_def,bvlSemTheory.do_int_app_def])
+  >~ [`IntOp`] >- (
+    rename1 `IntOp intop`
+    \\ Cases_on `intop`
+    \\ rw [closSemTheory.do_app_def, oneline closSemTheory.do_int_app_def,
+           AllCaseEqs()]
+    \\ gvs [v_rel_SIMP]
+    \\ simp [bvlSemTheory.do_app_def, bvlSemTheory.do_int_app_def]
+    \\ drule_all smallnum_witness_bound
+    \\ disch_then (qx_choose_then `target_limit` strip_assume_tac)
+    \\ drule backendPropsTheory.index_in_bounds_mono
+    \\ strip_tac
+    \\ drule_all backendPropsTheory.bounded_smallnum_app_mono
+    \\ strip_tac
+    \\ simp [])
   >~ [`WordOp`]
   >-(
    fsrw_tac[][closSemTheory.do_app_def,oneline closSemTheory.do_word_app_def] >>

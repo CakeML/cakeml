@@ -1179,6 +1179,46 @@ QED
 
 val sv_rel_cases = semanticPrimitivesPropsTheory.sv_rel_cases;
 
+Theorem simple_index_witness_length[local]:
+  simple_val_rel vr /\ simple_state_rel vr sr /\
+  sr s1 s2 /\ vr v1 v2 /\
+  index_witness_length s1.refs v1 = SOME n
+  ==>
+  index_witness_length s2.refs v2 = SOME n
+Proof
+  rpt strip_tac
+  \\ Cases_on `v1`
+  \\ gvs [index_witness_length_def, simple_val_rel_simps,
+          simple_basic_val_rel_def, v_container_xs_def]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ gvs [index_witness_length_def]
+  \\ rename1 `store_lookup ptr s1.refs`
+  \\ Cases_on `store_lookup ptr s1.refs`
+  \\ gvs [AllCaseEqs()]
+  \\ drule_all simple_state_rel_store_lookup
+  \\ strip_tac
+  \\ gvs [sv_rel_cases, LIST_REL_LENGTH]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ simp []
+QED
+
+Theorem simple_unsafe_index_bound[local]:
+  simple_val_rel vr /\ simple_state_rel vr sr /\ sr s1 s2 /\
+  LIST_REL vr witnesses1 witnesses2 /\
+  unsafe_index_bound (index_witness_length s1.refs) witnesses1 = SOME bound
+  ==>
+  unsafe_index_bound (index_witness_length s2.refs) witnesses2 = SOME bound
+Proof
+  rpt strip_tac
+  \\ Cases_on `witnesses1`
+  \\ gvs [backendPropsTheory.unsafe_index_bound_def, LIST_REL_EL_EQN]
+  \\ rename1 `LENGTH source_tail = LENGTH target_tail`
+  \\ Cases_on `source_tail`
+  \\ gvs [backendPropsTheory.unsafe_index_bound_def, LENGTH_NIL]
+  \\ drule_all simple_index_witness_length
+  \\ simp []
+QED
+
 Theorem simple_do_app_thm:
   simple_val_rel vr /\
   simple_state_rel vr sr ==>
@@ -1203,6 +1243,18 @@ Proof
     >~ [`check_type BoolT`] >-
      (Cases_on `flat_to_v x0 = Boolv T` \\ gvs []
       \\ EVAL_TAC \\ gvs [simple_val_rel_def]))
+  >~ [`Src (UnsafeIndexArith _)`] >- (
+    rpt strip_tac
+    \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]
+    \\ drule_all simple_unsafe_index_bound
+    \\ gvs [div_exn_v_def, simple_val_rel_simps,
+            simple_basic_val_rel_def, v_container_xs_def])
+  >~ [`Src (UnsafeIndexTest _)`] >- (
+    rpt strip_tac
+    \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]
+    \\ drule_all simple_unsafe_index_bound
+    \\ gvs [Boolv_def, simple_val_rel_simps,
+            simple_basic_val_rel_def, v_container_xs_def])
   >~ [`Src (FromTo _ _)`] >- (
     gvs[do_app_def,AllCaseEqs(),SF DNF_ss] \\ rw[]
     \\ imp_res_tac check_type_LIST_REL_same \\ gvs []

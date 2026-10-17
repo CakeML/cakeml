@@ -900,6 +900,32 @@ Proof
   \\ rename [‘nsBind y’] \\ Cases_on ‘x = Short y’ \\ gvs []
 QED
 
+Theorem v_rel_index_witness_length[local]:
+  state_rel f s1 s2 ∧ v_rel f v w ⇒
+  index_witness_length s1.refs v = index_witness_length s2.refs w
+Proof
+  strip_tac
+  \\ Cases_on ‘v’ \\ gvs [v_rel_simps, index_witness_length_def]
+  >- (
+    drule_all state_rel_store_lookup
+    \\ disch_then (qx_choosel_then [‘source_value’, ‘target_value’] strip_assume_tac)
+    \\ Cases_on ‘source_value’ \\ Cases_on ‘target_value’ \\ gvs []
+    \\ imp_res_tac LIST_REL_LENGTH \\ simp [])
+  \\ metis_tac [LIST_REL_LENGTH]
+QED
+
+Theorem v_rel_unsafe_index_bound[local]:
+  state_rel f s1 s2 ∧ LIST_REL (v_rel f) vs ws ⇒
+  unsafe_index_bound s1.refs vs = unsafe_index_bound s2.refs ws
+Proof
+  strip_tac
+  \\ Cases_on ‘vs’ \\ gvs [LIST_REL_CONS1, unsafe_index_bound_def]
+  \\ rename [‘LIST_REL _ source_rest target_rest’]
+  \\ drule_all v_rel_index_witness_length \\ strip_tac
+  \\ Cases_on ‘source_rest’ \\ Cases_on ‘target_rest’
+  \\ gvs [unsafe_index_bound_def]
+QED
+
 Theorem do_app_v_rel[local]:
   state_rel f s1 s2 ∧ LIST_REL (v_rel f) vs ws ∧
   do_app (s1.refs,s1.ffi) op vs = SOME ((refs1,ffi1),r) ∧
@@ -912,6 +938,16 @@ Theorem do_app_v_rel[local]:
 Proof
   strip_tac
   \\ ‘INJ (FAPPLY f) (FDOM f) UNIV’ by gvs [state_rel_def]
+  \\ Cases_on ‘(∃a. op = UnsafeIndexArith a) ∨ ∃t. op = UnsafeIndexTest t’
+  >- (
+    gvs [semanticPrimitivesPropsTheory.do_app_cases,
+         do_unsafe_index_arith_def, do_unsafe_index_test_def,
+         AllCaseEqs(), v_rel_simps]
+    \\ imp_res_tac v_rel_unsafe_index_bound
+    \\ gvs []
+    \\ qexists_tac ‘f’ \\ gvs [state_with_id, v_rel_refl]
+    \\ imp_res_tac v_rel_do_arith_res
+    \\ gvs [])
   (* allocating operations: f is extended with the fresh location *)
   \\ Cases_on ‘op = Opref ∨ op = Aw8alloc ∨ op = Aalloc ∨
                op = AallocEmpty ∨ op = AallocFixed’

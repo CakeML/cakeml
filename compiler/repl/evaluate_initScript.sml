@@ -403,6 +403,13 @@ Proof
     gs [state_ok_def, state_rel_def, EVERY_EL, ref_ok_def]
     \\ rw [] \\ gs [FLOOKUP_FUN_FMAP])
   \\ simp [Once CONJ_COMM]
+  \\ Cases_on ‘(∃a. op = UnsafeIndexArith a) ∨ ∃test. op = UnsafeIndexTest test’
+  >- (
+    gvs [do_app_cases, do_unsafe_index_arith_def,
+         do_unsafe_index_test_def, AllCaseEqs(), v_ok_thm,
+         with_same_refs_and_ffi]
+    \\ rename [‘do_arith arith _ _ = SOME (INL _)’]
+    \\ Cases_on ‘arith’ \\ gvs [do_arith_def, AllCaseEqs()])
   \\ Cases_on ‘op = Env_id’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])

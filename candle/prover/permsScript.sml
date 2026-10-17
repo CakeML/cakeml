@@ -588,6 +588,14 @@ Proof
     \\ rw [EL_LUPDATE, perms_ok_ref_def])
   \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
   >- (rw [do_app_cases] \\ gvs [thunk_op_def, AllCaseEqs()])
+  \\ Cases_on ‘∃arith. op = UnsafeIndexArith arith’ \\ gs []
+  >- (
+    rw [do_app_cases] >>
+    gvs [do_unsafe_index_arith_def, AllCaseEqs()] >>
+    Cases_on ‘arith’ >> gvs [do_arith_def, AllCaseEqs(), perms_ok_def])
+  \\ Cases_on ‘∃test. op = UnsafeIndexTest test’ \\ gs []
+  >- (
+    rw [do_app_cases] >> gs [] >> simp [Boolv_def] >> rw [perms_ok_def])
   \\ Cases_on ‘op’ \\ gs []
   \\ Cases_on ‘t’ \\ gs []
 QED

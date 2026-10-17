@@ -933,14 +933,15 @@ fun cases_on_op q = Cases_on q
   >>> SELECT_LT_THEN (Q.RENAME_TAC [‘GlobOp’]) (Cases_on `g`)
   >>> SELECT_LT_THEN (Q.RENAME_TAC [‘MemOp’]) (Cases_on `m`);
 
-Theorem EVERY_pure_correct = Q.prove(`
+Theorem EVERY_pure_correct:
   (∀t es E (s:('c,'ffi) closSem$state). t = (es,E,s) ∧ EVERY closLang$pure es ⇒
                case evaluate(es, E, s) of
                  (Rval vs, s') => s' = s ∧ LENGTH vs = LENGTH es
                | (Rerr (Rraise a), _) => F
                | (Rerr (Rabort a), _) => a = Rtype_error) ∧
    (∀(n: num option) (v:closSem$v)
-     (vl : closSem$v list) (s : ('c,'ffi) closSem$state). T)`,
+     (vl : closSem$v list) (s : ('c,'ffi) closSem$state). T)
+Proof
   ho_match_mp_tac evaluate_ind >> simp[pure_def] >>
   rpt strip_tac >> simp[evaluate_def]
   >- (every_case_tac >> full_simp_tac(srw_ss())[] >>
@@ -950,24 +951,28 @@ Theorem EVERY_pure_correct = Q.prove(`
   >- (full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[])
   >- (full_simp_tac (srw_ss() ++ ETA_ss) [] >> every_case_tac >> full_simp_tac(srw_ss())[])
   >- (full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (Cases_on`op=Install` >- fs[pure_op_def] >>
-      Cases_on `op = ThunkOp ForceThunk` >- fs[pure_op_def] >>
-      fsrw_tac[ETA_ss][]
-      \\ PURE_CASE_TAC \\ fs[]
-      \\ PURE_CASE_TAC \\ fs[]
-      \\ rveq
-      \\ reverse PURE_CASE_TAC \\ fs[]
-      >- (
-        rename1 `closLang$pure_op opn` >> cases_on_op `opn` >>
-        full_simp_tac(srw_ss())[pure_op_def, do_app_def, case_eq_thms, bool_case_eq] >>
-        rveq \\ fs[] \\ fs[CaseEq"prod"] )
-      \\ rename1 `closLang$pure_op opn` >> cases_on_op `opn`
-      \\ fs[pure_op_def, do_app_def, case_eq_thms, bool_case_eq] \\ rveq \\ fs[]
-      \\ fs[CaseEq"prod"]
-      \\ rveq \\ fs[])
+  >- (
+    Cases_on`op=Install` >- fs[pure_op_def] >>
+    Cases_on `op = ThunkOp ForceThunk` >- fs[pure_op_def] >>
+    fsrw_tac[ETA_ss][]
+    \\ PURE_CASE_TAC \\ fs[]
+    \\ PURE_CASE_TAC \\ fs[]
+    \\ rveq
+    \\ reverse PURE_CASE_TAC \\ fs[]
+    >- (
+      rename1 `closLang$pure_op opn` >> cases_on_op `opn` >>
+      full_simp_tac(srw_ss())[pure_op_def, do_app_def, case_eq_thms, bool_case_eq, CaseEq "sum"] >>
+      rveq \\ fs[] \\ fs[CaseEq"prod"] )
+    \\ rename1 `closLang$pure_op opn` >> cases_on_op `opn`
+    \\ fs[pure_op_def, do_app_def, case_eq_thms, bool_case_eq, CaseEq "sum"] \\ rveq \\ fs[]
+    \\ fs[CaseEq"prod"]
+    \\ rveq \\ fs[])
   >- (every_case_tac >> simp[])
-  >- (every_case_tac >> full_simp_tac(srw_ss())[]))
-  |> SIMP_RULE (srw_ss()) [];
+  >- (every_case_tac >> full_simp_tac(srw_ss())[])
+QED
+
+Theorem EVERY_pure_correct[allow_rebind] =
+  EVERY_pure_correct |> SIMP_RULE (srw_ss()) [];
 
 Theorem pure_correct =
   EVERY_pure_correct |> Q.SPECL [`[e]`, `env`, `s`]
@@ -2323,6 +2328,28 @@ Proof
 QED
 
 val _ = print "The following proof is slow due to Rerr cases.\n";
+Theorem simple_val_rel_smallnum_witness:
+  simple_val_rel vr /\ simple_state_rel vr sr /\ sr s t /\ vr x y ==>
+  smallnum_witness_length s.refs x = smallnum_witness_length t.refs y
+Proof
+  rpt strip_tac
+  \\ Cases_on `y`
+  \\ gvs [simple_val_rel_def, smallnum_witness_length_def]
+  >~ [`FLOOKUP`] >- (
+    qmatch_goalsub_rename_tac `FLOOKUP t.refs ptr`
+    \\ namedCases_on `FLOOKUP t.refs ptr` ["", "entry"]
+    >- (drule_all simple_state_rel_FLOOKUP_refs_IMP \\ simp [])
+    \\ Cases_on `entry`
+    \\ drule_all simple_state_rel_FLOOKUP_refs_IMP
+    \\ simp []
+    \\ strip_tac
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ gvs [])
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ res_tac
+  \\ gvs [isClos_cases, smallnum_witness_length_def]
+QED
+
 Theorem simple_val_rel_do_app_rev:
     simple_val_rel vr /\ simple_state_rel vr sr ==>
     sr s (t:('c,'ffi) closSem$state) /\ LIST_REL vr xs ys ==>
@@ -2397,8 +2424,19 @@ Proof
     \\ irule LIST_REL_APPEND_suff
     \\ fs[])
   \\ Cases_on `?i. opp = IntOp i`
-  THEN1
-   (Cases_on `do_app opp ys t` \\ fs[] \\ rveq \\ pop_assum mp_tac
+  >- (
+    Cases_on `?smallop i j witness.
+      opp = IntOp (Smallnum smallop) /\ ys = [Number i; Number j; witness]`
+    >- (
+      gvs []
+      \\ rpt strip_tac
+      \\ drule_then strip_assume_tac $ iffLR simple_val_rel_alt
+      \\ gvs []
+      \\ imp_res_tac simple_val_rel_smallnum_witness
+      \\ simp [do_app_def]
+      \\ rpt TOP_CASE_TAC
+      \\ fs [])
+    \\ Cases_on `do_app opp ys t` \\ fs[] \\ rveq \\ pop_assum mp_tac
     \\ rw [Once do_app_def, AllCaseEqs(), PULL_EXISTS]
     \\ fs[] \\ rveq \\ simp[do_app_def]
     \\ drule_then strip_assume_tac $ iffLR simple_val_rel_alt

@@ -47,6 +47,8 @@ Theorem op_requires_names_eqn:
                           | FFI n => T
                           | Install => T
                           | MemOp (CopyByte new_flag) => T
+                          | IntOp (Smallnum SmallDiv) => T
+                          | IntOp (Smallnum SmallMod) => T
                           | MemOp XorByte => T
                           | MemOp (StringCmp b cmp) => T
                           | _ => F))
@@ -60,6 +62,8 @@ Theorem op_requires_names_pmatch:
                         | FFI n => T
                         | Install => T
                         | MemOp (CopyByte new_flag) => T
+                        | IntOp (Smallnum SmallDiv) => T
+                        | IntOp (Smallnum SmallMod) => T
                         | MemOp XorByte => T
                         | MemOp (StringCmp b cmp) => T
                         | _ => F))
