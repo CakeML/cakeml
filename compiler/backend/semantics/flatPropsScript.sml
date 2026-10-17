@@ -1505,14 +1505,6 @@ Definition result_vs_def[simp]:
   result_vs (Rerr (Rabort y)) = []
 End
 
-Theorem v_size_aux:
-  (!env. v1_size env = 1 + v2_size (env.v)) /\
-  (!xs. v2_size xs = LENGTH xs + SUM (MAP v3_size xs)) /\
-  (!xs. v4_size xs = LENGTH xs + SUM (MAP v_size xs))
-Proof
-  rpt conj_tac \\ Induct \\ simp [v_size_def]
-QED
-
 Definition no_Mat_def[simp]:
   (no_Mat (flatLang$Raise t e) <=> no_Mat e) /\
   (no_Mat (Lit t l) <=> T) /\
