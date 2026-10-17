@@ -416,12 +416,6 @@ End
 
 (* flatLang *)
 
-Theorem MEM_pat_size[local]:
-  !pats a. MEM a (pats:flatLang$pat list) ==> pat_size a < pat1_size pats
-Proof
-  Induct \\ rw [] \\ rw [flatLangTheory.pat_size_def] \\ res_tac \\ fs []
-QED
-
 Definition opt_con_to_display_def:
   opt_con_to_display ocon = case ocon of
     | NONE => empty_item «ConIdNone»
@@ -458,27 +452,6 @@ Definition flat_op_to_display_def:
     | El n => item_with_num «El» n
     | Id => empty_item «Id»
 End
-
-Theorem MEM_funs_size[local]:
-  !fs v1 v2 e. MEM (v1,v2,e) fs ==> flatLang$exp_size e < exp1_size fs
-Proof
-  Induct \\ fs [flatLangTheory.exp_size_def] \\ rw []
-  \\ fs [flatLangTheory.exp_size_def] \\ res_tac \\ fs []
-QED
-
-Theorem MEM_exps_size[local]:
-  !exps e. MEM e exps ==> flatLang$exp_size e < exp6_size exps
-Proof
-  Induct \\ fs [flatLangTheory.exp_size_def] \\ rw []
-  \\ fs [flatLangTheory.exp_size_def] \\ res_tac \\ fs []
-QED
-
-Theorem MEM_pats_size[local]:
-  !pats p e. MEM (p, e) pats ==> flatLang$exp_size e < exp3_size pats
-Proof
-  Induct \\ fs [flatLangTheory.exp_size_def] \\ rw []
-  \\ fs [flatLangTheory.exp_size_def] \\ res_tac \\ fs []
-QED
 
 Definition add_name_hint_def:
   add_name_hint prefix name_hint =
@@ -685,13 +658,6 @@ Definition clos_op_to_display_def:
     | ThunkOp t => thunk_op_to_display t
 End
 
-Theorem MEM_clos_exps_size[local]:
-  !exps e. MEM e exps ==> closLang$exp_size e < exp3_size exps
-Proof
-  Induct \\ fs [closLangTheory.exp_size_def] \\ rw []
-  \\ fs [closLangTheory.exp_size_def] \\ res_tac \\ fs []
-QED
-
 Definition commas_def:
   commas [] = «» ∧
   commas [x] = x ∧
@@ -779,13 +745,6 @@ End
 
 (* bvl to displayLang *)
 
-Theorem MEM_bvl_exps_size[local]:
-  !exps e. MEM e exps ==> bvl$exp_size e < exp1_size exps
-Proof
-  Induct \\ fs [bvlTheory.exp_size_def] \\ rw []
-  \\ fs [bvlTheory.exp_size_def] \\ res_tac \\ fs []
-QED
-
 Definition bvl_to_display_def:
   (bvl_to_display ns h (Var n) =
     Item NONE «var» [display_num_as_varn (h-n-1)]) /\
@@ -838,13 +797,6 @@ Definition bvl_fun_to_display_def:
 End
 
 (* bvi to displayLang *)
-
-Theorem MEM_bvi_exps_size[local]:
-  !exps e. MEM e exps ==> bvi$exp_size e < exp2_size exps
-Proof
-  Induct \\ fs [bviTheory.exp_size_def] \\ rw []
-  \\ fs [bviTheory.exp_size_def] \\ res_tac \\ fs []
-QED
 
 Definition bvi_to_display_def:
   (bvi_to_display ns h (Var n) =
@@ -1319,8 +1271,6 @@ Proof
   Induct \\ simp [Once word_seqs_def,wordLangTheory.prog_size_def]
   \\ rw [] \\ res_tac \\ gvs []
 QED
-
-Theorem MEM_word_exps_size[local] = wordLangTheory.MEM_IMP_exp_size;
 
 Definition word_exp_to_display_def:
   (word_exp_to_display (wordLang$Const v)

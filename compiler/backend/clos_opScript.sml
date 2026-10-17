@@ -354,8 +354,8 @@ Definition lift_exps_def:
             (let (xs,n1,binds) = lift_exps xs (n + 1) (binds ++ [x]) in
               (Var None n::xs,n1,binds))
 Termination
-  WF_REL_TAC ‘measure (λ(xs,n,binds). exp3_size xs)’ \\ rw []
-  \\ Cases_on ‘x’ \\ fs [dest_Op_def,dest_Cons_def,exp_size_def]
+  WF_REL_TAC ‘measure (λ(xs,n,binds). list_size exp_size xs)’ \\ rw []
+  \\ Cases_on ‘x’ \\ fs [dest_Op_def,dest_Cons_def,exp_size_eq]
   \\ rename [‘Op _ oo _’] \\ Cases_on ‘oo’ \\ gvs [dest_Cons_def]
   \\ Cases_on ‘b’ \\ gvs [dest_Cons_def]
 End

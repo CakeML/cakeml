@@ -21,10 +21,9 @@ Datatype:
 End
 
 Overload ShiftN = “λsh e n. Shift sh e (Const (& n))”;
-Overload exp1_size[local] = “λl el. list_size (exp_size l) el”
 
 Theorem MEM_IMP_exp_size:
-   !xs a. MEM a xs ==> (exp_size a < exp1_size xs)
+   !xs a. MEM a xs ==> (exp_size a < list_size exp_size xs)
 Proof
   Induct \\ FULL_SIMP_TAC (srw_ss()) []
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] [definition "exp_size_def"]

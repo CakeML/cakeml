@@ -146,6 +146,8 @@ End
 
 val exp_size_def = definition"exp_size_def";
 
+Theorem exp_size_eq = #2 (TypeBase.size_of “:closLang$exp”)
+
 Definition has_install_def:
   has_install ((Var t n):closLang$exp) = F ∧
   has_install (If t e1 e2 e3) = (has_install e1 ∨ has_install e2 ∨ has_install e3) ∧

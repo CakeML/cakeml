@@ -59,14 +59,6 @@ Definition delete_var_def:
   (delete_var x = x)
 End
 
-Overload exp2_size[local] = “list_size exp_size”
-
-Theorem exp2_size_APPEND:
-   !xs ys. exp2_size (xs++ys) = exp2_size xs + exp2_size ys
-Proof
-  Induct \\ fs [exp_size_def]
-QED
-
 Definition compile_def:
   (compile env d [] = []) /\
   (compile env d (x::y::xs) = compile env d [x] ++ compile env d (y::xs)) /\
@@ -114,7 +106,7 @@ Termination
   \\ rw [] \\ fs [LENGTH_NIL]
   \\ imp_res_tac (METIS_PROVE [SNOC_CASES] ``m <> [] ==> ?x y. m = SNOC x y``)
   \\ full_simp_tac std_ss [LAST_SNOC,LENGTH_SNOC,FRONT_SNOC]
-  \\ fs [exp2_size_APPEND,SNOC_APPEND,exp_size_def]
+  \\ fs [list_size_append,SNOC_APPEND,exp_size_def]
 End
 
 Definition compile_sing_def:
@@ -166,7 +158,7 @@ Termination
   \\ pop_assum mp_tac
   \\ qid_spec_tac`xs`
   \\ Cases using SNOC_CASES
-  \\ gvs [SNOC_APPEND,exp2_size_APPEND,bviTheory.exp_size_def,list_size_APPEND]
+  \\ gvs [SNOC_APPEND,bviTheory.exp_size_def,list_size_append]
 End
 
 Theorem compile_sing:

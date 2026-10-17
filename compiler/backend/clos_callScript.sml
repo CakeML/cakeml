@@ -303,12 +303,7 @@ Definition calls_def:
 Termination
   WF_REL_TAC `measure (list_size exp_size o FST)`
   \\ REPEAT STRIP_TAC
-  \\ gvs [GSYM NOT_LESS,exp_size_def]
-  \\ ‘list_size (λx. exp_size (SND x)) fns ≤
-      list_size (pair_size (λa. a) exp_size) fns’ suffices_by simp[]
-  \\ rpt (pop_assum kall_tac)
-  \\ Induct_on ‘fns’
-  \\ simp[FORALL_PROD]
+  \\ gvs [GSYM NOT_LESS,exp_size_eq,list_size_pair_size_MAP_FST_SND]
 End
 
 Definition calls_sing_def:

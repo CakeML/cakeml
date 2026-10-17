@@ -87,17 +87,17 @@ Definition global_count_sing_def:
 Termination
   WF_REL_TAC ‘measure $ λx. pmatch x of
                             | INL e => bvl$exp_size e
-                            | INR es => bvl$exp1_size es’
-  \\ rpt strip_tac \\ simp [bvlTheory.exp_size_def]
+                            | INR es => list_size bvl$exp_size es’
+  \\ rpt strip_tac \\ simp [bvlTheory.exp_size_eq]
 End
 
 Theorem alloc_glob_count_eq_global_count_list:
   (∀e. global_count_sing e = alloc_glob_count [e]) ∧
   (∀es. global_count_list es = alloc_glob_count es)
 Proof
-  Induct \\ gvs [global_count_sing_def,alloc_glob_count_def]
-  \\ rw [] \\ Cases_on ‘es’ \\ gvs []
-  \\ gvs [global_count_sing_def,alloc_glob_count_def]
+  ho_match_mp_tac global_count_sing_ind
+  \\ rw [global_count_sing_def,alloc_glob_count_def]
+  \\ Cases_on ‘es’ \\ simp [alloc_glob_count_def]
 QED
 
 Definition AllocGlobal_location_def:
@@ -378,7 +378,7 @@ Definition compile_exps_def:
                | NONE => NONE
                | SOME n => SOME (num_stubs + nss * n)) c1 NONE],aux1,n1))
 Termination
-  WF_REL_TAC `measure (exp1_size o SND)`
+  WF_REL_TAC `measure (list_size exp_size o SND)`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
   \\ TRY (Cases_on `x1`) \\ fs [destLet_def]
   \\ TRY (Cases_on `x2`) \\ fs [destLet_def]
@@ -437,11 +437,10 @@ Definition compile_exps_sing_def:
        (c1::c2, aux1 ++ aux2, n2))
 Termination
   WF_REL_TAC ‘measure $ λx. pmatch x of INL (n,e) => exp_size e
-                                    | INR (n,es) => exp1_size es’
+                                    | INR (n,es) => list_size exp_size es’
   \\ rpt strip_tac
   \\ rpt $ qpat_x_assum ‘(_,_,_) = _’ kall_tac
-  \\ gvs [bvlTheory.exp_size_def]
-  \\ gvs [oneline destLet_def, AllCaseEqs(), bvlTheory.exp_size_def]
+  \\ gvs [oneline destLet_def, AllCaseEqs(), bvlTheory.exp_size_eq]
 End
 
 Theorem compile_exps_sing:

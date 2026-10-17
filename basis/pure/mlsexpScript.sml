@@ -515,8 +515,6 @@ Proof
   Induct \\ rw [] \\ simp [Once lex_aux_def]
 QED
 
-val oldind = legacyInduction.mutual_ind_from_ops (TypeBase.induction_of “:sexp”)
-
 Theorem lex_aux_sexp2tree:
   (∀x s ts depth m n indent.
      (s ≠ "" ⇒ isSpace (HD s) ∨ HD s = #")") ∧
@@ -560,30 +558,31 @@ Theorem lex_aux_sexp2tree:
                   []))) s) ts =
      (lex_aux depth s (REVERSE (FLAT (MAP to_tokens xs)) ++ ts)))
 Proof
-  ho_match_mp_tac oldind >> rpt conj_tac
-  >-
-   (simp [sexp2tree_def]
+  ho_match_mp_tac sexp2tree_ind \\ rpt conj_tac
+  >- (* Atom *) (
+    qx_gen_tac ‘a’
+    \\ simp [sexp2tree_def]
     \\ simp [str_tree_to_strs_def,v2pretty_def]
     \\ simp [annotate_def,to_tokens_def]
     \\ simp [smart_remove_def,remove_all_def, flatten_def]
     \\ rpt strip_tac
     \\ drule_all lex_aux_make_str_safe
-    \\ Cases_on ‘make_str_safe m’ \\ simp []
-     \\ disch_then $ qspec_then ‘m’ mp_tac \\ simp [])
-  >-
-   (rpt gen_tac >> strip_tac >> rpt gen_tac \\ strip_tac
+    \\ Cases_on ‘make_str_safe a’ \\ simp []
+    \\ disch_then $ qspec_then ‘a’ mp_tac \\ simp [])
+  >- (* Expr *) (
+    qx_gen_tac ‘xs’ \\ strip_tac
+    \\ rpt gen_tac \\ strip_tac
     \\ simp [sexp2tree_def]
     \\ once_rewrite_tac [v2pretty_def]
     \\ simp [annotate_def,remove_all_def,smart_remove_def]
-    \\ conj_tac
-    THENL [IF_CASES_TAC, all_tac]
+    \\ IF_CASES_TAC \\ conj_tac
     \\ simp [flatten_def,concat_def]
-    \\ Cases_on ‘indent’ \\ gvs [concat_def]
+    \\ namedCases_on ‘indent’ ["ind"] \\ gvs [concat_def]
     \\ simp [Once lex_aux_def, EVAL “isSpace #"("”]
     \\ once_rewrite_tac [flatten_acc] \\ fs []
     \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
     \\ gvs [SF DNF_ss]
-    \\ qabbrev_tac ‘new_indent = strlit (STRCAT s' "   ")’
+    \\ qabbrev_tac ‘new_indent = strlit (STRCAT ind "   ")’
     \\ rpt $ first_x_assum $ qspecl_then [‘")"++s’,
               ‘OPEN::ts’,‘depth + 1’,‘new_indent’] mp_tac
     \\ ‘new_indent ≠ «» ∧ EVERY isSpace (explode new_indent)’ by
@@ -594,12 +593,13 @@ Proof
     \\ simp [Once lex_aux_def,EVAL “isSpace #")"”]
     \\ simp [to_tokens_def,REVERSE_APPEND]
     \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC, SF ETA_ss])
-  >-
-   (simp [sexp2tree_def]
+  >- (* [] *) (
+    simp [sexp2tree_def]
     \\ simp [v2pretty_def]
     \\ simp [newlines_def,annotate_def,smart_remove_def,
              remove_all_def,flatten_def,concat_def])
-  \\ rpt gen_tac \\ strip_tac
+  \\ (* x::xs *)
+  qx_genl_tac [‘x’, ‘xs’] \\ strip_tac
   \\ Cases_on ‘xs’ \\ fs []
   \\ simp [REVERSE_APPEND,sexp2tree_def]
   \\ once_rewrite_tac [v2pretty_def |> cj 2] \\ simp []
@@ -608,8 +608,7 @@ Proof
   \\ simp [annotate_def,remove_all_def,smart_remove_def]
   \\ rpt gen_tac
   \\ strip_tac
-  \\ conj_tac
-  THENL [IF_CASES_TAC, all_tac]
+  \\ IF_CASES_TAC \\ conj_tac
   \\ simp [Once flatten_def]
   \\ once_rewrite_tac [flatten_acc]
   \\ gvs [concat_def]
@@ -643,24 +642,27 @@ Theorem lex_aux_sexp_to_list:
      lex_aux depth (explode (concat (append (sexps_to_app_list xs))) ++ s) ts =
      lex_aux depth s (REVERSE (FLAT (MAP (λx. to_tokens x) xs)) ++ ts))
 Proof
-  ho_match_mp_tac oldind >> rpt conj_tac >> strip_tac
-  >-
-   (fs [to_tokens_def]
+  ho_match_mp_tac sexp_to_app_list_ind \\ rpt conj_tac
+  >- (* Atom *) (
+    qx_gen_tac ‘a’
+    \\ fs [to_tokens_def]
     \\ simp [sexp_to_app_list_def,concat_def]
     \\ rpt strip_tac
     \\ drule_all lex_aux_make_str_safe
-    \\ disch_then $ qspec_then ‘m’ assume_tac
+    \\ disch_then $ qspec_then ‘a’ assume_tac
     \\ simp [])
-  >-
-   (simp [sexp_to_app_list_def,concat_def] \\ fs [concat_def]
+  >- (* Expr *) (
+    qx_gen_tac ‘xs’ \\ strip_tac
+    \\ simp [sexp_to_app_list_def,concat_def] \\ fs [concat_def]
     \\ rw [] \\ simp [Once lex_aux_def, EVAL “isSpace #"("”]
     \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
     \\ last_x_assum $ DEP_REWRITE_TAC o single
     \\ fs [] \\ simp [Once lex_aux_def, EVAL “isSpace #")"”]
     \\ simp [to_tokens_def] \\ fs [REVERSE_APPEND]
     \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC])
-  >-
-   (simp [sexp_to_app_list_def])
+  >- (* [] *) simp [sexp_to_app_list_def]
+  \\ (* x::xs *)
+  qx_genl_tac [‘x’, ‘xs’] \\ strip_tac
   \\ simp [sexp_to_app_list_def] \\ rw []
   >- gvs [NULL_EQ]
   \\ fs [concat_def]
@@ -669,7 +671,6 @@ Proof
   \\ fs [EVAL “isSpace #" "”]
   \\ simp [Once lex_aux_def, EVAL “isSpace #" "”]
   \\ fs [REVERSE_APPEND]
-  \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
 QED
 
 Theorem parse_sexp_to_string:

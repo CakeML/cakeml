@@ -18,12 +18,6 @@ Definition dummy_def:
   dummy = bvi$Var 1234567890
 End
 
-Theorem MEM_exp_size_imp:
-   ∀xs a. MEM a xs ⇒ bvi$exp_size a < list_size bvi$exp_size xs
-Proof
-  Induct \\ rw [bviTheory.exp_size_def] \\ res_tac \\ fs []
-QED
-
 Definition is_rec_def:
   (is_rec name (bvi$Call _ d _ NONE) ⇔ d = SOME name) ∧
   (is_rec _    _                     ⇔ F)
@@ -614,29 +608,15 @@ Definition scan_expr_sing_def:
       (tx, ty, r, op)::scan_expr_list tx loc xs)
 End
 
-(* bvi$exp's own induction principle is the set-based one, with a
-   single predicate over expressions, so Induct can no longer supply the
-   mutual induction the equivalences below want.  legacyInduction states
-   it in the older shape, with a predicate per operator the type
-   recurses under -- so bvi$Call's handler contributes one over
-   ‘:bvi$exp option’, which is of no interest here and is discharged
-   trivially. *)
-val exp_oldind =
-    legacyInduction.mutual_ind_from_ops (TypeBase.induction_of “:bvi$exp”)
-
 Theorem scan_expr_eq:
-  (∀e ts loc. scan_expr ts loc [e] = [scan_expr_sing ts loc e]) ∧
-  (∀es ts loc. scan_expr ts loc es = scan_expr_list ts loc es)
+  (∀ts loc e. scan_expr ts loc [e] = [scan_expr_sing ts loc e]) ∧
+  (∀ts loc es. scan_expr ts loc es = scan_expr_list ts loc es)
 Proof
-  ‘(∀e ts loc. scan_expr ts loc [e] = [scan_expr_sing ts loc e]) ∧
-   (∀es ts loc. scan_expr ts loc es = scan_expr_list ts loc es) ∧
-   (∀h:bvi$exp option. T)’
-    by (ho_match_mp_tac exp_oldind >> rw[] >>
-        gvs[scan_expr_def, scan_expr_sing_def] >>
-        rpt (pairarg_tac >> gvs[]) >>
-        rpt (TOP_CASE_TAC >> gvs[]) >>
-        Cases_on `es` >> simp[Once scan_expr_def, scan_expr_sing_def]) >>
-  simp[]
+  ho_match_mp_tac scan_expr_sing_ind
+  \\ rw [] \\ gvs [scan_expr_def, scan_expr_sing_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ rpt (TOP_CASE_TAC \\ gvs [])
+  \\ Cases_on ‘es’ \\ simp [Once scan_expr_def, scan_expr_sing_def]
 QED
 
 Definition push_call_def:
@@ -749,15 +729,16 @@ Definition has_rec_sing_def:
 End
 
 Theorem has_rec_eq:
-  (∀e loc. has_rec loc [e] = has_rec_sing loc e) ∧
-  (∀es loc. has_rec loc es = has_rec_list loc es)
+  (∀loc e. has_rec loc [e] = has_rec_sing loc e) ∧
+  (∀loc es. has_rec loc es = has_rec_list loc es)
 Proof
-  ‘(∀e loc. has_rec loc [e] = has_rec_sing loc e) ∧
-   (∀es loc. has_rec loc es = has_rec_list loc es) ∧
-   (∀h:bvi$exp option. T)’
-    by (ho_match_mp_tac exp_oldind >> rw[has_rec_def, has_rec_sing_def] >>
-        Cases_on `es` >> gvs[has_rec_def]) >>
-  simp[]
+  ho_match_mp_tac has_rec_sing_ind
+  \\ rw [has_rec_def, has_rec_sing_def]
+  >~ [‘EXISTS _ _ ∨ _’]
+  >- (Cases_on ‘EXISTS (is_rec loc) es’ \\ gvs [NOT_EXISTS])
+  >~ [‘has_rec_sing loc e ∨ has_rec_list loc es’]
+  >- (Cases_on ‘es’ \\ gvs [has_rec_def] \\ metis_tac [])
+  \\ metis_tac []
 QED
 
 Definition check_exp_def:

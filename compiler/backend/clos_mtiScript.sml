@@ -69,13 +69,6 @@ End
 
 val collect_apps_ind = theorem "collect_apps_ind";
 
-Theorem exp3_size_append[local]:
-  !es1 es2. exp3_size (es1 ++ es2) = exp3_size es1 + exp3_size es2
-Proof
-  Induct_on `es1` >>
- simp [exp_size_def]
-QED
-
 Theorem collect_apps_more[local]:
   !max_app args e args' e'.
     (args', e') = collect_apps max_app args e

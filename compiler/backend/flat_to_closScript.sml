@@ -318,7 +318,6 @@ Definition SmartCons_def:
     | SOME cs => Op t (BlockOp (Constant (ConstCons tag (REVERSE cs)))) []
 End
 
-
 Definition compile_def:
   (compile m [] = []) /\
   (compile m (x::y::xs) = compile m [x] ++ compile m (y::xs)) /\
@@ -353,10 +352,8 @@ Definition compile_def:
   (compile m [flatLang$Tick t e] =
      [closLang$Let t [HD (compile m [e])] (closLang$Tick t (Var t 0))])
 Termination
-  WF_REL_TAC `measure (list_size flatLang$exp_size o SND)` \\ rw [] >~
-  [‘dest_nop op es = SOME e’]
-  >- (gvs [dest_nop_thm] \\ fs [flatLangTheory.exp_size_def])
-  \\ gvs[dest_pat_thm] \\ fs [flatLangTheory.exp_size_def]
+  WF_REL_TAC `measure (list_size flatLang$exp_size o SND)` \\ rw []
+  \\ gvs [dest_nop_thm, dest_pat_thm, flatLangTheory.exp_size_eq]
 End
 
 Definition compile_decs_def:
