@@ -12,6 +12,8 @@ Datatype:
   num_tree = Tree num (num_tree list)
 End
 
+Theorem num_tree_size_eq = #2 (TypeBase.size_of “:num_tree”)
+
 Definition num_tree_enc'_def:
   num_tree_enc' [] = List [] ∧
   num_tree_enc' ((Tree k xs)::ts) =
@@ -110,12 +112,6 @@ Definition nth_def[simp]:
   nth n [] = Tree 0 [] ∧
   nth n (x::xs) = if n = 0 then x else nth (n-1n) xs
 End
-
-Theorem MEM_num_tree_size:
-  ∀xs x. MEM x xs ⇒ num_tree_size x ≤ num_tree1_size xs
-Proof
-  Induct \\ fs [fetch "-" "num_tree_size_def"] \\ rw [] \\ res_tac \\ fs []
-QED
 
 (* num *)
 
@@ -344,12 +340,6 @@ val _ = app DefnBase.export_cong ["option_enc'_cong", "option_dec'_cong"];
    recursive call at [nth 0 (list_dec' I t)], one level deeper than the plain
    [nth] the list case produces. *)
 
-Theorem num_tree1_size_eq:
-  ∀l. num_tree1_size l = list_size num_tree_size l
-Proof
-  Induct \\ fs [fetch "-" "num_tree_size_def"]
-QED
-
 Theorem num_tree_size_nth:
   ∀xs i. num_tree_size (nth i xs) ≤ list_size num_tree_size xs + 1
 Proof
@@ -367,7 +357,7 @@ Proof
   \\ simp [num_tree_size_nth]
   \\ qspecl_then [‘xs’,‘j’] mp_tac num_tree_size_nth
   \\ Cases_on ‘nth j xs’
-  \\ fs [list_dec'_def, fetch "-" "num_tree_size_def", num_tree1_size_eq]
+  \\ fs [list_dec'_def, num_tree_size_eq]
   \\ qspecl_then [‘l’,‘i’] mp_tac num_tree_size_nth
   \\ fs []
 QED
