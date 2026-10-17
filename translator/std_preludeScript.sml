@@ -134,25 +134,6 @@ val least_side_thm = Q.prove(
   THEN METIS_TAC [IS_SOME_DEF])
   |> update_precondition;
 
-(* list *)
-Theorem el_thm:
-  ∀n h t. EL n (h::t) = if n = 0 then h else EL (n - 1) t
-Proof
-  Cases >> rw []
-QED
-
-val _ = next_ml_names := ["el"];
-val r = translate el_thm;
-
-Theorem el_side[local]:
-  ∀n xs. el_side n xs ⇔ n < LENGTH xs
-Proof
-  Induct >> Cases
-  >> once_rewrite_tac [fetch "-" "el_side_def"]
-  >> fs [CONTAINER_def]
-QED
-val _ = el_side |> update_precondition
-
 (* app_list *)
 
 val _ = ml_prog_update open_local_block;

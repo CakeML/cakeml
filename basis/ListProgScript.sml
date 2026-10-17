@@ -64,11 +64,11 @@ val result = translate LAST_DEF;
 val _ = next_ml_names := ["getItem"];
 val result = translate mllistTheory.getItem_def;
 
-(* analogous to treatment of EL in std_prelude *)
+(* analogous to EL in UnsafeProg + decProg *)
 Theorem nth_thm[local]:
-  mllist$nth (h::t) n = if n = 0 then h else mllist$nth t (n - 1)
+  ∀n h t. mllist$nth (h::t) n = if n = 0 then h else mllist$nth t (n - 1)
 Proof
-  simp [nth_def, el_thm]
+  Cases >> rw [nth_def]
 QED
 
 val _ = next_ml_names := ["nth"];
