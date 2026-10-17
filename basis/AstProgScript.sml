@@ -4,7 +4,7 @@
 *)
 Theory AstProg
 Ancestors
-  ast ml_translator SexpProg
+  ast ml_translator SocketIOProg
 Libs
   preamble ml_translatorLib ml_progLib addPrettyPrintersLib[qualified]
 

@@ -3,7 +3,7 @@
 *)
 Theory ast_sexp
 Ancestors
-  ast mlsexp mlint mlstring
+  ast mlsexp mlint mlstring mllist
 Libs
   preamble
 
@@ -150,6 +150,7 @@ Definition from_op_def:
   (from_op Asub                = Atom «Asub») ∧
   (from_op Alength             = Atom «Alength») ∧
   (from_op Aupdate             = Atom «Aupdate») ∧
+  (from_op Strsub_unsafe       = Atom «Strsub_unsafe») ∧
   (from_op Vsub_unsafe         = Atom «Vsub_unsafe») ∧
   (from_op Asub_unsafe         = Atom «Asub_unsafe») ∧
   (from_op Aupdate_unsafe      = Atom «Aupdate_unsafe») ∧
@@ -291,8 +292,8 @@ Definition to_int_pair_def:
   do
     ls <- dest_expr sexp;
     assert (LENGTH ls = 2);
-    sa <- dest_atom ls❲0❳;
-    sb <- dest_atom ls❲1❳;
+    sa <- dest_atom (nth ls 0);
+    sb <- dest_atom (nth ls 1);
     a <- mlint$fromString sa;
     b <- mlint$fromString sb;
     return (a, b)
@@ -338,7 +339,7 @@ Definition to_option_def:
    do
      (tag, args) <- dest_tagged sexp;
      assert (tag = «SOME» ∧ LENGTH args = 1);
-     x <- f args❲0❳;
+     x <- f (nth args 0);
      return (SOME x)
    od)
 End
@@ -349,20 +350,21 @@ Definition to_id_def:
     (tag, args) <- dest_tagged sexp;
     if tag = «Short» ∧ LENGTH args = 1 then
       do
-        n <- dest_atom args❲0❳;
+        n <- dest_atom (nth args 0);
         return (Short n)
       od
     else if tag = «Long» ∧ LENGTH args = 2 then
       do
-        m <- dest_atom args❲0❳;
-        i <- to_id args❲1❳;
+        m <- dest_atom (nth args 0);
+        i <- to_id (nth args 1);
         return (Long m i)
       od
     else fail
   od
 Termination
   wf_rel_tac ‘measure sexp_size’ >> rw []
-  >> drule dest_tagged_sexp_size >> simp [EL_MEM]
+  >> drule dest_tagged_sexp_size
+  >> simp [nth_def, EL_MEM]
 End
 
 (** types defined by ast ******************************************************)
@@ -372,7 +374,7 @@ Definition to_lit_def:
   do
     (tag, args) <- dest_tagged sexp;
     assert (LENGTH args = 1);
-    s <- dest_atom args❲0❳;
+    s <- dest_atom (nth args 0);
     if tag = «IntLit» then
       do
         i <- mlint$fromString s;
@@ -437,7 +439,7 @@ Definition to_arith_def:
    do
      (tag, args) <- dest_tagged sexp;
      assert (tag = «Shift» ∧ LENGTH args = 1);
-     s <- to_shift args❲0❳;
+     s <- to_shift (nth args 0);
      return (Shift s)
    od)
 End
@@ -465,7 +467,7 @@ Definition to_thunk_op_def:
    do
      (tag, args) <- dest_tagged sexp;
      assert (LENGTH args = 1);
-     m <- to_thunk_mode args❲0❳;
+     m <- to_thunk_mode (nth args 0);
      if tag = «AllocThunk» then return (AllocThunk m)
      else if tag = «UpdateThunk» then return (UpdateThunk m)
      else fail
@@ -489,7 +491,7 @@ Definition to_test_def:
    do
      (tag, args) <- dest_tagged sexp;
      assert (LENGTH args = 1);
-     c <- to_opb args❲0❳;
+     c <- to_opb (nth args 0);
      if tag = «Compare» then return (Compare c)
      else if tag = «AltCompare» then return (AltCompare c)
      else fail
@@ -508,7 +510,7 @@ Definition to_prim_type_def:
    do
      (tag, args) <- dest_tagged sexp;
      assert (tag = «WordT» ∧ LENGTH args = 1);
-     w <- to_word_size args❲0❳;
+     w <- to_word_size (nth args 0);
      return (WordT w)
    od)
 End
@@ -545,6 +547,7 @@ Definition to_op_def:
      else if s = «Asub» then return Asub
      else if s = «Alength» then return Alength
      else if s = «Aupdate» then return Aupdate
+     else if s = «Strsub_unsafe» then return Strsub_unsafe
      else if s = «Vsub_unsafe» then return Vsub_unsafe
      else if s = «Asub_unsafe» then return Asub_unsafe
      else if s = «Aupdate_unsafe» then return Aupdate_unsafe
@@ -562,30 +565,30 @@ Definition to_op_def:
      (tag, args) <- dest_tagged sexp;
      if tag = «Arith» ∧ LENGTH args = 2 then
        do
-         a <- to_arith args❲0❳;
-         t <- to_prim_type args❲1❳;
+         a <- to_arith (nth args 0);
+         t <- to_prim_type (nth args 1);
          return (Arith a t)
        od
      else if tag = «FromTo» ∧ LENGTH args = 2 then
        do
-         t1 <- to_prim_type args❲0❳;
-         t2 <- to_prim_type args❲1❳;
+         t1 <- to_prim_type (nth args 0);
+         t2 <- to_prim_type (nth args 1);
          return (FromTo t1 t2)
        od
      else if tag = «Test» ∧ LENGTH args = 2 then
        do
-         x <- to_test args❲0❳;
-         t <- to_prim_type args❲1❳;
+         x <- to_test (nth args 0);
+         t <- to_prim_type (nth args 1);
          return (Test x t)
        od
      else if tag = «ThunkOp» ∧ LENGTH args = 1 then
        do
-         t <- to_thunk_op args❲0❳;
+         t <- to_thunk_op (nth args 0);
          return (ThunkOp t)
        od
      else if tag = «FFI» ∧ LENGTH args = 1 then
        do
-         s <- dest_atom args❲0❳;
+         s <- dest_atom (nth args 0);
          return (FFI s)
        od
      else fail
@@ -598,26 +601,26 @@ Definition to_ast_t_def:
      (tag, args) <- dest_tagged sexp;
      if tag = «Atvar» ∧ LENGTH args = 1 then
        do
-         n <- dest_atom args❲0❳;
+         n <- dest_atom (nth args 0);
          return (Atvar n)
        od
      else if tag = «Atfun» ∧ LENGTH args = 2 then
        do
-         t1 <- to_ast_t args❲0❳;
-         t2 <- to_ast_t args❲1❳;
+         t1 <- to_ast_t (nth args 0);
+         t2 <- to_ast_t (nth args 1);
          return (Atfun t1 t2)
        od
      else if tag = «Attup» ∧ LENGTH args = 1 then
        do
-         ls <- dest_expr args❲0❳;
+         ls <- dest_expr (nth args 0);
          ts <- to_ast_ts ls;
          return (Attup ts)
        od
      else if tag = «Atapp» ∧ LENGTH args = 2 then
        do
-         ls <- dest_expr args❲0❳;
+         ls <- dest_expr (nth args 0);
          ts <- to_ast_ts ls;
-         i <- to_id args❲1❳;
+         i <- to_id (nth args 1);
          return (Atapp ts i)
        od
      else fail
@@ -636,7 +639,7 @@ Termination
   >> rw []
   >> imp_res_tac dest_tagged_sexp_size
   >> imp_res_tac dest_expr_sexp_size
-  >> gvs [EL_MEM, HD_MEM]
+  >> gvs [nth_def, EL_MEM, HD_MEM]
   >> irule LESS_TRANS
   >> first_assum $ irule_at (Pos hd)
   >> simp [HD_MEM]
@@ -650,36 +653,36 @@ Definition to_pat_def:
      (tag, args) <- dest_tagged sexp;
      if tag = «Pvar» ∧ LENGTH args = 1 then
        do
-         n <- dest_atom args❲0❳;
+         n <- dest_atom (nth args 0);
          return (Pvar n)
        od
      else if tag = «Plit» ∧ LENGTH args = 1 then
        do
-         l <- to_lit args❲0❳;
+         l <- to_lit (nth args 0);
          return (Plit l)
        od
      else if tag = «Pcon» ∧ LENGTH args = 2 then
        do
-         io <- to_option to_id args❲0❳;
-         ls <- dest_expr args❲1❳;
+         io <- to_option to_id (nth args 0);
+         ls <- dest_expr (nth args 1);
          ps <- to_pats ls;
          return (Pcon io ps)
        od
      else if tag = «Pref» ∧ LENGTH args = 1 then
        do
-         p <- to_pat args❲0❳;
+         p <- to_pat (nth args 0);
          return (Pref p)
        od
      else if tag = «Pas» ∧ LENGTH args = 2 then
        do
-         p <- to_pat args❲0❳;
-         n <- dest_atom args❲1❳;
+         p <- to_pat (nth args 0);
+         n <- dest_atom (nth args 1);
          return (Pas p n)
        od
      else if tag = «Ptannot» ∧ LENGTH args = 2 then
        do
-         p <- to_pat args❲0❳;
-         t <- to_ast_t args❲1❳;
+         p <- to_pat (nth args 0);
+         t <- to_ast_t (nth args 1);
          return (Ptannot p t)
        od
      else fail
@@ -698,7 +701,7 @@ Termination
   >> rw []
   >> imp_res_tac dest_tagged_sexp_size
   >> imp_res_tac dest_expr_sexp_size
-  >> gvs [HD_MEM]
+  >> gvs [nth_def, HD_MEM]
   >> irule LESS_TRANS
   >> first_assum $ irule_at (Pos hd)
   >> simp [EL_MEM]
@@ -719,8 +722,8 @@ Definition to_locs_def:
    do
      (tag, args) <- dest_tagged sexp;
      assert (tag = «Locs» ∧ LENGTH args = 2);
-     p1 <- to_int_pair args❲0❳;
-     p2 <- to_int_pair args❲1❳;
+     p1 <- to_int_pair (nth args 0);
+     p2 <- to_int_pair (nth args 1);
      return (Locs p1 p2)
    od)
 End
@@ -731,98 +734,98 @@ Definition to_exp_def:
      (tag, args) <- dest_tagged sexp;
      if tag = «Raise» ∧ LENGTH args = 1 then
        do
-         e <- to_exp args❲0❳;
+         e <- to_exp (nth args 0);
          return (Raise e)
        od
      else if tag = «Handle» ∧ LENGTH args = 2 then
        do
-         e <- to_exp args❲0❳;
-         ls <- dest_expr args❲1❳;
+         e <- to_exp (nth args 0);
+         ls <- dest_expr (nth args 1);
          pes <- to_pes ls;
          return (Handle e pes)
        od
      else if tag = «Lit» ∧ LENGTH args = 1 then
        do
-         l <- to_lit args❲0❳;
+         l <- to_lit (nth args 0);
          return (Lit l)
        od
      else if tag = «Con» ∧ LENGTH args = 2 then
        do
-         io <- to_option to_id args❲0❳;
-         ls <- dest_expr args❲1❳;
+         io <- to_option to_id (nth args 0);
+         ls <- dest_expr (nth args 1);
          es <- to_exps ls;
          return (Con io es)
        od
      else if tag = «Ident» ∧ LENGTH args = 1 then
        do
-         i <- to_id args❲0❳;
+         i <- to_id (nth args 0);
          return (Ident i)
        od
      else if tag = «Fun» ∧ LENGTH args = 2 then
        do
-         x <- dest_atom args❲0❳;
-         e <- to_exp args❲1❳;
+         x <- dest_atom (nth args 0);
+         e <- to_exp (nth args 1);
          return (Fun x e)
        od
      else if tag = «App» ∧ LENGTH args = 2 then
        do
-         oper <- to_op args❲0❳;
-         ls <- dest_expr args❲1❳;
+         oper <- to_op (nth args 0);
+         ls <- dest_expr (nth args 1);
          es <- to_exps ls;
          return (App oper es)
        od
      else if tag = «Log» ∧ LENGTH args = 3 then
        do
-         lo <- to_lop args❲0❳;
-         e1 <- to_exp args❲1❳;
-         e2 <- to_exp args❲2❳;
+         lo <- to_lop (nth args 0);
+         e1 <- to_exp (nth args 1);
+         e2 <- to_exp (nth args 2);
          return (Log lo e1 e2)
        od
      else if tag = «If» ∧ LENGTH args = 3 then
        do
-         e1 <- to_exp args❲0❳;
-         e2 <- to_exp args❲1❳;
-         e3 <- to_exp args❲2❳;
+         e1 <- to_exp (nth args 0);
+         e2 <- to_exp (nth args 1);
+         e3 <- to_exp (nth args 2);
          return (If e1 e2 e3)
        od
      else if tag = «Mat» ∧ LENGTH args = 2 then
        do
-         e <- to_exp args❲0❳;
-         ls <- dest_expr args❲1❳;
+         e <- to_exp (nth args 0);
+         ls <- dest_expr (nth args 1);
          pes <- to_pes ls;
          return (Mat e pes)
        od
      else if tag = «Let» ∧ LENGTH args = 3 then
        do
-         vo <- to_option dest_atom args❲0❳;
-         e1 <- to_exp args❲1❳;
-         e2 <- to_exp args❲2❳;
+         vo <- to_option dest_atom (nth args 0);
+         e1 <- to_exp (nth args 1);
+         e2 <- to_exp (nth args 2);
          return (Let vo e1 e2)
        od
      else if tag = «Letrec» ∧ LENGTH args = 2 then
        do
-         ls <- dest_expr args❲0❳;
+         ls <- dest_expr (nth args 0);
          funs <- to_funs ls;
-         e <- to_exp args❲1❳;
+         e <- to_exp (nth args 1);
          return (Letrec funs e)
        od
      else if tag = «Tannot» ∧ LENGTH args = 2 then
        do
-         e <- to_exp args❲0❳;
-         t <- to_ast_t args❲1❳;
+         e <- to_exp (nth args 0);
+         t <- to_ast_t (nth args 1);
          return (Tannot e t)
        od
      else if tag = «Lannot» ∧ LENGTH args = 2 then
        do
-         e <- to_exp args❲0❳;
-         l <- to_locs args❲1❳;
+         e <- to_exp (nth args 0);
+         l <- to_locs (nth args 1);
          return (Lannot e l)
        od
      else if tag = «Open» ∧ LENGTH args = 2 then
        do
-         ls <- dest_expr args❲0❳;
+         ls <- dest_expr (nth args 0);
          ms <- OPT_MMAP dest_atom ls;
-         e <- to_exp args❲1❳;
+         e <- to_exp (nth args 1);
          return (Open ms e)
        od
      else fail
@@ -839,8 +842,8 @@ Definition to_exp_def:
    do
      ls <- dest_expr s;
      assert (LENGTH ls = 2);
-     p <- to_pat ls❲0❳;
-     e <- to_exp ls❲1❳;
+     p <- to_pat (nth ls 0);
+     e <- to_exp (nth ls 1);
      pes <- to_pes ss;
      return ((p, e)::pes)
    od) ∧
@@ -849,9 +852,9 @@ Definition to_exp_def:
    do
      ls <- dest_expr s;
      assert (LENGTH ls = 3);
-     f <- dest_atom ls❲0❳;
-     x <- dest_atom ls❲1❳;
-     e <- to_exp ls❲2❳;
+     f <- dest_atom (nth ls 0);
+     x <- dest_atom (nth ls 1);
+     e <- to_exp (nth ls 2);
      funs <- to_funs ss;
      return ((f, x, e)::funs)
    od)
@@ -865,7 +868,7 @@ Termination
   >> imp_res_tac dest_tagged_sexp_size
   >> imp_res_tac dest_expr_sexp_size
   >> imp_res_tac dest_expr_sexp_size_MEM
-  >> gvs [EL_MEM, HD_MEM]
+  >> gvs [nth_def, EL_MEM, HD_MEM]
   >> irule LESS_TRANS
   >> first_assum $ irule_at (Pos hd)
   >> simp [EL_MEM, HD_MEM]
@@ -876,8 +879,8 @@ Definition to_ctor_def:
   do
     ls <- dest_expr sexp;
     assert (LENGTH ls = 2);
-    cn <- dest_atom ls❲0❳;
-    tls <- dest_expr ls❲1❳;
+    cn <- dest_atom (nth ls 0);
+    tls <- dest_expr (nth ls 1);
     ts <- to_ast_ts tls;
     return (cn, ts)
   od
@@ -888,10 +891,10 @@ Definition to_tdef_def:
   do
     ls <- dest_expr sexp;
     assert (LENGTH ls = 3);
-    tvls <- dest_expr ls❲0❳;
+    tvls <- dest_expr (nth ls 0);
     tvs <- OPT_MMAP dest_atom tvls;
-    tn <- dest_atom ls❲1❳;
-    cls <- dest_expr ls❲2❳;
+    tn <- dest_atom (nth ls 1);
+    cls <- dest_expr (nth ls 2);
     ctors <- OPT_MMAP to_ctor cls;
     return (tvs, tn, ctors)
   od
@@ -911,65 +914,65 @@ Definition to_dec_def:
      (tag, args) <- dest_tagged sexp;
      if tag = «Dlet» ∧ LENGTH args = 3 then
        do
-         l <- to_locs args❲0❳;
-         p <- to_pat args❲1❳;
-         e <- to_exp args❲2❳;
+         l <- to_locs (nth args 0);
+         p <- to_pat (nth args 1);
+         e <- to_exp (nth args 2);
          return (Dlet l p e)
        od
      else if tag = «Dletrec» ∧ LENGTH args = 2 then
        do
-         l <- to_locs args❲0❳;
-         ls <- dest_expr args❲1❳;
+         l <- to_locs (nth args 0);
+         ls <- dest_expr (nth args 1);
          funs <- to_funs ls;
          return (Dletrec l funs)
        od
      else if tag = «Dtype» ∧ LENGTH args = 2 then
        do
-         l <- to_locs args❲0❳;
-         tds <- to_type_def args❲1❳;
+         l <- to_locs (nth args 0);
+         tds <- to_type_def (nth args 1);
          return (Dtype l tds)
        od
      else if tag = «Dtabbrev» ∧ LENGTH args = 4 then
        do
-         l <- to_locs args❲0❳;
-         tvls <- dest_expr args❲1❳;
+         l <- to_locs (nth args 0);
+         tvls <- dest_expr (nth args 1);
          tvs <- OPT_MMAP dest_atom tvls;
-         tn <- dest_atom args❲2❳;
-         t <- to_ast_t args❲3❳;
+         tn <- dest_atom (nth args 2);
+         t <- to_ast_t (nth args 3);
          return (Dtabbrev l tvs tn t)
        od
      else if tag = «Dexn» ∧ LENGTH args = 3 then
        do
-         l <- to_locs args❲0❳;
-         cn <- dest_atom args❲1❳;
-         tls <- dest_expr args❲2❳;
+         l <- to_locs (nth args 0);
+         cn <- dest_atom (nth args 1);
+         tls <- dest_expr (nth args 2);
          ts <- to_ast_ts tls;
          return (Dexn l cn ts)
        od
      else if tag = «Dmod» ∧ LENGTH args = 2 then
        do
-         mn <- dest_atom args❲0❳;
-         ls <- dest_expr args❲1❳;
+         mn <- dest_atom (nth args 0);
+         ls <- dest_expr (nth args 1);
          ds <- to_decs ls;
          return (Dmod mn ds)
        od
      else if tag = «Dlocal» ∧ LENGTH args = 2 then
        do
-         lls <- dest_expr args❲0❳;
+         lls <- dest_expr (nth args 0);
          lds <- to_decs lls;
-         ls <- dest_expr args❲1❳;
+         ls <- dest_expr (nth args 1);
          ds <- to_decs ls;
          return (Dlocal lds ds)
        od
      else if tag = «Denv» ∧ LENGTH args = 1 then
        do
-         n <- dest_atom args❲0❳;
+         n <- dest_atom (nth args 0);
          return (Denv n)
        od
      else if tag = «Dopen» ∧ LENGTH args = 2 then
        do
-         l <- to_locs args❲0❳;
-         ls <- dest_expr args❲1❳;
+         l <- to_locs (nth args 0);
+         ls <- dest_expr (nth args 1);
          ms <- OPT_MMAP dest_atom ls;
          return (Dopen l ms)
        od
@@ -991,7 +994,7 @@ Termination
   >> imp_res_tac dest_expr_sexp_size
   >> irule LESS_TRANS
   >> first_assum $ irule_at (Pos hd)
-  >> gvs [EL_MEM, HD_MEM]
+  >> gvs [nth_def, EL_MEM, HD_MEM]
 End
 
 Definition to_dec_list_def:
@@ -1016,21 +1019,22 @@ Theorem to_from_option_some:
   (∀x. f (g x) = SOME x) ⇒ to_option f (from_option g opt) = SOME opt
 Proof
   Cases_on ‘opt’
-  >> simp [from_option_def, to_option_def, dest_tagged_def]
+  >> simp [from_option_def, to_option_def, dest_tagged_def, nth_def]
 QED
 
 Theorem to_from_int_pair_ok:
   to_int_pair (from_int_pair p) = SOME p
 Proof
   Cases_on ‘p’
-  >> simp [from_int_pair_def, to_int_pair_def, dest_expr_def, dest_atom_def]
+  >> simp [from_int_pair_def, to_int_pair_def, dest_expr_def, dest_atom_def,
+           nth_def]
 QED
 
 Theorem to_from_id_ok:
   to_id (from_id id) = SOME id
 Proof
   Induct_on ‘id’
-  >> simp [from_id_def, Once to_id_def, dest_tagged_def, dest_atom_def]
+  >> simp [from_id_def, Once to_id_def, dest_tagged_def, dest_atom_def, nth_def]
 QED
 
 Theorem to_from_lit_ok:
@@ -1038,8 +1042,8 @@ Theorem to_from_lit_ok:
 Proof
   Cases_on ‘lit’
   >> simp [to_lit_def, from_lit_def, dest_tagged_def, dest_atom_def,
-           chr_to_str_def]
-  >> Cases_on ‘c’ >> fs []
+           chr_to_str_def, nth_def]
+  >> rename1 ‘w2n c’ >> Cases_on ‘c’ >> fs []
 QED
 
 Theorem to_from_shift_ok:
@@ -1052,7 +1056,8 @@ Theorem to_from_arith_ok:
   to_arith (from_arith a) = SOME a
 Proof
   Cases_on ‘a’
-  >> simp [from_arith_def, to_arith_def, dest_tagged_def, to_from_shift_ok]
+  >> simp [from_arith_def, to_arith_def, dest_tagged_def, to_from_shift_ok,
+           nth_def]
 QED
 
 Theorem to_from_word_size_ok:
@@ -1067,7 +1072,7 @@ Theorem to_from_prim_type_ok:
 Proof
   Cases_on ‘pt’
   >> simp [from_prim_type_def, to_prim_type_def, dest_tagged_def,
-           to_from_word_size_ok]
+           to_from_word_size_ok, nth_def]
 QED
 
 Theorem to_from_thunk_mode_ok:
@@ -1081,7 +1086,7 @@ Theorem to_from_thunk_op_ok:
 Proof
   Cases_on ‘t’
   >> simp [from_thunk_op_def, to_thunk_op_def, dest_tagged_def,
-           to_from_thunk_mode_ok]
+           to_from_thunk_mode_ok, nth_def]
 QED
 
 Theorem to_from_opb_ok:
@@ -1094,7 +1099,7 @@ Theorem to_from_test_ok:
   to_test (from_test t) = SOME t
 Proof
   Cases_on ‘t’
-  >> simp [to_test_def, from_test_def, dest_tagged_def, to_from_opb_ok]
+  >> simp [to_test_def, from_test_def, dest_tagged_def, to_from_opb_ok, nth_def]
 QED
 
 Theorem to_from_op_ok:
@@ -1104,7 +1109,7 @@ Proof
   (* a bit slow *)
   >> simp [from_op_def, to_op_def, dest_tagged_def, dest_atom_def,
            to_from_thunk_op_ok, to_from_test_ok, to_from_prim_type_ok,
-           to_from_arith_ok]
+           to_from_arith_ok, nth_def]
 QED
 
 Theorem to_from_ast_t_ok:
@@ -1114,7 +1119,7 @@ Proof
   ho_match_mp_tac ast_t_induction
   >> rpt strip_tac
   >> simp [from_ast_t_def, Once to_ast_t_def, dest_tagged_def, dest_atom_def,
-           dest_expr_def, to_from_id_ok]
+           dest_expr_def, to_from_id_ok, nth_def]
 QED
 
 Theorem to_from_pat_ok:
@@ -1123,7 +1128,7 @@ Theorem to_from_pat_ok:
 Proof
   ho_match_mp_tac pat_induction
   >> rw [from_pat_def, to_pat_def, dest_tagged_def, dest_atom_def,
-         dest_expr_def, to_from_lit_ok, to_from_ast_t_ok]
+         dest_expr_def, to_from_lit_ok, to_from_ast_t_ok, nth_def]
   >> irule to_from_option_some
   >> simp [to_from_id_ok]
 QED
@@ -1138,7 +1143,7 @@ Theorem to_from_locs_ok:
   to_locs (from_locs locs) = SOME locs
 Proof
   Cases_on ‘locs’
-  >> simp [from_locs_def, to_locs_def, dest_tagged_def, to_from_int_pair_ok]
+  >> simp [from_locs_def, to_locs_def, dest_tagged_def, to_from_int_pair_ok, nth_def]
 QED
 
 Theorem to_from_exp_ok:
@@ -1152,7 +1157,7 @@ Proof
   >> simp [from_exp_def, Once to_exp_def, dest_tagged_def,
            dest_expr_def, dest_atom_def, to_from_id_ok, to_from_lit_ok,
            to_from_op_ok, to_from_lop_ok, to_from_ast_t_ok, to_from_locs_ok,
-           to_from_pat_ok]
+           to_from_pat_ok, nth_def]
   >- (irule to_from_option_some >> simp [to_from_id_ok])
   >- (irule to_from_option_some >> simp [dest_atom_def])
   >> irule opt_mmap_map_some >> simp [dest_atom_def]
@@ -1163,14 +1168,14 @@ Theorem to_from_ctor_ok:
 Proof
   Cases_on ‘c’
   >> simp [from_ctor_def, to_ctor_def, dest_expr_def, dest_atom_def,
-           to_from_ast_t_ok]
+           to_from_ast_t_ok, nth_def]
 QED
 
 Theorem to_from_tdef_ok:
   to_tdef (from_tdef td) = SOME td
 Proof
   PairCases_on ‘td’
-  >> simp [from_tdef_def, to_tdef_def, dest_expr_def, dest_atom_def]
+  >> simp [from_tdef_def, to_tdef_def, dest_expr_def, dest_atom_def, nth_def]
   >> conj_tac
   >> irule opt_mmap_map_some
   >> simp [dest_atom_def, to_from_ctor_ok]
@@ -1190,7 +1195,7 @@ Theorem to_from_dec_ok:
 Proof
   ho_match_mp_tac dec_induction
   >> simp [from_dec_def, to_dec_def, dest_tagged_def, dest_expr_def,
-           dest_atom_def]
+           dest_atom_def, nth_def]
   >> simp [to_from_locs_ok, to_from_pat_ok, to_from_exp_ok,
            to_from_type_def_ok, to_from_ast_t_ok]
   >> irule opt_mmap_map_some >> simp [dest_atom_def]
