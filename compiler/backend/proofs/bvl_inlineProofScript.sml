@@ -923,17 +923,22 @@ Proof
   \\ imp_res_tac do_app_const \\ fs []
 QED
 
+Theorem exp_rel_LIST_REL:
+  ∀xs ys. LIST_REL (λx y. exp_rel cs [x] [y]) xs ys ⇒ exp_rel cs xs ys
+Proof
+  Induct \\ rw []
+  >- simp [Once exp_rel_cases]
+  \\ Cases_on ‘xs’ \\ gvs []
+  \\ simp [Once exp_rel_cases]
+QED
+
 Theorem exp_rel_refl:
    !cs xs. exp_rel cs xs xs
 Proof
-  qsuff_tac `(!e cs. exp_rel cs [e] [e]) /\
-             (!es cs. exp_rel cs es es)`
-  THEN1 metis_tac []
-  \\ ho_match_mp_tac bvlTheory.exp_induction \\ rw []
-  \\ once_rewrite_tac [exp_rel_cases] \\ fs []
-  \\ Cases_on `es` \\ fs []
-  \\ qpat_x_assum `!cs. exp_rel cs [e] [e]` (qspec_then `cs` mp_tac)
-  \\ simp [Once exp_rel_cases]
+  ‘∀e cs. exp_rel cs [e] [e]’
+    suffices_by (rw [] \\ irule exp_rel_LIST_REL \\ simp [EVERY2_refl])
+  \\ Induct \\ rw [] \\ simp [Once exp_rel_cases]
+  \\ irule exp_rel_LIST_REL \\ simp [EVERY2_refl]
 QED
 
 Theorem evaluate_inline:

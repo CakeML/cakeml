@@ -13,22 +13,25 @@ Theorem can_raise_thm:
   (∀es env s (s:('a,'b) state).
     evaluate (es,env,s) = (Rerr (Rraise a),r) ⇒ can_raise1 es)
 Proof
-  Induct
-  \\ fs [can_raise_def,evaluate_def,AllCaseEqs()]
+  ho_match_mp_tac can_raise_ind
+  \\ rw [can_raise_def]
+  \\ gvs [evaluate_def, AllCaseEqs()] \\ res_tac \\ fs []
+  >~ [‘do_app op _ _ = Rerr _’] >- (
+    gvs [do_app_def, AllCaseEqs()]
+    \\ gvs [do_install_def, AllCaseEqs()]
+    \\ rpt (pairarg_tac \\ gvs [AllCaseEqs()]))
+  \\ qpat_x_assum ‘evaluate (_::_,_,_) = _’ mp_tac
+  \\ simp [Once evaluate_CONS, AllCaseEqs()]
   \\ rw [] \\ res_tac \\ fs []
-  \\ pop_assum mp_tac
-  \\ simp [Once evaluate_CONS,AllCaseEqs()]
-  \\ rw [] \\ res_tac \\ fs []
-  \\ gvs [do_app_def,AllCaseEqs()]
-  \\ gvs [do_install_def,AllCaseEqs()]
-  \\ rw [] \\ rpt (pairarg_tac \\ fs [AllCaseEqs()])
 QED
 
 Theorem handle_adj_vars_0[simp]:
   (∀x l. handle_adj_vars l 0 x = x) ∧
   (∀x l. handle_adj_vars1 l 0 x = x)
 Proof
-  Induct \\ fs [handle_adj_vars_def]
+  ‘(∀l d x. d = 0 ⇒ handle_adj_vars l d x = x) ∧
+   (∀l d xs. d = 0 ⇒ handle_adj_vars1 l d xs = xs)’ suffices_by simp []
+  \\ ho_match_mp_tac handle_adj_vars_ind \\ rw [handle_adj_vars_def]
 QED
 
 Theorem evaluate_handle_adj_vars_lemma:
@@ -39,25 +42,36 @@ Theorem evaluate_handle_adj_vars_lemma:
      evaluate (handle_adj_vars1 (LENGTH xs) (LENGTH a) x,xs++(a ++ env),r) =
      evaluate (x,xs++env,r))
 Proof
-  Induct
-  >-
-   (fs [handle_adj_vars_def] \\ rw []
-    \\ fs [evaluate_def]
-    \\ asm_simp_tac std_ss [GSYM APPEND_ASSOC, EL_APPEND1, EL_APPEND2]
-    \\ rw [] \\ fs [NOT_LESS, EL_APPEND2])
-  \\ fs [evaluate_def,handle_adj_vars_def]
-  \\ rpt gen_tac
-  >-
-   (rpt (CASE_TAC \\ fs [])
-    \\ first_x_assum (qspec_then ‘a'++xs’ mp_tac)
-    \\ imp_res_tac evaluate_IMP_LENGTH \\ fs [])
-  >-
-   (rpt (CASE_TAC \\ fs [])
-    \\ first_x_assum (qspec_then ‘a'::xs’ mp_tac)
-    \\ imp_res_tac evaluate_IMP_LENGTH \\ fs [ADD1])
-  >-
-   (rw [] \\ gvs [EL_APPEND])
-  \\ once_rewrite_tac [evaluate_CONS] \\ fs []
+  ‘(∀l d x xs a env (r:('a,'b) state).
+      l = LENGTH xs ∧ d = LENGTH a ⇒
+      evaluate ([handle_adj_vars l d x],xs++(a ++ env),r) =
+      evaluate ([x],xs++env,r)) ∧
+   (∀l d x xs a env (r:('a,'b) state).
+      l = LENGTH xs ∧ d = LENGTH a ⇒
+      evaluate (handle_adj_vars1 l d x,xs++(a ++ env),r) =
+      evaluate (x,xs++env,r))’ suffices_by simp []
+  \\ ho_match_mp_tac handle_adj_vars_ind
+  \\ rw [handle_adj_vars_def]
+  \\ simp [evaluate_def]
+  >~ [‘evaluate ([handle_adj_vars (_ + _) _ _],_ ++ _,_)’] >- (
+    namedCases_on ‘evaluate (x,xs ++ env,r)’ ["res s1"]
+    \\ Cases_on ‘res’ \\ simp []
+    \\ rename1 ‘evaluate (x,xs ++ env,r) = (Rval vs,s1)’
+    \\ imp_res_tac evaluate_IMP_LENGTH
+    \\ qpat_x_assum ‘∀xs' a' env r. LENGTH xs + LENGTH x = _ ∧ _ ⇒ _’
+         (qspecl_then [‘vs ++ xs’, ‘a’] mp_tac)
+    \\ simp [])
+  >~ [‘evaluate ([handle_adj_vars (_ + 1) _ _],_::_,_)’] >- (
+    namedCases_on ‘evaluate ([x],xs ++ env,r)’ ["res s1"]
+    \\ Cases_on ‘res’ \\ simp []
+    \\ rename1 ‘Rerr err’ \\ Cases_on ‘err’ \\ simp []
+    \\ rename1 ‘Rraise exn’
+    \\ qpat_x_assum ‘∀xs' a' env r. LENGTH xs + 1 = _ ∧ _ ⇒ _’
+         (qspecl_then [‘exn::xs’, ‘a’] mp_tac)
+    \\ simp [ADD1])
+  >~ [‘evaluate (handle_adj_vars _ _ _ :: _,_,_)’] >- (
+    once_rewrite_tac [evaluate_CONS] \\ simp [])
+  \\ rw [] \\ gvs [EL_APPEND]
 QED
 
 Theorem evaluate_handle_adj_vars:
@@ -184,7 +198,7 @@ Definition handle_ok_def:
   (handle_ok [Force loc n] <=> T) ∧
   (handle_ok [Call ticks dest xs] <=> handle_ok xs)
 Termination
-  WF_REL_TAC `measure (exp1_size)`
+  WF_REL_TAC `measure (list_size exp_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
    \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
 End
@@ -819,10 +833,11 @@ Proof
 QED
 
 Theorem get_code_labels_handle_adj_vars[local]:
-  (∀x d l. get_code_labels (handle_adj_vars d l x) = get_code_labels x) ∧
-  (∀x d l. MAP get_code_labels (handle_adj_vars1 d l x) = MAP get_code_labels x)
+  (∀l d x. get_code_labels (handle_adj_vars l d x) = get_code_labels x) ∧
+  (∀l d xs. MAP get_code_labels (handle_adj_vars1 l d xs) = MAP get_code_labels xs)
 Proof
-  Induct \\ fs [handle_adj_vars_def]
+  ho_match_mp_tac handle_adj_vars_ind
+  \\ rw [handle_adj_vars_def]
 QED
 
 Theorem get_code_labels_handle_simp:

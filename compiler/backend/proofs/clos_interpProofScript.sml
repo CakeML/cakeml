@@ -1421,9 +1421,10 @@ Proof
     (∀x. can_interpret_list x ⇒ elist_globals x = {||} ∧ EVERY esgc_free x)’
   >- (rw [] \\ res_tac \\ fs [])
   \\ rpt $ pop_assum kall_tac
-  \\ Induct \\ fs [can_interpret_def]
+  \\ ho_match_mp_tac can_interpret_ind \\ fs [can_interpret_def]
   \\ Cases \\ fs [can_interpret_op_def,op_gbag_def]
-  \\ Cases_on `g` \\ fs [can_interpret_op_def,op_gbag_def]
+  \\ rename1 ‘GlobOp gop’
+  \\ Cases_on ‘gop’ \\ fs [can_interpret_op_def,op_gbag_def]
 QED
 
 Theorem elist_globals_insert_interp:

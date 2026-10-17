@@ -973,8 +973,6 @@ Definition encode_val_def:
   encode_val others = Other
 Termination
   WF_REL_TAC `measure v_size`
-  \\ rw []
-  \\ fs [MEM_SPLIT, SUM_APPEND, v_size_aux]
 End
 
 Theorem decode_test_simulation:
