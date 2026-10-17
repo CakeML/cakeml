@@ -9,7 +9,7 @@ Ancestors
   holKernelProof basisProg
   holAxiomsSyntax (* for setting up the context *)
   ml_hol_kernel_funsProg ml_hol_kernelProg (* for setting up the context *)
-  fromSexp patternMatches
+  patternMatches
 Libs
   preamble ml_translatorLib ml_progLib cfTacticsLib Satisfy
   basisFunctionsLib ml_monadStoreLib ml_monad_translatorLib

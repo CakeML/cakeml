@@ -73,9 +73,6 @@ Translate the compiler's register allocator.
 [riscvProgScript.sml](riscvProgScript.sml):
 Translate the RISC-V instruction encoder and RISC-V-specific config.
 
-[sexp_parserProgScript.sml](sexp_parserProgScript.sml):
-Translate the alternative s-expression parser.
-
 [to_bviProgScript.sml](to_bviProgScript.sml):
 Translate the backend phase from BVL to BVI.
 

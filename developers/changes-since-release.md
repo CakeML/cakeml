@@ -14,12 +14,25 @@ The monadic translator also has new support for space-efficient bool arrays repr
 
 The compiler now supports unsafe strsub (#1538).
 
+The S-expression representation of the AST was vastly simplified and **is not backwards-compatible**.
+It now follows the AST as close as possible.
+For example, `val (a, b) = (~1, 2)` is represented as
+```
+  ((Dlet NoLocs
+     (Pcon NONE ((Pvar a) (Pvar b)))
+     (Con NONE ((Lit (IntLit ~1)) (Lit (IntLit 2))))))
+```
+
 ## Basis library
 
 The shift and rotate functions `<<`, `>>`, `~>>` and `ror` in the `Word8` and
 `Word64` modules now take the shift amount as a word of the same size instead
 of an int, e.g. `Word8.<< : Word8.word -> Word8.word -> Word8.word` (#1500).
 Programs that call these functions with an int amount need to be updated.
+
+The modules Ast and AstSexp have been added.
+These modules provide the CakeML AST and functions to convert an ast
+to/from S-expression.
 
 ### List
 
@@ -128,6 +141,8 @@ Similarly, `rawBridgeProg` showcases `SocketIO`'s raw sockets.
 ## Build infrastructure
 
 ## Proof engineering and tooling
+
+Unused definitions and theorems were removed from misc. (#1499, #1489)
 
 ### New function for proving whole program correctness theorems
 

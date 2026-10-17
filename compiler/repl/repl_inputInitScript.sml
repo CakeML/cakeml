@@ -5,7 +5,7 @@
 *)
 Theory repl_inputInit
 Ancestors
-  repl_inputMetadata repl_inputInvariant repl_init_types astProg
+  repl_inputMetadata repl_inputInvariant repl_init_types AstProg
   typeSound inferSound inferProps envRel primSemEnv ml_prog ml_progProps
 Libs
   preamble finite_mapSyntax[qualified] semanticPrimitivesSyntax[qualified]

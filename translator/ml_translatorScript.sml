@@ -2364,7 +2364,7 @@ QED
 Theorem Eval_FLOAT_ABS:
   ∀f1.
     Eval env x1 (FLOAT64 f1) ⇒
-    Eval env (App (Arith Abs Float64T) [x1]) (FLOAT64 (float64_abs f1))
+    Eval env (App (Arith Absolute Float64T) [x1]) (FLOAT64 (float64_abs f1))
 Proof
   rw[Eval_rw, FLOAT64_def]
   \\ first_x_assum (qspec_then `refs` strip_assume_tac)

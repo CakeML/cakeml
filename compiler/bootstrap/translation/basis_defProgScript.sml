@@ -3,7 +3,7 @@
 *)
 Theory basis_defProg[no_sig_docs]
 Ancestors
-  ml_translator sexp_parserProg
+  ml_translator decodeProg
 Libs
   preamble ml_translatorLib basis
 
@@ -16,4 +16,3 @@ val _ = print "About to translate basis (this takes some time) ";
 val res = translate basisProgTheory.basis_def;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
-
