@@ -145,3 +145,4 @@ val r = translate miscTheory.append_def;
 val _ = ml_prog_update close_local_blocks;
 
 val _ = (print_asts := true);
+

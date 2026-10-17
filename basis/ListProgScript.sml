@@ -3,7 +3,6 @@
 *)
 Theory ListProg
 Ancestors
-  std_prelude  (* for el_thm *)
   mergesort std_prelude mllist ml_translator OptionProg
 Libs
   preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
@@ -64,25 +63,15 @@ val result = translate LAST_DEF;
 val _ = next_ml_names := ["getItem"];
 val result = translate mllistTheory.getItem_def;
 
-(* analogous to EL in UnsafeProg + decProg *)
 Theorem nth_thm[local]:
-  ∀n h t. mllist$nth (h::t) n = if n = 0 then h else mllist$nth t (n - 1)
+  mllist$nth l 0 = HD l ∧
+  mllist$nth l (SUC n) = mllist$nth (TL l) n
 Proof
-  Cases >> rw [nth_def]
+  gvs [mllistTheory.nth_def,listTheory.EL]
 QED
 
-val _ = next_ml_names := ["nth"];
 val result = translate nth_thm;
-val nth_side_def = theorem "nth_side_def";
-
-Theorem nth_side[local]:
-  ∀n xs. nth_side xs n ⇔ n < LENGTH xs
-Proof
-  Induct >> Cases
-  >> once_rewrite_tac [nth_side_def]
-  >> fs [CONTAINER_def]
-QED
-val _ = nth_side |> update_precondition
+val nth_side_def = theorem"nth_side_def";
 
 val result = translate (TAKE_def |> REWRITE_RULE[GSYM take_def]);
 val result = translate (DROP_def |> REWRITE_RULE[GSYM drop_def]);
@@ -325,6 +314,12 @@ val last_side_def = Q.prove(
   `!xs. last_side xs = ~(xs = [])`,
   Induct THEN ONCE_REWRITE_TAC [fetch "-" "last_side_def"]
   THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
+  |> update_precondition;
+
+val nth_side_def = Q.prove(
+  `!n xs. nth_side xs n = (n < LENGTH xs)`,
+  Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "nth_side_def"]
+  THEN fs[CONTAINER_def])
   |> update_precondition;
 
 Theorem LUPDATE_ind:

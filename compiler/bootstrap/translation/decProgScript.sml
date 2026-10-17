@@ -14,25 +14,6 @@ open repl_init_envProgTheory;
 
 val _ = translation_extends "repl_init_envProg";
 
-(* same as in UnsafeProg *)
-Theorem el_thm:
-  ∀n h t. EL n (h::t) = if n = 0 then h else EL (n - 1) t
-Proof
-  Cases >> rw []
-QED
-
-val _ = next_ml_names := ["el"];
-val r = translate el_thm;
-
-Theorem el_side[local]:
-  ∀n xs. el_side n xs ⇔ n < LENGTH xs
-Proof
-  Induct >> Cases
-  >> once_rewrite_tac [fetch "-" "el_side_def"]
-  >> fs [CONTAINER_def]
-QED
-val _ = update_precondition el_side
-
 Theorem IsTypeRep_LIST_v = fetch_v_fun “:'a list” |> snd |> hd;
 
 Theorem IsTypeRep_DEC_v:

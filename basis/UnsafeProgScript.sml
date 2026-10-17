@@ -50,24 +50,4 @@ val _ = (next_ml_names := ["vsub"]);
 val _ = translate vsub_def;
 val _ = update_precondition (fetch "-" "vsub_side_def");
 
-(* same as in decProg *)
-Theorem el_thm:
-  ∀n h t. EL n (h::t) = if n = 0 then h else EL (n - 1) t
-Proof
-  Cases >> rw []
-QED
-
-val _ = next_ml_names := ["el"];
-val r = translate el_thm;
-
-Theorem el_side[local]:
-  ∀n xs. el_side n xs ⇔ n < LENGTH xs
-Proof
-  Induct >> Cases
-  >> once_rewrite_tac [fetch "-" "el_side_def"]
-  >> fs [CONTAINER_def]
-QED
-val _ = update_precondition el_side
-
-
 val _ = ml_prog_update (close_module NONE);

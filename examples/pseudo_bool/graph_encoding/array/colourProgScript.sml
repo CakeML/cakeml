@@ -756,7 +756,11 @@ Proof
   Cases_on `cl` >- fs[wfcl_def] >>
   fs[]>>xif
   >- (
-    xlet_autop>>
+    xlet_auto
+    >- (
+      xsimpl>>
+      simp[npbc_arrayProgTheory.el_side_def]>>
+      CCONTR_TAC>>gvs[])>>
     xapp>>xsimpl>>
     rpt(first_x_assum (irule_at Any)>>xsimpl)>>
     gvs[LENGTH_EQ_1,wfcl_def]>>
@@ -764,7 +768,12 @@ Proof
   xlet_autop>>
   xif
   >- (
-    rpt xlet_autop>>
+    rpt (xlet_auto
+    >- (
+      xsimpl>>
+      simp[npbc_arrayProgTheory.el_side_def]>>
+      rw[]>>gvs[ADD1]>>
+      CCONTR_TAC>>gvs[quantHeuristicsTheory.CONS_EQ_REWRITE]))>>
     xapp>>xsimpl>>
     rpt(first_x_assum (irule_at Any)>>xsimpl)>>
     gvs[LENGTH_EQ_4,wfcl_def]>>
