@@ -5,7 +5,7 @@ Theory flat_patternProof
 Libs
   preamble bagSimps[qualified] induct_tweakLib[qualified]
 Ancestors
-  flat_pattern misc[qualified] ffi[qualified] bag[qualified]
+  flat_pattern misc[qualified]
   flatProps backendProps backend_common[qualified]
   pattern_semantics
   semanticPrimitives semanticPrimitivesProps flatLang
@@ -914,7 +914,7 @@ QED
 Theorem simple_val_rel:
   simple_val_rel v_rel
 Proof
-  simp [simple_val_rel_def, v_rel_cases]
+  simp [flatPropsTheory.simple_val_rel_def, v_rel_cases]
   \\ rw [] \\ simp []
   \\ EQ_TAC \\ rw [] \\ fs []
   \\ metis_tac [simple_val_rel_step_isClosure]

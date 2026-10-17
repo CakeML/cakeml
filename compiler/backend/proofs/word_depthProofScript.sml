@@ -4,7 +4,7 @@
 *)
 Theory word_depthProof
 Ancestors
-  wordLang wordSem wordProps word_depth backendProps
+  wordSem wordProps word_depth backendProps
 Libs
   preamble
 

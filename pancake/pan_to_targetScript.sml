@@ -18,7 +18,7 @@ End
 Definition compile_prog_def:
   compile_prog asm_conf c prog =
     (* Ensure either user-written main or new main that does nothing is first in func list *)
-    let prog1:'a decl list = case SPLITP (λx. case x of
+    let prog1:decl list = case SPLITP (λx. case x of
                                    Function fi => fi.name = «main»
                                  | _ => F) prog of
                   ([],ys) => ys
@@ -27,7 +27,7 @@ Definition compile_prog_def:
                                  ; inline := F
                                  ; export := F
                                  ; params := []
-                                 ; body := Return (Const 0w)
+                                 ; body := Return (Const 0)
                                  ; return := One
                                 |>
                                 ::xs
@@ -50,7 +50,7 @@ End
 Theorem compile_prog_eq:
   compile_prog asm_conf c prog =
     (* Ensure either user-written main or new main that does nothing is first in func list *)
-    let prog1:'a decl list = case SPLITP (λx. case x of
+    let prog1:decl list = case SPLITP (λx. case x of
                                    Function fi => fi.name = «main»
                                  | _ => F) prog of
                   ([],ys) => ys
@@ -59,7 +59,7 @@ Theorem compile_prog_eq:
                                  ; inline := F
                                  ; export := F
                                  ; params := []
-                                 ; body := Return (Const 0w)
+                                 ; body := Return (Const 0)
                                  ; return := One
                                 |>
                                 ::xs

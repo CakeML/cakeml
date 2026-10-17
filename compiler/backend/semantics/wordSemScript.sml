@@ -12,6 +12,45 @@ Ancestors
   machine_ieee[qualified] (* for FP *)
   backend_common (* for word_add_carry *)
 
+Definition word_op_def:
+  word_op op (ws:('a word) list) =
+    case (op,ws) of
+    | (And,ws) => SOME (FOLDR word_and (¬0w) ws)
+    | (Add,ws) => SOME (FOLDR word_add 0w ws)
+    | (Or,ws) => SOME (FOLDR word_or 0w ws)
+    | (Xor,ws) => SOME (FOLDR word_xor 0w ws)
+    | (Sub,[w1;w2]) => SOME (w1 - w2)
+    | _ => NONE
+End
+
+Definition word_sh_def:
+  word_sh sh (w:'a word) n =
+    if n <> 0 /\ n ≥ dimindex (:α) then NONE else
+      case sh of
+      | Lsl => SOME (w << n)
+      | Lsr => SOME (w >>> n)
+      | Asr => SOME (w >> n)
+      | Ror => SOME (word_ror w n)
+End
+
+Definition upper_w2w_def:
+  upper_w2w (w:'a word) =
+    if dimindex (:'a) = 32 then w2w w << 32 else (w2w w):word64
+End
+
+Definition word_add_carry_def:
+  word_add_carry (l: α word) (r: α word) (c: α word) : (α word # α word) =
+  let
+    res = w2n l + w2n r + (if c = 0w then 0 else 1)
+  in
+    (n2w res, if dimword(:α) ≤ res then 1w else 0w)
+End
+
+
+Datatype:
+  word_loc = Word ('a word) | Loc num num
+End
+
 Datatype:
   buffer =
     <| position   : 'a word
@@ -214,15 +253,15 @@ Datatype:
      ; mdomain : ('a word) set
      ; sh_mdomain : ('a word) set
      ; permute : num -> num -> num (* sequence of bijective mappings *)
-     ; compile : 'c -> (num # num # 'a wordLang$prog # metadata) list -> (word8 list # 'a word list # 'c) option
-     ; compile_oracle : num -> 'c # (num # num # 'a wordLang$prog # metadata) list
+     ; compile : 'c -> (num # num # wordLang$prog # metadata) list -> (word8 list # 'a word list # 'c) option
+     ; compile_oracle : num -> 'c # (num # num # wordLang$prog # metadata) list
      ; code_buffer : ('a,8) buffer
      ; data_buffer : ('a,'a) buffer
      ; gc_fun  : 'a gc_fun_type
      ; handler : num (*position of current handle frame on stack*)
      ; clock   : num
      ; termdep : num (* count of how many MustTerminates we can still enter *)
-     ; code    : (num # ('a wordLang$prog) # metadata) num_map
+     ; code    : (num # (wordLang$prog) # metadata) num_map
      ; be      : bool (*is big-endian*)
      ; ffi     : 'ffi ffi_state |>
 End
@@ -339,7 +378,7 @@ Definition set_store_def:
 End
 
 Definition word_exp_def:
-  (word_exp ^s (Const w) = SOME (Word w)) /\
+  (word_exp ^s (Const i) = SOME (Word (i2w i))) /\
   (word_exp s (Var v) = get_var v s) /\
   (word_exp s (Lookup name) = get_store name s) /\
   (word_exp s (Load addr) =
@@ -355,7 +394,7 @@ Definition word_exp_def:
      | (SOME (Word w), SOME (Word w1)) => OPTION_MAP Word (word_sh sh w (w2n w1))
      | _ => NONE)
 Termination
-  WF_REL_TAC `measure (exp_size ARB o SND)`
+  WF_REL_TAC `measure (exp_size o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ DECIDE_TAC
@@ -523,7 +562,7 @@ Definition push_env_def:
       s with <| stack := stack
               ; stack_max := OPTION_MAP2 MAX s.stack_max (stack_size stack)
               ; permute := permute|>) ∧
-  (push_env envs (SOME (w:num,h:'a wordLang$prog,l1,l2)) s =
+  (push_env envs (SOME (w:num,h:wordLang$prog,l1,l2)) s =
     let l0 = toAList (FST envs);
         (l,permute) = env_to_list (SND envs) s.permute;
         handler = SOME (s.handler,l1,l2);
@@ -675,7 +714,7 @@ Definition alloc_def:
     | NONE => (SOME (Error:'a result),flush_state T s)
     | SOME envs =>
      (* perform garbage collection *)
-     (case gc (push_env envs (NONE:(num # 'a wordLang$prog # num # num) option) (set_store AllocSize (Word w) s)) of
+     (case gc (push_env envs (NONE:(num # wordLang$prog # num # num) option) (set_store AllocSize (Word w) s)) of
       | NONE => (SOME Error,flush_state T s)
       | SOME s =>
        (* restore local variables *)
@@ -717,15 +756,15 @@ Definition inst_def:
   inst i ^s =
     case i of
     | Skip => SOME s
-    | Const reg w => assign reg (Const (i2w w)) s
+    | Const reg j => assign reg (Const j) s
     | Arith (Binop bop r1 r2 ri) =>
         assign r1
           (Op bop [Var r2; case ri of Reg r3 => Var r3
-                                    | Imm w => Const (i2w w)]) s
+                                    | Imm i => Const i]) s
     | Arith (Shift sh r1 r2 ri) =>
         assign r1
           (Shift sh (Var r2) (case ri of Reg r3 => Var r3
-                                       | Imm w => Const (i2w w))) s
+                                       | Imm i => Const i)) s
     | Arith (Div r1 r2 r3) =>
        (let vs = get_vars[r3;r2] s in
        case vs of
@@ -793,14 +832,14 @@ Definition inst_def:
               else NONE
         | _ => NONE)
     | Mem Load r (Addr a w) =>
-       (case word_exp s (Op Add [Var a; Const (i2w w)]) of
+       (case word_exp s (Op Add [Var a; Const w]) of
         | SOME (Word w) =>
            (case mem_load w s of
             | NONE => NONE
             | SOME w => SOME (set_var r w s))
         | _ => NONE)
     | Mem Load8 r (Addr a w) =>
-       (case word_exp s (Op Add [Var a; Const (i2w w)]) of
+       (case word_exp s (Op Add [Var a; Const w]) of
         | SOME (Word w) =>
            (case mem_load_byte_aux s.memory s.mdomain s.be w of
             | NONE => NONE
@@ -808,21 +847,21 @@ Definition inst_def:
         | _ => NONE)
     | Mem Load16 _ _ => NONE
     | Mem Load32 r (Addr a w) =>
-       (case word_exp s (Op Add [Var a; Const (i2w w)]) of
+       (case word_exp s (Op Add [Var a; Const w]) of
         | SOME (Word w) =>
            (case mem_load_32 s.memory s.mdomain s.be w of
             | NONE => NONE
             | SOME w => SOME (set_var r (Word (w2w w)) s))
         | _ => NONE)
     | Mem Store r (Addr a w) =>
-       (case (word_exp s (Op Add [Var a; Const (i2w w)]), get_var r s) of
+       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME (Word a), SOME w) =>
             (case mem_store a w s of
              | SOME s1 => SOME s1
              | NONE => NONE)
         | _ => NONE)
     | Mem Store8 r (Addr a w) =>
-       (case (word_exp s (Op Add [Var a; Const (i2w w)]), get_var r s) of
+       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME (Word a), SOME (Word w)) =>
             (case mem_store_byte_aux s.memory s.mdomain s.be a (w2w w) of
              | SOME new_m => SOME (s with memory := new_m)
@@ -830,7 +869,7 @@ Definition inst_def:
         | _ => NONE)
     | Mem Store16 _ _ => NONE
     | Mem Store32 r (Addr a w) =>
-       (case (word_exp s (Op Add [Var a; Const (i2w w)]), get_var r s) of
+       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME (Word a), SOME (Word w)) =>
             (case mem_store_32 s.memory s.mdomain s.be a (w2w w) of
              | SOME new_m => SOME (s with memory := new_m)
@@ -1072,7 +1111,7 @@ Proof
 QED
 
 Definition evaluate_def:
-  (evaluate (Skip:'a wordLang$prog,^s) = (NONE,s)) /\
+  (evaluate (Skip:wordLang$prog,^s) = (NONE,s)) /\
   (evaluate (Alloc n names,s) =
      case get_var n s of
      | SOME (Word w) => alloc w names s
@@ -1083,7 +1122,7 @@ Definition evaluate_def:
         (if ~ const_addresses a words s.mdomain then
            (SOME Error,s)
          else
-           let s = s with memory := const_writes a off words s.memory in
+           let s = s with memory := const_writes a off (MAP (λ(b,i). (b,i2w i)) words) s.memory in
            let s = set_var offset (Word off) (unset_var t1 (unset_var t2 s)) in
              (NONE, set_var addr (Word (a + bytes_in_word * n2w (LENGTH words))) s))
      | _ => (SOME Error,s)) /\
@@ -1301,7 +1340,7 @@ Definition evaluate_def:
                            | (SOME (Continue _),s) => (SOME Error,s)
                            | res => res)))
 Termination
-  WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure (prog_size (K 0)))
+  WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure prog_size)
                (\(xs,^s). (s.termdep,s.clock,xs)))`
   \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
   \\ full_simp_tac(srw_ss())[termdep_rw,STOP_def]

@@ -5,7 +5,7 @@
 Theory backend_asm
 Ancestors
   backend lab_to_target backend_enc_dec backend_passes
-  evaluate_dec
+  ml_prog
 Libs
   preamble
 
@@ -132,7 +132,7 @@ Definition lab_to_target_def:
 End
 
 Definition attach_bitmaps_def:
-  attach_bitmaps (c:config) data (SOME (code_bytes,c')) =
+  attach_bitmaps (c:config) (data:num list) (SOME (code_bytes:word8 list,c')) =
     (let ffi_names = ffinames_to_string_list (the [] c'.ffi_names) in
      let syms = c'.sec_pos_len
      in
@@ -154,10 +154,10 @@ End
  *----------------------------------------------------------------*)
 
 Definition from_stack_def:
-  from_stack (asm_conf :asm_config) (c :config) p (bm:'a word list) =
+  from_stack (asm_conf :asm_config) (c :config) p (bm:num list) =
     let p = stack_to_lab$compile
       (arch_wordsize asm_conf.ISA) c.stack_conf c.data_conf
-      (&(2 * max_heap_limit (dimindex (:'a)) c.data_conf - 1))
+      (&(2 * max_heap_limit (isa_bits asm_conf) c.data_conf - 1))
       (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs +3))
       (asm_conf.addr_offset) p in
     from_lab asm_conf c p bm
@@ -172,7 +172,7 @@ End
 
 Definition word_alloc_inlogic_def:
   word_alloc_inlogic c prog col_opt =
-    let tree = get_clash_tree prog [] in
+    let tree = get_clash_tree (isa_bits c) prog [] in
     let forced = get_forced c prog [] in
       oracle_colour_ok (c.reg_count − (5 + LENGTH c.avoid_regs))
                        col_opt tree prog forced
@@ -181,16 +181,16 @@ End
 Definition each_inlogic_def:
   each_inlogic asm_conf [] = SOME [] ∧
   each_inlogic asm_conf (((name_num,arg_count,prog,md),col_opt)::rest) =
-   let prog = compile_exp prog;
-       maxv = max_var prog + 1;
-       inst_prog = inst_select asm_conf maxv prog;
-       ssa_prog = full_ssa_cc_trans arg_count inst_prog;
-       rm_ssa_prog = remove_dead_prog ssa_prog;
+   let prog = compile_exp (isa_bits asm_conf) prog;
+       maxv = max_var (isa_bits asm_conf) prog + 1;
+       inst_prog = inst_select (isa_bits asm_conf) asm_conf maxv prog;
+       ssa_prog = full_ssa_cc_trans (isa_bits asm_conf) arg_count inst_prog;
+       rm_ssa_prog = remove_dead_prog (isa_bits asm_conf) ssa_prog;
        cse_prog = word_common_subexp_elim rm_ssa_prog;
        cp_prog = copy_prop cse_prog;
        two_prog = three_to_two_reg_prog asm_conf.two_reg_arith cp_prog;
        unreach_prog = remove_unreach two_prog;
-       rm_prog = remove_dead_prog unreach_prog;
+       rm_prog = remove_dead_prog (isa_bits asm_conf) unreach_prog;
    in
      case word_alloc_inlogic asm_conf rm_prog col_opt
      of NONE => NONE
@@ -352,7 +352,7 @@ Definition to_word_all_def:
             <|has_fp_ops := (1 < asm_conf.fp_reg_count);
               has_fp_tern :=
                 (asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count)|> in
-    let p = stubs_md (:α) data_conf ++ MAP (compile_part data_conf) p in
+    let p = stubs_md data_conf ++ MAP (compile_part data_conf) p in
     let ps = ps ++ [(«after data_to_word»,Word p)] in
     let (p,ps) = word_internal_all asm_conf ps p in
     let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
@@ -366,7 +366,7 @@ Definition to_word_all_def:
                   | SOME x => x),md))) (ZIP (p,n_oracles)) in
     let ps = ps ++ [(«after word_alloc (and remove_must_terminate)»,Word p)] in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
-      ((ps: (mlstring # 'a any_prog) list),c,p)
+      ((ps: (mlstring # any_prog) list),c,p)
 End
 
 Definition to_stack_all_def:
@@ -375,7 +375,7 @@ Definition to_stack_all_def:
     let (bm,c',fs,p) = word_to_stack$compile asm_conf c.stack_conf.perf_calls p in
     let ps = ps ++ [(«after word_to_stack»,Stack p)] in
     let c = c with word_conf := c' in
-      ((ps: (mlstring # 'a any_prog) list),bm,c,p)
+      ((ps: (mlstring # any_prog) list),bm,c,p)
 End
 
 Definition to_lab_all_def:
@@ -383,7 +383,7 @@ Definition to_lab_all_def:
     let (ps,bm,c,p) = to_stack_all asm_conf c p in
     let stack_conf = c.stack_conf in
     let data_conf = c.data_conf in
-    let max_heap = &(2 * max_heap_limit (dimindex (:'a)) c.data_conf - 1) in
+    let max_heap = &(2 * max_heap_limit (isa_bits asm_conf) c.data_conf - 1) in
     let sp = asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3) in
     let offset = asm_conf.addr_offset in
     let prog = stack_rawcall$compile p in
@@ -398,12 +398,12 @@ Definition to_lab_all_def:
     let ps = ps ++ [(«after stack_names»,Stack prog)] in
     let p = MAP prog_to_section prog in
     let ps = ps ++ [(«after stack_to_lab»,Lab p)] in
-      ((ps: (mlstring # 'a any_prog) list),bm:'a word list,c,p)
+      ((ps: (mlstring # any_prog) list),bm:num list,c,p)
 End
 
 Definition compile_cake_explore_def:
-  compile_cake_explore (:'a) (asm_conf :asm_config) (c :config) p =
-    let (ps:(mlstring # 'a any_prog) list,bm,c,p) =
+  compile_cake_explore (asm_conf :asm_config) (c :config) p =
+    let (ps:(mlstring # any_prog) list,bm:num list,c,p) =
         to_lab_all asm_conf c p in
     let p = filter_skip p in
     let ps = ps ++ [(«after filter_skip»,Lab p)] in

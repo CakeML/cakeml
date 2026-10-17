@@ -39,9 +39,9 @@
 *)
 Theory clos_to_bvl
 Ancestors
-  backend_common clos_mti[qualified] clos_call[qualified]
+  clos_mti[qualified] clos_call[qualified]
   clos_known[qualified] clos_number[qualified]
-  clos_annotate[qualified] bvl_jump closLang bvl
+  clos_annotate[qualified] bvl_jump closLang
 Libs
   preamble
 

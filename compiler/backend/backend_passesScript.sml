@@ -4,7 +4,7 @@
 *)
 Theory backend_passes
 Ancestors
-  backend presLang
+  backend
 Libs
   preamble
 
@@ -16,7 +16,7 @@ Datatype:
            | Bvl ((num # num # bvl$exp # metadata) list)
            | Bvi ((num # num # bvi$exp # metadata) list)
            | Data ((num # num # dataLang$prog # metadata) list)
-           | Word ((num # num # α wordLang$prog # metadata) list)
+           | Word ((num # num # wordLang$prog # metadata) list)
            | Stack ((num # stackLang$prog # metadata) list)
            | Lab (sec list)
 End
@@ -29,6 +29,8 @@ Definition to_flat_all_def:
     let ps = ps ++ [(«after source_dce»,Source p)] in
     let p = source_let$compile_decs p in
     let ps = ps ++ [(«after source_let»,Source p)] in
+    let p = source_lift_consts$compile_decs p in
+    let ps = ps ++ [(«after source_lift_consts»,Source p)] in
     let (c',p) = source_to_flat$compile_prog c.source_conf p in
     let ps = ps ++ [(«after source_to_flat»,Flat p)] in
     let p = flat_ticks$remove_ticks_decs p in
@@ -36,7 +38,7 @@ Definition to_flat_all_def:
     let p = MAP (flat_pattern$compile_dec c'.pattern_cfg) p in
     let ps = ps ++ [(«after flat_pattern»,Flat p)] in
     let c = c with source_conf := c' in
-      ((ps: (mlstring # 'a any_prog) list),c,p)
+      ((ps: (mlstring # any_prog) list),c,p)
 End
 
 Theorem to_flat_thm:
@@ -54,7 +56,7 @@ Definition to_clos_all_def:
     let (ps,c,p) = to_flat_all c p in
     let p = flat_to_clos$compile_prog p in
     let ps = ps ++ [(«after flat_to_clos»,Clos p [])] in
-      ((ps: (mlstring # 'a any_prog) list),c,p)
+      ((ps: (mlstring # any_prog) list),c,p)
 End
 
 Theorem to_clos_thm:
@@ -100,7 +102,7 @@ Definition to_bvl_all_def:
     let c2 = c1 with start := num_stubs c1.max_app − 1 in
     let p = code_sort prog' in
     let c = c with clos_conf := c2 in
-      ((ps: (mlstring # 'a any_prog) list),c,p)
+      ((ps: (mlstring # any_prog) list),c,p)
 End
 
 Theorem to_bvl_thm:
@@ -143,7 +145,7 @@ Definition to_bvi_all_def:
     let c = c with bvl_conf updated_by
       (λc. c with <| inlines := l; bvi_inlines := bl;
                     next_name1 := n1; next_name2 := n2; next_name3 := n3 |>) in
-     ((ps: (mlstring # 'a any_prog) list),c,p)
+     ((ps: (mlstring # any_prog) list),c,p)
 End
 
 Theorem to_bvi_thm:
@@ -174,7 +176,7 @@ Definition to_data_all_def:
     let ps = ps ++ [(«after data_simp»,Data p)] in
     let p = MAP (λ(a,n,e,md). (a,n,data_space$compile e,md)) p in
     let ps = ps ++ [(«after data_space»,Data p)] in
-      ((ps: (mlstring # 'a any_prog) list),c,p)
+      ((ps: (mlstring # any_prog) list),c,p)
 End
 
 Theorem to_data_thm:
@@ -194,17 +196,17 @@ Definition word_internal_all_def:
   word_internal_all asm_conf ps p =
     let two_reg_arith = asm_conf.two_reg_arith in
     let p = MAP (λ((name_num,arg_count,prog,md)).
-                  ((name_num,arg_count,word_simp$compile_exp prog,md))) p in
+                  ((name_num,arg_count,word_simp$compile_exp (isa_bits asm_conf) prog,md))) p in
     let ps = ps ++ [(«after word_simp»,Word p)] in
     let p = MAP (λ((name_num,arg_count,prog,md)).
                   ((name_num,arg_count,
-                     inst_select asm_conf (max_var prog + 1) prog,md))) p in
+                     inst_select (isa_bits asm_conf) asm_conf (max_var (isa_bits asm_conf) prog + 1) prog,md))) p in
     let ps = ps ++ [(«after word_inst»,Word p)] in
     let p = MAP (λ((name_num,arg_count,prog,md)).
-                  ((name_num,arg_count,full_ssa_cc_trans arg_count prog,md))) p in
+                  ((name_num,arg_count,full_ssa_cc_trans (isa_bits asm_conf) arg_count prog,md))) p in
     let ps = ps ++ [(«after word_ssa»,Word p)] in
     let p = MAP (λ((name_num,arg_count,prog,md)).
-                  ((name_num,arg_count,remove_dead_prog prog,md))) p in
+                  ((name_num,arg_count,remove_dead_prog (isa_bits asm_conf) prog,md))) p in
     let ps = ps ++ [(«after remove_dead in word_ssa»,Word p)] in
     let p = MAP (λ((name_num,arg_count,prog,md)).
                   ((name_num,arg_count,word_common_subexp_elim prog,md))) p in
@@ -220,7 +222,7 @@ Definition word_internal_all_def:
                   ((name_num,arg_count,remove_unreach prog,md))) p in
     let ps = ps ++ [(«after word_unreach»,Word p)] in
     let p = MAP (λ((name_num,arg_count,prog,md)).
-                  ((name_num,arg_count,remove_dead_prog prog,md))) p in
+                  ((name_num,arg_count,remove_dead_prog (isa_bits asm_conf) prog,md))) p in
     let ps = ps ++ [(«after remove_dead in word_alloc»,Word p)] in
     (p,ps)
 End
@@ -235,7 +237,7 @@ Definition to_word_all_def:
             <|has_fp_ops := (1 < asm_conf.fp_reg_count);
               has_fp_tern :=
                 (asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count)|> in
-    let p = stubs_md (:α) data_conf ++ MAP (compile_part data_conf) p in
+    let p = stubs_md data_conf ++ MAP (compile_part data_conf) p in
     let ps = ps ++ [(«after data_to_word»,Word p)] in
     let (p,ps) = word_internal_all asm_conf ps p in
     let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
@@ -244,10 +246,10 @@ Definition to_word_all_def:
     let p = MAP (λ((name_num,arg_count,prog,md),col_opt).
                   ((name_num,arg_count,
                    remove_must_terminate
-                     (word_alloc name_num asm_conf alg reg_count prog col_opt),md))) (ZIP (p,n_oracles)) in
+                     (word_alloc (isa_bits asm_conf) name_num asm_conf alg reg_count prog col_opt),md))) (ZIP (p,n_oracles)) in
     let ps = ps ++ [(«after word_alloc (and remove_must_terminate)»,Word p)] in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
-      ((ps: (mlstring # 'a any_prog) list),c,p)
+      ((ps: (mlstring # any_prog) list),c,p)
 End
 
 Theorem LENGTH_next_n_oracle:
@@ -288,7 +290,7 @@ Definition to_stack_all_def:
     let (bm,c',fs,p) = word_to_stack$compile asm_conf c.stack_conf.perf_calls p in
     let ps = ps ++ [(«after word_to_stack»,Stack p)] in
     let c = c with word_conf := c' in
-      ((ps: (mlstring # 'a any_prog) list),bm,c,p)
+      ((ps: (mlstring # any_prog) list),bm,c,p)
 End
 
 Theorem to_stack_thm:
@@ -304,7 +306,7 @@ Definition to_lab_all_def:
     let (ps,bm,c,p) = to_stack_all asm_conf c p in
     let stack_conf = c.stack_conf in
     let data_conf = c.data_conf in
-    let max_heap = &(2 * max_heap_limit (dimindex (:'a)) c.data_conf - 1) in
+    let max_heap = &(2 * max_heap_limit (isa_bits asm_conf) c.data_conf - 1) in
     let sp = asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3) in
     let offset = asm_conf.addr_offset in
     let prog = stack_rawcall$compile p in
@@ -319,7 +321,7 @@ Definition to_lab_all_def:
     let ps = ps ++ [(«after stack_names»,Stack prog)] in
     let p = MAP prog_to_section prog in
     let ps = ps ++ [(«after stack_to_lab»,Lab p)] in
-      ((ps: (mlstring # 'a any_prog) list),bm:'a word list,c,p:labLang$prog)
+      ((ps: (mlstring # any_prog) list),bm:num list,c,p:labLang$prog)
 End
 
 Theorem to_lab_thm:
@@ -336,7 +338,7 @@ Definition to_target_all_def:
     let p = filter_skip p in
     let ps = ps ++ [(«after filter_skip»,Lab p)] in
     let p = compile_lab asm_conf c.lab_conf p in
-      ((ps: (mlstring # 'a any_prog) list), attach_bitmaps c bm p)
+      ((ps: (mlstring # any_prog) list), attach_bitmaps c bm p)
 End
 
 Theorem to_target_thm:
@@ -348,11 +350,11 @@ Proof
 QED
 
 Definition from_lab_all_def:
-  from_lab_all ps asm_conf (c:config) p (bm:'a word list) =
+  from_lab_all ps asm_conf (c:config) p (bm:num list) =
     let p = filter_skip p in
     let ps = ps ++ [(«after filter_skip»,Lab p)] in
     let p = compile_lab asm_conf c.lab_conf p in
-      ((ps: (mlstring # 'a any_prog) list), attach_bitmaps c bm p)
+      ((ps: (mlstring # any_prog) list), attach_bitmaps c bm p)
 End
 
 Theorem from_lab_thm:
@@ -362,10 +364,10 @@ Proof
 QED
 
 Definition from_stack_all_def:
-  from_stack_all ps (asm_conf:asm_config) (c:config) p (bm:'a word list) =
+  from_stack_all ps (asm_conf:asm_config) (c:config) p (bm:num list) =
     let stack_conf = c.stack_conf in
     let data_conf = c.data_conf in
-    let max_heap = &(2 * max_heap_limit (dimindex (:'a)) c.data_conf - 1) in
+    let max_heap = &(2 * max_heap_limit (isa_bits asm_conf) c.data_conf - 1) in
     let sp = asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3) in
     let offset = asm_conf.addr_offset in
     let prog = stack_rawcall$compile p in
@@ -415,7 +417,7 @@ Definition from_word_0_all_def:
     let p = MAP (λ((name_num,arg_count,prog,md),col_opt).
                   ((name_num,arg_count,
                    remove_must_terminate
-                     (word_alloc name_num asm_conf alg reg_count prog col_opt),md))) (ZIP (p,n_oracles)) in
+                     (word_alloc (isa_bits asm_conf) name_num asm_conf alg reg_count prog col_opt),md))) (ZIP (p,n_oracles)) in
     let ps = ps ++ [(«after word_alloc (and remove_must_terminate)»,Word p)] in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
       from_word_all ps asm_conf c p
@@ -448,7 +450,7 @@ Definition from_data_all_def:
             <|has_fp_ops := (1 < asm_conf.fp_reg_count);
               has_fp_tern :=
                 (asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count)|> in
-    let p = stubs_md (:α) data_conf ++ MAP (compile_part data_conf) p in
+    let p = stubs_md data_conf ++ MAP (compile_part data_conf) p in
     let ps = ps ++ [(«after data_to_word»,Word p)] in
       from_word_0_all ps asm_conf c p
 End
@@ -479,7 +481,7 @@ Proof
 QED
 
 Theorem number_of_passes:
-  LENGTH (FST (to_target_all asm_conf c p)) = 42
+  LENGTH (FST (to_target_all asm_conf c p)) = 43
 Proof
   fs [to_target_all_def] \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [to_lab_all_def] \\ rpt (pairarg_tac \\ gvs [])

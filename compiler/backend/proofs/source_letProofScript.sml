@@ -4,7 +4,7 @@
 Theory source_letProof
 Ancestors
   source_let evaluate evaluateProps semanticPrimitives
-  semanticPrimitivesProps misc[qualified] semantics ast
+  semanticPrimitivesProps semantics ast
   source_evalProof
 Libs
   preamble

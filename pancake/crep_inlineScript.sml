@@ -190,7 +190,7 @@ End
  *)
 Definition inline_nontail_def:
   inline_nontail p rts temp_rets tmp_vars args args_vname =
-    nested_decs temp_rets (REPLICATE (LENGTH temp_rets) (Const 0w))
+    nested_decs temp_rets (REPLICATE (LENGTH temp_rets) (Const 0))
       (Seq
           (arg_load tmp_vars args args_vname p)
           (nested_seq (MAP2 Assign rts (MAP Var temp_rets)))
@@ -229,7 +229,7 @@ Definition inline_prog_def:
                          temp_rets = GENLIST (λx. SUC x + ret_max) (LENGTH rts); (* temporary variables to store to in the callee, avoid shadowing with call site *)
                          n_br = not_branch_ret inlined_callee; (* checks if return statements are inside branching primitives *)
                          transformed_callee = if n_br then (Seq Tick (transform_eoc temp_rets inlined_callee))
-                                                      else (While (Const 1w) (transform_branch 0 temp_rets inlined_callee)) in
+                                                      else (While (Const 1) (transform_branch 0 temp_rets inlined_callee)) in
                       inline_nontail transformed_callee rts temp_rets tmp_vars args args_vname)
                    | SOME w_hdl => (Call ctyp_inl e args)
                  )
@@ -248,7 +248,7 @@ Definition inline_prog_def:
   (inline_prog inlineable_fs (While e p) = While e (inline_prog inlineable_fs p)) ∧
   (inline_prog inlineable_fs p = p)
 Termination
-  wf_rel_tac `inv_image (measure I LEX measure (prog_size ARB)) (λ(x, y). (CARD (FDOM x), y))` >>
+  wf_rel_tac `inv_image (measure I LEX measure prog_size) (λ(x, y). (CARD (FDOM x), y))` >>
   rpt strip_tac >>
   disj1_tac >>
   gs[DRESTRICT_DEF, FLOOKUP_DEF] >>

@@ -3,7 +3,7 @@
 *)
 Theory gen_gc
 Ancestors
-  words integer_word gc_shared
+  gc_shared
 Libs
   preamble wordsLib
 

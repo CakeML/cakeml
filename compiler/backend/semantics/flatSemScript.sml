@@ -3,7 +3,7 @@
 *)
 Theory flatSem
 Ancestors
-  flatLang semanticPrimitivesProps fpSem[qualified] evaluate
+  flatLang semanticPrimitivesProps evaluate
 Libs
   preamble
 

@@ -72,9 +72,9 @@ Definition comp_syntax_ok_def:
 End
 
 Theorem evaluate_tail_calls_eqs:
-  !f t lc x.
+  !f (t:('a,'ffi) loopSem$state) lc x.
     find_code (SOME f) ([]:'a word_loc list) t.code = SOME x ==>
-    evaluate ((Call NONE (SOME f) [] NONE): 'a loopLang$prog, t) =
+    evaluate ((Call NONE (SOME f) [] NONE): loopLang$prog, t) =
     evaluate (Call NONE (SOME f) [] NONE, t with locals := lc)
 Proof
   rw [] >>

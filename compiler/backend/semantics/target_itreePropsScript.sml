@@ -3,8 +3,7 @@
 *)
 Theory target_itreeProps
 Ancestors
-  targetSem targetProps itree target_itreeSem itree_semantics
-  itree_semanticsProps
+  targetSem itree target_itreeSem itree_semantics itree_semanticsProps
 Libs
   preamble
 

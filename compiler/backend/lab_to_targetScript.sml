@@ -7,7 +7,7 @@
 *)
 Theory lab_to_target
 Ancestors
-  labLang lab_filter ffi
+  lab_filter ffi
 Libs
   preamble
 

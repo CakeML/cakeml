@@ -13,7 +13,7 @@
 *)
 Theory source_to_flat
 Ancestors
-  ast flatLang evaluate flat_ticks flat_pattern
+  ast flat_ticks flat_pattern
 Libs
   preamble
 

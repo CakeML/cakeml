@@ -10,7 +10,6 @@ Ancestors
 Libs
   preamble blastLib[qualified]
 
-
 Overload stack_remove_prog_comp[local] = ``stack_remove$prog_comp``
 Overload stack_alloc_prog_comp[local] = ``stack_alloc$prog_comp``
 Overload stack_names_prog_comp[local] = ``stack_names$prog_comp``
@@ -164,7 +163,7 @@ Proof
         gs[MEM_EL]>>
         first_x_assum $ qspec_then ‘n''''’ assume_tac>>
         gs[]>>pairarg_tac>>gs[])>>
-  drule (INST_TYPE [beta|->alpha] word_to_stackProofTheory.word_to_stack_compile_lab_pres)>>
+  drule (INST_TYPE [alpha|->“:ε”] word_to_stackProofTheory.word_to_stack_compile_lab_pres)>>
   disch_then $ qspec_then ‘mc.target.config’ assume_tac>>
   drule_all pan_to_stack_first_ALL_DISTINCT>>
   strip_tac>>gs[]>>
@@ -202,7 +201,7 @@ Theorem word_to_stack_good_code_lemma:
     (pan_to_word_compile_prog mc.target.config.ISA pan_code)) = (col,wprog) ∧
   mc.target.config.ISA ≠ Ag32 ∧
   word_to_stack_compile mc.target.config F
-    (wprog:(num # num # α wordLang$prog # metadata) list) = (bitmaps,c'',fs,p) ∧
+    (wprog:(num # num # wordLang$prog # metadata) list) = (bitmaps:num list,c'',fs,p) ∧
   isa_bits mc.target.config = dimindex (:α) ∧
   LENGTH mc.target.config.avoid_regs + 13 ≤ mc.target.config.reg_count ∧
   (* from backend_config_ok c *)
@@ -214,7 +213,8 @@ Proof
   gs[stack_to_labProofTheory.good_code_def]>>strip_tac>>
   qmatch_asmsub_abbrev_tac ‘word_to_word_compile _ _ (add_metadata _ wprog0) = _’>>
   qpat_x_assum ‘Abbrev (wprog0 = _)’ (assume_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def])>>
-  drule_at (Pat ‘word_to_word_compile _ _ _ = _’) pan_to_stack_compile_lab_pres>>
+  drule_at (Pat ‘word_to_word_compile _ _ _ = _’)
+    (INST_TYPE [alpha|->“:ε”,“:ε”|->alpha] pan_to_stack_compile_lab_pres)>>
   disch_then drule_all>>strip_tac>>gs[]>>
   drule backendProofTheory.compile_to_word_conventions2>>
   impl_tac
@@ -319,7 +319,7 @@ Definition pan_installed_def:
     Word (mc_conf.target.get_pc ms + n2w (LENGTH bytes)) ∧
     m (t.regs r1 + 4w * bytes_in_word) =
     Word (mc_conf.target.get_pc ms + n2w cbspace + n2w (LENGTH bytes)) ∧
-    (word_list bitmap_ptr (MAP Word bitmaps) *
+    (word_list bitmap_ptr (MAP (Word o n2w) bitmaps) *
      word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) data_sp)
     (fun2set (m,byte_aligned ∩ bitmaps_dm)) ∧
     ffi_names = SOME mc_conf.ffi_names ∧
@@ -1189,7 +1189,6 @@ Proof
   Cases_on ‘x’>>fs[]
 QED
 
-
 Theorem from_pan_to_lab_no_install:
   ALL_DISTINCT (MAP FST (functions pan_code)) ∧ ac.ISA ≠ Ag32 ∧
   pan_to_word_compile_prog isa pan_code = wprog0 ∧
@@ -1280,7 +1279,7 @@ QED
 
 (* resource_limit' *)
 Theorem pan_to_target_compile_semantics:
-  compile_prog_max c mc pan_code = (SOME (bytes, bitmaps, c'), stack_max) ∧
+  compile_prog_max c mc pan_code = (SOME (bytes, nbitmaps, c'), stack_max) ∧
   pancake_good_code pan_code ∧
   distinct_params (functions pan_code) ∧
   ALL_DISTINCT (MAP FST(functions pan_code)) ∧
@@ -1312,7 +1311,7 @@ Theorem pan_to_target_compile_semantics:
   w2n (bytes_in_word:'a word) * (2 * max_heap_limit (dimindex (:'a)) c.data_conf -1) < dimword (:'a) ∧
   s.ffi = ffi ∧ mc.target.config.big_endian = s.be ∧
   OPTION_ALL (EVERY $ \x. ∃s. x = ExtCall s) c.lab_conf.ffi_names ∧
-  pan_installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
+  pan_installed bytes cbspace nbitmaps data_sp c'.lab_conf.ffi_names
                 (heap_regs c.stack_conf.reg_names) mc
                 c'.lab_conf.shmem_extra ms
                 (wlab_wloc o s.memory)
@@ -1326,6 +1325,10 @@ Theorem pan_to_target_compile_semantics:
 Proof
 
   strip_tac>>
+  qabbrev_tac ‘bitmaps = MAP n2w nbitmaps : 'a word list’>>
+  ‘LENGTH bitmaps = LENGTH nbitmaps’ by simp[Abbr ‘bitmaps’]>>
+  ‘MAP (Word o n2w) nbitmaps = MAP Word bitmaps’
+    by simp[Abbr ‘bitmaps’, MAP_MAP_o]>>
   last_x_assum mp_tac>>
   rewrite_tac[compile_prog_max_def]>>
   rewrite_tac[backendTheory.from_stack_def]>>
@@ -1356,7 +1359,7 @@ Proof
   (* no_install_or_no_share_mem *)
   ‘no_install lprog’ by
     (fs[Abbr ‘lprog’]>>
-     irule from_pan_to_lab_no_install>>
+     irule (INST_TYPE [beta|->alpha] from_pan_to_lab_no_install)>>
      rpt (first_assum $ irule_at Any)>>
      metis_tac[mc_init_ok_def])>>
   ‘no_install_or_no_share_mem lprog mc.ffi_names’
@@ -1405,7 +1408,8 @@ Proof
 
   ‘good_code mc.target.config (LN:num sptree$num_map sptree$num_map) lprog’
     by (
-    irule (INST_TYPE [beta|-> ``:num``] pan_to_lab_good_code_lemma)>>
+    irule (pan_to_lab_good_code_lemma |>
+           Q.INST [‘pan_prog’ |-> ‘pan_code’])>>
     gs[]>>
     rpt (first_assum $ irule_at Any)>>
     qpat_x_assum ‘Abbrev (lprog = _)’
@@ -1415,7 +1419,8 @@ Proof
     qpat_x_assum ‘Abbrev (wprog0 = _)’
                  (assume_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def])>>
     (* labels_ok *)
-    drule_all pan_to_lab_labels_ok>>strip_tac>>gs[]>>
+    drule_all pan_to_lab_labels_ok>>
+    strip_tac>>gs[]>>
     (* all_enc_ok_pre mc.target.config lprog *)
     ‘byte_offset_ok mc.target.config 0’
       by gs[lab_to_targetProofTheory.mc_conf_ok_def]>>
@@ -1432,7 +1437,9 @@ Proof
      (* reshaping... *)
      gs[GSYM EVERY_CONJ]>>
      simp[LAMBDA_PROD]>>
-     ‘p = SND (SND (SND (word_to_stack_compile mc.target.config F wprog)))’
+     ‘p = SND (SND (SND (word_to_stack_compile mc.target.config F wprog :
+        num list # word_to_stack$config # num list #
+          (num # stackLang$prog # metadata) list)))’
        by gs[]>>
      pop_assum $ (fn h => rewrite_tac[h])>>
      irule word_to_stackProofTheory.word_to_stack_stack_asm_convs>>
@@ -1509,7 +1516,9 @@ Proof
         gs[Abbr ‘lorac’]>>
         drule backendProofTheory.byte_aligned_MOD>>gs[]>>
         strip_tac>>
-        drule_all word_to_stack_good_code_lemma>>
+        drule_all (INST_TYPE [beta|->alpha,gamma|->beta,
+                              “:δ”|->gamma,“:ε”|->alpha]
+                    word_to_stack_good_code_lemma)>>
         rw[]>>
         gs[stack_to_labProofTheory.good_code_def])>>
   gs[]>>
@@ -1531,6 +1540,7 @@ Proof
     rewrite_tac[Once UNION_COMM]>>
     irule miscTheory.fun2set_disjoint_union>>
     gs[]>>
+    simp[Abbr ‘bitmaps’, MAP_MAP_o]>>
     conj_tac >- (
       irule backendProofTheory.word_list_exists_imp>>
       gs[]>>
@@ -1586,7 +1596,7 @@ Proof
   (* word_to_stack *)
 
   (* instantiate / discharge *)
-  ‘FST (word_to_stack_compile mc.target.config F wprog) ≼ sst.bitmaps ∧
+  ‘MAP n2w (FST (word_to_stack_compile mc.target.config F wprog)) ≼ sst.bitmaps ∧
    sst.code = fromAList p’
     by (
     gs[stack_to_labProofTheory.full_make_init_def]>>
@@ -1607,16 +1617,17 @@ Proof
     gs[stack_removeProofTheory.make_init_opt_def]>>
     gs[stack_removeProofTheory.init_reduce_def]>>
     gs[stack_removeProofTheory.init_prop_def]>>
-    rveq>>gs[stackSemTheory.state_component_equality])>>
+    rveq>>gs[stackSemTheory.state_component_equality,Abbr ‘bitmaps’])>>
 
-  ‘sst.code = fromAList (SND (SND (SND (word_to_stack_compile mc.target.config F wprog))))’
+  ‘sst.code = fromAList (SND (SND (SND (word_to_stack_compile mc.target.config F wprog :
+      num list # word_to_stack$config # num list # (num # stackLang$prog # metadata) list))))’
     by gs[]>>
   drule_at Any word_to_stackProofTheory.compile_semantics>>
   gs[]>>
 
   ‘EVERY (λ(n,m,prog,md).
             flat_exp_conventions prog ∧
-            post_alloc_conventions
+            post_alloc_conventions (isa_bits mc.target.config)
             (mc.target.config.reg_count −
              (LENGTH mc.target.config.avoid_regs + 5)) prog) wprog’
     by (qpat_x_assum ‘EVERY _ wprog’ assume_tac>>
@@ -1630,7 +1641,7 @@ Proof
 
   ‘¬ NULL bitmaps ∧ HD bitmaps = 4w’
     by (drule word_to_stackProofTheory.compile_word_to_stack_bitmaps>>
-        strip_tac>>Cases_on ‘bitmaps’>>gs[])>>
+        strip_tac>>Cases_on ‘nbitmaps’>>gs[Abbr ‘bitmaps’])>>
   ‘ALOOKUP wprog raise_stub_location = NONE ∧
    ALOOKUP wprog store_consts_stub_location = NONE’
     by (
@@ -1659,11 +1670,12 @@ Proof
     MAP_EVERY qexists_tac [‘arch_wordsize mc.target.config.ISA’, ‘data_sp’, ‘c.data_conf’, ‘labst’, ‘max_heap’, ‘p’, ‘set mc.callee_saved_regs’,
                            ‘c.stack_conf’, ‘sp’, ‘mc.target.config.addr_offset’, ‘TL bitmaps’, ‘xxx’]>>
 
-    ‘4w::TL bitmaps = bitmaps’ by (rveq>>gs[]>>metis_tac[CONS])>>gs[]>>
+    ‘4w::TL bitmaps = bitmaps’ by (Cases_on ‘bitmaps’>>gs[])>>gs[]>>
     conj_tac >-
      (strip_tac>>gs[Abbr ‘worac’]>>strip_tac>>
       pop_assum kall_tac>>
-      pop_assum (fn h => once_rewrite_tac[GSYM h])>>gs[])>>
+      pop_assum (fn h => once_rewrite_tac[GSYM h])>>
+      gs[Abbr ‘bitmaps’]>>Cases_on ‘nbitmaps’>>gs[])>>
     gs[Abbr ‘worac’]>>
     qpat_x_assum ‘_ = (sst, SOME _)’ mp_tac>>
     gs[Abbr ‘lorac’]>>
@@ -1704,7 +1716,8 @@ Proof
   pop_assum $ irule_at Any>>
 
   (* word_to_word *)
-  drule (word_to_wordProofTheory.word_to_word_compile_semantics |> INST_TYPE [beta |-> “: num # lab_to_target$config”])>>
+  drule_at (Pat ‘word_to_word_compile _ _ _ = _’)
+    (word_to_wordProofTheory.word_to_word_compile_semantics |> INST_TYPE [beta |-> “: num # lab_to_target$config”])>>
 
   disch_then (qspecl_then [‘wst’, ‘InitGlobals_location’, ‘wst with code := fromAList (add_metadata empty_metadata
     (pan_to_word_compile_prog mc.target.config.ISA pan_code))’] mp_tac)>>
@@ -1939,7 +1952,7 @@ Proof
 
   ‘(w2n:'a word -> num) bytes_in_word = dimindex (:α) DIV 8’
     by fs[good_dimindex_def,bytes_in_word_def,dimword_def]>>
-  ‘sss.regs ' (sp + 2) = Word (s.base_addr) ∧
+  ‘sss.regs ' (sp + 2) = Word s.base_addr ∧
    sss.regs ' (sp + 1) = Word (mc.target.get_reg ms mc.ptr2_reg
                                + 48w * bytes_in_word:'a word) ∧
 
@@ -2386,7 +2399,7 @@ Proof
            (compile_prog mc.target.config F prog arg_count
             (mc.target.config.reg_count −
              (LENGTH mc.target.config.avoid_regs + 5))
-            (Nil,0)))) (fromAList (toAList (fromAList wprog)))’
+            (Nil:num app_list,0)))) (fromAList (toAList (fromAList wprog)))’
     by (irule EQ_TRANS>>
         irule_at Any (GSYM map_fromAList)>>
         gs[Abbr ‘f’]>>gs[LAMBDA_PROD])>>
@@ -2418,6 +2431,20 @@ Proof
   qpat_x_assum ‘_ ≤ max_heap’ assume_tac>>
   qpat_x_assum ‘max_heap * _ < _’ assume_tac>>
   blastLib.BBLAST_TAC>>
+  (* Keep the bounds and alignment facts for the stack-size arithmetic. *)
+  map_every (C qpat_x_assum mp_tac)
+    [`w3 ≤₊ w4 + -1w * (bytes_in_word * n2w max_stack_alloc)`,
+     `0 < dimindex (:'a) DIV 8`,
+     `aligned _ (-1w * w2 + w3)`,
+     `w2n (bytes_in_word:'a word) = dimindex (:'a) DIV 8`,
+     `w2n w2 < w2n w4`,
+     `byte_aligned w4`, `byte_aligned w2`,
+     `1024w * bytes_in_word ≤₊ -1w * w2 + w4`,
+     `w2 ≤₊ w4`,
+     `w2 + bytes_in_word * n2w max_stack_alloc ≤₊ w3`,
+     `w2n w2 < w2n w3`, `0 < w2n w2`,
+     `good_dimindex (:'a)`] >>
+  rpt (pop_assum kall_tac) >> rpt strip_tac >>
   rewrite_tac[SUC_ONE_ADD]>>
 
   rewrite_tac[Once (GSYM WORD_ADD_ASSOC)]>>
@@ -2488,7 +2515,7 @@ Proof
   fs[GSYM byte_aligned_def]>>
   drule_all (byte_aligned_MOD |> REWRITE_RULE[SPECIFICATION])>>strip_tac>>
   gs[MOD_EQ_0_DIVISOR]>>
-  simp[Q.SPECL [‘dimindex (:'a) DIV 8’, ‘0’] DIV_MULT |> SIMP_RULE (std_ss)[]]>>
+  simp[Q.SPECL [‘dimindex (:'a) DIV 8’, ‘0’] DIV_MULT |> SIMP_RULE std_ss[]]>>
 
   drule (iffLR WORD_LS)>>strip_tac>>
   gs[]>>
@@ -2519,7 +2546,7 @@ Proof
   qpat_x_assum ‘byte_aligned w4’ assume_tac>>
   drule_all (byte_aligned_MOD |> REWRITE_RULE[SPECIFICATION])>>strip_tac>>
   gs[MOD_EQ_0_DIVISOR]>>
-  simp[Q.SPECL [‘dimindex (:'a) DIV 8’, ‘0’] DIV_MULT |> SIMP_RULE (std_ss)[]]>>
+  simp[Q.SPECL [‘dimindex (:'a) DIV 8’, ‘0’] DIV_MULT |> SIMP_RULE std_ss[]]>>
 
   rewrite_tac[SUB_PLUS]>>
   rewrite_tac[SUB_RIGHT_ADD]>>

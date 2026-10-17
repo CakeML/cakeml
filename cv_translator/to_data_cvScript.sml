@@ -219,6 +219,318 @@ QED
 val _ = cv_trans (source_dceTheory.has_Denv_dec_def |> measure_args [0,0]);
 val _ = cv_trans source_dceTheory.compile_decs_def;
 
+(* source_lift_consts *)
+
+(* cv-friendly forms of the definitions in source_lift_consts *)
+
+Theorem maps_disjoint_FCARD[local]:
+  maps_disjoint fvs bound ⇔ FCARD (FINTER fvs bound) = 0
+Proof
+  simp [source_lift_constsTheory.maps_disjoint_def, FCARD_0_FEMPTY, FINTER_def,
+        source_lift_constsTheory.str_empty_def]
+  \\ metis_tac []
+QED
+
+Theorem bump_explode[local]:
+  bump x n = if "constant_" ≼ explode x then MAX n (LENGTH (explode x) + 1) else n
+Proof
+  Cases_on ‘x’ \\ simp [source_lift_constsTheory.bump_def, mlstringTheory.isprefix_thm]
+QED
+
+Definition every_tree_value_def:
+  every_tree_value [] = T ∧
+  every_tree_value (t::ts) = (tree_value t ∧ every_tree_value ts)
+End
+
+Definition fupdate_pairs_def:
+  fupdate_pairs m [] = m ∧
+  fupdate_pairs m ((k,v)::kvs) = fupdate_pairs (m |+ (k,v)) kvs
+End
+
+Definition fun_params_def:
+  fun_params [] = [] ∧
+  fun_params ((f,x,e:ast$exp)::funs) = x :: fun_params funs
+End
+
+Definition fun_heads_def:
+  fun_heads [] = [] ∧
+  fun_heads ((f,x,e:ast$exp)::funs) = (f,x) :: fun_heads funs
+End
+
+Definition pes_pats_def:
+  pes_pats [] = [] ∧
+  pes_pats ((p,e:ast$exp)::pes) = p :: pes_pats pes
+End
+
+Theorem lift_consts_list_thms[local]:
+  (∀ts. every_tree_value ts = EVERY tree_value ts) ∧
+  (∀kvs m. fupdate_pairs m kvs = m |++ kvs) ∧
+  (∀funs. fun_params funs = MAP (FST o SND) funs) ∧
+  (∀funs. fun_heads funs = MAP (λ(f,x,e). (f,x)) funs) ∧
+  (∀pes. pes_pats pes = MAP FST pes)
+Proof
+  rpt conj_tac \\ Induct
+  \\ simp [every_tree_value_def, fupdate_pairs_def, fun_params_def,
+           fun_heads_def, pes_pats_def, FUPDATE_LIST_THM, FORALL_PROD]
+QED
+
+(* lift_exp calls lower_exp on the same tree. Inlining lift_exp at each call
+   site gives a block whose recursive calls are all on smaller trees. *)
+
+Definition lift_now_def:
+  lift_now mode bound t ⇔
+    tree_value t ∧
+    (mode = LiftValues ∨ (mode = LiftFunctions ∧ is_Fun (tree_exp t))) ∧
+    maps_disjoint (tree_fvs t) bound ∧ ¬is_trivial (tree_exp t)
+End
+
+Definition pick_mode_def:
+  pick_mode mode bound t = if lift_now mode bound t then LiftFunctions else mode
+End
+
+Definition lift_finish_def:
+  lift_finish b r = if b then (case r of (e,st) => emit_value e st) else r
+End
+
+Theorem lift_exp_unfold[local]:
+  lift_exp mode bound ren st t =
+    lift_finish (lift_now mode bound t)
+      (lower_exp (pick_mode mode bound t) bound ren st t)
+Proof
+  Cases_on ‘t’
+  \\ simp [Once source_lift_constsTheory.lift_exp_def, lift_now_def,
+           pick_mode_def, lift_finish_def, source_lift_constsTheory.tree_exp_def,
+           source_lift_constsTheory.tree_fvs_def,
+           source_lift_constsTheory.tree_value_def]
+  \\ IF_CASES_TAC \\ simp [] \\ pairarg_tac \\ simp []
+QED
+
+Definition lower_alt_def:
+  (lower_alt mode bound ren st (Lift (Con cn es) fvs value children) =
+     let (es,st) = lifts_alt mode bound ren st children in
+       (Con cn es,st)) ∧
+  (lower_alt mode bound ren st (Lift (Fun x e) fvs value [body]) =
+     let bound = bound |+ (x,()) in
+     let ren = fdomsub ren x in
+     let (e,st) =
+       if is_Fun (tree_exp body) then lower_alt LiftValues bound ren st body
+       else lift_finish (lift_now LiftValues bound body)
+              (lower_alt (pick_mode LiftValues bound body) bound ren st body) in
+       (Fun x e,st)) ∧
+  (lower_alt mode bound ren st
+     (Lift (ast$Letrec funs e) fvs value (body::children)) =
+     let names = fun_names funs in
+       if mode ≠ KeepValue ∧ maps_disjoint fvs bound then
+         let (names1,st) = choose_names bound names st in
+         let ren = fupdate_pairs ren (ZIP (names,names1)) in
+         let bound = delete_all names bound in
+         let (funs1,st) = funs_alt (bind_all names bound) ren st
+           (ZIP (names1,fun_params funs)) children in
+         let st = emit_dec (Dletrec NoLocs funs1) st in
+           lift_finish (lift_now mode bound body)
+             (lower_alt (pick_mode mode bound body) bound ren st body)
+       else
+         let bound = bind_all names bound in
+         let ren = delete_all names ren in
+         let (funs1,st) = funs_alt bound ren st (fun_heads funs) children in
+         let (e,st) = lift_finish (lift_now mode bound body)
+                        (lower_alt (pick_mode mode bound body) bound ren st body) in
+           (Letrec funs1 e,st)) ∧
+  (lower_alt mode bound ren st (Lift (Var v) fvs value children) =
+     (Var (rename_var ren v),st)) ∧
+  (lower_alt mode bound ren st (Lift (ast$App op es) fvs value children) =
+     let mode = if allow_lift op es then mode else KeepValue in
+     let (es,st) = lifts_alt mode bound ren st children in
+       (App op es,st)) ∧
+  (lower_alt mode bound ren st (Lift (Log lop e1 e2) fvs value [a;b]) =
+     let (e1,st) = lift_finish (lift_now mode bound a)
+                     (lower_alt (pick_mode mode bound a) bound ren st a) in
+     let (e2,st) = lift_finish (lift_now mode bound b)
+                     (lower_alt (pick_mode mode bound b) bound ren st b) in
+       (Log lop e1 e2,st)) ∧
+  (lower_alt mode bound ren st (Lift (If e1 e2 e3) fvs value [a;b;c]) =
+     let (e1,st) = lift_finish (lift_now mode bound a)
+                     (lower_alt (pick_mode mode bound a) bound ren st a) in
+     let (e2,st) = lift_finish (lift_now mode bound b)
+                     (lower_alt (pick_mode mode bound b) bound ren st b) in
+     let (e3,st) = lift_finish (lift_now mode bound c)
+                     (lower_alt (pick_mode mode bound c) bound ren st c) in
+       (If e1 e2 e3,st)) ∧
+  (lower_alt mode bound ren st (Lift (Let (SOME x) e1 e2) fvs value [a;b]) =
+     let rhs = tree_exp a in
+     let rhs_fvs = tree_fvs a in
+       if mode ≠ KeepValue ∧ is_Fun rhs ∧ maps_disjoint rhs_fvs bound then
+         let (e1,st) = lower_alt mode bound ren st a in
+         let (y,st) = choose_name bound x st in
+         let st = emit_dec (Dlet NoLocs (Pvar y) e1) st in
+           lift_finish (lift_now mode (fdomsub bound x) b)
+             (lower_alt (pick_mode mode (fdomsub bound x) b) (fdomsub bound x)
+                (ren |+ (x,y)) st b)
+       else
+         let (e1,st) = lift_finish (lift_now mode bound a)
+                         (lower_alt (pick_mode mode bound a) bound ren st a) in
+         let (e2,st) = lift_finish (lift_now mode (bound |+ (x,())) b)
+                         (lower_alt (pick_mode mode (bound |+ (x,())) b)
+                            (bound |+ (x,())) (fdomsub ren x) st b) in
+           (Let (SOME x) e1 e2,st)) ∧
+  (lower_alt mode bound ren st (Lift (Let NONE e1 e2) fvs value [a;b]) =
+     let (e1,st) = lift_finish (lift_now mode bound a)
+                     (lower_alt (pick_mode mode bound a) bound ren st a) in
+     let (e2,st) = lift_finish (lift_now mode bound b)
+                     (lower_alt (pick_mode mode bound b) bound ren st b) in
+       (Let NONE e1 e2,st)) ∧
+  (lower_alt mode bound ren st (Lift (Raise e) fvs value [a]) =
+     let (e,st) = lift_finish (lift_now mode bound a)
+                    (lower_alt (pick_mode mode bound a) bound ren st a) in
+       (Raise e,st)) ∧
+  (lower_alt mode bound ren st (Lift (Mat e pes) fvs value (a::bs)) =
+     let (e,st) = lift_finish (lift_now mode bound a)
+                    (lower_alt (pick_mode mode bound a) bound ren st a) in
+     let (pes,st) = pes_alt mode bound ren st (pes_pats pes) bs in
+       (Mat e pes,st)) ∧
+  (lower_alt mode bound ren st (Lift (Handle e pes) fvs value (a::bs)) =
+     let (e,st) = lift_finish (lift_now mode bound a)
+                    (lower_alt (pick_mode mode bound a) bound ren st a) in
+     let (pes,st) = pes_alt mode bound ren st (pes_pats pes) bs in
+       (Handle e pes,st)) ∧
+  (lower_alt mode bound ren st (Lift e fvs value children) = (e,st)) ∧
+  (lifts_alt mode bound ren st [] = ([],st)) ∧
+  (lifts_alt mode bound ren st (a::bs) =
+     let (e,st) = lift_finish (lift_now mode bound a)
+                    (lower_alt (pick_mode mode bound a) bound ren st a) in
+     let (es,st) = lifts_alt mode bound ren st bs in
+       (e::es,st)) ∧
+  (pes_alt mode bound ren st [] children = ([],st)) ∧
+  (pes_alt mode bound ren st (p::ps) [] = ([],st)) ∧
+  (pes_alt mode bound ren st (p::ps) (a::bs) =
+     let names = pat_bindings p in
+     let bound1 = bind_all names bound in
+     let (e,st) = lift_finish (lift_now mode bound1 a)
+                    (lower_alt (pick_mode mode bound1 a) bound1
+                       (delete_all names ren) st a) in
+     let (pes,st) = pes_alt mode bound ren st ps bs in
+       ((p,e)::pes,st)) ∧
+  (funs_alt bound ren st [] children = ([],st)) ∧
+  (funs_alt bound ren st (f::fs) [] = ([],st)) ∧
+  (funs_alt bound ren st ((f,x)::fs) (a::bs) =
+     let bound1 = bound |+ (x,()) in
+     let ren1 = fdomsub ren x in
+     let (e,st) =
+       if is_Fun (tree_exp a) then lower_alt LiftValues bound1 ren1 st a
+       else lift_finish (lift_now LiftValues bound1 a)
+              (lower_alt (pick_mode LiftValues bound1 a) bound1 ren1 st a) in
+     let (funs,st) = funs_alt bound ren st fs bs in
+       ((f,x,e)::funs,st))
+Termination
+  WF_REL_TAC ‘measure $ λinput. case input of
+    | INL (mode,bound,ren,st,a) => lift_tree_size a
+    | INR (INL (mode,bound,ren,st,bs)) => list_size lift_tree_size bs
+    | INR (INR (INL (mode,bound,ren,st,ps,bs))) => list_size lift_tree_size bs
+    | INR (INR (INR (bound,ren,st,fs,bs))) => list_size lift_tree_size bs’
+End
+
+Theorem lower_alt_thm:
+  (∀mode bound ren st t.
+     lower_alt mode bound ren st t = lower_exp mode bound ren st t) ∧
+  (∀mode bound ren st bs.
+     lifts_alt mode bound ren st bs = lift_exps mode bound ren st bs) ∧
+  (∀mode bound ren st ps bs.
+     pes_alt mode bound ren st ps bs = lift_pes mode bound ren st ps bs) ∧
+  (∀bound ren st fs bs.
+     funs_alt bound ren st fs bs = lift_funs bound ren st fs bs)
+Proof
+  ho_match_mp_tac lower_alt_ind \\ rpt strip_tac
+  \\ fs [lift_consts_list_thms, fun_names_thm]
+  \\ simp [Once lower_alt_def, Once source_lift_constsTheory.lift_exp_def,
+           lift_exp_unfold, lift_consts_list_thms, fun_names_thm]
+  \\ rpt (IF_CASES_TAC \\ gvs []) \\ rpt (pairarg_tac \\ gvs [])
+QED
+
+val _ = cv_trans maps_disjoint_FCARD;
+val _ = cv_trans source_lift_constsTheory.str_empty_def;
+val _ = cv_trans bump_explode;
+val _ = cv_trans source_lift_constsTheory.bump_all_def;
+val _ = cv_trans (source_lift_constsTheory.bump_pat_def |> measure_args [1,1]);
+val _ = cv_trans source_lift_constsTheory.delete_all_def;
+val _ = cv_trans source_lift_constsTheory.bind_all_def;
+val _ = cv_trans source_lift_constsTheory.tree_exp_def;
+val _ = cv_trans source_lift_constsTheory.tree_fvs_def;
+val _ = cv_trans source_lift_constsTheory.tree_value_def;
+val _ = cv_trans source_lift_constsTheory.is_Fun_def;
+val _ = cv_trans every_tree_value_def;
+
+val pre = cv_trans_pre "" (source_lift_constsTheory.annotate_exp_def
+                            |> PURE_REWRITE_RULE [GSYM lift_consts_list_thms,
+                                                  GSYM fun_names_thm]
+                            |> measure_args [1,1,1,1]);
+
+Theorem source_lift_consts_annotate_exp_pre[cv_pre]:
+  (∀t v. source_lift_consts_annotate_exp_pre t v) ∧
+  (∀t v. source_lift_consts_annotate_exps_pre t v) ∧
+  (∀t v. source_lift_consts_annotate_pes_pre t v) ∧
+  (∀t v. source_lift_consts_annotate_funs_pre t v)
+Proof
+  ho_match_mp_tac source_lift_constsTheory.annotate_exp_ind
+  \\ rw [] \\ rw [Once pre] \\ gvs [fun_names_thm]
+QED
+
+Theorem is_trivial_alt[local]:
+  is_trivial e =
+    case e of
+    | Con _ es => NULL es
+    | Lit (IntLit i) => -2147483648 < i ∧ i < 2147483648
+    | Lit (Char c) => T
+    | Lit (Word8 b) => T
+    | _ => F
+Proof
+  Cases_on ‘e’ \\ simp [source_lift_constsTheory.is_trivial_def]
+  \\ every_case_tac \\ simp []
+QED
+
+val _ = cv_trans is_trivial_alt;
+val _ = cv_trans source_lift_constsTheory.make_name_def;
+val _ = cv_trans source_lift_constsTheory.allow_lift_def;
+val _ = cv_trans source_lift_constsTheory.choose_name_def;
+val _ = cv_trans source_lift_constsTheory.choose_names_def;
+val _ = cv_trans source_lift_constsTheory.emit_dec_def;
+val _ = cv_trans source_lift_constsTheory.emit_value_def;
+val _ = cv_trans source_lift_constsTheory.rename_var_def;
+val _ = cv_trans (fupdate_pairs_def
+                    |> INST_TYPE [alpha |-> “:mlstring”, beta |-> “:mlstring”]);
+val _ = cv_trans fun_params_def;
+val _ = cv_trans fun_heads_def;
+val _ = cv_trans pes_pats_def;
+val _ = cv_trans lift_now_def;
+val _ = cv_trans pick_mode_def;
+val _ = cv_trans lift_finish_def;
+
+val pre = cv_trans_pre "" (lower_alt_def |> measure_args [4,4,5,4]);
+
+Theorem lower_alt_pre[cv_pre]:
+  (∀mode bound ren st v. lower_alt_pre mode bound ren st v) ∧
+  (∀mode bound ren st v. lifts_alt_pre mode bound ren st v) ∧
+  (∀mode bound ren st ps v. pes_alt_pre mode bound ren st ps v) ∧
+  (∀bound ren st fs v. funs_alt_pre bound ren st fs v)
+Proof
+  ho_match_mp_tac lower_alt_ind \\ rw [] \\ rw [Once pre] \\ gvs []
+QED
+
+val _ = cv_trans source_lift_constsTheory.make_local_def;
+val pre = cv_trans_pre "" (source_lift_constsTheory.compile_dec_def
+                            |> PURE_REWRITE_RULE [GSYM no_Open_alt_thm,
+                                                  GSYM fun_names_thm,
+                                                  GSYM lift_consts_list_thms,
+                                                  GSYM lower_alt_thm]
+                            |> measure_args [0,0]);
+
+Theorem source_lift_consts_compile_dec_pre[cv_pre]:
+  (∀v. source_lift_consts_compile_dec_pre v) ∧
+  (∀v. source_lift_consts_compile_decs_pre v)
+Proof
+  ho_match_mp_tac astTheory.dec_induction
+  \\ rw [] \\ rw [Once pre]
+QED
+
 (* source_to_source *)
 
 val _ = cv_trans source_to_sourceTheory.compile_def;

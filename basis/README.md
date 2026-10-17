@@ -82,6 +82,10 @@ using a self-balancing binary tree.
 [SexpProgScript.sml](SexpProgScript.sml):
 Module for parsing and pretty-printing s-expressions.
 
+[SocketIOProgScript.sml](SocketIOProgScript.sml):
+Module for socket I/O: Unix domain stream sockets and Linux raw packet
+sockets, through the socket FFI in basis_ffi.c.
+
 [StringProgScript.sml](StringProgScript.sml):
 Module about the built-in string type.
 

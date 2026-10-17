@@ -1,0 +1,605 @@
+(*
+  Translate the pan_to_target part of the compiler for all targets.
+*)
+Theory from_pancakeProg
+Ancestors
+  ml_translator to_targetProg std_prelude panLang crepLang
+  pan_simp loopLang loop_to_word pan_to_crep
+  loop_call loop_live crep_arith crep_to_loop pan_to_word
+  word_to_word backend pan_to_target panPtreeConversion
+  pan_globals crep_inline pan_structs
+Libs
+  preamble ml_translatorLib
+
+val _ = translation_extends "to_targetProg";
+
+val _ = translate OPTION_BIND_def;
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "from_pancakeProg");
+val _ = ml_translatorLib.use_sub_check true;
+
+val RW = REWRITE_RULE
+
+val _ = add_preferred_thy "-";
+
+Theorem NOT_NIL_AND_LEMMA[local]:
+  (b <> [] /\ x) = if b = [] then F else x
+Proof
+  Cases_on `b` THEN FULL_SIMP_TAC std_ss []
+QED
+
+Theorem option_map_thm[local]:
+  OPTION_MAP f x = case x of NONE => NONE | SOME y => SOME(f y)
+Proof
+  Cases_on `x` \\ rw[]
+QED
+
+Definition pancake_log2_def:
+  pancake_log2 n =
+    if n < 2 then 0 else SUC (pancake_log2 (n DIV 2))
+End
+
+Theorem pancake_log2_correct[local]:
+  0 < n ==> pancake_log2 n = LOG2 n
+Proof
+  completeInduct_on `n`
+  \\ rw [Once pancake_log2_def]
+  >- (
+    `n = 1` by decide_tac
+    \\ simp[]
+  )
+  \\ `0 < n DIV 2 /\ n DIV 2 < n` by
+       simp[bitTheory.DIV_GT0, arithmeticTheory.DIV_LESS]
+  \\ `pancake_log2 (n DIV 2) = LOG2 (n DIV 2)` by metis_tac[]
+  \\ `LOG2 n = SUC (LOG2 (n DIV 2))` by (
+    mp_tac (Q.SPECL [`2`,`n`] logrootTheory.LOG_RWT)
+    \\ simp[GSYM bitTheory.LOG2_def]
+  )
+  \\ simp[]
+QED
+
+Theorem mul_const_pancake_log2[local]:
+  mul_const aw exp c =
+    let u = Num (c % &(2 ** arch_width_bits aw)) in
+    if u = 0 then Const 0
+    else if u = 1 then exp
+    else if u = 2 ** pancake_log2 u then
+      Shift Lsl exp (Const (&(pancake_log2 u)))
+    else Crepop Mul [exp; Const c]
+Proof
+  Cases_on `Num (c % &(2 ** arch_width_bits aw)) = 0`
+  \\ simp [mul_const_def, pancake_log2_correct]
+QED
+
+val extra_preprocessing = ref [MEMBER_INTRO,MAP,parserProgTheory.OPTION_BIND_THM,option_map_thm];
+
+fun preprocess def =
+def |> RW (!extra_preprocessing)
+    |> CONV_RULE (DEPTH_CONV BETA_CONV)
+    |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]
+    |> REWRITE_RULE [NOT_NIL_AND_LEMMA];
+
+fun def_of_const tm = let
+val res = dest_thy_const tm handle HOL_ERR _ =>
+  failwith ("Unable to translate: " ^ term_to_string tm)
+val name = (#Name res)
+fun def_from_thy thy name =
+DB.fetch thy (name ^ "_pmatch") handle HOL_ERR _ =>
+  DB.fetch thy (name ^ "_def") handle HOL_ERR _ =>
+    DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
+      DB.fetch thy (name ^ "_thm") handle HOL_ERR _ =>
+        DB.fetch thy name
+val def = def_from_thy (#Thy res) name handle HOL_ERR _ =>
+  failwith ("Unable to find definition of " ^ name)
+
+val insts = match_type
+  (type_of (prim_mk_const {Thy = #Thy res, Name = name})) (type_of tm)
+
+val def = def |> RW (!extra_preprocessing)
+              |> INST_TYPE insts
+              |> CONV_RULE (DEPTH_CONV BETA_CONV)
+              (* TODO: This ss messes up defs containing if-then-else
+                with constant branches
+                |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]*)
+              |> REWRITE_RULE [NOT_NIL_AND_LEMMA]
+                      in def end
+
+val _ = (find_def_for_const := def_of_const);
+
+val _ = use_long_names:=true;
+
+val _ = register_type ``:panLang$exp``;
+
+val _ = register_type ``:panLang$prog``;
+
+val _ = register_type ``:panLang$decl``;
+
+val _ = translate $ panLangTheory.size_of_sh_with_ctxt_def;
+
+val _ = translate $ panLangTheory.shape_to_str_def;
+
+val _ = translate $ panLangTheory.exp_ids_def;
+
+val _ = register_type ``:crepLang$exp``;
+
+val _ = register_type ``:crepLang$prog``;
+
+val _ = translate $ crepLangTheory.var_cexp_def;
+
+val _ = translate $ crepLangTheory.nested_decs_def;
+
+val _ = translate $ crepLangTheory.nested_seq_def;
+
+val _ = translate $ crepLangTheory.stores_def;
+
+val _ = translate $ crepLangTheory.store_globals_def;
+
+val _ = translate $ crepLangTheory.load_globals_def;
+
+val _ = translate $ crepLangTheory.assign_ret_def;
+
+val _ = translate $ crepLangTheory.load_shape_def;
+
+val _ = translate $ pan_simpTheory.SmartSeq_def;
+
+val _ = translate $ pan_simpTheory.seq_assoc_def;
+
+val _ = translate $ pan_simpTheory.seq_call_ret_def;
+
+val _ = translate $ pan_simpTheory.ret_to_tail_def;
+
+val _ = translate $ pan_simpTheory.compile_def;
+
+val _ = translate $ pan_simpTheory.compile_prog_def;
+
+val _ = translate $ pan_structsTheory.compile_shape_def;
+
+val _ = translate $ pan_structsTheory.afindi_def;
+
+val _ = translate $ pan_structsTheory.old_exp_shape_def;
+
+val _ = translate $ pan_structsTheory.compile_exp_def;
+
+val _ = translate $ pan_structsTheory.compile_def;
+
+val _ = translate $ pan_structsTheory.compile_decs_def;
+
+val _ = translate $ pan_structsTheory.get_names_def;
+
+val _ = translate $ pan_structsTheory.compile_top_def;
+
+val _ = register_type ``:pan_globals$context``;
+
+val _ = translate $ pan_globalsTheory.compile_exp_def;
+
+val _ = translate $ pan_globalsTheory.fresh_name_def;
+
+val _ = translate $ panLangTheory.var_exp_def;
+
+val _ = translate $ panLangTheory.free_var_ids_def;
+
+val _ = translate $ panLangTheory.shape_val_def;
+
+val _ = translate $ pan_globalsTheory.compile_def;
+
+val _ = translate panLangTheory.size_of_shape_def;
+
+val _ = translate_no_ind $ pan_globalsTheory.compile_decs_def;
+
+Theorem pan_globals_compile_decs_ind[local]:
+  pan_globals_compile_decs_ind
+Proof
+  once_rewrite_tac [fetch "-" "pan_globals_compile_decs_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD,bytes_in_word_def]
+QED
+
+val _ = pan_globals_compile_decs_ind |> update_precondition;
+
+val _ = translate $ panLangTheory.is_function_def;
+
+val _ = translate $ panLangTheory.is_decl_def;
+
+val _ = translate $ panLangTheory.is_exn_decl_def;
+
+val _ = translate $ panLangTheory.is_name_def;
+
+val _ = translate $ pan_globalsTheory.resort_decls_def;
+
+val _ = translate pan_globalsTheory.fperm_name_def;
+
+val _ = translate $ pan_globalsTheory.fperm_def;
+
+val _ = translate $ pan_globalsTheory.fperm_decs_def;
+
+val _ = translate $ panLangTheory.functions_def;
+
+val _ = translate $ panLangTheory.exceptions_def;
+
+val _ = translate $ pan_globalsTheory.new_main_name_def;
+
+val _ = translate $ pan_globalsTheory.dec_shapes_def;
+
+val _ = translate $ panLangTheory.nested_seq_def;
+
+val _ = translate $ pan_globalsTheory.compile_top_def;
+
+val _ = register_type ``:loopLang$exp``;
+
+val _ = register_type ``:loopLang$prog``;
+
+val _ = translate $ loopLangTheory.acc_vars_def;
+
+val _ = translate $ loopLangTheory.nested_seq_def;
+
+val _ = translate $ loop_to_wordTheory.comp_exp_def;
+
+val _ = translate $ loop_to_wordTheory.find_reg_imm_def;
+
+val _ = translate $ loop_to_wordTheory.comp_def;
+
+val _ = translate $ loop_to_wordTheory.comp_func_def;
+
+val _ = translate $ loop_to_wordTheory.compile_prog_def;
+
+val _ = translate $ loop_to_wordTheory.compile_def;
+
+val _ = translate $ panLangTheory.inlinable_def;
+
+val _ = translate $ crep_inlineTheory.var_prog_def;
+
+val _ = translate $ crep_inlineTheory.vmax_prog_def;
+
+val _ = translate $ crep_inlineTheory.has_return_def;
+
+val _ = translate $ crep_inlineTheory.arg_load_def;
+
+val _ = translate $ crep_inlineTheory.not_branch_ret_def;
+
+val _ = translate $ crep_inlineTheory.unreach_elim_def;
+
+val _ = translate $ crep_inlineTheory.transform_eoc_def;
+
+val _ = translate $ crep_inlineTheory.transform_branch_def;
+
+val _ = translate $ crep_inlineTheory.inline_tail_def;
+
+val _ = translate $ crep_inlineTheory.inline_nontail_def;
+
+val _ = translate $ crep_inlineTheory.inline_prog_def;
+
+val _ = translate $ INST_TYPE[alpha|->``:num list``] crep_inlineTheory.compile_inl_prog_def;
+
+val _ = translate $ crep_inlineTheory.compile_inl_top_def;
+
+val _ = translate $ pan_to_crepTheory.ret_hdl_def;
+
+val _ = translate $ INST_TYPE[alpha|->``:num``] pan_to_crepTheory.ret_var_def;
+
+val _ = translate $ INST_TYPE[alpha|->``:crepLang$exp``] pan_to_crepTheory.cexp_heads_def;
+
+val _ = translate $ pan_to_crepTheory.comp_field_def;
+
+val _ = translate $ INST_TYPE[alpha|->``:mlstring``,beta|->``:shape``] pan_to_crepTheory.exp_hdl_def;
+
+val _ = translate $ pan_to_crepTheory.compile_exp_def;
+
+val res = translate_no_ind $ pan_to_crepTheory.compile_def;
+
+Theorem pan_to_crep_compile_ind[local]:
+  ^(hd (hyp res))
+Proof
+  PURE_REWRITE_TAC [fetch "-" "pan_to_crep_compile_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum (match_mp_tac o MP_CANON)
+  \\ rpt strip_tac
+  \\ FULL_SIMP_TAC bool_ss[panLangTheory.prog_11, panLangTheory.prog_distinct]
+  \\ rveq
+  \\ metis_tac []
+QED
+
+val _ = update_precondition pan_to_crep_compile_ind;
+
+val _ = translate $ pan_to_crepTheory.mk_ctxt_def;
+
+val _ = translate (pan_to_crepTheory.make_vmap_def |> INST_TYPE[alpha|->``:mlstring``]
+                                 |> REWRITE_RULE [FUPDATE_LIST]);
+
+val _ = translate $ pan_to_crepTheory.comp_func_def;
+
+val _ = translate $ INST_TYPE[alpha|->``:mlstring``] pan_to_crepTheory.make_funcs_def;
+
+val _ = translate $ pan_to_crepTheory.get_eids_from_decls_def;
+
+val _ = translate $ pan_to_crepTheory.compile_to_crep_def;
+
+val _ = translate $ pan_to_crepTheory.compile_prog_def;
+
+val _ = translate $ loop_callTheory.comp_def;
+
+val _ = translate $ loop_liveTheory.vars_of_exp_def;
+
+val res = translate $ loop_liveTheory.shrink_def;
+
+val _ = translate $ loop_liveTheory.mark_all_def;
+
+val _ = translate $ loop_liveTheory.comp_def;
+
+val _ = translate $ loop_liveTheory.optimise_def;
+
+val _ = translate $ crep_arithTheory.dest_const_def;
+
+val _ = translate pancake_log2_def;
+
+val _ = translate mul_const_pancake_log2;
+
+Theorem crep_arith_mul_const_side_total[local]:
+  ∀aw e c. crep_arith_mul_const_side aw e c
+Proof
+  simp [fetch "-" "crep_arith_mul_const_side_def",
+        integerTheory.INT_MOD_BOUNDS]
+  \\ rpt gen_tac
+  \\ mp_tac (Q.SPECL [`c`, `&(2 ** arch_width_bits aw)`]
+               integerTheory.INT_MOD_BOUNDS)
+  \\ simp[]
+QED
+
+val _ = update_precondition crep_arith_mul_const_side_total;
+
+val _ = translate $ crep_arithTheory.simp_exp_def;
+
+val _ = translate $ crep_arithTheory.simp_prog_def;
+
+val _ = translate $ crep_to_loopTheory.prog_if_def;
+
+val _ = translate $ crep_to_loopTheory.compile_crepop_def;
+
+val _ = translate $ crep_to_loopTheory.compile_exp_def;
+
+val _ = translate $ INST_TYPE[alpha|->``:crepLang$varname``] crep_to_loopTheory.rt_vars_def;
+
+val _ = translate (crep_to_loopTheory.make_vmap_def |> INST_TYPE[alpha|->``:crepLang$varname``]
+                                 |> REWRITE_RULE [FUPDATE_LIST]);
+
+val _ = translate $ crep_to_loopTheory.compile_def;
+
+val _ = translate $ crep_to_loopTheory.comp_func_def;
+
+val _ = translate $ INST_TYPE[alpha|->``:crepLang$funname``] crep_to_loopTheory.make_funcs_def;
+
+val _ = translate $ crep_to_loopTheory.compile_prog_def;
+
+val _ = translate $ pan_to_wordTheory.compile_prog_def;
+
+val _ = translate backendTheory.attach_bitmaps_def;
+
+val _ = translate backendTheory.from_lab_def;
+
+val _ = translate $ SIMP_RULE std_ss
+  [data_to_wordTheory.max_heap_limit_def, backend_commonTheory.word_shift_def]
+  backendTheory.from_stack_def;
+
+val _ = translate backendTheory.from_word_def;
+
+val _ = translate $ pan_to_targetTheory.exports_def;
+
+val _ = translate $ pan_to_targetTheory.compile_prog_def;
+
+(* ptree conversion *)
+
+val res = translate panPtreeConversionTheory.argsNT_def;
+
+val res = translate panPtreeConversionTheory.destLf_def;
+
+val res = translate panPtreeConversionTheory.destTOK_def;
+
+val res = translate panPtreeConversionTheory.conv_ident_def;
+
+val res = translate panPtreeConversionTheory.conv_ffi_ident_def;
+
+val res = translate panPtreeConversionTheory.isNT_def;
+
+val res = translate panPtreeConversionTheory.conv_int_def;
+
+Theorem conv_const_thm:
+  conv_const t =
+  case conv_int t of NONE => (NONE:panLang$exp option)
+                  | SOME x => SOME(Const x)
+Proof
+  Cases_on `conv_int t` \\ rw[panPtreeConversionTheory.conv_const_def]
+QED
+
+val res = translate $ conv_const_thm;
+
+val res = translate panPtreeConversionTheory.conv_nat_def;
+
+Theorem conv_nat_side[local]:
+  ∀x. panptreeconversion_conv_nat_side x
+Proof
+  rw [fetch "-" "panptreeconversion_conv_nat_side_def"]
+  >> gs[integerTheory.INT_GE_CALCULATE]
+QED
+
+val _ = update_precondition conv_nat_side;
+
+val res = translate $ PURE_REWRITE_RULE [option_map_thm] $ panPtreeConversionTheory.conv_var_def;
+
+val res = translate $ panPtreeConversionTheory.conv_shift_def;
+
+Overload ptree_size[local] = ``parsetree_size (K 0) (K 0) (K 0)``;
+
+val res = translate $ panPtreeConversionTheory.conv_default_shape_def;
+
+Theorem OPT_MMAP_eq_MAP[local]:
+  OPT_MMAP f xs = (OPT_MMAP I o MAP f) xs
+Proof
+  simp [miscTheory.OPT_MMAP_MAP_o]
+QED
+
+val res = translate $ listTheory.OPT_MMAP_def;
+
+val res = panPtreeConversionTheory.conv_Shape_def
+  |> REWRITE_RULE [OPT_MMAP_eq_MAP, parserProgTheory.OPTION_BIND_THM, option_map_thm]
+  |> SIMP_RULE bool_ss [o_DEF]
+  |> translate
+
+Theorem panptreeconversion_conv_shape_side[local]:
+  !sh. panptreeconversion_conv_shape_side sh
+Proof
+  recInduct panPtreeConversionTheory.conv_Shape_ind
+  >> rw []
+  >> ONCE_REWRITE_TAC [fetch "-" "panptreeconversion_conv_shape_side_def"]
+  >> rw []
+  >> intLib.COOPER_TAC
+QED
+
+val _ = update_precondition panptreeconversion_conv_shape_side;
+
+val res = translate $ panPtreeConversionTheory.conv_binop_def;
+
+Theorem OPTION_MAP2_thm[local]:
+  OPTION_MAP2 f x y =
+  case x of
+    NONE => NONE
+  | SOME x =>
+      (case y of
+         NONE => NONE
+       | SOME y => SOME(f x y))
+Proof
+  Cases_on `x` \\ Cases_on `y` \\ rw[]
+QED
+
+Theorem FOLDR_eta[local]:
+  FOLDR (λt. f t) = FOLDR (λt e. f t e)
+Proof
+  CONV_TAC(DEPTH_CONV ETA_CONV) \\ rw[]
+QED
+
+val res = translate panPtreeConversionTheory.conv_cmp_def;
+
+val res = translate panPtreeConversionTheory.kw_def;
+
+val res = translate $ panPtreeConversionTheory.isSubOp_def;
+
+val res = translate $ panPtreeConversionTheory.conv_panop_def;
+
+val res = panPtreeConversionTheory.conv_Exp_def
+  |> REWRITE_RULE [OPT_MMAP_eq_MAP, parserProgTheory.OPTION_BIND_THM, option_map_thm]
+  |> SIMP_RULE bool_ss [o_DEF]
+  |> time translate_no_ind
+
+Theorem panptreeconversion_conv_arglist_ind[local]:
+  panptreeconversion_conv_arglist_ind (:'b)
+Proof
+  ONCE_REWRITE_TAC [fetch "-" "panptreeconversion_conv_arglist_ind_def"]
+  >> rpt gen_tac
+  >> disch_then strip_assume_tac
+  >> rpt (qpat_x_assum `!x. _` (assume_named_tac "forall_IH"))
+  >> ho_match_mp_tac panPtreeConversionTheory.conv_Exp_ind
+  >> rpt strip_tac
+  >> rpt (label_x_assum "forall_IH" irule ORELSE label_x_assum "forall_IH" kall_tac)
+  >> simp []
+  >> simp [DISJ_IMP_THM]
+  (* down to only a couple of goals *)
+  >> rw []
+  >> gs []
+QED
+
+val _ = update_precondition panptreeconversion_conv_arglist_ind;
+
+val res = translate $ SIMP_RULE std_ss [option_map_thm, OPTION_MAP2_thm] panPtreeConversionTheory.conv_NonRecStmt_def;
+
+val res = translate $ panPtreeConversionTheory.add_locs_annot_def;
+
+val res = translate panPtreeConversionTheory.butlast_def;
+
+val res = translate $ panPtreeConversionTheory.conv_Dec_def;
+
+val res = translate $ panPtreeConversionTheory.conv_GlobalDec_def;
+
+val res = translate $ panPtreeConversionTheory.conv_DecCall_def;
+
+val res = preprocess $ panPtreeConversionTheory.conv_Ret_def;
+
+val res = preprocess $ panPtreeConversionTheory.conv_Prog_def |> translate_no_ind;
+
+Theorem conv_Prog_ind:
+  panptreeconversion_conv_prog_ind
+Proof
+  PURE_REWRITE_TAC [fetch "-" "panptreeconversion_conv_prog_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac \\ simp[]
+  \\ fs[]
+QED
+
+val _ = conv_Prog_ind  |> update_precondition;
+
+val res = translate $ panPtreeConversionTheory.conv_inline_def;
+
+val res  = translate $ panPtreeConversionTheory.conv_export_def;
+
+val res = translate $ panPtreeConversionTheory.conv_FieldNameList_def;
+
+val res = translate $ panPtreeConversionTheory.conv_StructName_def;
+
+val res = translate_no_ind $ panPtreeConversionTheory.conv_TopDec_def;
+
+val res = translate_no_ind $ panPtreeConversionTheory.conv_TopDecList_def;
+
+Theorem panptreeconversion_conv_topdeclist_ind[local]:
+  panptreeconversion_conv_topdeclist_ind
+Proof
+  once_rewrite_tac [fetch "-" "panptreeconversion_conv_topdeclist_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac $ panPtreeConversionTheory.conv_TopDecList_ind
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD]
+QED
+
+val _ = panptreeconversion_conv_topdeclist_ind |> update_precondition;
+
+val res = translate $ panLexerTheory.dest_lexErrorT_def;
+
+val res = translate $ panPtreeConversionTheory.collect_globals_def;
+
+val res = translate $ panPtreeConversionTheory.localise_exp_def;
+
+val res = translate_no_ind $ preprocess $ panPtreeConversionTheory.localise_prog_def;
+
+Theorem panptreeconversion_localise_prog_ind[local]:
+  panptreeconversion_localise_prog_ind
+Proof
+  once_rewrite_tac [fetch "-" "panptreeconversion_localise_prog_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac panPtreeConversionTheory.localise_prog_ind
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD]
+QED
+
+val _ = panptreeconversion_localise_prog_ind |> update_precondition;
+
+val res = translate $ panPtreeConversionTheory.localise_topdec_def;
+
+val res = translate $ panPtreeConversionTheory.localise_topdecs_def;
+
+val res = translate $ panPtreeConversionTheory.parse_topdecs_to_ast_def;
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);

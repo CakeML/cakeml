@@ -3,9 +3,9 @@
 *)
 Theory flat_to_closProof
 Ancestors
-  misc[qualified] ffi[qualified] flatProps closProps flat_to_clos
+  misc[qualified] flatProps closProps flat_to_clos
   backendProps backend_common[qualified] semanticPrimitives ast
-  semanticPrimitivesProps flatLang flatSem closLang closSem
+  semanticPrimitivesProps flatLang flatSem closSem
   clos_interpProof
 Libs
   preamble helperLib[qualified] induct_tweakLib[qualified]

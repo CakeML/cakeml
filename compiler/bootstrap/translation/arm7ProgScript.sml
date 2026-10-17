@@ -3,14 +3,14 @@
 *)
 Theory arm7Prog[no_sig_docs]
 Ancestors
-  evaluate ml_translator from_pancake32Prog arm7_target arm
-  to_target32Prog[qualified]
+  evaluate ml_translator from_pancakeProg arm7_target arm
+  to_targetProg[qualified]
 Libs
   preamble ml_translatorLib inliningLib
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = translation_extends "from_pancake32Prog";
+val _ = translation_extends "from_pancakeProg";
 val _ = ml_translatorLib.use_sub_check true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "arm7Prog");
@@ -48,6 +48,8 @@ fun def_of_const tm = let
   in def end
 
 val _ = (find_def_for_const := def_of_const);
+
+val _ = translate (conv32_RHS integer_wordTheory.WORD_LEi);
 
 Theorem v2w_rw[local]:
   v2w [P] = if P then 1w else 0w

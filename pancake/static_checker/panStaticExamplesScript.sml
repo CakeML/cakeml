@@ -391,7 +391,7 @@ val parse_missing_arg_binop = ``
       ; export := F
       ; params := []
       ; body := Seq (Annot «location» «(0:0 0:0)»)
-                    (Return (Op Xor [Const 1w]))
+                    (Return (Op Xor [Const 1]))
       ; return := One
       |>
   ]
@@ -410,7 +410,7 @@ val parse_missing_arg_panop = ``
       ; export := F
       ; params := []
       ; body := Seq (Annot «location» «(0:0 0:0)»)
-                    (Return (Panop Mul [Const 1w]))
+                    (Return (Panop Mul [Const 1]))
       ; return := One
       |>
   ]
@@ -429,7 +429,7 @@ val parse_missing_arg_sub = ``
       ; export := F
       ; params := []
       ; body := Seq (Annot «location» «(0:0 0:0)»)
-                    (Return (Op Sub [Const 1w]))
+                    (Return (Op Sub [Const 1]))
       ; return := One
       |>
   ]
@@ -448,7 +448,7 @@ val parse_extra_arg_panop = ``
       ; export := F
       ; params := []
       ; body := Seq (Annot «location» «(0:0 0:0)»)
-                    (Return (Panop Mul [Const 1w; Const 1w; Const 1w]))
+                    (Return (Panop Mul [Const 1; Const 1; Const 1]))
       ; return := One
       |>
   ]
@@ -467,7 +467,7 @@ val parse_extra_arg_sub = ``
       ; export := F
       ; params := []
       ; body := Seq (Annot «location» «(0:0 0:0)»)
-                    (Return (Op Sub [Const 1w; Const 1w; Const 1w]))
+                    (Return (Op Sub [Const 1; Const 1; Const 1]))
       ; return := One
       |>
   ]
