@@ -126,7 +126,7 @@ Proof
   \\ pop_assum mp_tac
   \\ rewrite_tac [pegexecTheory.coreloop_def,
                   pegexecTheory.peg_exec_def, GSYM peg_pancake_rules_def,
-                  panpeg_parserProgTheory.INTRO_FLOOKUP]
+                  parserProgTheory.INTRO_FLOOKUP]
   \\ simp [pancake_peg_def]
   \\ qmatch_goalsub_abbrev_tac ‘OWHILE _ f2’ \\ strip_tac
   \\ qmatch_goalsub_abbrev_tac ‘OWHILE _ g2’

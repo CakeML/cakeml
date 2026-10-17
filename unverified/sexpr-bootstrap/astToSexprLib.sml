@@ -3,7 +3,7 @@ struct
 
 local
 
-open HolKernel boolLib
+open HolKernel boolLib computeLib
 
 datatype sexp = Atom of string | Expr of sexp list
 
@@ -91,7 +91,7 @@ fun write_ast_to_file filename tm =
 
 fun write_program_def_to_file filename program_def =
   program_def
-  |> CONV_RULE (RAND_CONV EVAL)
+  |> CONV_RULE (RAND_CONV EVAL_CONV)
   |> concl
   |> rhs
   |> write_ast_to_file filename

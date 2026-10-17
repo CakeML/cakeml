@@ -38,7 +38,7 @@
 *)
 Theory repl_moduleProg
 Ancestors
-  ml_translator candle_kernelProg
+  ml_translator AstProg candle_kernelProg
 Libs
   preamble ml_translatorLib ml_progLib basisFunctionsLib cfLib
 

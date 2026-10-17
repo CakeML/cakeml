@@ -6,10 +6,6 @@ Canonical forms for the actual registered AST family. Metadata, root
 proofs, recursive families and encoder correspondence share this owner.
 Identities remain parameters; signatures come from the registered module.
 
-[astProgScript.sml](astProgScript.sml):
-Translates the CakeML source AST types into an Ast module, with generated
-pretty-printers, so that they are part of the REPL's initial environment.
-
 [compiler64ReplProofScript.sml](compiler64ReplProofScript.sml):
 Verification of the function (called repl) that implements the REPL
 
