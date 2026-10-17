@@ -1328,7 +1328,7 @@ Definition every_exp_def:
   (every_exp P TopAddr = P TopAddr) ∧
   (every_exp P BytesInWord = P BytesInWord)
 Termination
-  wf_rel_tac `measure (exp_size ARB o SND)` >>
+  wf_rel_tac `measure (exp_size o SND)` >>
   rw [] >>
   fs [MEM_MAP, EXISTS_PROD] >>
   fs [MEM_SPLIT, list_size_append]

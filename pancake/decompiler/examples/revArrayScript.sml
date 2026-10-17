@@ -49,9 +49,9 @@ fun read_file fname = let
 
 
 (** Copied from panPtreeConversion *)
-fun parse_pancake_code word_ty str =
+fun parse_pancake_code str =
   let
-    val parse_topdecs_to_ast_s = inst [alpha |-> word_ty] “parse_topdecs_to_ast”
+    val parse_topdecs_to_ast_s = ``parse_topdecs_to_ast``
     val thm = EVAL (mk_comb (parse_topdecs_to_ast_s, stringLib.fromMLstring str))
     val r = rhs (concl thm)
   in
@@ -61,16 +61,16 @@ fun parse_pancake_code word_ty str =
   end
 
 
-fun parse_pancake_file word_ty fname =
-  parse_pancake_code word_ty (read_file fname)
+fun parse_pancake_file fname =
+  parse_pancake_code (read_file fname)
 
 
 
-val (rev_array_topdecs, _) = parse_pancake_file “:64” "revArray.pnk"
+val (rev_array_topdecs, _) = parse_pancake_file "revArray.pnk"
 
 val rev_array_fundecs = topdecs_to_fundecs rev_array_topdecs
 
-val rev_array_result = decompile_2_reduce "revArray" [] rev_array_fundecs
+val rev_array_result = decompile_2_reduce ``:64`` "revArray" [] rev_array_fundecs
 
 val reverse_while = List.nth (fst rev_array_result, 0) |> (fn (x,y,z) => hd y) |> reduce_to_view []
 

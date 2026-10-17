@@ -32,7 +32,7 @@ Overload "case" = “itree_CASE”;
 
 
 
-val tree_simp_rules = [mem_stores_def, mem_store_def, pair_case_def, flatten_def, DOMSUB_FEMPTY, DOMSUB_FUPDATE,
+val tree_simp_rules = [integer_wordTheory.i2w_def, mem_stores_def, mem_store_def, pair_case_def, flatten_def, DOMSUB_FEMPTY, DOMSUB_FUPDATE,
                        FUPDATE_EQ, DOMSUB_FUPDATE_THM, v_case_def, OPTION_BIND_def, word_lab_case_def,
                        locals_emmpty_locals, empty_locals_with_locals, upds_multi_locals,
                        state_update_locals_locals, upds_multi_memory, DOMSUB_FEMPTY,
@@ -153,7 +153,7 @@ fun mk_call_pre_thm_with_argexps scode fundecs code_thm te =
       val (_, [prog, state]) = progst |> strip_comb
       val (_, [calty, fname, aexps_term]) = prog |> strip_comb
       val (aexps, aexp_type) = aexps_term |> dest_list
-      val (_, [ty_arg]) = dest_type aexp_type
+      val [ty_arg] = state |> type_of |> dest_type |> snd
       val fpb = EVAL “funcname_params_list ^fundecs” |> concl |> rhs
       val fpb_l = fpb |> dest_list |> fst |> map dest_pair |> map (fn (x, y) => (x, dest_pair y))
       val (_, (varsh, _)) = List.find (fn (x, (_, _)) => term_eq x fname) fpb_l |> valOf
@@ -224,7 +224,7 @@ fun mk_deccall_pre_thm_with_argexps scode fundecs code_thm te =
       val (_, [prog, state]) = progst |> strip_comb
       val (_, [rt, sh, fname, aexps_term, prog1]) = prog |> strip_comb
       val (aexps, aexp_type) = aexps_term |> dest_list
-      val (_, [ty_arg]) = dest_type aexp_type
+      val [ty_arg] = state |> type_of |> dest_type |> snd
       val fpb = EVAL “funcname_params_list ^fundecs” |> concl |> rhs
       val fpb_l = fpb |> dest_list |> fst |> map dest_pair |> map (fn (x, y) => (x, dest_pair y))
       val (_, (varsh, _)) = List.find (fn (x, (_, _)) => term_eq x fname) fpb_l |> valOf
@@ -612,10 +612,10 @@ fun mlstring_term_to_string mlt =
     implode mlstring_clean_chrlist
   end
 
-fun mk_prog_abbr_def fty fname body =
+fun mk_prog_abbr_def state_ty fty fname body =
   let val func_abbr_str = concat [fname, "_", fty]
-      val itree_body = “itree_semantics (^body, s)”
-      val state = itree_body |> rand |> rand
+      val state = mk_var ("s", state_ty)
+      val itree_body = ``itree_semantics (^body, ^state)``
       val func_abbr_ty = (type_of state) --> (type_of itree_body)
       val func_abbr_var = mk_var(func_abbr_str, func_abbr_ty)
       val func_abbr_with_state = mk_comb (func_abbr_var, state)
@@ -624,8 +624,8 @@ fun mk_prog_abbr_def fty fname body =
     abbr_thm
   end
 
-fun code_func_mk_abbr funcname_bodies =
-  map (fn x => mk_prog_abbr_def "body" (mlstring_term_to_string (fst x)) (snd x)) funcname_bodies
+fun code_func_mk_abbr ty_arg funcname_bodies =
+  map (fn x => mk_prog_abbr_def (mk_type ("bstate", [ty_arg])) "body" (mlstring_term_to_string (fst x)) (snd x)) funcname_bodies
 
 
 fun no_assms_thm th =
@@ -1410,7 +1410,7 @@ fun decompile_body_no_sep fname curr_names lhs_names rhs_names extra_assms scode
     else if can (match_term “itree_semantics (While _ _, _)”) prog_tree then
       let val (itc, [progst]) = strip_comb prog_tree
           val (_, [while_call, state]) = strip_comb progst
-          val while_def = mk_prog_abbr_def (concat ["while_", int_to_string n]) fname while_call
+          val while_def = mk_prog_abbr_def (type_of state) (concat ["while_", int_to_string n]) fname while_call
           val (while_thm, inner_while_thms, inner_while_def, new_num) = decompile_while_no_sep
                           [while_def] lhs_names rhs_names extra_assms
                           scode code_thms fundecs (n + 1) “^itc (^while_call, s)”
@@ -1673,9 +1673,8 @@ fun let_reduce_asm_conj th =
         |> GEN_ALL
            handle _ => th
 
-fun decompile_2 file_name extra_assms fundec =
+fun decompile_2 ty_arg file_name extra_assms fundec =
   let val (code_thm, lookup_thms) = codes_lookup_funcs_assms file_name fundec
-      val ty_arg = fundec |> type_of |> dest_type |> snd |> hd |> dest_type |> snd |> hd
       val scode = code_thm |> concl |> lhs
       val fpb_lterm = EVAL “funcname_params_list ^fundec” |> concl |> rhs
       val fpb_l = fpb_lterm |> dest_list |> fst |> map dest_pair |> map (fn (x, y) => (x, dest_pair y))
@@ -1718,9 +1717,8 @@ fun decompile_2 file_name extra_assms fundec =
         bodies, body_thms)
    end
 
-fun decompile_2_reduce file_name extra_assms fundec =
+fun decompile_2_reduce ty_arg file_name extra_assms fundec =
   let val (code_thm, lookup_thms) = codes_lookup_funcs_assms file_name fundec
-      val ty_arg = fundec |> type_of |> dest_type |> snd |> hd |> dest_type |> snd |> hd
       val scode = code_thm |> concl |> lhs
       val fpb_lterm = EVAL “funcname_params_list ^fundec” |> concl |> rhs
       val fpb_l = fpb_lterm |> dest_list |> fst |> map dest_pair |> map (fn (x, y) => (x, dest_pair y))

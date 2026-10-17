@@ -305,7 +305,7 @@ Definition compile_pancake_def:
        MAP (λ(msg,loc). concat [msg; « at »;
                                 locs_to_string (implode input) (SOME loc); «\n»])
            errs), Nil, [])
-  | INL (funs:'a decl list) =>
+  | INL (funs:decl list) =>
       case static_check funs of
       | (error e, warns) => (M_failure $ StaticError e, Nil, MAP StaticError warns)
       | (return (), warns) =>

@@ -31,7 +31,7 @@ val res = “res:(ffi_outcome + word8 list) + 'a result option # 'a bstate”
 val ret_func = “Ret:(ffi_outcome + word8 list) + 'a result option # 'a bstate -> 'a ptree”
 
 Definition itree_semantics_def:
-  itree_semantics:('a panLang$prog # 'a bstate -> 'a ptree) = mrec h_prog o h_prog
+  itree_semantics:(panLang$prog # 'a bstate -> 'a ptree) = mrec h_prog o h_prog
 End
 
 Definition itree_deccall_handler_def:
@@ -1249,7 +1249,7 @@ QED
 
 
 Definition del_annot_def:
-  del_annot (Seq (Annot _ _) (p : 'a panLang$prog)) = del_annot p ∧
+  del_annot (Seq (Annot _ _) (p : panLang$prog)) = del_annot p ∧
   del_annot (Seq a b) = (Seq (del_annot a) (del_annot b)) ∧
   del_annot (Dec vname sh e p) = (Dec vname sh e (del_annot p)) ∧
   del_annot (DecCall rt shape fname argexps p) = (DecCall rt shape fname argexps (del_annot p)) ∧
@@ -1260,8 +1260,8 @@ Definition del_annot_def:
 End
 
 Theorem while_weak_bisim_upfrom_abs:
-  (∀s. itree_semantics (p, s) ≈ itree_semantics (p', s))
-  ⇒ ∀s. weak_bisim_upfrom_abs ((λs. itree_semantics (While g p, s)), (λs. itree_semantics (While g p', s)))
+  (∀s:'a bstate. itree_semantics (p, s) ≈ itree_semantics (p', s))
+  ⇒ ∀s:'a bstate. weak_bisim_upfrom_abs ((λs. itree_semantics (While g p, s)), (λs. itree_semantics (While g p', s)))
                                                (itree_semantics (While g p, s)) (itree_semantics (While g p', s))
 Proof
   rpt strip_tac
@@ -1289,11 +1289,11 @@ Proof
 QED
 
 Theorem while_bisim:
-  (∀s. itree_semantics (p, s) ≈ itree_semantics (p', s))
-   ⇒ ∀s. itree_semantics (While g p, s) ≈ itree_semantics (While g p', s)
+  (∀s:'a bstate. itree_semantics (p, s) ≈ itree_semantics (p', s))
+   ⇒ ∀s:'a bstate. itree_semantics (While g p, s) ≈ itree_semantics (While g p', s)
 Proof
   disch_tac
-  \\ ‘∀s. (λs. itree_semantics (While g p, s)) s ≈ (λs. itree_semantics (While g p', s)) s’ suffices_by metis_tac[]
+  \\ `∀s:'a bstate. (λs. itree_semantics (While g p, s)) s ≈ (λs. itree_semantics (While g p', s)) s` suffices_by metis_tac[]
   \\ irule $ iffLR cyclic_weak_bisim_upfrom_abs
   \\ rw[while_weak_bisim_upfrom_abs]
 QED
@@ -1312,7 +1312,7 @@ Theorem panprog_induct:
     (∀e. P (Return e)) ∧ (∀$o v m e. P (ShMemLoad $o v m e)) ∧
     (∀$o e e0. P (ShMemStore $o e e0)) ∧ P Tick ∧
     (∀m m0. P (Annot m m0))
-    ⇒ ∀p. P (p : 'a panLang$prog)
+    ⇒ ∀p. P (p : panLang$prog)
 Proof
   strip_tac >>
   qspecl_then [‘P’,‘K T’,‘K T’,‘K T’,‘K T’,‘K T’]
@@ -1321,8 +1321,8 @@ Proof
 QED
 
 Theorem itree_semantics_While_ret_satisfy_INR:
-  (∀s. ret_satisfy (λx. ∃rv. x = INR rv) (itree_semantics (prog, s))) ⇒
-  ret_satisfy (λx. ∃rv. x = INR rv) (itree_semantics (While e prog, s))
+  (∀s:'a bstate. ret_satisfy (λx. ∃rv. x = INR rv) (itree_semantics (prog, s))) ⇒
+  ret_satisfy (λx. ∃rv. x = INR rv) (itree_semantics (While e prog, (s:'a bstate)))
 Proof
   rpt strip_tac
   \\ rw[Once itree_semantics_While]
@@ -2113,7 +2113,7 @@ QED
 
 
 Theorem eval_simps:
-  (∀w s. eval s (Const w) = SOME (ValWord w)) ∧
+  (∀w s. eval s (Const w) = SOME (ValWord (i2w w))) ∧
   (∀v s. eval s (Var Local v) = FLOOKUP s.locals v) ∧
   (∀v s. eval s (Var Global v) = FLOOKUP s.globals v) ∧
   (∀s. eval s BaseAddr = SOME (ValWord s.base_addr)) ∧
@@ -2368,7 +2368,7 @@ QED
 
 
 Theorem eval_exists_strengthen:
-  ((∃v. eval s (Const w) = SOME v) ⇔ (eval s (Const w) = SOME (ValWord w))) ∧
+  ((∃v. eval s (Const w) = SOME v) ⇔ (eval s (Const w) = SOME (ValWord (i2w w)))) ∧
   ((∃v. eval s (RStruct es) = SOME v) ⇔ (∃es'. eval s (RStruct es) = SOME (RStruct es'))) ∧
   ((∃v. eval s (NStruct nm ls) = SOME v) ⇔ (∃ls'. eval s (NStruct nm ls) = SOME (NStruct nm ls'))) ∧
   ((∃v. eval s (Load One addr) = SOME v) ⇔ (∃w. eval s (Load One addr) = SOME (ValWord w))) ∧
