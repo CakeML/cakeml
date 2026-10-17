@@ -95,6 +95,7 @@ String.Fast.<: string -> string -> bool
 String.Fast.<=: string -> string -> bool
 String.Fast.>: string -> string -> bool
 String.Fast.>=: string -> string -> bool
+String.Fast.compare: string -> string -> ordering
 String.<: string -> string -> bool
 String.<=: string -> string -> bool
 String.>: string -> string -> bool
@@ -275,6 +276,7 @@ Array.all: ('a -> bool) -> 'a Array.array -> bool
 Array.collate: ('a -> 'b -> ordering) -> 'a Array.array -> 'b Array.array -> ordering
 Array.lookup: 'a Array.array -> 'a -> int -> 'a
 Array.updateResize: 'a Array.array -> 'a -> int -> 'a -> 'a Array.array
+Map.diff: ('a, 'b) map -> ('a, 'c) map -> ('a, 'b) map
 Map.lookup: ('a, 'b) map -> 'a -> 'b option
 Map.member: 'a -> ('a, 'b) map -> bool
 Map.insert: ('a, 'b) map -> 'a -> 'b -> ('a, 'b) map
@@ -406,6 +408,28 @@ Sexp.inputSexp: TextIO.instream -> Sexp.sexp
 Sexp.str_tree_to_strings: string -> Sexp.str_tree -> string list
 Sexp.toString: Sexp.sexp -> string
 Sexp.toPrettyString: Sexp.sexp -> string
+SocketIO.listenSetBufferSize: string -> int -> SocketIO.socket
+SocketIO.listen: string -> SocketIO.socket
+SocketIO.accept: SocketIO.socket -> SocketIO.socket
+SocketIO.recv: SocketIO.socket -> int -> string
+SocketIO.send: SocketIO.socket -> string -> unit
+SocketIO.close: SocketIO.socket -> unit
+SocketIO.rawSocketSetBufferSize: int -> SocketIO.socket
+SocketIO.rawSocket: unit -> SocketIO.socket
+SocketIO.ifIndex: SocketIO.socket -> string -> int
+SocketIO.ifMtu: SocketIO.socket -> string -> int
+SocketIO.rawBind: SocketIO.socket -> int -> unit
+SocketIO.rawRecv: SocketIO.socket -> int -> string option
+SocketIO.rawSend: SocketIO.socket -> string -> unit
+SocketIO.rawSendTo: SocketIO.socket -> int -> string -> unit
+SocketIO.setRecvBufferSize: SocketIO.socket -> int -> int
+SocketIO.setSendBufferSize: SocketIO.socket -> int -> int
+SocketIO.pollIn: int
+SocketIO.pollOut: int
+SocketIO.pollErr: int
+SocketIO.pollHup: int
+SocketIO.pollNval: int
+SocketIO.poll: (SocketIO.socket * int) list -> int -> int list option
 fst: 'a * 'b -> 'a
 snd: 'a * 'b -> 'b
 curry: ('a * 'b -> 'c) -> 'a -> 'b -> 'c

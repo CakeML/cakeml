@@ -36,8 +36,7 @@ End
 Theorem compiler_instance_lemma[local]:
   INJ compiler_instance.config_v 𝕌(:backend$config) 𝕌(:semanticPrimitives$v) ∧
   compiler_instance.init_state = cake_config ∧
-  compiler_instance.compiler_fun =
-    compile_inc_progs_for_eval ag32_config
+  compiler_instance.compiler_fun = compile_inc_progs_for_eval ag32_config
 Proof
   fs [compiler_instance_def]
 QED

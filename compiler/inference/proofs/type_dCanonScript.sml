@@ -1305,8 +1305,7 @@ Proof
   \\ drule(CONJUNCT1 type_e_tenv_equiv) \\ strip_tac
   \\ disch_then drule \\ strip_tac
   \\ drule(CONJUNCT1 type_e_tenv_equiv) \\ strip_tac
-  \\ old_drule remap_tenv_LINV
-  \\ impl_tac >- rw[]
+  \\ drule_all remap_tenv_LINV
   \\ strip_tac
   \\ ntac 4 (first_x_assum drule)
   \\ rw[remap_tenvE_def]

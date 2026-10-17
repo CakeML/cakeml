@@ -28,7 +28,7 @@ Theorem x64_backend_config_ok:
 Proof
   simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[x64_backend_config_def]
-  >- (EVAL_TAC>> blastLib.FULL_BBLAST_TAC)
+  >- (EVAL_TAC >> intLib.ARITH_TAC)
   >- names_tac
   >- (
     fs [stack_removeTheory.store_offset_def,
@@ -45,9 +45,7 @@ Proof
     \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
     \\ rveq \\ fs [] \\ EVAL_TAC)
   \\ fs[stack_removeTheory.max_stack_alloc_def]
-  \\ EVAL_TAC>>fs[]
-  \\ match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP
-  \\ fs[]
+  \\ EVAL_TAC \\ intLib.ARITH_TAC
 QED
 
 Theorem x64_machine_config_ok:

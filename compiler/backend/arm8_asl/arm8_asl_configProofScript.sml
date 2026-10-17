@@ -4,7 +4,7 @@
 *)
 Theory arm8_asl_configProof
 Ancestors
-  backendProof arm8_configProof arm8_config arm8_asl_targetProof
+  backendProof arm8_configProof arm8_asl_targetProof
 Libs
   preamble
 

@@ -14,13 +14,13 @@ val _ = hide"tail";
 (* value relation *)
 
 Definition code_rel_def:
-  code_rel (bvi_code : (num # bvi$exp) num_map)
-           (data_code : (num # dataLang$prog) num_map) <=>
+  code_rel (bvi_code : (num # bvi$exp # metadata) num_map)
+           (data_code : (num # dataLang$prog # metadata) num_map) <=>
     wf bvi_code /\ wf data_code /\
     (domain bvi_code = domain data_code) /\
-    !n exp arg_count.
-      (lookup n bvi_code = SOME (arg_count,exp)) ==>
-      (lookup n data_code = SOME (arg_count,compile_exp arg_count exp))
+    !n exp arg_count md.
+      (lookup n bvi_code = SOME (arg_count,exp,md)) ==>
+      (lookup n data_code = SOME (arg_count,compile_exp arg_count exp,md))
 End
 
 (* Projection from `dataSem$v` into `bvlSem$v` that basically gets rid of
@@ -168,7 +168,7 @@ val stack_case_eq_thm = TypeBase.case_eq_of ``:stack``;
 val RW = REWRITE_RULE;
 
 Theorem compile_part_thm[local]:
-  compile_part = λ(x,y). (x, (λ(a,b). (a, compile_exp a b)) y)
+  compile_part = λ(x,y). (x, (λ(a,b,md). (a, compile_exp a b, md)) y)
 Proof
   simp[FUN_EQ_THM,FORALL_PROD,compile_part_def]
 QED
@@ -1911,7 +1911,7 @@ Resume compile_correct[Force]:
       \\ drule_all_then assume_tac state_rel_dest_thunk \\ gvs []
       \\ `t1.clock = s.clock` by gvs [state_rel_def] \\ gvs []
       \\ gvs [find_code_def, dataSemTheory.find_code_def, AllCaseEqs()]
-      \\ `lookup force_loc t1.code = SOME (2,compile_exp 2 exp)`
+      \\ `lookup force_loc t1.code = SOME (2,compile_exp 2 exp,md)`
         by gvs [state_rel_def, code_rel_def] \\ gvs []
       \\ Cases_on `tail` \\ gvs []
       >- gvs [state_rel_def]
@@ -2951,7 +2951,7 @@ Proof
   \\ full_simp_tac(srw_ss())[]
   \\ qmatch_assum_rename_tac`lookup start s1.code = SOME p`
   \\ PairCases_on`p`
-  \\ `lookup start t1.code = SOME (p0,compile_exp p0 p1)`
+  \\ `lookup start t1.code = SOME (p0,compile_exp p0 p1,p2)`
      by (full_simp_tac(srw_ss())[state_rel_def,code_rel_def])
   \\ full_simp_tac(srw_ss())[]
   \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[] >> var_eq_tac
@@ -3046,7 +3046,7 @@ Proof
      \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[]
      >- (qhdtm_x_assum`bviSem$evaluate`kall_tac
         \\ last_x_assum(qspec_then`k'`mp_tac)>>simp[]
-        \\ (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g)
+        \\ goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`))
         \\ spose_not_then strip_assume_tac
         \\ drule_then (qspecl_then [`ss`,`lim`] mp_tac) compile_prog_evaluate
         \\ impl_tac >- ( srw_tac[][] >> strip_tac >> full_simp_tac(srw_ss())[])
@@ -3094,8 +3094,7 @@ Proof
   \\ simp[dataSemTheory.semantics_def]
   \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[]
   >- (last_x_assum(qspec_then`k`mp_tac)
-     \\ (fn g => subterm
-          (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
+     \\ goal_term (subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)`))
      \\ strip_tac
      \\ drule_then (qspecl_then [`ss`,`lim`] mp_tac) compile_prog_evaluate
      \\ impl_tac
@@ -3108,8 +3107,7 @@ Proof
   \\ conj_tac
   >- (spose_not_then strip_assume_tac
      \\ last_x_assum(qspec_then`k`mp_tac)
-     \\ (fn g => subterm
-          (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
+     \\ goal_term (subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)`))
      \\ strip_tac
      \\ drule_then (qspecl_then [`ss`,`lim`] mp_tac) compile_prog_evaluate
      \\ impl_tac
@@ -3125,8 +3123,7 @@ Proof
   \\ rpt(AP_TERM_TAC ORELSE AP_THM_TAC)
   \\ simp[FUN_EQ_THM] >> gen_tac
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
-  \\ (fn g => subterm
-       (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (rhs(#2 g)))
+  \\ goal_term (subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)`) o rhs)
   \\ drule_then (qspecl_then [`ss`,`lim`] mp_tac) compile_prog_evaluate
   \\ impl_tac
   >- (conj_tac >> spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[]

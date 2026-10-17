@@ -62,10 +62,10 @@ fun gen_try_one_instantiate_tac () = let
   end
 in tac end
 
-fun rpt_until_change tac g = let
-  val (gl, p) = tac g
+fun rpt_until_change tac g ctxt = let
+  val (gl, p) = tac g ctxt
 in
-  if goals_eq gl [g] then rpt_until_change tac g
+  if goals_eq gl [g] then rpt_until_change tac g ctxt
   else (gl, p)
 end
 

@@ -6,7 +6,7 @@
 *)
 Theory flat_to_clos
 Ancestors
-  flatLang closLang clos_interp backend_common[qualified]
+  flatLang clos_interp
 Libs
   preamble
 
@@ -235,6 +235,7 @@ Definition compile_op_def:
     | Src Strsub => Let t xs (If t (Op t (MemOp (BoundsCheckByte F)) [Var t 0; Var t 1])
                                (Op t (MemOp DerefByteVec) [Var t 0; Var t 1])
                                (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+    | Src Strsub_unsafe => Op t (MemOp DerefByteVec) xs
     | Src Eval => Op t Install xs
     | Src (ThunkOp op) => Op t (ThunkOp op) xs
     | Src (Arith a ty) => compile_arith t a ty xs
@@ -347,7 +348,9 @@ Definition compile_def:
      let new_m = MAP (\n. SOME (FST n)) funs ++ m in
        [Letrec (MAP (\n. join_strings t (FST n)) funs) NONE NONE
           (MAP ( \ (f,v,x). (1, HD (compile (SOME v :: new_m) [x]))) funs)
-          (HD (compile new_m [e]))])
+          (HD (compile new_m [e]))]) /\
+  (compile m [flatLang$Tick t e] =
+     [closLang$Let t [HD (compile m [e])] (closLang$Tick t (Var t 0))])
 Termination
   WF_REL_TAC `measure (flatLang$exp6_size o SND)` \\ rw []
   \\ `!funs f v x. MEM (f,v,x) funs ==> exp_size x < flatLang$exp1_size funs` by

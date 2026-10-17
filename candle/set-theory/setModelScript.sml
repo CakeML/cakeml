@@ -10,7 +10,6 @@ Libs
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 Definition is_set_theory_pred_def:
   is_set_theory_pred is_v_rep in_rep ⇔

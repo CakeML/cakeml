@@ -29,7 +29,7 @@
 *)
 Theory pattern_exh
 Ancestors
-  pattern_common pattern_semantics ast
+  pattern_semantics
 Libs
   preamble
 

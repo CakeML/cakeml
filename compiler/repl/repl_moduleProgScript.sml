@@ -11,11 +11,11 @@
    - Repl.isEOF : bool ref
       -- true means that all user input has been read (e.g. if we have
          reached the end of stdin)
-   - Repl.nextString : string ref
-      -- contains the next user input (if isEOF is false)
+   - Repl.nextInput : (string, Ast.dec list) sum ref
+      -- contains source text (Inl) or declarations (Inr) if isEOF is false
    - Repl.readNextString : (unit -> unit) ref
       -- the function that the Repl uses to read user input; it is this
-         function that assigns new values to Repl.isEOF and Repl.nextString
+         function that assigns new values to Repl.isEOF and Repl.nextInput
    - Repl.exn : exn
       -- the most recent exception to propagate to the top
 
@@ -147,7 +147,33 @@ val _ = ml_prog_update (add_Dlet eval_thm "exn");
 
 Theorem exn_def[allow_rebind]          = fetch "-" "exn_def"                        |> tidy_up;
 Theorem isEOF_def[allow_rebind]        = declare_new_ref "isEOF"        “F”         |> tidy_up;
-Theorem nextString_def[allow_rebind]   = declare_new_ref "nextString"   “«»” |> tidy_up;
+(* The type annotation gives nextInput a closed inferred type. The declaration
+   is added directly because cfNormaliseTheory.strip_annot_exp removes such
+   annotations. *)
+val nextInput_e = cfTacticsBaseLib.parse_exp
+  `(Ref (Inl "") : (string, Ast.dec list) sum ref)`;
+val nextInput_env = get_ml_prog_state () |> ml_progLib.get_env;
+val nextInput_st = get_ml_prog_state () |> ml_progLib.get_state;
+val nextInput_stamp = EVAL ``ml_prog$lookup_cons (Short «Inl») ^nextInput_env``
+  |> concl |> rand |> optionSyntax.dest_some |> pairSyntax.dest_pair |> snd;
+val nextInput_loc_tm = EVAL ``Loc T (LENGTH ^nextInput_st.refs)``
+  |> concl |> rand;
+Theorem nextInput_def = define_abbrev false "nextInput_loc" nextInput_loc_tm;
+val nextInput_new_st =
+  ``^nextInput_st with refs := ^nextInput_st.refs ++
+      [Refv (Conv (SOME ^nextInput_stamp) [Litv (StrLit «»)])]``;
+Theorem nextInput_allocation:
+  ml_prog$eval_rel ^nextInput_st ^nextInput_env ^nextInput_e
+    ^nextInput_new_st ^nextInput_loc_tm
+Proof
+  rw [ml_progTheory.eval_rel_def]
+  >> qexistsl_tac [`0`, `0`]
+  >> EVAL_TAC
+  >> simp [LENGTH]
+QED
+val _ = ml_prog_update (add_Dlet
+  (nextInput_allocation |> REWRITE_RULE [GSYM nextInput_def]) "nextInput");
+Theorem nextInput_def[allow_rebind] = nextInput_def |> tidy_up;
 Theorem errorMessage_def[allow_rebind] = declare_new_ref "errorMessage" “«»” |> tidy_up;
 
 val _ = ml_prog_update open_local_block;
@@ -175,10 +201,13 @@ Quote add_cakeml:
   fun init_readNextString () =
     let
       val _ = TextIO.print "Welcome to the CakeML read-eval-print loop.\n"
-      val fname = (if !nextString = "candle" then "candle_boot.ml" else "repl_boot.cml")
+      val fname =
+        (case !nextInput of
+           Inl marker => if marker = "candle" then "candle_boot.cml" else "repl_boot.cml"
+         | Inr _ => "repl_boot.cml")
       val str = charsFrom fname
     in
-      (isEOF := False; nextString := String.implode str)
+      (isEOF := False; nextInput := Inl (String.implode str))
     end;
 End
 
@@ -198,6 +227,19 @@ val repl_prog = get_ml_prog_state () |> remove_snocs |> ml_progLib.get_prog;
 Definition repl_prog_def:
   repl_prog = ^repl_prog
 End
+
+val repl_suffix = List.drop (repl_prog |> listSyntax.dest_list |> fst,
+  ast_prog_def |> concl |> rand |> listSyntax.dest_list |> fst |> length);
+
+Definition repl_suffix_def:
+  repl_suffix = ^(listSyntax.mk_list (repl_suffix, ``:ast$dec``))
+End
+
+Theorem repl_prog_partition =
+  ``repl_prog = ast_prog ++ repl_suffix``
+  |> PURE_REWRITE_CONV [repl_prog_def, ast_prog_def, repl_suffix_def,
+       APPEND, REFL_CLAUSE]
+  |> EQT_ELIM;
 
 Theorem Decls_repl_prog =
   ml_progLib.get_Decls_thm (get_ml_prog_state ())
@@ -245,4 +287,3 @@ Proof
   \\ first_x_assum $ irule_at Any
   \\ fs [foldl_char_cons]
 QED
-

@@ -3,6 +3,7 @@
 *)
 Theory pan_globalsProof
 Ancestors
+  wordSem
   panSem pan_globals panProps panLang stack_removeProof
 Libs
   preamble
@@ -14,12 +15,12 @@ Definition disjoint_globals_def:
   ∀v v' sh addr sh' addr'. v ≠ v' ∧ IS_SOME(FLOOKUP globals v) ∧ IS_SOME(FLOOKUP globals v') ∧
          FLOOKUP cglobals v =  SOME(sh, addr) ∧
          FLOOKUP cglobals v' = SOME(sh', addr') ⇒
-         DISJOINT (addresses (top_addr - addr) (size_of_shape sh)) (addresses (top_addr - addr') (size_of_shape sh'))
+         DISJOINT (addresses (top_addr - i2w addr) (size_of_shape sh)) (addresses (top_addr - i2w addr') (size_of_shape sh'))
 End
 
 Definition state_rel_def:
   state_rel ls ctxt ^s t ⇔
-  s.top_addr = t.top_addr - ctxt.max_globals_size ∧
+  s.top_addr = t.top_addr - i2w ctxt.max_globals_size ∧
   (ls ⇒ s.locals = t.locals) ∧
   s.base_addr = t.base_addr ∧
   s.be = t.be ∧
@@ -30,9 +31,9 @@ Definition state_rel_def:
      FLOOKUP s.globals v = SOME val ⇒
      ∃addr. FLOOKUP ctxt.globals v = SOME(shape_of val, addr) ∧
             is_wf_shape_nil (shape_of val) ∧
-            mem_load (shape_of val) (t.top_addr - addr) t.memaddrs t.memory [] = SOME val ∧
-            DISJOINT s.memaddrs (addresses (t.top_addr - addr) $ size_of_shape $ shape_of val) ∧
-            byte_aligned addr
+            mem_load (shape_of val) (t.top_addr - i2w addr) t.memaddrs t.memory [] = SOME val ∧
+            DISJOINT s.memaddrs (addresses (t.top_addr - i2w addr) $ size_of_shape $ shape_of val) ∧
+            byte_aligned (i2w addr:'a word)
   ) ∧
   FEVERY (\(nm, (sh, addr)). is_wf_shape_nil sh) ctxt.globals ∧
   s.memaddrs ⊆ t.memaddrs ∧
@@ -44,7 +45,8 @@ Definition state_rel_def:
   disjoint_globals t.top_addr ctxt.globals s.globals ∧
   t.top_addr ∉ t.memaddrs ∧
   byte_aligned t.top_addr ∧
-  good_dimindex(:'a)
+  good_dimindex(:'a) ∧
+  arch_width_bits ctxt.arch_width = dimindex(:'a)
 End
 
 Theorem state_rel_structs[local]:
@@ -111,7 +113,7 @@ Proof
   >~ [‘Var Global’]
   >- (gvs[eval_def,compile_exp_def,AllCaseEqs(),state_rel_def] >>
       first_x_assum drule >>
-      rw[] >> rw[eval_def,wordLangTheory.word_op_def])
+      rw[] >> rw[eval_def,wordSemTheory.word_op_def])
   >~ [‘RStruct’]
   >- (gvs[eval_def,compile_exp_def,AllCaseEqs()] >>
       simp[OPT_MMAP_MAP_o] >>
@@ -158,7 +160,7 @@ Proof
   >- (gvs[eval_def,compile_exp_def,AllCaseEqs()] >>
       imp_res_tac state_rel_structs >>
       fs []) >>
-  gvs[wordLangTheory.word_op_def,state_rel_def,eval_def,compile_exp_def,AllCaseEqs()]
+  gvs[wordSemTheory.word_op_def,state_rel_def,eval_def,compile_exp_def,AllCaseEqs()]
 QED
 
 Definition good_res_def:
@@ -539,7 +541,7 @@ Resume compile_correct[Assign]:
   simp[] >>
   gvs[state_rel_def,good_res_def] >>
   res_tac >>
-  fs[evaluate_def,eval_def,wordLangTheory.word_op_def] >>
+  fs[evaluate_def,eval_def,wordSemTheory.word_op_def] >>
   drule $ cj 1 mem_load_mem_store >>
   simp [] >>
   disch_then drule >>
@@ -743,11 +745,11 @@ QED
 
 Theorem FLOOKUP_globals_val_state_rel:
   FLOOKUP s.globals nm = SOME (Val v) ∧
-  state_rel b ctxt s t ==>
+  state_rel b ctxt ^s t ==>
   ∃addr_diff. FLOOKUP ctxt.globals nm = SOME (shape_of (Val v), addr_diff) ∧
-  mem_load (shape_of (Val v)) (t.top_addr - addr_diff) t.memaddrs t.memory [] = SOME (Val v) ∧
-  DISJOINT s.memaddrs (addresses (t.top_addr - addr_diff) (size_of_shape (shape_of (Val v)))) ∧
-  byte_aligned addr_diff
+  mem_load (shape_of (Val v)) (t.top_addr - i2w addr_diff) t.memaddrs t.memory [] = SOME (Val v) ∧
+  DISJOINT s.memaddrs (addresses (t.top_addr - i2w addr_diff) (size_of_shape (shape_of (Val v)))) ∧
+  byte_aligned (i2w addr_diff:'a word)
 Proof
   rw [state_rel_def] >>
   res_tac >>
@@ -769,7 +771,7 @@ Resume compile_correct[ShMemLoad]:
   drule_then drule FLOOKUP_globals_val_state_rel >>
   rw [] >>
   simp [shape_of_val, evaluate_def, eval_def] >>
-  simp [evaluate_def,eval_def,FLOOKUP_UPDATE,v_neq_v', wordLangTheory.word_op_def] >>
+  simp [evaluate_def,eval_def,FLOOKUP_UPDATE,v_neq_v', wordSemTheory.word_op_def] >>
   rpt (pairarg_tac >> fs []) >>
   gvs [shape_of_val] >>
   ‘s.locals = t.locals’ by gvs[state_rel_def] >>
@@ -779,7 +781,7 @@ Resume compile_correct[ShMemLoad]:
   simp[shape_of_val] >>
   gvs[evaluate_def,eval_def,FLOOKUP_UPDATE,v_neq_v',
           sh_mem_load_def,AllCaseEqs(),
-          wordLangTheory.word_op_def,kvar_defs,
+          wordSemTheory.word_op_def,kvar_defs,
           mem_stores_def,mem_store_def,mem_load_def,flatten_def]
   >- (gvs[state_rel_def,good_res_def] >>
           conj_tac
@@ -1245,7 +1247,7 @@ Resume compile_correct[Call]:
               res_tac >>
               gvs[]) >>
           fs[] >>
-          gvs[eval_def,wordLangTheory.word_op_def,set_var_def,FLOOKUP_UPDATE] >>
+          gvs[eval_def,integer_wordTheory.i2w_0,integer_wordTheory.i2w_pos,wordSemTheory.word_op_def,set_var_def,FLOOKUP_UPDATE] >>
           gvs[is_valid_value_def] >>
           Cases_on ‘FLOOKUP s.globals rt’ >>
           gvs[] >>
@@ -1309,7 +1311,7 @@ Resume compile_correct[Call]:
       PURE_TOP_CASE_TAC >> gvs[] >>
       drule_then (drule_then assume_tac) state_rel_globals_wf >> fs [] >>
       imp_res_tac eval_shape_val_thm >>
-      simp[eval_def, shape_of_def] >>
+      simp[eval_def,integer_wordTheory.i2w_0,integer_wordTheory.i2w_pos, shape_of_def] >>
       dep_rewrite.DEP_ONCE_REWRITE_TAC[OPT_MMAP_eval_two_fresh_vars] >>
       conj_tac
       >- (rpt strip_tac >>
@@ -1331,7 +1333,7 @@ Resume compile_correct[Call]:
           gvs[state_rel_def,is_valid_value_def] >>
           PURE_FULL_CASE_TAC >> gvs[] >>
           res_tac >> gvs[]) >>
-      simp[kvar_defs,eval_def,wordLangTheory.word_op_def,
+      simp[kvar_defs,eval_def,integer_wordTheory.i2w_0,integer_wordTheory.i2w_pos,wordSemTheory.word_op_def,
            FLOOKUP_UPDATE,evaluate_def] >>
       gvs[is_valid_value_def] >>
       Cases_on ‘FLOOKUP s.globals rt’ >>
@@ -1408,7 +1410,7 @@ Resume compile_correct[Call]:
       gvs[eval_shape_val_NONE] >>
       drule_then (drule_then assume_tac) state_rel_globals_wf >> fs [] >>
       imp_res_tac eval_shape_val_thm >>
-      simp[evaluate_def,eval_def,shape_of_def] >>
+      simp[evaluate_def,eval_def,integer_wordTheory.i2w_0,integer_wordTheory.i2w_pos,shape_of_def] >>
       dep_rewrite.DEP_ONCE_REWRITE_TAC[OPT_MMAP_eval_two_fresh_vars] >>
       conj_tac
       >- (rpt strip_tac >>
@@ -1423,7 +1425,7 @@ Resume compile_correct[Call]:
       gvs[Abbr ‘aname’, Abbr ‘anames’, Abbr ‘bname’, Abbr ‘bnames’] >>
       gvs[is_valid_value_def] >>
       gvs[set_var_def] >>
-      simp[eval_def] >>
+      simp[eval_def,integer_wordTheory.i2w_0,integer_wordTheory.i2w_pos] >>
       qmatch_goalsub_abbrev_tac ‘_ |+ (av1, vv1) |+ (av2, vv2) |+ (_,_)’ >>
       drule_at (Pos last) evaluate_two_fresh_locals >>
       disch_then $ qspecl_then [‘av1’,‘vv1’,‘av2’,‘vv2’] mp_tac >>
@@ -1439,7 +1441,7 @@ Resume compile_correct[Call]:
           imp_res_tac evaluate_unchanged_local >>
           gvs[good_res_def,FLOOKUP_UPDATE]) >>
       gvs[good_res_def] >>
-      simp[kvar_defs,eval_def,wordLangTheory.word_op_def,
+      simp[kvar_defs,eval_def,integer_wordTheory.i2w_0,integer_wordTheory.i2w_pos,wordSemTheory.word_op_def,
            FLOOKUP_UPDATE] >>
       gvs[is_valid_value_def,Abbr ‘vv2’,panSemTheory.shape_of_def,FLOOKUP_UPDATE,
           evaluate_def] >>
@@ -2128,12 +2130,12 @@ Theorem evaluate_decls_init_globals_lemma:
     EVERY is_decl decls ∧
     compile_decs ctxt decls = (decls',funs,exns,ctxt') ∧
     state_rel F ctxt s t ∧
-    free_addrs = addresses (t.top_addr - bytes_in_word*n2w(SUM(MAP size_of_shape(dec_shapes decls))) - ctxt.globals_size) (SUM(MAP size_of_shape(dec_shapes decls))) ∧
+    free_addrs = addresses (t.top_addr - bytes_in_word*n2w(SUM(MAP size_of_shape(dec_shapes decls))) - (i2w ctxt.globals_size:'a word)) (SUM(MAP size_of_shape(dec_shapes decls))) ∧
     DISJOINT s.memaddrs free_addrs ∧
     free_addrs ⊆ t.memaddrs ∧
-    byte_aligned ctxt.globals_size ∧
+    byte_aligned (i2w ctxt.globals_size:'a word) ∧
     s.code = FEMPTY ∧
-    (∀v sh addr'. IS_SOME(FLOOKUP s.globals v) ∧ FLOOKUP ctxt.globals v = SOME(sh, addr') ⇒ DISJOINT (addresses (t.top_addr-addr') (size_of_shape sh)) free_addrs) ∧
+    (∀v sh addr'. IS_SOME(FLOOKUP s.globals v) ∧ FLOOKUP ctxt.globals v = SOME(sh, addr') ⇒ DISJOINT (addresses (t.top_addr-i2w addr') (size_of_shape sh)) free_addrs) ∧
     w2n(bytes_in_word:'a word) * (SUM (MAP size_of_shape (dec_shapes decls))) < dimword (:α)
     ⇒
     ∃t'. panSem$evaluate (nested_seq decls',t) = (NONE,t') ∧
@@ -2141,13 +2143,16 @@ Theorem evaluate_decls_init_globals_lemma:
          t'.clock = t.clock ∧
          t'.ffi = t.ffi ∧
          t'.locals = t.locals ∧
-         byte_aligned ctxt'.globals_size
+         byte_aligned (i2w ctxt'.globals_size:'a word)
 Proof
   ho_match_mp_tac evaluate_decls_ind >>
   rw[evaluate_decls_def,compile_decs_def,AllCaseEqs(),UNCURRY_eq_pair,
      nested_seq_def,evaluate_def] >>
   gvs[nested_seq_def,evaluate_def,UNCURRY_eq_pair,
-      eval_def,wordLangTheory.word_op_def,is_decl_def,dec_shapes_def] >>
+      eval_def,wordSemTheory.word_op_def,is_decl_def,dec_shapes_def] >>
+  ‘arch_width_bits ctxt.arch_width = dimindex(:'a)’ by fs[state_rel_def] >>
+  gvs[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+      GSYM word_mul_n2w,GSYM bytes_in_word_def] >>
   drule $ cj 2 state_rel_empty_locals >>
   disch_then $ qspec_then ‘T’ mp_tac >>
   strip_tac >>
@@ -2174,7 +2179,8 @@ Proof
     qexists_tac ‘SUM(MAP size_of_shape (dec_shapes decls)) + i’ >>
     simp[] >>
     SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
-    gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
+    gvs[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+        bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
     gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]) >>
   strip_tac >>
   simp[] >>
@@ -2202,13 +2208,15 @@ Proof
       qexists_tac ‘i’ >>
       simp[] >>
       SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
-      gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
+      gvs[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+          bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
       gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]) >>
   conj_asm1_tac
-  >- (irule byte_aligned_add >>
-      simp[] >>
-      irule byte_aligned_bytes_in_word_mul >>
-      gvs[state_rel_def]) >>
+  >- (
+    simp[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+         GSYM word_mul_n2w,GSYM bytes_in_word_def] >>
+    irule byte_aligned_add >> simp[] >>
+    irule byte_aligned_bytes_in_word_mul >> gvs[state_rel_def]) >>
   conj_tac
   >- (drule_then irule DISJOINT_SUBSET >>
       qpat_x_assum ‘state_rel _ _ _ _’ mp_tac >>
@@ -2218,7 +2226,8 @@ Proof
       qexists_tac ‘i’ >>
       simp[] >>
       SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
-      gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
+      gvs[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+          bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
       gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]) >>
   conj_tac
   >- (irule SUBSET_TRANS >>
@@ -2230,7 +2239,8 @@ Proof
       qexists_tac ‘i’ >>
       simp[] >>
       SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
-      gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
+      gvs[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+          bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
       gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]) >>
   drule_then drule eval_state_rel_is_wf_shape >>
   rw [FEVERY_FEMPTY] >>
@@ -2239,7 +2249,9 @@ Proof
   >- (rw[FLOOKUP_UPDATE] >> res_tac >> fs[]
       >- (drule $ cj 1 mem_stores_mem_load_back >>
           simp[] >>
-          reverse impl_tac >- simp[] >>
+          reverse impl_tac
+          >- simp[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+                  GSYM word_mul_n2w,GSYM bytes_in_word_def] >>
           drule mem_stores_bounded_length >>
           disch_then drule >>
           impl_tac
@@ -2249,7 +2261,8 @@ Proof
               rw[byte_aligned_def] >>
               irule $ SIMP_RULE (srw_ss()) [] $ Q.SPECL [‘p’,‘0w’] aligned_add_sub_cor >>
               simp[aligned_0] >>
-              gvs[byte_aligned_def]) >>
+              gvs[byte_aligned_def,GSYM integer_wordTheory.word_i2w_add,
+                  integer_wordTheory.i2w_pos,GSYM word_mul_n2w,GSYM bytes_in_word_def]) >>
           simp[Once MULT_SYM] >>
           strip_tac >> drule LESS_EQ_LESS_TRANS >>
           disch_then irule >>
@@ -2259,7 +2272,8 @@ Proof
           qexists_tac ‘i + SUM (MAP size_of_shape (dec_shapes decls))’ >>
           simp[] >>
           SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
-          gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
+          gvs[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+              bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
           gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB])
       >- (irule EQ_TRANS >>
           irule_at (Pos hd) $ cj 1 mem_stores_load_disjoint >>
@@ -2272,7 +2286,8 @@ Proof
           qexists_tac ‘i+SUM (MAP size_of_shape (dec_shapes decls))’ >>
           simp[] >>
           SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
-          gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB,length_flatten_eq_size_of_shape] >>
+          gvs[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+              bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB,length_flatten_eq_size_of_shape] >>
           gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB])) >>
   conj_tac
   >- (
@@ -2293,7 +2308,8 @@ Proof
       qexists_tac ‘i + SUM(MAP size_of_shape(dec_shapes decls))’ >>
       simp[] >>
       SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
-      gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
+      gvs[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+          bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
       gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]) >>
   gvs[disjoint_globals_def] >>
   rw[IS_SOME_EXISTS,FLOOKUP_UPDATE]
@@ -2307,7 +2323,8 @@ Proof
       qexists_tac ‘i+SUM (MAP size_of_shape (dec_shapes decls))’ >>
       simp[] >>
       SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
-      gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB,length_flatten_eq_size_of_shape] >>
+      gvs[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+          bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB,length_flatten_eq_size_of_shape] >>
       gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB])
   >- (gvs[IS_SOME_EXISTS] >>
       res_tac >>
@@ -2318,7 +2335,8 @@ Proof
       qexists_tac ‘i+SUM (MAP size_of_shape (dec_shapes decls))’ >>
       simp[] >>
       SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
-      gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB,length_flatten_eq_size_of_shape] >>
+      gvs[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+          bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB,length_flatten_eq_size_of_shape] >>
       gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]) >>
   gvs[IS_SOME_EXISTS] >>
   res_tac
@@ -2460,7 +2478,7 @@ Theorem compile_top_shape_wf[local]:
   EVERY (\d. !fi. d = Function fi ⇒
         EVERY (is_wf_shape s.structs ∘ SND) fi.params ∧
         is_wf_shape s.structs fi.return)
-    (compile_top code start)
+    (compile_top aw code start)
 Proof
   rw [compile_top_def] >>
   every_case_tac >> simp [] >>
@@ -2498,7 +2516,7 @@ Theorem compile_top_shape_wf_nil[local]:
   EVERY (\d. !fi. d = Function fi ⇒
         EVERY (is_wf_shape_nil ∘ SND) fi.params ∧
         is_wf_shape_nil fi.return)
-    (compile_top code start)
+    (compile_top aw code start)
 Proof
   metis_tac [compile_top_shape_wf]
 QED
@@ -2543,10 +2561,10 @@ Theorem evaluate_decls_compile_top:
   evaluate_decls s decs = SOME s' ∧
   ALOOKUP (functions decs) start = SOME (args,body,rshape) ∧
   EVERY (\d. is_function d ∨ is_decl d ∨ is_exn_decl d) decs ∧
-  compile_decs <| globals := FEMPTY; globals_size := 0w;
-              max_globals_size := bytes_in_word*n2w(SUM(MAP size_of_shape(dec_shapes decs))) |> (fperm_decs start (new_main_name decs) (resort_decls decs)) = (ndecls,nfuns,nexns,nctxt)
+  compile_decs <| globals := FEMPTY; globals_size := 0; arch_width := aw;
+              max_globals_size := &(arch_bytes aw) * &(SUM(MAP size_of_shape(dec_shapes decs))) |> (fperm_decs start (new_main_name decs) (resort_decls decs)) = (ndecls,nfuns,nexns,nctxt)
   ⇒
-  evaluate_decls s (compile_top decs start) =
+  evaluate_decls s (compile_top aw decs start) =
   SOME
   (s with
      <| code :=
@@ -2561,14 +2579,14 @@ Theorem evaluate_decls_compile_top:
 Proof
   rw [] >>
   drule_all compile_top_shape_wf >>
-  disch_then (qspec_then `start` mp_tac) >>
+  disch_then (qspecl_then [`start`, `aw`] mp_tac) >>
   rw[compile_top_def, UNCURRY_eq_pair] >>
   imp_res_tac resort_decls_evaluate_IMP >>
   pairarg_tac >>
   simp[] >>
   gvs[resort_decls_def, is_wf_shape_def] >>
   gvs[dec_shapes_functions,dec_shapes_append,fperm_decs_append,fperm_decs_FILTER_is_function,EVERY_FILTER,fperm_decs_decls, dec_shapes_FILTER,not_is_function] >>
-  qpat_x_assum ‘compile_decs <|globals := _; globals_size := _; max_globals_size := _|> _ = _’ assume_tac >>
+  qpat_x_assum ‘compile_decs <|globals := _; globals_size := _; max_globals_size := _; arch_width := _|> _ = _’ assume_tac >>
   imp_res_tac compile_decs_EVERY_is_function >>
   gvs[] >>
   simp[evaluate_decls_append] >>
@@ -2608,7 +2626,7 @@ Proof
 QED
 
 Theorem compile_top_only_functions_or_exns:
-  EVERY (λd. is_function d ∨ is_exn_decl d) (compile_top code start)
+  EVERY (λd. is_function d ∨ is_exn_decl d) (compile_top aw code start)
 Proof
   rw[compile_top_def] >>
   PURE_TOP_CASE_TAC >> gvs[] >>
@@ -2972,7 +2990,7 @@ QED
 
 Theorem exceptions_compile_top:
   ALOOKUP (functions code) start = SOME x ⇒
-  exceptions(compile_top code start) = exceptions code
+  exceptions(compile_top aw code start) = exceptions code
 Proof
   rw[compile_top_def] >>
   PURE_TOP_CASE_TAC >> simp[] >>
@@ -3007,6 +3025,7 @@ Proof
 QED
 
 Theorem compile_top_semantics_decls:
+  arch_width_bits aw = dimindex(:'a) ∧
   ALL_DISTINCT (MAP FST (functions code)) ∧
   t = s with <| top_addr := s.top_addr + mgs:'a word;
                 memaddrs := (s.memaddrs ∪ free_addrs);
@@ -3026,7 +3045,7 @@ Theorem compile_top_semantics_decls:
   EVERY (\d. is_function d ∨ is_decl d ∨ is_exn_decl d) code ∧
   semantics_decls s start code <> Fail ==>
   semantics_decls s start code =
-  semantics_decls t start (compile_top code start)
+  semantics_decls t start (compile_top aw code start)
 Proof
   rpt strip_tac >>
   drule semantics_decls_has_main' >> strip_tac >>
@@ -3043,6 +3062,7 @@ Proof
   rw [] >>
   drule evaluate_decls_compile_top >>
   disch_then drule >>
+  disch_then (qspec_then ‘aw’ mp_tac o CONV_RULE (RESORT_FORALL_CONV rev)) >>
   qmatch_goalsub_abbrev_tac ‘a1 = (_,_,_,_)’ >>
   PairCases_on ‘a1’ >>
   gvs[markerTheory.Abbrev_def] >>
@@ -3113,20 +3133,22 @@ Proof
   disch_then drule >>
   simp[dec_shapes_fperm_decs,dec_shapes_resort_decls_def] >>
   impl_tac
-  >- (reverse conj_tac >- EVAL_TAC >>
-      simp[state_rel_def,disjoint_globals_def, FEVERY_FEMPTY] >>
-      conj_tac
-      >- (imp_res_tac compile_decs_exns_are_exns >>
-          gvs[exceptions_FILTER_is_function,exceptions_append,
-              fperm_decs_decls,not_is_function,EVERY_FILTER]) >>
-      reverse conj_tac
-      >- (irule byte_aligned_add >>
-          simp[] >>
-          irule byte_aligned_bytes_in_word_mul >>
-          simp[]) >>
-      simp[addresses_thm] >>
-      gvs[good_dimindex_def,bytes_in_word_def,word_mul_n2w,dimword_def] >>
-      intLib.COOPER_TAC) >>
+  >- (
+    simp[integer_wordTheory.i2w_0,byte_aligned_def,aligned_0] >>
+    simp[state_rel_def,disjoint_globals_def,FEVERY_FEMPTY,
+         integer_wordTheory.i2w_pos,GSYM word_mul_n2w,GSYM bytes_in_word_def] >>
+    conj_tac
+    >- (
+      imp_res_tac compile_decs_exns_are_exns >>
+      gvs[exceptions_FILTER_is_function,exceptions_append,
+          fperm_decs_decls,not_is_function,EVERY_FILTER]) >>
+    reverse conj_tac
+    >- (
+      irule byte_aligned_add >> simp[] >>
+      irule byte_aligned_bytes_in_word_mul >> simp[]) >>
+    simp[addresses_thm] >>
+    gvs[good_dimindex_def,bytes_in_word_def,word_mul_n2w,dimword_def] >>
+    intLib.COOPER_TAC) >>
   strip_tac >>
   simp[]
   >> simp[GSYM PULL_EXISTS]
@@ -3204,8 +3226,8 @@ Proof
 QED
 
 Theorem localised_exp_shape_val:
-  (∀sh. localised_exp ((shape_val sh):'a panLang$exp)) ∧
-  (∀shs. EVERY localised_exp ((shape_vals shs):'a panLang$exp list))
+  (∀sh. localised_exp ((shape_val sh):panLang$exp)) ∧
+  (∀shs. EVERY localised_exp ((shape_vals shs):panLang$exp list))
 Proof
   Induct >> rw[shape_val_def,localised_exp_simps] >> gvs[ETA_THM]
 QED
@@ -3261,7 +3283,7 @@ QED
 
 Theorem compile_top_localised:
   ∀pan_code main.
-    EVERY (localised_prog ∘ FST o SND ∘ SND) (functions (compile_top pan_code main))
+    EVERY (localised_prog ∘ FST o SND ∘ SND) (functions (compile_top aw pan_code main))
 Proof
   rw[pan_globalsTheory.compile_top_def] >>
   PURE_TOP_CASE_TAC >> simp[panLangTheory.functions_def] >>
@@ -3277,7 +3299,7 @@ QED
 Theorem ALL_DISTINCT_compile_top:
   ∀start code.
     ALL_DISTINCT (MAP FST (functions code)) ⇒
-    ALL_DISTINCT (MAP FST (functions (compile_top code start)))
+    ALL_DISTINCT (MAP FST (functions (compile_top aw code start)))
 Proof
   rpt strip_tac >> fs[compile_top_def]
   >> every_case_tac >> fs[functions_def]

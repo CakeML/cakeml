@@ -2,8 +2,6 @@
   Types common to some different parts of the pattern match compiler.
 *)
 Theory pattern_common
-Ancestors
-  num list arithmetic
 Libs
   preamble
 

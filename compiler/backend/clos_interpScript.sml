@@ -3,7 +3,7 @@
 *)
 Theory clos_interp
 Ancestors
-  closLang backend_common
+  closLang
 Libs
   preamble
 

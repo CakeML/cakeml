@@ -2663,6 +2663,17 @@ Proof
   \\ fs[STRING_TYPE_def,CHAR_def,stringTheory.IMPLODE_EXPLODE_I,NUM_def,INT_def]
 QED
 
+Theorem Eval_strsub_unsafe:
+   !env x1 x2 s n.
+      Eval env x1 (STRING_TYPE s) ==>
+      Eval env x2 (NUM n) ==>
+      n < strlen s ==>
+      Eval env (App Strsub_unsafe [x1; x2]) (CHAR (strsub_unsafe s n))
+Proof
+  tac2 \\ Cases_on `s` \\ fs [STRING_TYPE_def,NUM_def,INT_def]
+  \\ fs[STRING_TYPE_def,CHAR_def,mlstringTheory.strsub_unsafe_def,NUM_def,INT_def]
+QED
+
 Theorem Eval_concat:
    ∀env x ls.
      Eval env x (LIST_TYPE STRING_TYPE ls) ==>

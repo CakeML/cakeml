@@ -5,8 +5,6 @@ Theory copying_gc_model
 Ancestors
   pred_set arithmetic pair list combin finite_map sum relation
 
-val _ = ParseExtras.temp_loose_equality();
-
 Datatype:
   heap_address = H_ADDR num | H_DATA 'a
 End
@@ -65,7 +63,7 @@ Termination
 End
 
 Definition RANGE_def:
-  RANGE(i:num,j) k = i <= k /\ k < j
+  RANGE(i:num,j) k <=> i <= k /\ k < j
 End
 Definition CUT_def:
   CUT (i,j) m = \k. if RANGE (i,j) k then m k else H_EMP

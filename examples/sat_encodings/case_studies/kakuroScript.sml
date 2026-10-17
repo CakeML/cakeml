@@ -88,7 +88,7 @@ Definition kakuro_to_cnf_def:
 End
 
 Definition assignment_to_numVarAssignment_kakuro_def:
-  assignment_to_numVarAssignment_kakuro (w:assignment) (clues:clueList) =
+  assignment_to_numVarAssignment_kakuro (w:num assignment) (clues:clueList) =
   assignment_to_numVarAssignment_numBoolRange
   w
   (get_kakuro_rangeList clues)

@@ -5,7 +5,7 @@ Theory flat_patternProof
 Libs
   preamble bagSimps[qualified] induct_tweakLib[qualified]
 Ancestors
-  flat_pattern misc[qualified] ffi[qualified] bag[qualified]
+  flat_pattern misc[qualified]
   flatProps backendProps backend_common[qualified]
   pattern_semantics
   semanticPrimitives semanticPrimitivesProps flatLang
@@ -914,7 +914,7 @@ QED
 Theorem simple_val_rel:
   simple_val_rel v_rel
 Proof
-  simp [simple_val_rel_def, v_rel_cases]
+  simp [flatPropsTheory.simple_val_rel_def, v_rel_cases]
   \\ rw [] \\ simp []
   \\ EQ_TAC \\ rw [] \\ fs []
   \\ metis_tac [simple_val_rel_step_isClosure]
@@ -1584,6 +1584,14 @@ Proof
   \\ TRY (rename [`rv_1 ≠ Rerr (Rabort Rtype_error) /\ _`]
     \\ (Cases_on `rv_1 = Rerr (Rabort Rtype_error)` >- fs [])
     \\ fs [])
+  >~ [‘(dec_clock _, Rval _)’] >- (
+    (* Tick *)
+    ‘v3 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac \\ gvs [])
+    \\ first_x_assum drule_all \\ strip_tac \\ gvs []
+    \\ Cases_on ‘v3’ \\ gvs []
+    \\ ‘s'.clock = t2.clock’ by fs [state_rel_def]
+    \\ Cases_on ‘t2.clock = 0’ \\ gvs []
+    \\ fs [state_rel_def, dec_clock_def])
   >- (
     rpt (first_x_assum drule \\ rw [])
     \\ rveq \\ fs []

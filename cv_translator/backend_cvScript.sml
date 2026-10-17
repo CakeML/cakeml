@@ -10,6 +10,8 @@ Ancestors
 
 val _ = cv_memLib.use_long_names := true;
 
+val _ = cv_trans backend_commonTheory.empty_metadata_def;
+
 (* Deduplicate constructor uses within a scope, retaining local-open boundaries.
    An open is checked even when its body contains no constructor uses. *)
 Datatype:
@@ -464,6 +466,70 @@ val _ = cv_auto_trans backend_asmTheory.attach_bitmaps_def;
 
 (* ------------------------------------------------------------------------ *)
 
+Theorem offset_ok_cv_def =
+  asmTheory.offset_ok_def |> SRULE [integerTheory.INT_DIVIDES_MOD0];
+val offset_ok_pre = cv_trans_pre "" offset_ok_cv_def;
+Theorem asm_offset_ok_pre[cv_pre]:
+  ∀a offset i. asm_offset_ok_pre a offset i
+Proof
+  simp [Once offset_ok_pre]
+QED
+val _ = cv_trans lab_to_targetTheory.section_labels_def;
+val _ = cv_trans lab_to_targetTheory.compute_labels_alt_def;
+val _ = cv_trans lab_to_targetTheory.lines_upd_lab_len_def;
+val _ = cv_auto_trans lab_to_targetTheory.get_jump_offset_def;
+
+val pre = cv_trans_pre "" lab_to_targetTheory.upd_lab_len_def;
+Theorem lab_to_target_upd_lab_len_pre[cv_pre]:
+  ∀pos v. lab_to_target_upd_lab_len_pre pos v
+Proof
+  Induct_on ‘v’ \\ simp [Once pre]
+QED
+
+val _ = cv_trans lab_to_targetTheory.add_nop_def;
+
+val pre = cv_trans_pre "" lab_to_targetTheory.pad_section_def;
+Theorem lab_to_target_pad_section_pre[cv_pre,local]:
+  ∀nop v aux. lab_to_target_pad_section_pre nop v aux
+Proof
+  Induct_on ‘v’ \\ simp [Once pre]
+QED
+
+val _ = cv_trans lab_to_targetTheory.pad_code_def;
+
+Theorem to_shmem_info_num[local]:
+  <| entry_pc := ep ; nbytes := nb ; addr_reg := ar ; addr_off := ao ;
+     reg := r ; exit_pc := ex |> = shmem_info_num ep nb ar ao r ex
+Proof
+  gvs [lab_to_targetTheory.shmem_info_num_component_equality]
+QED
+
+val pre = cv_trans_pre "" (lab_to_targetTheory.get_shmem_info_def
+                          |> SRULE [to_shmem_info_num]);
+Theorem lab_to_target_get_shmem_info_pre[cv_pre]:
+  ∀v pos ffi_names shmem_info.
+    lab_to_target_get_shmem_info_pre v pos ffi_names shmem_info
+Proof
+  ho_match_mp_tac lab_to_targetTheory.get_shmem_info_ind
+  \\ rw [] \\ simp [Once pre] \\ gvs [to_shmem_info_num]
+QED
+
+Theorem shift_def[cv_inline] = backend_commonTheory.word_shift_def;
+
+val _ = asmTheory.arch_width_bits_def |> cv_trans;
+val _ = asmTheory.arch_bytes_def |> cv_trans;
+val _ = asmTheory.arch_shift_def |> cv_trans;
+val _ = asmTheory.int_offset_ok_def |> cv_trans;
+val _ = data_to_wordTheory.get_gen_size_def |> cv_trans;
+
+val _ = word_to_stackTheory.format_var_def |> cv_trans;
+val _ = word_to_stackTheory.perf_rbp_def |> cv_trans;
+val _ = word_to_stackTheory.perf_rsp_def |> cv_trans;
+val _ = word_to_stackTheory.handler_slots_def |> cv_trans;
+val _ = cv_trans word_instTheory.three_to_two_reg_def;
+val _ = cv_trans word_instTheory.three_to_two_reg_prog_def;
+val _ = cv_trans GREATER_DEF;
+
 val _ = cv_trans stack_to_labTheory.find_lab_def;
 val _ = cv_trans stack_to_labTheory.negate_def;
 val _ = cv_trans stack_to_labTheory.is_gen_gc_def;
@@ -517,8 +583,8 @@ Definition max_var_exp_list_def:
 End
 
 Theorem max_var_exp_list_thm[local]:
-  max_var_exp_list ([]:'a wordLang$exp list) = 0 ∧
-  ∀e es:'a wordLang$exp list.
+  max_var_exp_list ([]:wordLang$exp list) = 0 ∧
+  ∀e es:wordLang$exp list.
     max_var_exp_list (e::es) = MAX (max_var_exp e) (max_var_exp_list es)
 Proof
   gvs [max_var_exp_list_def,MAX_LIST_def,MAX_DEF] \\ rw []
@@ -653,8 +719,8 @@ Definition get_reads_exp_list_def:
 End
 
 Theorem get_reads_exp_list_thm[local]:
-  get_reads_exp_list ([]:'a wordLang$exp list) = [] ∧
-  ∀x xs:'a wordLang$exp list.
+  get_reads_exp_list ([]:wordLang$exp list) = [] ∧
+  ∀x xs:wordLang$exp list.
     get_reads_exp_list (x::xs) = get_reads_exp x ++ get_reads_exp_list xs
 Proof
   gvs [get_reads_exp_list_def]
@@ -670,8 +736,8 @@ Definition get_live_exps_def:
 End
 
 Theorem get_live_exps_thm[local]:
-  get_live_exps ([]:'a wordLang$exp list) = LN ∧
-  get_live_exps (x::xs:'a wordLang$exp list) = union (get_live_exp x) (get_live_exps xs)
+  get_live_exps ([]:wordLang$exp list) = LN ∧
+  get_live_exps (x::xs:wordLang$exp list) = union (get_live_exp x) (get_live_exps xs)
 Proof
   gvs [get_live_exps_def,word_allocTheory.big_union_def]
 QED
@@ -684,8 +750,8 @@ Theorem get_live_exp_eq[local] =
 val pre = cv_trans_pre "" get_live_exp_eq
 
 Theorem word_alloc_get_live_exp_pre[cv_pre]:
-  (∀v:'a wordLang$exp. word_alloc_get_live_exp_pre v) ∧
-  (∀v:'a wordLang$exp list. get_live_exps_pre v)
+  (∀v:wordLang$exp. word_alloc_get_live_exp_pre v) ∧
+  (∀v:wordLang$exp list. get_live_exps_pre v)
 Proof
   ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
 QED
@@ -698,8 +764,8 @@ Definition pull_exp_list_def:
 End
 
 Theorem pull_exp_list_thm[local]:
-  pull_exp_list ([]:'a wordLang$exp list) = [] ∧
-  ∀x xs:'a wordLang$exp list.
+  pull_exp_list ([]:wordLang$exp list) = [] ∧
+  ∀x xs:wordLang$exp list.
     pull_exp_list (x::xs) = pull_exp x :: pull_exp_list xs
 Proof
   gvs [pull_exp_list_def]
@@ -714,8 +780,8 @@ Definition flatten_exp_list_def:
 End
 
 Theorem flatten_exp_list_thm[local]:
-  flatten_exp_list ([]:'a wordLang$exp list) = [] ∧
-  ∀x xs:'a wordLang$exp list.
+  flatten_exp_list ([]:wordLang$exp list) = [] ∧
+  ∀x xs:wordLang$exp list.
     flatten_exp_list (x::xs) = flatten_exp x :: flatten_exp_list xs
 Proof
   gvs [flatten_exp_list_def]
@@ -726,6 +792,7 @@ Theorem flatten_exp_eq =
   |> REWRITE_RULE [GSYM flatten_exp_list_def]
 
 val _ = word_cseTheory.empty_data_def |> CONV_RULE (RAND_CONV EVAL) |> cv_trans;
+val _ = word_cseTheory.intToNum_def |> cv_trans;
 
 Definition lookup_listCmp_def:
   lookup_listCmp = balanced_map$lookup listCmp
@@ -781,7 +848,6 @@ val _ = cv_trans word_cseTheory.map_insert_def;
 val _ = cv_auto_trans word_cseTheory.canonicalMoveRegs_def;
 val _ = cv_trans word_cseTheory.canonicalArith_def;
 val _ = cv_trans word_cseTheory.canonicalFp_def;
-val _ = cv_trans word_cseTheory.wordToNum_def;
 val _ = cv_trans word_cseTheory.shiftToNum_def;
 val _ = cv_trans word_cseTheory.arithOpToNum_def;
 val _ = cv_trans word_cseTheory.regImmToNumList_def;
@@ -829,8 +895,8 @@ Definition ssa_cc_trans_exp_list_def:
 End
 
 Theorem list_thm[local]:
-  (∀t. ssa_cc_trans_exp_list t ([]:'a wordLang$exp list) = []) ∧
-  ∀x (xs:'a wordLang$exp list) t.
+  (∀t. ssa_cc_trans_exp_list t ([]:wordLang$exp list) = []) ∧
+  ∀x (xs:wordLang$exp list) t.
     ssa_cc_trans_exp_list t (x::xs) = ssa_cc_trans_exp t x :: ssa_cc_trans_exp_list t xs
 Proof
   gvs [ssa_cc_trans_exp_list_def]
@@ -841,13 +907,13 @@ Theorem ssa_cc_trans_exp_eq =
   |> SRULE [GSYM ssa_cc_trans_exp_list_def];
 
 Definition const_fp_exp_list_def:
-  const_fp_exp_list ls cs = MAP (λa. const_fp_exp a cs) ls
+  const_fp_exp_list bits ls cs = MAP (λa. const_fp_exp bits a cs) ls
 End
 
 Theorem list_thm[local]:
-  (∀cs. const_fp_exp_list ([]:'a wordLang$exp list) cs = []) ∧
-  ∀x (xs:'a wordLang$exp list) cs.
-    const_fp_exp_list (x::xs) cs = const_fp_exp x cs :: const_fp_exp_list xs cs
+  (∀bits cs. const_fp_exp_list bits ([]:wordLang$exp list) cs = []) ∧
+  ∀x (xs:wordLang$exp list) bits cs.
+    const_fp_exp_list bits (x::xs) cs = const_fp_exp bits x cs :: const_fp_exp_list bits xs cs
 Proof
   gvs [const_fp_exp_list_def]
 QED
@@ -888,6 +954,7 @@ QED
 val _ = cv_trans data_to_wordTheory.adjust_var_def;
 val _ = cv_trans adjust_vars_def;
 val _ = cv_auto_trans data_to_wordTheory.adjust_set_def;
+val _ = data_to_wordTheory.adjust_sets_def |> cv_trans;
 val _ = cv_trans data_to_wordTheory.get_names_def;
 val _ = cv_trans data_to_wordTheory.lookup_word_op_def;
 val _ = cv_trans data_to_wordTheory.fp_cmp_inst_def;
@@ -895,19 +962,6 @@ val _ = cv_trans data_to_wordTheory.fp_top_inst_def;
 val _ = cv_trans data_to_wordTheory.fp_bop_inst_def;
 val _ = cv_trans data_to_wordTheory.fp_uop_inst_def;
 val _ = bitTheory.SLICE_def |> SRULE [bitTheory.MOD_2EXP_def] |> cv_trans;
-
-Definition get_words_def:
-  get_words [] = [] ∧
-  get_words ((_,Word w) :: ws) = w :: get_words ws ∧
-  get_words (_ :: ws) = 0w :: get_words ws
-End
-
-Theorem to_get_words:
-  MAP (get_Word ∘ SND) ws = get_words ws
-Proof
-  Induct_on ‘ws’ \\ gvs [get_words_def,FORALL_PROD]
-  \\ gen_tac \\ Cases \\ gvs [get_words_def]
-QED
 
 Definition map_compile_part_def:
   map_compile_part c [] = [] ∧

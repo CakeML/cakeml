@@ -1172,7 +1172,7 @@ Theorem not_less_opt_lemma:
   (∀k. ¬less_opt
        n (SOME
           (LENGTH
-           (SND (evaluate (prog:'a panLang$prog,s with clock := k))).ffi.io_events))) ⇒
+           (SND (evaluate (prog:panLang$prog,s with clock := k))).ffi.io_events))) ⇒
   ∃k'. (∀k. k' ≤ k ⇒
             LENGTH
             (SND (evaluate (prog,s with clock := k))).ffi.io_events =
@@ -1181,15 +1181,17 @@ Theorem not_less_opt_lemma:
 Proof
   strip_tac>>
   fs[less_opt_def,NOT_LESS]>>
-  qabbrev_tac ‘f = (λx. LENGTH (SND (evaluate (prog:'a panLang$prog,s with clock := x))).ffi.io_events)’>>
+  qabbrev_tac ‘f = (λx. LENGTH (SND (evaluate (prog:panLang$prog,s with clock := x))).ffi.io_events)’>>
   fs[]>>
   ‘∀k k'. k ≤ k' ⇒ f k ≤ f k'’
-    by (fs[Abbr‘f’]>>
-        rpt strip_tac>>
-        drule LESS_EQUAL_ADD>>strip_tac>>fs[]>>
-        assume_tac (Q.SPECL [‘prog’,‘s with clock := k’,‘p’]
-                     panPropsTheory.evaluate_add_clock_io_events_mono)>>
-        fs[IS_PREFIX_APPEND])>>
+    by (
+      fs[Abbr‘f’]>>
+      rpt strip_tac>>
+      drule LESS_EQUAL_ADD>>strip_tac>>fs[]>>
+      assume_tac (Q.ISPECL [`prog:panLang$prog`,`(s:('b,'a) panSem$state) with clock := k`,`p:num`]
+        panPropsTheory.evaluate_add_clock_io_events_mono)>>
+      fs[IS_PREFIX_APPEND]
+    )>>
   ‘∃k. ∀k'. k ≤ k' ⇒ f k' ≤  f k’ by
     (CCONTR_TAC>>fs[NOT_LESS_EQUAL]>>
      last_x_assum mp_tac>>fs[NOT_LESS_EQUAL]>>

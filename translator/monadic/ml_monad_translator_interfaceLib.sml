@@ -17,7 +17,6 @@ open preamble ml_monadBaseLib ml_monadStoreLib ml_monad_translatorLib
 
 fun set_up_monadic_translator () = let
   (* Add monadic syntax: do x <- f y; ... od *)
-  val _ = ParseExtras.temp_loose_equality();
   val _ = monadsyntax.temp_add_monadsyntax()
 
   (* Parser overloadings *)

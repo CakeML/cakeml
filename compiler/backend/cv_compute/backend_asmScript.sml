@@ -5,7 +5,7 @@
 Theory backend_asm
 Ancestors
   backend lab_to_target backend_enc_dec backend_passes
-  evaluate_dec
+  ml_prog
 Libs
   preamble
 
@@ -15,21 +15,21 @@ Libs
  *----------------------------------------------------------------*)
 
 Definition enc_line_def:
-  enc_line (c:'a asm_config) skip_len (Label n1 n2 n3) =
+  enc_line (c:asm_config) skip_len (Label n1 n2 n3) =
     Label n1 n2 skip_len ∧
   enc_line c skip_len (Asm a v0 v1) =
     (let bs = c.encode (compile_shmem a) in Asm a bs (LENGTH bs)) ∧
   enc_line c skip_len (LabAsm l v2 v3 v4) =
-    (let bs = c.encode (lab_inst 0w l) in LabAsm l 0w bs (LENGTH bs))
+    (let bs = c.encode (lab_inst 0 l) in LabAsm l 0 bs (LENGTH bs))
 End
 
 Definition enc_sec_def:
-  enc_sec (c:'a asm_config) skip_len (Section k xs) =
-    Section k (MAP (enc_line c skip_len) xs)
+  enc_sec (c:asm_config) skip_len (Section k xs md) =
+    Section k (MAP (enc_line c skip_len) xs) md
 End
 
 Definition enc_sec_list_def:
-  enc_sec_list (c:'a asm_config) xs =
+  enc_sec_list (c:asm_config) xs =
     let skip_len = LENGTH (c.encode (Inst Skip)) in
       MAP (enc_sec c skip_len) xs
 End
@@ -52,11 +52,11 @@ Definition enc_lines_again_def:
 End
 
 Definition enc_secs_again_def:
-  enc_secs_again pos labs ffis (c:'a asm_config) [] = ([],T) ∧
-  enc_secs_again pos labs ffis c (Section s lines::rest) =
+  enc_secs_again pos labs ffis (c:asm_config) [] = ([],T) ∧
+  enc_secs_again pos labs ffis c (Section s lines md::rest) =
     let (lines1,pos1,ok) = enc_lines_again labs ffis pos c lines ([],T);
         (rest1,ok1) = enc_secs_again pos1 labs ffis c rest
-    in (Section s lines1::rest1,ok ∧ ok1)
+    in (Section s lines1 md::rest1,ok ∧ ok1)
 End
 
 Theorem enc_line_eq[local]:
@@ -132,22 +132,21 @@ Definition lab_to_target_def:
 End
 
 Definition attach_bitmaps_def:
-  attach_bitmaps names (c:config) data (SOME (code_bytes,c')) =
+  attach_bitmaps (c:config) (data:num list) (SOME (code_bytes:word8 list,c')) =
     (let ffi_names = ffinames_to_string_list (the [] c'.ffi_names) in
-     let syms = MAP (λ(n,p,l). (lookup_any n names «NOTFOUND»,p,l))
-                    c'.sec_pos_len
+     let syms = c'.sec_pos_len
      in
        SOME (code_bytes, LENGTH code_bytes,
              data, LENGTH data,
              ffi_names, LENGTH c'.shmem_extra,
              syms, encode_backend_config $ c with
                <| lab_conf := c'; symbols := syms |>)) ∧
-  attach_bitmaps names c bm NONE = NONE
+  attach_bitmaps c bm NONE = NONE
 End
 
 Definition from_lab_def:
-  from_lab (asm_conf :'a asm_config) (c:config) names p bm =
-    attach_bitmaps names c bm (lab_to_target asm_conf c.lab_conf p)
+  from_lab (asm_conf :asm_config) (c:config) p bm =
+    attach_bitmaps c bm (lab_to_target asm_conf c.lab_conf p)
 End
 
 (*----------------------------------------------------------------*
@@ -155,24 +154,25 @@ End
  *----------------------------------------------------------------*)
 
 Definition from_stack_def:
-  from_stack (asm_conf :'a asm_config) (c :config) names p bm =
+  from_stack (asm_conf :asm_config) (c :config) p (bm:num list) =
     let p = stack_to_lab$compile
-      c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
+      (arch_wordsize asm_conf.ISA) c.stack_conf c.data_conf
+      (&(2 * max_heap_limit (isa_bits asm_conf) c.data_conf - 1))
       (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs +3))
       (asm_conf.addr_offset) p in
-    from_lab asm_conf c names p bm
+    from_lab asm_conf c p bm
 End
 
 Definition from_word_def:
-  from_word (asm_conf :'a asm_config) (c :config) names p =
+  from_word (asm_conf :asm_config) (c :config) p =
     let (bm,c',fs,p) = word_to_stack$compile asm_conf c.stack_conf.perf_calls p in
     let c = c with word_conf := c' in
-      from_stack asm_conf c names p bm
+      from_stack asm_conf c p bm
 End
 
 Definition word_alloc_inlogic_def:
   word_alloc_inlogic c prog col_opt =
-    let tree = get_clash_tree prog [] in
+    let tree = get_clash_tree (isa_bits c) prog [] in
     let forced = get_forced c prog [] in
       oracle_colour_ok (c.reg_count − (5 + LENGTH c.avoid_regs))
                        col_opt tree prog forced
@@ -180,24 +180,24 @@ End
 
 Definition each_inlogic_def:
   each_inlogic asm_conf [] = SOME [] ∧
-  each_inlogic asm_conf (((name_num,arg_count,prog),col_opt)::rest) =
-   let prog = compile_exp prog;
-       maxv = max_var prog + 1;
-       inst_prog = inst_select asm_conf maxv prog;
-       ssa_prog = full_ssa_cc_trans arg_count inst_prog;
-       rm_ssa_prog = remove_dead_prog ssa_prog;
+  each_inlogic asm_conf (((name_num,arg_count,prog,md),col_opt)::rest) =
+   let prog = compile_exp (isa_bits asm_conf) prog;
+       maxv = max_var (isa_bits asm_conf) prog + 1;
+       inst_prog = inst_select (isa_bits asm_conf) asm_conf maxv prog;
+       ssa_prog = full_ssa_cc_trans (isa_bits asm_conf) arg_count inst_prog;
+       rm_ssa_prog = remove_dead_prog (isa_bits asm_conf) ssa_prog;
        cse_prog = word_common_subexp_elim rm_ssa_prog;
        cp_prog = copy_prop cse_prog;
        two_prog = three_to_two_reg_prog asm_conf.two_reg_arith cp_prog;
        unreach_prog = remove_unreach two_prog;
-       rm_prog = remove_dead_prog unreach_prog;
+       rm_prog = remove_dead_prog (isa_bits asm_conf) unreach_prog;
    in
      case word_alloc_inlogic asm_conf rm_prog col_opt
      of NONE => NONE
       | SOME reg_prog =>
         case each_inlogic asm_conf rest of
           NONE => NONE
-        | SOME progs => SOME ((name_num,arg_count,remove_must_terminate reg_prog) :: progs)
+        | SOME progs => SOME ((name_num,arg_count,remove_must_terminate reg_prog,md) :: progs)
 End
 
 Definition word_to_word_inlogic_def:
@@ -210,13 +210,13 @@ Definition word_to_word_inlogic_def:
 End
 
 Definition from_word_0_def:
-  from_word_0 (asm_conf :'a asm_config) (c,p,names) =
+  from_word_0 (asm_conf :asm_config) (c,p) =
     case word_to_word_inlogic asm_conf c.word_to_word_conf p of
     | NONE => NONE
     | SOME (col,prog) =>
         let c = c with word_to_word_conf updated_by
                   (λc. c with col_oracle := col) in
-          from_word asm_conf c names prog
+          from_word asm_conf c prog
 End
 
 (*----------------------------------------------------------------*
@@ -224,7 +224,7 @@ End
  *----------------------------------------------------------------*)
 
 Definition compile_cake_def:
-  compile_cake (asm_conf :'a asm_config) (c :config) p =
+  compile_cake (asm_conf :asm_config) (c :config) p =
     if ml_prog$prog_syntax_ok p then
       from_word_0 asm_conf (to_word_0 asm_conf c p)
     else NONE
@@ -235,10 +235,10 @@ End
  *----------------------------------------------------------------*)
 
 Theorem from_lab_thm[local]:
-  from_lab asm_conf c names p bm =
+  from_lab asm_conf c p bm =
   SOME (bytes,bytes_len,bm1,bm1_len,ffi_names,shmem_len,syms,conf_str) ⇒
   ∃c1.
-    backend$from_lab asm_conf c names p bm = SOME (bytes,bm1,c1) ∧
+    backend$from_lab asm_conf c p bm = SOME (bytes,bm1,c1) ∧
     ffi_names = ffinames_to_string_list (the [] c1.lab_conf.ffi_names) ∧
     syms = c1.symbols ∧
     LENGTH bytes = bytes_len ∧
@@ -258,10 +258,10 @@ Proof
 QED
 
 Theorem from_stack_thm[local]:
-  from_stack asm_conf c names p bm =
+  from_stack asm_conf c p bm =
   SOME (bytes,bytes_len,bm1,bm1_len,ffi_names,shmem_len,syms,conf_str) ⇒
   ∃c1.
-    backend$from_stack asm_conf c names p bm = SOME (bytes,bm1,c1) ∧
+    backend$from_stack asm_conf c p bm = SOME (bytes,bm1,c1) ∧
     ffi_names = ffinames_to_string_list (the [] c1.lab_conf.ffi_names) ∧
     syms = c1.symbols ∧
     LENGTH bytes = bytes_len ∧
@@ -294,10 +294,10 @@ Proof
 QED
 
 Theorem from_word_0_thm[local]:
-  from_word_0 asm_conf (c,p,names) =
+  from_word_0 asm_conf (c,p) =
   SOME (bytes,bytes_len,bm1,bm1_len,ffi_names,shmem_len,syms,conf_str) ⇒
   ∃c1.
-    backend$from_word_0 asm_conf c names p = SOME (bytes,bm1,c1) ∧
+    backend$from_word_0 asm_conf c p = SOME (bytes,bm1,c1) ∧
     ffi_names = ffinames_to_string_list (the [] c1.lab_conf.ffi_names) ∧
     syms = c1.symbols ∧
     LENGTH bytes = bytes_len ∧
@@ -316,7 +316,7 @@ Proof
 QED
 
 Theorem compile_cake_thm:
-  ∀asm_conf:'a asm_config.
+  ∀asm_conf:asm_config.
     compile_cake asm_conf c p =
     SOME (bytes,bytes_len,bm,bm_len,ffi_names,shmem_len,syms,conf_str) ⇒
     ∃c1.
@@ -344,7 +344,7 @@ QED
 
 Definition to_word_all_def:
   to_word_all asm_conf (c:config) p =
-    let (ps,c,p,names) = to_data_all c p in
+    let (ps,c,p) = to_data_all c p in
     let data_conf = c.data_conf in
     let word_conf = c.word_to_word_conf in
     let data_conf =
@@ -352,59 +352,61 @@ Definition to_word_all_def:
             <|has_fp_ops := (1 < asm_conf.fp_reg_count);
               has_fp_tern :=
                 (asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count)|> in
-    let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) p in
-    let ps = ps ++ [(«after data_to_word»,Word p names)] in
-    let (p,ps) = word_internal_all asm_conf ps names p in
+    let p = stubs_md data_conf ++ MAP (compile_part data_conf) p in
+    let ps = ps ++ [(«after data_to_word»,Word p)] in
+    let (p,ps) = word_internal_all asm_conf ps p in
     let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
     let alg = word_conf.reg_alg in
     let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
-    let p = MAP (λ((name_num,arg_count,prog),col_opt).
+    let p = MAP (λ((name_num,arg_count,prog,md),col_opt).
               ((name_num,arg_count,
                remove_must_terminate
                  (case word_alloc_inlogic asm_conf prog col_opt of
                   | NONE => FFI «reg alloc fail» 0 0 0 0 (LN,LN)
-                  | SOME x => x)))) (ZIP (p,n_oracles)) in
-    let ps = ps ++ [(«after word_alloc (and remove_must_terminate)»,Word p names)] in
+                  | SOME x => x),md))) (ZIP (p,n_oracles)) in
+    let ps = ps ++ [(«after word_alloc (and remove_must_terminate)»,Word p)] in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
-      ((ps: (mlstring # 'a any_prog) list),c,p,names)
+      ((ps: (mlstring # any_prog) list),c,p)
 End
 
 Definition to_stack_all_def:
   to_stack_all asm_conf (c:config) p =
-    let (ps,c,p,names) = to_word_all asm_conf c p in
+    let (ps,c,p) = to_word_all asm_conf c p in
     let (bm,c',fs,p) = word_to_stack$compile asm_conf c.stack_conf.perf_calls p in
-    let ps = ps ++ [(«after word_to_stack»,Stack p names)] in
+    let ps = ps ++ [(«after word_to_stack»,Stack p)] in
     let c = c with word_conf := c' in
-      ((ps: (mlstring # 'a any_prog) list),bm,c,p,names)
+      ((ps: (mlstring # any_prog) list),bm,c,p)
 End
 
 Definition to_lab_all_def:
-  to_lab_all (asm_conf:'a asm_config) (c:config) p =
-    let (ps,bm,c,p,names) = to_stack_all asm_conf c p in
+  to_lab_all (asm_conf:asm_config) (c:config) p =
+    let (ps,bm,c,p) = to_stack_all asm_conf c p in
     let stack_conf = c.stack_conf in
     let data_conf = c.data_conf in
-    let max_heap = 2 * max_heap_limit (:'a) c.data_conf - 1 in
+    let max_heap = &(2 * max_heap_limit (isa_bits asm_conf) c.data_conf - 1) in
     let sp = asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3) in
     let offset = asm_conf.addr_offset in
     let prog = stack_rawcall$compile p in
-    let ps = ps ++ [(«after stack_rawcall»,Stack prog names)] in
-    let prog = stack_alloc$compile data_conf prog in
-    let ps = ps ++ [(«after stack_alloc»,Stack prog names)] in
-    let prog = stack_remove$compile stack_conf.jump offset (is_gen_gc data_conf.gc_kind)
+    let ps = ps ++ [(«after stack_rawcall»,Stack prog)] in
+    let prog = stack_alloc$compile (arch_wordsize asm_conf.ISA) data_conf prog in
+    let ps = ps ++ [(«after stack_alloc»,Stack prog)] in
+    let prog = stack_remove$compile (arch_wordsize asm_conf.ISA)
+                 stack_conf.jump offset (is_gen_gc data_conf.gc_kind)
                  max_heap sp InitGlobals_location prog in
-    let ps = ps ++ [(«after stack_remove»,Stack prog names)] in
+    let ps = ps ++ [(«after stack_remove»,Stack prog)] in
     let prog = stack_names$compile stack_conf.reg_names prog in
-    let ps = ps ++ [(«after stack_names»,Stack prog names)] in
+    let ps = ps ++ [(«after stack_names»,Stack prog)] in
     let p = MAP prog_to_section prog in
-    let ps = ps ++ [(«after stack_to_lab»,Lab p names)] in
-      ((ps: (mlstring # 'a any_prog) list),bm:'a word list,c,p,names)
+    let ps = ps ++ [(«after stack_to_lab»,Lab p)] in
+      ((ps: (mlstring # any_prog) list),bm:num list,c,p)
 End
 
 Definition compile_cake_explore_def:
-  compile_cake_explore (asm_conf :'a asm_config) (c :config) p =
-    let (ps,bm,c,p,names) = to_lab_all asm_conf c p in
+  compile_cake_explore (asm_conf :asm_config) (c :config) p =
+    let (ps:(mlstring # any_prog) list,bm:num list,c,p) =
+        to_lab_all asm_conf c p in
     let p = filter_skip p in
-    let ps = ps ++ [(«after filter_skip»,Lab p names)] in
+    let ps = ps ++ [(«after filter_skip»,Lab p)] in
       concat (append (FOLDR (pp_with_title any_prog_pp) Nil ps))
 End
 

@@ -1007,9 +1007,9 @@ fun prove_store_access_specs refs_manip_list
         val set_arr = set_fun
         val sub_exn = concl sub_def |> rhs |> rand
         val update_exn = concl update_def |> rhs |> rand
-        val Eval_sub_rexp = hol2deep sub_exn
+        val Eval_sub_rexp = translate_tm sub_exn
         val sub_rexp = concl Eval_sub_rexp |> rator |> rand
-        val Eval_update_rexp = hol2deep update_exn
+        val Eval_update_rexp = translate_tm update_exn
         val update_rexp = concl Eval_update_rexp |> rator |> rand
 
         val compos_conv = (PURE_REWRITE_CONV[store_X_hprop_def])
@@ -1160,9 +1160,9 @@ fun prove_store_access_specs refs_manip_list
         val set_arr = set_fun
         val sub_exn = concl sub_def |> rhs |> rand
         val update_exn = concl update_def |> rhs |> rand
-        val Eval_sub_rexp = hol2deep sub_exn
+        val Eval_sub_rexp = translate_tm sub_exn
         val sub_rexp = concl Eval_sub_rexp |> rator |> rand
-        val Eval_update_rexp = hol2deep update_exn
+        val Eval_update_rexp = translate_tm update_exn
         val update_rexp = concl Eval_update_rexp |> rator |> rand
 
         val compos_conv = (PURE_REWRITE_CONV[store_X_hprop_def])

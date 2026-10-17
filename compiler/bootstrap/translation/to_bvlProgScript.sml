@@ -7,8 +7,6 @@ Ancestors
 Libs
   preamble ml_translatorLib
 
-open preamble ml_translatorLib ml_translatorTheory to_closProgTheory;
-
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "to_closProg";
@@ -153,6 +151,8 @@ val r = translate clos_to_bvlTheory.compile_common_def;
 
 val r = translate (clos_to_bvlTheory.init_code_def |> REWRITE_RULE [GSYM sub_check_def]);
 val r = translate (clos_to_bvlTheory.partial_app_fn_location_def |> REWRITE_RULE [GSYM sub_check_def]);
+
+val r = translate (clos_to_bvlTheory.compile_prog_def |> REWRITE_RULE [GSYM sub_check_def]);
 
 val r = translate clos_to_bvlTheory.compile_def;
 

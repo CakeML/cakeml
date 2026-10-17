@@ -16,7 +16,6 @@ open reg_allocTheory reg_allocProofTheory linear_scanTheory
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = Parse.bring_to_front_overload"numset_list_insert"
              {Thy="word_alloc",Name="numset_list_insert"};
@@ -85,59 +84,59 @@ Proof
   metis_tac[MEM_MAP]
 QED
 
-(* word_alloc proofs
-  1. correctness theorem about colouring_ok
+(* word_alloc bits proofs
+  1. correctness theorem about colouring_ok bits
   2. get_clash_sets (TODO: redundant)
-  3. connect check_clash_tree to colouring_ok
+  3. connect check_clash_tree to colouring_ok bits
   4. word_alloc_correct (connect 1 and 3)
-  5. ssa_cc_trans correctness proof (including an invariant property), followed by full_ssa_cc_trans correctness
+  5. ssa_cc_trans bits correctness proof (including an invariant property), followed by full_ssa_cc_trans bits correctness
   6. ssa syntactic things (pre_alloc_conventions, wf_cutsets)
-  7. word_alloc syntactic things
+  7. word_alloc bits syntactic things
   8. misc
  *)
 
-(* colouring_ok correctness proof *)
+(* colouring_ok bits correctness proof *)
 Definition colouring_ok_def:
-  (colouring_ok f (Seq s1 s2) live lt =
+  (colouring_ok bits f (Seq s1 s2) live lt =
     (*Normal live sets*)
-    let s2_live = get_live s2 live lt in
-    let s1_live = get_live s1 s2_live lt in
+    let s2_live = get_live bits s2 live lt in
+    let s1_live = get_live bits s1 s2_live lt in
       INJ f (domain s1_live) UNIV ∧
       (*Internal clash sets*)
-      colouring_ok f s2 live lt ∧ colouring_ok f s1 s2_live lt) ∧
-  (colouring_ok f (If cmp r1 ri e2 e3) live lt =
-    let e2_live = get_live e2 live lt in
-    let e3_live = get_live e3 live lt in
+      colouring_ok bits f s2 live lt ∧ colouring_ok bits f s1 s2_live lt) ∧
+  (colouring_ok bits f (If cmp r1 ri e2 e3) live lt =
+    let e2_live = get_live bits e2 live lt in
+    let e3_live = get_live bits e3 live lt in
     let union_live = union e2_live e3_live in
     let merged = case ri of Reg r2 => insert r2 () (insert r1 () union_live)
                       | _ => insert r1 () union_live in
     (*All of them must be live at once*)
       INJ f (domain merged) UNIV ∧
       (*Internal clash sets*)
-      colouring_ok f e2 live lt ∧ colouring_ok f e3 live lt) ∧
-  (colouring_ok f (Call(SOME(v,cutset,ret_handler,l1,l2))dest args h) live lt =
+      colouring_ok bits f e2 live lt ∧ colouring_ok bits f e3 live lt) ∧
+  (colouring_ok bits f (Call(SOME(v,cutset,ret_handler,l1,l2))dest args h) live lt =
     let args_set = numset_list_insert args LN in
     let all_names = union (SND cutset) (FST cutset) in
     INJ f (domain (union all_names args_set)) UNIV ∧
     INJ f (domain (numset_list_insert v all_names )) UNIV ∧
     (*returning handler*)
-    colouring_ok f ret_handler live lt ∧
+    colouring_ok bits f ret_handler live lt ∧
     (*exception handler*)
     (case h of
     | NONE => T
     | SOME(v,prog,l1,l2) =>
         INJ f (domain (insert v () all_names)) UNIV ∧
-        colouring_ok f prog live lt)) ∧
-  (colouring_ok f (MustTerminate p) live lt =
-    colouring_ok f p live lt) ∧
-  (colouring_ok f (Loop names body exit_names) live lt =
+        colouring_ok bits f prog live lt)) ∧
+  (colouring_ok bits f (MustTerminate p) live lt =
+    colouring_ok bits f p live lt) ∧
+  (colouring_ok bits f (Loop names body exit_names) live lt =
     (INJ f (domain names) UNIV ∧
     INJ f (domain exit_names) UNIV ∧
-    colouring_ok f body names ((names,exit_names)::lt))) ∧
-  (colouring_ok f prog live lt =
+    colouring_ok bits f body names ((names,exit_names)::lt))) ∧
+  (colouring_ok bits f prog live lt =
     (*live before must be fine, and clash set must be fine*)
-    let lset = get_live prog live lt in
-    let iset = union (get_writes prog) live in
+    let lset = get_live bits prog live lt in
+    let iset = union (get_writes bits prog) live in
       INJ f (domain lset) UNIV ∧ INJ f (domain iset) UNIV)
 End
 
@@ -930,15 +929,15 @@ QED
 
 Theorem evaluate_apply_colour_Loop_helper[local]:
   ∀(st:('a,'c,'ffi) wordSem$state) cst f names body exit_names live lt.
-    colouring_ok f (Loop names body exit_names) live lt ∧
+    colouring_ok bits f (Loop names body exit_names) live lt ∧
     word_state_eq_rel st cst ∧
     strong_locals_rel f
-      (domain (get_live (Loop names body exit_names) live lt))
+      (domain (get_live bits (Loop names body exit_names) live lt))
       st.locals cst.locals ∧
     (∀(st:('a,'c,'ffi) wordSem$state) cst f live lt.
-       colouring_ok f body live lt ∧
+       colouring_ok bits f body live lt ∧
        word_state_eq_rel st cst ∧
-       strong_locals_rel f (domain (get_live body live lt))
+       strong_locals_rel f (domain (get_live bits body live lt))
          st.locals cst.locals ⇒
        ∃perm'.
          (let (res,rst) = evaluate (body,st with permute := perm') in
@@ -1103,10 +1102,11 @@ QED
 
 (*liveness theorem*)
 Theorem evaluate_apply_colour:
-  ∀prog st cst f live lt.
-  colouring_ok f prog live lt ∧
+  ∀bits prog st cst f live lt.
+  bits = dimindex (:'a) ∧
+  colouring_ok bits f prog live lt ∧
   word_state_eq_rel (st:('a,'c,'ffi) wordSem$state) cst ∧
-  strong_locals_rel f (domain (get_live prog live lt)) st.locals cst.locals
+  strong_locals_rel f (domain (get_live bits prog live lt)) st.locals cst.locals
   ⇒
   ∃perm'.
   let (res,rst) = evaluate(prog,st with permute:=perm') in
@@ -1130,8 +1130,9 @@ Theorem evaluate_apply_colour:
     | SOME _ => rst.locals = rcst.locals )
 Proof
   (*Induct on size of program*)
-  completeInduct_on`prog_size (K 0) prog`>>
+  completeInduct_on`prog_size prog`>>
   rpt strip_tac>>
+  qpat_x_assum `bits = dimindex (:α)` SUBST_ALL_TAC >>
   full_simp_tac(srw_ss())[PULL_FORALL,evaluate_def]>>
   Cases_on`prog`
   >~[`Skip`] >- suspend "Skip"
@@ -1221,12 +1222,55 @@ Resume evaluate_apply_colour[Move]:
   full_simp_tac(srw_ss())[]
 QED
 
+(* the six Arith cases other than Binop and Shift *)
+val inst_arith_tac =
+  fs[]>>
+  qmatch_goalsub_abbrev_tac `get_vars ls st`>>
+  Cases_on`get_vars ls st`>>fs[Abbr`ls`]>>
+  imp_res_tac strong_locals_rel_get_vars>>fs[]>>
+  pop_assum kall_tac>> pop_assum mp_tac>>
+  impl_tac>-
+    metis_tac[]>>
+  fs[]>>
+  qmatch_asmsub_abbrev_tac `INJ f (domain A)`>>
+  `!n n'. n ∈ domain A ∧
+          n' ∈ domain A ∧ n ≠ n' ⇒ f n ≠ f n'` by
+    (fs[get_writes_def,get_writes_inst_def,Abbr`A`]>>
+    qpat_x_assum`INJ f A B` mp_tac>>
+    rpt (pop_assum kall_tac)>>rw[]>>
+    FULL_SIMP_TAC bool_ss [INJ_DEF,domain_union,get_writes_def,get_writes_inst_def,domain_insert,IN_UNION]>>
+    metis_tac[IN_INSERT])>>
+  fs[get_writes_def,get_writes_inst_def,Abbr`A`,domain_union]>>
+  every_case_tac>>fs[set_var_def,strong_locals_rel_def,lookup_insert]>>
+  rw[]>>
+  pop_assum mp_tac>>
+  rpt IF_CASES_TAC>>fs[]>>
+  metis_tac[];
+
 Resume evaluate_apply_colour[Inst]:
+  qpat_x_assum `!prog st cst f live lt. _` kall_tac >>
   exists_tac>>
   Cases_on`i`>> (TRY (Cases_on`a`))>> (TRY(Cases_on`m`))>>
   full_simp_tac(srw_ss())[get_live_def,get_live_inst_def,inst_def,assign_def,word_add_carry_def]
+  >~ [`get_writes _ (Inst (Arith (Div rd ra rb)))`]
+  >- inst_arith_tac
+  >~ [`get_writes _ (Inst (Arith (LongMul rh rl ra rb)))`]
+  >- inst_arith_tac
+  >~ [`get_writes _ (Inst (Arith (LongDiv rq rr rh rl rb)))`]
+  >- inst_arith_tac
+  >~ [`get_writes _ (Inst (Arith (AddCarry rd ra rb rc)))`]
+  >- inst_arith_tac
+  >~ [`get_writes _ (Inst (Arith (AddOverflow rd ra rb ro)))`]
+  >- inst_arith_tac
+  >~ [`get_writes _ (Inst (Arith (SubOverflow rd ra rb ro)))`]
+  >- inst_arith_tac
+  >~ [`get_writes _ (Inst (Arith (IMul rd ra rb ro)))`]
+  >- inst_arith_tac
+  >~ [`get_writes _ (Inst (Arith (IDiv rq rr ra rb)))`]
+  >- inst_arith_tac
   >-
-  (Cases_on`word_exp st (Const c)`>>
+  (rename1 `word_exp st (Const imm)` >>
+  Cases_on`word_exp st (Const imm)`>>
   fs[word_exp_def,set_var_def,domain_union,get_writes_def,get_writes_inst_def]>>
   match_mp_tac strong_locals_rel_insert>>
   metis_tac[INSERT_SING_UNION])
@@ -1261,30 +1305,6 @@ Resume evaluate_apply_colour[Inst]:
   match_mp_tac strong_locals_rel_insert>>
   fs[domain_union,get_writes_def,get_writes_inst_def]>>
   metis_tac[INSERT_SING_UNION,strong_locals_rel_subset,SUBSET_OF_INSERT])
-  >>
-  TRY (
-  fs[]>>
-  qmatch_goalsub_abbrev_tac `get_vars ls st`>>
-  Cases_on`get_vars ls st`>>fs[Abbr`ls`]>>
-  imp_res_tac strong_locals_rel_get_vars>>fs[]>>
-  pop_assum kall_tac>> pop_assum mp_tac>>
-  impl_tac>-
-    metis_tac[]>>
-  fs[]>>
-  qmatch_asmsub_abbrev_tac `INJ f (domain A)`>>
-  `!n n'. n ∈ domain A ∧
-          n' ∈ domain A ∧ n ≠ n' ⇒ f n ≠ f n'` by
-    (fs[get_writes_def,get_writes_inst_def,Abbr`A`]>>
-    qpat_x_assum`INJ f A B` mp_tac>>
-    rpt (pop_assum kall_tac)>>rw[]>>
-    FULL_SIMP_TAC bool_ss [INJ_DEF,domain_union,get_writes_def,get_writes_inst_def,domain_insert,IN_UNION]>>
-    metis_tac[IN_INSERT])>>
-  fs[get_writes_def,get_writes_inst_def,Abbr`A`,domain_union]>>
-  every_case_tac>>fs[set_var_def,strong_locals_rel_def,lookup_insert]>>
-  rw[]>>
-  pop_assum mp_tac>>
-  rpt IF_CASES_TAC>>fs[]>>
-  metis_tac[])
   >-
   (qpat_abbrev_tac`expr=((Op Add [Var n';A]))`>>
   setup_tac>>
@@ -1308,7 +1328,7 @@ Resume evaluate_apply_colour[Inst]:
   full_simp_tac(srw_ss())[word_state_eq_rel_def,LET_THM,set_var_def]>>
   Cases_on`x`>>simp[]>>
   fs[mem_load_byte_aux_def]>>
-  Cases_on`st.memory (byte_align c')`>>fs[]>>
+  Cases_on`st.memory (byte_align c)`>>fs[]>>
   IF_CASES_TAC>>
   fs[domain_union,get_writes_def,get_writes_inst_def]>>
   metis_tac[INSERT_SING_UNION,strong_locals_rel_subset,SUBSET_OF_INSERT,strong_locals_rel_insert])
@@ -1322,7 +1342,7 @@ Resume evaluate_apply_colour[Inst]:
   full_simp_tac(srw_ss())[word_state_eq_rel_def,LET_THM,set_var_def]>>
   Cases_on`x`>>simp[]>>
   fs[mem_load_32_alt]>>
-  Cases_on`st.memory (byte_align c')`>>fs[]>>
+  Cases_on`st.memory (byte_align c)`>>fs[]>>
   ntac 2 (IF_CASES_TAC>>fs[]) >> gvs[] >>
   fs[domain_union,get_writes_def,get_writes_inst_def]>>
   metis_tac[INSERT_SING_UNION,strong_locals_rel_subset,SUBSET_OF_INSERT,strong_locals_rel_insert])
@@ -1338,7 +1358,7 @@ Resume evaluate_apply_colour[Inst]:
   srw_tac[][]>>
   Cases_on`get_var n st`>>full_simp_tac(srw_ss())[]>>
   imp_res_tac strong_locals_rel_get_var>>
-  Cases_on`mem_store c x' st`>>fs[mem_store_def]>>IF_CASES_TAC>>fs[]>>
+  Cases_on`mem_store c x' st`>>fs[mem_store_def]>>
   metis_tac[strong_locals_rel_subset,SUBSET_OF_INSERT])
   >-
   (qpat_abbrev_tac`expr=Op Add [Var n';A]`>>
@@ -1446,7 +1466,6 @@ Resume evaluate_apply_colour[MustTerminate]:
 QED
 
 Resume evaluate_apply_colour[Call]:
-  goalStack.print_tac"Slow evaluate_apply_colour Call proof" >>
   full_simp_tac(srw_ss())[o_UNCURRY_R, C_UNCURRY_L, S_UNCURRY_R,LET_FORALL_ELIM',
   o_THM, o_ABS_R, C_ABS_L, C_THM,S_ABS_R,FORALL_UNCURRY]>>
   fs [evaluate_def,LET_THM,colouring_ok_def,get_live_def]>>
@@ -1809,7 +1828,7 @@ QED
 
 Resume evaluate_apply_colour[Seq]:
   srw_tac[][]>>fs[evaluate_def,colouring_ok_def,LET_THM,get_live_def]>>
-  last_assum(qspecl_then[`p`,`st`,`cst`,`f`,`get_live p0 live lt`,`lt`]
+  last_assum(qspecl_then[`p`,`st`,`cst`,`f`,`get_live (dimindex (:α)) p0 live lt`,`lt`]
     mp_tac)>>
   impl_tac>-size_tac>>
   srw_tac[][]>>
@@ -2270,11 +2289,11 @@ Definition colouring_ok_alt_def:
     INJ f (domain hd) UNIV
 End
 
-(*hd element is just get_live*)
+(*hd element is just get_live bits*)
 Theorem get_clash_sets_hd[local]:
   ∀prog live hd ls.
   get_clash_sets prog live = (hd,ls) ⇒
-  get_live prog live = hd
+  get_live bits prog live = hd
 Proof
   Induct>>srw_tac[][get_clash_sets_def]>>full_simp_tac(srw_ss())[LET_THM]
   >-
@@ -2301,7 +2320,7 @@ Theorem get_clash_sets_tl[local]:
   EVERY (λs. INJ f (domain s) UNIV) ls ⇒
   INJ f (domain live) UNIV
 Proof
-  completeInduct_on`prog_size (K 0) prog`>>
+  completeInduct_on`prog_size prog`>>
   full_simp_tac(srw_ss())[PULL_FORALL]>>
   rpt strip_tac>>
   Cases_on`prog`>>
@@ -2334,7 +2353,7 @@ Theorem colouring_ok_alt_thm:
  ∀f prog live.
   colouring_ok_alt f prog live
   ⇒
-  colouring_ok f prog live
+  colouring_ok bits f prog live
 Proof
   ho_match_mp_tac (fetch "-" "colouring_ok_ind")>>
   srw_tac[][]>>
@@ -2394,9 +2413,9 @@ Theorem every_var_in_get_clash_set:
   let (hd,clash_sets) = get_clash_sets prog live in
   let ls = hd::clash_sets in
   (∀x. x ∈ domain live ⇒ in_clash_sets ls x) ∧
-  (every_var (in_clash_sets ls) prog)
+  (every_var bits (in_clash_sets ls) prog)
 Proof
-  completeInduct_on`prog_size (K 0) prog`>>
+  completeInduct_on`prog_size prog`>>
   ntac 2 (full_simp_tac(srw_ss())[Once PULL_FORALL])>>
   rpt strip_tac>>
   Cases_on`prog`>>fs1>>
@@ -2802,19 +2821,81 @@ Proof
   fs [EXTENSION,INJ_DEF] \\ rw [] \\ metis_tac []
 QED
 
+Theorem check_clash_tree_delta[local]:
+  ∀f writes reads live flive livein flivein.
+  wf live ∧
+  domain flive = IMAGE f (domain live) ∧
+  INJ f (domain live) UNIV ∧
+  check_clash_tree f (Delta writes reads) live flive =
+    SOME (livein,flivein) ⇒
+  wf livein ∧
+  INJ f (domain livein) UNIV ∧
+  INJ f (domain live UNION set writes) UNIV ∧
+  livein = numset_list_insert reads (numset_list_delete writes live) ∧
+  domain flivein = IMAGE f (domain livein)
+Proof
+  rpt gen_tac >> disch_then strip_assume_tac >>
+  qpat_x_assum `check_clash_tree _ _ _ _ = _` mp_tac >>
+  simp[check_clash_tree_def] >>
+  Cases_on `check_partial_col f writes live flive` >> fs[] >>
+  rename1 `check_partial_col f writes live flive = SOME write_result` >>
+  Cases_on `write_result` >>
+  rename1 `check_partial_col f writes live flive = SOME (write_live,write_flive)` >>
+  strip_tac >>
+  drule_all check_partial_col_INJ >> strip_tac >>
+  gvs[domain_numset_list_insert] >>
+  `wf (numset_list_delete writes live)` by
+    metis_tac[numset_list_delete_swap] >>
+  `domain (numset_list_delete (MAP f writes) flive) =
+   IMAGE f (domain (numset_list_delete writes live))` by
+    simp[domain_numset_list_delete,LIST_TO_SET_MAP,IMAGE_DIFF] >>
+  `INJ f (domain (numset_list_delete writes live)) UNIV` by (
+    match_mp_tac INJ_SUBSET >>
+    qexistsl_tac [`domain live`,`UNIV:num set`] >>
+    simp[domain_numset_list_delete,DIFF_SUBSET]) >>
+  qspecl_then [`reads`,`f`,`numset_list_delete writes live`,
+               `numset_list_delete (MAP f writes) flive`,`livein`,`flivein`]
+    mp_tac check_partial_col_INJ >> simp[]
+QED
+
+Theorem get_delta_inst_live[local]:
+  ∀bits i live.
+  wf live ⇒
+  ∃writes reads.
+    get_delta_inst bits i = Delta writes reads ∧
+    get_live_inst bits i live =
+      numset_list_insert reads (numset_list_delete writes live) ∧
+    domain (get_writes_inst bits i) = set writes
+Proof
+  ho_match_mp_tac get_delta_inst_ind >>
+  rw[get_delta_inst_def,get_live_inst_def,get_writes_inst_def,
+     numset_list_insert_def,numset_list_delete_def] >>
+  simp[INSERT_COMM,wf_delete_swap,wf_insert_swap,wf_delete]
+  >- (
+    Cases_on `ri` >>
+    simp[numset_list_insert_def,numset_list_delete_def])
+  >- (
+    Cases_on `ri` >>
+    simp[numset_list_insert_def,numset_list_delete_def]) >>
+  DEP_REWRITE_TAC[spt_eq_thm] >>
+  simp[wf_insert,wf_delete,lookup_insert,lookup_delete] >> rw[] >>
+  irule wf_insert >> irule wf_insert >> irule wf_insert >>
+  irule wf_delete >> irule wf_delete >> simp[]
+QED
+
 Theorem clash_tree_colouring_ok:
-  ∀prog lt f live flive livein flivein.
+  ∀bits prog lt f live flive livein flivein.
   wf_cutsets prog ∧
   wf live ∧
   EVERY (λ(n,e). wf n ∧ wf e) lt ∧
   domain flive = IMAGE f (domain live) ∧
   INJ f (domain live) UNIV ∧
-  check_clash_tree f (get_clash_tree prog lt) live flive = SOME (livein,flivein) ⇒
+  check_clash_tree f (get_clash_tree bits prog lt) live flive = SOME (livein,flivein) ⇒
   (*very slow when this is not hidden...*)
   hide(wf livein ∧
   INJ f (domain livein) UNIV ∧
-  colouring_ok f prog live lt ∧
-  livein = get_live prog live lt ∧
+  colouring_ok bits f prog live lt ∧
+  livein = get_live bits prog live lt ∧
   domain flivein = IMAGE f (domain livein))
 Proof
   ho_match_mp_tac get_clash_tree_ind>>
@@ -2828,131 +2909,12 @@ Proof
     CONJ_TAC>-
       subset_tac>>
     fs[LIST_TO_SET_MAP,INJ_IMP_IMAGE_DIFF])
-  >- (*Inst*)
-    (Cases_on`i`>>TRY(Cases_on`a`)>>
-    fs[get_delta_inst_def,get_live_inst_def,get_writes_inst_def,check_clash_tree_def]
-    >-
-      fs[hide_def,check_partial_col_def,numset_list_delete_def]
-    >-
-      (start_tac
-      >-
-        (CONJ_TAC>-
-          subset_tac>>
-        fs[INJ_IMP_IMAGE_DIFF_single])>>
-      fs[domain_union,UNION_COMM,DELETE_DEF])
-    >-
-      (Cases_on`r`>>FULL_CASE_TAC>>fs[check_clash_tree_def]>>start_tac>>
-      TRY (*2 cases*)
-        (CONJ_TAC>-
-          subset_tac>>
-        fs[INJ_IMP_IMAGE_DIFF_single,wf_insert_swap])
-      >> (*2 cases*)
-        (strip_tac>>CONJ_TAC>-
-          (match_mp_tac (GEN_ALL INJ_less)>>
-          qpat_x_assum`INJ f A B` kall_tac>>
-          HINT_EXISTS_TAC>>fs[DELETE_DEF])>>
-        fs[domain_union,UNION_COMM]))
-    >-
-      (Cases_on`r`>>FULL_CASE_TAC>>fs[check_clash_tree_def]>>start_tac>>
-      TRY (*2 cases*)
-        (CONJ_TAC>-
-          subset_tac>>
-        fs[INJ_IMP_IMAGE_DIFF_single,wf_insert_swap])
-      >> (*2 cases*)
-        (strip_tac>>CONJ_TAC>-
-          (match_mp_tac (GEN_ALL INJ_less)>>
-          qpat_x_assum`INJ f A B` kall_tac>>
-          HINT_EXISTS_TAC>>fs[DELETE_DEF])>>
-        fs[domain_union,UNION_COMM]))
-    >-
-      (start_tac>-
-        (CONJ_TAC>-
-          subset_tac>>
-        fs[INJ_IMP_IMAGE_DIFF_single])
-      >>
-      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ])
-    >-
-      (start_tac>-
-        (CONJ_TAC>-
-          subset_tac>>
-        fs[INJ_IMP_IMAGE_DIFF])
-      >>
-      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ,DIFF_UNION]>>
-      rw[]>>
-      `{n ; n0} = {n} ∪ {n0} ∧ {n0;n} = {n} ∪ {n0}` by fs[EXTENSION]>>
-      fs[GSYM DIFF_UNION])
-    >-
-      (start_tac>-
-        (CONJ_TAC>-
-          subset_tac>>
-        fs[INJ_IMP_IMAGE_DIFF])
-      >>
-      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ,DIFF_UNION]>>
-      rw[]>>
-      `{n ; n0} = {n} ∪ {n0} ∧ {n0;n} = {n} ∪ {n0}` by fs[EXTENSION]>>
-      fs[GSYM DIFF_UNION])
-    >-
-      (start_tac>-
-        (CONJ_TAC>-
-          subset_tac>>
-        fs[INJ_IMP_IMAGE_DIFF])
-      >>
-      `n2 INSERT n1 INSERT n0 INSERT domain live DIFF {n;n2} =
-       n2 INSERT n1 INSERT n0 INSERT domain live DIFF {n}` by
-         (rw[EXTENSION,EQ_IMP_THM]>>fs[])>>
-      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ]>>rw[]>>
-      `{ n ; n0} = {n} ∪ {n0}` by fs[EXTENSION]>>
-      fs[GSYM DIFF_UNION]
-      >-
-        (match_mp_tac (GEN_ALL INJ_less)>>fs[]>>
-        ntac 2 (qpat_x_assum`INJ f A B` kall_tac)>>
-        HINT_EXISTS_TAC>>
-        fs[])
-      >>
-        DEP_REWRITE_TAC[spt_eq_thm]>>rw[wf_insert,wf_delete,lookup_insert,lookup_delete])
-    >-
-      (start_tac>-
-        (CONJ_TAC>-
-          subset_tac>>
-        fs[INJ_IMP_IMAGE_DIFF]) >>
-      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ]>>rw[]>>
-      fs[GSYM DIFF_UNION] >>
-      `!n n0:num. { n ; n0} = {n} ∪ {n0}` by fs[EXTENSION]>> fs [] >>
-      fs [AC UNION_COMM UNION_ASSOC])
-    >-
-      (start_tac>-
-        (CONJ_TAC>-
-          subset_tac>>
-        fs[INJ_IMP_IMAGE_DIFF]) >>
-      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ]>>rw[]>>
-      fs[GSYM DIFF_UNION] >>
-      `!n n0:num. { n ; n0} = {n} ∪ {n0}` by fs[EXTENSION]>> fs [] >>
-      fs [AC UNION_COMM UNION_ASSOC])
-    >- (* Mem *)
-      (Cases_on`m`>>fs[check_clash_tree_def,get_delta_inst_def,get_live_inst_def,get_writes_inst_def]>>
-      start_tac>>
-      fs[INJ_IMP_IMAGE_DIFF_single]>>
-      (*2 cases*)
-      TRY subset_tac>>
-      TRY (*2 cases*)
-        (CONJ_TAC>-
-          subset_tac>>
-        fs[INJ_IMP_IMAGE_DIFF_single,wf_insert_swap])>>
-      (strip_tac>>CONJ_TAC>-
-          (match_mp_tac (GEN_ALL INJ_less)>>
-          qpat_x_assum`INJ f A B` kall_tac>>
-          HINT_EXISTS_TAC>>fs[DELETE_DEF])>>
-      fs[domain_union,UNION_COMM]))
-    >- (* FP *)
-      (Cases_on`f'`>>
-      fs[check_clash_tree_def,get_delta_inst_def,get_live_inst_def,get_writes_def,get_writes_inst_def]>>
-      rw[]>>
-      fs[check_clash_tree_def,get_delta_inst_def,get_live_inst_def,get_writes_def,get_writes_inst_def]>>
-      TRY(start_tac>>
-      (rw[]>- subset_tac >> fs[INJ_IMP_IMAGE_DIFF,domain_union, AC UNION_COMM UNION_ASSOC]))>>
-      (* One last goal *)
-      `!n n0:num. { n ; n0} = {n} ∪ {n0}` by fs[EXTENSION]>>
-      fs[AC UNION_COMM UNION_ASSOC,wf_insert_swap,wf_delete_swap]))
+  >- (
+    qspecl_then [`bits`,`i`,`live`] mp_tac get_delta_inst_live >>
+    simp[] >>
+    disch_then (qx_choosel_then [`writes`,`reads`] strip_assume_tac) >>
+    fs[] >> drule_all check_clash_tree_delta >> strip_tac >>
+    gvs[hide_def,domain_union,UNION_COMM])
   >-
     (start_tac
     >-
@@ -3009,15 +2971,15 @@ Proof
       HINT_EXISTS_TAC>>
       fs[SUBSET_DEF,domain_numset_list_insert,domain_union]>>
       rw[]>>fs[toAList_domain,domain_lookup,lookup_difference]>>
-      Cases_on`lookup x (get_live prog live lt)`>>fs[])>>
+      Cases_on`lookup x (get_live bits prog live lt)`>>fs[])>>
     fs[numset_list_insert_def,wf_insert_swap]>>
     dep_rewrite.DEP_REWRITE_TAC[spt_eq_thm]>>
     fs[wf_insert,wf_union,lookup_insert,lookup_numset_list_insert,toAList_domain,domain_lookup,lookup_difference,lookup_union]>>rw[]>>
     FULL_CASE_TAC>>fs[])
     >-
-      (Cases_on`lookup n' (get_live prog' live lt)`>>fs[])
+      (Cases_on`lookup n' (get_live bits prog' live lt)`>>fs[])
     >>
-      Cases_on`lookup n (get_live prog' live lt)`>>fs[])
+      Cases_on`lookup n (get_live bits prog' live lt)`>>fs[])
   >-
     metis_tac[wf_cutsets_def]
   >-
@@ -3199,7 +3161,7 @@ Proof
       simp[IMAGE_DIFF]) >>
     strip_tac >>
     rename1`ShareInst op prog exp`>>
-    `get_writes (ShareInst op prog exp) = insert prog () LN` by (
+    `get_writes bits (ShareInst op prog exp) = insert prog () LN` by (
       simp[DefnBase.one_line_ify NONE get_writes_def,AllCaseEqs()]>>
       Cases_on `op` >>
       fs[]) >>
@@ -3322,8 +3284,9 @@ Proof
 QED
 
 Theorem get_forced_in_get_clash_tree[local]:
-  ∀prog lt c.
-  EVERY (λx,y.in_clash_tree (get_clash_tree prog lt) x ∧ in_clash_tree (get_clash_tree prog lt) y) (get_forced c prog [])
+  ∀bits prog lt c.
+  isa_bits c = bits ⇒
+  EVERY (λx,y.in_clash_tree (get_clash_tree bits prog lt) x ∧ in_clash_tree (get_clash_tree bits prog lt) y) (get_forced c prog [])
 Proof
   ho_match_mp_tac get_clash_tree_ind>>
   fs[]>>rw[get_clash_tree_def,get_forced_def,in_clash_tree_def]
@@ -3382,16 +3345,17 @@ Proof
     rw [] >> fs []
 QED
 
-(*Prove the full correctness theorem for word_alloc*)
+(*Prove the full correctness theorem for word_alloc bits*)
 Theorem word_alloc_correct:
-  ∀fc c alg prog k col_opt st.
+  ∀bits fc c alg prog k col_opt (st:('a,'c,'ffi) wordSem$state).
+  bits = dimindex (:'a) ∧ isa_bits c = bits ∧
   even_starting_locals st.locals ∧
   wf_cutsets prog
   ⇒
   ∃perm'.
   let (res,rst) = evaluate(prog,st with permute:=perm') in
   if (res = SOME Error) then T else
-  let (res',rcst) = evaluate(word_alloc fc c alg k prog col_opt,st) in
+  let (res',rcst) = evaluate(word_alloc bits fc c alg k prog col_opt,st) in
     res = res' ∧
     word_state_eq_rel rst rcst ∧
     case res of
@@ -3401,7 +3365,7 @@ Theorem word_alloc_correct:
     | SOME _ => rst.locals = rcst.locals
 Proof
   srw_tac[][]>>
-  qpat_abbrev_tac`cprog = word_alloc _ _ _ _ _ _`>>
+  qpat_abbrev_tac`cprog = word_alloc (dimindex (:α)) _ _ _ _ _ _`>>
   full_simp_tac(srw_ss())[word_alloc_def]>>
   pop_assum mp_tac>>LET_ELIM_TAC>>
   pop_assum mp_tac>>reverse TOP_CASE_TAC>>strip_tac
@@ -3410,13 +3374,13 @@ Proof
     EVERY_CASE_TAC>>fs[]>>
     fs[GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]>>
     Cases_on`x''`>>
-    Q.ISPECL_THEN [`prog`,`[]:(num_set#num_set) list`,`total_colour x'`,`LN:num_set`,`LN:num_set`,`q`,`r`] mp_tac clash_tree_colouring_ok>>
+    Q.ISPECL_THEN [`(dimindex (:α))`,`prog`,`[]:(num_set#num_set) list`,`total_colour x'`,`LN:num_set`,`LN:num_set`,`q`,`r`] mp_tac clash_tree_colouring_ok>>
     fs[wf_def,hide_def]>> rw[]>>
-    Q.ISPECL_THEN[`prog`,`st`,`st`,`total_colour x'`,`LN:num_set`,`[]:(num_set#num_set) list`] mp_tac evaluate_apply_colour>>
+    Q.ISPECL_THEN[`(dimindex (:α))`,`prog`,`st`,`st`,`total_colour x'`,`LN:num_set`,`[]:(num_set#num_set) list`] mp_tac evaluate_apply_colour >> simp [] >>
     impl_tac>-
       (fs[word_state_eq_rel_def,strong_locals_rel_def,even_starting_locals_def]>>rw[]>>
       fs[domain_lookup,every_even_colour_def,total_colour_def]>>
-      last_x_assum(qspec_then`n` assume_tac)>>rfs[]>>
+      qpat_x_assum `!n. _ ==> is_phy_var n` (qspec_then `n` assume_tac)>>rfs[]>>
       fs[GSYM MEM_toAList]>>FULL_CASE_TAC>>fs[]>>
       fs[EVERY_MEM,FORALL_PROD,GSYM MEM_toAList]>>
       first_x_assum drule>>
@@ -3433,7 +3397,7 @@ Proof
     (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
   drule select_reg_alloc_correct>>
   disch_then(qspecl_then [`alg`,`spillcosts`,`k`,`heu_moves`,`fs`] assume_tac)>>rfs[]>>fs[]>>
-  Q.ISPECL_THEN[`prog`,`st`,`st`,`total_colour spcol`,`LN:num_set`,`[]:(num_set#num_set) list`] mp_tac evaluate_apply_colour>>
+  Q.ISPECL_THEN[`(dimindex (:α))`,`prog`,`st`,`st`,`total_colour spcol`,`LN:num_set`,`[]:(num_set#num_set) list`] mp_tac evaluate_apply_colour >> simp [] >>
   impl_tac>-
     (rpt strip_tac
     >-
@@ -3442,7 +3406,7 @@ Proof
       drule check_clash_tree_INJ >>
       disch_then(qspecl_then[`tree`,`sp_default spcol`,`LN`,`LN`,`LN`] assume_tac)>>
       rfs[]>>
-      drule clash_tree_colouring_ok>>
+      drule (Q.SPEC `dimindex (:α)` clash_tree_colouring_ok)>>
       fs[GSYM total_colour_alt]>>
       disch_then(qspecl_then[`[]:(num_set#num_set) list`,`total_colour spcol`,`LN`,`LN`,`livein`,`gliveout`] assume_tac)>>
       rfs[wf_def]>>
@@ -3625,8 +3589,8 @@ Proof
 QED
 
 Theorem strong_locals_rel_I_cut_envs[local]:
-  strong_locals_rel I (domain (FST cutset) ∪ domain (SND cutset)) st.locals t ∧
-  cut_envs cutset st.locals = SOME x ⇒
+  strong_locals_rel I (domain (FST cutset) ∪ domain (SND cutset)) stl t ∧
+  cut_envs cutset stl = SOME x ⇒
   cut_envs cutset t = SOME x
 Proof
   fs[strong_locals_rel_def,SUBSET_DEF,cut_envs_def,cut_names_def]>>
@@ -3713,13 +3677,13 @@ Proof
 QED
 
 Theorem evaluate_remove_dead_Loop_helper[local]:
-  ∀(st:('a,'c,'ffi) wordSem$state) t tstore names body exit_names
+  ∀bits (st:('a,'c,'ffi) wordSem$state) t tstore names body exit_names
     live nlive lt prog' livein nlivein res rst.
     strong_locals_rel I (domain livein) st.locals t ∧
     live_store_rel nlivein st.store tstore ∧
     evaluate (Loop names body exit_names, st) = (res,rst) ∧
     flat_exp_conventions body ∧
-    remove_dead (Loop names body exit_names) live nlive lt =
+    remove_dead bits (Loop names body exit_names) live nlive lt =
       (prog',livein,nlivein) ∧
     nlivein = [] ∧
     res ≠ SOME Error ∧
@@ -3727,7 +3691,7 @@ Theorem evaluate_remove_dead_Loop_helper[local]:
        strong_locals_rel I (domain livein') st'.locals t' ∧
        live_store_rel nlivein' st'.store tstore' ∧
        evaluate (body,st') = (res',rst') ∧
-       remove_dead body names [] ((names,exit_names)::lt) =
+       remove_dead bits body names [] ((names,exit_names)::lt) =
          (prog'',livein',nlivein') ∧
        res' ≠ SOME Error ⇒
        ∃t'' tstore''.
@@ -3772,7 +3736,7 @@ Theorem evaluate_remove_dead_Loop_helper[local]:
             | NONE => T)
        | SOME _ => rst.locals = t' ∧ rst.store = tstore')
 Proof
-  gen_tac>>completeInduct_on `st.clock`>>rpt strip_tac>>
+  ntac 2 gen_tac>>completeInduct_on `st.clock`>>rpt strip_tac>>
   gvs[remove_dead_def,live_store_rel_NIL]>>
   pairarg_tac>>gvs[]>>
   qpat_x_assum `evaluate (Loop _ _ _, _) = _` mp_tac>>
@@ -3788,7 +3752,7 @@ Proof
   simp[cut_state_def]>>
   pairarg_tac>>fs[]>>
   strip_tac>>
-  rename1 `remove_dead body livein [] ((livein,exit_names)::lt) =
+  rename1 `remove_dead bits body livein [] ((livein,exit_names)::lt) =
     (body',bodylivein,bodynlivein)`>>
   qpat_assum `∀st' t' tstore' res' rst'. _` mp_tac>>
   disch_then (qspecl_then
@@ -3885,12 +3849,13 @@ Proof
 QED
 
 Theorem evaluate_remove_dead:
-  ∀prog live nlive lt prog' livein nlivein st t tstore res rst.
+  ∀bits prog live nlive lt prog' livein nlivein (st:('a,'c,'ffi) wordSem$state) t tstore res rst.
+  bits = dimindex (:'a) ∧
   strong_locals_rel I (domain livein) st.locals t ∧
   live_store_rel nlivein st.store tstore ∧
   evaluate (prog,st) = (res,rst) ∧
   flat_exp_conventions prog ∧
-  remove_dead prog live nlive lt = (prog',livein,nlivein) ∧
+  remove_dead bits prog live nlive lt = (prog',livein,nlivein) ∧
   res ≠ SOME Error ⇒
   ∃t' tstore'.
     evaluate(prog',st with <| locals := t ; store := tstore|> ) =
@@ -4195,6 +4160,15 @@ Resume evaluate_remove_dead[If]:
       simp[]))
 QED
 
+Theorem push_env_remove_dead[local]:
+  push_env envs (case h of NONE => NONE
+    | SOME (n,p,a,b) => SOME (n,FST (remove_dead bits p live nlive lt),a,b)) st =
+  push_env envs h st
+Proof
+  Cases_on `h` >> simp[push_env_def] >>
+  rename1 `SOME htup` >> PairCases_on `htup` >> simp[push_env_def]
+QED
+
 Resume evaluate_remove_dead[CallSome]:
   gvs[evaluate_def,remove_dead_def,AllCaseEqs()] >>
   rpt (pairarg_tac >> fs[]) >> gvs[] >>
@@ -4206,43 +4180,37 @@ Resume evaluate_remove_dead[CallSome]:
     simp[domain_numset_list_insert,domain_union]) >>
   `cut_envs cutsets t = SOME envs` by (
     irule (GEN_ALL strong_locals_rel_I_cut_envs) >>
-    first_x_assum (irule_at Any) >>
+    qexists_tac `st.locals` >> simp[] >>
     irule strong_locals_rel_subset >>
     first_x_assum (irule_at Any) >>
     simp[domain_union,SUBSET_DEF]) >>
-  `∀s. push_env envs (case h of NONE => NONE
-         | SOME (n,p,a,b) =>
-             SOME (n,FST (remove_dead p live nlive lt),a,b)) s =
-       push_env envs h s` by
-    (Cases_on `h` >> simp[push_env_def] >>
-     rename1 `SOME htup` >> PairCases_on `htup` >>
-     simp[push_env_def]) >>
-  simp[Once evaluate_def, add_ret_loc_def] >>
-  gvs[fix_clock_def, add_ret_loc_def] >>
+  simp[Once evaluate_def, add_ret_loc_def,push_env_remove_dead] >>
+  gvs[fix_clock_def, add_ret_loc_def,push_env_remove_dead] >>
   gvs[flush_state_def, call_env_def, dec_clock_def] >>
   Cases_on `env_to_list (SND envs) st.permute` >> gvs[]
   >- ((*Result*)
-    rename1 `remove_dead _ live nlive lt = (ret_handler, ret_live)` >>
+    rename1 `evaluate (_, set_vars ret_vars ys s1) = _` >>
+    rename1 `remove_dead (dimindex(:α)) _ live nlive lt = (ret_handler, ret_live)` >>
     first_x_assum (qspecl_then
       [`FST ret_live`, `SND ret_live`,
-       `set_vars prog ys s1`,
-       `(set_vars prog ys s1).locals`,
-       `(set_vars prog ys s1).store`,
+       `set_vars ret_vars ys s1`,
+       `(set_vars ret_vars ys s1).locals`,
+       `(set_vars ret_vars ys s1).store`,
        `res`, `rst`] mp_tac) >>
     impl_tac >- simp[strong_locals_rel_def] >>
     strip_tac >> gvs[state_component_equality])
   >- ((*Exception*)
     rename1 `evaluate (handler, set_var hn _ _) = _` >>
-    `push_env envs (SOME (hn,FST (remove_dead handler live nlive lt),l1',l2')) st =
+    `push_env envs (SOME (hn,FST (remove_dead (dimindex(:α)) handler live nlive lt),l1',l2')) st =
      push_env envs (SOME (hn,handler,l1',l2')) st` by
       simp[push_env_def] >>
     gvs[] >>
     qpat_x_assum `∀a b c d e f g h.
       _ ∧ _ ∧ evaluate (handler,_) = _ ∧ _ ∧ _ ⇒ _`
       (qspecl_then
-        [`FST (remove_dead handler live nlive lt)`,
-         `FST (SND (remove_dead handler live nlive lt))`,
-         `SND (SND (remove_dead handler live nlive lt))`,
+        [`FST (remove_dead (dimindex(:α)) handler live nlive lt)`,
+         `FST (SND (remove_dead (dimindex(:α)) handler live nlive lt))`,
+         `SND (SND (remove_dead (dimindex(:α)) handler live nlive lt))`,
          `set_var hn y s2`,
          `(set_var hn y s2).locals`,
          `(set_var hn y s2).store`,
@@ -4268,7 +4236,7 @@ Resume evaluate_remove_dead[Loop]:
   gvs[remove_dead_def]>>
   rpt (pairarg_tac>>fs[])>>gvs[]>>
   qspecl_then
-    [`st`,`t`,`st.store`,`live`,`prog`,`exit_names`,`live'`,`nlive`,`lt`,
+    [`dimindex(:α)`,`st`,`t`,`st.store`,`live`,`prog`,`exit_names`,`live'`,`nlive`,`lt`,
      `Loop live body' exit_names`,`live`,`[]`,`res`,`rst`]
     mp_tac evaluate_remove_dead_Loop_helper>>
   simp[remove_dead_def,flat_exp_conventions_def]
@@ -4292,7 +4260,7 @@ Resume evaluate_remove_dead[Alloc]:
   rename1 `cut_envs names st.locals = SOME x` >>
   `cut_envs names t = SOME x` by
     (match_mp_tac (GEN_ALL strong_locals_rel_I_cut_envs)>>fs[]>>
-    qexists_tac`st`>>fs[]>>
+    qexists_tac`st.locals`>>fs[]>>
     fs[strong_locals_rel_def,domain_union] >>
     metis_tac[])>>
   simp[]>>
@@ -4450,12 +4418,12 @@ QED
 Finalise evaluate_remove_dead;
 
 Theorem evaluate_remove_dead_prog:
-  ∀prog st rst res.
-  flat_exp_conventions prog ∧
+  ∀bits prog (st:('a,'c,'ffi) wordSem$state) rst res.
+  bits = dimindex (:'a) ∧ flat_exp_conventions prog ∧
   evaluate (prog,st) = (res,rst) ∧
   res ≠ SOME Error ⇒
   ∃t'.
-    evaluate(remove_dead_prog prog,st) = (res,rst with locals := t') ∧
+    evaluate(remove_dead_prog bits prog,st) = (res,rst with locals := t') ∧
     (case res of
        NONE => T
      | SOME (Break _) => T
@@ -4464,14 +4432,12 @@ Theorem evaluate_remove_dead_prog:
 Proof
   rw[remove_dead_prog_def]>>
   `?prog' livein nlivein.
-    remove_dead prog LN [] [] = (prog',livein,nlivein)` by metis_tac[PAIR]>>
-  drule_at (Pos (el 5)) evaluate_remove_dead>>
-  disch_then (drule_at Any)>>
-  disch_then (drule_at Any)>>
-  simp[]>>
-  disch_then(qspecl_then[`st.locals`,`st.store`] mp_tac)>>
-  impl_tac >-
-    simp[strong_locals_rel_def]>>
+    remove_dead (dimindex(:α)) prog LN [] [] = (prog',livein,nlivein)` by metis_tac[PAIR]>>
+  drule_at (Pos (el 6)) (Q.SPEC `dimindex(:α)` evaluate_remove_dead) >>
+  disch_then (drule_at Any) >>
+  disch_then (drule_at Any) >> simp[] >>
+  disch_then(qspecl_then[`st.locals`,`st.store`] mp_tac) >>
+  impl_tac >- simp[strong_locals_rel_def] >>
   rw[]>>
   qexists_tac`t'`>>
   `rst.store = tstore'` by
@@ -4610,6 +4576,21 @@ Proof
   Cases_on`x=h`>>full_simp_tac(srw_ss())[]>>
   res_tac>-
     DECIDE_TAC
+QED
+
+Theorem ssa_locals_rel_option_lookup[local]:
+  ∀na ssa stloc cstloc n value.
+  ssa_locals_rel na ssa stloc cstloc ∧
+  ssa_map_ok na ssa ∧
+  lookup n stloc = SOME value ⇒
+  ¬is_phy_var (option_lookup ssa n) ∧ option_lookup ssa n < na
+Proof
+  rpt gen_tac >> disch_then strip_assume_tac >>
+  `n ∈ domain ssa` by (
+    fs[ssa_locals_rel_def] >> res_tac) >>
+  fs[domain_lookup] >>
+  rename1 `lookup n ssa = SOME mapped` >>
+  fs[option_lookup_def,ssa_map_ok_def] >> res_tac >> simp[]
 QED
 
 Theorem merge_moves_frame[local]:
@@ -5794,8 +5775,8 @@ QED
 
 (*ordered such that its easy to drule*)
 Theorem ssa_cc_trans_inst_props[local]:
-  ∀i ssa na i' ssa' na'.
-  ssa_cc_trans_inst i ssa na = (i',ssa',na') ==>
+  ∀bits i ssa na i' ssa' na'.
+  ssa_cc_trans_inst bits i ssa na = (i',ssa',na') ==>
   ssa_map_ok na ssa ∧
   is_alloc_var na
   ⇒
@@ -5926,10 +5907,10 @@ Proof
 QED
 
 
-(*Prove the properties that hold of ssa_cc_trans independent of semantics*)
+(*Prove the properties that hold of ssa_cc_trans bits independent of semantics*)
 Theorem ssa_cc_trans_props[local]:
-  ∀prog ssa na lt prog' ssa' na'.
-  ssa_cc_trans prog ssa na lt = (prog',ssa',na') ==>
+  ∀bits prog ssa na lt prog' ssa' na'.
+  ssa_cc_trans bits prog ssa na lt = (prog',ssa',na') ==>
   ssa_map_ok na ssa ∧
   is_alloc_var na
   ⇒
@@ -6702,17 +6683,17 @@ QED
    leaves the rest of state untouched. *)
 Theorem evaluate_fake_const_chain[local]:
   ∀rs (cst:('a,'b,'c) wordSem$state).
-    evaluate (FOLDR Seq Skip (MAP (λr. (fake_move r):'a wordLang$prog) rs), cst) =
+    evaluate (FOLDR Seq Skip (MAP (λr. (fake_move r):wordLang$prog) rs), cst) =
       (NONE, cst with locals := FOLDR (λr loc. insert r (Word 0w) loc) cst.locals rs)
 Proof
   Induct
   >- simp[evaluate_def, wordSemTheory.state_component_equality] >>
   rpt strip_tac >>
-  simp[evaluate_def, fake_move_def, inst_def, assign_def, word_exp_def,
+  simp[evaluate_def, fake_move_def, inst_def, assign_def, word_exp_def, integer_wordTheory.i2w_0,
        set_var_def] >>
   first_x_assum (qspec_then `cst with locals := insert h (Word 0w) cst.locals`
                             mp_tac) >>
-  simp[fake_move_def, inst_def, assign_def, word_exp_def, set_var_def] >>
+  simp[fake_move_def, inst_def, assign_def, word_exp_def, integer_wordTheory.i2w_0, set_var_def] >>
   disch_then kall_tac >>
   simp[foldr_insert_const_swap]
 QED
@@ -6720,7 +6701,7 @@ QED
 Theorem evaluate_fake_const_chain_locals[local]:
   ∀rs (cst:('a,'b,'c) wordSem$state).
     let rcst = SND (evaluate (FOLDR Seq Skip
-      (MAP (λr. (fake_move r):'a wordLang$prog) rs), cst)) in
+      (MAP (λr. (fake_move r):wordLang$prog) rs), cst)) in
     word_state_eq_rel cst rcst ∧
     domain rcst.locals = domain cst.locals ∪ set rs ∧
     (∀r. ¬ MEM r rs ⇒ lookup r rcst.locals = lookup r cst.locals) ∧
@@ -7023,7 +7004,7 @@ Theorem ssa_cc_trans_Loop_helper[local]:
        option_lookup ssa_refreshed v ∈ domain cst.locals) ∧
     ssa_map_ok na_refreshed ssa_refreshed ∧
     is_alloc_var na_refreshed ∧
-    every_var (λx. x < na_refreshed) body ∧
+    every_var bits (λx. x < na_refreshed) body ∧
     INJ (option_lookup ssa_refreshed) (domain names) UNIV ∧
     INJ (option_lookup ssa_refreshed) (domain exit_names) UNIV ∧
     domain names ⊆ domain ssa_refreshed ∧
@@ -7031,19 +7012,19 @@ Theorem ssa_cc_trans_Loop_helper[local]:
     EVERY (λx. x < na_refreshed) (MAP FST (toAList names)) ∧
     EVERY (λx. x < na_refreshed) (MAP FST (toAList exit_names)) ∧
     lt_ok lt ∧
-    ssa_cc_trans body (inter ssa_refreshed names) na_refreshed
+    ssa_cc_trans bits body (inter ssa_refreshed names) na_refreshed
       ((ssa_refreshed,names,exit_names)::lt) = (body',ssa',na') ∧
     (∀(st':('a,'b,'c) wordSem$state) cst' ssa'' na'' lt'.
        word_state_eq_rel st' cst' ∧
        ssa_locals_rel na'' ssa'' st'.locals cst'.locals ∧
        is_alloc_var na'' ∧
-       every_var (λx. x < na'') body ∧
+       every_var bits (λx. x < na'') body ∧
        ssa_map_ok na'' ssa'' ∧
        lt_ok lt' ⇒
        ∃perm'.
          (let (res,rst) = evaluate (body, st' with permute := perm') in
             res = SOME Error ∨
-            (let (prog',ssaB,naB) = ssa_cc_trans body ssa'' na'' lt';
+            (let (prog',ssaB,naB) = ssa_cc_trans bits body ssa'' na'' lt';
                  (res',rcst) = evaluate (prog', cst') in
                res = res' ∧ word_state_eq_rel rst rcst ∧
                case res of
@@ -7197,7 +7178,7 @@ Proof
   Cases_on `bres`
   >- ((* NONE: cont_loop fires; recurse via clock-IH *)
       (
-  qpat_x_assum `_ (ssa_cc_trans body _ _ _)` mp_tac >>
+  qpat_x_assum `_ (ssa_cc_trans bits body _ _ _)` mp_tac >>
   simp[LLOOKUP_def] >>
   strip_tac >>
   (* Run evaluate_ssa_reconcile to bridge from ssa_locals_rel (body-IH NONE
@@ -7419,7 +7400,7 @@ Proof
       Cases_on `n`
       >- ((* Continue 0: cont_loop fires; recurse via clock-IH like NONE *)
           (
-  qpat_x_assum `_ (ssa_cc_trans body _ _ _)` mp_tac >>
+  qpat_x_assum `_ (ssa_cc_trans bits body _ _ _)` mp_tac >>
   simp[LLOOKUP_def] >>
   strip_tac >>
   `brst.clock = brcst.clock` by fs[word_state_eq_rel_def] >>
@@ -7641,20 +7622,21 @@ Proof
 QED
 
 Theorem ssa_cc_trans_correct:
-  ∀ prog st cst ssa na lt.
+  ∀bits prog (st:('a,'c,'ffi) wordSem$state) cst ssa na lt.
+  bits = dimindex (:'a) ∧
   word_state_eq_rel st cst ∧
   ssa_locals_rel na ssa st.locals cst.locals ∧
   (*The following 3 assumptions are from the transform properties and
     are independent of semantics*)
   is_alloc_var na ∧
-  every_var (λx. x < na) prog ∧
+  every_var bits (λx. x < na) prog ∧
   ssa_map_ok na ssa ∧
   lt_ok lt
   ⇒
   ∃perm'.
   let (res,rst) = evaluate(prog,st with permute:=perm') in
   if (res = SOME Error) then T else
-  let (prog',ssa',na') = ssa_cc_trans prog ssa na lt in
+  let (prog',ssa',na') = ssa_cc_trans bits prog ssa na lt in
   let (res',rcst) = evaluate(prog',cst) in
     res = res' ∧
     word_state_eq_rel rst rcst ∧
@@ -7675,7 +7657,7 @@ Theorem ssa_cc_trans_correct:
          | NONE => T)
     | SOME _    => rst.locals = rcst.locals )
 Proof
-  completeInduct_on`prog_size (K 0) prog`>>
+  completeInduct_on`prog_size prog`>>
   rpt strip_tac>>
   full_simp_tac(srw_ss())[PULL_FORALL,evaluate_def]>>
   Cases_on`prog`
@@ -7838,12 +7820,67 @@ Resume ssa_cc_trans_correct[Inst]:
     exists_tac>>
     Cases_on`i`>> (TRY (Cases_on`a`))>> (TRY(Cases_on`m`))>>
     fs[next_var_rename_def,ssa_cc_trans_inst_def,inst_def,assign_def,evaluate_def,LET_THM]
-    >~[`Const`]
+    >~[`every_var _ _ (Inst (Arith (IMul rd ra rb ro)))`]
     >- (
-      Cases_on`word_exp st (Const c)`>>
-      full_simp_tac(srw_ss())[set_var_def,word_exp_def]>>
-      match_mp_tac ssa_locals_rel_set_var>>
-      full_simp_tac(srw_ss())[every_var_inst_def,every_var_def])
+      Cases_on `get_var ra st` >> fs[get_vars_def] >>
+      rename1 `get_var ra st = SOME left_value` >>
+      Cases_on `get_var rb st` >> fs[get_vars_def] >>
+      rename1 `get_var rb st = SOME right_value` >>
+      imp_res_tac ssa_locals_rel_get_var >> fs[] >>
+      namedCases_on `left_value` ["left_word","left_label left_offset"] >>
+      namedCases_on `right_value` ["right_word","right_label right_offset"] >>
+      fs[] >>
+      fs[set_var_def,set_vars_def,get_vars_def,get_var_def,alist_insert_def,
+         lookup_insert] >>
+      irule (SIMP_RULE (srw_ss()) [GSYM ADD_ASSOC]
+        (Q.INST [`na` |-> `na + 4`] ssa_locals_rel_insert)) >>
+      `¬is_phy_var na` by metis_tac[convention_partitions] >>
+      `ssa_map_ok (na + 4) (insert rd na ssa)` by (
+        irule ssa_map_ok_extend >> simp[]) >>
+      fs[every_var_def,every_var_inst_def] >>
+      irule ssa_locals_rel_ignore_insert >> simp[is_phy_var_def] >>
+      irule ssa_locals_rel_insert >> simp[])
+    >~[`every_var _ _ (Inst (Arith (IDiv rq rr ra rb)))`]
+    >- (
+      Cases_on `get_var ra st` >> fs[get_vars_def] >>
+      rename1 `get_var ra st = SOME left_value` >>
+      Cases_on `get_var rb st` >> fs[get_vars_def] >>
+      rename1 `get_var rb st = SOME right_value` >>
+      imp_res_tac ssa_locals_rel_get_var >> fs[] >>
+      namedCases_on `left_value` ["left_word","left_label left_offset"] >>
+      namedCases_on `right_value` ["right_word","right_label right_offset"] >>
+      fs[get_var_def] >>
+      qspecl_then [`na`,`ssa`,`st.locals`,`cst.locals`,`rb`,`Word right_word`]
+        mp_tac ssa_locals_rel_option_lookup >> simp[] >> strip_tac >>
+      `option_lookup ssa rb ≠ 0` by (
+        CCONTR_TAC >> fs[is_phy_var_def]) >>
+      fs[set_var_def,set_vars_def,get_vars_def,get_var_def,alist_insert_def,
+         lookup_insert] >>
+      IF_CASES_TAC >> fs[lookup_insert,alist_insert_def] >>
+      qmatch_goalsub_abbrev_tac
+        `insert rq quotient (insert rr remainder st.locals)` >>
+      qpat_abbrev_tac
+        `scratch = insert 0 quotient (insert 6 remainder (insert 0 (Word left_word) cst.locals))` >>
+      qspecl_then [`scratch`,`na`,`remainder`,`na + 4`,`quotient`]
+        mp_tac insert_swap >> simp[] >>
+      disch_then (fn th => once_rewrite_tac [th]) >>
+      irule (SIMP_RULE (srw_ss()) [GSYM ADD_ASSOC]
+        (Q.INST [`na` |-> `na + 4`] ssa_locals_rel_insert)) >>
+      `¬is_phy_var na` by metis_tac[convention_partitions] >>
+      `ssa_map_ok (na + 4) (insert rr na ssa)` by (
+        irule ssa_map_ok_extend >> simp[]) >>
+      fs[every_var_def,every_var_inst_def] >>
+      irule ssa_locals_rel_insert >> simp[] >>
+      fs[Abbr`scratch`] >>
+      irule ssa_locals_rel_ignore_insert >> simp[is_phy_var_def] >>
+      irule ssa_locals_rel_ignore_insert >> simp[is_phy_var_def] >>
+      irule ssa_locals_rel_ignore_insert >> simp[is_phy_var_def])
+    >~[`every_var _ _ (Inst (asm$Const rd literal))`]
+    >- (
+      Cases_on `word_exp st (Const literal)` >>
+      fs[set_var_def,word_exp_def] >>
+      match_mp_tac ssa_locals_rel_set_var >>
+      fs[every_var_inst_def,every_var_def])
     >~[`Binop`]
     >-(
       Cases_on`r`>>
@@ -8102,7 +8139,7 @@ Resume ssa_cc_trans_correct[Inst]:
       setup_tac>>
       Cases_on`x`>>
       full_simp_tac(srw_ss())[mem_load_byte_aux_def]>>
-      Cases_on`st.memory (byte_align c')`>>fs[]>>
+      Cases_on`st.memory (byte_align c)`>>fs[]>>
       IF_CASES_TAC>>fs[]>>
       match_mp_tac ssa_locals_rel_set_var>>
       fs[every_var_inst_def,every_var_def])
@@ -8112,7 +8149,7 @@ Resume ssa_cc_trans_correct[Inst]:
       setup_tac>>
       Cases_on`x`>>
       full_simp_tac(srw_ss())[mem_load_32_alt]>>
-      Cases_on`st.memory (byte_align c')`>>fs[]>>
+      Cases_on`st.memory (byte_align c)`>>fs[]>>
       ntac 2 (IF_CASES_TAC>>fs[])>> gvs[] >>
       match_mp_tac ssa_locals_rel_set_var>>
       fs[every_var_inst_def,every_var_def])
@@ -8271,9 +8308,10 @@ Resume ssa_cc_trans_correct[Call_tail]:
     rw [] >> every_case_tac >> gvs [bad_fun_return_def]
 QED
 
+
 Resume ssa_cc_trans_correct[Call_returning]:
     PairCases_on`x`>> full_simp_tac(srw_ss())[] >>
-    Q.PAT_ABBREV_TAC`pp = ssa_cc_trans X Y Z lt` >>
+    Q.PAT_ABBREV_TAC`pp = ssa_cc_trans (dimindex(:α)) X Y Z lt` >>
     PairCases_on`pp` >> simp[] >>
     pop_assum(mp_tac o SYM o SIMP_RULE std_ss[markerTheory.Abbrev_def]) >>
     simp_tac std_ss [ssa_cc_trans_def]>>
@@ -8306,7 +8344,7 @@ Resume ssa_cc_trans_correct[Call_returning]:
     LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
     Q.ISPECL_THEN [`ls`,`ssa`,`na`,`stack_mov`,`ssa'`,`na'`] assume_tac list_next_var_rename_move_props_2>>
     Q.ISPECL_THEN [`ls`,`ssa_cut`,`na'`,`ret_mov`,`ssa''`,`na''`] assume_tac list_next_var_rename_move_props_2>>
-    Q.ISPECL_THEN [`x3`,`ssa_2_p`,`na_2_p`,`lt`,`ren_ret_handler`,`ssa_2`,`na_2`] assume_tac ssa_cc_trans_props>>
+    Q.ISPECL_THEN [`(dimindex(:α))`,`x3`,`ssa_2_p`,`na_2_p`,`lt`,`ren_ret_handler`,`ssa_2`,`na_2`] assume_tac ssa_cc_trans_props>>
     rev_full_simp_tac(srw_ss())[]>>
     full_simp_tac(srw_ss())[MAP_ZIP]>>
     `ALL_DISTINCT conv_args` by
@@ -8397,15 +8435,15 @@ Resume ssa_cc_trans_correct[Call_returning]:
       Q.ISPECL_THEN[
         `y1`,`y2`,
         `yy0`,`yy1:'a word_loc num_map`,`st with clock := st.clock-1`,
-        `f`,`rcst' with clock := st.clock-1`,`NONE:(num#'a wordLang$prog#num#num)option`,
-         `NONE:(num#'a wordLang$prog#num#num)option`,`λn. rcst.permute (n+1)`]
+        `f`,`rcst' with clock := st.clock-1`,`NONE:(num#wordLang$prog#num#num)option`,
+         `NONE:(num#wordLang$prog#num#num)option`,`λn. rcst.permute (n+1)`]
         mp_tac (GEN_ALL push_env_s_val_eq)>>
       impl_tac>-
         rev_full_simp_tac(srw_ss())[Abbr`rcst'`]>>
       strip_tac>>
       rev_full_simp_tac(srw_ss())[LET_THM,env_to_list_def,dec_clock_def]>>
       qabbrev_tac `envx = push_env (yy0,yy1)
-              (NONE:(num # 'a wordLang$prog #num #num)option)
+              (NONE:(num # wordLang$prog #num #num)option)
               (st with <|permute := perm; clock := st.clock − 1|>) with
             <|locals := fromList2 (q) ; locals_size := r' ;
               stack_max := OPTION_MAP2 MAX (push_env (yy0,yy1) NONE
@@ -8414,8 +8452,7 @@ Resume ssa_cc_trans_correct[Call_returning]:
                  (st with <|permute := perm; clock := st.clock - 1|>)).stack) r')|>`>>
       qpat_abbrev_tac `envy = (push_env (y1,y2) A B) with <| locals := C; locals_size := lsz; stack_max := SM;
                        clock := _ |>`>>
-      mp_tac evaluate_stack_swap>>
-      disch_then (qspecl_then [`q'`,`envx`] mp_tac)>>
+      Q.ISPECL_THEN [`q'`,`envx`] mp_tac evaluate_stack_swap>>
       ntac 2 FULL_CASE_TAC >- (
         srw_tac[][]>>qexists_tac`perm`>>
         full_simp_tac(srw_ss())[dec_clock_def]) >>
@@ -8436,10 +8473,10 @@ Resume ssa_cc_trans_correct[Call_returning]:
         IF_CASES_TAC>- (
           qexists_tac`perm`>>
           full_simp_tac(srw_ss())[Abbr`regs`])>>
-        qspecl_then [`(y1,y2)`,`NONE:(num#'a wordLang$prog#num#num)option`,
+        qspecl_then [`(y1,y2)`,`NONE:(num#wordLang$prog#num#num)option`,
           `(rcst' with clock := st.clock-1)`,`r with stack := st'`]
           assume_tac push_env_pop_env_s_key_eq>>
-        qspecl_then [`(yy0,yy1)`,`NONE:(num#'a wordLang$prog#num#num)option`,
+        qspecl_then [`(yy0,yy1)`,`NONE:(num#wordLang$prog#num#num)option`,
            `(st with <|permute:=perm;clock := st.clock-1|>)`,`r`]
           assume_tac push_env_pop_env_s_key_eq>>
         (*This went missing somewhere..*)
@@ -8515,7 +8552,7 @@ Resume ssa_cc_trans_correct[Call_returning]:
           >- (
             strip_tac>>
             `xx < na` by (
-               qpat_x_assum `every_var _ _` mp_tac >>
+               qpat_x_assum `every_var (dimindex(:α)) _ _` mp_tac >>
                simp[every_var_def,every_name_def,EVERY_MEM,set_MAP_FST_toAList_domain] >>
                gvs[domain_union]) >>
             intLib.ARITH_TAC))>>
@@ -8596,7 +8633,7 @@ Resume ssa_cc_trans_correct[Call_returning]:
           HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[]>>
           DECIDE_TAC)>>
         srw_tac[][]>>
-        qspecl_then[`q'`,`push_env (yy0,yy1) (NONE:(num#'a wordLang$prog#num#num) option)
+        qspecl_then[`q'`,`push_env (yy0,yy1) (NONE:(num#wordLang$prog#num#num) option)
               (st with <|permute := perm; clock := st.clock − 1|>) with
             <|locals := fromList2 q; locals_size := r' ;
               stack_max := OPTION_MAP2 MAX (push_env (yy0,yy1) NONE
@@ -8749,8 +8786,7 @@ Resume ssa_cc_trans_correct[Call_returning]:
                (st with <|permute := perm; clock := st.clock - 1|>)).stack) r')|>`>>
     qpat_abbrev_tac `envy = (push_env y A B) with <| locals := C; locals_size := lsz; stack_max := SM;
                      clock := _ |>`>>
-    mp_tac evaluate_stack_swap>>
-    disch_then(qspecl_then [`q'`,`envx`] mp_tac)>>
+    Q.ISPECL_THEN [`q'`,`envx`] mp_tac evaluate_stack_swap>>
     ntac 2 FULL_CASE_TAC>-
       (srw_tac[][]>>qexists_tac`perm`>>
        full_simp_tac(srw_ss())[dec_clock_def])>>
@@ -8864,7 +8900,7 @@ Resume ssa_cc_trans_correct[Call_returning]:
         >- (
           strip_tac>>
           `xx < na` by (
-             qpat_x_assum `every_var _ _` mp_tac >>
+             qpat_x_assum `every_var (dimindex(:α)) _ _` mp_tac >>
              simp[every_var_def,every_name_def,EVERY_MEM,set_MAP_FST_toAList_domain] >>
              gvs[domain_union]) >>
           intLib.ARITH_TAC))>>
@@ -8939,8 +8975,8 @@ Resume ssa_cc_trans_correct[Call_returning]:
         impl_tac >- simp[]>>
         simp[]>>
         full_simp_tac(srw_ss())[every_var_def,next_var_rename_def]>>srw_tac[][]>>
-        qpat_x_assum`every_var _ x3` mp_tac>>
-        qspecl_then [`λx. x < na`, `x3`, `λx. x < na_2_p`] mp_tac wordConvsTheory.every_var_mono>>
+        qpat_x_assum`every_var (dimindex(:α)) _ x3` mp_tac>>
+        qspecl_then [`dimindex(:α)`, `λx. x < na`, `x3`, `λx. x < na_2_p`] mp_tac wordConvsTheory.every_var_mono>>
         rw[]>>
         first_x_assum match_mp_tac>>
         rw[]>>
@@ -8967,7 +9003,7 @@ Resume ssa_cc_trans_correct[Call_returning]:
              stack_size_def, stack_size_frame_def])>>
       full_simp_tac(srw_ss())[Abbr`regs`]>>
       rev_full_simp_tac(srw_ss())[set_vars_def,Abbr`res_st`]>>
-      qspecl_then [`na_3`,`ssa_2`,`ssa_3`] mp_tac fix_inconsistencies_correctL>>
+      qspecl_then [`na_3`,`ssa_2`,`ssa_3`] mp_tac (INST_TYPE [alpha |-> ``:'a``,beta |-> ``:'c``,gamma |-> ``:'ffi``] fix_inconsistencies_correctL)>>
       impl_tac>- (
         simp[]>>
         `na_2 ≤ na_3` by (
@@ -8993,7 +9029,7 @@ Resume ssa_cc_trans_correct[Call_returning]:
       `ssa_locals_rel na_3 ssa_2 r''.locals r'³'.locals` by (
         match_mp_tac (GEN_ALL ssa_locals_rel_more)>>
         qexists_tac`na_2`>>simp[])>>
-      qpat_x_assum`∀stL cstL. ssa_locals_rel na_3 ssa_2 _ _ ⇒ _` (qspecl_then[`r''`,`r'³'`] mp_tac)>>
+      qpat_x_assum`∀stL cstL. ssa_locals_rel na_3 ssa_2 _ _ ⇒ _` (Q.ISPECL_THEN [`r''`,`r'³'`] mp_tac)>>
       simp[]>>
       Cases_on`evaluate(ret_cons,r'³')`>>fs[word_state_eq_rel_def]>>
       rw[]>>fs[]
@@ -9087,7 +9123,7 @@ Resume ssa_cc_trans_correct[Call_returning]:
           metis_tac[domain_lookup])>>
         strip_tac>>
         `xx < na` by (
-          qpat_x_assum `every_var _ _` mp_tac >>
+          qpat_x_assum `every_var (dimindex(:α)) _ _` mp_tac >>
           fs[every_var_def,every_name_def,EVERY_MEM,set_MAP_FST_toAList_domain,domain_union] >>
           ASM_SET_TAC[]) >>
         qpat_x_assum`_ ≤ na'` mp_tac>>
@@ -9185,9 +9221,9 @@ Resume ssa_cc_trans_correct[Call_returning]:
       Cases_on`q'³'`>>fs[]>>
       Cases_on`q''`>>fs[]>>
       rename1`fix_inconsistencies prio _ _`>>
-      Q.SPECL_THEN [`na_3`,`ssa_2`,`ssa_3`,`prio`] assume_tac fix_inconsistencies_correctR >>
+      Q.SPECL_THEN [`na_3`,`ssa_2`,`ssa_3`,`prio`] assume_tac (INST_TYPE [alpha |-> ``:'a``,beta |-> ``:'c``,gamma |-> ``:'ffi``] fix_inconsistencies_correctR) >>
       rev_full_simp_tac(srw_ss())[LET_THM]>>
-      pop_assum (qspecl_then[`r''`,`r'³'`] mp_tac)>>
+      pop_assum (Q.ISPECL_THEN [`r''`,`r'³'`] mp_tac)>>
       impl_tac>-
         (metis_tac[ssa_locals_rel_more,ssa_map_ok_more])>>
       Cases_on`evaluate(exc_cons,r'³')`>>fs[word_state_eq_rel_def]
@@ -9206,8 +9242,8 @@ Resume ssa_cc_trans_correct[Seq]:
     last_assum(qspecl_then[`p`,`st`,`cst`,`ssa`,`na`,`lt`] mp_tac)>>
     size_tac2>>
     impl_tac>>full_simp_tac(srw_ss())[every_var_def]>>srw_tac[][]>>
-    Cases_on`ssa_cc_trans p ssa na lt`>>Cases_on`r`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`ssa_cc_trans p0 q' r' lt`>>Cases_on`r`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`ssa_cc_trans (dimindex(:α)) p ssa na lt`>>Cases_on`r`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`ssa_cc_trans (dimindex(:α)) p0 q' r' lt`>>Cases_on`r`>>full_simp_tac(srw_ss())[]>>
     full_simp_tac(srw_ss())[evaluate_def,LET_THM]>>
     Cases_on`evaluate(p,st with permute:=perm')`>>full_simp_tac(srw_ss())[]
     >- (qexists_tac`perm'`>>full_simp_tac(srw_ss())[]) >>
@@ -9237,7 +9273,7 @@ Resume ssa_cc_trans_correct[Seq]:
 QED
 
 Resume ssa_cc_trans_correct[If]:
-    qpat_abbrev_tac `A = ssa_cc_trans B C D E` >>
+    qpat_abbrev_tac `A = ssa_cc_trans (dimindex(:α)) B C D E` >>
     PairCases_on`A`>>simp[]>>
     pop_assum(mp_tac o SYM o SIMP_RULE std_ss[markerTheory.Abbrev_def]) >>
     full_simp_tac(srw_ss())[evaluate_def,ssa_cc_trans_def]>>
@@ -9264,7 +9300,7 @@ Resume ssa_cc_trans_correct[If]:
       Cases_on`evaluate(e2',cst)`>>full_simp_tac(srw_ss())[]>>
       gvs[] >>
       Cases_on`q`>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
-      Q.SPECL_THEN [`na3`,`ssa2`,`ssa3`] mp_tac fix_inconsistencies_correctL>>
+      Q.SPECL_THEN [`na3`,`ssa2`,`ssa3`] mp_tac (INST_TYPE [alpha |-> ``:'a``,beta |-> ``:'c``,gamma |-> ``:'ffi``] fix_inconsistencies_correctL)>>
       impl_tac>-
         (imp_res_tac ssa_cc_trans_props>>
         metis_tac[ssa_map_ok_more])>>
@@ -9294,7 +9330,7 @@ Resume ssa_cc_trans_correct[If]:
       Cases_on`evaluate(e3',cst)`>>full_simp_tac(srw_ss())[]>>
       Cases_on`q'`>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
       rename1`fix_inconsistencies prio _ _`>>
-      Q.SPECL_THEN [`na3`,`ssa2`,`ssa3`,`prio`] mp_tac fix_inconsistencies_correctR>>
+      Q.SPECL_THEN [`na3`,`ssa2`,`ssa3`,`prio`] mp_tac (INST_TYPE [alpha |-> ``:'a``,beta |-> ``:'c``,gamma |-> ``:'ffi``] fix_inconsistencies_correctR)>>
       impl_tac>-
         (imp_res_tac ssa_cc_trans_props>>
         metis_tac[ssa_map_ok_more])>>
@@ -9308,7 +9344,7 @@ QED
 
 Resume ssa_cc_trans_correct[Alloc]:
     last_x_assum kall_tac>>
-    qabbrev_tac`A = ssa_cc_trans (Alloc n p) ssa na lt`>>
+    qabbrev_tac`A = ssa_cc_trans (dimindex(:α)) (Alloc n p) ssa na lt`>>
     PairCases_on`A`>>full_simp_tac(srw_ss())[ssa_cc_trans_def]>>
     pop_assum mp_tac>>
     LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
@@ -9484,7 +9520,7 @@ Resume ssa_cc_trans_correct[Alloc]:
           disch_tac >>
           `xx < na`
             by (
-             qpat_x_assum `every_var _ _` mp_tac >>
+             qpat_x_assum `every_var (dimindex(:α)) _ _` mp_tac >>
              simp[every_var_def,every_name_def,EVERY_MEM,set_MAP_FST_toAList_domain] >>
              ASM_SET_TAC[]) >>
           intLib.ARITH_TAC) >>
@@ -9844,7 +9880,7 @@ Resume ssa_cc_trans_correct[FFI]:
     exists_tac>>
     last_x_assum kall_tac>>
     rename1 ‘FFI s n n0 n1 n2 p’>>
-    qabbrev_tac`A = ssa_cc_trans (FFI s n n0 n1 n2 p) ssa na lt`>>
+    qabbrev_tac`A = ssa_cc_trans (dimindex(:α)) (FFI s n n0 n1 n2 p) ssa na lt`>>
     PairCases_on`p`>>
     PairCases_on`A`>>full_simp_tac(srw_ss())[ssa_cc_trans_def]>>
     pop_assum mp_tac>>
@@ -10018,9 +10054,10 @@ Resume ssa_cc_trans_correct[ShareInst]:
     fs[every_var_def]
 QED
 
+
 Resume ssa_cc_trans_correct[Loop]:
-  rename1 `Loop names body exit_names` >>
-  qpat_x_assum `every_var _ _` mp_tac >> simp[every_var_def] >> strip_tac >>
+  rename1 `Loop names body exit_names` >> gvs[] >>
+  qpat_x_assum `every_var (dimindex(:α)) _ _` mp_tac >> simp[every_var_def] >> strip_tac >>
   simp[ssa_cc_trans_def] >>
   rpt (pairarg_tac >> fs[]) >>
   drule_then drule loop_setup_correct >>
@@ -10047,7 +10084,7 @@ Resume ssa_cc_trans_correct[Loop]:
   qspecl_then
     [`st`, `rcst'`, `ssa_refreshed`, `na_refreshed`, `names`, `body`,
      `exit_names`, `lt`, `body'`, `ssa''`, `na''`]
-    mp_tac ssa_cc_trans_Loop_helper >>
+    mp_tac (Q.INST [`bits` |-> `dimindex(:α)`] ssa_cc_trans_Loop_helper) >>
   impl_tac
   >- (rpt conj_tac >> fs[]
       >- (rpt strip_tac >>
@@ -10113,7 +10150,7 @@ Finalise ssa_cc_trans_correct ;
 Theorem setup_ssa_props[local]:
   is_alloc_var lim ∧
   domain st.locals = set (even_list n) ⇒
-  let (mov:'a wordLang$prog,ssa,na) = setup_ssa n lim (prog:'a wordLang$prog) in
+  let (mov:wordLang$prog,ssa,na) = setup_ssa bits n lim (prog:wordLang$prog) in
   let (res,cst) = evaluate(mov,st) in
     res = NONE ∧
     word_state_eq_rel st cst ∧
@@ -10199,8 +10236,8 @@ Proof
 QED
 
 Theorem max_var_inst_max[local]:
-  ∀inst.
-    every_var_inst (λx. x ≤ max_var_inst inst) inst
+  ∀bits inst.
+    every_var_inst bits (λx. x ≤ max_var_inst bits inst) inst
 Proof
   ho_match_mp_tac max_var_inst_ind>>
   srw_tac[][every_var_inst_def,max_var_inst_def]>>
@@ -10215,8 +10252,8 @@ Proof
 QED
 
 Theorem max_var_max:
-    ∀prog.
-    every_var (λx. x ≤ max_var prog) prog
+    ∀bits prog.
+    every_var bits (λx. x ≤ max_var bits prog) prog
 Proof[exclude_simps = max3_def]
   ho_match_mp_tac max_var_ind>>
   rpt strip_tac
@@ -10240,7 +10277,7 @@ Proof[exclude_simps = max3_def]
        fs[EVERY_MEM] >> srw_tac[][] >>
        every_drule MAX_LIST_PROPERTY >>
        simp[])
-     >>~-([`max_var`],
+     >>~-([`max_var bits`],
        srw_tac[][] >> match_mp_tac every_var_mono>>
        first_x_assum (irule_at (Pos $ el 2)) >>
        fs[]))
@@ -10248,7 +10285,7 @@ Proof[exclude_simps = max3_def]
     full_simp_tac(std_ss)[every_var_def,max_var_def,every_name_def,max3_eq] >>
      TOP_CASE_TAC >> simp[every_var_imm_def] >>
      (srw_tac[][] >> match_mp_tac every_var_mono>>
-     TRY(HINT_EXISTS_TAC)>>TRY(qexists_tac`λx. x ≤ max_var prog`)>>
+     TRY(HINT_EXISTS_TAC)>>TRY(qexists_tac`λx. x ≤ max_var bits prog`)>>
      srw_tac[][]>>
      DECIDE_TAC)) >>
 
@@ -10260,7 +10297,7 @@ Proof[exclude_simps = max3_def]
     qexists_tac`λx. x ≤ max_var_exp exp`>>
     full_simp_tac(srw_ss())[max_var_exp_max]>>
     DECIDE_TAC)
-  >>~[`max_var`] >- (
+  >>~[`max_var bits`] >- (
     srw_tac[][] >> match_mp_tac every_var_mono>>
     first_x_assum (irule_at (Pos $ el 2)) >>
     fs[])
@@ -10271,13 +10308,13 @@ Proof[exclude_simps = max3_def]
 QED
 
 Theorem limit_var_props[local]:
-  limit_var prog = lim ⇒
+  limit_var bits prog = lim ⇒
   is_alloc_var lim ∧
-  every_var (λx. x< lim) prog
+  every_var bits (λx. x< lim) prog
 Proof
   reverse (srw_tac[][limit_var_def,is_alloc_var_def])
   >-
-    (qspec_then `prog` assume_tac max_var_max >>
+    (qspecl_then [`bits`,`prog`] assume_tac max_var_max >>
     match_mp_tac every_var_mono>>
     HINT_EXISTS_TAC>>
     srw_tac[][]>>
@@ -10308,13 +10345,14 @@ Proof
 QED
 
 (*Full correctness theorem*)
+
 Theorem full_ssa_cc_trans_correct:
- ∀prog st n.
-  domain st.locals = set (even_list n) ⇒
+ ∀bits prog (st:('a,'c,'ffi) wordSem$state) n.
+  bits = dimindex (:'a) ∧ domain st.locals = set (even_list n) ⇒
   ∃perm'.
   let (res,rst) = evaluate(prog,st with permute:=perm') in
   if (res = SOME Error) then T else
-  let (res',rcst) = evaluate(full_ssa_cc_trans n prog,st) in
+  let (res',rcst) = evaluate(full_ssa_cc_trans bits n prog,st) in
     res = res' ∧
     word_state_eq_rel rst rcst ∧
     (case res of
@@ -10324,18 +10362,18 @@ Theorem full_ssa_cc_trans_correct:
     | SOME _    => rst.locals = rcst.locals )
 Proof
   srw_tac[][]>>
-  qpat_abbrev_tac`sprog = full_ssa_cc_trans n prog`>>
+  qpat_abbrev_tac`sprog = full_ssa_cc_trans (dimindex(:α)) n prog`>>
   full_simp_tac(srw_ss())[full_ssa_cc_trans_def]>>
   pop_assum mp_tac>>LET_ELIM_TAC>>
-  assume_tac limit_var_props>>
+  assume_tac (Q.INST [`bits` |-> `dimindex(:α)`] limit_var_props)>>
   pop_assum mp_tac>> impl_tac>- metis_tac[]>>
   srw_tac[][]>>
   imp_res_tac setup_ssa_props>>
-  pop_assum(qspec_then`prog` mp_tac)>>
+  pop_assum(qspecl_then [`prog`,`dimindex(:α)`] mp_tac)>>
   LET_ELIM_TAC>>
   simp[Abbr`sprog`,Once evaluate_def]>>
   rev_full_simp_tac(srw_ss())[]>>
-  Q.ISPECL_THEN [`prog`,`st`,`cst`,`ssa`,`na`,`[]:(num num_map # num_set # num_set) list`] mp_tac ssa_cc_trans_correct>>
+  Q.ISPECL_THEN [`(dimindex(:α))`,`prog`,`st`,`cst`,`ssa`,`na`,`[]:(num num_map # num_set # num_set) list`] mp_tac ssa_cc_trans_correct>>
   impl_tac>-
     (full_simp_tac(srw_ss())[lt_ok_def]>>match_mp_tac every_var_mono>>
     HINT_EXISTS_TAC >> srw_tac[][]>>DECIDE_TAC)>>
@@ -10368,7 +10406,7 @@ QED
 
 Theorem fix_inconsistencies_conventions[local]:
   ∀ssaL ssaR na prio.
-  let (a:'a wordLang$prog,b:'a wordLang$prog,c,d) =
+  let (a:wordLang$prog,b:wordLang$prog,c,d) =
     fix_inconsistencies prio ssaL ssaR na in
   every_stack_var is_stack_var a ∧
   every_stack_var is_stack_var b ∧
@@ -10481,10 +10519,10 @@ QED
 (*Prove that the transform sets up arbitrary programs with
   the appropriate conventions*)
 Theorem ssa_cc_trans_pre_alloc_conventions:
-  ∀prog ssa na lt.
+  ∀bits prog ssa na lt.
   is_alloc_var na ∧
   ssa_map_ok na ssa ⇒
-  let (prog',ssa',na') = ssa_cc_trans prog ssa na lt in
+  let (prog',ssa',na') = ssa_cc_trans bits prog ssa na lt in
   pre_alloc_conventions prog'
 Proof
   full_simp_tac(srw_ss())[o_UNCURRY_R, C_UNCURRY_L, S_UNCURRY_R,LET_FORALL_ELIM',
@@ -10718,7 +10756,7 @@ Finalise ssa_cc_trans_pre_alloc_conventions;
 
 Theorem setup_ssa_props_2[local]:
   is_alloc_var lim ⇒
-  let (mov:'a wordLang$prog,ssa,na) = setup_ssa n lim (prog:'a wordLang$prog) in
+  let (mov:wordLang$prog,ssa,na) = setup_ssa bits n lim (prog:wordLang$prog) in
     ssa_map_ok na ssa ∧
     is_alloc_var na ∧
     pre_alloc_conventions mov ∧
@@ -10736,15 +10774,15 @@ QED
 
 Theorem full_ssa_cc_trans_pre_alloc_conventions:
  ∀n prog.
-  pre_alloc_conventions (full_ssa_cc_trans n prog)
+  pre_alloc_conventions (full_ssa_cc_trans bits n prog)
 Proof
   full_simp_tac(srw_ss())[full_ssa_cc_trans_def,pre_alloc_conventions_def,list_next_var_rename_move_def]>>LET_ELIM_TAC>>
   full_simp_tac(srw_ss())[Abbr`lim'`]>>
   imp_res_tac limit_var_props>>
   imp_res_tac setup_ssa_props_2>>
-  pop_assum(qspecl_then [`prog`,`n`] assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
+  pop_assum(qspecl_then [`prog`,`n`,`bits`] assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
   imp_res_tac ssa_cc_trans_props>>
-  qspecl_then [`prog`,`ssa`,`na`,`[]`] assume_tac ssa_cc_trans_pre_alloc_conventions>>
+  qspecl_then [`bits`,`prog`,`ssa`,`na`,`[]`] assume_tac ssa_cc_trans_pre_alloc_conventions>>
   rev_full_simp_tac(srw_ss())[pre_alloc_conventions_def,every_stack_var_def,call_arg_convention_def,LET_THM]
 QED
 
@@ -10761,11 +10799,11 @@ Proof
 QED
 
 Theorem ssa_cc_trans_distinct_tar_reg:
-  ∀prog ssa na lt.
+  ∀bits prog ssa na lt.
     is_alloc_var na ∧
-    every_var (λx. x < na) prog ∧
+    every_var bits (λx. x < na) prog ∧
     ssa_map_ok na ssa ⇒
-    every_inst distinct_tar_reg (FST (ssa_cc_trans prog ssa na lt))
+    every_inst distinct_tar_reg (FST (ssa_cc_trans bits prog ssa na lt))
 Proof
   ho_match_mp_tac ssa_cc_trans_ind>>full_simp_tac(srw_ss())[ssa_cc_trans_def]>>srw_tac[][]>>
   unabbrev_all_tac>>
@@ -10926,7 +10964,7 @@ Finalise ssa_cc_trans_distinct_tar_reg;
 
 Theorem full_ssa_cc_trans_distinct_tar_reg:
   ∀n prog.
-    every_inst distinct_tar_reg (full_ssa_cc_trans n prog)
+    every_inst distinct_tar_reg (full_ssa_cc_trans bits n prog)
 Proof
   srw_tac[][]>>
   full_simp_tac(srw_ss())[full_ssa_cc_trans_def]>>
@@ -10941,12 +10979,12 @@ Proof
   full_simp_tac(srw_ss())[markerTheory.Abbrev_def]>>
   rev_full_simp_tac(srw_ss())[]>>
   imp_res_tac setup_ssa_props_2>>
-  pop_assum(qspecl_then[`prog`,`n`] mp_tac)>>
+  pop_assum(qspecl_then[`prog`,`n`,`bits`] mp_tac)>>
   LET_ELIM_TAC>>
   gvs[]>>
   drule ssa_cc_trans_distinct_tar_reg>>
   disch_then (drule_at Any)>>
-  disch_then(qspecl_then[`prog`,`[]`] mp_tac)>>
+  disch_then(qspecl_then[`bits`,`prog`,`[]`] mp_tac)>>
   impl_tac>- (
     simp[]>>
     match_mp_tac every_var_mono>>
@@ -10957,7 +10995,8 @@ QED
 
 Theorem exp_to_addr_ShareInst[local]:
   exp_to_addr exp = SOME (Addr n c) <=>
-    ((exp = Var n /\ c = 0w) \/ (exp = Op Add [Var n; Const c]))
+    ((exp = Var n /\ c = 0) \/
+     (?offset. exp = Op Add [Var n; Const offset] /\ c = offset))
 Proof
   eq_tac
   >- (
@@ -10984,25 +11023,19 @@ Proof
 QED
 
 Theorem ssa_cc_trans_full_inst_ok_less[local]:
-  ∀prog ssa na lt c.
-    every_var (λx. x < na) prog ∧
+  ∀bits (prog:wordLang$prog) ssa na lt c.
+    isa_bits c = bits ∧
+    every_var bits (λx. x < na) prog ∧
     is_alloc_var na ∧
     ssa_map_ok na ssa ∧
     full_inst_ok_less c prog ⇒
-    full_inst_ok_less c (FST (ssa_cc_trans prog ssa na lt))
+    full_inst_ok_less c (FST (ssa_cc_trans bits prog ssa na lt))
 Proof
   ho_match_mp_tac ssa_cc_trans_ind>>
   full_simp_tac(srw_ss())[ssa_cc_trans_def]>>srw_tac[][]>>
   unabbrev_all_tac>>
   full_simp_tac(srw_ss())[full_inst_ok_less_def]
-  >- (
-    full_simp_tac(srw_ss())[oneline ssa_cc_trans_inst_def,LET_THM,next_var_rename_def,ssa_map_ok_def,
-    AllCaseEqs()]>> rveq >>
-    full_simp_tac(srw_ss())[EQ_SYM_EQ,inst_ok_less_def,full_inst_ok_less_def,every_var_def,every_var_inst_def]>>
-    rw[]>>
-    fs[option_lookup_def]>>every_case_tac>>rw[]>>
-    pop_assum (assume_tac o SYM)>>res_tac>>
-    intLib.ARITH_TAC)
+  >- suspend "Inst"
   >>
   (* Some trivial cases *)
   TRY
@@ -11011,7 +11044,38 @@ Proof
     fs[]>>
     match_mp_tac every_var_mono>>
     HINT_EXISTS_TAC>>fs[])
-  >- ( (* If *)
+  >- suspend "If"
+  >>
+    TRY
+    (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>
+    rpt (pop_assum mp_tac)>>
+    LET_ELIM_TAC>>full_simp_tac(srw_ss())[full_inst_ok_less_def,EQ_SYM_EQ]>>NO_TAC)
+  >- suspend "Call"
+  >~[`Loop`] >- suspend "Loop"
+  >~[`Break`] >- suspend "Break"
+  >~[`Continue`] >- suspend "Continue"
+  >> (*ShareInst*)
+    qpat_x_assum `option_CASE _ _ _` mp_tac >>
+    ntac 2 TOP_CASE_TAC >>
+    strip_tac >>
+    IF_CASES_TAC >>
+    simp[full_inst_ok_less_def] >>
+    gvs[exp_to_addr_ShareInst,ssa_cc_trans_exp_def] >>
+    simp[exp_to_addr_def]
+QED
+
+Resume ssa_cc_trans_full_inst_ok_less[Inst]:
+  full_simp_tac(srw_ss())[oneline ssa_cc_trans_inst_def,LET_THM,next_var_rename_def,ssa_map_ok_def,
+    AllCaseEqs()]>> rveq >>
+    full_simp_tac(srw_ss())[EQ_SYM_EQ,inst_ok_less_def,full_inst_ok_less_def,every_var_def,every_var_inst_def]>>
+    rw[]>>
+    fs[option_lookup_def]>>every_case_tac>>rw[]>>
+    pop_assum (assume_tac o SYM)>>res_tac>>
+    CCONTR_TAC >> gvs[is_phy_var_def]
+QED
+
+Resume ssa_cc_trans_full_inst_ok_less[If]:
+  (* If *)
     pop_assum mp_tac>>
     fs[fix_inconsistencies_def,fake_moves_def]>>
     rpt(pairarg_tac>>gvs[])>>
@@ -11024,19 +11088,16 @@ Proof
       CONJ_TAC>-
         (match_mp_tac every_var_mono>>HINT_EXISTS_TAC>>fs[])>>
       match_mp_tac ssa_map_ok_more>>fs[])>>
-    metis_tac[fake_moves_conventions2])
-  >>
-    TRY
-    (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>
-    rpt (pop_assum mp_tac)>>
-    LET_ELIM_TAC>>full_simp_tac(srw_ss())[full_inst_ok_less_def,EQ_SYM_EQ]>>NO_TAC)
-  >-
-    ((*Call SOME*)
+    metis_tac[fake_moves_conventions2]
+QED
+
+Resume ssa_cc_trans_full_inst_ok_less[Call]:
+  (*Call SOME*)
     EVERY_CASE_TAC>>unabbrev_all_tac>>
     gvs[fix_inconsistencies_def]>>
     rpt(pairarg_tac>>gvs[])>>
     gvs[full_inst_ok_less_def]>>
-    rpt(first_x_assum (irule_at Any))>>
+    rpt(qpat_x_assum `∀c. _` (irule_at Any))>>
     imp_res_tac fake_moves_conventions2>>
     gvs[every_var_def,list_next_var_rename_move_def,next_var_rename_def]>>
     rpt(pairarg_tac>>gvs[])>>
@@ -11070,7 +11131,7 @@ Proof
       match_mp_tac every_var_mono >>
       first_x_assum (irule_at Any) >>
       simp[]) >>
-    qspecl_then [`prog`,`ssa_2_p`,`na_2_p`,`lt`] mp_tac ssa_cc_trans_props>>
+    qspecl_then [`isa_bits c`,`prog`,`ssa_2_p`,`na_2_p`,`lt`] mp_tac ssa_cc_trans_props>>
     gvs[] >> rpt disch_tac >> gvs[is_alloc_var_add] >>
     CONJ_TAC
     >-(
@@ -11081,22 +11142,11 @@ Proof
       irule ssa_map_ok_insert >>
       irule_at Any ssa_map_ok_more >>
       first_x_assum (irule_at Any)>>
-      simp[Once convention_partitions])))
-  >~[`Loop`] >- suspend "Loop"
-  >~[`Break`] >- suspend "Break"
-  >~[`Continue`] >- suspend "Continue"
-  >> (*ShareInst*)
-    qpat_x_assum `option_CASE _ _ _` mp_tac >>
-    ntac 2 TOP_CASE_TAC >>
-    strip_tac >>
-    IF_CASES_TAC >>
-    simp[full_inst_ok_less_def] >>
-    gvs[exp_to_addr_ShareInst,ssa_cc_trans_exp_def] >>
-    simp[exp_to_addr_def]
+      simp[Once convention_partitions]))
 QED
 
 Resume ssa_cc_trans_full_inst_ok_less[Loop]:
-  qpat_x_assum `every_var _ _` mp_tac>>simp[every_var_def]>>strip_tac>>
+  qpat_x_assum `every_var bits _ _` mp_tac>>simp[every_var_def]>>strip_tac>>
   drule loop_setup_props_local>>simp[]>>strip_tac>>
   drule loop_setup_full_inst_ok_less>>strip_tac>>
   last_x_assum (qspec_then `c` mp_tac)>>
@@ -11126,26 +11176,26 @@ QED
 Finalise ssa_cc_trans_full_inst_ok_less;
 
 Theorem full_ssa_cc_trans_full_inst_ok_less:
-  ∀prog n c.
-  full_inst_ok_less c prog ⇒
-  full_inst_ok_less c (full_ssa_cc_trans n prog)
+  ∀(prog:wordLang$prog) n c.
+  isa_bits c = bits ∧ full_inst_ok_less c prog ⇒
+  full_inst_ok_less c (full_ssa_cc_trans bits n prog)
 Proof
   full_simp_tac(srw_ss())[full_ssa_cc_trans_def,list_next_var_rename_move_def]>>
   LET_ELIM_TAC>>
   fs[markerTheory.Abbrev_def]>>
   imp_res_tac (GSYM limit_var_props)>>
   imp_res_tac setup_ssa_props_2>>
-  pop_assum(qspecl_then [`prog`,`n`] assume_tac)>>
+  pop_assum(qspecl_then [`prog`,`n`,`isa_bits c`] assume_tac)>>
   rfs[]>>
   fs[setup_ssa_def,list_next_var_rename_move_def]>>
   pairarg_tac>>fs[]>>rpt var_eq_tac>>fs[full_inst_ok_less_def]>>
-  qspecl_then [`prog`,`ssa`,`n'`,`[]`,`c`] mp_tac ssa_cc_trans_full_inst_ok_less>>
+  qspecl_then [`isa_bits c`,`prog`,`ssa`,`n'`,`[]`,`c`] mp_tac ssa_cc_trans_full_inst_ok_less>>
   impl_tac>>fs[]>>
   match_mp_tac every_var_mono>>
   HINT_EXISTS_TAC>>fs[]
 QED
 
-(* word_alloc syntactic stuff *)
+(* word_alloc bits syntactic stuff *)
 
 val is_phy_var_tac =
     full_simp_tac(srw_ss())[is_phy_var_def]>>
@@ -11155,7 +11205,7 @@ val is_phy_var_tac =
 
 Theorem call_arg_convention_preservation[local]:
   ∀prog f.
-  every_var (λx. is_phy_var x ⇒ f x = x) prog ∧
+  every_var bits (λx. is_phy_var x ⇒ f x = x) prog ∧
   call_arg_convention prog ⇒
   call_arg_convention (apply_colour f prog)
 Proof
@@ -11176,10 +11226,10 @@ QED
 
 (*Composing with a function using apply_colour*)
 Theorem every_var_inst_apply_colour_inst:
-    ∀P inst Q f.
-  every_var_inst P inst ∧
+    ∀bits P inst Q f.
+  every_var_inst bits P inst ∧
   (∀x. P x ⇒ Q (f x)) ⇒
-  every_var_inst Q (apply_colour_inst f inst)
+  every_var_inst bits Q (apply_colour_inst f inst)
 Proof
   ho_match_mp_tac every_var_inst_ind>>srw_tac[][every_var_inst_def]>>
   TRY(Cases_on`ri`>>full_simp_tac(srw_ss())[apply_colour_imm_def])>>
@@ -11209,10 +11259,10 @@ Proof
 QED
 
 Theorem every_var_apply_colour:
-    ∀P prog Q f.
-  every_var P prog ∧
+    ∀bits P prog Q f.
+  every_var bits P prog ∧
   (∀x. P x ⇒ Q (f x)) ⇒
-  every_var Q (apply_colour f prog)
+  every_var bits Q (apply_colour f prog)
 Proof
   ho_match_mp_tac every_var_ind>>srw_tac[][every_var_def]>>
   full_simp_tac(srw_ss())[MAP_ZIP,(GEN_ALL o SYM o SPEC_ALL) MAP_MAP_o]>>
@@ -11279,8 +11329,8 @@ val exp_tac3 =
   HINT_EXISTS_TAC>>fs[in_clash_tree_def];
 
 Theorem every_var_in_get_clash_tree[local]:
-  ∀prog lt.
-  every_var (in_clash_tree (get_clash_tree prog lt)) prog
+  ∀bits prog lt.
+  every_var bits (in_clash_tree (get_clash_tree bits prog lt)) prog
 Proof
   ho_match_mp_tac get_clash_tree_ind>>rw[get_clash_tree_def]
   >~ [`wordLang$Loop names body exit_names`] >- (fs[every_var_def,in_clash_tree_def,EVERY_MEM,every_name_def,toAList_domain]>>metis_tac[every_var_mono,in_clash_tree_def])
@@ -11306,17 +11356,17 @@ QED
 
 Theorem every_var_T[local]:
   ∀prog.
-  every_var (λx. T) prog
+  every_var bits (λx. T) prog
 Proof
   rw[]>>
-  mp_tac (Q.SPEC`prog` max_var_max)>>
+  mp_tac (Q.SPECL [`bits`,`prog`] max_var_max)>>
   rw[]>>
   ho_match_mp_tac every_var_mono>>HINT_EXISTS_TAC>>
   fs[]
 QED
 
 Theorem every_var_is_phy_var_total_colour[local]:
-  every_var is_phy_var (apply_colour (total_colour col) prog)
+  every_var bits is_phy_var (apply_colour (total_colour col) prog)
 Proof
   match_mp_tac every_var_apply_colour>>
   qexists_tac`\x. T`>>
@@ -11328,8 +11378,8 @@ QED
 
 Theorem oracle_colour_ok_conventions[local]:
   pre_alloc_conventions prog ∧
-  oracle_colour_ok k col_opt (get_clash_tree prog lt) prog ls = SOME x ⇒
-  post_alloc_conventions k x
+  oracle_colour_ok k col_opt (get_clash_tree bits prog lt) prog ls = SOME x ⇒
+  post_alloc_conventions bits k x
 Proof
   fs[oracle_colour_ok_def]>>EVERY_CASE_TAC>>
   fs[post_alloc_conventions_def,pre_alloc_conventions_def]>>
@@ -11346,22 +11396,22 @@ Proof
 QED
 
 Theorem pre_post_conventions_word_alloc:
-  ∀fc c alg prog k col_opt.
-  pre_alloc_conventions prog ⇒
-  post_alloc_conventions k (word_alloc fc c alg k prog col_opt)
+  ∀bits fc c alg prog k col_opt.
+  isa_bits c = bits ∧ pre_alloc_conventions prog ⇒
+  post_alloc_conventions bits k (word_alloc bits fc c alg k prog col_opt)
 Proof
   rpt strip_tac>>fs[word_alloc_def]>>
   TOP_CASE_TAC>>fs[]
   >- (
     qpat_abbrev_tac`forced = get_forced _ _ _`>>
-    qpat_abbrev_tac`tree = get_clash_tree _ _`>>
-    qpat_abbrev_tac`fs = get_stack_only _`>>
+    qpat_abbrev_tac`tree = get_clash_tree bits _ _`>>
+    qpat_abbrev_tac`fs = get_stack_only bits _`>>
     `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
       (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
     pairarg_tac>>fs[]>>
     drule select_reg_alloc_correct>>
     disch_then(qspecl_then [`alg`,`spillcosts`,`k`,`heu_moves`,`fs`] assume_tac)>>rfs[]>>fs[]>>
-    assume_tac (Q.ISPECL[`prog:'a wordLang$prog`,`[]:(num_set # num_set) list`]every_var_in_get_clash_tree)>>
+    assume_tac (Q.SPECL [`isa_bits c`,`prog`,`[]:(num_set # num_set) list`] every_var_in_get_clash_tree)>>
     rfs[]>>
     fs[post_alloc_conventions_def,pre_alloc_conventions_def]>>rw[]
     >-
@@ -11377,19 +11427,18 @@ Proof
       rw[total_colour_def,sp_default_def,domain_lookup]>>rfs[]>>
       metis_tac[convention_partitions])
     >>
-      match_mp_tac call_arg_convention_preservation>>
+      match_mp_tac (Q.INST [`bits` |-> `isa_bits c`] call_arg_convention_preservation)>>
       srw_tac[][]>>match_mp_tac every_var_mono>>
       qexists_tac `in_clash_tree tree` >> rw[]>>
-      first_x_assum drule>>fs[]>>rw[]>>
-      fs[total_colour_def,sp_default_def,domain_lookup]>>rfs[]>>
+      fs[total_colour_alt] >>
       metis_tac[is_phy_var_def,EVEN_MOD2,EVEN_EXISTS,TWOxDIV2])
   >>
   metis_tac[oracle_colour_ok_conventions]
 QED
 
-(*word_alloc preserves syntactic conventions*)
+(*word_alloc bits preserves syntactic conventions*)
 Theorem word_alloc_full_inst_ok_less_lem[local]:
-  ∀f prog c.
+  ∀f (prog:wordLang$prog) c.
   full_inst_ok_less c prog ∧
   EVERY (λ(x,y). (f x) ≠ (f y)) (get_forced c prog []) ⇒
   full_inst_ok_less c (apply_colour f prog)
@@ -11433,16 +11482,16 @@ Proof
 QED
 
 Theorem word_alloc_full_inst_ok_less:
-  ∀fc alg k prog col_opt c.
-  full_inst_ok_less c prog ⇒
-  full_inst_ok_less c (word_alloc fc c alg k prog col_opt)
+  ∀fc alg k (prog:wordLang$prog) col_opt c.
+  isa_bits c = bits ∧ full_inst_ok_less c prog ⇒
+  full_inst_ok_less c (word_alloc bits fc c alg k prog col_opt)
 Proof
   fs[word_alloc_def,oracle_colour_ok_def]>>
   rpt strip_tac>>
   pairarg_tac>>fs[]>>
   qpat_abbrev_tac`forced = get_forced _ _ _`>>
-  qpat_abbrev_tac`tree = get_clash_tree _ _`>>
-  qpat_abbrev_tac`fs = get_stack_only _`>>
+  qpat_abbrev_tac`tree = get_clash_tree bits _ _`>>
+  qpat_abbrev_tac`fs = get_stack_only bits _`>>
   `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
     (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
   EVERY_CASE_TAC>>fs[]>>

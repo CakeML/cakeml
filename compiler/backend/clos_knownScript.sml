@@ -9,7 +9,7 @@
 *)
 Theory clos_known
 Ancestors
-  closLang db_vars clos_ticks clos_letop clos_fvs clos_op
+  db_vars clos_ticks clos_letop clos_fvs clos_op
 Libs
   preamble
 

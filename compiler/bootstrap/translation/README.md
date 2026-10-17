@@ -16,17 +16,20 @@ Translate the ARMv8 instruction encoder and ARMv8-specific config.
 [basis_defProgScript.sml](basis_defProgScript.sml):
 Translate the basis library term.
 
-[caml_lexProgScript.sml](caml_lexProgScript.sml):
-Translation of the OCaml lexer.
-
-[caml_parserProgScript.sml](caml_parserProgScript.sml):
-Translation of the functions in caml_parserScript.sml
-
 [compiler32ProgScript.sml](compiler32ProgScript.sml):
 Finish translation of the 32-bit version of the compiler.
 
-[compiler64ProgScript.sml](compiler64ProgScript.sml):
-Finish translation of the 64-bit version of the compiler.
+[compiler64Arm8ProgScript.sml](compiler64Arm8ProgScript.sml):
+Native ARM8 entry point for the 64-bit compiler.
+
+[compiler64CommonProgScript.sml](compiler64CommonProgScript.sml):
+Shared translation of the 64-bit compiler backends and command-line interface.
+
+[compiler64MainProgScript.sml](compiler64MainProgScript.sml):
+Shared host selection and entry points for the native 64-bit compiler programs.
+
+[compiler64X64ProgScript.sml](compiler64X64ProgScript.sml):
+Native x64 entry point for the 64-bit compiler.
 
 [decProgScript.sml](decProgScript.sml):
 Translation of CakeML source AST
@@ -37,11 +40,8 @@ Translate the compiler's state decoder.
 [explorerProgScript.sml](explorerProgScript.sml):
 Translate the compiler explorer parts of the compiler.
 
-[from_pancake32ProgScript.sml](from_pancake32ProgScript.sml):
-Translate the pan_to_target part of the 32-bit compiler.
-
-[from_pancake64ProgScript.sml](from_pancake64ProgScript.sml):
-Translate the pan_to_target part of the 64-bit compiler.
+[from_pancakeProgScript.sml](from_pancakeProgScript.sml):
+Translate the pan_to_target part of the compiler for all targets.
 
 [inferProgScript.sml](inferProgScript.sml):
 Translate the compiler's type inferencer.
@@ -88,17 +88,11 @@ Translate the backend phase from BVI to dataLang.
 [to_flatProgScript.sml](to_flatProgScript.sml):
 Translate backend phases up to and including flatLang.
 
-[to_target32ProgScript.sml](to_target32ProgScript.sml):
-Translate the final part of the compiler backend for 32-bit targets.
+[to_targetProgScript.sml](to_targetProgScript.sml):
+Translate the final part of the compiler backend for all targets.
 
-[to_target64ProgScript.sml](to_target64ProgScript.sml):
-Translate the final part of the compiler backend for 64-bit targets.
-
-[to_word32ProgScript.sml](to_word32ProgScript.sml):
-Translate the data_to_word part of the 32-bit compiler.
-
-[to_word64ProgScript.sml](to_word64ProgScript.sml):
-Translate the data_to_word part of the 64-bit compiler.
+[to_wordProgScript.sml](to_wordProgScript.sml):
+Translate the data_to_word part of the compiler.
 
 [x64ProgScript.sml](x64ProgScript.sml):
 Translate the x64 instruction encoder and x64-specific config.

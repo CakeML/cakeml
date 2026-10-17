@@ -3,7 +3,7 @@
 *)
 Theory word_unreachProof
 Ancestors
-  wordLang wordSem wordProps word_unreach wordConvs
+  wordSem word_unreach
 Libs
   preamble
 
@@ -321,8 +321,8 @@ Proof
 QED
 
 Theorem evaluate_Loop_body_eq[local]:
-  (!s:('a,'b,'c) wordSem$state res s1. evaluate (p1:'a wordLang$prog, s) = (res, s1) /\ res <> SOME Error ==>
-              evaluate (p2:'a wordLang$prog, s) = (res, s1)) ==>
+  (!s:('a,'b,'c) wordSem$state res s1. evaluate (p1:wordLang$prog, s) = (res, s1) /\ res <> SOME Error ==>
+              evaluate (p2:wordLang$prog, s) = (res, s1)) ==>
   !s:('a,'b,'c) wordSem$state res s1. evaluate (Loop names p1 exit_names, s) = (res, s1) /\ res <> SOME Error ==>
              evaluate (Loop names p2 exit_names, s) = (res, s1)
 Proof

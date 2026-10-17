@@ -33,6 +33,16 @@ Definition strsub_def[simp]:
   strsub (strlit s) n = EL n s
 End
 
+Definition strsub_unsafe_def: (* same as strsub_def, but translator targets Strsub_unsafe *)
+  strsub_unsafe (strlit s) n = EL n s
+End
+
+Theorem strsub_unsafe_eq_strsub:
+  strsub_unsafe s n = strsub s n
+Proof
+  Cases_on ‘s’ \\ simp [strsub_unsafe_def]
+QED
+
 (* the test here is because underspecification is annoying (and SEG is underspecified) *)
 (* the underlying primitive (CopyStrStr) raises an exception if the test is false *)
 Definition substring_def:
@@ -999,6 +1009,12 @@ Definition fast_ge_def:
     if strlen s1 = strlen s2 then mlstring_ge s1 s2 else strlen s1 ≥ strlen s2
 End
 
+Definition fast_compare_def:
+  fast_compare s1 s2 =
+    if fast_lt s1 s2 then LESS else
+    if fast_le s1 s2 then EQUAL else GREATER
+End
+
 (* Properties of string orderings *)
 
 val flip_ord_def = ternaryComparisonsTheory.invert_comparison_def
@@ -1396,6 +1412,21 @@ Theorem StrongLinearOrder_fast_lt:
 Proof
   rw[StrongLinearOrder, StrongOrder, trichotomous_fast_lt, irreflexive_fast_lt,
      transitive_fast_lt]
+QED
+
+Theorem fast_compare_thm:
+   fast_compare = TO_of_LinearOrder fast_lt
+Proof
+  rw[FUN_EQ_THM, fast_compare_def, TO_of_LinearOrder, fast_le_thm]
+  >> rpt (IF_CASES_TAC >> gvs[fast_lt_nonrefl])
+QED
+
+Theorem TotOrd_fast_compare:
+   TotOrd fast_compare
+Proof
+  rw[fast_compare_thm]
+  >> irule TotOrd_TO_of_Strong
+  >> rw[StrongLinearOrder_fast_lt]
 QED
 
 Definition collate_aux_def:

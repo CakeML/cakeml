@@ -5,6 +5,7 @@ Theory stack_allocProof
 Libs
   preamble blastLib[qualified]
 Ancestors
+  wordSem
   stack_alloc stackLang stackSem stackProps
   word_gcFunctions (* for memcpy *)
   wordSem[qualified]
@@ -12,6 +13,8 @@ Ancestors
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "fromAList_def"]
+val _ = augment_srw_ss [rewrites [integer_wordTheory.i2w_pos, integer_wordTheory.i2w_w2i,
+                                  COND_RAND |> ISPEC ``integer_word$i2w``]]
 
 val _ = (max_print_depth := 18);
 
@@ -21,7 +24,20 @@ val isWord_def = wordSemTheory.isWord_def;
 val is_fwd_ptr_def = wordSemTheory.is_fwd_ptr_def;
 
 Overload good_dimindex[local] = ``misc$good_dimindex``
-val _ = temp_bring_to_front_overload"compile"{Thy="stack_alloc",Name="compile"};
+Overload compile[local] = ``stack_alloc$compile``;
+
+Theorem arch_size[simp]:
+   arch_bytes aw = arch_width_bits aw DIV 8 /\
+   arch_shift aw = word_shift (arch_width_bits aw)
+Proof
+  simp [data_to_wordTheory.arch_size]
+QED
+
+Theorem arch_byte_mask[local,simp]:
+  &(arch_bytes aw - 1) = (if arch_width_bits aw = 32 then 3 else 7):int
+Proof
+  Cases_on `aw` \\ EVAL_TAC
+QED
 
 (* TODO: move and join with stack_remove *)
 
@@ -50,7 +66,7 @@ QED
 
 Theorem bytes_in_word_word_shift:
    good_dimindex(:'a) ∧ w2n (bytes_in_word:'a word) * w2n n < dimword(:'a) ⇒
-   (bytes_in_word:'a word * n) >>> word_shift (:'a) = n
+   (bytes_in_word:'a word * n) >>> word_shift (dimindex (:'a)) = n
 Proof
   EVAL_TAC \\ srw_tac[][] \\ pop_assum mp_tac
   \\ blastLib.BBLAST_TAC \\ simp[]
@@ -67,13 +83,13 @@ Theorem get_var_imm_case[local]:
   get_var_imm ri s =
     case ri of
     | Reg n => get_var n s
-    | Imm w => SOME (Word w)
+    | Imm w => SOME (Word (i2w w))
 Proof
   Cases_on `ri` \\ full_simp_tac(srw_ss())[get_var_imm_def]
 QED
 
 Theorem prog_comp_lemma[local]:
-  prog_comp = \(n,p). (n,FST (comp n (next_lab p 2) p))
+  prog_comp = \(n,p). (n,((\p. FST (comp n (next_lab p 2) p)) ## I) p)
 Proof
   full_simp_tac(srw_ss())[FUN_EQ_THM,FORALL_PROD,prog_comp_def]
 QED
@@ -81,19 +97,20 @@ QED
 Theorem FST_prog_comp[simp]:
    FST (prog_comp pp) = FST pp
 Proof
-  Cases_on`pp` \\ EVAL_TAC
+  PairCases_on`pp` \\ EVAL_TAC
 QED
 
 Theorem lookup_IMP_lookup_compile[local]:
    lookup dest s.code = SOME x /\
    dest ≠ gc_stub_location ==>
-    ?m1 n1. lookup dest (fromAList (compile c (toAList s.code))) =
-            SOME (FST (comp m1 n1 x))
+    ?m1 n1. lookup dest (fromAList (compile aw c (toAList s.code))) =
+            SOME (FST (comp m1 n1 (FST x)), SND x)
 Proof
-  full_simp_tac(srw_ss())[lookup_fromAList,compile_def] \\ srw_tac[][ALOOKUP_APPEND]
-  \\ `ALOOKUP (stubs c) dest = NONE` by
-    (full_simp_tac(srw_ss())[stubs_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac) \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[prog_comp_lemma] \\ full_simp_tac(srw_ss())[ALOOKUP_MAP_2,ALOOKUP_toAList]
+  fs[lookup_fromAList,compile_def] \\ srw_tac[][ALOOKUP_APPEND]
+  \\ `ALOOKUP (stubs aw c) dest = NONE` by
+    (fs[stubs_def] \\ srw_tac[][] \\ fs[] \\ decide_tac) \\ fs[]
+  \\ fs[prog_comp_lemma] \\ fs[ALOOKUP_MAP_2,ALOOKUP_toAList]
+  \\ PairCases_on ‘x’ \\ gvs []
   \\ metis_tac []
 QED
 
@@ -131,7 +148,7 @@ Proof
    (Cases_on `xs` \\ simp_tac std_ss [map_bitmap_def,LENGTH,ADD1]
     \\ CASE_TAC \\ rename1 `_ = SOME y` \\ PairCases_on `y`
     \\ simp_tac (srw_ss()) [map_bitmap_def,LENGTH,ADD1]
-    \\ ntac 2 strip_tac \\ first_x_assum old_drule
+    \\ ntac 2 strip_tac \\ first_x_assum drule
     \\ disch_then (qspec_then `[]` mp_tac) \\ full_simp_tac(srw_ss())[])
   THEN1
    (CASE_TAC \\ rename1 `_ = SOME y` \\ PairCases_on `y`
@@ -266,7 +283,7 @@ val nine_less = DECIDE
               n <> 5 /\ n <> 6 /\ n <> 7 /\ n <> 8 /\ n <> 9n``
 
 Theorem word_shift_not_0:
-   word_shift (:'a) <> 0
+   word_shift (dimindex (:'a)) <> 0
 Proof
   srw_tac[][word_shift_def] \\ full_simp_tac(srw_ss())[]
 QED
@@ -352,7 +369,7 @@ QED
 
 Theorem bytes_in_word_word_shift_n2w:
    good_dimindex (:α) ∧ (dimindex(:'a) DIV 8) * n < dimword (:α) ⇒
-    (bytes_in_word * n2w n) ⋙ word_shift (:α) = (n2w n):'a word
+    (bytes_in_word * n2w n) ⋙ word_shift (dimindex (:α)) = (n2w n):'a word
 Proof
   strip_tac \\ match_mp_tac bytes_in_word_word_shift
   \\ fs [bytes_in_word_def]
@@ -369,23 +386,27 @@ Proof
   \\ fs [LESS_MOD]
 QED
 
-val tac = simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
-       wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
+val tac = simp [GSYM bytes_in_word_def,list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
+       wordSemTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
        asmTheory.word_cmp_def,
        wordSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
-       wordLangTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE];
+       wordSemTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE];
 
-val tac1 = simp [Once list_Seq_def, evaluate_def,inst_def,word_exp_def,get_var_def,
-       wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
+val tac1 = simp [GSYM bytes_in_word_def,Once list_Seq_def, evaluate_def,inst_def,word_exp_def,get_var_def,
+       wordSemTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
        asmTheory.word_cmp_def,set_store_def,
        wordSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
-       wordLangTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE];
+       wordSemTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE];
+
+fun fold_code def =
+  ASSUM_LIST (fn ths =>
+    PURE_REWRITE_TAC [GSYM (SIMP_RULE (srw_ss()) ths (SPEC_ALL def))]);
 
 fun abbrev_under_exists tm tac =
-  (fn state => (`?^(tm). ^(hd (fst (hd (fst (tac state)))))` by
-        (fs [markerTheory.Abbrev_def] \\ NO_TAC)) state);
+  (fn state => fn c => (`?^(tm). ^(hd (fst (hd (fst (tac state c)))))` by
+        (fs [markerTheory.Abbrev_def] \\ NO_TAC)) state c);
 
 Theorem memcpy_code_thm[local]:
   !n a b m dm b1 m1 (s:('a,'c,'b)stackSem$state).
@@ -395,9 +416,10 @@ Theorem memcpy_code_thm[local]:
       get_var 0 s = SOME (Word (n2w n)) /\
       1 IN FDOM s.regs /\
       get_var 2 s = SOME (Word a) /\
-      get_var 3 s = SOME (Word b) ==>
+      get_var 3 s = SOME (Word b) /\
+      arch_width_bits aw = dimindex (:'a) ==>
       ?r1.
-        evaluate (memcpy_code,s with clock := s.clock + n) =
+        evaluate (memcpy_code aw,s with clock := s.clock + n) =
           (NONE,s with <| memory := m1;
                           regs := s.regs |++ [(0,Word 0w);
                                               (1,r1);
@@ -426,13 +448,13 @@ Proof
          (s3 with clock := s3.clock - n).memory
          (s3 with clock := s3.clock - n).mdomain = (b1,m1,T)` by
        (unabbrev_all_tac \\ full_simp_tac(srw_ss())[])
-  \\ first_x_assum old_drule \\ full_simp_tac(srw_ss())[]
+  \\ first_x_assum drule \\ full_simp_tac(srw_ss())[]
   \\ impl_tac THEN1
     (unabbrev_all_tac \\ full_simp_tac(srw_ss())[FLOOKUP_UPDATE,GSYM word_add_n2w] \\ decide_tac)
   \\ strip_tac
   \\ `s3 with clock := s3.clock - n + n = s3` by
    (unabbrev_all_tac \\ full_simp_tac(srw_ss())[state_component_equality] \\ decide_tac)
-  \\ full_simp_tac(srw_ss())[memcpy_code_def,list_Seq_def,STOP_def]
+  \\ rfs [memcpy_code_def,list_Seq_def,STOP_def]
   \\ unabbrev_all_tac
   \\ full_simp_tac(srw_ss())[state_component_equality]
   \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
@@ -448,9 +470,10 @@ Theorem memcpy_code_thm:
       get_var 0 s = SOME (Word w) /\
       1 IN FDOM s.regs /\
       get_var 2 s = SOME (Word a) /\
-      get_var 3 s = SOME (Word b) ==>
+      get_var 3 s = SOME (Word b) /\
+      arch_width_bits aw = dimindex (:'a) ==>
       ?r1.
-        evaluate (memcpy_code,s with clock := s.clock + w2n w) =
+        evaluate (memcpy_code aw,s with clock := s.clock + w2n w) =
           (NONE,s with <| memory := m1;
                           regs := s.regs |++ [(0,Word 0w);
                                               (1,r1);
@@ -590,7 +613,7 @@ Theorem gc_thm[local]:
                        <|stack := unused ++ stack; store := s1;
                          regs := FEMPTY; memory := m1|>) else NONE
 Proof
-  strip_tac \\ old_drule gc_lemma
+  strip_tac \\ drule gc_lemma
   \\ disch_then (fn th => full_simp_tac(srw_ss())[th])
   \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[LET_THM,word_gc_move_roots_bitmaps_def]
@@ -689,7 +712,7 @@ Proof
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ rename1 `_ = SOME map_rest` \\ full_simp_tac(srw_ss())[]
   \\ PairCases_on `map_rest` \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac word_gc_move_roots_IMP_LENGTH \\ full_simp_tac(srw_ss())[]
-  \\ old_drule (GEN_ALL map_bitmap_APPEND) \\ full_simp_tac(srw_ss())[]
+  \\ drule (GEN_ALL map_bitmap_APPEND) \\ full_simp_tac(srw_ss())[]
   \\ disch_then (mp_tac o SPEC_ALL) \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[] \\ pop_assum kall_tac
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
@@ -698,8 +721,8 @@ Proof
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac word_gc_move_roots_IMP_LENGTH \\ full_simp_tac(srw_ss())[]
-  \\ old_drule filter_bitmap_map_bitmap
-  \\ disch_then old_drule \\ full_simp_tac(srw_ss())[]
+  \\ drule filter_bitmap_map_bitmap
+  \\ disch_then drule \\ full_simp_tac(srw_ss())[]
   \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
 QED
 
@@ -805,16 +828,16 @@ Proof
   \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ qpat_x_assum `filter_bitmap (get_bits h) stack = SOME (x0,x1)` assume_tac
-  \\ old_drule (map_bitmap_APPEND_APPEND |> GEN_ALL)
+  \\ drule (map_bitmap_APPEND_APPEND |> GEN_ALL)
   \\ `LENGTH x0 = LENGTH wl'` by (imp_res_tac word_gc_move_roots_IMP_LENGTH \\ full_simp_tac(srw_ss())[])
-  \\ disch_then old_drule
+  \\ disch_then drule
   \\ disch_then (qspecl_then [`ws2`,`x'`] mp_tac)
   \\ strip_tac \\ full_simp_tac(srw_ss())[] \\ pop_assum kall_tac
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]
-  \\ old_drule filter_bitmap_map_bitmap
-  \\ once_rewrite_tac [EQ_SYM_EQ] \\ disch_then old_drule
-  \\ once_rewrite_tac [EQ_SYM_EQ] \\ disch_then old_drule
+  \\ drule filter_bitmap_map_bitmap
+  \\ once_rewrite_tac [EQ_SYM_EQ] \\ disch_then drule
+  \\ once_rewrite_tac [EQ_SYM_EQ] \\ disch_then drule
   \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]
@@ -874,9 +897,9 @@ QED
 
 Theorem word_gc_move_code_thm:
    word_gc_move conf (w,i,pa,old,m,dm) = (w1,i1,pa1,m1,T) /\
-    shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+    shift_length conf < dimindex (:'a) /\ word_shift (dimindex (:'a)) < dimindex (:'a) /\
     2 < dimindex (:'a) /\ conf.len_size <> 0 /\
-    (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+    (!w:'a word. w << word_shift (dimindex (:'a)) = w * bytes_in_word) /\
     FLOOKUP (s:('a,'c,'b)stackSem$state).store CurrHeap = SOME (Word old) /\ s.use_store /\
     s.memory = m /\ s.mdomain = dm /\
     0 IN FDOM s.regs /\
@@ -885,9 +908,10 @@ Theorem word_gc_move_code_thm:
     get_var 3 s = SOME (Word pa) /\
     get_var 4 s = SOME (Word (i:'a word)) /\
     get_var 5 s = SOME w /\
-    6 IN FDOM s.regs ==>
+    6 IN FDOM s.regs /\
+      arch_width_bits aw = dimindex (:'a) ==>
     ?ck r0 r1 r2 r6.
-      evaluate (word_gc_move_code conf,s with clock := s.clock + ck) =
+      evaluate (word_gc_move_code aw conf,s with clock := s.clock + ck) =
         (NONE,s with <| memory := m1;
                         regs := s.regs |++ [(0,r0);
                                             (1,r1);
@@ -932,7 +956,7 @@ Proof
   \\ qabbrev_tac `len = decode_length conf v`
   \\ full_simp_tac(srw_ss())[GSYM select_lower_lemma]
   \\ qexists_tac `w2n (len + 1w)`
-  \\ old_drule memcpy_code_thm
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) memcpy_code_thm
   \\ qpat_abbrev_tac `s3 = s with <| regs := _ ; clock := _ |>`
   \\ disch_then (qspec_then `s3 with clock := s.clock` mp_tac)
   \\ full_simp_tac(srw_ss())[]
@@ -963,9 +987,9 @@ QED
 Theorem word_gc_move_list_code_thm:
    !l a (s:('a,'c,'b)stackSem$state) pa1 pa old m1 m i1 i dm conf a1.
       word_gc_move_list conf (a:'a word,l,i,pa,old,m,dm) = (a1,i1,pa1,m1,T) /\
-      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (dimindex (:'a)) < dimindex (:'a) /\
       2 < dimindex (:'a) /\ conf.len_size <> 0 /\
-      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      (!w:'a word. w << word_shift (dimindex (:'a)) = w * bytes_in_word) /\
       FLOOKUP s.store CurrHeap = SOME (Word old) /\ s.use_store /\
       s.memory = m /\ s.mdomain = dm /\
        0 IN FDOM s.regs /\
@@ -973,12 +997,13 @@ Theorem word_gc_move_list_code_thm:
       2 IN FDOM s.regs /\
       get_var 3 s = SOME (Word pa) /\
       get_var 4 s = SOME (Word (i:'a word)) /\
-      5 IN FDOM s.regs ==>
+      5 IN FDOM s.regs /\
+      arch_width_bits aw = dimindex (:'a) ==>
       6 IN FDOM s.regs ==>
       get_var 7 s = SOME (Word l) /\
       get_var 8 s = SOME (Word a) ==>
       ?ck r0 r1 r2 r5 r6.
-        evaluate (word_gc_move_list_code conf,s with clock := s.clock + ck) =
+        evaluate (word_gc_move_list_code aw conf,s with clock := s.clock + ck) =
           (NONE,s with <| memory := m1;
                           regs := s.regs |++ [(0,r0);
                                               (1,r1);
@@ -1008,19 +1033,19 @@ Proof
   \\ strip_tac
   \\ rpt var_eq_tac
   \\ `n < dimword (:'a)` by decide_tac
-  \\ first_x_assum old_drule
-  \\ disch_then old_drule
+  \\ first_x_assum drule
+  \\ disch_then drule
   \\ fs [] \\ strip_tac
   \\ rpt var_eq_tac \\ fs []
   \\ simp [word_gc_move_list_code_def,evaluate_def]
   \\ fs [GSYM word_gc_move_list_code_def,get_var_def,get_var_imm_def]
   \\ tac
-  \\ old_drule (word_gc_move_code_thm |> GEN_ALL)
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) word_gc_move_code_thm
   \\ fs [ADD1,GSYM word_add_n2w]
   \\ `FLOOKUP ((s:('a,'c,'b)stackSem$state) with
            <|regs := s.regs |+ (5,s.memory a) |+ (7,Word (n2w n)) |>).store
        CurrHeap  = SOME (Word old)` by fs []
-  \\ disch_then old_drule \\ fs [get_var_def] \\ tac \\ strip_tac
+  \\ disch_then drule \\ fs [get_var_def] \\ tac \\ strip_tac
   \\ fs []
   \\ first_x_assum (qspec_then `s with
         <|regs :=
@@ -1032,14 +1057,14 @@ Proof
   \\ strip_tac \\ fs []
   \\ qexists_tac `ck+ck'+1` \\ fs []
   \\ pop_assum mp_tac
-  \\ old_drule (evaluate_add_clock |> GEN_ALL)
+  \\ drule (evaluate_add_clock |> GEN_ALL)
   \\ disch_then (qspec_then `ck'+1` strip_assume_tac)
   \\ fs [AC ADD_COMM ADD_ASSOC] \\ tac
   \\ strip_tac
-  \\ old_drule (evaluate_add_clock |> GEN_ALL)
+  \\ drule (evaluate_add_clock |> GEN_ALL)
   \\ disch_then (qspec_then `ck` strip_assume_tac)
   \\ fs [AC ADD_COMM ADD_ASSOC] \\ tac
-  \\ fs [STOP_def]
+  \\ rfs [STOP_def,word_gc_move_list_code_def,list_Seq_def]
   \\ full_simp_tac(srw_ss())[state_component_equality]
   \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
          FUN_EQ_THM,FAPPLY_FUPDATE_THM]
@@ -1050,10 +1075,10 @@ QED
 Theorem word_gc_move_loop_code_thm[local]:
   !k pb1 i1 pa1 old1 m1 dm1 c1 i2 pa2 m2 (s:('a,'c,'b)stackSem$state).
       word_gc_move_loop k conf (pb1,i1,pa1,old1,m1,dm1,c1) = (i2,pa2,m2,T) /\
-      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (dimindex (:'a)) < dimindex (:'a) /\
       2 < dimindex (:'a) /\ conf.len_size <> 0 /\
       conf.len_size + 2 < dimindex (:'a) /\
-      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      (!w:'a word. w << word_shift (dimindex (:'a)) = w * bytes_in_word) /\
       FLOOKUP s.store CurrHeap = SOME (Word old1) /\ s.use_store /\
       s.memory = m1 /\ s.mdomain = dm1 /\
       0 IN FDOM s.regs /\
@@ -1061,12 +1086,13 @@ Theorem word_gc_move_loop_code_thm[local]:
       2 IN FDOM s.regs /\
       get_var 3 s = SOME (Word pa1) /\
       get_var 4 s = SOME (Word (i1:'a word)) /\
-      5 IN FDOM s.regs ==>
+      5 IN FDOM s.regs /\
+      arch_width_bits aw = dimindex (:'a) ==>
       6 IN FDOM s.regs ==>
       7 IN FDOM s.regs ==>
       get_var 8 s = SOME (Word pb1) /\ c1 ==>
       ?ck r0 r1 r2 r5 r6 r7.
-        evaluate (word_gc_move_loop_code conf,s with clock := s.clock + ck) =
+        evaluate (word_gc_move_loop_code aw conf,s with clock := s.clock + ck) =
           (NONE,s with <| memory := m2;
                           regs := s.regs |++ [(0,r0);
                                               (1,r1);
@@ -1091,15 +1117,15 @@ Proof
     \\ full_simp_tac(srw_ss())[nine_less])
   \\ IF_CASES_TAC \\ fs []
   \\ `k-1 < k` by decide_tac
-  \\ first_x_assum old_drule \\ ntac 2 (pop_assum kall_tac) \\ strip_tac
+  \\ first_x_assum drule \\ ntac 2 (pop_assum kall_tac) \\ strip_tac
   \\ rpt var_eq_tac \\ fs []
   \\ pairarg_tac \\ fs []
   \\ Cases_on `word_bit 2 (theWord (s.memory pb1))`
   \\ fs [word_bit_test] THEN1
    (strip_tac
-    \\ old_drule word_gc_move_loop_ok \\ fs [] \\ strip_tac \\ fs []
+    \\ drule word_gc_move_loop_ok \\ fs [] \\ strip_tac \\ fs []
     \\ asm_simp_tac std_ss[word_gc_move_loop_code_def,evaluate_def]
-    \\ asm_simp_tac std_ss[GSYM word_gc_move_loop_code_def,STOP_def]
+    \\ fs [] \\ fold_code word_gc_move_loop_code_def \\ fs [STOP_def]
     \\ fs [get_var_def,isWord_thm,clear_top_inst_def] \\ tac
     \\ rev_full_simp_tac(srw_ss())
          [decode_length_def,LET_THM] \\ rpt var_eq_tac
@@ -1113,7 +1139,7 @@ Proof
                             (7,Word ww) |+ (8,Word (pb1 + ww)) |>`
     \\ `s.memory = s5.memory /\ s.mdomain = s5.mdomain` by
          (unabbrev_all_tac \\ fs [])
-    \\ fs [] \\ first_x_assum old_drule \\ fs []
+    \\ fs [] \\ first_x_assum drule \\ fs []
     \\ fs [AND_IMP_INTRO] \\ impl_tac
     THEN1 (unabbrev_all_tac \\ fs [FLOOKUP_UPDATE])
     \\ strip_tac \\ qexists_tac `ck + 1` \\ fs []
@@ -1124,9 +1150,9 @@ Proof
     \\ once_rewrite_tac [split_num_forall_to_10]
     \\ full_simp_tac(srw_ss())[nine_less])
   \\ strip_tac
-  \\ old_drule word_gc_move_loop_ok \\ fs [] \\ strip_tac \\ fs []
+  \\ drule word_gc_move_loop_ok \\ fs [] \\ strip_tac \\ fs []
   \\ asm_simp_tac std_ss[word_gc_move_loop_code_def,evaluate_def]
-  \\ asm_simp_tac std_ss[GSYM word_gc_move_loop_code_def,STOP_def]
+  \\ fs [] \\ fold_code word_gc_move_loop_code_def \\ fs [STOP_def]
   \\ rev_full_simp_tac(srw_ss())[] \\ rpt var_eq_tac
   \\ fs [get_var_def,isWord_thm,clear_top_inst_def] \\ tac
   \\ full_simp_tac(srw_ss())[theWord_def] \\ tac
@@ -1139,7 +1165,7 @@ Proof
             s.regs |+ (7,Word v) |+
             (7,Word (v ⋙ (dimindex (:'a) − conf.len_size))) |+
             (8,Word (pb1 + bytes_in_word)) |>`
-  \\ old_drule word_gc_move_list_code_thm
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) word_gc_move_list_code_thm
   \\ disch_then (qspec_then `s5` mp_tac)
   \\ fs [AND_IMP_INTRO] \\ impl_tac
   THEN1 (unabbrev_all_tac \\ fs [FLOOKUP_UPDATE,get_var_def])
@@ -1149,10 +1175,10 @@ Proof
   \\ `s.mdomain = s6.mdomain /\ m1 = s6.memory` by (unabbrev_all_tac \\ fs [])
   \\ qpat_x_assum `Abbrev _` assume_tac
   \\ fs [] \\ qpat_x_assum `_ = _` kall_tac
-  \\ first_x_assum old_drule \\ impl_tac
+  \\ first_x_assum drule \\ impl_tac
   THEN1 (unabbrev_all_tac \\ fs [FUPDATE_LIST,FLOOKUP_UPDATE])
   \\ rpt strip_tac \\ qexists_tac `ck + ck' + 1`
-  \\ old_drule (evaluate_add_clock |> GEN_ALL)
+  \\ drule (evaluate_add_clock |> GEN_ALL)
   \\ disch_then (qspec_then `ck'+1` mp_tac) \\ fs []
   \\ qunabbrev_tac `s5` \\ fs [] \\ strip_tac
   \\ qunabbrev_tac `s6`
@@ -1167,9 +1193,9 @@ Theorem word_gc_move_bitmap_code_thm:
    !w stack (s:('a,'c,'b)stackSem$state) i pa curr m dm new stack1 a1 i1 pa1 m1 old.
       word_gc_move_bitmap conf (w,stack,i,pa,curr,m,dm) =
         SOME (new,stack1,i1,pa1,m1,T) /\
-      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (dimindex (:'a)) < dimindex (:'a) /\
       2 < dimindex (:'a) /\ conf.len_size <> 0 /\ good_dimindex (:'a) /\
-      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      (!w:'a word. w << word_shift (dimindex (:'a)) = w * bytes_in_word) /\
       FLOOKUP s.store CurrHeap = SOME (Word curr) /\ s.use_store /\
       s.memory = m /\ s.mdomain = dm /\ s.use_stack /\
       0 IN FDOM s.regs /\
@@ -1183,9 +1209,10 @@ Theorem word_gc_move_bitmap_code_thm:
       get_var 8 s = SOME (Word (bytes_in_word * n2w (LENGTH old))) /\
       s.stack = init ++ old ++ stack /\
       s.stack_space = LENGTH init /\
-      (dimindex (:'a) DIV 8) * LENGTH s.stack < dimword (:'a) ==>
+      (dimindex (:'a) DIV 8) * LENGTH s.stack < dimword (:'a) /\
+      arch_width_bits aw = dimindex (:'a) ==>
       ?ck r0 r1 r2 r5 r6 r7.
-        evaluate (word_gc_move_bitmap_code conf,s with clock := s.clock + ck) =
+        evaluate (word_gc_move_bitmap_code aw conf,s with clock := s.clock + ck) =
           (NONE,s with <| memory := m1;
                           stack := init ++ old ++ new ++ stack1;
                           regs := s.regs |++ [(0,r0);
@@ -1224,7 +1251,7 @@ Proof
    (every_case_tac \\ strip_tac \\ rpt var_eq_tac
     \\ rename1 `_ = SOME (new1,st1,i1,pa1,m1,T)`
     \\ simp_tac std_ss [word_gc_move_bitmap_code_def,get_var_def,evaluate_def]
-    \\ simp_tac std_ss [GSYM word_gc_move_bitmap_code_def]
+    \\ fs [] \\ fold_code word_gc_move_bitmap_code_def
     \\ fs [get_var_def,get_var_imm_def] \\ tac
     \\ fs [lower_2w_eq,STOP_def]
     \\ qabbrev_tac `s2 = s with
@@ -1232,7 +1259,7 @@ Proof
               |+ (8,Word (bytes_in_word + bytes_in_word * n2w (LENGTH old))) |>`
     \\ `s.memory = s2.memory /\ s.mdomain = s2.mdomain` by
           (unabbrev_all_tac \\ fs []) \\ fs []
-    \\ first_x_assum old_drule
+    \\ first_x_assum drule
     \\ disch_then (qspec_then `old ++ [h]` mp_tac)
     \\ impl_tac
     THEN1 (unabbrev_all_tac
@@ -1250,14 +1277,14 @@ Proof
   \\ every_case_tac \\ strip_tac \\ rpt var_eq_tac
   \\ rename1 `_ = SOME (new1,st1,i1,pa1,m1,T)`
   \\ simp_tac std_ss [word_gc_move_bitmap_code_def,get_var_def,evaluate_def]
-  \\ simp_tac std_ss [GSYM word_gc_move_bitmap_code_def]
+  \\ fs [] \\ fold_code word_gc_move_bitmap_code_def
   \\ fs [get_var_def,get_var_imm_def] \\ tac
   \\ fs [lower_2w_eq,STOP_def]
-  \\ `w2n (((bytes_in_word:'a word) * n2w (LENGTH old)) ⋙ word_shift (:α)) =
+  \\ `w2n (((bytes_in_word:'a word) * n2w (LENGTH old)) ⋙ word_shift (dimindex (:α))) =
          LENGTH old` by
    (`(dimindex (:α) DIV 8) * LENGTH old < dimword (:α)` by rfs [RIGHT_ADD_DISTRIB]
-    \\ old_drule (bytes_in_word_word_shift_n2w |> GEN_ALL)
-    \\ disch_then old_drule \\ fs [] \\ rw []
+    \\ drule (bytes_in_word_word_shift_n2w |> GEN_ALL)
+    \\ disch_then drule \\ fs [] \\ rw []
     \\ rfs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ fs [] \\ reverse CASE_TAC THEN1
     (sg `F` \\ fs []
@@ -1268,7 +1295,7 @@ Proof
   \\ qabbrev_tac `s4 = s with <|regs := s.regs |+ (5,h) |+ (7,Word (w ⋙ 1)) |>`
   \\ `s.memory = s4.memory /\ s.mdomain = s4.mdomain` by
            (unabbrev_all_tac \\ fs []) \\ fs []
-  \\ old_drule (word_gc_move_code_thm |> GEN_ALL |> SIMP_RULE std_ss [])
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (word_gc_move_code_thm |> GEN_ALL |> SIMP_RULE std_ss [])
   \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [get_var_def,FLOOKUP_UPDATE])
   \\ strip_tac
   \\ qabbrev_tac `s5 = s with
@@ -1279,14 +1306,14 @@ Proof
           stack := init ++ old ++ [x1] ++ t; memory := m1' |>`
   \\ `m1' = s5.memory /\ s4.mdomain = s5.mdomain` by
            (unabbrev_all_tac \\ fs []) \\ fs []
-  \\ first_x_assum old_drule
+  \\ first_x_assum drule
   \\ disch_then (qspec_then `old ++ [x1]` mp_tac)
   \\ impl_tac THEN1
    (unabbrev_all_tac \\ tac
     \\ fs [RIGHT_ADD_DISTRIB,word_add_n2w,word_mul_n2w,bytes_in_word_def]
     \\ rfs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ strip_tac \\ pop_assum mp_tac
-  \\ old_drule (GEN_ALL evaluate_add_clock) \\ fs []
+  \\ drule (GEN_ALL evaluate_add_clock) \\ fs []
   \\ disch_then (qspec_then `ck' + 1` mp_tac)
   \\ rpt strip_tac \\ fs []
   \\ qexists_tac `ck+ck'+1` \\ fs []
@@ -1326,9 +1353,9 @@ Theorem word_gc_move_bitmaps_code_thm:
       word_gc_move_bitmaps conf (Word w,stack,bitmaps,i,pa,curr,m,dm) =
         SOME (new,stack1,i1,pa1,m1,T) /\
       LENGTH bitmaps < dimword (:'a) − 1 ∧ good_dimindex (:'a) /\
-      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (dimindex (:'a)) < dimindex (:'a) /\
       2 < dimindex (:'a) /\ conf.len_size <> 0 /\ good_dimindex (:'a) /\
-      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      (!w:'a word. w << word_shift (dimindex (:'a)) = w * bytes_in_word) /\
       FLOOKUP s.store CurrHeap = SOME (Word curr) /\ s.use_store /\
       s.memory = m /\ s.mdomain = dm /\ s.bitmaps = bitmaps /\ s.use_stack /\
       get_var 0 s = SOME (Word z) /\ z <> 0w /\
@@ -1343,9 +1370,10 @@ Theorem word_gc_move_bitmaps_code_thm:
       get_var 9 s = SOME (Word (w - 1w)) /\
       s.stack = init ++ old ++ stack /\
       s.stack_space = LENGTH init /\
-      (dimindex (:'a) DIV 8) * LENGTH s.stack < dimword (:'a) ==>
+      (dimindex (:'a) DIV 8) * LENGTH s.stack < dimword (:'a) /\
+      arch_width_bits aw = dimindex (:'a) ==>
       ?ck r0 r1 r2 r5 r6 r7 r9.
-        evaluate (word_gc_move_bitmaps_code conf,s with clock := s.clock + ck) =
+        evaluate (word_gc_move_bitmaps_code aw conf,s with clock := s.clock + ck) =
           (NONE,s with <| memory := m1;
                           stack := init ++ old ++ new ++ stack1;
                           clock := s.clock;
@@ -1364,13 +1392,13 @@ Proof
   \\ rpt strip_tac \\ fs [] \\ rpt var_eq_tac \\ fs [PULL_FORALL]
   \\ qpat_x_assum `word_gc_move_bitmaps _ _ = _`
         (fn th => assume_tac th \\ mp_tac th)
-  \\ old_drule (GEN_ALL word_gc_move_bitmaps_unroll) \\ fs []
+  \\ drule (GEN_ALL word_gc_move_bitmaps_unroll) \\ fs []
   \\ CASE_TAC \\ fs []
   \\ Cases_on `word_gc_move_bitmap conf (h,stack,i,pa,curr,s.memory,s.mdomain)`
   \\ fs [] \\ PairCases_on `x` \\ fs [] \\ strip_tac
   \\ `x5` by (every_case_tac \\ fs []) \\ var_eq_tac
   \\ simp_tac std_ss [word_gc_move_bitmaps_code_def,get_var_def,evaluate_def]
-  \\ simp_tac std_ss [GSYM word_gc_move_bitmaps_code_def]
+  \\ fs [] \\ fold_code word_gc_move_bitmaps_code_def
   \\ fs [get_var_def,get_var_imm_def] \\ tac
   \\ imp_res_tac DROP_IMP_LESS_LENGTH \\ fs []
   \\ qabbrev_tac `s2 = s with
@@ -1378,11 +1406,11 @@ Proof
   \\ imp_res_tac DROP_IMP_EL \\ fs []
   \\ `s.memory = s2.memory /\ s.mdomain = s2.mdomain` by (unabbrev_all_tac \\ fs [])
   \\ fs []
-  \\ old_drule (word_gc_move_bitmap_code_thm |> GEN_ALL |> SIMP_RULE std_ss [])
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (word_gc_move_bitmap_code_thm |> SIMP_RULE std_ss [])
   \\ disch_then (qspecl_then [`init`,`old`] mp_tac)
   \\ impl_tac
   THEN1 (unabbrev_all_tac \\ rfs [get_var_def] \\ tac \\ fs [FLOOKUP_DEF])
-  \\ strip_tac \\ old_drule (GEN_ALL evaluate_add_clock)
+  \\ strip_tac \\ drule (GEN_ALL evaluate_add_clock)
   \\ reverse (Cases_on `word_msb h`) \\ fs []
   \\ fs [word_msb_IFF_lsr_EQ_0] THEN1
    (disch_then (qspec_then `1` assume_tac)
@@ -1412,10 +1440,10 @@ Proof
    (unabbrev_all_tac \\ fs [] \\ Cases_on `w` \\ fs []
     \\ fs [word_add_n2w] \\ Cases_on `n` \\ fs []
     \\ fs [GSYM word_add_n2w,ADD1,w2n_minus1] \\ NO_TAC)
-  \\ first_x_assum old_drule \\ fs []
+  \\ first_x_assum drule \\ fs []
   \\ `x4 = s5.memory /\ s.mdomain = s5.mdomain /\ s.bitmaps = s5.bitmaps` by
        (unabbrev_all_tac \\ fs []) \\ fs []
-  \\ disch_then old_drule
+  \\ disch_then drule
   \\ ntac 3 (pop_assum (fn th => fs [GSYM th]))
   \\ disch_then (qspecl_then [`EL (w2n (w + -1w))
          s5.bitmaps ⋙ (dimindex (:α) - 1)`,`old ++ x0`] mp_tac)
@@ -1442,9 +1470,9 @@ Theorem word_gc_move_roots_bitmaps_code_thm:
       word_gc_move_roots_bitmaps conf (stack,bitmaps,i,pa,curr,m,dm) =
         (stack1,i1,pa1,m1,T) /\
       LENGTH bitmaps < dimword (:'a) - 1 /\ good_dimindex (:'a) /\
-      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (dimindex (:'a)) < dimindex (:'a) /\
       2 < dimindex (:'a) /\ conf.len_size <> 0 /\ good_dimindex (:'a) /\
-      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      (!w:'a word. w << word_shift (dimindex (:'a)) = w * bytes_in_word) /\
       FLOOKUP s.store CurrHeap = SOME (Word curr) /\ s.use_store /\
       s.memory = m /\ s.mdomain = dm /\ s.bitmaps = bitmaps /\ s.use_stack /\
       0 IN FDOM s.regs /\
@@ -1459,9 +1487,10 @@ Theorem word_gc_move_roots_bitmaps_code_thm:
       get_var 9 s = SOME (HD stack) /\
       s.stack = init ++ old ++ stack /\
       s.stack_space = LENGTH init /\
-      (dimindex (:'a) DIV 8) * LENGTH s.stack < dimword (:'a) ==>
+      (dimindex (:'a) DIV 8) * LENGTH s.stack < dimword (:'a) /\
+      arch_width_bits aw = dimindex (:'a) ==>
       ?ck r0 r1 r2 r5 r6 r7 r8 r9.
-        evaluate (word_gc_move_roots_bitmaps_code conf,
+        evaluate (word_gc_move_roots_bitmaps_code aw conf,
             s with clock := s.clock + ck) =
           (NONE,s with <| memory := m1;
                           stack := init ++ old ++ stack1;
@@ -1482,7 +1511,7 @@ Proof
   \\ rpt var_eq_tac \\ fs []
   \\ qpat_x_assum `word_gc_move_roots_bitmaps _ _ = _`
         (fn th => assume_tac th \\ mp_tac th)
-  \\ old_drule (GEN_ALL word_gc_move_roots_bitmaps) \\ fs []
+  \\ drule (GEN_ALL word_gc_move_roots_bitmaps) \\ fs []
   \\ Cases_on `stack` \\ fs []
   \\ rename1 `word_gc_move_roots_bitmaps conf (hd::stack,_) = _`
   \\ Cases_on `hd = Word 0w` \\ fs [] THEN1
@@ -1501,7 +1530,7 @@ Proof
   \\ strip_tac \\ fs []
   \\ rpt var_eq_tac \\ fs []
   \\ simp_tac std_ss [word_gc_move_roots_bitmaps_code_def,evaluate_def]
-  \\ simp_tac std_ss [GSYM word_gc_move_roots_bitmaps_code_def,get_var_def]
+  \\ fs [] \\ fold_code word_gc_move_roots_bitmaps_code_def \\ fs [get_var_def]
   \\ fs [get_var_def,get_var_imm_def] \\ tac
   \\ reverse (Cases_on `hd`) \\ fs []
   THEN1 (fs[word_gc_move_roots_bitmaps_def,enc_stack_def,full_read_bitmap_def])
@@ -1512,9 +1541,9 @@ Proof
          (8, Word (bytes_in_word + bytes_in_word * n2w (LENGTH old))) |>`
   \\ `s.memory = s2.memory /\ s.mdomain = s2.mdomain /\ s.bitmaps = s2.bitmaps` by
         (unabbrev_all_tac \\ fs []) \\ fs []
-  \\ old_drule (word_gc_move_bitmaps_code_thm |> SIMP_RULE std_ss [])
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (word_gc_move_bitmaps_code_thm |> SIMP_RULE std_ss [])
   \\ ntac 3 (pop_assum (fn th => fs [GSYM th]))
-  \\ disch_then (qspecl_then [`c`,`old ++ [Word c]`] mp_tac)
+  \\ disch_then (qspecl_then [`init`,`c`,`old ++ [Word c]`] mp_tac)
   \\ impl_tac THEN1
    (unabbrev_all_tac \\ rpt strip_tac
     \\ fs [RIGHT_ADD_DISTRIB]
@@ -1522,7 +1551,7 @@ Proof
     \\ fs [get_var_def] \\ tac)
   \\ strip_tac \\ fs []
   \\ unabbrev_all_tac \\ fs [] \\ tac
-  \\ `(bytes_in_word * n2w (LENGTH old + (LENGTH x0 + 1))) ⋙ word_shift (:α) =
+  \\ `(bytes_in_word * n2w (LENGTH old + (LENGTH x0 + 1))) ⋙ word_shift (dimindex (:α)) =
       n2w (LENGTH old + (LENGTH x0 + 1)):'a word` by
    (match_mp_tac bytes_in_word_word_shift_n2w
     \\ imp_res_tac word_gc_move_bitmaps_LENGTH
@@ -1549,10 +1578,10 @@ Proof
   \\ `LENGTH (h::t) < SUC (LENGTH stack)` by
    (imp_res_tac word_gc_move_bitmaps_LENGTH
     \\ rfs [RIGHT_ADD_DISTRIB] \\ fs [])
-  \\ first_x_assum old_drule
+  \\ first_x_assum drule
   \\ `x4 = s8.memory /\ s.mdomain = s8.mdomain /\ s.bitmaps = s8.bitmaps` by
         (unabbrev_all_tac \\ fs [] \\ NO_TAC) \\ fs []
-  \\ disch_then old_drule
+  \\ disch_then drule
   \\ ntac 3 (pop_assum (fn th => fs [GSYM th]))
   \\ disch_then (qspec_then `old ++ Word c::x0` mp_tac)
   \\ impl_tac THEN1
@@ -1563,7 +1592,7 @@ Proof
   \\ strip_tac \\ unabbrev_all_tac \\ fs []
   \\ qexists_tac `ck + ck' + 1` \\ fs []
   \\ pop_assum mp_tac
-  \\ old_drule (evaluate_add_clock |> GEN_ALL)
+  \\ drule (evaluate_add_clock |> GEN_ALL)
   \\ disch_then (qspec_then `ck' + 1` assume_tac)
   \\ fs [] \\ tac \\ rpt strip_tac
   \\ full_simp_tac(srw_ss())[state_component_equality]
@@ -1573,25 +1602,25 @@ Proof
   \\ full_simp_tac(srw_ss())[nine_less] \\ fs []
 QED
 
-
 Theorem alloc_correct_lemma_Simple:
    alloc w (s:('a,'c,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
     s.gc_fun = word_gc_fun conf /\ conf.gc_kind = Simple /\
     LENGTH s.bitmaps < dimword (:'a) - 1 /\
     LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
     FLOOKUP l 0 = SOME ret /\
-    FLOOKUP l 1 = SOME (Word w) ==>
+    FLOOKUP l 1 = SOME (Word w) /\
+      arch_width_bits aw = dimindex (:'a) ==>
     ?ck l2.
       evaluate
-        (word_gc_code conf,
+        (word_gc_code aw conf,
          s with
            <| use_store := T; use_stack := T; use_alloc := F;
               clock := s.clock + ck; regs := l; gc_fun := anything;
-              code := fromAList (compile c (toAList s.code))|>) =
+              code := fromAList (compile aw c (toAList s.code))|>) =
         (r,
          t with
            <| use_store := T; use_stack := T; use_alloc := F;
-              code := fromAList (compile c (toAList s.code));
+              code := fromAList (compile aw c (toAList s.code));
               regs := l2; gc_fun := anything |>) /\
        (r <> NONE ==> r = SOME (Halt (Word 1w))) /\
        t.regs SUBMAP l2 /\
@@ -1601,7 +1630,7 @@ Proof
   \\ Cases_on `s.gc_fun = word_gc_fun conf` \\ fs [] \\ fs [alloc_def]
   \\ `(set_store AllocSize (Word w) s).gc_fun = word_gc_fun conf` by
         (fs [set_store_def] \\ NO_TAC)
-  \\ old_drule gc_thm
+  \\ drule gc_thm
   \\ fs [] \\ disch_then kall_tac
   \\ fs [set_store_def] \\ IF_CASES_TAC THEN1 (fs [] \\ rw [] \\ fs [])
   \\ fs [FAPPLY_FUPDATE_THM]
@@ -1620,8 +1649,8 @@ Proof
       shift_length conf < dimindex (:'a) /\
       conf.len_size <> 0` by
         (fs [word_gc_fun_assum_def,set_store_def,FAPPLY_FUPDATE_THM] \\ NO_TAC)
-  \\ `word_shift (:'a) < dimindex (:'a) /\ 2 < dimindex (:'a) /\
-      !w:'a word. w ≪ word_shift (:'a) = w * bytes_in_word` by
+  \\ `word_shift (dimindex (:'a)) < dimindex (:'a) /\ 2 < dimindex (:'a) /\
+      !w:'a word. w ≪ word_shift (dimindex (:'a)) = w * bytes_in_word` by
    (fs [word_shift_def,bytes_in_word_def,good_dimindex_def]
     \\ fs [WORD_MUL_LSL] \\ NO_TAC)
   \\ fs [isWord_thm] \\ fs [theWord_def]
@@ -1636,7 +1665,7 @@ Proof
   \\ abbrev_under_exists ``s3:('a,'c,'b)stackSem$state``
    (qexists_tac `0` \\ fs []
     \\ qpat_abbrev_tac `(s3:('a,'c,'b)stackSem$state) = _`)
-  \\ old_drule (GEN_ALL word_gc_move_code_thm)
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (word_gc_move_code_thm)
   \\ disch_then (qspec_then `s3` mp_tac)
   \\ impl_tac THEN1
    (unabbrev_all_tac \\ fs [] \\ tac
@@ -1660,11 +1689,11 @@ Proof
     \\ fs [FAPPLY_FUPDATE_THM,isWord_thm]
     \\ qpat_abbrev_tac `(s4:('a,'c,'b)stackSem$state) = _`)
   \\ qpat_x_assum `word_gc_move_roots_bitmaps _ _ = _` assume_tac
-  \\ old_drule LESS_EQ_LENGTH
+  \\ drule LESS_EQ_LENGTH
   \\ strip_tac \\ fs []
   \\ `DROP s.stack_space (ys1 ++ ys2) = ys2` by
        metis_tac [DROP_LENGTH_APPEND] \\ fs []
-  \\ old_drule (GEN_ALL word_gc_move_roots_bitmaps_code_thm
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (word_gc_move_roots_bitmaps_code_thm
            |> REWRITE_RULE [GSYM AND_IMP_INTRO])
   \\ fs [AND_IMP_INTRO]
   \\ disch_then (qspecl_then [`ys1`,`s4`,`[]`] mp_tac)
@@ -1674,7 +1703,7 @@ Proof
      \\ metis_tac [EL_LENGTH_APPEND,NULL,HD])
   \\ strip_tac \\ fs [FAPPLY_FUPDATE_THM]
   \\ pop_assum mp_tac
-  \\ old_drule (GEN_ALL evaluate_add_clock)
+  \\ drule (GEN_ALL evaluate_add_clock)
   \\ disch_then (qspec_then `ck'` mp_tac)
   \\ fs [] \\ rpt strip_tac
   \\ abbrev_under_exists ``s5:('a,'c,'b)stackSem$state``
@@ -1682,7 +1711,7 @@ Proof
     \\ unabbrev_all_tac \\ fs [] \\ tac
     \\ fs [FAPPLY_FUPDATE_THM,isWord_thm]
     \\ qpat_abbrev_tac `(s5:('a,'c,'b)stackSem$state) = _`)
-  \\ old_drule (GEN_ALL word_gc_move_loop_code_thm
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (word_gc_move_loop_code_thm
            |> REWRITE_RULE [GSYM AND_IMP_INTRO])
   \\ fs [AND_IMP_INTRO]
   \\ disch_then (qspec_then `s5` mp_tac)
@@ -1690,10 +1719,10 @@ Proof
     (fs [] \\ unabbrev_all_tac \\ fs [get_var_def,FLOOKUP_UPDATE]
      \\ fs [FLOOKUP_DEF,FDOM_FUPDATE,FUPDATE_LIST,FAPPLY_FUPDATE_THM])
   \\ strip_tac \\ pop_assum mp_tac
-  \\ old_drule (GEN_ALL evaluate_add_clock)
+  \\ drule (GEN_ALL evaluate_add_clock)
   \\ disch_then (qspec_then `ck''` mp_tac)
   \\ qpat_x_assum `evaluate _ = _` kall_tac
-  \\ old_drule (GEN_ALL evaluate_add_clock)
+  \\ drule (GEN_ALL evaluate_add_clock)
   \\ disch_then (qspec_then `ck''` mp_tac)
   \\ rpt strip_tac \\ fs []
   \\ qexists_tac `ck+ck'+ck''` \\ fs []
@@ -1754,7 +1783,7 @@ Theorem word_gc_fun_thm[local]:
          ((λ(roots,i,pa,m,c1).
              (λ(b1,m,c2). (roots,i,b1,m,c1 ∧ c2))
                (memcpy
-                  ((pa + -1w * theWord (s ' OtherHeap)) ⋙ shift (:α))
+                  ((pa + -1w * theWord (s ' OtherHeap)) ⋙ shift (dimindex (:α)))
                   (theWord (s ' OtherHeap))
                   (theWord (s ' CurrHeap) + theWord (s ' GenStart)) m
                   dm))
@@ -1777,14 +1806,14 @@ Theorem word_gc_fun_thm[local]:
                       theWord (s ' HeapLength))))
                (word_gen_gc_partial_move_roots conf
                   (s ' Globals::roots,
-                   theWord (s ' GenStart) ⋙ shift (:α),
+                   theWord (s ' GenStart) ⋙ shift (dimindex (:α)),
                    theWord (s ' OtherHeap),theWord (s ' CurrHeap),m,dm,
                    theWord (s ' GenStart),
                    -1w * theWord (s ' CurrHeap) +
                    theWord (s ' EndOfHeap)))))
      else
       (let new_end = theWord (s ' OtherHeap) + theWord (s ' HeapLength) in
-       let len = theWord (s ' HeapLength) ⋙ shift (:α) in
+       let len = theWord (s ' HeapLength) ⋙ shift (dimindex (:α)) in
        let (w1,i1,pa1,ib',pb',m1,c1) =
               word_gen_gc_move conf
                 (s ' Globals,0w,theWord (s ' OtherHeap),
@@ -1820,7 +1849,7 @@ Theorem word_gc_fun_thm[local]:
          else NONE)
 Proof
   strip_tac
-  \\ old_drule word_gc_fun_lemma
+  \\ drule word_gc_fun_lemma
   \\ disch_then (fn th => rewrite_tac [th])
   \\ full_simp_tac(srw_ss())[LET_THM]
   \\ Cases_on `word_gc_fun_assum conf s` \\ fs []
@@ -1894,7 +1923,7 @@ Theorem gc_thm[local]:
        let curr = theWord (s.store ' CurrHeap) in
        let endh = theWord (s.store ' EndOfHeap) in
        let (w1,i1,pa1,m1,c1) = word_gen_gc_partial_move conf
-              (s.store ' Globals,gs ⋙ shift (:α), other,curr,
+              (s.store ' Globals,gs ⋙ shift (dimindex (:α)), other,curr,
                s.memory,s.mdomain,gs, endh - curr) in
        let (ws2,i1,pa1,m1,c2) = word_gen_gc_partial_move_roots_bitmaps conf
               (stack,s.bitmaps,i1,pa1,curr,m1,s.mdomain,gs,endh - curr) in
@@ -1904,7 +1933,7 @@ Theorem gc_thm[local]:
                 endh - curr, curr +theWord (s.store ' HeapLength)) in
        let (i1,pa1,m1,c4) = word_gen_gc_partial_move_data conf (dimword (:α))
                (other,i1,pa1,curr,m1,s.mdomain,gs, endh - curr) in
-       let (b1,m1,c5) = memcpy ((pa1 - other) ⋙ shift (:α)) other (curr + gs) m1
+       let (b1,m1,c5) = memcpy ((pa1 - other) ⋙ shift (dimindex (:α))) other (curr + gs) m1
                          s.mdomain in
        let s1 = s.store |++
                 [(CurrHeap,Word curr);
@@ -1931,7 +1960,7 @@ Theorem gc_thm[local]:
       (let unused = TAKE s.stack_space s.stack in
        let stack = DROP s.stack_space s.stack in
        let new_end = theWord (s.store ' OtherHeap) + theWord (s.store ' HeapLength) in
-       let len = theWord (s.store ' HeapLength) ⋙ shift (:α) in
+       let len = theWord (s.store ' HeapLength) ⋙ shift (dimindex (:α)) in
        let (w1,i1,pa1,ib',pb',m1,c1) =
                 word_gen_gc_move conf
                   (s.store ' Globals,0w,theWord (s.store ' OtherHeap),
@@ -1967,7 +1996,7 @@ Theorem gc_thm[local]:
               <| stack := unused ++ ws2; store := s1;
                  regs := FEMPTY; memory := m3|>) else NONE)
 Proof
-  strip_tac \\ old_drule gc_lemma \\ fs []
+  strip_tac \\ drule gc_lemma \\ fs []
   \\ disch_then (fn th => full_simp_tac(srw_ss())[th])
   \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]
   \\ reverse (Cases_on `word_gc_fun_assum conf s.store`) \\ fs []
@@ -2127,7 +2156,7 @@ Proof
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ rename1 `_ = SOME map_rest` \\ full_simp_tac(srw_ss())[]
   \\ PairCases_on `map_rest` \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac word_gen_gc_move_roots_IMP_LENGTH \\ full_simp_tac(srw_ss())[]
-  \\ old_drule (GEN_ALL map_bitmap_APPEND) \\ full_simp_tac(srw_ss())[]
+  \\ drule (GEN_ALL map_bitmap_APPEND) \\ full_simp_tac(srw_ss())[]
   \\ disch_then (mp_tac o SPEC_ALL) \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[] \\ pop_assum kall_tac
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
@@ -2136,8 +2165,8 @@ Proof
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac word_gen_gc_move_roots_IMP_LENGTH \\ full_simp_tac(srw_ss())[]
-  \\ old_drule filter_bitmap_map_bitmap
-  \\ disch_then old_drule \\ full_simp_tac(srw_ss())[]
+  \\ drule filter_bitmap_map_bitmap
+  \\ disch_then drule \\ full_simp_tac(srw_ss())[]
   \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
 QED
 
@@ -2182,7 +2211,7 @@ Proof
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ rename1 `_ = SOME map_rest` \\ full_simp_tac(srw_ss())[]
   \\ PairCases_on `map_rest` \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac word_gen_gc_partial_move_roots_IMP_LENGTH \\ full_simp_tac(srw_ss())[]
-  \\ old_drule (GEN_ALL map_bitmap_APPEND) \\ full_simp_tac(srw_ss())[]
+  \\ drule (GEN_ALL map_bitmap_APPEND) \\ full_simp_tac(srw_ss())[]
   \\ disch_then (mp_tac o SPEC_ALL) \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[] \\ pop_assum kall_tac
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
@@ -2191,8 +2220,8 @@ Proof
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac word_gen_gc_partial_move_roots_IMP_LENGTH \\ full_simp_tac(srw_ss())[]
-  \\ old_drule filter_bitmap_map_bitmap
-  \\ disch_then old_drule \\ full_simp_tac(srw_ss())[]
+  \\ drule filter_bitmap_map_bitmap
+  \\ disch_then drule \\ full_simp_tac(srw_ss())[]
   \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
 QED
 
@@ -2316,16 +2345,16 @@ Proof
   \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ qpat_x_assum `filter_bitmap (get_bits h) stack = SOME (x0,x1)` assume_tac
-  \\ old_drule (map_bitmap_APPEND_APPEND |> GEN_ALL)
+  \\ drule (map_bitmap_APPEND_APPEND |> GEN_ALL)
   \\ `LENGTH x0 = LENGTH wl'` by (imp_res_tac word_gen_gc_move_roots_IMP_LENGTH \\ full_simp_tac(srw_ss())[])
-  \\ disch_then old_drule
+  \\ disch_then drule
   \\ disch_then (qspecl_then [`ws2`,`x'`] mp_tac)
   \\ strip_tac \\ full_simp_tac(srw_ss())[] \\ pop_assum kall_tac
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]
-  \\ old_drule filter_bitmap_map_bitmap
-  \\ once_rewrite_tac [EQ_SYM_EQ] \\ disch_then old_drule
-  \\ once_rewrite_tac [EQ_SYM_EQ] \\ disch_then old_drule
+  \\ drule filter_bitmap_map_bitmap
+  \\ once_rewrite_tac [EQ_SYM_EQ] \\ disch_then drule
+  \\ once_rewrite_tac [EQ_SYM_EQ] \\ disch_then drule
   \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]
@@ -2396,16 +2425,16 @@ Proof
   \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ qpat_x_assum `filter_bitmap (get_bits h) stack = SOME (x0,x1)` assume_tac
-  \\ old_drule (map_bitmap_APPEND_APPEND |> GEN_ALL)
+  \\ drule (map_bitmap_APPEND_APPEND |> GEN_ALL)
   \\ `LENGTH x0 = LENGTH wl'` by (imp_res_tac word_gen_gc_partial_move_roots_IMP_LENGTH \\ full_simp_tac(srw_ss())[])
-  \\ disch_then old_drule
+  \\ disch_then drule
   \\ disch_then (qspecl_then [`ws2`,`x'`] mp_tac)
   \\ strip_tac \\ full_simp_tac(srw_ss())[] \\ pop_assum kall_tac
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]
-  \\ old_drule filter_bitmap_map_bitmap
-  \\ once_rewrite_tac [EQ_SYM_EQ] \\ disch_then old_drule
-  \\ once_rewrite_tac [EQ_SYM_EQ] \\ disch_then old_drule
+  \\ drule filter_bitmap_map_bitmap
+  \\ once_rewrite_tac [EQ_SYM_EQ] \\ disch_then drule
+  \\ once_rewrite_tac [EQ_SYM_EQ] \\ disch_then drule
   \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]
@@ -2525,9 +2554,9 @@ QED
 
 Theorem word_gen_gc_move_code_thm:
    word_gen_gc_move conf (w,i,pa,ib,pb,old,m,dm) = (w1,i1,pa1,ib1,pb1,m1,T) /\
-    shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+    shift_length conf < dimindex (:'a) /\ word_shift (dimindex (:'a)) < dimindex (:'a) /\
     2 < dimindex (:'a) /\ conf.len_size <> 0 /\
-    (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+    (!w:'a word. w << word_shift (dimindex (:'a)) = w * bytes_in_word) /\
     FLOOKUP s.store CurrHeap = SOME (Word old) /\ s.use_store /\
     (s:('a,'c,'b)stackSem$state).memory = m /\ s.mdomain = dm /\
     0 IN FDOM s.regs /\
@@ -2542,9 +2571,10 @@ Theorem word_gen_gc_move_code_thm:
     FLOOKUP s.store (Temp 3w) = SOME (Word ib) /\
     1 IN FDOM s.regs /\
     2 IN FDOM s.regs /\
-    6 IN FDOM s.regs ==>
+    6 IN FDOM s.regs /\
+      arch_width_bits aw = dimindex (:'a) ==>
     ?ck r0 r1 r2 r6 t0 t1.
-      evaluate (word_gen_gc_move_code conf,s with clock := s.clock + ck) =
+      evaluate (word_gen_gc_move_code aw conf,s with clock := s.clock + ck) =
         (NONE,s with <| memory := m1;
                         store := s.store |++ [(Temp 0w, t0);
                                               (Temp 1w, t1);
@@ -2607,7 +2637,7 @@ Proof
     \\ full_simp_tac(srw_ss())[GSYM select_lower_lemma]
     \\ qexists_tac `w2n (len + 1w)`
     \\ qmatch_goalsub_abbrev_tac `evaluate (_,s3)`
-    \\ old_drule memcpy_code_thm
+    \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) memcpy_code_thm
     \\ disch_then (qspec_then `s3 with clock := s.clock` mp_tac)
     \\ full_simp_tac(srw_ss())[]
     \\ `s3 with clock := s.clock + w2n (len + 1w) = s3` by
@@ -2646,7 +2676,7 @@ Proof
   \\ full_simp_tac(srw_ss())[GSYM select_lower_lemma]
   \\ qexists_tac `w2n (len + 1w)`
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,s3)`
-  \\ old_drule memcpy_code_thm
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) memcpy_code_thm
   \\ disch_then (qspec_then `s3 with clock := s.clock` mp_tac)
   \\ full_simp_tac(srw_ss())[]
   \\ `s3 with clock := s.clock + w2n (len + 1w) = s3` by
@@ -2679,9 +2709,9 @@ QED
 
 Theorem word_gen_gc_partial_move_code_thm:
    word_gen_gc_partial_move conf (w,i,pa,old,m,dm,gs,rs) = (w1,i1,pa1,m1,T) /\
-    shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+    shift_length conf < dimindex (:'a) /\ word_shift (dimindex (:'a)) < dimindex (:'a) /\
     2 < dimindex (:'a) /\ conf.len_size <> 0 /\
-    (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+    (!w:'a word. w << word_shift (dimindex (:'a)) = w * bytes_in_word) /\
     FLOOKUP s.store CurrHeap = SOME (Word old) /\ (s:('a,'c,'b)stackSem$state).use_store /\
     s.memory = m /\ s.mdomain = dm /\ good_dimindex (:'a) /\
     0 IN FDOM s.regs /\
@@ -2694,9 +2724,10 @@ Theorem word_gen_gc_partial_move_code_thm:
     FLOOKUP s.store (Temp 1w) = SOME (Word rs) /\
     1 IN FDOM s.regs /\
     2 IN FDOM s.regs /\
-    6 IN FDOM s.regs ==>
+    6 IN FDOM s.regs /\
+      arch_width_bits aw = dimindex (:'a) ==>
     ?ck r0 r1 r2 r6.
-      evaluate (word_gen_gc_partial_move_code conf,s with clock := s.clock + ck) =
+      evaluate (word_gen_gc_partial_move_code aw conf,s with clock := s.clock + ck) =
         (NONE,s with <| memory := m1;
                         regs := s.regs |++ [(0,r0);
                                             (1,r1);
@@ -2728,9 +2759,9 @@ Proof
   \\ simp [Once ptr_to_addr_def]
   \\ simp [Once ptr_to_addr_def]
   \\ Cases_on `good_dimindex (:'a)` \\ fs []
-  \\ old_drule (GEN_ALL bytes_in_word_mul_eq_shift
+  \\ drule (GEN_ALL bytes_in_word_mul_eq_shift
                |> GSYM) \\ fs [] \\ strip_tac
-  \\ Cases_on `c ⋙ shift_length conf ≪ shift (:α) <₊ gs`
+  \\ Cases_on `c ⋙ shift_length conf ≪ shift (dimindex (:α)) <₊ gs`
   THEN1
    (rfs [] \\ fs [] \\ strip_tac \\ rveq
     \\ ntac 5 tac1
@@ -2739,7 +2770,7 @@ Proof
            FUN_EQ_THM,FAPPLY_FUPDATE_THM]
     \\ once_rewrite_tac [split_num_forall_to_10]
     \\ full_simp_tac(srw_ss())[nine_less])
-  \\ Cases_on `rs ≤₊ c ⋙ shift_length conf ≪ shift (:α)`
+  \\ Cases_on `rs ≤₊ c ⋙ shift_length conf ≪ shift (dimindex (:α))`
   THEN1
    (rfs [] \\ fs [] \\ strip_tac \\ rveq
     \\ ntac 5 tac1
@@ -2774,7 +2805,7 @@ Proof
   \\ full_simp_tac(srw_ss())[GSYM select_lower_lemma]
   \\ qexists_tac `w2n (len + 1w)`
   \\ qmatch_goalsub_abbrev_tac `evaluate (_,s3)`
-  \\ old_drule memcpy_code_thm
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) memcpy_code_thm
   \\ disch_then (qspec_then `s3 with clock := s.clock` mp_tac)
   \\ full_simp_tac(srw_ss())[]
   \\ `s3 with clock := s.clock + w2n (len + 1w) = s3` by
@@ -2807,9 +2838,9 @@ Theorem word_gen_gc_move_bitmap_code_thm:
     a1 i1 pa1 ib1 pb1 m1 old.
       word_gen_gc_move_bitmap conf (w,stack,i,pa,ib,pb,curr,m,dm) =
         SOME (new,stack1,i1,pa1,ib1,pb1,m1,T) /\
-      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (dimindex (:'a)) < dimindex (:'a) /\
       2 < dimindex (:'a) /\ conf.len_size <> 0 /\ good_dimindex (:'a) /\
-      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      (!w:'a word. w << word_shift (dimindex (:'a)) = w * bytes_in_word) /\
       FLOOKUP s.store CurrHeap = SOME (Word curr) /\ s.use_store /\
       s.memory = m /\ s.mdomain = dm /\ s.use_stack /\
       0 IN FDOM s.regs /\
@@ -2827,9 +2858,10 @@ Theorem word_gen_gc_move_bitmap_code_thm:
       FLOOKUP s.store (Temp 3w) = SOME (Word ib) /\
       s.stack = init ++ old ++ stack /\
       s.stack_space = LENGTH init /\
-      (dimindex (:'a) DIV 8) * LENGTH s.stack < dimword (:'a) ==>
+      (dimindex (:'a) DIV 8) * LENGTH s.stack < dimword (:'a) /\
+      arch_width_bits aw = dimindex (:'a) ==>
       ?ck r0 r1 r2 r5 r6 r7 t0 t1.
-        evaluate (word_gen_gc_move_bitmap_code conf,s with clock := s.clock + ck) =
+        evaluate (word_gen_gc_move_bitmap_code aw conf,s with clock := s.clock + ck) =
           (NONE,s with <| memory := m1;
                           stack := init ++ old ++ new ++ stack1;
                           store :=
@@ -2878,7 +2910,7 @@ Proof
    (every_case_tac \\ strip_tac \\ rpt var_eq_tac
     \\ rename1 `_ = SOME (new1,st1,i1,pa1,ib1,pb1,m1,T)`
     \\ simp_tac std_ss [word_gen_gc_move_bitmap_code_def,get_var_def,evaluate_def]
-    \\ simp_tac std_ss [GSYM word_gen_gc_move_bitmap_code_def]
+    \\ fs [] \\ fold_code word_gen_gc_move_bitmap_code_def
     \\ fs [get_var_def,get_var_imm_def] \\ tac
     \\ fs [lower_2w_eq,STOP_def]
     \\ qabbrev_tac `s2 = s with
@@ -2886,7 +2918,7 @@ Proof
               |+ (8,Word (bytes_in_word + bytes_in_word * n2w (LENGTH old))) |>`
     \\ `s.memory = s2.memory /\ s.mdomain = s2.mdomain` by
           (unabbrev_all_tac \\ fs []) \\ fs []
-    \\ first_x_assum old_drule
+    \\ first_x_assum drule
     \\ disch_then (qspec_then `old ++ [h]` mp_tac)
     \\ impl_tac
     THEN1 (unabbrev_all_tac
@@ -2907,14 +2939,14 @@ Proof
   \\ every_case_tac \\ strip_tac \\ rpt var_eq_tac
   \\ rename1 `_ = SOME (new1,st1,i1,pa1,ib1,pb1,m1,T)`
   \\ simp_tac std_ss [word_gen_gc_move_bitmap_code_def,get_var_def,evaluate_def]
-  \\ simp_tac std_ss [GSYM word_gen_gc_move_bitmap_code_def]
+  \\ fs [] \\ fold_code word_gen_gc_move_bitmap_code_def
   \\ fs [get_var_def,get_var_imm_def] \\ tac
   \\ fs [lower_2w_eq,STOP_def]
-  \\ `w2n (((bytes_in_word:'a word) * n2w (LENGTH old)) ⋙ word_shift (:α)) =
+  \\ `w2n (((bytes_in_word:'a word) * n2w (LENGTH old)) ⋙ word_shift (dimindex (:α))) =
          LENGTH old` by
    (`(dimindex (:α) DIV 8) * LENGTH old < dimword (:α)` by rfs [RIGHT_ADD_DISTRIB]
-    \\ old_drule (bytes_in_word_word_shift_n2w |> GEN_ALL)
-    \\ disch_then old_drule \\ fs [] \\ rw []
+    \\ drule (bytes_in_word_word_shift_n2w |> GEN_ALL)
+    \\ disch_then drule \\ fs [] \\ rw []
     \\ rfs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ fs [] \\ reverse CASE_TAC THEN1
     (sg `F` \\ fs []
@@ -2932,7 +2964,7 @@ Proof
     \\ simp_tac std_ss [APPEND_ASSOC,GSYM LENGTH_APPEND]
     \\ simp_tac std_ss [Q.SPEC `h::t` EL_LENGTH_APPEND
          |> SIMP_RULE (srw_ss()) []] \\ NO_TAC)
-  \\ old_drule (word_gen_gc_move_code_thm |> GEN_ALL |> SIMP_RULE std_ss [])
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (word_gen_gc_move_code_thm |> GEN_ALL |> SIMP_RULE std_ss [])
   \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [get_var_def,FLOOKUP_UPDATE])
   \\ strip_tac \\ fs []
   \\ qabbrev_tac `s5 = s with
@@ -2947,14 +2979,14 @@ Proof
              (Temp 3w,Word ib1')]; memory := m1' |>`
   \\ `m1' = s5.memory /\ s4.mdomain = s5.mdomain` by
            (unabbrev_all_tac \\ fs []) \\ fs []
-  \\ first_x_assum old_drule
+  \\ first_x_assum drule
   \\ disch_then (qspec_then `old ++ [x1]` mp_tac)
   \\ impl_tac THEN1
    (unabbrev_all_tac \\ tac
     \\ fs [RIGHT_ADD_DISTRIB,word_add_n2w,word_mul_n2w,bytes_in_word_def]
     \\ rfs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ strip_tac \\ pop_assum mp_tac
-  \\ old_drule (GEN_ALL evaluate_add_clock) \\ fs []
+  \\ drule (GEN_ALL evaluate_add_clock) \\ fs []
   \\ disch_then (qspec_then `ck' + 1` mp_tac)
   \\ rpt strip_tac \\ fs []
   \\ qexists_tac `ck+ck'+1` \\ fs []
@@ -2979,9 +3011,9 @@ Theorem word_gen_gc_partial_move_bitmap_code_thm:
    !w stack (s:('a,'c,'b)stackSem$state) i pa curr m dm new stack1 a1 i1 pa1 m1 old.
       word_gen_gc_partial_move_bitmap conf (w,stack,i,pa,curr,m,dm,gs,rs) =
         SOME (new,stack1,i1,pa1,m1,T) /\
-      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (dimindex (:'a)) < dimindex (:'a) /\
       2 < dimindex (:'a) /\ conf.len_size <> 0 /\ good_dimindex (:'a) /\
-      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      (!w:'a word. w << word_shift (dimindex (:'a)) = w * bytes_in_word) /\
       FLOOKUP s.store CurrHeap = SOME (Word curr) /\ s.use_store /\
       s.memory = m /\ s.mdomain = dm /\ s.use_stack /\
       0 IN FDOM s.regs /\
@@ -2997,9 +3029,10 @@ Theorem word_gen_gc_partial_move_bitmap_code_thm:
       FLOOKUP s.store (Temp 1w) = SOME (Word rs) /\
       s.stack = init ++ old ++ stack /\
       s.stack_space = LENGTH init /\
-      (dimindex (:'a) DIV 8) * LENGTH s.stack < dimword (:'a) ==>
+      (dimindex (:'a) DIV 8) * LENGTH s.stack < dimword (:'a) /\
+      arch_width_bits aw = dimindex (:'a) ==>
       ?ck r0 r1 r2 r5 r6 r7.
-        evaluate (word_gen_gc_partial_move_bitmap_code conf,
+        evaluate (word_gen_gc_partial_move_bitmap_code aw conf,
           s with clock := s.clock + ck) =
           (NONE,s with <| memory := m1;
                           stack := init ++ old ++ new ++ stack1;
@@ -3039,7 +3072,7 @@ Proof
    (every_case_tac \\ strip_tac \\ rpt var_eq_tac
     \\ rename1 `_ = SOME (new1,st1,i1,pa1,m1,T)`
     \\ simp_tac std_ss [word_gen_gc_partial_move_bitmap_code_def,get_var_def,evaluate_def]
-    \\ simp_tac std_ss [GSYM word_gen_gc_partial_move_bitmap_code_def]
+    \\ fs [] \\ fold_code word_gen_gc_partial_move_bitmap_code_def
     \\ fs [get_var_def,get_var_imm_def] \\ tac
     \\ fs [lower_2w_eq,STOP_def]
     \\ qabbrev_tac `s2 = s with
@@ -3047,7 +3080,7 @@ Proof
               |+ (8,Word (bytes_in_word + bytes_in_word * n2w (LENGTH old))) |>`
     \\ `s.memory = s2.memory /\ s.mdomain = s2.mdomain` by
           (unabbrev_all_tac \\ fs []) \\ fs []
-    \\ first_x_assum old_drule
+    \\ first_x_assum drule
     \\ disch_then (qspec_then `old ++ [h]` mp_tac)
     \\ impl_tac
     THEN1 (unabbrev_all_tac
@@ -3066,14 +3099,14 @@ Proof
   \\ rename1 `_ = SOME (new1,st1,i1,pa1,m1,T)`
   \\ simp_tac std_ss [word_gen_gc_partial_move_bitmap_code_def,
        get_var_def,evaluate_def]
-  \\ simp_tac std_ss [GSYM word_gen_gc_partial_move_bitmap_code_def]
+  \\ fs [] \\ fold_code word_gen_gc_partial_move_bitmap_code_def
   \\ fs [get_var_def,get_var_imm_def] \\ tac
   \\ fs [lower_2w_eq,STOP_def]
-  \\ `w2n (((bytes_in_word:'a word) * n2w (LENGTH old)) ⋙ word_shift (:α)) =
+  \\ `w2n (((bytes_in_word:'a word) * n2w (LENGTH old)) ⋙ word_shift (dimindex (:α))) =
          LENGTH old` by
    (`(dimindex (:α) DIV 8) * LENGTH old < dimword (:α)` by rfs [RIGHT_ADD_DISTRIB]
-    \\ old_drule (bytes_in_word_word_shift_n2w |> GEN_ALL)
-    \\ disch_then old_drule \\ fs [] \\ rw []
+    \\ drule (bytes_in_word_word_shift_n2w |> GEN_ALL)
+    \\ disch_then drule \\ fs [] \\ rw []
     \\ rfs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ fs [] \\ reverse CASE_TAC THEN1
     (sg `F` \\ fs []
@@ -3091,7 +3124,7 @@ Proof
   \\ qabbrev_tac `s4 = s with <|regs := s.regs |+ (5,h) |+ (7,Word (w ⋙ 1)) |>`
   \\ `s.memory = s4.memory /\ s.mdomain = s4.mdomain` by
            (unabbrev_all_tac \\ fs []) \\ fs []
-  \\ old_drule (word_gen_gc_partial_move_code_thm |> GEN_ALL |> SIMP_RULE std_ss [])
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (word_gen_gc_partial_move_code_thm |> GEN_ALL |> SIMP_RULE std_ss [])
   \\ impl_tac THEN1 (unabbrev_all_tac \\ fs [get_var_def,FLOOKUP_UPDATE])
   \\ strip_tac
   \\ qabbrev_tac `s5 = s with
@@ -3102,14 +3135,14 @@ Proof
           stack := init ++ old ++ [x1] ++ t; memory := m1' |>`
   \\ `m1' = s5.memory /\ s4.mdomain = s5.mdomain` by
            (unabbrev_all_tac \\ fs []) \\ fs []
-  \\ first_x_assum old_drule
+  \\ first_x_assum drule
   \\ disch_then (qspec_then `old ++ [x1]` mp_tac)
   \\ impl_tac THEN1
    (unabbrev_all_tac \\ tac
     \\ fs [RIGHT_ADD_DISTRIB,word_add_n2w,word_mul_n2w,bytes_in_word_def]
     \\ rfs [good_dimindex_def,dimword_def] \\ rfs [])
   \\ strip_tac \\ pop_assum mp_tac
-  \\ old_drule (GEN_ALL evaluate_add_clock) \\ fs []
+  \\ drule (GEN_ALL evaluate_add_clock) \\ fs []
   \\ disch_then (qspec_then `ck' + 1` mp_tac)
   \\ rpt strip_tac \\ fs []
   \\ qexists_tac `ck+ck'+1` \\ fs []
@@ -3161,9 +3194,9 @@ Theorem word_gen_gc_move_bitmaps_code_thm:
       word_gen_gc_move_bitmaps conf (Word w,stack,bitmaps,i,pa,ib,pb,curr,m,dm) =
         SOME (new,stack1,i1,pa1,ib1,pb1,m1,T) /\
       LENGTH bitmaps < dimword (:'a) − 1 ∧ good_dimindex (:'a) /\
-      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (dimindex (:'a)) < dimindex (:'a) /\
       2 < dimindex (:'a) /\ conf.len_size <> 0 /\ good_dimindex (:'a) /\
-      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      (!w:'a word. w << word_shift (dimindex (:'a)) = w * bytes_in_word) /\
       FLOOKUP s.store CurrHeap = SOME (Word curr) /\ s.use_store /\
       s.memory = m /\ s.mdomain = dm /\ s.bitmaps = bitmaps /\ s.use_stack /\
       get_var 0 s = SOME (Word z) /\ z <> 0w /\
@@ -3182,9 +3215,10 @@ Theorem word_gen_gc_move_bitmaps_code_thm:
       FLOOKUP s.store (Temp 3w) = SOME (Word ib) /\
       s.stack = init ++ old ++ stack /\
       s.stack_space = LENGTH init /\
-      (dimindex (:'a) DIV 8) * LENGTH s.stack < dimword (:'a) ==>
+      (dimindex (:'a) DIV 8) * LENGTH s.stack < dimword (:'a) /\
+      arch_width_bits aw = dimindex (:'a) ==>
       ?ck r0 r1 r2 r5 r6 r7 r9 t0 t1.
-        evaluate (word_gen_gc_move_bitmaps_code conf,s with clock := s.clock + ck) =
+        evaluate (word_gen_gc_move_bitmaps_code aw conf,s with clock := s.clock + ck) =
           (NONE,s with <| memory := m1;
                           stack := init ++ old ++ new ++ stack1;
                           clock := s.clock;
@@ -3207,14 +3241,14 @@ Proof
   \\ rpt strip_tac \\ fs [] \\ rpt var_eq_tac \\ fs [PULL_FORALL]
   \\ qpat_x_assum `word_gen_gc_move_bitmaps _ _ = _`
         (fn th => assume_tac th \\ mp_tac th)
-  \\ old_drule (GEN_ALL word_gen_gc_move_bitmaps_unroll) \\ fs []
+  \\ drule (GEN_ALL word_gen_gc_move_bitmaps_unroll) \\ fs []
   \\ CASE_TAC \\ fs []
   \\ Cases_on `word_gen_gc_move_bitmap conf
                   (h,stack,i,pa,ib,pb,curr,s.memory,s.mdomain)`
   \\ fs [] \\ PairCases_on `x` \\ fs [] \\ strip_tac
   \\ `x7` by (every_case_tac \\ fs []) \\ var_eq_tac
   \\ simp_tac std_ss [word_gen_gc_move_bitmaps_code_def,get_var_def,evaluate_def]
-  \\ simp_tac std_ss [GSYM word_gen_gc_move_bitmaps_code_def]
+  \\ fs [] \\ fold_code word_gen_gc_move_bitmaps_code_def
   \\ fs [get_var_def,get_var_imm_def] \\ tac
   \\ imp_res_tac DROP_IMP_LESS_LENGTH \\ fs []
   \\ qabbrev_tac `s2 = s with
@@ -3222,11 +3256,11 @@ Proof
   \\ imp_res_tac DROP_IMP_EL \\ fs []
   \\ `s.memory = s2.memory /\ s.mdomain = s2.mdomain` by (unabbrev_all_tac \\ fs [])
   \\ fs []
-  \\ old_drule (word_gen_gc_move_bitmap_code_thm |> GEN_ALL |> SIMP_RULE std_ss [])
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (word_gen_gc_move_bitmap_code_thm |> SIMP_RULE std_ss [])
   \\ disch_then (qspecl_then [`init`,`old`] mp_tac)
   \\ impl_tac
   THEN1 (unabbrev_all_tac \\ rfs [get_var_def] \\ tac \\ fs [FLOOKUP_DEF])
-  \\ strip_tac \\ old_drule (GEN_ALL evaluate_add_clock)
+  \\ strip_tac \\ drule (GEN_ALL evaluate_add_clock)
   \\ reverse (Cases_on `word_msb h`) \\ fs []
   \\ fs [word_msb_IFF_lsr_EQ_0] THEN1
    (disch_then (qspec_then `1` assume_tac)
@@ -3260,10 +3294,10 @@ Proof
    (unabbrev_all_tac \\ fs [] \\ Cases_on `w` \\ fs []
     \\ fs [word_add_n2w] \\ Cases_on `n` \\ fs []
     \\ fs [GSYM word_add_n2w,ADD1,w2n_minus1] \\ NO_TAC)
-  \\ first_x_assum old_drule \\ fs []
+  \\ first_x_assum drule \\ fs []
   \\ `x6 = s5.memory /\ s.mdomain = s5.mdomain /\ s.bitmaps = s5.bitmaps` by
        (unabbrev_all_tac \\ fs []) \\ fs []
-  \\ disch_then old_drule
+  \\ disch_then drule
   \\ ntac 3 (pop_assum (fn th => fs [GSYM th]))
   \\ disch_then (qspecl_then [`EL (w2n (w + -1w))
          s5.bitmaps ⋙ (dimindex (:α) - 1)`,`old ++ x0`] mp_tac)
@@ -3295,9 +3329,9 @@ Theorem word_gen_gc_partial_move_bitmaps_code_thm:
           (Word w,stack,bitmaps,i,pa,curr,m,dm,gs,rs) =
         SOME (new,stack1,i1,pa1,m1,T) /\
       LENGTH bitmaps < dimword (:'a) − 1 ∧ good_dimindex (:'a) /\
-      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (dimindex (:'a)) < dimindex (:'a) /\
       2 < dimindex (:'a) /\ conf.len_size <> 0 /\ good_dimindex (:'a) /\
-      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      (!w:'a word. w << word_shift (dimindex (:'a)) = w * bytes_in_word) /\
       FLOOKUP s.store CurrHeap = SOME (Word curr) /\ s.use_store /\
       s.memory = m /\ s.mdomain = dm /\ s.bitmaps = bitmaps /\ s.use_stack /\
       get_var 0 s = SOME (Word z) /\ z <> 0w /\
@@ -3314,9 +3348,10 @@ Theorem word_gen_gc_partial_move_bitmaps_code_thm:
       FLOOKUP s.store (Temp 1w) = SOME (Word rs) /\
       s.stack = init ++ old ++ stack /\
       s.stack_space = LENGTH init /\
-      (dimindex (:'a) DIV 8) * LENGTH s.stack < dimword (:'a) ==>
+      (dimindex (:'a) DIV 8) * LENGTH s.stack < dimword (:'a) /\
+      arch_width_bits aw = dimindex (:'a) ==>
       ?ck r0 r1 r2 r5 r6 r7 r9 t0 t1.
-        evaluate (word_gen_gc_partial_move_bitmaps_code conf,s with clock := s.clock + ck) =
+        evaluate (word_gen_gc_partial_move_bitmaps_code aw conf,s with clock := s.clock + ck) =
           (NONE,s with <| memory := m1;
                           stack := init ++ old ++ new ++ stack1;
                           clock := s.clock;
@@ -3335,14 +3370,14 @@ Proof
   \\ rpt strip_tac \\ fs [] \\ rpt var_eq_tac \\ fs [PULL_FORALL]
   \\ qpat_x_assum `word_gen_gc_partial_move_bitmaps _ _ = _`
         (fn th => assume_tac th \\ mp_tac th)
-  \\ old_drule (GEN_ALL word_gen_gc_partial_move_bitmaps_unroll) \\ fs []
+  \\ drule (GEN_ALL word_gen_gc_partial_move_bitmaps_unroll) \\ fs []
   \\ CASE_TAC \\ fs []
   \\ Cases_on `word_gen_gc_partial_move_bitmap conf
                   (h,stack,i,pa,curr,s.memory,s.mdomain,gs,rs)`
   \\ fs [] \\ PairCases_on `x` \\ fs [] \\ strip_tac
   \\ `x5` by (every_case_tac \\ fs []) \\ var_eq_tac
   \\ simp_tac std_ss [word_gen_gc_partial_move_bitmaps_code_def,get_var_def,evaluate_def]
-  \\ simp_tac std_ss [GSYM word_gen_gc_partial_move_bitmaps_code_def]
+  \\ fs [] \\ fold_code word_gen_gc_partial_move_bitmaps_code_def
   \\ fs [get_var_def,get_var_imm_def] \\ tac
   \\ imp_res_tac DROP_IMP_LESS_LENGTH \\ fs []
   \\ qabbrev_tac `s2 = s with
@@ -3350,11 +3385,11 @@ Proof
   \\ imp_res_tac DROP_IMP_EL \\ fs []
   \\ `s.memory = s2.memory /\ s.mdomain = s2.mdomain` by (unabbrev_all_tac \\ fs [])
   \\ fs []
-  \\ old_drule (word_gen_gc_partial_move_bitmap_code_thm |> GEN_ALL |> SIMP_RULE std_ss [])
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (word_gen_gc_partial_move_bitmap_code_thm |> SIMP_RULE std_ss [])
   \\ disch_then (qspecl_then [`init`,`old`] mp_tac)
   \\ impl_tac
   THEN1 (unabbrev_all_tac \\ rfs [get_var_def] \\ tac \\ fs [FLOOKUP_DEF])
-  \\ strip_tac \\ old_drule (GEN_ALL evaluate_add_clock)
+  \\ strip_tac \\ drule (GEN_ALL evaluate_add_clock)
   \\ reverse (Cases_on `word_msb h`) \\ fs []
   \\ fs [word_msb_IFF_lsr_EQ_0] THEN1
    (disch_then (qspec_then `1` assume_tac)
@@ -3385,10 +3420,10 @@ Proof
    (unabbrev_all_tac \\ fs [] \\ Cases_on `w` \\ fs []
     \\ fs [word_add_n2w] \\ Cases_on `n` \\ fs []
     \\ fs [GSYM word_add_n2w,ADD1,w2n_minus1] \\ NO_TAC)
-  \\ first_x_assum old_drule \\ fs []
+  \\ first_x_assum drule \\ fs []
   \\ `x4 = s5.memory /\ s.mdomain = s5.mdomain /\ s.bitmaps = s5.bitmaps` by
        (unabbrev_all_tac \\ fs []) \\ fs []
-  \\ disch_then old_drule
+  \\ disch_then drule
   \\ ntac 3 (pop_assum (fn th => fs [GSYM th]))
   \\ disch_then (qspecl_then [`EL (w2n (w + -1w))
          s5.bitmaps ⋙ (dimindex (:α) - 1)`,`old ++ x0`] mp_tac)
@@ -3415,9 +3450,9 @@ Theorem word_gen_gc_move_roots_bitmaps_code_thm:
       word_gen_gc_move_roots_bitmaps conf (stack,bitmaps,i,pa,ib,pb,curr,m,dm) =
         (stack1,i1,pa1,ib1,pb1,m1,T) /\
       LENGTH bitmaps < dimword (:'a) - 1 /\ good_dimindex (:'a) /\
-      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (dimindex (:'a)) < dimindex (:'a) /\
       2 < dimindex (:'a) /\ conf.len_size <> 0 /\ good_dimindex (:'a) /\
-      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      (!w:'a word. w << word_shift (dimindex (:'a)) = w * bytes_in_word) /\
       FLOOKUP s.store CurrHeap = SOME (Word curr) /\ s.use_store /\
       s.memory = m /\ s.mdomain = dm /\ s.bitmaps = bitmaps /\ s.use_stack /\
       0 IN FDOM s.regs /\
@@ -3436,9 +3471,10 @@ Theorem word_gen_gc_move_roots_bitmaps_code_thm:
       FLOOKUP s.store (Temp 3w) = SOME (Word ib) /\
       s.stack = init ++ old ++ stack /\
       s.stack_space = LENGTH init /\
-      (dimindex (:'a) DIV 8) * LENGTH s.stack < dimword (:'a) ==>
+      (dimindex (:'a) DIV 8) * LENGTH s.stack < dimword (:'a) /\
+      arch_width_bits aw = dimindex (:'a) ==>
       ?ck r0 r1 r2 r5 r6 r7 r8 r9 t0 t1.
-        evaluate (word_gen_gc_move_roots_bitmaps_code conf,
+        evaluate (word_gen_gc_move_roots_bitmaps_code aw conf,
             s with clock := s.clock + ck) =
           (NONE,s with <| memory := m1;
                           stack := init ++ old ++ stack1;
@@ -3463,7 +3499,7 @@ Proof
   \\ rpt var_eq_tac \\ fs []
   \\ qpat_x_assum `word_gen_gc_move_roots_bitmaps _ _ = _`
         (fn th => assume_tac th \\ mp_tac th)
-  \\ old_drule (GEN_ALL word_gen_gc_move_roots_bitmaps) \\ fs []
+  \\ drule (GEN_ALL word_gen_gc_move_roots_bitmaps) \\ fs []
   \\ Cases_on `stack` \\ fs []
   \\ rename1 `word_gen_gc_move_roots_bitmaps conf (hd::stack,_) = _`
   \\ Cases_on `hd = Word 0w` \\ fs [] THEN1
@@ -3485,7 +3521,7 @@ Proof
   \\ strip_tac \\ fs []
   \\ rpt var_eq_tac \\ fs []
   \\ simp_tac std_ss [word_gen_gc_move_roots_bitmaps_code_def,evaluate_def]
-  \\ simp_tac std_ss [GSYM word_gen_gc_move_roots_bitmaps_code_def,get_var_def]
+  \\ fs [] \\ fold_code word_gen_gc_move_roots_bitmaps_code_def \\ fs [get_var_def]
   \\ fs [get_var_def,get_var_imm_def] \\ tac
   \\ reverse (Cases_on `hd`) \\ fs []
   THEN1 (fs[word_gen_gc_move_roots_bitmaps_def,enc_stack_def,full_read_bitmap_def])
@@ -3496,9 +3532,9 @@ Proof
          (8, Word (bytes_in_word + bytes_in_word * n2w (LENGTH old))) |>`
   \\ `s.memory = s2.memory /\ s.mdomain = s2.mdomain /\ s.bitmaps = s2.bitmaps` by
         (unabbrev_all_tac \\ fs []) \\ fs []
-  \\ old_drule (word_gen_gc_move_bitmaps_code_thm |> SIMP_RULE std_ss [])
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (word_gen_gc_move_bitmaps_code_thm |> SIMP_RULE std_ss [])
   \\ ntac 3 (pop_assum (fn th => fs [GSYM th]))
-  \\ disch_then (qspecl_then [`c`,`old ++ [Word c]`] mp_tac)
+  \\ disch_then (qspecl_then [`init`,`c`,`old ++ [Word c]`] mp_tac)
   \\ impl_tac THEN1
    (unabbrev_all_tac \\ rpt strip_tac
     \\ fs [RIGHT_ADD_DISTRIB]
@@ -3506,7 +3542,7 @@ Proof
     \\ fs [get_var_def] \\ tac)
   \\ strip_tac \\ fs []
   \\ unabbrev_all_tac \\ fs [] \\ tac
-  \\ `(bytes_in_word * n2w (LENGTH old + (LENGTH x0 + 1))) ⋙ word_shift (:α) =
+  \\ `(bytes_in_word * n2w (LENGTH old + (LENGTH x0 + 1))) ⋙ word_shift (dimindex (:α)) =
       n2w (LENGTH old + (LENGTH x0 + 1)):'a word` by
    (match_mp_tac bytes_in_word_word_shift_n2w
     \\ imp_res_tac word_gen_gc_move_bitmaps_LENGTH
@@ -3537,10 +3573,10 @@ Proof
   \\ `LENGTH (h::t) < SUC (LENGTH stack)` by
    (imp_res_tac word_gen_gc_move_bitmaps_LENGTH
     \\ rfs [RIGHT_ADD_DISTRIB] \\ fs [])
-  \\ first_x_assum old_drule
+  \\ first_x_assum drule
   \\ `x6 = s8.memory /\ s.mdomain = s8.mdomain /\ s.bitmaps = s8.bitmaps` by
         (unabbrev_all_tac \\ fs [] \\ NO_TAC) \\ fs []
-  \\ disch_then old_drule
+  \\ disch_then drule
   \\ ntac 3 (pop_assum (fn th => fs [GSYM th]))
   \\ disch_then (qspec_then `old ++ Word c::x0` mp_tac)
   \\ impl_tac THEN1
@@ -3551,7 +3587,7 @@ Proof
   \\ strip_tac \\ unabbrev_all_tac \\ fs []
   \\ qexists_tac `ck + ck' + 1` \\ fs []
   \\ pop_assum mp_tac
-  \\ old_drule (evaluate_add_clock |> GEN_ALL)
+  \\ drule (evaluate_add_clock |> GEN_ALL)
   \\ disch_then (qspec_then `ck' + 1` assume_tac)
   \\ fs [] \\ tac \\ rpt strip_tac
   \\ full_simp_tac(srw_ss())[state_component_equality]
@@ -3569,9 +3605,9 @@ Theorem word_gen_gc_partial_move_roots_bitmaps_code_thm:
       word_gen_gc_partial_move_roots_bitmaps conf (stack,bitmaps,i,pa,curr,m,dm,gs,rs) =
         (stack1,i1,pa1,m1,T) /\
       LENGTH bitmaps < dimword (:'a) - 1 /\ good_dimindex (:'a) /\
-      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (dimindex (:'a)) < dimindex (:'a) /\
       2 < dimindex (:'a) /\ conf.len_size <> 0 /\ good_dimindex (:'a) /\
-      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      (!w:'a word. w << word_shift (dimindex (:'a)) = w * bytes_in_word) /\
       FLOOKUP s.store CurrHeap = SOME (Word curr) /\ s.use_store /\
       s.memory = m /\ s.mdomain = dm /\ s.bitmaps = bitmaps /\ s.use_stack /\
       0 IN FDOM s.regs /\
@@ -3588,9 +3624,10 @@ Theorem word_gen_gc_partial_move_roots_bitmaps_code_thm:
       FLOOKUP s.store (Temp 1w) = SOME (Word rs) /\
       s.stack = init ++ old ++ stack /\
       s.stack_space = LENGTH init /\
-      (dimindex (:'a) DIV 8) * LENGTH s.stack < dimword (:'a) ==>
+      (dimindex (:'a) DIV 8) * LENGTH s.stack < dimword (:'a) /\
+      arch_width_bits aw = dimindex (:'a) ==>
       ?ck r0 r1 r2 r5 r6 r7 r8 r9.
-        evaluate (word_gen_gc_partial_move_roots_bitmaps_code conf,
+        evaluate (word_gen_gc_partial_move_roots_bitmaps_code aw conf,
             s with clock := s.clock + ck) =
           (NONE,s with <| memory := m1;
                           stack := init ++ old ++ stack1;
@@ -3611,7 +3648,7 @@ Proof
   \\ rpt var_eq_tac \\ fs []
   \\ qpat_x_assum `word_gen_gc_partial_move_roots_bitmaps _ _ = _`
         (fn th => assume_tac th \\ mp_tac th)
-  \\ old_drule (GEN_ALL word_gen_gc_partial_move_roots_bitmaps) \\ fs []
+  \\ drule (GEN_ALL word_gen_gc_partial_move_roots_bitmaps) \\ fs []
   \\ Cases_on `stack` \\ fs []
   \\ rename1 `word_gen_gc_partial_move_roots_bitmaps conf (hd::stack,_) = _`
   \\ Cases_on `hd = Word 0w` \\ fs [] THEN1
@@ -3630,7 +3667,7 @@ Proof
   \\ strip_tac \\ fs []
   \\ rpt var_eq_tac \\ fs []
   \\ simp_tac std_ss [word_gen_gc_partial_move_roots_bitmaps_code_def,evaluate_def]
-  \\ simp_tac std_ss [GSYM word_gen_gc_partial_move_roots_bitmaps_code_def,get_var_def]
+  \\ fs [] \\ fold_code word_gen_gc_partial_move_roots_bitmaps_code_def \\ fs [get_var_def]
   \\ fs [get_var_def,get_var_imm_def] \\ tac
   \\ reverse (Cases_on `hd`) \\ fs []
   THEN1 (fs[word_gen_gc_partial_move_roots_bitmaps_def,enc_stack_def,full_read_bitmap_def])
@@ -3641,9 +3678,9 @@ Proof
          (8, Word (bytes_in_word + bytes_in_word * n2w (LENGTH old))) |>`
   \\ `s.memory = s2.memory /\ s.mdomain = s2.mdomain /\ s.bitmaps = s2.bitmaps` by
         (unabbrev_all_tac \\ fs []) \\ fs []
-  \\ old_drule (word_gen_gc_partial_move_bitmaps_code_thm |> SIMP_RULE std_ss [])
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (word_gen_gc_partial_move_bitmaps_code_thm |> SIMP_RULE std_ss [])
   \\ ntac 3 (pop_assum (fn th => fs [GSYM th]))
-  \\ disch_then (qspecl_then [`c`,`old ++ [Word c]`] mp_tac)
+  \\ disch_then (qspecl_then [`init`,`c`,`old ++ [Word c]`] mp_tac)
   \\ impl_tac THEN1
    (unabbrev_all_tac \\ rpt strip_tac
     \\ fs [RIGHT_ADD_DISTRIB]
@@ -3651,7 +3688,7 @@ Proof
     \\ fs [get_var_def] \\ tac)
   \\ strip_tac \\ fs []
   \\ unabbrev_all_tac \\ fs [] \\ tac
-  \\ `(bytes_in_word * n2w (LENGTH old + (LENGTH x0 + 1))) ⋙ word_shift (:α) =
+  \\ `(bytes_in_word * n2w (LENGTH old + (LENGTH x0 + 1))) ⋙ word_shift (dimindex (:α)) =
       n2w (LENGTH old + (LENGTH x0 + 1)):'a word` by
    (match_mp_tac bytes_in_word_word_shift_n2w
     \\ imp_res_tac word_gen_gc_partial_move_bitmaps_LENGTH
@@ -3678,10 +3715,10 @@ Proof
   \\ `LENGTH (h::t) < SUC (LENGTH stack)` by
    (imp_res_tac word_gen_gc_partial_move_bitmaps_LENGTH
     \\ rfs [RIGHT_ADD_DISTRIB] \\ fs [])
-  \\ first_x_assum old_drule
+  \\ first_x_assum drule
   \\ `x4 = s8.memory /\ s.mdomain = s8.mdomain /\ s.bitmaps = s8.bitmaps` by
         (unabbrev_all_tac \\ fs [] \\ NO_TAC) \\ fs []
-  \\ disch_then old_drule
+  \\ disch_then drule
   \\ ntac 3 (pop_assum (fn th => fs [GSYM th]))
   \\ disch_then (qspec_then `old ++ Word c::x0` mp_tac)
   \\ impl_tac THEN1
@@ -3692,7 +3729,7 @@ Proof
   \\ strip_tac \\ unabbrev_all_tac \\ fs []
   \\ qexists_tac `ck + ck' + 1` \\ fs []
   \\ pop_assum mp_tac
-  \\ old_drule (evaluate_add_clock |> GEN_ALL)
+  \\ drule (evaluate_add_clock |> GEN_ALL)
   \\ disch_then (qspec_then `ck' + 1` assume_tac)
   \\ fs [] \\ tac \\ rpt strip_tac
   \\ full_simp_tac(srw_ss())[state_component_equality]
@@ -3706,9 +3743,9 @@ Theorem word_gen_gc_move_list_code_thm:
    !l a (s:('a,'c,'b)stackSem$state) pa1 pa old m1 m i1 i dm conf a1 ib ib1 pb pb1.
       word_gen_gc_move_list conf (a:'a word,l,i,pa,ib,pb,old,m,dm) =
          (a1,i1,pa1,ib1,pb1,m1,T) /\
-      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (dimindex (:'a)) < dimindex (:'a) /\
       2 < dimindex (:'a) /\ conf.len_size <> 0 /\
-      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      (!w:'a word. w << word_shift (dimindex (:'a)) = w * bytes_in_word) /\
       FLOOKUP s.store CurrHeap = SOME (Word old) /\ s.use_store /\
       s.memory = m /\ s.mdomain = dm /\
       Temp 0w IN FDOM s.store /\
@@ -3720,12 +3757,13 @@ Theorem word_gen_gc_move_list_code_thm:
       2 IN FDOM s.regs /\
       get_var 3 s = SOME (Word pa) /\
       get_var 4 s = SOME (Word (i:'a word)) /\
-      5 IN FDOM s.regs ==>
+      5 IN FDOM s.regs /\
+      arch_width_bits aw = dimindex (:'a) ==>
       6 IN FDOM s.regs ==>
       get_var 7 s = SOME (Word l) /\
       get_var 8 s = SOME (Word a) ==>
       ?ck r0 r1 r2 r5 r6 t0 t1.
-        evaluate (word_gen_gc_move_list_code conf,s with clock := s.clock + ck) =
+        evaluate (word_gen_gc_move_list_code aw conf,s with clock := s.clock + ck) =
           (NONE,s with <| memory := m1;
                           store :=
                             s.store |++
@@ -3762,19 +3800,19 @@ Proof
   \\ strip_tac
   \\ rpt var_eq_tac
   \\ `n < dimword (:'a)` by decide_tac
-  \\ first_x_assum old_drule
-  \\ disch_then old_drule
+  \\ first_x_assum drule
+  \\ disch_then drule
   \\ fs [] \\ strip_tac
   \\ rpt var_eq_tac \\ fs []
   \\ simp [word_gen_gc_move_list_code_def,evaluate_def]
   \\ fs [GSYM word_gen_gc_move_list_code_def,get_var_def,get_var_imm_def]
   \\ tac
-  \\ old_drule (word_gen_gc_move_code_thm |> GEN_ALL)
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (word_gen_gc_move_code_thm)
   \\ fs [ADD1,GSYM word_add_n2w]
   \\ `FLOOKUP ((s:('a,'c,'b)stackSem$state) with
            <|regs := s.regs |+ (5,s.memory a) |+ (7,Word (n2w n)) |>).store
        CurrHeap  = SOME (Word old)` by fs []
-  \\ disch_then old_drule \\ fs [get_var_def] \\ tac \\ strip_tac
+  \\ disch_then drule \\ fs [get_var_def] \\ tac \\ strip_tac
   \\ fs []
   \\ first_x_assum (qspec_then `s with
         <|regs :=
@@ -3789,14 +3827,14 @@ Proof
   \\ strip_tac \\ fs []
   \\ qexists_tac `ck+ck'+1` \\ fs []
   \\ pop_assum mp_tac
-  \\ old_drule (evaluate_add_clock |> GEN_ALL)
+  \\ drule (evaluate_add_clock |> GEN_ALL)
   \\ disch_then (qspec_then `ck'+1` strip_assume_tac)
   \\ fs [AC ADD_COMM ADD_ASSOC] \\ tac
   \\ strip_tac
-  \\ old_drule (evaluate_add_clock |> GEN_ALL)
+  \\ drule (evaluate_add_clock |> GEN_ALL)
   \\ disch_then (qspec_then `ck` strip_assume_tac)
   \\ fs [AC ADD_COMM ADD_ASSOC] \\ tac
-  \\ fs [STOP_def]
+  \\ rfs [STOP_def,word_gen_gc_move_list_code_def,list_Seq_def]
   \\ full_simp_tac(srw_ss())[state_component_equality]
   \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
          FUN_EQ_THM,FAPPLY_FUPDATE_THM]
@@ -3810,9 +3848,9 @@ Theorem word_gen_gc_partial_move_list_code_thm:
    !l a (s:('a,'c,'b)stackSem$state) pa1 pa old m1 m i1 i dm conf a1 gs rs.
       word_gen_gc_partial_move_list conf (a:'a word,l,i,pa,old,m,dm,gs,rs) =
          (a1,i1,pa1,m1,T) /\
-      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (dimindex (:'a)) < dimindex (:'a) /\
       2 < dimindex (:'a) /\ conf.len_size <> 0 /\
-      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      (!w:'a word. w << word_shift (dimindex (:'a)) = w * bytes_in_word) /\
       FLOOKUP s.store CurrHeap = SOME (Word old) /\ s.use_store /\
       s.memory = m /\ s.mdomain = dm /\ good_dimindex (:'a) /\
       FLOOKUP s.store (Temp 0w) = SOME (Word gs) /\
@@ -3822,12 +3860,13 @@ Theorem word_gen_gc_partial_move_list_code_thm:
       2 IN FDOM s.regs /\
       get_var 3 s = SOME (Word pa) /\
       get_var 4 s = SOME (Word (i:'a word)) /\
-      5 IN FDOM s.regs ==>
+      5 IN FDOM s.regs /\
+      arch_width_bits aw = dimindex (:'a) ==>
       6 IN FDOM s.regs ==>
       get_var 7 s = SOME (Word l) /\
       get_var 8 s = SOME (Word a) ==>
       ?ck r0 r1 r2 r5 r6.
-        evaluate (word_gen_gc_partial_move_list_code conf,s with clock := s.clock + ck) =
+        evaluate (word_gen_gc_partial_move_list_code aw conf,s with clock := s.clock + ck) =
           (NONE,s with <| memory := m1;
                           regs := s.regs |++ [(0,r0);
                                               (1,r1);
@@ -3857,19 +3896,19 @@ Proof
   \\ strip_tac
   \\ rpt var_eq_tac
   \\ `n < dimword (:'a)` by decide_tac
-  \\ first_x_assum old_drule
-  \\ disch_then old_drule
+  \\ first_x_assum drule
+  \\ disch_then drule
   \\ fs [] \\ strip_tac
   \\ rpt var_eq_tac \\ fs []
   \\ simp [word_gen_gc_partial_move_list_code_def,evaluate_def]
   \\ fs [GSYM word_gen_gc_partial_move_list_code_def,get_var_def,get_var_imm_def]
   \\ tac
-  \\ old_drule (word_gen_gc_partial_move_code_thm |> GEN_ALL)
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (word_gen_gc_partial_move_code_thm)
   \\ fs [ADD1,GSYM word_add_n2w]
   \\ `FLOOKUP ((s:('a,'c,'b)stackSem$state) with
            <|regs := s.regs |+ (5,s.memory a) |+ (7,Word (n2w n)) |>).store
        CurrHeap  = SOME (Word old)` by fs []
-  \\ disch_then old_drule \\ fs [get_var_def] \\ tac \\ strip_tac
+  \\ disch_then drule \\ fs [get_var_def] \\ tac \\ strip_tac
   \\ fs []
   \\ first_x_assum (qspec_then `s with
         <|regs :=
@@ -3881,14 +3920,14 @@ Proof
   \\ strip_tac \\ fs []
   \\ qexists_tac `ck+ck'+1` \\ fs []
   \\ pop_assum mp_tac
-  \\ old_drule (evaluate_add_clock |> GEN_ALL)
+  \\ drule (evaluate_add_clock |> GEN_ALL)
   \\ disch_then (qspec_then `ck'+1` strip_assume_tac)
   \\ fs [AC ADD_COMM ADD_ASSOC] \\ tac
   \\ strip_tac
-  \\ old_drule (evaluate_add_clock |> GEN_ALL)
+  \\ drule (evaluate_add_clock |> GEN_ALL)
   \\ disch_then (qspec_then `ck` strip_assume_tac)
   \\ fs [AC ADD_COMM ADD_ASSOC] \\ tac
-  \\ fs [STOP_def]
+  \\ rfs [STOP_def,word_gen_gc_partial_move_list_code_def,list_Seq_def]
   \\ full_simp_tac(srw_ss())[state_component_equality]
   \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
          FUN_EQ_THM,FAPPLY_FUPDATE_THM]
@@ -3900,10 +3939,10 @@ Theorem word_gen_gc_partial_move_ref_list_code_thm[local]:
   !k r2a1 r1a1 r2a2 i1 pa1 ib1 pb1 old1 m1 dm1 c1 i2 pa2 ib2 pb2 m2 (s:('a,'c,'b)stackSem$state).
       word_gen_gc_partial_move_ref_list k conf (r1a1,i1,pa1,old1,m1,dm1,T,gs,rs,r2a1) =
         (i2,pa2,m2,T) /\
-      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (dimindex (:'a)) < dimindex (:'a) /\
       2 < dimindex (:'a) /\ conf.len_size <> 0 /\
       conf.len_size + 2 < dimindex (:'a) /\ good_dimindex (:α) /\
-      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      (!w:'a word. w << word_shift (dimindex (:'a)) = w * bytes_in_word) /\
       FLOOKUP s.store CurrHeap = SOME (Word old1) /\ s.use_store /\
       s.memory = m1 /\ s.mdomain = dm1 /\
       FLOOKUP s.store (Temp 0w) = SOME (Word gs) /\
@@ -3917,9 +3956,10 @@ Theorem word_gen_gc_partial_move_ref_list_code_thm[local]:
       6 IN FDOM s.regs /\
       7 IN FDOM s.regs /\
       get_var 8 s = SOME (Word r1a1) /\
-      get_var 9 s = SOME (Word r2a1) ==>
+      get_var 9 s = SOME (Word r2a1) /\
+      arch_width_bits aw = dimindex (:'a) ==>
       ?ck r0 r1 r2 r5 r6 r7 r8 r9.
-        evaluate (word_gen_gc_partial_move_ref_list_code conf,s with clock := s.clock + ck) =
+        evaluate (word_gen_gc_partial_move_ref_list_code aw conf,s with clock := s.clock + ck) =
           (NONE,s with <| memory := m2;
                           regs := s.regs |++ [(0,r0);
                                               (1,r1);
@@ -3945,11 +3985,11 @@ Proof
     \\ full_simp_tac(srw_ss())[nine_less])
   \\ IF_CASES_TAC \\ fs []
   \\ `k-1 < k` by decide_tac
-  \\ first_x_assum old_drule \\ ntac 2 (pop_assum kall_tac) \\ strip_tac
+  \\ first_x_assum drule \\ ntac 2 (pop_assum kall_tac) \\ strip_tac
   \\ rpt var_eq_tac \\ fs []
   \\ rpt (pairarg_tac \\ fs []) \\ strip_tac \\ rveq \\ fs []
   \\ asm_simp_tac std_ss[word_gen_gc_partial_move_ref_list_code_def,evaluate_def]
-  \\ asm_simp_tac std_ss[GSYM word_gen_gc_partial_move_ref_list_code_def,STOP_def]
+  \\ fs [] \\ fold_code word_gen_gc_partial_move_ref_list_code_def \\ fs [STOP_def]
   \\ rev_full_simp_tac(srw_ss())[] \\ rpt var_eq_tac
   \\ fs [get_var_def,isWord_thm,clear_top_inst_def] \\ tac
   \\ full_simp_tac(srw_ss())[theWord_def] \\ tac
@@ -3964,7 +4004,7 @@ Proof
             s.regs |+
             (7,Word (v ⋙ (dimindex (:'a) − conf.len_size))) |+
             (8,Word (r1a1 + bytes_in_word)) |>`
-  \\ old_drule word_gen_gc_partial_move_list_code_thm
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) word_gen_gc_partial_move_list_code_thm
   \\ disch_then (qspec_then `s5` mp_tac)
   \\ fs [AND_IMP_INTRO] \\ impl_tac
   THEN1 (unabbrev_all_tac \\ fs [FLOOKUP_UPDATE,get_var_def,theWord_def]
@@ -3974,10 +4014,10 @@ Proof
   \\ qpat_abbrev_tac `s6 = s5 with <|regs := _ ; memory := _ |>`
   \\ `s.mdomain = s6.mdomain /\ m1 = s6.memory` by (unabbrev_all_tac \\ fs [])
   \\ fs [] (* \\ qpat_x_assum `_ = _` kall_tac *)
-  \\ first_x_assum old_drule \\ impl_tac
+  \\ first_x_assum drule \\ impl_tac
   THEN1 (unabbrev_all_tac \\ fs [FUPDATE_LIST,FLOOKUP_UPDATE])
   \\ rpt strip_tac \\ qexists_tac `ck + ck' + 1`
-  \\ old_drule (evaluate_add_clock |> GEN_ALL)
+  \\ drule (evaluate_add_clock |> GEN_ALL)
   \\ disch_then (qspec_then `ck'+1` mp_tac) \\ fs []
   \\ qunabbrev_tac `s5` \\ fs [] \\ strip_tac
   \\ qunabbrev_tac `s6`
@@ -3993,10 +4033,10 @@ Theorem word_gen_gc_move_data_code_thm[local]:
   !k ha1 i1 pa1 ib1 pb1 old1 m1 dm1 c1 i2 pa2 ib2 pb2 m2 (s:('a,'c,'b)stackSem$state).
       word_gen_gc_move_data conf k (ha1,i1,pa1,ib1,pb1,old1,m1,dm1) =
         (i2,pa2,ib2,pb2,m2,T) /\
-      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (dimindex (:'a)) < dimindex (:'a) /\
       2 < dimindex (:'a) /\ conf.len_size <> 0 /\
       conf.len_size + 2 < dimindex (:'a) /\
-      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      (!w:'a word. w << word_shift (dimindex (:'a)) = w * bytes_in_word) /\
       FLOOKUP s.store CurrHeap = SOME (Word old1) /\ s.use_store /\
       s.memory = m1 /\ s.mdomain = dm1 /\
       Temp 0w IN FDOM s.store /\
@@ -4008,12 +4048,13 @@ Theorem word_gen_gc_move_data_code_thm[local]:
       2 IN FDOM s.regs /\
       get_var 3 s = SOME (Word pa1) /\
       get_var 4 s = SOME (Word (i1:'a word)) /\
-      5 IN FDOM s.regs ==>
+      5 IN FDOM s.regs /\
+      arch_width_bits aw = dimindex (:'a) ==>
       6 IN FDOM s.regs ==>
       7 IN FDOM s.regs ==>
       get_var 8 s = SOME (Word ha1) /\ c1 ==>
       ?ck r0 r1 r2 r5 r6 r7 t0 t1.
-        evaluate (word_gen_gc_move_data_code conf,s with clock := s.clock + ck) =
+        evaluate (word_gen_gc_move_data_code aw conf,s with clock := s.clock + ck) =
           (NONE,s with <| memory := m2;
                           store :=
                             s.store |++
@@ -4045,14 +4086,14 @@ Proof
     \\ rw [] \\ eq_tac \\ rw[] \\ fs [])
   \\ IF_CASES_TAC \\ fs []
   \\ `k-1 < k` by decide_tac
-  \\ first_x_assum old_drule \\ ntac 2 (pop_assum kall_tac) \\ strip_tac
+  \\ first_x_assum drule \\ ntac 2 (pop_assum kall_tac) \\ strip_tac
   \\ rpt var_eq_tac \\ fs []
   \\ pairarg_tac \\ fs []
   \\ Cases_on `word_bit 2 (theWord (s.memory ha1))`
   \\ fs [word_bit_test] THEN1
    (rpt strip_tac \\ fs [] \\ fs [] \\ rveq
     \\ asm_simp_tac std_ss[word_gen_gc_move_data_code_def,evaluate_def]
-    \\ asm_simp_tac std_ss[GSYM word_gen_gc_move_data_code_def,STOP_def]
+    \\ fs [] \\ fold_code word_gen_gc_move_data_code_def \\ fs [STOP_def]
     \\ fs [get_var_def,isWord_thm,clear_top_inst_def] \\ tac
     \\ rev_full_simp_tac(srw_ss())
          [decode_length_def,LET_THM] \\ rpt var_eq_tac
@@ -4066,7 +4107,7 @@ Proof
                             (7,Word ww) |+ (8,Word (ha1 + ww)) |>`
     \\ `s.memory = s5.memory /\ s.mdomain = s5.mdomain` by
          (unabbrev_all_tac \\ fs [])
-    \\ fs [] \\ first_x_assum old_drule \\ fs []
+    \\ fs [] \\ first_x_assum drule \\ fs []
     \\ fs [AND_IMP_INTRO] \\ impl_tac
     THEN1 (unabbrev_all_tac \\ fs [FLOOKUP_UPDATE])
     \\ strip_tac \\ qexists_tac `ck + 1` \\ fs []
@@ -4080,7 +4121,7 @@ Proof
     \\ rw [] \\ eq_tac \\ rw[] \\ fs [])
   \\ rpt strip_tac
   \\ asm_simp_tac std_ss[word_gen_gc_move_data_code_def,evaluate_def]
-  \\ asm_simp_tac std_ss[GSYM word_gen_gc_move_data_code_def,STOP_def]
+  \\ fs [] \\ fold_code word_gen_gc_move_data_code_def \\ fs [STOP_def]
   \\ rev_full_simp_tac(srw_ss())[] \\ rpt var_eq_tac
   \\ fs [get_var_def,isWord_thm,clear_top_inst_def] \\ tac
   \\ full_simp_tac(srw_ss())[theWord_def] \\ tac
@@ -4094,7 +4135,7 @@ Proof
             s.regs |+ (7,Word v) |+
             (7,Word (v ⋙ (dimindex (:'a) − conf.len_size))) |+
             (8,Word (ha1 + bytes_in_word)) |>`
-  \\ old_drule word_gen_gc_move_list_code_thm
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) word_gen_gc_move_list_code_thm
   \\ disch_then (qspec_then `s5` mp_tac)
   \\ fs [AND_IMP_INTRO] \\ impl_tac
   THEN1 (unabbrev_all_tac \\ fs [FLOOKUP_UPDATE,get_var_def,theWord_def])
@@ -4104,10 +4145,10 @@ Proof
   \\ `s.mdomain = s6.mdomain /\ m'' = s6.memory` by (unabbrev_all_tac \\ fs [])
   \\ qpat_x_assum `Abbrev _` assume_tac
   \\ fs [] \\ qpat_x_assum `_ = _` kall_tac
-  \\ first_x_assum old_drule \\ impl_tac
+  \\ first_x_assum drule \\ impl_tac
   THEN1 (unabbrev_all_tac \\ fs [FUPDATE_LIST,FLOOKUP_UPDATE])
   \\ rpt strip_tac \\ qexists_tac `ck + ck' + 1`
-  \\ old_drule (evaluate_add_clock |> GEN_ALL)
+  \\ drule (evaluate_add_clock |> GEN_ALL)
   \\ disch_then (qspec_then `ck'+1` mp_tac) \\ fs []
   \\ qunabbrev_tac `s5` \\ fs [] \\ strip_tac
   \\ qunabbrev_tac `s6`
@@ -4125,10 +4166,10 @@ Theorem word_gen_gc_partial_move_data_code_thm[local]:
   !k ha1 i1 pa1 old1 m1 dm1 c1 i2 pa2 m2 (s:('a,'c,'b)stackSem$state).
       word_gen_gc_partial_move_data conf k (ha1,i1,pa1,old1,m1,dm1,gs,rs) =
         (i2,pa2,m2,T) /\
-      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (dimindex (:'a)) < dimindex (:'a) /\
       2 < dimindex (:'a) /\ conf.len_size <> 0 /\
       conf.len_size + 2 < dimindex (:'a) /\
-      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      (!w:'a word. w << word_shift (dimindex (:'a)) = w * bytes_in_word) /\
       FLOOKUP s.store CurrHeap = SOME (Word old1) /\ s.use_store /\
       s.memory = m1 /\ s.mdomain = dm1 /\ good_dimindex (:'a) /\
       FLOOKUP s.store (Temp 0w) = SOME (Word gs) /\
@@ -4138,12 +4179,13 @@ Theorem word_gen_gc_partial_move_data_code_thm[local]:
       2 IN FDOM s.regs /\
       get_var 3 s = SOME (Word pa1) /\
       get_var 4 s = SOME (Word (i1:'a word)) /\
-      5 IN FDOM s.regs ==>
+      5 IN FDOM s.regs /\
+      arch_width_bits aw = dimindex (:'a) ==>
       6 IN FDOM s.regs ==>
       7 IN FDOM s.regs ==>
       get_var 8 s = SOME (Word ha1) /\ c1 ==>
       ?ck r0 r1 r2 r5 r6 r7 t0 t1.
-        evaluate (word_gen_gc_partial_move_data_code conf,s with clock := s.clock + ck) =
+        evaluate (word_gen_gc_partial_move_data_code aw conf,s with clock := s.clock + ck) =
           (NONE,s with <| memory := m2;
                           regs := s.regs |++ [(0,r0);
                                               (1,r1);
@@ -4168,14 +4210,14 @@ Proof
     \\ full_simp_tac(srw_ss())[nine_less])
   \\ IF_CASES_TAC \\ fs []
   \\ `k-1 < k` by decide_tac
-  \\ first_x_assum old_drule \\ ntac 2 (pop_assum kall_tac) \\ strip_tac
+  \\ first_x_assum drule \\ ntac 2 (pop_assum kall_tac) \\ strip_tac
   \\ rpt var_eq_tac \\ fs []
   \\ pairarg_tac \\ fs []
   \\ Cases_on `word_bit 2 (theWord (s.memory ha1))`
   \\ fs [word_bit_test] THEN1
    (rpt strip_tac \\ fs [] \\ fs [] \\ rveq
     \\ asm_simp_tac std_ss[word_gen_gc_partial_move_data_code_def,evaluate_def]
-    \\ asm_simp_tac std_ss[GSYM word_gen_gc_partial_move_data_code_def,STOP_def]
+    \\ fs [] \\ fold_code word_gen_gc_partial_move_data_code_def \\ fs [STOP_def]
     \\ fs [get_var_def,isWord_thm,clear_top_inst_def] \\ tac
     \\ rev_full_simp_tac(srw_ss())
          [decode_length_def,LET_THM] \\ rpt var_eq_tac
@@ -4189,7 +4231,7 @@ Proof
                             (7,Word ww) |+ (8,Word (ha1 + ww)) |>`
     \\ `s.memory = s5.memory /\ s.mdomain = s5.mdomain` by
          (unabbrev_all_tac \\ fs [])
-    \\ fs [] \\ first_x_assum old_drule \\ fs []
+    \\ fs [] \\ first_x_assum drule \\ fs []
     \\ fs [AND_IMP_INTRO] \\ impl_tac
     THEN1 (unabbrev_all_tac \\ fs [FLOOKUP_UPDATE])
     \\ strip_tac \\ qexists_tac `ck + 1` \\ fs []
@@ -4201,7 +4243,7 @@ Proof
     \\ full_simp_tac(srw_ss())[nine_less])
   \\ rpt strip_tac
   \\ asm_simp_tac std_ss[word_gen_gc_partial_move_data_code_def,evaluate_def]
-  \\ asm_simp_tac std_ss[GSYM word_gen_gc_partial_move_data_code_def,STOP_def]
+  \\ fs [] \\ fold_code word_gen_gc_partial_move_data_code_def \\ fs [STOP_def]
   \\ rev_full_simp_tac(srw_ss())[] \\ rpt var_eq_tac
   \\ fs [get_var_def,isWord_thm,clear_top_inst_def] \\ tac
   \\ full_simp_tac(srw_ss())[theWord_def] \\ tac
@@ -4215,7 +4257,7 @@ Proof
             s.regs |+ (7,Word v) |+
             (7,Word (v ⋙ (dimindex (:'a) − conf.len_size))) |+
             (8,Word (ha1 + bytes_in_word)) |>`
-  \\ old_drule word_gen_gc_partial_move_list_code_thm
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) word_gen_gc_partial_move_list_code_thm
   \\ disch_then (qspec_then `s5` mp_tac)
   \\ fs [AND_IMP_INTRO] \\ impl_tac
   THEN1 (unabbrev_all_tac \\ fs [FLOOKUP_UPDATE,get_var_def,theWord_def])
@@ -4225,10 +4267,10 @@ Proof
   \\ `s.mdomain = s6.mdomain /\ m'' = s6.memory` by (unabbrev_all_tac \\ fs [])
   \\ qpat_x_assum `Abbrev _` assume_tac
   \\ fs [] \\ qpat_x_assum `_ = _` kall_tac
-  \\ first_x_assum old_drule \\ impl_tac
+  \\ first_x_assum drule \\ impl_tac
   THEN1 (unabbrev_all_tac \\ fs [FUPDATE_LIST,FLOOKUP_UPDATE])
   \\ rpt strip_tac \\ qexists_tac `ck + ck' + 1`
-  \\ old_drule (evaluate_add_clock |> GEN_ALL)
+  \\ drule (evaluate_add_clock |> GEN_ALL)
   \\ disch_then (qspec_then `ck'+1` mp_tac) \\ fs []
   \\ qunabbrev_tac `s5` \\ fs [] \\ strip_tac
   \\ qunabbrev_tac `s6`
@@ -4244,10 +4286,10 @@ Theorem word_gen_gc_move_refs_code_thm[local]:
   !k r2a1 r1a1 r2a2 i1 pa1 ib1 pb1 old1 m1 dm1 c1 i2 pa2 ib2 pb2 m2 (s:('a,'c,'b)stackSem$state).
       word_gen_gc_move_refs conf k (r2a1,r1a1,i1,pa1,ib1,pb1,old1,m1,dm1) =
         (r2a2,i2,pa2,ib2,pb2,m2,T) /\
-      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (dimindex (:'a)) < dimindex (:'a) /\
       2 < dimindex (:'a) /\ conf.len_size <> 0 /\
       conf.len_size + 2 < dimindex (:'a) /\
-      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      (!w:'a word. w << word_shift (dimindex (:'a)) = w * bytes_in_word) /\
       FLOOKUP s.store CurrHeap = SOME (Word old1) /\ s.use_store /\
       s.memory = m1 /\ s.mdomain = dm1 /\
       Temp 0w IN FDOM s.store /\
@@ -4260,12 +4302,13 @@ Theorem word_gen_gc_move_refs_code_thm[local]:
       2 IN FDOM s.regs /\
       get_var 3 s = SOME (Word pa1) /\
       get_var 4 s = SOME (Word (i1:'a word)) /\
-      5 IN FDOM s.regs ==>
+      5 IN FDOM s.regs /\
+      arch_width_bits aw = dimindex (:'a) ==>
       6 IN FDOM s.regs ==>
       7 IN FDOM s.regs ==>
       get_var 8 s = SOME (Word r2a1) /\ c1 ==>
       ?ck r1 r2 r5 r6 r7 t0 t1.
-        evaluate (word_gen_gc_move_refs_code conf,s with clock := s.clock + ck) =
+        evaluate (word_gen_gc_move_refs_code aw conf,s with clock := s.clock + ck) =
           (NONE,s with <| memory := m2;
                           store :=
                             s.store |++
@@ -4297,11 +4340,11 @@ Proof
     \\ rw [] \\ eq_tac \\ rw[] \\ fs [])
   \\ IF_CASES_TAC \\ fs []
   \\ `k-1 < k` by decide_tac
-  \\ first_x_assum old_drule \\ ntac 2 (pop_assum kall_tac) \\ strip_tac
+  \\ first_x_assum drule \\ ntac 2 (pop_assum kall_tac) \\ strip_tac
   \\ rpt var_eq_tac \\ fs []
   \\ rpt (pairarg_tac \\ fs []) \\ strip_tac \\ rveq \\ fs []
   \\ asm_simp_tac std_ss[word_gen_gc_move_refs_code_def,evaluate_def]
-  \\ asm_simp_tac std_ss[GSYM word_gen_gc_move_refs_code_def,STOP_def]
+  \\ fs [] \\ fold_code word_gen_gc_move_refs_code_def \\ fs [STOP_def]
   \\ rev_full_simp_tac(srw_ss())[] \\ rpt var_eq_tac
   \\ fs [get_var_def,isWord_thm,clear_top_inst_def] \\ tac
   \\ full_simp_tac(srw_ss())[theWord_def] \\ tac
@@ -4315,7 +4358,7 @@ Proof
             s.regs |+ (7,Word v) |+
             (7,Word (v ⋙ (dimindex (:'a) − conf.len_size))) |+
             (8,Word (r2a1 + bytes_in_word)) |>`
-  \\ old_drule word_gen_gc_move_list_code_thm
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) word_gen_gc_move_list_code_thm
   \\ disch_then (qspec_then `s5` mp_tac)
   \\ fs [AND_IMP_INTRO] \\ impl_tac
   THEN1 (unabbrev_all_tac \\ fs [FLOOKUP_UPDATE,get_var_def,theWord_def]
@@ -4326,10 +4369,10 @@ Proof
   \\ qabbrev_tac `s7 = s6 with regs := s6.regs |+ (0,Word r1a1)`
   \\ `s.mdomain = s7.mdomain /\ m' = s7.memory` by (unabbrev_all_tac \\ fs [])
   \\ fs [] (* \\ qpat_x_assum `_ = _` kall_tac *)
-  \\ first_x_assum old_drule \\ impl_tac
+  \\ first_x_assum drule \\ impl_tac
   THEN1 (unabbrev_all_tac \\ fs [FUPDATE_LIST,FLOOKUP_UPDATE])
   \\ rpt strip_tac \\ qexists_tac `ck + ck' + 1`
-  \\ old_drule (evaluate_add_clock |> GEN_ALL)
+  \\ drule (evaluate_add_clock |> GEN_ALL)
   \\ disch_then (qspec_then `ck'+1` mp_tac) \\ fs []
   \\ qunabbrev_tac `s5` \\ fs [] \\ strip_tac
   \\ qunabbrev_tac `s6`
@@ -4348,10 +4391,10 @@ Theorem word_gen_gc_move_loop_code_thm[local]:
   !k pax i pa ib pb pbx old m dm i1 pa1 ib1 pb1 m1 tt (s:('a,'c,'b)stackSem$state).
       word_gen_gc_move_loop conf k (pax,i,pa,ib,pb,pbx,old,m,dm) =
           (i1,pa1,ib1,pb1,m1,T) /\
-      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (dimindex (:'a)) < dimindex (:'a) /\
       2 < dimindex (:'a) /\ conf.len_size <> 0 /\
       conf.len_size + 2 < dimindex (:'a) /\
-      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      (!w:'a word. w << word_shift (dimindex (:'a)) = w * bytes_in_word) /\
       FLOOKUP s.store CurrHeap = SOME (Word old) /\ s.use_store /\
       s.memory = m /\ s.mdomain = dm /\
       (tt = 0w <=> pbx = pb /\ pax = pa) /\
@@ -4370,9 +4413,10 @@ Theorem word_gen_gc_move_loop_code_thm[local]:
       get_var 7 s = SOME (Word tt) /\
       get_var 8 s = SOME (Word pax) /\
       5 IN FDOM s.regs /\
-      6 IN FDOM s.regs /\ c1 ==>
+      6 IN FDOM s.regs /\ c1 /\
+      arch_width_bits aw = dimindex (:'a) ==>
       ?ck r0 r1 r2 r5 r6 r7 r8 t0 t1 t4 t5 t6.
-        evaluate (word_gen_gc_move_loop_code conf,s with clock := s.clock + ck) =
+        evaluate (word_gen_gc_move_loop_code aw conf,s with clock := s.clock + ck) =
           (NONE,s with <| memory := m1;
                           store :=
                             s.store |++
@@ -4411,19 +4455,19 @@ Proof
   \\ rpt (pairarg_tac \\ fs []) \\ strip_tac \\ rveq \\ fs []
   \\ Cases_on `k = 0` \\ fs [] \\ rveq \\ fs [PULL_FORALL]
   THEN1
-   (old_drule word_gen_gc_move_data_code_thm
+   (drule_then (drule_at (Pat `arch_width_bits _ = _`)) word_gen_gc_move_data_code_thm
     \\ disch_then (qspecl_then [`T`,`s`] mp_tac)
     \\ fs [AND_IMP_INTRO]
     \\ impl_tac THEN1 fs [FLOOKUP_DEF,get_var_def]
     \\ strip_tac
     \\ `k - 1 < k` by fs []
-    \\ first_x_assum old_drule
+    \\ first_x_assum drule
     \\ qmatch_asmsub_abbrev_tac `(NONE,s2)`
     \\ qabbrev_tac `s3 = s2 with <| regs := s2.regs |++
              [(5,Word pb');(7,Word pb);(1,Word pb);(2,Word pb');(7,Word (pb-pb'))] |>`
     \\ `s.mdomain = s3.mdomain /\ m' = s3.memory /\ s2.use_store` by
           (unabbrev_all_tac \\ fs [] \\ NO_TAC)
-    \\ fs [] \\ disch_then old_drule
+    \\ fs [] \\ disch_then drule
     \\ disch_then (qspec_then `pb - pb'` mp_tac)
     \\ impl_tac
     THEN1
@@ -4431,15 +4475,15 @@ Proof
       \\ once_rewrite_tac [GSYM wordsTheory.WORD_EQ_SUB_ZERO] \\ fs [])
     \\ strip_tac
     \\ pop_assum mp_tac
-    \\ old_drule (evaluate_add_clock |> GEN_ALL)
+    \\ drule (evaluate_add_clock |> GEN_ALL)
     \\ disch_then (qspec_then `ck'+1` strip_assume_tac)
     \\ fs [] \\ strip_tac
-    \\ old_drule (evaluate_add_clock |> GEN_ALL)
+    \\ drule (evaluate_add_clock |> GEN_ALL)
     \\ disch_then (qspec_then `1` strip_assume_tac)
     \\ fs [] \\ qexists_tac `ck+ck'+1` \\ fs []
     \\ simp [Once word_gen_gc_move_loop_code_def,get_var_def]
     \\ tac1 \\ fs [get_var_def]
-    \\ full_simp_tac std_ss [GSYM word_gen_gc_move_loop_code_def]
+    \\ fs [] \\ fold_code word_gen_gc_move_loop_code_def
     \\ fs [wordSemTheory.word_cmp_def]
     \\ ntac 18 tac1
     \\ qunabbrev_tac `s2` \\ fs [] \\ tac1
@@ -4460,7 +4504,7 @@ Proof
            store := s.store |+ (Temp 6w, Word pax) |+ (Temp 5w, Word pb) |>`
   \\ `s.mdomain = s1.mdomain /\ s.memory = s1.memory` by
         (unabbrev_all_tac \\ fs [] \\ NO_TAC) \\ fs []
-  \\ old_drule word_gen_gc_move_refs_code_thm
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) word_gen_gc_move_refs_code_thm
   \\ disch_then (qspecl_then [`T`,`s1`] mp_tac)
   \\ fs [AND_IMP_INTRO]
   \\ impl_tac THEN1
@@ -4490,17 +4534,17 @@ Proof
        store := s2.store |+ (Temp 4w,Word pb) |>`
   \\ `s1.mdomain = s4.mdomain /\ m' = s4.memory` by
         (unabbrev_all_tac \\ fs [] \\ NO_TAC) \\ fs []
-  \\ `k - 1 < k` by fs [] \\ first_x_assum old_drule
-  \\ disch_then old_drule
+  \\ `k - 1 < k` by fs [] \\ first_x_assum drule
+  \\ disch_then drule
   \\ disch_then (qspec_then `(pb - pb') || (pax - pa')` mp_tac)
   \\ impl_tac THEN1
    (rpt strip_tac \\ TRY (unabbrev_all_tac \\ tac \\ fs [word_or_eq_0,get_var_def]
     \\ once_rewrite_tac [GSYM wordsTheory.WORD_EQ_SUB_ZERO] \\ fs [] \\ NO_TAC))
   \\ strip_tac \\ pop_assum mp_tac
-  \\ old_drule (evaluate_add_clock |> GEN_ALL)
+  \\ drule (evaluate_add_clock |> GEN_ALL)
   \\ disch_then (qspec_then `ck'+1` strip_assume_tac) \\ fs []
   \\ rpt strip_tac
-  \\ old_drule (evaluate_add_clock |> GEN_ALL)
+  \\ drule (evaluate_add_clock |> GEN_ALL)
   \\ disch_then (qspec_then `0` strip_assume_tac) \\ fs []
   \\ qexists_tac `ck + ck'+1`
   \\ simp [Once word_gen_gc_move_loop_code_def,get_var_def]
@@ -4550,8 +4594,19 @@ Proof
   \\ fs [alignmentTheory.byte_aligned_def,alignmentTheory.aligned_bitwise_and]
 QED
 
+Theorem get_gen_size_word[local]:
+  arch_width_bits aw = dimindex (:'a) ⇒
+  i2w (get_gen_size aw gs) = (word_gen_size gs:'a word)
+Proof
+  strip_tac \\ Cases_on ‘gs’
+  \\ rw [data_to_wordTheory.get_gen_size_def,word_gen_size_def,arch_size,dimword_def,
+         integer_wordTheory.i2w_pos,GSYM integer_wordTheory.MULT_MINUS_ONE,
+         bytes_in_word_def,word_mul_n2w]
+QED
+
 Theorem evaluate_SetNewTrigger[local]:
-    evaluate (SetNewTrigger endh_reg ib_reg gen_sizes,s5) = (res,new_s) ==>
+    evaluate (SetNewTrigger aw endh_reg ib_reg gen_sizes,s5) = (res,new_s) /\
+      arch_width_bits aw = dimindex (:'a) ==>
     !ib endh w.
       good_dimindex (:'a) /\ s5.use_store /\
       ALL_DISTINCT [1; 4; 7; ib_reg; endh_reg] /\
@@ -4564,10 +4619,13 @@ Theorem evaluate_SetNewTrigger[local]:
                            store := s5.store |+ (TriggerGC,
                              Word ((ib + new_trig (endh - ib) w gen_sizes))) |>
 Proof
-  rw [] \\ qpat_x_assum `evaluate _ = _` mp_tac
+  rw []
+  \\ ‘i2w (get_gen_size aw gen_sizes) = (word_gen_size gen_sizes:'a word)’
+       by metis_tac [get_gen_size_word]
+  \\ qpat_x_assum `evaluate _ = _` mp_tac
   \\ rw [new_trig_def]
   \\ pop_assum mp_tac
-  \\ fs [SetNewTrigger_def,list_Seq_def]
+  \\ fs [SetNewTrigger_def,list_Seq_def,get_gen_size_word]
   THEN1
    (tac \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM,WORD_LO,GSYM NOT_LESS,
                set_store_def,MIN_DEF]
@@ -4595,18 +4653,19 @@ Theorem alloc_correct_lemma_Generational:
     LENGTH s.bitmaps < dimword (:'a) - 1 /\
     LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
     FLOOKUP l 0 = SOME ret /\
-    FLOOKUP l 1 = SOME (Word w) ==>
+    FLOOKUP l 1 = SOME (Word w) /\
+      arch_width_bits aw = dimindex (:'a) ==>
     ?ck l2.
       evaluate
-        (word_gc_code conf,
+        (word_gc_code aw conf,
          s with
            <| use_store := T; use_stack := T; use_alloc := F;
               clock := s.clock + ck; regs := l; gc_fun := anything;
-              code := fromAList (compile c (toAList s.code))|>) =
+              code := fromAList (compile aw c (toAList s.code))|>) =
         (r,
          t with
            <| use_store := T; use_stack := T; use_alloc := F;
-              code := fromAList (compile c (toAList s.code));
+              code := fromAList (compile aw c (toAList s.code));
               regs := l2; gc_fun := anything |>) /\
        (r <> NONE ==> r = SOME (Halt (Word 1w))) /\
        t.regs SUBMAP l2 /\
@@ -4617,7 +4676,7 @@ Proof
   \\ Cases_on `s.gc_fun = word_gc_fun conf` \\ fs [] \\ fs [alloc_def]
   \\ `(set_store AllocSize (Word w) s).gc_fun = word_gc_fun conf` by
         (fs [set_store_def] \\ NO_TAC)
-  \\ old_drule gc_thm
+  \\ drule gc_thm
   \\ fs [] \\ disch_then kall_tac
   \\ fs [set_store_def] \\ IF_CASES_TAC THEN1 (fs [] \\ rw [] \\ fs [])
   \\ fs [FAPPLY_FUPDATE_THM]
@@ -4640,8 +4699,8 @@ Proof
         shift_length conf < dimindex (:'a) /\
         conf.len_size <> 0` by
           (fs [word_gc_fun_assum_def,set_store_def,FAPPLY_FUPDATE_THM] \\ NO_TAC)
-    \\ `word_shift (:'a) < dimindex (:'a) /\ 2 < dimindex (:'a) /\
-        !w:'a word. w ≪ word_shift (:'a) = w * bytes_in_word` by
+    \\ `word_shift (dimindex (:'a)) < dimindex (:'a) /\ 2 < dimindex (:'a) /\
+        !w:'a word. w ≪ word_shift (dimindex (:'a)) = w * bytes_in_word` by
      (fs [word_shift_def,bytes_in_word_def,good_dimindex_def]
       \\ fs [WORD_MUL_LSL] \\ NO_TAC)
     \\ fs [isWord_thm] \\ fs [theWord_def]
@@ -4663,14 +4722,14 @@ Proof
            s with
            <|regs := l; gc_fun := anything; use_stack := T; use_store := T;
              use_alloc := F; clock := ck + s.clock;
-             code := fromAList (compile c (toAList s.code))|>) =
+             code := fromAList (compile aw c (toAList s.code))|>) =
              evaluate
           (list_Seq xs,
            s with
            <|regs := l |++ [(8,Word trig);(7,Word (endh - trig))];
              gc_fun := anything; use_stack := T; use_store := T;
              use_alloc := F; clock := ck + s.clock;
-             code := fromAList (compile c (toAList s.code))|>)` by
+             code := fromAList (compile aw c (toAList s.code))|>)` by
      (fs [word_gc_partial_or_full_def] \\ Cases_on `gen_sizes` \\ fs []
       \\ fs [word_gen_gc_can_do_partial_def] \\ tac
       \\ fs [WORD_NOT_LOWER,FAPPLY_FUPDATE_THM,theWord_def] \\ NO_TAC)
@@ -4681,12 +4740,12 @@ Proof
     \\ tac \\ fs [set_store_def] \\ tac
     \\ simp [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
     \\ fs []
-    \\ old_drule word_gen_gc_partial_move_ref_list_ok
+    \\ drule word_gen_gc_partial_move_ref_list_ok
     \\ strip_tac \\ rveq \\ fs []
     \\ abbrev_under_exists ``s3:('a,'c,'b)stackSem$state``
      (qexists_tac `0` \\ fs []
       \\ qpat_abbrev_tac `(s3:('a,'c,'b)stackSem$state) = _`)
-    \\ old_drule (GEN_ALL word_gen_gc_partial_move_code_thm)
+    \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (word_gen_gc_partial_move_code_thm)
     \\ disch_then (qspec_then `s3` mp_tac)
     \\ impl_tac THEN1
      (unabbrev_all_tac \\ fs [] \\ tac
@@ -4713,11 +4772,11 @@ Proof
       \\ qpat_abbrev_tac `(s4:('a,'c,'b)stackSem$state) = _`)
     \\ qpat_x_assum `word_gen_gc_partial_move_roots_bitmaps _ _ = _` assume_tac
     \\ `s.stack_space <= LENGTH s.stack` by fs []
-    \\ old_drule LESS_EQ_LENGTH
+    \\ drule LESS_EQ_LENGTH
     \\ strip_tac \\ fs []
     \\ `DROP s.stack_space (ys1 ++ ys2) = ys2` by
          metis_tac [DROP_LENGTH_APPEND] \\ fs []
-    \\ old_drule (GEN_ALL word_gen_gc_partial_move_roots_bitmaps_code_thm
+    \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (word_gen_gc_partial_move_roots_bitmaps_code_thm
              |> REWRITE_RULE [GSYM AND_IMP_INTRO])
     \\ fs [AND_IMP_INTRO]
     \\ disch_then (qspecl_then [`ys1`,`s4`,`[]`] mp_tac)
@@ -4726,7 +4785,7 @@ Proof
        \\ fs [FLOOKUP_DEF] \\ fs [EL_APPEND_EQN])
     \\ strip_tac \\ fs [FAPPLY_FUPDATE_THM]
     \\ pop_assum mp_tac
-    \\ old_drule (GEN_ALL evaluate_add_clock)
+    \\ drule (GEN_ALL evaluate_add_clock)
     \\ disch_then (qspec_then `ck'` mp_tac)
     \\ fs [] \\ rpt strip_tac
     \\ abbrev_under_exists ``s5:('a,'c,'b)stackSem$state``
@@ -4734,7 +4793,7 @@ Proof
       \\ unabbrev_all_tac \\ fs [] \\ tac
       \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF] \\ tac
       \\ qpat_abbrev_tac `(s5:('a,'c,'b)stackSem$state) = _`)
-    \\ old_drule (GEN_ALL word_gen_gc_partial_move_ref_list_code_thm
+    \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (word_gen_gc_partial_move_ref_list_code_thm
              |> REWRITE_RULE [GSYM AND_IMP_INTRO])
     \\ fs [AND_IMP_INTRO]
     \\ disch_then (qspecl_then [`s5`] mp_tac)
@@ -4743,10 +4802,10 @@ Proof
        \\ fs [FLOOKUP_DEF,FDOM_FUPDATE,FUPDATE_LIST,FAPPLY_FUPDATE_THM]
        \\ fs [word_or_eq_0])
     \\ strip_tac \\ pop_assum mp_tac
-    \\ old_drule (GEN_ALL evaluate_add_clock)
+    \\ drule (GEN_ALL evaluate_add_clock)
     \\ disch_then (qspec_then `ck''` mp_tac)
     \\ qpat_x_assum `evaluate _ = _` kall_tac
-    \\ old_drule (GEN_ALL evaluate_add_clock)
+    \\ drule (GEN_ALL evaluate_add_clock)
     \\ disch_then (qspec_then `ck''` mp_tac)
     \\ rpt strip_tac \\ fs []
     \\ abbrev_under_exists ``s6:('a,'c,'b)stackSem$state``
@@ -4754,7 +4813,7 @@ Proof
       \\ unabbrev_all_tac \\ fs [] \\ tac
       \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF] \\ tac
       \\ qpat_abbrev_tac `(s6:('a,'c,'b)stackSem$state) = _`)
-    \\ old_drule (GEN_ALL word_gen_gc_partial_move_data_code_thm)
+    \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (word_gen_gc_partial_move_data_code_thm)
     \\ disch_then (qspecl_then [`T`,`s6`] mp_tac)
     \\ fs [AND_IMP_INTRO]
     \\ impl_tac THEN1
@@ -4763,13 +4822,13 @@ Proof
     \\ strip_tac \\ fs []
     \\ qmatch_asmsub_rename_tac `s6 with clock := ck3 + s6.clock`
     \\ pop_assum mp_tac
-    \\ old_drule (GEN_ALL evaluate_add_clock)
+    \\ drule (GEN_ALL evaluate_add_clock)
     \\ disch_then (qspec_then `ck3` mp_tac)
     \\ qpat_x_assum `evaluate _ = _` kall_tac
-    \\ old_drule (GEN_ALL evaluate_add_clock)
+    \\ drule (GEN_ALL evaluate_add_clock)
     \\ disch_then (qspec_then `ck3` mp_tac)
     \\ qpat_x_assum `evaluate _ = _` kall_tac
-    \\ old_drule (GEN_ALL evaluate_add_clock)
+    \\ drule (GEN_ALL evaluate_add_clock)
     \\ disch_then (qspec_then `ck3` mp_tac)
     \\ fs []
     \\ qmatch_goalsub_rename_tac `ck0 + (ck1 + (ck2 + (ck3 + s3.clock)))`
@@ -4781,7 +4840,7 @@ Proof
       \\ tac \\ rfs [] \\ tac
       \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,FUPDATE_LIST]
       \\ qpat_abbrev_tac `(s7:('a,'c,'b)stackSem$state) = _`)
-    \\ old_drule (GEN_ALL memcpy_code_thm)
+    \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (memcpy_code_thm)
     \\ disch_then (qspecl_then [`s7`] mp_tac)
     \\ fs [AND_IMP_INTRO]
     \\ impl_tac THEN1
@@ -4790,16 +4849,16 @@ Proof
     \\ strip_tac \\ fs []
     \\ qmatch_asmsub_rename_tac `s7 with clock := s7.clock + ck4`
     \\ pop_assum mp_tac
-    \\ old_drule (GEN_ALL evaluate_add_clock)
+    \\ drule (GEN_ALL evaluate_add_clock)
     \\ disch_then (qspec_then `ck4` mp_tac)
     \\ qpat_x_assum `evaluate _ = _` kall_tac
-    \\ old_drule (GEN_ALL evaluate_add_clock)
+    \\ drule (GEN_ALL evaluate_add_clock)
     \\ disch_then (qspec_then `ck4` mp_tac)
     \\ qpat_x_assum `evaluate _ = _` kall_tac
-    \\ old_drule (GEN_ALL evaluate_add_clock)
+    \\ drule (GEN_ALL evaluate_add_clock)
     \\ disch_then (qspec_then `ck4` mp_tac)
     \\ qpat_x_assum `evaluate _ = _` kall_tac
-    \\ old_drule (GEN_ALL evaluate_add_clock)
+    \\ drule (GEN_ALL evaluate_add_clock)
     \\ disch_then (qspec_then `ck4` mp_tac)
     \\ rpt strip_tac
     \\ qexists_tac `ck0+ck1+ck2+ck3+ck4` \\ fs []
@@ -4807,9 +4866,9 @@ Proof
     \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,FUPDATE_LIST]
     \\ tac \\ rfs [] \\ tac
     \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,FUPDATE_LIST]
-    \\ qmatch_goalsub_abbrev_tac `evaluate (SetNewTrigger _ _ _,s5)`
-    \\ Cases_on `evaluate (SetNewTrigger 8 3 gen_sizes,s5)`
-    \\ old_drule (GEN_ALL evaluate_SetNewTrigger)
+    \\ qmatch_goalsub_abbrev_tac `evaluate (SetNewTrigger aw _ _ _,s5)`
+    \\ Cases_on `evaluate (SetNewTrigger aw 8 3 gen_sizes,s5)`
+    \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (evaluate_SetNewTrigger)
     \\ qunabbrev_tac `s5` \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
     \\ strip_tac \\ rveq
     \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,FUPDATE_LIST]
@@ -4849,8 +4908,8 @@ Proof
       shift_length conf < dimindex (:'a) /\
       conf.len_size <> 0` by
         (fs [word_gc_fun_assum_def,set_store_def,FAPPLY_FUPDATE_THM] \\ NO_TAC)
-  \\ `word_shift (:'a) < dimindex (:'a) /\ 2 < dimindex (:'a) /\
-      !w:'a word. w ≪ word_shift (:'a) = w * bytes_in_word` by
+  \\ `word_shift (dimindex (:'a)) < dimindex (:'a) /\ 2 < dimindex (:'a) /\
+      !w:'a word. w ≪ word_shift (dimindex (:'a)) = w * bytes_in_word` by
    (fs [word_shift_def,bytes_in_word_def,good_dimindex_def]
     \\ fs [WORD_MUL_LSL] \\ NO_TAC)
   \\ fs [isWord_thm] \\ fs [theWord_def]
@@ -4872,14 +4931,14 @@ Proof
          s with
          <|regs := l; gc_fun := anything; use_stack := T; use_store := T;
            use_alloc := F; clock := ck + s.clock;
-           code := fromAList (compile c (toAList s.code))|>) =
+           code := fromAList (compile aw c (toAList s.code))|>) =
            evaluate
         (list_Seq ys,
          s with
          <|regs := l |++ [(8,Word trig);(7,Word (endh - trig))];
            gc_fun := anything; use_stack := T; use_store := T;
            use_alloc := F; clock := ck + s.clock;
-           code := fromAList (compile c (toAList s.code))|>)` by
+           code := fromAList (compile aw c (toAList s.code))|>)` by
    (fs [word_gc_partial_or_full_def] \\ Cases_on `gen_sizes` \\ fs []
     \\ tac THEN1 (Cases_on `ys` \\ tac)
     \\ fs [word_gen_gc_can_do_partial_def]
@@ -4893,7 +4952,7 @@ Proof
   \\ abbrev_under_exists ``s3:('a,'c,'b)stackSem$state``
    (qexists_tac `0` \\ fs []
     \\ qpat_abbrev_tac `(s3:('a,'c,'b)stackSem$state) = _`)
-  \\ old_drule (GEN_ALL word_gen_gc_move_code_thm)
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (word_gen_gc_move_code_thm)
   \\ disch_then (qspec_then `s3` mp_tac)
   \\ impl_tac THEN1
    (unabbrev_all_tac \\ fs [] \\ tac
@@ -4917,11 +4976,11 @@ Proof
     \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,set_store_def] \\ tac
     \\ qpat_abbrev_tac `(s4:('a,'c,'b)stackSem$state) = _`)
   \\ qpat_x_assum `word_gen_gc_move_roots_bitmaps _ _ = _` assume_tac
-  \\ old_drule LESS_EQ_LENGTH
+  \\ drule LESS_EQ_LENGTH
   \\ strip_tac \\ fs []
   \\ `DROP s.stack_space (ys1 ++ ys2) = ys2` by
        metis_tac [DROP_LENGTH_APPEND] \\ fs []
-  \\ old_drule (GEN_ALL word_gen_gc_move_roots_bitmaps_code_thm
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (word_gen_gc_move_roots_bitmaps_code_thm
            |> REWRITE_RULE [GSYM AND_IMP_INTRO])
   \\ fs [AND_IMP_INTRO]
   \\ disch_then (qspecl_then [`ys1`,`s4`,`[]`] mp_tac)
@@ -4931,7 +4990,7 @@ Proof
      \\ metis_tac [EL_LENGTH_APPEND,NULL,HD])
   \\ strip_tac \\ fs [FAPPLY_FUPDATE_THM]
   \\ pop_assum mp_tac
-  \\ old_drule (GEN_ALL evaluate_add_clock)
+  \\ drule (GEN_ALL evaluate_add_clock)
   \\ disch_then (qspec_then `ck'` mp_tac)
   \\ fs [] \\ rpt strip_tac
   \\ abbrev_under_exists ``s5:('a,'c,'b)stackSem$state``
@@ -4940,7 +4999,7 @@ Proof
     \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,set_store_def] \\ tac
     \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,set_store_def] \\ tac
     \\ qpat_abbrev_tac `(s5:('a,'c,'b)stackSem$state) = _`)
-  \\ old_drule (GEN_ALL word_gen_gc_move_loop_code_thm
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (word_gen_gc_move_loop_code_thm
            |> REWRITE_RULE [GSYM AND_IMP_INTRO])
   \\ fs [AND_IMP_INTRO]
   \\ disch_then (qspecl_then [`(pb2 - (len+other)) || (pa2 - other)`,`s5`] mp_tac)
@@ -4950,18 +5009,18 @@ Proof
      \\ fs [word_or_eq_0]
      \\ rpt (pop_assum kall_tac) \\ fs [word_sub_0_eq])
   \\ strip_tac \\ pop_assum mp_tac
-  \\ old_drule (GEN_ALL evaluate_add_clock)
+  \\ drule (GEN_ALL evaluate_add_clock)
   \\ disch_then (qspec_then `ck''` mp_tac)
   \\ qpat_x_assum `evaluate _ = _` kall_tac
-  \\ old_drule (GEN_ALL evaluate_add_clock)
+  \\ drule (GEN_ALL evaluate_add_clock)
   \\ disch_then (qspec_then `ck''` mp_tac)
   \\ rpt strip_tac \\ fs []
   \\ qexists_tac `ck+ck'+ck''` \\ fs []
   \\ unabbrev_all_tac \\ fs [] \\ tac
   \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST,FLOOKUP_DEF,set_store_def] \\ tac
-  \\ qmatch_goalsub_abbrev_tac `evaluate (SetNewTrigger 2 3 _,s5)`
-  \\ Cases_on `evaluate (SetNewTrigger 2 3 gen_sizes,s5)`
-  \\ old_drule evaluate_SetNewTrigger
+  \\ qmatch_goalsub_abbrev_tac `evaluate (SetNewTrigger aw 2 3 _,s5)`
+  \\ Cases_on `evaluate (SetNewTrigger aw 2 3 gen_sizes,s5)`
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) evaluate_SetNewTrigger
   \\ qunabbrev_tac `s5` \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
   \\ strip_tac \\ rveq
   \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST,FLOOKUP_DEF,set_store_def] \\ tac
@@ -5009,9 +5068,9 @@ Proof
   \\ strip_tac \\ rveq
   \\ rpt (TOP_CASE_TAC \\ fs [])
   \\ strip_tac \\ rveq \\ fs []
-  \\ old_drule filter_bitmap_map_bitmap_IMP
+  \\ drule filter_bitmap_map_bitmap_IMP
   \\ fs [] \\ strip_tac \\ rveq \\ fs []
-  \\ pop_assum old_drule \\ fs [] \\ rw []
+  \\ pop_assum drule \\ fs [] \\ rw []
   \\ res_tac \\ rveq \\ fs []
 QED
 
@@ -5021,18 +5080,19 @@ Theorem alloc_correct_lemma_None:
     LENGTH s.bitmaps < dimword (:'a) - 1 /\
     LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
     FLOOKUP l 0 = SOME ret /\
-    FLOOKUP l 1 = SOME (Word w) ==>
+    FLOOKUP l 1 = SOME (Word w) /\
+      arch_width_bits aw = dimindex (:'a) ==>
     ?ck l2.
       evaluate
-        (word_gc_code conf,
+        (word_gc_code aw conf,
          s with
            <| use_store := T; use_stack := T; use_alloc := F;
               clock := s.clock + ck; regs := l; gc_fun := anything;
-              code := fromAList (compile c (toAList s.code))|>) =
+              code := fromAList (compile aw c (toAList s.code))|>) =
         (r,
          t with
            <| use_store := T; use_stack := T; use_alloc := F;
-              code := fromAList (compile c (toAList s.code));
+              code := fromAList (compile aw c (toAList s.code));
               regs := l2; gc_fun := anything |>) /\
        (r <> NONE ==> r = SOME (Halt (Word 1w))) /\
        t.regs SUBMAP l2 /\
@@ -5054,11 +5114,11 @@ Proof
   \\ IF_CASES_TAC \\ strip_tac \\ fs [] \\ rveq \\ fs []
   \\ fs [list_Seq_def,evaluate_def,word_gc_fun_assum_def,
        list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
-       wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
+       wordSemTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
        asmTheory.word_cmp_def,FAPPLY_FUPDATE_THM,
        wordSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
-       wordLangTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE]
+       wordSemTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE]
   \\ fs [wordSemTheory.word_cmp_def,FAPPLY_FUPDATE_THM,FLOOKUP_DEF,set_store_def]
   \\ fs [state_component_equality,FAPPLY_FUPDATE_THM]
   \\ Cases_on `s.store ' CurrHeap` \\ fs [isWord_def,theWord_def]
@@ -5066,7 +5126,7 @@ Proof
   \\ Cases_on `s.store ' TriggerGC` \\ fs [isWord_def,theWord_def]
   \\ fs [empty_env_def,finite_mapTheory.SUBMAP_FEMPTY]
   \\ fs [NOT_LESS]
-  \\ old_drule LESS_EQ_LENGTH
+  \\ drule LESS_EQ_LENGTH
   \\ strip_tac \\ fs []
   \\ pop_assum (assume_tac o GSYM) \\ fs []
   \\ fs [TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND]
@@ -5081,18 +5141,19 @@ Theorem alloc_correct_lemma:
     LENGTH s.bitmaps < dimword (:'a) - 1 /\
     LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
     FLOOKUP l 0 = SOME ret /\
-    FLOOKUP l 1 = SOME (Word w) ==>
+    FLOOKUP l 1 = SOME (Word w) /\
+      arch_width_bits aw = dimindex (:'a) ==>
     ?ck l2.
       evaluate
-        (word_gc_code conf,
+        (word_gc_code aw conf,
          s with
            <| use_store := T; use_stack := T; use_alloc := F;
               clock := s.clock + ck; regs := l; gc_fun := anything;
-              code := fromAList (compile c (toAList s.code))|>) =
+              code := fromAList (compile aw c (toAList s.code))|>) =
         (r,
          t with
            <| use_store := T; use_stack := T; use_alloc := F;
-              code := fromAList (compile c (toAList s.code));
+              code := fromAList (compile aw c (toAList s.code));
               regs := l2; gc_fun := anything |>) /\
        (r <> NONE ==> r = SOME (Halt (Word 1w))) /\
        t.regs SUBMAP l2 /\
@@ -5109,22 +5170,23 @@ Theorem alloc_correct[local]:
     s.gc_fun = word_gc_fun c /\
     LENGTH s.bitmaps < dimword (:'a) - 1 /\
     LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
-    FLOOKUP l 1 = SOME (Word w) ==>
+    FLOOKUP l 1 = SOME (Word w) /\
+      arch_width_bits aw = dimindex (:'a) ==>
     ?ck l2.
        evaluate
           (Call (SOME (Skip,0,n',m)) (INL gc_stub_location) NONE,
            s with
            <| use_store := T; use_stack := T; use_alloc := F;
               use_alloc := F; clock := s.clock + ck; regs := l; gc_fun := anything;
-              code := fromAList (compile c (toAList s.code))|>) =
+              code := fromAList (compile aw c (toAList s.code))|>) =
          (r,
           t with
            <| use_store := T; use_stack := T; use_alloc := F;
-              use_alloc := F; code := fromAList (compile c (toAList s.code));
+              use_alloc := F; code := fromAList (compile aw c (toAList s.code));
               regs := l2; gc_fun := anything|>) /\ t.regs SUBMAP l2
 Proof
-  `find_code (INL gc_stub_location) (l \\ 0) (fromAList (compile c (toAList s.code))) =
-      SOME (Seq (word_gc_code c) (Return 0))` by
+  `find_code (INL gc_stub_location) (l \\ 0) (fromAList (compile aw c (toAList s.code))) =
+      SOME (Seq (word_gc_code aw c) (Return 0))` by
      simp[find_code_def,lookup_fromAList,compile_def,ALOOKUP_APPEND,stubs_def]
   \\ tac \\ fs [] \\ strip_tac
   \\ mp_tac (Q.GENL [`conf`,`l`,`ret`] alloc_correct_lemma) \\ fs []
@@ -5135,12 +5197,16 @@ Proof
 QED
 
 Theorem find_code_IMP_lookup[local]:
-  find_code dest regs (s:'a num_map) = SOME x ==>
-    ?k. sptree$lookup k s = SOME x /\
-        (find_code dest regs = ((lookup k):'a num_map -> 'a option))
+  find_code dest regs (s:('b # 'c) num_map) = SOME x ==>
+    ?k md. sptree$lookup k s = SOME (x,md) /\
+        (!c:('b # 'c) num_map.
+          find_code dest regs c = OPTION_MAP FST (lookup k c))
 Proof
-  Cases_on `dest` \\ full_simp_tac(srw_ss())[find_code_def,FUN_EQ_THM]
-  \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ metis_tac []
+  Cases_on `dest` \\ fs[find_code_def,FUN_EQ_THM, EXISTS_PROD]
+  \\ every_case_tac \\ rw[] \\ fs []
+  >- metis_tac []
+  \\ rename [‘lookup n s = SOME z’] \\ PairCases_on ‘z’ \\ fs []
+  \\ metis_tac []
 QED
 
 Theorem alloc_length_stack:
@@ -5150,8 +5216,8 @@ Theorem alloc_length_stack:
 Proof
   fs [alloc_def,gc_def,set_store_def] \\ rw [] \\ fs []
   \\ every_case_tac \\ fs []
-  \\ rw [] \\ old_drule word_gc_fun_LENGTH \\ rw [] \\ fs [NOT_LESS]
-  \\ old_drule LESS_EQ_LENGTH \\ strip_tac \\ fs []
+  \\ rw [] \\ drule word_gc_fun_LENGTH \\ rw [] \\ fs [NOT_LESS]
+  \\ drule LESS_EQ_LENGTH \\ strip_tac \\ fs []
   \\ pop_assum (fn th => fs [GSYM th]) \\ fs [DROP_LENGTH_APPEND]
   \\ metis_tac [dec_stack_length]
 QED
@@ -5183,7 +5249,7 @@ Theorem loc_check_compile:
    loc_check s.code (l1,l2) /\
     (!k prog. lookup k s.code = SOME prog ==>
               k ≠ gc_stub_location) ==>
-    loc_check (fromAList (compile c (toAList s.code))) (l1,l2)
+    loc_check (fromAList (compile aw c (toAList s.code))) (l1,l2)
 Proof
   fs [loc_check_def,domain_lookup] \\ rw [] \\ fs []
   \\ fs [compile_def,lookup_fromAList,ALOOKUP_def,stubs_def]
@@ -5196,7 +5262,8 @@ Proof
     \\ rw [] \\ fs [prog_comp_def])
   \\ disj2_tac \\ qexists_tac `n`
   \\ CASE_TAC \\ fs []
-  \\ `ALOOKUP (toAList s.code) n = SOME e` by fs [ALOOKUP_toAList]
+  \\ PairCases_on ‘z’ \\ gvs []
+  \\ `ALOOKUP (toAList s.code) n = SOME (z0,z1)` by fs [ALOOKUP_toAList]
   \\ pop_assum mp_tac
   \\ qspec_tac (`toAList s.code`,`xs`)
   \\ Induct \\ fs [FORALL_PROD,ALOOKUP_def,prog_comp_def]
@@ -5221,7 +5288,7 @@ QED
 
 (* This proof is very slow! *)
 Theorem inst_correct[local]:
-  inst (i:'a inst) (s:('a,'c,'b) stackSem$state) = SOME t ∧
+  inst (i:inst) (s:('a,'c,'b) stackSem$state) = SOME t ∧
   LENGTH s.stack * (dimindex (:α) DIV 8) < dimword (:α) ∧
   LENGTH s.data_buffer.buffer + (LENGTH s.bitmaps + s.data_buffer.space_left) < dimword (:'a) - 1 ∧
   s.regs SUBMAP regs ⇒
@@ -5231,13 +5298,13 @@ Theorem inst_correct[local]:
           compile_oracle := (I ## MAP prog_comp ## I) o s.compile_oracle;
           gc_fun := anything; use_stack := T;
           use_store := T; use_alloc := F;
-          code := fromAList (compile c (toAList s.code))|>) =
+          code := fromAList (compile aw c (toAList s.code))|>) =
     SOME (t with <|regs := regs1;
           compile := compile_rest;
           compile_oracle := (I ## MAP prog_comp ## I) o t.compile_oracle;
           gc_fun := anything; use_stack := T;
           use_store := T; use_alloc := F;
-          code := fromAList (compile c (toAList t.code))|>) ∧
+          code := fromAList (compile aw c (toAList t.code))|>) ∧
     t.regs SUBMAP regs1 ∧
     LENGTH t.stack * (dimindex (:α) DIV 8) < dimword (:α) ∧
     LENGTH t.data_buffer.buffer + (LENGTH t.bitmaps + t.data_buffer.space_left) < dimword (:'a) - 1
@@ -5250,7 +5317,7 @@ Proof
     metis_tac[SUBMAP_FUPDATE_both])
   >-
     (TOP_CASE_TAC>>rw[]>>
-    fs[assign_def,word_exp_def,wordLangTheory.word_op_def,get_vars_def,get_var_def]>>
+    fs[assign_def,word_exp_def,wordSemTheory.word_op_def,get_vars_def,get_var_def]>>
     fs[case_eq_thms] \\ rw[] \\ fs[IS_SOME_EXISTS,case_eq_thms] \\
     imp_res_tac FLOOKUP_SUBMAP>>fs[] \\
     TRY(Cases_on`r`) \\ fs[case_eq_thms,IS_SOME_EXISTS,word_exp_def]>>
@@ -5261,7 +5328,7 @@ Proof
     (TOP_CASE_TAC>>rw[]>>
     TOP_CASE_TAC>>rw[]>>
     fs[]>>qpat_x_assum`A=SOME t` mp_tac>>
-    fs[assign_def,word_exp_def,wordLangTheory.word_op_def,get_vars_def,get_var_def,mem_load_def,mem_store_def]>>
+    fs[assign_def,word_exp_def,wordSemTheory.word_op_def,get_vars_def,get_var_def,mem_load_def,mem_store_def]>>
     every_case_tac>>
     imp_res_tac FLOOKUP_SUBMAP>>fs[set_var_def,state_component_equality]>>
     rw[]>>fs[]>>
@@ -5278,7 +5345,8 @@ QED
 Theorem ALOOKUP_prog_comp:
   ∀xs a y.
     ALOOKUP xs a = SOME y ⇒
-    ALOOKUP (MAP prog_comp xs) a = SOME (FST (comp a (next_lab y 2) y))
+    ALOOKUP (MAP prog_comp xs) a =
+      SOME (FST (comp a (next_lab (FST y) 2) (FST y)), SND y)
 Proof
   Induct \\ fs [ALOOKUP_def,FORALL_PROD]
   \\ rw [prog_comp_def] \\ fs []
@@ -5287,7 +5355,7 @@ QED
 Theorem lookup_fromAList_prog_comp:
   lookup x s.code = SOME p ⇒
   lookup x (fromAList (MAP prog_comp (toAList s.code))) =
-    SOME (FST (comp x (next_lab p 2) p))
+    SOME (FST (comp x (next_lab (FST p) 2) (FST p)), SND p)
 Proof
   fs [lookup_fromAList] \\ rw []
   \\ irule ALOOKUP_prog_comp
@@ -5299,8 +5367,8 @@ Theorem comp_correct:
      evaluate (p,s) = (r,t) /\ r <> SOME Error /\ alloc_arg p /\
      (!k prog. lookup k s.code = SOME prog ==>
                k ≠ gc_stub_location /\
-               alloc_arg prog) /\
-     (∀n k p. MEM (k,p) (FST (SND (s.compile_oracle n))) ⇒
+               alloc_arg (FST prog)) /\
+     (∀n k p md. MEM (k,p,md) (FST (SND (s.compile_oracle n))) ⇒
               k ≠ gc_stub_location /\ alloc_arg p) /\
      s.gc_fun = word_gc_fun c ∧ s.use_alloc ∧
      LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
@@ -5308,25 +5376,26 @@ Theorem comp_correct:
      s.use_stack ∧ (* Necessary for the data buffer oracle *)
      (* Data buffer does not wrap around *)
      LENGTH s.bitmaps + LENGTH s.data_buffer.buffer + s.data_buffer.space_left < dimword(:'a) - 1 /\
-     s.compile = (λc. compile_rest c o (MAP prog_comp))
-     ==>
+     s.compile = (λc. compile_rest c o (MAP prog_comp)) /\
+      arch_width_bits aw = dimindex (:'a) ==>
      ?ck regs1.
        evaluate (FST (comp n m p),
           s with <| use_store := T; use_stack := T; use_alloc := F;
                     clock := s.clock + ck; regs := regs; gc_fun := anything;
                     compile_oracle := (I ## MAP prog_comp ## I) o s.compile_oracle;
                     compile := compile_rest;
-                    code := fromAList (stack_alloc$compile c (toAList s.code)) |>) =
+                    code := fromAList (stack_alloc$compile aw c (toAList s.code)) |>) =
          (r, t with
              <| use_store := T; use_stack := T; use_alloc := F;
                 regs := regs1; gc_fun := anything;
                 compile_oracle := (I ## MAP prog_comp ## I) o t.compile_oracle;
                 compile := compile_rest;
-                code := fromAList (stack_alloc$compile c (toAList t.code)) |>) /\
+                code := fromAList (stack_alloc$compile aw c (toAList t.code)) |>) /\
        t.regs SUBMAP regs1 ∧
        LENGTH t.bitmaps + LENGTH t.data_buffer.buffer + t.data_buffer.space_left < dimword(:'a) - 1 /\
        ((∀w. r ≠ SOME (Halt w)) ⇒ LENGTH t.stack * (dimindex (:'a) DIV 8) < dimword (:'a))
 Proof
+
   recInduct evaluate_ind
   \\ conj_tac THEN1 (* Skip *)
    (full_simp_tac(srw_ss())[Once comp_def,evaluate_def]
@@ -5349,9 +5418,9 @@ Proof
       qhdtm_x_assum`alloc`mp_tac \\
       simp[alloc_def,set_store_def,gc_def] \\
       every_case_tac \\ fs[] \\ rw[] \\ fs[empty_env_def] )
-    \\ old_drule (GEN_ALL alloc_correct) \\ fs []
+    \\ drule_then (drule_at (Pat `arch_width_bits _ = _`)) (alloc_correct) \\ fs []
     \\ `word_gc_fun c = word_gc_fun c` by fs []
-    \\ disch_then old_drule
+    \\ disch_then drule
     \\ disch_then (qspecl_then [`n'`,`m`,`regs`,`anything`] mp_tac) \\ fs []
     \\ impl_tac THEN1 (fs [FLOOKUP_DEF,SUBMAP_DEF] \\ rfs [])
     \\ strip_tac \\ qexists_tac `ck` \\ fs []
@@ -5373,9 +5442,10 @@ Proof
       \\ qpat_x_assum ‘_ = t.regs’ (fs o single o GSYM)
       \\ fs [DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM])
     \\ res_tac \\ fs [stubs_def,find_code_def,fromAList_def,lookup_insert]
-    \\ old_drule lookup_fromAList_prog_comp \\ fs []
+    \\ drule lookup_fromAList_prog_comp \\ fs []
     \\ disch_then kall_tac
     \\ qexists_tac ‘1’ \\ fs [dec_clock_def,set_var_def]
+    \\ PairCases_on ‘z’ \\ gvs []
     \\ fs [EVAL “(comp x n (Seq (StoreConsts t1 t2 NONE) (Return 0)))”]
     \\ fs [evaluate_def,store_const_sem_def,get_var_def,AllCaseEqs(),
            check_store_consts_opt_def,FLOOKUP_UPDATE]
@@ -5391,7 +5461,8 @@ Proof
     \\ qpat_x_assum `_ = (r,t)` mp_tac
     \\ TOP_CASE_TAC \\ fs[] \\ rw[]
     \\ qexists_tac `0` \\ simp[]
-    \\ old_drule inst_correct
+    \\ drule_then (qspecl_then [`regs`,`compile_rest`,`c`,`aw`,`anything`] mp_tac)
+         inst_correct
     \\ rw[]
     \\ qmatch_goalsub_abbrev_tac`inst i st`
     \\ qmatch_asmsub_abbrev_tac`inst i st' = _`
@@ -5430,9 +5501,9 @@ Proof
     \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB] )
   \\ conj_tac (* Tick *) >- (
     rpt strip_tac
-    \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,dec_clock_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[set_var_def]
-    \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def])
+    \\ qexists_tac `0` \\ fs[Once comp_def,evaluate_def,dec_clock_def]
+    \\ every_case_tac \\ fs[] \\ srw_tac[][] \\ fs[set_var_def]
+    \\ fs[state_component_equality,empty_env_def])
   \\ conj_tac (* Seq *) >- (
     rpt strip_tac
     \\ simp [Once comp_def,dec_clock_def] \\ full_simp_tac(srw_ss())[evaluate_def]
@@ -5445,14 +5516,15 @@ Proof
     THEN1 (fs[] \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[] \\ res_tac \\ fs[])
     \\ strip_tac \\ rev_full_simp_tac(srw_ss())[]
     \\ reverse (Cases_on `res`) \\ full_simp_tac(srw_ss())[]
-    THEN1 (qexists_tac `ck` \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC,LET_DEF] \\ srw_tac[][]
+    THEN1 (qexists_tac `ck`
+           \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC,LET_DEF] \\ srw_tac[][]
            \\ qexists_tac`regs1`\\simp[])
     \\ first_x_assum (qspecl_then[`m'`,`n`,`c`,`regs1`]mp_tac)
     \\ impl_tac THEN1 (
       fs[] \\
       imp_res_tac evaluate_consts \\ fs[] \\
       qpat_x_assum`evaluate _ = (NONE,s1)`assume_tac \\
-      old_drule evaluate_code_bitmaps \\
+      drule evaluate_code_bitmaps \\
       disch_then(qx_choose_then`k`strip_assume_tac) \\
       simp[lookup_FOLDL_union] \\
       conj_tac >- (
@@ -5462,11 +5534,12 @@ Proof
         fs[MAP_MAP_o,MAP_GENLIST,MEM_GENLIST,lookup_fromAList] \\
         pop_assum (assume_tac o SYM) \\
         imp_res_tac ALOOKUP_MEM \\
+        PairCases_on ‘prog’ \\ fs [] \\
         metis_tac[] ) \\
       fs[shift_seq_def] \\
       metis_tac[] )
     \\ strip_tac \\ qhdtm_x_assum`evaluate`mp_tac
-    \\ old_drule (GEN_ALL evaluate_add_clock) \\ simp []
+    \\ drule (GEN_ALL evaluate_add_clock) \\ simp []
     \\ disch_then (qspec_then `ck'`assume_tac) \\ strip_tac
     \\ qexists_tac `ck + ck'` \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]
     \\ imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[]
@@ -5474,27 +5547,27 @@ Proof
     \\ asm_exists_tac \\ simp[])
   \\ conj_tac (* Return *) >- (
     rpt strip_tac
-    \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[get_var_def]
-    \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def]
+    \\ qexists_tac `0` \\ fs[Once comp_def,evaluate_def,get_var_def]
+    \\ every_case_tac \\ fs[] \\ srw_tac[][] \\ fs[get_var_def]
+    \\ fs[state_component_equality,empty_env_def]
     \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[] \\ rw[]
     \\ simp[state_component_equality] )
   \\ conj_tac (* Raise *) >- (
     rpt strip_tac
-    \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[get_var_def]
-    \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def]
+    \\ qexists_tac `0` \\ fs[Once comp_def,evaluate_def,get_var_def]
+    \\ every_case_tac \\ fs[] \\ srw_tac[][] \\ fs[get_var_def]
+    \\ fs[state_component_equality,empty_env_def]
     \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[] )
   \\ conj_tac (* Break *) >- (
     rpt strip_tac
-    \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[get_var_def]
-    \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def])
+    \\ qexists_tac `0` \\ fs[Once comp_def,evaluate_def,get_var_def]
+    \\ every_case_tac \\ fs[] \\ srw_tac[][] \\ fs[get_var_def]
+    \\ fs[state_component_equality,empty_env_def])
   \\ conj_tac (* Continue *) >- (
     rpt strip_tac
-    \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[get_var_def]
-    \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def])
+    \\ qexists_tac `0` \\ fs[Once comp_def,evaluate_def,get_var_def]
+    \\ every_case_tac \\ fs[] \\ srw_tac[][] \\ fs[get_var_def]
+    \\ fs[state_component_equality,empty_env_def])
   \\ conj_tac (* If *) >- (
     rpt strip_tac
     \\ simp [Once comp_def] \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def]
@@ -5557,7 +5630,7 @@ Proof
           \\ qpat_x_assum ‘evaluate (c1,_) = _’ assume_tac
           \\ drule evaluate_consts \\ strip_tac \\ simp []
           \\ Cases_on ‘(∃w. res = SOME (Halt w))’ \\ gvs []
-          \\ old_drule evaluate_code_bitmaps \\
+          \\ drule evaluate_code_bitmaps \\
           disch_then(qx_choose_then`k`strip_assume_tac) \\
           simp[lookup_FOLDL_union] \\
           conj_tac >- (
@@ -5567,6 +5640,7 @@ Proof
            fs[MAP_MAP_o,MAP_GENLIST,MEM_GENLIST,lookup_fromAList] \\
            pop_assum (assume_tac o SYM) \\
            imp_res_tac ALOOKUP_MEM \\
+           PairCases_on ‘prog’ \\ fs [] \\
            metis_tac[] ) \\
           fs[shift_seq_def] \\
           metis_tac[])
@@ -5597,13 +5671,13 @@ Proof
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     >- (
       rw[evaluate_def,get_var_def,find_code_def]
-      \\ first_x_assum(qspec_then`c`strip_assume_tac) \\ fs[]
+      \\ first_x_assum(qspecl_then[`c`,`aw`]strip_assume_tac) \\ fs[]
       \\ qexists_tac`0` \\ fs[]
       \\ fs[state_component_equality,empty_env_def] )
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ rw[evaluate_def,get_var_def,find_code_def]
-    \\ first_x_assum(qspec_then`c`strip_assume_tac) \\ fs[]
+    \\ first_x_assum(qspecl_then[`c`,`aw`]strip_assume_tac) \\ fs[]
     \\ fs[PULL_FORALL,dec_clock_def]
     \\ first_x_assum (qspecl_then[`n1`,`m1`,`c`,`regs`]mp_tac)
     \\ match_mp_tac IMP_IMP \\ conj_tac
@@ -5617,10 +5691,11 @@ Proof
      \\ full_simp_tac(srw_ss())[evaluate_def]
      \\ simp [comp_def] \\ fs [evaluate_def]
      \\ fs [CaseEq"option"]
-     \\ old_drule lookup_IMP_lookup_compile
+     \\ drule_then (qspecl_then [`c`,`aw`] mp_tac) lookup_IMP_lookup_compile
      \\ impl_tac THEN1 metis_tac []
+     \\ Cases_on ‘v2’ \\ fs []
      \\ strip_tac \\ fs []
-     \\ Cases_on `prog` \\ fs [dest_Seq_def]
+     \\ Cases_on `q` \\ fs [dest_Seq_def]
      \\ rveq \\ fs []
      \\ once_rewrite_tac [comp_def] \\ fs []
      \\ ntac 2 (pairarg_tac \\ simp [])
@@ -5636,6 +5711,7 @@ Proof
      \\ strip_tac \\ fs [] \\ qexists_tac `ck` \\ fs []
      \\ fs [state_component_equality])
   \\ conj_tac (* Call *) >- (
+
      rpt strip_tac
      \\ full_simp_tac(srw_ss())[evaluate_def]
      \\ Cases_on `ret` \\ full_simp_tac(srw_ss())[] THEN1
@@ -5643,9 +5719,11 @@ Proof
       \\ imp_res_tac find_code_regs_SUBMAP
       \\ every_case_tac \\ full_simp_tac(srw_ss())[empty_env_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())[alloc_arg_def] \\ simp [Once comp_def,evaluate_def]
-      \\ old_drule find_code_IMP_lookup \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
+      \\ drule find_code_IMP_lookup \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
       \\ res_tac \\ imp_res_tac lookup_IMP_lookup_compile
+      \\ fs []
       \\ pop_assum (strip_assume_tac o SPEC_ALL) \\ full_simp_tac(srw_ss())[]
+
       THEN1 (qexists_tac `0` \\ full_simp_tac(srw_ss())[empty_env_def,state_component_equality])
       THEN1 (qexists_tac `0` \\ full_simp_tac(srw_ss())[empty_env_def,state_component_equality])
       \\ full_simp_tac(srw_ss())[dec_clock_def]
@@ -5663,11 +5741,11 @@ Proof
     by (
       simp[GSYM SUBMAP_DOMSUB_gen]
       \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB] )
-    \\ old_drule (GEN_ALL(ONCE_REWRITE_RULE[CONJ_COMM] find_code_regs_SUBMAP))
-    \\ disch_then old_drule \\ strip_tac
-    \\ old_drule find_code_IMP_lookup \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+    \\ drule (GEN_ALL(ONCE_REWRITE_RULE[CONJ_COMM] find_code_regs_SUBMAP))
+    \\ disch_then drule \\ strip_tac
+    \\ drule find_code_IMP_lookup \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
     \\ res_tac \\ imp_res_tac lookup_IMP_lookup_compile
-    \\ pop_assum (qspec_then`c`strip_assume_tac) \\ full_simp_tac(srw_ss())[alloc_arg_def]
+    \\ pop_assum (qspecl_then[`c`,`aw`]strip_assume_tac) \\ full_simp_tac(srw_ss())[alloc_arg_def]
     \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] THEN1
      (srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ every_case_tac \\ full_simp_tac(srw_ss())[]
       \\ TRY pairarg_tac \\ full_simp_tac(srw_ss())[evaluate_def]
@@ -5711,7 +5789,7 @@ Proof
         imp_res_tac evaluate_consts \\ fs[] \\
         qmatch_goalsub_rename_tac`lookup _ s1.code` \\
         qpat_x_assum`_ = (_,s1)`assume_tac \\
-        old_drule evaluate_code_bitmaps \\
+        drule evaluate_code_bitmaps \\
         strip_tac \\ rveq \\ simp[] \\
         fs[shift_seq_def,lookup_FOLDL_union] \\
         conj_tac >- (
@@ -5721,7 +5799,8 @@ Proof
           fs[MAP_MAP_o,MAP_GENLIST,MEM_GENLIST,lookup_fromAList] \\
           pop_assum (assume_tac o SYM) \\
           imp_res_tac ALOOKUP_MEM \\
-          metis_tac[] ) \\
+          PairCases_on `prog` \\ fs[] \\
+          metis_tac[FST] ) \\
         metis_tac[])
       \\ strip_tac \\ fs[] \\ rw[]
       \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[]
@@ -5770,7 +5849,7 @@ Proof
       imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[] \\
       qmatch_goalsub_rename_tac`lookup _ s1.code` \\
       qpat_x_assum`_ = (_,s1)`assume_tac \\
-      old_drule evaluate_code_bitmaps \\
+      drule evaluate_code_bitmaps \\
       strip_tac \\ rveq \\ simp[] \\
       fs[shift_seq_def,lookup_FOLDL_union] \\
       conj_tac >- (
@@ -5780,7 +5859,8 @@ Proof
         fs[MAP_MAP_o,MAP_GENLIST,MEM_GENLIST,lookup_fromAList] \\
         pop_assum (assume_tac o SYM) \\
         imp_res_tac ALOOKUP_MEM \\
-        metis_tac[] ) \\
+        PairCases_on `prog` \\ fs[] \\
+        metis_tac[FST] ) \\
       metis_tac[])
     \\ srw_tac[][]
     \\ qhdtm_x_assum`evaluate`mp_tac
@@ -5791,6 +5871,7 @@ Proof
     \\ `ck + ck' + s.clock - 1 = s.clock - 1 + ck + ck'` by decide_tac \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[]
     \\ simp[state_component_equality])
+
   (* Install *)
   \\ conj_tac >- (
     rw[] \\
@@ -5841,7 +5922,7 @@ Proof
     fs[word_exp_def,sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,IS_SOME_EXISTS,
        sh_mem_load32_def,sh_mem_store32_def,
        sh_mem_load16_def,sh_mem_store16_def,
-       wordLangTheory.word_op_def,sh_mem_load_byte_def,sh_mem_store_byte_def,
+       wordSemTheory.word_op_def,sh_mem_load_byte_def,sh_mem_store_byte_def,
        get_var_def,dec_clock_def,empty_env_def]>>
     fs[case_eq_thms] \\ rw[] \\
     TRY (qexists_tac ‘0’)>>
@@ -5875,7 +5956,8 @@ Proof
   \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def,set_var_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[get_var_def]
-  \\ TRY (old_drule loc_check_compile \\ impl_tac >- metis_tac[] \\ fs []) \\ fs []
+  \\ TRY (drule_then (qspecl_then [`c`,`aw`] mp_tac) loc_check_compile
+          \\ impl_tac >- metis_tac[] \\ fs []) \\ fs []
   \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def,LET_DEF]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def,LET_DEF]
@@ -5902,18 +5984,19 @@ val _ = augment_srw_ss[rewrites[with_same_regs_lemma]];
 
 Theorem compile_semantics:
    (!k prog. lookup k s.code = SOME prog ==>
-             k <> gc_stub_location ∧ alloc_arg prog) /\
-    (∀n k p.  MEM (k,p) (FST (SND (s.compile_oracle n))) ⇒
+             k <> gc_stub_location ∧ alloc_arg (FST prog)) /\
+    (∀n k p md.  MEM (k,p,md) (FST (SND (s.compile_oracle n))) ⇒
               k ≠ gc_stub_location ∧ alloc_arg p) /\
    (s:('a,'c,'b)stackSem$state).gc_fun = (word_gc_fun c:α gc_fun_type) /\
    LENGTH s.bitmaps + LENGTH s.data_buffer.buffer + s.data_buffer.space_left < dimword (:α) − 1 ∧
    LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:α) /\
    s.use_stack ∧ s.use_alloc ∧
    s.compile = (λc. compile_rest c o (MAP prog_comp)) /\
+   arch_width_bits aw = dimindex (:'a) /\
    semantics start s <> Fail
    ==>
    semantics start (s with <|
-                      code := fromAList (stack_alloc$compile c (toAList s.code));
+                      code := fromAList (stack_alloc$compile aw c (toAList s.code));
                       gc_fun := anything;
                       compile := compile_rest;
                       compile_oracle := (I ## MAP prog_comp ## I) o s.compile_oracle;
@@ -5922,7 +6005,7 @@ Theorem compile_semantics:
                       use_alloc := F |>) =
    semantics start s
 Proof
-  simp[GSYM AND_IMP_INTRO] >> ntac 7 strip_tac >>
+  simp[GSYM AND_IMP_INTRO] >> ntac 8 strip_tac >>
   simp[semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   DEEP_INTRO_TAC some_intro >> full_simp_tac(srw_ss())[] >>
@@ -5930,19 +6013,20 @@ Proof
     gen_tac >> ntac 2 strip_tac >>
     IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
       first_x_assum(qspec_then`k'`mp_tac)>>simp[]>>
-      (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
+      goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >>
       simp[] >>
       qmatch_assum_rename_tac`_ = (res,_)` >>
       Cases_on`res=SOME Error`>>simp[]>>
-      old_drule comp_correct_thm >>
+      drule_then (qspecl_then [`n`,`m`,`compile_rest`,`c`,`aw`,`anything`] mp_tac)
+        comp_correct_thm >>
       simp[alloc_arg_def,RIGHT_FORALL_IMP_THM] >>
       impl_tac >- metis_tac[] >>
       simp[comp_def] >>
       strip_tac >>
       qpat_x_assum`_ ≠ SOME TimeOut`mp_tac >>
-      (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
+      goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >>
       strip_tac >>
-      old_drule (Q.GEN`extra`evaluate_add_clock) >>
+      drule (Q.GEN`extra`evaluate_add_clock) >>
       disch_then(qspec_then`ck`mp_tac) >> full_simp_tac(srw_ss())[] >>
       fs[]) >>
     DEEP_INTRO_TAC some_intro >> full_simp_tac(srw_ss())[] >>
@@ -5950,14 +6034,15 @@ Proof
       srw_tac[][] >>
       Cases_on`r=TimeOut`>>full_simp_tac(srw_ss())[]>>
       qpat_x_assum `evaluate _ = (SOME r, t)` assume_tac >>
-      old_dxrule comp_correct_thm >>
+      dxrule_then (qspecl_then [`n`,`m`,`compile_rest`,`c`,`aw`,`anything`] mp_tac)
+        comp_correct_thm >>
       simp[RIGHT_FORALL_IMP_THM] >>
       impl_tac >- (
         simp[alloc_arg_def] >>
         reverse conj_tac >- metis_tac[] >>
         CCONTR_TAC >> fs[]) >>
       strip_tac >>
-      old_dxrule(GEN_ALL evaluate_add_clock) >>
+      dxrule(GEN_ALL evaluate_add_clock) >>
       disch_then(qspec_then `k'` mp_tac) >>
       impl_tac >- (CCONTR_TAC >> fs[]) >>
       dxrule evaluate_add_clock >>
@@ -5966,7 +6051,8 @@ Proof
       ntac 2 strip_tac >>
       fs[comp_def,state_component_equality] >>
       rveq >> rpt(PURE_FULL_CASE_TAC >> fs[])) >>
-    old_drule comp_correct_thm >>
+    drule_then (qspecl_then [`n`,`m`,`compile_rest`,`c`,`aw`,`anything`] mp_tac)
+      comp_correct_thm >>
     simp[RIGHT_FORALL_IMP_THM] >>
     impl_tac >- (
       simp[alloc_arg_def] >>
@@ -5982,33 +6068,35 @@ Proof
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
     first_x_assum(qspec_then`k`mp_tac)>>simp[]>>
     first_x_assum(qspec_then`k`mp_tac)>>
-    (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >>
     simp[] >> strip_tac >> fs[] >>
-    old_drule comp_correct_thm >>
+    drule_then (qspecl_then [`n`,`m`,`compile_rest`,`c`,`aw`,`anything`] mp_tac)
+      comp_correct_thm >>
     simp[alloc_arg_def,comp_def] >>
     conj_tac >- metis_tac[] >>
     srw_tac[][] >>
     qpat_x_assum`_ ≠ SOME TimeOut`mp_tac >>
-    (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >> srw_tac[][] >>
-    old_drule (GEN_ALL evaluate_add_clock) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >> srw_tac[][] >>
+    drule (GEN_ALL evaluate_add_clock) >>
     disch_then(qspec_then`ck`mp_tac)>>simp[]) >>
   DEEP_INTRO_TAC some_intro >> full_simp_tac(srw_ss())[] >>
   conj_tac >- (
     srw_tac[][] >>
     qpat_x_assum`∀k t. _`(qspec_then`k`mp_tac) >>
-    (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
+    goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >>
     simp[] >>
     last_x_assum mp_tac >>
     last_x_assum mp_tac >>
     last_x_assum(qspec_then`k`mp_tac) >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-    old_drule comp_correct_thm >>
+    drule_then (qspecl_then [`n`,`m`,`compile_rest`,`c`,`aw`,`anything`] mp_tac)
+      comp_correct_thm >>
     simp[alloc_arg_def,comp_def] >>
     conj_tac >- metis_tac[] >>
     srw_tac[][] >>
     Cases_on`r=TimeOut`>>full_simp_tac(srw_ss())[] >>
     qhdtm_x_assum`evaluate`mp_tac >>
-    old_drule (GEN_ALL evaluate_add_clock) >>
+    drule (GEN_ALL evaluate_add_clock) >>
     disch_then(qspec_then`ck`mp_tac)>>simp[] ) >>
   srw_tac[][] >>
   qmatch_abbrev_tac`build_lprefix_lub l1 = build_lprefix_lub l2` >>
@@ -6035,9 +6123,10 @@ Proof
   simp[LNTH_fromList,PULL_EXISTS] >>
   simp[GSYM FORALL_AND_THM] >>
   rpt gen_tac >>
-  (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
-  (fn g => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm (#2 g)) tm)`) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
-  old_drule comp_correct_thm >>
+  goal_term (subterm (fn tm => Cases_on`^(assert has_pair_type tm)`)) >> full_simp_tac(srw_ss())[] >>
+  goal_term (fn w => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm w) tm)`) w) >> full_simp_tac(srw_ss())[] >>
+  drule_then (qspecl_then [`n`,`m`,`compile_rest`,`c`,`aw`,`anything`] mp_tac)
+      comp_correct_thm >>
   simp[comp_def,RIGHT_FORALL_IMP_THM] >>
   impl_tac >- (
     simp[alloc_arg_def] >>
@@ -6067,28 +6156,29 @@ Definition make_init_def:
 End
 
 Theorem prog_comp_lambda:
-   prog_comp = λ(n,p). ^(rhs (concl (SPEC_ALL prog_comp_def)))
+   prog_comp = λ(n,p,md). ^(rhs (concl (SPEC_ALL prog_comp_def)))
 Proof
   srw_tac[][FUN_EQ_THM,prog_comp_def,LAMBDA_PROD,FORALL_PROD]
 QED
 
 Theorem make_init_semantics:
    (!k prog. ALOOKUP code k = SOME prog ==>
-             k <> gc_stub_location ∧ alloc_arg prog) /\
-   (∀n k p.  MEM (k,p) (FST (SND (oracle n))) ⇒
+             k <> gc_stub_location ∧ alloc_arg (FST prog)) /\
+   (∀n k p md.  MEM (k,p,md) (FST (SND (oracle n))) ⇒
              k <> gc_stub_location ∧ alloc_arg p) /\
-   s.use_stack ∧ s.use_store ∧ ~s.use_alloc /\ s.code = fromAList (compile c code) /\
+   s.use_stack ∧ s.use_store ∧ ~s.use_alloc /\ s.code = fromAList (compile aw c code) /\
    s.compile_oracle = (I ## MAP prog_comp ## I) o oracle /\
    LENGTH s.bitmaps + LENGTH s.data_buffer.buffer + s.data_buffer.space_left < dimword (:α) − 1 ∧
    LENGTH s.stack * (dimindex (:α) DIV 8) < dimword (:α) ∧
    ALL_DISTINCT (MAP FST code) /\
+   arch_width_bits aw = dimindex (:'a) /\
    semantics start (make_init c (fromAList code) oracle s) <> Fail ==>
    semantics start (s:('a,'c,'ffi) stackSem$state) =
    semantics start (make_init c (fromAList code) oracle s)
 Proof
   srw_tac[][]
-  \\ old_drule (CONV_RULE(LAND_CONV(move_conj_left(can dest_neg)))compile_semantics
-            |> GEN_ALL)
+  \\ drule_then (drule_at (Pat `arch_width_bits _ = _`))
+       (CONV_RULE(LAND_CONV(move_conj_left(can dest_neg)))compile_semantics)
   \\ disch_then (qspecl_then [`s.compile`,`c`,`s.gc_fun`] mp_tac)
   \\ full_simp_tac(srw_ss())[make_init_def,lookup_fromAList]
   \\ impl_tac THEN1 (srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[])
@@ -6098,8 +6188,8 @@ Proof
   \\ full_simp_tac(srw_ss())[spt_eq_thm,wf_fromAList,lookup_fromAList,compile_def]
   \\ srw_tac[][]
   \\ srw_tac[][ALOOKUP_APPEND] \\ BasicProvers.CASE_TAC
-  \\ simp[prog_comp_lambda,ALOOKUP_MAP_2]
-  \\ simp[ALOOKUP_toAList,lookup_fromAList]
+  \\ simp[prog_comp_lambda]
+  \\ simp[ALOOKUP_toAList,lookup_fromAList, ALOOKUP_MAP_3]
 QED
 
 Theorem next_lab_EQ_MAX = Q.prove(`
@@ -6122,7 +6212,7 @@ QED
 
 Theorem next_lab_thm:
    !p.
-      next_lab (p:'a stackLang$prog) 2 =
+      next_lab (p:stackLang$prog) 2 =
       case p of
       | Seq p1 p2 => MAX (next_lab p1 2) (next_lab p2 2)
       | If _ _ _ p1 p2 => MAX (next_lab p1 2) (next_lab p2 2)
@@ -6210,9 +6300,9 @@ QED
 
 Theorem stack_alloc_comp_stack_asm_name:
     ∀n m p.
-  stack_asm_name c p ∧ stack_asm_remove (c:'a asm_config) p ⇒
+  stack_asm_name c p ∧ stack_asm_remove (c:asm_config) p ⇒
   let (p',m') = comp n m p in
-  stack_asm_name c p' ∧ stack_asm_remove (c:'a asm_config) p'
+  stack_asm_name c p' ∧ stack_asm_remove (c:asm_config) p'
 Proof
   ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
   simp[Once comp_def]
@@ -6231,42 +6321,46 @@ Proof
 QED
 
 Theorem stack_alloc_stack_asm_convs:
-    EVERY (λ(n,p). stack_asm_name c p) prog ∧
-  EVERY (λ(n,p). (stack_asm_remove (c:'a asm_config) p)) prog ∧
+  EVERY (λ(n,p,md). stack_asm_name c p) prog ∧
+  EVERY (λ(n,p,md). (stack_asm_remove (c:asm_config) p)) prog ∧
   (* conf_ok is too strong, but we already have it anyway *)
-  conf_ok (:'a) conf ∧
-  addr_offset_ok c 0w ∧
+  conf_ok (arch_width_bits aw) conf ∧
+  addr_offset_ok c 0 ∧
   reg_name 10 c ∧ good_dimindex(:'a) ∧
-  c.valid_imm (INL Add) 8w ∧
-  c.valid_imm (INL Add) 4w ∧
-  c.valid_imm (INL Add) 1w ∧
-  c.valid_imm (INL Sub) 1w
+  arch_width_bits aw = dimindex (:'a) ∧ isa_bits c = dimindex (:'a) ∧
+  c.valid_imm (INL Add) 8 ∧
+  c.valid_imm (INL Add) 4 ∧
+  c.valid_imm (INL Add) 1 ∧
+  c.valid_imm (INL Sub) 1
   ⇒
-  EVERY (λ(n,p). stack_asm_name c p) (compile conf prog) ∧
-  EVERY (λ(n,p). stack_asm_remove c p) (compile conf prog)
+  EVERY (λ(n,p,md). stack_asm_name c p) (compile aw conf prog) ∧
+  EVERY (λ(n,p,md). stack_asm_remove c p) (compile aw conf prog)
 Proof
   fs[compile_def]>>rw[]>>
-    TRY (EVAL_TAC>>every_case_tac >>
-         EVAL_TAC>>every_case_tac >>
-         fs [] >> EVAL_TAC >>
-     fs[reg_name_def, good_dimindex_def,
-        asmTheory.offset_ok_def, data_to_wordTheory.conf_ok_def,
-        data_to_wordTheory.shift_length_def]>>
+    TRY (Cases_on `aw` >> fs [asmTheory.arch_width_bits_def] >>
+         computeLib.RESTR_EVAL_TAC [``integer_word$w2i``,``asm$arch_width_bits``]>>every_case_tac >>
+         computeLib.RESTR_EVAL_TAC [``integer_word$w2i``,``asm$arch_width_bits``]>>every_case_tac >>
+         fs [] >> computeLib.RESTR_EVAL_TAC [``integer_word$w2i``,``asm$arch_width_bits``] >>
+     fs[reg_name_def, good_dimindex_def, asmTheory.arch_width_bits_def,
+        asmTheory.int_offset_ok_def, data_to_wordTheory.conf_ok_def,
+        data_to_wordTheory.shift_length_def,
+        integer_wordTheory.w2i_n2w_pos, wordsTheory.INT_MIN_def, dimword_def]>>
      pairarg_tac>>fs[]>>NO_TAC)
   >>
   fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def]>>
   rw[]>>res_tac>>
-  old_drule stack_alloc_comp_stack_asm_name>>fs[]>>
-  disch_then(qspecl_then[`p_1`,`next_lab p_2 2`] assume_tac)>>
+  metadata_drule stack_alloc_comp_stack_asm_name>>fs[]>>
+  rename [‘comp x y z’] >>
+  disch_then(qspecl_then[`x`,`y`] assume_tac)>>
   pairarg_tac>>fs[]
 QED
 
 Theorem stack_alloc_reg_bound:
    10 ≤ sp ∧
     EVERY (\p. reg_bound p sp)
-       (MAP SND prog1) ==>
+       (MAP (FST o SND) prog1) ==>
     EVERY (\p. reg_bound p sp)
-       (MAP SND (compile dc prog1))
+       (MAP (FST o SND) (compile aw dc prog1))
 Proof
   fs[stack_allocTheory.compile_def]>>
   strip_tac>>CONJ_TAC
@@ -6282,11 +6376,12 @@ Proof
   qpat_x_assum`10 ≤ sp` mp_tac>>
   rpt (pop_assum kall_tac)>>
   (qpat_abbrev_tac`l = next_lab _ _`) >> pop_assum kall_tac>>
-  qid_spec_tac `p_2` >>
-  qid_spec_tac `l` >>
-  qid_spec_tac `p_1` >>
+  rename [‘comp x y z’] >>
+  qid_spec_tac `z` >>
+  qid_spec_tac `y` >>
+  qid_spec_tac `x` >>
   ho_match_mp_tac stack_allocTheory.comp_ind>>
-  Cases_on`p_2`>>rw[]>>
+  Cases_on`z`>>rw[]>>
   simp[Once stack_allocTheory.comp_def]>>
   fs[reg_bound_def]>>
   TRY(ONCE_REWRITE_TAC [stack_allocTheory.comp_def]>>
@@ -6296,8 +6391,8 @@ Proof
 QED
 
 Theorem stack_alloc_call_args:
-   EVERY (λp. call_args p 1 2 3 4 0) (MAP SND prog1) ==>
-   EVERY (λp. call_args p 1 2 3 4 0) (MAP SND (compile dc prog1))
+   EVERY (λp. call_args p 1 2 3 4 0) (MAP (FST o SND) prog1) ==>
+   EVERY (λp. call_args p 1 2 3 4 0) (MAP (FST o SND) (compile aw dc prog1))
 Proof
   fs[stack_allocTheory.compile_def]>>
   strip_tac>>CONJ_TAC
@@ -6312,11 +6407,12 @@ Proof
   (qpat_abbrev_tac`l = next_lab _ _`) >> pop_assum kall_tac>>
   qpat_x_assum`call_args p_2 1 2 3 4 0` mp_tac>>
   rpt (pop_assum kall_tac)>>
-  qid_spec_tac `p_2` >>
-  qid_spec_tac `l` >>
-  qid_spec_tac `p_1` >>
+  rename [‘comp x y z’] >>
+  qid_spec_tac `z` >>
+  qid_spec_tac `y` >>
+  qid_spec_tac `x` >>
   ho_match_mp_tac stack_allocTheory.comp_ind>>
-  Cases_on`p_2`>>rw[]>>
+  Cases_on`z`>>rw[]>>
   simp[Once stack_allocTheory.comp_def]>>fs[call_args_def]>>
   TRY(ONCE_REWRITE_TAC [stack_allocTheory.comp_def]>>
     Cases_on`o'`>>TRY(PairCases_on`x`)>>fs[call_args_def]>>
@@ -6325,8 +6421,8 @@ Proof
 QED
 
 Theorem compile_has_fp_ops[simp]:
-  compile (dconf with <| has_fp_ops := b1; has_fp_tern := b2 |>) code =
-  compile dconf code
+  compile aw (dconf with <| has_fp_ops := b1; has_fp_tern := b2 |>) code =
+  compile aw dconf code
 Proof
   fs [compile_def,stubs_def,word_gc_code_def]
   \\ every_case_tac \\ fs []

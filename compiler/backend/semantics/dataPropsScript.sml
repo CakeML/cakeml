@@ -9,7 +9,6 @@ Libs
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 Theorem OPTION_CASE_OPTION_MAP[local]:
   (option_CASE (OPTION_MAP f a) e g) = option_CASE a e (g o f)
@@ -2221,7 +2220,7 @@ End
 
 Definition good_code_labels_def:
   good_code_labels p elabs ⇔
-    (BIGUNION (set (MAP (λ(n,m,pp). (get_code_labels pp)) p))) ⊆
+    (BIGUNION (set (MAP (λ(n,m,pp,md). (get_code_labels pp)) p))) ⊆
     (set (MAP FST p)) ∪ elabs
 End
 

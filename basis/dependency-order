@@ -29,5 +29,7 @@ CommandLine
 Double
 TextIO
 Sexp
+SocketIO
+Ast
 AstSexp
 basis

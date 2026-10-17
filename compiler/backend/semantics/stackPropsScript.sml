@@ -12,8 +12,8 @@ Theorem case_eq_thms =
   (pair_case_eq::
    bool_case_eq::
    map (TypeBase.case_eq_of)
-        [``:'a option``,``:'a list``,``:'a word_loc``,``:'a inst``, ``:binop``,
-         ``:'a reg_imm`` ,``:'a arith``,``:'a addr``,``:memop``,``:'a result``,
+        [``:'a option``,``:'a list``,``:'a word_loc``,``:inst``, ``:binop``,
+         ``:reg_imm`` ,``:arith``,``:addr``,``:memop``,``:'a result``,
          ``:'a ffi_result``])
     |> LIST_CONJ
 
@@ -423,7 +423,8 @@ Theorem evaluate_code_bitmaps:
    evaluate (c,s) = (r,s1) ⇒
    ∃n.
     s1.compile_oracle = shift_seq n s.compile_oracle ∧
-    s1.code = FOLDL union s.code (MAP (fromAList o FST o SND) (GENLIST s.compile_oracle n)) ∧
+    s1.code = FOLDL union s.code
+      (MAP (fromAList o FST o SND) (GENLIST s.compile_oracle n)) ∧
     s1.bitmaps = s.bitmaps ++ FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n))
 Proof
   recInduct evaluate_ind >>
@@ -809,7 +810,7 @@ End
 
 (* asm_ok out of stack_names *)
 Definition stack_asm_ok_def:
-  (stack_asm_ok c ((Inst i):'a stackLang$prog) ⇔ asm$inst_ok i c) ∧
+  (stack_asm_ok c ((Inst i):stackLang$prog) ⇔ asm$inst_ok i c) ∧
   (stack_asm_ok c (ShMemOp op r ad) ⇔ reg_ok r c ∧ addr_ok op ad c) ∧
   (stack_asm_ok c (Seq p1 p2) ⇔ stack_asm_ok c p1 ∧ stack_asm_ok c p2) ∧
   (stack_asm_ok c (If cmp n r p p') ⇔ stack_asm_ok c p ∧ stack_asm_ok c p') ∧
@@ -840,12 +841,12 @@ Definition reg_imm_name_def:
 End
 
 Definition arith_name_def:
-  (arith_name (Binop b r1 r2 ri) (c:'a asm_config) ⇔
+  (arith_name (Binop b r1 r2 ri) (c:asm_config) ⇔
     (c.two_reg_arith ⇒ r1 = r2 ∨ b = Or ∧ ri = Reg r2) ∧ reg_name r1 c ∧
     reg_name r2 c ∧ reg_imm_name (INL b) ri c) ∧
   (arith_name (Shift l r1 r2 (Imm i)) c ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
-    (i = 0w ⇒ l = Lsl) ∧ w2n i < dimindex (:α)) ∧
+    (i = 0 ⇒ l = Lsl) ∧ 0 ≤ i ∧ i < &isa_bits c) ∧
   (arith_name (Shift l r1 r2 (Reg r3)) c ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧
      reg_name r2 c ∧ reg_name r3 c ∧ (c.ISA = x86_64 ⇒ r3 = 4)) ∧
@@ -871,7 +872,15 @@ Definition arith_name_def:
   (arith_name (SubOverflow r1 r2 r3 r4) c ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
     reg_name r3 c ∧ reg_name r4 c ∧
-    (c.ISA = MIPS ∨ c.ISA = RISC_V ⇒ r1 ≠ r3))
+    (c.ISA = MIPS ∨ c.ISA = RISC_V ⇒ r1 ≠ r3)) ∧
+  (arith_name (IMul rd ra rb ro) c ⇔
+    c.ISA ∈ {x86_64; ARMv7; ARMv8; MIPS; RISC_V} ∧
+    reg_name rd c ∧ reg_name ra c ∧ reg_name rb c ∧ reg_name ro c ∧
+    rd ≠ ro ∧ (c.two_reg_arith ⇒ rd = ra)) ∧
+  (arith_name (IDiv rq rr ra rb) c ⇔
+    c.ISA ∈ {x86_64; ARMv8; MIPS; RISC_V} ∧
+    reg_name rq c ∧ reg_name rr c ∧ reg_name ra c ∧ reg_name rb c ∧
+    rq ≠ rr ∧ (c.ISA = x86_64 ⇒ rq = 0 ∧ rr = 3 ∧ ra = 0 ∧ rb ≠ 3))
 End
 
 (* We could actually almost use fp_ok, except this needs to check reg_ok for
@@ -905,11 +914,11 @@ Definition fp_name_def:
       2 < c.fp_reg_count /\
       fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
   (fp_name (FPMov d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
-  (fp_name (FPMovToReg r1 r2 d) (c : 'a asm_config) <=>
-      reg_name r1 c /\ ((dimindex(:'a) = 32) ==> r1 <> r2 /\ reg_name r2 c) /\
+  (fp_name (FPMovToReg r1 r2 d) (c : asm_config) <=>
+      reg_name r1 c /\ ((isa_bits c = 32) ==> r1 <> r2 /\ reg_name r2 c) /\
       fp_reg_ok d c) /\
-  (fp_name (FPMovFromReg d r1 r2) (c : 'a asm_config) <=>
-      reg_name r1 c /\ ((dimindex(:'a) = 32) ==> r1 <> r2 /\ reg_name r2 c) /\
+  (fp_name (FPMovFromReg d r1 r2) (c : asm_config) <=>
+      reg_name r1 c /\ ((isa_bits c = 32) ==> r1 <> r2 /\ reg_name r2 c) /\
       fp_reg_ok d c) /\
   (fp_name (FPToInt d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
   (fp_name (FPFromInt d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c)
@@ -926,7 +935,7 @@ Definition addr_name_def:
 End
 
 Definition inst_name_def:
-  (inst_name c (Const r w) ⇔ reg_name r c) ∧
+  (inst_name (c:asm_config) (Const r w) ⇔ reg_name r c) ∧
   (inst_name c (Mem m r a) ⇔ reg_name r c ∧ addr_name m a c) ∧
   (inst_name c (Arith x) ⇔ arith_name x c) ∧
   (inst_name c (FP f) ⇔ fp_name f c) ∧
@@ -934,7 +943,7 @@ Definition inst_name_def:
 End
 
 Definition stack_asm_name_def:
-  (stack_asm_name c ((Inst i):'a stackLang$prog) ⇔ inst_name c i) ∧
+  (stack_asm_name c ((Inst i):stackLang$prog) ⇔ inst_name c i) ∧
   (stack_asm_name c (OpCurrHeap b r1 r2) ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c) ∧
   (stack_asm_name c (ShMemOp op r a) ⇔ reg_name r c ∧ addr_name op a c) ∧
@@ -965,7 +974,7 @@ Definition fixed_names_def:
 End
 
 Definition stack_asm_remove_def:
-  (stack_asm_remove c ((Get n s):'a stackLang$prog) ⇔ reg_name n c) ∧
+  (stack_asm_remove c ((Get n s):stackLang$prog) ⇔ reg_name n c) ∧
   (stack_asm_remove c (OpCurrHeap binop v src) ⇔ reg_name v c ∧ reg_name src c) ∧
   (stack_asm_remove c (Set s n) ⇔ reg_name n c) ∧
   (stack_asm_remove c (StackStore n n0) ⇔ reg_name n c) ∧
@@ -1000,9 +1009,9 @@ End
 
 Definition alloc_arg_def:
   (alloc_arg (Alloc v) <=> (v = 1)) /\
-  (alloc_arg ((Seq p1 p2):'a stackLang$prog) <=>
+  (alloc_arg ((Seq p1 p2):stackLang$prog) <=>
      alloc_arg p1 /\ alloc_arg p2) /\
-  (alloc_arg ((If c r ri p1 p2):'a stackLang$prog) <=>
+  (alloc_arg ((If c r ri p1 p2):stackLang$prog) <=>
      alloc_arg p1 /\ alloc_arg p2) /\
   (alloc_arg (Loop p1) <=>
      alloc_arg p1) /\
@@ -1022,7 +1031,7 @@ Definition reg_bound_exp_def[simp]:
   (reg_bound_exp (Op _ es) k ⇔ EVERY (λe. reg_bound_exp e k) es) ∧
   (reg_bound_exp _ _ ⇔ T)
 Termination
-  WF_REL_TAC`measure ((exp_size ARB) o FST)` \\ simp[]
+  WF_REL_TAC`measure (exp_size o FST)` \\ simp[]
    \\ Induct \\ simp[wordLangTheory.exp_size_def]
    \\ srw_tac[][] \\ res_tac \\ simp[]
 End
@@ -1038,6 +1047,8 @@ Definition reg_bound_inst_def[simp]:
   (reg_bound_inst (Arith (SubOverflow r1 r2 r3 r4)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k) ∧
   (reg_bound_inst (Arith (LongMul r1 r2 r3 r4)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k) ∧
   (reg_bound_inst (Arith (LongDiv r1 r2 r3 r4 r5)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k ∧ r5 < k) ∧
+  (reg_bound_inst (Arith (IMul rd ra rb ro)) k ⇔ rd < k ∧ ra < k ∧ rb < k ∧ ro < k) ∧
+  (reg_bound_inst (Arith (IDiv rq rr ra rb)) k ⇔ rq < k ∧ rr < k ∧ ra < k ∧ rb < k) ∧
   (reg_bound_inst (FP (FPLess r f1 f2)) k ⇔ r < k) ∧
   (reg_bound_inst (FP (FPLessEqual r f1 f2)) k ⇔ r < k) ∧
   (reg_bound_inst (FP (FPEqual r f1 f2)) k ⇔ r < k) ∧
@@ -1065,9 +1076,9 @@ Definition reg_bound_def:
      v1 < k) /\
   (reg_bound (JumpLower v1 v2 dest) k <=>
      v1 < k /\ v2 < k) /\
-  (reg_bound ((Seq p1 p2):'a stackLang$prog) k <=>
+  (reg_bound ((Seq p1 p2):stackLang$prog) k <=>
      reg_bound p1 k /\ reg_bound p2 k) /\
-  (reg_bound ((If c r ri p1 p2):'a stackLang$prog) k <=>
+  (reg_bound ((If c r ri p1 p2):stackLang$prog) k <=>
      r < k /\ (case ri of Reg n => n < k | _ => T) /\
      reg_bound p1 k /\ reg_bound p2 k) /\
   (reg_bound (Loop p1) k <=>
@@ -1100,10 +1111,10 @@ End
 
 (* Finally, stack_to_lab requires correct arguments for Call/FFI/Install calls *)
 Definition call_args_def:
-  (call_args ((Seq p1 p2):'a stackLang$prog) ptr len ptr2 len2 ret <=>
+  (call_args ((Seq p1 p2):stackLang$prog) ptr len ptr2 len2 ret <=>
      call_args p1 ptr len ptr2 len2 ret /\
      call_args p2 ptr len ptr2 len2 ret) /\
-  (call_args ((If c r ri p1 p2):'a stackLang$prog) ptr len ptr2 len2 ret <=>
+  (call_args ((If c r ri p1 p2):stackLang$prog) ptr len ptr2 len2 ret <=>
      call_args p1 ptr len ptr2 len2 ret /\
      call_args p2 ptr len ptr2 len2 ret) /\
   (call_args (Loop p1) ptr len ptr2 len2 ret <=>
@@ -1154,16 +1165,16 @@ End
 (* elabs gives a set of existing code labels *)
 Definition stack_good_code_labels_def:
   stack_good_code_labels p elabs ⇔
-  BIGUNION (IMAGE get_code_labels (set (MAP SND p))) ⊆
-  BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
+  BIGUNION (IMAGE get_code_labels (set (MAP (FST o SND) p))) ⊆
+  BIGUNION (set (MAP (λ(n,pp,md). stack_get_handler_labels n pp) p)) ∪
   IMAGE (λn. n,0) (set (MAP FST p)) ∪ IMAGE (λn. n,0) elabs ∪
   IMAGE (λn. n,1) (set (MAP FST p)) ∪ IMAGE (λn. n,1) elabs
 End
 
 Definition stack_good_handler_labels_def:
   stack_good_handler_labels p ⇔
-  restrict_nonzero (BIGUNION (IMAGE get_code_labels (set (MAP SND p)))) ⊆
-  BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
+  restrict_nonzero (BIGUNION (IMAGE get_code_labels (set (MAP (FST o SND) p)))) ⊆
+  BIGUNION (set (MAP (λ(n,pp,md). stack_get_handler_labels n pp) p)) ∪
   IMAGE (λn. n,1) (set (MAP FST p))
 End
 

@@ -3,9 +3,9 @@
 *)
 Theory flat_to_closProof
 Ancestors
-  misc[qualified] ffi[qualified] flatProps closProps flat_to_clos
+  misc[qualified] flatProps closProps flat_to_clos
   backendProps backend_common[qualified] semanticPrimitives ast
-  semanticPrimitivesProps flatLang flatSem closLang closSem
+  semanticPrimitivesProps flatLang flatSem closSem
   clos_interpProof
 Libs
   preamble helperLib[qualified] induct_tweakLib[qualified]
@@ -334,6 +334,7 @@ Proof
   >~ [`flatLang$Mat`] >- suspend "Mat"
   >~ [`flatLang$Let`] >- suspend "Let"
   >~ [`flatLang$Letrec`] >- suspend "Letrec"
+  >~ [`flatLang$Tick`] >- suspend "Tick"
   >~ [`evaluate_dec _ _`] >- suspend "dec"
   >~ [`evaluate_decs _ []`] >- suspend "decs_nil"
   >~ [`evaluate_decs _ (_ :: _)`] >- suspend "decs_cons"
@@ -369,6 +370,20 @@ Resume compile_correct[Lit]:
   \\ Cases_on `l` \\ fs [PULL_EXISTS]
   \\ once_rewrite_tac [CONJUNCT2 v_rel_cases] \\ fs []
   \\ fs [compile_lit_def,evaluate_def,do_app_def,do_int_app_def,make_const_def]
+QED
+
+Resume compile_correct[Tick]:
+  rpt strip_tac
+  \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def]
+  \\ fs [pair_case_eq] \\ fs []
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ impl_tac THEN1 (CCONTR_TAC \\ fs [])
+  \\ strip_tac \\ fs []
+  \\ fs [result_case_eq] \\ rveq \\ fs []
+  \\ imp_res_tac flatPropsTheory.evaluate_sing \\ gvs []
+  \\ drule_then strip_assume_tac state_rel_dec_clock
+  \\ Cases_on ‘t1.clock = 0’ \\ gvs []
 QED
 
 Resume compile_correct[Raise]:
@@ -1076,6 +1091,20 @@ Proof
   \\ fs [MAP_MAP_o,o_DEF,ORD_BOUND,CHR_ORD]
 QED
 
+Theorem op_str_unsafe:
+  op = Src Strsub_unsafe ==>
+  ^op_goal
+Proof
+  rpt strip_tac \\ rveq \\ fs []
+  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
+         CaseEq "ast$lit",option_case_eq]
+  \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
+  \\ fs [compile_op_def,evaluate_def,do_app_def,v_rel_def]
+  \\ rename1 ‘strsub str (Num i)’
+  \\ ‘i < &strlen str’ by intLib.COOPER_TAC
+  \\ namedCases_on ‘str’ ["s"] \\ fs [EL_MAP,ORD_BOUND]
+QED
+
 Theorem op_globals:
   (?n. op = GlobalVarLookup n) \/
   (?n. op = GlobalVarInit n) \/
@@ -1694,7 +1723,7 @@ Theorem compile_op_correct:
   ^op_goal
 Proof
   EVERY (map assume_tac
-    [op_refs, op_str, op_thunk, op_eq_gc, op_byte_arrays,
+    [op_refs, op_str, op_str_unsafe, op_thunk, op_eq_gc, op_byte_arrays,
      op_arrays, op_test, op_arith, op_from_to, op_globals, op_blocks,
      op_ffi, op_byte_copy, op_byte_bits, op_byte_bits_safe, op_eval, op_vectors, op_id])
   \\ `?this_is_case. this_is_case op` by (qexists_tac `K T` \\ fs [])

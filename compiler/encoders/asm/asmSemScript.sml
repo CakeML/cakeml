@@ -50,7 +50,7 @@ End
 
 Definition reg_imm_def:
   (reg_imm (Reg r) s = read_reg r s) /\
-  (reg_imm (Imm w) s = w)
+  (reg_imm (Imm i) s = i2w i)
 End
 
 Definition binop_upd_def:
@@ -73,7 +73,7 @@ Definition word_shift_def:
 End
 
 Definition arith_upd_def:
-  (arith_upd (Binop b r1 r2 (ri:'a reg_imm)) s =
+  (arith_upd (Binop b r1 r2 (ri:reg_imm)) s =
      binop_upd r1 b (read_reg r2 s) (reg_imm ri s) s) /\
   (arith_upd (Shift l r1 r2 ri) s =
      assert (case ri of Reg r => w2n (read_reg r s) < dimindex (:'a) | _ => T) $
@@ -109,7 +109,19 @@ Definition arith_upd_def:
      let w3 = read_reg r3 s
      in
        upd_reg r4 (if w2i (w2 - w3) <> w2i w2 - w2i w3 then 1w else 0w)
-         (upd_reg r1 (w2 - w3) s))
+         (upd_reg r1 (w2 - w3) s)) /\
+  (arith_upd (IMul rd ra rb ro) (s : 'a asm_state) =
+     let a = read_reg ra s in
+     let b = read_reg rb s in
+       upd_reg ro (if w2i (a * b) <> w2i a * w2i b then 1w else 0w)
+         (upd_reg rd (a * b) s)) /\
+  (arith_upd (IDiv rq rr ra rb) (s : 'a asm_state) =
+     let a = w2i (read_reg ra s) in
+     let b = w2i (read_reg rb s) in
+     let q = a quot b in
+     let wq = i2w q : 'a word in
+       assert (b <> 0 /\ w2i wq = q)
+         (upd_reg rq wq (upd_reg rr (i2w (a rem b)) s)))
 End
 
 Definition fp_upd_def:
@@ -177,7 +189,7 @@ Definition fp_upd_def:
 End
 
 Definition addr_def:
-  addr (Addr r offset) s = read_reg r s + offset
+  addr (Addr r offset) s = read_reg r s + i2w offset
 End
 
 Definition read_mem_word_def:
@@ -218,20 +230,20 @@ Definition mem_op_def:
   (mem_op Store8 r a = mem_store 1 r a) /\
   (mem_op Load16 r a = mem_load 2 r a) /\
   (mem_op Store16 r a = mem_store 2 r a) /\
-  (mem_op Load32 r (a:'a addr) = mem_load 4 r a) /\
-  (mem_op Store32 r (a:'a addr) = mem_store 4 r a)
+  (mem_op Load32 r a = (mem_load 4 r a) :'a asm_state -> 'a asm_state) /\
+  (mem_op Store32 r a = mem_store 4 r a)
 End
 
 Definition inst_def:
   (inst Skip s = s) /\
-  (inst (Const r imm) s = upd_reg r imm s) /\
+  (inst (Const r imm) s = upd_reg r (i2w imm) s) /\
   (inst (Arith x) s = arith_upd x s) /\
   (inst (Mem m r a) s = mem_op m r a s) /\
   (inst (FP fp) s = fp_upd fp s)
 End
 
 Definition jump_to_offset_def:
-  jump_to_offset w s = upd_pc (s.pc + w) s
+  jump_to_offset w s = upd_pc (s.pc + i2w w) s
 End
 
 Definition asm_def:
@@ -244,7 +256,7 @@ Definition asm_def:
   (asm (Call l) pc s = jump_to_offset l (upd_reg s.lr pc s)) /\
   (asm (JumpReg r) pc s =
      let a = read_reg r s in upd_pc a (assert (aligned s.align a) s)) /\
-  (asm (Loc r l) pc s = upd_pc pc (upd_reg r (s.pc + l) s))
+  (asm (Loc r l) pc s = upd_pc pc (upd_reg r (s.pc + i2w l) s))
 End
 
 Definition asm_step_def:

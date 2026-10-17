@@ -4,7 +4,7 @@
 *)
 Theory clos_constantProof
 Ancestors
-  closLang clos_to_bvl closSem
+  clos_to_bvl closSem
 Libs
   preamble
 

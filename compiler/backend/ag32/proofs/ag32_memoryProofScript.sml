@@ -14,7 +14,6 @@ Libs
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 (* TODO: move *)
 
@@ -366,7 +365,8 @@ Proof
   simp[init_memory_words_def] >>
   strip_tac>>
   simp[LENGTH_ag32_ffi_code]>>
-  qmatch_goalsub_abbrev_tac`codel + (cll + (stl + (scl+ (_ + (_ + (scpad + _)) ))))`>>
+  qmatch_goalsub_abbrev_tac`codel + (cll + (stl + (scl + _)))`>>
+  qmatch_goalsub_abbrev_tac`scpad + 321`>>
   fs[LENGTH_words_of_bytes, bitstringTheory.length_pad_right,
           bytes_in_word_def, LENGTH_FLAT, MAP_MAP_o, o_DEF, ADD1, SUM_MAP_PLUS,
           Q.ISPEC`λx. 1n`SUM_MAP_K |> SIMP_RULE(srw_ss())[]]>>
@@ -525,7 +525,7 @@ Theorem init_memory_data:
       init_memory code data ffis (cl,inp) (n2w (4 * (k + low DIV 4)) + 1w);
       init_memory code data ffis (cl,inp) (n2w (4 * (k + low DIV 4)) + 2w);
       init_memory code data ffis (cl,inp) (n2w (4 * (k + low DIV 4)) + 3w)] =
-    EL k data
+    n2w (EL k data) : word32
 Proof
   rw []
   \\ qabbrev_tac `low = LENGTH code + code_start_offset (LENGTH ffis)`
@@ -653,6 +653,7 @@ Proof
           \\ fs [word_add_n2w, word_mul_n2w]
           \\ intLib.ARITH_TAC)
   \\ pop_assum (SUBST_ALL_TAC)
+  \\ simp[Abbr`d`, EL_MAP]
   \\ simp[set_byte_def,get_byte_def,byte_index_def,word_slice_alt_def]
   \\ blastLib.FULL_BBLAST_TAC
 QED
@@ -796,7 +797,7 @@ QED
 
 Theorem init_memory_startup_bytes_in_memory:
    i < LENGTH scc  ∧
-   (scc = startup_asm_code (LENGTH ffis) (n2w (LENGTH code)) (n2w (4 * (LENGTH data)))) ⇒
+   (scc = startup_asm_code (LENGTH ffis) (LENGTH code) (4 * (LENGTH data))) ⇒
    bytes_in_memory (n2w (SUM (MAP (LENGTH o ag32_enc) (TAKE i scc)))) (ag32_enc (EL i scc))
      (init_memory code data ffis inputs) ag32_startup_addresses
 Proof
@@ -894,7 +895,7 @@ QED
 Definition init_asm_state_def:
   init_asm_state code data ffis input =
   let im =  init_memory code data ffis in
-  let sac = startup_asm_code (LENGTH ffis) (n2w (LENGTH code)) (n2w (4 * LENGTH data)) in
+  let sac = startup_asm_code (LENGTH ffis) (LENGTH code) (4 * LENGTH data) in
     FOLDL (λs i. asm i (s.pc + n2w (LENGTH (ag32_enc i))) s)
       (ag32_init_asm_state
         (im input)
@@ -1085,8 +1086,8 @@ Theorem init_asm_state_asm_step:
      asm_state0
      (startup_asm_code
        (LENGTH ffis)
-       (n2w (LENGTH code))
-       (n2w (4 * LENGTH data)))) in
+       (LENGTH code)
+       (4 * LENGTH data))) in
   steps_rel (asm_step (ag32_target.config)) asm_state0 tr ∧
   let final_st = LAST (asm_state0::(MAP SND tr)) in
   let num_ffis = LENGTH ffis in

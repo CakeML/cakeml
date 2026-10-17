@@ -7,10 +7,7 @@ Ancestors
 Libs
   preamble ml_translatorLib basis
 
-open preamble ml_translatorLib ml_translatorTheory;
-open decodeProgTheory basis;
-
-val _ = translation_extends "decodeProg";
+val _ = translation_extends "sexp_parserProg";
 val _ = ml_translatorLib.use_sub_check true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "basis_defProg");
