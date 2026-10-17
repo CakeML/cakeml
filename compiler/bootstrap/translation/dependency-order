@@ -25,7 +25,6 @@ reg_alloc
 infer
 explorer
 decode
-sexp_parser
 basis_def
 --- (the translation splits into two paths for 32- and 64-bit targets)
 to_word32
