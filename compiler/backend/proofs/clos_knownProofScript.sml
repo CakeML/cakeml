@@ -2601,7 +2601,7 @@ Definition v_rel_def:
        LIST_REL (f_rel c (clos ++ aenv) g) funs1 funs2 /\
        v = Recclosure loc_opt args2 (env2a ++ env2b) funs2 i else F)
 Termination
-  WF_REL_TAC `measure (v_size o FST o SND o SND)` \\ simp [list_size_append, v_size_def]
+  WF_REL_TAC `measure (v_size o FST o SND o SND)`
 End
 
 Theorem v_rel_def[simp,compute,allow_rebind] =

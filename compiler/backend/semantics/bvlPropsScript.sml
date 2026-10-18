@@ -835,8 +835,6 @@ Definition bVarBound_def[simp]:
   (bVarBound n [Call ticks dest xs] <=> bVarBound n xs)
 Termination
   WF_REL_TAC `measure (list_size exp_size o SND)`
-   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
 End
 
 Definition bEvery_def[simp]:
@@ -857,8 +855,6 @@ Definition bEvery_def[simp]:
   (bEvery P [Call ticks dest xs] <=> P (Call ticks dest xs) /\ bEvery P xs)
 Termination
   WF_REL_TAC `measure (list_size exp_size o SND)`
-   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
 End
 
 Theorem bVarBound_EVERY:

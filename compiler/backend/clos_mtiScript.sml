@@ -27,8 +27,7 @@ Theorem collect_args_size:
     num_args' + exp_size e' ≤ num_args + exp_size e
 Proof
    ho_match_mp_tac collect_args_ind >>
-   srw_tac[][collect_args_def, exp_size_def] >>
-   srw_tac[][exp_size_def] >>
+   srw_tac[][collect_args_def] >>
    res_tac >>
    decide_tac
 QED

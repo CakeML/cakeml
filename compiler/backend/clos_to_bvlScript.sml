@@ -482,8 +482,7 @@ Definition compile_exps_def:
        ([Call ticks (SOME (dest + (num_stubs max_app))) c1],aux1))
 Termination
   WF_REL_TAC `measure (list_size exp_size o FST o SND)` >>
-  srw_tac [ARITH_ss] [closLangTheory.exp_size_eq,
-                      list_size_pair_size_MAP_FST_SND]
+  srw_tac [ARITH_ss] [list_size_pair_size_MAP_FST_SND]
 End
 
 val compile_exps_ind = theorem"compile_exps_ind";
@@ -569,8 +568,7 @@ Definition compile_exp_sing_def:
 Termination
   WF_REL_TAC `measure $ λx. pmatch x of INL (_,e,_) => exp_size e
                                     | INR (_,es,_) => list_size exp_size es` >>
-  srw_tac [ARITH_ss] [closLangTheory.exp_size_eq,
-                      list_size_pair_size_MAP_FST_SND]
+  srw_tac [ARITH_ss] [list_size_pair_size_MAP_FST_SND]
 End
 
 Theorem compile_exp_sing_eq:
@@ -621,8 +619,7 @@ Definition get_src_names_def:
                        | SOME n => add_src_names n names l1)
 Termination
   WF_REL_TAC ‘measure (list_size closLang$exp_size o FST)’
-  \\ srw_tac [ARITH_ss] [closLangTheory.exp_size_eq,
-                         list_size_pair_size_MAP_FST_SND]
+  \\ srw_tac [ARITH_ss] [list_size_pair_size_MAP_FST_SND]
 End
 
 Definition get_src_names_sing_def:
@@ -653,8 +650,7 @@ Definition get_src_names_sing_def:
 Termination
   WF_REL_TAC ‘measure $ λx. pmatch x of INL (e,_) => closLang$exp_size e
                                     | INR (es,_) => list_size closLang$exp_size es’
-  \\ srw_tac [ARITH_ss] [closLangTheory.exp_size_eq,
-                         list_size_pair_size_MAP_FST_SND]
+  \\ srw_tac [ARITH_ss] [list_size_pair_size_MAP_FST_SND]
 End
 
 Theorem get_src_names_sing_eq:

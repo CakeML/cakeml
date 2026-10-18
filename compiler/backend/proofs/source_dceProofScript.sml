@@ -58,7 +58,6 @@ Termination
   wf_rel_tac ‘measure (λx. case x of
                            | INL s => long_names_size (SND s) + 1
                            | INR l => long_names_size l)’
-  \\ simp [list_size_def, basicSizeTheory.pair_size_def]
 End
 
 Theorem names_set_empty_names[local,simp]:

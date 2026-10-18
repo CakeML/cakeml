@@ -136,7 +136,7 @@ Termination
   \\ rpt (pop_assum mp_tac)
   \\ rpt (goal_term (fn tm =>
             tmCases_on (rand (find_term (can (match_term “nth _ _”)) tm)) []
-            \\ fs [num_tree_size_def,list_dec'_def]))
+            \\ fs [list_dec'_def]))
 End
 
 Theorem backend_common_tra_enc'_thm[simp]:
@@ -178,7 +178,7 @@ Termination
   \\ pop_assum $ qspec_then ‘num_tree_size’ mp_tac
   \\ rpt (goal_term (fn tm =>
             tmCases_on (rand (find_term (can (match_term “nth _ _”)) tm)) []
-            \\ fs [num_tree_size_def,list_dec'_def]))
+            \\ fs [list_dec'_def]))
   \\ rename [‘list_dec' I xs’] \\ Cases_on ‘xs’
   \\ fs [list_dec'_def] \\ rw []
 End
@@ -254,10 +254,9 @@ Termination
   \\ rpt (pop_assum $ qspec_then ‘num_tree_size’ mp_tac)
   \\ rpt (goal_term (fn tm =>
             tmCases_on (rand (find_term (can (match_term “nth _ _”)) tm)) []
-            \\ fs [num_tree_size_def,list_dec'_def]))
+            \\ fs [list_dec'_def]))
   \\ rename [‘list_dec' I xs’] \\ Cases_on ‘xs’
   \\ fs [list_dec'_def] \\ rw []
-  \\ fs [num_tree_size_def]
   \\ Cases_on ‘x’ \\ gvs [list_dec'_def]
 End
 
@@ -294,7 +293,7 @@ Termination
   \\ rpt (pop_assum $ qspec_then ‘num_tree_size’ mp_tac)
   \\ rpt (goal_term (fn tm =>
             tmCases_on (rand (find_term (can (match_term “nth _ _”)) tm)) []
-            \\ fs [num_tree_size_def,list_dec'_def]))
+            \\ fs [list_dec'_def]))
   \\ rename [‘list_dec' I xs’] \\ Cases_on ‘xs’
   \\ fs [list_dec'_def] \\ rw []
 End
@@ -334,7 +333,7 @@ Termination
   \\ rpt (pop_assum $ qspec_then ‘num_tree_size’ mp_tac)
   \\ rpt (goal_term (fn tm =>
             tmCases_on (rand (find_term (can (match_term “nth _ _”)) tm)) []
-            \\ fs [num_tree_size_def,list_dec'_def]))
+            \\ fs [list_dec'_def]))
   \\ rename [‘list_dec' I xs’] \\ Cases_on ‘xs’
   \\ fs [list_dec'_def] \\ rw []
 End
@@ -371,7 +370,7 @@ Termination
   \\ rpt (pop_assum $ qspec_then ‘num_tree_size’ mp_tac)
   \\ rpt (goal_term (fn tm =>
             tmCases_on (rand (find_term (can (match_term “nth _ _”)) tm)) []
-            \\ fs [num_tree_size_def,list_dec'_def]))
+            \\ fs [list_dec'_def]))
   \\ rename [‘list_dec' I xs’] \\ Cases_on ‘xs’
   \\ fs [list_dec'_def]
 End

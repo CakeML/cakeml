@@ -56,8 +56,6 @@ Datatype:
       | Return (exp list)
 End
 
-Theorem exp_size_eq = #2 (TypeBase.size_of “:bvi$exp”)
-
 Overload mk_unit = “bvi$Op (BlockOp (Cons 0)) []”
 
 Overload mk_elem_at = “λb i. bvi$Op (BlockOp (ElemAt i)) [b]”

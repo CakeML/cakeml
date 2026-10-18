@@ -847,8 +847,7 @@ Definition set_globals_def[simp]:
 Termination
   WF_REL_TAC ‘measure (\a. case a of INL e => exp_size e
                                    | INR es => list_size exp_size es)’
-  \\ rw [flatLangTheory.exp_size_def]
-  \\ fs [GSYM o_DEF]
+  \\ rw [GSYM o_DEF]
   >-
    (irule LESS_EQ_LESS_TRANS
     \\ qexists_tac ‘list_size

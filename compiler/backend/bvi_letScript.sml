@@ -106,7 +106,7 @@ Termination
   \\ rw [] \\ fs [LENGTH_NIL]
   \\ imp_res_tac (METIS_PROVE [SNOC_CASES] ``m <> [] ==> ?x y. m = SNOC x y``)
   \\ full_simp_tac std_ss [LAST_SNOC,LENGTH_SNOC,FRONT_SNOC]
-  \\ fs [list_size_append,SNOC_APPEND,exp_size_def]
+  \\ fs [list_size_append,SNOC_APPEND]
 End
 
 Definition compile_sing_def:
@@ -153,12 +153,12 @@ Termination
   WF_REL_TAC ‘measure $ λx. case x of
                             | INL (_,_,e) => bvi$exp_size e
                             | INR (_,_,es) => list_size bvi$exp_size es’
-  \\ rw[bviTheory.exp_size_def]
+  \\ rw[]
   \\ rename1`xs ≠ []`
   \\ pop_assum mp_tac
   \\ qid_spec_tac`xs`
   \\ Cases using SNOC_CASES
-  \\ gvs [SNOC_APPEND,bviTheory.exp_size_def,list_size_append]
+  \\ gvs [SNOC_APPEND,list_size_append]
 End
 
 Theorem compile_sing:

@@ -475,8 +475,7 @@ Definition v_all_ts_def:
   v_all_ts (Block ts _ xs) = ts :: FLAT (MAP v_all_ts xs) ∧
   v_all_ts _ = []
 Termination
-  WF_REL_TAC `measure (v_size)` \\ rpt strip_tac \\ Induct_on `xs`
-  \\ srw_tac [] [v_size_def] \\ res_tac \\ DECIDE_TAC
+  WF_REL_TAC `measure (v_size)`
 End
 
 Definition find_ref_def[simp]:
@@ -13725,10 +13724,6 @@ Definition v_same_type_def[simp]:
   (v_same_type _ _ = F)
 Termination
   wf_rel_tac`measure (v_size o FST)`
- \\ Induct_on`l1` \\ ntac 2 (rw[v_size_def])
- \\ Cases_on`l2` \\ fs[] \\ rw[]
- \\ res_tac \\ fs[] \\ rfs[]
- \\ first_x_assum(qspecl_then[`0`,`t1`]mp_tac) \\ rw[]
 End
 
 Theorem memory_rel_Block_MEM:
@@ -13881,9 +13876,7 @@ Definition v_depth_def[simp]:
   (v_depth (Block _ _ ls) = (if NULL ls then 0 else 1) + MAX_LIST (MAP v_depth ls)) ∧
   (v_depth _ = 0n)
 Termination
-  WF_REL_TAC`measure v_size` \\
- ntac 2 gen_tac \\ Induct \\ rw[v_size_def] \\ rw[]
- \\ res_tac \\ rw[]
+  WF_REL_TAC`measure v_size`
 End
 
 val v_depth_ind = theorem"v_depth_ind";

@@ -12,8 +12,6 @@ Datatype:
   num_tree = Tree num (num_tree list)
 End
 
-Theorem num_tree_size_eq = #2 (TypeBase.size_of “:num_tree”)
-
 Definition num_tree_enc'_def:
   num_tree_enc' [] = List [] ∧
   num_tree_enc' ((Tree k xs)::ts) =
@@ -343,7 +341,7 @@ val _ = app DefnBase.export_cong ["option_enc'_cong", "option_dec'_cong"];
 Theorem num_tree_size_nth:
   ∀xs i. num_tree_size (nth i xs) ≤ list_size num_tree_size xs + 1
 Proof
-  Induct \\ fs [fetch "-" "num_tree_size_def"] \\ rw [] \\ fs []
+  Induct \\ rw [] \\ fs []
   \\ first_x_assum (qspec_then ‘i-1’ mp_tac) \\ fs []
 QED
 
@@ -357,7 +355,7 @@ Proof
   \\ simp [num_tree_size_nth]
   \\ qspecl_then [‘xs’,‘j’] mp_tac num_tree_size_nth
   \\ Cases_on ‘nth j xs’
-  \\ fs [list_dec'_def, num_tree_size_eq]
+  \\ fs [list_dec'_def]
   \\ qspecl_then [‘l’,‘i’] mp_tac num_tree_size_nth
   \\ fs []
 QED

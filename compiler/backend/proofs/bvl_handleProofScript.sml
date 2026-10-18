@@ -199,8 +199,6 @@ Definition handle_ok_def:
   (handle_ok [Call ticks dest xs] <=> handle_ok xs)
 Termination
   WF_REL_TAC `measure (list_size exp_size)`
-   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
 End
 
 Theorem evaluate_GENLIST =

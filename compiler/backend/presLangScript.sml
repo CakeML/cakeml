@@ -877,7 +877,7 @@ End
 Theorem MEM_append_data_seqs[local]:
   ∀x. MEM a (append (data_seqs x)) ⇒ prog_size a ≤ prog_size x
 Proof
-  Induct \\ simp [Once data_seqs_def,dataLangTheory.prog_size_def]
+  Induct \\ simp [Once data_seqs_def]
   \\ rw [] \\ res_tac \\ gvs []
 QED
 
@@ -886,7 +886,7 @@ Theorem list_size_append_data_seqs[local]:
   list_size prog_size (append (data_seqs x)) =
   prog_size x + 1
 Proof
-  Induct \\ simp [Once data_seqs_def,dataLangTheory.prog_size_def,list_size_def,list_size_append]
+  Induct \\ simp [Once data_seqs_def,list_size_append]
 QED
 
 Definition data_prog_to_display_def:
@@ -1098,7 +1098,7 @@ End
 Theorem MEM_append_stack_seqs[local]:
   ∀x. MEM a (append (stack_seqs x)) ⇒ prog_size a ≤ prog_size x
 Proof
-  Induct \\ simp [Once stack_seqs_def,stackLangTheory.prog_size_def]
+  Induct \\ simp [Once stack_seqs_def]
   \\ rw [] \\ res_tac \\ gvs []
 QED
 
@@ -1107,7 +1107,7 @@ Theorem list_size_append_stack_seqs[local]:
   list_size prog_size (append (stack_seqs x)) =
   prog_size x + 1
 Proof
-  Induct \\ simp [Once stack_seqs_def,stackLangTheory.prog_size_def,list_size_def,list_size_append]
+  Induct \\ simp [Once stack_seqs_def,list_size_append]
 QED
 
 Definition stack_prog_to_display_def:
@@ -1268,7 +1268,7 @@ End
 Theorem MEM_append_word_seqs[local]:
   ∀x. MEM a (append (word_seqs x)) ⇒ prog_size a ≤ prog_size x
 Proof
-  Induct \\ simp [Once word_seqs_def,wordLangTheory.prog_size_def]
+  Induct \\ simp [Once word_seqs_def]
   \\ rw [] \\ res_tac \\ gvs []
 QED
 

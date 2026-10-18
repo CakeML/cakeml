@@ -353,7 +353,7 @@ Definition compile_def:
      [closLang$Let t [HD (compile m [e])] (closLang$Tick t (Var t 0))])
 Termination
   WF_REL_TAC `measure (list_size flatLang$exp_size o SND)` \\ rw []
-  \\ gvs [dest_nop_thm, dest_pat_thm, flatLangTheory.exp_size_eq]
+  \\ gvs [dest_nop_thm, dest_pat_thm]
 End
 
 Definition compile_decs_def:

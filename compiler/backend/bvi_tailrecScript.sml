@@ -197,9 +197,9 @@ Theorem exp_size_get_bin_args:
        exp_size x1 + exp_size x2 < exp_size x
 Proof
   Induct
-  \\ rw [get_bin_args_def, exp_size_def]
+  \\ rw [get_bin_args_def]
   \\ every_case_tac
-  \\ fs [exp_size_def]
+  \\ fs []
 QED
 
 Definition opbinargs_def:

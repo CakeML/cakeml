@@ -38,8 +38,6 @@ Datatype:
       | Op closLang$op (exp list)
 End
 
-Theorem exp_size_eq = #2 (TypeBase.size_of “:bvl$exp”)
-
 Definition Bool_def:
   Bool b = Op (BlockOp (Cons (bool_to_tag b))) []
 End

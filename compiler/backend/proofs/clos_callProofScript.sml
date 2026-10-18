@@ -341,7 +341,7 @@ Definition v_rel_def:
        LIST_REL (v_rel g l code) vs1 vs2 ∧
        env_rel (v_rel g l code) env1 env2 (LENGTH fns2) fns2)
 Termination
-  WF_REL_TAC `measure (v_size o FST o SND o SND o SND)` >> simp[v_size_def]
+  WF_REL_TAC `measure (v_size o FST o SND o SND o SND)`
 End
 
 val v_rel_ind = theorem"v_rel_ind";
@@ -360,7 +360,7 @@ Definition wfv_def[simp]:
   (wfv g l code (Block _ vs) ⇔ EVERY (wfv g l code) vs) ∧
   (wfv _ _ _ _ ⇔ T)
 Termination
-  WF_REL_TAC `measure (v_size o SND o SND o SND)` >> simp[v_size_def]
+  WF_REL_TAC `measure (v_size o SND o SND o SND)`
 End
 
 val wfv_ind = theorem"wfv_ind";

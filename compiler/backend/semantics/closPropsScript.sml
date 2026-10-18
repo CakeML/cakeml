@@ -1710,8 +1710,6 @@ Proof
     gvs [oneline dest_thunk_def, AllCaseEqs()] \\ rw [] \\ gvs [])
 QED
 
-val _ = export_rewrites ["closLang.exp_size_def"]
-
 Theorem evaluate_eq_nil[simp]:
    closSem$evaluate(es,env,s0) = (Rval [], s) ⇔ s0 = s ∧ es = []
 Proof
@@ -1765,7 +1763,7 @@ Definition vsgc_free_def:
   (vsgc_free (Block _ VL) ⇔ EVERY vsgc_free VL) ∧
   (vsgc_free _ ⇔ T)
 Termination
-  WF_REL_TAC `measure closSem$v_size` >> simp[v_size_def]
+  WF_REL_TAC `measure closSem$v_size`
 End
 
 Theorem vsgc_free_def[simp,allow_rebind] =

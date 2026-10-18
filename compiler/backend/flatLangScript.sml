@@ -85,12 +85,6 @@ Datatype:
   | Tick tra exp
 End
 
-val exp_size_def = definition"exp_size_def"
-
-Theorem pat_size_eq = #2 (TypeBase.size_of “:flatLang$pat”)
-
-Theorem exp_size_eq = #2 (TypeBase.size_of “:flatLang$exp”)
-
 Definition bool_id_def:
   bool_id = 0n
 End

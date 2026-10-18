@@ -804,7 +804,7 @@ Proof
    (gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
     \\ first_assum $ drule_at $ Pos $ el 3
     \\ disch_then $ drule_at $ Pos last
-    \\ impl_tac >- (fs [exp_size_def] \\ strip_tac \\ gvs [])
+    \\ impl_tac >- (fs [] \\ strip_tac \\ gvs [])
     \\ strip_tac \\ fs []
     \\ reverse (gvs [CaseEq"result"])
     >- (qexists_tac ‘ck’ \\ fs [])
@@ -812,7 +812,7 @@ Proof
     \\ qpat_x_assum ‘evaluate (h::t,_) = _’ assume_tac
     \\ first_assum $ drule_at $ Pos $ el 3
     \\ disch_then $ drule_at $ Pos last
-    \\ impl_tac >- (fs [exp_size_def]
+    \\ impl_tac >- (fs []
                     \\  imp_res_tac evaluate_clock \\ fs []
                     \\ strip_tac \\ gvs [])
     \\ strip_tac
@@ -869,7 +869,7 @@ Proof
     >- (qexists_tac ‘0’ \\ fs [state_rel_def])
     \\ first_assum $ drule_at $ Pos $ el 3
     \\ disch_then $ qspec_then ‘dec_clock 1 t1’ mp_tac
-    \\ impl_tac >- (fs [exp_size_def,dec_clock_def] \\ gvs [state_rel_def])
+    \\ impl_tac >- (fs [dec_clock_def] \\ gvs [state_rel_def])
     \\ strip_tac
     \\ qexists_tac ‘ck’
     \\ ‘s1.clock = t1.clock’ by fs [state_rel_def]
@@ -881,14 +881,14 @@ Proof
    (gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
     \\ first_assum $ drule_at $ Pos $ el 3
     \\ disch_then $ drule_at $ Pos last
-    \\ impl_tac >- (fs [exp_size_def,dec_clock_def] \\ strip_tac \\ gvs [])
+    \\ impl_tac >- (fs [dec_clock_def] \\ strip_tac \\ gvs [])
     \\ strip_tac \\ qexists_tac ‘ck’ \\ fs []
     \\ gvs [AllCaseEqs()])
   >~ [‘If’] >-
    (gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
     \\ first_assum $ drule_at $ Pos $ el 3
     \\ disch_then $ drule_at $ Pos last
-    \\ impl_tac >- (fs [exp_size_def,dec_clock_def] \\ strip_tac \\ gvs [])
+    \\ impl_tac >- (fs [dec_clock_def] \\ strip_tac \\ gvs [])
     \\ strip_tac
     \\ reverse $ gvs [CaseEq"result"]
     >- (qexists_tac ‘ck’ \\ fs [])
@@ -909,7 +909,7 @@ Proof
    (gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
     \\ first_assum $ drule_at $ Pos $ el 3
     \\ disch_then $ drule_at $ Pos last
-    \\ impl_tac >- (fs [exp_size_def,dec_clock_def] \\ strip_tac \\ gvs [])
+    \\ impl_tac >- (fs [dec_clock_def] \\ strip_tac \\ gvs [])
     \\ strip_tac
     \\ reverse $ gvs [CaseEq"result"]
     >- (qexists_tac ‘ck’ \\ fs [])
@@ -927,7 +927,7 @@ Proof
    (gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
     \\ first_assum $ drule_at $ Pos $ el 3
     \\ disch_then $ drule_at $ Pos last
-    \\ impl_tac >- (fs [exp_size_def,dec_clock_def] \\ strip_tac \\ gvs [])
+    \\ impl_tac >- (fs [dec_clock_def] \\ strip_tac \\ gvs [])
     \\ strip_tac
     \\ gvs [AllCaseEqs()]
     \\ TRY (qexists_tac ‘ck’ \\ fs [] \\ NO_TAC)
@@ -945,7 +945,7 @@ Proof
    (gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
     \\ first_assum $ drule_at $ Pos $ el 3
     \\ disch_then $ drule_at $ Pos last
-    \\ impl_tac >- (fs [exp_size_def,dec_clock_def] \\ strip_tac \\ gvs [])
+    \\ impl_tac >- (fs [dec_clock_def] \\ strip_tac \\ gvs [])
     \\ strip_tac
     \\ reverse $ gvs [CaseEq"result"]
     >- (qexists_tac ‘ck’ \\ fs [])
@@ -957,7 +957,7 @@ Proof
     \\ gvs [CaseEq"bool",CaseEq"option"]
     \\ first_assum $ drule_at $ Pos $ el 3
     \\ disch_then $ drule_at $ Pos last
-    \\ (impl_tac >- (fs [exp_size_def,dec_clock_def] \\ strip_tac \\ gvs []))
+    \\ (impl_tac >- (fs [dec_clock_def] \\ strip_tac \\ gvs []))
     \\ strip_tac
     \\ qexists_tac ‘ck’ \\ fs [])
   \\ rename [‘Op t p xs’]
@@ -1095,7 +1095,7 @@ Definition v_ok_def[simp]:
     EVERY v_ok env1 ∧ EVERY v_ok vs1 ∧ i < LENGTH fns1 ∧
     EVERY ($~ o has_install o SND) fns1)
 Termination
-  WF_REL_TAC ‘measure v_size’ \\ simp[v_size_def]
+  WF_REL_TAC ‘measure v_size’
 End
 
 Definition res_ok_def[simp]:

@@ -84,7 +84,6 @@ Definition compile_pat_bindings_def:
     (insert k () spt, Let t (SOME nm) (App t (El 0) [x]) exp2))
 Termination
   WF_REL_TAC `measure (\(t, i, m, exp). SUM (MAP (pat_size o FST) m) + LENGTH m)`
-  \\ simp [flatLangTheory.pat_size_eq]
   \\ rw [MAP_MAP_o, o_DEF, UNCURRY, SUM_APPEND, list_size_SUM_MAP]
   \\ simp [LENGTH_enumerate, MAP_enumerate_MAPi, MAPi_eq_MAP]
 End
@@ -186,7 +185,6 @@ Definition naive_pattern_match_def:
     naive_pattern_match t ((p, App t (El 0) [v]) :: mats)
 Termination
   WF_REL_TAC `measure (\x. SUM (MAP (pat_size o FST) (SND x)) + LENGTH (SND x))`
-  \\ simp [flatLangTheory.pat_size_eq]
   \\ rw []
   \\ simp [o_DEF, MAPi_eq_MAP, SUM_APPEND, list_size_SUM_MAP]
 End

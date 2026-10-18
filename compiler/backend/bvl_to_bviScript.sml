@@ -88,7 +88,7 @@ Termination
   WF_REL_TAC ‘measure $ λx. pmatch x of
                             | INL e => bvl$exp_size e
                             | INR es => list_size bvl$exp_size es’
-  \\ rpt strip_tac \\ simp [bvlTheory.exp_size_eq]
+  \\ rpt strip_tac \\ simp []
 End
 
 Theorem alloc_glob_count_eq_global_count_list:
@@ -379,10 +379,9 @@ Definition compile_exps_def:
                | SOME n => SOME (num_stubs + nss * n)) c1 NONE],aux1,n1))
 Termination
   WF_REL_TAC `measure (list_size exp_size o SND)`
-  \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-  \\ TRY (Cases_on `x1`) \\ fs [destLet_def]
-  \\ TRY (Cases_on `x2`) \\ fs [destLet_def]
-  \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
+  \\ rpt strip_tac
+  \\ rpt $ qpat_x_assum ‘(_,_,_) = _’ kall_tac
+  \\ gvs [oneline destLet_def, AllCaseEqs()]
 End
 
 Definition compile_exps_sing_def:
@@ -440,7 +439,7 @@ Termination
                                     | INR (n,es) => list_size exp_size es’
   \\ rpt strip_tac
   \\ rpt $ qpat_x_assum ‘(_,_,_) = _’ kall_tac
-  \\ gvs [oneline destLet_def, AllCaseEqs(), bvlTheory.exp_size_eq]
+  \\ gvs [oneline destLet_def, AllCaseEqs()]
 End
 
 Theorem compile_exps_sing:

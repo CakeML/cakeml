@@ -303,7 +303,7 @@ Definition calls_def:
 Termination
   WF_REL_TAC `measure (list_size exp_size o FST)`
   \\ REPEAT STRIP_TAC
-  \\ gvs [GSYM NOT_LESS,exp_size_eq,list_size_pair_size_MAP_FST_SND]
+  \\ gvs [GSYM NOT_LESS,list_size_pair_size_MAP_FST_SND]
 End
 
 Definition calls_sing_def:

@@ -144,10 +144,6 @@ Datatype:
       | Op tra op (exp list)
 End
 
-val exp_size_def = definition"exp_size_def";
-
-Theorem exp_size_eq = #2 (TypeBase.size_of “:closLang$exp”)
-
 Definition has_install_def:
   has_install ((Var t n):closLang$exp) = F ∧
   has_install (If t e1 e2 e3) = (has_install e1 ∨ has_install e2 ∨ has_install e3) ∧
@@ -168,9 +164,7 @@ Termination
   \\ rw []
   \\ qsuff_tac ‘list_size exp_size (MAP SND fns) ≤ list_size (pair_size (λx. x) exp_size) fns’
   >- fs []
-  \\ Induct_on ‘fns’ \\ fs []
-  \\ fs [list_size_def,FORALL_PROD]
-  \\ rw [] \\ fs [basicSizeTheory.pair_size_def]
+  \\ Induct_on ‘fns’ \\ fs [FORALL_PROD]
 End
 
 Definition pure_op_def:
