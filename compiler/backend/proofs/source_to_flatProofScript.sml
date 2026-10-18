@@ -1271,10 +1271,10 @@ Theorem unsafe_index_bound_rel[local]:
     (flatSem$index_witness_length refs') witnesses' = SOME bound
 Proof
   rpt strip_tac
-  \\ Cases_on `witnesses`
+  \\ namedCases_on `witnesses` ["", "witness remaining_witnesses"]
   \\ gvs [semanticPrimitivesTheory.unsafe_index_bound_def,
           backendPropsTheory.unsafe_index_bound_def]
-  \\ Cases_on `t`
+  \\ Cases_on `remaining_witnesses`
   \\ gvs [semanticPrimitivesTheory.unsafe_index_bound_def,
           backendPropsTheory.unsafe_index_bound_def]
   \\ drule_all index_witness_length_rel
@@ -1317,8 +1317,8 @@ Theorem do_app[local]:
        do_app s1_i1 (astOp_to_flatOp op) vs_i1 = SOME (s2_i1, r_i1)
 Proof
   rpt gen_tac >>
-  Cases_on `s1` >>
-  Cases_on `s1_i1.refs` >> simp [] >>
+  namedCases_on `s1` ["source_refs source_ffi"] >>
+  namedCases_on `s1_i1.refs` ["", "reserved_ref target_refs"] >> simp [] >>
   Cases_on `s1_i1` >>
   Cases_on `op = ConfigGC` >-
      (simp [astOp_to_flatOp_def] >>
@@ -1349,33 +1349,33 @@ Proof
     \\ gvs [oneline semanticPrimitivesTheory.do_app_def,
             oneline flatSemTheory.do_app_def, AllCaseEqs()]
     \\ gvs [do_unsafe_index_arith_def, AllCaseEqs(), v_rel_eqns]
+    \\ qmatch_asmsub_rename_tac
+         `semanticPrimitives$unsafe_index_bound source_refs source_witnesses = SOME witness_bound`
+    \\ qmatch_asmsub_rename_tac
+         `LIST_REL (v_rel genv) source_witnesses target_witnesses`
+    \\ `backendProps$unsafe_index_bound
+         (flatSem$index_witness_length (reserved_ref::target_refs)) target_witnesses = SOME witness_bound` by (
+      irule unsafe_index_bound_rel_cons \\ simp [] \\ metis_tac [])
     >~ [`do_arith _ IntT _ = SOME (INL _)`] >- (
-      `backendProps$unsafe_index_bound
-         (flatSem$index_witness_length (h::t)) ys' = SOME bound`
-        by (irule unsafe_index_bound_rel_cons \\ simp [] \\ metis_tac [])
-      \\ gvs [semanticPrimitivesTheory.do_arith_def, AllCaseEqs(),
-              result_rel_cases, div_exn_v_def, v_rel_eqns]
+      gvs [semanticPrimitivesTheory.do_arith_def, AllCaseEqs(),
+           result_rel_cases, div_exn_v_def, v_rel_eqns]
       \\ gvs [genv_c_ok_def, has_exns_def, EVAL ``div_tag``]
       \\ EVAL_TAC
-      \\ simp [Once v_rel_cases, semanticPrimitivesTheory.div_stamp_def]
-    )
-    >~ [`do_arith _ IntT _ = SOME (INR _)`] >- (
-      `backendProps$unsafe_index_bound
-         (flatSem$index_witness_length (h::t)) ys' = SOME bound`
-        by (irule unsafe_index_bound_rel_cons \\ simp [] \\ metis_tac [])
-      \\ gvs [result_rel_cases, v_rel_eqns]
-    )
-  )
+      \\ simp [Once v_rel_cases, semanticPrimitivesTheory.div_stamp_def])
+    \\ gvs [result_rel_cases, v_rel_eqns])
   >~ [‘UnsafeIndexTest test’] >- (
     rpt strip_tac
     \\ gvs [oneline semanticPrimitivesTheory.do_app_def,
             oneline flatSemTheory.do_app_def, AllCaseEqs()]
     \\ gvs [do_unsafe_index_test_def, AllCaseEqs(), v_rel_eqns]
+    \\ qmatch_asmsub_rename_tac
+         `semanticPrimitives$unsafe_index_bound source_refs source_witnesses = SOME witness_bound`
+    \\ qmatch_asmsub_rename_tac
+         `LIST_REL (v_rel genv) source_witnesses target_witnesses`
     \\ `backendProps$unsafe_index_bound
-          (flatSem$index_witness_length (h::t)) ys' = SOME bound`
+          (flatSem$index_witness_length (reserved_ref::target_refs)) target_witnesses = SOME witness_bound`
          by (irule unsafe_index_bound_rel_cons \\ simp [] \\ metis_tac [])
-    \\ gvs [result_rel_cases, v_rel_Bool_eqn]
-  )
+    \\ gvs [result_rel_cases, v_rel_Bool_eqn])
   >~ [‘FromTo ty1 ty2’] >- (
       gvs [oneline semanticPrimitivesTheory.do_app_def,AllCaseEqs()]
       \\ gvs [oneline flatSemTheory.do_app_def,AllCaseEqs()]
@@ -1525,7 +1525,6 @@ Proof
           store_lookup_def,EXISTS_PROD,store_assign_def,Unitv_def]
     \\ fs [REWRITE_RULE [ADD1] EL, ADD1]
     \\ imp_res_tac LIST_REL_LENGTH \\ rw[]
-    \\ TRY (asm_exists_tac \\ simp[])
     \\ imp_res_tac LIST_REL_EL_EQN
     \\ rfs[sv_rel_cases,v_rel_lems,v_rel_eqns]
     \\ simp[store_v_same_type_def, REWRITE_RULE [ADD1] LUPDATE_def]
@@ -1537,7 +1536,6 @@ Proof
           store_lookup_def,EXISTS_PROD,store_assign_def,Unitv_def]
     \\ fs [REWRITE_RULE [ADD1] EL, ADD1]
     \\ imp_res_tac LIST_REL_LENGTH \\ rw[]
-    \\ TRY (asm_exists_tac \\ simp[])
     \\ imp_res_tac LIST_REL_EL_EQN
     \\ rfs[sv_rel_cases,v_rel_lems,v_rel_eqns]
     \\ simp[store_v_same_type_def, REWRITE_RULE [ADD1] LUPDATE_def]
@@ -1549,17 +1547,10 @@ Proof
       imp_res_tac v_to_char_list >>
       srw_tac[][])
   >~ [‘Explode’] >- (
-      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
-      imp_res_tac v_to_char_list >>
-      srw_tac[][] >>
-      namedCases_on ‘str’ ["s"] >>
-      fs [] >>
-      Induct_on `s` >>
-      fs [semanticPrimitivesTheory.list_to_v_def,flatSemTheory.list_to_v_def] >>
-      simp [Once v_rel_cases] >>
-      fs [genv_c_ok_def,has_lists_def] >>
-      simp [Once v_rel_cases])
+    srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+    full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+    irule list_to_v_v_rel >>
+    fs [genv_c_ok_def, LIST_REL_EL_EQN, EL_MAP, v_rel_eqns])
   >~ [‘Strsub’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_eqns] >>
@@ -1766,7 +1757,7 @@ Proof
       srw_tac[][v_rel_lems] >> CCONTR_TAC >> rfs [] >> rveq >>
       fs [flatSemTheory.Boolv_def, backend_commonTheory.true_tag_def,
           backend_commonTheory.false_tag_def])
-  >- ((* ThunkOp *)
+  >- (
     srw_tac[][semanticPrimitivesPropsTheory.do_app_cases,
               flatSemTheory.do_app_def, thunk_op_def] >>
     gvs[AllCaseEqs(), PULL_EXISTS]
@@ -1783,8 +1774,11 @@ Proof
       first_x_assum drule >> gvs[sv_rel_cases, EL_CONS, PRE_SUB1, SF DNF_ss])
     >- (
       gvs[store_assign_def, store_v_same_type_def] >>
-      Cases_on `EL lnum q` >> gvs[] >> Cases_on `t'` >> gvs[] >>
-      qpat_x_assum `v_rel _ (Loc _ _) y` mp_tac >> rw[Once v_rel_cases] >>
+      qmatch_asmsub_rename_tac `v_rel genv (Loc F source_index) target_location` >>
+      namedCases_on `EL source_index source_refs`
+        ["ref_value", "bytes", "values", "thunk_mode thunk_value"] >>
+      gvs[] >> Cases_on `thunk_mode` >> gvs[] >>
+      qpat_x_assum `v_rel _ (Loc _ _) _` mp_tac >> rw[Once v_rel_cases] >>
       gvs [LIST_REL_EL_EQN, REWRITE_RULE [ADD1] LUPDATE_def, EL_LUPDATE]
       >- (rw[] >> simp [Once sv_rel_cases])
       >- simp[Once result_rel_cases, Once v_rel_cases]
@@ -1794,7 +1788,8 @@ Proof
         gvs[oneline semanticPrimitivesTheory.dest_thunk_def,
              oneline dest_thunk_def, AllCaseEqs()] >>
         gvs[Once v_rel_cases, store_lookup_def] >>
-        first_x_assum $ qspec_then `n` assume_tac >>
+        qmatch_goalsub_rename_tac `EL (child_index + 1) (reserved_ref::target_refs)` >>
+        first_x_assum $ qspec_then `child_index` assume_tac >>
         gvs[sv_rel_cases, EL_CONS, PRE_SUB1, SF DNF_ss])
       >- (
         rw[REWRITE_RULE [ADD1] EL] >>

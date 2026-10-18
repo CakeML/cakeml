@@ -1234,6 +1234,59 @@ Theorem simple_val_rel_thunk_op_NONE =
 Theorem simple_val_rel_thunk_op_SOME =
   simple_val_rel_thunk_op |> SPEC_ALL |> UNDISCH |> CONJUNCT2 |> DISCH_ALL
 
+Theorem simple_val_rel_index_witness_length:
+  simple_val_rel vr ∧ LIST_REL (sv_rel vr) s t ∧ vr v w ⇒
+  index_witness_length s v = index_witness_length t w
+Proof
+  strip_tac
+  >> Cases_on `w`
+  >> gvs [simple_val_rel_cases,is_clos_iff,index_witness_length_def]
+  >> imp_res_tac LIST_REL_LENGTH
+  >> gvs []
+  >> rename1 `store_lookup location s`
+  >> drule LIST_REL_OPTREL_store_lookup
+  >> disch_then (qspec_then `location` mp_tac)
+  >> rw [OPTREL_def]
+  >> gvs [sv_rel_cases]
+  >> imp_res_tac LIST_REL_LENGTH
+  >> gvs []
+QED
+
+Theorem simple_val_rel_unsafe_index_bound:
+  simple_val_rel vr ∧ LIST_REL (sv_rel vr) s t ∧ LIST_REL vr xs ys ⇒
+  unsafe_index_bound s xs = unsafe_index_bound t ys
+Proof
+  strip_tac
+  >> namedCases_on `ys` ["", "witness rest"]
+  >> gvs [unsafe_index_bound_def]
+  >> namedCases_on `rest` ["", "extra remaining"]
+  >> gvs [unsafe_index_bound_def]
+  >> drule_all simple_val_rel_index_witness_length
+  >> simp []
+QED
+
+Theorem simple_val_rel_unsafe_index_ops:
+  simple_val_rel vr ∧ LIST_REL (sv_rel vr) s t ∧ LIST_REL vr xs ys ⇒
+  do_unsafe_index_arith s arith xs = do_unsafe_index_arith t arith ys ∧
+  do_unsafe_index_test s test xs = do_unsafe_index_test t test ys
+Proof
+  strip_tac
+  >> namedCases_on `ys` ["", "left rest"]
+  >> gvs [do_unsafe_index_arith_def,do_unsafe_index_test_def]
+  >> namedCases_on `rest` ["", "right witnesses"]
+  >> gvs [do_unsafe_index_arith_def,do_unsafe_index_test_def]
+  >> namedCases_on `left` ["left_literal", "", "", "", "", "", ""]
+  >> gvs [simple_val_rel_cases,is_clos_iff]
+  >> Cases_on `left_literal`
+  >> gvs []
+  >> namedCases_on `right` ["right_literal", "", "", "", "", "", ""]
+  >> gvs [simple_val_rel_cases,is_clos_iff]
+  >> Cases_on `right_literal`
+  >> gvs []
+  >> drule_all simple_val_rel_unsafe_index_bound
+  >> simp []
+QED
+
 Theorem simple_val_rel_do_app_rev_NONE:
   simple_val_rel vr ∧
   LIST_REL (sv_rel vr) s t ∧
@@ -1250,6 +1303,12 @@ Proof
   simp[do_app_def]>>
   imp_res_tac LIST_REL_store_lookup>>
   gvs[sv_rel_cases,store_alloc_def]
+  >~ [`do_unsafe_index_arith`] >- (
+    drule_all simple_val_rel_unsafe_index_ops
+    >> simp [])
+  >~ [`do_unsafe_index_test`] >- (
+    drule_all simple_val_rel_unsafe_index_ops
+    >> simp [])
   >>~- (
     [`do_arith`],
     drule LIST_REL_EVERY_check_type>>disch_then drule>>
@@ -1402,6 +1461,22 @@ Proof
   gvs[sv_rel_cases,store_alloc_def,simple_val_rel_rewrites,
       simple_val_rel_list_to_v,result_rel_Rval2]>>
   imp_res_tac LIST_REL_LENGTH>>gvs[]
+  >~ [`do_unsafe_index_arith _ _ _ = SOME (INL _)`]
+  >- (
+    drule_all simple_val_rel_unsafe_index_ops
+    >> disch_tac >> simp []
+    >> gvs [do_unsafe_index_arith_def,AllCaseEqs()]
+    >> drule do_arith_INL
+    >> rw [div_exn_v_def,chr_exn_v_def]
+    >> gvs [simple_val_rel_rewrites])
+  >~ [`do_unsafe_index_arith _ _ _ = SOME (INR _)`]
+  >- (
+    drule_all simple_val_rel_unsafe_index_ops
+    >> disch_tac >> simp []
+    >> gvs [do_unsafe_index_arith_def,AllCaseEqs(),simple_val_rel_rewrites])
+  >~ [`do_unsafe_index_test`] >- (
+    drule_all simple_val_rel_unsafe_index_ops
+    >> disch_then (fn th => simp [th,simple_val_rel_rewrites]))
   >>~- (
     [`do_arith`],
     drule LIST_REL_check_type>>disch_then drule>>
@@ -1606,6 +1681,62 @@ Proof
   >> metis_tac [LIST_REL_sv_rel_store_assign,sv_rel_def]
 QED
 
+Theorem shape_val_rel_index_witness_length:
+  shape_val_rel vr ∧ LIST_REL (sv_rel vr) s t ∧ vr v w ⇒
+  index_witness_length s v = index_witness_length t w
+Proof
+  strip_tac
+  >> drule_all shape_val_rel_cases
+  >> Cases_on `v`
+  >> rw [is_clos_iff]
+  >> gvs [index_witness_length_def]
+  >> imp_res_tac LIST_REL_LENGTH
+  >> gvs []
+  >> rename1 `store_lookup location s`
+  >> drule LIST_REL_OPTREL_store_lookup
+  >> disch_then (qspec_then `location` mp_tac)
+  >> rw [OPTREL_def]
+  >> gvs [sv_rel_cases]
+  >> imp_res_tac LIST_REL_LENGTH
+  >> gvs []
+QED
+
+Theorem shape_val_rel_unsafe_index_bound:
+  shape_val_rel vr ∧ LIST_REL (sv_rel vr) s t ∧ LIST_REL vr xs ys ⇒
+  unsafe_index_bound s xs = unsafe_index_bound t ys
+Proof
+  strip_tac
+  >> namedCases_on `xs` ["", "witness rest"]
+  >> gvs [unsafe_index_bound_def]
+  >> namedCases_on `rest` ["", "extra remaining"]
+  >> gvs [unsafe_index_bound_def]
+  >> drule_all shape_val_rel_index_witness_length
+  >> simp []
+QED
+
+Theorem shape_val_rel_unsafe_index_ops:
+  shape_val_rel vr ∧ LIST_REL (sv_rel vr) s t ∧ LIST_REL vr xs ys ⇒
+  do_unsafe_index_arith s arith xs = do_unsafe_index_arith t arith ys ∧
+  do_unsafe_index_test s test xs = do_unsafe_index_test t test ys
+Proof
+  strip_tac
+  >> namedCases_on `xs` ["", "left rest"]
+  >> gvs [do_unsafe_index_arith_def,do_unsafe_index_test_def]
+  >> namedCases_on `rest` ["", "right witnesses"]
+  >> gvs [do_unsafe_index_arith_def,do_unsafe_index_test_def]
+  >> imp_res_tac shape_val_rel_cases
+  >> namedCases_on `left` ["left_literal", "", "", "", "", "", ""]
+  >> gvs [is_clos_iff]
+  >> Cases_on `left_literal`
+  >> gvs []
+  >> namedCases_on `right` ["right_literal", "", "", "", "", "", ""]
+  >> gvs [is_clos_iff]
+  >> Cases_on `right_literal`
+  >> gvs []
+  >> drule_all shape_val_rel_unsafe_index_bound
+  >> simp []
+QED
+
 Theorem shape_val_rel_do_app:
   shape_val_rel vr ∧
   LIST_REL (sv_rel vr) refs refs' ∧ LIST_REL vr vs vs' ∧
@@ -1623,6 +1754,17 @@ Proof
   >> gvs [sv_rel_cases]
   >> imp_res_tac LIST_REL_LENGTH
   >> simp [do_app_def]
+  >~ [`do_unsafe_index_arith`] >- (
+    drule_all shape_val_rel_unsafe_index_ops
+    >> disch_tac >> fs []
+    >> gvs [do_unsafe_index_arith_def,AllCaseEqs()]
+    >> drule do_arith_INL
+    >> rw [div_exn_v_def,chr_exn_v_def]
+    >> gvs [])
+  >~ [`do_unsafe_index_test`] >- (
+    drule_all shape_val_rel_unsafe_index_ops
+    >> disch_tac >> fs []
+    >> rw [Boolv_def])
   >> gvs [sub_exn_v_def,Boolv_def]
   >> imp_res_tac LIST_REL_LENGTH
   >~ [‘thunk_op’] >- (drule_all shape_val_rel_thunk_op >> simp [])

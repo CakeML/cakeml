@@ -2037,10 +2037,6 @@ Proof
     EVAL_TAC
 QED
 
-fun cases_on_op q = Cases_on q >|
-  map (MAP_EVERY Cases_on)
-      [[`n`], [`m`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
-
 Theorem extract_labels_SmallnumDivCall[simp]:
   extract_labels (SmallnumDivCall is_mod secn l dest names v1 v2) = [(secn,l)]
 Proof
@@ -2067,7 +2063,23 @@ Proof
     qmatch_goalsub_rename_tac `assign _ _ _ _ opname _ _`
     \\ Cases_on `c.arch_width`
     \\ fs [asmTheory.arch_width_bits_def,asmTheory.arch_bytes_def]
-    \\ cases_on_op `opname`
+    \\ Cases_on `opname`
+    >>> SELECT_LT_THEN (Q.RENAME_TAC [`Label label`])
+          (Cases_on `label`)
+    >>> SELECT_LT_THEN (Q.RENAME_TAC [`FFI ffi_name`])
+          (Cases_on `ffi_name`)
+    >>> SELECT_LT_THEN (Q.RENAME_TAC [`IntOp integer_op`])
+          (Cases_on `integer_op`)
+    >>> SELECT_LT_THEN (Q.RENAME_TAC [`WordOp word_op`])
+          (Cases_on `word_op`)
+    >>> SELECT_LT_THEN (Q.RENAME_TAC [`BlockOp block_op`])
+          (Cases_on `block_op`)
+    >>> SELECT_LT_THEN (Q.RENAME_TAC [`GlobOp global_op`])
+          (Cases_on `global_op`)
+    >>> SELECT_LT_THEN (Q.RENAME_TAC [`MemOp memory_op`])
+          (Cases_on `memory_op`)
+    >>> SELECT_LT_THEN (Q.RENAME_TAC [`ThunkOp thunk_op`])
+          (Cases_on `thunk_op`)
     >>~- ([`assign _ _ _ _ (WordOp (WordOpw _ _)) _ _`],
       pairarg_tac \\ drule extract_labels_assignWordOp \\ simp [])
     >>~- ([`assign _ _ _ _ (WordOp (WordShift _ _ _)) _ _`],
@@ -2904,7 +2916,7 @@ Proof
       disch_then drule>>fs[MEM_MAP,EXISTS_PROD]>>
       metis_tac[])
     >>
-      fs[MEM_MAP]>>PairCases_on `y`>>
+      fs[MEM_MAP,EXISTS_PROD]>>
       fs[stubs_md_def,MEM_MAP,EXISTS_PROD]>>metis_tac[]
 QED
 

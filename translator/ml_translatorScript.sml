@@ -3016,14 +3016,15 @@ Theorem Eval_UnsafeIndexArith_vec:
   Eval env (App (UnsafeIndexArith arith) [x1; x2; x3]) (INT result)
 Proof
   rw [Eval_rw,INT_def,PRECONDITION_def]
+  \\ qmatch_goalsub_rename_tac `empty_state with <|clock := _; refs := initial_refs|>`
   \\ qpat_x_assum `!r. ?c v r' c'. evaluate _ env [x3] = _ /\ _`
-       (qspec_then `refs` (qx_choosel_then
+       (qspec_then `initial_refs` (qx_choosel_then
          [`witness_clock`,`witness_value`,`witness_refs`,`witness_left`] strip_assume_tac))
   \\ qpat_x_assum `!r. ?c r' c'. evaluate _ env [x2] = _`
-       (qspec_then `refs ++ witness_refs` (qx_choosel_then
+       (qspec_then `initial_refs ++ witness_refs` (qx_choosel_then
          [`right_clock`,`right_refs`,`right_left`] strip_assume_tac))
   \\ qpat_x_assum `!r. ?c r' c'. evaluate _ env [x1] = _`
-       (qspec_then `refs ++ witness_refs ++ right_refs` (qx_choosel_then
+       (qspec_then `initial_refs ++ witness_refs ++ right_refs` (qx_choosel_then
          [`left_clock`,`left_refs`,`left_left`] strip_assume_tac))
   \\ qpat_x_assum `evaluate _ env [x3] = _`
        (assume_tac o Q.SPEC `right_clock + left_clock` o SIMP_RULE (srw_ss()) [] o
@@ -3052,14 +3053,15 @@ Theorem Eval_UnsafeIndexTest_vec:
   Eval env (App (UnsafeIndexTest test) [x1; x2; x3]) (BOOL result)
 Proof
   rw [Eval_rw,INT_def,BOOL_def,PRECONDITION_def]
+  \\ qmatch_goalsub_rename_tac `empty_state with <|clock := _; refs := initial_refs|>`
   \\ qpat_x_assum `!r. ?c v r' c'. evaluate _ env [x3] = _ /\ _`
-       (qspec_then `refs` (qx_choosel_then
+       (qspec_then `initial_refs` (qx_choosel_then
          [`witness_clock`,`witness_value`,`witness_refs`,`witness_left`] strip_assume_tac))
   \\ qpat_x_assum `!r. ?c r' c'. evaluate _ env [x2] = _`
-       (qspec_then `refs ++ witness_refs` (qx_choosel_then
+       (qspec_then `initial_refs ++ witness_refs` (qx_choosel_then
          [`right_clock`,`right_refs`,`right_left`] strip_assume_tac))
   \\ qpat_x_assum `!r. ?c r' c'. evaluate _ env [x1] = _`
-       (qspec_then `refs ++ witness_refs ++ right_refs` (qx_choosel_then
+       (qspec_then `initial_refs ++ witness_refs ++ right_refs` (qx_choosel_then
          [`left_clock`,`left_refs`,`left_left`] strip_assume_tac))
   \\ qpat_x_assum `evaluate _ env [x3] = _`
        (assume_tac o Q.SPEC `right_clock + left_clock` o SIMP_RULE (srw_ss()) [] o

@@ -710,9 +710,10 @@ Proof
   srw_tac[boolSimps.DNF_ss][Once RTC_CASES1,e_step_reln_def] >- (
     srw_tac[][Once e_step_def,continue_def,application_thm,return_def] >>
     BasicProvers.CASE_TAC >>
-    TRY BasicProvers.CASE_TAC >>
-    Cases_on`s` >> fs[do_app_cases] >> rw[] >> fs[] >>
-    TRY(PairCases_on`x`) >>
+    BasicProvers.CASE_TAC >>
+    Cases_on`s` >> fs[do_app_cases] >> rw[] >> fs[]
+    >>> SELECT_LT_THEN (Q.RENAME_TAC [`do_app _ _ _ = SOME app_result`])
+          (PairCases_on `app_result`) >>
     gvs[CaseEq"prod",CaseEq"result",CaseEq"error_result",
         do_app_cases,PULL_EXISTS]
     >~ [`do_arith a p`] >- (
@@ -723,15 +724,17 @@ Proof
     >- (Cases_on`v1` \\ simp[])
     >> Cases_on ‘tl’ >> gvs[] >>
     simp[do_app_def] >>
+    qmatch_goalsub_rename_tac `thunk_op _ thunk_operation _` >>
     gvs[oneline thunk_op_def, AllCaseEqs()] >>
-    Cases_on`t` \\ gvs[]
+    Cases_on `thunk_operation` \\ gvs[]
     >- (Cases_on`v1` \\ simp[]) ) >>
   disj2_tac >>
   srw_tac[][Once e_step_def,continue_def,push_def] >>
   imp_res_tac e_step_add_ctxt >>
   pop_assum(qspec_then`[Capp op (v1::v0) () es,env]`strip_assume_tac) >>
   full_simp_tac(srw_ss())[] >>
-  first_x_assum(qspecl_then[`op`,`env'`,`v`,`v1::v0`]mp_tac) >>
+  rename1 `e_step_reln^* (_,_,Exp _,[]) (result_env,_,Val result_value,[])` >>
+  first_x_assum(qspecl_then[`op`,`result_env`,`result_value`,`v1::v0`]mp_tac) >>
   impl_tac >- simp[] >>
   metis_tac[transitive_RTC,transitive_def]
 QED
@@ -746,8 +749,9 @@ Proof
   namedCases_on ‘r2’ ["", "w3 r3"] >> gvs[] >>
   namedCases_on ‘r3’ ["", "w4 r4"] >> gvs[] >>
   namedCases_on ‘r4’ ["", "w5 r5"] >> gvs[] >>
-  Cases_on ‘do_app s op (v::w1::w2::w3::w4::w5::r5)’ >> gvs[] >>
-  PairCases_on ‘s’ >> PairCases_on ‘x’ >>
+  namedCases_on `do_app s op (v::w1::w2::w3::w4::w5::r5)`
+    ["", "app_result"] >> gvs[] >>
+  PairCases_on `s` >> PairCases_on `app_result` >>
   gvs[do_app_cases, do_arith_def, do_unsafe_index_arith_def,
       do_unsafe_index_test_def, unsafe_index_bound_def,
       thunk_op_def]
@@ -776,7 +780,7 @@ Proof
     disj1_tac >>
     simp[Once e_step_def, continue_def, application_thm] >>
     Cases_on ‘op’ >> gvs[getOpClass_def, do_app_long_args] >>
-    Cases_on ‘t’ >> gvs[] >> Cases_on ‘v0’ >> gvs[] >>
+    IF_CASES_TAC >> gvs[] >> Cases_on `v0` >> gvs[] >>
     Cases_on ‘v1’ >> gvs[]
   ) >>
   disj2_tac >>
@@ -784,7 +788,8 @@ Proof
   imp_res_tac e_step_add_ctxt >>
   pop_assum(qspec_then`[Capp op (v1::v0) () es,env]`strip_assume_tac) >>
   full_simp_tac(srw_ss())[] >>
-  first_x_assum(qspecl_then[`op`,`env'`,`v`,`v1::v0`]mp_tac) >>
+  rename1 `e_step_reln^* (_,_,Exp _,[]) (result_env,_,Val result_value,[])` >>
+  first_x_assum(qspecl_then[`op`,`result_env`,`result_value`,`v1::v0`]mp_tac) >>
   impl_tac >- simp[] >>
   metis_tac[transitive_RTC,transitive_def]
 QED

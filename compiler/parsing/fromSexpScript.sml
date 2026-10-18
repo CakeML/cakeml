@@ -1633,19 +1633,23 @@ Theorem sexpop_opsexp[simp]:
   sexpop (opsexp op) = SOME op
 Proof
   Cases_on ‘∃t. op = ThunkOp t’
-  >- (gvs [] \\ Cases_on ‘t’
-      \\ gvs [sexpop_def,opsexp_def]
-      \\ rw [] \\ gvs [AllCaseEqs()]
-      \\ Cases_on ‘t'’ \\ gvs [encode_thunk_mode_def,decode_thunk_mode_def]) >>
+  >- (
+    gvs [] \\ rename1 `ThunkOp thunk_operation`
+    \\ namedCases_on `thunk_operation` ["mode", "mode", ""]
+    \\ gvs [sexpop_def,opsexp_def]
+    \\ rw [] \\ gvs [AllCaseEqs()]
+    \\ Cases_on `mode` \\ gvs [encode_thunk_mode_def,decode_thunk_mode_def]) >>
   Cases_on ‘∃arith. op = UnsafeIndexArith arith’
   >- (
-    gvs [] >> Cases_on ‘arith’ >>
+    gvs [] >> rename1 `UnsafeIndexArith index_arith` >>
+    Cases_on `index_arith` >>
     simp [opsexp_def, arithsexp_def, sexpop_def, sexparith_def] >>
     rename1 ‘Shift sh’ >> Cases_on ‘sh’ >>
     simp [arithsexp_def, sexpop_def, sexparith_def]) >>
   Cases_on ‘∃test. op = UnsafeIndexTest test’
   >- (
-    gvs [] >> namedCases_on ‘test’ ["", "cmp", "cmp"] >>
+    gvs [] >> rename1 `UnsafeIndexTest index_test` >>
+    namedCases_on `index_test` ["", "cmp", "cmp"] >>
     simp [opsexp_def, testsexp_def, sexpop_def, decode_test_def] >>
     Cases_on ‘cmp’ >> simp [testsexp_def, sexpop_def, decode_test_def]) >>
   Cases_on`op`>>fs []>>rw[sexpop_def,opsexp_def] >>

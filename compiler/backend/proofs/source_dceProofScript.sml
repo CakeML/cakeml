@@ -951,13 +951,14 @@ Proof
   (* allocating operations: f is extended with the fresh location *)
   \\ Cases_on ‘op = Opref ∨ op = Aw8alloc ∨ op = Aalloc ∨
                op = AallocEmpty ∨ op = AallocFixed’
-  >-
-   (gvs [semanticPrimitivesPropsTheory.do_app_cases, v_rel_simps,
+  >- (
+    gvs [semanticPrimitivesPropsTheory.do_app_cases, v_rel_simps,
          store_alloc_def]
     \\ gvs [state_with_id, v_rel_refl]
     (* the negative-length cases raise Subscript and allocate nothing *)
-    \\ ((irule state_rel_alloc_fresh \\ gvs [LIST_REL_EL_EQN, EL_REPLICATE])
-        ORELSE (qexists_tac ‘f’ \\ gvs [])))
+    >>~- ([`?extended. f ⊑ extended /\ state_rel extended s1 s2`],
+      qexists_tac `f` \\ gvs [])
+    \\ irule state_rel_alloc_fresh \\ gvs [LIST_REL_EL_EQN, EL_REPLICATE])
   (* thunk operations either allocate or assign *)
   \\ Cases_on ‘∃th_op. op = ThunkOp th_op’
   >-

@@ -725,18 +725,20 @@ Proof
   simp[cwfs_def, cwalkstar_def, cunify_def, unify_unifier,
        PULL_EXISTS, wf_map, sp2fm_map] >> rpt strip_tac >>
   gvs[]>> drule_at (Pos last) sunify_result_encodable >>
-  simp[encode_t_vs_ts] >> rw[] >>
+  simp[encode_t_vs_ts] >>
+  disch_then (qx_choose_then `unified_subst` strip_assume_tac) >> gvs[] >>
   drule_all_then strip_assume_tac sunify_preserves_swfs >>
   drule_at (Pos last) sunify_wf >> simp[] >> strip_tac >>
   simp[SRULE [cwfs_def] map_decode_encode] >>
   gvs[sunify_def, swfs_def] >>
   drule_all unify_unifier
-  >- (simp[SUBMAP_FLOOKUP_EQN, FLOOKUP_o_f, AllCaseEqs(), PULL_EXISTS,
-           subspt_lookup, lookup_map] >> rpt strip_tac >> first_assum drule >>
-      ‘cwfs m’ by simp[cwfs_def, swfs_def] >>
-      first_x_assum (mp_tac o Q.AP_TERM ‘sptree$map decode_infer_t’) >>
-      simp[map_decode_encode, lookup_map] >> disch_then SUBST_ALL_TAC >>
-      first_x_assum drule >> simp[]) >>
+  >- (
+    simp[SUBMAP_FLOOKUP_EQN, FLOOKUP_o_f, AllCaseEqs(), PULL_EXISTS,
+         subspt_lookup, lookup_map] >> rpt strip_tac >> first_assum drule >>
+    `cwfs unified_subst` by simp[cwfs_def, swfs_def] >>
+    first_x_assum (mp_tac o Q.AP_TERM ‘sptree$map decode_infer_t’) >>
+    simp[map_decode_encode, lookup_map] >> disch_then SUBST_ALL_TAC >>
+    first_x_assum drule >> simp[]) >>
   rpt strip_tac >>
   rename [‘walkstar ((encode_infer_t o decode_infer_t) o_f z)’] >>
   ‘(encode_infer_t o decode_infer_t) o_f z = z’ suffices_by simp[] >>

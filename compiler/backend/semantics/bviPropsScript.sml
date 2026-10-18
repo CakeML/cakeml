@@ -494,7 +494,8 @@ Proof
   >~ [`ThunkOp`] >- gvs[bvlSemTheory.do_app_def, AllCaseEqs(), bvl_to_bvi_def,
                         bviSemTheory.state_component_equality]
   \\ fs[bvl_to_bvi_def,bvi_to_bvl_def,bvlSemTheory.do_app_def,case_eq_thms]
-  \\ TRY (pairarg_tac \\ fs [])
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [`do_build_const constant s.refs`])
+        (Cases_on `do_build_const constant s.refs` >> fs [])
   \\ rw[] \\ fs[] \\ rw[] \\ fs[case_eq_thms,pair_case_eq] \\ rw[]
   \\ fs[SUBSET_DEF,EVERY_MEM] \\ rw [] \\ fs []
 QED

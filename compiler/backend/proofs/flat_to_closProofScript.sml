@@ -1903,7 +1903,9 @@ Proof
      op_ffi, op_byte_copy, op_byte_bits, op_byte_bits_safe, op_eval, op_vectors, op_id])
   \\ `?this_is_case. this_is_case op` by (qexists_tac `K T` \\ fs [])
   \\ rpt strip_tac \\ fs [] \\ Cases_on `op`
-  >- (Cases_on `o'` \\ fs [] \\ gvs [flatSemTheory.do_app_def])
+  >- (
+    qmatch_goalsub_rename_tac `compile_op _ (Src source_op) _`
+    \\ Cases_on `source_op` \\ fs [] \\ gvs [flatSemTheory.do_app_def])
   \\ fs []
 QED
 
@@ -2590,13 +2592,9 @@ Proof
                \\ fs [Q.ISPEC `{||}` EQ_SYM_EQ, COMM_BAG_UNION, dest_pat_def]
                \\ rpt (DEEP_INTRO_TAC compile_single_DEEP_INTRO
                        \\ rw [] \\ fs [])))
-  \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
-    \\ simp [compile_lit_def,op_gbag_def])
-  \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
-    \\ simp ([compile_op_def, compile_arith_def,
-              compile_unsafe_index_def, compile_smallnum_test_def,
-              compile_smallnum_arith_def] @ props_defs)
-    \\ rpt (CASE_TAC \\ simp props_defs))
+  >~ [`compile_lit _ _`] >- (
+    qmatch_goalsub_rename_tac `compile_lit _ literal`
+    \\ Cases_on `literal` \\ simp [compile_lit_def,op_gbag_def])
   \\ simp [compile_def, closPropsTheory.op_gbag_def,set_globals_SmartCons,
     flatPropsTheory.op_gbag_def, closPropsTheory.elist_globals_append]
   \\ rpt (
@@ -2669,14 +2667,17 @@ Proof
   \\ simp [EVERY_REVERSE]
   \\ rw []
   \\ fs [EVERY_REVERSE, Q.ISPEC `no_Mat` ETA_THM]
-  \\ TRY
-    (rename [‘dest_nop op es’] \\ reverse (Cases_on ‘dest_nop op es’) \\ fs []
-     THEN1 (gvs [dest_nop_thm])
-     \\ last_x_assum kall_tac)
-  \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
-    \\ simp [compile_lit_def])
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [`dest_nop op es`])
+    (
+      reverse (Cases_on `dest_nop op es`) \\ fs []
+      THEN1 (gvs [dest_nop_thm])
+      \\ last_x_assum kall_tac)
+  >~ [`compile_lit _ _`] >- (
+    qmatch_goalsub_rename_tac `compile_lit _ literal`
+    \\ Cases_on `literal` \\ simp [compile_lit_def])
   >~ [`compile_op _ _ _`] >- (
-    Cases_on `op`
+    qmatch_goalsub_rename_tac `compile_op _ flat_op _`
+    \\ Cases_on `flat_op`
     >~ [`dest_nop (Src _) es`] >- (
       qmatch_asmsub_rename_tac `dest_nop (Src source_op) es`
       \\ Cases_on `source_op`
@@ -2813,13 +2814,15 @@ Proof
   \\ simp ([compile_def] @ props_defs)
   \\ simp [contains_App_SOME_APPEND, EVERY_REVERSE,contains_App_SOME_SmartCons,
            no_mti_SmartCons, every_Fn_vs_NONE_SmartCons]
-  \\ rpt CONJ_TAC \\ rpt (GEN_TAC ORELSE DISCH_THEN STRIP_ASSUME_TAC)
-  \\ TRY
-    (rename [‘dest_nop op es’] \\ reverse (Cases_on ‘dest_nop op es’) \\ fs [])
-  \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
-    \\ simp [compile_lit_def])
+  \\ rpt CONJ_TAC \\ rpt gen_tac \\ rpt (disch_then strip_assume_tac)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [`dest_nop op es`])
+    (reverse (Cases_on `dest_nop op es`) \\ fs [])
+  >~ [`compile_lit _ _`] >- (
+    qmatch_goalsub_rename_tac `compile_lit _ literal`
+    \\ Cases_on `literal` \\ simp ([compile_lit_def] @ props_defs))
   >~ [`compile_op _ _ _`] >- (
-    Cases_on `op`
+    qmatch_goalsub_rename_tac `compile_op _ flat_op _`
+    \\ Cases_on `flat_op`
     >~ [`dest_nop (Src _) es`] >- (
       qmatch_asmsub_rename_tac `dest_nop (Src source_op) es`
       \\ Cases_on `source_op`
@@ -2864,7 +2867,6 @@ Proof
   \\ simp ([CopyByteAw8_def, CopyByteStr_def] @ props_defs)
   \\ simp [arg1_def, arg2_def]
   \\ EVERY_CASE_TAC
-  \\ TRY (Cases_on `t'` \\ gvs [])
   \\ fs props_defs
   \\ imp_res_tac EVERY_IMP_HD
   \\ fs [NULL_LENGTH, EVERY_REVERSE]

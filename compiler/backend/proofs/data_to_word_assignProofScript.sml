@@ -2712,7 +2712,8 @@ QED
 Theorem assign_Smallnum:
   (? smallop. op = IntOp (Smallnum smallop)) ==> ^assign_thm_goal
 Proof
-  rpt strip_tac
+  disch_then (qx_choose_then `smallop` assume_tac)
+  \\ rpt strip_tac
   \\ Cases_on `smallop = SmallDiv \/ smallop = SmallMod`
   >- (
     `?is_mod. smallop = if is_mod then SmallMod else SmallDiv` by (
@@ -2750,83 +2751,6 @@ Proof
     \\ qpat_assum `state_rel c l1 l2 s t NONE locs`
          (assume_tac o REWRITE_RULE [state_rel_thm])
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-    >~ [`index_in_bounds NONE _`,
-         `assign c n l dest (IntOp (Smallnum SmallMod))`]
-    >- (
-      full_simp_tac std_ss [APPEND]
-      \\ drule_all memory_rel_get_vars_IMP \\ strip_tac
-      \\ imp_res_tac get_vars_IMP_LENGTH
-      \\ fs [LENGTH_EQ_2,LENGTH_EQ_3]
-      \\ gvs []
-      \\ qmatch_asmsub_rename_tac
-           `memory_rel _ _ _ _ _ _ _ _ ((Number left,left_word)::
-              (Number right,right_word)::_)`
-      \\ qpat_assum `memory_rel _ _ _ _ _ _ _ _ ((Number left,_)::_)`
-           (assume_tac o MATCH_MP memory_rel_tail)
-      \\ `small_int (dimindex (:'a)) left /\ small_int (dimindex (:'a)) right /\
-           small_int (dimindex (:'a)) (left % right)` by
-           metis_tac [index_in_bounds_NONE_small_int]
-      \\ `left_word = Word (Smallnum left) /\ right_word = Word (Smallnum right)` by
-           metis_tac [memory_rel_Number_IMP]
-      \\ gvs [get_vars_SOME_IFF,get_vars_SOME_IFF_data]
-      \\ simp [data_to_wordTheory.assign_def,assign_Smallnum_def]
-      \\ qexists_tac `NONE` \\ simp []
-      \\ irule (SmallnumDiv_state_rel |> Q.INST [`is_mod` |-> `T`]
-           |> SIMP_RULE std_ss [])
-      \\ simp [stack_consumed_def,allowed_op_def,wordSemTheory.get_vars_def,
-           wordSemTheory.get_var_def])
-    >~ [`index_in_bounds NONE _`,
-         `assign c n l dest (IntOp (Smallnum SmallDiv))`]
-    >- (
-      full_simp_tac std_ss [APPEND]
-      \\ drule_all memory_rel_get_vars_IMP \\ strip_tac
-      \\ imp_res_tac get_vars_IMP_LENGTH
-      \\ fs [LENGTH_EQ_2,LENGTH_EQ_3]
-      \\ gvs []
-      \\ qmatch_asmsub_rename_tac
-           `memory_rel _ _ _ _ _ _ _ _ ((Number left,left_word)::
-              (Number right,right_word)::_)`
-      \\ qpat_assum `memory_rel _ _ _ _ _ _ _ _ ((Number left,_)::_)`
-           (assume_tac o MATCH_MP memory_rel_tail)
-      \\ `small_int (dimindex (:'a)) left /\ small_int (dimindex (:'a)) right /\
-           small_int (dimindex (:'a)) (left / right)` by
-           metis_tac [index_in_bounds_NONE_small_int]
-      \\ `left_word = Word (Smallnum left) /\ right_word = Word (Smallnum right)` by
-           metis_tac [memory_rel_Number_IMP]
-      \\ gvs [get_vars_SOME_IFF,get_vars_SOME_IFF_data]
-      \\ simp [data_to_wordTheory.assign_def,assign_Smallnum_def]
-      \\ qexists_tac `NONE` \\ simp []
-      \\ irule (SmallnumDiv_state_rel |> Q.INST [`is_mod` |-> `F`]
-           |> SIMP_RULE std_ss [])
-      \\ simp [stack_consumed_def,allowed_op_def,wordSemTheory.get_vars_def,
-           wordSemTheory.get_var_def])
-    >~ [`index_in_bounds (SOME _) _`,
-         `assign c n l dest (IntOp (Smallnum SmallMod))`]
-    >- (
-      full_simp_tac std_ss [APPEND]
-      \\ drule_all memory_rel_get_vars_IMP \\ strip_tac
-      \\ imp_res_tac get_vars_IMP_LENGTH
-      \\ fs [LENGTH_EQ_2,LENGTH_EQ_3]
-      \\ gvs []
-      \\ qmatch_asmsub_rename_tac
-           `memory_rel _ _ _ _ _ _ _ _ ((Number left,left_word)::
-              (Number right,right_word)::_)`
-      \\ qpat_assum `memory_rel _ _ _ _ _ _ _ _ ((Number left,_)::_)`
-           (assume_tac o MATCH_MP memory_rel_tail)
-      \\ qpat_assum `memory_rel _ _ _ _ _ _ _ _ ((Number right,_)::_)`
-           (assume_tac o MATCH_MP memory_rel_tail)
-      \\ `small_int (dimindex (:'a)) left /\ small_int (dimindex (:'a)) right /\
-           small_int (dimindex (:'a)) (left % right)` by
-           metis_tac [memory_rel_index_in_bounds_small_int]
-      \\ `left_word = Word (Smallnum left) /\ right_word = Word (Smallnum right)` by
-           metis_tac [memory_rel_Number_IMP]
-      \\ gvs [get_vars_SOME_IFF,get_vars_SOME_IFF_data]
-      \\ simp [data_to_wordTheory.assign_def,assign_Smallnum_def]
-      \\ qexists_tac `NONE` \\ simp []
-      \\ irule (SmallnumDiv_state_rel |> Q.INST [`is_mod` |-> `T`]
-           |> SIMP_RULE std_ss [])
-      \\ simp [stack_consumed_def,allowed_op_def,wordSemTheory.get_vars_def,
-           wordSemTheory.get_var_def])
     \\ full_simp_tac std_ss [APPEND]
     \\ drule_all memory_rel_get_vars_IMP \\ strip_tac
     \\ imp_res_tac get_vars_IMP_LENGTH
@@ -2839,12 +2763,22 @@ Proof
          (assume_tac o MATCH_MP memory_rel_tail)
     \\ qpat_assum `memory_rel _ _ _ _ _ _ _ _ ((Number right,_)::_)`
          (assume_tac o MATCH_MP memory_rel_tail)
+    \\ qmatch_goalsub_abbrev_tac `set_var dest (Number arith_result) _`
     \\ `small_int (dimindex (:'a)) left /\ small_int (dimindex (:'a)) right /\
-         small_int (dimindex (:'a)) (left / right)` by
-         metis_tac [memory_rel_index_in_bounds_small_int]
+         small_int (dimindex (:'a)) arith_result` by (
+      fs [Abbr `arith_result`]
+      \\ metis_tac [index_in_bounds_NONE_small_int,
+                    memory_rel_index_in_bounds_small_int])
     \\ `left_word = Word (Smallnum left) /\ right_word = Word (Smallnum right)` by
          metis_tac [memory_rel_Number_IMP]
-    \\ gvs [get_vars_SOME_IFF,get_vars_SOME_IFF_data]
+    \\ gvs [get_vars_SOME_IFF,get_vars_SOME_IFF_data,Abbr `arith_result`]
+    >>~- ([`assign c n l dest (IntOp (Smallnum SmallMod))`],
+      simp [data_to_wordTheory.assign_def,assign_Smallnum_def]
+      \\ qexists_tac `NONE` \\ simp []
+      \\ irule (SmallnumDiv_state_rel |> Q.INST [`is_mod` |-> `T`]
+           |> SIMP_RULE std_ss [])
+      \\ simp [stack_consumed_def,allowed_op_def,wordSemTheory.get_vars_def,
+           wordSemTheory.get_var_def])
     \\ simp [data_to_wordTheory.assign_def,assign_Smallnum_def]
     \\ qexists_tac `NONE` \\ simp []
     \\ irule (SmallnumDiv_state_rel |> Q.INST [`is_mod` |-> `F`]
@@ -12216,16 +12150,25 @@ Proof
     \\ qpat_x_assum `c.gc_kind <> None /\ no_thunks_in_refs s.refs ==> _` mp_tac
     \\ asm_rewrite_tac []
     \\ decide_tac)
+  \\ qmatch_asmsub_rename_tac `cut_state_opt (SOME retained_names) s = SOME x`
+  \\ qmatch_asmsub_rename_tac
+       `dataSem$get_var left_arg s.locals = SOME (Number i1)`
+  \\ qmatch_asmsub_rename_tac
+       `dataSem$get_var right_arg s.locals = SOME (Number i2)`
+  \\ qmatch_asmsub_rename_tac
+       `wordSem$get_var (adjust_var left_arg) t = SOME left_value`
+  \\ qmatch_asmsub_rename_tac
+       `wordSem$get_var (adjust_var right_arg) t = SOME right_value`
   \\ fs []
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
   \\ fs [wordSemTheory.get_var_def]
-  \\ `?w1. a1 = Word w1 /\
-        (~(word_bit 0 w1) <=> small_int (dimindex (:'a)) i1) /\
-        (~(word_msb w1) /\ ~(word_bit 0 w1) ==> 0 <= i1 /\ w1 = n2w (2 * Num i1))` by
+  \\ `?left_word. left_value = Word left_word /\
+        (~(word_bit 0 left_word) <=> small_int (dimindex (:'a)) i1) /\
+        (~(word_msb left_word) /\ ~(word_bit 0 left_word) ==> 0 <= i1 /\ left_word = n2w (2 * Num i1))` by
           (metis_tac [state_rel_Number_IMP])
-  \\ `?w2. a2 = Word w2 /\
-        (~(word_bit 0 w2) <=> small_int (dimindex (:'a)) i2) /\
-        (~(word_msb w2) /\ ~(word_bit 0 w2) ==> 0 <= i2 /\ w2 = n2w (2 * Num i2))` by
+  \\ `?right_word. right_value = Word right_word /\
+        (~(word_bit 0 right_word) <=> small_int (dimindex (:'a)) i2) /\
+        (~(word_msb right_word) /\ ~(word_bit 0 right_word) ==> 0 <= i2 /\ right_word = n2w (2 * Num i2))` by
           (metis_tac [state_rel_Number_IMP])
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
@@ -12267,8 +12210,8 @@ Proof
     \\ qexists_tac `NONE` \\ qexists_tac `result_state` \\ simp []
     \\ qpat_x_assum `state_rel _ _ _ _ result_state NONE _` mp_tac
     \\ simp [state_rel_thm,dataSemTheory.set_var_def,dataSemTheory.do_stack_def])
-  \\ `get_vars [a1';a2'] s.locals = SOME [Number i1; Number i2]` by fs [get_vars_def]
-  \\ `get_vars (MAP adjust_var [a1';a2']) t = SOME [Word w1; Word w2]` by
+  \\ `get_vars [left_arg;right_arg] s.locals = SOME [Number i1; Number i2]` by fs [get_vars_def]
+  \\ `get_vars (MAP adjust_var [left_arg;right_arg]) t = SOME [Word left_word; Word right_word]` by
         fs [wordSemTheory.get_vars_def, wordSemTheory.get_var_def]
   \\ qpat_x_assum `state_rel c l1 l2 s t NONE locs` (fn th => NTAC 2 (mp_tac th))
   \\ strip_tac
@@ -12280,13 +12223,15 @@ Proof
   \\ `~(small_int (dimindex (:'a)) i1 ∧ small_int (dimindex (:'a)) i2 ∧ 0 <= i1 /\ 0 <= i2 /\
         small_int (dimindex (:'a)) (i1 / i2))` by
    (CCONTR_TAC \\ fs []
-    \\ `~word_bit 0 w1` by (spose_not_then strip_assume_tac
-                            \\ imp_res_tac memory_rel_small_int)
+    \\ `~word_bit 0 left_word` by (
+      spose_not_then strip_assume_tac
+      \\ imp_res_tac memory_rel_small_int)
     \\ fs []
     \\ drule memory_rel_swap
     \\ strip_tac
-    \\ `~word_bit 0 w2` by (spose_not_then strip_assume_tac
-                            \\ imp_res_tac memory_rel_small_int)
+    \\ `~word_bit 0 right_word` by (
+      spose_not_then strip_assume_tac
+      \\ imp_res_tac memory_rel_small_int)
     \\ fs []
     \\ first_x_assum (mp_then (Pos last) mp_tac (GEN_ALL memory_rel_Number_IMP))
     \\ first_x_assum (mp_then (Pos last) mp_tac (GEN_ALL memory_rel_Number_IMP))
@@ -12302,9 +12247,11 @@ Proof
   \\ `state_rel c l1 l2 s t4 NONE locs` by
         fs [Abbr`t4`,insert_shadow,state_rel_insert_1]
   \\ drule (GEN_ALL eval_Call_Div)
-  \\ disch_then (qspecl_then [`x`,`SOME x'`,`n`,`l`,`i2`,`i1`,`dest`,`a2'`,`a1'`] mp_tac)
+  \\ disch_then (qspecl_then [`x`,`SOME retained_names`,`n`,`l`,`i2`,`i1`,`dest`,`right_arg`,`left_arg`] mp_tac)
   \\ impl_tac >- (simp [Abbr`t4`] \\ fs [])
-  \\ disch_then (strip_assume_tac o SPEC_ALL) \\ simp []
+  \\ disch_then (strip_assume_tac o SPEC_ALL)
+  \\ qmatch_asmsub_rename_tac `_ = (call_result,call_state)`
+  \\ simp []
   \\ qpat_x_assum `let max = _ in _` (strip_assume_tac o CONV_RULE (DEPTH_CONV let_CONV))
   \\ simp [Once wordSemTheory.evaluate_def]
   \\ qpat_x_assum `_ = (_,_)` mp_tac
@@ -12315,26 +12262,28 @@ Proof
       x.stack_frame_sizes = s.stack_frame_sizes /\ x.locals_size = s.locals_size` by
        (imp_res_tac cut_state_opt_SOME_eq \\ gvs [])
   \\ imp_res_tac data_to_word_gcProofTheory.stack_rel_IMP_size_of_stack
-  \\ reverse (Cases_on `q = SOME NotEnoughSpace`) \\ simp[]
-  >- (`~(small_int (dimindex (:α)) i1 ∧ 0 ≤ i1 ∧ small_int (dimindex (:α)) i2 ∧ 0 ≤ i2 ∧
-        small_int (dimindex (:α)) (i1 / i2))` by metis_tac []
-      \\ asm_simp_tac std_ss []
-      \\ first_x_assum drule
-      \\ simp [state_rel_thm, dataSemTheory.set_var_def] \\ strip_tac
-      \\ qpat_x_assum `option_le r'.stack_max _` mp_tac
-      \\ qpat_x_assum `stack_size t.stack = _` mp_tac
-      \\ rpt (qpat_x_assum `t.locals_size = _` mp_tac)
-      \\ rpt (qpat_x_assum `t.stack_size = _` mp_tac)
-      \\ simp [AC option_add_comm option_add_assoc])
+  \\ reverse (Cases_on `call_result = SOME NotEnoughSpace`) \\ simp[]
+  >- (
+    `~(small_int (dimindex (:α)) i1 ∧ 0 ≤ i1 ∧ small_int (dimindex (:α)) i2 ∧ 0 ≤ i2 ∧
+      small_int (dimindex (:α)) (i1 / i2))` by metis_tac []
+    \\ asm_simp_tac std_ss []
+    \\ first_x_assum drule
+    \\ simp [state_rel_thm, dataSemTheory.set_var_def] \\ strip_tac
+    \\ qpat_x_assum `option_le call_state.stack_max _` mp_tac
+    \\ qpat_x_assum `stack_size t.stack = _` mp_tac
+    \\ rpt (qpat_x_assum `t.locals_size = _` mp_tac)
+    \\ rpt (qpat_x_assum `t.stack_size = _` mp_tac)
+    \\ simp [AC option_add_comm option_add_assoc])
   \\ conj_tac
-  >- (`~(small_int (dimindex (:α)) i1 ∧ 0 ≤ i1 ∧ small_int (dimindex (:α)) i2 ∧ 0 ≤ i2 ∧
-        small_int (dimindex (:α)) (i1 / i2))` by metis_tac []
-      \\ asm_simp_tac std_ss []
-      \\ qpat_x_assum `option_le r'.stack_max _` mp_tac
-      \\ qpat_x_assum `stack_size t.stack = _` mp_tac
-      \\ rpt (qpat_x_assum `t.locals_size = _` mp_tac)
-      \\ rpt (qpat_x_assum `t.stack_size = _` mp_tac)
-      \\ simp [AC option_add_comm option_add_assoc])
+  >- (
+    `~(small_int (dimindex (:α)) i1 ∧ 0 ≤ i1 ∧ small_int (dimindex (:α)) i2 ∧ 0 ≤ i2 ∧
+      small_int (dimindex (:α)) (i1 / i2))` by metis_tac []
+    \\ asm_simp_tac std_ss []
+    \\ qpat_x_assum `option_le call_state.stack_max _` mp_tac
+    \\ qpat_x_assum `stack_size t.stack = _` mp_tac
+    \\ rpt (qpat_x_assum `t.locals_size = _` mp_tac)
+    \\ rpt (qpat_x_assum `t.stack_size = _` mp_tac)
+    \\ simp [AC option_add_comm option_add_assoc])
   \\ strip_tac \\ disj1_tac \\ CCONTR_TAC
   \\ `s.limits.arch_64_bit = (dimindex (:'a) = 64)` by fs []
   \\ `s.limits.length_limit = c.len_size` by fs [limits_inv_def]
@@ -12590,16 +12539,25 @@ Proof
     \\ qpat_x_assum `c.gc_kind <> None /\ no_thunks_in_refs s.refs ==> _` mp_tac
     \\ asm_rewrite_tac []
     \\ decide_tac)
+  \\ qmatch_asmsub_rename_tac `cut_state_opt (SOME retained_names) s = SOME x`
+  \\ qmatch_asmsub_rename_tac
+       `dataSem$get_var left_arg s.locals = SOME (Number i1)`
+  \\ qmatch_asmsub_rename_tac
+       `dataSem$get_var right_arg s.locals = SOME (Number i2)`
+  \\ qmatch_asmsub_rename_tac
+       `wordSem$get_var (adjust_var left_arg) t = SOME left_value`
+  \\ qmatch_asmsub_rename_tac
+       `wordSem$get_var (adjust_var right_arg) t = SOME right_value`
   \\ fs []
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
   \\ fs [wordSemTheory.get_var_def]
-  \\ `?w1. a1 = Word w1 /\
-        (~(word_bit 0 w1) <=> small_int (dimindex (:'a)) i1) /\
-        (~(word_msb w1) /\ ~(word_bit 0 w1) ==> 0 <= i1 /\ w1 = n2w (2 * Num i1))` by
+  \\ `?left_word. left_value = Word left_word /\
+        (~(word_bit 0 left_word) <=> small_int (dimindex (:'a)) i1) /\
+        (~(word_msb left_word) /\ ~(word_bit 0 left_word) ==> 0 <= i1 /\ left_word = n2w (2 * Num i1))` by
           (metis_tac [state_rel_Number_IMP])
-  \\ `?w2. a2 = Word w2 /\
-        (~(word_bit 0 w2) <=> small_int (dimindex (:'a)) i2) /\
-        (~(word_msb w2) /\ ~(word_bit 0 w2) ==> 0 <= i2 /\ w2 = n2w (2 * Num i2))` by
+  \\ `?right_word. right_value = Word right_word /\
+        (~(word_bit 0 right_word) <=> small_int (dimindex (:'a)) i2) /\
+        (~(word_msb right_word) /\ ~(word_bit 0 right_word) ==> 0 <= i2 /\ right_word = n2w (2 * Num i2))` by
           (metis_tac [state_rel_Number_IMP])
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
@@ -12641,8 +12599,8 @@ Proof
     \\ qexists_tac `NONE` \\ qexists_tac `result_state` \\ simp []
     \\ qpat_x_assum `state_rel _ _ _ _ result_state NONE _` mp_tac
     \\ simp [state_rel_thm,dataSemTheory.set_var_def,dataSemTheory.do_stack_def])
-  \\ `get_vars [a1';a2'] s.locals = SOME [Number i1; Number i2]` by fs [get_vars_def]
-  \\ `get_vars (MAP adjust_var [a1';a2']) t = SOME [Word w1; Word w2]` by
+  \\ `get_vars [left_arg;right_arg] s.locals = SOME [Number i1; Number i2]` by fs [get_vars_def]
+  \\ `get_vars (MAP adjust_var [left_arg;right_arg]) t = SOME [Word left_word; Word right_word]` by
         fs [wordSemTheory.get_vars_def, wordSemTheory.get_var_def]
   \\ qpat_x_assum `state_rel c l1 l2 s t NONE locs` (fn th => NTAC 2 (mp_tac th))
   \\ strip_tac
@@ -12654,13 +12612,15 @@ Proof
   \\ `~(small_int (dimindex (:'a)) i1 ∧ small_int (dimindex (:'a)) i2 ∧ 0 <= i1 /\ 0 <= i2 /\
         small_int (dimindex (:'a)) (i1 % i2))` by
    (CCONTR_TAC \\ fs []
-    \\ `~word_bit 0 w1` by (spose_not_then strip_assume_tac
-                            \\ imp_res_tac memory_rel_small_int)
+    \\ `~word_bit 0 left_word` by (
+      spose_not_then strip_assume_tac
+      \\ imp_res_tac memory_rel_small_int)
     \\ fs []
     \\ drule memory_rel_swap
     \\ strip_tac
-    \\ `~word_bit 0 w2` by (spose_not_then strip_assume_tac
-                            \\ imp_res_tac memory_rel_small_int)
+    \\ `~word_bit 0 right_word` by (
+      spose_not_then strip_assume_tac
+      \\ imp_res_tac memory_rel_small_int)
     \\ fs []
     \\ first_x_assum (mp_then (Pos last) mp_tac (GEN_ALL memory_rel_Number_IMP))
     \\ first_x_assum (mp_then (Pos last) mp_tac (GEN_ALL memory_rel_Number_IMP))
@@ -12676,9 +12636,11 @@ Proof
   \\ `state_rel c l1 l2 s t4 NONE locs` by
         fs [Abbr`t4`,insert_shadow,state_rel_insert_1]
   \\ drule (GEN_ALL eval_Call_Mod)
-  \\ disch_then (qspecl_then [`x`,`SOME x'`,`n`,`l`,`i2`,`i1`,`dest`,`a2'`,`a1'`] mp_tac)
+  \\ disch_then (qspecl_then [`x`,`SOME retained_names`,`n`,`l`,`i2`,`i1`,`dest`,`right_arg`,`left_arg`] mp_tac)
   \\ impl_tac >- (simp [Abbr`t4`] \\ fs [])
-  \\ disch_then (strip_assume_tac o SPEC_ALL) \\ simp []
+  \\ disch_then (strip_assume_tac o SPEC_ALL)
+  \\ qmatch_asmsub_rename_tac `_ = (call_result,call_state)`
+  \\ simp []
   \\ qpat_x_assum `let max = _ in _` (strip_assume_tac o CONV_RULE (DEPTH_CONV let_CONV))
   \\ simp [Once wordSemTheory.evaluate_def]
   \\ qpat_x_assum `_ = (_,_)` mp_tac
@@ -12689,26 +12651,28 @@ Proof
       x.stack_frame_sizes = s.stack_frame_sizes /\ x.locals_size = s.locals_size` by
        (imp_res_tac cut_state_opt_SOME_eq \\ gvs [])
   \\ imp_res_tac data_to_word_gcProofTheory.stack_rel_IMP_size_of_stack
-  \\ reverse (Cases_on `q = SOME NotEnoughSpace`) \\ simp[]
-  >- (`~(small_int (dimindex (:α)) i1 ∧ 0 ≤ i1 ∧ small_int (dimindex (:α)) i2 ∧ 0 ≤ i2 ∧
-        small_int (dimindex (:α)) (i1 % i2))` by metis_tac []
-      \\ asm_simp_tac std_ss []
-      \\ first_x_assum drule
-      \\ simp [state_rel_thm, dataSemTheory.set_var_def] \\ strip_tac
-      \\ qpat_x_assum `option_le r'.stack_max _` mp_tac
-      \\ qpat_x_assum `stack_size t.stack = _` mp_tac
-      \\ rpt (qpat_x_assum `t.locals_size = _` mp_tac)
-      \\ rpt (qpat_x_assum `t.stack_size = _` mp_tac)
-      \\ simp [AC option_add_comm option_add_assoc])
+  \\ reverse (Cases_on `call_result = SOME NotEnoughSpace`) \\ simp[]
+  >- (
+    `~(small_int (dimindex (:α)) i1 ∧ 0 ≤ i1 ∧ small_int (dimindex (:α)) i2 ∧ 0 ≤ i2 ∧
+      small_int (dimindex (:α)) (i1 % i2))` by metis_tac []
+    \\ asm_simp_tac std_ss []
+    \\ first_x_assum drule
+    \\ simp [state_rel_thm, dataSemTheory.set_var_def] \\ strip_tac
+    \\ qpat_x_assum `option_le call_state.stack_max _` mp_tac
+    \\ qpat_x_assum `stack_size t.stack = _` mp_tac
+    \\ rpt (qpat_x_assum `t.locals_size = _` mp_tac)
+    \\ rpt (qpat_x_assum `t.stack_size = _` mp_tac)
+    \\ simp [AC option_add_comm option_add_assoc])
   \\ conj_tac
-  >- (`~(small_int (dimindex (:α)) i1 ∧ 0 ≤ i1 ∧ small_int (dimindex (:α)) i2 ∧ 0 ≤ i2 ∧
-        small_int (dimindex (:α)) (i1 % i2))` by metis_tac []
-      \\ asm_simp_tac std_ss []
-      \\ qpat_x_assum `option_le r'.stack_max _` mp_tac
-      \\ qpat_x_assum `stack_size t.stack = _` mp_tac
-      \\ rpt (qpat_x_assum `t.locals_size = _` mp_tac)
-      \\ rpt (qpat_x_assum `t.stack_size = _` mp_tac)
-      \\ simp [AC option_add_comm option_add_assoc])
+  >- (
+    `~(small_int (dimindex (:α)) i1 ∧ 0 ≤ i1 ∧ small_int (dimindex (:α)) i2 ∧ 0 ≤ i2 ∧
+      small_int (dimindex (:α)) (i1 % i2))` by metis_tac []
+    \\ asm_simp_tac std_ss []
+    \\ qpat_x_assum `option_le call_state.stack_max _` mp_tac
+    \\ qpat_x_assum `stack_size t.stack = _` mp_tac
+    \\ rpt (qpat_x_assum `t.locals_size = _` mp_tac)
+    \\ rpt (qpat_x_assum `t.stack_size = _` mp_tac)
+    \\ simp [AC option_add_comm option_add_assoc])
   \\ strip_tac \\ disj1_tac \\ CCONTR_TAC
   \\ `s.limits.arch_64_bit = (dimindex (:'a) = 64)` by fs []
   \\ `s.limits.length_limit = c.len_size` by fs [limits_inv_def]
