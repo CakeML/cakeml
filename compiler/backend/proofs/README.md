@@ -139,7 +139,7 @@ be switched to one that includes an oracle.
 Correctness for the source_let pass.
 
 [source_lift_constsProofScript.sml](source_lift_constsProofScript.sml):
-Correctness of source constant lifting.
+Correctness for the source_lift_consts pass.
 
 [source_to_flatProofScript.sml](source_to_flatProofScript.sml):
 Correctness proof for source_to_flat
