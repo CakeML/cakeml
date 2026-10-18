@@ -906,6 +906,10 @@ Theorem v_rel_index_witness_length[local]:
 Proof
   strip_tac
   \\ Cases_on ‘v’ \\ gvs [v_rel_simps, index_witness_length_def]
+  >~ [`index_witness_length _ (Litv _)`] >- (
+    qmatch_goalsub_rename_tac `Litv literal`
+    \\ Cases_on `literal`
+    \\ simp [index_witness_length_def])
   >- (
     drule_all state_rel_store_lookup
     \\ disch_then (qx_choosel_then [‘source_value’, ‘target_value’] strip_assume_tac)

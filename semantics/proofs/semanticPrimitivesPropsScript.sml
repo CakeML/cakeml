@@ -1243,6 +1243,10 @@ Proof
   >> gvs [simple_val_rel_cases,is_clos_iff,index_witness_length_def]
   >> imp_res_tac LIST_REL_LENGTH
   >> gvs []
+  >~ [`index_witness_length _ (Litv _)`] >- (
+    qmatch_goalsub_rename_tac `Litv literal`
+    >> Cases_on `literal`
+    >> simp [index_witness_length_def])
   >> rename1 `store_lookup location s`
   >> drule LIST_REL_OPTREL_store_lookup
   >> disch_then (qspec_then `location` mp_tac)
@@ -1692,6 +1696,10 @@ Proof
   >> gvs [index_witness_length_def]
   >> imp_res_tac LIST_REL_LENGTH
   >> gvs []
+  >~ [`index_witness_length _ (Litv _)`] >- (
+    qmatch_goalsub_rename_tac `Litv literal`
+    >> Cases_on `literal`
+    >> simp [index_witness_length_def])
   >> rename1 `store_lookup location s`
   >> drule LIST_REL_OPTREL_store_lookup
   >> disch_then (qspec_then `location` mp_tac)
@@ -1981,4 +1989,22 @@ Proof
   >> simp[do_unsafe_index_test_def, unsafe_index_bound_def,
           index_witness_length_def, index_in_bounds_def,
           do_test_def, check_type_def, do_eq_def, lit_same_type_def]
+QED
+
+Theorem string_index_witnesses:
+  index_witness_length [] (Litv (StrLit (strlit "ab"))) = SOME 64 ∧
+  do_unsafe_index_arith [] Add
+    [Litv (IntLit 32); Litv (IntLit 32); Litv (StrLit (strlit "ab"))] =
+    SOME (INR (Litv (IntLit 64))) ∧
+  do_unsafe_index_arith [] Add
+    [Litv (IntLit 32); Litv (IntLit 33); Litv (StrLit (strlit "ab"))] = NONE ∧
+  do_unsafe_index_test [] (Compare Lt)
+    [Litv (IntLit (-64)); Litv (IntLit 64); Litv (StrLit (strlit "ab"))] = SOME T ∧
+  do_unsafe_index_test [] Equal
+    [Litv (IntLit 0); Litv (IntLit 0); Litv (StrLit (strlit ""))] = SOME T
+Proof
+  simp [do_unsafe_index_test_def,unsafe_index_bound_def,
+        index_witness_length_def,index_in_bounds_def,do_test_def,
+        check_type_def,do_eq_def,lit_same_type_def]
+  >> EVAL_TAC
 QED

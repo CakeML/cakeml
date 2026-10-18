@@ -1249,6 +1249,11 @@ Proof
           flatSemTheory.index_witness_length_def, v_rel_eqns]
   \\ imp_res_tac LIST_REL_LENGTH
   \\ gvs []
+  >~ [`flatSem$index_witness_length _ (flatSem$Litv _)`] >- (
+    qmatch_goalsub_rename_tac `flatSem$Litv literal`
+    \\ Cases_on `literal`
+    \\ gvs [semanticPrimitivesTheory.index_witness_length_def,
+            flatSemTheory.index_witness_length_def])
   \\ Cases_on `refs'`
   \\ gvs [store_lookup_def, LIST_REL_EL_EQN,
           REWRITE_RULE [ADD1] EL, ADD1]

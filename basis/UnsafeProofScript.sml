@@ -241,6 +241,13 @@ Proof
   \\ gvs [index_witness_length_def]
 QED
 
+Theorem index_witness_string:
+  STRING_TYPE str witness ==>
+  index_witness_heap p emp witness (32 * strlen str)
+Proof
+  rw [STRING_TYPE_def,index_witness_heap_def,index_witness_length_def]
+QED
+
 Theorem witness_store_lookup[local]:
   SPLIT (st2heap p st) ({Mem location value},h) ==>
   store_lookup location st.refs = SOME value
@@ -396,7 +403,7 @@ local
       List.app (fn (suffix, lemma) =>
         ignore (save suffix (MATCH_MP witness (UNDISCH_ALL lemma))))
         [("_vector", index_witness_vector), ("_array", index_witness_array),
-         ("_w8array", index_witness_w8array)]
+         ("_w8array", index_witness_w8array), ("_string", index_witness_string)]
     end;
 in
   val _ = List.app save_specs operations;

@@ -1026,6 +1026,7 @@ End
 
 Definition index_witness_length_def:
   index_witness_length s (Vectorv vs) = SOME (256 * LENGTH vs) /\
+  index_witness_length s (Litv (StrLit str)) = SOME (32 * strlen str) /\
   index_witness_length s (Loc _ n) =
     (case store_lookup n s of
        SOME (Varray vs) => SOME (256 * LENGTH vs)

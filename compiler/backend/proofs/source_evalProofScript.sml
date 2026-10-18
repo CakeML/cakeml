@@ -635,6 +635,10 @@ Proof
   \\ gvs [index_witness_length_def, v_rel_l_simps]
   \\ imp_res_tac LIST_REL_LENGTH
   \\ simp []
+  >~ [`index_witness_length _ (Litv _)`] >- (
+    qmatch_goalsub_rename_tac `Litv literal`
+    \\ Cases_on `literal`
+    \\ gvs [index_witness_length_def])
   \\ rename1 `store_lookup ptr refs`
   \\ Cases_on `store_lookup ptr refs`
   \\ gvs [AllCaseEqs()]

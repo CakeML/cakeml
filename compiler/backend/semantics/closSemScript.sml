@@ -180,6 +180,7 @@ End
 Definition smallnum_witness_length_def:
   smallnum_witness_length refs (Block tag xs) =
     (if tag = 0 then SOME (256 * LENGTH xs) else NONE) /\
+  smallnum_witness_length refs (ByteVector xs) = SOME (32 * LENGTH xs) /\
   smallnum_witness_length refs (RefPtr _ ptr) =
     (case FLOOKUP refs ptr of
        SOME (ValueArray xs) => SOME (256 * LENGTH xs)

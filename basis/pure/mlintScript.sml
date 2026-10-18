@@ -15,12 +15,20 @@ Definition smallnum_add_vec_def:
   smallnum_add_vec (x:num) y (witness:'a vector) = x + y
 End
 
+Definition smallnum_add_str_def:
+  smallnum_add_str (x:num) y (witness:mlstring) = x + y
+End
+
 Definition smallnum_sub_def:
   smallnum_sub (x:num) y = x - y
 End
 
 Definition smallnum_sub_vec_def:
   smallnum_sub_vec (x:num) y (witness:'a vector) = x - y
+End
+
+Definition smallnum_sub_str_def:
+  smallnum_sub_str (x:num) y (witness:mlstring) = x - y
 End
 
 Definition smallnum_mul_def:
@@ -31,12 +39,20 @@ Definition smallnum_mul_vec_def:
   smallnum_mul_vec (x:num) y (witness:'a vector) = x * y
 End
 
+Definition smallnum_mul_str_def:
+  smallnum_mul_str (x:num) y (witness:mlstring) = x * y
+End
+
 Definition smallnum_div_def:
   smallnum_div (x:num) y = x DIV y
 End
 
 Definition smallnum_div_vec_def:
   smallnum_div_vec (x:num) y (witness:'a vector) = x DIV y
+End
+
+Definition smallnum_div_str_def:
+  smallnum_div_str (x:num) y (witness:mlstring) = x DIV y
 End
 
 Definition smallnum_mod_def:
@@ -47,12 +63,20 @@ Definition smallnum_mod_vec_def:
   smallnum_mod_vec (x:num) y (witness:'a vector) = x MOD y
 End
 
+Definition smallnum_mod_str_def:
+  smallnum_mod_str (x:num) y (witness:mlstring) = x MOD y
+End
+
 Definition smallnum_lt_def:
   smallnum_lt (x:num) y = (x < y)
 End
 
 Definition smallnum_lt_vec_def:
   smallnum_lt_vec (x:num) y (witness:'a vector) = (x < y)
+End
+
+Definition smallnum_lt_str_def:
+  smallnum_lt_str (x:num) y (witness:mlstring) = (x < y)
 End
 
 Definition smallnum_le_def:
@@ -63,12 +87,20 @@ Definition smallnum_le_vec_def:
   smallnum_le_vec (x:num) y (witness:'a vector) = (x <= y)
 End
 
+Definition smallnum_le_str_def:
+  smallnum_le_str (x:num) y (witness:mlstring) = (x <= y)
+End
+
 Definition smallnum_gt_def:
   smallnum_gt (x:num) y = (x > y)
 End
 
 Definition smallnum_gt_vec_def:
   smallnum_gt_vec (x:num) y (witness:'a vector) = (x > y)
+End
+
+Definition smallnum_gt_str_def:
+  smallnum_gt_str (x:num) y (witness:mlstring) = (x > y)
 End
 
 Definition smallnum_ge_def:
@@ -79,12 +111,20 @@ Definition smallnum_ge_vec_def:
   smallnum_ge_vec (x:num) y (witness:'a vector) = (x >= y)
 End
 
+Definition smallnum_ge_str_def:
+  smallnum_ge_str (x:num) y (witness:mlstring) = (x >= y)
+End
+
 Definition smallnum_eq_def:
   smallnum_eq (x:num) y = (x = y)
 End
 
 Definition smallnum_eq_vec_def:
   smallnum_eq_vec (x:num) y (witness:'a vector) = (x = y)
+End
+
+Definition smallnum_eq_str_def:
+  smallnum_eq_str (x:num) y (witness:mlstring) = (x = y)
 End
 
 Definition smallint_add_def:
@@ -95,12 +135,20 @@ Definition smallint_add_vec_def:
   smallint_add_vec (x:int) y (witness:'a vector) = x + y
 End
 
+Definition smallint_add_str_def:
+  smallint_add_str (x:int) y (witness:mlstring) = x + y
+End
+
 Definition smallint_sub_def:
   smallint_sub (x:int) y = x - y
 End
 
 Definition smallint_sub_vec_def:
   smallint_sub_vec (x:int) y (witness:'a vector) = x - y
+End
+
+Definition smallint_sub_str_def:
+  smallint_sub_str (x:int) y (witness:mlstring) = x - y
 End
 
 Definition smallint_mul_def:
@@ -111,12 +159,20 @@ Definition smallint_mul_vec_def:
   smallint_mul_vec (x:int) y (witness:'a vector) = x * y
 End
 
+Definition smallint_mul_str_def:
+  smallint_mul_str (x:int) y (witness:mlstring) = x * y
+End
+
 Definition smallint_div_def:
   smallint_div (x:int) y = x / y
 End
 
 Definition smallint_div_vec_def:
   smallint_div_vec (x:int) y (witness:'a vector) = x / y
+End
+
+Definition smallint_div_str_def:
+  smallint_div_str (x:int) y (witness:mlstring) = x / y
 End
 
 Definition smallint_mod_def:
@@ -127,12 +183,20 @@ Definition smallint_mod_vec_def:
   smallint_mod_vec (x:int) y (witness:'a vector) = x % y
 End
 
+Definition smallint_mod_str_def:
+  smallint_mod_str (x:int) y (witness:mlstring) = x % y
+End
+
 Definition smallint_lt_def:
   smallint_lt (x:int) y = (x < y)
 End
 
 Definition smallint_lt_vec_def:
   smallint_lt_vec (x:int) y (witness:'a vector) = (x < y)
+End
+
+Definition smallint_lt_str_def:
+  smallint_lt_str (x:int) y (witness:mlstring) = (x < y)
 End
 
 Definition smallint_le_def:
@@ -143,12 +207,20 @@ Definition smallint_le_vec_def:
   smallint_le_vec (x:int) y (witness:'a vector) = (x <= y)
 End
 
+Definition smallint_le_str_def:
+  smallint_le_str (x:int) y (witness:mlstring) = (x <= y)
+End
+
 Definition smallint_gt_def:
   smallint_gt (x:int) y = (x > y)
 End
 
 Definition smallint_gt_vec_def:
   smallint_gt_vec (x:int) y (witness:'a vector) = (x > y)
+End
+
+Definition smallint_gt_str_def:
+  smallint_gt_str (x:int) y (witness:mlstring) = (x > y)
 End
 
 Definition smallint_ge_def:
@@ -159,12 +231,20 @@ Definition smallint_ge_vec_def:
   smallint_ge_vec (x:int) y (witness:'a vector) = (x >= y)
 End
 
+Definition smallint_ge_str_def:
+  smallint_ge_str (x:int) y (witness:mlstring) = (x >= y)
+End
+
 Definition smallint_eq_def:
   smallint_eq (x:int) y = (x = y)
 End
 
 Definition smallint_eq_vec_def:
   smallint_eq_vec (x:int) y (witness:'a vector) = (x = y)
+End
+
+Definition smallint_eq_str_def:
+  smallint_eq_str (x:int) y (witness:mlstring) = (x = y)
 End
 
 Definition toChar_def:

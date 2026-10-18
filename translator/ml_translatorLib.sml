@@ -2914,7 +2914,7 @@ fun smallnum_evals suffix =
 
 val builtin_terops =
   ([Eval_substring,
-    Eval_FLOAT_FMA] @ smallnum_evals "_vec")
+    Eval_FLOAT_FMA] @ smallnum_evals "_vec" @ smallnum_evals "_str")
   |> map (fn th =>
       (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator |> rator, th))
 

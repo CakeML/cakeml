@@ -200,6 +200,11 @@ Proof
   rpt strip_tac
   \\ Cases_on `v`
   \\ gvs [flatSemTheory.index_witness_length_def]
+  >~ [`v_rel (flatSem$Litv _) _`] >- (
+    qmatch_asmsub_rename_tac `v_rel (flatSem$Litv literal) _`
+    \\ Cases_on `literal`
+    \\ gvs [flatSemTheory.index_witness_length_def,v_rel_def,
+            closSemTheory.smallnum_witness_length_def])
   >~ [`store_lookup`] >- (
     gvs [v_rel_def, AllCaseEqs()]
     \\ imp_res_tac lookup_byte_array
