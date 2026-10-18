@@ -3,12 +3,12 @@
 *)
 Theory scheme_compilerProg
 Ancestors
-  to_sexpProg scheme_ast scheme_parsing scheme_to_cake
+  basisProg scheme_ast scheme_parsing scheme_to_cake
   scheme_compiler
 Libs
   preamble basis
 
-val _ = translation_extends "to_sexpProg";
+val _ = translation_extends "basisProg";
 
 (* parsing *)
 
@@ -80,4 +80,3 @@ val prog =
 Definition scheme_compiler_prog_def:
   scheme_compiler_prog = ^prog
 End
-

@@ -3,7 +3,7 @@
  *)
 Theory candle_prover_semantics
 Ancestors
-  misc[qualified] semanticPrimitivesProps namespaceProps evaluate
+  misc[qualified] ast semanticPrimitivesProps namespaceProps evaluate
   candle_prover_inv candle_basis_evaluate candle_kernelProg
   semantics semanticPrimitives evaluateProps sptree perms
   candle_kernel_funs candle_kernel_vals candle_prover_evaluate
@@ -56,8 +56,14 @@ Theorem basis_decs_ok:
   EVERY safe_dec basis
 Proof
   once_rewrite_tac [basis_def]
-  \\ rewrite_tac [simple_dec_simps, EVERY_DEF, safe_dec_simps]
+  \\ rewrite_tac [
+      EVERY_DEF, MAP,
+      simple_dec_simps, simple_dec_Dlet, safe_dec_simps,
+      simple_exp_simps, safe_exp_simps, simple_pat_def,
+      op_case_def, op_distinct, NOT_NONE_SOME
+    ]
   \\ rpt conj_tac
+  \\ TRY (irule_at Any EQ_REFL \\ NO_TAC)
   \\ TRY (
     EVAL_TAC
     \\ rpt strip_tac

@@ -7,7 +7,7 @@
 Theory compiler
 Ancestors
   lexer_fun lexer_impl cmlParse infer backend backend_passes
-  mlint mlstring basisProg fromSexp simpleSexpParse x64_config
+  mlint mlstring basisProg mlsexp ast_sexp x64_config
   export_x64 arm8_config export_arm8 riscv_config export_riscv
   mips_config export_mips arm7_config export_arm7 ag32_config
   export_ag32 panPtreeConversion pan_to_target panStatic
@@ -241,17 +241,15 @@ Definition ast_locs_to_string_def:
   ast_locs_to_string input _ = locs_to_string input NONE
 End
 
-(* this is a rather annoying feature of peg_exec requiring locs... *)
-Overload add_locs = ``MAP (λc. (c,unknown_loc))``
-
 Definition parse_sexp_input_def:
   parse_sexp_input input =
-    let err = «Parsing of sexp syntax failed» in
-      case parse_sexp (add_locs input) of
-      | NONE => INL err
-      | SOME x => case sexplist sexpdec x of
-                  | NONE => INL err
-                  | SOME x => INR x
+    let err = «Parsing of sexp syntax failed: » in
+      case mlsexp$parse input of
+      | INL (perr, _) => INL (err ^ perr)
+      | INR (x, _) =>
+        case ast_sexp$to_dec_list x of
+        | NONE => INL (err ^ «to_dec_list returned NONE»)
+        | SOME x => INR x
 End
 
 Definition parse_cml_input_def:
@@ -288,8 +286,8 @@ Definition compile_def:
                                          inf_env_to_types_string ic ++
                                          [«\n»]))), Nil)
           else if c.only_print_sexp then
-            (M_failure (TypeError (implode
-               ("\n" ++ print_sexp (listsexp (MAP decsexp full_prog))))),Nil)
+            (M_failure (TypeError (
+               («\n» ^ sexp_to_string (ast_sexp$from_dec_list full_prog)))),Nil)
           else
           case backend_passes$compile_tap c.asm_config c.backend_config full_prog of
           | (NONE, td) => (M_failure AssembleError, td)
