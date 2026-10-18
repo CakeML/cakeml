@@ -13,7 +13,6 @@ Libs
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"];
 
 val _ = diminish_srw_ss ["ABBREV"];
-val _ = set_trace "BasicProvers.var_eq_old" 1;
 val _ = augment_srw_ss [rewrites [SNOC_APPEND]];
 
 val _ = temp_bring_to_front_overload "domain" {Name = "domain", Thy = "sptree"};
@@ -739,6 +738,8 @@ Proof
   >>~- ([`WordFromWord`], dsimp[])
   >>~- ([`BoundsCheckByte`], dsimp[])
   >~ [‘XorByte’] >-
+   (dsimp[ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq] \\ rw[] \\ metis_tac[])
+  >~ [‘UpdateBit’] >-
    (dsimp[ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq] \\ rw[] \\ metis_tac[])
   >- (rename [‘Ref’]
       \\ dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
@@ -2838,7 +2839,7 @@ Definition co_every_Fn_vs_NONE_def:
   co_every_Fn_vs_NONE co =
     !n exps aux. SND (co n) = (exps, aux) ==>
       every_Fn_vs_NONE exps /\
-      every_Fn_vs_NONE (MAP (SND o SND) aux)
+      every_Fn_vs_NONE (MAP (FST o SND o SND) aux)
 End
 
 Theorem co_every_Fn_vs_NONE_shift_seq:
@@ -3507,7 +3508,7 @@ Proof
       \\ fs [do_install_def, pair_case_eq]
       \\ fs [list_case_eq, option_case_eq]
       \\ rveq \\ fs [] \\ rveq \\ fs []
-      \\ rename1 `[x1;x2] = REVERSE vs1`
+      \\ rename1 `REVERSE vs1 = [x1;x2]`
       \\ patresolve `v_rel _ _ x1 _` hd v_rel_IMP_v_to_mlstring \\ strip_tac
       \\ patresolve `v_rel _ _ x2 _` hd v_rel_IMP_v_to_words \\ strip_tac
       \\ pairarg_tac \\ fs []

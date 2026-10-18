@@ -3,6 +3,9 @@ HOL definitions of the pure functions used in the CakeML basis.
 The CakeML code for the pure parts of the basis is produced
 from these by the translator.
 
+[ast_sexpScript.sml](ast_sexpScript.sml):
+Definitions to convert between the CakeML AST and s-expressions.
+
 [basis_cvScript.sml](basis_cvScript.sml):
 Translation of basis types and functions for use with cv_compute.
 

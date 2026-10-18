@@ -5,6 +5,37 @@ User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
 
+Oct 5th 2026
+-------------------
+
+### Frontend bug fixes
+
+The bug where the static checker used the shift amount instead of the
+shifted expression for address location warnings has been fixed.
+
+`@top` now refers to the end of internal memory, as documented.
+Previously, it was parsed as `@base`.
+
+Parse errors now report the line where the error is. Previously, they
+reported the next line.
+
+### Malformed numbers
+
+A number directly followed by a letter or `_`, such as `1x` or `0x10`,
+is now a parse error (`Malformed number: 1x`). Previously, `1x` was
+read as `1 x`, so `var 1x = 0;` declared `x` with shape 1.
+
+Oct 1st 2026
+-------------------
+
+### Updated static error reporting
+
+Attempts to call inline functions with an exception handler or to
+declare a recursive inline function now prompt compiler warnings.
+
+The 32 word size limit on function return values has been removed.
+The missing 32 word size limit on exception values has been added.
+
 Sep 2nd 2026
 -------------------
 
@@ -248,7 +279,7 @@ The syntax is as exemplified here.
     st32 @base, v; // store 32 bits from variable v to @base
     v = ld32 @base+4 // load 32 bits from address @base+4 to variable v.
 
-<sub>Feature disabled: `32bit`</sub>
+<sub>Feature enabled: `32bit`</sub>
 
 March 27th 2025
 -------------------

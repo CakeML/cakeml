@@ -1,0 +1,210 @@
+(*
+  The lexer for Candle's syntax.
+*)
+structure CandleLexer = struct
+  open CandleSupport;
+  open CandleTokens;
+  datatype symbol = NumberS int | FloatS (char list) | StringS (char list)
+                  | CharS char | OtherS (char list) | PragmaS (char list) | ErrorS;
+
+  fun skip_comment cs depth loc =
+    case cs of
+      x::y::xs =>
+        if x = #"(" andalso y = #"*" then
+          skip_comment xs (depth + 1) (next_loc 2 loc)
+        else if x = #"*" andalso y = #")" then
+          if depth = 0 then Some (xs,next_loc 2 loc)
+          else skip_comment xs (depth - 1) (next_loc 2 loc)
+        else if x = #"\n" then skip_comment (y::xs) depth (next_line loc)
+        else skip_comment (y::xs) depth (next_loc 1 loc)
+    | _ => None;
+
+  fun scan_escseq cs loc =
+    case cs of
+      #"\\"::rest =>
+        (case rest of
+          #"\\"::tl => Some (#"\\",tl,next_loc 2 loc)
+        | #"\""::tl => Some (#"\"",tl,next_loc 2 loc)
+        | #"'"::tl => Some (#"'",tl,next_loc 2 loc)
+        | #"n"::tl => Some (#"\n",tl,next_loc 2 loc)
+        | #"r"::tl => Some (#"\r",tl,next_loc 2 loc)
+        | #"t"::tl => Some (#"\t",tl,next_loc 2 loc)
+        | #"b"::tl => Some (#"\b",tl,next_loc 2 loc)
+        | #" "::tl => Some (#" ",tl,next_loc 2 loc)
+        | #"x"::a::b::tl =>
+            if isHexDigit a andalso isHexDigit b then
+              Some (Char.chr (from_digits 16 [a,b]),tl,next_loc 4 loc)
+            else None
+        | #"o"::a::b::c::tl =>
+            if 48 <= Char.ord a andalso Char.ord a <= 51 andalso
+               isOctDigit b andalso isOctDigit c then
+              Some (Char.chr (from_digits 8 [a,b,c]),tl,next_loc 5 loc)
+            else None
+        | a::b::c::tl =>
+            if List.all Char.isDigit [a,b,c] then
+              let val n = from_digits 10 [a,b,c] in
+                if n <= 255 then Some (Char.chr n,tl,next_loc 4 loc) else None
+              end
+            else None
+        | _ => None)
+    | _ => None;
+
+  fun scan_strlit acc cs loc =
+    case cs of
+      [] => Some (ErrorS,CandleLocation.Locs loc loc,cs)
+    | #"\""::tl => Some (StringS (List.rev acc),CandleLocation.Locs loc loc,tl)
+    | #"\n"::tl => scan_strlit (#"\n"::acc) tl (next_line loc)
+    | #"\\"::_ =>
+        (case scan_escseq cs loc of
+          None => Some (ErrorS,CandleLocation.Locs loc loc,cs)
+        | Some (c,tl,loc2) => scan_strlit (c::acc) tl loc2)
+    | c::tl => scan_strlit (c::acc) tl (next_loc 1 loc);
+
+  fun scan_charlit cs loc =
+    case cs of
+      [] => Some (ErrorS,CandleLocation.Locs loc loc,cs)
+    | #"\\"::_ =>
+        (case scan_escseq cs loc of
+          Some (c,rest,loc2) =>
+            (case rest of
+              #"'"::tl => Some (CharS c,CandleLocation.Locs loc loc2,tl)
+            | _ => Some (ErrorS,CandleLocation.Locs loc loc2,rest))
+        | None => Some (ErrorS,CandleLocation.Locs loc loc,cs))
+    | c :: #"'" :: rest => Some (CharS c,CandleLocation.Locs loc (next_loc 1 loc),rest)
+    | _ => Some (ErrorS,CandleLocation.Locs loc loc,cs);
+
+  fun scan_number ok_digit to_int offset cs loc =
+    case cs of
+      [] => Some (ErrorS,CandleLocation.Locs loc loc,cs)
+    | h::_ =>
+        if not (ok_digit h) then Some (ErrorS,CandleLocation.Locs loc loc,cs) else
+        let
+          val (digits,rest) = take_while (fn c => c = #"_" orelse ok_digit c) cs;
+          val clean = List.filter (fn c => c <> #"_") digits;
+          val (suffix,rest2) = case rest of
+              c::tl => if char_in "lLn" c then (1,tl) else (0,rest)
+            | [] => (0,rest);
+        in Some (NumberS (to_int clean),
+                 CandleLocation.Locs loc (next_loc (nsub (List.length digits + offset + suffix) 1) loc),
+                 rest2)
+        end;
+
+  fun scan_float1 cs =
+    case cs of
+      [] => None
+    | c::_ => if not (Char.isDigit c) then None else
+        let val (digits,rest) = take_while (fn c => c = #"_" orelse Char.isDigit c) cs
+        in Some (List.filter (fn c => c <> #"_") digits,List.length digits,rest) end;
+
+  fun scan_float2 cs =
+    case cs of
+      #"."::tl =>
+        let val (digits,rest) = take_while (fn c => c = #"_" orelse Char.isDigit c) tl
+        in Some (#"."::List.filter (fn c => c <> #"_") digits,List.length digits + 1,rest) end
+    | _ => None;
+
+  fun scan_float3 cs =
+    case cs of
+      x::y::rest =>
+        if not (char_in "eE" x) then None else
+        if char_in "+-" y then
+          (case rest of
+            [] => None
+          | c::_ => if not (Char.isDigit c) then None else
+              let val (digits,rest2) = take_while (fn c => c = #"_" orelse Char.isDigit c) rest
+              in Some (x::y::List.filter (fn c => c <> #"_") digits,2 + List.length digits,rest2) end)
+        else if not (Char.isDigit y) then None else
+          let val (digits,rest2) = take_while (fn c => c = #"_" orelse Char.isDigit c) rest
+          in Some (x::y::List.filter (fn c => c <> #"_") digits,2 + List.length digits,rest2) end
+    | _ => None;
+
+  fun scan_float_or_int cs loc =
+    case scan_float1 cs of
+      None => Some (ErrorS,CandleLocation.Locs loc loc,cs)
+    | Some (s1,n1,cs1) =>
+        (case scan_float2 cs1 of
+          None =>
+            (case scan_float3 cs1 of
+              None => scan_number Char.isDigit (from_digits 10) 0 cs loc
+            | Some (s2,n2,cs2) => Some (FloatS (s1 @ s2),CandleLocation.Locs loc (next_loc (n1 + n2) loc),cs2))
+        | Some (s2,n2,cs2) =>
+            (case scan_float3 cs2 of
+              None => Some (FloatS (s1 @ s2),CandleLocation.Locs loc (next_loc (n1 + n2) loc),cs2)
+            | Some (s3,n3,cs3) => Some (FloatS (s1 @ s2 @ s3),
+                CandleLocation.Locs loc (next_loc (n1 + n2 + n3) loc),cs3)));
+
+  fun scan_pragma level n cs loc =
+    case cs of
+      x::y::xs =>
+        if x = #"(" andalso y = #"*" then
+          scan_pragma (level + 1) (n + 2) xs (next_loc 2 loc)
+        else if x = #"*" andalso y = #")" then
+          if level = 0 then Some (n,next_loc 2 loc,xs)
+          else scan_pragma (level - 1) (n + 2) xs (next_loc 2 loc)
+        else if x = #"\n" then scan_pragma level (n + 1) (y::xs) (next_line loc)
+        else scan_pragma level (n + 1) (y::xs) (next_loc 1 loc)
+    | _ => None;
+
+  fun next_sym input loc =
+    case input of
+      [] => None
+    | c::cs =>
+        if c = #"\n" then next_sym cs (next_line loc) else
+        if Char.isSpace c then next_sym cs (next_loc 1 loc) else
+        if Char.isDigit c then
+          (case (c,cs) of
+            (#"0",h::tl) =>
+              if h = #"x" orelse h = #"X" then scan_number isHexDigit (from_digits 16) 2 tl loc else
+              if h = #"o" orelse h = #"O" then scan_number isOctDigit (from_digits 8) 2 tl loc else
+              if h = #"b" orelse h = #"B" then scan_number isBinDigit (from_digits 2) 2 tl loc else
+              scan_float_or_int input loc
+          | _ => scan_float_or_int input loc)
+        else if c = #"\"" then scan_strlit [] cs (next_loc 1 loc)
+        else if c = #"'" then
+          (case scan_charlit cs (next_loc 1 loc) of
+            None => Some (OtherS [c],CandleLocation.Locs loc loc,cs)
+          | Some (ErrorS,_,_) => Some (OtherS [c],CandleLocation.Locs loc loc,cs)
+          | Some res => Some res)
+        else if prefix [#"*",#")"] input then
+          Some (ErrorS,CandleLocation.Locs loc (next_loc 2 loc),drop 1 cs)
+        else if prefix [#"(",#"*",#"C",#"M",#"L"] input then
+          (case scan_pragma 0 0 (drop 4 cs) loc of
+            None => Some (ErrorS,CandleLocation.Locs loc loc,[])
+          | Some (n,loc2,rest) => Some (PragmaS (take n (drop 4 cs)),CandleLocation.Locs loc loc2,rest))
+        else if prefix [#"(",#"*"] input then
+          (case skip_comment (drop 1 cs) 0 (next_loc 2 loc) of
+            None => Some (ErrorS,CandleLocation.Locs loc (next_loc 2 loc),[])
+          | Some (rest,loc2) => next_sym rest loc2)
+        else if char_in "()[]{}," c then Some (OtherS [c],CandleLocation.Locs loc loc,cs)
+        else if char_in "#$&*+-/=>@^|~!?%<:.;" c then
+          let val (s,rest) = take_while (char_in "#$&*+-/=>@^|~!?%<:.;") input
+          in Some (OtherS s,CandleLocation.Locs loc (next_loc (nsub (List.length s) 1) loc),rest) end
+        else if Char.isAlpha c orelse c = #"_" then
+          let val (s,rest) = take_while (fn c => Char.isAlphaNum c orelse char_in "'_" c) input
+          in Some (OtherS s,CandleLocation.Locs loc (next_loc (nsub (List.length s) 1) loc),rest) end
+        else Some (ErrorS,CandleLocation.Locs loc loc,cs);
+
+  fun sym2token sym =
+    case sym of
+      NumberS i => IntT i
+    | FloatS s => FloatT (String.implode s)
+    | StringS s => StringT (String.implode s)
+    | CharS c => CharT c
+    | OtherS s => get_token (String.implode s)
+    | PragmaS s => PragmaT (String.implode s)
+    | ErrorS => LexErrorT;
+
+  fun next_token cs loc =
+    case next_sym cs loc of
+      None => None
+    | Some (sym,locs,rest) => Some (sym2token sym,locs,rest);
+
+  fun lexer_fun_aux cs loc =
+    case next_token cs loc of
+      None => []
+    | Some (tok,CandleLocation.Locs start finish,rest) =>
+        (tok,CandleLocation.Locs start finish)::lexer_fun_aux rest (next_loc 1 finish);
+
+  fun lexer_fun cs = lexer_fun_aux cs init_loc;
+  fun lex input = lexer_fun (String.explode input);
+end;

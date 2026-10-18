@@ -84,7 +84,7 @@ Definition conv_nat_def:
 End
 
 Definition conv_const_def:
-  conv_const t = lift (panLang$Const o i2w) $ conv_int t
+  conv_const t = lift (panLang$Const) $ conv_int t
 End
 
 Definition conv_ident_def:
@@ -287,7 +287,7 @@ Definition conv_Exp_def:
     else if isNT nodeNT ENotNT then
       case args of
         [t] => conv_Exp t
-      | [_; t] => lift (Cmp Equal (Const 0w)) (conv_Exp t)
+      | [_; t] => lift (Cmp Equal (Const 0)) (conv_Exp t)
       | _ => NONE
     else if isNT nodeNT ELoadByteNT then
       case args of
@@ -318,14 +318,14 @@ Definition conv_Exp_def:
       case args of
         [e] => conv_Exp e
       | e1::args' => do es  <- OPT_MMAP conv_Exp $ e1::args';
-                        SOME $ Cmp NotEqual (Const 0w) $ Op Or es
+                        SOME $ Cmp NotEqual (Const 0) $ Op Or es
                      od
       | _ => NONE
     else if isNT nodeNT EBoolAndNT then
       case args of
         [e] => conv_Exp e
       | e1::args' => do es  <- OPT_MMAP conv_Exp $ e1::args';
-                        SOME $ Op And $ MAP (λe. Cmp NotEqual (Const 0w) e) es
+                        SOME $ Op And $ MAP (λe. Cmp NotEqual (Const 0) e) es
                      od
       | _ => NONE
     else if isNT nodeNT EShiftNT then
@@ -344,8 +344,8 @@ Definition conv_Exp_def:
   (conv_Exp leaf = if tokcheck leaf (kw BaseK) then SOME BaseAddr
                    else if tokcheck leaf (kw TopK) then SOME TopAddr
                    else if tokcheck leaf (kw BiwK) then SOME BytesInWord
-                   else if tokcheck leaf (kw TrueK) then SOME $ Const 1w
-                   else if tokcheck leaf (kw FalseK) then SOME $ Const 0w
+                   else if tokcheck leaf (kw TrueK) then SOME $ Const 1
+                   else if tokcheck leaf (kw FalseK) then SOME $ Const 0
                    else conv_const leaf ++ conv_var leaf) ∧
   conv_binaryExps [] e = SOME e ∧
   (conv_binaryExps (t1::t2::ts) res =
@@ -532,7 +532,7 @@ Definition parsetree_locs_def:
 End
 
 Definition posn_string_def:
-  posn_string (POSN lnum cnum) = (toString lnum ^ «:» ^ toString cnum) /\
+  posn_string (POSN lnum cnum) = (toString (lnum + 1) ^ «:» ^ toString cnum) /\
   posn_string EOFpt = «EOF» /\
   posn_string UNKNOWNpt = «UNKNOWN»
 End
@@ -604,7 +604,7 @@ Definition conv_DecCall_def:
             i' <- conv_ident i;
             e' <- conv_ident e;
             args' <- (case ts of [] => SOME [] | args::_ => conv_ArgList args);
-            SOME (s',i',e',args': 'a exp list)
+            SOME (s',i',e',args': exp list)
          od
      | _ => NONE
    else
@@ -832,6 +832,7 @@ Definition localise_exp_def:
   localise_exp ls (NField fld exp) = NField fld (localise_exp ls exp) ∧
   localise_exp ls (Load shape exp) = Load shape (localise_exp ls exp) ∧
   localise_exp ls (LoadByte exp) = LoadByte (localise_exp ls exp) ∧
+  localise_exp ls (Load32 exp) = Load32 (localise_exp ls exp) ∧
   localise_exp ls (Op binop exps) = Op binop (localise_exps ls exps) ∧
   localise_exp ls (Panop panop exps) = Panop panop (localise_exps ls exps) ∧
   localise_exp ls (Cmp cmp exp1 exp2) = Cmp cmp (localise_exp ls exp1) (localise_exp ls exp2) ∧
@@ -857,6 +858,9 @@ Definition localise_prog_def:
   localise_prog ls (StoreByte exp1 exp2) =
   StoreByte (localise_exp ls exp1)
             (localise_exp ls exp2) ∧
+  localise_prog ls (Store32 exp1 exp2) =
+  Store32 (localise_exp ls exp1)
+          (localise_exp ls exp2) ∧
   localise_prog ls (Seq prog1 prog2) =
   Seq (localise_prog ls prog1)
       (localise_prog ls prog2) ∧

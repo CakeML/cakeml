@@ -63,7 +63,7 @@ End
 
 Definition fibm_def:
   fibm () =
-    do
+    (do
       (args:mlstring list) <- commandline (arguments ()) ;
       (a:mlstring) <- hd args ;
       n <- str_to_num a ;
@@ -72,7 +72,7 @@ Definition fibm_def:
     od otherwise do
             name <- commandline (name ()) ;
             stdio (print_err («usage: » ^ name ^ « <n>\n»))
-          od
+          od)
 End
 
 val res = m_translate hd_def

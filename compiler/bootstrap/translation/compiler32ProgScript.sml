@@ -8,12 +8,6 @@ Ancestors
 Libs
   preamble ml_translatorLib cfLib basis
 
-open preamble;
-open compilerTheory
-     exportTheory
-     ml_translatorLib ml_translatorTheory;
-open cfLib basis;
-
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "ag32Prog";
@@ -26,6 +20,7 @@ val () = Globals.max_print_depth := 15;
 val () = use_long_names := true;
 
 val spec32 = INST_TYPE[alpha|->``:32``]
+val dimindex_32 = EVAL ``dimindex (:32)``;
 
 val res = translate $ errorLogMonadTheory.return_def;
 val res = translate $ errorLogMonadTheory.bind_def;
@@ -33,6 +28,7 @@ val res = translate $ errorLogMonadTheory.log_def;
 val res = translate $ errorLogMonadTheory.error_def;
 
 val res = translate $ listTheory.OPT_MMAP_def;
+val res = translate $ listTheory.dropWhile_def;
 
 Theorem OPT_MMAP_eq_MAP[local]:
   OPT_MMAP f xs = (OPT_MMAP I o MAP f) xs
@@ -72,6 +68,7 @@ val res = translate $ panStaticTheory.get_unreach_msg_def;
 val res = translate $ panStaticTheory.get_rogue_msg_def;
 val res = translate $ panStaticTheory.get_non_word_msg_def;
 val res = translate $ panStaticTheory.get_shape_mismatch_msg_def;
+val res = translate $ panStaticTheory.get_inline_ignore_msg_def;
 val res = translate $ panStaticTheory.get_implementation_err_msg_def;
 
 val res = translate $ panStaticTheory.first_repeat_def;
@@ -89,6 +86,7 @@ val res = translate $ panStaticTheory.check_fun_name_def;
 val res = translate $ panStaticTheory.check_global_var_def;
 val res = translate $ panStaticTheory.check_local_var_def;
 val res = translate $ panStaticTheory.check_redec_var_def;
+val res = translate $ panStaticTheory.check_exn_name_def;
 val res = translate $ panStaticTheory.check_export_params_def;
 val res = translate $ panStaticTheory.check_operands_def;
 val res = translate $ panStaticTheory.check_primitive_args_def;
@@ -109,21 +107,8 @@ val _ = res |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of " ^
                   "panStaticTheory.static_check_def.");
 
-Definition max_heap_limit_32_def:
-  max_heap_limit_32 c =
-    ^(spec32 data_to_wordTheory.max_heap_limit_def
-      |> SPEC_ALL
-      |> SIMP_RULE (srw_ss())[backend_commonTheory.word_shift_def]
-      |> concl |> rhs)
-End
-
-val res = translate max_heap_limit_32_def
-
-Theorem max_heap_limit_32_thm:
-   max_heap_limit (:32) = max_heap_limit_32
-Proof
-  rw[FUN_EQ_THM] \\ EVAL_TAC
-QED
+val res = translate (data_to_wordTheory.max_heap_limit_def
+  |> SIMP_RULE std_ss [backend_commonTheory.word_shift_def]);
 
 val r = translate presLangTheory.default_tap_config_def;
 
@@ -135,11 +120,11 @@ val def = spec32
 val res = translate def
 
 val def = spec32 backendTheory.compile_def
-  |> REWRITE_RULE[max_heap_limit_32_thm]
+  |> REWRITE_RULE[dimindex_32]
 
 val res = translate def
 
-val _ = register_type “:32 any_prog”
+val _ = register_type “:any_prog”
 
 val r = backend_passesTheory.to_flat_all_def |> spec32 |> translate;
 val r = backend_passesTheory.to_clos_all_def |> spec32 |> translate;
@@ -161,29 +146,32 @@ val r = backend_passesTheory.to_data_all_def |> spec32 |> translate;
 val r = backend_passesTheory.word_internal_all_def |> spec32 |> translate;
 
 val r = backend_passesTheory.to_word_all_def |> spec32
-          |> REWRITE_RULE [data_to_wordTheory.stubs_def,APPEND] |> translate;
+          |> REWRITE_RULE [data_to_wordTheory.stubs_md_def,
+                           data_to_wordTheory.stubs_def,APPEND] |> translate;
 
 val r = backend_passesTheory.to_stack_all_def |> spec32
-          |> REWRITE_RULE[max_heap_limit_32_thm] |> translate;
+          |> REWRITE_RULE[dimindex_32] |> translate;
 
 val r = backend_passesTheory.to_lab_all_def |> spec32
-          |> REWRITE_RULE[max_heap_limit_32_thm] |> translate;
+          |> REWRITE_RULE[dimindex_32] |> translate;
 
 val r = backend_passesTheory.to_target_all_def |> spec32 |> translate;
 
 val r = backend_passesTheory.from_lab_all_def |> spec32 |> translate;
 
 val r = backend_passesTheory.from_stack_all_def |> spec32
-          |> REWRITE_RULE[max_heap_limit_32_thm] |> translate;
+          |> REWRITE_RULE[dimindex_32] |> translate;
 
 val r = backend_passesTheory.from_word_all_def |> spec32 |> translate;
 
 val r = backend_passesTheory.from_word_0_all_def |> spec32
-          |> REWRITE_RULE[max_heap_limit_32_thm] |> translate;
+          |> REWRITE_RULE[dimindex_32] |> translate;
 
-val r = presLangTheory.word_to_strs_def |> spec32 |> translate
-val r = presLangTheory.stack_to_strs_def |> spec32 |> translate
-val r = presLangTheory.lab_to_strs_def |> spec32 |> translate
+val r = presLangTheory.word_to_strs_def |> translate
+val r = presLangTheory.stack_to_strs_def |> translate
+val r = labLangTheory.Section_num_def |> translate
+val r = labLangTheory.Section_metadata_def |> translate
+val r = presLangTheory.lab_to_strs_def |> translate
 
 val r = backend_passesTheory.any_prog_pp_def |> spec32 |> translate;
 val r = backend_passesTheory.pp_with_title_def |> translate;
@@ -193,12 +181,15 @@ val _ = r |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of " ^
                   "backend_passesTheory.compile_tap_def.");
 
-val r = pan_passesTheory.pan_to_target_all_def |> spec32
+val r = pan_passesTheory.pan_to_target_all_def
+          |> INST_TYPE [alpha |-> “:32”, beta |-> “:32”]
           |> REWRITE_RULE [NULL_EQ] |> translate;
 
 val r = pan_passesTheory.opsize_to_display_def |> translate;
 val r = pan_passesTheory.insert_es_def |> translate;
 val r = pan_passesTheory.varkind_to_str_def |> translate;
+val r = presLangTheory.word_to_display_def |> translate;
+val r = presLangTheory.item_with_word_def |> translate;
 Theorem lem[local]:
   dimindex(:32) = 32
 Proof
@@ -223,8 +214,8 @@ val r = pan_passesTheory.pan_to_strs_def |> spec32 |> translate;
 val r = pan_passesTheory.crep_to_strs_def |> spec32 |> translate;
 val r = pan_passesTheory.loop_to_strs_def |> spec32 |> translate;
 val r = pan_passesTheory.any_pan_prog_pp_def |> spec32 |> translate;
-
-val r = pan_passesTheory.pan_compile_tap_def |> spec32 |> translate;
+val r = pan_passesTheory.pan_compile_tap_def
+          |> INST_TYPE [alpha |-> “:32”, beta |-> “:32”] |> translate;
 
 val _ = r |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of " ^
@@ -291,9 +282,9 @@ val res = translate compilerTheory.safe_substring_def;
 
 val _ = translate compilerTheory.get_nth_line_def;
 val _ = translate compilerTheory.locs_to_string_def;
+val _ = translate compilerTheory.ast_locs_to_string_def;
 val _ = translate compilerTheory.parse_cml_input_def;
-val _ = translate (compilerTheory.parse_sexp_input_def
-                   |> PURE_REWRITE_RULE[fromSexpTheory.sexpdec_alt_intro1]);
+val _ = translate compilerTheory.parse_sexp_input_def;
 
 val def = spec32 (compilerTheory.compile_def);
 val res = translate def;
@@ -404,11 +395,25 @@ End
 val res = translate compilerTheory.is_error_msg_def;
 val res = translate nonzero_exit_code_for_error_msg_def;
 
-val res = translate $ spec32 compile_pancake_def;
+val compile_pancake_spec = spec32 compile_pancake_def |> SPEC_ALL;
+
+Definition compile_pancake_fixed_def:
+  compile_pancake_fixed asm_conf c input =
+    ^(compile_pancake_spec |> concl |> rhs)
+End
+
+Theorem compile_pancake_fixed_eq[local]:
+  compiler$compile_pancake (:32) = compile_pancake_fixed
+Proof
+  simp [FUN_EQ_THM, compile_pancake_def, compile_pancake_fixed_def]
+QED
+
+val res = translate compile_pancake_fixed_def;
 
 val res = translate pancake_backend_conf_def;
 
-val res = translate compile_pancake_32_def;
+val res = translate (compile_pancake_32_def
+  |> REWRITE_RULE [compile_pancake_fixed_eq]);
 
 val _ = res |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of " ^
@@ -592,19 +597,6 @@ Proof
   \\ xsimpl
 QED
 
-Theorem dec_sides[local]:
-  (peg_v_side ⇔ T) ∧
-  (peg_longv_side ⇔ T) ∧
-  (peg_uqconstructorname_side ⇔ T) ∧
-  (cmlpeg_side ⇔ T)
-Proof
-  fs[
-    parserProgTheory.cmlpeg_side_def,
-    parserProgTheory.peg_v_side_def,
-    parserProgTheory.peg_longv_side_def,
-    parserProgTheory.peg_uqconstructorname_side_def]
-QED
-
 val sem_thm = prove_sem_thm "main" "compiler32_prog" main_whole_prog_spec;
 val compiler32_prog_def = fetch "-" "compiler32_prog_def";
 
@@ -621,7 +613,7 @@ Theorem semantics_compiler32_prog:
 Proof
   strip_tac
   \\ irule sem_thm
-  \\ fs [dec_sides]
+  \\ fs []
 QED
 
 val _ = ml_translatorLib.reset_translation(); (* because this translation won't be continued *)

@@ -6,9 +6,6 @@ Encoding from boolExp to cnf using Tseytin transformation
 [case_studies](case_studies):
 Different puzzles and problems encoded to suitable versatile datatypes.
 
-[cnfScript.sml](cnfScript.sml):
-Definition of CNF
-
 [demo](demo):
 Scripts and example problems for the encoders.
 
@@ -30,6 +27,9 @@ of natural numbers.
 
 [quantifierExpScript.sml](quantifierExpScript.sml):
 Quantifiers over Boolean expressions and pseudo-Boolean constraints
+
+[satCnfScript.sml](satCnfScript.sml):
+CNF construction helpers for the SAT encoders
 
 [translation](translation):
 Translation scripts for puzzle encodings.

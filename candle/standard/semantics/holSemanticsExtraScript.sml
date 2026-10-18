@@ -9,7 +9,6 @@ Libs
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = Parse.hide "mem";
 
@@ -404,7 +403,7 @@ Proof
   rw[Abbr`vv`,Abbr`yy`] >>
   rpt AP_THM_TAC >> rpt AP_TERM_TAC >>
   simp[FUN_EQ_THM,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE] >>
-  Cases >>
+  Cases >> rename1 `ALOOKUP _ (z,tyr)` >>
   simp[GSYM MAP_MAP_o] >>
   BasicProvers.CASE_TAC >>
   qmatch_assum_abbrev_tac`ALOOKUP (MAP (dest_var ## f) ls) (z,tyr) = X` >>

@@ -1,0 +1,14 @@
+all: $(DEFAULT_TARGETS) README.md candle_boot.cml
+.PHONY: all
+
+# Load order; the last file is the only one visible after loading.
+PARSER_SOURCES = support.cml tokens.cml lexer.cml peg.cml tree.cml \
+  grammar_support.cml grammar.cml front_end.cml conversion_support.cml \
+  names.cml types.cml precedence.cml patterns.cml type_declarations.cml \
+  expression_support.cml expressions.cml declarations.cml parser.cml
+
+candle_boot.cml: gen_candle_boot.sh candle_glue.cml $(PARSER_SOURCES)
+	sh gen_candle_boot.sh $(PARSER_SOURCES) > candle_boot.cml
+
+README_SOURCES = $(wildcard *.cml)
+sinclude $(CAKEMLDIR)/developers/readme.mk

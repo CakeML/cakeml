@@ -8,6 +8,24 @@ Ancestors
 
 val _ = numLib.temp_prefer_num();
 
+(* Define operator classes, that allow to group their behavior later *)
+Datatype:
+ op_class =
+    EvalOp (* Eval primitive *)
+  | FunApp (* function application *)
+  | Force (* forcing a thunk *)
+  | Simple (* arithmetic operation, no finite-precision/reals *)
+End
+
+Definition getOpClass_def[simp]:
+ getOpClass op =
+ case op of
+  | Opapp => FunApp
+  | Eval => EvalOp
+  | ThunkOp t => (if t = ForceThunk then Force else Simple)
+  | _ => Simple
+End
+
 (* Constructors and exceptions need unique identities, which we represent by stamps. *)
 Datatype:
  stamp =
@@ -952,7 +970,7 @@ End
 Definition do_arith_def:
   (do_arith a Float64T vals =
      case (a, MAP the_Litv_Float64 vals) of
-     | (Abs,  [v1])       => SOME (INR $ Litv $ Float64 $ fp64_abs v1)
+     | (Absolute, [v1])   => SOME (INR $ Litv $ Float64 $ fp64_abs v1)
      | (Neg,  [v1])       => SOME (INR $ Litv $ Float64 $ fp64_negate v1)
      | (Sqrt, [v1])       => SOME (INR $ Litv $ Float64 $ fp64_sqrt roundTiesToEven v1)
      | (Add,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_add roundTiesToEven v1 v2)
@@ -978,6 +996,8 @@ Definition do_arith_def:
      | (And, [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_and v1 v2)
      | (Or,  [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_or v1 v2)
      | (Xor, [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_xor v1 v2)
+     | (Shift sh, [v1;v2]) =>
+         SOME (INR $ Litv $ Word8 $ shift8_lookup sh v1 (w2n v2))
      | _ => NONE) ∧
   (do_arith a (WordT W64) vals =
      case (a, MAP the_Litv_Word64 vals) of
@@ -986,6 +1006,8 @@ Definition do_arith_def:
      | (And, [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_and v1 v2)
      | (Or,  [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_or v1 v2)
      | (Xor, [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_xor v1 v2)
+     | (Shift sh, [v1;v2]) =>
+         SOME (INR $ Litv $ Word64 $ shift64_lookup sh v1 (w2n v2))
      | _ => NONE) ∧
   (do_arith a BoolT vals =
      case (a, vals) of
@@ -1033,10 +1055,6 @@ Definition do_app_def:
           (SOME xs, SOME ys) => SOME ((s,t), Rval (list_to_v (xs ++ ys)))
         | _ => NONE
       )
-    | (Shift W8 op n, [Litv (Word8 w)]) =>
-        SOME ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
-    | (Shift W64 op n, [Litv (Word64 w)]) =>
-        SOME ((s,t), Rval (Litv (Word64 (shift64_lookup op w n))))
     | (Equality, [v1; v2]) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
@@ -1127,6 +1145,51 @@ Definition do_app_def:
                   )
         | _ => NONE
       )
+    | (Aw8subBit, [Loc _ lnum; Litv (IntLit i)]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+              SOME ((s,t), Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8))))
+            else SOME ((s,t), Rerr (Rraise sub_exn_v))
+        | _ => NONE
+      )
+    | (Aw8updateBit, [Loc _ lnum; Litv (IntLit i); v]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if ¬(v = Boolv T ∨ v = Boolv F) then NONE else
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+              (case store_assign lnum
+                      (W8array (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                         (EL (Num i DIV 8) ws))
+                                        (Num i DIV 8) ws)) s of
+                  NONE => NONE
+                | SOME s' => SOME ((s',t), Rval (Conv NONE []))
+              )
+            else SOME ((s,t), Rerr (Rraise sub_exn_v))
+        | _ => NONE
+      )
+    | (Aw8subBit_unsafe, [Loc _ lnum; Litv (IntLit i)]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+              SOME ((s,t), Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8))))
+            else NONE
+        | _ => NONE
+      )
+    | (Aw8updateBit_unsafe, [Loc _ lnum; Litv (IntLit i); v]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws ∧ (v = Boolv T ∨ v = Boolv F) then
+              (case store_assign lnum
+                      (W8array (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                         (EL (Num i DIV 8) ws))
+                                        (Num i DIV 8) ws)) s of
+                  NONE => NONE
+                | SOME s' => SOME ((s',t), Rval (Conv NONE []))
+              )
+            else NONE
+        | _ => NONE
+      )
     | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
         SOME ((s,t),
         (case copy_array (explode str,off) len NONE of
@@ -1203,6 +1266,11 @@ Definition do_app_def:
               SOME ((s,t), Rerr (Rraise sub_exn_v))
             else
               SOME ((s,t), Rval (Litv (Char (EL n (explode str)))))
+    | (Strsub_unsafe, [Litv (StrLit str); Litv (IntLit i)]) =>
+        if (0:int) ≤ i ∧ Num i < strlen str then
+          SOME ((s,t), Rval (Litv (Char (EL (Num i) (explode str)))))
+        else
+          NONE
     | (Strlen, [Litv (StrLit str)]) =>
         SOME ((s,t), Rval (Litv(IntLit(int_of_num(strlen str)))))
     | (Strcat, [v]) =>

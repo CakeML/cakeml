@@ -5,7 +5,6 @@ Theory bvlSem
 Ancestors
   bvl closSem
   clos_to_bvl (* for closure_tag and num_added_globals *)
-  backendProps[qualified]
 Libs
   preamble
 
@@ -51,9 +50,9 @@ Datatype:
     <| globals : (bvlSem$v option) list
      ; refs    : num |-> bvlSem$v ref
      ; clock   : num
-     ; compile : 'c -> (num # num # bvl$exp) list -> (mlstring # word64 list # 'c) option
-     ; compile_oracle : num -> 'c # (num # num # bvl$exp) list
-     ; code    : (num # bvl$exp) num_map
+     ; compile : 'c -> (num # num # bvl$exp # metadata) list -> (mlstring # word64 list # 'c) option
+     ; compile_oracle : num -> 'c # (num # num # bvl$exp # metadata) list
+     ; code    : (num # bvl$exp # metadata) num_map
      ; ffi     : 'ffi ffi_state |>
 End
 
@@ -142,7 +141,7 @@ Definition do_install_def:
                 (if DISJOINT (domain s.code) (set (MAP FST progs)) /\
                     ALL_DISTINCT (MAP FST progs) then
                  (case s.compile cfg progs, progs of
-                  | SOME (bytes',data',cfg'), (k,prog)::_ =>
+                  | SOME (bytes',data',cfg'), (k,_)::_ =>
                       if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then
                         let s' =
                           s with <|
@@ -245,6 +244,12 @@ Definition do_word_app_def:
         | SOME w => SOME (Number &(w2n (shift_lookup sh w n)))) /\
   do_word_app (WordShift W64 sh n) [Word64 w] =
        SOME (Word64 (shift_lookup sh w n)) /\
+  do_word_app (WordShiftVar W8 sh) [Number i; Number n] =
+       (case some (w:word8,count:word8). i = &(w2n w) /\ n = &(w2n count) of
+        | NONE => NONE
+        | SOME (w,count) => SOME (Number &(w2n (shift_lookup sh w (w2n count))))) /\
+  do_word_app (WordShiftVar W64 sh) [Word64 w; Word64 count] =
+       SOME (Word64 (shift_lookup sh w (w2n count))) /\
   do_word_app (WordFromInt) [Number i] =
        SOME (Word64 (i2w i)) /\
   do_word_app WordToInt [Word64 w] =
@@ -406,6 +411,24 @@ Definition do_app_def:
                  (ptr, ByteArray f (LUPDATE (i2w b) (Num i) bs)))
              else Error)
          | _ => Error)
+    | (MemOp DerefBit,[RefPtr _ ptr; Number i]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray _ ws) =>
+            (if 0 ≤ i ∧ i < 8 * &LENGTH ws
+             then Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8)),s)
+             else Error)
+         | _ => Error)
+    | (MemOp UpdateBit,[RefPtr _ ptr; Number i; v]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray f bs) =>
+            (if 0 ≤ i ∧ i < 8 * &LENGTH bs ∧ (v = Boolv T ∨ v = Boolv F)
+             then
+               Rval (Unit, s with refs := s.refs |+
+                 (ptr, ByteArray f (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                             (EL (Num i DIV 8) bs))
+                                            (Num i DIV 8) bs)))
+             else Error)
+         | _ => Error)
     | (MemOp ConcatByteVec,[lv]) =>
          (case
             (some wss. ∃ps.
@@ -527,6 +550,14 @@ Definition do_app_def:
                Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
            | _ => Error)
          | _ => Error)
+    | (MemOp BoundsCheckBit,xs) =>
+        (case xs of
+         | [RefPtr _ ptr; Number i] =>
+          (case FLOOKUP s.refs ptr of
+           | SOME (ByteArray _ ws) =>
+               Rval (Boolv (0 <= i /\ i < 8 * & LENGTH ws),s)
+           | _ => Error)
+         | _ => Error)
     | (MemOp BoundsCheckArray,xs) =>
         (case xs of
          | [RefPtr _ ptr; Number i] =>
@@ -562,7 +593,7 @@ Definition find_code_def:
   (find_code (SOME p) args code =
      case lookup p code of
      | NONE => NONE
-     | SOME (arity,exp) => if LENGTH args = arity then SOME (args,exp)
+     | SOME (arity,exp,md) => if LENGTH args = arity then SOME (args,exp)
                                                   else NONE) /\
   (find_code NONE args code =
      if args = [] then NONE else
@@ -570,7 +601,7 @@ Definition find_code_def:
        | CodePtr loc =>
            (case sptree$lookup loc code of
             | NONE => NONE
-            | SOME (arity,exp) => if LENGTH args = arity + 1
+            | SOME (arity,exp,md) => if LENGTH args = arity + 1
                                   then SOME (FRONT args,exp)
                                   else NONE)
        | other => NONE)

@@ -30,7 +30,7 @@
 *)
 Theory pattern_exh_tests
 Ancestors
-  pattern_common pattern_semantics pattern_exh ast
+  pattern_exh
 Libs
   preamble
 

@@ -7,7 +7,7 @@
 *)
 Theory lab_to_target
 Ancestors
-  labLang lab_filter ffi
+  lab_filter ffi
 Libs
   preamble
 
@@ -22,7 +22,7 @@ Definition lab_inst_def:
   (lab_inst w (Jump _) = Jump w) /\
   (lab_inst w (JumpCmp c r ri _) = JumpCmp c r ri w) /\
   (lab_inst w (Call _) = Call w) /\
-  (lab_inst w (LocValue r _) = Loc r (w:'a word)) /\
+  (lab_inst w (LocValue r _) = Loc r w) /\
   (lab_inst w (Halt) = Jump w) /\
   (lab_inst w (Install) = Jump w) /\
   (lab_inst w (CallFFI n) = Jump w)
@@ -40,13 +40,13 @@ Definition enc_line_def:
   (enc_line enc skip_len (Asm a _ _) =
      let bs = enc (compile_shmem a) in Asm a bs (LENGTH bs)) /\
   (enc_line enc skip_len (LabAsm l _ _ _) =
-     let bs = enc (lab_inst 0w l) in
-       LabAsm l 0w bs (LENGTH bs))
+     let bs = enc (lab_inst 0 l) in
+       LabAsm l 0 bs (LENGTH bs))
 End
 
 Definition enc_sec_def:
-  enc_sec enc skip_len (Section k xs) =
-    Section k (MAP (enc_line enc skip_len) xs)
+  enc_sec enc skip_len (Section k xs md) =
+    Section k (MAP (enc_line enc skip_len) xs) md
 End
 
 Definition enc_sec_list_def:
@@ -73,7 +73,7 @@ End
 
 Definition compute_labels_alt_def:
   (compute_labels_alt pos [] labs = labs) /\
-  (compute_labels_alt pos (Section k lines::rest) labs =
+  (compute_labels_alt pos (Section k lines _::rest) labs =
     let (new_pos,sec_labs) = section_labels pos lines [] in
     compute_labels_alt new_pos rest
       (insert k (fromAList ((0,pos)::sec_labs)) labs))
@@ -106,13 +106,13 @@ End
 
 Definition get_jump_offset_def:
   (get_jump_offset (CallFFI s) ffis labs pos =
-     0w - n2w (pos + (3 + get_ffi_index ffis (ExtCall s)) * ffi_offset)) /\
+     -&(pos + (3 + get_ffi_index ffis (ExtCall s)) * ffi_offset)) /\
   (get_jump_offset Install ffis labs pos =
-     0w - n2w (pos + 2 * ffi_offset)) /\
+     -&(pos + 2 * ffi_offset)) /\
   (get_jump_offset Halt ffis labs pos =
-     0w - n2w (pos + ffi_offset)) /\
+     -&(pos + ffi_offset)) /\
   (get_jump_offset a ffis labs pos =
-     n2w (find_pos (get_label a) labs) - n2w pos)
+     &(find_pos (get_label a) labs) - &pos)
 End
 
 Definition enc_lines_again_def:
@@ -134,10 +134,10 @@ End
 
 Definition enc_secs_again_def:
   (enc_secs_again pos labs ffis enc [] = ([],T)) /\
-  (enc_secs_again pos labs ffis enc ((Section s lines)::rest) =
+  (enc_secs_again pos labs ffis enc ((Section s lines md)::rest) =
      let (lines1,pos1,ok) = enc_lines_again labs ffis pos enc lines ([],T) in
      let (rest1,ok1) = enc_secs_again pos1 labs ffis enc rest in
-       ((Section s lines1)::rest1,ok /\ ok1))
+       ((Section s lines1 md)::rest1,ok /\ ok1))
 End
 
 (* update labels *)
@@ -155,16 +155,16 @@ End
 
 Definition upd_lab_len_def:
   (upd_lab_len pos [] = []) /\
-  (upd_lab_len pos ((Section s lines)::rest) =
+  (upd_lab_len pos ((Section s lines md)::rest) =
      let (lines1,pos1) = lines_upd_lab_len pos lines [] in
      let rest1 = upd_lab_len pos1 rest in
-       (Section s lines1)::rest1)
+       (Section s lines1 md)::rest1)
 End
 
 (* checking that all labelled asm instructions are asm_ok *)
 
 Definition line_ok_light_def:
-  (line_ok_light (c:'a asm_config) (Label _ _ l) <=> T) /\
+  (line_ok_light (c:asm_config) (Label _ _ l) <=> T) /\
   (line_ok_light c (Asm b bytes l) <=> T) /\
   (line_ok_light c (LabAsm Halt w bytes l) <=>
      asm_ok (Jump w) c) /\
@@ -179,7 +179,7 @@ Definition line_ok_light_def:
 End
 
 Definition sec_ok_light_def[simp]:
-  sec_ok_light c (Section k ls) ⇔
+  sec_ok_light c (Section k ls _) ⇔
     EVERY (line_ok_light c) ls
 End
 
@@ -217,13 +217,14 @@ End
 
 Definition pad_code_def:
 (pad_code nop [] = []) /\
-(pad_code nop ((Section n xs)::ys) =
-  Section n (pad_section nop xs []) :: pad_code nop ys)
+(pad_code nop ((Section n xs md)::ys) =
+  Section n (pad_section nop xs []) md :: pad_code nop ys)
 End
 
 Theorem pad_code_MAP:
    pad_code nop =
-    MAP (λx. Section (Section_num x) (pad_section nop (Section_lines x) []))
+    MAP (λx. Section (Section_num x) (pad_section nop (Section_lines x) [])
+               (Section_metadata x))
 Proof
   simp[FUN_EQ_THM] \\ Induct \\ simp[pad_code_def]
   \\ Cases \\ simp[pad_code_def]
@@ -238,8 +239,8 @@ End
 
 Definition get_symbols_def:
   (get_symbols pos [] = []) /\
-  (get_symbols pos ((Section k l)::secs) =
-    let len = sec_length l 0 in (k, pos, len)::get_symbols (pos+len) secs)
+  (get_symbols pos ((Section k l (Metadata name _))::secs) =
+    let len = sec_length l 0 in (name, pos, len)::get_symbols (pos+len) secs)
 End
 
 (* Compute the labels whose second part is 0 *)
@@ -260,7 +261,7 @@ Definition line_get_zero_labs_acc_def:
 End
 
 Definition sec_get_zero_labs_acc_def:
-  sec_get_zero_labs_acc (Section _ lines) acc =
+  sec_get_zero_labs_acc (Section _ lines _) acc =
     FOLDR line_get_zero_labs_acc acc lines
 End
 
@@ -329,9 +330,9 @@ End
 
 Definition prog_to_bytes_def:
   (prog_to_bytes [] = []) /\
-  (prog_to_bytes ((Section k [])::xs) = prog_to_bytes xs) /\
-  (prog_to_bytes ((Section k (y::ys))::xs) =
-     line_bytes y ++ prog_to_bytes ((Section k ys)::xs))
+  (prog_to_bytes ((Section k [] md)::xs) = prog_to_bytes xs) /\
+  (prog_to_bytes ((Section k (y::ys) md)::xs) =
+     line_bytes y ++ prog_to_bytes ((Section k ys md)::xs))
 End
 
 val prog_to_bytes_ind = theorem"prog_to_bytes_ind";
@@ -349,7 +350,7 @@ Datatype:
   = <| entry_pc: num
        ; nbytes: word8
        ; addr_reg: num
-       ; addr_off: num
+       ; addr_off: int
        ; reg: num
        ; exit_pc: num
     |>
@@ -358,7 +359,7 @@ End
 Datatype:
   config = <|
     labels : num num_map num_map
-    ; sec_pos_len : (num # num # num) list
+    ; sec_pos_len : (mlstring # num # num) list
     ; pos : num
     ; init_clock : num
     ; ffi_names : ffiname list option
@@ -375,12 +376,12 @@ End
 
 Definition find_ffi_names_def:
   (find_ffi_names [] = []) /\
-  (find_ffi_names (Section k []::rest) =
+  (find_ffi_names (Section k [] md::rest) =
      find_ffi_names rest) /\
-  (find_ffi_names (Section k (x::xs)::rest) =
+  (find_ffi_names (Section k (x::xs) md::rest) =
    (case x of LabAsm (CallFFI s) _ _ _ =>
-       list_add_if_fresh (ExtCall s) (find_ffi_names (Section k xs::rest))
-   | _ => find_ffi_names (Section k xs::rest)))
+       list_add_if_fresh (ExtCall s) (find_ffi_names (Section k xs md::rest))
+   | _ => find_ffi_names (Section k xs md::rest)))
 End
 
 Definition get_memop_info_def:
@@ -397,31 +398,31 @@ End
 (* produce a list of ffi_names for shared memory instructions and
   a list of shmem_infos (e.g. pc of the shared memory instruction) *)
 Definition get_shmem_info_def:
-  (get_shmem_info ([]:'a prog) pos ffi_names (shmem_info: shmem_info_num list) =
+  (get_shmem_info ([]:prog) pos ffi_names (shmem_info: shmem_info_num list) =
     (ffi_names, shmem_info)) /\
-  (get_shmem_info (Section k []::rest) pos ffi_names shmem_info =
+  (get_shmem_info (Section k [] md::rest) pos ffi_names shmem_info =
     get_shmem_info rest pos ffi_names shmem_info) /\
-  (get_shmem_info (Section k ((Label _ _ _)::xs)::rest) pos ffi_names shmem_info =
-    get_shmem_info (Section k xs::rest) pos ffi_names shmem_info) /\
-  (get_shmem_info (Section k ((Asm (ShareMem m r ad) bytes _)::xs)::rest) pos
+  (get_shmem_info (Section k ((Label _ _ _)::xs) md::rest) pos ffi_names shmem_info =
+    get_shmem_info (Section k xs md::rest) pos ffi_names shmem_info) /\
+  (get_shmem_info (Section k ((Asm (ShareMem m r ad) bytes _)::xs) md::rest) pos
   ffi_names shmem_info =
     let (name,nb) = get_memop_info m in
-    get_shmem_info (Section k xs::rest) (pos+LENGTH bytes)
+    get_shmem_info (Section k xs md::rest) (pos+LENGTH bytes)
       (ffi_names ++ [SharedMem name])
       (shmem_info ++
       [
         <|entry_pc:=pos
         ; nbytes:=nb
         ; addr_reg := (case ad of Addr r off => r)
-        ; addr_off := (case ad of Addr r off => w2n off)
+        ; addr_off := (case ad of Addr r off => off)
         ; reg:=r
         ; exit_pc:=pos+LENGTH bytes|>
       ]
       )) /\
-  (get_shmem_info (Section k ((LabAsm _ _ bytes _)::xs)::rest) pos ffi_names shmem_info =
-    get_shmem_info (Section k xs::rest) (pos+LENGTH bytes) ffi_names shmem_info) /\
-  (get_shmem_info (Section k ((Asm _ bytes _)::xs)::rest) pos ffi_names shmem_info =
-    get_shmem_info (Section k xs::rest) (pos+LENGTH bytes) ffi_names shmem_info)
+  (get_shmem_info (Section k ((LabAsm _ _ bytes _)::xs) md::rest) pos ffi_names shmem_info =
+    get_shmem_info (Section k xs md::rest) (pos+LENGTH bytes) ffi_names shmem_info) /\
+  (get_shmem_info (Section k ((Asm _ bytes _)::xs) md::rest) pos ffi_names shmem_info =
+    get_shmem_info (Section k xs md::rest) (pos+LENGTH bytes) ffi_names shmem_info)
 End
 
 (*

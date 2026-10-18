@@ -8,7 +8,7 @@ Ancestors
   distrup_list distrup_arrayProg words byte distrup_fullProg distInfer distInferRefine
 
 Datatype:
-  state = <| procs  : 'name |-> ((int vector list # word8 list # word8) option);
+  state = <| procs  : 'name |-> ((int vector list # num list # num) option);
              facts  :  int vector list;
              validated  : bool
            |>
@@ -289,7 +289,7 @@ Definition init_def:
   init st fml ⇔
     FEVERY (λ(n,v).
       v = NONE ∨
-      ∃n k. v = SOME (REPLICATE n vcc_none, REPLICATE k 0w, 1w))
+      ∃n k. v = SOME (REPLICATE n vcc_none, REPLICATE k 0, 1))
       st.procs ∧
     set st.facts ⊆ fml ∧
     ¬st.validated

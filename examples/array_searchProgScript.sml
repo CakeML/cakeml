@@ -10,7 +10,6 @@ Libs
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = translation_extends "UnsafeProg";
 
@@ -625,9 +624,7 @@ Proof
     >- (
       qsuff_tac `MEM value
       (DROP (mid + 1) (TAKE finish elems))` >>
-      rw[] >> fs[]
-      >- (UNABBREV_TAC "mid" >>
-          fs[LE_LT1] >> fs[DIV_LT_X]) >>
+      rw[] >> fs[] >>
       UNABBREV_TAC "sub_list" >> fs[] >>
       match_mp_tac strict_weak_order_cmp_DROP >>
       qexists_tac `cmp` >> fs[] >>

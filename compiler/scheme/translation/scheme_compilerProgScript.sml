@@ -3,12 +3,12 @@
 *)
 Theory scheme_compilerProg
 Ancestors
-  to_sexpProg scheme_ast scheme_parsing scheme_to_cake
+  basisProg scheme_ast scheme_parsing scheme_to_cake
   scheme_compiler
 Libs
   preamble basis
 
-val _ = translation_extends "to_sexpProg";
+val _ = translation_extends "basisProg";
 
 (* parsing *)
 
@@ -36,7 +36,6 @@ val r = translate parse_to_ast_def;
 
 (* codegen *)
 
-val r = translate locationTheory.unknown_loc_def;
 val r = translate lit_to_ml_val_def;
 val r = translate cake_print_def;
 val r = translate cons_list_def;
@@ -81,4 +80,3 @@ val prog =
 Definition scheme_compiler_prog_def:
   scheme_compiler_prog = ^prog
 End
-

@@ -20,7 +20,7 @@ Definition destResult_def:
   destResult _ = Failure unknown_loc "Something catastrophic happened"
 End
 
-Type M[local,pp] = “:(token # locs) list -> ((token # locs) list, α, string) pegresult”
+Type M[local,pp] = “:(token # location$locs) list -> ((token # location$locs) list, α, string) pegresult”
 Definition pegresult_bind_def:
   pegresult_bind (f:α M) (g:α -> β M) : β M =
   λtoks.
@@ -72,12 +72,16 @@ Definition cmlParseExpr_def:
   od
 End
 
+Definition cml_parse_nTopLevelDecs_def:
+  cml_parse_nTopLevelDecs toks =
+  destResult (cmlpegexec nTopLevelDecs toks)
+End
+
 Definition parse_prog_def:
   parse_prog =
     do
-      pts <- destResult o cmlpegexec nTopLevelDecs;
+      pts <- cml_parse_nTopLevelDecs;
       pt <- optlift $ oHD pts;
       optlift $ ptree_TopLevelDecs pt;
     od
 End
-

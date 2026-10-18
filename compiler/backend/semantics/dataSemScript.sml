@@ -5,7 +5,6 @@ Theory dataSem
 Ancestors
   data_simp data_live data_space dataLang bvlSem
   data_to_word (* TODO: immoral, semantics shouldn't depend on compiler *)
-  backendProps[qualified]
 Libs
   preamble
 
@@ -61,16 +60,16 @@ Datatype:
      ; global      : num option
      ; handler     : num
      ; refs        : v ref num_map
-     ; compile     : 'c -> (num # num # dataLang$prog) list -> (mlstring # word64 list # 'c) option
+     ; compile     : 'c -> (num # num # dataLang$prog # metadata) list -> (mlstring # word64 list # 'c) option
      ; clock       : num
-     ; code        : (num # dataLang$prog) num_map
+     ; code        : (num # dataLang$prog # metadata) num_map
      ; ffi         : 'ffi ffi_state
      ; space       : num
      ; tstamps     : num option
      ; limits      : limits
      ; safe_for_space   : bool
      ; peak_heap_length : num
-     ; compile_oracle   : num -> 'c # (num # num # dataLang$prog) list |>
+     ; compile_oracle   : num -> 'c # (num # num # dataLang$prog # metadata) list |>
 End
 
 val s = ``(s:('c,'ffi) dataSem$state)``
@@ -515,7 +514,7 @@ Definition do_install_def:
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in
                  (case s.compile cfg progs, progs of
-                  | SOME (bytes',data',cfg'), (k,prog)::_ =>
+                  | SOME (bytes',data',cfg'), (k,_)::_ =>
                       if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then
                         let s' =
                           s with <|
@@ -681,6 +680,9 @@ Definition lim_safe_def[simp]:
 ∧ (lim_safe lims (WordOp (WordShift W64 _ _)) _ =
    (1 < lims.length_limit)
   )
+∧ (lim_safe lims (WordOp (WordShiftVar W64 _)) _ =
+   (1 < lims.length_limit)
+  )
 ∧ (lim_safe lims (WordOp (WordFromWord _)) _ =
    (1 < lims.length_limit)
   )
@@ -778,6 +780,12 @@ Definition do_word_app_def:
         | SOME w => SOME (Number &(w2n (shift_lookup sh w n)))) /\
   do_word_app (WordShift W64 sh n) [Word64 w] =
        SOME (Word64 (shift_lookup sh w n)) /\
+  do_word_app (WordShiftVar W8 sh) [Number i; Number n] =
+       (case some (w:word8,count:word8). i = &(w2n w) /\ n = &(w2n count) of
+        | NONE => NONE
+        | SOME (w,count) => SOME (Number &(w2n (shift_lookup sh w (w2n count))))) /\
+  do_word_app (WordShiftVar W64 sh) [Word64 w; Word64 count] =
+       SOME (Word64 (shift_lookup sh w (w2n count))) /\
   do_word_app (WordFromInt) [Number i] =
        SOME (Word64 (i2w i)) /\
   do_word_app WordToInt [Word64 w] =
@@ -1011,6 +1019,13 @@ Definition do_app_aux_def:
              then Rval (Number (& (w2n (EL (Num i) ws))),s)
              else Error)
          | _ => Error)
+    | (MemOp DerefBit,[RefPtr _ ptr; Number i]) =>
+        (case lookup ptr s.refs of
+         | SOME (ByteArray _ ws) =>
+            (if 0 ≤ i ∧ i < 8 * &LENGTH ws
+             then Rval (Block 0 (multiword$b2n ((EL (Num i DIV 8) ws) ' (Num i MOD 8))) [],s)
+             else Error)
+         | _ => Error)
     | (MemOp UpdateByte,[RefPtr _ ptr; Number i; Number b]) =>
         (case lookup ptr s.refs of
          | SOME (ByteArray f bs) =>
@@ -1018,6 +1033,16 @@ Definition do_app_aux_def:
              then
                Rval (Unit, s with refs := insert ptr
                  (ByteArray f (LUPDATE (i2w b) (Num i) bs)) s.refs)
+             else Error)
+         | _ => Error)
+    | (MemOp UpdateBit,[RefPtr _ ptr; Number i; v]) =>
+        (case (lookup ptr s.refs, dest_Boolv v) of
+         | (SOME (ByteArray f bs), SOME b) =>
+            (if 0 ≤ i ∧ i < 8 * &LENGTH bs
+             then
+               Rval (Unit, s with refs := insert ptr
+                 (ByteArray f (LUPDATE (((Num i MOD 8) :+ b) (EL (Num i DIV 8) bs))
+                                       (Num i DIV 8) bs)) s.refs)
              else Error)
          | _ => Error)
     | (MemOp XorByte,[RefPtr _ dst; RefPtr _ src]) =>
@@ -1122,6 +1147,14 @@ Definition do_app_aux_def:
           (case lookup ptr s.refs of
            | SOME (ByteArray _ ws) =>
                Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
+           | _ => Error)
+         | _ => Error)
+    | (MemOp BoundsCheckBit,xs) =>
+        (case xs of
+         | [RefPtr _ ptr; Number i] =>
+          (case lookup ptr s.refs of
+           | SOME (ByteArray _ ws) =>
+               Rval (Boolv (0 <= i /\ i < 8 * & LENGTH ws),s)
            | _ => Error)
          | _ => Error)
     | (MemOp BoundsCheckArray,xs) =>
@@ -1320,7 +1353,7 @@ Definition find_code_def:
   (find_code (SOME p) args code ssize =
      case sptree$lookup p code of
      | NONE => NONE
-     | SOME (arity,exp) =>
+     | SOME (arity,exp,md) =>
         if LENGTH args = arity
         then SOME (args,exp,lookup p ssize)
         else NONE)
@@ -1330,7 +1363,7 @@ Definition find_code_def:
        | CodePtr loc =>
            (case sptree$lookup loc code of
             | NONE => NONE
-            | SOME (arity,exp) =>
+            | SOME (arity,exp,md) =>
                if LENGTH args = arity + 1
                then SOME (FRONT args,exp,lookup loc ssize)
                else NONE)

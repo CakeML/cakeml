@@ -5,7 +5,7 @@ Theory cp_to_ilp
 Libs
   preamble
 Ancestors
-  cp ilp pbc pbc_encode sptree int_bitwiseExtra mlmap
+  mlstring cp ilp pbc pbc_encode sptree int_bitwiseExtra mlmap
 
 (* The shared infrastructure for all encodings goes into this file *)
 
@@ -346,7 +346,7 @@ End
 Definition needs_escaping_def:
   needs_escaping depth s n (l:num) =
     if l ≤ n then depth ≠ 0i else
-      let c = strsub s n in
+      let c = strsub_unsafe s n in
         if c = CHR 92 ∨ c = CHR 255 then T else
         if c = CHR 91 then needs_escaping (depth+1) s (n+1) l else
         if c = CHR 93 then
@@ -382,7 +382,7 @@ Proof
     naive_needs_escaping d ys’
   >- (disch_then $ qspecl_then [‘xs’,‘[]’,‘0’] mp_tac \\ simp [])
   \\ Induct
-  \\ simp [naive_needs_escaping_def, Once needs_escaping_def]
+  \\ simp [naive_needs_escaping_def, Once needs_escaping_def, strsub_unsafe_eq_strsub]
   \\ simp [EL_APPEND2]
   \\ rpt gen_tac
   \\ Cases_on ‘h = #"\\"’ \\ fs []
@@ -1161,37 +1161,6 @@ End
   The mlstring option is an annotation.
 *)
 
-(* Ordering-valued shortlex comparison on mlstring, via the native
-  String.Fast primitives fast_lt/fast_le.
-  NOTE: fast_compare + TotOrd_fast_compare could move upstream to
-  mlstringTheory (next to fast_lt/fast_le). *)
-Definition fast_compare_def:
-  fast_compare s1 s2 =
-  if fast_lt s1 s2 then LESS
-  else if fast_le s1 s2 then EQUAL
-  else GREATER
-End
-
-Theorem TotOrd_fast_compare:
-  TotOrd fast_compare
-Proof
-  `fast_compare = TO_of_LinearOrder fast_lt` by
-    (rw[FUN_EQ_THM,fast_compare_def,totoTheory.TO_of_LinearOrder,
-      mlstringTheory.fast_le_thm]>>
-    metis_tac[mlstringTheory.fast_lt_nonrefl])>>
-  metis_tac[totoTheory.TotOrd_TO_of_Strong,
-    mlstringTheory.StrongLinearOrder_fast_lt]
-QED
-
-(* NOTE: could move upstream to mlintTheory (next to int_cmp_def) *)
-Theorem TotOrd_int_cmp:
-  TotOrd mlint$int_cmp
-Proof
-  rw[totoTheory.TotOrd,mlintTheory.int_cmp_def]>>
-  every_case_tac>>gvs[]>>
-  intLib.ARITH_TAC
-QED
-
 (* Total order on varc: variables (INL, by fast_compare) before
   constants (INR, by int_cmp) *)
 Definition varc_compare_def:
@@ -1210,14 +1179,14 @@ Proof
   >- (
     Cases_on`x`>>Cases_on`y`>>
     gvs[varc_compare_def]>>
-    metis_tac[TotOrd_fast_compare,TotOrd_int_cmp,totoTheory.TotOrd])
+    metis_tac[TotOrd_fast_compare,mlintTheory.TotOrd_int_cmp,totoTheory.TotOrd])
   >- (
     Cases_on`x`>>Cases_on`y`>>
     gvs[varc_compare_def]>>
-    metis_tac[TotOrd_fast_compare,TotOrd_int_cmp,totoTheory.TotOrd])>>
+    metis_tac[TotOrd_fast_compare,mlintTheory.TotOrd_int_cmp,totoTheory.TotOrd])>>
   Cases_on`x`>>Cases_on`y`>>Cases_on`z`>>
   gvs[varc_compare_def]>>
-  metis_tac[TotOrd_fast_compare,TotOrd_int_cmp,totoTheory.TotOrd]
+  metis_tac[TotOrd_fast_compare,mlintTheory.TotOrd_int_cmp,totoTheory.TotOrd]
 QED
 
 Datatype:

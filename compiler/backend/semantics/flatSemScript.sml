@@ -3,7 +3,7 @@
 *)
 Theory flatSem
 Ancestors
-  flatLang semanticPrimitivesProps fpSem[qualified] evaluate
+  flatLang semanticPrimitivesProps evaluate
 Libs
   preamble
 
@@ -316,10 +316,6 @@ End
 Definition do_app_def:
   do_app s op (vs:flatSem$v list) =
   case (op, vs) of
-  | (Src (Shift wz sh n), [Litv w]) =>
-      (case do_shift sh n wz w of
-         | NONE => NONE
-         | SOME w => SOME (s, Rval (Litv w)))
   | (Src Equality, [v1; v2]) =>
     (case do_eq v1 v2 of
      | Eq_type_error => NONE
@@ -416,6 +412,45 @@ Definition do_app_def:
               | NONE => NONE
               | SOME s' => SOME (s with refs := s', Rval Unitv))
      | _ => NONE)
+  | (Src Aw8subBit, [Loc _ lnum; Litv (IntLit i)]) =>
+    (case store_lookup lnum s.refs of
+     | SOME (W8array ws) =>
+       if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+         SOME (s, Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8))))
+       else SOME (s, Rerr (Rraise subscript_exn_v))
+     | _ => NONE)
+  | (Src Aw8updateBit, [Loc _ lnum; Litv (IntLit i); v]) =>
+    (case store_lookup lnum s.refs of
+     | SOME (W8array ws) =>
+       if ¬(v = Boolv T ∨ v = Boolv F) then NONE else
+       if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+         (case store_assign lnum
+                 (W8array (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                    (EL (Num i DIV 8) ws))
+                                   (Num i DIV 8) ws)) s.refs of
+          | NONE => NONE
+          | SOME s' => SOME (s with refs := s', Rval Unitv))
+       else SOME (s, Rerr (Rraise subscript_exn_v))
+     | _ => NONE)
+  | (Src Aw8subBit_unsafe, [Loc _ lnum; Litv (IntLit i)]) =>
+    (case store_lookup lnum s.refs of
+     | SOME (W8array ws) =>
+       if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+         SOME (s, Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8))))
+       else NONE
+     | _ => NONE)
+  | (Src Aw8updateBit_unsafe, [Loc _ lnum; Litv (IntLit i); v]) =>
+    (case store_lookup lnum s.refs of
+     | SOME (W8array ws) =>
+       if 0 ≤ i ∧ i < 8 * &LENGTH ws ∧ (v = Boolv T ∨ v = Boolv F) then
+         (case store_assign lnum
+                 (W8array (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                    (EL (Num i DIV 8) ws))
+                                   (Num i DIV 8) ws)) s.refs of
+          | NONE => NONE
+          | SOME s' => SOME (s with refs := s', Rval Unitv))
+       else NONE
+     | _ => NONE)
   | (Src CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
       SOME (s,
       (case copy_array (explode str,off) len NONE of
@@ -477,6 +512,11 @@ Definition do_app_def:
           SOME (s, Rerr (Rraise subscript_exn_v))
         else
           SOME (s, Rval (Litv (Char (strsub str n))))
+  | (Src Strsub_unsafe, [Litv (StrLit str); Litv (IntLit i)]) =>
+    if 0 ≤ i ∧ Num i < strlen str then
+      SOME (s, Rval (Litv (Char (strsub str (Num i)))))
+    else
+      NONE
   | (Src Strlen, [Litv (StrLit str)]) =>
     SOME (s, Rval (Litv(IntLit(int_of_num(strlen str)))))
   | (Src Strcat, [v]) =>
@@ -786,6 +826,7 @@ Definition exp_alt_size_def[simp]:
    (option_size mlstring_size a1 + (exp_alt_size a2 + exp_alt_size a3))) ∧
   exp_alt_size (Letrec a0 a1 a2) =
   1 + (mlstring_size a0 + (exp1_alt_size a1 + exp_alt_size a2)) ∧
+  exp_alt_size (Tick a0 a1) = 1 + (tra_size a0 + exp_alt_size a1) ∧
   exp1_alt_size [] = 0 ∧
   exp1_alt_size (a0::a1) = 1 + (exp2_alt_size a0 + exp1_alt_size a1) ∧
   exp2_alt_size (a0,a1) = 1 + (mlstring_size a0 + exp4_alt_size a1) ∧
@@ -919,6 +960,12 @@ Definition evaluate_def:
    if ALL_DISTINCT (MAP FST funs)
    then evaluate (env with v := build_rec_env funs env env.v) s [e]
    else (s, Rerr(Rabort Rtype_error))) ∧
+  (evaluate env s [Tick _ e] =
+   case evaluate env s [e] of
+   | (s, Rval vs) =>
+       if s.clock = 0 then (s, Rerr (Rabort Rtimeout_error))
+       else (dec_clock s, Rval vs)
+   | res => res) ∧
   (evaluate_dec s e =
    case evaluate <| v := [] |> s [e] of
    | (s, Rval x) =>

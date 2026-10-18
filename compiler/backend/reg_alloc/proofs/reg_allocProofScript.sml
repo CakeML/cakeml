@@ -12,7 +12,6 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = ParseExtras.temp_tight_equality();
 val _ = monadsyntax.temp_add_monadsyntax()
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = monadsyntax.temp_enable_monad "st_ex";
 
@@ -3298,8 +3297,7 @@ Proof
   rw[]>>simp[]>>
   `is_subgraph s'.adj_ls s''.adj_ls` by
     fs[is_subgraph_def]>>
-  qpat_x_assum`!a b. _`mp_tac>>
-  qmatch_goalsub_abbrev_tac`hide2 ⇒ _`>>
+  qpat_x_assum`!a b. _`(ASSUME_NAMED_TAC "edges")>>
   drule (GEN_ALL mk_tags_succeeds)>>
   disch_then(qspecl_then[`st.dim`,`fs`,`sp_default fa`] mp_tac)>>
   impl_tac>-
@@ -3418,9 +3416,9 @@ Proof
       metis_tac[])>>
     qsuff_tac`has_edge s''.adj_ls v v'`>-
       fs[is_subgraph_def]>>
-    simp[]>>
+    LABEL_X_ASSUM "edges" (fn th => simp[th])>>
     DISJ2_TAC>>DISJ1_TAC>>
-    qexists_tac`p_1`>>qexists_tac`p_2`>>simp[])>>
+    qexists_tac`p_1`>>qexists_tac`p_2`>>fs[sp_default_def])>>
   strip_tac>>
   qsuff_tac`v=v'`
   >-

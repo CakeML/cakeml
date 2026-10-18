@@ -2,20 +2,54 @@
   Implements the foreign function interface (FFI) used in the CakeML basis
   library, as a thin wrapper around the relevant system calls.
 */
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
+
+/* The Linux raw socket FFI needs struct ifreq, which is not POSIX. */
+#if defined(__linux__) && !defined(_DEFAULT_SOURCE)
+#define _DEFAULT_SOURCE
+#endif
+
 #include <assert.h>
 #include <errno.h>
-#include <fcntl.h>
-#include <math.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+/* TextIO FFI (POSIX) */
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <unistd.h>
+
+/* Double FFI */
+#include <math.h>
+
+#ifdef __linux__
+/* Socket FFI (POSIX) */
+#include <sys/socket.h>
+#include <sys/un.h>
+
+/* Socket FFI (Linux raw sockets) */
+#include <linux/if_packet.h>
+#include <net/ethernet.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
+#include <arpa/inet.h>
+#include <poll.h>
+#endif
+
+/* GC and tracing */
+#ifdef DEBUG_FFI
+#include <sys/time.h> /* POSIX */
+#endif
+
+/* Interactive evaluation */
 #ifdef EVAL
 #include <signal.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/time.h>
+#include <sys/mman.h> /* POSIX */
 #endif
 
 /* This flag is on by default. It catches CakeML's out-of-memory exit codes
@@ -24,57 +58,30 @@
  * */
 #define STDERR_MEM_EXHAUST
 
-/* clFFI (command line) */
-
+/* Host runtime arguments, shared with the CommandLine FFI. */
 unsigned int argc;
 char **argv;
 
-/* exported in cake.S */
+/* exported in CakeML .S file */
 extern void cml_main(void);
 extern void *cml_heap;
 extern void *cml_stack;
 extern void *cml_stackend;
 
-extern char cake_text_begin;
-extern char cake_codebuffer_begin;
-extern char cake_codebuffer_end;
-
-#ifdef EVAL
-
-/* Signal handler for SIGINT */
-
-/* This is set to 1 when the runtime traps a SIGINT */
-volatile sig_atomic_t caught_sigint = 0;
-
-void do_sigint(int sig_num)
-{
-    signal(SIGINT, do_sigint);
-    caught_sigint = 1;
-}
-
-void ffipoll_sigint (unsigned char *c, long clen, unsigned char *a, long alen)
-{
-    if (alen < 1) {
-        return;
-    }
-    a[0] = (unsigned char) caught_sigint;
-    caught_sigint = 0;
-}
-
-void ffikernel_ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
-    for (long i = 0; i < clen; i++) {
-        putc(c[i], stdout);
-    }
-}
-
-#else
-
-void ffipoll_sigint (unsigned char *c, long clen, unsigned char *a, long alen) { }
-
-void ffikernel_ffi (unsigned char *c, long clen, unsigned char *a, long alen) { }
-
+static void cml_runtime_error(int error, const char *format, ...) {
+#ifdef STDERR_MEM_EXHAUST
+  va_list args;
+  va_start(args, format);
+  fputs("CakeML: ", stderr);
+  vfprintf(stderr, format, args);
+  va_end(args);
+  if (error) fprintf(stderr, ": %s", strerror(error));
+  fputs(".\n", stderr);
 #endif
+  exit(3);
+}
 
+/* CommandLine FFI (clFFI) */
 void ffiget_arg_count (unsigned char *c, long clen, unsigned char *a, long alen) {
   a[0] = (char) argc;
   a[1] = (char) (argc / 256);
@@ -97,17 +104,18 @@ void ffiget_arg (unsigned char *c, long clen, unsigned char *a, long alen) {
   }
 }
 
-void int_to_byte2(int i, unsigned char *b){
+/* TextIO FFI (fsFFI): file descriptors and byte encodings */
+static void int_to_byte2(int i, unsigned char *b){
     /* i is encoded on 2 bytes */
     b[0] = (i >> 8) & 0xFF;
     b[1] = i & 0xFF;
 }
 
-int byte2_to_int(unsigned char *b){
+static int byte2_to_int(unsigned char *b){
     return ((b[0] << 8) | b[1]);
 }
 
-void int_to_byte8(int i, unsigned char *b){
+static void int_to_byte8(int i, unsigned char *b){
     /* i is encoded on 8 bytes */
     /* i is cast to long long to ensure having 64 bits */
     /* assumes CHAR_BIT = 8. use static assertion checks? */
@@ -121,14 +129,11 @@ void int_to_byte8(int i, unsigned char *b){
     b[7] =  (long long) i & 0xFF;
 }
 
-int byte8_to_int(unsigned char *b){
+static int byte8_to_int(unsigned char *b){
     return (((long long) b[0] << 56) | ((long long) b[1] << 48) |
              ((long long) b[2] << 40) | ((long long) b[3] << 32) |
              (b[4] << 24) | (b[5] << 16) | (b[6] << 8) | b[7]);
 }
-
-
-/* fsFFI (file system and I/O) */
 
 void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
   assert(9 <= alen);
@@ -143,11 +148,7 @@ void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
 
 void ffiopen_out (unsigned char *c, long clen, unsigned char *a, long alen) {
   assert(9 <= alen);
-  #ifdef EVAL
   int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
-  #else
-  int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
-  #endif
   if (0 <= fd){
     a[0] = 0;
     int_to_byte8(fd, &a[1]);
@@ -195,102 +196,10 @@ void fficlose (unsigned char *c, long clen, unsigned char *a, long alen) {
   else a[0] = 1;
 }
 
-/* GC FFI */
-int inGC = 0;
-struct timeval t1,t2,lastT;
-long microsecs = 0;
-int numGC = 0;
-int hasT = 0;
-long prevOcc = 0;
-long numAllocBytes = 0;
-
-void cml_exit(int arg) {
-
-  #ifdef STDERR_MEM_EXHAUST
-  if (arg != 0) {
-    fprintf(stderr,"Program exited with nonzero exit code.\n");
-  }
-  #endif
-
-  #ifdef DEBUG_FFI
-  {
-    if(arg == 1) {
-      fprintf(stderr,"CakeML heap space exhausted.\n");
-    }
-    else if(arg == 2) {
-      fprintf(stderr,"CakeML stack space exhausted.\n");
-    }
-    fprintf(stderr,"GCNum: %d, GCTime(us): %ld\n",numGC,microsecs);
-    fprintf(stderr,"Total allocated heap data: %ld bytes\n",numAllocBytes);
-  }
-  #endif
-
-  exit(arg);
-}
-
-void cml_err(int arg) {
-  if (arg == 3) {
-    fprintf(stderr,"Memory not ready for entry. You may have not run the init code yet, or be trying to enter during an FFI call.\n");
-  }
-
-  cml_exit(arg);
-}
-
+/* Runtime FFI */
 void ffiexit (unsigned char *c, long clen, unsigned char *a, long alen) {
   assert(alen == 1);
   exit((int)a[0]);
-}
-
-
-/* empty FFI (assumed to do nothing, but can be used for tracing/logging) */
-void ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
-  #ifdef DEBUG_FFI
-  {
-    if (clen == 0)
-    {
-      if(inGC==1)
-      {
-        gettimeofday(&t2, NULL);
-        microsecs += (t2.tv_usec - t1.tv_usec) + (t2.tv_sec - t1.tv_sec)*1e6;
-        numGC++;
-        inGC = 0;
-        long occ = (long)c; // number of bytes in occupied in heap (all live after standard GC)
-        // long len = (long)a;
-        // fprintf(stderr,"GC stops  %ld %ld \n",occ,len);
-        prevOcc = occ;
-      }
-      else
-      {
-        inGC = 1;
-        gettimeofday(&t1, NULL);
-        long occ = (long)c;
-        // long len = (long)a;
-        // fprintf(stderr,"GC starts %ld %ld \n",occ,len);
-        numAllocBytes += (occ - prevOcc);
-      }
-    } else {
-      int indent = 30;
-      for (int i=0; i<clen; i++) {
-        putc(c[i],stderr);
-        indent--;
-      }
-      for (int i=0; i<indent; i++) {
-        putc(' ',stderr);
-      }
-      struct timeval nowT;
-      gettimeofday(&nowT, NULL);
-      if (hasT) {
-        long usecs = (nowT.tv_usec - lastT.tv_usec) +
-                     (nowT.tv_sec - lastT.tv_sec)*1e6;
-        fprintf(stderr," --- %ld milliseconds\n",usecs / (long)1000);
-      } else {
-        fprintf(stderr,"\n");
-      }
-      gettimeofday(&lastT, NULL);
-      hasT = 1;
-    }
-  }
-  #endif
 }
 
 void fficustom (unsigned char *c, long clen, unsigned char *a, long alen) {
@@ -298,10 +207,7 @@ void fficustom (unsigned char *c, long clen, unsigned char *a, long alen) {
   assert(0 <= clen);
 }
 
-// ---------------------------------------------------------------------------
-// Functions on doubles for the Double module
-// ---------------------------------------------------------------------------
-
+/* Double FFI */
 typedef union {
     double num;
     char bytes[sizeof(double)];
@@ -317,7 +223,7 @@ void ffidouble_fromString(char *c, long clen, char *a, long alen) {
     char *endp;
     errno = 0;
     d.num = strtod(c, &endp);
-    if (errno == ERANGE || endp && *endp != '\0') {
+    if (errno == ERANGE || (endp && *endp != '\0')) {
         a[0] = 1;
     } else {
         a[0] = 0;
@@ -376,6 +282,526 @@ void ffidouble_floor(char *c, long clen, char *a, long alen) {
     memcpy(a, d.bytes, sizeof d.bytes);
 }
 
+#ifdef __linux__
+/* Socket FFI (Unix domain sockets) */
+/* Descriptors are passed as 8-byte integers (see int_to_byte8). Unless
+ * stated otherwise, a[0] is 0 on success and 1 on error. Functions that
+ * take a byte count or offset from a report 3, and do nothing, when the
+ * request does not fit in a. */
+
+/* c: NUL-terminated socket path. a[1..8]: listening descriptor. */
+void ffiunix_socket_listen(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(9 <= alen);
+  const char *socket_path = (const char *) c;
+  int sock_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+  if (sock_fd < 0) {
+    a[0] = 1;
+    return;
+  }
+  struct sockaddr_un addr;
+  memset(&addr, 0, sizeof(addr));
+  addr.sun_family = AF_UNIX;
+  if (strlen(socket_path) >= sizeof(addr.sun_path)) {
+    close(sock_fd);
+    a[0] = 1;
+    return;
+  }
+  strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
+  /* remove a stale socket file left by a previous run */
+  unlink(socket_path);
+  if (bind(sock_fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+    close(sock_fd);
+    a[0] = 1;
+    return;
+  }
+  if (listen(sock_fd, 5) < 0) {
+    close(sock_fd);
+    a[0] = 1;
+    return;
+  }
+  a[0] = 0;
+  int_to_byte8(sock_fd, &a[1]);
+}
+
+/* c: listening descriptor. a[0]: 2 if no connection is pending.
+ * a[1..8]: connected descriptor. */
+void ffiunix_socket_accept(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(clen == 8);
+  assert(9 <= alen);
+  int sock_fd = byte8_to_int(c);
+  struct sockaddr_un client_addr;
+  socklen_t client_len = sizeof(client_addr);
+  int conn_fd = accept(sock_fd, (struct sockaddr *) &client_addr, &client_len);
+  if (conn_fd < 0) {
+    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+      a[0] = 2;
+    } else {
+      a[0] = 1;
+    }
+    return;
+  }
+  a[0] = 0;
+  int_to_byte8(conn_fd, &a[1]);
+}
+
+/* Same layout as ffiread. a[0]: 2 if the peer closed the connection. */
+void ffiunix_socket_read(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(clen == 8);
+  assert(alen >= 4);
+  int sock_fd = byte8_to_int(c);
+  int max_bytes = byte2_to_int(a);
+  if (max_bytes + 4 > alen) {
+    a[0] = 3;  /* request does not fit in the array */
+    return;
+  }
+  int bytes_read = read(sock_fd, &a[4], max_bytes);
+  if (bytes_read < 0) {
+    a[0] = 1;
+    return;
+  }
+  if (bytes_read == 0) {
+    a[0] = 2;
+    return;
+  }
+  a[0] = 0;
+  int_to_byte2(bytes_read, &a[1]);
+}
+
+/* Same layout as ffiwrite. */
+void ffiunix_socket_write(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(clen == 8);
+  assert(alen >= 4);
+  int sock_fd = byte8_to_int(c);
+  int bytes_to_write = byte2_to_int(a);
+  int offset = byte2_to_int(&a[2]);
+  if (bytes_to_write + offset + 4 > alen) {
+    a[0] = 3;  /* request does not fit in the array */
+    return;
+  }
+  /* MSG_NOSIGNAL: a closed peer is reported as an error, not as SIGPIPE */
+  int bytes_written = send(sock_fd, &a[4 + offset], bytes_to_write, MSG_NOSIGNAL);
+  if (bytes_written < 0) {
+    a[0] = 1;
+    return;
+  }
+  a[0] = 0;
+  int_to_byte2(bytes_written, &a[1]);
+}
+
+/* Socket FFI (Linux raw sockets on network interfaces) */
+
+/* c: unused. a[1..8]: descriptor of an AF_PACKET socket for all protocols. */
+void ffiraw_socket_create(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(9 <= alen);
+  int sock_fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+  if (sock_fd < 0) {
+    a[0] = 1;
+    return;
+  }
+  a[0] = 0;
+  int_to_byte8(sock_fd, &a[1]);
+}
+
+/* c[0..7]: descriptor; c[8..]: NUL-terminated interface name.
+ * a[1..8]: interface index. */
+void ffiget_interface_index(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(9 <= alen);
+  assert(clen >= 9 && memchr(c + 8, '\0', clen - 8) != NULL);
+  int sock_fd = byte8_to_int(c);
+  const char *interface_name = (const char *) (c + 8);
+  if (strlen(interface_name) >= IFNAMSIZ) {
+    a[0] = 1;
+    return;
+  }
+  struct ifreq ifr;
+  memset(&ifr, 0, sizeof(ifr));
+  strncpy(ifr.ifr_name, interface_name, IFNAMSIZ - 1);
+  ifr.ifr_name[IFNAMSIZ - 1] = '\0';
+  if (ioctl(sock_fd, SIOCGIFINDEX, &ifr) < 0) {
+    a[0] = 1;
+    return;
+  }
+  a[0] = 0;
+  int_to_byte8(ifr.ifr_ifindex, &a[1]);
+}
+
+/* c[0..7]: descriptor; c[8..]: NUL-terminated interface name.
+ * a[1..8]: interface MTU. */
+void ffiget_interface_mtu(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(9 <= alen);
+  assert(clen >= 9 && memchr(c + 8, '\0', clen - 8) != NULL);
+  int sock_fd = byte8_to_int(c);
+  const char *interface_name = (const char *) (c + 8);
+  if (strlen(interface_name) >= IFNAMSIZ) {
+    a[0] = 1;
+    return;
+  }
+  struct ifreq ifr;
+  memset(&ifr, 0, sizeof(ifr));
+  strncpy(ifr.ifr_name, interface_name, IFNAMSIZ - 1);
+  ifr.ifr_name[IFNAMSIZ - 1] = '\0';
+  if (ioctl(sock_fd, SIOCGIFMTU, &ifr) < 0) {
+    a[0] = 1;
+    return;
+  }
+  a[0] = 0;
+  int_to_byte8(ifr.ifr_mtu, &a[1]);
+}
+
+/* c[0..7]: descriptor; c[8..15]: interface index to bind to. */
+void ffiraw_socket_bind(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(1 <= alen);
+  if (clen < 16) {
+    a[0] = 1;
+    return;
+  }
+  int sock_fd = byte8_to_int(c);
+  int if_index = byte8_to_int(c + 8);
+  struct sockaddr_ll addr;
+  memset(&addr, 0, sizeof(addr));
+  addr.sll_family = AF_PACKET;
+  addr.sll_protocol = htons(ETH_P_ALL);
+  addr.sll_ifindex = if_index;
+  if (bind(sock_fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+    a[0] = 1;
+    return;
+  }
+  a[0] = 0;
+}
+
+/* Same layout as ffiread; receives one frame from a bound socket.
+ * a[0]: 2 if the frame was longer than requested; a[1..2] then holds the
+ * number of bytes stored and the rest of the frame is discarded. */
+void ffiraw_socket_recv(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(clen == 8);
+  assert(alen >= 4);
+  int sock_fd = byte8_to_int(c);
+  int max_bytes = byte2_to_int(a);
+  if (max_bytes + 4 > alen) {
+    a[0] = 3;  /* request does not fit in the array */
+    return;
+  }
+  /* MSG_TRUNC: the real frame length is returned even when it was cut */
+  int frame_len = recv(sock_fd, &a[4], max_bytes, MSG_TRUNC);
+  if (frame_len < 0) {
+    a[0] = 1;
+    return;
+  }
+  if (frame_len > max_bytes) {
+    a[0] = 2;
+    int_to_byte2(max_bytes, &a[1]);
+    return;
+  }
+  a[0] = 0;
+  int_to_byte2(frame_len, &a[1]);
+}
+
+/* Same layout as ffiwrite; sends one frame on a bound socket. */
+void ffiraw_socket_send(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(clen == 8);
+  assert(alen >= 4);
+  int sock_fd = byte8_to_int(c);
+  int bytes_to_write = byte2_to_int(a);
+  int offset = byte2_to_int(&a[2]);
+  if (bytes_to_write + offset + 4 > alen) {
+    a[0] = 3;  /* request does not fit in the array */
+    return;
+  }
+  int bytes_written = send(sock_fd, &a[4 + offset], bytes_to_write, 0);
+  if (bytes_written < 0) {
+    a[0] = 1;
+    return;
+  }
+  a[0] = 0;
+  int_to_byte2(bytes_written, &a[1]);
+}
+
+/* c[0..7]: descriptor; c[8..15]: interface index. a: as in ffiwrite;
+ * sends one frame on the given interface. */
+void ffiraw_socket_sendto(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(clen >= 16);
+  assert(alen >= 4);
+  int sock_fd = byte8_to_int(c);
+  int if_index = byte8_to_int(c + 8);
+  int bytes_to_write = byte2_to_int(a);
+  int offset = byte2_to_int(&a[2]);
+  if (bytes_to_write + offset + 4 > alen) {
+    a[0] = 3;  /* request does not fit in the array */
+    return;
+  }
+  struct sockaddr_ll addr;
+  memset(&addr, 0, sizeof(addr));
+  addr.sll_family = AF_PACKET;
+  addr.sll_protocol = htons(ETH_P_ALL);
+  addr.sll_ifindex = if_index;
+  int bytes_written = sendto(sock_fd, &a[4 + offset], bytes_to_write, 0,
+                             (struct sockaddr *) &addr, sizeof(addr));
+  if (bytes_written < 0) {
+    a[0] = 1;
+    return;
+  }
+  a[0] = 0;
+  int_to_byte2(bytes_written, &a[1]);
+}
+
+static int byte4_to_int(unsigned char *b){
+    /* this assumes bytes in big-endian order; 0xFFFFFFFF decodes to -1 */
+    return (int32_t) (((uint32_t) b[0] << 24) | ((uint32_t) b[1] << 16) |
+                      ((uint32_t) b[2] << 8) | (uint32_t) b[3]);
+}
+
+/* c: nfds entries of 8-byte descriptor followed by 2-byte poll events.
+ * a[0..3]: nfds; a[4..7]: timeout in milliseconds, -1 for none.
+ * a[0]: 2 on timeout. a[1..4]: number of ready descriptors.
+ * a[8..]: 2-byte revents per entry, in input order. */
+void ffiraw_socket_poll(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(alen >= 8);
+  int nfds = byte4_to_int(a);
+  int timeout = byte4_to_int(&a[4]);
+  if (nfds < 0 || nfds > clen / 10 || nfds > (alen - 8) / 2) {
+    a[0] = 3;  /* entry count does not fit in c or a */
+    return;
+  }
+  struct pollfd *fds = malloc(nfds * sizeof(struct pollfd));
+  if (!fds) {
+    a[0] = 1;
+    return;
+  }
+  for (int i = 0; i < nfds; i++) {
+    int fd_offset = i * 10;
+    fds[i].fd = byte8_to_int(c + fd_offset);
+    fds[i].events = (c[fd_offset + 8] << 8) | c[fd_offset + 9];
+    fds[i].revents = 0;
+  }
+  int ret = poll(fds, nfds, timeout);
+  if (ret < 0) {
+    a[0] = 1;
+    free(fds);
+    return;
+  }
+  if (ret == 0) {
+    a[0] = 2;
+    free(fds);
+    return;
+  }
+  a[0] = 0;
+  a[1] = (ret >> 24) & 0xFF;
+  a[2] = (ret >> 16) & 0xFF;
+  a[3] = (ret >> 8) & 0xFF;
+  a[4] = ret & 0xFF;
+  for (int i = 0; i < nfds; i++) {
+    a[8 + (i * 2)] = (fds[i].revents >> 8) & 0xFF;
+    a[8 + (i * 2) + 1] = fds[i].revents & 0xFF;
+  }
+  free(fds);
+}
+
+/* c[0..7]: descriptor; c[8..15]: buffer size; c[16]: 0 for the receive
+ * buffer, 1 for the send buffer. a[1..8]: size actually set by the kernel. */
+void ffiset_socket_buffer_size(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(clen >= 17);
+  assert(alen >= 9);
+  int sock_fd = byte8_to_int(c);
+  int buffer_size = byte8_to_int(c + 8);
+  int buffer_type = c[16];
+  int option = (buffer_type == 0) ? SO_RCVBUF : SO_SNDBUF;
+  if (setsockopt(sock_fd, SOL_SOCKET, option, &buffer_size, sizeof(buffer_size)) < 0) {
+    a[0] = 1;
+    return;
+  }
+  int actual_size = 0;
+  socklen_t size_len = sizeof(actual_size);
+  if (getsockopt(sock_fd, SOL_SOCKET, option, &actual_size, &size_len) < 0) {
+    a[0] = 1;
+    return;
+  }
+  a[0] = 0;
+  int_to_byte8(actual_size, &a[1]);
+}
+
+/* Same layout as fficlose. */
+void ffiraw_socket_close(unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(clen == 8);
+  assert(alen >= 1);
+  int sock_fd = byte8_to_int(c);
+  if (close(sock_fd) < 0) {
+    a[0] = 1;
+  } else {
+    a[0] = 0;
+  }
+}
+#endif
+
+/* Interactive evaluation: Interrupt and Candle kernel FFIs */
+#ifdef EVAL
+/* exported in CakeML .S file */
+extern char cake_text_begin;
+extern char cake_codebuffer_begin;
+extern char cake_codebuffer_end;
+
+static size_t cml_page_size;
+
+/* Signal handler for SIGINT */
+/* This is set to 1 when the runtime traps a SIGINT */
+static volatile sig_atomic_t caught_sigint = 0;
+
+static void do_sigint(int sig_num)
+{
+    caught_sigint = 1;
+}
+
+void ffipoll_sigint (unsigned char *c, long clen, unsigned char *a, long alen)
+{
+    if (alen < 1) {
+        return;
+    }
+    a[0] = (unsigned char) caught_sigint;
+    caught_sigint = 0;
+}
+
+void ffikernel_ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
+    for (long i = 0; i < clen; i++) {
+        putc(c[i], stdout);
+    }
+}
+
+static void cml_init_eval(int local_argc, char **local_argv) {
+  long page_size = sysconf(_SC_PAGESIZE);
+  if (page_size <= 0) {
+    cml_runtime_error(0, "cannot determine the page size");
+  }
+  cml_page_size = (size_t)page_size;
+  uintptr_t text = (uintptr_t)&cake_text_begin;
+  uintptr_t begin = (uintptr_t)&cake_codebuffer_begin;
+  uintptr_t end = (uintptr_t)&cake_codebuffer_end;
+  if (text > begin || begin > end ||
+      begin - begin % cml_page_size < text || end % cml_page_size != 0) {
+    cml_runtime_error(0, "the text and code buffer do not have a safe page layout");
+  }
+  /* On macOS the text and code buffer are linked writable (see Makefile). */
+  if (mprotect((void *)text, end - text, PROT_READ | PROT_EXEC) != 0) {
+    cml_runtime_error(errno, "cannot make the text and code buffer read-only");
+  }
+  for (int i = 0; i < local_argc; i++) {
+    if (strcmp(local_argv[i], "--repl") == 0 ||
+        strcmp(local_argv[i], "--candle") == 0) {
+      struct sigaction action = {0};
+      action.sa_handler = do_sigint;
+      action.sa_flags = SA_RESTART;
+      sigemptyset(&action.sa_mask);
+      if (sigaction(SIGINT, &action, NULL) != 0) {
+        cml_runtime_error(errno, "cannot install the SIGINT handler");
+      }
+      break;
+    }
+  }
+}
+
+#else
+
+void ffipoll_sigint (unsigned char *c, long clen, unsigned char *a, long alen) { }
+
+void ffikernel_ffi (unsigned char *c, long clen, unsigned char *a, long alen) { }
+
+static void cml_init_eval(int local_argc, char **local_argv) { }
+
+#endif
+
+/* Host runtime: exit handling, GC and tracing FFI */
+#ifdef DEBUG_FFI
+static int inGC = 0;
+static struct timeval t1,t2,lastT;
+static long microsecs = 0;
+static int numGC = 0;
+static int hasT = 0;
+static long prevOcc = 0;
+static long numAllocBytes = 0;
+#endif
+
+void cml_exit(int arg) {
+
+  #ifdef STDERR_MEM_EXHAUST
+  if (arg != 0) {
+    fprintf(stderr,"Program exited with nonzero exit code.\n");
+  }
+  #endif
+
+  #ifdef DEBUG_FFI
+  {
+    if(arg == 1) {
+      fprintf(stderr,"CakeML heap space exhausted.\n");
+    }
+    else if(arg == 2) {
+      fprintf(stderr,"CakeML stack space exhausted.\n");
+    }
+    fprintf(stderr,"GCNum: %d, GCTime(us): %ld\n",numGC,microsecs);
+    fprintf(stderr,"Total allocated heap data: %ld bytes\n",numAllocBytes);
+  }
+  #endif
+
+  exit(arg);
+}
+
+void cml_err(int arg) {
+  if (arg == 3) {
+    fprintf(stderr,"Memory not ready for entry. You may have not run the init code yet, or be trying to enter during an FFI call.\n");
+  }
+
+  cml_exit(arg);
+}
+
+/* empty FFI (assumed to do nothing, but can be used for tracing/logging) */
+void ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
+  #ifdef DEBUG_FFI
+  {
+    if (clen == 0)
+    {
+      if(inGC==1)
+      {
+        gettimeofday(&t2, NULL);
+        microsecs += (t2.tv_usec - t1.tv_usec) + (t2.tv_sec - t1.tv_sec)*1e6;
+        numGC++;
+        inGC = 0;
+        long occ = (long)c; // number of bytes in occupied in heap (all live after standard GC)
+        // long len = (long)a;
+        // fprintf(stderr,"GC stops  %ld %ld \n",occ,len);
+        prevOcc = occ;
+      }
+      else
+      {
+        inGC = 1;
+        gettimeofday(&t1, NULL);
+        long occ = (long)c;
+        // long len = (long)a;
+        // fprintf(stderr,"GC starts %ld %ld \n",occ,len);
+        numAllocBytes += (occ - prevOcc);
+      }
+    } else {
+      int indent = 30;
+      for (int i=0; i<clen; i++) {
+        putc(c[i],stderr);
+        indent--;
+      }
+      for (int i=0; i<indent; i++) {
+        putc(' ',stderr);
+      }
+      struct timeval nowT;
+      gettimeofday(&nowT, NULL);
+      if (hasT) {
+        long usecs = (nowT.tv_usec - lastT.tv_usec) +
+                     (nowT.tv_sec - lastT.tv_sec)*1e6;
+        fprintf(stderr," --- %ld milliseconds\n",usecs / (long)1000);
+      } else {
+        fprintf(stderr,"\n");
+      }
+      gettimeofday(&lastT, NULL);
+      hasT = 1;
+    }
+  }
+  #endif
+}
+
+/* Host runtime: code installation */
 /* Called out to by the generated code to install len bytes of freshly
  * compiled code at dest. The contract is install_interfer_ok in
  * compiler/backend/semantics/targetSemScript.sml: the destination must end up
@@ -383,52 +809,50 @@ void ffidouble_floor(char *c, long clen, char *a, long alen) {
  * regions overlap, hence memmove; and the register that held the source must
  * end up holding the destination, hence the return value. */
 void *cml_install(uint8_t *src, size_t len, uint8_t *dest) {
+#ifdef EVAL
+  if (len == 0) return dest;
+  /* CakeML guarantees that the destination range is inside the code buffer. */
+  size_t offset = (uintptr_t)dest % cml_page_size;
+  void *start = (void *)((uintptr_t)dest - offset);
+  size_t size = len + offset;
+  if (mprotect(start, size, PROT_WRITE) != 0) {
+    cml_runtime_error(errno, "cannot make the code buffer writable");
+  }
+#endif
+  /* memmove matches the semantics; CakeML's nonoverlapping installs could
+   * also use memcpy. */
   memmove(dest, src, len);
   __builtin___clear_cache((char *)dest, (char *)dest + len);
+#ifdef EVAL
+  if (mprotect(start, size, PROT_READ | PROT_EXEC) != 0) {
+    cml_runtime_error(errno, "cannot make the code buffer executable");
+  }
+#endif
   return dest;
 }
 
-int main (int local_argc, char **local_argv) {
-
-  argc = local_argc;
-  argv = local_argv;
-
-  char *heap_env = getenv("CML_HEAP_SIZE");
-  char *stack_env = getenv("CML_STACK_SIZE");
-  char *temp; //used to store remainder of strtoul parse
-
-  unsigned long sz = 1024*1024; // 1 MB unit
-  unsigned long cml_heap_sz = 1024 * sz;    // Default: 1 GB heap
-  unsigned long cml_stack_sz = 1024 * sz;   // Default: 1 GB stack
-
-  // Read CML_HEAP_SIZE env variable (if present)
-  // Warning: strtoul may overflow!
-  if(heap_env != NULL)
-  {
-    cml_heap_sz = strtoul(heap_env, &temp, 10);
-    cml_heap_sz *= sz; //heap size is read in units of MBs
+/* Host runtime: memory allocation and entry point */
+/* Heap and stack sizes are positive decimal numbers of mebibytes. */
+static size_t cml_memory_size(const char *name) {
+  const size_t mib = 1024 * 1024;
+  const char *value = getenv(name);
+  char *end;
+  if (value == NULL) return 1024 * mib;
+  errno = 0;
+  unsigned long long count = strtoull(value, &end, 10);
+  if (*value < '0' || *value > '9' || *end != '\0' || errno == ERANGE ||
+      count == 0 || count > SIZE_MAX / mib) {
+    cml_runtime_error(0, "invalid %s=\"%s\"; expected a positive decimal "
+                      "size in MiB within the addressable range", name, value);
   }
+  return (size_t)count * mib;
+}
 
-  if(stack_env != NULL)
-  {
-    cml_stack_sz = strtoul(stack_env, &temp, 10);
-    cml_stack_sz *= sz; //stack size is read in units of MBs
-  }
-
-  if(cml_heap_sz < sz || cml_stack_sz < sz) //At least 1MB heap and stack size
-  {
-    #ifdef STDERR_MEM_EXHAUST
-    fprintf(stderr,"Too small requested heap (%lu) or stack (%lu) size in bytes.\n",cml_heap_sz, cml_stack_sz);
-    #endif
-    exit(3);
-  }
-
-  if(cml_heap_sz + cml_stack_sz < 8192) // Global minimum heap/stack for CakeML. 4096 for 32-bit architectures
-  {
-    #ifdef STDERR_MEM_EXHAUST
-    fprintf(stderr,"Too small requested heap (%lu) + stack (%lu) size in bytes.\n",cml_heap_sz, cml_stack_sz);
-    #endif
-    exit(3);
+static void cml_init_memory(void) {
+  size_t heap_size = cml_memory_size("CML_HEAP_SIZE");
+  size_t stack_size = cml_memory_size("CML_STACK_SIZE");
+  if (heap_size > SIZE_MAX - stack_size) {
+    cml_runtime_error(0, "heap and stack size overflow");
   }
 
   /**
@@ -448,46 +872,19 @@ int main (int local_argc, char **local_argv) {
    *  The position cml_stack may be (slightly) dynamically adjusted by CakeML,
    *  see `get_stack_heap_limit` in stack_removeProof
    **/
-
-  cml_heap = malloc(cml_heap_sz + cml_stack_sz); // allocate both heap and stack at once
-
-  if(cml_heap == NULL)
-  {
-    #ifdef STDERR_MEM_EXHAUST
-    fprintf(stderr,"failed to allocate sufficient CakeML heap and stack space.\n");
-    perror("malloc");
-    #endif
-    exit(3);
+  cml_heap = malloc(heap_size + stack_size);
+  if (cml_heap == NULL) {
+    cml_runtime_error(errno, "cannot allocate the heap and stack");
   }
+  cml_stack = (uint8_t *)cml_heap + heap_size;
+  cml_stackend = (uint8_t *)cml_stack + stack_size;
+}
 
-  cml_stack = cml_heap + cml_heap_sz;
-  cml_stackend = cml_stack + cml_stack_sz;
-
-  #ifdef EVAL
-
-  /** Set up the "eval" code buffer to be read-write-execute. **/
-  if(mprotect(&cake_text_begin, &cake_codebuffer_end - &cake_text_begin,
-              PROT_READ | PROT_WRITE | PROT_EXEC))
-  {
-    #ifdef STDERR_MEM_EXHAUST
-    fprintf(stderr,"failed to set permissions for CakeML code buffer.\n");
-    perror("mprotect");
-    #endif
-    exit(3);
-  }
-
-  /* Set up the signal handler for SIGINTs when running the REPL. */
-  for (int i = 0; i < local_argc; i++) {
-      if (strcmp(local_argv[i], "--repl") == 0 ||
-          strcmp(local_argv[i], "--candle") == 0) {
-        signal(SIGINT, do_sigint);
-        break;
-      }
-  }
-
-  #endif
-
-  cml_main(); // Passing control to CakeML
-
+int main(int local_argc, char **local_argv) {
+  argc = local_argc;
+  argv = local_argv;
+  cml_init_memory();
+  cml_init_eval(local_argc, local_argv);
+  cml_main();
   return 0;
 }

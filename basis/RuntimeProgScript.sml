@@ -34,7 +34,7 @@ val () = next_ml_names := ["debugMsg"];
 val result = translate debugMsg_def;
 
 val exit =
- ``[Dletrec (unknown_loc)
+ ``[Dletrec (NoLocs)
      [«exit»,«i»,
       Let (SOME «y») (App (FromTo IntT (WordT W8)) [Var (Short «i»)])
         (Let (SOME «x») (App Aw8alloc [Lit(IntLit 1);

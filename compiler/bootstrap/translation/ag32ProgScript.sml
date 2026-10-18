@@ -7,12 +7,6 @@ Ancestors
 Libs
   preamble ml_translatorLib inliningLib
 
-open preamble;
-open evaluateTheory
-open ml_translatorLib ml_translatorTheory;
-open ag32_targetTheory ag32Theory;
-open inliningLib;
-
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "arm7Prog";
@@ -112,16 +106,16 @@ val r = translate (format_def ag32_jump_constant_def);
 val ag32_enc_thm = (format_def ag32_enc_def);
 
 val cases_defs = LIST_CONJ
-  [TypeBase.case_def_of “:'a asm$inst”,
+  [TypeBase.case_def_of “:asm$inst”,
    TypeBase.case_def_of “:asm$cmp”,
    TypeBase.case_def_of “:asm$memop”,
    TypeBase.case_def_of “:asm$binop”,
    TypeBase.case_def_of “:ast$shift”,
    TypeBase.case_def_of “:asm$fp”,
-   TypeBase.case_def_of “:'a asm$arith”,
-   TypeBase.case_def_of “:'a asm$addr”,
-   TypeBase.case_def_of “:'a asm$reg_imm”,
-   TypeBase.case_def_of “:'a asm$asm”];
+   TypeBase.case_def_of “:asm$arith”,
+   TypeBase.case_def_of “:asm$addr”,
+   TypeBase.case_def_of “:asm$reg_imm”,
+   TypeBase.case_def_of “:asm$asm”];
 
 val d1 = Define ‘ag32_enc_Const n c = ag32_enc (Inst (Const n c))’
   |> SIMP_RULE std_ss [ag32_enc_thm,cases_defs,APPEND]
@@ -169,6 +163,5 @@ val res = CONJUNCTS d1 |> map SPEC_ALL |> map translate;
 val res = translate def;
 
 val r = translate (format_def ag32_config_def);
-
 
 val _ = (ml_translatorLib.clean_on_exit := true);

@@ -558,7 +558,7 @@ val _=add_astPP ("varlongprint", ``(Long x y)``,genPrint varLongPrint);
 fun varPrint sys d t pg str brk blk =
   sys (pg,pg,pg) d (strip t)
 
-val _=add_astPP ("varprint", ``Var x``,genPrint varPrint);
+val _=add_astPP ("varprint", ``Ident x``,genPrint varPrint);
 
 (*Matching*)
 fun matPrint sys d t pg str brk blk=

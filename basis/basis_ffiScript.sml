@@ -532,7 +532,7 @@ QED
   st.io_events  *)
 
 fun mk_main_call s =
-  ``(Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []]))``;
+  ``(Dlet NoLocs (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []]))``;
 val fname = mk_var("fname",``:mlstring``);
 val main_call = mk_main_call fname;
 
@@ -1026,7 +1026,7 @@ Theorem whole_prog_spec_IMP':
   Decls init_env (init_state (basis_ffi ext cl fs) with eval_state := es) decs res_env res_st
   ⇒
   ∀main_name.
-    let all_decs = SNOC (Dlet unknown_loc (Pcon NONE [])
+    let all_decs = SNOC (Dlet NoLocs (Pcon NONE [])
                      (App Opapp [Var (Short main_name); Con NONE []])) decs in
     nsLookup res_env.v (Short main_name) = SOME main_v
     ⇒
@@ -1059,7 +1059,7 @@ Theorem whole_prog_spec_IMP:
   Decls init_env (init_state (basis_ffi ext cl fs)) decs res_env res_st
   ⇒
   ∀main_name.
-    let all_decs = SNOC (Dlet unknown_loc (Pcon NONE [])
+    let all_decs = SNOC (Dlet NoLocs (Pcon NONE [])
                      (App Opapp [Var (Short main_name); Con NONE []])) decs in
     nsLookup res_env.v (Short main_name) = SOME main_v
     ⇒
@@ -1097,7 +1097,7 @@ Theorem whole_prog_spec_SOME_IMP:
   Decls init_env (init_state (basis_ffi ext cl fs)) decs res_env res_st
   ⇒
   ∀main_name.
-    let all_decs = SNOC (Dlet unknown_loc (Pcon NONE [])
+    let all_decs = SNOC (Dlet NoLocs (Pcon NONE [])
                      (App Opapp [Var (Short main_name); Con NONE []])) decs in
     nsLookup res_env.v (Short main_name) = SOME main_v
     ⇒
@@ -1137,7 +1137,7 @@ Theorem whole_prog_spec2_IMP:
   Decls init_env (init_state (basis_ffi ext cl fs)) decs res_env res_st
   ⇒
   ∀main_name.
-    let all_decs = SNOC (Dlet unknown_loc (Pcon NONE [])
+    let all_decs = SNOC (Dlet NoLocs (Pcon NONE [])
                      (App Opapp [Var (Short main_name); Con NONE []])) decs in
     nsLookup res_env.v (Short main_name) = SOME main_v
     ⇒
@@ -1175,7 +1175,7 @@ Theorem whole_prog_spec_ffidiv_IMP:
   Decls init_env (init_state (basis_ffi ext cl fs)) decs res_env res_st
   ⇒
   ∀main_name.
-    let all_decs = SNOC (Dlet unknown_loc (Pcon NONE [])
+    let all_decs = SNOC (Dlet NoLocs (Pcon NONE [])
                      (App Opapp [Var (Short main_name); Con NONE []])) decs in
     nsLookup res_env.v (Short main_name) = SOME main_v
     ⇒

@@ -3,7 +3,7 @@
 *)
 Theory x64Bootstrap
 Ancestors
-  compiler64Prog
+  compiler64X64Prog
 Libs
   preamble eval_cake_compile_x64Lib
 
@@ -30,7 +30,7 @@ Theorem compiler64_compiled =
   eval_cake_compile_x64_general
     { prefix               = ""
     , conf_def             = init_conf_eq
-    , prog_def             = compiler64_prog_def
+    , prog_def             = compiler64_x64_prog_def
     , run_as_explorer      = false
     , main_return          = false
     , output_filename      = "cake.S"

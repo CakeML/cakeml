@@ -84,7 +84,6 @@ QED
 val _ = lex_aux_ind |> update_precondition;
 
 val r = translate mlsexpTheory.lex_def;
-val r = translate mlsexpTheory.parse_def;
 
 (* Private helpers for inputSexp *)
 Quote add_cakeml:
@@ -153,6 +152,10 @@ End
 val _ = ml_prog_update open_local_in_block;
 
 (* Exported functions *)
+
+val _ = next_ml_names := ["parse"];
+val r = translate mlsexpTheory.parse_def;
+
 val _ = next_ml_names := ["fromString"];
 val r = translate mlsexpTheory.fromString_def;
 

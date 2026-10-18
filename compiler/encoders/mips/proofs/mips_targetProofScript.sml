@@ -3,7 +3,7 @@
 *)
 Theory mips_targetProof
 Ancestors
-  mips_target
+  mips_target asmSigned
 Libs
   realLib asmLib mips_stepLib
 
@@ -131,6 +131,40 @@ val lem10 =
                 c ' 4; c ' 3; c ' 2; c ' 1; c ' 0]: word16) = c)``
 
 val lem12 = utilsLib.mk_cond_rand_thms [optionSyntax.is_some_tm]
+
+Theorem imm16s_lem[local]:
+  !i. -32768 <= i /\ i <= 32767 ==>
+      0xFFFFFFFFFFFF8000w <= (i2w i : word64) /\ (i2w i : word64) <= 32767w /\
+      (-32768 < i ==> 0xFFFFFFFFFFFF8000w < (i2w i : word64))
+Proof
+  rpt strip_tac
+  \\ `w2i (i2w i : word64) = i`
+       by (irule integer_wordTheory.w2i_i2w
+           \\ simp [integer_wordTheory.INT_MIN_def, integer_wordTheory.INT_MAX_def,
+                    wordsTheory.INT_MIN_def, wordsTheory.INT_MAX_def,
+                    wordsTheory.dimword_def, wordsTheory.dimindex_64]
+           \\ intLib.ARITH_TAC)
+  \\ `w2i (0xFFFFFFFFFFFF8000w : word64) = -32768 /\
+      w2i (32767w : word64) = 32767` by EVAL_TAC
+  \\ asm_simp_tac bool_ss [integer_wordTheory.WORD_LEi, integer_wordTheory.WORD_LTi]
+  \\ intLib.ARITH_TAC
+QED
+
+Theorem imm16u_lem[local]:
+  !i. 0 <= i /\ i <= 65535 ==>
+      0w <= (i2w i : word64) /\ (i2w i : word64) <= 65535w
+Proof
+  rpt strip_tac
+  \\ `w2i (i2w i : word64) = i`
+       by (irule integer_wordTheory.w2i_i2w
+           \\ simp [integer_wordTheory.INT_MIN_def, integer_wordTheory.INT_MAX_def,
+                    wordsTheory.INT_MIN_def, wordsTheory.INT_MAX_def,
+                    wordsTheory.dimword_def, wordsTheory.dimindex_64]
+           \\ intLib.ARITH_TAC)
+  \\ `w2i (0w : word64) = 0 /\ w2i (65535w : word64) = 65535` by EVAL_TAC
+  \\ asm_simp_tac bool_ss [integer_wordTheory.WORD_LEi]
+  \\ intLib.ARITH_TAC
+QED
 
 Theorem adc_lem1[local]:
   ((if b then 1w else 0w) = (v2w [x] || v2w [y] : word64)) <=> (b = (x \/ y))
@@ -266,7 +300,9 @@ val encode_rwts =
    end
 
 val enc_rwts =
-  [mips_config, mips_asm_ok] @ encode_rwts @ asmLib.asm_rwts
+  [mips_config, mips_asm_ok, asmTheory.arch_width_bits_def,
+   asmTheory.arch_wordsize_def, integer_wordTheory.i2w_pos,
+   integer_wordTheory.i2w_minus_1] @ encode_rwts @ asmLib.asm_rwts
 
 val enc_ok_rwts =
   [asmPropsTheory.enc_ok_def, mips_config, mips_asm_ok] @ encode_rwts
@@ -434,7 +470,7 @@ local
       HolKernel.syntax_fns1 "mips_target" "mips_enc"
    fun get_asm tm = dest_mips_enc (HolKernel.find_term is_mips_enc tm)
 in
-   fun next_tac gs =
+   fun next_tac_with finish gs =
      let
        val asm = get_asm (snd gs)
      in
@@ -444,8 +480,9 @@ in
        \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
        \\ qunabbrev_tac `instr`
        \\ next_tac' asm
-       \\ state_tac asm
+       \\ finish asm
      end gs
+   val next_tac = next_tac_with state_tac
 end
 
 (* -------------------------------------------------------------------------
@@ -475,27 +512,53 @@ val mips_encoding = Q.prove (
    )
    |> SIMP_RULE (srw_ss()++boolSimps.LET_ss) [mips_enc_def]
 
+Theorem offset_i2w_signed[local]:
+  -2147483636 ≤ i ∧ i ≤ 2147483655 ⇒ w2i (i2w i : word64) = i
+Proof
+  strip_tac
+  \\ irule integer_wordTheory.w2i_i2w
+  \\ simp [integer_wordTheory.INT_MIN_def, integer_wordTheory.INT_MAX_def,
+           wordsTheory.INT_MIN_def, wordsTheory.INT_MAX_def,
+           wordsTheory.dimword_def, wordsTheory.dimindex_64]
+  \\ intLib.ARITH_TAC
+QED
+
 Theorem mips_target_ok[local]:
   target_ok mips_target
 Proof
   rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
         mips_proj_def, mips_target_def, mips_config, mips_ok_def,
         set_sepTheory.fun2set_eq, mips_encoding] @ enc_ok_rwts)
-   >| [Cases_on `0xFFFFFFFFFFFE0004w <= w1 /\ w1 <= 0x20003w`
-       \\ Cases_on `0xFFFFFFFFFFFE0004w <= w2 /\ w2 <= 0x20003w`,
+   >| [Cases_on `0xFFFFFFFFFFFE0004w <= (i2w w1 : word64) /\ (i2w w1 : word64) <= 0x20003w`
+       \\ Cases_on `0xFFFFFFFFFFFE0004w <= (i2w w2 : word64) /\ (i2w w2 : word64) <= 0x20003w`,
        Cases_on `ri`
        \\ Cases_on `cmp`,
-       Cases_on `0xFFFFFFFFFFFE0004w <= w1 /\ w1 <= 0x20003w`
-       \\ Cases_on `0xFFFFFFFFFFFE0004w <= w2 /\ w2 <= 0x20003w`,
+       Cases_on `0xFFFFFFFFFFFE0004w <= (i2w w1 : word64) /\ (i2w w1 : word64) <= 0x20003w`
+       \\ Cases_on `0xFFFFFFFFFFFE0004w <= (i2w w2 : word64) /\ (i2w w2 : word64) <= 0x20003w`,
        Cases_on `r = 31`
-       >| [Cases_on `0xFFFFFFFFFFFF8008w <= w1 /\ w1 <= 32775w`
-           \\ Cases_on `0xFFFFFFFFFFFF8008w <= w2 /\ w2 <= 32775w`,
-           Cases_on `0xFFFFFFFFFFFF800Cw <= w1 /\ w1 <= 32779w`
-           \\ Cases_on `0xFFFFFFFFFFFF800Cw <= w2 /\ w2 <= 32779w`
+       >| [Cases_on `0xFFFFFFFFFFFF8008w <= (i2w w1 : word64) /\ (i2w w1 : word64) <= 32775w`
+           \\ Cases_on `0xFFFFFFFFFFFF8008w <= (i2w w2 : word64) /\ (i2w w2 : word64) <= 32775w`,
+           Cases_on `0xFFFFFFFFFFFF800Cw <= (i2w w1 : word64) /\ (i2w w1 : word64) <= 32779w`
+           \\ Cases_on `0xFFFFFFFFFFFF800Cw <= (i2w w2 : word64) /\ (i2w w2 : word64) <= 32779w`
           ]
       ]
    \\ full_simp_tac (srw_ss()++boolSimps.LET_ss)
         (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
+   \\ rw []
+   \\ CCONTR_TAC \\ fs []
+   \\ imp_res_tac offset_i2w_signed
+   \\ TRY (`(i2w w1 : word64) ≤ i2w w2` by
+        fs [integer_wordTheory.WORD_LEi, integer_wordTheory.word_0_w2i])
+   \\ TRY (`(i2w w2 : word64) ≤ i2w w1` by
+        fs [integer_wordTheory.WORD_LEi, integer_wordTheory.word_0_w2i])
+   \\ TRY (`0w ≤ (i2w w1 : word64)` by
+        fs [integer_wordTheory.WORD_LEi, integer_wordTheory.word_0_w2i])
+   \\ TRY (`0w ≤ (i2w w2 : word64)` by
+        fs [integer_wordTheory.WORD_LEi, integer_wordTheory.word_0_w2i])
+   \\ TRY (`(i2w w1 : word64) < 0w` by
+        fs [integer_wordTheory.WORD_LTi, integer_wordTheory.word_0_w2i])
+   \\ TRY (`(i2w w2 : word64) < 0w` by
+        fs [integer_wordTheory.WORD_LTi, integer_wordTheory.word_0_w2i])
    \\ blastLib.FULL_BBLAST_TAC
 QED
 
@@ -505,11 +568,55 @@ QED
 
 val print_tac = asmLib.print_tac "correct"
 
+val imm16_tac =
+  TRY (mp_tac (Q.SPEC `i` imm16s_lem)
+       \\ impl_tac >- (fs enc_rwts \\ intLib.ARITH_TAC)
+       \\ strip_tac)
+  \\ TRY (mp_tac (Q.SPEC `i` imm16u_lem)
+       \\ impl_tac >- (fs enc_rwts \\ intLib.ARITH_TAC)
+       \\ strip_tac)
+
 Theorem word_extract_6:
   w <+ 64w ⇒
   ((5 >< 0) (w:word64)):word6 = (w2w w)
 Proof
   blastLib.FULL_BBLAST_TAC
+QED
+
+Theorem register_pair_update_64[local]:
+  rq < 32 /\ rr < 32 /\ rq <> rr /\
+  (!i. i < 32 /\ mips_reg_ok i ==>
+       (src : num -> word64) i = (dst : word5 -> word64) (n2w i)) ==>
+  !i. i < 32 /\ mips_reg_ok i ==>
+      ((rq =+ quotient) ((rr =+ remainder) src)) i =
+      ((n2w rr =+ remainder) ((n2w rq =+ quotient) dst)) (n2w i)
+Proof
+  rpt strip_tac
+  \\ rw [combinTheory.APPLY_UPDATE_THM, wordsTheory.n2w_11]
+QED
+
+Theorem signed_mul_flag_64[local]:
+  (v2w [((a * b : word64) >> 63 ??
+           (127 >< 64) ((sw2sw a : word128) * sw2sw b)) <> 0w] : word64) =
+  if w2i (a * b) <> w2i a * w2i b then 1w else 0w
+Proof
+  `!lo hi : word64. (lo ?? hi = 0w) <=> hi = lo` by
+    blastLib.BBLAST_TAC
+  \\ simp [asmSignedTheory.signed_mul_high_64, bitstringTheory.v2w_thm]
+QED
+
+Theorem register_pair_update_scratch_64[local]:
+  rd < 32 /\ ro < 32 /\
+  (!i. i < 32 /\ mips_reg_ok i ==>
+       (src : num -> word64) i = (dst : word5 -> word64) (n2w i)) ==>
+  !i. i < 32 /\ mips_reg_ok i ==>
+      ((ro =+ flag) ((rd =+ product) src)) i =
+      ((n2w ro =+ flag) ((1w =+ scratch)
+        ((n2w ro =+ high) ((n2w rd =+ product) dst)))) (n2w i)
+Proof
+  rpt strip_tac
+  \\ fs [mips_reg_ok_def, mips_config_def]
+  \\ rw [combinTheory.APPLY_UPDATE_THM, wordsTheory.n2w_11]
 QED
 
 Theorem mips_encoder_correct:
@@ -520,62 +627,178 @@ Proof
    \\ rw [mips_target_def, mips_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
    \\ Cases_on `i`
-   >- (
-      (*--------------
-          Inst
-        --------------*)
-      Cases_on `i'`
-      >- (
-         (*--------------
+   >- suspend "Inst"
+   >- suspend "Jump"
+   >- suspend "JumpCmp"
+   >- suspend "Call"
+   >- suspend "JumpReg"
+   >- suspend "Loc"
+QED
+
+Resume mips_encoder_correct[Inst]:
+  Cases_on `i'`
+  >- suspend "Skip"
+  >- suspend "Const"
+  >- suspend "Arith"
+  >- suspend "Mem"
+  >- suspend "FP"
+QED
+
+Resume mips_encoder_correct[Skip]:
+  (*--------------
              Skip
            --------------*)
          print_tac "Skip"
          \\ next_tac
-         )
-      >- (
-         (*--------------
+QED
+
+Resume mips_encoder_correct[Const]:
+  qabbrev_tac `c = (i2w i : word64)`
+  \\ (*--------------
              Const
            --------------*)
          print_tac "Const"
          \\ Cases_on `((63 >< 32) c = 0w: word32) /\
                       ((31 >< 16) c = 0w: word16)`
-         >- next_tac
+         >- suspend "Const16u"
          \\ Cases_on `((63 >< 32) c = -1w: word32) /\
                       ((31 >< 16) c = -1w: word16) /\
                       ((15 >< 0) c : word16) ' 15`
-         >- next_tac
+         >- suspend "Const16s"
          \\ Cases_on `((63 >< 32) c = 0w: word32) /\
                       ~((31 >< 16) c : word16) ' 15 \/
                       ((63 >< 32) c = -1w: word32) /\
                       ((31 >< 16) c : word16) ' 15`
-         \\ next_tac
-         )
-      >- (
-         (*--------------
-             Arith
-           --------------*)
-         Cases_on `a`
-         >- (
-            (*--------------
+         >- suspend "Const32"
+  >- suspend "Const64"
+QED
+
+Resume mips_encoder_correct[Const16u]:
+  next_tac
+QED
+
+Resume mips_encoder_correct[Const16s]:
+  next_tac
+QED
+
+Resume mips_encoder_correct[Const32]:
+  next_tac
+QED
+
+Resume mips_encoder_correct[Const64]:
+  next_tac_with (fn _ => suspend "Const64State")
+QED
+
+Resume mips_encoder_correct[Const64State]:
+  NO_STRIP_FULL_SIMP_TAC (srw_ss())
+    [asmPropsTheory.all_pcs, mips_ok_def, asmPropsTheory.sym_target_state_rel,
+     mips_target_def, mips_config, alignmentTheory.aligned_numeric,
+     mipsTheory.IntToDWordMIPS_def, set_sepTheory.fun2set_eq, mips_reg_ok,
+     lem8, lem9, lem9b, fcc_lem]
+  \\ rpt strip_tac
+  \\ NO_STRIP_REV_FULL_SIMP_TAC std_ss []
+  \\ REPEAT (qpat_x_assum `ms.MEM qq = bn` kall_tac)
+  \\ REPEAT (qpat_x_assum `!a. a IN s1.mem_domain ==> qqq` kall_tac)
+  \\ rw [combinTheory.APPLY_UPDATE_THM, mul_long1, mul_long2, ror,
+         GSYM wordsTheory.word_mul_def, mips_overflow, mips_sub_overflow,
+         DECIDE ``~(n < 32n) ==> (n - 32 + 32 = n)``]
+  \\ NO_STRIP_FULL_SIMP_TAC (srw_ss())
+       [gt_not_leq, alignmentTheory.aligned_extract, EVAL ``mips_reg_ok 30``]
+  \\ POP_ASSUM_LIST (K all_tac)
+  \\ blastLib.BBLAST_TAC
+QED
+
+Resume mips_encoder_correct[Arith]:
+  Cases_on `a`
+  >~ [`asm$IMul rd ra rb ro`] >- suspend "IMul"
+  >~ [`asm$IDiv rq rr ra rb`] >- suspend "IDiv"
+  >- suspend "Binop"
+  >- suspend "Shift"
+  >- suspend "Div"
+  >- suspend "LongMul"
+  >- suspend "LongDiv"
+  >- suspend "AddCarry"
+  >- suspend "AddOverflow"
+  >- suspend "SubOverflow"
+QED
+
+Resume mips_encoder_correct[IMul]:
+  next_tac_with (fn _ => all_tac)
+  \\ NO_STRIP_FULL_SIMP_TAC (srw_ss())
+    [asmPropsTheory.all_pcs, mips_ok_def, asmPropsTheory.sym_target_state_rel,
+     mips_target_def, mips_config, alignmentTheory.aligned_numeric,
+     set_sepTheory.fun2set_eq, mips_reg_ok, lem8, lem9, lem9b, fcc_lem,
+     wordsTheory.WORD_EXTRACT_OVER_MUL, asmSignedTheory.signed_low_64]
+  \\ rpt conj_tac
+  >~ [`(ro =+ _) ((rd =+ _) s1.regs)`]
+  >- (
+    rewrite_tac [signed_mul_flag_64, combinTheory.APPLY_UPDATE_THM]
+    \\ match_mp_tac (REWRITE_RULE [combinTheory.APPLY_UPDATE_THM]
+                      register_pair_update_scratch_64)
+    \\ asm_rewrite_tac []
+    \\ rpt strip_tac \\ simp [])
+  \\ gen_tac \\ disch_tac
+  \\ first_x_assum (qspec_then `pc` match_mp_tac)
+  \\ qpat_x_assum `!i:num state:mips_state. _` kall_tac
+  \\ REPEAT (qpat_x_assum `!a. a IN s1.mem_domain ==> _` kall_tac)
+  \\ fs []
+QED
+
+Resume mips_encoder_correct[IDiv]:
+  `ms.gpr (n2w rb) <> 0w` by (
+    qpat_assum `target_state_rel mips_target s1 ms`
+      (assume_tac o MATCH_MP lem5)
+    \\ qpat_x_assum `~(asm _ _ _).failed` mp_tac
+    \\ fs (integer_wordTheory.w2i_eq_0 :: enc_rwts))
+  \\ next_tac_with (fn _ => all_tac)
+  \\ NO_STRIP_FULL_SIMP_TAC (srw_ss())
+    [asmPropsTheory.all_pcs, mips_ok_def, asmPropsTheory.sym_target_state_rel,
+     mips_target_def, mips_config, alignmentTheory.aligned_numeric,
+     set_sepTheory.fun2set_eq, mips_reg_ok, lem8, lem9, lem9b, fcc_lem]
+  \\ rpt conj_tac
+  >~ [`(rq =+ _) ((rr =+ _) s1.regs)`]
+  >- (
+    qpat_assum `(ms.gpr (n2w rb) : word64) <> 0w` (fn nz =>
+      rewrite_tac
+        [MATCH_MP (Q.ISPECL [`(ms : mips_state).gpr (n2w ra)`,
+                            `(ms : mips_state).gpr (n2w rb)`]
+                      integer_wordTheory.word_quot) nz,
+         MATCH_MP (Q.ISPECL [`(ms : mips_state).gpr (n2w ra)`,
+                            `(ms : mips_state).gpr (n2w rb)`]
+                      integer_wordTheory.word_rem) nz])
+    \\ rewrite_tac [combinTheory.APPLY_UPDATE_THM]
+    \\ match_mp_tac (REWRITE_RULE [combinTheory.APPLY_UPDATE_THM]
+                      register_pair_update_64)
+    \\ asm_rewrite_tac []
+    \\ rpt strip_tac \\ simp [])
+  \\ gen_tac \\ disch_tac
+  \\ first_x_assum (qspec_then `pc` match_mp_tac)
+  \\ fs []
+QED
+
+Resume mips_encoder_correct[Binop]:
+  (*--------------
                 Binop
               --------------*)
             print_tac "Binop"
             \\ Cases_on `r`
             >| [Cases_on `b`,
-                Cases_on `(b = Xor) /\ (c = -1w)`
+                Cases_on `(b = Xor) /\ (i = -1)`
                 >| [all_tac,
-                    Cases_on `b` \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()) []]]
+                    Cases_on `b` \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()) []
+                    \\ imm16_tac]]
             \\ next_tac
-            )
-         >- (
-            (*--------------
+QED
+
+Resume mips_encoder_correct[Shift]:
+  (*--------------
                 Shift
               --------------*)
             print_tac "Shift"
             \\ reverse(Cases_on`r`)
             >- (
-              Cases_on`c`
-              \\ rename1`Imm (n2w c)`
+              `?c. i = &c` by (fs enc_rwts \\ qexists_tac `Num i` \\ intLib.ARITH_TAC)
+              \\ gvs []
               \\ Cases_on `s = Ror`
               >- (
                 Cases_on `c < 32`
@@ -634,30 +857,34 @@ Proof
                 \\ next_tac
               )
             )
-            )
-         >- (
-            (*--------------
+QED
+
+Resume mips_encoder_correct[Div]:
+  (*--------------
                 Div
               --------------*)
             print_tac "Div"
             \\ next_tac
-            )
-         >- (
-            (*--------------
+QED
+
+Resume mips_encoder_correct[LongMul]:
+  (*--------------
                 LongMul
               --------------*)
             print_tac "LongMul"
             \\ next_tac
-            )
-         >- (
-            (*--------------
+QED
+
+Resume mips_encoder_correct[LongDiv]:
+  (*--------------
                 LongDiv
               --------------*)
             print_tac "LongMul"
             \\ next_tac
-            )
-         >- (
-            (*--------------
+QED
+
+Resume mips_encoder_correct[AddCarry]:
+  (*--------------
                 AddCarry
               --------------*)
             print_tac "AddCarry"
@@ -665,9 +892,10 @@ Proof
             \\ qabbrev_tac `r3 = ms.gpr (n2w n1)`
             \\ qabbrev_tac `r4 = ms.gpr (n2w n2)`
             \\ next_tac
-            )
-         >- (
-            (*--------------
+QED
+
+Resume mips_encoder_correct[AddOverflow]:
+  (*--------------
                 AddOverflow
               --------------*)
             print_tac "AddOverflow"
@@ -675,9 +903,10 @@ Proof
             \\ qabbrev_tac `r3 = ms.gpr (n2w n1)`
             \\ qabbrev_tac `r4 = ms.gpr (n2w n2)`
             \\ next_tac
-            )
-         >- (
-            (*--------------
+QED
+
+Resume mips_encoder_correct[SubOverflow]:
+  (*--------------
                 SubOverflow
               --------------*)
             print_tac "SubOverflow"
@@ -685,102 +914,207 @@ Proof
             \\ qabbrev_tac `r3 = ms.gpr (n2w n1)`
             \\ qabbrev_tac `r4 = ms.gpr (n2w n2)`
             \\ next_tac
-            )
-         )
-         >- (
-            (*--------------
+QED
+
+Resume mips_encoder_correct[Mem]:
+  (*--------------
                 Mem
               --------------*)
             print_tac "Mem"
             \\ Cases_on `a`
+            \\ mp_tac (Q.SPEC `i` imm16s_lem)
+            \\ impl_tac
+            >- (fs (mips_config :: asmLib.asm_ok_rwts) \\ intLib.ARITH_TAC)
+            \\ strip_tac
             \\ Cases_on `m`
             \\ next_tac
-            )
-         (*--------------
-             FP
-           --------------*)
-         \\ Cases_on `f`
-         \\ next_tac
-         (*
-         >- (print_tac "FPLess"      \\ next_tac)
-         >- (print_tac "FPLessEqual" \\ next_tac)
-         >- (print_tac "FPEqual"     \\ next_tac)
-         >- (print_tac "FPAbs"  \\ next_tac)
-         >- (print_tac "FPNeg"  \\ next_tac)
-         >- (print_tac "FPSqrt" \\ next_tac)
-         >- (print_tac "FPAdd"  \\ next_tac)
-         >- (print_tac "FPSub"  \\ next_tac)
-         >- (print_tac "FPMul"  \\ next_tac)
-         >- (print_tac "FPDiv"  \\ next_tac)
-         >- (print_tac "FPMov"  \\ next_tac)
-         >- (print_tac "FPMovToReg"   \\ next_tac)
-         >- (print_tac "FPMovFromReg" \\ next_tac)
-         >- (print_tac "FPToInt"
-             \\ Cases_on `fp64_to_int roundTiesToEven (s1.fp_regs n0)`
-             >- next_tac
-             \\ rename1 `fp64_to_int roundTiesToEven _ = SOME i`
-             \\ Cases_on `w2i (i2w i : word64) = i`
-             >- (
-                 imp_res_tac fp_to_int_lem
-                 \\ next_tac
-                )
-             \\ next_tac
-            )
-         >- (print_tac "FPFromInt" \\ next_tac)
-         *)
-      ) (* close Inst *)
-      (*--------------
-          Jump
-        --------------*)
-   >- (
-      print_tac "Jump"
+QED
+
+Resume mips_encoder_correct[FP]:
+  Cases_on `f` \\ next_tac
+QED
+
+Theorem aligned_i2w[local]:
+  4 int_divides i ⇒ aligned 2 (i2w i : word64)
+Proof
+  rw [integerTheory.INT_DIVIDES]
+  \\ simp [GSYM integer_wordTheory.word_i2w_mul, integer_wordTheory.i2w_pos,
+           alignmentTheory.aligned_bitwise_and]
+  \\ blastLib.BBLAST_TAC
+QED
+
+Theorem branch_offset_i2w[local]:
+  (-2147483636 ≤ i ∧ i ≤ 2147483655 ∧ 4 int_divides i ⇒
+    0xFFFFFFFF8000000Cw ≤ (i2w i : word64) ∧
+    (i2w i : word64) ≤ 0x80000007w ∧ aligned 2 (i2w i : word64)) ∧
+  (-131064 ≤ i ∧ i ≤ 131075 ∧ 4 int_divides i ⇒
+    0xFFFFFFFFFFFE0008w ≤ (i2w i : word64) ∧
+    (i2w i : word64) ≤ 0x20003w ∧ aligned 2 (i2w i : word64))
+Proof
+  conj_tac \\ strip_tac
+  \\ `w2i (i2w i : word64) = i` by
+       (irule offset_i2w_signed \\ intLib.ARITH_TAC)
+  \\ fs ([integer_wordTheory.WORD_LEi, aligned_i2w] @
+         map EVAL [``w2i (0xFFFFFFFF8000000Cw : word64)``,
+                   ``w2i (0x80000007w : word64)``,
+                   ``w2i (0xFFFFFFFFFFFE0008w : word64)``,
+                   ``w2i (0x20003w : word64)``])
+QED
+
+Resume mips_encoder_correct[Jump]:
+  qmatch_goalsub_rename_tac `mips_enc (Jump off)`
+  \\ qabbrev_tac `c = (i2w off : word64)`
+  \\ `0xFFFFFFFF8000000Cw ≤ c ∧ c ≤ 0x80000007w ∧ aligned 2 c` by
+       (qunabbrev_tac `c`
+        \\ irule (CONJUNCT1 branch_offset_i2w)
+        \\ fs (mips_config :: asmLib.asm_ok_rwts))
+  \\   print_tac "Jump"
       \\ Cases_on `0xFFFFFFFFFFFE0004w <= c /\ c <= 0x20003w`
       \\ next_tac
-      )
-   >- (
-      (*--------------
+QED
+
+Resume mips_encoder_correct[JumpCmp]:
+  qmatch_goalsub_rename_tac `mips_enc (JumpCmp c n r off)`
+  \\ qabbrev_tac `c0 = (i2w off : word64)`
+  \\ `0xFFFFFFFFFFFE0008w ≤ c0 ∧ c0 ≤ 0x20003w ∧ aligned 2 c0` by
+       (qunabbrev_tac `c0`
+        \\ irule (CONJUNCT2 branch_offset_i2w)
+        \\ fs (mips_config :: asmLib.asm_ok_rwts))
+  \\   (*--------------
           JumpCmp
         --------------*)
       print_tac "JumpCmp"
       \\ Cases_on `r`
       \\ Cases_on `c`
+      \\ imm16_tac
       >| [
-         Cases_on `ms.gpr (n2w n) = ms.gpr (n2w n')`,
-         Cases_on `ms.gpr (n2w n) <+ ms.gpr (n2w n')`,
-         Cases_on `ms.gpr (n2w n) < ms.gpr (n2w n')`,
-         Cases_on `(ms.gpr (n2w n) && ms.gpr (n2w n')) = 0w`,
-         Cases_on `ms.gpr (n2w n) <> ms.gpr (n2w n')`,
-         Cases_on `~(ms.gpr (n2w n) <+ ms.gpr (n2w n'))`,
-         Cases_on `~(ms.gpr (n2w n) < ms.gpr (n2w n'))`,
-         Cases_on `(ms.gpr (n2w n) && ms.gpr (n2w n')) <> 0w`,
-         Cases_on `ms.gpr (n2w n) = c'`,
-         Cases_on `ms.gpr (n2w n) <+ c'`,
-         Cases_on `ms.gpr (n2w n) < c'`,
-         Cases_on `(ms.gpr (n2w n) && c') = 0w`,
-         Cases_on `ms.gpr (n2w n) <> c'`,
-         Cases_on `~(ms.gpr (n2w n) <+ c')`,
-         Cases_on `~(ms.gpr (n2w n) < c')`,
-         Cases_on `(ms.gpr (n2w n) && c') <> 0w`
+        suspend "CmpRegEqual",
+        suspend "CmpRegLower",
+        suspend "CmpRegLess",
+        suspend "CmpRegTest",
+        suspend "CmpRegNotEqual",
+        suspend "CmpRegNotLower",
+        suspend "CmpRegNotLess",
+        suspend "CmpRegNotTest",
+        suspend "CmpImmEqual",
+        suspend "CmpImmLower",
+        suspend "CmpImmLess",
+        suspend "CmpImmTest",
+        suspend "CmpImmNotEqual",
+        suspend "CmpImmNotLower",
+        suspend "CmpImmNotLess",
+        suspend "CmpImmNotTest"
       ]
-      \\ next_tac
-      )
-      (*--------------
-          Call
-        --------------*)
-   >- (
-      print_tac "Call"
+QED
+
+Resume mips_encoder_correct[CmpRegEqual]:
+  Cases_on `ms.gpr (n2w n) = ms.gpr (n2w n')`
+  \\ next_tac
+QED
+
+Resume mips_encoder_correct[CmpRegLower]:
+  Cases_on `ms.gpr (n2w n) <+ ms.gpr (n2w n')`
+  \\ next_tac
+QED
+
+Resume mips_encoder_correct[CmpRegLess]:
+  Cases_on `ms.gpr (n2w n) < ms.gpr (n2w n')`
+  \\ next_tac
+QED
+
+Resume mips_encoder_correct[CmpRegTest]:
+  Cases_on `(ms.gpr (n2w n) && ms.gpr (n2w n')) = 0w`
+  \\ next_tac
+QED
+
+Resume mips_encoder_correct[CmpRegNotEqual]:
+  Cases_on `ms.gpr (n2w n) <> ms.gpr (n2w n')`
+  \\ next_tac
+QED
+
+Resume mips_encoder_correct[CmpRegNotLower]:
+  Cases_on `~(ms.gpr (n2w n) <+ ms.gpr (n2w n'))`
+  \\ next_tac
+QED
+
+Resume mips_encoder_correct[CmpRegNotLess]:
+  Cases_on `~(ms.gpr (n2w n) < ms.gpr (n2w n'))`
+  \\ next_tac
+QED
+
+Resume mips_encoder_correct[CmpRegNotTest]:
+  Cases_on `(ms.gpr (n2w n) && ms.gpr (n2w n')) <> 0w`
+  \\ next_tac
+QED
+
+Resume mips_encoder_correct[CmpImmEqual]:
+  Cases_on `ms.gpr (n2w n) = (i2w i : word64)`
+  \\ next_tac
+QED
+
+Resume mips_encoder_correct[CmpImmLower]:
+  Cases_on `ms.gpr (n2w n) <+ (i2w i : word64)`
+  \\ next_tac
+QED
+
+Resume mips_encoder_correct[CmpImmLess]:
+  Cases_on `ms.gpr (n2w n) < (i2w i : word64)`
+  \\ next_tac
+QED
+
+Resume mips_encoder_correct[CmpImmTest]:
+  Cases_on `(ms.gpr (n2w n) && (i2w i : word64)) = 0w`
+  \\ next_tac
+QED
+
+Resume mips_encoder_correct[CmpImmNotEqual]:
+  Cases_on `ms.gpr (n2w n) <> (i2w i : word64)`
+  \\ next_tac
+QED
+
+Resume mips_encoder_correct[CmpImmNotLower]:
+  Cases_on `~(ms.gpr (n2w n) <+ (i2w i : word64))`
+  \\ next_tac
+QED
+
+Resume mips_encoder_correct[CmpImmNotLess]:
+  Cases_on `~(ms.gpr (n2w n) < (i2w i : word64))`
+  \\ next_tac
+QED
+
+Resume mips_encoder_correct[CmpImmNotTest]:
+  Cases_on `(ms.gpr (n2w n) && (i2w i : word64)) <> 0w`
+  \\ next_tac
+QED
+
+Resume mips_encoder_correct[Call]:
+  qmatch_goalsub_rename_tac `mips_enc (Call off)`
+  \\ qabbrev_tac `c = (i2w off : word64)`
+  \\ `0xFFFFFFFF8000000Cw ≤ c ∧ c ≤ 0x80000007w ∧ aligned 2 c` by
+       (qunabbrev_tac `c`
+        \\ irule (CONJUNCT1 branch_offset_i2w)
+        \\ fs (mips_config :: asmLib.asm_ok_rwts))
+  \\   print_tac "Call"
       \\ Cases_on `0xFFFFFFFFFFFE0004w <= c /\ c <= 0x20003w`
       \\ next_tac
-      )
-   >- (
-      (*--------------
+QED
+
+Resume mips_encoder_correct[JumpReg]:
+  (*--------------
           JumpReg
         --------------*)
       print_tac "JumpReg"
       \\ next_tac
-      )
-   >- (
-      (*--------------
+QED
+
+Resume mips_encoder_correct[Loc]:
+  qmatch_goalsub_rename_tac `mips_enc (Loc n off)`
+  \\ qabbrev_tac `c = (i2w off : word64)`
+  \\ `0xFFFFFFFF8000000Cw ≤ c ∧ c ≤ 0x80000007w ∧ aligned 2 c` by
+       (qunabbrev_tac `c`
+        \\ irule (CONJUNCT1 branch_offset_i2w)
+        \\ fs (mips_config :: asmLib.asm_ok_rwts))
+  \\   (*--------------
           Loc
         --------------*)
       print_tac "Loc"
@@ -789,6 +1123,6 @@ Proof
           Cases_on `0xFFFFFFFFFFFF800Cw <= c /\ c <= 32779w`
          ]
       \\ next_tac
-      )
 QED
 
+Finalise mips_encoder_correct;

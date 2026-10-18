@@ -41,7 +41,8 @@ QED
 
 local
   val n = ["skip", "const", "binop reg", "binop imm", "shift imm", "shift reg", "div",
-           "long mul", "long div", "add carry", "add overflow", "sub overflow",
+           "long mul", "long div", "signed mul", "signed div",
+           "add carry", "add overflow", "sub overflow",
            "load", "load32", "load16", "load8", "store", "store32", "store16", "store8",
            "fp less", "fp less eq", "fp eq", "fp mov", "fp abs", "fp neg",
            "fp sqrt", "fp add", "fp sub", "fp mul", "fp div", "fp fma", "fp to reg",
@@ -152,6 +153,14 @@ val long_div_rwt =
 val long_mul_rwt =
   enc_thm "long mul" [boolTheory.LET_THM, e_opsize_def]
 
+val signed_mul_rwt =
+  enc_thm "signed mul" [boolTheory.LET_DEF, e_opsize_def, not_byte_def]
+
+val signed_div_rwt =
+  enc_thm "signed div"
+    [boolTheory.LET_DEF, e_opsize_def, e_opsize_imm_def,
+     e_rax_imm_def, e_imm8_def, e_rm_imm8_def, not_byte_def]
+
 val add_carry_rwt =
   enc_thm "add carry"
    [boolTheory.LET_THM, not_byte_def, e_opsize_def, e_imm8_def, e_rm_imm8_def,
@@ -231,7 +240,8 @@ end
 val x64_encode_rwts = Theory.save_thm("x64_encode_rwts",
   Drule.LIST_CONJ
     [skip_rwt, div_rwt, const_rwt, binop_rwt, binop_imm_rwt, shift_imm_rwt, shift_reg_rwt,
-     long_div_rwt, long_mul_rwt, add_carry_rwt, add_overflow_rwt,
+     long_div_rwt, long_mul_rwt, signed_mul_rwt, signed_div_rwt,
+     add_carry_rwt, add_overflow_rwt,
      sub_overflow_rwt, load_rwt, load32_rwt, load16_rwt, load8_rwt,
      store_rwt, store32_rwt, store16_rwt, store8_rwt, jump_rwt, jump_cmp_rwt,
      jump_cmp_imm_rwt, call_rwt, jump_reg_rwt, loc_rwt,

@@ -535,6 +535,8 @@ in
       (REWR_CONV set_cons THENC RAND_CONV set_conv)
     )
 end
+
+(* Metadata proof adaptations need the original free-variable specialization. *)
 local
 fun BRING_NAME_TO_FRONT_CONV n t =
     let val (vs, b) = strip_forall t
@@ -560,19 +562,12 @@ fun SPECnames [] th = th
 
 fun specnames_then fvnms ttac th = ttac (SPECnames fvnms th)
 in
-fun old_drule_then ttac th =
+fun metadata_drule_then ttac th =
     let val fvnames = map (#1 o dest_var) (th |> concl |> free_vars)
     in
       drule_then (specnames_then fvnames ttac) th
     end
-val old_drule = old_drule_then mp_tac
-fun old_dxrule_then ttac th =
-    let val fvnames = map (#1 o dest_var) (th |> concl |> free_vars)
-    in
-      dxrule_then (specnames_then fvnames ttac) th
-    end
-val old_dxrule = old_dxrule_then mp_tac
-
+val metadata_drule = metadata_drule_then mp_tac
 end
 
 val () = Cache.set_capacity numSimps.arith_cache 200000;

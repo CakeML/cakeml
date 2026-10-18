@@ -9,7 +9,7 @@ Ancestors
   holKernelProof basisProg
   holAxiomsSyntax (* for setting up the context *)
   ml_hol_kernel_funsProg ml_hol_kernelProg (* for setting up the context *)
-  fromSexp patternMatches
+  patternMatches
 Libs
   preamble ml_translatorLib ml_progLib cfTacticsLib Satisfy
   basisFunctionsLib ml_monadStoreLib ml_monad_translatorLib
@@ -276,7 +276,7 @@ Quote add_cakeml:
 End
 
 val prog =
-  “SNOC (Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short «main»); Con NONE []]))
+  “SNOC (Dlet NoLocs (Pcon NONE []) (App Opapp [Var (Short «main»); Con NONE []]))
         ^(get_ml_prog_state() |> get_prog)
   ” |> EVAL |> concl |> rhs;
 

@@ -332,8 +332,8 @@ fun ML_code_upd nm mp_thm adjs (ML_code code) = let
 
 (* --- *)
 
-val unknown_loc = locationTheory.unknown_loc_def |> concl |> dest_eq |> fst;
-val loc = unknown_loc;
+val no_locs = prim_mk_const {Name = "NoLocs", Thy = "ast"};
+val loc = no_locs;
 
 val init_state =
   ML_code ([SPEC_ALL init_state_def],[init_env_def],[],ML_code_NIL);
@@ -382,7 +382,7 @@ fun add_Dtype loc tds_tm = ML_code_upd "add_Dtype"
                 APPEND,namespaceTheory.mk_id_def])]
 
 (*
-val loc = unknown_loc
+val loc = no_locs
 val n_tm = ``"bar"``
 val l_tm = ``[]:ast_t list``
 *)
@@ -400,7 +400,7 @@ fun add_Dtabbrev loc l1_tm l2_tm l3_tm = ML_code_upd "add_Dtabbrev"
 fun add_Dlet eval_thm var_str = let
     val (_, eval_thm_xs) = strip_comb (concl eval_thm)
     val mp_thm = ML_code_Dlet_var |> SPECL (tl eval_thm_xs
-        @ [mlstringSyntax.mk_mlstring var_str,unknown_loc])
+        @ [mlstringSyntax.mk_mlstring var_str,no_locs])
   in ML_code_upd "add_Dlet" mp_thm
     [solve_ml_imp_mp eval_thm,
      solve_ml_imp_conv (SIMP_CONV bool_ss []
@@ -532,22 +532,22 @@ fun add_dec dec_tm pick_name s =
     val n = dest_Pvar p
     in add_Dlet_lit loc n l s end
   else if is_Dlet dec_tm
-          andalso is_Var (rand dec_tm)
+          andalso is_Ident (rand dec_tm)
           andalso is_Pvar (rand (rator dec_tm)) then let
     val (loc,p,f) = dest_Dlet dec_tm
     val v_tm = dest_Pvar p
-    val var_name = dest_Var f
+    val var_name = dest_Ident f
     in add_Dlet_Var_Var loc v_tm var_name s end
   else if is_Dlet dec_tm
           andalso is_App (rand dec_tm)
           andalso aconv Opref (rand (rator (rand dec_tm)))
           andalso length (fst (listSyntax.dest_list (rand (rand dec_tm)))) = 1
-          andalso is_Var (rand (rator (rand (rand dec_tm))))
+          andalso is_Ident (rand (rator (rand (rand dec_tm))))
           andalso is_Pvar (rand (rator dec_tm)) then let
     val (loc,p,f) = dest_Dlet dec_tm
     val n = dest_Pvar p
     val (_,args) = dest_App f
-    val var_name = dest_Var (listSyntax.dest_list args |> fst |> hd)
+    val var_name = dest_Ident (listSyntax.dest_list args |> fst |> hd)
     val prefix = get_mod_prefix s
     val v_name = prefix ^ pick_name (mlstringSyntax.dest_mlstring n) ^ "_v"
     in add_Dlet_Var_Ref_Var loc n var_name v_name s end

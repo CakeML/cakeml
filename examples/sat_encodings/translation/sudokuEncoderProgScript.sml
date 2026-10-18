@@ -3,7 +3,7 @@
 *)
 Theory sudokuEncoderProg
 Ancestors
-  misc set_sep list cnf boolExpToCnf quantifierExp
+  misc set_sep list satCnf boolExpToCnf quantifierExp
   orderEncodingBool numBoolExp numBoolExtended numBoolRange
   unorderedSets sudoku numberSudoku
   (* for parsing: *) parsing source_values
