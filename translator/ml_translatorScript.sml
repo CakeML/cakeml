@@ -3080,6 +3080,62 @@ Proof
   \\ rw [state_component_equality]
 QED
 
+Theorem index_in_bounds_num_sub[local]:
+  (index_in_bounds bound (&i) /\ index_in_bounds bound (&j) /\
+   index_in_bounds bound (&(i - j)) /\ &i - &j = &(i - j)) ⇔
+  (index_in_bounds bound (&i) /\ index_in_bounds bound (&j) /\ j <= i)
+Proof
+  Cases_on `j <= i`
+  >- (
+    simp [INT_SUB]
+    \\ Cases_on `bound`
+    \\ simp [index_in_bounds_def,INT_LE_LNEG,INT_ADD]
+    \\ decide_tac)
+  \\ `i - j = 0` by decide_tac
+  \\ simp [INT_SUB_0,INT_INJ]
+  \\ decide_tac
+QED
+
+Theorem index_in_bounds_num_div[local]:
+  (index_in_bounds bound (&i) /\ index_in_bounds bound (&j) /\
+   index_in_bounds bound (&(i DIV j)) /\ j <> 0) ⇔
+  (index_in_bounds bound (&i) /\ index_in_bounds bound (&j) /\ j <> 0)
+Proof
+  Cases_on `j = 0` \\ simp []
+  \\ `0 < j` by decide_tac
+  \\ drule DIV_LESS_EQ
+  \\ disch_then (qspec_then `i` assume_tac)
+  \\ Cases_on `bound`
+  \\ simp [index_in_bounds_def,INT_LE_LNEG,INT_ADD]
+QED
+
+Theorem index_in_bounds_num_mod[local]:
+  (index_in_bounds bound (&i) /\ index_in_bounds bound (&j) /\
+   index_in_bounds bound (&(i MOD j)) /\ j <> 0) ⇔
+  (index_in_bounds bound (&i) /\ index_in_bounds bound (&j) /\ j <> 0)
+Proof
+  Cases_on `j = 0` \\ simp []
+  \\ `0 < j` by decide_tac
+  \\ drule MOD_LESS
+  \\ disch_then (qspec_then `i` assume_tac)
+  \\ Cases_on `bound`
+  \\ simp [index_in_bounds_def,INT_LE_LNEG,INT_ADD]
+  \\ decide_tac
+QED
+
+Theorem index_in_bounds_mod[local]:
+  (index_in_bounds bound i /\ index_in_bounds bound j /\
+   index_in_bounds bound (i % j) /\ j <> 0) ⇔
+  (index_in_bounds bound i /\ index_in_bounds bound j /\ j <> 0)
+Proof
+  Cases_on `j = 0` \\ simp []
+  \\ drule INT_MOD_BOUNDS
+  \\ disch_then (qspec_then `i` mp_tac)
+  \\ Cases_on `bound`
+  \\ rw [index_in_bounds_def]
+  \\ intLib.ARITH_TAC
+QED
+
 local
   val operations =
     [("add", “ast$Add”, false), ("sub", “ast$Sub”, false), ("mul", “ast$Mul”, false),
@@ -3111,6 +3167,9 @@ local
             do_eq_def,lit_same_type_def,semanticPrimitivesTheory.int_cmp_def,
             INT_ADD,INT_MUL,INT_DIV,INT_MOD,INT_LT,INT_LE,INT_GT,INT_GE,INT_INJ,
             GREATER_DEF,GREATER_EQ]
+      |> REWRITE_RULE
+           [index_in_bounds_num_sub,index_in_bounds_num_div,
+            index_in_bounds_num_mod,index_in_bounds_mod]
     val def = SIMP_RULE (srw_ss()) [] def
     val theorem = CONV_RULE
       (funpow (if with_vec then 4 else 3) RAND_CONV

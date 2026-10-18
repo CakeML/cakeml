@@ -893,3 +893,82 @@ val _ = let
     check "smallnum_add_vec_test" “UnsafeIndexArith Add” 3;
     check "smallint_lt_vec_test" “UnsafeIndexTest (Compare Lt)” 3
   end;
+
+(* Each example checks the preconditions with and without a vector witness. *)
+local
+  fun check_precondition def expected = let
+    val _ = translate def
+    val name = def |> SPEC_ALL |> concl |> lhs |> strip_comb |> fst
+                   |> dest_const |> fst
+    val (call, condition) = fetch "-" (name ^ "_side_def")
+      |> SPEC_ALL |> concl |> dest_eq
+    val (args, wanted) = strip_abs expected
+    val actual = subst (ListPair.mapEq (fn (x,y) => x |-> y)
+      (snd (strip_comb call), args)) condition
+    fun includes xs ys = List.all (fn x => List.exists (aconv x) ys) xs
+    val actual_parts = boolSyntax.strip_conj actual
+    val wanted_parts = boolSyntax.strip_conj wanted
+    in includes actual_parts wanted_parts andalso
+       includes wanted_parts actual_parts orelse
+       failwith (name ^ " generated an unexpected precondition: " ^
+                 term_to_string actual) end
+in
+
+Definition smallnum_sub_pre_test_def:
+  smallnum_sub_pre_test i j (witness:num vector) =
+    (smallnum_sub i j, smallnum_sub_vec i j witness)
+End
+
+val _ = check_precondition smallnum_sub_pre_test_def
+  “λ(i:num) (j:num) (witness:num vector).
+    index_in_bounds NONE (&i) ∧ index_in_bounds NONE (&j) ∧ j ≤ i ∧
+    index_in_bounds (SOME (256 * length witness)) (&i) ∧
+    index_in_bounds (SOME (256 * length witness)) (&j)”;
+
+Definition smallnum_div_pre_test_def:
+  smallnum_div_pre_test i j (witness:num vector) =
+    (smallnum_div i j, smallnum_div_vec i j witness)
+End
+
+val _ = check_precondition smallnum_div_pre_test_def
+  “λ(i:num) (j:num) (witness:num vector).
+    index_in_bounds NONE (&i) ∧ index_in_bounds NONE (&j) ∧ j ≠ 0 ∧
+    index_in_bounds (SOME (256 * length witness)) (&i) ∧
+    index_in_bounds (SOME (256 * length witness)) (&j)”;
+
+Definition smallnum_mod_pre_test_def:
+  smallnum_mod_pre_test i j (witness:num vector) =
+    (smallnum_mod i j, smallnum_mod_vec i j witness)
+End
+
+val _ = check_precondition smallnum_mod_pre_test_def
+  “λ(i:num) (j:num) (witness:num vector).
+    index_in_bounds NONE (&i) ∧ index_in_bounds NONE (&j) ∧ j ≠ 0 ∧
+    index_in_bounds (SOME (256 * length witness)) (&i) ∧
+    index_in_bounds (SOME (256 * length witness)) (&j)”;
+
+Definition smallint_div_pre_test_def:
+  smallint_div_pre_test i j (witness:num vector) =
+    (smallint_div i j, smallint_div_vec i j witness)
+End
+
+val _ = check_precondition smallint_div_pre_test_def
+  “λ(i:int) (j:int) (witness:num vector).
+    index_in_bounds NONE i ∧ index_in_bounds NONE j ∧
+    index_in_bounds NONE (i / j) ∧ j ≠ 0 ∧
+    index_in_bounds (SOME (256 * length witness)) i ∧
+    index_in_bounds (SOME (256 * length witness)) j ∧
+    index_in_bounds (SOME (256 * length witness)) (i / j)”;
+
+Definition smallint_mod_pre_test_def:
+  smallint_mod_pre_test i j (witness:num vector) =
+    (smallint_mod i j, smallint_mod_vec i j witness)
+End
+
+val _ = check_precondition smallint_mod_pre_test_def
+  “λ(i:int) (j:int) (witness:num vector).
+    index_in_bounds NONE i ∧ index_in_bounds NONE j ∧ j ≠ 0 ∧
+    index_in_bounds (SOME (256 * length witness)) i ∧
+    index_in_bounds (SOME (256 * length witness)) j”;
+
+end;
