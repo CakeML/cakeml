@@ -974,6 +974,10 @@ Theorem state_rel_index_witness_length:
 Proof
   strip_tac
   \\ Cases_on ‘v’ \\ gvs [v_rel_def, index_witness_length_def]
+  >~ [`index_witness_length _ (Litv _)`] >- (
+    qmatch_goalsub_rename_tac `Litv literal`
+    \\ Cases_on `literal`
+    \\ gvs [index_witness_length_def])
   >- (
     rename [‘FLOOKUP fr source_loc = SOME target_loc’]
     \\ drule_all state_rel_store_lookup \\ strip_tac

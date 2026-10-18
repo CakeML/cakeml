@@ -13,6 +13,7 @@ Ancestors
 Libs
   preamble
 
+val _ = Parse.hide "member";
 
 Theorem UNZIP_LENGTH[local]:
   ∀xs ys zs. UNZIP xs = (ys, zs) ⇒ LENGTH ys = LENGTH zs
