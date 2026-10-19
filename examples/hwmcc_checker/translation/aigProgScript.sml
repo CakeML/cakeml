@@ -19,7 +19,7 @@ val r = translate aigTheory.bvar_map_def;
 val r = translate aigTheory.var_map_def;
 val r = translate aigTheory.lit_map_def;
 
-val r = translate xaigTheory.get_lits_def;
+val r = translate xaigTheory.gty_lits_def;
 val r = translate xaigTheory.gty_map_def;
 val r = translate xaigTheory.gate_map_def;
 val r = translate xaigTheory.aig_to_xaig_def;

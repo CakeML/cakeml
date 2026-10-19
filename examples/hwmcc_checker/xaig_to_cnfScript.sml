@@ -63,15 +63,6 @@ Proof
   \\ rw [] \\ rw [FLOOKUP_SIMP]
 QED
 
-(* the literals that a gate depends on *)
-
-Definition gty_lits_def[simp]:
-  gty_lits (And ts : ('a,'i,'l) gty) = ts ∧
-  gty_lits (Xor t1 t2) = [t1; t2] ∧
-  gty_lits (Ite t1 t2 t3) = [t1; t2; t3] ∧
-  gty_lits (Or ts) = ts
-End
-
 Theorem xeval_gty_cong:
   ∀gt.
     EVERY (λt. xeval_lit ss xs t ⇔ xeval_lit ss' ys t) (gty_lits gt) ⇒
@@ -82,23 +73,11 @@ Proof
   \\ irule EXISTS_EQ_EXISTS \\ fs []
 QED
 
-Theorem xeval_gate_nil[simp]:
-  ¬xeval_gate ss [] n
-Proof
-  simp [xeval_lit_def]
-QED
-
 Theorem xeval_gate_cons:
   xeval_gate ss ((n,gt)::rest) m =
   if n = m then xeval_gty ss rest gt else xeval_gate ss rest m
 Proof
   simp [xeval_lit_def]
-QED
-
-Theorem xeval_lit_not:
-  xeval_lit ss xs (not t) ⇔ ¬xeval_lit ss xs t
-Proof
-  Cases_on ‘t’ \\ simp [not_def, xeval_lit_def] \\ CASE_TAC \\ metis_tac []
 QED
 
 (* moving a literal between lists that agree on every gate *)
@@ -456,8 +435,8 @@ Definition gates_ok_def:
 End
 
 (* The invariant that renaming maintains: the names handed out so far are
-   distinct, are all below next, and none of them is 0 (CNF variable 0 is
-   reserved for the constant false, see below). *)
+   distinct, are all below next, and none of them is 0 or 1 (CNF variable 1
+   is reserved for the constant false, see below). *)
 
 Definition rename_inv_def:
   rename_inv is ls xaig res nm next im lm ⇔
@@ -1588,7 +1567,7 @@ Proof
   Induct \\ fs [find_suffix_def, FORALL_PROD] \\ rw [] \\ fs []
 QED
 
-Theorem xcnf_witness_0[local]:
+Theorem xcnf_witness_1[local]:
   1 ∉ i_dom ∧ 1 ∉ l_dom ∧ ¬MEM 1 (MAP FST xaig) ⇒
   ¬xcnf_witness i_dom l_dom is ls xaig 1
 Proof
@@ -1640,7 +1619,7 @@ Proof
   \\ irule satisfies_cnf_SUBSET
   \\ irule_at Any xgty_to_cnf_SUBSET
   \\ ‘¬xcnf_witness i_dom l_dom is ls (past ++ (h0,h1)::xaig) 1’ by
-       (irule xcnf_witness_0 \\ fs [])
+       (irule xcnf_witness_1 \\ fs [])
   \\ ‘∀a. MEM a (MAP FST xaig) ⇒
           (xcnf_witness i_dom l_dom is ls (past ++ (h0,h1)::xaig) a ⇔
            xeval_gate (is,ls) xaig a)’ by
@@ -1714,7 +1693,7 @@ Proof
   \\ ntac 2 (once_rewrite_tac [satisfies_cnf_INSERT])
   \\ rpt conj_tac
   >- (simp [satisfies_clause_def, satisfies_lit_def]
-      \\ irule xcnf_witness_0 \\ fs [])
+      \\ irule xcnf_witness_1 \\ fs [])
   >- (simp [satisfies_clause_def, satisfies_lit_def]
       \\ simp [xcnf_witness_def]
       \\ fs [find_suffix_def, xeval_gate'_def]

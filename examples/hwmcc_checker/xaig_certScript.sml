@@ -48,21 +48,6 @@ Proof
   Cases_on`xx`>>rw[]
 QED
 
-(*
-Theorem xeval_lit_flip:
-  xeval_lit ss xaig (v,¬b) ⇔ ¬xeval_lit ss xaig (v,b)
-Proof
-  once_rewrite_tac [xeval_lit_def] >> CASE_TAC >> metis_tac []
-QED
-
-Theorem xeval_lit_not:
-  xeval_lit ss xaig (not x) ⇔ ¬xeval_lit ss xaig x
-Proof
-  Cases_on ‘x’ >> simp [not_def, xeval_lit_flip]
-QED
-*)
-
-
 (* xAIG Dependencies ***********************************************************)
 
 (* While state and input are defined over the entirety of (potentially infinite)
@@ -367,7 +352,7 @@ Proof
 QED
 
 Theorem dep_lit_gty:
-  MEM lit (get_lits ls) ⇒
+  MEM lit (gty_lits ls) ⇒
   dep_lit (set (gty_inputs ls)) (set (gty_latches ls)) lit
 Proof
   namedCases_on ‘lit’ ["b v"] >> simp [dep_lit_def]
@@ -398,7 +383,7 @@ Proof
     >> fs [agree_on_union]
   )
   >> have
-       ‘∀lit. MEM lit (get_lits ls) ⇒
+       ‘∀lit. MEM lit (gty_lits ls) ⇒
           (xeval_lit ss' xaig lit ⇔ xeval_lit ss xaig lit)’
   >- (
     rw []
@@ -551,21 +536,6 @@ Proof
   >- (last_x_assum drule >> gvs [])
   >> ‘i = n + 1’ by simp []
   >> gvs []
-QED
-
-Theorem xis_reset_dep_latch_lit:
-  xis_reset ss xaig reset latches ∧
-  dep_xaig inputs latches xaig ∧
-  dep_reset inputs latches reset latches ∧
-  agree_on inputs latches ss ss'
-  ⇒
-  xis_reset ss' xaig reset latches
-Proof
-  rw [xis_reset_def, dep_reset_def]
-  >> namedCases_on ‘ss’ ["is ls"]
-  >> namedCases_on ‘ss'’ ["is' ls'"]
-  >> gvs[xeval_lit_def]
-  >> metis_tac [dep_xeval_lit_eq, agree_on_def]
 QED
 
 Definition dep_qmodel_def:
@@ -1112,7 +1082,7 @@ Proof
       >- (
         CONJ_TAC
         >- (
-          drule_then irule xis_reset_dep_latch_lit>>
+          drule_then irule xis_reset_dep_xaig>>
           last_assum $ irule_at (Pos hd)>>
           simp[Abbr`ss0`, agree_on_def]>>
           rw[]>>

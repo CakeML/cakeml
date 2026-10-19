@@ -46,8 +46,6 @@ val r = translate xaig_to_cnfTheory.xgty_to_cnf_def;
 val r = translate xaig_to_cnfTheory.flip_pol_def;
 val r = translate xaig_to_cnfTheory.gty_pols_def;
 
-val r = translate (xaig_to_cnfTheory.gty_lits_def |> to_num);
-
 (*----------------------------------------------------------------------*
    the monadic state: arrays standing in for the finite maps of the
    lowering, one field per map, indexed by the names the map is keyed by

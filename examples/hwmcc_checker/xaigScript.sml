@@ -24,11 +24,11 @@ Datatype:
   | Or (('a,'i,'l) lit list)
 End
 
-Definition get_lits_def[simp]:
-  get_lits (And xs) = xs ∧
-  get_lits (Xor x₀ x₁) = [x₀; x₁] ∧
-  get_lits (Ite cnd thn els) = [cnd; thn; els] ∧
-  get_lits (Or xs) = xs
+Definition gty_lits_def[simp]:
+  gty_lits (And xs) = xs ∧
+  gty_lits (Xor x₀ x₁) = [x₀; x₁] ∧
+  gty_lits (Ite cnd thn els) = [cnd; thn; els] ∧
+  gty_lits (Or xs) = xs
 End
 
 Type gate[pp] = “:('a # ('a,'i,'l) gty)”

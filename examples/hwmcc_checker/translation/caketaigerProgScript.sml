@@ -84,95 +84,95 @@ val r = translate make_fname_def;
 
 Quote add_cakeml:
   fun write_reset
-    prefix maig mreset mcnstrs mlatches waig wreset wcnstrs wlatches klatches
+    prefix mxaig mreset mcnstrs mlatches wxaig wreset wcnstrs wlatches klatches
   =
   let
     (* val _ = print "making reset...\n" *)
     val (name, str) =
-      make_reset_string maig mreset mcnstrs mlatches waig wreset wcnstrs
+      make_reset_string mxaig mreset mcnstrs mlatches wxaig wreset wcnstrs
         wlatches klatches
   in TextIO.outputFile (make_fname prefix name) str end
 End
 
 Quote add_cakeml:
   fun write_transition
-    prefix maig mnext mcnstrs mlatches waig wnext wcnstrs wlatches klatches
+    prefix mxaig mnext mcnstrs mlatches wxaig wnext wcnstrs wlatches klatches
   =
   let
     (* val _ = print "making transition...\n" *)
     val (name, str) =
-      make_transition_string maig mnext mcnstrs mlatches waig wnext wcnstrs
+      make_transition_string mxaig mnext mcnstrs mlatches wxaig wnext wcnstrs
         wlatches klatches
   in TextIO.outputFile (make_fname prefix name) str end
 End
 
 Quote add_cakeml:
-  fun write_safety prefix maig mcnstrs msafes waig wcnstrs wsafes
+  fun write_safety prefix mxaig mcnstrs msafes wxaig wcnstrs wsafes
   =
   let
     (* val _ = print "making safety...\n" *)
     val (name, str) =
-      make_safety_string maig mcnstrs msafes waig wcnstrs wsafes
+      make_safety_string mxaig mcnstrs msafes wxaig wcnstrs wsafes
   in TextIO.outputFile (make_fname prefix name) str end
 End
 
 Quote add_cakeml:
-  fun write_base prefix waig wreset wcnstrs wsafes wlatches
+  fun write_base prefix wxaig wreset wcnstrs wsafes wlatches
   =
   let
     (* val _ = print "making base...\n" *)
-    val (name, str) = make_base_string waig wreset wcnstrs wsafes wlatches
+    val (name, str) = make_base_string wxaig wreset wcnstrs wsafes wlatches
   in TextIO.outputFile (make_fname prefix name) str end
 End
 
 Quote add_cakeml:
-  fun write_induction prefix waig wnext wcnstrs wsafes wlatches
+  fun write_induction prefix wxaig wnext wcnstrs wsafes wlatches
   =
   let
     (* val _ = print "making induction...\n" *)
-    val (name, str) = make_induction_string waig wnext wcnstrs wsafes wlatches
+    val (name, str) = make_induction_string wxaig wnext wcnstrs wsafes wlatches
   in TextIO.outputFile (make_fname prefix name) str end
 End
 
 Quote add_cakeml:
   fun write_liveness
-    prefix maig mcnstrs mlive waig wnext wcnstrs wsafes wlive wlatches interv
+    prefix mxaig mcnstrs mlive wxaig wnext wcnstrs wsafes wlive wlatches interv
   =
   let
     (* val _ = print "making liveness...\n" *)
     val (name, str) =
       make_liveness_string
-       maig mcnstrs mlive waig wnext wcnstrs wsafes wlive wlatches interv
+       mxaig mcnstrs mlive wxaig wnext wcnstrs wsafes wlive wlatches interv
   in TextIO.outputFile (make_fname prefix name) str end
 End
 
 Quote add_cakeml:
-  fun write_decrease prefix waig wnext wcnstrs wsafes wlive wlatches interv
+  fun write_decrease prefix wxaig wnext wcnstrs wsafes wlive wlatches interv
   =
   let
     (* val _ = print "making decrease...\n" *)
     val (name, str) =
-      make_decrease_string waig wnext wcnstrs wsafes wlive wlatches interv
+      make_decrease_string wxaig wnext wcnstrs wsafes wlive wlatches interv
   in TextIO.outputFile (make_fname prefix name) str end
 End
 
 Quote add_cakeml:
-  fun write_closure prefix waig wnext wcnstrs wsafes wlive wlatches interv
+  fun write_closure prefix wxaig wnext wcnstrs wsafes wlive wlatches interv
   =
   let
     (* val _ = print "making closure...\n" *)
     val (name, str) =
-      make_closure_string waig wnext wcnstrs wsafes wlive wlatches interv
+      make_closure_string wxaig wnext wcnstrs wsafes wlive wlatches interv
   in TextIO.outputFile (make_fname prefix name) str end
 End
 
 Quote add_cakeml:
-  fun write_stable prefix waig wnext wcnstrs wsafes wlive wlatches interv
+  fun write_stable prefix wxaig wnext wcnstrs wsafes wlive wlatches interv
   =
   let
     (* val _ = print "making stable...\n" *)
     val (name, str) =
-      make_stable_string waig wnext wcnstrs wsafes wlive wlatches interv
+      make_stable_string wxaig wnext wcnstrs wsafes wlive wlatches interv
   in TextIO.outputFile (make_fname prefix name) str end
 End
 
