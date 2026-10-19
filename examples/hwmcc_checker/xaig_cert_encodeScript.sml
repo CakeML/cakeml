@@ -2743,7 +2743,7 @@ Resume latch_deps_xeval_eq[xeval_lit_cons]:
     >> first_x_assum irule >> rw []
     >> drule_all MEM_latch_deps_name_eq >> simp []
   )
-  >> qsuff_tac ‘xeval_gate (is,ls') xaig n ⇔ xeval_gate (is,ls) xaig n’
+  >> suff ‘xeval_gate (is,ls') xaig n ⇔ xeval_gate (is,ls) xaig n’
   >- simp []
   >> drule_then assume_tac $
        INST_TYPE [“:γ” |-> “:β”, “:β” |-> “:γ”] latch_deps_cons_name_neq
@@ -2953,7 +2953,7 @@ Proof
   >> once_rewrite_tac [dep_lits_INSERT]
   >> simp []
   >> rename1 ‘lit_map_base INL INL h’
-  >> qsuff_tac
+  >> suff
      ‘dep_lits (pair_set inputs) (pair_set latches) {lit_map_base INL INL h} ⇔
         dep_lits inputs latches {h}’
   >- simp []
@@ -2993,7 +2993,7 @@ Theorem encoding_xis_safe_and_live:
     (IMAGE set (set (qleft_live mlive))) (set mlatches)
 Proof
   strip_tac
-  >> sg
+  >> have
        ‘is_witness
           mxaig mreset mnext (set msafes) (set mcnstrs)
           (qxleft mxaig) (qleft_live mlive) (set mlatches)
@@ -3016,7 +3016,7 @@ Proof
     >> qexistsl [‘klatches’, ‘klatches’]
     >> fs [encodings_unsat_def]
   )
-  >> sg
+  >> have
      ‘∃minput.
         dep_model mxaig mreset mnext (set msafes) (set mcnstrs) minput
           (set mlatches) ∧
@@ -3035,15 +3035,15 @@ Proof
     >> rewrite_tac [dep_model_def, dep_qxaig_def, GSYM CONJ_ASSOC]
     >> simp [dep_xaig_pair_qxleft, dep_lits_pair_qleft_live]
     >> fs [dep_cond_def]
-    >> sg ‘dep_xaig minput (set mlatches) mxaig’
+    >> have ‘dep_xaig minput (set mlatches) mxaig’
     >- (
       irule dep_xaig_subset
       >> irule_at Any dep_xaig_inputs_latches
       >> simp [SUBSET_DEF, Abbr ‘minput’]
     )
-    >> sg ‘dep_reset minput (set mlatches) mreset (set mlatches)’
+    >> have ‘dep_reset minput (set mlatches) mreset (set mlatches)’
     >- (irule dep_reset_subset >> simp [SUBSET_DEF, Abbr ‘minput’])
-    >> sg ‘dep_latch_lit minput (set mlatches) mnext (set mlatches)’
+    >> have ‘dep_latch_lit minput (set mlatches) mnext (set mlatches)’
     >- (irule dep_latch_lit_next >> simp [SUBSET_DEF, Abbr ‘minput’])
     >> simp []
     (* only conjuncts of dep_lits ... should remain *)
@@ -3051,7 +3051,7 @@ Proof
     >> irule dep_lits_lits
     >> simp [SUBSET_DEF, Abbr ‘minput’]
   )
-  >> sg ‘FINITE (set wlatches)’ >- simp []
+  >> have ‘FINITE (set wlatches)’ >- simp []
   >> drule_all stratified_cond_is_stratified >> strip_tac
   >> drule is_witness_xis_safe_and_live
   >> rename [‘is_stratified lt’, ‘dep_qxaig minput’]

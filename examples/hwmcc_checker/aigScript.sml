@@ -9,14 +9,6 @@ Libs
 
 val _ = numLib.prefer_num()
 
-(* TODO Make aigScript over tuples again *)
-(* TODO Turn all lits_hold over singleton set to eval/xeval *)
-(* TODO Check whether the order of arguments is the same across all functions *)
-
-(* TODO Replace sg and derivatives by have *)
-(* TODO Replace qsuff_tac with suff *)
-(* TODO Replay by with have ‘...’ >- ...*)
-
 (* TODO Remove this once misc theory stops defining steps *)
 val _ = Parse.remove_ovl_mapping "steps" {Name = "steps", Thy = "misc"}
 
@@ -304,7 +296,7 @@ Proof
   >> rename1 ‘lit_map_base _ _ (v, _)’ >> Cases_on ‘v’
   >> simp [lit_map_base_def, lit_map_def, var_map_def, eval_lit_def]
   >> qmatch_goalsub_abbrev_tac ‘(r ⇔ X) ⇔ (r ⇔ Y)’
-  >> qsuff_tac ‘X ⇔ Y’ >- simp []
+  >> suff ‘X ⇔ Y’ >- simp []
   >> simp [Abbr ‘X’, Abbr ‘Y’]
   >- (
     simp [qleft_cons, eval_lit_def]

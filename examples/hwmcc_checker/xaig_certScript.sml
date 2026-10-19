@@ -287,13 +287,13 @@ Proof
   >> fs [dep_reset_lt_def]
   >> qmatch_goalsub_abbrev_tac ‘_ ⇔ xeval_lit (is, ls') _ _’
   >> last_x_assum $ qspecl_then [‘l’, ‘lit’, ‘is’, ‘ls'’, ‘ls’] mp_tac
-  >> sg ‘∀l'. lt l' l ⇒ (ls' l' ⇔ ls l')’
+  >> have ‘∀l'. lt l' l ⇒ (ls' l' ⇔ ls l')’
   >-
    (rw []
     >> Cases_on ‘l' = l’
     >- gvs [irreflexive_def]
     >> simp [Abbr ‘ls'’]
-    >> sg ‘¬MEM l' xs’
+    >> have ‘¬MEM l' xs’
     >- (CCONTR_TAC >> gvs [no_inversions_def])
     >> drule_then assume_tac not_mem_patch_eq >> simp [])
   >> simp []
@@ -1167,7 +1167,7 @@ Proof
           irule (GSYM not_mem_patch_eq)>>
           simp[Abbr`xs`])
       >> rw[]
-      >> sg ‘wlatches = (mlatches ∩ wlatches) ∪ (set xs)’
+      >> have ‘wlatches = (mlatches ∩ wlatches) ∪ (set xs)’
       >- (simp [Abbr ‘xs’, Req0 set_topo_sort_eq] >> SET_TAC [])
       >> pop_assum SUBST1_TAC
       >> simp [xis_reset_union,Abbr`ss0`]

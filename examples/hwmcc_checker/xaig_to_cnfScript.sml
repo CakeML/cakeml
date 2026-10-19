@@ -377,7 +377,7 @@ Theorem aig_read_thm:
   aig_read is (im_2 ⊌ ix) x = is i
 Proof
   rw [aig_read_def]
-  \\ qsuff_tac ‘∀y. FLOOKUP (im_2 ⊌ ix) y = SOME x ⇔ y = i’
+  \\ suff ‘∀y. FLOOKUP (im_2 ⊌ ix) y = SOME x ⇔ y = i’
   >- (disch_then $ rewrite_tac o single \\ fs [])
   \\ rw [] \\ reverse eq_tac \\ rw []
   >- gvs [FLOOKUP_FUNION]
@@ -818,7 +818,7 @@ Proof
   \\ pop_assum (fn th => rewrite_tac [th])
   \\ qabbrev_tac ‘is1 = aig_read (λt. is im⟨t⟩) (im ⊌ FEMPTY)’
   \\ qabbrev_tac ‘ls1 = aig_read (λt. ls lm⟨t⟩) (lm ⊌ FEMPTY)’
-  \\ qsuff_tac ‘xeval_gate' (is,ls) res = xeval_gate' (is1,ls1) res’
+  \\ suff ‘xeval_gate' (is,ls) res = xeval_gate' (is1,ls1) res’
   >- (fs [xaig_rename_def] \\ rpt (pairarg_tac \\ gvs [])
       \\ gvs [xeval_gate'_def, FLOOKUP_SIMP])
   \\ irule xeval_gate'_swap \\ rw [] \\ first_x_assum drule
