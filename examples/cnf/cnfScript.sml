@@ -213,3 +213,9 @@ Proof
   fs [satisfies_cnf_def, satisfies_fml_gen_def, SF DNF_ss]
 QED
 
+Theorem satisfies_cnf_SUBSET:
+  satisfies_cnf w s ∧ t ⊆ s ⇒ satisfies_cnf w t
+Proof
+  fs [satisfies_cnf_def, satisfies_fml_gen_def, SUBSET_DEF]
+QED
+

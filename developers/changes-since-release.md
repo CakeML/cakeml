@@ -138,6 +138,11 @@ The new `socketEchoProg` contains a simple echo server meant for testing the Uni
 
 Similarly, `rawBridgeProg` showcases `SocketIO`'s raw sockets.
 
+`examples/hwmcc_checker`:
+Caketaiger, a verified certificate checker for hardware model checking has been added.
+It adds support for And-Inverter Graphs, AIGER 1.9,
+and verified checking for the certificates used in the Hardware Model Checking Competition.
+
 ## Build infrastructure
 
 ## Proof engineering and tooling

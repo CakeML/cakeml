@@ -7,33 +7,6 @@ Ancestors
 Libs
   preamble
 
-(*----------------------------------------------------------------------*
-   generic helpers
- *----------------------------------------------------------------------*)
-
-Theorem EVERY_EQ_EVERY[local]:
-  EVERY (λx. P x = Q x) xs ⇒ (EVERY P xs = EVERY Q xs)
-Proof
-  Induct_on ‘xs’ \\ fs []
-QED
-
-Theorem EXISTS_EQ_EXISTS[local]:
-  EVERY (λx. P x = Q x) xs ⇒ (EXISTS P xs = EXISTS Q xs)
-Proof
-  Induct_on ‘xs’ \\ fs []
-QED
-
-Theorem FUNION_SUBMAP_lemma[local]:
-  im_1 SUBMAP im_2 ⇒
-  (im_1 ⊌ im_2 = im_2) ∧
-  FDOM im_1 ∪ FDOM im_2 = FDOM im_2
-Proof
-  rpt strip_tac
-  >- (gvs [TO_FLOOKUP,FLOOKUP_FUNION,FUN_EQ_THM] \\ rw [] \\ CASE_TAC \\ rw [])
-  \\ gvs [SUBMAP_DEF, EXTENSION]
-  \\ rw [] \\ eq_tac \\ rw [] \\ res_tac \\ fs []
-QED
-
 Definition new_live_def:
   new_live ([] : (('a,'i,'l) var # bool) list) l = (l:'a |-> unit) ∧
   new_live ((x,b) :: xs) l =
@@ -69,8 +42,8 @@ Theorem xeval_gty_cong:
     (xeval_gty ss xs gt ⇔ xeval_gty ss' ys gt)
 Proof
   Cases \\ simp [xeval_lit_def] \\ strip_tac \\ gvs []
-  >- (irule EVERY_EQ_EVERY \\ fs [])
-  \\ irule EXISTS_EQ_EXISTS \\ fs []
+  >- (irule EVERY_CONG \\ fs [EVERY_MEM])
+  \\ irule EXISTS_CONG \\ fs [EVERY_MEM]
 QED
 
 Theorem xeval_gate_cons:
@@ -418,7 +391,9 @@ Theorem wrt_ext_mono:
 Proof
   rw [wrt_ext_def]
   \\ first_x_assum $ qspecl_then [‘im' ⊌ ix’,‘lm' ⊌ lx’] mp_tac
-  \\ imp_res_tac FUNION_SUBMAP_lemma
+  \\ imp_res_tac (iffLR SUBMAP_FUNION_ABSORPTION)
+  \\ imp_res_tac SUBMAP_FDOM_SUBSET
+  \\ imp_res_tac (iffLR SUBSET_UNION_ABSORPTION)
   \\ asm_rewrite_tac [FUNION_ASSOC, FDOM_FUNION, UNION_ASSOC]
 QED
 
@@ -1129,12 +1104,6 @@ Proof
   PairCases_on ‘pl’ \\ rw [xgty_to_cnf_def, gty_to_cnf_def]
 QED
 
-Theorem satisfies_cnf_SUBSET:
-  satisfies_cnf w s ∧ t ⊆ s ⇒ satisfies_cnf w t
-Proof
-  fs [satisfies_cnf_def, satisfies_fml_gen_def, SUBSET_DEF]
-QED
-
 Theorem satisfies_lit_xvar_to_lit:
   ∀t. satisfies_lit w (xvar_to_lit t) ⇔ (SND t ⇎ w (xvar_to_num (FST t)))
 Proof
@@ -1196,11 +1165,11 @@ Proof
   Cases \\ rw [gty_to_cnf_def, gty_pos_def, gty_neg_def]
   >-
    (fs [and_to_cnf_thm, satisfies_lit_def, EVERY_MAP, xeval_lit_def]
-    \\ AP_TERM_TAC \\ irule EVERY_EQ_EVERY \\ fs [])
+    \\ AP_TERM_TAC \\ irule EVERY_CONG \\ fs [EVERY_MEM])
   >- fs [xor_to_cnf_thm, satisfies_lit_def, xeval_lit_def]
   >- fs [ite_to_cnf_thm, satisfies_lit_def, xeval_lit_def]
   \\ fs [or_to_cnf_thm, satisfies_lit_def, EXISTS_MAP, xeval_lit_def]
-  \\ AP_TERM_TAC \\ irule EXISTS_EQ_EXISTS \\ fs []
+  \\ AP_TERM_TAC \\ irule EXISTS_CONG \\ fs [EVERY_MEM]
 QED
 
 (* Polarities.  A polarity (p,n) records whether a gate name is used

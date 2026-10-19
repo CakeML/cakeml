@@ -3,14 +3,11 @@
 *)
 Theory aig_cert_fullProg
 Ancestors
-  errorMonad  (* for defining demonadify *)
   aig_to_cnfProg aig_cert_full
 Libs
-  preamble ml_translatorLib
+  preamble ml_translatorLib aig_translationLib
 
 val _ = translation_extends "aig_to_cnfProg";
-
-fun demonadify thm = SRULE [oneline bind_def, guard_def, UNCURRY] thm;
 
 val _ = use_sub_check true;
 val r = translate listRangeTheory.listRangeINC_def;  (* [x .. y] *)
@@ -35,7 +32,6 @@ val r = translate aig_cert_fullTheory.resize_def;
 val r = translate listTheory.MAP2_DEF;
 val r = translate aig_cert_fullTheory.preprocess_witness_def;
 
-val r = translate listTheory.mapPartial_def;
 val r = translate (aig_cert_fullTheory.check_model_def |> demonadify);
 
 val r = translate listTheory.LIST_REL_def;

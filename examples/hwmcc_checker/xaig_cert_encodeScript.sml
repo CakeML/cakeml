@@ -300,7 +300,7 @@ End
 (** Specialized versions of the functions above. ******************************)
 
 Theorem dep_xaig_pair_qxleft:
-  dep_xaig (pair_set minput) (pair_set (set mlatches)) (qxleft mxaig) =
+  dep_xaig (minput ⊔ minput) (set mlatches ⊔ set mlatches) (qxleft mxaig) =
   dep_xaig minput (set mlatches) mxaig
 Proof
   simp [dep_xaig_def, FORALL_STATE_PAIR, agree_on_pair,
@@ -2905,7 +2905,7 @@ End
 
 Theorem dep_lits_pair_map_lit_map_base_inl:
   ∀live.
-    dep_lits (pair_set inputs) (pair_set latches)
+    dep_lits (inputs ⊔ inputs) (latches ⊔ latches)
      (set ((MAP (lit_map_base INL INL)) live))
     ⇔
     dep_lits inputs latches (set live)
@@ -2917,7 +2917,7 @@ Proof
   >> simp []
   >> rename1 ‘lit_map_base INL INL h’
   >> suff
-     ‘dep_lits (pair_set inputs) (pair_set latches) {lit_map_base INL INL h} ⇔
+     ‘dep_lits (inputs ⊔ inputs) (latches ⊔ latches) {lit_map_base INL INL h} ⇔
         dep_lits inputs latches {h}’
   >- simp []
   >> namedCases_on ‘h’ ["v b"]
@@ -2926,11 +2926,11 @@ Proof
   >> rename1 ‘Base b'’
   >> Cases_on ‘b'’
   >> simp [lit_map_base_def, lit_map_def, var_map_def, dep_lits_def,
-           bvar_map_def, pair_set_def]
+           bvar_map_def, disjUNION_def]
 QED
 
 Theorem dep_lits_pair_qleft_live:
-  dep_lits (pair_set inputs) (pair_set latches) (set (FLAT (qleft_live mlive)))
+  dep_lits (inputs ⊔ inputs) (latches ⊔ latches) (set (FLAT (qleft_live mlive)))
   ⇔
   dep_lits inputs latches (set (FLAT mlive))
 Proof

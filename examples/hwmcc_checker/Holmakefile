@@ -1,14 +1,6 @@
-INCLUDES = $(CAKEMLDIR)/developers $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis/pure ../cnf \
-	$(HOLDIR)/examples/algorithms
+sinclude $(CAKEMLDIR)/developers/readme.mk
 
-all: $(DEFAULT_TARGETS) README.md
-.PHONY: all
-
-README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
-# Filter out examples/ (they don't have a readmePrefix)
-DIRS = $(patsubst examples/,,$(wildcard */))
-README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
-	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
+all: $(DEFAULT_TARGETS)
 
 ifdef POLY
 HOLHEAP = $(CAKEMLDIR)/misc/cakeml-heap

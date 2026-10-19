@@ -1,16 +1,10 @@
-INCLUDES = $(CAKEMLDIR)/misc ../translation $(CAKEMLDIR)/cv_translator
+sinclude $(CAKEMLDIR)/developers/readme.mk
 
-all: $(DEFAULT_TARGETS) README.md caketaiger
-.PHONY: all
+all: $(DEFAULT_TARGETS) caketaiger
 
-README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
-DIRS = $(wildcard */)
-README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
-	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
+caketaiger: caketaigerCompileTheory.uo
+	$(CC) -o $@ caketaiger.S $(CAKEMLDIR)/examples/cnf/basis_ffi.c
 
 ifdef POLY
 HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
 endif
-
-caketaiger: caketaigerCompileTheory.uo
-	gcc -o caketaiger caketaiger.S $(CAKEMLDIR)/examples/cnf/basis_ffi.c

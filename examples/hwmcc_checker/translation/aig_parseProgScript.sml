@@ -6,11 +6,9 @@ Ancestors
   errorMonad sptree
   aig_parse aigProg
 Libs
-  preamble ml_translatorLib MapProgLib
+  preamble ml_translatorLib MapProgLib aig_translationLib
 
 val _ = translation_extends "aigProg";
-
-fun demonadify thm = SRULE [oneline bind_def, guard_def, UNCURRY] thm;
 
 val r = register_type “:('a, 'e) error”;
 val r = register_type “:'a sptree$num_map”;
@@ -23,8 +21,6 @@ val r = translate aig_parseTheory.is_char_def;
 val r = translate aig_parseTheory.consume_space_def;
 val r = translate aig_parseTheory.consume_line_def;
 val r = translate aig_parseTheory.expect_char_def;
-
-val r = translate stringTheory.isDigit_def;
 
 val r = translate aig_parseTheory.parse_number_aux_def;
 val parse_number_aux_side_def = theorem "parse_number_aux_side_def";

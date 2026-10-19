@@ -31,17 +31,13 @@ Proof
   >> metis_tac [NOT_NONE_SOME, SOME_11]
 QED
 
-Definition pair_set_def:
-  pair_set xs = IMAGE INL xs ∪ IMAGE INR xs
-End
-
-Theorem SUBSET_pair_set:
+Theorem SUBSET_disjUNION:
   IMAGE OUTL x ⊆ y ∧
   IMAGE OUTR x ⊆ y
   ⇒
-  x ⊆ pair_set y
+  x ⊆ y ⊔ y
 Proof
-  rw[pair_set_def,SUBSET_DEF,PULL_EXISTS]>>
+  rw[disjUNION_def,SUBSET_DEF,PULL_EXISTS]>>
   first_x_assum drule_all>>
   first_x_assum drule_all>>
   rename1`xx ∈ _`>>
@@ -540,8 +536,8 @@ QED
 
 Definition dep_qmodel_def:
   dep_qmodel (qxaig: ('a, 'i + 'i, 'l + 'l) xaig) live latches ⇔
-    dep_xaig (pair_set 𝕌(:'i)) (pair_set latches) qxaig ∧
-    dep_lits (pair_set 𝕌(:'i)) (pair_set latches) (set (FLAT live))
+    dep_xaig (𝕌(:'i) ⊔ 𝕌(:'i)) (latches ⊔ latches) qxaig ∧
+    dep_lits (𝕌(:'i) ⊔ 𝕌(:'i)) (latches ⊔ latches) (set (FLAT live))
 End
 
 Theorem xis_inf_trace_cnstrs_hold:
@@ -561,13 +557,13 @@ Proof
 QED
 
 Theorem agree_on_pair:
-  agree_on (pair_set inputs) (pair_set latches)
+  agree_on (inputs ⊔ inputs) (latches ⊔ latches)
     (state_pair ss₀ ss₁) (state_pair ss₂ ss₃)
   ⇔
   (agree_on inputs latches ss₀ ss₂ ∧ agree_on inputs latches ss₁ ss₃)
 Proof
   map_every PairCases_on [‘ss₀’, ‘ss₁’, ‘ss₂’, ‘ss₃’]
-  >> rw [state_pair_def, agree_on_def, pair_set_def]
+  >> rw [state_pair_def, agree_on_def, disjUNION_def]
   >> metis_tac [sum_case_def]
 QED
 
@@ -1256,8 +1252,8 @@ QED
 Theorem lives_hold_matching_transition[local]:
   lives_hold (state_pair (steps (i + 2)) (steps (i + 1))) qxaig live ∧
   matching_transition inputs latches steps i (i + 2) ∧
-  dep_xaig (pair_set inputs) (pair_set latches) qxaig ∧
-  dep_lits (pair_set inputs) (pair_set latches) (set (FLAT live))
+  dep_xaig (inputs ⊔ inputs) (latches ⊔ latches) qxaig ∧
+  dep_lits (inputs ⊔ inputs) (latches ⊔ latches) (set (FLAT live))
   ⇒
   lives_hold (state_pair (steps i) (steps (i + 1))) qxaig live
 Proof
@@ -1277,13 +1273,13 @@ Theorem matching_transition_live[local]:
   matching_transition inputs' latches' steps i j ∧
   set (xaig_inputs xaig) ⊆ inputs' ∧
   BIGUNION (IMAGE (set o lit_inputs o next) latches) ⊆ inputs' ∧
-  set (xaig_inputs qxaig) ⊆ pair_set inputs' ∧
-  BIGUNION (IMAGE (set o lit_inputs) (set (FLAT live))) ⊆ pair_set inputs' ∧
+  set (xaig_inputs qxaig) ⊆ inputs' ⊔ inputs' ∧
+  BIGUNION (IMAGE (set o lit_inputs) (set (FLAT live))) ⊆ inputs' ⊔ inputs' ∧
   latches ⊆ latches' ∧
   set (xaig_latches xaig) ⊆ latches' ∧
   BIGUNION (IMAGE (set o lit_latches o next) latches) ⊆ latches' ∧
-  set (xaig_latches qxaig) ⊆ pair_set latches' ∧
-  BIGUNION (IMAGE (set o lit_latches) (set (FLAT live))) ⊆ pair_set latches' ∧
+  set (xaig_latches qxaig) ⊆ latches' ⊔ latches' ∧
+  BIGUNION (IMAGE (set o lit_latches) (set (FLAT live))) ⊆ latches' ⊔ latches' ∧
   (∀n. xlits_hold (steps n) xaig safes)
   ⇒
   lives_hold (state_pair (steps i) (steps (i + 1))) qxaig live
@@ -1328,8 +1324,8 @@ Proof
   >> gvs [matching_transition_def]
   >> irule lives_hold_dep_xaig
   >> pop_assum (irule_at Any)
-  >> qexists_tac`pair_set latches'`
-  >> qexists_tac`pair_set inputs'`
+  >> qexists_tac`latches' ⊔ latches'`
+  >> qexists_tac`inputs' ⊔ inputs'`
   >> simp [agree_on_pair]
   >> conj_tac >- metis_tac [dep_lits_inputs_latches]
   >> irule dep_xaig_subset
@@ -1488,10 +1484,10 @@ Proof
      >> rw []
      >> pop_assum (irule_at Any)
      >> unabbrev_all_tac
-     >> irule_at Any SUBSET_pair_set
-     >> irule_at Any SUBSET_pair_set
-     >> irule_at Any SUBSET_pair_set
-     >> irule_at Any SUBSET_pair_set
+     >> irule_at Any SUBSET_disjUNION
+     >> irule_at Any SUBSET_disjUNION
+     >> irule_at Any SUBSET_disjUNION
+     >> irule_at Any SUBSET_disjUNION
      >> metis_tac[SUBSET_UNION,UNION_ASSOC,UNION_COMM])
   >> drule stable_cond_xlits_hold
   >> disch_then $ drule_at Any >> simp []
