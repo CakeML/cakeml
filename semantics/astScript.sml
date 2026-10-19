@@ -21,8 +21,9 @@ Datatype:
 End
 
 Datatype:
-  arith = Add | Sub | Mul | Div | Mod | Neg | And | Xor | Or | Not | Abs | Sqrt | FMA
-        | Shift shift
+  arith = Add | Sub | Mul | Div | Mod | Neg | And | Xor | Or | Not
+        | Absolute  (* Abs is reserved for Candle *)
+        | Sqrt | FMA | Shift shift
 End
 
 (* Module names *)
@@ -76,6 +77,9 @@ Datatype:
   op =
   (* primitive operations for the primitive types: +, -, and, sqrt, etc. *)
     Arith arith prim_type
+  (* Bounded integer operations; the witness is an optional third argument. *)
+  | UnsafeIndexArith arith
+  | UnsafeIndexTest test
   (* conversions between primitive types: char<->int, word<->double, word<->int *)
   | FromTo prim_type prim_type
   (* Equality and comparisons *)

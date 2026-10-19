@@ -481,11 +481,21 @@ Theorem do_app_with_code:
    domain s.code ⊆ domain c ∧ op ≠ Install ⇒
    do_app op vs (s with code := c) = Rval (r,s' with code := c)
 Proof
-  rw [do_app_def,do_app_aux_def,case_eq_thms,pair_case_eq]
+  Cases_on `?intop. op = IntOp intop`
+  >- (
+    qpat_x_assum `?intop. op = IntOp intop`
+      (qx_choose_then `intop` SUBST_ALL_TAC)
+    \\ Cases_on `intop`
+    \\ rw [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def,
+           oneline bvlSemTheory.do_int_app_def, bvi_to_bvl_def, bvl_to_bvi_def,
+           AllCaseEqs()]
+    \\ gvs [AllCaseEqs()])
+  \\ rw [do_app_def,do_app_aux_def,case_eq_thms,pair_case_eq]
   >~ [`ThunkOp`] >- gvs[bvlSemTheory.do_app_def, AllCaseEqs(), bvl_to_bvi_def,
                         bviSemTheory.state_component_equality]
   \\ fs[bvl_to_bvi_def,bvi_to_bvl_def,bvlSemTheory.do_app_def,case_eq_thms]
-  \\ TRY (pairarg_tac \\ fs [])
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [`do_build_const constant s.refs`])
+        (Cases_on `do_build_const constant s.refs` >> fs [])
   \\ rw[] \\ fs[] \\ rw[] \\ fs[case_eq_thms,pair_case_eq] \\ rw[]
   \\ fs[SUBSET_DEF,EVERY_MEM] \\ rw [] \\ fs []
 QED
@@ -766,7 +776,7 @@ Definition adj_orac_rel_def:
     adj_orac_ok cc f s1 ∧ s2 = adj_orac cc f s1
 End
 
-Theorem do_app_cfg_swap[local]:
+Theorem do_app_cfg_swap:
   op ≠ Install ⇒
     ((do_app op args s = Rval (value,s1) ∧
       domain s.code ⊆ domain t.code ⇒
@@ -787,6 +797,13 @@ Theorem do_app_cfg_swap[local]:
 Proof
   strip_tac
   \\ Cases_on `op`
+  >~ [`IntOp _`] >- (
+    rename1 `IntOp intop`
+    \\ Cases_on `intop`
+    \\ rw [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def,
+           oneline bvlSemTheory.do_int_app_def, bvi_to_bvl_def, bvl_to_bvi_def,
+           AllCaseEqs()]
+    \\ gvs [AllCaseEqs()])
   \\ gvs [do_app_def, bviSemTheory.do_app_aux_def, bvi_to_bvl_def,
           bvl_to_bvi_def, bvlSemTheory.do_app_def, AllCaseEqs(),
           state_component_equality, SUBSET_DEF, pairTheory.ELIM_UNCURRY]

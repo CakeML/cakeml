@@ -2037,9 +2037,11 @@ Proof
     EVAL_TAC
 QED
 
-fun cases_on_op q = Cases_on q >|
-  map (MAP_EVERY Cases_on)
-      [[`n`], [`m`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
+Theorem extract_labels_SmallnumDivCall[simp]:
+  extract_labels (SmallnumDivCall is_mod secn l dest names v1 v2) = [(secn,l)]
+Proof
+  simp [SmallnumDivCall_def,list_Seq_def,extract_labels_def]
+QED
 
 Theorem data_to_word_lab_pres_lem:
   ∀c n l p.
@@ -2057,25 +2059,38 @@ Proof
     fs[EVERY_MEM,FORALL_PROD]>>rw[]>>
     res_tac>>fs[]>>
     CCONTR_TAC>>fs[]>>res_tac>>fs[])
-  >-
-    (qmatch_goalsub_rename_tac `assign _ _ _ _ opname _ _` >>
-    Cases_on `c.arch_width` >>
-    fs [asmTheory.arch_width_bits_def,asmTheory.arch_bytes_def] >>
-    cases_on_op `opname`>>
-    TRY(
-      rename1`WordOp (WordOpw _ _)`>>
-      pairarg_tac>>drule extract_labels_assignWordOp>>
-      simp[])>>
-    TRY(
-      rename1`WordOp (WordShift _ _ _)`>>
-      pairarg_tac>>drule extract_labels_assignWordShift>>
-      simp[])>>
-    fs[extract_labels_def,GiveUp_def,assign_def,assign_def_extras,
-       oneline AssignCmp_def, SetBool_def,
-       asmTheory.arch_width_bits_def,asmTheory.arch_bytes_def]>>
-    BasicProvers.EVERY_CASE_TAC>>
-    fs[extract_labels_def,list_Seq_def,extract_labels_StoreEach,
-       extract_labels_StoreAnyConsts,Maxout_bits_code_def])
+  >- (
+    qmatch_goalsub_rename_tac `assign _ _ _ _ opname _ _`
+    \\ Cases_on `c.arch_width`
+    \\ fs [asmTheory.arch_width_bits_def,asmTheory.arch_bytes_def]
+    \\ Cases_on `opname`
+    >>> SELECT_LT_THEN (Q.RENAME_TAC [`Label label`])
+          (Cases_on `label`)
+    >>> SELECT_LT_THEN (Q.RENAME_TAC [`FFI ffi_name`])
+          (Cases_on `ffi_name`)
+    >>> SELECT_LT_THEN (Q.RENAME_TAC [`IntOp integer_op`])
+          (Cases_on `integer_op`)
+    >>> SELECT_LT_THEN (Q.RENAME_TAC [`WordOp word_op`])
+          (Cases_on `word_op`)
+    >>> SELECT_LT_THEN (Q.RENAME_TAC [`BlockOp block_op`])
+          (Cases_on `block_op`)
+    >>> SELECT_LT_THEN (Q.RENAME_TAC [`GlobOp global_op`])
+          (Cases_on `global_op`)
+    >>> SELECT_LT_THEN (Q.RENAME_TAC [`MemOp memory_op`])
+          (Cases_on `memory_op`)
+    >>> SELECT_LT_THEN (Q.RENAME_TAC [`ThunkOp thunk_op`])
+          (Cases_on `thunk_op`)
+    >>~- ([`assign _ _ _ _ (WordOp (WordOpw _ _)) _ _`],
+      pairarg_tac \\ drule extract_labels_assignWordOp \\ simp [])
+    >>~- ([`assign _ _ _ _ (WordOp (WordShift _ _ _)) _ _`],
+      pairarg_tac \\ drule extract_labels_assignWordShift \\ simp [])
+    \\ fs [extract_labels_def,GiveUp_def,assign_def,assign_def_extras,
+           oneline AssignCmp_def,SetBool_def,
+           asmTheory.arch_width_bits_def,asmTheory.arch_bytes_def]
+    \\ BasicProvers.EVERY_CASE_TAC
+    \\ fs [extract_labels_def,list_Seq_def,extract_labels_StoreEach,
+           extract_labels_StoreAnyConsts,Maxout_bits_code_def]
+  )
   >~ [‘force_thunk’] >- (
     pairarg_tac \\ gvs [force_thunk_def, AllCaseEqs()]
     >- gvs [GiveUp_def, extract_labels_def]
@@ -2178,6 +2193,9 @@ Proof
   simp [stubs_md_def,EVERY_MAP,LAMBDA_PROD] >>
   EVAL_TAC >>
   rw [] >>
+  EVAL_TAC >>
+  Cases_on `data_conf.arch_width` >>
+  fs [asmTheory.arch_width_bits_def] >>
   EVAL_TAC
 QED
 
@@ -2226,6 +2244,7 @@ Resume comp_no_share_inst[Assign]:
     list_Seq_no_share_inst,StoreEach_no_share_inst,
     Make_ptr_bits_code_def,StoreAnyConsts_no_share_inst,
     Maxout_bits_code_def,MemEqList_no_share_inst,no_share_inst_SmallDivMod,
+    SmallnumCompare_def,SmallnumMul_def,SmallnumDiv_def,SmallnumDivCall_def,
     WriteWord64_def,WordOp64_on_32_def,WriteWord64_on_32_def,
     LoadWord64_def,WordShift64_on_32_def,LoadBignum_def,
     WriteWord32_on_32_def,WordShiftVar64_def,WordShiftVar64_on_32_def] >>
@@ -2440,7 +2459,8 @@ Resume assign_no_inst[IntOp]:
   strip_tac >>
   qmatch_goalsub_rename_tac `IntOp integer_op` >>
   Cases_on `integer_op` >>
-  simp [assign_def] >>
+  simp [assign_def,SmallnumCompare_def,SmallnumMul_def,
+    SmallnumDiv_def,SmallnumDivCall_def] >>
   every_case_tac >>
   simp [every_inst_SmallDivMod, every_inst_def, list_Seq_def,
     GiveUp_def, oneline AssignCmp_def, SetBool_def, inst_ok_less_def,
@@ -2847,9 +2867,19 @@ Theorem stubs_labels[local]:
                    (stubs_md dc)))
   ⊆ set (MAP FST (stubs_md dc))
 Proof
-  rpt(EVAL_TAC>>
-  IF_CASES_TAC>>
-  simp[])
+  rpt (EVAL_TAC >> IF_CASES_TAC >> simp []) >>
+  Cases_on `dc.arch_width` >>
+  fs [asmTheory.arch_width_bits_def] >>
+  EVAL_TAC
+QED
+
+Theorem stubs_good_handlers[local]:
+  EVERY (λ(n,m,pp,md). word_good_handlers n pp) (stubs_md dc)
+Proof
+  EVAL_TAC >> rw [] >>
+  Cases_on `dc.arch_width` >>
+  fs [asmTheory.arch_width_bits_def] >>
+  EVAL_TAC
 QED
 
 Theorem data_to_word_good_code_labels:
@@ -2866,8 +2896,7 @@ Proof
   fs[Abbr`LHS`]>>
   match_mp_tac word_good_code_labels_word_to_word>>
   fs[wordConvsTheory.good_code_labels_def,dataPropsTheory.good_code_labels_def]>>rw[]
-  >-
-    (EVAL_TAC>>rw[])
+  >- irule stubs_good_handlers
   >-
     (simp[EVERY_MAP,LAMBDA_PROD,compile_part_def,data_to_word_comp_good_handlers]>>
     fs[EVERY_MEM,FORALL_PROD])
@@ -2887,7 +2916,7 @@ Proof
       disch_then drule>>fs[MEM_MAP,EXISTS_PROD]>>
       metis_tac[])
     >>
-      fs[MEM_MAP]>>PairCases_on `y`>>
+      fs[MEM_MAP,EXISTS_PROD]>>
       fs[stubs_md_def,MEM_MAP,EXISTS_PROD]>>metis_tac[]
 QED
 
@@ -2940,8 +2969,7 @@ Proof
   fs[Abbr`LHS`]>>
   match_mp_tac word_good_handlers_word_to_word>>
   fs[wordConvsTheory.good_code_labels_def,dataPropsTheory.good_code_labels_def]>>rw[]
-  >-
-    (EVAL_TAC>>rw[])
+  >- irule stubs_good_handlers
   >-
     (simp[EVERY_MAP,LAMBDA_PROD,compile_part_def,data_to_word_comp_good_handlers]>>
     fs[EVERY_MEM,FORALL_PROD])

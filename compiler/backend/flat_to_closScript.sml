@@ -124,7 +124,7 @@ Definition compile_arith_def:
                                    (Op t (IntOp closLang$Mod) [Var t 0; Var t 1]))
                | _ => Let None xs (Var None 0))
     | Float64T => (case a of
-                   | Abs => Op t (WordOp (FP_uop FP_Abs)) xs
+                   | Absolute => Op t (WordOp (FP_uop FP_Abs)) xs
                    | Neg => Op t (WordOp (FP_uop FP_Neg)) xs
                    | Sqrt => Op t (WordOp (FP_uop FP_Sqrt)) xs
                    | Add => Op t (WordOp (FP_bop FP_Add)) xs
@@ -143,6 +143,45 @@ Definition compile_arith_def:
                    | _   => Let None xs (Var None 0))
     | BoolT => Op t (BlockOp BoolNot) xs
     | _ => Let None xs (Var None 0)
+End
+
+Definition compile_smallnum_div_def:
+  compile_smallnum_div t smallop xs =
+    Let t xs
+      (If t (Op t (IntOp (Smallnum SmallEqual))
+        (if LENGTH xs = 3 then
+           [Var t 0; Op t (IntOp (Const 0)) []; Var t 1]
+         else [Var t 0; Op t (IntOp (Const 0)) []]))
+        (Raise t (Op t (BlockOp (Cons div_tag)) []))
+        (Op t (IntOp (Smallnum smallop))
+          (GENLIST (Var t) (LENGTH xs))))
+End
+
+Definition compile_smallnum_arith_def:
+  compile_smallnum_arith t (a:ast$arith) xs =
+    case a of
+    | Add => Op t (IntOp (Smallnum SmallAdd)) xs
+    | Sub => Op t (IntOp (Smallnum SmallSub)) xs
+    | Mul => Op t (IntOp (Smallnum SmallMult)) xs
+    | Div => compile_smallnum_div t SmallDiv xs
+    | Mod => compile_smallnum_div t SmallMod xs
+    | _ => Let None xs (Var None 0)
+End
+
+Definition compile_smallnum_test_def:
+  compile_smallnum_test t test xs =
+    case test of
+    | Compare Lt  => Op t (IntOp (Smallnum SmallLess)) xs
+    | Compare Leq => Op t (IntOp (Smallnum SmallLessEq)) xs
+    | Compare Gt  => Op t (IntOp (Smallnum SmallGreater)) xs
+    | Compare Geq => Op t (IntOp (Smallnum SmallGreaterEq)) xs
+    | _          => Op t (IntOp (Smallnum SmallEqual)) xs
+End
+
+Definition compile_unsafe_index_def:
+  compile_unsafe_index t f xs =
+    if LENGTH xs = 2 \/ LENGTH xs = 3 then f xs
+    else Let None xs (Var None 0)
 End
 
 Definition compile_op_def:
@@ -239,6 +278,10 @@ Definition compile_op_def:
     | Src Eval => Op t Install xs
     | Src (ThunkOp op) => Op t (ThunkOp op) xs
     | Src (Arith a ty) => compile_arith t a ty xs
+    | Src (UnsafeIndexArith a) =>
+        compile_unsafe_index t (\ys. compile_smallnum_arith t a ys) xs
+    | Src (UnsafeIndexTest test) =>
+        compile_unsafe_index t (\ys. compile_smallnum_test t test ys) xs
     | Src (FromTo (WordT W8) IntT) => arg1 xs (\x. x)
     | Src (FromTo (WordT W64) IntT) => Op t (WordOp WordToInt) xs
     | Src (FromTo IntT (WordT W8)) => arg1 xs (\x. Op t (IntOp Mod) [Op t (IntOp (Const 256)) []; x])

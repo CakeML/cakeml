@@ -2905,14 +2905,21 @@ fun mutual_to_single_line_def ctxt def = let
   val (def,ind) = single_line_def def
   in ([def],ind) end
 
+val smallnum_operations = ["add", "sub", "mul", "div", "mod", "lt", "le", "gt", "ge", "eq"];
+
+fun smallnum_evals suffix =
+  List.concat (map (fn prefix =>
+    map (fn name => DB.fetch "ml_translator" ("Eval_" ^ prefix ^ "_" ^ name ^ suffix))
+      smallnum_operations) ["smallnum", "smallint"]);
+
 val builtin_terops =
-  [Eval_substring,
-   Eval_FLOAT_FMA]
+  ([Eval_substring,
+    Eval_FLOAT_FMA] @ smallnum_evals "_vec" @ smallnum_evals "_str")
   |> map (fn th =>
       (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator |> rator, th))
 
 val builtin_binops =
-  [Eval_NUM_ADD,
+  ([Eval_NUM_ADD,
    Eval_NUM_SUB,
    Eval_NUM_SUB_check,
    Eval_NUM_MULT,
@@ -2965,7 +2972,7 @@ val builtin_binops =
    Eval_sub_unsafe,
    Eval_strsub_unsafe,
    Eval_Implies,
-   Eval_pure_seq]
+   Eval_pure_seq] @ smallnum_evals "")
  |> map (fn th =>
       (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th))
 

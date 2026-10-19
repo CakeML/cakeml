@@ -200,6 +200,24 @@ Proof
   \\ cases_on `v_to_list x` \\ rw []
 QED
 
+Theorem smallnum_witness_length_eq[local]:
+  state_rel r t ==>
+  bvlSem$smallnum_witness_length r.refs (data_to_bvi_v v) =
+  dataSem$smallnum_witness_length t.refs v
+Proof
+  strip_tac
+  \\ Cases_on `v`
+  \\ gvs [bvlSemTheory.smallnum_witness_length_def,
+          dataSemTheory.smallnum_witness_length_def,
+          state_rel_def, lookup_map]
+  \\ qmatch_goalsub_rename_tac `lookup ptr t.refs`
+  \\ Cases_on `lookup ptr t.refs`
+  \\ simp []
+  \\ rename1 `data_to_bvi_ref cell`
+  \\ Cases_on `cell`
+  \\ simp []
+QED
+
 (* Special bijection for `data_to_bvi_v` with `dataSem$Number` + `MAP` *)
 Theorem data_to_bvi_number_eq:
   ∀ns.
@@ -574,23 +592,29 @@ Proof
       gvs[NULL_EQ_NIL,MAP_EQ_CONS]>>
       simp[do_app_aux_def,do_word_app_def,bvl_to_bvi_id] >>
       imp_res_tac data_to_bvi_v_Boolv_IMP >> fs [])
-  >~ [`do_app (IntOp _)`]
-  >- (fs[oneline bviSemTheory.do_app_def,
-      oneline bviSemTheory.do_app_aux_def,
-      bvlSemTheory.do_app_def,
-      oneline bvlSemTheory.do_int_app_def] >>
-      rw[AllCaseEqs()] >>
-      gvs[NULL_EQ_NIL,MAP_EQ_CONS]>>
-      simp[do_app_aux_def,do_int_app_def,bvl_to_bvi_id])
-  >~ [`do_app (WordOp _)`]
-  >- (fs[oneline bviSemTheory.do_app_def,
-         oneline bviSemTheory.do_app_aux_def,
-         bvlSemTheory.do_app_def,
-         oneline bvlSemTheory.do_word_app_def] >>
-      rw[AllCaseEqs()] >>
-      TRY (rename [‘Compare cmp’] \\ Cases_on ‘cmp’ \\ gvs []) >>
-      gvs[NULL_EQ_NIL,MAP_EQ_CONS]>>
-      simp[do_app_aux_def,do_word_app_def,bvl_to_bvi_id])
+  >~ [`do_app (IntOp _)`] >- (
+    rename1 `IntOp intop`
+    \\ Cases_on `intop`
+    \\ fs [oneline bviSemTheory.do_app_def,
+           oneline bviSemTheory.do_app_aux_def,
+           bvlSemTheory.do_app_def,
+           oneline bvlSemTheory.do_int_app_def]
+    \\ rw [AllCaseEqs()]
+    \\ gvs [NULL_EQ_NIL, MAP_EQ_CONS]
+    \\ simp [do_app_aux_def, do_int_app_def, bvl_to_bvi_id]
+    \\ drule smallnum_witness_length_eq
+    \\ strip_tac
+    \\ gvs [])
+  >~ [`do_app (WordOp _)`] >- (
+    fs [oneline bviSemTheory.do_app_def,
+        oneline bviSemTheory.do_app_aux_def,
+        bvlSemTheory.do_app_def,
+        oneline bvlSemTheory.do_word_app_def]
+    \\ rw [AllCaseEqs()]
+    >>> SELECT_LT_THEN (Q.RENAME_TAC [`Compare comparison`])
+      (Cases_on `comparison` \\ gvs [])
+    \\ gvs [NULL_EQ_NIL,MAP_EQ_CONS]
+    \\ simp [do_app_aux_def,do_word_app_def,bvl_to_bvi_id])
   >~ [`do_app (MemOp XorByte)`]
   >- (fs[oneline bviSemTheory.do_app_def,
       oneline bviSemTheory.do_app_aux_def,
@@ -633,7 +657,7 @@ Proof
                 , check_lim_def
                 , dataLangTheory.op_space_reset_def
                 , consume_space_def])
-  \\ rpt (GEN_TAC ORELSE disch_then strip_assume_tac)
+  \\ rpt gen_tac \\ rpt (disch_then strip_assume_tac)
   \\ gvs[AllCaseEqs(),MAP_EQ_CONS,bvl_to_bvi_id]
   \\ fs[bvi_to_bvl_def,bvl_to_bvi_def]
   (*Needs to be rfs (not gvs or rgs or fs) or
@@ -1153,23 +1177,27 @@ Resume compile_correct[Op]:
    (note_tac "Op"
     \\ `?c1 vs n1. compile n corr F live xs = (c1,vs,n1)` by METIS_TAC [PAIR]
     \\ FULL_SIMP_TAC std_ss [LET_DEF,evaluate_def]
-    \\ Cases_on `evaluate (xs,env,s)`
-    \\ reverse (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ namedCases_on `evaluate (xs,env,s)` ["arg_result r"]
+    \\ reverse (namedCases_on `arg_result` ["a", "arg_error"])
+    \\ FULL_SIMP_TAC (srw_ss()) []
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`n`,`corr`,`F`,`live`])
-    \\ rpt var_eq_tac >> full_simp_tac(srw_ss())[] >> strip_tac
+    \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+    \\ disch_then (qx_choosel_then [`t2`,`pres`] strip_assume_tac)
     \\ Cases_on `pres`
     \\ FULL_SIMP_TAC (srw_ss()) []
-    THEN1 (SRW_TAC [] [evaluate_def] \\ qexists_tac `ls` \\ simp [])
+    THEN1 (
+      qmatch_asmsub_rename_tac `SOME (_ with locals_size := saved_locals)`
+      \\ SRW_TAC [] [evaluate_def] \\ qexists_tac `saved_locals` \\ simp [])
     \\ `domain (list_to_num_set (REVERSE vs ++ live ++ corr)) SUBSET
         domain (map data_to_bvi_v t2.locals)` by
-      (full_simp_tac(srw_ss())[SUBSET_DEF,domain_lookup,
-                               lookup_list_to_num_set,EVERY_MEM]
-       \\ REPEAT STRIP_TAC \\ RES_TAC
-       \\ full_simp_tac(srw_ss())[var_corr_def,get_var_def,lookup_map]
-       \\ IMP_RES_TAC LIST_REL_MEM_IMP \\ full_simp_tac(srw_ss())[]
-       \\ `lookup x t1.locals <> NONE` by METIS_TAC []
-       \\ Cases_on `lookup x t1.locals` \\ full_simp_tac(srw_ss())[]
-       \\ METIS_TAC [])
+      (
+        fs [SUBSET_DEF,domain_lookup,lookup_list_to_num_set,EVERY_MEM]
+        \\ rpt strip_tac \\ res_tac
+        \\ fs [var_corr_def,get_var_def,lookup_map]
+        \\ imp_res_tac LIST_REL_MEM_IMP \\ fs []
+        \\ qmatch_goalsub_rename_tac `lookup live_index t2.locals`
+        \\ Cases_on `lookup live_index t1.locals` \\ fs []
+        \\ res_tac \\ fs [])
     \\ full_simp_tac(srw_ss())[]
     \\ Q.ABBREV_TAC `env1 = mk_wf (inter t2.locals (list_to_num_set (REVERSE vs++live++corr)))`
     \\ Q.ABBREV_TAC `env2 = mk_wf (inter t2.locals (list_insert vs (list_to_num_set (REVERSE vs++live++corr))))`
@@ -1187,24 +1215,32 @@ Resume compile_correct[Op]:
     \\ POP_ASSUM $ ASSUME_NAMED_TAC "ENV2=ENV1"
     \\ IMP_RES_TAC get_vars_thm
     \\ IMP_RES_TAC get_vars_lift_thm
+    \\ qmatch_asmsub_rename_tac `get_vars (REVERSE vs) env1 = SOME reversed_args`
+    \\ qmatch_asmsub_rename_tac `get_vars vs t2.locals = SOME arg_values`
+    \\ qmatch_asmsub_rename_tac `get_vars corr t2.locals = SOME env_values`
     \\ `state_rel r (t2 with <|locals := env1; space := 0|>)` by
       (full_simp_tac(srw_ss())[state_rel_def] \\ NO_TAC)
-    \\ `z = REVERSE z'` by
+    \\ `reversed_args = REVERSE arg_values` by
       (rveq \\ UNABBREV_ALL_TAC
        \\ fs [get_vars_mk_wf]
        \\ IMP_RES_TAC get_vars_inter
        \\ IMP_RES_TAC get_vars_reverse
        \\ rveq \\ fs [])
     \\ gvs []
-    \\ reverse(Cases_on `do_app op (MAP data_to_bvi_v (REVERSE z')) r`) \\ full_simp_tac(srw_ss())[]
+    \\ reverse (namedCases_on
+      `do_app op (MAP data_to_bvi_v (REVERSE arg_values)) r`
+      ["op_pair", "op_error"])
+    \\ full_simp_tac(srw_ss())[]
     >-
    (imp_res_tac bviPropsTheory.do_app_err >> gvs[]
-    \\ `get_vars (REVERSE vs) t2.locals = SOME (REVERSE z')` by
+    \\ qmatch_asmsub_rename_tac
+      `do_app (FFI ffi_name) _ _ = Rerr (Rabort (Rffi_error ffi_error))`
+    \\ `get_vars (REVERSE vs) t2.locals = SOME (REVERSE arg_values)` by
        (unabbrev_all_tac \\ imp_res_tac get_vars_inter \\ fs[])
     \\ `cut_env (list_to_num_set (REVERSE vs ++ live ++ corr)) t2.locals = SOME env1` by
        (unabbrev_all_tac \\ fs[cut_env_def])
-    \\ `do_app (FFI i) (REVERSE z') (t2 with locals := env1) =
-          Rerr (Rabort (Rffi_error x))` by
+    \\ `do_app (FFI ffi_name) (REVERSE arg_values) (t2 with locals := env1) =
+          Rerr (Rabort (Rffi_error ffi_error))` by
        (`state_rel r (t2 with locals := env1)` by fs[state_rel_def]
         \\ drule_all state_rel_do_app_FFI_err \\ fs[])
     \\ Cases_on `tail`
@@ -1212,7 +1248,7 @@ Resume compile_correct[Op]:
           cut_state_opt_def,cut_state_def]
     \\ gvs[data_to_bvi_result_def,flush_state_def,state_rel_def])
     >-
-   (PairCases_on `a` \\ full_simp_tac(srw_ss())[] \\ REV_FULL_SIMP_TAC std_ss []
+   (namedCases_on `op_pair` ["op_value op_state"] \\ full_simp_tac(srw_ss())[] \\ REV_FULL_SIMP_TAC std_ss []
     \\ rpt var_eq_tac >> full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[LET_DEF,evaluate_def,iAssign_def]
     \\ (fn (hs,goal) => (reverse (sg `let tail = F in ^goal`))
@@ -1220,12 +1256,14 @@ Resume compile_correct[Op]:
      (full_simp_tac(srw_ss())[LET_DEF]
       \\ reverse (Cases_on `tail`) THEN1 METIS_TAC []
       \\ full_simp_tac(srw_ss())[evaluate_def,dataSemTheory.get_vars_def,LET_DEF] \\ REV_FULL_SIMP_TAC std_ss []
-      \\ Cases_on `pres` \\ full_simp_tac(srw_ss())[]
-      \\ `∃z2. get_var n1 t2'.locals = SOME  z2 ∧ a0 = data_to_bvi_v z2`
+      \\ qmatch_asmsub_rename_tac `state_rel op_state return_state`
+      \\ qmatch_goalsub_rename_tac `if return_result = NONE then _ else _`
+      \\ Cases_on `return_result` \\ full_simp_tac(srw_ss())[]
+      \\ `∃z2. get_var n1 return_state.locals = SOME z2 ∧ op_value = data_to_bvi_v z2`
             by FULL_SIMP_TAC (srw_ss()) [var_corr_def,lookup_map,get_var_def]
            \\ full_simp_tac(srw_ss())[var_corr_def,call_env_def,flush_state_def,state_rel_def,data_to_bvi_result_def,dataSemTheory.get_vars_def,get_var_def])
     \\ simp[]
-    \\ Cases_on`op = Install` >-
+    \\ Cases_on `op = Install` >-
   (fs[dataLangTheory.op_requires_names_def,domain_map]
    \\ simp[dataSemTheory.evaluate_def,cut_state_opt_def,cut_state_def,cut_env_def]
    \\ fs[ EVAL ``op_requires_names Install``]
@@ -1242,14 +1280,18 @@ Resume compile_correct[Op]:
    \\ fs[Once SWAP_REVERSE_SYM]
    \\ rveq \\ fs[]
    \\ fs[bvlPropsTheory.case_eq_thms,case_eq_thms] \\ rveq
-   \\ Cases_on`progs` \\ fs[]
+   \\ qmatch_asmsub_rename_tac `t2.compile_oracle 0 = (_, install_programs)`
+   \\ qmatch_asmsub_rename_tac `v_to_words data_value = SOME installed_data`
+   \\ qmatch_asmsub_rename_tac `v_to_mlstring t2.refs code_value = SOME _`
+   \\ namedCases_on `install_programs` ["", "first_program remaining_programs"]
+   \\ fs []
    >- (
      rfs[state_rel_def]
      \\ gvs[compile_prog_def] )
    \\ `r.compile = λcfg prog. t2.compile cfg (compile_prog prog)` by fs[state_rel_def]
    \\ `t2.compile_oracle = (I ## compile_prog) o r.compile_oracle` by fs[state_rel_def]
    \\ fs[] \\ rveq \\ fs[shift_seq_def,dataLangTheory.op_requires_names_def]
-   \\ Cases_on`h`
+   \\ Cases_on `first_program`
    \\ fs[set_var_def,lookup_insert,var_corr_def,state_rel_def,
          o_DEF,get_var_def,lookup_insert,lookup_map]
    \\ simp [SF DNF_ss]
@@ -1258,14 +1300,14 @@ Resume compile_correct[Op]:
    (* single-cut: do_app reads args from full t2.locals (pre-cut); recover
       get_vars over t2.locals from the get_vars over the cut env1 *)
    \\ `get_vars (REVERSE vs) t2.locals =
-         SOME [x0; x0'; Number (&LENGTH data)]` by
+         SOME [code_value; data_value; Number (&LENGTH installed_data)]` by
         (qpat_x_assum `get_vars (REVERSE vs) env1 = _` mp_tac
          \\ simp[Abbr`env1`] \\ strip_tac \\ imp_res_tac get_vars_inter \\ fs[])
    \\ fs[]
    \\ qpat_x_assum `REVERSE vs = [_;_;_]` (assume_tac o GSYM) \\ fs[]
    \\ qmatch_goalsub_abbrev_tac`fromAList progs1`
    \\ qmatch_goalsub_abbrev_tac`union t2.code (fromAList progs2)`
-   \\ qexists_tac `x0` \\ qexists_tac `x0'` \\ fs[]
+   \\ qexists_tac `code_value` \\ qexists_tac `data_value` \\ fs[]
    \\ conj_tac
    >- (qpat_x_assum `vs = [_;_;_]` (fn th => fs[th] \\ assume_tac th) \\ fs[])
    \\ conj_tac
@@ -1341,10 +1383,16 @@ Resume compile_correct[Op]:
            \\ res_tac THEN1 (qpat_assum `EL l corr = n1` assume_tac \\ fs [])
            \\ fs [domain_lookup,lookup_list_to_num_set]
            \\ METIS_TAC [MEM_EL])
-    THEN1 (Cases_on `k = n1` \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
-           \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_EQ, lookup_list_to_num_set] \\ RES_TAC \\ DECIDE_TAC)
-    THEN1
-     (`k <> n1` by (REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
+    THEN1 (
+      qmatch_goalsub_rename_tac `local_index < n1 + 1`
+      \\ Cases_on `local_index = n1` \\ full_simp_tac(srw_ss())[]
+      \\ UNABBREV_ALL_TAC
+      \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_EQ, lookup_list_to_num_set]
+      \\ RES_TAC \\ DECIDE_TAC)
+    THEN1 (
+      qmatch_asmsub_rename_tac `lookup local_index t1.locals = SOME _`
+      \\ `local_index <> n1` by
+        (REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
       \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
       \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_EQ, lookup_list_to_num_set]
       \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[]
@@ -1393,10 +1441,16 @@ Resume compile_correct[Op]:
            \\ res_tac THEN1 (qpat_assum `EL l corr = n1` assume_tac \\ fs [])
            \\ fs [domain_lookup,lookup_list_to_num_set]
            \\ METIS_TAC [MEM_EL])
-    THEN1 (Cases_on `k = n1` \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
-           \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_EQ, lookup_list_to_num_set] \\ RES_TAC \\ DECIDE_TAC)
-    THEN1
-     (`k <> n1` by (REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
+    THEN1 (
+      qmatch_goalsub_rename_tac `local_index < n1 + 1`
+      \\ Cases_on `local_index = n1` \\ full_simp_tac(srw_ss())[]
+      \\ UNABBREV_ALL_TAC
+      \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_EQ, lookup_list_to_num_set]
+      \\ RES_TAC \\ DECIDE_TAC)
+    THEN1 (
+      qmatch_asmsub_rename_tac `lookup local_index t1.locals = SOME _`
+      \\ `local_index <> n1` by
+        (REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
       \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
       \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_EQ, lookup_list_to_num_set]
       \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[]
@@ -1448,10 +1502,16 @@ Resume compile_correct[Op]:
            \\ res_tac THEN1 (qpat_assum `EL l corr = n1` assume_tac \\ fs [])
            \\ fs [domain_lookup,lookup_list_to_num_set]
            \\ METIS_TAC [MEM_EL])
-    THEN1 (Cases_on `k = n1` \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
-           \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_EQ, lookup_list_to_num_set] \\ RES_TAC \\ DECIDE_TAC)
-    THEN1
-     (`k <> n1` by (REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
+    THEN1 (
+      qmatch_goalsub_rename_tac `local_index < n1 + 1`
+      \\ Cases_on `local_index = n1` \\ full_simp_tac(srw_ss())[]
+      \\ UNABBREV_ALL_TAC
+      \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_EQ, lookup_list_to_num_set]
+      \\ RES_TAC \\ DECIDE_TAC)
+    THEN1 (
+      qmatch_asmsub_rename_tac `lookup local_index t1.locals = SOME _`
+      \\ `local_index <> n1` by
+        (REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
       \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
       \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_EQ, lookup_list_to_num_set]
       \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[]
@@ -1503,10 +1563,16 @@ Resume compile_correct[Op]:
            \\ res_tac THEN1 (qpat_assum `EL l corr = n1` assume_tac \\ fs [])
            \\ fs [domain_lookup,lookup_list_to_num_set]
            \\ METIS_TAC [MEM_EL])
-    THEN1 (Cases_on `k = n1` \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
-           \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_EQ, lookup_list_to_num_set] \\ RES_TAC \\ DECIDE_TAC)
-    THEN1
-     (`k <> n1` by (REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
+    THEN1 (
+      qmatch_goalsub_rename_tac `local_index < n1 + 1`
+      \\ Cases_on `local_index = n1` \\ full_simp_tac(srw_ss())[]
+      \\ UNABBREV_ALL_TAC
+      \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_EQ, lookup_list_to_num_set]
+      \\ RES_TAC \\ DECIDE_TAC)
+    THEN1 (
+      qmatch_asmsub_rename_tac `lookup local_index t1.locals = SOME _`
+      \\ `local_index <> n1` by
+        (REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
       \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
       \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_EQ, lookup_list_to_num_set]
       \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[]
@@ -1532,7 +1598,7 @@ Resume compile_correct[Op]:
               , pair_case_eq,SWAP_REVERSE_SYM,lookup_map]
       \\ ntac 5 (rfs [MAP_EQ_CONS])
       \\ fs [v_to_words_eq,data_to_bvi_v_eq]
-      \\ `get_vars (REVERSE vs) t2.locals = SOME (REVERSE z')` by
+      \\ `get_vars (REVERSE vs) t2.locals = SOME (REVERSE arg_values)` by
            (qpat_x_assum `get_vars (REVERSE vs) env1 = _` mp_tac
             \\ simp[Abbr`env1`] \\ strip_tac \\ imp_res_tac get_vars_inter \\ fs[])
       \\ fs[]
@@ -1583,7 +1649,7 @@ Resume compile_correct[Op]:
               , pair_case_eq,SWAP_REVERSE_SYM,lookup_map]
       \\ ntac 5 (rfs [MAP_EQ_CONS])
       \\ fs [v_to_words_eq,data_to_bvi_v_eq]
-      \\ `get_vars (REVERSE vs) t2.locals = SOME (REVERSE z')` by
+      \\ `get_vars (REVERSE vs) t2.locals = SOME (REVERSE arg_values)` by
            (qpat_x_assum `get_vars (REVERSE vs) env1 = _` mp_tac
             \\ simp[Abbr`env1`] \\ strip_tac \\ imp_res_tac get_vars_inter \\ fs[])
       \\ fs[]
@@ -1633,7 +1699,7 @@ Resume compile_correct[Op]:
               , pair_case_eq,SWAP_REVERSE_SYM,lookup_map]
       \\ ntac 5 (rfs [MAP_EQ_CONS])
       \\ fs [v_to_words_eq,data_to_bvi_v_eq]
-      \\ `get_vars (REVERSE vs) t2.locals = SOME (REVERSE z')` by
+      \\ `get_vars (REVERSE vs) t2.locals = SOME (REVERSE arg_values)` by
            (qpat_x_assum `get_vars (REVERSE vs) env1 = _` mp_tac
             \\ simp[Abbr`env1`] \\ strip_tac \\ imp_res_tac get_vars_inter \\ fs[])
       \\ fs[]
@@ -1670,8 +1736,7 @@ Resume compile_correct[Op]:
     \\ Cases_on `op = ThunkOp ForceThunk` \\ gvs [] >-
   (gvs [bviSemTheory.do_app_def, bvlSemTheory.do_app_def,
            bviSemTheory.do_app_aux_def, AllCaseEqs()])
-    \\
-     (fs []
+    \\ fs []
     \\ fs[bviSemTheory.state_component_equality] \\ rveq
     \\ Cases_on `op_requires_names op`
     \\ full_simp_tac(srw_ss())[evaluate_def,cut_state_opt_def,
@@ -1684,64 +1749,75 @@ Resume compile_correct[Op]:
     \\ IMP_RES_TAC do_app_code \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC do_app_oracle \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC compile_LESS_EQ \\ full_simp_tac(srw_ss())[lookup_insert]
-    THEN1
-     (`get_vars (REVERSE vs) t2.locals = SOME (REVERSE z')` by
+    THEN1 (
+      `get_vars (REVERSE vs) t2.locals = SOME (REVERSE arg_values)` by
          (qpat_x_assum `get_vars (REVERSE vs) env1 = _` mp_tac
           \\ simp[Abbr`env1`] \\ strip_tac \\ imp_res_tac get_vars_inter \\ fs[])
-      \\ `op_space_reset op` by
-         (rfs [dataLangTheory.op_space_reset_def
-               ,dataLangTheory.op_requires_names_def] \\ gvs [])
-      \\ fs [do_stack_def,state_fupdcanon]
-      \\ qmatch_goalsub_abbrev_tac `do_app_aux op (REVERSE z') st0`
-      \\ `state_rel r st0` by (unabbrev_all_tac \\ fs[state_rel_def])
-      \\ first_assum (mp_then Any mp_tac data_to_bvi_do_app)
-      \\ rpt (disch_then (first_assum o mp_then Any mp_tac))
-      \\ rw []
-      \\ fs[]
-      \\ rfs [dataLangTheory.op_space_reset_def
-              ,code_rel_def, do_stack_def
-              ,state_rel_def]
-      \\ IMP_RES_TAC do_app_aux_const \\ fs [lookup_insert]
-      \\ fs[Abbr`st0`]
-      \\ REPEAT STRIP_TAC
-      THEN1 (
-             UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[lookup_inter_EQ,lookup_insert]
-             \\ `n1 <= k` by DECIDE_TAC \\ `k <> n1` by DECIDE_TAC \\
-             full_simp_tac(srw_ss())[])
-      THEN1 (full_simp_tac(srw_ss())[LIST_REL_EL_EQN,var_corr_def,
-                                     get_var_def,lookup_insert]
-             \\ REPEAT STRIP_TAC
-             \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH z''`
-             \\ `n1 <= n1 /\ l < LENGTH corr` by DECIDE_TAC
-             \\ `lookup n1 t2.locals = NONE` by METIS_TAC []
-             \\ `EL l corr <> n1`
-               by (RES_TAC \\ CCONTR_TAC \\ fs [lookup_map] \\ fs [])
-             \\ RES_TAC \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[]
-             \\ UNABBREV_ALL_TAC \\ fs [lookup_map,lookup_insert]
-             \\ pop_assum (ASSUME_TAC o Q.SPEC `z`)
-             \\ rfs[lookup_inter_EQ,lookup_list_to_num_set]
-             \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [MEM_EL])
-      THEN1 (
-            pop_assum mp_tac \\
-            Cases_on `k = n1` \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
-             \\ rfs[lookup_insert,lookup_inter_EQ,
-                    lookup_list_to_num_set]
-             \\ simp[SF CONJ_ss]
-             \\ DISCH_THEN (CONJUNCTS_THEN ASSUME_TAC)
-             \\ RES_TAC \\ DECIDE_TAC)
-      THEN1
-       (`k <> n1` by (REPEAT STRIP_TAC \\ RES_TAC
-                      \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
-        \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
-        \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_EQ,
-                                   lookup_list_to_num_set]
-        \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[])
-      THEN1 (POP_ASSUM MP_TAC \\ Cases_on `jump_exc t1` \\ full_simp_tac(srw_ss())[]
-             \\ IMP_RES_TAC jump_exc_IMP
-             \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC
-             \\ full_simp_tac(srw_ss())[jump_exc_def])
-      \\ full_simp_tac(srw_ss())[var_corr_def,get_var_def,lookup_map])
-        \\ rveq
+      \\ `~op_space_reset op ==> !arity. op_space_req op arity = 0` by (
+        rfs [dataLangTheory.op_space_reset_def,
+             dataLangTheory.op_requires_names_def]
+        \\ gvs [data_spaceTheory.op_space_req_def])
+      \\ Cases_on `op_space_reset op`
+      \\ (
+        fs [do_stack_def,state_fupdcanon]
+        \\ qmatch_goalsub_abbrev_tac `do_app_aux op (REVERSE arg_values) st0`
+        \\ `state_rel r st0` by (unabbrev_all_tac \\ fs[state_rel_def])
+        \\ first_assum (mp_then Any mp_tac data_to_bvi_do_app)
+        \\ rpt (disch_then (first_assum o mp_then Any mp_tac))
+        \\ rw []
+        \\ rfs [dataLangTheory.op_space_reset_def
+                ,code_rel_def, do_stack_def
+                ,state_rel_def]
+        \\ IMP_RES_TAC do_app_aux_const \\ fs [lookup_insert]
+        \\ fs[Abbr`st0`]
+        \\ REPEAT STRIP_TAC
+        THEN1 (
+          qmatch_goalsub_rename_tac `lookup local_index env1 = NONE`
+          \\ UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[lookup_inter_EQ,lookup_insert]
+          \\ `n1 <= local_index` by DECIDE_TAC \\ `local_index <> n1` by DECIDE_TAC \\
+          full_simp_tac(srw_ss())[])
+        THEN1 (
+          full_simp_tac(srw_ss())[LIST_REL_EL_EQN,var_corr_def,
+                                       get_var_def,lookup_insert]
+          \\ REPEAT STRIP_TAC
+          \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env_values`
+          \\ `n1 <= n1 /\ l < LENGTH corr` by DECIDE_TAC
+          \\ `lookup n1 t2.locals = NONE` by METIS_TAC []
+          \\ `EL l corr <> n1`
+                 by (RES_TAC \\ CCONTR_TAC \\ fs [lookup_map] \\ fs [])
+          \\ RES_TAC \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[]
+          \\ UNABBREV_ALL_TAC \\ fs [lookup_map,lookup_insert]
+          \\ qmatch_asmsub_rename_tac
+            `lookup (EL l corr) t2.locals = SOME retained_value`
+          \\ qpat_x_assum `!v. _ = SOME v ==> _ <> data_to_bvi_v v`
+            (qspec_then `retained_value` assume_tac)
+          \\ rfs[lookup_inter_EQ,lookup_list_to_num_set]
+          \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [MEM_EL])
+        THEN1 (
+          qmatch_goalsub_rename_tac `local_index < n1 + 1`
+          \\ pop_assum mp_tac \\
+          Cases_on `local_index = n1` \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
+          \\ rfs[lookup_insert,lookup_inter_EQ,
+                      lookup_list_to_num_set]
+          \\ simp[SF CONJ_ss]
+          \\ DISCH_THEN (CONJUNCTS_THEN ASSUME_TAC)
+          \\ RES_TAC \\ DECIDE_TAC)
+        THEN1 (
+          qmatch_asmsub_rename_tac `lookup local_index t1.locals = SOME _`
+          \\ `local_index <> n1` by (
+            REPEAT STRIP_TAC \\ RES_TAC
+            \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
+          \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
+          \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_EQ,
+                                     lookup_list_to_num_set]
+          \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[])
+        THEN1 (
+          POP_ASSUM MP_TAC \\ Cases_on `jump_exc t1` \\ full_simp_tac(srw_ss())[]
+          \\ IMP_RES_TAC jump_exc_IMP
+          \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC
+          \\ full_simp_tac(srw_ss())[jump_exc_def])
+        \\ full_simp_tac(srw_ss())[var_corr_def,get_var_def,lookup_map]))
+    \\ rveq
     \\ imp_res_tac get_vars_reverse
     \\ imp_res_tac get_vars_IMP_LENGTH \\ full_simp_tac (srw_ss()) []
     \\ Cases_on `op_space_req op (LENGTH vs) = 0`
@@ -1754,8 +1830,8 @@ Resume compile_correct[Op]:
     \\ full_simp_tac(srw_ss())[state_rel_def] \\ IMP_RES_TAC do_app_code
     \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC compile_LESS_EQ \\ full_simp_tac(srw_ss())[lookup_insert]
-    THEN1
-     (`state_rel r t2` by fs[state_rel_def]
+    >- (
+      `state_rel r t2` by fs[state_rel_def]
       \\ first_assum (mp_then Any mp_tac data_to_bvi_do_app)
       \\ rpt (disch_then (first_assum o mp_then Any mp_tac))
       \\ rw []
@@ -1768,45 +1844,55 @@ Resume compile_correct[Op]:
                     do_app_aux_sm_safe_peak_swap
       \\ IMP_RES_TAC do_app_aux_const \\ fs [lookup_insert]
       \\ REPEAT STRIP_TAC
-      THEN1 (full_simp_tac(srw_ss())[LIST_REL_EL_EQN,
+      THEN1 (
+        full_simp_tac(srw_ss())[LIST_REL_EL_EQN,
                                      var_corr_def,get_var_def,lookup_insert]
-             \\ REPEAT STRIP_TAC
-             \\ rename1 `l1 < LENGTH corr`
-             \\ FULL_SIMP_TAC std_ss []
-             \\ `n1 <= n1 /\ l1 < LENGTH corr` by DECIDE_TAC
-             \\ `lookup n1 t2.locals = NONE` by METIS_TAC []
-             \\ `EL l1 corr <> n1`
+        \\ REPEAT STRIP_TAC
+        \\ rename1 `l1 < LENGTH corr`
+        \\ FULL_SIMP_TAC std_ss []
+        \\ `n1 <= n1 /\ l1 < LENGTH corr` by DECIDE_TAC
+        \\ `lookup n1 t2.locals = NONE` by METIS_TAC []
+        \\ `EL l1 corr <> n1`
                by (RES_TAC \\ CCONTR_TAC \\ fs [lookup_map] \\ fs [])
-             \\ RES_TAC \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[]
-             \\ UNABBREV_ALL_TAC \\ fs [lookup_map,lookup_insert]
-             \\ pop_assum (ASSUME_TAC o Q.SPEC `z`)
-             \\ rfs[lookup_inter_EQ,lookup_list_to_num_set]
-             \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [MEM_EL])
-      THEN1 (Cases_on `k = n1` \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
-             \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_EQ,
+        \\ RES_TAC \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[]
+        \\ UNABBREV_ALL_TAC \\ fs [lookup_map,lookup_insert]
+        \\ qmatch_asmsub_rename_tac
+          `lookup (EL l1 corr) t2.locals = SOME retained_value`
+        \\ qpat_x_assum `!v. _ = SOME v ==> _ <> data_to_bvi_v v`
+          (qspec_then `retained_value` assume_tac)
+        \\ rfs[lookup_inter_EQ,lookup_list_to_num_set]
+        \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [MEM_EL])
+      THEN1 (
+        qmatch_goalsub_rename_tac `local_index < n1 + 1`
+        \\ Cases_on `local_index = n1` \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
+        \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_EQ,
                                         lookup_list_to_num_set]
-             \\ RES_TAC \\ DECIDE_TAC)
-      THEN1
-       (`k <> n1` by (REPEAT STRIP_TAC \\ RES_TAC
-                      \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
+        \\ RES_TAC \\ DECIDE_TAC)
+      THEN1 (
+        qmatch_asmsub_rename_tac `lookup local_index t1.locals = SOME _`
+        \\ `local_index <> n1` by (
+          REPEAT STRIP_TAC \\ RES_TAC
+          \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
         \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
         \\ full_simp_tac(srw_ss())[lookup_insert,
                                    lookup_inter_EQ,lookup_list_to_num_set]
         \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[])
-      THEN1 (POP_ASSUM MP_TAC \\ Cases_on `jump_exc t1` \\ full_simp_tac(srw_ss())[]
-             \\ IMP_RES_TAC jump_exc_IMP
-             \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC
-             \\ full_simp_tac(srw_ss())[jump_exc_def])
+      THEN1 (
+        POP_ASSUM MP_TAC \\ Cases_on `jump_exc t1` \\ full_simp_tac(srw_ss())[]
+        \\ IMP_RES_TAC jump_exc_IMP
+        \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC
+        \\ full_simp_tac(srw_ss())[jump_exc_def])
       \\ full_simp_tac(srw_ss())[var_corr_def,get_var_def,lookup_map])
     \\ `(add_space (t2 with locals := env1)
          (op_space_req op (LENGTH vs))).locals = env1` by (EVAL_TAC \\ fs [])
     \\ fs [] \\ pop_assum kall_tac
     \\ qspecl_then [`t2`,`op_space_req op (LENGTH vs)`,`env1`]
-                   (CHOOSE_THEN (CHOOSE_THEN (fn t => fs [t,lookup_map])))
+                   (qx_choosel_then [`space_safe`,`allocated_peak`]
+                     (fn t => fs [t,lookup_map]))
                    (GEN_ALL consume_space_add_space)
     \\ `state_rel r (t2 with <|locals := env1; space := 0;
-                               safe_for_space := sf;
-                               peak_heap_length := hp |>)`
+                               safe_for_space := space_safe;
+                               peak_heap_length := allocated_peak |>)`
       by fs[state_rel_def,lookup_map]
     \\ first_assum (mp_then Any mp_tac data_to_bvi_do_app)
     \\ rpt (disch_then (first_assum o mp_then Any mp_tac))
@@ -1816,40 +1902,50 @@ Resume compile_correct[Op]:
             ,state_rel_def]
     \\ qmatch_goalsub_abbrev_tac `state_stack_max_fupd (K SMX0)
                                  (_ (state_safe_for_space_fupd (K SAFE0) _))`
-    \\ drule_then (qspecl_then [`SMX0`,`SAFE0`,`hp`] assume_tac)
+    \\ drule_then (qspecl_then [`SMX0`,`SAFE0`,`allocated_peak`] assume_tac)
                   do_app_aux_sm_safe_peak_swap
     \\ fs [state_fupdcanon]
     \\ IMP_RES_TAC do_app_aux_const \\ fs [lookup_insert,lookup_map]
     \\ REPEAT STRIP_TAC
-    THEN1 (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[lookup_inter_EQ]
-           \\ `n1 <= k` by DECIDE_TAC \\ full_simp_tac(srw_ss())[])
-    THEN1 (full_simp_tac(srw_ss())[LIST_REL_EL_EQN,
+    THEN1 (
+      qmatch_goalsub_rename_tac `lookup local_index env1 = NONE`
+      \\ UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[lookup_inter_EQ]
+      \\ `n1 <= local_index` by DECIDE_TAC \\ full_simp_tac(srw_ss())[])
+    THEN1 (
+      full_simp_tac(srw_ss())[LIST_REL_EL_EQN,
                                    var_corr_def,get_var_def,lookup_insert]
-           \\ REPEAT STRIP_TAC
-           \\ rename1 `l1 < LENGTH corr`
-           \\ FULL_SIMP_TAC std_ss []
-           \\ `n1 <= n1 /\ l1 < LENGTH corr` by DECIDE_TAC
-           \\ `lookup n1 t2.locals = NONE` by METIS_TAC []
-           \\ `EL l1 corr <> n1`
+      \\ REPEAT STRIP_TAC
+      \\ rename1 `l1 < LENGTH corr`
+      \\ FULL_SIMP_TAC std_ss []
+      \\ `n1 <= n1 /\ l1 < LENGTH corr` by DECIDE_TAC
+      \\ `lookup n1 t2.locals = NONE` by METIS_TAC []
+      \\ `EL l1 corr <> n1`
              by (RES_TAC \\ CCONTR_TAC \\ fs [lookup_map] \\ fs [])
-           \\ RES_TAC \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[]
-           \\ UNABBREV_ALL_TAC \\ fs [lookup_map,lookup_insert]
-           \\ pop_assum (ASSUME_TAC o Q.SPEC `z`)
-           \\ rfs[lookup_inter_EQ,lookup_list_to_num_set]
-           \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [MEM_EL])
-    THEN1 (Cases_on `k = n1` \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
-           \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_EQ,lookup_list_to_num_set]
-           \\ RES_TAC \\ DECIDE_TAC)
-    THEN1
-     (`k <> n1` by (REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
+      \\ RES_TAC \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[]
+      \\ UNABBREV_ALL_TAC \\ fs [lookup_map,lookup_insert]
+      \\ qmatch_asmsub_rename_tac
+        `lookup (EL l1 corr) t2.locals = SOME retained_value`
+      \\ qpat_x_assum `!v. _ = SOME v ==> _ <> data_to_bvi_v v`
+        (qspec_then `retained_value` assume_tac)
+      \\ rfs[lookup_inter_EQ,lookup_list_to_num_set]
+      \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [MEM_EL])
+    THEN1 (
+      qmatch_goalsub_rename_tac `local_index < n1 + 1`
+      \\ Cases_on `local_index = n1` \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
+      \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_EQ,lookup_list_to_num_set]
+      \\ RES_TAC \\ DECIDE_TAC)
+    THEN1 (
+      qmatch_asmsub_rename_tac `lookup local_index t1.locals = SOME _`
+      \\ `local_index <> n1` by (REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
       \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
       \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_EQ,lookup_list_to_num_set]
       \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[])
-    THEN1 (POP_ASSUM MP_TAC \\ Cases_on `jump_exc t1` \\ full_simp_tac(srw_ss())[]
-           \\ IMP_RES_TAC jump_exc_IMP
-           \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC
-           \\ full_simp_tac(srw_ss())[jump_exc_def])
-    \\ full_simp_tac(srw_ss())[var_corr_def,get_var_def,lookup_map])))
+    THEN1 (
+      POP_ASSUM MP_TAC \\ Cases_on `jump_exc t1` \\ full_simp_tac(srw_ss())[]
+      \\ IMP_RES_TAC jump_exc_IMP
+      \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC
+      \\ full_simp_tac(srw_ss())[jump_exc_def])
+    \\ full_simp_tac(srw_ss())[var_corr_def,get_var_def,lookup_map]))
 QED
 
 Resume compile_correct[Tick]:

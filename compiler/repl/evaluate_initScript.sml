@@ -403,6 +403,13 @@ Proof
     gs [state_ok_def, state_rel_def, EVERY_EL, ref_ok_def]
     \\ rw [] \\ gs [FLOOKUP_FUN_FMAP])
   \\ simp [Once CONJ_COMM]
+  \\ Cases_on ‘(∃a. op = UnsafeIndexArith a) ∨ ∃test. op = UnsafeIndexTest test’
+  >- (
+    gvs [do_app_cases, do_unsafe_index_arith_def,
+         do_unsafe_index_test_def, AllCaseEqs(), v_ok_thm,
+         with_same_refs_and_ffi]
+    \\ rename [‘do_arith arith _ _ = SOME (INL _)’]
+    \\ Cases_on ‘arith’ \\ gvs [do_arith_def, AllCaseEqs()])
   \\ Cases_on ‘op = Env_id’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
@@ -413,10 +420,12 @@ Proof
          CaseEqs ["ffi_result", "option", "bool", "oracle_result"]]
     \\ gvs [with_same_refs_and_ffi]
     \\ gs [state_ok_def, EVERY_EL, state_rel_def] \\ rw []
-    \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ gs []
+    \\ gs [FLOOKUP_FUN_FMAP]
+    \\ qmatch_goalsub_rename_tac `EL store_index _`
+    \\ first_x_assum (qspec_then `store_index` assume_tac) \\ gs []
     \\ gs [EL_LUPDATE, ref_ok_def]
-    \\ rename1 ‘n = lnum’
-    \\ Cases_on ‘n = lnum’ \\ gs [ref_rel_def])
+    \\ rename1 `store_index = updated_location`
+    \\ Cases_on `store_index = updated_location` \\ gs [ref_rel_def])
   \\ Cases_on ‘op = ConfigGC’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
@@ -437,7 +446,9 @@ Proof
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_assign_def]
     \\ gs [state_ok_def, EVERY_EL, state_rel_def] \\ rw []
-    \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ gs []
+    \\ gs [FLOOKUP_FUN_FMAP]
+    \\ qmatch_goalsub_rename_tac `EL store_index _`
+    \\ first_x_assum (qspec_then `store_index` assume_tac) \\ gs []
     \\ gs [EL_LUPDATE, ref_ok_def]
     \\ IF_CASES_TAC \\ gs []
     \\ rw [ref_rel_def])
@@ -449,7 +460,9 @@ Proof
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_assign_def]
     \\ gs [state_ok_def, EVERY_EL, state_rel_def] \\ rw []
-    \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ gs []
+    \\ gs [FLOOKUP_FUN_FMAP]
+    \\ qmatch_goalsub_rename_tac `EL store_index _`
+    \\ first_x_assum (qspec_then `store_index` assume_tac) \\ gs []
     \\ gs [EL_LUPDATE, ref_ok_def]
     \\ IF_CASES_TAC \\ gs []
     \\ rw [ref_rel_def])
@@ -461,7 +474,9 @@ Proof
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_assign_def]
     \\ gs [state_ok_def, EVERY_EL, state_rel_def] \\ rw []
-    \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ gs []
+    \\ gs [FLOOKUP_FUN_FMAP]
+    \\ qmatch_goalsub_rename_tac `EL store_index _`
+    \\ first_x_assum (qspec_then `store_index` assume_tac) \\ gs []
     \\ gs [EL_LUPDATE, ref_ok_def]
     \\ IF_CASES_TAC \\ gs []
     \\ rw [ref_rel_def])
@@ -470,7 +485,9 @@ Proof
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_assign_def, store_lookup_def]
     \\ gs [state_ok_def, EVERY_EL, state_rel_def] \\ rw []
-    \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ gs []
+    \\ gs [FLOOKUP_FUN_FMAP]
+    \\ qmatch_goalsub_rename_tac `EL store_index _`
+    \\ first_x_assum (qspec_then `store_index` assume_tac) \\ gs []
     \\ gs [EL_LUPDATE, ref_ok_def]
     \\ IF_CASES_TAC \\ gvs [ref_rel_def, LIST_REL_EL_EQN, v_ok_def]
     \\ rw [EL_LUPDATE, ref_ok_def])
@@ -683,11 +700,10 @@ Proof
          state_ok_def, v_ok_def, state_rel_def, FLOOKUP_FUN_FMAP,
          INJ_IFF, FUN_FMAP_DEF, v_rel_def, store_alloc_def]
     \\ rw [EL_APPEND_EQN] \\ gvs [NOT_LESS, LESS_OR_EQ, ref_rel_def]
-    THENL [
-      first_x_assum drule \\ rw [ref_rel_def]
-      \\ irule_at Any ref_rel_mono
-      \\ first_assum (irule_at Any) \\ rw [],
-      ALL_TAC ]
+    >>> SELECT_LT_THEN (Q.MATCH_GOALSUB_RENAME_TAC `ref_rel _ _ _`)
+      (first_x_assum drule \\ rw [ref_rel_def]
+       \\ irule_at Any ref_rel_mono
+       \\ first_assum (irule_at Any) \\ rw [])
     \\ irule v_rel_update
     \\ first_assum (irule_at Any)
     \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
@@ -717,7 +733,8 @@ Proof
   \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
   >- gvs [do_app_def, AllCaseEqs(), thunk_op_def]
   \\ Cases_on ‘op’ \\ gs []
-  \\ Cases_on ‘t’ \\ gs []
+  \\ qmatch_asmsub_rename_tac `ThunkOp thunk_primitive`
+  \\ Cases_on `thunk_primitive` \\ gs []
 QED
 
 Theorem do_app_ok[allow_rebind] = SIMP_RULE (srw_ss()) [LET_THM] do_app_ok;

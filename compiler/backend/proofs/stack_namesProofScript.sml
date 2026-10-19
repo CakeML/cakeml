@@ -115,7 +115,7 @@ QED
 Theorem sh_mem_store_rename_state[simp]:
   BIJ (find_name f) UNIV UNIV ⇒
   sh_mem_store (find_name f x) y (rename_state c f s) =
-  (FST (sh_mem_store x y s):'a result option, (rename_state c f) (SND (sh_mem_store x y s)))
+  (FST (sh_mem_store x y s):'a stackSem$result option, (rename_state c f) (SND (sh_mem_store x y s)))
 Proof
   strip_tac>>
   simp[sh_mem_store_def,ffiTheory.call_FFI_def,get_var_def]>>every_case_tac>>

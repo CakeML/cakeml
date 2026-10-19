@@ -11,6 +11,8 @@ Ancestors
 Libs
   preamble
 
+val _ = Parse.hide "member";
+
 (* TODO Remove unused definition / trivialities *)
 
 Type dfy_state[pp] = “:dafny_semanticPrimitives$state”

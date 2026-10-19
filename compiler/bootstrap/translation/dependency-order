@@ -23,7 +23,6 @@ reg_alloc
 infer
 explorer
 decode
-sexp_parser
 basis_def
 printing
 to_word

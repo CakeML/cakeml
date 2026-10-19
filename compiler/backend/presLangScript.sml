@@ -209,7 +209,7 @@ Definition arith_to_display_def:
   arith_to_display Or  = empty_item «Or» ∧
   arith_to_display Neg = empty_item «Neg» ∧
   arith_to_display Not = empty_item «Not» ∧
-  arith_to_display Abs = empty_item «Abs» ∧
+  arith_to_display Absolute = empty_item «Absolute» ∧
   arith_to_display Sqrt = empty_item «Sqrt» ∧
   arith_to_display FMA = empty_item «FMA» ∧
   arith_to_display (Shift sh) = Item NONE «Shift» [shift_to_display sh]
@@ -236,6 +236,8 @@ Definition op_to_display_def:
   | Arith a ty => Item NONE «Arith»
                          [arith_to_display a;
                           prim_type_to_display ty]
+  | UnsafeIndexArith a => Item NONE «UnsafeIndexArith» [arith_to_display a]
+  | UnsafeIndexTest test => Item NONE «UnsafeIndexTest» [test_to_display test]
   | FromTo ty1 ty2 => Item NONE «FromTo»
                          [prim_type_to_display ty1;
                           prim_type_to_display ty2]
@@ -661,6 +663,16 @@ Definition clos_op_to_display_def:
     | IntOp Greater => String «Greater»
     | IntOp GreaterEq => String «GreaterEq»
     | IntOp (LessConstSmall num) => item_with_num «LessConstSmall» num
+    | IntOp (Smallnum SmallAdd) => String «SmallAdd»
+    | IntOp (Smallnum SmallSub) => String «SmallSub»
+    | IntOp (Smallnum SmallMult) => String «SmallMult»
+    | IntOp (Smallnum SmallDiv) => String «SmallDiv»
+    | IntOp (Smallnum SmallMod) => String «SmallMod»
+    | IntOp (Smallnum SmallLess) => String «SmallLess»
+    | IntOp (Smallnum SmallLessEq) => String «SmallLessEq»
+    | IntOp (Smallnum SmallGreater) => String «SmallGreater»
+    | IntOp (Smallnum SmallGreaterEq) => String «SmallGreaterEq»
+    | IntOp (Smallnum SmallEqual) => String «SmallEqual»
     | WordOp (WordOpw ws op) => Item NONE «WordOp»
                                      [word_size_to_display ws;
                                       opw_to_display op]

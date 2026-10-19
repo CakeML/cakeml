@@ -5,7 +5,7 @@
 *)
 Theory repl_inputMetadata
 Ancestors
-  astProg repl_init_types envRel ml_prog primTypes
+  AstProg repl_init_types envRel ml_prog primTypes
   infer_cv inferSound backend_cv
   typeSystem semanticPrimitives
 Libs
@@ -302,5 +302,5 @@ Proof
   rewrite_tac [repl_input_syntax_ok, rich_listTheory.IS_PREFIX_APPEND] >>
   qexists_tac `[Dmod «Ast» (ast_type_decs ++ ast_pp_decs)] ++ repl_suffix` >>
   rewrite_tac [repl_moduleProgTheory.repl_prog_partition,
-    astProgTheory.ast_prog_partition, APPEND_ASSOC]
+    AstProgTheory.ast_prog_partition, APPEND_ASSOC]
 QED
