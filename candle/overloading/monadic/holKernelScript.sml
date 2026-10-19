@@ -9,7 +9,6 @@ Libs
 Ancestors
   mlstring mllist holSyntaxExtra holSyntaxCyclicity ml_monadBase
 
-val _ = ParseExtras.temp_loose_equality();
 val _ = patternMatchesSyntax.temp_enable_pmatch();
 val _ = monadsyntax.temp_add_monadsyntax()
 val _ = monadsyntax.temp_enable_monad "st_ex";

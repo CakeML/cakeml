@@ -5,6 +5,7 @@ Theory crepProps
 Libs
   preamble
 Ancestors
+  wordSem
   panSem panLang pan_common panProps crepLang crepSem pan_commonProps
 
 
@@ -28,8 +29,8 @@ QED
 
 
 Theorem length_load_shape_eq_shape:
-  !n a e.
-   LENGTH (load_shape a n e) = n
+  !n aw a e.
+   LENGTH (load_shape aw a n e) = n
 Proof
   Induct >> rw [] >>
   once_rewrite_tac [load_shape_def] >>
@@ -38,24 +39,25 @@ Proof
 QED
 
 Theorem eval_load_shape_el_rel:
-  !m n a t e.
+  !m n aw a t e.
   n < m ==>
-  eval t (EL n (load_shape a m e)) =
-  eval t (Load (Op Add [e; Const (a + bytes_in_word * n2w n)]))
+  eval t (EL n (load_shape aw a m e)) =
+  eval t (Load (Op Add [e; Const (a + &(arch_bytes aw) * &n)]))
 Proof
   Induct >> rw [] >>
   once_rewrite_tac [load_shape_def] >>
   fs [ADD1] >>
   cases_on ‘n’ >> fs []
   >- (
-   TOP_CASE_TAC >> fs [] >>
-   fs [eval_def, OPT_MMAP_def] >>
-   TOP_CASE_TAC >> fs [] >>
-   TOP_CASE_TAC >> fs [] >>
-   fs [wordLangTheory.word_op_def]) >>
+    Cases_on ‘a = 0’ >> gvs [] >>
+    simp [eval_def, OPT_MMAP_def, integer_wordTheory.i2w_pos] >>
+    Cases_on ‘eval t e’ >> simp [wordSemTheory.word_op_def] >>
+    Cases_on ‘x’ >> simp []
+  ) >>
   rw [] >>
-  fs [ADD1] >>
-  fs [GSYM word_add_n2w, WORD_LEFT_ADD_DISTRIB]
+  simp [ADD1, LEFT_ADD_DISTRIB, integerTheory.INT_ADD,
+        integerTheory.INT_ADD_ASSOC] >>
+  rewrite_tac [GSYM integerTheory.INT_ADD_ASSOC, integerTheory.INT_ADD]
 QED
 
 Theorem mem_loads_flat_rel:
@@ -120,7 +122,7 @@ Theorem update_locals_not_vars_eval_eq:
 Proof
   ho_match_mp_tac eval_ind >> rpt strip_tac >>
   gvs[eval_def,var_cexp_def, FLOOKUP_UPDATE,AllCaseEqs(),
-      mem_load_def, wordLangTheory.word_op_def, PULL_EXISTS,
+      mem_load_def, wordSemTheory.word_op_def, PULL_EXISTS,
       oneline crep_op_def, MAP_EQ_CONS, MEM_FLAT, MEM_MAP,
       opt_mmap_eq_some, SF DNF_ss] >>
   irule_at (Pos last) EQ_REFL >>
@@ -213,8 +215,8 @@ Proof
 QED
 
 Theorem var_exp_load_shape:
-  !i a e n.
-   MEM n (load_shape a i e) ==>
+  !i aw a e n.
+   MEM n (load_shape aw a i e) ==>
    var_cexp n = var_cexp e
 Proof
   Induct >>
@@ -427,8 +429,8 @@ Proof
 QED
 
 Theorem assigned_vars_seq_store_empty:
-  !es ad a.
-  assigned_vars (nested_seq (stores ad es a)) =  []
+  !es aw ad a.
+  assigned_vars (nested_seq (stores aw ad es a)) =  []
 Proof
   Induct >> rw [] >>
   fs [stores_def, assigned_vars_def, nested_seq_def] >>
@@ -437,8 +439,8 @@ Proof
 QED
 
 Theorem assigned_free_vars_seq_store_empty:
-  !es ad a.
-  assigned_free_vars (nested_seq (stores ad es a)) =  []
+  !es aw ad a.
+  assigned_free_vars (nested_seq (stores aw ad es a)) =  []
 Proof
   Induct >> rw [] >>
   fs [stores_def, assigned_free_vars_def, nested_seq_def] >>
@@ -481,8 +483,8 @@ Proof
 QED
 
 Theorem evaluate_seq_stroes_locals_eq:
-  !es ad a s res t.
-   evaluate (nested_seq (stores ad es a),s) = (res,t) ==>
+  !es aw ad a s res t.
+   evaluate (nested_seq (stores aw ad es a),s) = (res,t) ==>
    t.locals = s.locals
 Proof
   Induct >> rw []
@@ -495,11 +497,22 @@ Proof
   fs [panSemTheory.mem_store_def,state_component_equality]
 QED
 
+Theorem arch_bytes_i2w:
+  arch_width_bits aw = dimindex(:'a) ==>
+  (i2w (&(arch_bytes aw)):'a word) = bytes_in_word
+Proof
+  Cases_on ‘aw’ >>
+  simp [asmTheory.arch_width_bits_def, asmTheory.arch_bytes_def,
+        byteTheory.bytes_in_word_def, integer_wordTheory.i2w_pos] >>
+  strip_tac >> pop_assum (SUBST1_TAC o SYM) >> simp []
+QED
+
 Theorem evaluate_seq_stores_mem_state_rel:
-  !es vs ad a s res t addr m.
+  !es vs aw ad a (s:('a,'ffi) crepSem$state) res t addr m.
+   arch_width_bits aw = dimindex(:'a) /\
    LENGTH es = LENGTH vs /\ ~MEM ad es /\ ALL_DISTINCT es /\
-   mem_stores (addr+a) vs s.memaddrs s.memory = SOME m /\
-   evaluate (nested_seq (stores (Var ad) (MAP Var es) a),
+   mem_stores (addr+i2w a) vs s.memaddrs s.memory = SOME m /\
+   evaluate (nested_seq (stores aw (Var ad) (MAP Var es) a),
              s with locals := s.locals |++
                ((ad,Word addr)::ZIP (es,vs))) = (res,t) ==>
    res = NONE ∧ t.memory = m ∧
@@ -529,24 +542,27 @@ Proof
   fs [stores_def] >>
   FULL_CASE_TAC >> fs []
   >- (
-   fs [nested_seq_def, evaluate_def] >>
-   pairarg_tac >> fs [] >>
-   ‘eval (s with locals := lc) (Var ad) = SOME (Word addr)’ by (
-     fs [Abbr ‘lc’, eval_def] >>
-     fs [Once FUPDATE_LIST_THM] >>
-     ‘~MEM ad (MAP FST ((h,h')::ZIP (es,t')))’ by (
-      drule MAP_ZIP >>
-      strip_tac >> fs []) >>
-    drule FUPDATE_FUPDATE_LIST_COMMUTES >>
-    disch_then (qspecl_then [‘Word addr’, ‘s.locals’] assume_tac) >>
-    fs [FLOOKUP_UPDATE]) >> fs [] >>
-   rfs [] >> rveq >> fs [] >>
-   last_x_assum (qspecl_then [‘t'’, ‘ad’, ‘bytes_in_word’] mp_tac) >> fs [] >>
-   disch_then (qspec_then ‘s with <|locals := lc; memory := m'|>’ mp_tac) >> fs [] >>
-   disch_then drule >> fs []) >>
+    fs [integer_wordTheory.i2w_pos] >>
+    fs [nested_seq_def, evaluate_def] >>
+    pairarg_tac >> fs [] >>
+    ‘eval (s with locals := lc) (Var ad) = SOME (Word addr)’ by (
+      fs [Abbr ‘lc’, eval_def] >>
+      fs [Once FUPDATE_LIST_THM] >>
+      ‘~MEM ad (MAP FST ((h,h')::ZIP (es,t')))’ by (
+        drule MAP_ZIP >>
+        strip_tac >> fs []) >>
+      drule FUPDATE_FUPDATE_LIST_COMMUTES >>
+      disch_then (qspecl_then [‘Word addr’, ‘s.locals’] assume_tac) >>
+      fs [FLOOKUP_UPDATE]) >> fs [] >>
+    rfs [] >> rveq >> fs [] >>
+    last_x_assum (qspecl_then [‘t'’, ‘aw’, ‘ad’, ‘&(arch_bytes aw)’] mp_tac) >>
+    fs [arch_bytes_i2w] >>
+    disch_then (qspec_then ‘s with <|locals := lc; memory := m'|>’ mp_tac) >> fs [] >>
+    disch_then drule >> fs []
+  ) >>
   fs [nested_seq_def, evaluate_def] >>
   pairarg_tac >> fs [] >>
-  ‘eval (s with locals := lc) (Op Add [Var ad; Const a]) = SOME (Word (addr+a))’ by (
+  ‘eval (s with locals := lc) (Op Add [Var ad; Const a]) = SOME (Word (addr+i2w a))’ by (
     fs [eval_def, OPT_MMAP_def, Abbr ‘lc’] >>
     fs [Once FUPDATE_LIST_THM] >>
     ‘~MEM ad (MAP FST ((h,h')::ZIP (es,t')))’ by (
@@ -554,13 +570,15 @@ Proof
       strip_tac >> fs []) >>
     drule FUPDATE_FUPDATE_LIST_COMMUTES >>
     disch_then (qspecl_then [‘Word addr’, ‘s.locals’] assume_tac) >>
-    fs [FLOOKUP_UPDATE, wordLangTheory.word_op_def]) >> fs [] >>
+    fs [FLOOKUP_UPDATE, wordSemTheory.word_op_def]) >> fs [] >>
    rfs [] >> rveq >> fs [] >>
    pop_assum kall_tac >>
    pop_assum kall_tac >>
-   last_x_assum (qspecl_then [‘t'’, ‘ad’, ‘a + bytes_in_word’] mp_tac) >> fs [] >>
-   disch_then (qspec_then ‘s with <|locals := lc; memory := m'|>’ mp_tac) >> fs [] >>
-   disch_then drule >> fs []
+  last_x_assum (qspecl_then [‘t'’, ‘aw’, ‘ad’, ‘a + &(arch_bytes aw)’] mp_tac) >>
+  PURE_ONCE_REWRITE_TAC [GSYM integer_wordTheory.word_i2w_add] >>
+  simp [arch_bytes_i2w] >>
+  disch_then (qspec_then ‘s with <|locals := lc; memory := m'|>’ mp_tac) >>
+  fs [] >> disch_then drule >> fs []
 QED
 
 Theorem evaluate_seq_store_globals_res:
@@ -686,9 +704,9 @@ Proof
 QED
 
 Theorem load_glob_not_mem_load:
-  !i a h ad.
+  !i aw a h ad.
   ~MEM (LoadGlob ad) (exps h) ==>
-  ~MEM (LoadGlob ad) (FLAT (MAP exps (load_shape a i h)))
+  ~MEM (LoadGlob ad) (FLAT (MAP exps (load_shape aw a i h)))
 Proof
   Induct >> rw [] >- fs [load_shape_def] >>
   fs [load_shape_def] >>
@@ -1311,9 +1329,8 @@ Definition every_exp_def:
   (every_exp P (BaseAddr) = P BaseAddr) ∧
   (every_exp P (TopAddr) = P TopAddr)
 Termination
-  wf_rel_tac `measure (exp_size ARB o SND)` >>
+  wf_rel_tac `measure (exp_size o SND)` >>
   rpt strip_tac >>
   imp_res_tac MEM_IMP_exp_size >>
-  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
   decide_tac
 End

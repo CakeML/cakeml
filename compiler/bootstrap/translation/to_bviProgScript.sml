@@ -7,8 +7,6 @@ Ancestors
 Libs
   preamble ml_translatorLib
 
-open preamble ml_translatorLib ml_translatorTheory to_bvlProgTheory
-
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "to_bvlProg";
@@ -197,12 +195,6 @@ val bvl_to_bvi_compile_single_side = Q.prove(`
   EVAL_TAC \\ rw[]
   \\ imp_res_tac bvl_to_bviTheory.compile_exps_LENGTH
   \\ CCONTR_TAC \\ fs[]) |> update_precondition;
-
-val r = translate bvl_to_bviTheory.get_names_def;
-
-val bvl_to_bvi_get_names_side = Q.prove(`
-  ∀x y. bvl_to_bvi_get_names_side x y ⇔ T`,
-  EVAL_TAC \\ fs []) |> update_precondition;
 
 val r = translate bvl_to_bviTheory.compile_list_def;
 val r = translate bvl_to_bviTheory.compile_prog_def;

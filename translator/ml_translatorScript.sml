@@ -2364,7 +2364,7 @@ QED
 Theorem Eval_FLOAT_ABS:
   ∀f1.
     Eval env x1 (FLOAT64 f1) ⇒
-    Eval env (App (Arith Abs Float64T) [x1]) (FLOAT64 (float64_abs f1))
+    Eval env (App (Arith Absolute Float64T) [x1]) (FLOAT64 (float64_abs f1))
 Proof
   rw[Eval_rw, FLOAT64_def]
   \\ first_x_assum (qspec_then `refs` strip_assume_tac)
@@ -2661,6 +2661,17 @@ Theorem Eval_strsub:
 Proof
   tac2 \\ Cases_on `s` \\ fs [STRING_TYPE_def,NUM_def,INT_def]
   \\ fs[STRING_TYPE_def,CHAR_def,stringTheory.IMPLODE_EXPLODE_I,NUM_def,INT_def]
+QED
+
+Theorem Eval_strsub_unsafe:
+   !env x1 x2 s n.
+      Eval env x1 (STRING_TYPE s) ==>
+      Eval env x2 (NUM n) ==>
+      n < strlen s ==>
+      Eval env (App Strsub_unsafe [x1; x2]) (CHAR (strsub_unsafe s n))
+Proof
+  tac2 \\ Cases_on `s` \\ fs [STRING_TYPE_def,NUM_def,INT_def]
+  \\ fs[STRING_TYPE_def,CHAR_def,mlstringTheory.strsub_unsafe_def,NUM_def,INT_def]
 QED
 
 Theorem Eval_concat:

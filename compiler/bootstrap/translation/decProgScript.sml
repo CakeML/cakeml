@@ -8,10 +8,6 @@ Ancestors
 Libs
   preamble ml_translatorLib ml_progLib MapProgLib
 
-open preamble astTheory semanticPrimitivesTheory;
-open ml_translatorLib ml_translatorTheory ml_progLib;
-open repl_init_envProgTheory;
-
 val _ = translation_extends "repl_init_envProg";
 
 Theorem IsTypeRep_LIST_v = fetch_v_fun “:'a list” |> snd |> hd;

@@ -51,7 +51,7 @@ val EqualityType_regexp = EqualityType_rule [] ``:regexp``;
    balanced_map from basis cannot be used here beause the basis only
    exposes the mlmapTheory functions which provide a neater -- but
    different -- interface. The duplication doesn't matter due to
-   flat_elim removing all the unused functions during compilation. *)
+   source_dce removing all the unused functions during compilation. *)
 
 val _ = translate balanced_mapTheory.size_def;
 val _ = translate balanced_mapTheory.singleton_def;

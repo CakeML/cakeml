@@ -134,11 +134,9 @@ fun app_of_Arrow_rule ctxt ffi_ty thm = let
       (assume_tac asm)) \\
     ASSUM_LIST (fn assums =>
       foldr (fn (asm, tac_acc) =>
-        (* use old_drule and hope that p in theorem will be the same as p
-           in the goal *)
-        old_drule (INST_TYPE [ffi_varty |-> ffi_ty] Arrow_IMP_app_basic) \\
-        disch_then (fn th => mp_tac (MATCH_MP th asm)) \\
-        match_mp_tac app_basic_weaken \\
+        drule_then (fn th =>
+            irule app_basic_weaken \\ irule_at Any (MATCH_MP th asm))
+          (INST_TYPE [ffi_varty |-> ffi_ty] Arrow_IMP_app_basic) \\
         Cases THEN_LT REVERSE_LT THEN1 (simp [cfHeapsBaseTheory.POSTv_def]) \\
         fs [cond_def, SEP_EXISTS_THM] \\ rpt strip_tac \\
         qexists_tac `emp` \\ fs [SEP_CLAUSES] \\ tac_acc

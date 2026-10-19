@@ -51,13 +51,13 @@ End
 
 Definition asm_fetch_aux_def:
   (asm_fetch_aux pos [] = NONE) /\
-  (asm_fetch_aux pos ((Section k [])::xs) = asm_fetch_aux pos xs) /\
-  (asm_fetch_aux pos ((Section k (y::ys))::xs) =
+  (asm_fetch_aux pos ((Section k [] md)::xs) = asm_fetch_aux pos xs) /\
+  (asm_fetch_aux pos ((Section k (y::ys) md)::xs) =
      if is_Label y
-     then asm_fetch_aux pos ((Section k ys)::xs)
+     then asm_fetch_aux pos ((Section k ys md)::xs)
      else if pos = 0:num
           then SOME y
-          else asm_fetch_aux (pos-1) ((Section k ys)::xs))
+          else asm_fetch_aux (pos-1) ((Section k ys md)::xs))
 End
 
 Definition asm_fetch_def:
@@ -145,6 +145,23 @@ Definition arith_upd_def[simp]:
      | (Word w2, Word w3) =>
          upd_reg r4 (Word (if w2i (w2 - w3) ≠ w2i w2 - w2i w3 then 1w else 0w))
             (upd_reg r1 (Word (w2 - w3)) s)
+     | _ => assert F s) /\
+  (arith_upd (IMul rd ra rb ro) s =
+     case (read_reg ra s, read_reg rb s) of
+     | (Word a, Word b) =>
+         upd_reg ro (Word (if w2i (a * b) ≠ w2i a * w2i b then 1w else 0w))
+           (upd_reg rd (Word (a * b)) s)
+     | _ => assert F s) /\
+  (arith_upd (IDiv rq rr ra rb) s =
+     case (read_reg ra s, read_reg rb s) of
+     | (Word wa, Word wb) =>
+         let a = w2i wa in
+         let b = w2i wb in
+         let q = a quot b in
+         let wq = i2w q : 'a word in
+           assert (b ≠ 0 ∧ w2i wq = q)
+             (upd_reg rq (Word wq)
+               (upd_reg rr (Word (i2w (a rem b))) s))
      | _ => assert F s)
 End
 
@@ -326,9 +343,9 @@ End
 
 Definition asm_code_length_def:
   (asm_code_length [] = 0) /\
-  (asm_code_length ((Section k [])::xs) = asm_code_length xs) /\
-  (asm_code_length ((Section k (y::ys))::xs) =
-     asm_code_length ((Section k ys)::xs) + if is_Label y then 0 else 1:num)
+  (asm_code_length ((Section k [] md)::xs) = asm_code_length xs) /\
+  (asm_code_length ((Section k (y::ys) md)::xs) =
+     asm_code_length ((Section k ys md)::xs) + if is_Label y then 0 else 1:num)
 End
 
 Theorem asm_fetch_IMP[local]:
@@ -351,15 +368,15 @@ End
 
 Definition loc_to_pc_def:
   (loc_to_pc n1 n2 [] = NONE) /\
-  (loc_to_pc n1 n2 ((Section k xs)::ys) =
+  (loc_to_pc n1 n2 ((Section k xs md)::ys) =
      if (k = n1) /\ (n2 = 0n) then SOME (0:num) else
        case xs of
        | [] => loc_to_pc n1 n2 ys
        | (z::zs) =>
          if (?k. z = Label n1 n2 k) /\ n2 <> 0 then SOME 0n else
-           if is_Label z then loc_to_pc n1 n2 ((Section k zs)::ys)
+           if is_Label z then loc_to_pc n1 n2 ((Section k zs md)::ys)
            else
-             case loc_to_pc n1 n2 ((Section k zs)::ys) of
+             case loc_to_pc n1 n2 ((Section k zs md)::ys) of
              | NONE => NONE
              | SOME pos => SOME (pos + 1:num))
 End
@@ -406,20 +423,20 @@ End
 
 Definition next_label_def:
   (next_label [] = NONE) /\
-  (next_label ((Section k [])::xs) = next_label xs) /\
-  (next_label ((Section k (Label n1 n2 _::ys))::xs) = SOME (Loc n1 n2)) /\
-  (next_label ((Section k (y::ys))::xs) = next_label (Section k ys::xs))
+  (next_label ((Section k [] md)::xs) = next_label xs) /\
+  (next_label ((Section k (Label n1 n2 _::ys) md)::xs) = SOME (Loc n1 n2)) /\
+  (next_label ((Section k (y::ys) md)::xs) = next_label (Section k ys md::xs))
 End
 
 Definition get_lab_after_def:
   (get_lab_after pos [] = NONE) /\
-  (get_lab_after pos ((Section k [])::xs) = get_lab_after pos xs) /\
-  (get_lab_after pos ((Section k (y::ys))::xs) =
+  (get_lab_after pos ((Section k [] md)::xs) = get_lab_after pos xs) /\
+  (get_lab_after pos ((Section k (y::ys) md)::xs) =
      if is_Label y
-     then get_lab_after pos ((Section k ys)::xs)
+     then get_lab_after pos ((Section k ys md)::xs)
      else if pos = 0:num
-          then next_label ((Section k ys)::xs)
-          else get_lab_after (pos-1) ((Section k ys)::xs))
+          then next_label ((Section k ys md)::xs)
+          else get_lab_after (pos-1) ((Section k ys md)::xs))
 End
 
 Definition get_ret_Loc_def:
@@ -556,7 +573,7 @@ Definition evaluate_def:
               let (cfg,prog) = s.compile_oracle 0 in (* the next oracle program *)
               let new_oracle = shift_seq 1 s.compile_oracle in
                 (case (s.compile cfg prog, prog) of
-                 | (SOME (bytes',cfg'), Section k _ :: _) =>
+                 | (SOME (bytes',cfg'), Section k _ _ :: _) =>
                    if bytes = bytes' ∧ FST(new_oracle 0) = cfg' then (* the oracle was correct *)
                      evaluate
                        (s with <|

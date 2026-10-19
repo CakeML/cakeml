@@ -7,10 +7,6 @@ Ancestors
 Libs
   preamble ml_translatorLib
 
-open preamble
-     lexer_funTheory lexer_implTheory to_dataProgTheory
-     ml_translatorLib ml_translatorTheory
-
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = translation_extends "to_dataProg";
@@ -127,7 +123,6 @@ val lexer_fun_aux_side = Q.prove(`
 val lexer_fun_side = Q.prove(`
   ∀x. lexer_fun_side x ⇔ T`,
   EVAL_TAC>>fs[lexer_fun_aux_side]) |> update_precondition
-
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

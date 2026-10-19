@@ -3,7 +3,7 @@
 *)
 Theory arm8_targetProof
 Ancestors
-  arm8_target
+  arm8_target asmSigned
 Libs
   asmLib arm8_stepLib arm8_targetProofLib
 
@@ -417,6 +417,30 @@ Proof
   \\ intLib.ARITH_TAC
 QED
 
+Theorem mul_cmp_zero_64[local]:
+  (-1w * a + b : word64) = 0w <=> b = a
+Proof
+  blastLib.BBLAST_TAC
+QED
+
+Theorem signed_msub_rem_64[local]:
+  (b : word64) <> 0w ==>
+  a + -1w * (i2w (w2i a quot w2i b) * b) = i2w (w2i a rem w2i b)
+Proof
+  strip_tac
+  \\ sg `w2i a + -1 * ((w2i a quot w2i b) * w2i b) =
+         w2i a rem w2i b`
+  >- (
+    mp_tac (Q.SPEC `w2i (b : word64)` integerTheory.INT_REMQUOT)
+    \\ simp [integer_wordTheory.w2i_eq_0]
+    \\ disch_then (Q.SPEC_THEN `w2i (a : word64)` strip_assume_tac)
+    \\ intLib.ARITH_TAC)
+  \\ qpat_x_assum `_ = _ rem _` (fn th => once_rewrite_tac [GSYM th])
+  \\ simp [GSYM integer_wordTheory.word_i2w_add,
+           GSYM integer_wordTheory.word_i2w_mul,
+           integer_wordTheory.i2w_w2i, integer_wordTheory.i2w_minus_1]
+QED
+
 Theorem arm8_encoder_correct:
     encoder_correct arm8_target
 Proof
@@ -437,12 +461,11 @@ QED
 
 Resume arm8_encoder_correct[Inst]:
   Cases_on `i'`
-      >- suspend "Skip"
-      >- suspend "Const"
-      >- suspend "Arith"
-         >- suspend "Mem"
-
-         \\ suspend "FP"
+  >- suspend "Skip"
+  >- suspend "Const"
+  >- suspend "Arith"
+  >- suspend "Mem"
+  >- suspend "FP"
 QED
 
 Resume arm8_encoder_correct[Skip]:
@@ -499,6 +522,8 @@ QED
 
 Resume arm8_encoder_correct[Arith]:
   Cases_on `a`
+         >~ [`asm$IMul rd ra rb ro`] >- suspend "IMul"
+         >~ [`asm$IDiv rq rr ra rb`] >- suspend "IDiv"
          >- suspend "Binop"
          >- suspend "Shift"
          >- suspend "Div"
@@ -507,6 +532,48 @@ Resume arm8_encoder_correct[Arith]:
          >- suspend "AddCarry"
          >- suspend "AddOverflow"
          >- suspend "SubOverflow"
+QED
+
+Resume arm8_encoder_correct[IMul]:
+  next_tac `3`
+  \\ enc_rwts_tac
+  \\ asmLib.split_bytes_in_memory_tac 4
+  \\ next_state_tac01
+  \\ asmLib.split_bytes_in_memory_tac 4
+  \\ next_state_tacN (`4w`, 1) filter_reg_31
+  \\ asmLib.split_bytes_in_memory_tac 4
+  \\ next_state_tacN (`8w`, 1) filter_vacuous
+  \\ next_state_tacN (`12w`, 0) filter_reg_31
+  \\ state_tac [arm8Theory.ExtendWord_def, arm8Theory.DecodeShift_def,
+                arm8Theory.ShiftValue_def, mul_cmp_zero_64, signed_mul_high_64]
+QED
+
+Resume arm8_encoder_correct[IDiv]:
+  Cases_on `rq = ra \/ rq = rb`
+  >- (
+    next_tac `2`
+    \\ enc_rwts_tac
+    \\ qpat_x_assum `(rq : num) = ra \/ rq = rb` kall_tac
+    \\ asmLib.split_bytes_in_memory_tac 4
+    \\ next_state_tac01
+    \\ asmLib.split_bytes_in_memory_tac 4
+    \\ next_state_tacN (`4w`, 1) filter_reg_31
+    \\ next_state_tacN (`8w`, 0) filter_reg_31
+    \\ qpat_x_assum `w2i (i2w _) = _` kall_tac
+    \\ qpat_assum `w2i _ <> 0`
+         (assume_tac o REWRITE_RULE [integer_wordTheory.w2i_eq_0])
+    \\ state_tac [integer_wordTheory.word_quot]
+    \\ simp [signed_msub_rem_64])
+  \\ next_tac `1`
+  \\ enc_rwts_tac
+  \\ asmLib.split_bytes_in_memory_tac 4
+  \\ next_state_tac01
+  \\ next_state_tacN (`4w`, 0) filter_reg_31
+  \\ qpat_x_assum `w2i (i2w _) = _` kall_tac
+  \\ qpat_assum `w2i _ <> 0`
+       (assume_tac o REWRITE_RULE [integer_wordTheory.w2i_eq_0])
+  \\ state_tac [integer_wordTheory.word_quot]
+  \\ simp [signed_msub_rem_64]
 QED
 
 Resume arm8_encoder_correct[Binop]:

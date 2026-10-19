@@ -10,7 +10,6 @@
 Theory printingTest
 Ancestors
   basisTypeCheck addPrintVals typeDecToPP printTweaks infer_cv
-  fromSexp[qualified]
   infer addPrintVals_cv
 Libs
   preamble basicComputeLib ml_translatorLib ml_progLib

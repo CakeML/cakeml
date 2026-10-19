@@ -209,6 +209,20 @@ Definition arm8_ast_def:
       [Data (MultiplyHigh (F, n2w r4, n2w r3, n2w r1));
        Data (MultiplyAddSub@64 (1w, F, n2w r4, 31w, n2w r3, n2w r2))]) /\
    (arm8_ast (Inst (Arith (LongDiv _ _ _ _ _))) = arm8_encode_fail) /\
+   (arm8_ast (Inst (Arith (IMul rd ra rb ro))) =
+      [Data (MultiplyHigh (T, n2w rb, n2w ra, 26w));
+       Data (MultiplyAddSub@64 (1w, F, n2w rb, 31w, n2w ra, n2w rd));
+       Data (AddSubShiftedRegister@64
+               (1w, T, T, ShiftType_ASR, n2w rd, 63w, 26w, 31w));
+       Data (ConditionalSelect@64 (1w, F, T, 0w, 31w, 31w, n2w ro))]) /\
+   (arm8_ast (Inst (Arith (IDiv rq rr ra rb))) =
+      let q = if rq = ra \/ rq = rb then 26w else n2w rq in
+      [Data (Division@64 (1w, F, n2w rb, n2w ra, q));
+       Data (MultiplyAddSub@64 (1w, T, n2w rb, n2w ra, q, n2w rr))] ++
+      (if rq = ra \/ rq = rb then
+         [Data (LogicalShiftedRegister@64
+                  (1w, LogicalOp_ORR, F, F, ShiftType_LSL, 0, 26w, 31w, n2w rq))]
+       else [])) /\
    (arm8_ast (Inst (Arith (AddCarry r1 r2 r3 r4))) =
       [Data (AddSubImmediate@64 (1w, T, T, 0w, n2w r4, 0x1Fw));
        Data (ConditionalCompareImmediate@64

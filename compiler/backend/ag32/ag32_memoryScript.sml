@@ -16,7 +16,6 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 (* TODO: move *)
 
@@ -3714,7 +3713,7 @@ Definition init_memory_words_def:
   (* FFIs *)
   ag32_ffi_jumps ffis ++
   words_of_bytes F code ++
-  data (* ++ padding of 0w out to memory_size: not included here *)
+  MAP n2w data (* ++ padding of 0w out to memory_size: not included here *)
 End
 
 Definition init_memory_def:

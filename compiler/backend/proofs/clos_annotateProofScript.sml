@@ -250,11 +250,11 @@ Definition state_rel_def:
       (FLOOKUP s.refs n = SOME r1) ==>
       ?r2. (FLOOKUP t.refs n = SOME r2) /\ ref_rel v_rel r1 r2) /\
     (FDOM s.code = FDOM t.code) /\
-    (!name arity c.
-      (FLOOKUP s.code name = SOME (arity,c)) ==>
+    (!name arity c md.
+      (FLOOKUP s.code name = SOME (arity,c,md)) ==>
       ?c2.
         (shift (FST (alt_free [c])) 0 arity LN = [c2]) /\
-        (FLOOKUP t.code name = SOME (arity,c2)))
+        (FLOOKUP t.code name = SOME (arity,c2,md)))
 End
 
 Theorem state_rel_max_app:
@@ -277,13 +277,28 @@ Proof
   rw[compile_def,MAP_REVERSE]
 QED
 
+Theorem compile_eta:
+  clos_annotate$compile ls =
+    MAP (λ(n,y). (n,(λ(args,e,md). (args, HD (annotate args [e]), md)) y)) ls
+Proof
+  rw[compile_def,MAP_EQ_f,FORALL_PROD]
+QED
+
 Theorem ALOOKUP_compile:
    ALOOKUP (clos_annotate$compile ls) =
-    OPTION_MAP (λ(args,e). (args, HD (annotate args [e])))
+    OPTION_MAP (λ(args,e,md). (args, HD (annotate args [e]), md))
       o (ALOOKUP ls)
 Proof
   rw[GSYM ALOOKUP_MAP]
-  \\ rw[FUN_EQ_THM,compile_def,LAMBDA_PROD]
+  \\ rw[FUN_EQ_THM,compile_eta,LAMBDA_PROD]
+QED
+
+Theorem ALOOKUP_REVERSE_compile:
+   ALOOKUP (REVERSE (clos_annotate$compile ls)) =
+    OPTION_MAP (λ(args,e,md). (args, HD (annotate args [e]), md))
+      o (ALOOKUP (REVERSE ls))
+Proof
+  fs [REVERSE_compile,ALOOKUP_compile]
 QED
 
 Theorem compile_append:
@@ -448,7 +463,7 @@ Proof
   THEN (
     rw [] \\ fs[state_rel_def,FUN_EQ_THM,FDOM_FUPDATE_LIST]
     \\ conj_tac >- metis_tac[]
-    \\ simp[flookup_fupdate_list,REVERSE_compile,ALOOKUP_compile]
+    \\ simp[flookup_fupdate_list,ALOOKUP_REVERSE_compile]
     \\ rpt gen_tac
     \\ TOP_CASE_TAC \\ fs[]
     \\ simp[annotate_def]
@@ -616,9 +631,9 @@ Theorem shift_correct[local]:
      (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr (Rabort Rtype_error) /\
      (LENGTH env = m + l) /\
      alt_fv_set xs SUBSET env_ok m l i env env' /\
-     every_Fn_vs_NONE xs ∧ FEVERY (λp. every_Fn_vs_NONE [SND (SND p)]) s1.code ∧
+     every_Fn_vs_NONE xs ∧ FEVERY (λp. every_Fn_vs_NONE [FST (SND (SND p))]) s1.code ∧
      (∀n. every_Fn_vs_NONE (FST(SND(s1.compile_oracle n))) ∧
-          every_Fn_vs_NONE (MAP (SND o SND) (SND(SND(s1.compile_oracle n))))) ∧
+          every_Fn_vs_NONE (MAP (FST o SND o SND) (SND(SND(s1.compile_oracle n))))) ∧
      state_rel s1 t1 ==>
      ?res' t2.
         (evaluate (shift (FST (alt_free xs)) m l i,env',t1) = (res',t2)) /\
@@ -627,9 +642,9 @@ Theorem shift_correct[local]:
    (!loc_opt f args (s1:('c,'ffi) closSem$state) res s2 f' args' s1'.
      (evaluate_app loc_opt f args s1 = (res,s2)) /\
      v_rel f f' /\ EVERY2 v_rel args args' /\
-     FEVERY (λp. every_Fn_vs_NONE [SND (SND p)]) s1.code ∧
+     FEVERY (λp. every_Fn_vs_NONE [FST (SND (SND p))]) s1.code ∧
      (∀n. every_Fn_vs_NONE (FST(SND(s1.compile_oracle n))) ∧
-          every_Fn_vs_NONE (MAP (SND o SND) (SND(SND(s1.compile_oracle n))))) ∧
+          every_Fn_vs_NONE (MAP (FST o SND o SND) (SND(SND(s1.compile_oracle n))))) ∧
      state_rel s1 s1' /\ res <> Rerr (Rabort Rtype_error) ==>
      ?res' s2'.
        (evaluate_app loc_opt f' args' s1' = (res',s2')) /\
@@ -1100,9 +1115,10 @@ Proof
     \\ Cases_on `x` \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[find_code_def]
     \\ Cases_on `FLOOKUP s2'.code dest` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `x` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ rename1 `FLOOKUP s2'.code dest = SOME (LENGTH a,r,md)`
     \\ `?c2. shift (FST (alt_free [r])) 0 (LENGTH a) LN = [c2] /\
-             FLOOKUP t2.code dest = SOME (LENGTH a,c2)` by
+             FLOOKUP t2.code dest = SOME (LENGTH a,c2,md)` by
          (full_simp_tac(srw_ss())[state_rel_def] \\ RES_TAC \\ NO_TAC)
     \\ full_simp_tac(srw_ss())[] \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
     \\ `s2'.clock = t2.clock` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
@@ -1288,6 +1304,8 @@ Proof
     \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff
     \\ full_simp_tac(srw_ss())[])
 QED
+
+
 
 Theorem env_set_default[local]:
   x SUBSET env_ok 0 0 LN [] env'
@@ -1579,9 +1597,9 @@ Theorem semantics_annotate:
    semantics (ffi:'ffi ffi_state) max_app (alist_to_fmap prog) co
      (pure_cc compile_inc cc) xs <> Fail ==>
    every_Fn_vs_NONE xs /\
-   every_Fn_vs_NONE (MAP (SND o SND) prog) /\
+   every_Fn_vs_NONE (MAP (FST o SND o SND) prog) /\
    (∀n. every_Fn_vs_NONE (FST (SND (co n))) ∧
-        every_Fn_vs_NONE (MAP (SND ∘ SND) (SND (SND (co n))))) ==>
+        every_Fn_vs_NONE (MAP (FST ∘ SND ∘ SND) (SND (SND (co n))))) ==>
    semantics (ffi:'ffi ffi_state) max_app (alist_to_fmap (compile prog))
      (pure_co compile_inc ∘ co) cc (annotate 0 xs) =
    semantics (ffi:'ffi ffi_state) max_app (alist_to_fmap prog)
@@ -1637,12 +1655,12 @@ QED
 
 Theorem no_Labels_ann:
    !xs.
-      EVERY no_Labels (MAP (SND o SND) xs) ==>
-      EVERY no_Labels (MAP (SND ∘ SND) (clos_annotate$compile xs))
+      EVERY no_Labels (MAP (FST o SND o SND) xs) ==>
+      EVERY no_Labels (MAP (FST ∘ SND ∘ SND) (clos_annotate$compile xs))
 Proof
   fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,clos_annotateTheory.compile_def]
   \\ rw [] \\ res_tac \\ fs []
-  \\ rename [`(x1,x2,x3)`]
+  \\ rename [`(x1,x2,x3,x4)`]
   \\ `?t. annotate x2 [x3] = [t]` by
     (fs [clos_annotateTheory.annotate_def]
      \\ Cases_on `alt_free [x3]` \\ fs []
@@ -1655,12 +1673,12 @@ QED
 
 Theorem obeys_max_app_ann:
    !xs.
-      EVERY (obeys_max_app m) (MAP (SND o SND) xs) ==>
-      EVERY (obeys_max_app m) (MAP (SND ∘ SND) (clos_annotate$compile xs))
+      EVERY (obeys_max_app m) (MAP (FST o SND o SND) xs) ==>
+      EVERY (obeys_max_app m) (MAP (FST ∘ SND ∘ SND) (clos_annotate$compile xs))
 Proof
   fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,clos_annotateTheory.compile_def]
   \\ rw [] \\ res_tac \\ fs []
-  \\ rename [`(x1,x2,x3)`]
+  \\ rename [`(x1,x2,x3,x4)`]
   \\ `?t. annotate x2 [x3] = [t]` by
     (fs [clos_annotateTheory.annotate_def]
      \\ Cases_on `alt_free [x3]` \\ fs []
@@ -1681,8 +1699,8 @@ QED
 
 Theorem every_Fn_SOME_ann:
    !xs.
-      every_Fn_SOME (MAP (SND o SND) xs) ==>
-      every_Fn_SOME (MAP (SND ∘ SND) (clos_annotate$compile xs))
+      every_Fn_SOME (MAP (FST o SND o SND) xs) ==>
+      every_Fn_SOME (MAP (FST ∘ SND ∘ SND) (clos_annotate$compile xs))
 Proof
   fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,clos_annotateTheory.compile_def]
   \\ rw [] \\ res_tac \\ fs [] \\ fs [MAP_MAP_o,o_DEF,UNCURRY]

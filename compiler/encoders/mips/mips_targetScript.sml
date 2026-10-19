@@ -192,6 +192,17 @@ Definition mips_ast_def:
         MultDiv (MFHI (n2w r1));
         MultDiv (MFLO (n2w r2))]) /\
    (mips_ast (Inst (Arith (LongDiv _ _ _ _ _))) = mips_encode_fail) /\
+   (mips_ast (Inst (Arith (IMul rd ra rb ro))) =
+       [MultDiv (DMULT (n2w ra, n2w rb));
+        MultDiv (MFLO (n2w rd));
+        MultDiv (MFHI (n2w ro));
+        Shift (DSRA32 (n2w rd, temp_reg, 31w));
+        ArithR (XOR (n2w ro, temp_reg, n2w ro));
+        ArithR (SLTU (0w, n2w ro, n2w ro))]) /\
+   (mips_ast (Inst (Arith (IDiv rq rr ra rb))) =
+       [MultDiv (DDIV (n2w ra, n2w rb));
+        MultDiv (MFLO (n2w rq));
+        MultDiv (MFHI (n2w rr))]) /\
    (mips_ast (Inst (Arith (AddCarry r1 r2 r3 r4))) =
        [ArithR (SLTU (0w, n2w r4, temp_reg));
         ArithR (DADDU (n2w r2, n2w r3, n2w r1));

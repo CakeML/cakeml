@@ -4,8 +4,7 @@
 *)
 Theory ag32_machine_config
 Ancestors
-  ag32_memory ag32_configProof asmSem[qualified]
-  targetSem[qualified] ag32_target[qualified]
+  ag32_memory ag32_configProof
 Libs
   preamble
 

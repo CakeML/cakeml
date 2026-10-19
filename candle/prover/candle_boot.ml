@@ -24,11 +24,8 @@ let (||) x y = x || y;;
 
 let log x = Double.ln x;;
 
-(* OCaml parser doesn't like ~, and the CakeML parser doesn't like ~- nor ~-. *)
-(*CML
-val negint = Int.~;
-val negfloat = Double.~;
-*)
+(* negint and negfloat come from candle_glue.cml: Candle syntax cannot
+   write ~, and CakeML syntax cannot write ~- nor ~-. *)
 let (~-) x = negint x;;
 let (~-.) x = negfloat x;;
 
@@ -48,11 +45,6 @@ let pp_exn e =
   | Interrupt -> Pretty_printer.token "Interrupt"
   | Failure s -> Pretty_printer.app_block "Failure" [Pretty_printer.pp_string s]
   | _ -> Pretty_printer.token "<exn>";;
-
-(*CML
-(* OCaml parser doesn't like the tilde *)
-val rat_minus = Rat.~;
-*)
 
 (* Some conversions in OCaml style: *)
 
@@ -76,9 +68,9 @@ let int_of_string = Option.valOf o Int.fromString;;
 (* Left shifting integers. HOL Light expects these to not be bigints, so I
    suppose we can just map in and out of word64. *)
 let (lsl) x y =
-  Word64.toInt (Word64.(<<) (Word64.fromInt x) y);;
+  Word64.toInt (Word64.(<<) (Word64.fromInt x) (Word64.fromInt y));;
 let (lsr) x y =
-  Word64.toInt (Word64.(>>) (Word64.fromInt x) y);;
+  Word64.toInt (Word64.(>>) (Word64.fromInt x) (Word64.fromInt y));;
 
 let (land) x y =
   Word64.toInt (Word64.andb (Word64.fromInt x) (Word64.fromInt y));;
@@ -598,7 +590,7 @@ let () =
       match List.find isFile paths with
       | None ->
           print ("- No such file: " ^ fname ^ "\n");
-          Repl.nextString := "";
+          Repl.nextInput := Inr [];
           failwith ("No such file : " ^ fname)
       | Some fname ->
           let loader = match pragma with
@@ -652,6 +644,9 @@ let () =
     | Some tok -> Some tok
     | None -> scan1 () in
   let output_buffer = (Buffer.empty () : Lexer.token Buffer.buffer) in
+  (* Whether output_buffer holds anything but spaces, newlines and comments. *)
+  let hasContent = ref false in
+  let isCml s = String.isPrefix "(*CML" s in
   let rec next_nonspace () =
     match next () with
     | Some (Lexer.T_spaces _) -> next_nonspace ()
@@ -712,14 +707,25 @@ let () =
                if List.null rest then userInput := true)
              | None -> failwith "candle_boot.ml: scan - should be unreachable");
             scan level
+        (* A CML block (a comment opened with the CML marker) that arrives
+           before any content is a phrase of its own; next submits its body
+           as CakeML source. *)
+        | Some (Lexer.T_comment s) when level = 0 && not (!hasContent) && isCml s ->
+            Buffer.flush output_buffer;
+            prompt := !prompt1;
+            Some [Lexer.T_comment s]
         | Some tok ->
             Buffer.push_back output_buffer tok;
+            (match tok with
+             | Lexer.T_spaces _ | Lexer.T_newline | Lexer.T_comment _ -> ()
+             | _ -> hasContent := true);
             match tok with
             | Lexer.T_begin | Lexer.T_struct | Lexer.T_sig ->
                 scan (level + 1)
             | Lexer.T_end -> scan (level - 1)
             | Lexer.T_semis when level = 0 ->
                 prompt := !prompt1;
+                hasContent := false;
                 Some (Buffer.flush output_buffer)
             | Lexer.T_newline when !userInput ->
                 print (!prompt);
@@ -738,18 +744,26 @@ let () =
         match scan 0 with
         | None ->
             Repl.isEOF := true;
-            Repl.nextString := ""
+            Repl.nextInput := Inr []
+        | Some [Lexer.T_comment s] when isCml s ->
+            Repl.isEOF := false;
+            Repl.nextInput := Inl (String.substring s 5 (String.size s - 7))
         | Some ts ->
             Repl.isEOF := false;
-            Repl.nextString :=
-              String.concat
-                (List.map (Lexer.string_of_token (Some (!unquote))) ts)
+            begin
+              let text = String.concat
+                (List.map (Lexer.string_of_token (Some (!unquote))) ts) in
+              match Candle_boot.parse text with
+              | Some decs -> Repl.nextInput := Inr decs
+              | None -> raise Repl_error
+            end
     with Repl_error ->
       if not (!userInput) then print (!prompt1);
       Buffer.flush input_buffer;
       Buffer.flush output_buffer;
       clearLoadStack ();
-      Repl.nextString := "";
+      hasContent := false;
+      Repl.nextInput := Inr [];
       userInput := true in
   Repl.readNextString := (fun () ->
     print (!prompt1);

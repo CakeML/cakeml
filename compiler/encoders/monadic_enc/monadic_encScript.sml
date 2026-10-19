@@ -82,7 +82,11 @@ Definition hash_arith_def:
   (hash_arith m (AddOverflow r1 r2 r3 r4) =
     roll_hash [r1;r2;r3;r4] 27n) ∧
   (hash_arith m (SubOverflow r1 r2 r3 r4) =
-    roll_hash [r1;r2;r3;r4] 28n)
+    roll_hash [r1;r2;r3;r4] 28n) ∧
+  (hash_arith m (IMul rd ra rb ro) =
+    roll_hash [rd;ra;rb;ro] 58n) ∧
+  (hash_arith m (IDiv rq rr ra rb) =
+    roll_hash [rq;rr;ra;rb] 59n)
 End
 
 Definition hash_fp_def:
@@ -150,4 +154,3 @@ Definition hash_asm_def:
   (hash_asm m (Loc r w) =
     roll_hash [r; Num (ABS w) MOD m] 55n)
 End
-

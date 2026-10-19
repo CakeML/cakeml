@@ -7,7 +7,7 @@
 Theory compiler
 Ancestors
   lexer_fun lexer_impl cmlParse infer backend backend_passes
-  mlint mlstring basisProg fromSexp simpleSexpParse x64_config
+  mlint mlstring basisProg mlsexp ast_sexp x64_config
   export_x64 arm8_config export_arm8 riscv_config export_riscv
   mips_config export_mips arm7_config export_arm7 ag32_config
   export_ag32 panPtreeConversion pan_to_target panStatic
@@ -241,17 +241,15 @@ Definition ast_locs_to_string_def:
   ast_locs_to_string input _ = locs_to_string input NONE
 End
 
-(* this is a rather annoying feature of peg_exec requiring locs... *)
-Overload add_locs = ``MAP (λc. (c,unknown_loc))``
-
 Definition parse_sexp_input_def:
   parse_sexp_input input =
-    let err = «Parsing of sexp syntax failed» in
-      case parse_sexp (add_locs input) of
-      | NONE => INL err
-      | SOME x => case sexplist sexpdec x of
-                  | NONE => INL err
-                  | SOME x => INR x
+    let err = «Parsing of sexp syntax failed: » in
+      case mlsexp$parse input of
+      | INL (perr, _) => INL (err ^ perr)
+      | INR (x, _) =>
+        case ast_sexp$to_dec_list x of
+        | NONE => INL (err ^ «to_dec_list returned NONE»)
+        | SOME x => INR x
 End
 
 Definition parse_cml_input_def:
@@ -288,8 +286,8 @@ Definition compile_def:
                                          inf_env_to_types_string ic ++
                                          [«\n»]))), Nil)
           else if c.only_print_sexp then
-            (M_failure (TypeError (implode
-               ("\n" ++ print_sexp (listsexp (MAP decsexp full_prog))))),Nil)
+            (M_failure (TypeError (
+               («\n» ^ sexp_to_string (ast_sexp$from_dec_list full_prog)))),Nil)
           else
           case backend_passes$compile_tap c.asm_config c.backend_config full_prog of
           | (NONE, td) => (M_failure AssembleError, td)
@@ -297,7 +295,7 @@ Definition compile_def:
 End
 
 Definition compile_pancake_def:
-  compile_pancake asm_conf c input =
+  compile_pancake (:'a) asm_conf c input =
   let _ = empty_ffi «finished: start up» in
   case panPtreeConversion$parse_topdecs_to_ast input of
   | INR errs =>
@@ -305,14 +303,14 @@ Definition compile_pancake_def:
        MAP (λ(msg,loc). concat [msg; « at »;
                                 locs_to_string (implode input) (SOME loc); «\n»])
            errs), Nil, [])
-  | INL funs =>
+  | INL (funs:decl list) =>
       case static_check funs of
       | (error e, warns) => (M_failure $ StaticError e, Nil, MAP StaticError warns)
       | (return (), warns) =>
           let _ = empty_ffi «finished: lexing and parsing» in
           case pan_passes$pan_compile_tap asm_conf c funs of
           | (NONE,td) => (M_failure AssembleError, td, MAP StaticError warns)
-          | (SOME (bytes,data,c),td) => (M_success (bytes,data,c), td, MAP StaticError warns)
+          | (SOME (bytes,data:num list,c),td) => (M_success (bytes,data,c), td, MAP StaticError warns)
 End
 
 (* The top-level compiler *)
@@ -552,6 +550,7 @@ EVAL ``parse_gc [«--gc=gen1234,1234,1234»] def``
 (* Copy of conf_ok from data_to_word *)
 Definition conf_ok_check_def:
   conf_ok_check (:'a) c <=>
+    arch_width_bits c.arch_width = dimindex (:α) ∧
     shift_length c < dimindex (:α) ∧
     backend_common$word_shift (dimindex (:α)) ≤ shift_length c ∧ c.len_size ≠ 0 ∧
     c.len_size + 9 < dimindex (:α)
@@ -702,7 +701,7 @@ Definition format_compiler_result_def:
   format_compiler_result bytes_export (M_failure err) =
     (List[]:mlstring app_list, error_to_str err) ∧
   format_compiler_result bytes_export
-    (M_success ((bytes:word8 list),(data:'a word list),(c:backend$config))) =
+    (M_success ((bytes:word8 list),(data:num list),(c:backend$config))) =
     (bytes_export (the [] c.lab_conf.ffi_names) bytes data, implode "")
 End
 
@@ -770,7 +769,7 @@ Definition compile_pancake_64_def:
               (List[], error_to_str (ConfigError (get_err_str ext_conf)))
           | INL ext_conf =>
               let ext_conf = pancake_backend_conf ext_conf in
-              case compiler$compile_pancake aconf ext_conf input of
+              case compiler$compile_pancake (:64) aconf ext_conf input of
               | (M_failure err, td, warns) =>
                   (List[], concat (MAP error_to_str (err::(if nowarn then [] else warns))))
               | (M_success (bytes, data, c), td, warns) =>
@@ -849,7 +848,7 @@ Definition compile_pancake_32_def:
               (List[], error_to_str (ConfigError (get_err_str ext_conf)))
           | INL ext_conf =>
               let ext_conf = pancake_backend_conf ext_conf in
-              case compiler$compile_pancake aconf ext_conf input of
+              case compiler$compile_pancake (:32) aconf ext_conf input of
               | (M_failure err, td, warns) =>
                   (List[], concat (MAP error_to_str (err::(if nowarn then [] else warns))))
               | (M_success (bytes, data, c), td, warns) =>

@@ -5,6 +5,26 @@ User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
 
+Oct 5th 2026
+-------------------
+
+### Frontend bug fixes
+
+The bug where the static checker used the shift amount instead of the
+shifted expression for address location warnings has been fixed.
+
+`@top` now refers to the end of internal memory, as documented.
+Previously, it was parsed as `@base`.
+
+Parse errors now report the line where the error is. Previously, they
+reported the next line.
+
+### Malformed numbers
+
+A number directly followed by a letter or `_`, such as `1x` or `0x10`,
+is now a parse error (`Malformed number: 1x`). Previously, `1x` was
+read as `1 x`, so `var 1x = 0;` declared `x` with shape 1.
+
 Oct 1st 2026
 -------------------
 

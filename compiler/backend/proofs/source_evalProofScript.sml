@@ -4,7 +4,7 @@
 *)
 Theory source_evalProof
 Ancestors
-  ast[qualified] string[qualified] semantics
+  semantics
   semanticPrimitivesProps namespaceProps semanticPrimitives
   evaluateProps evaluate
 Libs
@@ -2431,7 +2431,7 @@ Proof
     \\ (fs [pair_case_eq, result_case_eq] \\ rveq \\ fs [])
     \\ reverse (Cases_on `getOpClass op = EvalOp`)
     >- (
-      fs [astTheory.op_class_case_eq]
+      fs [semanticPrimitivesTheory.op_class_case_eq]
       \\ fs [bool_case_eq, Q.ISPEC `(a, b)` EQ_SYM_EQ]
       \\ gvs []
       >~ [`getOpClass op = Force`] >- gvs [AllCaseEqs(), dec_clock_def]

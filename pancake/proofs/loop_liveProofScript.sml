@@ -337,15 +337,15 @@ Resume compile_correct[Loop]:
 QED
 
 Theorem vars_of_exp_acc:
-  ∀(exp:'a loopLang$exp) l.
+  ∀(exp:loopLang$exp) l.
      domain (vars_of_exp exp l) =
      domain (union (vars_of_exp exp LN) l)
 Proof
   qsuff_tac ‘
-    (∀(exp:'a loopLang$exp) (l_unused:num_set).
+    (∀(exp:loopLang$exp) (l_unused:num_set).
        ∀l. domain (vars_of_exp exp l) =
            domain (union (vars_of_exp exp LN) l)) ∧
-    (∀(exps:'a loopLang$exp list) (l_unused:num_set).
+    (∀(exps:loopLang$exp list) (l_unused:num_set).
        ∀l. domain (vars_of_exp_list exps l) =
            domain (union (vars_of_exp_list exps LN) l))’
   THEN1 metis_tac []
@@ -401,9 +401,9 @@ Theorem vars_of_exp_mono:
   ∀exp l. subspt l (vars_of_exp exp l)
 Proof
   qsuff_tac ‘
-   (∀(exp:'a loopLang$exp) (l:num_set).
+   (∀(exp:loopLang$exp) (l:num_set).
       subspt l (vars_of_exp exp l)) ∧
-   (∀(exp:'a loopLang$exp list) (l:num_set).
+   (∀(exp:loopLang$exp list) (l:num_set).
       subspt l (vars_of_exp_list exp l))’ THEN1 metis_tac []
   \\ ho_match_mp_tac vars_of_exp_ind \\ rw []
   \\ once_rewrite_tac [vars_of_exp_def] >>

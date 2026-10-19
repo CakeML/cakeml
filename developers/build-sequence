@@ -41,6 +41,7 @@ compiler/inference
 compiler/backend/reg_alloc
 compiler/backend/gc
 compiler/backend
+compiler/backend/tests
 compiler/encoders/asm
 compiler/encoders/x64
 compiler/encoders/arm7
@@ -58,7 +59,6 @@ compiler/backend/mips
 compiler/backend/riscv
 compiler/backend/ag32
 compiler/backend/pattern_matching
-compiler/parsing/ocaml
 compiler/printing
 
 # compiler verification
@@ -81,6 +81,7 @@ compiler/backend/arm8/proofs
 compiler/backend/arm8_asl
 compiler/backend/mips/proofs
 compiler/backend/riscv/proofs
+compiler/backend/San
 compiler/backend/ag32/proofs
 compiler/backend/cv_compute
 cv_translator
@@ -103,6 +104,7 @@ candle/overloading/ml_kernel
 candle/overloading/ml_checker
 candle/prover
 candle/prover/compute
+candle/parser
 
 # pancake
 pancake

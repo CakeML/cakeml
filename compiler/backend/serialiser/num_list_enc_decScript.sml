@@ -4,7 +4,7 @@
 *)
 Theory num_list_enc_dec
 Ancestors
-  integer misc namespace ml_translator
+  namespace mlstring
 Libs
   preamble
 

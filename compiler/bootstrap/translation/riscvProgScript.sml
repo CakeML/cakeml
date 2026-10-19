@@ -7,13 +7,6 @@ Ancestors
 Libs
   preamble ml_translatorLib inliningLib
 
-open preamble;
-open evaluateTheory
-open ml_translatorLib ml_translatorTheory;
-open arm8ProgTheory
-open riscv_targetTheory riscvTheory;
-open inliningLib;
-
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "arm8Prog";
@@ -170,7 +163,19 @@ val shiftimmth = reconstruct_case ``riscv_enc (Inst (Arith (Shift b n n0
 val shiftth = reconstruct_case ``riscv_enc(Inst (Arith (Shift b n n0
   r)))`` (rand o rand o rand o rand) [shiftregth,shiftimmth];
 
-val riscv_enc1_3_aux = binopth :: shiftth :: map (fn th => th |>
+val cons_cond = GEN_ALL (Q.ISPEC `CONS (h:riscv$instruction)` COND_RAND)
+
+fun is_idiv th = can (find_term (same_const ``asm$IDiv``)) (concl th)
+
+val riscv_enc1_3_aux = binopth :: shiftth :: map (fn th =>
+  if is_idiv th then th
+    |> SIMP_RULE (srw_ss()) (cons_cond :: Q.ISPEC`LIST_BIND`COND_RAND ::
+                             COND_RATOR :: defaults)
+    |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+    |> SIMP_RULE (srw_ss()) (Q.ISPEC`LIST_BIND`COND_RAND :: COND_RATOR ::
+                             defaults)
+    |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+  else th |>
   SIMP_RULE (srw_ss()) defaults |> wc_simp |> we_simp |> gconv |>
   SIMP_RULE std_ss [SHIFT_ZERO]) rest;
 
@@ -449,7 +454,6 @@ val res = translate def;
 
 Theorem riscv_config_v_thm[allow_rebind] = translate
   (riscv_config_def |> SIMP_RULE bool_ss [IN_INSERT, NOT_IN_EMPTY]|> econv);
-
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

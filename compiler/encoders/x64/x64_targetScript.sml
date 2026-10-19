@@ -99,6 +99,15 @@ Definition x64_ast_def:
    (x64_ast (Inst (Arith (Div _ _ _))) = []) /\
    (x64_ast (Inst (Arith (LongMul _ _ _ r))) = [Zmul (Z64, reg r)]) /\
    (x64_ast (Inst (Arith (LongDiv _ _ _ _ r))) = [Zdiv (Z64, reg r)]) /\
+   (x64_ast (Inst (Arith (IMul rd _ rb ro))) =
+      [Zimul2 (Z64, total_num2Zreg rd, reg rb);
+       Zset (Z_O, 4 <= ro, reg ro);
+       Zmovzx (Z8 T, Zr_rm (total_num2Zreg ro, reg ro),
+               if ro < 4 then Z32 else Z64)]) /\
+   (x64_ast (Inst (Arith (IDiv _ _ _ rb))) =
+      [Zmov (Z_ALWAYS, Z64, Zrm_r (reg 2, total_num2Zreg 0));
+       Zbinop (Zsar, Z64, Zrm_i (reg 2, 63w));
+       Zidiv (Z64, reg rb)]) /\
    (x64_ast (Inst (Arith (AddCarry r1 r2 r3 r4))) =
       [Zbinop (Zcmp, Z64, Zrm_i (reg r4, 1w));
        Zcmc;

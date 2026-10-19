@@ -3,12 +3,11 @@
 *)
 Theory dafny_astProg
 Ancestors
-  cakeml_astProg dafny_ast
+  basisProg dafny_ast
 Libs
   preamble ml_translatorLib
 
 
-val _ = translation_extends "cakeml_astProg";
+val _ = translation_extends "basisProg";
 
 val _ = register_type “:program”;
-

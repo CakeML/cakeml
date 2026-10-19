@@ -31,6 +31,11 @@ tutorial/solutions/make_ex
 examples/vipr/compilation/cake_vipr
 examples/template/compilation/example_funs_x64
 examples/template/compilation/example_funs_arm8
+examples/sat_encodings/translation/compilation/*_encoder
+
+# Generated checker and bootstrap output
+candle/overloading/ml_checker/cyclicity_checker.sexp
+compiler/bootstrap/compilation/x64/64/candle.out
 
 # regression test logs
 regression.log

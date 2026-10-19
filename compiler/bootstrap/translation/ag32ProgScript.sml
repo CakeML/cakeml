@@ -7,12 +7,6 @@ Ancestors
 Libs
   preamble ml_translatorLib inliningLib
 
-open preamble;
-open evaluateTheory
-open ml_translatorLib ml_translatorTheory;
-open ag32_targetTheory ag32Theory;
-open inliningLib;
-
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "arm7Prog";
@@ -169,6 +163,5 @@ val res = CONJUNCTS d1 |> map SPEC_ALL |> map translate;
 val res = translate def;
 
 val r = translate (format_def ag32_config_def);
-
 
 val _ = (ml_translatorLib.clean_on_exit := true);

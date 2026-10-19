@@ -3,7 +3,7 @@
 *)
 Theory targetProps
 Ancestors
-  ffi asm targetSem misc[qualified] asmSem asmProps
+  ffi targetSem asmSem asmProps
 Libs
   preamble
 

@@ -7,11 +7,6 @@ Ancestors
 Libs
   preamble ml_translatorLib
 
-open preamble
-     panPEGTheory
-     pancake_lexProgTheory
-     ml_translatorLib ml_translatorTheory;
-
 val _ = translation_extends "pancake_lexProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "pancake_parseProg");
@@ -118,12 +113,12 @@ val r = parse_def
   |> RW [pegexecTheory.peg_exec_def, GSYM peg_pancake_rules_def,
          pegexecTheory.coreloop_def, parserProgTheory.INTRO_FLOOKUP]
   |> SRULE [pancake_peg_def]
-  |> translate;
+  |> with_flag (use_long_names, true) translate;
 
-Theorem parse_side_lemma:
-  !x. parse_side x = T
+Theorem panpeg_parse_side_lemma:
+  !x. panpeg_parse_side x = T
 Proof
-  SIMP_TAC std_ss [fetch "-" "parse_side_def"]
+  SIMP_TAC std_ss [fetch "-" "panpeg_parse_side_def"]
   \\ rpt strip_tac
   \\ assume_tac PEG_wellformed
   \\ drule_then strip_assume_tac pegexecTheory.peg_exec_total
@@ -142,7 +137,7 @@ Proof
   \\ simp [pancake_peg_def, SF ETA_ss]
 QED
 
-val _ = update_precondition parse_side_lemma;
+val _ = update_precondition panpeg_parse_side_lemma;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

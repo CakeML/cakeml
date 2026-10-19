@@ -5,7 +5,7 @@
 *)
 Theory bvl_handle
 Ancestors
-  bvl db_vars bvl_const
+  db_vars bvl_const
 Libs
   preamble
 

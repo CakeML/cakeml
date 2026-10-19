@@ -3,20 +3,13 @@
 *)
 Theory x64Prog[no_sig_docs]
 Ancestors
-  evaluate ml_translator from_pancake64Prog x64_target x64
+  evaluate ml_translator from_pancakeProg x64_target x64
 Libs
   preamble ml_translatorLib inliningLib
 
-open preamble;
-open evaluateTheory
-open ml_translatorLib ml_translatorTheory;
-open from_pancake64ProgTheory
-open x64_targetTheory x64Theory;
-open inliningLib;
-
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = translation_extends "from_pancake64Prog";
+val _ = translation_extends "from_pancakeProg";
 val _ = ml_translatorLib.use_sub_check true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "x64Prog");

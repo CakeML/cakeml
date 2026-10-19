@@ -3,7 +3,7 @@
 *)
 Theory data_monad
 Ancestors
-  dataLang dataSem
+  dataSem
 Libs
   preamble
 

@@ -136,6 +136,13 @@ Definition arm7_enc_def:
       enc (Multiply
              (MultiplyLong (F, F, F, n2w r1, n2w r2, n2w r3, n2w r4)))) /\
    (arm7_enc (Inst (Arith (LongDiv _ _ _ _ _))) = arm7_encode_fail) /\
+   (arm7_enc (Inst (Arith (IMul rd ra rb ro))) =
+      arm7_encode
+        [(AL, Multiply (MultiplyLong (F, T, F, n2w ro, n2w rd, n2w ra, n2w rb)));
+         (AL, Data (TestCompareRegister (2w, n2w ro, n2w rd, SRType_ASR, 31)));
+         (EQ, Data (Move (F, F, n2w ro, 0w)));
+         (NE, Data (Move (F, F, n2w ro, 1w)))]) /\
+   (arm7_enc (Inst (Arith (IDiv _ _ _ _))) = arm7_encode_fail) /\
    (arm7_enc (Inst (Arith (AddCarry r1 r2 r3 r4))) =
       arm7_encode
         [(AL, Data (TestCompareImmediate (2w, n2w r4, 0w)));

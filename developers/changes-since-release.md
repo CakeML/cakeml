@@ -12,12 +12,37 @@ The monadic translator now targets CakeML's byte arrays for arrays of type word8
 
 The monadic translator also has new support for space-efficient bool arrays represented as byte arrays (#1498).
 
+The compiler now supports unsafe strsub (#1538).
+
+The S-expression representation of the AST was vastly simplified and **is not backwards-compatible**.
+It now follows the AST as close as possible.
+For example, `val (a, b) = (~1, 2)` is represented as
+```
+  ((Dlet NoLocs
+     (Pcon NONE ((Pvar a) (Pvar b)))
+     (Con NONE ((Lit (IntLit ~1)) (Lit (IntLit 2))))))
+```
+
 ## Basis library
 
 The shift and rotate functions `<<`, `>>`, `~>>` and `ror` in the `Word8` and
 `Word64` modules now take the shift amount as a word of the same size instead
 of an int, e.g. `Word8.<< : Word8.word -> Word8.word -> Word8.word` (#1500).
 Programs that call these functions with an int amount need to be updated.
+
+The modules Ast and AstSexp have been added.
+These modules provide the CakeML AST and functions to convert an ast
+to/from S-expression.
+
+### List
+
+`List.intersperse`,
+which inserts a given element between every consecutive pair of elements in a list,
+has been added to basis.
+
+### Char
+
+`isLower`, `isUpper`, `isDigit`, `isAlpha` and `isAlphaNum` have been added to the Char module.
 
 ### String
 
@@ -30,7 +55,18 @@ length first and only compares contents when the lengths are equal, which is fas
 `Map.diff` has been added to basis. `Map.diff m1 m2` removes from `m1` every
 key that occurs in `m2`. The inputs can have different value types.
 
+### SocketIO
+
+A new module for socket I/O, `SocketIO`, has been added to basis.
+`SocketIO` currently supports Unix domain sockets and Linux raw sockets.
+Use of the module is demonstrated by two new examples.
+CF specs and proofs are still TODO, for now.
+
 ### TextIO
+
+`TextIO.output`'s behavior is now linear in the size of the string
+(previously quadratic -- oops!). This should allow users to output large strings
+(as in: much larger than 2kB) without the program hanging (#1425).
 
 `TextIO.inputAllFrom` has been added to basis. It reads all input from stdin
 (on `None`) or from a named file (on `Some fname`), closing the stream
@@ -64,6 +100,19 @@ The exported assembly marks the stack as non-executable on ELF platforms, so
 `cake` and the programs it compiles no longer get an executable stack from the
 linker (#1517).
 
+The backend now supports IMul and IDiv instructions and optimizes to the
+(#1533). Some further cleanup of the asm ops might be expected in the future.
+
+The global dead code elimination pass has moved from flatLang to source,
+specifically, `flat_elim` has been replaced by `source_dce` (#1508).
+
+A new constant lifting pass has been added as a source-to-source pass to the
+compiler backend (#1542).
+
+The compiler backend now attaches a bit of metadata to every function (#1535).
+This is completely internal to the compiler. Debug names for functions now come
+from metadata rather than a separate mapping (#1539).
+
 ## Pancake
 
 Queryable feature tags (#1470).
@@ -72,6 +121,12 @@ The initial version of the decompiler-into-itree of Pancake---DecompIt (#1492).
 
 ## Candle
 
+The Candle parser has been moved out of HOL into user code (#1537).
+One user-facing change is that CakeML itself in EVAL mode now starts with a
+larger data buffer to accommodate the user code (Candle already patches to start
+with an even larger one). Another is that a `(*CML ...*)` block in Candle input
+is now only accepted where a phrase begins.
+
 ## Examples
 
 The PB checker has been reorganized with minor fixes, and also supports solutions cubes (#1496).
@@ -79,9 +134,22 @@ Its backing representation and corresponding algorithms have been optimized heav
 
 The CNF checker(s) have various improvements, especially the RUP algorithm has been updated. Additionally, there is now a centralized and cleaned up basis FFI C file for the checkers (#1495).
 
+The new `socketEchoProg` contains a simple echo server meant for testing the Unix domain sockets from `SocketIO`.
+
+Similarly, `rawBridgeProg` showcases `SocketIO`'s raw sockets.
+
 ## Build infrastructure
 
 ## Proof engineering and tooling
+
+Unused definitions and theorems were removed from misc. (#1499, #1489)
+
+### New function for proving whole program correctness theorems
+
+The `basis_ffiLib.whole_prog_thm`, which is used to prove `semantics`
+results, has been deleted and a new `basis_ffiLib.prove_sem_thm` is to
+be used instead from now on. The old one used to be slow and clunky to
+use; the new one runs within a few seconds at each call site.
 
 ### Translation of HOL finite maps
 
@@ -128,3 +196,7 @@ Theorem get_mode_fsupdate[simp]:
 `raw_closeIn_STDIO_spec` and `closeOut_STDIO_spec` assumptions have been weakened.
 
 ## Miscellaneous
+
+Combined fix for some small issues (PR #1530 fixing #1313, #1373, #1449, #1480, #1503).
+
+Combined fix for some small issues (PR #1536 fixing #1408, #1171, #1104).
