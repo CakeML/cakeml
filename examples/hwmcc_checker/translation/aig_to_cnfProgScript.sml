@@ -386,7 +386,7 @@ Definition state_rel_def:
   state_rel s seen aig ⇔
     max_gt aig 0 < LENGTH s.seen_array ∧
     ∀i. i < LENGTH s.seen_array ⇒
-        (EL i s.seen_array = i ∈ FDOM seen)
+        (EL i s.seen_array ⇔ i ∈ FDOM seen)
 End
 
 Theorem new_live_update:

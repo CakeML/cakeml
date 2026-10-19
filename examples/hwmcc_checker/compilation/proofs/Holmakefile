@@ -1,3 +1,2 @@
+all: $(DEFAULT_TARGETS) README.md
 sinclude $(CAKEMLDIR)/developers/readme.mk
-
-all: $(DEFAULT_TARGETS)

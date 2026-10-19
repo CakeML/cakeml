@@ -1,6 +1,5 @@
+all: $(DEFAULT_TARGETS) README.md caketaiger
 sinclude $(CAKEMLDIR)/developers/readme.mk
-
-all: $(DEFAULT_TARGETS) caketaiger
 
 caketaiger: caketaigerCompileTheory.uo
 	$(CC) -o $@ caketaiger.S $(CAKEMLDIR)/examples/cnf/basis_ffi.c
