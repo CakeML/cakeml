@@ -379,6 +379,7 @@ TextIO.print_err: string -> unit
 TextIO.print_list: string list -> unit
 TextIO.openOut: string -> TextIO.outstream
 TextIO.closeOut: TextIO.outstream -> unit
+TextIO.outputFile: string -> string -> unit
 TextIO.openStdInSetBufferSize: int -> TextIO.instream
 TextIO.openStdIn: unit -> TextIO.instream
 TextIO.openInSetBufferSize: string -> int -> TextIO.instream

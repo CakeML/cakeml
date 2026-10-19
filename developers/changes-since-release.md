@@ -68,6 +68,9 @@ CF specs and proofs are still TODO, for now.
 (previously quadratic -- oops!). This should allow users to output large strings
 (as in: much larger than 2kB) without the program hanging (#1425).
 
+`TextIO.outputFile` has been added to basis.
+It writes a string to a file, taking care of opening and closing.
+
 `TextIO.inputAllFrom` has been added to basis. It reads all input from stdin
 (on `None`) or from a named file (on `Some fname`), closing the stream
 afterwards, and returns `None` if the file cannot be opened.
