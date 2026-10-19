@@ -2672,16 +2672,14 @@ Proof
   \\ simp [EVERY_REVERSE]
   \\ rw []
   \\ fs [EVERY_REVERSE, Q.ISPEC `no_Mat` ETA_THM]
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`dest_nop op es`])
-    (
-      reverse (Cases_on `dest_nop op es`) \\ fs []
-      THEN1 (gvs [dest_nop_thm])
-      \\ last_x_assum kall_tac)
   >~ [`compile_lit _ _`] >- (
     qmatch_goalsub_rename_tac `compile_lit _ literal`
     \\ Cases_on `literal` \\ simp [compile_lit_def])
-  >~ [`compile_op _ _ _`] >- (
-    qmatch_goalsub_rename_tac `compile_op _ flat_op _`
+  >~ [`dest_nop op es`] >- (
+    reverse (Cases_on `dest_nop op es`) \\ fs []
+    THEN1 (gvs [dest_nop_thm])
+    \\ last_x_assum kall_tac
+    \\ qmatch_goalsub_rename_tac `compile_op _ flat_op _`
     \\ Cases_on `flat_op`
     >~ [`dest_nop (Src _) es`] >- (
       qmatch_asmsub_rename_tac `dest_nop (Src source_op) es`
@@ -2820,13 +2818,12 @@ Proof
   \\ simp [contains_App_SOME_APPEND, EVERY_REVERSE,contains_App_SOME_SmartCons,
            no_mti_SmartCons, every_Fn_vs_NONE_SmartCons]
   \\ rpt CONJ_TAC \\ rpt gen_tac \\ rpt (disch_then strip_assume_tac)
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`dest_nop op es`])
-    (reverse (Cases_on `dest_nop op es`) \\ fs [])
   >~ [`compile_lit _ _`] >- (
     qmatch_goalsub_rename_tac `compile_lit _ literal`
     \\ Cases_on `literal` \\ simp ([compile_lit_def] @ props_defs))
-  >~ [`compile_op _ _ _`] >- (
-    qmatch_goalsub_rename_tac `compile_op _ flat_op _`
+  >~ [`dest_nop op es`] >- (
+    reverse (Cases_on `dest_nop op es`) \\ fs []
+    \\ qmatch_goalsub_rename_tac `compile_op _ flat_op _`
     \\ Cases_on `flat_op`
     >~ [`dest_nop (Src _) es`] >- (
       qmatch_asmsub_rename_tac `dest_nop (Src source_op) es`

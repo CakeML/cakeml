@@ -928,11 +928,6 @@ Proof
  full_simp_tac(srw_ss())[evaluate_def]
 QED
 
-fun cases_on_op q = Cases_on q
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`BlockOp block_op`]) (Cases_on `block_op`)
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`GlobOp glob_op`]) (Cases_on `glob_op`)
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`MemOp mem_op`]) (Cases_on `mem_op`);
-
 Theorem EVERY_pure_correct:
   (∀t es E (s:('c,'ffi) closSem$state). t = (es,E,s) ∧ EVERY closLang$pure es ⇒
                case evaluate(es, E, s) of
@@ -961,10 +956,12 @@ Proof
     \\ rveq
     \\ reverse PURE_CASE_TAC \\ fs[]
     >- (
-      rename1 `closLang$pure_op opn` >> cases_on_op `opn` >>
+      rename1 `closLang$pure_op opn` >>
+      gvs [oneline pure_op_def, AllCasePreds()] >>
       full_simp_tac(srw_ss())[pure_op_def, do_app_def, case_eq_thms, bool_case_eq, CaseEq "sum"] >>
       rveq \\ fs[] \\ fs[CaseEq"prod"] )
-    \\ rename1 `closLang$pure_op opn` >> cases_on_op `opn`
+    \\ rename1 `closLang$pure_op opn`
+    \\ gvs [oneline pure_op_def, AllCasePreds()]
     \\ fs[pure_op_def, do_app_def, case_eq_thms, bool_case_eq, CaseEq "sum"] \\ rveq \\ fs[]
     \\ fs[CaseEq"prod"]
     \\ rveq \\ fs[])
@@ -2665,11 +2662,11 @@ Proof
     >~[`w2n`]
     >- (IF_CASES_TAC >> gvs[])
     \\ `FDOM s.refs = FDOM t.refs` by fs [simple_state_rel_def] \\ fs []
-    >>~- ([`ValueArray _`],
-      match_mp_tac (GEN_ALL simple_state_rel_update_values)
-      \\ asm_exists_tac \\ fs [LIST_REL_REPLICATE_same])
-    \\ match_mp_tac (GEN_ALL simple_state_rel_update_bytes)
-    \\ asm_exists_tac \\ fs [])
+    >~ [`ByteArray _`] >- (
+      match_mp_tac (GEN_ALL simple_state_rel_update_bytes)
+      \\ asm_exists_tac \\ fs [])
+    \\ match_mp_tac (GEN_ALL simple_state_rel_update_values)
+    \\ asm_exists_tac \\ fs [LIST_REL_REPLICATE_same])
   \\ Cases_on `opp = MemOp UpdateBit`
   >- (
     Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
@@ -2682,10 +2679,10 @@ Proof
     \\ drule (GEN_ALL simple_state_rel_FLOOKUP_refs_IMP)
     \\ strip_tac >> res_tac \\ fs[]
     \\ full_simp_tac(bool_ss)[GSYM state_fupdcanon]
-    >>~- ([`sr (s with refs := _) (t with refs := _)`],
-      match_mp_tac (GEN_ALL simple_state_rel_update_bytes)
-      \\ asm_exists_tac \\ fs [])
-    \\ rw [] \\ gvs [] \\ imp_res_tac simple_val_rel_Boolv \\ gvs [])
+    >~ [`Rerr (Rabort Rtype_error)`] >- (
+      rw [] \\ gvs [] \\ imp_res_tac simple_val_rel_Boolv \\ gvs [])
+    \\ match_mp_tac (GEN_ALL simple_state_rel_update_bytes)
+    \\ asm_exists_tac \\ fs [])
   \\ Cases_on `?m. opp = MemOp m ∧ (m = UpdateByte \/ m = Update) \/ ?n. opp = FFI n`
   >- (
     Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac

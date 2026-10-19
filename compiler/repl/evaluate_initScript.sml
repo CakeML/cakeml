@@ -700,10 +700,13 @@ Proof
          state_ok_def, v_ok_def, state_rel_def, FLOOKUP_FUN_FMAP,
          INJ_IFF, FUN_FMAP_DEF, v_rel_def, store_alloc_def]
     \\ rw [EL_APPEND_EQN] \\ gvs [NOT_LESS, LESS_OR_EQ, ref_rel_def]
-    >>> SELECT_LT_THEN (Q.MATCH_GOALSUB_RENAME_TAC `ref_rel _ _ _`)
-      (first_x_assum drule \\ rw [ref_rel_def]
-       \\ irule_at Any ref_rel_mono
-       \\ first_assum (irule_at Any) \\ rw [])
+    >~ [`ref_rel _ _ _`] >- (
+      first_x_assum drule \\ rw [ref_rel_def]
+      \\ irule_at Any ref_rel_mono
+      \\ first_assum (irule_at Any) \\ rw []
+      \\ irule v_rel_update
+      \\ first_assum (irule_at Any)
+      \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
     \\ irule v_rel_update
     \\ first_assum (irule_at Any)
     \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])

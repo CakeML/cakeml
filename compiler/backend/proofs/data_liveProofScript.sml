@@ -153,21 +153,10 @@ Theorem is_pure_do_app_Rerr_IMP[local]:
   is_pure op /\ do_app op xs s = Rerr e ==>
     Rabort Rtype_error = e
 Proof
-  Cases_on `op`
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`BlockOp block_op`])
-        (Cases_on `block_op`)
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`GlobOp global_op`])
-        (Cases_on `global_op`)
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`MemOp memory_op`])
-        (Cases_on `memory_op`)
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`ThunkOp thunk_operation`])
-        (Cases_on `thunk_operation`)
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`EqualConst constant`])
-        (Cases_on `constant`)
-  \\ fs [is_pure_def,do_app_def,do_app_aux_def]
-  \\ simp[do_space_def,data_spaceTheory.op_space_req_def,
-          case_eq_thms,CaseEq "sum",closLangTheory.int_op_case_eq,
-          do_install_def,UNCURRY] \\ rw[]
+  dsimp [oneline is_pure_def,AllCasePreds()]
+  \\ rpt strip_tac \\ gvs [do_app_def,do_app_aux_def]
+  \\ gvs [do_space_def,data_spaceTheory.op_space_req_def,
+          do_install_def,UNCURRY,AllCaseEqs()]
 QED
 
 Theorem is_pure_do_app_Rval_IMP[local]:

@@ -611,10 +611,10 @@ Proof
         bvlSemTheory.do_app_def,
         oneline bvlSemTheory.do_word_app_def]
     \\ rw [AllCaseEqs()]
-    >>> SELECT_LT_THEN (Q.RENAME_TAC [`Compare comparison`])
-      (Cases_on `comparison` \\ gvs [])
     \\ gvs [NULL_EQ_NIL,MAP_EQ_CONS]
-    \\ simp [do_app_aux_def,do_word_app_def,bvl_to_bvi_id])
+    \\ simp [do_app_aux_def,do_word_app_def,bvl_to_bvi_id]
+    \\ rename1 `Compare comparison`
+    \\ Cases_on `comparison` \\ gvs [])
   >~ [`do_app (MemOp XorByte)`]
   >- (fs[oneline bviSemTheory.do_app_def,
       oneline bviSemTheory.do_app_aux_def,
@@ -1190,14 +1190,13 @@ Resume compile_correct[Op]:
       \\ SRW_TAC [] [evaluate_def] \\ qexists_tac `saved_locals` \\ simp [])
     \\ `domain (list_to_num_set (REVERSE vs ++ live ++ corr)) SUBSET
         domain (map data_to_bvi_v t2.locals)` by
-      (
-        fs [SUBSET_DEF,domain_lookup,lookup_list_to_num_set,EVERY_MEM]
-        \\ rpt strip_tac \\ res_tac
-        \\ fs [var_corr_def,get_var_def,lookup_map]
-        \\ imp_res_tac LIST_REL_MEM_IMP \\ fs []
-        \\ qmatch_goalsub_rename_tac `lookup live_index t2.locals`
-        \\ Cases_on `lookup live_index t1.locals` \\ fs []
-        \\ res_tac \\ fs [])
+      (fs [SUBSET_DEF,domain_lookup,lookup_list_to_num_set,EVERY_MEM]
+       \\ rpt strip_tac \\ res_tac
+       \\ fs [var_corr_def,get_var_def,lookup_map]
+       \\ imp_res_tac LIST_REL_MEM_IMP \\ fs []
+       \\ qmatch_goalsub_rename_tac `lookup live_index t2.locals`
+       \\ Cases_on `lookup live_index t1.locals` \\ fs []
+       \\ res_tac \\ fs [])
     \\ full_simp_tac(srw_ss())[]
     \\ Q.ABBREV_TAC `env1 = mk_wf (inter t2.locals (list_to_num_set (REVERSE vs++live++corr)))`
     \\ Q.ABBREV_TAC `env2 = mk_wf (inter t2.locals (list_insert vs (list_to_num_set (REVERSE vs++live++corr))))`

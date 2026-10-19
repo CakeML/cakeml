@@ -1309,8 +1309,9 @@ Proof
     \\ rpt (pairarg_tac \\ gvs [])
     \\ drule_then (drule_then drule) simple_state_rel_store_lookup
     \\ rw []
-    >>> SELECT_LT_THEN (Q.RENAME_TAC [`FFI_return _ _`])
-          (drule_then (drule_then drule) simple_state_rel_store_assign)
+    >~ [`FFI_final _`] >- (
+      fs [sv_rel_cases, simple_state_rel_def] \\ res_tac \\ fs [])
+    \\ drule_then (drule_then drule) simple_state_rel_store_assign
     \\ fs [sv_rel_cases]
     \\ rw []
     \\ fs [simple_state_rel_def]

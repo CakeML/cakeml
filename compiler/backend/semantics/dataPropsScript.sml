@@ -277,10 +277,9 @@ Theorem do_app_with_stack[local]:
 Proof
   Cases_on `do_app op vs (s with stack := z)`
   \\ cases_on_op_fs `op`
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`EqualConst constant`])
-        (Cases_on `constant`)
   \\ full_simp_tac(srw_ss()) [LET_DEF,
       do_app_aux_def,CaseEq "sum",closLangTheory.int_op_case_eq,
+      CaseEq "const_part",CaseEq "thunk_mode",
       list_case_eq,option_case_eq,v_case_eq,
       bool_case_eq,Once do_app_def,do_stack_def,do_space_def,
       with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
@@ -288,8 +287,6 @@ Proof
       semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
       pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,UNCURRY_EQ]
     \\ rveq \\ full_simp_tac(srw_ss()) []
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`lookup _ _ = SOME (Thunk mode _)`])
-        (Cases_on `mode`)
   \\ full_simp_tac(srw_ss())[allowed_op_def]
   \\ rw [state_component_equality] \\ simp [Once CONJ_COMM]
   \\ rw [EQ_IMP_THM] \\ fs[stack_consumed_def,allowed_op_def,PULL_EXISTS]
@@ -307,11 +304,10 @@ Theorem do_app_with_stack_and_locals[local]:
 Proof
   Cases_on `do_app op vs (s with <|locals_size := lsz; stack := z|>)`
   \\ cases_on_op_fs `op`
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`EqualConst constant`])
-        (Cases_on `constant`)
   \\ (
     full_simp_tac(srw_ss()) [LET_THM,
         do_app_aux_def,CaseEq "sum",closLangTheory.int_op_case_eq,
+        CaseEq "const_part",CaseEq "thunk_mode",
         list_case_eq,option_case_eq,v_case_eq,
         bool_case_eq,do_app_def,do_stack_def,do_space_def,
         with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
@@ -319,8 +315,6 @@ Proof
         semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
         pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,UNCURRY_EQ]
     \\ rveq \\ full_simp_tac(srw_ss()) [])
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`lookup _ _ = SOME (Thunk mode _)`])
-        (Cases_on `mode`)
   \\ full_simp_tac(srw_ss())[allowed_op_def]
   \\ rw [state_component_equality] \\ simp [Once CONJ_COMM]
   \\ rw[EQ_IMP_THM] \\ fs[stack_consumed_def,allowed_op_def]
@@ -332,10 +326,9 @@ Theorem do_app_aux_with_space:
 Proof
   Cases_on `do_app_aux op vs (s with space := z)`
   \\ cases_on_op_fs `op`
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`EqualConst constant`])
-        (Cases_on `constant`)
   \\ (
     full_simp_tac(srw_ss()) [LET_THM,do_app_aux_def,CaseEq "sum",closLangTheory.int_op_case_eq,
+        CaseEq "const_part",CaseEq "thunk_mode",
         list_case_eq,option_case_eq,v_case_eq,
       bool_case_eq,do_app_def,do_stack_def,do_space_def,
       with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
@@ -343,8 +336,6 @@ Proof
       semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
       pair_case_eq,consume_space_def,check_lim_def]
     \\ rveq \\ full_simp_tac(srw_ss()) [] \\ rw [])
-  \\ rename1 `lookup _ _ = SOME (Thunk mode _)`
-  \\ Cases_on `mode` \\ gvs []
 QED
 
 (*fs[] is slower than full_simp_tac(srw_ss())[]*)
@@ -353,10 +344,9 @@ Theorem do_app_aux_with_locals:
 Proof
   Cases_on `do_app_aux op vs (s with locals := z)`
   \\ cases_on_op_fs `op`
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`EqualConst constant`])
-        (Cases_on `constant`)
   \\ (
     full_simp_tac(srw_ss()) [LET_THM,do_app_aux_def,CaseEq "sum",closLangTheory.int_op_case_eq,
+        CaseEq "const_part",CaseEq "thunk_mode",
         list_case_eq,option_case_eq,v_case_eq,
       bool_case_eq,do_app_def,do_stack_def,do_space_def,
       with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
@@ -364,8 +354,6 @@ Proof
       semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
       pair_case_eq,consume_space_def,check_lim_def,UNCURRY_EQ]
     \\ rveq \\ fs [] \\ rw [])
-  \\ rename1 `lookup _ _ = SOME (Thunk mode _)`
-  \\ Cases_on `mode` \\ gvs []
 QED
 
 (*fs[] is slower than full_simp_tac(srw_ss())[]*)
@@ -379,11 +367,10 @@ Theorem do_app_with_locals:
 Proof
   Cases_on `do_app op vs (s with locals := z)`
   \\ cases_on_op_fs `op`
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`EqualConst constant`])
-        (Cases_on `constant`)
   \\ (
     full_simp_tac(srw_ss()) [LET_THM,
       do_app_aux_def,CaseEq "sum",closLangTheory.int_op_case_eq,
+      CaseEq "const_part",CaseEq "thunk_mode",
       list_case_eq,option_case_eq,v_case_eq,
       bool_case_eq,do_app_def,do_stack_def,do_space_def,
       with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
@@ -391,8 +378,6 @@ Proof
       semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
       pair_case_eq,consume_space_def,check_lim_def,UNCURRY_EQ]
     \\ rveq \\ full_simp_tac(srw_ss()) [])
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`lookup _ _ = SOME (Thunk mode _)`])
-        (Cases_on `mode`) \\ gvs []
   \\ full_simp_tac(srw_ss()) [allowed_op_def]
   \\ rw [state_component_equality] \\ simp [Once CONJ_COMM]
   \\ rw[EQ_IMP_THM] \\ fs[stack_consumed_def,allowed_op_def]
@@ -1891,11 +1876,10 @@ Proof
     \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
   Cases_on `do_app op vs s` >>
   fs[do_app_def,do_stack_def,do_space_def] >>
-  cases_on_op_fs `op`
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`EqualConst constant`])
-        (Cases_on `constant`) >>
+  cases_on_op_fs `op` >>
   ntac 2 (
     full_simp_tac(srw_ss()) [LET_THM,do_app_aux_def,CaseEq "sum",closLangTheory.int_op_case_eq,
+      CaseEq "const_part",
       list_case_eq,option_case_eq,v_case_eq,
       bool_case_eq,stack_consumed_def,
       with_fresh_ts_def,bvlSemTheory.ref_case_eq,space_consumed_with_clock,
@@ -1903,9 +1887,7 @@ Proof
       semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
       pair_case_eq,consume_space_def,size_of_heap_with_clock,
       size_of_heap_args_with_clock,check_lim_def]
-    \\ rveq \\ fs [] \\ rw [])
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`lookup _ _ = SOME (Thunk mode _)`])
-        (Cases_on `mode`) \\ gvs []
+    \\ rveq \\ fs [] \\ rw []) \\ gvs [CaseEq "thunk_mode"]
 QED
 
 Theorem do_app_change_clock:
@@ -2090,10 +2072,9 @@ Proof
     \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
   srw_tac[][do_app_def,do_stack_def,do_space_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  cases_on_op_fs `x`
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`EqualConst constant`])
-        (Cases_on `constant`) >>
+  cases_on_op_fs `x` >>
   ntac 2 (fs [do_app_aux_def,CaseEq "sum",closLangTheory.int_op_case_eq,
+              CaseEq "const_part",CaseEq "thunk_mode",
               list_case_eq,option_case_eq,v_case_eq,
               bool_case_eq,ffiTheory.call_FFI_def,
               with_fresh_ts_def,bvlSemTheory.ref_case_eq,
@@ -2101,8 +2082,6 @@ Proof
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
               pair_case_eq,consume_space_def,check_lim_def] >>
   rveq >> fs [])
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`lookup _ _ = SOME (Thunk mode _)`])
-        (Cases_on `mode`) \\ gvs []
 QED
 
 Theorem dec_clock_const[simp]:
@@ -2282,11 +2261,10 @@ QED
 Theorem do_app_safe_for_space_mono:
   (do_app op xs s = Rval (r,s1)) /\ s1.safe_for_space ==> s.safe_for_space
 Proof
-  cases_on_op_fs `op`
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`EqualConst constant`])
-        (Cases_on `constant`) \\
+  cases_on_op_fs `op` \\
   full_simp_tac(srw_ss()) [LET_THM,
       do_app_aux_def,CaseEq "sum",closLangTheory.int_op_case_eq,
+      CaseEq "const_part",CaseEq "thunk_mode",
       list_case_eq,option_case_eq,v_case_eq,
       bool_case_eq,do_app_def,do_stack_def,do_space_def,
       with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
@@ -2295,8 +2273,6 @@ Proof
       pair_case_eq,consume_space_def,op_space_reset_def,data_spaceTheory.op_space_req_def,
       UNCURRY_EQ]
   \\ rw [] \\ fs [state_component_equality] \\ rw []
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`lookup _ _ = SOME (Thunk mode _)`])
-        (Cases_on `mode`) \\ gvs []
 QED
 
 Theorem evaluate_safe_for_space_mono:
@@ -3021,9 +2997,7 @@ Theorem do_app_cc_co_only_diff_rval:
     ?t1. dataSem$do_app op vs t = Rval (v,t1) /\ cc_co_only_diff s1 t1
 Proof
   rpt strip_tac >>
-  cases_on_op_fs `op`
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`EqualConst constant`])
-        (Cases_on `constant`) \\ fs []
+  cases_on_op_fs `op` \\ fs []
   >~[`IntOp`] >- (
     rename1 `IntOp intop`
     \\ Cases_on `intop`
@@ -3041,11 +3015,10 @@ Proof
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
      pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
      CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,size_of_heap_args_def,
+     CaseEq "const_part",
      stack_to_vs_def] >>
     rveq >> fs[])
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`lookup _ _ = SOME (Thunk mode _)`])
-        (Cases_on `mode`)
-  >> gvs []
+  >> gvs [CaseEq "thunk_mode"]
 QED
 
 (*fs[] is slower than full_simp_tac(srw_ss())[]*)
@@ -3079,11 +3052,9 @@ Proof
   rename1 `cc_co_only_diff s1 s2` >>
   qpat_x_assum `cc_co_only_diff s_space t_space` kall_tac >>
   rpt(qpat_x_assum `do_space _ _ _ = _` kall_tac) >>
-  cases_on_op_fs `op`
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`EqualConst constant`])
-        (Cases_on `constant`) \\ fs [] >>
+  cases_on_op_fs `op` \\ fs [] >>
   full_simp_tac(srw_ss())[LET_THM,do_app_aux_def,cc_co_only_diff_def,do_app_def,list_case_eq,option_case_eq,v_case_eq,
-     CaseEq "sum", closLangTheory.int_op_case_eq,
+     CaseEq "sum", CaseEq "const_part", CaseEq "thunk_mode", closLangTheory.int_op_case_eq,
      bool_case_eq,do_app_def,do_stack_def,do_space_def,
      with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
@@ -3092,8 +3063,6 @@ Proof
      CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,size_of_heap_args_def,
      stack_to_vs_def] >>
   rveq >> fs[]
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`lookup _ _ = SOME (Thunk mode _)`])
-        (Cases_on `mode`) >> gvs []
 QED
 
 Theorem pop_env_safe_for_space:
@@ -3337,11 +3306,9 @@ Theorem do_app_stack_max_le_stack_limit:
   option_le s1.stack_max (SOME s1.limits.stack_limit)
 Proof
   rpt strip_tac >>
-  cases_on_op_fs `op`
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`EqualConst constant`])
-        (Cases_on `constant`) \\ fs [] >>
+  cases_on_op_fs `op` \\ fs [] >>
   full_simp_tac(srw_ss())[LET_THM,do_app_aux_def,cc_co_only_diff_def,do_app_def,do_stack_def,list_case_eq,option_case_eq,v_case_eq,
-     CaseEq "sum", closLangTheory.int_op_case_eq,
+     CaseEq "sum", CaseEq "const_part", CaseEq "thunk_mode", closLangTheory.int_op_case_eq,
      bool_case_eq,do_app_def,do_stack_def,do_space_def,
      with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
@@ -3351,9 +3318,7 @@ Proof
      stack_consumed_def
     ] >>
   rveq >>
-  fs[stack_consumed_def,allowed_op_def,data_spaceTheory.op_space_req_def]
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`lookup _ _ = SOME (Thunk mode _)`])
-        (Cases_on `mode`) >> gvs [] >>
+  fs[stack_consumed_def,allowed_op_def,data_spaceTheory.op_space_req_def] >> gvs [] >>
   imp_res_tac the_le_IMP_option_le >>
   fs[option_le_max,option_le_max_right] >>
   rpt (pop_assum mp_tac)>>

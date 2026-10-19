@@ -1915,37 +1915,33 @@ Proof
                 `r`,`op`] mp_tac)
     \\ fs [GSYM AND_IMP_INTRO]
     \\ impl_tac THEN1
-     (
-       fs [simple_val_rel_def] \\ rpt strip_tac
-       \\ rename1 `v_rel _ _ _ source_value _`
-       \\ Cases_on `source_value` \\ fs [v_rel_def]
-       \\ eq_tac \\ fs []
-       \\ fs [LIST_REL_EL_EQN])
+     (fs [simple_val_rel_def] \\ rpt strip_tac
+      \\ rename1 `v_rel _ _ _ source_value _`
+      \\ Cases_on `source_value` \\ fs [v_rel_def]
+      \\ eq_tac \\ fs []
+      \\ fs [LIST_REL_EL_EQN])
     \\ reverse impl_tac THEN1 (rw [] \\ fs [])
     \\ fs [simple_state_rel_def] \\ rpt strip_tac
     \\ fs [state_rel_def]
     \\ fs [fmap_rel_def,FLOOKUP_DEF]
     THEN1
-     (
-       res_tac \\ fs []
-       \\ qpat_x_assum `!x. _` kall_tac
-       \\ rfs []
-       \\ qmatch_asmsub_rename_tac `ref_rel _ (source_state.refs ' reference) _`
-       \\ Cases_on `source_state.refs ' reference` \\ fs [ref_rel_def])
+     (res_tac \\ fs []
+      \\ qpat_x_assum `!x. _` kall_tac
+      \\ rfs []
+      \\ qmatch_asmsub_rename_tac `ref_rel _ (source_state.refs ' reference) _`
+      \\ Cases_on `source_state.refs ' reference` \\ fs [ref_rel_def])
     THEN1
-     (
-       res_tac \\ fs []
-       \\ qpat_x_assum `!x. _` kall_tac
-       \\ rfs []
-       \\ qmatch_asmsub_rename_tac `ref_rel _ (source_state.refs ' reference) _`
-       \\ Cases_on `source_state.refs ' reference` \\ fs [ref_rel_def])
+     (res_tac \\ fs []
+      \\ qpat_x_assum `!x. _` kall_tac
+      \\ rfs []
+      \\ qmatch_asmsub_rename_tac `ref_rel _ (source_state.refs ' reference) _`
+      \\ Cases_on `source_state.refs ' reference` \\ fs [ref_rel_def])
     THEN1
-     (
-       res_tac \\ fs []
-       \\ qpat_x_assum `!x. _` kall_tac
-       \\ rfs []
-       \\ qmatch_asmsub_rename_tac `ref_rel _ (source_state.refs ' reference) _`
-       \\ Cases_on `source_state.refs ' reference` \\ fs [ref_rel_def])
+     (res_tac \\ fs []
+      \\ qpat_x_assum `!x. _` kall_tac
+      \\ rfs []
+      \\ qmatch_asmsub_rename_tac `ref_rel _ (source_state.refs ' reference) _`
+      \\ Cases_on `source_state.refs ' reference` \\ fs [ref_rel_def])
     THEN1 (rw [FAPPLY_FUPDATE_THM])
     THEN1 (rw [FAPPLY_FUPDATE_THM])
     THEN1 (rw [FAPPLY_FUPDATE_THM]))
@@ -1958,11 +1954,8 @@ Proof
                 `r`,`op`] mp_tac)
   \\ fs [GSYM AND_IMP_INTRO]
   \\ impl_tac THEN1
-   (
-     fs [simple_val_rel_def] \\ rpt strip_tac
-     \\ eq_tac \\ fs []
-     \\ rw [] \\ fs []
-     \\ fs [LIST_REL_EL_EQN,EVERY_EL,LIST_EQ_REWRITE])
+   (rw [simple_val_rel_def,EQ_IMP_THM,LIST_REL_CONJ,LIST_REL_EL_EQN,EVERY_EL,
+        GSYM LIST_EQ_REWRITE])
   \\ impl_tac THEN1
    (fs [simple_state_rel_def] \\ rpt strip_tac
     \\ fs [wfv_state_def]
@@ -1970,36 +1963,31 @@ Proof
     THEN1
      (fs [LIST_REL_EL_EQN,EVERY_EL])
     THEN1
-     (
-       irule EVERY2_refl
-       \\ fs [EVERY_MEM] \\ rpt strip_tac \\ res_tac
-       \\ qmatch_goalsub_rename_tac `OPTREL _ global_value global_value`
-       \\ Cases_on `global_value` \\ fs [OPTREL_def])
+     (irule EVERY2_refl
+      \\ fs [EVERY_MEM] \\ rpt strip_tac \\ res_tac
+      \\ qmatch_goalsub_rename_tac `OPTREL _ global_value global_value`
+      \\ Cases_on `global_value` \\ fs [OPTREL_def])
     THEN1
       (match_mp_tac (FEVERY_STRENGTHEN_THM |> CONJUNCT2) \\ fs [])
     THEN1
-      (
-        match_mp_tac (FEVERY_STRENGTHEN_THM |> CONJUNCT2)
-        \\ fs [LIST_REL_EL_EQN,EVERY_EL])
+      (match_mp_tac (FEVERY_STRENGTHEN_THM |> CONJUNCT2)
+       \\ fs [LIST_REL_EL_EQN,EVERY_EL])
     THEN1
-      (
-        qmatch_asmsub_rename_tac `LIST_REL _ source_values target_values`
-        \\ `source_values = target_values` by
-          fs [LIST_REL_EL_EQN,LIST_EQ_REWRITE]
-        \\ fs [])
+      (qmatch_asmsub_rename_tac `LIST_REL _ source_values target_values`
+       \\ `source_values = target_values` by
+         fs [LIST_REL_EL_EQN,LIST_EQ_REWRITE]
+       \\ fs [])
     THEN1
       (match_mp_tac (FEVERY_STRENGTHEN_THM |> CONJUNCT2) \\ fs [])
     THEN1
-      (
-        fs [LIST_REL_EL_EQN,EVERY_EL,OPTREL_def]
-        \\ rw [] \\ rfs [] \\ res_tac \\ fs [])
+      (fs [LIST_REL_EL_EQN,EVERY_EL,OPTREL_def]
+       \\ rw [] \\ rfs [] \\ res_tac \\ fs [])
     THEN1
-      (
-        qmatch_asmsub_rename_tac `LIST_REL _ source_globals target_globals`
-        \\ `source_globals = target_globals` by (
-          fs [LIST_REL_EL_EQN,LIST_EQ_REWRITE,OPTREL_def]
-          \\ rw [] \\ rfs [] \\ res_tac \\ fs [])
-        \\ fs []))
+      (qmatch_asmsub_rename_tac `LIST_REL _ source_globals target_globals`
+       \\ `source_globals = target_globals` by (
+         fs [LIST_REL_EL_EQN,LIST_EQ_REWRITE,OPTREL_def]
+         \\ rw [] \\ rfs [] \\ res_tac \\ fs [])
+       \\ fs []))
   \\ fs [AC CONJ_ASSOC CONJ_COMM]
   \\ rpt (disch_then assume_tac) \\ fs [AND_IMP_INTRO]
   \\ first_x_assum match_mp_tac

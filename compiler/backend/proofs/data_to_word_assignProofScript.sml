@@ -2658,7 +2658,7 @@ Theorem SmallnumDiv_state_rel[local]:
   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) NONE locs /\
   t.termdep <> 0 /\
   small_int (dimindex (:'a)) i /\ small_int (dimindex (:'a)) j /\ j <> 0 /\
-  small_int (dimindex (:'a)) (if is_mod then i % j else i / j) /\
+  k = (if is_mod then i % j else i / j) /\ small_int (dimindex (:'a)) k /\
   wordSem$get_vars [adjust_var v1;adjust_var v2] t =
     SOME [Word (Smallnum i);Word (Smallnum j)] /\
   dataSem$cut_env names s.locals = SOME retained_locals /\
@@ -2668,10 +2668,10 @@ Theorem SmallnumDiv_state_rel[local]:
     wordSem$evaluate (SmallnumDiv c is_mod secn l dest (SOME names) v1 v2,t) =
       (NONE,r) /\
     state_rel c l1 l2
-      (dataSem$set_var dest (Number (if is_mod then i % j else i / j))
+      (dataSem$set_var dest (Number k)
         (do_stack op vs (s with locals := retained_locals))) r NONE locs
 Proof
-  strip_tac
+  strip_tac \\ rveq
   \\ Cases_on `c.has_idiv`
   >- (
     drule state_rel_arch_width \\ disch_tac
@@ -2772,17 +2772,10 @@ Proof
     \\ `left_word = Word (Smallnum left) /\ right_word = Word (Smallnum right)` by
          metis_tac [memory_rel_Number_IMP]
     \\ gvs [get_vars_SOME_IFF,get_vars_SOME_IFF_data,Abbr `arith_result`]
-    >>~- ([`assign c n l dest (IntOp (Smallnum SmallMod))`],
-      simp [data_to_wordTheory.assign_def,assign_Smallnum_def]
-      \\ qexists_tac `NONE` \\ simp []
-      \\ irule (SmallnumDiv_state_rel |> Q.INST [`is_mod` |-> `T`]
-           |> SIMP_RULE std_ss [])
-      \\ simp [stack_consumed_def,allowed_op_def,wordSemTheory.get_vars_def,
-           wordSemTheory.get_var_def])
     \\ simp [data_to_wordTheory.assign_def,assign_Smallnum_def]
     \\ qexists_tac `NONE` \\ simp []
-    \\ irule (SmallnumDiv_state_rel |> Q.INST [`is_mod` |-> `F`]
-         |> SIMP_RULE std_ss [])
+    \\ irule SmallnumDiv_state_rel
+    \\ simp [PULL_EXISTS] \\ qexistsl_tac [`left`, `right`]
     \\ simp [stack_consumed_def,allowed_op_def,wordSemTheory.get_vars_def,
          wordSemTheory.get_var_def])
   \\ gvs [dataLangTheory.op_requires_names_def,dataLangTheory.op_space_reset_def,
