@@ -758,7 +758,7 @@ Proof
   >> xlet_autop
   >> xlet ‘POSTv sv.
        &OPTION_TYPE STRING_TYPE
-         (monad_bind (file_content fs fmodel) (SOME ∘ implode)) sv *
+         (OPTION_BIND (file_content fs fmodel) (SOME ∘ implode)) sv *
        STDIO fs’
   >- (xapp_spec inputAllFrom_SOME_spec >> simp [OPTION_TYPE_def])
   >> Cases_on ‘file_content fs fmodel’ >> gvs [OPTION_TYPE_def]
@@ -767,7 +767,7 @@ Proof
   >> xlet_autop
   >> xlet ‘POSTv sv.
        &OPTION_TYPE STRING_TYPE
-         (monad_bind (file_content fs fwitness) (SOME ∘ implode)) sv *
+         (OPTION_BIND (file_content fs fwitness) (SOME ∘ implode)) sv *
        STDIO fs’
   >- (xapp_spec inputAllFrom_SOME_spec >> simp [OPTION_TYPE_def])
   >> Cases_on ‘file_content fs fwitness’ >> gvs [OPTION_TYPE_def]
