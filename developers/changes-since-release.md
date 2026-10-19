@@ -70,6 +70,9 @@ CF specs and proofs are still TODO, for now.
 
 `TextIO.outputFile` has been added to basis.
 It writes a string to a file, taking care of opening and closing.
+It comes with a CF spec.
+
+`TextIO.openOut` now has CF specs: `openOut_IOFS_spec` and `openOut_STDIO_spec`.
 
 `TextIO.inputAllFrom` has been added to basis. It reads all input from stdin
 (on `None`) or from a named file (on `Some fname`), closing the stream
@@ -141,10 +144,9 @@ The new `socketEchoProg` contains a simple echo server meant for testing the Uni
 
 Similarly, `rawBridgeProg` showcases `SocketIO`'s raw sockets.
 
-`examples/hwmcc_checker`:
-Caketaiger, a verified certificate checker for hardware model checking has been added.
-It adds support for And-Inverter Graphs, AIGER 1.9,
-and verified checking for the certificates used in the Hardware Model Checking Competition.
+The new `examples/hwmcc_checker` contains caketaiger, a verified checker for the
+certificates used in the Hardware Model Checking Competition. It comes with a
+formalization of And-Inverter Graphs and a parser for the binary AIGER 1.9 format.
 
 ## Build infrastructure
 
@@ -185,23 +187,33 @@ must be rewritten into `FOLDL` over `|+`. The bootstrap translation calls
 `openFile_truncate` has been updated to create files if they are not present,
 better reflecting the implementation of `ffiopen_out` in `basis_ffi.c`.
 
+`ffi_open_out` no longer requires the new file descriptor to be at most 255,
+in line with `ffi_open_in`.
+
 `get_file_content` has been renamed to `get_fd_content` to better reflect
-its definition.
+its definition. Theorems mentioning it have been renamed accordingly, e.g.
+`stdin_get_file_content` is now `stdin_get_fd_content`.
 
 `file_content`, which returns the contents of a file by name (not a file
 descriptor), is now defined here instead of in `TextIOProof`.
 
 ### fsFFIProps
 
-`get_mode_fsupdate` has been added and included as a simp:
-```
-Theorem get_mode_fsupdate[simp]:
-  get_mode (fsupdate fs fd' k pos content) fd = get_mode fs fd
-```
+The following simps (among others) have been added: `get_mode_fsupdate`,
+`NOT_MEM_nextFD`, `consistentFS_AFUPDKEY`, `liveFS_AFUPDKEY` and
+`wfFS_updated_by`.
+
+The simp `consistentFS_with_numchars` is now an equivalence:
+`consistentFS (fs with numchars := ll) ⇔ consistentFS fs`.
 
 ### TextIOProof
 
-`raw_closeIn_STDIO_spec` and `closeOut_STDIO_spec` assumptions have been weakened.
+`raw_closeIn_STDIO_spec` and `closeOut_STDIO_spec` no longer assume
+`fd >= 3 ∧ fd <= fs.maxFD`.
+
+### mlstringSyntax
+
+`mlstring_from_file` has been added. It reads a file into an `mlstring` term.
 
 ## Miscellaneous
 
