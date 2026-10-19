@@ -1,0 +1,24 @@
+(*
+  The parser front end: lexing and parsing up to, but not including, AST
+  conversion.
+*)
+structure CandleFrontEnd = struct
+  fun run_lexer input =
+    let val tokens = CandleLexer.lex input;
+        val errors = List.map (fn (_,l) => l)
+          (List.filter (fn (t,_) => t = CandleTokens.LexErrorT) tokens);
+    in case errors of [] => Inr tokens | _ => Inl errors end;
+  fun destResult result = case result of
+      CandlePeg.Result (CandlePeg.Success [] x eo) => CandlePeg.Success [] x eo
+    | CandlePeg.Result (CandlePeg.Success ((_,l)::_) _ _) =>
+        CandlePeg.Failure l "Expected to be at EOF"
+    | CandlePeg.Result (CandlePeg.Failure l e) => CandlePeg.Failure l e
+    | _ => CandlePeg.Failure CandleSupport.unknown_loc "Something catastrophic happened";
+  fun parse_tree input = case run_lexer input of
+      Inl (l::_) => Inl (l,"LEXER ERROR")
+    | Inl [] => raise Fail "unreachable: empty lexer error list"
+    | Inr tokens =>
+        (case destResult (CandleGrammar.parse_tokens tokens) of
+          CandlePeg.Failure l e => Inl (l,e)
+        | CandlePeg.Success _ x _ => Inr x);
+end;

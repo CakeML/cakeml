@@ -3,14 +3,14 @@
 *)
 Theory arm7Prog[no_sig_docs]
 Ancestors
-  evaluate ml_translator from_pancake32Prog arm7_target arm
+  evaluate ml_translator from_pancakeProg arm7_target arm
   to_targetProg[qualified]
 Libs
   preamble ml_translatorLib inliningLib
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = translation_extends "from_pancake32Prog";
+val _ = translation_extends "from_pancakeProg";
 val _ = ml_translatorLib.use_sub_check true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "arm7Prog");

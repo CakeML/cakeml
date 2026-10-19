@@ -16,12 +16,6 @@ Translate the ARMv8 instruction encoder and ARMv8-specific config.
 [basis_defProgScript.sml](basis_defProgScript.sml):
 Translate the basis library term.
 
-[caml_lexProgScript.sml](caml_lexProgScript.sml):
-Translation of the OCaml lexer.
-
-[caml_parserProgScript.sml](caml_parserProgScript.sml):
-Translation of the functions in caml_parserScript.sml
-
 [compiler32ProgScript.sml](compiler32ProgScript.sml):
 Finish translation of the 32-bit version of the compiler.
 
@@ -46,11 +40,8 @@ Translate the compiler's state decoder.
 [explorerProgScript.sml](explorerProgScript.sml):
 Translate the compiler explorer parts of the compiler.
 
-[from_pancake32ProgScript.sml](from_pancake32ProgScript.sml):
-Translate the pan_to_target part of the 32-bit compiler.
-
-[from_pancake64ProgScript.sml](from_pancake64ProgScript.sml):
-Translate the pan_to_target part of the 64-bit compiler.
+[from_pancakeProgScript.sml](from_pancakeProgScript.sml):
+Translate the pan_to_target part of the compiler for all targets.
 
 [inferProgScript.sml](inferProgScript.sml):
 Translate the compiler's type inferencer.
@@ -81,9 +72,6 @@ Translate the compiler's register allocator.
 
 [riscvProgScript.sml](riscvProgScript.sml):
 Translate the RISC-V instruction encoder and RISC-V-specific config.
-
-[sexp_parserProgScript.sml](sexp_parserProgScript.sml):
-Translate the alternative s-expression parser.
 
 [to_bviProgScript.sml](to_bviProgScript.sml):
 Translate the backend phase from BVL to BVI.

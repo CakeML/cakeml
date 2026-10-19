@@ -4,7 +4,7 @@
 *)
 Theory source_evalProof
 Ancestors
-  ast[qualified] string[qualified] semantics
+  semantics
   semanticPrimitivesProps namespaceProps semanticPrimitives
   evaluateProps evaluate
 Libs

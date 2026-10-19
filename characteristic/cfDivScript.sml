@@ -12,7 +12,6 @@ Libs
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = ml_translatorLib.translation_extends "std_prelude";
 
@@ -1729,9 +1728,8 @@ Proof
   simp[semanticPrimitivesTheory.find_recfun_def] >>
   asm_exists_tac >>
   simp[] >> rveq >> Cases_on `r` >>
-  fs[evaluate_to_heap_def] >>
-  TRY(
-    rename1 `lprefix_lub` >>
+  fs[evaluate_to_heap_def] >~ [`lprefix_lub`]
+  >- (
     conj_asm1_tac >-
       (strip_tac >>
        qpat_x_assum `!ck. ?st. _` mp_tac >>
@@ -1811,7 +1809,7 @@ Proof
           strip_tac >>
           drule evaluate_tailrec_div_ind_lemma >>
           rpt(disch_then drule) >>
-          disch_then(qspec_then `i + 1` mp_tac) >> simp[] >>
+          disch_then(qspec_then `ck + 1` mp_tac) >> simp[] >>
           simp[build_rec_env_def] >>
           simp[evaluate_ck_def] >>
           disch_then drule >>
@@ -3486,7 +3484,7 @@ Proof
   strip_tac >>
   drule evaluate_repeat_div_ind_lemma >>
   rpt(disch_then drule) >>
-  disch_then(qspec_then `i + 1` mp_tac) >> simp[] >>
+  disch_then(qspec_then `ck + 1` mp_tac) >> simp[] >>
   simp[build_rec_env_def] >>
   simp[evaluate_ck_def] >>
   disch_then drule >>

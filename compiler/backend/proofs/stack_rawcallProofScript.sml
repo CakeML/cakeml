@@ -7,7 +7,6 @@ Libs
 Ancestors
   wordSem
   stack_rawcall stackLang stackSem stackProps wordSem[qualified]
-  labProps[qualified]
 
 
 
@@ -681,7 +680,7 @@ Proof
         \\ fs [ALOOKUP_toAList,lookup_fromAList]
         \\ Cases_on ‘b’ \\ fs []) >>
       strip_tac >>
-      old_dxrule(GEN_ALL evaluate_add_clock) >>
+      dxrule(GEN_ALL evaluate_add_clock) >>
       disch_then(qspec_then `k'` mp_tac) >>
       impl_tac >- (CCONTR_TAC >> fs[]) >> simp [] >>
       dxrule evaluate_add_clock >>

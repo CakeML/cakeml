@@ -3,7 +3,7 @@
 *)
 Theory clos_numberProof
 Ancestors
-  backendProps closLang clos_number closSem closProps
+  backendProps clos_number closSem closProps
 Libs
   preamble
 

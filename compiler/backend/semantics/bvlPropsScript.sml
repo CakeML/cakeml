@@ -3,7 +3,7 @@
 *)
 Theory bvlProps
 Ancestors
-  bvl bvlSem bvl_const backend_common
+  bvl bvlSem backend_common
 Libs
   preamble
 

@@ -5,7 +5,6 @@ Theory bvlSem
 Ancestors
   bvl closSem
   clos_to_bvl (* for closure_tag and num_added_globals *)
-  backendProps[qualified]
 Libs
   preamble
 

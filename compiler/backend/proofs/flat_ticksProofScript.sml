@@ -57,7 +57,7 @@ End
 Theorem simple_val_rel:
   simple_val_rel v_rel
 Proof
-  simp [simple_val_rel_def] \\ rw []
+  simp [flatPropsTheory.simple_val_rel_def] \\ rw []
   \\ Cases_on ‘v1’ \\ gvs [isClosure_def, v_rel_l_cases]
   \\ Cases_on ‘v2’ \\ gvs [isClosure_def]
 QED
@@ -323,7 +323,7 @@ QED
 Theorem simple_val_rel_flip:
   simple_val_rel (λx y. v_rel y x)
 Proof
-  simp [simple_val_rel_def] \\ rw []
+  simp [flatPropsTheory.simple_val_rel_def] \\ rw []
   \\ Cases_on ‘x’ \\ Cases_on ‘y’
   \\ gvs [isClosure_def, v_rel_r_cases, LIST_REL_flip] \\ metis_tac []
 QED

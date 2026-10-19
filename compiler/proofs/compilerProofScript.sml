@@ -117,7 +117,7 @@ Theorem compile_correct_gen:
         (semantics st prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
         ∀ms.
-          installed code cbspace (MAP n2w data) data_sp c.lab_conf.ffi_names
+          installed code cbspace data data_sp c.lab_conf.ffi_names
             (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms
             ⇒
             ∃po. machine_sem mc st.sem_st.ffi ms ⊆
@@ -194,7 +194,7 @@ Theorem compile_correct_lemma:
         (semantics_init ffi prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
         ∀ms.
-          installed code cbspace (MAP n2w data) data_sp c.lab_conf.ffi_names (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms ⇒
+          installed code cbspace data data_sp c.lab_conf.ffi_names (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms ⇒
             ∃po. machine_sem mc ffi ms ⊆
               extend_with_resource_limit'
                 (is_safe_for_space (:α) ffi po cc
@@ -247,7 +247,7 @@ Theorem compile_correct_safe_for_space:
         ∀ms.
           (∀po. is_safe_for_space (:α) ffi po cc (prelude ++ source_decs)
             (read_limits cc mc ms)) ∧
-          installed code cbspace (MAP n2w data) data_sp c.lab_conf.ffi_names
+          installed code cbspace data data_sp c.lab_conf.ffi_names
             (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms ⇒
           ∃po. machine_sem mc ffi ms =
             semantics_determ
@@ -283,7 +283,7 @@ Theorem compile_correct = Q.prove(`
       ∃behaviours.
         (semantics_init ffi prelude input = Execute behaviours) ∧
         ∀ms.
-          installed code cbspace (MAP n2w data) data_sp c.lab_conf.ffi_names
+          installed code cbspace data data_sp c.lab_conf.ffi_names
             (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms ⇒
           machine_sem mc ffi ms ⊆
             extend_with_resource_limit behaviours

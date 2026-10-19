@@ -5,7 +5,7 @@ Theory linear_scanProof
 Libs
   preamble ml_monadBaseLib
 Ancestors
-  mllist sptree reg_alloc linear_scan reg_allocProof ml_monadBase
+  reg_alloc linear_scan reg_allocProof ml_monadBase
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 

@@ -9,7 +9,6 @@ Libs
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 Theorem OPTION_CASE_OPTION_MAP[local]:
   (option_CASE (OPTION_MAP f a) e g) = option_CASE a e (g o f)

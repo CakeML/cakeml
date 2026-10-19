@@ -167,9 +167,11 @@ val r = backend_passesTheory.from_word_all_def |> spec32 |> translate;
 val r = backend_passesTheory.from_word_0_all_def |> spec32
           |> REWRITE_RULE[dimindex_32] |> translate;
 
-val r = presLangTheory.word_to_strs_def |> spec32 |> translate
+val r = presLangTheory.word_to_strs_def |> translate
 val r = presLangTheory.stack_to_strs_def |> translate
-val r = presLangTheory.lab_to_strs_def |> spec32 |> translate
+val r = labLangTheory.Section_num_def |> translate
+val r = labLangTheory.Section_metadata_def |> translate
+val r = presLangTheory.lab_to_strs_def |> translate
 
 val r = backend_passesTheory.any_prog_pp_def |> spec32 |> translate;
 val r = backend_passesTheory.pp_with_title_def |> translate;
@@ -282,8 +284,7 @@ val _ = translate compilerTheory.get_nth_line_def;
 val _ = translate compilerTheory.locs_to_string_def;
 val _ = translate compilerTheory.ast_locs_to_string_def;
 val _ = translate compilerTheory.parse_cml_input_def;
-val _ = translate (compilerTheory.parse_sexp_input_def
-                   |> PURE_REWRITE_RULE[fromSexpTheory.sexpdec_alt_intro1]);
+val _ = translate compilerTheory.parse_sexp_input_def;
 
 val def = spec32 (compilerTheory.compile_def);
 val res = translate def;

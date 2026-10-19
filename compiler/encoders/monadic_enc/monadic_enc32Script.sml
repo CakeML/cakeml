@@ -224,7 +224,7 @@ Proof
   fs msimps>>
   qmatch_goalsub_abbrev_tac`lookup_ins_table_32 _ _ aa`>>
   rw[]>>
-  old_drule lookup_ins_table_32_correct>>rw[]>>simp[]
+  drule_all_then (qspec_then `aa` strip_assume_tac) lookup_ins_table_32_correct>>simp[]
 QED
 
 Theorem enc_line_hash_32_ls_correct[local]:
@@ -238,8 +238,8 @@ Proof
   Induct>>fs[enc_line_hash_32_ls_def]>>
   fs msimps>>
   rw[]>> simp[]>>
-  old_drule enc_line_hash_32_correct>>
-  disch_then (qspec_then `h` assume_tac)>>rfs[]>>
+  drule_all_then (qspecl_then [`skip_len`,`h`] strip_assume_tac) enc_line_hash_32_correct>>
+  simp[]>>
   first_x_assum drule>>
   rw[]>>simp[]
 QED
@@ -256,9 +256,8 @@ Proof
   fs msimps>>
   rw[]>> simp[]>>
   TOP_CASE_TAC>>simp[]>>
-  old_drule enc_line_hash_32_ls_correct>>
-  simp[]>>
-  disch_then(qspec_then`l` assume_tac)>>fs[]>>
+  drule_all_then (qspecl_then [`skip_len`,`l`] strip_assume_tac) enc_line_hash_32_ls_correct>>
+  fs[]>>
   first_x_assum drule>>rw[]>>
   simp[enc_sec_def]
 QED

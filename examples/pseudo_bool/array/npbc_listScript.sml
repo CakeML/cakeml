@@ -1650,7 +1650,7 @@ Definition fast_obj_constraint_def:
   | INL (n,_) =>
     if n < strlen vomap
     then
-      if strsub vomap n = ^zw then
+      if strsub_unsafe vomap n = ^zw then
         ([],0)
       else
         full_obj_single (subst_fun s) l
@@ -1809,7 +1809,7 @@ End
 
 Definition check_fresh_aux_obj_vomap_def:
   check_fresh_aux_obj_vomap as vomap ⇔
-  EVERY (λx. strlen vomap ≤ x ∨ strsub vomap x = ^zw) as
+  EVERY (λx. strlen vomap ≤ x ∨ strsub_unsafe vomap x = ^zw) as
 End
 
 Definition check_fresh_aspo_list_def:
@@ -3036,7 +3036,8 @@ Theorem vomap_rel_fast_obj_constraint:
   fast_obj_constraint s l vomap =
   obj_constraint (subst_fun s) l
 Proof
-  rw[fast_obj_constraint_def,obj_constraint_rewrite]>>
+  rw[fast_obj_constraint_def,obj_constraint_rewrite,
+     mlstringTheory.strsub_unsafe_eq_strsub]>>
   every_case_tac>>
   Cases_on`l`>>
   fs[npbcTheory.obj_constraint_def,subst_fun_def]>>
@@ -3086,7 +3087,8 @@ Theorem vomap_rel_check_fresh_aux_obj_vomap:
   check_fresh_aux_obj_vomap as vomap ⇒
   check_fresh_aux_obj as obj
 Proof
-  rw[check_fresh_aux_obj_vomap_def,check_fresh_aux_obj_def]>>
+  rw[check_fresh_aux_obj_vomap_def,check_fresh_aux_obj_def,
+     mlstringTheory.strsub_unsafe_eq_strsub]>>
   TOP_CASE_TAC>>simp[]>>
   last_x_assum mp_tac>>
   match_mp_tac EVERY_MONOTONIC>>

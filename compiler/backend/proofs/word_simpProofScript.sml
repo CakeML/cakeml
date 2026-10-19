@@ -5,7 +5,7 @@ Theory word_simpProof
 Libs
   preamble
 Ancestors
-  integer_word int_bitwise mllist wordLang wordSem wordProps word_simp alist
+  integer_word int_bitwise mllist wordSem wordProps word_simp alist
 
 val word_exp_def = wordSemTheory.word_exp_def;
 

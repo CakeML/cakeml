@@ -11,7 +11,6 @@ Libs
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 fun drule0 th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
@@ -939,7 +938,7 @@ Proof
          >> qunabbrev_tac `a1`
          >> disch_then(qspecl_then [`a2`,`DROP (a2 - n) l`,`m`,`e`] mp_tac)
          >> impl_tac
-         >- (qunabbrev_tac `a2`
+         >- (unabbrev_all_tac
              >> match_mp_tac(GEN_ALL headers_within_grow)
              >> MAP_EVERY qexists_tac [`m`,`n + LENGTH l`]
              >> fs[]
@@ -951,14 +950,14 @@ Proof
          >> fs[SNOC_APPEND,DROP_APPEND,DROP_LENGTH_TOO_LONG]
          >> rfs[DROP_LENGTH_TOO_LONG]
          >> fs[DROP_def] >> imp_res_tac headers_within_IMP >> fs[]
-         >> qunabbrev_tac `a2` >> fs[]
+         >> unabbrev_all_tac >> fs[]
          >> qmatch_asmsub_abbrev_tac `patch_aux _ _ _ a2`
          >> (first_assum drule0
              >> disch_then(qspecl_then [`a2`,`[]`,`m`,`e`] mp_tac)
              >> impl_tac
              >- (match_mp_tac(GEN_ALL headers_within_grow)
                  >> MAP_EVERY qexists_tac [`m`,`n+LENGTH l`]
-                 >> qunabbrev_tac `a2` >> fs[]
+                 >> unabbrev_all_tac >> fs[]
                  >> match_mp_tac headers_within_drop
                  >> imp_res_tac headers_within_dest_cons)
              >> TRY(
@@ -971,7 +970,7 @@ Proof
                      >> impl_tac
                      >- (match_mp_tac(GEN_ALL headers_within_grow)
                                      >> MAP_EVERY qexists_tac [`m`,`n+LENGTH l`]
-                                     >> qunabbrev_tac `a2` >> fs[]
+                                     >> unabbrev_all_tac >> fs[]
                                      >> match_mp_tac headers_within_drop
                                      >> imp_res_tac headers_within_dest_cons)
                      >> impl_tac >> fs[]
@@ -979,7 +978,7 @@ Proof
                      >> imp_res_tac headers_within_IMP_SOME >> fs[] >> NO_TAC))
              >> `n + LENGTH l - a2 = 0` by(intLib.COOPER_TAC)
              >> pop_assum (fn x => fs[x])
-             >> qunabbrev_tac `a2`
+             >> unabbrev_all_tac
              >> `n + LENGTH l - q = 0` by(intLib.COOPER_TAC)
              >> pop_assum (fn x => fs[x])
              >> imp_res_tac headers_within_IMP >> fs[]

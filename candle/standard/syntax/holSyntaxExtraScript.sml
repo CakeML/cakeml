@@ -11,7 +11,6 @@ Libs
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val cpn_distinct = TypeBase.distinct_of ``:ordering``
 val cpn_nchotomy = TypeBase.nchotomy_of ``:ordering``
@@ -731,7 +730,7 @@ Proof
   qmatch_assum_abbrev_tac`p` >> fs[] >>
   qhdtm_x_assum`orda`mp_tac >>
   simp[Once orda_def] >>
-  rw[] >- fs[markerTheory.Abbrev_def] >>
+  rw[] >>
   pop_assum mp_tac >>
   BasicProvers.CASE_TAC >>
   BasicProvers.CASE_TAC >>
@@ -1348,7 +1347,7 @@ Theorem VFREE_IN_VSUBST:
 Proof
   Induct >> simp[VFREE_IN_def,VSUBST_def] >- metis_tac[] >>
   map_every qx_gen_tac[`u`,`uty`,`ilist`] >>
-  disch_then(qx_choosel_then[`b`,`bty`]strip_assume_tac) >> simp[] >>
+  disch_then(qx_choosel_then[`x`,`xty`]strip_assume_tac) >> simp[] >>
   BasicProvers.VAR_EQ_TAC >> qmatch_assum_rename_tac`welltyped tm` >>
   qmatch_abbrev_tac`VFREE_IN vu (if p then Abs (Var vx xty) (VSUBST l1 tm) else Abs (Var x xty) (VSUBST l2 tm)) ⇔ q` >>
   qsuff_tac`VFREE_IN vu (Abs (Var (if p then vx else x) xty) (VSUBST (if p then l1 else l2) tm)) ⇔ q` >- metis_tac[] >>

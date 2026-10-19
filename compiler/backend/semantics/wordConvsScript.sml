@@ -3,7 +3,7 @@
 *)
 Theory wordConvs
 Ancestors
-  wordLang asm reg_alloc
+  wordLang reg_alloc
 Libs
   preamble BasicProvers
 

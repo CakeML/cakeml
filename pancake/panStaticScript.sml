@@ -1064,8 +1064,8 @@ Definition static_check_exp_def:
     od
 Termination
   wf_rel_tac `measure (λx. case x of
-                           | INL x => exp_size ARB $ SND x
-                           | INR x => list_size (exp_size ARB) $ SND x)` >>
+                           | INL x => exp_size $ SND x
+                           | INR x => list_size (exp_size) $ SND x)` >>
   Induct_on ‘eflds’ >- rw[] >>
   Cases >> rw[] >>
   Cases_on ‘UNZIP eflds’ >>

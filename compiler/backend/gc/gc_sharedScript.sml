@@ -7,8 +7,6 @@ Ancestors
 Libs
   preamble wordsLib
 
-val _ = ParseExtras.temp_loose_equality();
-
 (* The ML heap is represented as a list of heap_elements. *)
 
 Datatype:
@@ -252,7 +250,7 @@ Definition isSomeForwardPointer_def:
 End
 
 Definition isSomeDataOrForward_def:
-  isSomeDataOrForward x = isSomeForwardPointer x \/ isSomeDataElement x
+  isSomeDataOrForward x <=> isSomeForwardPointer x \/ isSomeDataElement x
 End
 
 Definition roots_ok_def:
@@ -266,7 +264,7 @@ Definition isForwardPointer_def:
 End
 
 Definition heap_ok_def:
-  heap_ok heap limit =
+  heap_ok heap limit <=>
     (heap_length heap = limit) /\
     (* no forward pointers *)
     (FILTER isForwardPointer heap = []) /\
@@ -622,7 +620,7 @@ QED
 (* --- *)
 
 Definition gc_related_def:
-  gc_related (f:num|->num) heap1 heap2 =
+  gc_related (f:num|->num) heap1 heap2 <=>
     INJ (FAPPLY f) (FDOM f) { a | isSomeDataElement (heap_lookup a heap2) } /\
     (!i. i IN FDOM f ==> isSomeDataElement (heap_lookup i heap1)) /\
     !i xs l d.

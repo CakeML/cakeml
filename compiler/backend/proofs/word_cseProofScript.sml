@@ -5,8 +5,8 @@ Theory word_cseProof
 Libs
   preamble helperLib
 Ancestors
-  wordLang wordSem wordProps word_cse alist toto reg_alloc
-  word_simp wordConvs
+  wordLang wordSem wordProps word_cse alist toto
+  wordConvs
 
 (* The reads of a stored arith fact, tracked as self-mappings in
    to_canonical (registered at fact creation), so that a later write to any

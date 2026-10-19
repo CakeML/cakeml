@@ -8,9 +8,9 @@ Ancestors
   backend_common
   mllist dataSem wordSem[qualified] data_to_word
   data_to_word_memoryProof data_to_word_gcProof word_bignumProof
-  dataProps copying_gc int_bitwise finite_map wordProps set_sep
-  semanticsProps alignment word_bignum wordLang gen_gc_partial
-  gc_shared word_gcFunctions word_depthProof gen_gc[qualified]
+  dataProps int_bitwise finite_map wordProps set_sep
+  semanticsProps alignment word_bignum wordLang
+  gc_shared word_gcFunctions word_depthProof
 
 val _ = augment_srw_ss [rewrites [data_to_wordTheory.arch_size]];
 
@@ -19,7 +19,6 @@ val _ = temp_delsimps ["NORMEQ_CONV", "fromAList_def", "domain_union",
                        "domain_map", "sptree.map_def", "sptree.lookup_rwts",
                        "sptree.insert_notEmpty", "sptree.isEmpty_union"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 val _ = augment_srw_ss [rewrites [integer_wordTheory.i2w_pos, integer_wordTheory.i2w_w2i,
   integer_wordTheory.i2w_minus_1,
   data_to_wordTheory.get_lowerbits_def,data_to_wordTheory.make_ptr_def,
@@ -2532,14 +2531,6 @@ Proof
   \\ fs[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
 QED
 
-Theorem EVERY_IMP_ALOOKUP:
-  !xs P. EVERY P xs ==> !x y. ALOOKUP xs x = SOME y ==> P (x, y)
-Proof
-  Induct \\ fs [FORALL_PROD] \\ rw []
-  \\ res_tac \\ fs []
-  \\ every_case_tac \\ fs []
-QED
-
 Theorem structure_le_IMP_option_le:
   !l x y.
     structure_le x y ==>
@@ -2649,7 +2640,7 @@ Proof
    (simp [] \\ fs [state_rel_thm,code_rel_def]
     \\ qpat_x_assum `EVERY (λ(n,x). lookup n t.code = SOME x) (stubs_md c)` mp_tac
     \\ simp [subspt_lookup,lookup_fromAList]
-    \\ strip_tac \\ imp_res_tac EVERY_IMP_ALOOKUP \\ fs [])
+    \\ strip_tac \\ imp_res_tac miscTheory.EVERY_ALOOKUP \\ fs [])
   \\ strip_tac \\ fs []
   \\ pop_assum mp_tac
   \\ fs [wordSemTheory.push_env_def]

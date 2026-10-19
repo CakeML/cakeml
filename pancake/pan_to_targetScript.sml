@@ -18,7 +18,7 @@ End
 Definition compile_prog_def:
   compile_prog asm_conf c prog =
     (* Ensure either user-written main or new main that does nothing is first in func list *)
-    let prog1:'a decl list = case SPLITP (λx. case x of
+    let prog1:decl list = case SPLITP (λx. case x of
                                    Function fi => fi.name = «main»
                                  | _ => F) prog of
                   ([],ys) => ys
@@ -27,28 +27,22 @@ Definition compile_prog_def:
                                  ; inline := F
                                  ; export := F
                                  ; params := []
-                                 ; body := Return (Const 0w)
+                                 ; body := Return (Const 0)
                                  ; return := One
                                 |>
                                 ::xs
                 | (xs,y::ys) => y::xs ++ ys in
     (* Compiler passes *)
-    let prog2 = add_metadata empty_metadata
-                  (pan_to_word$compile_prog asm_conf.ISA prog1) in
+    let prog2 = pan_to_word$compile_prog asm_conf.ISA prog1 in
+    let names = fromAList (ZIP (sort $< (MAP FST prog2),
+                               «generated_main»::MAP FST (functions prog1))) in
+    let prog2 = MAP (λ(n,args,p).
+                      (n,args,p,Metadata (lookup_any n names «NOTFOUND») [])) prog2 in
     let (col,prog3) = word_to_word$compile c.word_to_word_conf asm_conf prog2 in
     let c = c with
             word_to_word_conf updated_by (λc. c with col_oracle := col) in
-    (* Add user functions to name mapping *)
-    let names = fromAList (ZIP (sort $< (MAP FST prog2), (* func numbers *)
-                                «generated_main»::
-                                MAP FST (functions prog1) (* func names *)
-                          )) : mlstring$mlstring num_map in
-    (* Add stubs to name mapping *)
-    let names = sptree$union (sptree$fromAList $ (word_to_stack$stub_names () ++
-      stack_alloc$stub_names () ++ stack_remove$stub_names ())) names in
-    (* Add exported functions to  *)
     let c = c with exported := exports prog in
-      from_word asm_conf c names prog3
+      from_word asm_conf c prog3
 End
 
 (*  TODO: evaluate max_depth ... (full_call_graph dest (fromAList prog))  *)
@@ -56,7 +50,7 @@ End
 Theorem compile_prog_eq:
   compile_prog asm_conf c prog =
     (* Ensure either user-written main or new main that does nothing is first in func list *)
-    let prog1:'a decl list = case SPLITP (λx. case x of
+    let prog1:decl list = case SPLITP (λx. case x of
                                    Function fi => fi.name = «main»
                                  | _ => F) prog of
                   ([],ys) => ys
@@ -65,24 +59,19 @@ Theorem compile_prog_eq:
                                  ; inline := F
                                  ; export := F
                                  ; params := []
-                                 ; body := Return (Const 0w)
+                                 ; body := Return (Const 0)
                                  ; return := One
                                 |>
                                 ::xs
                 | (xs,y::ys) => y::xs ++ ys in
     (* Compiler passes *)
-    let prog2 = add_metadata empty_metadata
-                  (pan_to_word$compile_prog asm_conf.ISA prog1) in
-    (* Add user functions to name mapping *)
-    let names = fromAList (ZIP (sort $< (MAP FST prog2), (* func numbers *)
-                                «generated_main»::
-                                MAP FST (functions prog1) (* func names *)
-                          )) : mlstring$mlstring num_map in
-    (* Add stubs to name mapping *)
-    let names = sptree$union (sptree$fromAList $ (word_to_stack$stub_names () ++
-                stack_alloc$stub_names () ++ stack_remove$stub_names ())) names in
+    let prog2 = pan_to_word$compile_prog asm_conf.ISA prog1 in
+    let names = fromAList (ZIP (sort $< (MAP FST prog2),
+                               «generated_main»::MAP FST (functions prog1))) in
+    let prog2 = MAP (λ(n,args,p).
+                      (n,args,p,Metadata (lookup_any n names «NOTFOUND») [])) prog2 in
     let c = c with exported := exports prog in
-      from_word_0 asm_conf c names prog2
+      from_word_0 asm_conf c prog2
 Proof
   rewrite_tac [compile_prog_def,LET_THM]
   \\ AP_THM_TAC \\ gvs [FUN_EQ_THM] \\ rw []

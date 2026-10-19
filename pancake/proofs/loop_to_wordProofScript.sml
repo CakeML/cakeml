@@ -33,7 +33,7 @@ Definition code_rel_def:
   code_rel s_code t_code =
     ∀name params body.
       lookup name s_code = SOME (params,body) ⇒
-      lookup name t_code = SOME (LENGTH params+1, comp_func name params body) ∧
+      lookup name t_code = SOME (LENGTH params+1, comp_func name params body, empty_metadata) ∧
       ALL_DISTINCT params
 End
 
@@ -54,7 +54,7 @@ Definition state_rel_def:
 End
 
 val goal =
-  ``λ(prog:α loopLang$prog, s). ∀res s1 t ctxt retv l.
+  ``λ(prog:loopLang$prog, s:('a,'ffi) loopSem$state). ∀res s1 t ctxt retv l.
       evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
       state_rel s t ∧ locals_rel ctxt s.locals t.locals ∧
 (*      ALOOKUP (fmap_to_alist t.store) CurrHeap = SOME (Word s.base_addr) ∧
@@ -146,7 +146,7 @@ Theorem code_rel_intro:
   code_rel s_code t_code ==>
     ∀name params body.
       lookup name s_code = SOME (params,body) ⇒
-      lookup name t_code = SOME (LENGTH params+1, comp_func name params body) ∧
+      lookup name t_code = SOME (LENGTH params+1, comp_func name params body, empty_metadata) ∧
       ALL_DISTINCT params
 Proof
   rw [code_rel_def] >> metis_tac []
@@ -459,7 +459,7 @@ Proof
 QED
 
 Theorem comp_exp_preserves_eval:
-  ∀s (e:'a loopLang$exp) v t ctxt.
+  ∀(s:('a,'ffi) loopSem$state) (e:loopLang$exp) v t ctxt.
     eval s e = SOME v ∧ good_dimindex(:'a) ∧
     state_rel s t /\ locals_rel ctxt s.locals t.locals ==>
     word_exp t (comp_exp ctxt e) = SOME v
@@ -978,7 +978,7 @@ Resume compile_correct[SetGlobal]:
 QED
 
 Theorem acc_vars_acc'[local] =
-        acc_vars_acc |> CONV_RULE SWAP_FORALL_CONV |> SPEC “acc_vars (q:'a loopLang$prog) LN”;
+        acc_vars_acc |> CONV_RULE SWAP_FORALL_CONV |> SPEC “acc_vars (q:loopLang$prog) LN”;
 
 Resume compile_correct[If]:
   rpt strip_tac >>
@@ -1537,10 +1537,10 @@ fun drule0 th =
   first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 
 Theorem state_rel_imp_semantics:
-  !s t start. state_rel s t ∧
+  !(s:('a,'ffi) loopSem$state) t start. state_rel s t ∧
   isEmpty s.locals /\ good_dimindex(:'a) ∧
   lookup 0 t.locals = SOME (Loc 1 0) (* for the returning code *) /\
-  (∃(prog:'a loopLang$prog). lookup start s.code = SOME ([], prog)) /\
+  (∃(prog:loopLang$prog). lookup start s.code = SOME ([], prog)) /\
   semantics s start <> Fail ==>
   semantics t start = semantics s start
 Proof
@@ -1759,12 +1759,9 @@ Proof
    qspecl_then [‘k1’, ‘k2’] mp_tac LESS_EQ_CASES >>
    simp[LESS_EQ_EXISTS] >>
    rw [] >>
-   assume_tac (INST_TYPE [``:'a``|->``:'a``,
-                          ``:'b``|->``:'b``]
+   assume_tac (INST_TYPE [``:'b`` |-> ``:'ffi``]
                loopPropsTheory.evaluate_add_clock_io_events_mono) >>
-   assume_tac (INST_TYPE [``:'a``|->``:'a``,
-                          ``:'b``|->``:'c``,
-                          ``:'c``|->``:'b``]
+   assume_tac (INST_TYPE [``:'c`` |-> ``:'ffi``]
                wordPropsTheory.evaluate_add_clock_io_events_mono) >>
    first_assum (qspecl_then
                 [‘Call NONE (SOME start) [0] NONE’, ‘t with clock := k1’, ‘p’] mp_tac) >>
@@ -1835,12 +1832,10 @@ Proof
   impl_tac >- fs [loopLangTheory.acc_vars_def] >>
   fs [comp_def] >>
   strip_tac >>
-  assume_tac (INST_TYPE [``:'a``|->``:'a``,
-                         ``:'b``|->``:'c``,
-                         ``:'c``|->``:'b``]
-              wordPropsTheory.evaluate_io_events_mono) >>
-  first_x_assum (qspecl_then
-               [‘Call NONE (SOME start) [0] NONE’, ‘t with clock := k’] mp_tac) >>
+  qspecl_then [‘wordLang$Call NONE (SOME start) [0] NONE’,
+               ‘t with clock := k’] mp_tac
+    (INST_TYPE [``:'c`` |-> ``:'ffi``]
+       wordPropsTheory.evaluate_io_events_mono) >>
   strip_tac >> fs [] >>
   qexists_tac ‘k’ >> fs [] >>
   fs [state_rel_def] >>
@@ -1907,6 +1902,40 @@ Proof
   TOP_CASE_TAC >> fs []
 QED
 
+Theorem MAP_FST_add_metadata[simp]:
+  MAP FST (add_metadata md xs) = MAP FST xs
+Proof
+  simp [backend_commonTheory.add_metadata_def,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]
+QED
+
+Theorem EVERY_add_metadata[simp]:
+  EVERY (\(n,args,p,md). P n args p) (add_metadata md xs) =
+  EVERY (\(n,args,p). P n args p) xs
+Proof
+  simp [backend_commonTheory.add_metadata_def,EVERY_MAP,o_DEF,UNCURRY]
+  >> AP_THM_TAC >> AP_TERM_TAC
+  >> simp [FUN_EQ_THM,FORALL_PROD]
+QED
+
+Theorem ALOOKUP_add_metadata:
+  ALOOKUP (add_metadata md xs) name =
+  OPTION_MAP (\(arity,body). (arity,body,md)) (ALOOKUP xs name)
+Proof
+  Induct_on `xs`
+  \\ simp [backend_commonTheory.add_metadata_def,FORALL_PROD]
+  \\ rw [] \\ fs [backend_commonTheory.add_metadata_def]
+QED
+
+Theorem lookup_prog_some_lookup_compile_prog_metadata:
+  lookup name (fromAList prog) = SOME (params,body) ==>
+  lookup name (fromAList (add_metadata md (compile_prog prog))) =
+  SOME (LENGTH params + 1,comp_func name params body,md)
+Proof
+  strip_tac
+  \\ drule lookup_prog_some_lookup_compile_prog
+  \\ simp [lookup_fromAList,ALOOKUP_add_metadata]
+QED
+
 (*** no_install/no_alloc/no_mt lemmas ***)
 
 Theorem loop_to_word_comp_not_created:
@@ -1965,33 +1994,36 @@ Proof
 QED
 
 Theorem loop_compile_no_install_code:
-  no_install_code (fromAList (compile prog))
+  no_install_code (fromAList (add_metadata md (compile prog)))
 Proof
   gs[compile_def]>>
   rw[no_install_code_def, no_install_subprogs_def]>>
-  gs[lookup_fromAList, EVERY_MEM, MEM_MAP]>>
+  gs[lookup_fromAList, ALOOKUP_add_metadata,
+     optionTheory.OPTION_MAP_EQ_SOME,EXISTS_PROD,EVERY_MEM,MEM_MAP]>>
   drule ALOOKUP_MEM>>strip_tac>>
   drule_then irule loop_to_word_compile_not_created_MEM>>
   simp []
 QED
 
 Theorem loop_compile_no_alloc_code:
-  no_alloc_code (fromAList (compile prog))
+  no_alloc_code (fromAList (add_metadata md (compile prog)))
 Proof
   gs[compile_def]>>
   rw[no_alloc_code_def, no_alloc_subprogs_def]>>
-  gs[lookup_fromAList, EVERY_MEM, MEM_MAP]>>
+  gs[lookup_fromAList, ALOOKUP_add_metadata,
+     optionTheory.OPTION_MAP_EQ_SOME,EXISTS_PROD,EVERY_MEM,MEM_MAP]>>
   drule ALOOKUP_MEM>>strip_tac>>
   drule_then irule loop_to_word_compile_not_created_MEM>>
   simp []
 QED
 
 Theorem loop_compile_no_mt_code:
-  no_mt_code (fromAList (compile prog))
+  no_mt_code (fromAList (add_metadata md (compile prog)))
 Proof
   gs[compile_def]>>
   rw[no_mt_code_def, no_mt_subprogs_def]>>
-  gs[lookup_fromAList, EVERY_MEM, MEM_MAP]>>
+  gs[lookup_fromAList, ALOOKUP_add_metadata,
+     optionTheory.OPTION_MAP_EQ_SOME,EXISTS_PROD,EVERY_MEM,MEM_MAP]>>
   drule ALOOKUP_MEM>>strip_tac>>
   drule_then irule loop_to_word_compile_not_created_MEM>>
   simp []
@@ -2329,8 +2361,8 @@ Proof
   gs[every_inst_def] >>
   rpt (pairarg_tac>>gs[]) >>
   gs[every_inst_def,
-     PURE_ONCE_REWRITE_CONV [acc_vars_acc] “domain(acc_vars (x:'a loopLang$prog) (acc_vars (y:'a loopLang$prog) z))”,
-     PURE_ONCE_REWRITE_CONV [acc_vars_acc] “domain(acc_vars (x:'a loopLang$prog) (insert y () z))”
+     PURE_ONCE_REWRITE_CONV [acc_vars_acc] “domain(acc_vars (x:loopLang$prog) (acc_vars (y:loopLang$prog) z))”,
+     PURE_ONCE_REWRITE_CONV [acc_vars_acc] “domain(acc_vars (x:loopLang$prog) (insert y () z))”
      ]
   >> rpt conj_tac >> first_x_assum irule >> first_assum ACCEPT_TAC
 QED

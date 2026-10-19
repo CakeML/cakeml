@@ -8,7 +8,7 @@
 *)
 Theory flat_pattern
 Ancestors
-  misc flatLang sptree pattern_semantics pattern_comp
+  flatLang pattern_comp
 Libs
   preamble
 

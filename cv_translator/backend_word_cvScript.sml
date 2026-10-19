@@ -86,8 +86,9 @@ val _ = stack_to_labTheory.prog_to_section_def |> cv_trans;
 val _ = stack_namesTheory.ri_find_name_def |> cv_trans;
 val _ = stack_namesTheory.inst_find_name_def |> cv_trans;
 val _ = stack_namesTheory.comp_def |> cv_trans;
-val _ = stack_namesTheory.prog_comp_def |> cv_trans;
-val _ = stack_namesTheory.compile_def |> cv_auto_trans;
+val prog_spec = INST_TYPE [alpha |-> “:num”,beta |-> “:metadata”];
+val _ = stack_namesTheory.prog_comp_def |> prog_spec |> cv_trans;
+val _ = stack_namesTheory.compile_def |> prog_spec |> cv_auto_trans;
 val _ = stack_removeTheory.word_offset_def |> cv_trans;
 val _ = stack_removeTheory.store_offset_def |> cv_trans;
 val _ = stack_removeTheory.halt_inst_def |> cv_trans;
@@ -105,7 +106,7 @@ val _ = cv_trans_rec (stack_removeTheory.downshift_def)
 val _ = stack_removeTheory.stack_store_def |> cv_trans;
 val _ = stack_removeTheory.stack_load_def |> cv_trans;
 val _ = stack_removeTheory.comp_def |> cv_trans;
-val _ = stack_removeTheory.prog_comp_def |> cv_trans;
+val _ = stack_removeTheory.prog_comp_def |> prog_spec |> cv_trans;
 val _ = stack_removeTheory.store_list_code_def |> cv_trans;
 val _ = stack_removeTheory.init_memory_def |> cv_trans;
 val _ = (stack_removeTheory.init_code_def
@@ -151,7 +152,8 @@ Proof
   ho_match_mp_tac stack_allocTheory.comp_ind \\ rw [] \\ simp [Once pre]
 QED
 
-val _ = stack_allocTheory.prog_comp_def |> cv_trans;
+val _ = stack_allocTheory.prog_comp_def
+  |> INST_TYPE [alpha |-> “:metadata”] |> cv_trans;
 val _ = stack_allocTheory.compile_def |> SRULE [stack_allocTheory.stubs_def]
                                                    |> cv_auto_trans;
 

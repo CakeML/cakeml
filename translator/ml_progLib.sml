@@ -418,7 +418,7 @@ fun add_Dlet_lit loc n l =
   let
     val mp_thm = SPECL [loc,n,l] ML_code_Dlet_var_lit
   in
-    ML_code_upd "add_Dlet_lit" mp_thm [let_env_abbrev ALL_CONV, let_env_abbrev ALL_CONV]
+    ML_code_upd "add_Dlet_lit" mp_thm [let_env_abbrev ALL_CONV, let_st_abbrev reduce_conv]
 end
 
 fun add_Denv eval_thm var_str = let

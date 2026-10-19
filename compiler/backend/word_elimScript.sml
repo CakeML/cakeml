@@ -8,7 +8,7 @@
 *)
 Theory word_elim
 Ancestors
-  sptree spt_closure wordLang
+  spt_closure wordLang
 Libs
   preamble
 

@@ -977,7 +977,7 @@ End
 Definition do_arith_def:
   (do_arith a Float64T vals =
      case (a, MAP the_Litv_Float64 vals) of
-     | (Abs,  [v1])       => SOME (INR $ Litv $ Float64 $ fp64_abs v1)
+     | (Absolute, [v1])   => SOME (INR $ Litv $ Float64 $ fp64_abs v1)
      | (Neg,  [v1])       => SOME (INR $ Litv $ Float64 $ fp64_negate v1)
      | (Sqrt, [v1])       => SOME (INR $ Litv $ Float64 $ fp64_sqrt roundTiesToEven v1)
      | (Add,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_add roundTiesToEven v1 v2)
@@ -1273,6 +1273,11 @@ Definition do_app_def:
               SOME ((s,t), Rerr (Rraise sub_exn_v))
             else
               SOME ((s,t), Rval (Litv (Char (EL n (explode str)))))
+    | (Strsub_unsafe, [Litv (StrLit str); Litv (IntLit i)]) =>
+        if (0:int) ≤ i ∧ Num i < strlen str then
+          SOME ((s,t), Rval (Litv (Char (EL (Num i) (explode str)))))
+        else
+          NONE
     | (Strlen, [Litv (StrLit str)]) =>
         SOME ((s,t), Rval (Litv(IntLit(int_of_num(strlen str)))))
     | (Strcat, [v]) =>

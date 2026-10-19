@@ -3,7 +3,7 @@
 *)
 Theory flatProps
 Ancestors
-  flatLang flatSem lprefix_lub[qualified] ast[qualified]
+  flatLang flatSem lprefix_lub[qualified]
   semanticPrimitivesProps[qualified] evaluateProps[qualified]
 Libs
   preamble

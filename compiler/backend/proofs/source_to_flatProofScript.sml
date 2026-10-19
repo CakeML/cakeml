@@ -4,7 +4,7 @@
 Theory source_to_flatProof
 Ancestors
   source_to_flat flatProps namespaceProps semantics
-  semanticPrimitivesProps ffi[qualified] lprefix_lub[qualified]
+  semanticPrimitivesProps lprefix_lub[qualified]
   backend_common[qualified] misc[qualified] backendProps
   source_evalProof
   semanticPrimitives flatLang flatSem
@@ -15,7 +15,6 @@ Libs
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "getOpClass_def"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val build_rec_env_merge = flatPropsTheory.build_rec_env_merge;
 
@@ -1477,6 +1476,10 @@ Proof
       srw_tac[][markerTheory.Abbrev_def] >>
       full_simp_tac(srw_ss())[v_rel_lems]
       >> rename1 ‘explode str’ >> Cases_on ‘str’ >> fs [])
+  >~ [‘Strsub_unsafe’] >- (
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      rename1 ‘explode str’ >> Cases_on ‘str’ >> fs [])
   >~ [‘Strlen’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
@@ -1826,25 +1829,20 @@ Proof
     rw [])
 QED
 
-Theorem lookup_build_rec_env_lem[local]:
-  !x cl_env funs' funs.
-    ALOOKUP (MAP (λ(fn,n,e). (fn,Recclosure cl_env funs' fn)) funs) x = SOME v
-    ⇒
-    v = semanticPrimitives$Recclosure cl_env funs' x
-Proof
-  induct_on `funs` >>
-  srw_tac[][] >>
-  PairCases_on `h` >>
-  full_simp_tac(srw_ss())[] >>
-  every_case_tac >>
-  full_simp_tac(srw_ss())[]
-QED
-
 Theorem sem_env_eq_lemma[local]:
   !(env:'a sem_env) x. (env with v := x) = <| v := x; c := env.c |>
 Proof
   rw [] >>
   rw [sem_env_component_equality]
+QED
+
+Theorem map_rec_env_names[local]:
+  ∀xs env funs.
+    MAP (λ(f,n,e). (f,semanticPrimitives$Recclosure env funs f)) xs =
+    MAP (λname. (name,semanticPrimitives$Recclosure env funs name))
+      (MAP FST xs)
+Proof
+  Induct >> simp [] >> rpt gen_tac >> PairCases_on ‘h’ >> simp []
 QED
 
 Theorem do_opapp[local]:
@@ -1921,10 +1919,9 @@ Proof
       >- (
         rename1 `ALOOKUP _ recursive_name = SOME source_closure` >>
         `MEM recursive_name (MAP FST funs)`
-          by (
-            imp_res_tac ALOOKUP_MEM >>
-            fs [MEM_MAP, EXISTS_PROD] >> metis_tac []) >>
-        drule lookup_build_rec_env_lem >> strip_tac >> fs [] >>
+          by (imp_res_tac ALOOKUP_MEM >>
+              fs [MEM_MAP, EXISTS_PROD] >> metis_tac []) >>
+        gvs [map_rec_env_names, miscTheory.ALOOKUP_MAP_names] >>
         qpat_assum `∀x. MEM x (MAP FST funs) ⇒ _`
           (qspec_then `recursive_name` (mp_tac o UNDISCH)) >>
         disch_then (qx_choosel_then

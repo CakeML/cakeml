@@ -3,7 +3,7 @@
 *)
 Theory word_removeProof
 Ancestors
-  word_remove wordSem wordProps wordConvs
+  word_remove wordSem wordProps
 Libs
   preamble
 

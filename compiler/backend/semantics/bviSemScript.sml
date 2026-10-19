@@ -3,8 +3,7 @@
 *)
 Theory bviSem
 Ancestors
-  bvi backend_common[qualified] bvlSem[qualified]
-  backendProps[qualified]
+  bvi bvlSem[qualified]
 Libs
   preamble
 

@@ -5,7 +5,7 @@
 *)
 Theory ag32_ffi_returnSpec
 Ancestors
-  set_sep prog ag32 temporal_state ag32_memory ag32_prog
+  set_sep prog ag32 ag32_memory ag32_prog
   ag32_targetProof[qualified]
 Libs
   preamble decompilerLib ag32_decompilerLib

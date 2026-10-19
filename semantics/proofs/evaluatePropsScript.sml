@@ -1512,3 +1512,84 @@ Proof
   \\ irule_at (Pos hd) EQ_REFL
   \\ gvs [dec_clock_def,ADD1]
 QED
+
+(* Evaluation of known values and Let/Letrec *)
+
+Theorem evaluate_constant_list:
+  ∀es.
+    (∀e. MEM e es ⇒ ∃v. ∀s:'ffi semanticPrimitives$state.
+       evaluate s env [e] = (s,Rval [v])) ⇒
+    ∃vs. LENGTH vs = LENGTH es ∧
+         ∀s:'ffi semanticPrimitives$state. evaluate s env es = (s,Rval vs)
+Proof
+  Induct_on ‘es’
+  >- simp [evaluate_def]
+  >> qx_gen_tac ‘e’
+  >> strip_tac
+  >> qpat_assum ‘∀e. MEM e (_::_) ⇒ _’
+       (qspec_then ‘e’ (mp_tac o REWRITE_RULE [MEM]))
+  >> disch_then (qx_choose_then ‘v’ assume_tac)
+  >> qpat_x_assum ‘_ ⇒ ∃vs. _’ mp_tac
+  >> impl_tac
+  >- metis_tac [MEM]
+  >> disch_then (qx_choose_then ‘vs’ strip_assume_tac)
+  >> qexists_tac ‘v::vs’
+  >> Cases_on ‘es’
+  >> gvs [evaluate_def,fix_clock_def]
+QED
+
+Theorem evaluate_known_value_list:
+  ∀es vs.
+    LIST_REL (λe v. ∀s:'ffi semanticPrimitives$state.
+      evaluate s env [e] = (s,Rval [v])) es vs ⇒
+    ∀s:'ffi semanticPrimitives$state. evaluate s env es = (s,Rval vs)
+Proof
+  Induct_on ‘es’
+  >- simp [evaluate_def]
+  >> qx_genl_tac [‘e’,‘vs’]
+  >> namedCases_on ‘vs’ ["","value values"]
+  >> simp []
+  >> strip_tac
+  >> qpat_x_assum ‘∀vs. LIST_REL _ es vs ⇒ _’
+       (qspec_then ‘values’ mp_tac)
+  >> simp []
+  >> strip_tac
+  >> Cases_on ‘es’
+  >> gvs [evaluate_def,fix_clock_def]
+QED
+
+Theorem evaluate_let_known_value:
+  evaluate (s:'ffi semanticPrimitives$state) env [rhs] = (s,Rval [value]) ⇒
+  evaluate s env [Let (SOME name) rhs body] =
+  evaluate s (env with v := nsBind name value env.v) [body]
+Proof
+  strip_tac
+  >> simp [cj 13 evaluate_def,namespaceTheory.nsOptBind_def]
+QED
+
+Theorem evaluate_letrec_duplicate:
+  ¬ALL_DISTINCT (MAP FST funs) ⇒
+  evaluate (s:'ffi semanticPrimitives$state) env [Letrec funs body] =
+    (s,Rerr (Rabort Rtype_error))
+Proof
+  strip_tac
+  >> simp_tac (srw_ss()) [cj 14 evaluate_def,ELIM_UNCURRY,ETA_AX]
+  >> simp []
+QED
+
+Theorem evaluate_letrec_distinct:
+  ALL_DISTINCT (MAP (λ(f,x,e). f) funs) ⇒
+  evaluate (s:'ffi semanticPrimitives$state) env [Letrec funs body] =
+  evaluate s (env with v := build_rec_env funs env env.v) [body]
+Proof
+  simp [evaluate_def]
+QED
+
+Theorem do_eval_res_clock:
+  (FST (do_eval_res vs s)).clock = s.clock
+Proof
+  namedCases_on ‘do_eval vs s.eval_state’ ["","payload"]
+  >> simp [do_eval_res_def]
+  >> namedCases_on ‘payload’ ["env decs eval_state"]
+  >> simp []
+QED

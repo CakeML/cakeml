@@ -8,7 +8,7 @@
 *)
 Theory word_to_stack
 Ancestors
-  asm wordLang stackLang parmove word_alloc mlstring
+  wordLang parmove
 Libs
   preamble
 

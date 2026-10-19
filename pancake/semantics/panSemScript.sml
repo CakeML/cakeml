@@ -49,7 +49,7 @@ Datatype:
     <| locals      : varname |-> 'a v
      ; globals     : varname |-> 'a v
      ; structs     : (stcname # struct_info) list
-     ; code        : funname |-> ((varname # shape) list # ('a panLang$prog) # shape)
+     ; code        : funname |-> ((varname # shape) list # (panLang$prog) # shape)
                      (* arguments (with shape), body, return shape *)
      ; eshapes     : eid |-> shape
      ; memory      : 'a word -> 'a word_lab
@@ -208,7 +208,7 @@ Definition pan_primop_def:
 End
 
 Definition eval_def:
-  (eval ^s (Const w) = SOME (ValWord w)) /\
+  (eval ^s (Const i) = SOME (ValWord (i2w i))) /\
   (eval s  (Var Local v) = FLOOKUP s.locals v) /\
   (eval s  (Var Global v) = FLOOKUP s.globals v) /\
   (eval s (RStruct es) =
@@ -292,7 +292,7 @@ Definition eval_def:
   (eval s BytesInWord =
         SOME (ValWord bytes_in_word))
 Termination
-  wf_rel_tac `measure (exp_size ARB o SND)`
+  wf_rel_tac `measure (exp_size o SND)`
   \\ rpt strip_tac \\ gs [UNZIP_MAP]
   \\ fs [MEM_SPLIT, MAP_EQ_APPEND, list_size_append, EXISTS_PROD, MAP_EQ_CONS]
 End
@@ -555,7 +555,7 @@ Definition nb_op_def:
 End
 
 Definition evaluate_def:
-  (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
+  (evaluate (Skip:panLang$prog,^s) = (NONE,s)) /\
   (evaluate (Dec v sh e prog, s) =
     case (eval s e) of
      | SOME value =>
@@ -728,7 +728,7 @@ Definition evaluate_def:
          | _ => (SOME Error,s))
       | res => (SOME Error,s))
 Termination
-  wf_rel_tac `(inv_image (measure I LEX measure (prog_size (K 0)))
+  wf_rel_tac `(inv_image (measure I LEX measure (prog_size))
                (\(xs,^s). (s.clock,xs)))` >>
   rw[] >>
   gvs[set_var_def,upd_locals_def,dec_clock_def, UNCURRY_eq_pair,

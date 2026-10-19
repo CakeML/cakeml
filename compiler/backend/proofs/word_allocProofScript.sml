@@ -16,7 +16,6 @@ open reg_allocTheory reg_allocProofTheory linear_scanTheory
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = Parse.bring_to_front_overload"numset_list_insert"
              {Thy="word_alloc",Name="numset_list_insert"};
@@ -1256,21 +1255,21 @@ Resume evaluate_apply_colour[Inst]:
   exists_tac>>
   Cases_on`i`>> (TRY (Cases_on`a`))>> (TRY(Cases_on`m`))>>
   full_simp_tac(srw_ss())[get_live_def,get_live_inst_def,inst_def,assign_def,word_add_carry_def]
-  >~ [`get_writes bits (Inst (Arith (Div rd ra rb)))`]
+  >~ [`get_writes _ (Inst (Arith (Div rd ra rb)))`]
   >- inst_arith_tac
-  >~ [`get_writes bits (Inst (Arith (LongMul rh rl ra rb)))`]
+  >~ [`get_writes _ (Inst (Arith (LongMul rh rl ra rb)))`]
   >- inst_arith_tac
-  >~ [`get_writes bits (Inst (Arith (LongDiv rq rr rh rl rb)))`]
+  >~ [`get_writes _ (Inst (Arith (LongDiv rq rr rh rl rb)))`]
   >- inst_arith_tac
-  >~ [`get_writes bits (Inst (Arith (AddCarry rd ra rb rc)))`]
+  >~ [`get_writes _ (Inst (Arith (AddCarry rd ra rb rc)))`]
   >- inst_arith_tac
-  >~ [`get_writes bits (Inst (Arith (AddOverflow rd ra rb ro)))`]
+  >~ [`get_writes _ (Inst (Arith (AddOverflow rd ra rb ro)))`]
   >- inst_arith_tac
-  >~ [`get_writes bits (Inst (Arith (SubOverflow rd ra rb ro)))`]
+  >~ [`get_writes _ (Inst (Arith (SubOverflow rd ra rb ro)))`]
   >- inst_arith_tac
-  >~ [`get_writes bits (Inst (Arith (IMul rd ra rb ro)))`]
+  >~ [`get_writes _ (Inst (Arith (IMul rd ra rb ro)))`]
   >- inst_arith_tac
-  >~ [`get_writes bits (Inst (Arith (IDiv rq rr ra rb)))`]
+  >~ [`get_writes _ (Inst (Arith (IDiv rq rr ra rb)))`]
   >- inst_arith_tac
   >-
   (rename1 `word_exp st (Const imm)` >>

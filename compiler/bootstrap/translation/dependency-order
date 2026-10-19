@@ -17,26 +17,22 @@ to_bvi
 to_data
 lexer
 parser
-caml_lex
-caml_parser
 pancake_lex
 pancake_parse
 reg_alloc
 infer
 explorer
 decode
-sexp_parser
 basis_def
 printing
 to_word
 to_target
+from_pancake
 --- (the translation splits into two paths for 32- and 64-bit targets)
-from_pancake32
 arm7
 ag32
 compiler32
 ---
-from_pancake64
 x64
 arm8
 riscv
