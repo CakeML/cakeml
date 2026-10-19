@@ -3,15 +3,13 @@
 *)
 Theory caketaigerProg
 Ancestors
-  (* infer_cv *)  (* can be used for testing *)
+  (* infer_cv *)  (* can be used for testing; see below *)
   aig_cert_fullProg
 Libs
   cv_transLib preamble ml_translatorLib basisFunctionsLib
 
 val _ = translation_extends "aig_cert_fullProg";
 
-(* TODO Can we turn this into a cleaner, general mechanism using Quote and move it
-   to preamble perhaps? *)
 (* Copied from examples/xlrup_checker/array/xlrup_arrayFullProgScript.sml *)
 val usage_string = ‘
 

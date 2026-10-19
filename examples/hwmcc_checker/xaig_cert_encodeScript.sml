@@ -8,9 +8,6 @@ Ancestors
 Libs
   preamble
 
-(* todo can we clean up/reduce duplication (e.g. mapping over datatypes),
-   simpler theorems/proofs *)
-
 Theorem xeval_lit_latch:
   xeval_lit ss xaig (Base (Latch l), b) ⇔ (b ⇎ SND ss l)
 Proof
