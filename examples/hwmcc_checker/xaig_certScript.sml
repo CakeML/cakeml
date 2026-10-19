@@ -7,8 +7,6 @@ Ancestors
 Libs
   preamble
 
-(* TODO Add references to papers *)
-
 (** Various set definitions/theorems ******************************************)
 
 Definition IMAGE_PARTIAL_DEF:
@@ -626,8 +624,7 @@ Proof
   Cases_on ‘ss’ >> simp [agree_on_def]
 QED
 
-(* TODO Wouldn't this be better called _subset? *)
-Theorem dep_latch_lit_next:
+Theorem dep_latch_lit_inputs_latches:
   BIGUNION (IMAGE (set ∘ lit_latches ∘ next) latches) ⊆ latches' ∧
   BIGUNION (IMAGE (set ∘ lit_inputs ∘ next) latches) ⊆ inputs' ⇒
   dep_latch_lit inputs' latches' next latches
@@ -640,7 +637,7 @@ Proof
   Cases_on`b`>>gvs[bvar_latches_def,bvar_inputs_def]
 QED
 
-Theorem dep_reset_subset:
+Theorem dep_reset_inputs_latches:
   BIGUNION (IMAGE (set ∘ lit_latches) (IMAGE_PARTIAL reset latches)) ⊆ latches' ∧
   BIGUNION (IMAGE (set ∘ lit_inputs)  (IMAGE_PARTIAL reset latches)) ⊆ inputs' ⇒
   dep_reset inputs' latches' reset latches
@@ -656,8 +653,7 @@ Proof
   >> simp [lit_latches_def, var_latches_def, bvar_latches_def]
 QED
 
-(* TODO Wouldn't this be better called _subset? *)
-Theorem dep_lits_lits:
+Theorem dep_lits_inputs_latches:
   BIGUNION (IMAGE (set ∘ lit_latches) lits) ⊆ latches' ∧
   BIGUNION (IMAGE (set ∘ lit_inputs) lits) ⊆ inputs' ⇒
   dep_lits inputs' latches' lits
@@ -772,8 +768,6 @@ End
 Definition lives_hold_def:
   lives_hold ss xaig live = EVERY (some_signal_holds ss xaig) live
 End
-
-(* TODO Use records for circuit *)
 
 (* NOTE We use R{L} and F{L} on the left-hand side of implications
    instead of R{K} and F{K}, allowing us to prove soundness a bit easier. *)
@@ -1386,7 +1380,7 @@ Proof
       irule dep_xaig_subset>>
       metis_tac[dep_xaig_inputs_latches])
     >>
-      irule dep_latch_lit_next>>
+      irule dep_latch_lit_inputs_latches>>
       fs[])
   >> drule_then assume_tac xis_inf_trace_xis_next
   >> ‘lives_hold (state_pair (steps (i + 2)) (steps (i + 1))) qxaig live’ by
@@ -1398,7 +1392,7 @@ Proof
     irule lives_hold_matching_transition >> simp []
     >> qpat_x_assum ‘matching_transition _ _ _ _ _’ $ irule_at Any
     >> simp []
-    >> conj_tac >- metis_tac [dep_lits_lits]
+    >> conj_tac >- metis_tac [dep_lits_inputs_latches]
     >> irule dep_xaig_subset
     >> metis_tac [dep_xaig_inputs_latches]
   )
@@ -1410,7 +1404,7 @@ Proof
   >> qexists_tac`pair_set latches'`
   >> qexists_tac`pair_set inputs'`
   >> simp [agree_on_pair]
-  >> conj_tac >- metis_tac [dep_lits_lits]
+  >> conj_tac >- metis_tac [dep_lits_inputs_latches]
   >> irule dep_xaig_subset
   >> metis_tac [dep_xaig_inputs_latches]
 QED

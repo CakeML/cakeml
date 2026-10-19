@@ -3042,13 +3042,13 @@ Proof
       >> simp [SUBSET_DEF, Abbr ‘minput’]
     )
     >> have ‘dep_reset minput (set mlatches) mreset (set mlatches)’
-    >- (irule dep_reset_subset >> simp [SUBSET_DEF, Abbr ‘minput’])
+    >- (irule dep_reset_inputs_latches >> simp [SUBSET_DEF, Abbr ‘minput’])
     >> have ‘dep_latch_lit minput (set mlatches) mnext (set mlatches)’
-    >- (irule dep_latch_lit_next >> simp [SUBSET_DEF, Abbr ‘minput’])
+    >- (irule dep_latch_lit_inputs_latches >> simp [SUBSET_DEF, Abbr ‘minput’])
     >> simp []
     (* only conjuncts of dep_lits ... should remain *)
     >> rpt conj_tac
-    >> irule dep_lits_lits
+    >> irule dep_lits_inputs_latches
     >> simp [SUBSET_DEF, Abbr ‘minput’]
   )
   >> have ‘FINITE (set wlatches)’ >- simp []
