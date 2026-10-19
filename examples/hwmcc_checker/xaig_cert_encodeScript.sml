@@ -4,29 +4,17 @@
 Theory xaig_cert_encode
 Ancestors
   aig xaig xaig_cert
-  (* TODO maybe should move; is for stratification *)
-  topological_sort
+  topological_sort  (* for stratification *)
 Libs
   preamble
 
-(* todo clean out commented out parts *)
-
-(* todo check which theorems/simps are actually used *)
-(* todo check whether it is possible to reduce the amount of
-   definitions/theorems *)
 (* todo can we clean up/reduce duplication (e.g. mapping over datatypes),
    simpler theorems/proofs *)
-
-(* todo once this version works, we could simplify aig to be over two inputs *)
 
 (* todo are the wrappers like iright_name_lits really useful,
    or could things be simplified by removing them *)
 
 (* todo left_name -> left_merge; left_lit -> left_pair? *)
-
-(* todo instead of xaig -> xaig in each condition, we should make a new predicate
-     that says the xaig is equivalent to original xaig; can probably
-     delete the xaig_to_xaig specific thms from the proofs in that case *)
 
 (* todo the names are inconsistent;
    - xaig/xaig
@@ -866,16 +854,6 @@ Theorem xeval_lit_encode_xlits_hold_ext_lit:
   xeval_lit ss xaig (ext_lit lit)
 Proof
   simp [encode_xlits_hold_def]
-QED
-
-Theorem xeval_gate_encode_xlits_hold_ext:
-  xeval_gate ss (encode_xlits_hold name lits ++ xaig) (Ext n) =
-  if n = name then
-    xlits_hold ss xaig (set lits)
-  else xeval_gate ss xaig (Ext n)
-Proof
-  simp [encode_xlits_hold_def, xeval_lit_def, xlits_hold_def, EVERY_MEM]
-  >> IF_CASES_TAC >> simp []
 QED
 
 Definition ext_reset_def:
@@ -1754,7 +1732,7 @@ Proof
         encode_xlits_hold_def]
 QED
 
-Theorem some_signal_holds_encode_xlits_hold_ext_lit[local,simp]:
+Theorem some_signal_holds_ext_xaig_ext_lit[local,simp]:
   some_signal_holds ss (ext_xaig xaig) (MAP (ext_lit ∘ f) lit)
   ⇔
   some_signal_holds ss xaig (MAP f lit)
@@ -2777,9 +2755,6 @@ QED
 Finalise latch_deps_xeval_eq[local]
 
 Theorem latch_deps_xeval_lit_eq[local] = cj 1 latch_deps_xeval_eq
-Theorem latch_deps_xeval_gate_eq[local] =
-  cj 2 latch_deps_xeval_eq
-    |> SIMP_RULE (pure_ss ++ UNWIND_ss) []  (* unwinds _ = (_, _)  *)
 
 
 (* Returns the tuple (latch, latch dependencies), if latch has a defined reset
@@ -3017,45 +2992,33 @@ Proof
     >> fs [encodings_unsat_def]
   )
   >> have
-     ‘∃minput.
-        dep_model mxaig mreset mnext (set msafes) (set mcnstrs) minput
-          (set mlatches) ∧
-        dep_qxaig minput (qxleft mxaig) (qleft_live mlive) (set mlatches)’
+     ‘dep_model mxaig mreset mnext (set msafes) (set mcnstrs) (set mlatches) ∧
+      dep_qmodel (qxleft mxaig) (qleft_live mlive) (set mlatches)’
   >- (
-    qabbrev_tac
-      ‘minput =
-         set (xaig_inputs mxaig) ∪
-         BIGUNION (IMAGE (set ∘ lit_inputs ∘ mnext) (set mlatches)) ∪
-         BIGUNION
-           (IMAGE (set ∘ lit_inputs) (IMAGE_PARTIAL mreset (set mlatches))) ∪
-         BIGUNION (IMAGE (set ∘ lit_inputs) (set msafes)) ∪
-         BIGUNION (IMAGE (set ∘ lit_inputs) (set mcnstrs)) ∪
-         BIGUNION (IMAGE (set ∘ lit_inputs) (set (FLAT mlive)))’
-    >> qexists ‘minput’
-    >> rewrite_tac [dep_model_def, dep_qxaig_def, GSYM CONJ_ASSOC]
+    rewrite_tac [dep_model_def, dep_qmodel_def, GSYM CONJ_ASSOC]
     >> simp [dep_xaig_pair_qxleft, dep_lits_pair_qleft_live]
     >> fs [dep_cond_def]
-    >> have ‘dep_xaig minput (set mlatches) mxaig’
+    >> have ‘dep_xaig UNIV (set mlatches) mxaig’
     >- (
       irule dep_xaig_subset
       >> irule_at Any dep_xaig_inputs_latches
-      >> simp [SUBSET_DEF, Abbr ‘minput’]
+      >> simp [SUBSET_DEF]
     )
-    >> have ‘dep_reset minput (set mlatches) mreset (set mlatches)’
-    >- (irule dep_reset_inputs_latches >> simp [SUBSET_DEF, Abbr ‘minput’])
-    >> have ‘dep_latch_lit minput (set mlatches) mnext (set mlatches)’
-    >- (irule dep_latch_lit_inputs_latches >> simp [SUBSET_DEF, Abbr ‘minput’])
+    >> have ‘dep_reset UNIV (set mlatches) mreset (set mlatches)’
+    >- (irule dep_reset_inputs_latches >> simp [SUBSET_DEF])
+    >> have ‘dep_latch_lit UNIV (set mlatches) mnext (set mlatches)’
+    >- (irule dep_latch_lit_inputs_latches >> simp [SUBSET_DEF])
     >> simp []
     (* only conjuncts of dep_lits ... should remain *)
     >> rpt conj_tac
     >> irule dep_lits_inputs_latches
-    >> simp [SUBSET_DEF, Abbr ‘minput’]
+    >> simp [SUBSET_DEF]
   )
   >> have ‘FINITE (set wlatches)’ >- simp []
   >> drule_all stratified_cond_is_stratified >> strip_tac
   >> drule is_witness_xis_safe_and_live
-  >> rename [‘is_stratified lt’, ‘dep_qxaig minput’]
-  >> disch_then $ qspecl_then [‘minput’, ‘lt’] mp_tac
+  >> rename [‘is_stratified lt’]
+  >> disch_then $ qspecl_then [‘lt’] mp_tac
   >> gvs []
 QED
 
@@ -3120,12 +3083,6 @@ Proof
   simp [nsn2num_def, sum2num_11]
 QED
 
-Theorem INJ_nsn2num:
-  INJ nsn2num 𝕌(:num + num) 𝕌(:num)
-Proof
-  simp [INJ_IFF, nsn2num_11]
-QED
-
 (* (num + num) + (num + num) -> num *)
 Definition nsn_s_nsn2num_def:
   nsn_s_nsn2num = sum2num nsn2num nsn2num
@@ -3146,12 +3103,6 @@ Theorem nsn_s_n2num_11:
   (nsn_s_n2num n' = nsn_s_n2num n ⇔ n' = n)
 Proof
   simp [nsn_s_n2num_def, sum2num_11, nsn2num_11]
-QED
-
-Theorem INJ_nsn_s_n2num:
-  INJ nsn_s_n2num 𝕌(:(num + num) + num) 𝕌(:num)
-Proof
-  simp [INJ_IFF, nsn_s_n2num_11]
 QED
 
 (* ((num + num) + (num + num)) + (num + num) -> num *)
@@ -3211,12 +3162,6 @@ Proof
   simp [nsn_e2num_def, ext2num_11, nsn2num_11]
 QED
 
-Theorem INJ_nsn_e2num:
-  INJ nsn_e2num 𝕌(:(num + num) ext) 𝕌(:num)
-Proof
-  simp [INJ_IFF, nsn_e2num_11]
-QED
-
 (* ((num + num) + (num + num)) ext -> num *)
 Definition nsn_s_nsn_e2num_def:
   nsn_s_nsn_e2num = ext2num nsn_s_nsn2num
@@ -3226,12 +3171,6 @@ Theorem nsn_s_nsn_e2num_11:
   (nsn_s_nsn_e2num n' = nsn_s_nsn_e2num n) ⇔ n' = n
 Proof
   simp [nsn_s_nsn_e2num_def, ext2num_11, nsn_s_nsn2num_11]
-QED
-
-Theorem INJ_nsn_s_nsn_e2num:
-  INJ nsn_s_nsn_e2num 𝕌(:((num + num) + num + num) ext) 𝕌(:num)
-Proof
-  simp [INJ_IFF, nsn_s_nsn_e2num_11]
 QED
 
 (* num ext -> num *)
@@ -3245,12 +3184,6 @@ Proof
   simp [n_e2num_def, ext2num_11]
 QED
 
-Theorem INJ_n_e2num:
-  INJ n_e2num 𝕌(:num ext) 𝕌(:num)
-Proof
-  simp [INJ_IFF, n_e2num_11]
-QED
-
 (* (((num + num) + (num + num)) + (num + num)) ext -> num *)
 Definition nsn_s_nsn_s_nsn_e2num_def:
   nsn_s_nsn_s_nsn_e2num = ext2num nsn_s_nsn_s_nsn2num
@@ -3260,13 +3193,6 @@ Theorem nsn_s_nsn_s_nsn_e2num_11:
   (nsn_s_nsn_s_nsn_e2num n' = nsn_s_nsn_s_nsn_e2num n) ⇔ n' = n
 Proof
   simp [nsn_s_nsn_s_nsn_e2num_def, ext2num_11, nsn_s_nsn_s_nsn2num_11]
-QED
-
-Theorem INJ_nsn_s_nsn_s_nsn_e2num:
-  INJ nsn_s_nsn_s_nsn_e2num
-    𝕌(:(((num + num) + num + num) + num + num) ext) 𝕌(:num)
-Proof
-  simp [INJ_IFF, nsn_s_nsn_s_nsn_e2num_11]
 QED
 
 (* ((num + num) + num) ext -> num *)
@@ -3280,12 +3206,6 @@ Proof
   simp [nsn_s_n_e2num_def, ext2num_11, nsn_s_n2num_11]
 QED
 
-Theorem INJ_nsn_s_n_e2num:
-  INJ nsn_s_n_e2num 𝕌(:((num + num) + num) ext) 𝕌(:num)
-Proof
-  simp [INJ_IFF, nsn_s_n_e2num_11]
-QED
-
 (* (((num + num) + num) + (num + num)) ext -> num *)
 Definition nsn_s_n_s_nsn_e2num_def:
   nsn_s_n_s_nsn_e2num = ext2num nsn_s_n_s_nsn2num
@@ -3295,13 +3215,6 @@ Theorem nsn_s_n_s_nsn_e2num_11:
   (nsn_s_n_s_nsn_e2num n' = nsn_s_n_s_nsn_e2num n) ⇔ n' = n
 Proof
   simp [nsn_s_n_s_nsn_e2num_def, ext2num_11, nsn_s_n_s_nsn2num_11]
-QED
-
-Theorem INJ_nsn_s_n_s_nsn_e2num:
-  INJ nsn_s_n_s_nsn_e2num
-    𝕌(:(((num + num) + num) + num + num) ext) 𝕌(:num)
-Proof
-  simp [INJ_IFF, nsn_s_n_s_nsn_e2num_11]
 QED
 
 (** Combining encoding + mapping names to nums ********************************)

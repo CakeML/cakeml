@@ -427,13 +427,6 @@ Definition steps_agree_def:
     ∀i. i ≤ n ⇒ agree_on inputs latches (steps' i) (steps i)
 End
 
-Theorem xis_next_subset:
-  xis_next ss ls xaig next latches ∧ latches' ⊆ latches ⇒
-  xis_next ss ls xaig next latches'
-Proof
-  rw [xis_next_def] >> metis_tac [SUBSET_DEF]
-QED
-
 Theorem xis_next_dep_xaig:
   xis_next ss₀ ls₁ xaig next latches ∧
   (∀l. l ∈ latches' ⇒ ls₁ l = ls₁' l) ∧
@@ -575,21 +568,11 @@ Proof
   >> metis_tac [dep_xeval_lit_eq, agree_on_def]
 QED
 
-Definition dep_qxaig_def:
-  dep_qxaig inputs qxaig live latches ⇔
-    dep_xaig (pair_set inputs) (pair_set latches) qxaig ∧
-    dep_lits (pair_set inputs) (pair_set latches) (set (FLAT live))
+Definition dep_qmodel_def:
+  dep_qmodel (qxaig: ('a, 'i + 'i, 'l + 'l) xaig) live latches ⇔
+    dep_xaig (pair_set 𝕌(:'i)) (pair_set latches) qxaig ∧
+    dep_lits (pair_set 𝕌(:'i)) (pair_set latches) (set (FLAT live))
 End
-
-Theorem xis_safe_xis_inf_trace_xlits_hold:
-  xis_safe xaig reset next cnstrs safes latches ∧
-  xis_inf_trace steps xaig reset next cnstrs latches
-  ⇒
-  ∀n. xlits_hold (steps n) xaig safes
-Proof
-  rw [xis_safe_def, xis_unsafe_def, xis_inf_trace_eq]
-  >> metis_tac []
-QED
 
 Theorem xis_inf_trace_cnstrs_hold:
   xis_inf_trace steps xaig reset next cnstrs latches
@@ -1082,34 +1065,16 @@ End
 
 Definition dep_model_def:
   dep_model
-    xaig reset next safes cnstrs inputs latches ⇔
-  dep_xaig inputs latches xaig ∧
-  dep_reset inputs latches reset latches ∧
-  dep_latch_lit inputs latches next latches ∧
-  dep_lits inputs latches safes ∧
-  dep_lits inputs latches cnstrs
+    (xaig: ('a, 'i, 'l) xaig) reset next safes cnstrs latches ⇔
+  dep_xaig 𝕌(:'i) latches xaig ∧
+  dep_reset 𝕌(:'i) latches reset latches ∧
+  dep_latch_lit 𝕌(:'i) latches next latches ∧
+  dep_lits 𝕌(:'i) latches safes ∧
+  dep_lits 𝕌(:'i) latches cnstrs
 End
 
-Theorem agree_on_weaken_inputs[local]:
-  agree_on inputs latches ss' ss ∧
-  inputs' ⊆ inputs
-  ⇒
-  agree_on inputs' latches ss' ss
-Proof
-  metis_tac [SUBSET_DEF, agree_on_weaken]
-QED
-
-Theorem steps_agree_weaken_inputs[local]:
-  steps_agree n inputs latches steps' steps ∧
-  inputs' ⊆ inputs
-  ⇒
-  steps_agree n inputs' latches steps' steps
-Proof
-  metis_tac [steps_agree_def, agree_on_weaken_inputs]
-QED
-
 Theorem extend_model_trace_to_witness:
-  dep_model mxaig mreset mnext msafes mcnstrs minputs mlatches ∧
+  dep_model mxaig mreset mnext msafes mcnstrs mlatches ∧
   reset_cond
     mxaig mreset mcnstrs mlatches
     wxaig wreset wcnstrs wlatches ∧
@@ -1190,16 +1155,12 @@ Proof
       (drule xis_next_dep_xaig
        >> disch_then irule
        >> qpat_x_assum ‘dep_xaig _ _ _’ $ irule_at Any
-       >> gvs [steps_agree_def, agree_on_sym, Abbr ‘step’, Abbr‘steps'n’]
-       >> irule agree_on_weaken_inputs
-       >> first_assum $ irule_at (Pos last) >> simp [])
+       >> gvs [steps_agree_def, agree_on_sym, Abbr ‘step’, Abbr‘steps'n’])
     >> ‘xlits_hold (steps'n) mxaig mcnstrs’ by
       (‘xlits_hold (steps n) mxaig mcnstrs’ by metis_tac [xis_trace_xlits_hold_n]
        >> drule xlits_hold_dep_xaig
        >> disch_then drule >> disch_then irule
-       >> gvs [steps_agree_def, agree_on_sym, Abbr‘steps'n’]
-       >> irule agree_on_weaken_inputs
-       >> first_assum $ irule_at (Pos last) >> simp [])
+       >> gvs [steps_agree_def, agree_on_sym, Abbr‘steps'n’])
     >> ‘xlits_hold step mxaig mcnstrs’ by
       (rev_drule xlits_hold_dep_xaig
        >> disch_then drule >> disch_then irule
@@ -1253,7 +1214,7 @@ Theorem is_witness_xis_safe:
     mxaig mreset mnext msafes mcnstrs mqxaig mlive mlatches
     wxaig wreset wnext wsafes wcnstrs wqxaig wlive wlatches ∧
   dep_model
-    mxaig mreset mnext msafes mcnstrs minputs mlatches ∧
+    mxaig mreset mnext msafes mcnstrs mlatches ∧
   is_stratified lt wxaig wreset (wlatches DIFF mlatches) ∧
   FINITE (wlatches DIFF mlatches)
   ⇒
@@ -1275,9 +1236,7 @@ Proof
   >- (
     irule xis_trace_dep_xaig >> fs []
     >> first_assum $ irule_at (Pos hd) >> simp []
-    >> irule_at (Pos hd) steps_agree_weaken_inputs
-    >> first_assum $ irule_at (Pos hd)
-    >> simp []
+    >> first_assum $ irule_at (Pos hd) >> simp []
   )
   >> drule_at_then Any irule xlits_hold_dep_xaig
   >> rename1`steps_agree n _ mlatches steps' steps`
@@ -1289,8 +1248,6 @@ Proof
     >> first_x_assum irule
     >> gvs[]
     >> metis_tac[xis_trace_xlits_hold_n])
-  >> irule agree_on_weaken_inputs
-  >> first_assum $ irule_at (Pos last)
   >> simp []
 QED
 
@@ -1447,10 +1404,8 @@ Theorem is_witness_xis_live:
     mxaig mreset mnext msafes mcnstrs mqxaig mlive mlatches
     wxaig wreset wnext wsafes wcnstrs wqxaig wlive wlatches ∧
   dep_model
-    mxaig mreset mnext msafes mcnstrs minput mlatches ∧
-  (* TODO Does dep_qxaig really need the same minput?
-     If not, the proof of encoding_xis_safe_and_live may become tidier *)
-  dep_qxaig minput mqxaig mlive mlatches ∧
+    mxaig mreset mnext msafes mcnstrs mlatches ∧
+  dep_qmodel mqxaig mlive mlatches ∧
   is_stratified lt wxaig wreset (wlatches DIFF mlatches) ∧
   FINITE wlatches
   ⇒
@@ -1483,9 +1438,7 @@ Proof
      >> first_assum $ irule_at (Pos last)
      >> fs [dep_model_def]
      >> first_assum $ irule_at (Pos last)
-     >> rw []
-     >> irule steps_agree_weaken_inputs
-     >> qexists ‘UNIV’ >> simp [])
+     >> rw [])
   (* Model constraints holds on the witness *)
   >> ‘∀n. xlits_hold (steps' n) mxaig mcnstrs’ by
     metis_tac [xis_inf_trace_cnstrs_hold]
@@ -1522,7 +1475,7 @@ Proof
      >> qexists ‘signal’ >> rw []
      >> rewrite_tac [xeval_lit_single_xlits_hold]
      >> irule xlits_hold_dep_xaig
-     >> fs [dep_qxaig_def]
+     >> fs [dep_qmodel_def]
      >> qpat_assum ‘dep_xaig _ _ _’ $ irule_at Any
      >> qexists ‘state_pair (steps' i) (steps' (i + 1))’
      >> simp []
@@ -1531,12 +1484,8 @@ Proof
      >> conj_tac
      >- simp [xlits_hold_def]
      >> fs [steps_agree_def, agree_on_pair]
-     >> irule_at (Pos hd) agree_on_weaken_inputs
-     >> qexists ‘UNIV’ >> simp []
      >> first_assum $ irule_at (Pos hd)
      >> qexists ‘i’ >> simp []
-     >> irule agree_on_weaken_inputs
-     >> qexists ‘UNIV’ >> simp []
      >> first_assum $ irule_at (Pos hd)
      >> qexists ‘i+1’ >> simp [])
   >> gvs [MEM_EL, PULL_EXISTS]
@@ -1592,9 +1541,8 @@ Theorem is_witness_xis_safe_and_live:
     mxaig mreset mnext msafes mcnstrs mqxaig mlive mlatches
     wxaig wreset wnext wsafes wcnstrs wqxaig wlive wlatches ∧
   dep_model
-    mxaig mreset mnext msafes mcnstrs minput mlatches ∧
-  (* TODO See is_witness_xis_live comment *)
-  dep_qxaig minput mqxaig mlive mlatches ∧
+    mxaig mreset mnext msafes mcnstrs mlatches ∧
+  dep_qmodel mqxaig mlive mlatches ∧
   is_stratified lt wxaig wreset (wlatches DIFF mlatches) ∧
   FINITE wlatches
   ⇒

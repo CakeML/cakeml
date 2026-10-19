@@ -16,9 +16,6 @@ Libs
   preamble
   basis
 
-(* TODO Would be nice if we had also a record for the semantic representation
-   of AIG (instead of passing around 6-tuples or so) *)
-
 (** Top-Level Semantics *******************************************************)
 
 (* Reads the model from a file in the file system.
@@ -77,8 +74,9 @@ End
    hard links: suppose that all the files we write already exist and are
    pointing to the same inode. In that case, all files will have the same
    content, namely the content of the last write. *)
-(* TODO Enable unlinking (requires additions to fsFFI + basis_ffi.c) to
-   remove the precondition of the files to be written not yet existing *)
+(* TODO Remove the precondition of the files to be written not yet existing
+     Requires additions to fsFFI/basis_ffi.c (unlinking, or creating of
+     temporary files that are removed, or detecting and removing files, ...) *)
 Definition make_cert_sem_def:
   make_cert_sem fs fs' fmodel out prefix ⇔
     (out = «SUCCESS\n» ∧ cnf_files_fresh fs prefix ⇒
