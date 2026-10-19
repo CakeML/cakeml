@@ -11,14 +11,6 @@ Ancestors
 Libs
   preamble
 
-(* TODO: move to semanticsProps *)
-Theorem Terminate_Success_extend_with_resource_limit[local]:
-  Terminate Success e ∈ extend_with_resource_limit {Terminate Success io} ⇒
-  e = io
-Proof
-  simp[extend_with_resource_limit_def]
-QED
-
 Theorem stdout_add_stdout_output[local]:
   stdout fs init ∧ stdout (add_stdout fs out) (init ^ x) ⇒ out = x
 Proof
@@ -26,47 +18,6 @@ Proof
   \\ `stdout (add_stdout fs out) (init ^ out)` by simp[stdo_add_stdo]
   \\ `init ^ out = init ^ x` by metis_tac[stdo_UNICITY_R]
   \\ fs[]
-QED
-
-(* TODO: move to TextIOProof *)
-Theorem file_content_add_stdo[local]:
-  stdo fd nm fs init ⇒
-  file_content (add_stdo fd nm fs out) f = file_content fs f
-Proof
-  rw[stdo_def,file_content_def,add_stdo_def,up_stdo_def,fsupdate_def]
-  \\ CASE_TAC \\ simp[AFUPDKEY_ALOOKUP]
-  \\ CASE_TAC
-QED
-
-(* TODO: move to TextIOProof *)
-Theorem splitlines_line[local]:
-  ¬MEM #"\n" l ⇒
-  splitlines (l ++ "\n" ++ r) = l :: splitlines r
-Proof
-  strip_tac
-  \\ mp_tac (Q.INST [`r` |-> `#"\n" :: r`]
-               (Q.SPEC `l` splitlines_append_not_exists_l))
-  \\ rw[EVERY_MEM, mllistTheory.takeUntil_def]
-QED
-
-(* TODO: move to TextIOProof *)
-Theorem lines_of_concat[local]:
-  ∀ls.
-    EVERY (λl. ∃t. l = t ^ «\n» ∧ ¬MEM #"\n" (explode t)) ls ⇒
-    lines_of (concat ls) = ls
-Proof
-  Induct \\ rw[lines_of_def]
-  \\ gvs[lines_of_def, concat_cons, splitlines_line]
-QED
-
-(* TODO: move to fsFFIProps *)
-Theorem all_lines_file_lines_of[local]:
-  file_content fs f = SOME c ⇒
-  all_lines_file fs f = lines_of (strlit c)
-Proof
-  fs[file_content_def]>>
-  rw[all_lines_file_def,lines_of_def]>>
-  every_case_tac>>fs[]
 QED
 
 Theorem file_content_get_cnf[local]:

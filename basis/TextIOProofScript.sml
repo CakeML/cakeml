@@ -413,6 +413,15 @@ Proof
   rw[inFS_fname_def,FUN_EQ_THM] >> EVAL_TAC >> EVERY_CASE_TAC >> rw[]
 QED
 
+Theorem file_content_add_stdo:
+  stdo fd nm fs init ⇒
+  file_content (add_stdo fd nm fs out) f = file_content fs f
+Proof
+  rw[stdo_def,file_content_def,add_stdo_def,up_stdo_def,fsupdate_def]
+  \\ CASE_TAC \\ simp[AFUPDKEY_ALOOKUP]
+  \\ CASE_TAC
+QED
+
 Theorem STD_streams_stdout:
    STD_streams fs ⇒ ∃out. stdout fs out
 Proof
@@ -762,7 +771,7 @@ Proof
   metis_tac[STD_streams_stderr,FILTER_File_add_stdo]
 QED
 
-(* Note: more general versions of the following 4 theorems
+(* Note: more general versions of the following 5 theorems
   can be proved for stdo, but requires
   assumption to ensure that the file descriptors do not overlap *)
 Theorem stdout_add_stderr:
@@ -776,6 +785,19 @@ Proof
   rw[]>>simp[]>>
   Cases_on`r`>>
   rpt(first_x_assum(qspecl_then [`2`,`q`,`r'`] assume_tac))>>fs[]
+QED
+
+Theorem stdout_add_stderr':
+  STD_streams fs ⇒
+  (stdout (add_stderr fs err) = stdout fs)
+Proof
+  rw[stdo_def,FUN_EQ_THM]>>
+  simp[add_stdo_def,up_stdo_def,fsupdate_def]>>
+  every_case_tac>>simp[AFUPDKEY_ALOOKUP]>>
+  fs[STD_streams_def]>>
+  rw[]>>simp[]>>
+  first_x_assum(qspec_then`2` mp_tac)>>
+  simp[AllCaseEqs()]
 QED
 
 Theorem stderr_add_stdout:
@@ -4517,6 +4539,25 @@ Proof
   \\ `~NULL (l ++ r)` by fs[] \\ fs[splitlines_not_exists]
   \\ `~EXISTS ($= #"\n") r` by metis_tac[EXISTS_NOT_EVERY]
   \\ fs[takeUntil_not_exists, DROP_LENGTH_TOO_LONG]
+QED
+
+Theorem splitlines_line:
+  ¬MEM #"\n" l ⇒
+  splitlines (l ++ "\n" ++ r) = l :: splitlines r
+Proof
+  strip_tac
+  \\ mp_tac (Q.INST [`r` |-> `#"\n" :: r`]
+               (Q.SPEC `l` splitlines_append_not_exists_l))
+  \\ rw[EVERY_MEM, mllistTheory.takeUntil_def]
+QED
+
+Theorem lines_of_concat:
+  ∀ls.
+    EVERY (λl. ∃t. l = t ^ «\n» ∧ ¬MEM #"\n" (explode t)) ls ⇒
+    lines_of (concat ls) = ls
+Proof
+  Induct \\ rw[lines_of_def]
+  \\ gvs[lines_of_def, concat_cons, splitlines_line]
 QED
 
 Theorem LENGTH_splitlines:

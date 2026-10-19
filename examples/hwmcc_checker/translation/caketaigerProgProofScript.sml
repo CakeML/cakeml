@@ -648,20 +648,6 @@ QED
 
 (*** make_cert ****************************************************************)
 
-(* TODO: move *)
-Theorem stdout_add_stderr':
-  STD_streams fs ⇒
-  (stdout (add_stderr fs err) = stdout fs)
-Proof
-  rw[stdo_def,FUN_EQ_THM]>>
-  simp[add_stdo_def,up_stdo_def,fsupdate_def]>>
-  every_case_tac>>simp[AFUPDKEY_ALOOKUP]>>
-  fs[STD_streams_def]>>
-  rw[]>>simp[]>>
-  first_x_assum(qspec_then`2` mp_tac)>>
-  simp[AllCaseEqs()]
-QED
-
 Theorem stdout_write_file[simp]:
   stdout (write_file fs fnm content) = stdout fs
 Proof
@@ -698,13 +684,6 @@ Theorem strlen_make_fname[local]:
   strlen (make_fname p s) = strlen p + strlen s + 4
 Proof
   Cases_on ‘p’ >> Cases_on ‘s’ >> simp [make_fname_def, concat_def]
-QED
-
-(* TODO: move to fsFFIProps *)
-Theorem not_inFS_fname_ALOOKUP[local]:
-  ¬inFS_fname fs f ⇔ ALOOKUP fs.files f = NONE
-Proof
-  simp [inFS_fname_def] >> Cases_on ‘ALOOKUP fs.files f’ >> simp []
 QED
 
 Theorem ALOOKUP_write_file_files_neq[local]:

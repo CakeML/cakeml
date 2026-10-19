@@ -50,7 +50,7 @@ Proof
 QED
 
 Theorem LIST_TO_SET_mapPartial:
-  ∀xs. set (list$mapPartial f xs) = IMAGE_PARTIAL f (set xs)
+  ∀xs. set (mapPartial f xs) = IMAGE_PARTIAL f (set xs)
 Proof
   Induct >> simp [mapPartial_def]
   >> rw [IMAGE_PARTIAL_INSERT]
@@ -203,7 +203,7 @@ Definition check_model_def:
     safe_latches = FLAT (MAP lit_latches msafes);
     cnstrs_latches = FLAT (MAP lit_latches mcnstrs);
     next_latches = FLAT (MAP (lit_latches ∘ mnext) mlatches);
-    reset_lits = list$mapPartial mreset mlatches;
+    reset_lits = mapPartial mreset mlatches;
     reset_lit_latches = FLAT (MAP lit_latches reset_lits);
     live_latches = FLAT (MAP lit_latches (FLAT mlive));
   in

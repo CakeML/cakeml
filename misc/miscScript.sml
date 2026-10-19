@@ -1400,6 +1400,15 @@ Proof
   fs [FUN_EQ_THM] \\ Induct \\ fs [o_DEF]
 QED
 
+Theorem MAPi_MAP:
+  ∀l f g. MAPi f (MAP g l) = MAPi (λi a. f i (g a)) l
+Proof
+  Induct >> rw []
+  >> have ‘(λi a. f (SUC i) (g a)) = ((λi a. f i (g a)) ∘ SUC)’
+  >- simp [FUN_EQ_THM]
+  >> simp []
+QED
+
 (* TODO - candidate for move to HOL - though
      enumerate i0 l = MAPi (λx i. (i + i0, x)) l
 *)

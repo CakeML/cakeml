@@ -410,14 +410,6 @@ Definition conv_xor_def:
   conv_xor s x = conv_xor_aux s (MAP conv_lit x)
 End
 
-Theorem MAPi_MAP:
-  ∀xs g.
-  MAPi g (MAP f xs) =
-  MAPi (λn e. g n (f e)) xs
-Proof
-  Induct>>rw[o_DEF]
-QED
-
 Theorem sum_bitlist_aux_cons:
   sum_bitlist_aux w (x::xs) k =
   of_bool (w k ∧ x) + sum_bitlist_aux w xs (k + 1)

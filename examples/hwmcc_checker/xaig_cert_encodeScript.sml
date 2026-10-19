@@ -11,17 +11,6 @@ Libs
 (* todo can we clean up/reduce duplication (e.g. mapping over datatypes),
    simpler theorems/proofs *)
 
-(* TODO upstream *)
-Theorem MAPi_MAP:
-  ∀l f g. MAPi f (MAP g l) = MAPi (λi a. f i (g a)) l
-Proof
-  Induct >> rw []
-  >> have ‘(λi a. f (SUC i) (g a)) = ((λi a. f i (g a)) ∘ SUC)’
-  >- simp [FUN_EQ_THM]
-  >> simp []
-QED
-
-
 Theorem xeval_lit_latch:
   xeval_lit ss xaig (Base (Latch l), b) ⇔ (b ⇎ SND ss l)
 Proof
@@ -2780,8 +2769,7 @@ Definition reset_graph_def:
   reset_graph
     (xaig: ('a, 'i, 'l) xaig) (reset: 'l -> ('a, 'i, 'l) lit option) latches
   =
-  (* TODO Remove list$ once mllist's duplicate mapPartial has been removed *)
-  list$mapPartial (reset_edges xaig reset) latches
+  mapPartial (reset_edges xaig reset) latches
 End
 
 (* Constructs the witness for is_stratified from the dependency graph of

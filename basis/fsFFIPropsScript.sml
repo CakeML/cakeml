@@ -400,6 +400,12 @@ Proof
   rw[openFileFS_def,openFile_def] \\ imp_res_tac inFS_fname_def
 QED
 
+Theorem not_inFS_fname_ALOOKUP:
+  ¬inFS_fname fs f ⇔ ALOOKUP fs.files f = NONE
+Proof
+  simp [inFS_fname_def] >> Cases_on ‘ALOOKUP fs.files f’ >> simp []
+QED
+
 Theorem ALOOKUP_inFS_fname_openFileFS_nextFD:
    !fs f ino off md. consistentFS fs /\ inFS_fname fs f ∧ nextFD fs <= fs.maxFD ∧
    ALOOKUP fs.files f = SOME ino
@@ -1117,6 +1123,15 @@ Theorem all_lines_file_with_numchars:
    all_lines_file (fs with numchars := ns) = all_lines_file fs
 Proof
   rw[FUN_EQ_THM,all_lines_file_def]
+QED
+
+Theorem all_lines_file_lines_of:
+  file_content fs f = SOME c ⇒
+  all_lines_file fs f = lines_of (strlit c)
+Proof
+  fs[file_content_def]>>
+  rw[all_lines_file_def,lines_of_def]>>
+  every_case_tac>>fs[]
 QED
 
 Theorem linesFD_openFileFS_nextFD:
