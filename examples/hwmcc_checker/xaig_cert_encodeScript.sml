@@ -11,14 +11,6 @@ Libs
 (* todo can we clean up/reduce duplication (e.g. mapping over datatypes),
    simpler theorems/proofs *)
 
-(* todo are the wrappers like right_merge_lit really useful,
-   or could things be simplified by removing them *)
-
-(* todo the names are inconsistent;
-   - xaig/xaig
-   - x-prefix (e.g. we have encode_xis_reset instead of encode_xxis_reset)
- *)
-
 (* TODO upstream *)
 Theorem MAPi_MAP:
   ∀l f g. MAPi f (MAP g l) = MAPi (λi a. f i (g a)) l

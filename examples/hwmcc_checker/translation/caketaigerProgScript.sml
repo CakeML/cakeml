@@ -3,7 +3,7 @@
 *)
 Theory caketaigerProg
 Ancestors
-  infer_cv  (* TODO Remove once we have a proper CF spec *)
+  (* infer_cv *)  (* can be used for testing *)
   aig_cert_fullProg
 Libs
   cv_transLib preamble ml_translatorLib basisFunctionsLib
@@ -235,7 +235,6 @@ Quote add_cakeml:
   | _ => TextIO.print_err (mk_usage_string usage_string)
 End
 
-(* TODO Remove once we have a proper CF spec *)
 (* for testing (type inference) ***********************************************)
 
 (*
