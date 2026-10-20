@@ -169,6 +169,11 @@ examples/cnf/xlrup/array
 examples/cnf/xlrup/array/compilation
 examples/cnf/xlrup/array/compilation/proofs
 
+examples/hwmcc_checker
+examples/hwmcc_checker/translation
+examples/hwmcc_checker/compilation
+examples/hwmcc_checker/compilation/proofs
+
 examples/scpog_checker
 examples/scpog_checker/array
 examples/scpog_checker/array/compilation
