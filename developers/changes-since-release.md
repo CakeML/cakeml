@@ -14,6 +14,8 @@ The monadic translator also has new support for space-efficient bool arrays repr
 
 The compiler now supports unsafe strsub (#1538).
 
+New primitives `UnsafeIndexArith` and `UnsafeIndexTest` provide smallnum arithmetic and comparisons without runtime bignum checks (#1551). The smallnumness obligations are met by a witness (index a vector, array, byte array or string) or by proving the numbers are smallnums even on 32-bit architectures.
+
 The S-expression representation of the AST was vastly simplified and **is not backwards-compatible**.
 It now follows the AST as close as possible.
 For example, `val (a, b) = (~1, 2)` is represented as
@@ -137,6 +139,8 @@ The CNF checker(s) have various improvements, especially the RUP algorithm has b
 The new `socketEchoProg` contains a simple echo server meant for testing the Unix domain sockets from `SocketIO`.
 
 Similarly, `rawBridgeProg` showcases `SocketIO`'s raw sockets.
+
+The new unsafe index arithmetic primitives (`UnsafeIndexArith` and `UnsafeIndexTest`) are demoed in `examples/unsafe_arith_exampleScript.sml` (#1551).
 
 ## Build infrastructure
 
