@@ -7086,8 +7086,7 @@ Proof
     \\ fs [lookup_len_def,el_length_def]
     \\ fs [SUBSET_DEF]
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
-    \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
-  )
+    \\ once_rewrite_tac [traverse_heap_cases] \\ fs [])
   >~ [`Number`] >- (
     qmatch_asmsub_rename_tac `size_of lims [Number integer_value] _ _ = _`
     \\ fs [] \\ rveq \\ fs [v_inv_def]
@@ -7169,8 +7168,7 @@ Proof
       \\ rfs [lookup_len_def,el_length_def]
       \\ imp_res_tac LIST_REL_LENGTH \\ fs []
       \\ once_rewrite_tac [traverse_heap_cases]
-      \\ rpt disj2_tac \\ fs []
-    )
+      \\ rpt disj2_tac \\ fs [])
     >~ [‘ByteArray b l’] >-
      (rveq \\ fs [] \\ fs []
       \\ first_x_assum (qspec_then `r` mp_tac)
@@ -7214,8 +7212,7 @@ Proof
     \\ rfs [lookup_len_def,el_length_def]
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ once_rewrite_tac [traverse_heap_cases]
-    \\ rpt disj2_tac \\ fs []
-  )
+    \\ rpt disj2_tac \\ fs [])
   >~ [‘Block ts tag []’] >-
    (fs [size_of_def] \\ rveq
     \\ fs [v_inv_def] \\ rveq \\ fs []

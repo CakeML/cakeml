@@ -960,7 +960,9 @@ Proof
          store_alloc_def]
     \\ gvs [state_with_id, v_rel_refl]
     (* the negative-length cases raise Subscript and allocate nothing *)
-    >>~- ([`?extended. f ⊑ extended /\ state_rel extended s1 s2`],
+    >~ [`∃extended. f ⊑ extended ∧ state_rel extended s1 s2`] >- (
+      qexists_tac `f` \\ gvs [])
+    >~ [`∃extended. f ⊑ extended ∧ state_rel extended s1 s2`] >- (
       qexists_tac `f` \\ gvs [])
     \\ irule state_rel_alloc_fresh \\ gvs [LIST_REL_EL_EQN, EL_REPLICATE])
   (* thunk operations either allocate or assign *)

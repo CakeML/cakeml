@@ -1000,6 +1000,12 @@ Proof
   \\ gvs [unsafe_index_bound_def]
 QED
 
+Theorem exists_SUBMAP[local]:
+  ∃fr1 ft1 fe1. fr ⊑ fr1 ∧ ft ⊑ ft1 ∧ fe ⊑ fe1
+Proof
+  metis_tac [SUBMAP_REFL]
+QED
+
 Theorem do_app_update:
   do_app (s.refs,s.ffi) op vs = res ∧
   state_rel l fr ft fe s t ∧
@@ -1260,10 +1266,8 @@ Proof
     \\ disch_then (fn th => assume_tac (Q.SPEC ‘T’ th) \\ assume_tac (Q.SPEC ‘F’ th))
     \\ gvs []
     \\ gvs [store_v_same_type_def, AllCaseEqs()]
-    >>~- ([`sub_exn_v`],
-      qexistsl_tac [`s`, `t`] \\ gvs [v_rel_def, sub_exn_v_def,
-        subscript_stamp_def, stamp_rel_cases, state_rel_def])
-    \\ rw [] \\ gs [v_rel_def]
+    \\ rw [] \\ gs [v_rel_def, sub_exn_v_def, subscript_stamp_def,
+                    stamp_rel_cases]
     \\ Q.REFINE_EXISTS_TAC
       ‘<| refs := r1; ffi := f1; clock := s.clock;
           next_type_stamp := nts1; next_exn_stamp := nes1;
@@ -1391,11 +1395,9 @@ Proof
           eval_state := NONE |>’ \\ gs [])
   \\ Cases_on ‘op = AallocEmpty’ \\ gs []
   >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def, exists_SUBMAP,
                            CaseEqs ["list", "v", "option", "prod", "lit",
                                     "store_v"]]
-    >>~- ([`∃fr1 ft1 fe1. fr ⊑ fr1 ∧ ft ⊑ ft1 ∧ fe ⊑ fe1`],
-           metis_tac [SUBMAP_REFL])
     \\ rpt (pairarg_tac \\ gs []) \\ gvs []
     \\ gvs [store_alloc_def, v_rel_def, PULL_EXISTS]
     \\ qexists_tac ‘fr |+ (LENGTH s.refs,LENGTH t.refs)’
@@ -1433,11 +1435,9 @@ Proof
     \\ Q.LIST_EXISTS_TAC [‘fe’,‘fr’,‘ft’] \\ gs [])
   \\ Cases_on ‘op = Aalloc’ \\ gs []
   >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def, exists_SUBMAP,
                            CaseEqs ["list", "v", "option", "prod", "lit",
                                     "store_v"]]
-    >>~- ([`∃fr1 ft1 fe1. fr ⊑ fr1 ∧ ft ⊑ ft1 ∧ fe ⊑ fe1`],
-           metis_tac [SUBMAP_REFL])
     \\ rpt (pairarg_tac \\ gs []) \\ gvs []
     \\ gvs [store_alloc_def, v_rel_def, PULL_EXISTS, CaseEqs ["bool", "option"],
             v_rel_def, sub_exn_v_def, stamp_rel_cases, subscript_stamp_def]
@@ -1482,11 +1482,9 @@ Proof
     \\ first_assum (irule_at (Pat ‘v_rel’)) \\ gs [])
   \\ Cases_on ‘op = AallocFixed’ \\ gs []
   >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def, exists_SUBMAP,
                            CaseEqs ["list", "v", "option", "prod", "lit",
                                     "store_v"]]
-    >>~- ([`∃fr1 ft1 fe1. fr ⊑ fr1 ∧ ft ⊑ ft1 ∧ fe ⊑ fe1`],
-           metis_tac [SUBMAP_REFL])
     \\ rpt (pairarg_tac \\ gs []) \\ gvs []
     \\ gvs [store_alloc_def, v_rel_def, PULL_EXISTS, CaseEqs ["bool", "option"],
             v_rel_def, sub_exn_v_def, stamp_rel_cases, subscript_stamp_def]
@@ -1820,11 +1818,9 @@ Proof
     \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘op = Aw8alloc’ \\ gs []
   >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def, exists_SUBMAP,
                            CaseEqs ["list", "v", "option", "prod", "lit",
                                     "store_v"]]
-    >>~- ([`∃fr1 ft1 fe1. fr ⊑ fr1 ∧ ft ⊑ ft1 ∧ fe ⊑ fe1`],
-           metis_tac [SUBMAP_REFL])
     \\ rpt (pairarg_tac \\ gs []) \\ gvs []
     \\ gvs [store_alloc_def, v_rel_def, PULL_EXISTS, CaseEqs ["bool", "option"],
             v_rel_def, sub_exn_v_def, stamp_rel_cases, subscript_stamp_def]
@@ -1917,11 +1913,9 @@ Proof
     \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘op = Opref’ \\ gs []
   >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def, exists_SUBMAP,
                            CaseEqs ["list", "v", "option", "prod", "lit",
                                     "store_v"]]
-    >>~- ([`∃fr1 ft1 fe1. fr ⊑ fr1 ∧ ft ⊑ ft1 ∧ fe ⊑ fe1`],
-           metis_tac [SUBMAP_REFL])
     \\ rpt (pairarg_tac \\ gs []) \\ gvs []
     \\ gvs [store_alloc_def, v_rel_def]
     \\ qexists_tac ‘fr |+ (LENGTH s.refs,LENGTH t.refs)’
