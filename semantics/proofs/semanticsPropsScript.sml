@@ -231,6 +231,13 @@ Proof
   rw[extend_with_resource_limit_def] \\ metis_tac[]
 QED
 
+Theorem Terminate_Success_extend_with_resource_limit:
+  Terminate Success e ∈ extend_with_resource_limit {Terminate Success io} ⇒
+  e = io
+Proof
+  simp[extend_with_resource_limit_def]
+QED
+
 Theorem implements_intro:
    (b /\ x <> Fail ==> y = x) ==> b ==> implements {y} {x}
 Proof
