@@ -16,7 +16,7 @@ Datatype:
     <| locals      : varname |-> 'a v
      ; globals     : varname |-> 'a v
      ; structs     : (stcname # struct_info) list
-     ; code        : funname |-> ((varname # shape) list # ('a panLang$prog) # shape)
+     ; code        : funname |-> ((varname # shape) list # (panLang$prog) # shape)
                      (* arguments (with shape), body, return shape *)
      ; eshapes     : eid |-> shape
      ; memory      : 'a word -> 'a word_lab
@@ -78,7 +78,7 @@ Theorem kvar_defs2 = LIST_CONJ [is_valid_value_defs,set_kvar_defs,set_var_defs,
                                   set_global_defs, lookup_kvar_defs];
 
 Definition eval_def:
-  (eval ^s (Const w) = SOME (ValWord w)) /\
+  (eval ^s (Const i) = SOME (ValWord (i2w i))) /\
   (eval s  (Var Local v) = FLOOKUP s.locals v) /\
   (eval s  (Var Global v) = FLOOKUP s.globals v) /\
   (eval s (RStruct es) =
@@ -162,7 +162,7 @@ Definition eval_def:
   (eval s BytesInWord =
         SOME (ValWord bytes_in_word))
 Termination
-  wf_rel_tac `measure (exp_size ARB o SND)`
+  wf_rel_tac `measure (exp_size o SND)`
   \\ rpt strip_tac \\ gs [UNZIP_MAP]
   \\ fs [MEM_SPLIT, MAP_EQ_APPEND, list_size_append, EXISTS_PROD, MAP_EQ_CONS]
 End
@@ -581,7 +581,7 @@ End
 (******)
 
 Definition itree_evaluate_def:
-  itree_evaluate (p:'a panLang$prog, ^s) =
+  itree_evaluate (p:panLang$prog, ^s) =
   let g= (λx. case x of
               | INR (r:'a result option # 'a bstate) => r
               | INL (l:ffi_outcome + word8 list) =>
@@ -1033,35 +1033,35 @@ QED
 (***)
 
 Theorem mrec_Skip_loop_spin:
-  (mrec h_prog (h_prog (While (Const 1w) Skip, ^s)):'a ptree) = spin
+  (mrec h_prog (h_prog (While (Const 1) Skip, ^s)):'a ptree) = spin
 Proof
-  simp[Once itree_bisimulation]>>
-  qexists ‘CURRY ({(mrec h_prog (h_prog (While (Const 1w) Skip, t)), spin)|T}
-    ∪ {(Tau (mrec h_prog (h_prog (While (Const 1w) Skip, t))), spin)|T})’>>
-  rw[]>- metis_tac[]
-  >- fs[Once mrec_While,eval_def]
-  >- (pop_assum mp_tac>>
-      rewrite_tac[Once mrec_While,eval_def]>>
-      fs[Once h_prog_def]>>strip_tac>>
-      irule_at Any OR_INTRO_THM2>>
-      gvs[]>>
-      irule_at Any EQ_REFL>>
-      irule_at (Pos last) (GSYM spin)>>fs[])
-  >- (irule_at Any OR_INTRO_THM1>>
-      irule_at Any EQ_REFL>>
-      irule_at Any EQ_REFL>>
-      irule spin)>>
-  pop_assum mp_tac>>
-  rewrite_tac[Once mrec_While,eval_def]>>
-  simp[]
+  simp [Once itree_bisimulation] >>
+  qexists ‘CURRY ({(mrec h_prog (h_prog (While (Const 1) Skip, t)), spin)|T}
+    ∪ {(Tau (mrec h_prog (h_prog (While (Const 1) Skip, t))), spin)|T})’ >>
+  rw []
+  >- (disj1_tac >> qexists ‘s’ >> simp [])
+  >- fs [Once mrec_While, eval_def, integer_wordTheory.i2w_def]
+  >- (
+    pop_assum mp_tac >>
+    rewrite_tac [Once mrec_While, eval_def, integer_wordTheory.i2w_def] >>
+    fs [Once h_prog_def] >> strip_tac >>
+    irule_at Any OR_INTRO_THM2 >> gvs [] >>
+    irule_at Any EQ_REFL >>
+    irule_at (Pos last) (GSYM spin) >> fs [])
+  >- (
+    irule_at Any OR_INTRO_THM1 >>
+    irule_at Any EQ_REFL >> irule_at Any EQ_REFL >> irule spin) >>
+  pop_assum mp_tac >>
+  rewrite_tac [Once mrec_While, eval_def, integer_wordTheory.i2w_def] >>
+  simp []
 QED
 
 Theorem Skip_loop_spin:
-  itree_evaluate (While (Const 1w) Skip, ^s) = spin
+  itree_evaluate (While (Const 1) Skip, ^s) = spin
 Proof
   simp[Once itree_bisimulation]>>
-  qexists ‘CURRY ({(itree_evaluate (While (Const 1w) Skip, t), spin)|T}
-    ∪ {(Tau (itree_evaluate (While (Const 1w) Skip, t)), spin)|T})’>>
+  qexists ‘CURRY ({(itree_evaluate (While (Const 1) Skip, t), spin)|T}
+    ∪ {(Tau (itree_evaluate (While (Const 1) Skip, t)), spin)|T})’>>
   rw[]>- metis_tac[]
   >- (fs[itree_evaluate_def,mrec_Skip_loop_spin]>>
       fs[Once itree_unfold,Once spin])

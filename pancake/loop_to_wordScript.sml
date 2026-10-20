@@ -20,7 +20,7 @@ Definition find_reg_imm_def:
 End
 
 Definition comp_exp_def :
-  (comp_exp ctxt (loopLang$Const w) = wordLang$Const (w2i w)) /\
+  (comp_exp ctxt (loopLang$Const w) = wordLang$Const w) /\
   (comp_exp ctxt (Var n) = Var (find_var ctxt n)) /\
   (comp_exp ctxt (Lookup m) = Lookup (Temp m)) /\
   (comp_exp ctxt (BaseAddr) = Lookup CurrHeap) /\
@@ -31,7 +31,7 @@ Definition comp_exp_def :
    let wexps = MAP (comp_exp ctxt) wexps in
    Op op wexps)
 Termination
-  WF_REL_TAC ‘measure (loopLang$exp_size (K 0) o SND)’ >>
+  WF_REL_TAC ‘measure (loopLang$exp_size o SND)’ >>
   rw [] >>
   rename [‘MEM x xs’] >>
   Induct_on ‘xs’ >> fs [] >>

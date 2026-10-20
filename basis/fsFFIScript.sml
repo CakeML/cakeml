@@ -43,6 +43,55 @@ Datatype:
            |>
 End
 
+
+Definition get_iname_def[simp]:
+  get_iname (File iname) = iname ∧
+  get_iname (UStream iname) = iname
+End
+
+Theorem fresh_iname_exists[local]:
+  ∀(itable: (inode # char list) list) (files: (mlstring # mlstring) list)
+    (infds: (num # (inode # mode # num)) list). ∃iname.
+    (* Prevent fresh_iname from selecting a non-existing iname that
+       a file or file descriptor may be pointing to. *)
+    (∀fname. ALOOKUP files fname ≠ SOME iname) ∧
+    (∀fd inode off.
+       ALOOKUP infds fd = SOME (inode, off) ⇒ get_iname inode ≠ iname) ∧
+    ALOOKUP itable (File iname)    = NONE ∧
+    ALOOKUP itable (UStream iname) = NONE
+Proof
+  rpt strip_tac
+  >> qabbrev_tac
+     ‘inames = MAP SND files ++ MAP (get_iname ∘ FST) itable ++
+               MAP (get_iname ∘ FST ∘ SND) infds’
+  >> qsuff_tac ‘∃iname. ¬MEM iname inames’
+  >- (
+    strip_tac
+    >> qexists ‘iname’
+    >> conj_tac >- (
+      rpt strip_tac
+      >> drule_then assume_tac ALOOKUP_MEM
+      >> fs [MEM_APPEND, MEM_MAP, Abbr ‘inames’]
+      >> metis_tac [get_iname_def, SND]
+    )
+    >> conj_tac >- (
+      rpt strip_tac
+      >> drule_then assume_tac ALOOKUP_MEM
+      >> fs [MEM_APPEND, MEM_MAP, Abbr ‘inames’]
+      >> metis_tac [get_iname_def, FST, SND]
+    )
+    >> fs [ALOOKUP_NONE, MEM_MAP, MEM_APPEND, Abbr ‘inames’]
+    >> metis_tac [get_iname_def, FST])
+  >> sg ‘FINITE (set inames)’ >- simp []
+  >> metis_tac [INFINITE_mlstring, IN_INFINITE_NOT_FINITE]
+QED
+
+val fresh_iname_spec = new_specification(
+  "fresh_iname_spec",
+  ["fresh_iname"],
+  fresh_iname_exists |> SIMP_RULE bool_ss [SKOLEM_THM]);
+
+
 val IO_fs_component_equality = theorem"IO_fs_component_equality";
 
 Theorem with_same_numchars:
@@ -51,13 +100,21 @@ Proof
   rw[IO_fs_component_equality]
 QED
 
-Definition get_file_content_def:
-    get_file_content fs fd =
+Definition get_fd_content_def:
+    get_fd_content fs fd =
       do
         (ino, md, off) <- ALOOKUP fs.infds fd ;
         c <- ALOOKUP fs.inode_tbl ino;
         return (c, off)
       od
+End
+
+(* Returns the (string) content of a file. *)
+Definition file_content_def:
+  file_content fs fname =
+    case ALOOKUP fs.files fname of
+    | NONE => NONE
+    | SOME ino => ALOOKUP fs.inode_tbl (File ino)
 End
 
 (* find smallest unused descriptor index *)
@@ -85,16 +142,33 @@ Definition openFileFS_def:
     | SOME (_, fs') => fs'
 End
 
+(* Sets the content of a file, creating it if it does not already exist. *)
+Definition write_file_def:
+  write_file fsys fnm content =
+  case ALOOKUP fsys.files fnm of
+  | SOME iname =>
+      fsys with inode_tbl updated_by (AFUPDKEY (File iname) (K content))
+  | NONE =>
+      let iname = fresh_iname fsys.inode_tbl fsys.files fsys.infds in
+        fsys with
+             <| files := (fnm, iname)::fsys.files;
+                inode_tbl := (File iname, content)::fsys.inode_tbl |>
+End
+
+(* Ensures that a file is present in the filesystem and empty. *)
+Definition emptyFile_def:
+  emptyFile fsys fnm = write_file fsys fnm ""
+End
+
 (* adds a new file in infds and truncate it *)
 Definition openFile_truncate_def:
   openFile_truncate fnm fsys md =
-    let fd = nextFD fsys in
+    let fsys = emptyFile fsys fnm; fd = nextFD fsys in
       do
         assert (fd <= fsys.maxFD) ;
         iname <- ALOOKUP fsys.files fnm;
         ALOOKUP fsys.inode_tbl (File iname);
-        return (fd, (fsys with infds := (nextFD fsys, (File iname, md, 0)) :: fsys.infds)
-                          with inode_tbl updated_by (AFUPDKEY (File iname) (\x."")))
+        return (fd, (fsys with infds := (fd, (File iname, md, 0)) :: fsys.infds))
       od
 End
 
@@ -210,14 +284,13 @@ End
 (* open for writing
 * position: the beginning of the file.
 * The file is truncated to zero length if it already exists.
-* TODO: It is created if it does not already exists.*)
+*)
 Definition ffi_open_out_def:
   ffi_open_out (conf: word8 list) bytes fs =
     do
       assert(9 <= LENGTH bytes);
       fname <- getNullTermStr conf;
       (fd, fs') <- openFile_truncate (implode fname) fs WriteMode;
-      assert(fd <= 255);
       return (FFIreturn (0w :: n2w8 fd ++ DROP 9 bytes) fs')
     od ++
     do

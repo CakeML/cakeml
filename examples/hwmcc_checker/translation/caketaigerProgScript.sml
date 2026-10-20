@@ -1,0 +1,262 @@
+(*
+  Defines the top-level binary caketaiger.
+*)
+Theory caketaigerProg
+Ancestors
+  (* infer_cv *)  (* can be used for testing; see below *)
+  aig_cert_fullProg
+Libs
+  cv_transLib preamble ml_translatorLib basisFunctionsLib
+
+val _ = translation_extends "aig_cert_fullProg";
+
+(* Copied from examples/xlrup_checker/array/xlrup_arrayFullProgScript.sml *)
+val usage_string = ‘
+
+Usage: ./caketaiger model witness [prefix]
+
+’
+
+fun drop_until p [] = []
+  | drop_until p (x::xs) = if p x then x::xs else drop_until p xs;
+
+val usage_string_tm =
+  usage_string |> hd |> (fn QUOTE s => s) |> explode
+  |> drop_until (fn c => c = #"\n") |> tl |> implode
+  |> stringSyntax.fromMLstring;
+
+Definition usage_string_def:
+  usage_string = strlit ^usage_string_tm
+End
+val r = translate usage_string_def;
+
+(* == Build info =========================================================== *)
+
+val current_version_tm = mlstring_from_proc "git" ["rev-parse", "HEAD"]
+val poly_version_tm = mlstring_from_proc "poly" ["-v"]
+val hol_version_tm = mlstring_from_proc "git" ["-C", Globals.HOLDIR, "rev-parse", "HEAD"]
+
+val date_str = Date.toString (Date.fromTimeUniv (Time.now ())) ^ " UTC\n"
+val date_tm = Term `strlit^(stringSyntax.fromMLstring date_str)`
+
+Definition print_option_def:
+  print_option h x =
+    case x of
+      NONE => «»
+    | SOME y => h ^ « » ^ y ^ «\n»
+End
+
+val current_build_info_str_tm = EVAL ``
+    let commit = print_option «CakeML:» ^current_version_tm in
+    let hol    = print_option «HOL4:  » ^hol_version_tm in
+    let poly   = print_option «PolyML:» ^poly_version_tm in
+      concat
+        [ «caketaiger\n\n»
+        ; «Version details:\n»
+        ; ^date_tm; «\n»
+        ; commit; hol; poly ]``
+  |> concl |> rhs
+
+Definition current_build_info_str_def:
+  current_build_info_str = ^current_build_info_str_tm
+End
+
+val res = translate current_build_info_str_def;
+
+Definition mk_usage_string_def:
+  mk_usage_string s = current_build_info_str ^ «\n\n» ^ s
+End
+
+val res = translate mk_usage_string_def;
+
+Definition make_fname_def:
+  make_fname pfx s = concat [pfx; s; «.cnf»]
+End
+val r = translate make_fname_def;
+
+(* By splitting the writes we can write separate CFCML specifications for them,
+   making the proof of make_cert's postcondition cleaner.
+   By writing immediately after generating the string (as opposed to doing all
+   writing at the end), we don't need to keep all strings around at the same
+   time. *)
+
+Quote add_cakeml:
+  fun write_reset
+    prefix mxaig mreset mcnstrs mlatches wxaig wreset wcnstrs wlatches klatches
+  =
+  let
+    (* val _ = print "making reset...\n" *)
+    val (name, str) =
+      make_reset_string mxaig mreset mcnstrs mlatches wxaig wreset wcnstrs
+        wlatches klatches
+  in TextIO.outputFile (make_fname prefix name) str end
+End
+
+Quote add_cakeml:
+  fun write_transition
+    prefix mxaig mnext mcnstrs mlatches wxaig wnext wcnstrs wlatches klatches
+  =
+  let
+    (* val _ = print "making transition...\n" *)
+    val (name, str) =
+      make_transition_string mxaig mnext mcnstrs mlatches wxaig wnext wcnstrs
+        wlatches klatches
+  in TextIO.outputFile (make_fname prefix name) str end
+End
+
+Quote add_cakeml:
+  fun write_safety prefix mxaig mcnstrs msafes wxaig wcnstrs wsafes
+  =
+  let
+    (* val _ = print "making safety...\n" *)
+    val (name, str) =
+      make_safety_string mxaig mcnstrs msafes wxaig wcnstrs wsafes
+  in TextIO.outputFile (make_fname prefix name) str end
+End
+
+Quote add_cakeml:
+  fun write_base prefix wxaig wreset wcnstrs wsafes wlatches
+  =
+  let
+    (* val _ = print "making base...\n" *)
+    val (name, str) = make_base_string wxaig wreset wcnstrs wsafes wlatches
+  in TextIO.outputFile (make_fname prefix name) str end
+End
+
+Quote add_cakeml:
+  fun write_induction prefix wxaig wnext wcnstrs wsafes wlatches
+  =
+  let
+    (* val _ = print "making induction...\n" *)
+    val (name, str) = make_induction_string wxaig wnext wcnstrs wsafes wlatches
+  in TextIO.outputFile (make_fname prefix name) str end
+End
+
+Quote add_cakeml:
+  fun write_liveness
+    prefix mxaig mcnstrs mlive wxaig wnext wcnstrs wsafes wlive wlatches interv
+  =
+  let
+    (* val _ = print "making liveness...\n" *)
+    val (name, str) =
+      make_liveness_string
+       mxaig mcnstrs mlive wxaig wnext wcnstrs wsafes wlive wlatches interv
+  in TextIO.outputFile (make_fname prefix name) str end
+End
+
+Quote add_cakeml:
+  fun write_decrease prefix wxaig wnext wcnstrs wsafes wlive wlatches interv
+  =
+  let
+    (* val _ = print "making decrease...\n" *)
+    val (name, str) =
+      make_decrease_string wxaig wnext wcnstrs wsafes wlive wlatches interv
+  in TextIO.outputFile (make_fname prefix name) str end
+End
+
+Quote add_cakeml:
+  fun write_closure prefix wxaig wnext wcnstrs wsafes wlive wlatches interv
+  =
+  let
+    (* val _ = print "making closure...\n" *)
+    val (name, str) =
+      make_closure_string wxaig wnext wcnstrs wsafes wlive wlatches interv
+  in TextIO.outputFile (make_fname prefix name) str end
+End
+
+Quote add_cakeml:
+  fun write_stable prefix wxaig wnext wcnstrs wsafes wlive wlatches interv
+  =
+  let
+    (* val _ = print "making stable...\n" *)
+    val (name, str) =
+      make_stable_string wxaig wnext wcnstrs wsafes wlive wlatches interv
+  in TextIO.outputFile (make_fname prefix name) str end
+End
+
+Quote add_cakeml:
+  fun make_cert fmodel fwitness prefix =
+  case TextIO.inputAllFrom (Some fmodel) of
+    None => TextIO.print_err "cannot read model file\n"
+  | Some model =>
+  case TextIO.inputAllFrom (Some fwitness) of
+    None => TextIO.print_err "cannot read witness file\n"
+  | Some witness =>
+  case ((* print "parsing model...\n";  *)parse_model model) of
+    Error (msg, _) => TextIO.print_err msg
+  | Return maiger =>
+  case ((* print "parsing witness...\n";  *)parse_witness witness) of
+    Error (msg, _) => TextIO.print_err msg
+  | Return (waiger, ms) =>
+  case preprocess_model maiger of
+    (maig, (mreset, (mnext, (msafes, (mcnstrs, (mlive, (mlatches,
+      (mlatch_start, mmax_latch)))))))) =>
+  case preprocess_witness maiger waiger ms of
+    (waig, (wreset, (wnext, (wsafes, (wcnstrs, (wlive, (wlatches,
+      interv))))))) =>
+  case ((* print "processing and checking...\n"; *)
+        process_and_check
+          maig mreset mnext msafes mcnstrs mlive mlatches
+          mlatch_start mmax_latch
+          waig wreset wlive wlatches) of
+    Error msg => TextIO.print_err msg
+  | Return (mxaig, (wxaig, klatches)) => (
+      write_reset
+        prefix mxaig mreset mcnstrs mlatches wxaig wreset wcnstrs
+        wlatches klatches;
+      write_transition
+        prefix mxaig mnext mcnstrs mlatches wxaig wnext wcnstrs
+        wlatches klatches;
+      write_safety prefix mxaig mcnstrs msafes wxaig wcnstrs wsafes;
+      write_base prefix wxaig wreset wcnstrs wsafes wlatches;
+      write_induction prefix wxaig wnext wcnstrs wsafes wlatches;
+      write_liveness
+        prefix mxaig mcnstrs mlive wxaig wnext wcnstrs wsafes wlive wlatches
+        interv;
+      write_decrease prefix wxaig wnext wcnstrs wsafes wlive wlatches interv;
+      write_closure prefix wxaig wnext wcnstrs wsafes wlive wlatches interv;
+      write_stable prefix wxaig wnext wcnstrs wsafes wlive wlatches interv;
+      print "SUCCESS\n"
+    )
+End
+
+Quote add_cakeml:
+  fun main () =
+  case CommandLine.arguments () of
+    [fmodel, fwitness] => make_cert fmodel fwitness ""
+  | [fmodel, fwitness, prefix] =>
+      (* length of prefix + condition name + file extension must be less than
+         65536 *)
+      if 65522 <= String.size prefix
+      then TextIO.print_err "prefix too long"
+      else make_cert fmodel fwitness prefix
+  | _ => TextIO.print_err (mk_usage_string usage_string)
+End
+
+(* for testing (type inference) ***********************************************)
+
+(*
+Quote main = cakeml:
+  main ();
+End
+
+val prog =
+  get_ml_prog_state ()
+  |> ml_progLib.clean_state
+  |> ml_progLib.remove_snocs
+  |> ml_progLib.get_thm
+  |> REWRITE_RULE [ml_progTheory.ML_code_def]
+  |> concl |> rator |> rator |> rand
+  |> (fn tm => “^tm ++ ^main”)
+  |> EVAL |> concl |> rand;
+
+Definition caketaiger_prog_def:
+  caketaiger_prog = ^prog
+End
+
+val _ = cv_auto_trans inferTheory.init_config_def;
+
+val _ = cv_trans_deep_embedding EVAL caketaiger_prog_def;
+
+val basis_types = cv_eval “infertype_prog init_config caketaiger_prog”;
+*)

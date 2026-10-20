@@ -73,7 +73,7 @@ Theorem machine_code_sound:
   if LENGTH cl = 2 then
     (case get_cnf fs (EL 1 cl) of
       NONE => out = «»
-    | SOME fml => out = concat (print_cnf fml))
+    | SOME fml => out = concat (print_cnf (max_cnf fml) fml))
   else if LENGTH cl = 3 then
     (out ≠ «» ⇒
       out = «s VERIFIED UNSAT\n» ∧

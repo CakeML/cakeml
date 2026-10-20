@@ -49,9 +49,9 @@ fun read_file fname = let
 
 
 (** Copied from panPtreeConversion *)
-fun parse_pancake_code word_ty str =
+fun parse_pancake_code str =
   let
-    val parse_topdecs_to_ast_s = inst [alpha |-> word_ty] “parse_topdecs_to_ast”
+    val parse_topdecs_to_ast_s = ``parse_topdecs_to_ast``
     val thm = EVAL (mk_comb (parse_topdecs_to_ast_s, stringLib.fromMLstring str))
     val r = rhs (concl thm)
   in
@@ -61,13 +61,13 @@ fun parse_pancake_code word_ty str =
   end
 
 
-fun parse_pancake_file word_ty fname =
-  parse_pancake_code word_ty (read_file fname)
+fun parse_pancake_file fname =
+  parse_pancake_code (read_file fname)
 
 
 
-val (sum_topdecs, _) = parse_pancake_file “:32” "sum.pnk"
+val (sum_topdecs, _) = parse_pancake_file "sum.pnk"
 
 val sum_fundecs = topdecs_to_fundecs sum_topdecs
 
-val sum_result = time (decompile_2_reduce "sum" []) sum_fundecs
+val sum_result = time (decompile_2_reduce ``:32`` "sum" []) sum_fundecs

@@ -284,8 +284,7 @@ val _ = translate compilerTheory.get_nth_line_def;
 val _ = translate compilerTheory.locs_to_string_def;
 val _ = translate compilerTheory.ast_locs_to_string_def;
 val _ = translate compilerTheory.parse_cml_input_def;
-val _ = translate (compilerTheory.parse_sexp_input_def
-                   |> PURE_REWRITE_RULE[fromSexpTheory.sexpdec_alt_intro1]);
+val _ = translate compilerTheory.parse_sexp_input_def;
 
 val def = spec32 (compilerTheory.compile_def);
 val res = translate def;
@@ -484,7 +483,7 @@ Proof
   \\ simp[FORALL_PROD,EXISTS_PROD]
   \\ conj_tac >- metis_tac[] \\ rw[]
   \\ imp_res_tac stdin_11 \\ rw[]
-  \\ imp_res_tac stdin_get_file_content
+  \\ imp_res_tac stdin_get_fd_content
   \\ xlet_auto >- xsimpl
   \\ xif
   >-
@@ -517,7 +516,7 @@ Proof
   \\ xlet_auto >- xsimpl
   \\ rename [‘stdin fs inp pos’]
   \\ ‘stdin_content fs = SOME inp ∧ pos = 0’ by
-    (gvs [stdin_def,get_file_content_def]
+    (gvs [stdin_def,get_fd_content_def]
      \\ fs [stdin_content_def,IS_SOME_EXISTS])
   \\ gvs []
   >> xif
