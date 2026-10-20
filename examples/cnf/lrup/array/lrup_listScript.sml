@@ -39,16 +39,17 @@ Proof
   metis_tac[]
 QED
 
-Theorem check_lrup_list_bnd_fml:
-  bnd_fml fmlls (LENGTH dml) ∧
+Theorem check_lrup_list_dm_ok:
+  dm_ok fmlls dml b ∧
   check_lrup_list lrup fmlls dml b = SOME (fmlls', dml', b') ⇒
-  bnd_fml fmlls' (LENGTH dml')
+  dm_ok fmlls' dml' b'
 Proof
   simp[check_lrup_list_def]>>
   strip_tac>>
   Cases_on`lrup`>>gvs[AllCaseEqs()]
-  >- metis_tac[bnd_fml_delete_ids_vb_list]>>
-  drule_all bnd_fml_is_rup_vb_list>>
+  >- gvs[dm_ok_def,bnd_fml_delete_ids_vb_list]>>
+  drule_all dm_ok_is_rup_vb_list>>
+  rw[dm_ok_def]>>
   metis_tac[bnd_fml_insert_vcc_list]
 QED
 

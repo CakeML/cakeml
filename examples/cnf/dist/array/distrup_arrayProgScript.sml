@@ -5,7 +5,7 @@ Theory distrup_arrayProg
 Libs
   preamble basis
 Ancestors
-  ccnf_arrayProg distrup distrup_list HashtableProof
+  ccnf_arith ccnf_arrayProg distrup distrup_list HashtableProof
 
 val _ = hide_environments true;
 
@@ -39,7 +39,7 @@ Theorem check_distrup_arr_spec:
   DISTRUP_DISTRUP_TYPE distrup distrupv ∧
   LIST_REL vcclause_TYPE fmlls fmllsv ∧
   NUM b bv ∧
-  bnd_fml fmlls (LENGTH Clist)
+  dm_ok fmlls Clist b
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_distrup_arr" (get_ml_prog_state()))
@@ -60,6 +60,7 @@ Theorem check_distrup_arr_spec:
         &(Fail_exn e ∧ check_distrup_list distrup fmlls Clist b = NONE)))
 Proof
   simp[check_distrup_list_def]>>strip_tac>>
+  `stamps_ok Clist b` by fs[ccnf_listTheory.dm_ok_def]>>
   xcf "check_distrup_arr" (get_ml_prog_state ())>>
   Cases_on`distrup`>>fs[DISTRUP_DISTRUP_TYPE_def]>>
   xmatch

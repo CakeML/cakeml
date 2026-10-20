@@ -1289,6 +1289,23 @@ Proof
   >- (pairarg_tac>>gvs[])
 QED
 
+Theorem check_xlrup_list_dm_ok:
+  dm_ok cfmlls dml b ∧
+  check_xlrup_list xm xlrup cfmlls xfmlls tnl def dml b =
+    SOME (cfmlls', xfmlls', tnl', def', dml', b') ⇒
+  dm_ok cfmlls' dml' b'
+Proof
+  rw[dm_ok_def]
+  >- metis_tac[check_xlrup_list_bnd_fml]>>
+  pop_assum mp_tac>>
+  simp[check_xlrup_list_def]>>
+  strip_tac>>
+  Cases_on`xlrup`>>gvs[AllCaseEqs()]>>
+  rpt (pairarg_tac>>gvs[])>>
+  metis_tac[stamps_ok_is_rup_list,stamps_ok_is_rup_vb_list,
+    stamps_ok_resize_dm]
+QED
+
 Definition check_xlrups_list_def:
   (check_xlrups_list xm [] cfml xfml tnl def dml b =
     SOME (cfml, xfml, tnl, def)) ∧
