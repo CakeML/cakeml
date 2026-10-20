@@ -59,4 +59,62 @@ val _ = (next_ml_names := ["strsub"]);
 val _ = translate unsafe_strsub_def;
 val _ = update_precondition (fetch "-" "unsafe_strsub_side_def");
 
+val _ = ml_prog_update (open_module "Arith");
+
+val () = append_decs
+   ``[mk_binop «+» (UnsafeIndexArith Add);
+      mk_binop «-» (UnsafeIndexArith Sub);
+      mk_binop «*» (UnsafeIndexArith Mul);
+      mk_binop «div» (UnsafeIndexArith Div);
+      mk_binop «mod» (UnsafeIndexArith ast$Mod);
+      mk_binop «<» (UnsafeIndexTest (Compare Lt));
+      mk_binop «<=» (UnsafeIndexTest (Compare Leq));
+      mk_binop «>» (UnsafeIndexTest (Compare Gt));
+      mk_binop «>=» (UnsafeIndexTest (Compare Geq));
+      mk_binop «=» (UnsafeIndexTest Equal)]``;
+
+val () = append_decs
+   ``[Dlet NoLocs (Pvar «addWitness»)
+        (Fun «x» (Fun «y» (Fun «witness»
+          (App (UnsafeIndexArith Add)
+            [Var (Short «x»); Var (Short «y»); Var (Short «witness»)]))));
+      Dlet NoLocs (Pvar «subWitness»)
+        (Fun «x» (Fun «y» (Fun «witness»
+          (App (UnsafeIndexArith Sub)
+            [Var (Short «x»); Var (Short «y»); Var (Short «witness»)]))));
+      Dlet NoLocs (Pvar «mulWitness»)
+        (Fun «x» (Fun «y» (Fun «witness»
+          (App (UnsafeIndexArith Mul)
+            [Var (Short «x»); Var (Short «y»); Var (Short «witness»)]))));
+      Dlet NoLocs (Pvar «divWitness»)
+        (Fun «x» (Fun «y» (Fun «witness»
+          (App (UnsafeIndexArith Div)
+            [Var (Short «x»); Var (Short «y»); Var (Short «witness»)]))));
+      Dlet NoLocs (Pvar «modWitness»)
+        (Fun «x» (Fun «y» (Fun «witness»
+          (App (UnsafeIndexArith ast$Mod)
+            [Var (Short «x»); Var (Short «y»); Var (Short «witness»)]))));
+      Dlet NoLocs (Pvar «ltWitness»)
+        (Fun «x» (Fun «y» (Fun «witness»
+          (App (UnsafeIndexTest (Compare Lt))
+            [Var (Short «x»); Var (Short «y»); Var (Short «witness»)]))));
+      Dlet NoLocs (Pvar «leWitness»)
+        (Fun «x» (Fun «y» (Fun «witness»
+          (App (UnsafeIndexTest (Compare Leq))
+            [Var (Short «x»); Var (Short «y»); Var (Short «witness»)]))));
+      Dlet NoLocs (Pvar «gtWitness»)
+        (Fun «x» (Fun «y» (Fun «witness»
+          (App (UnsafeIndexTest (Compare Gt))
+            [Var (Short «x»); Var (Short «y»); Var (Short «witness»)]))));
+      Dlet NoLocs (Pvar «geWitness»)
+        (Fun «x» (Fun «y» (Fun «witness»
+          (App (UnsafeIndexTest (Compare Geq))
+            [Var (Short «x»); Var (Short «y»); Var (Short «witness»)]))));
+      Dlet NoLocs (Pvar «eqWitness»)
+        (Fun «x» (Fun «y» (Fun «witness»
+          (App (UnsafeIndexTest Equal)
+            [Var (Short «x»); Var (Short «y»); Var (Short «witness»)]))))]``;
+
+val _ = ml_prog_update (close_module NONE);
+
 val _ = ml_prog_update (close_module NONE);

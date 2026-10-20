@@ -4,9 +4,63 @@
 *)
 Theory backendProps
 Ancestors
-  misc
+  misc backend_common[qualified] semanticPrimitives[qualified]
 Libs
   preamble
+
+Definition unsafe_index_bound_def:
+  unsafe_index_bound length_of [] = SOME NONE /\
+  unsafe_index_bound length_of [witness] =
+    OPTION_MAP SOME (length_of witness) /\
+  unsafe_index_bound length_of _ = NONE
+End
+
+Definition smallnum_app_def:
+  smallnum_app SmallAdd (i:int) j = SOME (INL (i + j)) /\
+  smallnum_app SmallSub i j = SOME (INL (i - j)) /\
+  smallnum_app SmallMult i j = SOME (INL (i * j)) /\
+  smallnum_app SmallDiv i j =
+    (if j = 0 then NONE else SOME (INL (i / j))) /\
+  smallnum_app SmallMod i j =
+    (if j = 0 then NONE else SOME (INL (i % j))) /\
+  smallnum_app SmallLess i j = SOME (INR (i < j)) /\
+  smallnum_app SmallLessEq i j = SOME (INR (i <= j)) /\
+  smallnum_app SmallGreater i j = SOME (INR (i > j)) /\
+  smallnum_app SmallGreaterEq i j = SOME (INR (i >= j)) /\
+  smallnum_app SmallEqual i j = SOME (INR (i = j))
+End
+
+Definition bounded_smallnum_app_def:
+  bounded_smallnum_app bound op i j =
+    if semanticPrimitives$index_in_bounds bound i /\
+       semanticPrimitives$index_in_bounds bound j then
+      (case smallnum_app op i j of
+       | NONE => NONE
+       | SOME (INL n) => if semanticPrimitives$index_in_bounds bound n
+                         then SOME (INL n) else NONE
+       | SOME (INR b) => SOME (INR b))
+    else NONE
+End
+
+Theorem index_in_bounds_mono:
+  len <= len' /\ semanticPrimitives$index_in_bounds (SOME len) i ==>
+  semanticPrimitives$index_in_bounds (SOME len') i
+Proof
+  simp [semanticPrimitivesTheory.index_in_bounds_def]
+  \\ intLib.COOPER_TAC
+QED
+
+Theorem bounded_smallnum_app_mono:
+  (!n. semanticPrimitives$index_in_bounds bound n ==>
+       semanticPrimitives$index_in_bounds bound' n) /\
+  bounded_smallnum_app bound op i j = SOME r ==>
+  bounded_smallnum_app bound' op i j = SOME r
+Proof
+  rw [bounded_smallnum_app_def]
+  \\ gvs [AllCaseEqs()]
+  \\ res_tac
+  \\ gvs []
+QED
 
 Definition state_cc_def:
   state_cc f cc =

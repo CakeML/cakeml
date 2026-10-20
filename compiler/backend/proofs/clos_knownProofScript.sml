@@ -622,6 +622,12 @@ Proof
   rpt gen_tac
   \\ `?this_is_case. this_is_case opn` by (qexists_tac `K T` \\ fs [])
   \\ cases_on_op `opn`
+  >~ [`known_op (IntOp _) _ _`] >- (
+    rename1 `IntOp intop`
+    \\ Cases_on `intop`
+    \\ gvs [known_op_def, do_app_def, oneline do_int_app_def, AllCaseEqs()]
+    \\ rpt strip_tac
+    \\ gvs [AllCaseEqs()])
   \\ simp [known_op_def, do_app_def, case_eq_thms, va_case_eq, bool_case_eq,
            pair_case_eq]
   \\ rpt strip_tac \\ rveq \\ fs[]
@@ -634,8 +640,7 @@ Proof
     \\ metis_tac [])
   >- (fs [state_globals_approx_def] \\ rw []
     \\ fs [lookup_insert, get_global_def, EL_LUPDATE, bool_case_eq] \\ rveq \\ fs []
-    >- (first_x_assum (qspecl_then [`k`, `v`, `merge other a'`] assume_tac)
-           \\ fs [] \\ metis_tac [val_approx_val_merge_I])
+    >- (irule val_approx_val_merge_I \\ simp [])
     >- metis_tac [])
   >- (fs [state_globals_approx_def, get_global_def,
         EL_APPEND_EQN, bool_case_eq]
@@ -643,9 +648,6 @@ Proof
     \\ gvs [EL_REPLICATE])
   >- (fs [CaseEq"ffi_result"] \\ rveq
     \\ fs [state_globals_approx_def] \\ metis_tac [])
-  >-(Cases_on `i` >> gvs[known_op_def])
-  >-(Cases_on `i` >> gvs[known_op_def] >>
-    gvs[oneline do_int_app_def,AllCaseEqs()])
   >- (
     rename1 `FLOOKUP _ _ = SOME (Thunk m _)`
     \\ Cases_on `m` \\ gvs [])
@@ -728,10 +730,17 @@ Proof
   cases_on_op `opn` >>
   simp[do_app_def, case_eq_thms, op_gbag_def, PULL_EXISTS, bool_case_eq,
        pair_case_eq]
-  >~ [`IntOp`]
-  >- (Cases_on `i` >> simp[oneline do_int_app_def,case_eq_thms,PULL_EXISTS])
+  >~ [`IntOp`] >- (
+    rename1 `IntOp intop`
+    \\ Cases_on `intop`
+    \\ simp [oneline do_int_app_def, AllCaseEqs(), PULL_EXISTS]
+    \\ rpt strip_tac
+    \\ gvs [AllCaseEqs()])
   >~ [`WordOp`]
-  >- (Cases_on `w` >> dsimp[oneline do_word_app_def,AllCaseEqs(),PULL_EXISTS])
+  >- (
+    rename1 `do_word_app word_operation _`
+    \\ Cases_on `word_operation`
+    \\ dsimp [oneline do_word_app_def,AllCaseEqs(),PULL_EXISTS])
   >~ [`BoolNot`]
   >- (rw [] >> gvs [])
   >>~- ([`WordShift`], dsimp[])
@@ -755,22 +764,21 @@ Proof
       \\ fs [ssgc_free_def] \\ res_tac
       \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs []
       \\ fs [EVERY_EL] \\ rw [] \\ res_tac \\ fs [])
-  >- (rename [‘RefByte’] \\ simp[ssgc_free_def] >>
-      rpt (disch_then strip_assume_tac ORELSE gen_tac) >> rpt conj_tac
-      >- first_assum MATCH_ACCEPT_TAC >> fs[] >>
-      simp[FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
-  >- (rename [‘RefArray’] \\ simp[ssgc_free_def] >>
-      rpt (disch_then strip_assume_tac ORELSE gen_tac) >> rpt conj_tac
-      >- first_assum MATCH_ACCEPT_TAC >> fs[] >>
-      dsimp[FLOOKUP_UPDATE, bool_case_eq, EVERY_REPLICATE] >> metis_tac[])
-  >- (rename [‘UpdateByte’] \\ simp[ssgc_free_def] >>
-      rpt (disch_then strip_assume_tac ORELSE gen_tac) >> rpt conj_tac
-      >- first_assum MATCH_ACCEPT_TAC >> fs[] >>
-      dsimp[FLOOKUP_UPDATE, bool_case_eq, EVERY_REPLICATE] >> metis_tac[])
+  >~ [`RefByte`] >- (
+    dsimp [ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq]
+    \\ rw [] \\ metis_tac [])
+  >~ [`RefArray`] >- (
+    dsimp [ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq,EVERY_REPLICATE]
+    \\ rw [] \\ disj2_tac \\ rpt strip_tac \\ res_tac)
+  >~ [`UpdateByte`] >- (
+    dsimp [ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq]
+    \\ rw [] \\ metis_tac [])
   >- (rename [‘CopyByte’]
       \\ dsimp[ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq] \\ rw[] \\ metis_tac[])
-  >- (rename [‘ToListByte’] \\ rw [] \\ rpt (pop_assum kall_tac)
-      \\ Induct_on `bs` \\ fs [list_to_v_def])
+  >~ [`ToListByte`] >- (
+    rw [] \\ rpt (pop_assum kall_tac)
+    \\ rename1 `list_to_v (MAP _ bytes)`
+    \\ Induct_on `bytes` \\ fs [list_to_v_def])
   >- (rename [‘Global’]
       \\ simp[get_global_def, ssgc_free_def]
       \\ rw [] \\ imp_res_tac not_less_zero_imp \\ gvs []

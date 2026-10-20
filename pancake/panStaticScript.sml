@@ -349,7 +349,7 @@ End
 
 (* Combine local var state deltas of Seq progs *)
 Definition seq_loc_inf_def:
-  seq_loc_inf x y = union y x
+  seq_loc_inf x y = mlmap$union y x
 End
 
 

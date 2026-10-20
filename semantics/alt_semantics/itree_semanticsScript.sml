@@ -49,6 +49,15 @@ Definition do_app_def:
             | SOME (INL exn) => SOME (s, Rraise exn)
             | NONE           => NONE)
          else NONE)
+    | (UnsafeIndexArith a, vs) =>
+        (case do_unsafe_index_arith s a vs of
+           SOME (INR res) => SOME (s, Rval res)
+         | SOME (INL exn) => SOME (s, Rraise exn)
+         | NONE => NONE)
+    | (UnsafeIndexTest test, vs) =>
+        (case do_unsafe_index_test s test vs of
+           SOME result => SOME (s, Rval (Boolv result))
+         | NONE => NONE)
     | (FromTo ty1 ty2, [v]) =>
         (if check_type ty1 v then
            (case do_conversion v ty1 ty2 of
