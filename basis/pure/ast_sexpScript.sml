@@ -116,6 +116,10 @@ End
 Definition from_op_def:
   (from_op (Arith a t)         =
      Expr [Atom «Arith»; from_arith a; from_prim_type t]) ∧
+  (from_op (UnsafeIndexArith a) =
+     Expr [Atom «UnsafeIndexArith»; from_arith a]) ∧
+  (from_op (UnsafeIndexTest t)  =
+     Expr [Atom «UnsafeIndexTest»; from_test t]) ∧
   (from_op (FromTo t1 t2)      =
      Expr [Atom «FromTo»; from_prim_type t1; from_prim_type t2]) ∧
   (from_op Equality            = Atom «Equality») ∧
@@ -568,6 +572,16 @@ Definition to_op_def:
          a <- to_arith (nth args 0);
          t <- to_prim_type (nth args 1);
          return (Arith a t)
+       od
+     else if tag = «UnsafeIndexArith» ∧ LENGTH args = 1 then
+       do
+         a <- to_arith (nth args 0);
+         return (UnsafeIndexArith a)
+       od
+     else if tag = «UnsafeIndexTest» ∧ LENGTH args = 1 then
+       do
+         t <- to_test (nth args 0);
+         return (UnsafeIndexTest t)
        od
      else if tag = «FromTo» ∧ LENGTH args = 2 then
        do

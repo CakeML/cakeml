@@ -328,6 +328,14 @@ Theorem do_app_ok:
         | _ => T
 Proof
   strip_tac
+  \\ Cases_on ‘(∃a. op = UnsafeIndexArith a) ∨ ∃t. op = UnsafeIndexTest t’
+  >- (
+    gvs [do_app_cases, do_unsafe_index_arith_def,
+         do_unsafe_index_test_def, AllCaseEqs()]
+    \\ qexists_tac ‘st’ \\ gvs [Boolv_def, v_ok_def, SF SFY_ss]
+    >~ [‘do_arith arith _ _ = SOME (INL _)’] >- (
+      Cases_on ‘arith’ \\ gvs [do_arith_def, AllCaseEqs()])
+    \\ rw [v_ok_def])
   \\ qpat_x_assum ‘do_app _ _ _ = _’ mp_tac
   \\ Cases_on ‘op = Env_id’ \\ gs []
   >- (
@@ -356,7 +364,8 @@ Proof
     rw [do_app_cases] \\ gs []
     \\ dxrule_all_then assume_tac v_ok_v_to_list
     \\ dxrule_all_then assume_tac v_ok_v_to_list
-    \\ ‘EVERY (v_ok ctxt) (xs ++ ys)’
+    \\ qmatch_goalsub_rename_tac `list_to_v (left_values ++ right_values)`
+    \\ `EVERY (v_ok ctxt) (left_values ++ right_values)`
       by gs []
     \\ pop_assum mp_tac
     \\ rename1 ‘EVERY (v_ok ctxt) zs ⇒ _’
@@ -478,7 +487,7 @@ Proof
     \\ gvs [v_ok_def, store_alloc_def, EVERY_EL, LLOOKUP_EQ_EL]
     \\ first_assum (irule_at Any) \\ gs []
     \\ rw [EL_APPEND_EQN] \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def]
-    \\ TRY (
+    >~ [`kernel_loc_ok _ _ _`] >- (
       gs [kernel_loc_ok_def, LLOOKUP_EQ_EL, EL_APPEND_EQN]
       \\ first_x_assum (drule_then strip_assume_tac)
       \\ rw [] \\ gs [SF SFY_ss])
@@ -689,7 +698,8 @@ Proof
   \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
   >- (rw [do_app_cases] \\ gs [thunk_op_def, AllCaseEqs()])
   \\ Cases_on ‘op’ \\ gs []
-  \\ Cases_on ‘t’ \\ gs []
+  \\ qmatch_goalsub_rename_tac `ThunkOp thunk_primitive`
+  \\ Cases_on `thunk_primitive` \\ gs []
 QED
 
 Theorem state_ok_dest_thunk:

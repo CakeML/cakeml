@@ -13,7 +13,7 @@ Theorem case_eq_thms =
    bool_case_eq::
    map (TypeBase.case_eq_of)
         [``:'a option``,``:'a list``,``:'a word_loc``,``:inst``, ``:binop``,
-         ``:reg_imm`` ,``:arith``,``:addr``,``:memop``,``:'a result``,
+         ``:reg_imm`` ,``:arith``,``:addr``,``:memop``,``:'a stackSem$result``,
          ``:'a ffi_result``])
     |> LIST_CONJ
 
@@ -734,8 +734,9 @@ Proof
   qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
   simp[LESS_EQ_EXISTS] >>
   metis_tac[evaluate_add_clock_io_events_mono,
-            EVAL``(s with clock := k).clock``,
-            EVAL``((s with clock := k) with clock := k2) = (s with clock := k2)``]
+            EVAL``((s:('a,'b,'c) stackSem$state) with clock := k).clock``,
+            EVAL``(((s:('a,'b,'c) stackSem$state) with clock := k)
+                    with clock := k2) = (s with clock := k2)``]
 QED
 
 Theorem map_bitmap_length:

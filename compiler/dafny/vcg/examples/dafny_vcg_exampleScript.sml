@@ -26,6 +26,9 @@ Ancestors
 Libs
   preamble
 
+val _ = Parse.hide "dom";
+val _ = Parse.hide "member";
+
 (* Stop EVAL from deep-frying the statement in valid_vcg_prop *)
 val _ = computeLib.del_funs [forall_def, eval_true_def];
 

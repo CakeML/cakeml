@@ -8,6 +8,8 @@ Ancestors
   pbc cp ilp int_bitwiseExtra
   cp_to_ilp cp_to_ilp_linear cp_to_ilp_counting
 
+val _ = Parse.hide "dom";
+
 (* equivalent definition to circuit_sem *)
 
 Theorem PLUS_MOD_NEQ:

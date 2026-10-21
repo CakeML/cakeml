@@ -11,6 +11,8 @@ Ancestors
 Libs
   preamble
 
+val _ = Parse.hide "member";
+
 Definition dest_VarLhs_def:
   dest_VarLhs (VarLhs var) = return var ∧
   dest_VarLhs _ = fail «dest_VarLhs: Not VarLhs»

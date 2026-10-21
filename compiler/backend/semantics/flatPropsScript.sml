@@ -1178,6 +1178,50 @@ QED
 
 val sv_rel_cases = semanticPrimitivesPropsTheory.sv_rel_cases;
 
+Theorem simple_index_witness_length[local]:
+  simple_val_rel vr /\ simple_state_rel vr sr /\
+  sr s1 s2 /\ vr v1 v2 /\
+  index_witness_length s1.refs v1 = SOME n
+  ==>
+  index_witness_length s2.refs v2 = SOME n
+Proof
+  rpt strip_tac
+  \\ Cases_on `v1`
+  \\ gvs [index_witness_length_def, simple_val_rel_simps,
+          simple_basic_val_rel_def, v_container_xs_def]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ gvs [index_witness_length_def]
+  >~ [`index_witness_length _ (Litv _)`] >- (
+    qmatch_goalsub_rename_tac `Litv literal`
+    \\ Cases_on `literal`
+    \\ gvs [index_witness_length_def])
+  \\ rename1 `store_lookup ptr s1.refs`
+  \\ Cases_on `store_lookup ptr s1.refs`
+  \\ gvs [AllCaseEqs()]
+  \\ drule_all simple_state_rel_store_lookup
+  \\ strip_tac
+  \\ gvs [sv_rel_cases, LIST_REL_LENGTH]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ simp []
+QED
+
+Theorem simple_unsafe_index_bound[local]:
+  simple_val_rel vr /\ simple_state_rel vr sr /\ sr s1 s2 /\
+  LIST_REL vr witnesses1 witnesses2 /\
+  unsafe_index_bound (index_witness_length s1.refs) witnesses1 = SOME bound
+  ==>
+  unsafe_index_bound (index_witness_length s2.refs) witnesses2 = SOME bound
+Proof
+  rpt strip_tac
+  \\ Cases_on `witnesses1`
+  \\ gvs [backendPropsTheory.unsafe_index_bound_def, LIST_REL_EL_EQN]
+  \\ rename1 `LENGTH source_tail = LENGTH target_tail`
+  \\ Cases_on `source_tail`
+  \\ gvs [backendPropsTheory.unsafe_index_bound_def, LENGTH_NIL]
+  \\ drule_all simple_index_witness_length
+  \\ simp []
+QED
+
 Theorem simple_do_app_thm:
   simple_val_rel vr /\
   simple_state_rel vr sr ==>
@@ -1188,7 +1232,8 @@ Theorem simple_do_app_thm:
   ?t2 r2. result_rel vr vr r1 r2 /\
   sr t1 t2 /\ do_app s2 op vs2 = SOME (t2, r2)
 Proof
-  disch_tac \\ fs [] \\ Cases_on `op` \\ TRY (Cases_on `o'`)
+  disch_tac \\ fs [] \\ Cases_on `op`
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [`Src source_op`]) (Cases_on `source_op`)
   (* handle specific ops: Arith, FromTo, Test, ThunkOp *)
   >~ [`Src (Arith _ _)`] >-
    (gvs [do_app_def,AllCaseEqs(),SF DNF_ss] \\ rw []
@@ -1199,65 +1244,77 @@ Proof
     \\ Cases_on `ty` using semanticPrimitivesPropsTheory.prim_type_cases
     \\ gvs[semanticPrimitivesTheory.do_arith_def,CaseEq"list",TypeBase.case_eq_of ``:ast$arith``]
     \\ gvs[simple_val_rel_simps,v_to_flat_def]
-    >~ [`check_type BoolT`] >-
-     (Cases_on `flat_to_v x0 = Boolv T` \\ gvs []
+    >~ [`check_type BoolT (flat_to_v operand)`]
+    >- (
+      Cases_on `flat_to_v operand = Boolv T` \\ gvs []
       \\ EVAL_TAC \\ gvs [simple_val_rel_def]))
+  >~ [`Src (UnsafeIndexArith _)`] >- (
+    rpt strip_tac
+    \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]
+    \\ drule_all simple_unsafe_index_bound
+    \\ gvs [div_exn_v_def, simple_val_rel_simps,
+            simple_basic_val_rel_def, v_container_xs_def])
+  >~ [`Src (UnsafeIndexTest _)`] >- (
+    rpt strip_tac
+    \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]
+    \\ drule_all simple_unsafe_index_bound
+    \\ gvs [Boolv_def, simple_val_rel_simps,
+            simple_basic_val_rel_def, v_container_xs_def])
   >~ [`Src (FromTo _ _)`] >- (
     gvs[do_app_def,AllCaseEqs(),SF DNF_ss] \\ rw[]
     \\ imp_res_tac check_type_LIST_REL_same \\ gvs []
-    \\ rename [`do_conversion _ ty1 ty2`]
-    \\ first_x_assum(qspecl_then[`[v]`,`ty1`]mp_tac)
+    \\ qmatch_asmsub_rename_tac `do_conversion (flat_to_v source_value) ty1 ty2`
+    \\ first_x_assum(qspecl_then[`[source_value]`,`ty1`]mp_tac)
     \\ rw[PULL_EXISTS]
     \\ Cases_on `ty1` using semanticPrimitivesPropsTheory.prim_type_cases
     \\ Cases_on `ty2` using semanticPrimitivesPropsTheory.prim_type_cases
     \\ gvs[semanticPrimitivesTheory.do_conversion_def,v_to_flat_def,CaseEq"bool"]
     \\ rw[simple_val_rel_simps,chr_exn_v_def,v_to_flat_def,Boolv_def])
-  >~ [`Src (Test _ _)`] >-
-   (gvs [PULL_EXISTS,do_app_def,AllCaseEqs()] \\ rw []
-    \\ rename [`do_test test ty`]
-    \\ qexists_tac `b` \\ conj_tac >- gvs [Boolv_def]
+  >~ [`Src (Test _ _)`] >- (
+    gvs [PULL_EXISTS,do_app_def,AllCaseEqs()] \\ rw []
+    \\ rename1 `do_test test ty _ _ = Eq_val test_result`
+    \\ qexists_tac `test_result` \\ conj_tac >- gvs [Boolv_def]
     \\ Cases_on `ty` using semanticPrimitivesPropsTheory.prim_type_cases
     \\ Cases_on `test`
     \\ gvs [AllCaseEqs(),flatSemTheory.do_test_def,PULL_EXISTS]
     \\ gvs [oneline dest_Litv_def, AllCaseEqs()]
     \\ gvs [check_type_def,Boolv_def])
-  >~ [`Src (ThunkOp _)`] >-
-   (rpt strip_tac \\ gvs [do_app_def,AllCaseEqs(),SF DNF_ss]
+  >~ [`Src (ThunkOp _)`] >- (
+    rpt strip_tac \\ gvs [do_app_def,AllCaseEqs(),SF DNF_ss]
     \\ rpt (pairarg_tac \\ gvs [])
-    >-
-     (drule_then (drule_then drule) simple_state_rel_store_alloc
+    >- (
+      drule_then (drule_then drule) simple_state_rel_store_alloc
       \\ simp [Once sv_rel_cases,PULL_EXISTS]
       \\ disch_then drule \\ strip_tac \\ gvs []
       \\ gvs [bad_thunk_update_def, oneline dest_thunk_def, AllCaseEqs()]
       >>~- ([`simple_val_rel vr`, `vr _ y`],
         Cases_on `y` \\ gvs [simple_val_rel_def]
         \\ res_tac \\ gvs [])
-      \\ (
-        drule_all simple_state_rel_store_lookup \\ rw [] \\ gvs []
-        \\ Cases_on `y` \\ gvs []))
-    >-
-     (drule_then (drule_then drule) simple_state_rel_store_assign
+      \\ drule_all simple_state_rel_store_lookup \\ rw [] \\ gvs []
+      \\ gvs [sv_rel_cases])
+    >- (
+      drule_then (drule_then drule) simple_state_rel_store_assign
       \\ simp [Once sv_rel_cases,PULL_EXISTS]
       \\ disch_then drule \\ strip_tac \\ gvs []
       \\ gvs [bad_thunk_update_def, oneline dest_thunk_def, AllCaseEqs()]
       >>~- ([`simple_val_rel vr`, `vr _ y`],
         Cases_on `y` \\ gvs [simple_val_rel_def]
         \\ res_tac \\ gvs [])
-      \\ (
-        drule_all simple_state_rel_store_lookup \\ rw [] \\ gvs []
-        \\ Cases_on `y` \\ gvs [])))
+      \\ drule_all simple_state_rel_store_lookup \\ rw [] \\ gvs []
+      \\ gvs [sv_rel_cases]))
   >~ [`Src (FFI _)`] >- (
     rpt strip_tac
     \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ drule_then (drule_then drule) simple_state_rel_store_lookup
     \\ rw []
-    \\ TRY (drule_then (drule_then drule) simple_state_rel_store_assign)
+    >~ [`FFI_final _`] >- (
+      fs [sv_rel_cases, simple_state_rel_def] \\ res_tac \\ fs [])
+    \\ drule_then (drule_then drule) simple_state_rel_store_assign
     \\ fs [sv_rel_cases]
     \\ rw []
     \\ fs [simple_state_rel_def]
-    \\ res_tac \\ fs [Unitv_def]
-  )
+    \\ res_tac \\ fs [Unitv_def])
   >~ [`Src Aw8updateBit`] >- (
     rpt strip_tac
     \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]
@@ -1373,42 +1430,44 @@ Proof
     \\ fs [LIST_REL_APPEND_suff, sv_rel_cases, PULL_EXISTS]
     \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
   )
-  (* giant mallet for remaining cases *)
   \\ rpt strip_tac
   \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ imp_res_tac LIST_REL_LENGTH
-  \\ TRY (drule_then (drule_then imp_res_tac) simple_do_eq_thm)
-  \\ TRY (drule_then (drule_then imp_res_tac) simple_state_rel_store_lookup)
-  \\ TRY (drule_then (drule_then imp_res_tac) simple_state_rel_store_assign)
-  \\ TRY (drule_then (drule_then drule) simple_v_to_list_v_rel)
-  \\ TRY (drule_then (drule_then drule) simple_v_to_char_list_v_rel)
-  \\ TRY (drule_then (drule_then drule) simple_vs_to_string_v_rel)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [`do_eq _ _ = Eq_val _`])
+        (drule_then (drule_then imp_res_tac) simple_do_eq_thm)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [`store_lookup _ _ = SOME _`])
+        (drule_then (drule_then imp_res_tac) simple_state_rel_store_lookup)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [`store_assign _ _ _ = SOME _`])
+        (drule_then (drule_then imp_res_tac) simple_state_rel_store_assign)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [`v_to_list _ = SOME _`])
+        (drule_then (drule_then drule) simple_v_to_list_v_rel)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [`v_to_char_list _ = SOME _`])
+        (drule_then (drule_then drule) simple_v_to_char_list_v_rel)
   \\ gvs [simple_val_rel_simps, simple_basic_val_rel_def, v_container_xs_def]
   \\ rw [div_exn_v_def, Boolv_def, subscript_exn_v_def, Unitv_def, chr_exn_v_def]
-  \\ TRY (drule_then irule simple_v_rel_list_to_v)
-  \\ TRY (fs [sv_rel_cases, PULL_EXISTS, LIST_REL_EL_EQN]
-    \\ first_x_assum drule \\ rw [])
-  \\ TRY (imp_res_tac simple_state_rel_store_lookup \\ fs [sv_rel_cases]
-    \\ NO_TAC)
-  \\ TRY (irule listTheory.EVERY2_refl)
-  \\ TRY (qmatch_goalsub_abbrev_tac `sr (_ with globals := _) _`
-    \\ fs [simple_state_rel_def]
+  >~ [`vs_to_string _ = SOME _`]
+  >- (imp_res_tac simple_vs_to_string_v_rel \\ gvs [])
+  >~ [`vr (list_to_v _) (list_to_v _)`]
+  >- (
+    drule_then irule simple_v_rel_list_to_v
+    \\ irule listTheory.EVERY2_refl
+    \\ simp [MEM_MAP, PULL_EXISTS])
+  \\ fs [sv_rel_cases, PULL_EXISTS, LIST_REL_EL_EQN]
+  >~ [`store_assign _ (Refv _) _`]
+  >- (first_x_assum drule \\ rw [] \\ fs [])
+  >>~- ([`store_lookup _ _ = SOME _`],
+    imp_res_tac simple_state_rel_store_lookup \\ fs [sv_rel_cases])
+  >>~- ([`sr (_ with globals := _) _`],
+    fs [simple_state_rel_def]
     \\ first_x_assum irule
     \\ res_tac
     \\ imp_res_tac LIST_REL_LENGTH
     \\ simp [EVERY2_LUPDATE_same, optionTheory.OPTREL_def, LIST_REL_APPEND_EQ,
-        LIST_REL_REPLICATE_same, optionTheory.OPTREL_def]
-  )
-  \\ TRY (qmatch_asmsub_abbrev_tac `i < LENGTH _.globals`
-    \\ fs [simple_state_rel_def, LIST_REL_EL_EQN]
-    \\ res_tac
-    \\ fs [optionTheory.OPTREL_def]
-    \\ fs [optionTheory.OPTREL_def]
-    \\ NO_TAC
-  )
-  \\ TRY (imp_res_tac simple_vs_to_string_v_rel \\ gvs [])
-  \\ simp [MEM_MAP, PULL_EXISTS]
+             LIST_REL_REPLICATE_same])
+  \\ fs [simple_state_rel_def, LIST_REL_EL_EQN]
+  \\ res_tac
+  \\ gvs [optionTheory.OPTREL_def]
 QED
 
 Definition evaluate_match_def:

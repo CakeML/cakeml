@@ -226,6 +226,7 @@ val res = define_enc_dec “:fp_uop”;
 val res = define_enc_dec “:fp_bop”;
 val res = define_enc_dec “:fp_top”;
 val res = define_enc_dec “:const_part”;
+val res = define_enc_dec “:backend_common$smallnum_op”;
 val res = define_enc_dec “:closLang$int_op”;
 val res = define_enc_dec “:closLang$word_op”;
 val res = define_enc_dec “:closLang$block_op”;

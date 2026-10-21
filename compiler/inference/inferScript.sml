@@ -608,6 +608,8 @@ Definition op_to_string_def:
   (op_to_string (Arith a ty) =
      («Arith»,
       case supported_arith a ty of SOME n => (n:num) | NONE => 0n)) ∧
+  (op_to_string (UnsafeIndexArith _) = («UnsafeIndexArith», 2)) ∧
+  (op_to_string (UnsafeIndexTest _) = («UnsafeIndexTest», 2)) ∧
   (op_to_string (FromTo _ _) = («FromTo», 1)) ∧
   (op_to_string (Test _ _) = («Test», 2)) ∧
   (op_to_string Opapp = («Opapp», 2)) ∧
@@ -793,6 +795,8 @@ constrain_op l op ts s =
           () <- add_constraint l t2 (Infer_Tapp [uvar] Tlist_num);
           return (Infer_Tapp [uvar] Tlist_num)
        od s
+   | (UnsafeIndexArith _, _) => failwith l («Unsafe ops do not have a type») s
+   | (UnsafeIndexTest _, _) => failwith l («Unsafe ops do not have a type») s
    | (Vsub_unsafe, _) => failwith l («Unsafe ops do not have a type») s
    | (Strsub_unsafe, _) => failwith l («Unsafe ops do not have a type») s
    | (Asub_unsafe, _) => failwith l («Unsafe ops do not have a type») s

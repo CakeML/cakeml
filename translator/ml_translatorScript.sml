@@ -7,7 +7,7 @@ Theory ml_translator
 Ancestors
   machine_ieee integer ml_prog ast semanticPrimitives semanticPrimitivesProps
   evaluateProps fpSem mlvector
-  mlstring evaluate
+  mlstring mlint evaluate
 Libs
   packLib integer_wordSyntax preamble
   integer_wordSyntax[qualified]
@@ -2975,6 +2975,291 @@ Definition VECTOR_TYPE_def:
   VECTOR_TYPE a (Vector l) v <=>
     ?l'. v = Vectorv l' /\ LENGTH l = LENGTH l' /\ LIST_REL a l l'
 End
+
+Theorem Eval_UnsafeIndexArith:
+  Eval env x1 (INT i1) ==>
+  Eval env x2 (INT i2) ==>
+  PRECONDITION (index_in_bounds NONE i1 /\ index_in_bounds NONE i2 /\
+    index_in_bounds NONE result /\
+    do_arith arith IntT [Litv (IntLit i1); Litv (IntLit i2)] =
+      SOME (INR (Litv (IntLit result)))) ==>
+  Eval env (App (UnsafeIndexArith arith) [x1; x2]) (INT result)
+Proof
+  rw [Eval_rw,INT_def,PRECONDITION_def]
+  \\ Eval2_tac
+  \\ fs [do_app_def,do_unsafe_index_arith_def,unsafe_index_bound_def]
+  \\ rw [state_component_equality]
+QED
+
+Theorem Eval_UnsafeIndexTest:
+  Eval env x1 (INT i1) ==>
+  Eval env x2 (INT i2) ==>
+  PRECONDITION (index_in_bounds NONE i1 /\ index_in_bounds NONE i2 /\
+    do_test test IntT (Litv (IntLit i1)) (Litv (IntLit i2)) = Eq_val result) ==>
+  Eval env (App (UnsafeIndexTest test) [x1; x2]) (BOOL result)
+Proof
+  rw [Eval_rw,INT_def,BOOL_def,PRECONDITION_def]
+  \\ Eval2_tac
+  \\ fs [do_app_def,do_unsafe_index_test_def,unsafe_index_bound_def]
+  \\ rw [state_component_equality]
+QED
+
+Theorem Eval_UnsafeIndexArith_vec:
+  Eval env x1 (INT i1) ==>
+  Eval env x2 (INT i2) ==>
+  Eval env x3 (VECTOR_TYPE a witness) ==>
+  PRECONDITION (index_in_bounds (SOME (256 * length witness)) i1 /\
+    index_in_bounds (SOME (256 * length witness)) i2 /\
+    index_in_bounds (SOME (256 * length witness)) result /\
+    do_arith arith IntT [Litv (IntLit i1); Litv (IntLit i2)] =
+      SOME (INR (Litv (IntLit result)))) ==>
+  Eval env (App (UnsafeIndexArith arith) [x1; x2; x3]) (INT result)
+Proof
+  rw [Eval_rw,INT_def,PRECONDITION_def]
+  \\ qmatch_goalsub_rename_tac `empty_state with <|clock := _; refs := initial_refs|>`
+  \\ qpat_x_assum `!r. ?c v r' c'. evaluate _ env [x3] = _ /\ _`
+       (qspec_then `initial_refs` (qx_choosel_then
+         [`witness_clock`,`witness_value`,`witness_refs`,`witness_left`] strip_assume_tac))
+  \\ qpat_x_assum `!r. ?c r' c'. evaluate _ env [x2] = _`
+       (qspec_then `initial_refs ++ witness_refs` (qx_choosel_then
+         [`right_clock`,`right_refs`,`right_left`] strip_assume_tac))
+  \\ qpat_x_assum `!r. ?c r' c'. evaluate _ env [x1] = _`
+       (qspec_then `initial_refs ++ witness_refs ++ right_refs` (qx_choosel_then
+         [`left_clock`,`left_refs`,`left_left`] strip_assume_tac))
+  \\ qpat_x_assum `evaluate _ env [x3] = _`
+       (assume_tac o Q.SPEC `right_clock + left_clock` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x2] = _`
+       (assume_tac o Q.SPEC `witness_left + left_clock` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x1] = _`
+       (assume_tac o Q.SPEC `witness_left + right_left` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qexists_tac `witness_clock + right_clock + left_clock`
+  \\ fs [AC ADD_ASSOC ADD_COMM]
+  \\ namedCases_on `witness` ["entries"]
+  \\ gvs [VECTOR_TYPE_def,length_def,do_app_def,do_unsafe_index_arith_def,
+         unsafe_index_bound_def,index_witness_length_def]
+  \\ rw [state_component_equality]
+QED
+
+Theorem Eval_UnsafeIndexTest_vec:
+  Eval env x1 (INT i1) ==>
+  Eval env x2 (INT i2) ==>
+  Eval env x3 (VECTOR_TYPE a witness) ==>
+  PRECONDITION (index_in_bounds (SOME (256 * length witness)) i1 /\
+    index_in_bounds (SOME (256 * length witness)) i2 /\
+    do_test test IntT (Litv (IntLit i1)) (Litv (IntLit i2)) = Eq_val result) ==>
+  Eval env (App (UnsafeIndexTest test) [x1; x2; x3]) (BOOL result)
+Proof
+  rw [Eval_rw,INT_def,BOOL_def,PRECONDITION_def]
+  \\ qmatch_goalsub_rename_tac `empty_state with <|clock := _; refs := initial_refs|>`
+  \\ qpat_x_assum `!r. ?c v r' c'. evaluate _ env [x3] = _ /\ _`
+       (qspec_then `initial_refs` (qx_choosel_then
+         [`witness_clock`,`witness_value`,`witness_refs`,`witness_left`] strip_assume_tac))
+  \\ qpat_x_assum `!r. ?c r' c'. evaluate _ env [x2] = _`
+       (qspec_then `initial_refs ++ witness_refs` (qx_choosel_then
+         [`right_clock`,`right_refs`,`right_left`] strip_assume_tac))
+  \\ qpat_x_assum `!r. ?c r' c'. evaluate _ env [x1] = _`
+       (qspec_then `initial_refs ++ witness_refs ++ right_refs` (qx_choosel_then
+         [`left_clock`,`left_refs`,`left_left`] strip_assume_tac))
+  \\ qpat_x_assum `evaluate _ env [x3] = _`
+       (assume_tac o Q.SPEC `right_clock + left_clock` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x2] = _`
+       (assume_tac o Q.SPEC `witness_left + left_clock` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x1] = _`
+       (assume_tac o Q.SPEC `witness_left + right_left` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qexists_tac `witness_clock + right_clock + left_clock`
+  \\ fs [AC ADD_ASSOC ADD_COMM]
+  \\ namedCases_on `witness` ["entries"]
+  \\ gvs [VECTOR_TYPE_def,length_def,do_app_def,do_unsafe_index_test_def,
+         unsafe_index_bound_def,index_witness_length_def]
+  \\ rw [state_component_equality]
+QED
+
+Theorem Eval_UnsafeIndexArith_str:
+  Eval env x1 (INT i1) ==>
+  Eval env x2 (INT i2) ==>
+  Eval env x3 (STRING_TYPE witness) ==>
+  PRECONDITION (index_in_bounds (SOME (32 * strlen witness)) i1 /\
+    index_in_bounds (SOME (32 * strlen witness)) i2 /\
+    index_in_bounds (SOME (32 * strlen witness)) result /\
+    do_arith arith IntT [Litv (IntLit i1); Litv (IntLit i2)] =
+      SOME (INR (Litv (IntLit result)))) ==>
+  Eval env (App (UnsafeIndexArith arith) [x1; x2; x3]) (INT result)
+Proof
+  rw [Eval_rw,INT_def,PRECONDITION_def]
+  \\ qmatch_goalsub_rename_tac `empty_state with <|clock := _; refs := initial_refs|>`
+  \\ qpat_x_assum `!r. ?c v r' c'. evaluate _ env [x3] = _ /\ _`
+       (qspec_then `initial_refs` (qx_choosel_then
+         [`witness_clock`,`witness_value`,`witness_refs`,`witness_left`] strip_assume_tac))
+  \\ qpat_x_assum `!r. ?c r' c'. evaluate _ env [x2] = _`
+       (qspec_then `initial_refs ++ witness_refs` (qx_choosel_then
+         [`right_clock`,`right_refs`,`right_left`] strip_assume_tac))
+  \\ qpat_x_assum `!r. ?c r' c'. evaluate _ env [x1] = _`
+       (qspec_then `initial_refs ++ witness_refs ++ right_refs` (qx_choosel_then
+         [`left_clock`,`left_refs`,`left_left`] strip_assume_tac))
+  \\ qpat_x_assum `evaluate _ env [x3] = _`
+       (assume_tac o Q.SPEC `right_clock + left_clock` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x2] = _`
+       (assume_tac o Q.SPEC `witness_left + left_clock` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x1] = _`
+       (assume_tac o Q.SPEC `witness_left + right_left` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qexists_tac `witness_clock + right_clock + left_clock`
+  \\ fs [AC ADD_ASSOC ADD_COMM]
+  \\ gvs [STRING_TYPE_def,do_app_def,do_unsafe_index_arith_def,
+         unsafe_index_bound_def,index_witness_length_def]
+  \\ rw [state_component_equality]
+QED
+
+Theorem Eval_UnsafeIndexTest_str:
+  Eval env x1 (INT i1) ==>
+  Eval env x2 (INT i2) ==>
+  Eval env x3 (STRING_TYPE witness) ==>
+  PRECONDITION (index_in_bounds (SOME (32 * strlen witness)) i1 /\
+    index_in_bounds (SOME (32 * strlen witness)) i2 /\
+    do_test test IntT (Litv (IntLit i1)) (Litv (IntLit i2)) = Eq_val result) ==>
+  Eval env (App (UnsafeIndexTest test) [x1; x2; x3]) (BOOL result)
+Proof
+  rw [Eval_rw,INT_def,BOOL_def,PRECONDITION_def]
+  \\ qmatch_goalsub_rename_tac `empty_state with <|clock := _; refs := initial_refs|>`
+  \\ qpat_x_assum `!r. ?c v r' c'. evaluate _ env [x3] = _ /\ _`
+       (qspec_then `initial_refs` (qx_choosel_then
+         [`witness_clock`,`witness_value`,`witness_refs`,`witness_left`] strip_assume_tac))
+  \\ qpat_x_assum `!r. ?c r' c'. evaluate _ env [x2] = _`
+       (qspec_then `initial_refs ++ witness_refs` (qx_choosel_then
+         [`right_clock`,`right_refs`,`right_left`] strip_assume_tac))
+  \\ qpat_x_assum `!r. ?c r' c'. evaluate _ env [x1] = _`
+       (qspec_then `initial_refs ++ witness_refs ++ right_refs` (qx_choosel_then
+         [`left_clock`,`left_refs`,`left_left`] strip_assume_tac))
+  \\ qpat_x_assum `evaluate _ env [x3] = _`
+       (assume_tac o Q.SPEC `right_clock + left_clock` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x2] = _`
+       (assume_tac o Q.SPEC `witness_left + left_clock` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x1] = _`
+       (assume_tac o Q.SPEC `witness_left + right_left` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qexists_tac `witness_clock + right_clock + left_clock`
+  \\ fs [AC ADD_ASSOC ADD_COMM]
+  \\ gvs [STRING_TYPE_def,do_app_def,do_unsafe_index_test_def,
+         unsafe_index_bound_def,index_witness_length_def]
+  \\ rw [state_component_equality]
+QED
+
+Theorem index_in_bounds_num_sub[local]:
+  (index_in_bounds bound (&i) /\ index_in_bounds bound (&j) /\
+   index_in_bounds bound (&(i - j)) /\ &i - &j = &(i - j)) ⇔
+  (index_in_bounds bound (&i) /\ index_in_bounds bound (&j) /\ j <= i)
+Proof
+  Cases_on `j <= i`
+  >- (
+    simp [INT_SUB]
+    \\ Cases_on `bound`
+    \\ simp [index_in_bounds_def,INT_LE_LNEG,INT_ADD]
+    \\ decide_tac)
+  \\ `i - j = 0` by decide_tac
+  \\ simp [INT_SUB_0,INT_INJ]
+  \\ decide_tac
+QED
+
+Theorem index_in_bounds_num_div[local]:
+  (index_in_bounds bound (&i) /\ index_in_bounds bound (&j) /\
+   index_in_bounds bound (&(i DIV j)) /\ j <> 0) ⇔
+  (index_in_bounds bound (&i) /\ index_in_bounds bound (&j) /\ j <> 0)
+Proof
+  Cases_on `j = 0` \\ simp []
+  \\ `0 < j` by decide_tac
+  \\ drule DIV_LESS_EQ
+  \\ disch_then (qspec_then `i` assume_tac)
+  \\ Cases_on `bound`
+  \\ simp [index_in_bounds_def,INT_LE_LNEG,INT_ADD]
+QED
+
+Theorem index_in_bounds_num_mod[local]:
+  (index_in_bounds bound (&i) /\ index_in_bounds bound (&j) /\
+   index_in_bounds bound (&(i MOD j)) /\ j <> 0) ⇔
+  (index_in_bounds bound (&i) /\ index_in_bounds bound (&j) /\ j <> 0)
+Proof
+  Cases_on `j = 0` \\ simp []
+  \\ `0 < j` by decide_tac
+  \\ drule MOD_LESS
+  \\ disch_then (qspec_then `i` assume_tac)
+  \\ Cases_on `bound`
+  \\ simp [index_in_bounds_def,INT_LE_LNEG,INT_ADD]
+  \\ decide_tac
+QED
+
+Theorem index_in_bounds_mod[local]:
+  (index_in_bounds bound i /\ index_in_bounds bound j /\
+   index_in_bounds bound (i % j) /\ j <> 0) ⇔
+  (index_in_bounds bound i /\ index_in_bounds bound j /\ j <> 0)
+Proof
+  Cases_on `j = 0` \\ simp []
+  \\ drule INT_MOD_BOUNDS
+  \\ disch_then (qspec_then `i` mp_tac)
+  \\ Cases_on `bound`
+  \\ rw [index_in_bounds_def]
+  \\ intLib.ARITH_TAC
+QED
+
+local
+  val operations =
+    [("add", “ast$Add”, false), ("sub", “ast$Sub”, false), ("mul", “ast$Mul”, false),
+     ("div", “ast$Div”, false), ("mod", “ast$Mod”, false),
+     ("lt", “ast$Compare ast$Lt”, true), ("le", “ast$Compare ast$Leq”, true),
+     ("gt", “ast$Compare ast$Gt”, true), ("ge", “ast$Compare ast$Geq”, true), ("eq", “ast$Equal”, true)]
+  fun derive prefix suffix (name, primitive, is_test) = let
+    val is_num = prefix = "smallnum"
+    val with_witness = suffix <> ""
+    val args = if is_num then [“n1:num”, “n2:num”] else [“i1:int”, “i2:int”]
+    val args = args @ (case suffix of
+        "_vec" => [“witness:'a vector”]
+      | "_str" => [“witness:mlstring”]
+      | _ => [])
+    val def = DB.fetch "mlint" (prefix ^ "_" ^ name ^ suffix ^ "_def")
+      |> ISPECL args
+      |> SIMP_RULE (srw_ss()) [INT_GT,INT_GE,GREATER_DEF,GREATER_EQ]
+    val value = rhs (concl def)
+    val result = if is_num andalso not is_test then “&^value” else value
+    val generic = case (suffix, is_test) of
+        ("_vec", false) => Eval_UnsafeIndexArith_vec
+      | ("_vec", true) => Eval_UnsafeIndexTest_vec
+      | ("_str", false) => Eval_UnsafeIndexArith_str
+      | ("_str", true) => Eval_UnsafeIndexTest_str
+      | (_, false) => Eval_UnsafeIndexArith
+      | (_, true) => Eval_UnsafeIndexTest
+    val theorem = INST
+      [“i1:int” |-> (if is_num then “&n1” else “i1:int”),
+       “i2:int” |-> (if is_num then “&n2” else “i2:int”),
+       mk_var (if is_test then "test" else "arith", type_of primitive) |-> primitive,
+       mk_var ("result", type_of result) |-> result] (SPEC_ALL generic)
+      |> SIMP_RULE (srw_ss())
+           [GSYM NUM_def,do_arith_def,do_test_def,check_type_def,dest_Litv_def,
+            do_eq_def,lit_same_type_def,semanticPrimitivesTheory.int_cmp_def,
+            INT_ADD,INT_MUL,INT_DIV,INT_MOD,INT_LT,INT_LE,INT_GT,INT_GE,INT_INJ,
+            GREATER_DEF,GREATER_EQ]
+      |> REWRITE_RULE
+           [index_in_bounds_num_sub,index_in_bounds_num_div,
+            index_in_bounds_num_mod,index_in_bounds_mod]
+    val def = SIMP_RULE (srw_ss()) [] def
+    val theorem = CONV_RULE
+      (funpow (if with_witness then 4 else 3) RAND_CONV
+        (RAND_CONV (RAND_CONV (REWR_CONV (SYM def))))) theorem
+    in save_thm ("Eval_" ^ prefix ^ "_" ^ name ^ suffix, theorem) end
+in
+  val _ = List.app (fn prefix =>
+    List.app (fn suffix => List.app (fn operation =>
+      (derive prefix suffix operation; ())) operations) ["", "_vec", "_str"])
+    ["smallnum", "smallint"]
+end;
 
 Definition VECTOR_v_def:
   VECTOR_v v_a (Vector l) = Vectorv (MAP v_a l)
