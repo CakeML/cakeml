@@ -261,16 +261,6 @@ End
 
 val res = translate get_bit_word'_def;
 
-Theorem set_bit_word_update:
-  n < 8 ⇒
-  set_bit_word (w:word8) n b = (n :+ b) w
-Proof
-  rw[set_bit_word_def,fcpTheory.CART_EQ,fcpTheory.FCP_UPDATE_def,
-    fcpTheory.FCP_BETA,word_or_def,word_and_def,word_1comp_def,
-    word_lsl_def,word_index]>>
-  Cases_on`n = i`>>fs[]
-QED
-
 Quote add_cakeml:
   fun get_bit_arr s n = Unsafe.w8subBit s n
 End
@@ -3392,9 +3382,7 @@ Theorem parse_xlrupb_chunk_side[local]:
   ∀s. parse_xlrupb_chunk_side s
 Proof
   rw[fetch "-" "parse_xlrupb_chunk_side_def",smallnum_lt_str_def]>>
-  simp[parse_vb_ilits_side,parse_vb_ilits_fwd_side,
-    fetch "ccnf_arrayProg" "parse_vb_num_side_def",
-    parse_vb_num_aux_side]
+  simp[fetch "ccnf_arrayProg" "parse_vb_num_side_def",parse_vb_num_aux_side]
   >- (
     irule parse_vb_ilits_fwd_side>>
     drule parse_vb_num_le>>

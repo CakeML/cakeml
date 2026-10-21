@@ -137,8 +137,7 @@ Theorem parse_lrup_chunk_side[local]:
   ∀s. parse_lrup_chunk_side s
 Proof
   rw[fetch "-" "parse_lrup_chunk_side_def"]>>
-  simp[parse_vb_ilits_side,fetch "ccnf_arrayProg" "parse_vb_num_side_def",
-    parse_vb_num_aux_side]>>
+  simp[fetch "ccnf_arrayProg" "parse_vb_num_side_def",parse_vb_num_aux_side]>>
   irule parse_vb_ilits_side>>
   simp[]>>
   drule parse_vb_num_le>>

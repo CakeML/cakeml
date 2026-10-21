@@ -110,7 +110,7 @@ QED
 
 val _ = fromchars_range_unsafe_tail_ind |> update_precondition;
 
-Theorem fromchars_range_unsafe_tail_side:
+Theorem fromchars_range_unsafe_tail_side[local]:
   ∀b n s mul acc.
   n ≤ strlen s ∧ b ≤ strlen s ⇒
   fromchars_range_unsafe_tail_side b n s mul acc

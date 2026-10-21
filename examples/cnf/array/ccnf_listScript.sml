@@ -720,12 +720,9 @@ Definition unit_prop_vb_list_def:
   | SOME (F,dml') => unit_prop_vb_list fmlls dml' b s i len)
 Termination
   WF_REL_TAC `measure (\(fmlls, dml, b, s, i, len). len - i)` >>
-  rw[] >> fs[parse_vb_int_def,
-   parse_vb_num_def,
-   AllCaseEqs(),UNCURRY_EQ] >> rveq >> fs[] >>
-  last_x_assum (assume_tac o GSYM) >>
-  drule_all parse_vb_num_aux_i >>
-  fs[]
+  rw[] >>
+  drule_then strip_assume_tac parse_vb_int_i >>
+  gvs[]
 End
 
 Theorem unit_prop_vb_list:
@@ -770,11 +767,9 @@ Definition unit_prop_vb_list'_def:
   | SOME (F,dml') => unit_prop_vb_list' fmlls dml' b s i len))
 Termination
   WF_REL_TAC `measure (\(fmlls, dml, b, s, i, len). len - i)` >>
-  rw[] >> fs[parse_vb_int_def,parse_vb_num_def,
-   AllCaseEqs(),UNCURRY_EQ] >> rveq >> fs[] >>
-  last_x_assum (assume_tac o GSYM) >>
-  drule_all parse_vb_num_aux_i >>
-  fs[]
+  rw[] >>
+  drule_then strip_assume_tac parse_vb_int_i >>
+  gvs[]
 End
 
 Theorem unit_prop_vb_list':
@@ -1236,12 +1231,9 @@ Definition delete_ids_vb_list_def:
   else delete_ids_vb_list d (delete_list d fmlls (Num m)) s i len
 Termination
   WF_REL_TAC` measure (λ(d,f,x,i,r). r-i)`>>
-  rw[] >> fs[parse_vb_int_def,parse_vb_num_def,
-  UNCURRY_EQ,AllCaseEqs()] >> rveq >>
-  fs[] >>
-  last_x_assum (assume_tac o GSYM) >>
-  drule_all parse_vb_num_aux_i >>
-  fs[]
+  rw[] >>
+  drule_then strip_assume_tac parse_vb_int_i >>
+  gvs[]
 End
 
 Theorem LENGTH_delete_ids_vb_list[simp]:

@@ -368,12 +368,9 @@ Definition unit_prop_vb_vec_def:
    | SOME (F,dm') => unit_prop_vb_vec fml dm' s i len)
 Termination
   WF_REL_TAC `measure (\(fml,dm,s,i,len) . len - i)` >>
-  rw[] >> fs[parse_vb_int_def,parse_vb_num_def,
-  UNCURRY_EQ,AllCaseEqs()] >> rveq >>
-  fs[] >>
-  last_x_assum (assume_tac o GSYM) >>
-  drule_all parse_vb_num_aux_i >>
-  fs[]
+  rw[] >>
+  drule_then strip_assume_tac parse_vb_int_i >>
+  gvs[]
 End
 
 Theorem unit_prop_vb_vec:
@@ -743,12 +740,9 @@ Definition delete_ids_vb_def:
   else delete_ids_vb (fml \\ (Num m)) s i len
 Termination
   WF_REL_TAC` measure (λ(f,x,i,r). r-i)`>>
-  rw[] >> fs[parse_vb_int_def,parse_vb_num_def,
-  UNCURRY_EQ,AllCaseEqs()] >> rveq >>
-  fs[] >>
-  last_x_assum (assume_tac o GSYM) >>
-  drule_all parse_vb_num_aux_i >>
-  fs[]
+  rw[] >>
+  drule_then strip_assume_tac parse_vb_int_i >>
+  gvs[]
 End
 
 Theorem satisfies_fml_gen_delete_ids_vb:

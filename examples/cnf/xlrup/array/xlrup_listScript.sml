@@ -427,12 +427,9 @@ Definition add_xors_aux_vb_list_def:
     add_xors_aux_vb_list fml s i len (strxor_c acc x)
 Termination
   WF_REL_TAC` measure (λ(f,s,i,len,acc). len-i)`>>
-  rw[] >> fs[parse_vb_int_def,parse_vb_num_def,
-  UNCURRY_EQ,AllCaseEqs()] >> rveq >>
-  fs[] >>
-  last_x_assum (assume_tac o GSYM) >>
-  drule_all parse_vb_num_aux_i >>
-  fs[]
+  rw[] >>
+  drule_then strip_assume_tac parse_vb_int_i >>
+  gvs[]
 End
 
 Theorem add_xors_aux_vb_list:
@@ -466,12 +463,9 @@ Definition get_units_vb_list_def:
     else NONE
 Termination
   WF_REL_TAC` measure (λ(f,s,i,len,cs). len-i)`>>
-  rw[] >> fs[parse_vb_int_def,parse_vb_num_def,
-  UNCURRY_EQ,AllCaseEqs()] >> rveq >>
-  fs[] >>
-  last_x_assum (assume_tac o GSYM) >>
-  drule_all parse_vb_num_aux_i >>
-  fs[]
+  rw[] >>
+  drule_then strip_assume_tac parse_vb_int_i >>
+  gvs[]
 End
 
 Theorem get_units_vb_list:
@@ -567,9 +561,9 @@ Proof
   fs[strxor_imp_cclause_list]
 QED
 
-(*** The checks started from zero bytes of any length, as the array
-  checkers in xlrup_arrayProg do: the verdicts depend only on the bits
-  of the accumulator ***)
+(*** Starting a check from zero bytes of any length, as the array
+  checkers in xlrup_arrayProg do, gives the same verdict: it depends only
+  on the bits of the accumulator ***)
 
 Overload same_bits = ``λa b. ∀n. bit_list a n ⇔ bit_list b n``;
 
@@ -701,12 +695,9 @@ Definition get_constrs_vb_list_def:
     | SOME Cs => SOME (toList Ci::Cs))
 Termination
   WF_REL_TAC` measure (λ(f,s,i,len). len-i)`>>
-  rw[] >> fs[parse_vb_int_def,parse_vb_num_def,
-  UNCURRY_EQ,AllCaseEqs()] >> rveq >>
-  fs[] >>
-  last_x_assum (assume_tac o GSYM) >>
-  drule_all parse_vb_num_aux_i >>
-  fs[]
+  rw[] >>
+  drule_then strip_assume_tac parse_vb_int_i >>
+  gvs[]
 End
 
 Theorem fml_rel_get_constrs_vb_list:

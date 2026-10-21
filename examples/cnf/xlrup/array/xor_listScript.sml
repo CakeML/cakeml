@@ -198,6 +198,16 @@ Proof
   rw[set_bit_char_def,set_bit_word_def]
 QED
 
+Theorem set_bit_word_update:
+  n < 8 ⇒
+  set_bit_word (w:word8) n b = (n :+ b) w
+Proof
+  rw[set_bit_word_def,fcpTheory.CART_EQ,fcpTheory.FCP_UPDATE_def,
+    fcpTheory.FCP_BETA,word_or_def,word_and_def,word_1comp_def,
+    word_lsl_def,word_index]>>
+  Cases_on`n = i`>>fs[]
+QED
+
 Definition set_bit_list_def:
   set_bit_list s n b =
   let q = n DIV 8 in

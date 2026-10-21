@@ -765,32 +765,6 @@ Proof
   metis_tac[NUM_ARRAY_refl]
 QED
 
-(* Decoding never moves the read position past the end of the record *)
-Theorem parse_vb_num_aux_le:
-  ∀s i len ex n m j.
-  parse_vb_num_aux s i len ex n = (m,j) ∧ i ≤ len ⇒ j ≤ len
-Proof
-  ho_match_mp_tac parse_vb_num_aux_ind>>
-  rpt gen_tac>>strip_tac>>
-  simp[Once parse_vb_num_aux_def]>>
-  rw[]
-QED
-
-Theorem parse_vb_num_le:
-  parse_vb_num s i len = (m,j) ∧ i ≤ len ⇒ j ≤ len
-Proof
-  rw[parse_vb_num_def]>>
-  metis_tac[parse_vb_num_aux_le]
-QED
-
-Theorem parse_vb_int_le:
-  parse_vb_int s i len = (v,j) ∧ i ≤ len ⇒ j ≤ len
-Proof
-  rw[parse_vb_int_def]>>
-  pairarg_tac>>gvs[]>>
-  metis_tac[parse_vb_num_le]
-QED
-
 Theorem parse_vb_num_aux_small:
   parse_vb_num_aux s i len ex n =
   if smallnum_lt_str i len s then

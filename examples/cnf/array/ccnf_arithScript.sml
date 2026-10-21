@@ -63,7 +63,7 @@ Proof
   simp[integerTheory.INT_SUB]
 QED
 
-(*** Witness: the assignment map ***)
+(*** Assignment-map witness ***)
 
 Theorem int_lt_numarr_spec:
   ∀x xv y yv ls av p.

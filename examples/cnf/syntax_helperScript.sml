@@ -747,10 +747,28 @@ Proof
  fs[Once parse_vb_num_aux_def,AllCaseEqs()]
 QED
 
+(* Decoding never moves the read position past the end of the record *)
+Theorem parse_vb_num_aux_le:
+  ∀s i len ex n m j.
+  parse_vb_num_aux s i len ex n = (m,j) ∧ i ≤ len ⇒ j ≤ len
+Proof
+  ho_match_mp_tac parse_vb_num_aux_ind>>
+  rpt gen_tac>>strip_tac>>
+  simp[Once parse_vb_num_aux_def]>>
+  rw[]
+QED
+
 Definition parse_vb_num_def:
   parse_vb_num s offset len =
   parse_vb_num_aux s offset len 1 0
 End
+
+Theorem parse_vb_num_le:
+  parse_vb_num s i len = (m,j) ∧ i ≤ len ⇒ j ≤ len
+Proof
+  rw[parse_vb_num_def]>>
+  metis_tac[parse_vb_num_aux_le]
+QED
 
 Definition parse_vb_int_def:
   parse_vb_int s offset len =
@@ -762,6 +780,26 @@ Definition parse_vb_int_def:
       else (-&(m DIV 2):int)) in
   (v,i)
 End
+
+Theorem parse_vb_int_le:
+  parse_vb_int s i len = (v,j) ∧ i ≤ len ⇒ j ≤ len
+Proof
+  rw[parse_vb_int_def]>>
+  pairarg_tac>>gvs[]>>
+  metis_tac[parse_vb_num_le]
+QED
+
+(* Decoding a non-zero value moves the read position forward *)
+Theorem parse_vb_int_i:
+  (v,j) = parse_vb_int s i len ⇒ v = 0 ∨ i < len ∧ i < j
+Proof
+  rw[parse_vb_int_def,parse_vb_num_def]>>
+  pairarg_tac>>gvs[]>>
+  Cases_on`m = 0`>>simp[]>>
+  qpat_x_assum`parse_vb_num_aux _ _ _ _ _ = _`(assume_tac o GSYM)>>
+  drule_all parse_vb_num_aux_i>>
+  simp[]
+QED
 
 (* An unrolled reading of parse_vb_int.
 
@@ -895,12 +933,9 @@ Definition parse_vb_ilits_def:
   else acc
 Termination
   WF_REL_TAC` measure (λ(x,s,i,r). i-s)`>>
-  rw[]>> fs[parse_vb_int_def,parse_vb_num_def] >>
-  pairarg_tac >> gvs[] >>
-  `m <> 0` by (strip_tac >> gvs[]) >>
-  qpat_x_assum `parse_vb_num_aux _ _ _ _ _ = _` (assume_tac o GSYM) >>
-  drule_all parse_vb_num_aux_i >>
-  fs[]
+  rw[]>>
+  drule_then strip_assume_tac parse_vb_int_i>>
+  gvs[]
 End
 
 Theorem parse_vb_ilits_nz:

@@ -63,7 +63,9 @@ Datatype:
   | XDelvb mlstring
     (* XDelvb s : delete the XORs whose ids are encoded in s after its tag *)
   | CFromXvb num cclause mlstring
+    (* CFromXvb n C s : as CFromX, with the XOR hints encoded in s *)
   | XFromCvb num rawxor mlstring
+    (* XFromCvb n X s : as XFromC, with the clause hints encoded in s *)
 End
 
 (* XOrig lines carry num lits, the rest carry ilits, so the same
@@ -197,9 +199,9 @@ End
 (*** The binary format's hint walkers.
 
   Each one reads its ids from the raw chunk s between bytes i and len
-  with parse_vb_int, as delete_ids_vb does, and is otherwise the list
-  function above. Ids are doubled, so a non-positive value ends the
-  chunk. ***)
+  with parse_vb_int, as delete_ids_vb does, and is otherwise the function
+  above that takes its ids as a list. Ids are doubled, so a non-positive
+  value ends the chunk. ***)
 
 Definition add_xors_aux_vb_def:
   add_xors_aux_vb fml s i len acc =
@@ -211,12 +213,9 @@ Definition add_xors_aux_vb_def:
     add_xors_aux_vb fml s i len (strxor acc x)
 Termination
   WF_REL_TAC` measure (λ(f,s,i,len,acc). len-i)`>>
-  rw[] >> fs[parse_vb_int_def,parse_vb_num_def,
-  UNCURRY_EQ,AllCaseEqs()] >> rveq >>
-  fs[] >>
-  last_x_assum (assume_tac o GSYM) >>
-  drule_all parse_vb_num_aux_i >>
-  fs[]
+  rw[] >>
+  drule_then strip_assume_tac parse_vb_int_i >>
+  gvs[]
 End
 
 Theorem add_xors_aux_vb:
@@ -248,12 +247,9 @@ Definition get_units_vb_def:
   | NONE => NONE
 Termination
   WF_REL_TAC` measure (λ(f,s,i,len,cs). len-i)`>>
-  rw[] >> fs[parse_vb_int_def,parse_vb_num_def,
-  UNCURRY_EQ,AllCaseEqs()] >> rveq >>
-  fs[] >>
-  last_x_assum (assume_tac o GSYM) >>
-  drule_all parse_vb_num_aux_i >>
-  fs[]
+  rw[] >>
+  drule_then strip_assume_tac parse_vb_int_i >>
+  gvs[]
 End
 
 Theorem get_units_vb:
@@ -336,12 +332,9 @@ Definition get_constrs_vb_def:
     | SOME Cs => SOME (toList Ci::Cs))
 Termination
   WF_REL_TAC` measure (λ(f,s,i,len). len-i)`>>
-  rw[] >> fs[parse_vb_int_def,parse_vb_num_def,
-  UNCURRY_EQ,AllCaseEqs()] >> rveq >>
-  fs[] >>
-  last_x_assum (assume_tac o GSYM) >>
-  drule_all parse_vb_num_aux_i >>
-  fs[]
+  rw[] >>
+  drule_then strip_assume_tac parse_vb_int_i >>
+  gvs[]
 End
 
 Theorem get_constrs_vb:
@@ -422,12 +415,9 @@ Definition parse_vb_ilits_fwd_def:
   if v ≠ 0 then v :: parse_vb_ilits_fwd s j len else []
 Termination
   WF_REL_TAC` measure (λ(x,s,i). i-s)`>>
-  rw[]>> fs[parse_vb_int_def,parse_vb_num_def] >>
-  pairarg_tac >> gvs[] >>
-  `m <> 0` by (strip_tac >> gvs[]) >>
-  qpat_x_assum `parse_vb_num_aux _ _ _ _ _ = _` (assume_tac o GSYM) >>
-  drule_all parse_vb_num_aux_i >>
-  fs[]
+  rw[]>>
+  drule_then strip_assume_tac parse_vb_int_i>>
+  gvs[]
 End
 
 Theorem parse_vb_ilits_fwd:
