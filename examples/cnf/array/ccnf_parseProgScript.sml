@@ -246,6 +246,15 @@ End
 
 val res = translate nulc_def;
 
+(* The buffer size for reading proofs. TextIO's openInSetBufferSize and
+  openStdInSetBufferSize allocate min 65535 (max (bsize + 4) 1028) bytes,
+  so this is the largest buffer they give. *)
+Definition proof_buffer_size_def:
+  proof_buffer_size = 65531n
+End
+
+val res = translate proof_buffer_size_def;
+
 Theorem EqualityType_CNF_LIT_TYPE:
   EqualityType (CNF_LIT_TYPE NUM)
 Proof

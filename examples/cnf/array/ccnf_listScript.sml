@@ -1269,11 +1269,14 @@ Proof
 QED
 
 Theorem bnd_fml_delete_ids_vb_list:
-  ∀d fmlls s i len sz.
-  d = vcc_none ∧
+  ∀fmlls s i len sz.
   bnd_fml fmlls sz ⇒
-  bnd_fml (delete_ids_vb_list d fmlls s i len) sz
+  bnd_fml (delete_ids_vb_list vcc_none fmlls s i len) sz
 Proof
+  qsuff_tac`∀d fmlls s i len sz.
+    d = vcc_none ∧ bnd_fml fmlls sz ⇒
+    bnd_fml (delete_ids_vb_list d fmlls s i len) sz`
+  >- metis_tac[]>>
   ho_match_mp_tac delete_ids_vb_list_ind>>
   rw[]>>
   simp[Once delete_ids_vb_list_def]>>

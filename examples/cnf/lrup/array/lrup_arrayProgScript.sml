@@ -406,7 +406,7 @@ QED
 Quote add_cakeml:
   fun check_unsat' vcfml fname n nc =
   let
-    val fd = TextIO.openInSetBufferSize fname 65531
+    val fd = TextIO.openInSetBufferSize fname proof_buffer_size
     val fml = build_cfml_arr nc 1 vcfml
     val carr = Array.array n 0
     val chk = Inr (check_unsat'' fd 1 fml carr 1)
@@ -440,6 +440,7 @@ Theorem check_unsat'_spec:
 Proof
   rw[]>>
   xcf"check_unsat'"(get_ml_prog_state ())>>
+  assume_tac proof_buffer_size_v_thm>>
   reverse (Cases_on `STD_streams fs`)
   >- (fs [TextIOProofTheory.STDIO_def]>>xpull)>>
   reverse (Cases_on`consistentFS fs`)

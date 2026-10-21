@@ -306,18 +306,6 @@ Proof
   simp[]
 QED
 
-Theorem num_ge_spec:
-  ∀i iv j jv p.
-  NUM i iv ∧ NUM j jv ∧ i < 2 ** 30 ∧ j < 2 ** 30 ⇒
-  app p Unsafe_ge_v [iv; jv] emp (POSTv v. &BOOL (i ≥ j) v)
-Proof
-  rw[NUM_def]>>
-  `i ≥ j ⇔ (&i:int) ≥ &j` by intLib.ARITH_TAC>>
-  pop_assum SUBST1_TAC>>
-  irule unsafe_arith_ge_spec>>
-  simp[]
-QED
-
 Theorem num_eq_spec:
   ∀i iv j jv p.
   NUM i iv ∧ NUM j jv ∧ i < 2 ** 30 ∧ j < 2 ** 30 ⇒

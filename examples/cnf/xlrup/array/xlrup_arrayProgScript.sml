@@ -27,49 +27,6 @@ val bw0_v_thm = fetch "ccnf_arrayProg" "bw0_v_thm";
 
 val res = translate toByte_def;
 
-(* Unused: strxor_c_arr is implemented with Unsafe.w8xor_str *)
-Quote add_cakeml:
-  fun strxor_aux_c_arr cs ds n =
-  if n = 0 then cs
-  else
-  let
-    val n1 = n - 1
-    val c = Unsafe.w8sub cs n1
-    val d = tobyte (String.sub ds n1)
-    val x = Word8.xorb c d
-    val u = Unsafe.w8update cs n1 x
-  in
-    strxor_aux_c_arr cs ds n1
-  end
-End
-
-Theorem strxor_aux_c_arr_spec:
-  ∀n nv cs csv ds dsv.
-  NUM n nv ∧
-  strxor_TYPE ds dsv ∧
-  n ≤ strlen ds ∧ strlen ds ≤ LENGTH cs
-  ⇒
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "strxor_aux_c_arr" (get_ml_prog_state()))
-    [csv; dsv; nv]
-    (W8ARRAY csv cs)
-    (POSTv v.
-      SEP_EXISTS cs'.
-      W8ARRAY v cs' *
-      &(strxor_aux_c cs ds n = cs'))
-Proof
-  Induct>>rw[]>>
-  xcf "strxor_aux_c_arr" (get_ml_prog_state ())>>
-  simp[Once strxor_aux_c_def]>>
-  xlet_autop
-  >- (
-    xif>>asm_exists_tac>>simp[]>>
-    xvar>>xsimpl)>>
-  xif>>asm_exists_tac>>simp[]>>
-  rpt xlet_autop>>
-  xapp>>xsimpl
-QED
-
 Quote add_cakeml:
   fun strxor_c_arr s t =
   let
@@ -1630,7 +1587,7 @@ Proof
   fs[PAIR_TYPE_def]>>
   xmatch>>
   drule_then assume_tac is_cfromx_ren_list_zeros>>
-  simp[]>>
+  simp[cfromx_ren_list_def]>>
   xlet_autop
   >- (
     xsimpl>>gvs[unwrap_TYPE_def]>>
@@ -2451,7 +2408,7 @@ Proof
   fs[PAIR_TYPE_def]>>
   xmatch>>
   drule_then assume_tac is_cfromx_vb_ren_list_zeros>>
-  simp[]>>
+  simp[cfromx_ren_list_def]>>
   xlet_autop>>
   xlet_autop
   >- (
@@ -4462,7 +4419,7 @@ QED
 Quote add_cakeml:
   fun check_unsat' xorig cfml xfml tn def fname n b =
   let
-    val fd = TextIO.openInSetBufferSize fname 65531
+    val fd = TextIO.openInSetBufferSize fname proof_buffer_size
     val chk = run_xlrup_is xorig cfml xfml tn def fd n b
     val close = TextIO.closeIn fd;
   in
@@ -4503,6 +4460,7 @@ Theorem check_unsat'_spec:
 Proof
   rw[]>>
   xcf"check_unsat'"(get_ml_prog_state()) >>
+  assume_tac proof_buffer_size_v_thm>>
   reverse (Cases_on `STD_streams fs`)
   >- (fs [TextIOProofTheory.STDIO_def]>>xpull) >>
   reverse (Cases_on`consistentFS fs`)
@@ -4578,7 +4536,7 @@ QED
 Quote add_cakeml:
   fun check_unsat_stdin' xorig cfml xfml tn def n b =
   let
-    val is = TextIO.openStdInSetBufferSize 65531
+    val is = TextIO.openStdInSetBufferSize proof_buffer_size
   in
     run_xlrup_is xorig cfml xfml tn def is n b
   end
@@ -4611,6 +4569,7 @@ Theorem check_unsat_stdin'_spec:
 Proof
   rpt strip_tac>>
   xcf"check_unsat_stdin'"(get_ml_prog_state())>>
+  assume_tac proof_buffer_size_v_thm>>
   qabbrev_tac`c0 = if b then nulc else #"\n"`>>
   xlet_auto_spec
     (SOME (openStdInSetBufferSize_spec_lines |> Q.GEN `c0` |> Q.SPEC `c0`))>>

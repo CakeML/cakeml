@@ -878,14 +878,43 @@ Proof
   simp[GSYM conv_rawxor_list,conv_rawxor_list_def]
 QED
 
-Definition is_cfromx_ren_list_def:
-  is_cfromx_ren_list def fml is tnl c =
-  case add_xors_aux_c_list fml is (REPLICATE def (0w:word8)) of
+(* The end of a CFromX check, given the XOR sum of its hints: flip the
+  parity bit and the clause's renamed literals into it, then test that it
+  is empty *)
+Definition cfromx_ren_list_def:
+  cfromx_ren_list ox tnl c =
+  case ox of
     NONE => (F,tnl)
   | SOME x =>
     let (r,tnl) =
       ren_flip_list tnl (flip_bit_list (extend_s_list x 1) 0) c in
       (is_emp_xor_list r, tnl)
+End
+
+Theorem cfromx_ren_list_same_bits:
+  OPTREL same_bits ox oy ⇒
+  cfromx_ren_list ox tnl c = cfromx_ren_list oy tnl c
+Proof
+  namedCases_on`ox`["","x"]>>
+  namedCases_on`oy`["","y"]>>
+  simp[optionTheory.OPTREL_def,cfromx_ren_list_def]>>
+  strip_tac>>
+  `same_bits (flip_bit_list (extend_s_list x 1) 0)
+     (flip_bit_list (extend_s_list y 1) 0)` by (
+    qspecl_then[`x`,`1`] mp_tac LENGTH_extend_s_list>>
+    qspecl_then[`y`,`1`] mp_tac LENGTH_extend_s_list>>
+    rw[bit_list_flip_bit_list,bit_list_extend_s_list])>>
+  drule ren_flip_list_same_bits>>
+  disch_then (qspecl_then[`c`,`tnl`] strip_assume_tac)>>
+  Cases_on`ren_flip_list tnl (flip_bit_list (extend_s_list x 1) 0) c`>>
+  Cases_on`ren_flip_list tnl (flip_bit_list (extend_s_list y 1) 0) c`>>
+  gvs[is_emp_xor_list_bit_list]
+QED
+
+Definition is_cfromx_ren_list_def:
+  is_cfromx_ren_list def fml is tnl c =
+  cfromx_ren_list
+    (add_xors_aux_c_list fml is (REPLICATE def (0w:word8))) tnl c
 End
 
 Theorem tn_rel_is_cfromx_ren_list:
@@ -896,7 +925,7 @@ Theorem tn_rel_is_cfromx_ren_list:
     is_cfromx_list def fml is ms ∧
     tn_rel tn' tnl'
 Proof
-  rw[is_cfromx_ren_list_def,AllCaseEqs()]>>
+  rw[is_cfromx_ren_list_def,cfromx_ren_list_def,AllCaseEqs()]>>
   `0 < SND tnl` by (PairCases_on`tn`>>PairCases_on`tnl`>>gvs[tn_rel_def])>>
   gvs[ren_flip_list_conv_xor_aux_list]>>
   Cases_on`ren_int_ls_list tnl c []`>>
@@ -908,44 +937,21 @@ QED
 Theorem is_cfromx_ren_list_zeros:
   EVERY ($= 0w) zs ⇒
   is_cfromx_ren_list def fml is tnl c =
-  case add_xors_aux_c_list fml is zs of
-    NONE => (F,tnl)
-  | SOME x =>
-    let (r,tnl) =
-      ren_flip_list tnl (flip_bit_list (extend_s_list x 1) 0) c in
-      (is_emp_xor_list r, tnl)
+  cfromx_ren_list (add_xors_aux_c_list fml is zs) tnl c
 Proof
   strip_tac>>
   `∀n. ¬bit_list zs n` by
     metis_tac[is_emp_xor_list_bit_list,is_emp_xor_list_def]>>
-  `same_bits (REPLICATE def 0w) zs` by simp[bit_list_REPLICATE_0w]>>
-  drule add_xors_aux_c_list_same_bits>>
-  disch_then (qspecl_then[`fml`,`is`] mp_tac)>>
   simp[is_cfromx_ren_list_def]>>
-  namedCases_on`add_xors_aux_c_list fml is zs`["","y"]>>
-  namedCases_on`add_xors_aux_c_list fml is (REPLICATE def 0w)`["","x"]>>
-  simp[optionTheory.OPTREL_def]>>
-  strip_tac>>
-  `same_bits (flip_bit_list (extend_s_list x 1) 0)
-     (flip_bit_list (extend_s_list y 1) 0)` by (
-    qspecl_then[`x`,`1`] mp_tac LENGTH_extend_s_list>>
-    qspecl_then[`y`,`1`] mp_tac LENGTH_extend_s_list>>
-    rw[bit_list_flip_bit_list,bit_list_extend_s_list])>>
-  drule ren_flip_list_same_bits>>
-  disch_then (qspecl_then[`c`,`tnl`] strip_assume_tac)>>
-  Cases_on`ren_flip_list tnl (flip_bit_list (extend_s_list x 1) 0) c`>>
-  Cases_on`ren_flip_list tnl (flip_bit_list (extend_s_list y 1) 0) c`>>
-  gvs[is_emp_xor_list_bit_list]
+  irule cfromx_ren_list_same_bits>>
+  irule add_xors_aux_c_list_same_bits>>
+  simp[bit_list_REPLICATE_0w]
 QED
 
 Definition is_cfromx_vb_ren_list_def:
   is_cfromx_vb_ren_list def fml s tnl c =
-  case add_xors_aux_vb_list fml s 0 (strlen s) (REPLICATE def (0w:word8)) of
-    NONE => (F,tnl)
-  | SOME x =>
-    let (r,tnl) =
-      ren_flip_list tnl (flip_bit_list (extend_s_list x 1) 0) c in
-      (is_emp_xor_list r, tnl)
+  cfromx_ren_list
+    (add_xors_aux_vb_list fml s 0 (strlen s) (REPLICATE def (0w:word8))) tnl c
 End
 
 Theorem tn_rel_is_cfromx_vb_ren_list:
@@ -956,7 +962,7 @@ Theorem tn_rel_is_cfromx_vb_ren_list:
     is_cfromx_vb_list def fml s ms ∧
     tn_rel tn' tnl'
 Proof
-  rw[is_cfromx_vb_ren_list_def,AllCaseEqs()]>>
+  rw[is_cfromx_vb_ren_list_def,cfromx_ren_list_def,AllCaseEqs()]>>
   `0 < SND tnl` by (PairCases_on`tn`>>PairCases_on`tnl`>>gvs[tn_rel_def])>>
   gvs[ren_flip_list_conv_xor_aux_list]>>
   Cases_on`ren_int_ls_list tnl c []`>>
@@ -968,35 +974,15 @@ QED
 Theorem is_cfromx_vb_ren_list_zeros:
   EVERY ($= 0w) zs ⇒
   is_cfromx_vb_ren_list def fml s tnl c =
-  case add_xors_aux_vb_list fml s 0 (strlen s) zs of
-    NONE => (F,tnl)
-  | SOME x =>
-    let (r,tnl) =
-      ren_flip_list tnl (flip_bit_list (extend_s_list x 1) 0) c in
-      (is_emp_xor_list r, tnl)
+  cfromx_ren_list (add_xors_aux_vb_list fml s 0 (strlen s) zs) tnl c
 Proof
   strip_tac>>
   `∀n. ¬bit_list zs n` by
     metis_tac[is_emp_xor_list_bit_list,is_emp_xor_list_def]>>
-  `same_bits (REPLICATE def 0w) zs` by simp[bit_list_REPLICATE_0w]>>
-  drule add_xors_aux_vb_list_same_bits>>
-  disch_then (qspecl_then[`fml`,`s`,`0`,`strlen s`] mp_tac)>>
   simp[is_cfromx_vb_ren_list_def]>>
-  namedCases_on`add_xors_aux_vb_list fml s 0 (strlen s) zs`["","y"]>>
-  namedCases_on
-    `add_xors_aux_vb_list fml s 0 (strlen s) (REPLICATE def 0w)`["","x"]>>
-  simp[optionTheory.OPTREL_def]>>
-  strip_tac>>
-  `same_bits (flip_bit_list (extend_s_list x 1) 0)
-     (flip_bit_list (extend_s_list y 1) 0)` by (
-    qspecl_then[`x`,`1`] mp_tac LENGTH_extend_s_list>>
-    qspecl_then[`y`,`1`] mp_tac LENGTH_extend_s_list>>
-    rw[bit_list_flip_bit_list,bit_list_extend_s_list])>>
-  drule ren_flip_list_same_bits>>
-  disch_then (qspecl_then[`c`,`tnl`] strip_assume_tac)>>
-  Cases_on`ren_flip_list tnl (flip_bit_list (extend_s_list x 1) 0) c`>>
-  Cases_on`ren_flip_list tnl (flip_bit_list (extend_s_list y 1) 0) c`>>
-  gvs[is_emp_xor_list_bit_list]
+  irule cfromx_ren_list_same_bits>>
+  irule add_xors_aux_vb_list_same_bits>>
+  simp[bit_list_REPLICATE_0w]
 QED
 
 Definition ren_lit_ls_list_def:
