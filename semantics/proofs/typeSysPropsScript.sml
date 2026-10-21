@@ -461,7 +461,7 @@ Proof
   Induct >>
   simp[deBruijn_subst_def, deBruijn_inc_def, check_freevars_def, EL_MAP,
        MAP_MAP_o, combinTheory.o_DEF, EVERY_MEM, Cong MAP_CONG] >>
-  simp[SF ETA_ss]
+  simp[SF ETA_ss] (* HOL#2098 *)
 QED
 
 Theorem type_e_subst_lem3:
@@ -518,7 +518,7 @@ Proof
   Induct >>
   srw_tac[][deBruijn_subst_def, deBruijn_inc_def] >>
   gvs[MAP_MAP_o, combinTheory.o_DEF, Cong MAP_CONG] >>
-  simp[SF ETA_ss]
+  simp[SF ETA_ss] (* HOL#2098 *)
 QED
 
 Theorem type_e_subst_lem7[local]:
@@ -1049,9 +1049,12 @@ Theorem type_p_tenvV_indep:
  (!ps tvs tenv t bindings tenvV.
   type_ps tvs tenv ps t bindings = type_ps tvs (tenv with v := tenvV) ps t bindings)
 Proof
-  rpt strip_tac >> iff_tac >> simp[type_p_tenvV_indep0] >>
-  strip_tac >>
-  FIRST $ map drule $ CONJUNCTS type_p_tenvV_indep0 >>
+  conj_tac >> rpt gen_tac >> iff_tac >> simp[type_p_tenvV_indep0] >>
+  strip_tac
+  >- (
+    drule $ cj 1 type_p_tenvV_indep0 >>
+    disch_then $ qspec_then ‘tenv.v’ mp_tac >> simp[]) >>
+  drule $ cj 2 type_p_tenvV_indep0 >>
   disch_then $ qspec_then ‘tenv.v’ mp_tac >> simp[]
 QED
 

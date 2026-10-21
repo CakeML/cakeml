@@ -49,7 +49,7 @@ Theorem encode_infer_t_11[simp]:
   (∀it1 it2. encode_infer_t it1 = encode_infer_t it2 ⇔ it1 = it2) ∧
   (∀its1 its2. encode_infer_ts its1 = encode_infer_ts its2 ⇔ its1 = its2)
 Proof
-  ho_match_mp_tac (TypeBase.induction_of “:infer_t”) >>
+  ho_match_mp_tac encode_infer_t_ind >>
   rw[encode_infer_t_def]
   >- (Cases_on ‘it2’ >> simp[encode_infer_t_def])
   >- (Cases_on ‘it2’ >> simp[encode_infer_t_def] >> metis_tac[])
@@ -76,8 +76,8 @@ Theorem decode_left_inverse[simp]:
   (!t. decode_infer_t (encode_infer_t t) = t) ∧
   (!ts. decode_infer_ts (encode_infer_ts ts) = ts)
 Proof
-Induct >>
-rw [encode_infer_t_def, decode_infer_t_def]
+  ho_match_mp_tac encode_infer_t_ind >>
+  rw [encode_infer_t_def, decode_infer_t_def]
 QED
 
 Theorem decode_left_inverse_I[simp]:
