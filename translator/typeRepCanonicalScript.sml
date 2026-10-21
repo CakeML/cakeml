@@ -99,16 +99,17 @@ Proof
 QED
 
 Theorem v_size_less_fields_size:
-  !fields field. MEM field fields ==> v_size field < v1_size fields
+  !fields field. MEM field fields ==> v_size field < list_size v_size fields
 Proof
-  Induct >> rw [v_size_def] >> res_tac >> decide_tac
+  rw [miscTheory.MEM_list_size_lt]
 QED
 
 Theorem v_size_less_constructor:
   !field fields stamp.
     MEM field fields ==> v_size field < v_size (Conv stamp fields)
 Proof
-  rpt strip_tac >> drule v_size_less_fields_size >> simp [v_size_def]
+  rpt strip_tac >> drule v_size_less_fields_size >>
+  rewrite_tac [v_size_def, list_size_MAP] >> decide_tac
 QED
 
 Theorem type_rep_complete_below_pair:

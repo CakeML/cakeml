@@ -644,8 +644,6 @@ local
 
       (* Instantiate the EvalM specification *)
       val CORRECT_CONS = let
-          val case_tm = TypeBase.case_const_of exn_type
-                        |> Term.inst [alpha |-> bool_ty]
           val all_cons = TypeBase.constructors_of exn_type
           fun mk_case_bool_fun c = let
             val types = (fst o ml_monadBaseLib.dest_fun_type o type_of) c
@@ -655,7 +653,8 @@ local
           in body end
           val case_funs = List.map mk_case_bool_fun all_cons
           val e_var = mk_var("e", exn_type)
-          val case_tm = list_mk_comb (case_tm, e_var::case_funs)
+          val case_tm = HolKernel.list_mk_icomb (TypeBase.case_const_of exn_type)
+                                                (e_var::case_funs)
       in mk_abs(e_var, case_tm) end
 
       val params_types = (fst o ml_monadBaseLib.dest_fun_type o type_of) cons
@@ -663,8 +662,6 @@ local
       val arity_tm = arity |> numSyntax.term_of_int
       val params_vars = ml_monadBaseLib.mk_list_vars "_x" params_types
       val PARAMS_CONDITIONS = let
-          val case_tm = TypeBase.case_const_of exn_type
-                        |> Term.inst [alpha |-> bool_ty]
           val all_cons = TypeBase.constructors_of exn_type
 
           val paramsv_var = mk_var("_paramsv", v_list_ty)
@@ -698,7 +695,8 @@ local
           in body end
           val case_funs = List.map mk_case_bool_fun all_cons
           val e_var = mk_var("_E", exn_type)
-          val case_tm = list_mk_comb (case_tm, e_var::case_funs)
+          val case_tm = HolKernel.list_mk_icomb (TypeBase.case_const_of exn_type)
+                                                (e_var::case_funs)
       in list_mk_abs([e_var, paramsv_var], case_tm) end
 
       (* We need to rewrite the handle function in a different
@@ -737,8 +735,6 @@ local
             ml_monadBaseLib.mk_fun_type(state_type::params_types, bool_ty)
           val a2_var = mk_var("a2", a2_type)
           val E_var = mk_var("E", exn_type)
-          val case_tm = mk_comb(TypeBase.case_const_of exn_type, E_var)
-                               |> Term.inst [alpha |-> bool_ty]
           val consl = TypeBase.constructors_of exn_type
           val state_var = mk_var("st", state_type)
           fun mk_condition c = let
@@ -749,7 +745,8 @@ local
              else list_mk_abs(vars, F)
           end
           val conditions = List.map mk_condition consl
-          val a2_alt = list_mk_comb(case_tm, conditions)
+          val a2_alt = HolKernel.list_mk_icomb (TypeBase.case_const_of exn_type)
+                                               (E_var::conditions)
           val a2_alt = list_mk_abs([state_var, E_var], a2_alt)
       in a2_alt end
 

@@ -150,7 +150,7 @@ Proof
   \\ ONCE_REWRITE_TAC [SWAP_FORALL_THM]
   \\ ho_match_mp_tac
        (fetch "-" "induction_tree_induction"
-        |> Q.SPECL [`P`, `λaux. T`, `λopt. T`]
+        |> Q.SPECL [`P`, `λaux. T`]
         |> SIMP_RULE std_ss [] |> Q.GEN `P`)
   \\ rpt strip_tac
   \\ qpat_x_assum `∀n tree. _ ⇒ P n tree` irule

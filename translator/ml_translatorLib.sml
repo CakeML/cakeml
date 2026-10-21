@@ -1232,6 +1232,9 @@ fun EqualityType_via_n2typ is_exn_type typ = let
 
 fun matching_induction_of typ = let
     val ind = TypeBase.induction_of typ
+    val ind = case Lib.total legacyInduction.operators_of ind of
+                NONE => ind
+              | SOME ops => legacyInduction.mutual_induction ops ind
     val ind_c = concl ind |> strip_forall |> snd |> dest_imp |> snd
     val var_tys = strip_conj ind_c |> map (type_of o fst o dest_forall)
     val matches = mapfilter (fn vty => match_type vty typ) var_tys
@@ -1376,9 +1379,7 @@ fun define_v_fun ctxt ty = let
       in mk_eq (mk_v_app op_tups t, mk_Conv (stamp,
             listSyntax.mk_list (map (mk_v_app op_tups) xs, v_ty))) end
     val def = map case_eqn cases |> list_mk_conj
-    val def_name = (hd ops |> strip_comb |> fst |> dest_var |> fst) ^ "_def"
-    val def_thm = new_recursive_definition
-        {name = def_name, rec_axiom = TypeBase.axiom_of ty, def=def}
+    val def_thm = Define [ANTIQUOTE def]
     val const_ops = def_thm |> concl |> strip_conj
         |> map (rator o fst o dest_eq o snd o strip_forall)
         |> HOLset.fromList Term.compare |> HOLset.listItems

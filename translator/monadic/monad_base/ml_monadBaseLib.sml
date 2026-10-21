@@ -28,7 +28,6 @@ val terms_alist = [
 (* Types used by the ml_monadBaseLib *)
 val types_alist = [
       ("exc", exc_ty),
-      ("pair", pairSyntax.mk_prod(alpha,beta)),
       ("num", numSyntax.num),
       ("M", M_ty)
     ]
@@ -40,7 +39,6 @@ fun get_type s = assoc s types_alist
 end (* local *)
 
 val exc_ty = get_type "exc"
-val pair_ty = get_type "pair"
 val a_ty = alpha
 val b_ty = beta
 val c_ty = gamma
@@ -267,38 +265,29 @@ fun define_monad_exception_functions exn_type state_type =
 
     val x_var = mk_var("x", monad_type)
 
-    (* case x st of (res, st) => ... *)
     val x_st_tm = mk_comb(x_var, state_var)
-    val case_x_st_tm = case_const_of pair_ty |>
-        Term.inst [alpha |-> exc_type, beta |-> state_type, gamma |-> pair_exc_type]
-    val case_x_st_tm = mk_comb(case_x_st_tm, x_st_tm)
     val res_var = mk_var("res", exc_type)
-
-    (*
-       case res of
-         M_success y => (M_success y, st)
-       | Failure e => ... *)
-    val case_res_tm = case_const_of exc_type |>
-        Term.inst [beta |-> exn_type, gamma |-> pair_exc_type]
     val y_var = mk_var ("y", a_ty)
     val success_tm = mk_abs(y_var, mk_pair((mk_Success y_var exn_type), state_var))
-    val case_res_tm = mk_comb(case_res_tm, res_var)
-    val case_res_tm = mk_comb(case_res_tm, success_tm)
-
     val e_var = mk_var("e", exn_type)
-
-    (* case e of *)
-    val exn_case_tm = case_const_of exn_type
-                   |> Term.inst [alpha |-> pair_exc_type]
-    val exn_case_tm = mk_comb(exn_case_tm, e_var)
 
     (* For every constructor, make the approriate case function *)
     fun mk_handle_fun (ctor, funs_list) =
       let
-        val case_tm = list_mk_comb (exn_case_tm, funs_list)
-        val case_tm = mk_comb(case_res_tm, mk_abs(e_var, case_tm))
+        (* case e of ... *)
+        val case_tm =
+          HolKernel.list_mk_icomb (case_const_of exn_type) (e_var :: funs_list)
+        (*
+           case res of
+             M_success y => (M_success y, st)
+           | Failure e => ... *)
+        val case_tm =
+          HolKernel.list_mk_icomb (case_const_of exc_type)
+            [res_var, success_tm, mk_abs(e_var, case_tm)]
         val case_tm = list_mk_abs([res_var,state_var], case_tm)
-        val case_tm = mk_comb(case_x_st_tm, case_tm)
+        (* case x st of (res, st) => ... *)
+        val case_tm =
+          HolKernel.list_mk_icomb (case_const_of pair_exc_type) [x_st_tm, case_tm]
         val case_tm = mk_abs(state_var, case_tm)
 
         val Mtype = mk_Mtype state_type a_ty exn_type
