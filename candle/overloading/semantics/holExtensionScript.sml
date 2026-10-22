@@ -211,12 +211,13 @@ Theorem allTypes'_subst_clos_dependency:
   ty0 <> ty ==>
   (subst_clos (dependency ctxt))⁺ (INL ty) (INL ty0)
 Proof
-  ho_match_mp_tac allTypes'_defn_ind >>
+  ho_match_mp_tac type_induction >>
   rw[] >>
   fs[allTypes'_defn] >>
   every_case_tac >> fs[] >>
   rveq >>
   fs[MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+  rename1 `MEM ty0 (allTypes' a)` >>
   Cases_on `ty0 = a`
   >- (rveq >>
       match_mp_tac TC_SUBSET >>
@@ -290,7 +291,7 @@ Theorem MEM_allTypes'_TYPE_SUBST_decompose:
   ?ty1. MEM ty1 (allTypes' ty0) /\
         MEM ty (allTypes'(TYPE_SUBST sigma ty1))
 Proof
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   rw[allTypes'_defn] >>
   rw[] >> rfs[MEM_FLAT,MEM_MAP,EVERY_MEM,PULL_EXISTS] >>
   fs[allTypes'_defn] >> metis_tac[]
@@ -369,7 +370,7 @@ QED
 Theorem TYPE_SUBSTf_I:
   !ty. TYPE_SUBSTf Tyvar ty = ty
 Proof
-  ho_match_mp_tac type_ind >> rw[TYPE_SUBSTf_def] >>
+  ho_match_mp_tac type_induction >> rw[TYPE_SUBSTf_def] >>
   pop_assum mp_tac >> Induct_on `l` >> rw[]
 QED
 
@@ -386,11 +387,13 @@ Theorem TYPE_SUBST_allTypes'_ground_types:
   TYPE_SUBST sigma ty ∈ ground_types sig ==>
   set (MAP (TYPE_SUBST sigma) (allTypes' ty)) ⊆ ground_types sig
 Proof
-  ho_match_mp_tac allTypes'_defn_ind >> rw[allTypes'_defn] >>
-  fs[LIST_LENGTH_2] >> rveq >>
-  conj_tac >> first_x_assum(match_mp_tac o MP_CANON) >>
-  rw[] >>
-  fs[ground_types_def,tyvars_def,type_ok_def,LIST_UNION_EQ_NIL]
+  ho_match_mp_tac type_induction >> rw[allTypes'_defn] >>
+  IF_CASES_TAC >- (
+    fs[LIST_LENGTH_2] >> rveq >> rw[] >>
+    first_x_assum(match_mp_tac o MP_CANON) >>
+    rw[] >>
+    fs[ground_types_def,tyvars_def,type_ok_def,LIST_UNION_EQ_NIL]) >>
+  rw[]
 QED
 
 Theorem consts_of_term_tyvars_tvars:
@@ -650,8 +653,10 @@ Theorem allTypes'_TYPE_SUBST_no_tyvars:
   MEM x (allTypes' ty) ==>
   tyvars(TYPE_SUBST sigma x) = []
 Proof
-  ho_match_mp_tac allTypes'_defn_ind >>
+  ho_match_mp_tac type_induction >>
   rw[allTypes'_defn] >>
+  qpat_x_assum `MEM _ (if _ then _ else _)` mp_tac >>
+  rw[tyvars_def] >>
   fs[LIST_LENGTH_2,MEM_FLAT,MEM_MAP] >>
   rveq >>
   fs[FORALL_AND_THM,DISJ_IMP_THM,tyvars_def,LIST_UNION_EQ_NIL] >>
@@ -665,8 +670,9 @@ Theorem allTypes'_TYPE_SUBST_no_tyvars':
   (∀v. MEM v (tyvars ty) ⇒ MEM v (tyvars (typeof trm))) ==>
   tyvars(TYPE_SUBST sigma x) = []
 Proof
-  ho_match_mp_tac allTypes'_defn_ind >>
+  ho_match_mp_tac type_induction >>
   rw[allTypes'_defn] >>
+  rpt (qpat_x_assum `MEM _ (if _ then _ else _)` mp_tac >> rw[tyvars_def]) >>
   fs[LIST_LENGTH_2,MEM_FLAT,MEM_MAP] >>
   rveq >>
   fs[FORALL_AND_THM,DISJ_IMP_THM,tyvars_def,LIST_UNION_EQ_NIL] >>
@@ -681,9 +687,9 @@ Proof
   last_x_assum kall_tac >>
   pop_assum(assume_tac o REWRITE_RULE[tyvars_TYPE_SUBST]) >>
   fs[FUN_EQ_THM] >>
-  pop_assum (qspec_then `n` assume_tac o CONV_RULE SWAP_FORALL_CONV) >>
+  pop_assum (qspec_then `m` assume_tac o CONV_RULE SWAP_FORALL_CONV) >>
   rfs[] >>
-  Cases_on `tyvars (REV_ASSOCD (Tyvar n) sigma (Tyvar n))` >> fs[FORALL_AND_THM]
+  Cases_on `tyvars (REV_ASSOCD (Tyvar m) sigma (Tyvar m))` >> fs[FORALL_AND_THM]
 QED
 
 Theorem allTypes_TYPE_SUBST_no_tyvars:
@@ -706,13 +712,14 @@ Theorem TYPE_SUBST_allTypes'_ground_types':
   TYPE_SUBST sigma ty ∈ ground_types sig ==>
   set (allTypes'(TYPE_SUBST sigma ty)) ⊆ ground_types sig
 Proof
-  ho_match_mp_tac allTypes'_defn_ind >> rw[allTypes'_defn] >>
+  ho_match_mp_tac type_induction >> rw[allTypes'_defn] >>
+  rpt IF_CASES_TAC >>
   fs[LIST_LENGTH_2] >> rveq >>
   fs[FORALL_AND_THM,DISJ_IMP_THM] >>
   fs[ground_types_def,tyvars_def,type_ok_def,LIST_UNION_EQ_NIL,SUBSET_DEF] >>
   rw[]
   >- (imp_res_tac allTypes'_TYPE_SUBST_no_tyvars' >>
-      pop_assum(qspec_then `Var ARB (REV_ASSOCD (Tyvar n) sigma (Tyvar n))` mp_tac) >>
+      pop_assum(qspec_then `Var ARB (REV_ASSOCD (Tyvar m) sigma (Tyvar m))` mp_tac) >>
       rw[] >>
       pop_assum(qspec_then `[]` mp_tac) >> fs[])
   >- imp_res_tac allTypes'_type_ok
@@ -732,33 +739,16 @@ Theorem allTypes'_builtin_closure_IMP:
   !ty ty'. MEM ty' (allTypes' ty) /\ ty ∈ builtin_closure tyfrag /\ tyfrag ⊆ nonbuiltin_types ==>
   ty' ∈ tyfrag
 Proof
- ho_match_mp_tac allTypes'_defn_ind >>
+ ho_match_mp_tac type_induction >>
  rw[allTypes'_defn] >>
+ rpt (qpat_x_assum `MEM _ (if _ then _ else _)` mp_tac >> rw[]) >>
  fs[MEM_FLAT,MEM_MAP,LIST_LENGTH_2] >>
  rveq >> fs[DISJ_IMP_THM,FORALL_AND_THM] >>
  rveq >> res_tac >>
- fs[IN_DEF]
- >- (qhdtm_x_assum `builtin_closure` (strip_assume_tac o REWRITE_RULE[Once builtin_closure_cases]) >>
-     fs[SUBSET_DEF,IN_DEF] >> res_tac >>
-     fs[nonbuiltin_types_def,is_builtin_type_def])
- >- (qhdtm_x_assum `builtin_closure` (strip_assume_tac o REWRITE_RULE[Once builtin_closure_cases]) >>
-     fs[SUBSET_DEF,IN_DEF] >> res_tac >>
-     fs[nonbuiltin_types_def,is_builtin_type_def])
- >- (qhdtm_x_assum `builtin_closure` (strip_assume_tac o REWRITE_RULE[Once builtin_closure_cases]) >>
-     fs[SUBSET_DEF,IN_DEF] >> res_tac >>
-     fs[nonbuiltin_types_def,is_builtin_type_def])
- >- (qhdtm_x_assum `builtin_closure` (strip_assume_tac o REWRITE_RULE[Once builtin_closure_cases]) >>
-     fs[SUBSET_DEF,IN_DEF] >> res_tac >>
-     fs[nonbuiltin_types_def,is_builtin_type_def])
- >- (qhdtm_x_assum `builtin_closure` (strip_assume_tac o REWRITE_RULE[Once builtin_closure_cases]) >>
-     fs[SUBSET_DEF,IN_DEF] >> res_tac >>
-     fs[nonbuiltin_types_def,is_builtin_type_def])
- >- (qhdtm_x_assum `builtin_closure` (strip_assume_tac o REWRITE_RULE[Once builtin_closure_cases]) >>
-     fs[SUBSET_DEF,IN_DEF] >> res_tac >>
-     fs[nonbuiltin_types_def,is_builtin_type_def])
- >- (qhdtm_x_assum `builtin_closure` (strip_assume_tac o REWRITE_RULE[Once builtin_closure_cases]) >>
-     fs[SUBSET_DEF,IN_DEF] >> res_tac >>
-     fs[nonbuiltin_types_def,is_builtin_type_def])
+ fs[IN_DEF] >>
+ qpat_x_assum `builtin_closure _ _` (strip_assume_tac o ONCE_REWRITE_RULE[builtin_closure_cases]) >>
+ gvs[SUBSET_DEF,IN_DEF,nonbuiltin_types_def,is_builtin_type_def] >>
+ res_tac >> fs[is_builtin_type_def]
 QED
 
 Theorem is_frag_intepretation_ifE:
@@ -855,7 +845,7 @@ Theorem TYPE_SUBSTf_eq_TYPE_SUBST:
   TYPE_SUBSTf sigma ty =
   TYPE_SUBST (MAP (λx. (sigma x, Tyvar x)) (tyvars ty)) ty
 Proof
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   rw[tyvars_def,REV_ASSOCD_def,MAP_EQ_f] >>
   fs[EVERY_MEM] >>
   rw[TYPE_SUBST_tyvars] >>
@@ -884,7 +874,7 @@ Theorem TYPE_SUBSTf_eq_TYPE_SUBSTf:
 Proof
   simp[EQ_IMP_THM,FORALL_AND_THM] >>
   conj_tac >>
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   rw[tyvars_def,MAP_EQ_f,EVERY_MEM,MEM_FOLDR_LIST_UNION,PULL_EXISTS] >>
   res_tac
 QED
