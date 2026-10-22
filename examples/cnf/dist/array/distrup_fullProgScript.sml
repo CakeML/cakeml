@@ -117,7 +117,7 @@ Quote add_cakeml:
   fun parse_step step_arr buf_arr =
     let
       val _ = #(step) "" step_arr
-      val c = Char.fromByte (Word8Array.sub step_arr 0)
+      val c = Char.fromByte (Unsafe.w8sub step_arr 0)
     in
       case c of
         #"a" => (* PRODUCE *)

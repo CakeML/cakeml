@@ -455,10 +455,10 @@ Quote add_cakeml:
       val x = Unsafe.sub fml i
       val n = Vector.length x
     in
-      if n = 1 andalso int_eq_0 (uvsub x 0) then
+      if n = 1 andalso int_eq_0 (Unsafe.vsub x 0) then
         raise Fail (format_failure lno ("no clause at index (maybe deleted): " ^ Int.toString i))
       else if n = 1 then
-        get_units_arr lno fml is (Vector.sub x 0::s)
+        get_units_arr lno fml is (Unsafe.vsub x 0::s)
       else
         raise Fail (format_failure lno ("clause at index not unit: " ^ Int.toString i))
     end
@@ -511,7 +511,7 @@ Proof
     reverse IF_CASES_TAC>>gvs[]
     >- xsimpl>>
     xlet_auto
-    >- (xsimpl>>gvs[uvsub_side_def])>>
+    >- (xsimpl>>gvs[UnsafeProgTheory.vsub_side_def])>>
     xapp>>
     xsimpl>>
     qexists_tac`sub (EL h fmlls) 0`>>
@@ -532,7 +532,7 @@ Proof
     rpt xlet_autop>>
     xapp>>xsimpl>>
     simp[LIST_TYPE_def]>>
-    metis_tac[])>>
+    metis_tac[sub_unsafe_eq_sub])>>
   rpt xlet_autop>>
   xraise>>xsimpl>>
   simp[Fail_exn_def,unwrap_TYPE_def]>>
@@ -1642,7 +1642,7 @@ Quote add_cakeml:
         raise Fail (format_failure lno ("no clause/constraint at index: " ^ Int.toString i))
       else
         (let val ci = Unsafe.sub fml i in
-          if Vector.length ci = 1 andalso int_eq_0 (uvsub ci 0) then
+          if Vector.length ci = 1 andalso int_eq_0 (Unsafe.vsub ci 0) then
             raise Fail (format_failure lno ("no clause/constraint at index (maybe deleted): " ^ Int.toString i))
           else
             let val c = Vector.toList ci in
@@ -1701,7 +1701,7 @@ Proof
     reverse IF_CASES_TAC>>gvs[]
     >- xsimpl>>
     xlet_auto
-    >- (xsimpl>>gvs[uvsub_side_def])>>
+    >- (xsimpl>>gvs[UnsafeProgTheory.vsub_side_def])>>
     xapp>>
     xsimpl>>
     qexists_tac`sub (EL h fmlls) 0`>>
@@ -2123,10 +2123,10 @@ Quote add_cakeml:
         val x = Unsafe.sub fml m
         val n = Vector.length x
       in
-        if n = 1 andalso int_eq_0 (uvsub x 0) then
+        if n = 1 andalso int_eq_0 (Unsafe.vsub x 0) then
           raise Fail (format_failure lno ("no clause at index (maybe deleted): " ^ Int.toString m))
         else if n = 1 then
-          get_units_vb_arr lno fml s i len (Vector.sub x 0::cs)
+          get_units_vb_arr lno fml s i len (Unsafe.vsub x 0::cs)
         else
           raise Fail (format_failure lno ("clause at index not unit: " ^ Int.toString m))
       end
@@ -2194,7 +2194,7 @@ Proof
     reverse IF_CASES_TAC>>gvs[]
     >- xsimpl>>
     xlet_auto
-    >- (xsimpl>>gvs[uvsub_side_def])>>
+    >- (xsimpl>>gvs[UnsafeProgTheory.vsub_side_def])>>
     xapp>>
     xsimpl>>
     qexists_tac`sub (EL n fmlls) 0`>>
@@ -2221,7 +2221,7 @@ Proof
       CONV_TAC (LHS_CONV (ONCE_REWRITE_CONV [get_units_vb_list_def]))>>
       simp[])>>
     xapp>>xsimpl>>
-    qexists_tac`lno`>>simp[LIST_TYPE_def])>>
+    qexists_tac`lno`>>gvs[LIST_TYPE_def,sub_unsafe_eq_sub])>>
   rpt xlet_autop>>
   xraise>>xsimpl>>
   simp[Fail_exn_def,unwrap_TYPE_def]>>
@@ -2462,7 +2462,7 @@ Quote add_cakeml:
         raise Fail (format_failure lno ("no clause/constraint at index: " ^ Int.toString m))
       else
         (let val ci = Unsafe.sub fml m in
-          if Vector.length ci = 1 andalso int_eq_0 (uvsub ci 0) then
+          if Vector.length ci = 1 andalso int_eq_0 (Unsafe.vsub ci 0) then
             raise Fail (format_failure lno ("no clause/constraint at index (maybe deleted): " ^ Int.toString m))
           else
             let val c = Vector.toList ci in
@@ -2532,7 +2532,7 @@ Proof
     reverse IF_CASES_TAC>>gvs[]
     >- xsimpl>>
     xlet_auto
-    >- (xsimpl>>gvs[uvsub_side_def])>>
+    >- (xsimpl>>gvs[UnsafeProgTheory.vsub_side_def])>>
     xapp>>
     xsimpl>>
     qexists_tac`sub (EL n fmlls) 0`>>

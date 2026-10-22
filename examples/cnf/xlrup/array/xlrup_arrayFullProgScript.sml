@@ -14,8 +14,7 @@ val _ = translation_extends"xlrup_arrayProg";
 
 val _ = translate check_maxvar_def;
 val _ = translate parse_lits_def;
-val _ = translate
-  (fix_hd_def |> REWRITE_RULE [GSYM mlstringTheory.strsub_unsafe_eq_strsub]);
+val _ = translate fix_hd_def;
 val _ = translate parse_xor_def;
 val _ = translate parse_line_def;
 val _ = translate split_cnf_ext_def;

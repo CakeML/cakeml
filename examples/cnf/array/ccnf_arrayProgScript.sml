@@ -74,14 +74,6 @@ Definition unwrap_TYPE_def:
   unwrap_TYPE P x y = ∃z. x = SOME z ∧ P z y
 End
 
-Definition uvsub_def:
-  uvsub v n = sub_unsafe v n
-End
-
-val res = translate uvsub_def;
-
-val uvsub_side_def = fetch "-" "uvsub_side_def";
-
 (* The absent-clause sentinel, allocated once *)
 val vcc_none_v_thm = translate vcc_none_def;
 
@@ -97,7 +89,7 @@ Quote add_cakeml:
   else
     let
       val i1 = Unsafe.Arith.subWitness i 1 v
-      val c = uvsub v i1
+      val c = Unsafe.vsub v i1
     in
       if Unsafe.Arith.ltWitness c 0 carr
       then
@@ -117,10 +109,10 @@ Quote add_cakeml:
     end
 End
 
-Theorem uvsub_eq_sub[simp]:
-  uvsub v n = sub v n
+Theorem sub_unsafe_sub[simp]:
+  sub_unsafe v n = sub v n
 Proof
-  simp[uvsub_def,oneline mlvectorTheory.sub_unsafe_def,oneline mlvectorTheory.sub_def]
+  simp[sub_unsafe_eq_sub]
 QED
 
 
@@ -156,7 +148,7 @@ Proof
   xlet_auto
   >- (
     xsimpl>>
-    gvs[uvsub_side_def])>>
+    gvs[vsub_side_def])>>
   xlet_auto_spec (SOME int_lt_numarr_spec)
   >- xsimpl>>
   xif>>fs[]
@@ -206,7 +198,7 @@ Quote add_cakeml:
   else
     let
       val i1 = Unsafe.Arith.subWitness i 1 v
-      val c = uvsub v i1
+      val c = Unsafe.vsub v i1
     in
       if Unsafe.Arith.ltWitness c 0 carr
       then
@@ -276,7 +268,7 @@ Proof
   xlet_auto
   >- (
     xsimpl>>
-    gvs[uvsub_side_def])>>
+    gvs[vsub_side_def])>>
   xlet_auto_spec (SOME int_lt_numarr_spec)
   >- xsimpl>>
   xif>>gvs[]
@@ -459,7 +451,7 @@ Quote add_cakeml:
   else
     let
       val i1 = Unsafe.Arith.subWitness i 1 v
-      val d = uvsub v i1
+      val d = Unsafe.vsub v i1
     in
       if Unsafe.Arith.gtWitness d 0 carr
       then
@@ -500,7 +492,7 @@ Proof
   xlet_auto
   >- (
     xsimpl>>
-    gvs[uvsub_side_def])>>
+    gvs[vsub_side_def])>>
   xlet_auto_spec (SOME int_gt_numarr_spec)
   >- xsimpl>>
   xif>>gvs[]
@@ -623,7 +615,7 @@ Quote add_cakeml:
       val c = Unsafe.sub fml i
       val n = Vector.length c
     in
-      if n = 1 andalso int_eq_0 (uvsub c 0)
+      if n = 1 andalso int_eq_0 (Unsafe.vsub c 0)
       then
         raise Fail (format_failure lno ("invalid clause hint (maybe deleted): " ^ Int.toString i))
       else
@@ -691,7 +683,7 @@ Proof
     reverse IF_CASES_TAC>>gvs[]
     >- xsimpl>>
     xlet_auto
-    >- (xsimpl>>gvs[uvsub_side_def])>>
+    >- (xsimpl>>gvs[vsub_side_def])>>
     xapp>>
     xsimpl>>
     qexists_tac`sub (EL h fmlls) 0`>>
