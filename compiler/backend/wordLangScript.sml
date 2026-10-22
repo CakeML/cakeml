@@ -22,14 +22,6 @@ End
 
 Overload ShiftN = “λsh e n. Shift sh e (Const (& n))”;
 
-Theorem MEM_IMP_exp_size:
-   !xs a. MEM a xs ==> (exp_size a < list_size exp_size xs)
-Proof
-  Induct \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
-  \\ RES_TAC \\ DECIDE_TAC
-QED
-
 Type cutsets = “:num_set # num_set” (* non-GCed cutset, GCed cutset *)
 
 Datatype:

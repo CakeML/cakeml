@@ -501,14 +501,6 @@ Proof
 QED
 
 
-Theorem MEM_IMP_v_size[local]:
-  ∀l a. MEM a l ⇒ v_size a < 1 + list_size v_size l
-Proof
-  rw []
-  \\ imp_res_tac MEM_list_size
-  \\ pop_assum $ qspec_then ‘v_size’ mp_tac \\ gvs []
-QED
-
 Definition get_refs_def:
   (get_refs (Number _) = []) /\
   (get_refs (Word64 _) = []) /\
@@ -5939,13 +5931,6 @@ Theorem LIST_REL_IMP_LIST_REL[local]:
       LIST_REL P xs ys ==> LIST_REL Q xs ys
 Proof
   Induct \\ fs [PULL_EXISTS]
-QED
-
-Theorem v_size_LESS_EQ[local]:
-  !l x. MEM x l ==> v_size x <= list_size v_size l
-Proof
-  rw [] \\ imp_res_tac MEM_list_size
-  \\ pop_assum $ qspec_then ‘v_size’ mp_tac \\ gvs []
 QED
 
 Theorem v_inv_IMP_lemma[local]:
