@@ -1147,26 +1147,26 @@ Proof
   >- rw[DISJ_EQ_IMP]
   >- rw[DISJ_EQ_IMP]
   >- (
-    gvs[astTheory.dec_size_def] >>
+    gvs[] >>
     drule_at Any evaluate_decs_total_lemma >>
     disch_then $ qspecl_then [`l`,`env`,`st`] mp_tac >>
     impl_tac
     >- (
       rw[] >> first_x_assum irule >>
       drule MEM_list_size_lt >>
-      disch_then $ qspec_then `λx. dec_size x` mp_tac >> simp[]) >>
+      disch_then $ qspec_then `dec_size` mp_tac >> simp[]) >>
     rw[] >>
     Cases_on `r` >> gvs[SF SFY_ss]
     )
   >- (
-    gvs[astTheory.dec_size_def] >>
+    gvs[] >>
     drule_at Any evaluate_decs_total_lemma >>
     disch_then $ qspecl_then [`l`,`env`,`st`] mp_tac >>
     impl_tac
     >- (
       rw[] >> first_x_assum irule >>
       drule MEM_list_size_lt >>
-      disch_then $ qspec_then `λx. dec_size x` mp_tac >> simp[]) >>
+      disch_then $ qspec_then `dec_size` mp_tac >> simp[]) >>
     rw[] >>
     Cases_on `r` >> gvs[SF SFY_ss] >> disj1_tac >> goal_assum drule >>
     dxrule $ cj 2 evaluate_decs_clock_mono >> rw[] >> gvs[] >>
@@ -1176,7 +1176,7 @@ Proof
     rw[] >> Cases_on `s'.clock = clk` >> gvs[] >>
     first_x_assum irule >>
     drule MEM_list_size_lt >>
-    disch_then $ qspec_then `λx. dec_size x` mp_tac >> simp[]
+    disch_then $ qspec_then `dec_size` mp_tac >> simp[]
     )
   >- (
     Cases_on `declare_env st.eval_state env` >> gvs[] >> PairCases_on `x` >> gvs[]

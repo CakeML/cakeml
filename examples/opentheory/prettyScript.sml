@@ -94,14 +94,6 @@ Overload rpar[local] = “«)»”;
 (* A pretty printer for HOL types.                                           *)
 (* ------------------------------------------------------------------------- *)
 
-Theorem type_size_MEM[local]:
-  MEM t ts ==> type_size t < type1_size ts
-Proof
-  Induct_on ‘ts’
-  \\ rw [type_size_def]
-  \\ res_tac \\ fs []
-QED
-
 Definition pp_tyop_aux_def:
   pp_tyop_aux sep [] = [] ∧
   pp_tyop_aux sep (h::t) = mk_str sep :: h :: pp_tyop_aux sep t

@@ -496,7 +496,8 @@ Definition pat_wildcards_def:
   pats_wildcards (p::ps) =
     (pat_wildcards p) + (pats_wildcards ps)
 Termination
-  WF_REL_TAC `measure pat_size`
+  WF_REL_TAC `measure (λx. case x of INL p => pat_size p
+                                   | INR ps => list_size pat_size ps)`
 End
 
 (* [v_of_pat]: from a pattern and a list of instantiations for the pattern
@@ -554,9 +555,7 @@ Definition v_of_pat_def:
   v_of_pat_list _ _ _ _ = NONE
 Termination
   WF_REL_TAC `measure v_of_matching_pat_aux_measure` \\
-  fs [v_of_matching_pat_aux_measure_def, list_size_def,
-      astTheory.pat_size_def] \\
-  gen_tac \\ Induct \\ fs [list_size_def, astTheory.pat_size_def]
+  fs [v_of_matching_pat_aux_measure_def]
 End
 
 Theorem v_of_pat_list_length:
@@ -695,50 +694,33 @@ Proof
 QED
 
 Theorem v_of_pat_remove_rest_insts:
-   (!pat envC insts wildcards v rest wildcards_rest.
+   (!envC pat insts wildcards v rest wildcards_rest.
        v_of_pat envC pat insts wildcards = SOME (v, rest, wildcards_rest) ==>
        ?insts'.
          insts = insts' ++ rest /\
          LENGTH insts' = LENGTH (pat_bindings pat) /\
          v_of_pat envC pat insts' wildcards = SOME (v, [], wildcards_rest)) /\
-    (!pats envC insts wildcards vs rest wildcards_rest.
+    (!envC pats insts wildcards vs rest wildcards_rest.
        v_of_pat_list envC pats insts wildcards = SOME (vs, rest, wildcards_rest) ==>
        ?insts'.
          insts = insts' ++ rest /\
          LENGTH insts' = LENGTH (pats_bindings pats) /\
          v_of_pat_list envC pats insts' wildcards = SOME (vs, [], wildcards_rest))
 Proof
-  HO_MATCH_MP_TAC astTheory.pat_induction \\ rpt strip_tac \\
-  try_finally (fs [v_of_pat_def, pat_bindings_def])
-  THEN1 (fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [])
-  THEN1 (fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ gvs [])
-  THEN1 (
+  HO_MATCH_MP_TAC v_of_pat_ind \\ rpt strip_tac
+  >~ [‘Pcon c pats’] >- (
     rename1 `Pcon c _` \\ Cases_on `c` \\
     fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [] \\ rw [] \\
-    first_assum progress \\ rw []
-  )
-  THEN1 (
-    fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [] \\ rw [] \\
-    qpat_assum `v_of_pat _ _ _ _ = _` (first_assum o progress_with) \\
-    qpat_assum `v_of_pat_list _ _ _ _ = _` (first_assum o progress_with) \\
-    rw [] \\
-    rename1 `LENGTH insts_pats = LENGTH (pats_bindings pats)` \\
-    rename1 `LENGTH insts_pat = LENGTH (pat_bindings pat)` \\
-    rename1 `v_of_pat_list _ _ (_ ++ rest) _` \\
-    fs [APPEND_ASSOC] \\ every_case_tac \\ fs []
-    THEN1 (
-      progress_then (qspec_then `rest` assume_tac)
-        (fst (CONJ_PAIR v_of_pat_NONE_extend_insts)) \\
-      `LENGTH (insts_pat ++ insts_pats) >= LENGTH (pat_bindings pat)`
-        by (fs []) \\
-      `LENGTH wildcards >= pat_wildcards pat` by (
-        progress (fst (CONJ_PAIR v_of_pat_wildcards_count)) \\ fs []
-      ) \\ fs []
-    ) \\
-    rename1 `v_of_pat_list _ _ rest' _ = _` \\
-    qpat_x_assum `v_of_pat _ _ (_ ++ _) _ = _` (first_assum o progress_with) \\
-    `rest' = insts_pats` by (metis_tac [APPEND_11_LENGTH]) \\ fs [] \\ rw [] \\ fs []
-  )
+    first_assum progress \\ rw [])
+  >~ [‘pat::pats’] >- (
+    qpat_x_assum ‘v_of_pat_list _ (_::_) _ _ = _’ mp_tac
+    \\ simp [Once v_of_pat_def, AllCaseEqs(), PULL_EXISTS] \\ rpt strip_tac
+    \\ gvs []
+    \\ ‘v_of_pat envC pat (insts'' ++ insts') wildcards =
+          SOME (v,insts',wildcards_rest')’
+         by metis_tac [v_of_pat_extend_insts, APPEND]
+    \\ gvs [pat_bindings_def, v_of_pat_def])
+  \\ fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ gvs []
 QED
 
 Theorem v_of_pat_insts_unique:

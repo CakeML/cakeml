@@ -1130,7 +1130,7 @@ Theorem to_from_ast_t_ok:
   (∀t. to_ast_t (from_ast_t t) = SOME t) ∧
   (∀ts. to_ast_ts (from_ast_ts ts) = SOME ts)
 Proof
-  ho_match_mp_tac ast_t_induction
+  ho_match_mp_tac from_ast_t_ind
   >> rpt strip_tac
   >> simp [from_ast_t_def, Once to_ast_t_def, dest_tagged_def, dest_atom_def,
            dest_expr_def, to_from_id_ok, nth_def]
@@ -1140,7 +1140,7 @@ Theorem to_from_pat_ok:
   (∀pat. to_pat (from_pat pat) = SOME pat) ∧
   (∀pats. to_pats (from_pats pats) = SOME pats)
 Proof
-  ho_match_mp_tac pat_induction
+  ho_match_mp_tac from_pat_ind
   >> rw [from_pat_def, to_pat_def, dest_tagged_def, dest_atom_def,
          dest_expr_def, to_from_lit_ok, to_from_ast_t_ok, nth_def]
   >> irule to_from_option_some
@@ -1207,7 +1207,7 @@ Theorem to_from_dec_ok:
   (∀dec. to_dec (from_dec dec) = SOME dec) ∧
   (∀decs. to_decs (from_decs decs) = SOME decs)
 Proof
-  ho_match_mp_tac dec_induction
+  ho_match_mp_tac from_dec_ind
   >> simp [from_dec_def, to_dec_def, dest_tagged_def, dest_expr_def,
            dest_atom_def, nth_def]
   >> simp [to_from_locs_ok, to_from_pat_ok, to_from_exp_ok,

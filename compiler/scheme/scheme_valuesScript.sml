@@ -3,7 +3,7 @@
 *)
 Theory scheme_values
 Ancestors
-  arithmetic list string
+  arithmetic list string integer
 Libs
   preamble
 
