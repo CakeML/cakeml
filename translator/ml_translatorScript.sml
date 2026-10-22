@@ -3730,6 +3730,30 @@ Proof
   \\ imp_res_tac eval_rel_no_change_refs \\ fs []
 QED
 
+(* without PtrEq, evaluation does not consult the oracle, so the value
+   computed under one oracle is computed under all of them *)
+Theorem Eval_constant_no_ptr_eq:
+  no_ptr_eq exp ==>
+  Eval env exp P ==>
+  !refs. ?v. P v /\
+    !po. ?refs' po'.
+      eval_rel (build_state refs po) env exp
+               (build_state (refs ++ refs') po') v /\
+      (no_change_refs exp ==> refs' = [])
+Proof
+  rw [Eval_def]
+  \\ first_x_assum (qspecl_then [`refs`,`ARB`] strip_assume_tac)
+  \\ qexists_tac `res` \\ rw []
+  \\ qexistsl_tac [`refs'`,`po`]
+  \\ reverse conj_tac
+  >- (rw [] \\ imp_res_tac eval_rel_no_change_refs \\ fs [])
+  \\ fs [eval_rel_def, build_state_def]
+  \\ drule_all evaluate_no_ptr_eq_with_oracle
+  \\ disch_then (qspec_then `po` assume_tac)
+  \\ qexistsl_tac [`ck1`,`ck2`]
+  \\ fs [semanticPrimitivesTheory.state_component_equality]
+QED
+
 Theorem Eval_evaluate_IMP:
     Eval env exp P /\
     eval_rel s env exp s' v ==>

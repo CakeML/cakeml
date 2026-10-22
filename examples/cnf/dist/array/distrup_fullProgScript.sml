@@ -2335,12 +2335,12 @@ QED
 
 Theorem SPLIT_heaps_lemma[local]:
   SPLIT
-    (store2heap (distrup_arrayProg_st (custom_ffi s)).refs ∪
-     ffi2heap (ffi_proj,[(names,update)]) (distrup_arrayProg_st (custom_ffi s)).ffi)
+    (store2heap (distrup_arrayProg_st (custom_ffi s, po)).refs ∪
+     ffi2heap (ffi_proj,[(names,update)]) (distrup_arrayProg_st (custom_ffi s, po)).ffi)
     ({FFI_part s update names []},
-     FFI_split INSERT store2heap (distrup_arrayProg_st (custom_ffi s)).refs)
+     FFI_split INSERT store2heap (distrup_arrayProg_st (custom_ffi s, po)).refs)
 Proof
-  fs [EVAL “(distrup_arrayProg_st ffi).ffi”] >>
+  fs [EVAL “(distrup_arrayProg_st (ffi,po)).ffi”] >>
   qsuff_tac
     ‘ffi2heap (ffi_proj,[(names,update)]) (custom_ffi s) =
      {FFI_split; FFI_part s update names []}’
@@ -2350,7 +2350,7 @@ Proof
     gvs [cfAppTheory.FFI_part_NOT_IN_store2heap]) >>
   simp [cfStoreTheory.ffi2heap_def] >>
   gvs [parts_ok_custom_ffi] >>
-  fs [EVAL “(distrup_arrayProg_st ffi).ffi”,
+  fs [EVAL “(distrup_arrayProg_st (ffi,po)).ffi”,
       EVAL “(custom_ffi s).ffi_state”,
       EVAL “(custom_ffi s).io_events”, SF CONJ_ss] >>
   ‘∀n. MEM n names ⇒ FLOOKUP (ffi_proj s) n = SOME s’ by
@@ -2366,11 +2366,12 @@ val main_lemma = main_spec
   |> SRULE [one_def,evaluate_to_heap_def,PULL_EXISTS]
   |> SRULE [cfStoreTheory.st2heap_def]
   |> Q.GEN ‘p’ |> Q.ISPEC ‘ffi_proj,[(names,update)]’
-  |> Q.SPECL [‘hhh’,‘distrup_arrayProg_st ffi’]
+  |> Q.SPECL [‘hhh’,‘distrup_arrayProg_st (ffi,po)’]
   |> Q.GEN ‘ffi’ |> Q.SPEC ‘custom_ffi (State Step inputs tb)’
   |> C MATCH_MP (SPLIT_heaps_lemma |> Q.GEN ‘s’ |> Q.SPEC ‘State Step inputs tb’)
   |> Q.GEN ‘inputs’
   |> Q.GEN ‘tb’
+  |> Q.GEN ‘po’
   |> SRULE [boolTheory.SKOLEM_THM]
 
 val main_res = new_specification("main_res",
@@ -2384,7 +2385,7 @@ Proof
 QED
 
 Theorem main_st_ffi_events:
-  (main_st tb inputs).ffi.io_events = main_events tb inputs
+  (main_st po tb inputs).ffi.io_events = main_events po tb inputs
 Proof
   assume_tac (main_res |> SPEC_ALL |> cj 1) >>
   gvs [SPLIT3_def] >>
@@ -2392,7 +2393,7 @@ Proof
   simp [SET_EQ_SUBSET,cfStoreTheory.FFI_part_NOT_IN_store2heap] >>
   strip_tac >>
   fs [cfStoreTheory.ffi2heap_def] >>
-  Cases_on ‘parts_ok (main_st tb inputs).ffi (ffi_proj,[(names,update)])’ >> gvs [] >>
+  Cases_on ‘parts_ok (main_st po tb inputs).ffi (ffi_proj,[(names,update)])’ >> gvs [] >>
   pop_assum mp_tac >>
   rpt $ pop_assum kall_tac >>
   rw [cfStoreTheory.parts_ok_def] >>
@@ -2401,14 +2402,15 @@ QED
 
 val ml_code_thm = get_ml_prog_state () |> get_thm
   |> REWRITE_RULE [ml_progTheory.ML_code_def,ml_progTheory.Decls_def,ml_progTheory.ML_code_env_def]
-  |> cj 2;
+  |> cj 3;
 
-Theorem semantics_prog_distrup_prog:
-  semantics_prog (init_state (custom_ffi (State Step inputs tb))) init_env
-    distrup_prog
-    (Terminate Success (main_events tb inputs))
+Theorem semantics_determ_distrup_prog[local]:
+  semantics_determ
+    (init_state (custom_ffi (State Step inputs tb)) with ptr_eq_oracle := po)
+    init_env distrup_prog
+    (Terminate Success (main_events po tb inputs))
 Proof
-  gvs [semanticsTheory.semantics_prog_def] >>
+  gvs [semanticsTheory.semantics_determ_def] >>
   qrefinel [‘_’,‘_’,‘Rval v’] >> simp [] >>
   qspec_then ‘custom_ffi (State Step inputs tb)’ strip_assume_tac (ml_code_thm |> Q.GEN ‘ffi’) >>
   pop_assum mp_tac >>
@@ -2419,12 +2421,12 @@ Proof
   last_x_assum kall_tac >> simp [] >>
   last_x_assum kall_tac >> rw [] >>
   fs [semanticsTheory.evaluate_prog_with_clock_def,SNOC_APPEND] >>
-  qspecl_then [‘tb’,‘inputs’] mp_tac main_res >>
+  qspecl_then [‘po’,‘tb’,‘inputs’] mp_tac main_res >>
   strip_tac >>
   simp [evaluatePropsTheory.evaluate_decs_append] >>
   drule evaluatePropsTheory.evaluate_decs_set_clock >> simp [] >>
-  disch_then $ qspec_then ‘main_ck tb inputs + 1’ mp_tac >> strip_tac >>
-  rename [‘init_state (custom_ffi (State Step inputs tb)) with clock := ck4’] >>
+  disch_then $ qspec_then ‘main_ck po tb inputs + 1’ mp_tac >> strip_tac >>
+  rename [‘init_state (custom_ffi (State Step inputs tb)) with <|clock := ck4; ptr_eq_oracle := po|>’] >>
   qrefinel [‘_’,‘ck4’] >> fs [] >>
   fs [evaluateTheory.evaluate_decs_def,astTheory.pat_bindings_def,
       semanticPrimitivesTheory.check_exp_constructors_def,
@@ -2441,7 +2443,22 @@ Proof
 QED
 
 Theorem full_events_ok_main_events:
-  full_events_ok init_st (main_events tb inputs)
+  full_events_ok init_st (main_events po tb inputs)
 Proof
   gvs [main_res]
+QED
+
+Theorem semantics_prog_distrup_prog:
+  sem_satisfies
+    (semantics_prog (init_state (custom_ffi (State Step inputs tb))) init_env
+       distrup_prog)
+    (λb. ∃io. b = Terminate Success io ∧ full_events_ok init_st io)
+Proof
+  simp [semanticsPropsTheory.sem_satisfies_def, semanticsTheory.semantics_prog_def,
+        EXTENSION, IN_DEF] >>
+  conj_tac >- metis_tac [semantics_determ_distrup_prog] >>
+  rw [] >>
+  drule_then (qspec_then ‘Terminate Success (main_events po tb inputs)’ mp_tac)
+    semanticsPropsTheory.semantics_determ_deterministic >>
+  simp [semantics_determ_distrup_prog, full_events_ok_main_events]
 QED

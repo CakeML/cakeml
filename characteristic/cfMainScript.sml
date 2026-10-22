@@ -257,10 +257,6 @@ Proof
   \\ metis_tac [semantics_dec_list_determ_terminate_unique]
 QED
 
-Definition sem_satisfies_def:
-  sem_satisfies s P ⇔ s ≠ {} ∧ ∀b:behaviour. b ∈ s ⇒ P b
-End
-
 Theorem call_main_thm2:
   Decls env1 st1 prog env2 st2 ⇒
   lookup_var fname env2 = SOME fv ⇒
@@ -276,7 +272,7 @@ Theorem call_main_thm2:
         call_FFI_rel^* st1.ffi st3.ffi)
 Proof
   rpt strip_tac
-  \\ simp [sem_satisfies_def, IN_DEF]
+  \\ simp [semanticsPropsTheory.sem_satisfies_def, IN_DEF]
   \\ ho_match_mp_tac semantics_dec_list_all_terminate
   \\ gen_tac
   \\ ‘Decls env1 (st1 with ptr_eq_oracle := po) prog env2
@@ -304,7 +300,7 @@ Theorem call_main_thm2_ffidiv:
         call_FFI_rel^* st1.ffi st3.ffi)
 Proof
   rpt strip_tac
-  \\ simp [sem_satisfies_def, IN_DEF]
+  \\ simp [semanticsPropsTheory.sem_satisfies_def, IN_DEF]
   \\ ho_match_mp_tac semantics_dec_list_all_terminate
   \\ gen_tac
   \\ ‘Decls env1 (st1 with ptr_eq_oracle := po) prog env2

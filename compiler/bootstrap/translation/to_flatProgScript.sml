@@ -246,10 +246,10 @@ Theorem IMP_maps_disjoint_v[local]:
 Proof
   rw [Arrow_def, AppReturns_def, MapProgTheory.FMAP_TYPE_def]
   \\ last_x_assum drule \\ strip_tac
-  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac
+  \\ first_x_assum $ qspecl_then [‘refs’,‘po’] strip_assume_tac
   \\ first_x_assum $ irule_at Any \\ rw []
   \\ last_x_assum drule \\ strip_tac
-  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac
+  \\ first_x_assum $ qspecl_then [‘refs’,‘po’] strip_assume_tac
   \\ gvs [mlmap_disjoint_thm]
   \\ metis_tac []
 QED

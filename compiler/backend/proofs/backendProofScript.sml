@@ -4924,7 +4924,18 @@ Theorem compile_correct_no_eval[local] =
   compile_correct' |> Q.INST [`ev` |-> `NONE`]
     |> SIMP_RULE bool_ss [add_eval_state_def, opt_eval_config_wf_def]
 
-Theorem compile_correct:
+Theorem semantics_determ_SUBSET_semantics_prog:
+  semantics_determ (s with ptr_eq_oracle := po) env prog ⊆
+  semantics_prog s env prog
+Proof
+  rw [SUBSET_DEF,IN_DEF,semanticsTheory.semantics_prog_def] \\ qexists_tac `po` \\ simp []
+QED
+
+Theorem extend_with_resource_limit_MONO =
+  extend_with_resource_limit'_MONO |> Q.INST [`b` |-> `F`]
+    |> REWRITE_RULE [extend_with_resource_limit'_def]
+
+Theorem compile_correct_determ:
   compile (asm_conf:asm_config) (c:config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
    ¬semantics_prog s env prog Fail ∧
@@ -4944,6 +4955,24 @@ Proof
   \\ fs [extend_with_resource_limit'_SUBSET]
 QED
 
+Theorem compile_correct:
+  compile (asm_conf:asm_config) (c:config) prog = SOME (bytes,bitmaps,c') ⇒
+   let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
+   ¬semantics_prog s env prog Fail ∧
+   backend_config_ok asm_conf c ∧ lab_to_targetProof$mc_conf_ok (mc:('a,'b,'c) machine_config) ∧ mc_init_ok asm_conf c mc ∧
+   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
+        (heap_regs c.stack_conf.reg_names) mc
+        c'.lab_conf.shmem_extra ms ⇒
+   machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
+     extend_with_resource_limit (semantics_prog s env prog)
+Proof
+  rw [] \\ pairarg_tac \\ fs [] \\ rw []
+  \\ mp_tac compile_correct_determ \\ fs [] \\ strip_tac
+  \\ irule SUBSET_TRANS \\ first_x_assum $ irule_at Any
+  \\ irule extend_with_resource_limit_MONO
+  \\ simp [semantics_determ_SUBSET_semantics_prog]
+QED
+
 Theorem semantics_determ_sing:
   ?x. semantics_determ s env prog = { x }
 Proof
@@ -4952,7 +4981,7 @@ Proof
              semanticsPropsTheory.semantics_determ_deterministic]
 QED
 
-Theorem compile_correct_is_safe_for_space:
+Theorem compile_correct_is_safe_for_space_determ[local]:
   compile (asm_conf:asm_config) (c:config) prog = SOME (bytes,bitmaps,c') ⇒
   (∀po. is_safe_for_space (:'a) ffi po asm_conf c prog (stack_limit,heap_limit)) ⇒
   (read_limits asm_conf c mc ms) = (stack_limit,heap_limit) ⇒
@@ -4979,11 +5008,29 @@ Proof
   \\ fs [IN_DEF] \\ res_tac \\ fs []
 QED
 
+Theorem compile_correct_is_safe_for_space:
+  compile (asm_conf:asm_config) (c:config) prog = SOME (bytes,bitmaps,c') ⇒
+  (∀po. is_safe_for_space (:'a) ffi po asm_conf c prog (stack_limit,heap_limit)) ⇒
+  (read_limits asm_conf c mc ms) = (stack_limit,heap_limit) ⇒
+  let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
+  ¬semantics_prog s env prog Fail ∧
+  backend_config_ok asm_conf c ∧ lab_to_targetProof$mc_conf_ok (mc:('a,'b,'c) machine_config) ∧ mc_init_ok asm_conf c mc ∧
+  installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
+       (heap_regs c.stack_conf.reg_names) mc
+       c'.lab_conf.shmem_extra ms ⇒
+  machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
+  semantics_prog s env prog
+Proof
+  rw [] \\ pairarg_tac \\ fs [] \\ rw []
+  \\ mp_tac compile_correct_is_safe_for_space_determ \\ fs [] \\ strip_tac
+  \\ simp [semantics_determ_SUBSET_semantics_prog]
+QED
+
 Definition the_EvalDecs_def:
   the_EvalDecs (EvalDecs x) = x
 End
 
-Theorem compile_correct_eval:
+Theorem compile_correct_eval_determ[local]:
   compile asm_conf c prog = SOME (bytes,bitmaps,c') ⇒
    let (s0,env) = THE (prim_sem_env (ffi: 'ffi ffi_state)) in
    ¬semantics_prog (add_eval_state ev s0) env prog Fail ∧ backend_config_ok asm_conf c ∧
@@ -5002,4 +5049,23 @@ Proof
   \\ pop_assum mp_tac
   \\ rw [extend_with_resource_limit'_def]
   \\ fs [extend_with_resource_limit_def,SUBSET_DEF]
+QED
+
+Theorem compile_correct_eval:
+  compile asm_conf c prog = SOME (bytes,bitmaps,c') ⇒
+   let (s0,env) = THE (prim_sem_env (ffi: 'ffi ffi_state)) in
+   ¬semantics_prog (add_eval_state ev s0) env prog Fail ∧ backend_config_ok asm_conf c ∧
+   lab_to_targetProof$mc_conf_ok (mc:('a,'b,'c) machine_config) ∧ mc_init_ok asm_conf c mc ∧ opt_eval_config_wf (:'a) asm_conf c' ev ∧
+   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
+     (heap_regs c.stack_conf.reg_names) mc
+     c'.lab_conf.shmem_extra ms ⇒
+     machine_sem mc ffi ms ⊆
+       extend_with_resource_limit
+         (semantics_prog (add_eval_state ev s0) env prog)
+Proof
+  fs [LET_THM] \\ pairarg_tac \\ rw []
+  \\ mp_tac compile_correct_eval_determ \\ fs [] \\ strip_tac
+  \\ irule SUBSET_TRANS \\ first_x_assum $ irule_at Any
+  \\ irule extend_with_resource_limit_MONO
+  \\ simp [semantics_determ_SUBSET_semantics_prog]
 QED

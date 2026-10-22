@@ -240,6 +240,10 @@ Definition implements'_def:
   implements' precise x y ⇔ Fail ∉ y ⇒ x ⊆ extend_with_resource_limit' precise y
 End
 
+Definition sem_satisfies_def:
+  sem_satisfies s P ⇔ s ≠ {} ∧ ∀b:behaviour. b ∈ s ⇒ P b
+End
+
 Theorem extend_with_resource_limit_not_fail:
    x ∈ extend_with_resource_limit y ∧ Fail ∉ y ⇒ x ≠ Fail
 Proof

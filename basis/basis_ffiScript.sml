@@ -570,7 +570,7 @@ Theorem sem_satisfies_imp[local]:
   (∀behavior. P behavior ⇒ Q behavior) ⇒
   sem_satisfies s Q
 Proof
-  rw [sem_satisfies_def] \\ res_tac
+  rw [semanticsPropsTheory.sem_satisfies_def] \\ res_tac
 QED
 
 Theorem whole_prog_spec2_semantics_prog:
@@ -1225,6 +1225,16 @@ QED
 Theorem FORALL_po_Decls:
   (∀po. Decls init_env (init_state fs with ptr_eq_oracle := po) ds e (f po)) ==>
   Decls init_env (init_state fs) ds e (f (K (K F)))
+Proof
+  rw [] \\ pop_assum $ qspec_then `K (K F)` mp_tac
+  \\ gvs [ml_progTheory.init_state_def]
+QED
+
+Theorem FORALL_po_Decls_eval:
+  (∀po. Decls init_env
+          (init_state fs with <|eval_state := es; ptr_eq_oracle := po|>)
+          ds e (f po)) ==>
+  Decls init_env (init_state fs with eval_state := es) ds e (f (K (K F)))
 Proof
   rw [] \\ pop_assum $ qspec_then `K (K F)` mp_tac
   \\ gvs [ml_progTheory.init_state_def]

@@ -6,7 +6,7 @@ Theory ml_prog
 Ancestors
   ast semanticPrimitives evaluate semanticPrimitivesProps
   evaluateProps mlstring integer evaluate_dec namespace
-  alist_tree primSemEnv[qualified]
+  alist_tree primSemEnv[qualified] semanticsProps[qualified]
 Libs
   preamble
 
@@ -1319,6 +1319,37 @@ Proof
   \\ gvs [prog_syntax_ok_def, evaluate_dec_list_eq_evaluate_decs,
           semanticsTheory.evaluate_prog_with_clock_def,
           evaluate_decTheory.evaluate_dec_list_with_clock_def]
+QED
+
+Theorem semantics_dec_list_eq:
+  prog_syntax_ok prog ⇒
+  semantics_dec_list st init_env prog = semantics_prog st init_env prog
+Proof
+  rw [FUN_EQ_THM, evaluate_decTheory.semantics_dec_list_def,
+      semanticsTheory.semantics_prog_def]
+  \\ simp [prog_syntax_ok_semantics]
+QED
+
+(* sem is a singleton set of behaviours, e.g. the machine semantics *)
+Theorem sem_satisfies_IMP_Terminate:
+  semanticsProps$sem_satisfies (semantics_dec_list s init_env prog)
+    (λb. ∃io. b = Terminate outcome io ∧ p io) ⇒
+  prog_syntax_ok prog ⇒
+  ¬semantics_prog s init_env prog Fail ∧
+  (sem ⊆ semanticsProps$extend_with_resource_limit
+           (semantics_prog s init_env prog) ⇒
+   (∃b. sem = {b}) ⇒
+   ∃io. sem ⊆ semanticsProps$extend_with_resource_limit
+                {Terminate outcome io} ∧ p io)
+Proof
+  rpt strip_tac
+  \\ fs [semantics_dec_list_eq]
+  >- (gvs [semanticsPropsTheory.sem_satisfies_def, IN_DEF]
+      \\ CCONTR_TAC \\ gvs [] \\ res_tac \\ fs [])
+  \\ gvs [semanticsPropsTheory.extend_with_resource_limit_def,
+          semanticsPropsTheory.sem_satisfies_def]
+  \\ first_x_assum drule \\ rw [] \\ gvs []
+  \\ metis_tac []
 QED
 
 Theorem Decls_IMP_not_Fail:

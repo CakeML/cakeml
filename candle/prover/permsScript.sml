@@ -588,6 +588,8 @@ Proof
     \\ rw [EL_LUPDATE, perms_ok_ref_def])
   \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
   >- (rw [do_app_cases] \\ gvs [thunk_op_def, AllCaseEqs()])
+  \\ Cases_on ‘op = PtrEq’ \\ gs[]
+  >- simp [do_app_def]
   \\ Cases_on ‘op’ \\ gs []
   \\ Cases_on ‘t’ \\ gs []
 QED
@@ -863,6 +865,10 @@ Proof
     >~ [‘EvalOp’] >- (Cases_on ‘op’ \\ gs[])
     >~ [‘FunApp’] >- (Cases_on ‘op’ \\ gs[])
     >~ [‘Force’] >- (Cases_on ‘op’ \\ gs[])
+    >~ [‘PtrEqOp’] >- (
+      gvs [AllCaseEqs()]
+      \\ gvs [perms_ok_state_def, Boolv_def]
+      \\ rw [perms_ok_def])
     >~ [‘Simple’] >- (
       gvs [CaseEqs ["result", "prod", "bool", "option"]]
       \\ drule_then (qspec_then ‘ps’ mp_tac) do_app_perms

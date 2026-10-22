@@ -12,38 +12,32 @@ Libs
   preamble
 
 Theorem sort_stdin_semantics:
-  ∃io_events.
-    semantics_prog (init_state (basis_ffi no_ext [«sort»] (stdin_fs input))) init_env
-      sort_prog (Terminate Success io_events) ∧
-    (∃output. PERM output (lines_of (implode input)) ∧ SORTED mlstring_le output ∧
-     (extract_fs no_ext ([«sort»],stdin_fs input) io_events =
-      SOME (add_stdout (fastForwardFD (stdin_fs input) 0) (concat output))))
+  sem_satisfies
+    (semantics_dec_list (init_state (basis_ffi no_ext [«sort»] (stdin_fs input)))
+       init_env sort_prog)
+    (λb. ∃io_events.
+       b = Terminate Success io_events ∧
+       ∃output. PERM output (lines_of (implode input)) ∧ SORTED mlstring_le output ∧
+         extract_fs no_ext ([«sort»],stdin_fs input) io_events =
+           SOME (add_stdout (fastForwardFD (stdin_fs input) 0) (concat output)))
 Proof
   qspecl_then[`stdin_fs input`,`[«sort»]`]mp_tac
     (GEN_ALL (Q.INST [`ext`|->`no_ext`] sort_semantics))
-  \\ simp [sort_compiled,ml_progTheory.prog_syntax_ok_semantics]
   \\ `stdin (stdin_fs input) input 0` by EVAL_TAC
   \\ drule TextIOProofTheory.stdin_get_file_content
   \\ rw[wfFS_stdin_fs, STD_streams_stdin_fs, CommandLineProofTheory.wfcl_def, clFFITheory.validArg_def]
   \\ ‘stdin_content (stdin_fs input) = SOME input’ by
     (simp [TextIOProofTheory.stdin_content_def, stdin_fs_def])
-  \\ fs []
-  \\ asm_exists_tac \\ rw[]
+  \\ fs [semanticsPropsTheory.sem_satisfies_def] \\ rw []
+  \\ first_x_assum drule \\ rw []
   \\ fs[valid_sort_result_def]
   \\ rfs[TextIOProofTheory.stdin_def, good_args_def]
   \\ asm_exists_tac \\ simp[]
 QED
 
-val sort_io_events_def =
-  new_specification("sort_io_events_def",["sort_io_events"],
-  sort_stdin_semantics |> Q.GENL[`input`]
-  |> SIMP_RULE std_ss [GSYM RIGHT_EXISTS_IMP_THM]
-  |> SIMP_RULE std_ss [SKOLEM_THM]);
-
-val (sort_sem,sort_output) = sort_io_events_def |> SPEC_ALL |> CONJ_PAIR
-val (sort_not_fail,sort_sem_sing) = sort_sem
-  |> SRULE [sort_compiled,ml_progTheory.prog_syntax_ok_semantics]
-  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
+val sort_terminate = sort_stdin_semantics
+  |> HO_MATCH_MP ml_progTheory.sem_satisfies_IMP_Terminate
+  |> SRULE [sort_compiled];
 
 val ffinames_to_string_list_def = backendTheory.ffinames_to_string_list_def;
 
@@ -101,9 +95,9 @@ val compile_correct_applied =
   MATCH_MP compile_correct (cj 1 sort_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,
                          GSYM AND_IMP_INTRO]
-  |> C MATCH_MP sort_not_fail
+  |> C MATCH_MP (cj 1 sort_terminate)
   |> C MATCH_MP ag32_backend_config_ok
-  |> REWRITE_RULE[sort_sem_sing,AND_IMP_INTRO]
+  |> REWRITE_RULE[AND_IMP_INTRO]
   |> REWRITE_RULE[Once (GSYM AND_IMP_INTRO)]
   |> C MATCH_MP (CONJ(UNDISCH ag32_machine_config_ok)(UNDISCH ag32_init_ok))
   |> DISCH(#1(dest_imp(concl ag32_init_ok)))
@@ -157,18 +151,17 @@ Theorem sort_machine_sem =
        |> Q.SPEC `[«sort»]`
        |> SIMP_RULE(srw_ss())[cline_size_def]
        |> UNDISCH)
+  |> MATCH_MP (cj 2 sort_terminate)
+  |> REWRITE_RULE [targetPropsTheory.machine_sem_sing]
   |> DISCH_ALL
 
 (* TODO: theorems currently in ag32Bootstrap can make this shorter *)
 Theorem sort_extract_writes_stdout:
-   ∃output. PERM output (lines_of (implode input)) ∧ SORTED mlstring_le output ∧
-   (extract_writes 1 (MAP get_output_io_event (sort_io_events input)) =
-    explode (concat output))
+   extract_fs no_ext ([«sort»],stdin_fs input) io =
+     SOME (add_stdout (fastForwardFD (stdin_fs input) 0) out) ⇒
+   (extract_writes 1 (MAP get_output_io_event io) = explode out)
 Proof
-  qspec_then`input`strip_assume_tac(GEN_ALL(DISCH_ALL sort_output))
-  \\ asm_exists_tac
-  \\ pop_assum mp_tac
-  \\ DEP_REWRITE_TAC[TextIOProofTheory.add_stdout_fastForwardFD]
+  DEP_REWRITE_TAC[TextIOProofTheory.add_stdout_fastForwardFD]
   \\ simp[STD_streams_stdin_fs]
   \\ simp[TextIOProofTheory.add_stdo_def]
   \\ SELECT_ELIM_TAC
@@ -205,19 +198,27 @@ Theorem sort_ag32_next:
    LENGTH inp ≤ stdin_size ∧
    is_ag32_init_state (init_memory code data (extcalls info.lab_conf.ffi_names) ([«sort»],inp)) ms0
   ⇒
-   ∃k1. ∀k. k1 ≤ k ⇒
-     let ms = FUNPOW Next k ms0 in
-     let outs = MAP (get_ag32_io_event) ms.io_events in
-       (ms.PC = (sort_machine_config).halt_pc) ∧
-       (get_mem_word ms.MEM ms.PC = Encode (Jump (fAdd,0w,Imm 0w))) ∧
-       outs ≼ MAP get_output_io_event (sort_io_events inp) ∧
-       ((ms.R (n2w (sort_machine_config).ptr_reg) = 0w) ⇒
-        (outs = MAP get_output_io_event (sort_io_events inp)))
+   ∃io.
+     (∃output. PERM output (lines_of (implode inp)) ∧ SORTED mlstring_le output ∧
+        extract_writes 1 (MAP get_output_io_event io) = explode (concat output)) ∧
+     ∃k1. ∀k. k1 ≤ k ⇒
+       let ms = FUNPOW Next k ms0 in
+       let outs = MAP (get_ag32_io_event) ms.io_events in
+         (ms.PC = (sort_machine_config).halt_pc) ∧
+         (get_mem_word ms.MEM ms.PC = Encode (Jump (fAdd,0w,Imm 0w))) ∧
+         outs ≼ MAP get_output_io_event io ∧
+         ((ms.R (n2w (sort_machine_config).ptr_reg) = 0w) ⇒
+          (outs = MAP get_output_io_event io))
 Proof
   strip_tac
   \\ drule (GEN_ALL sort_machine_sem)
   \\ disch_then drule
   \\ strip_tac
+  \\ first_x_assum (qspec_then ‘inp’ strip_assume_tac)
+  \\ qexists_tac ‘io_events’
+  \\ conj_tac
+  >- (goal_assum (drule_at Any) \\ simp []
+      \\ drule sort_extract_writes_stdout \\ simp [])
   \\ irule ag32_next
   \\ conj_tac >- (simp[ffi_names,extcalls_def] \\ EVAL_TAC)
   \\ conj_tac >- (simp[ffi_names,extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC)
