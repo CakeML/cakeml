@@ -87,9 +87,9 @@ Definition preprocess_model_def:
     mlatches = [mlatch_start .. mmax_latch];
     maig = maiger.aig;
     mreset = fromAList maiger.reset;
-    mreset = (λl. lookup l mreset);
+    mreset = (λl. sptree$lookup l mreset);
     mnext = fromAList maiger.next;
-    mnext  = (λl. case lookup l mnext of
+    mnext  = (λl. case sptree$lookup l mnext of
                     | SOME lit => lit
                     | NONE => (Base Ff, F) (* should not happen *));
     msafes =
@@ -158,10 +158,10 @@ Definition preprocess_witness_def:
       else (iren, lren);
     waig = shared_aig micnt mlcnt iren lren waiger.aig;
     wreset = fromAList (shared_latches micnt mlcnt iren lren waiger.reset);
-    wreset = (λl. lookup l wreset);
+    wreset = (λl. sptree$lookup l wreset);
     wnext_alist = shared_latches micnt mlcnt iren lren waiger.next;
     wnext = fromAList wnext_alist;
-    wnext  = (λl. case lookup l wnext of
+    wnext  = (λl. case sptree$lookup l wnext of
                     | SOME lit => lit
                     | NONE => (Base Ff, F));
     wsafes =
