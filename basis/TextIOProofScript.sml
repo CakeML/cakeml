@@ -6486,6 +6486,40 @@ Termination
   \\ rw [] \\ gvs [NOT_LESS]
 End
 
+Theorem find_surplus_fun_scanEq[local]:
+  ∀c wl i j.
+    i ≤ j ∧ j ≤ LENGTH wl ⇒
+    find_surplus_fun c wl i j =
+      let k = i + LENGTH (FST (SPLITP (λw. w = char_to_word8 c)
+        (DROP i (TAKE j wl)))) in
+      if k = j then NONE else SOME k
+Proof
+  ho_match_mp_tac find_surplus_fun_ind
+  \\ rpt strip_tac
+  \\ Cases_on ‘i = j’
+  >- simp [Once find_surplus_fun_def,DROP_TAKE,SPLITP,LET_THM]
+  \\ ‘i < j ∧ i < LENGTH wl’ by decide_tac
+  \\ ‘DROP i (TAKE j wl) = EL i wl :: DROP (i + 1) (TAKE j wl)’ by (
+    qspecl_then [‘TAKE j wl’,‘i’] mp_tac DROP_EL_CONS
+    \\ simp [EL_TAKE])
+  \\ ‘(EL i wl = char_to_word8 c) ⇔ ORD c = w2n (EL i wl)’ by (
+    once_rewrite_tac [GSYM w2n_11]
+    \\ rewrite_tac [char_to_word8_def,w2n_n2w]
+    \\ simp [dimword_def,ORD_BOUND,EQ_SYM_EQ])
+  \\ ‘¬(i = j ∨ LENGTH wl < i ∨ LENGTH wl < j) ∧ i + 1 ≤ j’ by decide_tac
+  \\ Cases_on ‘ORD c = w2n (EL i wl)’
+  >- simp [Once find_surplus_fun_def,SPLITP,LET_THM]
+  \\ fs []
+  \\ ‘i ≠ j’ by decide_tac
+  \\ simp [Once find_surplus_fun_def,SPLITP,ADD1]
+QED
+
+Theorem to_W8ARRAY[local]:
+  loc ~~>> W8array bcontent = W8ARRAY (Loc T loc) bcontent
+Proof
+  gvs [W8ARRAY_def,cond_STAR,FUN_EQ_THM,SEP_EXISTS_THM]
+QED
+
 Theorem find_surplus:
   CHAR c cv ∧ NUM i iv ∧ NUM j jv ∧ i ≤ j ∧ j ≤ LENGTH wl ∧ av = Loc T a
   ⇒
@@ -6495,44 +6529,25 @@ Theorem find_surplus:
         a ~~>> W8array wl *
         & (OPTION_TYPE NUM (find_surplus_fun c wl i j) retv))
 Proof
-  qid_spec_tac ‘iv’
-  \\ qid_spec_tac ‘i’
-  \\ completeInduct_on ‘LENGTH wl - i’
-  \\ rw [] \\ gvs [PULL_FORALL]
+  rpt strip_tac \\ gvs []
   \\ xcf_with_def TextIO_find_surplus_v_def
   \\ xlet_auto >- xsimpl
-  \\ simp [Once find_surplus_fun_def]
-  \\ IF_CASES_TAC \\ gvs []
+  \\ rewrite_tac [to_W8ARRAY]
+  \\ xlet_auto_spec (SOME w8array_scanEq_spec)
+  >- xsimpl
+  \\ qabbrev_tac ‘found = if j ≤ i then j else i +
+       LENGTH (FST (SPLITP (λw:word8. w = n2w (ORD c)) (DROP i (TAKE j wl))))’
+  \\ ‘find_surplus_fun c wl i j = if found = j then NONE else SOME found’ by (
+    Cases_on ‘i = j’
+    >- simp [find_surplus_fun_scanEq,Abbr‘found’,DROP_TAKE,SPLITP,LET_THM]
+    \\ ‘¬(j ≤ i)’ by decide_tac
+    \\ simp [find_surplus_fun_scanEq,Abbr‘found’,LET_THM,char_to_word8_def])
+  \\ xlet_auto >- xsimpl
+  \\ qunabbrev_tac ‘found’
   \\ xif
-  \\ first_x_assum $ irule_at $ Pos hd \\ simp []
-  >- (xcon \\ gvs [std_preludeTheory.OPTION_TYPE_def] \\ xsimpl)
-  \\ ‘i < LENGTH wl’ by gvs []
-  \\ xlet ‘POSTv retv. a ~~>> W8array wl * cond (WORD (EL i wl) retv)’
-  >- (xapp \\ simp [W8ARRAY_def] \\ xsimpl \\ metis_tac [])
-  \\ xlet_auto >- xsimpl
-  \\ xlet_auto >- xsimpl
-  \\ ‘word8_to_char (EL i wl) = c ⇔ ORD c = w2n (EL i wl)’ by
-   (gvs [(*CharProgTheory.fromByte_def*)]
-    \\ Cases_on ‘EL i wl’ \\ gvs []
-    \\ Cases_on ‘c’ \\ gvs [])
-  \\ gvs []
-  \\ IF_CASES_TAC \\ gvs []
-  \\ xif
-  \\ first_x_assum $ irule_at $ Pos hd \\ simp []
-  >- (xcon \\ gvs [std_preludeTheory.OPTION_TYPE_def] \\ xsimpl)
-  \\ xlet_auto >- xsimpl
-  \\ ‘LENGTH wl < (i+1) + LENGTH wl - i’ by gvs[]
-  \\ last_x_assum drule
-  \\ disch_then drule
-  \\ impl_tac >- gvs []
-  \\ strip_tac
-  \\ xapp
-QED
-
-Theorem to_W8ARRAY[local]:
-  loc ~~>> W8array bcontent = W8ARRAY (Loc T loc) bcontent
-Proof
-  gvs [W8ARRAY_def,cond_STAR,FUN_EQ_THM,SEP_EXISTS_THM]
+  \\ xcon
+  \\ gvs [std_preludeTheory.OPTION_TYPE_def]
+  \\ xsimpl
 QED
 
 Theorem ind_surplus_fun_eq_NONE[local]:

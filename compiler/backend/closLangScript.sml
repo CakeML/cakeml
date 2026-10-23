@@ -98,6 +98,7 @@ Datatype:
      | LengthByte    (* get length of byte array *)
      | RefByte bool  (* makes a byte array, T = immutable/compare-by-contents *)
      | RefArray      (* makes an array by replicating a value *)
+     | ScanByte bool (* T finds the first unequal byte; F finds the first equal byte *)
      | DerefByte     (* loads a byte from a byte array *)
      | UpdateByte    (* updates a byte array *)
      | DerefBit      (* read a bit from a byte array *)

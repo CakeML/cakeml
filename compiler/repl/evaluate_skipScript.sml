@@ -1592,13 +1592,17 @@ Proof
     \\ gs [v_rel_def]
     \\ first_assum (irule_at Any)
     \\ irule_at Any EQ_REFL \\ gs [])
-  \\ Cases_on ‘op = Strlen’ \\ gs []
+  \\ Cases_on ‘op = Strlen ∨ op = StrScanEq ∨ op = StrScanNeq’
   >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+    pop_assum strip_assume_tac \\ gs []
+    \\ Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
                            CaseEqs ["list", "v", "option", "prod", "lit",
                                     "store_v"]]
     \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
-    \\ first_assum (irule_at Any) \\ gs [])
+    \\ rw [] \\ gvs []
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ gs [v_rel_def,sub_exn_v_def,stamp_rel_cases,subscript_stamp_def,
+           state_rel_def])
   \\ Cases_on ‘op = Strsub’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
@@ -1806,16 +1810,19 @@ Proof
     \\ rw [] \\ gvs [LIST_REL_EL_EQN, v_rel_def, sub_exn_v_def,
                      subscript_stamp_def, stamp_rel_cases]
     \\ first_assum (irule_at Any) \\ gs [state_rel_def])
-  \\ Cases_on ‘op = Aw8length’ \\ gs []
+  \\ Cases_on ‘op = Aw8length ∨ op = Aw8ScanEq ∨ op = Aw8ScanNeq’
   >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+    pop_assum strip_assume_tac \\ gs []
+    \\ Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
                            CaseEqs ["list", "v", "option", "prod", "lit",
                                     "store_v"]]
     \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
     \\ drule_all_then assume_tac state_rel_store_lookup \\ gs [OPTREL_def]
-    \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gs [ref_rel_def]
+    \\ qmatch_assum_rename_tac ‘ref_rel _ _ target_ref’ \\ Cases_on ‘target_ref’ \\ gs [ref_rel_def]
     \\ rw [] \\ gvs [LIST_REL_EL_EQN, v_rel_def]
-    \\ first_assum (irule_at Any) \\ gs [])
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ gs [v_rel_def,sub_exn_v_def,stamp_rel_cases,subscript_stamp_def,
+           state_rel_def])
   \\ Cases_on ‘op = Aw8alloc’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def, exists_SUBMAP,

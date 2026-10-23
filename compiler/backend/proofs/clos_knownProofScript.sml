@@ -730,6 +730,7 @@ Proof
   cases_on_op `opn` >>
   simp[do_app_def, case_eq_thms, op_gbag_def, PULL_EXISTS, bool_case_eq,
        pair_case_eq]
+  >~ [`ScanByte`] >- dsimp []
   >~ [`IntOp`] >- (
     rename1 `IntOp intop`
     \\ Cases_on `intop`

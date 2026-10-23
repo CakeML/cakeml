@@ -282,8 +282,14 @@ End
 Definition StringCmpLoop_location_def:
   StringCmpLoop_location = SmallnumDivMod_location+1
 End
+Definition ScanEq_location_def:
+  ScanEq_location = StringCmpLoop_location+1
+End
+Definition ScanNeq_location_def:
+  ScanNeq_location = ScanEq_location+1
+End
 Definition Bignum_location_def:
-  Bignum_location = StringCmpLoop_location+1
+  Bignum_location = ScanNeq_location+1
 End
 
 Theorem FromList_location_eq =
@@ -352,6 +358,10 @@ Theorem SmallnumDivMod_location_eq =
   ``SmallnumDivMod_location`` |> EVAL
 Theorem StringCmpLoop_location_eq =
   ``StringCmpLoop_location`` |> EVAL
+Theorem ScanEq_location_eq =
+  ``ScanEq_location`` |> EVAL
+Theorem ScanNeq_location_eq =
+  ``ScanNeq_location`` |> EVAL
 
 Definition SilentFFI_def:
   SilentFFI c n names =
@@ -978,6 +988,76 @@ Definition StringCmpLoop_code_def:
           Assign 4 (Op Add [Var 4; Const 1]);
           Assign 6 (Op Sub [Var 6; Const 1]);
           Call NONE (SOME StringCmpLoop_location) [0;2;4;6;8;10] NONE]) :wordLang$prog
+End
+
+Definition ScanByte_step_def:
+  ScanByte_step neq =
+    list_Seq
+      [Inst (Mem Load8 1 (Addr 4 0));
+       If (if neq then NotEqual else Equal) 1 (Reg 2) (Return 0 [8]) Skip;
+       Assign 4 (Op Add [Var 4; Const 1]);
+       Assign 6 (Op Sub [Var 6; Const 1]);
+       Assign 8 (Op Add [Var 8; Const 2])] :wordLang$prog
+End
+
+Definition ScanByte_tail_code_def:
+  ScanByte_tail_code neq =
+    let names = fromAList [(0,());(2,());(4,());(6,());(8,())] in
+    Loop names
+      (If Equal 6 (Imm 0) (Return 0 [8]) (ScanByte_step neq)) names
+      :wordLang$prog
+End
+
+Definition ScanByte_word_body_def:
+  ScanByte_word_body c neq =
+    let bytes = arch_bytes c.arch_width in
+    let ones = if bytes = 4 then 0x01010101 else 0x0101010101010101 in
+    If Lower 6 (Imm (&bytes)) (Break 0)
+      (list_Seq
+        [Assign 1 (Op Xor [Load (Var 4); Var 10]);
+         (if neq then If NotEqual 1 (Imm 0) (Break 0) Skip else
+            list_Seq
+              [Assign 3 (Op And
+                 [Op Sub [Var 1; Const ones];
+                  Op Xor [Var 1; Const (-1)]]);
+               If NotTest 3 (Imm (128 * ones)) (Break 0) Skip]);
+         Assign 4 (Op Add [Var 4; Const (&bytes)]);
+         Assign 6 (Op Sub [Var 6; Const (&bytes)]);
+         Assign 8 (Op Add [Var 8; Const (2 * &bytes)])]) :wordLang$prog
+End
+
+Definition ScanByte_bulk_def:
+  ScanByte_bulk c neq =
+    let names = fromAList [(0,());(2,());(4,());(6,());(8,())] in
+    Seq (Loop (insert 10 () names) (ScanByte_word_body c neq) names)
+      (ScanByte_tail_code neq) :wordLang$prog
+End
+
+Definition ScanByte_code_def:
+  ScanByte_code c neq =
+    let bytes = arch_bytes c.arch_width in
+    let names = fromAList [(0,());(2,());(4,());(6,());(8,())] in
+    list_Seq
+      [(* Scan the unaligned prefix. *)
+       Loop names
+         (If Equal 6 (Imm 0) (Return 0 [8])
+           (If Test 4 (Imm (&bytes - 1)) (Break 0) (ScanByte_step neq)))
+         names;
+       If Lower 6 (Imm (&bytes)) (ScanByte_tail_code neq)
+         (list_Seq
+           [Assign 10 (Op Or [Var 2; ShiftN Lsl (Var 2) 8]);
+            Assign 10 (Op Or [Var 10; ShiftN Lsl (Var 10) 16]);
+            (if bytes = 4 then Skip else
+               Assign 10 (Op Or [Var 10; ShiftN Lsl (Var 10) 32]));
+            ScanByte_bulk c neq])] :wordLang$prog
+End
+
+Definition ScanEq_code_def:
+  ScanEq_code c = ScanByte_code c F
+End
+
+Definition ScanNeq_code_def:
+  ScanNeq_code c = ScanByte_code c T
 End
 
 Definition get_names_def:
@@ -1623,6 +1703,25 @@ val def = assign_Define `
              (Call (SOME ([adjust_var dest],adjust_sets (get_names names),Skip,secn,l))
                 (SOME RefByte_location)
                    [adjust_var v1; adjust_var v2; 1] NONE) :wordLang$prog),l+1)
+      : wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_ScanByte (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) neq start end needle array =
+    (If Lower (adjust_var start) (Reg (adjust_var end))
+      (list_Seq [
+        Assign 1 (ShiftN Lsr (Var (adjust_var needle)) 1);
+        Assign 3 (real_addr c (adjust_var array));
+        Assign 3 (Op Add [Var 3; Const (& (arch_bytes c.arch_width));
+                         ShiftN Lsr (Var (adjust_var start)) 1]);
+        Assign 5 (ShiftN Lsr (Op Sub [Var (adjust_var end); Var (adjust_var start)]) 1);
+        Assign 7 (Var (adjust_var start));
+        MustTerminate
+          (Call
+            (SOME ([adjust_var dest],adjust_sets (get_names names),Skip,secn,l))
+            (SOME (if neq then ScanNeq_location else ScanEq_location))
+            [1;3;5;7] NONE)])
+      (Assign (adjust_var dest) (Var (adjust_var end))),l + 1)
       : wordLang$prog # num`;
 
 val def = assign_Define `
@@ -2731,6 +2830,7 @@ Definition assign_def:
     | GlobOp (Global n) => assign_Global c n l dest
     | MemOp El => arg2 args (assign_El c l dest) (Skip,l)
     | BlockOp (ElemAt n) => arg1 args (assign_ElemAt c n l dest) (Skip,l)
+    | MemOp (ScanByte neq) => arg4 args (assign_ScanByte c secn l dest names neq) (Skip,l)
     | MemOp DerefByte => arg2 args (assign_DerefByte c l dest) (Skip,l)
     | MemOp DerefBit => arg2 args (assign_DerefBit c l dest) (Skip,l)
     | MemOp Update => arg3 args (assign_Update c l dest) (Skip,l)
@@ -3038,6 +3138,8 @@ Definition stubs_def:
     (XorLoop_location,4n,XorLoop_code data_conf);
     (SmallnumDivMod_location,3n,SmallnumDivMod_code data_conf);
     (StringCmpLoop_location,6n,StringCmpLoop_code data_conf);
+    (ScanEq_location,5n,ScanEq_code data_conf);
+    (ScanNeq_location,5n,ScanNeq_code data_conf);
     (MemCopy_location,5n,MemCopy_code data_conf);
     (ByteCopy_location,6n,ByteCopy_code data_conf);
     (ByteCopyAdd_location,5n,ByteCopyAdd_code);
@@ -3075,6 +3177,8 @@ Definition stub_names_def:
     (XorLoop_location,«_XorLoop»);
     (SmallnumDivMod_location,«_SmallnumDivMod»);
     (StringCmpLoop_location,«_StringCmpLoop»);
+    (ScanEq_location,«_ScanEq»);
+    (ScanNeq_location,«_ScanNeq»);
     (MemCopy_location,«_MemCopy»);
     (ByteCopy_location,«_ByteCopy»);
     (ByteCopyAdd_location,«_ByteCopyAdd»);

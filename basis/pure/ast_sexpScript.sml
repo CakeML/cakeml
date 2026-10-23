@@ -132,6 +132,8 @@ Definition from_op_def:
   (from_op Aw8alloc            = Atom «Aw8alloc») ∧
   (from_op Aw8sub              = Atom «Aw8sub») ∧
   (from_op Aw8length           = Atom «Aw8length») ∧
+  (from_op Aw8ScanEq           = Atom «Aw8ScanEq») ∧
+  (from_op Aw8ScanNeq          = Atom «Aw8ScanNeq») ∧
   (from_op Aw8update           = Atom «Aw8update») ∧
   (from_op Aw8subBit           = Atom «Aw8subBit») ∧
   (from_op Aw8updateBit        = Atom «Aw8updateBit») ∧
@@ -144,6 +146,8 @@ Definition from_op_def:
   (from_op Explode             = Atom «Explode») ∧
   (from_op Strsub              = Atom «Strsub») ∧
   (from_op Strlen              = Atom «Strlen») ∧
+  (from_op StrScanEq           = Atom «StrScanEq») ∧
+  (from_op StrScanNeq          = Atom «StrScanNeq») ∧
   (from_op Strcat              = Atom «Strcat») ∧
   (from_op VfromList           = Atom «VfromList») ∧
   (from_op Vsub                = Atom «Vsub») ∧
@@ -529,6 +533,8 @@ Definition to_op_def:
      else if s = «Aw8alloc» then return Aw8alloc
      else if s = «Aw8sub» then return Aw8sub
      else if s = «Aw8length» then return Aw8length
+     else if s = «Aw8ScanEq» then return Aw8ScanEq
+     else if s = «Aw8ScanNeq» then return Aw8ScanNeq
      else if s = «Aw8update» then return Aw8update
      else if s = «Aw8subBit» then return Aw8subBit
      else if s = «Aw8updateBit» then return Aw8updateBit
@@ -541,6 +547,8 @@ Definition to_op_def:
      else if s = «Explode» then return Explode
      else if s = «Strsub» then return Strsub
      else if s = «Strlen» then return Strlen
+     else if s = «StrScanEq» then return StrScanEq
+     else if s = «StrScanNeq» then return StrScanNeq
      else if s = «Strcat» then return Strcat
      else if s = «VfromList» then return VfromList
      else if s = «Vsub» then return Vsub

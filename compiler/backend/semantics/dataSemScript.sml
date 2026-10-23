@@ -328,6 +328,8 @@ Definition stack_consumed_def:
     OPTION_MAP2 MAX
      (lookup RefArray_location sfs)
      (lookup Replicate_location sfs)) /\
+  (stack_consumed sfs lims (MemOp (ScanByte neq)) vs =
+    lookup (if neq then ScanNeq_location else ScanEq_location) sfs) /\
   (stack_consumed sfs lims (MemOp XorByte) vs =
     lookup XorLoop_location sfs) /\
   (stack_consumed sfs lims (MemOp (StringCmp b cmp)) vs =
@@ -1027,6 +1029,16 @@ Definition do_app_aux_def:
                   s with <|refs := insert ptr
                                           (ValueArray (REPLICATE (Num i) v)) s.refs|>)
          else Error
+    | (MemOp (ScanByte neq),[Number start; Number end; Number b; RefPtr _ ptr]) =>
+        (case lookup ptr s.refs of
+         | SOME (ByteArray _ ws) =>
+             if 0 ≤ start ∧ start ≤ &LENGTH ws ∧ 0 ≤ end ∧ end ≤ &LENGTH ws ∧
+                0 ≤ b ∧ b < 256 then
+               Rval (Number (&(if Num end ≤ Num start then Num end else Num start +
+                 LENGTH (FST (SPLITP (\w. (w = i2w b) ⇔ ¬neq)
+                   (DROP (Num start) (TAKE (Num end) ws)))))),s)
+             else Error
+         | _ => Error)
     | (MemOp DerefByte,[RefPtr _ ptr; Number i]) =>
         (case lookup ptr s.refs of
          | SOME (ByteArray _ ws) =>

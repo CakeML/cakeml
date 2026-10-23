@@ -95,6 +95,8 @@ Datatype:
   | Aw8alloc
   | Aw8sub
   | Aw8length
+  | Aw8ScanEq
+  | Aw8ScanNeq
   | Aw8update
   | Aw8subBit
   | Aw8updateBit
@@ -109,6 +111,8 @@ Datatype:
   | Explode
   | Strsub
   | Strlen
+  | StrScanEq
+  | StrScanNeq
   | Strcat
   (* Vector operations *)
   | VfromList

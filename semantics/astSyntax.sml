@@ -32,6 +32,8 @@ structure astSyntax = struct
   val Aupdate = prim_mk_const{Thy="ast",Name="Aupdate"};
   val Aw8alloc = prim_mk_const{Thy="ast",Name="Aw8alloc"};
   val Aw8length = prim_mk_const{Thy="ast",Name="Aw8length"};
+  val Aw8ScanEq = prim_mk_const{Thy="ast",Name="Aw8ScanEq"};
+  val Aw8ScanNeq = prim_mk_const{Thy="ast",Name="Aw8ScanNeq"};
   val Aw8sub = prim_mk_const{Thy="ast",Name="Aw8sub"};
   val Aw8update = prim_mk_const{Thy="ast",Name="Aw8update"};
   val ConfigGC = prim_mk_const{Thy="ast",Name="ConfigGC"};
@@ -57,6 +59,8 @@ structure astSyntax = struct
   val Ror = prim_mk_const{Thy="ast",Name="Ror"};
   val Strcat = prim_mk_const{Thy="ast",Name="Strcat"};
   val Strlen = prim_mk_const{Thy="ast",Name="Strlen"};
+  val StrScanEq = prim_mk_const{Thy="ast",Name="StrScanEq"};
+  val StrScanNeq = prim_mk_const{Thy="ast",Name="StrScanNeq"};
   val Strsub = prim_mk_const{Thy="ast",Name="Strsub"};
   val Sub = prim_mk_const{Thy="ast",Name="Sub"};
   val VfromList = prim_mk_const{Thy="ast",Name="VfromList"};

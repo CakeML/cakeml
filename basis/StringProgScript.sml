@@ -32,6 +32,8 @@ val _ = translate fast_compare_def;
 val _ = ml_prog_update (close_module NONE);
 
 val _ = trans "sub" mlstringSyntax.strsub_tm;
+val _ = trans "scanEq" mlstringSyntax.scan_eq_tm;
+val _ = trans "scanNeq" mlstringSyntax.scan_neq_tm;
 val _ = trans "implode" mlstringSyntax.implode_tm;
 val _ = trans "explode" mlstringSyntax.explode_tm;
 val _ = trans "size" mlstringSyntax.strlen_tm;

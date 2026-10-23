@@ -49,6 +49,7 @@ Theorem op_requires_names_eqn:
                           | MemOp (CopyByte new_flag) => T
                           | IntOp (Smallnum SmallDiv) => T
                           | IntOp (Smallnum SmallMod) => T
+                          | MemOp (ScanByte neq) => T
                           | MemOp XorByte => T
                           | MemOp (StringCmp b cmp) => T
                           | _ => F))
@@ -64,6 +65,7 @@ Theorem op_requires_names_pmatch:
                         | MemOp (CopyByte new_flag) => T
                         | IntOp (Smallnum SmallDiv) => T
                         | IntOp (Smallnum SmallMod) => T
+                        | MemOp (ScanByte neq) => T
                         | MemOp XorByte => T
                         | MemOp (StringCmp b cmp) => T
                         | _ => F))

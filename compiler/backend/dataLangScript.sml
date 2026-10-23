@@ -59,6 +59,7 @@ Definition op_requires_names_def:
   op_requires_names op = (op_space_reset op ∨ (∃n. op = FFI n) ∨
                          (∃new_flag. op = (MemOp (CopyByte new_flag))) ∨
                          (op = MemOp XorByte) ∨
+                         (∃neq. op = MemOp (ScanByte neq)) ∨
                          (op = IntOp (Smallnum SmallDiv)) ∨
                          (op = IntOp (Smallnum SmallMod)) ∨
                          (∃b cmp. op = MemOp (StringCmp b cmp)) ∨

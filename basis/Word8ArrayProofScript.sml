@@ -3,13 +3,64 @@
 *)
 Theory Word8ArrayProof
 Ancestors
-  ml_translator Word8ArrayProg
+  ml_translator Word8ArrayProg semanticPrimitives evaluate cfStore
 Libs
   preamble ml_translatorLib ml_progLib cfLib
 
 val _ = translation_extends "Word8ArrayProg";
 
 val basis_st = get_ml_prog_state;
+
+Theorem scan_curry[local]:
+  app (p:'ffi ffi_proj)
+    (Closure (env with v := nsBind x xv env.v) y body) (yv::ys) H Q ==>
+  app p (Closure env x (Fun y body)) (xv::yv::ys) H Q
+Proof
+  simp [app_def]
+  \\ rw [app_basic_def]
+  \\ fs [do_opapp_def,cfDivTheory.POSTv_eq,PULL_EXISTS]
+  \\ Q.LIST_EXISTS_TAC
+       [`h_i`, `{}`, `st2heap p st`,
+        `Closure (env with v := nsBind x xv env.v) y body`]
+  \\ simp [SEP_EXISTS_THM,cond_STAR,evaluate_to_heap_def,evaluate_ck_def,
+           evaluate_def,st2heap_clock]
+  \\ conj_tac
+  >- metis_tac [SPLIT3_of_SPLIT_emp3]
+  \\ qexists_tac `H` \\ simp []
+QED
+
+Theorem scan_apply[local]:
+  (!st h_i h_k.
+    SPLIT (st2heap p st) (h_i,h_k) ==> H h_i ==>
+    evaluate (st with clock := 0)
+      (env with v := nsBind parameter arg env.v) [body] =
+      (st with clock := 0,Rval [result])) ==>
+  app (p:'ffi ffi_proj) (Closure env parameter body) [arg]
+    H (POSTv v. &(v = result) * H)
+Proof
+  rw [app_def,app_basic_def,do_opapp_def]
+  \\ Q.LIST_EXISTS_TAC [`Val result`, `h_i`, `{}`, `st2heap p st`]
+  \\ simp [cfDivTheory.POSTv_eq,cond_STAR,evaluate_to_heap_def,evaluate_ck_def]
+  \\ conj_tac
+  >- metis_tac [SPLIT3_of_SPLIT_emp3]
+  \\ Q.LIST_EXISTS_TAC [`0`, `st with clock := 0`]
+  \\ fs [st2heap_clock] \\ metis_tac []
+QED
+
+Theorem scan_store_lookup[local]:
+  SPLIT (st2heap p st) (h_i,h_k) /\ W8ARRAY av ws h_i ==>
+  ?location. av = Loc T location /\
+             store_lookup location st.refs = SOME (W8array ws)
+Proof
+  rw [W8ARRAY_def,SEP_EXISTS_THM,cond_STAR,cell_def,one_def]
+  \\ rename1 `store_lookup location st.refs`
+  \\ `Mem location (W8array ws) IN st2heap p st` by fs [SPLIT_EQ]
+  \\ `Mem location (W8array ws) IN store2heap st.refs` by
+       fs [st2heap_def,Mem_NOT_IN_ffi2heap]
+  \\ imp_res_tac store2heap_IN_LENGTH
+  \\ imp_res_tac store2heap_IN_EL
+  \\ simp [store_lookup_def]
+QED
 
 fun prove_array_spec op_name =
   rpt strip_tac \\
@@ -52,6 +103,54 @@ Theorem w8array_length_spec:
        (W8ARRAY av a) (POSTv v. cond (NUM (LENGTH a) v) * W8ARRAY av a)
 Proof
   prove_array_spec "Word8Array.length"
+QED
+
+Theorem w8array_scanEq_spec:
+   !ws av start startv end endv w wv.
+     NUM start startv ∧ NUM end endv ∧ WORD w wv ∧
+     start ≤ LENGTH ws ∧ end ≤ LENGTH ws ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.scanEq" (basis_st()))
+       [startv; endv; wv; av]
+       (W8ARRAY av ws)
+       (POSTv v. cond (NUM (if end ≤ start then end else start +
+         LENGTH (FST (SPLITP (\x. x = w) (DROP start (TAKE end ws))))) v) *
+         W8ARRAY av ws)
+Proof
+  rw [WORD_def,NUM_def,INT_def,Word8Array_scanEq_v_def]
+  \\ irule scan_curry
+  \\ irule scan_curry
+  \\ irule scan_curry
+  \\ irule scan_apply
+  \\ rpt strip_tac
+  \\ drule_all scan_store_lookup \\ strip_tac
+  \\ gvs []
+  \\ `start ≤ LENGTH ws ∧ end ≤ LENGTH ws` by decide_tac
+  \\ simp [evaluate_def,ml_progTheory.nsLookup_nsBind_compute,
+           do_app_def,state_component_equality]
+QED
+
+Theorem w8array_scanNeq_spec:
+   !ws av start startv end endv w wv.
+     NUM start startv ∧ NUM end endv ∧ WORD w wv ∧
+     start ≤ LENGTH ws ∧ end ≤ LENGTH ws ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.scanNeq" (basis_st()))
+       [startv; endv; wv; av]
+       (W8ARRAY av ws)
+       (POSTv v. cond (NUM (if end ≤ start then end else start +
+         LENGTH (FST (SPLITP (\x. x ≠ w) (DROP start (TAKE end ws))))) v) *
+         W8ARRAY av ws)
+Proof
+  rw [WORD_def,NUM_def,INT_def,Word8Array_scanNeq_v_def]
+  \\ irule scan_curry
+  \\ irule scan_curry
+  \\ irule scan_curry
+  \\ irule scan_apply
+  \\ rpt strip_tac
+  \\ drule_all scan_store_lookup \\ strip_tac
+  \\ gvs []
+  \\ `start ≤ LENGTH ws ∧ end ≤ LENGTH ws` by decide_tac
+  \\ simp [evaluate_def,ml_progTheory.nsLookup_nsBind_compute,
+           do_app_def,state_component_equality]
 QED
 
 Theorem w8array_update_spec:

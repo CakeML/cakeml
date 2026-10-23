@@ -507,6 +507,12 @@ val _ = data_to_wordTheory.SmallnumDivMod_def |> cv_trans;
 val _ = data_to_wordTheory.SmallnumDivCall_def |> SRULE [locs_thm] |> cv_trans;
 val _ = data_to_wordTheory.SmallnumDiv_def |> cv_trans;
 
+val _ = data_to_wordTheory.ScanByte_step_def |> cv_trans;
+val _ = data_to_wordTheory.ScanByte_tail_code_def |> SRULE [LET_THM] |> cv_trans;
+val _ = data_to_wordTheory.ScanByte_word_body_def |> SRULE [LET_THM] |> cv_trans;
+val _ = data_to_wordTheory.ScanByte_bulk_def |> SRULE [LET_THM] |> cv_trans;
+val _ = data_to_wordTheory.ScanByte_code_def |> SRULE [LET_THM] |> cv_trans;
+
 val code_defs =
   DB.find "_code_def" |> map fst |> filter (fn s => fst s = "data_to_word") |> map snd
   |> map (fetch "data_to_word");
