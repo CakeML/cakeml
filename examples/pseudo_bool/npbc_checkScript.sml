@@ -3938,8 +3938,7 @@ Type aord_s = ``:aord # unit option vector``;
 Datatype:
   proof_conf =
     <|
-       id : num (* The next global ID *)
-     ; chk : bool (* the checked deletion flag *)
+       chk : bool (* the checked deletion flag *)
      ; tcb : bool (* the strengthen-to-core flag *)
      ; pres : num_set option (* the preserved set *)
      ; obj : ((int # num) list # int) option (* the objective *)
@@ -4081,7 +4080,7 @@ QED
 
 Definition check_cstep_def:
   (check_cstep cstep
-    (fml:pbf)
+    (fml:pbf) (id:num)
     (pc : proof_conf) =
   case cstep of
   | Dom c s pfs idopt =>
@@ -4090,7 +4089,7 @@ Definition check_cstep_def:
     | SOME aspo =>
     if check_pres pc.pres s ∧ check_fresh_aspo fml c pc.obj s pc.ord then
     ( let nc = not c in
-      let (fml_not_c,id1) = insert_fml F fml pc.id (not c) in
+      let (fml_not_c,id1) = insert_fml F fml id (not c) in
       let s = mk_subst s in
       let w = subst_fun s in
       let (dsubs,dscopes,dindex) = dom_subgoals aspo w c pc.obj in
@@ -4114,13 +4113,13 @@ Definition check_cstep_def:
           | SOME cid =>
             check_contradiction_fml F fml' cid) in
         if check then
-          SOME (insert id' (c,pc.tcb) fml, pc with id := id'+1)
+          SOME (insert id' (c,pc.tcb) fml, id'+1, pc)
         else NONE ))
     else NONE)
   | Sstep sstep =>
-    (case check_sstep sstep pc.pres pc.ord pc.obj pc.tcb fml pc.id of
+    (case check_sstep sstep pc.pres pc.ord pc.obj pc.tcb fml id of
       SOME(fml',id') =>
-        SOME (fml', pc with id := id')
+        SOME (fml', id', pc)
     | NONE => NONE)
   | CheckedDelete n s pfs idopt =>
     if check_tcb_idopt pc.tcb idopt then
@@ -4129,26 +4128,25 @@ Definition check_cstep_def:
       | SOME c =>
         (let nfml = delete n fml in
         case check_red pc.pres pc.ord pc.obj T pc.tcb nfml
-          pc.id c s pfs idopt of
+          id c s pfs idopt of
           SOME id' =>
-          SOME (nfml,
-          pc with <| id := id' |>)
+          SOME (nfml, id', pc)
         | NONE => NONE))
     else NONE
   | UncheckedDelete ls =>
       (* Either no order or all ids are in core *)
       if ¬pc.tcb ∧ pc.ord = NONE ∨
          all_core fml then
-          SOME (FOLDL (λa b. delete b a) fml ls,
+          SOME (FOLDL (λa b. delete b a) fml ls, id,
             pc with chk := F)
       else NONE
   | Transfer ls =>
     (case do_transfer fml ls of
       NONE => NONE
-    | SOME fml' => SOME (fml', pc))
+    | SOME fml' => SOME (fml', id, pc))
   | StrengthenToCore b =>
     SOME (
-      if b then map (λ(c,b). (c,T)) fml else fml,
+      if b then map (λ(c,b). (c,T)) fml else fml, id,
       pc with tcb := b)
   | LoadOrder name xs =>
       (case ALOOKUP pc.orders name of
@@ -4157,14 +4155,14 @@ Definition check_cstep_def:
         if guard_ord_t ord' xs
         then
           SOME (
-            map (λ(c,b). (c,T)) fml,
+            map (λ(c,b). (c,T)) fml, id,
             pc with ord := mk_ordsub ord' xs)
         else NONE)
   | UnloadOrder =>
     (case pc.ord of
       NONE => NONE
     | SOME spo =>
-      SOME (fml, pc with ord := NONE))
+      SOME (fml, id, pc with ord := NONE))
   | StoreOrder name vars gspec f pfsr pfst =>
     (case check_spec vars gspec of NONE => NONE
     | SOME asv =>
@@ -4173,9 +4171,10 @@ Definition check_cstep_def:
       then
         case check_transitivity aord pfst of
           NONE => NONE
-        | SOME id =>
-          if check_reflexivity aord pfsr id then
-            SOME (fml, pc with orders := (name,((aord,asv):aord_s))::pc.orders)
+        | SOME tid =>
+          if check_reflexivity aord pfsr tid then
+            SOME (fml, id,
+              pc with orders := (name,((aord,asv):aord_s))::pc.orders)
           else NONE
       else
         NONE)
@@ -4190,42 +4189,39 @@ Definition check_cstep_def:
         if pc.obj ≠ NONE then
           let c = model_improving pc.obj new in
           SOME (
-            insert pc.id (c,T) fml,
+            insert id (c,T) fml, id+1,
             pc with
-            <| id := pc.id+1;
-               bound := bound';
+            <| bound := bound';
                dbound := dbound' |>)
         else NONE
       else
-        SOME (fml,
+        SOME (fml, id,
           pc with
           <| bound := bound';
              dbound := dbound' |>))
   | ChangeObj b fc' pfs =>
-    (case check_change_obj b fml pc.id pc.obj fc' pfs of
+    (case check_change_obj b fml id pc.obj fc' pfs of
       NONE => NONE
     | SOME (fc',id') =>
-      SOME (fml, pc with <| id := id'; obj := SOME fc' |>))
+      SOME (fml, id', pc with obj := SOME fc'))
   | CheckObj fc' =>
     if check_eq_obj pc.obj fc'
-    then SOME (fml,pc)
+    then SOME (fml,id,pc)
     else NONE
   | AssertObj i => (
       if pc.obj ≠ NONE then
         let c = model_improving pc.obj i in
         let dbound' = update_dbound pc.dbound i in
           SOME (
-            insert pc.id (c,T) fml,
-            pc with
-            <| id := pc.id+1;
-               dbound := dbound' |>)
+            insert id (c,T) fml, id+1,
+            pc with dbound := dbound')
       else NONE
     )
   | ChangePres b v c pfs =>
-    (case check_change_pres b fml pc.id pc.pres v c pfs of
+    (case check_change_pres b fml id pc.pres v c pfs of
       NONE => NONE
     | SOME (pres',id') =>
-      SOME (fml, pc with <| id := id'; pres := SOME pres' |>)
+      SOME (fml, id', pc with pres := SOME pres')
     )
   | Sol w free =>
     (if pc.obj ≠ NONE ∨ ¬pc.chk ∨ ¬free_ok pc.pres free then NONE
@@ -4238,16 +4234,15 @@ Definition check_cstep_def:
       let dbound' = update_dbound pc.dbound 0 in
       let c = model_banning pc.pres free w in
         SOME (
-          insert pc.id (c,T) fml,
+          insert id (c,T) fml, id+1,
           pc with
-          <| id := pc.id+1;
-             bound := bound';
+          <| bound := bound';
              dbound := dbound';
              enum := pc.enum + cube_count free
              |>))
   | CheckPres ls' =>
     if check_eq_pres pc.pres ls'
-    then SOME (fml,pc)
+    then SOME (fml,id,pc)
     else NONE
   )
 End
@@ -4897,14 +4892,14 @@ Proof
 QED
 
 Theorem check_cstep_correct:
-  id_ok fml pc.id ∧
+  id_ok fml id ∧
   OPTION_ALL good_aspo_subst pc.ord ∧
   EVERY (good_aord_t o SND) pc.orders ∧
   valid_conf pc.chk pc.pres (OPTION_MAP FST pc.ord) pc.obj pc.tcb fml ⇒
-  case check_cstep cstep fml pc of NONE => T
-  | SOME (fml',pc') =>
-      pc.id ≤ pc'.id ∧
-      id_ok fml' pc'.id ∧
+  case check_cstep cstep fml id pc of NONE => T
+  | SOME (fml',id',pc') =>
+      id ≤ id' ∧
+      id_ok fml' id' ∧
       valid_conf pc'.chk pc'.pres (OPTION_MAP FST pc'.ord) pc'.obj pc'.tcb fml' ∧
       opt_le pc'.bound pc.bound ∧
       opt_le pc'.dbound pc.dbound ∧
@@ -4955,7 +4950,7 @@ Proof
     rw[]>>
     pairarg_tac>>gvs[]>>
     gvs[insert_fml_def]>>
-    `id_ok (insert pc.id (not p,F) fml) (pc.id + 1)` by
+    `id_ok (insert id (not p,F) fml) (id + 1)` by
       fs[id_ok_def]>>
     drule check_scopes_correct>>
     rename1`check_scopes scpfs`>>
@@ -5013,7 +5008,7 @@ Proof
         metis_tac[core_only_fml_T_SUBSET_F]>>
       CONJ_TAC >-
         gvs[sat_obj_po_def]>>
-      `pc.id ∉ domain fml` by fs[id_ok_def]>>
+      `id ∉ domain fml` by fs[id_ok_def]>>
       fs[core_only_fml_F_insert_b]>>
       fs[EVERY_MEM,MEM_MAP,EXISTS_PROD]>>
       gvs[dom_subgoals_def,MEM_enumerate_iff,ADD1,AND_IMP_INTRO,PULL_EXISTS]>>
@@ -5251,7 +5246,7 @@ Proof
     fs[check_cstep_def]>>
     rw[]>>
     every_case_tac>>fs[]>>
-    `id_ok (delete n fml) pc.id` by
+    `id_ok (delete n fml) id` by
       (fs[id_ok_def]>>
       metis_tac[SUBSET_DEF])>>
     fs[valid_conf_def]>>
@@ -5596,7 +5591,7 @@ Proof
     >- (
       (* Adding model improving *)
       gvs[update_bound_def,update_dbound_def]>>
-      `pc.id ∉ domain fml` by fs[id_ok_def]>>
+      `id ∉ domain fml` by fs[id_ok_def]>>
       CONJ_TAC >- fs[id_ok_def]>>
       CONJ_TAC >- (
         fs[valid_conf_def]>>
@@ -5748,7 +5743,7 @@ Proof
     every_case_tac>>fs[]>>
     strip_tac>>
     gvs[update_dbound_def]>>
-    `pc.id ∉ domain fml` by fs[id_ok_def]>>
+    `id ∉ domain fml` by fs[id_ok_def]>>
     CONJ_TAC >- fs[id_ok_def]>>
     CONJ_TAC >- (
       fs[valid_conf_def]>>
@@ -5861,12 +5856,12 @@ Proof
     every_case_tac>>rw[]>>
     metis_tac[INJ_ID])
   >~[`Sol`] >- (
-    rename1 `check_cstep (Sol wm free) fml pc` >>
+    rename1 `check_cstep (Sol wm free) fml id pc` >>
     rw[check_cstep_def,AllCaseEqs()] >>
     gvs[update_bound_def,update_dbound_def] >>
     namedCases_on `check_sol wm free (MAP SND (toAList (mk_core_fml T fml)))`
       ["", "w"] >> simp[] >>
-    `pc.id ∉ domain fml` by fs[id_ok_def] >>
+    `id ∉ domain fml` by fs[id_ok_def] >>
     conj_tac >- fs[id_ok_def] >>
     conj_tac >- (
       fs[valid_conf_def] >>
@@ -5918,11 +5913,11 @@ Proof
 QED
 
 Definition check_csteps_def:
-  (check_csteps [] fml pc = SOME (fml,pc)) ∧
-  (check_csteps (s::ss) fml pc =
-    case check_cstep s fml pc of
-    SOME (fml',pc') =>
-    check_csteps ss fml' pc'
+  (check_csteps [] fml id pc = SOME (fml,id,pc)) ∧
+  (check_csteps (s::ss) fml id pc =
+    case check_cstep s fml id pc of
+    SOME (fml',id',pc') =>
+    check_csteps ss fml' id' pc'
     | NONE => NONE)
 End
 
@@ -6000,15 +5995,15 @@ Proof
 QED
 
 Theorem check_csteps_correct:
-  ∀csteps fml pc fml' pc'.
-  id_ok fml pc.id ∧
+  ∀csteps fml id pc fml' id' pc'.
+  id_ok fml id ∧
   OPTION_ALL good_aspo_subst pc.ord ∧
   EVERY (good_aord_t ∘ SND) pc.orders ∧
   valid_conf pc.chk pc.pres (OPTION_MAP FST pc.ord) pc.obj pc.tcb fml ∧
-  check_csteps csteps fml pc = SOME(fml',pc') ⇒
+  check_csteps csteps fml id pc = SOME(fml',id',pc') ⇒
     hide (
-    pc.id ≤ pc'.id ∧
-    id_ok fml' pc'.id ∧
+    id ≤ id' ∧
+    id_ok fml' id' ∧
     valid_conf pc'.chk pc'.pres (OPTION_MAP FST pc'.ord) pc'.obj pc'.tcb fml' ∧
     opt_le pc'.bound pc.bound ∧
     opt_le pc'.dbound pc.dbound ∧
@@ -6308,10 +6303,9 @@ Definition hconcl_concl_def:
 End
 
 Definition init_conf_def:
-  init_conf id chk pres obj =
+  init_conf chk pres obj =
   <|
-       id := id
-     ; chk := chk
+       chk := chk
      ; tcb := F
      ; obj := obj
      ; pres := pres
@@ -6326,8 +6320,8 @@ End
 Theorem check_csteps_check_hconcl:
   id_ok fml id ∧
   check_csteps csteps
-    fml (init_conf id chk pres obj) =
-    SOME (fml',pc') ∧
+    fml id (init_conf chk pres obj) =
+    SOME (fml',id',pc') ∧
   all_core fml ∧
   set fmlls = core_only_fml T fml ∧
   check_hconcl fmlls obj fml' pc'.obj pc'.bound pc'.dbound pc'.enum hconcl ⇒
@@ -6532,7 +6526,7 @@ QED
 Theorem check_csteps_check_output:
   id_ok fml id ∧
   check_csteps csteps
-    fml (init_conf id chk pres obj) = SOME (fml',pc') ∧
+    fml id (init_conf chk pres obj) = SOME (fml',id',pc') ∧
   all_core fml ∧
   check_output fml' pc'.pres pc'.obj pc'.bound pc'.dbound pc'.chk fmlt prest objt output ⇒
   sem_output

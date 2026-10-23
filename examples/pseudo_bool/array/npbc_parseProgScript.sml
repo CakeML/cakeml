@@ -2149,15 +2149,16 @@ QED
 (* returns the necessary information to check the
   output and conclusion sections *)
 Quote add_cakeml:
-  fun check_unsat'' fns fd lno fml assg st inds vimap vomap pc =
+  fun check_unsat'' fns fd lno fml assg st inds vimap id cfg =
     case parse_cstep fns fd lno of
       (Inl s, (fns', lno')) =>
+      (case cfg of (pc,_) =>
       (lno', (s, (fns',
-        (fml, (inds, pc)))))
+        (fml, (inds, pc))))))
     | (Inr cstep, (fns', lno')) =>
-      (case check_cstep_arr lno cstep fml assg st inds vimap vomap pc of
-        (fml', (assg', (st', (inds', (vimap', (vomap', pc')))))) =>
-        check_unsat'' fns' fd lno' fml' assg' st' inds' vimap' vomap' pc')
+      (case check_cstep_arr lno cstep fml assg st inds vimap id cfg of
+        (fml', (assg', (st', (inds', (vimap', (id', cfg')))))) =>
+        check_unsat'' fns' fd lno' fml' assg' st' inds' vimap' id' cfg')
 End
 
 Theorem read_open_LENGTH:
@@ -2207,15 +2208,15 @@ QED
   returning the last encountered state *)
 Definition parse_and_run_def:
   parse_and_run fns ss
-    fml assg st inds vimap vomap pc =
+    fml assg st inds vimap id cfg =
   case parse_cstep fns ss of
     NONE => NONE
   | SOME (INL s, fns', rest) =>
-    SOME (rest, s, fns', fml, inds, pc)
+    SOME (rest, s, fns', fml, inds, FST cfg)
   | SOME (INR cstep, fns', rest) =>
-    (case check_cstep_list cstep fml assg st inds vimap vomap pc of
-      SOME (fml', assg', st', inds', vimap', vomap', pc') =>
-        parse_and_run fns' rest fml' assg' st' inds' vimap' vomap' pc'
+    (case check_cstep_list cstep fml assg st inds vimap id cfg of
+      SOME (fml', assg', st', inds', vimap', id', cfg') =>
+        parse_and_run fns' rest fml' assg' st' inds' vimap' id' cfg'
     | res => NONE)
 Termination
   WF_REL_TAC `measure (LENGTH o FST o SND)`>>
@@ -2256,23 +2257,23 @@ Proof
 QED
 
 Theorem check_unsat''_spec:
-  ∀fns ss fmlls assg st inds vimap vomap pc
-    fnsv lno lnov fmllsv assgv stv indsv pcv lines fs fmlv vimaplsv vimapv
-    vomapv.
+  ∀fns ss fmlls assg st inds vimap id cfg
+    fnsv lno lnov fmllsv assgv stv indsv idv cfgv lines fs fmlv vimaplsv
+    vimapv.
   fns_TYPE a fns fnsv ∧
   NUM lno lnov ∧
   LIST_REL fslot_TYPE fmlls fmllsv ∧
   fml_bound fmlls (LENGTH assg) ∧
   NUM st stv ∧
   (LIST_TYPE NUM) inds indsv ∧
-  NPBC_CHECK_PROOF_CONF_TYPE pc pcv ∧
   LIST_REL vimapn_TYPE vimap vimaplsv ∧
-  vomap_TYPE vomap vomapv ∧
+  NUM id idv ∧
+  cfg_TYPE cfg cfgv ∧
   MAP toks_fast lines = ss
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat''" (get_ml_prog_state()))
-    [fnsv; fdv; lnov; fmlv; assgv; stv; indsv; vimapv; vomapv; pcv]
+    [fnsv; fdv; lnov; fmlv; assgv; stv; indsv; vimapv; idv; cfgv]
     (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs *
       ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
       ARRAY vimapv vimaplsv)
@@ -2283,7 +2284,7 @@ Theorem check_unsat''_spec:
          INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          ARRAY fmlv' fmllsv' *
          &(
-          parse_and_run fns ss fmlls assg st inds vimap vomap pc =
+          parse_and_run fns ss fmlls assg st inds vimap id cfg =
             SOME (MAP toks_fast lines',res) ∧
             PAIR_TYPE NUM (
             PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (
@@ -2298,10 +2299,11 @@ Theorem check_unsat''_spec:
            ARRAY fmlv' fmllsv' *
            STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e ∧
-            parse_and_run fns ss fmlls assg st inds vimap vomap pc = NONE)))
+            parse_and_run fns ss fmlls assg st inds vimap id cfg = NONE)))
 Proof
   ho_match_mp_tac (fetch "-" "parse_and_run_ind")>>
   rw[]>>
+  PairCases_on`cfg`>>
   xcf "check_unsat''" (get_ml_prog_state ())>>
   simp[Once parse_and_run_def]>>
   Cases_on`parse_cstep fns (MAP toks_fast lines)`>>fs[]
@@ -2356,6 +2358,7 @@ Proof
   gs[SUM_TYPE_def,PAIR_TYPE_def]
   >- (
     xmatch>>
+    xmatch>>
     rpt xlet_autop>>
     xcon>>xsimpl>>
     qexistsl_tac[`k`,`lines'`,`lno'`,`fmlv`,`fmllsv`]>>
@@ -2369,7 +2372,8 @@ Proof
       ARRAY fmlv' fmllsv' * NUM_ARRAY assgv' assg' *
       ARRAY vimapv' vimaplsv' * STDIO (forwardFD fs fd k) *
       INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
-      &case check_cstep_list cstep fmlls assg st inds vimap vomap pc of
+      &case check_cstep_list cstep fmlls assg st inds vimap id
+          (cfg0,cfg1,cfg2) of
         NONE => F
       | SOME res =>
         PAIR_TYPE (λl v. LIST_REL fslot_TYPE l fmllsv' ∧ v = fmlv')
@@ -2378,20 +2382,23 @@ Proof
           (PAIR_TYPE (LIST_TYPE NUM)
             (PAIR_TYPE
               (λl v. LIST_REL vimapn_TYPE l vimaplsv' ∧ v = vimapv')
-              (PAIR_TYPE vomap_TYPE NPBC_CHECK_PROOF_CONF_TYPE))))) res v')
+              (PAIR_TYPE NUM cfg_TYPE))))) res v')
     (λe.
       SEP_EXISTS fmlv' fmllsv'.
       ARRAY fmlv' fmllsv' * STDIO (forwardFD fs fd k) *
       INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
       &(Fail_exn e ∧
-        check_cstep_list cstep fmlls assg st inds vimap vomap pc = NONE))`
+        check_cstep_list cstep fmlls assg st inds vimap id
+          (cfg0,cfg1,cfg2) = NONE))`
   >- (
     xapp>>xsimpl>>
     qexistsl_tac[`STDIO (forwardFD fs fd k) *
       INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k)`,
-      `vomap`,`vimap`,`st`,`pc`,`inds`,`fmlls`,`cstep`,`assg`,`lno`]>>
+      `cfg1`,`vimap`,`st`,`cfg0`,`inds`,`id`,`fmlls`,`cfg2`,`cstep`,`assg`,
+      `lno`]>>
     xsimpl>>
     rw[]
+    >- simp[PAIR_TYPE_def]
     >- (first_assum (irule_at Any)>>xsimpl)>>
     qmatch_goalsub_rename_tac`ARRAY aa bb * NUM_ARRAY _ _ * _ ==>> _`>>
     qexistsl_tac[`aa`,`bb`]>>
@@ -2885,9 +2892,9 @@ Quote add_cakeml:
     let
     val assg = Array.array (mx + 1) 0
     val vomap = mk_vomap_opt_arr obj
-    val pc = init_conf id True pres obj
+    val cfg = (init_conf True pres obj, (vomap, 0))
   in
-    (case check_unsat'' fns fd lno arr assg 1 inds vimap vomap pc of
+    (case check_unsat'' fns fd lno arr assg 1 inds vimap id cfg of
       (lno', (s, (fns',(
         (fml', (inds', pc')))))) =>
     conv_boutput_hconcl
@@ -2903,12 +2910,12 @@ Quote add_cakeml:
 End
 
 Theorem parse_and_run_check_csteps_list:
-  ∀fns ss fml assg st inds vimap vomap pc rest s fns' fml' inds' pc'.
-  parse_and_run fns ss fml assg st inds vimap vomap pc =
+  ∀fns ss fml assg st inds vimap id cfg rest s fns' fml' inds' pc'.
+  parse_and_run fns ss fml assg st inds vimap id cfg =
     SOME (rest, s, fns', (fml', inds', pc')) ⇒
-  ∃csteps assg' st' vimap' vomap'.
-  check_csteps_list csteps fml assg st inds vimap vomap pc =
-    SOME (fml', assg', st', inds', vimap', vomap', pc')
+  ∃csteps assg' st' vimap' id' vomap' cw'.
+  check_csteps_list csteps fml assg st inds vimap id cfg =
+    SOME (fml', assg', st', inds', vimap', id', (pc', vomap', cw'))
 Proof
   ho_match_mp_tac parse_and_run_ind>>
   rw[]>>
@@ -2918,6 +2925,7 @@ Proof
   >- (
     rw[]>>
     qexists_tac`[]`>>
+    PairCases_on`cfg`>>
     simp[npbc_listTheory.check_csteps_list_def])>>
   rw[]>>
   first_x_assum drule_all>>
@@ -3057,7 +3065,7 @@ Proof
   qabbrev_tac`assg = REPLICATE (mx+1) (0:num)`>>
   Cases_on`
     parse_and_run fns (MAP toks_fast lines) fmlls assg 1 inds vimap1
-      vomap (init_conf (LENGTH fml + 1) T pres obj)`
+      (LENGTH fml + 1) (init_conf T pres obj, vomap, 0)`
   >- (
     xhandle`POSTe e.
       SEP_EXISTS k lines' fmlv' fmllsv'.
@@ -3072,10 +3080,13 @@ Proof
            &(Fail_exn e)`
       >- (
         xapp>>xsimpl>>
-        qexistsl_tac[`emp`,`vomap`,`vimap1`,
-          `init_conf (LENGTH fml + 1) T pres obj`,`lines`,`inds`,`fs`,`fns`,
-          `fmlls`,`fd`,`assg`,`a`,`lno`]>>
-        xsimpl>>rw[]>>
+        qexistsl_tac[`emp`,`vimap1`,`lines`,`inds`,`LENGTH fml + 1`,`fs`,`fns`,
+          `fmlls`,`fd`,`(init_conf T pres obj, vomap, 0)`,`assg`,`a`,`lno`]>>
+        xsimpl>>
+        conj_tac >- (
+          simp[PAIR_TYPE_def,Abbr`vomap`]>>
+          simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])>>
+        rw[]>>
         qmatch_goalsub_rename_tac
           `ARRAY _ _ * STDIO (forwardFD fs fd kk) *
             INSTREAM_LINES _ fd fdv ll _ ==>> _`>>
@@ -3112,8 +3123,8 @@ Proof
          ARRAY fmlv' fmllsv' *
          &(
           parse_and_run fns (MAP toks_fast lines)
-            fmlls assg 1 inds vimap1 vomap
-            (init_conf (LENGTH fml + 1) T pres obj) =
+            fmlls assg 1 inds vimap1 (LENGTH fml + 1)
+            (init_conf T pres obj, vomap, 0) =
               SOME (MAP toks_fast lines',res) ∧
             PAIR_TYPE NUM (
             PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (
@@ -3123,10 +3134,13 @@ Proof
               NPBC_CHECK_PROOF_CONF_TYPE)))) (lno',res) v)`
     >- (
       xapp>>xsimpl>>
-      qexistsl_tac[`emp`,`vomap`,`vimap1`,
-        `init_conf (LENGTH fml + 1) T pres obj`,`lines`,`inds`,`fs`,`fns`,
-        `fmlls`,`fd`,`assg`,`a`,`lno`]>>
-      xsimpl>>rw[]>>
+      qexistsl_tac[`emp`,`vimap1`,`lines`,`inds`,`LENGTH fml + 1`,`fs`,`fns`,
+        `fmlls`,`fd`,`(init_conf T pres obj, vomap, 0)`,`assg`,`a`,`lno`]>>
+      xsimpl>>
+      conj_tac >- (
+        simp[PAIR_TYPE_def,Abbr`vomap`]>>
+        simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])>>
+      rw[]>>
       qmatch_goalsub_rename_tac
         `STDIO (forwardFD fs fd kk) * INSTREAM_LINES _ fd fdv ll _ *
           ARRAY aa bb ==>> _`>>
