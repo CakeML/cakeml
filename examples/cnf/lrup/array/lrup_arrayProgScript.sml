@@ -3,8 +3,8 @@
 *)
 Theory lrup_arrayProg
 Ancestors
-  misc mllist UnsafeProof ccnf_arrayProg ccnf_parseProg cnf ccnf ccnf_list
-  syntax_helper lrup lrup_list
+  misc mllist UnsafeProof ccnf_arith ccnf_arrayProg ccnf_parseProg cnf ccnf
+  ccnf_list syntax_helper lrup lrup_list
   mlint mlvector
 Libs
   preamble basis
@@ -19,7 +19,7 @@ Quote add_cakeml:
   fun check_lrup_arr lno lrup fml carr b =
   case lrup of
     Delvb s =>
-      (delete_ids_vb_arr fml s 1 (String.size s); (fml, carr, b))
+      (delete_ids_vb_arr vcc_none fml s 1 (String.size s); (fml, carr, b))
   | Lrupvb n c s =>
       (case is_rup_vb_arr lno fml carr b c s of (carr,b) =>
         (insert_clause_arr fml n c, carr, b))
@@ -27,12 +27,30 @@ End
 
 val LRUP_LRUP_TYPE_def = fetch "-" "LRUP_LRUP_TYPE_def";
 
+(* A deletion record holds at least its tag byte *)
+Definition lrup_vb_ok_def:
+  (lrup_vb_ok (Delvb s) ⇔ 1 ≤ strlen s) ∧
+  (lrup_vb_ok (Lrupvb n c s) ⇔ T)
+End
+
+Theorem parse_lrup_one_vb_ok:
+  parse_lrup_one lines = SOME (SOME (step,rest)) ⇒
+  lrup_vb_ok step
+Proof
+  rw[parse_lrup_one_def]>>
+  gvs[AllCaseEqs(),lrup_vb_ok_def]>>
+  pop_assum mp_tac>>
+  rw[parse_lrup_chunk_def]>>
+  gvs[UNCURRY,lrup_vb_ok_def]
+QED
+
 Theorem check_lrup_arr_spec:
   NUM lno lnov ∧
   LRUP_LRUP_TYPE lrup lrupv ∧
   LIST_REL vcclause_TYPE fmlls fmllsv ∧
   NUM b bv ∧
-  bnd_fml fmlls (LENGTH Clist)
+  dm_ok fmlls Clist b ∧
+  lrup_vb_ok lrup
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_lrup_arr" (get_ml_prog_state()))
@@ -49,7 +67,7 @@ Theorem check_lrup_arr_spec:
             case check_lrup_list lrup fmlls Clist b of
               NONE => F
             | SOME (fmlls', Clist', b') =>
-                bnd_fml fmlls' (LENGTH Clist') ∧
+                dm_ok fmlls' Clist' b' ∧
                 LIST_REL vcclause_TYPE fmlls' fmllsv' ∧
                 NUM b' v3 ∧
                 Clist' = clist'
@@ -61,13 +79,14 @@ Theorem check_lrup_arr_spec:
 Proof
   rw[check_lrup_list_def]>>
   xcf "check_lrup_arr" (get_ml_prog_state ())>>
-  Cases_on`lrup`>>fs[LRUP_LRUP_TYPE_def]
+  Cases_on`lrup`>>fs[LRUP_LRUP_TYPE_def,lrup_vb_ok_def]
   >- (
     (* Delvb *)
     xmatch>>
+    assume_tac vcc_none_v_thm>>
     rpt xlet_autop>>
     xcon>>xsimpl>>
-    metis_tac[bnd_fml_delete_ids_vb_list])>>
+    gvs[dm_ok_def,bnd_fml_delete_ids_vb_list])>>
   (* Lrupvb *)
   xmatch>>
   xlet `
@@ -100,55 +119,17 @@ Proof
     qexistsl_tac [`v`,`n`,`fmlls`]>>
     simp[])>>
   xcon>>xsimpl>>
+  drule_all dm_ok_is_rup_vb_list>>
+  rw[dm_ok_def]>>
   irule bnd_fml_insert_vcc_list>>
-  metis_tac[bnd_fml_is_rup_vb_list]
+  simp[]
 QED
 
 (*** Reading and checking a proof file, one record at a time ***)
 
-Theorem SEP_IMP_REFL_gc[local]:
-  p ==>> p * GC
-Proof
-  xsimpl
-QED
-
 (* Closes a separation-logic entailment whose two sides differ only by
   frame association and GC slack *)
 val sep_triv = metis_tac[SEP_IMP_REFL_gc,SEP_IMP_REFL,STAR_ASSOC,STAR_COMM];
-
-(* Records are terminated by a zero byte *)
-Definition nulc_def:
-  nulc = CHR 0
-End
-
-val nulc_v_thm = translate nulc_def;
-
-val res = translate vb_ilit_def;
-val res = translate parse_vb_ilits_int_def;
-
-Theorem parse_vb_ilits_int_side[local]:
-  ∀s i len acc.
-  len ≤ strlen s ⇒ parse_vb_ilits_int_side s i len acc
-Proof
-  ho_match_mp_tac parse_vb_ilits_int_ind>>
-  rw[]>>
-  simp[Once (fetch "-" "parse_vb_ilits_int_side_def")]>>
-  simp[fetch "ccnf_arrayProg" "parse_vb_num_side_def",parse_vb_num_aux_side,
-    parse_vb_int_side]
-QED
-
-val _ = parse_vb_ilits_int_side |> update_precondition;
-
-val res = translate parse_vb_ilits_eq;
-
-Theorem parse_vb_ilits_side[local]:
-  ∀s i len acc.
-  len ≤ strlen s ⇒ parse_vb_ilits_side s i len acc
-Proof
-  rw[fetch "-" "parse_vb_ilits_side_def",parse_vb_ilits_int_side]
-QED
-
-val _ = parse_vb_ilits_side |> update_precondition;
 
 val res = translate parse_lrup_chunk_def;
 
@@ -156,8 +137,11 @@ Theorem parse_lrup_chunk_side[local]:
   ∀s. parse_lrup_chunk_side s
 Proof
   rw[fetch "-" "parse_lrup_chunk_side_def"]>>
-  simp[parse_vb_ilits_side,fetch "ccnf_arrayProg" "parse_vb_num_side_def",
-    parse_vb_num_aux_side]
+  simp[fetch "ccnf_arrayProg" "parse_vb_num_side_def",parse_vb_num_aux_side]>>
+  irule parse_vb_ilits_side>>
+  simp[]>>
+  drule parse_vb_num_le>>
+  simp[]
 QED
 
 val _ = parse_lrup_chunk_side |> update_precondition;
@@ -310,7 +294,7 @@ Theorem check_unsat''_spec:
   NUM lno lnov ∧
   LIST_REL vcclause_TYPE fmlls fmllsv ∧
   NUM b bv ∧
-  bnd_fml fmlls (LENGTH Clist)
+  dm_ok fmlls Clist b
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat''" (get_ml_prog_state()))
@@ -382,6 +366,7 @@ Proof
   rename1`parse_lrup_one lines = SOME (SOME stp)`>>
   Cases_on`stp`>>gvs[]>>
   rename1`parse_lrup_one lines = SOME (SOME (step,rest))`>>
+  drule_then assume_tac parse_lrup_one_vb_ok>>
   xmatch>>
   xlet_auto
   >- (
@@ -420,7 +405,7 @@ QED
 Quote add_cakeml:
   fun check_unsat' vcfml fname n nc =
   let
-    val fd = TextIO.openIn fname
+    val fd = TextIO.openInSetBufferSize fname proof_buffer_size
     val fml = build_cfml_arr nc 1 vcfml
     val carr = Array.array n 0
     val chk = Inr (check_unsat'' fd 1 fml carr 1)
@@ -454,6 +439,7 @@ Theorem check_unsat'_spec:
 Proof
   rw[]>>
   xcf"check_unsat'"(get_ml_prog_state ())>>
+  assume_tac proof_buffer_size_v_thm>>
   reverse (Cases_on `STD_streams fs`)
   >- (fs [TextIOProofTheory.STDIO_def]>>xpull)>>
   reverse (Cases_on`consistentFS fs`)
@@ -464,7 +450,7 @@ Proof
       &BadFileName_exn ev *
       &(~inFS_fname fs f) *
       STDIO fs`
-    >- (xlet_auto_spec (SOME openIn_STDIO_spec)>>xsimpl)>>
+    >- (xlet_auto_spec (SOME openInSetBufferSize_STDIO_spec)>>xsimpl)>>
     fs[BadFileName_exn_def]>>
     xcases>>rw[]>>
     xlet_auto>>xsimpl>>
@@ -475,15 +461,16 @@ Proof
   xhandle`$POSTv Qval`>>xsimpl>>
   qunabbrev_tac`Qval`>>
   xlet_auto_spec
-    (SOME (openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `nulc`))>>xsimpl>>
+    (SOME (openInSetBufferSize_spec_lines |> Q.GEN `c0` |> Q.SPEC `nulc`))>>xsimpl>>
   qmatch_goalsub_abbrev_tac`STDIO fss`>>
   xlet_autop>>
   xlet_auto_spec (SOME NUM_ARRAY_alloc_zero_spec)
   >- xsimpl>>
   qabbrev_tac`fmlls = build_cfml_list 1 (conv_cfml cfml) nc`>>
   qabbrev_tac`Clist = REPLICATE n (0:num)`>>
-  `bnd_fml fmlls (LENGTH Clist)` by (
+  `dm_ok fmlls Clist 1` by (
     simp[Abbr`fmlls`,Abbr`Clist`]>>
+    irule dm_ok_REPLICATE>>
     irule bnd_fml_build_cfml_list>>
     irule bnd_clause_conv_cfml>>
     fs[])>>
@@ -621,17 +608,3 @@ Proof
   qexistsl_tac [`1`,`x`,`n`,`nc`]>>
   gvs[Abbr`fmlls`,Abbr`Clist`]
 QED
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -4,7 +4,7 @@
 Theory ccnf_arrayProg
 Ancestors
   UnsafeProg UnsafeProof
-  ccnf ccnf_list mlint syntax_helper
+  ccnf ccnf_list mlint syntax_helper ccnf_arith
 Libs
   preamble basis blastLib
 
@@ -31,18 +31,6 @@ Theorem PAIR_TYPE_SPLIT:
   ∃x1 x2 v1 v2. x = (x1,x2) ∧ v = Conv NONE [v1; v2] ∧ a x1 v1 ∧ b x2 v2
 Proof
   Cases_on`x`>>EVAL_TAC>>rw[]
-QED
-
-(* An array of nums, used for the assignment map *)
-Definition NUM_ARRAY_def:
-  NUM_ARRAY av ls = SEP_EXISTS vs. ARRAY av vs * &LIST_REL NUM ls vs
-End
-
-Theorem NUM_ARRAY_refl:
-  (NUM_ARRAY av ls ==>> NUM_ARRAY av ls) ∧
-  (NUM_ARRAY av ls ==>> NUM_ARRAY av ls * GC)
-Proof
-  xsimpl
 QED
 
 Theorem NUM_ARRAY_alloc_zero_spec:
@@ -86,14 +74,6 @@ Definition unwrap_TYPE_def:
   unwrap_TYPE P x y = ∃z. x = SOME z ∧ P z y
 End
 
-Definition uvsub_def:
-  uvsub v n = sub_unsafe v n
-End
-
-val res = translate uvsub_def;
-
-val uvsub_side_def = fetch "-" "uvsub_side_def";
-
 (* The absent-clause sentinel, allocated once *)
 val vcc_none_v_thm = translate vcc_none_def;
 
@@ -108,38 +88,38 @@ Quote add_cakeml:
   if i = 0 then True
   else
     let
-      val i1 = i - 1
-      val c = uvsub v i1
+      val i1 = Unsafe.Arith.subWitness i 1 v
+      val c = Unsafe.vsub v i1
     in
-      if c < 0
+      if Unsafe.Arith.ltWitness c 0 carr
       then
-        (if Unsafe.sub carr (~c) = b
+        (if Unsafe.Arith.= (Unsafe.sub carr (Unsafe.Arith.subWitness 0 c carr)) b
         then
           all_assigned_arr carr b k v i1
         else
-          if c = k then all_assigned_arr carr b k v i1
+          if Unsafe.Arith.eqWitness c k carr then all_assigned_arr carr b k v i1
           else False)
       else
-        (if b < Unsafe.sub carr c
+        (if Unsafe.Arith.< b (Unsafe.sub carr c)
         then
           all_assigned_arr carr b k v i1
         else
-          if c = k then all_assigned_arr carr b k v i1
+          if Unsafe.Arith.eqWitness c k carr then all_assigned_arr carr b k v i1
           else False)
     end
 End
 
-Theorem uvsub_eq_sub[simp]:
-  uvsub v n = sub v n
+Theorem sub_unsafe_sub[simp]:
+  sub_unsafe v n = sub v n
 Proof
-  simp[uvsub_def,oneline mlvectorTheory.sub_unsafe_def,oneline mlvectorTheory.sub_def]
+  simp[sub_unsafe_eq_sub]
 QED
 
 
 Theorem all_assigned_arr_spec:
   ∀Clist b k vec i bv kv vecv iv Carrv.
-  NUM b bv ∧
-  INT k kv ∧
+  NUM b bv ∧ stamps_ok Clist b ∧
+  INT k kv ∧ Num (ABS k) < LENGTH Clist ∧
   vcclause_TYPE vec vecv ∧
   NUM i iv ∧
   all_assigned_list' Clist b k vec i = SOME res
@@ -154,21 +134,27 @@ Theorem all_assigned_arr_spec:
 Proof
   ho_match_mp_tac all_assigned_list'_ind>>
   rw[]>>
-  pop_assum mp_tac>> simp[Once all_assigned_list'_def]>>
+  drule_then strip_assume_tac stamps_ok_bounds>>
+  drule_then assume_tac all_assigned_list'_lit>>
+  qpat_x_assum`all_assigned_list' _ _ _ _ _ = _` mp_tac>>
+  simp[Once all_assigned_list'_def]>>
   strip_tac>>
   xcf "all_assigned_arr" (get_ml_prog_state ())>>
   xlet_autop>>
   xif>>fs[]
   >- (xcon>>xsimpl)>>
-  rpt xlet_autop>>
+  xlet_auto_spec (SOME num_sub_vec_spec)
+  >- xsimpl>>
   xlet_auto
   >- (
     xsimpl>>
-    gvs[uvsub_side_def])>>
-  xlet_autop>>
+    gvs[vsub_side_def])>>
+  xlet_auto_spec (SOME int_lt_numarr_spec)
+  >- xsimpl>>
   xif>>fs[]
   >- (
-    xlet_autop>>
+    xlet_auto_spec (SOME int_sub_numarr_spec)
+    >- xsimpl>>
     xlet`POSTv sv. NUM_ARRAY Carrv Clist *
       &NUM (EL (Num (-sub vec (i-1))) Clist) sv`
     >- (
@@ -176,10 +162,12 @@ Proof
       xapp>>xsimpl>>
       qexists_tac`Num (-sub vec (i-1))`>>
       gvs[LIST_REL_EL_EQN,NUM_def,INT_def])>>
-    xlet_autop>>
+    xlet_auto_spec (SOME num_eq_spec)
+    >- xsimpl>>
     xif>>fs[]
     >- (xapp>>xsimpl)>>
-    xlet_autop>>
+    xlet_auto_spec (SOME int_eq_numarr_spec)
+    >- xsimpl>>
     xif>>fs[]
     >- (xapp>>xsimpl)>>
     xcon>>
@@ -192,10 +180,12 @@ Proof
       xapp>>xsimpl>>
       qexists_tac`Num (sub vec (i-1))`>>
       gvs[LIST_REL_EL_EQN,NUM_def,INT_def,integerTheory.INT_NOT_LT])>>
-    xlet_autop>>
+    xlet_auto_spec (SOME num_lt_spec)
+    >- xsimpl>>
     xif>>fs[]
     >- (xapp>>xsimpl)>>
-    xlet_autop>>
+    xlet_auto_spec (SOME int_eq_numarr_spec)
+    >- xsimpl>>
     xif>>fs[]
     >- (xapp>>xsimpl)>>
     xcon>>
@@ -207,26 +197,26 @@ Quote add_cakeml:
   if i = 0 then True
   else
     let
-      val i1 = i - 1
-      val c = uvsub v i1
+      val i1 = Unsafe.Arith.subWitness i 1 v
+      val c = Unsafe.vsub v i1
     in
-      if c < 0
+      if Unsafe.Arith.ltWitness c 0 carr
       then
         let
-          val nc = ~c
+          val nc = Unsafe.Arith.subWitness 0 c carr
         in
-          if Unsafe.sub carr nc = b
+          if Unsafe.Arith.= (Unsafe.sub carr nc) b
           then
             delete_literals_sing_arr lno carr b v i1
           else
             if all_assigned_arr carr b c v i1
             then
-              (Unsafe.update carr nc (b + 1); False)
+              (Unsafe.update carr nc (Unsafe.Arith.+ b 1); False)
             else
               raise Fail (format_failure lno "clause not empty or singleton after reduction")
         end
       else
-        if b < Unsafe.sub carr c
+        if Unsafe.Arith.< b (Unsafe.sub carr c)
         then
           delete_literals_sing_arr lno carr b v i1
         else
@@ -241,7 +231,7 @@ End
 Theorem delete_literals_sing_arr_spec:
   ∀Clist b vec i bv vecv iv Carrv res.
   NUM lno lnov ∧
-  NUM b bv ∧
+  NUM b bv ∧ stamps_ok Clist b ∧
   VECTOR_TYPE INT vec vecv ∧
   NUM i iv ∧
   delete_literals_sing_list' Clist b vec i = SOME res
@@ -262,7 +252,10 @@ Theorem delete_literals_sing_arr_spec:
 Proof
   ho_match_mp_tac delete_literals_sing_list'_ind>>
   rw[]>>
-  pop_assum mp_tac>> simp[Once delete_literals_sing_list'_def]>>
+  drule_then strip_assume_tac stamps_ok_bounds>>
+  drule_then assume_tac delete_literals_sing_list'_lit>>
+  qpat_x_assum`delete_literals_sing_list' _ _ _ _ = _` mp_tac>>
+  simp[Once delete_literals_sing_list'_def]>>
   strip_tac>>
   xcf "delete_literals_sing_arr" (get_ml_prog_state ())>>
   xlet_autop>>
@@ -270,15 +263,18 @@ Proof
   >- (
     xcon>>xsimpl>>
     EVAL_TAC)>>
-  xlet_autop>>
+  xlet_auto_spec (SOME num_sub_vec_spec)
+  >- xsimpl>>
   xlet_auto
   >- (
     xsimpl>>
-    gvs[uvsub_side_def])>>
-  rpt xlet_autop>>
+    gvs[vsub_side_def])>>
+  xlet_auto_spec (SOME int_lt_numarr_spec)
+  >- xsimpl>>
   xif>>gvs[]
   >- (
-    xlet_autop>>
+    xlet_auto_spec (SOME int_sub_numarr_spec)
+    >- xsimpl>>
     xlet`POSTv sv. NUM_ARRAY Carrv Clist *
       &NUM (EL (Num (-sub vec (i-1))) Clist) sv`
     >- (
@@ -286,13 +282,15 @@ Proof
       xapp>>xsimpl>>
       qexists_tac`Num (-sub vec (i-1))`>>
       gvs[LIST_REL_EL_EQN,NUM_def,INT_def])>>
-    xlet_autop>>
+    xlet_auto_spec (SOME num_eq_spec)
+    >- xsimpl>>
     xif>>gvs[]
     >- (xapp>>xsimpl)>>
     rpt xlet_autop>>
     xif>>gvs[]
     >- (
-      xlet_autop>>
+      xlet_auto_spec (SOME num_add_spec)
+      >- xsimpl>>
       xlet`POSTv uv. NUM_ARRAY Carrv
         (LUPDATE (b+1) (Num (-sub vec (i-1))) Clist)`
       >- (
@@ -313,7 +311,8 @@ Proof
     xapp>>xsimpl>>
     qexists_tac`Num (sub vec (i-1))`>>
     gvs[LIST_REL_EL_EQN,NUM_def,INT_def,integerTheory.INT_NOT_LT])>>
-  xlet_autop>>
+  xlet_auto_spec (SOME num_lt_spec)
+  >- xsimpl>>
   xif>>gvs[]
   >- (xapp>>xsimpl)>>
   xlet_autop>>
@@ -342,15 +341,19 @@ val bw0_v_thm = translate bw0_def;
 
 Quote add_cakeml:
   fun reset_dm_arr carr b sz =
-  if Array.length carr < sz then
+  let val len = Array.length carr in
+  if len < sz then
     (Array.array (2 * sz) 0, 1)
+  else if Unsafe.Arith.<= 536870912 b then
+    (Array.array len 0, 1)
   else
-    (carr, b + 2)
+    (carr, Unsafe.Arith.+ b 2)
+  end
 End
 
 Theorem reset_dm_arr_spec:
   NUM sz szv ∧
-  NUM b bv
+  NUM b bv ∧ stamps_ok Clist b
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "reset_dm_arr" (get_ml_prog_state()))
@@ -363,6 +366,7 @@ Theorem reset_dm_arr_spec:
           reset_dm_list Clist b sz = (Clist',b')))
 Proof
   rw[]>>
+  drule stamps_ok_bounds>>strip_tac>>
   xcf "reset_dm_arr" (get_ml_prog_state ())>>
   xlet`POSTv lv. NUM_ARRAY Carrv Clist * &NUM (LENGTH Clist) lv`
   >- (
@@ -377,13 +381,56 @@ Proof
     simp[reset_dm_list_def,PAIR_TYPE_def,NUM_ARRAY_def]>>
     xsimpl>>
     simp[LIST_REL_REPLICATE_same,NUM_def,INT_def])>>
-  xlet_autop>>
+  xlet_auto_spec (SOME num_le_spec)
+  >- xsimpl>>
+  xif
+  >- (
+    rpt xlet_autop>>
+    xcon>>
+    simp[reset_dm_list_def,PAIR_TYPE_def,NUM_ARRAY_def]>>
+    xsimpl>>
+    simp[LIST_REL_REPLICATE_same,NUM_def,INT_def])>>
+  xlet_auto_spec (SOME num_add_spec)
+  >- xsimpl>>
   xcon>>
   simp[reset_dm_list_def,PAIR_TYPE_def]>>
   xsimpl
 QED
 
-val res = translate sz_lit_map_def;
+Theorem sz_lit_map_small:
+  sz_lit_map i v m =
+  if i = 0
+  then
+    m
+  else
+    let i1 = smallnum_sub_vec i 1 v in
+    let d = Num (ABS (sub_unsafe v i1)) in
+    if d < m
+    then
+      sz_lit_map i1 v m
+    else
+      sz_lit_map i1 v (d+1)
+Proof
+  CONV_TAC (LHS_CONV (ONCE_REWRITE_CONV [sz_lit_map_def]))>>
+  simp[smallnum_sub_vec_def]
+QED
+
+val res = translate_no_ind sz_lit_map_small;
+
+Theorem sz_lit_map_ind_thm[local]:
+  sz_lit_map_ind
+Proof
+  once_rewrite_tac [fetch "-" "sz_lit_map_ind_def"]>>
+  rpt gen_tac>>
+  rpt (disch_then strip_assume_tac)>>
+  match_mp_tac ccnf_listTheory.sz_lit_map_ind>>
+  rpt strip_tac>>
+  last_x_assum match_mp_tac>>
+  rpt strip_tac>>
+  gvs[smallnum_sub_vec_def]
+QED
+
+val _ = sz_lit_map_ind_thm |> update_precondition;
 
 Theorem sz_lit_map_side:
   ∀i v m.
@@ -392,26 +439,10 @@ Theorem sz_lit_map_side:
 Proof
   ho_match_mp_tac sz_lit_map_ind>>rw[]>>
   simp[Once (fetch "-" "sz_lit_map_side_def")]>>
-  rw[]>>gvs[]
+  rw[]>>gvs[smallnum_sub_vec_def]
 QED
 
 val _ = sz_lit_map_side |> update_precondition;
-
-Definition mk_bb_nc_def[simp]:
-  mk_bb_nc d (b:num) =
-  if d > 0 then (b+1, Num d) else (b,Num (-d))
-End
-
-val res = translate mk_bb_nc_def;
-
-Theorem mk_bb_nc_side[local]:
-  mk_bb_nc_side d b ⇔ T
-Proof
-  EVAL_TAC>>rw[]>>
-  intLib.ARITH_TAC
-QED
-
-val _ = mk_bb_nc_side |> update_precondition;
 
 Quote add_cakeml:
   fun init_lit_map_arr i v carr b =
@@ -419,18 +450,22 @@ Quote add_cakeml:
   then ()
   else
     let
-      val i1 = i - 1
-      val d = uvsub v i1
+      val i1 = Unsafe.Arith.subWitness i 1 v
+      val d = Unsafe.vsub v i1
     in
-      case mk_bb_nc d b of (bb,nc) =>
-        (Unsafe.update carr nc bb;
+      if Unsafe.Arith.gtWitness d 0 carr
+      then
+        (Unsafe.update carr d (Unsafe.Arith.+ b 1);
+        init_lit_map_arr i1 v carr b)
+      else
+        (Unsafe.update carr (Unsafe.Arith.subWitness 0 d carr) b;
         init_lit_map_arr i1 v carr b)
     end
 End
 
 Theorem init_lit_map_arr_spec:
   ∀i vec Clist b bv vecv iv Carrv.
-  NUM b bv ∧
+  NUM b bv ∧ b ≤ 2 ** 29 + 1 ∧
   VECTOR_TYPE INT vec vecv ∧
   NUM i iv ∧
   init_lit_map_list' i vec Clist b = SOME res
@@ -444,28 +479,45 @@ Theorem init_lit_map_arr_spec:
 Proof
   ho_match_mp_tac init_lit_map_list'_ind>>
   rpt strip_tac>>
-  pop_assum mp_tac>>
+  drule_then assume_tac init_lit_map_list'_lit>>
+  qpat_x_assum`init_lit_map_list' _ _ _ _ = _` mp_tac>>
   simp[Once init_lit_map_list'_def]>>
   strip_tac>>
   xcf "init_lit_map_arr" (get_ml_prog_state ())>>
   xlet_autop>>
   xif>>fs[]
   >- (xcon>>xsimpl)>>
-  rpt xlet_autop>>
+  xlet_auto_spec (SOME num_sub_vec_spec)
+  >- xsimpl>>
   xlet_auto
   >- (
     xsimpl>>
-    gvs[uvsub_side_def])>>
-  xlet_autop>>
-  pairarg_tac>>gvs[PAIR_TYPE_def]>>
-  xmatch>>
-  xlet`POSTv uv. NUM_ARRAY Carrv (LUPDATE bb nc Clist)`
+    gvs[vsub_side_def])>>
+  xlet_auto_spec (SOME int_gt_numarr_spec)
+  >- xsimpl>>
+  xif>>gvs[]
+  >- (
+    xlet_auto_spec (SOME num_add_spec)
+    >- xsimpl>>
+    xlet`POSTv uv. NUM_ARRAY Carrv (LUPDATE (b + 1) (Num (sub vec (i − 1))) Clist)`
+    >- (
+      simp[NUM_ARRAY_def]>>xpull>>
+      xapp>>xsimpl>>
+      qexists_tac`Num (sub vec (i − 1))`>>
+      imp_res_tac LIST_REL_LENGTH>>
+      `0 ≤ sub vec (i − 1)` by intLib.ARITH_TAC>>
+      gvs[NUM_def,INT_def,EVERY2_LUPDATE_same])>>
+    xapp>>gvs[])>>
+  xlet_auto_spec (SOME int_sub_numarr_spec)
+  >- xsimpl>>
+  xlet`POSTv uv. NUM_ARRAY Carrv (LUPDATE b (Num (-sub vec (i − 1))) Clist)`
   >- (
     simp[NUM_ARRAY_def]>>xpull>>
     xapp>>xsimpl>>
-    qexists_tac`nc`>>
+    qexists_tac`Num (-sub vec (i − 1))`>>
     imp_res_tac LIST_REL_LENGTH>>
-    fs[EVERY2_LUPDATE_same])>>
+    `0 ≤ -sub vec (i − 1)` by intLib.ARITH_TAC>>
+    gvs[NUM_def,INT_def,EVERY2_LUPDATE_same])>>
   xapp>>gvs[]
 QED
 
@@ -480,7 +532,7 @@ Quote add_cakeml:
 End
 
 Theorem resize_dm_spec:
-  NUM b bv ∧
+  NUM b bv ∧ stamps_ok Clist b ∧
   VECTOR_TYPE INT vec vecv
   ⇒
   app (p : 'ffi ffi_proj)
@@ -504,9 +556,10 @@ Proof
   simp[resize_dm_def]>>
   xapp>>xsimpl>>
   rpt (first_x_assum $ irule_at Any)>>
+  qexists_tac`emp`>>xsimpl>>
   rw[]>>
-  qexists_tac`emp`>>qexists_tac`Clist`>>xsimpl>>
-  metis_tac[NUM_ARRAY_refl]
+  first_x_assum (irule_at Any)>>
+  xsimpl
 QED
 
 Quote add_cakeml:
@@ -517,7 +570,7 @@ Quote add_cakeml:
 End
 
 Theorem prepare_rup_spec:
-  NUM b bv ∧
+  NUM b bv ∧ stamps_ok Clist b ∧
   VECTOR_TYPE INT vec vecv
   ⇒
   app (p : 'ffi ffi_proj)
@@ -537,6 +590,10 @@ Proof
   xmatch>>
   simp[prepare_rup_def]>>
   rename1`init_lit_map_list (length vec) vec Clist' b'`>>
+  `b' ≤ 2 ** 29 + 1` by (
+    gvs[resize_dm_def]>>
+    drule_all stamps_ok_reset_dm_list>>
+    simp[stamps_ok_def])>>
   `IS_SOME (init_lit_map_list' (length vec) vec Clist' b')` by (
     irule init_lit_map_list'_SOME>>
     simp[]>>
@@ -558,7 +615,7 @@ Quote add_cakeml:
       val c = Unsafe.sub fml i
       val n = Vector.length c
     in
-      if n = 1 andalso int_eq_0 (uvsub c 0)
+      if n = 1 andalso int_eq_0 (Unsafe.vsub c 0)
       then
         raise Fail (format_failure lno ("invalid clause hint (maybe deleted): " ^ Int.toString i))
       else
@@ -583,7 +640,7 @@ End
 Theorem unit_prop_one_spec:
   NUM lno lnov ∧
   LIST_REL vcclause_TYPE fmlls fmllsv ∧
-  NUM b bv ∧
+  NUM b bv ∧ stamps_ok Clist b ∧
   NUM i iv ∧
   unit_prop_one' fmlls Clist b i = SOME res
   ⇒
@@ -626,7 +683,7 @@ Proof
     reverse IF_CASES_TAC>>gvs[]
     >- xsimpl>>
     xlet_auto
-    >- (xsimpl>>gvs[uvsub_side_def])>>
+    >- (xsimpl>>gvs[vsub_side_def])>>
     xapp>>
     xsimpl>>
     qexists_tac`sub (EL h fmlls) 0`>>
@@ -651,7 +708,7 @@ Theorem unit_prop_arr_spec:
   ∀ls lsv Carrv Clist b bv res.
   NUM lno lnov ∧
   LIST_REL vcclause_TYPE fmlls fmllsv ∧
-  NUM b bv ∧
+  NUM b bv ∧ stamps_ok Clist b ∧
   LIST_TYPE NUM ls lsv ∧
   unit_prop_list' fmlls Clist b ls = SOME res
   ⇒
@@ -694,36 +751,156 @@ Proof
   >- (
     xcon>>xsimpl>>
     EVAL_TAC)>>
+  `stamps_ok Clist' b` by metis_tac[stamps_ok_unit_prop_one']>>
   xapp>>xsimpl>>
   first_x_assum $ irule_at Any>>xsimpl>>
   metis_tac[NUM_ARRAY_refl]
 QED
 
-val res = translate parse_vb_num_aux_def;
+Theorem parse_vb_num_aux_small:
+  parse_vb_num_aux s i len ex n =
+  if smallnum_lt_str i len s then
+    let v = ORD (strsub_unsafe s i) in
+      if smallnum_ge v 128 then
+        parse_vb_num_aux s (smallnum_add_str i 1 s) len (ex*128)
+          ((smallnum_sub v 128)*ex+n)
+      else
+        ((v*ex+n), smallnum_add_str i 1 s)
+  else (0, i)
+Proof
+  CONV_TAC (LHS_CONV (ONCE_REWRITE_CONV [parse_vb_num_aux_def]))>>
+  simp[smallnum_lt_str_def,smallnum_ge_def,smallnum_add_str_def,
+    smallnum_sub_def]
+QED
+
+val res = translate_no_ind parse_vb_num_aux_small;
+
+Theorem parse_vb_num_aux_ind_thm[local]:
+  parse_vb_num_aux_ind
+Proof
+  once_rewrite_tac [fetch "-" "parse_vb_num_aux_ind_def"]>>
+  rpt gen_tac>>
+  rpt (disch_then strip_assume_tac)>>
+  match_mp_tac syntax_helperTheory.parse_vb_num_aux_ind>>
+  rpt strip_tac>>
+  last_x_assum match_mp_tac>>
+  rpt strip_tac>>
+  gvs[smallnum_lt_str_def,smallnum_ge_def,smallnum_add_str_def,
+    smallnum_sub_def]
+QED
+
+val _ = parse_vb_num_aux_ind_thm |> update_precondition;
 
 val parse_vb_num_aux_side_def = theorem "parse_vb_num_aux_side_def"
 
 Theorem parse_vb_num_aux_side:
  !a b c d e.
- c <= strlen a ==> parse_vb_num_aux_side a b c d e
+ c <= strlen a ∧ b ≤ c ==> parse_vb_num_aux_side a b c d e
 Proof
  ho_match_mp_tac parse_vb_num_aux_ind >>
  rpt strip_tac >>
- simp[Once $ parse_vb_num_aux_side_def]
+ simp[Once $ parse_vb_num_aux_side_def] >>
+ strip_tac >>
+ gvs[smallnum_lt_str_def,smallnum_ge_def,smallnum_add_str_def,
+   smallnum_sub_def] >>
+ assume_tac (Q.SPEC `strsub_unsafe a b` ORD_BOUND) >>
+ rw[]
 QED
 
 val _ = parse_vb_num_aux_side |> update_precondition;
 
 val res = translate parse_vb_num_def;
 
-val res = translate vb_sgn_def;
-val res = translate vb_int_lo_def;
+(* The decoding of a multi-byte number, after its first byte *)
+Definition vb_int_hi_def:
+  vb_int_hi s i len neg h =
+  if smallnum_lt_str (smallnum_add_str i 1 s) len s then
+    (let b = ORD (strsub_unsafe s (smallnum_add_str i 1 s)) in
+     if smallnum_lt b 128 then
+       (let h = smallnum_add h (smallnum_mul b 64) in
+        ((if neg then smallint_sub 0 (&h) else &h), smallnum_add_str i 2 s))
+     else if smallnum_lt_str (smallnum_add_str i 2 s) len s then
+       (let h = smallnum_add h (smallnum_mul (smallnum_sub b 128) 64) in
+        let b = ORD (strsub_unsafe s (smallnum_add_str i 2 s)) in
+        if smallnum_lt b 128 then
+          (let h = smallnum_add h (smallnum_mul b 8192) in
+           ((if neg then smallint_sub 0 (&h) else &h), smallnum_add_str i 3 s))
+        else if smallnum_lt_str (smallnum_add_str i 3 s) len s then
+          (let h = smallnum_add h (smallnum_mul (smallnum_sub b 128) 8192) in
+           let b = ORD (strsub_unsafe s (smallnum_add_str i 3 s)) in
+           if smallnum_lt b 128 then
+             (let h = smallnum_add h (smallnum_mul b 1048576) in
+              ((if neg then smallint_sub 0 (&h) else &h),
+               smallnum_add_str i 4 s))
+           else
+             (let h = smallnum_add h
+                        (smallnum_mul (smallnum_sub b 128) 1048576) in
+              let (m,j) =
+                parse_vb_num_aux s (smallnum_add_str i 4 s) len 268435456
+                  (smallnum_add (smallnum_mul 2 h) (if neg then 1 else 0)) in
+              ((if m MOD 2 = 0n then (&(m DIV 2):int)
+                else (-&(m DIV 2):int)), j)))
+        else (0, smallnum_add_str i 3 s))
+     else (0, smallnum_add_str i 2 s))
+  else (0, smallnum_add_str i 1 s)
+End
+
+Theorem vb_int_lo_small:
+  vb_int_lo s i len =
+  if smallnum_lt_str i len s then
+    (let c = strsub_unsafe s i in
+     let b = ORD c in
+     let w = char_to_word8 c in
+     let neg = (w2n (w && 1w) = 1) in
+     let h = w2n ((w && 127w) >>> 1) in
+     if smallnum_lt b 128 then
+       ((if neg then smallint_sub 0 (&h) else &h), smallnum_add_str i 1 s)
+     else vb_int_hi s i len neg h)
+  else (0, i)
+Proof
+  simp[vb_int_lo_def,vb_int_hi_def,vb_sgn_def,smallnum_lt_str_def,
+    smallnum_lt_def,smallnum_add_str_def,smallnum_add_def,smallnum_mul_def,
+    smallnum_sub_def,smallint_sub_def,integerTheory.INT_SUB_LZERO]
+QED
+
+val res = translate vb_int_hi_def;
+
+(* Assumes ORD c < 256 and w2n w < dimword for every ORD and w2n term of the
+  goal, so that byte arithmetic bounds become linear arithmetic *)
+fun byte_bound_tac (asl,g) =
+  let
+    fun is_ord t = is_comb t andalso same_const (rator t) ``ORD``
+    fun is_w2n t = is_comb t andalso is_const (rator t) andalso
+                   #Name (dest_thy_const (rator t)) = "w2n"
+    val ts = HOLset.listItems (HOLset.addList (empty_tmset,
+               find_terms (fn t => is_ord t orelse is_w2n t) g))
+    fun thm_of t = if is_ord t then ISPEC (rand t) ORD_BOUND
+                   else ISPEC (rand t) wordsTheory.w2n_lt
+  in MAP_EVERY (assume_tac o thm_of) ts (asl,g) end;
+
+Theorem vb_int_hi_side[local]:
+ !a b c d e.
+ c <= strlen a ∧ b < c ∧ e < 256 ==> vb_int_hi_side a b c d e
+Proof
+ rw[definition "vb_int_hi_side_def"] >>
+ gvs[smallnum_lt_str_def,smallnum_lt_def,smallnum_add_str_def,
+   smallnum_add_def,smallnum_mul_def,smallnum_sub_def,smallint_sub_def] >>
+ byte_bound_tac >>
+ gvs[parse_vb_num_aux_side]
+QED
+
+val _ = vb_int_hi_side |> update_precondition;
+
+val res = translate vb_int_lo_small;
 
 Theorem vb_int_lo_side[local]:
  !a b c.
- c <= strlen a ==> vb_int_lo_side a b c
+ c <= strlen a ∧ b ≤ c ==> vb_int_lo_side a b c
 Proof
- rw[definition "vb_int_lo_side_def",parse_vb_num_aux_side]
+ rw[definition "vb_int_lo_side_def"] >>
+ gvs[smallnum_lt_str_def,smallnum_lt_def,smallint_sub_def] >>
+ byte_bound_tac >>
+ gvs[vb_int_hi_side]
 QED
 
 val _ = vb_int_lo_side |> update_precondition;
@@ -732,12 +909,29 @@ val res = translate parse_vb_int_eq;
 
 Theorem parse_vb_int_side:
  !s i len.
- len <= strlen s ==> parse_vb_int_side s i len
+ len <= strlen s ∧ i ≤ len ==> parse_vb_int_side s i len
 Proof
  rw[definition "parse_vb_int_side_def",vb_int_lo_side]
 QED
 
 val _ = parse_vb_int_side |> update_precondition;
+
+val res = translate parse_vb_ilits_def;
+
+Theorem parse_vb_ilits_side:
+  ∀s i len acc.
+  len ≤ strlen s ∧ i ≤ len ⇒ parse_vb_ilits_side s i len acc
+Proof
+  ho_match_mp_tac parse_vb_ilits_ind>>
+  rw[]>>
+  simp[Once (fetch "-" "parse_vb_ilits_side_def"),parse_vb_int_side]>>
+  rw[]>>
+  first_x_assum irule>>
+  simp[]>>
+  metis_tac[parse_vb_int_le]
+QED
+
+val _ = parse_vb_ilits_side |> update_precondition;
 
 Quote add_cakeml:
   fun unit_prop_vb_arr lno fml carr b s i1 len =
@@ -755,11 +949,11 @@ Theorem unit_prop_arr_vb_spec:
   ∀fmlls Clist b s i l iv bv res.
   NUM lno lnov ∧
   LIST_REL vcclause_TYPE fmlls fmllsv ∧
-  NUM b bv ∧
+  NUM b bv ∧ stamps_ok Clist b ∧
   STRING_TYPE s sv ∧
   NUM i iv ∧
   NUM l lv ∧
-  l <= strlen s /\
+  l <= strlen s /\ i ≤ l ∧
   unit_prop_vb_list' fmlls Clist b s i l = SOME res
   ⇒
   app (p : 'ffi ffi_proj)
@@ -807,6 +1001,8 @@ Proof
       gvs[AllCaseEqs(),OPTION_TYPE_def] >>
       metis_tac[NUM_ARRAY_refl]) >>
   gvs[] >>
+  `stamps_ok Clist' b` by metis_tac[stamps_ok_unit_prop_one'] >>
+  `i' ≤ l` by metis_tac[parse_vb_int_le] >>
   first_x_assum drule_all >>
   strip_tac >> xapp >>
   xsimpl
@@ -827,7 +1023,7 @@ End
 Theorem is_rup_arr_spec':
   NUM lno lnov ∧
   LIST_REL vcclause_TYPE fmlls fmllsv ∧
-  NUM b bv ∧
+  NUM b bv ∧ stamps_ok Clist b ∧
   vcclause_TYPE v vv ∧
   LIST_TYPE NUM ls lsv ∧
   is_rup_list' fmlls Clist b v ls = SOME res
@@ -857,6 +1053,7 @@ Proof
     xsimpl>>
     metis_tac[NUM_ARRAY_refl])>>
   gvs[PAIR_TYPE_def,is_rup_list'_def]>>
+  drule_all stamps_ok_prepare_rup>>strip_tac>>
   xmatch>>
   xlet_auto
   >- (
@@ -879,7 +1076,7 @@ Theorem is_rup_arr_spec:
   NUM b bv ∧
   vcclause_TYPE v vv ∧
   LIST_TYPE NUM ls lsv ∧
-  bnd_fml fmlls (LENGTH Clist)
+  dm_ok fmlls Clist b
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "is_rup_arr" (get_ml_prog_state()))
@@ -900,7 +1097,7 @@ Theorem is_rup_arr_spec:
           FST (is_rup_list fmlls Clist b v ls) = F))
     )
 Proof
-  rw[]>>
+  rw[dm_ok_def]>>
   drule is_rup_list'_SOME>>
   disch_then (qspecl_then [`v`,`ls`,`b`] assume_tac)>>
   fs[IS_SOME_EXISTS]>>
@@ -925,7 +1122,7 @@ End
 Theorem is_rup_vb_arr_spec':
   NUM lno lnov ∧
   LIST_REL vcclause_TYPE fmlls fmllsv ∧
-  NUM b bv ∧
+  NUM b bv ∧ stamps_ok Clist b ∧
   vcclause_TYPE v vv ∧
   STRING_TYPE s sv ∧
   is_rup_vb_list' fmlls Clist b v s = SOME res
@@ -955,6 +1152,7 @@ Proof
     xsimpl>>
     metis_tac[NUM_ARRAY_refl])>>
   gvs[PAIR_TYPE_def,is_rup_vb_list'_def]>>
+  drule_all stamps_ok_prepare_rup>>strip_tac>>
   xmatch>>
   xlet_autop >>
   xlet_auto
@@ -975,7 +1173,7 @@ Theorem is_rup_vb_arr_spec:
   NUM b bv ∧
   vcclause_TYPE v vv ∧
   STRING_TYPE s sv ∧
-  bnd_fml fmlls (LENGTH Clist)
+  dm_ok fmlls Clist b
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "is_rup_vb_arr" (get_ml_prog_state()))
@@ -996,7 +1194,7 @@ Theorem is_rup_vb_arr_spec:
           FST (is_rup_vb_list fmlls Clist b v s) = F))
     )
 Proof
-  rw[]>>
+  rw[dm_ok_def]>>
   drule is_rup_vb_list'_SOME>>
   disch_then (qspecl_then [`v`,`s`,`b`] assume_tac)>>
   fs[IS_SOME_EXISTS]>>
@@ -1009,25 +1207,26 @@ QED
 
 
 Quote add_cakeml:
-  fun delete_arr fml i =
+  fun delete_arr d fml i =
     if Array.length fml <= i then ()
     else
-      (Unsafe.update fml i vcc_none)
+      (Unsafe.update fml i d)
 End
 
 Theorem delete_arr_spec:
+  A d dv ∧
   NUM i iv ∧
-  LIST_REL vcclause_TYPE fmlls fmllsv
+  LIST_REL A fmlls fmllsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "delete_arr" (get_ml_prog_state()))
-    [fmlv; iv]
+    [dv; fmlv; iv]
     (ARRAY fmlv fmllsv)
     (POSTv resv.
       &UNIT_TYPE () resv *
       SEP_EXISTS fmllsv'.
       ARRAY fmlv fmllsv' *
-      &(LIST_REL vcclause_TYPE (delete_list fmlls i) fmllsv') )
+      &(LIST_REL A (delete_list d fmlls i) fmllsv') )
 Proof
   rw[]>>
   xcf "delete_arr" (get_ml_prog_state ())>>
@@ -1040,31 +1239,32 @@ Proof
   first_x_assum (irule_at Any)>>
   rw[]>>
   match_mp_tac EVERY2_LUPDATE_same>>
-  simp[vcc_none_v_thm]
+  simp[]
 QED
 
 Quote add_cakeml:
-  fun delete_ids_arr fml ls =
+  fun delete_ids_arr d fml ls =
     case ls of
       [] => ()
     | (i::is) =>
-      (delete_arr fml i; delete_ids_arr fml is)
+      (delete_arr d fml i; delete_ids_arr d fml is)
 End
 
 Theorem delete_ids_arr_spec:
   ∀ls lsv fmlls fmllsv.
+  A d dv ∧
   (LIST_TYPE NUM) ls lsv ∧
-  LIST_REL vcclause_TYPE fmlls fmllsv
+  LIST_REL A fmlls fmllsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "delete_ids_arr" (get_ml_prog_state()))
-    [fmlv; lsv]
+    [dv; fmlv; lsv]
     (ARRAY fmlv fmllsv)
     (POSTv resv.
       &UNIT_TYPE () resv *
       SEP_EXISTS fmllsv'.
       ARRAY fmlv fmllsv' *
-      &(LIST_REL vcclause_TYPE (delete_ids_list fmlls ls) fmllsv') )
+      &(LIST_REL A (delete_ids_list d fmlls ls) fmllsv') )
 Proof
   Induct>>
   rw[]>>fs[delete_ids_list_def]>>
@@ -1077,30 +1277,31 @@ Proof
 QED
 
 Quote add_cakeml:
-  fun delete_ids_vb_arr fml s i1 len =
+  fun delete_ids_vb_arr d fml s i1 len =
     case parse_vb_int s i1 len of (m,i) =>
     if m <= 0 then ()
     else
-      (delete_arr fml m; delete_ids_vb_arr fml s i len)
+      (delete_arr d fml m; delete_ids_vb_arr d fml s i len)
 End
 
 Theorem delete_ids_vb_arr_spec:
-  ∀fmlls s i l fmllsv sv iv lv.
-  LIST_REL vcclause_TYPE fmlls fmllsv ∧
+  ∀d fmlls s i l fmllsv sv iv lv.
+  A d dv ∧
+  LIST_REL A fmlls fmllsv ∧
   STRING_TYPE s sv ∧
   NUM i iv ∧
   NUM l lv ∧
-  l ≤ strlen s
+  l ≤ strlen s ∧ i ≤ l
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "delete_ids_vb_arr" (get_ml_prog_state()))
-    [fmlv; sv; iv; lv]
+    [dv; fmlv; sv; iv; lv]
     (ARRAY fmlv fmllsv)
     (POSTv resv.
       &UNIT_TYPE () resv *
       SEP_EXISTS fmllsv'.
       ARRAY fmlv fmllsv' *
-      &(LIST_REL vcclause_TYPE (delete_ids_vb_list fmlls s i l) fmllsv') )
+      &(LIST_REL A (delete_ids_vb_list d fmlls s i l) fmllsv') )
 Proof
   ho_match_mp_tac delete_ids_vb_list_ind>>
   rpt strip_tac>>
@@ -1118,6 +1319,7 @@ Proof
   >- (xcon>>xsimpl)>>
   `∃n. q = &n` by (qexists_tac`Num q`>>intLib.ARITH_TAC)>>
   gvs[GSYM NUM_def]>>
+  imp_res_tac parse_vb_int_le>>
   xlet_autop>>
   xapp>>
   fs[]
@@ -1180,7 +1382,7 @@ Quote add_cakeml:
   fun contains_emp_arr_aux fml i =
   if i = 0 then False
   else
-    let val i1 = i - 1 in
+    let val i1 = Unsafe.Arith.subWitness i 1 fml in
     is_empty (Unsafe.sub fml i1) orelse
     contains_emp_arr_aux fml i1
     end
@@ -1207,10 +1409,11 @@ Proof
     xcon>>xsimpl>>
     simp[Once contains_emp_list_aux_def]>>
     EVAL_TAC)>>
-  rpt xlet_autop>>
-  simp[Once contains_emp_list_aux_def]>>
   `LENGTH fmlls = LENGTH fmllsv` by
     metis_tac[LIST_REL_LENGTH]>>
+  xlet_auto_spec (SOME num_sub_arr_spec)
+  >- xsimpl>>
+  simp[Once contains_emp_list_aux_def]>>
   `vcclause_TYPE (EL (i-1) fmlls) (EL (i-1) fmllsv)` by
     fs[LIST_REL_EL_EQN]>>
   rpt xlet_autop>>

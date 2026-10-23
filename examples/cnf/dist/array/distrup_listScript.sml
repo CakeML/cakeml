@@ -12,7 +12,7 @@ Definition check_distrup_list_def:
   check_distrup_list distrup fml dml b =
   case distrup of
   | Del ls =>
-    SOME (delete_ids_list fml ls, (dml, b))
+    SOME (delete_ids_list vcc_none fml ls, (dml, b))
   | Lrup n vc hints =>
     (case is_rup_list fml dml b vc hints of
       (T, dmlb) =>
@@ -63,6 +63,19 @@ Proof
     drule_all bnd_fml_is_rup_list>>
     metis_tac[bnd_fml_insert_vcc_list])
   >> metis_tac[bnd_fml_insert_vcc_list_resize_dm]
+QED
+
+Theorem check_distrup_list_dm_ok:
+  dm_ok fmlls dml b ∧
+  check_distrup_list distrup fmlls dml b = SOME (fmlls',(dml',b')) ⇒
+  dm_ok fmlls' dml' b'
+Proof
+  rw[dm_ok_def]
+  >- metis_tac[check_distrup_list_bnd_fml]>>
+  pop_assum mp_tac>>
+  simp[check_distrup_list_def]>>strip_tac>>
+  gvs[AllCaseEqs()]>>
+  metis_tac[stamps_ok_is_rup_list,stamps_ok_resize_dm]
 QED
 
 

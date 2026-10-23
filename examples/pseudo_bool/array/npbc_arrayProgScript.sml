@@ -5642,13 +5642,7 @@ val r = translate npbc_checkTheory.to_flat_d_def;
 
 val res = translate npbc_checkTheory.mk_obj_vec_def;
 
-Theorem vec_lookup_d_alt:
-  vec_lookup_d d vec n = if n < length vec then sub_unsafe vec n else d
-Proof
-  simp[npbc_checkTheory.vec_lookup_d_def]
-QED
-
-val res = translate vec_lookup_d_alt;
+val res = translate npbc_checkTheory.vec_lookup_d_def;
 val res = translate npbc_checkTheory.check_obj_def;
 
 (* A translated function applied to one argument, whatever its result type *)
@@ -6729,13 +6723,13 @@ Quote add_cakeml:
       case cx of (c,x) =>
       if x < Word8Array.length acc
       then
-        (Word8Array.update acc x w8o;
+        (Unsafe.w8update acc x w8o;
         fold_update_resize_bitset xs acc)
       else
         let
         val arr = Word8Array.array (2*x+1) w8z
         val u = Word8Array.copy acc 0 (Word8Array.length acc) arr 0 in
-          (Word8Array.update arr x w8o;
+          (Unsafe.w8update arr x w8o;
           fold_update_resize_bitset xs arr)
         end
 End
