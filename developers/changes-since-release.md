@@ -142,6 +142,8 @@ Its backing representation and corresponding algorithms have been optimized heav
 
 The CNF checker(s) have various improvements, especially the RUP algorithm has been updated. Additionally, there is now a centralized and cleaned up basis FFI C file for the checkers (#1495).
 
+A further improvement to the CNF checker(s), API, format-wise, algorithmically, and using the new unsafe ops (#1557).
+
 The new `socketEchoProg` contains a simple echo server meant for testing the Unix domain sockets from `SocketIO`.
 
 Similarly, `rawBridgeProg` showcases `SocketIO`'s raw sockets.
