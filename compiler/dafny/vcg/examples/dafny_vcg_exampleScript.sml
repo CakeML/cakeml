@@ -538,8 +538,8 @@ Proof
        assume_tac o GSYM o CONV_RULE EVAL
   \\ simp [AppReturns_def]
   \\ rpt strip_tac
-  \\ simp [do_opapp_def, find_recfun_def, eval_rel_def, empty_state_def,
-           PULL_EXISTS]
+  \\ simp [do_opapp_def, find_recfun_def, eval_rel_def, build_state_def,
+           empty_state_def, PULL_EXISTS]
   \\ simp [Ntimes evaluate_def 3, do_app_def, store_alloc_def]
   \\ simp [Ntimes evaluate_def 3, do_app_def, store_alloc_def]
   \\ simp [Ntimes evaluate_def 1]
@@ -580,7 +580,7 @@ Proof
       <| clock := 42;  (* clock shouldn't matter *)
          refs := refs ++ [Refv v] ++ [Refv (Litv (IntLit 0))];
          ffi := initial_ffi_state ARB (); next_type_stamp := 0;
-         next_exn_stamp := 0; eval_state := NONE|>’
+         next_exn_stamp := 0; eval_state := NONE; ptr_eq_oracle := po|>’
   \\ ‘∃l s.
         ALOOKUP s.locals «v0» = SOME (SOME (IntV n)) ∧
         state_ok s [] [(«v1»,IntT)] ∧ ¬MEM «v2» (MAP FST s.locals) ∧
@@ -628,7 +628,7 @@ Proof
   \\ assume_tac $ EVAL “compile_stmt mccarthy_body” \\ simp []
   \\ disch_then $ qx_choosel_then [‘s'’, ‘ck’, ‘t'’, ‘m'’, ‘ck'’] assume_tac
   \\ fs []
-  \\ qrefinel [‘_’, ‘_’, ‘ck’]
+  \\ qrefinel [‘_’, ‘_’, ‘_’, ‘ck’]
   \\ gvs [Abbr ‘t’]
   \\ simp [can_pmatch_all_def, pmatch_def]
   \\ gvs [clos_env_ok_def, has_cons_def]
@@ -643,7 +643,7 @@ Proof
      \\ impl_tac >- (EVAL_TAC)
      \\ simp [nsOptBind_def])
   \\ simp [INT_def]
-  \\ qexistsl [‘DROP (LENGTH refs) t'.refs’, ‘t'.clock’]
+  \\ qexistsl [‘DROP (LENGTH refs) t'.refs’, ‘t'.ptr_eq_oracle’, ‘t'.clock’]
   \\ simp [semanticPrimitivesTheory.state_component_equality]
   \\ gvs [cml_state_preserved_def]
   (* refs *)

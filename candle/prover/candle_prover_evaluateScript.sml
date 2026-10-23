@@ -688,6 +688,8 @@ Proof
     \\ rpt strip_tac \\ gs [])
   \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
   >- (rw [do_app_cases] \\ gs [thunk_op_def, AllCaseEqs()])
+  \\ Cases_on ‘op = PtrEq’ \\ gs []
+  >- simp [do_app_def]
   \\ Cases_on ‘op’ \\ gs []
   \\ Cases_on ‘t’ \\ gs []
 QED
@@ -831,6 +833,13 @@ Resume evaluate_v_ok[App_Op]:
     \\ disch_then drule \\ gvs []
     \\ impl_tac \\ gvs []
     \\ gvs [EVERY_EL])
+  >~ [‘PtrEqOp’] >- (
+    gvs [AllCaseEqs()]
+    \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs [state_ok_def]
+    \\ rename1 ‘EVERY (v_ok ctxt1)’
+    \\ qexists_tac ‘ctxt1’ \\ gs []
+    \\ rw [Boolv_def, v_ok_def]
+    \\ metis_tac [])
   >~ [‘Simple’] >- (
     gvs [AllCaseEqs()]
     \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs [state_ok_def]

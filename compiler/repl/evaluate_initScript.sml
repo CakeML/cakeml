@@ -376,6 +376,14 @@ Proof
       stamp_rel_cases, state_ok_def, state_rel_def]
 QED
 
+Theorem ok_with_ptr_eq_oracle[local,simp]:
+  (state_ok (s with ptr_eq_oracle := p) ⇔ state_ok s) ∧
+  (env_ok (s with ptr_eq_oracle := p) env ⇔ env_ok s env) ∧
+  (v_ok (s with ptr_eq_oracle := p) v ⇔ v_ok s v)
+Proof
+  rw [state_ok_def, state_rel_def, env_ok_def, v_ok_def]
+QED
+
 Theorem v_ok_Boolv[simp]:
   state_ok s ⇒ v_ok s (Boolv b)
 Proof
@@ -716,6 +724,8 @@ Proof
     \\ rw [v_rel_def, EL_LUPDATE, ref_rel_def])
   \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
   >- gvs [do_app_def, AllCaseEqs(), thunk_op_def]
+  \\ Cases_on ‘op = PtrEq’ \\ gs []
+  >- gvs [do_app_def]
   \\ Cases_on ‘op’ \\ gs []
   \\ Cases_on ‘t’ \\ gs []
 QED
@@ -754,12 +764,17 @@ QED
 Resume evaluate_ok[App_Op]:
   strip_tac
   \\ ‘~ (getOpClass op = EvalOp)’ by (
-    Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
+    qpat_x_assum ‘op ≠ Eval’ mp_tac \\ rpt (pop_assum kall_tac)
+    \\ Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
   \\ ‘~ (getOpClass op = FunApp)’ by (
-    Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
+    qpat_x_assum ‘op ≠ Opapp’ mp_tac \\ rpt (pop_assum kall_tac)
+    \\ Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
   \\ rpt strip_tac
   \\ gs[evaluate_def, Excl "getOpClass_def"]
   \\ Cases_on ‘getOpClass op’ \\ gs[Excl "getOpClass_def"]
+  >>~- ([‘getOpClass op = PtrEqOp’],
+    gvs [CaseEqs ["prod", "result", "list", "eq_result"]]
+    \\ first_x_assum drule \\ rw [])
   >>~ [‘getOpClass op = Force’]
   >- (
     Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []

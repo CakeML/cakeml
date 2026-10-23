@@ -128,6 +128,7 @@ Definition state_rel_def:
     s.eval_state = NONE ∧
     t.eval_state = NONE ∧
     t.ffi = s.ffi ∧
+    t.ptr_eq_oracle = s.ptr_eq_oracle ∧
     (∀n. n < l ⇒ FLOOKUP fr n = SOME (n:num) ∧ n < LENGTH s.refs) ∧
     FLOOKUP ft bool_type_num = SOME bool_type_num ∧
     FLOOKUP ft list_type_num = SOME list_type_num ∧
@@ -1986,6 +1987,10 @@ Proof
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, AllCaseEqs(), thunk_op_def]
     \\ rpt (irule_at Any SUBMAP_REFL \\ gvs []))
+  \\ Cases_on ‘op = PtrEq’ \\ gs []
+  >- (
+    gvs [do_app_def]
+    \\ rpt (irule_at Any SUBMAP_REFL))
   \\ Cases_on ‘op’ \\ gs []
   \\ Cases_on ‘t'’ \\ gs []
 QED
@@ -2156,6 +2161,29 @@ Resume evaluate_update[App_Op]:
       \\ imp_res_tac EVERY2_REVERSE
       \\ drule_all state_rel_update_thunk_SOME \\ rw [] \\ gvs []
       \\ metis_tac [SUBMAP_TRANS]))
+  >- (
+    ‘op = PtrEq’ by (Cases_on ‘op’ \\ gvs [] \\ Cases_on ‘t'’ \\ gvs [])
+    \\ gvs [CaseEqs ["prod", "result"], PULL_EXISTS]
+    \\ first_x_assum (drule_all_then strip_assume_tac)
+    \\ Cases_on ‘res1’ \\ gs []
+    >~ [‘res_rel _ _ (Rerr err1) (Rerr err2)’] >- (
+      first_assum (irule_at Any)
+      \\ gs [])
+    \\ dxrule_then assume_tac EVERY2_REVERSE
+    \\ Cases_on ‘REVERSE vs’ \\ gvs []
+    >- metis_tac []
+    \\ Cases_on ‘t'’ \\ gvs []
+    >- metis_tac []
+    \\ reverse (Cases_on ‘t''’) \\ gvs []
+    >- metis_tac []
+    \\ ‘do_eq h h' = do_eq y y'’
+      by (gs [state_rel_def] \\ irule (CONJUNCT1 v_rel_do_eq) \\ metis_tac [])
+    \\ ‘t1.ptr_eq_oracle = st'.ptr_eq_oracle’ by gs [state_rel_def]
+    \\ Cases_on ‘do_eq y y'’ \\ gvs []
+    >- (
+      qexistsl [‘fr1’,‘ft1’,‘fe1’] \\ gs [state_rel_def]
+      \\ rw [Boolv_def] \\ gs [v_rel_def, stamp_rel_cases])
+    \\ metis_tac [])
   >- (
     gvs [CaseEqs ["prod", "result", "option"], PULL_EXISTS]
     \\ first_x_assum (drule_all_then strip_assume_tac)
