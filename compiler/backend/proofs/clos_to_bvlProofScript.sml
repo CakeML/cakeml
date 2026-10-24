@@ -1583,6 +1583,12 @@ Proof
   >-
    (gvs [closSemTheory.do_app_def,AllCaseEqs()] \\ rw []
     \\ gvs [bvlSemTheory.do_app_def])
+  \\ Cases_on `∃neq. op = MemOp (ScanByte neq)`
+  >- (
+    gvs [closSemTheory.do_app_def,AllCaseEqs()] \\ rw []
+    \\ gvs [v_rel_SIMP,bvlSemTheory.do_app_def]
+    \\ drule_all state_rel_refs_lookup \\ strip_tac
+    \\ gvs [ref_rel_simp])
   \\ Cases_on `op = MemOp DerefBit`
   >-
    (gvs [closSemTheory.do_app_def,AllCaseEqs()] \\ rw []

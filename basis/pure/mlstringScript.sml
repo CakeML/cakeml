@@ -730,6 +730,20 @@ Proof
 QED
 
 
+Definition scan_eq_def:
+  scan_eq start end c s =
+    if end ≤ start then end
+    else start +
+      LENGTH (FST (SPLITP (\x. x = c) (DROP start (TAKE end (explode s)))))
+End
+
+Definition scan_neq_def:
+  scan_neq start end c s =
+    if end ≤ start then end
+    else start +
+      LENGTH (FST (SPLITP (\x. x ≠ c) (DROP start (TAKE end (explode s)))))
+End
+
 Definition str_findi_def:
   str_findi P i s = if i < strlen s
     then if P (strsub s i) then SOME i else str_findi P (i + 1) s

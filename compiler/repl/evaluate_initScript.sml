@@ -590,9 +590,10 @@ Proof
   \\ Cases_on ‘op = Strcat’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
-  \\ Cases_on ‘op = Strlen’ \\ gs []
+  \\ Cases_on ‘op = Strlen ∨ op = StrScanEq ∨ op = StrScanNeq’
   >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
+    pop_assum strip_assume_tac \\ gs []
+    \\ gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
   \\ Cases_on ‘op = Strsub’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
@@ -642,9 +643,10 @@ Proof
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def, copy_array_def, store_assign_def])
-  \\ Cases_on ‘op = Aw8length’ \\ gs []
+  \\ Cases_on ‘op = Aw8length ∨ op = Aw8ScanEq ∨ op = Aw8ScanNeq’
   >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
+    pop_assum strip_assume_tac \\ gs []
+    \\ gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def, copy_array_def, store_assign_def])
   \\ Cases_on ‘op = Aw8alloc’ \\ gs []
   >- (

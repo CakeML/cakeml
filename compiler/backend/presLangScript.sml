@@ -250,6 +250,8 @@ Definition op_to_display_def:
   | Opref => empty_item «Opref»
   | Opderef => empty_item «Opderef»
   | Aw8alloc => empty_item «Aw8alloc»
+  | Aw8ScanEq => empty_item «Aw8ScanEq»
+  | Aw8ScanNeq => empty_item «Aw8ScanNeq»
   | Aw8sub => empty_item «Aw8sub»
   | Aw8length => empty_item «Aw8length»
   | Aw8update => empty_item «Aw8update»
@@ -259,6 +261,8 @@ Definition op_to_display_def:
   | CopyAw8Aw8 => empty_item «CopyAw8Aw8»
   | Implode => empty_item «Implode»
   | Explode => empty_item «Explode»
+  | StrScanEq => empty_item «StrScanEq»
+  | StrScanNeq => empty_item «StrScanNeq»
   | Strsub => empty_item «Strsub»
   | Strlen => empty_item «Strlen»
   | Strcat => empty_item «Strcat»
@@ -630,6 +634,7 @@ Definition clos_op_to_display_def:
     | MemOp LengthByte => String «LengthByte»
     | MemOp (RefByte b) => Item NONE «RefByte» [bool_to_display b]
     | MemOp RefArray => String «RefArray»
+    | MemOp (ScanByte neq) => Item NONE «ScanByte» [bool_to_display neq]
     | MemOp DerefByte => String «DerefByte»
     | MemOp UpdateByte => String «UpdateByte»
     | MemOp DerefBit => String «DerefBit»

@@ -521,9 +521,10 @@ Proof
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
-  \\ Cases_on ‘op = Strlen’ \\ gs []
+  \\ Cases_on ‘op = Strlen ∨ op = StrScanEq ∨ op = StrScanNeq’
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
+    pop_assum strip_assume_tac \\ gs []
+    \\ rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘op = Strsub’ \\ gs []
@@ -598,9 +599,10 @@ Proof
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
-  \\ Cases_on ‘op = Aw8length’ \\ gs []
+  \\ Cases_on ‘op = Aw8length ∨ op = Aw8ScanEq ∨ op = Aw8ScanNeq’
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
+    pop_assum strip_assume_tac \\ gs []
+    \\ rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘op = Aw8alloc’ \\ gs []

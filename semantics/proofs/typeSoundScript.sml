@@ -721,6 +721,52 @@ Proof
     qpat_x_assum `type_v _ _ _ _ _` mp_tac) >>
   rw [] >>
   rw [do_opapp_def] >~
+  [‘Aw8ScanEq’]
+  >- (
+    qmatch_goalsub_rename_tac
+      `do_app _ Aw8ScanEq [Litv (IntLit start_index); Litv (IntLit end_index); _; _]`
+    \\ res_tac \\ gvs []
+    \\ qmatch_asmsub_rename_tac `store_lookup _ store = SOME (W8array bytes)`
+    \\ qexists_tac `tenvS`
+    \\ Cases_on `0 ≤ start_index ∧ start_index ≤ &LENGTH bytes ∧
+                 0 ≤ end_index ∧ end_index ≤ &LENGTH bytes`
+    \\ simp [store_type_extension_refl,do_app_def,type_v_exn,sub_exn_v_def,
+             Once type_v_cases]
+  ) >~
+  [‘Aw8ScanNeq’]
+  >- (
+    qmatch_goalsub_rename_tac
+      `do_app _ Aw8ScanNeq [Litv (IntLit start_index); Litv (IntLit end_index); _; _]`
+    \\ res_tac \\ gvs []
+    \\ qmatch_asmsub_rename_tac `store_lookup _ store = SOME (W8array bytes)`
+    \\ qexists_tac `tenvS`
+    \\ Cases_on `0 ≤ start_index ∧ start_index ≤ &LENGTH bytes ∧
+                 0 ≤ end_index ∧ end_index ≤ &LENGTH bytes`
+    \\ simp [store_type_extension_refl,do_app_def,type_v_exn,sub_exn_v_def,
+             Once type_v_cases]
+  ) >~
+  [‘StrScanEq’]
+  >- (
+    qmatch_goalsub_rename_tac
+      `do_app _ StrScanEq
+        [Litv (IntLit start_index); Litv (IntLit end_index); _; Litv (StrLit text)]`
+    \\ qexists_tac `tenvS`
+    \\ Cases_on `0 ≤ start_index ∧ start_index ≤ &strlen text ∧
+                 0 ≤ end_index ∧ end_index ≤ &strlen text`
+    \\ simp [store_type_extension_refl,do_app_def,type_v_exn,sub_exn_v_def,
+             Once type_v_cases]
+  ) >~
+  [‘StrScanNeq’]
+  >- (
+    qmatch_goalsub_rename_tac
+      `do_app _ StrScanNeq
+        [Litv (IntLit start_index); Litv (IntLit end_index); _; Litv (StrLit text)]`
+    \\ qexists_tac `tenvS`
+    \\ Cases_on `0 ≤ start_index ∧ start_index ≤ &strlen text ∧
+                 0 ≤ end_index ∧ end_index ≤ &strlen text`
+    \\ simp [store_type_extension_refl,do_app_def,type_v_exn,sub_exn_v_def,
+             Once type_v_cases]
+  ) >~
   [‘Equality’]
   >- (rw [do_app_cases, PULL_EXISTS] >>
       metis_tac [Tbool_def, type_v_Boolv, store_type_extension_refl,
@@ -1089,6 +1135,7 @@ Proof
    qexists_tac `tenvS` >>
    rw [store_type_extension_refl] >>
    metis_tac [type_v_list_to_v_APPEND, type_v_list_to_v]) >>
+  res_tac >>
   rw [do_app_cases, PULL_EXISTS] >>
   simp [Once type_v_cases] >>
   qexists_tac `tenvS` >>

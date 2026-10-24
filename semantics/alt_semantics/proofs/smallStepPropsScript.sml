@@ -698,6 +698,8 @@ Theorem small_eval_app_err:
       ∀op env0 v1 v0.
         LENGTH es + LENGTH v0 > 2 ∧ op ≠ Opapp ∧ op ≠ AallocFixed
         ∧ op ≠ CopyStrStr ∧ op ≠ CopyStrAw8 ∧ op ≠ CopyAw8Str ∧ op ≠ CopyAw8Aw8
+        ∧ op ≠ Aw8ScanEq ∧ op ≠ Aw8ScanNeq
+        ∧ op ≠ StrScanEq ∧ op ≠ StrScanNeq
         ∧ op ≠ Arith FMA Float64T
         ∧ (∀a. op ≠ UnsafeIndexArith a)
         ∧ (∀test. op ≠ UnsafeIndexTest test)

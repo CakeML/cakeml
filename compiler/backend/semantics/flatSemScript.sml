@@ -424,6 +424,28 @@ Definition do_app_def:
            else
              SOME (s, Rval (Litv (Word8 (EL n ws))))
      | _ => NONE)
+  | (Src Aw8ScanEq, [Litv (IntLit start); Litv (IntLit end); Litv (Word8 w); Loc _ lnum]) =>
+        (case store_lookup lnum s.refs of
+            SOME (W8array ws) =>
+              if 0 ≤ start ∧ start ≤ &LENGTH ws ∧ 0 ≤ end ∧ end ≤ &LENGTH ws then
+                SOME (s, Rval (Litv (IntLit
+                  (&(if Num end ≤ Num start then Num end else Num start +
+                    LENGTH (FST (SPLITP (\x. x = w)
+                      (DROP (Num start) (TAKE (Num end) ws)))))))))
+              else SOME (s, Rerr (Rraise subscript_exn_v))
+          | _ => NONE
+        )
+  | (Src Aw8ScanNeq, [Litv (IntLit start); Litv (IntLit end); Litv (Word8 w); Loc _ lnum]) =>
+        (case store_lookup lnum s.refs of
+            SOME (W8array ws) =>
+              if 0 ≤ start ∧ start ≤ &LENGTH ws ∧ 0 ≤ end ∧ end ≤ &LENGTH ws then
+                SOME (s, Rval (Litv (IntLit
+                  (&(if Num end ≤ Num start then Num end else Num start +
+                    LENGTH (FST (SPLITP (\x. x ≠ w)
+                      (DROP (Num start) (TAKE (Num end) ws)))))))))
+              else SOME (s, Rerr (Rraise subscript_exn_v))
+          | _ => NONE
+        )
   | (Src Aw8length, [Loc _ n]) =>
     (case store_lookup n s.refs of
      | SOME (W8array ws) =>
@@ -562,6 +584,14 @@ Definition do_app_def:
       SOME (s, Rval (Litv (Char (strsub str (Num i)))))
     else
       NONE
+  | (Src StrScanEq, [Litv (IntLit start); Litv (IntLit end); Litv (Char c); Litv (StrLit str)]) =>
+        if 0 ≤ start ∧ start ≤ &strlen str ∧ 0 ≤ end ∧ end ≤ &strlen str then
+          SOME (s, Rval (Litv (IntLit (&scan_eq (Num start) (Num end) c str))))
+        else SOME (s, Rerr (Rraise subscript_exn_v))
+  | (Src StrScanNeq, [Litv (IntLit start); Litv (IntLit end); Litv (Char c); Litv (StrLit str)]) =>
+        if 0 ≤ start ∧ start ≤ &strlen str ∧ 0 ≤ end ∧ end ≤ &strlen str then
+          SOME (s, Rval (Litv (IntLit (&scan_neq (Num start) (Num end) c str))))
+        else SOME (s, Rerr (Rraise subscript_exn_v))
   | (Src Strlen, [Litv (StrLit str)]) =>
     SOME (s, Rval (Litv(IntLit(int_of_num(strlen str)))))
   | (Src Strcat, [v]) =>

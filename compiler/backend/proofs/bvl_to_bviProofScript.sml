@@ -1493,7 +1493,9 @@ Proof
     \\ fs [bEvalOp_def,adjust_bv_def,bvl_to_bvi_id,bvi_to_bvl_def]
     \\ gvs [bvl_to_bvi_def]
     \\ CCONTR_TAC \\ gvs [] \\ res_tac \\ fs [])
-  \\ Cases_on `op = MemOp DerefByte ∨ op = MemOp DerefBit` THEN1 (
+  \\ Cases_on `op = MemOp DerefByte ∨ op = MemOp DerefBit ∨
+      ∃neq. op = MemOp (ScanByte neq)`
+  >- (
     pop_assum strip_assume_tac \\ gvs []
     \\ every_case_tac \\ fs [] \\ rw []
     \\ imp_res_tac state_rel_FLOOKUP_byteArray

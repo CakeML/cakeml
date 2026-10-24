@@ -701,6 +701,8 @@ val _=add_astPP ("addrealprint", ``App (Opn Plus) [x;y]``,genPrint (infixrealPri
 
 (*Word8Array curried, not checking arity*)
 val _=add_astPP ("w8allocrealprint", ``App (Aw8alloc) ls``,genPrint (prefixargsPrint "Word8Array.array"));
+val _=add_astPP ("Aw8ScanEqrealprint", ``App Aw8ScanEq ls``,genPrint (prefixargsPrint "Word8Array.scanEq"));
+val _=add_astPP ("Aw8ScanNeqrealprint", ``App Aw8ScanNeq ls``,genPrint (prefixargsPrint "Word8Array.scanNeq"));
 val _=add_astPP ("w8subrealprint", ``App (Aw8sub) ls``,genPrint (prefixargsPrint "Word8Array.sub"));
 val _=add_astPP ("w8lengthrealprint", ``App (Aw8length) ls``,genPrint (prefixargsPrint "Word8Array.length"));
 val _=add_astPP ("w8updaterealprint", ``App (Aw8update) ls``,genPrint (prefixargsPrint "Word8Array.update"));
@@ -736,6 +738,8 @@ val _=add_astPP ("charchrrealprint", ``App Chr ls``,genPrint (prefixargsPrint "C
 val _=add_astPP ("stringimploderealprint", ``App Implode ls``,genPrint (prefixargsPrint "String.implode"));
 (*Confusing name??*)
 val _=add_astPP ("stringstrlenrealprint", ``App Strlen ls``,genPrint (prefixargsPrint "String.size"));
+val _=add_astPP ("StrScanEqrealprint", ``App StrScanEq ls``,genPrint (prefixargsPrint "String.scanEq"));
+val _=add_astPP ("StrScanNeqrealprint", ``App StrScanNeq ls``,genPrint (prefixargsPrint "String.scanNeq"));
 val _=add_astPP ("stringstrsubrealprint", ``App Strsub ls``,genPrint (prefixargsPrint "String.sub"));
 val _=add_astPP ("stringconcatsubrealprint", ``App Strcat ls``,genPrint (prefixargsPrint "String.concat"));
 

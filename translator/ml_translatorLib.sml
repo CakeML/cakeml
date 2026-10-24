@@ -2912,6 +2912,11 @@ fun smallnum_evals suffix =
     map (fn name => DB.fetch "ml_translator" ("Eval_" ^ prefix ^ "_" ^ name ^ suffix))
       smallnum_operations) ["smallnum", "smallint"]);
 
+val builtin_quadops =
+  [Eval_scan_eq, Eval_scan_neq]
+  |> map (fn th =>
+      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> strip_comb |> fst, th))
+
 val builtin_terops =
   ([Eval_substring,
     Eval_FLOAT_FMA] @ smallnum_evals "_vec" @ smallnum_evals "_str")
@@ -3026,6 +3031,7 @@ val builtin_sub_check =
 
 val AUTO_ETA_EXPAND_CONV = let (* K ($=) --> K (\x y. x = y) *)
   val must_eta_expand_ops =
+    map fst builtin_quadops @
     map fst builtin_terops @
     map fst builtin_binops @
     map fst builtin_sub_check @
@@ -3100,6 +3106,16 @@ fun preprocess_def ctxt def = let
 
 
 (* definition of the main work horse: hol2deep: term -> thm *)
+
+fun dest_builtin_quadop tm = let
+  val (pxxx,r4) = dest_comb tm
+  val (pxx,r3) = dest_comb pxxx
+  val (px,r2) = dest_comb pxx
+  val (p,r1) = dest_comb px
+  val (x,th) = first (fn (x,_) => can (match_term x) p) builtin_quadops
+  val (ss,ii) = match_term x p
+  val th = INST ss (INST_TYPE ii th)
+  in (p,r1,r2,r3,r4,th) end handle HOL_ERR _ => failwith("Not a builtin operator")
 
 fun dest_builtin_terop tm = let
   val (pxx,r3) = dest_comb tm
@@ -3569,6 +3585,17 @@ fun hol2deep ctxt tm =
     val (ss,ii) = match_term pat inv
     val result = INST ss (INST_TYPE ii th)
     in check_inv "lookup_eval_thm" tm result end else
+  (* built-in operations with four arguments *)
+  if can dest_builtin_quadop tm then let
+    val (p,x1,x2,x3,x4,lemma) = dest_builtin_quadop tm
+    val th1 = hol2deep ctxt x1
+    val th2 = hol2deep ctxt x2
+    val th3 = hol2deep ctxt x3
+    val th4 = hol2deep ctxt x4
+    val result =
+      MATCH_MP (MATCH_MP (MATCH_MP (MATCH_MP lemma th1) (UNDISCH_ALL th2))
+        (UNDISCH_ALL th3)) (UNDISCH_ALL th4) |> UNDISCH_ALL
+    in check_inv "quadop" tm result end else
   (* built-in ternary operations *)
   if can dest_builtin_terop tm then let
     val (p,x1,x2,x3,lemma) = dest_builtin_terop tm

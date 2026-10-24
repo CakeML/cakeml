@@ -2571,6 +2571,7 @@ Proof
         m = Length \/ (?b. m = BoundsCheckByte b) \/
         m = BoundsCheckArray \/ m = BoundsCheckBit \/ m = LengthByte \/
         m = DerefByteVec \/ m = DerefByte \/ m = DerefBit \/ m = El \/
+        (∃neq. m = ScanByte neq) \/
         ∃b cmp. m = StringCmp b cmp)) \/
       (?g. opp = GlobOp g ∧ (g = GlobalsPtr \/ g = SetGlobalsPtr)) \/
       (?n. opp = BlockOp (ElemAt n))`

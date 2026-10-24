@@ -97,6 +97,16 @@ Definition CopyByteAw8_def:
   CopyByteAw8 t = ^checkF
 End
 
+Definition compile_scan_def:
+  compile_scan t neq xs =
+    Let t xs
+      (If t (Op t (MemOp (BoundsCheckByte T)) [Var t 3; Var t 0])
+        (If t (Op t (MemOp (BoundsCheckByte T)) [Var t 2; Var t 0])
+          (Op t (MemOp (ScanByte neq)) [Var t 0; Var t 1; Var t 2; Var t 3])
+          (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+        (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+End
+
 Definition compile_shift_def:
   compile_shift t ws sh xs =
     case (ws,xs) of
@@ -255,6 +265,10 @@ Definition compile_op_def:
                                 (Op t (MemOp Update) [Var t 0; Var t 1; Var t 2])
                                 (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
     | Src Aupdate_unsafe => Op t (MemOp Update) xs
+    | Src Aw8ScanEq => compile_scan t F xs
+    | Src Aw8ScanNeq => compile_scan t T xs
+    | Src StrScanEq => compile_scan t F xs
+    | Src StrScanNeq => compile_scan t T xs
     | Src Aw8sub => Let t xs (If t (Op t (MemOp (BoundsCheckByte F)) [Var t 0; Var t 1])
                                (Op t (MemOp DerefByte) [Var t 0; Var t 1])
                                (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))

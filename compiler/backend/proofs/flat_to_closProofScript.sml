@@ -736,7 +736,7 @@ Proof
       \\ simp [compile_smallnum_test_def, evaluate_def]
       \\ Cases_on `cmp`
       \\ simp [compile_smallnum_test_def, evaluate_def])
-    \\ fs [compile_op_def,evaluate_def,evaluate_APPEND,arg1_def,arg2_def]
+    \\ fs [compile_op_def,compile_scan_def,evaluate_def,evaluate_APPEND,arg1_def,arg2_def]
     \\ every_case_tac \\ fs [evaluate_def]
     \\ fs [pair_case_eq,result_case_eq]
     \\ rw [] \\ fs [PULL_EXISTS,do_app_def,do_int_app_def]
@@ -748,6 +748,7 @@ Proof
   \\ fs [pair_case_eq,result_case_eq]
   \\ rw [] \\ fs [PULL_EXISTS,do_app_def,do_int_app_def]
 QED
+
 
 Theorem v_rel_Boolv[simp]:
   v_rel (Boolv b) v = (v = Boolv b)
@@ -1898,11 +1899,39 @@ Proof
   >- simp [Once v_rel_cases, Unit_def, EVAL ``tuple_tag``]
 QED
 
+Theorem scan_MAP_ORD[local]:
+  ∀neq cs c.
+    LENGTH (FST (SPLITP (λw:word8. (w = n2w (ORD c)) ⇔ ¬neq)
+                       (MAP (n2w ∘ ORD) cs))) =
+    LENGTH (FST (SPLITP (λx. (x = c) ⇔ ¬neq) cs))
+Proof
+  gen_tac \\ Induct \\ simp [SPLITP,ORD_BOUND,ORD_11] \\ rw []
+QED
+
+Theorem op_scan:
+  op = Src Aw8ScanEq ∨ op = Src Aw8ScanNeq ∨
+  op = Src StrScanEq ∨ op = Src StrScanNeq ⇒
+  ^op_goal
+Proof
+  rpt strip_tac \\ rveq \\ fs []
+  \\ gvs [flatSemTheory.do_app_def,AllCaseEqs(),PULL_EXISTS]
+  \\ gvs [LENGTH_EQ_NUM_compute,v_rel_def,SWAP_REVERSE_SYM]
+  \\ imp_res_tac lookup_byte_array
+  \\ gvs [compile_op_def,compile_scan_def]
+  \\ simp [evaluate_def,do_app_def,ORD_BOUND]
+  \\ rewrite_tac [GSYM MAP_TAKE,GSYM MAP_DROP]
+  \\ simp [subscript_exn_v_def,v_rel_def,w2n_lt |> INST_TYPE [alpha|->“:8”] |> SRULE [],
+           integer_wordTheory.i2w_def,mlstringTheory.scan_eq_def,
+           mlstringTheory.scan_neq_def,
+           scan_MAP_ORD |> Q.SPEC ‘F’ |> SRULE [],
+           scan_MAP_ORD |> Q.SPEC ‘T’ |> SRULE []]
+QED
+
 Theorem compile_op_correct:
   ^op_goal
 Proof
   EVERY (map assume_tac
-    [op_refs, op_str, op_str_unsafe, op_thunk, op_eq_gc, op_byte_arrays,
+    [op_refs, op_str, op_str_unsafe, op_thunk, op_eq_gc, op_byte_arrays, op_scan,
      op_arrays, op_test, op_arith, op_unsafe_arith, op_unsafe_test,
      op_from_to, op_globals, op_blocks,
      op_ffi, op_byte_copy, op_byte_bits, op_byte_bits_safe, op_eval, op_vectors, op_id])
@@ -2551,6 +2580,17 @@ Proof
        Once every_Fn_vs_NONE_EVERY, Once contains_App_SOME_EXISTS,
        EXISTS_MEM, MEM_GENLIST])
   \\ simp [elist_globals_empty, MEM_GENLIST, PULL_EXISTS, contains_App_SOME_def]
+QED
+
+Theorem compile_scan_props[simp]:
+  set_globals (compile_scan t neq xs) = elist_globals xs ∧
+  (esgc_free (compile_scan t neq xs) = EVERY esgc_free xs) ∧
+  (no_mti (compile_scan t neq xs) = EVERY no_mti xs) ∧
+  (every_Fn_vs_NONE [compile_scan t neq xs] = every_Fn_vs_NONE xs) ∧
+  (contains_App_SOME max_app [compile_scan t neq xs] =
+   contains_App_SOME max_app xs)
+Proof
+  simp ([compile_scan_def,closPropsTheory.op_gbag_def] @ props_defs)
 QED
 
 Theorem compile_set_globals:
