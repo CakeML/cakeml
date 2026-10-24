@@ -159,7 +159,7 @@ Proof
   \\ rw [] \\ simp [Once pre]
   \\ rw [] \\ gvs []
   \\ last_x_assum irule
-  \\ gvs [wordLangTheory.prog_size_def]
+  \\ gvs []
 QED
 
 val _ = cv_auto_trans (compile_prog_x64_def |> arch_spec);
@@ -226,7 +226,7 @@ Proof
   \\ rw [] \\ gvs [PULL_FORALL]
   \\ simp [Once pre] \\ rw []
   \\ gvs [] \\ last_x_assum $ irule
-  \\ gvs [wordLangTheory.prog_size_def]
+  \\ gvs []
 QED
 
 val _ = cv_trans (word_alloc_inlogic_x64_def |> arch_spec);
@@ -240,7 +240,7 @@ Proof
   \\ rw [] \\ simp [Once pre]
   \\ rw [] \\ gvs []
   \\ last_x_assum irule
-  \\ gvs [wordLangTheory.exp_size_def]
+  \\ gvs []
 QED
 
 val pre = cv_trans_pre "" (inst_select_x64_def |> arch_spec);
@@ -250,7 +250,7 @@ Proof
   gen_tac \\ gen_tac \\ completeInduct_on ‘prog_size v’
   \\ rw [] \\ gvs [PULL_FORALL]
   \\ simp [Once pre] \\ rw []
-  \\ first_x_assum irule \\ gvs [wordLangTheory.prog_size_def]
+  \\ first_x_assum irule \\ gvs []
 QED
 
 val pre = (each_inlogic_x64_def |> arch_spec) |> cv_trans_pre "";

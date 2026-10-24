@@ -316,7 +316,7 @@ Theorem typesem_frees:
       (∀a. MEM a (tyvars ty) ⇒ τ1 a = τ2 a) ⇒
       typesem δ τ1 ty = typesem δ τ2 ty
 Proof
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   simp[tyvars_def,MEM_FOLDR_LIST_UNION,typesem_def,PULL_EXISTS] >>
   rw[] >> rpt AP_TERM_TAC >> simp[MAP_EQ_f] >>
   fs[EVERY_MEM] >> metis_tac[]
@@ -641,7 +641,7 @@ Theorem typesem_sig:
    ∀ty τ δ δ' tyenv. type_ok tyenv ty ∧ (∀name. name ∈ FDOM tyenv ⇒ δ' name = δ name) ⇒
                     typesem δ' τ ty = typesem δ τ ty
 Proof
-  ho_match_mp_tac type_ind >> simp[typesem_def,type_ok_def] >> rw[] >>
+  ho_match_mp_tac type_induction >> simp[typesem_def,type_ok_def] >> rw[] >>
   qmatch_abbrev_tac`δ' name args1 = δ name args2` >>
   `args1 = args2` by (
     unabbrev_all_tac >>

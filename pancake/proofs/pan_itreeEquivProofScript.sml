@@ -1640,7 +1640,7 @@ Proof
       by simp[state_component_equality]>>fs[]>>
     dxrule evaluate_min_clock>>rw[]>>
     ‘n < SUC n'’ by simp[]>>
-    first_x_assum drule>>
+    qpat_x_assum ‘∀m. m < _ ⇒ _’ drule>>
     qmatch_asmsub_abbrev_tac ‘mrec _ (_ (pp,ss)) = FUNPOW _ _ (Vis a g')’>>
     disch_then $ qspecl_then [‘pp’,‘ext ss 0 s.ffi’,‘g'’,‘a’,‘fs’] mp_tac>>
     simp[Abbr‘ss’,Abbr‘pp’]>>
@@ -2091,7 +2091,7 @@ Proof
       Cases_on ‘n’>>fs[FUNPOW_SUC]>>
       imp_res_tac bind_FUNPOW_Vis>>fs[FUNPOW_Tau_bind]>>
       TRY (‘n' < SUC n'’ by simp[]>>
-           first_assum drule>>
+           qpat_assum ‘∀m. m < _ ⇒ _’ drule>>
            disch_then drule>>simp[]>>
            disch_then $ qspec_then ‘fs’ mp_tac>>fs[dec_clock_def,empty_locals_defs]>>
            ‘∀k. s.ffi.io_events =
@@ -2146,7 +2146,7 @@ Proof
       Cases_on ‘n'-m'’>>fs[FUNPOW_SUC]>>
       imp_res_tac bind_FUNPOW_Vis>>fs[FUNPOW_Tau_bind]>>
       ‘n < SUC n'’ by simp[]>>
-      first_assum drule>>
+      qpat_assum ‘∀m. m < _ ⇒ _’ drule>>
       ‘(ext (r' with locals := s.locals |+ (q''',v)) 0 s.ffi).clock = 0’
         by simp[]>>
       disch_then $ drule_at Any>>simp[]>>

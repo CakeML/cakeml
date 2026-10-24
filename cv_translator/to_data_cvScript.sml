@@ -527,7 +527,7 @@ Theorem source_lift_consts_compile_dec_pre[cv_pre]:
   (∀v. source_lift_consts_compile_dec_pre v) ∧
   (∀v. source_lift_consts_compile_decs_pre v)
 Proof
-  ho_match_mp_tac astTheory.dec_induction
+  ho_match_mp_tac source_lift_constsTheory.compile_dec_ind
   \\ rw [] \\ rw [Once pre]
 QED
 
@@ -561,10 +561,11 @@ End
 val _ = cv_auto_trans (compile_pat_alt_def |> PURE_REWRITE_RULE [oneline OPTION_MAP_DEF,o_THM]);
 
 Theorem compile_pat_alt_thm:
-  (∀v env. compile_pat_alt env v = compile_pat env v) ∧
-  (∀v env. compile_pats_alt env v = MAP (compile_pat env) v)
+  (∀env v. compile_pat_alt env v = compile_pat env v) ∧
+  (∀env v. compile_pats_alt env v = MAP (compile_pat env) v)
 Proof
-  Induct >> rw[compile_pat_alt_def,source_to_flatTheory.compile_pat_def] >> metis_tac[]
+  ho_match_mp_tac compile_pat_alt_ind >>
+  rw[compile_pat_alt_def,source_to_flatTheory.compile_pat_def,SF ETA_ss] (* HOL#2098 *)
 QED
 
 val _ = cv_trans $ GSYM $ cj 1 compile_pat_alt_thm;
@@ -604,14 +605,6 @@ Proof
 QED
 
 val _ = cv_trans make_varls_alt_thm
-
-Theorem list_size_mono:
-  (∀x. m x ≤ m' x) ⇒ list_size m xs ≤ list_size m' xs
-Proof
-  strip_tac >> Induct_on ‘xs’ >> rw[list_size_def] >>
-  irule LESS_EQ_LESS_EQ_MONO >>
-  rw[]
-QED
 
 Definition nsMap_alt_def:
   nsMap_alt data (Bind v m) = Bind (MAP (λ(n,x). (n,(x,data))) v) (nsMap_alts data m) ∧
@@ -750,7 +743,14 @@ Proof
   simp[compile_decs_cons,UNCURRY_eq_pair,PULL_EXISTS,source_to_flatTheory.extend_env_def]
 QED
 
-val _ = cv_auto_trans (measure_args [5,5] compile_decs_alt_def)
+val pre = cv_auto_trans_pre "" (measure_args [5,5] compile_decs_alt_def);
+
+Theorem compile_dec_alt_pre[cv_pre,local]:
+  (∀t n next env envs v. compile_dec_alt_pre t n next env envs v) ∧
+  (∀t n next env envs v. compile_decs_alt_pre t n next env envs v)
+Proof
+  ho_match_mp_tac compile_decs_alt_ind \\ rw [] \\ rw [Once pre]
+QED
 
 val _ = cv_trans compile_decs_thm
 
@@ -804,14 +804,6 @@ Proof
   gvs[ELIM_UNCURRY]
 QED
 
-(* TODO: Maybe move to HOL? *)
-Theorem list_size_SUM:
-  list_size f ls =
-  LENGTH ls + SUM (MAP f ls)
-Proof
-  Induct_on `ls`>>rw[]
-QED
-
 Theorem compile_pat_bindings_thm:
   ∀n t i m exp.
   SUM (MAP (pat_size o FST) m) + LENGTH m ≤ n ⇒
@@ -824,7 +816,7 @@ Proof
   >- metis_tac[FST,SND,PAIR]
   >> (PRED_ASSUM is_imp mp_tac >>
       impl_tac
-      >- (gvs[list_size_SUM,SUM_APPEND,
+      >- (gvs[list_size_SUM_MAP,SUM_APPEND,
               LENGTH_enumerate, MAP_enumerate_MAPi, flat_patternTheory.MAPi_eq_MAP,
               ADD1,o_DEF,MAP_MAP_o]) >>
       strip_tac >>
@@ -838,14 +830,32 @@ Proof
  irule $ GSYM compile_pat_bindings_thm >> rw[]
 QED
 
-val _ = cv_auto_trans_pre "" flatLangTheory.pat_size_def
+Definition pat_size_alt_def:
+  pat_size_alt flatLang$Pany = 0 ∧
+  pat_size_alt (Pvar s) = 1 + mlstring_size s ∧
+  pat_size_alt (Plit l) = 1 + lit_size l ∧
+  pat_size_alt (Pcon c ps) =
+    1 + (option_size
+           (pair_size (λx. x)
+              (option_size
+                 (pair_size (λx. x) (list_size (pair_size (λx. x) (λx. x))))))
+           c + pat_sizes_alt ps) ∧
+  pat_size_alt (Pas p s) = 1 + (pat_size_alt p + mlstring_size s) ∧
+  pat_size_alt (Pref p) = 1 + pat_size_alt p ∧
+  pat_sizes_alt [] = 0 ∧
+  pat_sizes_alt (p::ps) = 1 + (pat_size_alt p + pat_sizes_alt ps)
+End
 
-Theorem flatLang_pat_size_pre[cv_pre]:
-  (∀v. flatLang_pat_size_pre v) ∧
-  (∀v. flatLang_pat1_size_pre v)
+Theorem pat_size_alt_thm:
+  (∀p. pat_size_alt p = pat_size p) ∧
+  (∀ps. pat_sizes_alt ps = list_size pat_size ps)
 Proof
-  Induct >> rw[Once $ fetch "-" "flatLang_pat_size_pre_cases"]
+  ho_match_mp_tac pat_size_alt_ind >> rw[pat_size_alt_def]
 QED
+
+val _ = cv_auto_trans pat_size_alt_def;
+
+val _ = cv_trans $ GSYM $ cj 1 pat_size_alt_thm;
 
 val _ = cv_auto_trans compile_pat_bindings_clocked_eq
 
@@ -888,7 +898,7 @@ Proof
   rw[naive_pattern_match_clocked_def,flat_patternTheory.naive_pattern_match_def] >>
   (PRED_ASSUM is_imp mp_tac >>
    impl_tac
-   >- (gvs[list_size_SUM,SUM_APPEND,
+   >- (gvs[list_size_SUM_MAP,SUM_APPEND,
            LENGTH_enumerate, MAP_enumerate_MAPi, flat_patternTheory.MAPi_eq_MAP,
            ADD1,o_DEF,MAP_MAP_o]) >>
    strip_tac >>
@@ -922,9 +932,8 @@ Theorem encode_pat_alt_thm:
   (∀p. encode_pat_alt p = encode_pat p) ∧
   (∀ps. encode_pats_alt ps = MAP encode_pat ps)
 Proof
-  Induct >>
-  rw[encode_pat_alt_def,flat_patternTheory.encode_pat_def] >>
-  metis_tac[]
+  ho_match_mp_tac encode_pat_alt_ind >>
+  rw[encode_pat_alt_def,flat_patternTheory.encode_pat_def]
 QED
 
 val _ = cv_auto_trans encode_pat_alt_def
@@ -1129,12 +1138,6 @@ val _ = cv_auto_trans backendTheory.to_flat_def;
 (* flat_to_clos *)
 
 val _ = cv_auto_trans flat_to_closTheory.compile_op_def
-
-Theorem list_size_thm:
-  list_size f xs = LENGTH xs + SUM(MAP f xs)
-Proof
-  Induct_on ‘xs’ >> gvs[list_size_def]
-QED
 
 Definition flat_to_clos_compile_alt_def:
   (flat_to_clos_compile_alts m [] = []) /\
@@ -1684,7 +1687,7 @@ Theorem contains_closures_alt_pre[cv_pre]:
   (∀v. contains_closures_alt_pre v) ∧
   (∀v. contains_closures_alts_pre v)
 Proof
-  Induct >> rw[] >> rw[Once pre]
+  ho_match_mp_tac contains_closures_alt_ind >> rw[] >> rw[Once pre]
 QED
 
 Theorem contains_closures_cons:
@@ -1698,7 +1701,8 @@ Theorem contains_closures_alt_thm:
   (∀v. contains_closures_alt v = contains_closures [v]) ∧
   (∀v. contains_closures_alts v = contains_closures v)
 Proof
-  Induct >> rw[contains_closures_alt_def,clos_knownTheory.contains_closures_def] >>
+  ho_match_mp_tac contains_closures_alt_ind >>
+  rw[contains_closures_alt_def,clos_knownTheory.contains_closures_def] >>
   metis_tac[contains_closures_cons]
 QED
 
@@ -1797,7 +1801,7 @@ Theorem pure_alt_pre[cv_pre]:
   (∀v. pure_alt_pre v) ∧
   (∀v. pure_alts_pre v)
 Proof
-  Induct >>
+  ho_match_mp_tac pure_alt_ind >>
   rw[] >> rw[Once pre]
 QED
 
@@ -1805,7 +1809,7 @@ Theorem pure_alt_thm:
   (∀v. pure_alt v = pure v) ∧
   (∀v. pure_alts v = EVERY pure v)
 Proof
-  Induct >> rw[pure_alt_def,closLangTheory.pure_def] >>
+  ho_match_mp_tac pure_alt_ind >> rw[pure_alt_def,closLangTheory.pure_def] >>
   metis_tac[]
 QED
 
@@ -2112,12 +2116,12 @@ Theorem cons_measure_alt_thm:
   (∀x. cons_measure_alt x = cons_measure x) ∧
   (∀v. cons_measures_alt v = SUM(MAP cons_measure v))
 Proof
-  reverse Induct >> rw[] >>
-  PURE_ONCE_REWRITE_TAC [cons_measure_pmatch_elim, cons_measure_alt_def]
-  >- (gvs[] >> rw[Once cons_measure_pmatch_elim]) >>
-  gvs[oneline clos_opTheory.dest_Op_def] >>
-  rpt(PURE_TOP_CASE_TAC >> gvs[]) >>
-  gvs[AllCaseEqs()] >> metis_tac[]
+  ho_match_mp_tac cons_measure_alt_ind >> rw[]
+  >- (PURE_ONCE_REWRITE_TAC [cons_measure_pmatch_elim, cons_measure_alt_def] >>
+      gvs[oneline clos_opTheory.dest_Op_def] >>
+      rpt(PURE_TOP_CASE_TAC >> gvs[]) >>
+      gvs[AllCaseEqs()] >> metis_tac[]) >>
+  gvs[cons_measure_alt_def]
 QED
 
 val _ = cv_auto_trans $ GSYM $ cj 1 cons_measure_alt_thm
@@ -2462,7 +2466,14 @@ Proof
   gvs [pre] \\ Cases using SNOC_CASES \\ gvs [REVERSE_SNOC]
 QED
 
-val _ = cv_auto_trans clos_to_bvlTheory.add_parts_def;
+val pre = cv_auto_trans_pre "" clos_to_bvlTheory.add_parts_def;
+Theorem clos_to_bvl_add_parts_pre[cv_pre,local]:
+  (∀v n aux acc. clos_to_bvl_add_parts_pre v n aux acc) ∧
+  (∀v n aux acc. clos_to_bvl_add_parts_list_pre v n aux acc)
+Proof
+  ho_match_mp_tac clos_to_bvlTheory.add_parts_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
 
 val pre = cv_auto_trans_pre_rec "" clos_to_bvlTheory.compile_exp_sing_def
   (WF_REL_TAC ‘measure $ λx. case x of
@@ -2674,10 +2685,11 @@ val _ = cv_auto_trans SmartOp2_eq;
 
 val pre = cv_auto_trans_pre "" bvl_constTheory.compile_sing_def;
 Theorem bvl_const_compile_sing_pre[cv_pre]:
-  (∀v env. bvl_const_compile_sing_pre env v) ∧
-  (∀v env. bvl_const_compile_list_pre env v)
+  (∀env v. bvl_const_compile_sing_pre env v) ∧
+  (∀env v. bvl_const_compile_list_pre env v)
 Proof
-  Induct \\ rpt strip_tac \\ simp [Once pre]
+  ho_match_mp_tac bvl_constTheory.compile_sing_ind
+  \\ rpt strip_tac \\ simp [Once pre]
 QED
 
 val _ = cv_trans bvl_constTheory.compile_exp_eq;
@@ -2690,10 +2702,11 @@ val _ = cv_auto_trans bvl_handleTheory.OptionalLetLet_sing_def;
 
 val pre = cv_auto_trans_pre "" (bvl_handleTheory.compile_sing_def |> measure_args [2,2]);
 Theorem bvl_handle_compile_sing_pre[cv_pre,local]:
-  (∀v l n. bvl_handle_compile_sing_pre l n v) ∧
-  (∀v l n. bvl_handle_compile_list_pre l n v)
+  (∀l n v. bvl_handle_compile_sing_pre l n v) ∧
+  (∀l n v. bvl_handle_compile_list_pre l n v)
 Proof
-  Induct \\ rpt strip_tac \\ simp [Once pre]
+  ho_match_mp_tac bvl_handleTheory.compile_sing_ind
+  \\ rpt strip_tac \\ simp [Once pre]
 QED
 
 val _ = cv_auto_trans bvl_handleTheory.can_raise_def;
@@ -2702,10 +2715,11 @@ val _ = cv_trans bvl_handleTheory.dest_handle_Let_def;
 
 val pre = cv_auto_trans_pre "" (bvl_handleTheory.handle_adj_vars_def |> measure_args [2,2]);
 Theorem bvl_handle_handle_adj_vars_pre[cv_pre]:
-  (∀v l d. bvl_handle_handle_adj_vars_pre l d v) ∧
-  (∀v l d. bvl_handle_handle_adj_vars1_pre l d v)
+  (∀l d v. bvl_handle_handle_adj_vars_pre l d v) ∧
+  (∀l d v. bvl_handle_handle_adj_vars1_pre l d v)
 Proof
-  Induct \\ rpt strip_tac \\ simp [Once pre]
+  ho_match_mp_tac bvl_handleTheory.handle_adj_vars_ind
+  \\ rpt strip_tac \\ simp [Once pre]
 QED
 
 val pre = cv_auto_trans_pre_rec "" bvl_handleTheory.handle_simp_def
@@ -2748,24 +2762,33 @@ val _ = cv_trans bvl_handleTheory.compile_any_def;
 
 (* bvl_inline *)
 
-val _ = cv_auto_trans (bvl_inlineTheory.tick_inline_sing_def |> measure_args [1,1]);
+val pre = cv_auto_trans_pre "" (bvl_inlineTheory.tick_inline_sing_def |> measure_args [1,1]);
+Theorem bvl_inline_tick_inline_sing_pre[cv_pre,local]:
+  (∀(cs:('a # bvl$exp) num_map) v. bvl_inline_tick_inline_sing_pre cs v) ∧
+  (∀(cs:('a # bvl$exp) num_map) v. bvl_inline_tick_inline_list_pre cs v)
+Proof
+  ho_match_mp_tac bvl_inlineTheory.tick_inline_sing_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
 
 val pre = cv_auto_trans_pre "" (bvl_inlineTheory.is_small_sing_def |> measure_args [1,1]);
 Theorem bvl_inline_is_small_sing_pre[cv_pre,local]:
-  (∀v n. bvl_inline_is_small_sing_pre n v) ∧
-  (∀v n. bvl_inline_is_small_list_pre n v)
+  (∀n v. bvl_inline_is_small_sing_pre n v) ∧
+  (∀n v. bvl_inline_is_small_list_pre n v)
 Proof
-  Induct \\ rpt strip_tac \\ simp [Once pre]
+  ho_match_mp_tac bvl_inlineTheory.is_small_sing_ind
+  \\ rpt strip_tac \\ simp [Once pre]
 QED
 
 val _ = cv_auto_trans bvl_inlineTheory.is_small_eq;
 
 val pre = cv_auto_trans_pre "" (bvl_inlineTheory.is_rec_sing_def |> measure_args [1,1]);
 Theorem bvl_inline_is_rec_sing_pre[cv_pre,local]:
-  (∀v n. bvl_inline_is_rec_sing_pre n v) ∧
-  (∀v n. bvl_inline_is_rec_list_pre n v)
+  (∀n v. bvl_inline_is_rec_sing_pre n v) ∧
+  (∀n v. bvl_inline_is_rec_list_pre n v)
 Proof
-  Induct \\ rpt strip_tac \\ simp [Once pre]
+  ho_match_mp_tac bvl_inlineTheory.is_rec_sing_ind
+  \\ rpt strip_tac \\ simp [Once pre]
 QED
 
 val _ = cv_auto_trans bvl_inlineTheory.must_inline_eq;
@@ -2784,7 +2807,8 @@ Theorem bvl_inline_let_op_one_pre[cv_pre,local]:
   (∀v. bvl_inline_let_op_one_pre v) ∧
   (∀v. bvl_inline_let_op_list_pre v)
 Proof
-  Induct \\ rpt strip_tac \\ simp [Once pre]
+  ho_match_mp_tac bvl_inlineTheory.let_op_one_ind
+  \\ rpt strip_tac \\ simp [Once pre]
 QED
 
 val _ = cv_trans bvl_inlineTheory.let_op_sing_eq;
@@ -2794,7 +2818,8 @@ Theorem bvl_inline_remove_ticks_sing_pre[cv_pre,local]:
   (∀v. bvl_inline_remove_ticks_sing_pre v) ∧
   (∀v. bvl_inline_remove_ticks_list_pre v)
 Proof
-  Induct \\ rpt strip_tac \\ simp [Once pre]
+  ho_match_mp_tac bvl_inlineTheory.remove_ticks_sing_ind
+  \\ rpt strip_tac \\ simp [Once pre]
 QED
 
 val _ = cv_trans bvl_inlineTheory.optimise_eq;
@@ -2862,10 +2887,11 @@ QED
 
 val pre = cv_auto_trans_pre "" bvi_tailrecTheory.scan_expr_sing_def;
 Theorem bvi_tailrec_scan_expr_sing_pre[cv_pre]:
-  (∀v ts loc. bvi_tailrec_scan_expr_sing_pre ts loc v) ∧
-  (∀v ts loc. bvi_tailrec_scan_expr_list_pre ts loc v)
+  (∀ts loc v. bvi_tailrec_scan_expr_sing_pre ts loc v) ∧
+  (∀ts loc v. bvi_tailrec_scan_expr_list_pre ts loc v)
 Proof
-  Induct \\ rpt strip_tac \\ simp [Once pre]
+  ho_match_mp_tac bvi_tailrecTheory.scan_expr_sing_ind
+  \\ rpt strip_tac \\ simp [Once pre]
 QED
 
 val pre = cv_auto_trans_pre "" bvi_tailrecTheory.rewrite_eq;
@@ -2879,10 +2905,11 @@ QED
 
 val pre = cv_auto_trans_pre "" bvi_tailrecTheory.has_rec_sing_def;
 Theorem bvi_tailrec_has_rec_sing_pre[cv_pre]:
-  (∀v loc. bvi_tailrec_has_rec_sing_pre loc v) ∧
-  (∀v loc. bvi_tailrec_has_rec_list_pre loc v)
+  (∀loc v. bvi_tailrec_has_rec_sing_pre loc v) ∧
+  (∀loc v. bvi_tailrec_has_rec_list_pre loc v)
 Proof
-  Induct \\ rpt strip_tac \\ simp [Once pre]
+  ho_match_mp_tac bvi_tailrecTheory.has_rec_sing_ind
+  \\ rpt strip_tac \\ simp [Once pre]
 QED
 
 val _ = cv_auto_trans bvi_tailrecTheory.check_exp_eq;
@@ -2987,7 +3014,14 @@ QED
 val _ = cv_auto_trans bvi_tmcTheory.cb_to_bvi_worker_aux_alt_def;
 val _ = cv_trans bvi_tmcTheory.cb_to_bvi_worker_aux_eq;
 
-val _ = cv_auto_trans bvi_tmcTheory.subst_def;
+val pre = cv_auto_trans_pre "" bvi_tmcTheory.subst_def;
+Theorem bvi_tmc_subst_pre[cv_pre,local]:
+  (∀xs v. bvi_tmc_subst_pre xs v) ∧
+  (∀xs v. bvi_tmc_substs_pre xs v)
+Proof
+  ho_match_mp_tac bvi_tmcTheory.subst_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
 val _ = cv_auto_trans bvi_tmcTheory.inline_def;
 val _ = cv_auto_trans bvi_tmcTheory.find_call_def;
 val _ = cv_auto_trans bvi_tmcTheory.float_call_def;
@@ -3057,7 +3091,8 @@ Theorem bvl_to_bvi_global_count_sing_pre[cv_pre]:
   (∀v. bvl_to_bvi_global_count_sing_pre v) ∧
   (∀v. bvl_to_bvi_global_count_list_pre v)
 Proof
-  Induct \\ rpt strip_tac \\ simp [Once pre]
+  ho_match_mp_tac bvl_to_bviTheory.global_count_sing_ind
+  \\ rpt strip_tac \\ simp [Once pre]
 QED
 
 val _ = cv_auto_trans bvl_to_bviTheory.compile_prog_eq;

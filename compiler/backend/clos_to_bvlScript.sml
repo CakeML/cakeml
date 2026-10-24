@@ -481,15 +481,8 @@ Definition compile_exps_def:
      let (c1,aux1) = compile_exps max_app xs aux in
        ([Call ticks (SOME (dest + (num_stubs max_app))) c1],aux1))
 Termination
-  WF_REL_TAC `measure (exp3_size o FST o SND)` >>
-   srw_tac [ARITH_ss] [closLangTheory.exp_size_def] >>
-   `!l. closLang$exp3_size (MAP SND l) <= exp1_size l`
-            by (Induct_on `l` >>
-                rw [closLangTheory.exp_size_def] >>
-                PairCases_on `h` >>
-                full_simp_tac (srw_ss()++ARITH_ss) [closLangTheory.exp_size_def]) >>
-  pop_assum (qspec_then `v7` assume_tac) >>
-  decide_tac
+  WF_REL_TAC `measure (list_size exp_size o FST o SND)` >>
+  srw_tac [ARITH_ss] [list_size_pair_size_MAP_FST_SND]
 End
 
 val compile_exps_ind = theorem"compile_exps_ind";
@@ -574,12 +567,8 @@ Definition compile_exp_sing_def:
        (c1 :: c2, aux2))
 Termination
   WF_REL_TAC `measure $ λx. pmatch x of INL (_,e,_) => exp_size e
-                                    | INR (_,es,_) => exp3_size es` >>
-  srw_tac [ARITH_ss] [closLangTheory.exp_size_def] >>
-  `!l. closLang$exp3_size (MAP SND l) <= exp1_size l` by (
-    Induct_on `l` >> rw [closLangTheory.exp_size_def] >>
-    PairCases_on `h` >> full_simp_tac (srw_ss()++ARITH_ss) [closLangTheory.exp_size_def]) >>
-  pop_assum (qspec_then `v7` assume_tac) >> decide_tac
+                                    | INR (_,es,_) => list_size exp_size es` >>
+  srw_tac [ARITH_ss] [list_size_pair_size_MAP_FST_SND]
 End
 
 Theorem compile_exp_sing_eq:
@@ -629,10 +618,8 @@ Definition get_src_names_def:
        case loc_opt of NONE => l1
                        | SOME n => add_src_names n names l1)
 Termination
-  WF_REL_TAC ‘measure (closLang$exp3_size o FST)’ \\ rw []
-  \\ qsuff_tac ‘exp3_size (MAP SND funs) <= exp1_size funs’ \\ fs []
-  \\ Induct_on ‘funs’ \\ fs [closLangTheory.exp_size_def]
-  \\ fs [FORALL_PROD,closLangTheory.exp_size_def]
+  WF_REL_TAC ‘measure (list_size closLang$exp_size o FST)’
+  \\ srw_tac [ARITH_ss] [list_size_pair_size_MAP_FST_SND]
 End
 
 Definition get_src_names_sing_def:
@@ -662,11 +649,8 @@ Definition get_src_names_sing_def:
   get_src_names_list (x::xs) l = get_src_names_list xs (get_src_names_sing x l)
 Termination
   WF_REL_TAC ‘measure $ λx. pmatch x of INL (e,_) => closLang$exp_size e
-                                    | INR (es,_) => closLang$exp3_size es’
-  \\ rw [closLangTheory.exp_size_def]
-  \\ qsuff_tac ‘exp3_size (MAP SND funs) <= exp1_size funs’ \\ fs []
-  \\ Induct_on ‘funs’ \\ fs [closLangTheory.exp_size_def]
-  \\ fs [FORALL_PROD,closLangTheory.exp_size_def]
+                                    | INR (es,_) => list_size closLang$exp_size es’
+  \\ srw_tac [ARITH_ss] [list_size_pair_size_MAP_FST_SND]
 End
 
 Theorem get_src_names_sing_eq:

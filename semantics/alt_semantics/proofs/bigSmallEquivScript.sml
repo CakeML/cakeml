@@ -1269,58 +1269,89 @@ Theorem untyped_safety_decs:
   (∀ds (s:'ffi state) env.
      (∃r. evaluate_decs F env s ds r) = ¬decs_diverges env s ds)
 Proof
-  ho_match_mp_tac astTheory.dec_induction >> rw[] >>
-  rw[Once evaluate_dec_cases, Once dec_diverges_cases, GSYM untyped_safety_exp] >>
-  gvs[]
-  >~ [`open_dec_env _ _`] >- (
-    rename1 `open_dec_env path env` >>
-    Cases_on `open_dec_env path env` >> simp [])
+  sg ‘∀ds. (∀d. MEM d ds ⇒ ∀(s:'ffi state) env.
+               (∃r. evaluate_dec F env s d r) = ¬dec_diverges env s d) ⇒
+        ∀(s:'ffi state) env.
+          (∃r. evaluate_decs F env s ds r) = ¬decs_diverges env s ds’
   >- (
-    Cases_on ‘ALL_DISTINCT (pat_bindings p) ∧
-              check_exp_constructors env.c e’ >>
-    gvs[GSYM small_big_exp_equiv, to_small_st_def] >>
-    eq_tac >- metis_tac[] >> rw[] >>
-    PairCases_on ‘r’ >>
-    Q.REFINE_EXISTS_TAC ‘(s with <| refs := r0; ffi := r1; |>, res)’ >> simp[] >>
-    rename [‘small_eval _ _ _ _ ((r0,r1), r2)’] >>
-    reverse $ Cases_on ‘r2’ >> gvs[]
-    >- (qexists_tac ‘Rerr e'’ >> gvs[]) >>
-    Cases_on ‘pmatch env.c r0 p a []’ >> gvs[]
+    Induct >> rw[] >>
+    rw[Once evaluate_dec_cases, Once dec_diverges_cases] >> gvs[SF DNF_ss] >>
+    qpat_x_assum ‘∀d s env. MEM _ _ ⇒ _’ kall_tac >>
+    rpt (qpat_x_assum ‘∀s env. (∃r. _) ⇔ _’ (assume_tac o GSYM)) >>
+    gvs[] >> eq_tac >> rw[]
+    >- (goal_assum drule)
     >- (
-      qexists_tac ‘Rerr (Rraise bind_exn_v)’ >> gvs[] >>
-      disj1_tac >> goal_assum drule >> simp[]
-      )
+      CCONTR_TAC >> gvs[] >>
+      ‘(s2',Rval new_env) = (s2,Rerr e)’ by metis_tac[decs_determ] >> gvs[])
+    >- (goal_assum drule)
     >- (
-      qexists_tac ‘Rerr (Rabort Rtype_error)’ >> gvs[] >>
-      disj1_tac >> goal_assum drule >> simp[]
+      CCONTR_TAC >> gvs[] >>
+      ‘s2' = s2 ∧ new_env' = new_env’ by metis_tac[decs_determ, PAIR_EQ, result_11] >>
+      gvs[] >> metis_tac[]) >>
+    PairCases_on ‘r’ >> Cases_on ‘r1’ >> metis_tac[PAIR]) >>
+  conj_asm1_tac
+  >- (
+    ho_match_mp_tac astTheory.dec_induction >> rw[] >>
+    rw[Once evaluate_dec_cases, Once dec_diverges_cases, GSYM untyped_safety_exp] >>
+    gvs[]
+    >~ [‘open_dec_env’] >- (
+      rename1 `open_dec_env path env` >>
+      Cases_on `open_dec_env path env` >> simp [])
+    >~ [‘small_eval’] >- (
+      Cases_on ‘ALL_DISTINCT (pat_bindings p) ∧
+                check_exp_constructors env.c e’ >>
+      gvs[GSYM small_big_exp_equiv, to_small_st_def] >>
+      eq_tac >- metis_tac[] >> rw[] >>
+      PairCases_on ‘r’ >>
+      Q.REFINE_EXISTS_TAC ‘(s with <| refs := r0; ffi := r1; |>, res)’ >> simp[] >>
+      rename [‘small_eval _ _ _ _ ((r0,r1), r2)’] >>
+      reverse $ Cases_on ‘r2’ >> gvs[]
+      >- (qexists_tac ‘Rerr e'’ >> gvs[]) >>
+      Cases_on ‘pmatch env.c r0 p a []’ >> gvs[]
+      >- (
+        qexists_tac ‘Rerr (Rraise bind_exn_v)’ >> gvs[] >>
+        disj1_tac >> goal_assum drule >> simp[]
+        )
+      >- (
+        qexists_tac ‘Rerr (Rabort Rtype_error)’ >> gvs[] >>
+        disj1_tac >> goal_assum drule >> simp[]
+        )
+      >- (
+        qexists_tac ‘Rval <| v := alist_to_ns a' ; c := nsEmpty |>’ >> gvs[] >>
+        goal_assum drule >> simp[]
+        )
       )
+    >~ [‘build_rec_env’] >- metis_tac[NOT_EVERY]
+    >~ [‘build_tdefs’] >- metis_tac[NOT_EVERY]
+    >~ [‘nsLift’] >- (
+      last_assum (qspec_then ‘l’ mp_tac) >> impl_tac >- first_assum ACCEPT_TAC >>
+      strip_tac >> gvs[] >>
+      eq_tac >> rw[] >> gvs[EXISTS_PROD, PULL_EXISTS] >>
+      metis_tac[result_nchotomy])
+    >~ [‘declare_env’] >- (
+      gvs[EXISTS_PROD, SF DNF_ss] >>
+      Cases_on ‘declare_env s.eval_state env’ >> gvs[] >>
+      rename1 ‘_ = SOME x’ >> Cases_on ‘x’ >> gvs[]) >>
+    last_assum (qspec_then ‘l’ mp_tac) >> impl_tac >- first_assum ACCEPT_TAC >>
+    strip_tac >>
+    last_assum (qspec_then ‘l0’ mp_tac) >> impl_tac >- first_assum ACCEPT_TAC >>
+    strip_tac >>
+    qpat_x_assum ‘∀d. MEM d l ⇒ _’ kall_tac >>
+    qpat_x_assum ‘∀d. MEM d l0 ⇒ _’ kall_tac >>
+    qpat_x_assum ‘∀ds. (∀d. MEM d ds ⇒ _) ⇒ _’ kall_tac >>
+    rpt (qpat_x_assum ‘∀s env. (∃r. _) ⇔ _’ (assume_tac o GSYM)) >>
+    gvs[] >> eq_tac >> rw[]
     >- (
-      qexists_tac ‘Rval <| v := alist_to_ns a' ; c := nsEmpty |>’ >> gvs[] >>
-      goal_assum drule >> simp[]
-      )
-    )
-  >- metis_tac[NOT_EVERY]
-  >- metis_tac[NOT_EVERY]
-  >- (
-    eq_tac >> rw[] >> gvs[EXISTS_PROD, PULL_EXISTS] >>
-    metis_tac[result_nchotomy]
-    )
-  >- (
-    gvs[EXISTS_PROD, PULL_EXISTS, declare_env_def] >>
-    ntac 2 $ pop_assum $ mp_tac o GSYM >>
-    gvs[] >> rw[] >> eq_tac >> rw[] >> gvs[] >>
-    metis_tac[result_nchotomy, decs_determ, PAIR_EQ, result_11, result_distinct]
-    )
-  >- (
-    gvs[EXISTS_PROD, SF DNF_ss] >>
-    Cases_on ‘declare_env s.eval_state env’ >> gvs[] >>
-    rename1 ‘_ = SOME x’ >> Cases_on ‘x’ >> gvs[]
-    )
-  >- (
-    gvs[EXISTS_PROD, declare_env_def] >>
-    ntac 2 $ pop_assum $ mp_tac o GSYM >> rw[] >> eq_tac >> rw[] >>
-    metis_tac[result_nchotomy, result_distinct, decs_determ, PAIR_EQ, result_11]
-    )
+      CCONTR_TAC >> gvs[] >>
+      ‘st2 = s2 ∧ new_env' = new_env’ by metis_tac[decs_determ, PAIR_EQ, result_11] >>
+      gvs[] >> metis_tac[])
+    >- (goal_assum drule)
+    >- (
+      CCONTR_TAC >> gvs[] >>
+      ‘(st2,Rval new_env) = (s2,Rerr err)’ by metis_tac[decs_determ] >> gvs[])
+    >- (goal_assum drule) >>
+    PairCases_on ‘r’ >> Cases_on ‘r1’ >> metis_tac[PAIR]) >>
+  rw [] >> first_x_assum irule >> simp []
 QED
 
 Theorem untyped_safety_decs_alt:

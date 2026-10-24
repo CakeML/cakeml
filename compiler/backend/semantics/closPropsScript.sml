@@ -401,19 +401,6 @@ Proof
   once_rewrite_tac[every_Fn_vs_SOME_EVERY] \\ rw[]
 QED
 
-Theorem exp3_size:
-  closLang$exp3_size xs = LENGTH xs + SUM (MAP exp_size xs)
-Proof
-  Induct_on `xs` \\ simp [closLangTheory.exp_size_def]
-QED
-
-Theorem exp1_size_rw[simp]:
-   exp1_size fbinds =
-     exp3_size (MAP SND fbinds) + SUM (MAP FST fbinds) + LENGTH fbinds
-Proof
-  Induct_on `fbinds` \\ simp[FORALL_PROD, closLangTheory.exp_size_def]
-QED
-
 Definition no_mti_def:
   (no_mti (Var t n) = T) ∧
   (no_mti (If t e1 e2 e3) <=>
@@ -445,8 +432,6 @@ Definition no_mti_def:
     EVERY no_mti es)
 Termination
   WF_REL_TAC `measure exp_size` \\ simp []
-  \\ rw []
-  \\ fs [MEM_SPLIT, SUM_APPEND, exp3_size, exp_size_def]
 End
 
 Definition fv_def:
@@ -532,15 +517,6 @@ Proof
   Induct_on `m` >> simp[REPLICATE, fv_def,fv1_thm] >>
   simp[] >> metis_tac[]
 QED
-
-Theorem v_ind =
-  TypeBase.induction_of``:closSem$v``
-  |> Q.SPECL[`P`,`EVERY P`]
-  |> SIMP_RULE(srw_ss())[]
-  |> UNDISCH_ALL
-  |> CONJUNCT1
-  |> DISCH_ALL
-  |> Q.GEN`P`
 
 Theorem do_app_err:
    ∀op ls s e.
@@ -1737,15 +1713,6 @@ Proof
     gvs [oneline dest_thunk_def, AllCaseEqs()] \\ rw [] \\ gvs [])
 QED
 
-val _ = export_rewrites ["closLang.exp_size_def"]
-
-Theorem exp_size_MEM:
-   (∀e elist. MEM e elist ⇒ exp_size e < exp3_size elist) ∧
-   (∀x e ealist. MEM (x,e) ealist ⇒ exp_size e < exp1_size ealist)
-Proof
-  rw [MEM_SPLIT] \\ simp [exp3_size, SUM_APPEND]
-QED
-
 Theorem evaluate_eq_nil[simp]:
    closSem$evaluate(es,env,s0) = (Rval [], s) ⇔ s0 = s ∧ es = []
 Proof
@@ -1761,11 +1728,6 @@ Definition op_gbag_def:
   op_gbag _ = {||}
 End
 
-Theorem exp2_size_rw[simp]:
-   exp2_size h = 1 + FST h + exp_size (SND h)
-Proof
-  Cases_on `h` >> simp[]
-QED
 
 Definition set_globals_def[simp]:
   (set_globals (Var _ _) = {||}) ∧
@@ -1792,12 +1754,6 @@ End
    include calls to SetGlobal, for
      foo = {(e)xpr, (v)alue, (r)esult, and (s)tate}
 *)
-Theorem v_size_lemma:
-   MEM (v:closSem$v) vl ⇒ v_size v < v1_size vl
-Proof
-  Induct_on `vl` >> dsimp[v_size_def] >> rpt strip_tac >>
-  res_tac >> simp[]
-QED
 
 (* value is setglobal-closure free *)
 Definition vsgc_free_def:
@@ -1810,8 +1766,7 @@ Definition vsgc_free_def:
   (vsgc_free (Block _ VL) ⇔ EVERY vsgc_free VL) ∧
   (vsgc_free _ ⇔ T)
 Termination
-  WF_REL_TAC `measure closSem$v_size` >> simp[v_size_def] >>
-   rpt strip_tac >> imp_res_tac v_size_lemma >> simp[]
+  WF_REL_TAC `measure closSem$v_size`
 End
 
 Theorem vsgc_free_def[simp,allow_rebind] =
@@ -1850,8 +1805,7 @@ Definition esgc_free_def:
     elist_globals (MAP SND binds) = {||} ∧ esgc_free bod) ∧
   (esgc_free (Op _ _ args) ⇔ EVERY esgc_free args)
 Termination
-  WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>
-   imp_res_tac exp_size_MEM >> simp[]
+  WF_REL_TAC `measure exp_size` >> simp[]
 End
 
 Theorem esgc_free_def[simp,compute,allow_rebind] =
@@ -1889,11 +1843,9 @@ QED
 Theorem set_globals_empty_esgc_free:
    set_globals e = {||} ⇒ esgc_free e
 Proof
-  completeInduct_on `exp_size e` >> fs[PULL_FORALL] >> Cases >>
-  simp[] >> strip_tac >> rveq >> fs[AND_IMP_INTRO] >>
-  simp[EVERY_MEM, elglobals_EQ_EMPTY, MEM_MAP] >>
-  rw[] >> rw[] >>
-  first_x_assum irule >> simp[] >> imp_res_tac exp_size_MEM >> simp[]
+  qid_spec_tac ‘e’ >> ho_match_mp_tac closLangTheory.exp_induction >>
+  rw[] >>
+  gvs[EVERY_MEM, elglobals_EQ_EMPTY, MEM_MAP, PULL_EXISTS, FORALL_PROD]
 QED
 
 Theorem elist_globals_append:
@@ -2563,7 +2515,7 @@ Proof
     \\ simp[do_app_def]
     \\ rename1 `vr (make_const constant) _`
     \\ qid_spec_tac `constant`
-    \\ recInduct make_const_ind
+    \\ recInduct closLangTheory.const_induction
     \\ fs [make_const_def,simple_val_rel_def,LIST_REL_REFL_EVERY]
     \\ fs[EVERY_MAP,EVERY_MEM])
   \\ Cases_on `

@@ -58,7 +58,6 @@ Termination
   wf_rel_tac ‘measure (λx. case x of
                            | INL s => long_names_size (SND s) + 1
                            | INR l => long_names_size l)’
-  \\ simp [list_size_def, basicSizeTheory.pair_size_def]
 End
 
 Theorem names_set_empty_names[local,simp]:
@@ -1584,16 +1583,16 @@ Proof
 QED
 
 Theorem prune_pat_bindings[local]:
-  (∀p used.
+  (∀used p.
      set (pat_bindings (prune_pat used p)) ⊆ set (pat_bindings p) ∧
      (ALL_DISTINCT (pat_bindings p) ⇒
       ALL_DISTINCT (pat_bindings (prune_pat used p)))) ∧
-  (∀ps used.
+  (∀used ps.
      set (pats_bindings (prune_pat_list used ps)) ⊆ set (pats_bindings ps) ∧
      (ALL_DISTINCT (pats_bindings ps) ⇒
       ALL_DISTINCT (pats_bindings (prune_pat_list used ps))))
 Proof
-  ho_match_mp_tac astTheory.pat_induction
+  ho_match_mp_tac prune_pat_ind
   \\ rpt conj_tac \\ rpt gen_tac \\ rpt strip_tac
   \\ gvs [prune_pat_def, astTheory.pat_bindings_def, ALL_DISTINCT_APPEND]
   \\ rw [] \\ gvs [prune_pat_def, astTheory.pat_bindings_def,

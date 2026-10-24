@@ -479,14 +479,14 @@ Definition run_eval_dec_def:
 End
 
 Theorem run_eval_decs_spec:
-  (!d (st:'a state) env st' r.
+  (!env (st:'a state) d st' r.
      (run_eval_dec env st d = (st', r)) ⇒
      evaluate_dec T env st d (st', r)) ∧
-  (!ds env (st:'a state) st'  r.
+  (!env (st:'a state) ds st'  r.
      (run_eval_decs env st ds = (st',r)) ⇒
      evaluate_decs T env st ds (st',r))
 Proof
-  ho_match_mp_tac astTheory.dec_induction >>
+  ho_match_mp_tac run_eval_dec_ind >>
   rw [] >>
   simp [Once evaluate_dec_cases] >>
   fs [run_eval_dec_def] >>

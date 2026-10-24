@@ -6436,12 +6436,6 @@ Proof
   \\ irule flat_patternProofTheory.compile_decs_no_Mat
 QED
 
-Theorem mem_size_lemma[local]:
-  list_size sz xs < N ==> (MEM x xs ⇒ sz x < N)
-Proof
-  Induct_on `xs` \\ rw [list_size_def] \\ fs []
-QED
-
 Definition num_bindings_def[simp]:
    (num_bindings (Dlet _ p e) =
      case simple_dlet p e of SOME _ => 0 | _ => LENGTH (pat_bindings p)) ∧
