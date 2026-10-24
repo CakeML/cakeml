@@ -3,10 +3,19 @@ INCLUDES = $(HOLDIR)/examples/pl-semantics/lprefix_lub
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 
-README_SOURCES = preamble.sml $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+README_SOURCES = preamble.sml $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml) $(wildcard *.sh)
 sinclude $(CAKEMLDIR)/developers/readme.mk
 
-EXTRA_CLEANS = cakeml-heap
+# Holmake decides what to rebuild before running any rule, so build_info.txt
+# is refreshed by a $(shell) call, which runs whenever this file is read.
+# The script only rewrites build_info.txt when its contents change.
+# The path is relative because $(CAKEMLDIR) can come from the environment
+# (e.g. another worktree) during the first read, while $(shell) always runs
+# in this directory. If the script fails, warn and drop the dependency;
+# buildInfoLib then reports whatever it cannot read as unknown.
+buildInfoLib.uo: $(if $(shell sh update_build_info.sh $(protect $(HOLDIR))),build_info.txt,$(warning update_build_info.sh failed so build_info.txt was not refreshed))
+
+EXTRA_CLEANS = cakeml-heap build_info.txt
 
 ifdef POLY
 all: cakeml-heap
