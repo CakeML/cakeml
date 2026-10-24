@@ -582,6 +582,7 @@ Proof
   \\ fs [evaluate_ck_def, evaluate_to_heap_def] \\ rw []
   \\ first_x_assum drule \\ strip_tac
   \\ first_x_assum (qspec_then`st.refs`strip_assume_tac)
+  \\ first_x_assum (qspec_then `st.ptr_eq_oracle` strip_assume_tac)
   \\ instantiate
   \\ drule evaluate_empty_state_IMP \\ strip_tac
   \\ fs [ml_progTheory.eval_rel_def]
@@ -595,6 +596,7 @@ Proof
   \\ pop_assum SUBST_ALL_TAC
   \\ qexists_tac`store2heap_aux (LENGTH st.refs) refs'`
   \\ fs[SPLIT_def]
+  \\ conj_tac >- simp [st2heap_def]
   \\ fs[IN_DISJOINT]
   \\ Cases \\ fs[FFI_split_NOT_IN_store2heap_aux,
                  FFI_part_NOT_IN_store2heap_aux,
@@ -659,17 +661,19 @@ Proof
   \\ first_x_assum drule
   \\ fs[evaluate_ck_def]
   \\ fs[POSTv_cond,SPLIT3_emp1,PULL_EXISTS]
-  \\ disch_then( qspec_then`empty_state with <| refs := refs; ffi := ffi_st_x; |>` mp_tac)
+  \\ disch_then (qspec_then
+       `build_state refs po with ffi := ffi_st_x` mp_tac)
   \\ rw [] \\ instantiate
   \\ rename1 `SPLIT (st2heap p st1) _`
-  \\ drule_then (qspec_then `empty_state with <| clock := ck ;refs := refs |>` mp_tac)
+  \\ drule_then (qspec_then `build_state refs po with clock := ck` mp_tac)
     (INST_TYPE [beta |-> ``:'z``] evaluate_ffi_etc_intro)
-  \\ simp [EVAL ``empty_state.eval_state``]
+  \\ simp [ml_translatorTheory.build_state_def,EVAL ``empty_state.eval_state``]
   \\ qsuff_tac `?refs1. st1.refs = refs ++ refs1 /\
                         st1.ffi = ffi_st_x`
   THEN1
    (fs [ml_progTheory.eval_rel_def] \\ rw []
     \\ qexists_tac `refs1`
+    \\ qexists_tac `st1.ptr_eq_oracle`
     \\ qexists_tac `ck1` \\ fs [state_component_equality])
   \\ imp_res_tac evaluate_refs_length_mono \\ fs []
   \\ imp_res_tac evaluate_io_events_mono_imp
@@ -697,4 +701,3 @@ Theorem Arrow_eq_app_basic:
 Proof
   metis_tac[GEN_ALL Arrow_IMP_app_basic, GEN_ALL app_basic_IMP_Arrow]
 QED
-

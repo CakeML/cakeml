@@ -10,6 +10,22 @@ Ancestors
 Libs
   preamble finite_mapSyntax[qualified] semanticPrimitivesSyntax[qualified]
 
+(* Run the generated execution under the default pointer-equality oracle. *)
+val init_state_default_oracle = prove(
+  ``init_state ffi with ptr_eq_oracle := (init_state ffi).ptr_eq_oracle =
+    init_state ffi``,
+  simp [semanticPrimitivesTheory.state_component_equality]);
+
+fun with_default_oracle theorem = let
+  val th = SPEC_ALL theorem
+  val start = el 2 (snd (strip_comb (concl th)))
+  val (sub,_) = match_term
+    ``init_state ffi with ptr_eq_oracle := (po:num -> num -> bool)`` start
+  val ffi = subst sub ``ffi:'a ffi_state``
+  val po = subst sub ``po:num -> num -> bool``
+  in INST [po |-> ``(init_state ^ffi).ptr_eq_oracle``] th
+     |> PURE_REWRITE_RULE [init_state_default_oracle] end;
+
 (* Validate the generated execution interface before extracting its results. *)
 fun input_decls_result program theorem = let
   val (_,fact) = strip_forall (concl theorem)
@@ -393,6 +409,7 @@ Theorem input_prelude_Prog:
     input_prelude_decl_env (input_prelude_state ffi)
 Proof
   simp [Prog_def, input_prelude_state_def] >>
+  conj_tac >- EVAL_TAC >>
   qexistsl_tac [`0`,`0`] >> EVAL_TAC
 QED
 
@@ -422,7 +439,7 @@ Proof
 QED
 
 val (input_prefix_env_tm,input_prefix_state_tm,input_prefix_ffi) =
-  input_decls_result ``ast_prefix_prog`` Decls_ast_prefix;
+  input_decls_result ``ast_prefix_prog`` (with_default_oracle Decls_ast_prefix);
 
 Definition input_ast_prefix_decl_env_def:
   input_ast_prefix_decl_env = ^input_prefix_env_tm
@@ -437,7 +454,7 @@ Definition input_ast_prefix_env_def:
 End
 
 Theorem input_ast_prefix_Prog =
-  MATCH_MP (MATCH_MP Decls_IMP_Prog Decls_ast_prefix) repl_input_prefix_syntax_ok
+  MATCH_MP (MATCH_MP Decls_IMP_Prog (with_default_oracle Decls_ast_prefix)) repl_input_prefix_syntax_ok
   |> PURE_REWRITE_RULE [GSYM input_ast_prefix_decl_env_def,
        GSYM input_ast_prefix_state_def];
 
@@ -697,7 +714,7 @@ Proof
 QED
 
 val (input_ast_env_tm,input_ast_state_tm,input_ast_ffi) =
-  input_decls_result ``ast_prog`` Decls_ast_prog;
+  input_decls_result ``ast_prog`` (with_default_oracle Decls_ast_prog);
 
 Definition input_ast_decl_env_def:
   input_ast_decl_env = ^input_ast_env_tm
@@ -712,7 +729,7 @@ Definition input_ast_env_def:
 End
 
 Theorem input_ast_Prog =
-  MATCH_MP (MATCH_MP Decls_IMP_Prog Decls_ast_prog) input_ast_program_syntax
+  MATCH_MP (MATCH_MP Decls_IMP_Prog (with_default_oracle Decls_ast_prog)) input_ast_program_syntax
   |> PURE_REWRITE_RULE [GSYM input_ast_decl_env_def, GSYM input_ast_state_def];
 
 Theorem input_ast_body_execution:
@@ -744,6 +761,7 @@ Theorem input_ast_datatypes_Prog:
     (st with next_type_stamp := st.next_type_stamp + LENGTH input_ast_allocation_tds)
 Proof
   simp [Prog_def] >>
+  conj_tac >- EVAL_TAC >>
   qexistsl_tac [`st.clock`,`st.clock`] >>
   rewrite_tac [input_ast_allocation_evaluation] >>
   simp [Once evaluateTheory.evaluate_decs_def,
@@ -1010,7 +1028,7 @@ QED
 
 val input_repl_execution = REWRITE_RULE
   [SNOC_APPEND, APPEND, GSYM repl_moduleProgTheory.repl_prog_def]
-  repl_moduleProgTheory.Decls_repl_prog;
+  (with_default_oracle repl_moduleProgTheory.Decls_repl_prog);
 val (input_repl_env_tm,input_repl_state_tm,input_repl_ffi) =
   input_decls_result ``repl_prog`` input_repl_execution;
 

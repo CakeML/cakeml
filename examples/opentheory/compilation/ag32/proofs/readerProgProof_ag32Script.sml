@@ -13,16 +13,10 @@ Libs
 
 val _ = numLib.prefer_num ();
 
-val reader_io_events_def =
-  new_specification ("reader_io_events_def", ["reader_io_events"],
-  reader_semantics |> Q.INST [`ext`|->`no_ext`] |> Q.GENL [`cl`,`fs`]
-  |> SIMP_RULE std_ss [GSYM RIGHT_EXISTS_IMP_THM]
-  |> SIMP_RULE std_ss [SKOLEM_THM]);
-
-val (reader_sem,reader_output) = reader_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
-val (reader_not_fail,reader_sem_sing) = reader_sem
-  |> SRULE [reader_compiled,ml_progTheory.prog_syntax_ok_semantics]
-  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR;
+val reader_terminate = UNDISCH_ALL (Q.INST [`ext`|->`no_ext`] reader_semantics)
+  |> SIMP_RULE bool_ss [RIGHT_EXISTS_AND_THM]
+  |> HO_MATCH_MP ml_progTheory.sem_satisfies_IMP_Terminate
+  |> SRULE [reader_compiled];
 
 val ffinames_to_string_list_def = backendTheory.ffinames_to_string_list_def;
 
@@ -79,9 +73,9 @@ val reader_startup_clock_def =
 val compile_correct_applied =
   MATCH_MP compile_correct (cj 1 reader_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
-  |> C MATCH_MP reader_not_fail
+  |> C MATCH_MP (cj 1 reader_terminate)
   |> C MATCH_MP ag32_backend_config_ok
-  |> REWRITE_RULE[reader_sem_sing,AND_IMP_INTRO]
+  |> REWRITE_RULE[AND_IMP_INTRO]
   |> REWRITE_RULE[Once (GSYM AND_IMP_INTRO)]
   |> C MATCH_MP (CONJ(UNDISCH ag32_machine_config_ok)(UNDISCH ag32_init_ok))
   |> DISCH(#1(dest_imp(concl ag32_init_ok)))
@@ -131,6 +125,8 @@ QED
 Theorem reader_machine_sem =
   compile_correct_applied
   |> C MATCH_MP (UNDISCH reader_installed)
+  |> MATCH_MP (cj 2 reader_terminate)
+  |> REWRITE_RULE [targetPropsTheory.machine_sem_sing]
   |> DISCH_ALL
 
 val _ = Parse.hide "mem";
@@ -145,8 +141,10 @@ QED
 
 Theorem reader_extract_writes:
    wfcl cl ∧
-   LENGTH cl = 1 ⇒
-     let events = MAP get_output_io_event (reader_io_events cl (stdin_fs inp));
+   LENGTH cl = 1 ∧
+   extract_fs no_ext (cl,stdin_fs inp) io =
+     SOME (FST (reader_main (stdin_fs inp) init_refs (TL cl))) ⇒
+     let events = MAP get_output_io_event io;
          out = extract_writes 1 events;
          err = extract_writes 2 events;
          refs = SND (init_reader () init_refs) in
@@ -165,13 +163,7 @@ Theorem reader_extract_writes:
          (err = "")
      | _ => F
 Proof
-  strip_tac \\ fs []
-  \\ mp_tac (GEN_ALL (DISCH_ALL reader_output))
-  \\ disch_then (qspecl_then [`stdin_fs inp`, `cl`] mp_tac)
-  \\ fs [wfFS_stdin_fs, STD_streams_stdin_fs, LENGTH_EQ_NUM_compute]
-  \\ impl_tac
-  >- (qexists_tac `inp` \\ EVAL_TAC)
-  \\ strip_tac
+  strip_tac \\ gvs [LENGTH_EQ_NUM_compute]
   \\ Cases_on `init_reader () init_refs`
   \\ drule readerProofTheory.init_reader_ok
   \\ strip_tac \\ rveq \\ fs []
@@ -246,27 +238,30 @@ Theorem reader_ag32_next:
    (LENGTH cl = 1) /\
    is_ag32_init_state (init_memory code data (extcalls info.lab_conf.ffi_names) (cl,inp)) ms0
    ==>
-   ?k1. !k. k1 <= k ==>
-     let ms = FUNPOW Next k ms0 in
-     let outs = MAP (get_ag32_io_event) ms.io_events in
-       (ms.PC = (reader_machine_config).halt_pc) /\
-       (get_mem_word ms.MEM ms.PC = Encode (Jump (fAdd,0w,Imm 0w))) /\
-       outs ≼ MAP get_output_io_event (reader_io_events cl (stdin_fs inp)) /\
-       ((ms.R (n2w (reader_machine_config).ptr_reg) = 0w) ==>
-        (outs = MAP get_output_io_event (reader_io_events cl (stdin_fs inp))))
+   ?io.
+     extract_fs no_ext (cl,stdin_fs inp) io =
+       SOME (FST (reader_main (stdin_fs inp) init_refs (TL cl))) /\
+     ?k1. !k. k1 <= k ==>
+       let ms = FUNPOW Next k ms0 in
+       let outs = MAP (get_ag32_io_event) ms.io_events in
+         (ms.PC = (reader_machine_config).halt_pc) /\
+         (get_mem_word ms.MEM ms.PC = Encode (Jump (fAdd,0w,Imm 0w))) /\
+         outs ≼ MAP get_output_io_event io /\
+         ((ms.R (n2w (reader_machine_config).ptr_reg) = 0w) ==>
+          (outs = MAP get_output_io_event io))
 Proof
   strip_tac
-  \\ mp_tac (GEN_ALL reader_machine_sem)
-  \\ disch_then (mp_tac o CONV_RULE (RESORT_FORALL_CONV rev))
-  \\ disch_then (qspec_then `cl` mp_tac)
-  \\ disch_then (qspecl_then [`stdin_fs inp`, `inp`, `ms0`] mp_tac)
+  \\ mp_tac (Q.INST [`fs` |-> `stdin_fs inp`] reader_machine_sem)
   \\ impl_tac
   >-
    (
     fs [STD_streams_stdin_fs, wfFS_stdin_fs, LENGTH_EQ_NUM_compute]
     \\ qexists_tac `inp`
     \\ simp [stdin_fs_def, TextIOProofTheory.stdin_def])
+  \\ impl_tac >- fs []
   \\ strip_tac
+  \\ qexists_tac `io_events`
+  \\ conj_tac >- simp []
   \\ irule ag32_next
   \\ conj_tac >- (simp [ffi_names, extcalls_def] \\ EVAL_TAC)
   \\ conj_tac >- (simp [ffi_names, extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC)

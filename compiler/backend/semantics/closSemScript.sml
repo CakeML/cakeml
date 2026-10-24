@@ -42,6 +42,7 @@ Datatype:
      ; compile_oracle : 'c clos_co
      ; code    : num |-> (num # closLang$exp # metadata)
      ; max_app : num
+     ; ptr_eq_oracle : num -> num -> bool
     |>
 End
 
@@ -152,6 +153,7 @@ Definition do_install_def:
                           s with <|
                              code := s.code |++ aux
                            ; compile_oracle := new_oracle
+                           ; ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle
                            ; clock := s.clock - 1
                            |>
                         in
@@ -513,6 +515,13 @@ Definition do_app_def:
     | (BlockOp Equal,[x1;x2]) =>
         (case do_eq x1 x2 of
          | Eq_val b => Rval (Boolv b, s)
+         | _ => Error)
+    | (BlockOp PtrEqual,[x1;x2]) =>
+        (case do_eq x1 x2 of
+         | Eq_val b =>
+             Rval (Boolv (b ∧ s.ptr_eq_oracle 0 0),
+                   s with ptr_eq_oracle :=
+                     (0 =+ shift_seq 1 (s.ptr_eq_oracle 0)) s.ptr_eq_oracle)
          | _ => Error)
     | (MemOp Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
@@ -978,7 +987,7 @@ Theorem evaluate_ind[allow_rebind] =
 (* observational semantics *)
 
 Definition initial_state_def:
-  initial_state ffi ma code co cc k = <|
+  initial_state ffi ma code co cc pe k = <|
     max_app := ma;
     clock := k;
     ffi := ffi;
@@ -986,13 +995,14 @@ Definition initial_state_def:
     compile := cc;
     compile_oracle := co;
     globals := [];
-    refs := FEMPTY
+    refs := FEMPTY;
+    ptr_eq_oracle := pe
   |>
 End
 
 Definition semantics_def:
-  semantics ffi ma code co cc es =
-    let st = initial_state ffi ma code co cc in
+  semantics ffi ma code co cc pe es =
+    let st = initial_state ffi ma code co cc pe in
       if ∃k. FST (evaluate (es,[],st k)) = Rerr (Rabort Rtype_error)
         then Fail
       else

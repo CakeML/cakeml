@@ -49,6 +49,7 @@ Definition state_rel_def:
     t.clock = s.clock ∧
     LIST_REL (sv_rel v_rel) t.refs s.refs ∧
     t.ffi = s.ffi ∧
+    t.ptr_eq_oracle = s.ptr_eq_oracle ∧
     LIST_REL (OPTREL v_rel) t.globals s.globals ∧
     install_conf_rel s.eval_config t.eval_config
 End
@@ -669,7 +670,7 @@ Resume evaluate_remove_ticks[App]:
     Cases_on ‘do_eval (REVERSE vs1) t1'.eval_config’ \\ gvs []
     >- (‘do_eval (REVERSE vs2) s2.eval_config = NONE’
           by metis_tac [do_eval_NONE, EVERY2_REVERSE]
-        \\ qexists_tac ‘ck’ \\ simp [Once evaluate_def])
+        \\ qexists_tac ‘ck’ \\ simp [Once evaluate_def] \\ gvs [state_rel_def])
     \\ rename1 ‘do_eval _ _ = SOME x’ \\ PairCases_on ‘x’
     \\ ‘∃decs2 ec2 rv2.
           do_eval (REVERSE vs2) s2.eval_config = SOME (decs2, ec2, rv2) ∧
@@ -679,16 +680,20 @@ Resume evaluate_remove_ticks[App]:
     \\ gvs []
     \\ ‘t1'.clock = s2.clock’ by fs [state_rel_def]
     \\ Cases_on ‘s2.clock = 0’ \\ gvs []
-    >- (qexists_tac ‘ck’ \\ simp [Once evaluate_def])
-    \\ Cases_on ‘evaluate_decs (dec_clock (t1' with eval_config := x1))
+    >- (qexists_tac ‘ck’ \\ simp [Once evaluate_def] \\ gvs [state_rel_def])
+    \\ Cases_on ‘evaluate_decs (dec_clock (t1' with
+                   <|eval_config := x1;
+                     ptr_eq_oracle := shift_seq 1 t1'.ptr_eq_oracle|>))
                    (remove_ticks_decs decs2)’
     \\ rename1 ‘_ = (t3, q3)’
     \\ first_x_assum (qspecl_then [‘t3’, ‘q3’] mp_tac) \\ simp []
-    \\ disch_then (qspecl_then [‘dec_clock (s2 with eval_config := ec2)’,
+    \\ disch_then (qspecl_then [‘dec_clock (s2 with
+                                  <|eval_config := ec2;
+                                    ptr_eq_oracle := shift_seq 1 s2.ptr_eq_oracle|>)’,
                                 ‘decs2’] mp_tac)
     \\ impl_tac
     >- (simp [remove_ticks_decs_def, remove_ticks_exps_MAP]
-        \\ drule state_rel_dec_clock \\ simp [])
+        \\ gvs [state_rel_def, dec_clock_def])
     \\ strip_tac
     \\ qexists_tac ‘ck + ck'’
     \\ qpat_assum ‘evaluate _ (s1 with clock := _) _ = _’
@@ -696,9 +701,13 @@ Resume evaluate_remove_ticks[App]:
                                evaluate_more_clock))
     \\ simp [] \\ strip_tac
     \\ simp [Once evaluate_def]
-    \\ ‘dec_clock (s2 with <|clock := ck' + s2.clock; eval_config := ec2|>) =
-         dec_clock (s2 with eval_config := ec2) with
-           clock := ck' + (dec_clock (s2 with eval_config := ec2)).clock’
+    \\ ‘dec_clock (s2 with <|clock := ck' + s2.clock; eval_config := ec2;
+                              ptr_eq_oracle := shift_seq 1 s2.ptr_eq_oracle|>) =
+         dec_clock (s2 with <|eval_config := ec2;
+                             ptr_eq_oracle := shift_seq 1 s2.ptr_eq_oracle|>) with
+           clock := ck' + (dec_clock (s2 with
+             <|eval_config := ec2;
+               ptr_eq_oracle := shift_seq 1 s2.ptr_eq_oracle|>)).clock’
       by (rw [dec_clock_def, state_component_equality] \\ decide_tac)
     \\ pop_assum SUBST_ALL_TAC \\ simp []
     \\ Cases_on ‘q3’ \\ Cases_on ‘r1’ \\ gvs [])
@@ -892,11 +901,11 @@ Finalise evaluate_remove_ticks
 
 Theorem remove_ticks_decs_eval_sim:
   install_conf_rel ic1 ic2 ⇒
-  eval_sim ffi (remove_ticks_decs ds) ds ic2 ic1 (λds1 ds2. ds1 = remove_ticks_decs ds2) T
+  eval_sim ffi pe (remove_ticks_decs ds) ds ic2 ic1 (λds1 ds2. ds1 = remove_ticks_decs ds2) T
 Proof
   rw [eval_sim_def]
   \\ drule (CONJUNCT2 (CONJUNCT2 evaluate_remove_ticks))
-  \\ disch_then (qspecl_then [‘initial_state ffi k ic1’, ‘ds’] mp_tac)
+  \\ disch_then (qspecl_then [‘initial_state ffi k ic1 pe’, ‘ds’] mp_tac)
   \\ impl_tac
   >- simp [remove_ticks_decs_def, remove_ticks_exps_MAP, state_rel_def,
            initial_state_def]
@@ -909,7 +918,7 @@ QED
 
 Theorem remove_ticks_decs_semantics:
   install_conf_rel ic1 ic2 ⇒
-  semantics ic2 ffi (remove_ticks_decs ds) = semantics ic1 ffi ds
+  semantics ic2 ffi pe (remove_ticks_decs ds) = semantics ic1 ffi pe ds
 Proof
   rw [] \\ irule IMP_semantics_eq_no_fail
   \\ qexists_tac ‘λds1 ds2. ds1 = remove_ticks_decs ds2’
