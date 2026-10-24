@@ -234,7 +234,7 @@ Definition comp_func_def:
 End
 
 Definition first_name_def:
-  first_name = 64:num
+  first_name = 66:num
 End
 
 Definition make_funcs_def:
