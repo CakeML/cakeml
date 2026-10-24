@@ -13,7 +13,7 @@ Ancestors
   export_ag32 panPtreeConversion pan_to_target panStatic
   pan_passes news
 Libs
-  preamble
+  preamble buildInfoLib
 
 val help_string = (* beginning of --help string *) ‘
 
@@ -124,34 +124,8 @@ Optimisations can be configured using the following advanced options.
 
 (* == Build info =========================================================== *)
 
-val current_version_tm = mlstring_from_proc "git" ["rev-parse", "HEAD"]
-(*"*)
-val poly_version_tm = mlstring_from_proc "poly" ["-v"]
-val hol_version_tm = mlstring_from_proc "git" ["-C", Globals.HOLDIR, "rev-parse", "HEAD"]
-
-val date_str = Date.toString (Date.fromTimeUniv (Time.now ())) ^ " UTC\n"
-val date_tm = Term `strlit^(stringSyntax.fromMLstring date_str)`
-
-Definition print_option_def:
-  print_option h x =
-    case x of
-      NONE => «»
-    | SOME y => h ^ « » ^ y ^ «\n»
-End
-
-val current_build_info_str_tm = EVAL ``
-    let commit = print_option «CakeML:» ^current_version_tm in
-    let hol    = print_option «HOL4:  » ^hol_version_tm in
-    let poly   = print_option «PolyML:» ^poly_version_tm in
-      concat
-        [ «The CakeML compiler\n\n»
-        ; «Version details:\n»
-        ; ^date_tm; «\n»
-        ; commit; hol; poly ]``
-  |> concl |> rhs
-
 Definition current_build_info_str_def:
-  current_build_info_str = ^current_build_info_str_tm
+  current_build_info_str = ^(build_info_tm "The CakeML compiler")
 End
 
 (* ========================================================================= *)
