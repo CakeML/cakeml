@@ -178,7 +178,7 @@ Proof
   rw[]>>
   DEP_ONCE_REWRITE_TAC[tokens_unchanged]>>
   simp[tokenize_def]>>
-  EVAL_TAC>>gvs[isDigit_def,fix_hd_def,strsub_unsafe_eq_strsub]
+  EVAL_TAC>>gvs[isDigit_def,fix_hd_def,mlstringTheory.strsub_unsafe_eq_strsub]
 QED
 
 Theorem parse_xor_print_xor:

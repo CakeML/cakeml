@@ -18,6 +18,13 @@ Definition COMMANDLINE_def:
     IOx cl_ffi_part cl * &wfcl cl
 End
 
+(* Can be used with xpull to get wfcl from the precondition. *)
+Theorem COMMANDLINE_wfcl:
+  COMMANDLINE cl = COMMANDLINE cl * &wfcl cl
+Proof
+  simp [COMMANDLINE_def, SEP_CLAUSES, AC STAR_ASSOC STAR_COMM]
+QED
+
 val set_thm =
   COMMANDLINE_def
   |> SIMP_RULE(srw_ss())[

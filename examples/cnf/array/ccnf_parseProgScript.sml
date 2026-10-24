@@ -3,7 +3,7 @@
 *)
 Theory ccnf_parseProg
 Ancestors
-  cnf ccnf ccnf_list ccnf_arrayProg mlint syntax_helper
+  cnf ccnf ccnf_list ccnf_arith ccnf_arrayProg mlint syntax_helper
 Libs
   preamble basis
 
@@ -29,7 +29,24 @@ val res = translate notfound_string_def;
 (* Parsing helpers *)
 
 (* TODO: Mostly copied from mlintTheory *)
-val result = translate (fromChar_unsafe_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
+Theorem fromChar_unsafe_small:
+  fromChar_unsafe c =
+  if smallnum_le 48 (ORD c) then smallnum_sub (ORD c) 48 else 0
+Proof
+  rw[fromChar_unsafe_def,smallnum_le_def,smallnum_sub_def]
+QED
+
+val result = translate fromChar_unsafe_small;
+
+Theorem fromchar_unsafe_side[local]:
+  fromchar_unsafe_side c ⇔ T
+Proof
+  rw[fetch "-" "fromchar_unsafe_side_def",smallnum_le_def,smallnum_sub_def]>>
+  assume_tac (Q.SPEC `c` ORD_BOUND)>>
+  simp[]
+QED
+
+val _ = fromchar_unsafe_side |> update_precondition;
 
 Definition fromChars_range_unsafe_tail_def:
   fromChars_range_unsafe_tail b n str mul acc =
@@ -64,22 +81,44 @@ Proof
   rw[fromChars_range_unsafe_tail_eq]
 QED
 
-val result = translate fromChars_range_unsafe_tail_def;
-
-val fromchars_range_unsafe_tail_side_def = theorem"fromchars_range_unsafe_tail_side_def";
-
-Theorem fromchars_range_unsafe_tail_side_def[allow_rebind]:
-  ∀a1 a0 a2 a3 a4.
-  fromchars_range_unsafe_tail_side a0 a1 a2 a3 a4 ⇔
-   ¬(a1 ≤ a0) ⇒
-   (T ∧ a1 < 1 + strlen a2 ∧ 0 < strlen a2) ∧
-   fromchars_range_unsafe_tail_side a0 (a1 − 1) a2 (a3 * 10)
-     (a4 + fromChar_unsafe (strsub_unsafe a2 (a1 − 1)) * a3)
+Theorem fromChars_range_unsafe_tail_small:
+  fromChars_range_unsafe_tail b n str mul acc =
+  if smallnum_le_str n b str then acc
+  else
+    let m = smallnum_sub_str n 1 str in
+    fromChars_range_unsafe_tail b m str (mul * 10)
+      (acc + fromChar_unsafe (strsub_unsafe str m) * mul)
 Proof
-  Induct>>
-  rw[Once fromchars_range_unsafe_tail_side_def]>>
-  simp[]>>eq_tac>>rw[ADD1]>>
-  gvs[]
+  CONV_TAC (LHS_CONV (ONCE_REWRITE_CONV [fromChars_range_unsafe_tail_def]))>>
+  simp[smallnum_le_str_def,smallnum_sub_str_def]
+QED
+
+val result = translate_no_ind fromChars_range_unsafe_tail_small;
+
+Theorem fromchars_range_unsafe_tail_ind[local]:
+  fromchars_range_unsafe_tail_ind
+Proof
+  once_rewrite_tac [fetch "-" "fromchars_range_unsafe_tail_ind_def"]>>
+  rpt gen_tac>>
+  rpt (disch_then strip_assume_tac)>>
+  match_mp_tac fromChars_range_unsafe_tail_ind>>
+  rpt strip_tac>>
+  last_x_assum match_mp_tac>>
+  rpt strip_tac>>
+  gvs[smallnum_le_str_def,smallnum_sub_str_def]
+QED
+
+val _ = fromchars_range_unsafe_tail_ind |> update_precondition;
+
+Theorem fromchars_range_unsafe_tail_side[local]:
+  ∀b n s mul acc.
+  n ≤ strlen s ∧ b ≤ strlen s ⇒
+  fromchars_range_unsafe_tail_side b n s mul acc
+Proof
+  ho_match_mp_tac fromChars_range_unsafe_tail_ind>>
+  rw[]>>
+  rw[Once (fetch "-" "fromchars_range_unsafe_tail_side_def")]>>
+  gvs[smallnum_le_str_def,smallnum_sub_str_def]
 QED
 
 val result = translate fromChars_range_unsafe_alt;
@@ -113,7 +152,9 @@ Theorem fromchars_unsafe_side_thm[local]:
    ∀n s. n ≤ strlen s ⇒ fromchars_unsafe_side n s
 Proof
   completeInduct_on`n` \\ rw[]
-  \\ rw[Once fromchars_unsafe_side_def,fromchars_range_unsafe_side_def,fromchars_range_unsafe_tail_side_def]
+  \\ rw[Once fromchars_unsafe_side_def,fromchars_range_unsafe_side_def]
+  \\ irule fromchars_range_unsafe_tail_side
+  \\ fs[padLen_DEC_eq]
 QED
 
 Theorem fromString_unsafe_side[local]:
@@ -192,6 +233,28 @@ Proof
   xsimpl
 QED
 
+Theorem SEP_IMP_REFL_gc:
+  p ==>> p * GC
+Proof
+  xsimpl
+QED
+
+(* Binary proof records are terminated by a zero byte *)
+Definition nulc_def:
+  nulc = CHR 0
+End
+
+val res = translate nulc_def;
+
+(* The buffer size for reading proofs. TextIO's openInSetBufferSize and
+  openStdInSetBufferSize allocate min 65535 (max (bsize + 4) 1028) bytes,
+  so this is the largest buffer they give. *)
+Definition proof_buffer_size_def:
+  proof_buffer_size = 65531n
+End
+
+val res = translate proof_buffer_size_def;
+
 Theorem EqualityType_CNF_LIT_TYPE:
   EqualityType (CNF_LIT_TYPE NUM)
 Proof
@@ -204,7 +267,9 @@ Quote add_cakeml:
   fun fill_cfml_arr arr i ls =
     case ls of [] => arr
     | (v::vs) =>
-      fill_cfml_arr (insert_clause_arr arr i v) (i+1) vs
+      let val arr' = insert_clause_arr arr i v in
+        fill_cfml_arr arr' (Unsafe.Arith.addWitness i 1 arr') vs
+      end
 End
 
 Theorem fill_cfml_arr_spec:
@@ -227,11 +292,17 @@ Proof
   fs[LIST_TYPE_def,miscTheory.enumerate_def]>>
   xmatch
   >- (xvar>>xsimpl)>>
-  xlet_autop>>
   xlet`POSTv resv.
     SEP_EXISTS arrlsv'. ARRAY resv arrlsv' *
     &LIST_REL vcclause_TYPE (insert_vcc_list arrls i h) arrlsv'`
   >- (xapp>>xsimpl)>>
+  `i < LENGTH arrlsv'` by (
+    imp_res_tac LIST_REL_LENGTH>>
+    gvs[insert_vcc_list_def,update_resize_def]>>
+    qpat_x_assum`LENGTH (if _ then _ else _) = _` mp_tac>>
+    rw[])>>
+  xlet_auto_spec (SOME num_add_arr_spec)
+  >- xsimpl>>
   gvs[insert_vcc_list_def]>>
   xapp>>xsimpl
 QED

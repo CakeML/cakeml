@@ -1893,18 +1893,17 @@ Theorem do_app_thm:
         ?w' s'. (do_app op (REVERSE v) t = Rval (w',s')) /\
                 v_rel g2 l2 t.code w w' /\ state_rel g2 l2 s s')
 Proof
-  reverse CASE_TAC THEN1
-   (pop_assum mp_tac
-    \\ Cases_on `op` \\ Cases_on `REVERSE a`
-    \\ simp[do_app_def, case_eq_thms, bool_case_eq, pair_case_eq, CaseEq"ffi$ffi_result"]
-    \\ strip_tac \\ rveq \\ fs []
-    \\ TRY (
-      rename [`case v of Evaluated => _ | NotEvaluated => _`]
-      \\ Cases_on `v` \\ gvs [])
-    \\ Cases_on`a` \\ fs[] \\ rveq \\ fs[]
-    \\ strip_tac \\ fs[v_rel_def, PULL_EXISTS] \\ rveq
-    \\ imp_res_tac state_rel_flookup_refs \\ fs[]
-    \\ fs[state_rel_def])
+  reverse CASE_TAC >- (
+    pop_assum mp_tac
+    \\ Cases_on `op`
+    \\ Cases_on `REVERSE a`
+    \\ simp [do_app_def, AllCaseEqs()]
+    \\ rpt strip_tac
+    \\ gvs []
+    \\ Cases_on `a` \\ fs [] \\ rveq \\ fs []
+    \\ strip_tac \\ fs [v_rel_def, PULL_EXISTS] \\ rveq
+    \\ imp_res_tac state_rel_flookup_refs \\ fs []
+    \\ fs [state_rel_def])
   \\ rename1 `_ = _ b`
   \\ PairCases_on `b` \\ fs []
   \\ reverse strip_tac
@@ -1918,7 +1917,8 @@ Proof
     \\ fs [GSYM AND_IMP_INTRO]
     \\ impl_tac THEN1
      (fs [simple_val_rel_def] \\ rpt strip_tac
-      \\ Cases_on `x` \\ fs [v_rel_def]
+      \\ rename1 `v_rel _ _ _ source_value _`
+      \\ Cases_on `source_value` \\ fs [v_rel_def]
       \\ eq_tac \\ fs []
       \\ fs [LIST_REL_EL_EQN])
     \\ reverse impl_tac THEN1 (rw [] \\ fs [])
@@ -1928,18 +1928,24 @@ Proof
     THEN1
      (res_tac \\ fs []
       \\ qpat_x_assum `!x. _` kall_tac
-      \\ rfs [] \\ Cases_on `s.refs ' ptr` \\ fs [ref_rel_def])
+      \\ rfs []
+      \\ qmatch_asmsub_rename_tac `ref_rel _ (source_state.refs ' reference) _`
+      \\ Cases_on `source_state.refs ' reference` \\ fs [ref_rel_def])
     THEN1
      (res_tac \\ fs []
       \\ qpat_x_assum `!x. _` kall_tac
-      \\ rfs [] \\ Cases_on `s.refs ' ptr` \\ fs [ref_rel_def])
+      \\ rfs []
+      \\ qmatch_asmsub_rename_tac `ref_rel _ (source_state.refs ' reference) _`
+      \\ Cases_on `source_state.refs ' reference` \\ fs [ref_rel_def])
     THEN1
      (res_tac \\ fs []
       \\ qpat_x_assum `!x. _` kall_tac
-      \\ rfs [] \\ Cases_on `s.refs ' ptr` \\ fs [ref_rel_def])
-    THEN1 (strip_tac \\ Cases_on `x = p` \\ fs [FAPPLY_FUPDATE_THM])
-    THEN1 (strip_tac \\ Cases_on `x = p` \\ fs [FAPPLY_FUPDATE_THM])
-    THEN1 (strip_tac \\ Cases_on `x = p` \\ fs [FAPPLY_FUPDATE_THM]))
+      \\ rfs []
+      \\ qmatch_asmsub_rename_tac `ref_rel _ (source_state.refs ' reference) _`
+      \\ Cases_on `source_state.refs ' reference` \\ fs [ref_rel_def])
+    THEN1 (rw [FAPPLY_FUPDATE_THM])
+    THEN1 (rw [FAPPLY_FUPDATE_THM])
+    THEN1 (rw [FAPPLY_FUPDATE_THM]))
   \\ assume_tac (GEN_ALL simple_val_rel_do_app
                  |> INST_TYPE [gamma|->``:abs_calls_state # 'c``]
                  |> INST_TYPE [alpha|->``:abs_calls_state # 'c``])
@@ -1949,55 +1955,47 @@ Proof
                 `r`,`op`] mp_tac)
   \\ fs [GSYM AND_IMP_INTRO]
   \\ impl_tac THEN1
-   (fs [simple_val_rel_def] \\ rpt strip_tac
-    \\ eq_tac \\ fs []
-    \\ rw [] \\ fs []
-    \\ TRY (fs [LIST_REL_EL_EQN,EVERY_EL] \\ NO_TAC)
-    \\ pop_assum mp_tac \\ qspec_tac (`p`,`p`)
-    \\ Induct_on `xs` \\ fs [PULL_EXISTS])
+   (rw [simple_val_rel_def,EQ_IMP_THM,LIST_REL_CONJ,LIST_REL_EL_EQN,EVERY_EL,
+        GSYM LIST_EQ_REWRITE])
   \\ impl_tac THEN1
    (fs [simple_state_rel_def] \\ rpt strip_tac
     \\ fs [wfv_state_def]
     \\ imp_res_tac FEVERY_FLOOKUP \\ fs []
     THEN1
-     (pop_assum mp_tac
-      \\ qspec_tac (`w`,`w`) \\ Induct \\ fs [])
+     (fs [LIST_REL_EL_EQN,EVERY_EL])
     THEN1
-     (qpat_x_assum `EVERY _ s2.globals` mp_tac
-      \\ qspec_tac (`s2.globals`,`w`) \\ Induct \\ fs []
-      \\ Cases \\ fs [OPTREL_def])
+     (irule EVERY2_refl
+      \\ fs [EVERY_MEM] \\ rpt strip_tac \\ res_tac
+      \\ qmatch_goalsub_rename_tac `OPTREL _ global_value global_value`
+      \\ Cases_on `global_value` \\ fs [OPTREL_def])
     THEN1
       (match_mp_tac (FEVERY_STRENGTHEN_THM |> CONJUNCT2) \\ fs [])
     THEN1
-      (match_mp_tac (FEVERY_STRENGTHEN_THM |> CONJUNCT2) \\ fs []
-       \\ qpat_x_assum `_ xs ys` mp_tac
-       \\ qspec_tac (`xs`,`xs`) \\ qspec_tac (`ys`,`ys`)
-       \\ Induct \\ fs [] \\ Cases_on `ys` \\ fs [PULL_EXISTS])
+      (match_mp_tac (FEVERY_STRENGTHEN_THM |> CONJUNCT2)
+       \\ fs [LIST_REL_EL_EQN,EVERY_EL])
     THEN1
-      (qsuff_tac `xs = ys` \\ fs []
-       \\ qpat_x_assum `_ xs ys` mp_tac
-       \\ qspec_tac (`xs`,`xs`) \\ qspec_tac (`ys`,`ys`)
-       \\ Induct \\ fs [] \\ Cases_on `xs` \\ simp_tac std_ss [PULL_EXISTS]
+      (qmatch_asmsub_rename_tac `LIST_REL _ source_values target_values`
+       \\ `source_values = target_values` by
+         fs [LIST_REL_EL_EQN,LIST_EQ_REWRITE]
        \\ fs [])
     THEN1
       (match_mp_tac (FEVERY_STRENGTHEN_THM |> CONJUNCT2) \\ fs [])
     THEN1
-      (qpat_x_assum `_ xs ys` mp_tac
-       \\ qspec_tac (`ys`,`ys`) \\ qspec_tac (`xs`,`xs`)
-       \\ Induct \\ fs [PULL_EXISTS] \\ Cases \\ fs [OPTREL_def]
-       \\ metis_tac [])
+      (fs [LIST_REL_EL_EQN,EVERY_EL,OPTREL_def]
+       \\ rw [] \\ rfs [] \\ res_tac \\ fs [])
     THEN1
-      (qsuff_tac `xs = ys` \\ fs []
-       \\ qpat_x_assum `_ xs ys` mp_tac
-       \\ qspec_tac (`xs`,`xs`) \\ qspec_tac (`ys`,`ys`)
-       \\ Induct \\ fs [PULL_EXISTS] \\ Cases  \\ Cases \\ fs [OPTREL_def]))
+      (qmatch_asmsub_rename_tac `LIST_REL _ source_globals target_globals`
+       \\ `source_globals = target_globals` by (
+         fs [LIST_REL_EL_EQN,LIST_EQ_REWRITE,OPTREL_def]
+         \\ rw [] \\ rfs [] \\ res_tac \\ fs [])
+       \\ fs []))
   \\ fs [AC CONJ_ASSOC CONJ_COMM]
   \\ rpt (disch_then assume_tac) \\ fs [AND_IMP_INTRO]
   \\ first_x_assum match_mp_tac
   \\ pop_assum mp_tac
   \\ rw [] \\ fs []
   \\ pop_assum mp_tac \\ rpt (pop_assum kall_tac)
-  \\ Induct_on `a` \\ fs []
+  \\ fs [LIST_REL_EL_EQN,EVERY_EL]
 QED
 
 Theorem NOT_IN_domain_FST_g:

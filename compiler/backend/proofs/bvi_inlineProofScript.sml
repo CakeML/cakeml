@@ -597,52 +597,7 @@ Proof
   >> gvs []
 QED
 
-Theorem do_app_state_swap[local]:
-  op ≠ Install ⇒
-    ((do_app op args s = Rval (value,s1) ∧
-      domain s.code ⊆ domain t.code ⇒
-      do_app op args
-        (t with <| refs := s.refs; clock := s.clock;
-                   global := s.global; ffi := s.ffi;
-                   ptr_eq_oracle := s.ptr_eq_oracle |>) =
-      Rval
-        (value,
-         t with <| refs := s1.refs; clock := s1.clock;
-                   global := s1.global; ffi := s1.ffi;
-                   ptr_eq_oracle := s1.ptr_eq_oracle |>)) ∧
-     (do_app op args s = Rerr error ∧
-      (domain t.code ⊆ domain s.code ∨
-       error ≠ Rabort Rtype_error) ⇒
-      do_app op args
-        (t with <| refs := s.refs; clock := s.clock;
-                   global := s.global; ffi := s.ffi;
-                   ptr_eq_oracle := s.ptr_eq_oracle |>) =
-      Rerr error))
-Proof
-  strip_tac
-  >> Cases_on `op`
-  >> gvs [do_app_def, do_app_aux_def, bvi_to_bvl_def, bvl_to_bvi_def,
-          bvlSemTheory.do_app_def, AllCaseEqs(), state_component_equality,
-          SUBSET_DEF, pairTheory.ELIM_UNCURRY]
-  >> rpt strip_tac
-  >> gvs []
-  >- metis_tac []
-  >> qmatch_asmsub_rename_tac
-       `s.refs |+ (global_ptr,
-                   ValueArray (LUPDATE new_value set_index global_values)) =
-        s1.refs`
-  >> qexists_tac
-       `SOME (Unit,
-              t with
-                <| refs := s.refs |+ (global_ptr,
-                     ValueArray (LUPDATE new_value set_index global_values));
-                   clock := s1.clock; global := s1.global; ffi := s1.ffi;
-                   ptr_eq_oracle := s1.ptr_eq_oracle |>)`
-  >> conj_tac
-  >- (qexists_tac `global_ptr` >> gvs [])
-  >> disj2_tac
-  >> gvs []
-QED
+Theorem do_app_state_swap[local] = bviPropsTheory.do_app_cfg_swap;
 
 Theorem do_app_state_swap_Rval[local]:
   ∀op args (s:('c,'ffi) bviSem$state)

@@ -3,7 +3,8 @@
 *)
 Theory flatSem
 Ancestors
-  flatLang semanticPrimitivesProps evaluate
+  flatLang semanticPrimitivesProps fpSem[qualified] evaluate
+  backendProps[qualified]
 Libs
   preamble
 
@@ -316,6 +317,17 @@ Definition bad_thunk_update_def:
     m = Evaluated ∧ dest_thunk [v] refs ≠ NotThunk
 End
 
+Definition index_witness_length_def:
+  index_witness_length refs (Vectorv vs) = SOME (256 * LENGTH vs) /\
+  index_witness_length refs (Litv (StrLit str)) = SOME (32 * strlen str) /\
+  index_witness_length refs (Loc _ n) =
+    (case store_lookup n refs of
+       SOME (Varray vs) => SOME (256 * LENGTH vs)
+     | SOME (W8array ws) => SOME (32 * LENGTH ws)
+     | _ => NONE) /\
+  index_witness_length refs v = NONE
+End
+
 Definition do_app_def:
   do_app s op (vs:flatSem$v list) =
   case (op, vs) of
@@ -342,6 +354,39 @@ Definition do_app_def:
           | SOME (INL exn) => SOME (s, Rerr (Rraise div_exn_v))
           | NONE           => NONE)
        else NONE)
+  | (Src (UnsafeIndexArith a), vs) =>
+    (case vs of
+       Litv (IntLit i1) :: Litv (IntLit i2) :: witnesses =>
+         (case backendProps$unsafe_index_bound
+                 (index_witness_length s.refs) witnesses of
+            NONE => NONE
+          | SOME bound =>
+              if index_in_bounds bound i1 /\ index_in_bounds bound i2 then
+                (case do_arith a IntT
+                        [semanticPrimitives$Litv (IntLit i1);
+                         semanticPrimitives$Litv (IntLit i2)] of
+                   SOME (INR (semanticPrimitives$Litv (IntLit result))) =>
+                     if index_in_bounds bound result then
+                       SOME (s, Rval (Litv (IntLit result))) else NONE
+                 | SOME (INL exn) => SOME (s, Rerr (Rraise div_exn_v))
+                 | _ => NONE)
+              else NONE)
+     | _ => NONE)
+  | (Src (UnsafeIndexTest test), vs) =>
+    (case vs of
+       Litv (IntLit i1) :: Litv (IntLit i2) :: witnesses =>
+         (case backendProps$unsafe_index_bound
+                 (index_witness_length s.refs) witnesses of
+            NONE => NONE
+          | SOME bound =>
+              if index_in_bounds bound i1 /\ index_in_bounds bound i2 then
+                (case do_test test IntT
+                        (semanticPrimitives$Litv (IntLit i1))
+                        (semanticPrimitives$Litv (IntLit i2)) of
+                   Eq_val result => SOME (s, Rval (Boolv result))
+                 | Eq_type_error => NONE)
+              else NONE)
+     | _ => NONE)
   | (Src (FromTo ty1 ty2), [v]) =>
     (let v = flat_to_v v in
        if check_type ty1 v then

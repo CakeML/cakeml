@@ -5,8 +5,8 @@
 *)
 Theory lpr_arrayProof
 Ancestors
-  semanticsProps backendProof x64_configProof TextIOProof satSem
-  lpr lpr_list lpr_arrayFullProg lpr_parsing lpr_arrayCompile
+  semanticsProps backendProof x64_configProof TextIOProof fsFFIProps
+  satSem lpr lpr_list lpr_arrayFullProg lpr_parsing lpr_arrayCompile
   lpr_composeProg
 Libs
   preamble

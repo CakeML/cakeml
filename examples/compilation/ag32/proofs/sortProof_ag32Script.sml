@@ -24,7 +24,7 @@ Proof
   qspecl_then[`stdin_fs input`,`[«sort»]`]mp_tac
     (GEN_ALL (Q.INST [`ext`|->`no_ext`] sort_semantics))
   \\ `stdin (stdin_fs input) input 0` by EVAL_TAC
-  \\ drule TextIOProofTheory.stdin_get_file_content
+  \\ drule TextIOProofTheory.stdin_get_fd_content
   \\ rw[wfFS_stdin_fs, STD_streams_stdin_fs, CommandLineProofTheory.wfcl_def, clFFITheory.validArg_def]
   \\ ‘stdin_content (stdin_fs input) = SOME input’ by
     (simp [TextIOProofTheory.stdin_content_def, stdin_fs_def])

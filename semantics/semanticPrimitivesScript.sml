@@ -1023,6 +1023,65 @@ Definition do_arith_def:
   (do_arith a _ vals = NONE)
 End
 
+(* The default bound is the 32-bit smallnum range. *)
+Definition index_in_bounds_def:
+  index_in_bounds NONE (i:int) =
+    (-(2 ** 30) <= i /\ i < 2 ** 30) /\
+  index_in_bounds (SOME limit) i =
+    (-&limit <= i /\ i <= &limit)
+End
+
+Definition index_witness_length_def:
+  index_witness_length s (Vectorv vs) = SOME (256 * LENGTH vs) /\
+  index_witness_length s (Litv (StrLit str)) = SOME (32 * strlen str) /\
+  index_witness_length s (Loc _ n) =
+    (case store_lookup n s of
+       SOME (Varray vs) => SOME (256 * LENGTH vs)
+     | SOME (W8array ws) => SOME (32 * LENGTH ws)
+     | _ => NONE) /\
+  index_witness_length s v = NONE
+End
+
+Definition unsafe_index_bound_def:
+  unsafe_index_bound s [] = SOME NONE /\
+  unsafe_index_bound s [witness] =
+    OPTION_MAP SOME (index_witness_length s witness) /\
+  unsafe_index_bound s _ = NONE
+End
+
+Definition do_unsafe_index_arith_def:
+  do_unsafe_index_arith s a vs =
+    case vs of
+      Litv (IntLit i1) :: Litv (IntLit i2) :: witnesses =>
+        (case unsafe_index_bound s witnesses of
+           NONE => NONE
+         | SOME bound =>
+             if index_in_bounds bound i1 /\ index_in_bounds bound i2 then
+               case do_arith a IntT [Litv (IntLit i1); Litv (IntLit i2)] of
+                 SOME (INR (Litv (IntLit result))) =>
+                   if index_in_bounds bound result then
+                     SOME (INR (Litv (IntLit result))) else NONE
+               | SOME (INL exn) => SOME (INL exn)
+               | _ => NONE
+             else NONE)
+    | _ => NONE
+End
+
+Definition do_unsafe_index_test_def:
+  do_unsafe_index_test s test vs =
+    case vs of
+      Litv (IntLit i1) :: Litv (IntLit i2) :: witnesses =>
+        (case unsafe_index_bound s witnesses of
+           NONE => NONE
+         | SOME bound =>
+             if index_in_bounds bound i1 /\ index_in_bounds bound i2 then
+               case do_test test IntT (Litv (IntLit i1)) (Litv (IntLit i2)) of
+                 Eq_val result => SOME result
+               | Eq_type_error => NONE
+             else NONE)
+    | _ => NONE
+End
+
 Definition do_conversion_def:
   (* Word to Int conversions *)
   (do_conversion v (WordT W8) IntT =
@@ -1420,6 +1479,15 @@ Definition do_app_def:
             | SOME (INL exn) => SOME ((s, t), Rerr (Rraise exn))
             | NONE           => NONE)
          else NONE)
+    | (UnsafeIndexArith a, vs) =>
+        (case do_unsafe_index_arith s a vs of
+           SOME (INR res) => SOME ((s,t), Rval res)
+         | SOME (INL exn) => SOME ((s,t), Rerr (Rraise exn))
+         | NONE => NONE)
+    | (UnsafeIndexTest test, vs) =>
+        (case do_unsafe_index_test s test vs of
+           SOME result => SOME ((s,t), Rval (Boolv result))
+         | NONE => NONE)
     | (FromTo ty1 ty2, [v]) =>
         (if check_type ty1 v then
            (case do_conversion v ty1 ty2 of

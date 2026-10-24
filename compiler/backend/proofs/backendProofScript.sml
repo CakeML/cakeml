@@ -3168,7 +3168,7 @@ val mk_flat_install_conf_def = flatPropsTheory.mk_flat_install_conf_def;
 
 Theorem config_wf_abs_conc:
   opt_eval_config_wf (:'a) asm_conf c' (SOME ci) ==>
-  v_fun_abs dom ci.config_v (ci.config_v cfg) = (if cfg IN dom then SOME cfg else NONE)
+  v_fun_abs cfgs ci.config_v (ci.config_v cfg) = (if cfg IN cfgs then SOME cfg else NONE)
 Proof
   simp [opt_eval_config_wf_def, source_evalProofTheory.v_rel_abs, INJ_IFF]
   \\ DEEP_INTRO_TAC some_intro

@@ -149,11 +149,6 @@ examples/lpr_checker/array/compilation/proofs
 examples/lpr_checker/array/compilation/proofsARM8
 .
 
-examples/xlrup_checker
-examples/xlrup_checker/array
-examples/xlrup_checker/array/compilation
-examples/xlrup_checker/array/compilation/proofs
-
 examples/cnf
 examples/cnf/array
 examples/cnf/dist
@@ -168,6 +163,11 @@ examples/cnf/xlrup
 examples/cnf/xlrup/array
 examples/cnf/xlrup/array/compilation
 examples/cnf/xlrup/array/compilation/proofs
+
+examples/hwmcc_checker
+examples/hwmcc_checker/translation
+examples/hwmcc_checker/compilation
+examples/hwmcc_checker/compilation/proofs
 
 examples/scpog_checker
 examples/scpog_checker/array

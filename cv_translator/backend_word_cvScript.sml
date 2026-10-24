@@ -499,6 +499,14 @@ val locs_thm =
   DB.find "location_def" |> map fst |> filter (fn s => fst s = "data_to_word") |> map snd
   |> map (fetch "data_to_word") |> map (EVAL o lhs o concl) |> LIST_CONJ;
 
+val _ = data_to_wordTheory.SmallnumCompare_def |> cv_trans;
+val _ = data_to_wordTheory.SmallnumMul_def |> cv_trans;
+val _ = data_to_wordTheory.SmallnumDivLoop_def |> cv_trans;
+val _ = data_to_wordTheory.SmallnumUnsignedDiv_def |> cv_trans;
+val _ = data_to_wordTheory.SmallnumDivMod_def |> cv_trans;
+val _ = data_to_wordTheory.SmallnumDivCall_def |> SRULE [locs_thm] |> cv_trans;
+val _ = data_to_wordTheory.SmallnumDiv_def |> cv_trans;
+
 val code_defs =
   DB.find "_code_def" |> map fst |> filter (fn s => fst s = "data_to_word") |> map snd
   |> map (fetch "data_to_word");

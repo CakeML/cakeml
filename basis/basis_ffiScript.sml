@@ -226,9 +226,10 @@ Proof
         fsFFITheory.ffi_close_def]
   \\ fs[OPTION_CHOICE_EQUALS_OPTION, CaseEq"list"]
   \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+  >~ [‘openFile_truncate’] >-
+   (gvs [openFile_truncate_def, AFUPDKEY_ALOOKUP, CaseEqs ["option", "bool"]])
   \\ fs[fsFFITheory.closeFD_def,
         fsFFITheory.read_def,
-        fsFFITheory.openFile_truncate_def,
         fsFFITheory.openFile_def,
         fsFFITheory.write_def]
   \\ rpt (pairarg_tac \\ fs[])
@@ -380,10 +381,10 @@ Overload extract_stderr = ``extract_writes 2w``;
 
 Theorem extract_writes_thm
   `extract_fs init_fs io_events = SOME fs ∧
-   get_file_content init_fs = SOME (init,pos)
+   get_fd_content init_fs = SOME (init,pos)
    ⇒
   `
-  (type_of``get_file_content``
+  (type_of``get_fd_content``
 ffi_write_def
 write_def
 fs_ffi_part_def

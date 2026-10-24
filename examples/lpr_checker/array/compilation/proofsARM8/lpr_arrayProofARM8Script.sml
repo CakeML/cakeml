@@ -6,7 +6,7 @@
 Theory lpr_arrayProofARM8
 Ancestors
   semanticsProps backendProof arm8_asl_configProof TextIOProof
-  satSem lpr lpr_list lpr_arrayFullProg lpr_parsing
+  fsFFIProps satSem lpr lpr_list lpr_arrayFullProg lpr_parsing
   lpr_arrayCompileARM8 lpr_composeProg
 Libs
   preamble

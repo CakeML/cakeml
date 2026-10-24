@@ -487,7 +487,7 @@ Proof
 QED
 
 Theorem sort_whole_prog_spec:
-   (if LENGTH cl ≤ 1 then (∃input. get_file_content fs 0 = SOME (input,0)) else hasFreeFD fs)
+   (if LENGTH cl ≤ 1 then (∃input. get_fd_content fs 0 = SOME (input,0)) else hasFreeFD fs)
    ⇒ whole_prog_spec ^(fetch_v "sort" (get_ml_prog_state())) cl fs NONE (valid_sort_result cl fs)
 Proof
   disch_then assume_tac

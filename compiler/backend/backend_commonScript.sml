@@ -10,6 +10,12 @@ Libs
   preamble
 
 Datatype:
+  smallnum_op = SmallAdd | SmallSub | SmallMult | SmallDiv | SmallMod
+              | SmallLess | SmallLessEq | SmallGreater | SmallGreaterEq
+              | SmallEqual
+End
+
+Datatype:
   annotation = MustInline | Stub | BVI_Worker
 End
 

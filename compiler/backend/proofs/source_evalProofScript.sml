@@ -623,6 +623,78 @@ Proof
   \\ PROVE_TAC[v_rel_check_type]
 QED
 
+Theorem index_witness_length_rel[local]:
+  LIST_REL (sv_rel (v_rel es)) refs refs' /\
+  v_rel es v v' /\
+  index_witness_length refs v = SOME n
+  ==>
+  index_witness_length refs' v' = SOME n
+Proof
+  rpt strip_tac
+  \\ Cases_on `v`
+  \\ gvs [index_witness_length_def, v_rel_l_simps]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ simp []
+  >~ [`index_witness_length _ (Litv _)`] >- (
+    qmatch_goalsub_rename_tac `Litv literal`
+    \\ Cases_on `literal`
+    \\ gvs [index_witness_length_def])
+  \\ rename1 `store_lookup ptr refs`
+  \\ Cases_on `store_lookup ptr refs`
+  \\ gvs [AllCaseEqs()]
+  \\ drule_all store_lookup
+  \\ strip_tac
+  \\ gvs [sv_rel_l_cases, LIST_REL_LENGTH]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ simp []
+QED
+
+Theorem unsafe_index_bound_rel[local]:
+  LIST_REL (sv_rel (v_rel es)) refs refs' /\
+  LIST_REL (v_rel es) witnesses1 witnesses2 /\
+  unsafe_index_bound refs witnesses1 = SOME bound
+  ==>
+  unsafe_index_bound refs' witnesses2 = SOME bound
+Proof
+  rpt strip_tac
+  \\ Cases_on `witnesses1`
+  \\ gvs [unsafe_index_bound_def, LIST_REL_EL_EQN]
+  \\ rename1 `LENGTH source_tail = LENGTH target_tail`
+  \\ Cases_on `source_tail`
+  \\ gvs [unsafe_index_bound_def, LENGTH_NIL]
+  >~ [`index_witness_length refs' _ = SOME _`] >- (
+    `LIST_REL (sv_rel (v_rel es)) refs refs'`
+      by simp [LIST_REL_EL_EQN]
+    \\ drule_all index_witness_length_rel
+    \\ simp [])
+QED
+
+Theorem do_unsafe_index_arith_rel[local]:
+  LIST_REL (sv_rel (v_rel es)) refs refs' /\
+  LIST_REL (v_rel es) vs vs' /\
+  do_unsafe_index_arith refs a vs = SOME result
+  ==>
+  do_unsafe_index_arith refs' a vs' = SOME result
+Proof
+  rpt strip_tac
+  \\ gvs [do_unsafe_index_arith_def, AllCaseEqs()]
+  \\ drule_all unsafe_index_bound_rel
+  \\ simp []
+QED
+
+Theorem do_unsafe_index_test_rel[local]:
+  LIST_REL (sv_rel (v_rel es)) refs refs' /\
+  LIST_REL (v_rel es) vs vs' /\
+  do_unsafe_index_test refs test vs = SOME result
+  ==>
+  do_unsafe_index_test refs' test vs' = SOME result
+Proof
+  rpt strip_tac
+  \\ gvs [do_unsafe_index_test_def, AllCaseEqs()]
+  \\ drule_all unsafe_index_bound_rel
+  \\ simp []
+QED
+
 Theorem do_app_sim:
   do_app (s.refs, s.ffi) op (REVERSE xs) = SOME ((refs, ffi), r) /\
   s_rel ^ci s t /\
@@ -637,45 +709,70 @@ Theorem do_app_sim:
 Proof
   rw [s_rel_def]
   \\ fs []
+  \\ qmatch_asmsub_rename_tac `LIST_REL (v_rel eval_oracle) xs ys`
   \\ last_x_assum mp_tac
   \\ simp [Once do_app_cases] \\ rw [listTheory.SWAP_REVERSE_SYM]
   \\ fs [CaseEq "ffi_result", option_case_eq] \\ rveq \\ fs []
   \\ simp [do_app_def]
   >~ [`do_test`] >- (
-    imp_res_tac v_rel_check_type
-    \\ Cases_on ‘test’ \\ gvs [do_test_def,AllCaseEqs()]
-    >- (Cases_on ‘y’ \\ Cases_on ‘y'’ \\ gvs [check_type_def]
-        \\ gvs [dest_Litv_def]
-        \\ gvs [oneline dest_Litv_def,AllCaseEqs()])
+    qmatch_goalsub_rename_tac
+      `do_test source_test test_type left_value right_value`
+    \\ imp_res_tac v_rel_check_type
+    \\ Cases_on `source_test` \\ gvs [do_test_def,AllCaseEqs()]
+    >- (
+      Cases_on `right_value` \\ Cases_on `left_value`
+      \\ gvs [check_type_def]
+      \\ gvs [dest_Litv_def]
+      \\ gvs [oneline dest_Litv_def,AllCaseEqs()])
     \\ res_tac
-    \\ Cases_on ‘test_ty’ using prim_type_cases \\ gvs [check_type_def]
+    \\ Cases_on `test_type` using prim_type_cases \\ gvs [check_type_def]
     \\ res_tac)
   >~ [‘do_arith’] >- (
-    drule_then(qspec_then`ty`strip_assume_tac) LIST_REL_v_rel_check_type
+    qmatch_asmsub_rename_tac `do_arith arithmetic_op arithmetic_type _ = _`
+    \\ drule_then (qspec_then `arithmetic_type` strip_assume_tac) LIST_REL_v_rel_check_type
     \\ `refs = s.refs` by gvs[CaseEq"sum"]
     \\ gvs[]
     \\ first_assum $ irule_at Any
-    \\ Cases_on`a` \\ Cases_on ‘ty’ using prim_type_cases
-    \\ Cases_on`xs`
+    \\ Cases_on `arithmetic_op` \\ Cases_on `arithmetic_type` using prim_type_cases
+    \\ namedCases_on `xs` ["", "head_arg tail_args"]
     \\ gvs[do_arith_def, CaseEq"list", check_type_def, CaseEq"bool"]
     >- (EVAL_TAC \\ rw[])
     >- (EVAL_TAC \\ rw[])
-    \\ Cases_on`t` \\ gvs[check_type_def])
+    \\ Cases_on `tail_args` \\ gvs[check_type_def])
+  >~ [‘do_unsafe_index_arith’] >- (
+    qmatch_asmsub_rename_tac
+      `do_unsafe_index_arith _ _ _ = SOME arithmetic_result`
+    \\ `LIST_REL (v_rel eval_oracle) (REVERSE xs) (REVERSE ys)`
+      by simp [LIST_REL_REVERSE_EQ]
+    \\ drule_all do_unsafe_index_arith_rel
+    \\ strip_tac
+    \\ Cases_on `arithmetic_result`
+    \\ gvs [result_rel_def]
+    \\ gvs [do_unsafe_index_arith_def, AllCaseEqs(),
+            do_arith_def, div_exn_v_def, v_rel_l_simps])
+  >~ [‘do_unsafe_index_test’] >- (
+    `LIST_REL (v_rel eval_oracle) (REVERSE xs) (REVERSE ys)`
+      by simp [LIST_REL_REVERSE_EQ]
+    \\ drule_all do_unsafe_index_test_rel
+    \\ simp [])
   >~ [‘do_conversion’] >- (
-    imp_res_tac v_rel_check_type \\ rw[]
-    \\ Cases_on ‘ty1’ using prim_type_cases
-    \\ Cases_on ‘ty2’ using prim_type_cases
+    qmatch_asmsub_rename_tac `do_conversion _ input_type output_type = _`
+    \\ imp_res_tac v_rel_check_type \\ rw[]
+    \\ Cases_on `input_type` using prim_type_cases
+    \\ Cases_on `output_type` using prim_type_cases
     \\ gvs[do_conversion_def, check_type_def, AllCaseEqs()]
     \\ simp [chr_exn_v_def, EVERY2_refl])
-  >~ [`thunk_op`]
-  >- (
+  >~ [`thunk_op`] >- (
     gvs [AllCaseEqs(), PULL_EXISTS, thunk_op_def]
     >- (
       rpt (pairarg_tac \\ gvs [])
       \\ gvs [store_alloc_def, LIST_REL_EL_EQN]
       \\ gvs [bad_thunk_update_def] \\ rw []
       \\ reverse $ gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def]
-      >- (gvs [v_to_env_id_def] \\ Cases_on `y` \\ gvs [])
+      >- (
+        qmatch_asmsub_rename_tac `v_to_env_id environment_value = SOME _`
+        \\ gvs [v_to_env_id_def]
+        \\ Cases_on `environment_value` \\ gvs [])
       \\ last_x_assum drule \\ gvs []
       \\ simp [oneline sv_rel_def]
       \\ TOP_CASE_TAC \\ gvs [])
@@ -684,34 +781,44 @@ Proof
          store_assign \\ rw []
     \\ gvs [bad_thunk_update_def, LIST_REL_EL_EQN] \\ rw []
     \\ reverse $ gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def]
-    >- (gvs [v_to_env_id_def] \\ Cases_on `y` \\ gvs [])
+    >- (
+      qmatch_asmsub_rename_tac `v_to_env_id environment_value = SOME _`
+      \\ gvs [v_to_env_id_def]
+      \\ Cases_on `environment_value` \\ gvs [])
     \\ last_x_assum drule \\ gvs []
     \\ simp [oneline sv_rel_def]
     \\ TOP_CASE_TAC \\ gvs [])
   \\ simp [div_exn_v_def, sub_exn_v_def, chr_exn_v_def,
         EVERY2_refl, MEM_MAP, PULL_EXISTS]
-  \\ TRY (drule_then imp_res_tac (CONJUNCT1 do_eq))
-  \\ TRY (drule_then imp_res_tac store_lookup)
-  \\ TRY (drule_then imp_res_tac v_to_char_list)
-  \\ TRY (drule_then kall_tac v_to_list \\ imp_res_tac v_to_list)
-  \\ TRY (drule_then imp_res_tac vs_to_string)
-  \\ TRY (drule_then drule store_assign
-        \\ simp [sv_rel_l_cases, PULL_EXISTS]
-        \\ disch_then drule)
+  >>> SELECT_LT_THEN (Q.PAT_ASSUM `do_eq _ _ = _` (K ALL_TAC))
+        (drule_then imp_res_tac (CONJUNCT1 do_eq))
+  >>> SELECT_LT_THEN (Q.PAT_ASSUM `store_lookup _ _ = _` (K ALL_TAC))
+        (drule_then imp_res_tac store_lookup)
+  >>> SELECT_LT_THEN (Q.PAT_ASSUM `v_to_char_list _ = _` (K ALL_TAC))
+        (drule_then imp_res_tac v_to_char_list)
+  >>> SELECT_LT_THEN (Q.PAT_ASSUM `v_to_list _ = _` (K ALL_TAC))
+        (drule_then kall_tac v_to_list \\ imp_res_tac v_to_list)
+  >>> SELECT_LT_THEN (Q.PAT_ASSUM `vs_to_string _ = _` (K ALL_TAC))
+        (drule_then imp_res_tac vs_to_string)
+  >>> SELECT_LT_THEN (Q.PAT_ASSUM `store_assign _ (Refv _) _ = _` (K ALL_TAC)) (
+    drule_then drule store_assign
+    \\ simp [sv_rel_l_cases, PULL_EXISTS]
+    \\ disch_then drule)
   \\ rw [EVERY2_LUPDATE_same, v_rel_list_to_v, LIST_REL_APPEND_EQ]
   \\ rw []
   \\ imp_res_tac LIST_REL_LENGTH
   \\ imp_res_tac v_to_env_id_SOME
   \\ fs [PULL_EXISTS, store_alloc_def, sv_rel_l_cases, nat_to_v_def]
   \\ rveq \\ fs []
-  \\ TRY (irule EVERY2_refl \\ simp [MEM_MAP, EXISTS_PROD, PULL_EXISTS])
-  \\ TRY (drule_then (drule_then (qsubterm_then `store_assign _ _` mp_tac))
-        store_assign
-        \\ rw [EVERY2_LUPDATE_same])
+  >>~- ([`LIST_REL _ (MAP _ _) (MAP _ _)`],
+    irule EVERY2_refl \\ simp [MEM_MAP, EXISTS_PROD, PULL_EXISTS])
+  >>> SELECT_LT_THEN (Q.PAT_ASSUM `store_assign _ _ _ = _` (K ALL_TAC)) (
+    drule_then (drule_then (qsubterm_then `store_assign _ _` mp_tac))
+      store_assign
+    \\ rw [EVERY2_LUPDATE_same])
   \\ imp_res_tac LIST_REL_LENGTH
   \\ fs [LIST_REL_REPLICATE_same, EVERY2_LUPDATE_same, LIST_REL_APPEND_EQ]
-  \\ TRY (Cases_on ‘ys’ using SNOC_CASES \\ gs[SNOC_APPEND, REVERSE_APPEND])
-  \\ TRY (fs [LIST_REL_EL_EQN, EVERY2_REVERSE1] \\ NO_TAC)
+  \\ fs [LIST_REL_EL_EQN]
 QED
 
 Theorem pairarg_to_pair_map:

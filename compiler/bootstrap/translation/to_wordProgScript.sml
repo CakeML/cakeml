@@ -166,6 +166,15 @@ val loc_values = find "location_def"
   |> map (fn (_,(d,_,_)) => d |> concl |> dest_eq |> fst |> EVAL)
   |> LIST_CONJ;
 
+val _ = translate data_to_wordTheory.SmallnumCompare_def;
+val _ = translate data_to_wordTheory.SmallnumMul_def;
+val _ = translate data_to_wordTheory.SmallnumDivLoop_def;
+val _ = translate data_to_wordTheory.SmallnumUnsignedDiv_def;
+val _ = translate data_to_wordTheory.SmallnumDivMod_def;
+val _ = translate (data_to_wordTheory.SmallnumDivCall_def
+                   |> SIMP_RULE std_ss [loc_values]);
+val _ = translate data_to_wordTheory.SmallnumDiv_def;
+
 fun tweak_assign_def th =
   th |> SIMP_RULE std_ss [loc_values] |> inline_simp;
 val res = data_to_wordTheory.all_assign_defs |> CONJUNCTS |> rev |> map tweak_assign_def |> map translate;
@@ -390,6 +399,7 @@ val _ = translate(data_to_wordTheory.Sub_code_def)
 val _ = translate(data_to_wordTheory.Mul_code_def)
 val _ = translate(data_to_wordTheory.Div_code_def)
 val _ = translate(data_to_wordTheory.Mod_code_def)
+val _ = translate(data_to_wordTheory.SmallnumDivMod_code_def)
 val _ = translate(data_to_wordTheory.MemCopy_code_def|> inline_simp)
 val r = translate(data_to_wordTheory.ByteCopy_code_def |> inline_simp)
 (* top-level vals must not call functions (no_ptr_eq), so unfold list_Seq *)

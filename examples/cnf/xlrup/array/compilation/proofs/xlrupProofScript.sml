@@ -52,6 +52,7 @@ End
 Definition cake_xlrup_run_def:
   cake_xlrup_run cl fs mc ms ⇔
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
+  (reads_stdin cl ⇒ stdin_content fs ≠ NONE) ∧
   installed_x64 cake_xlrup_code mc ms
 End
 
@@ -60,25 +61,32 @@ Theorem machine_code_sound:
   ∃io.
   machine_sem mc (basis_ffi ext cl fs) ms ⊆
     extend_with_resource_limit {Terminate Success io} ∧
-  ∃out err.
+  ∃k out err.
     extract_fs ext (cl,fs) io =
-      SOME (add_stdout (add_stderr fs err) out) ∧
-  if LENGTH cl = 2 then
-    (case get_cnf_ext fs (EL 1 cl) of
-      NONE => out = «»
-    | SOME fml => out = concat (print_cnf_ext fml))
-  else if LENGTH cl = 3 then
-    (out ≠ «» ⇒
-      out = «s VERIFIED UNSAT\n» ∧
-      ∃fml. get_cnf_ext fs (EL 1 cl) = SOME fml ∧ sols fml = {})
-  else out = «»
+      SOME (add_stdout (add_stderr (forwardFD fs 0 k) err) out) ∧
+  case split_flags (T,F) (TL cl) of
+    (SOME (b,T), [f1]) =>
+      (case get_cnf_ext fs f1 of
+        NONE => out = «»
+      | SOME fml => out = concat (print_cnf_ext fml))
+  | (SOME (b,F), [f1]) =>
+      (out ≠ «» ⇒
+        out = «s VERIFIED UNSAT\n» ∧
+        ∃fml. get_cnf_ext fs f1 = SOME fml ∧ sols fml = {})
+  | (SOME (b,F), [f1; f2]) =>
+      (out ≠ «» ⇒
+        out = «s VERIFIED UNSAT\n» ∧
+        ∃fml. get_cnf_ext fs f1 = SOME fml ∧ sols fml = {})
+  | _ => out = «»
 Proof
   strip_tac>>
   fs[installed_x64_def,cake_xlrup_code_def,cake_xlrup_run_def]>>
-  drule_all cake_xlrup_compiled_thm>>
-  disch_then (qspec_then `ext` strip_assume_tac)>>
-  goal_assum drule>>
-  qpat_x_assum `result = _` SUBST_ALL_TAC>>
-  qexists_tac`out`>>qexists_tac`err`>>
+  drule_at (Pos last) cake_xlrup_compiled_thm>>
+  simp[AND_IMP_INTRO]>>
+  disch_then drule>>
+  disch_then (qspecl_then [`ms`,`ext`,`data_sp`,`cl`,`cbspace`] mp_tac)>>
+  simp[]>>strip_tac>>
+  qexists_tac`io_events`>>simp[]>>
+  qexistsl_tac[`k`,`out`,`err`]>>
   gvs[check_unsat_sem_def,check_unsat_1_sem_def,check_unsat_2_sem_def]
 QED

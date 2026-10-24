@@ -362,8 +362,8 @@ Proof
     rw [do_app_cases] \\ gs []
     \\ dxrule_all perms_ok_v_to_list
     \\ dxrule_all perms_ok_v_to_list
-    \\ qid_spec_tac ‘ys’
-    \\ qid_spec_tac ‘xs’
+    \\ qmatch_goalsub_rename_tac `list_to_v (left_values ++ right_values)`
+    \\ qid_specl_tac [`left_values`, `right_values`]
     \\ Induct \\ simp [list_to_v_def, perms_ok_def]
     \\ Induct \\ simp [list_to_v_def, perms_ok_def])
   \\ Cases_on ‘op = Aw8sub_unsafe’ \\ gs []
@@ -590,8 +590,19 @@ Proof
   >- (rw [do_app_cases] \\ gvs [thunk_op_def, AllCaseEqs()])
   \\ Cases_on ‘op = PtrEq’ \\ gs[]
   >- simp [do_app_def]
+  \\ Cases_on ‘∃arith. op = UnsafeIndexArith arith’ \\ gs []
+  >- (
+    rw [do_app_cases] >>
+    gvs [do_unsafe_index_arith_def, AllCaseEqs()] >>
+    gvs [perms_ok_def] >>
+    qmatch_asmsub_rename_tac `do_arith arithmetic_op _ _` >>
+    Cases_on `arithmetic_op` >> gvs [do_arith_def, AllCaseEqs(), perms_ok_def])
+  \\ Cases_on ‘∃test. op = UnsafeIndexTest test’ \\ gs []
+  >- (
+    rw [do_app_cases] >> gs [] >> simp [Boolv_def] >> rw [perms_ok_def])
   \\ Cases_on ‘op’ \\ gs []
-  \\ Cases_on ‘t’ \\ gs []
+  \\ qmatch_goalsub_rename_tac `ThunkOp thunk_primitive`
+  \\ Cases_on `thunk_primitive` \\ gs []
 QED
 
 Theorem perms_ok_do_opapp:

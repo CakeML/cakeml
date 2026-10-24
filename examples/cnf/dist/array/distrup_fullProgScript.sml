@@ -5,7 +5,7 @@ Theory distrup_fullProg
 Libs
   preamble basis wordsLib
 Ancestors
-  distrup_list distrup_arrayProg words cfHeapsBase cv_std byte
+  distrup_list ccnf_arith distrup_arrayProg words cfHeapsBase cv_std byte
 
 val _ = hide_environments true;
 
@@ -41,32 +41,38 @@ Quote add_cakeml:
   (* Little-endian: read 4 bytes as signed int starting at index i *)
   fun get_int arr i =
     let
-      val b3 = get_byte arr (i+3)
-      val raw = get_byte arr i +
-                get_byte arr (i+1) * 256 +
-                get_byte arr (i+2) * 65536 +
-                b3 * 16777216
+      val b3 = get_byte arr (Unsafe.Arith.addWitness i 3 arr)
+      val lo = Unsafe.Arith.+ (get_byte arr i)
+                 (Unsafe.Arith.+
+                   (Unsafe.Arith.* (get_byte arr (Unsafe.Arith.addWitness i 1 arr)) 256)
+                   (Unsafe.Arith.* (get_byte arr (Unsafe.Arith.addWitness i 2 arr)) 65536))
+      val raw = lo + b3 * 16777216
     in
-      if b3 >= 128
+      if Unsafe.Arith.>= b3 128
       then raw - 4294967296
       else raw
     end;
 
   fun read_ints arr len i =
-    if i >= len then [] else get_int arr (i * 4) :: read_ints arr len (i + 1);
+    if Unsafe.Arith.geWitness i len arr then []
+    else get_int arr (Unsafe.Arith.mulWitness i 4 arr) ::
+      read_ints arr len (Unsafe.Arith.addWitness i 1 arr);
 
   fun get_u64 arr i =
-    get_byte arr i +
-    get_byte arr (i+1) * 256 +
-    get_byte arr (i+2) * 65536 +
-    get_byte arr (i+3) * 16777216 +
-    get_byte arr (i+4) * 4294967296 +
-    get_byte arr (i+5) * 1099511627776 +
-    get_byte arr (i+6) * 281474976710656 +
-    get_byte arr (i+7) * 72057594037927936;
+    Unsafe.Arith.+ (get_byte arr i)
+      (Unsafe.Arith.+
+        (Unsafe.Arith.* (get_byte arr (Unsafe.Arith.addWitness i 1 arr)) 256)
+        (Unsafe.Arith.* (get_byte arr (Unsafe.Arith.addWitness i 2 arr)) 65536)) +
+    get_byte arr (Unsafe.Arith.addWitness i 3 arr) * 16777216 +
+    get_byte arr (Unsafe.Arith.addWitness i 4 arr) * 4294967296 +
+    get_byte arr (Unsafe.Arith.addWitness i 5 arr) * 1099511627776 +
+    get_byte arr (Unsafe.Arith.addWitness i 6 arr) * 281474976710656 +
+    get_byte arr (Unsafe.Arith.addWitness i 7 arr) * 72057594037927936;
 
   fun read_ids arr len i =
-    if i >= len then [] else get_u64 arr (i * 8) :: read_ids arr len (i + 1);
+    if Unsafe.Arith.geWitness i len arr then []
+    else get_u64 arr (Unsafe.Arith.mulWitness i 8 arr) ::
+      read_ids arr len (Unsafe.Arith.addWitness i 1 arr);
 
   fun ensure_size buf_arr needed =
     if Word8Array.length buf_arr < needed
@@ -111,7 +117,7 @@ Quote add_cakeml:
   fun parse_step step_arr buf_arr =
     let
       val _ = #(step) "" step_arr
-      val c = Char.fromByte (Word8Array.sub step_arr 0)
+      val c = Char.fromByte (Unsafe.w8sub step_arr 0)
     in
       case c of
         #"a" => (* PRODUCE *)
@@ -630,17 +636,33 @@ Theorem get_u64_spec:
           cond (NUM (bytes_to_num (TAKE 8 (DROP k xs))) res))
 Proof
   rw[]>>
+  `TAKE 8 (DROP k xs) =
+    [xs❲k❳;xs❲k+1❳;xs❲k+2❳;xs❲k+3❳;xs❲k+4❳;xs❲k+5❳;xs❲k+6❳;xs❲k+7❳]` by
+      (rw[LIST_EQ_REWRITE,EL_TAKE,EL_DROP]>>
+      fs[NUMERAL_LESS_THM ])>>
   xcf_with_def (fetch "-" "get_u64_v_def") >>
-  rpt (xlet_auto >> xsimpl) >>
+  rpt (
+    xlet_auto_spec (SOME num_add_w8_spec)
+    >- xsimpl >>
+    xlet_auto >>
+    xlet_autop) >>
+  ‘w2n xs❲k❳ < 256 ∧ w2n xs❲k+1❳ < 256 ∧ w2n xs❲k+2❳ < 256’ by
+    simp[miscTheory.w2n_lt_256]>>
+  rpt (
+    xlet_auto_spec (SOME num_add_w8_spec)
+    >- xsimpl >>
+    xlet_auto >>
+    xlet_auto_spec (SOME num_mul_spec)
+    >- (xsimpl >> gvs[])) >>
+  xlet_auto_spec (SOME num_add_spec) >- (xsimpl >> gvs[]) >>
+  xlet_auto >>
+  xlet_auto_spec (SOME num_add_spec) >- (xsimpl >> gvs[]) >>
+  rpt xlet_autop >>
   xapp>>xsimpl>>
   gvs[NUM_def]>>
   first_x_assum $ irule_at Any>>
   first_x_assum $ irule_at Any>>
   rw[]>>
-  `TAKE 8 (DROP k xs) =
-    [xs❲k❳;xs❲k+1❳;xs❲k+2❳;xs❲k+3❳;xs❲k+4❳;xs❲k+5❳;xs❲k+6❳;xs❲k+7❳]` by
-      (rw[LIST_EQ_REWRITE,EL_TAKE,EL_DROP]>>
-      fs[NUMERAL_LESS_THM ])>>
   rw[bytes_to_num_def]>>gvs[LEFT_ADD_DISTRIB,INT_OF_NUM_ADD]
 QED
 
@@ -654,7 +676,21 @@ Theorem get_int_spec:
 Proof
   rw[]>>
   xcf_with_def (fetch "-" "get_int_v_def") >>
-  rpt (xlet_auto >> xsimpl) >>
+  xlet_auto_spec (SOME num_add_w8_spec) >- xsimpl >>
+  xlet_auto >>
+  ‘w2n xs❲k❳ < 256 ∧ w2n xs❲k+1❳ < 256 ∧ w2n xs❲k+2❳ < 256 ∧
+   w2n xs❲k+3❳ < 256’ by
+    simp[miscTheory.w2n_lt_256]>>
+  rpt (
+    xlet_auto_spec (SOME num_add_w8_spec)
+    >- xsimpl >>
+    xlet_auto >>
+    xlet_auto_spec (SOME num_mul_spec)
+    >- (xsimpl >> gvs[])) >>
+  xlet_auto_spec (SOME num_add_spec) >- (xsimpl >> gvs[]) >>
+  xlet_auto >>
+  xlet_auto_spec (SOME num_add_spec) >- (xsimpl >> gvs[]) >>
+  rpt xlet_autop >>
   ‘k ≤ LENGTH xs’ by decide_tac >>
   drule LESS_EQ_LENGTH >>
   strip_tac >> gvs [EL_APPEND2] >>
@@ -746,7 +782,7 @@ QED
 Theorem read_ints_spec:
   ∀lv iv.
   NUM len lv ∧
-  NUM i iv ∧
+  NUM i iv ∧ i ≤ len ∧
   4 * len ≤ LENGTH xs ⇒
   app (p:'ffi ffi_proj) read_ints_v [arrv; lv; iv]
       (W8ARRAY arrv xs)
@@ -758,20 +794,21 @@ Proof
   completeInduct_on`len - i`>>
   rw[]>>
   xcf_with_def (fetch "-" "read_ints_v_def") >>
-  xlet_autop>>
+  xlet_auto_spec (SOME num_ge_w8_spec) >- xsimpl>>
   xif
   >- (
     xcon>>xsimpl>>
     `len - i = 0` by fs[]>>
     simp[Once read_ints_def,LIST_TYPE_def])>>
-  xlet_autop>>
+  xlet_auto_spec (SOME num_add_w8_spec) >- xsimpl>>
   first_x_assum(qspec_then`len - (i+1)` mp_tac)>>
   impl_tac >- fs[]>>
   disch_then (qspecl_then [`len`, `i+1`] mp_tac)>>
   simp[]>>
   disch_then drule_all>>
   rw[]>>
-  rpt xlet_autop>>
+  xlet_autop>>
+  xlet_auto_spec (SOME num_mul_w8_spec) >- xsimpl>>
   xlet_auto>>
   xcon>>xsimpl>>
   simp[Once read_ints_def,LIST_TYPE_def]>>
@@ -840,7 +877,7 @@ QED
 Theorem read_ids_spec:
   ∀lv iv.
   NUM len lv ∧
-  NUM i iv ∧
+  NUM i iv ∧ i ≤ len ∧
   8 * len ≤ LENGTH xs ⇒
   app (p:'ffi ffi_proj) read_ids_v [arrv; lv; iv]
       (W8ARRAY arrv xs)
@@ -852,12 +889,12 @@ Proof
   completeInduct_on`len - i`>>
   rw[]>>
   xcf_with_def (fetch "-" "read_ids_v_def") >>
-  xlet_autop>>
+  xlet_auto_spec (SOME num_ge_w8_spec) >- xsimpl>>
   xif
   >- (
     xcon>>xsimpl>>
     qexists_tac`[]`>>simp[LIST_TYPE_def])>>
-  xlet_autop>>
+  xlet_auto_spec (SOME num_add_w8_spec) >- xsimpl>>
   first_x_assum(qspec_then`len - (i+1)` mp_tac)>>
   impl_tac >- fs[]>>
   disch_then (qspecl_then [`len`, `i+1`] mp_tac)>>
@@ -865,7 +902,7 @@ Proof
   disch_then drule_all>>
   rw[]>>
   xlet_auto>>
-  xlet_autop>>
+  xlet_auto_spec (SOME num_mul_w8_spec) >- xsimpl>>
   xlet_auto>>
   xcon>>xsimpl>>
   metis_tac[LIST_TYPE_def]
@@ -1696,7 +1733,7 @@ Theorem check_top_SOME:
   LIST_REL vcclause_TYPE fmlls fmllsv ∧
   NUM b bv ∧
   DISTRUP_DISTRUP_TYPE inst instv ∧
-  bnd_fml fmlls (LENGTH Clist) ∧
+  dm_ok fmlls Clist b ∧
   stv =
     Conv (SOME (TypeStamp «Some» 2))
       [Conv NONE [fmlv; Carrv; bv]] ⇒
@@ -1939,7 +1976,7 @@ Theorem loop_SOME:
     NUM lno lnov ∧
     LIST_REL vcclause_TYPE fmlls fmllsv ∧
     NUM b bv ∧
-    bnd_fml fmlls (LENGTH Clist) ∧
+    dm_ok fmlls Clist b ∧
     events_ok st events aevents (SOME (fmlls, Clist, b)) ∧
     stv =
       Conv (SOME (TypeStamp «Some» 2))
@@ -2047,7 +2084,7 @@ Proof
     first_x_assum $ irule_at Any>>
     simp[GSYM PULL_EXISTS]>>
     CONJ_TAC >-
-      metis_tac[distrup_listTheory.check_distrup_list_bnd_fml]>>
+      metis_tac[distrup_listTheory.check_distrup_list_dm_ok]>>
     irule_at Any events_ok_produce>>
     fs[is_output_event_def]>>
     metis_tac[])
@@ -2102,7 +2139,7 @@ Proof
     first_x_assum $ irule_at Any>>
     simp[GSYM PULL_EXISTS]>>
     CONJ_TAC >-
-      metis_tac[distrup_listTheory.check_distrup_list_bnd_fml]>>
+      metis_tac[distrup_listTheory.check_distrup_list_dm_ok]>>
     irule_at Any events_ok_import>>
     fs[is_output_event_def]>>
     metis_tac[])
@@ -2157,7 +2194,7 @@ Proof
     first_x_assum $ irule_at Any>>
     simp[GSYM PULL_EXISTS]>>
     CONJ_TAC >-
-      metis_tac[distrup_listTheory.check_distrup_list_bnd_fml]>>
+      metis_tac[distrup_listTheory.check_distrup_list_dm_ok]>>
     irule_at Any events_ok_delete>>
     fs[is_output_event_def]>>
     metis_tac[])
@@ -2232,7 +2269,7 @@ Proof
     first_x_assum $ irule_at Any>>
     simp[GSYM PULL_EXISTS]>>
     CONJ_TAC >-
-      metis_tac[distrup_listTheory.check_distrup_list_bnd_fml]>>
+      metis_tac[distrup_listTheory.check_distrup_list_dm_ok]>>
     irule_at Any events_ok_validate>>
     fs[is_output_event_def]>>
     metis_tac[])
@@ -2266,10 +2303,11 @@ Proof
   qexists_tac`REPLICATE 1024 0`>>
   xsimpl >>
   conj_tac >-
-   (gvs [ccnf_listTheory.bnd_fml_def,miscTheory.any_el_ALT,EL_REPLICATE, SF CONJ_ss]) >>
-  conj_tac >-
    (gvs [LIST_REL_EL_EQN,EL_REPLICATE,
          ccnf_arrayProgTheory.vcc_none_v_thm]) >>
+  conj_tac >-
+   (gvs [ccnf_listTheory.dm_ok_def,ccnf_listTheory.bnd_fml_def,
+          miscTheory.any_el_ALT,EL_REPLICATE, SF CONJ_ss]) >>
   rw [] >> rename [‘CUSTOM_FFI Terminate [] xx’] >>
   gvs[init_st_def]>>
   pop_assum $ irule_at Any >>

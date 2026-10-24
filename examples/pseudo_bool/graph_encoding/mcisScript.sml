@@ -8,6 +8,7 @@ Ancestors
   pbc graph_basic pbc_normalise
 
 val _ = numLib.temp_prefer_num();
+val _ = Parse.hide "dom";
 
 (* Given graphs G_p , G_t
   A subset of vertices of G_p is a common induced subgraph in G_t

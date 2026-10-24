@@ -1487,6 +1487,32 @@ Proof
   >> strip_tac >> rpt (first_assum $ irule_at Any)
 QED
 
+Theorem v_rel_atomic[local]:
+  (v_rel f (Number i) w <=> w = Number i) /\
+  (v_rel f (Block tag []) w <=> w = Block tag [])
+Proof
+  simp [v_rel_cases]
+QED
+
+Theorem smallnum_witness_bound[local]:
+  state_ref_rel f refs target_refs /\ v_rel f v w /\
+  bvlSem$smallnum_witness_length refs v = SOME len ==>
+  ?limit. bvlSem$smallnum_witness_length target_refs w = SOME limit /\
+          len <= limit
+Proof
+  rpt strip_tac
+  \\ Cases_on `v`
+  \\ gvs [bvlSemTheory.smallnum_witness_length_def, AllCaseEqs(),
+          v_rel_cases]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ simp []
+  \\ drule_all state_ref_rel_lookup
+  \\ strip_tac
+  \\ gvs [ref_rel_cases]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ simp [bvlSemTheory.smallnum_witness_length_def]
+QED
+
 Theorem do_app_op_rel:
   ∀f op vs vs' s s' t v.
     do_app op vs s = Rval (v,t) ∧
@@ -1516,26 +1542,24 @@ Proof
 QED
 
 Resume do_app_op_rel[IntOp]:
-  Cases_on ‘i’
-  >~ [‘Const i’] >-
-   (gvs [do_app_def, do_app_aux_def, CaseEq "option"]
-    >> imp_res_tac LIST_REL_LENGTH
-    >> first_assum $ irule_at Any
-    >> gvs [v_rel_cases, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl, NULL_LENGTH])
-  >~ [‘LessConstSmall n’] >-
-   (gvs [AllCaseEqs (), v_rel_cases, do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
-    >> Cases_on ‘vs’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def]
-    >> reverse $ Cases_on ‘t’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def]
-    >- (Cases_on ‘t'’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def, bvl_to_bvi_id, bvlSemTheory.Boolv_def])
-    >> gvs [bvlSemTheory.Boolv_def, bvl_to_bvi_id]
-    >> first_assum $ irule_at Any
-    >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl])
-  >> gvs [AllCaseEqs (), v_rel_cases, do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
-  >> reverse $ Cases_on ‘vs’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def]
-  >> Cases_on ‘t’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def]
-  >> Cases_on ‘t'’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def, bvl_to_bvi_id, bvlSemTheory.Boolv_def]
-  >> first_assum $ irule_at Any
-  >> gvs [only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
+  `state_ref_rel f s.refs s'.refs` by fs [state_rel_def]
+  \\ Cases_on `i`
+  \\ gvs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def,
+          oneline bvlSemTheory.do_int_app_def, AllCaseEqs(), v_rel_atomic,
+          bvl_to_bvi_id, bvlSemTheory.Boolv_def]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ gvs [NULL_LENGTH]
+  \\ qexists_tac `f`
+  \\ gvs [only_fresh_refl, holes_unchanged_except_refl,
+          holes_still_not_finalised_refl]
+  \\ drule_all smallnum_witness_bound
+  \\ disch_then (qx_choose_then `target_limit` strip_assume_tac)
+  \\ drule backendPropsTheory.index_in_bounds_mono
+  \\ strip_tac
+  \\ drule_all backendPropsTheory.bounded_smallnum_app_mono
+  \\ strip_tac
+  \\ simp [bvl_to_bvi_id, holes_unchanged_except_refl,
+           holes_still_not_finalised_refl]
 QED
 
 Resume do_app_op_rel[WordOp]:

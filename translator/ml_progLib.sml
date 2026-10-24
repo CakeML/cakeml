@@ -403,7 +403,12 @@ fun add_Dlet eval_thm var_str = let
     val safe_tm = mk_icomb
       (prim_mk_const {Thy = "evaluateProps", Name = "no_ptr_eq"}, exp)
     val safe_thm = EQT_ELIM (EVAL safe_tm) handle HOL_ERR _ =>
-      failwith "add_Dlet: expression does not pass no_ptr_eq"
+      failwith ("add_Dlet: cannot declare val " ^ var_str ^ ": " ^
+        "its expression applies a function, uses pointer equality, Eval or " ^
+        "forces a thunk, and a top-level val may only be built from " ^
+        "constructors, literals, closures and simple primitive " ^
+        "operations (it must satisfy no_ptr_eq). " ^
+        "Evaluate the expression to a value first, or declare a function.")
     val mp_thm = ML_code_Dlet_var |> SPECL (tl eval_thm_xs
         @ [mlstringSyntax.mk_mlstring var_str,no_locs])
   in ML_code_upd "add_Dlet" mp_thm
@@ -525,7 +530,13 @@ fun add_Dlet_expr loc n exp s = let
     val safe_tm = mk_icomb
       (prim_mk_const {Thy = "evaluateProps", Name = "no_ptr_eq"}, exp)
     val safe_thm = EQT_ELIM (EVAL safe_tm) handle HOL_ERR _ =>
-      failwith "add_dec: Dlet expression does not pass no_ptr_eq"
+      failwith ("add_dec: cannot declare val " ^
+        mlstringSyntax.dest_mlstring n ^ ": " ^
+        "its expression applies a function, uses pointer equality, Eval or " ^
+        "forces a thunk, and a top-level val may only be built from " ^
+        "constructors, literals, closures and simple primitive " ^
+        "operations (it must satisfy no_ptr_eq). " ^
+        "Evaluate the expression to a value first, or declare a function.")
     val eval_tm = list_mk_icomb
       (prim_mk_const {Thy = "evaluate", Name = "evaluate"},
        [get_state s, get_env s, listSyntax.mk_list ([exp], type_of exp)])

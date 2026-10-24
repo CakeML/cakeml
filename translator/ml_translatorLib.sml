@@ -2921,14 +2921,21 @@ fun mutual_to_single_line_def ctxt def = let
   val (def,ind) = single_line_def def
   in ([def],ind) end
 
+val smallnum_operations = ["add", "sub", "mul", "div", "mod", "lt", "le", "gt", "ge", "eq"];
+
+fun smallnum_evals suffix =
+  List.concat (map (fn prefix =>
+    map (fn name => DB.fetch "ml_translator" ("Eval_" ^ prefix ^ "_" ^ name ^ suffix))
+      smallnum_operations) ["smallnum", "smallint"]);
+
 val builtin_terops =
-  [Eval_substring,
-   Eval_FLOAT_FMA]
+  ([Eval_substring,
+    Eval_FLOAT_FMA] @ smallnum_evals "_vec" @ smallnum_evals "_str")
   |> map (fn th =>
       (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator |> rator, th))
 
 val builtin_binops =
-  [Eval_NUM_ADD,
+  ([Eval_NUM_ADD,
    Eval_NUM_SUB,
    Eval_NUM_SUB_check,
    Eval_NUM_MULT,
@@ -2981,7 +2988,7 @@ val builtin_binops =
    Eval_sub_unsafe,
    Eval_strsub_unsafe,
    Eval_Implies,
-   Eval_pure_seq]
+   Eval_pure_seq] @ smallnum_evals "")
  |> map (fn th =>
       (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th))
 
@@ -3371,6 +3378,7 @@ fun is_word_literal tm =
   else false
 
 val Num_ABS_pat = Eval_Num_ABS |> concl |> rand |> rand |> rand
+val PtrEq_if_pat = Eval_PtrEq |> concl |> rand |> rand |> rand |> rand
 
 val int_of_num_o_pat = Eval_int_of_num_o |> concl |> rand |> rand |> rand
 val o_int_of_num_pat = Eval_o_int_of_num |> concl |> rand |> rand |> rand
@@ -3633,6 +3641,23 @@ fun hol2deep ctxt tm =
     val th = MATCH_MP Eval_Or (LIST_CONJ [D th1, D th2])
     val result = UNDISCH th
     in check_inv "or" tm result end else
+  (* if ptr_eq x y then t1 else t2: the side condition x = y ⇒ t1 = t2 is
+     proved by simp if possible, otherwise it becomes a precondition *)
+  if can (match_term PtrEq_if_pat) tm then let
+    val (c,t1,t2) = dest_cond tm
+    val th1 = hol2deep ctxt (rand (rator c))
+    val th2 = hol2deep ctxt (rand c)
+    val th3 = hol2deep ctxt t1
+    val th4 = hol2deep ctxt t2
+    val th = MATCH_MP Eval_PtrEq (LIST_CONJ [th1,th2,th3,th4])
+             |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO] |> UNDISCH
+    val side = th |> concl |> dest_imp |> fst
+    val result = MP th (EQT_ELIM (SIMP_CONV (srw_ss()) [] side))
+      handle HOL_ERR _ =>
+        th |> CONV_RULE ((RATOR_CONV o RAND_CONV)
+                (REWR_CONV (GSYM (SPEC_ALL PRECONDITION_def))))
+           |> UNDISCH
+    in check_inv "ptr_eq" tm result end else
   (* if statements *)
   if is_cond tm then
     if is_precond (tm |> rator |> rator |> rand) then let
@@ -4643,17 +4668,28 @@ val options = tl [NoInd]
 val options = [NoInd]
 *)
 
+(* a top-level val must satisfy no_ptr_eq; th is an Eval theorem for it *)
+fun check_no_ptr_eq v_name th = let
+  val exp_tm = th |> concl |> rator |> rand
+  in EQT_ELIM (EVAL (mk_icomb
+       (prim_mk_const {Thy = "evaluateProps", Name = "no_ptr_eq"}, exp_tm)))
+     handle HOL_ERR _ => failwith ("translate: cannot declare " ^ v_name ^
+       " as a top-level val: " ^
+       "its expression applies a function, uses pointer equality, Eval or " ^
+       "forces a thunk, and a top-level val may only be built from " ^
+       "constructors, literals, closures and simple primitive " ^
+       "operations (it must satisfy no_ptr_eq). " ^
+       "Evaluate the right-hand side first, e.g. " ^
+       "translate (foo_def |> CONV_RULE (RHS_CONV EVAL)), " ^
+       "or make the definition a function.") end
+
 (* the specification of a val whose value is not pinned uniquely by its type:
    add_Dlet requires no_ptr_eq, under which the value does not depend on the
    oracle, so the value is a constant (keeping the env oracle-free), while the
    residual refs and oracle are Skolem functions of the root oracle *)
 fun no_ptr_eq_constant_spec th (curr_refs,curr_refs_eq) (curr_po,curr_po_eq)
                             root_po (v_name,refs_name,po_name) = let
-  val exp_tm = th |> concl |> rator |> rand
-  val no_ptr_eq_thm = EQT_ELIM (EVAL (mk_icomb
-    (prim_mk_const {Thy = "evaluateProps", Name = "no_ptr_eq"}, exp_tm)))
-    handle HOL_ERR _ => failwith ("translate: the expression of val " ^
-      v_name ^ " does not pass no_ptr_eq (e.g. it calls a function)")
+  val no_ptr_eq_thm = check_no_ptr_eq v_name th
   val lemma =
     Eval_constant_no_ptr_eq
     |> C MATCH_MP no_ptr_eq_thm
@@ -4810,6 +4846,7 @@ fun translate_options options def =
         val eval_thm = MATCH_MP eval_lemma (CONJUNCT1 refs_spec)
         val var_str = ml_fname
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
+        val _ = check_no_ptr_eq v_name th
         val _ = ml_prog_update (add_Dlet eval_thm var_str)
         val _ = add_v_thms (fname,var_str,v_thm,pre_def)
         val v_thm = v_thm |> DISCH_ALL

@@ -1,5 +1,5 @@
 all: $(DEFAULT_TARGETS) README.md readme_gen lint
-.PHONY: all
+.PHONY: all lint
 
 README_SOURCES = $(wildcard *.sml) $(wildcard *.sh) build-sequence
 DIRS = $(wildcard */)

@@ -3036,7 +3036,7 @@ End
 
 Definition vec_lookup_d_def:
   vec_lookup_d d vec n =
-    if n < length vec then sub vec n else d
+    if n < length vec then sub_unsafe vec n else d
 End
 
 Theorem prepend_REPLICATE[local]:
@@ -3085,7 +3085,7 @@ Theorem vec_lookup_d_toSortedAList:
 Proof
   mp_tac vec_lookup_num_man_to_vec >>
   simp[spt_to_vec_def,vec_lookup_def,vec_lookup_d_def,to_flat_d_eq,
-       length_def,sub_def] >>
+       length_def,sub_unsafe_def] >>
   Cases_on `n < LENGTH (to_flat 0 (toSortedAList t) [])` >>
   simp[EL_MAP]
 QED
