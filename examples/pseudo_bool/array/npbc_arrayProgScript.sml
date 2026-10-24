@@ -2501,22 +2501,40 @@ val res = translate (subst_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_che
 
 val res = translate (obj_constraint_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 
-Theorem subst_fun_alt:
-  subst_fun (s:subst) =
-  case s of
-    INL (m,v) => \n. if n = m then SOME v else NONE
-  | INR s =>
-    \n. if n < length s then sub s n else NONE
+val _ = register_type ``:'a lmap``;
+val res = translate spt_to_vecTheory.bsearch_def;
+
+Theorem bsearch_side[local]:
+  ∀v n lo hi. hi ≤ length v ⇒ bsearch_side v n lo hi
 Proof
-  rw[FUN_EQ_THM]>>
-  every_case_tac>>
-  EVAL_TAC>>
-  rw[]
+  recInduct spt_to_vecTheory.bsearch_ind \\ rw []
+  \\ simp [Once (fetch "-" "bsearch_side_def")]
+  \\ strip_tac
+  \\ ‘(hi + lo) DIV 2 < hi’ by simp [DIV_LT_X]
+  \\ rw []
 QED
 
-val res = translate subst_fun_alt;
+val res = translate spt_to_vecTheory.map_lookup_def;
+
+Theorem map_lookup_side[local]:
+  map_lookup_side m n
+Proof
+  rw [fetch "-" "map_lookup_side_def"] \\ simp [bsearch_side]
+QED
+
+val _ = map_lookup_side |> update_precondition;
+
+val res = translate npbc_checkTheory.subst_fun_def;
 
 val res = translate subst_fun_slot_def;
+
+Theorem subst_fun_slot_side[local]:
+  subst_fun_slot_side s n
+Proof
+  rw [fetch "-" "subst_fun_slot_side_def"] \\ simp [bsearch_side]
+QED
+
+val _ = subst_fun_slot_side |> update_precondition;
 
 val res = translate subst_aux_slot_def;
 val res = translate subst_same_slot_def;
@@ -2578,7 +2596,7 @@ Quote add_cakeml:
       else raise Fail (format_failure lno ("invalid #proofgoal id: " ^ Int.toString u))
 End
 
-Overload "subst_TYPE" = ``SUM_TYPE (PAIR_TYPE NUM (SUM_TYPE BOOL (PBC_LIT_TYPE NUM))) (VECTOR_TYPE (OPTION_TYPE (SUM_TYPE BOOL (PBC_LIT_TYPE NUM))))``
+Overload "subst_TYPE" = ``SPT_TO_VEC_LMAP_TYPE (SUM_TYPE BOOL (PBC_LIT_TYPE NUM))``
 
 Overload "pfs_TYPE" = ``LIST_TYPE (PAIR_TYPE (OPTION_TYPE (PAIR_TYPE (SUM_TYPE NUM NUM) NUM)) (LIST_TYPE NPBC_CHECK_LSTEP_TYPE))``
 Overload "scpfs_TYPE" = ``LIST_TYPE (PAIR_TYPE (OPTION_TYPE NUM) pfs_TYPE)``
@@ -3210,7 +3228,7 @@ val res = translate fast_obj_constraint_def;
 val res = translate fast_red_subgoals_def;
 
 Theorem fast_red_subgoals_side:
-  wf_slot fc ⇒ fast_red_subgoals_side ord s fc obj vomap hs
+  wf_slot fc ⇒ fast_red_subgoals_side ord s sr fc obj vomap hs
 Proof
   rw[fetch "-" "fast_red_subgoals_side_def",subst_slot_side]
 QED
@@ -3743,18 +3761,7 @@ End
 
 val r = translate format_failure_2_def;
 
-(*
-Theorem vec_eq_nil_thm:
-  v = INR (Vector []) ⇔
-  case v of INL _ => F
-  | INR v => length v = 0
-Proof
-  Cases_on`v`>>EVAL_TAC>>
-  Cases_on`y`>>fs[mlvectorTheory.length_def]
-QED
-*)
-
-val r = translate red_fast_def; (*|> SIMP_RULE std_ss [vec_eq_nil_thm]); *)
+val r = translate red_fast_def;
 
 val res = translate neg_terms_def;
 val res = translate not_slot_def;
@@ -4389,6 +4396,10 @@ val _ = to_flat_ind |> update_precondition;
 
 val r = translate spt_to_vecTheory.spt_to_vec_def;
 val res = translate fromAList_def;
+val res = translate spt_to_vecTheory.sorted_dedup_def;
+val res = translate spt_to_vecTheory.has_at_least_def;
+val res = translate spt_to_vecTheory.dense_ok_def;
+val res = translate (spt_to_vecTheory.mk_map_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 val res = translate npbc_checkTheory.mk_subst_def;
 
 (*
@@ -4506,10 +4517,10 @@ Overload "aspo_TYPE" = ``
 
 Overload "ords_TYPE" = ``
   PAIR_TYPE aspo_TYPE
-  (PAIR_TYPE (VECTOR_TYPE (OPTION_TYPE (PAIR_TYPE NUM BOOL)))
-  (PAIR_TYPE (VECTOR_TYPE (OPTION_TYPE (PAIR_TYPE NUM BOOL)))
-  (PAIR_TYPE (VECTOR_TYPE (OPTION_TYPE BOOL))
-    (VECTOR_TYPE (OPTION_TYPE UNIT_TYPE))
+  (PAIR_TYPE (SPT_TO_VEC_LMAP_TYPE (PAIR_TYPE NUM BOOL))
+  (PAIR_TYPE (SPT_TO_VEC_LMAP_TYPE (PAIR_TYPE NUM BOOL))
+  (PAIR_TYPE (SPT_TO_VEC_LMAP_TYPE BOOL)
+    (SPT_TO_VEC_LMAP_TYPE UNIT_TYPE)
   )))``
 
 Overload "obj_TYPE" = ``
@@ -4601,15 +4612,15 @@ Quote add_cakeml:
   fun check_red_arr lno pres ord obj b tcb fml inds id
     fc mv s pfs idopt vimap vomap assg st =
   if check_pres pres s then
-  let val ss = mk_subst s in
-  case red_fast ss idopt pfs of
+  case red_fast idopt pfs of
   None =>
   (
   let
     val bortcb = b orelse tcb
     val hs = has_scope pfs in
     case get_set_indices_arr fml inds s vimap of (rinds, (inds',vimap')) =>
-    case fast_red_subgoals ord ss fc obj vomap hs of (rsubs,rscopes) =>
+    let val ss = mk_subst rinds s in
+    case fast_red_subgoals ord ss s fc obj vomap hs of (rsubs,rscopes) =>
   let
     val nfc = not_slot fc b
     val cpfs = extract_scopes_arr lno rscopes ss b fml rsubs pfs in
@@ -4639,10 +4650,10 @@ Quote add_cakeml:
         end
       else raise Fail (format_failure lno ("did not derive contradiction from index: " ^ Int.toString cid)))
   end
+  end
   end)
   | Some (pf,cid) =>
     check_red_arr_fast lno b fml inds id fc mv pf cid vimap assg st
-  end
   else raise Fail (format_failure lno ("domain of substitution must not mention projection set."))
 End
 
@@ -4708,13 +4719,11 @@ Proof
     xraise>>xsimpl>>
     simp[Fail_exn_def,check_red_list_def]>>
     metis_tac[ARRAY_NUM_ARRAY_refl])>>
-  xlet_auto
-  >- (xsimpl>>simp (eq_lemmas()))>>
   xlet_autop>>
   rw[check_red_list_def]>>
-  reverse (Cases_on`red_fast (mk_subst s) idopt pfs`)
+  reverse (Cases_on`red_fast idopt pfs`)
   >- (
-    qmatch_asmsub_rename_tac`red_fast _ _ _ = SOME pc`>>
+    qmatch_asmsub_rename_tac`red_fast _ _ = SOME pc`>>
     PairCases_on`pc`>>
     fs[OPTION_TYPE_def,PAIR_TYPE_def]>>
     xmatch>>
@@ -4736,9 +4745,11 @@ Proof
   qmatch_goalsub_rename_tac`ARRAY vimapv1 vimaplsv1`>>
   xmatch>>
   xlet_auto
+  >- (xsimpl>>simp (eq_lemmas()))>>
+  xlet_auto
   >- (xsimpl>>simp[fast_red_subgoals_side])>>
   `∃rsubs rscopes.
-    fast_red_subgoals ord (mk_subst s) fc obj vomap (has_scope pfs) =
+    fast_red_subgoals ord (mk_subst rinds s) s fc obj vomap (has_scope pfs) =
     (rsubs,rscopes)` by
     metis_tac[PAIR]>>
   gvs[PAIR_TYPE_def]>>
@@ -4752,7 +4763,7 @@ Proof
   xlet_auto
   >- xsimpl
   >- (xsimpl>>rw[]>>metis_tac[ARRAY_NUM_ARRAY_refl])>>
-  Cases_on`extract_scopes_list rscopes (mk_subst s) b fmlls rsubs pfs`>>
+  Cases_on`extract_scopes_list rscopes (mk_subst rinds s) b fmlls rsubs pfs`>>
   gvs[]>>
   rename1`check_scope_TYPE cpfs _`>>
   `fslot_TYPE (not_slot fc b) ncv` by
@@ -5330,7 +5341,7 @@ Theorem check_spec_aux_arr_spec:
   ∀gs gsv fmlls fmllsv id idv vimap vimaplsv fmlv indsv vimapv inds
     assg assgv st stv.
   NUM lno lnov ∧
-  VECTOR_TYPE (OPTION_TYPE UNIT_TYPE) aa aav ∧
+  SPT_TO_VEC_LMAP_TYPE UNIT_TYPE aa aav ∧
   LIST_REL fslot_TYPE fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
   NUM id idv ∧
@@ -5458,11 +5469,7 @@ Proof
   xapp>>xsimpl
 QED
 
-Definition mk_as_vec_def:
-  mk_as_vec as = spt_to_vec (fromAList (MAP (\n. n,()) as))
-End
-
-val res = translate mk_as_vec_def;
+val res = translate npbc_checkTheory.mk_as_vec_def;
 
 Quote add_cakeml:
   fun check_spec_arr lno vvs gs =
@@ -5494,7 +5501,7 @@ Theorem check_spec_arr_spec:
       (λv.
         SEP_EXISTS av.
         &(check_spec_list vvs gs = SOME av ∧
-        VECTOR_TYPE (OPTION_TYPE UNIT_TYPE) av v))
+        SPT_TO_VEC_LMAP_TYPE UNIT_TYPE av v))
       (λe.
         & (Fail_exn e ∧ check_spec_list vvs gs = NONE)))
 Proof
@@ -5509,12 +5516,12 @@ Proof
   >- (
     xapp>>xsimpl>>
     qexistsl_tac[`emp`,`[]`,`gs`,`[]`,`aa`,`lno`]>>
-    gvs[LIST_TYPE_def,Abbr`aa`,mk_as_vec_def,fml_bound_def,NUM_ARRAY_def,
+    gvs[LIST_TYPE_def,Abbr`aa`,npbc_checkTheory.mk_as_vec_def,fml_bound_def,NUM_ARRAY_def,
       any_el_ALT,slot_bound_def]>>
     xsimpl)
   >- xsimpl>>
   xvar>>xsimpl>>
-  gvs[mk_as_vec_def]
+  gvs[npbc_checkTheory.mk_as_vec_def]
 QED
 
 val res = translate npbc_checkTheory.mk_aord_def;
@@ -5565,7 +5572,7 @@ Theorem check_storeorder_arr_spec:
            (PAIR_TYPE (LIST_TYPE constraint_TYPE)
               (PAIR_TYPE (LIST_TYPE NUM)
                  (PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE NUM)))))
-          (VECTOR_TYPE (OPTION_TYPE UNIT_TYPE)) aord v
+          (SPT_TO_VEC_LMAP_TYPE UNIT_TYPE) aord v
         ))
       (λe.
         & (Fail_exn e ∧ check_storeorder vvs gs f pfst pfsr = NONE)))
@@ -7111,7 +7118,7 @@ Quote add_cakeml:
   if check_fresh_aspo_arr fc s (get_ord pc) vimap vomap then
     case get_set_indices_arr fml inds s vimap of (rinds,(inds',vimap')) =>
     let
-      val ss = mk_subst s
+      val ss = mk_subst rinds s
       val w = subst_fun ss
       val goals =
         case idopt of
@@ -7240,18 +7247,18 @@ Proof
   xlet`POSTv wv. ARRAY vimapv1 vimaplsv1 * ARRAY fmlv fmllsv *
     NUM_ARRAY assgv assg *
     &(NUM --> OPTION_TYPE (SUM_TYPE BOOL (PBC_LIT_TYPE NUM)))
-      (subst_fun (mk_subst s)) wv`
+      (subst_fun (mk_subst rinds s)) wv`
   >- (
     xapp_spec (MATCH_MP Arrow_app_one (fetch "-" "subst_fun_v_thm"))>>
     qexistsl_tac[
       `ARRAY vimapv1 vimaplsv1 * ARRAY fmlv fmllsv * NUM_ARRAY assgv assg`,
-      `mk_subst s`]>>
+      `mk_subst rinds s`]>>
     xsimpl)>>
   xlet`POSTv gv. ARRAY vimapv1 vimaplsv1 * ARRAY fmlv fmllsv *
     NUM_ARRAY assgv assg *
     &LIST_TYPE (PAIR_TYPE NUM constraint_TYPE)
       (case idopt of
-        NONE => subst_indexes (mk_subst s) T fmlls rinds
+        NONE => subst_indexes (mk_subst rinds s) T fmlls rinds
       | SOME _ => []) gv`
   >- (
     Cases_on`idopt`>>fs[OPTION_TYPE_def]>>
@@ -7259,7 +7266,7 @@ Proof
     >- (
       xlet_autop>>
       xapp>>xsimpl>>
-      qexistsl_tac[`mk_subst s`,`rinds`,`fmlls`,`T`]>>
+      qexistsl_tac[`mk_subst rinds s`,`rinds`,`fmlls`,`T`]>>
       simp[]>>
       EVAL_TAC)>>
     xcon>>xsimpl>>
@@ -7268,7 +7275,7 @@ Proof
   gvs[get_obj_def]>>
   xlet_autop>>
   `∃dsubs dscopes dindex.
-    dom_subgoals spo (subst_fun (mk_subst s)) c pc.obj =
+    dom_subgoals spo (subst_fun (mk_subst rinds s)) c pc.obj =
     (dsubs,dscopes,dindex)` by metis_tac[PAIR]>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>
@@ -7279,19 +7286,19 @@ Proof
   simp[]>>
   xlet`POSTve
     (λv. ARRAY vimapv1 vimaplsv1 * ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
-      &(case extract_scopes_list dscopes (mk_subst s) F fmlls dsubs pfs of
+      &(case extract_scopes_list dscopes (mk_subst rinds s) F fmlls dsubs pfs of
           NONE => F
         | SOME res => check_scope_TYPE res v))
     (λe. ARRAY vimapv1 vimaplsv1 * ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
       &(Fail_exn e ∧
-        extract_scopes_list dscopes (mk_subst s) F fmlls dsubs pfs = NONE))`
+        extract_scopes_list dscopes (mk_subst rinds s) F fmlls dsubs pfs = NONE))`
   >- (
     xapp>>xsimpl>>
     `BOOL F (Conv (SOME (TypeStamp «False» 0)) [])` by EVAL_TAC>>
-    qexistsl_tac[`dscopes`,`mk_subst s`,`dsubs`,`pfs`,`fmlls`,`F`,`lno`]>>
+    qexistsl_tac[`dscopes`,`mk_subst rinds s`,`dsubs`,`pfs`,`fmlls`,`F`,`lno`]>>
     simp[])
   >- (xsimpl>>rw[]>>metis_tac[ARRAY_NUM_ARRAY_refl])>>
-  Cases_on`extract_scopes_list dscopes (mk_subst s) F fmlls dsubs pfs`>>
+  Cases_on`extract_scopes_list dscopes (mk_subst rinds s) F fmlls dsubs pfs`>>
   gvs[]>>
   rename1`check_scope_TYPE cpfs _`>>
   qmatch_asmsub_rename_tac`NPBC_SLOT_SLOT_TYPE (enc (not c) F) ncv`>>
@@ -7342,7 +7349,7 @@ Proof
   qmatch_goalsub_rename_tac`ARRAY fmlv2 fmllsv2 * NUM_ARRAY assgv2 assg2`>>
   qabbrev_tac`goals =
     case idopt of
-      NONE => subst_indexes (mk_subst s) T fmlls rinds
+      NONE => subst_indexes (mk_subst rinds s) T fmlls rinds
     | SOME _ => []`>>
   rename1`NUM id0 idv`>>
   xlet`POSTve

@@ -1142,8 +1142,9 @@ QED
 Definition subst_fun_slot_def:
   subst_fun_slot (s:subst) n =
   case s of
-    INL (m,v) => if n = m then SOME v else NONE
-  | INR vec => if n < length vec then sub_unsafe vec n else NONE
+    Dense lo vec =>
+      if lo ≤ n ∧ n - lo < length vec then sub_unsafe vec (n - lo) else NONE
+  | Sorted vec => bsearch vec n 0 (length vec)
 End
 
 Definition subst_aux_slot_def:
@@ -1198,14 +1199,18 @@ Definition subst_opt_slot_def:
 End
 
 Theorem subst_slot_test:
-  let s = INR (Vector [NONE; SOME (INL T); SOME (INR (Pos 3))]) in
+  let s = mk_map [] [(1,INL T); (2,INR (Pos 3))] in
   let c = ([(2,1);(-3,2);(1,4)],3) in
   subst_slot s (enc c T) = subst (subst_fun s) c ∧
   subst_opt_slot s (enc c T) = subst_opt (subst_fun s) c ∧
-  subst_opt_slot (INR (Vector [])) (enc c T) =
-    subst_opt (subst_fun (INR (Vector []))) c ∧
-  subst_opt_slot (INL (1,INL T)) (enc c T) =
-    subst_opt (subst_fun (INL (1,INL T))) c
+  subst_opt_slot (Sorted (Vector [])) (enc c T) =
+    subst_opt (subst_fun (Sorted (Vector []))) c ∧
+  subst_opt_slot (mk_map [] [(1,INL T)]) (enc c T) =
+    subst_opt (subst_fun (mk_map [] [(1,INL T)])) c ∧
+  (case mk_map [] [(1,INL T); (4,INR (Neg 3)); (20,INL F)] of
+     Sorted _ => T | Dense _ _ => F) ∧
+  subst_slot (mk_map [] [(1,INL T); (4,INR (Neg 3)); (20,INL F)]) (enc c T) =
+    subst (subst_fun (mk_map [] [(1,INL T); (4,INR (Neg 3)); (20,INL F)])) c
 Proof
   EVAL_TAC
 QED
@@ -1213,12 +1218,8 @@ QED
 Theorem subst_fun_slot_thm[simp]:
   subst_fun_slot s n = subst_fun s n
 Proof
-  Cases_on`s`
-  >- (
-    rename1`INL p`>>
-    PairCases_on`p`>>
-    simp[subst_fun_slot_def,subst_fun_def])>>
-  simp[subst_fun_slot_def,subst_fun_def,spt_to_vecTheory.vec_lookup_def]
+  Cases_on`s`>>
+  simp[subst_fun_slot_def,subst_fun_def,spt_to_vecTheory.map_lookup_def]
 QED
 
 Theorem subst_aux_APPEND:
@@ -2068,7 +2069,7 @@ Definition fresh_vs_def:
   if i = 0 then T
   else
     let i1 = i - 1 in
-    vec_lookup asv (sub_unsafe vs i1) = NONE ∧ fresh_vs asv vs i1
+    map_lookup asv (sub_unsafe vs i1) = NONE ∧ fresh_vs asv vs i1
 End
 
 Definition check_fresh_aux_constr_slot_def:
@@ -2082,7 +2083,7 @@ Theorem fresh_vs_thm:
   ∀i.
   i ≤ LENGTH l ⇒
   (fresh_vs asv (Vector (MAP SND l)) i ⇔
-    EVERY (λx. vec_lookup asv x = NONE) (MAP SND (TAKE i l)))
+    EVERY (λx. map_lookup asv x = NONE) (MAP SND (TAKE i l)))
 Proof
   Induct>>
   rw[Once fresh_vs_def]>>

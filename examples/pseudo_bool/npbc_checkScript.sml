@@ -1193,23 +1193,33 @@ Proof
   \\ rw [lookup_insert]
 QED
 
-Type ord_s = ``:aspo # (num # bool) option vector # (num # bool) option vector
-  # (bool option) vector # unit option vector``;
+Type ord_s = ``:aspo # (num # bool) lmap # (num # bool) lmap
+  # bool lmap # unit lmap``;
+
+Definition mk_as_vec_def:
+  mk_as_vec as = mk_map [] (MAP (\n. n,()) as)
+End
+
+Theorem map_lookup_mk_as_vec:
+  map_lookup (mk_as_vec as) n = ALOOKUP (MAP (\n. n,()) as) n
+Proof
+  simp [mk_as_vec_def, map_lookup_mk_map]
+QED
 
 (* This characterizes the redundancy used in ord_s *)
 Definition good_ord_s_def:
   good_ord_s (((f,g,us,vs,as),xs),us_xs,vs_xs,xsv,asv) <=>
-  us_xs = spt_to_vec (list_list_insert us xs) ∧
-  vs_xs = spt_to_vec (list_list_insert vs xs) ∧
-  xsv = spt_to_vec (fromAList xs) ∧
-  asv = spt_to_vec (fromAList (MAP (\n. n,()) as))
+  us_xs = mk_map [] (ZIP (us,xs)) ∧
+  vs_xs = mk_map [] (ZIP (vs,xs)) ∧
+  xsv = mk_map [] xs ∧
+  asv = mk_as_vec as
 End
 
 Definition dom_subst_def:
   (dom_subst hs w (NONE: ord_s option) = ([],[])) ∧
   (dom_subst hs w (SOME (((f,g,us,vs,as),xs),us_xs,vs_xs,xsv, asv)) =
   let ww = (λn.
-    case vec_lookup us_xs n of
+    case map_lookup us_xs n of
       SOME (v,b) =>
         SOME (
             mk_bit_lit b
@@ -1217,7 +1227,7 @@ Definition dom_subst_def:
                 NONE => INR (Pos v)
               | SOME res => res))
     | NONE =>
-        OPTION_MAP (INR o mk_lit) (vec_lookup vs_xs n)) in
+        OPTION_MAP (INR o mk_lit) (map_lookup vs_xs n)) in
   (MAP (subst ww) f,
     if hs then MAP (subst ww) g else []))
 End
@@ -1342,13 +1352,10 @@ Definition check_scopes_def:
         check_scopes scpfs b fml id')
 End
 
-Type subst = ``:(num # (bool + num lit)) + (bool + num lit) option vector``;
+Type subst = ``:(bool + num lit) lmap``;
 
 Definition subst_fun_def:
-  subst_fun (s:subst) n =
-  case s of
-    INL (m,v) => if n = m then SOME v else NONE
-  | INR s => vec_lookup s n
+  subst_fun (s:subst) n = map_lookup s n
 End
 
 Definition map_opt_def:
@@ -1462,10 +1469,20 @@ Definition mk_core_fml_def:
 End
 
 Definition mk_subst_def:
-  (mk_subst [] = INR (Vector [])) ∧
-  (mk_subst [(n,v)] = INL (n,v)) ∧
-  (mk_subst xs = INR (spt_to_vec (fromAList xs)))
+  mk_subst (rinds:num list) (s:subst_raw) = (mk_map rinds s : subst)
 End
+
+Theorem subst_fun_mk_subst:
+  subst_fun (mk_subst rinds s) n = ALOOKUP s n
+Proof
+  simp [subst_fun_def, mk_subst_def, map_lookup_mk_map]
+QED
+
+Theorem subst_fun_mk_subst_rinds:
+  ∀r1 r2 s. subst_fun (mk_subst r1 s) = subst_fun (mk_subst r2 s)
+Proof
+  simp [FUN_EQ_THM, subst_fun_mk_subst]
+QED
 
 (* ncs is a list of negated goals;
   check if one of the goals is implied by ¬ extra *)
@@ -1519,14 +1536,14 @@ End
 Definition check_fresh_aux_subst_def:
   check_fresh_aux_subst asv s ⇔
   let mss = filter_map_inr s [] in
-  EVERY (λx. vec_lookup asv x = NONE) mss
+  EVERY (λx. map_lookup asv x = NONE) mss
 End
 
 (* directly check the raw constraint *)
 Definition check_fresh_aux_constr_def:
   check_fresh_aux_constr asv c ⇔
   let mss = MAP SND (FST c) in
-  EVERY (λx. vec_lookup asv x = NONE) mss
+  EVERY (λx. map_lookup asv x = NONE) mss
 End
 
 Definition check_fresh_aspo_def:
@@ -1552,29 +1569,23 @@ QED
 Theorem subst_fun_mk_subst_neq:
   ∀s.
   (∀n. ¬MEM (n,v) s) ⇒
-  subst_fun (mk_subst s) n ≠ SOME v
+  subst_fun (mk_subst rinds s) n ≠ SOME v
 Proof
-  ho_match_mp_tac mk_subst_ind>>
-  rw[mk_subst_def,subst_fun_def]>>
-  CCONTR_TAC>>gvs[]
-  >-
-    gvs[vec_lookup_def,length_def]>>
-  gvs[vec_lookup_num_man_to_vec,lookup_fromAList]>>
-  drule ALOOKUP_MEM>>
-  rw[]
+  rw [subst_fun_mk_subst] \\ CCONTR_TAC \\ gvs []
+  \\ drule ALOOKUP_MEM \\ metis_tac []
 QED
 
 Theorem check_fresh_aux_subst_imp:
   check_fresh_aux_subst asv s ∧
-  asv = spt_to_vec (fromAList (MAP (\n. n,()) as)) ⇒
+  asv = mk_as_vec as ⇒
   ∀n a.
     a ∈ set as ⇒
-    subst_fun (mk_subst s) n ≠ SOME (INR (Pos a)) ∧
-    subst_fun (mk_subst s) n ≠ SOME (INR (Neg a))
+    subst_fun (mk_subst rinds s) n ≠ SOME (INR (Pos a)) ∧
+    subst_fun (mk_subst rinds s) n ≠ SOME (INR (Neg a))
 Proof
   strip_tac>>
   gvs[check_fresh_aux_subst_def,MEM_filter_map_inr,EVERY_MEM]>>
-  gvs[spt_to_vecTheory.vec_lookup_num_man_to_vec,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,PULL_FORALL] >>
+  gvs[map_lookup_mk_as_vec,ALOOKUP_NONE,MEM_MAP,PULL_FORALL] >>
   metis_tac[subst_fun_mk_subst_neq]
 QED
 
@@ -1584,7 +1595,7 @@ Theorem check_fresh_aspo_fresh:
   ⇒
   OPTION_ALL
     (fresh_aux_aspo (core_only_fml (b ∨ tcb) fml) c obj
-       (subst_fun (mk_subst s)) o FST) ord
+       (subst_fun (mk_subst rinds s)) o FST) ord
 Proof
   simp[check_fresh_aspo_def]>>
   every_case_tac>>rw[fresh_aux_aspo_def,fresh_aux_def]
@@ -1595,7 +1606,7 @@ Proof
     metis_tac[SND,PAIR])
   >- (
     gvs[check_fresh_aux_constr_def,good_ord_s_def]>>
-    gvs[spt_to_vecTheory.vec_lookup_num_man_to_vec,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,PULL_FORALL]>>
+    gvs[map_lookup_mk_as_vec,ALOOKUP_NONE,MEM_MAP,PULL_FORALL]>>
     Cases_on`c`>>gvs[EVERY_MEM,npbc_vars_def]>>
     metis_tac[])
   >- (
@@ -1617,7 +1628,7 @@ End
 
 Definition untouched_order_impl_def:
   untouched_order_impl s xsv =
-  EVERY (λ(n,v). vec_lookup xsv n = NONE) s
+  EVERY (λ(n,v). map_lookup xsv n = NONE) s
 End
 
 (* Subgoals that can be skipped, starting from 1
@@ -1653,7 +1664,7 @@ Definition check_red_def:
   if check_pres pres s then
     ( let nc = not c in
       let (fml_not_c,id1) = insert_fml b fml id (not c) in
-      let ss = mk_subst s in
+      let ss = mk_subst [] s in
       let w = subst_fun ss in
       let hs = has_scope pfs in
       let (rsubs,rscopes) = red_subgoals ordsub w c obj hs in
@@ -2185,15 +2196,11 @@ Theorem check_pres_subst_fun:
   ∀s.
   check_pres pres s ⇒
   (∀x. x ∈ pres_set_spt pres ⇒
-    subst_fun (mk_subst s) x = NONE)
+    subst_fun (mk_subst rinds s) x = NONE)
 Proof
   Cases_on`pres`>>
-  gvs[check_pres_def,pres_set_spt_def]>>
-  ho_match_mp_tac mk_subst_ind>>
-  rw[pres_set_spt_def,mk_subst_def,subst_fun_def,check_pres_def,domain_lookup]
-  >-
-    (pop_assum mp_tac>>EVAL_TAC)>>
-  gvs[vec_lookup_num_man_to_vec,lookup_fromAList,EVERY_MEM,ALOOKUP_NONE,MEM_MAP]>>
+  rw[check_pres_def,pres_set_spt_def,subst_fun_mk_subst,ALOOKUP_NONE,MEM_MAP]>>
+  gvs[EVERY_MEM,domain_lookup]>>
   metis_tac[NOT_SOME_NONE]
 QED
 
@@ -2244,8 +2251,8 @@ End
 
 Theorem dom_subst_eq:
   dom_subst hs w (SOME (((f,g,us,vs,as),xs),us_xs,vs_xs,xsv,asv)) = (fs,gs) ∧
-  us_xs = spt_to_vec (list_list_insert us xs) ∧
-  vs_xs = spt_to_vec (list_list_insert vs xs) ∧
+  us_xs = mk_map [] (ZIP (us,xs)) ∧
+  vs_xs = mk_map [] (ZIP (vs,xs)) ∧
   sub_leq =
     (λn.
       case ALOOKUP (ZIP (us,xs)) n of
@@ -2260,7 +2267,7 @@ Theorem dom_subst_eq:
   (hs ⇒ set g ⇂ sub_leq = set gs)
 Proof
   rw[EXTENSION]>>
-  gvs[dom_subst_def,LIST_TO_SET_MAP,lookup_list_list_insert,vec_lookup_num_man_to_vec]
+  gvs[dom_subst_def,LIST_TO_SET_MAP,map_lookup_mk_map]
 QED
 
 Theorem good_aspo_imp_po_of_aspo_refl:
@@ -2351,31 +2358,19 @@ Proof
 QED
 
 Theorem IMP_subst_funs_NONE:
-  ∀s x. ~MEM x (MAP FST s) ⇒ subst_fun (mk_subst s) x = NONE
+  ∀s x. ~MEM x (MAP FST s) ⇒ subst_fun (mk_subst rinds s) x = NONE
 Proof
-  ho_match_mp_tac mk_subst_ind
-  \\ gvs [mk_subst_def,subst_fun_def]
-  \\ gvs [spt_to_vecTheory.vec_lookup_num_man_to_vec,lookup_fromAList]
-  \\ simp [vec_lookup_def,regexp_compilerTheory.length_def]
-  \\ gvs [ALOOKUP_NONE]
+  simp [subst_fun_mk_subst,ALOOKUP_NONE]
 QED
 
 Theorem good_aspo_subst_untouched_order_impl:
   good_aspo_subst ((a,xs),_,_,xsv,asv) ⇒
   (untouched_order_impl s xsv =
-  untouched_order (subst_fun (mk_subst s)) xs)
+  untouched_order (subst_fun (mk_subst rinds s)) xs)
 Proof
   PairCases_on`a`>>rw[good_aspo_subst_def,good_ord_s_def]>>
-  rw[untouched_order_impl_def,untouched_order_def,vec_lookup_num_man_to_vec,lookup_fromAList]>>
-  simp[oneline mk_subst_def]>>
-  every_case_tac>>rw[EVERY_MEM,subst_fun_def]>>
-  simp[FORALL_PROD]
-  >-
-    (pairarg_tac>>simp[]>>EVAL_TAC)
-  >-
-    simp[ALOOKUP_NONE,MEM_MAP,FORALL_PROD]>>
-  simp[vec_lookup_num_man_to_vec,lookup_insert,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,FORALL_PROD]>>
-  pairarg_tac>>simp[]>>
+  rw[untouched_order_impl_def,untouched_order_def,map_lookup_mk_map,
+     subst_fun_mk_subst,ALOOKUP_NONE,EVERY_MEM,FORALL_PROD,MEM_MAP]>>
   metis_tac[]
 QED
 
@@ -2460,7 +2455,7 @@ Proof
   \\ match_mp_tac (GEN_ALL substitution_redundancy_obj_po_spec)
   \\ simp[]
   \\ simp [SF DNF_ss]
-  \\ qexists_tac ‘subst_fun (mk_subst s)’ \\ fs []
+  \\ qexists_tac ‘subst_fun (mk_subst [] s)’ \\ fs []
   \\ gvs[red_subgoals_def]
   \\ pairarg_tac \\ gvs[]
   \\ first_assum $ irule_at Any
@@ -2602,7 +2597,7 @@ Proof
   \\ disch_then (fn th => DEP_REWRITE_TAC[th])
   \\ gvs [GSYM unsat_iff_implies]
   \\ rename1 `cc ∈ _ _ _`
-  \\ Cases_on ‘subst_opt (subst_fun (mk_subst s)) cc’ \\ fs []
+  \\ Cases_on ‘subst_opt (subst_fun (mk_subst [] s)) cc’ \\ fs []
   >- (
     imp_res_tac subst_opt_NONE
     \\ CCONTR_TAC \\ gvs [satisfiable_def,not_thm]
@@ -2614,7 +2609,7 @@ Proof
   \\ strip_tac
   \\ rename1`lookup nn _ = SOME cc`
   \\ rename1`subst_opt _ _ = SOME yy`
-  \\ `MEM (nn,yy) (toAList (map_opt (subst_opt (subst_fun (mk_subst s)))
+  \\ `MEM (nn,yy) (toAList (map_opt (subst_opt (subst_fun (mk_subst [] s)))
                                     (mk_core_fml (b ∨ tcb) fml)))` by
     simp[MEM_toAList,lookup_map_opt]
   \\ drule_all split_goals_checked \\ rw[]
@@ -3361,7 +3356,7 @@ QED
 Definition neg_dom_subst_def:
   neg_dom_subst w ((((f,g,us,vs,as),xs),us_xs,vs_xs,xsv):ord_s) =
   let ww = (λn.
-    case vec_lookup vs_xs n of
+    case map_lookup vs_xs n of
       SOME (v,b) =>
         SOME (
             mk_bit_lit b
@@ -3369,7 +3364,7 @@ Definition neg_dom_subst_def:
                 NONE => INR (Pos v)
               | SOME res => res))
     | NONE =>
-        OPTION_MAP (INR o mk_lit) (vec_lookup us_xs n))
+        OPTION_MAP (INR o mk_lit) (map_lookup us_xs n))
   in
     (MAP (subst ww) f, MAP (subst ww) g)
 End
@@ -3504,7 +3499,7 @@ End
 
 Definition check_support_def:
   check_support as s ⇔
-  EVERY (λx. vec_lookup as (FST x) = SOME ()) s
+  EVERY (λx. map_lookup as (FST x) = SOME ()) s
 End
 
 Definition check_spec_aux_def:
@@ -3520,7 +3515,7 @@ End
 
 Definition check_spec_def:
   check_spec (us,vs,as) gspec =
-  let asv = spt_to_vec (fromAList (MAP (\n. n,()) as)) in
+  let asv = mk_as_vec as in
   if check_spec_aux asv (LN,1) gspec
   then SOME asv
   else NONE
@@ -3538,7 +3533,7 @@ End
 Theorem check_spec_aux:
   ∀gspec fml_i.
     check_spec_aux asv fml_i gspec ∧ id_ok (FST fml_i) (SND fml_i) ∧
-    asv = spt_to_vec (fromAList (MAP (\n. n,()) as)) ⇒
+    asv = mk_as_vec as ⇒
     ∀w. satisfies w (core_only_fml F (FST fml_i)) ⇒
         ∃w'.
           (∀x. x ∉ set as ⇒ (w x ⇔ w' x)) ∧
@@ -3587,7 +3582,7 @@ Proof
   \\ conj_tac
   >- (
     rw[]>>
-    gvs [check_support_def,EVERY_MEM,spt_to_vecTheory.vec_lookup_num_man_to_vec,lookup_fromAList] >>
+    gvs [check_support_def,EVERY_MEM,map_lookup_mk_as_vec] >>
     first_x_assum drule>>
     disch_then (SUBST1_TAC o SYM)>>
     first_x_assum irule>>
@@ -3933,7 +3928,7 @@ Definition check_eq_pres_def:
     toSortedAList sp = toSortedAList sp'
 End
 
-Type aord_s = ``:aord # unit option vector``;
+Type aord_s = ``:aord # unit lmap``;
 
 Datatype:
   proof_conf =
@@ -3957,7 +3952,7 @@ End
 Definition guard_ord_t_def:
   guard_ord_t (((f,g,us,vs,as),asv):aord_s) xs ⇔
   LENGTH xs = LENGTH us ∧
-  EVERY (λxy. vec_lookup asv (FST xy) = NONE) xs
+  EVERY (λxy. map_lookup asv (FST xy) = NONE) xs
 End
 
 Definition find_scope_1_def:
@@ -3970,9 +3965,9 @@ End
 
 Definition mk_ordsub_def:
   mk_ordsub (((f,g,us,vs,as),asv):aord_s) xs =
-  let us_xs = spt_to_vec (list_list_insert us xs) in
-  let vs_xs = spt_to_vec (list_list_insert vs xs) in
-  let xsv = spt_to_vec (fromAList xs) in
+  let us_xs = mk_map [] (ZIP (us,xs)) in
+  let vs_xs = mk_map [] (ZIP (vs,xs)) in
+  let xsv = mk_map [] xs in
     SOME ((((f,g,us,vs,as), xs), us_xs, vs_xs, xsv, asv):ord_s)
 End
 
@@ -4090,7 +4085,7 @@ Definition check_cstep_def:
     if check_pres pc.pres s ∧ check_fresh_aspo fml c pc.obj s pc.ord then
     ( let nc = not c in
       let (fml_not_c,id1) = insert_fml F fml id (not c) in
-      let s = mk_subst s in
+      let s = mk_subst [] s in
       let w = subst_fun s in
       let (dsubs,dscopes,dindex) = dom_subgoals aspo w c pc.obj in
       case extract_scopes dscopes pfs w F fml dsubs of
@@ -4345,7 +4340,7 @@ QED
 
 Definition good_aord_t_def:
   good_aord_t ((f,g,us,vs,as),asv) ⇔
-  asv = spt_to_vec (fromAList (MAP (\n. n,()) as)) ∧
+  asv = mk_as_vec as ∧
   ∀xs.
   guard_ord_t ((f,g,us,vs,as),asv) xs ⇒
   good_aspo ((f,g,us,vs,as),xs)
@@ -4996,11 +4991,11 @@ Proof
       fs[]>>
       match_mp_tac (GEN_ALL good_aspo_dominance)>>
       simp[]>>
-      qexists_tac ‘subst_fun (mk_subst l)’>>fs[]>>
+      qexists_tac ‘subst_fun (mk_subst [] l)’>>fs[]>>
       conj_tac >-
        (drule check_fresh_aspo_fresh
         \\ gvs [fresh_aux_aspo_def]
-        \\ disch_then (qspecl_then [‘F’,‘F’] mp_tac)
+        \\ disch_then (qspecl_then [‘F’,‘[]’,‘F’] mp_tac)
         \\ gvs [])>>
       CONJ_TAC >-
         metis_tac[check_pres_subst_fun]>>
@@ -5016,7 +5011,7 @@ Proof
         (* core constraints*)
         rw[sat_implies_def,satisfies_def]
         \\ gs[PULL_EXISTS,GSYM range_mk_core_fml,range_def,lookup_mk_core_fml]
-        \\ Cases_on ‘subst_opt (subst_fun (mk_subst l)) x’ \\ fs []
+        \\ Cases_on ‘subst_opt (subst_fun (mk_subst [] l)) x’ \\ fs []
         THEN1 (
           imp_res_tac subst_opt_NONE
           \\ gvs[lookup_core_only_def,AllCaseEqs()]
@@ -5024,7 +5019,7 @@ Proof
           \\ fs [satisfies_def,range_def,PULL_EXISTS]
           \\ metis_tac[])
         \\ rename1`subst_opt _ _ = SOME yy`
-        \\ `MEM (n,yy) (toAList (map_opt (subst_opt (subst_fun (mk_subst l)))
+        \\ `MEM (n,yy) (toAList (map_opt (subst_opt (subst_fun (mk_subst [] l)))
             (mk_core_fml T fml)))` by
             simp[MEM_toAList,lookup_map_opt,lookup_mk_core_fml,lookup_core_only_def]
         \\ drule_all split_goals_checked \\ rw[]
@@ -5054,8 +5049,8 @@ Proof
           gvs[lookup_mk_core_fml]>>
           drule lookup_core_only_T_imp_F>>
           rw[])
-        \\ `subst (subst_fun (mk_subst l)) c =
-            subst (subst_fun (mk_subst l)) x` by
+        \\ `subst (subst_fun (mk_subst [] l)) c =
+            subst (subst_fun (mk_subst [] l)) x` by
           metis_tac[subst_opt_SOME]
         \\ strip_tac \\ gvs []
         >- (
@@ -5066,7 +5061,7 @@ Proof
         \\ gvs [MEM_MAP,EXISTS_PROD]
         \\ first_x_assum drule
         \\ strip_tac
-        \\ gvs [lookup_list_list_insert,good_ord_s_def,vec_lookup_num_man_to_vec])>>
+        \\ gvs [good_ord_s_def,map_lookup_mk_map])>>
       CONJ_TAC >- (
         (* order constraints *)
         fs[core_only_fml_def]>>
@@ -5090,7 +5085,7 @@ Proof
           fs[EL_MAP]>>
           strip_tac>>
           drule unsatisfiable_not_sat_implies>>
-          gvs[lookup_list_list_insert,good_ord_s_def,vec_lookup_num_man_to_vec]>>
+          gvs[good_ord_s_def,map_lookup_mk_map]>>
           gvs [mk_scope_def]>>
           Cases_on ‘scopt’>>gvs []>>
           gvs [extract_scope_val_def]
@@ -5103,7 +5098,7 @@ Proof
           \\ gvs [neg_dom_subst_def]
           \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
           \\ simp[EL_MAP]
-          \\ gvs[lookup_list_list_insert,good_ord_s_def,vec_lookup_num_man_to_vec]
+          \\ gvs[good_ord_s_def,map_lookup_mk_map]
           \\ strip_tac
           \\ match_mp_tac unsatisfiable_not_sat_implies
           \\ irule imp_unsatisfiable
@@ -5133,7 +5128,7 @@ Proof
         \\ first_x_assum drule \\ simp []
         \\ disch_then drule \\ simp []
         \\ gvs[mk_scope_def,AllCaseEqs()]
-        \\ gvs[neg_dom_subst_def,lookup_list_list_insert,good_ord_s_def,vec_lookup_num_man_to_vec,range_insert,dom_subst_def]
+        \\ gvs[neg_dom_subst_def,good_ord_s_def,map_lookup_mk_map,range_insert,dom_subst_def]
         \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
         \\ DEP_REWRITE_TAC [EL_APPEND2] \\ gvs []
         \\ strip_tac
@@ -5171,7 +5166,7 @@ Proof
         \\ gvs [extract_scope_val_def]
         \\ rpt disj2_tac
         \\ pop_assum mp_tac
-        \\ gvs [MEM_MAP,lookup_list_list_insert,good_ord_s_def,vec_lookup_num_man_to_vec])
+        \\ gvs [MEM_MAP,good_ord_s_def,map_lookup_mk_map])
       >- (
           match_mp_tac unsatisfiable_not_sat_implies
           \\ gvs [check_hash_imp_def]
@@ -5581,7 +5576,7 @@ Proof
         fs [FUN_EQ_THM] >> rw [] >>
         ntac 4 (CASE_TAC >> fs [])))
     >- (
-      gvs[EXTENSION,MEM_MAP,vec_lookup_num_man_to_vec,lookup_fromAList,ALOOKUP_NONE,FORALL_PROD]>>
+      gvs[EXTENSION,MEM_MAP,map_lookup_mk_as_vec,ALOOKUP_NONE,FORALL_PROD]>>
       metis_tac[])
     )
   >~[`Obj`] >- (

@@ -1217,7 +1217,7 @@ End
    --- enables faster checked deletion
    No scoping and no proofgoals used *)
 Definition red_fast_def:
-  red_fast s idopt pfs = (
+  red_fast idopt pfs = (
     case idopt of
       NONE => NONE
     | SOME id =>(
@@ -1640,28 +1640,20 @@ Proof
   metis_tac[PAIR]
 QED
 
-(* Fast substitution for obj_constraint if it is in vomap *)
+(* Fast substitution for obj_constraint: trivial unless the witness
+  (raw form sr) maps an objective variable (in vomap) *)
 Definition fast_obj_constraint_def:
-  fast_obj_constraint s l vomap =
-  case s of
-    INR v =>
-    if length v = 0 then ([],0)
-    else full_obj_single (subst_fun s) l
-  | INL (n,_) =>
-    if n < strlen vomap
-    then
-      if strsub_unsafe vomap n = ^zw then
-        ([],0)
-      else
-        full_obj_single (subst_fun s) l
-    else ([],0)
+  fast_obj_constraint s sr l vomap =
+  if EVERY (λ(n,v). strlen vomap ≤ n ∨ strsub_unsafe vomap n = ^zw) sr
+  then ([],0)
+  else full_obj_single (subst_fun s) l
 End
 
 Definition fast_red_subgoals_def:
-  fast_red_subgoals ord s def obj vomap hs =
+  fast_red_subgoals ord s sr def obj vomap hs =
   let cobj =
     case obj of NONE => []
-    | SOME l => [[not (fast_obj_constraint s l vomap)]] in
+    | SOME l => [[not (fast_obj_constraint s sr l vomap)]] in
   let w = subst_fun s in
   let (fs,gs) = dom_subst hs w ord in
   let c0 = subst_slot s def in
@@ -1855,14 +1847,14 @@ Definition check_red_list_def:
     (pfs:scope) idopt vimap vomap assg st =
   if check_pres pres s
   then
-  let ss = mk_subst s in
-  case red_fast ss idopt pfs of
+  case red_fast idopt pfs of
     NONE => (
     let (rinds,inds',vimap') = get_set_indices fml inds s vimap in
+    let ss = mk_subst rinds s in
     let nfc = not_slot fc b in
     let (fml_not_c,id1,assg,st) = store_slot fml nfc mv id assg st in
     let hs = has_scope pfs in
-    let (rsubs,rscopes) = fast_red_subgoals ord ss fc obj vomap hs in
+    let (rsubs,rscopes) = fast_red_subgoals ord ss s fc obj vomap hs in
     case extract_scopes_list rscopes ss b fml rsubs pfs of
       NONE => NONE
     | SOME cpfs =>
@@ -2680,16 +2672,6 @@ Proof
   metis_tac[subst_opt_aux_MEM]
 QED
 
-Theorem mk_subst_cases:
-  mk_subst s =
-  case s of
-  | [] => INR (Vector [])
-  | [(n,v)] => INL (n,v)
-  | _ => INR (spt_to_vec (fromAList s))
-Proof
-  every_case_tac>>fs[mk_subst_def]
-QED
-
 Theorem restore_aux:
   ∀inds lacc racc.
   restore_aux x fmlls inds lacc racc =
@@ -2821,23 +2803,23 @@ Theorem MEM_get_set_indices_mk_subst:
   vimap_rel fmlls vimap ∧
   ind_rel fmlls inds ∧
   any_el i fmlls Empty ≠ Empty ∧
-  IS_SOME (subst_opt (subst_fun (mk_subst s)) (dec (any_el i fmlls Empty))) ∧
+  IS_SOME (subst_opt (subst_fun (mk_subst r s)) (dec (any_el i fmlls Empty))) ∧
   get_set_indices fmlls inds s vimap = (rinds, inds',vimap')
   ⇒
   MEM i rinds
 Proof
   strip_tac>>
-  gvs[get_set_indices_def,AllCaseEqs(),mk_subst_def,UNCURRY_EQ,toAList_domain]
+  gvs[get_set_indices_def,AllCaseEqs(),UNCURRY_EQ,toAList_domain]
   >- (
     drule IS_SOME_subst_opt>>strip_tac>>
-    gvs[subst_fun_def,IS_SOME_EXISTS,vimap_rel_def])
+    gvs[subst_fun_mk_subst,IS_SOME_EXISTS,vimap_rel_def])
   >- (
     drule IS_SOME_subst_opt>>strip_tac>>
-    gvs[subst_fun_def,IS_SOME_EXISTS,vimap_rel_def]>>
+    gvs[subst_fun_mk_subst,IS_SOME_EXISTS,vimap_rel_def]>>
     first_x_assum drule>>simp[vent_mem_def])
   >- (
     drule IS_SOME_subst_opt>>strip_tac>>
-    gvs[subst_fun_def,IS_SOME_EXISTS,vimap_rel_def]>>
+    gvs[subst_fun_mk_subst,IS_SOME_EXISTS,vimap_rel_def]>>
     first_x_assum drule>>simp[vent_mem_def]>>
     strip_tac>>
     gvs[AllCasePreds(),do_reindex_rhs_def,AllCaseEqs()]>>
@@ -2846,7 +2828,7 @@ Proof
     Cases_on`0 ≤ coeff`>>gvs[])
   >- (
     drule IS_SOME_subst_opt>>strip_tac>>
-    gvs[subst_fun_def,IS_SOME_EXISTS,vimap_rel_def]>>
+    gvs[subst_fun_mk_subst,IS_SOME_EXISTS,vimap_rel_def]>>
     first_x_assum drule>>simp[vent_mem_def]>>
     strip_tac>>
     gvs[AllCasePreds(),do_reindex_rhs_def,AllCaseEqs()]>>
@@ -2855,7 +2837,7 @@ Proof
     Cases_on`0 ≤ coeff`>>gvs[])
   >- (
     drule IS_SOME_subst_opt>>strip_tac>>
-    gvs[subst_fun_def,IS_SOME_EXISTS]>>
+    gvs[subst_fun_mk_subst,IS_SOME_EXISTS]>>
     gvs[get_inds_rhs_def]>>
     Cases_on`rhs`>>
     rw[]>>
@@ -2872,7 +2854,7 @@ Proof
   >- (
     qmatch_asmsub_abbrev_tac`fold_get_inds_rhs _ ls LN _`>>
     drule IS_SOME_subst_opt>>strip_tac>>
-    gvs[subst_fun_def,spt_to_vecTheory.vec_lookup_num_man_to_vec,lookup_fromAList,IS_SOME_EXISTS]>>
+    gvs[subst_fun_mk_subst,IS_SOME_EXISTS]>>
     rename1`ALOOKUP _ x = SOME rhs`>>
     drule ALOOKUP_MEM>> strip_tac>>
     `vent_mem (any_el x vimap Vnone) (0 ≤ coeff) i` by
@@ -2890,7 +2872,7 @@ Theorem MEM_get_set_indices_lookup_core_only:
   vimap_rel fmlls vimap ∧
   ind_rel fmlls inds ∧
   lookup_core_only b fml i = SOME x ∧
-  IS_SOME (subst_opt (subst_fun (mk_subst s)) x) ∧
+  IS_SOME (subst_opt (subst_fun (mk_subst r s)) x) ∧
   get_set_indices fmlls inds s vimap = (rinds, inds',vimap')
   ⇒
   MEM i rinds
@@ -2903,7 +2885,7 @@ Proof
     rw[fml_rel_def]>>
     simp[enc_opt_def])>>
   irule MEM_get_set_indices_mk_subst>>
-  qexistsl_tac[`fmlls`,`inds`,`inds'`,`s`,`vimap`,`vimap'`]>>
+  qexistsl_tac[`fmlls`,`inds`,`inds'`,`r`,`s`,`vimap`,`vimap'`]>>
   simp[dec_enc,enc_NOT_Empty]
 QED
 
@@ -3033,31 +3015,36 @@ QED
 
 Theorem vomap_rel_fast_obj_constraint:
   vomap_rel (SOME l) vomap ⇒
-  fast_obj_constraint s l vomap =
-  obj_constraint (subst_fun s) l
+  fast_obj_constraint (mk_subst r sr) sr l vomap =
+  obj_constraint (subst_fun (mk_subst r sr)) l
 Proof
   rw[fast_obj_constraint_def,obj_constraint_rewrite,
      mlstringTheory.strsub_unsafe_eq_strsub]>>
   every_case_tac>>
   Cases_on`l`>>
-  fs[npbcTheory.obj_constraint_def,subst_fun_def]>>
+  fs[npbcTheory.obj_constraint_def,subst_fun_mk_subst]>>
   rpt (pairarg_tac>>fs[])>>
   pop_assum mp_tac>>
   DEP_REWRITE_TAC[add_lists_map_negate_coeff]>>rw[]>>
   pop_assum mp_tac>>
   DEP_REWRITE_TAC[subst_lhs_id]>>
   fs[vomap_rel_def]>>
-  simp[EVERY_MAP,LAMBDA_PROD,subst_fun_def]>>
+  simp[EVERY_MAP,LAMBDA_PROD,subst_fun_mk_subst]>>
   gvs[EVERY_MEM]>>
   rw[]>>pairarg_tac>>
-  fs[EXTENSION,MEM_MAP,domain_lookup,spt_to_vecTheory.vec_lookup_def]>>
-  metis_tac[option_CLAUSES,SND,PAIR]
+  fs[EXTENSION,MEM_MAP,domain_lookup,ALOOKUP_NONE]>>
+  qx_gen_tac`pr`>> rpt strip_tac>>
+  qpat_x_assum`∀x. _ ⇔ _` (qspec_then`FST pr` mp_tac)>>
+  qpat_x_assum`∀e. MEM e sr ⇒ _` (drule_then mp_tac)>>
+  Cases_on`pr`>>gvs[]>>
+  rw[]>>gvs[EXISTS_PROD]>>
+  metis_tac[]
 QED
 
 Theorem vomap_rel_fast_red_subgoals:
   vomap_rel obj vomap ⇒
-  fast_red_subgoals ord s (enc def b) obj vomap hs =
-  red_subgoals ord (subst_fun s) def obj hs
+  fast_red_subgoals ord (mk_subst r sr) sr (enc def b) obj vomap hs =
+  red_subgoals ord (subst_fun (mk_subst r sr)) def obj hs
 Proof
   rw[fast_red_subgoals_def,red_subgoals_def,subst_slot_enc]>>
   every_case_tac>>fs[]>>
@@ -3136,6 +3123,7 @@ Proof
     pairarg_tac>>fs[]>>
     gvs[AllCaseEqs()]>>
     simp[check_red_def]>>
+    qspecl_then [`[]`,`rinds`,`s`] SUBST_ALL_TAC subst_fun_mk_subst_rinds>> simp[]>>
     DEP_REWRITE_TAC [fml_rel_extract_scopes_list]>> simp[]>>
     drule_all rup_inv_opt_update>> strip_tac>>
     drule_all fml_rel_opt_update>> strip_tac>>
@@ -3768,7 +3756,7 @@ Proof
 QED
 
 Definition emp_vec_def:
-  emp_vec = INR (Vector [])
+  emp_vec = (Sorted (Vector []) : subst)
 End
 
 Definition do_change_check_def:
@@ -3885,7 +3873,7 @@ QED
 
 Definition check_spec_list_def:
   check_spec_list (us,vs,as) gs =
-    let asv = spt_to_vec (fromAList (MAP (\n. n,()) as)) in
+    let asv = mk_as_vec as in
     if check_spec_aux_list asv [] [] 1 gs [] [] 1 then
       SOME asv
     else NONE
@@ -4130,7 +4118,7 @@ Definition check_cstep_list_def:
     if check_pres pc.pres s ∧
       check_fresh_aspo_list fc s pc.ord vimap vomap then
     ( let (rinds,inds',vimap') = get_set_indices fml inds s vimap in
-      let s = mk_subst s in
+      let s = mk_subst rinds s in
       let w = subst_fun s in
       let goals =
         case idopt of
@@ -4575,6 +4563,8 @@ Proof
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
     rpt(pairarg_tac>>gvs[])>>
     gvs[AllCaseEqs(),neg_pos_slot_enc,store_slot_enc,max_var_not]>>
+    qmatch_asmsub_rename_tac`get_set_indices fmlls inds ss vimap = (rinds,_,_)`>>
+    qspecl_then [`[]`,`rinds`,`ss`] SUBST_ALL_TAC subst_fun_mk_subst_rinds>> gvs[]>>
     drule_all vimap_rel_vomap_rel_check_fresh_aspo_list >>
     disch_then $ irule_at Any >>
     DEP_REWRITE_TAC[fml_rel_extract_scopes_list]>>
