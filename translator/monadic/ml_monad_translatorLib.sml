@@ -653,6 +653,8 @@ local
           in body end
           val case_funs = List.map mk_case_bool_fun all_cons
           val e_var = mk_var("e", exn_type)
+          (* a case constant's result type variable has no fixed name;
+             list_mk_icomb instantiates it from the arguments *)
           val case_tm = HolKernel.list_mk_icomb (TypeBase.case_const_of exn_type)
                                                 (e_var::case_funs)
       in mk_abs(e_var, case_tm) end

@@ -271,7 +271,9 @@ fun define_monad_exception_functions exn_type state_type =
     val success_tm = mk_abs(y_var, mk_pair((mk_Success y_var exn_type), state_var))
     val e_var = mk_var("e", exn_type)
 
-    (* For every constructor, make the approriate case function *)
+    (* For every constructor, make the appropriate case function. A case
+       constant's result type variable has no fixed name; list_mk_icomb
+       instantiates it from the arguments. *)
     fun mk_handle_fun (ctor, funs_list) =
       let
         (* case e of ... *)
