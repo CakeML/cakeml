@@ -10,7 +10,7 @@ Libs
 
 val _ = translation_extends "aig_cert_fullProg";
 
-(* Copied from examples/xlrup_checker/array/xlrup_arrayFullProgScript.sml *)
+(* Copied from examples/cnf/xlrup/array/xlrup_arrayFullProgScript.sml *)
 val usage_string = ‘
 
 Usage: ./caketaiger model witness [prefix]
