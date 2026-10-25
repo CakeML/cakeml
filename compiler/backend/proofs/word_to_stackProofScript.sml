@@ -5869,14 +5869,25 @@ QED
 
 (* syntactic facts about the PtrEq lowering *)
 
+Theorem comp_PtrEq_eq[local]:
+  FST (comp c perf (PtrEq dst v1 v2 tw fw) bs (k,f,f')) =
+  let r1 = v1 DIV 2; r2 = v2 DIV 2; d = dst DIV 2;
+      x1 = (if r1 < k then r1 else k); x2 = (if r2 < k then r2 else k + 1);
+      g = (λd. If Equal x1 (Reg x2) (const_inst d tw) (const_inst d fw)) in
+  wStackLoad ((if r1 < k then [] else [(k,f-1-(r1-k))]) ++
+              (if r2 < k then [] else [(k+1,f-1-(r2-k))]))
+    (if d < k then g d else Seq (g k) (StackStore k (f-1-(d-k))))
+Proof
+  simp [comp_def, wReg1_def, wReg2_def, wRegWrite1_def]
+  \\ rw []
+QED
+
 Theorem comp_PtrEq_stack_asm_name[local]:
   FST kf + 1 < c.reg_count - LENGTH c.avoid_regs ⇒
   stack_asm_name c (FST (comp c perf (PtrEq dst v1 v2 tw fw) bs kf))
 Proof
   PairCases_on `kf`
-  \\ simp [comp_def]
-  \\ rpt (pairarg_tac \\ gvs [])
-  \\ gvs [wReg1_def, wReg2_def, wRegWrite1_def, AllCaseEqs()]
+  \\ simp [comp_PtrEq_eq]
   \\ rw [wStackLoad_def, stack_asm_name_def, inst_name_def, reg_name_def]
 QED
 
@@ -5885,9 +5896,7 @@ Theorem comp_PtrEq_stack_asm_remove[local]:
   stack_asm_remove c (FST (comp c perf (PtrEq dst v1 v2 tw fw) bs kf))
 Proof
   PairCases_on `kf`
-  \\ simp [comp_def]
-  \\ rpt (pairarg_tac \\ gvs [])
-  \\ gvs [wReg1_def, wReg2_def, wRegWrite1_def, AllCaseEqs()]
+  \\ simp [comp_PtrEq_eq]
   \\ rw [wStackLoad_def, stack_asm_remove_def, reg_name_def]
 QED
 
@@ -5895,9 +5904,7 @@ Theorem comp_PtrEq_alloc_arg[local]:
   alloc_arg (FST (comp c perf (PtrEq dst v1 v2 tw fw) bs kf))
 Proof
   PairCases_on `kf`
-  \\ simp [comp_def]
-  \\ rpt (pairarg_tac \\ gvs [])
-  \\ gvs [wReg1_def, wReg2_def, wRegWrite1_def, AllCaseEqs()]
+  \\ simp [comp_PtrEq_eq]
   \\ rw [wStackLoad_def, alloc_arg_def]
 QED
 
@@ -5905,9 +5912,7 @@ Theorem comp_PtrEq_reg_bound[local]:
   reg_bound (FST (comp c perf (PtrEq dst v1 v2 tw fw) bs kf)) (FST kf + 2)
 Proof
   PairCases_on `kf`
-  \\ simp [comp_def]
-  \\ rpt (pairarg_tac \\ gvs [])
-  \\ gvs [wReg1_def, wReg2_def, wRegWrite1_def, AllCaseEqs()]
+  \\ simp [comp_PtrEq_eq]
   \\ rw [wStackLoad_def, reg_bound_def]
 QED
 
@@ -5915,9 +5920,7 @@ Theorem comp_PtrEq_call_args[local]:
   call_args (FST (comp c perf (PtrEq dst v1 v2 tw fw) bs kf)) a b d e g
 Proof
   PairCases_on `kf`
-  \\ simp [comp_def]
-  \\ rpt (pairarg_tac \\ gvs [])
-  \\ gvs [wReg1_def, wReg2_def, wRegWrite1_def, AllCaseEqs()]
+  \\ simp [comp_PtrEq_eq]
   \\ rw [wStackLoad_def, call_args_def]
 QED
 
@@ -5925,9 +5928,7 @@ Theorem comp_PtrEq_get_code_labels[local]:
   get_code_labels (FST (comp c perf (PtrEq dst v1 v2 tw fw) bs kf)) = {}
 Proof
   PairCases_on `kf`
-  \\ simp [comp_def]
-  \\ rpt (pairarg_tac \\ gvs [])
-  \\ gvs [wReg1_def, wReg2_def, wRegWrite1_def, AllCaseEqs()]
+  \\ simp [comp_PtrEq_eq]
   \\ rw [wStackLoad_def]
 QED
 
@@ -5935,9 +5936,7 @@ Theorem comp_PtrEq_no_install[local]:
   stackProps$no_install (FST (comp c perf (PtrEq dst v1 v2 tw fw) bs kf))
 Proof
   PairCases_on `kf`
-  \\ simp [comp_def]
-  \\ rpt (pairarg_tac \\ gvs [])
-  \\ gvs [wReg1_def, wReg2_def, wRegWrite1_def, AllCaseEqs()]
+  \\ simp [comp_PtrEq_eq]
   \\ rw [wStackLoad_def, stackPropsTheory.no_install_def]
 QED
 
@@ -5945,9 +5944,7 @@ Theorem comp_PtrEq_no_shmemop[local]:
   no_shmemop (FST (comp c perf (PtrEq dst v1 v2 tw fw) bs kf))
 Proof
   PairCases_on `kf`
-  \\ simp [comp_def]
-  \\ rpt (pairarg_tac \\ gvs [])
-  \\ gvs [wReg1_def, wReg2_def, wRegWrite1_def, AllCaseEqs()]
+  \\ simp [comp_PtrEq_eq]
   \\ rw [wStackLoad_def, no_shmemop_def]
 QED
 

@@ -454,15 +454,6 @@ Definition eval_match_rel_def:
                 (s2 with clock := ck2,Rval [x])
 End
 
-Theorem eval_rel_no_ptr_eq_preserves_oracle:
-  no_ptr_eq e ∧ eval_rel s1 env e s2 x ⇒
-  s1.ptr_eq_oracle = s2.ptr_eq_oracle
-Proof
-  rw [eval_rel_def]
-  \\ imp_res_tac evaluate_no_ptr_eq_preserves_oracle
-  \\ gvs []
-QED
-
 Theorem eval_rel_no_ptr_eq:
   no_ptr_eq e ∧ evaluate s env [e] = (s',Rval [x]) ⇒
   eval_rel s env e (s' with clock := s.clock) x ∧
@@ -1352,22 +1343,3 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem Decls_IMP_not_Fail:
-  Decls init_env s1 prog env2 s2 ∧ prog_syntax_ok prog ⇒
-  ¬semantics_determ s1 init_env prog Fail
-Proof
-  strip_tac
-  \\ drule_all Decls_IMP_Prog
-  \\ rewrite_tac [Prog_def] \\ strip_tac
-  \\ gvs [semanticsTheory.semantics_determ_def,
-          semanticsTheory.evaluate_prog_with_clock_def]
-  \\ rw [] \\ pairarg_tac \\ gvs []
-  \\ strip_tac \\ gvs []
-  \\ qspecl_then [‘s1 with clock := k’,‘init_env’,‘prog’,‘st'’,
-                  ‘Rerr (Rabort Rtype_error)’,‘ck1’]
-       mp_tac evaluate_decs_add_to_clock
-  \\ qspecl_then [‘s1 with clock := ck1’,‘init_env’,‘prog’,‘s2 with clock := ck2’,
-                  ‘Rval env2’,‘k’]
-       mp_tac evaluate_decs_add_to_clock
-  \\ gvs [AC arithmeticTheory.ADD_COMM arithmeticTheory.ADD_ASSOC]
-QED

@@ -397,18 +397,23 @@ fun add_Dexn loc n_tm l_tm = ML_code_upd "add_Dexn"
 fun add_Dtabbrev loc l1_tm l2_tm l3_tm = ML_code_upd "add_Dtabbrev"
     (SPECL [l1_tm,l2_tm,l3_tm,loc] ML_code_Dtabbrev) []
 
+(* a top-level val must satisfy no_ptr_eq: prove it by evaluation, or fail
+   with err_prefix, the reason and hint *)
+fun prove_no_ptr_eq err_prefix hint exp = let
+  val tm = mk_icomb
+    (prim_mk_const {Thy = "evaluateProps", Name = "no_ptr_eq"}, exp)
+  in EQT_ELIM (EVAL tm) handle HOL_ERR _ =>
+       failwith (err_prefix ^ ": " ^
+         "its expression applies a function, uses pointer equality, Eval or " ^
+         "forces a thunk, and a top-level val may only be built from " ^
+         "constructors, literals, closures and simple primitive " ^
+         "operations (it must satisfy no_ptr_eq). " ^ hint) end
+
 fun add_Dlet eval_thm var_str = let
     val (_, eval_thm_xs) = strip_comb (concl eval_thm)
     val exp = List.nth (eval_thm_xs, 2)
-    val safe_tm = mk_icomb
-      (prim_mk_const {Thy = "evaluateProps", Name = "no_ptr_eq"}, exp)
-    val safe_thm = EQT_ELIM (EVAL safe_tm) handle HOL_ERR _ =>
-      failwith ("add_Dlet: cannot declare val " ^ var_str ^ ": " ^
-        "its expression applies a function, uses pointer equality, Eval or " ^
-        "forces a thunk, and a top-level val may only be built from " ^
-        "constructors, literals, closures and simple primitive " ^
-        "operations (it must satisfy no_ptr_eq). " ^
-        "Evaluate the expression to a value first, or declare a function.")
+    val safe_thm = prove_no_ptr_eq ("add_Dlet: cannot declare val " ^ var_str)
+      "Evaluate the expression to a value first, or declare a function." exp
     val mp_thm = ML_code_Dlet_var |> SPECL (tl eval_thm_xs
         @ [mlstringSyntax.mk_mlstring var_str,no_locs])
   in ML_code_upd "add_Dlet" mp_thm
@@ -527,16 +532,9 @@ val exists_eq = EXISTS_REFL |> SPEC_ALL
 val dec_tm = dec1_tm
 *)
 fun add_Dlet_expr loc n exp s = let
-    val safe_tm = mk_icomb
-      (prim_mk_const {Thy = "evaluateProps", Name = "no_ptr_eq"}, exp)
-    val safe_thm = EQT_ELIM (EVAL safe_tm) handle HOL_ERR _ =>
-      failwith ("add_dec: cannot declare val " ^
-        mlstringSyntax.dest_mlstring n ^ ": " ^
-        "its expression applies a function, uses pointer equality, Eval or " ^
-        "forces a thunk, and a top-level val may only be built from " ^
-        "constructors, literals, closures and simple primitive " ^
-        "operations (it must satisfy no_ptr_eq). " ^
-        "Evaluate the expression to a value first, or declare a function.")
+    val safe_thm = prove_no_ptr_eq
+      ("add_dec: cannot declare val " ^ mlstringSyntax.dest_mlstring n)
+      "Evaluate the expression to a value first, or declare a function." exp
     val eval_tm = list_mk_icomb
       (prim_mk_const {Thy = "evaluate", Name = "evaluate"},
        [get_state s, get_env s, listSyntax.mk_list ([exp], type_of exp)])

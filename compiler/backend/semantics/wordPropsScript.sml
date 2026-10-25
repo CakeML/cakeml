@@ -1953,6 +1953,9 @@ QED
 
 (* ---- the pointer-equality oracle ---- *)
 
+(* TODO: this section is only used by backendProof, data_to_wordProof and
+   data_to_word_assignProof; factor it out into its own theory. *)
+
 (* The oracle is indexed by install epoch: [po e] is the answer stream of the
    e-th epoch, PtrEq consumes one answer of the current epoch and Install moves
    to the next one.  A trace records, epoch by epoch, the answers a concrete
@@ -1988,8 +1991,8 @@ Proof
 QED
 
 (* The answers the concrete run produces, as a function of the program and the
-   state: the switch's existential witness, made canonical so that it can be
-   compared across clocks. *)
+   state: the oracle that compile_semantics assumes reproduces the NONE run,
+   made canonical so that it can be compared across clocks. *)
 Definition ptr_eq_trace_def:
   (ptr_eq_trace (PtrEq dst v1 v2 t f) (s:('a,'c,'ffi) wordSem$state) =
      case (get_var v1 s, get_var v2 s) of
@@ -4151,45 +4154,6 @@ Proof
   fs[SKOLEM_THM]>>
   simp[semantics_def,pairTheory.PAIR_MAP,
        quantHeuristicsTheory.PAIR_EQ_EXPAND]
-QED
-
-(* Discharging the oracle for the top-level call at every clock at once: for a
-   state with no oracle and a reflexive attenuator, one oracle reproduces the
-   concrete run at every clock.  This is the fixed point at a compile oracle
-   that does not depend on the answers. *)
-Theorem evaluate_ptr_eq_oracle_exists:
-  ∀s start.
-    s.ptr_eq_oracle = NONE ∧ (∀m dm st w. s.ptr_eq_rel m dm st w w) ⇒
-    ∃po. ∀k. ∃rest.
-      evaluate (Call NONE (SOME start) [0] NONE,
-                s with <|clock := k; ptr_eq_oracle := SOME po|>) =
-      (I ## (λt. t with ptr_eq_oracle := SOME rest))
-        (evaluate (Call NONE (SOME start) [0] NONE, s with clock := k))
-Proof
-  rpt strip_tac>>
-  qexists_tac`epoch_limit s start`>>
-  rw[]>>
-  Cases_on`evaluate (Call NONE (SOME start) [0] NONE, s with clock := k)`>>
-  drule ptr_eq_trace_agrees>>
-  disch_then(qspec_then`epoch_limit s start`mp_tac)>>
-  impl_tac >- simp[trace_agrees_def,epoch_limit_spec]>>
-  strip_tac>>
-  qexists_tac`rest`>>
-  gvs[]
-QED
-
-(* Discharging the oracle at the level of whole-program semantics. *)
-Theorem ptr_eq_semantics:
-  ∀s start.
-    s.ptr_eq_oracle = NONE ∧ (∀m dm st w. s.ptr_eq_rel m dm st w w) ⇒
-    ∃po. semantics (s with ptr_eq_oracle := SOME po) start = semantics s start
-Proof
-  rpt strip_tac>>
-  drule_all evaluate_ptr_eq_oracle_exists>>
-  disch_then(qspec_then`start`strip_assume_tac)>>
-  qexists_tac`po`>>
-  irule semantics_ptr_eq_oracle>>
-  simp[]
 QED
 
 (* -- *)

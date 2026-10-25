@@ -4924,13 +4924,6 @@ Theorem compile_correct_no_eval[local] =
   compile_correct' |> Q.INST [`ev` |-> `NONE`]
     |> SIMP_RULE bool_ss [add_eval_state_def, opt_eval_config_wf_def]
 
-Theorem semantics_determ_SUBSET_semantics_prog:
-  semantics_determ (s with ptr_eq_oracle := po) env prog ⊆
-  semantics_prog s env prog
-Proof
-  rw [SUBSET_DEF,IN_DEF,semanticsTheory.semantics_prog_def] \\ qexists_tac `po` \\ simp []
-QED
-
 Theorem extend_with_resource_limit_MONO =
   extend_with_resource_limit'_MONO |> Q.INST [`b` |-> `F`]
     |> REWRITE_RULE [extend_with_resource_limit'_def]

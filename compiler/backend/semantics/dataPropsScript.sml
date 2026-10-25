@@ -109,32 +109,6 @@ Proof
   fs [miscTheory.the_def]
 QED
 
-(* an oracle whose first LENGTH bs answers are fixed to bs, the rest given by f *)
-Definition oracle_app_def:
-  oracle_app bs f = λn. if n < LENGTH bs then EL n bs else f (n - LENGTH bs)
-End
-
-Theorem oracle_app_nil[simp]:
-  oracle_app [] f = f
-Proof
-  rw [oracle_app_def, FUN_EQ_THM]
-QED
-
-Theorem oracle_app_append:
-  oracle_app (bs1 ++ bs2) f = oracle_app bs1 (oracle_app bs2 f)
-Proof
-  rw [oracle_app_def, FUN_EQ_THM, EL_APPEND1, EL_APPEND2]
-  \\ rw [] \\ gvs [EL_APPEND1, EL_APPEND2, NOT_LESS]
-QED
-
-Theorem oracle_app_cons:
-  oracle_app (b::bs) f 0 = b ∧
-  (λn. oracle_app (b::bs) f (n + 1)) = oracle_app bs f
-Proof
-  rw [oracle_app_def, FUN_EQ_THM]
-  \\ simp [GSYM ADD1]
-QED
-
 Theorem initial_state_simp[simp]:
   (initial_state f c co cc pe ts l ss k).clock = k ∧
   (initial_state f c co cc pe ts l ss k).locals = LN ∧
@@ -1874,76 +1848,70 @@ Proof
   strip_tac \\ imp_res_tac do_app_err \\ fs []
 QED
 
-Theorem size_of_heap_with_clock:
-  ∀s z. size_of_heap (s with clock := z) = size_of_heap s
+(* do_app reads neither the clock nor, except in PtrEqual and Install, the
+   pointer-equality oracle: the lemmas below are proved once for an update of
+   both fields, and the clock and oracle versions are instances *)
+Theorem size_of_heap_with_clock_ptr_eq_oracle[local]:
+  ∀s z f. size_of_heap (s with <|clock := z; ptr_eq_oracle := f|>) =
+          size_of_heap s
 Proof
   EVAL_TAC \\ rw []
 QED
 
-Theorem size_of_heap_args_with_clock:
-  ∀s z a. size_of_heap_args a (s with clock := z) = size_of_heap_args a s
+Theorem size_of_heap_args_with_clock_ptr_eq_oracle[local]:
+  ∀s z f a. size_of_heap_args a (s with <|clock := z; ptr_eq_oracle := f|>) =
+            size_of_heap_args a s
 Proof
   rw[dataSemTheory.size_of_heap_args_def, dataSemTheory.stack_to_vs_def]
 QED
 
-Theorem space_consumed_with_clock:
-  !s op vs. space_consumed (s with clock := z) op vs = space_consumed s op vs
+Theorem space_consumed_with_clock_ptr_eq_oracle[local]:
+  !s op vs. space_consumed (s with <|clock := z; ptr_eq_oracle := f|>) op vs =
+            space_consumed s op vs
 Proof
   ho_match_mp_tac space_consumed_ind \\ rpt strip_tac
   \\ simp [space_consumed_def]
 QED
 
-(*fs[] is slower than full_simp_tac(srw_ss())[]*)
-Theorem do_app_with_clock:
-  do_app op vs (s with clock := z) =
-   map_result (λ(x,y). (x,y with clock := z)) I (do_app op vs s)
+Theorem with_ptr_eq_oracle_clock[local]:
+  s with ptr_eq_oracle := f = s with <|clock := s.clock; ptr_eq_oracle := f|>
 Proof
-  Cases_on `op = Install` THEN1
-   (fs [do_app_def,do_stack_def,do_install_def]
-    \\ every_case_tac \\ fs []
-    \\ pairarg_tac \\ fs []
-    \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
-  Cases_on `do_app op vs s` >>
-  fs[do_app_def,do_stack_def,do_space_def] >>
-  cases_on_op_fs `op` >>
-  ntac 2 (
-    full_simp_tac(srw_ss()) [LET_THM,do_app_aux_def,CaseEq "sum",closLangTheory.int_op_case_eq,
-      CaseEq "const_part",
-      list_case_eq,option_case_eq,v_case_eq,
-      bool_case_eq,stack_consumed_def,
-      with_fresh_ts_def,bvlSemTheory.ref_case_eq,space_consumed_with_clock,
-      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-      pair_case_eq,consume_space_def,size_of_heap_with_clock,
-      size_of_heap_args_with_clock,check_lim_def]
-    \\ rveq \\ fs [] \\ rw []) \\ gvs [CaseEq "thunk_mode"]
+  simp [state_component_equality]
 QED
 
-Theorem size_of_heap_with_ptr_eq_oracle:
-  ∀s f. size_of_heap (s with ptr_eq_oracle := f) = size_of_heap s
-Proof
-  EVAL_TAC \\ rw []
-QED
+Theorem size_of_heap_with_clock =
+  size_of_heap_with_clock_ptr_eq_oracle
+  |> Q.SPECL [‘s’,‘z’,‘s.ptr_eq_oracle’] |> SRULE [] |> Q.GENL [‘s’,‘z’];
 
-Theorem size_of_heap_args_with_ptr_eq_oracle:
-  ∀s f a. size_of_heap_args a (s with ptr_eq_oracle := f) = size_of_heap_args a s
-Proof
-  rw[dataSemTheory.size_of_heap_args_def, dataSemTheory.stack_to_vs_def]
-QED
+Theorem size_of_heap_args_with_clock =
+  size_of_heap_args_with_clock_ptr_eq_oracle
+  |> Q.SPECL [‘s’,‘z’,‘s.ptr_eq_oracle’,‘a’] |> SRULE []
+  |> Q.GENL [‘s’,‘z’,‘a’];
 
-Theorem space_consumed_with_ptr_eq_oracle:
-  !s op vs. space_consumed (s with ptr_eq_oracle := f) op vs = space_consumed s op vs
-Proof
-  ho_match_mp_tac space_consumed_ind \\ rpt strip_tac
-  \\ simp [space_consumed_def]
-QED
+Theorem space_consumed_with_clock =
+  space_consumed_with_clock_ptr_eq_oracle
+  |> Q.SPEC ‘s’ |> Q.INST [‘f’ |-> ‘s.ptr_eq_oracle’] |> SRULE [] |> Q.GEN ‘s’;
 
-(* PtrEqual reads and advances the current epoch's stream and Install moves to
-   the next epoch; no other operation touches the oracle *)
-Theorem do_app_with_ptr_eq_oracle:
+Theorem size_of_heap_with_ptr_eq_oracle =
+  size_of_heap_with_clock_ptr_eq_oracle
+  |> Q.SPECL [‘s’,‘s.clock’,‘f’]
+  |> REWRITE_RULE [GSYM with_ptr_eq_oracle_clock] |> Q.GENL [‘s’,‘f’];
+
+Theorem size_of_heap_args_with_ptr_eq_oracle =
+  size_of_heap_args_with_clock_ptr_eq_oracle
+  |> Q.SPECL [‘s’,‘s.clock’,‘f’,‘a’]
+  |> REWRITE_RULE [GSYM with_ptr_eq_oracle_clock] |> Q.GENL [‘s’,‘f’,‘a’];
+
+Theorem space_consumed_with_ptr_eq_oracle =
+  space_consumed_with_clock_ptr_eq_oracle
+  |> Q.SPEC ‘s’ |> Q.INST [‘z’ |-> ‘s.clock’]
+  |> REWRITE_RULE [GSYM with_ptr_eq_oracle_clock] |> Q.GEN ‘s’;
+
+Theorem do_app_with_clock_ptr_eq_oracle[local]:
   op ≠ BlockOp PtrEqual ∧ op ≠ Install ⇒
-  do_app op vs (s with ptr_eq_oracle := f) =
-   map_result (λ(x,y). (x,y with ptr_eq_oracle := f)) I (do_app op vs s)
+  do_app op vs (s with <|clock := z; ptr_eq_oracle := f|>) =
+   map_result (λ(x,y). (x,y with <|clock := z; ptr_eq_oracle := f|>)) I
+     (do_app op vs s)
 Proof
   strip_tac
   \\ Cases_on `do_app op vs s`
@@ -1953,14 +1921,33 @@ Proof
     full_simp_tac(srw_ss()) [LET_THM,do_app_aux_def,CaseEq "sum",
       closLangTheory.int_op_case_eq,list_case_eq,option_case_eq,v_case_eq,
       bool_case_eq,stack_consumed_def,
-      with_fresh_ts_def,bvlSemTheory.ref_case_eq,space_consumed_with_ptr_eq_oracle,
+      with_fresh_ts_def,bvlSemTheory.ref_case_eq,
+      space_consumed_with_clock_ptr_eq_oracle,
       ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
       semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
       astTheory.thunk_mode_case_eq,closLangTheory.const_part_case_eq,
-      pair_case_eq,consume_space_def,size_of_heap_with_ptr_eq_oracle,
-      size_of_heap_args_with_ptr_eq_oracle,check_lim_def]
+      pair_case_eq,consume_space_def,size_of_heap_with_clock_ptr_eq_oracle,
+      size_of_heap_args_with_clock_ptr_eq_oracle,check_lim_def]
     \\ rveq \\ fs [] \\ rw [])
   \\ gvs []
+QED
+
+(* PtrEqual reads and advances the current epoch's stream and Install moves to
+   the next epoch; no other operation touches the oracle *)
+Theorem do_app_with_ptr_eq_oracle:
+  op ≠ BlockOp PtrEqual ∧ op ≠ Install ⇒
+  do_app op vs (s with ptr_eq_oracle := f) =
+   map_result (λ(x,y). (x,y with ptr_eq_oracle := f)) I (do_app op vs s)
+Proof
+  strip_tac >>
+  drule_all (do_app_with_clock_ptr_eq_oracle
+             |> Q.INST [‘z’ |-> ‘s.clock’]
+             |> REWRITE_RULE [GSYM with_ptr_eq_oracle_clock]) >>
+  strip_tac >> asm_simp_tac (srw_ss()) [] >>
+  Cases_on `do_app op vs s` >> simp [] >>
+  PairCases_on `a` >> simp [] >>
+  imp_res_tac do_app_const >>
+  simp [state_component_equality]
 QED
 
 Theorem do_app_ptr_eq_oracle:
@@ -1974,6 +1961,31 @@ Proof
   \\ `s with ptr_eq_oracle := s.ptr_eq_oracle = s`
        by simp [state_component_equality]
   \\ gvs [state_component_equality]
+QED
+
+(*fs[] is slower than full_simp_tac(srw_ss())[]*)
+Theorem do_app_with_clock:
+  do_app op vs (s with clock := z) =
+   map_result (λ(x,y). (x,y with clock := z)) I (do_app op vs s)
+Proof
+  Cases_on `op = Install` THEN1
+   (fs [do_app_def,do_stack_def,do_install_def]
+    \\ every_case_tac \\ fs []
+    \\ pairarg_tac \\ fs []
+    \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
+  Cases_on `op = BlockOp PtrEqual` THEN1
+   (Cases_on `do_app op vs s` >>
+    gvs [do_app_def,do_stack_def,do_space_def,do_app_aux_def,AllCaseEqs(),
+         stack_consumed_def,space_consumed_with_clock,size_of_heap_with_clock,
+         size_of_heap_args_with_clock,consume_space_def,check_lim_def] >>
+    rw [] >> gvs []) >>
+  drule_all (do_app_with_clock_ptr_eq_oracle
+             |> Q.INST [‘f’ |-> ‘s.ptr_eq_oracle’] |> SRULE []) >>
+  strip_tac >> asm_simp_tac (srw_ss()) [] >>
+  Cases_on `do_app op vs s` >> simp [] >>
+  PairCases_on `a` >> simp [] >>
+  drule_all do_app_ptr_eq_oracle >>
+  simp [state_component_equality]
 QED
 
 Theorem do_app_change_clock:

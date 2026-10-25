@@ -188,7 +188,7 @@ Proof
   >- (
     `b po` by fs [] \\
     simp [semanticsPropsTheory.extend_with_resource_limit'_def,
-          semantics_determ_SUBSET_semantics_prog])
+          semanticsPropsTheory.semantics_determ_SUBSET_semantics_prog])
   \\ `extend_with_resource_limit' (∀po. b po) (semantics_prog s env prog) =
       extend_with_resource_limit (semantics_prog s env prog)`
     by asm_rewrite_tac [semanticsPropsTheory.extend_with_resource_limit'_def]
@@ -196,7 +196,7 @@ Proof
   \\ irule SUBSET_TRANS
   \\ irule_at Any semanticsPropsTheory.extend_with_resource_limit'_SUBSET
   \\ irule extend_with_resource_limit_MONO
-  \\ simp [semantics_determ_SUBSET_semantics_prog]
+  \\ simp [semanticsPropsTheory.semantics_determ_SUBSET_semantics_prog]
 QED
 
 Theorem compile_correct_gen:

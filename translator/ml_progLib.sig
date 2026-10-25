@@ -37,6 +37,9 @@ sig
                      term -> term -> term -> (* Dtabbrev args *)
                      ml_prog_state -> ml_prog_state
 
+  val prove_no_ptr_eq : string (* error prefix *) -> string (* hint *) ->
+                        term (* exp *) -> thm (* |- no_ptr_eq exp *)
+
   val add_Dlet     : thm (* eval_rel thm; expression must pass EVAL no_ptr_eq *) ->
                      string (* var name *) ->
                      ml_prog_state -> ml_prog_state

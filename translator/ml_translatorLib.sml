@@ -4669,27 +4669,44 @@ val options = [NoInd]
 *)
 
 (* a top-level val must satisfy no_ptr_eq; th is an Eval theorem for it *)
-fun check_no_ptr_eq v_name th = let
-  val exp_tm = th |> concl |> rator |> rand
-  in EQT_ELIM (EVAL (mk_icomb
-       (prim_mk_const {Thy = "evaluateProps", Name = "no_ptr_eq"}, exp_tm)))
-     handle HOL_ERR _ => failwith ("translate: cannot declare " ^ v_name ^
-       " as a top-level val: " ^
-       "its expression applies a function, uses pointer equality, Eval or " ^
-       "forces a thunk, and a top-level val may only be built from " ^
-       "constructors, literals, closures and simple primitive " ^
-       "operations (it must satisfy no_ptr_eq). " ^
-       "Evaluate the right-hand side first, e.g. " ^
-       "translate (foo_def |> CONV_RULE (RHS_CONV EVAL)), " ^
-       "or make the definition a function.") end
+fun check_no_ptr_eq v_name th =
+  ml_progLib.prove_no_ptr_eq
+    ("translate: cannot declare " ^ v_name ^ " as a top-level val")
+    ("Evaluate the right-hand side first, e.g. " ^
+     "translate (foo_def |> CONV_RULE (RHS_CONV EVAL)), " ^
+     "or make the definition a function.")
+    (th |> concl |> rator |> rand)
+
+(* the state after a top-level declaration depends on the oracle the program
+   starts at (root_po): specify the names as Skolem functions of root_po *)
+fun skolem_spec_of_root spec_name names th args (refs_eq,po_eq) root_po = let
+  val skol = th |> SPECL args
+                |> PURE_REWRITE_RULE [refs_eq, po_eq]
+                |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
+                |> GEN root_po
+                |> Ho_Rewrite.REWRITE_RULE [SKOLEM_THM]
+  val sp = new_specification(spec_name,names,skol) |> SPEC root_po
+  val _ = delete_binding spec_name
+  in sp end
+
+(* the specification of a translated val: the value is a constant v_name
+   (keeping the env oracle-free), while the refs and oracle after it are
+   Skolem functions of the root oracle *)
+fun val_constant_spec lemma args (refs_eq,po_eq) root_po
+                      (v_name,refs_name,po_name) = let
+  val v_spec = new_specification("temp",[v_name],lemma)
+               |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL
+  val _ = delete_binding "temp"
+  in skolem_spec_of_root "temp2" [refs_name,po_name] (CONJUNCT2 v_spec) args
+       (refs_eq,po_eq) root_po
+     |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL end
 
 (* the specification of a val whose value is not pinned uniquely by its type:
    add_Dlet requires no_ptr_eq, under which the value does not depend on the
-   oracle, so the value is a constant (keeping the env oracle-free), while the
-   residual refs and oracle are Skolem functions of the root oracle *)
+   oracle *)
 fun no_ptr_eq_constant_spec th (curr_refs,curr_refs_eq) (curr_po,curr_po_eq)
-                            root_po (v_name,refs_name,po_name) = let
-  val no_ptr_eq_thm = check_no_ptr_eq v_name th
+                            root_po names = let
+  val no_ptr_eq_thm = check_no_ptr_eq (#1 names) th
   val lemma =
     Eval_constant_no_ptr_eq
     |> C MATCH_MP no_ptr_eq_thm
@@ -4697,20 +4714,8 @@ fun no_ptr_eq_constant_spec th (curr_refs,curr_refs_eq) (curr_po,curr_po_eq)
     |> SPEC curr_refs
     |> PURE_REWRITE_RULE [curr_refs_eq]
     |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
-  val v_spec = new_specification("temp",[v_name],lemma)
-               |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL
-  val _ = delete_binding "temp"
-  val skol = CONJUNCT2 v_spec
-             |> SPEC curr_po
-             |> PURE_REWRITE_RULE [curr_po_eq]
-             |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
-             |> GEN root_po
-             |> Ho_Rewrite.REWRITE_RULE [SKOLEM_THM]
-  val sp = new_specification("temp2",[refs_name,po_name],skol)
-           |> SPEC root_po
-           |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL
-  val _ = delete_binding "temp2"
-  in sp end
+  in val_constant_spec lemma [curr_po] (curr_refs_eq,curr_po_eq) root_po names
+  end
 
 fun translate_options options def =
   let
@@ -4803,6 +4808,8 @@ fun translate_options options def =
         val v_name = find_const_name (fname ^ "_v")
         val refs_name = find_const_name (fname  ^ "_refs")
         val po_name = find_const_name (fname  ^ "_po")
+        (* fail before any constants are created *)
+        val _ = check_no_ptr_eq v_name th
         val refs_spec =
           case unique_value_thm (rator P_tm) (rand P_tm) of
             SOME uniq => let
@@ -4811,21 +4818,9 @@ fun translate_options options def =
                 |> C MATCH_MP uniq
                 |> C MATCH_MP th1
                 |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
-              val v_spec = new_specification("temp",[v_name],
-                             lemma |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA])
-                           |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL
-              val _ = delete_binding "temp"
-              val skol = CONJUNCT2 v_spec
-                         |> SPECL [curr_refs, curr_po]
-                         |> PURE_REWRITE_RULE [curr_refs_eq, curr_po_eq]
-                         |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
-                         |> GEN root_po
-                         |> Ho_Rewrite.REWRITE_RULE [SKOLEM_THM]
-              val sp = new_specification("temp2",[refs_name,po_name],skol)
-                       |> SPEC root_po
-                       |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL
-              val _ = delete_binding "temp2"
-              in sp end
+              in val_constant_spec lemma [curr_refs, curr_po]
+                   (curr_refs_eq,curr_po_eq) root_po
+                   (v_name,refs_name,po_name) end
           | NONE =>
               no_ptr_eq_constant_spec th1 (curr_refs,curr_refs_eq)
                 (curr_po,curr_po_eq) root_po (v_name,refs_name,po_name)
@@ -4846,7 +4841,6 @@ fun translate_options options def =
         val eval_thm = MATCH_MP eval_lemma (CONJUNCT1 refs_spec)
         val var_str = ml_fname
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
-        val _ = check_no_ptr_eq v_name th
         val _ = ml_prog_update (add_Dlet eval_thm var_str)
         val _ = add_v_thms (fname,var_str,v_thm,pre_def)
         val v_thm = v_thm |> DISCH_ALL
@@ -5018,18 +5012,8 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
             |> C MATCH_MP uniq
             |> C MATCH_MP th
             |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
-          val v_spec = new_specification("temp",[v_name],lemma) |> UNDISCH_ALL
-          val _ = delete_binding "temp"
-          val skol = CONJUNCT2 v_spec
-                     |> SPECL [curr_refs, curr_po]
-                     |> PURE_REWRITE_RULE [curr_refs_eq, curr_po_eq]
-                     |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
-                     |> GEN root_po
-                     |> Ho_Rewrite.REWRITE_RULE [SKOLEM_THM]
-          val sp = new_specification("temp2",[refs_name,po_name],skol)
-                   |> SPEC root_po |> UNDISCH_ALL
-          val _ = delete_binding "temp2"
-          in sp end
+          in val_constant_spec lemma [curr_refs, curr_po]
+               (curr_refs_eq,curr_po_eq) root_po (v_name,refs_name,po_name) end
       | NONE =>
           no_ptr_eq_constant_spec th (curr_refs,curr_refs_eq)
             (curr_po,curr_po_eq) root_po (v_name,refs_name,po_name)
@@ -5188,15 +5172,9 @@ fun declare_new_ref name tm = let
   val curr_po_eq = EVAL curr_po
   val root_po = curr_po_eq |> concl |> rhs |> free_vars
                 |> first (fn v => type_of v = type_of curr_po)
-  val skol = CONJUNCT2 res
-             |> SPECL [curr_refs, curr_po]
-             |> PURE_REWRITE_RULE [curr_refs_eq, curr_po_eq]
-             |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
-             |> GEN root_po
-             |> Ho_Rewrite.REWRITE_RULE [SKOLEM_THM]
-  val po_spec = new_specification("temp_ref_po",[name ^ "_po"],skol)
-                |> SPEC root_po |> UNDISCH_ALL
-  val _ = delete_binding "temp_ref_po"
+  val po_spec = skolem_spec_of_root "temp_ref_po" [name ^ "_po"]
+                  (CONJUNCT2 res) [curr_refs, curr_po]
+                  (curr_refs_eq,curr_po_eq) root_po |> UNDISCH_ALL
   (* the allocated location counts the refs already in the state; only the
      oracle after the allocation depends on the oracle before it *)
   val loc_tm = po_spec |> concl |> rand
