@@ -1010,22 +1010,23 @@ Definition check_imp_slot_def:
   | (d,y)::ys' =>
     if n ≤ i then T
     else
-      let c = sub_unsafe cs i in
       let x = sub_unsafe vs i in
       if x < y then
-        let rhs = rhs - ABS c in
+        let rhs = rhs - ABS (sub_unsafe cs i) in
         if 0 < rhs then check_imp_slot drhs cs vs n (i+1) ys rhs
         else F
       else if y < (x:num) then
         check_imp_slot drhs cs vs n i ys' rhs
-      else if match_sign c d then
-        let rhs = rhs - imp_terms drhs c d in
-        if 0 < rhs then check_imp_slot drhs cs vs n (i+1) ys' rhs
-        else F
       else
-        let rhs = rhs - ABS c in
-        if 0 < rhs then check_imp_slot drhs cs vs n (i+1) ys rhs
-        else F
+        let c = sub_unsafe cs i in
+        if match_sign c d then
+          let rhs = rhs - imp_terms drhs c d in
+          if 0 < rhs then check_imp_slot drhs cs vs n (i+1) ys' rhs
+          else F
+        else
+          let rhs = rhs - ABS c in
+          if 0 < rhs then check_imp_slot drhs cs vs n (i+1) ys rhs
+          else F
 Termination
   WF_REL_TAC ‘measure (λ(drhs,cs,vs,n,i,ys,rhs). (n - i) + LENGTH ys)’>>
   rw[]
@@ -1397,11 +1398,6 @@ Definition h_mod_def:
   h_mod = 1000000009:num
 End
 
-(* Fixed size of the hash table *)
-Definition splim_def:
-  splim = 2000000:num
-End
-
 Definition hash_term_def:
   hash_term (i:int) (n:num) =
   if i ≤ 0 then
@@ -1422,7 +1418,7 @@ End
 
 Definition hash_constraint_def:
   hash_constraint (c,n) =
-  ((Num (ABS n) + h_base * hash_list c) MOD h_mod) MOD splim
+  (Num (ABS n) + h_base * hash_list c) MOD h_mod
 End
 
 Definition hash_terms_slot_def:
@@ -1440,14 +1436,15 @@ Definition hash_slot_def:
   case s of
     Empty => hash_constraint ([],0)
   | Stored cs vs d mc sm b =>
-    ((Num (ABS d) + h_base * hash_terms_slot cs vs (length cs) 0) MOD h_mod)
-      MOD splim
+    (Num (ABS d) + h_base * hash_terms_slot cs vs (length cs) 0) MOD h_mod
 End
 
+(* A hash table is a list of buckets; a hash h indexes bucket
+  h MOD (number of buckets) *)
 Definition mk_hashset_slot_def:
   (mk_hashset_slot [] acc = acc) ∧
   (mk_hashset_slot (s::ss) acc =
-    let h = hash_slot s in
+    let h = hash_slot s MOD LENGTH acc in
     mk_hashset_slot ss (LUPDATE (s::EL h acc) h acc))
 End
 
@@ -1456,8 +1453,9 @@ Definition mem_slots_def:
   (mem_slots c (s::ss) ⇔ eq_slot c s ∨ mem_slots c ss)
 End
 
+(* h is the hash of c *)
 Definition in_hashset_slot_def:
-  in_hashset_slot c hs = mem_slots c (EL (hash_constraint c) hs)
+  in_hashset_slot h c hs = mem_slots c (EL (h MOD LENGTH hs) hs)
 End
 
 Theorem hash_slot_test:
@@ -1492,13 +1490,6 @@ Proof
   simp[hash_list_def]
 QED
 
-Theorem hash_constraint_lt_splim:
-  hash_constraint c < splim
-Proof
-  PairCases_on`c`>>
-  simp[hash_constraint_def,splim_def]
-QED
-
 Theorem mem_slots_EXISTS:
   ∀ss. mem_slots c ss ⇔ EXISTS (eq_slot c) ss
 Proof
@@ -1513,17 +1504,14 @@ QED
 
 Theorem in_hashset_slot_mk_hashset_slot:
   ∀ss c acc.
-  LENGTH acc = splim ∧
-  in_hashset_slot c (mk_hashset_slot ss acc) ⇒
-  (∃s. MEM s ss ∧ eq_slot c s) ∨ in_hashset_slot c acc
+  in_hashset_slot h c (mk_hashset_slot ss acc) ⇒
+  (∃s. MEM s ss ∧ eq_slot c s) ∨ in_hashset_slot h c acc
 Proof
   Induct>>
   rw[mk_hashset_slot_def]>>
-  first_x_assum (drule_at (Pos last))>>
-  impl_tac >- fs[]>>
+  first_x_assum drule>>
   strip_tac
   >- metis_tac[]>>
-  `hash_slot h < splim` by simp[hash_slot_thm,hash_constraint_lt_splim]>>
   gvs[in_hashset_slot_def,mem_slots_EXISTS,EL_LUPDATE]>>
   every_case_tac>>
   gvs[]>>
@@ -1550,15 +1538,6 @@ Definition eq_slots_def:
     d = d' ∧ length cs = length cs' ∧
     eq_terms_slots (cs:int vector) vs cs' vs' (length cs)
   | _ => F
-End
-
-Definition mem_eq_slots_def:
-  (mem_eq_slots s [] ⇔ F) ∧
-  (mem_eq_slots s (t::ts) ⇔ eq_slots s t ∨ mem_eq_slots s ts)
-End
-
-Definition in_hashset_slots_def:
-  in_hashset_slots s hs = mem_eq_slots s (EL (hash_slot s) hs)
 End
 
 Theorem eq_slots_test:
@@ -1590,56 +1569,197 @@ Proof
   metis_tac[LENGTH_GENLIST]
 QED
 
-Theorem mem_eq_slots_EXISTS:
-  ∀ts. mem_eq_slots s ts ⇔ EXISTS (eq_slots s) ts
-Proof
-  Induct>>rw[mem_eq_slots_def]
-QED
+(* The table of the formula's ids *)
 
-Theorem in_hashset_slots_mk_hashset_slot:
-  ∀ss s acc.
-  LENGTH acc = splim ∧
-  in_hashset_slots s (mk_hashset_slot ss acc) ⇒
-  (∃s'. MEM s' ss ∧ eq_slots s s') ∨ in_hashset_slots s acc
-Proof
-  Induct>>
-  rw[mk_hashset_slot_def]>>
-  first_x_assum (drule_at (Pos last))>>
-  impl_tac >- fs[]>>
-  strip_tac
-  >- metis_tac[]>>
-  `hash_slot h < splim` by simp[hash_slot_thm,hash_constraint_lt_splim]>>
-  gvs[in_hashset_slots_def,mem_eq_slots_EXISTS,EL_LUPDATE]>>
-  every_case_tac>>
-  gvs[]>>
-  metis_tac[]
-QED
-
-Definition fml_include_slots_def:
-  fml_include_slots ss ss' =
-  let hs = mk_hashset_slot ss (REPLICATE splim []) in
-  EVERY (λs. in_hashset_slots s hs) ss'
+(* returns the stored slot itself *)
+Definition lookup_core_only_list_def:
+  lookup_core_only_list b fml n =
+  let s = any_el n fml Empty in
+  if ¬b ∨ core_slot s then s else Empty
 End
 
-Theorem fml_include_slots_thm:
-  EVERY (λs. s ≠ Empty) ss ∧ EVERY (λs. s ≠ Empty) ss' ∧
-  fml_include_slots ss ss' ⇒
-  fml_include (MAP dec ss) (MAP dec ss')
+(* The table (hw,a,d,bks) holds formula ids in the buckets bks, each id in
+  the bucket of the hash of its slot; a ids were inserted, d of them since
+  deleted, and every id below hw has been considered. A lookup reads the
+  slot at each id of the bucket again, so the buckets may hold deleted ids.
+  The maintenance is conservative and could be tuned to common proofs: ht_fill
+  counts the new ids before inserting them, and ht_del reads every deleted slot
+  so as not to count an id deleted twice, which proofs rarely do. *)
+Definition ht_empty_def:
+  ht_empty = (0n,0n,0n,[]:num list list)
+End
+
+(* Some id of the bucket is whose slot (core only, if b) matches c *)
+Definition ht_mem_def:
+  (ht_mem b fml c [] ⇔ F) ∧
+  (ht_mem b fml c ((i:num)::is) ⇔
+    case lookup_core_only_list b fml i of
+      Empty => ht_mem b fml c is
+    | s => eq_slot c s ∨ ht_mem b fml c is)
+End
+
+(* The number of stored ids at the head of inds, down to the first id
+  below hw *)
+Definition ht_count_def:
+  (ht_count fml hw [] n = n:num) ∧
+  (ht_count fml hw ((i:num)::is) n =
+    if i < hw then n
+    else
+    case any_el i fml Empty of
+      Empty => ht_count fml hw is n
+    | _ => ht_count fml hw is (n+1))
+End
+
+(* Inserts the stored ids at the head of inds, down to the first id
+  below hw *)
+Definition ht_insert_def:
+  (ht_insert fml hw [] bks = bks) ∧
+  (ht_insert fml hw ((i:num)::is) bks =
+    if i < hw then bks
+    else
+    case any_el i fml Empty of
+      Empty => ht_insert fml hw is bks
+    | s =>
+      let k = hash_slot s MOD LENGTH bks in
+      ht_insert fml hw is (LUPDATE (i::EL k bks) k bks))
+End
+
+Theorem LENGTH_ht_insert:
+  ∀inds bks. LENGTH (ht_insert fml hw inds bks) = LENGTH bks
 Proof
-  rw[fml_include_slots_def,fml_include_def,EVERY_MAP]>>
-  gvs[EVERY_MEM]>>
-  rw[]>>
-  first_x_assum drule>>
-  strip_tac>>
-  drule_at (Pos last) in_hashset_slots_mk_hashset_slot>>
-  simp[]>>
-  strip_tac
-  >- (
-    simp[MEM_MAP]>>
-    first_assum (irule_at Any)>>
-    metis_tac[eq_slots_thm])>>
-  `hash_slot x < splim` by simp[hash_slot_thm,hash_constraint_lt_splim]>>
-  gvs[in_hashset_slots_def,mem_eq_slots_def,EL_REPLICATE]
+  Induct>>
+  rw[ht_insert_def]>>
+  TOP_CASE_TAC>>
+  simp[]
+QED
+
+(* Inserts the stored ids of inds at or above hw, all of them below base
+  (inds is decreasing). Rebuilds from all of inds, with twice as many
+  buckets as stored ids, when there are no buckets or when the new ids
+  would take the table above two ids per bucket *)
+Definition ht_fill_def:
+  ht_fill fml inds base (hw,a,d,bks) =
+  let new = ht_count fml hw inds 0 in
+  if LENGTH bks = 0 ∨ 2 * LENGTH bks < a + new then
+    let live = (a - d) + new in
+    (base:num, live, 0n,
+      ht_insert fml 0 inds (REPLICATE (MAX (2 * live) 1) []))
+  else
+    (base, a + new, d, ht_insert fml hw inds bks)
+End
+
+(* The number of ids of ls stored in fml below hw *)
+Definition ht_del_count_def:
+  (ht_del_count fml hw [] n = n:num) ∧
+  (ht_del_count fml hw ((i:num)::is) n =
+    if i < hw then
+      case any_el i fml Empty of
+        Empty => ht_del_count fml hw is n
+      | _ => ht_del_count fml hw is (n+1)
+    else ht_del_count fml hw is n)
+End
+
+(* Before the ids ls are deleted from fml: the table is reset once more
+  than half of its ids are deleted *)
+Definition ht_del_def:
+  ht_del fml ls (hw,a,d,bks) =
+  if hw = 0 then (hw,a,d,bks)
+  else
+    let d = ht_del_count fml hw ls d in
+    if a < 2 * d then ht_empty else (hw,a,d,bks)
+End
+
+(* Output check against the table *)
+
+(* Some id of the bucket is whose slot (core only) matches the slot s *)
+Definition ht_mem_slots_def:
+  (ht_mem_slots fml s [] ⇔ F) ∧
+  (ht_mem_slots fml s ((i:num)::is) ⇔
+    case lookup_core_only_list T fml i of
+      Empty => ht_mem_slots fml s is
+    | t => eq_slots s t ∨ ht_mem_slots fml s is)
+End
+
+(* Marks every id of the bucket is whose slot (core only) matches the
+  slot s *)
+Definition ht_mark_def:
+  (ht_mark fml s [] mk = mk:bool list) ∧
+  (ht_mark fml s ((i:num)::is) mk =
+    case lookup_core_only_list T fml i of
+      Empty => ht_mark fml s is mk
+    | t => ht_mark fml s is (if eq_slots s t then LUPDATE T i mk else mk))
+End
+
+(* Every slot of ss matches a core slot in the table *)
+Definition ht_include_def:
+  ht_include fml bks ss ⇔
+  EVERY (λs. ht_mem_slots fml s (EL (hash_slot s MOD LENGTH bks) bks)) ss
+End
+
+(* Marks every core slot in the table that matches a slot of ss *)
+Definition ht_marks_def:
+  (ht_marks fml bks [] mk = mk) ∧
+  (ht_marks fml bks (s::ss) mk =
+    ht_marks fml bks ss
+      (ht_mark fml s (EL (hash_slot s MOD LENGTH bks) bks) mk))
+End
+
+(* Every core slot below n is marked *)
+Definition all_marked_def:
+  all_marked fml mk n ⇔
+  if n = 0 then T
+  else
+    let n1 = n - 1 in
+    (lookup_core_only_list T fml n1 = Empty ∨ EL n1 mk) ∧
+    all_marked fml mk n1
+End
+
+Theorem ht_test:
+  let fml = [Empty; enc ([(2,1);(-3,4)],5) T; enc ([(1,1)],1) F;
+    enc ([(1,2);(1,3)],1) T; enc ([(1,4)],1) T; enc ([(-1,5)],1) T;
+    enc ([(3,6)],2) T] in
+  let inds = [6;5;4;3;2;1n] in
+  let probe b fml c (hw,a,d,bks) =
+    ht_mem b fml c (EL (hash_constraint c MOD LENGTH bks) bks) in
+  let size (hw,a,d,bks) = (hw,a,d,LENGTH bks) in
+  let ht = ht_fill fml inds 7 ht_empty in
+  let ht1 = ht_fill fml [1] 2 ht_empty in
+  let ht2 = ht_fill fml [2;1] 3 ht1 in
+  let ht3 = ht_fill fml inds 7 ht2 in
+  let ht4 = ht_del fml [7;1;2;3] ht in
+  let fml4 = LUPDATE Empty 1 (LUPDATE Empty 2 (LUPDATE Empty 3 fml)) in
+  let bks = SND (SND (SND ht)) in
+  let out = MAP (λc. enc c T)
+    [([(2,1);(-3,4)],5); ([(1,2);(1,3)],1); ([(1,4)],1); ([(-1,5)],1);
+     ([(3,6)],2)] in
+  (* a full build has two buckets per stored id *)
+  size ht = (7,6,0,12) ∧
+  probe F fml ([(1,1)],1) ht ∧ probe T fml ([(2,1);(-3,4)],5) ht ∧
+  probe T fml ([(3,6)],2) ht ∧ ¬probe F fml ([(1,1)],2) ht ∧
+  (* core only: the slot at id 2 is not core *)
+  ¬probe T fml ([(1,1)],1) ht ∧
+  (* a deleted id is skipped, and ([],0) does not match its Empty slot *)
+  ¬probe F (LUPDATE Empty 2 fml) ([(1,1)],1) ht ∧
+  ¬ht_mem F (LUPDATE Empty 2 fml) ([],0) [2] ∧
+  (* only the ids at or above the watermark are new *)
+  ht_count fml 4 inds 0 = 3 ∧
+  size ht1 = (2,1,0,2) ∧
+  size ht2 = (3,2,0,2) ∧
+  probe F fml ([(1,1)],1) ht2 ∧ probe F fml ([(2,1);(-3,4)],5) ht2 ∧
+  (* 2 + 4 new ids exceed two per bucket: rebuilt *)
+  size ht3 = (7,6,0,12) ∧ probe F fml ([(3,6)],2) ht3 ∧
+  (* deleted ids below the watermark count; reset once d > a / 2 *)
+  size ht4 = (7,6,3,12) ∧
+  ht_del fml4 [1] ht4 = ht4 ∧
+  ht_del fml4 [4] ht4 = ht_empty ∧
+  ht_del fml [1] ht_empty = ht_empty ∧
+  (* output: the core slots and the output slots, both ways *)
+  ht_include fml bks out ∧
+  all_marked fml (ht_marks fml bks out (REPLICATE 7 F)) 7 ∧
+  ¬all_marked fml (ht_marks fml bks (TL out) (REPLICATE 7 F)) 7 ∧
+  ¬ht_include fml bks (enc ([(1,1)],1) T :: out)
+Proof
+  EVAL_TAC
 QED
 
 (* Solutions and objective *)

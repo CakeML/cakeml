@@ -2149,16 +2149,17 @@ QED
 (* returns the necessary information to check the
   output and conclusion sections *)
 Quote add_cakeml:
-  fun check_unsat'' fns fd lno fml assg st inds vimap id cfg =
+  fun check_unsat'' fns fd lno fml assg st inds vimap id cfg ht =
     case parse_cstep fns fd lno of
       (Inl s, (fns', lno')) =>
       (case cfg of (pc,_) =>
       (lno', (s, (fns',
-        (fml, (inds, pc))))))
+        (fml, (inds, (pc, (id, ht))))))))
     | (Inr cstep, (fns', lno')) =>
-      (case check_cstep_arr lno cstep fml assg st inds vimap id cfg of
-        (fml', (assg', (st', (inds', (vimap', (id', cfg')))))) =>
-        check_unsat'' fns' fd lno' fml' assg' st' inds' vimap' id' cfg')
+      (case check_cstep_arr lno cstep fml assg st inds vimap id cfg ht of
+        (fml', (assg', (st', (inds', (vimap', (id', (cfg', ht'))))))) =>
+        check_unsat'' fns' fd lno' fml' assg' st' inds' vimap' id' cfg'
+          ht')
 End
 
 Theorem read_open_LENGTH:
@@ -2208,15 +2209,15 @@ QED
   returning the last encountered state *)
 Definition parse_and_run_def:
   parse_and_run fns ss
-    fml assg st inds vimap id cfg =
+    fml assg st inds vimap id cfg ht =
   case parse_cstep fns ss of
     NONE => NONE
   | SOME (INL s, fns', rest) =>
-    SOME (rest, s, fns', fml, inds, FST cfg)
+    SOME (rest, s, fns', fml, inds, FST cfg, id, ht)
   | SOME (INR cstep, fns', rest) =>
-    (case check_cstep_list cstep fml assg st inds vimap id cfg of
-      SOME (fml', assg', st', inds', vimap', id', cfg') =>
-        parse_and_run fns' rest fml' assg' st' inds' vimap' id' cfg'
+    (case check_cstep_list cstep fml assg st inds vimap id cfg ht of
+      SOME (fml', assg', st', inds', vimap', id', cfg', ht') =>
+        parse_and_run fns' rest fml' assg' st' inds' vimap' id' cfg' ht'
     | res => NONE)
 Termination
   WF_REL_TAC `measure (LENGTH o FST o SND)`>>
@@ -2257,9 +2258,9 @@ Proof
 QED
 
 Theorem check_unsat''_spec:
-  ∀fns ss fmlls assg st inds vimap id cfg
+  ∀fns ss fmlls assg st inds vimap id cfg ht
     fnsv lno lnov fmllsv assgv stv indsv idv cfgv lines fs fmlv vimaplsv
-    vimapv.
+    vimapv htv bksv bkslsv.
   fns_TYPE a fns fnsv ∧
   NUM lno lnov ∧
   LIST_REL fslot_TYPE fmlls fmllsv ∧
@@ -2269,22 +2270,23 @@ Theorem check_unsat''_spec:
   LIST_REL vimapn_TYPE vimap vimaplsv ∧
   NUM id idv ∧
   cfg_TYPE cfg cfgv ∧
+  ht_TYPE bksv bkslsv ht htv ∧
   MAP toks_fast lines = ss
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat''" (get_ml_prog_state()))
-    [fnsv; fdv; lnov; fmlv; assgv; stv; indsv; vimapv; idv; cfgv]
+    [fnsv; fdv; lnov; fmlv; assgv; stv; indsv; vimapv; idv; cfgv; htv]
     (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs *
       ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
-      ARRAY vimapv vimaplsv)
+      ARRAY vimapv vimaplsv * ARRAY bksv bkslsv)
     (POSTve
       (λv.
-         SEP_EXISTS k lines' lno' fmlv' fmllsv' res.
+         SEP_EXISTS k lines' lno' fmlv' fmllsv' bksv' bkslsv' res.
          STDIO (forwardFD fs fd k) *
          INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
-         ARRAY fmlv' fmllsv' *
+         ARRAY fmlv' fmllsv' * ARRAY bksv' bkslsv' *
          &(
-          parse_and_run fns ss fmlls assg st inds vimap id cfg =
+          parse_and_run fns ss fmlls assg st inds vimap id cfg ht =
             SOME (MAP toks_fast lines',res) ∧
             PAIR_TYPE NUM (
             PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (
@@ -2293,13 +2295,14 @@ Theorem check_unsat''_spec:
               LIST_REL fslot_TYPE l fmllsv' ∧
               v = fmlv')
               (PAIR_TYPE (LIST_TYPE NUM)
-                (NPBC_CHECK_PROOF_CONF_TYPE))))) (lno',res) v))
+                (PAIR_TYPE NPBC_CHECK_PROOF_CONF_TYPE
+                  (PAIR_TYPE NUM (ht_TYPE bksv' bkslsv'))))))) (lno',res) v))
       (λe.
          SEP_EXISTS k lines' fmlv' fmllsv'.
            ARRAY fmlv' fmllsv' *
            STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e ∧
-            parse_and_run fns ss fmlls assg st inds vimap id cfg = NONE)))
+            parse_and_run fns ss fmlls assg st inds vimap id cfg ht = NONE)))
 Proof
   ho_match_mp_tac (fetch "-" "parse_and_run_ind")>>
   rw[]>>
@@ -2317,7 +2320,8 @@ Proof
     >- (
       xapp>>xsimpl>>
       qexistsl_tac[`ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
-        ARRAY vimapv vimaplsv`,`lines`,`fs`,`fns`,`fd`,`a`,`lno`]>>
+        ARRAY vimapv vimaplsv * ARRAY bksv bkslsv`,`lines`,`fs`,`fns`,`fd`,`a`,
+        `lno`]>>
       xsimpl>>
       rw[]>>
       qmatch_goalsub_rename_tac
@@ -2333,6 +2337,7 @@ Proof
          STDIO (forwardFD fs fd k) *
          INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          ARRAY fmlv fmllsv * NUM_ARRAY assgv assg * ARRAY vimapv vimaplsv *
+         ARRAY bksv bkslsv *
          &(
             case parse_cstep fns (MAP toks_fast lines) of
               NONE => F
@@ -2347,7 +2352,8 @@ Proof
   >- (
     xapp>>xsimpl>>
     qexistsl_tac[`ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
-      ARRAY vimapv vimaplsv`,`lines`,`fs`,`fns`,`fd`,`a`,`lno`]>>
+      ARRAY vimapv vimaplsv * ARRAY bksv bkslsv`,`lines`,`fs`,`fns`,`fd`,`a`,
+      `lno`]>>
     xsimpl>>
     rw[]>>
     asm_exists_tac>>simp[]>>
@@ -2361,19 +2367,20 @@ Proof
     xmatch>>
     rpt xlet_autop>>
     xcon>>xsimpl>>
-    qexistsl_tac[`k`,`lines'`,`lno'`,`fmlv`,`fmllsv`]>>
+    qexistsl_tac[`k`,`lines'`,`lno'`,`fmlv`,`fmllsv`,`bksv`,`bkslsv`]>>
     simp[PAIR_TYPE_def]>>
     xsimpl)>>
   rename1`parse_cstep _ _ = SOME (INR cstep,fns1,rest)`>>
   xmatch>>
   xlet`POSTve
     (λv'.
-      SEP_EXISTS fmlv' fmllsv' assgv' assg' vimapv' vimaplsv'.
+      SEP_EXISTS fmlv' fmllsv' assgv' assg' vimapv' vimaplsv' bksv' bkslsv'.
       ARRAY fmlv' fmllsv' * NUM_ARRAY assgv' assg' *
-      ARRAY vimapv' vimaplsv' * STDIO (forwardFD fs fd k) *
+      ARRAY vimapv' vimaplsv' * ARRAY bksv' bkslsv' *
+      STDIO (forwardFD fs fd k) *
       INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
       &case check_cstep_list cstep fmlls assg st inds vimap id
-          (cfg0,cfg1,cfg2) of
+          (cfg0,cfg1,cfg2) ht of
         NONE => F
       | SOME res =>
         PAIR_TYPE (λl v. LIST_REL fslot_TYPE l fmllsv' ∧ v = fmlv')
@@ -2382,25 +2389,26 @@ Proof
           (PAIR_TYPE (LIST_TYPE NUM)
             (PAIR_TYPE
               (λl v. LIST_REL vimapn_TYPE l vimaplsv' ∧ v = vimapv')
-              (PAIR_TYPE NUM cfg_TYPE))))) res v')
+              (PAIR_TYPE NUM
+                (PAIR_TYPE cfg_TYPE (ht_TYPE bksv' bkslsv'))))))) res v')
     (λe.
       SEP_EXISTS fmlv' fmllsv'.
       ARRAY fmlv' fmllsv' * STDIO (forwardFD fs fd k) *
       INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
       &(Fail_exn e ∧
         check_cstep_list cstep fmlls assg st inds vimap id
-          (cfg0,cfg1,cfg2) = NONE))`
+          (cfg0,cfg1,cfg2) ht = NONE))`
   >- (
     xapp>>xsimpl>>
     qexistsl_tac[`STDIO (forwardFD fs fd k) *
       INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k)`,
-      `cfg1`,`vimap`,`st`,`cfg0`,`inds`,`id`,`fmlls`,`cfg2`,`cstep`,`assg`,
-      `lno`]>>
+      `cfg1`,`vimap`,`st`,`cfg0`,`inds`,`id`,`ht`,`fmlls`,`cfg2`,`cstep`,
+      `bksv`,`bkslsv`,`assg`,`lno`]>>
     xsimpl>>
     rw[]
     >- simp[PAIR_TYPE_def]
     >- (first_assum (irule_at Any)>>xsimpl)>>
-    qmatch_goalsub_rename_tac`ARRAY aa bb * NUM_ARRAY _ _ * _ ==>> _`>>
+    qmatch_goalsub_rename_tac`ARRAY aa bb * NUM_ARRAY _ _ * _ * _ ==>> _`>>
     qexistsl_tac[`aa`,`bb`]>>
     xsimpl)
   >- (
@@ -2409,14 +2417,14 @@ Proof
     metis_tac[ARRAY_STDIO_INSTREAM_LINES_refl])>>
   pop_assum mp_tac>>
   TOP_CASE_TAC>>simp[]>>strip_tac>>
-  rename1`check_cstep_list _ _ _ _ _ _ _ _ = SOME res`>>
+  rename1`check_cstep_list _ _ _ _ _ _ _ _ _ = SOME res`>>
   PairCases_on`res`>>
   drule_all npbc_listTheory.fml_bound_check_cstep_list>>
   strip_tac>>
   fs[PAIR_TYPE_def,PULL_EXISTS]>>
   xmatch>>
   xapp>>xsimpl>>
-  qexistsl_tac[`emp`,`lines'`,`forwardFD fs fd k`,`lno'`]>>
+  qexistsl_tac[`emp`,`lines'`,`forwardFD fs fd k`,`bksv'`,`bkslsv'`,`lno'`]>>
   simp[]>>xsimpl>>
   rw[]>>simp[forwardFD_o]
   >- (
@@ -2594,11 +2602,11 @@ val res = translate format_err_def;
 Quote add_cakeml:
   fun check_output_hconcl_arr
     fml obj
-    fml' inds' pres' obj' bound' dbound' chk' enum'
+    fml' inds' id' ht' pres' obj' bound' dbound' chk' enum'
     fmlt prest objt
     output hconcl =
   format_err
-  (check_output_arr fml' inds'
+  (check_output_arr fml' inds' id' ht'
     pres' obj' bound' dbound' chk' fmlt prest objt output)
   (check_hconcl_arr fml obj fml' obj' bound' dbound' enum' hconcl)
 End
@@ -2607,6 +2615,8 @@ Theorem check_output_hconcl_arr_spec:
   LIST_TYPE fslot_TYPE fml fmlv ∧
   obj_TYPE obj objv ∧
   (LIST_TYPE NUM) inds1 inds1v ∧
+  NUM id1 id1v ∧
+  ht_TYPE bksv bkslsv ht1 ht1v ∧
   obj_TYPE obj1 obj1v ∧
   pres_TYPE pres1 pres1v ∧
   OPTION_TYPE INT bound1 bound1v ∧
@@ -2623,16 +2633,16 @@ Theorem check_output_hconcl_arr_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_output_hconcl_arr" (get_ml_prog_state()))
     [fmlv; objv;
-      fml1v; inds1v; pres1v; obj1v; bound1v; dbound1v; chk1v; enumv;
-      fmltv; prestv; objtv;
+      fml1v; inds1v; id1v; ht1v; pres1v; obj1v; bound1v; dbound1v; chk1v;
+      enumv; fmltv; prestv; objtv;
       outputv; hconclv]
-    (ARRAY fml1v fmllsv)
+    (ARRAY fml1v fmllsv * ARRAY bksv bkslsv)
     (POSTv v.
         ARRAY fml1v fmllsv *
         &(
         ∃s.
         (OPTION_TYPE STRING_TYPE)
-        (if check_output_list fmlls inds1 pres1 obj1
+        (if check_output_list fmlls inds1 id1 ht1 pres1 obj1
           bound1 dbound1 chk1 fmlt prest objt output ∧
           check_hconcl_list fml obj fmlls obj1
           bound1 dbound1 enum hconcl
@@ -2654,7 +2664,7 @@ QED
 Quote add_cakeml:
   fun run_concl_file fd f_ns lno s
     fml obj
-    fml' inds' pres' obj' bound' dbound' chk' enum'
+    fml' inds' id' ht' pres' obj' bound' dbound' chk' enum'
     fmlt prest objt =
   let
     val ls = TextIO.inputAllTokens #"\n" fd blanks tokenize
@@ -2665,7 +2675,7 @@ Quote add_cakeml:
       case
         check_output_hconcl_arr
         fml obj
-        fml' inds' pres' obj' bound' dbound' chk' enum'
+        fml' inds' id' ht' pres' obj' bound' dbound' chk' enum'
         fmlt prest objt
         output hconcl of
         None => Inr (output,hconcl)
@@ -2693,6 +2703,8 @@ Theorem run_concl_file_spec:
   NUM lno lnov ∧
   LIST_TYPE fslot_TYPE fml fmlv ∧
   (LIST_TYPE NUM) inds1 inds1v ∧
+  NUM id1 id1v ∧
+  ht_TYPE bksv bkslsv ht1 ht1v ∧
   obj_TYPE obj objv ∧
   obj_TYPE obj1 obj1v ∧
   pres_TYPE pres1 pres1v ∧
@@ -2708,9 +2720,10 @@ Theorem run_concl_file_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "run_concl_file" (get_ml_prog_state()))
     [fdv; fnsv;lnov;sv;
-      fmlv; objv; fml1v; inds1v; pres1v; obj1v; bound1v; dbound1v; chk1v;
-      enumv; fmltv; prestv; objtv]
-    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs * ARRAY fml1v fmllsv)
+      fmlv; objv; fml1v; inds1v; id1v; ht1v; pres1v; obj1v; bound1v;
+      dbound1v; chk1v; enumv; fmltv; prestv; objtv]
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs * ARRAY fml1v fmllsv *
+      ARRAY bksv bkslsv)
     (POSTv v.
        SEP_EXISTS res.
        STDIO (fastForwardFD fs fd) *
@@ -2723,7 +2736,7 @@ Theorem run_concl_file_spec:
           parse_output_concl s fns
              (MAP (MAP tokenize o tokens blanks) lines) =
             SOME (output,hconcl) ∧
-          check_output_list fmlls inds1
+          check_output_list fmlls inds1 id1 ht1
             pres1 obj1 bound1 dbound1 chk1 fmlt prest objt output ∧
           check_hconcl_list fml obj fmlls obj1
           bound1 dbound1 enum hconcl
@@ -2734,13 +2747,13 @@ Proof
   xlet ‘(POSTv v.
           STDIO (fastForwardFD fs fd) *
           INSTREAM_LINES #"\n" fd fdv [] (fastForwardFD fs fd) *
-          ARRAY fml1v fmllsv *
+          ARRAY fml1v fmllsv * ARRAY bksv bkslsv *
           & LIST_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
             (MAP (MAP tokenize o tokens blanks) lines) v
           )’
   >- (
     xapp_spec inputAllTokens_specialize
-    \\ qexists_tac ‘ARRAY fml1v fmllsv’
+    \\ qexists_tac ‘ARRAY fml1v fmllsv * ARRAY bksv bkslsv’
     \\ xsimpl
     \\ metis_tac[STDIO_INSTREAM_LINES_refl,STDIO_INSTREAM_LINES_refl_gc]) >>
   xlet_auto
@@ -2893,14 +2906,15 @@ Quote add_cakeml:
     val assg = Array.array (mx + 1) 0
     val vomap = mk_vomap_opt_arr obj
     val cfg = (init_conf True pres obj, (vomap, 0))
+    val ht = (0,(0,(0,Array.arrayEmpty ())))
   in
-    (case check_unsat'' fns fd lno arr assg 1 inds vimap id cfg of
+    (case check_unsat'' fns fd lno arr assg 1 inds vimap id cfg ht of
       (lno', (s, (fns',(
-        (fml', (inds', pc')))))) =>
+        (fml', (inds', (pc', (id', ht')))))))) =>
     conv_boutput_hconcl
     (get_bound pc')
     (run_concl_file fd fns' lno' s
-    fml obj fml' inds'
+    fml obj fml' inds' id' ht'
     (get_pres pc') (get_obj pc') (get_bound pc') (get_dbound pc')
     (get_chk pc') (get_enum pc')
     fmlt prest objt))
@@ -2910,12 +2924,13 @@ Quote add_cakeml:
 End
 
 Theorem parse_and_run_check_csteps_list:
-  ∀fns ss fml assg st inds vimap id cfg rest s fns' fml' inds' pc'.
-  parse_and_run fns ss fml assg st inds vimap id cfg =
-    SOME (rest, s, fns', (fml', inds', pc')) ⇒
-  ∃csteps assg' st' vimap' id' vomap' cw'.
-  check_csteps_list csteps fml assg st inds vimap id cfg =
-    SOME (fml', assg', st', inds', vimap', id', (pc', vomap', cw'))
+  ∀fns ss fml assg st inds vimap id cfg ht rest s fns' fml' inds' pc' id'
+    ht'.
+  parse_and_run fns ss fml assg st inds vimap id cfg ht =
+    SOME (rest, s, fns', (fml', inds', pc', id', ht')) ⇒
+  ∃csteps assg' st' vimap' vomap' cw'.
+  check_csteps_list csteps fml assg st inds vimap id cfg ht =
+    SOME (fml', assg', st', inds', vimap', id', (pc', vomap', cw'), ht')
 Proof
   ho_match_mp_tac parse_and_run_ind>>
   rw[]>>
@@ -3043,6 +3058,7 @@ Proof
     EVAL_TAC)>>
   `BOOL T (Conv (SOME (TypeStamp «True» 0)) [])` by EVAL_TAC>>
   rpt xlet_autop>>
+  qmatch_goalsub_rename_tac`ARRAY bkv []`>>
   `EVERY (λs. slot_bound s (mx+1)) (MAP (λc. enc c T) fml)` by (
     qspecl_then [`fml`,`1`,`REPLICATE 100000 Vnone`,`0`] mp_tac
       (INST [``b:bool``|->``T``,``b':bool``|->``T``]
@@ -3065,7 +3081,7 @@ Proof
   qabbrev_tac`assg = REPLICATE (mx+1) (0:num)`>>
   Cases_on`
     parse_and_run fns (MAP toks_fast lines) fmlls assg 1 inds vimap1
-      (LENGTH fml + 1) (init_conf T pres obj, vomap, 0)`
+      (LENGTH fml + 1) (init_conf T pres obj, vomap, 0) ht_empty`
   >- (
     xhandle`POSTe e.
       SEP_EXISTS k lines' fmlv' fmllsv'.
@@ -3080,11 +3096,15 @@ Proof
            &(Fail_exn e)`
       >- (
         xapp>>xsimpl>>
-        qexistsl_tac[`emp`,`vimap1`,`lines`,`inds`,`LENGTH fml + 1`,`fs`,`fns`,
-          `fmlls`,`fd`,`(init_conf T pres obj, vomap, 0)`,`assg`,`a`,`lno`]>>
+        qexistsl_tac[`emp`,`vimap1`,`lines`,`inds`,`LENGTH fml + 1`,
+          `ht_empty`,`fs`,`fns`,`fmlls`,`fd`,
+          `(init_conf T pres obj, vomap, 0)`,`bkv`,`[]`,`assg`,`a`,`lno`]>>
         xsimpl>>
         conj_tac >- (
           simp[PAIR_TYPE_def,Abbr`vomap`]>>
+          simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])>>
+        conj_tac >- (
+          simp[ht_TYPE_def,npbc_slotTheory.ht_empty_def,PAIR_TYPE_def]>>
           simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])>>
         rw[]>>
         qmatch_goalsub_rename_tac
@@ -3117,33 +3137,38 @@ Proof
       | INL l => T)`
   >- (
     xlet`POSTv v.
-       SEP_EXISTS k lines' lno' fmlv' fmllsv' res.
+       SEP_EXISTS k lines' lno' fmlv' fmllsv' bksv' bkslsv' res.
          STDIO (forwardFD fs fd k) *
          INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
-         ARRAY fmlv' fmllsv' *
+         ARRAY fmlv' fmllsv' * ARRAY bksv' bkslsv' *
          &(
           parse_and_run fns (MAP toks_fast lines)
             fmlls assg 1 inds vimap1 (LENGTH fml + 1)
-            (init_conf T pres obj, vomap, 0) =
+            (init_conf T pres obj, vomap, 0) ht_empty =
               SOME (MAP toks_fast lines',res) ∧
             PAIR_TYPE NUM (
             PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (
             PAIR_TYPE (fns_TYPE a) (
             PAIR_TYPE (λl v. LIST_REL fslot_TYPE l fmllsv' ∧ v = fmlv')
             (PAIR_TYPE (LIST_TYPE NUM)
-              NPBC_CHECK_PROOF_CONF_TYPE)))) (lno',res) v)`
+              (PAIR_TYPE NPBC_CHECK_PROOF_CONF_TYPE
+                (PAIR_TYPE NUM (ht_TYPE bksv' bkslsv'))))))) (lno',res) v)`
     >- (
       xapp>>xsimpl>>
-      qexistsl_tac[`emp`,`vimap1`,`lines`,`inds`,`LENGTH fml + 1`,`fs`,`fns`,
-        `fmlls`,`fd`,`(init_conf T pres obj, vomap, 0)`,`assg`,`a`,`lno`]>>
+      qexistsl_tac[`emp`,`vimap1`,`lines`,`inds`,`LENGTH fml + 1`,`ht_empty`,
+        `fs`,`fns`,`fmlls`,`fd`,`(init_conf T pres obj, vomap, 0)`,`bkv`,
+        `[]`,`assg`,`a`,`lno`]>>
       xsimpl>>
       conj_tac >- (
         simp[PAIR_TYPE_def,Abbr`vomap`]>>
         simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])>>
+      conj_tac >- (
+        simp[ht_TYPE_def,npbc_slotTheory.ht_empty_def,PAIR_TYPE_def]>>
+        simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])>>
       rw[]>>
       qmatch_goalsub_rename_tac
         `STDIO (forwardFD fs fd kk) * INSTREAM_LINES _ fd fdv ll _ *
-          ARRAY aa bb ==>> _`>>
+          ARRAY _ _ * ARRAY _ _ ==>> _`>>
       qexistsl_tac[`kk`,`ll`]>>simp[]>>
       rpt (first_assum (irule_at Any))>>
       xsimpl)>>
@@ -3165,7 +3190,7 @@ Proof
           parse_output_concl res0 (res1,res2)
              (MAP (MAP tokenize o tokens blanks) lines') =
             SOME (output,hconcl) ∧
-          check_output_list res3 res4
+          check_output_list res3 res4 res6 (res7,res8,res9,res10)
             pc'.pres pc'.obj pc'.bound pc'.dbound pc'.chk
             (MAP (λc. enc c T) fmlt) prest objt output ∧
           check_hconcl_list (MAP (λc. enc c T) fml) obj res3
@@ -3176,9 +3201,10 @@ Proof
       fs[get_pres_def,get_obj_def,get_bound_def,get_dbound_def,get_chk_def,
         get_enum_def]>>
       qexistsl_tac[`emp`,`res0`,`prest`,`pc'.pres`,`objt`,`pc'.obj`,`obj`,
-        `lines'`,`res4`,`forwardFD fs fd k`,`(res1,res2)`,
-        `MAP (λc. enc c T) fmlt`,`res3`,`MAP (λc. enc c T) fml`,`fd`,
-        `pc'.enum`,`pc'.dbound`,`pc'.chk`,`pc'.bound`,`lno'`,`a`]>>
+        `lines'`,`res4`,`res6`,`(res7,res8,res9,res10)`,`forwardFD fs fd k`,
+        `(res1,res2)`,`MAP (λc. enc c T) fmlt`,`res3`,
+        `MAP (λc. enc c T) fml`,`fd`,`pc'.enum`,`pc'.dbound`,`pc'.chk`,
+        `pc'.bound`,`bksv'`,`bkslsv'`,`lno'`,`a`]>>
       simp[PAIR_TYPE_def]>>
       xsimpl>>
       rw[]>>
