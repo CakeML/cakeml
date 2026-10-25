@@ -1,10 +1,10 @@
 (*
-  Build information (CakeML and HOL4 commits, and whether their worktrees
-  have uncommitted or untracked changes) for embedding in programs, e.g. in
-  the output of cake --version. The commits are read from build_info.txt,
-  which update_build_info.sh keeps up to date whenever Holmake reads the
-  Holmakefile in this directory. Anything that cannot be determined is
-  shown as unknown, with a warning.
+  Build information (CakeML and HOL4 commits and tags, and whether their
+  worktrees have uncommitted or untracked changes) for embedding in
+  programs, e.g. in the output of cake --version. It is read from
+  build_info.txt, which update_build_info.sh keeps up to date whenever
+  Holmake reads the Holmakefile in this directory. Anything that cannot be
+  determined is shown as unknown, with a warning.
 *)
 structure buildInfoLib =
 struct
@@ -47,7 +47,7 @@ local
       SOME (_, v) => if v = "" then NONE else SOME v
     | NONE => NONE
 
-  (* e.g. "HOL4:   <commit>-dirty"; labels are padded to line up *)
+  (* e.g. "HOL4:   <commit>-dirty (<tag>)"; labels are padded to line up *)
   fun commit_line kvs name prefix =
     let
       val label = StringCvt.padRight #" " 7 (name ^ ":")
@@ -66,8 +66,13 @@ local
                   (warn (String.concat ["it is unknown whether the ", name,
                                         " worktree is clean"]);
                    "-dirty?")
+            (* most commits are not tagged, so no warning here *)
+            val tag =
+              case lookup kvs (prefix ^ "_tag") of
+                NONE => ""
+              | SOME t => String.concat [" (", t, ")"]
           in
-            String.concat [label, " ", c, dirty, "\n"]
+            String.concat [label, " ", c, dirty, tag, "\n"]
           end
     end
 in
@@ -79,13 +84,13 @@ fun build_info name =
     val date = case lookup kvs "cakeml_date" of
                  NONE =>
                    (warn "the CakeML commit date is unknown";
-                    "unknown commit date")
+                    "unknown")
                | SOME d => d
   in
     String.concat
       [name, "\n\n",
        "Version details:\n",
-       date, "\n\n",
+       "Commit date: ", date, "\n\n",
        commit_line kvs "CakeML" "cakeml",
        commit_line kvs "HOL4" "hol",
        "PolyML: Poly/ML ", PolyML.Compiler.compilerVersion, "\n"]
