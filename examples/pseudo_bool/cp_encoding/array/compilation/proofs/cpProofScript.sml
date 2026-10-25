@@ -6,7 +6,7 @@
 Theory cpProof
 Ancestors
   semanticsProps backendProof x64_configProof TextIOProof
-  cpProg cp cp_enc cp_parse cpCompile
+  cpProg cp cp_enc cp_parse cpCompile npbc_compile_configProof
 Libs
   preamble
 
@@ -23,11 +23,12 @@ val compile_correct_applied =
   MATCH_MP compile_correct (cj 1 cp_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP cake_pb_cp_not_fail
-  |> C MATCH_MP x64_backend_config_ok
+  |> C MATCH_MP x64_backend_config_ok_pb
+  |> REWRITE_RULE[x64_config_pb_stack_conf]
   |> REWRITE_RULE[cake_pb_cp_sem_sing,AND_IMP_INTRO]
   |> REWRITE_RULE[Once (GSYM AND_IMP_INTRO)]
-  |> C MATCH_MP (CONJ(UNDISCH x64_machine_config_ok)(UNDISCH x64_init_ok))
-  |> DISCH(#1(dest_imp(concl x64_init_ok)))
+  |> C MATCH_MP (CONJ(UNDISCH x64_machine_config_ok)(UNDISCH x64_init_ok_pb))
+  |> DISCH(#1(dest_imp(concl x64_init_ok_pb)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
 Theorem cake_pb_cp_compiled_thm =
