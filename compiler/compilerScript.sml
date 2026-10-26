@@ -125,7 +125,7 @@ Optimisations can be configured using the following advanced options.
 (* == Build info =========================================================== *)
 
 Definition current_build_info_str_def:
-  current_build_info_str = ^(build_info_tm "The CakeML compiler")
+  current_build_info_str = ^(build_info_tm (SOME "The CakeML compiler"))
 End
 
 (* ========================================================================= *)

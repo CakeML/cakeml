@@ -3723,7 +3723,7 @@ val res = translate default_prob_def;
 (* == Build info =========================================================== *)
 
 Definition current_build_info_str_def:
-  current_build_info_str = ^(build_info_tm "CakePB")
+  current_build_info_str = ^(build_info_tm (SOME "CakePB"))
 End
 
 val res = translate current_build_info_str_def;

@@ -1,94 +1,113 @@
 (*
-  Build information (CakeML and HOL4 commits and tags, and whether their
-  worktrees have uncommitted or untracked changes) for embedding in
-  programs, e.g. in the output of cake --version. It is read from
-  build_info.txt, which update_build_info.sh keeps up to date whenever
-  Holmake reads the Holmakefile in this directory. Anything that cannot be
-  determined is shown as unknown, with a warning.
+  Provides build information for embedding in programs,
+  e.g. in the output of cake --version.
 *)
 structure buildInfoLib =
 struct
+
+(*
+  Depends on build_info.txt, which is maintained by update_build_info.sh,
+  which in turn is invoked via Holmake trickery.
+*)
 
 open HolKernel boolLib
 
 local
   fun warn msg = HOL_WARNING "buildInfoLib" "build_info" msg
 
+  (* Returns path to build_info.txt *)
   fun stamp_file () =
     case holpathdb.lookup_holpath {vname = "CAKEMLDIR"} of
-      NONE => NONE
+      NONE => (
+        warn "CAKEMLDIR is not registered, so build_info.txt cannot be found";
+        NONE)
     | SOME dir => SOME (OS.Path.concat (dir, "misc/build_info.txt"))
 
+  (* Converts a key=value string into a (key, value) tuple with surrounding
+     whitespace trimmed. Returns NONE if the key or value is empty. *)
   fun split_line l =
     let
+      val trim = Substring.dropl Char.isSpace o Substring.dropr Char.isSpace
       val (k, v) = Substring.position "=" (Substring.full l)
     in
       if Substring.isEmpty v then NONE
-      else SOME (Substring.string k, Substring.string (Substring.triml 1 v))
+      else
+        let
+          val k = trim k
+          val v = trim (Substring.triml 1 v)
+        in
+          if Substring.isEmpty k orelse Substring.isEmpty v then NONE
+          else SOME (Substring.string k, Substring.string v)
+        end
     end
 
-  (* The key=value pairs in build_info.txt; none if it cannot be read *)
+  (* Converts key=value pairs in build_info.txt into an association list. *)
   fun read_stamp () =
     case stamp_file () of
-      NONE =>
-        (warn "CAKEMLDIR is not registered, so build_info.txt cannot be found";
-         [])
+      NONE => []
     | SOME f =>
       let
         val ins = TextIO.openIn f
-        val s = TextIO.inputAll ins before TextIO.closeIn ins
+        val s = TextIO.inputAll ins
+                handle e => (TextIO.closeIn ins; raise e)
+        val () = TextIO.closeIn ins
       in
-        List.mapPartial split_line (String.fields (fn c => c = #"\n") s)
+        List.rev
+          (List.mapPartial split_line (String.fields (fn c => c = #"\n") s))
       end
       handle IO.Io _ => (warn ("cannot read " ^ f); [])
 
-  fun lookup kvs k =
-    case List.find (fn (k', _) => k' = k) kvs of
-      SOME (_, v) => if v = "" then NONE else SOME v
-    | NONE => NONE
+  (* Looks up key in the association list kvs. *)
+  fun lookup key kvs =
+    Option.map #2 (List.find (fn (k, _) => k = key) kvs)
 
-  (* e.g. "HOL4:   <commit>-dirty (<tag>)"; labels are padded to line up *)
+  (* Returns a string containing metadata for the repository name.
+     Example: "HOL4:   <commit>-dirty (<tag>)" *)
   fun commit_line kvs name prefix =
     let
+      fun get suffix = lookup (prefix ^ suffix) kvs
       val label = StringCvt.padRight #" " 7 (name ^ ":")
+      fun line s = label ^ " " ^ s ^ "\n"
     in
-      case lookup kvs (prefix ^ "_commit") of
+      case get "_commit" of
         NONE =>
-          (warn (String.concat ["the ", name, " commit is unknown"]);
-           label ^ " unknown\n")
+          (warn ("the " ^ name ^ " commit is unknown");
+           line "unknown")
       | SOME c =>
           let
             val dirty =
-              case lookup kvs (prefix ^ "_dirty") of
+              case get "_dirty" of
                 SOME "0" => ""
               | SOME "1" => "-dirty"
               | _ =>
-                  (warn (String.concat ["it is unknown whether the ", name,
-                                        " worktree is clean"]);
+                  (warn ("it is unknown whether the " ^ name ^
+                         " worktree is clean");
                    "-dirty?")
             (* most commits are not tagged, so no warning here *)
             val tag =
-              case lookup kvs (prefix ^ "_tag") of
+              case get "_tag" of
                 NONE => ""
-              | SOME t => String.concat [" (", t, ")"]
+              | SOME t => " (" ^ t ^ ")"
           in
-            String.concat [label, " ", c, dirty, tag, "\n"]
+            line (c ^ dirty ^ tag)
           end
     end
 in
 
-(* build_info name: the version details printed by the program called name *)
+(* Returns a string with build information about CakeML, HOL4 and PolyML.
+   If name is given, it is printed as a header above the version details. *)
 fun build_info name =
   let
     val kvs = read_stamp ()
-    val date = case lookup kvs "cakeml_date" of
-                 NONE =>
-                   (warn "the CakeML commit date is unknown";
-                    "unknown")
+    val header = case name of
+                   NONE => ""
+                 | SOME n => n ^ "\n\n"
+    val date = case lookup "cakeml_date" kvs of
+                 NONE => (warn "the CakeML commit date is unknown"; "unknown")
                | SOME d => d
   in
     String.concat
-      [name, "\n\n",
+      [header,
        "Version details:\n",
        "Commit date: ", date, "\n\n",
        commit_line kvs "CakeML" "cakeml",
@@ -96,9 +115,8 @@ fun build_info name =
        "PolyML: Poly/ML ", PolyML.Compiler.compilerVersion, "\n"]
   end
 
-(* build_info_tm name: build_info name as an mlstring literal; needs
-   mlstringTheory to be loaded (strlit is an overload for implode) *)
 fun build_info_tm name =
+  (* We don't use mlstringSyntax to avoid having misc to depend on mlstring *)
   mk_comb (prim_mk_const {Thy = "mlstring", Name = "implode"},
            stringSyntax.fromMLstring (build_info name))
 
