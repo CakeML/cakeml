@@ -189,6 +189,7 @@ val v = mk_var("v",v_ty)
 val env_tm = mk_var("env",venvironment)
 val cl_env_tm = mk_var("cl_env",venvironment)
 val state_refs_tm = prim_mk_const{Name=TypeBasePure.mk_recordtype_fieldsel {fieldname="refs",tyname="state"},Thy="semanticPrimitives"}
+val state_ptr_eq_oracle_tm = prim_mk_const{Name=TypeBasePure.mk_recordtype_fieldsel {fieldname="ptr_eq_oracle",tyname="state"},Thy="semanticPrimitives"}
 fun mk_tid name =
   optionSyntax.mk_some
     (astSyntax.mk_Short
@@ -1423,6 +1424,21 @@ fun EqualityType_rule prems ty = let
   in prove (goal,
     ConseqConv.CONSEQ_CONV_TAC EqualityType_cc \\ full_simp_tac bool_ss [])
   end
+
+(* A value binding gets a closed constant only when its type predicate pins the
+   value uniquely; otherwise the value may vary with the pointer-equality
+   oracle and the constant takes the oracle as an argument. *)
+fun unique_value_thm inv_tm x_tm = let
+  fun unique_inv inv =
+    if same_const (fst (strip_comb inv))
+         (prim_mk_const {Thy="ml_translator",Name="VECTOR_TYPE"}) then
+      MATCH_MP VECTOR_TYPE_unique (unique_inv (rand inv))
+    else MATCH_MP EqualityType_IMP_unique
+      (prove (ml_translatorSyntax.mk_EqualityType inv,
+         ConseqConv.CONSEQ_CONV_TAC EqualityType_cc
+         \\ full_simp_tac bool_ss []))
+  in SOME (ISPEC x_tm (unique_inv inv_tm)) end
+  handle HOL_ERR _ => NONE
 
 (* remove some known-true preconditions of proven eq-lemmas *)
 fun EqualityType_cc_conv ctxt tm = let
@@ -3362,6 +3378,7 @@ fun is_word_literal tm =
   else false
 
 val Num_ABS_pat = Eval_Num_ABS |> concl |> rand |> rand |> rand
+val PtrEq_if_pat = Eval_PtrEq |> concl |> rand |> rand |> rand |> rand
 
 val int_of_num_o_pat = Eval_int_of_num_o |> concl |> rand |> rand |> rand
 val o_int_of_num_pat = Eval_o_int_of_num |> concl |> rand |> rand |> rand
@@ -3624,6 +3641,23 @@ fun hol2deep ctxt tm =
     val th = MATCH_MP Eval_Or (LIST_CONJ [D th1, D th2])
     val result = UNDISCH th
     in check_inv "or" tm result end else
+  (* if ptr_eq x y then t1 else t2: the side condition x = y ⇒ t1 = t2 is
+     proved by simp if possible, otherwise it becomes a precondition *)
+  if can (match_term PtrEq_if_pat) tm then let
+    val (c,t1,t2) = dest_cond tm
+    val th1 = hol2deep ctxt (rand (rator c))
+    val th2 = hol2deep ctxt (rand c)
+    val th3 = hol2deep ctxt t1
+    val th4 = hol2deep ctxt t2
+    val th = MATCH_MP Eval_PtrEq (LIST_CONJ [th1,th2,th3,th4])
+             |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO] |> UNDISCH
+    val side = th |> concl |> dest_imp |> fst
+    val result = MP th (EQT_ELIM (SIMP_CONV (srw_ss()) [] side))
+      handle HOL_ERR _ =>
+        th |> CONV_RULE ((RATOR_CONV o RAND_CONV)
+                (REWR_CONV (GSYM (SPEC_ALL PRECONDITION_def))))
+           |> UNDISCH
+    in check_inv "ptr_eq" tm result end else
   (* if statements *)
   if is_cond tm then
     if is_precond (tm |> rator |> rator |> rand) then let
@@ -4634,6 +4668,55 @@ val options = tl [NoInd]
 val options = [NoInd]
 *)
 
+(* a top-level val must satisfy no_ptr_eq; th is an Eval theorem for it *)
+fun check_no_ptr_eq v_name th =
+  ml_progLib.prove_no_ptr_eq
+    ("translate: cannot declare " ^ v_name ^ " as a top-level val")
+    ("Evaluate the right-hand side first, e.g. " ^
+     "translate (foo_def |> CONV_RULE (RHS_CONV EVAL)), " ^
+     "or make the definition a function.")
+    (th |> concl |> rator |> rand)
+
+(* the state after a top-level declaration depends on the oracle the program
+   starts at (root_po): specify the names as Skolem functions of root_po *)
+fun skolem_spec_of_root spec_name names th args (refs_eq,po_eq) root_po = let
+  val skol = th |> SPECL args
+                |> PURE_REWRITE_RULE [refs_eq, po_eq]
+                |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
+                |> GEN root_po
+                |> Ho_Rewrite.REWRITE_RULE [SKOLEM_THM]
+  val sp = new_specification(spec_name,names,skol) |> SPEC root_po
+  val _ = delete_binding spec_name
+  in sp end
+
+(* the specification of a translated val: the value is a constant v_name
+   (keeping the env oracle-free), while the refs and oracle after it are
+   Skolem functions of the root oracle *)
+fun val_constant_spec lemma args (refs_eq,po_eq) root_po
+                      (v_name,refs_name,po_name) = let
+  val v_spec = new_specification("temp",[v_name],lemma)
+               |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL
+  val _ = delete_binding "temp"
+  in skolem_spec_of_root "temp2" [refs_name,po_name] (CONJUNCT2 v_spec) args
+       (refs_eq,po_eq) root_po
+     |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL end
+
+(* the specification of a val whose value is not pinned uniquely by its type:
+   add_Dlet requires no_ptr_eq, under which the value does not depend on the
+   oracle *)
+fun no_ptr_eq_constant_spec th (curr_refs,curr_refs_eq) (curr_po,curr_po_eq)
+                            root_po names = let
+  val no_ptr_eq_thm = check_no_ptr_eq (#1 names) th
+  val lemma =
+    Eval_constant_no_ptr_eq
+    |> C MATCH_MP no_ptr_eq_thm
+    |> C MATCH_MP th
+    |> SPEC curr_refs
+    |> PURE_REWRITE_RULE [curr_refs_eq]
+    |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
+  in val_constant_spec lemma [curr_po] (curr_refs_eq,curr_po_eq) root_po names
+  end
+
 fun translate_options options def =
   let
     val start = start_timing "translation"
@@ -4710,35 +4793,52 @@ fun translate_options options def =
         val curr_refs =
           mk_icomb(state_refs_tm,curr_state)
         val curr_refs_eq = EVAL curr_refs
+        val curr_po = mk_icomb(state_ptr_eq_oracle_tm,curr_state)
+        val curr_po_eq = EVAL curr_po
         val vs = free_vars (concl th)
         fun aux (v,th) = let
           val (ss,ii) = match_term v UNIT_TYPE
           in INST ss (INST_TYPE ii th) end
         val th1 = foldl aux th vs
-        val lemma =
-          Eval_constant
-          |> ISPEC curr_refs
-          |> PURE_REWRITE_RULE[curr_refs_eq]
-          |> C MATCH_MP th1
-          |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
+        val P_tm = th1 |> concl |> rand
+        (* the residual refs and oracle depend on the oracle the program starts
+           at, so they are Skolem functions of that root oracle *)
+        val root_po = curr_po_eq |> concl |> rhs |> free_vars
+                      |> first (fn v => type_of v = type_of curr_po)
         val v_name = find_const_name (fname ^ "_v")
         val refs_name = find_const_name (fname  ^ "_refs")
-        val v_thm_temp = new_specification("temp",[v_name,refs_name],
-                           lemma |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA])
-                         |> PURE_REWRITE_RULE [PRECONDITION_def] |> UNDISCH_ALL
-        val ref_def = CONJUNCT2 v_thm_temp
+        val po_name = find_const_name (fname  ^ "_po")
+        (* fail before any constants are created *)
+        val _ = check_no_ptr_eq v_name th
+        val refs_spec =
+          case unique_value_thm (rator P_tm) (rand P_tm) of
+            SOME uniq => let
+              val lemma =
+                Eval_constant_unique
+                |> C MATCH_MP uniq
+                |> C MATCH_MP th1
+                |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
+              in val_constant_spec lemma [curr_refs, curr_po]
+                   (curr_refs_eq,curr_po_eq) root_po
+                   (v_name,refs_name,po_name) end
+          | NONE =>
+              no_ptr_eq_constant_spec th1 (curr_refs,curr_refs_eq)
+                (curr_po,curr_po_eq) root_po (v_name,refs_name,po_name)
+        val ref_def = CONJUNCT2 refs_spec
         val _ = let
           val c = SIMP_CONV std_ss [EVERY_DEF,MAP,SND,no_change_refs_def] THENC EVAL
           val ref_def_lemma = CONV_RULE ((RATOR_CONV o RAND_CONV) c) ref_def
-          val ref_def = MP ref_def_lemma TRUTH
-          in allowing_rebind save_thm(refs_name ^ "_def", ref_def) end
+          val ref_def = MP ref_def_lemma TRUTH |> GEN root_po
+          val def_name = refs_name ^ "_def"
+          val saved = allowing_rebind save_thm(def_name, ref_def)
+          val _ = computeLib.add_persistent_funs [def_name]
+          in saved end
           handle HOL_ERR _ => TRUTH
-        val v_thm_temp = CONJUNCT1 v_thm_temp
-        val _ = delete_binding "temp"
-        val v_thm = MATCH_MP Eval_evaluate_IMP (CONJ th v_thm_temp)
+        val v_thm = MATCH_MP Eval_evaluate_IMP (CONJ th (CONJUNCT1 refs_spec))
                     |> SIMP_EqualityType_ASSUMS |> UNDISCH_ALL
-        val eval_thm = v_thm_temp |> PURE_REWRITE_RULE[GSYM curr_refs_eq]
-                       |> MATCH_MP evaluate_empty_state_IMP
+        val eval_lemma = ISPEC curr_state (Q.GEN `s` evaluate_empty_state_IMP)
+                         |> PURE_REWRITE_RULE [curr_refs_eq, curr_po_eq]
+        val eval_thm = MATCH_MP eval_lemma (CONJUNCT1 refs_spec)
         val var_str = ml_fname
         val pre_def = (case pre of NONE => TRUTH | SOME pre_def => pre_def)
         val _ = ml_prog_update (add_Dlet eval_thm var_str)
@@ -4892,26 +4992,36 @@ fun add_dec_for_v_thm ((fname,ml_fname,tm,cert,pre,mn),state) =
     val curr_env = get_env state
     val curr_refs = mk_icomb(state_refs_tm,curr_state)
     val curr_refs_eq = EVAL curr_refs
+    val curr_po = mk_icomb(state_ptr_eq_oracle_tm,curr_state)
+    val curr_po_eq = EVAL curr_po
     val th = cert |> INST[env_tm |-> curr_env]
              |> prove_Eval_assumptions
              |> D |> clean_assumptions
              |> UNDISCH_ALL
-    val lemma =
-      Eval_constant
-      |> ISPEC curr_refs
-      |> PURE_REWRITE_RULE[curr_refs_eq]
-      |> C MATCH_MP th
-      |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
+    val P_tm = th |> concl |> rand
+    val root_po = curr_po_eq |> concl |> rhs |> free_vars
+                  |> first (fn v => type_of v = type_of curr_po)
     val v_name = find_const_name (fname ^ "_v")
     val refs_name = find_const_name (fname  ^ "_refs")
-    val v_thm_temp = new_specification("temp",[v_name,refs_name],lemma) |> UNDISCH_ALL
-    val _ = delete_binding "temp"
-    val v_thm = MATCH_MP Eval_evaluate_IMP (CONJ th v_thm_temp)
+    val po_name = find_const_name (fname  ^ "_po")
+    val refs_spec =
+      case unique_value_thm (rator P_tm) (rand P_tm) of
+        SOME uniq => let
+          val lemma =
+            Eval_constant_unique
+            |> C MATCH_MP uniq
+            |> C MATCH_MP th
+            |> D |> SIMP_RULE std_ss [PULL_EXISTS_EXTRA]
+          in val_constant_spec lemma [curr_refs, curr_po]
+               (curr_refs_eq,curr_po_eq) root_po (v_name,refs_name,po_name) end
+      | NONE =>
+          no_ptr_eq_constant_spec th (curr_refs,curr_refs_eq)
+            (curr_po,curr_po_eq) root_po (v_name,refs_name,po_name)
+    val v_thm = MATCH_MP Eval_evaluate_IMP (CONJ th (CONJUNCT1 refs_spec))
                 |> SIMP_EqualityType_ASSUMS |> UNDISCH_ALL
-    val eval_thm =
-      v_thm_temp
-      |> PURE_REWRITE_RULE[GSYM curr_refs_eq]
-      |> MATCH_MP evaluate_empty_state_IMP
+    val eval_lemma = ISPEC curr_state (Q.GEN `s` evaluate_empty_state_IMP)
+                     |> PURE_REWRITE_RULE [curr_refs_eq, curr_po_eq]
+    val eval_thm = MATCH_MP eval_lemma (CONJUNCT1 refs_spec)
     val state' = add_Dlet eval_thm ml_fname state
     val _ = replace_v_thm tm v_thm
     val _ = allowing_rebind save_thm(fname ^ "_v_thm", v_thm)
@@ -5038,28 +5148,43 @@ fun declare_new_ref name tm = let
                  |> ml_progLib.clean_state
                  |> ml_progLib.get_thm
   val state_tm = ml_thm |> concl |> rand
-  val env_tm = MATCH_MP ML_code_Dlet_var ml_thm
-    |> REWRITE_RULE [ML_code_env_def]
-    |> SPEC_ALL |> concl |> rand |> rator |> rand |> rand
+  val env_tm = get_env (get_ml_prog_state ())
   val env_var = init_val_th |> concl |> rator |> rator |> rand
   val init_val_th1 = INST [env_var|->env_tm] init_val_th |> D |> clean_assumptions
   val _ = MP (D init_val_th1) TRUTH handle HOL_ERR _ =>
           failwith "translate_new_ref failed: translation of init value has preconditions"
-  val th = MATCH_MP new_ref_thm init_val_th1
+  val P_tm = init_val_th1 |> concl |> rand
+  val uniq_thm =
+    case unique_value_thm (rator P_tm) (rand P_tm) of
+      SOME u => u
+    | NONE => failwith ("translate_new_ref failed: the initial value of " ^
+                name ^ " is not pinned uniquely by its type, so its \
+                \representation may depend on the pointer-equality oracle")
+  val th = MATCH_MP (MATCH_MP new_ref_thm uniq_thm) init_val_th1
   val th = CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) th
   val th = MP th TRUTH handle HOL_ERR _ =>
           failwith "translate_new_ref failed: init value not simple enough to prove no refs changed during evaluation of init value"
-  val lemma = ISPEC state_tm (Q.GEN `s` evaluate_empty_state_IMP)
-  val s_refs_pat =  evaluate_empty_state_IMP |> concl |> rand |> rator |> rand
-      |> rator |> rand |> rand |> rator |> rand
-  val tm = find_term (can (match_term s_refs_pat)) (concl lemma)
-  val rw_lemma = EVAL tm
-  val lemma1 = PURE_REWRITE_RULE [rw_lemma] lemma
-  val th = th |> SPEC (rw_lemma |> concl |> rand)
-  val res = new_specification(name ^ "_def",[name ^ "_init_val",name ^ "_loc"],th)
-  val eval_rel_thm = CONJUNCT1 res
-  val v_def = CONJUNCT2 res
-  val th = MATCH_MP lemma1 eval_rel_thm |> PURE_REWRITE_RULE [APPEND]
+  val res = new_specification(name ^ "_def",[name ^ "_init_val"],th)
+  val init_val_def = CONJUNCT1 res
+  val curr_refs = mk_icomb(state_refs_tm,state_tm)
+  val curr_refs_eq = EVAL curr_refs
+  val curr_po = mk_icomb(state_ptr_eq_oracle_tm,state_tm)
+  val curr_po_eq = EVAL curr_po
+  val root_po = curr_po_eq |> concl |> rhs |> free_vars
+                |> first (fn v => type_of v = type_of curr_po)
+  val po_spec = skolem_spec_of_root "temp_ref_po" [name ^ "_po"]
+                  (CONJUNCT2 res) [curr_refs, curr_po]
+                  (curr_refs_eq,curr_po_eq) root_po |> UNDISCH_ALL
+  (* the allocated location counts the refs already in the state; only the
+     oracle after the allocation depends on the oracle before it *)
+  val loc_tm = po_spec |> concl |> rand
+  val loc_def = new_definition(name ^ "_loc_def",
+                  mk_eq(mk_var(name ^ "_loc", type_of loc_tm), loc_tm))
+  val v_def = CONJ init_val_def loc_def
+  val eval_lemma = ISPEC state_tm (Q.GEN `s` evaluate_empty_state_IMP)
+                   |> PURE_REWRITE_RULE [curr_refs_eq, curr_po_eq]
+  val th = MATCH_MP eval_lemma (po_spec |> PURE_REWRITE_RULE[GSYM loc_def])
+           |> PURE_REWRITE_RULE [APPEND]
   (* add_Dlet th name (get_ml_prog_state ()) *)
   val _ = ml_prog_update (add_Dlet th name)
   in allowing_rebind save_thm(name ^ "_def",v_def) end

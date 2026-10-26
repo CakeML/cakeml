@@ -1629,10 +1629,10 @@ Theorem evaluate_add_clock =
   |> DISCH_ALL |> GEN_ALL
 
 Theorem evaluate_add_clock_initial_state:
-  evaluate (es,env,initial_state ffi ma code co cc k) = (r,s') ∧
+  evaluate (es,env,initial_state ffi ma code co cc pe k) = (r,s') ∧
   r ≠ Rerr (Rabort Rtimeout_error) ⇒
   ∀extra.
-    evaluate (es,env,initial_state ffi ma code co cc (k + extra)) =
+    evaluate (es,env,initial_state ffi ma code co cc pe (k + extra)) =
     (r,s' with clock := s'.clock + extra)
 Proof
   rw [] \\ drule evaluate_add_clock \\ fs []
@@ -2001,7 +2001,11 @@ Definition simple_state_rel_def:
          (t with refs := t.refs |+ (p,Thunk m w))) /\
     (!s t xs ys.
       sr s t /\ LIST_REL (OPTREL vr) xs ys ==>
-      sr (s with globals := xs) (t with globals := ys))
+      sr (s with globals := xs) (t with globals := ys)) /\
+    (!s t. sr s t ==> s.ptr_eq_oracle = t.ptr_eq_oracle) /\
+    (!s t pe.
+      sr s t ==> sr (s with ptr_eq_oracle := pe)
+                    (t with ptr_eq_oracle := pe))
 End
 
 Theorem simple_state_rel_ffi:
@@ -2630,6 +2634,15 @@ Proof
     \\ drule_then strip_assume_tac $ iffLR simple_val_rel_alt
     \\ fs[] \\ rveq \\ simp[do_app_def]
     \\ imp_res_tac v_rel_do_eq \\ fs [])
+  \\ Cases_on `opp = BlockOp PtrEqual` THEN1
+   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+    \\ rw[Once do_app_def,AllCaseEqs(),PULL_EXISTS]
+    \\ drule_then strip_assume_tac $ iffLR simple_val_rel_alt
+    \\ fs[] \\ rveq \\ simp[do_app_def]
+    \\ imp_res_tac v_rel_do_eq \\ fs []
+    \\ `s.ptr_eq_oracle = t.ptr_eq_oracle` by fs [simple_state_rel_def]
+    \\ drule simple_val_rel_Boolv \\ strip_tac \\ fs []
+    \\ fs [simple_state_rel_def])
   \\ Cases_on `?n. opp = GlobOp (SetGlobal n)` THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ rw[Once do_app_def,AllCaseEqs(),PULL_EXISTS]
@@ -2843,6 +2856,29 @@ Proof
   \\ Cases_on `SND (s.compile_oracle 0)`
   \\ FIRST_X_ASSUM drule \\ rfs [] \\ rveq
   \\ rfs [pure_co_def, EVAL ``shift_seq k s 0``, pure_cc_def]
+  \\ `s.ptr_eq_oracle = t.ptr_eq_oracle` by fs [simple_state_rel_def]
+  \\ `!n. sr (s with <| ptr_eq_oracle := shift_seq 1 t.ptr_eq_oracle;
+                        code := s.code;
+                        compile_oracle := shift_seq 1 s.compile_oracle;
+                        clock := n |>)
+             (t with <| ptr_eq_oracle := shift_seq 1 t.ptr_eq_oracle;
+                        code := t.code;
+                        compile_oracle := shift_seq 1 ((I ## comp) o s.compile_oracle);
+                        clock := n |>)`
+       by (`!s1 t1 pe. sr s1 t1 ==>
+              sr (s1 with ptr_eq_oracle := pe) (t1 with ptr_eq_oracle := pe)`
+             by fs [simple_state_rel_def]
+           \\ gen_tac
+           \\ first_x_assum (qspecl_then
+                [`s with <| clock := n;
+                            compile_oracle := shift_seq 1 s.compile_oracle;
+                            code := s.code |>`,
+                 `t with <| clock := n;
+                            compile_oracle := shift_seq 1 ((I ## comp) o s.compile_oracle);
+                            code := t.code |>`,
+                 `shift_seq 1 t.ptr_eq_oracle`] mp_tac)
+           \\ impl_tac >- fs []
+           \\ strip_tac \\ fs [])
   \\ EVERY_CASE_TAC \\ rfs [] \\ fs [finite_mapTheory.FUPDATE_LIST_THM]
 QED
 
@@ -2865,20 +2901,20 @@ Proof
 QED
 
 Theorem initial_state_max_app[simp]:
-   (initial_state ffi max_app code co cc k).max_app = max_app
+   (initial_state ffi max_app code co cc pe k).max_app = max_app
 Proof
   EVAL_TAC
 QED
 
 Definition eval_sim_def:
-  eval_sim ffi max_app code1 co1 cc1 es1 code2 co2 cc2 es2 rel allow_fail =
+  eval_sim ffi max_app pe code1 co1 cc1 es1 code2 co2 cc2 es2 rel allow_fail =
     !k res1 s2.
-      evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 k) = (res1,s2) /\
+      evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 pe k) = (res1,s2) /\
       (allow_fail \/ res1 <> Rerr (Rabort Rtype_error)) /\
       rel code1 co1 cc1 es1 code2 co2 cc2 es2 ==>
       ?ck res2 t2.
         evaluate (es2,[],
-          initial_state ffi max_app code2 co2 cc2 (k+ck)) = (res2,t2) /\
+          initial_state ffi max_app code2 co2 cc2 pe (k+ck)) = (res2,t2) /\
         result_rel (\x y. T) (\x y. T) res1 res2 /\ s2.ffi = t2.ffi
 End
 
@@ -2889,19 +2925,19 @@ val evaluate_add_to_clock_io_events_mono_alt =
   |> SIMP_RULE std_ss [] |> GEN_ALL;
 
 Theorem initial_state_with_clock[local]:
-    (initial_state ffi ma code co cc k with clock :=
-      (initial_state ffi ma code co cc k).clock + ck) =
-    initial_state ffi ma code co cc (k + ck)
+    (initial_state ffi ma code co cc pe k with clock :=
+      (initial_state ffi ma code co cc pe k).clock + ck) =
+    initial_state ffi ma code co cc pe (k + ck)
 Proof
   fs [initial_state_def]
 QED
 
 Theorem IMP_semantics_eq:
-   eval_sim ffi max_app code1 co1 cc1 es1 code2 co2 cc2 es2 rel F /\
-   semantics (ffi:'ffi ffi_state) max_app code1 co1 cc1 es1 <> Fail ==>
+   eval_sim ffi max_app pe code1 co1 cc1 es1 code2 co2 cc2 es2 rel F /\
+   semantics (ffi:'ffi ffi_state) max_app code1 co1 cc1 pe es1 <> Fail ==>
    rel code1 co1 cc1 es1 code2 co2 cc2 es2 ==>
-   semantics ffi max_app code2 co2 cc2 es2 =
-   semantics ffi max_app code1 co1 cc1 es1
+   semantics ffi max_app code2 co2 cc2 pe es2 =
+   semantics ffi max_app code1 co1 cc1 pe es1
 Proof
   rewrite_tac [GSYM AND_IMP_INTRO]
   \\ strip_tac
@@ -2918,7 +2954,7 @@ Proof
     \\ IF_CASES_TAC \\ fs [] THEN1
      (first_x_assum (qspec_then `k'` mp_tac)
       \\ strip_tac
-      \\ Cases_on `evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 k')`
+      \\ Cases_on `evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 pe k')`
       \\ fs [eval_sim_def]
       \\ last_x_assum drule \\ fs []
       \\ CCONTR_TAC \\ fs[]
@@ -2941,8 +2977,8 @@ Proof
       \\ Cases_on `r` \\ fs []
       \\ Cases_on `e` \\ fs [])
     \\ gen_tac \\ strip_tac \\ rveq \\ fs []
-    \\ qabbrev_tac `st1 = initial_state ffi max_app code1 co1 cc1`
-    \\ qabbrev_tac `st2 = initial_state ffi max_app code2 co2 cc2`
+    \\ qabbrev_tac `st1 = initial_state ffi max_app code1 co1 cc1 pe`
+    \\ qabbrev_tac `st2 = initial_state ffi max_app code2 co2 cc2 pe`
     \\ drule evaluate_add_to_clock_io_events_mono_alt
     \\ qpat_x_assum `evaluate (es1,[],st1 k) = _` assume_tac
     \\ drule evaluate_add_to_clock_io_events_mono_alt
@@ -2982,7 +3018,7 @@ Proof
   \\ IF_CASES_TAC \\ fs []
   THEN1
    (last_x_assum (qspec_then `k` assume_tac) \\ rfs [FST_EQ_LEMMA]
-    \\ Cases_on `evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 k)` \\ fs []
+    \\ Cases_on `evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 pe k)` \\ fs []
     \\ rveq \\ fs [eval_sim_def]
     \\ first_x_assum drule \\ fs []
     \\ CCONTR_TAC \\ fs []
@@ -3038,7 +3074,7 @@ Proof
   \\ unabbrev_all_tac \\ simp [PULL_EXISTS]
   \\ simp [LNTH_fromList, PULL_EXISTS, GSYM FORALL_AND_THM]
   \\ rpt gen_tac
-  \\ Cases_on `evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 k)`
+  \\ Cases_on `evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 pe k)`
   \\ rveq \\ fs [eval_sim_def]
   \\ first_x_assum drule \\ fs []
   \\ impl_tac
@@ -3057,10 +3093,10 @@ Proof
 QED
 
 Theorem IMP_semantics_eq_no_fail:
-   eval_sim ffi max_app code1 co1 cc1 es1 code2 co2 cc2 es2 rel T ==>
+   eval_sim ffi max_app pe code1 co1 cc1 es1 code2 co2 cc2 es2 rel T ==>
    rel code1 co1 cc1 es1 code2 co2 cc2 es2 ==>
-   semantics ffi max_app code2 co2 cc2 es2 =
-   semantics ffi max_app code1 co1 cc1 es1
+   semantics ffi max_app code2 co2 cc2 pe es2 =
+   semantics ffi max_app code1 co1 cc1 pe es1
 Proof
   strip_tac
   \\ once_rewrite_tac [EQ_SYM_EQ]
@@ -3079,7 +3115,7 @@ Proof
     \\ IF_CASES_TAC \\ fs [] THEN1
      (first_x_assum (qspec_then `k'` mp_tac)
       \\ strip_tac
-      \\ Cases_on `evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 k')`
+      \\ Cases_on `evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 pe k')`
       \\ fs [eval_sim_def]
       \\ last_x_assum drule \\ fs []
       \\ CCONTR_TAC \\ fs[]
@@ -3097,8 +3133,8 @@ Proof
       \\ asm_exists_tac \\ fs []
       \\ every_case_tac \\ fs [] \\ rveq \\ fs [])
     \\ gen_tac \\ strip_tac \\ rveq \\ fs []
-    \\ qabbrev_tac `st1 = initial_state ffi max_app code1 co1 cc1`
-    \\ qabbrev_tac `st2 = initial_state ffi max_app code2 co2 cc2`
+    \\ qabbrev_tac `st1 = initial_state ffi max_app code1 co1 cc1 pe`
+    \\ qabbrev_tac `st2 = initial_state ffi max_app code2 co2 cc2 pe`
     \\ drule evaluate_add_to_clock_io_events_mono_alt
     \\ qpat_x_assum `evaluate (es1,[],st1 k) = _` assume_tac
     \\ drule evaluate_add_to_clock_io_events_mono_alt
@@ -3137,7 +3173,7 @@ Proof
   \\ IF_CASES_TAC \\ fs []
   THEN1
    (last_x_assum (qspec_then `k` assume_tac) \\ rfs [FST_EQ_LEMMA]
-    \\ Cases_on `evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 k)` \\ fs []
+    \\ Cases_on `evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 pe k)` \\ fs []
     \\ rveq \\ fs [eval_sim_def]
     \\ first_x_assum drule \\ fs []
     \\ CCONTR_TAC \\ fs []
@@ -3193,7 +3229,7 @@ Proof
   \\ unabbrev_all_tac \\ simp [PULL_EXISTS]
   \\ simp [LNTH_fromList, PULL_EXISTS, GSYM FORALL_AND_THM]
   \\ rpt gen_tac
-  \\ Cases_on `evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 k)`
+  \\ Cases_on `evaluate (es1,[],initial_state ffi max_app code1 co1 cc1 pe k)`
   \\ rveq \\ fs [eval_sim_def]
   \\ first_x_assum drule \\ fs []
   \\ strip_tac \\ fs []
@@ -3218,7 +3254,8 @@ Definition adj_orac_rel_def:
       ffi := s1.ffi; clock := s1.clock;
       compile := cc;
       compile_oracle := (f ## I) o s1.compile_oracle;
-      code := s1.code; max_app := s1.max_app |>
+      code := s1.code; max_app := s1.max_app;
+      ptr_eq_oracle := s1.ptr_eq_oracle |>
 End
 
 Theorem do_install_adj_orac:
@@ -3245,6 +3282,7 @@ Proof
   \\ fs [bool_case_eq] \\ rveq \\ fs []
   \\ fs [adj_orac_rel_def, FUN_EQ_THM]
   \\ fsrw_tac [SATISFY_ss] []
+  \\ fs [closSemTheory.state_component_equality, o_DEF]
 QED
 
 Theorem do_app_lemma_simp[local]:
@@ -3347,11 +3385,11 @@ Proof
 QED
 
 Theorem semantics_adj_orac:
-   semantics ffi max_app code co cc_x es ≠ Fail /\
+   semantics ffi max_app code co cc_x pe es ≠ Fail /\
    (co_x = (f ## I) o co) /\
    (!n x y. co n = (x, y) ==> cc (f x) y = OPTION_MAP (I ## (I ## f)) (cc_x x y)) ==>
-   semantics ffi max_app code co_x cc es =
-   semantics ffi max_app code co cc_x es
+   semantics ffi max_app code co_x cc pe es =
+   semantics ffi max_app code co cc_x pe es
 Proof
   rw[]
   \\ irule IMP_semantics_eq
@@ -3360,7 +3398,7 @@ Proof
   \\ qspec_then `f` drule (Q.GEN `f` (CONJUNCT1 evaluate_adj_orac))
   \\ simp []
   \\ disch_then (qspecl_then [`f`, `cc`,
-        `initial_state ffi max_app code ((f ## I) o co) cc k`] mp_tac)
+        `initial_state ffi max_app code ((f ## I) o co) cc pe k`] mp_tac)
   \\ impl_tac
   >- (
     simp[adj_orac_rel_def, initial_state_def]
@@ -3374,9 +3412,9 @@ QED
 
 Theorem semantics_CURRY_I_gen:
    (∀n x y. co n = (x, y) ⇒ cc_x x y = state_cc (CURRY I) cc x y) ⇒
-   semantics ffi max_app code co cc_x es ≠ Fail ⇒
-   semantics ffi max_app code (state_co (CURRY I) co) cc es =
-   semantics ffi max_app code co cc_x es
+   semantics ffi max_app code co cc_x pe es ≠ Fail ⇒
+   semantics ffi max_app code (state_co (CURRY I) co) cc pe es =
+   semantics ffi max_app code co cc_x pe es
 Proof
   rw[]
   \\ irule semantics_adj_orac
@@ -3388,9 +3426,9 @@ Proof
 QED
 
 Theorem semantics_CURRY_I:
-   semantics ffi max_app code co (state_cc (CURRY I) cc) es ≠ Fail ⇒
-   semantics ffi max_app code (state_co (CURRY I) co) cc es =
-   semantics ffi max_app code co (state_cc (CURRY I) cc) es
+   semantics ffi max_app code co (state_cc (CURRY I) cc) pe es ≠ Fail ⇒
+   semantics ffi max_app code (state_co (CURRY I) co) cc pe es =
+   semantics ffi max_app code co (state_cc (CURRY I) cc) pe es
 Proof
   rw[]
   \\ irule semantics_CURRY_I_gen
@@ -3398,7 +3436,7 @@ Proof
 QED
 
 Theorem semantics_nil[simp]:
-   semantics ffi maxapp code co cc [] = Terminate Success ffi.io_events
+   semantics ffi maxapp code co cc pe [] = Terminate Success ffi.io_events
 Proof
   rw[semantics_def, evaluate_def]
   \\ DEEP_INTRO_TAC some_intro
@@ -3850,9 +3888,9 @@ Proof
 QED
 
 Theorem initial_state_clock:
-  (initial_state ffi max_app f co cc k).clock = k /\
-  ((initial_state ffi max_app f co cc k' with clock := k) =
-   initial_state ffi max_app f co cc k)
+  (initial_state ffi max_app f co cc pe k).clock = k /\
+  ((initial_state ffi max_app f co cc pe k' with clock := k) =
+   initial_state ffi max_app f co cc pe k)
 Proof
   EVAL_TAC
 QED

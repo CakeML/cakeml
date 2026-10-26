@@ -123,6 +123,7 @@ Definition from_op_def:
   (from_op (FromTo t1 t2)      =
      Expr [Atom «FromTo»; from_prim_type t1; from_prim_type t2]) ∧
   (from_op Equality            = Atom «Equality») ∧
+  (from_op PtrEq               = Atom «PtrEq») ∧
   (from_op (Test x t)          =
      Expr [Atom «Test»; from_test x; from_prim_type t]) ∧
   (from_op Opapp               = Atom «Opapp») ∧
@@ -522,6 +523,7 @@ End
 Definition to_op_def:
   (to_op (Atom s) =
      if s = «Equality» then return Equality
+     else if s = «PtrEq» then return PtrEq
      else if s = «Opapp» then return Opapp
      else if s = «Opassign» then return Opassign
      else if s = «Opref» then return Opref

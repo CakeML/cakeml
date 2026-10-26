@@ -10,36 +10,28 @@ Ancestors
 Libs
   preamble
 
-val caketaiger_io_events_def = new_specification("caketaiger_io_events_def",["caketaiger_io_events"],
-  main_semantics |> Q.GENL[`ext`,`cl`,`fs`]
-  |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
-
-val (caketaiger_sem,caketaiger_output) = caketaiger_io_events_def |> SPEC_ALL
-  |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR;
-val (caketaiger_not_fail,caketaiger_sem_sing) = caketaiger_sem
-  |> SRULE [caketaiger_compiled,ml_progTheory.prog_syntax_ok_semantics]
-  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR;
-
 Theorem x64_config'_eq[local]:
   x64_config' = x64_backend_config
 Proof
   simp[x64_config'_def]
 QED
 
-val compile_correct_applied =
-  MATCH_MP compile_correct (cj 1 caketaiger_compiled |> REWRITE_RULE[x64_config'_eq])
-  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
-  |> C MATCH_MP caketaiger_not_fail
-  |> C MATCH_MP x64_backend_config_ok
-  |> REWRITE_RULE[caketaiger_sem_sing,AND_IMP_INTRO]
-  |> REWRITE_RULE[Once (GSYM AND_IMP_INTRO)]
-  |> C MATCH_MP (CONJ(UNDISCH x64_machine_config_ok)(UNDISCH x64_init_ok))
-  |> DISCH(#1(dest_imp(concl x64_init_ok)))
-  |> REWRITE_RULE[AND_IMP_INTRO]
+val caketaiger_terminate = UNDISCH_ALL main_semantics
+  |> SIMP_RULE bool_ss [RIGHT_EXISTS_AND_THM]
+  |> HO_MATCH_MP ml_progTheory.sem_satisfies_IMP_Terminate
+  |> SRULE [caketaiger_compiled];
 
 Theorem caketaiger_compiled_thm =
-  CONJ compile_correct_applied caketaiger_output
-  |> DISCH_ALL
+  MATCH_MP compile_correct (cj 1 caketaiger_compiled |> REWRITE_RULE[x64_config'_eq])
+  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
+  |> C MATCH_MP (cj 1 caketaiger_terminate)
+  |> C MATCH_MP x64_backend_config_ok
+  |> Q.GEN ‘mc’ |> ISPEC (x64_init_ok |> concl |> rand |> rand) |> UNDISCH_ALL
+  |> MATCH_MP (cj 2 caketaiger_terminate)
+  |> REWRITE_RULE [targetPropsTheory.machine_sem_sing] |> DISCH_ALL
+  |> CONJ (UNDISCH is_x64_machine_config_IMP)
+  |> SRULE [SF CONJ_ss] |> CONJUNCT2 |> DISCH_ALL
+  |> REWRITE_RULE [AND_IMP_INTRO, GSYM CONJ_ASSOC]
   |> check_thm
 
 (* Prettifying the standard parts of all the theorems *)
@@ -71,11 +63,11 @@ End
 
 Theorem machine_code_sound:
   caketaiger_run cl fs mc ms ⇒
+  ∃io.
   machine_sem mc (basis_ffi ext cl fs) ms ⊆
-    extend_with_resource_limit
-      {Terminate Success (caketaiger_io_events ext cl fs)} ∧
+    extend_with_resource_limit {Terminate Success io} ∧
   ∃fs' out.
-    extract_fs ext (cl,fs) (caketaiger_io_events ext cl fs) =
+    extract_fs ext (cl,fs) io =
       SOME (add_stdout fs' out) ∧
     stdout fs = stdout fs' ∧
     main_sem cl fs fs' out
@@ -85,8 +77,8 @@ Proof
   drule_at (Pos last) caketaiger_compiled_thm>>
   simp[AND_IMP_INTRO]>>
   disch_then drule>>
-  disch_then (qspecl_then [`ms`,`mc`,`ext`,`data_sp`,`cbspace`] mp_tac)>>
-  simp[]>>
-  rw[]>>simp[]>>
+  disch_then (qspecl_then [`ms`,`ext`,`data_sp`,`cl`,`cbspace`] mp_tac)>>
+  simp[]>>strip_tac>>
+  qexists_tac`io_events`>>simp[]>>
   metis_tac[]
 QED

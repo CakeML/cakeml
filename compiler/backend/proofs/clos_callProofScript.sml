@@ -391,7 +391,8 @@ Definition state_rel_def:
     (s.max_app = t.max_app) ∧
     LIST_REL (OPTREL (v_rel g l t.code)) s.globals t.globals ∧
     fmap_rel (ref_rel (v_rel g l t.code)) s.refs t.refs ∧
-    s.code = FEMPTY
+    s.code = FEMPTY ∧
+    t.ptr_eq_oracle = s.ptr_eq_oracle
 End
 
 Theorem state_rel_max_app:
@@ -3091,6 +3092,7 @@ Proof
           (CCONTR_TAC \\ imp_res_tac calls_length \\ fs [] \\ rveq \\ fs [])
         \\ qabbrev_tac `t1 = t with
             <|clock := 0; compile_oracle := shift_seq 1 t.compile_oracle;
+              ptr_eq_oracle := shift_seq 1 t.ptr_eq_oracle;
               code := t.code |++ SND progs|>`
         \\ qexists_tac `ck`
         \\ qexists_tac `t1`
@@ -3101,6 +3103,7 @@ Proof
          (`wfv_state g2 l2 t.code
              (r with
               <| clock := 0; compile_oracle := shift_seq 1 r.compile_oracle;
+                 ptr_eq_oracle := shift_seq 1 r.ptr_eq_oracle;
                  code := r.code |>)` by fs [wfv_state_def,shift_seq_def]
           \\ fs [shift_seq_def,FUPDATE_LIST]
           \\ match_mp_tac (GEN_ALL wfv_state_subg)
@@ -3129,13 +3132,16 @@ Proof
                 (exps,[],
                  r with
                  <|clock := t.clock − 1;
-                   compile_oracle := (λi. r.compile_oracle (i + 1))|>)` \\ fs [] \\ rveq \\ fs []
+                   compile_oracle := (λi. r.compile_oracle (i + 1));
+                   ptr_eq_oracle := (λi. r.ptr_eq_oracle (i + 1));
+                   code := FEMPTY|>)` \\ fs [] \\ rveq \\ fs []
       \\ `q ≠ Rerr (Rabort Rtype_error)` by (every_case_tac \\ fs [] \\ rveq \\ fs [])
       \\ fs []
       \\ first_x_assum drule
       \\ disch_then (qspecl_then [`[]`,`t with
             <|clock := t.clock − 1;
               compile_oracle := (λi. t.compile_oracle (i + 1));
+              ptr_eq_oracle := (λi. t.ptr_eq_oracle (i + 1));
               code := FOLDL $|+ t.code aux1|>`, `l2'`, `g2'`] mp_tac)
       \\ simp [] \\ rfs []
       \\ `exp1 <> []` by
@@ -3168,7 +3174,8 @@ Proof
       \\ conj_tac THEN1
        (`wfv_state g2 l2 t.code (r with
           <|clock := t.clock − 1;
-            compile_oracle := (λi. r.compile_oracle (i + 1))|>)`
+            compile_oracle := (λi. r.compile_oracle (i + 1)); code := FEMPTY;
+            ptr_eq_oracle := (λi. r.ptr_eq_oracle (i + 1))|>)`
               by (fs [code_inv_def,wfv_state_def] \\ fs [] \\ rfs [])
         \\ match_mp_tac (GEN_ALL wfv_state_subg)
         \\ asm_exists_tac \\ fs [GSYM FUPDATE_LIST])
@@ -4524,13 +4531,13 @@ Proof
 QED
 
 Theorem semantics_calls:
-   semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc x <> Fail ==>
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc pe x <> Fail ==>
    compile T x = (y,g0,aux) /\ every_Fn_SOME x ∧ every_Fn_vs_NONE x /\
    ALL_DISTINCT (code_locs x) /\
    FST (FST (co 0)) = g0 /\
    code_inv NONE (set (code_locs x)) FEMPTY cc co (FEMPTY |++ add_metadata empty_metadata aux) cc1 co1 ==>
-   semantics (ffi:'ffi ffi_state) max_app (FEMPTY |++ add_metadata empty_metadata aux) co1 cc1 y =
-   semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc x
+   semantics (ffi:'ffi ffi_state) max_app (FEMPTY |++ add_metadata empty_metadata aux) co1 cc1 pe y =
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc pe x
 Proof
   strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
@@ -4546,7 +4553,7 @@ Proof
   \\ drule evaluate_code
   \\ strip_tac \\ fs [initial_state_def]
   \\ disch_then (qspecl_then [`[]`,
-      `initial_state ffi max_app (FOLDL $|+ FEMPTY (add_metadata empty_metadata aux)) co1 cc1 k`,
+      `initial_state ffi max_app (FOLDL $|+ FEMPTY (add_metadata empty_metadata aux)) co1 cc1 pe k`,
       `set (code_locs x) DIFF domain (FST (FST (co 0)))`,
       `(FST (FST (co 0)), aux)`] mp_tac)
   \\ fs []
@@ -4585,16 +4592,16 @@ Proof
 QED
 
 Theorem semantics_compile:
-   semantics ffi max_app FEMPTY co cc x ≠ Fail ∧
+   semantics ffi max_app FEMPTY co cc pe x ≠ Fail ∧
    compile do_call x = (y,g1,aux) ∧
    (if do_call then
     syntax_ok x ∧ g1 = FST (FST (co 0)) ∧
     code_inv NONE (set (code_locs x)) FEMPTY cc co (FEMPTY |++ add_metadata empty_metadata aux) cc1 co1
     else cc = state_cc (CURRY I) cc1 ∧
          co1 = state_co (CURRY I) co) ⇒
-   semantics ffi max_app (FEMPTY |++ add_metadata empty_metadata aux) co1 cc1 y
+   semantics ffi max_app (FEMPTY |++ add_metadata empty_metadata aux) co1 cc1 pe y
    =
-   semantics ffi max_app FEMPTY co cc x
+   semantics ffi max_app FEMPTY co cc pe x
 Proof
   reverse(Cases_on`do_call`)
   \\ rw[compile_def]

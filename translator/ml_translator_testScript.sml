@@ -1039,4 +1039,26 @@ val _ = List.app (fn (name, primitive) => let
    ("smallint_mod_str_pre_test", “UnsafeIndexArith ast$Mod”),
    ("smallint_lt_str_pre_test", “UnsafeIndexTest (Compare Lt)”)];
 
+(* if ptr_eq: a pointer-equality fast path. The side condition
+   x = y ⇒ t1 = t2 is discharged automatically when simp can prove it. *)
+Definition ptr_eq_fast_eq_def:
+  ptr_eq_fast_eq (xs:num list) ys = if ptr_eq xs ys then T else xs = ys
+End
+
+val ptr_eq_fast_eq_translation = translate ptr_eq_fast_eq_def;
+val _ = null (hyp ptr_eq_fast_eq_translation) orelse
+        failwith "ptr_eq fast path retained a precondition";
+val _ = can (find_term (can (match_term “App PtrEq args”)))
+          (fetch "-" "ptr_eq_fast_eq_v_def" |> concl |> rhs) orelse
+        failwith "ptr_eq was not translated to PtrEq";
+
+(* when the branches can differ on equal arguments, x = y ⇒ t1 = t2 becomes
+   a precondition (here simplified to x ≠ y) *)
+Definition ptr_eq_pre_test_def:
+  ptr_eq_pre_test (x:num) y = if ptr_eq x y then x else y + 1
+End
+
+val _ = check_precondition ptr_eq_pre_test_def
+  “λ(x:num) (y:num). x ≠ y”;
+
 end;

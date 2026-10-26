@@ -14,10 +14,10 @@ val write_def = ml_progTheory.write_def;
 
 Definition EvalPatRel_def:
   EvalPatRel env a p pat ⇔
-    ∀x av. a x av ⇒ ∀refs.
-      evaluate_match (empty_state with refs := refs) env av
+    ∀x av. a x av ⇒ ∀refs po.
+      evaluate_match (build_state refs po) env av
         [(p,Con NONE [])] ARB =
-        (empty_state with refs := refs,
+        (build_state refs po,
          if ∃vars. pat vars = x
          then Rval([Conv NONE []]) else Rerr(Rraise ARB))
 End
@@ -154,7 +154,7 @@ Proof
   fs [PMATCH_ROW_COND_def] >>
   rw[EvalPatRel_def] >>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
-  first_x_assum(qspec_then`refs`mp_tac) >>
+  first_x_assum(qspecl_then[`refs`,`ARB`]mp_tac) >>
   simp [evaluate_def] >>
   every_case_tac >> fs []
 QED
@@ -167,7 +167,7 @@ Theorem pmatch_PMATCH_ROW_COND_Match:
 Proof
   rw[EvalPatRel_def,PMATCH_ROW_COND_def] >>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
-  first_x_assum(qspec_then`refs`mp_tac) >>
+  first_x_assum(qspecl_then[`refs`,`ARB`]mp_tac) >>
   simp [evaluate_def] >>
   every_case_tac >>
   fs [pmatch_def,build_conv_def,do_con_check_def] >>
@@ -230,15 +230,15 @@ Proof
    (fs [pmatch_all_no_type_error_def,pmatch_no_type_error_def]
     \\ fs[EvalPatRel_def] \\ rw [] \\ res_tac
     \\ rename [`pmatch env.c refs2`]
-    \\ pop_assum (qspec_then `refs2` strip_assume_tac)
+    \\ pop_assum (qspecl_then [`refs2`,`ARB`] strip_assume_tac)
     \\ fs [CaseEq"bool",evaluate_def,CaseEq"match_result"])
   \\ rpt (pop_assum mp_tac)
   \\ rw[Eval_def,CONTAINER_def]
   \\ rw[evaluate_def,PULL_EXISTS] \\ fs[]
-  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
+  \\ first_x_assum(qspecl_then[`refs`,`po`]strip_assume_tac)
   \\ reverse (Cases_on`∃vars. PMATCH_ROW_COND pat (K T) xv vars` >> fs[])
   THEN1
-   (first_x_assum(qspec_then`refs`strip_assume_tac)
+   (first_x_assum(qspecl_then[`refs`,`po`]strip_assume_tac)
     \\ drule (GEN_ALL pmatch_PMATCH_ROW_COND_No_match)
     \\ rpt (disch_then drule) \\ rw []
     \\ simp [eval_rel_def,PULL_EXISTS]
@@ -273,7 +273,7 @@ Proof
             mp_tac(CONJUNCT1 pmatch_imp_Pmatch)
       \\ simp[] \\ metis_tac[])
   \\ first_x_assum drule \\ simp[]
-  \\ disch_then(qspec_then`refs++refs'`strip_assume_tac)
+  \\ disch_then(qspecl_then[`refs++refs'`,`po'`]strip_assume_tac)
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt strip_tac \\ fs [eval_rel_def,PULL_EXISTS,evaluate_def]
   \\ rfs [pair_case_eq,result_case_eq,PULL_EXISTS]

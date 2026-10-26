@@ -41,18 +41,15 @@ Proof
   fs [compiler_instance_def]
 QED
 
-val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events"],
-  semantics_compiler32_prog
-  |> SRULE [ml_progTheory.prog_syntax_ok_semantics, compiler32_compiled]
+val cake_terminate = semantics_compiler32_prog
   |> Q.INST[‘eval_state_var’|->‘the_EvalDecs (mk_init_eval_state compiler_instance)’]
   |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_init_eval_state_def,the_EvalDecs_def]
   |> SIMP_RULE (srw_ss()) [GSYM source_evalProofTheory.mk_init_eval_state_def
                            |> SIMP_RULE (srw_ss()) []]
-  |> Q.INST [`ext`|->`no_ext`] |> Q.GENL[`cl`,`fs`]
-  |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
-
-val (cake_sem,cake_output) = cake_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
-val (cake_not_fail,cake_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_sem |> CONJ_PAIR
+  |> Q.INST [`ext`|->`no_ext`]
+  |> UNDISCH_ALL
+  |> HO_MATCH_MP ml_progTheory.sem_satisfies_IMP_Terminate
+  |> SRULE [compiler32_compiled];
 
 Theorem extcalls_ffi_names:
   extcalls cake_config.lab_conf.ffi_names = ffis
@@ -117,9 +114,9 @@ val compile_correct_applied =
   |> Q.INST [‘ev’|->‘SOME compiler_instance’]
   |> SIMP_RULE (srw_ss()) [add_eval_state_def,opt_eval_config_wf_def,
                            compiler_instance_lemma]
-  |> C MATCH_MP cake_not_fail
+  |> C MATCH_MP (cj 1 cake_terminate)
   |> C MATCH_MP ag32_backend_config_ok
-  |> REWRITE_RULE[cake_sem_sing,AND_IMP_INTRO]
+  |> REWRITE_RULE[AND_IMP_INTRO]
   |> REWRITE_RULE[Once (GSYM AND_IMP_INTRO)]
   |> C MATCH_MP (CONJ(UNDISCH ag32_machine_config_ok)(UNDISCH ag32_init_ok))
   |> DISCH(#1(dest_imp(concl ag32_init_ok)))
@@ -129,7 +126,9 @@ val compile_correct_applied =
   |> REWRITE_RULE[AND_IMP_INTRO]
 
 Theorem cake_compiled_thm =
-  CONJ compile_correct_applied cake_output
+  compile_correct_applied |> UNDISCH_ALL
+  |> MATCH_MP (cj 2 cake_terminate)
+  |> REWRITE_RULE [targetPropsTheory.machine_sem_sing]
   |> DISCH_ALL
   |> check_thm;
 
@@ -172,6 +171,8 @@ QED
 Theorem cake_machine_sem =
   compile_correct_applied
   |> C MATCH_MP (UNDISCH cake_installed)
+  |> MATCH_MP (cj 2 cake_terminate)
+  |> REWRITE_RULE [targetPropsTheory.machine_sem_sing]
   |> DISCH_ALL;
 
 (* TODO: move *)
@@ -339,8 +340,10 @@ QED
 (* -- *)
 
 Theorem cake_extract_writes:
-   wfcl cl ⇒
-   let events = MAP get_output_io_event (cake_io_events cl (stdin_fs inp)) in
+   wfcl cl ∧
+   extract_fs no_ext (cl,stdin_fs inp) io =
+     SOME (full_compile_32 (TL cl) inp (stdin_fs inp)) ⇒
+   let events = MAP get_output_io_event io in
    let out = extract_writes 1 events in
    let err = extract_writes 2 events in
    if has_help_flag (TL cl) then
@@ -365,7 +368,7 @@ Proof
   \\ ‘IS_SOME (stdin_content fs) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs’ by
     (simp[wfFS_stdin_fs, STD_streams_stdin_fs, Abbr‘fs’,
           TextIOProofTheory.stdin_content_def, stdin_fs_def])
-  \\ drule_all(GEN_ALL(DISCH_ALL cake_output))
+  \\ qpat_x_assum ‘extract_fs _ _ _ = _’ mp_tac
   \\ unabbrev_all_tac
   \\ simp[compilerTheory.full_compile_32_def]
   \\ pairarg_tac \\ simp[]
@@ -560,14 +563,17 @@ Theorem cake_ag32_next:
    LENGTH inp ≤ stdin_size ∧
    is_ag32_init_state (init_memory code data (extcalls info.lab_conf.ffi_names) (cl,inp)) ms0
   ⇒
-   ∃k1. ∀k. k1 ≤ k ⇒
-     let ms = FUNPOW Next k ms0 in
-     let outs = MAP (get_ag32_io_event) ms.io_events in
-       (ms.PC = (cake_machine_config).halt_pc) ∧
-       (get_mem_word ms.MEM ms.PC = Encode (Jump (fAdd,0w,Imm 0w))) ∧
-       outs ≼ MAP get_output_io_event (cake_io_events cl (stdin_fs inp)) ∧
-       ((ms.R (n2w (cake_machine_config).ptr_reg) = 0w) ⇒
-        (outs = MAP get_output_io_event (cake_io_events cl (stdin_fs inp))))
+   ∃io.
+     extract_fs no_ext (cl,stdin_fs inp) io =
+       SOME (full_compile_32 (TL cl) inp (stdin_fs inp)) ∧
+     ∃k1. ∀k. k1 ≤ k ⇒
+       let ms = FUNPOW Next k ms0 in
+       let outs = MAP (get_ag32_io_event) ms.io_events in
+         (ms.PC = (cake_machine_config).halt_pc) ∧
+         (get_mem_word ms.MEM ms.PC = Encode (Jump (fAdd,0w,Imm 0w))) ∧
+         outs ≼ MAP get_output_io_event io ∧
+         ((ms.R (n2w (cake_machine_config).ptr_reg) = 0w) ⇒
+          (outs = MAP get_output_io_event io))
 Proof
   strip_tac
   \\ drule (GEN_ALL cake_machine_sem)
@@ -578,6 +584,8 @@ Proof
    (fs[STD_streams_stdin_fs, wfFS_stdin_fs]
     \\ gvs [TextIOProofTheory.stdin_content_def, stdin_fs_def])
   \\ strip_tac
+  \\ qexists_tac ‘io_events’
+  \\ conj_tac >- fs []
   \\ irule ag32_next
   \\ rpt (conj_tac >- (simp[ffi_names,extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC))
   \\ goal_assum(first_assum o mp_then Any mp_tac)

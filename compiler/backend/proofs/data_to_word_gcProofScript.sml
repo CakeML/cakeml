@@ -4660,6 +4660,13 @@ Definition state_rel_thm:
        flat s.stack t.stack)
 End
 
+(* the word state runs the data state's pointer-equality oracle, attenuated by
+   the do_eq-equivalent heap relation *)
+Definition ptr_eq_link_def:
+  ptr_eq_link c (s:('c,'ffi) dataSem$state) (t:('a,'c,'ffi) wordSem$state) ⇔
+    t.ptr_eq_rel = word_ptr_eq c ∧ t.ptr_eq_oracle = SOME s.ptr_eq_oracle
+End
+
 Theorem state_rel_thm[allow_rebind] =
   state_rel_thm
 
@@ -4677,6 +4684,14 @@ QED
 Theorem state_rel_with_fp_regs:
    state_rel a b c s1 (s2:('a,'c,'ffi) wordSem$state) d e ⇒
    state_rel a b c s1 (s2 with fp_regs := f) d e
+Proof
+  srw_tac[][state_rel_def] \\ fs []
+QED
+
+(* the relation places no constraint on the pointer-equality oracle *)
+Theorem state_rel_with_ptr_eq_oracle:
+   state_rel a b c (s1:('c,'ffi) dataSem$state) s2 d e ⇒
+   state_rel a b c (s1 with ptr_eq_oracle := f) s2 d e
 Proof
   srw_tac[][state_rel_def] \\ fs []
 QED
@@ -4750,7 +4765,7 @@ Theorem state_rel_init:
     lim.has_fp_tops = c.has_fp_tern /\
     conf_ok (dimindex (:'a)) c /\
     init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ==>
-    state_rel c l1 l2 (initial_state ffi code co cc T lim t.stack_size t.clock)
+    state_rel c l1 l2 (initial_state ffi code co cc pe T lim t.stack_size t.clock)
                       (t:('a,'c,'ffi) state) NONE []
 Proof
   simp_tac std_ss [word_list_exists_ADD,conf_ok_def,init_store_ok_def]

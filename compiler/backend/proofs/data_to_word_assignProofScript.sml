@@ -11,7 +11,7 @@ Ancestors
   wordSem[qualified] data_to_word int_bitwise dataProps
   data_to_word_bignumProof wordProps While set_sep
   semanticsProps alignment backendProps word_bignum wordLang
-  word_bignumProof gc_shared word_gcFunctions word_simpProof
+  word_bignumProof gc_shared word_gcFunctions word_simpProof wordConvs
 
 val _ = augment_srw_ss [rewrites [CONJUNCT2 data_to_wordTheory.arch_size]];
 
@@ -2589,6 +2589,129 @@ val assign_thm_goal =
      (q <> SOME NotEnoughSpace ==>
       state_rel c l1 l2 (set_var dest v s2) r NONE locs ∧ q = NONE)``;
 
+val assign_thm_link_goal =
+  ``state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) NONE locs ∧
+   ptr_eq_link c s t ∧
+   (op_requires_names op ≠ (names_opt = NONE)) ∧
+   cut_state_opt names_opt s = SOME x ∧
+   get_vars args s.locals = SOME vals ∧
+   t.termdep > 1 ∧
+   do_app op vals x = Rval (v,s2) ==>
+   ?q r.
+     evaluate (FST (assign c n l dest op args names_opt),t) = (q,r) ∧
+     (q = SOME NotEnoughSpace ==>
+      r.ffi = t.ffi ∧ option_le r.stack_max s2.stack_max ∧
+      (c.gc_kind <> None ==> ~s2.safe_for_space)) ∧
+     (q <> SOME NotEnoughSpace ==>
+      state_rel c l1 l2 (set_var dest v s2) r NONE locs ∧ q = NONE ∧
+      ptr_eq_link c s2 r)``;
+
+(* PtrEqual is the only operation whose compiled code touches the oracle *)
+
+Theorem list_Seq_ptr_eq_free:
+  !xs. ptr_eq_free ns (list_Seq xs) = EVERY (ptr_eq_free ns) xs
+Proof
+  ho_match_mp_tac list_Seq_ind \\ rw [list_Seq_def, ptr_eq_free_def]
+QED
+
+Theorem StoreEach_ptr_eq_free:
+  !c v xs offset. ptr_eq_free ns (StoreEach c v xs offset)
+Proof
+  Induct_on `xs` \\ gvs [StoreEach_def, ptr_eq_free_def]
+QED
+
+Theorem MemEqList_ptr_eq_free:
+  !c a xs. ptr_eq_free ns (MemEqList c a xs)
+Proof
+  Induct_on `xs` \\ gvs [MemEqList_def, ptr_eq_free_def]
+QED
+
+Theorem StoreAnyConsts_ptr_eq_free:
+  !r1 r2 r3 vs v. ptr_eq_free ns (StoreAnyConsts r1 r2 r3 vs v)
+Proof
+  Cases_on `v` \\ rw [StoreAnyConsts_def, ptr_eq_free_def]
+QED
+
+val ptr_eq_free_eval_tac = computeLib.RESTR_EVAL_TAC
+  [``int_bitwise$int_or``, ``int_bitwise$int_and``, ``int_bitwise$int_xor``];
+
+Theorem SmallnumDivLoop_ptr_eq_free[local]:
+  ∀k. ptr_eq_free ns (SmallnumDivLoop bits k)
+Proof
+  Induct \\ simp [SmallnumDivLoop_def] \\ ptr_eq_free_eval_tac \\ simp []
+QED
+
+Theorem stubs_ptr_eq_free:
+  EVERY (λ(n,a,p).
+      n ∉ {Install_location; InstallData_location} ⇒
+      ptr_eq_free (set (MAP FST (stubs c)) DIFF
+        {Install_location; InstallData_location}) p)
+    (stubs c)
+Proof
+  ptr_eq_free_eval_tac \\ rw [] \\ ptr_eq_free_eval_tac
+  \\ simp [SmallnumDivLoop_ptr_eq_free]
+QED
+
+Theorem code_rel_ptr_eq_free:
+  code_rel c s_code (t_code : (num # wordLang$prog # metadata) num_map) ⇒
+  code_ptr_eq_free (set (MAP FST (stubs c)) DIFF
+    {Install_location; InstallData_location}) t_code
+Proof
+  rw [code_rel_def, stubs_md_def, code_ptr_eq_free_def, MEM_MAP, EXISTS_PROD]
+  \\ assume_tac stubs_ptr_eq_free
+  \\ gvs [EVERY_MEM, FORALL_PROD, MEM_MAP, EXISTS_PROD]
+  \\ res_tac \\ simp [] \\ metis_tac []
+QED
+
+Theorem assign_ptr_eq_free:
+  op ≠ BlockOp PtrEqual ∧ op ≠ Install ⇒
+  ptr_eq_free (set (MAP FST (stubs c)) DIFF
+      {Install_location; InstallData_location})
+    (FST (assign c n l dest op args names_opt : wordLang$prog # num))
+Proof
+  strip_tac
+  \\ simp [assign_def, all_assign_defs, arg1_def, arg2_def, arg3_def, arg4_def]
+  \\ simp [ptr_eq_free_def, oneline AssignCmp_def, SetBool_def, GiveUp_def,
+           BignumHalt_def, AllocVar_def, SilentFFI_def, list_Seq_ptr_eq_free,
+           StoreEach_ptr_eq_free, Make_ptr_bits_code_def,
+           StoreAnyConsts_ptr_eq_free, Maxout_bits_code_def,
+           MemEqList_ptr_eq_free, WriteWord64_def, WordOp64_on_32_def,
+           WriteWord64_on_32_def, LoadWord64_def, WordShift64_on_32_def,
+           LoadBignum_def, WriteWord32_on_32_def]
+  \\ rpt (TOP_CASE_TAC
+          \\ simp [ptr_eq_free_def, list_Seq_ptr_eq_free, StoreEach_ptr_eq_free,
+                   MemEqList_ptr_eq_free, StoreAnyConsts_ptr_eq_free])
+  \\ gvs []
+  \\ TRY ((rename1 `WordShiftVar64_on_32 sh` ORELSE rename1 `WordShiftVar64 sh`)
+          \\ Cases_on `sh`)
+  \\ ptr_eq_free_eval_tac
+  \\ rw [] \\ ptr_eq_free_eval_tac \\ simp []
+QED
+
+Theorem assign_ptr_eq_link:
+  op ≠ BlockOp PtrEqual ∧ op ≠ Install ∧
+  state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) NONE locs ∧
+  ptr_eq_link c s t ∧
+  cut_state_opt names_opt s = SOME x ∧
+  do_app op vals x = Rval (v,s2) ∧
+  evaluate (FST (assign c n l dest op args names_opt),t) = (q,r) ⇒
+  ptr_eq_link c s2 r
+Proof
+  rw [ptr_eq_link_def]
+  >- (imp_res_tac wordPropsTheory.evaluate_consts \\ fs [])
+  \\ imp_res_tac cut_state_opt_const
+  \\ imp_res_tac dataPropsTheory.do_app_ptr_eq_oracle
+  \\ drule evaluate_ptr_eq_free
+  \\ disch_then (qspec_then `set (MAP FST (stubs c)) DIFF
+       {Install_location; InstallData_location}` mp_tac)
+  \\ impl_tac
+  >- (
+    simp [assign_ptr_eq_free]
+    \\ fs [state_rel_thm]
+    \\ imp_res_tac code_rel_ptr_eq_free \\ simp [])
+  \\ simp []
+QED
+
 val evaluate_Assign =
   SIMP_CONV(srw_ss())[wordSemTheory.evaluate_def]``evaluate (Assign _ _, _)``
 
@@ -3400,7 +3523,7 @@ QED
 
 
 Theorem assign_Install:
-  (op = Install) ==> ^assign_thm_goal
+  (op = Install) ==> ^assign_thm_link_goal
 Proof
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
@@ -3669,6 +3792,12 @@ Proof
       (x.tstamps = s.tstamps) /\ (x.global = s.global) /\ (x.stack = s.stack)` by
        (qpat_x_assum `x = s with locals := x.locals` (fn th => once_rewrite_tac [th]) \\ simp [])
   \\ pop_assum (fn th => full_simp_tac std_ss (CONJUNCTS th))
+  \\ reverse conj_tac
+  THEN1 (* ptr_eq_link *)
+   (`x.ptr_eq_oracle = s.ptr_eq_oracle` by
+      (qpat_x_assum `x = s with locals := x.locals` (fn th => once_rewrite_tac [th])
+       \\ simp [])
+    \\ fs [ptr_eq_link_def])
   \\ conj_tac
   THEN1 (* code_rel *)
    (qpat_x_assum `_ = (_,_)` (fn th => fs [GSYM th])
@@ -13364,6 +13493,43 @@ Proof
   \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [])
 QED
 
+Theorem assign_PtrEqual:
+  op = BlockOp PtrEqual ==> ^assign_thm_link_goal
+Proof
+  rpt strip_tac
+  \\ gvs [dataLangTheory.op_requires_names_def,
+          dataLangTheory.op_space_reset_def,
+          dataSemTheory.cut_state_opt_def]
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+  \\ fs [do_app]
+  \\ gvs [AllCaseEqs()]
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs [LENGTH_EQ_2] \\ clean_tac
+  \\ fs [get_var_def]
+  \\ fs [state_rel_thm] \\ eval_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL) \\ strip_tac
+  \\ rpt_drule0 memory_rel_simple_eq \\ strip_tac \\ rveq
+  \\ fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF]
+  \\ simp [assign_def, arg2_def, assign_PtrEq_def]
+  \\ fs [ptr_eq_link_def]
+  \\ simp [wordSemTheory.evaluate_def]
+  \\ drule_all word_ptr_eq_thm \\ strip_tac \\ simp []
+  \\ IF_CASES_TAC
+  \\ gvs [wordSemTheory.set_var_def, allowed_op_def]
+  >- (
+    fs [lookup_insert, adjust_var_11] \\ rw [] \\ fs []
+    \\ simp [inter_insert_ODD_adjust_set, GSYM Boolv_def, option_le_max_right]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ match_mp_tac memory_rel_Boolv_T \\ fs [])
+  \\ fs [lookup_insert, adjust_var_11] \\ rw [] \\ fs []
+  \\ simp [inter_insert_ODD_adjust_set, GSYM Boolv_def, option_le_max_right]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs []
+  \\ match_mp_tac memory_rel_Boolv_F \\ fs []
+QED
+
 Theorem assign_WordTest[allow_rebind]:
   (∃ws test. op = WordOp (WordTest ws test)) ==> ^assign_thm_goal
 Proof
@@ -19605,9 +19771,10 @@ Theorem imp_assign[local] =
   |> foldr1 (fn (x,y) => MATCH_MP join_lemma (CONJ x y));
 
 Theorem assign_thm:
-  ^assign_thm_goal
+  op ≠ BlockOp PtrEqual ∧ op ≠ Install ⇒ ^assign_thm_goal
 Proof
   strip_tac
+  \\ strip_tac
   \\ Cases_on `op = GlobOp AllocGlobal`
   >- (fs [do_app] \\ every_case_tac \\ fs [])
   \\ Cases_on `op = IntOp Greater`
@@ -19635,4 +19802,24 @@ Proof
   >- (fs [] \\ fs [] \\ gvs [] \\ Cases_on ‘i’ \\ gvs []
       \\ qhdtm_x_assum`do_app`mp_tac \\ EVAL_TAC)
   \\ Cases_on ‘op’ \\ gvs []
+QED
+
+Theorem assign_thm_ptr_eq_link:
+  ^assign_thm_link_goal
+Proof
+  strip_tac
+  \\ Cases_on `op = BlockOp PtrEqual`
+  >- (
+    drule_all assign_PtrEqual
+    \\ disch_then (qspecl_then [`n`,`l`,`dest`] ACCEPT_TAC))
+  \\ Cases_on `op = Install`
+  >- (
+    drule_all assign_Install
+    \\ disch_then (qspecl_then [`n`,`l`,`dest`] ACCEPT_TAC))
+  \\ drule_all assign_thm
+  \\ disch_then (qspecl_then [`n`,`l`,`dest`] strip_assume_tac)
+  \\ goal_assum $ drule_at Any
+  \\ simp []
+  \\ strip_tac
+  \\ drule_all assign_ptr_eq_link \\ simp []
 QED

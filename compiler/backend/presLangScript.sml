@@ -245,6 +245,7 @@ Definition op_to_display_def:
                          [test_to_display test;
                           prim_type_to_display ty]
   | Equality => empty_item «Equality»
+  | PtrEq => empty_item «PtrEq»
   | Opapp => empty_item «Opapp»
   | Opassign => empty_item «Opassign»
   | Opref => empty_item «Opref»
@@ -621,6 +622,7 @@ Definition clos_op_to_display_def:
     | BlockOp ListAppend => String «ListAppend»
     | BlockOp (Constant c) => Item NONE «Constant» [const_to_display c]
     | BlockOp Equal => String «Equal»
+    | BlockOp PtrEqual => String «PtrEqual»
     | BlockOp (EqualConst c) => Item NONE «EqualConst» [const_part_to_display c]
     | BlockOp (Build bs) => Item NONE «Build» (MAP const_part_to_display bs)
     | MemOp Ref => String «Ref»
@@ -1445,6 +1447,9 @@ Definition word_prog_to_display_def:
   (word_prog_to_display (SUC k) ns (FFI nm n1 n2 n3 n4 ms) =
     Item NONE «ffi» (string_imp nm :: MAP num_to_display [n1; n2; n3; n4]
         ++ [num_sets_to_display ms]))  ∧
+  (word_prog_to_display (SUC k) ns (wordLang$PtrEq dst v1 v2 tw fw) = Item NONE «ptr_eq»
+    [num_to_display dst; num_to_display v1; num_to_display v2;
+     int_to_display tw; int_to_display fw]) ∧
   (word_prog_to_display_list k ns [] = []) ∧
   (word_prog_to_display_list k ns (x::xs) =
     case k of 0 => []
