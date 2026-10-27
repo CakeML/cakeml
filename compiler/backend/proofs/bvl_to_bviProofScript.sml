@@ -1242,41 +1242,6 @@ Proof
       \\ imp_res_tac evaluate_IMP_LENGTH
       \\ Cases_on `a` \\ fs [LENGTH_NIL]
       \\ fs [bviSemTheory.evaluate_def])
-    \\ Cases_on`op = MemOp (CopyByte T)`
-    >- (
-      fs[compile_op_def]
-      \\ first_x_assum drule
-      \\ disch_then(qspecl_then[`n`,`s`,`env`]mp_tac) \\ simp[]
-      \\ IF_CASES_TAC
-      >- (
-        rw[Once bviSemTheory.evaluate_def]
-        \\ rw[evaluate_APPEND]
-        \\ rw[Once bviSemTheory.evaluate_def,SimpRHS]
-        \\ rw[evaluate_APPEND,REPLICATE_compute]
-        \\ CASE_TAC \\  simp[]
-        \\ Cases_on`q` \\ simp[]
-        \\ rw[bviSemTheory.evaluate_def,REPLICATE_compute,iEvalOp_def,do_app_aux_def,backend_commonTheory.small_enough_int_def,HD_APPEND3]
-        \\ CASE_TAC \\ simp[]
-        \\ imp_res_tac evaluate_IMP_LENGTH
-        \\ rewrite_tac[GSYM APPEND_ASSOC,GSYM EL]
-        \\ simp[EL_APPEND1]
-        \\ CASE_TAC \\ fs[EL_APPEND1]) \\
-      rw[Once bviSemTheory.evaluate_def]
-      \\ rw[evaluate_APPEND]
-      \\ rw[Once bviSemTheory.evaluate_def,SimpRHS]
-      \\ rw[evaluate_APPEND,REPLICATE_compute]
-      \\ CASE_TAC \\  simp[]
-      \\ Cases_on`q` \\ simp[]
-      \\ imp_res_tac evaluate_IMP_LENGTH
-      \\ Cases_on`a` \\ fs[]
-      \\ Cases_on`t` \\ fs[]
-      \\ rename1`SUC (LENGTH t)`
-      \\ Cases_on`t` \\ fs[]
-      \\ rw[bviSemTheory.evaluate_def,iEvalOp_def,do_app_aux_def,backend_commonTheory.small_enough_int_def]
-      \\ CASE_TAC \\ simp[]
-      \\ CASE_TAC \\ simp[]
-      \\ CASE_TAC \\ simp[]
-      \\ CASE_TAC \\ simp[])
     \\ Cases_on ‘∃n. op = GlobOp (Global n)’ >-
      (gvs [compile_op_def,iEval_def,compile_int_thm]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ full_simp_tac(srw_ss())[]
@@ -2222,28 +2187,25 @@ Resume compile_exps_correct[Op]:
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`) \\ full_simp_tac(srw_ss())[]
   \\ reverse (Cases_on `res5`) \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
   \\ fs [] \\ first_x_assum drule \\ fs []
-    THEN1 (
+    >- (
       REPEAT STRIP_TAC \\ IMP_RES_TAC compile_exps_LENGTH
       \\ full_simp_tac(srw_ss())[iEval_def]
       \\ Q.LIST_EXISTS_TAC [`t2`,`b2`] \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on`op = Install` THEN1
-       (fs[compile_op_def]
-        \\ qexists_tac`c` \\ simp[] \\ rw []
+      \\ Cases_on `op = Install`
+      >- (
+        fs [compile_op_def]
+        \\ qexists_tac `c` \\ simp [] \\ rw []
         \\ fs [evaluate_def])
       \\ Cases_on `op = ThunkOp ForceThunk`
       >- (
         gvs [compile_op_def]
         \\ qexists `c` \\ gvs []
         \\ gvs [evaluate_def])
-      \\ Cases_on`op = MemOp (CopyByte T)`
-      >- (note_tac "Op: CopyByte" \\
-        fs[compile_op_def]
-        \\ qexists_tac`c` \\ simp[]
-        \\ rw[evaluate_APPEND,bviSemTheory.evaluate_def] )
       \\ Cases_on`(∃tag i. op = MemOp (MutCons tag i)) ∨
                   op = MemOp UpdateCons ∨ op = MemOp FinaliseCons`
-      >- (gvs [compile_op_def]
-          \\ qexists_tac `c` \\ gvs [bviSemTheory.evaluate_def])
+      >- (
+        gvs [compile_op_def]
+        \\ qexists_tac `c` \\ gvs [bviSemTheory.evaluate_def])
       \\ fs []
       \\ cases_on_op `op`
       \\ fs[compile_op_def,iEval_def,compile_int_thm,iEval_append]
@@ -2256,20 +2218,25 @@ Resume compile_exps_correct[Op]:
     >- gvs [bvlSemTheory.do_app_def, AllCaseEqs()]
     \\ REPEAT STRIP_TAC \\ Cases_on `do_app op (REVERSE a) s5`
     \\ full_simp_tac(srw_ss())[]
-    \\ TRY(
-      qmatch_asmsub_abbrev_tac `do_app _ _ _ = Rerr _` >>
-      srw_tac[][] >>
-      CHANGED_TAC(imp_res_tac bvlPropsTheory.do_app_err) >>
-      rveq >> fs[] >> fs[bvlSemTheory.do_app_def] >>
-      simp[evaluate_def,compile_op_def] >>
-      MAP_EVERY qexists_tac [`t2`,`b2`,`c`] >>
-      simp[] >>
-      fs[do_app_def,do_app_aux_def] >> rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq) >>
-      fs[bvlSemTheory.do_app_def] >> Cases_on `a` >> fs[] >>
-      rpt(PURE_FULL_CASE_TAC >> fs[adjust_bv_def] >> rveq) >>
-      fs[GSYM PULL_FORALL] >>
-      imp_res_tac state_rel_FLOOKUP_byteArray >>
-      fs[] >> rveq >> rfs[state_rel_def])
+    >~ [`bvlSem$do_app _ _ _ = Rerr _`] >- (
+      drule bvlPropsTheory.do_app_err
+      \\ strip_tac
+      \\ gvs []
+      \\ qmatch_asmsub_rename_tac
+           `bvlSem$do_app (FFI ffi_name) _ _ = Rerr (Rabort (Rffi_error ffi_error))`
+      \\ qpat_x_assum `∀idx. bviSem$evaluate _ = _ ∧ _`
+           (qspec_then `0` strip_assume_tac)
+      \\ qexistsl [`t2`,`b2`,`c`]
+      \\ gvs [compile_op_def,iEval_def,MAP_REVERSE]
+      \\ gvs [bvlSemTheory.do_app_def,AllCaseEqs (),SWAP_REVERSE_SYM,
+              MAP_REVERSE,adjust_bv_def]
+      \\ qmatch_asmsub_rename_tac
+           `FLOOKUP s2.refs output_ptr = SOME (ByteArray F output_bytes)`
+      \\ qmatch_asmsub_rename_tac
+           `FLOOKUP s2.refs input_ptr = SOME (ByteArray T input_bytes)`
+      \\ imp_res_tac state_rel_FLOOKUP_byteArray
+      \\ `s2.ffi = t2.ffi` by gvs [state_rel_def]
+      \\ gvs [do_app_def,do_app_aux_def,bvlSemTheory.do_app_def,bvi_to_bvl_def])
     \\ full_simp_tac(srw_ss())[GSYM PULL_FORALL]
     \\ Cases_on`a'`>>full_simp_tac(srw_ss())[]\\srw_tac[][]
     \\ Cases_on `op = Install` \\ full_simp_tac(srw_ss())[] THEN1 (
@@ -3421,59 +3388,48 @@ Resume compile_exps_correct[Op]:
       >- (TOP_CASE_TAC \\ fs[FLOOKUP_DEF] \\ METIS_TAC[INJ_DEF])
       >- ( fs[FLOOKUP_DEF] \\ METIS_TAC[] )
       \\ METIS_TAC[] )
-    \\ Cases_on`op = MemOp (CopyByte T)` \\ fs[]
+    \\ Cases_on `op = MemOp (CopyByte T)` \\ fs []
     >- (
-        note_tac "Op: CopyByte T" \\
-        CONV_TAC(RESORT_EXISTS_CONV List.rev)
-        \\ qexists_tac`c`
-        \\ fs[bEvalOp_def,case_eq_thms] \\ rw[]
-        \\ fs[SWAP_REVERSE_SYM]
-        \\ imp_res_tac evaluate_IMP_LENGTH \\ fs[LENGTH_EQ_NUM_compute] \\ rw[]
-        \\ simp[compile_op_def]
-        \\ fs[semanticPrimitivesTheory.copy_array_def,case_eq_thms]
-        \\ qabbrev_tac`pp = LEAST ptr. ptr ∉ FDOM s5.refs`
-        \\ qabbrev_tac`qq = LEAST ptr. ptr ∉ FDOM t2.refs`
-        \\ qexists_tac`(pp =+ qq) b2` \\
-        `MAP (adjust_bv b2) env = MAP (adjust_bv ((pp =+ qq) b2)) env` by (
-          rw[MAP_EQ_f]
-          \\ match_mp_tac (GEN_ALL bv_ok_IMP_adjust_bv_eq) \\ qexists_tac `s5.refs`
-          \\ imp_res_tac evaluate_refs_SUBSET
-          \\ imp_res_tac bv_ok_SUBSET_IMP
-          \\ fs[EVERY_MEM]
-          \\ rw[APPLY_UPDATE_THM]
-          \\ METIS_TAC[LEAST_NOTIN_FDOM] )
-        \\ qhdtm_x_assum`bviSem$evaluate`mp_tac
-        \\ simp[iEval_def,iEvalOp_def,do_app_aux_def,adjust_bv_def,backend_commonTheory.small_enough_int_def]
-        \\ fsrw_tac[intLib.INT_ARITH_ss][]
-        \\ reverse IF_CASES_TAC
-        >- (fs[] \\ first_x_assum(qspec_then`0w`mp_tac) \\ simp[])
-        \\ simp[bEvalOp_def,FLOOKUP_UPDATE]
-        \\ rename1`qq = b2 src`
-        \\ IF_CASES_TAC
-        >- (
-          fs[state_rel_def]
-          \\ ntac 4 (first_x_assum(qspec_then`src`mp_tac))
-          \\ simp[]
-          \\ fs[FLOOKUP_DEF]
-          \\ METIS_TAC[LEAST_NOTIN_FDOM] )
-        \\ (`FLOOKUP t2.refs (b2 src) = FLOOKUP s5.refs src`
-        by (
-          fs[state_rel_def]
-          \\ ntac 4 (first_x_assum(qspec_then`src`mp_tac))
-          \\ simp[] \\ NO_TAC) )
-        \\ simp[semanticPrimitivesTheory.copy_array_def]
-        \\ asm_simp_tac(srw_ss()++intLib.INT_ARITH_ss)[integerTheory.INT_ABS]
-        \\ simp[APPLY_UPDATE_THM,bvl_to_bvi_with_refs,bvl_to_bvi_id]
-        \\ strip_tac
-        \\ simp[REPLICATE_GENLIST,DROP_LENGTH_NIL_rwt]
-        \\ conj_tac
-        >- (
-          match_mp_tac state_rel_add_bytearray
-          \\ imp_res_tac evaluate_ok
-          \\ simp[Abbr`pp`,Abbr`qq`,LEAST_NOTIN_FDOM] )
-        \\ rw[]
-        \\ imp_res_tac evaluate_refs_SUBSET
-        \\ METIS_TAC[SUBSET_DEF,LEAST_NOTIN_FDOM] )
+      gvs [bvlSemTheory.do_app_def,AllCaseEqs (),SWAP_REVERSE_SYM]
+      \\ rename1 `copy_array (source_bytes,source_offset) copy_len NONE = SOME copied_bytes`
+      \\ qmatch_asmsub_rename_tac
+           `FLOOKUP s5.refs source_ptr = SOME (ByteArray source_flag source_bytes)`
+      \\ qabbrev_tac `new_source = LEAST ptr. ptr ∉ FDOM s5.refs`
+      \\ qabbrev_tac `new_target = LEAST ptr. ptr ∉ FDOM t2.refs`
+      \\ CONV_TAC (RESORT_EXISTS_CONV List.rev)
+      \\ qexistsl [`c`,`(new_source =+ new_target) b2`]
+      \\ `new_source ∉ FDOM s5.refs ∧ new_target ∉ FDOM t2.refs` by
+           simp [Abbr `new_source`,Abbr `new_target`,LEAST_NOTIN_FDOM]
+      \\ `FDOM s.refs ⊆ FDOM s5.refs` by imp_res_tac evaluate_refs_SUBSET
+      \\ `state_ok s5` by imp_res_tac evaluate_ok
+      \\ `EVERY (bv_ok s5.refs) env` by (
+        fs [EVERY_MEM]
+        \\ rw []
+        \\ irule bv_ok_SUBSET_IMP
+        \\ qexists_tac `s.refs`
+        \\ gvs [EVERY_MEM])
+      \\ `∀ptr. ptr ∈ FDOM s5.refs ⇒ ((new_source =+ new_target) b2) ptr = b2 ptr` by (
+        rpt strip_tac
+        \\ `ptr ≠ new_source` by (strip_tac \\ gvs [])
+        \\ simp [APPLY_UPDATE_THM])
+      \\ `MAP (adjust_bv b2) env = MAP (adjust_bv ((new_source =+ new_target) b2)) env` by (
+        rw [MAP_EQ_f]
+        \\ irule bv_ok_IMP_adjust_bv_eq
+        \\ qexists_tac `s5.refs`
+        \\ gvs [EVERY_MEM])
+      \\ `FLOOKUP t2.refs (b2 source_ptr) = SOME (ByteArray source_flag source_bytes)` by
+           metis_tac [state_rel_FLOOKUP_byteArray]
+      \\ qexists_tac `t2 with refs := t2.refs |+ (new_target,ByteArray T copied_bytes)`
+      \\ qpat_x_assum `MAP (adjust_bv b2) env = MAP (adjust_bv ((new_source =+ new_target) b2)) env`
+           (fn th => rewrite_tac [GSYM th])
+      \\ fs [adjust_bv_def]
+      \\ simp [compile_op_def,iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,
+               APPLY_UPDATE_THM,bvl_to_bvi_with_refs,bvl_to_bvi_id,Abbr `new_target`]
+      \\ conj_tac
+      >- (irule state_rel_add_bytearray \\ simp [])
+      \\ rpt strip_tac
+      \\ `a ≠ new_source` by metis_tac [SUBSET_DEF]
+      \\ simp [])
     \\ Cases_on`∃b. op = MemOp (CopyByte b)` \\ fs[] >- (Cases_on`b` \\ fs[])
     (* the ops reserved for bvi_tmc are the remaining ones compile_op does not
        leave alone; each is ruled out by bvlSem$do_app being Error on it *)

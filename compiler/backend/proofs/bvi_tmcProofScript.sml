@@ -1513,6 +1513,43 @@ Proof
   \\ simp [bvlSemTheory.smallnum_witness_length_def]
 QED
 
+Theorem do_app_copybyte_new_rel[local]:
+  state_rel f s s' /\ LIST_REL (v_rel f) vs vs' /\
+  do_app (MemOp (CopyByte T)) vs s = Rval (v,t) ==>
+  ∃f' v' t'.
+    do_app (MemOp (CopyByte T)) vs' s' = Rval (v',t') ∧ v_rel f' v v' ∧
+    state_rel f' t t' ∧ f ⊑ f' ∧ only_fresh f f' s'.refs ∧
+    holes_unchanged_except f s'.refs t'.refs ∅ ∧
+    holes_still_not_finalised f s'.refs t'.refs
+Proof
+  rw []
+  \\ gvs [do_app_def,do_app_aux_def,bvlSemTheory.do_app_def,
+          AllCaseEqs (),v_rel_cases]
+  \\ `state_ref_rel f s.refs s'.refs` by gvs [state_rel_def]
+  \\ drule_all state_ref_rel_lookup
+  \\ strip_tac
+  \\ gvs [ref_rel_cases]
+  \\ simp [bvl_to_bvi_refs]
+  \\ qmatch_goalsub_abbrev_tac `s.refs |+ (_,bytes)`
+  \\ drule state_rel_alloc
+  \\ disch_then (qspecl_then
+       [`LEAST ptr. ptr ∉ FDOM s.refs`, `LEAST ptr. ptr ∉ FDOM s'.refs`,
+        `bytes`,`bytes`] mp_tac)
+  \\ impl_tac
+  >- (
+    simp [fresh_ptr_fresh]
+    \\ conj_tac
+    >- (
+      irule fresh_not_in_range_f
+      \\ first_assum (irule_at Any))
+    \\ unabbrev_all_tac
+    \\ simp [ref_rel_cases])
+  \\ strip_tac
+  \\ qexists_tac `f |+ ((LEAST ptr. ptr ∉ FDOM s.refs),
+                           (LEAST ptr. ptr ∉ FDOM s'.refs))`
+  \\ gvs []
+QED
+
 Theorem do_app_op_rel:
   ∀f op vs vs' s s' t v.
     do_app op vs s = Rval (v,t) ∧
@@ -1810,7 +1847,13 @@ drule do_app_op_finalise_rel
 >> gvs [v_rel_cases]
 
 Resume do_app_op_rel[MemOp]:
-  Cases_on ‘m’
+  Cases_on `m = CopyByte T`
+  >- (
+    gvs []
+    \\ irule do_app_copybyte_new_rel
+    \\ qexistsl [`s`,`vs`]
+    \\ gvs [])
+  \\ Cases_on ‘m’
   >> gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
           no_mutcons_op_def, v_rel_cases]
   >> FIRST [memop_mutblock_tac >> NO_TAC, memop_finalise_tac >> NO_TAC,

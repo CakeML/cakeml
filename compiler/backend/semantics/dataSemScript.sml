@@ -253,6 +253,8 @@ Definition space_consumed_def:
   ) /\
   (space_consumed s (MemOp RefArray) [Number len; _] = Num len + 1) /\
   (space_consumed s (MemOp (RefByte _)) [Number len; _] = Num len DIV (arch_size s.limits DIV 8) + 2) /\
+  (space_consumed s (MemOp (CopyByte T)) [_; _; Number len] =
+    Num len DIV (arch_size s.limits DIV 8) + 2) /\
   (space_consumed s (BlockOp (FromList n)) [Number len;lv] = Num len + 1) /\
   (space_consumed s (IntOp Add) [Number i1; Number i2] =
     if small_num s.limits.arch_64_bit i1 /\
@@ -315,12 +317,16 @@ Definition stack_consumed_def:
       if op = SmallDiv \/ op = SmallMod
       then lookup SmallnumDivMod_location sfs else SOME 0
     else NONE) /\
-  (stack_consumed sfs lims (MemOp (CopyByte _)) vs =
+  (stack_consumed sfs lims (MemOp (CopyByte new)) vs =
     OPTION_MAP2 MAX
-     (sptree$lookup ByteCopy_location sfs)
+     (lookup (if new then ByteCopyNew_location else ByteCopy_location) sfs)
      (OPTION_MAP2 MAX
-        (lookup ByteCopyAdd_location sfs)
-        (lookup ByteCopySub_location sfs))) /\
+       (lookup ByteCopyAlign_location sfs)
+       (OPTION_MAP2 MAX
+         (lookup ByteCopyLoop_location sfs)
+         (OPTION_MAP2 MAX
+           (lookup ByteCopyAdd_location sfs)
+           (if new then SOME 0 else lookup ByteCopySub_location sfs))))) /\
   (stack_consumed sfs lims (MemOp (RefByte _)) vs =
     OPTION_MAP2 MAX
      (lookup RefByte_location sfs)
@@ -666,6 +672,12 @@ Definition lim_safe_def[simp]:
     Num i DIV (arch_size lims DIV 8) + 1 < 2 ** lims.length_limit /\
     small_num lims.arch_64_bit i)
   )
+∧ (lim_safe lims (MemOp (CopyByte T)) [_; _; Number i] =
+   (0 <= i /\
+    Num i DIV (arch_size lims DIV 8) < 2 ** (arch_size lims) DIV arch_size lims /\
+    Num i DIV (arch_size lims DIV 8) + 1 < 2 ** lims.length_limit /\
+    small_num lims.arch_64_bit i)
+  )
 ∧ (lim_safe lims (MemOp Ref) xs =
    (LENGTH xs < 2 ** lims.length_limit /\
     LENGTH xs < 2 ** arch_size lims DIV 16)
@@ -959,7 +971,6 @@ Definition do_app_aux_def:
     | (GlobOp AllocGlobal, _)  => Rerr (Rabort Rtype_error)
     | (MemOp FromListByte, _)  => Rerr (Rabort Rtype_error)
     | (MemOp ConcatByteVec, _) => Rerr (Rabort Rtype_error)
-    | (MemOp (CopyByte T), _)  => Rerr (Rabort Rtype_error)
     (* bvl part *)
     | (BlockOp (Build parts),[]) =>
         (case do_build_const parts s.refs s.tstamps of
@@ -1087,6 +1098,15 @@ Definition do_app_aux_def:
              (let s1 = implode (MAP (CHR o w2n) ws1) in
               let s2 = implode (MAP (CHR o w2n) ws2) in
                 Rval (Boolv (semanticPrimitives$str_cmp b cmp s1 s2), s))
+         | _ => Error)
+    | (MemOp (CopyByte T),[RefPtr _ src; Number srcoff; Number len]) =>
+        (case lookup src s.refs of
+         | SOME (ByteArray _ ws) =>
+           (case copy_array (ws,srcoff) len NONE of
+            | SOME ds =>
+              let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
+                Rval (RefPtr T ptr, s with refs := insert ptr (ByteArray T ds) s.refs)
+            | NONE => Error)
          | _ => Error)
     | (MemOp (CopyByte F),[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
         (case (lookup src s.refs, lookup dst s.refs) of

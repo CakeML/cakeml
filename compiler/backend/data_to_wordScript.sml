@@ -255,17 +255,17 @@ End
 Definition Install_location_def:
   Install_location = ByteCopyNew_location+1
 End
-Definition Unused2_location_def:
-  Unused2_location = Install_location+1
+Definition ByteCopyAlign_location_def:
+  ByteCopyAlign_location = Install_location+1
 End
 Definition InstallData_location_def:
-  InstallData_location = Unused2_location+1
+  InstallData_location = ByteCopyAlign_location+1
 End
-Definition Dummy_location_def:
-  Dummy_location = InstallData_location+1
+Definition ByteCopyLoop_location_def:
+  ByteCopyLoop_location = InstallData_location+1
 End
 Definition Append_location_def:
-  Append_location = Dummy_location+1
+  Append_location = ByteCopyLoop_location+1
 End
 Definition AppendMainLoop_location_def:
   AppendMainLoop_location = Append_location+1
@@ -340,12 +340,12 @@ Theorem ByteCopyNew_location_eq =
   ``ByteCopyNew_location`` |> EVAL
 Theorem Install_location_eq =
   ``Install_location`` |> EVAL
-Theorem Unused2_location_eq =
-  ``Unused2_location`` |> EVAL
+Theorem ByteCopyAlign_location_eq =
+  ``ByteCopyAlign_location`` |> EVAL
 Theorem InstallData_location_eq =
   ``InstallData_location`` |> EVAL
-Theorem Dummy_location_eq =
-  ``Dummy_location`` |> EVAL
+Theorem ByteCopyLoop_location_eq =
+  ``ByteCopyLoop_location`` |> EVAL
 Theorem Append_location_eq =
   ``Append_location`` |> EVAL
 Theorem AppendMainLoop_location_eq =
@@ -2998,21 +2998,119 @@ Definition MemCopy_code_def:
       :wordLang$prog
 End
 
+(* Fast byte copying: vars 0,2,4,6,8 hold return loc, length, source,
+   destination and result; the word loop also keeps a carry word (10)
+   and the shifts (12,14) that realign source words to the destination *)
+
+Definition ByteCopyWords_code_def:
+  ByteCopyWords_code c =
+    let k = &(arch_bytes c.arch_width) in
+    list_Seq [
+      Assign 1 (Load (Var 4));
+      Assign 3 (Load (Op Add [Var 4; Const k]));
+      Assign 5 (Load (Op Add [Var 4; Const (2 * k)]));
+      Store (Var 6) 1;
+      Store (Op Add [Var 6; Const k]) 3;
+      Store (Op Add [Var 6; Const (2 * k)]) 5] :wordLang$prog
+End
+
+(* each stored word is the carry plus the start of the next source word;
+   the rest of that source word becomes the new carry *)
+Definition ByteCopyShiftWords_code_def:
+  ByteCopyShiftWords_code c =
+    let k = &(arch_bytes c.arch_width) in
+    let push = if c.be then Lsr else Lsl in
+    let pull = if c.be then Lsl else Lsr in
+    list_Seq [
+      Assign 1 (Load (Var 4));
+      Assign 3 (Load (Op Add [Var 4; Const k]));
+      Assign 5 (Load (Op Add [Var 4; Const (2 * k)]));
+      Assign 7 (Op Or [Var 10; Shift push (Var 1) (Var 12)]);
+      Store (Var 6) 7;
+      Assign 7 (Op Or [Shift pull (Var 1) (Var 14);
+                       Shift push (Var 3) (Var 12)]);
+      Store (Op Add [Var 6; Const k]) 7;
+      Assign 7 (Op Or [Shift pull (Var 3) (Var 14);
+                       Shift push (Var 5) (Var 12)]);
+      Store (Op Add [Var 6; Const (2 * k)]) 7;
+      Assign 10 (Shift pull (Var 5) (Var 14))] :wordLang$prog
+End
+
+(* copy bytes until the source is aligned; then round the destination
+   down and keep its leading bytes as the initial carry *)
+Definition ByteCopyAlign_code_def:
+  ByteCopyAlign_code c =
+    let k = &(arch_bytes c.arch_width) in
+    let pull = if c.be then Lsl else Lsr in
+    If Lower 2 (Imm (3 * k))
+      (Call NONE (SOME ByteCopyAdd_location) [0;2;4;6;8] NONE)
+      (If Test 4 (Imm (k - 1))
+        (list_Seq [
+          Assign 12 (ShiftN Lsl (Op And [Var 6; Const (k - 1)]) 3);
+          Assign 14 (Op Sub [Const (&(arch_width_bits c.arch_width)); Var 12]);
+          If Equal 12 (Imm 0)
+            (list_Seq [Assign 10 (Const 0); Assign 14 (Const 0)])
+            (list_Seq [
+              Assign 6 (Op And [Var 6; Const (-k)]);
+              Assign 10 (Op And [Load (Var 6);
+                                 Shift pull (Const (-1)) (Var 14)])]);
+          Call NONE (SOME ByteCopyLoop_location) [0;2;4;6;8;10;12;14] NONE])
+        (list_Seq [
+          Inst (Mem Load8 1 (Addr 4 0));
+          Inst (Mem Store8 1 (Addr 6 0));
+          Assign 2 (Op Sub [Var 2; Const 1]);
+          Assign 4 (Op Add [Var 4; Const 1]);
+          Assign 6 (Op Add [Var 6; Const 1]);
+          Call NONE (SOME ByteCopyAlign_location) [0;2;4;6;8] NONE]))
+      :wordLang$prog
+End
+
+(* three words per iteration; at the end, flush the carry into the
+   destination and copy the remaining bytes one at a time *)
+Definition ByteCopyLoop_code_def:
+  ByteCopyLoop_code c =
+    let k = &(arch_bytes c.arch_width) in
+    let push = if c.be then Lsr else Lsl in
+    If Lower 2 (Imm (3 * k))
+      (list_Seq [
+        If Equal 12 (Imm 0) Skip
+          (list_Seq [
+            Assign 1 (Op Or [Var 10; Op And [Load (Var 6);
+                              Shift push (Const (-1)) (Var 12)]]);
+            Store (Var 6) 1;
+            Assign 6 (Op Add [Var 6; ShiftN Lsr (Var 12) 3])]);
+        Call NONE (SOME ByteCopyAdd_location) [0;2;4;6;8] NONE])
+      (list_Seq [
+        If Equal 12 (Imm 0) (ByteCopyWords_code c) (ByteCopyShiftWords_code c);
+        Assign 2 (Op Sub [Var 2; Const (3 * k)]);
+        Assign 4 (Op Add [Var 4; Const (3 * k)]);
+        Assign 6 (Op Add [Var 6; Const (3 * k)]);
+        Call NONE (SOME ByteCopyLoop_location) [0;2;4;6;8;10;12;14] NONE])
+      :wordLang$prog
+End
+
 Definition ByteCopy_code_def:
-  ByteCopy_code c = list_Seq
-     [Assign 4 (ShiftVar (arch_width_bits c.arch_width) Lsr 4 1);
-      Assign 6 (ShiftVar (arch_width_bits c.arch_width) Lsr 6 1);
-      Assign 10 (ShiftVar (arch_width_bits c.arch_width) Lsr 10 1);
-      Assign 1 Unit;
-      Assign 2 (Op Add [real_addr c 2; Const (& (arch_bytes c.arch_width)); Var 4]);
-      Assign 8 (Op Add [real_addr c 8; Const (& (arch_bytes c.arch_width)); Var 10]);
+  ByteCopy_code c =
+    let fast = Call NONE (SOME ByteCopyAlign_location) [0;6;2;8;1] NONE in
+    let slow =
       If Lower 4 (Reg 10)
         (list_Seq [Assign 3 (Op Sub [Var 6; Const 1]);
                    Assign 2 (Op Add [Var 2; Var 3]);
                    Assign 8 (Op Add [Var 8; Var 3]);
                    Call NONE (SOME ByteCopySub_location) [0;6;2;8;1] NONE])
-        (Call NONE (SOME ByteCopyAdd_location) [0;6;2;8;1] NONE)]
-     :wordLang$prog
+        (Call NONE (SOME ByteCopyAdd_location) [0;6;2;8;1] NONE)
+    in list_Seq [
+      Assign 4 (ShiftVar (arch_width_bits c.arch_width) Lsr 4 1);
+      Assign 6 (ShiftVar (arch_width_bits c.arch_width) Lsr 6 1);
+      Assign 10 (ShiftVar (arch_width_bits c.arch_width) Lsr 10 1);
+      Assign 1 Unit;
+      Assign 2 (Op Add [real_addr c 2; Const (& (arch_bytes c.arch_width)); Var 4]);
+      Assign 8 (Op Add [real_addr c 8; Const (& (arch_bytes c.arch_width)); Var 10]);
+      Assign 3 (Op Sub [Var 8; Var 2]);
+      Assign 5 (Op Sub [Var 2; Var 8]);
+      (* fast unless the source and destination ranges overlap *)
+      If NotLower 3 (Reg 6) (If NotLower 5 (Reg 6) fast slow) slow]
+      :wordLang$prog
 End
 
 Definition ByteCopyAdd_code_def:
@@ -3113,8 +3211,49 @@ Definition ByteCopySub_code_def:
     ])
 End
 
+(* write the header of the new byte array, then zero the words the copy
+   may read back: the first one and the last four, which also zeroes the
+   padding *)
+Definition ByteCopyNewInit_code_def:
+  ByteCopyNewInit_code c =
+    let k = &(arch_bytes c.arch_width) in
+    let h = Op Add [ShiftN Lsr (Var 6) 1; Const k] in
+    list_Seq [
+      Assign 9 (Lookup NextFree);
+      Assign 5 (Op Or [Const 7;
+        ShiftN Lsl h (arch_width_bits c.arch_width - arch_shift c.arch_width - c.len_size)]);
+      Store (Var 9) 5;
+      Assign 7 (ShiftN Lsr h (arch_shift c.arch_width));
+      Assign 11 (Op Add [Var 9; ShiftN Lsl (Var 7) (arch_shift c.arch_width)]);
+      Assign 13 (Const 0);
+      Store (Var 11) 13;
+      If Lower 7 (Imm 2) Skip
+        (Store (Op Sub [Var 11; Const k]) 13);
+      If Lower 7 (Imm 3) Skip
+        (Store (Op Sub [Var 11; Const (2 * k)]) 13);
+      If Lower 7 (Imm 4) Skip
+        (Store (Op Sub [Var 11; Const (3 * k)]) 13);
+      Store (Op Add [Var 9; Const k]) 13;
+      Set NextFree (Op Add [Var 11; Const k])] :wordLang$prog
+End
+
 Definition ByteCopyNew_code_def:
-  ByteCopyNew_code c = Skip :wordLang$prog
+  ByteCopyNew_code c =
+    let k = &(arch_bytes c.arch_width) in
+    let limit = MIN (2 ** c.len_size) ((2 ** arch_width_bits c.arch_width) DIV 16) in
+    let h = Op Add [ShiftN Lsr (Var 6) 1; Const k] in
+    list_Seq [
+      BignumHalt 6;
+      Assign 1 (SmallLsr h (arch_shift c.arch_width - 1));
+      AllocVar c limit (fromList [();();()]);
+      ByteCopyNewInit_code c;
+      Assign 8 (Op Or [Const 1;
+        ShiftN Lsl (Op Sub [Var 9; Lookup CurrHeap])
+          (shift_length c - arch_shift c.arch_width)]);
+      Assign 4 (Op Add [real_addr c 2; Const k; ShiftN Lsr (Var 4) 1]);
+      Assign 6 (ShiftN Lsr (Var 6) 1);
+      Assign 9 (Op Add [Var 9; Const k]);
+      Call NONE (SOME ByteCopyAlign_location) [0;6;4;9;8] NONE] :wordLang$prog
 End
 
 Definition stubs_def:
@@ -3137,7 +3276,7 @@ Definition stubs_def:
     (LongDiv1_location,7n,LongDiv1_code data_conf);
     (LongDiv_location,4n,LongDiv_code data_conf);
     (Install_location,3n,Install_code data_conf);
-    (Unused2_location,0,Skip);
+    (ByteCopyAlign_location,5n,ByteCopyAlign_code data_conf);
     (InstallData_location,4n,InstallData_code data_conf);
     (Append_location,3n,Append_code data_conf);
     (AppendMainLoop_location,6n,AppendMainLoop_code data_conf);
@@ -3152,7 +3291,7 @@ Definition stubs_def:
     (ByteCopyAdd_location,5n,ByteCopyAdd_code);
     (ByteCopySub_location,5n,ByteCopySub_code);
     (ByteCopyNew_location,4n,ByteCopyNew_code data_conf);
-    (Dummy_location,0,Skip)
+    (ByteCopyLoop_location,8n,ByteCopyLoop_code data_conf)
   ] ++ generated_bignum_stubs (arch_width_bits data_conf.arch_width) Bignum_location
 End
 
@@ -3176,7 +3315,7 @@ Definition stub_names_def:
     (LongDiv1_location,«_LongDiv1»);
     (LongDiv_location,«_LongDiv»);
     (Install_location,«_Install»);
-    (Unused2_location,«_Unused2»);
+    (ByteCopyAlign_location,«_ByteCopyAlign»);
     (InstallData_location,«_InstallData»);
     (Append_location,«_Append»);
     (AppendMainLoop_location,«_AppendMainLoop»);
@@ -3191,7 +3330,7 @@ Definition stub_names_def:
     (ByteCopyAdd_location,«_ByteCopyAdd»);
     (ByteCopySub_location,«_ByteCopySub»);
     (ByteCopyNew_location,«_ByteCopyNew»);
-    (Dummy_location,«_Dummy»)
+    (ByteCopyLoop_location,«_ByteCopyLoop»)
   ] ++ GENLIST (\i. (i + Bignum_location, «_Bignum»))
     (data_num_stubs - Bignum_location)
 End
