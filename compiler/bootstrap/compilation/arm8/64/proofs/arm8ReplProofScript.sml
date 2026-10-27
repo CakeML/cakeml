@@ -35,7 +35,8 @@ Theorem evaluate_decs_compiler64_arm8_prog:
   s.compiler_state = BACKEND_CONFIG_v conf ∧
   file_content fs «config_enc_str.txt» = SOME (encode_backend_config conf) ∧
   evaluate_decs (init_state (basis_ffi ext cl fs) with
-                            <| clock := ck; eval_state := (SOME (EvalDecs s)) |>)
+                            <| clock := ck; eval_state := (SOME (EvalDecs s));
+                               ptr_eq_oracle := po |>)
       init_env compiler64_arm8_prog = (s1,res) ⇒
   res ≠ Rerr (Rabort Rtype_error)
 Proof
@@ -130,7 +131,7 @@ Proof
   \\ drule_all (Arrow_IMP |> INST_TYPE [“:'ffi”|->ffi_inst])
   \\ disch_then (qspec_then `(dec_clock (s_cl with eval_state := SOME ev))`
        (qx_choosel_then [`flag_env`,`flag_exp`,`junk`,`flag_value`,
-                        `ck`,`flag_state`,`flag_res`] strip_assume_tac))
+                        `ck`,`flag_state`,`flag_res`,`flag_po`] strip_assume_tac))
   \\ fs []
   \\ IF_CASES_TAC >- (rw[] \\ fs [combine_dec_result_def])
   \\ fs []
@@ -160,7 +161,7 @@ Proof
            namespaceTheory.nsOptBind_def,evaluate_Lit]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [dec_clock_def]
   (* charsFrom *)
-  \\ first_x_assum (qspecl_then [`ck`,`junk`]
+  \\ first_x_assum (qspecl_then [`ck`,`junk`,`flag_po`]
        (qx_choosel_then [`env_pr`,`e_pr`,`res_pr`,`s_pr`] strip_assume_tac))
   \\ simp []
   \\ IF_CASES_TAC >- (fs [] \\ rw [] \\ fs [combine_dec_result_def])
@@ -182,7 +183,7 @@ Proof
   \\ disch_then (qspec_then `s_pr with <|clock := s_pr.clock − 1;
                                         eval_state := SOME ev|>`
        (qx_choosel_then [`decode_env`,`decode_exp`,`decode_junk`,`decode_value`,
-                        `decode_cost`,`decode_state`,`decode_res`] strip_assume_tac))
+                        `decode_cost`,`decode_state`,`decode_res`,`decode_po`] strip_assume_tac))
   \\ fs []
   \\ IF_CASES_TAC >- (rw[] \\ fs [combine_dec_result_def])
   \\ fs []
@@ -230,11 +231,13 @@ Theorem semantics_prog_compiler64_arm8_prog:
            (init_state (basis_ffi ext cl fs) with eval_state := SOME (EvalDecs s))
            init_env compiler64_arm8_prog
 Proof
-  fs [IN_DEF,semanticsTheory.semantics_prog_def] \\ rpt strip_tac
-  \\ mp_tac (Q.GENL [‘ck’,‘res’,‘s1’] evaluate_decs_compiler64_arm8_prog) \\ fs []
+  fs [IN_DEF,semanticsTheory.semantics_prog_def,
+      semanticsTheory.semantics_determ_def] \\ rpt strip_tac
+  \\ mp_tac (Q.GENL [‘ck’,‘res’,‘s1’,‘po’] evaluate_decs_compiler64_arm8_prog) \\ fs []
   \\ fs [semanticsTheory.evaluate_prog_with_clock_def]
   \\ pairarg_tac \\ gvs []
   \\ qexists_tac ‘k’ \\ fs []
+  \\ metis_tac []
 QED
 
 

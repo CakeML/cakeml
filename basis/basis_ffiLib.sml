@@ -31,7 +31,15 @@ fun prove_sem_thm name code_const_name spec = let
   val t = simple_timer t
   val _ = print_pad ("prove_sem_thm: instantiating main theorem")
   val spec = spec |> UNDISCH_ALL
-  val th1 = CONJ spec (Decls_lemma |> GEN_ALL |> ISPEC basis_ffi_term |> SPEC_ALL);
+  val lem_vs = Decls_lemma |> concl |> free_vars
+  val ffi_var = lem_vs |> filter (fn v => fst (dest_var v) = "ffi") |> hd
+  val po_var  = lem_vs |> filter (fn v => fst (dest_var v) = "po") |> hd
+  val th0 = Decls_lemma |> GEN ffi_var |> ISPEC basis_ffi_term |> SPEC_ALL
+                        |> GEN po_var
+                        |> (fn th => HO_MATCH_MP FORALL_po_Decls th
+                                     handle HOL_ERR _ =>
+                                     HO_MATCH_MP FORALL_po_Decls_eval th)
+  val th1 = CONJ spec th0;
   val th2 = (MATCH_MP basis_ffiTheory.whole_prog_spec_IMP th1
              handle HOL_ERR _ =>
              MATCH_MP basis_ffiTheory.whole_prog_spec_SOME_IMP th1

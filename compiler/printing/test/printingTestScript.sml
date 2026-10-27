@@ -47,12 +47,12 @@ val res = translate x1_def;
 Definition x2_def:
   x2 = muddle 3 [x1] x1
 End
-val res = translate x2_def;
+val res = translate (x2_def |> CONV_RULE (RHS_CONV EVAL));
 
 Definition x3_def:
   x3 = [muddle 17 [x2; x1] x2]
 End
-val res = translate x3_def;
+val res = translate (x3_def |> CONV_RULE (RHS_CONV EVAL));
 
 Definition x4_def:
   x4 = SOME (Ex_A 3 x3)
@@ -75,12 +75,12 @@ val res = translate x_list_chars_thm;
 Definition x_list_strs_def:
   x_list_strs = MAP implode x_list_chars ++ [implode (FLAT x_list_chars)]
 End
-val res = translate x_list_strs_def;
+val res = translate (x_list_strs_def |> CONV_RULE (RHS_CONV EVAL));
 
 Definition x_maps_def:
   x_maps = [(1i, mlmap$fromList (mlint$int_cmp) [(1i, "x"); (2, "y")])]
 End
-val res = translate x_maps_def;
+val res = translate (x_maps_def |> CONV_RULE (RHS_CONV EVAL));
 
 val _ = ml_prog_update remove_snocs;
 

@@ -43,7 +43,7 @@ Overload basis_state = (basis_Decls_thm |> concl |> rand |> rator);
  * ------------------------------------------------------------------------- *)
 
 Theorem post_state_ok_basis_state:
-  post_state_ok (basis_state ffi)
+  post_state_ok (basis_state (ffi,po))
 Proof
   rw [post_state_ok_def, kernel_types_def, kernel_locs_def,
       the_type_constants_def, the_term_constants_def,
@@ -118,7 +118,7 @@ Proof
 QED
 
 Theorem candle_init_state_stamp:
-  n ∈ kernel_types ⇒ n < (candle_init_state ffi).next_type_stamp
+  n ∈ kernel_types ⇒ n < (candle_init_state (ffi,po)).next_type_stamp
 Proof
   EVAL_TAC \\ gs []
 QED
@@ -137,16 +137,16 @@ QED
 
 Theorem LLOOKUPs[local]:
   (Loc T loc = the_type_constants ⇒
-     LLOOKUP (candle_init_state ffi).refs loc =
+     LLOOKUP (candle_init_state (ffi,po)).refs loc =
      SOME (Refv init_type_constants_v)) ∧
   (Loc T loc = the_term_constants ⇒
-     LLOOKUP (candle_init_state ffi).refs loc =
+     LLOOKUP (candle_init_state (ffi,po)).refs loc =
      SOME (Refv init_term_constants_v)) ∧
   (Loc T loc = the_axioms ⇒
-     LLOOKUP (candle_init_state ffi).refs loc =
+     LLOOKUP (candle_init_state (ffi,po)).refs loc =
      SOME (Refv init_axioms_v)) ∧
   (Loc T loc = the_context ⇒
-     LLOOKUP (candle_init_state ffi).refs loc =
+     LLOOKUP (candle_init_state (ffi,po)).refs loc =
      SOME (Refv init_context_v))
 Proof
   rpt strip_tac
@@ -157,32 +157,31 @@ QED
 
 Theorem candle_init_state_refs:
   loc ∈ kernel_locs ⇒
-    kernel_loc_ok init_refs loc (candle_init_state ffi).refs
+    kernel_loc_ok init_refs loc (candle_init_state (ffi,po)).refs
 Proof
   gvs [kernel_locs_def, kernel_loc_ok_def]
   \\ rw [] \\ gs []
-  \\ FIRST (map (drule_then (qspec_then ‘ffi’ assume_tac))
-                (CONJUNCTS LLOOKUPs))
+  \\ imp_res_tac LLOOKUPs
   \\ first_assum (irule_at Any) \\ gs []
   \\ simp [init_refs_def, init_type_constants_v_thm, init_term_constants_v_thm,
            init_axioms_v_thm, init_context_v_thm]
 QED
 
 Theorem candle_init_state_eval[simp]:
-  eval_state_ok (candle_init_state ffi).eval_state
+  eval_state_ok (candle_init_state (ffi,po)).eval_state
 Proof
   EVAL_TAC
 QED
 
 Theorem candle_init_state_ffi[simp]:
-  (candle_init_state ffi).ffi = ffi
+  (candle_init_state (ffi,po)).ffi = ffi
 Proof
   EVAL_TAC
 QED
 
 Theorem candle_init_state_state_ok:
   ffi.io_events = [] ⇒
-  state_ok init_context (candle_init_state ffi)
+  state_ok init_context (candle_init_state (ffi,po))
 Proof
   strip_tac
   \\ simp [state_ok_def, candle_init_state_stamp]
@@ -444,7 +443,7 @@ Proof
   strip_tac
   \\ Cases_on ‘res’ \\ gs []
   >~ [‘Terminate outcome io_list’] >- (
-    gs [semantics_prog_def]
+    gs [semantics_prog_def, semantics_determ_def]
     \\ gs [evaluate_prog_with_clock_def]
     \\ pairarg_tac \\ gvs []
     \\ assume_tac candle_prog_thm
@@ -483,7 +482,7 @@ Proof
     \\ dxrule_then (qspec_then ‘k’ mp_tac) evaluate_decs_add_to_clock
     \\ dxrule_then (qspec_then ‘ck1’ mp_tac) evaluate_decs_add_to_clock
     \\ rw [] \\ gs [CaseEqs ["semanticPrimitives$result"]])
-  \\ gs [semanticsTheory.semantics_prog_def]
+  \\ gs [semanticsTheory.semantics_prog_def, semantics_determ_def]
   \\ qmatch_asmsub_abbrev_tac`IMAGE ff`
   \\ drule lprefix_lub_is_chain \\ strip_tac
   \\ rw[every_LNTH]
@@ -526,7 +525,8 @@ Proof
     \\ ‘k ≤ ck1’
       by (dxrule_then drule evaluatePropsTheory.evaluate_decs_clock_determ
           \\ rw [])
-    \\ drule_then (qspecl_then [‘init_state ffi with eval_state := es’,‘init_env’,‘candle_code’]
+    \\ drule_then (qspecl_then [‘init_state ffi with <|eval_state := es; ptr_eq_oracle := po|>’,
+                                 ‘init_env’,‘candle_code’]
                   mp_tac)
                   evaluate_decs_ffi_mono_clock
     \\ rw [io_events_mono_def] \\ gs [])

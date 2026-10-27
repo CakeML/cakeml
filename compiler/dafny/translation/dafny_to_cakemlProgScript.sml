@@ -15,16 +15,16 @@ val r = translate dafny_to_cakemlTheory.cml_list_def;
 
 val r = translate dafny_to_cakemlTheory.cml_dec_to_string_name_def;
 val r = translate dafny_to_cakemlTheory.cml_dec_to_string_param_def;
-val r = translate dafny_to_cakemlTheory.cml_dec_to_string_body_def;
-val r = translate dafny_to_cakemlTheory.cml_dec_to_string_dlet_def;
+val r = translate (dafny_to_cakemlTheory.cml_dec_to_string_body_def |> CONV_RULE (RHS_CONV EVAL));
+val r = translate (dafny_to_cakemlTheory.cml_dec_to_string_dlet_def |> CONV_RULE (RHS_CONV EVAL));
 val r = translate dafny_to_cakemlTheory.cml_nat_to_string_name_def;
 val r = translate dafny_to_cakemlTheory.cml_nat_to_string_param_def;
-val r = translate dafny_to_cakemlTheory.cml_nat_to_string_body_def;
-val r = translate dafny_to_cakemlTheory.cml_nat_to_string_dletrec_def;
+val r = translate (dafny_to_cakemlTheory.cml_nat_to_string_body_def |> CONV_RULE (RHS_CONV EVAL));
+val r = translate (dafny_to_cakemlTheory.cml_nat_to_string_dletrec_def |> CONV_RULE (RHS_CONV EVAL));
 val r = translate dafny_to_cakemlTheory.cml_int_to_string_name_def;
 val r = translate dafny_to_cakemlTheory.cml_int_to_string_param_def;
-val r = translate dafny_to_cakemlTheory.cml_int_to_string_body_def;
-val r = translate dafny_to_cakemlTheory.cml_int_to_string_dlet_def;
+val r = translate (dafny_to_cakemlTheory.cml_int_to_string_body_def |> CONV_RULE (RHS_CONV EVAL));
+val r = translate (dafny_to_cakemlTheory.cml_int_to_string_dlet_def |> CONV_RULE (RHS_CONV EVAL));
 
 val r = translate astTheory.Funs_def;
 val r = translate dafny_to_cakemlTheory.cml_new_refs_def;

@@ -308,8 +308,8 @@ Proof
   qx_genl_tac [`b`,`ffi`] >>
   mp_tac (input_repl_Prog |> GEN_ALL |> Q.ISPEC `ffi:'ffi ffi_state`) >>
   rewrite_tac [Prog_def] >>
-  disch_then (CONJUNCTS_THEN2 assume_tac
-    (qx_choosel_then [`initial_clock`,`final_clock`] assume_tac)) >>
+  disch_then (CONJUNCTS_THEN2 assume_tac (CONJUNCTS_THEN2 assume_tac
+    (qx_choosel_then [`initial_clock`,`final_clock`] assume_tac))) >>
   mp_tac (repl_initial_input_certificate |> GEN_ALL
     |> Q.ISPEC `ffi:'ffi ffi_state`) >> strip_tac >>
   mp_tac (Q.ISPECL

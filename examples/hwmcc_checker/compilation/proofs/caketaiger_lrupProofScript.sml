@@ -48,7 +48,7 @@ Theorem lrup_verified_sound:
 Proof
   rw[lrup_verified_def]
   \\ drule_then (qspec_then`ext`strip_assume_tac) lrupProofTheory.machine_code_sound
-  \\ `evs = cake_lrup_io_events ext cl fs` by
+  \\ `evs = io` by
     metis_tac[SUBSET_DEF, Terminate_Success_extend_with_resource_limit]
   \\ gvs[]
   \\ `STD_streams fs` by fs[cake_lrup_run_def]
@@ -105,7 +105,7 @@ Proof
   strip_tac
   \\ drule_then (qspec_then`ext`strip_assume_tac)
        caketaigerProofTheory.machine_code_sound
-  \\ `evs = caketaiger_io_events ext cl fs` by
+  \\ `evs = io` by
     metis_tac[SUBSET_DEF, Terminate_Success_extend_with_resource_limit]
   \\ gvs[]
   \\ `out = «SUCCESS\n»` by metis_tac[stdout_add_stdout_output]

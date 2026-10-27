@@ -10,29 +10,19 @@ Ancestors
 Libs
   preamble
 
-val helloErr_io_events_def =
-  new_specification("helloErr_io_events_def",["helloErr_io_events"],
-  helloErr_semantics |> Q.GENL[`ext`,`cl`,`fs`]
-  |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
-
-val (helloErr_sem,helloErr_output) = helloErr_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
-val (helloErr_not_fail,helloErr_sem_sing) = helloErr_sem
-  |> SRULE [helloErr_compiled,ml_progTheory.prog_syntax_ok_semantics]
-  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
-
-val compile_correct_applied =
-  MATCH_MP compile_correct (cj 1 helloErr_compiled)
-  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
-  |> C MATCH_MP helloErr_not_fail
-  |> C MATCH_MP x64_backend_config_ok
-  |> REWRITE_RULE[helloErr_sem_sing,AND_IMP_INTRO]
-  |> REWRITE_RULE[Once (GSYM AND_IMP_INTRO)]
-  |> C MATCH_MP (CONJ(UNDISCH x64_machine_config_ok)(UNDISCH x64_init_ok))
-  |> DISCH(#1(dest_imp(concl x64_init_ok)))
-  |> REWRITE_RULE[AND_IMP_INTRO]
+val helloErr_terminate = UNDISCH_ALL helloErr_semantics
+  |> HO_MATCH_MP ml_progTheory.sem_satisfies_IMP_Terminate
+  |> SRULE [helloErr_compiled];
 
 Theorem helloErr_compiled_thm =
-  CONJ compile_correct_applied helloErr_output
-  |> DISCH_ALL
+  MATCH_MP compile_correct (cj 1 helloErr_compiled)
+  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
+  |> C MATCH_MP (cj 1 helloErr_terminate)
+  |> C MATCH_MP x64_backend_config_ok
+  |> Q.GEN ‘mc’ |> ISPEC (x64_init_ok |> concl |> rand |> rand) |> UNDISCH_ALL
+  |> MATCH_MP (cj 2 helloErr_terminate)
+  |> REWRITE_RULE [targetPropsTheory.machine_sem_sing] |> DISCH_ALL
+  |> CONJ (UNDISCH is_x64_machine_config_IMP)
+  |> SRULE [SF CONJ_ss] |> CONJUNCT2 |> DISCH_ALL
+  |> REWRITE_RULE [AND_IMP_INTRO, GSYM CONJ_ASSOC]
   |> check_thm
-

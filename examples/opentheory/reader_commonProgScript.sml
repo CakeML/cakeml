@@ -237,7 +237,10 @@ val r = translate msg_bad_name_def;
 (* ------------------------------------------------------------------------- *)
 
 val st = get_state (get_ml_prog_state ())
-val refs = EVAL ``(^st).refs`` |> concl |> rhs |> listSyntax.strip_append;
+val refs = EVAL ``(^st).refs`` |> concl |> rhs |> listSyntax.strip_append
+  |> List.concat o map (fn t =>
+       map (fn x => listSyntax.mk_list ([x], type_of x))
+         (fst (listSyntax.dest_list t)) handle HOL_ERR _ => [t]);
 val t = `` init_type_constants_v``;
 fun prior_length t = let
     val refv_t = mk_Refv t
@@ -245,8 +248,10 @@ fun prior_length t = let
     val xs = List.take (refs, n)
     val ns = mapfilter (length o fst o listSyntax.dest_list) xs
     val ys = filter (not o can (listSyntax.dest_list)) xs
-      |> listSyntax.list_mk_append
-  in numSyntax.mk_plus (numSyntax.term_of_int (sum ns), listSyntax.mk_length ys) end
+  in if null ys then numSyntax.term_of_int (sum ns) else
+       numSyntax.mk_plus (numSyntax.term_of_int (sum ns),
+                          listSyntax.mk_length (listSyntax.list_mk_append ys))
+  end
 
 Theorem HOL_STORE_init_precond:
    HOL_STORE init_refs
@@ -259,21 +264,14 @@ Theorem HOL_STORE_init_precond:
     Mem (^(prior_length ``init_context_v``))
         (Refv init_context_v)}
 Proof
-  qmatch_goalsub_abbrev_tac`2 + l1`
-  \\ qmatch_goalsub_abbrev_tac`3 + l2`
-  \\ qmatch_goalsub_abbrev_tac`4 + l3`
-  \\ qmatch_goalsub_abbrev_tac`5 + l4`
-  \\ rw[HOL_STORE_def,ml_monad_translatorBaseTheory.REF_REL_def,init_refs_def]
+  rw[HOL_STORE_def,ml_monad_translatorBaseTheory.REF_REL_def,init_refs_def]
   \\ rw[STAR_def,SEP_EXISTS_THM]
-  \\ qmatch_goalsub_abbrev_tac`Mem (l1+2) v1`
-  \\ qmatch_goalsub_abbrev_tac`Mem (l2+3) v2`
-  \\ qmatch_goalsub_abbrev_tac`Mem (l3+4) v3`
-  \\ qmatch_goalsub_abbrev_tac`Mem (l4+5) v4`
-  \\ qexists_tac`{Mem(l1+2)v1;Mem(l2+3)v2;Mem(l3+4)v3}`
-  \\ qexists_tac`{Mem(l4+5)v4}`
-  \\ `l1+2 < l2+3` by simp[Abbr`l1`,Abbr`l2`]
-  \\ `l2+3 < l3+4` by simp[Abbr`l2`,Abbr`l3`]
-  \\ `l3+4 < l4+5` by simp[Abbr`l3`,Abbr`l4`]
+  \\ qmatch_goalsub_abbrev_tac`Mem 2 v1`
+  \\ qmatch_goalsub_abbrev_tac`Mem 3 v2`
+  \\ qmatch_goalsub_abbrev_tac`Mem 4 v3`
+  \\ qmatch_goalsub_abbrev_tac`Mem 5 v4`
+  \\ qexists_tac`{Mem 2 v1;Mem 3 v2;Mem 4 v3}`
+  \\ qexists_tac`{Mem 5 v4}`
   \\ conj_tac >- SPLIT_TAC
   \\ reverse conj_tac
   >- (
@@ -284,8 +282,8 @@ Proof
     \\ simp[init_context_v_thm]
     \\ unabbrev_all_tac
     \\ SPLIT_TAC )
-  \\ qexists_tac`{Mem(l1+2)v1;Mem(l2+3)v2}`
-  \\ qexists_tac`{Mem(l3+4)v3}`
+  \\ qexists_tac`{Mem 2 v1;Mem 3 v2}`
+  \\ qexists_tac`{Mem 4 v3}`
   \\ conj_tac >- SPLIT_TAC
   \\ reverse conj_tac
   >- (
@@ -296,8 +294,8 @@ Proof
     \\ simp[init_axioms_v_thm]
     \\ unabbrev_all_tac
     \\ SPLIT_TAC )
-  \\ qexists_tac`{Mem(l1+2)v1}`
-  \\ qexists_tac`{Mem(l2+3)v2}`
+  \\ qexists_tac`{Mem 2 v1}`
+  \\ qexists_tac`{Mem 3 v2}`
   \\ conj_tac >- SPLIT_TAC
   \\ reverse conj_tac
   >- (

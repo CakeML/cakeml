@@ -3935,15 +3935,21 @@ Proof
   \\ Cases \\ fs [clock_neutral_def,store_list_code_def,list_Seq_def]
 QED
 
+Theorem clock_neutral_init_code:
+   clock_neutral (init_code aw gen_gc max_heap k)
+Proof
+  fs [clock_neutral_def,init_code_def] \\ rw []
+  \\ fs [clock_neutral_def,init_code_def,halt_inst_def,
+         list_Seq_def,init_memory_def,clock_neutral_store_list_code]
+QED
+
 Theorem evaluate_init_code_clock[local]:
   evaluate (init_code aw gen_gc max_heap k,s) = (res,t) ==>
     evaluate (init_code aw gen_gc max_heap k,s with clock := c) =
       (res,t with clock := c)
 Proof
-  srw_tac[][] \\ match_mp_tac evaluate_clock_neutral \\ fs []
-  \\ fs [clock_neutral_def,init_code_def] \\ rw []
-  \\ fs [clock_neutral_def,init_code_def,halt_inst_def,
-         list_Seq_def,init_memory_def,clock_neutral_store_list_code]
+  srw_tac[][] \\ match_mp_tac evaluate_clock_neutral
+  \\ fs [clock_neutral_init_code]
 QED
 
 Theorem evaluate_init_code_ffi:
@@ -3951,10 +3957,29 @@ Theorem evaluate_init_code_ffi:
     evaluate (init_code aw gen_gc max_heap k,s with ffi := c) =
       (res,(t with ffi := c):('a,'c,'ffi) stackSem$state)
 Proof
-  srw_tac[][] \\ match_mp_tac evaluate_ffi_neutral \\ fs []
-  \\ fs [clock_neutral_def,init_code_def] \\ rw []
-  \\ fs [clock_neutral_def,init_code_def,halt_inst_def,
-         list_Seq_def,init_memory_def,clock_neutral_store_list_code]
+  srw_tac[][] \\ match_mp_tac evaluate_ffi_neutral
+  \\ fs [clock_neutral_init_code]
+QED
+
+Theorem init_code_compile_oracle:
+   evaluate (init_code aw gen_gc max_heap k,(s:('a,'c,'ffi) stackSem$state)) = (res,t) ==>
+    evaluate (init_code aw gen_gc max_heap k,s with compile_oracle := co) =
+      (res,(t with compile_oracle := co):('a,'c,'ffi) stackSem$state)
+Proof
+  srw_tac[][] \\ match_mp_tac evaluate_compile_oracle_neutral
+  \\ fs [clock_neutral_init_code]
+QED
+
+Theorem make_init_opt_compile_oracle:
+   make_init_opt aw gen_gc max_heap bitmaps data_sp coracle jump off k code
+     ((s:('a,'c,'ffi) stackSem$state) with compile_oracle := co) =
+   make_init_opt aw gen_gc max_heap bitmaps data_sp coracle jump off k code s
+Proof
+  Cases_on `evaluate (init_code aw gen_gc max_heap k,s)`
+  \\ imp_res_tac init_code_compile_oracle
+  \\ simp [make_init_opt_def,read_pointers_def]
+  \\ Cases_on `q`
+  \\ simp [init_reduce_def]
 QED
 
 Theorem init_semantics:
@@ -4082,6 +4107,71 @@ Definition make_init_any_def:
                       ; store := FEMPTY |++ (MAP (\x. (x,Word 0w))
                                    (CurrHeap::store_list)) |>
 End
+
+Theorem init_prop_compile_oracle[local]:
+   init_prop gen_gc max_heap data_sp lim
+     ((s:('a,'c,'ffi) stackSem$state) with compile_oracle := co) <=>
+   init_prop gen_gc max_heap data_sp lim s
+Proof
+  Cases_on `lim`
+  \\ simp [init_prop_def,stack_heap_limit_ok_def]
+QED
+
+Theorem make_init_opt_coracle:
+   make_init_opt aw gen_gc max_heap bitmaps data_sp coracle jump off k code s =
+   OPTION_MAP (\t. t with compile_oracle := coracle)
+     (make_init_opt aw gen_gc max_heap bitmaps data_sp coracle' jump off k code s)
+Proof
+  Cases_on `evaluate (init_code aw gen_gc max_heap k,s)`
+  \\ simp [make_init_opt_def]
+  \\ Cases_on `q`
+  \\ simp []
+  \\ `init_reduce aw gen_gc jump off k code bitmaps data_sp coracle r =
+      init_reduce aw gen_gc jump off k code bitmaps data_sp coracle' r with
+        compile_oracle := coracle` by simp [init_reduce_def]
+  \\ pop_assum (fn th => rewrite_tac [th])
+  \\ simp [init_prop_compile_oracle]
+  \\ IF_CASES_TAC
+  \\ simp []
+QED
+
+Theorem make_init_any_state_oracle:
+   make_init_any aw gen_gc max_heap bitmaps data_sp coracle jump off k code
+     ((s:('a,'c,'ffi) stackSem$state) with compile_oracle := co) =
+   make_init_any aw gen_gc max_heap bitmaps data_sp coracle jump off k code s
+Proof
+  simp [make_init_any_def,make_init_opt_compile_oracle]
+  \\ CASE_TAC
+  \\ simp []
+QED
+
+Theorem make_init_any_oracle_swap:
+   make_init_any aw gen_gc max_heap bitmaps data_sp coracle jump off k code
+     ((s:('a,'c,'ffi) stackSem$state) with compile_oracle := co) =
+   make_init_any aw gen_gc max_heap bitmaps data_sp coracle' jump off k code s with
+     compile_oracle := coracle
+Proof
+  simp [make_init_any_state_oracle,make_init_any_def]
+  \\ `make_init_opt aw gen_gc max_heap bitmaps data_sp coracle jump off k code s =
+      OPTION_MAP (\t. t with compile_oracle := coracle)
+        (make_init_opt aw gen_gc max_heap bitmaps data_sp coracle' jump off k code
+           s)` by MATCH_ACCEPT_TAC make_init_opt_coracle
+  \\ pop_assum (fn th => rewrite_tac [th])
+  \\ Cases_on `make_init_opt aw gen_gc max_heap bitmaps data_sp coracle' jump off k
+                 code s`
+  \\ simp []
+QED
+
+Theorem make_init_any_oracle_cong:
+   s1 = s2 with compile_oracle := co ==>
+   make_init_any aw ggc max_heap bitmaps data_sp coracle jump off k code s1 =
+   make_init_any aw ggc max_heap bitmaps data_sp coracle' jump off k code s2 with
+     compile_oracle := coracle
+Proof
+  strip_tac
+  \\ pop_assum (fn th => rewrite_tac [th])
+  \\ MATCH_ACCEPT_TAC make_init_any_oracle_swap
+QED
 
 Definition discharge_these_def:
   discharge_these aw jump off gen_gc max_heap k start coracle code

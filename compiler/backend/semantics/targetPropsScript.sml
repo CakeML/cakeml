@@ -1186,6 +1186,15 @@ Proof
     )
 QED
 
+Theorem machine_sem_sing:
+  ∃b. machine_sem mc st ms = {b}
+Proof
+  qspecl_then [‘st’,‘ms’,‘mc’] strip_assume_tac (GEN_ALL machine_sem_total)
+  \\ qexists_tac ‘b’
+  \\ rw [EXTENSION, IN_DEF]
+  \\ metis_tac [machine_sem_unique]
+QED
+
 Theorem read_ffi_bytearray_IMP_SUBSET_prog_addresses:
    (read_ffi_bytearray mc a l ms = SOME bytes) ==>
     all_words (mc.target.get_reg ms a) (LENGTH bytes) SUBSET

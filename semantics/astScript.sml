@@ -84,6 +84,9 @@ Datatype:
   | FromTo prim_type prim_type
   (* Equality and comparisons *)
   | Equality
+  (* Pointer equality: true implies structural equality, but may
+     spuriously return false for structurally equal values *)
+  | PtrEq
   | Test test prim_type
   (* Function application *)
   | Opapp

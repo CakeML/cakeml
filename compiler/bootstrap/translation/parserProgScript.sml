@@ -229,6 +229,24 @@ Proof
   rw [] \\ gvs [FLOOKUP_SIMP]
 QED
 
+(* add_Dlet only accepts top-level vals whose code does not call functions
+   (no_ptr_eq), so the PEG constants are translated with their combinators
+   unfolded into pegsym constructors and lambdas *)
+
+Theorem tokeq_eta[local]:
+  tokeq t = tok (λx. t = x) mktokLf
+Proof
+  simp [tokeq_def, FUN_EQ_THM]
+QED
+
+val _ = map (translate o REWRITE_RULE [o_DEF, tokeq_eta, tokSymP_def, pnt_def,
+                                      pegf_def, seql_def, choicel_def,
+                                      peg_linfix_def, FOLDR, OPTION_BIND_THM,
+                                      monad_unitbind_assert, IN_INSERT,
+                                      NOT_IN_EMPTY])
+  [peg_UQConstructorName_def, peg_TypeDec_def, peg_V_def, peg_longV_def,
+   peg_EbaseParen_def, peg_StructName_def];
+
 Definition peg_cml_rules_def:
   peg_cml_rules n fk k tf3 errs eo r i =
   case FLOOKUP cmlPEG.rules n of

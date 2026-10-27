@@ -564,6 +564,7 @@ Definition not_created_subprogs_def:
   not_created_subprogs P (LocValue _ l) = P (LocValue 0 l) /\
   not_created_subprogs P (ShareInst _ _ _) = P (ShareInst ARB 0 (Var 0)) /\
   not_created_subprogs P (Install _ _ _ _ _ _) = P (Install 0 0 0 0 0 (LN,LN)) /\
+  not_created_subprogs P (PtrEq _ _ _ _ _) = P (wordLang$PtrEq 0 0 0 0 0) /\
   not_created_subprogs _ _ = T
 End
 
@@ -618,6 +619,23 @@ End
 Theorem no_share_inst_def = not_created_subprogs_P_def
   |> ISPEC no_share_inst_P
   |> REWRITE_RULE [GSYM no_share_inst_subprogs_def]
+
+(* ptr_eq_free ns p: p contains no PtrEq and no Install, and every call in p
+   is a direct call into the code names ns *)
+
+Definition ptr_eq_free_def:
+  (ptr_eq_free ns (PtrEq _ _ _ _ _ : prog) ⇔ F) ∧
+  (ptr_eq_free ns (Call r d a h) ⇔
+     (case d of SOME n => n ∈ ns | NONE => F) ∧
+     (case r of SOME (_,_,p,_,_) => ptr_eq_free ns p | NONE => T) ∧
+     (case h of SOME (_,p,_,_) => ptr_eq_free ns p | NONE => T)) ∧
+  (ptr_eq_free ns (Seq p1 p2) ⇔ ptr_eq_free ns p1 ∧ ptr_eq_free ns p2) ∧
+  (ptr_eq_free ns (If _ _ _ p1 p2) ⇔ ptr_eq_free ns p1 ∧ ptr_eq_free ns p2) ∧
+  (ptr_eq_free ns (MustTerminate p) ⇔ ptr_eq_free ns p) ∧
+  (ptr_eq_free ns (Loop _ p _) ⇔ ptr_eq_free ns p) ∧
+  (ptr_eq_free ns (Install _ _ _ _ _ _) ⇔ F) ∧
+  (ptr_eq_free ns _ ⇔ T)
+End
 
 Overload word_get_code_labels = ``wordConvs$get_code_labels``
 Overload word_good_handlers = ``wordConvs$good_handlers``

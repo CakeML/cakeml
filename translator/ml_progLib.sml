@@ -397,12 +397,28 @@ fun add_Dexn loc n_tm l_tm = ML_code_upd "add_Dexn"
 fun add_Dtabbrev loc l1_tm l2_tm l3_tm = ML_code_upd "add_Dtabbrev"
     (SPECL [l1_tm,l2_tm,l3_tm,loc] ML_code_Dtabbrev) []
 
+(* a top-level val must satisfy no_ptr_eq: prove it by evaluation, or fail
+   with err_prefix, the reason and hint *)
+fun prove_no_ptr_eq err_prefix hint exp = let
+  val tm = mk_icomb
+    (prim_mk_const {Thy = "evaluateProps", Name = "no_ptr_eq"}, exp)
+  in EQT_ELIM (EVAL tm) handle HOL_ERR _ =>
+       failwith (err_prefix ^ ": " ^
+         "its expression applies a function, uses pointer equality, Eval or " ^
+         "forces a thunk, and a top-level val may only be built from " ^
+         "constructors, literals, closures and simple primitive " ^
+         "operations (it must satisfy no_ptr_eq). " ^ hint) end
+
 fun add_Dlet eval_thm var_str = let
     val (_, eval_thm_xs) = strip_comb (concl eval_thm)
+    val exp = List.nth (eval_thm_xs, 2)
+    val safe_thm = prove_no_ptr_eq ("add_Dlet: cannot declare val " ^ var_str)
+      "Evaluate the expression to a value first, or declare a function." exp
     val mp_thm = ML_code_Dlet_var |> SPECL (tl eval_thm_xs
         @ [mlstringSyntax.mk_mlstring var_str,no_locs])
   in ML_code_upd "add_Dlet" mp_thm
     [solve_ml_imp_mp eval_thm,
+     solve_ml_imp_mp safe_thm,
      solve_ml_imp_conv (SIMP_CONV bool_ss []
                         THENC SIMP_CONV bool_ss [ML_code_env_def]),
      let_env_abbrev ALL_CONV, let_st_abbrev reduce_conv]
@@ -412,7 +428,7 @@ fun add_Dlet_lit loc n l =
   let
     val mp_thm = SPECL [loc,n,l] ML_code_Dlet_var_lit
   in
-    ML_code_upd "add_Dlet_lit" mp_thm [let_env_abbrev ALL_CONV, let_env_abbrev ALL_CONV]
+    ML_code_upd "add_Dlet_lit" mp_thm [let_env_abbrev ALL_CONV, let_st_abbrev reduce_conv]
 end
 
 fun add_Denv eval_thm var_str = let
@@ -495,9 +511,53 @@ fun close_local_blocks code = case get_block_names code of
   | _ => code
 
 
+val merge_env_tm = prim_mk_const {Name = "merge_env", Thy = "ml_prog"}
+val ML_code_env_tm = prim_mk_const {Name = "ML_code_env", Thy = "ml_prog"}
+
+fun get_env (ML_code (ss,envs,vs,th)) = let
+    val bls = ML_code_blocks (concl th)
+    fun mk [] = hd (snd (strip_comb (concl th)))
+      | mk (bl :: bls) = list_mk_icomb (merge_env_tm, [List.last bl, mk bls])
+  in mk bls end
+
+fun get_state (ML_code (ss,envs,vs,th)) = concl th |> rand
+
+(* Primitive type checks can reduce to an existential applied to a
+   partially applied equality, which the computation engine needs directly. *)
+val exists_eq = EXISTS_REFL |> SPEC_ALL
+  |> CONV_RULE (QUANT_CONV (REWR_CONV EQ_SYM_EQ))
+  |> CONV_RULE (DEPTH_CONV ETA_CONV) |> EQT_INTRO;
+
 (*
 val dec_tm = dec1_tm
 *)
+fun add_Dlet_expr loc n exp s = let
+    val safe_thm = prove_no_ptr_eq
+      ("add_dec: cannot declare val " ^ mlstringSyntax.dest_mlstring n)
+      "Evaluate the expression to a value first, or declare a function." exp
+    val eval_tm = list_mk_icomb
+      (prim_mk_const {Thy = "evaluate", Name = "evaluate"},
+       [get_state s, get_env s, listSyntax.mk_list ([exp], type_of exp)])
+    val cs = computeLib.copy (computeLib.the_compset ())
+      |> computeLib.add_thms [evaluateTheory.evaluate_def, exists_eq]
+    val eval_thm = (computeLib.CBV_CONV cs
+      THENC SIMP_CONV (srw_ss()) [exists_eq]
+      THENC reduce_conv) eval_tm
+    val lemma = MATCH_MP eval_rel_no_ptr_eq (CONJ safe_thm eval_thm)
+      handle HOL_ERR _ =>
+        failwith ("add_dec: Dlet expression did not evaluate to a value:\n" ^
+                  thm_to_string eval_thm)
+    val rel_thm = CONJUNCT1 lemma
+    val (_,xs) = strip_comb (concl rel_thm)
+    val mp_thm = SPECL (tl xs @ [n,loc]) ML_code_Dlet_var
+  in ML_code_upd "add_Dlet_expr" mp_thm
+    [solve_ml_imp_mp rel_thm,
+     solve_ml_imp_mp safe_thm,
+     solve_ml_imp_conv (SIMP_CONV bool_ss [ML_code_env_def]),
+     let_env_abbrev ALL_CONV,
+     let_st_abbrev reduce_conv] s
+  end
+
 fun add_dec dec_tm pick_name s =
   if is_Dexn dec_tm then let
     val (loc,x1,x2) = dest_Dexn dec_tm
@@ -551,6 +611,11 @@ fun add_dec dec_tm pick_name s =
     val prefix = get_mod_prefix s
     val v_name = prefix ^ pick_name (mlstringSyntax.dest_mlstring n) ^ "_v"
     in add_Dlet_Var_Ref_Var loc n var_name v_name s end
+  else if is_Dlet dec_tm
+          andalso is_Pvar (rand (rator dec_tm)) then let
+    val (loc,p,exp) = dest_Dlet dec_tm
+    val n = dest_Pvar p
+    in add_Dlet_expr loc n exp s end
   else if is_Dmod dec_tm then let
     val (name,(*spec,*)decs) = dest_Dmod dec_tm
     val ds = fst (listSyntax.dest_list decs)
@@ -588,18 +653,6 @@ fun get_prog (ML_code (ss,envs,vs,th)) = case ML_code_blocks (concl th) of
 fun get_Decls_thm code = let
     val _ = get_prog code
   in MATCH_MP ML_code_Decls (get_thm code) end
-
-val merge_env_tm = prim_mk_const {Name = "merge_env", Thy = "ml_prog"}
-val ML_code_env_tm = prim_mk_const {Name = "ML_code_env", Thy = "ml_prog"}
-
-fun get_env s = let
-    val th = get_thm s
-    val bls = ML_code_blocks (concl th)
-    fun mk [] = hd (snd (strip_comb (concl th)))
-      | mk (bl :: bls) = list_mk_icomb (merge_env_tm, [List.last bl, mk bls])
-  in mk bls end
-
-fun get_state s = get_thm s |> concl |> rand
 
 fun mk_acc nm rec_tm = let
     val fields = TypeBase.fields_of (type_of rec_tm)

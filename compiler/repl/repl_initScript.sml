@@ -12,7 +12,14 @@ val _ = Parse.hide "types"
 
 val _ = (max_print_depth := 12);
 
+val init_state_default_oracle = prove(
+  “init_state ffi with ptr_eq_oracle := (init_state ffi).ptr_eq_oracle =
+   init_state ffi”,
+  simp [semanticPrimitivesTheory.state_component_equality]);
+
 val th2 = Decls_repl_prog |> REWRITE_RULE [GSYM repl_prog_def,SNOC]
+          |> Q.INST [‘po’ |-> ‘(init_state ffi).ptr_eq_oracle’]
+          |> PURE_REWRITE_RULE [init_state_default_oracle]
           |> CONV_RULE (RAND_CONV EVAL)
           |> Q.GEN ‘ffi’ |> Q.ISPEC ‘basis_ffi ext cl fs’
           |> REWRITE_RULE (APPEND::(DB.find "refs_def" |> map (#1 o #2)))
@@ -223,11 +230,12 @@ QED
 Theorem repl_types_repl_prog:
   Prog init_env
     (init_state (basis_ffi ext cl fs) with
-     eval_state := SOME (EvalDecs (s with env_id_counter := ns))) xs env
-    st ∧
+     <|eval_state := SOME (EvalDecs (s with env_id_counter := ns));
+       ptr_eq_oracle := po|>) xs env st ∧
   evaluate_decs
     (init_state (basis_ffi ext cl fs) with
-     <|clock := ck; eval_state := SOME (EvalDecs s)|>) init_env (xs ++ ys) =
+     <|clock := ck; eval_state := SOME (EvalDecs s); ptr_eq_oracle := po|>)
+    init_env (xs ++ ys) =
   (s1,res) ∧ s.env_id_counter = ns ∧ repl_prog ≼ xs ∧
   prog_syntax_ok repl_prog ∧
   (repl_prog_st ext cl fs).refs ≼ st.refs ∧
@@ -250,12 +258,13 @@ Theorem repl_types_repl_prog:
     (res_cl ≠ Rerr (Rabort Rtimeout_error) ⇒
      ∃cl_v.
        LIST_TYPE STRING_TYPE (TL cl) cl_v ∧ res_cl = Rval [cl_v] ∧
-       ∀ck junk. ∃env_pr e_pr res_pr s_pr.
+       ∀ck junk po1. ∃env_pr e_pr res_pr s_pr.
          do_opapp [Repl_charsFrom_v; Litv (StrLit «config_enc_str.txt»)] =
          SOME (env_pr,e_pr) ∧
          evaluate
            (s_cl with
-            <|clock := s_cl.clock − (ck + 3); refs := s_cl.refs ++ junk|>)
+            <|clock := s_cl.clock − (ck + 3); refs := s_cl.refs ++ junk;
+              ptr_eq_oracle := po1|>)
            env_pr [e_pr] = (s_pr,res_pr) ∧
          (res_pr ≠ Rerr (Rabort Rtimeout_error) ⇒
           ∃pr_v.
@@ -269,7 +278,8 @@ Proof
   \\ ‘(s with env_id_counter := s.env_id_counter) = s’ by
       fs [semanticPrimitivesTheory.eval_decs_state_component_equality]
   \\ fs [] \\ pop_assum kall_tac
-  \\ qabbrev_tac ‘st4 = init_state (basis_ffi ext cl fs) with eval_state := SOME (EvalDecs s)’
+  \\ qabbrev_tac ‘st4 = init_state (basis_ffi ext cl fs) with
+                        <|eval_state := SOME (EvalDecs s); ptr_eq_oracle := po|>’
   \\ qpat_x_assum ‘Prog init_env st4 _ _ _’ mp_tac
   \\ simp [Once Prog_def] \\ strip_tac
   \\ qmatch_asmsub_rename_tac
@@ -363,6 +373,7 @@ Proof
          extend_dec_env_empty,Abbr‘s12’]
   \\ strip_tac
   \\ drule_then (qspec_then ‘junk’ assume_tac) repl_types_refs \\ fs []
+  \\ drule_then (qspec_then ‘po1’ assume_tac) repl_types_oracle \\ fs []
   \\ drule_then (qspec_then `config_clock+1` assume_tac) repl_types_set_clock
   \\ assume_tac infertype_prog_inc_Repl_charsFrom
   \\ drule_then drule repl_types_eval \\ fs []

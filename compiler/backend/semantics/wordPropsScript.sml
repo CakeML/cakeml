@@ -146,6 +146,8 @@ Theorem get_var_with_const[simp]:
    get_var x (y with mdomain := md) = get_var x y /\
    get_var x (y with sh_mdomain := smd) = get_var x y /\
    get_var x (y with permute := p) = get_var x y /\
+   get_var x (y with ptr_eq_oracle := po) = get_var x y /\
+   get_var x (y with ptr_eq_rel := prel) = get_var x y /\
    get_var x (y with compile := c) = get_var x y /\
    get_var x (y with compile_oracle := co) = get_var x y /\
    get_var x (y with code_buffer := cb) = get_var x y /\
@@ -173,6 +175,8 @@ Theorem get_vars_with_const[simp]:
    get_vars x (y with mdomain := md) = get_vars x y /\
    get_vars x (y with sh_mdomain := smd) = get_vars x y /\
    get_vars x (y with permute := p) = get_vars x y /\
+   get_vars x (y with ptr_eq_oracle := po) = get_vars x y /\
+   get_vars x (y with ptr_eq_rel := prel) = get_vars x y /\
    get_vars x (y with compile := c) = get_vars x y /\
    get_vars x (y with compile_oracle := co) = get_vars x y /\
    get_vars x (y with code_buffer := cb) = get_vars x y /\
@@ -190,6 +194,8 @@ QED
 
 Theorem set_var_const[simp]:
    (set_var x y z).locals_size = z.locals_size ∧
+   (set_var x y z).ptr_eq_oracle = z.ptr_eq_oracle ∧
+   (set_var x y z).ptr_eq_rel = z.ptr_eq_rel ∧
    (set_var x y z).fp_regs = z.fp_regs ∧
    (set_var x y z).store = z.store ∧
    (set_var x y z).stack = z.stack ∧
@@ -227,6 +233,8 @@ Theorem set_var_with_const[simp]:
   set_var x y (z with mdomain := md) = set_var x y z with mdomain := md /\
   set_var x y (z with sh_mdomain := smd) = set_var x y z with sh_mdomain := smd /\
   set_var x y (z with permute := p) = set_var x y z with permute := p /\
+  set_var x y (z with ptr_eq_oracle := po) = set_var x y z with ptr_eq_oracle := po /\
+  set_var x y (z with ptr_eq_rel := prel) = set_var x y z with ptr_eq_rel := prel /\
   set_var x y (z with compile := c) = set_var x y z with compile := c /\
   set_var x y (z with compile_oracle := co) = set_var x y z with compile_oracle := co /\
   set_var x y (z with code_buffer := cb) = set_var x y z with code_buffer := cb /\
@@ -244,6 +252,8 @@ QED
 
 Theorem unset_var_const[simp]:
    (unset_var x z).locals_size = z.locals_size ∧
+   (unset_var x z).ptr_eq_oracle = z.ptr_eq_oracle ∧
+   (unset_var x z).ptr_eq_rel = z.ptr_eq_rel ∧
    (unset_var x z).fp_regs = z.fp_regs ∧
    (unset_var x z).store = z.store ∧
    (unset_var x z).stack = z.stack ∧
@@ -281,6 +291,8 @@ Theorem unset_var_with_const[simp]:
   unset_var x (z with mdomain := md) = unset_var x z with mdomain := md /\
   unset_var x (z with sh_mdomain := smd) = unset_var x z with sh_mdomain := smd /\
   unset_var x (z with permute := p) = unset_var x z with permute := p /\
+  unset_var x (z with ptr_eq_oracle := po) = unset_var x z with ptr_eq_oracle := po /\
+  unset_var x (z with ptr_eq_rel := prel) = unset_var x z with ptr_eq_rel := prel /\
   unset_var x (z with compile := c) = unset_var x z with compile := c /\
   unset_var x (z with compile_oracle := co) = unset_var x z with compile_oracle := co /\
   unset_var x (z with code_buffer := cb) = unset_var x z with code_buffer := cb /\
@@ -298,6 +310,8 @@ QED
 
 Theorem set_vars_const[simp]:
    (set_vars x y z).locals_size = z.locals_size ∧
+   (set_vars x y z).ptr_eq_oracle = z.ptr_eq_oracle ∧
+   (set_vars x y z).ptr_eq_rel = z.ptr_eq_rel ∧
    (set_vars x y z).fp_regs = z.fp_regs ∧
    (set_vars x y z).store = z.store ∧
    (set_vars x y z).stack = z.stack ∧
@@ -335,6 +349,8 @@ Theorem set_vars_with_const[simp]:
   set_vars x y (z with mdomain := md) = set_vars x y z with mdomain := md /\
   set_vars x y (z with sh_mdomain := smd) = set_vars x y z with sh_mdomain := smd /\
   set_vars x y (z with permute := p) = set_vars x y z with permute := p /\
+  set_vars x y (z with ptr_eq_oracle := po) = set_vars x y z with ptr_eq_oracle := po /\
+  set_vars x y (z with ptr_eq_rel := prel) = set_vars x y z with ptr_eq_rel := prel /\
   set_vars x y (z with compile := c) = set_vars x y z with compile := c /\
   set_vars x y (z with compile_oracle := co) = set_vars x y z with compile_oracle := co /\
   set_vars x y (z with code_buffer := cb) = set_vars x y z with code_buffer := cb /\
@@ -362,6 +378,8 @@ Theorem get_store_with_const[simp]:
    get_store x (y with mdomain := md) = get_store x y /\
    get_store x (y with sh_mdomain := smd) = get_store x y /\
    get_store x (y with permute := p) = get_store x y /\
+   get_store x (y with ptr_eq_oracle := po) = get_store x y /\
+   get_store x (y with ptr_eq_rel := prel) = get_store x y /\
    get_store x (y with compile := c) = get_store x y /\
    get_store x (y with compile_oracle := co) = get_store x y /\
    get_store x (y with code_buffer := cb) = get_store x y /\
@@ -379,6 +397,8 @@ QED
 
 Theorem set_store_const[simp]:
    (set_store x y z).locals = z.locals ∧
+   (set_store x y z).ptr_eq_oracle = z.ptr_eq_oracle ∧
+   (set_store x y z).ptr_eq_rel = z.ptr_eq_rel ∧
    (set_store x y z).locals_size = z.locals_size ∧
    (set_store x y z).fp_regs = z.fp_regs ∧
    (set_store x y z).stack = z.stack ∧
@@ -416,6 +436,8 @@ Theorem set_store_with_const[simp]:
   set_store x y (z with mdomain := md) = set_store x y z with mdomain := md /\
   set_store x y (z with sh_mdomain := smd) = set_store x y z with sh_mdomain := smd /\
   set_store x y (z with permute := p) = set_store x y z with permute := p /\
+  set_store x y (z with ptr_eq_oracle := po) = set_store x y z with ptr_eq_oracle := po /\
+  set_store x y (z with ptr_eq_rel := prel) = set_store x y z with ptr_eq_rel := prel /\
   set_store x y (z with compile := c) = set_store x y z with compile := c /\
   set_store x y (z with compile_oracle := co) = set_store x y z with compile_oracle := co /\
   set_store x y (z with code_buffer := cb) = set_store x y z with code_buffer := cb /\
@@ -434,6 +456,8 @@ QED
 
 Theorem push_env_const[simp]:
    (push_env x y z).clock = z.clock ∧
+   (push_env x y z).ptr_eq_oracle = z.ptr_eq_oracle ∧
+   (push_env x y z).ptr_eq_rel = z.ptr_eq_rel ∧
    (push_env x y z).memory = z.memory ∧
    (push_env x y z).store = z.store ∧
    (push_env x NONE z).handler = z.handler ∧
@@ -464,7 +488,9 @@ Theorem push_env_with_const[simp]:
    (push_env x y (z with compile_oracle := co) = push_env x y z with compile_oracle := co) ∧
    (push_env x y (z with code := code) = push_env x y z with code := code) ∧
    (push_env x y (z with termdep := termdep) = push_env x y z with termdep := termdep) ∧
-   (push_env x y (z with locals := l) = push_env x y z with locals := l)
+   (push_env x y (z with locals := l) = push_env x y z with locals := l) ∧
+   (push_env x y (z with ptr_eq_oracle := po) = push_env x y z with ptr_eq_oracle := po) ∧
+   (push_env x y (z with ptr_eq_rel := prel) = push_env x y z with ptr_eq_rel := prel)
 Proof
   Cases_on`y`>>srw_tac[][push_env_def] >> unabbrev_all_tac >> simp[state_component_equality] >>
   rename1`SOME p` >>
@@ -474,7 +500,10 @@ QED
 
 Theorem pop_env_const:
    pop_env x = SOME y ⇒
+   pop_env x = SOME y ⇒
    y.clock = x.clock /\
+   y.ptr_eq_oracle = x.ptr_eq_oracle /\
+   y.ptr_eq_rel = x.ptr_eq_rel /\
    y.ffi = x.ffi ∧
    y.be = x.be ∧
    y.compile = x.compile ∧
@@ -505,6 +534,8 @@ Theorem pop_env_with_const[simp]:
    pop_env (z with code := code) = OPTION_MAP (λs. s with code := code) (pop_env z) ∧
    pop_env (z with termdep := termdep) = OPTION_MAP (λs. s with termdep := termdep) (pop_env z) ∧
    pop_env (z with permute:= perm) = OPTION_MAP (λs. s with permute := perm) (pop_env z) ∧
+   pop_env (z with ptr_eq_oracle := po) = OPTION_MAP (λs. s with ptr_eq_oracle := po) (pop_env z) ∧
+   pop_env (z with ptr_eq_rel := prel) = OPTION_MAP (λs. s with ptr_eq_rel := prel) (pop_env z) ∧
    pop_env (z with locals := l) = pop_env z /\
    pop_env (z with locals_size := ls) = pop_env z
 Proof
@@ -515,6 +546,8 @@ QED
 (*code and gc_fun are unchanged across eval*)
 Theorem pop_env_code_gc_fun_clock:
     pop_env r = SOME x ⇒
+  r.ptr_eq_oracle = x.ptr_eq_oracle ∧
+  r.ptr_eq_rel = x.ptr_eq_rel ∧
   r.code = x.code ∧
   r.code_buffer = x.code_buffer ∧
   r.data_buffer = x.data_buffer ∧
@@ -534,6 +567,8 @@ QED
 
 Theorem call_env_const[simp]:
    (call_env x ss y).store = y.store ∧
+   (call_env x ss y).ptr_eq_oracle = y.ptr_eq_oracle ∧
+   (call_env x ss y).ptr_eq_rel = y.ptr_eq_rel ∧
    (call_env x ss y).termdep = y.termdep ∧
    (call_env x ss y).clock = y.clock ∧
    (call_env x ss y).handler = y.handler ∧
@@ -563,7 +598,9 @@ Theorem call_env_with_const[simp]:
    call_env x ss (y with compile_oracle := co) = call_env x ss y with compile_oracle := co /\
    call_env x ss (y with code := code) = call_env x ss y with code := code /\
    call_env x ss (y with handler := k) = call_env x ss y with handler := k /\
-   call_env x ss (y with permute := perm) = call_env x ss y with permute := perm
+   call_env x ss (y with permute := perm) = call_env x ss y with permute := perm /\
+   call_env x ss (y with ptr_eq_oracle := po) = call_env x ss y with ptr_eq_oracle := po /\
+   call_env x ss (y with ptr_eq_rel := prel) = call_env x ss y with ptr_eq_rel := prel
 Proof
   EVAL_TAC
 QED
@@ -580,6 +617,8 @@ Theorem flush_state_const[simp]:
    (flush_state b y).data_buffer = y.data_buffer ∧
    (flush_state b y).stack_limit = y.stack_limit ∧
    (flush_state b y).stack_size = y.stack_size ∧
+   (flush_state b y).ptr_eq_oracle = y.ptr_eq_oracle ∧
+   (flush_state b y).ptr_eq_rel = y.ptr_eq_rel ∧
    (flush_state F y).stack      = y.stack
 Proof
   Cases_on `b` \\ EVAL_TAC
@@ -590,8 +629,12 @@ Theorem flush_state_with_const[simp]:
    flush_state b (y with locals_size := ls) = flush_state b y /\
    flush_state T (y with stack := xs) = flush_state T y /\
    flush_state b (y with permute := p) = flush_state b y with permute := p /\
+   flush_state b (y with ptr_eq_oracle := po) = flush_state b y with ptr_eq_oracle := po /\
+   flush_state b (y with ptr_eq_rel := prel) = flush_state b y with ptr_eq_rel := prel /\
    flush_state b (y with stack_max := sm) = flush_state b y with stack_max := sm /\
-   flush_state b (y with clock := k) = flush_state b y with clock := k
+   flush_state b (y with clock := k) = flush_state b y with clock := k /\
+   flush_state b (y with compile_oracle := co) =
+     flush_state b y with compile_oracle := co
 Proof
  Cases_on `b` \\ EVAL_TAC
 QED
@@ -604,7 +647,9 @@ Theorem has_space_with_const[simp]:
    has_space x (y with termdep := termdep) = has_space x y /\
    has_space x (y with locals := l) = has_space x y /\
    has_space x (y with locals_size := ls) = has_space x y /\
-   has_space x (y with stack := xs) = has_space x y
+   has_space x (y with stack := xs) = has_space x y /\
+   has_space x (y with ptr_eq_oracle := po) = has_space x y /\
+   has_space x (y with ptr_eq_rel := prel) = has_space x y
 Proof
   EVAL_TAC
 QED
@@ -623,7 +668,9 @@ Theorem gc_const:
    y.locals_size = x.locals_size ∧
    y.stack_limit = x.stack_limit ∧
    y.stack_max = x.stack_max ∧
-   y.stack_size = x.stack_size
+   y.stack_size = x.stack_size ∧
+   y.ptr_eq_oracle = x.ptr_eq_oracle ∧
+   y.ptr_eq_rel = x.ptr_eq_rel
 Proof
   simp[gc_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> srw_tac[][]
@@ -635,6 +682,8 @@ Theorem gc_with_const[simp]:
    gc (x with compile_oracle := co) = OPTION_MAP (λs. s with compile_oracle := co) (gc x) ∧
    gc (x with code := code) = OPTION_MAP (λs. s with code := code) (gc x) ∧
    gc (x with permute := perm) = OPTION_MAP (λs. s with permute := perm) (gc x) ∧
+   gc (x with ptr_eq_oracle := po) = OPTION_MAP (λs. s with ptr_eq_oracle := po) (gc x) ∧
+   gc (x with ptr_eq_rel := prel) = OPTION_MAP (λs. s with ptr_eq_rel := prel) (gc x) ∧
    gc (x with termdep := t) = OPTION_MAP (λs. s with termdep := t) (gc x) /\
    gc (x with locals := l) = OPTION_MAP (λs. s with locals := l) (gc x) /\
    gc (x with locals_size := ls) = OPTION_MAP (λs. s with locals_size := ls) (gc x)
@@ -657,7 +706,9 @@ Theorem alloc_const:
    s'.compile = s.compile ∧
    s'.compile_oracle = s.compile_oracle ∧
    s'.stack_limit = s.stack_limit ∧
-   s'.stack_size = s.stack_size
+   s'.stack_size = s.stack_size ∧
+   s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
+   s'.ptr_eq_rel = s.ptr_eq_rel
 Proof
   rpt strip_tac >>
   gvs[AllCaseEqs(),alloc_def] >>
@@ -669,6 +720,8 @@ QED
 
 Theorem alloc_code_gc_fun_const:
   alloc x names s = (res,t) ⇒
+  t.ptr_eq_oracle = s.ptr_eq_oracle /\
+  t.ptr_eq_rel = s.ptr_eq_rel /\
   t.code = s.code /\
   t.code_buffer = s.code_buffer /\
   t.data_buffer = s.data_buffer /\
@@ -692,7 +745,9 @@ Theorem alloc_with_const[simp]:
    alloc c names (s with termdep := t) = (I ## (λs. s with termdep := t)) (alloc c names s) /\
    alloc c names (s with code := code) = (I ## (λs. s with code := code)) (alloc c names s) /\
    alloc c names (s with compile_oracle := compile_oracle) = (I ## (λs. s with compile_oracle := compile_oracle)) (alloc c names s) /\
-   alloc c names (s with compile := comp) = (I ## (λs. s with compile := comp)) (alloc c names s)
+   alloc c names (s with compile := comp) = (I ## (λs. s with compile := comp)) (alloc c names s) /\
+   alloc c names (s with ptr_eq_oracle := po) = (I ## (λs. s with ptr_eq_oracle := po)) (alloc c names s) /\
+   alloc c names (s with ptr_eq_rel := prel) = (I ## (λs. s with ptr_eq_rel := prel)) (alloc c names s)
 Proof
   fs[alloc_def] >> EVERY_CASE_TAC >> fs[flush_state_def]
 QED
@@ -709,6 +764,8 @@ Theorem get_fp_var_with_const[simp]:
    get_fp_var x (y with mdomain := md) = get_fp_var x y /\
    get_fp_var x (y with sh_mdomain := smd) = get_fp_var x y /\
    get_fp_var x (y with permute := p) = get_fp_var x y /\
+   get_fp_var x (y with ptr_eq_oracle := po) = get_fp_var x y /\
+   get_fp_var x (y with ptr_eq_rel := prel) = get_fp_var x y /\
    get_fp_var x (y with compile := c) = get_fp_var x y /\
    get_fp_var x (y with compile_oracle := co) = get_fp_var x y /\
    get_fp_var x (y with code_buffer := cb) = get_fp_var x y /\
@@ -727,6 +784,8 @@ QED
 Theorem set_fp_var_const[simp]:
    (set_fp_var x y z).locals = z.locals ∧
    (set_fp_var x y z).locals_size = z.locals_size ∧
+   (set_fp_var x y z).ptr_eq_oracle = z.ptr_eq_oracle ∧
+   (set_fp_var x y z).ptr_eq_rel = z.ptr_eq_rel ∧
    (set_fp_var x y z).store = z.store ∧
    (set_fp_var x y z).stack = z.stack ∧
    (set_fp_var x y z).stack_limit = z.stack_limit ∧
@@ -763,6 +822,8 @@ Theorem set_fp_var_with_const[simp]:
   set_fp_var x y (z with mdomain := md) = set_fp_var x y z with mdomain := md /\
   set_fp_var x y (z with sh_mdomain := smd) = set_fp_var x y z with sh_mdomain := smd /\
   set_fp_var x y (z with permute := p) = set_fp_var x y z with permute := p /\
+  set_fp_var x y (z with ptr_eq_oracle := po) = set_fp_var x y z with ptr_eq_oracle := po /\
+  set_fp_var x y (z with ptr_eq_rel := prel) = set_fp_var x y z with ptr_eq_rel := prel /\
   set_fp_var x y (z with compile := c) = set_fp_var x y z with compile := c /\
   set_fp_var x y (z with compile_oracle := co) = set_fp_var x y z with compile_oracle := co /\
   set_fp_var x y (z with code_buffer := cb) = set_fp_var x y z with code_buffer := cb /\
@@ -784,6 +845,8 @@ Theorem mem_load_with_const[simp]:
    mem_load x (y with clock := k) = mem_load x y ∧
    mem_load x (y with stack := xs) = mem_load x y ∧
    mem_load x (y with permute := perm) = mem_load x y ∧
+   mem_load x (y with ptr_eq_oracle := po) = mem_load x y ∧
+   mem_load x (y with ptr_eq_rel := prel) = mem_load x y ∧
    mem_load x (y with code := c) = mem_load x y ∧
    mem_load x (y with compile_oracle := co) = mem_load x y ∧
    mem_load x (y with compile := cc) = mem_load x y
@@ -810,7 +873,9 @@ Theorem mem_store_const:
    a.locals_size = z.locals_size ∧
    a.stack_limit = z.stack_limit ∧
    a.stack_max = z.stack_max ∧
-   a.stack_size = z.stack_size
+   a.stack_size = z.stack_size ∧
+   a.ptr_eq_oracle = z.ptr_eq_oracle ∧
+   a.ptr_eq_rel = z.ptr_eq_rel
 Proof
   EVAL_TAC >> srw_tac[][] >> srw_tac[][]
 QED
@@ -823,6 +888,8 @@ Theorem mem_store_with_const[simp]:
    mem_store x z (y with compile := c) = OPTION_MAP (λs. s with compile := c) (mem_store x z y) /\
    mem_store x z (y with compile_oracle := co) = OPTION_MAP (λs. s with compile_oracle := co) (mem_store x z y) /\
    mem_store x z (y with permute := perm) = OPTION_MAP (λs. s with permute := perm) (mem_store x z y) /\
+   mem_store x z (y with ptr_eq_oracle := po) = OPTION_MAP (λs. s with ptr_eq_oracle := po) (mem_store x z y) /\
+   mem_store x z (y with ptr_eq_rel := prel) = OPTION_MAP (λs. s with ptr_eq_rel := prel) (mem_store x z y) /\
    mem_store x z (y with stack := xs) = OPTION_MAP (λs. s with stack := xs) (mem_store x z y)
 Proof
   EVAL_TAC >> every_case_tac >> simp[]
@@ -833,6 +900,8 @@ Theorem word_exp_with_const[simp]:
   word_exp (x with clock := k) y = word_exp x y ∧
   word_exp (x with stack := xs) y = word_exp x y ∧
   word_exp (x with permute := perm) y = word_exp x y ∧
+  word_exp (x with ptr_eq_oracle := po) y = word_exp x y ∧
+  word_exp (x with ptr_eq_rel := prel) y = word_exp x y ∧
   word_exp (x with termdep := termdep) y = word_exp x y ∧
   word_exp (x with code := c) y = word_exp x y ∧
   word_exp (x with compile_oracle := co) y = word_exp x y ∧
@@ -861,7 +930,9 @@ Theorem assign_const_full:
    a.locals_size = z.locals_size ∧
    a.stack_limit = z.stack_limit ∧
    a.stack_max = z.stack_max ∧
-   a.stack_size = z.stack_size
+   a.stack_size = z.stack_size ∧
+   a.ptr_eq_oracle = z.ptr_eq_oracle ∧
+   a.ptr_eq_rel = z.ptr_eq_rel
 Proof
   EVAL_TAC >> every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> srw_tac[][]
 QED
@@ -880,6 +951,8 @@ Theorem assign_with_const[simp]:
    assign x y (z with compile := c) = OPTION_MAP (λs. s with compile := c) (assign x y z) /\
    assign x y (z with compile_oracle := co) = OPTION_MAP (λs. s with compile_oracle := co) (assign x y z) /\
    assign x y (z with permute := perm) = OPTION_MAP (λs. s with permute := perm) (assign x y z) /\
+   assign x y (z with ptr_eq_oracle := po) = OPTION_MAP (λs. s with ptr_eq_oracle := po) (assign x y z) /\
+   assign x y (z with ptr_eq_rel := prel) = OPTION_MAP (λs. s with ptr_eq_rel := prel) (assign x y z) /\
    assign x y (z with stack := xs) = OPTION_MAP (λs. s with stack := xs) (assign x y z)
 Proof
   EVAL_TAC >> every_case_tac >>  EVAL_TAC >> full_simp_tac(srw_ss())[]
@@ -891,6 +964,8 @@ Theorem inst_with_const[simp]:
    inst i (s with compile := c) = OPTION_MAP (λs. s with compile := c) (inst i s) /\
    inst i (s with compile_oracle := co) = OPTION_MAP (λs. s with compile_oracle := co) (inst i s) /\
    inst i (s with permute := perm) = OPTION_MAP (λs. s with permute := perm) (inst i s) /\
+   inst i (s with ptr_eq_oracle := po) = OPTION_MAP (λs. s with ptr_eq_oracle := po) (inst i s) /\
+   inst i (s with ptr_eq_rel := prel) = OPTION_MAP (λs. s with ptr_eq_rel := prel) (inst i s) /\
    inst i (s with stack := xs) = OPTION_MAP (λs. s with stack := xs) (inst i s)
 Proof
   rw[inst_def] >> every_case_tac >> fs[]
@@ -911,7 +986,9 @@ Theorem inst_const_full:
    s'.locals_size = s.locals_size ∧
    s'.stack_limit = s.stack_limit ∧
    s'.stack_max = s.stack_max ∧
-   s'.stack_size = s.stack_size
+   s'.stack_size = s.stack_size ∧
+   s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
+   s'.ptr_eq_rel = s.ptr_eq_rel
 Proof
   rw[inst_def]>>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
@@ -923,6 +1000,7 @@ QED
 (*FIXME dupe*)
 Theorem inst_code_gc_fun_const[local]:
   inst i s = SOME t ⇒
+     s.ptr_eq_oracle = t.ptr_eq_oracle /\ s.ptr_eq_rel = t.ptr_eq_rel /\
      s.code = t.code /\ s.gc_fun = t.gc_fun /\ s.sh_mdomain = t.sh_mdomain /\ s.mdomain = t.mdomain /\ s.be = t.be
      ∧ s.compile = t.compile ∧ s.stack_size = t.stack_size ∧ s.stack_limit = t.stack_limit
 Proof
@@ -942,6 +1020,8 @@ QED
 
 Theorem jump_exc_const:
    jump_exc s = SOME (s',y) ⇒
+   s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
+   s'.ptr_eq_rel = s.ptr_eq_rel ∧
    s'.be = s.be ∧
    s'.gc_fun = s.gc_fun ∧
    s'.mdomain = s.mdomain ∧
@@ -962,7 +1042,10 @@ QED
 
 Theorem jump_exc_with_const[simp]:
    jump_exc (s with clock := k) = OPTION_MAP (λ(s,t). (s with clock := k, t)) (jump_exc s) /\
-   jump_exc (s with permute := perm) = OPTION_MAP (λ(s,t). (s with permute := perm, t)) (jump_exc s)
+   jump_exc (s with permute := perm) = OPTION_MAP (λ(s,t). (s with permute := perm, t)) (jump_exc s) /\
+   jump_exc (s with ptr_eq_oracle := po) = OPTION_MAP (λ(s,t). (s with ptr_eq_oracle := po, t)) (jump_exc s) /\
+   jump_exc (s with ptr_eq_rel := prel) = OPTION_MAP (λ(s,t). (s with ptr_eq_rel := prel, t)) (jump_exc s) /\
+   jump_exc (s with compile_oracle := co) = OPTION_MAP (λ(s,t). (s with compile_oracle := co, t)) (jump_exc s)
 Proof
   EVAL_TAC >> every_case_tac >> EVAL_TAC
 QED
@@ -974,7 +1057,9 @@ Theorem get_var_imm_with_const[simp]:
    get_var_imm x (y with compile_oracle := compile_oracle) = get_var_imm x y /\
    get_var_imm x (y with termdep := td) = get_var_imm x y /\
    get_var_imm x (y with stack := xs) = get_var_imm x y /\
-   get_var_imm x (y with permute := perm) = get_var_imm x y
+   get_var_imm x (y with permute := perm) = get_var_imm x y /\
+   get_var_imm x (y with ptr_eq_oracle := po) = get_var_imm x y /\
+   get_var_imm x (y with ptr_eq_rel := prel) = get_var_imm x y
 Proof
   Cases_on`x`>>EVAL_TAC
 QED
@@ -982,6 +1067,8 @@ QED
 Theorem dec_clock_const[simp]:
    (dec_clock s).locals = s.locals /\
    (dec_clock s).locals_size = s.locals_size ∧
+   (dec_clock s).ptr_eq_oracle = s.ptr_eq_oracle ∧
+   (dec_clock s).ptr_eq_rel = s.ptr_eq_rel ∧
    (dec_clock s).fp_regs = s.fp_regs ∧
    (dec_clock s).store = s.store /\
    (dec_clock s).stack = s.stack ∧
@@ -1003,13 +1090,17 @@ Theorem dec_clock_const[simp]:
    ((dec_clock s).be <=> s.be) /\
    (dec_clock s).ffi = s.ffi /\
    (dec_clock (s with locals := locs)).clock = (dec_clock s).clock /\
-   (dec_clock (s with permute := p)).clock = (dec_clock s).clock
+   (dec_clock (s with permute := p)).clock = (dec_clock s).clock /\
+   dec_clock (s with ptr_eq_oracle := po) = dec_clock s with ptr_eq_oracle := po /\
+   dec_clock (s with ptr_eq_rel := prel) = dec_clock s with ptr_eq_rel := prel
 Proof
   EVAL_TAC
 QED
 
 Theorem sh_mem_set_var_const:
    sh_mem_set_var r v s = (x,s') ==>
+   s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
+   s'.ptr_eq_rel = s.ptr_eq_rel ∧
    s'.clock = s.clock ∧
    s'.compile_oracle = s.compile_oracle ∧
    s'.compile = s.compile ∧
@@ -1044,6 +1135,8 @@ QED
 
 Theorem sh_mem_store_const:
   sh_mem_store ad v s = (res, s') ==>
+  s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
+  s'.ptr_eq_rel = s.ptr_eq_rel ∧
   s'.clock = s.clock ∧
   s'.compile_oracle = s.compile_oracle ∧
   s'.compile = s.compile ∧
@@ -1073,6 +1166,8 @@ QED
 
 Theorem sh_mem_store_byte_const:
   sh_mem_store_byte ad v s = (res, s') ==>
+  s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
+  s'.ptr_eq_rel = s.ptr_eq_rel ∧
   s'.clock = s.clock ∧
   s'.compile_oracle = s.compile_oracle ∧
   s'.compile = s.compile ∧
@@ -1102,6 +1197,8 @@ QED
 
 Theorem sh_mem_store16_const:
   sh_mem_store16 ad v s = (res, s') ==>
+  s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
+  s'.ptr_eq_rel = s.ptr_eq_rel ∧
   s'.clock = s.clock ∧
   s'.compile_oracle = s.compile_oracle ∧
   s'.compile = s.compile ∧
@@ -1131,6 +1228,8 @@ QED
 
 Theorem sh_mem_store32_const:
   sh_mem_store32 ad v s = (res, s') ==>
+  s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
+  s'.ptr_eq_rel = s.ptr_eq_rel ∧
   s'.clock = s.clock ∧
   s'.compile_oracle = s.compile_oracle ∧
   s'.compile = s.compile ∧
@@ -1160,6 +1259,8 @@ QED
 
 Theorem share_inst_const:
   share_inst op v c s = (res, s') ==>
+  s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
+  s'.ptr_eq_rel = s.ptr_eq_rel ∧
   s'.be = s.be ∧
   s'.gc_fun = s.gc_fun ∧
   s'.mdomain = s.mdomain ∧
@@ -1187,8 +1288,14 @@ QED
 Theorem sh_mem_set_var_with_const[simp]:
   sh_mem_set_var res v (s with permute := p) =
   (I ## (λs. s with permute := p)) (sh_mem_set_var res v s) /\
+  sh_mem_set_var res v (s with ptr_eq_oracle := po) =
+  (I ## (λs. s with ptr_eq_oracle := po)) (sh_mem_set_var res v s) /\
+  sh_mem_set_var res v (s with ptr_eq_rel := prel) =
+  (I ## (λs. s with ptr_eq_rel := prel)) (sh_mem_set_var res v s) /\
   sh_mem_set_var res v (s with clock := k) =
-  (I ## (λs. s with clock := k)) (sh_mem_set_var res v s)
+  (I ## (λs. s with clock := k)) (sh_mem_set_var res v s) /\
+  sh_mem_set_var res v (s with compile_oracle := co) =
+  (I ## (λs. s with compile_oracle := co)) (sh_mem_set_var res v s)
 Proof
   Cases_on `res` >>
   fs[sh_mem_set_var_def] >>
@@ -1200,6 +1307,8 @@ QED
 Theorem sh_mem_load_with_const[simp]:
   sh_mem_load a (s with locals := l) = sh_mem_load a s /\
   sh_mem_load a (s with permute := p) = sh_mem_load a s /\
+  sh_mem_load a (s with ptr_eq_oracle := po) = sh_mem_load a s /\
+  sh_mem_load a (s with ptr_eq_rel := prel) = sh_mem_load a s /\
   sh_mem_load a (s with clock := k) = sh_mem_load a s /\
   sh_mem_load a (s with stack := xs) = sh_mem_load a s
 Proof
@@ -1209,6 +1318,8 @@ QED
 Theorem sh_mem_load_byte_with_const[simp]:
   sh_mem_load_byte a (s with locals := l) = sh_mem_load_byte a s /\
   sh_mem_load_byte a (s with permute := p) = sh_mem_load_byte a s /\
+  sh_mem_load_byte a (s with ptr_eq_oracle := po) = sh_mem_load_byte a s /\
+  sh_mem_load_byte a (s with ptr_eq_rel := prel) = sh_mem_load_byte a s /\
   sh_mem_load_byte a (s with clock := k) = sh_mem_load_byte a s /\
   sh_mem_load_byte a (s with stack := xs) = sh_mem_load_byte a s
 Proof
@@ -1218,6 +1329,8 @@ QED
 Theorem sh_mem_load16_with_const[simp]:
   sh_mem_load16 a (s with locals := l) = sh_mem_load16 a s /\
   sh_mem_load16 a (s with permute := p) = sh_mem_load16 a s /\
+  sh_mem_load16 a (s with ptr_eq_oracle := po) = sh_mem_load16 a s /\
+  sh_mem_load16 a (s with ptr_eq_rel := prel) = sh_mem_load16 a s /\
   sh_mem_load16 a (s with clock := k) = sh_mem_load16 a s /\
   sh_mem_load16 a (s with stack := xs) = sh_mem_load16 a s
 Proof
@@ -1227,6 +1340,8 @@ QED
 Theorem sh_mem_load32_with_const[simp]:
   sh_mem_load32 a (s with locals := l) = sh_mem_load32 a s /\
   sh_mem_load32 a (s with permute := p) = sh_mem_load32 a s /\
+  sh_mem_load32 a (s with ptr_eq_oracle := po) = sh_mem_load32 a s /\
+  sh_mem_load32 a (s with ptr_eq_rel := prel) = sh_mem_load32 a s /\
   sh_mem_load32 a (s with clock := k) = sh_mem_load32 a s /\
   sh_mem_load32 a (s with stack := xs) = sh_mem_load32 a s
 Proof
@@ -1236,6 +1351,10 @@ QED
 Theorem sh_mem_store_with_const[simp]:
   sh_mem_store a w (s with permute := p) =
   (I ## (λs. s with permute := p)) (sh_mem_store a w s) /\
+  sh_mem_store a w (s with ptr_eq_oracle := po) =
+  (I ## (λs. s with ptr_eq_oracle := po)) (sh_mem_store a w s) /\
+  sh_mem_store a w (s with ptr_eq_rel := prel) =
+  (I ## (λs. s with ptr_eq_rel := prel)) (sh_mem_store a w s) /\
   sh_mem_store a w (s with clock := k) =
   (I ## (λs. s with clock := k)) (sh_mem_store a w s)
 Proof
@@ -1245,6 +1364,10 @@ QED
 Theorem sh_mem_store_byte_with_const[simp]:
   sh_mem_store_byte a w (s with permute := p) =
   (I ## (λs. s with permute := p)) (sh_mem_store_byte a w s) /\
+  sh_mem_store_byte a w (s with ptr_eq_oracle := po) =
+  (I ## (λs. s with ptr_eq_oracle := po)) (sh_mem_store_byte a w s) /\
+  sh_mem_store_byte a w (s with ptr_eq_rel := prel) =
+  (I ## (λs. s with ptr_eq_rel := prel)) (sh_mem_store_byte a w s) /\
   sh_mem_store_byte a w (s with clock := k) =
   (I ## (λs. s with clock := k)) (sh_mem_store_byte a w s)
 Proof
@@ -1254,6 +1377,10 @@ QED
 Theorem sh_mem_store16_with_const[simp]:
   sh_mem_store16 a w (s with permute := p) =
   (I ## (λs. s with permute := p)) (sh_mem_store16 a w s) /\
+  sh_mem_store16 a w (s with ptr_eq_oracle := po) =
+  (I ## (λs. s with ptr_eq_oracle := po)) (sh_mem_store16 a w s) /\
+  sh_mem_store16 a w (s with ptr_eq_rel := prel) =
+  (I ## (λs. s with ptr_eq_rel := prel)) (sh_mem_store16 a w s) /\
   sh_mem_store16 a w (s with clock := k) =
   (I ## (λs. s with clock := k)) (sh_mem_store16 a w s)
 Proof
@@ -1263,6 +1390,10 @@ QED
 Theorem sh_mem_store32_with_const[simp]:
   sh_mem_store32 a w (s with permute := p) =
   (I ## (λs. s with permute := p)) (sh_mem_store32 a w s) /\
+  sh_mem_store32 a w (s with ptr_eq_oracle := po) =
+  (I ## (λs. s with ptr_eq_oracle := po)) (sh_mem_store32 a w s) /\
+  sh_mem_store32 a w (s with ptr_eq_rel := prel) =
+  (I ## (λs. s with ptr_eq_rel := prel)) (sh_mem_store32 a w s) /\
   sh_mem_store32 a w (s with clock := k) =
   (I ## (λs. s with clock := k)) (sh_mem_store32 a w s)
 Proof
@@ -1272,10 +1403,20 @@ QED
 Theorem share_inst_with_const[simp]:
    share_inst op v c (s with permute := p) =
    (I ## (λs. s with permute := p)) (share_inst op v c s) /\
+   share_inst op v c (s with ptr_eq_oracle := po) =
+   (I ## (λs. s with ptr_eq_oracle := po)) (share_inst op v c s) /\
+   share_inst op v c (s with ptr_eq_rel := prel) =
+   (I ## (λs. s with ptr_eq_rel := prel)) (share_inst op v c s) /\
    share_inst op v c (s with clock := k) =
-   (I ## (λs. s with clock := k)) (share_inst op v c s)
+   (I ## (λs. s with clock := k)) (share_inst op v c s) /\
+   share_inst op v c (s with compile_oracle := co) =
+   (I ## (λs. s with compile_oracle := co)) (share_inst op v c s)
 Proof
-  Cases_on `op` >> fs[share_inst_def] >> (rpt (CASE_ONE >> fs[]))
+  Cases_on `op` >> fs[share_inst_def] >> (rpt (CASE_ONE >> fs[])) >>
+  gvs[sh_mem_load_def,sh_mem_load_byte_def,
+      sh_mem_load16_def,sh_mem_load32_def,sh_mem_store_def,
+      sh_mem_store_byte_def,sh_mem_store16_def,sh_mem_store32_def] >>
+  rpt (CASE_ONE >> gvs[])
 QED
 
 Theorem cut_state_with_const[simp]:
@@ -1284,6 +1425,8 @@ Theorem cut_state_with_const[simp]:
    cut_state x (z with compile := c) = OPTION_MAP (λs. s with compile := c) (cut_state x z) /\
    cut_state x (z with compile_oracle := co) = OPTION_MAP (λs. s with compile_oracle := co) (cut_state x z) /\
    cut_state x (z with permute := perm) = OPTION_MAP (λs. s with permute := perm) (cut_state x z) /\
+   cut_state x (z with ptr_eq_oracle := po) = OPTION_MAP (λs. s with ptr_eq_oracle := po) (cut_state x z) /\
+   cut_state x (z with ptr_eq_rel := prel) = OPTION_MAP (λs. s with ptr_eq_rel := prel) (cut_state x z) /\
    cut_state x (z with stack := xs) = OPTION_MAP (λs. s with stack := xs) (cut_state x z)
 Proof
   simp[cut_state_def]>>
@@ -1315,7 +1458,7 @@ Theorem evaluate_clock_const[local]:
       "Get", "Set", "OpCurrHeap", "Store", "Return", "Raise",
       "wordLang$Break", "wordLang$Continue",
       "LocValue", "Install", "DataBufferWrite",
-      "FFI", "ShareInst"]) end)
+      "FFI", "ShareInst", "PtrEq"]) end)
 Proof
   gvs[evaluate_def] >> rpt gen_tac >>
   rpt (CASE_ONE >> gvs[]) >>
@@ -1338,10 +1481,58 @@ Theorem evaluate_clock_with_const[local]:
       "Get", "Set", "OpCurrHeap", "Store", "Return", "Raise",
       "wordLang$Break", "wordLang$Continue",
       "LocValue", "Install", "DataBufferWrite",
+      "FFI", "ShareInst", "PtrEq"]) end)
+Proof
+  gvs[evaluate_def] >> rpt strip_tac >>
+  rpt (CASE_ONE >> gvs[])
+QED
+
+val ptr_eq_oracle_goal = “
+  λ(p:wordLang$prog,s:('a,'c,'ffi) wordSem$state).
+    ∀po.
+      evaluate (p, s with ptr_eq_oracle := po) =
+        (λ(r,s). (r,s with ptr_eq_oracle := po)) (evaluate (p,s))”
+val ind_thm3 = evaluate_ind |> ISPEC ptr_eq_oracle_goal |> CONV_RULE (DEPTH_CONV PAIRED_BETA_CONV);
+val ind_goals3 = ind_thm3 |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj;
+
+(* The listed constructs leave the pointer-equality oracle alone. PtrEq reads
+   and advances the current epoch's stream and Install moves to the next
+   epoch, so neither holds. *)
+Theorem evaluate_ptr_eq_oracle_with_const[local]:
+  ^(let fun sel s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals3
+    in list_mk_conj (map sel
+     ["Skip", "Alloc", "StoreConsts", "Move", "Inst", "Assign",
+      "Get", "Set", "OpCurrHeap", "Store", "Return", "Raise",
+      "wordLang$Break", "wordLang$Continue", "Tick",
+      "LocValue", "DataBufferWrite",
       "FFI", "ShareInst"]) end)
 Proof
   gvs[evaluate_def] >> rpt strip_tac >>
   rpt (CASE_ONE >> gvs[])
+QED
+
+val compile_oracle_goal = “
+  λ(p:wordLang$prog,s:('a,'c,'ffi) wordSem$state).
+    ∀co.
+      evaluate (p, s with compile_oracle := co) =
+        (λ(r,s). (r,s with compile_oracle := co)) (evaluate (p,s))”
+val ind_thm4 = evaluate_ind |> ISPEC compile_oracle_goal |> CONV_RULE (DEPTH_CONV PAIRED_BETA_CONV);
+val ind_goals4 = ind_thm4 |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj;
+
+(* The listed constructs leave the compile oracle alone. Install is the only
+   construct that reads it, and it shifts it. *)
+Theorem evaluate_compile_oracle_with_const[local]:
+  ^(let fun sel s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals4
+    in list_mk_conj (map sel
+     ["Skip", "Alloc", "StoreConsts", "Move", "Inst", "Assign",
+      "Get", "Set", "OpCurrHeap", "Store", "Return", "Raise",
+      "wordLang$Break", "wordLang$Continue", "Tick",
+      "LocValue", "DataBufferWrite",
+      "FFI", "ShareInst", "PtrEq"]) end)
+Proof
+  gvs[evaluate_def] >> rpt strip_tac >>
+  rpt (CASE_ONE >> gvs[alloc_with_const]) >>
+  gvs[dec_clock_def]
 QED
 
 (******CONST LEMMAS END *****)
@@ -1741,6 +1932,8 @@ Theorem evaluate_consts:
    !xs s1 vs s2.
      evaluate (xs,s1) = (vs,s2) ==>
      s1.gc_fun = s2.gc_fun /\
+     s1.ptr_eq_rel = s2.ptr_eq_rel /\
+     (s1.ptr_eq_oracle = NONE ⇒ s2.ptr_eq_oracle = NONE) /\
      s1.mdomain = s2.mdomain /\
      s1.sh_mdomain = s2.sh_mdomain /\
      s1.be = s2.be ∧
@@ -1758,7 +1951,2210 @@ Proof
   >> strip_tac >> gvs[]
 QED
 
-(* TODO: monotonicity *)
+(* ---- the pointer-equality oracle ---- *)
+
+(* TODO: this section is only used by backendProof, data_to_wordProof and
+   data_to_word_assignProof; factor it out into its own theory. *)
+
+(* The oracle is indexed by install epoch: [po e] is the answer stream of the
+   e-th epoch, PtrEq consumes one answer of the current epoch and Install moves
+   to the next one.  A trace records, epoch by epoch, the answers a concrete
+   (oracle-free) run would consume. *)
+
+Definition epoch_append_def:
+  epoch_append tr1 tr2 = FRONT tr1 ++ [LAST tr1 ++ HD tr2] ++ TL tr2
+End
+
+Theorem epoch_append_not_nil[local,simp]:
+  epoch_append t1 t2 ≠ []
+Proof
+  rw [epoch_append_def]
+QED
+
+Theorem epoch_append_SING[local,simp]:
+  epoch_append [a] t2 = (a ++ HD t2) :: TL t2
+Proof
+  rw [epoch_append_def]
+QED
+
+Theorem epoch_append_CONS:
+  t1 ≠ [] ⇒ epoch_append (a::t1) t2 = a :: epoch_append t1 t2
+Proof
+  Cases_on `t1` \\ rw [epoch_append_def]
+QED
+
+Theorem epoch_append_LENGTH[local,simp]:
+  t1 ≠ [] ∧ t2 ≠ [] ⇒
+  LENGTH (epoch_append t1 t2) = LENGTH t1 + LENGTH t2 - 1
+Proof
+  Cases_on `t1` \\ Cases_on `t2` \\ rw [epoch_append_def, LENGTH_FRONT]
+QED
+
+(* The answers the concrete run produces, as a function of the program and the
+   state: the oracle that compile_semantics assumes reproduces the NONE run,
+   made canonical so that it can be compared across clocks. *)
+Definition ptr_eq_trace_def:
+  (ptr_eq_trace (PtrEq dst v1 v2 t f) (s:('a,'c,'ffi) wordSem$state) =
+     case (get_var v1 s, get_var v2 s) of
+     | (SOME (Word w1), SOME (Word w2)) => [[w1 = w2]]
+     | _ => [[]]) ∧
+  (ptr_eq_trace (Install ptr len cptr dptr dlen names) s =
+     case evaluate (Install ptr len cptr dptr dlen names, s) of
+     | (NONE,_) => [[];[]]
+     | _ => [[]]) ∧
+  (ptr_eq_trace (MustTerminate p) s =
+     if s.termdep = 0 then [[]]
+     else
+       ptr_eq_trace p (s with <| clock := MustTerminate_limit (:'a);
+                                 termdep := s.termdep - 1 |>)) ∧
+  (ptr_eq_trace (Seq c1 c2) s =
+     let (res,s1) = evaluate (c1,s) in
+       if res = NONE then epoch_append (ptr_eq_trace c1 s) (ptr_eq_trace c2 s1)
+       else ptr_eq_trace c1 s) ∧
+  (ptr_eq_trace (If cmp r1 ri c1 c2) s =
+     case (get_var r1 s, get_var_imm ri s) of
+     | (SOME x, SOME y) =>
+         (case word_cmp cmp x y of
+          | SOME T => ptr_eq_trace c1 s
+          | SOME F => ptr_eq_trace c2 s
+          | NONE => [[]])
+     | _ => [[]]) ∧
+  (ptr_eq_trace (Loop names c exit_names) s =
+     case cut_state (names,LN) s of
+     | NONE => [[]]
+     | SOME s0 =>
+         (let (res,s1) = evaluate (c,s0) in
+            if cont_loop res ∧ s1.clock ≠ 0 then
+              epoch_append (ptr_eq_trace c s0)
+                (ptr_eq_trace (STOP (Loop names c exit_names)) (dec_clock s1))
+            else ptr_eq_trace c s0)) ∧
+  (ptr_eq_trace (Call ret dest args handler) s =
+     case get_vars args s of
+     | NONE => [[]]
+     | SOME xs =>
+       if bad_dest_args dest args then [[]]
+       else
+         (case find_code dest (add_ret_loc ret xs) s.code s.stack_size of
+          | NONE => [[]]
+          | SOME (args1,prog1,ss) =>
+            (case ret of
+             | NONE =>
+                 (if handler = NONE ∧ s.clock ≠ 0 then
+                    ptr_eq_trace prog1 (call_env args1 ss (dec_clock s))
+                  else [[]])
+             | SOME (n,names,ret_handler,l1,l2) =>
+                 if domain (FST names) = {} ∨ ¬ALL_DISTINCT n then [[]]
+                 else
+                   (case cut_envs names s.locals of
+                    | NONE => [[]]
+                    | SOME envs =>
+                      if s.clock = 0 then [[]]
+                      else
+                        (let s0 = call_env args1 ss
+                                    (push_env envs handler (dec_clock s)) in
+                         let b1 = ptr_eq_trace prog1 s0 in
+                           case evaluate (prog1,s0) of
+                           | (SOME (Result x ys),s2) =>
+                               (if x ≠ Loc l1 l2 ∨ LENGTH ys ≠ LENGTH n then b1
+                                else
+                                  case pop_env s2 of
+                                  | NONE => b1
+                                  | SOME s1 =>
+                                    if domain s1.locals =
+                                       domain (FST envs) ∪ domain (SND envs)
+                                    then
+                                      epoch_append b1
+                                        (ptr_eq_trace ret_handler
+                                           (set_vars n ys s1))
+                                    else b1)
+                           | (SOME (Exception x y),s2) =>
+                               (case handler of
+                                | NONE => b1
+                                | SOME (n',h,l1',l2') =>
+                                  if x ≠ Loc l1' l2' ∨
+                                     domain s2.locals ≠
+                                     domain (FST envs) ∪ domain (SND envs)
+                                  then b1
+                                  else
+                                    epoch_append b1
+                                      (ptr_eq_trace h (set_var n' y s2)))
+                           | _ => b1))))) ∧
+  (ptr_eq_trace prog s = [[]])
+Termination
+  WF_REL_TAC `inv_image (measure I LEX measure I LEX measure wordLang$prog_size)
+               (λ(xs,s). (s.termdep,s.clock,xs))`
+  \\ rpt strip_tac
+  \\ gvs [STOP_def,dec_clock_def]
+  \\ rpt (qpat_x_assum `_ = evaluate _` (assume_tac o SYM))
+  \\ imp_res_tac evaluate_clock \\ gvs []
+  \\ imp_res_tac cut_state_const \\ gvs []
+  \\ imp_res_tac pop_env_const \\ gvs [pop_env_def,AllCaseEqs()]
+End
+
+(* The oracle left after a run whose trace is tr. *)
+Definition drop_trace_def:
+  drop_trace [] po = po ∧
+  drop_trace (bs::tr) po =
+    if tr = [] then (0 =+ shift_seq (LENGTH bs) (po 0)) po
+    else drop_trace tr (shift_seq 1 po)
+End
+
+Theorem shift_seq_shift_seq[local]:
+  shift_seq m (shift_seq n f) = shift_seq (n + m) f
+Proof
+  rw [shift_seq_def,FUN_EQ_THM]
+QED
+
+Theorem shift_seq_0[local,simp]:
+  shift_seq 0 f = f
+Proof
+  rw [shift_seq_def,FUN_EQ_THM]
+QED
+
+Theorem with_same_compile_oracle[local,simp]:
+  s with compile_oracle := s.compile_oracle = s
+Proof
+  rw [state_component_equality]
+QED
+
+Theorem shift_seq_UPDATE_0[local]:
+  0 < n ⇒ shift_seq n ((0 =+ x) f) = shift_seq n f
+Proof
+  rw [shift_seq_def,FUN_EQ_THM,combinTheory.APPLY_UPDATE_THM]
+QED
+
+Theorem drop_trace_NIL_epoch[local,simp]:
+  drop_trace [[]] po = po
+Proof
+  rw [drop_trace_def,shift_seq_def,FUN_EQ_THM,combinTheory.APPLY_UPDATE_THM] >>
+  rw []
+QED
+
+Theorem drop_trace_new_epoch[local,simp]:
+  drop_trace [[];[]] po = shift_seq 1 po
+Proof
+  rw [drop_trace_def]
+QED
+
+(* An oracle agrees with a trace when, epoch by epoch, it answers as the trace
+   records.  Beyond the trace it is unconstrained. *)
+Definition epoch_prefix_def:
+  epoch_prefix tr e a ⇔
+    e < LENGTH tr ⇒ ∀k. k < LENGTH (EL e tr) ⇒ EL k (EL e tr) = a k
+End
+
+Definition trace_agrees_def:
+  trace_agrees tr po ⇔ ∀e. epoch_prefix tr e (po e)
+End
+
+(* Growing the clock keeps every completed epoch and extends the last one. *)
+Definition ptr_eq_trace_prefix_def:
+  ptr_eq_trace_prefix tr1 tr2 ⇔
+    LENGTH tr1 ≤ LENGTH tr2 ∧
+    (∀e. e + 1 < LENGTH tr1 ⇒ EL e tr2 = EL e tr1) ∧
+    (tr1 ≠ [] ⇒ LAST tr1 ≼ EL (LENGTH tr1 - 1) tr2)
+End
+
+Theorem ptr_eq_trace_not_nil[local,simp]:
+  ∀p s. ptr_eq_trace p s ≠ []
+Proof
+  recInduct ptr_eq_trace_ind >> rpt strip_tac >>
+  qpat_x_assum `ptr_eq_trace _ _ = []` mp_tac >>
+  simp [Once ptr_eq_trace_def] >>
+  rpt (pairarg_tac >> gvs []) >>
+  every_case_tac >> gvs [] >>
+  rpt (pairarg_tac >> gvs []) >>
+  every_case_tac >> gvs []
+QED
+
+Theorem ptr_eq_trace_LENGTH_NOT_0[local,simp]:
+  ∀p s. LENGTH (ptr_eq_trace p s) ≠ 0
+Proof
+  simp [LENGTH_NIL]
+QED
+
+Theorem drop_trace_append:
+  ∀t1 t2 po.
+    t1 ≠ [] ∧ t2 ≠ [] ⇒
+    drop_trace (epoch_append t1 t2) po = drop_trace t2 (drop_trace t1 po)
+Proof
+  Induct >> rw [] >>
+  reverse (Cases_on `t1`) >> gvs []
+  >- gvs [epoch_append_CONS, drop_trace_def] >>
+  Cases_on `t2` >> gvs [] >>
+  Cases_on `t` >>
+  gvs [drop_trace_def, shift_seq_UPDATE_0, combinTheory.APPLY_UPDATE_THM,
+       combinTheory.UPDATE_EQ, shift_seq_shift_seq]
+QED
+
+Theorem trace_agrees_NIL[local,simp]:
+  trace_agrees [] po
+Proof
+  rw [trace_agrees_def,epoch_prefix_def]
+QED
+
+Theorem trace_agrees_CONS:
+  trace_agrees (bs::tr) po ⇔
+  (∀k. k < LENGTH bs ⇒ EL k bs = po 0 k) ∧ trace_agrees tr (shift_seq 1 po)
+Proof
+  rw [trace_agrees_def,epoch_prefix_def,shift_seq_def] >>
+  eq_tac >> rw []
+  >- (first_x_assum (qspec_then `0` mp_tac) >> simp [])
+  >- (first_x_assum (qspec_then `SUC e` mp_tac) >> simp [ADD1])
+  >> Cases_on `e` >> gvs [ADD1]
+QED
+
+Theorem trace_agrees_append1:
+  ∀t1 t2 po.
+    t1 ≠ [] ∧ t2 ≠ [] ∧ trace_agrees (epoch_append t1 t2) po ⇒
+    trace_agrees t1 po
+Proof
+  Induct >> rw [] >>
+  reverse (Cases_on `t1`) >> gvs []
+  >- (
+    gvs [epoch_append_CONS] >>
+    qpat_x_assum `trace_agrees _ _` mp_tac >>
+    simp [Once trace_agrees_CONS] >> strip_tac >>
+    simp [Once trace_agrees_CONS] >>
+    first_x_assum irule >> qexists_tac `t2` >> simp []) >>
+  Cases_on `t2` >> gvs [] >>
+  qpat_x_assum `trace_agrees _ _` mp_tac >>
+  simp [Once trace_agrees_CONS] >> strip_tac >>
+  simp [Once trace_agrees_CONS] >>
+  rw [] >> first_x_assum (qspec_then `k` mp_tac) >>
+  simp [EL_APPEND_EQN]
+QED
+
+Theorem trace_agrees_append2:
+  ∀t1 t2 po.
+    t1 ≠ [] ∧ t2 ≠ [] ∧ trace_agrees (epoch_append t1 t2) po ⇒
+    trace_agrees t2 (drop_trace t1 po)
+Proof
+  Induct >> rw [] >>
+  reverse (Cases_on `t1`) >> gvs []
+  >- (gvs [epoch_append_CONS, drop_trace_def] >>
+      qpat_x_assum `trace_agrees _ _` mp_tac >>
+      simp [Once trace_agrees_CONS] >> strip_tac >>
+      first_x_assum irule >> simp []) >>
+  Cases_on `t2` >> gvs [drop_trace_def] >>
+  qpat_x_assum `trace_agrees _ _` mp_tac >>
+  simp [Once trace_agrees_CONS] >> strip_tac >>
+  simp [Once trace_agrees_CONS, shift_seq_UPDATE_0] >>
+  rw [combinTheory.APPLY_UPDATE_THM, shift_seq_def] >>
+  first_x_assum (qspec_then `LENGTH h + k` mp_tac) >>
+  simp [EL_APPEND_EQN]
+QED
+
+(* Running under any oracle that agrees with the concrete run's trace
+   reproduces the concrete run exactly.  Reflexivity of ptr_eq_rel is the only
+   property of the attenuator this needs.  The SOME Error escape is forced by
+   MustTerminate: when its body times out it returns the state from BEFORE the
+   body, so the answers the body consumed are still pending in that state's
+   oracle. *)
+Theorem ptr_eq_trace_agrees:
+  ∀p s r s'.
+    evaluate (p,s) = (r,s') ∧ s.ptr_eq_oracle = NONE ∧
+    (∀m dm st w. s.ptr_eq_rel m dm st w w) ⇒
+    ∀po. trace_agrees (ptr_eq_trace p s) po ⇒
+      ∃rest. evaluate (p,s with ptr_eq_oracle := SOME po) =
+               (r,s' with ptr_eq_oracle := SOME rest) ∧
+             (r ≠ SOME Error ⇒ rest = drop_trace (ptr_eq_trace p s) po)
+Proof
+  recInduct evaluate_ind >> rpt strip_tac
+  >~[`MustTerminate`] >- suspend "MustTerminate"
+  >~[`Seq`] >- suspend "Seq"
+  >~[`If`] >- suspend "If"
+  >~[`Loop`] >- suspend "Loop"
+  >~[`Call`] >- suspend "Call"
+  >~[`PtrEq`] >- suspend "PtrEq"
+  >~[`Install`] >- suspend "Install"
+  >> simp[ptr_eq_trace_def] >> rw[] >>
+  qexists_tac`po` >>
+  gvs[evaluate_ptr_eq_oracle_with_const]
+QED
+
+Resume ptr_eq_trace_agrees[MustTerminate]:
+  qpat_x_assum`evaluate _ = _` mp_tac>>
+  qpat_x_assum`trace_agrees _ _` mp_tac>>
+  simp[Once ptr_eq_trace_def,evaluate_def]>>
+  IF_CASES_TAC>>simp[]
+  >- (rw[]>>metis_tac[])>>
+  rpt(pairarg_tac>>simp[])>>
+  rpt strip_tac>>gvs[]>>
+  first_x_assum(qspec_then`po`strip_assume_tac)>>
+  gvs[]>>
+  Cases_on`res = SOME TimeOut`>>gvs[]>>
+  simp[state_component_equality]>>
+  simp[Once ptr_eq_trace_def]>>metis_tac[]
+QED
+
+Resume ptr_eq_trace_agrees[Seq]:
+  qpat_x_assum`evaluate (Seq _ _,_) = _` mp_tac>>
+  qpat_x_assum`trace_agrees _ _` mp_tac>>
+  simp[Once ptr_eq_trace_def,evaluate_def]>>
+  rpt(pairarg_tac>>simp[])>>
+  rpt strip_tac>>gvs[]>>
+  reverse (Cases_on`res = NONE`)>>gvs[]
+  >- (
+    `ptr_eq_trace (Seq c1 c2) s = ptr_eq_trace c1 s` by
+      (simp[Once ptr_eq_trace_def]>>gvs[])>>
+    gvs[]>>res_tac>>gvs[]>>metis_tac[])>>
+  imp_res_tac evaluate_consts>>gvs[]>>
+  `trace_agrees (ptr_eq_trace c1 s) po` by
+    metis_tac[trace_agrees_append1,ptr_eq_trace_not_nil]>>
+  `trace_agrees (ptr_eq_trace c2 s1) (drop_trace (ptr_eq_trace c1 s) po)` by
+    metis_tac[trace_agrees_append2,ptr_eq_trace_not_nil]>>
+  res_tac>>gvs[]>>
+  `ptr_eq_trace (Seq c1 c2) s =
+     epoch_append (ptr_eq_trace c1 s) (ptr_eq_trace c2 s1)` by
+    (simp[Once ptr_eq_trace_def]>>gvs[])>>
+  gvs[drop_trace_append]>>
+  metis_tac[]
+QED
+
+Resume ptr_eq_trace_agrees[If]:
+  qpat_x_assum`evaluate _ = _` mp_tac>>
+  qpat_x_assum`trace_agrees _ _` mp_tac>>
+  simp[ptr_eq_trace_def,evaluate_def]>>
+  rpt (CASE_ONE >> simp[])>>
+  rpt strip_tac>>gvs[]>>
+  metis_tac[]
+QED
+
+Resume ptr_eq_trace_agrees[Loop]:
+  qpat_x_assum`evaluate (Loop _ _ _,_) = _`
+    (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_def])>>
+  Cases_on`cut_state (names,LN) s`
+  >- (simp[evaluate_def]>>rw[]>>metis_tac[])>>
+  rename1`cut_state (names,LN) s = SOME s0`>>simp[]>>
+  Cases_on`evaluate (c,s0)`>>simp[]>>
+  rename1`evaluate (c,s0) = (res,s1)`>>
+  `trace_agrees (ptr_eq_trace c s0) po` by
+    (qpat_x_assum`trace_agrees (ptr_eq_trace (Loop _ _ _) _) _` mp_tac>>
+     simp[Once ptr_eq_trace_def]>>
+     metis_tac[trace_agrees_append1,ptr_eq_trace_not_nil])>>
+  imp_res_tac cut_state_const>>gvs[]>>
+  res_tac>>gvs[]>>
+  simp[evaluate_def]>>
+  `cut_state (names,LN) (s with ptr_eq_oracle := SOME po) =
+     SOME (s with <|locals := l; ptr_eq_oracle := SOME po|>)` by gvs[]>>
+  gvs[]>>
+  reverse (Cases_on`cont_loop res`)
+  >- (
+    `ptr_eq_trace (Loop names c exit_names) s =
+       ptr_eq_trace c (s with locals := l)` by
+      (simp[Once ptr_eq_trace_def]>>gvs[])>>
+    gvs[]>>
+    Cases_on`cut_state (exit_names,LN) s1`>>
+    gvs[oneline exit_loop_def,AllCaseEqs()]>>
+    rw[]>>gvs[]>>metis_tac[])>>
+  gvs[]>>
+  `res ≠ SOME Error` by (strip_tac>>gvs[])>>
+  gvs[]>>
+  reverse (Cases_on`s1.clock = 0`)
+  >- (
+    `ptr_eq_trace (Loop names c exit_names) s =
+       epoch_append (ptr_eq_trace c (s with locals := l))
+         (ptr_eq_trace (STOP (Loop names c exit_names)) (dec_clock s1))` by
+      (simp[Once ptr_eq_trace_def]>>gvs[])>>
+    `trace_agrees (ptr_eq_trace (STOP (Loop names c exit_names)) (dec_clock s1))
+       (drop_trace (ptr_eq_trace c (s with locals := l)) po)` by
+      metis_tac[trace_agrees_append2,ptr_eq_trace_not_nil]>>
+    imp_res_tac evaluate_consts>>gvs[dec_clock_def]>>
+    res_tac>>gvs[]>>
+    gvs[drop_trace_append]>>
+    metis_tac[])>>
+  `ptr_eq_trace (Loop names c exit_names) s =
+     ptr_eq_trace c (s with locals := l)` by
+    (simp[Once ptr_eq_trace_def]>>gvs[])>>
+  gvs[flush_state_def]>>rw[]>>gvs[]>>metis_tac[]
+QED
+
+Resume ptr_eq_trace_agrees[Call]:
+  qpat_x_assum`evaluate (Call _ _ _ _,_) = _`
+    (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_def])>>
+  Cases_on`get_vars args s`
+  >- (
+    simp[evaluate_def,Once ptr_eq_trace_def]>>rw[]>>gvs[]>>
+    qexists_tac`po`>>gvs[])>>
+  rename1`get_vars args s = SOME xs`>>simp[]>>
+  Cases_on`bad_dest_args dest args`
+  >- (
+    simp[evaluate_def,Once ptr_eq_trace_def]>>rw[]>>gvs[]>>
+    qexists_tac`po`>>gvs[])>>
+  gvs[]>>
+  Cases_on`find_code dest (add_ret_loc ret xs) s.code s.stack_size`
+  >- (
+    simp[evaluate_def,Once ptr_eq_trace_def]>>rw[]>>gvs[]>>
+    qexists_tac`po`>>gvs[])>>
+  rename1`find_code _ _ _ _ = SOME fc`>>
+  PairCases_on`fc`>>gvs[]>>
+  Cases_on`ret`
+  >- (
+    gvs[]>>
+    Cases_on`handler = NONE`>>gvs[]
+    >- (
+      Cases_on`s.clock = 0`>>gvs[]
+      >- (
+        simp[evaluate_def,Once ptr_eq_trace_def]>>rw[]>>gvs[]>>
+        qexists_tac`po`>>gvs[])>>
+      `ptr_eq_trace (Call NONE dest args NONE) s =
+         ptr_eq_trace fc1 (call_env fc0 fc2 (dec_clock s))` by
+        (simp[Once ptr_eq_trace_def]>>gvs[])>>
+      gvs[]>>
+      Cases_on`evaluate (fc1,call_env fc0 fc2 (dec_clock s))`>>gvs[]>>
+      res_tac>>gvs[]>>
+      simp[evaluate_def]>>gvs[]>>
+      rw[]>>gvs[]>>metis_tac[])>>
+    simp[evaluate_def,Once ptr_eq_trace_def]>>rw[]>>gvs[]>>
+    qexists_tac`po`>>gvs[])>>
+  PairCases_on`x`>>gvs[]>>
+  Cases_on`domain x1 = {} ∨ ¬ALL_DISTINCT x0`>>gvs[]
+  >- (
+    simp[evaluate_def,Once ptr_eq_trace_def]>>rw[]>>gvs[]>>
+    qexists_tac`po`>>gvs[])
+  >- (
+    simp[evaluate_def,Once ptr_eq_trace_def]>>rw[]>>gvs[]>>
+    qexists_tac`po`>>gvs[])>>
+  Cases_on`cut_envs (x1,x2) s.locals`>>gvs[]
+  >- (
+    simp[evaluate_def,Once ptr_eq_trace_def]>>rw[]>>gvs[]>>
+    qexists_tac`po`>>gvs[])>>
+  rename1`cut_envs (x1,x2) s.locals = SOME envs`>>
+  Cases_on`s.clock = 0`>>gvs[]
+  >- (
+    simp[evaluate_def,Once ptr_eq_trace_def]>>rw[]>>gvs[]>>
+    qexists_tac`po`>>gvs[])>>
+  Cases_on`evaluate
+             (fc1,call_env fc0 fc2 (push_env envs handler (dec_clock s)))`>>
+  rename1`evaluate (fc1,_) = (bres,bst)`>>
+  Cases_on`bres`
+  >- (
+    `ptr_eq_trace (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args handler) s =
+       ptr_eq_trace fc1
+         (call_env fc0 fc2 (push_env envs handler (dec_clock s)))` by
+      (simp[Once ptr_eq_trace_def]>>gvs[])>>
+    gvs[]>>res_tac>>gvs[]>>
+    simp[evaluate_def]>>gvs[]>>
+    rw[]>>gvs[state_component_equality]>>metis_tac[])>>
+  rename1`evaluate (fc1,_) = (SOME bx,bst)`>>
+  Cases_on`bx`
+  >- (
+    gvs[]>>
+    Cases_on`w = Loc x4 x5 ⇒ LENGTH l ≠ LENGTH x0`>>gvs[]
+    >- (
+      `ptr_eq_trace (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args handler) s =
+         ptr_eq_trace fc1
+           (call_env fc0 fc2 (push_env envs handler (dec_clock s)))` by
+        (simp[Once ptr_eq_trace_def]>>gvs[])>>
+      gvs[]>>res_tac>>gvs[]>>
+      simp[evaluate_def]>>gvs[]>>
+      rw[]>>gvs[state_component_equality]>>metis_tac[])>>
+    Cases_on`pop_env bst`>>gvs[]
+    >- (
+      `ptr_eq_trace (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args handler) s =
+         ptr_eq_trace fc1
+           (call_env fc0 fc2 (push_env envs handler (dec_clock s)))` by
+        (simp[Once ptr_eq_trace_def]>>gvs[])>>
+      gvs[]>>res_tac>>gvs[]>>
+      simp[evaluate_def]>>gvs[]>>
+      rw[]>>gvs[state_component_equality]>>metis_tac[])>>
+    rename1`pop_env bst = SOME s1`>>
+    Cases_on`domain s1.locals = domain (FST envs) ∪ domain (SND envs)`>>gvs[]
+    >- (
+      `ptr_eq_trace (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args handler) s =
+         epoch_append
+           (ptr_eq_trace fc1
+              (call_env fc0 fc2 (push_env envs handler (dec_clock s))))
+           (ptr_eq_trace x3 (set_vars x0 l s1))` by
+        (simp[Once ptr_eq_trace_def]>>gvs[])>>
+      gvs[]>>
+      `trace_agrees
+         (ptr_eq_trace fc1
+            (call_env fc0 fc2 (push_env envs handler (dec_clock s)))) po` by
+        (qspecl_then
+           [`ptr_eq_trace fc1
+               (call_env fc0 fc2 (push_env envs handler (dec_clock s)))`,
+            `ptr_eq_trace x3 (set_vars x0 l s1)`,`po`]
+           mp_tac trace_agrees_append1>>gvs[])>>
+      `trace_agrees (ptr_eq_trace x3 (set_vars x0 l s1))
+         (drop_trace
+            (ptr_eq_trace fc1
+               (call_env fc0 fc2 (push_env envs handler (dec_clock s)))) po)` by
+        (qspecl_then
+           [`ptr_eq_trace fc1
+               (call_env fc0 fc2 (push_env envs handler (dec_clock s)))`,
+            `ptr_eq_trace x3 (set_vars x0 l s1)`,`po`]
+           mp_tac trace_agrees_append2>>gvs[])>>
+      imp_res_tac evaluate_consts>>
+      imp_res_tac pop_env_const>>
+      res_tac>>gvs[]>>
+      simp[evaluate_def]>>gvs[drop_trace_append])>>
+    `ptr_eq_trace (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args handler) s =
+       ptr_eq_trace fc1
+         (call_env fc0 fc2 (push_env envs handler (dec_clock s)))` by
+      (simp[Once ptr_eq_trace_def]>>gvs[])>>
+    gvs[]>>res_tac>>gvs[]>>
+    simp[evaluate_def]>>gvs[]>>
+    rw[]>>gvs[state_component_equality]>>metis_tac[])
+  >- (
+    gvs[]>>
+    Cases_on`handler`>>gvs[]
+    >- (
+      `ptr_eq_trace (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args NONE) s =
+         ptr_eq_trace fc1
+           (call_env fc0 fc2 (push_env envs NONE (dec_clock s)))` by
+        (simp[Once ptr_eq_trace_def]>>gvs[])>>
+      gvs[]>>res_tac>>gvs[]>>
+      simp[evaluate_def]>>gvs[]>>
+      rw[]>>gvs[state_component_equality]>>metis_tac[])>>
+    rename1`push_env _ (SOME hnd) _`>>PairCases_on`hnd`>>gvs[]>>
+    Cases_on`w = Loc hnd2 hnd3`>>gvs[]
+    >- (
+      Cases_on`domain bst.locals = domain (FST envs) ∪ domain (SND envs)`>>gvs[]
+      >- (
+        `ptr_eq_trace
+           (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args
+              (SOME (hnd0,hnd1,hnd2,hnd3))) s =
+           epoch_append
+             (ptr_eq_trace fc1
+                (call_env fc0 fc2
+                   (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3)) (dec_clock s))))
+             (ptr_eq_trace hnd1 (set_var hnd0 w0 bst))` by
+          (simp[Once ptr_eq_trace_def]>>gvs[])>>
+        gvs[]>>
+        `trace_agrees
+           (ptr_eq_trace fc1
+              (call_env fc0 fc2
+                 (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3)) (dec_clock s)))) po` by
+          (qspecl_then
+             [`ptr_eq_trace fc1
+                 (call_env fc0 fc2
+                    (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3)) (dec_clock s)))`,
+              `ptr_eq_trace hnd1 (set_var hnd0 w0 bst)`,`po`]
+             mp_tac trace_agrees_append1>>gvs[])>>
+        `trace_agrees (ptr_eq_trace hnd1 (set_var hnd0 w0 bst))
+           (drop_trace
+              (ptr_eq_trace fc1
+                 (call_env fc0 fc2
+                    (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3))
+                       (dec_clock s)))) po)` by
+          (qspecl_then
+             [`ptr_eq_trace fc1
+                 (call_env fc0 fc2
+                    (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3)) (dec_clock s)))`,
+              `ptr_eq_trace hnd1 (set_var hnd0 w0 bst)`,`po`]
+             mp_tac trace_agrees_append2>>gvs[])>>
+        imp_res_tac evaluate_consts>>
+        res_tac>>gvs[]>>
+        simp[evaluate_def]>>gvs[drop_trace_append])>>
+      `ptr_eq_trace
+         (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args
+            (SOME (hnd0,hnd1,hnd2,hnd3))) s =
+         ptr_eq_trace fc1
+           (call_env fc0 fc2
+              (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3)) (dec_clock s)))` by
+        (simp[Once ptr_eq_trace_def]>>gvs[])>>
+      gvs[]>>res_tac>>gvs[]>>
+      simp[evaluate_def]>>gvs[]>>
+      rw[]>>gvs[state_component_equality]>>metis_tac[])>>
+    `ptr_eq_trace
+       (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args
+          (SOME (hnd0,hnd1,hnd2,hnd3))) s =
+       ptr_eq_trace fc1
+         (call_env fc0 fc2
+            (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3)) (dec_clock s)))` by
+      (simp[Once ptr_eq_trace_def]>>gvs[])>>
+    gvs[]>>res_tac>>gvs[]>>
+    simp[evaluate_def]>>gvs[]>>
+    rw[]>>gvs[state_component_equality]>>metis_tac[])>>
+  `ptr_eq_trace (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args handler) s =
+     ptr_eq_trace fc1
+       (call_env fc0 fc2 (push_env envs handler (dec_clock s)))` by
+    (simp[Once ptr_eq_trace_def]>>gvs[])>>
+  gvs[]>>res_tac>>gvs[]>>
+  simp[evaluate_def]>>gvs[]>>
+  rw[]>>gvs[state_component_equality]>>metis_tac[]
+QED
+
+Resume ptr_eq_trace_agrees[PtrEq]:
+  gvs[evaluate_def,AllCaseEqs()]
+  >~[`set_var _ _ _`]
+  >- (gvs[ptr_eq_trace_def,trace_agrees_CONS,drop_trace_def] >>
+      rw[] >> gvs[])
+  >> simp[ptr_eq_trace_def] >> metis_tac[]
+QED
+
+Resume ptr_eq_trace_agrees[Install]:
+  qpat_x_assum `evaluate _ = _` mp_tac >>
+  simp[Once ptr_eq_trace_def,evaluate_def] >>
+  rpt(CASE_ONE >> simp[]) >>
+  strip_tac >> gvs[] >> metis_tac[]
+QED
+
+Finalise ptr_eq_trace_agrees;
+
+(* ptr_eq_trace_prefix is a preorder, and it relates to epoch_append exactly as ≼
+   relates to ++. *)
+
+Theorem ptr_eq_trace_prefix_refl[local,simp]:
+  ptr_eq_trace_prefix tr tr
+Proof
+  rw [ptr_eq_trace_prefix_def] >> gvs [LAST_EL, PRE_SUB1]
+QED
+
+Theorem ptr_eq_trace_prefix_NIL[local,simp]:
+  ptr_eq_trace_prefix [] tr
+Proof
+  rw [ptr_eq_trace_prefix_def]
+QED
+
+Theorem ptr_eq_trace_prefix_SING:
+  ptr_eq_trace_prefix [a] tr ⇔ tr ≠ [] ∧ a ≼ HD tr
+Proof
+  Cases_on `tr` >> rw [ptr_eq_trace_prefix_def]
+QED
+
+Theorem ptr_eq_trace_prefix_NIL_epoch[local,simp]:
+  ptr_eq_trace_prefix [[]] tr ⇔ tr ≠ []
+Proof
+  Cases_on `tr` >> rw [ptr_eq_trace_prefix_def]
+QED
+
+Theorem ptr_eq_trace_prefix_CONS:
+  ∀a t1 tr.
+    t1 ≠ [] ⇒
+    (ptr_eq_trace_prefix (a::t1) tr ⇔
+     tr ≠ [] ∧ a = HD tr ∧ ptr_eq_trace_prefix t1 (TL tr))
+Proof
+  rpt strip_tac >>
+  Cases_on `t1` >> gvs [] >>
+  Cases_on `tr` >> gvs [ptr_eq_trace_prefix_def] >>
+  eq_tac >> strip_tac >> gvs []
+  >- (conj_asm1_tac
+      >- (first_x_assum (qspec_then `0` mp_tac) >> simp []) >>
+      rw [] >>
+      first_x_assum (qspec_then `SUC e` mp_tac) >> simp [ADD1]) >>
+  rw [] >>
+  Cases_on `e` >> gvs [ADD1]
+QED
+
+Theorem ptr_eq_trace_prefix_trans:
+  ∀t1 t2 t3. ptr_eq_trace_prefix t1 t2 ∧ ptr_eq_trace_prefix t2 t3 ⇒ ptr_eq_trace_prefix t1 t3
+Proof
+  rw [ptr_eq_trace_prefix_def] >>
+  `t2 ≠ []` by (strip_tac >> gvs []) >>
+  gvs [] >>
+  Cases_on `LENGTH t1 = LENGTH t2` >> gvs []
+  >- (`LAST t2 = EL (LENGTH t2 - 1) t2` by gvs [LAST_EL, PRE_SUB1] >>
+      metis_tac [rich_listTheory.IS_PREFIX_TRANS]) >>
+  `LENGTH t1 - 1 + 1 < LENGTH t2` by (Cases_on `t1` >> gvs []) >>
+  metis_tac []
+QED
+
+Theorem ptr_eq_trace_prefix_epoch_append:
+  ∀t1 t2. t1 ≠ [] ∧ t2 ≠ [] ⇒ ptr_eq_trace_prefix t1 (epoch_append t1 t2)
+Proof
+  Induct >> rw [] >>
+  reverse (Cases_on `t1`) >> gvs []
+  >- (gvs [epoch_append_CONS] >> simp [ptr_eq_trace_prefix_CONS]) >>
+  gvs [ptr_eq_trace_prefix_SING]
+QED
+
+Theorem ptr_eq_trace_prefix_epoch_append1:
+  ∀t1 t2 t3.
+    t1 ≠ [] ∧ t2 ≠ [] ∧ t3 ≠ [] ∧ ptr_eq_trace_prefix t1 t2 ⇒
+    ptr_eq_trace_prefix t1 (epoch_append t2 t3)
+Proof
+  metis_tac [ptr_eq_trace_prefix_trans, ptr_eq_trace_prefix_epoch_append]
+QED
+
+Theorem ptr_eq_trace_prefix_epoch_append_cong:
+  ∀t1 t2 t2'.
+    t1 ≠ [] ∧ t2 ≠ [] ∧ t2' ≠ [] ∧ ptr_eq_trace_prefix t2 t2' ⇒
+    ptr_eq_trace_prefix (epoch_append t1 t2) (epoch_append t1 t2')
+Proof
+  Induct >> rw [] >>
+  reverse (Cases_on `t1`) >> gvs []
+  >- (gvs [epoch_append_CONS] >> simp [ptr_eq_trace_prefix_CONS]) >>
+  Cases_on `t2` >> Cases_on `t2'` >> gvs [] >>
+  reverse (Cases_on `t`) >> gvs []
+  >- (gvs [ptr_eq_trace_prefix_CONS] >> gvs [ptr_eq_trace_prefix_CONS]) >>
+  gvs [ptr_eq_trace_prefix_SING] >>
+  Cases_on `t'` >> gvs [ptr_eq_trace_prefix_SING, ptr_eq_trace_prefix_CONS]
+QED
+
+Theorem dec_clock_add_clock[local]:
+  s.clock ≠ 0 ⇒
+  dec_clock (s with clock := extra + s.clock) =
+  dec_clock s with clock := extra + (dec_clock s).clock
+Proof
+  rw[dec_clock_def,state_component_equality]
+QED
+
+(* The answers a run produces only grow with the clock, and a run that does
+   not time out produces the same answers at every larger clock. *)
+Theorem ptr_eq_trace_mono:
+  ∀p s r s' extra.
+    evaluate (p,s) = (r,s') ⇒
+    ptr_eq_trace_prefix (ptr_eq_trace p s)
+      (ptr_eq_trace p (s with clock := s.clock + extra)) ∧
+    (r ≠ SOME TimeOut ⇒
+     ptr_eq_trace p (s with clock := s.clock + extra) = ptr_eq_trace p s)
+Proof
+  recInduct evaluate_ind >> rpt conj_tac >> rpt gen_tac >>
+  rpt (disch_then strip_assume_tac) >> rpt gen_tac >>
+  rpt (disch_then strip_assume_tac)
+  >~[`MustTerminate`] >- suspend "MustTerminate"
+  >~[`Seq`] >- suspend "Seq"
+  >~[`If`] >- suspend "If"
+  >~[`Loop`] >- suspend "Loop"
+  >~[`Call`] >- suspend "Call"
+  >~[`Install`] >- suspend "Install"
+  >> simp[ptr_eq_trace_def]
+QED
+
+Resume ptr_eq_trace_mono[MustTerminate]:
+  simp[ptr_eq_trace_def]
+QED
+
+Resume ptr_eq_trace_mono[Install]:
+  `r ≠ SOME TimeOut` by (
+    qpat_x_assum`evaluate _ = _` mp_tac >>
+    simp[evaluate_def] >> rpt(CASE_ONE >> simp[]) >> rw[] >> gvs[]) >>
+  drule_all evaluate_add_clock >>
+  disch_then(qspec_then`extra`assume_tac) >>
+  simp[ptr_eq_trace_def] >> gvs[] >>
+  Cases_on`r` >> gvs[]
+QED
+
+Resume ptr_eq_trace_mono[Seq]:
+  qpat_x_assum`evaluate _ = _` mp_tac>>
+  simp[evaluate_def,ptr_eq_trace_def]>>
+  rpt(pairarg_tac>>simp[])>>
+  strip_tac>>
+  first_x_assum(qspecl_then[`res`,`s1`,`extra`]mp_tac)>>
+  simp[]>>strip_tac>>
+  Cases_on`res = SOME TimeOut`>>gvs[]
+  >- (rw[]>>gvs[]>>irule ptr_eq_trace_prefix_epoch_append1>>simp[]) >>
+  qpat_assum`evaluate (c1,s) = _`(mp_then Any mp_tac evaluate_add_clock)>>
+  simp[]>>strip_tac>>gvs[]>>
+  Cases_on`res = NONE`>>gvs[]>>
+  irule ptr_eq_trace_prefix_epoch_append_cong>>simp[]
+QED
+
+Resume ptr_eq_trace_mono[If]:
+  qpat_x_assum`evaluate _ = _` mp_tac>>
+  simp[evaluate_def,ptr_eq_trace_def]>>
+  rpt(CASE_ONE>>simp[])>>
+  strip_tac>>gvs[]>>metis_tac[]
+QED
+
+Resume ptr_eq_trace_mono[Loop]:
+  qid_spec_tac`extra`>>
+  qpat_x_assum`evaluate _ = _` mp_tac>>
+  simp[evaluate_def,ptr_eq_trace_def]>>
+  rpt(CASE_ONE>>simp[])>>
+  rpt(pairarg_tac>>simp[])>>
+  strip_tac>>gvs[]>>
+  imp_res_tac cut_state_const>>gvs[]>>
+  gen_tac>>
+  rpt(first_x_assum(qspec_then`extra`strip_assume_tac))
+  >- (Cases_on`evaluate (c,s with <|locals:=l;clock:=extra+s.clock|>)`>>rw[]>>
+      gvs[]>>irule ptr_eq_trace_prefix_epoch_append1>>simp[])
+  >- (`res ≠ SOME TimeOut` by metis_tac[cont_loop_not_timeout]>>
+      imp_res_tac evaluate_add_clock>>
+      first_x_assum(qspec_then`extra`assume_tac)>>
+      gvs[dec_clock_add_clock]>>
+      irule ptr_eq_trace_prefix_epoch_append_cong>>simp[])
+  >- (drule evaluate_add_clock>>disch_then(qspec_then`extra`assume_tac)>>gvs[])
+  >- (drule evaluate_add_clock>>disch_then(qspec_then`extra`assume_tac)>>gvs[])
+  >- (reverse(Cases_on`res = SOME TimeOut`)>>gvs[]
+      >- (drule evaluate_add_clock>>disch_then(qspec_then`extra`assume_tac)>>
+          gvs[])>>
+      Cases_on`evaluate (c,s with <|locals:=l;clock:=extra+s.clock|>)`>>rw[]>>
+      gvs[]>>irule ptr_eq_trace_prefix_epoch_append1>>simp[])
+QED
+
+Resume ptr_eq_trace_mono[Call]:
+  qid_spec_tac`extra`>>
+  qpat_x_assum`evaluate _ = _` mp_tac>>
+  simp[evaluate_def,ptr_eq_trace_def]>>
+  Cases_on`s.clock = 0`>>gvs[]
+  >- (
+    rpt(CASE_ONE>>gvs[])>>strip_tac>>gvs[]>>rw[]>>
+    rpt(CASE_ONE>>gvs[])) >>
+  rpt(CASE_ONE>>gvs[])>>
+  strip_tac>>gvs[]>>
+  gen_tac>>
+  rpt(first_x_assum(qspec_then`extra`strip_assume_tac))>>
+  imp_res_tac pop_env_const>>
+  qpat_assum`evaluate (_,call_env _ _ _) = _`
+    (mp_then Any mp_tac evaluate_add_clock)>>
+  simp[dec_clock_add_clock,ptr_eq_trace_prefix_epoch_append_cong,
+       ptr_eq_trace_prefix_epoch_append1]>>
+  rpt(CASE_ONE>>gvs[])
+  >- (`q'' ≠ SOME TimeOut` by (strip_tac>>gvs[])>>gvs[])
+  >- (strip_tac>>gvs[]>>irule ptr_eq_trace_prefix_epoch_append_cong>>simp[])
+  >- (strip_tac>>gvs[]>>irule ptr_eq_trace_prefix_epoch_append_cong>>simp[])
+  >> irule ptr_eq_trace_prefix_epoch_append1>>simp[]
+QED
+
+Finalise ptr_eq_trace_mono;
+
+(* Taking n+1 epochs of a trace takes all of a prefix that is no longer, and
+   an epoch_append at or beyond epoch n leaves those epochs alone. *)
+
+Theorem TAKE_epoch_append_short:
+  ∀t1 t2 n.
+    t1 ≠ [] ∧ t2 ≠ [] ∧ LENGTH t1 ≤ n + 1 ⇒
+    TAKE (n+1) (epoch_append t1 t2) =
+    epoch_append t1 (TAKE (n + 2 - LENGTH t1) t2)
+Proof
+  Induct >> rw [] >>
+  reverse (Cases_on `t1`) >> gvs []
+  >- (
+    gvs [epoch_append_CONS] >>
+    Cases_on `n` >> gvs [] >>
+    first_x_assum (qspecl_then [`t2`,`n'`] mp_tac) >>
+    simp [ADD1]) >>
+  Cases_on `t2` >> gvs [epoch_append_SING]
+QED
+
+Theorem TAKE_epoch_append_long:
+  ∀t1 t2 n.
+    t1 ≠ [] ∧ n + 2 ≤ LENGTH t1 ⇒
+    TAKE (n+1) (epoch_append t1 t2) = TAKE (n+1) t1
+Proof
+  Induct >> rw [] >>
+  reverse (Cases_on `t1`) >> gvs []
+  >- (
+    gvs [epoch_append_CONS] >>
+    Cases_on `n` >> gvs [] >>
+    first_x_assum (qspecl_then [`t2`,`n'`] mp_tac) >>
+    simp [ADD1]) >>
+  gvs []
+QED
+
+(* The Loop and Call clauses of ptr_eq_trace, each under the guards that
+   select one branch of the clause. *)
+
+Theorem ptr_eq_trace_Loop_NONE[local]:
+  cut_state (names,LN) s = NONE ⇒
+  ptr_eq_trace (Loop names c exit_names) s = [[]]
+Proof
+  rw[]>>simp[Once ptr_eq_trace_def]
+QED
+
+Theorem ptr_eq_trace_Call_NONE[local]:
+  get_vars args s = NONE ⇒
+  ptr_eq_trace (Call ret dest args handler) s = [[]]
+Proof
+  rw[]>>simp[Once ptr_eq_trace_def]
+QED
+
+Theorem ptr_eq_trace_Call_bad[local]:
+  get_vars args s = SOME xs ∧ bad_dest_args dest args ⇒
+  ptr_eq_trace (Call ret dest args handler) s = [[]]
+Proof
+  rw[]>>simp[Once ptr_eq_trace_def]
+QED
+
+Theorem ptr_eq_trace_Call_nocode[local]:
+  get_vars args s = SOME xs ∧ ¬bad_dest_args dest args ∧
+  find_code dest (add_ret_loc ret xs) s.code s.stack_size = NONE ⇒
+  ptr_eq_trace (Call ret dest args handler) s = [[]]
+Proof
+  rw[]>>simp[Once ptr_eq_trace_def]
+QED
+
+Theorem ptr_eq_trace_Call_tail[local]:
+  get_vars args s = SOME xs ∧ ¬bad_dest_args dest args ∧
+  find_code dest (add_ret_loc ret xs) s.code s.stack_size =
+    SOME (args1,prog1,ss) ∧ ret = NONE ⇒
+  ptr_eq_trace (Call ret dest args handler) s =
+    if handler = NONE ∧ s.clock ≠ 0 then
+      ptr_eq_trace prog1 (call_env args1 ss (dec_clock s))
+    else [[]]
+Proof
+  rpt strip_tac>>gvs[]>>simp[Once ptr_eq_trace_def]
+QED
+
+Theorem ptr_eq_trace_Call_ret[local]:
+  ∀args s xs dest rn n1 n2 ret_handler l1 l2 args1 prog1 ss envs handler
+   bres bst.
+  get_vars args s = SOME xs ∧ ¬bad_dest_args dest args ∧
+  find_code dest (add_ret_loc (SOME (rn,(n1,n2),ret_handler,l1,l2)) xs) s.code
+    s.stack_size = SOME (args1,prog1,ss) ∧
+  domain n1 ≠ ∅ ∧ ALL_DISTINCT rn ∧
+  cut_envs (n1,n2) s.locals = SOME envs ∧ s.clock ≠ 0 ∧
+  evaluate (prog1,call_env args1 ss (push_env envs handler (dec_clock s))) =
+    (bres,bst) ⇒
+  ptr_eq_trace (Call (SOME (rn,(n1,n2),ret_handler,l1,l2)) dest args handler)
+    s =
+    (let b1 = ptr_eq_trace prog1
+                (call_env args1 ss (push_env envs handler (dec_clock s))) in
+       case bres of
+       | SOME (Result w l) =>
+           (if w ≠ Loc l1 l2 ∨ LENGTH l ≠ LENGTH rn then b1
+            else
+              case pop_env bst of
+              | NONE => b1
+              | SOME s1 =>
+                if domain s1.locals = domain (FST envs) ∪ domain (SND envs)
+                then
+                  epoch_append b1 (ptr_eq_trace ret_handler (set_vars rn l s1))
+                else b1)
+       | SOME (Exception w w0) =>
+           (case handler of
+            | NONE => b1
+            | SOME (hn,h,hl1,hl2) =>
+              if w ≠ Loc hl1 hl2 ∨
+                 domain bst.locals ≠ domain (FST envs) ∪ domain (SND envs)
+              then b1
+              else epoch_append b1 (ptr_eq_trace h (set_var hn w0 bst)))
+       | _ => b1)
+Proof
+  rpt strip_tac>>gvs[]>>simp[Once ptr_eq_trace_def]
+QED
+
+(* The returning call's trace extends the body's, and once the body has used up
+   the first m+1 epochs the call contributes nothing further to them. *)
+Theorem ptr_eq_trace_Call_ret_bound[local]:
+  ∀args s xs dest rn n1 n2 ret_handler l1 l2 args1 prog1 ss envs handler
+   bres bst.
+  get_vars args s = SOME xs ∧ ¬bad_dest_args dest args ∧
+  find_code dest (add_ret_loc (SOME (rn,(n1,n2),ret_handler,l1,l2)) xs) s.code
+    s.stack_size = SOME (args1,prog1,ss) ∧
+  domain n1 ≠ ∅ ∧ ALL_DISTINCT rn ∧
+  cut_envs (n1,n2) s.locals = SOME envs ∧ s.clock ≠ 0 ∧
+  evaluate (prog1,call_env args1 ss (push_env envs handler (dec_clock s))) =
+    (bres,bst) ⇒
+  LENGTH (ptr_eq_trace prog1
+            (call_env args1 ss (push_env envs handler (dec_clock s)))) ≤
+  LENGTH (ptr_eq_trace
+            (Call (SOME (rn,(n1,n2),ret_handler,l1,l2)) dest args handler) s) ∧
+  ∀m. ¬(LENGTH (ptr_eq_trace prog1
+          (call_env args1 ss (push_env envs handler (dec_clock s)))) ≤ m + 1 ∧
+        bres ≠ SOME Error) ⇒
+      TAKE (m + 1)
+        (ptr_eq_trace
+           (Call (SOME (rn,(n1,n2),ret_handler,l1,l2)) dest args handler) s) =
+      TAKE (m + 1)
+        (ptr_eq_trace prog1
+           (call_env args1 ss (push_env envs handler (dec_clock s))))
+Proof
+  rpt gen_tac>>strip_tac>>
+  drule_all ptr_eq_trace_Call_ret>>
+  strip_tac>>
+  gvs[]>>
+  every_case_tac>>
+  gvs[TAKE_epoch_append_long]>>
+  rpt strip_tac>>
+  qmatch_goalsub_abbrev_tac`LENGTH t1 ≤ LENGTH t1 + LENGTH t2 − 1`>>
+  `LENGTH t2 ≠ 0` by simp[Abbr`t2`]>>
+  Cases_on`LENGTH t2`>>gvs[]
+QED
+
+Theorem ptr_eq_trace_Loop_SOME[local]:
+  cut_state (names,LN) s = SOME s0 ∧ evaluate (c,s0) = (res,s1) ⇒
+  ptr_eq_trace (Loop names c exit_names) s =
+    if cont_loop res ∧ s1.clock ≠ 0 then
+      epoch_append (ptr_eq_trace c s0)
+        (ptr_eq_trace (STOP (Loop names c exit_names)) (dec_clock s1))
+    else ptr_eq_trace c s0
+Proof
+  rw[]>>simp[Once ptr_eq_trace_def]
+QED
+
+(* A run reads its compile oracle only at Install, and the e-th Install reads
+   entry e in full and the configuration of entry e+1.  So agreement on the
+   first n entries and on the configuration of entry n fixes the first n+1
+   epochs of the trace.  The guard on the second conjunct is a disjunction over
+   the two runs so that the induction hypothesis covers whichever of them is
+   the shorter; it excludes a failed Install, which reads entry n in full, and
+   MustTerminate on a body timeout, which returns the state from before the
+   body and so discards the installs the body performed. *)
+Theorem evaluate_compile_oracle_prefix:
+  ∀p s r s' co' n r2 s2.
+    evaluate (p,s) = (r,s') ∧
+    evaluate (p,s with compile_oracle := co') = (r2,s2) ∧
+    s.ptr_eq_oracle = NONE ∧
+    (∀j. j < n ⇒ s.compile_oracle j = co' j) ∧
+    FST (s.compile_oracle n) = FST (co' n) ⇒
+    TAKE (n+1) (ptr_eq_trace p s) =
+    TAKE (n+1) (ptr_eq_trace p (s with compile_oracle := co')) ∧
+    ((LENGTH (ptr_eq_trace p s) ≤ n + 1 ∧ r ≠ SOME Error) ∨
+     (LENGTH (ptr_eq_trace p (s with compile_oracle := co')) ≤ n + 1 ∧
+      r2 ≠ SOME Error) ⇒
+       r2 = r ∧
+       s2 = s' with compile_oracle :=
+                shift_seq (LENGTH (ptr_eq_trace p s) - 1) co' ∧
+       ptr_eq_trace p (s with compile_oracle := co') = ptr_eq_trace p s)
+Proof
+  recInduct evaluate_ind >> rpt conj_tac >> rpt gen_tac >>
+  rpt (disch_then strip_assume_tac) >> rpt gen_tac >>
+  rpt (disch_then strip_assume_tac)
+  >~[`MustTerminate`] >- suspend "MustTerminate"
+  >~[`Seq`] >- suspend "Seq"
+  >~[`If`] >- suspend "If"
+  >~[`Loop`] >- suspend "Loop"
+  >~[`Call`] >- suspend "Call"
+  >~[`Install`] >- suspend "Install"
+  >> gvs[ptr_eq_trace_def,evaluate_compile_oracle_with_const]
+  >> rpt(CASE_ONE >> gvs[])
+QED
+
+Resume evaluate_compile_oracle_prefix[MustTerminate]:
+  rpt(qpat_x_assum`∀a. _`mp_tac)>>
+  Cases_on`s.termdep = 0`>>
+  gvs[evaluate_def,ptr_eq_trace_def]>>
+  rpt(pairarg_tac>>gvs[])>>
+  strip_tac>>strip_tac>>
+  first_x_assum(qspecl_then[`co'`,`n`,`res`,`s1`]mp_tac)>>
+  simp[]>>strip_tac>>
+  Cases_on`res' = SOME TimeOut`>>gvs[]>>
+  Cases_on`res = SOME TimeOut`>>gvs[]
+QED
+
+Resume evaluate_compile_oracle_prefix[Install]:
+  Cases_on`n = 0`>>gvs[]
+  >- (
+    qpat_x_assum`evaluate _ = _` mp_tac>>
+    qpat_x_assum`evaluate _ = _` mp_tac>>
+    gvs[evaluate_def,ptr_eq_trace_def]>>
+    rpt(CASE_ONE>>gvs[])) >>
+  `s.compile_oracle 0 = co' 0` by gvs[]>>
+  `FST (s.compile_oracle 1) = FST (co' 1)` by
+    (Cases_on`1 < n`>-gvs[]>>`n = 1` by simp[]>>gvs[])>>
+  qpat_x_assum`evaluate _ = _` mp_tac>>
+  qpat_x_assum`evaluate _ = _` mp_tac>>
+  gvs[evaluate_def,ptr_eq_trace_def]>>
+  rpt(CASE_ONE>>gvs[])>>
+  gvs[shift_seq_def]>>
+  gvs[state_component_equality,FUN_EQ_THM]
+QED
+
+Resume evaluate_compile_oracle_prefix[Seq]:
+  rpt(qpat_x_assum`∀a. _`mp_tac)>>
+  qpat_x_assum`evaluate (Seq _ _,_) = _` mp_tac>>
+  qpat_x_assum`evaluate (Seq _ _,_) = _` mp_tac>>
+  simp[Once ptr_eq_trace_def,evaluate_def]>>
+  rpt(pairarg_tac>>simp[])>>
+  Cases_on`LENGTH (ptr_eq_trace c1 s) ≤ n + 1 ∧ res ≠ SOME Error`
+  >- (
+    rpt (disch_then strip_assume_tac)>>
+    first_assum(qspecl_then[`co'`,`n`,`res'`,`s1'`]mp_tac)>>
+    impl_tac >- (rpt conj_tac>>first_assum ACCEPT_TAC)>>
+    strip_tac>>
+    first_x_assum(qspecl_then[`s.compile_oracle`,`n`,`res`,`s1`]mp_tac)>>
+    PURE_REWRITE_TAC[with_same_compile_oracle]>>
+    impl_tac >- (rpt conj_tac >- first_assum ACCEPT_TAC >>
+                 rpt strip_tac>>REFL_TAC)>>
+    strip_tac>>
+    qpat_x_assum`_ ⇒ _ ∧ s1' = _ ∧ _` mp_tac>>
+    impl_tac >- (disj1_tac>>first_assum ACCEPT_TAC)>>
+    strip_tac>>
+    qpat_x_assum`_ ⇒ _ ∧ s1 = _ ∧ _` mp_tac>>
+    impl_tac >- (disj1_tac>>first_assum ACCEPT_TAC)>>
+    strip_tac>>
+    Cases_on`res = NONE`
+    >- (
+      qpat_x_assum`NONE = res ⇒ _` mp_tac>>
+      `s1.compile_oracle =
+         shift_seq (LENGTH (ptr_eq_trace c1 s) − 1) s.compile_oracle` by
+        (qpat_x_assum`s1 = s1 with compile_oracle := _` mp_tac>>
+         simp[state_component_equality])>>
+      qpat_x_assum`s1 = s1 with compile_oracle := _` kall_tac>>
+      gvs[]>>
+      `s1.ptr_eq_oracle = NONE` by (imp_res_tac evaluate_consts>>gvs[])>>
+      `LENGTH (ptr_eq_trace c1 s) ≠ 0` by simp[]>>
+      disch_then(qspecl_then
+        [`shift_seq (LENGTH (ptr_eq_trace c1 s) − 1) co'`,
+         `n + 1 - LENGTH (ptr_eq_trace c1 s)`,`r2`,`s2`]mp_tac)>>
+      impl_tac >- (
+        rpt conj_tac
+        >- first_assum ACCEPT_TAC
+        >- first_assum ACCEPT_TAC
+        >- (simp[shift_seq_def]>>rw[]>>first_x_assum irule>>simp[])
+        >- (simp[shift_seq_def]>>
+            `n + 1 - LENGTH (ptr_eq_trace c1 s) +
+               (LENGTH (ptr_eq_trace c1 s) - 1) = n` by simp[]>>
+            simp[]))>>
+      strip_tac>>
+      `ptr_eq_trace (Seq c1 c2) s =
+         epoch_append (ptr_eq_trace c1 s) (ptr_eq_trace c2 s1)` by
+        (simp[Once ptr_eq_trace_def]>>gvs[])>>
+      `ptr_eq_trace (Seq c1 c2) (s with compile_oracle := co') =
+         epoch_append (ptr_eq_trace c1 s)
+           (ptr_eq_trace c2 (s1 with compile_oracle :=
+              shift_seq (LENGTH (ptr_eq_trace c1 s) − 1) co'))` by
+        (simp[Once ptr_eq_trace_def]>>gvs[])>>
+      simp[TAKE_epoch_append_short,shift_seq_shift_seq]>>
+      `n + 1 - LENGTH (ptr_eq_trace c1 s) + 1 =
+         n + 2 - LENGTH (ptr_eq_trace c1 s)` by simp[]>>
+      gvs[]>>
+      gvs[shift_seq_shift_seq]>>
+      `LENGTH (ptr_eq_trace c1 s) ≠ 0 ∧ LENGTH (ptr_eq_trace c2 s1) ≠ 0` by
+        simp[LENGTH_NIL]>>
+      `LENGTH (ptr_eq_trace c1 s) - 1 + (LENGTH (ptr_eq_trace c2 s1) - 1) =
+         LENGTH (ptr_eq_trace c1 s) + LENGTH (ptr_eq_trace c2 s1) - 2` by simp[]>>
+      gvs[]>>
+      strip_tac>>gvs[])
+    >- (
+      qpat_x_assum`NONE = res ⇒ _` kall_tac>>
+      gvs[]>>
+      `ptr_eq_trace (Seq c1 c2) (s with compile_oracle := co') =
+         ptr_eq_trace c1 s` by
+        (simp[Once ptr_eq_trace_def]>>gvs[])>>
+      `ptr_eq_trace (Seq c1 c2) s = ptr_eq_trace c1 s` by
+        (simp[Once ptr_eq_trace_def]>>gvs[])>>
+      gvs[])) >>
+  Cases_on`LENGTH (ptr_eq_trace c1 (s with compile_oracle := co')) ≤ n + 1 ∧
+           res' ≠ SOME Error`
+  >- (
+    rpt (disch_then strip_assume_tac)>>
+    qpat_x_assum`NONE = res ⇒ _` kall_tac>>
+    first_x_assum(qspecl_then[`co'`,`n`,`res'`,`s1'`]mp_tac)>>
+    impl_tac >- (rpt conj_tac>>first_assum ACCEPT_TAC)>>
+    strip_tac>>
+    qpat_x_assum`_ ⇒ _ ∧ s1' = _ ∧ _` mp_tac>>
+    impl_tac >- (disj2_tac>>first_assum ACCEPT_TAC)>>
+    strip_tac>>
+    gvs[])
+  >- (
+    rpt (disch_then strip_assume_tac)>>
+    qpat_x_assum`NONE = res ⇒ _` kall_tac>>
+    first_x_assum(qspecl_then[`co'`,`n`,`res'`,`s1'`]mp_tac)>>
+    impl_tac >- (rpt conj_tac>>first_assum ACCEPT_TAC)>>
+    strip_tac>>
+    `ptr_eq_trace (Seq c1 c2) (s with compile_oracle := co') =
+       (if res' = NONE then
+          epoch_append (ptr_eq_trace c1 (s with compile_oracle := co'))
+            (ptr_eq_trace c2 s1')
+        else ptr_eq_trace c1 (s with compile_oracle := co'))` by
+      (simp[Once ptr_eq_trace_def]>>gvs[])>>
+    `ptr_eq_trace (Seq c1 c2) s =
+       (if res = NONE then
+          epoch_append (ptr_eq_trace c1 s) (ptr_eq_trace c2 s1)
+        else ptr_eq_trace c1 s)` by
+      (simp[Once ptr_eq_trace_def]>>gvs[])>>
+    Cases_on`res = NONE`>>Cases_on`res' = NONE`>>gvs[]>>
+    gvs[TAKE_epoch_append_long]>>
+    qspecl_then[`c2`,`s1`]assume_tac ptr_eq_trace_LENGTH_NOT_0>>
+    qspecl_then[`c2`,`s1'`]assume_tac ptr_eq_trace_LENGTH_NOT_0>>
+    rw[]>>gvs[])
+QED
+
+Resume evaluate_compile_oracle_prefix[If]:
+  rpt(qpat_x_assum`∀a b c d e. _`mp_tac)>>
+  Cases_on`get_var r1 s`>>Cases_on`get_var_imm ri s`>>
+  gvs[evaluate_def,ptr_eq_trace_def]>>
+  Cases_on`word_cmp cmp x x'`>>gvs[]>>
+  rename1`word_cmp cmp x x' = SOME b`>>Cases_on`b`>>gvs[]>>
+  strip_tac>>
+  first_x_assum(qspecl_then[`co'`,`n`,`r2`,`s2`]mp_tac)>>
+  simp[]>>strip_tac>>gvs[]
+QED
+
+Resume evaluate_compile_oracle_prefix[Loop]:
+  rpt(qpat_x_assum`∀a. _`mp_tac)>>
+  Cases_on`cut_state (names,LN) s`
+  >- (
+    qpat_x_assum`evaluate (Loop _ _ _,_) = _`
+      (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_def])>>
+    qpat_x_assum`evaluate (Loop _ _ _,_) = _`
+      (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_def])>>
+    `ptr_eq_trace (Loop names c exit_names) s = [[]]` by
+      (irule ptr_eq_trace_Loop_NONE>>simp[])>>
+    `ptr_eq_trace (Loop names c exit_names) (s with compile_oracle := co') =
+       [[]]` by (irule ptr_eq_trace_Loop_NONE>>simp[])>>
+    ntac 2 (pop_assum (fn th => PURE_REWRITE_TAC[th]))>>
+    simp[])>>
+  rename1`cut_state (names,LN) s = SOME s0`>>
+  `cut_state (names,LN) (s with compile_oracle := co') =
+     SOME (s0 with compile_oracle := co')` by simp[]>>
+  `s0.compile_oracle = s.compile_oracle` by
+    (imp_res_tac cut_state_const>>simp[])>>
+  `s0.ptr_eq_oracle = NONE` by (imp_res_tac cut_state_const>>simp[])>>
+  qpat_assum`cut_state (names,LN) (s with compile_oracle := co') = _`
+    (fn cs2 =>
+       qpat_x_assum`evaluate (Loop _ _ _,_ with compile_oracle := _) = _`
+         (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_def, cs2]))>>
+  qpat_assum`cut_state (names,LN) s = SOME s0`
+    (fn cs =>
+       qpat_x_assum`evaluate (Loop _ _ _,_) = _`
+         (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_def, cs]))>>
+  Cases_on`evaluate (c,s0)`>>
+  Cases_on`evaluate (c,s0 with compile_oracle := co')`>>
+  rename1`evaluate (c,s0) = (res,s1)`>>
+  rename1`evaluate (c,s0 with compile_oracle := co') = (res',s1')`>>
+  simp[]>>
+  `ptr_eq_trace (Loop names c exit_names) s =
+     (if cont_loop res ∧ s1.clock ≠ 0 then
+        epoch_append (ptr_eq_trace c s0)
+          (ptr_eq_trace (STOP (Loop names c exit_names)) (dec_clock s1))
+      else ptr_eq_trace c s0)` by
+    (irule ptr_eq_trace_Loop_SOME>>simp[])>>
+  `ptr_eq_trace (Loop names c exit_names) (s with compile_oracle := co') =
+     (if cont_loop res' ∧ s1'.clock ≠ 0 then
+        epoch_append (ptr_eq_trace c (s0 with compile_oracle := co'))
+          (ptr_eq_trace (STOP (Loop names c exit_names)) (dec_clock s1'))
+      else ptr_eq_trace c (s0 with compile_oracle := co'))` by
+    (irule ptr_eq_trace_Loop_SOME>>simp[])>>
+  ntac 2 (pop_assum (fn th => PURE_REWRITE_TAC[th]))>>
+  Cases_on`LENGTH (ptr_eq_trace c s0) ≤ n + 1 ∧ res ≠ SOME Error`
+  >- (
+    rpt (disch_then strip_assume_tac)>>
+    first_assum(qspecl_then[`co'`,`n`,`res'`,`s1'`]mp_tac)>>
+    impl_tac >- (rpt conj_tac>>first_assum ACCEPT_TAC)>>
+    strip_tac>>
+    first_x_assum(qspecl_then[`s0.compile_oracle`,`n`,`res`,`s1`]mp_tac)>>
+    PURE_REWRITE_TAC[with_same_compile_oracle]>>
+    impl_tac >- (
+      qpat_assum`s0.compile_oracle = _` (fn th => PURE_REWRITE_TAC[th])>>
+      rpt conj_tac >- first_assum ACCEPT_TAC >>
+      rpt strip_tac>>REFL_TAC)>>
+    strip_tac>>
+    qpat_x_assum`_ ⇒ _ ∧ s1' = _ ∧ _` mp_tac>>
+    impl_tac >- (disj1_tac>>first_assum ACCEPT_TAC)>>
+    strip_tac>>
+    qpat_x_assum`_ ⇒ _ ∧ s1 = _ ∧ _` mp_tac>>
+    impl_tac >- (disj1_tac>>first_assum ACCEPT_TAC)>>
+    strip_tac>>
+    Cases_on`cont_loop res ∧ s1.clock ≠ 0`
+    >- (
+      qpat_x_assum`cont_loop res ∧ _ ⇒ _` mp_tac>>
+      `s1.compile_oracle =
+         shift_seq (LENGTH (ptr_eq_trace c s0) − 1) s0.compile_oracle` by
+        (qpat_x_assum`s1 = s1 with compile_oracle := _` mp_tac>>
+         simp[state_component_equality])>>
+      qpat_x_assum`s1 = s1 with compile_oracle := _` kall_tac>>
+      gvs[]>>
+      `s1.ptr_eq_oracle = NONE` by (imp_res_tac evaluate_consts>>gvs[])>>
+      `LENGTH (ptr_eq_trace c s0) ≠ 0` by simp[]>>
+      disch_then(qspecl_then
+        [`shift_seq (LENGTH (ptr_eq_trace c s0) − 1) co'`,
+         `n + 1 - LENGTH (ptr_eq_trace c s0)`,`r2`,`s2`]mp_tac)>>
+      impl_tac >- (
+        rpt conj_tac
+        >- gvs[dec_clock_def]
+        >- first_assum ACCEPT_TAC
+        >- (simp[shift_seq_def]>>rw[]>>first_x_assum irule>>simp[])
+        >- (simp[shift_seq_def]>>
+            `n + 1 - LENGTH (ptr_eq_trace c s0) +
+               (LENGTH (ptr_eq_trace c s0) - 1) = n` by simp[]>>
+            simp[]))>>
+      strip_tac>>
+      simp[TAKE_epoch_append_short,shift_seq_shift_seq]>>
+      `n + 1 - LENGTH (ptr_eq_trace c s0) + 1 =
+         n + 2 - LENGTH (ptr_eq_trace c s0)` by simp[]>>
+      gvs[]>>
+      gvs[shift_seq_shift_seq]>>
+      `LENGTH (ptr_eq_trace c s0) ≠ 0 ∧
+       LENGTH (ptr_eq_trace (STOP (Loop names c exit_names)) (dec_clock s1)) ≠ 0`
+        by simp[LENGTH_NIL]>>
+      `LENGTH (ptr_eq_trace c s0) - 1 +
+         (LENGTH (ptr_eq_trace (STOP (Loop names c exit_names))
+                    (dec_clock s1)) - 1) =
+       LENGTH (ptr_eq_trace c s0) +
+         LENGTH (ptr_eq_trace (STOP (Loop names c exit_names))
+                    (dec_clock s1)) - 2` by simp[]>>
+      gvs[dec_clock_def]>>
+      strip_tac>>gvs[])
+    >- (
+      qpat_x_assum`cont_loop res ∧ _ ⇒ _` kall_tac>>
+      `s1.compile_oracle =
+         shift_seq (LENGTH (ptr_eq_trace c s0) − 1) s0.compile_oracle` by
+        (qpat_x_assum`s1 = s1 with compile_oracle := _` mp_tac>>
+         simp[state_component_equality])>>
+      qpat_x_assum`s1 = s1 with compile_oracle := _` kall_tac>>
+      Cases_on`cont_loop res`>>gvs[]>>
+      Cases_on`res = SOME (Break 0)`>>gvs[]>>
+      Cases_on`cut_state (exit_names,LN) s1`>>gvs[])) >>
+  Cases_on`LENGTH (ptr_eq_trace c (s0 with compile_oracle := co')) ≤ n + 1 ∧
+           res' ≠ SOME Error`
+  >- (
+    rpt (disch_then strip_assume_tac)>>
+    qpat_x_assum`cont_loop res ∧ _ ⇒ _` kall_tac>>
+    first_x_assum(qspecl_then[`co'`,`n`,`res'`,`s1'`]mp_tac)>>
+    impl_tac >- (rpt conj_tac>>first_assum ACCEPT_TAC)>>
+    strip_tac>>
+    qpat_x_assum`_ ⇒ _ ∧ s1' = _ ∧ _` mp_tac>>
+    impl_tac >- (disj2_tac>>first_assum ACCEPT_TAC)>>
+    strip_tac>>
+    gvs[])
+  >- (
+    rpt (disch_then strip_assume_tac)>>
+    qpat_x_assum`cont_loop res ∧ _ ⇒ _` kall_tac>>
+    first_x_assum(qspecl_then[`co'`,`n`,`res'`,`s1'`]mp_tac)>>
+    impl_tac >- (rpt conj_tac>>first_assum ACCEPT_TAC)>>
+    strip_tac>>
+    Cases_on`cont_loop res ∧ s1.clock ≠ 0`>>
+    Cases_on`cont_loop res' ∧ s1'.clock ≠ 0`>>gvs[]>>
+    gvs[TAKE_epoch_append_long]>>
+    qspecl_then[`STOP (Loop names c exit_names)`,`dec_clock s1`]assume_tac
+      ptr_eq_trace_LENGTH_NOT_0>>
+    qspecl_then[`STOP (Loop names c exit_names)`,`dec_clock s1'`]assume_tac
+      ptr_eq_trace_LENGTH_NOT_0>>
+    rw[]>>gvs[])
+QED
+
+Resume evaluate_compile_oracle_prefix[Call]:
+  rpt(qpat_x_assum`∀a. _`mp_tac)>>
+  Cases_on`get_vars args s`
+  >- (
+    qpat_assum`get_vars args s = _`(fn gv =>
+      qpat_x_assum`evaluate (Call _ _ _ _,_ with compile_oracle := _) = _`
+        (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_def, gv]))>>
+    qpat_assum`get_vars args s = _`(fn gv =>
+      qpat_x_assum`evaluate (Call _ _ _ _,_) = _`
+        (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_def, gv]))>>
+    `ptr_eq_trace (Call ret dest args handler) s = [[]]` by
+      (irule ptr_eq_trace_Call_NONE>>simp[])>>
+    `ptr_eq_trace (Call ret dest args handler)
+       (s with compile_oracle := co') = [[]]` by
+      (irule ptr_eq_trace_Call_NONE>>simp[])>>
+    ntac 2 (pop_assum (fn th => PURE_REWRITE_TAC[th]))>>
+    simp[]) >>
+  rename1`get_vars args s = SOME xs`>>
+  Cases_on`bad_dest_args dest args`
+  >- (
+    qpat_assum`get_vars args s = _`(fn gv =>
+      qpat_assum`bad_dest_args dest args`(fn bd =>
+        qpat_x_assum`evaluate (Call _ _ _ _,_ with compile_oracle := _) = _`
+          (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_def, gv, bd])))>>
+    qpat_assum`get_vars args s = _`(fn gv =>
+      qpat_assum`bad_dest_args dest args`(fn bd =>
+        qpat_x_assum`evaluate (Call _ _ _ _,_) = _`
+          (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_def, gv, bd])))>>
+    `ptr_eq_trace (Call ret dest args handler) s = [[]]` by
+      (irule ptr_eq_trace_Call_bad>>simp[])>>
+    `ptr_eq_trace (Call ret dest args handler)
+       (s with compile_oracle := co') = [[]]` by
+      (irule ptr_eq_trace_Call_bad>>simp[])>>
+    ntac 2 (pop_assum (fn th => PURE_REWRITE_TAC[th]))>>
+    simp[]) >>
+  Cases_on`find_code dest (add_ret_loc ret xs) s.code s.stack_size`
+  >- (
+    qpat_assum`get_vars args s = _`(fn gv =>
+      qpat_assum`¬bad_dest_args dest args`(fn bd =>
+        qpat_assum`find_code _ _ _ _ = NONE`(fn fc =>
+          qpat_x_assum`evaluate (Call _ _ _ _,_ with compile_oracle := _) = _`
+            (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_def, gv, bd, fc]))))>>
+    qpat_assum`get_vars args s = _`(fn gv =>
+      qpat_assum`¬bad_dest_args dest args`(fn bd =>
+        qpat_assum`find_code _ _ _ _ = NONE`(fn fc =>
+          qpat_x_assum`evaluate (Call _ _ _ _,_) = _`
+            (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_def, gv, bd, fc]))))>>
+    `ptr_eq_trace (Call ret dest args handler) s = [[]]` by
+      (irule ptr_eq_trace_Call_nocode>>simp[])>>
+    `ptr_eq_trace (Call ret dest args handler)
+       (s with compile_oracle := co') = [[]]` by
+      (irule ptr_eq_trace_Call_nocode>>simp[])>>
+    ntac 2 (pop_assum (fn th => PURE_REWRITE_TAC[th]))>>
+    strip_tac>>strip_tac>>
+    rpt (disch_then kall_tac)>>
+    gvs[])
+  >- (
+    rename1`find_code dest (add_ret_loc ret xs) s.code s.stack_size = SOME v3`>>
+    PairCases_on`v3`>>
+    Cases_on`ret`
+    >- (
+      `ptr_eq_trace (Call NONE dest args handler) s =
+         (if handler = NONE ∧ s.clock ≠ 0 then
+            ptr_eq_trace v31 (call_env v30 v32 (dec_clock s))
+          else [[]])` by
+        (irule ptr_eq_trace_Call_tail>>simp[])>>
+      `ptr_eq_trace (Call NONE dest args handler)
+         (s with compile_oracle := co') =
+         (if handler = NONE ∧ (s with compile_oracle := co').clock ≠ 0 then
+            ptr_eq_trace v31
+              (call_env v30 v32 (dec_clock (s with compile_oracle := co')))
+          else [[]])` by
+        (irule ptr_eq_trace_Call_tail>>simp[])>>
+      ntac 2 (pop_assum (fn th => PURE_REWRITE_TAC[th]))>>
+      Cases_on`handler = NONE ∧ s.clock ≠ 0`
+      >- (
+        qpat_x_assum`handler = NONE ∧ _`strip_assume_tac>>
+        gvs[]>>
+        `call_env v30 v32 (dec_clock (s with compile_oracle := co')) =
+           call_env v30 v32 (dec_clock s) with compile_oracle := co'` by
+          simp[call_env_def,dec_clock_def,state_component_equality]>>
+        qpat_assum`get_vars args s = _`(fn gv =>
+          qpat_assum`¬bad_dest_args dest args`(fn bd =>
+            qpat_assum`find_code _ _ _ _ = _`(fn fc =>
+              qpat_assum`s.clock ≠ 0`(fn ck =>
+                qpat_x_assum`evaluate (Call _ _ _ _,_ with compile_oracle := _) = _`
+                  (mp_tac o SIMP_RULE (srw_ss())
+                     [Once evaluate_def, gv, bd, fc, ck])))))>>
+        qpat_assum`get_vars args s = _`(fn gv =>
+          qpat_assum`¬bad_dest_args dest args`(fn bd =>
+            qpat_assum`find_code _ _ _ _ = _`(fn fc =>
+              qpat_assum`s.clock ≠ 0`(fn ck =>
+                qpat_x_assum`evaluate (Call _ _ _ _,_) = _`
+                  (mp_tac o SIMP_RULE (srw_ss())
+                     [Once evaluate_def, gv, bd, fc, ck])))))>>
+        pop_assum (fn th => PURE_REWRITE_TAC[th])>>
+        Cases_on`evaluate (v31,call_env v30 v32 (dec_clock s))`>>
+        Cases_on`evaluate (v31,
+          call_env v30 v32 (dec_clock s) with compile_oracle := co')`>>
+        gvs[]>>
+        rename1`evaluate (v31,call_env v30 v32 (dec_clock s)) = (res,st)`>>
+        rename1`evaluate (v31,call_env v30 v32 (dec_clock s) with
+                  compile_oracle := co') = (res2,st2)`>>
+        strip_tac>>strip_tac>>
+        disch_then assume_tac>>
+        strip_tac>>
+        qpat_x_assum`∀co'' n' r2' s2'. _`
+          (qspecl_then[`co'`,`n`,`res2`,`st2`]mp_tac)>>
+        impl_tac >- (rpt conj_tac>>first_assum ACCEPT_TAC)>>
+        strip_tac>>
+        Cases_on`bad_fun_return res`>>Cases_on`bad_fun_return res2`>>gvs[]>>
+        rw[]>>CCONTR_TAC>>
+        qpat_x_assum`_ ∨ _ ⇒ _`mp_tac>>
+        impl_tac>>gvs[]>>
+        strip_tac>>gvs[])
+      >- (
+        qpat_assum`get_vars args s = _`(fn gv =>
+          qpat_assum`¬bad_dest_args dest args`(fn bd =>
+            qpat_assum`find_code _ _ _ _ = _`(fn fc =>
+              qpat_x_assum`evaluate (Call _ _ _ _,_ with compile_oracle := _) = _`
+                (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_def, gv, bd, fc]))))>>
+        qpat_assum`get_vars args s = _`(fn gv =>
+          qpat_assum`¬bad_dest_args dest args`(fn bd =>
+            qpat_assum`find_code _ _ _ _ = _`(fn fc =>
+              qpat_x_assum`evaluate (Call _ _ _ _,_) = _`
+                (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_def, gv, bd, fc]))))>>
+        Cases_on`handler`>>gvs[]>>
+        strip_tac>>strip_tac>>rpt (disch_then kall_tac)>>gvs[]))
+    >- (
+      PairCases_on`x`>>
+      Cases_on`domain x1 = {} ∨ ¬ALL_DISTINCT x0`
+      >- (
+        qpat_assum`get_vars args s = _`(fn gv =>
+          qpat_assum`¬bad_dest_args dest args`(fn bd =>
+            qpat_assum`find_code _ _ _ _ = _`(fn fc =>
+              qpat_assum`domain _ = ∅ ∨ _`(fn dc =>
+                qpat_x_assum`evaluate (Call _ _ _ _,_ with compile_oracle := _) = _`
+                  (mp_tac o SIMP_RULE (srw_ss())
+                     [Once evaluate_def, gv, bd, fc, dc])))))>>
+        qpat_assum`get_vars args s = _`(fn gv =>
+          qpat_assum`¬bad_dest_args dest args`(fn bd =>
+            qpat_assum`find_code _ _ _ _ = _`(fn fc =>
+              qpat_assum`domain _ = ∅ ∨ _`(fn dc =>
+                qpat_x_assum`evaluate (Call _ _ _ _,_) = _`
+                  (mp_tac o SIMP_RULE (srw_ss())
+                     [Once evaluate_def, gv, bd, fc, dc])))))>>
+        `ptr_eq_trace (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args handler) s =
+           [[]]` by
+          (simp[Once ptr_eq_trace_def]>>gvs[])>>
+        `ptr_eq_trace (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args handler)
+           (s with compile_oracle := co') = [[]]` by
+          (simp[Once ptr_eq_trace_def]>>gvs[])>>
+        ntac 2 (pop_assum (fn th => PURE_REWRITE_TAC[th]))>>
+        strip_tac>>strip_tac>>
+        rpt (disch_then kall_tac)>>
+        gvs[]) >>
+      Cases_on`cut_envs (x1,x2) s.locals`
+      >- (
+        qpat_assum`get_vars args s = _`(fn gv =>
+          qpat_assum`¬bad_dest_args dest args`(fn bd =>
+            qpat_assum`find_code _ _ _ _ = _`(fn fc =>
+              qpat_assum`¬(domain _ = ∅ ∨ _)`(fn dc =>
+                qpat_assum`cut_envs _ _ = NONE`(fn ce =>
+                  qpat_x_assum`evaluate (Call _ _ _ _,_ with compile_oracle := _) = _`
+                    (mp_tac o SIMP_RULE (srw_ss())
+                       [Once evaluate_def, gv, bd, fc, dc, ce]))))))>>
+        qpat_assum`get_vars args s = _`(fn gv =>
+          qpat_assum`¬bad_dest_args dest args`(fn bd =>
+            qpat_assum`find_code _ _ _ _ = _`(fn fc =>
+              qpat_assum`¬(domain _ = ∅ ∨ _)`(fn dc =>
+                qpat_assum`cut_envs _ _ = NONE`(fn ce =>
+                  qpat_x_assum`evaluate (Call _ _ _ _,_) = _`
+                    (mp_tac o SIMP_RULE (srw_ss())
+                       [Once evaluate_def, gv, bd, fc, dc, ce]))))))>>
+        `ptr_eq_trace (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args handler) s =
+           [[]]` by
+          (simp[Once ptr_eq_trace_def]>>gvs[])>>
+        `ptr_eq_trace (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args handler)
+           (s with compile_oracle := co') = [[]]` by
+          (simp[Once ptr_eq_trace_def]>>gvs[])>>
+        ntac 2 (pop_assum (fn th => PURE_REWRITE_TAC[th]))>>
+        strip_tac>>strip_tac>>
+        rpt (disch_then kall_tac)>>
+        gvs[]) >>
+      rename1`cut_envs (x1,x2) s.locals = SOME envs`>>
+      Cases_on`s.clock = 0`
+      >- (
+        qpat_assum`get_vars args s = _`(fn gv =>
+          qpat_assum`¬bad_dest_args dest args`(fn bd =>
+            qpat_assum`find_code _ _ _ _ = _`(fn fc =>
+              qpat_assum`¬(domain _ = ∅ ∨ _)`(fn dc =>
+                qpat_assum`cut_envs _ _ = SOME _`(fn ce =>
+                  qpat_assum`s.clock = 0`(fn ck =>
+                    qpat_x_assum
+                      `evaluate (Call _ _ _ _,_ with compile_oracle := _) = _`
+                      (mp_tac o SIMP_RULE (srw_ss())
+                         [Once evaluate_def, gv, bd, fc, dc, ce, ck])))))))>>
+        qpat_assum`get_vars args s = _`(fn gv =>
+          qpat_assum`¬bad_dest_args dest args`(fn bd =>
+            qpat_assum`find_code _ _ _ _ = _`(fn fc =>
+              qpat_assum`¬(domain _ = ∅ ∨ _)`(fn dc =>
+                qpat_assum`cut_envs _ _ = SOME _`(fn ce =>
+                  qpat_assum`s.clock = 0`(fn ck =>
+                    qpat_x_assum`evaluate (Call _ _ _ _,_) = _`
+                      (mp_tac o SIMP_RULE (srw_ss())
+                         [Once evaluate_def, gv, bd, fc, dc, ce, ck])))))))>>
+        `ptr_eq_trace (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args handler) s =
+           [[]]` by
+          (simp[Once ptr_eq_trace_def]>>gvs[])>>
+        `ptr_eq_trace (Call (SOME (x0,(x1,x2),x3,x4,x5)) dest args handler)
+           (s with compile_oracle := co') = [[]]` by
+          (simp[Once ptr_eq_trace_def]>>gvs[])>>
+        ntac 2 (pop_assum (fn th => PURE_REWRITE_TAC[th]))>>
+        strip_tac>>strip_tac>>
+        rpt (disch_then kall_tac)>>
+        gvs[shift_seq_0])
+      >- (
+        `call_env v30 v32
+           (push_env envs handler (dec_clock (s with compile_oracle := co'))) =
+           call_env v30 v32 (push_env envs handler (dec_clock s)) with
+             compile_oracle := co'` by simp[dec_clock_def]>>
+        qpat_assum`get_vars args s = _`(fn gv =>
+          qpat_assum`¬bad_dest_args dest args`(fn bd =>
+            qpat_assum`find_code _ _ _ _ = _`(fn fc =>
+              qpat_assum`¬(domain _ = ∅ ∨ _)`(fn dc =>
+                qpat_assum`cut_envs _ _ = SOME _`(fn ce =>
+                  qpat_assum`s.clock ≠ 0`(fn ck =>
+                    qpat_x_assum
+                      `evaluate (Call _ _ _ _,_ with compile_oracle := _) = _`
+                      (mp_tac o SIMP_RULE (srw_ss())
+                         [Once evaluate_def, gv, bd, fc, dc, ce, ck])))))))>>
+        qpat_assum`get_vars args s = _`(fn gv =>
+          qpat_assum`¬bad_dest_args dest args`(fn bd =>
+            qpat_assum`find_code _ _ _ _ = _`(fn fc =>
+              qpat_assum`¬(domain _ = ∅ ∨ _)`(fn dc =>
+                qpat_assum`cut_envs _ _ = SOME _`(fn ce =>
+                  qpat_assum`s.clock ≠ 0`(fn ck =>
+                    qpat_x_assum`evaluate (Call _ _ _ _,_) = _`
+                      (mp_tac o SIMP_RULE (srw_ss())
+                         [Once evaluate_def, gv, bd, fc, dc, ce, ck])))))))>>
+        qpat_assum`call_env _ _ _ = _`(fn th => PURE_REWRITE_TAC[th])>>
+        strip_tac>>strip_tac>>
+        Cases_on`evaluate (v31,
+          call_env v30 v32 (push_env envs handler (dec_clock s)))`>>
+        Cases_on`evaluate (v31,
+          call_env v30 v32 (push_env envs handler (dec_clock s)) with
+            compile_oracle := co')`>>
+        rename1`evaluate (v31,
+          call_env v30 v32 (push_env envs handler (dec_clock s))) = (bres,bst)`>>
+        rename1`evaluate (v31,
+          call_env v30 v32 (push_env envs handler (dec_clock s)) with
+            compile_oracle := co') = (bres2,bst2)`>>
+        qpat_x_assum`¬(domain _ = ∅ ∨ _)`
+          (strip_assume_tac o SIMP_RULE (srw_ss()) [])>>
+        `(call_env v30 v32 (push_env envs handler (dec_clock s))).ptr_eq_oracle =
+           s.ptr_eq_oracle` by simp[]>>
+        `(call_env v30 v32 (push_env envs handler (dec_clock s))).compile_oracle =
+           s.compile_oracle` by simp[]>>
+        rpt (disch_then strip_assume_tac)>>
+        qpat_assum`∀xs' v3 args1 v10 prog ss v1 n v6 names v9 ret_handler v11 l1
+            l2 envs. _`
+          (qspecl_then[`xs`,`(v30,v31,v32)`,`v30`,`(v31,v32)`,`v31`,`v32`,
+            `(x0,(x1,x2),x3,x4,x5)`,`x0`,`((x1,x2),x3,x4,x5)`,`(x1,x2)`,
+            `(x3,x4,x5)`,`x3`,`(x4,x5)`,`x4`,`x5`,`envs`]mp_tac)>>
+        impl_tac >- (SIMP_TAC (srw_ss()) []>>rpt conj_tac>>first_assum ACCEPT_TAC)>>
+        disch_then(qspecl_then[`bres`,`bst`,`co'`,`n`,`bres2`,`bst2`]mp_tac)>>
+        impl_tac >- (
+          qpat_assum`(call_env _ _ _).ptr_eq_oracle = _`(fn th1 =>
+            qpat_assum`(call_env _ _ _).compile_oracle = _`(fn th2 =>
+              PURE_REWRITE_TAC[th1,th2]))>>
+          rpt conj_tac>>first_assum ACCEPT_TAC)>>
+        strip_tac>>
+        Cases_on`LENGTH (ptr_eq_trace v31
+            (call_env v30 v32 (push_env envs handler (dec_clock s)))) ≤ n + 1 ∧
+          bres ≠ SOME Error ∨
+          LENGTH (ptr_eq_trace v31
+            (call_env v30 v32 (push_env envs handler (dec_clock s)) with
+             compile_oracle := co')) ≤ n + 1 ∧ bres2 ≠ SOME Error`
+        >- (
+          qpat_x_assum`_ ∨ _ ⇒ _`mp_tac>>
+          impl_tac >- first_assum ACCEPT_TAC>>
+          strip_tac>>
+          qspecl_then[`args`,`s`,`xs`,`dest`,
+            `x0`,`x1`,`x2`,`x3`,`x4`,`x5`,`v30`,`v31`,`v32`,`envs`,`handler`,`bres`,
+            `bst`] mp_tac ptr_eq_trace_Call_ret>>
+          impl_tac
+          >- (rpt conj_tac>>first_assum ACCEPT_TAC)>>
+          qspecl_then[`args`,`s with compile_oracle := co'`,`xs`,`dest`,
+            `x0`,`x1`,`x2`,`x3`,`x4`,`x5`,`v30`,`v31`,`v32`,`envs`,`handler`,`bres`,
+            `bst with compile_oracle :=
+               shift_seq (LENGTH (ptr_eq_trace v31
+                 (call_env v30 v32 (push_env envs handler (dec_clock s)))) − 1) co'`]
+            mp_tac ptr_eq_trace_Call_ret>>
+          impl_tac
+          >- (qpat_assum`call_env _ _ _ = _`(fn th =>
+                qpat_assum`bres2 = _`(fn e1 =>
+                  qpat_assum`bst2 = _`(fn e2 =>
+                    SIMP_TAC (srw_ss()) [th, GSYM e1, GSYM e2])))>>
+              rpt conj_tac>>first_assum ACCEPT_TAC)>>
+          strip_tac>>strip_tac>>
+          Cases_on`bres`
+          >- (
+            rpt (qpat_x_assum`∀a. _`kall_tac)>>gvs[]) >>
+          rename1`evaluate (v31,call_env v30 v32 (push_env envs handler (dec_clock s)))
+                    = (SOME bx,bst)`>>
+          Cases_on`bx`
+          >- (
+            Cases_on`w ≠ Loc x4 x5 ∨ LENGTH l ≠ LENGTH x0`
+            >- (rpt (qpat_x_assum`∀a. _`kall_tac)>>gvs[]) >>
+            Cases_on`pop_env bst`
+            >- (rpt (qpat_x_assum`∀a. _`kall_tac)>>gvs[]) >>
+            rename1`pop_env bst = SOME ps`>>
+            Cases_on`domain ps.locals = domain (FST envs) ∪ domain (SND envs)`
+            >- (
+              qpat_assum`ptr_eq_trace v31 (_ with compile_oracle := _) = _`(fn th =>
+                qpat_x_assum`_ ∨ _`(assume_tac o PURE_REWRITE_RULE[th]))>>
+              Cases_on`LENGTH (ptr_eq_trace v31
+                (call_env v30 v32 (push_env envs handler (dec_clock s)))) ≤ n + 1`
+              >- (
+                qpat_assum`∀xs' v3 args1 v10 prog ss v1 n v6 names v9 ret_handler v11 l1
+                    l2 envs. _`
+                  (qspecl_then[`xs`,`(v30,v31,v32)`,`v30`,`(v31,v32)`,`v31`,`v32`,
+                    `(x0,(x1,x2),x3,x4,x5)`,`x0`,`((x1,x2),x3,x4,x5)`,`(x1,x2)`,
+                    `(x3,x4,x5)`,`x3`,`(x4,x5)`,`x4`,`x5`,`envs`]mp_tac)>>
+                impl_tac
+                >- (SIMP_TAC (srw_ss()) []>>rpt conj_tac>>first_assum ACCEPT_TAC)>>
+                disch_then(qspecl_then[`SOME (Result w l)`,`bst`,
+                  `(call_env v30 v32 (push_env envs handler (dec_clock s))).compile_oracle`,
+                  `n`,`SOME (Result w l)`,`bst`]mp_tac)>>
+                PURE_REWRITE_TAC[with_same_compile_oracle]>>
+                impl_tac
+                >- (qpat_assum`(call_env _ _ _).ptr_eq_oracle = _`
+                      (fn th => REWRITE_TAC[th])>>
+                    rpt conj_tac>>first_assum ACCEPT_TAC)>>
+                strip_tac>>
+                qpat_x_assum`_ ∨ _ ⇒ _`mp_tac>>
+                impl_tac
+                >- (disj1_tac>>conj_tac
+                    >- first_assum ACCEPT_TAC
+                    >- SIMP_TAC (srw_ss()) [])>>
+                strip_tac>>
+                `bst.compile_oracle =
+                   shift_seq (LENGTH (ptr_eq_trace v31
+                     (call_env v30 v32 (push_env envs handler (dec_clock s)))) − 1)
+                     s.compile_oracle` by
+                  (qpat_x_assum`bst = bst with compile_oracle := _`mp_tac>>
+                   qpat_assum`(call_env _ _ _).compile_oracle = _`
+                     (fn th => REWRITE_TAC[th])>>
+                   SIMP_TAC (srw_ss()) [state_component_equality])>>
+                qpat_x_assum`¬(w ≠ _ ∨ _)`(strip_assume_tac o SIMP_RULE (srw_ss()) [])>>
+                qpat_assum`pop_env bst = _`(fn pe =>
+                  qpat_assum`domain ps.locals = _`(fn dm =>
+                    qpat_assum`w = Loc _ _`(fn wq =>
+                     qpat_assum`LENGTH l = _`(fn wf =>
+                      qpat_x_assum`_ = (r,s')`
+                        (assume_tac o SIMP_RULE (srw_ss()) [pe,dm,wq,wf])))))>>
+                qpat_assum`pop_env bst = _`(fn pe =>
+                  qpat_assum`domain ps.locals = _`(fn dm =>
+                    qpat_assum`w = Loc _ _`(fn wq =>
+                     qpat_assum`LENGTH l = _`(fn wf =>
+                      qpat_assum`bres2 = _`(fn b2 =>
+                        qpat_assum`bst2 = _`(fn t2 =>
+                          qpat_x_assum`_ = (r2,s2)`
+                            (assume_tac o
+                               SIMP_RULE (srw_ss()) [b2,t2,pe,dm,wq,wf])))))))>>
+                imp_res_tac pop_env_const>>
+                sg`ps.compile_oracle =
+                     shift_seq (LENGTH (ptr_eq_trace v31
+                       (call_env v30 v32 (push_env envs handler (dec_clock s)))) − 1)
+                       s.compile_oracle ∧ ps.ptr_eq_oracle = NONE`
+                >- (rpt (qpat_x_assum`∀a. _`kall_tac)>>
+                    imp_res_tac evaluate_consts>>
+                    gvs[])>>
+                qpat_x_assum`∀xs' v3 args1 v10 prog ss v1 n v6 names v9 ret_handler v11 l1
+                    l2 envs v5 s2 v8 x ys s1. _`
+                  (qspecl_then[`xs`,`(v30,v31,v32)`,`v30`,`(v31,v32)`,`v31`,`v32`,
+                    `(x0,(x1,x2),x3,x4,x5)`,`x0`,`((x1,x2),x3,x4,x5)`,`(x1,x2)`,
+                    `(x3,x4,x5)`,`x3`,`(x4,x5)`,`x4`,`x5`,`envs`,
+                    `SOME (Result w l)`,`bst`,`Result w l`,`w`,`l`,`ps`]mp_tac)>>
+                impl_tac
+                >- (SIMP_TAC (srw_ss()) []>>rpt conj_tac>>first_assum ACCEPT_TAC)>>
+                rpt (qpat_x_assum`∀a b c d e f. _`kall_tac)>>
+                disch_then(qspecl_then[`r`,`s'`,
+                  `shift_seq (LENGTH (ptr_eq_trace v31
+                     (call_env v30 v32 (push_env envs handler (dec_clock s)))) − 1) co'`,
+                  `n + 1 - LENGTH (ptr_eq_trace v31
+                     (call_env v30 v32 (push_env envs handler (dec_clock s))))`,
+                  `r2`,`s2`]mp_tac)>>
+                impl_tac
+                >- (
+                  rpt conj_tac
+                  >- first_assum ACCEPT_TAC
+                  >- first_assum ACCEPT_TAC
+                  >- simp[]
+                  >- (rw[shift_seq_def]>>
+                      qpat_x_assum`∀j. j < n ⇒ _`irule>>
+                      qspecl_then[`v31`,
+                        `call_env v30 v32 (push_env envs handler (dec_clock s))`]
+                        assume_tac ptr_eq_trace_LENGTH_NOT_0>>
+                      simp[])
+                  >- (simp[shift_seq_def]>>
+                      qspecl_then[`v31`,
+                        `call_env v30 v32 (push_env envs handler (dec_clock s))`]
+                        assume_tac ptr_eq_trace_LENGTH_NOT_0>>
+                      `n + 1 −
+                       LENGTH (ptr_eq_trace v31
+                         (call_env v30 v32 (push_env envs handler (dec_clock s)))) +
+                       (LENGTH (ptr_eq_trace v31
+                         (call_env v30 v32
+                            (push_env envs handler (dec_clock s)))) − 1) = n` by simp[]>>
+                      simp[]))>>
+                strip_tac>>
+                qpat_assum`pop_env bst = _`(fn pe =>
+                  qpat_assum`domain ps.locals = _`(fn dm =>
+                    qpat_assum`w = Loc _ _`(fn wq =>
+                      qpat_assum`LENGTH l = _`(fn wf =>
+                        qpat_x_assum`ptr_eq_trace (Call _ _ _ _) s = _`
+                          (assume_tac o SIMP_RULE (srw_ss()) [pe,dm,wq,wf])))))>>
+                qpat_assum`pop_env bst = _`(fn pe =>
+                  qpat_assum`domain ps.locals = _`(fn dm =>
+                    qpat_assum`w = Loc _ _`(fn wq =>
+                      qpat_assum`LENGTH l = _`(fn wf =>
+                        qpat_assum`call_env _ _ _ = _`(fn ce =>
+                          qpat_x_assum`ptr_eq_trace (Call _ _ _ _)
+                                         (_ with compile_oracle := _) = _`
+                            (assume_tac o SIMP_RULE (srw_ss()) [pe,dm,wq,wf,ce]))))))>>
+                qpat_assum`ptr_eq_trace v31 (_ with compile_oracle := _) = _`(fn th =>
+                  qpat_x_assum`ptr_eq_trace (Call _ _ _ _) (_ with compile_oracle := _) = _`
+                    (assume_tac o PURE_REWRITE_RULE[th]))>>
+                gvs[]>>
+                simp[TAKE_epoch_append_short,shift_seq_shift_seq]>>
+                qspecl_then[`v31`,`call_env v30 v32 (push_env envs handler (dec_clock s))`]
+                  assume_tac ptr_eq_trace_LENGTH_NOT_0>>
+                qspecl_then[`x3`,`set_vars x0 l ps`]assume_tac ptr_eq_trace_LENGTH_NOT_0>>
+                strip_tac>>
+                qpat_x_assum`_ ∨ _ ⇒ _`mp_tac>>
+                impl_tac>>gvs[]>>
+                strip_tac>>gvs[]>>
+                gvs[shift_seq_shift_seq]>>
+                qspecl_then[`v31`,`call_env v30 v32 (push_env envs handler (dec_clock s))`]
+                  assume_tac ptr_eq_trace_LENGTH_NOT_0>>
+                qspecl_then[`x3`,`set_vars x0 l ps`]assume_tac ptr_eq_trace_LENGTH_NOT_0>>
+                simp[])>>
+              rpt (qpat_x_assum`∀a. _`kall_tac)>>gvs[])
+            >- (rpt (qpat_x_assum`∀a. _`kall_tac)>>gvs[]))
+          >- (
+            Cases_on`handler`
+            >- (rpt (qpat_x_assum`∀a. _`kall_tac)>>gvs[]) >>
+            rename1`push_env envs (SOME hnd) _`>>PairCases_on`hnd`>>
+            Cases_on`w ≠ Loc hnd2 hnd3`
+            >- (rpt (qpat_x_assum`∀a. _`kall_tac)>>gvs[]) >>
+            Cases_on`domain bst.locals = domain (FST envs) ∪ domain (SND envs)`
+            >- (
+              qpat_assum`ptr_eq_trace v31 (_ with compile_oracle := _) = _`(fn th =>
+                qpat_x_assum`_ ∨ _`(assume_tac o PURE_REWRITE_RULE[th]))>>
+              Cases_on`LENGTH (ptr_eq_trace v31
+                (call_env v30 v32
+                  (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3)) (dec_clock s)))) ≤ n + 1`
+              >- (
+                qpat_assum`∀xs' v3 args1 v10 prog ss v1 n v6 names v9 ret_handler v11 l1
+                    l2 envs. _`
+                  (qspecl_then[`xs`,`(v30,v31,v32)`,`v30`,`(v31,v32)`,`v31`,`v32`,
+                    `(x0,(x1,x2),x3,x4,x5)`,`x0`,`((x1,x2),x3,x4,x5)`,`(x1,x2)`,
+                    `(x3,x4,x5)`,`x3`,`(x4,x5)`,`x4`,`x5`,`envs`]mp_tac)>>
+                impl_tac
+                >- (SIMP_TAC (srw_ss()) []>>rpt conj_tac>>first_assum ACCEPT_TAC)>>
+                disch_then(qspecl_then[`SOME (Exception w w0)`,`bst`,
+                  `(call_env v30 v32
+                     (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3))
+                        (dec_clock s))).compile_oracle`,
+                  `n`,`SOME (Exception w w0)`,`bst`]mp_tac)>>
+                PURE_REWRITE_TAC[with_same_compile_oracle]>>
+                impl_tac
+                >- (qpat_assum`(call_env _ _ _).ptr_eq_oracle = _`
+                      (fn th => REWRITE_TAC[th])>>
+                    rpt conj_tac>>first_assum ACCEPT_TAC)>>
+                strip_tac>>
+                qpat_x_assum`_ ∨ _ ⇒ _`mp_tac>>
+                impl_tac
+                >- (disj1_tac>>conj_tac
+                    >- first_assum ACCEPT_TAC
+                    >- SIMP_TAC (srw_ss()) [])>>
+                strip_tac>>
+                `bst.compile_oracle =
+                   shift_seq (LENGTH (ptr_eq_trace v31
+                     (call_env v30 v32
+                       (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3)) (dec_clock s)))) − 1)
+                     s.compile_oracle` by
+                  (qpat_x_assum`bst = bst with compile_oracle := _`mp_tac>>
+                   qpat_assum`(call_env _ _ _).compile_oracle = _`
+                     (fn th => REWRITE_TAC[th])>>
+                   SIMP_TAC (srw_ss()) [state_component_equality])>>
+                qpat_x_assum`¬(w ≠ Loc _ _)`(strip_assume_tac o SIMP_RULE (srw_ss()) [])>>
+                qpat_assum`domain bst.locals = _`(fn dm =>
+                  qpat_assum`w = Loc _ _`(fn wq =>
+                    qpat_x_assum`_ = (r,s')`
+                      (assume_tac o SIMP_RULE (srw_ss()) [dm,wq])))>>
+                qpat_assum`domain bst.locals = _`(fn dm =>
+                  qpat_assum`w = Loc _ _`(fn wq =>
+                    qpat_assum`bres2 = _`(fn b2 =>
+                      qpat_assum`bst2 = _`(fn t2 =>
+                        qpat_x_assum`_ = (r2,s2)`
+                          (assume_tac o SIMP_RULE (srw_ss()) [b2,t2,dm,wq])))))>>
+                imp_res_tac evaluate_consts>>
+                qpat_x_assum`∀xs' v3 args1 v10 prog ss v1 n v6 names v9 ret_handler v11 l1
+                    l2 envs v5 s2 v8 x' y v n' v2 h v4 l1' l2'. _`
+                  (qspecl_then[`xs`,`(v30,v31,v32)`,`v30`,`(v31,v32)`,`v31`,`v32`,
+                    `(x0,(x1,x2),x3,x4,x5)`,`x0`,`((x1,x2),x3,x4,x5)`,`(x1,x2)`,
+                    `(x3,x4,x5)`,`x3`,`(x4,x5)`,`x4`,`x5`,`envs`,
+                    `SOME (Exception w w0)`,`bst`,`Exception w w0`,`w`,`w0`,
+                    `(hnd0,hnd1,hnd2,hnd3)`,`hnd0`,`(hnd1,hnd2,hnd3)`,`hnd1`,
+                    `(hnd2,hnd3)`,`hnd2`,`hnd3`]mp_tac)>>
+                impl_tac
+                >- (SIMP_TAC (srw_ss()) []>>rpt conj_tac>>first_assum ACCEPT_TAC)>>
+                rpt (qpat_x_assum`∀a b c d e f. _`kall_tac)>>
+                disch_then(qspecl_then[`r`,`s'`,
+                  `shift_seq (LENGTH (ptr_eq_trace v31
+                     (call_env v30 v32
+                       (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3))
+                          (dec_clock s)))) − 1) co'`,
+                  `n + 1 - LENGTH (ptr_eq_trace v31
+                     (call_env v30 v32
+                       (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3)) (dec_clock s))))`,
+                  `r2`,`s2`]mp_tac)>>
+                impl_tac
+                >- (
+                  rpt conj_tac
+                  >- first_assum ACCEPT_TAC
+                  >- first_assum ACCEPT_TAC
+                  >- simp[]
+                  >- (rw[shift_seq_def]>>
+                      qpat_x_assum`∀j. j < n ⇒ _`irule>>
+                      qspecl_then[`v31`,`call_env v30 v32
+                        (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3)) (dec_clock s))`]
+                        assume_tac ptr_eq_trace_LENGTH_NOT_0>>
+                      simp[])
+                  >- (simp[shift_seq_def]>>
+                      qspecl_then[`v31`,`call_env v30 v32
+                        (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3)) (dec_clock s))`]
+                        assume_tac ptr_eq_trace_LENGTH_NOT_0>>
+                      `n + 1 −
+                       LENGTH (ptr_eq_trace v31
+                         (call_env v30 v32
+                           (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3)) (dec_clock s)))) +
+                       (LENGTH (ptr_eq_trace v31
+                         (call_env v30 v32
+                           (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3))
+                              (dec_clock s)))) − 1) = n` by simp[]>>
+                      simp[]))>>
+                strip_tac>>
+                qpat_assum`domain bst.locals = _`(fn dm =>
+                  qpat_assum`w = Loc _ _`(fn wq =>
+                    qpat_x_assum`ptr_eq_trace (Call _ _ _ _) s = _`
+                      (assume_tac o SIMP_RULE (srw_ss()) [dm,wq])))>>
+                qpat_assum`domain bst.locals = _`(fn dm =>
+                  qpat_assum`w = Loc _ _`(fn wq =>
+                    qpat_assum`call_env _ _ _ = _`(fn ce =>
+                      qpat_x_assum`ptr_eq_trace (Call _ _ _ _)
+                                     (_ with compile_oracle := _) = _`
+                        (assume_tac o SIMP_RULE (srw_ss()) [dm,wq,ce]))))>>
+                qpat_assum`ptr_eq_trace v31 (_ with compile_oracle := _) = _`(fn th =>
+                  qpat_x_assum`ptr_eq_trace (Call _ _ _ _) (_ with compile_oracle := _) = _`
+                    (assume_tac o PURE_REWRITE_RULE[th]))>>
+                gvs[]>>
+                simp[TAKE_epoch_append_short,shift_seq_shift_seq]>>
+                strip_tac>>
+                qpat_x_assum`_ ∨ _ ⇒ _`mp_tac>>
+                impl_tac>>gvs[]>>
+                strip_tac>>gvs[]>>
+                gvs[shift_seq_shift_seq]>>
+                qspecl_then[`v31`,`call_env v30 v32
+                  (push_env envs (SOME (hnd0,hnd1,hnd2,hnd3)) (dec_clock s))`]
+                  assume_tac ptr_eq_trace_LENGTH_NOT_0>>
+                qspecl_then[`hnd1`,`set_var hnd0 w0 bst`]
+                  assume_tac ptr_eq_trace_LENGTH_NOT_0>>
+                simp[])>>
+              rpt (qpat_x_assum`∀a. _`kall_tac)>>gvs[])
+            >- (rpt (qpat_x_assum`∀a. _`kall_tac)>>gvs[]))
+          >> rpt (qpat_x_assum`∀a. _`kall_tac)>>gvs[])
+        >- (
+          qspecl_then[`args`,`s`,`xs`,`dest`,`x0`,`x1`,`x2`,`x3`,`x4`,`x5`,
+            `v30`,`v31`,`v32`,`envs`,`handler`,`bres`,`bst`]
+            mp_tac ptr_eq_trace_Call_ret_bound>>
+          impl_tac
+          >- (rpt conj_tac>>first_assum ACCEPT_TAC)>>
+          strip_tac>>
+          qspecl_then[`args`,`s with compile_oracle := co'`,`xs`,`dest`,
+            `x0`,`x1`,`x2`,`x3`,`x4`,`x5`,`v30`,`v31`,`v32`,`envs`,`handler`,
+            `bres2`,`bst2`]
+            mp_tac ptr_eq_trace_Call_ret_bound>>
+          impl_tac
+          >- (qpat_assum`call_env _ _ _ = _`(fn th => SIMP_TAC (srw_ss()) [th])>>
+              rpt conj_tac>>first_assum ACCEPT_TAC)>>
+          strip_tac>>
+          qpat_assum`call_env _ _ _ = _`
+            (fn th => RULE_ASSUM_TAC (PURE_REWRITE_RULE[th]))>>
+          qpat_x_assum`∀m. ¬(_ ∧ bres ≠ _) ⇒ _`(qspec_then`n`mp_tac)>>
+          qpat_x_assum`∀m. ¬(_ ∧ bres2 ≠ _) ⇒ _`(qspec_then`n`mp_tac)>>
+          rpt (qpat_x_assum`∀a. _`kall_tac)>>
+          gvs[]))))
+QED
+
+Finalise evaluate_compile_oracle_prefix;
+
+(* A family of answer lists that nest as the clock grows has one oracle above
+   all of them. *)
+Theorem oracle_of_limit_exists:
+  ∀bs:num -> bool list.
+    (∀k k'. k ≤ k' ⇒ bs k ≼ bs k') ⇒
+    ∃po. ∀k i. i < LENGTH (bs k) ⇒ EL i (bs k) = po i
+Proof
+  rpt strip_tac>>
+  qexists_tac`λi. if ∃k. i < LENGTH (bs k)
+                  then EL i (bs (@k. i < LENGTH (bs k))) else F`>>
+  rw[]
+  >- (
+    qabbrev_tac`k0 = @k. i < LENGTH (bs k)`>>
+    `i < LENGTH (bs k0)` by
+      (qunabbrev_tac`k0`>>SELECT_ELIM_TAC>>metis_tac[])>>
+    `k ≤ k0 ∨ k0 ≤ k` by decide_tac>>
+    metis_tac[rich_listTheory.is_prefix_el])>>
+  metis_tac[]
+QED
+
+(* The answers of epoch i, as a limit over clocks, of the concrete run. *)
+Definition epoch_limit_def:
+  epoch_limit t start i =
+    @a. ∀k. epoch_prefix
+              (ptr_eq_trace (Call NONE (SOME start) [0] NONE) (t with clock := k))
+              i a
+End
+
+(* Each epoch of the trace grows with the clock, so it has a limit, and
+   epoch_limit is one. *)
+
+Theorem ptr_eq_trace_prefix_EL:
+  ∀t1 t2 i.
+    ptr_eq_trace_prefix t1 t2 ∧ i < LENGTH t1 ⇒ i < LENGTH t2 ∧ EL i t1 ≼ EL i t2
+Proof
+  rw [ptr_eq_trace_prefix_def] >>
+  Cases_on `i + 1 < LENGTH t1`
+  >- (qpat_x_assum `∀e. _` (qspec_then `i` mp_tac) >> simp []) >>
+  `i = LENGTH t1 - 1 ∧ t1 ≠ []` by (Cases_on `t1` >> gvs []) >>
+  gvs [LAST_EL, PRE_SUB1]
+QED
+
+Theorem epoch_limit_exists[local]:
+  ∀t start i.
+    ∃a. ∀k. epoch_prefix
+              (ptr_eq_trace (Call NONE (SOME start) [0] NONE)
+                 (t with clock := k)) i a
+Proof
+  rpt strip_tac >>
+  qspec_then
+    `λk. if i < LENGTH (ptr_eq_trace (Call NONE (SOME start) [0] NONE)
+                          (t with clock := k))
+         then EL i (ptr_eq_trace (Call NONE (SOME start) [0] NONE)
+                      (t with clock := k))
+         else []` mp_tac oracle_of_limit_exists >>
+  impl_tac >- (
+    rw [] >>
+    Cases_on`evaluate (Call NONE (SOME start) [0] NONE, t with clock := k)` >>
+    drule ptr_eq_trace_mono >>
+    disch_then(qspec_then`k' - k`mp_tac) >>
+    `k + (k' - k) = k'` by simp [] >>
+    strip_tac >> gvs [] >>
+    metis_tac [ptr_eq_trace_prefix_EL]) >>
+  strip_tac >> qexists_tac`po` >>
+  rw [epoch_prefix_def] >>
+  first_x_assum(qspecl_then[`k`,`k'`]mp_tac) >> simp []
+QED
+
+Theorem epoch_limit_spec:
+  ∀t start i k.
+    epoch_prefix
+      (ptr_eq_trace (Call NONE (SOME start) [0] NONE) (t with clock := k))
+      i (epoch_limit t start i)
+Proof
+  rw [epoch_limit_def] >>
+  SELECT_ELIM_TAC >> rw [] >>
+  metis_tac [epoch_limit_exists]
+QED
+
+Definition ptr_eq_pad_def:
+  ptr_eq_pad es = (λi. if i < LENGTH es then EL i es else K F)
+End
+
+(* The epochs of the fixed point, built one at a time: the answers of epoch i
+   are read off the concrete run whose compile oracle is fixed by the epochs
+   already built. *)
+Definition ptr_eq_epochs_def:
+  ptr_eq_epochs Syn wst start 0 = [] ∧
+  ptr_eq_epochs Syn wst start (SUC i) =
+    (let es = ptr_eq_epochs Syn wst start i in
+       es ++ [epoch_limit (wst (Syn (ptr_eq_pad es))) start i])
+End
+
+Definition ptr_eq_fix_def:
+  ptr_eq_fix Syn wst start = (λi. EL i (ptr_eq_epochs Syn wst start (SUC i)))
+End
+
+(* The epochs already built never change as more are added, so padding out the
+   first i of them agrees with the fixed point below i. *)
+
+Theorem ptr_eq_epochs_LENGTH[local,simp]:
+  ∀i Syn wst start. LENGTH (ptr_eq_epochs Syn wst start i) = i
+Proof
+  Induct >> rw [ptr_eq_epochs_def]
+QED
+
+Theorem ptr_eq_epochs_SUC_prefix[local]:
+  ptr_eq_epochs Syn wst start i ≼ ptr_eq_epochs Syn wst start (SUC i)
+Proof
+  rw [ptr_eq_epochs_def]
+QED
+
+Theorem ptr_eq_epochs_prefix:
+  ∀j i Syn wst start.
+    i ≤ j ⇒ ptr_eq_epochs Syn wst start i ≼ ptr_eq_epochs Syn wst start j
+Proof
+  Induct >> rw [] >>
+  Cases_on `i = SUC j` >> gvs [] >>
+  `i ≤ j` by simp [] >>
+  metis_tac [ptr_eq_epochs_SUC_prefix, rich_listTheory.IS_PREFIX_TRANS]
+QED
+
+Theorem ptr_eq_pad_prefix:
+  ∀i j Syn wst start.
+    j < i ⇒
+    ptr_eq_pad (ptr_eq_epochs Syn wst start i) j = ptr_eq_fix Syn wst start j
+Proof
+  rw [ptr_eq_pad_def, ptr_eq_fix_def] >>
+  irule (GSYM rich_listTheory.is_prefix_el) >>
+  simp [ptr_eq_epochs_prefix]
+QED
+
+(* Two traces that agree on their first e+1 epochs agree on epoch e. *)
+Theorem epoch_prefix_TAKE[local]:
+  ∀tr1 tr2 e a.
+    TAKE (e+1) tr1 = TAKE (e+1) tr2 ∧ epoch_prefix tr2 e a ⇒
+    epoch_prefix tr1 e a
+Proof
+  rw [epoch_prefix_def] >>
+  `EL e tr1 = EL e tr2` by
+    (`EL e (TAKE (e+1) tr1) = EL e (TAKE (e+1) tr2)` by
+       (qpat_assum `TAKE _ _ = TAKE _ _` (fn th => REWRITE_TAC [th])) >>
+     gvs [EL_TAKE]) >>
+  `e < LENGTH tr2` by
+    (`LENGTH (TAKE (e+1) tr1) = LENGTH (TAKE (e+1) tr2)` by
+       (qpat_assum `TAKE _ _ = TAKE _ _` (fn th => REWRITE_TAC [th])) >>
+     pop_assum mp_tac >> simp [LENGTH_TAKE_EQ] >> rw []) >>
+  gvs []
+QED
+
+Theorem ptr_eq_fix_thm:
+  (∀po po' i. (∀j. j ≤ i ⇒ po j = po' j) ⇒ Syn po i = Syn po' i) ∧
+  (∀syn. wst syn = t0 with compile_oracle := mkco syn) ∧
+  t0.ptr_eq_oracle = NONE ∧ (∀m dm st w. t0.ptr_eq_rel m dm st w w) ∧
+  (∀syn syn' i. (∀j. j ≤ i ⇒ syn j = syn' j) ⇒ mkco syn i = mkco syn' i) ∧
+  (∀syn syn' i. (∀j. j < i ⇒ syn j = syn' j) ⇒ FST (mkco syn i) = FST (mkco syn' i)) ⇒
+  ∀k. ∃rest.
+    evaluate (Call NONE (SOME start) [0] NONE,
+              wst (Syn (ptr_eq_fix Syn wst start)) with
+                <|clock := k;
+                  ptr_eq_oracle := SOME (ptr_eq_fix Syn wst start)|>) =
+    (I ## (λt. t with ptr_eq_oracle := SOME rest))
+      (evaluate (Call NONE (SOME start) [0] NONE,
+                 wst (Syn (ptr_eq_fix Syn wst start)) with clock := k))
+Proof
+  rpt strip_tac>>
+  Cases_on`evaluate (Call NONE (SOME start) [0] NONE,
+                     wst (Syn (ptr_eq_fix Syn wst start)) with clock := k)`>>
+  qspecl_then[`Call NONE (SOME start) [0] NONE`,
+    `wst (Syn (ptr_eq_fix Syn wst start)) with clock := k`,`q`,`r`]
+    mp_tac ptr_eq_trace_agrees>>
+  impl_tac
+  >- gvs[]>>
+  disch_then(qspec_then`ptr_eq_fix Syn wst start`mp_tac)>>
+  impl_tac
+  >- (
+    rw[trace_agrees_def]>>
+    `∀m. m < e ⇒
+       Syn (ptr_eq_fix Syn wst start) m =
+       Syn (ptr_eq_pad (ptr_eq_epochs Syn wst start e)) m` by
+      (rw[]>>
+       qpat_assum`∀po po' i. _ ⇒ Syn _ _ = _`irule>>
+       rw[]>>irule (GSYM ptr_eq_pad_prefix)>>simp[])>>
+    `∀j. j < e ⇒
+       mkco (Syn (ptr_eq_fix Syn wst start)) j =
+       mkco (Syn (ptr_eq_pad (ptr_eq_epochs Syn wst start e))) j` by
+      (rw[]>>
+       qpat_assum`∀syn syn' i. _ ⇒ mkco _ _ = _`irule>>
+       rw[]>>first_x_assum irule>>simp[])>>
+    `FST (mkco (Syn (ptr_eq_fix Syn wst start)) e) =
+     FST (mkco (Syn (ptr_eq_pad (ptr_eq_epochs Syn wst start e))) e)` by
+      (qpat_assum`∀syn syn' i. _ ⇒ FST (mkco _ _) = _`irule>>
+       rw[]>>first_x_assum irule>>simp[])>>
+    `ptr_eq_fix Syn wst start e =
+       epoch_limit (wst (Syn (ptr_eq_pad (ptr_eq_epochs Syn wst start e)))) start e` by
+      simp[ptr_eq_fix_def,ptr_eq_epochs_def,rich_listTheory.EL_APPEND2]>>
+    qspecl_then[`ptr_eq_trace (Call NONE (SOME start) [0] NONE)
+       (t0 with <|compile_oracle := mkco (Syn (ptr_eq_fix Syn wst start));
+                  clock := k|>)`,
+      `ptr_eq_trace (Call NONE (SOME start) [0] NONE)
+       (t0 with <|compile_oracle :=
+                    mkco (Syn (ptr_eq_pad (ptr_eq_epochs Syn wst start e)));
+                  clock := k|>)`,`e`,`ptr_eq_fix Syn wst start e`]
+      mp_tac epoch_prefix_TAKE>>
+    impl_tac
+    >- (
+      conj_tac
+      >- (
+        qspecl_then[`Call NONE (SOME start) [0] NONE`,
+          `t0 with <|compile_oracle := mkco (Syn (ptr_eq_fix Syn wst start));
+                     clock := k|>`,`q`,`r`,
+          `mkco (Syn (ptr_eq_pad (ptr_eq_epochs Syn wst start e)))`,`e`,
+          `FST (evaluate (Call NONE (SOME start) [0] NONE,
+             t0 with <|compile_oracle :=
+                         mkco (Syn (ptr_eq_pad (ptr_eq_epochs Syn wst start e)));
+                       clock := k|>))`,
+          `SND (evaluate (Call NONE (SOME start) [0] NONE,
+             t0 with <|compile_oracle :=
+                         mkco (Syn (ptr_eq_pad (ptr_eq_epochs Syn wst start e)));
+                       clock := k|>))`]
+          mp_tac evaluate_compile_oracle_prefix>>
+        impl_tac
+        >- (gvs[]>>rpt conj_tac>>simp[])>>
+        strip_tac>>gvs[])>>
+      qpat_assum`ptr_eq_fix Syn wst start e = _`
+        (fn th => PURE_REWRITE_TAC[th])>>
+      qspecl_then[`wst (Syn (ptr_eq_pad (ptr_eq_epochs Syn wst start e)))`,`start`,
+        `e`,`k`] mp_tac epoch_limit_spec>>
+      simp[])>>
+    strip_tac>>first_assum ACCEPT_TAC)>>
+  strip_tac>>
+  gvs[]>>
+  metis_tac[]
+QED
+
+(* semantics reads only the result and the ffi state, so an oracle that
+   reproduces the concrete run at every clock leaves semantics alone. *)
+Theorem semantics_ptr_eq_oracle:
+  ∀s start po.
+    (∀k. ∃rest.
+       evaluate (Call NONE (SOME start) [0] NONE,
+                 s with <|clock := k; ptr_eq_oracle := SOME po|>) =
+       (I ## (λt. t with ptr_eq_oracle := SOME rest))
+         (evaluate (Call NONE (SOME start) [0] NONE, s with clock := k))) ⇒
+    semantics (s with ptr_eq_oracle := SOME po) start = semantics s start
+Proof
+  rw[]>>
+  fs[SKOLEM_THM]>>
+  simp[semantics_def,pairTheory.PAIR_MAP,
+       quantHeuristicsTheory.PAIR_EQ_EXPAND]
+QED
 
 (* -- *)
 
@@ -2410,6 +4806,10 @@ Proof
     >> fs[pop_env_def] >> gvs[AllCaseEqs()]
     >> simp[state_component_equality]
     >> metis_tac[s_key_eq_trans,s_key_eq_sym])
+  >~[`PtrEq`] >- (
+    fs[evaluate_def]>>every_case_tac>>
+    simp[]>>
+    fs[s_key_eq_refl])
   >~[`StoreConsts`] >- (
     fs[evaluate_def]>>every_case_tac>>
     simp[]>>
@@ -3375,6 +5775,7 @@ Proof
         full_simp_tac bool_ss [GSYM state_fupdcanon] >> fs[]
     )
   >> gvs[evaluate_def,AllCaseEqs()] >> simp[state_component_equality]
+  >> simp[dec_clock_def]
 QED
 
 (* Locals extend lemma *)
@@ -3612,6 +6013,7 @@ Proof
   >~[`LocValue`] >- suspend "LocValue"
   >~[`Skip`] >- suspend "Skip"
   >~[`DataBufferWrite`] >- suspend "DataBufferWrite"
+  >~[`PtrEq`] >- suspend "PtrEq"
 QED
 
 Resume locals_rel_evaluate_thm[Move]:
@@ -3850,6 +6252,13 @@ Resume locals_rel_evaluate_thm[DataBufferWrite]:
   gvs[evaluate_def] >>
   DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[] >>
   gvs[AllCaseEqs(),state_component_equality]
+QED
+
+Resume locals_rel_evaluate_thm[PtrEq]:
+  gvs[evaluate_def] >>
+  DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[] >>
+  gvs[AllCaseEqs()] >> fs[set_var_def] >>
+  irule locals_rel_set_var >> fs[]
 QED
 
 Finalise locals_rel_evaluate_thm;
@@ -4611,6 +7020,73 @@ Proof
   >> gvs [evaluate_def,AllCaseEqs()] >>
    rpt (pairarg_tac >> gvs[])
    >> gvs[AllCaseEqs()]
+QED
+
+(* ---- code that leaves the pointer-equality oracle alone ---- *)
+
+Definition code_ptr_eq_free_def:
+  code_ptr_eq_free ns (code : (num # wordLang$prog # metadata) num_map) ⇔
+    ∀n. n ∈ ns ⇒ ∃a p md. lookup n code = SOME (a,p,md) ∧ ptr_eq_free ns p
+End
+
+Theorem code_ptr_eq_free_subspt:
+  code_ptr_eq_free ns code ∧ subspt code code' ⇒ code_ptr_eq_free ns code'
+Proof
+  rw [code_ptr_eq_free_def, subspt_lookup] \\ metis_tac []
+QED
+
+Theorem ptr_eq_free_find_code:
+  code_ptr_eq_free ns code ∧ n ∈ ns ∧
+  find_code (SOME n) args code lsize = SOME (args1,expr,ps) ⇒
+  ptr_eq_free ns expr
+Proof
+  rw [code_ptr_eq_free_def] \\ res_tac \\ gvs [find_code_def, AllCaseEqs()]
+QED
+
+Theorem evaluate_ptr_eq_free:
+  ∀p s r s'.
+    evaluate (p,s) = (r,s') ∧ ptr_eq_free ns p ∧ code_ptr_eq_free ns s.code ⇒
+    s'.ptr_eq_oracle = s.ptr_eq_oracle
+Proof
+  recInduct evaluate_ind \\ rpt conj_tac \\ rpt gen_tac \\ rpt strip_tac
+  >~ [`Alloc`]
+  >- (gvs [evaluate_def, AllCaseEqs()] \\ imp_res_tac alloc_const \\ fs [])
+  >~ [`Inst`]
+  >- (gvs [evaluate_def, AllCaseEqs()] \\ imp_res_tac inst_const_full \\ fs [])
+  >~ [`Store`]
+  >- (gvs [evaluate_def, AllCaseEqs()] \\ imp_res_tac mem_store_const \\ fs [])
+  >~ [`Raise`]
+  >- (gvs [evaluate_def, AllCaseEqs()] \\ imp_res_tac jump_exc_const \\ fs [])
+  >~ [`ShareInst`]
+  >- (gvs [evaluate_def, AllCaseEqs()] \\ imp_res_tac share_inst_const \\ fs [])
+  >~ [`PtrEq`]
+  >- gvs [ptr_eq_free_def]
+  >~ [`Seq`]
+  >- (
+    gvs [evaluate_def, AllCaseEqs(), ptr_eq_free_def]
+    \\ pairarg_tac \\ gvs [AllCaseEqs()]
+    \\ imp_res_tac evaluate_code_only_grows
+    \\ imp_res_tac code_ptr_eq_free_subspt
+    \\ gvs [])
+  >~ [`Loop`]
+  >- (
+    gvs [evaluate_def, AllCaseEqs(), UNCURRY_EQ, ptr_eq_free_def]
+    \\ imp_res_tac cut_state_const
+    \\ imp_res_tac evaluate_code_only_grows
+    \\ imp_res_tac code_ptr_eq_free_subspt
+    \\ gvs [STOP_def, ptr_eq_free_def])
+  >~ [`Call`]
+  >- (
+    Cases_on `dest` >- gvs [ptr_eq_free_def]
+    \\ gvs [evaluate_def, AllCaseEqs(), ptr_eq_free_def]
+    \\ imp_res_tac ptr_eq_free_find_code
+    \\ imp_res_tac evaluate_code_only_grows
+    \\ imp_res_tac code_ptr_eq_free_subspt
+    \\ imp_res_tac pop_env_const
+    \\ gvs [])
+  \\ gvs [evaluate_def, AllCaseEqs(), ptr_eq_free_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [AllCaseEqs()]
 QED
 
 Theorem evaluate_NONE_stack_size_const:

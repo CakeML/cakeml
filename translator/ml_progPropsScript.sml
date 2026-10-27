@@ -14,11 +14,13 @@ Theorem Prog_deterministic:
 Proof
   strip_tac >>
   pop_assum (mp_tac o REWRITE_RULE [Prog_def]) >>
-  disch_then (CONJUNCTS_THEN2 assume_tac
-    (qx_choosel_then [`clockB`,`remainingB`] assume_tac)) >>
+  rewrite_tac [GSYM AND_IMP_INTRO] >>
+  ntac 2 strip_tac >>
+  disch_then (qx_choosel_then [`clockB`,`remainingB`] assume_tac) >>
   qpat_x_assum `Prog _ _ _ _ _` (mp_tac o REWRITE_RULE [Prog_def]) >>
-  disch_then (CONJUNCTS_THEN2 assume_tac
-    (qx_choosel_then [`clockA`,`remainingA`] assume_tac)) >>
+  rewrite_tac [GSYM AND_IMP_INTRO] >>
+  ntac 2 strip_tac >>
+  disch_then (qx_choosel_then [`clockA`,`remainingA`] assume_tac) >>
   drule evaluate_decs_add_to_clock >> simp [] >>
   disch_then (qspec_then `clockB` assume_tac) >>
   qpat_x_assum `evaluate_decs (st with clock := clockB) env ds = _`
@@ -36,8 +38,9 @@ Theorem Prog_append_split:
 Proof
   strip_tac >>
   pop_assum (mp_tac o REWRITE_RULE [Prog_def]) >>
-  disch_then (CONJUNCTS_THEN2 assume_tac
-    (qx_choosel_then [`start_clock`,`end_clock`] assume_tac)) >>
+  rewrite_tac [GSYM AND_IMP_INTRO] >>
+  ntac 2 strip_tac >>
+  disch_then (qx_choosel_then [`start_clock`,`end_clock`] assume_tac) >>
   qpat_x_assum `evaluate_decs _ _ (_ ++ _) = _`
     (mp_tac o ONCE_REWRITE_RULE [evaluate_decs_append]) >>
   namedCases_on `evaluate_decs (st with clock := start_clock) env ds1`
@@ -48,7 +51,7 @@ Proof
   namedCases_on `tail_result` ["tail_env","tail_error"] >>
   simp [semanticPrimitivesTheory.combine_dec_result_def] >> strip_tac >>
   qexistsl_tac [`first_env`,`tail_env`,`first_st with clock := st.clock`] >>
-  simp [Prog_def, semanticPrimitivesTheory.extend_dec_env_def] >>
+  fs [Prog_def, semanticPrimitivesTheory.extend_dec_env_def] >>
   conj_tac >- (
     qexistsl_tac [`start_clock`,`first_st.clock`] >>
     simp [semanticPrimitivesTheory.state_component_equality]) >>
@@ -65,8 +68,9 @@ Theorem Prog_module_split:
 Proof
   strip_tac >>
   pop_assum (mp_tac o REWRITE_RULE [Prog_def]) >>
-  disch_then (CONJUNCTS_THEN2 assume_tac
-    (qx_choosel_then [`start_clock`,`end_clock`] assume_tac)) >>
+  rewrite_tac [GSYM AND_IMP_INTRO] >>
+  ntac 2 strip_tac >>
+  disch_then (qx_choosel_then [`start_clock`,`end_clock`] assume_tac) >>
   qpat_x_assum `evaluate_decs _ _ [Dmod _ _] = _`
     (mp_tac o ONCE_REWRITE_RULE [evaluateTheory.evaluate_decs_def]) >>
   namedCases_on `evaluate_decs (st with clock := start_clock) env ds`
@@ -74,5 +78,6 @@ Proof
   namedCases_on `body_result` ["body_env","body_error"] >> simp [] >>
   strip_tac >>
   qexists_tac `body_env` >> simp [Prog_def, write_mod_def, empty_env_def] >>
+  fs [SF ETA_ss] >>
   qexistsl_tac [`start_clock`,`end_clock`] >> simp []
 QED

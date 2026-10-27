@@ -295,7 +295,10 @@ val res = translate def;
 val res = translate (primTypesTheory.prim_tenv_def
                        |> CONV_RULE (RAND_CONV EVAL));
 
-val res = translate inferTheory.init_config_def;
+(* top-level vals must not call functions (no_ptr_eq), so evaluate the
+   projections from prim_tenv *)
+val res = translate (inferTheory.init_config_def
+                     |> CONV_RULE (RAND_CONV EVAL));
 
 (* Compiler interface in compilerTheory
   TODO: some of these should be moved up, see comment above on exportScript

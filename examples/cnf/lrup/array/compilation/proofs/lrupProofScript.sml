@@ -10,29 +10,22 @@ Ancestors
 Libs
   preamble
 
-val cake_lrup_io_events_def = new_specification("cake_lrup_io_events_def",["cake_lrup_io_events"],
-  check_unsat_semantics |> Q.GENL[`ext`,`cl`,`fs`]
-  |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
-
-val (cake_lrup_sem,cake_lrup_output) = cake_lrup_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
-val (cake_lrup_not_fail,cake_lrup_sem_sing) = cake_lrup_sem
-  |> SRULE [lrup_array_compiled,ml_progTheory.prog_syntax_ok_semantics]
-  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
-
-val compile_correct_applied =
-  MATCH_MP compile_correct (cj 1 lrup_array_compiled)
-  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
-  |> C MATCH_MP cake_lrup_not_fail
-  |> C MATCH_MP x64_backend_config_ok
-  |> REWRITE_RULE[cake_lrup_sem_sing,AND_IMP_INTRO]
-  |> REWRITE_RULE[Once (GSYM AND_IMP_INTRO)]
-  |> C MATCH_MP (CONJ(UNDISCH x64_machine_config_ok)(UNDISCH x64_init_ok))
-  |> DISCH(#1(dest_imp(concl x64_init_ok)))
-  |> REWRITE_RULE[AND_IMP_INTRO]
+val cake_lrup_terminate = UNDISCH_ALL check_unsat_semantics
+  |> SIMP_RULE bool_ss [RIGHT_EXISTS_AND_THM]
+  |> HO_MATCH_MP ml_progTheory.sem_satisfies_IMP_Terminate
+  |> SRULE [lrup_array_compiled];
 
 Theorem cake_lrup_compiled_thm =
-  CONJ compile_correct_applied cake_lrup_output
-  |> DISCH_ALL
+  MATCH_MP compile_correct (cj 1 lrup_array_compiled)
+  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
+  |> C MATCH_MP (cj 1 cake_lrup_terminate)
+  |> C MATCH_MP x64_backend_config_ok
+  |> Q.GEN ‘mc’ |> ISPEC (x64_init_ok |> concl |> rand |> rand) |> UNDISCH_ALL
+  |> MATCH_MP (cj 2 cake_lrup_terminate)
+  |> REWRITE_RULE [targetPropsTheory.machine_sem_sing] |> DISCH_ALL
+  |> CONJ (UNDISCH is_x64_machine_config_IMP)
+  |> SRULE [SF CONJ_ss] |> CONJUNCT2 |> DISCH_ALL
+  |> REWRITE_RULE [AND_IMP_INTRO, GSYM CONJ_ASSOC]
   |> check_thm
 
 (* Prettifying the standard parts of all the theorems *)
@@ -64,11 +57,11 @@ End
 
 Theorem machine_code_sound:
   cake_lrup_run cl fs mc ms ⇒
+  ∃io.
   machine_sem mc (basis_ffi ext cl fs) ms ⊆
-    extend_with_resource_limit
-      {Terminate Success (cake_lrup_io_events ext cl fs)} ∧
+    extend_with_resource_limit {Terminate Success io} ∧
   ∃out err.
-    extract_fs ext (cl,fs) (cake_lrup_io_events ext cl fs) =
+    extract_fs ext (cl,fs) io =
       SOME (add_stdout (add_stderr fs err) out) ∧
   if LENGTH cl = 2 then
     (case get_cnf fs (EL 1 cl) of
@@ -82,11 +75,10 @@ Theorem machine_code_sound:
 Proof
   strip_tac>>
   fs[installed_x64_def,cake_lrup_code_def,cake_lrup_run_def]>>
-  drule_at (Pos last) cake_lrup_compiled_thm>>
-  simp[AND_IMP_INTRO]>>
-  disch_then drule>>
-  disch_then (qspecl_then [`ms`,`mc`,`ext`,`data_sp`,`cbspace`] mp_tac)>>
-  simp[]>>strip_tac>>
+  drule_all cake_lrup_compiled_thm>>
+  disch_then (qspec_then `ext` strip_assume_tac)>>
+  goal_assum drule>>
+  qpat_x_assum `result = _` SUBST_ALL_TAC>>
   qexists_tac`out`>>qexists_tac`err`>>
   gvs[check_unsat_sem_def,check_unsat_1_sem_def,check_unsat_2_sem_def]
 QED

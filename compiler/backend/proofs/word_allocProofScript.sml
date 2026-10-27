@@ -166,7 +166,9 @@ Definition word_state_eq_rel_def:
   t.compile = s.compile ∧
   t.compile_oracle = s.compile_oracle ∧
   t.code_buffer = s.code_buffer ∧
-  t.data_buffer = s.data_buffer
+  t.data_buffer = s.data_buffer ∧
+  t.ptr_eq_oracle = s.ptr_eq_oracle ∧
+  t.ptr_eq_rel = s.ptr_eq_rel
 End
 
 
@@ -1160,6 +1162,7 @@ Proof
   >~[`Loop`] >- suspend "Loop"
   >~[`Break`] >- suspend "Break"
   >~[`Continue`] >- suspend "Continue"
+  >~[`PtrEq`] >- suspend "PtrEq"
 QED
 
 Resume evaluate_apply_colour[Skip]:
@@ -1635,7 +1638,7 @@ Resume evaluate_apply_colour[Call]:
     impl_tac >- (
       fs[s_val_eq_def,s_frame_val_eq_def2]>>
       metis_tac[s_key_eq_trans,s_key_eq_sym,word_state_eq_rel_def])>>
-    simp[word_state_eq_rel_def])>>
+    simp[word_state_eq_rel_def,set_vars_def])>>
   gvs[colouring_ok_def,domain_numset_list_insert,domain_union]>>
   irule strong_locals_rel_set_vars_dom>>
   simp[]>>
@@ -1778,7 +1781,8 @@ Resume evaluate_apply_colour[Call]:
   first_x_assum irule >>
   fs[colouring_ok_def]>>
   CONJ_TAC >-
-    metis_tac[s_val_and_key_eq,s_key_eq_sym,s_key_eq_trans]>>
+    (fs[word_state_eq_rel_def]>>
+     metis_tac[s_val_and_key_eq,s_key_eq_sym,s_key_eq_trans])>>
   irule strong_locals_rel_set_var_dom>>
   qpat_assum`INJ _ (_ INSERT _) _` (irule_at Any)>>
   simp[]>>
@@ -2024,6 +2028,8 @@ Resume evaluate_apply_colour[Alloc]:
       strip_tac>>
       first_x_assum irule>>
       fs[domain_union])>>
+    imp_res_tac pop_env_const>>
+    imp_res_tac gc_const>>
     fs[word_state_eq_rel_def,pop_env_def]>>
     rfs[state_component_equality]>>
     metis_tac[s_val_and_key_eq,s_key_eq_sym,s_val_eq_sym,s_key_eq_trans])>>
@@ -2274,6 +2280,21 @@ Resume evaluate_apply_colour[ShareInst]:
     simp[get_writes_def])) >>
   drule_at_then (Pos last) irule strong_locals_rel_subset >>
   metis_tac[SUBSET_UNION])
+QED
+
+Resume evaluate_apply_colour[PtrEq]:
+  exists_tac>>
+  namedCases_on `get_var n0 st` ["", "wa"] >> fs[] >>
+  namedCases_on `wa` ["w1", "la lb"] >> fs[] >>
+  namedCases_on `get_var n1 st` ["", "wb"] >> fs[] >>
+  namedCases_on `wb` ["w2", "lc ld"] >> fs[] >>
+  imp_res_tac strong_locals_rel_get_var >> fs[] >>
+  Cases_on `st.ptr_eq_oracle` >> fs[] >>
+  rw[] >> gvs[set_var_def] >>
+  irule strong_locals_rel_insert >>
+  fs [get_writes_def,domain_union] >>
+  metis_tac[INSERT_SING_UNION,strong_locals_rel_subset,SUBSET_OF_INSERT
+           ,strong_locals_rel_insert,SUBSET_UNION]
 QED
 
 Finalise evaluate_apply_colour;
@@ -3214,6 +3235,7 @@ Proof
       domain_numset_list_insert] >>
       metis_tac[UNION_COMM,UNION_ASSOC]
       )
+  >- ((* PtrEq *) suspend "PtrEq")
 QED
 
 Resume clash_tree_colouring_ok[Loop]:
@@ -3245,6 +3267,27 @@ Resume clash_tree_colouring_ok[Continue]:
   fs[EVERY_EL,LLOOKUP_EQ_EL]>>
   first_x_assum drule>>
   pairarg_tac>>fs[]
+QED
+
+Resume clash_tree_colouring_ok[PtrEq]:
+    start_tac
+    >- (
+      CONJ_TAC>- (
+        match_mp_tac (GEN_ALL INJ_less)>>
+        asm_exists_tac>>simp[SUBSET_DEF])>>
+      simp[IMAGE_DIFF])>>
+    strip_tac>>
+    CONJ_TAC
+    >- (
+      match_mp_tac (GEN_ALL INJ_less)>>
+      qpat_x_assum`INJ _ (_ DIFF _ ∪ _) _` assume_tac>>
+      asm_exists_tac>>
+      simp[SUBSET_DEF])>>
+    simp[domain_union]>>
+    match_mp_tac (GEN_ALL INJ_less)>>
+    qpat_x_assum`INJ _ (domain live ∪ _) _` assume_tac>>
+    asm_exists_tac>>
+    simp[SUBSET_DEF]
 QED
 
 Finalise clash_tree_colouring_ok;
@@ -3904,6 +3947,7 @@ Proof
   >~[`DataBufferWrite`] >- suspend "DataBufferWrite"
   >~[`FFI`] >- suspend "FFI"
   >~[`ShareInst _ _ _`] >- suspend "ShareInst"
+  >~[`PtrEq`] >- suspend "PtrEq"
 QED
 
 Resume evaluate_remove_dead[Move]:
@@ -4413,6 +4457,15 @@ Resume evaluate_remove_dead[ShareInst]:
   gvs[]>>
   fs[strong_locals_rel_def,domain_union]>>
   metis_tac[]
+QED
+
+Resume evaluate_remove_dead[PtrEq]:
+  gvs[evaluate_def,remove_dead_def,AllCaseEqs(),get_live_def,set_var_def]>>
+  imp_res_tac strong_locals_rel_I_get_var'>>
+  gs[Once INSERT_COMM]>>
+  imp_res_tac strong_locals_rel_I_get_var'>>
+  gvs[state_component_equality]>>
+  fs[strong_locals_rel_def,lookup_insert]>>rw[]
 QED
 
 Finalise evaluate_remove_dead;
@@ -6130,6 +6183,16 @@ Proof
   >- ((*Loop*) suspend "Loop")
   >- ((*Break*) suspend "Break")
   >- ((*Continue*) suspend "Continue")
+  >- ((*PtrEq*)
+    rpt gen_tac >>
+    simp[LET_THM] >>
+    pairarg_tac >>
+    simp[] >>
+    rpt $ disch_then strip_assume_tac >>
+    gvs[next_var_rename_def] >>
+    conj_tac >- fs[is_alloc_var_def] >>
+    drule_then irule ssa_map_ok_extend >>
+    metis_tac[convention_partitions] )
 QED
 
 Resume ssa_cc_trans_props[Loop]:
@@ -7689,6 +7752,7 @@ Proof
   >~[`Loop`] >- suspend "Loop"
   >~[`Break`] >- suspend "Break"
   >~[`Continue`] >- suspend "Continue"
+  >~[`PtrEq`] >- suspend "PtrEq"
 QED
 
 Resume ssa_cc_trans_correct[Skip]:
@@ -9574,7 +9638,9 @@ Resume ssa_cc_trans_correct[Alloc]:
           ASM_SET_TAC[]) >>
         simp_tac(srw_ss())[])
       >-
-        (full_simp_tac(srw_ss())[word_state_eq_rel_def,pop_env_def]>>
+        (imp_res_tac pop_env_const>>
+        imp_res_tac gc_const>>
+        full_simp_tac(srw_ss())[word_state_eq_rel_def,pop_env_def]>>
         rev_full_simp_tac(srw_ss())[state_component_equality, stack_size_def, stack_size_frame_def]>>
         metis_tac[s_val_and_key_eq,s_key_eq_sym,s_val_eq_sym,s_key_eq_trans]))>>
     ntac 3 (qpat_x_assum `A = (B,C)` mp_tac)>>
@@ -10142,6 +10208,21 @@ Resume ssa_cc_trans_correct[Continue]:
   IF_CASES_TAC
   >- (gvs[evaluate_def, word_state_eq_rel_def]) >>
   gvs[evaluate_def, word_state_eq_rel_def]
+QED
+
+Resume ssa_cc_trans_correct[PtrEq]:
+    exists_tac>>fs[]>>
+    Cases_on`get_var n0 st`>>fs[]>>
+    imp_res_tac ssa_locals_rel_get_var>>
+    TOP_CASE_TAC>>simp[]>>
+    Cases_on`get_var n1 st`>>fs[]>>
+    imp_res_tac ssa_locals_rel_get_var>>
+    TOP_CASE_TAC>>simp[]>>
+    fs[next_var_rename_def,evaluate_def]>>
+    Cases_on`st.ptr_eq_oracle`>>fs[]>>
+    rw[]>>fs[set_var_def]>>
+    match_mp_tac ssa_locals_rel_set_var>>
+    full_simp_tac(srw_ss())[every_var_def]
 QED
 
 Finalise ssa_cc_trans_correct ;

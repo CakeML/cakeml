@@ -97,6 +97,20 @@ val _ = translate keep_nat_def;
 
 val _ = translate keep_int_def;
 
+(* add_Dlet only accepts top-level vals whose code does not call functions
+   (no_ptr_eq), so try_ProgNT is translated with its combinators unfolded
+   into pegsym constructors and lambdas *)
+
+Theorem consume_tok_eta[local]:
+  consume_tok t = tok (λx. t = x) (λt. [])
+Proof
+  simp [consume_tok_def, FUN_EQ_THM]
+QED
+
+val _ = translate (REWRITE_RULE [choicel_def, seql_def, pegf_def,
+                                 consume_tok_eta, mknt_def, mkleaf_def,
+                                 FST, SND, FOLDR] try_ProgNT_def);
+
 Definition peg_pancake_rules_def:
   peg_pancake_rules n fk k tf3 errs eo r i =
   case FLOOKUP pancake_peg.rules n of

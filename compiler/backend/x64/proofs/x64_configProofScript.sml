@@ -71,6 +71,13 @@ Proof
   EVAL_TAC
 QED
 
+Theorem is_x64_machine_config_IMP:
+  is_x64_machine_config mc ⇒
+  mc_conf_ok mc ∧ mc_init_ok x64_config x64_backend_config mc
+Proof
+  metis_tac [x64_machine_config_ok, x64_init_ok]
+QED
+
 val is_x64_machine_config_mc = x64_init_ok |> concl |> dest_imp |> #1
 
 Theorem x64_compile_correct =

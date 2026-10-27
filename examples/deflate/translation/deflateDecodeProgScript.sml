@@ -127,8 +127,8 @@ val res = translate LZdecompress_def;
 val res = translate LZSS_decompress_def;
 
 (* Deflate *)
-val res = translate fixed_len_tree_def;
-val res = translate fixed_dist_tree_def;
+val res = translate (fixed_len_tree_def |> CONV_RULE (RHS_CONV EVAL));
+val res = translate (fixed_dist_tree_def |> CONV_RULE (RHS_CONV EVAL));
 val res = translate clen_position_def;
 val res = translate encode_clen_pos_def;
 val res = translate trim_zeroes_end_def;
