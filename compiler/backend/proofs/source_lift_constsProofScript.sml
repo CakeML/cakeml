@@ -1101,6 +1101,7 @@ QED
 Definition lift_state_rel_def:
   lift_state_rel R D (s:'ffi semanticPrimitives$state) s' ⇔
     s.clock = s'.clock ∧ s.ffi = s'.ffi ∧
+    s.ptr_eq_oracle = s'.ptr_eq_oracle ∧
     s.next_type_stamp = s'.next_type_stamp ∧
     s.next_exn_stamp = s'.next_exn_stamp ∧
     D s.eval_state s'.eval_state ∧
@@ -3554,6 +3555,42 @@ Proof
   >> Cases_on ‘result2’ >> gvs [list_result_def,lift_result_rel_cases]
   >> rename1 ‘exc_rel _ err _’ >> Cases_on ‘err’
   >> gvs [exc_rel_raise1,exc_rel_type_error1]
+QED
+
+Theorem lift_evaluate_ptr_eq[local]:
+  lift_eval_result_rel (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
+    (evaluate (s:'ffi semanticPrimitives$state) env (REVERSE es))
+    (evaluate s' env' (REVERSE es')) ⇒
+  lift_eval_refinement (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
+    (evaluate s env [App PtrEq es]) (evaluate s' env' [App PtrEq es'])
+Proof
+  strip_tac
+  >> Cases_on ‘evaluate s env (REVERSE es)’ >> Cases_on ‘evaluate s' env' (REVERSE es')’
+  >> gvs [evaluate_def,lift_eval_refinement_def,lift_eval_result_rel_def,
+          lift_result_rel_cases]
+  >> rename1 ‘evaluate s env (REVERSE es) = (t,Rval vs)’
+  >> rename1 ‘evaluate s' env' (REVERSE es') = (t',Rval vs')’
+  >> ‘LIST_REL (lift_value_rel C E) (REVERSE vs) (REVERSE vs')’
+       by simp [LIST_REL_REVERSE_EQ]
+  >> Cases_on ‘∃v1 v2. REVERSE vs = [v1; v2]’
+  >- (
+    gvs []
+    >> ‘LIST_REL (lift_value_rel C E) [v1; v2] (REVERSE vs')’
+         by metis_tac [LIST_REL_REVERSE_EQ]
+    >> qpat_x_assum ‘LIST_REL _ [_; _] _’
+         (strip_assume_tac o SIMP_RULE std_ss [LIST_REL_CONS1,LIST_REL_NIL])
+    >> rename1 ‘lift_value_rel C E v1 w1’ >> rename1 ‘lift_value_rel C E v2 w2’
+    >> ‘do_eq w1 w2 = do_eq v1 v2’
+         by metis_tac [shape_val_rel_do_eq_eq,lift_value_rel_shape]
+    >> gvs []
+    >> Cases_on ‘do_eq v1 v2’
+    >> gvs [lift_eval_result_rel_def,lift_state_rel_def,lift_result_rel_def,
+            Boolv_def,lift_value_rel_cases_l]
+    >> rw [lift_value_rel_cases_l])
+  >> disj1_tac
+  >> Cases_on ‘REVERSE vs’ >> simp []
+  >> rename1 ‘REVERSE vs = _::rest’ >> Cases_on ‘rest’ >> simp []
+  >> rename1 ‘REVERSE vs = _::_::rest’ >> Cases_on ‘rest’ >> gvs []
 QED
 
 Theorem lift_evaluate_append_refinement[local]:
@@ -7391,6 +7428,8 @@ Proof
            (qspecl_then [‘decs’,‘decs'’] mp_tac)
       >> simp [])
     >> simp [])
+  >> Cases_on ‘op = PtrEq’
+  >- (gvs [] >> irule (runtime_inst lift_evaluate_ptr_eq) >> simp [])
   >- (
     have ‘getOpClass op = Simple’
     >- (
@@ -7485,11 +7524,11 @@ Proof
        lift_eval_decs_state_rel_declare_env,lift_eval_decs_state_rel_reset]
 QED
 
-Theorem lift_semantics_prog_refinement[local]:
+Theorem lift_semantics_determ_refinement[local]:
   (∀clock. lift_eval_result_rel R D E
     (evaluate_decs ((s:'ffi semanticPrimitives$state) with clock := clock) env prog)
     (evaluate_decs (s' with clock := clock) env' prog')) ⇒
-  semantics_prog s env prog outcome ⇒ semantics_prog s' env' prog' outcome
+  semantics_determ s env prog outcome ⇒ semantics_determ s' env' prog' outcome
 Proof
   strip_tac
   >> ‘∀clock. ∃ffi r r'.
@@ -7501,7 +7540,7 @@ Proof
     >> Cases_on ‘evaluate_decs (s with clock := clock) env prog’
     >> Cases_on ‘evaluate_decs (s' with clock := clock) env' prog'’
     >> simp [evaluate_prog_with_clock_def,lift_eval_result_rel_def,lift_state_rel_def])
-  >> Cases_on ‘outcome’ >> rewrite_tac [semantics_prog_def] >> strip_tac
+  >> Cases_on ‘outcome’ >> rewrite_tac [semantics_determ_def] >> strip_tac
   >- (
     conj_tac
     >- (
@@ -7526,18 +7565,18 @@ Theorem lift_semantics_compiled[local]:
   lift_state_rel lift_runtime_rel D (s:'ffi semanticPrimitives$state) s' ∧
   lift_runtime_env lift_runtime_rel env env' ∧
   (prog' = prog ∨ prog' = compile_decs prog) ∧
-  ¬semantics_prog s env prog Fail ∧ semantics_prog s env prog outcome ⇒
-  semantics_prog s' env' prog' outcome
+  ¬semantics_determ s env prog Fail ∧ semantics_determ s env prog outcome ⇒
+  semantics_determ s' env' prog' outcome
 Proof
   disch_then (fn th => MAP_EVERY assume_tac (CONJUNCTS th))
   >> mp_tac (Q.INST [‘R’ |-> ‘lift_runtime_rel’,‘E’ |-> ‘lift_runtime_env lift_runtime_rel’]
-       (SPEC_ALL lift_semantics_prog_refinement))
+       (SPEC_ALL lift_semantics_determ_refinement))
   >> impl_tac
   >- (
     qx_gen_tac ‘clock’ >> irule lift_eval_refinement_nonfailure >> conj_tac
     >- (
-      qpat_x_assum ‘¬semantics_prog s env prog Fail’ mp_tac
-      >> simp [semantics_prog_def,evaluate_prog_with_clock_def,ELIM_UNCURRY])
+      qpat_x_assum ‘¬semantics_determ s env prog Fail’ mp_tac
+      >> simp [semantics_determ_def,evaluate_prog_with_clock_def,ELIM_UNCURRY])
     >> irule lift_evaluate_decs_compiled_refinement >> gvs [lift_state_rel_def]
     >> qexists_tac ‘clock’ >> simp [])
   >> simp []
@@ -7545,8 +7584,8 @@ QED
 
 Theorem compile_semantics:
   (∀x. (s:'ffi semanticPrimitives$state).eval_state = SOME x ⇒ ∃ev. x = EvalDecs ev) ∧
-  ¬semantics_prog s env prog Fail ∧ semantics_prog s env prog outcome ⇒
-  semantics_prog s env (compile_decs prog) outcome
+  ¬semantics_determ s env prog Fail ∧ semantics_determ s env prog outcome ⇒
+  semantics_determ s env (compile_decs prog) outcome
 Proof
   strip_tac >> irule lift_semantics_compiled
   >> qexistsl_tac [‘lift_eval_decs_state_rel’,‘env’,‘prog’,‘s’]
@@ -7807,9 +7846,9 @@ QED
 Theorem compile_semantics_oracle:
   ∀f.
   is_insert_oracle ci f s.eval_state ∧
-  ¬ semantics_prog s env prog Fail ∧
-  semantics_prog s env prog outcome ⇒
-  semantics_prog (s with eval_state updated_by
+  ¬ semantics_determ s env prog Fail ∧
+  semantics_determ s env prog outcome ⇒
+  semantics_determ (s with eval_state updated_by
             adjust_oracle ci (compile_decs ∘ f))
         env prog outcome
 Proof

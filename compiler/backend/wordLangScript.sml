@@ -57,6 +57,8 @@ Datatype:
        | DataBufferWrite num num (* data buffer address, word to write *)
        | FFI mlstring num num num num cutsets (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
        | ShareInst memop num exp (* memory operation, varname, expression for memory address *)
+       | PtrEq num num num int int
+         (* dest, src1, src2, value written if equal, value written if not equal *)
 End
 
 Definition raise_stub_location_def:
@@ -166,6 +168,7 @@ Definition every_var_def:
   (every_var bits P (wordLang$Loop names body exit_names) =
     (EVERY P (MAP FST (toAList names)) ∧ every_var bits P body ∧
      EVERY P (MAP FST (toAList exit_names)))) ∧
+  (every_var bits P (PtrEq dst v1 v2 t f) = (P dst ∧ P v1 ∧ P v2)) ∧
   (every_var bits P p = T)
 End
 
@@ -290,6 +293,7 @@ Definition max_var_def:
     max3 (MAX_LIST (MAP FST (toAList names)))
          (max_var bits body)
          (MAX_LIST (MAP FST (toAList exit_names)))) /\
+  (max_var bits (PtrEq dst v1 v2 t f) = MAX_LIST [dst;v1;v2]) /\
   (max_var bits p = 0)
 End
 

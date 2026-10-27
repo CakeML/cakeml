@@ -6,6 +6,7 @@ Runtime.exit: int -> unit
 Runtime.abort: unit -> unit
 Runtime.assert: bool -> string -> unit
 Runtime.customFFI: string -> byte_array -> unit
+Runtime.ptrEq: 'a -> 'a -> bool
 Option.getOpt: 'a option -> 'a -> 'a
 Option.isSome: 'a option -> bool
 Option.valOf: 'a option -> 'a

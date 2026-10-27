@@ -263,6 +263,13 @@ Datatype:
      ; termdep : num (* count of how many MustTerminates we can still enter *)
      ; code    : (num # (wordLang$prog) # metadata) num_map
      ; be      : bool (*is big-endian*)
+     ; ptr_eq_oracle : (num -> num -> bool) option
+         (* SOME: PtrEq answers come from the oracle; NONE: PtrEq compares words *)
+     ; ptr_eq_rel : ('a word -> 'a word_loc) -> ('a word) set ->
+                    (store_name |-> 'a word_loc) -> 'a word -> 'a word -> bool
+         (* attenuates the oracle: it may answer T only where this holds of the
+            two words. The PtrEq clause of evaluate is its only reader, and no
+            clause writes it, so it is fixed by whoever builds the state. *)
      ; ffi     : 'ffi ffi_state |>
 End
 
@@ -1237,6 +1244,7 @@ Definition evaluate_def:
                 ; locals := insert ptr (Loc k 0) env
                 ; fp_regs := FEMPTY
                 ; compile_oracle := new_oracle
+                ; ptr_eq_oracle := OPTION_MAP (shift_seq 1) s.ptr_eq_oracle
                 ; stack_max := NONE (* Install is not safe for space *)
                 ; stack_size := LN
                 (* For convenience --- stack size of installed code,
@@ -1335,7 +1343,18 @@ Definition evaluate_def:
                            | (NONE,s) => (SOME Error,s)
                            | (SOME (Break _),s) => (SOME Error,s)
                            | (SOME (Continue _),s) => (SOME Error,s)
-                           | res => res)))
+                           | res => res))) /\
+  (evaluate (PtrEq dst v1 v2 t f,s) =
+     case (get_var v1 s, get_var v2 s) of
+     | (SOME (Word w1), SOME (Word w2)) =>
+         (case s.ptr_eq_oracle of
+          | NONE => (NONE, set_var dst (Word (i2w (if w1 = w2 then t else f))) s)
+          | SOME po =>
+              let r = (s.ptr_eq_rel s.memory s.mdomain s.store w1 w2 /\ po 0 0) in
+              let s1 = s with ptr_eq_oracle :=
+                         SOME ((0 =+ shift_seq 1 (po 0)) po) in
+                (NONE, set_var dst (Word (i2w (if r then t else f))) s1))
+     | _ => (SOME Error, s))
 Termination
   WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure prog_size)
                (\(xs,^s). (s.termdep,s.clock,xs)))`

@@ -36,13 +36,13 @@ val res = translate IS_PREFIX;
 
 val res = translate find_match_def;
 val res = translate tab_sub_def;
-val res = translate base_keys_def;
+val res = translate (base_keys_def |> CONV_RULE (RAND_CONV eval));
 val res = translate extract_fixed_substrings_def;
 val res = translate extract_substrings_n;
 val res = translate extract_keys_def;
 val res = translate gen_fix_codes;
 val res = translate create_fixed_dict_def;
-val res = translate lorem_dict_def;
+val res = translate (lorem_dict_def |> CONV_RULE (RHS_CONV EVAL));
 val res = translate FLIP_ALIST_def;
 
 val res = translate decompress_def;

@@ -53,37 +53,30 @@ Proof
   simp [mc_init_ok_def,init_conf_def]
 QED
 
-val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events"],
-  semantics_compiler64_x64_prog
-  |> SRULE [ml_progTheory.prog_syntax_ok_semantics, compiler64_compiled]
+val cake_terminate = semantics_compiler64_x64_prog
   |> Q.INST[‘eval_state_var’|->‘the_EvalDecs (mk_init_eval_state compiler_instance)’]
   |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_init_eval_state_def,the_EvalDecs_def]
   |> SIMP_RULE (srw_ss()) [GSYM source_evalProofTheory.mk_init_eval_state_def
                            |> SIMP_RULE (srw_ss()) []]
-  |> Q.GENL[`ext`,`cl`,`fs`]
-  |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
+  |> UNDISCH_ALL
+  |> HO_MATCH_MP ml_progTheory.sem_satisfies_IMP_Terminate
+  |> SRULE [compiler64_compiled];
 
-val (cake_sem,cake_output) = cake_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
-val (cake_not_fail,cake_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail cake_sem |> CONJ_PAIR
-
-val compile_correct_applied =
+Theorem cake_compiled_thm =
   MATCH_MP compile_correct_eval (cj 1 compiler64_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,
                          GSYM AND_IMP_INTRO,with_clos_conf_simp]
   |> Q.INST [‘ev’|->‘SOME compiler_instance’]
   |> SIMP_RULE (srw_ss()) [add_eval_state_def,opt_eval_config_wf_def,
                            compiler_instance_lemma,mc_init_ok_init_conf]
-  |> C MATCH_MP cake_not_fail
+  |> C MATCH_MP (cj 1 cake_terminate)
   |> C MATCH_MP backend_config_ok_init_conf
-  |> REWRITE_RULE[cake_sem_sing,AND_IMP_INTRO]
-  |> REWRITE_RULE[Once (GSYM AND_IMP_INTRO)]
-  |> C MATCH_MP (CONJ(UNDISCH x64_machine_config_ok)(UNDISCH x64_init_ok))
-  |> DISCH(#1(dest_imp(concl x64_init_ok)))
-  |> REWRITE_RULE[AND_IMP_INTRO]
-
-Theorem cake_compiled_thm =
-  CONJ compile_correct_applied cake_output
-  |> DISCH_ALL
+  |> Q.GEN ‘mc’ |> ISPEC (x64_init_ok |> concl |> rand |> rand) |> UNDISCH_ALL
+  |> MATCH_MP (cj 2 cake_terminate)
+  |> REWRITE_RULE [targetPropsTheory.machine_sem_sing] |> DISCH_ALL
+  |> CONJ (UNDISCH is_x64_machine_config_IMP)
+  |> SRULE [SF CONJ_ss] |> CONJUNCT2 |> DISCH_ALL
+  |> REWRITE_RULE [AND_IMP_INTRO, GSYM CONJ_ASSOC]
 
 (* --- *)
 

@@ -404,6 +404,13 @@ Proof
   simp[state_globals_approx_def]
 QED
 
+Theorem state_globals_approx_ptr_eq_oracleupd[simp]:
+   state_globals_approx (s with ptr_eq_oracle updated_by f) g ⇔
+   state_globals_approx s g
+Proof
+  simp[state_globals_approx_def]
+QED
+
 (* Mapped globals *)
 
 Definition mapped_globals_def:
@@ -664,7 +671,8 @@ QED
 Theorem ssgc_free_do_install:
    !s. ssgc_free s ==>
    ssgc_free (s with <|compile_oracle := shift_seq 1 (s.compile_oracle);
-                       code := s.code |++ SND (SND (s.compile_oracle 0))|>)
+                       code := s.code |++ SND (SND (s.compile_oracle 0));
+                       ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle|>)
 Proof
   gen_tac \\ simp [ssgc_free_def] \\ strip_tac \\ rpt conj_tac
   THEN1 (`?exp aux. SND (s.compile_oracle 0) = (exp, aux)`
@@ -724,6 +732,9 @@ Proof
   cases_on_op `opn` >>
   simp[do_app_def, case_eq_thms, op_gbag_def, PULL_EXISTS, bool_case_eq,
        pair_case_eq]
+  >~ [`BlockOp PtrEqual`]
+  >- (rw [] \\ gvs [Boolv_def, ssgc_free_def, mglobals_extend_refl]
+      \\ metis_tac [])
   >~ [`IntOp`] >- (
     rename1 `IntOp intop`
     \\ Cases_on `intop`
@@ -2762,7 +2773,8 @@ Definition state_rel_def:
     LIST_REL (OPTREL (v_rel c g)) s.globals t.globals /\
     fmap_rel (ref_rel c g) s.refs t.refs /\
     s.compile = state_cc (compile_inc c) t.compile  /\
-    t.compile_oracle = state_co (compile_inc c) s.compile_oracle
+    t.compile_oracle = state_co (compile_inc c) s.compile_oracle ∧
+    t.ptr_eq_oracle = s.ptr_eq_oracle
 End
 
 Theorem compile_inc_upd_inline_factor[local]:
@@ -4844,7 +4856,7 @@ QED
 
 Theorem semantics_known:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY co
-     (state_cc (compile_inc c) cc) xs <> Fail ==>
+     (state_cc (compile_inc c) cc) pe xs <> Fail ==>
    (!n. SND (SND (co n)) = []) /\
    (!n. fv_max 0 (FST (SND (co n)))) /\
    (!n exps aux. SND (co n) = (exps,aux) ==> EVERY esgc_free exps) /\
@@ -4860,9 +4872,9 @@ Theorem semantics_known:
    oracle_gapprox_disjoint g co /\
    known c xs [] LN = (eas, g) ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     (state_co (compile_inc c) co) cc (MAP FST eas) =
+     (state_co (compile_inc c) co) cc pe (MAP FST eas) =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (state_cc (compile_inc c) cc) xs
+     co (state_cc (compile_inc c) cc) pe xs
 Proof
   strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
@@ -4872,7 +4884,7 @@ Proof
   \\ disch_then drule
   \\ disch_then (qspec_then `[]` mp_tac)
   \\ disch_then (qspec_then `initial_state ffi max_app FEMPTY
-                               (state_co (compile_inc c) co) cc k` mp_tac)
+                               (state_co (compile_inc c) co) cc pe k` mp_tac)
   \\ rename1 `evaluate (xs, _, _) = (res1, s2)`
   \\ impl_tac
   THEN1
@@ -5143,7 +5155,7 @@ Proof
 QED
 
 Theorem semantics_compile:
-  closSem$semantics ffi max_app FEMPTY co cc1 xs ≠ Fail ∧
+  closSem$semantics ffi max_app FEMPTY co cc1 pe xs ≠ Fail ∧
    (cc1 = known_cc known_conf cc) ∧
    (co1 = known_co known_conf co) ∧
    (compile known_conf xs = (known_conf', es)) ∧
@@ -5151,8 +5163,8 @@ Theorem semantics_compile:
       syntax_oracle_ok (THE known_conf) xs co (THE known_conf').val_approx_spt ∧
       1 ≤ max_app)
    ⇒
-   semantics ffi max_app FEMPTY co1 cc es =
-   semantics ffi max_app FEMPTY co cc1 xs
+   semantics ffi max_app FEMPTY co1 cc pe es =
+   semantics ffi max_app FEMPTY co cc1 pe xs
 Proof
   simp [known_co_def,known_cc_def]
   \\ strip_tac

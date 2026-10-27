@@ -174,6 +174,7 @@ Proof
   \\ first_assum $ irule_at Any
   \\ rw [] \\ last_x_assum drule
   \\ disch_then (qspec_then ‘refs''’ strip_assume_tac) \\ fs []
+  \\ first_x_assum (qspec_then ‘po''’ strip_assume_tac)
   \\ first_assum $ irule_at Any
   \\ fs [int_gcd_def,num_gcd_eq_gcd]
 QED
@@ -196,6 +197,7 @@ Proof
   \\ first_assum $ irule_at Any
   \\ rw [] \\ last_x_assum drule
   \\ disch_then (qspec_then ‘refs''’ strip_assume_tac) \\ fs []
+  \\ first_x_assum (qspec_then ‘po''’ strip_assume_tac)
   \\ first_assum $ irule_at Any
   \\ fs [int_cmp_def, num_cmp_thm]
 QED
