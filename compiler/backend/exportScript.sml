@@ -65,10 +65,15 @@ val preamble_tm =
        "# define makesym(name,base,len) _makesym name, base, len";
        "#endif";
        "";
-       "#define DATA_BUFFER_SIZE    65536";
+       "#define DATA_BUFFER_SIZE 16777216";
        "#define CODE_BUFFER_SIZE  5242880";
        "";
        "     .file        \"cake.S\"";
+       "";
+       "/* The generated code does not need an executable stack */";
+       "#if defined(__ELF__)";
+       "     .section .note.GNU-stack,\"\",%progbits";
+       "#endif";
        ""])`` |> EVAL |> rconc;
 Definition preamble_def:
   preamble = ^preamble_tm
@@ -139,7 +144,7 @@ Definition words_line_def:
 End
 
 Definition word_to_string_def:
-  word_to_string w = toString(w2n w)
+  word_to_string (n:num) = toString n
 End
 
 Definition byte_to_string_def:

@@ -1,0 +1,7 @@
+name = "sat_encodings"
+
+[projects.cakeml]
+path = "../.."
+
+[projects.cnf]
+path = "../cnf"

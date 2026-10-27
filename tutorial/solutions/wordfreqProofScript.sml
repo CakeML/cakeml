@@ -1,1 +1,1 @@
-../wordfreqProofScript.sml
+../problems/wordfreqProofScript.sml

@@ -10,7 +10,6 @@ Libs
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = translation_extends"lpr_arrayParsingProg";
 
@@ -1418,23 +1417,6 @@ Proof
   simp[SUM_TYPE_def]
 QED
 
-Theorem inFS_fname_file_content:
-  consistentFS fs ∧ inFS_fname fs f ⇒ ∃c. file_content fs f = SOME c
-Proof
-  rw[consistentFS_def,inFS_fname_def]>>simp[]>>
-  first_x_assum drule>>simp[file_content_def]>>
-  metis_tac[ALOOKUP_NONE,option_CASES]
-QED
-
-Theorem all_lines_file_lines_of:
-  file_content fs f = SOME c ⇒
-  all_lines_file fs f = lines_of (strlit c)
-Proof
-  fs[file_content_def]>>
-  rw[all_lines_file_def,lines_of_def]>>
-  every_case_tac>>fs[]
-QED
-
 Theorem parse_proof_toks_aux_LENGTH:
   ∀ls acc x.
   parse_proof_toks_aux ls acc = SOME x ⇒
@@ -1527,7 +1509,7 @@ Proof
       xsimpl)>>
     xapp>>xsimpl>>fs[]>>
     gvs[get_fml_def,get_proof_def,AllCaseEqs()]>>
-    imp_res_tac inFS_fname_file_content>>fs[]>>rw[]>>
+    imp_res_tac inFS_fname_file_content_SOME>>fs[]>>rw[]>>
     imp_res_tac all_lines_file_lines_of>>simp[]>>
     fs[FILENAME_def,validArg_def]>>
     first_x_assum (irule_at (Pos (el 1)))>>
@@ -1645,7 +1627,7 @@ Proof
   >-
     (xapp_spec md5_of_SOME \\ fs [std_preludeTheory.OPTION_TYPE_def, FILENAME_def,validArg_def])>>
   gvs[get_fml_def,get_proof_def,AllCaseEqs()]>>
-  imp_res_tac inFS_fname_file_content>>fs[]>>rw[]>>
+  imp_res_tac inFS_fname_file_content_SOME>>fs[]>>rw[]>>
   gvs [std_preludeTheory.OPTION_TYPE_def]>>
   xmatch>>
   xlet_autop>>
@@ -1787,21 +1769,7 @@ Proof
   \\ simp[GSYM add_stdo_with_numchars,with_same_numchars]
 QED
 
-local
-
-val name = "check_unsat"
-val (sem_thm,prog_tm) =
-  whole_prog_thm (get_ml_prog_state()) name (UNDISCH check_unsat_whole_prog_spec2)
-Definition check_unsat_prog_def:
-  check_unsat_prog = ^prog_tm
-End
-
-in
-
 Theorem check_unsat_semantics =
-  sem_thm
-  |> REWRITE_RULE[GSYM check_unsat_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
-
-end
+  prove_sem_thm "check_unsat"
+                "check_unsat_prog"
+                check_unsat_whole_prog_spec2;

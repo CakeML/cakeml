@@ -36,14 +36,9 @@ Proof
   \\ xsimpl
 QED
 
-val spec = hello_whole_prog_spec
-val name = "hello";
-
-val (call_thm_hello, hello_prog_tm) = whole_prog_thm st name spec;
-Definition hello_prog_def:
-  hello_prog = ^hello_prog_tm
-End
+val name = "hello"
+val code_const_name = "hello_prog"
+val spec = hello_whole_prog_spec;
 
 Theorem hello_semantics =
-  call_thm_hello |> ONCE_REWRITE_RULE[GSYM hello_prog_def]
-  |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  prove_sem_thm name code_const_name spec;

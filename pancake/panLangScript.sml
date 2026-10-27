@@ -13,7 +13,6 @@ Ancestors
 Libs
   preamble
 
-
 (* for overloading the shift operation *)
 
 Type shift = ``:ast$shift``
@@ -47,7 +46,7 @@ Datatype:
 End
 
 Datatype:
-  exp = Const ('a word)
+  exp = Const int
       | Var varkind varname
       | RStruct (exp list)
       | RField index exp
@@ -59,7 +58,7 @@ Datatype:
       | Op binop (exp list)
       | Panop panop (exp list)
       | Cmp cmp exp exp
-      | Shift shift exp num
+      | Shift shift exp exp
       | BaseAddr
       | TopAddr
       | BytesInWord
@@ -75,26 +74,26 @@ End
 
 Datatype:
   prog = Skip
-       | Dec varname shape ('a exp) prog
-       | Assign varkind varname ('a exp)  (* dest, source *)
-       | Primitive varname primop ('a exp list)
+       | Dec varname shape exp prog
+       | Assign varkind varname exp  (* dest, source *)
+       | Primitive varname primop (exp list)
          (* Primitives directly target constructs in wordLang. *)
-       | Store     ('a exp) ('a exp) (* dest, source *)
-       | Store32   ('a exp) ('a exp) (* dest, source *)
-       | StoreByte ('a exp) ('a exp) (* dest, source *)
+       | Store     exp exp (* dest, source *)
+       | Store32   exp exp (* dest, source *)
+       | StoreByte exp exp (* dest, source *)
        | Seq prog prog
-       | If    ('a exp) prog prog
-       | While ('a exp) prog
+       | If    exp prog prog
+       | While exp prog
        | Break
        | Continue
-       | Call (((varkind # varname) option # ((eid # varname # prog) option)) option) funname (('a exp) list)
-       | DecCall varname shape funname ('a exp list) prog
-       | ExtCall funname ('a exp) ('a exp) ('a exp) ('a exp)
+       | Call (((varkind # varname) option # ((eid # varname # prog) option)) option) funname (exp list)
+       | DecCall varname shape funname (exp list) prog
+       | ExtCall funname exp exp exp exp
          (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
-       | Raise eid ('a exp)
-       | Return ('a exp)
-       | ShMemLoad opsize varkind varname ('a exp)
-       | ShMemStore opsize ('a exp) ('a exp)
+       | Raise eid exp
+       | Return exp
+       | ShMemLoad opsize varkind varname exp
+       | ShMemStore opsize exp exp
        | Tick
        | Annot mlstring mlstring
 End
@@ -105,14 +104,15 @@ Datatype:
    ; inline      : bool
    ; export      : bool
    ; params      : (varname # shape) list
-   ; body        : 'a prog
+   ; body        : prog
    ; return      : shape
   |>
 End
 
 Datatype:
-  decl = Function ('a fun_decl)
-       | Decl shape mlstring ('a exp)
+  decl = Function fun_decl
+       | Decl shape mlstring exp
+       | ExnDecl eid shape
        | Name stcname ((fldname # shape) list)
 End
 
@@ -187,25 +187,24 @@ Definition shape_to_str_def:
 End
 
 Definition shape_val_def:
-  shape_val One = Const 0w ∧
+  shape_val One = Const 0 ∧
   shape_val (Comb shapes) = RStruct (shape_vals shapes) ∧
-  shape_val (Named nm) = Const 0w (* should never happen *) ∧
+  shape_val (Named nm) = Const 0 (* should never happen *) ∧
   shape_vals [] = [] ∧
   shape_vals (sh::shs) = shape_val sh :: shape_vals shs
 End
 
 Theorem MEM_IMP_exp_size:
-  (!xs a. MEM a xs ==> (exp_size l a < exp3_size l xs)) ∧
-  (!xs a. MEM a xs ==> (exp_size l (SND a) < exp1_size l xs))
+  (!xs a. MEM a xs ==> (exp_size a < exp3_size xs)) ∧
+  (!xs a. MEM a xs ==> (exp_size (SND a) < exp1_size xs))
 Proof
-  rpt conj_tac \\ Induct \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ REPEAT STRIP_TAC \\ SRW_TAC [] [definition"exp_size_def"]
-  \\ RES_TAC \\ TRY DECIDE_TAC
-  \\ Cases_on ‘a’
-  \\ fs [definition "exp_size_def"]
-  \\ RES_TAC \\ DECIDE_TAC
+  conj_tac
+  >- (
+    Induct >> simp [] >> rpt strip_tac >>
+    gvs [definition "exp_size_def"] >> res_tac >> decide_tac) >>
+  Induct >> simp [] >> rpt strip_tac >>
+  Cases_on ‘a’ >> gvs [definition "exp_size_def"] >> res_tac >> decide_tac
 QED
-
 
 Definition nested_seq_def:
   (nested_seq [] = Skip) /\
@@ -230,28 +229,24 @@ Definition exp_ids_def:
   (exp_ids _ = [])
 End
 
+Definition is_decl_def:
+  is_decl (Decl sh v e) = T /\
+  is_decl _ = F
+End
+
+Definition is_exn_decl_def:
+  is_exn_decl (ExnDecl eid sh) = T /\
+  is_exn_decl _ = F
+End
+
+Definition is_name_def:
+  is_name (Name _ _) = T ∧
+  is_name _ = F
+End
+
 Definition size_of_eids_def:
-  size_of_eids prog =
-  let eids = FLAT (MAP (λp. case p of Function fi => exp_ids fi.body | _ => []) prog) in
-   LENGTH (nub eids)
+  size_of_eids prog = LENGTH(FILTER is_exn_decl prog)
 End
-
-(*
-  for time_to_pancake compiler:
-
-Definition Assigns_def:
-  (Assigns [] n = Skip) ∧
-  (Assigns (v::vs) n =
-    Seq (Assign v n) (Assigns vs n))
-End
-
-Definition Decs_def:
-  (Decs [] p = p) /\
-  (Decs ((v,e)::es) p =
-    Dec v e (Decs es p))
-End
-
-*)
 
 Definition var_exp_def:
   (var_exp (Const w) = ([]:mlstring list)) ∧
@@ -267,12 +262,12 @@ Definition var_exp_def:
   (var_exp (Op bop es) = FLAT (MAP var_exp es)) ∧
   (var_exp (Panop op es) = FLAT (MAP var_exp es)) ∧
   (var_exp (Cmp c e1 e2) = var_exp e1 ++ var_exp e2) ∧
-  (var_exp (Shift sh e num) = var_exp e) ∧
+  (var_exp (Shift sh e1 e2) = var_exp e1 ++ var_exp e2) ∧
   (var_exp BaseAddr = []) ∧
   (var_exp TopAddr = []) ∧
   (var_exp BytesInWord = [])
 Termination
-  wf_rel_tac `measure (\e. exp_size ARB e)` >>
+  wf_rel_tac `measure exp_size` >>
     simp[MEM_MAP, EXISTS_PROD] >>
     rw [MEM_SPLIT] >>
     simp [list_size_append]
@@ -291,12 +286,11 @@ Definition global_var_exp_def:
   (global_var_exp (Op bop es) = FLAT (MAP global_var_exp es)) ∧
   (global_var_exp (Panop op es) = FLAT (MAP global_var_exp es)) ∧
   (global_var_exp (Cmp c e1 e2) = global_var_exp e1 ++ global_var_exp e2) ∧
-  (global_var_exp (Shift sh e num) = global_var_exp e)
+  (global_var_exp (Shift sh e1 e2) = global_var_exp e1 ++ global_var_exp e2)
 Termination
-  wf_rel_tac `measure (\e. exp_size ARB e)` >>
+  wf_rel_tac `measure exp_size` >>
   rpt strip_tac >>
   imp_res_tac MEM_IMP_exp_size >>
-  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
   decide_tac
 End
 
@@ -322,9 +316,18 @@ End
 Definition functions_def:
   functions [] = [] ∧
   functions(Function fi::fs) =
-  (fi.name,fi.params,fi.body)::functions fs ∧
+  (fi.name,fi.params,fi.body,fi.return)::functions fs ∧
   functions(Decl _ _ _::fs) = functions fs ∧
+  functions (ExnDecl _ _ :: fs) = functions fs ∧
   functions(Name _ _::fs) = functions fs
+End
+
+Definition exceptions_def:
+  exceptions [] = [] ∧
+  exceptions(Function fi::fs) = exceptions fs ∧
+  exceptions(Decl _ _ _::fs) = exceptions fs ∧
+  exceptions (ExnDecl eid sh :: fs) = (eid,sh)::exceptions fs ∧
+  exceptions(Name _ _::fs) = exceptions fs
 End
 
 Definition fun_ids_def:

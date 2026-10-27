@@ -129,7 +129,7 @@ QED
 Theorem exists_v_of_pat_norest_length:
    !envC pat insts v.
      (?insts wildcards. v_of_pat_norest envC pat insts wildcards = SOME v) <=>
-     (?insts wildcards. LENGTH insts = LENGTH (pat_bindings pat []) /\
+     (?insts wildcards. LENGTH insts = LENGTH (pat_bindings pat) /\
                         LENGTH wildcards = pat_wildcards pat /\
                         v_of_pat_norest envC pat insts wildcards = SOME v)
 Proof
@@ -141,7 +141,7 @@ QED
 Theorem forall_v_of_pat_norest_length:
    !envC pat insts v P.
      (!insts wildcards. v_of_pat_norest envC pat insts wildcards = SOME v ==> P insts) <=>
-     (!insts wildcards. LENGTH insts = LENGTH (pat_bindings pat []) ==>
+     (!insts wildcards. LENGTH insts = LENGTH (pat_bindings pat) ==>
                         LENGTH wildcards = pat_wildcards pat ==>
                         v_of_pat_norest envC pat insts wildcards = SOME v ==>
                         P insts)

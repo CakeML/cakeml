@@ -8,12 +8,6 @@ Ancestors
 Libs
   preamble ml_translatorLib cfLib basis
 
-open preamble;
-open compilerTheory
-     exportTheory
-     ml_translatorLib ml_translatorTheory;
-open cfLib basis;
-
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "ag32Prog";
@@ -26,6 +20,7 @@ val () = Globals.max_print_depth := 15;
 val () = use_long_names := true;
 
 val spec32 = INST_TYPE[alpha|->``:32``]
+val dimindex_32 = EVAL ``dimindex (:32)``;
 
 val res = translate $ errorLogMonadTheory.return_def;
 val res = translate $ errorLogMonadTheory.bind_def;
@@ -33,6 +28,7 @@ val res = translate $ errorLogMonadTheory.log_def;
 val res = translate $ errorLogMonadTheory.error_def;
 
 val res = translate $ listTheory.OPT_MMAP_def;
+val res = translate $ listTheory.dropWhile_def;
 
 Theorem OPT_MMAP_eq_MAP[local]:
   OPT_MMAP f xs = (OPT_MMAP I o MAP f) xs
@@ -72,6 +68,7 @@ val res = translate $ panStaticTheory.get_unreach_msg_def;
 val res = translate $ panStaticTheory.get_rogue_msg_def;
 val res = translate $ panStaticTheory.get_non_word_msg_def;
 val res = translate $ panStaticTheory.get_shape_mismatch_msg_def;
+val res = translate $ panStaticTheory.get_inline_ignore_msg_def;
 val res = translate $ panStaticTheory.get_implementation_err_msg_def;
 
 val res = translate $ panStaticTheory.first_repeat_def;
@@ -89,6 +86,7 @@ val res = translate $ panStaticTheory.check_fun_name_def;
 val res = translate $ panStaticTheory.check_global_var_def;
 val res = translate $ panStaticTheory.check_local_var_def;
 val res = translate $ panStaticTheory.check_redec_var_def;
+val res = translate $ panStaticTheory.check_exn_name_def;
 val res = translate $ panStaticTheory.check_export_params_def;
 val res = translate $ panStaticTheory.check_operands_def;
 val res = translate $ panStaticTheory.check_primitive_args_def;
@@ -109,21 +107,8 @@ val _ = res |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of " ^
                   "panStaticTheory.static_check_def.");
 
-Definition max_heap_limit_32_def:
-  max_heap_limit_32 c =
-    ^(spec32 data_to_wordTheory.max_heap_limit_def
-      |> SPEC_ALL
-      |> SIMP_RULE (srw_ss())[backend_commonTheory.word_shift_def]
-      |> concl |> rhs)
-End
-
-val res = translate max_heap_limit_32_def
-
-Theorem max_heap_limit_32_thm:
-   max_heap_limit (:32) = max_heap_limit_32
-Proof
-  rw[FUN_EQ_THM] \\ EVAL_TAC
-QED
+val res = translate (data_to_wordTheory.max_heap_limit_def
+  |> SIMP_RULE std_ss [backend_commonTheory.word_shift_def]);
 
 val r = translate presLangTheory.default_tap_config_def;
 
@@ -135,11 +120,11 @@ val def = spec32
 val res = translate def
 
 val def = spec32 backendTheory.compile_def
-  |> REWRITE_RULE[max_heap_limit_32_thm]
+  |> REWRITE_RULE[dimindex_32]
 
 val res = translate def
 
-val _ = register_type “:32 any_prog”
+val _ = register_type “:any_prog”
 
 val r = backend_passesTheory.to_flat_all_def |> spec32 |> translate;
 val r = backend_passesTheory.to_clos_all_def |> spec32 |> translate;
@@ -161,29 +146,32 @@ val r = backend_passesTheory.to_data_all_def |> spec32 |> translate;
 val r = backend_passesTheory.word_internal_all_def |> spec32 |> translate;
 
 val r = backend_passesTheory.to_word_all_def |> spec32
-          |> REWRITE_RULE [data_to_wordTheory.stubs_def,APPEND] |> translate;
+          |> REWRITE_RULE [data_to_wordTheory.stubs_md_def,
+                           data_to_wordTheory.stubs_def,APPEND] |> translate;
 
 val r = backend_passesTheory.to_stack_all_def |> spec32
-          |> REWRITE_RULE[max_heap_limit_32_thm] |> translate;
+          |> REWRITE_RULE[dimindex_32] |> translate;
 
 val r = backend_passesTheory.to_lab_all_def |> spec32
-          |> REWRITE_RULE[max_heap_limit_32_thm] |> translate;
+          |> REWRITE_RULE[dimindex_32] |> translate;
 
 val r = backend_passesTheory.to_target_all_def |> spec32 |> translate;
 
 val r = backend_passesTheory.from_lab_all_def |> spec32 |> translate;
 
 val r = backend_passesTheory.from_stack_all_def |> spec32
-          |> REWRITE_RULE[max_heap_limit_32_thm] |> translate;
+          |> REWRITE_RULE[dimindex_32] |> translate;
 
 val r = backend_passesTheory.from_word_all_def |> spec32 |> translate;
 
 val r = backend_passesTheory.from_word_0_all_def |> spec32
-          |> REWRITE_RULE[max_heap_limit_32_thm] |> translate;
+          |> REWRITE_RULE[dimindex_32] |> translate;
 
-val r = presLangTheory.word_to_strs_def |> spec32 |> translate
-val r = presLangTheory.stack_to_strs_def |> spec32 |> translate
-val r = presLangTheory.lab_to_strs_def |> spec32 |> translate
+val r = presLangTheory.word_to_strs_def |> translate
+val r = presLangTheory.stack_to_strs_def |> translate
+val r = labLangTheory.Section_num_def |> translate
+val r = labLangTheory.Section_metadata_def |> translate
+val r = presLangTheory.lab_to_strs_def |> translate
 
 val r = backend_passesTheory.any_prog_pp_def |> spec32 |> translate;
 val r = backend_passesTheory.pp_with_title_def |> translate;
@@ -193,12 +181,15 @@ val _ = r |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of " ^
                   "backend_passesTheory.compile_tap_def.");
 
-val r = pan_passesTheory.pan_to_target_all_def |> spec32
+val r = pan_passesTheory.pan_to_target_all_def
+          |> INST_TYPE [alpha |-> “:32”, beta |-> “:32”]
           |> REWRITE_RULE [NULL_EQ] |> translate;
 
 val r = pan_passesTheory.opsize_to_display_def |> translate;
 val r = pan_passesTheory.insert_es_def |> translate;
 val r = pan_passesTheory.varkind_to_str_def |> translate;
+val r = presLangTheory.word_to_display_def |> translate;
+val r = presLangTheory.item_with_word_def |> translate;
 Theorem lem[local]:
   dimindex(:32) = 32
 Proof
@@ -223,8 +214,8 @@ val r = pan_passesTheory.pan_to_strs_def |> spec32 |> translate;
 val r = pan_passesTheory.crep_to_strs_def |> spec32 |> translate;
 val r = pan_passesTheory.loop_to_strs_def |> spec32 |> translate;
 val r = pan_passesTheory.any_pan_prog_pp_def |> spec32 |> translate;
-
-val r = pan_passesTheory.pan_compile_tap_def |> spec32 |> translate;
+val r = pan_passesTheory.pan_compile_tap_def
+          |> INST_TYPE [alpha |-> “:32”, beta |-> “:32”] |> translate;
 
 val _ = r |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of " ^
@@ -291,9 +282,9 @@ val res = translate compilerTheory.safe_substring_def;
 
 val _ = translate compilerTheory.get_nth_line_def;
 val _ = translate compilerTheory.locs_to_string_def;
+val _ = translate compilerTheory.ast_locs_to_string_def;
 val _ = translate compilerTheory.parse_cml_input_def;
-val _ = translate (compilerTheory.parse_sexp_input_def
-                   |> PURE_REWRITE_RULE[fromSexpTheory.sexpdec_alt_intro1]);
+val _ = translate compilerTheory.parse_sexp_input_def;
 
 val def = spec32 (compilerTheory.compile_def);
 val res = translate def;
@@ -301,7 +292,10 @@ val res = translate def;
 val res = translate (primTypesTheory.prim_tenv_def
                      |> CONV_RULE (RAND_CONV EVAL));
 
-val res = translate inferTheory.init_config_def;
+(* top-level vals must not call functions (no_ptr_eq), so evaluate the
+   projections from prim_tenv *)
+val res = translate (inferTheory.init_config_def
+                     |> CONV_RULE (RAND_CONV EVAL));
 
 (* Compiler interface in compilerTheory
   TODO: some of these should be moved up, see comment above on exportScript
@@ -351,7 +345,10 @@ val res = translate
    |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
 
 (* arm7 *)
-val res = translate arm7_configTheory.arm7_names_def;
+(* top-level vals must not call functions (no_ptr_eq), so the register
+   name map is evaluated to sptree constructors (as the other targets'
+   *_names_def already are) *)
+val res = translate (arm7_configTheory.arm7_names_def |> CONV_RULE (RAND_CONV EVAL));
 val res = translate export_arm7Theory.startup_def;
 val res = translate export_arm7Theory.ffi_asm_def;
 val res = translate export_arm7Theory.export_func_def;
@@ -389,6 +386,9 @@ val res = translate (has_help_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 val res = translate print_option_def
 val res = translate current_build_info_str_def
 val res = translate compilerTheory.help_string_def;
+val res = translate (newsTheory.query_news_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
+val res = translate parse_pancake_feature_def
+val res = translate print_bool_def
 
 Definition nonzero_exit_code_for_error_msg_def:
   nonzero_exit_code_for_error_msg e =
@@ -401,11 +401,25 @@ End
 val res = translate compilerTheory.is_error_msg_def;
 val res = translate nonzero_exit_code_for_error_msg_def;
 
-val res = translate $ spec32 compile_pancake_def;
+val compile_pancake_spec = spec32 compile_pancake_def |> SPEC_ALL;
+
+Definition compile_pancake_fixed_def:
+  compile_pancake_fixed asm_conf c input =
+    ^(compile_pancake_spec |> concl |> rhs)
+End
+
+Theorem compile_pancake_fixed_eq[local]:
+  compiler$compile_pancake (:32) = compile_pancake_fixed
+Proof
+  simp [FUN_EQ_THM, compile_pancake_def, compile_pancake_fixed_def]
+QED
+
+val res = translate compile_pancake_fixed_def;
 
 val res = translate pancake_backend_conf_def;
 
-val res = translate compile_pancake_32_def;
+val res = translate (compile_pancake_32_def
+  |> REWRITE_RULE [compile_pancake_fixed_eq]);
 
 val _ = res |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of " ^
@@ -422,18 +436,24 @@ Quote add_cakeml:
         print compiler_help_string
       else if compiler_has_version_flag cl then
         print compiler_current_build_info_str
-      else if compiler_has_pancake_flag cl then
-        case compiler_compile_pancake_32 cl (String.explode (TextIO.inputAll (TextIO.openStdIn ())))  of
-          (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
-                     compiler32prog_nonzero_exit_code_for_error_msg e)
       else
-        case compiler_compile_32 cl (String.explode (TextIO.inputAll (TextIO.openStdIn ())))  of
-          (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
-                     compiler32prog_nonzero_exit_code_for_error_msg e)
+        case compiler_parse_pancake_feature cl of
+          Some rest => print (compiler_print_bool(news_query_news rest))
+        | None =>
+            if compiler_has_pancake_flag cl then
+              case compiler_compile_pancake_32 cl (String.explode (TextIO.inputAll (TextIO.openStdIn ())))  of
+                (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
+                           compiler32prog_nonzero_exit_code_for_error_msg e)
+            else
+              case compiler_compile_32 cl (String.explode (TextIO.inputAll (TextIO.openStdIn ())))  of
+                (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
+                           compiler32prog_nonzero_exit_code_for_error_msg e)
     end
 End
 
 val main_v_def = fetch "-" "main_v_def";
+val compiler_help_string_v_thm = fetch "-" "compiler_help_string_v_thm";
+val compiler_current_build_info_str_v_thm = fetch "-" "compiler_current_build_info_str_v_thm";
 
 Theorem main_spec:
    IS_SOME (stdin_content fs) ⇒
@@ -469,39 +489,40 @@ Proof
   \\ simp[FORALL_PROD,EXISTS_PROD]
   \\ conj_tac >- metis_tac[] \\ rw[]
   \\ imp_res_tac stdin_11 \\ rw[]
-  \\ imp_res_tac stdin_get_file_content
+  \\ imp_res_tac stdin_get_fd_content
   \\ xlet_auto >- xsimpl
   \\ xif
   >-
    (simp[full_compile_32_def]
     \\ xapp
     \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac `help_string`
-    \\ fs [compilerTheory.help_string_def,
-           fetch "-" "compiler_help_string_v_thm"]
-    \\ xsimpl
-    \\ rename1 `add_stdout _ (strlit string)`
-    \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac`fs`
+    \\ irule_at (Pos hd) compiler_help_string_v_thm
+    \\ qexists ‘fs’
     \\ xsimpl)
-  \\ xlet_auto >- xsimpl
+  \\ xlet_auto>-xsimpl
   \\ xif
-  >- (
-    simp[full_compile_32_def]
-    \\ xapp
-    \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac `current_build_info_str`
-    \\ fs [compilerTheory.current_build_info_str_def,
-           fetch "-" "compiler_current_build_info_str_v_thm"]
-    \\ xsimpl
-    \\ rename1 `add_stdout _ (strlit string)`
-    \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac`fs`
-    \\ xsimpl)
-  >> xlet_auto >- xsimpl
+  >- (xapp
+      \\ irule_at (Pos hd) compiler_current_build_info_str_v_thm
+      \\ qexists ‘fs’
+      \\ simp[full_compile_32_def]
+      \\ xsimpl)
+  \\ xlet_auto>-xsimpl
+  \\ gvs[oneline std_preludeTheory.OPTION_TYPE_def]
+  \\ reverse PURE_FULL_CASE_TAC
+  \\ gvs[]
+  >- (xmatch
+      \\ xlet_auto >- xsimpl
+      \\ xlet_auto >- xsimpl
+      \\ simp[full_compile_32_def]
+      \\ xapp
+      \\ first_assum $ irule_at $ Pos hd
+      \\ qexists ‘fs’
+      \\ xsimpl)
+  \\ xmatch
+  \\ xlet_auto >- xsimpl
   \\ rename [‘stdin fs inp pos’]
   \\ ‘stdin_content fs = SOME inp ∧ pos = 0’ by
-    (gvs [stdin_def,get_file_content_def]
+    (gvs [stdin_def,get_fd_content_def]
      \\ fs [stdin_content_def,IS_SOME_EXISTS])
   \\ gvs []
   >> xif
@@ -567,42 +588,41 @@ Theorem main_whole_prog_spec:
     ((=) (full_compile_32 (TL cl) (get_stdin fs) fs))
 Proof
   strip_tac
-  \\ simp[whole_prog_spec_def,UNCURRY]
+  \\ simp[basis_ffiTheory.whole_prog_spec_def,UNCURRY]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`
   \\ reverse conj_tac >-
-   rw[Abbr`fs1`,full_compile_32_def,UNCURRY,
-      GSYM fastForwardFD_with_numchars,
-      GSYM add_stdo_with_numchars, with_same_numchars]
+   (rw[Abbr`fs1`,full_compile_32_def,UNCURRY,
+       GSYM fastForwardFD_with_numchars,
+       GSYM add_stdo_with_numchars, with_same_numchars]
+    \\ PURE_FULL_CASE_TAC
+    \\ rw[GSYM fastForwardFD_with_numchars,
+          GSYM add_stdo_with_numchars, with_same_numchars, UNCURRY])
   \\ simp [SEP_CLAUSES]
   \\ match_mp_tac (MP_CANON(MATCH_MP app_wgframe (UNDISCH main_spec)))
   \\ xsimpl
 QED
 
-val (semantics_thm,prog_tm) =
-  whole_prog_thm (get_ml_prog_state()) "main" (main_whole_prog_spec |> UNDISCH);
+val sem_thm = prove_sem_thm "main" "compiler32_prog" main_whole_prog_spec;
+val compiler32_prog_def = fetch "-" "compiler32_prog_def";
 
-Definition compiler32_prog_def:
-  compiler32_prog = ^prog_tm
-End
-
-Theorem dec_sides[local]:
-  (peg_v_side ⇔ T) ∧
-  (peg_longv_side ⇔ T) ∧
-  (peg_uqconstructorname_side ⇔ T) ∧
-  (cmlpeg_side ⇔ T)
+Theorem semantics_compiler32_prog:
+  IS_SOME (stdin_content fs) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ⇒
+  sem_satisfies
+    (semantics_dec_list
+      (init_state (basis_ffi ext cl fs) with
+       eval_state :=
+         SOME (EvalDecs (eval_state_var with env_id_counter := (0,0,1))))
+      init_env compiler32_prog)
+    (λbehaviour.
+       ∃io_events.
+         behaviour = Terminate Success io_events ∧
+         extract_fs ext (cl,fs) io_events =
+           SOME (full_compile_32 (TL cl) (get_stdin fs) fs))
 Proof
-  fs[
-    parserProgTheory.cmlpeg_side_def,
-    parserProgTheory.peg_v_side_def,
-    parserProgTheory.peg_longv_side_def,
-    parserProgTheory.peg_uqconstructorname_side_def]
+  strip_tac
+  \\ irule sem_thm
+  \\ fs []
 QED
-
-Theorem semantics_compiler32_prog =
-  semantics_thm
-  |> PURE_ONCE_REWRITE_RULE[GSYM compiler32_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC, dec_sides]
 
 val _ = ml_translatorLib.reset_translation(); (* because this translation won't be continued *)

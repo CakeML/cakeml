@@ -103,7 +103,28 @@ Inductive evaluate_ctxt:
    store_assign loc (Thunk Evaluated v) s1.refs = SOME refs
     ⇒ evaluate_ctxt ck env s1 (Cforce loc) v (s1 with refs := refs, Rval v)) ∧
 
-  ((~opClass op FunApp ∧ ¬ opClass op Force) ∧
+  (opClass op PtrEqOp ∧
+   evaluate_list ck env s1 es (s2, Rval vs2) ∧
+   REVERSE vs2 ++ [v] ++ vs1 = [v1; v2] ∧
+   do_eq v1 v2 = Eq_val beq
+      ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
+          (s2 with ptr_eq_oracle := (0 =+ shift_seq 1 (s2.ptr_eq_oracle 0)) s2.ptr_eq_oracle,
+           Rval (Boolv (beq ∧ s2.ptr_eq_oracle 0 0)))) ∧
+
+  (opClass op PtrEqOp ∧
+   evaluate_list ck env s1 es (s2, Rval vs2) ∧
+   REVERSE vs2 ++ [v] ++ vs1 = [v1; v2] ∧
+   do_eq v1 v2 = Eq_type_error
+      ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
+          (s2, Rerr (Rabort Rtype_error))) ∧
+
+  (opClass op PtrEqOp ∧
+   evaluate_list ck env s1 es (s2, Rval vs2) ∧
+   LENGTH (REVERSE vs2 ++ [v] ++ vs1) ≠ 2
+      ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
+          (s2, Rerr (Rabort Rtype_error))) ∧
+
+  ((~opClass op FunApp ∧ ¬ opClass op Force ∧ ¬opClass op PtrEqOp) ∧
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
    do_app (s2.refs, s2.ffi) op (REVERSE vs2 ++ [v] ++ vs1) = NONE
       ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
@@ -239,19 +260,19 @@ Inductive evaluate_dec_state:
     ⇒ evaluate_dec_state ck benv (st, ExpVal env ev cs locs pat, dcs) (st', Rerr err)) ∧
 
   (evaluate_state ck (env, st, ev, cs) (st', Rval v) ∧
-   (ALL_DISTINCT (pat_bindings pats []) ⇒
+   (ALL_DISTINCT (pat_bindings pats) ⇒
       pmatch (collapse_env benv dcs).c st'.refs pats v [] = Match_type_error)
     ⇒ evaluate_dec_state ck benv (st, ExpVal env ev cs locs pats, dcs)
         (st', Rerr (Rabort Rtype_error))) ∧
 
   (evaluate_state ck (env, st, ev, cs) (st', Rval v) ∧
-   ALL_DISTINCT (pat_bindings pats []) ∧
+   ALL_DISTINCT (pat_bindings pats) ∧
    pmatch (collapse_env benv dcs).c st'.refs pats v [] = No_match
     ⇒ evaluate_dec_state ck benv (st, ExpVal env ev cs locs pats, dcs)
         (st', Rerr (Rraise bind_exn_v))) ∧
 
   (evaluate_state ck (env, st, ev, cs) (st', Rval v) ∧
-   ALL_DISTINCT (pat_bindings pats []) ∧
+   ALL_DISTINCT (pat_bindings pats) ∧
    pmatch (collapse_env benv dcs).c st'.refs pats v [] = Match new_vals ∧
    evaluate_dec_ctxts ck benv st' dcs
     (Rval <| v := alist_to_ns new_vals; c := nsEmpty |>) res

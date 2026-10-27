@@ -28,7 +28,7 @@ Theorem x64_backend_config_ok:
 Proof
   simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[x64_backend_config_def]
-  >- (EVAL_TAC>> blastLib.FULL_BBLAST_TAC)
+  >- (EVAL_TAC >> intLib.ARITH_TAC)
   >- names_tac
   >- (
     fs [stack_removeTheory.store_offset_def,
@@ -45,9 +45,7 @@ Proof
     \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
     \\ rveq \\ fs [] \\ EVAL_TAC)
   \\ fs[stack_removeTheory.max_stack_alloc_def]
-  \\ EVAL_TAC>>fs[]
-  \\ match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP
-  \\ fs[]
+  \\ EVAL_TAC \\ intLib.ARITH_TAC
 QED
 
 Theorem x64_machine_config_ok:
@@ -71,6 +69,13 @@ Proof
   rw[mc_init_ok_def] \\
   fs[is_x64_machine_config_def] \\
   EVAL_TAC
+QED
+
+Theorem is_x64_machine_config_IMP:
+  is_x64_machine_config mc ⇒
+  mc_conf_ok mc ∧ mc_init_ok x64_config x64_backend_config mc
+Proof
+  metis_tac [x64_machine_config_ok, x64_init_ok]
 QED
 
 val is_x64_machine_config_mc = x64_init_ok |> concl |> dest_imp |> #1

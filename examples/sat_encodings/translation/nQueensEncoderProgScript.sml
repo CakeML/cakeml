@@ -3,7 +3,7 @@
 *)
 Theory nQueensEncoderProg
 Ancestors
-  misc set_sep list cnf boolExpToCnf quantifierExp
+  misc set_sep list satCnf boolExpToCnf quantifierExp
   orderEncodingBool nqueens
   (* for parsing: *) parsing source_values
   toCnfHelper sat_encodersProg
@@ -73,7 +73,7 @@ Definition problem_to_output_def:
 End
 
 Definition get_solved_rows_def:
-  get_solved_rows (w:assignment) (n:num) =
+  get_solved_rows (w:num assignment) (n:num) =
   MAP (λ row. MAP w row) (get_rows n)
 End
 

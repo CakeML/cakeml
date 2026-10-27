@@ -62,12 +62,5 @@ Proof
   \\ xsimpl
 QED
 
-val (call_thm_echo, echo_prog_tm) = whole_prog_thm st "echo" echo_whole_prog_spec;
-Definition echo_prog_def:
-  echo_prog = ^echo_prog_tm
-End
-
 Theorem echo_semantics =
-  call_thm_echo |> ONCE_REWRITE_RULE[GSYM echo_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  prove_sem_thm "echo" "echo_prog" echo_whole_prog_spec;

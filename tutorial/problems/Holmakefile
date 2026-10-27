@@ -1,0 +1,16 @@
+INCLUDES = $(HOLDIR)/examples/data-structures/balanced_bst\
+					 $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics $(CAKEMLDIR)/semantics/proofs\
+					 $(CAKEMLDIR)/basis/pure $(CAKEMLDIR)/basis\
+					 $(CAKEMLDIR)/translator $(CAKEMLDIR)/characteristic\
+					 $(CAKEMLDIR)/cv_translator\
+					 $(CAKEMLDIR)/compiler $(CAKEMLDIR)/compiler/backend/proofs\
+					 $(CAKEMLDIR)/compiler/backend/x64/proofs
+
+all: $(DEFAULT_TARGETS) README.md
+.PHONY: all
+
+sinclude $(CAKEMLDIR)/developers/readme.mk
+
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
+endif

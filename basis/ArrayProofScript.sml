@@ -841,7 +841,7 @@ Proof
   \\ fs [evaluateTheory.evaluate_def]
   \\ rw [semanticPrimitivesTheory.do_app_def]
   \\ gvs [ARRAY_def,SEP_EXISTS_THM,cond_STAR,NUM_def,INT_def]
-  \\ gvs [cell_def,one_def,EVAL “pat_bindings Pany []”]
+  \\ gvs [cell_def,one_def,EVAL “pat_bindings Pany”]
   \\ ‘store_lookup loc st.refs = SOME (Varray arrlsv)’ by
    (fs [semanticPrimitivesTheory.store_lookup_def]
     \\ ‘Mem loc (Varray arrlsv) IN st2heap p st’ by

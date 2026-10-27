@@ -4,7 +4,7 @@
 Theory source_letProof
 Ancestors
   source_let evaluate evaluateProps semanticPrimitives
-  semanticPrimitivesProps misc[qualified] semantics ast
+  semanticPrimitivesProps semantics ast
   source_evalProof
 Libs
   preamble
@@ -27,10 +27,10 @@ Proof
   >- (
     TOP_CASE_TAC \\ gs []
     \\ TOP_CASE_TAC \\ gvs [dest_Letrec_SOME]
-    \\ rw [] \\ gs [evaluate_decs_def, evaluate_def]
+    \\ rw [] \\ gs [evaluate_decs_def, evaluate_def, check_exp_constructors_def]
     \\ reverse IF_CASES_TAC \\ gs [env_c_lemma]
     >-
-     (qsuff_tac ‘~EVERY (λ(n,v,e'). every_exp (one_con_check env.c) e') q’
+     (qsuff_tac ‘~EVERY (λ(n,v,e'). check_exp_constructors env.c e') q’
       \\ rpt strip_tac \\ full_simp_tac bool_ss [] \\ fs []
       \\ fs [EVERY_MEM,EXISTS_MEM,EXISTS_PROD,FORALL_PROD,SF SFY_ss]
       \\ res_tac \\ fs [])
@@ -42,7 +42,7 @@ Proof
       by rw [sem_env_component_equality, build_rec_env_merge]
     \\ gs [])
   \\ TOP_CASE_TAC \\ TOP_CASE_TAC \\ gvs [dest_Let_SOME]
-  \\ rw [] \\ gs [evaluate_decs_def, evaluate_def]
+  \\ rw [] \\ gs [evaluate_decs_def, evaluate_def, check_exp_constructors_def]
   \\ pop_assum mp_tac
   \\ CASE_TAC \\ rw [] \\ gs [evaluate_decs_def]
   \\ gs [pat_bindings_def, namespaceTheory.nsOptBind_def, pmatch_def]
@@ -155,19 +155,19 @@ Proof
 QED
 
 Theorem compile_semantics:
-  ¬semantics_prog s env prog Fail ∧
-  semantics_prog s env prog outcome ⇒
-    semantics_prog s env (compile_decs prog) outcome
+  ¬semantics_determ s env prog Fail ∧
+  semantics_determ s env prog outcome ⇒
+    semantics_determ s env (compile_decs prog) outcome
 Proof
   Cases_on ‘outcome’ \\ gs [SF CONJ_ss]
   >~ [‘Terminate outcome tr’] >- (
-    rw [semantics_prog_def]
+    rw [semantics_determ_def]
     \\ gs [evaluate_prog_with_clock_def]
     \\ pairarg_tac \\ gvs []
     \\ drule_all_then assume_tac compile_decs_correct
     \\ qexists_tac ‘k’ \\ simp [])
   >~ [‘Diverge tr’] >- (
-    rw [semantics_prog_def]
+    rw [semantics_determ_def]
     >- (
       first_x_assum (qspec_then ‘k’ strip_assume_tac)
       \\ gs [evaluate_prog_with_clock_def]
@@ -188,9 +188,9 @@ QED
 Theorem compile_semantics_oracle:
   ∀f.
   source_evalProof$is_insert_oracle ci f s.eval_state ∧
-  ¬ semantics_prog s env prog Fail ∧
-  semantics_prog s env prog outcome ⇒
-  semantics_prog (s with eval_state updated_by
+  ¬ semantics_determ s env prog Fail ∧
+  semantics_determ s env prog outcome ⇒
+  semantics_determ (s with eval_state updated_by
             source_evalProof$adjust_oracle ci (compile_decs ∘ f))
         env prog outcome
 Proof
@@ -200,4 +200,3 @@ Proof
   \\ irule compile_decs_correct
   \\ simp []
 QED
-

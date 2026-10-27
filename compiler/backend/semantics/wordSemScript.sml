@@ -12,6 +12,45 @@ Ancestors
   machine_ieee[qualified] (* for FP *)
   backend_common (* for word_add_carry *)
 
+Definition word_op_def:
+  word_op op (ws:('a word) list) =
+    case (op,ws) of
+    | (And,ws) => SOME (FOLDR word_and (¬0w) ws)
+    | (Add,ws) => SOME (FOLDR word_add 0w ws)
+    | (Or,ws) => SOME (FOLDR word_or 0w ws)
+    | (Xor,ws) => SOME (FOLDR word_xor 0w ws)
+    | (Sub,[w1;w2]) => SOME (w1 - w2)
+    | _ => NONE
+End
+
+Definition word_sh_def:
+  word_sh sh (w:'a word) n =
+    if n <> 0 /\ n ≥ dimindex (:α) then NONE else
+      case sh of
+      | Lsl => SOME (w << n)
+      | Lsr => SOME (w >>> n)
+      | Asr => SOME (w >> n)
+      | Ror => SOME (word_ror w n)
+End
+
+Definition upper_w2w_def:
+  upper_w2w (w:'a word) =
+    if dimindex (:'a) = 32 then w2w w << 32 else (w2w w):word64
+End
+
+Definition word_add_carry_def:
+  word_add_carry (l: α word) (r: α word) (c: α word) : (α word # α word) =
+  let
+    res = w2n l + w2n r + (if c = 0w then 0 else 1)
+  in
+    (n2w res, if dimword(:α) ≤ res then 1w else 0w)
+End
+
+
+Datatype:
+  word_loc = Word ('a word) | Loc num num
+End
+
 Datatype:
   buffer =
     <| position   : 'a word
@@ -214,16 +253,23 @@ Datatype:
      ; mdomain : ('a word) set
      ; sh_mdomain : ('a word) set
      ; permute : num -> num -> num (* sequence of bijective mappings *)
-     ; compile : 'c -> (num # num # 'a wordLang$prog) list -> (word8 list # 'a word list # 'c) option
-     ; compile_oracle : num -> 'c # (num # num # 'a wordLang$prog) list
+     ; compile : 'c -> (num # num # wordLang$prog # metadata) list -> (word8 list # 'a word list # 'c) option
+     ; compile_oracle : num -> 'c # (num # num # wordLang$prog # metadata) list
      ; code_buffer : ('a,8) buffer
      ; data_buffer : ('a,'a) buffer
      ; gc_fun  : 'a gc_fun_type
      ; handler : num (*position of current handle frame on stack*)
      ; clock   : num
      ; termdep : num (* count of how many MustTerminates we can still enter *)
-     ; code    : (num # ('a wordLang$prog)) num_map
+     ; code    : (num # (wordLang$prog) # metadata) num_map
      ; be      : bool (*is big-endian*)
+     ; ptr_eq_oracle : (num -> num -> bool) option
+         (* SOME: PtrEq answers come from the oracle; NONE: PtrEq compares words *)
+     ; ptr_eq_rel : ('a word -> 'a word_loc) -> ('a word) set ->
+                    (store_name |-> 'a word_loc) -> 'a word -> 'a word -> bool
+         (* attenuates the oracle: it may answer T only where this holds of the
+            two words. The PtrEq clause of evaluate is its only reader, and no
+            clause writes it, so it is fixed by whoever builds the state. *)
      ; ffi     : 'ffi ffi_state |>
 End
 
@@ -339,7 +385,7 @@ Definition set_store_def:
 End
 
 Definition word_exp_def:
-  (word_exp ^s (Const w) = SOME (Word w)) /\
+  (word_exp ^s (Const i) = SOME (Word (i2w i))) /\
   (word_exp s (Var v) = get_var v s) /\
   (word_exp s (Lookup name) = get_store name s) /\
   (word_exp s (Load addr) =
@@ -355,7 +401,7 @@ Definition word_exp_def:
      | (SOME (Word w), SOME (Word w1)) => OPTION_MAP Word (word_sh sh w (w2n w1))
      | _ => NONE)
 Termination
-  WF_REL_TAC `measure (exp_size ARB o SND)`
+  WF_REL_TAC `measure (exp_size o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ DECIDE_TAC
@@ -523,7 +569,7 @@ Definition push_env_def:
       s with <| stack := stack
               ; stack_max := OPTION_MAP2 MAX s.stack_max (stack_size stack)
               ; permute := permute|>) ∧
-  (push_env envs (SOME (w:num,h:'a wordLang$prog,l1,l2)) s =
+  (push_env envs (SOME (w:num,h:wordLang$prog,l1,l2)) s =
     let l0 = toAList (FST envs);
         (l,permute) = env_to_list (SND envs) s.permute;
         handler = SOME (s.handler,l1,l2);
@@ -615,7 +661,7 @@ Definition find_code_def:
   (find_code (SOME p) args code ssize =
      case sptree$lookup p code of
      | NONE => NONE
-     | SOME (arity,exp) => if LENGTH args = arity then SOME (args,exp,sptree$lookup p ssize)
+     | SOME (arity,exp,md) => if LENGTH args = arity then SOME (args,exp,sptree$lookup p ssize)
                                                   else NONE) /\
   (find_code NONE args code ssize =
      if args = [] then NONE else
@@ -623,7 +669,7 @@ Definition find_code_def:
        | Loc loc 0 =>
            (case lookup loc code of
             | NONE => NONE
-            | SOME (arity,exp) => if LENGTH args = arity + 1
+            | SOME (arity,exp,md) => if LENGTH args = arity + 1
                                   then SOME (FRONT args,exp,sptree$lookup loc ssize)
                                   else NONE)
        | other => NONE)
@@ -675,7 +721,7 @@ Definition alloc_def:
     | NONE => (SOME (Error:'a result),flush_state T s)
     | SOME envs =>
      (* perform garbage collection *)
-     (case gc (push_env envs (NONE:(num # 'a wordLang$prog # num # num) option) (set_store AllocSize (Word w) s)) of
+     (case gc (push_env envs (NONE:(num # wordLang$prog # num # num) option) (set_store AllocSize (Word w) s)) of
       | NONE => (SOME Error,flush_state T s)
       | SOME s =>
        (* restore local variables *)
@@ -717,15 +763,15 @@ Definition inst_def:
   inst i ^s =
     case i of
     | Skip => SOME s
-    | Const reg w => assign reg (Const w) s
+    | Const reg j => assign reg (Const j) s
     | Arith (Binop bop r1 r2 ri) =>
         assign r1
           (Op bop [Var r2; case ri of Reg r3 => Var r3
-                                    | Imm w => Const w]) s
+                                    | Imm i => Const i]) s
     | Arith (Shift sh r1 r2 ri) =>
         assign r1
           (Shift sh (Var r2) (case ri of Reg r3 => Var r3
-                                       | Imm w => Const w)) s
+                                       | Imm i => Const i)) s
     | Arith (Div r1 r2 r3) =>
        (let vs = get_vars[r3;r2] s in
        case vs of
@@ -773,6 +819,25 @@ Definition inst_def:
            SOME (set_var r1 (Word (n2w q)) (set_var r2 (Word (n2w (n MOD d))) s))
          else NONE
       | _ => NONE)
+    | Arith (IMul rd ra rb ro) =>
+        (case get_vars [ra;rb] s of
+        | SOME [Word a;Word b] =>
+            SOME (set_var ro
+              (Word (if w2i (a * b) ≠ w2i a * w2i b then 1w else 0w))
+              (set_var rd (Word (a * b)) s))
+        | _ => NONE)
+    | Arith (IDiv rq rr ra rb) =>
+        (case get_vars [ra;rb] s of
+        | SOME [Word wa;Word wb] =>
+            let a = w2i wa in
+            let b = w2i wb in
+            let q = a quot b in
+            let wq = i2w q : 'a word in
+              if b ≠ 0 ∧ w2i wq = q then
+                SOME (set_var rq (Word wq)
+                  (set_var rr (Word (i2w (a rem b))) s))
+              else NONE
+        | _ => NONE)
     | Mem Load r (Addr a w) =>
        (case word_exp s (Op Add [Var a; Const w]) of
         | SOME (Word w) =>
@@ -939,8 +1004,8 @@ Definition inst_def:
 End
 
 Definition get_var_imm_def:
-  (get_var_imm ((Reg n):'a reg_imm) ^s = get_var n s) ∧
-  (get_var_imm (Imm w) s = SOME(Word w))
+  (get_var_imm ((Reg n):reg_imm) ^s = get_var n s) ∧
+  (get_var_imm (Imm w) s = SOME(Word (i2w w)))
 End
 
 Definition add_ret_loc_def:
@@ -1013,8 +1078,47 @@ Definition exit_loop_def[simp]:
   exit_loop res = res
 End
 
+Definition code_buffer_install_def:
+  code_buffer_install ptr len cptr mem_read cb =
+    case (ptr, len, cptr) of
+    | SOME (Word ptrw), SOME (Word lenw), SOME (Word cptrw) =>
+       (case read_bytearray ptrw (w2n lenw) mem_read of
+        | NONE => NONE
+        | SOME bytes =>
+           if cb.buffer = [] ∧
+              cb.position = cptrw ∧
+              LENGTH bytes ≤ cb.space_left
+           then
+             SOME (bytes, <| position   := cptrw + lenw
+                           ; buffer     := []
+                           ; space_left := cb.space_left - w2n lenw |>)
+          else NONE)
+     | _ => NONE
+End
+
+Theorem code_buffer_install_SOME:
+  code_buffer_install ptr len cptr mr cb = SOME (bytes,cb') ⇔
+  ∃ptrw lenw cptrw.
+    ptr = SOME (Word ptrw) ∧ len = SOME (Word lenw) ∧ cptr = SOME (Word cptrw) ∧
+    read_bytearray ptrw (w2n lenw) mr = SOME bytes ∧
+    cb.buffer = [] ∧ cb.position = cptrw ∧ LENGTH bytes ≤ cb.space_left ∧
+    cb' = <| position := cptrw + lenw; buffer := [];
+             space_left := cb.space_left - w2n lenw |>
+Proof
+  simp[code_buffer_install_def, AllCaseEqs()] >> metis_tac[]
+QED
+
+Theorem code_buffer_install_result:
+  code_buffer_install ptr len cptr mr cb = SOME (bytes,cb') ⇒
+  cb'.buffer = [] ∧ cb'.position = cb.position + n2w (LENGTH bytes) ∧
+  cb'.space_left = cb.space_left - LENGTH bytes ∧ LENGTH bytes ≤ cb.space_left
+Proof
+  rw[code_buffer_install_SOME] >>
+  imp_res_tac read_bytearray_LENGTH >> gvs[]
+QED
+
 Definition evaluate_def:
-  (evaluate (Skip:'a wordLang$prog,^s) = (NONE,s)) /\
+  (evaluate (Skip:wordLang$prog,^s) = (NONE,s)) /\
   (evaluate (Alloc n names,s) =
      case get_var n s of
      | SOME (Word w) => alloc w names s
@@ -1025,7 +1129,7 @@ Definition evaluate_def:
         (if ~ const_addresses a words s.mdomain then
            (SOME Error,s)
          else
-           let s = s with memory := const_writes a off words s.memory in
+           let s = s with memory := const_writes a off (MAP (λ(b,i). (b,i2w i)) words) s.memory in
            let s = set_var offset (Word off) (unset_var t1 (unset_var t2 s)) in
              (NONE, set_var addr (Word (a + bytes_in_word * n2w (LENGTH words))) s))
      | _ => (SOME Error,s)) /\
@@ -1115,19 +1219,24 @@ Definition evaluate_def:
      if l1 ∈ domain s.code then
        (NONE,set_var r (Loc l1 0) s)
      else (SOME Error,s)) /\
-  (evaluate (Install ptr len dptr dlen names,s) =
+  (evaluate (Install ptr len cptr dptr dptr_end names,s) =
     case cut_env names s.locals of
     | NONE => (SOME Error,s)
     | SOME env =>
-    case (get_var ptr s, get_var len s, get_var dptr s, get_var dlen s) of
-    | SOME (Word w1), SOME (Word w2), SOME (Word w3), SOME (Word w4) =>
+   (case code_buffer_install (get_var ptr s)
+                             (get_var len s)
+                             (get_var cptr s)
+                             (mem_load_byte_aux s.memory s.mdomain s.be)
+                             s.code_buffer of
+    | SOME (bytes,cb) =>
+   (case (get_var dptr s, get_var dptr_end s) of
+    | SOME (Word dptrw), SOME (Word dptr_endw) =>
        let (cfg,progs) = s.compile_oracle 0 in
-       (case (buffer_flush s.code_buffer w1 w2
-             ,buffer_flush s.data_buffer w3 w4) of
-         SOME (bytes, cb), SOME (data, db) =>
+       (case buffer_flush s.data_buffer dptrw dptr_endw of
+         SOME (data, db) =>
         let new_oracle = shift_seq 1 s.compile_oracle in
         (case s.compile cfg progs, progs of
-          | SOME (bytes',data',cfg'), (k,prog)::_ =>
+          | SOME (bytes',data',cfg'), (k,_)::_ =>
             if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then
             let s' =
                 s with <|
@@ -1136,7 +1245,9 @@ Definition evaluate_def:
                 ; code := union s.code (fromAList progs)
                 (* This order is convenient because it means all of s.code's entries are preserved *)
                 ; locals := insert ptr (Loc k 0) env
+                ; fp_regs := FEMPTY
                 ; compile_oracle := new_oracle
+                ; ptr_eq_oracle := OPTION_MAP (shift_seq 1) s.ptr_eq_oracle
                 ; stack_max := NONE (* Install is not safe for space *)
                 ; stack_size := LN
                 (* For convenience --- stack size of installed code,
@@ -1147,15 +1258,8 @@ Definition evaluate_def:
             else (SOME Error,s)
           | _ => (SOME Error,s))
         | _ => (SOME Error,s))
-      | _ => (SOME Error,s)) /\
-  (evaluate (CodeBufferWrite r1 r2,s) =
-    (case (get_var r1 s,get_var r2 s) of
-        | (SOME (Word w1), SOME (Word w2)) =>
-          (case buffer_write s.code_buffer w1 (w2w w2) of
-          | SOME new_cb =>
-            (NONE,s with code_buffer:=new_cb)
-          | _ => (SOME Error,s))
-        | _ => (SOME Error,s))) /\
+        | _ => (SOME Error,s))
+      | _ => (SOME Error,s))) /\
   (evaluate (DataBufferWrite r1 r2,s) =
     (case (get_var r1 s,get_var r2 s) of
         | (SOME (Word w1), SOME (Word w2)) =>
@@ -1180,6 +1284,7 @@ Definition evaluate_def:
                 let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
                   (NONE, s with <| memory := new_m ;
                                    locals := env ;
+                                   fp_regs := FEMPTY;
                                    ffi := new_ffi |>))
           | _ => (SOME Error,s)))
     | res => (SOME Error,s)) /\
@@ -1241,9 +1346,20 @@ Definition evaluate_def:
                            | (NONE,s) => (SOME Error,s)
                            | (SOME (Break _),s) => (SOME Error,s)
                            | (SOME (Continue _),s) => (SOME Error,s)
-                           | res => res)))
+                           | res => res))) /\
+  (evaluate (PtrEq dst v1 v2 t f,s) =
+     case (get_var v1 s, get_var v2 s) of
+     | (SOME (Word w1), SOME (Word w2)) =>
+         (case s.ptr_eq_oracle of
+          | NONE => (NONE, set_var dst (Word (i2w (if w1 = w2 then t else f))) s)
+          | SOME po =>
+              let r = (s.ptr_eq_rel s.memory s.mdomain s.store w1 w2 /\ po 0 0) in
+              let s1 = s with ptr_eq_oracle :=
+                         SOME ((0 =+ shift_seq 1 (po 0)) po) in
+                (NONE, set_var dst (Word (i2w (if r then t else f))) s1))
+     | _ => (SOME Error, s))
 Termination
-  WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure (prog_size (K 0)))
+  WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure prog_size)
                (\(xs,^s). (s.termdep,s.clock,xs)))`
   \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
   \\ full_simp_tac(srw_ss())[termdep_rw,STOP_def]
@@ -1404,7 +1520,3 @@ Definition word_lang_safe_for_space_def:
       (∀k res t. wordSem$evaluate (prog, s with clock := k) = (res,t) ==>
         ∃max. t.stack_max = SOME max /\ max <= t.stack_limit)
 End
-
-(* clean up *)
-
-val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];

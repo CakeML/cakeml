@@ -49,8 +49,16 @@ Datatype:
       | Force num (* loc to call for evaluation of unevaluated thunk *)
               num (* var holding thunk *)
       | Op op (exp list)
+      (* multi-value call and return: *)
+      (* let-and-call: num of return values, ticks, call target, args, body of let *)
+      | LetCall num num num (exp list) exp
+      (* return-multi-value: returns values of given expressions *)
+      | Return (exp list)
 End
 
 Overload mk_unit = “bvi$Op (BlockOp (Cons 0)) []”
 
 Overload mk_elem_at = “λb i. bvi$Op (BlockOp (ElemAt i)) [b]”
+
+Overload TailCall = “λret_count ticks dest args.
+                       LetCall ret_count ticks dest args (Return (GENLIST Var ret_count))”

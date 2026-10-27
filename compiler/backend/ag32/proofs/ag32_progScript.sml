@@ -6,7 +6,7 @@ Theory ag32_prog
 Libs
   preamble
 Ancestors
-  set_sep prog ag32 ag32_memory temporal_state
+  set_sep prog ag32 ag32_memory
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 

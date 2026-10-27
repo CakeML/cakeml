@@ -1,5 +1,8 @@
 Encoders for various graph problems.
 
+[array](array):
+CakeML frontends for the graph encoders.
+
 [cliqueScript.sml](cliqueScript.sml):
 Formalization of the max clique problem
 

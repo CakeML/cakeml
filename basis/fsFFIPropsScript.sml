@@ -11,6 +11,11 @@ val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = option_monadsyntax.temp_add_option_monadsyntax();
 
+(* TODO This file could be organized a bit better. something along these lines:
+   1. theorems purely about the definitions in fsFFI
+   2. definition of invariants (liveFS, consistentFS, etc.)
+   3. theorems that file system operations preserve the invariants *)
+
 Theorem numchars_self:
    !fs. fs = fs with numchars := fs.numchars
 Proof
@@ -18,11 +23,21 @@ Proof
   fs[fsFFITheory.recordtype_IO_fs_seldef_numchars_fupd_def]
 QED
 
+(* TODO This should probably be a definition instead. *)
 (* we can actually open a file if the OS limit has not been reached and we can
 * still encode the file descriptor on 8 bits *)
 Overload hasFreeFD = ``λfs. CARD (set (MAP FST fs.infds)) < MIN fs.maxFD (256**8)``
 
 (* nextFD lemmas *)
+
+Theorem NOT_MEM_nextFD[simp]:
+  ¬MEM (nextFD fs) (MAP FST fs.infds)
+Proof
+  rw [nextFD_def]
+  >> numLib.LEAST_ELIM_TAC >> simp []
+  >> sg ‘FINITE (set (MAP FST fs.infds))’ >- simp []
+  >> metis_tac [IN_INFINITE_NOT_FINITE, INFINITE_NUM_UNIV]
+QED
 
 Theorem nextFD_ltX:
    CARD (set (MAP FST fs.infds)) < x ⇒ nextFD fs < x
@@ -213,9 +228,15 @@ Definition wfFS_def:
 End
 
 Theorem consistentFS_with_numchars[simp]:
-  !fs ll. consistentFS fs ⇒ consistentFS (fs with numchars := ll)
+  consistentFS (fs with numchars := ll) ⇔ consistentFS fs
 Proof
  fs[consistentFS_def]
+QED
+
+Theorem consistentFS_AFUPDKEY[simp]:
+  consistentFS (fs with inode_tbl updated_by AFUPDKEY k v) ⇔ consistentFS fs
+Proof
+  simp [consistentFS_def]
 QED
 
 Theorem wfFS_numchars:
@@ -340,10 +361,10 @@ Proof
 QED
 *)
 
-Theorem get_file_content_eof:
-   get_file_content fs fd = SOME (content,pos) ⇒ eof fd fs = SOME (¬(pos < LENGTH content))
+Theorem get_fd_content_eof:
+   get_fd_content fs fd = SOME (content,pos) ⇒ eof fd fs = SOME (¬(pos < LENGTH content))
 Proof
-  rw[get_file_content_def,eof_def]
+  rw[get_fd_content_def,eof_def]
   \\ pairarg_tac \\ fs[]
 QED
 
@@ -377,6 +398,12 @@ Theorem ALOOKUP_SOME_inFS_fname:
    ALOOKUP fs.files fnm = SOME ino ==> inFS_fname fs fnm
 Proof
   rw[openFileFS_def,openFile_def] \\ imp_res_tac inFS_fname_def
+QED
+
+Theorem not_inFS_fname_ALOOKUP:
+  ¬inFS_fname fs f ⇔ ALOOKUP fs.files f = NONE
+Proof
+  simp [inFS_fname_def] >> Cases_on ‘ALOOKUP fs.files f’ >> simp []
 QED
 
 Theorem ALOOKUP_inFS_fname_openFileFS_nextFD:
@@ -523,10 +550,10 @@ Proof
 QED
 
 Theorem fastForwardFD_0:
-   (∀content pos. get_file_content fs fd = SOME (content,pos) ⇒ LENGTH content ≤ pos) ⇒
+   (∀content pos. get_fd_content fs fd = SOME (content,pos) ⇒ LENGTH content ≤ pos) ⇒
    fastForwardFD fs fd = fs
 Proof
-  rw[fastForwardFD_def,get_file_content_def]
+  rw[fastForwardFD_def,get_fd_content_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[miscTheory.the_def]
   \\ pairarg_tac \\ fs[]
   \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[miscTheory.the_def]
@@ -610,10 +637,10 @@ Proof
 QED
 
 Theorem fsupdate_unchanged:
-  get_file_content fs fd = SOME(content, pos) ==>
+  get_fd_content fs fd = SOME(content, pos) ==>
     fsupdate fs fd 0 pos content = fs
 Proof
-    fs[fsupdate_def,get_file_content_def,validFD_def,IO_fs_component_equality]>>
+    fs[fsupdate_def,get_fd_content_def,validFD_def,IO_fs_component_equality]>>
     rw[] >> pairarg_tac >> fs[AFUPDKEY_unchanged] >> rw[]
 QED
 
@@ -724,49 +751,49 @@ Proof
  rw [fsupdate_def] \\ every_case_tac \\ simp []
 QED
 
-(* get_file_content *)
+(* get_fd_content *)
 
-Theorem get_file_content_numchars:
-  !fs fd. get_file_content fs fd =
-              get_file_content (fs with numchars := ll) fd
+Theorem get_fd_content_numchars:
+  !fs fd. get_fd_content fs fd =
+              get_fd_content (fs with numchars := ll) fd
 Proof
- fs[get_file_content_def]
+ fs[get_fd_content_def]
 QED
 
-Theorem get_file_content_validFD:
-   get_file_content fs fd = SOME(c,p) ⇒ validFD fd fs
+Theorem get_fd_content_validFD:
+   get_fd_content fs fd = SOME(c,p) ⇒ validFD fd fs
 Proof
-  fs[get_file_content_def,validFD_def] >> rw[] >> pairarg_tac >>
+  fs[get_fd_content_def,validFD_def] >> rw[] >> pairarg_tac >>
   imp_res_tac ALOOKUP_MEM >> fs[ALOOKUP_MEM,MEM_MAP] >>
   qexists_tac`(fd,x)` >> fs[]
 QED
 
-Theorem get_file_content_fsupdate:
-   !fs fd x i c u. get_file_content fs fd = SOME u ⇒
-  get_file_content (fsupdate fs fd x i c) fd = SOME(c,i)
+Theorem get_fd_content_fsupdate:
+   !fs fd x i c u. get_fd_content fs fd = SOME u ⇒
+  get_fd_content (fsupdate fs fd x i c) fd = SOME(c,i)
 Proof
-  rw[get_file_content_def, fsupdate_def] >>
+  rw[get_fd_content_def, fsupdate_def] >>
   pairarg_tac >> fs[AFUPDKEY_ALOOKUP]
 QED
 
-Theorem get_file_content_fsupdate_unchanged:
+Theorem get_fd_content_fsupdate_unchanged:
    !fs fd u fnm pos fd' fnm' pos' x i c.
-   get_file_content fs fd = SOME u ⇒
+   get_fd_content fs fd = SOME u ⇒
    ALOOKUP fs.infds fd = SOME (fnm,pos) ⇒
    ALOOKUP fs.infds fd' = SOME (fnm',pos') ⇒ fnm ≠ fnm' ⇒
-  get_file_content (fsupdate fs fd' x i c) fd = SOME u
+  get_fd_content (fsupdate fs fd' x i c) fd = SOME u
 Proof
-  rw[get_file_content_def, fsupdate_def] >>
+  rw[get_fd_content_def, fsupdate_def] >>
   pairarg_tac >> fs[AFUPDKEY_ALOOKUP] >>
   rpt(CASE_TAC >> fs[])
 QED
 
-Theorem get_file_content_bumpFD[simp]:
+Theorem get_fd_content_bumpFD[simp]:
   !fs fd c pos n.
-   get_file_content (bumpFD fd fs n) fd =
-   OPTION_MAP (I ## (+) n) (get_file_content fs fd)
+   get_fd_content (bumpFD fd fs n) fd =
+   OPTION_MAP (I ## (+) n) (get_fd_content fs fd)
 Proof
- rw[get_file_content_def,bumpFD_def,AFUPDKEY_ALOOKUP]
+ rw[get_fd_content_def,bumpFD_def,AFUPDKEY_ALOOKUP]
  \\ CASE_TAC \\ fs[]
  \\ pairarg_tac \\ fs[] \\ rw[]
  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[]
@@ -843,6 +870,12 @@ Proof
   >-(fs[consistentFS_def,MEM_MAP] >> rw[] >> res_tac >> metis_tac[])
 QED
 
+Theorem liveFS_AFUPDKEY[simp]:
+  liveFS (fs with inode_tbl updated_by AFUPDKEY k v) ⇔ liveFS fs
+Proof
+  simp [liveFS_def]
+QED
+
 Theorem openFileFS_maxFD[simp]:
    (openFileFS f fs md pos).maxFD = fs.maxFD
 Proof
@@ -860,11 +893,11 @@ Proof
   rw[openFileFS_def,openFile_fupd_numchars] >> rpt CASE_TAC
 QED
 
-Theorem IS_SOME_get_file_content_openFileFS_nextFD:
+Theorem IS_SOME_get_fd_content_openFileFS_nextFD:
    !fs f off md. consistentFS fs ∧ inFS_fname fs f ∧ nextFD fs ≤ fs.maxFD
-   ⇒ IS_SOME (get_file_content (openFileFS f fs md off) (nextFD fs))
+   ⇒ IS_SOME (get_fd_content (openFileFS f fs md off) (nextFD fs))
 Proof
-   rw[get_file_content_def]
+   rw[get_fd_content_def]
   \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS \\ fs[]
   \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD \\ simp[]
 QED
@@ -956,12 +989,12 @@ Proof
   \\ Cases_on`x` \\ fs[]
 QED
 
-Theorem get_file_content_forwardFD[simp]:
+Theorem get_fd_content_forwardFD[simp]:
    !fs fd c pos n.
-    get_file_content (forwardFD fs fd n) fd =
-    OPTION_MAP (I ## (+) n) (get_file_content fs fd)
+    get_fd_content (forwardFD fs fd n) fd =
+    OPTION_MAP (I ## (+) n) (get_fd_content fs fd)
 Proof
-  rw[get_file_content_def,forwardFD_def,AFUPDKEY_ALOOKUP]
+  rw[get_fd_content_def,forwardFD_def,AFUPDKEY_ALOOKUP]
   \\ CASE_TAC \\ fs[]
   \\ pairarg_tac \\ fs[] \\ rw[]
   \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[]
@@ -974,10 +1007,10 @@ Proof
 QED
 
 Theorem fastForwardFD_forwardFD:
-   get_file_content fs fd = SOME (content,pos) ∧ pos + n ≤ LENGTH content ⇒
+   get_fd_content fs fd = SOME (content,pos) ∧ pos + n ≤ LENGTH content ⇒
    fastForwardFD (forwardFD fs fd n) fd = fastForwardFD fs fd
 Proof
-  rw[fastForwardFD_def,get_file_content_def,forwardFD_def,AFUPDKEY_ALOOKUP]
+  rw[fastForwardFD_def,get_fd_content_def,forwardFD_def,AFUPDKEY_ALOOKUP]
   \\ rw[]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[miscTheory.the_def]
@@ -996,7 +1029,7 @@ QED
 
 Definition lineFD_def:
   lineFD fs fd = do
-    (content, pos) <- get_file_content fs fd;
+    (content, pos) <- get_fd_content fs fd;
     assert (pos < LENGTH content);
     let (l,r) = SPLITP ((=)#"\n") (DROP pos content) in
       SOME(l++"\n") od
@@ -1006,7 +1039,7 @@ End
 
 Definition linesFD_def:
  linesFD fs fd =
-   case get_file_content fs fd of
+   case get_fd_content fs fd of
    | NONE => []
    | SOME (content,pos) =>
        MAP (λx. x ++ "\n")
@@ -1092,11 +1125,20 @@ Proof
   rw[FUN_EQ_THM,all_lines_file_def]
 QED
 
+Theorem all_lines_file_lines_of:
+  file_content fs f = SOME c ⇒
+  all_lines_file fs f = lines_of (strlit c)
+Proof
+  fs[file_content_def]>>
+  rw[all_lines_file_def,lines_of_def]>>
+  every_case_tac>>fs[]
+QED
+
 Theorem linesFD_openFileFS_nextFD:
    consistentFS fs ∧ inFS_fname fs f ∧ nextFD fs ≤ fs.maxFD ⇒
    linesFD (openFileFS f fs md 0) (nextFD fs) = MAP explode (all_lines_file fs f)
 Proof
-  rw[linesFD_def,get_file_content_def,ALOOKUP_inFS_fname_openFileFS_nextFD]
+  rw[linesFD_def,get_fd_content_def,ALOOKUP_inFS_fname_openFileFS_nextFD]
   \\ rw[all_lines_file_def,lines_of_def]
   \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
   \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
@@ -1107,7 +1149,7 @@ QED
 
 Definition lineForwardFD_def:
   lineForwardFD fs fd =
-    case get_file_content fs fd of
+    case get_fd_content fs fd of
     | NONE => fs
     | SOME (content, pos) =>
       if pos < LENGTH content
@@ -1124,7 +1166,7 @@ Proof
   \\ TOP_CASE_TAC \\ fs[miscTheory.the_def]
   \\ TOP_CASE_TAC \\ fs[miscTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ fs[forwardFD_def,AFUPDKEY_ALOOKUP,get_file_content_def]
+  \\ fs[forwardFD_def,AFUPDKEY_ALOOKUP,get_fd_content_def]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[miscTheory.the_def]
   \\ fs[IO_fs_component_equality,AFUPDKEY_o]
@@ -1136,9 +1178,9 @@ Proof
   \\ rw[MAX_DEF,NULL_EQ] \\ fs[]
 QED
 
-Theorem IS_SOME_get_file_content_lineForwardFD[simp]:
-   IS_SOME (get_file_content (lineForwardFD fs fd) fd) =
-   IS_SOME (get_file_content fs fd)
+Theorem IS_SOME_get_fd_content_lineForwardFD[simp]:
+   IS_SOME (get_fd_content (lineForwardFD fs fd) fd) =
+   IS_SOME (get_fd_content fs fd)
 Proof
   rw[lineForwardFD_def]
   \\ CASE_TAC \\ simp[]
@@ -1151,7 +1193,7 @@ Theorem lineFD_NONE_lineForwardFD_fastForwardFD:
    lineFD fs fd = NONE ⇒
    lineForwardFD fs fd = fastForwardFD fs fd
 Proof
-  rw[lineFD_def,lineForwardFD_def,fastForwardFD_def,get_file_content_def]
+  rw[lineFD_def,lineForwardFD_def,fastForwardFD_def,get_fd_content_def]
   \\ fs[miscTheory.the_def]
   \\ pairarg_tac \\ fs[miscTheory.the_def]
   \\ rveq \\ fs[miscTheory.the_def]
@@ -1223,7 +1265,7 @@ Proof
   \\ CASE_TAC \\ fs[]
   \\ CASE_TAC \\ fs[]
   \\ pairarg_tac \\ fs[]
-  \\ simp[get_file_content_def]
+  \\ simp[get_fd_content_def]
   \\ simp[forwardFD_def,AFUPDKEY_ALOOKUP]
   \\ CASE_TAC \\ fs[]
 QED
@@ -1250,8 +1292,8 @@ Proof
     \\ simp[FORALL_PROD] )
 QED
 
-Theorem get_file_content_lineForwardFD_forwardFD:
-   ∀fs fd. get_file_content fs fd = SOME (x,pos) ⇒
+Theorem get_fd_content_lineForwardFD_forwardFD:
+   ∀fs fd. get_fd_content fs fd = SOME (x,pos) ⇒
      lineForwardFD fs fd = forwardFD fs fd (LENGTH(FST(SPLITP((=)#"\n")(DROP pos x))) +
                                             if NULL(SND(SPLITP((=)#"\n")(DROP pos x))) then 0 else 1)
 Proof
@@ -1298,6 +1340,7 @@ Proof
   \\ metis_tac[NOT_SOME_NONE,SOME_11,PAIR,FST]
 QED
 
+(* TODO Could this be a ⇔ and a simp? *)
 Theorem STD_streams_openFileFS:
    !fs s k. STD_streams fs ==> STD_streams (openFileFS s fs md k)
 Proof
@@ -1407,26 +1450,36 @@ Proof
   metis_tac[SOME_11,PAIR,FST,SND,lemma]
 QED
 
-Theorem get_file_content_stdout:
+Theorem get_fd_content_stdout:
   STD_streams fs ⇒
-  ∃content pos. get_file_content fs 1 = SOME (content, pos)
+  ∃content pos. get_fd_content fs 1 = SOME (content, pos)
 Proof
-  simp [STD_streams_def, get_file_content_def]
+  simp [STD_streams_def, get_fd_content_def]
   \\ rpt strip_tac
   \\ rename [‘ALOOKUP fs.inode_tbl (UStream «stdout») = SOME out’]
   \\ qexistsl [‘out’, ‘STRLEN out’, ‘(UStream «stdout», WriteMode, STRLEN out)’]
   \\ simp []
 QED
 
-Theorem get_file_content_stderr:
+Theorem get_fd_content_stderr:
   STD_streams fs ⇒
-  ∃content pos. get_file_content fs 2 = SOME (content, pos)
+  ∃content pos. get_fd_content fs 2 = SOME (content, pos)
 Proof
-  simp [STD_streams_def, get_file_content_def]
+  simp [STD_streams_def, get_fd_content_def]
   \\ rpt strip_tac
   \\ rename [‘ALOOKUP fs.inode_tbl (UStream «stderr») = SOME err’]
   \\ qexistsl [‘err’, ‘STRLEN err’, ‘(UStream «stderr», WriteMode, STRLEN err)’]
   \\ simp []
+QED
+
+Theorem get_fd_content_openFileFS_nextFD:
+  file_content fs name = SOME content ∧ hasFreeFD fs ∧ fd = nextFD fs ⇒
+  get_fd_content (openFileFS name fs mode pos) fd = SOME (content, pos)
+Proof
+  strip_tac
+  >> sg ‘nextFD fs ≤ fs.maxFD’ >- (irule nextFD_maxFD >> simp [])
+  >> gvs [file_content_def, get_fd_content_def, openFileFS_def,
+          openFile_def, AllCaseEqs()]
 QED
 
 Definition get_mode_def:
@@ -1444,6 +1497,17 @@ Theorem get_mode_with_files:
    get_mode (fs with files := n) fd = get_mode fs fd
 Proof
   rw[get_mode_def]
+QED
+
+Theorem get_mode_fsupdate[simp]:
+  get_mode (fsupdate fs fd' k pos content) fd = get_mode fs fd
+Proof
+  simp [get_mode_def, fsupdate_def]
+  >> CASE_TAC
+  >> CASE_TAC
+  >> simp [IO_fs_component_equality, AFUPDKEY_ALOOKUP]
+  >> CASE_TAC >> gvs []
+  >> CASE_TAC >> gvs []
 QED
 
 Theorem get_mode_forwardFD[simp]:
@@ -1470,6 +1534,16 @@ Proof
   \\ metis_tac[]
 QED
 
+Theorem get_mode_openFileFS_nextFD:
+  file_content fs name = SOME content ∧ hasFreeFD fs ∧ fd = nextFD fs ⇒
+  get_mode (openFileFS name fs mode pos) fd = SOME mode
+Proof
+  strip_tac
+  >> sg ‘nextFD fs ≤ fs.maxFD’ >- (irule nextFD_maxFD >> simp [])
+  >> gvs [file_content_def, get_mode_def, openFileFS_def,
+          openFile_def, AllCaseEqs()]
+QED
+
 Overload hard_link =
   ``λfs fn1 fn2. ∃ino.  ALOOKUP fs.files fn1 = SOME ino ∧
                         ALOOKUP fs.files fn2 = SOME ino``
@@ -1489,11 +1563,206 @@ Proof
   \\ rename1 `_ = SOME xx` \\ PairCases_on `xx` \\ rw []
 QED
 
-Theorem validFileFD_nextFD:
-  inFS_fname fs f /\ consistentFS fs /\ nextFD fs ≤ fs.maxFD ==>
-  validFileFD (nextFD fs) (openFileFS f fs ReadMode 0).infds
+Theorem validFileFD_openFileFS:
+  fd = nextFD fs ∧ inFS_fname fs f /\ consistentFS fs /\ nextFD fs ≤ fs.maxFD ==>
+  validFileFD fd (openFileFS f fs mode pos).infds
 Proof
   rw [] \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS \\ fs []
   \\ fs [openFileFS_def,inFS_fname_def,openFile_def]
   \\ rw [] \\ fs [validFileFD_def]
+QED
+
+Theorem validFileFD_nextFD:
+  inFS_fname fs f /\ consistentFS fs /\ nextFD fs ≤ fs.maxFD ==>
+  validFileFD (nextFD fs) (openFileFS f fs mode 0).infds
+Proof
+  simp [validFileFD_openFileFS]
+QED
+
+(* write_file lemmas *)
+
+Theorem write_file_IO_fs_eq[simp]:
+  (write_file fs fname content).infds = fs.infds ∧
+  (write_file fs fname content).numchars = fs.numchars ∧
+  (write_file fs fname content).maxFD = fs.maxFD
+Proof
+  simp [write_file_def] >> CASE_TAC >> simp [IO_fs_component_equality]
+QED
+
+Theorem nextFD_write_file[simp]:
+  nextFD (write_file fs fname content) = nextFD fs
+Proof
+  simp [nextFD_def]
+QED
+
+Theorem write_file_UStream[simp]:
+  ALOOKUP (write_file fs fname content).inode_tbl (UStream nm)
+  =
+  ALOOKUP fs.inode_tbl (UStream nm)
+Proof
+  simp [write_file_def]
+  >> Cases_on ‘ALOOKUP fs.files fname’
+  >> simp [AFUPDKEY_ALOOKUP]
+  >> CASE_TAC
+QED
+
+Theorem ALOOKUP_write_file_SOME:
+  consistentFS fs ⇒
+  ∃iname.
+    ALOOKUP (write_file fs s content).files s = SOME iname ∧
+    ALOOKUP (write_file fs s content).inode_tbl (File iname) = SOME content
+Proof
+  rw [write_file_def]
+  >> Cases_on ‘ALOOKUP fs.files s’ >> gvs []
+  >> simp [AFUPDKEY_ALOOKUP, AllCaseEqs()]
+  >> gvs [consistentFS_def, ALOOKUP_EXISTS_IFF]
+  >> last_x_assum $ drule_all_then assume_tac
+  >> fs [MEM_MAP]
+  >> metis_tac [PAIR]
+QED
+
+Theorem liveFS_write_file[simp]:
+  liveFS (write_file fs s content) ⇔ liveFS fs
+Proof
+  simp [liveFS_def]
+QED
+
+Theorem consistentFS_write_file[simp]:
+  consistentFS (write_file fs s content) ⇔ consistentFS fs
+Proof
+  eq_tac >> rw [consistentFS_def]
+  >- (
+    rename1 ‘ALOOKUP _ fname = SOME ino’
+    >> sg ‘ALOOKUP (write_file fs s content).files fname = SOME ino’
+    >- (simp [write_file_def] >> CASE_TAC >> gvs [] >> IF_CASES_TAC >> gvs [])
+    >> last_x_assum drule
+    >> simp [write_file_def]
+    >> CASE_TAC >> gvs []
+    >> strip_tac >> gvs [fresh_iname_spec]
+  )
+  >> fs [write_file_def]
+  >> CASE_TAC >> gvs [AllCaseEqs()]
+  >> metis_tac []
+QED
+
+Theorem wfFS_updated_by[simp]:
+  wfFS (fs with inode_tbl updated_by AFUPDKEY k v) ⇔ wfFS fs
+Proof
+  simp [wfFS_def]
+QED
+
+Theorem wfFS_write_file[simp]:
+  wfFS (write_file fs s content) ⇔ wfFS fs
+Proof
+  eq_tac >> rw [wfFS_def]
+  >> last_x_assum drule
+  >> simp [write_file_def]
+  >> CASE_TAC >> gvs []
+  >> strip_tac >> gvs []
+  (* only one subgoal remains *)
+  >> drule_all $ cj 2 fresh_iname_spec >> simp []
+  >> disch_then $ qspecl_then [‘fs.inode_tbl’, ‘fs.files’] mp_tac
+  >> simp []
+QED
+
+Theorem inFS_fname_write_file[simp]:
+  inFS_fname (write_file fs s content) s
+Proof
+  simp [inFS_fname_def, write_file_def]
+  >> CASE_TAC >> simp []
+QED
+
+Theorem STD_streams_write_file[simp]:
+  STD_streams (write_file fs s content) ⇔ STD_streams fs
+Proof
+  simp [STD_streams_def]
+QED
+
+Theorem write_file_with_numchars:
+  write_file (fs with numchars := ll) s content =
+  (write_file fs s content) with numchars := ll
+Proof
+  simp [write_file_def] >> CASE_TAC >> simp []
+QED
+
+Theorem file_content_write_file:
+  consistentFS fs ⇒
+  file_content (write_file fs name content) name = SOME content
+Proof
+  simp [write_file_def, file_content_def]
+  >> CASE_TAC
+  >> gvs [AFUPDKEY_ALOOKUP, ALOOKUP_EXISTS_IFF, AllCaseEqs()]
+  >> rw [consistentFS_def, MEM_MAP]
+  >> metis_tac [PAIR]
+QED
+
+(* emptyFile lemmas *)
+
+Theorem emptyFile_IO_fs_eq[simp]:
+  (emptyFile fs fname).infds = fs.infds ∧
+  (emptyFile fs fname).numchars = fs.numchars ∧
+  (emptyFile fs fname).maxFD = fs.maxFD
+Proof
+  simp [emptyFile_def]
+QED
+
+Theorem emptyFile_UStream[simp]:
+  ALOOKUP (emptyFile fs fname).inode_tbl (UStream nm)
+  =
+  ALOOKUP fs.inode_tbl (UStream nm)
+Proof
+  simp [emptyFile_def]
+QED
+
+Theorem nextFD_emptyFile[simp]:
+  nextFD (emptyFile fs s) = nextFD fs
+Proof
+  simp [emptyFile_def]
+QED
+
+Theorem ALOOKUP_emptyFile_SOME:
+  consistentFS fs ⇒
+  ∃iname.
+    ALOOKUP (emptyFile fs s).files s = SOME iname ∧
+    ALOOKUP (emptyFile fs s).inode_tbl (File iname) = SOME ""
+Proof
+  simp [emptyFile_def, ALOOKUP_write_file_SOME]
+QED
+
+Theorem consistentFS_emptyFile[simp]:
+  consistentFS (emptyFile fs s) ⇔ consistentFS fs
+Proof
+  simp [emptyFile_def]
+QED
+
+Theorem wfFS_emptyFile[simp]:
+  wfFS (emptyFile fs s) ⇔ wfFS fs
+Proof
+  simp [emptyFile_def]
+QED
+
+Theorem inFS_fname_emptyFile[simp]:
+  inFS_fname (emptyFile fs s) s
+Proof
+  simp [emptyFile_def]
+QED
+
+Theorem STD_streams_emptyFile[simp]:
+  STD_streams (emptyFile fs s) ⇔ STD_streams fs
+Proof
+  simp [emptyFile_def]
+QED
+
+Theorem emptyFile_with_numchars:
+  emptyFile (fs with numchars := ll) s =
+  (emptyFile fs s) with numchars := ll
+Proof
+  simp [emptyFile_def, write_file_with_numchars]
+QED
+
+Theorem file_content_emptyFile:
+  consistentFS fs ⇒
+  file_content (emptyFile fs name) name = SOME ""
+Proof
+  simp [emptyFile_def, file_content_write_file]
 QED

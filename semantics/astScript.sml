@@ -4,7 +4,6 @@
 Theory ast
 Ancestors
   integer[qualified] words[qualified] string[qualified] mlstring[qualified] namespace
-  location[qualified]
 
 (* Literal constants *)
 Datatype:
@@ -22,7 +21,9 @@ Datatype:
 End
 
 Datatype:
-  arith = Add | Sub | Mul | Div | Mod | Neg | And | Xor | Or | Not | Abs | Sqrt | FMA
+  arith = Add | Sub | Mul | Div | Mod | Neg | And | Xor | Or | Not
+        | Absolute  (* Abs is reserved for Candle *)
+        | Sqrt | FMA | Shift shift
 End
 
 (* Module names *)
@@ -76,11 +77,16 @@ Datatype:
   op =
   (* primitive operations for the primitive types: +, -, and, sqrt, etc. *)
     Arith arith prim_type
+  (* Bounded integer operations; the witness is an optional third argument. *)
+  | UnsafeIndexArith arith
+  | UnsafeIndexTest test
   (* conversions between primitive types: char<->int, word<->double, word<->int *)
   | FromTo prim_type prim_type
-  (* Operations on words *)
-  | Shift word_size shift num
+  (* Equality and comparisons *)
   | Equality
+  (* Pointer equality: true implies structural equality, but may
+     spuriously return false for structurally equal values *)
+  | PtrEq
   | Test test prim_type
   (* Function application *)
   | Opapp
@@ -93,6 +99,8 @@ Datatype:
   | Aw8sub
   | Aw8length
   | Aw8update
+  | Aw8subBit
+  | Aw8updateBit
   (* string/bytearray conversions *)
   | CopyStrStr
   | CopyStrAw8
@@ -116,12 +124,15 @@ Datatype:
   | Asub
   | Alength
   | Aupdate
-  (* Unsafe vector/array accesses *)
+  (* Unsafe string/vector/array accesses *)
+  | Strsub_unsafe
   | Vsub_unsafe
   | Asub_unsafe
   | Aupdate_unsafe
   | Aw8sub_unsafe
   | Aw8update_unsafe
+  | Aw8subBit_unsafe
+  | Aw8updateBit_unsafe
   (* thunk operations *)
   | ThunkOp thunk_op
   (* List operations *)
@@ -134,24 +145,6 @@ Datatype:
   | Eval
   (* Get the identifier of an env object *)
   | Env_id
-End
-
-(* Define operator classes, that allow to group their behavior later *)
-Datatype:
- op_class =
-    EvalOp (* Eval primitive *)
-  | FunApp (* function application *)
-  | Force (* forcing a thunk *)
-  | Simple (* arithmetic operation, no finite-precision/reals *)
-End
-
-Definition getOpClass_def[simp]:
- getOpClass op =
- case op of
-  | Opapp => FunApp
-  | Eval => EvalOp
-  | ThunkOp t => (if t = ForceThunk then Force else Simple)
-  | _ => Simple
 End
 
 (* Types used in type annotations *)
@@ -188,6 +181,10 @@ Datatype:
   lop = Andalso | Orelse
 End
 
+Datatype:
+  locs = NoLocs | Locs (int # int) (int # int)
+End
+
 (* Expressions *)
 Datatype:
  exp =
@@ -197,7 +194,7 @@ Datatype:
   (* Constructor application.
      A Nothing constructor indicates a tuple pattern. *)
   | Con (((modN, conN)id)option) (exp list)
-  | Var ((modN, varN) id)
+  | Ident ((modN, varN) id)
   | Fun varN exp
   (* Application a primitive operator to arguments.
      Includes function application. *)
@@ -219,7 +216,11 @@ Datatype:
   | Tannot exp ast_t
   (* Location annotated expressions, not expected in source programs *)
   | Lannot exp locs
+  (* Open one non-empty module path for the lexical scope of the body. *)
+  | Open (modN list) exp
 End
+
+Overload Var = “Ident”
 
 Type type_def = ``: ( tvarN list # typeN # (conN # ast_t list) list) list``
 
@@ -246,20 +247,36 @@ Datatype:
   | Dlocal (dec list) (dec list)
   (* Store current lexical env in an env value *)
   | Denv tvarN
+  (* Expose the contents of a non-empty module path as a declaration delta *)
+  | Dopen locs (modN list)
 End
 
-(* Accumulates the bindings of a pattern *)
+(* No declaration opens, including inside structures and local declarations.
+   Expression-local Open is deliberately allowed. *)
+Definition dopen_free_dec_def:
+  (dopen_free_dec (Dlet locs p e) = T) /\
+  (dopen_free_dec (Dletrec locs funs) = T) /\
+  (dopen_free_dec (Dtype locs tdefs) = T) /\
+  (dopen_free_dec (Dtabbrev locs tvs tn t) = T) /\
+  (dopen_free_dec (Dexn locs cn ts) = T) /\
+  (dopen_free_dec (Denv n) = T) /\
+  (dopen_free_dec (Dopen locs path) = F) /\
+  (dopen_free_dec (Dmod mn ds) = EVERY dopen_free_dec ds) /\
+  (dopen_free_dec (Dlocal lds ds) =
+     (EVERY dopen_free_dec lds /\ EVERY dopen_free_dec ds))
+End
+
+(* Computes the bindings of a pattern *)
 Definition pat_bindings_def:
-  pat_bindings Pany already_bound = already_bound ∧
-  pat_bindings (Pvar n) already_bound = n::already_bound ∧
-  pat_bindings (Plit l) already_bound = already_bound ∧
-  pat_bindings (Pcon v0 ps) already_bound = pats_bindings ps already_bound ∧
-  pat_bindings (Pref p) already_bound = pat_bindings p already_bound ∧
-  pat_bindings (Pas p i) already_bound = pat_bindings p (i::already_bound) ∧
-  pat_bindings (Ptannot p v1) already_bound = pat_bindings p already_bound ∧
-  pats_bindings [] already_bound = already_bound ∧
-  pats_bindings (p::ps) already_bound =
-  pats_bindings ps (pat_bindings p already_bound)
+  pat_bindings Pany = [] ∧
+  pat_bindings (Pvar n) = [n] ∧
+  pat_bindings (Plit l) = [] ∧
+  pat_bindings (Pcon v0 ps) = pats_bindings ps ∧
+  pat_bindings (Pref p) = pat_bindings p ∧
+  pat_bindings (Pas p i) = pat_bindings p ++ [i] ∧
+  pat_bindings (Ptannot p v1) = pat_bindings p ∧
+  pats_bindings [] = [] ∧
+  pats_bindings (p::ps) = pats_bindings ps ++ pat_bindings p
 End
 
 Definition every_exp_def[simp]:
@@ -271,8 +288,8 @@ Definition every_exp_def[simp]:
              p (ast$Lit l)) ∧
   (every_exp p (Con cn es) ⇔
              p (Con cn es) ∧ EVERY (every_exp p) es) ∧
-  (every_exp p (Var v) ⇔
-             p (Var v)) ∧
+  (every_exp p (Ident v) ⇔
+             p (Ident v)) ∧
   (every_exp p (Fun x e) ⇔
              p (Fun x e) ∧ every_exp p e) ∧
   (every_exp p (App op es) ⇔
@@ -290,7 +307,9 @@ Definition every_exp_def[simp]:
   (every_exp p (Lannot e a) ⇔
              p (Lannot e a) ∧ every_exp p e) ∧
   (every_exp p (Letrec funs e) ⇔
-             p (Letrec funs e) ∧ every_exp p e ∧ EVERY (λ(n,v,e). every_exp p e) funs)
+             p (Letrec funs e) ∧ every_exp p e ∧ EVERY (λ(n,v,e). every_exp p e) funs) ∧
+  (every_exp p (Open path e) ⇔
+             p (Open path e) ∧ every_exp p e)
 End
 
 Definition Seqs_def:

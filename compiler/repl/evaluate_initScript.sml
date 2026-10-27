@@ -122,6 +122,16 @@ Proof
   \\ Cases_on ‘opt’ \\ gs []
 QED
 
+Theorem env_ok_extend_dec_env:
+  env_ok s env ∧
+  state_ok s ∧
+  env_ok s env1 ⇒
+    env_ok s (extend_dec_env env1 env)
+Proof
+  rw [env_ok_def]
+  \\ irule env_rel_extend_dec_env \\ gs []
+QED
+
 local
   val ind_thm =
     full_evaluate_ind
@@ -172,7 +182,7 @@ Proof
   >~ [`Raise`] >- suspend "Raise"
   >~ [`Handle`] >- suspend "Handle"
   >~ [`Con`] >- suspend "Con"
-  >~ [`ast$Var`] >- suspend "Var"
+  >~ [`ast$Ident`] >- suspend "Ident"
   >~ [`ast$Fun`] >- suspend "Fun"
   >~ [`ast$App`] >- suspend "App"
   >~ [`Log`] >- suspend "Log"
@@ -182,6 +192,7 @@ Proof
   >~ [`Letrec`] >- suspend "Letrec"
   >~ [`Tannot`] >- suspend "Tannot"
   >~ [`Lannot`] >- suspend "Lannot"
+  >~ [`Open`] >- suspend "Open"
   >~ [`[] : (pat # exp) list`] >- suspend "pmatch_Nil"
   >~ [`_::_ : (pat # exp) list`] >- suspend "pmatch_Cons"
   >~ [`[]:dec list`] >- suspend "decs_Nil"
@@ -192,6 +203,7 @@ Proof
   >~ [`Dtabbrev`] >- suspend "decs_Dtabbrev"
   >~ [`Denv`] >- suspend "decs_Denv"
   >~ [`Dexn`] >- suspend "decs_Dexn"
+  >~ [`Dopen`] >- suspend "decs_Dopen"
   >~ [`Dmod`] >- suspend "decs_Dmod"
   >~ [`Dlocal`] >- suspend "decs_Dlocal"
   \\ simp []
@@ -237,7 +249,7 @@ Resume evaluate_ok[Con]:
   \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO]
 QED
 
-Resume evaluate_ok[Var]:
+Resume evaluate_ok[Ident]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"]]
   \\ gs [env_ok_def, env_rel_def, v_ok_def]
@@ -247,6 +259,23 @@ QED
 Resume evaluate_ok[Fun]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"], v_ok_thm]
+QED
+
+Resume evaluate_ok[Open]:
+  rw [evaluate_def]
+  \\ Cases_on `open_dec_env path env` \\ gvs []
+  \\ rename1 `open_dec_env path env = SOME opened`
+  \\ `env_ok st opened` by (
+    fs [env_ok_def]
+    \\ drule env_rel_open_dec_env
+    \\ disch_then (qspec_then `path` assume_tac)
+    \\ gvs [optionTheory.OPTREL_def])
+  \\ `env_ok st (extend_dec_env opened env)` by (
+    irule env_ok_extend_dec_env \\ gs [])
+  \\ gvs []
+  \\ irule evaluate_env_ok_mono
+  \\ first_assum (irule_at Any) \\ gs []
+  \\ qexists_tac `[Open path e]` \\ simp [evaluate_def]
 QED
 
 Theorem state_ok_eval_state:
@@ -347,6 +376,14 @@ Proof
       stamp_rel_cases, state_ok_def, state_rel_def]
 QED
 
+Theorem ok_with_ptr_eq_oracle[local,simp]:
+  (state_ok (s with ptr_eq_oracle := p) ⇔ state_ok s) ∧
+  (env_ok (s with ptr_eq_oracle := p) env ⇔ env_ok s env) ∧
+  (v_ok (s with ptr_eq_oracle := p) v ⇔ v_ok s v)
+Proof
+  rw [state_ok_def, state_rel_def, env_ok_def, v_ok_def]
+QED
+
 Theorem v_ok_Boolv[simp]:
   state_ok s ⇒ v_ok s (Boolv b)
 Proof
@@ -374,6 +411,13 @@ Proof
     gs [state_ok_def, state_rel_def, EVERY_EL, ref_ok_def]
     \\ rw [] \\ gs [FLOOKUP_FUN_FMAP])
   \\ simp [Once CONJ_COMM]
+  \\ Cases_on ‘(∃a. op = UnsafeIndexArith a) ∨ ∃test. op = UnsafeIndexTest test’
+  >- (
+    gvs [do_app_cases, do_unsafe_index_arith_def,
+         do_unsafe_index_test_def, AllCaseEqs(), v_ok_thm,
+         with_same_refs_and_ffi]
+    \\ rename [‘do_arith arith _ _ = SOME (INL _)’]
+    \\ Cases_on ‘arith’ \\ gvs [do_arith_def, AllCaseEqs()])
   \\ Cases_on ‘op = Env_id’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
@@ -384,10 +428,12 @@ Proof
          CaseEqs ["ffi_result", "option", "bool", "oracle_result"]]
     \\ gvs [with_same_refs_and_ffi]
     \\ gs [state_ok_def, EVERY_EL, state_rel_def] \\ rw []
-    \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ gs []
+    \\ gs [FLOOKUP_FUN_FMAP]
+    \\ qmatch_goalsub_rename_tac `EL store_index _`
+    \\ first_x_assum (qspec_then `store_index` assume_tac) \\ gs []
     \\ gs [EL_LUPDATE, ref_ok_def]
-    \\ rename1 ‘n = lnum’
-    \\ Cases_on ‘n = lnum’ \\ gs [ref_rel_def])
+    \\ rename1 `store_index = updated_location`
+    \\ Cases_on `store_index = updated_location` \\ gs [ref_rel_def])
   \\ Cases_on ‘op = ConfigGC’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
@@ -408,7 +454,37 @@ Proof
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_assign_def]
     \\ gs [state_ok_def, EVERY_EL, state_rel_def] \\ rw []
-    \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ gs []
+    \\ gs [FLOOKUP_FUN_FMAP]
+    \\ qmatch_goalsub_rename_tac `EL store_index _`
+    \\ first_x_assum (qspec_then `store_index` assume_tac) \\ gs []
+    \\ gs [EL_LUPDATE, ref_ok_def]
+    \\ IF_CASES_TAC \\ gs []
+    \\ rw [ref_rel_def])
+  \\ Cases_on ‘op = Aw8subBit_unsafe’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
+  \\ Cases_on ‘op = Aw8updateBit_unsafe’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
+         store_assign_def]
+    \\ gs [state_ok_def, EVERY_EL, state_rel_def] \\ rw []
+    \\ gs [FLOOKUP_FUN_FMAP]
+    \\ qmatch_goalsub_rename_tac `EL store_index _`
+    \\ first_x_assum (qspec_then `store_index` assume_tac) \\ gs []
+    \\ gs [EL_LUPDATE, ref_ok_def]
+    \\ IF_CASES_TAC \\ gs []
+    \\ rw [ref_rel_def])
+  \\ Cases_on ‘op = Aw8subBit’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
+  \\ Cases_on ‘op = Aw8updateBit’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
+         store_assign_def]
+    \\ gs [state_ok_def, EVERY_EL, state_rel_def] \\ rw []
+    \\ gs [FLOOKUP_FUN_FMAP]
+    \\ qmatch_goalsub_rename_tac `EL store_index _`
+    \\ first_x_assum (qspec_then `store_index` assume_tac) \\ gs []
     \\ gs [EL_LUPDATE, ref_ok_def]
     \\ IF_CASES_TAC \\ gs []
     \\ rw [ref_rel_def])
@@ -417,7 +493,9 @@ Proof
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_assign_def, store_lookup_def]
     \\ gs [state_ok_def, EVERY_EL, state_rel_def] \\ rw []
-    \\ first_x_assum (qspec_then ‘n’ assume_tac) \\ gs []
+    \\ gs [FLOOKUP_FUN_FMAP]
+    \\ qmatch_goalsub_rename_tac `EL store_index _`
+    \\ first_x_assum (qspec_then `store_index` assume_tac) \\ gs []
     \\ gs [EL_LUPDATE, ref_ok_def]
     \\ IF_CASES_TAC \\ gvs [ref_rel_def, LIST_REL_EL_EQN, v_ok_def]
     \\ rw [EL_LUPDATE, ref_ok_def])
@@ -526,6 +604,9 @@ Proof
   \\ Cases_on ‘op = Strsub’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
+  \\ Cases_on ‘op = Strsub_unsafe’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
   \\ Cases_on ‘op = Explode’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi]
@@ -587,10 +668,6 @@ Proof
     \\ irule v_rel_update
     \\ first_assum (irule_at Any)
     \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
-  \\ Cases_on ‘∃sz sh n. op = Shift sz sh n’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def])
   \\ Cases_on ‘op = Equality’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
@@ -631,11 +708,13 @@ Proof
          state_ok_def, v_ok_def, state_rel_def, FLOOKUP_FUN_FMAP,
          INJ_IFF, FUN_FMAP_DEF, v_rel_def, store_alloc_def]
     \\ rw [EL_APPEND_EQN] \\ gvs [NOT_LESS, LESS_OR_EQ, ref_rel_def]
-    THENL [
+    >~ [`ref_rel _ _ _`] >- (
       first_x_assum drule \\ rw [ref_rel_def]
       \\ irule_at Any ref_rel_mono
-      \\ first_assum (irule_at Any) \\ rw [],
-      ALL_TAC ]
+      \\ first_assum (irule_at Any) \\ rw []
+      \\ irule v_rel_update
+      \\ first_assum (irule_at Any)
+      \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
     \\ irule v_rel_update
     \\ first_assum (irule_at Any)
     \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
@@ -664,8 +743,11 @@ Proof
     \\ rw [v_rel_def, EL_LUPDATE, ref_rel_def])
   \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
   >- gvs [do_app_def, AllCaseEqs(), thunk_op_def]
+  \\ Cases_on ‘op = PtrEq’ \\ gs []
+  >- gvs [do_app_def]
   \\ Cases_on ‘op’ \\ gs []
-  \\ Cases_on ‘t’ \\ gs []
+  \\ qmatch_asmsub_rename_tac `ThunkOp thunk_primitive`
+  \\ Cases_on `thunk_primitive` \\ gs []
 QED
 
 Theorem do_app_ok[allow_rebind] = SIMP_RULE (srw_ss()) [LET_THM] do_app_ok;
@@ -702,12 +784,17 @@ QED
 Resume evaluate_ok[App_Op]:
   strip_tac
   \\ ‘~ (getOpClass op = EvalOp)’ by (
-    Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
+    qpat_x_assum ‘op ≠ Eval’ mp_tac \\ rpt (pop_assum kall_tac)
+    \\ Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
   \\ ‘~ (getOpClass op = FunApp)’ by (
-    Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
+    qpat_x_assum ‘op ≠ Opapp’ mp_tac \\ rpt (pop_assum kall_tac)
+    \\ Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
   \\ rpt strip_tac
   \\ gs[evaluate_def, Excl "getOpClass_def"]
   \\ Cases_on ‘getOpClass op’ \\ gs[Excl "getOpClass_def"]
+  >>~- ([‘getOpClass op = PtrEqOp’],
+    gvs [CaseEqs ["prod", "result", "list", "eq_result"]]
+    \\ first_x_assum drule \\ rw [])
   >>~ [‘getOpClass op = Force’]
   >- (
     Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
@@ -963,16 +1050,6 @@ Resume evaluate_ok[decs_Nil]:
   \\ gs [env_ok_def, env_rel_def, ctor_rel_def]
 QED
 
-Theorem env_ok_extend_dec_env:
-  env_ok s env ∧
-  state_ok s ∧
-  env_ok s env1 ⇒
-    env_ok s (extend_dec_env env1 env)
-Proof
-  rw [env_ok_def]
-  \\ irule env_rel_extend_dec_env \\ gs []
-QED
-
 Theorem env_ok_nsAppend:
   env_ok s env ∧
   state_ok s ∧
@@ -1145,6 +1222,15 @@ Resume evaluate_ok[decs_Dexn]:
                     state_ok_with_next_exn_stamp \\ gs []
   \\ gs [env_ok_def, env_rel_def, ctor_rel_def, stamp_rel_cases,
          FLOOKUP_FUN_FMAP]
+QED
+
+Resume evaluate_ok[decs_Dopen]:
+  rw [evaluate_decs_def]
+  \\ gvs [CaseEq "option"]
+  \\ gs [env_ok_def]
+  \\ drule env_rel_open_dec_env
+  \\ disch_then (qspec_then `path` assume_tac)
+  \\ gvs [optionTheory.OPTREL_def]
 QED
 
 Resume evaluate_ok[decs_Dmod]:

@@ -10,6 +10,65 @@ Libs
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
+(* A conservative check on the expressions evaluated now. Function bodies
+   are not run when closures are created; applications that could run them,
+   force thunks, or dynamically evaluate code are excluded. *)
+Definition no_ptr_eq_def[simp]:
+  (no_ptr_eq (Raise e) = no_ptr_eq e) ∧
+  (no_ptr_eq (Handle e pes) =
+    (no_ptr_eq e ∧ EVERY (λ(p,e). no_ptr_eq e) pes)) ∧
+  (no_ptr_eq (Lit l) = T) ∧
+  (no_ptr_eq (Con cn es) = EVERY no_ptr_eq es) ∧
+  (no_ptr_eq (Ident n) = T) ∧
+  (no_ptr_eq (Fun n e) = T) ∧
+  (no_ptr_eq (App op es) =
+    (getOpClass op = Simple ∧ EVERY no_ptr_eq es)) ∧
+  (no_ptr_eq (Log op e1 e2) = (no_ptr_eq e1 ∧ no_ptr_eq e2)) ∧
+  (no_ptr_eq (If e1 e2 e3) =
+    (no_ptr_eq e1 ∧ no_ptr_eq e2 ∧ no_ptr_eq e3)) ∧
+  (no_ptr_eq (Mat e pes) =
+    (no_ptr_eq e ∧ EVERY (λ(p,e). no_ptr_eq e) pes)) ∧
+  (no_ptr_eq (Let n e1 e2) = (no_ptr_eq e1 ∧ no_ptr_eq e2)) ∧
+  (no_ptr_eq (Letrec funs e) = no_ptr_eq e) ∧
+  (no_ptr_eq (Tannot e t) = no_ptr_eq e) ∧
+  (no_ptr_eq (Lannot e l) = no_ptr_eq e) ∧
+  (no_ptr_eq (Open path e) = no_ptr_eq e)
+End
+
+Theorem evaluate_no_ptr_eq:
+  (∀(st:'ffi state) env es st' res.
+    EVERY no_ptr_eq es ∧ evaluate st env es = (st',res) ⇒
+    st'.ptr_eq_oracle = st.ptr_eq_oracle ∧
+    ∀oracle. evaluate (st with ptr_eq_oracle := oracle) env es =
+      (st' with ptr_eq_oracle := oracle,res)) ∧
+  (∀(st:'ffi state) env v pes err_v st' res.
+    EVERY (λ(p,e). no_ptr_eq e) pes ∧
+    evaluate_match st env v pes err_v = (st',res) ⇒
+    st'.ptr_eq_oracle = st.ptr_eq_oracle ∧
+    ∀oracle. evaluate_match (st with ptr_eq_oracle := oracle)
+      env v pes err_v = (st' with ptr_eq_oracle := oracle,res))
+Proof
+  ho_match_mp_tac evaluate_ind
+  \\ rw [evaluate_def, Excl "getOpClass_def"]
+  \\ gvs [AllCaseEqs(), ETA_THM, Excl "getOpClass_def"]
+  \\ gvs [do_log_def, do_if_def, AllCaseEqs()]
+QED
+
+Theorem evaluate_no_ptr_eq_preserves_oracle:
+  no_ptr_eq e ∧ evaluate st env [e] = (st',res) ⇒
+  st'.ptr_eq_oracle = st.ptr_eq_oracle
+Proof
+  metis_tac [evaluate_no_ptr_eq, EVERY_DEF]
+QED
+
+Theorem evaluate_no_ptr_eq_with_oracle:
+  no_ptr_eq e ∧ evaluate st env [e] = (st',res) ⇒
+  evaluate (st with ptr_eq_oracle := oracle) env [e] =
+    (st' with ptr_eq_oracle := oracle,res)
+Proof
+  metis_tac [evaluate_no_ptr_eq, EVERY_DEF]
+QED
+
 Theorem call_FFI_LENGTH:
    (call_FFI st index conf x = FFI_return new_st new_bytes) ==>
     (LENGTH x = LENGTH new_bytes)
@@ -358,6 +417,10 @@ Proof
     \\ fs [is_clock_io_mono_def, dec_clock_def]
     \\ gvs [oneline update_thunk_def, oneline dest_thunk_def, store_assign_def,
             AllCaseEqs()])
+  >- (
+    fs [is_clock_io_mono_def]
+    \\ rpt (TOP_CASE_TAC \\ fs [])
+    \\ gvs [])
   >- (assume_tac (SIMP_RULE std_ss [] is_clock_io_mono_do_app_simple) \\ fs[]))
  >- (step_tac \\ fs[is_clock_io_mono_def])
  >- (step_tac \\ fs[is_clock_io_mono_def])
@@ -745,6 +808,43 @@ Theorem evaluate_case_eqs = LIST_CONJ
   [pair_case_eq, result_case_eq, error_result_case_eq, bool_case_eq,
     option_case_eq, list_case_eq, exp_or_val_case_eq, match_result_case_eq]
 
+Theorem getOpClass_PtrEqOp:
+  getOpClass op = PtrEqOp ⇔ op = PtrEq
+Proof
+  Cases_on ‘op’ \\ rw []
+QED
+
+Theorem evaluate_App_PtrEq:
+  evaluate st env (REVERSE es) = (st', Rval vs) ⇒
+  evaluate st env [App PtrEq es] =
+  case REVERSE vs of
+    [v1; v2] =>
+      (case do_eq v1 v2 of
+         Eq_type_error => (st', Rerr (Rabort Rtype_error))
+       | Eq_val b =>
+           (st' with ptr_eq_oracle :=
+              (0 =+ shift_seq 1 (st'.ptr_eq_oracle 0)) st'.ptr_eq_oracle,
+            Rval [Boolv (b ∧ st'.ptr_eq_oracle 0 0)]))
+  | _ => (st', Rerr (Rabort Rtype_error))
+Proof
+  rw [evaluate_def, fix_clock_evaluate]
+QED
+
+(* a true result from PtrEq certifies structural equality of its arguments *)
+Theorem ptr_eq_sound:
+  evaluate st env [App PtrEq es] = (st', Rval [v]) ⇒
+  ∃st1 v1 v2 b.
+    evaluate st env (REVERSE es) = (st1, Rval [v2; v1]) ∧
+    st' = st1 with ptr_eq_oracle :=
+            (0 =+ shift_seq 1 (st1.ptr_eq_oracle 0)) st1.ptr_eq_oracle ∧
+    v = Boolv b ∧
+    (b ⇒ do_eq v1 v2 = Eq_val T)
+Proof
+  rw [evaluate_def, fix_clock_evaluate]
+  \\ gvs [AllCaseEqs()]
+  \\ Cases_on ‘b’ \\ gvs [SWAP_REVERSE_SYM]
+QED
+
 Theorem evaluate_set_next_stamps:
   (∀(s0:'a state) env xs s1 res.
      evaluate s0 env xs = (s1,res) ==>
@@ -785,6 +885,8 @@ Proof
        \\ imp_res_tac evaluate_next_exn_stamp_mono
        \\ rw []
        \\ fs [build_tdefs_def])
+    \\ Cases_on ‘getOpClass op = PtrEqOp’
+    >- (gvs [getOpClass_PtrEqOp] \\ gvs [AllCaseEqs()])
     \\ Cases_on ‘getOpClass op’ \\ fs []
     \\ fs [evaluate_case_eqs, dec_clock_def, do_eval_res_def]
     \\ rveq \\ fs []
@@ -1059,6 +1161,8 @@ Proof
     \\ Cases_on ‘getOpClass op = Force’ >- (
       Cases_on `op` \\ gvs[] \\ Cases_on `t` \\ gvs[]
       \\ gvs[AllCaseEqs(), dec_clock_def])
+    \\ Cases_on ‘getOpClass op = PtrEqOp’
+    >- (gvs [getOpClass_PtrEqOp] \\ gvs [AllCaseEqs()])
     \\ Cases_on ‘getOpClass op’ \\ gs[]
     \\ rpt (MAP_FIRST (dxrule_then (strip_assume_tac o SIMP_RULE bool_ss []))
       [hd (RES_CANON pair_case_eq), hd (RES_CANON result_case_eq), hd (RES_CANON bool_case_eq)]
@@ -1086,8 +1190,11 @@ Theorem evaluate_ffi_etc_intro:
   res <> Rerr (Rabort Rtype_error) /\
   s.refs = s0.refs
   ==>
-  ?ck1 ck2. evaluate (s with clock := ck1) env xs =
-    (s with <| refs := s1.refs; clock := ck2 |>, res)
+  ?ck1 ck2.
+    evaluate (s with <| clock := ck1; ptr_eq_oracle := s0.ptr_eq_oracle |>)
+      env xs =
+    (s with <| refs := s1.refs; clock := ck2;
+               ptr_eq_oracle := s1.ptr_eq_oracle |>, res)
 Proof
   rw []
   \\ dxrule_then (qspec_then `s.ffi` mp_tac) (CONJUNCT1 evaluate_ffi_intro)
@@ -1404,4 +1511,85 @@ Proof
   \\ qexists_tac ‘h::t’ \\ gvs []
   \\ irule_at (Pos hd) EQ_REFL
   \\ gvs [dec_clock_def,ADD1]
+QED
+
+(* Evaluation of known values and Let/Letrec *)
+
+Theorem evaluate_constant_list:
+  ∀es.
+    (∀e. MEM e es ⇒ ∃v. ∀s:'ffi semanticPrimitives$state.
+       evaluate s env [e] = (s,Rval [v])) ⇒
+    ∃vs. LENGTH vs = LENGTH es ∧
+         ∀s:'ffi semanticPrimitives$state. evaluate s env es = (s,Rval vs)
+Proof
+  Induct_on ‘es’
+  >- simp [evaluate_def]
+  >> qx_gen_tac ‘e’
+  >> strip_tac
+  >> qpat_assum ‘∀e. MEM e (_::_) ⇒ _’
+       (qspec_then ‘e’ (mp_tac o REWRITE_RULE [MEM]))
+  >> disch_then (qx_choose_then ‘v’ assume_tac)
+  >> qpat_x_assum ‘_ ⇒ ∃vs. _’ mp_tac
+  >> impl_tac
+  >- metis_tac [MEM]
+  >> disch_then (qx_choose_then ‘vs’ strip_assume_tac)
+  >> qexists_tac ‘v::vs’
+  >> Cases_on ‘es’
+  >> gvs [evaluate_def,fix_clock_def]
+QED
+
+Theorem evaluate_known_value_list:
+  ∀es vs.
+    LIST_REL (λe v. ∀s:'ffi semanticPrimitives$state.
+      evaluate s env [e] = (s,Rval [v])) es vs ⇒
+    ∀s:'ffi semanticPrimitives$state. evaluate s env es = (s,Rval vs)
+Proof
+  Induct_on ‘es’
+  >- simp [evaluate_def]
+  >> qx_genl_tac [‘e’,‘vs’]
+  >> namedCases_on ‘vs’ ["","value values"]
+  >> simp []
+  >> strip_tac
+  >> qpat_x_assum ‘∀vs. LIST_REL _ es vs ⇒ _’
+       (qspec_then ‘values’ mp_tac)
+  >> simp []
+  >> strip_tac
+  >> Cases_on ‘es’
+  >> gvs [evaluate_def,fix_clock_def]
+QED
+
+Theorem evaluate_let_known_value:
+  evaluate (s:'ffi semanticPrimitives$state) env [rhs] = (s,Rval [value]) ⇒
+  evaluate s env [Let (SOME name) rhs body] =
+  evaluate s (env with v := nsBind name value env.v) [body]
+Proof
+  strip_tac
+  >> simp [cj 13 evaluate_def,namespaceTheory.nsOptBind_def]
+QED
+
+Theorem evaluate_letrec_duplicate:
+  ¬ALL_DISTINCT (MAP FST funs) ⇒
+  evaluate (s:'ffi semanticPrimitives$state) env [Letrec funs body] =
+    (s,Rerr (Rabort Rtype_error))
+Proof
+  strip_tac
+  >> simp_tac (srw_ss()) [cj 14 evaluate_def,ELIM_UNCURRY,ETA_AX]
+  >> simp []
+QED
+
+Theorem evaluate_letrec_distinct:
+  ALL_DISTINCT (MAP (λ(f,x,e). f) funs) ⇒
+  evaluate (s:'ffi semanticPrimitives$state) env [Letrec funs body] =
+  evaluate s (env with v := build_rec_env funs env env.v) [body]
+Proof
+  simp [evaluate_def]
+QED
+
+Theorem do_eval_res_clock:
+  (FST (do_eval_res vs s)).clock = s.clock
+Proof
+  namedCases_on ‘do_eval vs s.eval_state’ ["","payload"]
+  >> simp [do_eval_res_def]
+  >> namedCases_on ‘payload’ ["env decs eval_state"]
+  >> simp []
 QED

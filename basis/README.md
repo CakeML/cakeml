@@ -7,6 +7,13 @@ A module about Arrays for the CakeML standard basis library.
 [ArrayProofScript.sml](ArrayProofScript.sml):
 Proofs about the Array module.
 
+[AstProgScript.sml](AstProgScript.sml):
+Translates the CakeML source AST types into an Ast module, with generated
+pretty-printers, so that they are part of the REPL's initial environment.
+
+[AstSexpProgScript.sml](AstSexpProgScript.sml):
+Module for converting between AST values and s-expressions.
+
 [CharProgScript.sml](CharProgScript.sml):
 A module about the char type for the CakeML standard basis library.
 
@@ -43,6 +50,9 @@ Module about the built-in list type.
 [ListProofScript.sml](ListProofScript.sml):
 Proofs about the module about the list type.
 
+[MapProgLib.sml](MapProgLib.sml):
+Functions for teaching the translator about fmap operations
+
 [MapProgScript.sml](MapProgScript.sml):
 This module contains CakeML code implementing a functional map type
 using a self-balancing binary tree.
@@ -78,6 +88,10 @@ using a self-balancing binary tree.
 
 [SexpProgScript.sml](SexpProgScript.sml):
 Module for parsing and pretty-printing s-expressions.
+
+[SocketIOProgScript.sml](SocketIOProgScript.sml):
+Module for socket I/O: Unix domain stream sockets and Linux raw packet
+sockets, through the socket FFI in basis_ffi.c.
 
 [StringProgScript.sml](StringProgScript.sml):
 Module about the built-in string type.

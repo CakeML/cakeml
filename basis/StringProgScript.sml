@@ -15,7 +15,7 @@ val _ = ml_prog_update (open_module "String");
 val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] «string» (Atapp [] (Short «string»))`` I);
+  ``Dtabbrev NoLocs [] «string» (Atapp [] (Short «string»))`` I);
 
 val _ = trans "<"  “mlstring_lt”;
 val _ = trans "<=" “mlstring_le”;
@@ -27,6 +27,8 @@ val _ = trans "<"  “fast_lt”;
 val _ = trans "<=" “fast_le”;
 val _ = trans ">"  “fast_gt”;
 val _ = trans ">=" “fast_ge”;
+val _ = next_ml_names := ["compare"];
+val _ = translate fast_compare_def;
 val _ = ml_prog_update (close_module NONE);
 
 val _ = trans "sub" mlstringSyntax.strsub_tm;
@@ -45,10 +47,6 @@ val extract_side_def = definition"extract_side_def";
 val extract_side_thm = Q.prove(
   `!s i opt. extract_side s i opt`,
   rw [extract_side_def, arithmeticTheory.MIN_DEF] ) |> update_precondition
-
-val _ = ml_prog_update open_local_block;
-val res = translate concatWith_aux_def;
-val _ = ml_prog_update open_local_in_block;
 
 val _ = next_ml_names := ["concatWith"];
 val result = translate concatWith_def;

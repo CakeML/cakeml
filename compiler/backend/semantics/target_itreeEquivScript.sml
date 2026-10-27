@@ -3,8 +3,8 @@
 *)
 Theory target_itreeEquiv
 Ancestors
-  semanticsProps evaluateProps ffi targetSem targetProps
-  target_itreeSem target_itreeProps itree_semantics
+  evaluateProps ffi targetSem
+  target_itreeSem target_itreeProps
   itree_semanticsProps
 Libs
   preamble
@@ -35,14 +35,14 @@ Definition evaluate'_def:
       else if mc.target.get_pc ms = mc.halt_pc then
         (if mc.target.get_reg ms mc.ptr_reg = 0w
          then Halt Success else Halt Resource_limit_hit,mc,ms,ffi)
-      else if mc.target.get_pc ms = mc.ccache_pc then
-        let (ms1,new_oracle) =
-          apply_oracle mc.ccache_interfer
-            (mc.target.get_reg ms mc.ptr_reg,
-             mc.target.get_reg ms mc.len_reg,
-             ms) in
-        let mc = mc with ccache_interfer := new_oracle in
-          evaluate' mc ffi (k-1) ms1
+      else if mc.target.get_pc ms = mc.install_pc then
+        (case read_ffi_bytearray mc mc.ptr_reg mc.len_reg ms of
+         | SOME bytes =>
+           let (ms1,new_oracle) =
+             apply_oracle mc.install_interfer (bytes,ms) in
+           let mc = mc with install_interfer := new_oracle in
+             evaluate' mc ffi (k-1) ms1
+         | _ => (Error,mc,ms,ffi))
       else
         case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
         | NONE => (Error,mc,ms,ffi)
@@ -56,7 +56,7 @@ Definition evaluate'_def:
                         | MappedRead =>
                             (case a of
                              | Addr r off =>
-                                 let ad = mc.target.get_reg ms r + off in
+                                 let ad = mc.target.get_reg ms r + i2w off in
                                    (if (if nb = 0w
                                         then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T)
                                        ∧ (ad IN mc.shared_addresses) /\
@@ -78,7 +78,7 @@ Definition evaluate'_def:
                         | MappedWrite =>
                             (case a of
                              | Addr r off =>
-                                 let ad = (mc.target.get_reg ms r) + off in
+                                 let ad = (mc.target.get_reg ms r) + i2w off in
                                    (if (if nb = 0w
                                         then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T)
                                        /\ (ad IN mc.shared_addresses) /\
@@ -270,7 +270,7 @@ Theorem evaluate'_1_ffi_changed:
     res = TimeOut ∧
     mc.target.get_pc ms ∉ (mc.prog_addresses DIFF set mc.ffi_entry_pcs) ∧
     mc.target.get_pc ms ≠ mc.halt_pc ∧
-    mc.target.get_pc ms ≠ mc.ccache_pc ∧
+    mc.target.get_pc ms ≠ mc.install_pc ∧
     mc' = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer ∧
     ∃n ws1 ws2 l.
   find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME n ∧
@@ -278,7 +278,7 @@ Theorem evaluate'_1_ffi_changed:
   (EL n mc.ffi_names = SharedMem MappedRead /\
    ?nb ad r off reg pc'.
           ALOOKUP mc.mmio_info n = SOME (nb, Addr r off,reg,pc') /\
-          ad = mc.target.get_reg ms r + off /\
+          ad = mc.target.get_reg ms r + i2w off /\
           (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
           ad IN mc.shared_addresses /\
           is_valid_mapped_read (mc.target.get_pc ms) nb (Addr r off) reg
@@ -288,7 +288,7 @@ Theorem evaluate'_1_ffi_changed:
          (EL n mc.ffi_names = SharedMem MappedWrite /\
          ?nb ad r off reg pc'.
            ALOOKUP mc.mmio_info n = SOME (nb,Addr r off,reg,pc') /\
-           ad = mc.target.get_reg ms r + off /\
+           ad = mc.target.get_reg ms r + i2w off /\
            (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
            ad IN mc.shared_addresses /\
            is_valid_mapped_write (mc.target.get_pc ms) nb (Addr r off) reg
@@ -321,7 +321,7 @@ Theorem evaluate'_1_ffi_failed:
   = (Halt (FFI_outcome outcome),mc',ms',ffi') ⇔
     mc.target.get_pc ms ∉ (mc.prog_addresses DIFF set mc.ffi_entry_pcs) ∧
     mc.target.get_pc ms ≠ mc.halt_pc ∧
-    mc.target.get_pc ms ≠ mc.ccache_pc ∧
+    mc.target.get_pc ms ≠ mc.install_pc ∧
     ms = ms' ∧ mc = mc' ∧ ffi = ffi' ∧
     ∃n ws1 ws2 l.
       find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 = SOME n ∧
@@ -329,7 +329,7 @@ Theorem evaluate'_1_ffi_failed:
         (EL n mc.ffi_names = SharedMem MappedRead /\
         ?nb ad r off reg pc'.
           ALOOKUP mc.mmio_info n = SOME (nb, Addr r off,reg,pc') /\
-          ad = mc.target.get_reg ms r + off /\
+          ad = mc.target.get_reg ms r + i2w off /\
           (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
           ad IN mc.shared_addresses /\
           is_valid_mapped_read (mc.target.get_pc ms) nb (Addr r off) reg
@@ -339,7 +339,7 @@ Theorem evaluate'_1_ffi_failed:
          (EL n mc.ffi_names = SharedMem MappedWrite /\
          ?nb ad r off reg pc'.
            ALOOKUP mc.mmio_info n = SOME (nb,Addr r off,reg,pc') /\
-           ad = mc.target.get_reg ms r + off /\
+           ad = mc.target.get_reg ms r + i2w off /\
            (if nb = 0w then (w2n ad MOD (dimindex (:'b) DIV 8)) = 0 else T) ∧
            ad IN mc.shared_addresses /\
            is_valid_mapped_write (mc.target.get_pc ms) nb (Addr r off) reg
@@ -403,7 +403,8 @@ Proof
     >- (IF_CASES_TAC >> gvs[] >> pairarg_tac >> gvs[] >> IF_CASES_TAC >> gvs[])
     >> (
       IF_CASES_TAC >> gvs[] >- (rw[] >> gvs[halt_rel_def]) >>
-      IF_CASES_TAC >> gvs[] >- (pairarg_tac >> gvs[]) >>
+      IF_CASES_TAC >> gvs[]
+      >- (rpt (TOP_CASE_TAC >> gvs[]) >> rpt (pairarg_tac >> gvs[])) >>
       rpt (TOP_CASE_TAC >> gvs[]) >>
       rpt (pairarg_tac >> gvs[AllCaseEqs()]) >>
       rpt (TOP_CASE_TAC >> gvs[]) >>

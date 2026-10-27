@@ -50,6 +50,9 @@ Definition every_exp_def[simp]:
   (every_exp f (Lannot e l) <=>
     f (Lannot e l) /\
     every_exp f e) /\
+  (every_exp f (Open path e) <=>
+    f (Open path e) /\
+    every_exp f e) /\
   (every_exp f e <=> f e)
 Termination
   WF_REL_TAC `measure (exp_size o SND)`
@@ -112,7 +115,7 @@ Definition freevars_def[simp]:
   freevars (Raise e) = freevars e ∧
   freevars (Handle e pes) =
       (freevars e ∪ BIGUNION (set (MAP (λ(p,e). freevars e DIFF
-                                   set (MAP Short (pat_bindings p []))) pes))) ∧
+                                   set (MAP Short (pat_bindings p))) pes))) ∧
   freevars (Con cn es) = BIGUNION (set (MAP freevars es)) ∧
   freevars (Var n) = {n} ∧
   freevars (Fun n e) = freevars e DIFF {Short n} ∧
@@ -121,7 +124,7 @@ Definition freevars_def[simp]:
   freevars (If x y z) = (freevars x ∪ freevars y ∪ freevars z) ∧
   freevars (Mat e pes) =
       (freevars e ∪ BIGUNION (set (MAP (λ(p,e). freevars e DIFF
-                                   set (MAP Short (pat_bindings p []))) pes))) ∧
+                                   set (MAP Short (pat_bindings p))) pes))) ∧
   freevars (Let opt x y) =
       (freevars x ∪
        (freevars y DIFF (case opt of SOME n => {Short n} | _ => {}))) ∧
@@ -130,7 +133,12 @@ Definition freevars_def[simp]:
                                        {Short fn; Short vn}) f)) ∪
        (freevars x DIFF set (MAP (Short o FST) f))) ∧
   freevars (Tannot x t) = freevars x ∧
-  freevars (Lannot x l) = freevars x
+  freevars (Lannot x l) = freevars x ∧
+  (* An open can supply a binding or leave a fallback binding visible.
+     Prefix qualified identifiers too: opened submodules shadow modules. *)
+  freevars (Open path x) =
+    freevars x ∪
+    IMAGE (λid. mk_id (path ++ id_to_mods id) (id_to_n id)) (freevars x)
 End
 
 (* Partial applications of closures.
@@ -143,4 +151,3 @@ Definition do_partial_app_def:
         SOME (Closure (env with v := nsBind n v env.v) n' e)
     | _ => NONE
 End
-

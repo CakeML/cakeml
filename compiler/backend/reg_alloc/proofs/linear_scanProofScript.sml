@@ -5,7 +5,7 @@ Theory linear_scanProof
 Libs
   preamble ml_monadBaseLib
 Ancestors
-  mllist sptree reg_alloc linear_scan reg_allocProof ml_monadBase
+  reg_alloc linear_scan reg_allocProof ml_monadBase
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
@@ -14,11 +14,7 @@ val _ = disable_tyabbrev_printing "alist"
 
 val _ = ParseExtras.temp_tight_equality();
 val _ = monadsyntax.temp_add_monadsyntax()
-
-Overload monad_bind[local] = ``st_ex_bind``
-Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload return[local] = ``st_ex_return``
+val _ = monadsyntax.temp_enable_monad "st_ex";
 
 val _ = hide "state";
 
@@ -2131,7 +2127,7 @@ Proof
   fs[Marray_update_def]
 QED
 
-val msimps = [st_ex_bind_def,st_ex_return_def];
+val msimps = [st_ex_bind_def,st_ex_ignore_bind_def,st_ex_return_def];
 
 Definition lookup_default_id_def:
     lookup_default_id s x = option_CASE (lookup x s) x (\x.x)
@@ -2658,7 +2654,6 @@ Proof
       rpt (first_x_assum (qspec_then `r` assume_tac)) >>
       rfs []
     )
-    THEN1 rw [linear_scan_state_component_equality]
 QED
 
 Theorem find_color_invariants:
@@ -3959,8 +3954,7 @@ Proof
     recInduct partition_regs_ind >>
     rpt strip_tac >>
     once_rewrite_tac [partition_regs_def] >>
-    rw msimps
-    THEN1 rw [linear_scan_hidden_state_component_equality] >>
+    rw msimps >>
     CASE_TAC
     THEN1 (
       fs [] >> (
@@ -4092,7 +4086,6 @@ Proof
     rpt strip_tac >>
     once_rewrite_tac [sort_regs_def] >>
     rw msimps
-    THEN1 rw [linear_scan_hidden_state_component_equality]
     THEN1 (
       `i1 = i2` by rw [] >>
       simp [LEX_DEF]
@@ -4278,8 +4271,7 @@ Proof
     recInduct partition_moves_ind >>
     rw [] >>
     once_rewrite_tac [partition_moves_def] >>
-    rw msimps
-    THEN1 rw [linear_scan_hidden_state_component_equality] >>
+    rw msimps >>
     rpt (first_x_assum (qspec_then `EL l sth.sorted_moves` assume_tac)) >>
     rfs [] >>
     CASE_TAC >> fs []
@@ -4310,8 +4302,7 @@ Proof
     recInduct sort_moves_ind >>
     rw [] >>
     once_rewrite_tac [sort_moves_def] >>
-    rw msimps
-    THEN1 rw [linear_scan_hidden_state_component_equality] >>
+    rw msimps >>
     qspecl_then [`l+1`, `FST (EL l sth.sorted_moves)`, `r`, `sth`] assume_tac partition_moves_correct >>
     rfs [] >>
     rename1 `partition_moves _ _ _ _ = (_, sthpart)` >>

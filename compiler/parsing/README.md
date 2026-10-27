@@ -24,17 +24,17 @@ Definition of the overall parsing functions that go from tokens to abstract
 syntax trees. In other words, these include calls to the functions in
 `../semantics/cmlPtreeConversion`.
 
-[fromSexpScript.sml](fromSexpScript.sml):
-Definitions of functions for conversion between an S-expression encoding of
-the CakeML abstract syntax and the abstract syntax type itself.
-
 [lexer_implScript.sml](lexer_implScript.sml):
 Definition of the lexer: code for consuming tokens until a top-level
 semicolon is found (semicolons can be hidden in `let`-`in`-`end` blocks,
 structures, signatures, and between parentheses).
 
-[ocaml](ocaml):
-OCaml lexer and parser frontend for the Candle theorem prover.
+[pegexec_cml_foScript.sml](pegexec_cml_foScript.sml):
+First-order PEG exec instantiated to CakeML surface types:
+  input: (token # location$locs) list
+  values: mlptree list  (as in cmlPEG)
+  errors: string
+  rule keys: MMLnonT inf
 
 [proofs](proofs):
 Soundness and completeness proofs for the CakeML PEG.

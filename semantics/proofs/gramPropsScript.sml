@@ -64,6 +64,7 @@ Definition NT_rank_def:
         else if n = nDconstructor      then  2
         else if n = nConstructorName   then  2
         else if n = nUQConstructorName then  1
+        else if n = nModPath           then  1
         else if n = nTypeList2         then  8
         else if n = nTypeList1         then  7
         else if n = nType              then  6
@@ -251,7 +252,7 @@ end
 val nullacc =
     foldl fold_nullprove []
           [“nE”, “nPTbase”, “nTbaseList”, “nType”, “nTyvarN”, “nSpecLine”,
-           “nPtuple”, “nPConApp”, “nPbase”, “nLetDec”,
+           “nPtuple”, “nPConApp”, “nPbase”, “nLetDec”, ``nModPath``,
            “nTyVarList”, “nDtypeDecl”, “nDecl”, “nPE”,
            “nElist1”, “nCompOps”, “nListOps”, “nPEsfx”,
            “nPapp”, “nPattern”, “nPEs” , “nRelOps”, “nMultOps”,

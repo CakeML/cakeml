@@ -12,12 +12,8 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = ParseExtras.temp_tight_equality();
 val _ = monadsyntax.temp_add_monadsyntax()
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
-Overload monad_bind[local] = ``st_ex_bind``
-Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload return[local] = ``st_ex_return``
+val _ = monadsyntax.temp_enable_monad "st_ex";
 
 (* Edge from node x to node y, in terms of an adjacency list *)
 Definition has_edge_def:
@@ -84,7 +80,7 @@ Definition good_pref_def:
     | SOME k => MEM k ks
 End
 
-val msimps = [st_ex_bind_def,st_ex_return_def];
+val msimps = [st_ex_bind_def,st_ex_ignore_bind_def,st_ex_return_def];
 
 val get_eqns = [get_dim_def, get_unavail_moves_wl_def,get_avail_moves_wl_def,get_simp_wl_def,get_spill_wl_def,set_spill_wl_def,get_freeze_wl_def,get_stack_def];
 
@@ -465,8 +461,7 @@ Theorem assign_Atemps_FOREACH_lem[local]:
         else EL m s'.node_tag = EL m s.node_tag)
 Proof
   Induct>>rw[st_ex_FOREACH_def]>>
-  fs msimps>-
-    simp[ra_state_component_equality]>>
+  fs msimps>>
   drule (GEN_ALL assign_Atemp_tag_correct)>>
   rpt(disch_then drule)>>
   disch_then(qspec_then`ks` assume_tac)>>fs[]>>
@@ -665,7 +660,7 @@ Theorem assign_Stemps_FOREACH_lem[local]:
     s' = s with node_tag := s'.node_tag
 Proof
   Induct>>rw[st_ex_FOREACH_def]>>
-  fs msimps>- simp[ra_state_component_equality]>>
+  fs msimps>>
   drule (GEN_ALL assign_Stemp_tag_correct)>>
   rpt(disch_then drule)>>
   rw[]>>gvs[]>>
@@ -1154,9 +1149,7 @@ Theorem list_insert_edge_succeeds:
     (b = x ∧ MEM a ys) ∨
     (has_edge s.adj_ls a b))
 Proof
-  Induct>>rw[list_insert_edge_def]>>fs msimps
-  >-
-    fs[ra_state_component_equality]>>
+  Induct>>rw[list_insert_edge_def]>>fs msimps>>
   drule (GEN_ALL insert_edge_succeeds)>>
   disch_then (qspecl_then [`h`,`x`] assume_tac)>>rfs[]>>
   last_x_assum drule>>
@@ -1938,8 +1931,6 @@ Theorem extend_graph_succeeds:
     (∃x y. f x = a ∧ f y = b ∧ MEM (x,y) forced) ∨ (has_edge s.adj_ls a b))
 Proof
   Induct>>fs[extend_graph_def]>>fs msimps
-  >-
-    rw[ra_state_component_equality]
   >>
     Cases>>fs[extend_graph_def]>>rw[]>>fs msimps>>
     drule (GEN_ALL insert_edge_succeeds)>>
@@ -1976,9 +1967,7 @@ Theorem mk_tags_st_ex_FOREACH_lem[local]:
     else
        EL x s'.node_tag = EL x s.node_tag)
 Proof
-  Induct>>fs[st_ex_FOREACH_def]>>fs msimps
-  >-
-    simp[ra_state_component_equality]>>
+  Induct>>fs[st_ex_FOREACH_def]>>fs msimps>>
   rw[]>>
   TRY(rename1`lookup (fa h) fs`>>Cases_on`lookup (fa h) fs`>> gvs[])>>
   (reverse IF_CASES_TAC >- fs[good_ra_state_def])>>
@@ -3308,8 +3297,7 @@ Proof
   rw[]>>simp[]>>
   `is_subgraph s'.adj_ls s''.adj_ls` by
     fs[is_subgraph_def]>>
-  qpat_x_assum`!a b. _`mp_tac>>
-  qmatch_goalsub_abbrev_tac`hide2 ⇒ _`>>
+  qpat_x_assum`!a b. _`(ASSUME_NAMED_TAC "edges")>>
   drule (GEN_ALL mk_tags_succeeds)>>
   disch_then(qspecl_then[`st.dim`,`fs`,`sp_default fa`] mp_tac)>>
   impl_tac>-
@@ -3428,9 +3416,9 @@ Proof
       metis_tac[])>>
     qsuff_tac`has_edge s''.adj_ls v v'`>-
       fs[is_subgraph_def]>>
-    simp[]>>
+    LABEL_X_ASSUM "edges" (fn th => simp[th])>>
     DISJ2_TAC>>DISJ1_TAC>>
-    qexists_tac`p_1`>>qexists_tac`p_2`>>simp[])>>
+    qexists_tac`p_1`>>qexists_tac`p_2`>>fs[sp_default_def])>>
   strip_tac>>
   qsuff_tac`v=v'`
   >-

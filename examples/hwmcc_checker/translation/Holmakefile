@@ -1,0 +1,6 @@
+all: $(DEFAULT_TARGETS) README.md
+sinclude $(CAKEMLDIR)/developers/readme.mk
+
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/basis/basis-heap
+endif

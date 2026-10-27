@@ -3,7 +3,7 @@
 *)
 Theory nqueens
 Ancestors
-  misc boolExpToCnf quantifierExp cnf
+  misc boolExpToCnf quantifierExp satCnf
 Libs
   preamble
 
@@ -63,7 +63,7 @@ End
 (* ---------------------------- Evaluation ---------------------------- *)
 
 Definition eval_nqueens_def:
-  eval_nqueens (w:assignment) (n:num) =
+  eval_nqueens (w:num assignment) (n:num) =
   (EVERY (λ row. sum_bools (MAP w row) = 1) (get_rows n) ∧
    EVERY (λ col. sum_bools (MAP w col) ≤ 1) (get_cols n) ∧
    EVERY (λ diagonal. sum_bools (MAP w diagonal) ≤ 1) (get_diagonals n))
@@ -75,13 +75,13 @@ End
 Definition every_at_most_one_def:
   every_at_most_one [] = PTrue ∧
   every_at_most_one (x::xs) =
-  PAnd (PMostOne (MAP (λ y. PLit (INL y)) x)) (every_at_most_one xs)
+  PAnd (PMostOne (MAP (λ y. PLit (Pos y)) x)) (every_at_most_one xs)
 End
 
 Definition every_at_least_one_def:
   every_at_least_one [] = PTrue ∧
   every_at_least_one (x::xs) =
-  PAnd (PLeastOne (MAP (λ y. PLit (INL y)) x)) (every_at_least_one xs)
+  PAnd (PLeastOne (MAP (λ y. PLit (Pos y)) x)) (every_at_least_one xs)
 End
 
 Definition nqueens_to_pseudoBool_def:
@@ -113,10 +113,10 @@ QED
 Theorem map_eval:
   ∀ xs w.
     MAP w xs =
-    MAP (λ y. eval_pseudoBool w y) (MAP (λ x. PLit (INL x)) xs)
+    MAP (λ y. eval_pseudoBool w y) (MAP (λ x. PLit (Pos x)) xs)
 Proof
   Induct >> rw[]
-  >> rw[eval_pseudoBool_def, eval_literal_def]
+  >> rw[eval_pseudoBool_def, cnfTheory.satisfies_lit_def]
 QED
 
 Theorem eval_every_at_most_one:
@@ -167,4 +167,3 @@ Proof
   >> gs[eval_every_exactly_one]
   >> metis_tac[]
 QED
-

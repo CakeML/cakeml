@@ -1,0 +1,7 @@
+name = "hwmcc_checker"
+
+[projects.cakeml]
+path = "../.."
+
+[projects.cnf]
+path = "../cnf"

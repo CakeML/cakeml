@@ -26,6 +26,511 @@ Proof
   \\ rw [] \\ simp [Once pre]
 QED
 
+(* source_dce *)
+
+val _ = cv_trans astTheory.pat_bindings_def;
+
+(* first-order versions of no_Open and free_vars, which cv_trans can handle *)
+
+Definition no_Open_alt_def:
+  no_Open_alt (Raise e) = no_Open_alt e ∧
+  no_Open_alt (Handle e pes) = (no_Open_alt e ∧ no_Open_pes pes) ∧
+  no_Open_alt (ast$Lit l) = T ∧
+  no_Open_alt (Con cn es) = no_Open_list es ∧
+  no_Open_alt (Var v) = T ∧
+  no_Open_alt (Fun x e) = no_Open_alt e ∧
+  no_Open_alt (App op es) = no_Open_list es ∧
+  no_Open_alt (Log lop e1 e2) = (no_Open_alt e1 ∧ no_Open_alt e2) ∧
+  no_Open_alt (If e1 e2 e3) =
+    (no_Open_alt e1 ∧ no_Open_alt e2 ∧ no_Open_alt e3) ∧
+  no_Open_alt (Mat e pes) = (no_Open_alt e ∧ no_Open_pes pes) ∧
+  no_Open_alt (Let xo e1 e2) = (no_Open_alt e1 ∧ no_Open_alt e2) ∧
+  no_Open_alt (Letrec funs e) = (no_Open_alt e ∧ no_Open_funs funs) ∧
+  no_Open_alt (Tannot e t) = no_Open_alt e ∧
+  no_Open_alt (Lannot e l) = no_Open_alt e ∧
+  no_Open_alt (Open path e) = F ∧
+  no_Open_list [] = T ∧
+  no_Open_list (e::es) = (no_Open_alt e ∧ no_Open_list es) ∧
+  no_Open_pes [] = T ∧
+  no_Open_pes ((p,e)::pes) = (no_Open_alt e ∧ no_Open_pes pes) ∧
+  no_Open_funs [] = T ∧
+  no_Open_funs ((f,x,e)::funs) = (no_Open_alt e ∧ no_Open_funs funs)
+Termination
+  wf_rel_tac ‘measure (λx. case x of
+                           | INL e => exp_size e
+                           | INR (INL es) => list_size exp_size es
+                           | INR (INR (INL pes)) =>
+                               list_size (pair_size pat_size exp_size) pes
+                           | INR (INR (INR funs)) =>
+                               list_size (pair_size mlstring_size
+                                 (pair_size mlstring_size exp_size)) funs)’
+End
+
+Theorem no_Open_alt_thm:
+  (∀e. no_Open_alt e = no_Open e) ∧
+  (∀es. no_Open_list es = EVERY no_Open es) ∧
+  (∀pes. no_Open_pes pes = EVERY (λ(p,e). no_Open e) pes) ∧
+  (∀funs. no_Open_funs funs = EVERY (λ(f,x,e). no_Open e) funs)
+Proof
+  ‘no_Open = every_exp (λx. ¬is_Open x)’
+    by simp [FUN_EQ_THM, source_dceTheory.no_Open_def]
+  \\ ho_match_mp_tac no_Open_alt_ind
+  \\ rw [no_Open_alt_def, source_dceTheory.is_Open_def, SF ETA_ss]
+QED
+
+val _ = cv_auto_trans (no_Open_alt_def |> measure_args [0,0,0,0]);
+
+val _ = cv_auto_trans (source_dceTheory.open_free_dec_def
+                         |> PURE_REWRITE_RULE [GSYM no_Open_alt_thm]);
+
+val _ = cv_trans (source_dceTheory.total_pat_def |> measure_args [0,0]);
+val _ = cv_auto_trans (source_dceTheory.pure_exp_def |> measure_args [0,0,0]);
+val _ = cv_auto_trans source_dceTheory.can_remove_def;
+val _ = cv_trans (source_dceTheory.prune_pat_def |> measure_args [1,1]);
+val _ = cv_trans source_dceTheory.prune_dec_def;
+
+val pre = cv_auto_trans_pre "" source_dceTheory.add_name_def;
+
+Theorem source_dce_add_name_pre[cv_pre]:
+  ∀v0 v. source_dce_add_name_pre v0 v
+Proof
+  qsuff_tac ‘∀v v0. source_dce_add_name_pre v0 v’ >- simp []
+  \\ Induct \\ rw [] \\ simp [Once pre]
+QED
+
+val _ = cv_auto_trans source_dceTheory.delete_names_def;
+
+Definition free_vars_id_def:
+  free_vars_id locals acc (Short n) =
+    (if MEM n locals then acc else add_name acc (Short n)) ∧
+  free_vars_id locals acc (Long m id) = add_name acc (Long m id)
+End
+
+Definition opt_cons_def:
+  opt_cons NONE l = l ∧
+  opt_cons (SOME x) l = x :: l
+End
+
+Definition fun_names_def:
+  fun_names [] = [] ∧
+  fun_names ((f,x,e:ast$exp)::funs) = f :: fun_names funs
+End
+
+Theorem fun_names_thm[local]:
+  ∀funs. fun_names funs = MAP FST funs
+Proof
+  Induct \\ simp [fun_names_def, FORALL_PROD]
+QED
+
+Definition free_vars_alt_def:
+  free_vars_alt locals acc (Raise e) = free_vars_alt locals acc e ∧
+  free_vars_alt locals acc (Handle e pes) =
+    free_vars_alt_pes locals (free_vars_alt locals acc e) pes ∧
+  free_vars_alt locals acc (ast$Lit l) = acc ∧
+  free_vars_alt locals acc (Con cn es) = free_vars_alt_list locals acc es ∧
+  free_vars_alt locals acc (Var id) = free_vars_id locals acc id ∧
+  free_vars_alt locals acc (Fun x e) = free_vars_alt (x::locals) acc e ∧
+  free_vars_alt locals acc (App op es) = free_vars_alt_list locals acc es ∧
+  free_vars_alt locals acc (Log lop e1 e2) =
+    free_vars_alt locals (free_vars_alt locals acc e1) e2 ∧
+  free_vars_alt locals acc (If e1 e2 e3) =
+    free_vars_alt locals
+      (free_vars_alt locals (free_vars_alt locals acc e1) e2) e3 ∧
+  free_vars_alt locals acc (Mat e pes) =
+    free_vars_alt_pes locals (free_vars_alt locals acc e) pes ∧
+  free_vars_alt locals acc (Let xo e1 e2) =
+    free_vars_alt (opt_cons xo locals) (free_vars_alt locals acc e1) e2 ∧
+  free_vars_alt locals acc (Letrec funs e) =
+    free_vars_alt_funs (fun_names funs ++ locals)
+      (free_vars_alt (fun_names funs ++ locals) acc e) funs ∧
+  free_vars_alt locals acc (Tannot e t) = free_vars_alt locals acc e ∧
+  free_vars_alt locals acc (Lannot e l) = free_vars_alt locals acc e ∧
+  free_vars_alt locals acc (Open path e) = free_vars_alt locals acc e ∧
+  free_vars_alt_list locals acc [] = acc ∧
+  free_vars_alt_list locals acc (e::es) =
+    free_vars_alt_list locals (free_vars_alt locals acc e) es ∧
+  free_vars_alt_pes locals acc [] = acc ∧
+  free_vars_alt_pes locals acc ((p,e)::pes) =
+    free_vars_alt_pes locals
+      (free_vars_alt (pat_bindings p ++ locals) acc e) pes ∧
+  free_vars_alt_funs locals acc [] = acc ∧
+  free_vars_alt_funs locals acc ((f,x,e)::funs) =
+    free_vars_alt_funs locals (free_vars_alt (x::locals) acc e) funs
+Termination
+  wf_rel_tac ‘measure (λx. case x of
+                           | INL (_,_,e) => exp_size e
+                           | INR (INL (_,_,es)) => list_size exp_size es
+                           | INR (INR (INL (_,_,pes))) =>
+                               list_size (pair_size pat_size exp_size) pes
+                           | INR (INR (INR (_,_,funs))) =>
+                               list_size (pair_size mlstring_size
+                                 (pair_size mlstring_size exp_size)) funs)’
+End
+
+Theorem free_vars_alt_thm:
+  (∀locals acc e. free_vars_alt locals acc e = free_vars locals acc e) ∧
+  (∀locals acc es. free_vars_alt_list locals acc es =
+                   free_vars_list locals acc es) ∧
+  (∀locals acc pes. free_vars_alt_pes locals acc pes =
+                    free_vars_pes locals acc pes) ∧
+  (∀locals acc funs. free_vars_alt_funs locals acc funs =
+                     free_vars_funs locals acc funs)
+Proof
+  ho_match_mp_tac free_vars_alt_ind
+  \\ rw [free_vars_alt_def, source_dceTheory.free_vars_def]
+  \\ gvs [fun_names_thm]
+  >~ [‘free_vars_id _ _ id’] >-
+   (Cases_on ‘id’ \\ simp [free_vars_id_def, source_dceTheory.free_vars_def])
+  >~ [‘opt_cons xo _’] >-
+   (Cases_on ‘xo’ \\ gvs [opt_cons_def, source_dceTheory.free_vars_def])
+QED
+
+val _ = cv_auto_trans free_vars_id_def;
+val _ = cv_trans opt_cons_def;
+val _ = cv_trans fun_names_def;
+
+val pre = cv_auto_trans_pre "" (free_vars_alt_def |> measure_args [2,2,2,2]);
+
+Theorem free_vars_alt_pre[cv_pre,local]:
+  (∀locals acc v. free_vars_alt_pre locals acc v) ∧
+  (∀locals acc v. free_vars_alt_list_pre locals acc v) ∧
+  (∀locals acc v. free_vars_alt_pes_pre locals acc v) ∧
+  (∀locals acc v. free_vars_alt_funs_pre locals acc v)
+Proof
+  ho_match_mp_tac free_vars_alt_ind \\ rw [] \\ rw [Once pre]
+QED
+
+val _ = cv_auto_trans (source_dceTheory.free_vars_dec_def
+                         |> PURE_REWRITE_RULE [GSYM free_vars_alt_thm]);
+val _ = cv_auto_trans source_dceTheory.update_names_def;
+val _ = cv_auto_trans (source_dceTheory.union_names_def |> measure_args [0,0]);
+
+val pre = cv_auto_trans_pre ""
+            (source_dceTheory.dce_decs_def |> measure_args [1,1]);
+
+Theorem source_dce_dce_decs_pre[cv_pre]:
+  (∀used v. source_dce_dce_decs_pre used v) ∧
+  (∀used v. source_dce_dce_dec_pre used v)
+Proof
+  ho_match_mp_tac source_dceTheory.dce_decs_ind
+  \\ rw [] \\ rw [Once pre] \\ gvs []
+QED
+
+val _ = cv_trans (source_dceTheory.has_Denv_dec_def |> measure_args [0,0]);
+val _ = cv_trans source_dceTheory.compile_decs_def;
+
+(* source_lift_consts *)
+
+(* cv-friendly forms of the definitions in source_lift_consts *)
+
+Theorem maps_disjoint_FCARD[local]:
+  maps_disjoint fvs bound ⇔ FCARD (FINTER fvs bound) = 0
+Proof
+  simp [source_lift_constsTheory.maps_disjoint_def, FCARD_0_FEMPTY, FINTER_def,
+        source_lift_constsTheory.str_empty_def]
+  \\ metis_tac []
+QED
+
+Theorem bump_explode[local]:
+  bump x n = if "constant_" ≼ explode x then MAX n (LENGTH (explode x) + 1) else n
+Proof
+  Cases_on ‘x’ \\ simp [source_lift_constsTheory.bump_def, mlstringTheory.isprefix_thm]
+QED
+
+Definition every_tree_value_def:
+  every_tree_value [] = T ∧
+  every_tree_value (t::ts) = (tree_value t ∧ every_tree_value ts)
+End
+
+Definition fupdate_pairs_def:
+  fupdate_pairs m [] = m ∧
+  fupdate_pairs m ((k,v)::kvs) = fupdate_pairs (m |+ (k,v)) kvs
+End
+
+Definition fun_params_def:
+  fun_params [] = [] ∧
+  fun_params ((f,x,e:ast$exp)::funs) = x :: fun_params funs
+End
+
+Definition fun_heads_def:
+  fun_heads [] = [] ∧
+  fun_heads ((f,x,e:ast$exp)::funs) = (f,x) :: fun_heads funs
+End
+
+Definition pes_pats_def:
+  pes_pats [] = [] ∧
+  pes_pats ((p,e:ast$exp)::pes) = p :: pes_pats pes
+End
+
+Theorem lift_consts_list_thms[local]:
+  (∀ts. every_tree_value ts = EVERY tree_value ts) ∧
+  (∀kvs m. fupdate_pairs m kvs = m |++ kvs) ∧
+  (∀funs. fun_params funs = MAP (FST o SND) funs) ∧
+  (∀funs. fun_heads funs = MAP (λ(f,x,e). (f,x)) funs) ∧
+  (∀pes. pes_pats pes = MAP FST pes)
+Proof
+  rpt conj_tac \\ Induct
+  \\ simp [every_tree_value_def, fupdate_pairs_def, fun_params_def,
+           fun_heads_def, pes_pats_def, FUPDATE_LIST_THM, FORALL_PROD]
+QED
+
+(* lift_exp calls lower_exp on the same tree. Inlining lift_exp at each call
+   site gives a block whose recursive calls are all on smaller trees. *)
+
+Definition lift_now_def:
+  lift_now mode bound t ⇔
+    tree_value t ∧
+    (mode = LiftValues ∨ (mode = LiftFunctions ∧ is_Fun (tree_exp t))) ∧
+    maps_disjoint (tree_fvs t) bound ∧ ¬is_trivial (tree_exp t)
+End
+
+Definition pick_mode_def:
+  pick_mode mode bound t = if lift_now mode bound t then LiftFunctions else mode
+End
+
+Definition lift_finish_def:
+  lift_finish b r = if b then (case r of (e,st) => emit_value e st) else r
+End
+
+Theorem lift_exp_unfold[local]:
+  lift_exp mode bound ren st t =
+    lift_finish (lift_now mode bound t)
+      (lower_exp (pick_mode mode bound t) bound ren st t)
+Proof
+  Cases_on ‘t’
+  \\ simp [Once source_lift_constsTheory.lift_exp_def, lift_now_def,
+           pick_mode_def, lift_finish_def, source_lift_constsTheory.tree_exp_def,
+           source_lift_constsTheory.tree_fvs_def,
+           source_lift_constsTheory.tree_value_def]
+  \\ IF_CASES_TAC \\ simp [] \\ pairarg_tac \\ simp []
+QED
+
+Definition lower_alt_def:
+  (lower_alt mode bound ren st (Lift (Con cn es) fvs value children) =
+     let (es,st) = lifts_alt mode bound ren st children in
+       (Con cn es,st)) ∧
+  (lower_alt mode bound ren st (Lift (Fun x e) fvs value [body]) =
+     let bound = bound |+ (x,()) in
+     let ren = fdomsub ren x in
+     let (e,st) =
+       if is_Fun (tree_exp body) then lower_alt LiftValues bound ren st body
+       else lift_finish (lift_now LiftValues bound body)
+              (lower_alt (pick_mode LiftValues bound body) bound ren st body) in
+       (Fun x e,st)) ∧
+  (lower_alt mode bound ren st
+     (Lift (ast$Letrec funs e) fvs value (body::children)) =
+     let names = fun_names funs in
+       if mode ≠ KeepValue ∧ maps_disjoint fvs bound then
+         let (names1,st) = choose_names bound names st in
+         let ren = fupdate_pairs ren (ZIP (names,names1)) in
+         let bound = delete_all names bound in
+         let (funs1,st) = funs_alt (bind_all names bound) ren st
+           (ZIP (names1,fun_params funs)) children in
+         let st = emit_dec (Dletrec NoLocs funs1) st in
+           lift_finish (lift_now mode bound body)
+             (lower_alt (pick_mode mode bound body) bound ren st body)
+       else
+         let bound = bind_all names bound in
+         let ren = delete_all names ren in
+         let (funs1,st) = funs_alt bound ren st (fun_heads funs) children in
+         let (e,st) = lift_finish (lift_now mode bound body)
+                        (lower_alt (pick_mode mode bound body) bound ren st body) in
+           (Letrec funs1 e,st)) ∧
+  (lower_alt mode bound ren st (Lift (Var v) fvs value children) =
+     (Var (rename_var ren v),st)) ∧
+  (lower_alt mode bound ren st (Lift (ast$App op es) fvs value children) =
+     let mode = if allow_lift op es then mode else KeepValue in
+     let (es,st) = lifts_alt mode bound ren st children in
+       (App op es,st)) ∧
+  (lower_alt mode bound ren st (Lift (Log lop e1 e2) fvs value [a;b]) =
+     let (e1,st) = lift_finish (lift_now mode bound a)
+                     (lower_alt (pick_mode mode bound a) bound ren st a) in
+     let (e2,st) = lift_finish (lift_now mode bound b)
+                     (lower_alt (pick_mode mode bound b) bound ren st b) in
+       (Log lop e1 e2,st)) ∧
+  (lower_alt mode bound ren st (Lift (If e1 e2 e3) fvs value [a;b;c]) =
+     let (e1,st) = lift_finish (lift_now mode bound a)
+                     (lower_alt (pick_mode mode bound a) bound ren st a) in
+     let (e2,st) = lift_finish (lift_now mode bound b)
+                     (lower_alt (pick_mode mode bound b) bound ren st b) in
+     let (e3,st) = lift_finish (lift_now mode bound c)
+                     (lower_alt (pick_mode mode bound c) bound ren st c) in
+       (If e1 e2 e3,st)) ∧
+  (lower_alt mode bound ren st (Lift (Let (SOME x) e1 e2) fvs value [a;b]) =
+     let rhs = tree_exp a in
+     let rhs_fvs = tree_fvs a in
+       if mode ≠ KeepValue ∧ is_Fun rhs ∧ maps_disjoint rhs_fvs bound then
+         let (e1,st) = lower_alt mode bound ren st a in
+         let (y,st) = choose_name bound x st in
+         let st = emit_dec (Dlet NoLocs (Pvar y) e1) st in
+           lift_finish (lift_now mode (fdomsub bound x) b)
+             (lower_alt (pick_mode mode (fdomsub bound x) b) (fdomsub bound x)
+                (ren |+ (x,y)) st b)
+       else
+         let (e1,st) = lift_finish (lift_now mode bound a)
+                         (lower_alt (pick_mode mode bound a) bound ren st a) in
+         let (e2,st) = lift_finish (lift_now mode (bound |+ (x,())) b)
+                         (lower_alt (pick_mode mode (bound |+ (x,())) b)
+                            (bound |+ (x,())) (fdomsub ren x) st b) in
+           (Let (SOME x) e1 e2,st)) ∧
+  (lower_alt mode bound ren st (Lift (Let NONE e1 e2) fvs value [a;b]) =
+     let (e1,st) = lift_finish (lift_now mode bound a)
+                     (lower_alt (pick_mode mode bound a) bound ren st a) in
+     let (e2,st) = lift_finish (lift_now mode bound b)
+                     (lower_alt (pick_mode mode bound b) bound ren st b) in
+       (Let NONE e1 e2,st)) ∧
+  (lower_alt mode bound ren st (Lift (Raise e) fvs value [a]) =
+     let (e,st) = lift_finish (lift_now mode bound a)
+                    (lower_alt (pick_mode mode bound a) bound ren st a) in
+       (Raise e,st)) ∧
+  (lower_alt mode bound ren st (Lift (Mat e pes) fvs value (a::bs)) =
+     let (e,st) = lift_finish (lift_now mode bound a)
+                    (lower_alt (pick_mode mode bound a) bound ren st a) in
+     let (pes,st) = pes_alt mode bound ren st (pes_pats pes) bs in
+       (Mat e pes,st)) ∧
+  (lower_alt mode bound ren st (Lift (Handle e pes) fvs value (a::bs)) =
+     let (e,st) = lift_finish (lift_now mode bound a)
+                    (lower_alt (pick_mode mode bound a) bound ren st a) in
+     let (pes,st) = pes_alt mode bound ren st (pes_pats pes) bs in
+       (Handle e pes,st)) ∧
+  (lower_alt mode bound ren st (Lift e fvs value children) = (e,st)) ∧
+  (lifts_alt mode bound ren st [] = ([],st)) ∧
+  (lifts_alt mode bound ren st (a::bs) =
+     let (e,st) = lift_finish (lift_now mode bound a)
+                    (lower_alt (pick_mode mode bound a) bound ren st a) in
+     let (es,st) = lifts_alt mode bound ren st bs in
+       (e::es,st)) ∧
+  (pes_alt mode bound ren st [] children = ([],st)) ∧
+  (pes_alt mode bound ren st (p::ps) [] = ([],st)) ∧
+  (pes_alt mode bound ren st (p::ps) (a::bs) =
+     let names = pat_bindings p in
+     let bound1 = bind_all names bound in
+     let (e,st) = lift_finish (lift_now mode bound1 a)
+                    (lower_alt (pick_mode mode bound1 a) bound1
+                       (delete_all names ren) st a) in
+     let (pes,st) = pes_alt mode bound ren st ps bs in
+       ((p,e)::pes,st)) ∧
+  (funs_alt bound ren st [] children = ([],st)) ∧
+  (funs_alt bound ren st (f::fs) [] = ([],st)) ∧
+  (funs_alt bound ren st ((f,x)::fs) (a::bs) =
+     let bound1 = bound |+ (x,()) in
+     let ren1 = fdomsub ren x in
+     let (e,st) =
+       if is_Fun (tree_exp a) then lower_alt LiftValues bound1 ren1 st a
+       else lift_finish (lift_now LiftValues bound1 a)
+              (lower_alt (pick_mode LiftValues bound1 a) bound1 ren1 st a) in
+     let (funs,st) = funs_alt bound ren st fs bs in
+       ((f,x,e)::funs,st))
+Termination
+  WF_REL_TAC ‘measure $ λinput. case input of
+    | INL (mode,bound,ren,st,a) => lift_tree_size a
+    | INR (INL (mode,bound,ren,st,bs)) => list_size lift_tree_size bs
+    | INR (INR (INL (mode,bound,ren,st,ps,bs))) => list_size lift_tree_size bs
+    | INR (INR (INR (bound,ren,st,fs,bs))) => list_size lift_tree_size bs’
+End
+
+Theorem lower_alt_thm:
+  (∀mode bound ren st t.
+     lower_alt mode bound ren st t = lower_exp mode bound ren st t) ∧
+  (∀mode bound ren st bs.
+     lifts_alt mode bound ren st bs = lift_exps mode bound ren st bs) ∧
+  (∀mode bound ren st ps bs.
+     pes_alt mode bound ren st ps bs = lift_pes mode bound ren st ps bs) ∧
+  (∀bound ren st fs bs.
+     funs_alt bound ren st fs bs = lift_funs bound ren st fs bs)
+Proof
+  ho_match_mp_tac lower_alt_ind \\ rpt strip_tac
+  \\ fs [lift_consts_list_thms, fun_names_thm]
+  \\ simp [Once lower_alt_def, Once source_lift_constsTheory.lift_exp_def,
+           lift_exp_unfold, lift_consts_list_thms, fun_names_thm]
+  \\ rpt (IF_CASES_TAC \\ gvs []) \\ rpt (pairarg_tac \\ gvs [])
+QED
+
+val _ = cv_trans maps_disjoint_FCARD;
+val _ = cv_trans source_lift_constsTheory.str_empty_def;
+val _ = cv_trans bump_explode;
+val _ = cv_trans source_lift_constsTheory.bump_all_def;
+val _ = cv_trans (source_lift_constsTheory.bump_pat_def |> measure_args [1,1]);
+val _ = cv_trans source_lift_constsTheory.delete_all_def;
+val _ = cv_trans source_lift_constsTheory.bind_all_def;
+val _ = cv_trans source_lift_constsTheory.tree_exp_def;
+val _ = cv_trans source_lift_constsTheory.tree_fvs_def;
+val _ = cv_trans source_lift_constsTheory.tree_value_def;
+val _ = cv_trans source_lift_constsTheory.is_Fun_def;
+val _ = cv_trans every_tree_value_def;
+
+val pre = cv_trans_pre "" (source_lift_constsTheory.annotate_exp_def
+                            |> PURE_REWRITE_RULE [GSYM lift_consts_list_thms,
+                                                  GSYM fun_names_thm]
+                            |> measure_args [1,1,1,1]);
+
+Theorem source_lift_consts_annotate_exp_pre[cv_pre]:
+  (∀t v. source_lift_consts_annotate_exp_pre t v) ∧
+  (∀t v. source_lift_consts_annotate_exps_pre t v) ∧
+  (∀t v. source_lift_consts_annotate_pes_pre t v) ∧
+  (∀t v. source_lift_consts_annotate_funs_pre t v)
+Proof
+  ho_match_mp_tac source_lift_constsTheory.annotate_exp_ind
+  \\ rw [] \\ rw [Once pre] \\ gvs [fun_names_thm]
+QED
+
+Theorem is_trivial_alt[local]:
+  is_trivial e =
+    case e of
+    | Con _ es => NULL es
+    | Lit (IntLit i) => -2147483648 < i ∧ i < 2147483648
+    | Lit (Char c) => T
+    | Lit (Word8 b) => T
+    | _ => F
+Proof
+  Cases_on ‘e’ \\ simp [source_lift_constsTheory.is_trivial_def]
+  \\ every_case_tac \\ simp []
+QED
+
+val _ = cv_trans is_trivial_alt;
+val _ = cv_trans source_lift_constsTheory.make_name_def;
+val _ = cv_trans source_lift_constsTheory.allow_lift_def;
+val _ = cv_trans source_lift_constsTheory.choose_name_def;
+val _ = cv_trans source_lift_constsTheory.choose_names_def;
+val _ = cv_trans source_lift_constsTheory.emit_dec_def;
+val _ = cv_trans source_lift_constsTheory.emit_value_def;
+val _ = cv_trans source_lift_constsTheory.rename_var_def;
+val _ = cv_trans (fupdate_pairs_def
+                    |> INST_TYPE [alpha |-> “:mlstring”, beta |-> “:mlstring”]);
+val _ = cv_trans fun_params_def;
+val _ = cv_trans fun_heads_def;
+val _ = cv_trans pes_pats_def;
+val _ = cv_trans lift_now_def;
+val _ = cv_trans pick_mode_def;
+val _ = cv_trans lift_finish_def;
+
+val pre = cv_trans_pre "" (lower_alt_def |> measure_args [4,4,5,4]);
+
+Theorem lower_alt_pre[cv_pre]:
+  (∀mode bound ren st v. lower_alt_pre mode bound ren st v) ∧
+  (∀mode bound ren st v. lifts_alt_pre mode bound ren st v) ∧
+  (∀mode bound ren st ps v. pes_alt_pre mode bound ren st ps v) ∧
+  (∀bound ren st fs v. funs_alt_pre bound ren st fs v)
+Proof
+  ho_match_mp_tac lower_alt_ind \\ rw [] \\ rw [Once pre] \\ gvs []
+QED
+
+val _ = cv_trans source_lift_constsTheory.make_local_def;
+val pre = cv_trans_pre "" (source_lift_constsTheory.compile_dec_def
+                            |> PURE_REWRITE_RULE [GSYM no_Open_alt_thm,
+                                                  GSYM fun_names_thm,
+                                                  GSYM lift_consts_list_thms,
+                                                  GSYM lower_alt_thm]
+                            |> measure_args [0,0]);
+
+Theorem source_lift_consts_compile_dec_pre[cv_pre]:
+  (∀v. source_lift_consts_compile_dec_pre v) ∧
+  (∀v. source_lift_consts_compile_decs_pre v)
+Proof
+  ho_match_mp_tac astTheory.dec_induction
+  \\ rw [] \\ rw [Once pre]
+QED
+
 (* source_to_source *)
 
 val _ = cv_trans source_to_sourceTheory.compile_def;
@@ -35,7 +540,6 @@ val _ = cv_auto_trans namespaceTheory.nsEmpty_def;
 val _ = cv_auto_trans namespaceTheory.nsLookup_def;
 val _ = cv_auto_trans source_to_flatTheory.empty_env_def;
 val _ = cv_trans flatLangTheory.pat_bindings_def;
-val _ = cv_trans astTheory.pat_bindings_def;
 val _ = cv_trans OPTION_JOIN_DEF;
 val _ = cv_trans source_to_flatTheory.type_group_id_type_def;
 
@@ -133,17 +637,21 @@ Definition compile_decs_alt_def:
      case simple_dlet p e of
      | SOME (pv,v) =>
          (case nsLookup env.v v of
-          | SOME (Glob t i) =>
-                 (n, next, <| v := alist_to_ns [(pv, Glob t i)]; c := nsEmpty |>, envs, [])
+          | SOME (Glob t i k) =>
+                 (n, next, <| v := alist_to_ns [(pv, Glob t i k)]; c := nsEmpty |>, envs, [])
           | _ => (n, next, <| v := nsEmpty; c := nsEmpty |>, envs, []))
      | NONE =>
          let n' = n + 4 in
-         let xs = REVERSE (pat_bindings p []) in
+         let xs = REVERSE (pat_bindings p) in
          let e' = compile_exp (xs++t) env e in
          let l = LENGTH xs in
          let n'' = n' + l in
            (n'', (next with vidx := next.vidx + l),
-            <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
+            <| v := alist_to_ns (case (p, alloc_defs n' next.vidx xs) of
+                                 | (Pvar _, [(x, Glob t i _)]) =>
+                                     [(x, Glob t i (exp_info e))]
+                                 | (_, defs) => defs);
+               c := nsEmpty |>,
             envs,
             [(Mat None e'
               [(compile_pat env p, make_varls 0 None next.vidx xs)])])) ∧
@@ -170,6 +678,10 @@ Definition compile_decs_alt_def:
      (n, (next with eidx := next.eidx + 1),
       <| v := nsEmpty; c := nsSing cn (next.eidx, NONE) |>,
       envs,[])) ∧
+  (compile_dec_alt t n next env envs (Dopen locs path) =
+     case open_compile_env path env of
+     | NONE => (n, next, empty_env, envs, [])
+     | SOME opened => (n, next, opened, envs, [])) ∧
   (compile_dec_alt t n next env envs (Dmod mn ds) =
      let (n', next', new_env, envs', ds') = compile_decs_alt (mn::t) n next env envs ds in
        (n', next', (lift_env mn new_env), envs', ds')) ∧
@@ -180,7 +692,7 @@ Definition compile_decs_alt_def:
      in (n'', next2, new_env2, envs'', lds'++ds')) ∧
   (compile_dec_alt t n next env envs (Denv nenv) =
      (n + 1, next with vidx := next.vidx + 1,
-        <| v := nsBind nenv (Glob None next.vidx) nsEmpty; c := nsEmpty |>,
+        <| v := nsBind nenv (Glob None next.vidx NoInfo) nsEmpty; c := nsEmpty |>,
         envs with <| next := envs.next + 1;
             envs := insert envs.next env envs.envs |>,
         [(App None (GlobalVarInit next.vidx)
@@ -206,7 +718,10 @@ Proof
   rw[Once $ oneline source_to_flatTheory.compile_decs_def] >>
   rpt(PURE_TOP_CASE_TAC >> gvs[source_to_flatTheory.compile_decs_def]) >>
   gvs[source_to_flatTheory.extend_env_def,source_to_flatTheory.empty_env_def,
-      UNCURRY_eq_pair,PULL_EXISTS] >>
+      UNCURRY_eq_pair,PULL_EXISTS]
+  >~ [‘(opened:environment) = <|c := opened.c; v := opened.v|>’]
+  >- rw[source_to_flatTheory.environment_component_equality]
+  >>
   qmatch_goalsub_abbrev_tac ‘$= a1’ >> PairCases_on ‘a1’ >>
   pop_assum $ assume_tac o GSYM >>
   gvs[markerTheory.Abbrev_def] >>
@@ -228,6 +743,7 @@ Proof
      source_to_flatTheory.empty_env_def, UNCURRY_eq_pair, PULL_EXISTS,
      source_to_flatTheory.lift_env_def]
   >- (rpt (TOP_CASE_TAC \\ gvs []))
+  >- metis_tac[FST,SND,PAIR]
   >- metis_tac[FST,SND,PAIR]
   >- metis_tac[FST,SND,PAIR] >>
   res_tac >>
@@ -415,51 +931,13 @@ val _ = cv_auto_trans encode_pat_alt_def
 
 val _ = cv_trans $ GSYM $ cj 1 encode_pat_alt_thm
 
-Definition exh_pat_alt_def:
-  exh_pat_alt Any = T /\
-  exh_pat_alt (Or p1 p2) = (exh_pat_alt p1 \/ exh_pat_alt p2) /\
-  exh_pat_alt (Cons NONE ps) = exh_pats_alt ps /\
-  exh_pat_alt _ = F ∧
-  exh_pats_alt [] = T ∧
-  exh_pats_alt (x::xs) = (exh_pat_alt x ∧ exh_pats_alt xs)
-End
+val _ = cv_trans pattern_exhTheory.mk_refs_def;
+val _ = cv_trans pattern_exhTheory.mk_conses_def;
+val _ = cv_trans pattern_exhTheory.add_head_def;
+val _ = cv_trans pattern_exhTheory.mk_prods_def;
+val _ = cv_trans pattern_exhTheory.expand_def;
 
-val _ = cv_trans exh_pat_alt_def
-
-Theorem exh_pat_alt_thm:
-  (∀p. exh_pat_alt p = exh_pat p) ∧
-  (∀ps. exh_pats_alt ps = EVERY exh_pat ps)
-Proof
-  Induct >>
-  rw[exh_pat_alt_def,pattern_compTheory.exh_pat_def] >>
-  rename1 ‘Cons cc’ >> Cases_on ‘cc’ >>
-  rw[exh_pat_alt_def,pattern_compTheory.exh_pat_def] >>
-  metis_tac[]
-QED
-
-val _ = cv_trans $ GSYM $ cj 1 exh_pat_alt_thm
-
-Definition sib_exists_alt_def:
-  sib_exists_alt [] t l = F ∧
-  sib_exists_alt ((Cons (SOME (t1,_)) ps) :: xs) t l =
-    (if (t = t1 ∧ l = LENGTH ps) then T else sib_exists_alt xs t l) ∧
-  sib_exists_alt _ _ _ = F
-End
-
-val _ = cv_trans sib_exists_alt_def
-
-Theorem sib_exists_alt_thm:
-  ∀xs tl. sib_exists xs tl = sib_exists_alt xs (FST tl) (SND tl)
-Proof
-  simp[FORALL_PROD] >>
-  recInduct sib_exists_alt_ind >>
-  rw[sib_exists_alt_def,pattern_compTheory.sib_exists_def] >>
-  metis_tac[]
-QED
-
-val _ = cv_trans sib_exists_alt_thm
-
-val _ = cv_auto_trans pattern_compTheory.exh_rows_def
+val _ = cv_auto_trans pattern_exhTheory.exh_rows_eq;
 
 val _ = cv_auto_trans pattern_compTheory.pat_to_guard_def
 
@@ -530,6 +1008,9 @@ Definition compile_exp_alt_def:
     let (j, sg2, y2) = compile_exp_alt cfg x2 in
     let (k, sg3, y3) = compile_exp_alt cfg x3 in
     (MAX i (MAX j k), sg1 \/ sg2 \/ sg3, SmartIf t y1 y2 y3)) /\
+  (compile_exp_alt cfg (flatLang$Tick t x) =
+    let (i, sg, y) = compile_exp_alt cfg x in
+    (i, sg, flatLang$Tick t y)) /\
   (compile_exp_alt cfg exp = (0, F, exp)) /\
   (compile_exp_alts_alt cfg [] = (0, F, [])) /\
   (compile_exp_alts_alt cfg (x::xs) =
@@ -542,7 +1023,7 @@ Definition compile_exp_alt_def:
   (compile_match_alt cfg [] = (0, F, [])) /\
   (compile_match_alt cfg ((p, x)::ps) =
     let (i, sgx, y) = compile_exp_alt cfg x in
-    let j = max_dec_name (pat_bindings p []) in
+    let j = max_dec_name (pat_bindings p) in
     let (k, sgp, ps2) = compile_match_alt cfg ps in
     (MAX i (MAX j k), sgx \/ sgp, ((p, y) :: ps2)))
 End
@@ -607,20 +1088,6 @@ val _ = cv_trans $ GSYM $ cj 1 compile_exp_alt_thm
 
 val _ = cv_trans flat_patternTheory.compile_dec_def
 
-(* flat_elim *)
-
-val _ = cv_auto_trans_pre "" flat_elimTheory.has_Eval_def;
-
-Theorem flat_elim_has_Eval_pre[cv_pre]:
-  (∀v. flat_elim_has_Eval_pre v) ∧
-  (∀v. flat_elim_has_Eval_list_pre v) ∧
-  (∀v. flat_elim_has_Eval_pats_pre v) ∧
-  (∀v. flat_elim_has_Eval_funs_pre v)
-Proof
-  ho_match_mp_tac flat_elimTheory.has_Eval_ind >>
-  rw[] >> rw[Once $ fetch "-" "flat_elim_has_Eval_pre_cases"]
-QED
-
 Theorem cv_size_map_snd:
   ∀z. cv_size(cv_map_snd z) ≤ cv_size z
 Proof
@@ -628,152 +1095,6 @@ Proof
   rw[Once cv_stdTheory.cv_map_snd_def] >>
   Cases_on ‘z’ >> rw[]
 QED
-
-val pre = cv_auto_trans_pre_rec "" (flat_elimTheory.find_loc_def |> PURE_REWRITE_RULE[o_DEF,GSYM MAP_MAP_o])
-  (WF_REL_TAC `measure (λ e . case e of
-                              | INL x => cv_size x
-                              | INR y => cv_size y)` >>
-   cv_termination_tac
-   >- (irule LESS_EQ_LESS_TRANS >>
-       irule_at (Pos last) cv_size_map_snd >>
-       rw[oneline cvTheory.cv_snd_def] >>
-       rpt(PURE_FULL_CASE_TAC >> gvs[]))
-   >- (irule LESS_EQ_LESS_TRANS >>
-       irule_at (Pos last) cv_size_map_snd >>
-       irule LESS_EQ_LESS_TRANS >>
-       irule_at (Pos last) cv_size_map_snd >>
-       rw[oneline cvTheory.cv_snd_def] >>
-       rpt(PURE_FULL_CASE_TAC >> gvs[]))
-   >- (irule LESS_EQ_LESS_TRANS >>
-       irule_at (Pos last) cv_size_map_snd >>
-       rw[oneline cvTheory.cv_snd_def] >>
-       rpt(PURE_FULL_CASE_TAC >> gvs[])))
-
-Theorem flat_elim_find_loc_pre[cv_pre]:
-  (∀v. flat_elim_find_loc_pre v) ∧
-  (∀v. flat_elim_find_locL_pre v)
-Proof
-  ho_match_mp_tac flat_elimTheory.find_loc_ind >>
-  rw[] >> rw[Once $ fetch "-" "flat_elim_find_loc_pre_cases"] >>
-  rw[MAP_MAP_o]
-QED
-
-val pre = cv_auto_trans_pre_rec "" (flat_elimTheory.find_lookups_def |> PURE_REWRITE_RULE[GSYM MAP_MAP_o,o_THM])
-  (WF_REL_TAC `measure (λ e . case e of
-                              | INL x => cv_size x
-                              | INR y => cv_size y)` >>
-   cv_termination_tac
-   >- (irule LESS_EQ_LESS_TRANS >>
-       irule_at (Pos last) cv_size_map_snd >>
-       rw[oneline cvTheory.cv_snd_def] >>
-       rpt(PURE_FULL_CASE_TAC >> gvs[]))
-   >- (irule LESS_EQ_LESS_TRANS >>
-       irule_at (Pos last) cv_size_map_snd >>
-       irule LESS_EQ_LESS_TRANS >>
-       irule_at (Pos last) cv_size_map_snd >>
-       rw[oneline cvTheory.cv_snd_def] >>
-       rpt(PURE_FULL_CASE_TAC >> gvs[]))
-   >- (irule LESS_EQ_LESS_TRANS >>
-       irule_at (Pos last) cv_size_map_snd >>
-       rw[oneline cvTheory.cv_snd_def] >>
-       rpt(PURE_FULL_CASE_TAC >> gvs[])))
-
-Theorem flat_elim_find_lookups_pre[cv_pre]:
-  (∀v. flat_elim_find_lookups_pre v) ∧
-  (∀v. flat_elim_find_lookupsL_pre v)
-Proof
-  ho_match_mp_tac flat_elimTheory.find_lookups_ind >>
-  rw[] >> rw[Once pre] >> gvs[GSYM MAP_MAP_o]
-QED
-
-val _ = cv_auto_trans flat_elimTheory.total_pat_def;
-
-Definition is_pure_alt_def:
-    (is_pure_alt (Handle t e pes) = is_pure_alt e) ∧
-    (is_pure_alt (Lit t l) = T) ∧
-    (is_pure_alt (Con t id_option es) = is_pure_alts es) ∧
-    (is_pure_alt (Var_local t str) = T) ∧
-    (is_pure_alt (Fun t name body) = T) ∧
-    (is_pure_alt (App t (GlobalVarInit g) es) = is_pure_alts es) ∧
-    (is_pure_alt (If t e1 e2 e3) = (is_pure_alt e1 ∧ is_pure_alt e2 ∧ is_pure_alt e3)) ∧
-    (is_pure_alt (Mat t e1 pes) =
-      (is_pure_alt e1 ∧ is_pure_alts (MAP SND pes) ∧ EXISTS total_pat (MAP FST pes))) ∧
-    (is_pure_alt (Let t opt e1 e2) = (is_pure_alt e1 ∧ is_pure_alt e2)) ∧
-    (is_pure_alt (Letrec t funs e) = is_pure_alt e) ∧
-    (is_pure_alt _ = F) ∧
-    (is_pure_alts [] = T) ∧
-    (is_pure_alts (x::xs) = (is_pure_alt x ∧ is_pure_alts xs))
-Termination
-  WF_REL_TAC `measure (λ e . sum_CASE e exp_size $ list_size exp_size)` >>
-  rw[list_size_pair_size_MAP_FST_SND]
-End
-
-val pre = cv_auto_trans_pre_rec "" is_pure_alt_def
-  (WF_REL_TAC `measure (λ e . sum_CASE e cv_size cv_size)` >>
-   cv_termination_tac >>
-   irule LESS_EQ_LESS_TRANS >>
-   irule_at (Pos last) cv_size_map_snd >>
-   rw[oneline cvTheory.cv_snd_def] >>
-   rpt(PURE_FULL_CASE_TAC >> gvs[]))
-
-Theorem is_pure_alt_pre[cv_pre]:
-  (∀v. is_pure_alt_pre v) ∧
-  (∀v. is_pure_alts_pre v)
-Proof
-  ho_match_mp_tac is_pure_alt_ind >>
-  rw[] >> rw[Once pre]
-QED
-
-Theorem is_pure_alt_thm:
-  (∀v. is_pure_alt v = is_pure v) ∧
-  (∀v. is_pure_alts v = EVERY is_pure v)
-Proof
-  ho_match_mp_tac is_pure_alt_ind >>
-  rw[is_pure_alt_def,flat_elimTheory.is_pure_def] >>
-  metis_tac[]
-QED
-
-val _ = cv_trans $ GSYM $ cj 1 is_pure_alt_thm
-
-Definition is_hidden_alt_def:
-    (is_hidden_alt (Raise t e) = is_hidden_alt e) ∧
-    (is_hidden_alt (Handle t e pes) = F) ∧
-    (is_hidden_alt (Lit t l) = T) ∧
-    (is_hidden_alt (Con t id_option es) = is_hidden_alts es) ∧
-    (is_hidden_alt (Var_local t str) = T) ∧
-    (is_hidden_alt (Fun t name body) = T) ∧
-    (is_hidden_alt (App t (Src Opapp) l) = F) ∧
-    (is_hidden_alt (App t (GlobalVarInit g) [e]) = is_hidden_alt e) ∧
-    (is_hidden_alt (App t (GlobalVarLookup g) [e]) = F) ∧
-    (is_hidden_alt (If t e1 e2 e3) = (is_hidden_alt e1 ∧ is_hidden_alt e2 ∧ is_hidden_alt e3)) ∧
-    (is_hidden_alt (Mat t e1 [p,e2]) = (is_hidden_alt e1 ∧ is_hidden_alt e2)) ∧
-    (is_hidden_alt (Let t opt e1 e2) = (is_hidden_alt e1 ∧ is_hidden_alt e2)) ∧
-    (is_hidden_alt (Letrec t funs e) = is_hidden_alt e) ∧
-    (is_hidden_alt _ = F) ∧
-    (is_hidden_alts [] = T) ∧
-    (is_hidden_alts (x::xs) = (is_hidden_alt x ∧ is_hidden_alts xs))
-End
-
-val pre = cv_trans_pre "" is_hidden_alt_def
-
-Theorem is_hidden_alt_pre[cv_pre]:
-  (∀v. is_hidden_alt_pre v) ∧
-  (∀v. is_hidden_alts_pre v)
-Proof
-  ho_match_mp_tac is_hidden_alt_ind >>
-  rw[] >> rw[Once $ fetch "-" "is_hidden_alt_pre_cases"]
-QED
-
-Theorem is_hidden_alt_thm:
-  (∀v. is_hidden_alt v = is_hidden v) ∧
-  (∀v. is_hidden_alts v = EVERY is_hidden v)
-Proof
-  ho_match_mp_tac is_hidden_alt_ind >>
-  rw[is_hidden_alt_def,flat_elimTheory.is_hidden_def] >>
-  metis_tac[]
-QED
-
-val _ = cv_trans $ GSYM $ cj 1 is_hidden_alt_thm
 
 Definition spt_fold_union_def:
   (spt_fold_union acc LN = acc) ∧
@@ -800,7 +1121,8 @@ Proof
   gvs[spt_fold_union_thm]
 QED
 
-val _ = cv_auto_trans flat_elimTheory.remove_flat_prog_def;
+val _ = cv_trans flat_ticksTheory.remove_ticks_exp_def;
+val _ = cv_trans flat_ticksTheory.remove_ticks_decs_def;
 
 val _ = cv_auto_trans backendTheory.to_flat_def;
 
@@ -845,6 +1167,8 @@ Definition flat_to_clos_compile_alt_def:
        (Letrec (MAP (\n. join_strings t (FST n)) funs) NONE NONE
           (flat_to_clos_compile_lets_alt new_m funs)
           (flat_to_clos_compile_alt new_m (e)))) ∧
+  (flat_to_clos_compile_alt m (flatLang$Tick t e) =
+     closLang$Let t [flat_to_clos_compile_alt m e] (closLang$Tick t (Var t 0))) ∧
   (flat_to_clos_compile_lets_alt m [] = []) /\
   (flat_to_clos_compile_lets_alt m ((f,v,x)::xs) = (1, flat_to_clos_compile_alt (SOME v :: m) x) :: flat_to_clos_compile_lets_alt m xs)
 Termination
@@ -1655,7 +1979,7 @@ Definition eq_pure_list_alt:
    (case eq_direct x y of
     | SOME z => List [z]
     | NONE =>
-      case dest_Op dest_Cons x, dest_Op dest_Cons y of
+      case dest_Op clos_op$dest_Cons x, dest_Op clos_op$dest_Cons y of
       | (NONE, NONE) => List [Op None (BlockOp Equal) [x;y]]
       | (SOME (t1,xs), SOME (t2,ys)) =>
            if t1 ≠ t2 ∨ LENGTH xs ≠ LENGTH ys then List [MakeBool F]
@@ -1749,7 +2073,7 @@ QED
 
 Definition cons_measure_alt_def:
   cons_measure_alt x =
-  (case dest_Op dest_Cons x of
+  (case dest_Op clos_op$dest_Cons x of
    | NONE => 0
    | SOME (_,xs) => cons_measures_alt xs + LENGTH xs + 1) ∧
   cons_measures_alt [] = 0 ∧
@@ -2117,8 +2441,6 @@ Proof
 QED
 
 val _ = cv_trans (clos_to_bvlTheory.get_src_names_sing_eq |> CONJUNCT2);
-
-val _ = cv_auto_trans clos_to_bvlTheory.make_name_alist_eq;
 
 val pre = cv_auto_trans_pre "" clos_to_bvlTheory.recc_Lets_def;
 Theorem clos_to_bvl_recc_Lets_pre[cv_pre]:
@@ -2566,13 +2888,15 @@ QED
 val _ = cv_auto_trans bvi_tailrecTheory.check_exp_eq;
 val _ = cv_auto_trans bvi_tailrecTheory.compile_exp_def;
 
-val pre = cv_auto_trans_pre "" bvi_tailrecTheory.compile_prog_def;
-Theorem bvi_tailrec_compile_prog_pre[cv_pre]:
-  ∀next v. bvi_tailrec_compile_prog_pre next v
+val pre = cv_auto_trans_pre "" bvi_tailrecTheory.compile_each_def;
+Theorem bvi_tailrec_compile_each_pre[cv_pre]:
+  ∀next v. bvi_tailrec_compile_each_pre next v
 Proof
-  ho_match_mp_tac bvi_tailrecTheory.compile_prog_ind
+  ho_match_mp_tac bvi_tailrecTheory.compile_each_ind
   \\ rpt strip_tac \\ simp [Once pre]
 QED
+
+val pre = cv_trans bvi_tailrecTheory.compile_prog_def;
 
 (* bvi_let *)
 
@@ -2610,9 +2934,76 @@ QED
 
 val _ = cv_trans bvi_letTheory.compile_exp_eq;
 
+(* bvi_inline *)
+
+val pre = cv_trans_pre "" bvi_inlineTheory.bvi_mk_tick_eq;
+Theorem bvi_inline_bvi_mk_tick_pre[cv_pre,local]:
+  ∀n e. bvi_inline_bvi_mk_tick_pre n e
+Proof
+  Induct \\ simp [Once pre]
+QED
+
+val _ = cv_auto_trans bvi_inlineTheory.canonical_wrapper_def;
+val _ = cv_auto_trans bvi_inlineTheory.wrapper_ok_def;
+
+val pre = cv_auto_trans_pre "" (bvi_inlineTheory.inline_exp_def |> measure_args [1,1]);
+Theorem bvi_inline_inline_exp_pre[cv_pre,local]:
+  (∀cs v. bvi_inline_inline_exp_pre cs v) ∧
+  (∀cs v. bvi_inline_inline_exps_pre cs v)
+Proof
+  ho_match_mp_tac bvi_inlineTheory.inline_exp_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val pre = cv_auto_trans_pre ""
+             (bvi_inlineTheory.remove_ticks_exp_def
+                |> PURE_REWRITE_RULE [oneline OPTION_MAP_DEF, o_THM]);
+Theorem bvi_inline_remove_ticks_exp_pre[cv_pre,local]:
+  (∀v. bvi_inline_remove_ticks_exp_pre v) ∧
+  (∀v. bvi_inline_remove_ticks_exps_pre v)
+Proof
+  ho_match_mp_tac bvi_inlineTheory.remove_ticks_exp_ind
+  \\ rpt strip_tac \\ simp [Once pre]
+QED
+
+val _ = cv_auto_trans bvi_inlineTheory.inline_all_def;
+val _ = cv_auto_trans bvi_inlineTheory.compile_inc_def;
+val _ = cv_auto_trans bvi_inlineTheory.compile_prog_def;
+
+(* bvi_tmc *)
+
+val _ = cv_auto_trans bvi_tmcTheory.pure_exp_def;
+
+val pre = cv_auto_trans_pre "" bvi_tmcTheory.bvi_to_cb_aux_def;
+
+Theorem bvi_tmc_bvi_to_cb_aux_pre[cv_pre]:
+  (∀n loc tag v. bvi_tmc_bvi_to_cb_aux_sing_pre n loc tag v) ∧
+  (∀n loc tag v. bvi_tmc_bvi_to_cb_aux_pre n loc tag v)
+Proof
+  ho_match_mp_tac bvi_tmcTheory.bvi_to_cb_aux_ind
+  \\ rw [] \\ simp [Once pre]
+QED
+
+val _ = cv_auto_trans bvi_tmcTheory.cb_to_bvi_worker_aux_alt_def;
+val _ = cv_trans bvi_tmcTheory.cb_to_bvi_worker_aux_eq;
+
+val _ = cv_auto_trans bvi_tmcTheory.subst_def;
+val _ = cv_auto_trans bvi_tmcTheory.inline_def;
+val _ = cv_auto_trans bvi_tmcTheory.find_call_def;
+val _ = cv_auto_trans bvi_tmcTheory.float_call_def;
+
+val pre = cv_auto_trans_pre "" bvi_tmcTheory.compile_each_def;
+Theorem bvi_tmc_compile_each_pre[cv_pre]:
+  ∀next v. bvi_tmc_compile_each_pre next v
+Proof
+  ho_match_mp_tac bvi_tmcTheory.compile_each_ind
+  \\ rw [] \\ simp [Once pre]
+QED
+
+val _ = cv_trans bvi_tmcTheory.compile_prog_def;
+
 (* bvl_to_bvi *)
 
-val _ = cv_auto_trans bvl_to_bviTheory.get_names_def;
 val _ = cv_auto_trans bvl_to_bviTheory.stubs_def;
 val _ = cv_trans bvl_to_bviTheory.destLet_def;
 
@@ -2706,12 +3097,22 @@ val _ = cv_auto_trans bvi_to_dataTheory.optimise_def;
 val _ = cv_auto_trans bvi_to_dataTheory.op_requires_names_eqn;
 
 val pre = cv_auto_trans_pre "" (bvi_to_dataTheory.compile_sing_def |> measure_args [4,3]);
+
 Theorem bvi_to_data_compile_sing_pre[cv_pre,local]:
   (∀n env tail live v. bvi_to_data_compile_sing_pre n env tail live v) ∧
   (∀n env live v. bvi_to_data_compile_list_pre n env live v)
 Proof
   ho_match_mp_tac bvi_to_dataTheory.compile_sing_ind
   \\ rpt strip_tac \\ simp [Once pre]
+  \\ rw[]
+  \\ first_x_assum (fn th => drule (GSYM th))
+  \\ gvs[GSYM cv_stdTheory.genlist_eq_GENLIST]
+  \\ qmatch_goalsub_abbrev_tac `GENLIST xx _`
+  \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac `GENLIST yy _`
+  \\ qsuff_tac `xx = yy`
+  >- metis_tac[]
+  \\ unabbrev_all_tac \\ simp[FUN_EQ_THM]
 QED
 
 val _ = cv_auto_trans rich_listTheory.COUNT_LIST_GENLIST;

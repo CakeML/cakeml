@@ -8,11 +8,8 @@ Libs
   preamble ml_monadBaseLib
 
 val _ = monadsyntax.temp_add_monadsyntax()
-
-Overload monad_bind[local] = ``st_ex_bind``
-Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload return[local] = ``st_ex_return``
+val _ = monadsyntax.temp_disable_monad "state";
+val _ = monadsyntax.temp_enable_monad "st_ex";
 
 (* Data type for the exceptions *)
 Datatype:
@@ -29,7 +26,7 @@ fun accessor_thm (a,b,c,d,e,f) = LIST_CONJ [b,c,d,e,f]
 (* The state is just an array *)
 Datatype:
   enc_state_32 = <|
-       hash_tab_32 : ((32 asm # word8 list) list) list
+       hash_tab_32 : ((asm # word8 list) list) list
      |>
 End
 
@@ -73,13 +70,13 @@ Definition enc_line_hash_32_def:
     return (Label n1 n2 skip_len)) ∧
   (enc_line_hash_32 enc skip_len n (Asm a _ _) =
     do
-      bs <- lookup_ins_table_32 enc n (cbw_to_asm a);
+      bs <- lookup_ins_table_32 enc n (compile_shmem a);
       return (Asm a bs (LENGTH bs))
     od) ∧
   (enc_line_hash_32 enc skip_len n (LabAsm l _ _ _) =
      do
-       bs <- lookup_ins_table_32 enc n (lab_inst 0w l);
-       return (LabAsm l 0w bs (LENGTH bs))
+       bs <- lookup_ins_table_32 enc n (lab_inst 0 l);
+       return (LabAsm l 0 bs (LENGTH bs))
      od)
 End
 
@@ -96,11 +93,11 @@ End
 Definition enc_sec_hash_32_ls_def:
   (enc_sec_hash_32_ls enc skip_len n [] = return []) ∧
   (enc_sec_hash_32_ls enc skip_len n (x::xs) =
-  case x of Section k ys =>
+  case x of Section k ys md =>
   do
     ls <- enc_line_hash_32_ls enc skip_len n ys;
     rest <- enc_sec_hash_32_ls enc skip_len n xs;
-    return (Section k ls::rest)
+    return (Section k ls md::rest)
   od)
 End
 
@@ -127,7 +124,7 @@ Definition enc_secs_32_def:
     | M_failure _ => []
 End
 
-val msimps = [st_ex_bind_def,st_ex_return_def];
+val msimps = [st_ex_bind_def,st_ex_ignore_bind_def,st_ex_return_def];
 
 Theorem Msub_eqn[simp]:
     ∀e n ls v.
@@ -227,7 +224,7 @@ Proof
   fs msimps>>
   qmatch_goalsub_abbrev_tac`lookup_ins_table_32 _ _ aa`>>
   rw[]>>
-  old_drule lookup_ins_table_32_correct>>rw[]>>simp[]
+  drule_all_then (qspec_then `aa` strip_assume_tac) lookup_ins_table_32_correct>>simp[]
 QED
 
 Theorem enc_line_hash_32_ls_correct[local]:
@@ -241,8 +238,8 @@ Proof
   Induct>>fs[enc_line_hash_32_ls_def]>>
   fs msimps>>
   rw[]>> simp[]>>
-  old_drule enc_line_hash_32_correct>>
-  disch_then (qspec_then `h` assume_tac)>>rfs[]>>
+  drule_all_then (qspecl_then [`skip_len`,`h`] strip_assume_tac) enc_line_hash_32_correct>>
+  simp[]>>
   first_x_assum drule>>
   rw[]>>simp[]
 QED
@@ -259,9 +256,8 @@ Proof
   fs msimps>>
   rw[]>> simp[]>>
   TOP_CASE_TAC>>simp[]>>
-  old_drule enc_line_hash_32_ls_correct>>
-  simp[]>>
-  disch_then(qspec_then`l` assume_tac)>>fs[]>>
+  drule_all_then (qspecl_then [`skip_len`,`l`] strip_assume_tac) enc_line_hash_32_ls_correct>>
+  fs[]>>
   first_x_assum drule>>rw[]>>
   simp[enc_sec_def]
 QED
@@ -280,4 +276,3 @@ Proof
   rw[]>>
   fs[enc_sec_list_def]
 QED
-

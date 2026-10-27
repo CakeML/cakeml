@@ -14,7 +14,7 @@ Libs
 (* --- define an alternative to evaluate_decs --- *)
 
 (* Same as evaluate_decs from evaluateTheory but modified to not have
-   the cons checks (every_exp one_con_check) *)
+   the scoped constructor checks (check_exp_constructors) *)
 Definition evaluate_dec_list_def:
   evaluate_dec_list st env [] = (st,Rval <|v := nsEmpty; c := nsEmpty|>)
   ∧
@@ -26,7 +26,7 @@ Definition evaluate_dec_list_def:
      | (st1,Rerr v7) => (st1,Rerr v7))
   ∧
   evaluate_dec_list st env [Dlet locs p e] =
-    (if ALL_DISTINCT (pat_bindings p [])
+    (if ALL_DISTINCT (pat_bindings p)
      then
        case evaluate st env [e] of
          (st',Rval v) =>
@@ -67,6 +67,11 @@ Definition evaluate_dec_list_def:
        <|v := nsEmpty;
          c := nsSing cn (LENGTH ts,ExnStamp st.next_exn_stamp)|>)
   ∧
+  evaluate_dec_list st env [Dopen locs path] =
+    (case open_dec_env path env of
+       NONE => (st,Rerr (Rabort Rtype_error))
+     | SOME opened => (st,Rval opened))
+  ∧
   evaluate_dec_list st env [Dmod mn ds] =
     (case evaluate_dec_list st env ds of
        (st',r) =>
@@ -84,6 +89,51 @@ Termination
   WF_REL_TAC ‘measure $ list_size dec_size o SND o SND’
 End
 
+(* The expressions evaluated while initializing declarations must not consult
+   pointer equality. Recursive function bodies are stored as closures. *)
+Definition no_ptr_eq_dec_def[simp]:
+  (no_ptr_eq_dec (Dlet locs p e) = no_ptr_eq e) ∧
+  (no_ptr_eq_dec (Dletrec locs funs) = T) ∧
+  (no_ptr_eq_dec (Dtype locs tds) = T) ∧
+  (no_ptr_eq_dec (Dtabbrev locs tvs tn t) = T) ∧
+  (no_ptr_eq_dec (Dexn locs cn ts) = T) ∧
+  (no_ptr_eq_dec (Denv n) = T) ∧
+  (no_ptr_eq_dec (Dopen locs path) = T) ∧
+  (no_ptr_eq_dec (Dmod mn ds) = EVERY no_ptr_eq_dec ds) ∧
+  (no_ptr_eq_dec (Dlocal lds ds) =
+    (EVERY no_ptr_eq_dec lds ∧ EVERY no_ptr_eq_dec ds))
+End
+
+Theorem evaluate_dec_list_no_ptr_eq:
+  ∀(st:'ffi state) env ds st' res.
+    EVERY no_ptr_eq_dec ds ∧ evaluate_dec_list st env ds = (st',res) ⇒
+    st'.ptr_eq_oracle = st.ptr_eq_oracle ∧
+    ∀oracle. evaluate_dec_list (st with ptr_eq_oracle := oracle) env ds =
+      (st' with ptr_eq_oracle := oracle,res)
+Proof
+  ho_match_mp_tac evaluate_dec_list_ind
+  \\ rw [evaluate_dec_list_def]
+  \\ gvs [AllCaseEqs(),ETA_THM]
+  \\ imp_res_tac evaluate_no_ptr_eq_preserves_oracle
+  \\ imp_res_tac evaluate_no_ptr_eq_with_oracle
+  \\ gvs []
+QED
+
+Theorem evaluate_decs_no_ptr_eq:
+  ∀(st:'ffi state) env ds st' res.
+    EVERY no_ptr_eq_dec ds ∧ evaluate_decs st env ds = (st',res) ⇒
+    st'.ptr_eq_oracle = st.ptr_eq_oracle ∧
+    ∀oracle. evaluate_decs (st with ptr_eq_oracle := oracle) env ds =
+      (st' with ptr_eq_oracle := oracle,res)
+Proof
+  ho_match_mp_tac evaluate_decs_ind
+  \\ rw [evaluate_decs_def]
+  \\ gvs [AllCaseEqs(),ETA_THM]
+  \\ imp_res_tac evaluate_no_ptr_eq_preserves_oracle
+  \\ imp_res_tac evaluate_no_ptr_eq_with_oracle
+  \\ gvs []
+QED
+
 Definition evaluate_dec_list_with_clock_def:
   evaluate_dec_list_with_clock st env k prog =
     let (st',r) =
@@ -91,8 +141,8 @@ Definition evaluate_dec_list_with_clock_def:
     in (st'.ffi,r)
 End
 
-Definition semantics_dec_list_def:
-  (semantics_dec_list st env prog (Terminate outcome io_list) ⇔
+Definition semantics_dec_list_determ_def:
+  (semantics_dec_list_determ st env prog (Terminate outcome io_list) ⇔
     (* there is a clock for which evaluation terminates, either internally or via
        FFI, and the accumulated io events match the given io_list *)
     (?k ffi r.
@@ -103,7 +153,7 @@ Definition semantics_dec_list_def:
        | r => r ≠ Rerr (Rabort Rtimeout_error) ∧ outcome = Success) ∧
       (io_list = ffi.io_events) ∧
       (r ≠ Rerr (Rabort Rtype_error)))) ∧
-  (semantics_dec_list st env prog (Diverge io_trace) ⇔
+  (semantics_dec_list_determ st env prog (Diverge io_trace) ⇔
     (* for all clocks, evaluation times out *)
     (!k. ?ffi.
       (evaluate_dec_list_with_clock st env k prog =
@@ -115,10 +165,17 @@ Definition semantics_dec_list_def:
          (λk. fromList (FST (evaluate_dec_list_with_clock st env k prog)).io_events)
          UNIV)
        io_trace) ∧
-  (semantics_dec_list st env prog Fail ⇔
+  (semantics_dec_list_determ st env prog Fail ⇔
     (* there is a clock for which evaluation produces a runtime type error *)
     ∃k.
       SND(evaluate_dec_list_with_clock st env k prog) = Rerr (Rabort Rtype_error))
+End
+
+Definition semantics_dec_list_def:
+  semantics_dec_list st env prog b ⇔
+    (* the pointer equality oracle is adversarial: a program behaves as it does
+       under some oracle *)
+    ∃po. semantics_dec_list_determ (st with ptr_eq_oracle := po) env prog b
 End
 
 val env_c = “env_c: (mlstring, mlstring, num # stamp) namespace”
@@ -137,17 +194,19 @@ Definition check_cons_dec_list_def:
        | SOME env_c1 => SOME (nsAppend env_c1 env_c0))
   ∧
   check_cons_dec env_c (Dlet locs p e) =
-    (if every_exp (one_con_check env_c) e
+    (if check_exp_constructors env_c e
      then SOME nsEmpty else NONE)
   ∧
   check_cons_dec env_c (Dletrec locs funs) =
-    (if EVERY (λ(f,n,e). every_exp (one_con_check env_c) e) funs
+    (if EVERY (λ(f,n,e). check_exp_constructors env_c e) funs
      then SOME nsEmpty else NONE)
   ∧
   check_cons_dec env_c (Dtype locs tds) =
     (SOME (build_tdefs 0 tds))
   ∧
   check_cons_dec env_c (Dtabbrev locs tvs tn t) = SOME nsEmpty
+  ∧
+  check_cons_dec env_c (Dopen locs path) = nsOpen path env_c
   ∧
   check_cons_dec env_c (Denv _) = SOME nsEmpty
   ∧
@@ -220,40 +279,86 @@ Proof
   \\ metis_tac [LIST_REL_APPEND]
 QED
 
+Theorem con_check_eqv_alookup[local]:
+  ∀xs ys.
+    LIST_REL (λ(a,x) (b,y). a = b ∧ con_check_eqv x y) xs ys ⇒
+    ∀k y. ALOOKUP ys k = SOME y ⇒
+      ∃x. ALOOKUP xs k = SOME x ∧ con_check_eqv x y
+Proof
+  Induct
+  \\ gvs [FORALL_PROD]
+  \\ rw []
+  \\ Cases_on ‘y’
+  \\ gvs []
+  \\ Cases_on ‘p_1 = k’
+  \\ gvs []
+  \\ first_x_assum drule
+  \\ strip_tac
+  \\ first_x_assum drule
+  \\ gvs []
+QED
+
+Theorem con_check_eqv_nsLookupMod[local]:
+  ∀path x y opened_y.
+    con_check_eqv x y ∧ nsLookupMod y path = SOME opened_y ⇒
+    ∃opened_x.
+      nsLookupMod x path = SOME opened_x ∧
+      con_check_eqv opened_x opened_y
+Proof
+  Induct
+  \\ gvs [nsLookupMod_def]
+  \\ rw []
+  \\ Cases_on ‘x’
+  \\ Cases_on ‘y’
+  \\ fs [nsLookupMod_def]
+  \\ qpat_x_assum ‘con_check_eqv (Bind l0 l) (Bind l0' l')’ mp_tac
+  \\ simp [Once con_check_eqv_def]
+  \\ strip_tac
+  \\ Cases_on ‘ALOOKUP l' h’
+  \\ gvs []
+  \\ drule con_check_eqv_alookup
+  \\ disch_then drule
+  \\ strip_tac
+  \\ qpat_assum
+       ‘∀xx yy oo.
+          con_check_eqv xx yy ∧ nsLookupMod yy path = SOME oo ⇒ _’
+       (qspecl_then [‘x'’,‘x’,‘opened_y’] mp_tac)
+  \\ simp []
+  \\ strip_tac
+  \\ gvs []
+QED
+
+Theorem con_check_eqv_nsOpen[local]:
+  ∀path x y opened_y.
+    con_check_eqv x y ∧ nsOpen path y = SOME opened_y ⇒
+    ∃opened_x.
+      nsOpen path x = SOME opened_x ∧
+      con_check_eqv opened_x opened_y
+Proof
+  rw [nsOpen_def]
+  \\ metis_tac [con_check_eqv_nsLookupMod]
+QED
+
+Theorem con_check_eqv_nsMap[local]:
+  ∀x y. con_check_eqv x y ⇒ nsMap FST x = nsMap FST y
+Proof
+  ho_match_mp_tac con_check_eqv_ind >> rpt gen_tac >> strip_tac >>
+  Cases_on `x` >> Cases_on `y` >>
+  rename1 `con_check_eqv (Bind vals mods) (Bind vals' mods')` >>
+  simp [Once con_check_eqv_def, nsMap_def] >> strip_tac >>
+  fs [LIST_REL_EL_EQN] >> rw [LIST_EQ_REWRITE, EL_MAP] >>
+  fs [UNCURRY] >> metis_tac [MEM_EL, PAIR]
+QED
+
 Theorem con_check_eqv_switch:
   con_check_eqv env2 env1 ⇒
-  every_exp (one_con_check env1) e = every_exp (one_con_check env2) e
+  check_exp_constructors env1 e = check_exp_constructors env2 e
 Proof
-  strip_tac \\ AP_THM_TAC \\ AP_TERM_TAC
-  \\ gvs [FUN_EQ_THM]
-  \\ Cases \\ gvs [one_con_check_def]
-  \\ qsuff_tac ‘∀a l. do_con_check env2 a l = do_con_check env1 a l’
-  \\ gvs []
-  \\ Cases \\ gvs [do_con_check_def]
-  \\ pop_assum mp_tac
-  \\ qid_spec_tac ‘env1’
-  \\ qid_spec_tac ‘env2’
-  \\ Induct_on ‘x’ \\ gvs []
-  >-
-   (rw [] \\ Cases_on ‘env1’ \\ Cases_on ‘env2’
-    \\ gvs [nsLookup_def]
-    \\ pop_assum mp_tac
-    \\ simp [Once con_check_eqv_def]
-    \\ qid_spec_tac ‘l0’
-    \\ qid_spec_tac ‘l0'’
-    \\ Induct \\ gvs [PULL_EXISTS,FORALL_PROD]
-    \\ rw [])
-  \\ rw []
-  \\ Cases_on ‘env1’ \\ Cases_on ‘env2’
-  \\ gvs [nsLookup_def]
-  \\ pop_assum mp_tac
-  \\ simp [Once con_check_eqv_def]
-  \\ rw []
-  \\ rename [‘LIST_REL _ l1 l2’]
-  \\ pop_assum mp_tac
-  \\ qid_spec_tac ‘l2’
-  \\ qid_spec_tac ‘l1’
-  \\ Induct \\ gvs [PULL_EXISTS,FORALL_PROD] \\ rw []
+  strip_tac >> drule con_check_eqv_nsMap >> strip_tac >>
+  `nsAll2 (λid x y. x = y) (nsMap FST env1) (nsMap FST env2)` by (
+    fs [nsAll2_def, nsSub_def]) >>
+  irule check_exp_constructors_nsAll2 >>
+  fs [nsAll2_def, namespacePropsTheory.nsSub_nsMap]
 QED
 
 Theorem con_check_eqv_build_tdefs[local]:
@@ -335,6 +440,12 @@ Proof
   >~ [‘Dexn’] >-
    (gvs [check_cons_dec_list_def,evaluate_decs_def,evaluate_dec_list_def]
     \\ rw [] \\ simp [Once con_check_eqv_def,nsSing_def])
+  >~ [‘Dopen’] >-
+   (gvs [check_cons_dec_list_def,evaluate_decs_def,evaluate_dec_list_def,
+         open_dec_env_def,AllCaseEqs()]
+    \\ rpt strip_tac
+    \\ imp_res_tac con_check_eqv_nsOpen
+    \\ gvs [])
   >~ [‘Dmod’] >-
    (gvs [check_cons_dec_list_def,evaluate_decs_def,evaluate_dec_list_def]
     \\ gvs [AllCaseEqs(),PULL_EXISTS]

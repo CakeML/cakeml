@@ -6,6 +6,7 @@ Runtime.exit: int -> unit
 Runtime.abort: unit -> unit
 Runtime.assert: bool -> string -> unit
 Runtime.customFFI: string -> byte_array -> unit
+Runtime.ptrEq: 'a -> 'a -> bool
 Option.getOpt: 'a option -> 'a -> 'a
 Option.isSome: 'a option -> bool
 Option.valOf: 'a option -> 'a
@@ -17,6 +18,7 @@ Option.composePartial: ('a -> 'b option) -> ('c -> 'a option) -> 'c -> 'b option
 Option.isNone: 'a option -> bool
 Option.map2: ('a -> 'b -> 'c) -> 'a option -> 'b option -> 'c option
 Option.compare: ('a -> 'b -> ordering) -> 'a option -> 'b option -> ordering
+Option.filter: ('a -> bool) -> 'a -> 'a option
 List.null: 'a list -> bool
 List.length: 'a list -> int
 List.rev: 'a list -> 'a list
@@ -35,6 +37,7 @@ List.takeUntil: ('a -> bool) -> 'a list -> 'a list
 List.dropUntil: ('a -> bool) -> 'a list -> 'a list
 List.cmp: ('a -> 'b -> ordering) -> 'a list -> 'b list -> ordering
 List.concat: 'a list list -> 'a list
+List.intersperse: 'a -> 'a list -> 'a list
 List.map: ('a -> 'b) -> 'a list -> 'b list
 List.mapi: (int -> 'a -> 'b) -> 'a list -> 'b list
 List.mapPartial: ('a -> 'b option) -> 'a list -> 'b list
@@ -93,6 +96,7 @@ String.Fast.<: string -> string -> bool
 String.Fast.<=: string -> string -> bool
 String.Fast.>: string -> string -> bool
 String.Fast.>=: string -> string -> bool
+String.Fast.compare: string -> string -> ordering
 String.<: string -> string -> bool
 String.<=: string -> string -> bool
 String.>: string -> string -> bool
@@ -140,6 +144,7 @@ Int.>: int -> int -> bool
 Int.<=: int -> int -> bool
 Int.>=: int -> int -> bool
 Int.~: int -> int
+Int.abs: int -> int
 Int.int_to_string: char -> int -> string
 Int.toString: int -> string
 Int.fromString: string -> int option
@@ -192,8 +197,14 @@ Char.>: char -> char -> bool
 Char.<=: char -> char -> bool
 Char.>=: char -> char -> bool
 Char.isSpace: char -> bool
+Char.isLower: char -> bool
+Char.isUpper: char -> bool
+Char.isDigit: char -> bool
+Char.isAlpha: char -> bool
+Char.isAlphaNum: char -> bool
 Char.fromByte: Word8.word -> char
 Char.some: char -> char option
+Char.contains: string -> char -> bool
 Word64.fromInt: int -> Word64.word
 Word64.toInt: Word64.word -> int
 Word64.toIntSigned: Word64.word -> int
@@ -208,10 +219,10 @@ Word64.<: Word64.word -> Word64.word -> bool
 Word64.>: Word64.word -> Word64.word -> bool
 Word64.<=: Word64.word -> Word64.word -> bool
 Word64.>=: Word64.word -> Word64.word -> bool
-Word64.<<: Word64.word -> int -> Word64.word
-Word64.>>: Word64.word -> int -> Word64.word
-Word64.~>>: Word64.word -> int -> Word64.word
-Word64.ror: Word64.word -> int -> Word64.word
+Word64.<<: Word64.word -> Word64.word -> Word64.word
+Word64.>>: Word64.word -> Word64.word -> Word64.word
+Word64.~>>: Word64.word -> Word64.word -> Word64.word
+Word64.ror: Word64.word -> Word64.word -> Word64.word
 Word64.concatAll: Word8.word -> Word8.word -> Word8.word -> Word8.word -> Word8.word -> Word8.word -> Word8.word -> Word8.word -> Word64.word
 Word8.fromInt: int -> Word8.word
 Word8.fromChar: char -> Word8.word
@@ -228,14 +239,16 @@ Word8.<: Word8.word -> Word8.word -> bool
 Word8.>: Word8.word -> Word8.word -> bool
 Word8.<=: Word8.word -> Word8.word -> bool
 Word8.>=: Word8.word -> Word8.word -> bool
-Word8.<<: Word8.word -> int -> Word8.word
-Word8.>>: Word8.word -> int -> Word8.word
-Word8.~>>: Word8.word -> int -> Word8.word
-Word8.ror: Word8.word -> int -> Word8.word
+Word8.<<: Word8.word -> Word8.word -> Word8.word
+Word8.>>: Word8.word -> Word8.word -> Word8.word
+Word8.~>>: Word8.word -> Word8.word -> Word8.word
+Word8.ror: Word8.word -> Word8.word -> Word8.word
 Word8Array.array: int -> Word8.word -> byte_array
 Word8Array.sub: byte_array -> int -> Word8.word
+Word8Array.subBit: byte_array -> int -> bool
 Word8Array.length: byte_array -> int
 Word8Array.update: byte_array -> int -> Word8.word -> unit
+Word8Array.updateBit: byte_array -> int -> bool -> unit
 Word8Array.copy: byte_array -> int -> int -> byte_array -> int -> unit
 Word8Array.copyVec: string -> int -> int -> byte_array -> int -> unit
 Word8Array.substring: byte_array -> int -> int -> string
@@ -264,6 +277,7 @@ Array.all: ('a -> bool) -> 'a Array.array -> bool
 Array.collate: ('a -> 'b -> ordering) -> 'a Array.array -> 'b Array.array -> ordering
 Array.lookup: 'a Array.array -> 'a -> int -> 'a
 Array.updateResize: 'a Array.array -> 'a -> int -> 'a -> 'a Array.array
+Map.diff: ('a, 'b) map -> ('a, 'c) map -> ('a, 'b) map
 Map.lookup: ('a, 'b) map -> 'a -> 'b option
 Map.member: 'a -> ('a, 'b) map -> bool
 Map.insert: ('a, 'b) map -> 'a -> 'b -> ('a, 'b) map
@@ -366,6 +380,7 @@ TextIO.print_err: string -> unit
 TextIO.print_list: string list -> unit
 TextIO.openOut: string -> TextIO.outstream
 TextIO.closeOut: TextIO.outstream -> unit
+TextIO.outputFile: string -> string -> unit
 TextIO.openStdInSetBufferSize: int -> TextIO.instream
 TextIO.openStdIn: unit -> TextIO.instream
 TextIO.openInSetBufferSize: string -> int -> TextIO.instream
@@ -390,11 +405,113 @@ TextIO.foldLines: char -> (string -> 'a -> 'a) -> 'a -> string option -> 'a opti
 TextIO.foldTokens: char -> (char -> bool) -> (string -> 'a) -> ('a list -> 'b -> 'b) -> 'b -> string option -> 'b option
 Sexp.pp_sexp: Sexp.sexp -> PrettyPrinter.pp_data
 Sexp.pp_str_tree: Sexp.str_tree -> PrettyPrinter.pp_data
+Sexp.parse: char list -> (string * char list, Sexp.sexp * char list) sum
 Sexp.fromString: string -> Sexp.sexp option
 Sexp.inputSexp: TextIO.instream -> Sexp.sexp
 Sexp.str_tree_to_strings: string -> Sexp.str_tree -> string list
 Sexp.toString: Sexp.sexp -> string
 Sexp.toPrettyString: Sexp.sexp -> string
+SocketIO.listenSetBufferSize: string -> int -> SocketIO.socket
+SocketIO.listen: string -> SocketIO.socket
+SocketIO.accept: SocketIO.socket -> SocketIO.socket
+SocketIO.recv: SocketIO.socket -> int -> string
+SocketIO.send: SocketIO.socket -> string -> unit
+SocketIO.close: SocketIO.socket -> unit
+SocketIO.rawSocketSetBufferSize: int -> SocketIO.socket
+SocketIO.rawSocket: unit -> SocketIO.socket
+SocketIO.ifIndex: SocketIO.socket -> string -> int
+SocketIO.ifMtu: SocketIO.socket -> string -> int
+SocketIO.rawBind: SocketIO.socket -> int -> unit
+SocketIO.rawRecv: SocketIO.socket -> int -> string option
+SocketIO.rawSend: SocketIO.socket -> string -> unit
+SocketIO.rawSendTo: SocketIO.socket -> int -> string -> unit
+SocketIO.setRecvBufferSize: SocketIO.socket -> int -> int
+SocketIO.setSendBufferSize: SocketIO.socket -> int -> int
+SocketIO.pollIn: int
+SocketIO.pollOut: int
+SocketIO.pollErr: int
+SocketIO.pollHup: int
+SocketIO.pollNval: int
+SocketIO.poll: (SocketIO.socket * int) list -> int -> int list option
+Ast.pp_lit: Ast.lit -> PrettyPrinter.pp_data
+Ast.pp_id: ('a -> PrettyPrinter.pp_data) -> ('b -> PrettyPrinter.pp_data) -> ('a, 'b) Ast.id -> PrettyPrinter.pp_data
+Ast.pp_ast_t: Ast.ast_t -> PrettyPrinter.pp_data
+Ast.pp_pat: Ast.pat -> PrettyPrinter.pp_data
+Ast.pp_lop: Ast.lop -> PrettyPrinter.pp_data
+Ast.pp_shift: Ast.shift -> PrettyPrinter.pp_data
+Ast.pp_word_size: Ast.word_size -> PrettyPrinter.pp_data
+Ast.pp_prim_type: Ast.prim_type -> PrettyPrinter.pp_data
+Ast.pp_arith: Ast.arith -> PrettyPrinter.pp_data
+Ast.pp_thunk_mode: Ast.thunk_mode -> PrettyPrinter.pp_data
+Ast.pp_thunk_op: Ast.thunk_op -> PrettyPrinter.pp_data
+Ast.pp_opb: Ast.opb -> PrettyPrinter.pp_data
+Ast.pp_test: Ast.test -> PrettyPrinter.pp_data
+Ast.pp_op: Ast.op -> PrettyPrinter.pp_data
+Ast.pp_locs: Ast.locs -> PrettyPrinter.pp_data
+Ast.pp_exp: Ast.exp -> PrettyPrinter.pp_data
+Ast.pp_dec: Ast.dec -> PrettyPrinter.pp_data
+AstSexp.from_option: ('a -> Sexp.sexp) -> 'a option -> Sexp.sexp
+AstSexp.from_int_pair: int * int -> Sexp.sexp
+AstSexp.from_id: (string, string) Ast.id -> Sexp.sexp
+AstSexp.from_lit: Ast.lit -> Sexp.sexp
+AstSexp.from_shift: Ast.shift -> Sexp.sexp
+AstSexp.from_arith: Ast.arith -> Sexp.sexp
+AstSexp.from_word_size: Ast.word_size -> Sexp.sexp
+AstSexp.from_thunk_mode: Ast.thunk_mode -> Sexp.sexp
+AstSexp.from_thunk_op: Ast.thunk_op -> Sexp.sexp
+AstSexp.from_opb: Ast.opb -> Sexp.sexp
+AstSexp.from_test: Ast.test -> Sexp.sexp
+AstSexp.from_prim_type: Ast.prim_type -> Sexp.sexp
+AstSexp.from_op: Ast.op -> Sexp.sexp
+AstSexp.from_ast_ts: Ast.ast_t list -> Sexp.sexp list
+AstSexp.from_ast_t: Ast.ast_t -> Sexp.sexp
+AstSexp.from_pats: Ast.pat list -> Sexp.sexp list
+AstSexp.from_pat: Ast.pat -> Sexp.sexp
+AstSexp.from_lop: Ast.lop -> Sexp.sexp
+AstSexp.from_locs: Ast.locs -> Sexp.sexp
+AstSexp.from_funs: (string * (string * Ast.exp)) list -> Sexp.sexp list
+AstSexp.from_pes: (Ast.pat * Ast.exp) list -> Sexp.sexp list
+AstSexp.from_exps: Ast.exp list -> Sexp.sexp list
+AstSexp.from_exp: Ast.exp -> Sexp.sexp
+AstSexp.from_ctor: string * Ast.ast_t list -> Sexp.sexp
+AstSexp.from_tdef: string list * (string * (string * Ast.ast_t list) list) -> Sexp.sexp
+AstSexp.from_type_def: (string list * (string * (string * Ast.ast_t list) list)) list -> Sexp.sexp
+AstSexp.from_decs: Ast.dec list -> Sexp.sexp list
+AstSexp.from_dec: Ast.dec -> Sexp.sexp
+AstSexp.from_dec_list: Ast.dec list -> Sexp.sexp
+AstSexp.dest_atom: Sexp.sexp -> string option
+AstSexp.dest_expr: Sexp.sexp -> Sexp.sexp list option
+AstSexp.to_int_pair: Sexp.sexp -> (int * int) option
+AstSexp.dest_tagged: Sexp.sexp -> (string * Sexp.sexp list) option
+AstSexp.to_option: (Sexp.sexp -> 'a option) -> Sexp.sexp -> 'a option option
+AstSexp.to_id: Sexp.sexp -> (string, string) Ast.id option
+AstSexp.to_lit: Sexp.sexp -> Ast.lit option
+AstSexp.to_shift: Sexp.sexp -> Ast.shift option
+AstSexp.to_arith: Sexp.sexp -> Ast.arith option
+AstSexp.to_word_size: Sexp.sexp -> Ast.word_size option
+AstSexp.to_thunk_mode: Sexp.sexp -> Ast.thunk_mode option
+AstSexp.to_thunk_op: Sexp.sexp -> Ast.thunk_op option
+AstSexp.to_opb: Sexp.sexp -> Ast.opb option
+AstSexp.to_test: Sexp.sexp -> Ast.test option
+AstSexp.to_prim_type: Sexp.sexp -> Ast.prim_type option
+AstSexp.to_op: Sexp.sexp -> Ast.op option
+AstSexp.to_ast_ts: Sexp.sexp list -> Ast.ast_t list option
+AstSexp.to_ast_t: Sexp.sexp -> Ast.ast_t option
+AstSexp.to_pats: Sexp.sexp list -> Ast.pat list option
+AstSexp.to_pat: Sexp.sexp -> Ast.pat option
+AstSexp.to_lop: Sexp.sexp -> Ast.lop option
+AstSexp.to_locs: Sexp.sexp -> Ast.locs option
+AstSexp.opt_mmap: ('a -> 'b option) -> 'a list -> 'b list option
+AstSexp.to_funs: Sexp.sexp list -> (string * (string * Ast.exp)) list option
+AstSexp.to_pes: Sexp.sexp list -> (Ast.pat * Ast.exp) list option
+AstSexp.to_exps: Sexp.sexp list -> Ast.exp list option
+AstSexp.to_exp: Sexp.sexp -> Ast.exp option
+AstSexp.to_ctor: Sexp.sexp -> (string * Ast.ast_t list) option
+AstSexp.to_tdef: Sexp.sexp -> (string list * (string * (string * Ast.ast_t list) list)) option
+AstSexp.to_type_def: Sexp.sexp -> (string list * (string * (string * Ast.ast_t list) list)) list option
+AstSexp.to_decs: Sexp.sexp list -> Ast.dec list option
+AstSexp.to_dec: Sexp.sexp -> Ast.dec option
+AstSexp.to_dec_list: Sexp.sexp -> Ast.dec list option
 fst: 'a * 'b -> 'a
 snd: 'a * 'b -> 'b
 curry: ('a * 'b -> 'c) -> 'a -> 'b -> 'c

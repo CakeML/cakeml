@@ -24,7 +24,10 @@ Definition do_eval_res_def:
   do_eval_res vs s =
     case do_eval vs s.eval_state of
     | NONE => (s,Rerr (Rabort Rtype_error))
-    | SOME (env1,decs,es1) => (s with eval_state := es1,Rval (env1,decs))
+    | SOME (env1,decs,es1) =>
+        (s with <| eval_state := es1
+                 ; ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle |>,
+         Rval (env1,decs))
 End
 
 (* list_result is equivalent to map_result (\v. [v]) I, where map_result is
@@ -141,6 +144,16 @@ Definition evaluate_def[nocompute]:
               | (st2, Rerr e) => (( st2 with<| eval_state :=
                   (reset_env_generation st'.eval_state st2.eval_state) |>), Rerr e))
         | (st1, Rerr e) => (st1, Rerr e))
+    | PtrEqOp =>
+       (case REVERSE vs of
+          [v1; v2] =>
+            (case do_eq v1 v2 of
+               Eq_type_error => (st', Rerr (Rabort Rtype_error))
+             | Eq_val b =>
+                 (st' with ptr_eq_oracle :=
+                    (0 =+ shift_seq 1 (st'.ptr_eq_oracle 0)) st'.ptr_eq_oracle,
+                  Rval [Boolv (b ∧ st'.ptr_eq_oracle 0 0)]))
+        | _ => (st', Rerr (Rabort Rtype_error)))
     | Simple =>
         (case do_app (st'.refs,st'.ffi) op (REVERSE vs) of
           NONE => (st', Rerr (Rabort Rtype_error))
@@ -188,10 +201,15 @@ Definition evaluate_def[nocompute]:
   ∧
   evaluate st env [Lannot e l] = evaluate st env [e]
   ∧
+  evaluate st env [Open path e] =
+    (case open_dec_env path env of
+       NONE => (st,Rerr (Rabort Rtype_error))
+     | SOME opened => evaluate st (extend_dec_env opened env) [e])
+  ∧
   evaluate_match st env v [] err_v = (st,Rerr (Rraise err_v))
   ∧
   evaluate_match st env v ((p,e)::pes) err_v =
-    (if ALL_DISTINCT (pat_bindings p []) then
+    (if ALL_DISTINCT (pat_bindings p) then
        case pmatch env.c st.refs p v [] of
          No_match => evaluate_match st env v pes err_v
        | Match_type_error => (st,Rerr (Rabort Rtype_error))
@@ -208,9 +226,11 @@ Definition evaluate_def[nocompute]:
             (st2,r) => (st2,combine_dec_result env1 r))
      | (st1,Rerr v7) => (st1,Rerr v7))
   ∧
+  (* Check constructor applications in their lexical scope, even in bodies
+     that this declaration does not evaluate. *)
   evaluate_decs st env [Dlet locs p e] =
-    (if ALL_DISTINCT (pat_bindings p []) ∧
-        every_exp (one_con_check env.c) e
+    (if ALL_DISTINCT (pat_bindings p) ∧
+        check_exp_constructors env.c e
      then
        case evaluate st env [e] of
          (st',Rval v) =>
@@ -226,7 +246,7 @@ Definition evaluate_def[nocompute]:
   evaluate_decs st env [Dletrec locs funs] =
     (st,
      if ALL_DISTINCT (MAP (λ(x,y,z). x) funs) ∧
-        EVERY (λ(f,n,e). every_exp (one_con_check env.c) e) funs
+        EVERY (λ(f,n,e). check_exp_constructors env.c e) funs
      then
        Rval <|v := build_rec_env funs env nsEmpty; c := nsEmpty|>
      else Rerr (Rabort Rtype_error))
@@ -251,6 +271,11 @@ Definition evaluate_def[nocompute]:
      Rval
        <|v := nsEmpty;
          c := nsSing cn (LENGTH ts,ExnStamp st.next_exn_stamp)|>)
+  ∧
+  evaluate_decs st env [Dopen locs path] =
+    (case open_dec_env path env of
+       NONE => (st,Rerr (Rabort Rtype_error))
+     | SOME opened => (st,Rval opened))
   ∧
   evaluate_decs st env [Dmod mn ds] =
     (case evaluate_decs st env ds of
@@ -360,4 +385,3 @@ Theorem evaluate_decs_ind =
   |> Q.SPECL [‘λv1 v2 v3. T’,‘λv1 v2 v3 v4 v5. T’,‘P’]
   |> SIMP_RULE std_ss []
   |> Q.GEN ‘P’;
-

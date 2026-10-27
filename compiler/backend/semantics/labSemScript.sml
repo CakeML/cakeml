@@ -24,9 +24,15 @@ Datatype:
                   (* oracle: sequence of havoc on registers at each FFI call *)
      ; io_regs    : num (* seq number *) -> ffiname (* ffi name *) -> num (* register *) -> 'a word option
      ; cc_regs    : num -> num -> 'a word option (* same as io_regs but for calling clear cache *)
-     ; code       : 'a labLang$prog
-     ; compile    : 'c -> 'a labLang$prog -> (word8 list # 'c) option
-     ; compile_oracle : num -> 'c # 'a labLang$prog
+                  (* oracles: sequence of havoc on FP registers at each FFI
+                     call / clear-cache call; a SharedMem call consumes an
+                     io_fp_regs position without using it (the machine-level
+                     counter is shared with ExtCall) *)
+     ; io_fp_regs : num (* seq number *) -> num (* FP register *) -> word64
+     ; cc_fp_regs : num -> num -> word64
+     ; code       : labLang$prog
+     ; compile    : 'c -> labLang$prog -> (word8 list # 'c) option
+     ; compile_oracle : num -> 'c # labLang$prog
      ; code_buffer : ('a,8) buffer
      ; clock      : num
      ; failed     : bool
@@ -45,13 +51,13 @@ End
 
 Definition asm_fetch_aux_def:
   (asm_fetch_aux pos [] = NONE) /\
-  (asm_fetch_aux pos ((Section k [])::xs) = asm_fetch_aux pos xs) /\
-  (asm_fetch_aux pos ((Section k (y::ys))::xs) =
+  (asm_fetch_aux pos ((Section k [] md)::xs) = asm_fetch_aux pos xs) /\
+  (asm_fetch_aux pos ((Section k (y::ys) md)::xs) =
      if is_Label y
-     then asm_fetch_aux pos ((Section k ys)::xs)
+     then asm_fetch_aux pos ((Section k ys md)::xs)
      else if pos = 0:num
           then SOME y
-          else asm_fetch_aux (pos-1) ((Section k ys)::xs))
+          else asm_fetch_aux (pos-1) ((Section k ys md)::xs))
 End
 
 Definition asm_fetch_def:
@@ -76,7 +82,7 @@ End
 
 Definition reg_imm_def[simp]:
   (reg_imm (Reg r) s = read_reg r s) /\
-  (reg_imm (Imm w) s = Word w)
+  (reg_imm (Imm w) s = Word (i2w w))
 End
 
 Definition binop_upd_def:
@@ -88,7 +94,7 @@ Definition binop_upd_def:
 End
 
 Definition arith_upd_def[simp]:
-  (arith_upd (Binop b r1 r2 (ri:'a reg_imm)) s =
+  (arith_upd (Binop b r1 r2 (ri:reg_imm)) (s:('a,'c,'ffi) labSem$state) =
      case (read_reg r2 s, reg_imm ri s) of
      | (Word w1, Word w2) => binop_upd r1 b w1 w2 s
      | (x,_) => if b = Or /\ ri = Reg r2 then upd_reg r1 x s else assert F s) /\
@@ -139,6 +145,23 @@ Definition arith_upd_def[simp]:
      | (Word w2, Word w3) =>
          upd_reg r4 (Word (if w2i (w2 - w3) ≠ w2i w2 - w2i w3 then 1w else 0w))
             (upd_reg r1 (Word (w2 - w3)) s)
+     | _ => assert F s) /\
+  (arith_upd (IMul rd ra rb ro) s =
+     case (read_reg ra s, read_reg rb s) of
+     | (Word a, Word b) =>
+         upd_reg ro (Word (if w2i (a * b) ≠ w2i a * w2i b then 1w else 0w))
+           (upd_reg rd (Word (a * b)) s)
+     | _ => assert F s) /\
+  (arith_upd (IDiv rq rr ra rb) s =
+     case (read_reg ra s, read_reg rb s) of
+     | (Word wa, Word wb) =>
+         let a = w2i wa in
+         let b = w2i wb in
+         let q = a quot b in
+         let wq = i2w q : 'a word in
+           assert (b ≠ 0 ∧ w2i wq = q)
+             (upd_reg rq (Word wq)
+               (upd_reg rr (Word (i2w (a rem b))) s))
      | _ => assert F s)
 End
 
@@ -219,7 +242,7 @@ End
 Definition addr_def:
   addr (Addr r offset) s =
     case read_reg r s of
-    | Word w => SOME (w + offset)
+    | Word w => SOME (w + i2w offset)
     | _ => NONE
 End
 
@@ -298,13 +321,13 @@ Definition mem_op_def[simp]:
   (mem_op Store32 r a = mem_store32 r a) /\
   (mem_op Load8 r a = mem_load_byte r a) /\
   (mem_op Store8 r a = mem_store_byte r a) /\
-  (mem_op Load16 r (a:'a addr) = assert F) /\
-  (mem_op Store16 r (a:'a addr) = assert F)
+  (mem_op Load16 r (a:addr) = assert F) /\
+  (mem_op Store16 r (a:addr) = assert F)
 End
 
 Definition asm_inst_def[simp]:
   (asm_inst Skip s = (s:('a,'c,'ffi) labSem$state)) /\
-  (asm_inst (Const r imm) s = upd_reg r (Word imm) s) /\
+  (asm_inst (Const r imm) s = upd_reg r (Word (i2w imm)) s) /\
   (asm_inst (Arith x) s = arith_upd x s) /\
   (asm_inst (Mem m r a) s = mem_op m r a s) /\
   (asm_inst (FP fp) s = fp_upd fp s)
@@ -320,9 +343,9 @@ End
 
 Definition asm_code_length_def:
   (asm_code_length [] = 0) /\
-  (asm_code_length ((Section k [])::xs) = asm_code_length xs) /\
-  (asm_code_length ((Section k (y::ys))::xs) =
-     asm_code_length ((Section k ys)::xs) + if is_Label y then 0 else 1:num)
+  (asm_code_length ((Section k [] md)::xs) = asm_code_length xs) /\
+  (asm_code_length ((Section k (y::ys) md)::xs) =
+     asm_code_length ((Section k ys md)::xs) + if is_Label y then 0 else 1:num)
 End
 
 Theorem asm_fetch_IMP[local]:
@@ -345,15 +368,15 @@ End
 
 Definition loc_to_pc_def:
   (loc_to_pc n1 n2 [] = NONE) /\
-  (loc_to_pc n1 n2 ((Section k xs)::ys) =
+  (loc_to_pc n1 n2 ((Section k xs md)::ys) =
      if (k = n1) /\ (n2 = 0n) then SOME (0:num) else
        case xs of
        | [] => loc_to_pc n1 n2 ys
        | (z::zs) =>
          if (?k. z = Label n1 n2 k) /\ n2 <> 0 then SOME 0n else
-           if is_Label z then loc_to_pc n1 n2 ((Section k zs)::ys)
+           if is_Label z then loc_to_pc n1 n2 ((Section k zs md)::ys)
            else
-             case loc_to_pc n1 n2 ((Section k zs)::ys) of
+             case loc_to_pc n1 n2 ((Section k zs md)::ys) of
              | NONE => NONE
              | SOME pos => SOME (pos + 1:num))
 End
@@ -363,6 +386,10 @@ Theorem asm_inst_consts:
    ((asm_inst i s).code = s.code) /\
    ((asm_inst i s).clock = s.clock) /\
    ((asm_inst i s).ffi = s.ffi) ∧
+   ((asm_inst i s).io_regs = s.io_regs) ∧
+   ((asm_inst i s).io_fp_regs = s.io_fp_regs) ∧
+   ((asm_inst i s).cc_regs = s.cc_regs) ∧
+   ((asm_inst i s).cc_fp_regs = s.cc_fp_regs) ∧
    ((asm_inst i s).ptr_reg = s.ptr_reg) ∧
    ((asm_inst i s).len_reg = s.len_reg) ∧
    ((asm_inst i s).ptr2_reg = s.ptr2_reg) ∧
@@ -396,20 +423,20 @@ End
 
 Definition next_label_def:
   (next_label [] = NONE) /\
-  (next_label ((Section k [])::xs) = next_label xs) /\
-  (next_label ((Section k (Label n1 n2 _::ys))::xs) = SOME (Loc n1 n2)) /\
-  (next_label ((Section k (y::ys))::xs) = next_label (Section k ys::xs))
+  (next_label ((Section k [] md)::xs) = next_label xs) /\
+  (next_label ((Section k (Label n1 n2 _::ys) md)::xs) = SOME (Loc n1 n2)) /\
+  (next_label ((Section k (y::ys) md)::xs) = next_label (Section k ys md::xs))
 End
 
 Definition get_lab_after_def:
   (get_lab_after pos [] = NONE) /\
-  (get_lab_after pos ((Section k [])::xs) = get_lab_after pos xs) /\
-  (get_lab_after pos ((Section k (y::ys))::xs) =
+  (get_lab_after pos ((Section k [] md)::xs) = get_lab_after pos xs) /\
+  (get_lab_after pos ((Section k (y::ys) md)::xs) =
      if is_Label y
-     then get_lab_after pos ((Section k ys)::xs)
+     then get_lab_after pos ((Section k ys md)::xs)
      else if pos = 0:num
-          then next_label ((Section k ys)::xs)
-          else get_lab_after (pos-1) ((Section k ys)::xs))
+          then next_label ((Section k ys md)::xs)
+          else get_lab_after (pos-1) ((Section k ys md)::xs))
 End
 
 Definition get_ret_Loc_def:
@@ -496,18 +523,12 @@ Definition evaluate_def:
                       evaluate (upd_pc p (dec_clock s)))
              | _ => (Error,s))
          | _ => (Error,s))
-    | SOME (Asm (Cbw r1 r2) _ _) =>
-      (case (read_reg r1 s,read_reg r2 s) of
-      | (Word w1, Word w2) =>
-        (case buffer_write s.code_buffer w1 (w2w w2) of
-        | SOME new_cb =>
-          evaluate (inc_pc (dec_clock (s with code_buffer:= new_cb)))
-        | _ => (Error,s))
-      | _ => (Error,s))
     | SOME (Asm (ShareMem m r ad) _ _) =>
        (case share_mem_op m r ad s of
         | SOME (FFI_final outcome,s') => (Halt (FFI_outcome outcome),s')
-        | SOME (FFI_return _ _,s') => evaluate (s' with io_regs := shift_seq 1 s'.io_regs)
+        | SOME (FFI_return _ _,s') =>
+            evaluate (s' with <| io_regs := shift_seq 1 s'.io_regs ;
+                                 io_fp_regs := shift_seq 1 s'.io_fp_regs |>)
         | NONE => (Error, s))
     | SOME (LabAsm Halt _ _ _) =>
        (case s.regs s.ptr_reg of
@@ -540,14 +561,19 @@ Definition evaluate_def:
              let s1 = upd_reg s.link_reg k s in
                evaluate (upd_pc p (dec_clock s1))))
     | SOME (LabAsm Install _ _ _) =>
-       (case (s.regs s.ptr_reg,s.regs s.len_reg,s.regs s.link_reg) of
-        | (Word w1, Word w2, Loc n1 n2) =>
-           (case (buffer_flush s.code_buffer w1 w2, loc_to_pc n1 n2 s.code) of
-            | (SOME (bytes, cb), SOME new_pc) =>
+       (case (code_buffer_install (SOME $ s.regs s.ptr_reg)
+                                  (SOME $ s.regs s.len_reg)
+                                  (SOME $ s.regs s.ptr2_reg)
+                                  (mem_load_byte_aux s.mem s.mem_domain s.be)
+                                  s.code_buffer,
+              s.regs s.link_reg) of
+        | (SOME (bytes, cb), Loc n1 n2) =>
+           (case (loc_to_pc n1 n2 s.code) of
+            | SOME new_pc =>
               let (cfg,prog) = s.compile_oracle 0 in (* the next oracle program *)
               let new_oracle = shift_seq 1 s.compile_oracle in
                 (case (s.compile cfg prog, prog) of
-                 | (SOME (bytes',cfg'), Section k _ :: _) =>
+                 | (SOME (bytes',cfg'), Section k _ _ :: _) =>
                    if bytes = bytes' ∧ FST(new_oracle 0) = cfg' then (* the oracle was correct *)
                      evaluate
                        (s with <|
@@ -555,9 +581,11 @@ Definition evaluate_def:
                               ; code_buffer := cb
                               ; code := s.code ++ prog
                               ; cc_regs := shift_seq 1 s.cc_regs
+                              ; cc_fp_regs := shift_seq 1 s.cc_fp_regs
                               ; regs := (s.ptr_reg =+ Loc k 0)
                                           (λa. get_reg_value  (s.cc_regs 0 a)
                                                    (s.regs a) Word)
+                              ; fp_regs := (λn. s.cc_fp_regs 0 n)
                               ; compile_oracle := new_oracle
                               ; clock := s.clock - 1
                               |>)
@@ -578,13 +606,16 @@ Definition evaluate_def:
               | FFI_final outcome => (Halt (FFI_outcome outcome),s)
               | FFI_return new_ffi new_bytes =>
                   let new_io_regs = shift_seq 1 s.io_regs in
+                  let new_io_fp_regs = shift_seq 1 s.io_fp_regs in
                   let new_m = write_bytearray w4 new_bytes s.mem s.mem_domain s.be in
                     evaluate (s with <|
                                    mem := new_m ;
                                    ffi := new_ffi ;
                                    io_regs := new_io_regs ;
+                                   io_fp_regs := new_io_fp_regs ;
                                    regs := (\a. get_reg_value (s.io_regs 0 (ExtCall ffi_index) a)
                                                   (s.regs a) Word);
+                                   fp_regs := (\n. s.io_fp_regs 0 n);
                                    pc := new_pc ;
                                    clock := s.clock - 1 |>))
           | _ => (Error,s))

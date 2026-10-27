@@ -41,8 +41,8 @@ Definition evaluate_prog_with_clock_def:
     in (st'.ffi,r)
 End
 
-Definition semantics_prog_def:
-  (semantics_prog st env prog (Terminate outcome io_list) ⇔
+Definition semantics_determ_def:
+  (semantics_determ st env prog (Terminate outcome io_list) ⇔
     (* there is a clock for which evaluation terminates, either internally or via
        FFI, and the accumulated io events match the given io_list *)
     (?k ffi r.
@@ -53,7 +53,7 @@ Definition semantics_prog_def:
        | r => r ≠ Rerr (Rabort Rtimeout_error) ∧ outcome = Success) ∧
       (io_list = ffi.io_events) ∧
       (r ≠ Rerr (Rabort Rtype_error)))) ∧
-  (semantics_prog st env prog (Diverge io_trace) ⇔
+  (semantics_determ st env prog (Diverge io_trace) ⇔
     (* for all clocks, evaluation times out *)
     (!k. ?ffi.
       (evaluate_prog_with_clock st env k prog =
@@ -65,10 +65,17 @@ Definition semantics_prog_def:
          (λk. fromList (FST (evaluate_prog_with_clock st env k prog)).io_events)
          UNIV)
        io_trace) ∧
-  (semantics_prog st env prog Fail ⇔
+  (semantics_determ st env prog Fail ⇔
     (* there is a clock for which evaluation produces a runtime type error *)
     ∃k.
       SND(evaluate_prog_with_clock st env k prog) = Rerr (Rabort Rtype_error))
+End
+
+Definition semantics_prog_def:
+  semantics_prog st env prog b ⇔
+    (* the pointer equality oracle is adversarial: a program behaves as it does
+       under some oracle *)
+    ∃po. semantics_determ (st with ptr_eq_oracle := po) env prog b
 End
 
 Datatype:

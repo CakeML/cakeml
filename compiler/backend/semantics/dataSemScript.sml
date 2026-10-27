@@ -5,7 +5,6 @@ Theory dataSem
 Ancestors
   data_simp data_live data_space dataLang bvlSem
   data_to_word (* TODO: immoral, semantics shouldn't depend on compiler *)
-  backendProps[qualified]
 Libs
   preamble
 
@@ -61,16 +60,17 @@ Datatype:
      ; global      : num option
      ; handler     : num
      ; refs        : v ref num_map
-     ; compile     : 'c -> (num # num # dataLang$prog) list -> (word8 list # word64 list # 'c) option
+     ; compile     : 'c -> (num # num # dataLang$prog # metadata) list -> (mlstring # word64 list # 'c) option
      ; clock       : num
-     ; code        : (num # dataLang$prog) num_map
+     ; code        : (num # dataLang$prog # metadata) num_map
      ; ffi         : 'ffi ffi_state
      ; space       : num
      ; tstamps     : num option
      ; limits      : limits
      ; safe_for_space   : bool
      ; peak_heap_length : num
-     ; compile_oracle   : num -> 'c # (num # num # dataLang$prog) list |>
+     ; compile_oracle   : num -> 'c # (num # num # dataLang$prog # metadata) list
+     ; ptr_eq_oracle    : num -> num -> bool |>
 End
 
 val s = ``(s:('c,'ffi) dataSem$state)``
@@ -93,8 +93,8 @@ QED
 
 Definition small_num_def:
   small_num arch64 (i:int) =
-    if arch64 then -(2 ** 61) <= i /\ i < (2 ** 61)
-              else -(2 ** 29) <= i /\ i < (2 ** 29)
+    if arch64 then -(2 ** 62) <= i /\ i < (2 ** 62)
+              else -(2 ** 30) <= i /\ i < (2 ** 30)
 End
 
 Definition bignum_digits_def:
@@ -126,7 +126,10 @@ Definition size_of_def:
      | SOME (ValueArray vs) => let (n,refs,seen) = size_of lims vs (delete r refs) seen in
                                  (n + LENGTH vs + 1, refs, seen)
      | SOME (Thunk _ v) => let (n,refs,seen) = size_of lims [v] (delete r refs) seen in
-                             (n + 2, refs, seen)) /\
+                             (n + 2, refs, seen)
+     | SOME (MutBlock tg fin ls c rs) =>
+         let (n,refs,seen) = size_of lims (ls ++ [c] ++ rs) (delete r refs) seen in
+           (n + LENGTH ls + LENGTH rs + 2, refs, seen)) /\
   (size_of lims [Block ts tag []]) refs seen = (0, refs, seen) /\
   (size_of lims [Block ts tag vs] refs seen =
      if IS_SOME (sptree$lookup ts seen) then (0, refs, seen) else
@@ -179,8 +182,13 @@ Definition size_of_heap_def:
       n
 End
 
+Definition no_thunks_in_refs_def:
+  no_thunks_in_refs refs ⇔ ∀k e v. lookup k refs ≠ SOME (Thunk e v)
+End
+
 Overload add_space_safe =
   ``λk ^s. s.safe_for_space
+           ∧ no_thunks_in_refs s.refs
            ∧ size_of_heap s + k <= s.limits.heap_limit``
 
 Overload heap_peak =
@@ -217,7 +225,7 @@ End
 
 (* Determines which operations are safe for space *)
 Definition allowed_op_def:
-  allowed_op op _ = (op <> closLang$Install)
+  allowed_op op _ = (op <> closLang$Install /\ !t i. op <> MemOp (MutCons t i))
 End
 
 Definition v_to_list_def:
@@ -302,6 +310,11 @@ Definition eq_code_stack_max_def:
 End
 
 Definition stack_consumed_def:
+  (stack_consumed sfs lims (IntOp (Smallnum op)) vs =
+    if allowed_op (IntOp (Smallnum op)) (LENGTH vs) then
+      if op = SmallDiv \/ op = SmallMod
+      then lookup SmallnumDivMod_location sfs else SOME 0
+    else NONE) /\
   (stack_consumed sfs lims (MemOp (CopyByte _)) vs =
     OPTION_MAP2 MAX
      (sptree$lookup ByteCopy_location sfs)
@@ -339,9 +352,7 @@ Definition stack_consumed_def:
        small_num lims.arch_64_bit n2 /\ 0 <= n2 /\
        small_num lims.arch_64_bit (n1 / n2)
     then
-      OPTION_MAP2 MAX
-        (lookup LongDiv_location sfs)
-        (lookup LongDiv1_location sfs)
+      lookup SmallnumDivMod_location sfs
     else
       OPTION_MAP2 MAX (lookup Div_location sfs)
         (max_depth sfs AnyArith_call_tree)) /\
@@ -350,9 +361,7 @@ Definition stack_consumed_def:
        small_num lims.arch_64_bit n2 /\ 0 <= n2 /\
        small_num lims.arch_64_bit (n1 % n2)
     then
-      OPTION_MAP2 MAX
-        (lookup LongDiv_location sfs)
-        (lookup LongDiv1_location sfs)
+      lookup SmallnumDivMod_location sfs
     else
       OPTION_MAP2 MAX (lookup Mod_location sfs)
         (max_depth sfs AnyArith_call_tree)) /\
@@ -397,6 +406,7 @@ End
 Overload do_space_safe =
   ``λop vs ^s. if op_space_reset op
               then s.safe_for_space
+                   ∧ no_thunks_in_refs s.refs
                    ∧ size_of_heap_args vs s
                        + space_consumed s op vs
                      <= s.limits.heap_limit
@@ -437,9 +447,14 @@ Definition do_stack_def:
               ; stack_max := OPTION_MAP2 MAX s.stack_max new_stack |>
 End
 
-Definition v_to_bytes_def:
-  v_to_bytes lv = some ns:word8 list.
-                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)
+Definition v_to_mlstring_def:
+  v_to_mlstring refs lv =
+    case lv of
+    | RefPtr _ p =>
+        (case lookup p refs of
+         | SOME (ByteArray T bs) => SOME (bytes_to_mlstring bs)
+         | _ => NONE)
+    | _ => NONE
 End
 
 Definition v_to_words_def:
@@ -493,22 +508,22 @@ Overload Error[local] =
 Definition do_install_def:
   do_install vs ^s =
       (case vs of
-       | [v1;v2;vl1;vl2] =>
-           (case (v_to_bytes v1, v_to_words v2) of
+       | [v1;v2;vl2] =>
+           (case (v_to_mlstring s.refs v1, v_to_words v2) of
             | (SOME bytes, SOME data) =>
-               if vl1 <> Number (& LENGTH bytes) \/
-                  vl2 <> Number (& LENGTH data)
+               if vl2 <> Number (& LENGTH data)
                then Rerr(Rabort Rtype_error) else
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in
                  (case s.compile cfg progs, progs of
-                  | SOME (bytes',data',cfg'), (k,prog)::_ =>
+                  | SOME (bytes',data',cfg'), (k,_)::_ =>
                       if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then
                         let s' =
                           s with <|
                              safe_for_space := F ;
                              code := union s.code (fromAList progs) ;
-                             compile_oracle := new_oracle |>
+                             compile_oracle := new_oracle ;
+                             ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle |>
                         in
                           Rval (CodePtr k, s')
                       else Rerr(Rabort Rtype_error)
@@ -561,6 +576,11 @@ Definition lim_safe_def[simp]:
       4 * tag < 2 ** (arch_size lims) DIV 16 /\
       4 * tag < 2 ** (arch_size lims - lims.length_limit - 2)
       )
+∧ (lim_safe lims (MemOp (MutCons tag i)) xs =
+      (LENGTH xs < 2 ** lims.length_limit /\
+       LENGTH xs < 2 ** (arch_size lims - 4) /\
+       4 * tag < 2 ** (arch_size lims) DIV 16 /\
+       4 * tag < 2 ** (arch_size lims - lims.length_limit - 2)))
 ∧ (lim_safe lims (BlockOp (FromList tag)) xs =
    (case xs of
     | [len;lv] =>
@@ -663,6 +683,9 @@ Definition lim_safe_def[simp]:
 ∧ (lim_safe lims (WordOp (WordShift W64 _ _)) _ =
    (1 < lims.length_limit)
   )
+∧ (lim_safe lims (WordOp (WordShiftVar W64 _)) _ =
+   (1 < lims.length_limit)
+  )
 ∧ (lim_safe lims (WordOp (WordFromWord _)) _ =
    (1 < lims.length_limit)
   )
@@ -718,6 +741,17 @@ Definition do_build_const_def:
   do_build_const xs s ts = do_build (λx. Number 0) 0 xs s ts
 End
 
+Definition smallnum_witness_length_def:
+  smallnum_witness_length refs (Block ts tag xs) =
+    (if tag = 0 then SOME (256 * LENGTH xs) else NONE) /\
+  smallnum_witness_length refs (RefPtr _ ptr) =
+    (case lookup ptr refs of
+       SOME (ValueArray xs) => SOME (256 * LENGTH xs)
+     | SOME (ByteArray _ xs) => SOME (32 * LENGTH xs)
+     | _ => NONE) /\
+  smallnum_witness_length refs v = NONE
+End
+
 Definition do_int_app_def:
   do_int_app (Const n) [] =
     (if small_enough_int n then SOME (Number n)
@@ -736,6 +770,9 @@ Definition do_int_app_def:
   do_int_app (LessConstSmall n) [Number i] =
         (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then
           SOME (Boolv (i < &n)) else NONE) /\
+  do_int_app (Smallnum op) [Number i; Number j] =
+    OPTION_MAP (\r. case r of INL n => Number n | INR b => Boolv b)
+      (backendProps$bounded_smallnum_app NONE op i j) /\
   do_int_app (op:closLang$int_op) (vs:dataSem$v list) = NONE
 End
 
@@ -760,6 +797,12 @@ Definition do_word_app_def:
         | SOME w => SOME (Number &(w2n (shift_lookup sh w n)))) /\
   do_word_app (WordShift W64 sh n) [Word64 w] =
        SOME (Word64 (shift_lookup sh w n)) /\
+  do_word_app (WordShiftVar W8 sh) [Number i; Number n] =
+       (case some (w:word8,count:word8). i = &(w2n w) /\ n = &(w2n count) of
+        | NONE => NONE
+        | SOME (w,count) => SOME (Number &(w2n (shift_lookup sh w (w2n count))))) /\
+  do_word_app (WordShiftVar W64 sh) [Word64 w; Word64 count] =
+       SOME (Word64 (shift_lookup sh w (w2n count))) /\
   do_word_app (WordFromInt) [Number i] =
        SOME (Word64 (i2w i)) /\
   do_word_app WordToInt [Word64 w] =
@@ -794,6 +837,53 @@ Definition dest_Boolv_def:
   dest_Boolv (Block _ tag xs) =
     (if xs = [] ∧ tag < 2 then SOME (tag = 1) else NONE) ∧
   dest_Boolv _ = NONE
+End
+
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk (RefPtr b ptr) refs =
+    (case lookup ptr refs of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) =>
+         if b then BadRef else IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) =>
+         if b then BadRef else IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk v refs = NotThunk
+End
+
+Definition bad_thunk_update_def:
+  bad_thunk_update m v refs ⇔
+    m = Evaluated ∧ dest_thunk v refs ≠ NotThunk
+End
+
+(* mirrors bviSem$finalise_cons, but threads the timestamp counter so that
+   each block produced by the finalisation gets a fresh time stamp *)
+Definition finalise_cons_def:
+  (finalise_cons (RefPtr b ptr) refs ts =
+    case lookup ptr refs of
+    | SOME (MutBlock tag finalised l c r) =>
+        if ~finalised then
+          (case finalise_cons c (delete ptr refs) ts of
+           | SOME (c',refs',ts') =>
+               SOME (Block (case ts' of NONE => 0 | SOME n => n) tag (l ++ [c'] ++ r),
+                     insert ptr (MutBlock tag T l c r) refs',
+                     OPTION_MAP SUC ts')
+           | NONE => NONE)
+        else NONE
+    | SOME res => SOME (RefPtr b ptr,refs,ts)
+    | NONE => NONE) ∧
+  (finalise_cons v refs ts = SOME (v,refs,ts))
+Termination
+  WF_REL_TAC ‘measure (sptree$size o FST o SND)’
+  \\ rw [] \\ imp_res_tac miscTheory.lookup_zero
+  \\ fs [sptreeTheory.size_delete]
 End
 
 Definition do_app_aux_def:
@@ -946,6 +1036,13 @@ Definition do_app_aux_def:
              then Rval (Number (& (w2n (EL (Num i) ws))),s)
              else Error)
          | _ => Error)
+    | (MemOp DerefBit,[RefPtr _ ptr; Number i]) =>
+        (case lookup ptr s.refs of
+         | SOME (ByteArray _ ws) =>
+            (if 0 ≤ i ∧ i < 8 * &LENGTH ws
+             then Rval (Block 0 (multiword$b2n ((EL (Num i DIV 8) ws) ' (Num i MOD 8))) [],s)
+             else Error)
+         | _ => Error)
     | (MemOp UpdateByte,[RefPtr _ ptr; Number i; Number b]) =>
         (case lookup ptr s.refs of
          | SOME (ByteArray f bs) =>
@@ -953,6 +1050,16 @@ Definition do_app_aux_def:
              then
                Rval (Unit, s with refs := insert ptr
                  (ByteArray f (LUPDATE (i2w b) (Num i) bs)) s.refs)
+             else Error)
+         | _ => Error)
+    | (MemOp UpdateBit,[RefPtr _ ptr; Number i; v]) =>
+        (case (lookup ptr s.refs, dest_Boolv v) of
+         | (SOME (ByteArray f bs), SOME b) =>
+            (if 0 ≤ i ∧ i < 8 * &LENGTH bs
+             then
+               Rval (Unit, s with refs := insert ptr
+                 (ByteArray f (LUPDATE (((Num i MOD 8) :+ b) (EL (Num i DIV 8) bs))
+                                       (Num i DIV 8) bs)) s.refs)
              else Error)
          | _ => Error)
     | (MemOp XorByte,[RefPtr _ dst; RefPtr _ src]) =>
@@ -997,6 +1104,13 @@ Definition do_app_aux_def:
         (case do_eq s.refs x1 x2 of
          | Eq_val b => Rval (Boolv b, s)
          | _ => Error)
+    | (BlockOp PtrEqual,[x1;x2]) =>
+        (case do_eq s.refs x1 x2 of
+         | Eq_val b =>
+             Rval (Boolv (b ∧ s.ptr_eq_oracle 0 0),
+                   s with ptr_eq_oracle :=
+                     (0 =+ shift_seq 1 (s.ptr_eq_oracle 0)) s.ptr_eq_oracle)
+         | _ => Error)
     | (MemOp Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
           Rval (RefPtr T ptr, s with <| refs := insert ptr (ValueArray xs) s.refs|>)
@@ -1008,6 +1122,33 @@ Definition do_app_aux_def:
                               (ValueArray (LUPDATE x (Num i) xs)) s.refs)
              else Error)
          | _ => Error)
+    | (MemOp (MutCons tag i),xs) =>
+        (let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
+           if i >= LENGTH xs then Error else
+             let l = TAKE i xs in
+             let c = EL i xs in
+             let r = DROP (i+1) xs in
+               Rval (RefPtr F ptr,
+                     s with refs := insert ptr (MutBlock tag F l c r) s.refs))
+    | (MemOp UpdateCons,[RefPtr _ ptr; Number i; x]) =>
+        (case lookup ptr s.refs of
+         | SOME (MutBlock tag finalised l c r) =>
+             if i <> & LENGTH l \/ finalised then Error else
+               Rval (Unit, s with refs := insert ptr (MutBlock tag F l x r) s.refs)
+         | _ => Error)
+    | (MemOp FinaliseCons,[x]) =>
+        (case finalise_cons x s.refs s.tstamps of
+         | SOME (v,refs',ts') =>
+             Rval (v, s with <| refs := refs' ; tstamps := ts' |>)
+         | NONE => Error)
+    | (IntOp (Smallnum smallop), [Number i; Number j; witness]) =>
+        (case smallnum_witness_length s.refs witness of
+           NONE => Error
+         | SOME len =>
+             case backendProps$bounded_smallnum_app (SOME len) smallop i j of
+               NONE => Error
+             | SOME (INL n) => Rval (Number n,s)
+             | SOME (INR b) => Rval (Boolv b,s))
     | (IntOp intop, vs) =>
         (case do_int_app intop vs of
         | SOME res => Rval (res ,s)
@@ -1040,6 +1181,14 @@ Definition do_app_aux_def:
                Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
            | _ => Error)
          | _ => Error)
+    | (MemOp BoundsCheckBit,xs) =>
+        (case xs of
+         | [RefPtr _ ptr; Number i] =>
+          (case lookup ptr s.refs of
+           | SOME (ByteArray _ ws) =>
+               Rval (Boolv (0 <= i /\ i < 8 * & LENGTH ws),s)
+           | _ => Error)
+         | _ => Error)
     | (MemOp BoundsCheckArray,xs) =>
         (case xs of
          | [RefPtr _ ptr; Number i] =>
@@ -1052,11 +1201,13 @@ Definition do_app_aux_def:
     | (ThunkOp th_op,vs) =>
         (case (th_op,vs) of
          | (AllocThunk m, [v]) =>
-             (let ptr = (LEAST ptr. ptr ∉ domain s.refs) in
+             (if bad_thunk_update m v s.refs then Error else
+              let ptr = (LEAST ptr. ptr ∉ domain s.refs) in
                 Rval (RefPtr F ptr,
                       s with refs := insert ptr (Thunk m v) s.refs))
-         | (UpdateThunk m, [RefPtr _ ptr; v]) =>
-             (case lookup ptr s.refs of
+         | (UpdateThunk m, [RefPtr F ptr; v]) =>
+             (if bad_thunk_update m v s.refs then Error else
+              case lookup ptr s.refs of
               | SOME (Thunk NotEvaluated _) =>
                  Rval (Unit,s with refs := insert ptr (Thunk m v) s.refs)
               | _ => Error)
@@ -1234,7 +1385,7 @@ Definition find_code_def:
   (find_code (SOME p) args code ssize =
      case sptree$lookup p code of
      | NONE => NONE
-     | SOME (arity,exp) =>
+     | SOME (arity,exp,md) =>
         if LENGTH args = arity
         then SOME (args,exp,lookup p ssize)
         else NONE)
@@ -1244,7 +1395,7 @@ Definition find_code_def:
        | CodePtr loc =>
            (case sptree$lookup loc code of
             | NONE => NONE
-            | SOME (arity,exp) =>
+            | SOME (arity,exp,md) =>
                if LENGTH args = arity + 1
                then SOME (FRONT args,exp,lookup loc ssize)
                else NONE)
@@ -1260,21 +1411,8 @@ Definition install_sfs_def[simp]:
   install_sfs op ^s = s with safe_for_space := (op ≠ closLang$Install ∧ s.safe_for_space)
 End
 
-Datatype:
-  dest_thunk_ret
-    = BadRef
-    | NotThunk
-    | IsThunk thunk_mode v
-End
-
-Definition dest_thunk_def:
-  dest_thunk (RefPtr _ ptr) refs =
-    (case lookup ptr refs of
-     | NONE => BadRef
-     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
-     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
-     | SOME _ => NotThunk) ∧
-  dest_thunk v refs = NotThunk
+Definition set_vars_def:
+  set_vars ns vs s = (s with locals := union (fromAList (ZIP (ns,vs))) s.locals)
 End
 
 Definition evaluate_def:
@@ -1311,10 +1449,10 @@ Definition evaluate_def:
        (case jump_exc s of
         | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
         | SOME s => (SOME (Rerr(Rraise x)),s))) /\
-  (evaluate (Return n,s) =
-     case get_var n s.locals of
+  (evaluate (Return ns,s) =
+     case get_vars ns s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-     | SOME x => (SOME (Rval x),flush_state F s)) /\
+     | SOME xs => (SOME (Rval xs),flush_state F s)) /\
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = fix_clock s (evaluate (c1,s)) in
        if res = NONE then evaluate (c2,s1) else (res,s1)) /\
@@ -1334,7 +1472,7 @@ Definition evaluate_def:
         | NotThunk => (SOME (Rerr (Rabort Rtype_error)),s)
         | IsThunk Evaluated v =>
           (case ret of
-           | NONE => (SOME (Rval v),flush_state F s)
+           | NONE => (SOME (Rval [v]),flush_state F s)
            | SOME (dest,names) =>
              (case cut_env names s.locals of
               | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
@@ -1362,10 +1500,13 @@ Definition evaluate_def:
                            s1 with <| stack := [] ; locals := LN |>)
                         else
                           (case fix_clock s1 (evaluate (prog, s1)) of
-                           | (SOME (Rval x),s2) =>
-                             (case pop_env s2 of
-                              | NONE => (SOME (Rerr(Rabort Rtype_error)),s2)
-                              | SOME s1 => (NONE, set_var dest x s1))
+                           | (SOME (Rval xs),s2) =>
+                             (if LENGTH xs = 1 then
+                                case pop_env s2 of
+                                | NONE => (SOME (Rerr(Rabort Rtype_error)),s2)
+                                | SOME s1 => (NONE, set_var dest (HD xs) s1)
+                              else
+                                (SOME (Rerr(Rabort Rtype_error)),s2))
                            | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
                            | res => res)))))) /\
   (evaluate (Call ret dest args handler,s) =
@@ -1386,7 +1527,8 @@ Definition evaluate_def:
                   | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
                   | (SOME res,s) => (SOME res,s))
                else (SOME (Rerr(Rabort Rtype_error)),s)
-           | SOME (n,names) (* returning call, returns into var n *) =>
+           | SOME (ns,names) (* returning call, returns into var n *) =>
+             if ¬ALL_DISTINCT ns then (SOME (Rerr(Rabort Rtype_error)),s) else
              (case cut_env names s.locals of
               | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
               | SOME env =>
@@ -1396,10 +1538,13 @@ Definition evaluate_def:
                    then (SOME (Rerr(Rabort Rtimeout_error)),
                         s1 with <| stack := [] ; locals := LN |>)
                    else (case fix_clock s1 (evaluate (prog, s1)) of
-                         | (SOME (Rval x),s2) =>
-                           (case pop_env s2 of
-                            | NONE => (SOME (Rerr(Rabort Rtype_error)),s2)
-                            | SOME s1 => (NONE, set_var n x s1))
+                         | (SOME (Rval xs),s2) =>
+                           (if LENGTH xs = LENGTH ns then
+                              (case pop_env s2 of
+                               | NONE => (SOME (Rerr(Rabort Rtype_error)),s2)
+                               | SOME s1 => (NONE, set_vars ns xs s1))
+                            else
+                              (SOME (Rerr(Rabort Rtype_error)),s2))
                          | (SOME (Rerr(Rraise x)),s2) =>
                            (* if handler is present, then handle exc *)
                            (case handler of
@@ -1465,8 +1610,14 @@ Proof
   \\ rw[do_stack_clock]
 QED
 
+Theorem set_vars_clock[local,simp]:
+  (set_vars ns vs s).clock = s.clock
+Proof
+  simp [set_vars_def]
+QED
+
 Theorem evaluate_clock:
- !xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock
+  !xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock
 Proof
   recInduct evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >>
@@ -1507,7 +1658,7 @@ Theorem evaluate_ind[allow_rebind] =
 (* observational semantics *)
 
 Definition initial_state_def:
-  initial_state ffi code coracle cc stamps lims ss k = <|
+  initial_state ffi code coracle cc pe stamps lims ss k = <|
     locals := LN
   ; locals_size := SOME 0
   ; stack := []
@@ -1519,6 +1670,7 @@ Definition initial_state_def:
   ; code := code
   ; compile := cc
   ; compile_oracle := coracle
+  ; ptr_eq_oracle := pe
   ; ffi := ffi
   ; space := 0
   ; tstamps := if stamps then SOME 0 else NONE
@@ -1530,9 +1682,9 @@ Definition initial_state_def:
 End
 
 Definition semantics_def:
-  semantics init_ffi code coracle cc lims ss start  =
+  semantics init_ffi code coracle cc pe lims ss start  =
   let p = Call NONE (SOME start) [] NONE in
-  let init = initial_state init_ffi code coracle cc T lims ss in
+  let init = initial_state init_ffi code coracle cc pe T lims ss in
     if ∃k. case FST(evaluate (p,init k)) of
              | SOME (Rerr e) => e ≠ Rabort Rtimeout_error /\ (!f. e ≠ Rabort(Rffi_error f))
              | NONE => T | _ => F
@@ -1554,10 +1706,10 @@ Definition semantics_def:
 End
 
 Definition data_lang_safe_for_space_def:
-  data_lang_safe_for_space init_ffi code (lims:dataSem$limits) (ss:num num_map) start =
+  data_lang_safe_for_space init_ffi pe code (lims:dataSem$limits) (ss:num num_map) start =
     !ck.
       let p = Call NONE (SOME start) [] NONE in
-      let init = initial_state init_ffi code ARB ARB T lims ss in
+      let init = initial_state init_ffi code ARB ARB pe T lims ss in
       let (res,s) = dataSem$evaluate (p,(init ck): (unit,'ffi) dataSem$state) in
         s.safe_for_space
 End

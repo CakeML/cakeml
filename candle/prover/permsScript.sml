@@ -57,7 +57,8 @@ Theorem perms_ok_exp_thm[simp] =
    “perms_ok_exp ps (Let opt x y)”,
    “perms_ok_exp ps (Letrec f x)”,
    “perms_ok_exp ps (Tannot x t)”,
-   “perms_ok_exp ps (Lannot x l)”]
+   “perms_ok_exp ps (Lannot x l)”,
+   “perms_ok_exp ps (Open path x)”]
   |> map (SIMP_CONV (srw_ss()) [perms_ok_exp_def])
   |> map (SIMP_RULE (srw_ss()) [GSYM perms_ok_exp_def, SF ETA_ss])
   |> LIST_CONJ;
@@ -79,6 +80,7 @@ Theorem perms_ok_dec_thm[simp] =
    “perms_ok_dec ps (Dexn l n ts)”,
    “perms_ok_dec ps (Dmod n ds)”,
    “perms_ok_dec ps (Dlocal ds1 ds2)”,
+   “perms_ok_dec ps (Dopen l path)”,
    “perms_ok_dec ps (Denv n)”]
   |> map (SIMP_CONV (srw_ss()) [perms_ok_dec_def])
   |> map (SIMP_RULE (srw_ss()) [GSYM perms_ok_dec_def, SF ETA_ss])
@@ -257,9 +259,36 @@ Proof
   rw [perms_ok_env_def]
 QED
 
+Theorem perms_ok_env_lexical_open[local]:
+  perms_ok_env ps
+    (fvs ∪ IMAGE (λid. mk_id (path ++ id_to_mods id) (id_to_n id)) fvs)
+    env ∧
+  open_dec_env path env = SOME opened ⇒
+  perms_ok_env ps fvs (extend_dec_env opened env)
+Proof
+  rw [perms_ok_env_UNION]
+  >> irule perms_ok_env_extend_dec_env
+  >> rw [perms_ok_env_def]
+  >> gvs [perms_ok_env_def, open_dec_env_def, AllCaseEqs()]
+  >> metis_tac [nsLookup_after_nsOpen]
+QED
+
+Theorem perms_ok_env_open_dec_env[local]:
+  ∀ps env path opened.
+    perms_ok_env ps UNIV env ∧
+    open_dec_env path env = SOME opened ⇒
+    perms_ok_env ps UNIV opened
+Proof
+  rw [perms_ok_env_def,open_dec_env_def]
+  \\ gvs [AllCaseEqs()]
+  \\ first_x_assum irule
+  \\ gs []
+  \\ metis_tac [nsLookup_after_nsOpen]
+QED
+
 Definition dfreevars_def:
   dfreevars (Dlet locs p x) =
-    (freevars x DIFF set (MAP Short (pat_bindings p []))) ∧
+    (freevars x DIFF set (MAP Short (pat_bindings p))) ∧
   dfreevars (Dletrec locs f) =
     BIGUNION (set (MAP (λ(fn,vn,x). freevars x DIFF {Short fn; Short vn}) f)) ∧
   dfreevars (Dmod mn ds) =
@@ -333,8 +362,8 @@ Proof
     rw [do_app_cases] \\ gs []
     \\ dxrule_all perms_ok_v_to_list
     \\ dxrule_all perms_ok_v_to_list
-    \\ qid_spec_tac ‘ys’
-    \\ qid_spec_tac ‘xs’
+    \\ qmatch_goalsub_rename_tac `list_to_v (left_values ++ right_values)`
+    \\ qid_specl_tac [`left_values`, `right_values`]
     \\ Induct \\ simp [list_to_v_def, perms_ok_def]
     \\ Induct \\ simp [list_to_v_def, perms_ok_def])
   \\ Cases_on ‘op = Aw8sub_unsafe’ \\ gs []
@@ -342,6 +371,26 @@ Proof
     rw [do_app_cases] \\ gs []
     \\ simp [perms_ok_def])
   \\ Cases_on ‘op = Aw8update_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [perms_ok_def]
+    \\ gvs [store_lookup_def, store_assign_def]
+    \\ simp [EL_LUPDATE]
+    \\ rw [perms_ok_ref_def] )
+  \\ Cases_on ‘op = Aw8subBit_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ rw [perms_ok_def, Boolv_def])
+  \\ Cases_on ‘op = Aw8updateBit_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [perms_ok_def]
+    \\ gvs [store_lookup_def, store_assign_def]
+    \\ simp [EL_LUPDATE]
+    \\ rw [perms_ok_ref_def] )
+  \\ Cases_on ‘op = Aw8subBit’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ rw [perms_ok_def, Boolv_def])
+  \\ Cases_on ‘op = Aw8updateBit’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [perms_ok_def]
     \\ gvs [store_lookup_def, store_assign_def]
@@ -426,6 +475,10 @@ Proof
   >- (
     rw [do_app_cases] \\ gs []
     \\ simp [perms_ok_def])
+  \\ Cases_on ‘op = Strsub_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [perms_ok_def])
   \\ Cases_on ‘op = Explode’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
@@ -479,10 +532,6 @@ Proof
     \\ gvs [store_alloc_def, perms_ok_def, SUBSET_DEF, PULL_EXISTS]
     \\ rw [EL_APPEND_EQN]
     \\ gs [NOT_LESS, LESS_OR_EQ, perms_ok_ref_def])
-  \\ Cases_on ‘∃sz sh n. op = Shift sz sh n’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [perms_ok_def])
   \\ Cases_on ‘op = Equality’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
@@ -539,8 +588,21 @@ Proof
     \\ rw [EL_LUPDATE, perms_ok_ref_def])
   \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
   >- (rw [do_app_cases] \\ gvs [thunk_op_def, AllCaseEqs()])
+  \\ Cases_on ‘op = PtrEq’ \\ gs[]
+  >- simp [do_app_def]
+  \\ Cases_on ‘∃arith. op = UnsafeIndexArith arith’ \\ gs []
+  >- (
+    rw [do_app_cases] >>
+    gvs [do_unsafe_index_arith_def, AllCaseEqs()] >>
+    gvs [perms_ok_def] >>
+    qmatch_asmsub_rename_tac `do_arith arithmetic_op _ _` >>
+    Cases_on `arithmetic_op` >> gvs [do_arith_def, AllCaseEqs(), perms_ok_def])
+  \\ Cases_on ‘∃test. op = UnsafeIndexTest test’ \\ gs []
+  >- (
+    rw [do_app_cases] >> gs [] >> simp [Boolv_def] >> rw [perms_ok_def])
   \\ Cases_on ‘op’ \\ gs []
-  \\ Cases_on ‘t’ \\ gs []
+  \\ qmatch_goalsub_rename_tac `ThunkOp thunk_primitive`
+  \\ Cases_on `thunk_primitive` \\ gs []
 QED
 
 Theorem perms_ok_do_opapp:
@@ -603,7 +665,7 @@ Theorem evaluate_perms_ok:
   (∀s:'ffi semanticPrimitives$state. ∀env v pes errv s' res.
      EVERY (perms_ok_exp ps) (MAP SND pes) ∧
      EVERY (λ(p,x). perms_ok_env ps (freevars x DIFF
-                                     set (MAP Short (pat_bindings p []))) env)
+                                     set (MAP Short (pat_bindings p))) env)
            pes ∧
      perms_ok_state ps s ∧
      perms_ok ps v ∧
@@ -646,7 +708,11 @@ Proof
   >~ [‘[]’] >- (
     rw [evaluate_def]
     \\ gs [])
-  \\ rpt gen_tac \\ TRY disch_tac
+  \\ rpt gen_tac \\ rpt disch_tac
+  >~ [‘ast$Open _ _’] >- (
+    gvs [evaluate_def, CaseEqs ["option"]]
+    >> first_x_assum irule
+    >> metis_tac [perms_ok_env_lexical_open])
   >~ [‘_::_::_’] >-(
     gvs [evaluate_def, CaseEqs ["prod", "result", "error_result"]]
     \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
@@ -810,6 +876,10 @@ Proof
     >~ [‘EvalOp’] >- (Cases_on ‘op’ \\ gs[])
     >~ [‘FunApp’] >- (Cases_on ‘op’ \\ gs[])
     >~ [‘Force’] >- (Cases_on ‘op’ \\ gs[])
+    >~ [‘PtrEqOp’] >- (
+      gvs [AllCaseEqs()]
+      \\ gvs [perms_ok_state_def, Boolv_def]
+      \\ rw [perms_ok_def])
     >~ [‘Simple’] >- (
       gvs [CaseEqs ["result", "prod", "bool", "option"]]
       \\ drule_then (qspec_then ‘ps’ mp_tac) do_app_perms
@@ -945,6 +1015,10 @@ Proof
          perms_ok_state_def, SF SFY_ss])
   >~ [‘Dexn locs cn ts’] >- (
     gvs [evaluate_decs_def, perms_ok_env_def, perms_ok_state_def])
+  >~ [‘Dopen locs path’] >- (
+    gvs [evaluate_decs_def, AllCaseEqs()]
+    \\ imp_res_tac perms_ok_env_open_dec_env
+    \\ gvs [])
   >~ [‘Dmod mn ds’] >- (
     gvs [evaluate_decs_def, CaseEqs ["prod", "result"], perms_ok_env_def,
          nsLookup_nsLift]

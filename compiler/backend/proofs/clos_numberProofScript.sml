@@ -3,7 +3,7 @@
 *)
 Theory clos_numberProof
 Ancestors
-  backendProps closLang clos_number closSem closProps
+  backendProps clos_number closSem closProps
 Libs
   preamble
 
@@ -202,7 +202,8 @@ Definition state_rel_def:
     EVERY2 (OPTREL (v_rel s.max_app)) s.globals t.globals /\
     (∀n. SND (SND (s.compile_oracle n )) = [] ∧
          ¬contains_App_SOME s.max_app (FST(SND(s.compile_oracle n)))) /\
-    s.code = FEMPTY ∧ t.code = FEMPTY
+    s.code = FEMPTY ∧ t.code = FEMPTY ∧
+    t.ptr_eq_oracle = s.ptr_eq_oracle
 End
 
 Theorem state_rel_max_app[local]:
@@ -516,10 +517,10 @@ Proof
   \\ gvs [oneline do_app_def, AllCaseEqs()]
 QED
 
-Theorem v_to_bytes[local]:
-  v_rel m v w ⇒ v_to_bytes v = v_to_bytes w
+Theorem v_to_mlstring[local]:
+  v_rel m v w ⇒ v_to_mlstring v = v_to_mlstring w
 Proof
-  metis_tac [simple_val_rel, simple_val_rel_v_to_bytes]
+  metis_tac [simple_val_rel, simple_val_rel_v_to_mlstring]
 QED
 
 Theorem v_to_words[local]:
@@ -559,7 +560,7 @@ Proof
   strip_tac
   \\ `∃res. do_install x1 s1 = res` by fs[]
   \\ fs[do_install_def,case_eq_thms] \\ rveq \\ fs[]
-  \\ imp_res_tac v_to_bytes \\ fs[]
+  \\ imp_res_tac v_to_mlstring \\ fs[]
   \\ imp_res_tac v_to_words \\ fs[]
   \\ pairarg_tac \\ fs[] \\ pairarg_tac \\ fs[]
   \\ imp_res_tac state_rel_code \\ fs[]
@@ -1346,16 +1347,16 @@ QED
 
 Theorem semantics_number:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY co
-     (state_cc (ignore_table compile_inc) cc) xs <> Fail ==>
+     (state_cc (ignore_table compile_inc) cc) pe xs <> Fail ==>
    ¬contains_App_SOME max_app xs /\
    (∀n.
       SND (SND (co n)) = [] ∧
       ¬contains_App_SOME max_app (FST (SND (co n)))) ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     (state_co (ignore_table compile_inc) co) cc
+     (state_co (ignore_table compile_inc) co) cc pe
         (SND (renumber_code_locs_list n xs)) =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (state_cc (ignore_table compile_inc) cc) xs
+     co (state_cc (ignore_table compile_inc) cc) pe xs
 Proof
   strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
@@ -1364,7 +1365,7 @@ Proof
        |> CONJUNCT1 |> SIMP_RULE std_ss [])
   \\ simp []
   \\ qabbrev_tac `ff = initial_state ffi max_app FEMPTY
-       (state_co (ignore_table compile_inc) co) cc`
+       (state_co (ignore_table compile_inc) co) cc pe`
   \\ disch_then (qspec_then `ff k` mp_tac)
   \\ qunabbrev_tac `ff`
   \\ disch_then (qspec_then `n` mp_tac)

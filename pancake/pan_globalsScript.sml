@@ -9,9 +9,10 @@ Libs
 
 Datatype:
   context =
-  <| globals  : varname |-> shape # 'a word;
-     globals_size : 'a word;
-     max_globals_size : 'a word
+  <| globals  : varname |-> shape # int;
+     globals_size : int;
+     max_globals_size : int;
+     arch_width : arch_width
    |>
 End
 
@@ -19,15 +20,15 @@ Definition compile_exp_def:
   (compile_exp ctxt (Var Local vname) = Var Local vname) ∧
   (compile_exp ctxt (Var Global vname) =
    case FLOOKUP ctxt.globals vname of
-     NONE => Const 0w (* should never happen *)
+     NONE => Const 0 (* should never happen *)
    | SOME(sh,addr) => Load sh (Op Sub [TopAddr; Const addr])) ∧
   (compile_exp ctxt (RStruct es) = RStruct (MAP (compile_exp ctxt) es)) ∧
   (compile_exp ctxt (RField index e) =
    RField index (compile_exp ctxt e)) ∧
   (compile_exp ctxt (NStruct nm flds) =
-   Const 0w (* should never happen *)) ∧
+   Const 0 (* should never happen *)) ∧
   (compile_exp ctxt (NField fld e) =
-   Const 0w (* should never happen *)) ∧
+   Const 0 (* should never happen *)) ∧
   (compile_exp ctxt (Load sh e) =
    Load sh (compile_exp ctxt e)) ∧
   (compile_exp ctxt (LoadByte e) =
@@ -40,15 +41,14 @@ Definition compile_exp_def:
    Panop pop (MAP (compile_exp ctxt) es)) ∧
   (compile_exp ctxt (Cmp cmp e e') =
    Cmp cmp (compile_exp ctxt e) (compile_exp ctxt e')) ∧
-  (compile_exp ctxt (Shift sh e n) =
-   Shift sh (compile_exp ctxt e) n) ∧
+  (compile_exp ctxt (Shift sh e e') =
+   Shift sh (compile_exp ctxt e) (compile_exp ctxt e')) ∧
   (compile_exp ctxt TopAddr = Op Sub [TopAddr; Const ctxt.max_globals_size]) ∧
   (compile_exp ctxt e = e)
 Termination
-  wf_rel_tac `measure (\e. panLang$exp_size ARB (SND e))` >>
+  wf_rel_tac `measure (\e. panLang$exp_size (SND e))` >>
   rpt strip_tac >>
   imp_res_tac panLangTheory.MEM_IMP_exp_size >>
-  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
   decide_tac
 End
 
@@ -119,8 +119,8 @@ Definition compile_def:
                     vn'  = fresh_name «» names;
                     flag = fresh_name «vn'» (vn'::names)
                   in
-                    Dec vn' sh (shape_val sh) $ Dec flag One (Const 0w) $
-                        Seq (Call (SOME (SOME(Local,vn'), SOME(eid, evar, Seq p' (Assign Local flag (Const 1w))))) e cexps) $
+                    Dec vn' sh (shape_val sh) $ Dec flag One (Const 0) $
+                        Seq (Call (SOME (SOME(Local,vn'), SOME(eid, evar, Seq p' (Assign Local flag (Const 1))))) e cexps) $
                         If (Var Local flag) Skip $
                         Store (Op Sub [TopAddr; Const addr]) (Var Local vn')
              )
@@ -150,7 +150,7 @@ Definition compile_def:
    | SOME (One, addr) =>
        (let r' = strcat r «'» in
           Dec r One (compile_exp ctxt ad) $
-              Dec r' One (Const 0w) $
+              Dec r' One (Const 0) $
               Seq (ShMemLoad op Local r' (Var Local r)) $
               Store (Op Sub [TopAddr; Const addr]) (Var Local r'))
    | _ => Skip (* Should never happen *)) ∧
@@ -158,24 +158,27 @@ Definition compile_def:
 End
 
 Definition compile_decs_def:
-    compile_decs ctxt [] = ([],[],ctxt) ∧
+    compile_decs ctxt [] = ([],[]:decl list,[]:decl list,ctxt) ∧
     (compile_decs ctxt (Decl sh v e::ds) =
      let
-       s = ctxt.globals_size + bytes_in_word*n2w(size_of_shape sh);
+       s = ctxt.globals_size + &(arch_bytes ctxt.arch_width) * &(size_of_shape sh);
        ctxt' = ctxt with <|globals  := ctxt.globals |+ (v,sh,s);
                            globals_size := s|>;
-       (decs,funs,ctxt'') = compile_decs ctxt' ds
+       (decs,funs,exns,ctxt'') = compile_decs ctxt' ds
      in
-        (Store (Op Sub [TopAddr; Const s]) (compile_exp ctxt e)::decs,funs,ctxt'')) ∧
+        (Store (Op Sub [TopAddr; Const s]) (compile_exp ctxt e)::decs,funs,exns,ctxt'')) ∧
     (compile_decs ctxt (Function fi::ds) =
-     let (decs,funs,ctxt'') = compile_decs ctxt ds
-     in (decs,Function (fi with body := compile ctxt fi.body)::funs,ctxt'')) ∧
+     let (decs,funs,exns,ctxt'') = compile_decs ctxt ds
+     in (decs,Function (fi with body := compile ctxt fi.body)::funs,exns,ctxt'')) ∧
+    (compile_decs ctxt (ExnDecl eid sh::ds) =
+     let (decs,funs,exns,ctxt'') = compile_decs ctxt ds
+     in (decs,funs,ExnDecl eid sh::exns,ctxt'')) ∧
     (compile_decs ctxt (Name nm flds::ds) = compile_decs ctxt ds) (* should never happen *)
 End
 
 Definition resort_decls_def:
   resort_decls decs =
-  FILTER ($¬ o is_function) decs ++ FILTER is_function decs
+  FILTER (is_name) decs ++ FILTER (is_exn_decl) decs ++ FILTER (is_decl) decs ++ FILTER is_function decs
 End
 
 Definition fperm_name_def:
@@ -226,20 +229,21 @@ Definition dec_shapes_def:
   dec_shapes(Function _::ds) = dec_shapes ds ∧
   dec_shapes(Decl sh _ _::ds) = sh::dec_shapes ds ∧
   dec_shapes(Name _ _::ds) = dec_shapes ds ∧
+  dec_shapes(ExnDecl _ _::ds) = dec_shapes ds ∧
   dec_shapes [] = []
 End
 
 Definition compile_top_def:
-  compile_top decs start =
+  compile_top aw decs start =
   case ALOOKUP (functions decs) start of
     NONE => []
-  | SOME (args, body) =>
+  | SOME (args, body, rshape) =>
       let nds = resort_decls decs;
           start' = new_main_name decs;
           nds' = fperm_decs start start' nds;
-          (decls,funs,ctxt) = compile_decs
-                              <| globals := FEMPTY; globals_size := 0w;
-                                 max_globals_size := bytes_in_word*n2w(SUM(MAP size_of_shape (dec_shapes nds')))
+          (decls,funs,exns,ctxt) = compile_decs
+                              <| globals := FEMPTY; globals_size := 0; arch_width := aw;
+                                 max_globals_size := &(arch_bytes aw) * &(SUM(MAP size_of_shape (dec_shapes nds')))
                               |> nds';
           params = MAP (Var Local o FST) args;
           new_main = Function <| name   := start
@@ -247,8 +251,8 @@ Definition compile_top_def:
                                ;  export := F
                                ;  params := args
                                ;  body := Seq (nested_seq decls) (TailCall start' params)
-                               ;  return := One
+                               ;  return := rshape
                               |>
       in
-        new_main::funs
+        exns ++ new_main::funs
 End

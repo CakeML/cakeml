@@ -48,6 +48,9 @@ Hello World on standard error.
 [helloProgScript.sml](helloProgScript.sml):
 Hello World example, printing to standard output.
 
+[hwmcc_checker](hwmcc_checker):
+Formalization of a certificate and proof checker for hardware model checking.
+
 [insertSortProgScript.sml](insertSortProgScript.sml):
 In-place insertion sort on a polymorphic array.
 
@@ -79,11 +82,17 @@ using CF.
 [quicksortProgScript.sml](quicksortProgScript.sml):
 In-place quick sort on a polymorphic array.
 
+[rawBridgeProgScript.sml](rawBridgeProgScript.sml):
+rawBridge program example: forward Ethernet frames between two interfaces.
+
 [sat_encodings](sat_encodings):
 Encodings of puzzles to CNF, to use as SAT-solver input.
 
 [scpog_checker](scpog_checker):
 A checker for SCPOG format in CakeML.
+
+[socketEchoProgScript.sml](socketEchoProgScript.sml):
+socketEcho program example: echo a client's data over a Unix domain socket.
 
 [sortProgScript.sml](sortProgScript.sml):
 Program to sort the lines in a file, built on top of the quick sort example.
@@ -99,12 +108,12 @@ using CF.
 A simple example of how a standalone CakeML program can be produced from
 a functional program defined as functions in HOL.
 
+[unsafe_arith_exampleScript.sml](unsafe_arith_exampleScript.sml):
+Circular-buffer index arithmetic with and without size witnesses.
+
 [vipr](vipr):
 Formalisation of VIPR: Verifying Integer Programming Results
 https://github.com/ambros-gleixner/VIPR
 
 [wordcountProgScript.sml](wordcountProgScript.sml):
 Simple wordcount program, to demonstrate use of CF.
-
-[xlrup_checker](xlrup_checker):
-An XLRUP checker built on CakeML.

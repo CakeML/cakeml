@@ -5,16 +5,13 @@ Theory reg_alloc
 Libs
   preamble ml_monadBaseLib
 Ancestors
-  mllist state_transformer ml_monadBase sorting
+  mllist state_transformer ml_monadBase
 
 
 val _ = ParseExtras.temp_tight_equality();
 val _ = monadsyntax.temp_add_monadsyntax()
-
-Overload monad_bind[local] = ``st_ex_bind``
-Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
-Overload return[local] = ``st_ex_return``
+val _ = monadsyntax.temp_disable_monad "state";
+val _ = monadsyntax.temp_enable_monad "st_ex";
 
 val _ = hide "state";
 

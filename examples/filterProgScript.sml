@@ -521,7 +521,7 @@ End
 val st = get_ml_prog_state();
 
 val maincall =
-  ``Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short «forward_matching_lines»); Con NONE []])``
+  ``Dlet NoLocs (Pcon NONE []) (App Opapp [Var (Short «forward_matching_lines»); Con NONE []])``
 
 Datatype:
   filter_ffi =
@@ -1298,8 +1298,9 @@ Theorem forward_matching_lines_semantics:
  every ($>= 256 ∘ LENGTH) input
  ==>
  ?events.
- semantics_prog (^(get_state st) with ffi := (filter_ffi <|input:=input|>)) ^(get_env st)
-  [Dlet unknown_loc (Pcon NONE [])
+ semantics_determ (^(get_state st) with <| ffi := (filter_ffi <|input:=input|>);
+                                            ptr_eq_oracle := po' |>) ^(get_env st)
+  [Dlet NoLocs (Pcon NONE [])
            (App Opapp [Var (Short «forward_matching_lines»); Con NONE []])]
   (Diverge events) /\
  LFILTER is_emit events = LMAP (output_event_of o cut_at_null_w) (LFILTER (language o MAP (CHR o w2n) o cut_at_null_w) input)
@@ -1313,11 +1314,12 @@ Proof
   disch_then(qspec_then `Conv NONE []` mp_tac) >>
   simp[app_def,app_basic_def] >>
   CONV_TAC(RATOR_CONV(RAND_CONV(RESORT_FORALL_CONV rev))) >>
-  qmatch_goalsub_abbrev_tac `semantics_prog st` >>
+  qmatch_goalsub_abbrev_tac `semantics_determ st` >>
   disch_then(qspec_then `st` mp_tac) >>
   unabbrev_all_tac >>
   simp[cfStoreTheory.st2heap_def,cfStoreTheory.store2heap_append,cfStoreTheory.ffi2heap_def,
-       fetch "-" "filterProg_st_def",parts_ok_filter] >>
+       fetch "-" "filterProg_st_def",parts_ok_filter,
+       cfStoreTheory.store2heap_append |> Q.SPEC `[]` |> REWRITE_RULE [APPEND]] >>
   qmatch_goalsub_abbrev_tac `FFI_split INSERT FFIset` >>
   `FFIset = {FFI_part (encode_oracle_state <|input:= input|>) filter_cf_oracle
                       [«accept_call»; «emit_string»] []}`
@@ -1350,12 +1352,13 @@ Proof
                simp[SEP_EXISTS,cond_def,cell_def,one_def]) >>
   strip_tac >>
   Cases_on `r` >> fs[cond_def] >> rveq >>
-  fs[evaluate_to_heap_def,semanticsTheory.semantics_prog_def] >>
+  fs[evaluate_to_heap_def,semanticsTheory.semantics_determ_def] >>
   rename1 `lprefix_lub _ events` >>
   qexists_tac `events` >>
   rpt strip_tac >-
     (simp[semanticsTheory.evaluate_prog_with_clock_def,
           evaluateTheory.evaluate_decs_def,
+          semanticPrimitivesTheory.check_exp_constructors_def,
           astTheory.pat_bindings_def] >>
      simp[evaluateTheory.evaluate_def] >>
      simp[semanticPrimitivesTheory.do_con_check_def,semanticPrimitivesTheory.build_conv_def] >>
@@ -1370,6 +1373,7 @@ Proof
      qexists_tac `SUC ck` >>
      simp[semanticsTheory.evaluate_prog_with_clock_def,
           evaluateTheory.evaluate_decs_def,
+          semanticPrimitivesTheory.check_exp_constructors_def,
           astTheory.pat_bindings_def
          ] >>
      simp[evaluateTheory.evaluate_def] >>
@@ -1381,6 +1385,7 @@ Proof
   simp[LPREFIX_fromList_fromList] >>
   simp[semanticsTheory.evaluate_prog_with_clock_def,
        evaluateTheory.evaluate_decs_def,
+       semanticPrimitivesTheory.check_exp_constructors_def,
        astTheory.pat_bindings_def
       ] >>
   simp[evaluateTheory.evaluate_def] >>
@@ -1404,8 +1409,9 @@ Theorem forward_matching_lines_ffidiv_semantics:
  every ($>= 256 ∘ LENGTH) input
  ==>
  ?bytes events.
- semantics_prog (^(get_state st) with ffi := (filter_ffi <|input:=input|>)) ^(get_env st)
-  [Dlet unknown_loc (Pcon NONE [])
+ semantics_determ (^(get_state st) with <| ffi := (filter_ffi <|input:=input|>);
+                                            ptr_eq_oracle := po' |>) ^(get_env st)
+  [Dlet NoLocs (Pcon NONE [])
            (App Opapp [Var (Short «forward_matching_lines»); Con NONE []])]
   (Terminate (FFI_outcome(Final_event (ExtCall «accept_call») [] bytes FFI_diverged))
              events) /\
@@ -1419,11 +1425,12 @@ Proof
   disch_then(qspec_then `Conv NONE []` mp_tac) >>
   simp[app_def,app_basic_def] >>
   CONV_TAC(RATOR_CONV(RAND_CONV(RESORT_FORALL_CONV rev))) >>
-  qmatch_goalsub_abbrev_tac `semantics_prog st` >>
+  qmatch_goalsub_abbrev_tac `semantics_determ st` >>
   disch_then(qspec_then `st` mp_tac) >>
   unabbrev_all_tac >>
   simp[cfStoreTheory.st2heap_def,cfStoreTheory.store2heap_append,cfStoreTheory.ffi2heap_def,
-       fetch "-" "filterProg_st_def",parts_ok_filter] >>
+       fetch "-" "filterProg_st_def",parts_ok_filter,
+       cfStoreTheory.store2heap_append |> Q.SPEC `[]` |> REWRITE_RULE [APPEND]] >>
   qmatch_goalsub_abbrev_tac `FFI_split INSERT FFIset` >>
   `FFIset = {FFI_part (encode_oracle_state <|input:= input|>) filter_cf_oracle
                       [«accept_call»; «emit_string»] []}`
@@ -1458,16 +1465,17 @@ Proof
   Cases_on `r` >> fs[SEP_CLAUSES,SEP_F_def] >> rveq >>
   fs[STAR_def,SEP_EXISTS_THM,cond_def] >> rveq >>
   fs[SPLIT_def,SPLIT3_def,seL4_IO_def,one_def] >> rveq >>
-  fs[evaluate_to_heap_def,semanticsTheory.semantics_prog_def] >>
+  fs[evaluate_to_heap_def,semanticsTheory.semantics_determ_def] >>
   qmatch_asmsub_abbrev_tac `{ffipart}` >>
   `ffipart ∈ st2heap (seL4_proj1,seL4_proj2) st'`
     by(unabbrev_all_tac >> fs[]) >>
   unabbrev_all_tac >>
   drule_all limited_FFI_part_IN_st2heap_IMP >>
   strip_tac >> fs[] >>
-  fs[evaluate_to_heap_def,semanticsTheory.semantics_prog_def] >>
+  fs[evaluate_to_heap_def,semanticsTheory.semantics_determ_def] >>
   simp[semanticsTheory.evaluate_prog_with_clock_def,
           evaluateTheory.evaluate_decs_def,
+          semanticPrimitivesTheory.check_exp_constructors_def,
           astTheory.pat_bindings_def] >>
   simp[evaluateTheory.evaluate_def] >>
   simp[semanticPrimitivesTheory.do_con_check_def,semanticPrimitivesTheory.build_conv_def] >>
@@ -1487,15 +1495,16 @@ Theorem semantics_diverge_filter:
    ==> LFILTER is_emit events = LMAP (output_event_of o cut_at_null_w) (LFILTER (language o MAP (CHR o w2n) o cut_at_null_w) inl)
 Proof
   rpt strip_tac
+  >> fs [semanticsTheory.semantics_prog_def]
   >> `LLENGTH inl = NONE`
       by(CCONTR_TAC >> fs[GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]
          >> metis_tac[forward_matching_lines_ffidiv_semantics,ffiTheory.behaviour_distinct,
-                      semanticsPropsTheory.semantics_prog_deterministic])
-  >> imp_res_tac(GEN_ALL forward_matching_lines_semantics)
-  >> first_x_assum(qspec_then `ffi` strip_assume_tac)
-  >> dxrule semanticsPropsTheory.semantics_prog_deterministic
-  >> disch_then dxrule >> simp[]
-  >> metis_tac[]
+                      semanticsPropsTheory.semantics_determ_deterministic])
+  >> drule_all forward_matching_lines_semantics >> strip_tac
+  >> first_x_assum (qspecl_then [`po'`,`po`,`ffi`] strip_assume_tac)
+  >> `Diverge events = Diverge events'`
+       by metis_tac [semanticsPropsTheory.semantics_determ_deterministic]
+  >> gvs []
 QED
 
 Theorem semantics_finite_filter:
@@ -1508,16 +1517,19 @@ Theorem semantics_finite_filter:
          (LFILTER (language o MAP (CHR o w2n) o cut_at_null_w) inl)
 Proof
   rpt strip_tac
+  >> fs [semanticsTheory.semantics_prog_def]
   >> `?n. LLENGTH inl = SOME n`
       by(simp[GSYM IS_SOME_EXISTS] >> CCONTR_TAC
          >> fs[]
          >> metis_tac[forward_matching_lines_semantics,ffiTheory.behaviour_distinct,
-                      semanticsPropsTheory.semantics_prog_deterministic])
-  >> drule forward_matching_lines_ffidiv_semantics >> asm_rewrite_tac []
-  >> disch_then (qspec_then `ffi` mp_tac) >> strip_tac
-  >> dxrule(GEN_ALL semanticsPropsTheory.semantics_prog_deterministic)
-  >> disch_then dxrule >> fs []
-  >> metis_tac[]
+                      semanticsPropsTheory.semantics_determ_deterministic])
+  >> drule_all forward_matching_lines_ffidiv_semantics >> strip_tac
+  >> first_x_assum (qspecl_then [`po'`,`po`,`ffi`] strip_assume_tac)
+  >> `Terminate outcome events =
+      Terminate (FFI_outcome (Final_event (ExtCall «accept_call») [] bytes
+                                          FFI_diverged)) events'`
+       by metis_tac [semanticsPropsTheory.semantics_determ_deterministic]
+  >> gvs []
 QED
 
 (* S-expr generation handled by CMake build system

@@ -145,12 +145,10 @@ End
 Definition ordav_def:
   (ordav [] x1 x2 ⇔ term_cmp x1 x2) ∧
   (ordav ((t1,t2)::env) x1 x2 ⇔
-    if term_cmp x1 t1 = EQUAL then
-      if term_cmp x2 t2 = EQUAL then
-        EQUAL
+    if x1 = t1 then
+      if x2 = t2 then EQUAL
       else LESS
-    else if term_cmp x2 t2 = EQUAL then
-      GREATER
+    else if x2 = t2 then GREATER
     else ordav env x1 x2)
 End
 
@@ -174,9 +172,18 @@ Definition orda_def:
       | (_, Comb _ _) => GREATER
 End
 
+(*
+  let rec term_union l1 l2 =
+    match (l1,l2) with
+      ([],l2) -> l2
+    | (l1,[]) -> l1
+    | (h1::t1,h2::t2) -> let c = alphaorder h1 h2 in
+                         if c = 0 then h1::(term_union t1 t2)
+                         else if c < 0 then h1::(term_union t1 l2)
+                         else h2::(term_union l1 t2)
+*)
 Definition term_union_def:
   term_union l1 l2 =
-    if l1 = l2 then l1 else
     case (l1,l2) of
     | ([],l2) => l2
     | (l1,[]) => l1

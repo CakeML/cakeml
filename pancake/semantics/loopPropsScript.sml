@@ -72,9 +72,9 @@ Definition comp_syntax_ok_def:
 End
 
 Theorem evaluate_tail_calls_eqs:
-  !f t lc x.
+  !f (t:('a,'ffi) loopSem$state) lc x.
     find_code (SOME f) ([]:'a word_loc list) t.code = SOME x ==>
-    evaluate ((Call NONE (SOME f) [] NONE): 'a loopLang$prog, t) =
+    evaluate ((Call NONE (SOME f) [] NONE): loopLang$prog, t) =
     evaluate (Call NONE (SOME f) [] NONE, t with locals := lc)
 Proof
   rw [] >>
@@ -1270,13 +1270,7 @@ QED
 
 Resume evaluate_add_clock_io_events_mono[Loop]:
   Cases_on ‘FST (evaluate (Loop live_in body live_out, s)) = SOME TimeOut’
-  >- suspend "Loop_TimeOut"
-  >> Cases_on ‘evaluate (Loop live_in body live_out, s)’ >> fs [] >>
-  drule evaluate_add_clock_eq >> fs [] >>
-  disch_then (qspec_then ‘extra’ mp_tac) >> fs []
-QED
-
-Resume evaluate_add_clock_io_events_mono[Loop_TimeOut]:
+  >- (
   pop_assum mp_tac >>
   once_rewrite_tac [evaluate_def] >>
   Cases_on ‘cut_res live_in (NONE,s)’ >>
@@ -1344,6 +1338,10 @@ Resume evaluate_add_clock_io_events_mono[Loop_TimeOut]:
   fs [cut_state_def] >>
   rw [] >> fs [] >>
   rw [] >> fs [dec_clock_def]
+)
+  >> Cases_on ‘evaluate (Loop live_in body live_out, s)’ >> fs [] >>
+  drule evaluate_add_clock_eq >> fs [] >>
+  disch_then (qspec_then ‘extra’ mp_tac) >> fs []
 QED
 
 Resume evaluate_add_clock_io_events_mono[Call]:

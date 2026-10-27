@@ -72,7 +72,7 @@ val ffi_code' =
     SmartAppend
      (ffi_asm (REVERSE ffi_names))
      (List (MAP (\n. strlit(n ++ "\n"))
-      (["cake_clear:";
+      (["cake_install:";
        "     tail cdecl(cml_exit)";
        "     .p2align 4";
        "";
@@ -199,7 +199,7 @@ Definition export_funcs_def:
 End
 
 Definition riscv_export_def:
-  riscv_export ffi_names bytes (data:word64 list) syms exp ret pk =
+  riscv_export ffi_names bytes (data:num list) syms exp ret pk =
     let lsyms = get_sym_labels syms in
     SmartAppend
       (SmartAppend (List preamble)

@@ -46,7 +46,7 @@ val HOL_EXN_TYPE_def = theorem"HOL_EXN_TYPE_def";
 (* add an abbreviation mapping hol_type to type for HOL Light *)
 
 val _ = ml_prog_update
-  (add_Dtabbrev “unknown_loc” “[]:mlstring list” “«hol_type»”
+  (add_Dtabbrev “NoLocs” “[]:mlstring list” “«hol_type»”
                 “Atapp [] (Short «type»)”);
 
 val _ = ml_prog_update (open_module "Kernel");
@@ -381,7 +381,10 @@ val def = mk_type_def |> check [‘tyop’,‘args’] |> m_translate;
 
 val _ = ml_prog_update open_local_block;
 
-val def = mk_fun_ty_def |> check [‘ty1’,‘ty2’] |> m_translate;
+val def = bool_ty_def |> translate;
+val def = mk_fun_ty_def |> check [‘ty1’,‘ty2’] |> translate;
+val def = aty_def |> translate;
+val def = bty_def |> translate;
 
 Definition call_type_of_def[simp]:
   call_type_of tm = type_of tm
@@ -475,6 +478,7 @@ val def = inst_def |> check [‘tyin’,‘tm’] |> m_translate
 
 val _ = ml_prog_update open_local_block;
 
+val def = safe_mk_eq_def |> check [‘l’,‘r’] |> m_translate
 val def = mk_eq_def |> check [‘l’,‘r’] |> m_translate
 val def = list_to_hypset_def |> translate
 

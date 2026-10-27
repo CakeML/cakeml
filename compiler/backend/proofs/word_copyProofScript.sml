@@ -5,7 +5,7 @@ Theory word_copyProof
 Libs
   preamble
 Ancestors
-  wordLang[qualified] wordSem wordProps word_copy wordConvs
+  wordSem wordProps word_copy
 
 val s = ``s:('a,'c,'ffi) wordSem$state``
 
@@ -1352,12 +1352,6 @@ Proof
     fs[evaluate_def]>>
     metis_tac[empty_eq_model]
   )
-  >~[`CodeBufferWrite`]
-  >- (
-    rpt gen_tac >> strip_tac>>
-    gvs[copy_prop_prog_def,evaluate_def] >>
-    fs[CPstate_modelsD_get_var,CPstate_modelsD_get_vars] >>
-    gvs[AllCaseEqs()])
   >~[`DataBufferWrite`]
   >- (
     rpt gen_tac >> strip_tac>>
@@ -1380,6 +1374,10 @@ Proof
     >> simp[remove_eq_model_set_var,remove_eq_model])
   >~ [`Break`] >- (gvs[copy_prop_prog_def, evaluate_def])
   >~ [`Continue`] >- (gvs[copy_prop_prog_def, evaluate_def])
+  >~ [`PtrEq`] >- (
+    rw[copy_prop_prog_def]>>
+    fs[evaluate_def]>>
+    metis_tac[empty_eq_model])
   >~ [`Loop`] >- suspend "Loop"
 QED
 

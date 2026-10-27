@@ -2,12 +2,38 @@
   Definitions that are common for many parts of the compiler backend.
 *)
 Theory backend_common
-Ancestors[qualified]
-  arithmetic integer words
 Ancestors
+  asm
   sptree (* for delete *)
+  mlstring (* for bytes_to_mlstring *)
 Libs
   preamble
+
+Datatype:
+  smallnum_op = SmallAdd | SmallSub | SmallMult | SmallDiv | SmallMod
+              | SmallLess | SmallLessEq | SmallGreater | SmallGreaterEq
+              | SmallEqual
+End
+
+Datatype:
+  annotation = MustInline | Stub | BVI_Worker
+End
+
+Datatype:
+  metadata = Metadata mlstring (annotation list)
+End
+
+Definition empty_metadata_def:
+  empty_metadata = Metadata (strlit "") []
+End
+
+Definition add_annotation_def:
+  add_annotation a (Metadata s annots) = Metadata s (annots ++ [a])
+End
+
+Definition add_metadata_def:
+  add_metadata md xs = MAP (\(n,args,e). (n,args,e,md)) xs
+End
 
 Datatype:
   opw = Andw | Orw | Xor | Add | Sub
@@ -134,11 +160,11 @@ Definition data_num_stubs_def:
 End
 
 Definition bvl_num_stubs_def:
-  bvl_num_stubs = data_num_stubs + 9 + (* dummy to make it a multiple of 3 *) 1
+  bvl_num_stubs = data_num_stubs + 9 + (* dummy to make it a multiple of 4 *) 1
 End
 
 Definition bvl_to_bvi_namespaces_def:
-  bvl_to_bvi_namespaces = 3n
+  bvl_to_bvi_namespaces = 4n
 End
 
 Theorem data_num_stubs_EVEN:
@@ -153,26 +179,19 @@ Proof
   EVAL_TAC
 QED
 
-(* shift values, per dimindex(:α) *)
+(* shift values, per word width *)
 Definition word_shift_def:
-  word_shift (:'a) =
-    (* this could be defined as LOG 2 (dimindex(:'a)) - 3, but I want
+  word_shift (bits:num) =
+    (* this could be defined as LOG 2 bits - 3, but I want
        to be sure that LOG doesn't unnecessarily end up in the
        generated CakeML code *)
-    if dimindex (:'a) = 32 then 2 else 3:num
+    if bits = 32 then 2 else 3:num
 End
 
-Definition upper_w2w_def:
-  upper_w2w (w:'a word) =
-    if dimindex (:'a) = 32 then w2w w << 32 else (w2w w):word64
-End
-
-Definition word_add_carry_def:
-  word_add_carry (l: α word) (r: α word) (c: α word) : (α word # α word) =
-  let
-    res = w2n l + w2n r + (if c = 0w then 0 else 1)
-  in
-    (n2w res, if dimword(:α) ≤ res then 1w else 0w)
+(* The evaluator stores each target word in a 64-bit data slot. *)
+Definition upper_n2w_def:
+  upper_n2w aw (n:num) =
+    n2w (if aw = Arch32 then n * 2 ** 32 else n):word64
 End
 
 (* TODO: prefer this over `FOLDR delete`? Consider upstreaming this and
@@ -187,4 +206,18 @@ Theorem lookup_list_delete:
            if MEM n xs then NONE else lookup n l
 Proof
   Induct >> rw [list_delete_def, lookup_delete] >> fs []
+QED
+
+(* The Install oracle carries the compiled code as a string; the values that
+   hold it below closLang carry it as bytes. *)
+Definition bytes_to_mlstring_def:
+  bytes_to_mlstring (bs:word8 list) = implode (MAP (λw. CHR (w2n w)) bs)
+End
+
+Theorem bytes_to_mlstring_explode:
+  bytes_to_mlstring (MAP (n2w o ORD) (explode s)) = s
+Proof
+  rw [bytes_to_mlstring_def, MAP_MAP_o, combinTheory.o_DEF]
+  \\ `!c. CHR (ORD c MOD 256) = c` by simp [ORD_BOUND, CHR_ORD]
+  \\ simp [implode_explode]
 QED
