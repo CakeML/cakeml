@@ -950,6 +950,8 @@ Proof
       `n2 = n_in - size_of_live_tree lt'` by metis_tac [get_intervals_withlive_nout] >>
       `n1 = n2 - size_of_live_tree lt` by metis_tac [get_intervals_withlive_nout] >>
       `0 <= size_of_live_tree lt /\ 0 <= size_of_live_tree lt'` by rw [size_of_live_tree_positive] >>
+      qpat_x_assum `!n_in beg_in end_in n_out beg_out end_out live. _ = get_intervals_withlive lt _ _ _ _ /\ _ ==> _` kall_tac >>
+      qpat_x_assum `!n_in beg_in end_in n_out beg_out end_out live. _ = get_intervals_withlive lt' _ _ _ _ /\ _ ==> _` kall_tac >>
       rpt strip_tac
       THEN1 (
           rpt (first_x_assum (qspec_then `r` assume_tac)) >>
@@ -1245,7 +1247,9 @@ Proof
         res_tac
     ) >>
     (* Common Branch & Seq proof *)
-    rpt (pairarg_tac >> fs []) >>
+    pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >>
+    pairarg_tac >> fs [] >>
     `n2'' = n2'` by metis_tac [get_intervals_withlive_n_eq_get_intervals_n] >>
     `int_end2 = int_end2'` by metis_tac [get_intervals_withlive_end_eq_get_intervals_end] >>
     rveq >>
