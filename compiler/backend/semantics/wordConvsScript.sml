@@ -482,6 +482,18 @@ Proof
   >> metis_tac [MAX_CASES]
 QED
 
+Theorem predicate_MAX[local]:
+  P a /\ P b ==> P (MAX a b)
+Proof
+  metis_tac[MAX_CASES]
+QED
+
+Theorem predicate_max3[local]:
+  P a /\ P b /\ P c ==> P (max3 a b c)
+Proof
+  rpt strip_tac >> simp[max3_def] >> rpt IF_CASES_TAC >> simp[]
+QED
+
 Theorem max_var_intro:
   ∀bits prog.
   P 0 ∧ every_var bits P prog ⇒
@@ -497,11 +509,27 @@ Proof
       simp_tac(pure_ss)[MAX_DEF,max3_def] >>
       rpt TOP_CASE_TAC >> fs[] >> fs[every_var_imm_def])
   (*Remaining cases*)
-  >> fs[every_var_def,max_var_def,max_var_exp_IMP] >>
-  simp_tac(pure_ss)[MAX_DEF,max3_def] >>
-  rpt TOP_CASE_TAC >> fs[] >>
-  TRY (MAP_FIRST irule [MAX_LIST_intro,max_var_exp_IMP]) >>
-  fs[] >> fs[every_name_def,every_var_imm_def]
+  >> fs[every_var_def,max_var_def,max_var_exp_IMP]
+  >> simp[every_name_def,every_var_imm_def, predicate_MAX,
+          predicate_max3, MAX_LIST_intro, max_var_exp_IMP]
+  >> gvs[every_name_def,every_var_imm_def,AllCaseEqs()]
+  >> simp[predicate_MAX,predicate_max3,MAX_LIST_intro,max_var_exp_IMP]
+  >~ [`EVERY P args`]
+  >- (namedCases_on `ret` ["", "retdata"]
+      >- simp[MAX_LIST_intro]
+      >> PairCases_on `retdata`
+      >> namedCases_on `h` ["", "handlerdata"]
+      >> gvs[FORALL_PROD]
+      >> simp[predicate_MAX,predicate_max3,MAX_LIST_intro]
+      >> PairCases_on `handlerdata`
+      >> gvs[]
+      >> rpt (MAP_FIRST irule [predicate_MAX,predicate_max3] >> rpt conj_tac)
+      >> simp[MAX_LIST_intro])
+  >~ [`every_var_imm P ri`]
+  >- (Cases_on `ri` >> gvs[every_var_imm_def]
+      >> simp[predicate_MAX,predicate_max3])
+  >> rpt (irule predicate_MAX >> conj_tac)
+  >> simp[MAX_LIST_intro]
 QED
 
 (*** code_labels ***)
