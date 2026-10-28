@@ -383,7 +383,6 @@ val _ = res |> hyp |> null orelse
 
 val res = translate (has_version_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 val res = translate (has_help_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
-val res = translate print_option_def
 val res = translate current_build_info_str_def
 val res = translate compilerTheory.help_string_def;
 val res = translate (newsTheory.query_news_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])

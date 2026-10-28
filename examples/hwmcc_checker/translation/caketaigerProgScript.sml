@@ -6,7 +6,7 @@ Ancestors
   (* infer_cv *)  (* can be used for testing; see below *)
   aig_cert_fullProg
 Libs
-  cv_transLib preamble ml_translatorLib basisFunctionsLib
+  cv_transLib preamble ml_translatorLib basisFunctionsLib buildInfoLib
 
 val _ = translation_extends "aig_cert_fullProg";
 
@@ -32,33 +32,8 @@ val r = translate usage_string_def;
 
 (* == Build info =========================================================== *)
 
-val current_version_tm = mlstring_from_proc "git" ["rev-parse", "HEAD"]
-val poly_version_tm = mlstring_from_proc "poly" ["-v"]
-val hol_version_tm = mlstring_from_proc "git" ["-C", Globals.HOLDIR, "rev-parse", "HEAD"]
-
-val date_str = Date.toString (Date.fromTimeUniv (Time.now ())) ^ " UTC\n"
-val date_tm = Term `strlit^(stringSyntax.fromMLstring date_str)`
-
-Definition print_option_def:
-  print_option h x =
-    case x of
-      NONE => «»
-    | SOME y => h ^ « » ^ y ^ «\n»
-End
-
-val current_build_info_str_tm = EVAL ``
-    let commit = print_option «CakeML:» ^current_version_tm in
-    let hol    = print_option «HOL4:  » ^hol_version_tm in
-    let poly   = print_option «PolyML:» ^poly_version_tm in
-      concat
-        [ «caketaiger\n\n»
-        ; «Version details:\n»
-        ; ^date_tm; «\n»
-        ; commit; hol; poly ]``
-  |> concl |> rhs
-
 Definition current_build_info_str_def:
-  current_build_info_str = ^current_build_info_str_tm
+  current_build_info_str = ^(build_info_tm (SOME "caketaiger"))
 End
 
 val res = translate current_build_info_str_def;
