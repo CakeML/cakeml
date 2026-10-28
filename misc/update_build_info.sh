@@ -38,7 +38,7 @@ git_info () {
              --date=format-local:'%Y-%m-%d %H:%M:%S UTC' HEAD 2>/dev/null) ||
       date=
     if status=$(git -C "$dir" --no-optional-locks status --porcelain \
-                  --untracked-files=normal 2>/dev/null)
+                  --untracked-files=no 2>/dev/null)
     then
       if [ -n "$status" ]; then dirty=1; else dirty=0; fi
     fi
