@@ -1,6 +1,6 @@
 [holbuild]
 schema = 2
-minimum_version = "0.7.0"
+minimum_version = "0.11.6"
 
 [project]
 name = "cakeml-compiler"
@@ -8,18 +8,17 @@ version = "0.1.1"
 
 [build]
 roots = ["compiler/proofs/compilerProofScript.sml"]
-exclude = ["candle/*",
-           "compiler/benchmarks/*",
-           "compiler/bootstrap/*",
-           "translator/other-examples/*",
-           "unverified/*",
-           "tutorial/*",
-           "examples/*"]
-tactic_timeout = 180
+exclude = ["candle",
+           "compiler/benchmarks",
+           "compiler/bootstrap",
+           "translator/other-examples",
+           "unverified",
+           "tutorial",
+           "examples"]
 
 [dependencies.hol]
 git = "https://github.com/HOL-Theorem-Prover/HOL.git"
-rev = "d456022724bd61e57303339e998313b6580c592d"
+rev = "9783a49979c94c401ff8c0e51b2eefae7ea95ae3"
 
 [dependencies.holextra]
 from = "hol"
