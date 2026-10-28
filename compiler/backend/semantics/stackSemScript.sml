@@ -1098,7 +1098,7 @@ Proof
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
   \\ FULL_SIMP_TAC std_ss [STOP_def]
   \\ TRY BasicProvers.TOP_CASE_TAC \\ fs []
-  \\ rpt (every_case_tac \\ fs []
+  \\ every_case_tac \\ fs []
     \\ REPEAT STRIP_TAC \\ SRW_TAC [] [empty_env_def]
     \\ IMP_RES_TAC inst_clock
     \\ IMP_RES_TAC alloc_clock
@@ -1109,7 +1109,18 @@ Proof
     \\ every_case_tac \\ fs []
     \\ imp_res_tac fix_clock_IMP \\ fs []
     \\ imp_res_tac LESS_EQ_TRANS \\ fs [] \\ rfs []
-    \\ TRY decide_tac)
+    \\ every_case_tac \\ fs []
+    \\ REPEAT STRIP_TAC \\ SRW_TAC [] [empty_env_def]
+    \\ IMP_RES_TAC inst_clock
+    \\ IMP_RES_TAC alloc_clock
+    \\ IMP_RES_TAC store_const_sem_clock
+    \\ IMP_RES_TAC sh_mem_op_clock
+    \\ fs [set_var_def,set_store_def,dec_clock_def,LET_THM]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ every_case_tac \\ fs []
+    \\ imp_res_tac fix_clock_IMP \\ fs []
+    \\ imp_res_tac LESS_EQ_TRANS \\ fs [] \\ rfs []
+    \\ decide_tac
 QED
 
 Theorem fix_clock_evaluate:
