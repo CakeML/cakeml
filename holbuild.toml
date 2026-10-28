@@ -1,6 +1,6 @@
 [holbuild]
 schema = 2
-minimum_version = "0.11.6"
+minimum_version = "0.11.7"
 
 [project]
 name = "cakeml-compiler"
