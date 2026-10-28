@@ -711,12 +711,6 @@ Proof
    \\ res_tac \\ rfs []
 QED
 
-val value_ind =
-  TypeBase.induction_of ``:closSem$v``
-   |> Q.SPECL [`P`, `EVERY P`]
-   |> SIMP_RULE (srw_ss()) []
-   |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> Q.GEN `P`;
-
 Theorem not_less_zero_imp[local]:
   ~(i < 0:int) ⇒ ∃k. i = & k
 Proof
@@ -826,7 +820,7 @@ Proof
     simp [])
   >- (rename [‘FromList’] \\
       simp[PULL_FORALL] >> rpt gen_tac >> rename1 `v_to_list v = SOME vs` >>
-      map_every qid_spec_tac [`vs`, `v`] >> ho_match_mp_tac value_ind >>
+      map_every qid_spec_tac [`vs`, `v`] >> ho_match_mp_tac closSemTheory.v_induction >>
       simp[v_to_list_def] >> Cases >>
       simp[v_to_list_def] >>
       rename1 `closSem$Block _ (v1::vs)` >> Cases_on `vs` >>
@@ -841,7 +835,7 @@ Proof
       \\ asm_exists_tac \\ fs [])
   >- (rename [‘Constant c’]
       \\ rw [] \\ qid_spec_tac ‘c’
-      \\ ho_match_mp_tac make_const_ind
+      \\ ho_match_mp_tac closLangTheory.const_induction
       \\ fs [make_const_def,EVERY_MEM,MEM_MAP,PULL_EXISTS])
   >- (rename [‘EqualConst’]
       \\ rw [] \\ fs [Boolv_def])
@@ -2595,12 +2589,6 @@ Definition f_rel_def:
      n1 = n2 /\ exp_rel c (REPLICATE n1 Other ++ aenv) g e1 e2
 End
 
-Theorem v1_size_append:
-   !xs ys. closSem$v1_size (xs ++ ys) = v1_size xs + v1_size ys
-Proof
-  Induct \\ fs [closSemTheory.v_size_def]
-QED
-
 Definition v_rel_def:
   (v_rel c g (Number i) v <=> v = Number i) /\
   (v_rel c g (Word64 w) v <=> v = Word64 w) /\
@@ -2632,8 +2620,7 @@ Definition v_rel_def:
        LIST_REL (f_rel c (clos ++ aenv) g) funs1 funs2 /\
        v = Recclosure loc_opt args2 (env2a ++ env2b) funs2 i else F)
 Termination
-  WF_REL_TAC `measure (v_size o FST o SND o SND)` \\ simp [v1_size_append, v_size_def]
-  \\ rpt strip_tac \\ imp_res_tac v_size_lemma \\ simp []
+  WF_REL_TAC `measure (v_size o FST o SND o SND)`
 End
 
 Theorem v_rel_def[simp,compute,allow_rebind] =
@@ -2964,8 +2951,7 @@ Proof
   \\ EVERY_CASE_TAC \\ simp []
 QED
 
-val v_caseT = v_case_eq |> INST_TYPE [alpha |-> bool] |> Q.INST [`v` |-> `T`]
-                        |> REWRITE_RULE []
+val v_caseT = v_case_eq |> Q.GEN ‘v’ |> Q.ISPEC ‘T’ |> REWRITE_RULE []
 val optcaset = ``option$option_CASE``
 val opt_caseT = case_eq_thms |> CONJUNCTS
                     |> List.find (fn th => th |> concl |> lhs |> lhs

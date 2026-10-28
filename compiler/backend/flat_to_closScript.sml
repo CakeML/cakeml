@@ -396,11 +396,8 @@ Definition compile_def:
   (compile m [flatLang$Tick t e] =
      [closLang$Let t [HD (compile m [e])] (closLang$Tick t (Var t 0))])
 Termination
-  WF_REL_TAC `measure (flatLang$exp6_size o SND)` \\ rw []
-  \\ `!funs f v x. MEM (f,v,x) funs ==> exp_size x < flatLang$exp1_size funs` by
-    (Induct \\ fs [] \\ rw [] \\ fs [flatLangTheory.exp_size_def] \\ res_tac \\ fs [])
-  \\ res_tac \\ fs [dest_pat_thm] \\ fs [flatLangTheory.exp_size_def]
-  \\ gvs [dest_nop_thm] \\ fs [flatLangTheory.exp_size_def]
+  WF_REL_TAC `measure (list_size flatLang$exp_size o SND)` \\ rw []
+  \\ gvs [dest_nop_thm, dest_pat_thm]
 End
 
 Definition compile_decs_def:

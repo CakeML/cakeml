@@ -18,12 +18,6 @@ Definition dummy_def:
   dummy = bvi$Var 1234567890
 End
 
-Theorem MEM_exp_size_imp:
-   ∀xs a. MEM a xs ⇒ bvi$exp_size a < exp2_size xs
-Proof
-  Induct \\ rw [bviTheory.exp_size_def] \\ res_tac \\ fs []
-QED
-
 Definition is_rec_def:
   (is_rec name (bvi$Call _ d _ NONE) ⇔ d = SOME name) ∧
   (is_rec _    _                     ⇔ F)
@@ -203,9 +197,9 @@ Theorem exp_size_get_bin_args:
        exp_size x1 + exp_size x2 < exp_size x
 Proof
   Induct
-  \\ rw [get_bin_args_def, exp_size_def]
+  \\ rw [get_bin_args_def]
   \\ every_case_tac
-  \\ fs [exp_size_def]
+  \\ fs []
 QED
 
 Definition opbinargs_def:
@@ -615,13 +609,14 @@ Definition scan_expr_sing_def:
 End
 
 Theorem scan_expr_eq:
-  (∀e ts loc. scan_expr ts loc [e] = [scan_expr_sing ts loc e]) ∧
-  (∀es ts loc. scan_expr ts loc es = scan_expr_list ts loc es)
+  (∀ts loc e. scan_expr ts loc [e] = [scan_expr_sing ts loc e]) ∧
+  (∀ts loc es. scan_expr ts loc es = scan_expr_list ts loc es)
 Proof
-  Induct >> rw[] >> gvs[scan_expr_def, scan_expr_sing_def] >>
-  rpt (pairarg_tac >> gvs[]) >>
-  rpt (TOP_CASE_TAC >> gvs[]) >>
-  Cases_on `es` >> simp[Once scan_expr_def, scan_expr_sing_def]
+  ho_match_mp_tac scan_expr_sing_ind
+  \\ rw [] \\ gvs [scan_expr_def, scan_expr_sing_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ rpt (TOP_CASE_TAC \\ gvs [])
+  \\ Cases_on ‘es’ \\ simp [Once scan_expr_def, scan_expr_sing_def]
 QED
 
 Definition push_call_def:
@@ -734,11 +729,16 @@ Definition has_rec_sing_def:
 End
 
 Theorem has_rec_eq:
-  (∀e loc. has_rec loc [e] = has_rec_sing loc e) ∧
-  (∀es loc. has_rec loc es = has_rec_list loc es)
+  (∀loc e. has_rec loc [e] = has_rec_sing loc e) ∧
+  (∀loc es. has_rec loc es = has_rec_list loc es)
 Proof
-  Induct >> rw[has_rec_def, has_rec_sing_def] >>
-  Cases_on `es` >> gvs[has_rec_def]
+  ho_match_mp_tac has_rec_sing_ind
+  \\ rw [has_rec_def, has_rec_sing_def]
+  >~ [‘EXISTS _ _ ∨ _’]
+  >- (Cases_on ‘EXISTS (is_rec loc) es’ \\ gvs [NOT_EXISTS])
+  >~ [‘has_rec_sing loc e ∨ has_rec_list loc es’]
+  >- (Cases_on ‘es’ \\ gvs [has_rec_def] \\ metis_tac [])
+  \\ metis_tac []
 QED
 
 Definition check_exp_def:

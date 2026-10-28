@@ -855,8 +855,7 @@ Definition set_globals_def[simp]:
 Termination
   WF_REL_TAC ‘measure (\a. case a of INL e => exp_size e
                                    | INR es => list_size exp_size es)’
-  \\ rw [flatLangTheory.exp_size_def]
-  \\ fs [GSYM o_DEF]
+  \\ rw [GSYM o_DEF]
   >-
    (irule LESS_EQ_LESS_TRANS
     \\ qexists_tac ‘list_size
@@ -1582,14 +1581,6 @@ Definition result_vs_def[simp]:
   result_vs (Rerr (Rraise x)) = [x] /\
   result_vs (Rerr (Rabort y)) = []
 End
-
-Theorem v_size_aux:
-  (!env. v1_size env = 1 + v2_size (env.v)) /\
-  (!xs. v2_size xs = LENGTH xs + SUM (MAP v3_size xs)) /\
-  (!xs. v4_size xs = LENGTH xs + SUM (MAP v_size xs))
-Proof
-  rpt conj_tac \\ Induct \\ simp [v_size_def]
-QED
 
 Definition no_Mat_def[simp]:
   (no_Mat (flatLang$Raise t e) <=> no_Mat e) /\

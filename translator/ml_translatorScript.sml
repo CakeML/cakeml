@@ -3759,15 +3759,6 @@ Proof
   \\ fs [rich_listTheory.LENGTH_FILTER_LEQ]
 QED
 
-(* size lemmas *)
-
-Theorem v1_size[local]:
-  !vs v. (MEM v vs ==> v_size v < v1_size vs)
-Proof
-  Induct \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
-  \\ RES_TAC \\ DECIDE_TAC
-QED
-
 (* introducing a module (Tmod) *)
 
 Definition type_names_def:

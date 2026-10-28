@@ -1138,14 +1138,13 @@ Theorem evaluate_decs_total_lemma:
   ∀ds env ^s clk.
     (∀clk' d env ^s. clk' < clk ⇒
       ∃s' r. evaluate_dec T env (s with clock := clk') d (s', r)) ∧
-    (∀d env ^s. dec_size d < dec1_size ds ⇒
+    (∀d env ^s. MEM d ds ⇒
       ∃s' r. evaluate_dec T env (s with clock := clk) d (s', r))
   ⇒ ∃s' r. evaluate_decs T env (s with clock := clk) ds (s',r)
 Proof
   Induct >> rw[] >> simp[Once evaluate_dec_cases] >>
-  gvs[SF DNF_ss, astTheory.dec_size_def] >>
-  first_assum $ qspecl_then [`h`,`env`,`s`] mp_tac >>
-  impl_tac >- simp[] >> strip_tac >> gvs[] >>
+  gvs[SF DNF_ss] >>
+  first_assum $ qspecl_then [`env`,`s`] strip_assume_tac >> gvs[] >>
   Cases_on `r` >> gvs[SF SFY_ss] >> disj2_tac >> goal_assum drule >>
   last_x_assum (qspecl_then [`a +++ env`,`s'`,`s'.clock`] mp_tac) >>
   simp[with_same_clock] >> disch_then irule >> rw[] >>
@@ -1176,21 +1175,36 @@ Proof
   >- rw[DISJ_EQ_IMP]
   >- rw[DISJ_EQ_IMP]
   >- (
-    gvs[astTheory.dec_size_def] >>
+    gvs[] >>
     drule_at Any evaluate_decs_total_lemma >>
-    disch_then $ qspecl_then [`l`,`env`,`st`] mp_tac >> impl_tac >> rw[] >>
+    disch_then $ qspecl_then [`l`,`env`,`st`] mp_tac >>
+    impl_tac
+    >- (
+      rw[] >> first_x_assum irule >>
+      drule MEM_list_size_lt >>
+      disch_then $ qspec_then `dec_size` mp_tac >> simp[]) >>
+    rw[] >>
     Cases_on `r` >> gvs[SF SFY_ss]
     )
   >- (
-    gvs[astTheory.dec_size_def] >>
+    gvs[] >>
     drule_at Any evaluate_decs_total_lemma >>
-    disch_then $ qspecl_then [`l`,`env`,`st`] mp_tac >> impl_tac >> rw[] >>
+    disch_then $ qspecl_then [`l`,`env`,`st`] mp_tac >>
+    impl_tac
+    >- (
+      rw[] >> first_x_assum irule >>
+      drule MEM_list_size_lt >>
+      disch_then $ qspec_then `dec_size` mp_tac >> simp[]) >>
+    rw[] >>
     Cases_on `r` >> gvs[SF SFY_ss] >> disj1_tac >> goal_assum drule >>
     dxrule $ cj 2 evaluate_decs_clock_mono >> rw[] >> gvs[] >>
     irule (evaluate_decs_total_lemma |> SPEC_ALL
              |> Q.INST [`clk` |-> `(s:'ffi semanticPrimitives$state).clock`]
              |> SIMP_RULE (srw_ss()) [with_same_clock] |> GEN_ALL) >>
-    rw[] >> Cases_on `s'.clock = clk` >> gvs[]
+    rw[] >> Cases_on `s'.clock = clk` >> gvs[] >>
+    first_x_assum irule >>
+    drule MEM_list_size_lt >>
+    disch_then $ qspec_then `dec_size` mp_tac >> simp[]
     )
   >- (
     Cases_on `declare_env st.eval_state env` >> gvs[] >> PairCases_on `x` >> gvs[]

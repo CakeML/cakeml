@@ -148,8 +148,6 @@ Datatype:
       | Op tra op (exp list)
 End
 
-val exp_size_def = definition"exp_size_def";
-
 Definition has_install_def:
   has_install ((Var t n):closLang$exp) = F ∧
   has_install (If t e1 e2 e3) = (has_install e1 ∨ has_install e2 ∨ has_install e3) ∧
@@ -170,17 +168,8 @@ Termination
   \\ rw []
   \\ qsuff_tac ‘list_size exp_size (MAP SND fns) ≤ list_size (pair_size (λx. x) exp_size) fns’
   >- fs []
-  \\ Induct_on ‘fns’ \\ fs []
-  \\ fs [list_size_def,FORALL_PROD]
-  \\ rw [] \\ fs [basicSizeTheory.pair_size_def]
+  \\ Induct_on ‘fns’ \\ fs [FORALL_PROD]
 End
-
-Theorem exp1_size_lemma:
-  !fns n x. MEM (n,x) fns ==> exp_size x < exp1_size fns
-Proof
-  Induct \\ fs [FORALL_PROD,exp_size_def] \\ REPEAT STRIP_TAC
-  \\ RES_TAC \\ SRW_TAC [] [] \\ DECIDE_TAC
-QED
 
 Definition pure_op_def:
   pure_op op ⇔

@@ -262,20 +262,14 @@ Proof
   fs[EVERY_MEM,TERM_def,MEM_MAP,PULL_EXISTS]
 QED
 
-val type_IND = type_induction
-  |> Q.SPECL[`P`,`EVERY P`]
-  |> SIMP_RULE (srw_ss())[]
-  |> UNDISCH_ALL |> CONJUNCT1 |> DISCH_ALL
-  |> Q.GEN`P`
-
 Theorem type_subst_EMPTY[local]:
   !ty. type_subst [] ty = ty
 Proof
-  HO_MATCH_MP_TAC type_IND
+  HO_MATCH_MP_TAC type_induction
   \\ REPEAT STRIP_TAC \\ SIMP_TAC (srw_ss()) [Once type_subst_def]
   \\ SIMP_TAC std_ss [rev_assocd_thm,REV_ASSOCD,LET_DEF]
   \\ sg `MAP (\a. type_subst [] a) l = l` \\ FULL_SIMP_TAC std_ss []
-  \\ Induct_on `l` \\ FULL_SIMP_TAC std_ss [MAP,EVERY_DEF]
+  \\ simp[MAP_EQ_ID]
 QED
 
 Theorem MAP_EQ_2[local]:
@@ -1692,7 +1686,7 @@ QED
 Theorem ALL_DISTINCT_tyvars_ALT[local]:
   !h. ALL_DISTINCT (tyvars (h:type))
 Proof
-  HO_MATCH_MP_TAC type_IND \\ REPEAT STRIP_TAC
+  HO_MATCH_MP_TAC type_induction \\ REPEAT STRIP_TAC
   \\ SIMP_TAC (srw_ss()) [Once holKernelTheory.tyvars_def]
   \\ Induct_on `l` \\ SIMP_TAC (srw_ss()) [Once itlist_def,MAP]
   \\ FULL_SIMP_TAC std_ss [ALL_DISTINCT_union]

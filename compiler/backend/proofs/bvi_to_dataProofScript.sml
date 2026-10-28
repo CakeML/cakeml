@@ -33,18 +33,6 @@ Definition data_to_bvi_v_def[simp]:
 ∧ data_to_bvi_v (CodePtr p)     = bvlSem$CodePtr p
 ∧ data_to_bvi_v (RefPtr b r)    = bvlSem$RefPtr b r
 ∧ data_to_bvi_v (Block _ tag l) = bvlSem$Block tag (MAP data_to_bvi_v l)
-Termination
-  wf_rel_tac `measure v_size`
-\\ `∀l. v1_size l = SUM (MAP (λx. v_size x + 1) l)`
-   by (Induct >> rw [v_size_def])
-\\ rw []
-\\ IMP_RES_TAC SUM_MAP_MEM_bound
-\\ ho_match_mp_tac LESS_EQ_LESS_TRANS
-\\ Q.EXISTS_TAC `SUM (MAP (λx. v_size x + 1) l)`
-\\ rw []
-\\ ho_match_mp_tac LESS_EQ_TRANS
-\\ Q.EXISTS_TAC `v_size a + 1`
-\\ rw []
 End
 
 (* Projection for Unit constant *)
@@ -447,10 +435,8 @@ Proof
         , isClos_def,bvlSemTheory.isClos_def,isClos_def
         , FLOOKUP_o_f]
   >- (every_case_tac \\ fs [data_to_bvi_ref_def,lookup_map])
-  >- METIS_TAC []
-  >- (Cases_on `l1` \\ rw [do_eq_def,bvlSemTheory.do_eq_def])
-  >- (Cases_on `l2` \\ rw [do_eq_def,bvlSemTheory.do_eq_def])
-  >- (every_case_tac \\ fs [data_to_bvi_ref_def])
+  \\ Cases_on ‘do_eq t v1 v2’ \\ gvs []
+  \\ rename1 ‘Eq_val b’ \\ Cases_on ‘b’ \\ gvs []
 QED
 
 Theorem data_to_bvi_v_list_to_v_APPEND:

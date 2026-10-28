@@ -352,7 +352,7 @@ Theorem TYPE_SUBSTf_TYPE_SUBST_compose:
     TYPE_SUBSTf sigma (TYPE_SUBST sigma2 ty) =
     TYPE_SUBSTf (λx. TYPE_SUBSTf sigma (REV_ASSOCD (Tyvar x) sigma2 (Tyvar x))) ty
 Proof
-  ho_match_mp_tac type_ind >> rpt strip_tac
+  ho_match_mp_tac type_induction >> rpt strip_tac
   >> rw[]
   >> simp[MAP_MAP_o,o_DEF,MAP_EQ_f] >> rw[]
   >> fs[EVERY_MEM]
@@ -447,7 +447,7 @@ Theorem allTypes'_nonbuiltin:
    ==> x ∈ nonbuiltin_types
 Proof
   CONV_TAC SWAP_FORALL_CONV
-  >> ho_match_mp_tac allTypes'_defn_ind >> rpt strip_tac
+  >> ho_match_mp_tac type_induction >> rpt strip_tac
   >> fs[allTypes'_defn,nonbuiltin_types_def,is_builtin_type_def]
   >> every_case_tac >> fs[is_builtin_type_def,EVERY_MEM,MEM_FLAT,MEM_MAP,PULL_EXISTS]
   >> fs[listTheory.LENGTH_EQ_NUM_compute,is_builtin_name_def]
@@ -457,7 +457,7 @@ QED
 Theorem ground_TYPE_SUBSTf:
   ∀ty. (∀ty. tyvars (sigma ty) = []) ==> tyvars (TYPE_SUBSTf sigma ty) = []
 Proof
-  ho_match_mp_tac type_ind >> rpt strip_tac >>
+  ho_match_mp_tac type_induction >> rpt strip_tac >>
   rw[tyvars_def,TYPE_SUBSTf_def] >> fs[EVERY_MEM] >>
   qmatch_goalsub_abbrev_tac `a1 = a2` >>
   `set a1 = set a2` suffices_by (unabbrev_all_tac >> fs[]) >>
@@ -484,7 +484,7 @@ Theorem TYPE_SUBSTf_lemma[local]:
   !ty sigma sigma'. (!tv. MEM tv (tyvars ty) ==> REV_ASSOCD (Tyvar tv) sigma' (Tyvar tv) = sigma tv) ==>
   TYPE_SUBSTf sigma ty = TYPE_SUBST sigma' ty
 Proof
-  ho_match_mp_tac type_ind >> rpt strip_tac
+  ho_match_mp_tac type_induction >> rpt strip_tac
   >- fs[tyvars_def]
   >> fs[tyvars_def,MEM_FOLDR_LIST_UNION,PULL_EXISTS]
   >> rw[MAP_EQ_f]
@@ -549,7 +549,8 @@ QED
 Theorem allTypes'_no_tyvars:
   !ty x. MEM x (allTypes' ty) /\ tyvars ty = [] ==> tyvars x = []
 Proof
-  ho_match_mp_tac allTypes'_defn_ind >> rw[tyvars_def]
+  ho_match_mp_tac type_induction >> rw[tyvars_def]
+  >> rename1 `Tyapp _ tys`
   >> `!x. ~MEM x (FOLDR (λx y. LIST_UNION (tyvars x) y) [] tys)` by fs[]
   >> qpat_x_assum `_ = _` kall_tac
   >> fs[MEM_FOLDR_LIST_UNION,allTypes'_defn]

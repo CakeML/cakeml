@@ -837,9 +837,7 @@ Definition bVarBound_def[simp]:
      bVarBound n [x1] /\ bVarBound (n + 1) [x2]) /\
   (bVarBound n [Call ticks dest xs] <=> bVarBound n xs)
 Termination
-  WF_REL_TAC `measure (exp1_size o SND)`
-   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
+  WF_REL_TAC `measure (list_size exp_size o SND)`
 End
 
 Definition bEvery_def[simp]:
@@ -859,9 +857,7 @@ Definition bEvery_def[simp]:
      bEvery P [x1] /\ bEvery P [x2]) /\
   (bEvery P [Call ticks dest xs] <=> P (Call ticks dest xs) /\ bEvery P xs)
 Termination
-  WF_REL_TAC `measure (exp1_size o SND)`
-   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
+  WF_REL_TAC `measure (list_size exp_size o SND)`
 End
 
 Theorem bVarBound_EVERY:
@@ -888,13 +884,6 @@ Definition get_code_labels_def:
   (get_code_labels (Force loc v) = {loc}) ∧
   (get_code_labels (Call _ d es) = (case d of NONE => {} | SOME n => {n}) ∪ BIGUNION (set (MAP get_code_labels es))) ∧
   (get_code_labels (Op op es) = closLang$assign_get_code_label op ∪ BIGUNION (set (MAP get_code_labels es)))
-Termination
-  wf_rel_tac`measure exp_size`
-  \\ simp[bvlTheory.exp_size_def]
-  \\ rpt conj_tac \\ rpt gen_tac
-  \\ Induct_on`es`
-  \\ rw[bvlTheory.exp_size_def]
-  \\ simp[] \\ res_tac \\ simp[]
 End
 
 Theorem get_code_labels_def[simp,compute,allow_rebind] =

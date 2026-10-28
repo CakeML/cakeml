@@ -1314,9 +1314,8 @@ Theorem panprog_induct:
     (∀m m0. P (Annot m m0))
     ⇒ ∀p. P (p : panLang$prog)
 Proof
-  strip_tac >>
-  qspecl_then [‘P’,‘K T’,‘K T’,‘K T’,‘K T’,‘K T’]
-              strip_assume_tac (cj 1 panLangTheory.prog_induction) >>
+  gen_tac >> strip_tac >>
+  ho_match_mp_tac panLangTheory.prog_induction >>
   rw[]
 QED
 
