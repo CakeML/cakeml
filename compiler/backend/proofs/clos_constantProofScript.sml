@@ -4,7 +4,7 @@
 *)
 Theory clos_constantProof
 Ancestors
-  closLang clos_to_bvl closSem
+  clos_to_bvl closSem
 Libs
   preamble
 
@@ -93,11 +93,10 @@ Theorem parts_acc:
   (∀cs n aux m rs res.
      parts_list cs n aux = (m,rs,res) ⇒ ∃a. res = a ++ aux)
 Proof
-  Induct \\ fs [parts_def]
-  \\ rpt gen_tac \\ strip_tac
+  ho_match_mp_tac parts_ind \\ fs [parts_def]
+  \\ rpt strip_tac
   \\ rpt (pairarg_tac \\ gvs [])
   \\ gvs [make_part_def,AllCaseEqs()]
-  \\ res_tac \\ fs []
 QED
 
 Definition conses_ok_def:
@@ -170,6 +169,28 @@ Proof
   \\ Induct \\ fs [] \\ strip_tac \\ Cases \\ fs []
 QED
 
+Theorem make_part_thm:
+  make_part n p aux = (m,r,res) ∧
+  ALL_DISTINCT (MAP SND aux) ∧ conses_ok aux ∧ n = LENGTH aux ∧
+  EVERY (λ(p,k). k < n) aux ∧
+  (∀t ns. p = Con t ns ⇒ EVERY (λk. k < n) ns) ⇒
+  build_map (λx. ConstInt 0) 0 (MAP FST (REVERSE res)) r =
+    build_part (build_map (λx. ConstInt 0) 0 (MAP FST (REVERSE aux))) p ∧
+  n ≤ m ∧ r < m ∧ ALL_DISTINCT (MAP SND res) ∧ conses_ok res ∧
+  m = LENGTH res ∧ EVERY (λ(p,k). k < m) res
+Proof
+  strip_tac \\ gvs [make_part_def, AllCaseEqs()]
+  >- (
+    simp [build_map_APPEND, build_map_def, APPLY_UPDATE_THM, IMP_conses_ok_CONS]
+    \\ fs [EVERY_MEM, MEM_MAP, FORALL_PROD]
+    \\ rpt strip_tac \\ res_tac \\ fs [])
+  \\ drule_all ALOOKUP_conses_ok_IMP \\ strip_tac
+  \\ fs [build_map_APPEND, build_map_def, build_map_ignore, APPLY_UPDATE_THM]
+  \\ Cases_on ‘p’ \\ fs [build_part_def, MAP_EQ_f]
+  \\ rpt strip_tac \\ first_x_assum drule \\ strip_tac
+  \\ fs [build_map_ignore, APPLY_UPDATE_THM]
+QED
+
 Theorem parts_thm:
   (∀c n aux m r res.
      parts c n aux = (m,r,res) ∧
@@ -192,52 +213,21 @@ Theorem parts_thm:
      conses_ok res ∧ m = LENGTH res ∧
      EVERY (λ(p,k). k < m) res)
 Proof
-  reverse Induct \\ fs [parts_def]
-  \\ rpt gen_tac \\ strip_tac
-  \\ rpt (pairarg_tac \\ full_simp_tac std_ss [])
-  THEN1
-   (fs [PULL_EXISTS]
-    \\ first_x_assum drule_all \\ strip_tac \\ gvs []
-    \\ first_x_assum drule \\ gvs [] \\ rw []
+  ho_match_mp_tac parts_ind \\ fs [parts_def] \\ rpt conj_tac \\ rpt gen_tac
+  >~ [‘ConstCons t cs’] >- (
+    disch_tac \\ rpt gen_tac \\ strip_tac
+    \\ rpt (pairarg_tac \\ full_simp_tac std_ss [])
+    \\ fs [PULL_EXISTS]
+    \\ drule make_part_thm \\ simp []
+    \\ strip_tac \\ gvs [build_part_def, LIST_REL_eq, SF ETA_ss])
+  >~ [‘parts c n aux’] >- (
+    disch_tac \\ rpt gen_tac \\ strip_tac
+    \\ rpt (pairarg_tac \\ full_simp_tac std_ss [])
+    \\ gvs []
     \\ drule (CONJUNCT2 parts_acc) \\ strip_tac \\ gvs []
     \\ fs [REVERSE_APPEND,build_map_APPEND]
     \\ fs [build_map_ignore])
-  \\ TRY
-   ((rename [‘_ = ConstInt _’] ORELSE
-     rename [‘_ = ConstStr _’] ORELSE
-     rename [‘_ = ConstWord64 _’])
-    \\ fs [PULL_EXISTS]
-    \\ reverse (gvs [make_part_def,AllCaseEqs()])
-    THEN1
-     (drule_all ALOOKUP_conses_ok_IMP \\ strip_tac
-      \\ fs [build_map_APPEND] \\ fs [build_map_def,build_part_def]
-      \\ fs [build_map_ignore,APPLY_UPDATE_THM])
-    \\ gvs [EVERY_MEM,FORALL_PROD,MEM_MAP,EXISTS_PROD]
-    \\ rw [] \\ res_tac \\ gvs []
-    \\ CCONTR_TAC \\ gvs [] \\ res_tac \\ fs []
-    \\ pop_assum mp_tac \\ fs []
-    \\ TRY (irule IMP_conses_ok_CONS \\ fs [EVERY_MEM])
-    \\ fs [build_map_APPEND]
-    \\ fs [build_map_def,APPLY_UPDATE_THM,build_part_def] \\ NO_TAC)
-  \\ rename [‘_ = ConstCons _ _’]
-  \\ fs [PULL_EXISTS]
-  \\ first_x_assum drule_all \\ strip_tac
-  \\ reverse (gvs [make_part_def,AllCaseEqs()])
-  THEN1
-   (drule_all ALOOKUP_conses_ok_IMP \\ strip_tac
-    \\ fs [build_map_APPEND] \\ fs [build_map_def,build_part_def]
-    \\ fs [build_map_ignore,APPLY_UPDATE_THM,LIST_REL_eq,MAP_EQ_f]
-    \\ rpt strip_tac
-    \\ fs [EVERY_MEM] \\ first_x_assum drule \\ strip_tac
-    \\ gvs [build_map_ignore,APPLY_UPDATE_THM])
-  \\ gvs [EVERY_MEM,FORALL_PROD,MEM_MAP,EXISTS_PROD]
-  \\ rw [] \\ res_tac \\ gvs []
-  \\ CCONTR_TAC \\ gvs [] \\ res_tac \\ fs []
-  \\ pop_assum mp_tac \\ fs []
-  \\ TRY (irule IMP_conses_ok_CONS \\ fs [EVERY_MEM])
-  \\ fs [build_map_APPEND]
-  \\ fs [build_map_def,APPLY_UPDATE_THM,build_part_def]
-  \\ fs [LIST_REL_eq, SF ETA_ss]
+  \\ strip_tac \\ drule make_part_thm \\ simp [build_part_def]
 QED
 
 (*
@@ -312,21 +302,35 @@ Theorem add_parts_thm:
     MAP (update_tag o FST) aux = acc ∧ good_hash_table m aux ⇒
     n1 = n2 ∧ rs = rs1 ∧ MAP (update_tag o FST) aux1 = acc1 ∧ good_hash_table m1 aux1)
 Proof
-  reverse Induct \\ rpt gen_tac \\ strip_tac
-  \\ gvs [add_parts_def,parts_def]
-  \\ rpt (pairarg_tac \\ gvs [])
-  THEN1
-   (last_x_assum drule_all \\ strip_tac \\ gvs []
-    \\ last_x_assum drule_all \\ strip_tac \\ gvs [])
-  \\ TRY
-   (irule add_part_thm
+  ho_match_mp_tac add_parts_ind \\ rpt conj_tac \\ rpt gen_tac
+  >~ [‘ConstCons t cs’] >- (
+    disch_tac \\ rpt gen_tac \\ strip_tac
+    \\ gvs [add_parts_def,parts_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ qpat_x_assum ‘∀aux n2 rs1 aux1. parts_list _ _ _ = _ ∧ _ ⇒ _’
+         (qspec_then ‘aux’ mp_tac)
+    \\ simp [] \\ strip_tac \\ gvs []
+    \\ irule add_part_thm
+    \\ qpat_assum ‘make_part _ _ _ = _’ $ irule_at Any
+    \\ simp [update_tag_def]
+    \\ qpat_assum ‘add_part _ _ _ _ = _’ $ irule_at Any
+    \\ simp [])
+  >~ [‘add_parts_list [] _ _ _’] >- (
+    rpt strip_tac \\ gvs [add_parts_def, parts_def])
+  >~ [‘add_parts_list (_::_) _ _ _’] >- (
+    strip_tac \\ rpt gen_tac \\ strip_tac
+    \\ full_simp_tac std_ss [add_parts_def, parts_def, LET_THM]
+    \\ rpt (pairarg_tac \\ full_simp_tac std_ss [])
+    \\ qpat_x_assum ‘∀aux n2 rs1 aux1. parts _ _ _ = _ ∧ _ ⇒ _’ drule_all
+    \\ strip_tac \\ gvs []
+    \\ qpat_x_assum ‘∀aux n2 rs1 aux1. parts_list _ _ _ = _ ∧ _ ⇒ _’ drule
+    \\ simp [])
+  \\ (
+    strip_tac
+    \\ gvs [add_parts_def,parts_def]
+    \\ irule add_part_thm
     \\ first_x_assum $ irule_at $ Pos hd \\ fs [update_tag_def]
     \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
-  \\ rename [‘Con’]
-  \\ last_x_assum drule_all \\ strip_tac \\ gvs []
-  \\ irule add_part_thm
-  \\ first_x_assum $ irule_at $ Pos hd \\ fs [update_tag_def]
-  \\ first_x_assum $ irule_at $ Pos hd \\ fs []
 QED
 
 Theorem compile_const_thm:

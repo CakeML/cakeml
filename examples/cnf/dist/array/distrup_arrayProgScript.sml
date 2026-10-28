@@ -5,7 +5,7 @@ Theory distrup_arrayProg
 Libs
   preamble basis
 Ancestors
-  ccnf_arrayProg distrup distrup_list HashtableProof
+  ccnf_arith ccnf_arrayProg distrup distrup_list HashtableProof
 
 val _ = hide_environments true;
 
@@ -17,13 +17,13 @@ Quote add_cakeml:
   fun check_distrup_arr lno distrup fml carr b =
   case distrup of
     Del ls =>
-      (delete_ids_arr fml ls; (fml,carr,b))
+      (delete_ids_arr vcc_none fml ls; (fml,carr,b))
   | Lrup n v hints =>
       (case is_rup_arr lno fml carr b v hints of (dml,b) =>
-        (Array.updateResize fml None n (Some v), dml,b))
+        (insert_clause_arr fml n v, dml,b))
   | Import n v =>
       (case resize_dm carr b v of (dml,b) =>
-      (Array.updateResize fml None n (Some v), dml,b))
+      (insert_clause_arr fml n v, dml,b))
   | Validateunsat =>
       if contains_emp_arr fml
       then
@@ -37,33 +37,35 @@ val DISTRUP_DISTRUP_TYPE_def = fetch "-" "DISTRUP_DISTRUP_TYPE_def";
 Theorem check_distrup_arr_spec:
   NUM lno lnov ∧
   DISTRUP_DISTRUP_TYPE distrup distrupv ∧
-  LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
-  WORD8 b bv ∧
-  bnd_fml fmlls (LENGTH Clist)
+  LIST_REL vcclause_TYPE fmlls fmllsv ∧
+  NUM b bv ∧
+  dm_ok fmlls Clist b
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_distrup_arr" (get_ml_prog_state()))
     [lnov; distrupv; fmlv; Carrv; bv]
-    (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
+    (ARRAY fmlv fmllsv * NUM_ARRAY Carrv Clist)
     (POSTve
       (λres.
         SEP_EXISTS v1 v2 v3.
         SEP_EXISTS fmlls' fmllsv' b' Clist'.
         ARRAY v1 fmllsv' *
-        W8ARRAY v2 Clist' *
+        NUM_ARRAY v2 Clist' *
         &(res = Conv NONE [v1; v2; v3] ∧
-          LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls' fmllsv' ∧
-          WORD8 b' v3 ∧
+          LIST_REL vcclause_TYPE fmlls' fmllsv' ∧
+          NUM b' v3 ∧
           check_distrup_list distrup fmlls Clist b =
             SOME (fmlls', (Clist', b'))))
       (λe.
         &(Fail_exn e ∧ check_distrup_list distrup fmlls Clist b = NONE)))
 Proof
   simp[check_distrup_list_def]>>strip_tac>>
+  `stamps_ok Clist b` by fs[ccnf_listTheory.dm_ok_def]>>
   xcf "check_distrup_arr" (get_ml_prog_state ())>>
   Cases_on`distrup`>>fs[DISTRUP_DISTRUP_TYPE_def]>>
   xmatch
   >- ( (* Del *)
+    assume_tac vcc_none_v_thm>>
     xlet_autop >>
     xcon>>xsimpl)
   >- ( (* Rup *)
@@ -71,8 +73,8 @@ Proof
       POSTve
         (λres.
              (SEP_EXISTS b' Carrv' Clist'.
-                W8ARRAY Carrv' Clist' *
-                &(PAIR_TYPE $= WORD8 (Carrv',b') res ∧
+                NUM_ARRAY Carrv' Clist' *
+                &(PAIR_TYPE $= NUM (Carrv',b') res ∧
                  is_rup_list fmlls Clist b v l = (T,Clist',b'))) *
              ARRAY fmlv fmllsv)
         (λe.
@@ -89,20 +91,16 @@ Proof
     fs[PAIR_TYPE_def]>>
     xmatch>>
     rpt xlet_autop>>
-    xcon>>xsimpl>>
-    irule LIST_REL_update_resize>>
-    simp[OPTION_TYPE_def])
+    xcon>>xsimpl)
   >- (
     rpt xlet_autop>>
     xlet_auto
     >- (
       xsimpl>>
-      rw[]>>metis_tac[W8ARRAY_refl])>>
+      rw[]>>metis_tac[NUM_ARRAY_refl])>>
     fs[PAIR_TYPE_def]>>
     xmatch>> rpt xlet_autop>>
-    xcon>>xsimpl>>
-    irule LIST_REL_update_resize>>
-    simp[OPTION_TYPE_def])
+    xcon>>xsimpl)
   >- (
     xlet_autop>>
     xif

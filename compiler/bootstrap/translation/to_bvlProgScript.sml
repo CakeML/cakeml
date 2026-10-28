@@ -7,8 +7,6 @@ Ancestors
 Libs
   preamble ml_translatorLib
 
-open preamble ml_translatorLib ml_translatorTheory to_closProgTheory;
-
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "to_closProg";
@@ -154,6 +152,8 @@ val r = translate clos_to_bvlTheory.compile_common_def;
 val r = translate (clos_to_bvlTheory.init_code_def |> REWRITE_RULE [GSYM sub_check_def]);
 val r = translate (clos_to_bvlTheory.partial_app_fn_location_def |> REWRITE_RULE [GSYM sub_check_def]);
 
+val r = translate (clos_to_bvlTheory.compile_prog_def |> REWRITE_RULE [GSYM sub_check_def]);
+
 val r = translate clos_to_bvlTheory.compile_def;
 
 (* N.B.
@@ -175,6 +175,22 @@ val r = translate clos_to_bvlTheory.compile_inc_def;
 (* ------------------------------------------------------------------------- *)
 (* bvl_const                                                                 *)
 (* ------------------------------------------------------------------------- *)
+
+val r = translate_no_ind (INST_TYPE [beta |-> alpha] LIST_TO_SET_DEF);
+
+Theorem list_list_to_set_ind[local]:
+  list_list_to_set_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "list_list_to_set_ind_def"]
+  \\ rpt strip_tac
+  \\ qid_spec_tac ‘v4’
+  \\ Induct_on ‘v3’
+  \\ rpt strip_tac
+  \\ first_assum irule
+  \\ gvs []
+QED
+
+val _ = list_list_to_set_ind |> update_precondition;
 
 val r = translate bvl_constTheory.dest_simple_pmatch;
 val r = translate bvl_constTheory.dest_EqualInt_pmatch;

@@ -3,18 +3,18 @@
 *)
 Theory wordConvs
 Ancestors
-  wordLang asm reg_alloc
+  wordLang reg_alloc
 Libs
   preamble BasicProvers
 
 val _ = temp_delsimps ["misc.max3_def"];
-(*** Mono and conj lemmas for every_var/every_stack_var ***)
+(*** Mono and conj lemmas for every_var bits/every_stack_var ***)
 Theorem every_var_inst_mono:
-  ∀P inst Q.
+  ∀bits P inst Q.
   (∀x. P x ⇒ Q x) ∧
-  every_var_inst P inst
+  every_var_inst bits P inst
   ⇒
-  every_var_inst Q inst
+  every_var_inst bits Q inst
 Proof
   ho_match_mp_tac every_var_inst_ind>>srw_tac[][every_var_inst_def]>>
   Cases_on`ri`>>full_simp_tac(srw_ss())[every_var_imm_def]
@@ -41,11 +41,11 @@ Proof
 QED
 
 Theorem every_var_mono:
-  ∀P prog Q.
+  ∀bits P prog Q.
   (∀x. P x ⇒ Q x) ∧
-  every_var P prog
+  every_var bits P prog
   ⇒
-  every_var Q prog
+  every_var bits Q prog
 Proof
   ho_match_mp_tac every_var_ind>>srw_tac[][every_var_def]>>
   TRY(Cases_on`ret`>>full_simp_tac(srw_ss())[]>>PairCases_on`x`>>Cases_on`h`>>full_simp_tac(srw_ss())[]>>TRY(Cases_on`x`)>>full_simp_tac(srw_ss())[])>>
@@ -56,9 +56,9 @@ QED
 
 (*Conjunct*)
 Theorem every_var_inst_conj:
-  ∀P inst Q.
-  every_var_inst P inst ∧ every_var_inst Q inst ⇔
-  every_var_inst (λx. P x ∧ Q x) inst
+  ∀bits P inst Q.
+  every_var_inst bits P inst ∧ every_var_inst bits Q inst ⇔
+  every_var_inst bits (λx. P x ∧ Q x) inst
 Proof
   ho_match_mp_tac every_var_inst_ind>>srw_tac[][every_var_inst_def]>>
   TRY(Cases_on`ri`>>full_simp_tac(srw_ss())[every_var_imm_def])>>
@@ -85,9 +85,9 @@ Proof
 QED
 
 Theorem every_var_conj:
-  ∀P prog Q.
-  every_var P prog  ∧ every_var Q prog ⇔
-  every_var (λx. P x ∧ Q x) prog
+  ∀bits P prog Q.
+  every_var bits P prog  ∧ every_var bits Q prog ⇔
+  every_var bits (λx. P x ∧ Q x) prog
 Proof
   ho_match_mp_tac every_var_ind>>srw_tac[][every_var_def]>>
   TRY(Cases_on`ret`>>full_simp_tac(srw_ss())[])>>
@@ -100,10 +100,10 @@ QED
 
 (*Similar lemmas about every_stack_var*)
 Theorem every_var_imp_every_stack_var:
-  ∀P prog.
-  every_var P prog ⇒ every_stack_var P prog
+  ∀bits P prog.
+  every_var bits P prog ⇒ every_stack_var P prog
 Proof
-  ho_match_mp_tac every_stack_var_ind>>
+  gen_tac >> ho_match_mp_tac every_stack_var_ind>>
   srw_tac[][every_stack_var_def,every_var_def]>>
   Cases_on`ret`>>
   Cases_on`h`>>full_simp_tac(srw_ss())[]>>
@@ -206,10 +206,10 @@ End
 
 (*** Well-formed instructions. This also includes the FP conditions since we do not allocate them ***)
 Definition inst_ok_less_def:
-  (inst_ok_less (c:'a asm_config) (Arith (Binop b r1 r2 (Imm w))) ⇔
+  (inst_ok_less (c:asm_config) ((Arith (Binop b r1 r2 (Imm w))):inst) ⇔
     c.valid_imm (INL b) w) ∧
   (inst_ok_less c (Arith (Shift l r1 r2 (Imm i))) ⇔
-    (((i = 0w) ==> (l = Lsl)) ∧ w2n i < dimindex(:'a))) ∧
+    (((i = 0) ==> (l = Lsl)) ∧ 0 ≤ i ∧ i < &isa_bits c)) ∧
   (inst_ok_less c (Arith (Div r1 r2 r3)) ⇔
     (c.ISA ∈ {ARMv8; MIPS; RISC_V})) ∧
   (inst_ok_less c (Arith (LongMul r1 r2 r3 r4)) ⇔
@@ -223,6 +223,11 @@ Definition inst_ok_less_def:
     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
   (inst_ok_less c (Arith (SubOverflow r1 r2 r3 r4)) ⇔
     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
+  (inst_ok_less c (Arith (IMul rd ra rb ro)) ⇔
+    c.ISA ∈ {x86_64; ARMv7; ARMv8; MIPS; RISC_V} ∧ rd ≠ ro) ∧
+  (inst_ok_less c (Arith (IDiv rq rr ra rb)) ⇔
+    c.ISA ∈ {x86_64; ARMv8; MIPS; RISC_V} ∧ rq ≠ rr ∧
+    (c.ISA = x86_64 ⇒ rb ≠ rr)) ∧
   (inst_ok_less c (Mem m r (Addr r' w)) ⇔
      if m IN {Load; Store; Load16; Store16; Load32; Store32}
      then addr_offset_ok c w
@@ -255,9 +260,9 @@ Definition inst_ok_less_def:
     fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
   (inst_ok_less c (FP (FPMov d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPMovToReg r1 r2 d)) ⇔
-      ((dimindex(:'a) = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧
+      ((isa_bits c = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧
   (inst_ok_less c (FP (FPMovFromReg d r1 r2)) ⇔
-      ((dimindex(:'a) = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧
+      ((isa_bits c = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧
   (inst_ok_less c (FP (FPToInt d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPFromInt d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less _ _ = T)
@@ -275,6 +280,8 @@ Definition distinct_tar_reg_def:
     ⇔ r1 ≠ r3) ∧
   (distinct_tar_reg (Arith (SubOverflow r1 r2 r3 r4))
     ⇔ r1 ≠ r3) ∧
+  (distinct_tar_reg (Arith (IMul rd ra rb ro))
+    ⇔ rd ≠ rb) ∧
   (distinct_tar_reg _ ⇔ T)
 End
 
@@ -292,6 +299,8 @@ Definition two_reg_inst_def:
     ⇔ (r1 = r2)) ∧
   (two_reg_inst (Arith (SubOverflow r1 r2 r3 r4))
     ⇔ (r1 = r2)) ∧
+  (two_reg_inst (Arith (IMul rd ra rb ro))
+    ⇔ (rd = ra)) ∧
   (two_reg_inst _ ⇔ T)
 End
 
@@ -351,7 +360,7 @@ End
 
 Definition wf_cutsets_def:
   (wf_cutsets (Alloc n s) = wf_names s) ∧
-  (wf_cutsets (Install _ _ _ _ s) = wf_names s) ∧
+  (wf_cutsets (Install _ _ _ _ _ s) = wf_names s) ∧
   (wf_cutsets (Call ret dest args h) =
     (case ret of
       NONE => T
@@ -381,6 +390,8 @@ Definition inst_arg_convention_def:
   (* Note: these are not necessary *)
   (inst_arg_convention (Arith (AddOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
   (inst_arg_convention (Arith (SubOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
+  (inst_arg_convention (Arith (IMul rd ra rb ro)) ⇔ ro = 0) ∧
+  (inst_arg_convention (Arith (IDiv rq rr ra rb)) ⇔ rq = 0 ∧ rr = 6 ∧ ra = 0) ∧
   (inst_arg_convention (Arith (LongMul r1 r2 r3 r4)) ⇔ r1 = 6 ∧ r2 = 0 ∧ r3 = 0 ∧ r4 = 4) ∧
   (* LongDiv follows conventions for x86 as it is the only possibility *)
   (inst_arg_convention (Arith (LongDiv r1 r2 r3 r4 r5)) ⇔ r1 = 0 ∧ r2 = 6 ∧ r3 = 6 ∧ r4 = 0) ∧
@@ -393,7 +404,8 @@ Definition call_arg_convention_def:
     inst_arg_convention i) ∧
   (call_arg_convention (Return x ys) = (ys = GENLIST (\x.2*(x+1)) (LENGTH ys))) ∧
   (call_arg_convention (Raise y) = (y=2)) ∧
-  (call_arg_convention (Install ptr len _ _ _) = (ptr = 2 ∧ len = 4)) ∧
+  (call_arg_convention (Install ptr len cptr _ _ _) = (ptr = 2 ∧ len = 4 ∧
+                                                       cptr = 6)) ∧
   (call_arg_convention (FFI x ptr len ptr2 len2 args) = (ptr = 2 ∧ len = 4 ∧
                                                          ptr2 = 6 ∧ len2 = 8)) ∧
   (call_arg_convention (Alloc n s) = (n=2)) ∧
@@ -430,8 +442,8 @@ End
 
 (*** After allocation, generated by allocator and/or the oracles ***)
 Definition post_alloc_conventions_def:
-  post_alloc_conventions k prog =
-    (every_var is_phy_var prog ∧
+  post_alloc_conventions bits k prog =
+    (every_var bits is_phy_var prog ∧
     every_stack_var (λx. x ≥ 2*k) prog ∧
     call_arg_convention prog)
 End
@@ -458,7 +470,7 @@ Definition extract_labels_def:
   (extract_labels _ = [])
 End
 
-(*** Property on max_var ***)
+(*** Property on max_var bits ***)
 Theorem max_var_exp_IMP[local]:
   ∀exp.
   P 0 ∧ every_var_exp P exp ⇒
@@ -471,15 +483,15 @@ Proof
 QED
 
 Theorem max_var_intro:
-  ∀prog.
-  P 0 ∧ every_var P prog ⇒
-  P (max_var prog)
+  ∀bits prog.
+  P 0 ∧ every_var bits P prog ⇒
+  P (max_var bits prog)
 Proof
   ho_match_mp_tac max_var_ind >> rpt strip_tac
   >~ [`Inst`]
   >- (fs[every_var_def,max_var_def,max_var_exp_IMP] >>
       rpt $ pop_assum mp_tac >>
-      MAP_EVERY qid_spec_tac $ List.rev [`P`,`i`] >>
+      MAP_EVERY qid_spec_tac $ List.rev [`bits`,`P`,`i`] >>
       ho_match_mp_tac every_var_inst_ind >> rpt strip_tac >>
       fs[every_var_inst_def,max_var_inst_def] >>
       simp_tac(pure_ss)[MAX_DEF,max3_def] >>
@@ -524,8 +536,8 @@ End
 
 Definition good_code_labels_def:
   good_code_labels p elabs ⇔
-  EVERY (λ(n,m,pp). good_handlers n pp) p ∧
-  (BIGUNION (set (MAP (λ(n,m,pp). (get_code_labels pp)) p))) ⊆
+  EVERY (λ(n,m,pp,md). good_handlers n pp) p ∧
+  (BIGUNION (set (MAP (λ(n,m,pp,md). (get_code_labels pp)) p))) ⊆
   (set (MAP FST p) ∪ elabs)
 End
 
@@ -534,8 +546,8 @@ End
 (* Examines various syntactic elements within programs that some phases are
    expected to possibly remove but not create. *)
 Definition not_created_subprogs_def:
-  not_created_subprogs P (MustTerminate p : 'a prog) =
-    (P (MustTerminate (Skip : 'a prog)) /\ not_created_subprogs P p) /\
+  not_created_subprogs P (MustTerminate p : prog) =
+    (P (MustTerminate (Skip : prog)) /\ not_created_subprogs P p) /\
   not_created_subprogs P (Seq p1 p2) = (not_created_subprogs P p1 /\
     not_created_subprogs P p2) /\
   not_created_subprogs P (Loop names c exit_names) =
@@ -551,7 +563,8 @@ Definition not_created_subprogs_def:
   not_created_subprogs P (Alloc _ _) = P (Alloc 0 (LN,LN)) /\
   not_created_subprogs P (LocValue _ l) = P (LocValue 0 l) /\
   not_created_subprogs P (ShareInst _ _ _) = P (ShareInst ARB 0 (Var 0)) /\
-  not_created_subprogs P (Install _ _ _ _ _) = P (Install 0 0 0 0 (LN,LN)) /\
+  not_created_subprogs P (Install _ _ _ _ _ _) = P (Install 0 0 0 0 0 (LN,LN)) /\
+  not_created_subprogs P (PtrEq _ _ _ _ _) = P (wordLang$PtrEq 0 0 0 0 0) /\
   not_created_subprogs _ _ = T
 End
 
@@ -573,7 +586,7 @@ Theorem no_alloc_def = not_created_subprogs_P_def
   |> ISPEC no_alloc_P
   |> REWRITE_RULE [GSYM no_alloc_subprogs_def]
 
-val no_install_P = ``((<>) (Install 0 0 0 0 (LN,LN)))``
+val no_install_P = ``((<>) (Install 0 0 0 0 0 (LN,LN)))``
 
 Definition no_install_subprogs_def:
   no_install p = not_created_subprogs ^no_install_P p
@@ -606,6 +619,23 @@ End
 Theorem no_share_inst_def = not_created_subprogs_P_def
   |> ISPEC no_share_inst_P
   |> REWRITE_RULE [GSYM no_share_inst_subprogs_def]
+
+(* ptr_eq_free ns p: p contains no PtrEq and no Install, and every call in p
+   is a direct call into the code names ns *)
+
+Definition ptr_eq_free_def:
+  (ptr_eq_free ns (PtrEq _ _ _ _ _ : prog) ⇔ F) ∧
+  (ptr_eq_free ns (Call r d a h) ⇔
+     (case d of SOME n => n ∈ ns | NONE => F) ∧
+     (case r of SOME (_,_,p,_,_) => ptr_eq_free ns p | NONE => T) ∧
+     (case h of SOME (_,p,_,_) => ptr_eq_free ns p | NONE => T)) ∧
+  (ptr_eq_free ns (Seq p1 p2) ⇔ ptr_eq_free ns p1 ∧ ptr_eq_free ns p2) ∧
+  (ptr_eq_free ns (If _ _ _ p1 p2) ⇔ ptr_eq_free ns p1 ∧ ptr_eq_free ns p2) ∧
+  (ptr_eq_free ns (MustTerminate p) ⇔ ptr_eq_free ns p) ∧
+  (ptr_eq_free ns (Loop _ p _) ⇔ ptr_eq_free ns p) ∧
+  (ptr_eq_free ns (Install _ _ _ _ _ _) ⇔ F) ∧
+  (ptr_eq_free ns _ ⇔ T)
+End
 
 Overload word_get_code_labels = ``wordConvs$get_code_labels``
 Overload word_good_handlers = ``wordConvs$good_handlers``

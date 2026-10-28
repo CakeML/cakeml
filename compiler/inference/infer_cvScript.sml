@@ -4,6 +4,7 @@
 Theory infer_cv[no_sig_docs]
 Ancestors
   misc typeSystem ast namespace infer inferProps basis_cv unify_cv source_cv
+  ml_monadBase
 Libs
   preamble cv_transLib
 
@@ -11,7 +12,8 @@ val expand = let
   val th1 = SRULE [FUN_EQ_THM] st_ex_bind_def
   val th2 = SRULE [FUN_EQ_THM] st_ex_return_def
   val th3 = SRULE [FUN_EQ_THM,COND_RATOR,th2] guard_def
-  in SRULE [th1,th2,th3,FUN_EQ_THM] end
+  val th4 = SRULE [FUN_EQ_THM] st_ex_ignore_bind_def
+  in SRULE [th1,th2,th3,th4,FUN_EQ_THM] end
 
 val _ = cv_auto_trans $ expand failwith_def;
 val _ = cv_auto_trans $ expand read_def;
@@ -102,16 +104,26 @@ Proof
   \\ drule_all unifyTheory.t_unify_wfs \\ gvs []
 QED
 
-val _ = cv_trans generalise_def;
+val generalise_pre = cv_trans_pre "" generalise_def;
+
+Theorem generalise_pre[cv_pre,local]:
+  (∀m n s v. generalise_pre m n s v) ∧
+  (∀m n s v. generalise_list_pre m n s v)
+Proof
+  ho_match_mp_tac generalise_ind \\ rpt strip_tac
+  \\ simp [Once generalise_pre] \\ rpt strip_tac
+  \\ gvs []
+QED
+
 val _ = cv_trans infer_type_subst_def;
 
 val infer_deBruijn_subst_pre = cv_trans_pre "" infer_deBruijn_subst_def;
 
 Theorem infer_deBruijn_subst_pre[cv_pre,local]:
-  (∀a1 a0. infer_deBruijn_subst_pre a0 a1) ∧
-  (∀a3 a2. infer_deBruijn_subst_list_pre a2 a3)
+  (∀a0 a1. infer_deBruijn_subst_pre a0 a1) ∧
+  (∀a2 a3. infer_deBruijn_subst_list_pre a2 a3)
 Proof
-  ho_match_mp_tac infer_tTheory.infer_t_induction \\ rw []
+  ho_match_mp_tac infer_deBruijn_subst_ind \\ rw []
   \\ simp [Once infer_deBruijn_subst_pre]
 QED
 
@@ -138,10 +150,10 @@ Definition type_subst_alist_def:
 End
 
 Theorem type_subst_alist_to_fmap:
-  (∀t xs. type_subst (alist_to_fmap xs) t = type_subst_alist xs t) ∧
-  (∀t xs. MAP (type_subst (alist_to_fmap xs)) t = type_subst_alist_list xs t)
+  (∀xs t. type_subst (alist_to_fmap xs) t = type_subst_alist xs t) ∧
+  (∀xs t. MAP (type_subst (alist_to_fmap xs)) t = type_subst_alist_list xs t)
 Proof
-  ho_match_mp_tac typeSystemTheory.t_induction
+  ho_match_mp_tac type_subst_alist_ind
   \\ gvs [typeSystemTheory.type_subst_def,type_subst_alist_def,SF ETA_ss]
 QED
 
@@ -152,11 +164,12 @@ val type_name_check_sub_pre = cv_auto_trans_pre ""
                                  |> SRULE [type_subst_alist_to_fmap,FUN_EQ_THM])
 
 Theorem type_name_check_sub_pre[local,cv_pre]:
-  (∀t a0 a1 a2 (a4:'a). type_name_check_sub_pre a0 a1 a2 t a4) ∧
-  (∀t a5 a6 a7 (a9:'a). type_name_check_sub_list_pre a5 a6 a7 t a9)
+  (∀a0 a1 a2 t (a4:'a). type_name_check_sub_pre a0 a1 a2 t a4) ∧
+  (∀a5 a6 a7 t (a9:'a). type_name_check_sub_list_pre a5 a6 a7 t a9)
 Proof
-  ho_match_mp_tac ast_t_induction \\ rw []
+  ho_match_mp_tac type_name_check_sub_ind \\ rw []
   \\ simp [Once type_name_check_sub_pre]
+  \\ rw [] \\ metis_tac []
 QED
 
 val res = cv_trans_pre "" check_ctor_types_expand
@@ -184,6 +197,15 @@ val constrain_op_pre = cv_trans_pre "" constrain_op_expand;
 val _ = cv_trans nsBind_def;
 val _ = cv_trans nsOptBind_def;
 
+(* Both expression-local and declaration opens use this selection code. *)
+val _ = cv_auto_trans namespaceTheory.nsLookupMod_def;
+val _ = cv_trans namespaceTheory.nsOpen_def;
+val _ = cv_auto_trans open_ienv_def;
+val _ = cv_trans mod_path_to_string_def;
+val _ = cv_auto_trans
+  (infer_open_def |> expand |>
+   SRULE [option_case_rand, failwith_def, st_ex_return_def, FUN_EQ_THM]);
+
 val infer_e_pre = cv_auto_trans_pre_rec ""
           (infer_e_expand |> SRULE [namespaceTheory.alist_to_ns_def])
  (WF_REL_TAC ‘measure $ λx. case x of
@@ -200,6 +222,7 @@ Definition exp_is_value_def:
   exp_is_value (Fun _ _) = T ∧
   exp_is_value (Tannot e v5) = exp_is_value e ∧
   exp_is_value (Lannot e v6) = exp_is_value e ∧
+  exp_is_value (Open path e) = exp_is_value e ∧
   exp_is_value _ = F ∧
   exp_is_value_list [] = T ∧
   exp_is_value_list (x::xs) = (exp_is_value x ∧ exp_is_value_list xs)
@@ -244,7 +267,10 @@ Theorem type_name_subst_1_eq:
   MAP (type_name_subst tenvT) = type_name_subst_list_1 tenvT
 Proof
   simp[FUN_EQ_THM]
-  \\ ho_match_mp_tac ast_t_induction \\ rw []
+  \\ ‘(∀tenvT t. type_name_subst tenvT t = type_name_subst_1 tenvT t) ∧
+      (∀tenvT ts. MAP (type_name_subst tenvT) ts =
+                  type_name_subst_list_1 tenvT ts)’ suffices_by simp []
+  \\ ho_match_mp_tac type_name_subst_1_ind \\ rw []
   \\ gvs [type_name_subst_1_def,GSYM type_subst_alist_to_fmap,
           typeSystemTheory.type_name_subst_def] \\ gvs [SF ETA_ss]
 QED
@@ -279,17 +305,17 @@ val infertype_prog_inc_eq =
 val call_infer_pre = cv_auto_trans_pre "" call_infer_def;
 
 Theorem type_name_check_sub_success:
-  type_name_check_sub l ienv.inf_t xs a s = (Success r,s1) ⇒
-  ∃f. type_name_check_subst l f ienv.inf_t xs a s = (Success r,s1)
+  type_name_check_sub l ienv.inf_t xs a s = (M_success r,s1) ⇒
+  ∃f. type_name_check_subst l f ienv.inf_t xs a s = (M_success r,s1)
 Proof
   gvs [to_type_name_check_sub]
 QED
 
 Theorem IMP_infer_p_pre:
-  (∀d l ienv s. t_wfs s.subst ⇒ infer_p_pre l ienv d s) ∧
-  (∀ds l ienv s. t_wfs s.subst ⇒ infer_ps_pre l ienv ds s)
+  (∀l ienv d s. t_wfs s.subst ⇒ infer_p_pre l ienv d s) ∧
+  (∀l ienv ds s. t_wfs s.subst ⇒ infer_ps_pre l ienv ds s)
 Proof
-  Induct \\ rw [] \\ simp [Once infer_p_pre]
+  ho_match_mp_tac infer_p_ind \\ rw [] \\ simp [Once infer_p_pre]
   \\ gvs [add_constraints_pre_eq] \\ rw []
   \\ gvs [lookup_st_ex_def,AllCaseEqs()]
   \\ imp_res_tac infer_p_wfs
@@ -345,6 +371,8 @@ Theorem IMP_infer_e_pre:
   (∀l ienv funs s. t_wfs s.subst ⇒ infer_funs_pre l ienv funs s)
 Proof
   ho_match_mp_tac infer_e_ind \\ rpt strip_tac
+  >~ [`infer_e_pre _ _ (Open _ _) _`] >- (
+    simp [Once infer_e_pre] >> rw [] >> gvs [infer_open_success])
   \\ simp [Once infer_e_pre]
   \\ gvs [lookup_st_ex_def,AllCaseEqs()]
   \\ gvs [add_constraint_pre_eq,add_constraints_pre_eq] \\ rw []
@@ -361,24 +389,34 @@ Proof
   \\ irule IMP_constrain_op_pre \\ gvs []
 QED
 
-Theorem IMP_infer_d_pre:
-  (∀d ienv s. t_wfs s.subst ⇒ infer_d_pre ienv d s) ∧
-  (∀ds ienv s. t_wfs s.subst ⇒ infer_ds_pre ienv ds s)
+Theorem extend_dec_ienv_inf_env[local]:
+  inf_env (nsAppend ienv'.inf_v ienv.inf_v) (nsAppend ienv'.inf_c ienv.inf_c)
+    (nsAppend ienv'.inf_t ienv.inf_t) = extend_dec_ienv ienv' ienv
 Proof
-  Induct \\ rpt strip_tac
+  rw [extend_dec_ienv_def, inf_env_component_equality]
+QED
+
+Theorem IMP_infer_d_pre:
+  (∀ienv d s. t_wfs s.subst ⇒ infer_d_pre ienv d s) ∧
+  (∀ienv ds s. t_wfs s.subst ⇒ infer_ds_pre ienv ds s)
+Proof
+  ho_match_mp_tac infer_d_ind \\ rpt strip_tac
   >~ [‘Dtype’] >- (once_rewrite_tac [infer_d_pre] \\ gvs [])
   >~ [‘Dtabbrev’] >- (once_rewrite_tac [infer_d_pre] \\ gvs [])
   >~ [‘Dexn’] >- (once_rewrite_tac [infer_d_pre] \\ gvs [])
+  >~ [‘Dopen’] >- (once_rewrite_tac [infer_d_pre] \\ gvs [])
   >~ [‘Dmod’] >- (once_rewrite_tac [infer_d_pre] \\ gvs [])
   >~ [‘Denv’] >- (once_rewrite_tac [infer_d_pre] \\ gvs [])
   >~ [‘infer_ds_pre ienv [] s’] >- (once_rewrite_tac [infer_d_pre] \\ gvs [])
   >~ [‘infer_ds_pre ienv _ s’] >-
    (once_rewrite_tac [infer_d_pre] \\ gvs [] \\ rw []
     \\ imp_res_tac infer_d_wfs
+    \\ gvs [extend_dec_ienv_inf_env]
     \\ first_x_assum irule \\ gvs [])
   >~ [‘Dlocal’] >-
    (once_rewrite_tac [infer_d_pre] \\ gvs [] \\ rw []
     \\ imp_res_tac infer_d_wfs
+    \\ gvs [extend_dec_ienv_inf_env]
     \\ first_x_assum irule \\ gvs [])
   >~ [‘Dlet’] >-
    (once_rewrite_tac [infer_d_pre] \\ gvs [] \\ rw []

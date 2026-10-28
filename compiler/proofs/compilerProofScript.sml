@@ -13,7 +13,7 @@ Libs
 val _ = diminish_srw_ss ["ABBREV"]
 
 Definition config_ok_def:
-  config_ok (cc:α compiler$config) mc ⇔
+  config_ok (cc:compiler$config) mc ⇔
     env_rel prim_tenv cc.inferencer_config ∧
     inf_set_tids_ienv prim_type_ids cc.inferencer_config ∧ (* TODO: ok? *)
     ¬cc.input_is_sexp ∧
@@ -26,7 +26,7 @@ Definition config_ok_def:
 End
 
 Definition initial_condition_def:
-  initial_condition (st:'ffi semantics$state) (cc:α compiler$config) mc ⇔
+  initial_condition (st:'ffi semantics$state) (cc:compiler$config) mc ⇔
     (st.sem_st,st.sem_env) = THE (prim_sem_env st.sem_st.ffi) ∧
     (?ctMap.
       type_sound_invariant st.sem_st st.sem_env ctMap FEMPTY {} st.tenv ∧
@@ -59,7 +59,7 @@ Theorem infertype_prog_correct:
    inf_set_tids_ienv (count start_type_id) ienv ∧
    set_tids_tenv (count start_type_id) st.tenv
    ⇒
-   ∃c' x. infertype_prog ienv p = if can_type_prog st p then Success c' else Failure x
+   ∃c' x. infertype_prog ienv p = if can_type_prog st p then M_success c' else M_failure x
 Proof
   strip_tac
   \\ simp[inferTheory.infertype_prog_def,
@@ -99,18 +99,20 @@ Definition read_limits_def:
 End
 
 Definition is_safe_for_space_def:
-  is_safe_for_space ffi cc = backendProof$is_safe_for_space ffi cc.asm_config cc.backend_config
+  is_safe_for_space (:'a) ffi po cc = backendProof$is_safe_for_space (:'a) ffi po cc.asm_config cc.backend_config
 End
 
-Theorem compile_correct_gen:
-   ∀(st:'ffi semantics$state) (cc:α compiler$config) prelude input mc data_sp cbspace.
+Theorem compile_correct_gen_determ[local]:
+   ∀(st:'ffi semantics$state) (cc:compiler$config) prelude input
+     (mc:(α,β,γ) machine_config) data_sp cbspace.
     initial_condition st cc mc ⇒
     case FST (compiler$compile cc prelude input) of
-    | Failure (ParseError e) => semantics st prelude input = CannotParse
-    | Failure (TypeError e) => semantics st prelude input = IllTyped
-    | Failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
-    | Failure (ConfigError e) => T (* configuration string is malformed *)
-    | Success (code,data,c) =>
+    | M_failure (ParseError e) => semantics st prelude input = CannotParse
+    | M_failure (TypeError e) => semantics st prelude input = IllTyped
+    | M_failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
+    | M_failure (ConfigError e) => T (* configuration string is malformed *)
+    | M_failure (StaticError e) => T
+    | M_success (code,data,c) =>
       ∃behaviours source_decs.
         (semantics st prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
@@ -118,11 +120,12 @@ Theorem compile_correct_gen:
           installed code cbspace data data_sp c.lab_conf.ffi_names
             (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms
             ⇒
-            machine_sem mc st.sem_st.ffi ms ⊆
+            ∃po. machine_sem mc st.sem_st.ffi ms ⊆
               extend_with_resource_limit'
-                (is_safe_for_space st.sem_st.ffi cc
+                (is_safe_for_space (:α) st.sem_st.ffi po cc
                    (prelude ++ source_decs) (read_limits cc mc ms))
-                behaviours
+                (semantics_determ (st.sem_st with ptr_eq_oracle := po)
+                   st.sem_env (prelude ++ source_decs))
 Proof
   rpt strip_tac
   \\ simp[compilerTheory.compile_def,read_limits_def,is_safe_for_space_def]
@@ -176,15 +179,71 @@ Proof
   \\ metis_tac[]
 QED
 
+Theorem extend_with_resource_limit'_semantics_prog[local]:
+  extend_with_resource_limit' (b po)
+    (semantics_determ (s with ptr_eq_oracle := po) env prog) ⊆
+  extend_with_resource_limit' (∀po. b po) (semantics_prog s env prog)
+Proof
+  Cases_on `∀po. b po`
+  >- (
+    `b po` by fs [] \\
+    simp [semanticsPropsTheory.extend_with_resource_limit'_def,
+          semanticsPropsTheory.semantics_determ_SUBSET_semantics_prog])
+  \\ `extend_with_resource_limit' (∀po. b po) (semantics_prog s env prog) =
+      extend_with_resource_limit (semantics_prog s env prog)`
+    by asm_rewrite_tac [semanticsPropsTheory.extend_with_resource_limit'_def]
+  \\ pop_assum SUBST1_TAC
+  \\ irule SUBSET_TRANS
+  \\ irule_at Any semanticsPropsTheory.extend_with_resource_limit'_SUBSET
+  \\ irule extend_with_resource_limit_MONO
+  \\ simp [semanticsPropsTheory.semantics_determ_SUBSET_semantics_prog]
+QED
+
+Theorem compile_correct_gen:
+   ∀(st:'ffi semantics$state) (cc:compiler$config) prelude input
+     (mc:(α,β,γ) machine_config) data_sp cbspace.
+    initial_condition st cc mc ⇒
+    case FST (compiler$compile cc prelude input) of
+    | M_failure (ParseError e) => semantics st prelude input = CannotParse
+    | M_failure (TypeError e) => semantics st prelude input = IllTyped
+    | M_failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
+    | M_failure (ConfigError e) => T (* configuration string is malformed *)
+    | M_failure (StaticError e) => T
+    | M_success (code,data,c) =>
+      ∃behaviours source_decs.
+        (semantics st prelude input = Execute behaviours) ∧
+        parse (lexer_fun input) = SOME source_decs ∧
+        ∀ms.
+          installed code cbspace data data_sp c.lab_conf.ffi_names
+            (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms
+            ⇒
+            machine_sem mc st.sem_st.ffi ms ⊆
+              extend_with_resource_limit'
+                (∀po. is_safe_for_space (:α) st.sem_st.ffi po cc
+                        (prelude ++ source_decs) (read_limits cc mc ms))
+                (semantics_prog st.sem_st st.sem_env (prelude ++ source_decs))
+Proof
+  rpt strip_tac
+  \\ drule compile_correct_gen_determ
+  \\ disch_then (qspecl_then [`prelude`,`input`,`data_sp`,`cbspace`] mp_tac)
+  \\ Cases_on `FST (compiler$compile cc prelude input)` \\ simp []
+  \\ PairCases_on `a` \\ rw [] \\ simp []
+  \\ rw [] \\ first_x_assum drule \\ strip_tac
+  \\ irule SUBSET_TRANS \\ first_x_assum $ irule_at Any
+  \\ simp [extend_with_resource_limit'_semantics_prog]
+QED
+
 Theorem compile_correct_lemma:
-  ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace.
+  ∀(ffi:'ffi ffi_state) prelude input (cc:compiler$config)
+    (mc:(α,β,γ) machine_config) data_sp cbspace.
     config_ok cc mc ⇒
     case FST (compiler$compile cc prelude input) of
-    | Failure (ParseError e) => semantics_init ffi prelude input = CannotParse
-    | Failure (TypeError e) => semantics_init ffi prelude input = IllTyped
-    | Failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
-    | Failure (ConfigError e) => T (* configuration string is malformed *)
-    | Success (code,data,c) =>
+    | M_failure (ParseError e) => semantics_init ffi prelude input = CannotParse
+    | M_failure (TypeError e) => semantics_init ffi prelude input = IllTyped
+    | M_failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
+    | M_failure (ConfigError e) => T (* configuration string is malformed *)
+    | M_failure (StaticError e) => T
+    | M_success (code,data,c) =>
       ∃behaviours source_decs.
         (semantics_init ffi prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
@@ -192,9 +251,10 @@ Theorem compile_correct_lemma:
           installed code cbspace data data_sp c.lab_conf.ffi_names (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms ⇒
             machine_sem mc ffi ms ⊆
               extend_with_resource_limit'
-                (is_safe_for_space ffi cc
-                   (prelude ++ source_decs) (read_limits cc mc ms))
-                behaviours
+                (∀po. is_safe_for_space (:α) ffi po cc
+                        (prelude ++ source_decs) (read_limits cc mc ms))
+                (semantics_prog (FST (THE (prim_sem_env ffi)))
+                   (SND (THE (prim_sem_env ffi))) (prelude ++ source_decs))
 Proof
   rw[semantics_init_def]
   \\ qmatch_goalsub_abbrev_tac`semantics$semantics st`
@@ -230,46 +290,38 @@ Proof
 QED
 
 Theorem compile_correct_safe_for_space:
-  ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace code data c c'.
+  ∀(ffi:'ffi ffi_state) prelude input (cc:compiler$config)
+    (mc:(α,β,γ) machine_config) data_sp cbspace code data c c'.
     config_ok cc mc ⇒
-    compiler$compile cc prelude input = (Success (code,data,c), c') ⇒
+    compiler$compile cc prelude input = (M_success (code,data,c), c') ⇒
       ∃behaviours source_decs.
         (semantics_init ffi prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
         ∀ms.
-          is_safe_for_space ffi cc (prelude ++ source_decs)              (* cost semantics *)
-            (read_limits cc mc ms) ∧
+          (∀po. is_safe_for_space (:α) ffi po cc (prelude ++ source_decs)
+            (read_limits cc mc ms)) ∧
           installed code cbspace data data_sp c.lab_conf.ffi_names
             (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms ⇒
-          machine_sem mc ffi ms = behaviours                             (* <-- equality *)
+          machine_sem mc ffi ms ⊆
+            semantics_prog (FST (THE (prim_sem_env ffi)))
+              (SND (THE (prim_sem_env ffi))) (prelude ++ source_decs)
 Proof
   rw [] \\ mp_tac (SPEC_ALL compile_correct_lemma) \\ fs []
   \\ strip_tac \\ fs [] \\ rw []
-  \\ fs [semanticsPropsTheory.extend_with_resource_limit'_def]
   \\ first_x_assum drule
-  \\ fs [semanticsTheory.semantics_init_def]
-  \\ imp_res_tac (MP_CANON semanticsPropsTheory.semantics_deterministic)
-  \\ pop_assum mp_tac
-  \\ impl_tac THEN1
-   (fs [semanticsPropsTheory.state_invariant_def]
-    \\ qspec_then `{}` mp_tac (primSemEnvTheory.prim_type_sound_invariants
-                             |> INST_TYPE [alpha|->``:'ffi``])
-    \\ Cases_on `THE (prim_sem_env ffi)` \\ fs [] \\ metis_tac [])
-  \\ strip_tac \\ rveq \\ fs []
-  \\ `?x. machine_sem mc ffi ms x` by metis_tac [targetPropsTheory.machine_sem_total]
-  \\ fs [SUBSET_DEF,IN_DEF,EXTENSION]
-  \\ metis_tac []
+  \\ fs [semanticsPropsTheory.extend_with_resource_limit'_def]
 QED
 
 Theorem compile_correct = Q.prove(`
-  ∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace.
+  ∀(ffi:'ffi ffi_state) prelude input (cc:compiler$config) mc data_sp cbspace.
     config_ok cc mc ⇒
     case FST (compiler$compile cc prelude input) of
-    | Failure (ParseError e) => semantics_init ffi prelude input = CannotParse
-    | Failure (TypeError e) => semantics_init ffi prelude input = IllTyped
-    | Failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
-    | Failure (ConfigError e) => T (* configuration string is malformed *)
-    | Success (code,data,c) =>
+    | M_failure (ParseError e) => semantics_init ffi prelude input = CannotParse
+    | M_failure (TypeError e) => semantics_init ffi prelude input = IllTyped
+    | M_failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
+    | M_failure (ConfigError e) => T (* configuration string is malformed *)
+    | M_failure (StaticError e) => T
+    | M_success (code,data,c) =>
       ∃behaviours.
         (semantics_init ffi prelude input = Execute behaviours) ∧
         ∀ms.
@@ -281,11 +333,17 @@ Theorem compile_correct = Q.prove(`
              for the one without the ⊆ and extend_with_resource_limit *)`,
   rw [] \\ mp_tac (SPEC_ALL compile_correct_lemma)
   \\ fs [] \\ TOP_CASE_TAC \\ fs []
-  \\ rename [‘(Success a,_)’]
+  \\ rename [‘(M_success a,_)’]
   \\ PairCases_on `a` \\ fs [] \\ strip_tac \\ fs []
   \\ rw [] \\ first_x_assum drule \\ rw []
   \\ match_mp_tac SUBSET_TRANS
-  \\ asm_exists_tac \\ fs [semanticsPropsTheory.extend_with_resource_limit'_SUBSET])
+  \\ asm_exists_tac \\ fs [semanticsPropsTheory.extend_with_resource_limit'_SUBSET]
+  \\ fs [semanticsTheory.semantics_init_def,semanticsTheory.semantics_def]
+  \\ every_case_tac \\ fs []
+  \\ fs [FUN_EQ_THM,semanticsTheory.semantics_prog_def]
+  \\ rw [semanticsPropsTheory.extend_with_resource_limit'_def,
+          semanticsPropsTheory.extend_with_resource_limit_def,SUBSET_DEF,IN_DEF]
+  \\ metis_tac [])
   |> check_thm;
 
 Theorem type_config_ok:
@@ -296,11 +354,13 @@ Proof
       tenv_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def, env_rel_sound_def,
       env_rel_complete_def, init_config_def, primTypesTheory.prim_tenv_def,
       typeSystemTheory.lookup_var_def] >>
-  TRY (Cases_on `x`) >>
-  rw [namespaceTheory.nsLookupMod_def] >>
+  simp [env_rel_mods_def] >>
   simp [primTypesTheory.prim_type_ids_def, inf_set_tids_subset_def] >>
   rpt (
     irule namespacePropsTheory.nsAll_nsBind >>
     rw [unconvert_t_def, inf_set_tids_def,typeSystemTheory.check_freevars_def]) >>
-  rw [typeSystemTheory.prim_type_nums_def]
+  rw [typeSystemTheory.prim_type_nums_def] >>
+  rename1 `nsLookupMod nsEmpty module_path = NONE` >>
+  Cases_on `module_path` >>
+  simp [namespaceTheory.nsLookupMod_def]
 QED

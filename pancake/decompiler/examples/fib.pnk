@@ -1,0 +1,10 @@
+fun fib (1 x) {
+  if (x == 0 ||x == 1) {
+    return 1;
+  }
+  else {
+    var y = fib (x - 1);
+    var z = fib (x - 2);
+    return y + z;
+  }
+}

@@ -3,7 +3,7 @@
 *)
 Theory clos_ticksProof
 Ancestors
-  closProps clos_ticks closSem closLang backendProps
+  closProps clos_ticks closSem backendProps
 Libs
   preamble
 
@@ -133,7 +133,8 @@ Definition state_rel_def:
     LIST_REL (OPTREL v_rel) s.globals t.globals /\
     FMAP_REL ref_rel s.refs t.refs /\
     s.compile = pure_cc compile_inc t.compile /\
-    t.compile_oracle = pure_co compile_inc o s.compile_oracle
+    t.compile_oracle = pure_co compile_inc o s.compile_oracle ∧
+    t.ptr_eq_oracle = s.ptr_eq_oracle
 End
 
 (* eval remove ticks *)
@@ -363,10 +364,10 @@ Proof
   fs [dest_closure_def,case_eq_thms] \\ rw [] \\ fs []
 QED
 
-Theorem v_rel_IMP_v_to_bytes[local]:
-    v_rel x y ==> v_to_bytes y = v_to_bytes x
+Theorem v_rel_IMP_v_to_mlstring[local]:
+    v_rel x y ==> v_to_mlstring y = v_to_mlstring x
 Proof
-  metis_tac [simple_val_rel, closPropsTheory.simple_val_rel_v_to_bytes]
+  metis_tac [simple_val_rel, closPropsTheory.simple_val_rel_v_to_mlstring]
 QED
 
 Theorem v_rel_IMP_v_to_words[local]:
@@ -994,12 +995,12 @@ QED
 
 Theorem semantics_remove_ticks:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (pure_cc compile_inc cc) xs <> Fail ==>
+     co (pure_cc compile_inc cc) pe xs <> Fail ==>
    (∀n. SND (SND (co n)) = []) /\ 1 <= max_app ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (pure_cc compile_inc cc) xs =
+     co (pure_cc compile_inc cc) pe xs =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     (pure_co compile_inc ∘ co) cc
+     (pure_co compile_inc ∘ co) cc pe
      (remove_ticks xs)
 Proof
   (**)
@@ -1009,7 +1010,7 @@ Proof
   \\ drule remove_ticks_correct
   \\ simp [code_rel_def]
   \\ disch_then (qspec_then `initial_state ffi max_app FEMPTY
-                               co (pure_cc compile_inc cc) k` mp_tac)
+                               co (pure_cc compile_inc cc) pe k` mp_tac)
   \\ impl_tac
   THEN1 (fs [state_rel_def, initial_state_def, FMAP_REL_def])
   \\ simp [initial_state_def]

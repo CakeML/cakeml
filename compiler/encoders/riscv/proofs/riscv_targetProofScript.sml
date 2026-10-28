@@ -3,7 +3,7 @@
 *)
 Theory riscv_targetProof
 Ancestors
-  riscv_target
+  riscv_target asmSigned
 Libs
   asmLib riscv_stepLib
 
@@ -157,6 +157,24 @@ Proof
   \\ simp []
 QED
 
+Theorem imm12_lem[local]:
+  !i. -2048 <= i /\ i <= 2047 ==>
+      0xFFFFFFFFFFFFF800w <= (i2w i : word64) /\ (i2w i : word64) <= 0x7FFw /\
+      (-2048 < i ==> 0xFFFFFFFFFFFFF800w < (i2w i : word64))
+Proof
+  rpt strip_tac
+  \\ `w2i (i2w i : word64) = i`
+       by (irule integer_wordTheory.w2i_i2w
+           \\ simp [integer_wordTheory.INT_MIN_def, integer_wordTheory.INT_MAX_def,
+                    wordsTheory.INT_MIN_def, wordsTheory.INT_MAX_def,
+                    wordsTheory.dimword_def, wordsTheory.dimindex_64]
+           \\ intLib.ARITH_TAC)
+  \\ `w2i (0xFFFFFFFFFFFFF800w : word64) = -2048 /\
+      w2i (0x7FFw : word64) = 2047` by EVAL_TAC
+  \\ asm_simp_tac bool_ss [integer_wordTheory.WORD_LEi, integer_wordTheory.WORD_LTi]
+  \\ intLib.ARITH_TAC
+QED
+
 (* appears to not be relevant
 
 Theorem DecodeAny_encode[simp]:
@@ -193,7 +211,9 @@ Proof
 QED
 
 val enc_rwts =
-  [riscv_config, riscv_asm_ok, lem6, word_bit_0_add4] @ encode_rwts @ asmLib.asm_rwts
+  [riscv_config, riscv_asm_ok, asmTheory.arch_width_bits_def,
+   asmTheory.arch_wordsize_def, lem6, word_bit_0_add4, integer_wordTheory.i2w_pos] @
+  encode_rwts @ asmLib.asm_rwts
 
 val enc_ok_rwts =
   [asmPropsTheory.enc_ok_def, riscv_config, riscv_asm_ok] @ encode_rwts
@@ -313,7 +333,9 @@ local
 in
   fun state_tac asm (gs as (asl, _)) =
     let
-      val l = List.mapPartial (Lib.total (fst o markerSyntax.dest_abbrev)) asl
+      val l = List.map fst
+                (List.filter (fn (_, tm) => type_of tm = ``:riscv_state``)
+                  (List.mapPartial (Lib.total markerSyntax.dest_abbrev) asl))
       val (l, x) = Lib.front_last l
     in
       (
@@ -428,7 +450,7 @@ local
      ``aligned 2 w ==> ¬word_bit 0 (w:word64)``,
      fs [alignmentTheory.aligned_bitwise_and] \\ blastLib.BBLAST_TAC)
 in
-  fun next_tac gs =
+  fun next_tac_with finish gs =
     let
       val asm = get_asm (snd gs)
     in
@@ -436,15 +458,16 @@ in
       \\ next_tac_by_instructions
       \\ imp_res_tac aligned_imp_bit_0
       \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
-      \\ state_tac asm
+      \\ finish asm
     end gs
+  val next_tac = next_tac_with state_tac
   fun jc_next_tac c =
     NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
     \\ Cases_on c
     >| [next_tac_by_instructions, jc_next_tac_by_instructions]
     \\ imp_res_tac aligned_imp_bit_0
     \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
-    \\ state_tac ``Inst Skip : 64 asm``
+    \\ state_tac ``Inst Skip : asm``
 end
 
 (* -------------------------------------------------------------------------
@@ -474,25 +497,53 @@ val riscv_encoding = Q.prove (
    )
    |> SIMP_RULE (srw_ss()++boolSimps.LET_ss) [riscv_enc_def]
 
+Theorem offset_i2w_signed[local]:
+  -2147483648 ≤ i ∧ i ≤ 2147481599 ⇒ w2i (i2w i : word64) = i
+Proof
+  strip_tac
+  \\ irule integer_wordTheory.w2i_i2w
+  \\ simp [integer_wordTheory.INT_MIN_def, integer_wordTheory.INT_MAX_def,
+           wordsTheory.INT_MIN_def, wordsTheory.INT_MAX_def,
+           wordsTheory.dimword_def, wordsTheory.dimindex_64]
+  \\ intLib.ARITH_TAC
+QED
+
 Theorem riscv_target_ok[local]:
   target_ok riscv_target
 Proof
   rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
         riscv_proj_def, riscv_target_def, riscv_config, riscv_ok_def,
         set_sepTheory.fun2set_eq, riscv_encoding] @ enc_ok_rwts)
-   >| [Cases_on `-0x100000w <= w1 /\ w1 <= 0xFFFFFw`
-       \\ Cases_on `-0x100000w <= w2 /\ w2 <= 0xFFFFFw`,
-       Cases_on `-0xFFCw <= w1 /\ w1 <= 0xFFFw`
-       \\ Cases_on `-0xFFCw <= w2 /\ w2 <= 0xFFFw`
+   >| [Cases_on `-0x100000w <= (i2w w1 : word64) /\ (i2w w1 : word64) <= 0xFFFFFw`
+       \\ Cases_on `-0x100000w <= (i2w w2 : word64) /\ (i2w w2 : word64) <= 0xFFFFFw`,
+       Cases_on `-0xFFCw <= (i2w w1 : word64) /\ (i2w w1 : word64) <= 0xFFFw`
+       \\ Cases_on `-0xFFCw <= (i2w w2 : word64) /\ (i2w w2 : word64) <= 0xFFFw`
        \\ Cases_on `ri`
        \\ Cases_on `cmp`,
-       Cases_on `-0x100000w <= w1 /\ w1 <= 0xFFFFFw`
-       \\ Cases_on `-0x100000w <= w2 /\ w2 <= 0xFFFFFw`,
+       Cases_on `-0x100000w <= (i2w w1 : word64) /\ (i2w w1 : word64) <= 0xFFFFFw`
+       \\ Cases_on `-0x100000w <= (i2w w2 : word64) /\ (i2w w2 : word64) <= 0xFFFFFw`,
        all_tac
    ]
    \\ full_simp_tac (srw_ss()++boolSimps.LET_ss)
          (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
-   \\ DISCH_THEN kall_tac
+   \\ rw []
+   \\ CCONTR_TAC \\ fs []
+   \\ `w2i (i2w w1 : word64) = w1` by
+        (irule offset_i2w_signed \\ intLib.ARITH_TAC)
+   \\ `w2i (i2w w2 : word64) = w2` by
+        (irule offset_i2w_signed \\ intLib.ARITH_TAC)
+   \\ TRY (`(i2w w1 : word64) ≤ i2w w2` by
+        fs [integer_wordTheory.WORD_LEi, integer_wordTheory.word_0_w2i])
+   \\ TRY (`(i2w w2 : word64) ≤ i2w w1` by
+        fs [integer_wordTheory.WORD_LEi, integer_wordTheory.word_0_w2i])
+   \\ TRY (`0w ≤ (i2w w1 : word64)` by
+        fs [integer_wordTheory.WORD_LEi, integer_wordTheory.word_0_w2i])
+   \\ TRY (`0w ≤ (i2w w2 : word64)` by
+        fs [integer_wordTheory.WORD_LEi, integer_wordTheory.word_0_w2i])
+   \\ TRY (`(i2w w1 : word64) < 0w` by
+        fs [integer_wordTheory.WORD_LTi, integer_wordTheory.word_0_w2i])
+   \\ TRY (`(i2w w2 : word64) < 0w` by
+        fs [integer_wordTheory.WORD_LTi, integer_wordTheory.word_0_w2i])
    \\ blastLib.FULL_BBLAST_TAC
 QED
 
@@ -509,6 +560,26 @@ Proof
   blastLib.FULL_BBLAST_TAC
 QED
 
+Theorem signed_mul_sltu_64[local]:
+  (v2w [0w <+ ((a * b : word64) >> 63 ??
+                  (127 >< 64) ((sw2sw a : word128) * sw2sw b))] : word64) =
+  if w2i (a * b) <> w2i a * w2i b then 1w else 0w
+Proof
+  `!lo hi : word64. (lo ?? hi = 0w) <=> hi = lo` by
+    blastLib.BBLAST_TAC
+  \\ simp [wordsTheory.WORD_LO_word_0,
+           asmSignedTheory.signed_mul_high_64, bitstringTheory.v2w_thm]
+QED
+
+Theorem riscv_reg_read_64[local]:
+  target_state_rel riscv_target s ms ==>
+  !r. reg_ok r riscv_config ==>
+      s.regs r = ms.c_gpr ms.procID (n2w r)
+Proof
+  rw [asmPropsTheory.sym_target_state_rel, riscv_target_def,
+      asmTheory.reg_ok_def]
+QED
+
 Theorem riscv_encoder_correct:
     encoder_correct riscv_target
 Proof
@@ -517,23 +588,33 @@ Proof
    \\ rw [riscv_target_def, riscv_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
    \\ Cases_on `i`
-   >- (
-      (*--------------
-          Inst
-        --------------*)
-      Cases_on `i'`
-      >- (
-         (*--------------
-             Skip
-           --------------*)
-         print_tac "Skip"
+   >- suspend "Inst"
+
+   >- suspend "Jump"
+   >- suspend "JumpCmp"
+
+   >- suspend "Call"
+   >- suspend "JumpReg"
+   >- suspend "Loc"
+QED
+
+Resume riscv_encoder_correct[Inst]:
+  Cases_on `i'`
+  >- suspend "Skip"
+  >- suspend "Const"
+  >- suspend "Arith"
+  >- suspend "Mem"
+  >- suspend "FP"
+QED
+
+Resume riscv_encoder_correct[Skip]:
+  print_tac "Skip"
          \\ next_tac
-         )
-      >- (
-         (*--------------
-             Const
-           --------------*)
-         print_tac "Const"
+QED
+
+Resume riscv_encoder_correct[Const]:
+  print_tac "Const"
+  \\ qabbrev_tac `c = (i2w i : word64)`
          \\ Cases_on `c = sw2sw ((11 >< 0) c : word12)`
          >- next_tac
          \\ Cases_on `((63 >< 32) c = 0w: word32) /\ ~c ' 31 \/
@@ -543,29 +624,118 @@ Proof
          \\ Cases_on `c ' 43`
          \\ Cases_on `c ' 11`
          \\ next_tac
-         )
-      >- (
-         (*--------------
-             Arith
-           --------------*)
-         Cases_on `a`
-         >- (
-            (*--------------
-                Binop
-              --------------*)
-            print_tac "Binop"
+QED
+
+Resume riscv_encoder_correct[Arith]:
+  Cases_on `a`
+         >~ [`asm$IMul rd ra rb ro`] >- suspend "IMul"
+         >~ [`asm$IDiv rq rr ra rb`] >- suspend "IDiv"
+         >- suspend "Binop"
+         >- suspend "Shift"
+         >- suspend "Div"
+         >- suspend "LongMul"
+         >- suspend "LongDiv"
+         >- suspend "AddCarry"
+         >- suspend "AddOverflow"
+         >- suspend "SubOverflow"
+QED
+
+Resume riscv_encoder_correct[IMul]:
+  next_tac_with (fn _ => all_tac)
+  \\ assume_tac (Q.ISPECL [`ms.c_gpr ms.procID (n2w ra)`,
+                           `ms.c_gpr ms.procID (n2w rb)`]
+                          (GEN_ALL signed_mul_sltu_64))
+  \\ state_tac ``Inst (Arith (IMul rd ra rb ro)) : asm``
+  \\ qpat_x_assum `w2i _ * w2i _ <> w2i _ * w2i _`
+       (CONTR_TAC o SIMP_RULE std_ss [integerTheory.INT_MUL_COMM])
+QED
+
+Resume riscv_encoder_correct[IDiv]:
+  `ms.c_gpr ms.procID (n2w rb) <> 0w` by (
+    qpat_x_assum `~(asm _ _ _).failed` mp_tac
+    \\ simp (integer_wordTheory.w2i_eq_0 :: asmLib.asm_rwts)
+    \\ rpt strip_tac
+    \\ qpat_x_assum `w2i (i2w _) = _` kall_tac
+    \\ qpat_x_assum `bytes_in_memory _ _ _ _` kall_tac
+    \\ qpat_assum `target_state_rel riscv_target s1 ms`
+         (assume_tac o Q.SPEC `rb` o MATCH_MP riscv_reg_read_64)
+    \\ qpat_assum `asm_ok _ _`
+         (strip_assume_tac o REWRITE_RULE
+           [asmTheory.asm_ok_def, asmTheory.inst_ok_def, asmTheory.arith_ok_def])
+    \\ qpat_x_assum `reg_ok rb riscv_config ==> _` (fn eq =>
+         qpat_assum `reg_ok rb riscv_config` (mp_tac o MATCH_MP eq))
+    \\ asm_rewrite_tac [])
+  \\ Cases_on `rq = ra \/ rq = rb`
+  >- (
+    NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
+    \\ qpat_x_assum `w2i (i2w _) = _ /\ _` strip_assume_tac
+    \\ qpat_x_assum `w2i (i2w _) = _` kall_tac
+    \\ qpat_x_assum `rq = ra \/ rq = rb` kall_tac
+    \\ qexists_tac `2`
+    \\ simp [asmPropsTheory.asserts_eval, asmPropsTheory.asserts2_eval,
+             set_sepTheory.fun2set_eq, asmPropsTheory.interference_ok_def,
+             riscv_proj_def]
+    \\ NTAC 2 strip_tac
+    \\ drule bytes_in_memory_IMP_all_pcs_MEM8
+    \\ disch_then (qspec_then `env` mp_tac)
+    \\ simp []
+    \\ strip_tac
+    \\ NTAC 2 (split_bytes_in_memory_tac 4)
+    \\ next_state_tac
+    \\ next_state_tac
+    \\ next_state_tac
+    \\ qpat_assum `ms.c_gpr ms.procID (n2w rb) <> 0w` (fn nz =>
+         MAP_EVERY assume_tac
+           (map (fn th => MATCH_MP
+             (Q.ISPECL [`ms.c_gpr ms.procID (n2w ra)`,
+                        `ms.c_gpr ms.procID (n2w rb)`] th) nz)
+             [integer_wordTheory.word_quot, integer_wordTheory.word_rem]))
+    \\ state_tac ``Inst (Arith (IDiv rq rr ra rb)) : asm``)
+  \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
+  \\ qpat_x_assum `w2i (i2w _) = _ /\ _` strip_assume_tac
+  \\ qpat_x_assum `w2i (i2w _) = _` kall_tac
+  \\ qexists_tac `1`
+  \\ simp_tac (srw_ss()++boolSimps.LET_ss)
+       [asmPropsTheory.asserts_eval, asmPropsTheory.asserts2_eval,
+        set_sepTheory.fun2set_eq, asmPropsTheory.interference_ok_def,
+        riscv_proj_def]
+  \\ NTAC 2 strip_tac
+  \\ qpat_assum `!i st. _ /\ _` (fn th =>
+       assume_tac (GENL (fst (strip_forall (concl th)))
+         (CONJUNCT1 (funpow 5 CONJUNCT2 (SPEC_ALL th)))))
+  \\ qpat_assum `bytes_in_memory _ _ _ _` (fn bytes =>
+    qpat_assum `!i st a. a IN s1.mem_domain ==> _`
+      (assume_tac o MATCH_MP bytes_in_memory_IMP_all_pcs_MEM8 o CONJ bytes))
+  \\ split_bytes_in_memory_tac 4
+  \\ next_state_tac
+  \\ next_state_tac
+  \\ qpat_assum `ms.c_gpr ms.procID (n2w rb) <> 0w` (fn nz =>
+       MAP_EVERY assume_tac
+         (map (fn th => MATCH_MP
+           (Q.ISPECL [`ms.c_gpr ms.procID (n2w ra)`,
+                      `ms.c_gpr ms.procID (n2w rb)`] th) nz)
+           [integer_wordTheory.word_quot, integer_wordTheory.word_rem]))
+  \\ state_tac ``Inst (Arith (IDiv rq rr ra rb)) : asm``
+QED
+
+Resume riscv_encoder_correct[Binop]:
+  print_tac "Binop"
             \\ Cases_on `r`
+            >- (Cases_on `b` \\ next_tac)
+            \\ mp_tac (Q.SPEC `i` imm12_lem)
+            \\ impl_tac >- (Cases_on `b` \\ fs enc_rwts \\ intLib.ARITH_TAC)
+            \\ strip_tac
             \\ Cases_on `b`
             \\ next_tac
-            )
-         >- (
-            (*--------------
-                Shift
-              --------------*)
-            print_tac "Shift"
+QED
+
+Resume riscv_encoder_correct[Shift]:
+  print_tac "Shift"
             \\ reverse(Cases_on`r`)
             >- (
-              Cases_on `s`
+              `?nn. i = &nn` by (fs enc_rwts \\ qexists_tac `Num i` \\ intLib.ARITH_TAC)
+              \\ gvs []
+              \\ Cases_on `s`
               \\ next_tac)
             >- (
               Cases_on`s = Ror`
@@ -617,129 +787,331 @@ Proof
                     simp[word_extract_6,wordsTheory.w2w_def,wordsTheory.WORD_LO]
                 \\ Cases_on `s`
                 \\ next_tac))
-            )
-         >- (
-            (*--------------
-                Div
-              --------------*)
-            print_tac "Div"
-            \\ next_tac
-            )
-         >- (
-            (*--------------
-                LongMul
-              --------------*)
-            print_tac "LongMul"
-            \\ next_tac
-            )
-         >- (
-            (*--------------
-                LongDiv
-              --------------*)
-            print_tac "LongDiv"
-            \\ next_tac
-            )
-         >- (
-            (*--------------
-                AddCarry
-              --------------*)
-            print_tac "AddCarry"
-            \\ next_tac
-            )
-         >- (
-            (*--------------
-                AddOverflow
-              --------------*)
-            print_tac "AddOverflow"
-            \\ next_tac
-            )
-         >- (
-            (*--------------
-                SubOverflow
-              --------------*)
-            print_tac "SubOverflow"
-            \\ next_tac
-            )
-         )
-         >- (
-            (*--------------
-                Mem
-              --------------*)
-            print_tac "Mem"
-            \\ Cases_on `a`
-            \\ Cases_on `m`
-            \\ next_tac
-            )
-         (*--------------
-             FP
-           --------------*)
-         \\ print_tac "FP"
-         \\ Cases_on `f`
-         \\ next_tac
-      ) (* close Inst *)
-      (*--------------
-          Jump
-        --------------*)
-   >- (
-      print_tac "Jump"
-      \\ Cases_on `-0x100000w <= c /\ c <= 0xFFFFFw`
-      \\ next_tac
-      )
-   >- (
-      (*--------------
-          JumpCmp
-        --------------*)
-      print_tac "JumpCmp"
-      \\ Cases_on `-0xFFCw <= c0 /\ c0 <= 0xFFFw`
-      >- (Cases_on `r`
-          \\ Cases_on `c`
-          \\ next_tac)
-      \\ Cases_on `r`
-      \\ Cases_on `c`
-      >| [
-        jc_next_tac `ms.c_gpr ms.procID (n2w n) = ms.c_gpr ms.procID (n2w n')`,
-        jc_next_tac `ms.c_gpr ms.procID (n2w n) <+ ms.c_gpr ms.procID (n2w n')`,
-        jc_next_tac `ms.c_gpr ms.procID (n2w n) < ms.c_gpr ms.procID (n2w n')`,
-        jc_next_tac `(ms.c_gpr ms.procID (n2w n) &&
-                      ms.c_gpr ms.procID (n2w n')) = 0w`,
-        jc_next_tac `ms.c_gpr ms.procID (n2w n) <> ms.c_gpr ms.procID (n2w n')`,
-        jc_next_tac `~(ms.c_gpr ms.procID (n2w n) <+
-                       ms.c_gpr ms.procID (n2w n'))`,
-        jc_next_tac `~(ms.c_gpr ms.procID (n2w n) <
-                       ms.c_gpr ms.procID (n2w n'))`,
-        jc_next_tac `(ms.c_gpr ms.procID (n2w n) &&
-                      ms.c_gpr ms.procID (n2w n')) <> 0w`,
-        jc_next_tac `ms.c_gpr ms.procID (n2w n) = c'`,
-        jc_next_tac `ms.c_gpr ms.procID (n2w n) <+ c'`,
-        jc_next_tac `ms.c_gpr ms.procID (n2w n) < c'`,
-        jc_next_tac `(ms.c_gpr ms.procID (n2w n) && c') = 0w`,
-        jc_next_tac `ms.c_gpr ms.procID (n2w n) <> c'`,
-        jc_next_tac `~(ms.c_gpr ms.procID (n2w n) <+ c')`,
-        jc_next_tac `~(ms.c_gpr ms.procID (n2w n) < c')`,
-        jc_next_tac `(ms.c_gpr ms.procID (n2w n) && c') <> 0w`
-      ]
-      )
-      (*--------------
-          Call
-        --------------*)
-   >- (
-      print_tac "Call"
-      \\ Cases_on `-0x100000w <= c /\ c <= 0xFFFFFw`
-      \\ next_tac
-      )
-   >- (
-      (*--------------
-          JumpReg
-        --------------*)
-      print_tac "JumpReg"
-      \\ next_tac
-      )
-   >- (
-      (*--------------
-          Loc
-        --------------*)
-      print_tac "Loc"
-      \\ next_tac
-      )
 QED
 
+Resume riscv_encoder_correct[Div]:
+  print_tac "Div"
+            \\ next_tac
+QED
+
+Resume riscv_encoder_correct[LongMul]:
+  print_tac "LongMul"
+            \\ next_tac
+QED
+
+Resume riscv_encoder_correct[LongDiv]:
+  print_tac "LongDiv"
+            \\ next_tac
+QED
+
+Resume riscv_encoder_correct[AddCarry]:
+  print_tac "AddCarry"
+            \\ next_tac
+QED
+
+Resume riscv_encoder_correct[AddOverflow]:
+  print_tac "AddOverflow"
+            \\ next_tac
+QED
+
+Resume riscv_encoder_correct[SubOverflow]:
+  print_tac "SubOverflow"
+            \\ next_tac
+QED
+
+Resume riscv_encoder_correct[Mem]:
+  print_tac "Mem"
+            \\ Cases_on `a`
+            \\ mp_tac (Q.SPEC `i` imm12_lem)
+            \\ impl_tac
+            >- (fs (riscv_config :: asmLib.asm_ok_rwts) \\ intLib.ARITH_TAC)
+            \\ strip_tac
+            \\ Cases_on `m`
+            \\ next_tac
+QED
+
+Resume riscv_encoder_correct[FP]:
+  print_tac "FP"
+  \\ Cases_on `f`
+  \\ next_tac
+QED
+
+Theorem aligned_i2w[local]:
+  4 int_divides i ⇒ aligned 2 (i2w i : word64)
+Proof
+  rw [integerTheory.INT_DIVIDES]
+  \\ simp [GSYM integer_wordTheory.word_i2w_mul, integer_wordTheory.i2w_pos,
+           alignmentTheory.aligned_bitwise_and]
+  \\ blastLib.BBLAST_TAC
+QED
+
+Theorem branch_offset_i2w[local]:
+  (-2147483648 ≤ i ∧ i ≤ 2147481599 ∧ 4 int_divides i ⇒
+    0xFFFFFFFF80000000w ≤ (i2w i : word64) ∧
+    (i2w i : word64) ≤ 0x7FFFF7FFw ∧ aligned 2 (i2w i : word64)) ∧
+  (-1048568 ≤ i ∧ i ≤ 1048579 ∧ 4 int_divides i ⇒
+    0xFFFFFFFFFFF00008w ≤ (i2w i : word64) ∧
+    (i2w i : word64) ≤ 0x100003w ∧ aligned 2 (i2w i : word64))
+Proof
+  conj_tac \\ strip_tac
+  \\ `w2i (i2w i : word64) = i` by
+       (irule offset_i2w_signed \\ intLib.ARITH_TAC)
+  \\ fs ([integer_wordTheory.WORD_LEi, aligned_i2w] @
+         map EVAL [``w2i (0xFFFFFFFF80000000w : word64)``,
+                   ``w2i (0x7FFFF7FFw : word64)``,
+                   ``w2i (0xFFFFFFFFFFF00008w : word64)``,
+                   ``w2i (0x100003w : word64)``])
+QED
+
+Resume riscv_encoder_correct[Jump]:
+  qmatch_goalsub_rename_tac `riscv_enc (Jump off)`
+  \\ qabbrev_tac `c = (i2w off : word64)`
+  \\ `0xFFFFFFFF80000000w ≤ c ∧ c ≤ 0x7FFFF7FFw ∧ aligned 2 c` by
+       (qunabbrev_tac `c`
+        \\ irule (CONJUNCT1 branch_offset_i2w)
+        \\ fs (riscv_config :: asmLib.asm_ok_rwts))
+  \\   print_tac "Jump"
+      \\ Cases_on `-0x100000w <= c /\ c <= 0xFFFFFw`
+      \\ next_tac
+QED
+
+Resume riscv_encoder_correct[JumpCmp]:
+  qmatch_goalsub_rename_tac `riscv_enc (JumpCmp c n r off)`
+  \\ qabbrev_tac `c0 = (i2w off : word64)`
+  \\ `0xFFFFFFFFFFF00008w ≤ c0 ∧ c0 ≤ 0x100003w ∧ aligned 2 c0` by
+       (qunabbrev_tac `c0`
+        \\ irule (CONJUNCT2 branch_offset_i2w)
+        \\ fs (riscv_config :: asmLib.asm_ok_rwts))
+  \\ print_tac "JumpCmp"
+  \\ Cases_on `-0xFFCw <= c0 /\ c0 <= 0xFFFw`
+  >~ [`~(-0xFFCw <= _ /\ _ <= 0xFFFw)`] >- suspend "CmpLarge"
+  >~ [`-0xFFCw <= _ /\ _ <= 0xFFFw`] >- suspend "CmpSmall"
+QED
+
+Resume riscv_encoder_correct[CmpSmall]:
+  Cases_on `r`
+  >~ [`asm$Reg _`] >- suspend "CmpSmallReg"
+  >~ [`asm$Imm _`] >- suspend "CmpSmallImm"
+QED
+
+Resume riscv_encoder_correct[CmpSmallReg]:
+  Cases_on `c`
+  >| [suspend "CmpSmallRegEqual",
+      suspend "CmpSmallRegLower",
+      suspend "CmpSmallRegLess",
+      suspend "CmpSmallRegTest",
+      suspend "CmpSmallRegNotEqual",
+      suspend "CmpSmallRegNotLower",
+      suspend "CmpSmallRegNotLess",
+      suspend "CmpSmallRegNotTest"]
+QED
+
+Resume riscv_encoder_correct[CmpSmallRegEqual]:
+  next_tac
+QED
+
+Resume riscv_encoder_correct[CmpSmallRegLower]:
+  next_tac
+QED
+
+Resume riscv_encoder_correct[CmpSmallRegLess]:
+  next_tac
+QED
+
+Resume riscv_encoder_correct[CmpSmallRegTest]:
+  next_tac
+QED
+
+Resume riscv_encoder_correct[CmpSmallRegNotEqual]:
+  next_tac
+QED
+
+Resume riscv_encoder_correct[CmpSmallRegNotLower]:
+  next_tac
+QED
+
+Resume riscv_encoder_correct[CmpSmallRegNotLess]:
+  next_tac
+QED
+
+Resume riscv_encoder_correct[CmpSmallRegNotTest]:
+  next_tac
+QED
+
+Resume riscv_encoder_correct[CmpSmallImm]:
+  mp_tac (Q.SPEC `i` imm12_lem)
+  \\ impl_tac >- (fs enc_rwts \\ intLib.ARITH_TAC)
+  \\ strip_tac
+  \\ Cases_on `c`
+  >| [suspend "CmpSmallImmEqual",
+      suspend "CmpSmallImmLower",
+      suspend "CmpSmallImmLess",
+      suspend "CmpSmallImmTest",
+      suspend "CmpSmallImmNotEqual",
+      suspend "CmpSmallImmNotLower",
+      suspend "CmpSmallImmNotLess",
+      suspend "CmpSmallImmNotTest"]
+QED
+
+Resume riscv_encoder_correct[CmpSmallImmEqual]:
+  next_tac
+QED
+
+Resume riscv_encoder_correct[CmpSmallImmLower]:
+  next_tac
+QED
+
+Resume riscv_encoder_correct[CmpSmallImmLess]:
+  next_tac
+QED
+
+Resume riscv_encoder_correct[CmpSmallImmTest]:
+  next_tac
+QED
+
+Resume riscv_encoder_correct[CmpSmallImmNotEqual]:
+  next_tac
+QED
+
+Resume riscv_encoder_correct[CmpSmallImmNotLower]:
+  next_tac
+QED
+
+Resume riscv_encoder_correct[CmpSmallImmNotLess]:
+  next_tac
+QED
+
+Resume riscv_encoder_correct[CmpSmallImmNotTest]:
+  next_tac
+QED
+
+Resume riscv_encoder_correct[CmpLarge]:
+  Cases_on `r`
+  >~ [`asm$Reg _`] >- suspend "CmpLargeReg"
+  >~ [`asm$Imm _`] >- suspend "CmpLargeImm"
+QED
+
+Resume riscv_encoder_correct[CmpLargeReg]:
+  Cases_on `c`
+  >| [suspend "CmpLargeRegEqual",
+      suspend "CmpLargeRegLower",
+      suspend "CmpLargeRegLess",
+      suspend "CmpLargeRegTest",
+      suspend "CmpLargeRegNotEqual",
+      suspend "CmpLargeRegNotLower",
+      suspend "CmpLargeRegNotLess",
+      suspend "CmpLargeRegNotTest"]
+QED
+
+Resume riscv_encoder_correct[CmpLargeRegEqual]:
+  jc_next_tac `ms.c_gpr ms.procID (n2w n) = ms.c_gpr ms.procID (n2w n')`
+QED
+
+Resume riscv_encoder_correct[CmpLargeRegLower]:
+  jc_next_tac `ms.c_gpr ms.procID (n2w n) <+ ms.c_gpr ms.procID (n2w n')`
+QED
+
+Resume riscv_encoder_correct[CmpLargeRegLess]:
+  jc_next_tac `ms.c_gpr ms.procID (n2w n) < ms.c_gpr ms.procID (n2w n')`
+QED
+
+Resume riscv_encoder_correct[CmpLargeRegTest]:
+  jc_next_tac `(ms.c_gpr ms.procID (n2w n) &&
+                      ms.c_gpr ms.procID (n2w n')) = 0w`
+QED
+
+Resume riscv_encoder_correct[CmpLargeRegNotEqual]:
+  jc_next_tac `ms.c_gpr ms.procID (n2w n) <> ms.c_gpr ms.procID (n2w n')`
+QED
+
+Resume riscv_encoder_correct[CmpLargeRegNotLower]:
+  jc_next_tac `~(ms.c_gpr ms.procID (n2w n) <+
+                       ms.c_gpr ms.procID (n2w n'))`
+QED
+
+Resume riscv_encoder_correct[CmpLargeRegNotLess]:
+  jc_next_tac `~(ms.c_gpr ms.procID (n2w n) <
+                       ms.c_gpr ms.procID (n2w n'))`
+QED
+
+Resume riscv_encoder_correct[CmpLargeRegNotTest]:
+  jc_next_tac `(ms.c_gpr ms.procID (n2w n) &&
+                      ms.c_gpr ms.procID (n2w n')) <> 0w`
+QED
+
+Resume riscv_encoder_correct[CmpLargeImm]:
+  mp_tac (Q.SPEC `i` imm12_lem)
+  \\ impl_tac >- (fs enc_rwts \\ intLib.ARITH_TAC)
+  \\ strip_tac
+  \\ Cases_on `c`
+  >| [suspend "CmpLargeImmEqual",
+      suspend "CmpLargeImmLower",
+      suspend "CmpLargeImmLess",
+      suspend "CmpLargeImmTest",
+      suspend "CmpLargeImmNotEqual",
+      suspend "CmpLargeImmNotLower",
+      suspend "CmpLargeImmNotLess",
+      suspend "CmpLargeImmNotTest"]
+QED
+
+Resume riscv_encoder_correct[CmpLargeImmEqual]:
+  jc_next_tac `ms.c_gpr ms.procID (n2w n) = (i2w i : word64)`
+QED
+
+Resume riscv_encoder_correct[CmpLargeImmLower]:
+  jc_next_tac `ms.c_gpr ms.procID (n2w n) <+ (i2w i : word64)`
+QED
+
+Resume riscv_encoder_correct[CmpLargeImmLess]:
+  jc_next_tac `ms.c_gpr ms.procID (n2w n) < (i2w i : word64)`
+QED
+
+Resume riscv_encoder_correct[CmpLargeImmTest]:
+  jc_next_tac `(ms.c_gpr ms.procID (n2w n) && (i2w i : word64)) = 0w`
+QED
+
+Resume riscv_encoder_correct[CmpLargeImmNotEqual]:
+  jc_next_tac `ms.c_gpr ms.procID (n2w n) <> (i2w i : word64)`
+QED
+
+Resume riscv_encoder_correct[CmpLargeImmNotLower]:
+  jc_next_tac `~(ms.c_gpr ms.procID (n2w n) <+ (i2w i : word64))`
+QED
+
+Resume riscv_encoder_correct[CmpLargeImmNotLess]:
+  jc_next_tac `~(ms.c_gpr ms.procID (n2w n) < (i2w i : word64))`
+QED
+
+Resume riscv_encoder_correct[CmpLargeImmNotTest]:
+  jc_next_tac `(ms.c_gpr ms.procID (n2w n) && (i2w i : word64)) <> 0w`
+QED
+
+Resume riscv_encoder_correct[Call]:
+  qmatch_goalsub_rename_tac `riscv_enc (Call off)`
+  \\ qabbrev_tac `c = (i2w off : word64)`
+  \\ `0xFFFFFFFF80000000w ≤ c ∧ c ≤ 0x7FFFF7FFw ∧ aligned 2 c` by
+       (qunabbrev_tac `c`
+        \\ irule (CONJUNCT1 branch_offset_i2w)
+        \\ fs (riscv_config :: asmLib.asm_ok_rwts))
+  \\   print_tac "Call"
+      \\ Cases_on `-0x100000w <= c /\ c <= 0xFFFFFw`
+      \\ next_tac
+QED
+
+Resume riscv_encoder_correct[JumpReg]:
+  print_tac "JumpReg"
+      \\ next_tac
+QED
+
+Resume riscv_encoder_correct[Loc]:
+  qmatch_goalsub_rename_tac `riscv_enc (Loc n off)`
+  \\ qabbrev_tac `c = (i2w off : word64)`
+  \\ `0xFFFFFFFF80000000w ≤ c ∧ c ≤ 0x7FFFF7FFw ∧ aligned 2 c` by
+       (qunabbrev_tac `c`
+        \\ irule (CONJUNCT1 branch_offset_i2w)
+        \\ fs (riscv_config :: asmLib.asm_ok_rwts))
+  \\   print_tac "Loc"
+      \\ next_tac
+QED
+
+Finalise riscv_encoder_correct;

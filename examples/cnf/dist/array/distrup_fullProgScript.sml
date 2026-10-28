@@ -5,7 +5,7 @@ Theory distrup_fullProg
 Libs
   preamble basis wordsLib
 Ancestors
-  distrup_list distrup_arrayProg words cfHeapsBase cv_std byte
+  distrup_list ccnf_arith distrup_arrayProg words cfHeapsBase cv_std byte
 
 val _ = hide_environments true;
 
@@ -15,10 +15,10 @@ val _ = translation_extends "distrup_arrayProg";
 Definition string_to_num_def:
   string_to_num s =
   let
-    b0 = &ORD (strsub s 0);
-    b1 = &ORD (strsub s 1);
-    b2 = &ORD (strsub s 2);
-    b3 = &ORD (strsub s 3)
+    b0 = &ORD (strsub_unsafe s 0);
+    b1 = &ORD (strsub_unsafe s 1);
+    b2 = &ORD (strsub_unsafe s 2);
+    b3 = &ORD (strsub_unsafe s 3)
   in
     b0 + b1 * 256 + b2 * 65536 + b3 * (16777216:num)
 End
@@ -41,32 +41,38 @@ Quote add_cakeml:
   (* Little-endian: read 4 bytes as signed int starting at index i *)
   fun get_int arr i =
     let
-      val b3 = get_byte arr (i+3)
-      val raw = get_byte arr i +
-                get_byte arr (i+1) * 256 +
-                get_byte arr (i+2) * 65536 +
-                b3 * 16777216
+      val b3 = get_byte arr (Unsafe.Arith.addWitness i 3 arr)
+      val lo = Unsafe.Arith.+ (get_byte arr i)
+                 (Unsafe.Arith.+
+                   (Unsafe.Arith.* (get_byte arr (Unsafe.Arith.addWitness i 1 arr)) 256)
+                   (Unsafe.Arith.* (get_byte arr (Unsafe.Arith.addWitness i 2 arr)) 65536))
+      val raw = lo + b3 * 16777216
     in
-      if b3 >= 128
+      if Unsafe.Arith.>= b3 128
       then raw - 4294967296
       else raw
     end;
 
   fun read_ints arr len i =
-    if i >= len then [] else get_int arr (i * 4) :: read_ints arr len (i + 1);
+    if Unsafe.Arith.geWitness i len arr then []
+    else get_int arr (Unsafe.Arith.mulWitness i 4 arr) ::
+      read_ints arr len (Unsafe.Arith.addWitness i 1 arr);
 
   fun get_u64 arr i =
-    get_byte arr i +
-    get_byte arr (i+1) * 256 +
-    get_byte arr (i+2) * 65536 +
-    get_byte arr (i+3) * 16777216 +
-    get_byte arr (i+4) * 4294967296 +
-    get_byte arr (i+5) * 1099511627776 +
-    get_byte arr (i+6) * 281474976710656 +
-    get_byte arr (i+7) * 72057594037927936;
+    Unsafe.Arith.+ (get_byte arr i)
+      (Unsafe.Arith.+
+        (Unsafe.Arith.* (get_byte arr (Unsafe.Arith.addWitness i 1 arr)) 256)
+        (Unsafe.Arith.* (get_byte arr (Unsafe.Arith.addWitness i 2 arr)) 65536)) +
+    get_byte arr (Unsafe.Arith.addWitness i 3 arr) * 16777216 +
+    get_byte arr (Unsafe.Arith.addWitness i 4 arr) * 4294967296 +
+    get_byte arr (Unsafe.Arith.addWitness i 5 arr) * 1099511627776 +
+    get_byte arr (Unsafe.Arith.addWitness i 6 arr) * 281474976710656 +
+    get_byte arr (Unsafe.Arith.addWitness i 7 arr) * 72057594037927936;
 
   fun read_ids arr len i =
-    if i >= len then [] else get_u64 arr (i * 8) :: read_ids arr len (i + 1);
+    if Unsafe.Arith.geWitness i len arr then []
+    else get_u64 arr (Unsafe.Arith.mulWitness i 8 arr) ::
+      read_ids arr len (Unsafe.Arith.addWitness i 1 arr);
 
   fun ensure_size buf_arr needed =
     if Word8Array.length buf_arr < needed
@@ -111,7 +117,7 @@ Quote add_cakeml:
   fun parse_step step_arr buf_arr =
     let
       val _ = #(step) "" step_arr
-      val c = Char.fromByte (Word8Array.sub step_arr 0)
+      val c = Char.fromByte (Unsafe.w8sub step_arr 0)
     in
       case c of
         #"a" => (* PRODUCE *)
@@ -207,16 +213,15 @@ fun main () =
   let
     val step_arr = Word8Array.array 17 (Word8.fromInt 0)
     val buf_arr = Word8Array.array 0 (Word8.fromInt 0)
-    val fml = Array.array 4096 None
-    val carr = Word8Array.array 1024 (Word8.fromInt 0)
-    val b = Word8.fromInt 1
+    val fml = Array.array 4096 vcc_none
+    val carr = Array.array 1024 0
   in
-    loop step_arr buf_arr (Some (fml, carr, b)) 1
+    loop step_arr buf_arr (Some (fml, carr, 1)) 1
   end;
 
 End
 
-val main_call = ``Dlet unknown_loc Pany (App Opapp [Var (Short «main»); Con NONE []]) ``;;
+val main_call = ``Dlet NoLocs Pany (App Opapp [Var (Short «main»); Con NONE []]) ``;;
 
 val prog = get_ml_prog_state () |> get_prog;
 
@@ -468,7 +473,8 @@ End
 
 Definition is_final_event_def:
   is_final_event event ⇔
-    ∃xs. event = IO_event (ExtCall «step») [] xs ∧
+    ∃xs. LENGTH xs = 17 ∧
+         event = IO_event (ExtCall «step») [] xs ∧
          SND (HD xs) ∉  {n2w (ORD #"a"); n2w (ORD #"i"); n2w (ORD #"d"); n2w (ORD #"V")}
 End
 
@@ -630,17 +636,33 @@ Theorem get_u64_spec:
           cond (NUM (bytes_to_num (TAKE 8 (DROP k xs))) res))
 Proof
   rw[]>>
+  `TAKE 8 (DROP k xs) =
+    [xs❲k❳;xs❲k+1❳;xs❲k+2❳;xs❲k+3❳;xs❲k+4❳;xs❲k+5❳;xs❲k+6❳;xs❲k+7❳]` by
+      (rw[LIST_EQ_REWRITE,EL_TAKE,EL_DROP]>>
+      fs[NUMERAL_LESS_THM ])>>
   xcf_with_def (fetch "-" "get_u64_v_def") >>
-  rpt (xlet_auto >> xsimpl) >>
+  rpt (
+    xlet_auto_spec (SOME num_add_w8_spec)
+    >- xsimpl >>
+    xlet_auto >>
+    xlet_autop) >>
+  ‘w2n xs❲k❳ < 256 ∧ w2n xs❲k+1❳ < 256 ∧ w2n xs❲k+2❳ < 256’ by
+    simp[miscTheory.w2n_lt_256]>>
+  rpt (
+    xlet_auto_spec (SOME num_add_w8_spec)
+    >- xsimpl >>
+    xlet_auto >>
+    xlet_auto_spec (SOME num_mul_spec)
+    >- (xsimpl >> gvs[])) >>
+  xlet_auto_spec (SOME num_add_spec) >- (xsimpl >> gvs[]) >>
+  xlet_auto >>
+  xlet_auto_spec (SOME num_add_spec) >- (xsimpl >> gvs[]) >>
+  rpt xlet_autop >>
   xapp>>xsimpl>>
   gvs[NUM_def]>>
   first_x_assum $ irule_at Any>>
   first_x_assum $ irule_at Any>>
   rw[]>>
-  `TAKE 8 (DROP k xs) =
-    [xs❲k❳;xs❲k+1❳;xs❲k+2❳;xs❲k+3❳;xs❲k+4❳;xs❲k+5❳;xs❲k+6❳;xs❲k+7❳]` by
-      (rw[LIST_EQ_REWRITE,EL_TAKE,EL_DROP]>>
-      fs[NUMERAL_LESS_THM ])>>
   rw[bytes_to_num_def]>>gvs[LEFT_ADD_DISTRIB,INT_OF_NUM_ADD]
 QED
 
@@ -654,7 +676,21 @@ Theorem get_int_spec:
 Proof
   rw[]>>
   xcf_with_def (fetch "-" "get_int_v_def") >>
-  rpt (xlet_auto >> xsimpl) >>
+  xlet_auto_spec (SOME num_add_w8_spec) >- xsimpl >>
+  xlet_auto >>
+  ‘w2n xs❲k❳ < 256 ∧ w2n xs❲k+1❳ < 256 ∧ w2n xs❲k+2❳ < 256 ∧
+   w2n xs❲k+3❳ < 256’ by
+    simp[miscTheory.w2n_lt_256]>>
+  rpt (
+    xlet_auto_spec (SOME num_add_w8_spec)
+    >- xsimpl >>
+    xlet_auto >>
+    xlet_auto_spec (SOME num_mul_spec)
+    >- (xsimpl >> gvs[])) >>
+  xlet_auto_spec (SOME num_add_spec) >- (xsimpl >> gvs[]) >>
+  xlet_auto >>
+  xlet_auto_spec (SOME num_add_spec) >- (xsimpl >> gvs[]) >>
+  rpt xlet_autop >>
   ‘k ≤ LENGTH xs’ by decide_tac >>
   drule LESS_EQ_LENGTH >>
   strip_tac >> gvs [EL_APPEND2] >>
@@ -746,7 +782,7 @@ QED
 Theorem read_ints_spec:
   ∀lv iv.
   NUM len lv ∧
-  NUM i iv ∧
+  NUM i iv ∧ i ≤ len ∧
   4 * len ≤ LENGTH xs ⇒
   app (p:'ffi ffi_proj) read_ints_v [arrv; lv; iv]
       (W8ARRAY arrv xs)
@@ -758,20 +794,21 @@ Proof
   completeInduct_on`len - i`>>
   rw[]>>
   xcf_with_def (fetch "-" "read_ints_v_def") >>
-  xlet_autop>>
+  xlet_auto_spec (SOME num_ge_w8_spec) >- xsimpl>>
   xif
   >- (
     xcon>>xsimpl>>
     `len - i = 0` by fs[]>>
     simp[Once read_ints_def,LIST_TYPE_def])>>
-  xlet_autop>>
+  xlet_auto_spec (SOME num_add_w8_spec) >- xsimpl>>
   first_x_assum(qspec_then`len - (i+1)` mp_tac)>>
   impl_tac >- fs[]>>
   disch_then (qspecl_then [`len`, `i+1`] mp_tac)>>
   simp[]>>
   disch_then drule_all>>
   rw[]>>
-  rpt xlet_autop>>
+  xlet_autop>>
+  xlet_auto_spec (SOME num_mul_w8_spec) >- xsimpl>>
   xlet_auto>>
   xcon>>xsimpl>>
   simp[Once read_ints_def,LIST_TYPE_def]>>
@@ -840,7 +877,7 @@ QED
 Theorem read_ids_spec:
   ∀lv iv.
   NUM len lv ∧
-  NUM i iv ∧
+  NUM i iv ∧ i ≤ len ∧
   8 * len ≤ LENGTH xs ⇒
   app (p:'ffi ffi_proj) read_ids_v [arrv; lv; iv]
       (W8ARRAY arrv xs)
@@ -852,12 +889,12 @@ Proof
   completeInduct_on`len - i`>>
   rw[]>>
   xcf_with_def (fetch "-" "read_ids_v_def") >>
-  xlet_autop>>
+  xlet_auto_spec (SOME num_ge_w8_spec) >- xsimpl>>
   xif
   >- (
     xcon>>xsimpl>>
     qexists_tac`[]`>>simp[LIST_TYPE_def])>>
-  xlet_autop>>
+  xlet_auto_spec (SOME num_add_w8_spec) >- xsimpl>>
   first_x_assum(qspec_then`len - (i+1)` mp_tac)>>
   impl_tac >- fs[]>>
   disch_then (qspecl_then [`len`, `i+1`] mp_tac)>>
@@ -865,7 +902,7 @@ Proof
   disch_then drule_all>>
   rw[]>>
   xlet_auto>>
-  xlet_autop>>
+  xlet_auto_spec (SOME num_mul_w8_spec) >- xsimpl>>
   xlet_auto>>
   xcon>>xsimpl>>
   metis_tac[LIST_TYPE_def]
@@ -937,7 +974,7 @@ Theorem string_to_num_eq_bytes_to_num:
 Proof
   rw[LENGTH_EQ_NUM_compute]>>
   simp[string_to_num_def,bytes_to_num_def]>>
-  simp[strsub_def]>>
+  simp[strsub_def,mlstringTheory.strsub_unsafe_eq_strsub]>>
   DEP_REWRITE_TAC[ORD_CHR_RWT]>>
   rw[w2n_lt_256]
 QED
@@ -1655,22 +1692,22 @@ Inductive events_ok:
   events_ok st events aevents (SOME (fmlls, Clist, b)) ∧
   is_validate_events validate_events ∧
   is_output_event #"V" #"1" output_event ∧
-  check_distrup_list Validate_Unsat fmlls Clist b = SOME (fmlls', Clist', b')
+  check_distrup_list ValidateUnsat fmlls Clist b = SOME (fmlls', Clist', b')
   ⇒
-  events_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) (SOME (fmlls', Clist', b'))
+  events_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [ValidateUnsat]) (SOME (fmlls', Clist', b'))
 [~validate_Fail:]
   events_ok st events aevents (SOME (fmlls, Clist, b)) ∧
   is_validate_events validate_events ∧
   is_output_event #"V" #"0" output_event ∧
-  check_distrup_list Validate_Unsat fmlls Clist b = NONE
+  check_distrup_list ValidateUnsat fmlls Clist b = NONE
   ⇒
-  events_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) NONE
+  events_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [ValidateUnsat]) NONE
 [~validate_None:]
   events_ok st events aevents NONE ∧
   is_validate_events validate_events ∧
   is_output_event #"V" #"0" output_event
   ⇒
-  events_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) NONE
+  events_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [ValidateUnsat]) NONE
 End
 
 Theorem check_top_NONE:
@@ -1693,16 +1730,16 @@ QED
 
 Theorem check_top_SOME:
   NUM lno lnov ∧
-  LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
-  WORD8 b bv ∧
+  LIST_REL vcclause_TYPE fmlls fmllsv ∧
+  NUM b bv ∧
   DISTRUP_DISTRUP_TYPE inst instv ∧
-  bnd_fml fmlls (LENGTH Clist) ∧
+  dm_ok fmlls Clist b ∧
   stv =
     Conv (SOME (TypeStamp «Some» 2))
       [Conv NONE [fmlv; Carrv; bv]] ⇒
   app (p:'ffi ffi_proj) check_top_v [lnov; instv; stv]
       (ARRAY fmlv fmllsv *
-       W8ARRAY Carrv Clist)
+       NUM_ARRAY Carrv Clist)
       (POSTv res.
          SEP_EXISTS v1 v2 msg stopt.
          &(res = Conv NONE [v1;v2] ∧
@@ -1713,12 +1750,12 @@ Theorem check_top_SOME:
          | SOME (fmlls', Clist', b') =>
             SEP_EXISTS v11 v12 v13 fmllsv'.
             ARRAY v11 fmllsv' *
-            W8ARRAY v12 Clist' *
+            NUM_ARRAY v12 Clist' *
             &(
               v1 = Conv (SOME (TypeStamp «Some» 2))
                 [Conv NONE [v11;v12;v13]] ∧
-              WORD8 b' v13 ∧
-              LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls' fmllsv'
+              NUM b' v13 ∧
+              LIST_REL vcclause_TYPE fmlls' fmllsv'
             )
       )
 Proof
@@ -1937,9 +1974,9 @@ Theorem loop_SOME:
   ∀inputs lno lnov events aevents fmlls fmllsv Clist step_arr step_arrv
     buf_arr buf_arrv b bv stv fmlv Carrv.
     NUM lno lnov ∧
-    LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
-    WORD8 b bv ∧
-    bnd_fml fmlls (LENGTH Clist) ∧
+    LIST_REL vcclause_TYPE fmlls fmllsv ∧
+    NUM b bv ∧
+    dm_ok fmlls Clist b ∧
     events_ok st events aevents (SOME (fmlls, Clist, b)) ∧
     stv =
       Conv (SOME (TypeStamp «Some» 2))
@@ -1948,7 +1985,7 @@ Theorem loop_SOME:
     app (p:'ffi ffi_proj) loop_v [step_arrv; buf_arrv; stv; lnov]
         (CUSTOM_FFI Step inputs events tb *
          ARRAY fmlv fmllsv *
-         W8ARRAY Carrv Clist *
+         NUM_ARRAY Carrv Clist *
          W8ARRAY buf_arrv buf_arr *
          W8ARRAY step_arrv step_arr)
         (POSTv res.
@@ -1986,7 +2023,7 @@ Proof
               CUSTOM_FFI Produce_callback inputs (events ++ produce_events) tb *
               W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
               ARRAY fmlv fmllsv *
-              W8ARRAY Carrv Clist *
+              NUM_ARRAY Carrv Clist *
               cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"a" ∧
                     is_produce_events i cl produce_events ∧
                     ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Lrup i cl hs)) v ∧
@@ -2047,7 +2084,7 @@ Proof
     first_x_assum $ irule_at Any>>
     simp[GSYM PULL_EXISTS]>>
     CONJ_TAC >-
-      metis_tac[distrup_listTheory.check_distrup_list_bnd_fml]>>
+      metis_tac[distrup_listTheory.check_distrup_list_dm_ok]>>
     irule_at Any events_ok_produce>>
     fs[is_output_event_def]>>
     metis_tac[])
@@ -2059,7 +2096,7 @@ Proof
               CUSTOM_FFI Import_callback inputs (events ++ import_events) tb *
               W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
               ARRAY fmlv fmllsv *
-              W8ARRAY Carrv Clist *
+              NUM_ARRAY Carrv Clist *
               cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"i" ∧
                     is_import_events i cl import_events ∧
                     ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Import i cl)) v ∧
@@ -2102,7 +2139,7 @@ Proof
     first_x_assum $ irule_at Any>>
     simp[GSYM PULL_EXISTS]>>
     CONJ_TAC >-
-      metis_tac[distrup_listTheory.check_distrup_list_bnd_fml]>>
+      metis_tac[distrup_listTheory.check_distrup_list_dm_ok]>>
     irule_at Any events_ok_import>>
     fs[is_output_event_def]>>
     metis_tac[])
@@ -2114,7 +2151,7 @@ Proof
               CUSTOM_FFI Delete_callback inputs (events ++ delete_events) tb *
               W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
               ARRAY fmlv fmllsv *
-              W8ARRAY Carrv Clist *
+              NUM_ARRAY Carrv Clist *
               cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"d" ∧
                     is_delete_events delete_events ∧
                     ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Del hs)) v ∧
@@ -2157,7 +2194,7 @@ Proof
     first_x_assum $ irule_at Any>>
     simp[GSYM PULL_EXISTS]>>
     CONJ_TAC >-
-      metis_tac[distrup_listTheory.check_distrup_list_bnd_fml]>>
+      metis_tac[distrup_listTheory.check_distrup_list_dm_ok]>>
     irule_at Any events_ok_delete>>
     fs[is_output_event_def]>>
     metis_tac[])
@@ -2169,7 +2206,7 @@ Proof
               CUSTOM_FFI Validate_UNSAT_callback inputs (events ++ validate_events) tb *
               W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
               ARRAY fmlv fmllsv *
-              W8ARRAY Carrv Clist *
+              NUM_ARRAY Carrv Clist *
               cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"V" ∧
                     is_validate_events validate_events ∧
                     ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME ValidateUnsat) v ∧
@@ -2232,14 +2269,14 @@ Proof
     first_x_assum $ irule_at Any>>
     simp[GSYM PULL_EXISTS]>>
     CONJ_TAC >-
-      metis_tac[distrup_listTheory.check_distrup_list_bnd_fml]>>
+      metis_tac[distrup_listTheory.check_distrup_list_dm_ok]>>
     irule_at Any events_ok_validate>>
     fs[is_output_event_def]>>
     metis_tac[])
 QED
 
 Definition init_st_def:
-  init_st = (SOME (REPLICATE 4096n (NONE:vcclause option), REPLICATE 1024n (0w:word8), (1w:word8)))
+  init_st = (SOME (REPLICATE 4096n vcc_none, REPLICATE 1024n (0:num), (1:num)))
 End
 
 Theorem main_spec:
@@ -2253,19 +2290,24 @@ Proof
   rpt strip_tac >>
   xcf_with_def (fetch "-" "main_v_def") >>
   xmatch  >> gvs [] >>
+  ntac 5 xlet_autop>>
+  xlet_auto_spec (SOME ccnf_arrayProgTheory.NUM_ARRAY_alloc_zero_spec)
+  >- xsimpl>>
   rpt xlet_autop>>
   xapp_spec loop_SOME >>
   qexists ‘emp’ >> xsimpl >>
   qexists_tac`tb`>>
-  first_x_assum $ irule_at Any>>
   irule_at Any events_ok_init>>
   qexists_tac`inputs`>>
-  qexists ‘REPLICATE 4096 NONE’ >>
+  qexists ‘REPLICATE 4096 vcc_none’ >>
+  qexists_tac`REPLICATE 1024 0`>>
   xsimpl >>
   conj_tac >-
-   (gvs [ccnf_listTheory.bnd_fml_def,miscTheory.any_el_ALT,EL_REPLICATE, SF CONJ_ss]) >>
+   (gvs [LIST_REL_EL_EQN,EL_REPLICATE,
+         ccnf_arrayProgTheory.vcc_none_v_thm]) >>
   conj_tac >-
-   (gvs [LIST_REL_EL_EQN,OPTION_TYPE_def,EL_REPLICATE]) >>
+   (gvs [ccnf_listTheory.dm_ok_def,ccnf_listTheory.bnd_fml_def,
+          miscTheory.any_el_ALT,EL_REPLICATE, SF CONJ_ss]) >>
   rw [] >> rename [‘CUSTOM_FFI Terminate [] xx’] >>
   gvs[init_st_def]>>
   pop_assum $ irule_at Any >>
@@ -2331,12 +2373,12 @@ QED
 
 Theorem SPLIT_heaps_lemma[local]:
   SPLIT
-    (store2heap (distrup_arrayProg_st (custom_ffi s)).refs ∪
-     ffi2heap (ffi_proj,[(names,update)]) (distrup_arrayProg_st (custom_ffi s)).ffi)
+    (store2heap (distrup_arrayProg_st (custom_ffi s, po)).refs ∪
+     ffi2heap (ffi_proj,[(names,update)]) (distrup_arrayProg_st (custom_ffi s, po)).ffi)
     ({FFI_part s update names []},
-     FFI_split INSERT store2heap (distrup_arrayProg_st (custom_ffi s)).refs)
+     FFI_split INSERT store2heap (distrup_arrayProg_st (custom_ffi s, po)).refs)
 Proof
-  fs [EVAL “(distrup_arrayProg_st ffi).ffi”] >>
+  fs [EVAL “(distrup_arrayProg_st (ffi,po)).ffi”] >>
   qsuff_tac
     ‘ffi2heap (ffi_proj,[(names,update)]) (custom_ffi s) =
      {FFI_split; FFI_part s update names []}’
@@ -2346,7 +2388,7 @@ Proof
     gvs [cfAppTheory.FFI_part_NOT_IN_store2heap]) >>
   simp [cfStoreTheory.ffi2heap_def] >>
   gvs [parts_ok_custom_ffi] >>
-  fs [EVAL “(distrup_arrayProg_st ffi).ffi”,
+  fs [EVAL “(distrup_arrayProg_st (ffi,po)).ffi”,
       EVAL “(custom_ffi s).ffi_state”,
       EVAL “(custom_ffi s).io_events”, SF CONJ_ss] >>
   ‘∀n. MEM n names ⇒ FLOOKUP (ffi_proj s) n = SOME s’ by
@@ -2362,11 +2404,12 @@ val main_lemma = main_spec
   |> SRULE [one_def,evaluate_to_heap_def,PULL_EXISTS]
   |> SRULE [cfStoreTheory.st2heap_def]
   |> Q.GEN ‘p’ |> Q.ISPEC ‘ffi_proj,[(names,update)]’
-  |> Q.SPECL [‘hhh’,‘distrup_arrayProg_st ffi’]
+  |> Q.SPECL [‘hhh’,‘distrup_arrayProg_st (ffi,po)’]
   |> Q.GEN ‘ffi’ |> Q.SPEC ‘custom_ffi (State Step inputs tb)’
   |> C MATCH_MP (SPLIT_heaps_lemma |> Q.GEN ‘s’ |> Q.SPEC ‘State Step inputs tb’)
   |> Q.GEN ‘inputs’
   |> Q.GEN ‘tb’
+  |> Q.GEN ‘po’
   |> SRULE [boolTheory.SKOLEM_THM]
 
 val main_res = new_specification("main_res",
@@ -2380,7 +2423,7 @@ Proof
 QED
 
 Theorem main_st_ffi_events:
-  (main_st tb inputs).ffi.io_events = main_events tb inputs
+  (main_st po tb inputs).ffi.io_events = main_events po tb inputs
 Proof
   assume_tac (main_res |> SPEC_ALL |> cj 1) >>
   gvs [SPLIT3_def] >>
@@ -2388,7 +2431,7 @@ Proof
   simp [SET_EQ_SUBSET,cfStoreTheory.FFI_part_NOT_IN_store2heap] >>
   strip_tac >>
   fs [cfStoreTheory.ffi2heap_def] >>
-  Cases_on ‘parts_ok (main_st tb inputs).ffi (ffi_proj,[(names,update)])’ >> gvs [] >>
+  Cases_on ‘parts_ok (main_st po tb inputs).ffi (ffi_proj,[(names,update)])’ >> gvs [] >>
   pop_assum mp_tac >>
   rpt $ pop_assum kall_tac >>
   rw [cfStoreTheory.parts_ok_def] >>
@@ -2397,14 +2440,15 @@ QED
 
 val ml_code_thm = get_ml_prog_state () |> get_thm
   |> REWRITE_RULE [ml_progTheory.ML_code_def,ml_progTheory.Decls_def,ml_progTheory.ML_code_env_def]
-  |> cj 2;
+  |> cj 3;
 
-Theorem semantics_prog_distrup_prog:
-  semantics_prog (init_state (custom_ffi (State Step inputs tb))) init_env
-    distrup_prog
-    (Terminate Success (main_events tb inputs))
+Theorem semantics_determ_distrup_prog[local]:
+  semantics_determ
+    (init_state (custom_ffi (State Step inputs tb)) with ptr_eq_oracle := po)
+    init_env distrup_prog
+    (Terminate Success (main_events po tb inputs))
 Proof
-  gvs [semanticsTheory.semantics_prog_def] >>
+  gvs [semanticsTheory.semantics_determ_def] >>
   qrefinel [‘_’,‘_’,‘Rval v’] >> simp [] >>
   qspec_then ‘custom_ffi (State Step inputs tb)’ strip_assume_tac (ml_code_thm |> Q.GEN ‘ffi’) >>
   pop_assum mp_tac >>
@@ -2415,14 +2459,15 @@ Proof
   last_x_assum kall_tac >> simp [] >>
   last_x_assum kall_tac >> rw [] >>
   fs [semanticsTheory.evaluate_prog_with_clock_def,SNOC_APPEND] >>
-  qspecl_then [‘tb’,‘inputs’] mp_tac main_res >>
+  qspecl_then [‘po’,‘tb’,‘inputs’] mp_tac main_res >>
   strip_tac >>
   simp [evaluatePropsTheory.evaluate_decs_append] >>
   drule evaluatePropsTheory.evaluate_decs_set_clock >> simp [] >>
-  disch_then $ qspec_then ‘main_ck tb inputs + 1’ mp_tac >> strip_tac >>
-  rename [‘init_state (custom_ffi (State Step inputs tb)) with clock := ck4’] >>
+  disch_then $ qspec_then ‘main_ck po tb inputs + 1’ mp_tac >> strip_tac >>
+  rename [‘init_state (custom_ffi (State Step inputs tb)) with <|clock := ck4; ptr_eq_oracle := po|>’] >>
   qrefinel [‘_’,‘ck4’] >> fs [] >>
   fs [evaluateTheory.evaluate_decs_def,astTheory.pat_bindings_def,
+      semanticPrimitivesTheory.check_exp_constructors_def,
       evaluateTheory.evaluate_def,semanticPrimitivesTheory.build_conv_def,
       semanticPrimitivesTheory.do_con_check_def] >>
   simp [semanticPrimitivesTheory.extend_dec_env_def] >>
@@ -2436,7 +2481,22 @@ Proof
 QED
 
 Theorem full_events_ok_main_events:
-  full_events_ok init_st (main_events tb inputs)
+  full_events_ok init_st (main_events po tb inputs)
 Proof
   gvs [main_res]
+QED
+
+Theorem semantics_prog_distrup_prog:
+  sem_satisfies
+    (semantics_prog (init_state (custom_ffi (State Step inputs tb))) init_env
+       distrup_prog)
+    (λb. ∃io. b = Terminate Success io ∧ full_events_ok init_st io)
+Proof
+  simp [semanticsPropsTheory.sem_satisfies_def, semanticsTheory.semantics_prog_def,
+        EXTENSION, IN_DEF] >>
+  conj_tac >- metis_tac [semantics_determ_distrup_prog] >>
+  rw [] >>
+  drule_then (qspec_then ‘Terminate Success (main_events po tb inputs)’ mp_tac)
+    semanticsPropsTheory.semantics_determ_deterministic >>
+  simp [semantics_determ_distrup_prog, full_events_ok_main_events]
 QED

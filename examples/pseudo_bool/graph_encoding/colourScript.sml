@@ -145,27 +145,27 @@ End
 Definition gen_constraint_def:
   gen_constraint (n:num) ((v,e):graph) (Edge x y c) =
     (if c < n ∧ x < v ∧ y < v ∧ is_edge e x y ∧ x ≠ y then
-       SOME (GreaterEqual, [(1i, Neg (VertexHasColor x c));
+       SOME (PGe, [(1i, Neg (VertexHasColor x c));
                             (1i, Neg (VertexHasColor y c))], 1i)
      else NONE) ∧
   (gen_constraint (n:num) ((v,e):graph) (AtLeastOneColor vertex) =
     if vertex < v then
-      SOME (GreaterEqual,
+      SOME (PGe,
             GENLIST (λcolour. (1i,Pos (VertexHasColor vertex colour))) n, 1i)
     else NONE) ∧
   (gen_constraint (n:num) ((v,e):graph) (AtMostOneColor vertex) =
     if vertex < v then
-      SOME (GreaterEqual,
+      SOME (PGe,
             GENLIST (λcolour. (1i,Neg (VertexHasColor vertex colour))) n, & (n - 1))
     else NONE) ∧
   (gen_constraint (n:num) ((v,e):graph) (VC_Imp_CU c) =
     if c < n then
-      SOME (GreaterEqual,
+      SOME (PGe,
             (& v, Pos (ColorUsed c)) :: GENLIST (λu. (1i,Neg (VertexHasColor u c))) v, & v)
     else NONE) ∧
   (gen_constraint (n:num) ((v,e):graph) (CU_Imp_VC c) =
     if c < n then
-      SOME (GreaterEqual,
+      SOME (PGe,
             (1i, Neg (ColorUsed c)) :: GENLIST (λu. (1i,Pos (VertexHasColor u c))) v, 1i)
     else NONE)
 End
@@ -220,12 +220,6 @@ Proof
   \\ rw [] \\ res_tac \\ intLib.COOPER_TAC
 QED
 
-Theorem iSUM_append:
-  ∀xs ys. iSUM (xs ++ ys) = iSUM xs + iSUM ys
-Proof
-  Induct \\ gvs [iSUM_def,integerTheory.INT_ADD_ASSOC]
-QED
-
 Theorem iSUM_EQ_LENGTH:
   ∀xs. EVERY (λx. x = 1) xs ⇒ iSUM xs = & LENGTH xs
 Proof
@@ -250,7 +244,7 @@ Theorem iSUM_NOT_GE_LENGTH:
        ¬(iSUM xs ≥ &v)
 Proof
   Induct \\ rw [] \\ gvs [iSUM_def,ADD1,GSYM integerTheory.INT_ADD]
-  \\ gvs [MEM_SPLIT,iSUM_append,iSUM_def]
+  \\ gvs [MEM_SPLIT,iSUM_def]
   \\ imp_res_tac iSUM_LEQ_LENGTH \\ intLib.COOPER_TAC
 QED
 
@@ -261,13 +255,13 @@ Theorem iSUM_one_less:
 Proof
   Induct \\ gvs [] \\ rw []
   \\ Cases_on ‘n = t’ \\ gvs []
-  \\ simp [GENLIST,SNOC_APPEND,iSUM_append,iSUM_def]
+  \\ simp [GENLIST,SNOC_APPEND,iSUM_def]
   >-
    (‘∀k. k < n ⇒ f k = 1’ by gvs []
     \\ pop_assum mp_tac
     \\ qid_spec_tac ‘n’ \\ Induct
     \\ gvs [iSUM_def] \\ rw []
-    \\ simp [GENLIST,SNOC_APPEND,iSUM_append,iSUM_def]
+    \\ simp [GENLIST,SNOC_APPEND,iSUM_def]
     \\ gvs [GSYM integerTheory.INT_OF_NUM_ADD, integerTheory.int_ge, ADD1])
   \\ last_x_assum $ qspecl_then [‘t’,‘f’] mp_tac
   \\ impl_tac >- gvs []
@@ -332,7 +326,7 @@ Theorem CARD_colours_used_lemma[local]:
     iSUM (GENLIST (λc. b2i (c ∈ colours_used f v)) k) =
     & CARD (colours_used f v ∩ count k)
 Proof
-  Induct \\ gvs [iSUM_def,GENLIST,SNOC_APPEND,iSUM_append]
+  Induct \\ gvs [iSUM_def,GENLIST,SNOC_APPEND]
   \\ rw [CARD_INTER_count,GSYM integerTheory.INT_ADD]
   \\ last_x_assum irule
   \\ first_x_assum $ irule_at Any \\ gvs []
@@ -493,10 +487,11 @@ Proof
     \\ gvs [integerTheory.INT_GE,integerTheory.int_le]
     \\ qabbrev_tac ‘ff = λcolour. 1 − b2i (w (VertexHasColor u colour))’
     \\ ‘c < d ∨ d < c’ by decide_tac
-    >-
+   >-
      (qspecl_then [‘d’,‘n’,‘ff’] mp_tac GENLIST_SPLIT_LESS \\ simp []
       \\ qspecl_then [‘c’,‘d’,‘ff’] mp_tac GENLIST_SPLIT_LESS \\ simp []
-      \\ rw [Abbr ‘ff’,iSUM_append,iSUM_def]
+      \\ rw [Abbr ‘ff’,iSUM_def]
+      \\ simp [SYM neg_b2i,iSUM_def]
       \\ qmatch_goalsub_abbrev_tac
            ‘iSUM (GENLIST f1 _) + iSUM (GENLIST f2 _) + iSUM (GENLIST f3 _)’
       \\ ‘iSUM (GENLIST f1 c) ≤ & c’ by
@@ -512,7 +507,8 @@ Proof
     >-
      (qspecl_then [‘c’,‘n’,‘ff’] mp_tac GENLIST_SPLIT_LESS \\ simp []
       \\ qspecl_then [‘d’,‘c’,‘ff’] mp_tac GENLIST_SPLIT_LESS \\ simp []
-      \\ rw [Abbr ‘ff’,iSUM_append,iSUM_def]
+      \\ rw [Abbr ‘ff’,iSUM_def]
+      \\ simp [SYM neg_b2i,iSUM_def]
       \\ qmatch_goalsub_abbrev_tac
            ‘iSUM (GENLIST f1 _) + iSUM (GENLIST f2 _) + iSUM (GENLIST f3 _)’
       \\ ‘iSUM (GENLIST f1 d) ≤ & d’ by
@@ -524,7 +520,7 @@ Proof
       \\ ‘iSUM (GENLIST f3 (n − (c + 1))) ≤ & (n − (c + 1))’ by
        (irule iSUM_GENLIST_LEQ
         \\ unabbrev_all_tac \\ rw [EVERY_GENLIST,oneline b2i_def] \\ rw [])
-      \\ intLib.COOPER_TAC))
+     \\ intLib.COOPER_TAC))
   \\ rpt strip_tac
   \\ qabbrev_tac ‘c1 = (@c. w (VertexHasColor x c) ∧ c < n)’
   \\ gvs []
@@ -608,11 +604,11 @@ QED
 Definition annot_string_def:
   annot_string a =
   case a of
-  | Edge u v c => SOME (concat [«e_»; toString u; «_»; toString v; «_c»; toString1 c])
-  | AtLeastOneColor u => SOME (concat [«colgeq_»; toString u])
-  | AtMostOneColor u  => SOME (concat [«colleq_»; toString u])
-  | VC_Imp_CU c => SOME (concat [«vc_impl_cu_»; toString1 c])
-  | CU_Imp_VC c => SOME (concat [«cu_impl_vc_»; toString1 c])
+  | Edge u v c => [concat [«e_»; toString u; «_»; toString v; «_c»; toString1 c]]
+  | AtLeastOneColor u => [concat [«colgeq_»; toString u]]
+  | AtMostOneColor u  => [concat [«colleq_»; toString u]]
+  | VC_Imp_CU c => [concat [«vc_impl_cu_»; toString1 c]]
+  | CU_Imp_VC c => [concat [«cu_impl_vc_»; toString1 c]]
 End
 
 Definition full_encode_def:
@@ -641,8 +637,8 @@ Definition mk_key_ann_def:
 End
 
 Definition mk_key_def:
-  mk_key NONE = NONE ∧
-  mk_key (SOME ann) = mk_key_ann ann
+  mk_key [ann] = mk_key_ann ann ∧
+  mk_key _ = NONE
 End
 
 Theorem mk_key_test[local]:
@@ -672,7 +668,7 @@ Definition lazy_constraint_aux_def:
 End
 
 Definition lazy_constraint_def:
-  lazy_constraint n g (c: mlstring option # mlstring pbc) ⇔
+  lazy_constraint n g (c: mlstring list # mlstring pbc) ⇔
     case mk_key (FST c) of
       NONE => F
     | SOME i => lazy_constraint_aux n g i (SND c)
@@ -832,7 +828,7 @@ Theorem full_encode_eq =
   full_encode_def
   |> SIMP_RULE (srw_ss()) [FORALL_PROD,encode_def,flat_genlist_def]
   |> SIMP_RULE (srw_ss()) [gen_named_constraint_def]
-  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,
+  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,
                            map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,MAP_if]
   |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN,FOLDN_APPEND_op]
   |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]

@@ -8,6 +8,14 @@ A simple pattern compiler that moves constant patterns upwards,
 checks for exhaustiveness, and then converts the pattern rows into
 an if-then-else decision tree.
 
+[pattern_exhScript.sml](pattern_exhScript.sml):
+An exhaustiveness checker for pattern-match rows, in the style of
+Maranget's usefulness algorithm, but using sibling annotations instead
+of a typing environment.
+
+[pattern_exh_testsScript.sml](pattern_exh_testsScript.sml):
+Test cases for the exhaustiveness checker of the pattern-match compiler.
+
 [pattern_semanticsScript.sml](pattern_semanticsScript.sml):
 The syntax and semantics of the input and output to the
 pattern-match compiler.

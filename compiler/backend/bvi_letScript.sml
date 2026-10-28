@@ -59,12 +59,6 @@ Definition delete_var_def:
   (delete_var x = x)
 End
 
-Theorem exp2_size_APPEND:
-   !xs ys. exp2_size (xs++ys) = exp2_size xs + exp2_size ys
-Proof
-  Induct \\ fs [exp_size_def]
-QED
-
 Definition compile_def:
   (compile env d [] = []) /\
   (compile env d (x::y::xs) = compile env d [x] ++ compile env d (y::xs)) /\
@@ -99,13 +93,20 @@ Definition compile_def:
   (compile env d [Call t dest xs h] =
      [Call t dest (compile env d xs)
          (case h of NONE => NONE
-                  | SOME e => SOME (HD (compile (0::env) d [e])))])
+                  | SOME e => SOME (HD (compile (0::env) d [e])))]) /\
+  (* Return/LetCall are pass-through (only nested Lets are optimised). TODO(multiret):
+     no optimisation specific to them yet -- e.g. the Let tail-position move could
+     extend to `Let xs (Return (GENLIST Var n))`. *)
+  (compile env d [Return xs] = [Return (compile env d xs)]) /\
+  (compile env d [LetCall rets t dest xs y] =
+     [LetCall rets t dest (compile env d xs)
+        (HD (compile (REPLICATE rets 0 ++ env) d [y]))])
 Termination
-  WF_REL_TAC `measure (bvi$exp2_size o SND o SND)`
+  WF_REL_TAC `measure (list_size bvi$exp_size o SND o SND)`
   \\ rw [] \\ fs [LENGTH_NIL]
   \\ imp_res_tac (METIS_PROVE [SNOC_CASES] ``m <> [] ==> ?x y. m = SNOC x y``)
   \\ full_simp_tac std_ss [LAST_SNOC,LENGTH_SNOC,FRONT_SNOC]
-  \\ fs [exp2_size_APPEND,SNOC_APPEND,exp_size_def]
+  \\ fs [list_size_append,SNOC_APPEND]
 End
 
 Definition compile_sing_def:
@@ -141,6 +142,10 @@ Definition compile_sing_def:
      (Call t dest (compile_list env d xs)
          (case h of NONE => NONE
                   | SOME e => SOME ((compile_sing (0::env) d e))))) /\
+  (compile_sing env d (Return xs) = Return (compile_list env d xs)) /\
+  (compile_sing env d (LetCall rets t dest xs y) =
+     LetCall rets t dest (compile_list env d xs)
+        (compile_sing (REPLICATE rets 0 ++ env) d y)) /\
   (compile_list env d [] = []) /\
   (compile_list env d (x::xs) =
     compile_sing env d x :: compile_list env d xs)
@@ -148,12 +153,12 @@ Termination
   WF_REL_TAC ‘measure $ λx. case x of
                             | INL (_,_,e) => bvi$exp_size e
                             | INR (_,_,es) => list_size bvi$exp_size es’
-  \\ rw[bviTheory.exp_size_def]
+  \\ rw[]
   \\ rename1`xs ≠ []`
   \\ pop_assum mp_tac
   \\ qid_spec_tac`xs`
   \\ Cases using SNOC_CASES
-  \\ gvs [SNOC_APPEND,exp2_size_APPEND,bviTheory.exp_size_def,list_size_APPEND]
+  \\ gvs [SNOC_APPEND,list_size_append]
 End
 
 Theorem compile_sing:

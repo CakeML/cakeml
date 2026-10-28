@@ -28,7 +28,7 @@ Theorem arm8_backend_config_ok:
 Proof
   simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[arm8_backend_config_def]
-  >- (EVAL_TAC>> blastLib.FULL_BBLAST_TAC)
+  >- (EVAL_TAC >> intLib.ARITH_TAC)
   >- names_tac
   >- (
     fs [stack_removeTheory.store_offset_def,
@@ -45,6 +45,7 @@ Proof
     \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
     \\ rveq \\ fs [] \\ EVAL_TAC)
   \\ fs[stack_removeTheory.max_stack_alloc_def]
+  \\ simp[arm8_targetTheory.arm8_config_def,arm8_targetTheory.arm8_valid_imm_def,integer_wordTheory.i2w_pos]
   \\ simp[GSYM word_mul_n2w]>>
   srw_tac [wordsLib.WORD_MUL_LSL_ss][]>>
   qpat_abbrev_tac`w = n2w n`>>fs[]>>

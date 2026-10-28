@@ -51,7 +51,7 @@ val EqualityType_regexp = EqualityType_rule [] ``:regexp``;
    balanced_map from basis cannot be used here beause the basis only
    exposes the mlmapTheory functions which provide a neater -- but
    different -- interface. The duplication doesn't matter due to
-   flat_elim removing all the unused functions during compilation. *)
+   source_dce removing all the unused functions during compilation. *)
 
 val _ = translate balanced_mapTheory.size_def;
 val _ = translate balanced_mapTheory.singleton_def;
@@ -395,13 +395,10 @@ Proof
 QED
 
 val coreloop_def' =
-( pegexecTheory.coreloop_def
+  pegexecTheory.coreloop_def
     |> REWRITE_RULE [INTRO_FLOOKUP]
-    |> SPEC_ALL |> ONCE_REWRITE_RULE [FUN_EQ_THM]);
-
-val r = translate coreloop_def';
-
-val r = translate (pegexecTheory.peg_exec_def);
+    |> SPEC_ALL |> ONCE_REWRITE_RULE [FUN_EQ_THM]
+    |> INST_TYPE [beta |-> “:reNT”];
 
 (* -- *)
 
@@ -445,19 +442,31 @@ val uncharset_char_side = Q.prove(
     \\ `n MOD 256 < 256` by simp[]
     \\ simp[]) |> update_precondition;
 
-val r = translate rePEG_def;
-
-val r = translate parse_regexp_def;
+Theorem option_CASE_FLOOKUP_SIMP:
+  option_CASE (FLOOKUP FEMPTY n) f h = f ∧
+  option_CASE (FLOOKUP (m |+ (a,b)) n) f h =
+  if n = a then h b else option_CASE (FLOOKUP m n) f h
+Proof
+  rw [] \\ gvs [FLOOKUP_SIMP]
+QED
 
 val termination_lemma =
   MATCH_MP pegexecTheory.coreloop_total wfG_rePEG
-  |> SIMP_RULE(srw_ss())[coreloop_def'];
+  |> SIMP_RULE(srw_ss())[coreloop_def', rePEG_def,
+       FUPDATE_LIST, option_CASE_FLOOKUP_SIMP]
+  |> GEN_ALL;
+
+(* top-level vals must not call functions (no_ptr_eq), so DigitSet is
+   evaluated to a charset literal *)
+val _ = translate (DigitSet_def |> CONV_RULE (RHS_CONV EVAL));
+
+val _ = translate
+  (parse_regexp_def |> SRULE [pegexecTheory.peg_exec_def,coreloop_def', rePEG_def,
+       FUPDATE_LIST, option_CASE_FLOOKUP_SIMP]);
 
 val parse_regexp_side = Q.prove(
   `∀x. parse_regexp_side x = T`,
   rw[definition"parse_regexp_side_def"] \\
-  rw[definition"peg_exec_side_def"] \\
-  rw[definition"coreloop_side_def"] \\
   qspec_then`MAP add_loc x`strip_assume_tac (GEN_ALL termination_lemma) \\
   qmatch_abbrev_tac`IS_SOME (OWHILE f g h)` \\
   qmatch_assum_abbrev_tac`OWHILE f g' h = SOME _` \\
@@ -517,7 +526,7 @@ Proof
          INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
          & (OPTION_TYPE STRING_TYPE (SOME line) v))’
   >- (xapp \\ qexistsl [‘emp’, ‘line::lines’, ‘fs’, ‘fd’, ‘#"\n"’] \\ xsimpl)
-  \\ simp [Once INSTREAM_LINES_get_file_content] \\ xpull
+  \\ simp [Once INSTREAM_LINES_get_fd_content] \\ xpull
   \\ gvs [OPTION_TYPE_def] \\ xmatch
   \\ xlet_auto >- xsimpl
   \\ qmatch_goalsub_abbrev_tac ‘STDIO (forwardFD _ _ _) * INSTREAM_LINES₁’
@@ -1034,14 +1043,5 @@ Proof
   \\ xsimpl
 QED
 
-val name = "grep"
-val spec = grep_whole_prog_spec |> UNDISCH
-val (sem_thm,prog_tm) = whole_prog_thm st name spec
-
-Definition grep_prog_def:
-  grep_prog = ^prog_tm
-End
-
 Theorem grep_semantics =
-  sem_thm |> REWRITE_RULE[GSYM grep_prog_def]
-  |> DISCH_ALL |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  prove_sem_thm "grep" "grep_prog" grep_whole_prog_spec;

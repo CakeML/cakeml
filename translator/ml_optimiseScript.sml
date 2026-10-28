@@ -42,6 +42,7 @@ Definition BOTTOM_UP_OPT_def[nocompute]:
   (BOTTOM_UP_OPT f (Letrec z1 z2) = f (Letrec z1 z2)) ∧
   (BOTTOM_UP_OPT f (Tannot x t) = Tannot (BOTTOM_UP_OPT f x) t) ∧
   (BOTTOM_UP_OPT f (Lannot x l) = Lannot (BOTTOM_UP_OPT f x) l) /\
+  (BOTTOM_UP_OPT f (Open path x) = f (Open path (BOTTOM_UP_OPT f x))) /\
   (BOTTOM_UP_OPT_LIST f [] = []) /\
   (BOTTOM_UP_OPT_LIST f (y::ys) =
      BOTTOM_UP_OPT f y :: BOTTOM_UP_OPT_LIST f ys) /\
@@ -125,6 +126,12 @@ Proof
   disch_tac
   \\ ho_match_mp_tac BOTTOM_UP_OPT_ind
   \\ rpt strip_tac
+  >~ [`BOTTOM_UP_OPT _ (Open _ _)`] >- (
+    gvs [BOTTOM_UP_OPT_def]
+    >> first_x_assum irule
+    >> gvs [eval_rel_def, evaluate_def, CaseEqs ["option"]]
+    >> first_x_assum irule
+    >> metis_tac [])
   \\ simp [eval_rel_def |> ONCE_REWRITE_RULE [CONJ_COMM],
            eval_list_rel_def |> ONCE_REWRITE_RULE [CONJ_COMM],
            eval_match_rel_def |> ONCE_REWRITE_RULE [CONJ_COMM]] \\ fs []
@@ -198,6 +205,15 @@ Proof
     \\ qpat_x_assum `evaluate _ env' _ = _` assume_tac
     \\ drule evaluate_add_to_clock \\ rw []
     \\ metis_tac [])
+  THEN1 (* App PtrEq *)
+   (rename1 `_ = (st1,Rval vs)`
+    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
+          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
+             by fs [state_component_equality]
+    \\ first_x_assum drule \\ simp [] \\ strip_tac
+    \\ asm_exists_tac \\ fs []
+    \\ gvs [AllCaseEqs()]
+    \\ gvs [state_component_equality])
   THEN1 (* App Simple *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
@@ -421,9 +437,10 @@ Theorem Eval_OPTIMISE:
    Eval env exp P ==> Eval env (OPTIMISE exp) P
 Proof
   simp [Eval_def] \\ rpt strip_tac
-  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
+  \\ first_x_assum(qspecl_then[`refs`,`po`]strip_assume_tac)
   \\ qexists_tac `res` \\ fs [OPTIMISE_def]
   \\ qexists_tac`refs'`
+  \\ qexists_tac`po'`
   \\ match_mp_tac (MP_CANON BOTTOM_UP_OPT_THM) \\ fs []
   \\ metis_tac [BOTTOM_UP_OPT_THM,opt_sub_add_thm,let_id_thm,abs2let_thm]
 QED

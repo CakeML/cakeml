@@ -4,7 +4,7 @@
  *)
 Theory source_let
 Ancestors
-  ast evaluate misc[qualified]
+  ast
 Libs
   preamble
 

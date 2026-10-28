@@ -41,6 +41,7 @@ compiler/inference
 compiler/backend/reg_alloc
 compiler/backend/gc
 compiler/backend
+compiler/backend/tests
 compiler/encoders/asm
 compiler/encoders/x64
 compiler/encoders/arm7
@@ -58,7 +59,6 @@ compiler/backend/mips
 compiler/backend/riscv
 compiler/backend/ag32
 compiler/backend/pattern_matching
-compiler/parsing/ocaml
 compiler/printing
 
 # compiler verification
@@ -81,6 +81,7 @@ compiler/backend/arm8/proofs
 compiler/backend/arm8_asl
 compiler/backend/mips/proofs
 compiler/backend/riscv/proofs
+compiler/backend/San
 compiler/backend/ag32/proofs
 compiler/backend/cv_compute
 cv_translator
@@ -103,6 +104,7 @@ candle/overloading/ml_kernel
 candle/overloading/ml_checker
 candle/prover
 candle/prover/compute
+candle/parser
 
 # pancake
 pancake
@@ -110,6 +112,8 @@ pancake/semantics
 pancake/parser
 pancake/static_checker
 pancake/proofs
+pancake/decompiler
+pancake/decompiler/examples
 
 # dafny compiler
 compiler/dafny
@@ -128,6 +132,7 @@ compiler/scheme/proofs
 
 # examples and tests
 characteristic/examples
+tutorial
 tutorial/solutions
 translator/monadic/examples
 
@@ -144,17 +149,25 @@ examples/lpr_checker/array/compilation/proofs
 examples/lpr_checker/array/compilation/proofsARM8
 .
 
-examples/xlrup_checker
-examples/xlrup_checker/array
-examples/xlrup_checker/array/compilation
-examples/xlrup_checker/array/compilation/proofs
-
 examples/cnf
 examples/cnf/array
 examples/cnf/dist
 examples/cnf/dist/array
 examples/cnf/dist/array/compilation
 examples/cnf/dist/array/compilation/proofs
+examples/cnf/lrup
+examples/cnf/lrup/array
+examples/cnf/lrup/array/compilation
+examples/cnf/lrup/array/compilation/proofs
+examples/cnf/xlrup
+examples/cnf/xlrup/array
+examples/cnf/xlrup/array/compilation
+examples/cnf/xlrup/array/compilation/proofs
+
+examples/hwmcc_checker
+examples/hwmcc_checker/translation
+examples/hwmcc_checker/compilation
+examples/hwmcc_checker/compilation/proofs
 
 examples/scpog_checker
 examples/scpog_checker/array
@@ -168,6 +181,16 @@ examples/pseudo_bool/array
 examples/pseudo_bool/array/compilation
 examples/pseudo_bool/array/compilation/proofs
 examples/pseudo_bool/array/compilation/proofsARM8
+examples/pseudo_bool/cnf_encoding/array
+examples/pseudo_bool/cnf_encoding/array/compilation
+examples/pseudo_bool/cnf_encoding/array/compilation/proofs
+examples/pseudo_bool/graph_encoding/array
+examples/pseudo_bool/graph_encoding/array/compilation
+examples/pseudo_bool/graph_encoding/array/compilation/proofs
+examples/pseudo_bool/cp_encoding
+examples/pseudo_bool/cp_encoding/array
+examples/pseudo_bool/cp_encoding/array/compilation
+examples/pseudo_bool/cp_encoding/array/compilation/proofs
 
 examples/opentheory
 examples/opentheory/compilation
@@ -214,6 +237,9 @@ compiler/benchmarks/mlton_benchmarks/cakeml
 
 # compiler HOL bootstrap
 compiler/bootstrap/translation
+unverified/sexpr-bootstrap/export/32
+unverified/sexpr-bootstrap/export/x64/64
+unverified/sexpr-bootstrap/export/arm8/64
 compiler/bootstrap/compilation/x64/64:cake-x64-64.tar.gz
 compiler/bootstrap/compilation/x64/32:cake-x64-32.tar.gz
 compiler/bootstrap/compilation/x64/32/proofs
@@ -223,3 +249,4 @@ compiler/bootstrap/compilation/ag32/32
 compiler/bootstrap/compilation/ag32/32/proofs
 unverified/sexpr-bootstrap/x64/64
 unverified/sexpr-bootstrap/x64/32
+unverified

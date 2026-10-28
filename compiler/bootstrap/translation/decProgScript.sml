@@ -6,40 +6,14 @@ Ancestors
   ast ml_translator ml_pmatch[qualified] semanticPrimitives
   repl_init_envProg ast_extras
 Libs
-  preamble ml_translatorLib ml_progLib
-
-open preamble astTheory semanticPrimitivesTheory;
-open ml_translatorLib ml_translatorTheory ml_progLib;
-open repl_init_envProgTheory;
+  preamble ml_translatorLib ml_progLib MapProgLib
 
 val _ = translation_extends "repl_init_envProg";
 
-(* this is a hack to make the translator avoid these names *)
-Datatype:
-  dummy = Tyvar | Tyapp | Var | Const | Abs | Comb | Sequent
-End
-val _ = register_type ``:dummy``;
-(* end of hack *)
-
-val _ = register_type ``:lit``;
-val _ = register_type ``:('a,'b) id``;
-val _ = register_type ``:ast_t``;
-val _ = register_type ``:pat``;
-val _ = register_type ``:lop``;
-val _ = register_type ``:shift``;
-val _ = register_type ``:word_size``;
-val _ = register_type ``:prim_type``;
-val _ = register_type ``:arith``;
-val _ = register_type ``:op``;
-val _ = register_type ``:locn``;
-val _ = register_type ``:locs``;
-val _ = register_type ``:exp``;
-val _ = register_type ``:dec``;
-
 Theorem IsTypeRep_LIST_v = fetch_v_fun “:'a list” |> snd |> hd;
 
-Theorem IsTypeRep_AST_DEC_v:
-  IsTypeRep AST_DEC_v AST_DEC_TYPE
+Theorem IsTypeRep_DEC_v:
+  IsTypeRep DEC_v DEC_TYPE
 Proof
   irule_at Any (fetch_v_fun “:ast$dec” |> snd |> hd)
   \\ irule_at Any (fetch_v_fun “:'a list” |> snd |> hd)
@@ -55,10 +29,10 @@ Proof
   \\ fs []
 QED
 
-Theorem EqualityType_AST_DEC_TYPE =
+Theorem EqualityType_DEC_TYPE =
   EqualityType_rule [] “:dec”;
 
-Theorem EqualityType_LIST_TYPE_AST_DEC_TYPE =
+Theorem EqualityType_LIST_TYPE_DEC_TYPE =
   EqualityType_rule [] “:dec list”;
 
 val r = translate ast_extrasTheory.every_exp_def;
@@ -67,3 +41,35 @@ val r = translate namespaceTheory.id_to_n_def;
 val r = translate repl_decs_allowedTheory.safe_exp_pmatch;
 val r = translate candle_prover_invTheory.safe_dec_def;
 val r = translate repl_decs_allowedTheory.decs_allowed_def;
+
+(* --- *)
+
+(* teach the translator how to translate fmap operations for key types:
+    - mlstring
+    - int
+ (* - num *)
+*)
+
+val _ = MapProgLib.add_fmap_for_cmp mlstringTheory.TotOrd_fast_compare;
+val _ = MapProgLib.add_fmap_for_cmp mlintTheory.TotOrd_int_cmp;
+val _ = MapProgLib.add_fmap_for_cmp miscTheory.TotOrd_num_cmp;
+
+val RW = REWRITE_RULE;
+
+val _ = translate (alist_to_fmap_def |> RW [GSYM fmap_update_def]
+                                     |> INST_TYPE [alpha|->“:mlstring”]);
+
+val _ = translate (alist_to_fmap_def |> RW [GSYM fmap_update_def]
+                                     |> INST_TYPE [alpha|->“:int”]);
+
+val _ = translate (alist_to_fmap_def |> RW [GSYM fmap_update_def]
+                                     |> INST_TYPE [alpha|->“:num”]);
+
+val _ = translate (miscTheory.fmap_update_def |> GSYM |> oneline
+                                              |> INST_TYPE [alpha|->“:mlstring”]);
+
+val _ = translate (miscTheory.fmap_update_def |> GSYM |> oneline
+                                              |> INST_TYPE [alpha|->“:int”]);
+
+val _ = translate (miscTheory.fmap_update_def |> GSYM |> oneline
+                                              |> INST_TYPE [alpha|->“:num”]);

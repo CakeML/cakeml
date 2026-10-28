@@ -1,0 +1,886 @@
+(*
+  The PEG rule table of Candle's grammar, one rule per nonterminal NFoo.
+  Choices are tried in the order listed.
+*)
+structure CandleGrammar = struct
+  open CandleGrammarSupport;
+  datatype nonterm =
+      NEHolInfix | NHolInfixOp | NValuePath | NValueName | NConstr
+    | NConstrName | NTypeConstr | NTypeConstrName | NModulePath | NModuleName
+    | NModTypePath | NModTypeName | NFieldName | NOperatorName | NLiteral
+    | NIdent | NEBase | NEList | NEApp | NEConstr | NEFunapp | NEAssert
+    | NELazy | NEPrefix | NEIndex | NENeg | NEShift | NEMult | NERecProj
+    | NERecUpdate | NERecCons | NEAdd | NECons | NECat | NERel | NEAnd | NEOr
+    | NEProd | NEAssign | NEIf | NESeq | NEMatch | NETry | NEFun | NEFunction
+    | NELet | NELetRec | NEWhile | NEFor | NExpr | NEUnclosed | NArrIdx
+    | NStrIdx | NUpdate | NUpdates | NFieldDec | NFieldDecs | NLetBinding
+    | NLetBindings | NLetRecBinding | NLetRecBindings | NPatternMatch
+    | NPatternMatches | NTypeDefinition | NTypeDef | NTypeDefs | NTypeParams
+    | NTypeInfo | NTypeRepr | NTypeReprs | NConstrDecl | NConstrArgs | NRecord
+    | NExcDefinition | NPAny | NPList | NPPar | NPBase | NPRecFields | NPCons
+    | NPAs | NPOps | NPattern | NPatterns | NTypeList | NTypeLists | NTVar
+    | NTBase | NTConstr | NTProd | NTFun | NType | NSigSpec | NSigItems
+    | NSigItem | NModTypeAssign | NModTypeAsc | NModAscApp | NModAscApps
+    | NValType | NExcType | NModuleTypeDef | NIncludeMod | NOpenMod
+    | NDefinition | NTopLet | NTopLetRec | NModuleItem | NModuleItems | NOpen
+    | NModExpr | NModuleDef | NModuleType | NSemis | NExprItem | NExprItems
+    | NDefItem | NShiftOp | NMultOp | NAddOp | NRelOp | NAndOp | NOrOp
+    | NCatOp | NPrefixOp | NAssignOp | NPatLiteral | NStart | NCakeMLPragma;
+  type rule = (CandleTokens.token,(nonterm,int) sum,
+    (CandleTokens.token,nonterm) CandleTree.tree list,string) CandlePeg.symbol;
+end;
+structure CandleGrammar = struct
+  open CandleGrammar;
+  local
+  fun rule_NCakeMLPragma u : rule =
+       pegf (tokPragma ()) (bindNT NCakeMLPragma);
+  fun rule_NHolInfixOp u : rule =
+       pegf (choicel [tokeq FuncompT, tokeq F_FT, tokeq THEN_T, tokeq THENC_T,
+                      tokeq THENL_T, tokeq THEN_TCL_T, tokeq ORELSE_T,
+                      tokeq ORELSEC_T, tokeq ORELSE_TCL_T])
+            (bindNT NHolInfixOp);
+  fun rule_NValueName u : rule =
+       choicel [pegf (tokIdP (identMixed)) (bindNT NValueName),
+                seql [tokeq LparT, pnt NOperatorName, tokeq RparT]
+                     (bindNT NValueName)];
+  fun rule_NOperatorName u : rule =
+       pegf (choicel [pnt NShiftOp,
+                      pnt NMultOp,
+                      pnt NAddOp,
+                      pnt NRelOp,
+                      pnt NAndOp,
+                      pnt NOrOp,
+                      pnt NHolInfixOp,
+                      pnt NCatOp,
+                      pnt NPrefixOp,
+                      pnt NAssignOp ])
+            (bindNT NOperatorName);
+  fun rule_NConstrName u : rule =
+       pegf (tokIdP (identUpperLower)) (bindNT NConstrName);
+  fun rule_NTypeConstrName u : rule =
+       pegf (tokIdP (identLower)) (bindNT NTypeConstrName);
+  fun rule_NModuleName u : rule =
+       pegf (tokIdP (identUpperLower)) (bindNT NModuleName);
+  fun rule_NFieldName u : rule =
+       pegf (tokIdP (identLower)) (bindNT NFieldName);
+  fun rule_NValuePath u : rule =
+       seql [try (seql [pnt NModulePath, tokeq DotT] identity), pnt NValueName]
+            (bindNT NValuePath);
+  fun rule_NConstr u : rule =
+       pegf (choicel [seql [pnt NModuleName, tokeq DotT, pnt NConstr] identity,
+                      pnt NConstrName])
+            (bindNT NConstr);
+  fun rule_NTypeConstr u : rule =
+       seql [try (seql [pnt NModulePath, tokeq DotT] identity), pnt NTypeConstrName]
+            (bindNT NTypeConstr);
+  fun rule_NModulePath u : rule =
+       seql [pnt NModuleName, try (seql [tokeq DotT, pnt NModulePath] identity)]
+            (bindNT NModulePath);
+  val rules : ((nonterm,int) sum * rule) list = [
+(Inl NCakeMLPragma,rule_NCakeMLPragma ()),
+(Inl NHolInfixOp,rule_NHolInfixOp ()),
+(Inl NValueName,rule_NValueName ()),
+(Inl NOperatorName,rule_NOperatorName ()),
+(Inl NConstrName,rule_NConstrName ()),
+(Inl NTypeConstrName,rule_NTypeConstrName ()),
+(Inl NModuleName,rule_NModuleName ()),
+(Inl NFieldName,rule_NFieldName ()),
+(Inl NValuePath,rule_NValuePath ()),
+(Inl NConstr,rule_NConstr ()),
+(Inl NTypeConstr,rule_NTypeConstr ()),
+(Inl NModulePath,rule_NModulePath ())
+  ];
+  in
+  fun chunk_0 u = rules;
+  end;
+end;
+structure CandleGrammar = struct
+  open CandleGrammar;
+  local
+  fun rule_NModTypeName u : rule =
+       pegf (tokIdP (fn x => True)) (bindNT NModTypeName);
+  fun rule_NModTypePath u : rule =
+       pegf (choicel [seql [pnt NModuleName, tokeq DotT, pnt NModTypePath] identity,
+                      pnt NModTypeName])
+            (bindNT NModTypePath);
+  fun rule_NSemis u : rule =
+       seql [tokeq SemisT, try (pnt NSemis)]
+            (bindNT NSemis);
+  fun rule_NExprItems u : rule =
+       seql [try (pnt NSemis), pnt NExpr]
+            (bindNT NExprItems);
+  fun rule_NExprItem u : rule =
+       seql [pnt NSemis, pnt NExpr]
+            (bindNT NExprItem);
+  fun rule_NDefItem u : rule =
+       seql [try (pnt NSemis), pnt NDefinition]
+            (bindNT NDefItem);
+  fun rule_NModuleItems u : rule =
+       seql [choicel [pnt NExprItems, pnt NDefItem],
+             try (pnt NModuleItem),
+             try (pnt NSemis)]
+            (bindNT NModuleItems);
+  fun rule_NModuleItem u : rule =
+       seql [choicel [pnt NExprItem, pnt NDefItem],
+             try (pnt NModuleItem)]
+            (bindNT NModuleItem);
+  fun rule_NTopLet u : rule =
+       seql [tokeq LetT, pnt NLetBindings]
+            (bindNT NTopLet);
+  fun rule_NTopLetRec u : rule =
+       seql [tokeq LetT, tokeq RecT, pnt NLetRecBindings]
+            (bindNT NTopLetRec);
+  fun rule_NOpen u : rule =
+       seql [tokeq OpenT, pnt NModulePath]
+            (bindNT NOpen);
+  fun rule_NModExpr u : rule =
+       pegf (choicel [pnt NModulePath,
+                      seql [tokeq StructT, try (pnt NModuleItems), tokeq EndT] identity])
+            (bindNT NModExpr);
+  val rules : ((nonterm,int) sum * rule) list = [
+(Inl NModTypeName,rule_NModTypeName ()),
+(Inl NModTypePath,rule_NModTypePath ()),
+(Inl NSemis,rule_NSemis ()),
+(Inl NExprItems,rule_NExprItems ()),
+(Inl NExprItem,rule_NExprItem ()),
+(Inl NDefItem,rule_NDefItem ()),
+(Inl NModuleItems,rule_NModuleItems ()),
+(Inl NModuleItem,rule_NModuleItem ()),
+(Inl NTopLet,rule_NTopLet ()),
+(Inl NTopLetRec,rule_NTopLetRec ()),
+(Inl NOpen,rule_NOpen ()),
+(Inl NModExpr,rule_NModExpr ())
+  ];
+  in
+  fun chunk_1 u = rules;
+  end;
+end;
+structure CandleGrammar = struct
+  open CandleGrammar;
+  local
+  fun rule_NModuleDef u : rule =
+       seql [tokeq ModuleT, pnt NModuleName,
+             try (seql [tokeq ColonT, pnt NModuleType] identity),
+             tokeq EqualT, pnt NModExpr]
+            (bindNT NModuleDef);
+  fun rule_NDefinition u : rule =
+       pegf (choicel [pnt NTopLetRec,
+                      pnt NTopLet,
+                      pnt NTypeDefinition,
+                      pnt NExcDefinition,
+                      pnt NOpen,
+                      pnt NModuleTypeDef,
+                      pnt NModuleDef,
+                      pnt NCakeMLPragma])
+            (bindNT NDefinition);
+  fun rule_NExcType u : rule =
+       seql [tokeq ExceptionT, pnt NConstrDecl]
+            (bindNT NExcType);
+  fun rule_NValType u : rule =
+       seql [tokeq ValT, pnt NValueName, tokeq ColonT, pnt NType]
+            (bindNT NValType);
+  fun rule_NModAscApp u : rule =
+       seql [tokeq LparT, pnt NModuleName, tokeq ColonT,
+             pnt NModuleType, tokeq RparT]
+            (bindNT NModAscApp);
+  fun rule_NModAscApps u : rule =
+       seql [pnt NModAscApp, try (pnt NModAscApps)]
+            (bindNT NModAscApps);
+  fun rule_NModTypeAsc u : rule =
+       seql [tokeq ModuleT, tokeq TypeT, pnt NModuleName,
+             try (pnt NModAscApps),
+             tokeq ColonT, pnt NModuleType]
+            (bindNT NModTypeAsc);
+  fun rule_NModTypeAssign u : rule =
+       seql [tokeq ModuleT, tokeq TypeT, pnt NModTypeName,
+             try (seql [tokeq EqualT, pnt NModuleType] identity)]
+            (bindNT NModTypeAssign);
+  fun rule_NOpenMod u : rule =
+       seql [tokeq OpenT, pnt NModulePath]
+            (bindNT NOpenMod);
+  fun rule_NIncludeMod u : rule =
+       seql [tokeq IncludeT, pnt NModulePath]
+            (bindNT NIncludeMod);
+  fun rule_NSigItem u : rule =
+       pegf (choicel [pnt NTypeDefinition,
+                      pnt NExcType,
+                      pnt NValType,
+                      pnt NModTypeAsc,
+                      pnt NModTypeAssign,
+                      pnt NOpenMod,
+                      pnt NIncludeMod])
+            (bindNT NSigItem);
+  fun rule_NSigItems u : rule =
+       seql [pnt NSigItem, try (pnt NSemis), try (pnt NSigItems)]
+            (bindNT NSigItems);
+  val rules : ((nonterm,int) sum * rule) list = [
+(Inl NModuleDef,rule_NModuleDef ()),
+(Inl NDefinition,rule_NDefinition ()),
+(Inl NExcType,rule_NExcType ()),
+(Inl NValType,rule_NValType ()),
+(Inl NModAscApp,rule_NModAscApp ()),
+(Inl NModAscApps,rule_NModAscApps ()),
+(Inl NModTypeAsc,rule_NModTypeAsc ()),
+(Inl NModTypeAssign,rule_NModTypeAssign ()),
+(Inl NOpenMod,rule_NOpenMod ()),
+(Inl NIncludeMod,rule_NIncludeMod ()),
+(Inl NSigItem,rule_NSigItem ()),
+(Inl NSigItems,rule_NSigItems ())
+  ];
+  in
+  fun chunk_2 u = rules;
+  end;
+end;
+structure CandleGrammar = struct
+  open CandleGrammar;
+  local
+  fun rule_NSigSpec u : rule =
+       seql [tokeq SigT, try (pnt NSigItems), tokeq EndT]
+            (bindNT NSigSpec);
+  fun rule_NModuleType u : rule =
+       pegf (choicel [pnt NModTypePath,
+                      pnt NSigSpec,
+                      seql [tokeq LparT, pnt NModuleType, tokeq RparT] identity])
+            (bindNT NModuleType);
+  fun rule_NModuleTypeDef u : rule =
+       seql [tokeq ModuleT, tokeq TypeT, pnt NModTypeName, tokeq EqualT,
+             pnt NModuleType]
+            (bindNT NModuleTypeDef);
+  fun rule_NExcDefinition u : rule =
+       seql [tokeq ExceptionT,
+             choicel [seql [pnt NConstrName, tokeq EqualT, pnt NConstr] identity,
+                      pnt NConstrDecl]]
+            (bindNT NExcDefinition);
+  fun rule_NTypeDefinition u : rule =
+       seql [tokeq TypeT, try (tokeq NonrecT), pnt NTypeDefs]
+            (bindNT NTypeDefinition);
+  fun rule_NTypeDef u : rule =
+       seql [try (pnt NTypeParams), pnt NTypeConstrName,
+             try (pnt NTypeInfo)]
+            (bindNT NTypeDef);
+  fun rule_NTypeDefs u : rule =
+       seql [pnt NTypeDef, try (seql [tokeq AndT, pnt NTypeDefs] identity)]
+            (bindNT NTypeDefs);
+  fun rule_NTypeParams u : rule =
+       choicel [pegf (pnt NTVar) (bindNT NTypeParams),
+                seql [tokeq LparT, pnt NTVar,
+                      rpt (seql [tokeq CommaT, pnt NTVar] identity) List.concat,
+                      tokeq RparT]
+                     (bindNT NTypeParams)];
+  fun rule_NTypeInfo u : rule =
+       seql [tokeq EqualT,
+             choicel [pnt NType, pnt NTypeRepr]]
+            (bindNT NTypeInfo);
+  fun rule_NTypeRepr u : rule =
+       seql [try (tokeq BarT), pnt NConstrDecl, try (pnt NTypeReprs)]
+            (bindNT NTypeRepr);
+  fun rule_NTypeReprs u : rule =
+       seql [tokeq BarT, pnt NConstrDecl, try (pnt NTypeReprs)]
+            (bindNT NTypeReprs);
+  fun rule_NConstrDecl u : rule =
+       seql [pnt NConstrName,
+             try (seql [tokeq OfT, choicel [pnt NConstrArgs, pnt NRecord]] identity)]
+            (bindNT NConstrDecl);
+  val rules : ((nonterm,int) sum * rule) list = [
+(Inl NSigSpec,rule_NSigSpec ()),
+(Inl NModuleType,rule_NModuleType ()),
+(Inl NModuleTypeDef,rule_NModuleTypeDef ()),
+(Inl NExcDefinition,rule_NExcDefinition ()),
+(Inl NTypeDefinition,rule_NTypeDefinition ()),
+(Inl NTypeDef,rule_NTypeDef ()),
+(Inl NTypeDefs,rule_NTypeDefs ()),
+(Inl NTypeParams,rule_NTypeParams ()),
+(Inl NTypeInfo,rule_NTypeInfo ()),
+(Inl NTypeRepr,rule_NTypeRepr ()),
+(Inl NTypeReprs,rule_NTypeReprs ()),
+(Inl NConstrDecl,rule_NConstrDecl ())
+  ];
+  in
+  fun chunk_3 u = rules;
+  end;
+end;
+structure CandleGrammar = struct
+  open CandleGrammar;
+  local
+  fun rule_NRecord u : rule =
+       seql [tokeq LbraceT, pnt NFieldDecs, try (tokeq SemiT), tokeq RbraceT]
+            (bindNT NRecord);
+  fun rule_NFieldDecs u : rule =
+       seql [pnt NFieldDec, try (seql [tokeq SemiT, pnt NFieldDecs] identity)]
+            (bindNT NFieldDecs);
+  fun rule_NFieldDec u : rule =
+       seql [pnt NFieldName, tokeq ColonT, pnt NType]
+            (bindNT NFieldDec);
+  fun rule_NConstrArgs u : rule =
+       seql [pnt NTConstr, rpt (seql [tokeq StarT, pnt NTConstr] identity) List.concat]
+            (bindNT NConstrArgs);
+  fun rule_NTypeList u : rule =
+       seql [pnt NType, tokeq CommaT, pnt NTypeLists]
+            (bindNT NTypeList);
+  fun rule_NTypeLists u : rule =
+       seql [pnt NType, try (seql [tokeq CommaT, pnt NTypeLists] identity)]
+            (bindNT NTypeLists);
+  fun rule_NTVar u : rule =
+       seql [tokeq TickT, pnt NIdent] (bindNT NTVar);
+  fun rule_NTBase u : rule =
+       pegf (choicel [seql [tokeq LparT, pnt NType, tokeq RparT] identity,
+                      seql [tokeq LparT, pnt NTypeList, tokeq RparT,
+                            pnt NTypeConstr] identity,
+                      pnt NTVar])
+            (bindNT NTBase);
+  fun rule_NTConstr u : rule =
+       choicel [seql [try (pnt NTBase), pnt NTypeConstr,
+                      rpt (pnt NTypeConstr) List.concat]
+                     (bindNT NTConstr),
+                pegf (pnt NTBase) (bindNT NTConstr)];
+  fun rule_NTProd u : rule =
+       seql [pnt NTConstr, rpt (seql [tokeq StarT, pnt NTConstr] identity) List.concat]
+            (bindNT NTProd);
+  fun rule_NTFun u : rule =
+       seql [pnt NTProd, try (seql [tokeq RarrowT, pnt NTFun] identity)]
+            (bindNT NTFun);
+  fun rule_NType u : rule =
+       pegf (pnt NTFun) (bindNT NType);
+  val rules : ((nonterm,int) sum * rule) list = [
+(Inl NRecord,rule_NRecord ()),
+(Inl NFieldDecs,rule_NFieldDecs ()),
+(Inl NFieldDec,rule_NFieldDec ()),
+(Inl NConstrArgs,rule_NConstrArgs ()),
+(Inl NTypeList,rule_NTypeList ()),
+(Inl NTypeLists,rule_NTypeLists ()),
+(Inl NTVar,rule_NTVar ()),
+(Inl NTBase,rule_NTBase ()),
+(Inl NTConstr,rule_NTConstr ()),
+(Inl NTProd,rule_NTProd ()),
+(Inl NTFun,rule_NTFun ()),
+(Inl NType,rule_NType ())
+  ];
+  in
+  fun chunk_4 u = rules;
+  end;
+end;
+structure CandleGrammar = struct
+  open CandleGrammar;
+  local
+  fun rule_NEList u : rule =
+       seql [tokeq LbrackT,
+             try (seql [pnt NEIf,
+                        rpt (seql [tokeq SemiT, pnt NEIf] identity) List.concat,
+                        try (tokeq SemiT)] identity),
+             tokeq RbrackT]
+            (bindNT NEList);
+  fun rule_NLiteral u : rule =
+       choicel [
+         tok isInt    (fn t => bindNT NLiteral (mktokLf t)),
+         tok isString (fn t => bindNT NLiteral (mktokLf t)),
+         tok isChar   (fn t => bindNT NLiteral (mktokLf t)),
+         tok (fn x => x = TrueT orelse x = FalseT) (fn t => bindNT NLiteral (mktokLf t))];
+  fun rule_NIdent u : rule =
+       tok isIdent (fn t => bindNT NIdent (mktokLf t));
+  fun rule_NUpdate u : rule =
+       seql [pnt NFieldName, tokeq EqualT, pnt NEIf]
+            (bindNT NUpdate);
+  fun rule_NUpdates u : rule =
+       seql [pnt NUpdate, try (seql [tokeq SemiT, pnt NUpdates] identity)]
+            (bindNT NUpdates);
+  fun rule_NERecUpdate u : rule =
+       seql [pnt NConstr, tokeq LbraceT, pnt NExpr, tokeq WithT, pnt NUpdates,
+             try (tokeq SemiT), tokeq RbraceT]
+            (bindNT NERecUpdate);
+  fun rule_NEBase u : rule =
+       choicel [
+         pegf (pnt NLiteral) (bindNT NEBase),
+         pegf (pnt NValuePath) (bindNT NEBase),
+         (* NERecUpdate goes before NConstr, because they coincide *)
+         pegf (pnt NERecUpdate) (bindNT NEBase),
+         pegf (pnt NConstr) (bindNT NEBase),
+         pegf (pnt NEList) (bindNT NEBase),
+         seql [tokeq LparT, tokeq RparT] (bindNT NEBase),
+         seql [tokeq BeginT, tokeq EndT] (bindNT NEBase),
+         seql [tokeq LparT, pnt NExpr,
+               try (seql [tokeq ColonT, pnt NType] identity),
+               tokeq RparT] (bindNT NEBase),
+         seql [tokeq BeginT, pnt NExpr, tokeq EndT] (bindNT NEBase)
+       ];
+  fun rule_NPrefixOp u : rule =
+       pegf (tokSymP (validPrefixSym))
+            (bindNT NPrefixOp);
+  fun rule_NEPrefix u : rule =
+       seql [try (pnt NPrefixOp), pnt NEBase] (bindNT NEPrefix);
+  fun rule_NArrIdx u : rule =
+       seql [tokeq DotT, tokeq LparT, pnt NExpr, tokeq RparT]
+            (bindNT NArrIdx);
+  fun rule_NStrIdx u : rule =
+       seql [tokeq DotT, tokeq LbrackT, pnt NExpr, tokeq RbrackT]
+            (bindNT NStrIdx);
+  fun rule_NEIndex u : rule =
+       seql [pnt NEPrefix, try (choicel [pnt NStrIdx, pnt NArrIdx])]
+            (bindNT NEIndex);
+  val rules : ((nonterm,int) sum * rule) list = [
+(Inl NEList,rule_NEList ()),
+(Inl NLiteral,rule_NLiteral ()),
+(Inl NIdent,rule_NIdent ()),
+(Inl NUpdate,rule_NUpdate ()),
+(Inl NUpdates,rule_NUpdates ()),
+(Inl NERecUpdate,rule_NERecUpdate ()),
+(Inl NEBase,rule_NEBase ()),
+(Inl NPrefixOp,rule_NPrefixOp ()),
+(Inl NEPrefix,rule_NEPrefix ()),
+(Inl NArrIdx,rule_NArrIdx ()),
+(Inl NStrIdx,rule_NStrIdx ()),
+(Inl NEIndex,rule_NEIndex ())
+  ];
+  in
+  fun chunk_5 u = rules;
+  end;
+end;
+structure CandleGrammar = struct
+  open CandleGrammar;
+  local
+  fun rule_NERecProj u : rule =
+       seql [pnt NEIndex,
+             try (seql [tokeq DotT, pnt NConstr, tokeq DotT, pnt NFieldName] identity)]
+            (bindNT NERecProj);
+  fun rule_NEAssert u : rule =
+       seql [tokeq AssertT, pnt NERecProj] (bindNT NEAssert);
+  fun rule_NELazy u : rule =
+       seql [tokeq LazyT, pnt NERecProj] (bindNT NELazy);
+  fun rule_NEConstr u : rule =
+       seql [pnt NConstr, pnt NERecProj] (bindNT NEConstr);
+  fun rule_NERecCons u : rule =
+       seql [pnt NConstr,
+             tokeq LbraceT, pnt NUpdates, try (tokeq SemiT), tokeq RbraceT]
+            (bindNT NERecCons);
+  fun rule_NEFunapp u : rule =
+       seql [pnt NERecProj, rpt (pnt NERecProj) List.concat]
+            (fn l => case l of
+                   [] => []
+                 | h::t => [foldl (fn a => fn b => mkNd (Inl NEFunapp) [a, b])
+                                  (mkNd (Inl NEFunapp) [h]) t]);
+  fun rule_NEApp u : rule =
+       pegf (choicel (List.map pnt [NELazy, NEAssert, NERecCons, NEConstr, NEFunapp,
+                               NERecProj]))
+            (bindNT NEApp);
+  fun rule_NEUnclosed u : rule =
+       pegf (choicel [
+               pnt NELetRec, pnt NELet, pnt NEMatch, pnt NEFun, pnt NEFunction,
+               pnt NETry, pnt NEWhile, pnt NEFor, pnt NEApp])
+            (bindNT NEUnclosed);
+  fun rule_NELetRec u : rule =
+       seql [tokeq LetT, tokeq RecT, pnt NLetRecBindings,
+             tokeq InT, pnt NExpr]
+            (bindNT NELetRec);
+  fun rule_NELet u : rule =
+       seql [tokeq LetT, pnt NLetBindings,
+             tokeq InT, pnt NExpr]
+            (bindNT NELet);
+  fun rule_NEMatch u : rule =
+       seql [tokeq MatchT, pnt NExpr, tokeq WithT, pnt NPatternMatch]
+            (bindNT NEMatch);
+  fun rule_NEFun u : rule =
+       seql [tokeq FunT, pnt NPatterns,
+             try (seql [tokeq ColonT, pnt NType] identity),
+             tokeq RarrowT, pnt NExpr]
+            (bindNT NEFun);
+  val rules : ((nonterm,int) sum * rule) list = [
+(Inl NERecProj,rule_NERecProj ()),
+(Inl NEAssert,rule_NEAssert ()),
+(Inl NELazy,rule_NELazy ()),
+(Inl NEConstr,rule_NEConstr ()),
+(Inl NERecCons,rule_NERecCons ()),
+(Inl NEFunapp,rule_NEFunapp ()),
+(Inl NEApp,rule_NEApp ()),
+(Inl NEUnclosed,rule_NEUnclosed ()),
+(Inl NELetRec,rule_NELetRec ()),
+(Inl NELet,rule_NELet ()),
+(Inl NEMatch,rule_NEMatch ()),
+(Inl NEFun,rule_NEFun ())
+  ];
+  in
+  fun chunk_6 u = rules;
+  end;
+end;
+structure CandleGrammar = struct
+  open CandleGrammar;
+  local
+  fun rule_NEFunction u : rule =
+       seql [tokeq FunctionT, pnt NPatternMatch]
+            (bindNT NEFunction);
+  fun rule_NETry u : rule =
+       seql [tokeq TryT, pnt NExpr, tokeq WithT, pnt NPatternMatch]
+            (bindNT NETry);
+  fun rule_NEWhile u : rule =
+       seql [tokeq WhileT, pnt NExpr, tokeq DoT, pnt NExpr, tokeq DoneT]
+            (bindNT NEWhile);
+  fun rule_NEFor u : rule =
+       seql [tokeq ForT, pnt NValueName, tokeq EqualT, pnt NExpr,
+             choicel [tokeq ToT, tokeq DowntoT], pnt NExpr,
+             tokeq DoT, pnt NExpr, tokeq DoneT]
+            (bindNT NEFor);
+  fun rule_NENeg u : rule =
+       seql [try (choicel [tokeq MinusT, tokeq MinusFT]),
+             pnt NEUnclosed]
+            (bindNT NENeg);
+  fun rule_NShiftOp u : rule =
+       pegf (choicel [tokSymP (validShiftOp), tokeq LslT, tokeq LsrT, tokeq AsrT])
+            (bindNT NShiftOp);
+  fun rule_NEShift u : rule =
+       seql [pnt NENeg, try (seql [pnt NShiftOp, pnt NEShift] identity)]
+            (bindNT NEShift);
+  fun rule_NMultOp u : rule =
+       pegf (choicel [tokeq StarT, tokeq ModT, tokeq LandT, tokeq LorT,
+                      tokeq LxorT, tokSymP (validMultOp)])
+            (bindNT NMultOp);
+  fun rule_NEMult u : rule =
+       peg_linfix (Inl NEMult) (pnt NEShift) (pnt NMultOp);
+  fun rule_NAddOp u : rule =
+       pegf (choicel [tokeq PlusT, tokeq MinusT, tokeq MinusFT,
+                      tokSymP (validAddOp)])
+            (bindNT NAddOp);
+  fun rule_NEAdd u : rule =
+       peg_linfix (Inl NEAdd) (pnt NEMult) (pnt NAddOp);
+  fun rule_NECons u : rule =
+       seql [pnt NEAdd, try (seql [tokeq ColonsT, pnt NECons] identity)]
+            (bindNT NECons);
+  val rules : ((nonterm,int) sum * rule) list = [
+(Inl NEFunction,rule_NEFunction ()),
+(Inl NETry,rule_NETry ()),
+(Inl NEWhile,rule_NEWhile ()),
+(Inl NEFor,rule_NEFor ()),
+(Inl NENeg,rule_NENeg ()),
+(Inl NShiftOp,rule_NShiftOp ()),
+(Inl NEShift,rule_NEShift ()),
+(Inl NMultOp,rule_NMultOp ()),
+(Inl NEMult,rule_NEMult ()),
+(Inl NAddOp,rule_NAddOp ()),
+(Inl NEAdd,rule_NEAdd ()),
+(Inl NECons,rule_NECons ())
+  ];
+  in
+  fun chunk_7 u = rules;
+  end;
+end;
+structure CandleGrammar = struct
+  open CandleGrammar;
+  local
+  fun rule_NCatOp u : rule =
+       pegf (tokSymP (validCatOp))
+            (bindNT NCatOp);
+  fun rule_NECat u : rule =
+       seql [pnt NECons, try (seql [pnt NCatOp, pnt NECat] identity)]
+            (bindNT NECat);
+  fun rule_NRelOp u : rule =
+       pegf (choicel [tokeq EqualT, tokeq LessT, tokeq GreaterT, tokeq NeqT,
+                      tokSymP (validRelOp)])
+            (bindNT NRelOp);
+  fun rule_NERel u : rule =
+       peg_linfix (Inl NERel) (pnt NECat) (pnt NRelOp);
+  fun rule_NAndOp u : rule =
+       pegf (choicel [tokeq AmpT, tokeq AndalsoT])
+            (bindNT NAndOp);
+  fun rule_NEAnd u : rule =
+       seql [pnt NERel, try (seql [pnt NAndOp, pnt NEAnd] identity)]
+            (bindNT NEAnd);
+  fun rule_NOrOp u : rule =
+       pegf (choicel [tokeq OrelseT, tokeq OrT])
+            (bindNT NOrOp);
+  fun rule_NEOr u : rule =
+       seql [pnt NEAnd, try (seql [pnt NOrOp, pnt NEOr] identity)]
+            (bindNT NEOr);
+  fun rule_NEHolInfix u : rule =
+       peg_linfix (Inl NEHolInfix) (pnt NEOr) (pnt NHolInfixOp);
+  fun rule_NEProd u : rule =
+       seql [pnt NEHolInfix,
+             rpt (seql [tokeq CommaT, pnt NEHolInfix] identity) List.concat]
+            (bindNT NEProd);
+  fun rule_NAssignOp u : rule =
+       pegf (choicel [tokeq UpdateT, tokeq LarrowT])
+            (bindNT NAssignOp);
+  fun rule_NEAssign u : rule =
+       seql [pnt NEProd, try (seql [pnt NAssignOp, pnt NEAssign] identity)]
+            (bindNT NEAssign);
+  val rules : ((nonterm,int) sum * rule) list = [
+(Inl NCatOp,rule_NCatOp ()),
+(Inl NECat,rule_NECat ()),
+(Inl NRelOp,rule_NRelOp ()),
+(Inl NERel,rule_NERel ()),
+(Inl NAndOp,rule_NAndOp ()),
+(Inl NEAnd,rule_NEAnd ()),
+(Inl NOrOp,rule_NOrOp ()),
+(Inl NEOr,rule_NEOr ()),
+(Inl NEHolInfix,rule_NEHolInfix ()),
+(Inl NEProd,rule_NEProd ()),
+(Inl NAssignOp,rule_NAssignOp ()),
+(Inl NEAssign,rule_NEAssign ())
+  ];
+  in
+  fun chunk_8 u = rules;
+  end;
+end;
+structure CandleGrammar = struct
+  open CandleGrammar;
+  local
+  fun rule_NEIf u : rule =
+       pegf (choicel [seql [tokeq IfT, pnt NExpr, tokeq ThenT, pnt NEIf,
+                            try (seql [tokeq ElseT, pnt NEIf] identity)] identity,
+                      pnt NEAssign])
+            (bindNT NEIf);
+  fun rule_NESeq u : rule =
+       seql [pnt NEIf, try (seql [tokeq SemiT, pnt NExpr] identity)]
+            (bindNT NESeq);
+  fun rule_NExpr u : rule =
+       pegf (choicel [pnt NESeq])
+            (bindNT NExpr);
+  fun rule_NPatternMatch u : rule =
+       seql [try (tokeq BarT), pnt NPatternMatches]
+            (bindNT NPatternMatch);
+  fun rule_NPatternMatches u : rule =
+       seql [pnt NPattern,
+             try (seql [tokeq WhenT, pnt NExpr] identity),
+             tokeq RarrowT, pnt NExpr,
+             try (seql [tokeq BarT, pnt NPatternMatches] identity)]
+            (bindNT NPatternMatches);
+  fun rule_NLetRecBinding u : rule =
+       seql [pnt NValueName,
+             try (pnt NPatterns),
+             try (seql [tokeq ColonT, pnt NType] identity),
+             tokeq EqualT, pnt NExpr]
+            (bindNT NLetRecBinding);
+  fun rule_NLetRecBindings u : rule =
+       seql [pnt NLetRecBinding, try (seql [tokeq AndT, pnt NLetRecBindings] identity)]
+            (bindNT NLetRecBindings);
+  fun rule_NLetBinding u : rule =
+       pegf (choicel [seql [pnt NPattern, tokeq EqualT, pnt NExpr] identity,
+                      seql [pnt NValueName, try (pnt NPatterns),
+                            try (seql [tokeq ColonT, pnt NType] identity),
+                            tokeq EqualT, pnt NExpr] identity])
+            (bindNT NLetBinding);
+  fun rule_NLetBindings u : rule =
+       seql [pnt NLetBinding, try (seql [tokeq AndT, pnt NLetBindings] identity)]
+            (bindNT NLetBindings);
+  fun rule_NPAny u : rule =
+       pegf (tokeq AnyT) (bindNT NPAny);
+  fun rule_NPList u : rule =
+       seql [tokeq LbrackT,
+             rpt (seql [pnt NPattern, tokeq SemiT] identity) List.concat, try (pnt NPattern),
+             tokeq RbrackT]
+            (bindNT NPList);
+  fun rule_NPPar u : rule =
+       seql [tokeq LparT,
+             try (seql [pnt NPattern,
+                        try (seql [tokeq ColonT, pnt NType] identity)] identity),
+             tokeq RparT]
+            (bindNT NPPar);
+  val rules : ((nonterm,int) sum * rule) list = [
+(Inl NEIf,rule_NEIf ()),
+(Inl NESeq,rule_NESeq ()),
+(Inl NExpr,rule_NExpr ()),
+(Inl NPatternMatch,rule_NPatternMatch ()),
+(Inl NPatternMatches,rule_NPatternMatches ()),
+(Inl NLetRecBinding,rule_NLetRecBinding ()),
+(Inl NLetRecBindings,rule_NLetRecBindings ()),
+(Inl NLetBinding,rule_NLetBinding ()),
+(Inl NLetBindings,rule_NLetBindings ()),
+(Inl NPAny,rule_NPAny ()),
+(Inl NPList,rule_NPList ()),
+(Inl NPPar,rule_NPPar ())
+  ];
+  in
+  fun chunk_9 u = rules;
+  end;
+end;
+structure CandleGrammar = struct
+  open CandleGrammar;
+  local
+  fun rule_NPatLiteral u : rule =
+       choicel [pegf (pnt NLiteral) (bindNT NPatLiteral),
+                seql [tokeq MinusT, tok isInt mktokLf]
+                     (bindNT NPatLiteral)];
+  fun rule_NPBase u : rule =
+       pegf (choicel [pnt NPatLiteral, pnt NValueName, pnt NPAny, pnt NPList,
+                      pnt NPPar, pnt NConstr])
+            (bindNT NPBase);
+  fun rule_NPRecFields u : rule =
+       seql [tokeq LbraceT,
+             pnt NFieldName,
+             rpt (seql [tokeq SemiT, pnt NFieldName] identity) List.concat,
+             try (tokeq SemiT),
+             tokeq RbraceT]
+            (bindNT NPRecFields);
+  fun rule_NPCons u : rule =
+       pegf (choicel [seql [pnt NConstr,
+                            choicel [pnt NPRecFields, pnt NPBase]] identity,
+                      pnt NPBase])
+            (bindNT NPCons);
+  fun rule_NPAs u : rule =
+       seql [pnt NPCons, rpt (seql [tokeq AsT, pnt NIdent] identity) List.concat]
+            (bindNT NPAs);
+  fun rule_NPOps u : rule =
+       seql [pnt NPAs, rpt (seql [tok (fn t => t = ColonsT orelse t = CommaT orelse t = BarT)
+                                      mktokLf, pnt NPAs] identity) List.concat]
+            (bindNT NPOps);
+  fun rule_NPattern u : rule =
+       pegf (pnt NPOps) (bindNT NPattern);
+  fun rule_NPatterns u : rule =
+       seql [pnt NPBase, try (pnt NPatterns)]
+            (bindNT NPatterns);
+  fun rule_NStart u : rule =
+       seql [try (pnt NModuleItems)] (bindNT NStart);
+  val rules : ((nonterm,int) sum * rule) list = [
+(Inl NPatLiteral,rule_NPatLiteral ()),
+(Inl NPBase,rule_NPBase ()),
+(Inl NPRecFields,rule_NPRecFields ()),
+(Inl NPCons,rule_NPCons ()),
+(Inl NPAs,rule_NPAs ()),
+(Inl NPOps,rule_NPOps ()),
+(Inl NPattern,rule_NPattern ()),
+(Inl NPatterns,rule_NPatterns ()),
+(Inl NStart,rule_NStart ())
+  ];
+  in
+  fun chunk_10 u = rules;
+  end;
+end;
+structure CandleGrammar = struct
+  open CandleGrammar;
+  local
+  val rule_list = List.concat [chunk_0 (),chunk_1 (),chunk_2 (),chunk_3 (),chunk_4 (),chunk_5 (),chunk_6 (),chunk_7 (),chunk_8 (),chunk_9 (),chunk_10 ()];
+  val rule_vector = Vector.fromList (List.map (fn (_,e) => e) rule_list);
+  fun lookup name = case name of
+      Inl NCakeMLPragma => Some (Vector.sub rule_vector 0)
+    | Inl NHolInfixOp => Some (Vector.sub rule_vector 1)
+    | Inl NValueName => Some (Vector.sub rule_vector 2)
+    | Inl NOperatorName => Some (Vector.sub rule_vector 3)
+    | Inl NConstrName => Some (Vector.sub rule_vector 4)
+    | Inl NTypeConstrName => Some (Vector.sub rule_vector 5)
+    | Inl NModuleName => Some (Vector.sub rule_vector 6)
+    | Inl NFieldName => Some (Vector.sub rule_vector 7)
+    | Inl NValuePath => Some (Vector.sub rule_vector 8)
+    | Inl NConstr => Some (Vector.sub rule_vector 9)
+    | Inl NTypeConstr => Some (Vector.sub rule_vector 10)
+    | Inl NModulePath => Some (Vector.sub rule_vector 11)
+    | Inl NModTypeName => Some (Vector.sub rule_vector 12)
+    | Inl NModTypePath => Some (Vector.sub rule_vector 13)
+    | Inl NSemis => Some (Vector.sub rule_vector 14)
+    | Inl NExprItems => Some (Vector.sub rule_vector 15)
+    | Inl NExprItem => Some (Vector.sub rule_vector 16)
+    | Inl NDefItem => Some (Vector.sub rule_vector 17)
+    | Inl NModuleItems => Some (Vector.sub rule_vector 18)
+    | Inl NModuleItem => Some (Vector.sub rule_vector 19)
+    | Inl NTopLet => Some (Vector.sub rule_vector 20)
+    | Inl NTopLetRec => Some (Vector.sub rule_vector 21)
+    | Inl NOpen => Some (Vector.sub rule_vector 22)
+    | Inl NModExpr => Some (Vector.sub rule_vector 23)
+    | Inl NModuleDef => Some (Vector.sub rule_vector 24)
+    | Inl NDefinition => Some (Vector.sub rule_vector 25)
+    | Inl NExcType => Some (Vector.sub rule_vector 26)
+    | Inl NValType => Some (Vector.sub rule_vector 27)
+    | Inl NModAscApp => Some (Vector.sub rule_vector 28)
+    | Inl NModAscApps => Some (Vector.sub rule_vector 29)
+    | Inl NModTypeAsc => Some (Vector.sub rule_vector 30)
+    | Inl NModTypeAssign => Some (Vector.sub rule_vector 31)
+    | Inl NOpenMod => Some (Vector.sub rule_vector 32)
+    | Inl NIncludeMod => Some (Vector.sub rule_vector 33)
+    | Inl NSigItem => Some (Vector.sub rule_vector 34)
+    | Inl NSigItems => Some (Vector.sub rule_vector 35)
+    | Inl NSigSpec => Some (Vector.sub rule_vector 36)
+    | Inl NModuleType => Some (Vector.sub rule_vector 37)
+    | Inl NModuleTypeDef => Some (Vector.sub rule_vector 38)
+    | Inl NExcDefinition => Some (Vector.sub rule_vector 39)
+    | Inl NTypeDefinition => Some (Vector.sub rule_vector 40)
+    | Inl NTypeDef => Some (Vector.sub rule_vector 41)
+    | Inl NTypeDefs => Some (Vector.sub rule_vector 42)
+    | Inl NTypeParams => Some (Vector.sub rule_vector 43)
+    | Inl NTypeInfo => Some (Vector.sub rule_vector 44)
+    | Inl NTypeRepr => Some (Vector.sub rule_vector 45)
+    | Inl NTypeReprs => Some (Vector.sub rule_vector 46)
+    | Inl NConstrDecl => Some (Vector.sub rule_vector 47)
+    | Inl NRecord => Some (Vector.sub rule_vector 48)
+    | Inl NFieldDecs => Some (Vector.sub rule_vector 49)
+    | Inl NFieldDec => Some (Vector.sub rule_vector 50)
+    | Inl NConstrArgs => Some (Vector.sub rule_vector 51)
+    | Inl NTypeList => Some (Vector.sub rule_vector 52)
+    | Inl NTypeLists => Some (Vector.sub rule_vector 53)
+    | Inl NTVar => Some (Vector.sub rule_vector 54)
+    | Inl NTBase => Some (Vector.sub rule_vector 55)
+    | Inl NTConstr => Some (Vector.sub rule_vector 56)
+    | Inl NTProd => Some (Vector.sub rule_vector 57)
+    | Inl NTFun => Some (Vector.sub rule_vector 58)
+    | Inl NType => Some (Vector.sub rule_vector 59)
+    | Inl NEList => Some (Vector.sub rule_vector 60)
+    | Inl NLiteral => Some (Vector.sub rule_vector 61)
+    | Inl NIdent => Some (Vector.sub rule_vector 62)
+    | Inl NUpdate => Some (Vector.sub rule_vector 63)
+    | Inl NUpdates => Some (Vector.sub rule_vector 64)
+    | Inl NERecUpdate => Some (Vector.sub rule_vector 65)
+    | Inl NEBase => Some (Vector.sub rule_vector 66)
+    | Inl NPrefixOp => Some (Vector.sub rule_vector 67)
+    | Inl NEPrefix => Some (Vector.sub rule_vector 68)
+    | Inl NArrIdx => Some (Vector.sub rule_vector 69)
+    | Inl NStrIdx => Some (Vector.sub rule_vector 70)
+    | Inl NEIndex => Some (Vector.sub rule_vector 71)
+    | Inl NERecProj => Some (Vector.sub rule_vector 72)
+    | Inl NEAssert => Some (Vector.sub rule_vector 73)
+    | Inl NELazy => Some (Vector.sub rule_vector 74)
+    | Inl NEConstr => Some (Vector.sub rule_vector 75)
+    | Inl NERecCons => Some (Vector.sub rule_vector 76)
+    | Inl NEFunapp => Some (Vector.sub rule_vector 77)
+    | Inl NEApp => Some (Vector.sub rule_vector 78)
+    | Inl NEUnclosed => Some (Vector.sub rule_vector 79)
+    | Inl NELetRec => Some (Vector.sub rule_vector 80)
+    | Inl NELet => Some (Vector.sub rule_vector 81)
+    | Inl NEMatch => Some (Vector.sub rule_vector 82)
+    | Inl NEFun => Some (Vector.sub rule_vector 83)
+    | Inl NEFunction => Some (Vector.sub rule_vector 84)
+    | Inl NETry => Some (Vector.sub rule_vector 85)
+    | Inl NEWhile => Some (Vector.sub rule_vector 86)
+    | Inl NEFor => Some (Vector.sub rule_vector 87)
+    | Inl NENeg => Some (Vector.sub rule_vector 88)
+    | Inl NShiftOp => Some (Vector.sub rule_vector 89)
+    | Inl NEShift => Some (Vector.sub rule_vector 90)
+    | Inl NMultOp => Some (Vector.sub rule_vector 91)
+    | Inl NEMult => Some (Vector.sub rule_vector 92)
+    | Inl NAddOp => Some (Vector.sub rule_vector 93)
+    | Inl NEAdd => Some (Vector.sub rule_vector 94)
+    | Inl NECons => Some (Vector.sub rule_vector 95)
+    | Inl NCatOp => Some (Vector.sub rule_vector 96)
+    | Inl NECat => Some (Vector.sub rule_vector 97)
+    | Inl NRelOp => Some (Vector.sub rule_vector 98)
+    | Inl NERel => Some (Vector.sub rule_vector 99)
+    | Inl NAndOp => Some (Vector.sub rule_vector 100)
+    | Inl NEAnd => Some (Vector.sub rule_vector 101)
+    | Inl NOrOp => Some (Vector.sub rule_vector 102)
+    | Inl NEOr => Some (Vector.sub rule_vector 103)
+    | Inl NEHolInfix => Some (Vector.sub rule_vector 104)
+    | Inl NEProd => Some (Vector.sub rule_vector 105)
+    | Inl NAssignOp => Some (Vector.sub rule_vector 106)
+    | Inl NEAssign => Some (Vector.sub rule_vector 107)
+    | Inl NEIf => Some (Vector.sub rule_vector 108)
+    | Inl NESeq => Some (Vector.sub rule_vector 109)
+    | Inl NExpr => Some (Vector.sub rule_vector 110)
+    | Inl NPatternMatch => Some (Vector.sub rule_vector 111)
+    | Inl NPatternMatches => Some (Vector.sub rule_vector 112)
+    | Inl NLetRecBinding => Some (Vector.sub rule_vector 113)
+    | Inl NLetRecBindings => Some (Vector.sub rule_vector 114)
+    | Inl NLetBinding => Some (Vector.sub rule_vector 115)
+    | Inl NLetBindings => Some (Vector.sub rule_vector 116)
+    | Inl NPAny => Some (Vector.sub rule_vector 117)
+    | Inl NPList => Some (Vector.sub rule_vector 118)
+    | Inl NPPar => Some (Vector.sub rule_vector 119)
+    | Inl NPatLiteral => Some (Vector.sub rule_vector 120)
+    | Inl NPBase => Some (Vector.sub rule_vector 121)
+    | Inl NPRecFields => Some (Vector.sub rule_vector 122)
+    | Inl NPCons => Some (Vector.sub rule_vector 123)
+    | Inl NPAs => Some (Vector.sub rule_vector 124)
+    | Inl NPOps => Some (Vector.sub rule_vector 125)
+    | Inl NPattern => Some (Vector.sub rule_vector 126)
+    | Inl NPatterns => Some (Vector.sub rule_vector 127)
+    | Inl NStart => Some (Vector.sub rule_vector 128)
+    | _ => None;
+  val grammar = (lookup,"Unexpected end-of-file","Unexpected token",
+                 "Expected token, found end-of-file","Not combinator failed");
+  in
+  fun parse_nt n tokens = CandlePeg.execute grammar (pnt n) tokens;
+  fun parse_tokens tokens = parse_nt NStart tokens;
+  end;
+end;

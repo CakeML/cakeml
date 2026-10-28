@@ -3,7 +3,7 @@
 *)
 Theory flatProps
 Ancestors
-  flatLang flatSem lprefix_lub[qualified] ast[qualified]
+  flatLang flatSem lprefix_lub[qualified]
   semanticPrimitivesProps[qualified] evaluateProps[qualified]
 Libs
   preamble
@@ -323,6 +323,14 @@ Proof
   \\ rpt (pairarg_tac \\ gvs [])
 QED
 
+Theorem do_app_ptr_eq_oracle:
+  !s op vs s' r. do_app s op vs = SOME (s', r) ∧ op ≠ Src PtrEq ⇒
+     s'.ptr_eq_oracle = s.ptr_eq_oracle
+Proof
+  rw [do_app_def,AllCaseEqs()] \\ gvs []
+  \\ rpt (pairarg_tac \\ gvs [])
+QED
+
 Theorem evaluate_decs_append:
   !s ds1 s1 s2 r ds2.
     evaluate_decs s (ds1++ds2) =
@@ -387,6 +395,8 @@ Proof
   \\ map_every imp_res_tac
       [do_app_add_to_clock_NONE,
        do_app_add_to_clock] \\ fs []
+  \\ ‘extra + s.clock − 1 = extra + (s.clock − 1)’ by decide_tac
+  \\ asm_rewrite_tac []
 QED
 
 Theorem evaluate_decs_add_to_clock:
@@ -617,8 +627,8 @@ QED
 
 Theorem evaluate_decs_add_to_clock_initial_state[local]:
   r ≠ SOME (Rabort Rtimeout_error) ∧
-   evaluate_decs (initial_state ffi k ec) decs = (s',r) ⇒
-   evaluate_decs (initial_state ffi (ck + k) ec) decs =
+   evaluate_decs (initial_state ffi k ec pe) decs = (s',r) ⇒
+   evaluate_decs (initial_state ffi (ck + k) ec pe) decs =
    (s' with clock := s'.clock + ck,r)
 Proof
   rw [initial_state_def]
@@ -626,9 +636,9 @@ Proof
 QED
 
 Theorem evaluate_decs_add_to_clock_initial_state_io_events_mono[local]:
-  evaluate_decs (initial_state ffi k ec) prog = (s',r) ==>
+  evaluate_decs (initial_state ffi k ec pe) prog = (s',r) ==>
    s'.ffi.io_events ≼
-   (FST (evaluate_decs (initial_state ffi (k+ck) ec) prog)).ffi.io_events
+   (FST (evaluate_decs (initial_state ffi (k+ck) ec pe) prog)).ffi.io_events
 Proof
   rw [initial_state_def]
   \\ qmatch_assum_abbrev_tac `evaluate_decs s1 _ = _`
@@ -639,8 +649,8 @@ Proof
 QED
 
 Theorem initial_state_with_clock[local]:
-  (initial_state ffi k ec with clock := (initial_state ffi k ec).clock + ck) =
-   initial_state ffi (k + ck) ec
+  (initial_state ffi k ec pe with clock := (initial_state ffi k ec pe).clock + ck) =
+   initial_state ffi (k + ck) ec pe
 Proof
   rw [initial_state_def]
 QED
@@ -652,15 +662,15 @@ Proof
 QED
 
 Definition eval_sim_def:
-  eval_sim ffi ds1 ds2 ec ec2 rel allow_fail =
+  eval_sim ffi pe ds1 ds2 ec ec2 rel allow_fail =
     !k res1 s2.
-      evaluate_decs (initial_state ffi k ec) ds1 =
+      evaluate_decs (initial_state ffi k ec pe) ds1 =
         (s2, res1) /\
       (allow_fail \/ res1 <> SOME (Rabort Rtype_error)) /\
       rel ds1 ds2
       ==>
       ?ck res2 t2.
-        evaluate_decs (initial_state ffi (k + ck) ec2) ds2 =
+        evaluate_decs (initial_state ffi (k + ck) ec2 pe) ds2 =
           (t2, res2) /\
         s2.ffi = t2.ffi /\
         (res1 = NONE ==> res2 = NONE) /\
@@ -669,11 +679,11 @@ Definition eval_sim_def:
 End
 
 Theorem IMP_semantics_eq:
-   eval_sim ffi ds1 ds2 ec ec2 rel F /\
-   semantics ec (ffi:'ffi ffi_state) ds1 <> Fail ==>
+   eval_sim ffi pe ds1 ds2 ec ec2 rel F /\
+   semantics ec (ffi:'ffi ffi_state) pe ds1 <> Fail ==>
    rel ds1 ds2 ==>
-   semantics ec ffi ds1 =
-   semantics ec2 ffi ds2
+   semantics ec ffi pe ds1 =
+   semantics ec2 ffi pe ds2
 Proof
   rewrite_tac [GSYM AND_IMP_INTRO]
   \\ strip_tac
@@ -727,7 +737,7 @@ Proof
   \\ simp [Once semantics_def]
   \\ IF_CASES_TAC \\ fs [SND_SND_lemma]
   >-
-   (`?a b. evaluate_decs (initial_state ffi k ec) ds1 = (a,b)`
+   (`?a b. evaluate_decs (initial_state ffi k ec pe) ds1 = (a,b)`
         by simp [PAIR_FST_SND_EQ]
     \\ first_x_assum (qspec_then `k` mp_tac)
     \\ simp []
@@ -741,7 +751,7 @@ Proof
   \\ DEEP_INTRO_TAC some_intro
   \\ fs [] \\ rw []
   >-
-   (`?a b. evaluate_decs (initial_state ffi k ec) ds1 = (a,b)`
+   (`?a b. evaluate_decs (initial_state ffi k ec pe) ds1 = (a,b)`
         by simp [PAIR_FST_SND_EQ]
     \\ last_x_assum (qspec_then `k` mp_tac)
     \\ simp []
@@ -778,7 +788,7 @@ Proof
   \\ unabbrev_all_tac \\ simp [PULL_EXISTS]
   \\ simp [LNTH_fromList, PULL_EXISTS, GSYM FORALL_AND_THM]
   \\ rpt gen_tac
-  \\ `?a b. evaluate_decs (initial_state ffi k ec) ds1 = (a,b)`
+  \\ `?a b. evaluate_decs (initial_state ffi k ec pe) ds1 = (a,b)`
     by simp [PAIR_FST_SND_EQ]
   \\ fs [eval_sim_def]
   \\ first_x_assum drule
@@ -794,6 +804,31 @@ Proof
   \\ metis_tac
         [evaluate_decs_add_to_clock_io_events_mono,
          initial_state_with_clock, FST, ADD_SYM]
+QED
+
+Theorem semantics_Fail[local]:
+  semantics ec ffi pe ds = Fail ⇔
+  ∃k. SND (evaluate_decs (initial_state ffi k ec pe) ds) = SOME (Rabort Rtype_error)
+Proof
+  rw [semantics_def] \\ DEEP_INTRO_TAC some_intro \\ rw [] \\ fs []
+QED
+
+Theorem IMP_semantics_eq_no_fail:
+   eval_sim ffi pe ds1 ds2 ec ec2 rel T /\ rel ds1 ds2 ==>
+   semantics ec (ffi:'ffi ffi_state) pe ds1 =
+   semantics ec2 ffi pe ds2
+Proof
+  rw []
+  \\ Cases_on `semantics ec ffi pe ds1 = Fail`
+  >- (
+    `semantics ec2 ffi pe ds2 = Fail` suffices_by simp []
+    \\ fs [semantics_Fail, SND_SND_lemma]
+    \\ fs [eval_sim_def]
+    \\ first_x_assum drule \\ simp []
+    \\ strip_tac \\ qexists_tac `k + ck` \\ simp [])
+  \\ irule IMP_semantics_eq
+  \\ fs [eval_sim_def]
+  \\ metis_tac []
 QED
 
 Definition op_gbag_def:
@@ -813,14 +848,14 @@ Definition set_globals_def[simp]:
   (set_globals (Let t v e1 e2) = set_globals e1 ⊎ set_globals e2) /\
   (set_globals (Letrec t fs e) =
     set_globals e ⊎ elist_globals (MAP (SND o SND) fs)) /\
+  (set_globals (Tick t e) = set_globals e) /\
   (set_globals _ = {||}) /\
   (elist_globals [] = {||}) /\
   (elist_globals (e::es) = set_globals e ⊎ elist_globals es)
 Termination
   WF_REL_TAC ‘measure (\a. case a of INL e => exp_size e
                                    | INR es => list_size exp_size es)’
-  \\ rw [flatLangTheory.exp_size_def]
-  \\ fs [GSYM o_DEF]
+  \\ rw [GSYM o_DEF]
   >-
    (irule LESS_EQ_LESS_TRANS
     \\ qexists_tac ‘list_size
@@ -846,6 +881,7 @@ Definition esgc_free_def:
   (esgc_free (Let t v e1 e2) <=> esgc_free e1 /\ esgc_free e2) /\
   (esgc_free (Letrec t fs e) <=>
     esgc_free e /\ elist_globals (MAP (SND o SND) fs) = {||}) /\
+  (esgc_free (Tick t e) <=> esgc_free e) /\
   (esgc_free _ <=> T)
 Termination
   WF_REL_TAC `measure exp_size` \\ rw []
@@ -883,8 +919,8 @@ Proof
 QED
 
 Theorem initial_state_clock:
-  (initial_state ffi k ec).clock = k /\
-  ((initial_state ffi k ec with clock := k1) = initial_state ffi k1 ec)
+  (initial_state ffi k ec pe).clock = k /\
+  ((initial_state ffi k ec pe with clock := k1) = initial_state ffi k1 ec pe)
 Proof
   EVAL_TAC
 QED
@@ -975,7 +1011,10 @@ Definition simple_state_rel_def:
         ==> sr (s with globals := sglob) (t with globals := tglob)) /\
     (!s t. sr s t ==> s.ffi = t.ffi) /\
     (!s t sffi tffi. sr s t /\ sffi = tffi
-        ==> sr (s with ffi := sffi) (t with ffi := tffi))
+        ==> sr (s with ffi := sffi) (t with ffi := tffi)) /\
+    (!s t. sr s t ==> s.ptr_eq_oracle = t.ptr_eq_oracle) /\
+    (!s t pe. sr s t
+        ==> sr (s with ptr_eq_oracle := pe) (t with ptr_eq_oracle := pe))
 End
 
 Theorem simple_do_eq_thm_ind:
@@ -1120,21 +1159,15 @@ Proof
   \\ rfs [EL_MAP]
 QED
 
-Theorem simple_val_rel_v_to_bytes:
+Theorem simple_val_rel_v_to_mlstring:
    simple_val_rel vr ==>
-   ∀x y ws. vr x y ∧ v_to_bytes x = SOME ws ⇒
-   v_to_bytes y = SOME ws
+   ∀x y s. vr x y ∧ v_to_mlstring x = SOME s ⇒
+   v_to_mlstring y = SOME s
 Proof
-  rw [v_to_bytes_def]
-  \\ Cases_on `v_to_list x` \\ fs []
-  \\ qpat_x_assum `$some _ = _` (mp_tac o REWRITE_RULE [some_def])
-  \\ rw []
-  \\ qsuff_tac `v_to_list y = v_to_list x`
-  \\ simp [INJ_MAP_EQ_IFF, INJ_DEF]
-  \\ drule_then drule simple_v_to_list_v_rel
-  \\ rw []
-  \\ fs [LIST_REL_EL_EQN, LIST_EQ_REWRITE]
-  \\ rfs [EL_MAP]
+  disch_tac
+  \\ rpt gen_tac
+  \\ simp [v_to_mlstring_def, AllCaseEqs()]
+  \\ strip_tac \\ gvs []
 QED
 
 Theorem check_type_LIST_REL_same[local]:
@@ -1156,6 +1189,50 @@ QED
 
 val sv_rel_cases = semanticPrimitivesPropsTheory.sv_rel_cases;
 
+Theorem simple_index_witness_length[local]:
+  simple_val_rel vr /\ simple_state_rel vr sr /\
+  sr s1 s2 /\ vr v1 v2 /\
+  index_witness_length s1.refs v1 = SOME n
+  ==>
+  index_witness_length s2.refs v2 = SOME n
+Proof
+  rpt strip_tac
+  \\ Cases_on `v1`
+  \\ gvs [index_witness_length_def, simple_val_rel_simps,
+          simple_basic_val_rel_def, v_container_xs_def]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ gvs [index_witness_length_def]
+  >~ [`index_witness_length _ (Litv _)`] >- (
+    qmatch_goalsub_rename_tac `Litv literal`
+    \\ Cases_on `literal`
+    \\ gvs [index_witness_length_def])
+  \\ rename1 `store_lookup ptr s1.refs`
+  \\ Cases_on `store_lookup ptr s1.refs`
+  \\ gvs [AllCaseEqs()]
+  \\ drule_all simple_state_rel_store_lookup
+  \\ strip_tac
+  \\ gvs [sv_rel_cases, LIST_REL_LENGTH]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ simp []
+QED
+
+Theorem simple_unsafe_index_bound[local]:
+  simple_val_rel vr /\ simple_state_rel vr sr /\ sr s1 s2 /\
+  LIST_REL vr witnesses1 witnesses2 /\
+  unsafe_index_bound (index_witness_length s1.refs) witnesses1 = SOME bound
+  ==>
+  unsafe_index_bound (index_witness_length s2.refs) witnesses2 = SOME bound
+Proof
+  rpt strip_tac
+  \\ Cases_on `witnesses1`
+  \\ gvs [backendPropsTheory.unsafe_index_bound_def, LIST_REL_EL_EQN]
+  \\ rename1 `LENGTH source_tail = LENGTH target_tail`
+  \\ Cases_on `source_tail`
+  \\ gvs [backendPropsTheory.unsafe_index_bound_def, LENGTH_NIL]
+  \\ drule_all simple_index_witness_length
+  \\ simp []
+QED
+
 Theorem simple_do_app_thm:
   simple_val_rel vr /\
   simple_state_rel vr sr ==>
@@ -1166,7 +1243,8 @@ Theorem simple_do_app_thm:
   ?t2 r2. result_rel vr vr r1 r2 /\
   sr t1 t2 /\ do_app s2 op vs2 = SOME (t2, r2)
 Proof
-  disch_tac \\ fs [] \\ Cases_on `op` \\ TRY (Cases_on `o'`)
+  disch_tac \\ fs [] \\ Cases_on `op`
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [`Src source_op`]) (Cases_on `source_op`)
   (* handle specific ops: Arith, FromTo, Test, ThunkOp *)
   >~ [`Src (Arith _ _)`] >-
    (gvs [do_app_def,AllCaseEqs(),SF DNF_ss] \\ rw []
@@ -1175,52 +1253,100 @@ Proof
     \\ imp_res_tac semanticPrimitivesPropsTheory.do_arith_check_type
     \\ rename [`check_type ty`]
     \\ Cases_on `ty` using semanticPrimitivesPropsTheory.prim_type_cases
-    \\ gvs[semanticPrimitivesTheory.do_arith_def,CaseEq"list",CaseEq"arith"]
+    \\ gvs[semanticPrimitivesTheory.do_arith_def,CaseEq"list",TypeBase.case_eq_of ``:ast$arith``]
     \\ gvs[simple_val_rel_simps,v_to_flat_def]
-    >~ [`check_type BoolT`] >-
-     (Cases_on `flat_to_v x0 = Boolv T` \\ gvs []
+    >~ [`check_type BoolT (flat_to_v operand)`]
+    >- (
+      Cases_on `flat_to_v operand = Boolv T` \\ gvs []
       \\ EVAL_TAC \\ gvs [simple_val_rel_def]))
+  >~ [`Src (UnsafeIndexArith _)`] >- (
+    rpt strip_tac
+    \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]
+    \\ drule_all simple_unsafe_index_bound
+    \\ gvs [div_exn_v_def, simple_val_rel_simps,
+            simple_basic_val_rel_def, v_container_xs_def])
+  >~ [`Src (UnsafeIndexTest _)`] >- (
+    rpt strip_tac
+    \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]
+    \\ drule_all simple_unsafe_index_bound
+    \\ gvs [Boolv_def, simple_val_rel_simps,
+            simple_basic_val_rel_def, v_container_xs_def])
   >~ [`Src (FromTo _ _)`] >- (
     gvs[do_app_def,AllCaseEqs(),SF DNF_ss] \\ rw[]
     \\ imp_res_tac check_type_LIST_REL_same \\ gvs []
-    \\ rename [`do_conversion _ ty1 ty2`]
-    \\ first_x_assum(qspecl_then[`[v]`,`ty1`]mp_tac)
+    \\ qmatch_asmsub_rename_tac `do_conversion (flat_to_v source_value) ty1 ty2`
+    \\ first_x_assum(qspecl_then[`[source_value]`,`ty1`]mp_tac)
     \\ rw[PULL_EXISTS]
     \\ Cases_on `ty1` using semanticPrimitivesPropsTheory.prim_type_cases
     \\ Cases_on `ty2` using semanticPrimitivesPropsTheory.prim_type_cases
     \\ gvs[semanticPrimitivesTheory.do_conversion_def,v_to_flat_def,CaseEq"bool"]
     \\ rw[simple_val_rel_simps,chr_exn_v_def,v_to_flat_def,Boolv_def])
-  >~ [`Src (Test _ _)`] >-
-   (gvs [PULL_EXISTS,do_app_def,AllCaseEqs()] \\ rw []
-    \\ rename [`do_test test ty`]
-    \\ qexists_tac `b` \\ conj_tac >- gvs [Boolv_def]
+  >~ [`Src (Test _ _)`] >- (
+    gvs [PULL_EXISTS,do_app_def,AllCaseEqs()] \\ rw []
+    \\ rename1 `do_test test ty _ _ = Eq_val test_result`
+    \\ qexists_tac `test_result` \\ conj_tac >- gvs [Boolv_def]
     \\ Cases_on `ty` using semanticPrimitivesPropsTheory.prim_type_cases
     \\ Cases_on `test`
     \\ gvs [AllCaseEqs(),flatSemTheory.do_test_def,PULL_EXISTS]
     \\ gvs [oneline dest_Litv_def, AllCaseEqs()]
     \\ gvs [check_type_def,Boolv_def])
-  >~ [`Src (ThunkOp _)`] >-
-   (rpt strip_tac \\ gvs [do_app_def,AllCaseEqs(),SF DNF_ss]
+  >~ [`Src (ThunkOp _)`] >- (
+    rpt strip_tac \\ gvs [do_app_def,AllCaseEqs(),SF DNF_ss]
     \\ rpt (pairarg_tac \\ gvs [])
-    >-
-     (drule_then (drule_then drule) simple_state_rel_store_alloc
+    >- (
+      drule_then (drule_then drule) simple_state_rel_store_alloc
       \\ simp [Once sv_rel_cases,PULL_EXISTS]
-      \\ disch_then drule \\ strip_tac \\ gvs [])
-    >-
-     (drule_then (drule_then drule) simple_state_rel_store_assign
+      \\ disch_then drule \\ strip_tac \\ gvs []
+      \\ gvs [bad_thunk_update_def, oneline dest_thunk_def, AllCaseEqs()]
+      >>~- ([`simple_val_rel vr`, `vr _ y`],
+        Cases_on `y` \\ gvs [simple_val_rel_def]
+        \\ res_tac \\ gvs [])
+      \\ drule_all simple_state_rel_store_lookup \\ rw [] \\ gvs []
+      \\ gvs [sv_rel_cases])
+    >- (
+      drule_then (drule_then drule) simple_state_rel_store_assign
       \\ simp [Once sv_rel_cases,PULL_EXISTS]
-      \\ disch_then drule \\ strip_tac \\ gvs []))
+      \\ disch_then drule \\ strip_tac \\ gvs []
+      \\ gvs [bad_thunk_update_def, oneline dest_thunk_def, AllCaseEqs()]
+      >>~- ([`simple_val_rel vr`, `vr _ y`],
+        Cases_on `y` \\ gvs [simple_val_rel_def]
+        \\ res_tac \\ gvs [])
+      \\ drule_all simple_state_rel_store_lookup \\ rw [] \\ gvs []
+      \\ gvs [sv_rel_cases]))
   >~ [`Src (FFI _)`] >- (
     rpt strip_tac
     \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ drule_then (drule_then drule) simple_state_rel_store_lookup
     \\ rw []
-    \\ TRY (drule_then (drule_then drule) simple_state_rel_store_assign)
+    >~ [`FFI_final _`] >- (
+      fs [sv_rel_cases, simple_state_rel_def] \\ res_tac \\ fs [])
+    \\ drule_then (drule_then drule) simple_state_rel_store_assign
     \\ fs [sv_rel_cases]
     \\ rw []
     \\ fs [simple_state_rel_def]
-    \\ res_tac \\ fs [Unitv_def]
+    \\ res_tac \\ fs [Unitv_def])
+  >~ [`Src Aw8updateBit`] >- (
+    rpt strip_tac
+    \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]
+    \\ gvs [Boolv_def, simple_val_rel_def, isClosure_def]
+    \\ drule_then (drule_then drule) simple_state_rel_store_lookup
+    \\ fs [sv_rel_cases] \\ rw [] \\ gvs []
+    \\ gvs [backend_commonTheory.true_tag_def,
+            backend_commonTheory.false_tag_def, subscript_exn_v_def]
+    \\ drule_then (drule_then drule) simple_state_rel_store_assign
+    \\ simp [sv_rel_cases]
+    \\ rw [] \\ simp [Unitv_def]
+  )
+  >~ [`Src Aw8updateBit_unsafe`] >- (
+    rpt strip_tac
+    \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]
+    \\ gvs [Boolv_def, simple_val_rel_def, isClosure_def]
+    \\ drule_then (drule_then drule) simple_state_rel_store_lookup
+    \\ fs [sv_rel_cases] \\ rw [] \\ gvs []
+    \\ drule_then (drule_then drule) simple_state_rel_store_assign
+    \\ simp [sv_rel_cases]
+    \\ rw [] \\ simp [Unitv_def]
   )
   >~ [`El _`] >- (
     rpt strip_tac
@@ -1315,42 +1441,52 @@ Proof
     \\ fs [LIST_REL_APPEND_suff, sv_rel_cases, PULL_EXISTS]
     \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
   )
-  (* giant mallet for remaining cases *)
+  >~ [`Src PtrEq`] >- (
+    rpt strip_tac
+    \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]
+    \\ imp_res_tac simple_do_eq_thm
+    \\ `s1.ptr_eq_oracle = s2.ptr_eq_oracle` by fs [simple_state_rel_def]
+    \\ gvs [Boolv_def, simple_val_rel_simps]
+    \\ fs [simple_state_rel_def]
+  )
   \\ rpt strip_tac
   \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ imp_res_tac LIST_REL_LENGTH
-  \\ TRY (drule_then (drule_then imp_res_tac) simple_do_eq_thm)
-  \\ TRY (drule_then (drule_then imp_res_tac) simple_state_rel_store_lookup)
-  \\ TRY (drule_then (drule_then imp_res_tac) simple_state_rel_store_assign)
-  \\ TRY (drule_then (drule_then drule) simple_v_to_list_v_rel)
-  \\ TRY (drule_then (drule_then drule) simple_v_to_char_list_v_rel)
-  \\ TRY (drule_then (drule_then drule) simple_vs_to_string_v_rel)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [`do_eq _ _ = Eq_val _`])
+        (drule_then (drule_then imp_res_tac) simple_do_eq_thm)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [`store_lookup _ _ = SOME _`])
+        (drule_then (drule_then imp_res_tac) simple_state_rel_store_lookup)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [`store_assign _ _ _ = SOME _`])
+        (drule_then (drule_then imp_res_tac) simple_state_rel_store_assign)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [`v_to_list _ = SOME _`])
+        (drule_then (drule_then drule) simple_v_to_list_v_rel)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [`v_to_char_list _ = SOME _`])
+        (drule_then (drule_then drule) simple_v_to_char_list_v_rel)
   \\ gvs [simple_val_rel_simps, simple_basic_val_rel_def, v_container_xs_def]
   \\ rw [div_exn_v_def, Boolv_def, subscript_exn_v_def, Unitv_def, chr_exn_v_def]
-  \\ TRY (drule_then irule simple_v_rel_list_to_v)
-  \\ TRY (fs [sv_rel_cases, PULL_EXISTS, LIST_REL_EL_EQN]
-    \\ first_x_assum drule \\ rw [])
-  \\ TRY (imp_res_tac simple_state_rel_store_lookup \\ fs [sv_rel_cases]
-    \\ NO_TAC)
-  \\ TRY (irule listTheory.EVERY2_refl)
-  \\ TRY (qmatch_goalsub_abbrev_tac `sr (_ with globals := _) _`
-    \\ fs [simple_state_rel_def]
+  >~ [`vs_to_string _ = SOME _`]
+  >- (imp_res_tac simple_vs_to_string_v_rel \\ gvs [])
+  >~ [`vr (list_to_v _) (list_to_v _)`]
+  >- (
+    drule_then irule simple_v_rel_list_to_v
+    \\ irule listTheory.EVERY2_refl
+    \\ simp [MEM_MAP, PULL_EXISTS])
+  \\ fs [sv_rel_cases, PULL_EXISTS, LIST_REL_EL_EQN]
+  >~ [`store_assign _ (Refv _) _`]
+  >- (first_x_assum drule \\ rw [] \\ fs [])
+  >>~- ([`store_lookup _ _ = SOME _`],
+    imp_res_tac simple_state_rel_store_lookup \\ fs [sv_rel_cases])
+  >>~- ([`sr (_ with globals := _) _`],
+    fs [simple_state_rel_def]
     \\ first_x_assum irule
     \\ res_tac
     \\ imp_res_tac LIST_REL_LENGTH
     \\ simp [EVERY2_LUPDATE_same, optionTheory.OPTREL_def, LIST_REL_APPEND_EQ,
-        LIST_REL_REPLICATE_same, optionTheory.OPTREL_def]
-  )
-  \\ TRY (qmatch_asmsub_abbrev_tac `i < LENGTH _.globals`
-    \\ fs [simple_state_rel_def, LIST_REL_EL_EQN]
-    \\ res_tac
-    \\ fs [optionTheory.OPTREL_def]
-    \\ fs [optionTheory.OPTREL_def]
-    \\ NO_TAC
-  )
-  \\ TRY (imp_res_tac simple_vs_to_string_v_rel \\ gvs [])
-  \\ simp [MEM_MAP, PULL_EXISTS]
+             LIST_REL_REPLICATE_same])
+  \\ fs [simple_state_rel_def, LIST_REL_EL_EQN]
+  \\ res_tac
+  \\ gvs [optionTheory.OPTREL_def]
 QED
 
 Definition evaluate_match_def:
@@ -1446,14 +1582,6 @@ Definition result_vs_def[simp]:
   result_vs (Rerr (Rabort y)) = []
 End
 
-Theorem v_size_aux:
-  (!env. v1_size env = 1 + v2_size (env.v)) /\
-  (!xs. v2_size xs = LENGTH xs + SUM (MAP v3_size xs)) /\
-  (!xs. v4_size xs = LENGTH xs + SUM (MAP v_size xs))
-Proof
-  rpt conj_tac \\ Induct \\ simp [v_size_def]
-QED
-
 Definition no_Mat_def[simp]:
   (no_Mat (flatLang$Raise t e) <=> no_Mat e) /\
   (no_Mat (Lit t l) <=> T) /\
@@ -1466,7 +1594,8 @@ Definition no_Mat_def[simp]:
   (no_Mat (Mat t e pes) <=> F) /\
   (no_Mat (Handle t e pes) <=> no_Mat e /\ EVERY no_Mat (MAP SND pes) /\
     (case pes of [(Pvar _, _)] => T | _ => F)) /\
-  (no_Mat (Letrec t funs e) <=> EVERY no_Mat (MAP (SND o SND) funs) /\ no_Mat e)
+  (no_Mat (Letrec t funs e) <=> EVERY no_Mat (MAP (SND o SND) funs) /\ no_Mat e) /\
+  (no_Mat (Tick t e) <=> no_Mat e)
 Termination
   WF_REL_TAC `measure (flatLang$exp_size)` \\ rw []
   \\ imp_res_tac MEM_list_size

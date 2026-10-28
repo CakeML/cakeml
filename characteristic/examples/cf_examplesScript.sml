@@ -7,7 +7,7 @@ Ancestors
   ml_translator basisProg[qualified]
 Libs
   preamble ml_translatorLib cfTacticsBaseLib cfTacticsLib
-  ml_progLib basisFunctionsLib
+  ml_progLib basisFunctionsLib cfLetAutoLib
 
 val _ = translation_extends "basisProg"
 
@@ -22,9 +22,9 @@ val example_let0_v_def = DB.fetch "-" "example_let0_v_def"
 Theorem example_let0_spec[local]:
   !nv. app (p:'ffi ffi_proj) example_let0_v [nv] emp (POSTv v. & INT 3 v)
 Proof
-  strip_tac \\ xcf' "example_let0" \\ xlet `POSTv a. & INT 3 a`
+  strip_tac \\ xcf' "example_let0" \\ xlet_auto
   THEN1 (xret \\ xsimpl) \\
-  xret \\ xsimpl
+  xret \\ xsimpl \\ fs [NUM_def, INT_def]
 QED
 
 Quote add_cakeml:
@@ -203,10 +203,10 @@ Theorem example_raise_spec[local]:
   !uv.
     UNIT_TYPE () uv ==>
     app (p:'ffi ffi_proj) example_raise_v [uv]
-      emp (POSTe v. & (v = Conv (SOME (ExnStamp 9)) []))
+      emp (POSTe v. & (v = Conv (SOME (ExnStamp 11)) []))
 Proof
   rpt strip_tac \\ xcf' "example_raise" \\
-  xlet `POSTv ev. & (ev = Conv (SOME (ExnStamp 9)) [])`
+  xlet `POSTv ev. & (ev = Conv (SOME (ExnStamp 11)) [])`
   THEN1 (xcon \\ xsimpl) \\
   xraise \\ xsimpl
 QED
@@ -228,9 +228,9 @@ Theorem example_handle_spec[local]:
 Proof
   rpt strip_tac \\
   xcf' "example_handle" \\
-  xhandle `POSTe v. & Foo_exn 10 3 v`
+  xhandle `POSTe v. & Foo_exn 12 3 v`
   THEN1 (
-    xlet `POSTv v. & Foo_exn 10 3 v`
+    xlet `POSTv v. & Foo_exn 12 3 v`
     THEN1 (xcon \\ fs [Foo_exn_def] \\ xsimpl) \\
     xraise \\ xsimpl
   ) \\
@@ -255,7 +255,7 @@ Theorem example_handle2_spec[local]:
 Proof
   rpt strip_tac \\ xcf' "example_handle2" \\
   xhandle ‘POSTve (\v. & (x > 0 /\ INT 1 v))
-                  (\e. & (x <= 0 /\ Foo_exn 11 (-1) e))’
+                  (\e. & (x <= 0 /\ Foo_exn 13 (-1) e))’
   THEN1 (
     xlet `POSTv bv. & (BOOL (x > 0) bv)`
     THEN1 (xapp \\ fs []) \\
@@ -265,7 +265,7 @@ Proof
       irule FALSITY \\ intLib.ARITH_TAC
     )
     THEN1 (
-      xlet `POSTv ev. & Foo_exn 11 (-1) ev`
+      xlet `POSTv ev. & Foo_exn 13 (-1) ev`
       THEN1 (xret \\ fs [Foo_exn_def] \\ xsimpl) \\
       xraise \\ xsimpl \\ intLib.ARITH_TAC
     )
@@ -376,8 +376,6 @@ QED
 Quote add_cakeml:
   fun strcat_foo r = r := !r ^ "foo"
 End
-
-val xlet_auto = cfLetAutoLib.xlet_auto
 
 Theorem strcat_foo_spec[local]:
   !rv sv s.

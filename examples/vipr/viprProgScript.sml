@@ -296,19 +296,26 @@ Proof
   \\ gvs [GSYM add_stdo_with_numchars,with_same_numchars]
 QED
 
-val (stdin_thm,prog_tm) = whole_prog_thm
-                            (get_ml_prog_state())
-                            "main"
-                            (UNDISCH vipr_stdin_whole_prog_spec);
+Theorem vipr_sudin_or_file_whole_prog_spec:
+   hasFreeFD fs ∧
+   (if from_file then
+      file_content fs (EL 1 cl) = SOME text ∧ 1 < LENGTH cl ∧ filename_ok (EL 1 cl)
+    else stdin_content fs = SOME text ∧ LENGTH cl < 2)
+  ⇒
+   whole_prog_spec main_v cl fs NONE ((=) $ if from_file then
+                                              (add_stdout fs $
+                                                run_vipr (lines_of (implode text)))
+                                            else
+                                              (add_stdout (fastForwardFD fs 0) $
+                                                 run_vipr (lines_of (implode text))))
+Proof
+  Cases_on ‘from_file’ \\ rewrite_tac [] \\ rpt strip_tac
+  >- (drule_all vipr_file_whole_prog_spec \\ fs [])
+  >- (drule_all vipr_stdin_whole_prog_spec \\ fs [])
+QED
 
-val (file_thm,prog_tm) = whole_prog_thm
-                            (get_ml_prog_state())
-                            "main"
-                            (UNDISCH vipr_file_whole_prog_spec);
-
-Definition vipr_prog_def:
-  vipr_prog = ^prog_tm
-End
+val sem_thm =
+  prove_sem_thm "main" "vipr_prog" vipr_sudin_or_file_whole_prog_spec;
 
 Theorem clean_up[local]:
   (b' ⇒ c) ⇒ ∀b. (b ⇒ b') ⇒ b ⇒ c
@@ -317,8 +324,9 @@ Proof
 QED
 
 Theorem vipr_stdin_semantics =
-  stdin_thm
-  |> REWRITE_RULE[GSYM vipr_prog_def]
+  sem_thm
+  |> Q.INST [‘from_file’|->‘F’]
+  |> REWRITE_RULE []
   |> DISCH_ALL
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO]
   |> MATCH_MP clean_up
@@ -328,8 +336,8 @@ Theorem vipr_stdin_semantics =
   |> (fn th => MATCH_MP th TRUTH);
 
 Theorem vipr_file_semantics =
-  file_thm
-  |> REWRITE_RULE[GSYM vipr_prog_def]
+  sem_thm
+  |> Q.INST [‘from_file’|->‘T’]
   |> DISCH_ALL
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO]
   |> MATCH_MP clean_up

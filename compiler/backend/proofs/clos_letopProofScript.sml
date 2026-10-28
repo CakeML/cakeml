@@ -3,7 +3,7 @@
 *)
 Theory clos_letopProof
 Ancestors
-  closProps clos_letop closSem closLang backendProps
+  closProps clos_letop closSem
 Libs
   preamble
 
@@ -116,30 +116,17 @@ Definition state_rel_def:
     LIST_REL (OPTREL v_rel) s.globals t.globals /\
     FMAP_REL ref_rel s.refs t.refs /\
     s.compile = pure_cc compile_inc t.compile /\
-    t.compile_oracle = pure_co compile_inc o s.compile_oracle
+    t.compile_oracle = pure_co compile_inc o s.compile_oracle ∧
+    t.ptr_eq_oracle = s.ptr_eq_oracle
 End
 
 (* *)
 
-Theorem v_rel_IMP_v_to_bytes_lemma[local]:
-    !x y.
-      v_rel x y ==>
-      !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
-           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))
+Theorem v_rel_IMP_v_to_mlstring[local]:
+    v_rel x y ==> v_to_mlstring y = v_to_mlstring x
 Proof
-  ho_match_mp_tac v_to_list_ind \\ rw []
-  \\ fs [v_to_list_def]
-  \\ Cases_on `tag = cons_tag` \\ fs []
-  \\ res_tac \\ fs [case_eq_thms]
-  \\ Cases_on `ns` \\ fs []
-  \\ eq_tac \\ rw [] \\ fs []
-  \\ Cases_on `h` \\ fs []
-QED
-
-Theorem v_rel_IMP_v_to_bytes[local]:
-    v_rel x y ==> v_to_bytes y = v_to_bytes x
-Proof
-  rw [v_to_bytes_def] \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []
+  rw [v_to_mlstring_def]
+  \\ Cases_on `x` \\ gvs []
 QED
 
 Theorem v_rel_IMP_v_to_words_lemma[local]:
@@ -696,12 +683,12 @@ QED
 
 Theorem semantics_let_op:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (pure_cc compile_inc cc) xs <> Fail ==>
+     co (pure_cc compile_inc cc) pe xs <> Fail ==>
    (!n. SND (SND (co n)) = []) /\ 1 <= max_app ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     (pure_co compile_inc o co) cc (let_op xs) =
+     (pure_co compile_inc o co) cc pe (let_op xs) =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (pure_cc compile_inc cc) xs
+     co (pure_cc compile_inc cc) pe xs
 Proof
   strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
@@ -709,7 +696,7 @@ Proof
   \\ drule let_op_correct
   \\ simp []
   \\ disch_then (qspec_then `initial_state ffi max_app FEMPTY
-                               (pure_co compile_inc o co) cc k` mp_tac)
+                               (pure_co compile_inc o co) cc pe k` mp_tac)
   \\ impl_tac
   THEN1 fs [state_rel_def, initial_state_def, FMAP_REL_def]
   \\ strip_tac

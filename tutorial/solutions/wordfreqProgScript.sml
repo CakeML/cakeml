@@ -112,7 +112,7 @@ Definition compute_wordfreq_output_def:
     MAP format_output (toAscList (FOLDL insert_line empty input_lines))
 End
 
-val res = translate empty_def;
+val res = translate (empty_def |> SRULE [mlmapTheory.empty_def, balanced_mapTheory.empty_def]);
 val res = translate compute_wordfreq_output_def;
 
 (* Main wordfreq implementation *)
@@ -363,12 +363,9 @@ Proof
   \\ xsimpl
 QED
 
-val (sem_thm,prog_tm) = whole_prog_thm (get_ml_prog_state ()) "wordfreq" (UNDISCH wordfreq_whole_prog_spec)
-Definition wordfreq_prog_def:
-  wordfreq_prog = ^prog_tm
-End
+Theorem sem_thm[local] =
+  prove_sem_thm "wordfreq" "wordfreq_prog" wordfreq_whole_prog_spec;
 
 Theorem wordfreq_semantics =
-  sem_thm |> ONCE_REWRITE_RULE[GSYM wordfreq_prog_def]
-  |> DISCH_ALL |> Q.GENL[`cl`,`contents`]
-  |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  sem_thm |> Q.GENL[`cl`,`contents`]
+  |> SIMP_RULE bool_ss [];

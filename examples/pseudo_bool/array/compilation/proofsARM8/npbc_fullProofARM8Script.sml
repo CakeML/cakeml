@@ -10,35 +10,28 @@ Ancestors
 Libs
   preamble
 
-val cake_pb_io_events_def = new_specification("cake_pb_io_events_def",["cake_pb_io_events"],
-  main_semantics |> Q.GENL[`cl`,`fs`]
-  |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
-
-val (cake_pb_sem,cake_pb_output) = cake_pb_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
-val (cake_pb_not_fail,cake_pb_sem_sing) = cake_pb_sem
-  |> SRULE [npbc_full_compiled_arm8,ml_progTheory.prog_syntax_ok_semantics]
-  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
-
-val compile_correct_applied =
-  MATCH_MP compile_correct (cj 1 npbc_full_compiled_arm8)
-  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
-  |> C MATCH_MP cake_pb_not_fail
-  |> C MATCH_MP arm8_configProofTheory.arm8_backend_config_ok
-  |> REWRITE_RULE[cake_pb_sem_sing,AND_IMP_INTRO]
-  |> REWRITE_RULE[Once (GSYM AND_IMP_INTRO)]
-  |> C MATCH_MP (CONJ(UNDISCH arm8_asl_machine_config_ok)(UNDISCH arm8_asl_init_ok))
-  |> DISCH(#1(dest_imp(concl arm8_asl_init_ok)))
-  |> REWRITE_RULE[AND_IMP_INTRO]
+val cake_pb_terminate = UNDISCH_ALL main_semantics
+  |> SIMP_RULE bool_ss [RIGHT_EXISTS_AND_THM]
+  |> HO_MATCH_MP ml_progTheory.sem_satisfies_IMP_Terminate
+  |> SRULE [npbc_full_compiled_arm8];
 
 Theorem cake_pb_compiled_thm =
-  CONJ compile_correct_applied cake_pb_output
-  |> DISCH_ALL
-  (* |> check_thm *)
+  MATCH_MP compile_correct (cj 1 npbc_full_compiled_arm8)
+  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
+  |> C MATCH_MP (cj 1 cake_pb_terminate)
+  |> C MATCH_MP arm8_configProofTheory.arm8_backend_config_ok
+  |> Q.GEN ‘mc’ |> ISPEC (arm8_asl_init_ok |> concl |> rand |> rand) |> UNDISCH_ALL
+  |> MATCH_MP (cj 2 cake_pb_terminate)
+  |> REWRITE_RULE [targetPropsTheory.machine_sem_sing] |> DISCH_ALL
+  |> CONJ (CONJ (UNDISCH arm8_asl_machine_config_ok) (UNDISCH arm8_asl_init_ok))
+  |> SRULE [SF CONJ_ss] |> CONJUNCT2 |> DISCH_ALL
+  |> REWRITE_RULE [AND_IMP_INTRO, GSYM CONJ_ASSOC]
+  |> check_thm
 
 (* Prettifying the standard parts of all the theorems *)
 Definition installed_arm8_asl_def:
   installed_arm8_asl ((code, data, cfg) :
-      (word8 list # word64 list # backend$config))
+      (word8 list # num list # backend$config))
     mc ms
   <=>
     ?cbspace data_sp.
@@ -65,11 +58,11 @@ End
 
 Theorem machine_code_sound:
   cake_pb_run cl fs mc ms ⇒
-  machine_sem mc (basis_ffi cl fs) ms ⊆
-    extend_with_resource_limit
-      {Terminate Success (cake_pb_io_events cl fs)} ∧
+  ∃io.
+  machine_sem mc (basis_ffi ext cl fs) ms ⊆
+    extend_with_resource_limit {Terminate Success io} ∧
   ∃out err.
-    extract_fs fs (cake_pb_io_events cl fs) =
+    extract_fs ext (cl,fs) io =
       SOME (add_stdout (add_stderr fs err) out) ∧
     (out ≠ «» ⇒
       inFS_fname fs (EL 1 cl) ∧
@@ -100,11 +93,10 @@ Theorem machine_code_sound:
 Proof
   strip_tac>>
   fs[installed_arm8_asl_def,cake_pb_code_def,cake_pb_run_def]>>
-  drule cake_pb_compiled_thm>>
-  simp[AND_IMP_INTRO]>>
-  disch_then drule>>
-  disch_then (qspecl_then [`ms`,`mc`,`data_sp`,`cbspace`] mp_tac)>>
-  simp[]>> strip_tac>>
+  drule_all cake_pb_compiled_thm>>
+  disch_then (qspec_then `ext` strip_assume_tac)>>
+  goal_assum drule>>
+  qpat_x_assum `result = _` SUBST_ALL_TAC>>
   fs[main_sem_def]>>
   every_case_tac>>fs[]
   >- (
@@ -128,4 +120,3 @@ Proof
 QED
 
 val chk = machine_code_sound |> check_thm;
-

@@ -162,10 +162,12 @@ Theorem peg_eval_LetDec_wrongtok:
    FST tk = SemicolonT ⇒
    ¬peg_eval cmlPEG (tk::i, nt (mkNT nLetDec) f) (Success i' r eo)
 Proof
+  Cases_on `tk` >>
   simp[Once peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG,
        peg_TypeDec_def, peg_eval_seq_SOME, tokeq_def, peg_eval_tok_SOME,
        peg_eval_choicel_CONS, peg_eval_seql_CONS,
-       AllCaseEqs()] >> rw[] >> gs[]
+       AllCaseEqs()]
+  >> dsimp[pairTheory.UNCURRY]
 QED
 
 Theorem peg_eval_nUQConstructor_wrongtok:
@@ -595,6 +597,13 @@ Proof
       `LENGTH di < SUC (LENGTH vi)` by decide_tac >>
       first_x_assum (drule_all_then strip_assume_tac) >> rveq >> simp[] >>
       gs[])
+  >- (
+    print_tac "nModPath" >> strip_tac >> rveq >>
+    dsimp[cmlG_applied, cmlG_FDOM, MAP_EQ_SING]
+    >- (
+      first_x_assum $ drule_at (Pos last) >>
+      simp[NT_rank_def] >> strip_tac >> rveq >> simp[]) >>
+    rename [`isLongModidT module_token`] >> Cases_on `module_token` >> fs[])
   >- (print_tac "nStructName" >> simp[peg_StructName_def] >>
       dsimp[cmlG_applied, cmlG_FDOM, PAIR_MAP])
   >- (print_tac "nOptionalSignatureAscription" >> rpt strip_tac >> rveq >>
@@ -696,6 +705,9 @@ Proof
             by simp[NT_rank_def] >>
           first_x_assum (erule strip_assume_tac) >>
           dsimp[cmlG_FDOM, cmlG_applied])
+      >- (`LENGTH i1 < SUC (LENGTH i1)` by decide_tac >>
+          first_assum (drule_all_then strip_assume_tac) >>
+          simp[])
       >- (‘NT_rank (mkNT nStructure) < NT_rank (mkNT nDecl)’
             by simp[NT_rank_def] >>
           first_x_assum $ drule_all_then strip_assume_tac >>
@@ -1072,11 +1084,20 @@ Proof
         (MATCH_MP not_peg0_LENGTH_decreases peg0_nV |> GEN_ALL) >>
       first_assum (erule strip_assume_tac) >> rveq >> dsimp[] >>
       first_assum (assume_tac o MATCH_MP length_no_greater o
-                   assert (free_in ``nPbaseList1`` o concl)) >> fs[] >>
+                              assert (free_in ``nPbaseList1`` o concl)) >> fs[] >>
+      simp[cmlG_FDOM, cmlG_applied] >~
+      [‘(TK ColonT, _)’]
+      >- (
+       first_assum (qpat_assum ‘peg_eval cmlPEG (_, nt (mkNT nType) _) _’ o
+                               mp_then Any mp_tac) >> simp[] >> strip_tac >> gvs[] >>
+       first_assum (qpat_assum ‘peg_eval cmlPEG (_, nt (mkNT nE) _) _’ o
+                               mp_then Any mp_tac) >> impl_tac
+       >- (first_x_assum (mp_tac o Q.AP_TERM ‘LENGTH’) >> simp[])
+       >> strip_tac >> gvs[]) >>
       first_x_assum (fn patth =>
-            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
-                         assert (free_in ``nE``) o concl)) >>
-      simp[] >> strip_tac >> rveq >> simp[cmlG_FDOM, cmlG_applied])
+                       first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
+                                    assert (free_in ``nE``) o concl)) >>
+      simp[] >> strip_tac >> gvs[])
   >- (print_tac "nAndFDecls" >>
       disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
       dsimp[SUBSET_DEF, pegsym_to_sym_def, DISJ_IMP_THM, FORALL_AND_THM,

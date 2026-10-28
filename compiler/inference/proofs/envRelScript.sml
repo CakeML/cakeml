@@ -13,13 +13,6 @@ Libs
 Definition convert_t_def:
 (convert_t (Infer_Tvar_db n) = Tvar_db n) ∧
 (convert_t (Infer_Tapp ts tc) = Tapp (MAP convert_t ts) tc)
-Termination
-  WF_REL_TAC `measure infer_t_size` >>
- rw [] >>
- induct_on `ts` >>
- rw [infer_tTheory.infer_t_size_def] >>
- res_tac >>
- decide_tac
 End
 
 Definition convert_env_def:
@@ -64,11 +57,11 @@ Theorem convert_inc:
   ⇒
   (convert_t (infer_deBruijn_inc tvs t) = deBruijn_inc 0 tvs (convert_t t))
 Proof
-ho_match_mp_tac (fetch "-" "convert_t_ind") >>
-rw [check_t_def, convert_t_def, infer_deBruijn_inc_def, deBruijn_inc_def] >>
-induct_on `ts` >>
-fs [] >>
-metis_tac []
+  ho_match_mp_tac infer_t_induction >>
+  rw [check_t_def, convert_t_def, infer_deBruijn_inc_def, deBruijn_inc_def,
+      MAP_MAP_o, MAP_EQ_f] >>
+  fs [EVERY_MEM] >>
+  metis_tac []
 QED
 
 val infer_t_induction = infer_tTheory.infer_t_induction;
@@ -103,35 +96,37 @@ Theorem db_subst_infer_subst_swap:
        t_walkstar (infer_deBruijn_inc tvs o_f s))
       ts))
 Proof
-ho_match_mp_tac infer_t_induction >>
-rw [convert_t_def, deBruijn_subst_def, EL_MAP, t_walkstar_eqn1,
-    infer_deBruijn_subst_alt, MAP_MAP_o, combinTheory.o_DEF, check_t_def,
-    LENGTH_COUNT_LIST] >|
-[`t_wfs (infer_deBruijn_inc tvs o_f s)` by metis_tac [inc_wfs] >>
-     fs [t_walkstar_eqn1, convert_t_def, deBruijn_subst_def,
-         LENGTH_COUNT_LIST] >>
-     fs [LENGTH_MAP, el_map_count, EL_COUNT_LIST],
- `t_wfs (infer_deBruijn_inc tvs o_f s)` by metis_tac [inc_wfs] >>
-     fs [t_walkstar_eqn1, convert_t_def, deBruijn_subst_def, MAP_MAP_o,
-         combinTheory.o_DEF] >>
-     metis_tac [],
- res_tac >>
-     imp_res_tac convert_inc >>
-     rw [walkstar_inc2] >>
-     metis_tac [subst_inc_cancel, arithmeticTheory.ADD,
-                deBruijn_inc0,
-                LENGTH_COUNT_LIST, LENGTH_MAP],
- metis_tac [],
- metis_tac []]
+  reverse conj_asm1_tac >- (rw [MAP_EQ_f] >> fs [EVERY_MEM] >> metis_tac []) >>
+  Induct >>
+  rw [convert_t_def, deBruijn_subst_def, EL_MAP, t_walkstar_eqn1,
+      infer_deBruijn_subst_alt, MAP_MAP_o, combinTheory.o_DEF, check_t_def,
+      LENGTH_COUNT_LIST]
+  >- (
+    `t_wfs (infer_deBruijn_inc tvs o_f s)` by metis_tac [inc_wfs] >>
+    fs [t_walkstar_eqn1, convert_t_def, deBruijn_subst_def,
+        LENGTH_COUNT_LIST] >>
+    fs [LENGTH_MAP, el_map_count, EL_COUNT_LIST])
+  >- (
+    `t_wfs (infer_deBruijn_inc tvs o_f s)` by metis_tac [inc_wfs] >>
+    fs [t_walkstar_eqn1, convert_t_def, deBruijn_subst_def, MAP_MAP_o,
+        combinTheory.o_DEF, MAP_EQ_f, EVERY_MEM] >>
+    metis_tac []) >>
+  res_tac >>
+  imp_res_tac convert_inc >>
+  rw [walkstar_inc2] >>
+  metis_tac [subst_inc_cancel, arithmeticTheory.ADD,
+             deBruijn_inc0,
+             LENGTH_COUNT_LIST, LENGTH_MAP]
 QED
 
 Theorem inc_convert_t:
  (!t tvs' tvs. check_t tvs' {} t ⇒ (deBruijn_inc tvs' tvs (convert_t t) = convert_t t)) ∧
  (!ts tvs' tvs. EVERY (check_t tvs' {}) ts ⇒ (MAP (deBruijn_inc tvs' tvs o convert_t) ts = MAP convert_t ts))
 Proof
-ho_match_mp_tac infer_t_induction >>
-rw [check_t_def, convert_t_def, deBruijn_inc_def] >>
-metis_tac [MAP_MAP_o]
+  reverse conj_asm1_tac >- (rw [MAP_EQ_f, EVERY_MEM] >> metis_tac []) >>
+  Induct >>
+  rw [check_t_def, convert_t_def, deBruijn_inc_def, MAP_MAP_o, MAP_EQ_f] >>
+  fs [EVERY_MEM]
 QED
 
 Theorem convert_t_subst:
@@ -146,22 +141,24 @@ Theorem convert_t_subst:
     MAP convert_t (MAP (infer_type_subst (ZIP (tvs,ts'))) ts) =
     MAP (type_subst (alist_to_fmap (ZIP (tvs, MAP convert_t ts')))) ts)
 Proof
-ho_match_mp_tac t_induction >>
-rw [check_freevars_def, convert_t_def, type_subst_def, infer_type_subst_alt] >|
-[full_case_tac >>
-     full_case_tac >>
-     fs [ALOOKUP_FAILS] >>
-     imp_res_tac ALOOKUP_MEM >>
-     REPEAT (pop_assum mp_tac) >>
-     rw [MAP_ZIP] >>
-     REPEAT (pop_assum mp_tac) >>
-     Q.SPEC_TAC (`tvs`,`tvs`) >>
-     induct_on `ts'` >>
-     rw [] >>
-     cases_on `tvs` >>
-     fs [] >>
-     metis_tac [optionTheory.SOME_11],
- metis_tac []]
+  reverse conj_asm1_tac >- (rw [MAP_MAP_o, MAP_EQ_f] >> fs [EVERY_MEM]) >>
+  Induct >>
+  rw [check_freevars_def, convert_t_def, type_subst_def, infer_type_subst_alt]
+  >- (
+    full_case_tac >>
+    full_case_tac >>
+    fs [ALOOKUP_FAILS] >>
+    imp_res_tac ALOOKUP_MEM >>
+    REPEAT (pop_assum mp_tac) >>
+    rw [MAP_ZIP] >>
+    REPEAT (pop_assum mp_tac) >>
+    Q.SPEC_TAC (`tvs`,`tvs`) >>
+    induct_on `ts'` >>
+    rw [] >>
+    cases_on `tvs` >>
+    fs [] >>
+    metis_tac [optionTheory.SOME_11]) >>
+  rw [MAP_MAP_o, MAP_EQ_f] >> fs [EVERY_MEM]
 QED
 
 Theorem deBruijn_subst_convert:
@@ -175,7 +172,9 @@ Theorem deBruijn_subst_convert:
   =
   MAP (convert_t o (infer_deBruijn_subst subst)) ts)
 Proof
-  ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  reverse conj_asm1_tac
+  >- (rw[MAP_EQ_f,EVERY_MEM] >> metis_tac[])>>
+  Induct>>
   rw[check_t_def]>>
   fs[convert_t_def,deBruijn_subst_def,infer_deBruijn_subst_alt]
   >-
@@ -187,7 +186,7 @@ QED
 Theorem check_freevars_empty_convert_unconvert_id:
  !t. check_freevars n [] t ⇒ convert_t (unconvert_t t) = t
 Proof
-  ho_match_mp_tac unconvert_t_ind>>
+  ho_match_mp_tac t_induction>>
   rw[]>>fs[unconvert_t_def,convert_t_def,check_freevars_def]>>
   fs[MAP_MAP_o,MAP_EQ_ID,EVERY_MEM]
 QED
@@ -196,7 +195,7 @@ Theorem check_t_empty_unconvert_convert_id:
  !t n. check_t n {} t ⇒
   unconvert_t (convert_t t) = t
 Proof
-  ho_match_mp_tac (fetch "-" "convert_t_ind") >>
+  ho_match_mp_tac infer_t_induction >>
   rw[]>>
   fs[unconvert_t_def,convert_t_def,check_t_def]>>
   fs[MAP_MAP_o,MAP_EQ_ID,EVERY_MEM] >>
@@ -206,7 +205,7 @@ QED
 Theorem check_freevars_to_check_t:
  !t z. check_freevars n [] t ⇒ check_t n {} (unconvert_t t)
 Proof
-  ho_match_mp_tac unconvert_t_ind>>rw[]>>
+  ho_match_mp_tac t_induction>>rw[]>>
   fs[unconvert_t_def,check_freevars_def,check_t_def]>>
   fs[EVERY_MAP,EVERY_MEM]
 QED
@@ -215,9 +214,12 @@ Theorem infer_type_subst_nil:
    (∀t. check_freevars n [] t ⇒ infer_type_subst [] t = unconvert_t t) ∧
     (∀ts. EVERY (check_freevars n []) ts ⇒ MAP (infer_type_subst []) ts = MAP unconvert_t ts)
 Proof
-  ho_match_mp_tac(TypeBase.induction_of(``:t``)) >>
-  rw[infer_type_subst_alt,convert_t_def,unconvert_t_def,check_freevars_def] >>
-  fsrw_tac[boolSimps.ETA_ss][]
+  reverse conj_asm1_tac
+  >- (rw[MAP_EQ_f,EVERY_MEM] >> metis_tac[]) >>
+  Induct >>
+  rw[infer_type_subst_alt,convert_t_def,unconvert_t_def,check_freevars_def,
+     MAP_EQ_f] >>
+  fs[EVERY_MEM]
 QED
 
 (* ---------- relating inference and type system environments ---------- *)
@@ -340,7 +342,7 @@ Theorem unconvert_db_subst:
      unconvert_t (deBruijn_subst 0 subst t) =
      infer_deBruijn_subst (MAP unconvert_t subst) (unconvert_t t)
 Proof
- ho_match_mp_tac t_ind >>
+ ho_match_mp_tac t_induction >>
  rw [deBruijn_subst_def, unconvert_t_def, infer_deBruijn_subst_alt,
      check_freevars_def, EL_MAP] >>
  irule LIST_EQ >>
@@ -370,10 +372,66 @@ Proof
   rw [MAP_MAP_o, combinTheory.o_DEF]
 QED
 
+(* Local bindings may differ in the two representations, but opening a
+   module observes both its presence and all of its value-name domains.
+   Scheme approximation remains directional in the expression relations. *)
+Definition env_rel_mods_def:
+  env_rel_mods ienv tenv ⇔
+    (∀path. nsLookupMod ienv.inf_v path = NONE ⇔
+            nsLookupMod tenv.v path = NONE) ∧
+    (∀mn id. nsLookup ienv.inf_v (Long mn id) = NONE ⇔
+             nsLookup tenv.v (Long mn id) = NONE)
+End
+
+Theorem env_rel_mods_bind[simp]:
+  env_rel_mods (ienv with inf_v := nsBind x scheme ienv.inf_v) tenv ⇔
+  env_rel_mods ienv tenv
+Proof
+  Cases_on `ienv.inf_v`
+  >> simp [env_rel_mods_def, namespaceTheory.nsBind_def,
+           namespaceTheory.nsLookup_def]
+  >> eq_tac
+  >> rw []
+  >> qpat_x_assum `∀path. nsLookupMod _ path = NONE ⇔ _`
+       (qspec_then `path` mp_tac)
+  >> Cases_on `path`
+  >> simp [namespaceTheory.nsLookupMod_def]
+QED
+
+Theorem env_rel_mods_bindings[simp]:
+  env_rel_mods
+    (ienv with inf_v := nsAppend (alist_to_ns bindings) ienv.inf_v) tenv ⇔
+  env_rel_mods ienv tenv
+Proof
+  Cases_on `ienv.inf_v`
+  >> simp [env_rel_mods_def, namespaceTheory.nsAppend_def,
+           namespaceTheory.alist_to_ns_def, namespaceTheory.nsLookup_def]
+  >> eq_tac
+  >> rw []
+  >> qpat_x_assum `∀path. nsLookupMod _ path = NONE ⇔ _`
+       (qspec_then `path` mp_tac)
+  >> Cases_on `path`
+  >> simp [namespaceTheory.nsLookupMod_def]
+QED
+
+Theorem env_rel_mods_map_right[simp]:
+  env_rel_mods ienv <|v := nsMap f ienv.inf_v; c := constructors; t := types|>
+Proof
+  simp [env_rel_mods_def, nsLookupMod_nsMap, nsLookup_nsMap]
+QED
+
+Theorem env_rel_mods_map_left[simp]:
+  env_rel_mods
+    <|inf_v := nsMap f tenv.v; inf_c := constructors; inf_t := types|> tenv
+Proof
+  simp [env_rel_mods_def, nsLookupMod_nsMap, nsLookup_nsMap]
+QED
+
 Definition env_rel_sound_def:
   env_rel_sound s ienv tenv tenvE ⇔
     ienv.inf_t = tenv.t ∧
     ienv.inf_c = tenv.c ∧
+    env_rel_mods ienv tenv ∧
     !x ts.
       nsLookup ienv.inf_v x = SOME ts
       ⇒
@@ -423,7 +481,7 @@ Theorem db_subst_infer_subst_swap3:
     =
     deBruijn_subst 0 (MAP (convert_t o t_walkstar s) subst) t
 Proof
- ho_match_mp_tac unconvert_t_ind
+ ho_match_mp_tac t_induction
  >> rw [unconvert_t_def, infer_deBruijn_subst_alt, deBruijn_subst_def,
         check_freevars_def, convert_t_def, t_walkstar_eqn1]
  >- rw [EL_MAP]
@@ -613,6 +671,7 @@ Definition env_rel_complete_def:
   env_rel_complete s ienv tenv tenvE ⇔
     ienv.inf_t = tenv.t ∧
     ienv.inf_c = tenv.c ∧
+    env_rel_mods ienv tenv ∧
     !x tvs t.
       lookup_var x tenvE tenv = SOME (tvs, t)
       ⇒
@@ -678,6 +737,24 @@ Proof
     every_case_tac
 QED
 
+Theorem env_rel_lookup_none:
+  env_rel tenv ienv ⇒
+  (nsLookup ienv.inf_v id = NONE ⇔ nsLookup tenv.v id = NONE)
+Proof
+  rw [env_rel_def, env_rel_sound_def, env_rel_complete_def, lookup_var_def]
+  >> metis_tac [option_nchotomy, pair_CASES, NOT_SOME_NONE]
+QED
+
+Theorem env_rel_mods_extend:
+  env_rel_mods ienv1 tenv1 ∧ env_rel_mods ienv2 tenv2 ⇒
+  env_rel_mods (extend_dec_ienv ienv1 ienv2)
+               (extend_dec_tenv tenv1 tenv2)
+Proof
+  rw [env_rel_mods_def, extend_dec_ienv_def, extend_dec_tenv_def,
+      nsLookupMod_nsAppend_none, nsLookup_nsAppend_none]
+  >> metis_tac [option_nchotomy, NOT_SOME_NONE]
+QED
+
 Theorem env_rel_extend:
    !tenv1 ienv1 tenv2 ienv2.
     env_rel tenv1 ienv1 ∧
@@ -692,6 +769,10 @@ Proof
   >- metis_tac [ienv_ok_extend_dec_ienv] >>
   conj_tac
   >- metis_tac [extend_dec_tenv_ok] >>
+  `env_rel_mods (extend_dec_ienv ienv1 ienv2)
+                (extend_dec_tenv tenv1 tenv2)`
+    by (irule env_rel_mods_extend >> fs [env_rel_sound_def]) >>
+  simp [env_rel_sound_def, env_rel_complete_def] >>
   simp [env_rel_sound_def, env_rel_complete_def, extend_dec_tenv_def,
         extend_dec_ienv_def, lookup_var_def, nsLookup_nsAppend_some,
         nsLookupMod_nsAppend_none] >>
@@ -761,14 +842,33 @@ Theorem env_rel_empty[simp]:
            <| inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |>
 Proof
   rw [env_rel_def, ienv_ok_def, ienv_val_ok_def, env_rel_sound_def,
-      lookup_var_def, env_rel_complete_def] >>
+      lookup_var_def, env_rel_complete_def, env_rel_mods_def] >>
   Cases_on `x` >>
   rw [namespaceTheory.nsLookupMod_def]
+QED
+
+Theorem env_rel_mods_lift:
+  env_rel tenv ienv ⇒
+  env_rel_mods (lift_ienv mn ienv) (tenvLift mn tenv)
+Proof
+  strip_tac
+  >> imp_res_tac env_rel_lookup_none
+  >> rw [env_rel_mods_def, lift_ienv_def, tenvLift_def, nsLookup_nsLift,
+         nsLookupMod_nsLift]
+  >- (
+    Cases_on `path`
+    >> rw []
+    >> fs [env_rel_def])
+  >> rw []
 QED
 
 Theorem env_rel_lift:
    !tenv ienv mn. env_rel tenv ienv ⇒ env_rel (tenvLift mn tenv) (lift_ienv mn ienv)
 Proof
+  rpt gen_tac >>
+  strip_tac >>
+  imp_res_tac env_rel_mods_lift >>
+  fs [env_rel_def] >>
   rw [env_rel_def]
   >- metis_tac [ienv_ok_lift]
   >- fs [typeSoundInvariantsTheory.tenv_ok_def, tenvLift_def,
@@ -779,25 +879,102 @@ Proof
     simp [lift_ienv_def, tenvLift_def, nsLookupMod_nsLift] >>
     every_case_tac)
   >- (
-    fs [env_rel_sound_def, lift_ienv_def, tenvLift_def, nsLookup_nsLift] >>
-    rw [] >>
-    every_case_tac >>
-    fs [] >>
-    rw [] >>
-    first_x_assum drule >>
-    rw [] >>
-    qexists_tac `tvs'` >>
-    qexists_tac `t'` >>
-    fs [lookup_var_def, nsLookup_nsLift])
-  >- (
-    fs [env_rel_complete_def, lift_ienv_def, tenvLift_def, nsLookup_nsLift] >>
-    rw [] >>
-    fs [lookup_var_def, nsLookup_nsLift] >>
-    every_case_tac >>
-    fs [] >>
-    rw [] >>
-    first_x_assum drule >>
-    rw [])
+    fs [env_rel_sound_def]
+    >> rw [lift_ienv_def, tenvLift_def, nsLookup_nsLift]
+    >> every_case_tac
+    >> fs [lookup_var_def, nsLookup_nsLift]
+    >> metis_tac [])
+  >> fs [env_rel_complete_def]
+  >> rw [lift_ienv_def, tenvLift_def, lookup_var_def, nsLookup_nsLift]
+  >> every_case_tac
+  >> fs [lookup_var_def]
+  >> metis_tac []
+QED
+
+Theorem env_rel_open_tenv_exists:
+   env_rel tenv ienv ∧
+   open_ienv path ienv = SOME inferred_open ⇒
+   ∃typed_open. open_tenv path tenv = SOME typed_open
+Proof
+  strip_tac >>
+  imp_res_tac open_ienv_success_components >>
+  `∃opened_v. nsOpen path tenv.v = SOME opened_v`
+    by (
+      metis_tac [nsOpen_some_from_same_mod_domain, env_rel_def]) >>
+  pop_assum strip_assume_tac >>
+  `ienv.inf_c = tenv.c ∧ ienv.inf_t = tenv.t`
+    by fs [env_rel_def, env_rel_sound_def] >>
+  qexists_tac
+    `<|v := opened_v; c := inferred_open.inf_c;
+       t := inferred_open.inf_t|>` >>
+  rw [open_tenv_def] >>
+  fs []
+QED
+
+Theorem env_rel_open_ienv_exists:
+   env_rel tenv ienv ∧
+   open_tenv path tenv = SOME typed_open ⇒
+   ∃inferred_open. open_ienv path ienv = SOME inferred_open
+Proof
+  strip_tac >>
+  imp_res_tac open_tenv_success_components >>
+  `∃opened_v. nsOpen path ienv.inf_v = SOME opened_v`
+    by (
+      metis_tac [nsOpen_some_from_same_mod_domain, env_rel_def]) >>
+  pop_assum strip_assume_tac >>
+  `ienv.inf_c = tenv.c ∧ ienv.inf_t = tenv.t`
+    by fs [env_rel_def, env_rel_sound_def] >>
+  qexists_tac
+    `<|inf_v := opened_v; inf_c := typed_open.c;
+       inf_t := typed_open.t|>` >>
+  rw [open_ienv_def] >>
+  fs []
+QED
+
+(* Opening selects an existing declaration environment; it does not convert
+   inference schemes into declarative schemes.  Preserve the input relation
+   by transporting each selected lookup through the common module path. *)
+Theorem env_rel_open:
+   env_rel tenv ienv ∧
+   open_tenv path tenv = SOME typed_open ∧
+   open_ienv path ienv = SOME inferred_open ⇒
+   env_rel typed_open inferred_open
+Proof
+  strip_tac >>
+  imp_res_tac env_rel_lookup_none >>
+  `ienv_ok {} inferred_open`
+    by metis_tac [ienv_ok_open_ienv, env_rel_def] >>
+  `tenv_ok typed_open`
+    by metis_tac [tenv_ok_open_tenv, env_rel_def] >>
+  imp_res_tac open_tenv_success_components >>
+  imp_res_tac open_ienv_success_components >>
+  `ienv.inf_c = tenv.c ∧ ienv.inf_t = tenv.t`
+    by fs [env_rel_def, env_rel_sound_def] >>
+  `inferred_open.inf_c = typed_open.c ∧
+   inferred_open.inf_t = typed_open.t`
+    by fs [] >>
+  `∀id.
+     nsLookup inferred_open.inf_v id =
+     nsLookup ienv.inf_v
+       (mk_id (path ++ id_to_mods id) (id_to_n id))`
+    by (gen_tac >> irule nsLookup_after_nsOpen >> fs []) >>
+  `∀id.
+     nsLookup typed_open.v id =
+     nsLookup tenv.v
+       (mk_id (path ++ id_to_mods id) (id_to_n id))`
+    by (gen_tac >> irule nsLookup_after_nsOpen >> fs []) >>
+  `∀suffix.
+     nsLookupMod inferred_open.inf_v suffix =
+     nsLookupMod ienv.inf_v (path ++ suffix)`
+    by (gen_tac >> irule nsLookupMod_after_nsOpen >> fs []) >>
+  `∀suffix.
+     nsLookupMod typed_open.v suffix =
+     nsLookupMod tenv.v (path ++ suffix)`
+    by (gen_tac >> irule nsLookupMod_after_nsOpen >> fs []) >>
+  fs [env_rel_def, env_rel_sound_def, env_rel_complete_def, env_rel_mods_def,
+      lookup_var_def] >>
+  rpt conj_tac >>
+  metis_tac []
 QED
 
 Definition ienv_to_tenv_def:
@@ -819,6 +996,14 @@ Theorem ienv_to_tenv_lift:
    !mn ienv. ienv_to_tenv (lift_ienv mn ienv) = tenvLift mn (ienv_to_tenv ienv)
 Proof
   rw [ienv_to_tenv_def, lift_ienv_def, tenvLift_def, nsLift_nsMap]
+QED
+
+Theorem ienv_to_tenv_open:
+   open_ienv path ienv = SOME opened ⇒
+   open_tenv path (ienv_to_tenv ienv) = SOME (ienv_to_tenv opened)
+Proof
+  rw [open_ienv_def, open_tenv_def, ienv_to_tenv_def, nsOpen_nsMap] >>
+  every_case_tac >> gvs []
 QED
 
 Theorem env_rel_ienv_to_tenv:
@@ -945,4 +1130,137 @@ Theorem tenv_to_ienv_lift:
    !mn tenv. tenv_to_ienv (tenvLift mn tenv) = lift_ienv mn (tenv_to_ienv tenv)
 Proof
   rw [tenv_to_ienv_def, lift_ienv_def, tenvLift_def, namespacePropsTheory.nsLift_nsMap]
+QED
+
+(* Local-open lookup follows the same shadowing policy as namespace append,
+   with local bindings available only on the fallback branch. *)
+Theorem lookup_var_tveMask_extend_some:
+  lookup_var id
+    (tveMask (λn. IS_SOME (nsLookup added.v (Short n))) tenvE)
+    (extend_dec_tenv added tenv) = SOME scheme ⇔
+  nsLookup added.v id = SOME scheme ∨
+  (nsLookup added.v id = NONE ∧
+   lookup_var id tenvE tenv = SOME scheme ∧
+   ∀prefix suffix. prefix ≠ [] ∧ id_to_mods id = prefix ++ suffix ⇒
+                   nsLookupMod added.v prefix = NONE)
+Proof
+  Cases_on `id`
+  >> simp [lookup_var_def, lookup_varE_def, tveLookup_tveMask,
+           extend_dec_tenv_def, nsLookup_nsAppend_some,
+           namespaceTheory.id_to_mods_def]
+  >> rename1 `tveLookup name 0 tenvE`
+  >> Cases_on `nsLookup added.v (Short name)`
+  >> Cases_on `tveLookup name 0 tenvE`
+  >> simp [nsLookup_nsAppend_some, namespaceTheory.id_to_mods_def]
+QED
+
+Theorem lookup_var_after_open_tenv:
+  open_tenv path tenv = SOME opened ⇒
+  lookup_var (mk_id (path ++ id_to_mods id) (id_to_n id)) tenvE tenv =
+  nsLookup opened.v id
+Proof
+  strip_tac
+  >> imp_res_tac open_tenv_success_components
+  >> qpat_x_assum `nsOpen _ tenv.v = SOME _`
+       (mp_then Any assume_tac nsLookup_after_nsOpen)
+  >> Cases_on `path`
+  >> fs [lookup_var_def, lookup_varE_def, namespaceTheory.mk_id_def]
+QED
+
+Theorem env_rel_mods_open:
+  env_rel_mods ienv tenv ∧
+  open_ienv path ienv = SOME inferred_open ∧
+  open_tenv path tenv = SOME typed_open ⇒
+  env_rel_mods inferred_open typed_open ∧
+  (∀id. nsLookup inferred_open.inf_v id = NONE ⇔
+        nsLookup typed_open.v id = NONE)
+Proof
+  strip_tac
+  >> imp_res_tac open_ienv_success_components
+  >> imp_res_tac open_tenv_success_components
+  >> qpat_assum `nsOpen _ ienv.inf_v = SOME _`
+       (mp_then Any assume_tac nsLookup_after_nsOpen)
+  >> qpat_x_assum `nsOpen _ ienv.inf_v = SOME _`
+       (mp_then Any assume_tac nsLookupMod_after_nsOpen)
+  >> qpat_assum `nsOpen _ tenv.v = SOME _`
+       (mp_then Any assume_tac nsLookup_after_nsOpen)
+  >> qpat_x_assum `nsOpen _ tenv.v = SOME _`
+       (mp_then Any assume_tac nsLookupMod_after_nsOpen)
+  >> Cases_on `path`
+  >> fs [env_rel_mods_def, namespaceTheory.mk_id_def]
+QED
+
+Theorem open_envs_none:
+  env_rel_mods ienv tenv ∧ ienv.inf_c = tenv.c ∧ ienv.inf_t = tenv.t ⇒
+  (open_ienv path ienv = NONE ⇔ open_tenv path tenv = NONE)
+Proof
+  strip_tac
+  >> `(nsOpen path ienv.inf_v = NONE ⇔ nsOpen path tenv.v = NONE)`
+       by (Cases_on `path` >> fs [env_rel_mods_def])
+  >> Cases_on `nsOpen path ienv.inf_v`
+  >> Cases_on `nsOpen path tenv.v`
+  >> fs [open_ienv_def, open_tenv_def]
+  >> every_case_tac
+  >> simp []
+QED
+
+Theorem env_rel_sound_open:
+  env_rel_sound s ienv tenv tenvE ∧
+  open_ienv path ienv = SOME inferred_open ∧
+  open_tenv path tenv = SOME typed_open ⇒
+  env_rel_sound s (extend_dec_ienv inferred_open ienv)
+    (extend_dec_tenv typed_open tenv)
+    (tveMask (λn. IS_SOME (nsLookup typed_open.v (Short n))) tenvE)
+Proof
+  strip_tac
+  >> `env_rel_mods ienv tenv ∧ ienv.inf_c = tenv.c ∧ ienv.inf_t = tenv.t`
+       by fs [env_rel_sound_def]
+  >> drule_all env_rel_mods_open
+  >> strip_tac
+  >> `env_rel_mods (extend_dec_ienv inferred_open ienv)
+                   (extend_dec_tenv typed_open tenv)`
+       by metis_tac [env_rel_mods_extend]
+  >> imp_res_tac open_ienv_success_components
+  >> imp_res_tac open_tenv_success_components
+  >> `inferred_open.inf_c = typed_open.c ∧
+      inferred_open.inf_t = typed_open.t` by gvs []
+  >> simp [env_rel_sound_def, num_tvs_tveMask, lookup_var_tveMask_extend_some]
+  >> simp [extend_dec_ienv_def, extend_dec_tenv_def]
+  >> rw [nsLookup_nsAppend_some]
+  >- (
+    metis_tac [env_rel_sound_lookup_some, nsLookup_after_nsOpen,
+               lookup_var_after_open_tenv])
+  >> fs [env_rel_sound_def, env_rel_mods_def]
+  >> metis_tac []
+QED
+
+Theorem env_rel_complete_open:
+  env_rel_complete s ienv tenv tenvE ∧
+  open_ienv path ienv = SOME inferred_open ∧
+  open_tenv path tenv = SOME typed_open ⇒
+  env_rel_complete s (extend_dec_ienv inferred_open ienv)
+    (extend_dec_tenv typed_open tenv)
+    (tveMask (λn. IS_SOME (nsLookup typed_open.v (Short n))) tenvE)
+Proof
+  strip_tac
+  >> `env_rel_mods ienv tenv ∧ ienv.inf_c = tenv.c ∧ ienv.inf_t = tenv.t`
+       by fs [env_rel_complete_def]
+  >> drule_all env_rel_mods_open
+  >> strip_tac
+  >> `env_rel_mods (extend_dec_ienv inferred_open ienv)
+                   (extend_dec_tenv typed_open tenv)`
+       by metis_tac [env_rel_mods_extend]
+  >> imp_res_tac open_ienv_success_components
+  >> imp_res_tac open_tenv_success_components
+  >> `inferred_open.inf_c = typed_open.c ∧
+      inferred_open.inf_t = typed_open.t` by gvs []
+  >> simp [env_rel_complete_def, num_tvs_tveMask, lookup_var_tveMask_extend_some]
+  >> simp [extend_dec_ienv_def, extend_dec_tenv_def, nsLookup_nsAppend_some]
+  >> qx_genl_tac [`name`, `bound`, `ty`]
+  >> strip_tac
+  >- (
+    fs [env_rel_complete_def]
+    >> metis_tac [nsLookup_after_nsOpen, lookup_var_after_open_tenv])
+  >> fs [env_rel_complete_def, env_rel_mods_def]
+  >> metis_tac []
 QED

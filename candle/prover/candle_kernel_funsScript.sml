@@ -38,7 +38,7 @@ Proof
   \\ qpat_x_assum ‘A _ _’ kall_tac
   \\ dxrule_all ml_translatorTheory.Eval_Arrow
   \\ simp [ml_translatorTheory.Eval_def]
-  \\ disch_then (qspec_then ‘s.refs’ strip_assume_tac)
+  \\ disch_then (qspecl_then [‘s.refs’,‘s.ptr_eq_oracle’] strip_assume_tac)
   \\ dxrule ml_translatorTheory.evaluate_empty_state_IMP
   \\ simp [ml_progTheory.eval_rel_def, evaluate_def, Abbr ‘env'’,
            ml_progTheory.nsLookup_write]
@@ -101,7 +101,7 @@ Proof
   \\ dxrule_all ml_translatorTheory.Eval_Arrow \\ strip_tac
   \\ dxrule_all ml_translatorTheory.Eval_Arrow
   \\ simp [ml_translatorTheory.Eval_def]
-  \\ disch_then (qspec_then ‘s.refs’ strip_assume_tac)
+  \\ disch_then (qspecl_then [‘s.refs’,‘s.ptr_eq_oracle’] strip_assume_tac)
   \\ dxrule ml_translatorTheory.evaluate_empty_state_IMP
   \\ simp [ml_progTheory.eval_rel_def, evaluate_def, Abbr ‘env'’,
            ml_progTheory.nsLookup_write]
@@ -1677,6 +1677,8 @@ Proof
     \\ conj_tac
     >- (
       first_assum $ irule_at Any
+      \\ reverse conj_tac
+      >- fs[STATE_def, CONTEXT_def]
       \\ simp[thm2bytes_def, MAP_MAP_o, o_DEF]
       \\ AP_TERM_TAC
       \\ fs[]

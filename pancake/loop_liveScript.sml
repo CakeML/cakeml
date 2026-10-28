@@ -16,13 +16,13 @@ Definition vars_of_exp_def:
   vars_of_exp (Lookup _) l = l ∧
   vars_of_exp (Load a) l = vars_of_exp a l ∧
   vars_of_exp (Op x vs) l = vars_of_exp_list vs l ∧
-  vars_of_exp (Shift _ x _) l = vars_of_exp x l ∧
+  vars_of_exp (Shift _ x y) l = vars_of_exp x (vars_of_exp y l) ∧
   vars_of_exp_list xs l =
     (case xs of [] => l
      | (x::xs) => vars_of_exp x (vars_of_exp_list xs l))
 Termination
-  WF_REL_TAC ‘measure (λx. case x of INL (x,_) => exp_size ARB x
-                                   | INR (x,_) => list_size (exp_size ARB) x)’
+  WF_REL_TAC ‘measure (λx. case x of INL (x,_) => exp_size x
+                                   | INR (x,_) => list_size (exp_size) x)’
 End
 
 Theorem size_mk_BN:
@@ -149,9 +149,9 @@ Definition shrink_def:
 Termination
   WF_REL_TAC `inv_image (measure I LEX measure I LEX measure I)
                (λx. case x of
-                    | INL (_,c,_) => (prog_size (K 0) c, 0:num, 0)
+                    | INL (_,c,_) => (prog_size c, 0:num, 0)
                     | INR (_,live_in,l1,l2,body) =>
-                        (prog_size (K 0) body, 1, size live_in - size l1))`
+                        (prog_size body, 1, size live_in - size l1))`
   \\ rw []
   \\ fs [GSYM NOT_LESS]
   \\ qsuff_tac ‘size l1 < size live_in’ \\ fs []
@@ -165,13 +165,13 @@ Theorem exp_ind = vars_of_exp_ind
   |> Q.GENL [‘P’,‘Q’];
 
 Theorem fixedpoint_thm:
-  ∀lt live_in l1 l2 (body:'a loopLang$prog) l0 b.
+  ∀lt live_in l1 l2 (body:loopLang$prog) l0 b.
     fixedpoint lt live_in l1 l2 body = SOME (b, l0) ⇒
     shrink ((inter live_in l0, l2)::lt) body l2 = (b, l0)
 Proof
   qmatch_abbrev_tac ‘entire_goal’
   \\ qsuff_tac
-    ‘(∀lt (prog:'a loopLang$prog) l d. shrink lt prog l = d ⇒ T) ∧ entire_goal’
+    ‘(∀lt (prog:loopLang$prog) l d. shrink lt prog l = d ⇒ T) ∧ entire_goal’
   THEN1 fs []
   \\ unabbrev_all_tac
   \\ ho_match_mp_tac shrink_ind \\ fs [] \\ rw []

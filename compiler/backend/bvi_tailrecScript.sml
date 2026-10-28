@@ -4,7 +4,7 @@
 *)
 Theory bvi_tailrec
 Ancestors
-  bvi backend_common
+  bvi
 Libs
   preamble
 
@@ -17,12 +17,6 @@ val PMATCH_ELIM_CONV = patternMatchesLib.PMATCH_ELIM_CONV;
 Definition dummy_def:
   dummy = bvi$Var 1234567890
 End
-
-Theorem MEM_exp_size_imp:
-   ∀xs a. MEM a xs ⇒ bvi$exp_size a < exp2_size xs
-Proof
-  Induct \\ rw [bviTheory.exp_size_def] \\ res_tac \\ fs []
-QED
 
 Definition is_rec_def:
   (is_rec name (bvi$Call _ d _ NONE) ⇔ d = SOME name) ∧
@@ -203,9 +197,9 @@ Theorem exp_size_get_bin_args:
        exp_size x1 + exp_size x2 < exp_size x
 Proof
   Induct
-  \\ rw [get_bin_args_def, exp_size_def]
+  \\ rw [get_bin_args_def]
   \\ every_case_tac
-  \\ fs [exp_size_def]
+  \\ fs []
 QED
 
 Definition opbinargs_def:
@@ -511,6 +505,11 @@ Definition scan_expr_def:
     let ty = if n < LENGTH ts then EL n ts else Any in
       [(ts, ty, F, NONE)]) ∧
   (scan_expr ts loc [Call t d xs h] = [(ts, Any, F, NONE)]) ∧
+  (* multi-value calls/returns decline the tail-rec optimisation. TODO(multiret):
+     to optimise them, is_rec/has_rec/scan_expr/rewrite must recognise LetCall
+     self-calls and Return-based accumulation. *)
+  (scan_expr ts loc [Return xs] = [(ts, Any, F, NONE)]) ∧
+  (scan_expr ts loc [LetCall rets t d xs y] = [(ts, Any, F, NONE)]) ∧
   (scan_expr ts loc [Op op xs] =
     let opr = from_op op in
     let opt = op_type opr in
@@ -569,6 +568,8 @@ Definition scan_expr_sing_def:
     let ty = if n < LENGTH ts then EL n ts else Any in
       (ts, ty, F, NONE)) ∧
   (scan_expr_sing ts loc (Call t d xs h) = (ts, Any, F, NONE)) ∧
+  (scan_expr_sing ts loc (Return xs) = (ts, Any, F, NONE)) ∧
+  (scan_expr_sing ts loc (LetCall rets t d xs y) = (ts, Any, F, NONE)) ∧
   (scan_expr_sing ts loc (Op op xs) =
     let opr = from_op op in
     let opt = op_type opr in
@@ -608,13 +609,14 @@ Definition scan_expr_sing_def:
 End
 
 Theorem scan_expr_eq:
-  (∀e ts loc. scan_expr ts loc [e] = [scan_expr_sing ts loc e]) ∧
-  (∀es ts loc. scan_expr ts loc es = scan_expr_list ts loc es)
+  (∀ts loc e. scan_expr ts loc [e] = [scan_expr_sing ts loc e]) ∧
+  (∀ts loc es. scan_expr ts loc es = scan_expr_list ts loc es)
 Proof
-  Induct >> rw[] >> gvs[scan_expr_def, scan_expr_sing_def] >>
-  rpt (pairarg_tac >> gvs[]) >>
-  rpt (TOP_CASE_TAC >> gvs[]) >>
-  Cases_on `es` >> simp[Once scan_expr_def, scan_expr_sing_def]
+  ho_match_mp_tac scan_expr_sing_ind
+  \\ rw [] \\ gvs [scan_expr_def, scan_expr_sing_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ rpt (TOP_CASE_TAC \\ gvs [])
+  \\ Cases_on ‘es’ \\ simp [Once scan_expr_def, scan_expr_sing_def]
 QED
 
 Definition push_call_def:
@@ -727,25 +729,16 @@ Definition has_rec_sing_def:
 End
 
 Theorem has_rec_eq:
-  (∀e loc. has_rec loc [e] = has_rec_sing loc e) ∧
-  (∀es loc. has_rec loc es = has_rec_list loc es)
+  (∀loc e. has_rec loc [e] = has_rec_sing loc e) ∧
+  (∀loc es. has_rec loc es = has_rec_list loc es)
 Proof
-  Induct >> rw[has_rec_def, has_rec_sing_def] >>
-  Cases_on `es` >> gvs[has_rec_def]
-QED
-
-val test1_tm = ``Let [] (Call 0 (SOME 0) [] NONE)``
-Theorem has_rec_test1:
-   has_rec1 0 ^test1_tm <=> F
-Proof
-EVAL_TAC
-QED
-
-val test2_tm = ``Op (IntOp Add) [Call 0 (SOME 0) [] NONE; Var 0]``
-Theorem has_rec_test2:
-   has_rec1 0 ^test2_tm <=> T
-Proof
-EVAL_TAC
+  ho_match_mp_tac has_rec_sing_ind
+  \\ rw [has_rec_def, has_rec_sing_def]
+  >~ [‘EXISTS _ _ ∨ _’]
+  >- (Cases_on ‘EXISTS (is_rec loc) es’ \\ gvs [NOT_EXISTS])
+  >~ [‘has_rec_sing loc e ∨ has_rec_list loc es’]
+  >- (Cases_on ‘es’ \\ gvs [has_rec_def] \\ metis_tac [])
+  \\ metis_tac []
 QED
 
 Definition check_exp_def:
@@ -785,16 +778,22 @@ Definition compile_exp_def:
         SOME (aux, opt)
 End
 
-Definition compile_prog_def:
-  (compile_prog next [] = (next, [])) ∧
-  (compile_prog next ((loc, arity, exp)::xs) =
+Definition compile_each_def:
+  (compile_each next [] = (next, [])) ∧
+  (compile_each next ((loc, arity, exp, md)::xs) =
     case compile_exp loc next arity exp of
     | NONE =>
-        let (n, ys) = compile_prog next xs in
-          (n, (loc, arity, exp)::ys)
+        let (n, ys) = compile_each next xs in
+          (n, (loc, arity, exp, md)::ys)
     | SOME (exp_aux, exp_opt) =>
-        let (n, ys) = compile_prog (next + bvl_to_bvi_namespaces) xs in
-        (n, (loc, arity, exp_aux)::(next, arity + 1, exp_opt)::ys))
+        let (n, ys) = compile_each (next + bvl_to_bvi_namespaces) xs in
+        (n, (loc, arity, exp_aux, md)::
+            (next, arity + 1, exp_opt, add_annotation BVI_Worker md)::ys))
+End
+
+Definition compile_prog_def:
+  compile_prog do_it next xs =
+    if do_it then compile_each next xs else (next, xs)
 End
 
 Theorem scan_expr_not_nil[simp]:
@@ -841,68 +840,4 @@ Proof
   \\ PairCases_on `h` \\ fs []
   \\ TOP_CASE_TAC \\ fs []
   \\ metis_tac []
-QED
-
-(* --- Test rewriting --- *)
-
-val fac_tm = ``
-  Let [Op (IntOp LessEq) [Var 0; Op (IntOp (Const 1)) []]]
-    (If (Var 0)
-       (Op (IntOp (Const 1)) [])
-       (Let [Op (IntOp Sub) [Op (IntOp (Const 1)) []; Var 1]]
-         (Op (IntOp Mult) [Var 2; Call 0 (SOME 0) [Var 0] NONE])))``
-
-val opt_tm = ``
-  Let [Op (IntOp LessEq) [Var 0; Op (IntOp (Const 1)) []]]
-     (If (Var 0) (Op (IntOp Mult) [Var 2; Op (IntOp (Const 1)) []])
-        (Let [Op (IntOp Sub) [Op (IntOp (Const 1)) []; Var 1]]
-           (Call 0 (SOME 1) [Var 0; Op (IntOp Mult) [Var 3; Var 2]]
-              NONE)))``
-val aux_tm = ``Let [Var 0; Op (IntOp (Const 1)) []] ^opt_tm``
-
-Theorem fac_check_exp[local]:
-   check_exp 0 1 ^fac_tm = SOME Times
-Proof
-  EVAL_TAC
-QED
-
-Theorem fac_compile_exp:
-   compile_exp 0 1 1 ^fac_tm = SOME (^aux_tm, ^opt_tm)
-Proof
-  EVAL_TAC
-QED
-
-val rev_tm = ``
-  Let [Op (IntOp (Const 0)) []]
-    (If (Op (BlockOp (TagLenEq 0 0)) [Var 1])
-        (Op (BlockOp (Cons 0)) [])
-        (Let [Op (MemOp El) [Op (IntOp (Const 0)) []; Var 1]]
-          (Let [Op (MemOp El) [Op (IntOp (Const 1)) []; Var 2]]
-            (Op (BlockOp ListAppend)
-              [Op (BlockOp (Cons 0)) [Op (BlockOp (Cons 0)) []; Var 1];
-               Call 0 (SOME 444) [Var 0] NONE]))))``
-
-val opt_tm = ``
-  Let [Op (IntOp (Const 0)) []]
-    (If (Op (BlockOp (TagLenEq 0 0)) [Var 1])
-        (Op (BlockOp ListAppend) [Var 2; Op (BlockOp (Cons 0)) []])
-        (Let [Op (MemOp El) [Op (IntOp (Const 0)) []; Var 1]]
-          (Let [Op (MemOp El) [Op (IntOp (Const 1)) []; Var 2]]
-            (Call 0 (SOME 445)
-              [Var 0;
-               Op (BlockOp ListAppend) [Var 4; Op (BlockOp (Cons 0)) [Op (BlockOp (Cons 0)) []; Var 1]]]
-              NONE))))``
-
-val aux_tm = ``Let [Var 0; Op (BlockOp (Cons 0)) []] ^opt_tm``
-
-Theorem rev_check_exp[local]:
-  check_exp 444 1 ^rev_tm = SOME Append
-Proof
-  EVAL_TAC
-QED
-
-Theorem rev_compile_exp[local]:
-  compile_exp 444 445 1 ^rev_tm = SOME (^aux_tm, ^opt_tm)
-Proof
-  EVAL_TAC
 QED

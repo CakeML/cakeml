@@ -58,6 +58,28 @@ Proof
     gvs [CaseEq "match_result", v_ok_def, SF SFY_ss])
 QED
 
+Theorem env_ok_open_dec_env:
+  env_ok ctxt env ∧
+  open_dec_env path env = SOME opened ⇒
+  env_ok ctxt opened
+Proof
+  rw [env_ok_def, open_dec_env_def]
+  \\ gvs [AllCaseEqs()]
+  \\ imp_res_tac nsLookup_after_nsOpen
+  \\ gs []
+  >- (
+    last_x_assum
+      (qspecl_then
+        [`mk_id (path ++ id_to_mods id) (id_to_n id)`, `len`, `tag`, `tn`]
+        mp_tac)
+    \\ simp [])
+  \\ first_x_assum
+    (qspecl_then
+      [`mk_id (path ++ id_to_mods n) (id_to_n n)`, `v`]
+      mp_tac)
+  \\ gs []
+QED
+
 local
   val ind_thm =
     full_evaluate_ind
@@ -126,7 +148,7 @@ Proof
   >~ [`Raise`] >- suspend "Raise"
   >~ [`Handle`] >- suspend "Handle"
   >~ [`Con`] >- suspend "Con"
-  >~ [`ast$Var`] >- suspend "Var"
+  >~ [`ast$Ident`] >- suspend "Ident"
   >~ [`ast$Fun`] >- suspend "Fun"
   >~ [`ast$App`] >- suspend "App"
   >~ [`Log`] >- suspend "Log"
@@ -136,6 +158,7 @@ Proof
   >~ [`Letrec`] >- suspend "Letrec"
   >~ [`Tannot`] >- suspend "Tannot"
   >~ [`Lannot`] >- suspend "Lannot"
+  >~ [`Open`] >- suspend "Open"
   >~ [`[] : (pat # exp) list`] >- suspend "pmatch_Nil"
   >~ [`_::_ : (pat # exp) list`] >- suspend "pmatch_Cons"
   >~ [`[]:dec list`] >- suspend "decs_Nil"
@@ -145,6 +168,7 @@ Proof
   >~ [`Dtype`] >- suspend "decs_Dtype"
   >~ [`Dtabbrev`] >- suspend "decs_Dtabbrev"
   >~ [`Denv`] >- suspend "decs_Denv"
+  >~ [`Dopen`] >- suspend "decs_Dopen"
   >~ [`Dexn`] >- suspend "decs_Dexn"
   >~ [`Dmod`] >- suspend "decs_Dmod"
   >~ [`Dlocal`] >- suspend "decs_Dlocal"
@@ -215,7 +239,7 @@ Resume evaluate_v_ok[Con]:
   \\ strip_tac \\ gs [env_ok_def]
 QED
 
-Resume evaluate_v_ok[Var]:
+Resume evaluate_v_ok[Ident]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"]]
   >- (
@@ -304,6 +328,14 @@ Theorem do_app_ok:
         | _ => T
 Proof
   strip_tac
+  \\ Cases_on ‘(∃a. op = UnsafeIndexArith a) ∨ ∃t. op = UnsafeIndexTest t’
+  >- (
+    gvs [do_app_cases, do_unsafe_index_arith_def,
+         do_unsafe_index_test_def, AllCaseEqs()]
+    \\ qexists_tac ‘st’ \\ gvs [Boolv_def, v_ok_def, SF SFY_ss]
+    >~ [‘do_arith arith _ _ = SOME (INL _)’] >- (
+      Cases_on ‘arith’ \\ gvs [do_arith_def, AllCaseEqs()])
+    \\ rw [v_ok_def])
   \\ qpat_x_assum ‘do_app _ _ _ = _’ mp_tac
   \\ Cases_on ‘op = Env_id’ \\ gs []
   >- (
@@ -332,7 +364,8 @@ Proof
     rw [do_app_cases] \\ gs []
     \\ dxrule_all_then assume_tac v_ok_v_to_list
     \\ dxrule_all_then assume_tac v_ok_v_to_list
-    \\ ‘EVERY (v_ok ctxt) (xs ++ ys)’
+    \\ qmatch_goalsub_rename_tac `list_to_v (left_values ++ right_values)`
+    \\ `EVERY (v_ok ctxt) (left_values ++ right_values)`
       by gs []
     \\ pop_assum mp_tac
     \\ rename1 ‘EVERY (v_ok ctxt) zs ⇒ _’
@@ -345,6 +378,32 @@ Proof
     \\ simp [v_ok_def]
     \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
   \\ Cases_on ‘op = Aw8update_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [v_ok_def]
+    \\ gvs [store_lookup_def, store_assign_def, EVERY_EL, EL_LUPDATE]
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ rw [SF CONJ_ss, oEL_LUPDATE] \\ gs [ref_ok_def, SF SFY_ss]
+    \\ irule kernel_loc_ok_LUPDATE1 \\ gs []
+    \\ strip_tac \\ gs [])
+  \\ Cases_on ‘op = Aw8subBit_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ rw [v_ok_def, Boolv_def]
+    \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
+  \\ Cases_on ‘op = Aw8updateBit_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [v_ok_def]
+    \\ gvs [store_lookup_def, store_assign_def, EVERY_EL, EL_LUPDATE]
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ rw [SF CONJ_ss, oEL_LUPDATE] \\ gs [ref_ok_def, SF SFY_ss]
+    \\ irule kernel_loc_ok_LUPDATE1 \\ gs []
+    \\ strip_tac \\ gs [])
+  \\ Cases_on ‘op = Aw8subBit’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ rw [v_ok_def, Boolv_def]
+    \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
+  \\ Cases_on ‘op = Aw8updateBit’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [v_ok_def]
     \\ gvs [store_lookup_def, store_assign_def, EVERY_EL, EL_LUPDATE]
@@ -428,7 +487,7 @@ Proof
     \\ gvs [v_ok_def, store_alloc_def, EVERY_EL, LLOOKUP_EQ_EL]
     \\ first_assum (irule_at Any) \\ gs []
     \\ rw [EL_APPEND_EQN] \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def]
-    \\ TRY (
+    >~ [`kernel_loc_ok _ _ _`] >- (
       gs [kernel_loc_ok_def, LLOOKUP_EQ_EL, EL_APPEND_EQN]
       \\ first_x_assum (drule_then strip_assume_tac)
       \\ rw [] \\ gs [SF SFY_ss])
@@ -468,6 +527,11 @@ Proof
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘op = Strsub’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [SF SFY_ss]
+    \\ first_assum (irule_at Any)
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘op = Strsub_unsafe’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
@@ -552,11 +616,6 @@ Proof
     \\ strip_tac
     \\ first_x_assum (drule_then assume_tac)
     \\ drule kernel_loc_ok_LENGTH \\ gs [])
-  \\ Cases_on ‘∃sz sh n. op = Shift sz sh n’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
   \\ Cases_on ‘op = Equality’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]
@@ -638,8 +697,11 @@ Proof
     \\ rpt strip_tac \\ gs [])
   \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
   >- (rw [do_app_cases] \\ gs [thunk_op_def, AllCaseEqs()])
+  \\ Cases_on ‘op = PtrEq’ \\ gs []
+  >- simp [do_app_def]
   \\ Cases_on ‘op’ \\ gs []
-  \\ Cases_on ‘t’ \\ gs []
+  \\ qmatch_goalsub_rename_tac `ThunkOp thunk_primitive`
+  \\ Cases_on `thunk_primitive` \\ gs []
 QED
 
 Theorem state_ok_dest_thunk:
@@ -781,6 +843,13 @@ Resume evaluate_v_ok[App_Op]:
     \\ disch_then drule \\ gvs []
     \\ impl_tac \\ gvs []
     \\ gvs [EVERY_EL])
+  >~ [‘PtrEqOp’] >- (
+    gvs [AllCaseEqs()]
+    \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs [state_ok_def]
+    \\ rename1 ‘EVERY (v_ok ctxt1)’
+    \\ qexists_tac ‘ctxt1’ \\ gs []
+    \\ rw [Boolv_def, v_ok_def]
+    \\ metis_tac [])
   >~ [‘Simple’] >- (
     gvs [AllCaseEqs()]
     \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs [state_ok_def]
@@ -957,6 +1026,16 @@ Resume evaluate_v_ok[Lannot]:
   rw [evaluate_def]
 QED
 
+Resume evaluate_v_ok[Open]:
+  rw [evaluate_def]
+  \\ Cases_on ‘open_dec_env path env’ \\ gvs []
+  >- (
+    qexists_tac ‘ctxt’ \\ gs [state_ok_def])
+  \\ imp_res_tac env_ok_open_dec_env
+  \\ first_x_assum irule
+  \\ gs [env_ok_extend_dec_env]
+QED
+
 Resume evaluate_v_ok[pmatch_Nil]:
   rw [evaluate_def] \\ gs []
   \\ first_assum (irule_at Any) \\ gs []
@@ -1085,6 +1164,18 @@ Resume evaluate_v_ok[decs_Denv]:
   \\ fs [eval_state_ok_def,SF SFY_ss]
   \\ Cases \\ simp [ml_progTheory.nsLookup_nsBind_compute]
   \\ rw [] \\ gs [v_ok_def, env_ok_def, nat_to_v_def, SF SFY_ss]
+QED
+
+Resume evaluate_v_ok[decs_Dopen]:
+  rw [evaluate_decs_def]
+  \\ Cases_on `open_dec_env path env`
+  \\ gvs []
+  >- (
+    qexists_tac `ctxt`
+    \\ gs [state_ok_def])
+  \\ imp_res_tac env_ok_open_dec_env
+  \\ qexists_tac `ctxt`
+  \\ gs [env_ok_extend_dec_env]
 QED
 
 Resume evaluate_v_ok[decs_Dexn]:

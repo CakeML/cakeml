@@ -1,0 +1,13 @@
+aig 15 1 4 1 10
+1
+4
+26
+28
+30
+	
+c
+The two latches 8 and 10 flip their value if the input 2 is high.
+They only exhibit this behavior after an initialization phase of 2 steps,
+where they are reset to 0. The difference in implementation is that 8
+references both bits of the saturating initialization counter (4 and 6),
+while 10 only checks the most significant (6).

@@ -3,12 +3,12 @@
 *)
 Theory scheme_compilerProg
 Ancestors
-  to_sexpProg scheme_ast scheme_parsing scheme_to_cake
+  basisProg scheme_ast scheme_parsing scheme_to_cake
   scheme_compiler
 Libs
   preamble basis
 
-val _ = translation_extends "to_sexpProg";
+val _ = translation_extends "basisProg";
 
 (* parsing *)
 
@@ -24,7 +24,21 @@ val r = translate lexer_def;
 val r = translate scheme_valuesTheory.head_def;
 (*val r = translate quote_def;*)
 val r = translate (IN_UNION |> SIMP_RULE bool_ss [SPECIFICATION]);
-val r = translate LIST_TO_SET_DEF;
+val r = translate_no_ind (INST_TYPE [beta |-> alpha] LIST_TO_SET_DEF);
+
+Theorem list_to_set_ind[local]:
+  list_to_set_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "list_to_set_ind_def"]
+  \\ rpt strip_tac
+  \\ qid_spec_tac ‘v4’
+  \\ Induct_on ‘v3’
+  \\ rpt strip_tac
+  \\ first_assum irule
+  \\ gvs []
+QED
+
+val _ = list_to_set_ind |> update_precondition;
 val r = translate static_scope_def;
 val r = translate parse_def;
 val r = translate pair_to_list_def;
@@ -36,7 +50,6 @@ val r = translate parse_to_ast_def;
 
 (* codegen *)
 
-val r = translate locationTheory.unknown_loc_def;
 val r = translate lit_to_ml_val_def;
 val r = translate cake_print_def;
 val r = translate cons_list_def;
@@ -49,7 +62,7 @@ val r = translate compile_scheme_prog_def;
 val r = translate scheme_basis_types_def;
 val r = translate scheme_basis_def;
 val r = translate scheme_basis_list_def;
-val r = translate scheme_basis_app_def;
+val r = translate (scheme_basis_app_def |> CONV_RULE (RHS_CONV EVAL));
 val r = translate codegen_def;
 
 (* top-level compiler *)
@@ -81,4 +94,3 @@ val prog =
 Definition scheme_compiler_prog_def:
   scheme_compiler_prog = ^prog
 End
-

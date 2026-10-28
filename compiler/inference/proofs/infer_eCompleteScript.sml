@@ -142,9 +142,10 @@ Theorem not_t_oc[local]:
   (!t s v lim. t_wfs s ∧ check_t lim {} t ⇒ ¬ t_oc s t v) ∧
   (!ts s t v lim. t_wfs s ∧ EVERY (check_t lim {}) ts ⇒ ~ EXISTS (\t. t_oc s t v) ts)
 Proof
-  ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  reverse conj_asm1_tac
+  >- (rw[EVERY_MEM,EXISTS_MEM]>>metis_tac[])>>
+  Induct>>
   rw[check_t_def]>>
-  TRY (res_tac>>metis_tac[])>>
   SPOSE_NOT_THEN assume_tac>>
   Q.ISPEC_THEN `s` assume_tac t_oc_eqn>>
   rfs[]>> res_tac>>
@@ -242,7 +243,9 @@ t_walkstar (infer_deBruijn_inc tvs o_f s) t = t_walkstar s t) ∧
 EVERY (\t. t_walkstar (infer_deBruijn_inc tvs o_f s) t = t_walkstar s t) ts))
 Proof
   strip_tac>>
-  ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  reverse conj_asm1_tac
+  >- rw[EVERY_MEM]>>
+  Induct>>
   rw[]>>
   imp_res_tac inc_wfs>>
   fs[t_walkstar_eqn1]
@@ -326,6 +329,8 @@ Theorem deBruijn_subst_id[local]:
   (!t. deBruijn_subst 0 [] t = t) ∧
   (!ts. MAP (deBruijn_subst 0 []) ts = ts)
 Proof
+  reverse conj_asm1_tac
+  >- simp[MAP_EQ_ID]>>
   Induct>>rw[]>>fs[deBruijn_subst_def,MAP_EQ_ID]
 QED
 
@@ -372,7 +377,9 @@ Theorem t_walk_submap_walkstar[local]:
 (!hs. MAP ((t_walk s) o t_walkstar s') hs = MAP (t_walkstar s') hs)
 Proof
   ntac 3 strip_tac>>
-  ho_match_mp_tac infer_tTheory.infer_t_induction>>rw[]>>
+  reverse conj_asm1_tac
+  >- simp[MAP_EQ_f]>>
+  Induct>>rw[]>>
   fs[t_walkstar_eqn,t_walk_eqn,MAP_MAP_o]>>
   Cases_on`t_vwalk s' n`>>fs[t_walk_eqn]>>
   imp_res_tac t_vwalk_to_var>>
@@ -396,7 +403,7 @@ QED
 
 Theorem add_constraint_success2[local]:
   !l t1 t2 st st' x.
-  add_constraint l t1 t2 st = (Success x, st') ⇔
+  add_constraint l t1 t2 st = (M_success x, st') ⇔
   x = () ∧
   pure_add_constraints st.subst [t1,t2] st'.subst ∧
   st'.next_uvar = st.next_uvar ∧
@@ -504,11 +511,14 @@ Theorem check_t_less:
   ⇒
   EVERY (check_t n (uvars ∩ (COMPL (FDOM s)))) (MAP (t_walkstar s) ts))
 Proof
-  ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  reverse conj_asm1_tac
+  >- (rw[EVERY_MEM,MEM_MAP]>>metis_tac[])>>
+  Induct>>
   rw[]
   >- fs[t_walkstar_eqn,t_walk_eqn,check_t_def]
-  >-
-    fs[t_walkstar_eqn,t_walk_eqn,check_t_def,EVERY_MEM,MEM_MAP]
+  >- (
+    fs[t_walkstar_eqn,t_walk_eqn,check_t_def,EVERY_MEM,MEM_MAP]>>
+    metis_tac[])
   >>
   Cases_on`n' ∈ FDOM s`
   >-
@@ -556,9 +566,12 @@ Proof
     imp_res_tac t_compat_ground>>
     res_tac>> metis_tac[])
   >>
-    ho_match_mp_tac infer_tTheory.infer_t_induction>>rw[]>>
-    fs[t_compat_def]>>
-    TRY(fs[t_walkstar_eqn,t_walk_eqn]>>NO_TAC)>>
+    reverse conj_asm1_tac
+    >- simp[MAP_EQ_f]>>
+    Induct>>rw[]>>
+    fs[t_compat_def]
+    >- fs[t_walkstar_eqn,t_walk_eqn]
+    >- fs[t_walkstar_eqn,t_walk_eqn,MAP_EQ_f]>>
     Cases_on`n' ∈ FDOM a`
     >-
       metis_tac[t_walkstar_no_vars]
@@ -862,7 +875,7 @@ Theorem constrain_op_complete_simple_helper[local]:
       st'.next_uvar = st.next_uvar ∧
       st'.next_id = st.next_id ∧
       pure_add_constraints st.subst xs st'.subst ==>
-      constrain_op l op ts' st = (Success t',st'))
+      constrain_op l op ts' st = (M_success t',st'))
 Proof
   rw []
   \\ imp_res_tac sub_completion_wfs
@@ -899,7 +912,7 @@ EVERY (check_t n {}) (MAP (t_walkstar s) ts') ∧
 check_freevars n [] t
 ⇒
 ?t' st' s' constraints'.
-constrain_op l op ts' st = (Success t',st') ∧
+constrain_op l op ts' st = (M_success t',st') ∧
 sub_completion n st'.next_uvar st'.subst constraints' s' ∧
 t_compat s s' ∧
 FDOM st'.subst ⊆ count st'.next_uvar ∧
@@ -1157,6 +1170,8 @@ Theorem infer_type_subst_check_t_less[local]:
   EVERY (check_t n {}) (MAP (infer_type_subst (ZIP(tvs,ls))) ts))
 Proof
   strip_tac>>
+  reverse conj_asm1_tac
+  >- (rw[EVERY_MEM,MEM_MAP]>>metis_tac[])>>
   Induct>>rw[]
   >-
     (rename1 ‘Tvar s’>>
@@ -1171,7 +1186,7 @@ Proof
     metis_tac[EVERY_EL])
   >>
     fs[infer_type_subst_alt,check_t_def,check_freevars_def]>>
-    fs[EVERY_MAP]>>metis_tac[]
+    fs[EVERY_MAP,EVERY_MEM]>>metis_tac[]
 QED
 
 Theorem infer_p_complete:
@@ -1189,7 +1204,7 @@ Theorem infer_p_complete:
   FDOM s = count st.next_uvar
   ⇒
   ?t' new_bindings st' s' constraints'.
-    infer_p l ienv p st  = (Success (t',new_bindings),st') ∧
+    infer_p l ienv p st  = (M_success (t',new_bindings),st') ∧
     sub_completion tvs st'.next_uvar st'.subst constraints' s' ∧
     FDOM st'.subst ⊆ count st'.next_uvar ∧
     FDOM s' = count st'.next_uvar ∧
@@ -1210,7 +1225,7 @@ Theorem infer_p_complete:
   FDOM s = count st.next_uvar
   ⇒
   ?ts' new_bindings st' s' constraints'.
-    infer_ps l ienv ps st = (Success (ts',new_bindings),st') ∧
+    infer_ps l ienv ps st = (M_success (ts',new_bindings),st') ∧
     sub_completion tvs st'.next_uvar st'.subst constraints' s' ∧
     FDOM st'.subst ⊆ count st'.next_uvar ∧
     FDOM s' = count st'.next_uvar ∧
@@ -1516,7 +1531,7 @@ Theorem infer_pes_complete[local]:
         FDOM s'' = count st''.next_uvar ∧
         env_rel_complete s'' ienv' tenv (bind_var_list 0 bindings tenvE) ⇒
         ∃t'' st''' s''' constraints'''.
-          infer_e l ienv' (SND x) st'' = (Success t'',st''') ∧
+          infer_e l ienv' (SND x) st'' = (M_success t'',st''') ∧
           sub_completion (num_tvs tenvE) st'''.next_uvar st'''.subst constraints''' s''' ∧
           FDOM st'''.subst ⊆ count st'''.next_uvar ∧
           FDOM s''' = count st'''.next_uvar ∧ t_compat s'' s''' ∧
@@ -1528,7 +1543,7 @@ Theorem infer_pes_complete[local]:
   unconvert_t t2 = t_walkstar s' t2'
   ⇒
   ?st'' s'' constraints''.
-  infer_pes l ienv pes t1' t2' st' = (Success (), st'') ∧
+  infer_pes l ienv pes t1' t2' st' = (M_success (), st'') ∧
   sub_completion (num_tvs tenvE) st''.next_uvar st''.subst constraints'' s'' ∧
   FDOM st''.subst ⊆ count st''.next_uvar ∧
   FDOM s'' = count st''.next_uvar ∧
@@ -1589,6 +1604,7 @@ Proof
         metis_tac[check_t_more4])
      >- metis_tac[pure_add_constraints_wfs]
      >- metis_tac[pure_add_constraints_success]
+     >- simp[Abbr`ntenv`]
      >-
        (fs[Abbr`ntenv`,simp_tenv_invC_def,lookup_var_bind_var_list,alist_to_ns_def,nsLookup_nsAppend_some]>>
        Cases_on`x`>>fs[nsLookup_def]
@@ -1713,7 +1729,7 @@ Theorem convert_infer_deBruijn_subst[local]:
   convert_t (infer_deBruijn_subst subst t) =
   deBruijn_subst 0 (MAP convert_t subst) (convert_t t)
 Proof
-  gen_tac \\ ho_match_mp_tac infer_t_ind >>
+  gen_tac \\ ho_match_mp_tac infer_t_induction >>
   rw[infer_deBruijn_subst_alt]>>
   EVAL_TAC>>simp[EL_MAP]>>rw[]>>fs[check_t_def]>>
   fs[MAP_MAP_o,MAP_EQ_f]>>rw[]>>
@@ -1739,14 +1755,15 @@ Theorem t_walkstar_infer_db_subst[local]:
 Proof
   ntac 6 strip_tac>>
   imp_res_tac t_wfs_SUBMAP>>
-  ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  reverse conj_asm1_tac
+  >- (rw[MAP_EQ_f]>>fs[EVERY_MEM])>>
+  Induct>>
   rw[]>>
   fs[infer_deBruijn_subst_alt]
   >-
     (IF_CASES_TAC>>fs[LENGTH_COUNT_LIST,EL_MAP,check_t_def,EL_COUNT_LIST])
   >-
-    (fs[t_walkstar_eqn1,check_t_def]>>
-    metis_tac[MAP_MAP_o])
+    (fs[t_walkstar_eqn1,check_t_def,MAP_MAP_o,MAP_EQ_f,EVERY_MEM])
   >>
     fs[check_t_def]>>res_tac>>
     imp_res_tac t_walkstar_no_vars>>
@@ -1782,7 +1799,7 @@ Theorem infer_e_complete:
      env_rel_complete s ienv tenv tenvE
      ⇒
      ?t' st' s' constraints'.
-       infer_e loc ienv e st = (Success t', st') ∧
+       infer_e loc ienv e st = (M_success t', st') ∧
        sub_completion (num_tvs tenvE) st'.next_uvar st'.subst constraints' s' ∧
        FDOM st'.subst ⊆  count st'.next_uvar ∧
        FDOM s' = count st'.next_uvar ∧
@@ -1802,7 +1819,7 @@ Theorem infer_e_complete:
      env_rel_complete s ienv tenv tenvE
      ⇒
      ?ts' st' s' constraints'.
-       infer_es loc ienv es st = (Success ts', st') ∧
+       infer_es loc ienv es st = (M_success ts', st') ∧
        sub_completion (num_tvs tenvE) st'.next_uvar st'.subst constraints' s' ∧
        FDOM st'.subst ⊆ count st'.next_uvar ∧
        FDOM s' = count st'.next_uvar ∧
@@ -1822,7 +1839,7 @@ Theorem infer_e_complete:
      env_rel_complete s ienv tenv tenvE
      ⇒
      ?env' st' s' constraints'.
-       infer_funs loc ienv funs st = (Success env', st') ∧
+       infer_funs loc ienv funs st = (M_success env', st') ∧
        sub_completion (num_tvs tenvE) st'.next_uvar st'.subst constraints' s' ∧
        FDOM st'.subst ⊆ count st'.next_uvar ∧
        FDOM s' = count st'.next_uvar ∧
@@ -1831,6 +1848,34 @@ Theorem infer_e_complete:
 Proof
   ho_match_mp_tac type_e_strongind >>
   rw [add_constraint_success2,success_eqns,infer_e_def]
+  >~ [`open_ienv _ _ = SOME _`]
+  >- (
+    rename1 `open_tenv path tenv = SOME opened`
+    >> `?inferred_open. open_ienv path ienv = SOME inferred_open`
+      by (
+        fs [env_rel_complete_def]
+        >> imp_res_tac open_envs_none
+        >> Cases_on `open_ienv path ienv`
+        >> fs []
+        >> qpat_x_assum `!path. open_ienv path ienv = NONE <=> _`
+             (qspec_then `path` mp_tac)
+        >> fs [])
+    >> rename1 `open_ienv path ienv = SOME inferred_open`
+    >> `ienv_ok (count st.next_uvar) (extend_dec_ienv inferred_open ienv)`
+      by metis_tac [ienv_ok_open_ienv, ienv_ok_extend_dec_ienv]
+    >> `env_rel_complete s (extend_dec_ienv inferred_open ienv)
+          (extend_dec_tenv opened tenv)
+          (tveMask (\n. IS_SOME (nsLookup opened.v (Short n))) tenvE)`
+      by metis_tac [env_rel_complete_open]
+    >> first_x_assum (qspecl_then
+         [`loc`, `s`, `extend_dec_ienv inferred_open ienv`, `st`, `constraints`]
+         mp_tac)
+    >> simp [num_tvs_tveMask]
+    >> disch_then (qx_choosel_then
+         [`inferred_ty`, `final_st`, `final_subst`, `final_constraints`]
+         strip_assume_tac)
+    >> qexistsl_tac [`inferred_ty`, `final_st`, `final_subst`, `final_constraints`]
+    >> simp [])
   (*Easy cases*) >~
   [‘Tapp [] Tint_num = _’]
   >- (qexists_tac `s` >>
@@ -2506,6 +2551,9 @@ Proof
       fs[MAP_EQ_f,FORALL_PROD]>>
     fs[bind_var_list_def]>>
     qpat_abbrev_tac `new_tenv = nsAppend A ienv.inf_v`>>
+    `env_rel_mods (ienv with inf_v := new_tenv) tenv` by (
+      simp [Abbr`new_tenv`]
+      >> fs [env_rel_complete_def]) >>
     fs[sub_completion_def] >>
     qabbrev_tac `fun_tys = MAP SND env` >>
     Q.SPECL_THEN [`st`,`constraints`,`s`,`fun_tys`,`num_tvs tenvE`]

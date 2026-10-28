@@ -16,13 +16,13 @@ Definition adjust_pc_def:
     if p = 0n then 0n else
       case xs of
       | [] => p
-      | (Section n [] :: rest) => adjust_pc p rest
-      | (Section n (l::lines) :: rest) =>
+      | (Section n [] md :: rest) => adjust_pc p rest
+      | (Section n (l::lines) md :: rest) =>
           if is_Label l then
-            adjust_pc p (Section n lines :: rest)
+            adjust_pc p (Section n lines md :: rest)
           else if not_skip l then
-            adjust_pc (p-1) (Section n lines :: rest) + 1
-          else adjust_pc (p-1) (Section n lines :: rest)
+            adjust_pc (p-1) (Section n lines md :: rest) + 1
+          else adjust_pc (p-1) (Section n lines md :: rest)
 End
 
 (*All skips for the next k*)
@@ -87,11 +87,11 @@ Proof
   >-
     (Cases_on`h`>>full_simp_tac(srw_ss())[asm_fetch_aux_def,is_Label_def,filter_skip_def,not_skip_def,all_skips_def]
     >-
-      (first_x_assum(qspecl_then[`n`,`0`] assume_tac)>>
+      (first_x_assum(qspecl_then[`n`,`m`,`0`] assume_tac)>>
       full_simp_tac(srw_ss())[]>>
       qexists_tac`k`>>ntac 2 (simp[Once adjust_pc_def]))
     >-
-      (first_x_assum(qspecl_then[`n`,`0`] assume_tac)>>
+      (first_x_assum(qspecl_then[`n`,`m`,`0`] assume_tac)>>
       full_simp_tac(srw_ss())[]>>
       EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
       full_simp_tac(srw_ss())[Once adjust_pc_def,asm_fetch_aux_def]
@@ -115,7 +115,7 @@ Proof
   >>
     (EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
     simp[Once asm_fetch_aux_def,SimpRHS,is_Label_def]>>
-    first_x_assum(qspecl_then[`n`,`pc-1`] assume_tac)>>full_simp_tac(srw_ss())[]>>
+    first_x_assum(qspecl_then[`n`,`m`,`pc-1`] assume_tac)>>full_simp_tac(srw_ss())[]>>
     `∀x. pc - 1 + x = pc + x -1` by DECIDE_TAC>>
     `∀x. pc - 1 + x = x + pc -1` by DECIDE_TAC>>
     metis_tac[])
@@ -233,7 +233,7 @@ Proof
       (first_assum(qspec_then`0` mp_tac)>>
       full_simp_tac(srw_ss())[]>>impl_tac>-DECIDE_TAC>>strip_tac>>
       full_simp_tac(srw_ss())[not_skip_def]>>
-      first_x_assum(qspecl_then[`0`,`Section k' ys::xs`]mp_tac)>>impl_tac>-
+      first_x_assum(qspecl_then[`0`,`Section k' ys md::xs`]mp_tac)>>impl_tac>-
       (full_simp_tac(srw_ss())[]>>srw_tac[][]>>
       first_x_assum(qspec_then`i+1` mp_tac)>>impl_tac>-DECIDE_TAC>>
       srw_tac[][])>>
@@ -291,7 +291,7 @@ Proof
     (simp[Once adjust_pc_def]>>
     qexists_tac`k`>>full_simp_tac(srw_ss())[asm_fetch_aux_def])
   >>
-    pop_assum(qspec_then`n` assume_tac)>>full_simp_tac(srw_ss())[]>>
+    pop_assum(qspecl_then[`n`,`m`] assume_tac)>>full_simp_tac(srw_ss())[]>>
     Cases_on`h`>>
     simp[Once adjust_pc_def,asm_fetch_aux_def,is_Label_def,not_skip_def]
     >-
@@ -449,7 +449,7 @@ Proof
       Cases_on`i`>>fs[])>>
     full_simp_tac(srw_ss())[get_lab_after_def]>>
     mp_tac next_label_filter_skip>>
-    disch_then(qspec_then`Section n l::code` assume_tac)>>
+    disch_then(qspec_then`Section n l m::code` assume_tac)>>
     full_simp_tac(srw_ss())[filter_skip_def])
   >>
     `¬not_skip h` by
@@ -793,26 +793,6 @@ Proof
         imp_res_tac loc_to_pc_eq_SOME>>
         full_simp_tac(srw_ss())[get_pc_value_def,upd_pc_def,dec_clock_def]>>srw_tac[][]>>
         upd_pc_tac)
-    >- (*CBW*)
-      (reverse(simp[case_eq_thms]>>rw[]>>fs[inc_pc_def,dec_clock_def])
-      >> TRY (
-        rename1`code_buffer_write _ _ _ = SOME _`>>
-        qmatch_asmsub_abbrev_tac`evaluate tt = (res,s2)`>>
-        first_x_assum(qspec_then `tt with <|pc:= t1.pc+k+1; code:=t1.code; compile:= t1.compile; compile_oracle := t1.compile_oracle|>` mp_tac)>>
-        simp[Abbr`tt`,state_component_equality]>>
-        impl_tac>-
-          metis_tac[adjust_pc_all_skips,ADD_COMM,ADD_ASSOC]>>
-        strip_tac>>
-        first_x_assum(qspec_then`k'` assume_tac)>>
-        qmatch_asmsub_abbrev_tac`evaluate tt = (res,t2)`>>
-        qmatch_asmsub_abbrev_tac`evaluate ss = evaluate _`>>
-        `ss = tt` by (
-          unabbrev_all_tac>>fs[state_component_equality])>>
-        unabbrev_all_tac>>fs[]>>
-        metis_tac[ADD_ASSOC])
-      >>
-        (first_x_assum(qspec_then`0` (assume_tac o SYM))>>
-        fs[]>>qexists_tac`k`>>fs[]))
       >- (* share_mem_op *)
         (TOP_CASE_TAC >> fs[]
         >- (* share_mem_op returns NONE *)
@@ -829,7 +809,9 @@ Proof
             (drule_all share_mem_op_FFI_return_filter_correct >>
             rw[] >>
             first_x_assum $ qspecl_then
-              [`s2' with io_regs := shift_seq 1 s2'.io_regs`,`res`,`s2`] assume_tac >>
+              [`s2' with <| io_regs := shift_seq 1 s2'.io_regs ;
+                            io_fp_regs := shift_seq 1 s2'.io_fp_regs |>`,
+               `res`,`s2`] assume_tac >>
             gvs[] >>
             last_x_assum $ qspec_then `0` assume_tac >>
             gvs[state_rel_def] >>
@@ -962,9 +944,9 @@ Proof
       reverse(Cases_on`t1.regs t1.len2_reg`>>full_simp_tac(srw_ss())[])>-same_inst_tac>>
       (Cases_on`t1.regs t1.link_reg`>>full_simp_tac(srw_ss())[])>-same_inst_tac>>
       reverse(Cases_on`t1.regs t1.ptr2_reg`>>full_simp_tac(srw_ss())[])>-same_inst_tac>>
-      Cases_on`read_bytearray c'' (w2n c') (mem_load_byte_aux t1.mem t1.mem_domain t1.be)`>>full_simp_tac(srw_ss())[]
+      Cases_on`read_bytearray c' (w2n c) (mem_load_byte_aux t1.mem t1.mem_domain t1.be)`>>full_simp_tac(srw_ss())[]
       >- same_inst_tac>>
-      Cases_on`read_bytearray c'''' (w2n c''') (mem_load_byte_aux t1.mem t1.mem_domain t1.be)`>>full_simp_tac(srw_ss())[]
+      Cases_on`read_bytearray c''' (w2n c'') (mem_load_byte_aux t1.mem t1.mem_domain t1.be)`>>full_simp_tac(srw_ss())[]
       >- same_inst_tac>>
       Cases_on`loc_to_pc n' n0 (filter_skip t1.code)`>>full_simp_tac(srw_ss())[]
       >-
@@ -976,16 +958,14 @@ Proof
         srw_tac[][]>>Cases_on`call_FFI t1.ffi (ExtCall s) x x'`>>fs[]>-upd_pc_tac>>
         same_inst_tac)
     >- (*oracle case *)
-      (reverse(Cases_on`t1.regs t1.ptr_reg`) \\ fs[] >- same_inst_tac \\
-      (Cases_on`t1.regs t1.link_reg`) \\ fs[] >- same_inst_tac \\
-      reverse(Cases_on`t1.regs t1.len_reg`) \\ fs[] >- same_inst_tac \\
+      (Cases_on`read_reg t1.link_reg t1` \\ fs[] >- same_inst_tac \\
       TOP_CASE_TAC >- same_inst_tac \\
+      split_pair_case_tac \\ fs[] \\
       strip_tac \\
       TOP_CASE_TAC >- (
         fs[loc_to_pc_eq_NONE] \\ rw[]
         \\ first_x_assum(qspec_then`0`mp_tac) \\ rw[]
         \\ qexists_tac`k` \\ simp[] ) \\
-      split_pair_case_tac \\ fs[] \\
       pairarg_tac>>fs[] \\
       imp_res_tac loc_to_pc_eq_SOME \\ fs[] \\
       TOP_CASE_TAC >- (
@@ -1011,10 +991,12 @@ Proof
       rw[]>>
       first_x_assum(qspec_then `t1 with <|
         regs := (t1.ptr_reg =+ Loc n'' 0) (λa. get_reg_value (t1.cc_regs 0 a) (read_reg a t1) Word);
+        fp_regs := (λn. t1.cc_fp_regs 0 n);
         pc := pc';
         code := t1.code ++ SND(t1.compile_oracle 0);
         compile_oracle := shift_seq 1 t1.compile_oracle;
-        code_buffer := cb; clock:=t1.clock-1 ; cc_regs:= shift_seq 1 t1.cc_regs|>` mp_tac)>>
+        code_buffer := cb; clock:=t1.clock-1 ; cc_regs:= shift_seq 1 t1.cc_regs;
+        cc_fp_regs := shift_seq 1 t1.cc_fp_regs|>` mp_tac)>>
       simp[state_component_equality]>>
       impl_tac>- (
         rw[filter_skip_MAP,shift_seq_def]

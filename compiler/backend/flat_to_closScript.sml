@@ -6,7 +6,7 @@
 *)
 Theory flat_to_clos
 Ancestors
-  flatLang closLang clos_interp backend_common[qualified]
+  flatLang clos_interp
 Libs
   preamble
 
@@ -97,6 +97,18 @@ Definition CopyByteAw8_def:
   CopyByteAw8 t = ^checkF
 End
 
+Definition compile_shift_def:
+  compile_shift t ws sh xs =
+    case (ws,xs) of
+    | (W8,[Op _ (IntOp (Const i)) []; x]) =>
+        if 0 <= i /\ i < 256 then
+          Op t (WordOp (WordShift W8 sh (Num i))) [x]
+        else Op t (WordOp (WordShiftVar W8 sh)) xs
+    | (W64,[Op _ (BlockOp (Constant (ConstWord64 n))) []; x]) =>
+        Op t (WordOp (WordShift W64 sh (w2n n))) [x]
+    | _ => Op t (WordOp (WordShiftVar ws sh)) xs
+End
+
 Definition compile_arith_def:
   compile_arith t (a: ast$arith) ty xs =
     case ty of
@@ -112,7 +124,7 @@ Definition compile_arith_def:
                                    (Op t (IntOp closLang$Mod) [Var t 0; Var t 1]))
                | _ => Let None xs (Var None 0))
     | Float64T => (case a of
-                   | Abs => Op t (WordOp (FP_uop FP_Abs)) xs
+                   | Absolute => Op t (WordOp (FP_uop FP_Abs)) xs
                    | Neg => Op t (WordOp (FP_uop FP_Neg)) xs
                    | Sqrt => Op t (WordOp (FP_uop FP_Sqrt)) xs
                    | Add => Op t (WordOp (FP_bop FP_Add)) xs
@@ -127,9 +139,49 @@ Definition compile_arith_def:
                    | And => Op t (WordOp (WordOpw ws Andw)) xs
                    | Or  => Op t (WordOp (WordOpw ws Orw)) xs
                    | Xor => Op t (WordOp (WordOpw ws Xor)) xs
+                   | Shift sh => compile_shift t ws sh xs
                    | _   => Let None xs (Var None 0))
     | BoolT => Op t (BlockOp BoolNot) xs
     | _ => Let None xs (Var None 0)
+End
+
+Definition compile_smallnum_div_def:
+  compile_smallnum_div t smallop xs =
+    Let t xs
+      (If t (Op t (IntOp (Smallnum SmallEqual))
+        (if LENGTH xs = 3 then
+           [Var t 0; Op t (IntOp (Const 0)) []; Var t 1]
+         else [Var t 0; Op t (IntOp (Const 0)) []]))
+        (Raise t (Op t (BlockOp (Cons div_tag)) []))
+        (Op t (IntOp (Smallnum smallop))
+          (GENLIST (Var t) (LENGTH xs))))
+End
+
+Definition compile_smallnum_arith_def:
+  compile_smallnum_arith t (a:ast$arith) xs =
+    case a of
+    | Add => Op t (IntOp (Smallnum SmallAdd)) xs
+    | Sub => Op t (IntOp (Smallnum SmallSub)) xs
+    | Mul => Op t (IntOp (Smallnum SmallMult)) xs
+    | Div => compile_smallnum_div t SmallDiv xs
+    | Mod => compile_smallnum_div t SmallMod xs
+    | _ => Let None xs (Var None 0)
+End
+
+Definition compile_smallnum_test_def:
+  compile_smallnum_test t test xs =
+    case test of
+    | Compare Lt  => Op t (IntOp (Smallnum SmallLess)) xs
+    | Compare Leq => Op t (IntOp (Smallnum SmallLessEq)) xs
+    | Compare Gt  => Op t (IntOp (Smallnum SmallGreater)) xs
+    | Compare Geq => Op t (IntOp (Smallnum SmallGreaterEq)) xs
+    | _          => Op t (IntOp (Smallnum SmallEqual)) xs
+End
+
+Definition compile_unsafe_index_def:
+  compile_unsafe_index t f xs =
+    if LENGTH xs = 2 \/ LENGTH xs = 3 then f xs
+    else Let None xs (Var None 0)
 End
 
 Definition compile_op_def:
@@ -147,6 +199,7 @@ Definition compile_op_def:
     | Src Opref => Op t (MemOp Ref) xs
     | Src ConfigGC => Op t (MemOp ConfigGC) xs
     | Src Equality => Op t (BlockOp Equal) xs
+    | Src PtrEq => Op t (BlockOp PtrEqual) xs
     | Src (FFI n) => Op t (FFI n) xs
     | Src ListAppend => Op t (BlockOp ListAppend) xs
     | Src Vlength => Op t (BlockOp LengthBlock) xs
@@ -211,13 +264,25 @@ Definition compile_op_def:
                                   (Op t (MemOp UpdateByte) [Var t 0; Var t 1; Var t 2])
                                   (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
     | Src Aw8update_unsafe => Op t (MemOp UpdateByte) xs
+    | Src Aw8subBit => Let t xs (If t (Op t (MemOp BoundsCheckBit) [Var t 0; Var t 1])
+                                  (Op t (MemOp DerefBit) [Var t 0; Var t 1])
+                                  (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+    | Src Aw8updateBit => Let t xs (If t (Op t (MemOp BoundsCheckBit) [Var t 1; Var t 2])
+                                     (Op t (MemOp UpdateBit) [Var t 0; Var t 1; Var t 2])
+                                     (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+    | Src Aw8subBit_unsafe => Op t (MemOp DerefBit) xs
+    | Src Aw8updateBit_unsafe => Op t (MemOp UpdateBit) xs
     | Src Strsub => Let t xs (If t (Op t (MemOp (BoundsCheckByte F)) [Var t 0; Var t 1])
                                (Op t (MemOp DerefByteVec) [Var t 0; Var t 1])
                                (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
-    | Src (Shift x1 x2 x3) => Op t (WordOp (WordShift x1 x2 x3)) xs
+    | Src Strsub_unsafe => Op t (MemOp DerefByteVec) xs
     | Src Eval => Op t Install xs
     | Src (ThunkOp op) => Op t (ThunkOp op) xs
     | Src (Arith a ty) => compile_arith t a ty xs
+    | Src (UnsafeIndexArith a) =>
+        compile_unsafe_index t (\ys. compile_smallnum_arith t a ys) xs
+    | Src (UnsafeIndexTest test) =>
+        compile_unsafe_index t (\ys. compile_smallnum_test t test ys) xs
     | Src (FromTo (WordT W8) IntT) => arg1 xs (\x. x)
     | Src (FromTo (WordT W64) IntT) => Op t (WordOp WordToInt) xs
     | Src (FromTo IntT (WordT W8)) => arg1 xs (\x. Op t (IntOp Mod) [Op t (IntOp (Const 256)) []; x])
@@ -327,13 +392,12 @@ Definition compile_def:
      let new_m = MAP (\n. SOME (FST n)) funs ++ m in
        [Letrec (MAP (\n. join_strings t (FST n)) funs) NONE NONE
           (MAP ( \ (f,v,x). (1, HD (compile (SOME v :: new_m) [x]))) funs)
-          (HD (compile new_m [e]))])
+          (HD (compile new_m [e]))]) /\
+  (compile m [flatLang$Tick t e] =
+     [closLang$Let t [HD (compile m [e])] (closLang$Tick t (Var t 0))])
 Termination
-  WF_REL_TAC `measure (flatLang$exp6_size o SND)` \\ rw []
-  \\ `!funs f v x. MEM (f,v,x) funs ==> exp_size x < flatLang$exp1_size funs` by
-    (Induct \\ fs [] \\ rw [] \\ fs [flatLangTheory.exp_size_def] \\ res_tac \\ fs [])
-  \\ res_tac \\ fs [dest_pat_thm] \\ fs [flatLangTheory.exp_size_def]
-  \\ gvs [dest_nop_thm] \\ fs [flatLangTheory.exp_size_def]
+  WF_REL_TAC `measure (list_size flatLang$exp_size o SND)` \\ rw []
+  \\ gvs [dest_nop_thm, dest_pat_thm]
 End
 
 Definition compile_decs_def:

@@ -1,0 +1,239 @@
+(*
+  Simple wordcount program, to demonstrate use of CF.
+
+  The implementation is very far from optimal efficiency: it reads in all the
+  lines from the file, then splits them into words, then takes the lengths of
+  those word lists. A more efficient implementation is possible even in CakeML.
+*)
+Theory wordcountProg
+Ancestors
+  splitwords cfApp basis_ffi
+Libs
+  preamble basis
+
+val _ = temp_delsimps ["NORMEQ_CONV"]
+
+val _ = translation_extends"basisProg";
+
+Definition wc_lines_def:
+  wc_lines lines = SUM (MAP (LENGTH o splitwords) lines)
+End
+
+val res = translate splitwords_def;
+val res = translate wc_lines_def;
+
+(* TODO: move *)
+Quote add_cakeml:
+  fun inputLinesFrom fnameopt =
+    case fnameopt of
+      None => Some (TextIO.inputLinesStdIn #"\n")
+    | Some fname => TextIO.inputLinesFile #"\n" fname;
+End
+
+Theorem inputLinesFrom_spec:
+  OPTION_TYPE FILENAME fo fov ∧
+  (IS_SOME fo ⇒ hasFreeFD fs) ∧
+  (IS_NONE fo ⇒ ∃text. stdin_content fs = SOME text) ⇒
+  app (p:'ffi ffi_proj) ^(fetch_v "inputLinesFrom" (get_ml_prog_state()))
+    [fov] (STDIO fs)
+    (POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
+      (if IS_SOME fo ⇒ inFS_fname fs (THE fo)
+       then SOME (case fo of
+           NONE => (lines_of (implode (THE (stdin_content fs ))))
+         | SOME f => all_lines_file fs f)
+       else NONE) sv *
+      STDIO (if IS_SOME fo then fs else fastForwardFD fs 0))
+Proof
+  rpt strip_tac
+  \\ xcf"inputLinesFrom"(get_ml_prog_state())
+  \\ Cases_on`fo` \\ fs[OPTION_TYPE_def] \\ xmatch
+  >- (
+    xlet_auto>>xsimpl>>
+    xcon>>xsimpl>>
+    fs[lines_of_gen_lines_of])>>
+  xapp>>xsimpl>>
+  first_x_assum $ irule_at Any>>
+  simp[]>>
+  first_x_assum $ irule_at Any>>
+  xsimpl
+QED
+(* -- *)
+
+Quote add_cakeml:
+  fun wordcount u =
+      case inputLinesFrom
+             (case CommandLine.arguments() of [fname] => Some fname | _ => None)
+      of Some lines =>
+        (TextIO.print (Int.toString (wc_lines lines)); TextIO.output1 TextIO.stdOut #" ";
+         TextIO.print (Int.toString (List.length lines)); TextIO.output1 TextIO.stdOut #"\n")
+End
+
+Definition wordcount_precond_def:
+  wordcount_precond cl fs contents fs' ⇔
+    case cl of
+      [_; fname] =>
+        hasFreeFD fs ∧
+        ∃ ino. ALOOKUP fs.files fname = SOME ino ∧
+        ALOOKUP fs.inode_tbl (File ino) = SOME contents ∧
+        fs' = fs
+    | _ =>
+      stdin_content fs = SOME contents ∧
+      fs' = fastForwardFD fs 0
+End
+
+Theorem wordcount_precond_numchars:
+   wordcount_precond cl fs contens fs' ⇒ fs'.numchars = fs.numchars
+Proof
+  rw[wordcount_precond_def]
+  \\ every_case_tac \\ fs[]
+QED
+
+Theorem wordcount_spec:
+   wordcount_precond cl fs contents fs'
+   ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v "wordcount" (get_ml_prog_state()))
+     [uv] (STDIO fs * COMMANDLINE cl)
+     (POSTv uv. &UNIT_TYPE () uv *
+                 STDIO (add_stdout fs'
+                   (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));
+                            « »;
+                            mlint$toString (&(LENGTH (splitlines contents)));
+                            «\n»]))
+                * COMMANDLINE cl)
+Proof
+  simp [concat_def] \\
+  strip_tac \\
+  xcf "wordcount" (get_ml_prog_state()) \\
+  xlet_auto >- (xcon \\ xsimpl) \\
+  xlet_auto >- xsimpl \\
+  (* we will need to know wfcl cl to prove that fname is a valid filename.
+     this comes from the COMMANDLINE precondition.
+     `wfcl cl` by ... wouldn't work because the current goal is needed to do the xpull on *)
+  reverse(Cases_on`wfcl cl`) >- (rfs[COMMANDLINE_def] \\ xpull) \\
+  (* similarly we will later want to know STD_streams fs *)
+  reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull) \\
+  xlet`POSTv fov. &OPTION_TYPE FILENAME (case TL cl of [fname] => SOME fname | _ => NONE) fov * COMMANDLINE cl * STDIO fs`
+  >- (
+    xmatch
+    \\ fs[wfcl_def]
+    \\ Cases_on`cl` \\ fs[]
+    \\ Cases_on`t` \\ fs[LIST_TYPE_def]
+    >- (
+      reverse conj_tac >- (EVAL_TAC \\ rw[])
+      \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
+      \\ xcon \\ xsimpl
+      \\ EVAL_TAC )
+    \\ Cases_on`t'` \\ fs[LIST_TYPE_def]
+    >- (
+      reverse conj_tac >- (EVAL_TAC \\ rw[])
+      \\ xcon
+      \\ xsimpl
+      \\ rw[OPTION_TYPE_def]
+      \\ rw[FILENAME_def]
+      \\ fs[validArg_def] )
+    \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
+    \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
+    \\ xcon
+    \\ xsimpl
+    \\ rw[OPTION_TYPE_def] )
+  \\ xlet_auto
+  >- (
+    xsimpl
+    \\ fs[wordcount_precond_def, wfcl_def]
+    \\ Cases_on`cl` \\ fs[]
+    \\ Cases_on`t` \\ fs[]
+    \\ Cases_on`t'` \\ fs[] )
+  \\ qmatch_asmsub_abbrev_tac`OPTION_TYPE _ fo fov`
+  \\ qmatch_asmsub_abbrev_tac`OPTION_TYPE _ so sv`
+  \\ `∃lines. so = SOME lines`
+  by (
+    fs[wordcount_precond_def, wfcl_def]
+    \\ Cases_on`cl` \\ fs[]
+    \\ simp[Abbr`so`]
+    \\ simp[IS_SOME_EXISTS]
+    \\ simp[Abbr`fo`]
+    \\ simp[CaseEq"list"]
+    \\ strip_tac \\ fs[]
+    \\ simp[inFS_fname_def]
+    \\ imp_res_tac ALOOKUP_MEM
+    \\ simp[MEM_MAP, EXISTS_PROD]
+    \\ asm_exists_tac \\ rw[] )
+  \\ fs[Abbr`so`]
+  \\ xmatch \\ fs[OPTION_TYPE_def] \\
+  reverse conj_tac >- (EVAL_TAC \\ fs[]) \\
+  xlet_auto >- xsimpl \\
+  xlet_auto >- xsimpl \\
+  xlet_auto >- xsimpl \\
+  (* TODO: xlet_auto fails *)
+  qmatch_goalsub_abbrev_tac`STDIO fs''` \\
+  xlet_auto_spec(SOME (Q.SPEC`fs''` (Q.GEN`fs`output1_stdout_spec))) >- xsimpl \\
+  xlet_auto >- xsimpl \\
+  xlet_auto >- xsimpl \\
+  xlet_auto >- xsimpl \\
+  xapp_spec output1_stdout_spec \\ xsimpl \\
+  (* TODO: STDIO prevents xapp/xsimpl instantiating this already *)
+  qunabbrev_tac`fs''` \\
+  CONV_TAC SWAP_EXISTS_CONV \\
+  qmatch_goalsub_abbrev_tac`STDIO fs''` \\
+  qexists_tac`fs''` \\ xsimpl \\
+  simp[Abbr`fs''`] \\
+  DEP_REWRITE_TAC[GEN_ALL add_stdo_o] \\
+  rpt(conj_tac >-
+    metis_tac[STD_streams_add_stdout,STD_streams_stdout,
+              STD_streams_fastForwardFD,DECIDE``0n ≠ 1 ∧0n ≠ 2``]) \\
+  qmatch_goalsub_abbrev_tac`STDIO (_ output) ==>> STDIO (_ output') * GC` \\
+  `output = output'` suffices_by (
+    fs[wordcount_precond_def, Abbr`fo`,IS_SOME_EXISTS,CaseEq"list"]
+    \\ Cases_on`cl` \\ fs[wfcl_def]
+    \\ rw[] \\ fs[] \\ rveq \\ xsimpl
+    \\ Cases_on`t` \\ fs[] \\ xsimpl
+    \\ Cases_on`t'` \\ fs[] \\ xsimpl ) \\
+  simp[Abbr`output`,Abbr`output'`] \\
+  fs [mlintTheory.toString_thm,strcat_def,concat_def] \\
+  simp[wc_lines_def,chr_to_str_def] \\
+  qmatch_abbrev_tac`s1 ++ " " ++ s2 = t1 ++ " " ++ t2` \\
+  `s1 = t1 ∧ s2 = t2` suffices_by rw[] \\
+  simp[Abbr`s1`,Abbr`t1`,Abbr`s2`,Abbr`t2`] \\
+  simp[mlintTheory.toString_thm,integerTheory.INT_ABS_NUM] \\
+  rveq \\
+  reverse conj_tac >- (
+    simp[all_lines_file_def,lines_of_def] \\
+    fs[Abbr`fo`]
+    \\ fs[wordcount_precond_def]
+    \\ Cases_on`cl` \\ fs[wfcl_def]
+    \\ Cases_on`t` \\ fs[]
+    \\ Cases_on`t'` \\ fs[] )
+
+  \\ simp[GSYM MAP_MAP_o,GSYM LENGTH_FLAT]
+  \\ fs[Abbr`fo`]
+  \\ fs[wordcount_precond_def]
+  \\ Cases_on`cl` \\ fs[wfcl_def]
+  \\ Cases_on`t` \\ fs[]
+  \\ TRY (Cases_on`t'` \\ fs[])
+  \\ simp[all_lines_file_def,splitwords_lines_of,splitwords_def, mlstringTheory.TOKENS_eq_tokens_sym]
+QED
+
+Theorem wordcount_whole_prog_spec:
+   wordcount_precond cl fs contents fs'
+   ⇒
+   whole_prog_spec ^(fetch_v "wordcount" (get_ml_prog_state())) cl fs NONE
+   ((=)
+     (add_stdout fs'
+       (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));
+                « »;
+                mlint$toString (&(LENGTH (splitlines contents)));
+                «\n»])))
+Proof
+  disch_then assume_tac
+  \\ imp_res_tac wordcount_precond_numchars
+  \\ pop_assum(assume_tac o SYM)
+  \\ simp[whole_prog_spec_def]
+  \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
+  \\ qexists_tac`fs1`
+  \\ simp[Abbr`fs1`,GSYM add_stdo_with_numchars,with_same_numchars]
+  \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe (UNDISCH wordcount_spec)))
+  \\ xsimpl
+QED
+
+Theorem wordcount_semantics =
+  prove_sem_thm "wordcount" "wordcount_prog" wordcount_whole_prog_spec;

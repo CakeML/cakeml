@@ -9,7 +9,6 @@ Libs
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = Parse.hide "mem";
 
@@ -317,7 +316,7 @@ Theorem typesem_frees:
       (∀a. MEM a (tyvars ty) ⇒ τ1 a = τ2 a) ⇒
       typesem δ τ1 ty = typesem δ τ2 ty
 Proof
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   simp[tyvars_def,MEM_FOLDR_LIST_UNION,typesem_def,PULL_EXISTS] >>
   rw[] >> rpt AP_TERM_TAC >> simp[MAP_EQ_f] >>
   fs[EVERY_MEM] >> metis_tac[]
@@ -404,7 +403,7 @@ Proof
   rw[Abbr`vv`,Abbr`yy`] >>
   rpt AP_THM_TAC >> rpt AP_TERM_TAC >>
   simp[FUN_EQ_THM,APPLY_UPDATE_LIST_ALOOKUP,rich_listTheory.MAP_REVERSE] >>
-  Cases >>
+  Cases >> rename1 `ALOOKUP _ (z,tyr)` >>
   simp[GSYM MAP_MAP_o] >>
   BasicProvers.CASE_TAC >>
   qmatch_assum_abbrev_tac`ALOOKUP (MAP (dest_var ## f) ls) (z,tyr) = X` >>
@@ -642,7 +641,7 @@ Theorem typesem_sig:
    ∀ty τ δ δ' tyenv. type_ok tyenv ty ∧ (∀name. name ∈ FDOM tyenv ⇒ δ' name = δ name) ⇒
                     typesem δ' τ ty = typesem δ τ ty
 Proof
-  ho_match_mp_tac type_ind >> simp[typesem_def,type_ok_def] >> rw[] >>
+  ho_match_mp_tac type_induction >> simp[typesem_def,type_ok_def] >> rw[] >>
   qmatch_abbrev_tac`δ' name args1 = δ name args2` >>
   `args1 = args2` by (
     unabbrev_all_tac >>

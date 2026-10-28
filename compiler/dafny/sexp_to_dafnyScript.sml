@@ -330,10 +330,9 @@ Definition to_exp_def:
 Termination
   wf_rel_tac ‘measure (λx. case x of
                            | INL se => sexp_size se
-                           | INR ses => sexp1_size ses)’
+                           | INR ses => list_size sexp_size ses)’
   >> gvs [oneline split_def, oneline dest1_def, oneline dest2_def,
-          oneline dest3_def, oneline dest_expr_def, AllCaseEqs (),
-          sexp_size_def]
+          oneline dest3_def, oneline dest_expr_def, AllCaseEqs ()]
 End
 
 Definition to_exp_list_def:

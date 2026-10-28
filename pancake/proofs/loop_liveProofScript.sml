@@ -337,15 +337,15 @@ Resume compile_correct[Loop]:
 QED
 
 Theorem vars_of_exp_acc:
-  ∀(exp:'a loopLang$exp) l.
+  ∀(exp:loopLang$exp) l.
      domain (vars_of_exp exp l) =
      domain (union (vars_of_exp exp LN) l)
 Proof
   qsuff_tac ‘
-    (∀(exp:'a loopLang$exp) (l_unused:num_set).
+    (∀(exp:loopLang$exp) (l_unused:num_set).
        ∀l. domain (vars_of_exp exp l) =
            domain (union (vars_of_exp exp LN) l)) ∧
-    (∀(exps:'a loopLang$exp list) (l_unused:num_set).
+    (∀(exps:loopLang$exp list) (l_unused:num_set).
        ∀l. domain (vars_of_exp_list exps l) =
            domain (union (vars_of_exp_list exps LN) l))’
   THEN1 metis_tac []
@@ -366,7 +366,11 @@ Proof
   >- (* Op *) (rpt strip_tac \\ once_rewrite_tac [vars_of_exp_def]
                \\ metis_tac [])
   >- (* Shift *) (rpt strip_tac \\ once_rewrite_tac [vars_of_exp_def]
-                  \\ metis_tac [])
+                  \\ PURE_ONCE_REWRITE_TAC[domain_union]
+                  \\ last_x_assum $ PURE_ONCE_REWRITE_TAC o single
+                  \\ PURE_ONCE_REWRITE_TAC[domain_union]
+                  \\ last_x_assum $ PURE_ONCE_REWRITE_TAC o single
+                  \\ gvs[domain_union,UNION_ASSOC])
   >- suspend "list_case"
 QED
 
@@ -397,9 +401,9 @@ Theorem vars_of_exp_mono:
   ∀exp l. subspt l (vars_of_exp exp l)
 Proof
   qsuff_tac ‘
-   (∀(exp:'a loopLang$exp) (l:num_set).
+   (∀(exp:loopLang$exp) (l:num_set).
       subspt l (vars_of_exp exp l)) ∧
-   (∀(exp:'a loopLang$exp list) (l:num_set).
+   (∀(exp:loopLang$exp list) (l:num_set).
       subspt l (vars_of_exp_list exp l))’ THEN1 metis_tac []
   \\ ho_match_mp_tac vars_of_exp_ind \\ rw []
   \\ once_rewrite_tac [vars_of_exp_def] >>
@@ -469,7 +473,18 @@ Proof
     \\ fs [domain_union])
   THEN1
    (fs [CaseEq"option",CaseEq"word_loc",vars_of_exp_def,PULL_EXISTS] \\ rveq
-    \\ res_tac \\ fs[] \\ fs [mem_load_def])
+    \\ res_tac \\ fs[]
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ simp[]
+    \\ pop_assum kall_tac
+    \\ qexists ‘vars_of_exp exp l’
+    \\ fs [subspt_lookup,lookup_inter_alt]
+    \\ pop_assum mp_tac
+    \\ once_rewrite_tac [vars_of_exp_acc]
+    \\ fs[domain_union]
+    \\ once_rewrite_tac [vars_of_exp_acc]
+    \\ fs[domain_union]
+    \\ metis_tac[])
 QED
 
 Resume compile_correct[Assign]:

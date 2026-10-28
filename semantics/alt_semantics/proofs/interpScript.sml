@@ -139,7 +139,8 @@ val _ = temp_delsimps["getOpClass_def"]
 Theorem getOpClass_opClass:
   (getOpClass op = FunApp ⇔ opClass op FunApp) ∧
   (getOpClass op = Simple ⇔ opClass op Simple) ∧
-  (getOpClass op = Force ⇔ opClass op Force)
+  (getOpClass op = Force ⇔ opClass op Force) ∧
+  (getOpClass op = PtrEqOp ⇔ opClass op PtrEqOp)
 Proof
   Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases, AllCaseEqs()]
 QED
@@ -233,6 +234,17 @@ Theorem run_eval_def:
               do () <- set_store (st with <| refs := refs'; ffi := ffi' |>);
                  combin$C return res
               od)
+        | PtrEqOp =>
+            (case REVERSE vs of
+               [v1; v2] =>
+                 (case do_eq v1 v2 of
+                    Eq_type_error => raise (Rabort Rtype_error)
+                  | Eq_val b =>
+                      do () <- set_store (st with ptr_eq_oracle :=
+                                 (0 =+ shift_seq 1 (st.ptr_eq_oracle 0)) st.ptr_eq_oracle);
+                         return (Boolv (b ∧ st.ptr_eq_oracle 0 0))
+                      od)
+             | _ => raise (Rabort Rtype_error))
         | _ => raise (Rabort Rtype_error))
      od) ∧
   (!env lop e1 e2.
@@ -282,6 +294,12 @@ Theorem run_eval_def:
      run_eval env (Lannot e l)
      =
      run_eval env e) ∧
+  (!env path e.
+     run_eval env (Open path e)
+     =
+     case open_dec_env path env of
+       NONE => raise (Rabort Rtype_error)
+     | SOME opened => run_eval (extend_dec_env opened env) e) ∧
   (!env.
      run_eval_list env []
      =
@@ -313,6 +331,8 @@ Proof
   rw [GSYM evaluate_run_eval, FUN_EQ_THM, result_raise_def, result_return_def,
       result_bind_def, get_store_def, set_store_def] >>
   rw [Once evaluate_cases]
+  >~ [`open_dec_env _ _`] >- (
+    Cases_on `open_dec_env path env` >> simp [evaluate_run_eval])
   >- (every_case_tac >>
       fs [GSYM evaluate_run_eval] >>
       metis_tac [run_eval_spec])
@@ -347,7 +367,7 @@ Proof
         gvs[LESS_OR_EQ] >> metis_tac[]
         ) >>
       Cases_on ‘getOpClass op = Simple’ >> gs[]
-      >- (‘~ opClass op FunApp ∧ ¬opClass op Force’ by
+      >- (‘~ opClass op FunApp ∧ ¬opClass op Force ∧ ¬opClass op PtrEqOp’ by
             (Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases,AllCaseEqs()]) >>
           gs[getOpClass_opClass] >>
           every_case_tac >>
@@ -359,9 +379,28 @@ Proof
           rw [] >>
           rw [] >> fs[state_transformerTheory.UNIT_DEF] >>
           metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec]) >>
+      Cases_on ‘getOpClass op = PtrEqOp’ >> gs[]
+      >- (‘~ opClass op FunApp ∧ ¬opClass op Force ∧ ¬opClass op Simple’ by
+            (Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases,AllCaseEqs()]) >>
+          gs[getOpClass_opClass] >>
+          every_case_tac >>
+          rw [] >>
+          fs [remove_lambda_pair] >>
+          rw [] >>
+          every_case_tac >>
+          fs [GSYM evaluate_run_eval_list] >>
+          rw [] >>
+          rw [] >> fs[state_transformerTheory.UNIT_DEF]
+          >>~- ([‘REVERSE l = [x; y] (* a *)’],
+                metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec]) >>
+          disj2_tac >> disj1_tac >>
+          first_assum $ irule_at Any >>
+          rpt (qpat_x_assum ‘REVERSE _ = _’
+                 (mp_tac o AP_TERM “LENGTH : v list -> num”)) >>
+          simp[]) >>
       ‘getOpClass op = EvalOp’
         by (Cases_on ‘op’ >> gs[opClass_cases, getOpClass_def,AllCaseEqs()]) >> gs[] >>
-      ‘~ opClass op FunApp’ by
+      ‘~ opClass op FunApp ∧ ¬opClass op Force ∧ ¬opClass op PtrEqOp’ by
         (Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases,AllCaseEqs()]) >>
       gs[] >> every_case_tac >> gs[remove_lambda_pair] >>
       fs [GSYM evaluate_run_eval_list] >>
@@ -413,7 +452,7 @@ QED
 Definition run_eval_dec_def:
   (run_eval_dec env ^st (Dlet _ p e) =
    if ALL_DISTINCT (pat_bindings p) ∧
-      every_exp (one_con_check env.c) e then
+      check_exp_constructors env.c e then
      case run_eval env e st of
      | (st', Rval v) =>
          (case pmatch env.c st'.refs p v [] of
@@ -425,7 +464,7 @@ Definition run_eval_dec_def:
      (st, Rerr (Rabort Rtype_error))) ∧
   (run_eval_dec env ^st (Dletrec _ funs) =
    if ALL_DISTINCT (MAP FST funs) ∧
-      EVERY (λ(_,_,e). every_exp (one_con_check env.c) e) funs then
+      EVERY (λ(_,_,e). check_exp_constructors env.c e) funs then
      (st, Rval <| v := build_rec_env funs env nsEmpty; c := nsEmpty |>)
    else
      (st, Rerr (Rabort Rtype_error))) ∧
@@ -445,6 +484,10 @@ Definition run_eval_dec_def:
   (run_eval_dec env ^st (Dexn _ cn ts) =
    (st with next_exn_stamp := st.next_exn_stamp + 1,
     Rval <| v := nsEmpty; c := nsSing cn (LENGTH ts, ExnStamp st.next_exn_stamp) |>)) ∧
+  (run_eval_dec env st (Dopen locs path) =
+   case open_dec_env path env of
+     NONE => (st, Rerr (Rabort Rtype_error))
+   | SOME opened => (st, Rval opened)) ∧
   (run_eval_dec env st (Dmod mn ds) =
    case run_eval_decs env st ds of
      (st', Rval env') =>
@@ -467,14 +510,14 @@ Definition run_eval_dec_def:
 End
 
 Theorem run_eval_decs_spec:
-  (!d (st:'a state) env st' r.
+  (!env (st:'a state) d st' r.
      (run_eval_dec env st d = (st', r)) ⇒
      evaluate_dec T env st d (st', r)) ∧
-  (!ds env (st:'a state) st'  r.
+  (!env (st:'a state) ds st'  r.
      (run_eval_decs env st ds = (st',r)) ⇒
      evaluate_decs T env st ds (st',r))
 Proof
-  ho_match_mp_tac astTheory.dec_induction >>
+  ho_match_mp_tac run_eval_dec_ind >>
   rw [] >>
   simp [Once evaluate_dec_cases] >>
   fs [run_eval_dec_def] >>
@@ -503,4 +546,3 @@ Proof
   drule $ cj 2 run_eval_decs_spec >> rw[] >>
   metis_tac[decs_determ]
 QED
-

@@ -10,9 +10,10 @@ Libs
 Datatype:
   context =
   <| vars  : panLang$varname |-> shape # num list;
-     funcs : panLang$funname |-> (panLang$varname # shape) list;
-     eids  : panLang$eid     |-> 'a word;
-     vmax  : num|>
+     funcs : panLang$funname |-> ((panLang$varname # shape) list # shape);
+     eids  : panLang$eid     |-> int;
+     vmax  : num;
+     arch_width : arch_width|>
 End
 
 (* using this style to avoid using HD for code extraction later *)
@@ -26,7 +27,7 @@ Definition cexp_heads_def:
 End
 
 Definition comp_field_def:
-  (comp_field i [] es = ([Const 0w], One)) ∧
+  (comp_field i [] es = ([Const 0], One)) ∧
   (comp_field i (sh::shs) es =
    if i = (0:num) then (TAKE (size_of_shape sh) es, sh)
    else comp_field (i-1) shs (DROP (size_of_shape sh) es))
@@ -37,13 +38,13 @@ Definition compile_panop_def:
 End
 
 Definition compile_exp_def:
-  (compile_exp ctxt ((Const c):'a panLang$exp) =
-   ([(Const c): 'a crepLang$exp], One)) /\
+  (compile_exp ctxt ((Const c):panLang$exp) =
+   ([(Const c): crepLang$exp], One)) /\
   (compile_exp ctxt (Var Local vname) =
    case FLOOKUP ctxt.vars vname of
    | SOME (shape, ns) => (MAP Var ns, shape)
-   | NONE => ([Const 0w], One)) /\
-  (compile_exp ctxt (Var Global vname) = ([Const 0w], One)) /\ (* should never happen *)
+   | NONE => ([Const 0], One)) /\
+  (compile_exp ctxt (Var Global vname) = ([Const 0], One)) /\ (* should never happen *)
   (compile_exp ctxt (RStruct es) =
    let cexps = MAP (compile_exp ctxt) es in
    (FLAT (MAP FST cexps), Comb (MAP SND cexps))) /\
@@ -51,54 +52,52 @@ Definition compile_exp_def:
    let (cexp, shape) = compile_exp ctxt e in
    case shape of
    | Comb shapes => comp_field index shapes cexp
-   | _ => ([Const 0w], One)) /\
-  (compile_exp ctxt (NStruct nm flds) = ([Const 0w], One)) /\ (* should never happen *)
-  (compile_exp ctxt (NField fld e) = ([Const 0w], One)) /\ (* should never happen *)
+   | _ => ([Const 0], One)) /\
+  (compile_exp ctxt (NStruct nm flds) = ([Const 0], One)) /\ (* should never happen *)
+  (compile_exp ctxt (NField fld e) = ([Const 0], One)) /\ (* should never happen *)
   (compile_exp ctxt (Load sh e) =
    let (cexp, shape) = compile_exp ctxt e in
    case cexp of
-   | e::es => (load_shape (0w) (size_of_shape sh) e, sh)
-   | _ => ([Const 0w], One)) /\
+   | e::es => (load_shape ctxt.arch_width 0 (size_of_shape sh) e, sh)
+   | _ => ([Const 0], One)) /\
   (compile_exp ctxt (Load32 e) =
    let (cexp, shape) = compile_exp ctxt e in
    case (cexp, shape) of
    | (e::es, One) => ([Load32 e], One)
-   | (_, _) => ([Const 0w], One)) /\
+   | (_, _) => ([Const 0], One)) /\
   (compile_exp ctxt (LoadByte e) =
    let (cexp, shape) = compile_exp ctxt e in
    case (cexp, shape) of
    | (e::es, One) => ([LoadByte e], One)
-   | (_, _) => ([Const 0w], One)) /\
+   | (_, _) => ([Const 0], One)) /\
   (* have a check here for the shape *)
   (compile_exp ctxt (Op bop es) =
    let cexps = MAP FST (MAP (compile_exp ctxt) es) in
    case cexp_heads cexps of
    | SOME es => ([Op bop es], One)
-   | _ => ([Const 0w], One)) /\
+   | _ => ([Const 0], One)) /\
   (compile_exp ctxt (Panop pop es) =
    let cexps = MAP FST (MAP (compile_exp ctxt) es) in
    case cexp_heads cexps of
    | SOME es => ([Crepop (compile_panop pop) es], One)
-   | _ => ([Const 0w], One)) /\
+   | _ => ([Const 0], One)) /\
   (compile_exp ctxt (Cmp cmp e e') =
    let ce  = FST (compile_exp ctxt e);
        ce' = FST (compile_exp ctxt e') in
    case (ce, ce') of
    | (e::es, e'::es') => ([Cmp cmp e e'], One)
-   | (_, _) => ([Const 0w], One)) /\
-  (compile_exp ctxt (Shift sh e n) =
-   case FST (compile_exp ctxt e) of
-   | [] => ([Const 0w], One)
-   | e::es => ([Shift sh e n], One)) /\
+   | (_, _) => ([Const 0], One)) /\
+  (compile_exp ctxt (Shift sh e e') =
+   let ce  = FST (compile_exp ctxt e);
+       ce' = FST (compile_exp ctxt e') in
+   case (ce,ce') of
+   | (e::es, e'::es') => ([Shift sh e e'], One)
+   | _ => ([Const 0], One)) /\
   (compile_exp ctxt BaseAddr = ([BaseAddr], One)) /\
   (compile_exp ctxt TopAddr = ([TopAddr], One)) /\
-  (compile_exp ctxt BytesInWord = ([Const bytes_in_word], One))
+  (compile_exp ctxt BytesInWord = ([Const (&(arch_bytes ctxt.arch_width))], One))
 Termination
-  wf_rel_tac `measure (\e. panLang$exp_size ARB (SND e))` >>
-  rpt strip_tac >>
-  imp_res_tac panLangTheory.MEM_IMP_exp_size >>
-  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
-  decide_tac
+  wf_rel_tac `measure (\e. panLang$exp_size (SND e))`
 End
 
 Definition exp_hdl_def:
@@ -135,7 +134,7 @@ Definition wrap_rt_def:
 End
 
 Definition compile_def:
-  (compile _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
+  (compile _ (Skip:panLang$prog) = (Skip:crepLang$prog)) /\
   (compile ctxt (Dec v s e p) =
    let (es, sh) = compile_exp ctxt e;
        vmax = ctxt.vmax;
@@ -156,7 +155,7 @@ Definition compile_def:
                temps = GENLIST (λx. vmax + SUC x) (LENGTH ns) in
            nested_decs temps es
                        (nested_seq (MAP2 Assign ns (MAP Var temps)))
-      else Skip:'a crepLang$prog
+      else Skip:crepLang$prog
     | NONE => Skip) /\
   (compile ctxt (Assign Global v e) = Skip) /\
   (compile ctxt (Primitive v pop es) =
@@ -177,7 +176,7 @@ Definition compile_def:
             temps = GENLIST (λx. adv + SUC x) (size_of_shape sh) in
             if size_of_shape sh = LENGTH es
             then nested_decs (adv::temps) (e::es)
-                 (nested_seq (stores (Var adv) (MAP Var temps) 0w))
+                 (nested_seq (stores ctxt.arch_width (Var adv) (MAP Var temps) 0))
             else Skip
     | (_,_) => Skip) /\
   (compile ctxt (Store32 dest src) =
@@ -190,15 +189,8 @@ Definition compile_def:
     | _ => Skip) /\
   (compile ctxt (Return rt) =
    let (ces,sh) = compile_exp ctxt rt in
-   if size_of_shape sh = 0 then Return (Const 0w)
-   else case ces of
-         | [] => Skip
-         | e::es => if size_of_shape sh = 1 then (Return e) else
-          let temps = GENLIST (λx. ctxt.vmax + SUC x) (size_of_shape sh) in
-           if size_of_shape sh = LENGTH (e::es)
-           then Seq (nested_decs temps (e::es)
-                                 (nested_seq (store_globals 0w (MAP Var temps)))) (Return (Const 0w))
-        else Skip) /\
+   if size_of_shape sh = 0 then Return []
+   else Return ces) ∧
   (compile ctxt (Raise eid excp) =
     case FLOOKUP ctxt.eids eid of
     | SOME n =>
@@ -221,24 +213,27 @@ Definition compile_def:
    | (ce::ces, _) =>
      While ce (compile ctxt p)
    | _ => Skip) /\
-  (compile ctxt Break = Break) /\
-  (compile ctxt Continue = Continue) /\
+  (compile ctxt Break = Break 0) /\
+  (compile ctxt Continue = Continue 0) /\
   (compile ctxt (Call rtyp ce es) =
    let cexps = MAP (compile_exp ctxt) es;
        args = FLAT (MAP FST cexps) in
      case rtyp of
      | NONE => Call NONE ce args
      | SOME (NONE, hdl) =>
+         let rts =
+            (case FLOOKUP ctxt.funcs ce of
+               | NONE => []
+               | SOME (args, rshape) => GENLIST (λx. ctxt.vmax + SUC x) (size_of_shape rshape)) in
          (case hdl of
-          | NONE => Call (SOME (NONE, Skip, NONE)) ce args
+          | NONE => nested_decs rts (REPLICATE (LENGTH rts) (Const 0)) (Call (SOME (rts, NONE)) ce args)
           | SOME (eid, evar, p) =>
               (case FLOOKUP ctxt.eids eid of
-               | NONE => Call (SOME (NONE, Skip, NONE)) ce args
+               | NONE => nested_decs rts (REPLICATE (LENGTH rts) (Const 0)) (Call (SOME (rts, NONE)) ce args)
                | SOME neid =>
                    let comp_hdl = compile ctxt p;
                        hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
-                     Call (SOME (NONE, Skip,
-                                 (SOME (neid, hndlr)))) ce args))
+                     nested_decs rts (REPLICATE (LENGTH rts) (Const 0)) (Call (SOME (rts, (SOME (neid, hndlr)))) ce args)))
      | SOME (SOME(rk,rt), hdl) =>
          (case wrap_rt (FLOOKUP ctxt.vars rt) of
           | NONE =>
@@ -250,18 +245,17 @@ Definition compile_def:
                     | SOME neid =>
                         let comp_hdl = compile ctxt p;
                             hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
-                          Call (SOME (NONE, Skip, (SOME (neid, hndlr)))) ce args))
+                          Call (SOME ([], (SOME (neid, hndlr)))) ce args))
           | SOME (sh, ns) =>
               (case hdl of
-               | NONE => Call (SOME ((ret_var sh ns), (ret_hdl sh ns), NONE)) ce args
+               | NONE => Call (SOME (ns, NONE)) ce args
                | SOME (eid, evar, p) =>
                    (case FLOOKUP ctxt.eids eid of
-                    | NONE => Call (SOME ((ret_var sh ns), (ret_hdl sh ns), NONE)) ce args
+                    | NONE => Call (SOME (ns, NONE)) ce args
                     | SOME neid =>
                         let comp_hdl = compile ctxt p;
                             hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
-                          Call (SOME ((ret_var sh ns), (ret_hdl sh ns),
-                                      (SOME (neid, hndlr)))) ce args)))) /\
+                          Call (SOME (ns, (SOME (neid, hndlr)))) ce args)))) /\
   (compile ctxt (DecCall v s ce es p) =
    let
      cexps = MAP (compile_exp ctxt) es;
@@ -269,20 +263,10 @@ Definition compile_def:
      vmax = ctxt.vmax;
      nvars = GENLIST (λx. vmax + SUC x) (size_of_shape s);
      nctxt = ctxt with  <|vars := ctxt.vars |+ (v, (s, nvars));
-                          vmax := ctxt.vmax + size_of_shape s|> in
-     case wrap_rt (SOME(s,nvars)) of
-       NONE => Call (SOME (NONE, compile nctxt p, NONE)) ce args
-     | SOME(sh,ns) =>
-         let ret_dec = case ret_var s ns of
-                         NONE => I
-                       |  SOME n => Dec n (Const 0w);
-             p' = compile nctxt p;
-             ret_decl = case ret_var s ns of
-                          NONE => nested_decs nvars (load_globals 0w (LENGTH nvars)) p'
-                        | SOME _ => p'
-         in ret_dec $
-                    Call (SOME ((ret_var s ns), ret_decl, NONE)) ce args
-
+                          vmax := ctxt.vmax + size_of_shape s|>;
+     ret_dec = nested_decs nvars (REPLICATE (LENGTH nvars) (Const 0));
+     p' = compile nctxt p in
+   ret_dec $ Seq (Call (SOME (nvars, NONE)) ce args) p'
   ) /\
   (compile ctxt (ExtCall f ptr1 len1 ptr2 len2) =
    let
@@ -321,11 +305,12 @@ Definition compile_def:
 End
 
 Definition mk_ctxt_def:
-  mk_ctxt vmap fs m (es:panLang$eid |-> 'a word) =
+  mk_ctxt aw vmap fs m (es:panLang$eid |-> int) =
      <|vars  := vmap;
        funcs := fs;
        eids  := es;
-       vmax  := m|>
+       vmax  := m;
+       arch_width := aw|>
 End
 
 (*
@@ -348,26 +333,40 @@ Definition make_vmap_def:
 End
 
 Definition comp_func_def:
-  comp_func fs eids params body =
+  comp_func aw fs eids params body =
     let vmap   = make_vmap params;
         shapes = MAP SND params;
         vmax = size_of_shape (Comb shapes) - 1 in
-    compile (mk_ctxt vmap fs vmax eids) body
+    compile (mk_ctxt aw vmap fs vmax eids) body
 End
 
+(*
 Definition get_eids_def:
-  get_eids (prog:('b#'c#'a panLang$prog) list) =
-   let eids = nub (FLAT (MAP (exp_ids o SND o SND) prog));
-       ns   = GENLIST (λx. (n2w x):'a word) (LENGTH eids);
+  get_eids (prog:('b#'c#panLang$prog #'d) list) =
+   let eids = nub (FLAT (MAP (exp_ids o FST o SND o SND) prog));
+       ns   = GENLIST (λx. (&x):int) (LENGTH eids);
        es   = MAP2 (λx y. (x,y)) eids ns in
     alist_to_fmap es
+End
+*)
+
+(* extract eids from exception declarations *)
+Definition get_eids_from_decls_def:
+  get_eids_from_decls (decls:decl list) =
+    let eids = MAP FST (exceptions decls);
+        (*eids = nub eids;*)
+        ns   = GENLIST (λx. (&x):int) (LENGTH eids);
+        es   = MAP2 (λx y. (x,y)) eids ns
+    in
+      alist_to_fmap es
 End
 
 Definition make_funcs_def:
   make_funcs prog =
   let fnames = MAP FST prog;
       params = MAP (FST o SND) prog;
-      fs = MAP2 (λx y. (x,y)) fnames params in
+      returns = MAP (SND o SND o SND) prog;
+      fs = MAP3 (λx y z. (x,y,z)) fnames params returns in
     alist_to_fmap fs
 End
 
@@ -380,18 +379,18 @@ Definition crep_vars_def:
 End
 
 Definition compile_to_crep_def:
-  compile_to_crep prog =
-  let prog = functions prog;
-      comp = comp_func (make_funcs prog) (get_eids prog) in
-    MAP (λ(name, params, body).
+  compile_to_crep aw decls =
+  let prog = functions decls;
+      comp = comp_func aw (make_funcs prog) (get_eids_from_decls decls) in
+    MAP (λ(name, params, body, return).
           (name,
            crep_vars params,
            comp params body)) prog
 End
 
 Definition compile_prog_def:
-  compile_prog prog =
+  compile_prog aw prog =
   let inl_fs_names = MAP FST (functions (FILTER inlinable prog));
-      to_crep = compile_to_crep prog in
+      to_crep = compile_to_crep aw prog in
     compile_inl_top inl_fs_names to_crep
 End

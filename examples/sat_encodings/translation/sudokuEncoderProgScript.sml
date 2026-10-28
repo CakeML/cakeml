@@ -3,7 +3,7 @@
 *)
 Theory sudokuEncoderProg
 Ancestors
-  misc set_sep list cnf boolExpToCnf quantifierExp
+  misc set_sep list satCnf boolExpToCnf quantifierExp
   orderEncodingBool numBoolExp numBoolExtended numBoolRange
   unorderedSets sudoku numberSudoku
   (* for parsing: *) parsing source_values
@@ -17,7 +17,7 @@ val _ = show_assums := true;
 
 (* numberSudoku *)
 val res = translate ns_filled_cells_to_numBoolRange_inner_def;
-val res = translate get_positions_def;
+val res = translate (get_positions_def |> CONV_RULE (RHS_CONV EVAL));
 val res = translate get_sudoku_with_pos_def;
 val res = translate ns_filled_cells_to_numBoolRange_def;
 val res = translate ns_not_member_def;
@@ -32,7 +32,7 @@ val res = translate ns_sudoku_rules_to_numBoolRange_def;
 val res = translate ns_sudoku_to_numBoolRange_def;
 val res = translate get_value_def;
 val res = translate sudoku_ok_def;
-val res = translate get_sudoku_rangeList_def;
+val res = translate (get_sudoku_rangeList_def |> CONV_RULE (RHS_CONV EVAL));
 val res = translate numberSudoku_to_cnf_def;
 val res = translate assignment_to_cellAssignment_def;
 val res = translate fill_cell_def;

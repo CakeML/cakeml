@@ -165,11 +165,6 @@ Definition from_bin_op_def:
             (App (Arith Div IntT) [cml_e₀; Var (Short n_e₁)])
             (App (Arith Sub IntT)
                  [Lit (IntLit 0); App (Arith Div IntT) [cml_e₀; neg_cml_e₁]]))
-Termination
-  wf_rel_tac ‘measure (λx. case x of
-                           | (Neq, _, _) => bin_op_size Neq + 1
-                           | (Imp, _, _) => bin_op_size Imp + 1
-                           | (bop, _, _) => bin_op_size bop)’
 End
 
 Definition from_lit_def:
@@ -313,7 +308,7 @@ End
 
 Definition cml_dec_to_string_dlet_def:
   cml_dec_to_string_dlet =
-    Dlet unknown_loc (Pvar cml_dec_to_string_name)
+    Dlet NoLocs (Pvar cml_dec_to_string_name)
          (Fun cml_dec_to_string_param cml_dec_to_string_body)
 End
 
@@ -343,7 +338,7 @@ End
 
 Definition cml_nat_to_string_dletrec_def:
   cml_nat_to_string_dletrec =
-    Dletrec unknown_loc
+    Dletrec NoLocs
       [(cml_nat_to_string_name, cml_nat_to_string_param,
         cml_nat_to_string_body)]
 End
@@ -372,7 +367,7 @@ End
 
 Definition cml_int_to_string_dlet_def:
   cml_int_to_string_dlet =
-    Dlet unknown_loc (Pvar cml_int_to_string_name)
+    Dlet NoLocs (Pvar cml_int_to_string_name)
          (Fun cml_int_to_string_param cml_int_to_string_body)
 End
 
@@ -503,13 +498,13 @@ End
 Definition from_program_def:
   from_program (Program mems) : (dec list) result =
   do
-    return_exn <<- Dexn unknown_loc «Return» [];
+    return_exn <<- Dexn NoLocs «Return» [];
     cml_funs <- result_mmap from_member_decl mems;
     (* TODO Optimize: Only put mutually recursive functions together *)
-    cml_funs <<- Dletrec unknown_loc cml_funs;
+    cml_funs <<- Dletrec NoLocs cml_funs;
     main_call <<- Handle (cml_fapp [] «dfy_Main» [Unit])
               [(Pcon (SOME (mk_id [] «Return»)) [], Unit)];
-    cml_main <<- Dlet unknown_loc Pany main_call;
+    cml_main <<- Dlet NoLocs Pany main_call;
     return ([return_exn;
              cml_dec_to_string_dlet;
              cml_nat_to_string_dletrec;

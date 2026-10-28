@@ -223,12 +223,6 @@ Definition calls_list_def:
           calls_list t (i+1) (loc+2n) xs)
 End
 
-Theorem exp3_size_MAP_SND[local]:
-  !fns. exp3_size (MAP SND fns) <= exp1_size fns
-Proof
-  Induct \\ fs [exp_size_def,FORALL_PROD]
-QED
-
 Definition calls_def:
   (calls [] g = ([],g)) /\
   (calls ((x:closLang$exp)::y::xs) g =
@@ -307,13 +301,9 @@ Definition calls_def:
          let (e1,g) = calls [x1] g in
            ([Letrec t loc_opt ws (ZIP (MAP FST fns,fns1)) (HD e1)],g))
 Termination
-  WF_REL_TAC `measure (exp3_size o FST)`
+  WF_REL_TAC `measure (list_size exp_size o FST)`
   \\ REPEAT STRIP_TAC
-  \\ fs [GSYM NOT_LESS,exp_size_def]
-  \\ IMP_RES_TAC EL_MEM_LEMMA
-  \\ IMP_RES_TAC exp1_size_lemma
-  \\ assume_tac (SPEC_ALL exp3_size_MAP_SND)
-  \\ DECIDE_TAC
+  \\ gvs [GSYM NOT_LESS,list_size_pair_size_MAP_FST_SND]
 End
 
 Definition calls_sing_def:
@@ -409,7 +399,7 @@ End
 Definition compile_inc_def:
   compile_inc d (e,xs) =
     let (ea, d1, new_code) = calls e (d,[]) in
-      (d1, ea, new_code)
+      (d1, ea, add_metadata empty_metadata new_code)
 End
 
 Theorem compile_eq:
@@ -422,7 +412,7 @@ QED
 Theorem compile_inc_eq:
   compile_inc d (e,xs) =
     let (ea, d1, new_code) = calls_sing_list e (d,[]) in
-      (d1, ea, new_code)
+      (d1, ea, add_metadata empty_metadata new_code)
 Proof
   simp[compile_inc_def, calls_sing_eq]
 QED

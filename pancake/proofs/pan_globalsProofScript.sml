@@ -3,6 +3,7 @@
 *)
 Theory pan_globalsProof
 Ancestors
+  wordSem
   panSem pan_globals panProps panLang stack_removeProof
 Libs
   preamble
@@ -14,12 +15,12 @@ Definition disjoint_globals_def:
   ∀v v' sh addr sh' addr'. v ≠ v' ∧ IS_SOME(FLOOKUP globals v) ∧ IS_SOME(FLOOKUP globals v') ∧
          FLOOKUP cglobals v =  SOME(sh, addr) ∧
          FLOOKUP cglobals v' = SOME(sh', addr') ⇒
-         DISJOINT (addresses (top_addr - addr) (size_of_shape sh)) (addresses (top_addr - addr') (size_of_shape sh'))
+         DISJOINT (addresses (top_addr - i2w addr) (size_of_shape sh)) (addresses (top_addr - i2w addr') (size_of_shape sh'))
 End
 
 Definition state_rel_def:
   state_rel ls ctxt ^s t ⇔
-  s.top_addr = t.top_addr - ctxt.max_globals_size ∧
+  s.top_addr = t.top_addr - i2w ctxt.max_globals_size ∧
   (ls ⇒ s.locals = t.locals) ∧
   s.base_addr = t.base_addr ∧
   s.be = t.be ∧
@@ -30,21 +31,22 @@ Definition state_rel_def:
      FLOOKUP s.globals v = SOME val ⇒
      ∃addr. FLOOKUP ctxt.globals v = SOME(shape_of val, addr) ∧
             is_wf_shape_nil (shape_of val) ∧
-            mem_load (shape_of val) (t.top_addr - addr) t.memaddrs t.memory [] = SOME val ∧
-            DISJOINT s.memaddrs (addresses (t.top_addr - addr) $ size_of_shape $ shape_of val) ∧
-            byte_aligned addr
+            mem_load (shape_of val) (t.top_addr - i2w addr) t.memaddrs t.memory [] = SOME val ∧
+            DISJOINT s.memaddrs (addresses (t.top_addr - i2w addr) $ size_of_shape $ shape_of val) ∧
+            byte_aligned (i2w addr:'a word)
   ) ∧
   FEVERY (\(nm, (sh, addr)). is_wf_shape_nil sh) ctxt.globals ∧
   s.memaddrs ⊆ t.memaddrs ∧
   s.sh_memaddrs = t.sh_memaddrs ∧
   (∀addr. addr ∈ s.memaddrs ⇒ s.memory addr = t.memory addr) ∧
   s.ffi = t.ffi ∧
-  (∀fname vshapes prog. FLOOKUP s.code fname = SOME (vshapes,prog) ⇒
-           FLOOKUP t.code fname = SOME (vshapes, compile ctxt prog)) ∧
+  (∀fname vshapes prog rshape. FLOOKUP s.code fname = SOME (vshapes,prog,rshape) ⇒
+           FLOOKUP t.code fname = SOME (vshapes, compile ctxt prog, rshape)) ∧
   disjoint_globals t.top_addr ctxt.globals s.globals ∧
   t.top_addr ∉ t.memaddrs ∧
   byte_aligned t.top_addr ∧
-  good_dimindex(:'a)
+  good_dimindex(:'a) ∧
+  arch_width_bits ctxt.arch_width = dimindex(:'a)
 End
 
 Theorem state_rel_structs[local]:
@@ -111,7 +113,7 @@ Proof
   >~ [‘Var Global’]
   >- (gvs[eval_def,compile_exp_def,AllCaseEqs(),state_rel_def] >>
       first_x_assum drule >>
-      rw[] >> rw[eval_def,wordLangTheory.word_op_def])
+      rw[] >> rw[eval_def,wordSemTheory.word_op_def])
   >~ [‘RStruct’]
   >- (gvs[eval_def,compile_exp_def,AllCaseEqs()] >>
       simp[OPT_MMAP_MAP_o] >>
@@ -158,7 +160,7 @@ Proof
   >- (gvs[eval_def,compile_exp_def,AllCaseEqs()] >>
       imp_res_tac state_rel_structs >>
       fs []) >>
-  gvs[wordLangTheory.word_op_def,state_rel_def,eval_def,compile_exp_def,AllCaseEqs()]
+  gvs[wordSemTheory.word_op_def,state_rel_def,eval_def,compile_exp_def,AllCaseEqs()]
 QED
 
 Definition good_res_def:
@@ -321,45 +323,47 @@ Proof
 QED
 
 Theorem mem_stores_load_disjoint:
-  (∀sh (addr:'a word) vs addrs memory m stcs addr'.
+  (∀sh addr' addrs m stcs (addr:'a word) vs memory.
     mem_stores addr vs addrs memory = SOME m ∧
     stcs = [] ∧ is_wf_shape stcs sh ∧
     DISJOINT (addresses addr' (size_of_shape sh)) (addresses addr (LENGTH vs)) ⇒
     mem_load sh addr' addrs m stcs = mem_load sh addr' addrs memory []) ∧
-  (∀shs (addr:'a word) vs addrs memory m stcs addr'.
+  (∀shs addr' addrs m stcs (addr:'a word) vs memory.
     mem_stores addr vs addrs memory = SOME m ∧
     stcs = [] ∧ EVERY (is_wf_shape stcs) shs ∧
     DISJOINT (addresses addr' (SUM(MAP size_of_shape shs))) (addresses addr (LENGTH vs)) ⇒
-    mem_loads shs addr' addrs m stcs = mem_loads shs addr' addrs memory [])
+    mem_loads shs addr' addrs m stcs = mem_loads shs addr' addrs memory []) ∧
+  (∀fs (addr':'a word) addrs m stcs vfs.
+    mem_load_flds fs addr' addrs m stcs = SOME vfs ∧ stcs = [] ∧ T ⇒ T)
 Proof
-  Induct >>
-  PURE_ONCE_REWRITE_TAC[mem_load_def] >>
-  rw[addresses_def,size_of_shape_def,
-     CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV addresses_def,
-     ETA_THM, is_wf_shape_def, SF ETA_ss] >> fs []
-  >- metis_tac[mem_stores_lookup]
-  >- metis_tac[] >>
-  ntac 2 $ first_x_assum drule >>
-  rename1 ‘mem_loads _ (start_addr + _)’ >>
-  disch_then $ qspec_then ‘start_addr’ mp_tac >>
-  impl_tac
-  >- (gvs[addresses_thm,DISJOINT_ALT,PULL_EXISTS] >>
-      rpt strip_tac >>
-      first_x_assum $ qspec_then ‘i’ mp_tac >>
-      simp[] >>
-      metis_tac[]) >>
-  strip_tac >>
-  simp[] >>
+  ho_match_mp_tac mem_load_ind >>
+  rw[]
+  >- (Cases_on ‘sh’ >>
+      gvs[mem_load_def,addresses_def,size_of_shape_def,is_wf_shape_def,
+          CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV addresses_def,ETA_THM] >> (* HOL#2098 *)
+      metis_tac[mem_stores_lookup])
+  >- simp[mem_load_def] >>
+  simp[cj 3 mem_load_def] >>
+  ‘mem_load sh addr' addrs m [] = mem_load sh addr' addrs memory' []’
+    by (first_x_assum irule >>
+        simp[] >>
+        qexistsl [‘addr’,‘vs’] >>
+        gvs[addresses_thm,DISJOINT_ALT,PULL_EXISTS] >>
+        rpt strip_tac >>
+        first_x_assum $ qspec_then ‘i’ mp_tac >>
+        simp[] >>
+        metis_tac[]) >>
   qmatch_goalsub_abbrev_tac ‘mem_loads _ a1’ >>
-  disch_then $ qspec_then ‘a1’ mp_tac >>
-  impl_tac
-  >- (gvs[addresses_thm,DISJOINT_ALT,PULL_EXISTS, Abbr ‘a1’] >>
-      rpt strip_tac >>
-      first_x_assum $ qspec_then ‘i + size_of_shape sh’ mp_tac >>
-      gs[size_of_sh_with_ctxt_eq] >>
-      simp[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB] >>
-      metis_tac[]) >>
-  strip_tac >>
+  ‘mem_loads shs a1 addrs m [] = mem_loads shs a1 addrs memory' []’
+    by (first_x_assum irule >>
+        simp[] >>
+        qexistsl [‘addr’,‘vs’] >>
+        gvs[addresses_thm,DISJOINT_ALT,PULL_EXISTS,Abbr ‘a1’] >>
+        rpt strip_tac >>
+        first_x_assum $ qspec_then ‘i + size_of_shape sh’ mp_tac >>
+        gs[size_of_sh_with_ctxt_eq] >>
+        simp[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB] >>
+        metis_tac[]) >>
   simp[]
 QED
 
@@ -380,46 +384,46 @@ Theorem mem_stores_mem_load_back:
     mem_loads (MAP shape_of vals) addr addrs m sctxt =
     SOME vals)
 Proof
-  Induct >>
-  rw[flatten_def,shape_of_def,mem_stores_def,AllCaseEqs(),
-     mem_store_def,mem_load_def,is_wf_shape_def] >>
-  rw[UPDATE_APPLY]
-  >- (rw[Once $ oneline shape_of_def] >> PURE_CASE_TAC >> simp[])
-  >- (first_x_assum drule >> gvs[ETA_THM, EVERY_MAP])
-  >- (gvs[mem_stores_append,AllCaseEqs()] >>
-      res_tac >>
-      fs[] >>
-      Cases_on `shape_of val` >> fs [is_wf_shape_def]
-      >- (
-          gvs [mem_load_def] >>
-          fs [flatten_def, mem_stores_def, option_case_eq] >>
-          drule_then irule mem_stores_lookup >>
-          simp[addresses_thm] >>
-          gvs[shape_of_val] >>
-          SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
-          rpt strip_tac >>
-          gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def]) >>
-      simp[mem_load_def] >>
-      drule $ cj 2 mem_stores_load_disjoint >>
-      simp [] >>
-      disch_then $ qspecl_then [‘l’,‘addr’] mp_tac >>
-      fs [mem_load_def, option_case_eq] >>
-      reverse impl_tac >- pop_assum $ simp o single >>
-      gvs[shape_of_def,ETA_THM,LENGTH_FLAT,
-          MAP_MAP_o,o_DEF,length_flatten_eq_size_of_shape,
-          size_of_shape_def, is_wf_shape_def, SF ETA_ss
-         ] >>
-      gvs[SF ETA_ss, DISJOINT_ALT,addresses_thm,PULL_EXISTS] >>
+  conj_asm1_tac
+  >- (
+    Induct >>
+    rw[flatten_def,shape_of_def,mem_stores_def,AllCaseEqs(),
+       mem_store_def,mem_load_def,is_wf_shape_def]
+    >- (rw[Once $ oneline shape_of_def] >> PURE_CASE_TAC >> simp[])
+    >- rw[UPDATE_APPLY] >>
+    rpt (pop_assum mp_tac) >>
+    map_every qid_spec_tac [‘m’,‘memory'’,‘addr’] >>
+    Induct_on ‘l’
+    >- simp[mem_load_def] >>
+    rw[cj 3 mem_load_def,mem_stores_append,AllCaseEqs()]
+    >- (
+      ‘mem_load (shape_of h) addr addrs memory'' [] = SOME h’
+        by (first_x_assum irule >>
+            simp[] >>
+            qexists ‘memory'’ >>
+            simp[]) >>
+      pop_assum (SUBST1_TAC o GSYM) >>
+      irule (cj 1 mem_stores_load_disjoint) >>
+      simp[] >>
+      goal_assum drule >>
+      gvs[GSYM length_flatten_eq_size_of_shape,DISJOINT_ALT,addresses_thm,PULL_EXISTS] >>
       rw[] >>
-      gvs[ETA_THM] >>
       FULL_SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
       spose_not_then strip_assume_tac >>
       gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,
-          LEFT_ADD_DISTRIB,shape_of_def]) >>
-  gvs[mem_stores_append,AllCaseEqs()] >>
-  first_x_assum drule >> simp[] >>
-  strip_tac >>
-  gvs[size_of_sh_with_ctxt_eq, length_flatten_eq_size_of_shape]
+          LEFT_ADD_DISTRIB]) >>
+    ‘size_of_sh_with_ctxt [] (shape_of h) = LENGTH (flatten h)’
+      by gs[size_of_sh_with_ctxt_eq,length_flatten_eq_size_of_shape] >>
+    simp[] >>
+    qpat_x_assum ‘∀addr memory' m. _’ irule >>
+    simp[] >>
+    metis_tac[]) >>
+  rpt strip_tac >>
+  gvs[ETA_THM] >> (* HOL#2098 *)
+  first_x_assum $ qspec_then ‘RStruct vals’ mp_tac >>
+  simp[flatten_def,shape_of_def,is_wf_shape_def,mem_load_def,ETA_THM] >> (* HOL#2098 *)
+  disch_then drule >>
+  gvs[AllCaseEqs(),SF ETA_ss] (* HOL#2098 *)
 QED
 
 Theorem LESS_MULT_MONO'[local]:
@@ -539,7 +543,7 @@ Resume compile_correct[Assign]:
   simp[] >>
   gvs[state_rel_def,good_res_def] >>
   res_tac >>
-  fs[evaluate_def,eval_def,wordLangTheory.word_op_def] >>
+  fs[evaluate_def,eval_def,wordSemTheory.word_op_def] >>
   drule $ cj 1 mem_load_mem_store >>
   simp [] >>
   disch_then drule >>
@@ -645,31 +649,39 @@ Theorem mem_load_disjoint:
      EVERY is_wf_shape_nil (MAP shape_of vals) ⇒
      mem_loads (MAP shape_of vals) addr' addrs memory⦇addr'' ↦ v⦈ stcs = SOME vals)
 Proof
-  Induct
-  >- (Cases >>
-      rw[mem_load_def,AllCaseEqs(),shape_of_def,size_of_shape_def,
-         CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV addresses_def,
-         APPLY_UPDATE_THM
-        ])
-  >- (rw[mem_load_def,AllCaseEqs(),shape_of_def,size_of_shape_def,is_wf_shape_def,
-         CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV addresses_def,
-         APPLY_UPDATE_THM,MAP_MAP_o,o_DEF,SF ETA_ss
-        ])
-  >- simp [is_wf_shape_def, shape_of_def]
-  >- (rw[mem_load_def,shape_of_def]) >>
-  rw[cj 3 mem_load_def,AllCaseEqs()]
-  >- (first_x_assum irule >>
-      gvs[addresses_thm] >>
-      rw[] >>
-      first_x_assum $ resolve_then Any mp_tac EQ_REFL >>
-      simp[]) >>
-  first_x_assum irule >>
-  simp[] >>
-  gvs[addresses_thm] >>
-  rw[] >>
-  first_x_assum $ qspec_then ‘i + size_of_shape (shape_of val)’ mp_tac >>
-  impl_tac
-  >- simp[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,size_of_sh_with_ctxt_eq] >>
+  conj_asm1_tac
+  >- (
+    Induct
+    >- (Cases >>
+        rw[mem_load_def,AllCaseEqs(),shape_of_def,size_of_shape_def,
+           CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV addresses_def,
+           APPLY_UPDATE_THM
+          ])
+    >- (rw[mem_load_def,AllCaseEqs(),shape_of_def,size_of_shape_def,is_wf_shape_def,
+           MAP_MAP_o,o_DEF] >>
+        rpt (pop_assum mp_tac) >>
+        map_every qid_spec_tac [‘memory'’,‘addr'’] >>
+        Induct_on ‘l’
+        >- simp[mem_load_def] >>
+        rw[cj 3 mem_load_def,AllCaseEqs()]
+        >- (qpat_x_assum ‘∀v. v = h ∨ _ ⇒ _’ irule >>
+            gvs[addresses_thm] >>
+            rw[] >>
+            first_x_assum $ resolve_then Any mp_tac EQ_REFL >>
+            simp[]) >>
+        qpat_x_assum ‘∀addr' memory'. _’ irule >>
+        simp[] >>
+        gvs[addresses_thm] >>
+        rw[] >>
+        first_x_assum $ qspec_then ‘i + size_of_shape (shape_of h)’ mp_tac >>
+        simp[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,size_of_sh_with_ctxt_eq])
+    >> simp [is_wf_shape_def, shape_of_def]) >>
+  rpt strip_tac >>
+  gvs[o_DEF] >>
+  first_x_assum $ qspec_then ‘RStruct vals’ mp_tac >>
+  simp[shape_of_def,mem_load_def,size_of_shape_def,is_wf_shape_def,MAP_MAP_o,o_DEF,
+       AllCaseEqs(),SF ETA_ss] >> (* HOL#2098 *)
+  disch_then irule >>
   simp[]
 QED
 
@@ -743,11 +755,11 @@ QED
 
 Theorem FLOOKUP_globals_val_state_rel:
   FLOOKUP s.globals nm = SOME (Val v) ∧
-  state_rel b ctxt s t ==>
+  state_rel b ctxt ^s t ==>
   ∃addr_diff. FLOOKUP ctxt.globals nm = SOME (shape_of (Val v), addr_diff) ∧
-  mem_load (shape_of (Val v)) (t.top_addr - addr_diff) t.memaddrs t.memory [] = SOME (Val v) ∧
-  DISJOINT s.memaddrs (addresses (t.top_addr - addr_diff) (size_of_shape (shape_of (Val v)))) ∧
-  byte_aligned addr_diff
+  mem_load (shape_of (Val v)) (t.top_addr - i2w addr_diff) t.memaddrs t.memory [] = SOME (Val v) ∧
+  DISJOINT s.memaddrs (addresses (t.top_addr - i2w addr_diff) (size_of_shape (shape_of (Val v)))) ∧
+  byte_aligned (i2w addr_diff:'a word)
 Proof
   rw [state_rel_def] >>
   res_tac >>
@@ -769,7 +781,7 @@ Resume compile_correct[ShMemLoad]:
   drule_then drule FLOOKUP_globals_val_state_rel >>
   rw [] >>
   simp [shape_of_val, evaluate_def, eval_def] >>
-  simp [evaluate_def,eval_def,FLOOKUP_UPDATE,v_neq_v', wordLangTheory.word_op_def] >>
+  simp [evaluate_def,eval_def,FLOOKUP_UPDATE,v_neq_v', wordSemTheory.word_op_def] >>
   rpt (pairarg_tac >> fs []) >>
   gvs [shape_of_val] >>
   ‘s.locals = t.locals’ by gvs[state_rel_def] >>
@@ -779,7 +791,7 @@ Resume compile_correct[ShMemLoad]:
   simp[shape_of_val] >>
   gvs[evaluate_def,eval_def,FLOOKUP_UPDATE,v_neq_v',
           sh_mem_load_def,AllCaseEqs(),
-          wordLangTheory.word_op_def,kvar_defs,
+          wordSemTheory.word_op_def,kvar_defs,
           mem_stores_def,mem_store_def,mem_load_def,flatten_def]
   >- (gvs[state_rel_def,good_res_def] >>
           conj_tac
@@ -971,7 +983,7 @@ Theorem eval_shape_val_NONE[simp]:
   (∀shs.
      OPT_MMAP (eval t) (shape_vals shs) = NONE ⇔ F)
 Proof
-  Induct >>
+  ho_match_mp_tac shape_val_ind >>
   rw[shape_val_def,eval_def] >>
   CONV_TAC $ DEPTH_CONV ETA_CONV >>
   PURE_TOP_CASE_TAC >> gvs[]
@@ -985,7 +997,7 @@ Theorem eval_shape_val_thm:
     OPT_MMAP (eval t) (shape_vals shs) = SOME vs ∧
     EVERY is_wf_shape_nil shs ⇒ shs = MAP shape_of vs)
 Proof
-  Induct >>
+  ho_match_mp_tac shape_val_ind >>
   rw[shape_val_def,eval_def,shape_of_def,is_wf_shape_def] >>
   gvs [AllCaseEqs(), shape_of_def, SF ETA_ss]
 QED
@@ -1061,7 +1073,8 @@ Proof
           UNCURRY_EQ,dec_clock_def] >>
       rw[state_component_equality])
   >~ [‘Call’]
-  >- (rw[evaluate_def] >>
+  >- (
+      rw[evaluate_def] >>
       qpat_x_assum ‘¬MEM _ (free_var_ids _)’ $ mp_tac o PURE_ONCE_REWRITE_RULE[oneline free_var_ids_def] >>
       rpt(IF_CASES_TAC ORELSE PURE_TOP_CASE_TAC >>
           fs[]) >> rw[MEM_FLAT, MEM_MAP] >> fs[] >>
@@ -1069,7 +1082,8 @@ Proof
           good_res_def,dec_clock_def,MEM_FILTER,kvar_defs,FUPDATE_COMMUTES] >>
       gvs[is_valid_value_def,FLOOKUP_UPDATE,lookup_kvar_def] >>
       rw[state_component_equality]>>
-      rpt (FULL_CASE_TAC>>gvs[])) >>
+      rpt (FULL_CASE_TAC>>gvs[])
+  ) >>
   rw[evaluate_def,free_var_ids_def,good_res_def,AllCaseEqs(),MEM_FILTER,UNCURRY_EQ,
      sh_mem_load_def,sh_mem_store_def,kvar_defs,
      empty_locals_def,free_var_ids_def,OPT_MMAP_eval_fresh_var,MEM_FLAT,MEM_MAP,
@@ -1078,7 +1092,8 @@ Proof
   rw[] >> gvs[FUPDATE_COMMUTES,good_res_def] >>
   rw[state_component_equality] >>
   rw[fmap_eq_flookup,FLOOKUP_UPDATE,FLOOKUP_pan_res_var_thm] >> rw[]>>
-  rpt (FULL_CASE_TAC>>gvs[])
+  rpt (FULL_CASE_TAC>>gvs[]) >>
+  qrefine `s'.locals` >> disj2_tac >> fs[]
 QED
 
 Theorem evaluate_two_fresh_locals[local]:
@@ -1142,6 +1157,7 @@ Resume compile_correct[Call]:
   PURE_TOP_CASE_TAC >> gvs[] >>
   imp_res_tac OPT_MMAP_eval_correct >>
   PURE_TOP_CASE_TAC >> gvs[] >>
+  PURE_TOP_CASE_TAC >> gvs[] >>
   drule_all_then strip_assume_tac state_rel_lookup_code >>
   gvs[] >>
   IF_CASES_TAC
@@ -1181,7 +1197,7 @@ Resume compile_correct[Call]:
   rename1 ‘option_CASE opt’ >>
   Cases_on ‘opt = SOME Error’ >- rw[] >>
   first_x_assum $ drule_at $ Pos last >>
-  disch_then $ qspecl_then [‘ctxt’,‘dec_clock t with locals := r’] mp_tac >>
+  disch_then $ qspecl_then [‘ctxt’,‘dec_clock t with locals := q'’] mp_tac >>
   impl_keep_tac
   >- gvs[state_rel_def,dec_clock_def] >>
   strip_tac >>
@@ -1219,7 +1235,8 @@ Resume compile_correct[Call]:
       simp[empty_locals_def] >>
       gvs[dec_clock_def,state_rel_def])
   >- gvs[is_valid_value_def]
-  >- (PURE_TOP_CASE_TAC
+  >- (
+      PURE_TOP_CASE_TAC
       >- (spose_not_then kall_tac >>
           gvs[is_valid_value_def] >>
           PURE_FULL_CASE_TAC >>
@@ -1231,13 +1248,16 @@ Resume compile_correct[Call]:
       gvs[] >>
       PURE_TOP_CASE_TAC >>
       gvs[evaluate_def,set_kvar_def,state_rel_change_locals]
-      >- (reverse IF_CASES_TAC
+      >- (
+          reverse IF_CASES_TAC
           >- (gvs[is_valid_value_def] >>
-              PURE_FULL_CASE_TAC >>
-              gvs[state_rel_def,dec_clock_def] >>
+              PURE_FULL_CASE_TAC
+              >- (gvs[state_rel_def,dec_clock_def]) >>
+              PURE_FULL_CASE_TAC >> gvs[state_rel_def] >>
               res_tac >>
               gvs[]) >>
-          gvs[eval_def,wordLangTheory.word_op_def,set_var_def,FLOOKUP_UPDATE] >>
+          fs[] >>
+          gvs[eval_def,integer_wordTheory.i2w_0,integer_wordTheory.i2w_pos,wordSemTheory.word_op_def,set_var_def,FLOOKUP_UPDATE] >>
           gvs[is_valid_value_def] >>
           Cases_on ‘FLOOKUP s.globals rt’ >>
           gvs[] >>
@@ -1301,7 +1321,7 @@ Resume compile_correct[Call]:
       PURE_TOP_CASE_TAC >> gvs[] >>
       drule_then (drule_then assume_tac) state_rel_globals_wf >> fs [] >>
       imp_res_tac eval_shape_val_thm >>
-      simp[eval_def, shape_of_def] >>
+      simp[eval_def,integer_wordTheory.i2w_0,integer_wordTheory.i2w_pos, shape_of_def] >>
       dep_rewrite.DEP_ONCE_REWRITE_TAC[OPT_MMAP_eval_two_fresh_vars] >>
       conj_tac
       >- (rpt strip_tac >>
@@ -1323,7 +1343,7 @@ Resume compile_correct[Call]:
           gvs[state_rel_def,is_valid_value_def] >>
           PURE_FULL_CASE_TAC >> gvs[] >>
           res_tac >> gvs[]) >>
-      simp[kvar_defs,eval_def,wordLangTheory.word_op_def,
+      simp[kvar_defs,eval_def,integer_wordTheory.i2w_0,integer_wordTheory.i2w_pos,wordSemTheory.word_op_def,
            FLOOKUP_UPDATE,evaluate_def] >>
       gvs[is_valid_value_def] >>
       Cases_on ‘FLOOKUP s.globals rt’ >>
@@ -1400,7 +1420,7 @@ Resume compile_correct[Call]:
       gvs[eval_shape_val_NONE] >>
       drule_then (drule_then assume_tac) state_rel_globals_wf >> fs [] >>
       imp_res_tac eval_shape_val_thm >>
-      simp[evaluate_def,eval_def,shape_of_def] >>
+      simp[evaluate_def,eval_def,integer_wordTheory.i2w_0,integer_wordTheory.i2w_pos,shape_of_def] >>
       dep_rewrite.DEP_ONCE_REWRITE_TAC[OPT_MMAP_eval_two_fresh_vars] >>
       conj_tac
       >- (rpt strip_tac >>
@@ -1415,7 +1435,7 @@ Resume compile_correct[Call]:
       gvs[Abbr ‘aname’, Abbr ‘anames’, Abbr ‘bname’, Abbr ‘bnames’] >>
       gvs[is_valid_value_def] >>
       gvs[set_var_def] >>
-      simp[eval_def] >>
+      simp[eval_def,integer_wordTheory.i2w_0,integer_wordTheory.i2w_pos] >>
       qmatch_goalsub_abbrev_tac ‘_ |+ (av1, vv1) |+ (av2, vv2) |+ (_,_)’ >>
       drule_at (Pos last) evaluate_two_fresh_locals >>
       disch_then $ qspecl_then [‘av1’,‘vv1’,‘av2’,‘vv2’] mp_tac >>
@@ -1431,7 +1451,7 @@ Resume compile_correct[Call]:
           imp_res_tac evaluate_unchanged_local >>
           gvs[good_res_def,FLOOKUP_UPDATE]) >>
       gvs[good_res_def] >>
-      simp[kvar_defs,eval_def,wordLangTheory.word_op_def,
+      simp[kvar_defs,eval_def,integer_wordTheory.i2w_0,integer_wordTheory.i2w_pos,wordSemTheory.word_op_def,
            FLOOKUP_UPDATE] >>
       gvs[is_valid_value_def,Abbr ‘vv2’,panSemTheory.shape_of_def,FLOOKUP_UPDATE,
           evaluate_def] >>
@@ -1569,8 +1589,7 @@ Theorem state_rel_write_bytearray:
               (t with memory := write_bytearray sz nbw t.memory t.memaddrs t.be)
 Proof
   Induct_on ‘nbw’ >>
-  rw[write_bytearray_def,read_bytearray_def,mem_load_byte_def,AllCaseEqs()]
-  >- gvs[state_rel_def] >>
+  rw[write_bytearray_def,read_bytearray_def,mem_load_byte_def,AllCaseEqs()] >>
   TOP_CASE_TAC
   >- gvs[mem_store_byte_def,AllCaseEqs()] >>
   first_x_assum drule >>
@@ -1608,7 +1627,7 @@ Finalise compile_correct;
 
 Definition fperm_code_def:
   fperm_code f g code =
-  FUN_FMAP ((I ## fperm f g) o THE o FLOOKUP code o fperm_name f g) (PREIMAGE (fperm_name f g) (FDOM code))
+  FUN_FMAP ((I ## (fperm f g ## I)) o THE o FLOOKUP code o fperm_name f g) (PREIMAGE (fperm_name f g) (FDOM code))
 End
 
 Theorem fperm_name_cancel[simp]:
@@ -1626,7 +1645,7 @@ QED
 
 Theorem FLOOKUP_fperm_code:
   FLOOKUP (fperm_code f g code) (fperm_name f g name) =
-  OPTION_MAP (I ## fperm f g) $ FLOOKUP code name
+  OPTION_MAP (I ## (fperm f g ## I)) $ FLOOKUP code name
 Proof
   rw[fperm_code_def] >>
   simp[FLOOKUP_FUN_FMAP,FINITE_PREIMAGE,IMAGE_FINITE,FDOM_FINITE] >>
@@ -1637,7 +1656,7 @@ QED
 
 Theorem FLOOKUP_fperm_code':
   FLOOKUP (fperm_code f g code) name =
-  OPTION_MAP (I ## fperm f g) $ FLOOKUP code (fperm_name f g name)
+  OPTION_MAP (I ## (fperm f g ## I)) $ FLOOKUP code (fperm_name f g name)
 Proof
   rw[fperm_code_def] >>
   simp[FLOOKUP_FUN_FMAP,FINITE_PREIMAGE,IMAGE_FINITE,FDOM_FINITE] >>
@@ -1693,7 +1712,7 @@ Theorem eval_upd_code_eta =
 Theorem functions_fperm_decs:
   ∀x y code.
   functions (fperm_decs x y code) =
-  MAP (λ(a,b,c). (fperm_name x y a, b, fperm x y c)) (functions code)
+  MAP (λ(a,b,c,d). (fperm_name x y a, b, fperm x y c, d)) (functions code)
 Proof
   ntac 2 strip_tac >>
   recInduct functions_ind >>
@@ -1744,6 +1763,7 @@ Proof
       simp[lookup_code_fperm_code] >>
       PURE_TOP_CASE_TAC >> simp[] >>
       PURE_TOP_CASE_TAC >> simp[] >>
+      PURE_TOP_CASE_TAC >> simp[] >>
       PURE_TOP_CASE_TAC
       >- (rw[] >> gvs[empty_locals_def]) >>
       simp[] >>
@@ -1772,6 +1792,7 @@ Proof
       rpt gen_tac >>
       PURE_TOP_CASE_TAC >> simp[] >>
       simp[lookup_code_fperm_code] >>
+      PURE_TOP_CASE_TAC >> simp[] >>
       PURE_TOP_CASE_TAC >> simp[] >>
       PURE_TOP_CASE_TAC >> simp[] >>
       PURE_TOP_CASE_TAC
@@ -1842,7 +1863,7 @@ Proof
 QED
 
 Theorem evaluate_decls_one_fun_last[local]:
-  !s. is_function y /\ EVERY (\d. case d of Decl _ _ _ => T | _ => F) xs ==>
+  !s. is_function y /\ EVERY (\d. case d of Decl _ _ _ => T | ExnDecl _ _ => T | _ => F) xs ==>
   evaluate_decls s (xs ++ [y]) = evaluate_decls s (y :: xs)
 Proof
   Induct_on `xs` >> rw [] >> fs [] >>
@@ -1855,84 +1876,127 @@ Proof
         |> Q.SPECL [`s`, `[d1]`] |> SIMP_RULE list_ss []] >>
   simp [] >>
   simp [evaluate_decls_def] >>
-  rpt (TOP_CASE_TAC >> fs [])
+  rpt (TOP_CASE_TAC >> fs []) >>
+  gvs[AllCaseEqs()] >>
+  FULL_SIMP_TAC std_ss [EXISTS_NOT_EVERY] >>
+  metis_tac[]
 QED
 
 Theorem resort_decls_evaluate:
-  ∀s decs. EVERY (\d. is_function d \/ is_decl d) decs ⇒
+  ∀s decs. EVERY (\d. is_function d \/ is_decl d ∨ is_exn_decl d) decs ⇒
   evaluate_decls s (resort_decls decs) = evaluate_decls s decs
 Proof
-  Induct_on `decs` >> rw [resort_decls_def] >> fs []
+  Induct_on `decs` using SNOC_INDUCT >> simp [resort_decls_def] >>
+  Cases >> rw[] >>
+  fs [is_name_def,is_exn_decl_def,is_decl_def,is_function_def,
+      SNOC_APPEND,FILTER_APPEND]
   >- (
-    ONCE_REWRITE_TAC [evaluate_decls_append
-        |> Q.SPECL [`s`, `[d]`] |> SIMP_RULE list_ss []] >>
-    every_case_tac >> fs [] >>
-    fs [resort_decls_def]
-  )
+    PURE_ONCE_REWRITE_TAC[evaluate_decls_append] >>
+    simp[GSYM resort_decls_def])
   >- (
-    ONCE_REWRITE_TAC [evaluate_decls_append
-        |> Q.SPECL [`s`, `xs ++ [d]`] |> REWRITE_RULE [GSYM APPEND_ASSOC, APPEND]]
-    >>
-    dep_rewrite.DEP_REWRITE_TAC [evaluate_decls_one_fun_last] >>
-    simp [GSYM evaluate_decls_append] >>
-    ONCE_REWRITE_TAC [evaluate_decls_append
-        |> Q.SPECL [`s`, `[d1]`] |> SIMP_RULE list_ss []] >>
-    fs [resort_decls_def] >>
-    simp [EVERY_FILTER] >>
-    drule_at_then Any irule MONO_EVERY >>
-    Cases >> simp [is_function_def, is_decl_def]
-  )
+    rename1 ‘Decl s m e’ >>
+    ‘∀st. evaluate_decls st ([Decl s m e] ++ FILTER is_function decs) =
+          evaluate_decls st (FILTER is_function decs ++ [Decl s m e])
+    ’ by(rpt $ pop_assum kall_tac >> strip_tac >>
+         Induct_on ‘decs’ using SNOC_INDUCT >>
+         gvs[SNOC_APPEND,FILTER_APPEND] >>
+         Cases >> gvs[is_function_def] >>
+         PURE_ONCE_REWRITE_TAC[GSYM APPEND] >>
+         PURE_ONCE_REWRITE_TAC[evaluate_decls_append] >>
+         simp[cj 1 evaluate_decls_def] >>
+         simp[evaluate_decls_append] >>
+         PURE_FULL_CASE_TAC >> simp[] >>
+         simp[GSYM evaluate_decls_append] >>
+         simp[evaluate_decl_commute]) >>
+    PURE_REWRITE_TAC[GSYM APPEND_ASSOC] >>
+    ntac 2 $ SIMP_TAC std_ss [Once APPEND_ASSOC] >>
+    simp[Once evaluate_decls_append] >>
+    simp[GSYM evaluate_decls_append] >>
+    PURE_ONCE_REWRITE_TAC[evaluate_decls_append] >>
+    gvs[resort_decls_def])
+  >- (
+    rename1 ‘ExnDecl m s’ >>
+    ‘∀st. evaluate_decls st ([ExnDecl m s] ++ (FILTER is_decl decs ++ FILTER is_function decs)) =
+          evaluate_decls st (FILTER is_decl decs ++ FILTER is_function decs ++ [ExnDecl m s])
+    ’ by(PURE_REWRITE_TAC[APPEND_ASSOC] >>
+         rpt $ pop_assum kall_tac >> strip_tac >>
+         SIMP_TAC std_ss [Once $ GSYM APPEND_ASSOC] >>
+         qmatch_goalsub_abbrev_tac ‘_ ++ a1’ >>
+         ‘EVERY (λd. is_decl d ∨ is_function d) a1’
+           by(rw[Abbr ‘a1’,EVERY_FILTER]) >>
+         last_x_assum kall_tac >>
+         Induct_on ‘a1’ using SNOC_INDUCT >>
+         gvs[SNOC_APPEND,FILTER_APPEND] >>
+         Cases >> gvs[is_function_def,is_decl_def] >>
+         PURE_ONCE_REWRITE_TAC[GSYM APPEND] >>
+         PURE_ONCE_REWRITE_TAC[evaluate_decls_append] >>
+         simp[cj 1 evaluate_decls_def] >>
+         simp[evaluate_decls_append] >>
+         PURE_FULL_CASE_TAC >> simp[] >>
+         simp[GSYM evaluate_decls_append] >>
+         strip_tac >>
+         gvs[] >>
+         simp[evaluate_decls_def] >> every_case_tac >>
+         gvs[eval_upd_eshapes_eq
+             |> Q.SPEC ‘t with locals := l’
+             |> SIMP_RULE (srw_ss()) []
+            ] >>
+         gvs[]) >>
+    PURE_REWRITE_TAC[GSYM APPEND_ASSOC] >>
+    SIMP_TAC std_ss [Once APPEND_ASSOC] >>
+    PURE_ONCE_REWRITE_TAC[evaluate_decls_append] >>
+    FULL_SIMP_TAC std_ss [] >>
+    simp[GSYM evaluate_decls_append] >>
+    PURE_ONCE_REWRITE_TAC[evaluate_decls_append] >>
+    gvs[resort_decls_def])
 QED
 
 Theorem resort_decls_evaluate_IMP[local]:
   evaluate_decls s decs = SOME s' ∧
-  EVERY (\d. is_function d \/ is_decl d) decs ⇒
+  EVERY (\d. is_function d \/ is_decl d ∨ is_exn_decl d) decs ⇒
   evaluate_decls s (resort_decls decs) = SOME s'
 Proof
   simp [resort_decls_evaluate]
 QED
 
 Theorem compile_decs_functions_thm:
-  ∀ctxt fdecs decls funs ctxt'.
-    compile_decs ctxt fdecs = (decls,funs,ctxt') ∧
+  ∀ctxt fdecs decls funs exns ctxt'.
+    compile_decs ctxt fdecs = (decls,funs,exns,ctxt') ∧
     EVERY (is_function) fdecs ⇒
-    (decls = [] ∧ ctxt' = ctxt ∧
+    (decls = [] ∧ exns = [] ∧ ctxt' = ctxt ∧
      funs =
      MAP (λx. case x of Function fi =>
-                          Function $ fi with body := compile ctxt' fi.body | _ => ARB)
+                          Function $ fi with body := compile ctxt fi.body | _ => ARB)
          fdecs)
 Proof
-  ho_match_mp_tac compile_decs_ind >> rpt conj_tac
-  >- rw[compile_decs_def] >>
-  PURE_REWRITE_TAC[compile_decs_def] >>
-  rpt strip_tac >>
-  FULL_SIMP_TAC std_ss [LET_THM,UNCURRY_eq_pair] >>
-  rveq >>
-  fs[is_function_def]
+  simp[SF DNF_ss] >> rpt conj_tac >>
+  ho_match_mp_tac compile_decs_ind >>
+  rw[compile_decs_def] >>
+  gvs[UNCURRY_eq_pair,is_function_def]
 QED
 
 Theorem compile_decs_decls_thm:
-  ∀ctxt fdecs decls funs ctxt'.
-    compile_decs ctxt fdecs = (decls,funs,ctxt') ∧
-    EVERY ($¬ o is_function) fdecs ⇒
+  ∀ctxt fdecs decls funs exns ctxt'.
+    compile_decs ctxt fdecs = (decls,funs,exns,ctxt') ∧
+    EVERY (λd. ¬is_function d) fdecs ⇒
     funs = []
 Proof
   ho_match_mp_tac compile_decs_ind >> rpt conj_tac >>
-  rw[compile_decs_def,is_function_def,UNCURRY_eq_pair] >> gvs[]
+  rw[compile_decs_def,is_function_def,is_exn_decl_def,UNCURRY_eq_pair] >> gvs[]
 QED
 
 Theorem compile_decs_EVERY_is_function:
-  ∀ctxt decs decls funs ctxt'.
-    compile_decs ctxt decs = (decls,funs,ctxt') ⇒
+  ∀ctxt decs decls funs exns ctxt'.
+    compile_decs ctxt decs = (decls,funs,exns,ctxt') ⇒
     EVERY is_function funs
 Proof
   ho_match_mp_tac compile_decs_ind >> rpt conj_tac >>
-  rw[compile_decs_def,is_function_def,UNCURRY_eq_pair] >> gvs[is_function_def]
+  rw[compile_decs_def,is_function_def,is_exn_decl_def,UNCURRY_eq_pair] >> gvs[is_function_def]
 QED
 
 Theorem compile_decs_EVERY:
-  ∀ctxt decs decls funs ctxt'.
-  compile_decs ctxt decs = (decls,funs,ctxt') ∧
+  ∀ctxt decs decls funs exns ctxt'.
+  compile_decs ctxt decs = (decls,funs,exns,ctxt') ∧
   EVERY (\d. !fi ctxt. d = Function fi ⇒ P (Function (fi with body := compile ctxt fi.body))) decs
   ⇒
   EVERY P funs
@@ -1943,12 +2007,11 @@ QED
 
 Theorem compile_decls_append:
   ∀decs' ctxt decs .
-    EVERY (\d. is_function d \/ is_decl d) decs ⇒
     compile_decs ctxt (decs ++ decs') =
-    let (decls,funs,ctxt') = compile_decs ctxt decs;
-        (decls',funs',ctxt'') = compile_decs ctxt' decs'
+    let (decls,funs,exns,ctxt') = compile_decs ctxt decs;
+        (decls',funs',exns',ctxt'') = compile_decs ctxt' decs'
     in
-      (decls++decls',funs++funs',ctxt'')
+      (decls++decls',funs++funs',exns++exns',ctxt'')
 Proof
   strip_tac >>
   recInduct compile_decs_ind >>
@@ -1958,11 +2021,10 @@ Proof
 QED
 
 Theorem compile_decls_append_IMP[local]:
-  compile_decs ctxt (decs ++ decs') = X ∧
-  EVERY (\d. is_function d \/ is_decl d) decs ⇒
-  let (decls,funs,ctxt') = compile_decs ctxt decs;
-    (decls',funs',ctxt'') = compile_decs ctxt' decs'
-  in (decls++decls',funs++funs',ctxt'') = X
+  compile_decs ctxt (decs ++ decs') = X ⇒
+  let (decls,funs,exns,ctxt') = compile_decs ctxt decs;
+    (decls',funs',exns',ctxt'') = compile_decs ctxt' decs'
+  in (decls++decls',funs++funs',exns++exns',ctxt'') = X
 Proof
   rw [] >>
   simp [compile_decls_append] >>
@@ -1985,6 +2047,44 @@ Theorem fperm_decs_FILTER_is_function:
 Proof
   recInduct fperm_decs_ind >>
   rw[fperm_decs_def,is_function_def]
+QED
+
+(* TODO: move *)
+Theorem functions_FILTER_exn_decl:
+  ∀prog. functions (FILTER is_exn_decl prog) = []
+Proof
+  Induct using functions_ind >> rw[functions_def, is_exn_decl_def]
+QED
+
+(* TODO: move *)
+Theorem functions_FILTER_is_name:
+  ∀prog. functions (FILTER is_name prog) = []
+Proof
+  Induct using functions_ind >> rw[functions_def, is_name_def]
+QED
+
+Theorem resort_decls_preserve_functions:
+  ∀code. functions (resort_decls code) = functions code
+Proof
+  rw[resort_decls_def, functions_append, functions_FILTER', functions_FILTER,
+     functions_FILTER_exn_decl, functions_FILTER_is_name]
+QED
+
+Theorem compile_decs_preserve_functions:
+  ∀code ctxt decs funs exns ctxt'.
+    compile_decs ctxt code = (decs, funs, exns, ctxt') ⇒
+    MAP FST (functions funs) = MAP FST (functions code)
+Proof
+  Induct using functions_ind >> fs[compile_decs_def, functions_def]
+  >> rpt strip_tac
+  >> TRY (pairarg_tac >> gvs[functions_def] >> res_tac >> NO_TAC)
+  >> res_tac
+QED
+
+Theorem new_main_name_correct:
+  MEM (new_main_name code) (MAP FST (functions code)) ⇒ F
+Proof
+  rw[new_main_name_def,fresh_name_correct]
 QED
 
 Theorem mem_stores_addrs_IS_SOME:
@@ -2035,17 +2135,17 @@ Proof
 QED
 
 Theorem evaluate_decls_init_globals_lemma:
-  ∀s decls s' decls' funs ctxt' ctxt t free_addrs.
+  ∀s decls s' decls' funs exns ctxt' ctxt t free_addrs.
     evaluate_decls ^s decls = SOME s' ∧
     EVERY is_decl decls ∧
-    compile_decs ctxt decls = (decls',funs,ctxt') ∧
+    compile_decs ctxt decls = (decls',funs,exns,ctxt') ∧
     state_rel F ctxt s t ∧
-    free_addrs = addresses (t.top_addr - bytes_in_word*n2w(SUM(MAP size_of_shape(dec_shapes decls))) - ctxt.globals_size) (SUM(MAP size_of_shape(dec_shapes decls))) ∧
+    free_addrs = addresses (t.top_addr - bytes_in_word*n2w(SUM(MAP size_of_shape(dec_shapes decls))) - (i2w ctxt.globals_size:'a word)) (SUM(MAP size_of_shape(dec_shapes decls))) ∧
     DISJOINT s.memaddrs free_addrs ∧
     free_addrs ⊆ t.memaddrs ∧
-    byte_aligned ctxt.globals_size ∧
+    byte_aligned (i2w ctxt.globals_size:'a word) ∧
     s.code = FEMPTY ∧
-    (∀v sh addr'. IS_SOME(FLOOKUP s.globals v) ∧ FLOOKUP ctxt.globals v = SOME(sh, addr') ⇒ DISJOINT (addresses (t.top_addr-addr') (size_of_shape sh)) free_addrs) ∧
+    (∀v sh addr'. IS_SOME(FLOOKUP s.globals v) ∧ FLOOKUP ctxt.globals v = SOME(sh, addr') ⇒ DISJOINT (addresses (t.top_addr-i2w addr') (size_of_shape sh)) free_addrs) ∧
     w2n(bytes_in_word:'a word) * (SUM (MAP size_of_shape (dec_shapes decls))) < dimword (:α)
     ⇒
     ∃t'. panSem$evaluate (nested_seq decls',t) = (NONE,t') ∧
@@ -2053,13 +2153,16 @@ Theorem evaluate_decls_init_globals_lemma:
          t'.clock = t.clock ∧
          t'.ffi = t.ffi ∧
          t'.locals = t.locals ∧
-         byte_aligned ctxt'.globals_size
+         byte_aligned (i2w ctxt'.globals_size:'a word)
 Proof
   ho_match_mp_tac evaluate_decls_ind >>
   rw[evaluate_decls_def,compile_decs_def,AllCaseEqs(),UNCURRY_eq_pair,
      nested_seq_def,evaluate_def] >>
   gvs[nested_seq_def,evaluate_def,UNCURRY_eq_pair,
-      eval_def,wordLangTheory.word_op_def,is_decl_def,dec_shapes_def] >>
+      eval_def,wordSemTheory.word_op_def,is_decl_def,dec_shapes_def] >>
+  ‘arch_width_bits ctxt.arch_width = dimindex(:'a)’ by fs[state_rel_def] >>
+  gvs[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+      GSYM word_mul_n2w,GSYM bytes_in_word_def] >>
   drule $ cj 2 state_rel_empty_locals >>
   disch_then $ qspec_then ‘T’ mp_tac >>
   strip_tac >>
@@ -2086,7 +2189,8 @@ Proof
     qexists_tac ‘SUM(MAP size_of_shape (dec_shapes decls)) + i’ >>
     simp[] >>
     SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
-    gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
+    gvs[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+        bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
     gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]) >>
   strip_tac >>
   simp[] >>
@@ -2114,13 +2218,15 @@ Proof
       qexists_tac ‘i’ >>
       simp[] >>
       SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
-      gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
+      gvs[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+          bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
       gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]) >>
   conj_asm1_tac
-  >- (irule byte_aligned_add >>
-      simp[] >>
-      irule byte_aligned_bytes_in_word_mul >>
-      gvs[state_rel_def]) >>
+  >- (
+    simp[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+         GSYM word_mul_n2w,GSYM bytes_in_word_def] >>
+    irule byte_aligned_add >> simp[] >>
+    irule byte_aligned_bytes_in_word_mul >> gvs[state_rel_def]) >>
   conj_tac
   >- (drule_then irule DISJOINT_SUBSET >>
       qpat_x_assum ‘state_rel _ _ _ _’ mp_tac >>
@@ -2130,7 +2236,8 @@ Proof
       qexists_tac ‘i’ >>
       simp[] >>
       SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
-      gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
+      gvs[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+          bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
       gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]) >>
   conj_tac
   >- (irule SUBSET_TRANS >>
@@ -2142,7 +2249,8 @@ Proof
       qexists_tac ‘i’ >>
       simp[] >>
       SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
-      gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
+      gvs[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+          bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
       gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]) >>
   drule_then drule eval_state_rel_is_wf_shape >>
   rw [FEVERY_FEMPTY] >>
@@ -2151,7 +2259,9 @@ Proof
   >- (rw[FLOOKUP_UPDATE] >> res_tac >> fs[]
       >- (drule $ cj 1 mem_stores_mem_load_back >>
           simp[] >>
-          reverse impl_tac >- simp[] >>
+          reverse impl_tac
+          >- simp[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+                  GSYM word_mul_n2w,GSYM bytes_in_word_def] >>
           drule mem_stores_bounded_length >>
           disch_then drule >>
           impl_tac
@@ -2161,7 +2271,8 @@ Proof
               rw[byte_aligned_def] >>
               irule $ SIMP_RULE (srw_ss()) [] $ Q.SPECL [‘p’,‘0w’] aligned_add_sub_cor >>
               simp[aligned_0] >>
-              gvs[byte_aligned_def]) >>
+              gvs[byte_aligned_def,GSYM integer_wordTheory.word_i2w_add,
+                  integer_wordTheory.i2w_pos,GSYM word_mul_n2w,GSYM bytes_in_word_def]) >>
           simp[Once MULT_SYM] >>
           strip_tac >> drule LESS_EQ_LESS_TRANS >>
           disch_then irule >>
@@ -2171,7 +2282,8 @@ Proof
           qexists_tac ‘i + SUM (MAP size_of_shape (dec_shapes decls))’ >>
           simp[] >>
           SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
-          gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
+          gvs[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+              bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
           gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB])
       >- (irule EQ_TRANS >>
           irule_at (Pos hd) $ cj 1 mem_stores_load_disjoint >>
@@ -2184,7 +2296,8 @@ Proof
           qexists_tac ‘i+SUM (MAP size_of_shape (dec_shapes decls))’ >>
           simp[] >>
           SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
-          gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB,length_flatten_eq_size_of_shape] >>
+          gvs[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+              bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB,length_flatten_eq_size_of_shape] >>
           gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB])) >>
   conj_tac
   >- (
@@ -2205,7 +2318,8 @@ Proof
       qexists_tac ‘i + SUM(MAP size_of_shape(dec_shapes decls))’ >>
       simp[] >>
       SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
-      gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
+      gvs[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+          bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
       gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]) >>
   gvs[disjoint_globals_def] >>
   rw[IS_SOME_EXISTS,FLOOKUP_UPDATE]
@@ -2219,7 +2333,8 @@ Proof
       qexists_tac ‘i+SUM (MAP size_of_shape (dec_shapes decls))’ >>
       simp[] >>
       SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
-      gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB,length_flatten_eq_size_of_shape] >>
+      gvs[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+          bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB,length_flatten_eq_size_of_shape] >>
       gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB])
   >- (gvs[IS_SOME_EXISTS] >>
       res_tac >>
@@ -2230,7 +2345,8 @@ Proof
       qexists_tac ‘i+SUM (MAP size_of_shape (dec_shapes decls))’ >>
       simp[] >>
       SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
-      gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB,length_flatten_eq_size_of_shape] >>
+      gvs[GSYM integer_wordTheory.word_i2w_add,integer_wordTheory.i2w_pos,
+          bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,state_rel_def,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB,length_flatten_eq_size_of_shape] >>
       gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]) >>
   gvs[IS_SOME_EXISTS] >>
   res_tac
@@ -2252,10 +2368,14 @@ Proof
 QED
 
 Theorem dec_shapes_FILTER:
-  dec_shapes(FILTER ($¬ o is_function) xs) = dec_shapes xs
+  dec_shapes(FILTER ($¬ o is_function) xs) = dec_shapes xs ∧
+  dec_shapes(FILTER (is_name) xs) = [] ∧
+  dec_shapes(FILTER (is_decl) xs) = dec_shapes xs ∧
+  dec_shapes(FILTER (is_exn_decl) xs) = []
 Proof
+  rpt conj_tac >>
   Induct_on ‘xs’ using dec_shapes_ind >>
-  rw[dec_shapes_def,is_function_def]
+  rw[dec_shapes_def,is_function_def,is_decl_def,is_name_def,is_exn_decl_def]
 QED
 
 Theorem dec_shapes_fperm_decs:
@@ -2274,7 +2394,7 @@ QED
 Theorem evaluate_decls_functions_wf[local]:
   !s decs. evaluate_decls s decs = SOME s' ∧
   MEM (Function fi) decs ∧
-  EVERY (λd. is_function d ∨ is_decl d) decs ==>
+  EVERY (λd. is_function d ∨ is_decl d ∨ is_exn_decl d) decs ==>
   EVERY (is_wf_shape s.structs ∘ SND) fi.params ∧
   is_wf_shape s.structs fi.return
 Proof
@@ -2286,7 +2406,7 @@ QED
 
 Theorem MEM_functions[local]:
   !decs. MEM t (functions decs) ==>
-  ?fi. MEM (Function fi) decs /\ t = (fi.name, fi.params, fi.body)
+  ?fi. MEM (Function fi) decs /\ t = (fi.name, fi.params, fi.body, fi.return)
 Proof
   recInduct functions_ind
   \\ simp [functions_def]
@@ -2308,6 +2428,38 @@ Proof
   \\ simp[state_component_equality]
 QED
 
+Theorem evaluate_decls_only_functions_and_exns_SOME[local]:
+  ∀s pan_code.
+  EVERY (λd. is_function d ∨ is_exn_decl d) pan_code ∧
+  EVERY (\d. !fi. d = Function fi ⇒
+    EVERY (is_wf_shape s.structs ∘ SND) fi.params ∧
+    is_wf_shape s.structs fi.return) pan_code ∧
+  ALL_DISTINCT (MAP FST (exceptions pan_code)) ∧
+  EVERY (λ(eid,sh). FLOOKUP s.eshapes eid = NONE) (exceptions pan_code) ∧
+  EVERY (is_wf_shape s.structs o SND) (exceptions pan_code)
+  ⇒
+  evaluate_decls s pan_code = SOME (s with <| code := s.code |++ functions pan_code;
+                                              eshapes := s.eshapes |++ exceptions pan_code
+                                             |>)
+Proof
+  recInduct evaluate_decls_ind
+  \\ simp [evaluate_decls_def, is_function_def, functions_def, exceptions_def,
+           is_exn_decl_def, FUPDATE_LIST_THM]
+  \\ simp[state_component_equality]
+  \\ rw[]
+  \\ first_x_assum $ match_mp_tac o MP_CANON
+  \\ rw[]
+  \\ qpat_x_assum ‘EVERY (λ(eid,sh). _) _’ mp_tac
+  \\ qmatch_goalsub_abbrev_tac ‘a1 ⇒ a2’
+  \\ ‘a1 = a2’ suffices_by simp[]
+  \\ unabbrev_all_tac
+  \\ irule EVERY_CONG
+  \\ rw[FLOOKUP_UPDATE,EQ_IMP_THM]
+  \\ pairarg_tac
+  \\ gvs[MEM_MAP,FORALL_PROD]
+  \\ metis_tac[]
+QED
+
 Theorem EVERY_fperm_decs[local]:
   !f g decs.
   EVERY (\d. ¬ is_function d ⇒ P d) decs ∧
@@ -2320,19 +2472,36 @@ Proof
   simp [fperm_decs_def, is_function_def]
 QED
 
+Theorem compile_decs_exns_are_exns:
+  ∀ctxt code decls funs exns ctxt'.
+  compile_decs ctxt code = (decls,funs,exns,ctxt') ⇒
+  exns = FILTER is_exn_decl code
+Proof
+  recInduct compile_decs_ind >>
+  rw[compile_decs_def,is_exn_decl_def,UNCURRY_EQ] >>
+  gvs[]
+QED
 
 Theorem compile_top_shape_wf[local]:
   evaluate_decls s code = SOME s' ∧
-  EVERY (\d. is_function d ∨ is_decl d) code ⇒
+  EVERY (\d. is_function d ∨ is_decl d ∨ is_exn_decl d) code ⇒
   EVERY (\d. !fi. d = Function fi ⇒
         EVERY (is_wf_shape s.structs ∘ SND) fi.params ∧
         is_wf_shape s.structs fi.return)
-    (compile_top code start)
+    (compile_top aw code start)
 Proof
   rw [compile_top_def] >>
   every_case_tac >> simp [] >>
   rpt (pairarg_tac >> fs []) >>
   simp [is_wf_shape_def, is_function_def] >>
+  conj_tac >- (
+    drule compile_decs_exns_are_exns >>
+    gvs[] >>
+    strip_tac >>
+    rpt $ pop_assum kall_tac >>
+    rw[EVERY_FILTER,oneline is_exn_decl_def,EVERY_MEM] >>
+    PURE_FULL_CASE_TAC >> gvs[]
+  ) >>
   conj_tac >- (
     dxrule ALOOKUP_MEM >>
     rw [] >>
@@ -2353,48 +2522,97 @@ QED
 Theorem compile_top_shape_wf_nil[local]:
   evaluate_decls s code = SOME s' ∧
   s.structs = [] ∧
-  EVERY (\d. is_function d ∨ is_decl d) code ⇒
+  EVERY (\d. is_function d ∨ is_decl d ∨ is_exn_decl d) code ⇒
   EVERY (\d. !fi. d = Function fi ⇒
         EVERY (is_wf_shape_nil ∘ SND) fi.params ∧
         is_wf_shape_nil fi.return)
-    (compile_top code start)
+    (compile_top aw code start)
 Proof
   metis_tac [compile_top_shape_wf]
 QED
 
+Theorem exceptions_append:
+  ∀ds ds'.
+    exceptions(ds ++ ds') = exceptions ds ++ exceptions ds'
+Proof
+  recInduct exceptions_ind >>
+  rw[exceptions_def]
+QED
+
+Theorem exceptions_FILTER_is_function:
+  exceptions(FILTER is_function decs) = [] ∧
+  exceptions(FILTER ($¬ o is_function) decs) = exceptions decs ∧
+  exceptions(FILTER (is_exn_decl) decs) = exceptions decs ∧
+  exceptions(FILTER (is_name) decs) = [] ∧
+  exceptions(FILTER (is_decl) decs) = []
+Proof
+  conj_tac >>
+  Induct_on ‘decs’ using exceptions_ind >>
+  rw[exceptions_def,is_function_def,is_exn_decl_def,is_name_def,is_decl_def]
+QED
+
+Theorem not_is_function:
+  (is_name x ⇒ ¬is_function x) ∧
+  (is_decl x ⇒ ¬is_function x) ∧
+  (is_exn_decl x ⇒ ¬is_function x)
+Proof
+  Cases_on ‘x’ >> EVAL_TAC
+QED
+
+Theorem decl_distinct:
+  (is_decl x ∧ is_name x ⇔ F) ∧
+  (is_decl x ∧ is_function x ⇔ F) ∧
+  (is_decl x ∧ is_exn_decl x ⇔ F)
+Proof
+  Cases_on ‘x’ >> EVAL_TAC
+QED
+
 Theorem evaluate_decls_compile_top:
   evaluate_decls s decs = SOME s' ∧
-  ALOOKUP (functions decs) start = SOME (args,body) ∧
-  EVERY (\d. is_function d ∨ is_decl d) decs ∧
-  compile_decs <| globals := FEMPTY; globals_size := 0w;
-              max_globals_size := bytes_in_word*n2w(SUM(MAP size_of_shape(dec_shapes decs))) |> (fperm_decs start (new_main_name decs) (resort_decls decs)) = (ndecls,nfuns,nctxt)
+  ALOOKUP (functions decs) start = SOME (args,body,rshape) ∧
+  EVERY (\d. is_function d ∨ is_decl d ∨ is_exn_decl d) decs ∧
+  compile_decs <| globals := FEMPTY; globals_size := 0; arch_width := aw;
+              max_globals_size := &(arch_bytes aw) * &(SUM(MAP size_of_shape(dec_shapes decs))) |> (fperm_decs start (new_main_name decs) (resort_decls decs)) = (ndecls,nfuns,nexns,nctxt)
   ⇒
-  evaluate_decls s (compile_top decs start) =
+  evaluate_decls s (compile_top aw decs start) =
   SOME
   (s with
-     code :=
+     <| code :=
    s.code |+
     (start,args,
      Seq (nested_seq ndecls)
-         (TailCall (new_main_name decs) (MAP (Var Local ∘ FST) args))) |++
-    MAP (λ(x,y,z). (x,y,compile nctxt z))
-    (functions (fperm_decs start (new_main_name decs) decs)))
+         (TailCall (new_main_name decs) (MAP (Var Local ∘ FST) args)),rshape) |++
+    MAP (λ(x,y,z,t). (x,y,compile nctxt z,t))
+    (functions (fperm_decs start (new_main_name decs) decs));
+        eshapes := s.eshapes |++ exceptions nexns
+      |>)
 Proof
   rw [] >>
   drule_all compile_top_shape_wf >>
-  disch_then (qspec_then `start` mp_tac) >>
+  disch_then (qspecl_then [`start`, `aw`] mp_tac) >>
   rw[compile_top_def, UNCURRY_eq_pair] >>
   imp_res_tac resort_decls_evaluate_IMP >>
   pairarg_tac >>
   simp[] >>
-  simp[evaluate_decls_def] >>
   gvs[resort_decls_def, is_wf_shape_def] >>
-  gvs[dec_shapes_functions,dec_shapes_append,fperm_decs_append,fperm_decs_FILTER_is_function,EVERY_FILTER,fperm_decs_decls, dec_shapes_FILTER] >>
-  qpat_x_assum ‘compile_decs <|globals := _; globals_size := _; max_globals_size := _|> _ = _’ assume_tac >>
+  gvs[dec_shapes_functions,dec_shapes_append,fperm_decs_append,fperm_decs_FILTER_is_function,EVERY_FILTER,fperm_decs_decls, dec_shapes_FILTER,not_is_function] >>
+  qpat_x_assum ‘compile_decs <|globals := _; globals_size := _; max_globals_size := _; arch_width := _|> _ = _’ assume_tac >>
   imp_res_tac compile_decs_EVERY_is_function >>
   gvs[] >>
+  simp[evaluate_decls_append] >>
+  ‘EVERY is_exn_decl exns’
+    by (drule compile_decs_exns_are_exns >> rw[] >>
+        rw[EVERY_FILTER]) >>
+  DEP_ONCE_REWRITE_TAC[exns_wf_evaluate_decls] >>
+  conj_tac
+  >- (simp[] >>
+      drule evaluate_decls_exns_wf >>
+      drule compile_decs_exns_are_exns >>
+      rpt strip_tac >>
+      gvs[exceptions_append,exceptions_FILTER_is_function]) >>
+  simp[evaluate_decls_def,is_wf_shape_def] >>
   simp [evaluate_decls_only_functions_SOME] >>
-  fs [] >>
+  simp[state_component_equality] >>
   gvs[evaluate_decls_append,AllCaseEqs()] >>
   dxrule compile_decls_append_IMP >>
   simp [EVERY_FILTER_IMP] >>
@@ -2404,11 +2622,11 @@ Proof
   rw [] >>
   gvs[fperm_decs_FILTER_is_function] >>
   drule compile_decs_decls_thm >>
-  simp[EVERY_FILTER] >>
+  simp[EVERY_FILTER,not_is_function] >>
   disch_then $ gvs o single >>
   qmatch_goalsub_abbrev_tac ‘functions (MAP f1 (FILTER is_function a1))’ >>
   ‘functions (MAP f1 (FILTER is_function a1)) =
-   MAP (λ(x,y,z). (x,y,compile ctxt z)) (functions a1)’
+   MAP (λ(x,y,z,t). (x,y,compile ctxt z,t)) (functions a1)’
     by(qunabbrev_tac ‘f1’ >>
        rpt $ pop_assum kall_tac >>
        Induct_on ‘a1’ using functions_ind >> gvs[functions_def,is_function_def]) >>
@@ -2417,15 +2635,24 @@ Proof
   simp[]
 QED
 
-Theorem compile_top_only_functions:
-  EVERY is_function (compile_top code start)
+Theorem compile_top_only_functions_or_exns:
+  EVERY (λd. is_function d ∨ is_exn_decl d) (compile_top aw code start)
 Proof
   rw[compile_top_def] >>
   PURE_TOP_CASE_TAC >> gvs[] >>
   PURE_TOP_CASE_TAC >> gvs[] >>
+  PURE_TOP_CASE_TAC >> gvs[] >>
   pairarg_tac >>
-  rw[is_function_def] >>
+  rw[is_function_def,is_exn_decl_def] >>
   imp_res_tac compile_decs_EVERY_is_function
+  >- (imp_res_tac compile_decs_exns_are_exns >>
+      gvs[] >>
+      rpt $ pop_assum kall_tac >>
+      rw[EVERY_FILTER,oneline is_exn_decl_def,EVERY_MEM] >>
+      PURE_FULL_CASE_TAC >> gvs[]) >>
+  irule EVERY_MONOTONIC >>
+  first_x_assum $ irule_at $ Pos last >>
+  rw[]
 QED
 
 Theorem evaluate_two[local]:
@@ -2510,7 +2737,8 @@ QED
 
 (* TODO: move? *)
 Theorem semantics_init_call:
-  FLOOKUP s.code start = SOME ([],Seq body (TailCall start' [])) ∧
+  FLOOKUP s.code start = SOME ([],Seq body (TailCall start' []),rshape) ∧
+  FLOOKUP s.code start' = SOME (args', body', rshape) ∧
   (∀k. evaluate (body,s with <| locals := FEMPTY; clock := k|>) =
        (NONE,s' with clock := k)) ∧
   s'.ffi.io_events = s.ffi.io_events
@@ -2524,22 +2752,28 @@ Proof
   qabbrev_tac ‘a1 = TailCall start' []’ >>
   gvs[evaluate_def,lookup_code_def]
   >- (Cases_on ‘k’ >> gvs[FUPDATE_LIST_THM,dec_clock_def] >>
-      last_x_assum $ qspec_then ‘n’ strip_assume_tac >>
-      every_case_tac >> gvs[some_def])
-  >- (gvs[Abbr ‘a1’,lookup_code_def,evaluate_def,some_def,AllCaseEqs(),PULL_EXISTS] >>
+      last_assum $ qspec_then ‘n’ strip_assume_tac >>
+      every_case_tac >> gvs[some_def]
+      >- (res_tac >> fs[])
+      >> gvs[Abbr `a1`, evaluate_def, AllCaseEqs(), lookup_code_def])
+  >- (
+      gvs[Abbr ‘a1’,lookup_code_def,evaluate_def,some_def,AllCaseEqs(),PULL_EXISTS] >>
       Q.REFINE_EXISTS_TAC ‘SUC _’ >>
       gvs[UNCURRY_eq_pair,PULL_EXISTS,FUPDATE_LIST_THM,dec_clock_def] >>
+(*
       Cases_on ‘FLOOKUP s.code start'’ >> gvs[]
       >- (last_x_assum $ qspec_then ‘1’ mp_tac >> gvs[]) >>
       PURE_CASE_TAC >> gvs[] >>
       reverse $ rw[] >> gvs[]
       >- (last_x_assum $ qspec_then ‘1’ mp_tac >> gvs[]) >>
+*)
       Cases_on ‘k’ >> gvs[] >>
       Q.REFINE_EXISTS_TAC ‘SUC _’ >>
       gvs[] >>
       qexists_tac ‘n’ >>
       rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
-      first_x_assum $ qspec_then ‘n+2’ mp_tac >> gvs[]) >>
+      last_x_assum $ qspec_then `n+2` mp_tac >> gvs[]
+  ) >>
   gvs[dec_clock_def,FUPDATE_LIST_THM] >>
   DEEP_INTRO_TAC some_intro >>
   conj_tac
@@ -2578,7 +2812,10 @@ Proof
   >- (rw[PULL_EXISTS] >>
       first_x_assum $ qspec_then ‘k’ mp_tac >>
       rw[] >>
-      rpt(PURE_TOP_CASE_TAC >> gvs[])) >>
+      rpt(PURE_TOP_CASE_TAC >> gvs[]) >>
+      `shape_of v = rshape` by (
+        gvs[Abbr `a1`, evaluate_def, AllCaseEqs(), lookup_code_def]
+      ) >> fs[]) >>
   rpt strip_tac >>
   simp[] >>
   AP_TERM_TAC >>
@@ -2589,7 +2826,8 @@ Proof
 QED
 
 Theorem semantics_init_call':
-  FLOOKUP s.code start = SOME ([],Seq body (TailCall start' [])) ∧
+  FLOOKUP s.code start = SOME ([],Seq body (TailCall start' []), rshape) ∧
+  FLOOKUP s.code start' = SOME (args', body', rshape) ∧
   evaluate (body,s with locals := FEMPTY) = (NONE,s') ∧
   s'.clock = s.clock ∧
   s'.ffi.io_events = s.ffi.io_events
@@ -2609,13 +2847,13 @@ Proof
 QED
 
 Theorem compile_decs_FILTER_decs:
-  ∀ctxt code decls funs ctxt'.
-    compile_decs ctxt code = (decls,funs,ctxt') ⇒
-    compile_decs ctxt (FILTER ($¬ ∘ is_function) code) = (decls,[],ctxt')
+  ∀ctxt code decls funs exns ctxt'.
+    compile_decs ctxt code = (decls,funs,exns,ctxt') ⇒
+    compile_decs ctxt (FILTER (is_decl) code) = (decls,[],[],ctxt')
 Proof
-  ho_match_mp_tac compile_decs_ind >>
-  rw[compile_decs_def,UNCURRY_eq_pair,is_function_def] >>
-  res_tac
+  recInduct compile_decs_ind >>
+  rw[compile_decs_def,UNCURRY_eq_pair,is_function_def,is_decl_def] >>
+  rw[ELIM_UNCURRY]
 QED
 
 Theorem FILTER_decs_fperm_decs:
@@ -2629,6 +2867,16 @@ QED
 
 Theorem ALOOKUP_MAP3[local]:
   ALOOKUP (MAP (λ(x,y,z). (x,y,f z)) al) = OPTION_MAP (I ## f) ∘ ALOOKUP al
+Proof
+  rw[FUN_EQ_THM] >>
+  Induct_on ‘al’
+  >- rw[ALOOKUP_def] >>
+  Cases >> rw[ALOOKUP_def] >>
+  pairarg_tac >> gvs[]
+QED
+
+Theorem ALOOKUP_MAP4[local]:
+  ALOOKUP (MAP (λ(x,y,z,t). (x,y,f z,t)) al) = OPTION_MAP (I ## (f ## I)) ∘ ALOOKUP al
 Proof
   rw[FUN_EQ_THM] >>
   Induct_on ‘al’
@@ -2743,12 +2991,6 @@ Proof
   gvs[state_rel_def]
 QED
 
-Theorem new_main_name_correct:
-  MEM (new_main_name code) (MAP FST (functions code)) ⇒ F
-Proof
-  rw[new_main_name_def,fresh_name_correct]
-QED
-
 Theorem functions_filter_nil[local]:
   !decls. functions (FILTER ($¬ ∘ is_function) decls) = []
 Proof
@@ -2756,7 +2998,44 @@ Proof
   \\ simp [FILTER_FILTER, functions_def]
 QED
 
+Theorem exceptions_compile_top:
+  ALOOKUP (functions code) start = SOME x ⇒
+  exceptions(compile_top aw code start) = exceptions code
+Proof
+  rw[compile_top_def] >>
+  PURE_TOP_CASE_TAC >> simp[] >>
+  PURE_TOP_CASE_TAC >> simp[] >>
+  pairarg_tac >>
+  drule compile_decs_EVERY_is_function >>
+  drule compile_decs_exns_are_exns >>
+  rw[] >>
+  rw[exceptions_FILTER_is_function,resort_decls_def,fperm_decs_append,
+     fperm_decs_FILTER_is_function,exceptions_append,exceptions_def] >>
+  simp[fperm_decs_decls,EVERY_FILTER,not_is_function] >>
+  simp[exceptions_FILTER_is_function] >>
+  pop_assum mp_tac >>
+  rpt $ pop_assum kall_tac >>
+  Induct_on ‘funs’ using exceptions_ind >>
+  rw[is_function_def,exceptions_def]
+QED
+
+Theorem map_pick_up_first[local]:
+  MAP FST (MAP (\(x,y,z,t). (f1 x, f2 y, f3 z, f4 t)) l) = MAP f1 (MAP FST l)
+Proof
+  Induct_on `l` >> fs[]
+  >> rpt strip_tac
+  >> PairCases_on `h` >> fs[]
+QED
+
+Theorem tuple_4_o[local]:
+  (\(x,y,z,t). (f1 x, f2 y, f3 z, f4 t)) o (\(x,y,z,t). (g1 x, g2 y, g3 z, g4 t)) = (\(x,y,z,t). f1 (g1 x), f2 (g2 y), f3 (g3 z), f4 (g4 t))
+Proof
+  rw[FUN_EQ_THM]
+  >> PairCases_on `x` >> fs[]
+QED
+
 Theorem compile_top_semantics_decls:
+  arch_width_bits aw = dimindex(:'a) ∧
   ALL_DISTINCT (MAP FST (functions code)) ∧
   t = s with <| top_addr := s.top_addr + mgs:'a word;
                 memaddrs := (s.memaddrs ∪ free_addrs);
@@ -2773,89 +3052,133 @@ Theorem compile_top_semantics_decls:
   (∀addr'. addr' ∈ s.memaddrs ⇒ s.memory addr' = tmem addr') ∧
   s.top_addr + mgs ∉ s.memaddrs ∧
   w2n(bytes_in_word:'a word)*SUM(MAP size_of_shape(dec_shapes code)) < dimword(:'a) ∧
-  EVERY (\d. is_function d ∨ is_decl d) code ∧
+  EVERY (\d. is_function d ∨ is_decl d ∨ is_exn_decl d) code ∧
   semantics_decls s start code <> Fail ==>
   semantics_decls s start code =
-  semantics_decls t start (compile_top code start)
+  semantics_decls t start (compile_top aw code start)
 Proof
   rpt strip_tac >>
   drule semantics_decls_has_main' >> strip_tac >>
   gvs[FLOOKUP_FUPDATE_LIST,CaseEq"option",
       alookup_distinct_reverse] >>
-  gvs[semantics_decls_def, decs_stcnames_only_functions, compile_top_only_functions] >>
+  gvs[semantics_decls_def, decs_stcnames_only_functions, compile_top_only_functions_or_exns] >>
+  DEP_REWRITE_TAC[decs_stcnames_only_functions] >>
+  conj_tac
+  >- (irule EVERY_MONOTONIC >>
+      irule_at Any compile_top_only_functions_or_exns >>
+      rw[] >> rw[]) >>
   PURE_TOP_CASE_TAC >> gvs[] >>
   drule compile_top_shape_wf >>
   rw [] >>
   drule evaluate_decls_compile_top >>
   disch_then drule >>
-  qmatch_goalsub_abbrev_tac ‘a1 = (_,_,_)’ >>
+  disch_then (qspec_then ‘aw’ mp_tac o CONV_RULE (RESORT_FORALL_CONV rev)) >>
+  qmatch_goalsub_abbrev_tac ‘a1 = (_,_,_,_)’ >>
   PairCases_on ‘a1’ >>
   gvs[markerTheory.Abbrev_def] >>
   pop_assum $ assume_tac o GSYM >>
   gvs[] >>
   strip_tac >>
+  DEP_PURE_REWRITE_TAC[evaluate_decls_only_functions_and_exns_SOME] >>
+  conj_tac
+  >- (gvs[compile_top_only_functions_or_exns, compile_top_shape_wf,
+          decs_stcnames_only_functions2, compile_top_shape_wf_nil, SF SFY_ss] >>
+      gvs[exceptions_compile_top] >>
+      imp_res_tac evaluate_decls_exns_wf >>
+      gvs[]) >>
   (* this needs to rewrite the goal to a semantics equality *)
-  gvs[evaluate_decls_only_functions_SOME, compile_top_only_functions, compile_top_shape_wf,
-    decs_stcnames_only_functions2, compile_top_shape_wf_nil, SF SFY_ss] >>
+  simp[] >>
   pop_assum mp_tac >>
   rw[state_component_equality] >>
   qpat_x_assum ‘evaluate_decls _ _ = _’ mp_tac >>
   simp[Once $ GSYM resort_decls_evaluate] >>
   rw[resort_decls_def,evaluate_decls_append,AllCaseEqs()] >>
-  dxrule_at Any evaluate_decls_only_functions >>
-  rw [EVERY_FILTER, functions_FILTER] >>
+  dxrule_at Any evaluate_decls_only_funs_and_exn_decls >>
+  simp[compile_top_only_functions_or_exns] >>
+  simp [EVERY_FILTER, functions_FILTER,state_component_equality] >>
+  disch_then $ assume_tac o GSYM >>
+  gvs[] >>
   ‘ALOOKUP (REVERSE
-            (MAP (λ(x,y,z). (x,y,compile a12 z))
+            (MAP (λ(x,y,z,t). (x,y,compile a13 z,t))
                  (functions
                   (fperm_decs start (new_main_name code)
                               code)))) start = NONE’
-    by(‘¬MEM (new_main_name code) (MAP FST (functions code))’
-         by (rw[new_main_name_correct]) >>
-       ‘new_main_name code ≠ start’
-         by(imp_res_tac ALOOKUP_MEM >> strip_tac >> gvs[MEM_MAP]) >>
+    by(
        rw[ALOOKUP_NONE,MEM_MAP,functions_fperm_decs,MEM_FILTER,UNCURRY_eq_pair,SF DNF_ss] >>
        gvs[fperm_name_def,AllCaseEqs()] >>
-       gvs[MEM_MAP]) >>
+       metis_tac[MEM_MAP, new_main_name_correct, mem_exists_set, MONO_NOT_EQ]
+    ) >>
   irule EQ_TRANS >>
   irule_at (Pos last) EQ_SYM >>
   irule_at (Pos hd) semantics_init_call' >>
   simp[FLOOKUP_UPDATE,FLOOKUP_FUPDATE_LIST] >>
   qmatch_goalsub_abbrev_tac ‘(nested_seq _, aa)’ >>
-  ‘evaluate_decls (s with structs := [])
-        (FILTER ($¬ ∘ is_function) (fperm_decs start (new_main_name code) (resort_decls code))) = SOME s'’
-   by(irule EQ_TRANS >>
-      first_x_assum $ irule_at $ Any >>
-      AP_TERM_TAC >>
-      simp[resort_decls_def] >>
-      simp[fperm_decs_append,FILTER_decs_fperm_decs,FILTER_APPEND,FILTER_FILTER] >>
-      simp[o_DEF]) >>
+  gvs[GSYM resort_decls_evaluate] >>
+  qpat_x_assum ‘evaluate_decls _ _ = _’ assume_tac >>
+  gvs[resort_decls_def,evaluate_decls_append,AllCaseEqs(),
+      evaluate_decls_names,EVERY_FILTER,
+      fperm_decs_append,
+      fperm_decs_decls,
+      cj 1 not_is_function,
+      cj 3 not_is_function,
+      fperm_decs_FILTER_is_function
+     ] >>
+  dxrule_at (Pos last) evaluate_decls_only_functions >>
+  rw[EVERY_FILTER] >>
+  gvs[functions_FILTER] >>
+  ntac 1 $ pop_assum mp_tac >>
+  dxrule_at (Pos last) evaluate_decls_only_exn_decls >>
+  rw[EVERY_FILTER] >>
+  gvs[exceptions_FILTER_is_function] >>
   drule evaluate_decls_init_globals_lemma >>
   simp[EVERY_FILTER] >>
   disch_then $ mp_tac o CONV_RULE(RESORT_FORALL_CONV rev) >>
   disch_then $ qspec_then ‘aa’ mp_tac >>
   qunabbrev_tac ‘aa’ >>
   simp[dec_shapes_FILTER] >>
-  disch_then $ resolve_then Any mp_tac compile_decs_FILTER_decs >>
+  drule compile_decs_FILTER_decs >>
+  simp[FILTER_APPEND,FILTER_IDEM,fperm_decs_decls,not_is_function,EVERY_FILTER] >>
+  simp[FILTER_FILTER,decl_distinct] >>
+  strip_tac >>
   disch_then drule >>
   simp[dec_shapes_fperm_decs,dec_shapes_resort_decls_def] >>
   impl_tac
   >- (
-      irule_at Any EVERY_fperm_decs >>
-      simp [is_function_def, resort_decls_def, EVERY_FILTER] >>
-      drule_at_then Any (irule_at Any) MONO_EVERY >>
-      csimp [AND_IMP_INTRO] >>
-      reverse conj_tac >- EVAL_TAC >>
-      simp[state_rel_def,disjoint_globals_def, FEVERY_FEMPTY] >>
-      reverse conj_tac
-      >- (irule byte_aligned_add >>
-          simp[] >>
-          irule byte_aligned_bytes_in_word_mul >>
-          simp[]) >>
-      simp[addresses_thm] >>
-      gvs[good_dimindex_def,bytes_in_word_def,word_mul_n2w,dimword_def] >>
-      intLib.COOPER_TAC) >>
+    simp[integer_wordTheory.i2w_0,byte_aligned_def,aligned_0] >>
+    simp[state_rel_def,disjoint_globals_def,FEVERY_FEMPTY,
+         integer_wordTheory.i2w_pos,GSYM word_mul_n2w,GSYM bytes_in_word_def] >>
+    conj_tac
+    >- (
+      imp_res_tac compile_decs_exns_are_exns >>
+      gvs[exceptions_FILTER_is_function,exceptions_append,
+          fperm_decs_decls,not_is_function,EVERY_FILTER]) >>
+    reverse conj_tac
+    >- (
+      irule byte_aligned_add >> simp[] >>
+      irule byte_aligned_bytes_in_word_mul >> simp[]) >>
+    simp[addresses_thm] >>
+    gvs[good_dimindex_def,bytes_in_word_def,word_mul_n2w,dimword_def] >>
+    intLib.COOPER_TAC) >>
   strip_tac >>
-  simp[] >>
+  simp[]
+  >> simp[GSYM PULL_EXISTS]
+  >> conj_tac
+  >- (
+    qpat_x_assum `ALOOKUP (REVERSE _) _ = _` mp_tac
+    >> DEP_REWRITE_TAC [alookup_distinct_reverse]
+    >> conj_tac
+    >- fs[map_pick_up_first, ALL_DISTINCT_fperm_decs]
+    >> simp[ALOOKUP_NONE, MEM_MAP, MEM_FILTER, UNCURRY_eq_pair, SF DNF_ss, fperm_name_def, AllCaseEqs()]
+    >> disch_tac
+    >> disj2_tac
+    >> irule_at Any ALOOKUP_ALL_DISTINCT_MEM
+    >> simp [GSYM PULL_EXISTS]
+    >> conj_tac
+    >- fs[map_pick_up_first, ALL_DISTINCT_fperm_decs]
+    >> fs[UNCURRY_eq_pair, MEM_MAP, MEM_FILTER, SF DNF_ss, functions_fperm_decs, fperm_name_def, AllCaseEqs()]
+    >> imp_res_tac ALOOKUP_MEM
+    >> metis_tac[]
+  ) >>
   drule evaluate_invariants >>
   simp[] >>
   strip_tac >>
@@ -2876,7 +3199,13 @@ Proof
        simp[FLOOKUP_FUPDATE_LIST,alookup_distinct_reverse,FLOOKUP_UPDATE,
             GSYM MAP_REVERSE,ALOOKUP_MAP3
            ] >>
-       rw[AllCaseEqs()]) >>
+       rw[AllCaseEqs()] >>
+       gvs[fperm_decs_decls,EVERY_FILTER,not_is_function,functions_FILTER'] >>
+       simp[MAP_REVERSE] >>
+       DEP_REWRITE_TAC [alookup_distinct_reverse] >>
+       conj_tac
+       >- fs[map_pick_up_first] >>
+       simp[ALOOKUP_MAP4]) >>
   unabbrev_all_tac >>
   PURE_ONCE_REWRITE_TAC[semantics_empty_locals] >>
   irule EQ_SYM >>
@@ -2891,7 +3220,7 @@ Proof
       fs[fperm_code_FUPDATE_LIST_functions,fperm_code_FEMPTY,fperm_name_def] >>
       PURE_ONCE_REWRITE_TAC[semantics_empty_locals] >>
       simp[]) >>
-  qexists ‘a12’ >>
+  qexists ‘a13’ >>
   gvs[state_rel_def]
 QED
 
@@ -2907,10 +3236,10 @@ Proof
 QED
 
 Theorem localised_exp_shape_val:
-  (∀sh. localised_exp ((shape_val sh):'a panLang$exp)) ∧
-  (∀shs. EVERY localised_exp ((shape_vals shs):'a panLang$exp list))
+  (∀sh. localised_exp ((shape_val sh):panLang$exp)) ∧
+  (∀shs. EVERY localised_exp ((shape_vals shs):panLang$exp list))
 Proof
-  Induct >> rw[shape_val_def,localised_exp_simps] >> gvs[ETA_THM]
+  ho_match_mp_tac shape_val_ind >> rw[shape_val_def,localised_exp_simps] >> gvs[ETA_THM]
 QED
 
 Theorem compile_localised:
@@ -2927,8 +3256,18 @@ QED
 
 Theorem compile_decs_localised:
   ∀ctxt code.
-    EVERY (localised_prog ∘ SND ∘ SND)
+    EVERY (localised_prog ∘ FST o SND ∘ SND)
           (functions (FST (SND (compile_decs ctxt code))))
+Proof
+  recInduct pan_globalsTheory.compile_decs_ind >>
+  rw[panLangTheory.functions_def,pan_globalsTheory.compile_decs_def,
+     ELIM_UNCURRY, compile_localised]
+QED
+
+Theorem compile_decs_localised':
+  ∀ctxt code.
+    EVERY (localised_prog ∘ FST o SND ∘ SND)
+          (functions (FST (SND (SND (compile_decs ctxt code)))))
 Proof
   recInduct pan_globalsTheory.compile_decs_ind >>
   rw[panLangTheory.functions_def,pan_globalsTheory.compile_decs_def,
@@ -2954,14 +3293,35 @@ QED
 
 Theorem compile_top_localised:
   ∀pan_code main.
-    EVERY (localised_prog ∘ SND ∘ SND) (functions (compile_top pan_code main))
+    EVERY (localised_prog ∘ FST o SND ∘ SND) (functions (compile_top aw pan_code main))
 Proof
   rw[pan_globalsTheory.compile_top_def] >>
   PURE_TOP_CASE_TAC >> simp[panLangTheory.functions_def] >>
-  PURE_TOP_CASE_TAC >>
+  PairCases_on `x` >>
   simp[panLangTheory.functions_def,ELIM_UNCURRY, panPropsTheory.localised_prog_def,
        EVERY_MAP, localised_exp_simps,
        compile_decs_localised,nested_seqs_localised,
-       compile_decs_localised_main
+       compile_decs_localised_main,compile_decs_localised',
+       functions_append
       ]
 QED
+
+Theorem ALL_DISTINCT_compile_top:
+  ∀start code.
+    ALL_DISTINCT (MAP FST (functions code)) ⇒
+    ALL_DISTINCT (MAP FST (functions (compile_top aw code start)))
+Proof
+  rpt strip_tac >> fs[compile_top_def]
+  >> every_case_tac >> fs[functions_def]
+  >> pairarg_tac >> fs[functions_append]
+  >> imp_res_tac compile_decs_exns_are_exns
+  >> imp_res_tac compile_decs_preserve_functions
+  >> fs[functions_def, functions_FILTER_exn_decl]
+  >> conj_tac
+  >- (
+    fs[functions_fperm_decs, map_pick_up_first, resort_decls_preserve_functions]
+    >> metis_tac[MEM_MAP, fperm_name_def, new_main_name_correct,]
+  )
+  >> metis_tac[ALL_DISTINCT_fperm_decs, resort_decls_preserve_functions]
+QED
+

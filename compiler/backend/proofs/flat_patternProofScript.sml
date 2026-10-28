@@ -5,7 +5,7 @@ Theory flat_patternProof
 Libs
   preamble bagSimps[qualified] induct_tweakLib[qualified]
 Ancestors
-  flat_pattern misc[qualified] ffi[qualified] bag[qualified]
+  flat_pattern misc[qualified]
   flatProps backendProps backend_common[qualified]
   pattern_semantics
   semanticPrimitives semanticPrimitivesProps flatLang
@@ -701,13 +701,14 @@ Definition state_rel_def:
     LIST_REL (sv_rel v_rel) s.refs t.refs /\
     t.ffi = s.ffi /\
     LIST_REL (OPTREL v_rel) s.globals t.globals /\
-    install_conf_rel cfg s.eval_config t.eval_config
+    install_conf_rel cfg s.eval_config t.eval_config /\
+    t.ptr_eq_oracle = s.ptr_eq_oracle
 End
 
 Theorem state_rel_initial_state:
   install_conf_rel cfg ic1 ic2 ==>
-  state_rel cfg (initial_state ffi k ic1)
-    (initial_state ffi k ic2)
+  state_rel cfg (initial_state ffi k ic1 pe)
+    (initial_state ffi k ic2 pe)
 Proof
   fs [state_rel_def, initial_state_def]
   \\ metis_tac []
@@ -914,7 +915,7 @@ QED
 Theorem simple_val_rel:
   simple_val_rel v_rel
 Proof
-  simp [simple_val_rel_def, v_rel_cases]
+  simp [flatPropsTheory.simple_val_rel_def, v_rel_cases]
   \\ rw [] \\ simp []
   \\ EQ_TAC \\ rw [] \\ fs []
   \\ metis_tac [simple_val_rel_step_isClosure]
@@ -973,8 +974,6 @@ Definition encode_val_def:
   encode_val others = Other
 Termination
   WF_REL_TAC `measure v_size`
-  \\ rw []
-  \\ fs [MEM_SPLIT, SUM_APPEND, v_size_aux]
 End
 
 Theorem decode_test_simulation:
@@ -1506,8 +1505,11 @@ Theorem do_eval_thm:
   LIST_REL v_rel xs ys ==>
   ?rv' decs' eval_config'.
   do_eval ys t.eval_config = SOME (decs', eval_config', rv') /\
-  state_rel cfg (s with eval_config := eval_config)
-    (t with eval_config := eval_config') /\
+  state_rel cfg
+    (s with <| eval_config := eval_config
+             ; ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle |>)
+    (t with <| eval_config := eval_config'
+             ; ptr_eq_oracle := shift_seq 1 t.ptr_eq_oracle |>) /\
   v_rel rv rv' /\
   decs' = MAP (compile_dec cfg) decs
 Proof
@@ -1517,7 +1519,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
   \\ rveq \\ fs []
-  \\ drule_then drule (MATCH_MP simple_val_rel_v_to_bytes simple_val_rel)
+  \\ drule_then drule (MATCH_MP simple_val_rel_v_to_mlstring simple_val_rel)
   \\ drule_then drule (MATCH_MP simple_val_rel_v_to_words simple_val_rel)
   \\ rw []
   \\ fs [option_case_eq, pair_case_eq]
@@ -1584,6 +1586,14 @@ Proof
   \\ TRY (rename [`rv_1 ≠ Rerr (Rabort Rtype_error) /\ _`]
     \\ (Cases_on `rv_1 = Rerr (Rabort Rtype_error)` >- fs [])
     \\ fs [])
+  >~ [‘(dec_clock _, Rval _)’] >- (
+    (* Tick *)
+    ‘v3 ≠ Rerr (Rabort Rtype_error)’ by (strip_tac \\ gvs [])
+    \\ first_x_assum drule_all \\ strip_tac \\ gvs []
+    \\ Cases_on ‘v3’ \\ gvs []
+    \\ ‘s'.clock = t2.clock’ by fs [state_rel_def]
+    \\ Cases_on ‘t2.clock = 0’ \\ gvs []
+    \\ fs [state_rel_def, dec_clock_def])
   >- (
     rpt (first_x_assum drule \\ rw [])
     \\ rveq \\ fs []
@@ -1917,7 +1927,7 @@ QED
 
 Theorem compile_decs_eval_sim:
   install_conf_rel cfg ic1 ic2 ==>
-  eval_sim ffi prog prog' ic1 ic2
+  eval_sim ffi pe prog prog' ic1 ic2
     (\decs decs'. MAP (compile_dec cfg2) decs = decs') F
 Proof
   simp [eval_sim_def]
@@ -1928,7 +1938,7 @@ Proof
   \\ simp []
   \\ imp_res_tac state_rel_initial_state
   \\ disch_then (qspecl_then
-    [`cfg`, `initial_state ffi k ic2`, `cfg2`] mp_tac)
+    [`cfg`, `initial_state ffi k ic2 pe`, `cfg2`] mp_tac)
   \\ simp [state_rel_initial_state]
   \\ rw []
   \\ fs [OPTREL_def]
@@ -1938,9 +1948,9 @@ QED
 
 Theorem compile_decs_semantics:
   install_conf_rel cfg ic1 ic2 /\
-  semantics ic1 ffi prog <> Fail ==>
-  semantics ic1 ffi prog =
-  semantics ic2 ffi (MAP (compile_dec cfg1) prog)
+  semantics ic1 ffi pe prog <> Fail ==>
+  semantics ic1 ffi pe prog =
+  semantics ic2 ffi pe (MAP (compile_dec cfg1) prog)
 Proof
   rw []
   \\ irule (DISCH_ALL (MATCH_MP (hd (RES_CANON IMP_semantics_eq))

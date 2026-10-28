@@ -48,4 +48,6 @@ sig
 
   val mk_mlstring         : string -> term
   val dest_mlstring       : term -> string
+
+  val mlstring_from_file  : string -> term
 end

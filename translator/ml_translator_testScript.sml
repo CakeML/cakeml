@@ -8,8 +8,182 @@ Ancestors
 Libs
   ml_translatorLib ml_progLib blastLib
 
+(* Recursive tuple arguments with a user-supplied termination proof. *)
+Definition tuple_termination_def:
+  tuple_termination (a, b) =
+    if a ≤ b then () else tuple_termination (a, b + 1:num)
+Termination
+  WF_REL_TAC ‘measure (λ(a, b). a - b)’
+End
+
+val tuple_termination_translation = translate tuple_termination_def;
+val _ = null (hyp tuple_termination_translation) orelse
+        failwith "Tuple termination translation retained a precondition";
+
+Definition nested_tuple_termination_def:
+  nested_tuple_termination (a, (b, c)) =
+    if a ≤ b then c else nested_tuple_termination (a, (b + 1:num, c:num))
+Termination
+  WF_REL_TAC ‘measure (λ(a, (b, c)). a - b)’
+End
+
+val nested_tuple_termination_translation = translate nested_tuple_termination_def;
+val _ = null (hyp nested_tuple_termination_translation) orelse
+        failwith "Nested tuple termination translation retained a precondition";
+
 val _ = register_type “:'a list”;
 val _ = register_type “:'a option”;
+
+(* A mutual definition whose saved induction theorem uses the definition name. *)
+Definition parity_def:
+  (my_even 0 = T) /\
+  (my_even (SUC n) = my_odd n) /\
+  (my_odd 0 = F) /\
+  (my_odd (SUC n) = my_even n)
+End
+
+Theorem parity_all_variable[local]:
+  (∀n. my_even n = if n = 0 then T else my_odd (n - 1)) /\
+  (∀n. my_odd n = if n = 0 then F else my_even (n - 1))
+Proof
+  conj_tac \\ Cases
+  \\ simp [parity_def]
+QED
+
+val _ = not (can (fetch "-") "my_even_ind") andalso
+        not (can (fetch "-") "my_odd_ind") orelse
+        failwith "Parity unexpectedly has function-named induction";
+val parity_translation = translate parity_all_variable;
+val _ = length (fst (strip_forall (concl (latest_ind ())))) = 2 orelse
+        failwith "Parity did not use the registered mutual induction";
+val _ = null (hyp parity_translation) orelse
+        failwith "Parity translation retained an obligation";
+
+(* Restated mutual equations over constants with no registered induction:
+   the single-function fallback rejects them. *)
+Definition even_flag_def:
+  even_flag n ⇔ EVEN n
+End
+
+Definition odd_flag_def:
+  odd_flag n ⇔ ODD n
+End
+
+Theorem flags_all_variable[local]:
+  (∀n. even_flag n ⇔ if n = 0 then T else odd_flag (n - 1)) /\
+  (∀n. odd_flag n ⇔ if n = 0 then F else even_flag (n - 1))
+Proof
+  rw [even_flag_def, odd_flag_def] \\ Cases_on ‘n’
+  \\ gvs [arithmeticTheory.EVEN, arithmeticTheory.ODD, arithmeticTheory.EVEN_ODD]
+QED
+
+val flags_expected_error =
+  "Preprocessor failed: definition defines more than one function.";
+val flags_translation_error =
+  (translate flags_all_variable; NONE)
+  handle HOL_ERR err => SOME (Feedback.message_of err);
+val _ = flags_translation_error = SOME flags_expected_error orelse
+        failwith "Flags translation did not reject the single-function fallback";
+
+(* Define saves induction for the numeric recursion before state is exposed. *)
+Definition native_state_step_def:
+  native_state_step (n:num) =
+    if n = 0 then (I:num -> num) else native_state_step (n - 1) o SUC
+End
+
+val native_state_ind = fetch "-" "native_state_step_ind";
+val _ = not (can (fetch "-") "native_state_step_trans_ind") orelse
+        failwith "Native state recursion unexpectedly has translation induction";
+val explicit_native_state_def = PURE_REWRITE_RULE
+  [FUN_EQ_THM, COND_RATOR, combinTheory.I_THM, combinTheory.o_THM]
+  native_state_step_def;
+val native_state_translation = translate explicit_native_state_def;
+val _ = length (hyp native_state_translation) = 1 andalso
+        aconv (hd (hyp native_state_translation)) ``native_state_step_ind`` orelse
+        failwith "Native state translation no longer retains its induction obligation";
+val _ = aconv (concl (latest_ind ())) (concl native_state_ind) orelse
+        failwith "Native state induction was replaced";
+val _ = print "Native state recursion: saved _ind selected; one induction obligation.\n";
+
+(* A state-passing rewrite needs induction over the explicit state argument.
+   Keep a stale saved theorem visible instead of reconstructing over it. *)
+Definition state_fold_def:
+  (state_fold [] = (λs:num. s)) /\
+  (state_fold (x::xs) = (λs. state_fold xs (s + x)))
+End
+
+val stale_state_ind = TypeBase.induction_of ``:num list``;
+val _ = save_thm ("state_fold_trans_ind", stale_state_ind);
+val explicit_state_fold_def = PURE_REWRITE_RULE [FUN_EQ_THM] state_fold_def;
+val stale_state_translation = translate explicit_state_fold_def;
+val _ = length (hyp stale_state_translation) = 1 orelse
+        failwith "Stale state induction was hidden by reconstruction";
+val _ = aconv (concl (latest_ind ())) (concl stale_state_ind) orelse
+        failwith "Saved state induction was replaced";
+
+(* Generalise the state argument in the list induction predicate. *)
+val state_fold_trans_ind = stale_state_ind
+  |> Q.SPEC `λxs. ∀s. P xs s`
+  |> CONV_RULE (DEPTH_CONV BETA_CONV)
+  |> Q.GEN `P`;
+val _ = Theory.delete_binding "state_fold_trans_ind";
+val _ = save_thm ("state_fold_trans_ind", state_fold_trans_ind);
+val corrected_state_translation = translate explicit_state_fold_def;
+val _ = null (hyp corrected_state_translation) orelse
+        failwith "Strengthened state induction did not close translation";
+
+(* Relation induction must not replace function induction. *)
+val list_rel_translation = translate listTheory.LIST_REL_def;
+val _ = null (hyp list_rel_translation) orelse
+        failwith "LIST_REL selected relation induction";
+
+(* Preserve manual induction over a datatype with auxiliary induction predicates.
+   The definition name deliberately differs from the recursive function name. *)
+Datatype:
+  induction_tree = IndTip 'a
+                 | IndBranch induction_tree induction_tree
+                 | IndLink (induction_aux option);
+  induction_aux = IndAuxTip
+                | IndAuxBranch induction_aux induction_aux
+                | IndAux induction_tree
+End
+
+Definition induction_fold_recursion_def:
+  (induction_fold (n:num) (IndTip x) = n) /\
+  (induction_fold n (IndBranch left right) =
+    induction_fold (induction_fold n right) left) /\
+  (induction_fold n (IndLink child) = n)
+End
+
+val _ = register_type ``:'a induction_tree``;
+val induction_fold_translation = translate_no_ind induction_fold_recursion_def;
+val _ = length (hyp induction_fold_translation) = 1 orelse
+        failwith "Nested-datatype fold did not retain its induction obligation";
+
+Theorem induction_fold_ind[local]:
+  induction_fold_ind (:'a)
+Proof
+  rewrite_tac [fetch "-" "induction_fold_ind_def"]
+  \\ rpt gen_tac \\ strip_tac
+  \\ ONCE_REWRITE_TAC [SWAP_FORALL_THM]
+  \\ ho_match_mp_tac
+       (fetch "-" "induction_tree_induction"
+        |> Q.SPECL [`P`, `λaux. T`]
+        |> SIMP_RULE std_ss [] |> Q.GEN `P`)
+  \\ rpt strip_tac
+  \\ qpat_x_assum `∀n tree. _ ⇒ P n tree` irule
+  \\ simp []
+QED
+val _ = update_precondition induction_fold_ind;
+val induction_fold_complete = fetch "-" "induction_fold_v_thm"
+                              |> SPEC_ALL |> UNDISCH_ALL;
+val _ = null (hyp induction_fold_complete) orelse
+        failwith "Nested-datatype fold induction was not discharged";
+
+(* Partial patterns must retain their domain precondition after flattening. *)
+val last_translation = translate listTheory.LAST_DEF;
+val _ = exists ml_translatorSyntax.is_PRECONDITION (hyp last_translation) orelse
+        failwith "LAST translation lost its domain precondition";
 
 Datatype:
   a_ty = A1 | B1 (b_ty list) ;
@@ -177,7 +351,83 @@ val res = translate char_to_byte_def;
 
 val res = translate MAP;
 
-val _ = hol2deep “λx. pure_seq (n+1:num) x”
+(* Primitive recursion under MAP: no induction theorem is saved, and the
+   recursive call is stated unapplied or partially applied. *)
+Datatype:
+  rose_tree = RoseLeaf num | RoseNode num (rose_tree list)
+End
+
+Definition rose_flatten_def:
+  rose_flatten (RoseLeaf n) = [n] ∧
+  rose_flatten (RoseNode n ts) = n :: FLAT (MAP rose_flatten ts)
+End
+
+Definition rose_label_def:
+  rose_label k (RoseLeaf n) = [k + n] ∧
+  rose_label k (RoseNode n ts) = (k + n) :: FLAT (MAP (rose_label (k + 1)) ts)
+End
+
+val res = translate FLAT;
+val _ = not (can (fetch "-") "rose_flatten_ind") orelse
+        failwith "Rose flatten unexpectedly has saved induction";
+val rose_flatten_translation = translate rose_flatten_def;
+val _ = null (hyp rose_flatten_translation) orelse
+        failwith "Rose flatten translation retained an obligation";
+val _ = fst (dest_var (fst (dest_forall (concl (latest_ind ()))))) = "P0" orelse
+        failwith "Rose flatten did not use the datatype induction";
+val _ = not (String.isSubstring "genvar"
+               (term_to_string (fetch "-" "rose_flatten_v_def" |> concl |> rhs))) orelse
+        failwith "Rose flatten code leaks generated variable names";
+val rose_label_translation = translate rose_label_def;
+val _ = null (hyp rose_label_translation) orelse
+        failwith "Rose label translation retained an obligation";
+
+(* Mutual recursion over a datatype and its list, without a saved induction
+   theorem named after either function. *)
+Datatype:
+  list_data = LeafData num | ListData (list_data list)
+End
+
+Definition list_data_length_def:
+  (list_data_length1 (LeafData n) = n) /\
+  (list_data_length1 (ListData ds) = list_data_length2 ds) /\
+  (list_data_length2 [] = 0n) /\
+  (list_data_length2 (d::ds) = list_data_length1 d + list_data_length2 ds)
+End
+
+val _ = not (can (fetch "-") "list_data_length1_ind") orelse
+        failwith "List data length unexpectedly has function-named induction";
+val list_data_length_translation = translate list_data_length_def;
+val _ = null (hyp list_data_length_translation) orelse
+        failwith "List data length translation retained an obligation";
+val _ = aconv (concl (latest_ind ())) (concl (fetch "-" "list_data_length_ind")) orelse
+        failwith "List data length did not use the registered induction";
+
+(* Mutual recursion through options and pairs inside lists, with a definition
+   name that matches no function name. *)
+Datatype:
+  pexp = PLit num | PCon (num option) (pexp list) | PMat pexp ((num # pexp) list)
+End
+
+Definition pexp_measure_def:
+  (pexp_count (PLit n) = n) /\
+  (pexp_count (PCon opt es) = pexp_counts es) /\
+  (pexp_count (PMat e pes) = pexp_count e + pexp_count_pes pes) /\
+  (pexp_counts [] = 0) /\
+  (pexp_counts (e::es) = pexp_count e + pexp_counts es) /\
+  (pexp_count_pes [] = 0) /\
+  (pexp_count_pes ((n,e)::pes) = n + pexp_count e + pexp_count_pes pes)
+End
+
+val _ = not (can (fetch "-") "pexp_count_ind") orelse
+        failwith "Nested count unexpectedly has function-named induction";
+val pexp_translation = translate pexp_measure_def;
+val _ = null (hyp pexp_translation) orelse
+        failwith "Nested count translation retained an obligation";
+val _ = aconv (concl (latest_ind ())) (concl (fetch "-" "pexp_measure_ind")) orelse
+        failwith "Nested count did not use the registered induction";
+
+val _ = translate_tm “λx. pure_seq (n+1:num) x”
   |> concl |> find_term (can (match_term “Let NONE”))
 
 (*
@@ -597,10 +847,10 @@ val res = translate id_to_string_def;
 
 val _ = use_string_type true;
 
-val _ = (hol2deep ``"hi"`` |> concl |> rator |> rand |> astSyntax.is_Lit)
+val _ = (translate_tm ``"hi"`` |> concl |> rator |> rand |> astSyntax.is_Lit)
         orelse failwith "incorrectly translates string literals";
 
-val r = hol2deep ``\c. STRING c ""``;
+val r = translate_tm ``\c. STRING c ""``;
 
 (* more advanced test of HOL_STRING_TYPE *)
 
@@ -641,3 +891,268 @@ val _ = use_sub_check true;
 
 (* no precondition *)
 val res = translate foo_sub_def;
+
+(* constructor names that collide once mangled into ML constructor names must
+   be rejected when the type is registered *)
+
+Datatype:
+  clash_ty = Clash | clash
+End
+
+val _ = let
+  val ok = (register_type “:clash_ty”; false)
+             handle e as HOL_ERR _ =>
+               String.isSubstring "to the same ML constructor name"
+                                  (Feedback.exn_to_string e)
+  in if ok then () else
+       failwith "register_type accepted clashing constructor names" end;
+
+(* strsub_unsafe translates to Strsub_unsafe; plain strsub keeps Strsub *)
+
+Definition char_at_def:
+  char_at s n = strsub s n
+End
+
+Definition char_at_unsafe_def:
+  char_at_unsafe s n = strsub_unsafe s n
+End
+
+val res = translate char_at_def;
+val res = translate char_at_unsafe_def;
+
+val _ = let
+  fun uses op_tm name =
+    can (find_term (aconv op_tm)) (concl (fetch "-" (name ^ "_v_def")))
+  in if uses “Strsub” "char_at" andalso
+        not (uses “Strsub_unsafe” "char_at") andalso
+        uses “Strsub_unsafe” "char_at_unsafe" andalso
+        not (uses “Strsub” "char_at_unsafe")
+     then () else
+       failwith "strsub/strsub_unsafe translated to the wrong primitive" end;
+
+Theorem char_at_unsafe_side_bound[local]:
+  char_at_unsafe_side s n ⇔ n < strlen s
+Proof
+  simp [fetch "-" "char_at_unsafe_side_def"]
+QED
+
+Definition count_char_def:
+  count_char c s i =
+    if i < strlen s then
+      (if strsub_unsafe s i = c then 1 else 0) + count_char c s (i + 1)
+    else 0n
+Termination
+  WF_REL_TAC ‘measure (λ(c,s,i). strlen s - i)’
+End
+
+val res = translate count_char_def;
+
+val _ = not (can (fetch "-") "count_char_side_def") orelse
+        failwith "count_char retained the strsub_unsafe bound as a precondition";
+
+Definition smallnum_div_test_def:
+  smallnum_div_test x y = smallnum_div x y
+End
+
+val _ = translate smallnum_div_test_def;
+
+Definition smallint_div_test_def:
+  smallint_div_test x y = smallint_div x y
+End
+
+val _ = translate smallint_div_test_def;
+
+Definition smallnum_add_vec_test_def:
+  smallnum_add_vec_test x y witness = smallnum_add_vec x y witness
+End
+
+val _ = translate smallnum_add_vec_test_def;
+
+Definition smallint_lt_vec_test_def:
+  smallint_lt_vec_test x y witness = smallint_lt_vec x y witness
+End
+
+val _ = translate smallint_lt_vec_test_def;
+
+val _ = let
+  fun check name primitive arity = let
+    val code = fetch "-" (name ^ "_v_def") |> concl |> rhs
+    val call = find_term (can (match_term “App ^primitive args”)) code
+    val args = call |> rand |> listSyntax.dest_list |> fst
+    in length args = arity orelse
+       failwith (name ^ " translated with the wrong primitive arity") end
+  in
+    check "smallnum_div_test" “UnsafeIndexArith Div” 2;
+    check "smallint_div_test" “UnsafeIndexArith Div” 2;
+    check "smallnum_add_vec_test" “UnsafeIndexArith Add” 3;
+    check "smallint_lt_vec_test" “UnsafeIndexTest (Compare Lt)” 3
+  end;
+
+(* Each example checks the preconditions with and without a vector witness. *)
+local
+  fun check_precondition def expected = let
+    val _ = translate def
+    val name = def |> SPEC_ALL |> concl |> lhs |> strip_comb |> fst
+                   |> dest_const |> fst
+    val (call, condition) = fetch "-" (name ^ "_side_def")
+      |> SPEC_ALL |> concl |> dest_eq
+    val (args, wanted) = strip_abs expected
+    val actual = subst (ListPair.mapEq (fn (x,y) => x |-> y)
+      (snd (strip_comb call), args)) condition
+    fun includes xs ys = List.all (fn x => List.exists (aconv x) ys) xs
+    val actual_parts = boolSyntax.strip_conj actual
+    val wanted_parts = boolSyntax.strip_conj wanted
+    in includes actual_parts wanted_parts andalso
+       includes wanted_parts actual_parts orelse
+       failwith (name ^ " generated an unexpected precondition: " ^
+                 term_to_string actual) end
+in
+
+Definition smallnum_sub_pre_test_def:
+  smallnum_sub_pre_test i j (witness:num vector) =
+    (smallnum_sub i j, smallnum_sub_vec i j witness)
+End
+
+val _ = check_precondition smallnum_sub_pre_test_def
+  “λ(i:num) (j:num) (witness:num vector).
+    index_in_bounds NONE (&i) ∧ index_in_bounds NONE (&j) ∧ j ≤ i ∧
+    index_in_bounds (SOME (256 * length witness)) (&i) ∧
+    index_in_bounds (SOME (256 * length witness)) (&j)”;
+
+Definition smallnum_div_pre_test_def:
+  smallnum_div_pre_test i j (witness:num vector) =
+    (smallnum_div i j, smallnum_div_vec i j witness)
+End
+
+val _ = check_precondition smallnum_div_pre_test_def
+  “λ(i:num) (j:num) (witness:num vector).
+    index_in_bounds NONE (&i) ∧ index_in_bounds NONE (&j) ∧ j ≠ 0 ∧
+    index_in_bounds (SOME (256 * length witness)) (&i) ∧
+    index_in_bounds (SOME (256 * length witness)) (&j)”;
+
+Definition smallnum_mod_pre_test_def:
+  smallnum_mod_pre_test i j (witness:num vector) =
+    (smallnum_mod i j, smallnum_mod_vec i j witness)
+End
+
+val _ = check_precondition smallnum_mod_pre_test_def
+  “λ(i:num) (j:num) (witness:num vector).
+    index_in_bounds NONE (&i) ∧ index_in_bounds NONE (&j) ∧ j ≠ 0 ∧
+    index_in_bounds (SOME (256 * length witness)) (&i) ∧
+    index_in_bounds (SOME (256 * length witness)) (&j)”;
+
+Definition smallint_div_pre_test_def:
+  smallint_div_pre_test i j (witness:num vector) =
+    (smallint_div i j, smallint_div_vec i j witness)
+End
+
+val _ = check_precondition smallint_div_pre_test_def
+  “λ(i:int) (j:int) (witness:num vector).
+    index_in_bounds NONE i ∧ index_in_bounds NONE j ∧
+    index_in_bounds NONE (i / j) ∧ j ≠ 0 ∧
+    index_in_bounds (SOME (256 * length witness)) i ∧
+    index_in_bounds (SOME (256 * length witness)) j ∧
+    index_in_bounds (SOME (256 * length witness)) (i / j)”;
+
+Definition smallint_mod_pre_test_def:
+  smallint_mod_pre_test i j (witness:num vector) =
+    (smallint_mod i j, smallint_mod_vec i j witness)
+End
+
+val _ = check_precondition smallint_mod_pre_test_def
+  “λ(i:int) (j:int) (witness:num vector).
+    index_in_bounds NONE i ∧ index_in_bounds NONE j ∧ j ≠ 0 ∧
+    index_in_bounds (SOME (256 * length witness)) i ∧
+    index_in_bounds (SOME (256 * length witness)) j”;
+
+Definition smallnum_sub_str_pre_test_def:
+  smallnum_sub_str_pre_test i j witness = smallnum_sub_str i j witness
+End
+
+val _ = check_precondition smallnum_sub_str_pre_test_def
+  “λ(i:num) (j:num) (witness:mlstring).
+    index_in_bounds (SOME (32 * strlen witness)) (&i) ∧
+    index_in_bounds (SOME (32 * strlen witness)) (&j) ∧ j ≤ i”;
+
+Definition smallnum_div_str_pre_test_def:
+  smallnum_div_str_pre_test i j witness = smallnum_div_str i j witness
+End
+
+val _ = check_precondition smallnum_div_str_pre_test_def
+  “λ(i:num) (j:num) (witness:mlstring).
+    index_in_bounds (SOME (32 * strlen witness)) (&i) ∧
+    index_in_bounds (SOME (32 * strlen witness)) (&j) ∧ j ≠ 0”;
+
+Definition smallnum_mod_str_pre_test_def:
+  smallnum_mod_str_pre_test i j witness = smallnum_mod_str i j witness
+End
+
+val _ = check_precondition smallnum_mod_str_pre_test_def
+  “λ(i:num) (j:num) (witness:mlstring).
+    index_in_bounds (SOME (32 * strlen witness)) (&i) ∧
+    index_in_bounds (SOME (32 * strlen witness)) (&j) ∧ j ≠ 0”;
+
+Definition smallint_div_str_pre_test_def:
+  smallint_div_str_pre_test i j witness = smallint_div_str i j witness
+End
+
+val _ = check_precondition smallint_div_str_pre_test_def
+  “λ(i:int) (j:int) (witness:mlstring).
+    index_in_bounds (SOME (32 * strlen witness)) i ∧
+    index_in_bounds (SOME (32 * strlen witness)) j ∧
+    index_in_bounds (SOME (32 * strlen witness)) (i / j) ∧ j ≠ 0”;
+
+Definition smallint_mod_str_pre_test_def:
+  smallint_mod_str_pre_test i j witness = smallint_mod_str i j witness
+End
+
+val _ = check_precondition smallint_mod_str_pre_test_def
+  “λ(i:int) (j:int) (witness:mlstring).
+    index_in_bounds (SOME (32 * strlen witness)) i ∧
+    index_in_bounds (SOME (32 * strlen witness)) j ∧ j ≠ 0”;
+
+Definition smallint_lt_str_pre_test_def:
+  smallint_lt_str_pre_test i j witness = smallint_lt_str i j witness
+End
+
+val _ = check_precondition smallint_lt_str_pre_test_def
+  “λ(i:int) (j:int) (witness:mlstring).
+    index_in_bounds (SOME (32 * strlen witness)) i ∧
+    index_in_bounds (SOME (32 * strlen witness)) j”;
+
+val _ = List.app (fn (name, primitive) => let
+  val code = fetch "-" (name ^ "_v_def") |> concl |> rhs
+  val call = find_term (can (match_term “App ^primitive args”)) code
+  val args = call |> rand |> listSyntax.dest_list |> fst
+  in if length args = 3 then () else
+     failwith (name ^ " lost its string witness argument") end)
+  [("smallnum_sub_str_pre_test", “UnsafeIndexArith Sub”),
+   ("smallnum_div_str_pre_test", “UnsafeIndexArith Div”),
+   ("smallnum_mod_str_pre_test", “UnsafeIndexArith ast$Mod”),
+   ("smallint_div_str_pre_test", “UnsafeIndexArith Div”),
+   ("smallint_mod_str_pre_test", “UnsafeIndexArith ast$Mod”),
+   ("smallint_lt_str_pre_test", “UnsafeIndexTest (Compare Lt)”)];
+
+(* if ptr_eq: a pointer-equality fast path. The side condition
+   x = y ⇒ t1 = t2 is discharged automatically when simp can prove it. *)
+Definition ptr_eq_fast_eq_def:
+  ptr_eq_fast_eq (xs:num list) ys = if ptr_eq xs ys then T else xs = ys
+End
+
+val ptr_eq_fast_eq_translation = translate ptr_eq_fast_eq_def;
+val _ = null (hyp ptr_eq_fast_eq_translation) orelse
+        failwith "ptr_eq fast path retained a precondition";
+val _ = can (find_term (can (match_term “App PtrEq args”)))
+          (fetch "-" "ptr_eq_fast_eq_v_def" |> concl |> rhs) orelse
+        failwith "ptr_eq was not translated to PtrEq";
+
+(* when the branches can differ on equal arguments, x = y ⇒ t1 = t2 becomes
+   a precondition (here simplified to x ≠ y) *)
+Definition ptr_eq_pre_test_def:
+  ptr_eq_pre_test (x:num) y = if ptr_eq x y then x else y + 1
+End
+
+val _ = check_precondition ptr_eq_pre_test_def
+  “λ(x:num) (y:num). x ≠ y”;
+
+end;

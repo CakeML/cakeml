@@ -25,7 +25,7 @@ End
 
 Definition vec_lookup_def:
   vec_lookup opt_vec n =
-    if n < length opt_vec then sub opt_vec n else NONE
+    if n < length opt_vec then sub_unsafe opt_vec n else NONE
 End
 
 Theorem prepend_eq[local]:
@@ -77,7 +77,7 @@ QED
 Theorem vec_lookup_num_man_to_vec:
   vec_lookup (spt_to_vec t) n = lookup n t
 Proof
-  fs [spt_to_vec_def,vec_lookup_def,length_def,sub_def]
+  fs [spt_to_vec_def,vec_lookup_def,length_def,sub_unsafe_def]
   \\ ‘SORTED $< (MAP FST ([] ++ toSortedAList t))’ by fs [SORTED_toSortedAList]
   \\ drule to_flat_lemma
   \\ disch_then $ qspec_then ‘0’ mp_tac \\ fs []

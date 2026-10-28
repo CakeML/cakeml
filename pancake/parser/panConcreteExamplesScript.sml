@@ -157,7 +157,7 @@ val ex5 = ‘
     var b = 5;
     b = b + 1;
     if b >= 5 {
-      raise Err 5;
+      throw Err 5;
     }
   }’;
 
@@ -170,7 +170,7 @@ val ex6 = ‘
     {var b = 5;
      b = b + 1;};
      if b >= 5 {
-       raise Err 5;
+       throw Err 5;
      }
   }’;
 
@@ -249,7 +249,29 @@ val ex9 = ‘
    return @top;
  }’;
 
-val treeEx10 = check_success $ parse_pancake ex9;
+val treeEx9 = check_success $ parse_pancake ex9;
+
+(** @top is a separate keyword from @base. *)
+val top_ex = ‘
+ fun testfun() {
+   return @top;
+ }’;
+
+val top_ex_parse = check_success $ parse_pancake top_ex;
+val has_top_addr =
+  assert (can (find_term (same_const “panLang$TopAddr”)) o rhs o concl)
+         top_ex_parse;
+
+(** Shifts *)
+val ex10 = ‘
+ fun testfun() {
+   var a = 1 << 2;
+   a = a >>> 1 + 1;
+   a = a << a #>> 2 >> 3;
+   return 1;
+ }’;
+
+val treeEx10 = check_success $ parse_pancake ex10;
 
 (** Function call syntax. *)
 
@@ -393,6 +415,15 @@ val comment_ex =
  ’
 
 val comment_ex_parse = check_success $ parse_pancake comment_ex
+
+(* a single-line comment may be terminated by the end of the input *)
+val comment_eof_ex =
+ ‘fun main() {
+    return 1;
+  }
+  // a comment with no newline after it’
+
+val comment_eof_ex_parse = check_success $ parse_pancake comment_eof_ex
 
 val error_line_ex1 =
  ‘/* this
@@ -611,3 +642,43 @@ val named_structs =
   ’
 
 val named_structs_parse = check_success $ parse_pancake named_structs;
+
+(* Exception declarations and syntax *)
+val exception_declaration =
+ ‘
+  exception ExampleException : 1;
+
+  fun f() { throw ExampleException 1; }
+
+  fun g() {
+    var 1 x = 0;
+    var 1 y = 0;
+    try
+      y = f()
+    catch ExampleException => x {
+      y = x + 1;
+    }
+    return y;
+  }
+  ’
+
+val exception_declaration_parse = check_success $ parse_pancake exception_declaration;
+
+(* A number directly followed by a letter or an underscore is a lexer
+   error, rather than a number followed by a name *)
+val malformed_number_exs =
+  [‘var 1g = 0;’,
+   ‘fun 1f() { return 0; }’,
+   ‘fun f(1a) { return a; }’,
+   ‘fun f() { var 1x = 0; return x; }’,
+   ‘struct p { 1x }’,
+   ‘fun f() { var y = lds 1x; return y; }’,
+   ‘fun f() { return 0x10; }’,
+   ‘fun f() { return 1_000; }’,
+   ‘fun f() { return -1x; }’]
+
+val malformed_number_parses =
+  map (fn ex =>
+         assert (can (find_term (same_const “LexErrorT”)) o rhs o concl) $
+           lex_pancake ex)
+      malformed_number_exs

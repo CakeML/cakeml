@@ -4,7 +4,7 @@
 *)
 Theory example_copying_gc
 Ancestors
-  copying_gc
+  copying_gc_model
 Libs
   ml_translatorLib
 

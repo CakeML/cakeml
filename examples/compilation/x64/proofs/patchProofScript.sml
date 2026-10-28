@@ -10,28 +10,19 @@ Ancestors
 Libs
   preamble
 
-val patch_io_events_def = new_specification("patch_io_events_def",["patch_io_events"],
-  patch_semantics |> Q.GENL[`cl`,`fs`]
-  |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
-
-val (patch_sem,patch_output) = patch_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
-val (patch_not_fail,patch_sem_sing) = patch_sem
-  |> SRULE [patch_compiled,ml_progTheory.prog_syntax_ok_semantics]
-  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
-
-val compile_correct_applied =
-  MATCH_MP compile_correct (cj 1 patch_compiled)
-  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
-  |> C MATCH_MP patch_not_fail
-  |> C MATCH_MP x64_backend_config_ok
-  |> REWRITE_RULE[patch_sem_sing,AND_IMP_INTRO]
-  |> REWRITE_RULE[Once (GSYM AND_IMP_INTRO)]
-  |> C MATCH_MP (CONJ(UNDISCH x64_machine_config_ok)(UNDISCH x64_init_ok))
-  |> DISCH(#1(dest_imp(concl x64_init_ok)))
-  |> REWRITE_RULE[AND_IMP_INTRO]
+val patch_terminate = UNDISCH_ALL patch_semantics
+  |> HO_MATCH_MP ml_progTheory.sem_satisfies_IMP_Terminate
+  |> SRULE [patch_compiled];
 
 Theorem patch_compiled_thm =
-  CONJ compile_correct_applied patch_output
-  |> DISCH_ALL
+  MATCH_MP compile_correct (cj 1 patch_compiled)
+  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
+  |> C MATCH_MP (cj 1 patch_terminate)
+  |> C MATCH_MP x64_backend_config_ok
+  |> Q.GEN ‘mc’ |> ISPEC (x64_init_ok |> concl |> rand |> rand) |> UNDISCH_ALL
+  |> MATCH_MP (cj 2 patch_terminate)
+  |> REWRITE_RULE [targetPropsTheory.machine_sem_sing] |> DISCH_ALL
+  |> CONJ (UNDISCH is_x64_machine_config_IMP)
+  |> SRULE [SF CONJ_ss] |> CONJUNCT2 |> DISCH_ALL
+  |> REWRITE_RULE [AND_IMP_INTRO, GSYM CONJ_ASSOC]
   |> check_thm
-

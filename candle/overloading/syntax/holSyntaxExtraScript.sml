@@ -11,7 +11,6 @@ Ancestors
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 Overload "is_instance" = ``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``
 
@@ -71,44 +70,26 @@ fun ccontr_equiv(x) =
   let val (a,b) = EQ_IMP_RULE (SPEC_ALL x)
   in GEN_ALL (IMP_ANTISYM_RULE (CONTRAPOS b) (CONTRAPOS a)) end
 
-Theorem type_ind =
-  TypeBase.induction_of``:holSyntax$type``
-  |> Q.SPECL[`P`,`EVERY P`]
-  |> SIMP_RULE std_ss [EVERY_DEF]
-  |> UNDISCH_ALL
-  |> CONJUNCT1
-  |> DISCH_ALL
-  |> Q.GEN`P`
-
-Theorem type1_size_append:
-   ∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2
+Theorem MEM_tyvars_type_size:
+  !ty m. MEM m (tyvars ty) ==> type_size(Tyvar m) <= type_size ty
 Proof
-  Induct >> simp[type_size_def]
-QED
-
-Theorem type1_size_mem:
-  ∀ty tys. MEM ty tys ==> type_size ty < type1_size tys
-Proof
-  CONV_TAC SWAP_FORALL_CONV >> Induct
-  >> simp[type_size_def]
-  >> rw[type_size_def]
-  >- simp[]
-  >> first_x_assum drule
-  >> simp[]
-QED
-
-val [MEM_tyvars_type_size,MEM_tyvars_type1_size] = Q.prove(
-  `(!ty m. MEM m (tyvars ty) ==> type_size(Tyvar m) <= type_size ty) /\
-   (!tyl ty m. MEM m (tyvars ty) /\ MEM ty tyl ==> type_size(Tyvar m) <= type1_size tyl)
-  `,
-  ho_match_mp_tac (type_induction)
-  \\ rw[tyvars_def,type_size_def]
+  ho_match_mp_tac type_induction
+  \\ rw[tyvars_def]
   \\ fs[MEM_FOLDR_LIST_UNION]
-  >- (first_x_assum drule \\ rpt(disch_then drule) \\ simp[])
-  >- (last_x_assum drule \\ simp[])
-  >- (last_x_assum drule \\ simp[]))
-  |> CONJUNCTS
-  |> map2 (curry save_thm) ["MEM_tyvars_type_size","MEM_tyvars_type1_size"]
+  \\ first_x_assum drule_all
+  \\ ‘type_size y < list_size type_size l’ by metis_tac[MEM_list_size_lt]
+  \\ simp[]
+QED
+
+Theorem MEM_tyvars_type1_size:
+  !tyl ty m. MEM m (tyvars ty) /\ MEM ty tyl ==>
+             type_size(Tyvar m) <= list_size type_size tyl
+Proof
+  rw[]
+  \\ drule MEM_tyvars_type_size
+  \\ ‘type_size ty < list_size type_size tyl’ by metis_tac[MEM_list_size_lt]
+  \\ simp[]
+QED
 
 (* type_size but disregarding the lengths of strings *)
 Definition type_size'_def:
@@ -197,7 +178,7 @@ QED
 Theorem TYPE_SUBST_NIL[simp]:
    ∀ty. TYPE_SUBST [] ty = ty
 Proof
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   rw[REV_ASSOCD,MAP_EQ_ID] >>
   fs[EVERY_MEM]
 QED
@@ -254,7 +235,7 @@ Theorem TYPE_SUBST_tyvars:
         REV_ASSOCD (Tyvar x) tyin' (Tyvar x) =
         REV_ASSOCD (Tyvar x) tyin  (Tyvar x)
 Proof
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   simp[tyvars_def] >>
   conj_tac >- metis_tac[] >>
   Induct >> simp[] >>
@@ -481,7 +462,7 @@ QED
 Theorem type_size_TYPE_SUBST:
   !t s. type_size' t <= type_size' (TYPE_SUBST s t)
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> conj_tac
   >- (
     rw[type_size'_def]
@@ -498,8 +479,9 @@ Proof
   >- fs[type_size'_def]
   >> rw[type_size'_def]
   >> fs[]
-  >> rpt(first_x_assum (qspec_then `s` assume_tac))
-  >> rw[ADD_MONO_LESS_EQ]
+  >> `type_size' h <= type_size' (TYPE_SUBST s h)` by fs[]
+  >> qpat_x_assum `!s. type1_size' _ <= _` (qspec_then `s` assume_tac)
+  >> decide_tac
 QED
 
 Theorem type_size_TYPE_SUBST':
@@ -734,7 +716,7 @@ Theorem subtype_tyvars:
   !a ty. MEM a (tyvars ty) = ((Tyvar a) subtype ty)
 Proof
   CONV_TAC SWAP_FORALL_CONV
-  >> ho_match_mp_tac type_ind
+  >> ho_match_mp_tac type_induction
   >> strip_tac
   >- rw[tyvars_def]
   >> rw[MEM_FOLDR_LIST_UNION,EQ_IMP_THM,tyvars_def,EVERY_MEM,ELIM_UNCURRY]
@@ -783,7 +765,7 @@ Theorem subtype1_type_size:
   subtype1 x y ==> type_size x < type_size y
 Proof
   rw[subtype1_cases]
-  >> fs[type_size_def,type1_size_append,MEM_SPLIT]
+  >> fs[list_size_append,MEM_SPLIT]
 QED
 
 Theorem subtype1_type_size':
@@ -846,8 +828,10 @@ Theorem allTypes_subtype:
   !x t. MEM x (allTypes' t) ==> x subtype t
 Proof
   gen_tac
-  >> ho_match_mp_tac allTypes'_defn_ind
+  >> ho_match_mp_tac type_induction
   >> rw[allTypes'_defn,subtype_Tyvar]
+  >> qpat_x_assum `MEM _ (if _ then _ else _)` mp_tac
+  >> rw[]
   >> rw[Once RTC_CASES2,subtype1_cases]
   >> disj2_tac
   >> fs[PULL_EXISTS,MEM_MAP,MEM_FLAT]
@@ -948,7 +932,7 @@ Theorem irreflexive_type_lt[local]:
 Proof
   mp_tac StrongLinearOrder_mlstring_lt >>
   simp[StrongLinearOrder,StrongOrder,irreflexive_def] >>
-  strip_tac >> ho_match_mp_tac type_ind >>
+  strip_tac >> ho_match_mp_tac type_induction >>
   simp[type_lt_thm,LEX_DEF] >>
   Induct >> simp[]
 QED
@@ -958,7 +942,7 @@ Theorem trichotomous_type_lt[local]:
 Proof
   mp_tac StrongLinearOrder_mlstring_lt >>
   simp[StrongLinearOrder,trichotomous] >> strip_tac >>
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   conj_tac >- (
     gen_tac >> Cases >> simp[type_lt_thm] ) >>
   gen_tac >> strip_tac >> gen_tac >> Cases >> simp[type_lt_thm,LEX_DEF_THM] >>
@@ -1125,7 +1109,7 @@ Theorem type_cmp_thm:
     | (_, Tyvar _) => GREATER
     | (Tyapp x1 a1, Tyapp x2 a2) => pair_cmp mlstring$compare (list_cmp type_cmp) (x1,a1) (x2,a2)
 Proof
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   conj_tac >- (
     gen_tac >> Cases >>
     simp[type_cmp_def,TO_of_LinearOrder,type_lt_thm, mlstring_lt_def] >>
@@ -1164,10 +1148,10 @@ Theorem type_cmp_ind:
       ⇒ ∀t1 t2. P t1 t2
 Proof
   gen_tac >> strip_tac >>
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   rpt conj_tac >> TRY (gen_tac >> Cases >> rw[] >> NO_TAC) >>
   rpt gen_tac >> strip_tac >> gen_tac >>
-  ho_match_mp_tac type_ind >> rw[] >>
+  ho_match_mp_tac type_induction >> rw[] >>
   first_x_assum match_mp_tac >> simp[] >>
   fs[EVERY_MEM]
 QED
@@ -1295,7 +1279,7 @@ Proof
   qmatch_assum_abbrev_tac`p` >> fs[] >>
   qhdtm_x_assum`orda`mp_tac >>
   simp[Once orda_def] >>
-  rw[] >- fs[markerTheory.Abbrev_def] >>
+  rw[] >>
   pop_assum mp_tac >>
   BasicProvers.CASE_TAC >>
   BasicProvers.CASE_TAC >>
@@ -1912,7 +1896,7 @@ Theorem VFREE_IN_VSUBST:
 Proof
   Induct >> simp[VFREE_IN_def,VSUBST_def] >- metis_tac[] >>
   map_every qx_gen_tac[`u`,`uty`,`ilist`] >>
-  disch_then(qx_choosel_then[`b`,`bty`]strip_assume_tac) >> simp[] >>
+  disch_then(qx_choosel_then[`x`,`xty`]strip_assume_tac) >> simp[] >>
   BasicProvers.VAR_EQ_TAC >> qmatch_assum_rename_tac`welltyped tm` >>
   qmatch_abbrev_tac`VFREE_IN vu (if p then Abs (Var vx xty) (VSUBST l1 tm) else Abs (Var x xty) (VSUBST l2 tm)) ⇔ q` >>
   qsuff_tac`VFREE_IN vu (Abs (Var (if p then vx else x) xty) (VSUBST (if p then l1 else l2) tm)) ⇔ q` >- metis_tac[] >>
@@ -2146,7 +2130,7 @@ QED
 Theorem tyvars_ALL_DISTINCT[simp]:
   ∀ty. ALL_DISTINCT (tyvars ty)
 Proof
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   rw[tyvars_def] >>
   Induct_on`l` >> simp[] >>
   rw[ALL_DISTINCT_LIST_UNION]
@@ -2162,7 +2146,7 @@ Theorem tyvars_TYPE_SUBST:
   ∀ty tyin. set (tyvars (TYPE_SUBST tyin ty)) =
       { v | ∃x. MEM x (tyvars ty) ∧ MEM v (tyvars (REV_ASSOCD (Tyvar x) tyin (Tyvar x))) }
 Proof
-  ho_match_mp_tac type_ind >> simp[tyvars_def] >>
+  ho_match_mp_tac type_induction >> simp[tyvars_def] >>
   simp[EXTENSION,EVERY_MEM,MEM_FOLDR_LIST_UNION,PULL_EXISTS,MEM_MAP] >> rw[] >>
   metis_tac[]
 QED
@@ -2283,7 +2267,7 @@ Theorem type_ok_type_ext:
   ==> type_ok (tysof ctxt) x \/ ?l. (Tyapp name l) subtype x ∧ LENGTH l = n
 Proof
   ntac 2 gen_tac
-  >> ho_match_mp_tac type_ind
+  >> ho_match_mp_tac type_induction
   >> rw[type_ok_def,FLOOKUP_UPDATE]
   >> fs[] >> FULL_CASE_TAC
   >- (
@@ -2292,14 +2276,17 @@ Proof
     >> qexists_tac `l`
     >> fs[]
   )
-  >> rfs[GSYM EVERY_FILTER]
-  >> dxrule_then (fs o single) (CONJUNCT1 (Ho_Rewrite.REWRITE_RULE[EQ_IMP_THM,IMP_CONJ_THM,FORALL_AND_THM](GSYM FILTER_EQ_ID)))
-  >> fs[EVERY_MEM]
-  >> rw[DISJ_EQ_IMP,Once RTC_CASES2]
-  >> CONV_TAC (RAND_CONV (ONCE_DEPTH_CONV (REWR_CONV subtype1_cases)))
-  >> fs[PULL_EXISTS]
-  >> res_tac
-  >> rpt(goal_assum (first_assum o mp_then Any mp_tac))
+  >> Cases_on `EVERY (λa. type_ok (tysof ctxt) a) l`
+  >- fs[]
+  >> disj2_tac
+  >> fs[EXISTS_MEM, EVERY_MEM]
+  >> rpt (first_x_assum drule)
+  >> rw[]
+  >> qexists_tac `l'`
+  >> simp[]
+  >> irule (cj 2 RTC_RULES_RIGHT1)
+  >> qexists_tac `e`
+  >> simp[subtype1_cases]
 QED
 
 (* term_ok *)
@@ -4145,7 +4132,7 @@ Theorem type_ok_extend:
     type_ok tyenv t ⇒
     type_ok tyenv' t
 Proof
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   rw[type_ok_def,EVERY_MEM] >>
   res_tac >>
   imp_res_tac FLOOKUP_SUBMAP
@@ -4735,16 +4722,10 @@ QED
 Theorem normalise_tyvars_subst_renames[local]:
   !ty subst n n0 chr. renaming subst ==> renaming (SND (normalise_tyvars_subst ty n n0 subst chr))
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> strip_tac
   >- rw[renaming_def,normalise_tyvars_subst_def]
-  >> Induct
-  >- rw[renaming_def,normalise_tyvars_subst_def]
-  >> strip_tac
-  >> fs[EVERY_DEF]
-  >> strip_tac
-  >> first_x_assum drule
-  >> strip_tac
+  >> rpt strip_tac
   >> rw[normalise_tyvars_subst_def]
   >> Q.ISPECL_THEN [`(renaming o SND):num#(type,type)alist->bool`,
     `(λ(n,subst) ty.normalise_tyvars_subst ty n n0 subst chr)`] assume_tac FOLDL_invariant
@@ -4772,7 +4753,7 @@ Theorem normalise_tyvars_subst_ineq:
   !ty n_subst n0 chr. tyvars_constr n0 n_subst
     ==> tyvars_constr n0 (normalise_tyvars_subst ty (FST n_subst) n0 (SND n_subst) chr)
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> strip_tac
   >- (
     strip_tac
@@ -4790,7 +4771,7 @@ Proof
   >> Induct
   >- rw[normalise_tyvars_subst_def,tyvars_constr_def]
   >> strip_tac
-  >> fs[EVERY_DEF]
+  >> fs[DISJ_IMP_THM,FORALL_AND_THM]
   >> strip_tac
   >> first_x_assum drule
   >> rw[normalise_tyvars_subst_def]
@@ -4841,7 +4822,7 @@ Theorem normalise_tyvars_subst_chr[local]:
     n_subst' = normalise_tyvars_subst ty (FST n_subst) n0 (SND n_subst) chr
   in inv n_subst ==> inv n_subst'
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> strip_tac
   >- (
     strip_tac
@@ -4857,7 +4838,7 @@ Proof
   >> Induct
   >- rw[normalise_tyvars_subst_def]
   >> strip_tac
-  >> fs[EVERY_DEF]
+  >> fs[DISJ_IMP_THM,FORALL_AND_THM]
   >> strip_tac
   >> first_x_assum drule
   >> rw[normalise_tyvars_subst_def]
@@ -4885,7 +4866,7 @@ Theorem normalise_tyvars_subst_distinct_fst[local]:
     n_subst' = normalise_tyvars_subst ty (FST n_subst) n0 (SND n_subst) chr
   in inv n_subst ==> inv n_subst'
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> strip_tac
   >- (
     strip_tac
@@ -4911,7 +4892,7 @@ Proof
   >> Induct
   >- rw[normalise_tyvars_subst_def]
   >> strip_tac
-  >> fs[EVERY_DEF]
+  >> fs[DISJ_IMP_THM,FORALL_AND_THM]
   >> strip_tac
   >> first_x_assum drule
   >> rw[normalise_tyvars_subst_def]
@@ -4981,7 +4962,7 @@ QED
 Theorem list_subset_tyvar:
   !ty a. MEM a (tyvars ty) ==> list_subset (tyvars (Tyvar a)) (tyvars ty)
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> rw[list_subset_def,tyvars_def]
 QED
 
@@ -4991,13 +4972,13 @@ Theorem normalise_tyvars_subst_len_inv[local]:
     in inv n_subst
     ==>  inv (normalise_tyvars_subst ty (FST n_subst) n0 (SND n_subst) chr)
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> strip_tac
   >- rw[normalise_tyvars_subst_def,ELIM_UNCURRY]
   >> Induct
   >- rw[normalise_tyvars_subst_def]
   >> strip_tac
-  >> fs[EVERY_DEF]
+  >> fs[DISJ_IMP_THM,FORALL_AND_THM]
   >> strip_tac
   >> first_x_assum drule
   >> rw[normalise_tyvars_subst_def]
@@ -5016,13 +4997,13 @@ Theorem normalise_tyvars_subst_monotone[local]:
   !ty n_subst n0 a chr. MEM a (MAP SND (SND n_subst))
   ==> MEM a (MAP SND (SND (normalise_tyvars_subst ty (FST n_subst) n0 (SND n_subst) chr)))
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> strip_tac
   >- rw[renaming_def,normalise_tyvars_subst_def]
   >> Induct
   >- rw[renaming_def,normalise_tyvars_subst_def]
   >> strip_tac
-  >> fs[EVERY_DEF]
+  >> fs[DISJ_IMP_THM,FORALL_AND_THM]
   >> strip_tac
   >> first_x_assum drule
   >> strip_tac
@@ -5050,7 +5031,7 @@ Theorem normalise_tyvars_subst_domain:
   ==> set (MAP SND (SND (normalise_tyvars_subst ty n n0 subst chr)))
   = set(MAP SND subst ++ MAP Tyvar (tyvars ty))
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> strip_tac
   >- (
     rw[tyvars_def,normalise_tyvars_subst_def]
@@ -5065,7 +5046,7 @@ Proof
   >- rw[tyvars_def,normalise_tyvars_subst_def]
   >> rpt strip_tac
   >> rw[tyvars_def,normalise_tyvars_subst_def]
-  >> fs[tyvars_def,EVERY_LIST_UNION]
+  >> fs[tyvars_def,EVERY_LIST_UNION,DISJ_IMP_THM,FORALL_AND_THM]
   >> fs[EVERY_MEM]
   >> first_x_assum drule
   >> first_x_assum drule
@@ -5270,7 +5251,7 @@ Theorem MEM_tyvars_TYPE_SUBST_simp[local]:
   ==> MEM a (tyvars (TYPE_SUBST subst ty))
 Proof
   CONV_TAC SWAP_FORALL_CONV
-  >> ho_match_mp_tac type_ind
+  >> ho_match_mp_tac type_induction
   >> rpt strip_tac
   >- (
     fs[TYPE_SUBST_def,REV_ASSOCD_def]
@@ -5337,55 +5318,13 @@ Proof
   >> imp_res_tac list_inter_tails
   >> imp_res_tac list_inter_heads
   >> rw[]
-  >- (
-    rw[tyvars_def,MEM_FOLDR_LIST_UNION,MEM_MAP]
-    >> Cases_on `~MEM a (tyvars y)`
-    >> fs[]
-    >> strip_tac
-    >> Cases_on `~MEM a' l`
-    >> fs[]
-    >> assume_tac (Q.ISPECL [`y:type`,`(TYPE_SUBST ((Tyvar m,Tyvar a)::subst) a'):type`] tyvars_diff_types)
-    >> first_x_assum mp_tac
-    >> disch_then match_mp_tac
-    >> qexists_tac `a`
-    >> rw[]
-    >> match_mp_tac MEM_tyvars_TYPE_SUBST
-    >> rw[renaming_def]
-  )
   >> rw[tyvars_def,MEM_FOLDR_LIST_UNION,MEM_MAP]
-  >> Cases_on `~MEM a (tyvars y)`
-  >> fs[]
-  >> strip_tac
-  >> Cases_on `~MEM a' l`
-  >> fs[]
-  >> assume_tac (Q.ISPECL [`y:type`,`(TYPE_SUBST ((Tyvar m,Tyvar n)::subst) a'):type`] tyvars_diff_types)
-  >> first_x_assum mp_tac
-  >> disch_then match_mp_tac
+  >> CCONTR_TAC
+  >> gvs[]
+  >> first_x_assum drule
+  >> simp[]
   >> qexists_tac `a`
-  >> rw[]
-  >> Cases_on `a=n`
-  >- (
-    rveq
-    >> match_mp_tac MEM_tyvars_TYPE_SUBST
-    >> fs[renaming_def]
-  )
-  >> first_x_assum (qspecl_then [`a'`,`a`] assume_tac)
-  >> assume_tac MEM_tyvars_TYPE_SUBST_simp
-  >> first_x_assum (qspecl_then [`subst`,`a'`,`m`,`n`,`a`] assume_tac)
-  >> fs[renaming_def]
-  >> rfs[]
-  >> fs[renaming_def]
-  >> `?l1 l2 b. subst = l1 ++ [Tyvar b,Tyvar a] ++ l2` by (
-    fs[MEM_MAP,MEM_SPLIT] >> rveq >> fs[EVERY_DEF,ELIM_UNCURRY]
-    >> qexists_tac `l1` >> qexists_tac `l2` >> qexists_tac `m`
-    >> Cases_on `y'` >> fs[] >> rw[]
-  )
-  >> rveq
-  >> fs[EVERY_DEF,ELIM_UNCURRY]
-  >> assume_tac (INST_TYPE [alpha |-> ``:type``] list_inter_elem)
-  >> first_x_assum (qspecl_then [`[]`,`Tyvar a`,`MAP FST l1 ⧺ [Tyvar b] ⧺ MAP FST l2`,
-    `Tyvar n::MAP SND l1`,`Tyvar a`,`MAP SND l2`] assume_tac)
-  >> fs[]
+  >> gvs[]
 QED
 
 Theorem TYPE_SUBST_replacing[local]:
@@ -6247,16 +6186,19 @@ Proof
     >> Cases_on `a` >> fs[]
     >> unabbrev_all_tac
     >> imp_res_tac MEM_SPLIT_APPEND_SND_first
-    >> (qspecl_then[`pfx`,`[(q,Tyvar n)]++sfx`,`Tyvar n`] assume_tac) TYPE_SUBST_reduce_list
+    >> rename1 `s = pfx ++ [(q1,Tyvar n)] ++ sfx`
+    >> (qspecl_then[`pfx`,`[(q1,Tyvar n)]++sfx`,`Tyvar n`] assume_tac) TYPE_SUBST_reduce_list
     >> `!ty. ~MEM (ty,Tyvar n) pfx` by (
       qpat_x_assum `~MEM _ (MAP SND pfx)` (assume_tac o PURE_ONCE_REWRITE_RULE[MEM_MAP])
       >> strip_tac >> fs[] >> first_x_assum (qspec_then `(ty',Tyvar n)` mp_tac) >> fs[]
     )
     >> pop_assum (fn x => fs[x,tyvars_def,REV_ASSOCD_def])
     >> rveq
-    >> last_assum (qspec_then `(q,Tyvar n)` assume_tac)
-    >> first_x_assum drule
-    >> fs[tyvars_def]
+    >- (gvs[tyvars_def] >> metis_tac[])
+    >> `?m'. q1 = Tyvar m'`
+         by (qpat_x_assum `!x. _ ==> ?m n. _` (qspec_then `(q1,Tyvar n)` mp_tac) >> simp[])
+    >> gvs[tyvars_def]
+    >> metis_tac[]
   )
   >> (qspecl_then[`MAP f' (FILTER f ts)`,`l1 ++ ts`,`Tyvar x`] assume_tac) TYPE_SUBST_reduce_list
   >> `!ty. ~MEM (ty,Tyvar x) (MAP f' (FILTER f ts))` by (
@@ -6862,7 +6804,7 @@ QED
 Theorem subtype_at_eq:
   !x y. (x = y) = (!p. subtype_at x p = subtype_at y p)
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> rw[EQ_IMP_THM]
   >> first_x_assum (qspec_then `[]` mp_tac)
   >> fs[subtype_at_def]
@@ -6880,7 +6822,7 @@ Proof
   Induct_on `p`
   >> fs[subtype_at_def]
   >> Cases
-  >> ho_match_mp_tac type_ind
+  >> ho_match_mp_tac type_induction
   >> fs[subtype_at_Tyvar]
   >> rw[]
   >> Cases_on `m = q /\ r < LENGTH l`
@@ -6969,7 +6911,7 @@ QED
 Theorem subtype_at_tyvars:
     !x a. (?p. subtype_at x p = SOME (Tyvar a)) = MEM a (tyvars x)
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> rw[subtype_at_def,tyvars_def,MEM_FOLDR_LIST_UNION]
   >- (
     rw[EQ_IMP_THM,subtype_at_def]
@@ -7010,7 +6952,7 @@ Theorem type_size_TYPE_SUBST_LESS:
     /\ TYPE_SUBST s (Tyvar a) = Tyapp m l /\ 0 < LENGTH l
     ==> type_size' t < type_size' (TYPE_SUBST s t)
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> conj_tac
   >- (
     rw[type_size'_def,tyvars_def]
@@ -7084,10 +7026,10 @@ Theorem subtype_at_type_size:
   !ty1 p ty2. subtype_at ty1 p = SOME ty2 ==> type_size ty1 >= type_size ty2
 Proof
   ho_match_mp_tac (fetch "-" "subtype_at_ind")
-  >> fs[subtype_at_def,type_size_def]
+  >> fs[subtype_at_def]
   >> rpt strip_tac >> fs[]
   >> `MEM (EL n aty) aty` by (rw[MEM_EL] >> qexists_tac `n` >> fs[])
-  >> imp_res_tac type1_size_mem
+  >> `type_size (EL n aty) < list_size type_size aty` by metis_tac[MEM_list_size_lt]
   >> fs[]
 QED
 
@@ -7103,10 +7045,10 @@ Proof
   >> `!(f:type option->num) x y. f x <> f y ==> x <> y` by (rw[] >> CCONTR_TAC >> rw[])
   >> pop_assum match_mp_tac
   >> qexists_tac `type_size o THE`
-  >> fs[type_size_def,IS_SOME_EXISTS]
+  >> fs[IS_SOME_EXISTS]
   >> imp_res_tac subtype_at_type_size
   >> `MEM (EL n aty) aty` by (rw[MEM_EL] >> qexists_tac `n` >> fs[])
-  >> imp_res_tac type1_size_mem
+  >> `type_size (EL n aty) < list_size type_size aty` by metis_tac[MEM_list_size_lt]
   >> fs[]
 QED
 
@@ -7140,7 +7082,7 @@ Proof
   )
   >> fs[PULL_EXISTS]
   >> CONV_TAC SWAP_FORALL_CONV
-  >> ho_match_mp_tac type_ind
+  >> ho_match_mp_tac type_induction
   >> rw[]
   >- (
     fs[subtype_subtype_at_Tyvar]
@@ -7275,7 +7217,7 @@ QED
 Theorem is_subtype_leaf_all_types:
   !t. ?p. is_subtype_leaf t p
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> rw[]
   >- (
     qexists_tac `[]`
@@ -7297,7 +7239,7 @@ QED
 Theorem subtype_leaf_above_or_below[local]:
   !x p. ?q r. (p = q ++ r \/ q = p ++ r) ==> is_subtype_leaf x q
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> strip_tac
   >- (
     rw[is_subtype_leaf_Tyvar,NULL_EQ]
@@ -7329,7 +7271,7 @@ Proof
   >- (
     Cases_on `r = 0`
     >- (
-      last_x_assum (qspec_then `t'` assume_tac)
+      first_x_assum (qspecl_then [`h`,`t'`] assume_tac)
       >> fs[]
       >> qexists_tac `(m,0)::q'`
       >> qexists_tac `r'`
@@ -7338,9 +7280,8 @@ Proof
       >> fs[]
     )
     >> first_x_assum (qspecl_then [`EL (PRE r) t`,`t'`] assume_tac)
-    >> fs[MEM_EL,NOT_ZERO_LT_ZERO]
     >> `PRE r < LENGTH t` by fs[]
-    >> qpat_x_assum `_ ==> _` imp_res_tac
+    >> `MEM (EL (PRE r) t) t` by metis_tac[MEM_EL]
     >> fs[]
     >> qexists_tac `(m,r)::q'`
     >> qexists_tac `r'`
@@ -7378,7 +7319,7 @@ Theorem is_subtype_leaf_eq':
   ==> subtype_at x p = subtype_at y p)
 Proof
   fs[EQ_IMP_THM,subtype_at_eq]
-  >> ho_match_mp_tac type_ind
+  >> ho_match_mp_tac type_induction
   >> strip_tac
   >> rw[]
   >- (
@@ -7473,7 +7414,7 @@ QED
 Theorem is_instance_subtype_leaf_imp[local]:
   !t ti. is_instance t ti ==> !p. is_subtype_leaf t p ==> IS_SOME (subtype_at ti p)
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> strip_tac
   >- (
     rpt strip_tac
@@ -8119,15 +8060,15 @@ Proof
   `!ty a. Tyvar a <> ty /\ MEM a (tyvars ty) ==>
    type_size (TYPE_SUBST s (Tyvar a)) < type_size (TYPE_SUBST s ty)
   ` by(rpt(pop_assum kall_tac) >>
-       ho_match_mp_tac type_ind >>
+       ho_match_mp_tac type_induction >>
        rw[tyvars_def] >>
        fs[tyvars_def,MEM_FOLDR_LIST_UNION,EVERY_MEM] >>
        res_tac >>
        Cases_on `Tyvar a = y` >-
          (rveq >> fs[MEM_SPLIT]>>
-          simp[list_size_APPEND]) >>
+          simp[list_size_append]) >>
        res_tac >>
-       fs[MEM_SPLIT,list_size_APPEND]
+       fs[MEM_SPLIT,list_size_append]
        ) >>
   first_x_assum drule_all >>
   `type_size(TYPE_SUBST s (Tyvar a)) = type_size(TYPE_SUBST s ty)`
@@ -8606,7 +8547,7 @@ Theorem subtype_at_TYPE_SUBST_ineq[local]:
   /\ IS_SOME (subtype_at (TYPE_SUBST ((Tyvar a,Tyvar b)::sigma) y) p)
   /\ IS_SOME (subtype_at y p)
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> strip_tac
   >- (
     rpt strip_tac
@@ -9717,7 +9658,7 @@ Theorem TYPE_SUBST_ineq_subtype_at[local]:
   TYPE_SUBST ((b,Tyvar a)::sigma) x <> TYPE_SUBST sigma x
   ==> ?q. subtype_at x q = SOME (Tyvar a)
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> strip_tac
   >- (
     rw[]
@@ -9747,7 +9688,7 @@ Theorem subtype_at_TYPE_SUBST_ineq_subtype_at[local]:
   IS_SOME (subtype_at (TYPE_SUBST ((b,Tyvar a)::sigma) x) p)
   /\ ?q r. (p = q++r \/ q=p++r) /\ subtype_at x q = SOME (Tyvar a)
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> strip_tac
   >- (
     rw[]
@@ -10470,7 +10411,7 @@ QED
 Theorem is_subtype_leaf_TYPE_SUBST_parent[local]:
   !t s p. is_subtype_leaf (TYPE_SUBST s t) p ==> ?q r. p = q ++ r /\ is_subtype_leaf t q
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> rw[]
   >- (
     qexists_tac `[]`
@@ -10680,7 +10621,7 @@ Theorem is_subtype_leaf_TYPE_SUBST:
   !t s p. is_subtype_leaf (TYPE_SUBST s t) p
   ==> ?q r. p = q ++ r /\ is_subtype_leaf t q
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> strip_tac
   >- (
     rpt strip_tac
@@ -10727,7 +10668,7 @@ Theorem is_instance_eq:
     ==> ?l'. subtype_at ti p = SOME (Tyapp m l') /\ LENGTH l' = LENGTH l
   )
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> strip_tac
   (* 2 subgoals *)
   >- (
@@ -10820,7 +10761,7 @@ Proof
     >> Cases_on `h`
     >> Cases_on `m = q /\ r < LENGTH l`
     >> fs[]
-    >> qpat_x_assum `EVERY _ l` ((qspec_then `EL r l` assume_tac) o REWRITE_RULE[EVERY_MEM])
+    >> qpat_x_assum `!t. MEM t l ==> _` (qspec_then `EL r l` assume_tac)
     >> fs[subtype_at_def,EL_MAP,EVERY_MEM]
     >> `MEM (EL r l) l` by (rw[MEM_EL] >> asm_exists_tac >> fs[])
     >> fs[]
@@ -12791,9 +12732,6 @@ QED
 Definition types_of_type_def:
   types_of_type (Tyvar t) = [Tyvar t]
   /\ types_of_type (Tyapp t tys) = Tyapp t tys::FLAT(MAP types_of_type tys)
-Termination
-  wf_rel_tac `measure type_size`
-   >> rw[MEM_SPLIT] >> rw[type1_size_append,type_size_def]
 End
 
 Definition types_of_rel:
@@ -12961,10 +12899,7 @@ Definition tydepth_def:
     1 + MAX_LIST (MAP (tydepth n) tys)
   else MAX_LIST (MAP (tydepth n) tys))
 Termination
-  WF_REL_TAC `measure(type_size o SND)` >>
-  rw[type_size_def] >>
-  fs[MEM_SPLIT] >>
-  fs[type1_size_append,type_size_def]
+  WF_REL_TAC `measure(type_size o SND)`
 End
 
 Definition tydepth'_def:
@@ -13015,7 +12950,7 @@ Theorem type_ok_tydepth:
   tydepth [c] ty = 0
 Proof
   qid_spec_tac `ty` >>
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   rw[tydepth_def,EVERY_MEM,MEM_MAP,type_ok_def,GSYM IMP_DISJ_THM] >>
   rw[] >- metis_tac[ALOOKUP_MEM,FST] >>
   rw[MAX_LIST_eq_0,EVERY_MEM,MEM_MAP] >>
@@ -13049,7 +12984,7 @@ Theorem TYPE_SUBST_instance_tyvars:
   /\ (∀x. MEM x (tyvars t) ⇒ TYPE_SUBST s (Tyvar x) = TYPE_SUBST s' (Tyvar x))
   ⇒ TYPE_SUBST s' t = t'
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   >> conj_tac >- fs[tyvars_def]
   >> rw[tyvars_Tyapp,MEM_FLAT,PULL_EXISTS,EVERY_MEM,MEM_MAP]
   >> match_mp_tac LIST_EQ
@@ -13068,7 +13003,7 @@ Theorem tydepth_TYPE_SUBST:
                      (MAP Tyvar (tyvars ty))))
 Proof
   qid_spec_tac `ty` >>
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   rw[tydepth_def,EVERY_MEM,MEM_MAP,type_ok_def,GSYM IMP_DISJ_THM,tyvars_def]
   >> rw[] >> fs[] >>
   fs[MAX_LIST_eq_0,EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
@@ -13265,7 +13200,7 @@ QED
 Theorem allTypes'_type_ok:
   !t x sig. MEM x (allTypes' t) /\ type_ok sig t ==> type_ok sig x
 Proof
-  ho_match_mp_tac allTypes'_defn_ind >> rpt strip_tac
+  ho_match_mp_tac type_induction >> rpt strip_tac
   >> fs[type_ok_def,allTypes'_defn]
   >> PURE_FULL_CASE_TAC
   >- fs[]
@@ -13281,17 +13216,15 @@ Theorem allTypes'_type_ok2:
   ∀sig t. is_std_sig sig ∧ (!x. MEM x (allTypes' t) ⇒ type_ok (tysof sig) x) ⇒ type_ok (tysof sig) t
 Proof
   strip_tac >>
-  ho_match_mp_tac allTypes'_defn_ind >>
-  reverse (rw[allTypes'_defn])
-  >- fs[is_std_sig_def,type_ok_def] >>
-  rw[type_ok_def]
-  >- fs[is_std_sig_def] >>
+  ho_match_mp_tac type_induction >>
+  rw[type_ok_def] >>
+  qpat_x_assum `!x. MEM x (allTypes' _) ==> _` mp_tac >>
+  rw[allTypes'_defn] >>
+  gvs[is_std_sig_def,type_ok_def] >>
   rw[EVERY_MEM] >>
-  last_x_assum (drule_then match_mp_tac) >>
-  rw[] >>
+  qpat_x_assum `!t. MEM t l ==> _` irule >>
   fs[MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
-  first_x_assum drule_all >>
-  fs[]
+  metis_tac[]
 QED
 
 Theorem allTypes_type_ok:
@@ -13307,8 +13240,13 @@ Theorem MEM_tyvars_allTypes':
     MEM x (tyvars ty) /\ MEM ty (allTypes' ty0) ==>
     MEM x (tyvars ty0)
 Proof
-  ho_match_mp_tac allTypes'_defn_ind >>
+  ho_match_mp_tac type_induction >>
+  conj_tac >- (
+    rw[tyvars_def,allTypes'_defn] >>
+    fs[tyvars_def]) >>
   rw[tyvars_def,allTypes'_defn] >>
+  qpat_x_assum `MEM _ (if _ then _ else _)` mp_tac >>
+  rw[] >>
   fs[tyvars_def] >>
   fs[MEM_FLAT,MEM_MAP,LENGTH_EQ_NUM_compute] >> rveq >> fs[DISJ_IMP_THM,FORALL_AND_THM] >>
   rveq >> res_tac >> simp[]
@@ -13570,8 +13508,8 @@ QED
 Theorem tydepth_nil[simp]:
   !ty. tydepth [] ty = 0
 Proof
-  ho_match_mp_tac type_ind >>
-  rw[tydepth_def,MAX_LIST_eq_0,C_DEF,EVERY_MAP]
+  ho_match_mp_tac type_induction >>
+  rw[tydepth_def,MAX_LIST_eq_0,C_DEF,EVERY_MAP,EVERY_MEM]
 QED
 
 Theorem terminating_updates_NewConst[local]:
@@ -14575,7 +14513,7 @@ Theorem type_ok_arities_match:
    ∀tys ty1 ty2.
     type_ok tys ty1 ∧ type_ok tys ty2 ⇒ arities_match [ty1] [ty2]
 Proof
-  gen_tac >> ho_match_mp_tac type_ind >> simp[] >>
+  gen_tac >> ho_match_mp_tac type_induction >> simp[] >>
   gen_tac >> strip_tac >>
   gen_tac >> Cases >> simp[arities_match_def] >>
   rw[type_ok_def] >> fs[] >>
@@ -14627,7 +14565,7 @@ Theorem type_ok_TYPE_SUBST_alt:
    ⇒
   type_ok s (TYPE_SUBST tyin ty)
 Proof
-  ho_match_mp_tac type_ind >> rw[tyvars_def,type_ok_def,MEM_FOLDR_LIST_UNION,PULL_EXISTS,EVERY_MEM,MEM_MAP] >>
+  ho_match_mp_tac type_induction >> rw[tyvars_def,type_ok_def,MEM_FOLDR_LIST_UNION,PULL_EXISTS,EVERY_MEM,MEM_MAP] >>
   res_tac
 QED
 
@@ -14745,7 +14683,10 @@ Theorem allTypes'_dependency:
 Proof
   Ho_Rewrite.PURE_REWRITE_TAC[GSYM AND_IMP_INTRO,GSYM PULL_FORALL] >>
   strip_tac >>
-  ho_match_mp_tac allTypes'_defn_ind >> rw[allTypes'_defn] >>
+  ho_match_mp_tac type_induction >> rw[allTypes'_defn] >>
+  qpat_x_assum `MEM _ (if _ then _ else _)` mp_tac >>
+  rw[] >>
+  rename1 `Tyapp _ tys` >>
   fs[MEM_FLAT,MEM_MAP] >>
   rveq >>
   first_x_assum drule >>
@@ -14810,7 +14751,7 @@ Theorem tyvars_in_allTypes'_lemma:
         MEM ty (tyvars ty')
 Proof
   CONV_TAC(SWAP_FORALL_CONV) >>
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   rw[tyvars_def,allTypes'_defn] >> rw[] >>
   fs[MEM_FOLDR_LIST_UNION,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
   fs[EVERY_MEM,tyvars_def,MEM_FOLDR_LIST_UNION] >> res_tac >>
@@ -14990,7 +14931,7 @@ Proof
            qid_spec_tac `ty'` >>
            Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
            rpt(disch_then strip_assume_tac) >>
-           ho_match_mp_tac type_ind >>
+           ho_match_mp_tac type_induction >>
            rw[tyvars_def] >>
            fs[MEM_FOLDR_LIST_UNION,EVERY_MEM] >>
            rename1 `Tyapp m args` >>

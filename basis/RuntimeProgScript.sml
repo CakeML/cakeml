@@ -34,7 +34,7 @@ val () = next_ml_names := ["debugMsg"];
 val result = translate debugMsg_def;
 
 val exit =
- ``[Dletrec (unknown_loc)
+ ``[Dletrec (NoLocs)
      [«exit»,«i»,
       Let (SOME «y») (App (FromTo IntT (WordT W8)) [Var (Short «i»)])
         (Let (SOME «x») (App Aw8alloc [Lit(IntLit 1);
@@ -58,5 +58,15 @@ End
 Quote add_cakeml:
   fun customFFI str_arg arr_arg = #(custom) str_arg arr_arg;
 End
+
+(* pointer equality: if it returns true then the arguments are equal, but it
+   may return false for equal values. There is no concrete syntax for PtrEq,
+   so the declaration is given as AST. *)
+val ptrEq =
+ ``[Dletrec (NoLocs)
+     [«ptrEq»,«x»,
+      Fun «y» (App PtrEq [Var (Short «x»); Var (Short «y»)])]]``
+
+val _ = append_prog ptrEq
 
 val _ = ml_prog_update (close_module NONE);

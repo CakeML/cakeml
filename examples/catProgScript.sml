@@ -95,7 +95,7 @@ Proof
        [‘INSTREAM_STR fd is rest (forwardFD fs fd k)’,
         ‘forwardFD fs fd k’, ‘c’]
     \\ simp [] \\ xsimpl)
-  \\ once_rewrite_tac [INSTREAM_STR_get_file_content] \\ xpull
+  \\ once_rewrite_tac [INSTREAM_STR_get_fd_content] \\ xpull
   \\ xapp
   \\ qexistsl [‘emp’, ‘add_stdout (forwardFD fs fd k) (toString c)’, ‘fd’]
   \\ xsimpl
@@ -313,12 +313,5 @@ Proof
   \\ xsimpl
 QED
 
-val name = "cat_main"
-val (semantics_thm,prog_tm) = whole_prog_thm st name (UNDISCH cat_whole_prog_spec)
-Definition cat_prog_def:
-  cat_prog = ^prog_tm
-End
-
 Theorem cat_semantics_thm =
-  semantics_thm |> ONCE_REWRITE_RULE[GSYM cat_prog_def]
-  |> DISCH_ALL |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  prove_sem_thm "cat_main" "cat_prog" cat_whole_prog_spec;

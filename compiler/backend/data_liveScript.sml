@@ -22,6 +22,7 @@ Definition is_pure_def:
   (is_pure (IntOp LessEq) = F) /\
   (is_pure (WordOp (WordOpw W64 _)) = F) /\
   (is_pure (WordOp (WordShift W64 _ _)) = F) /\
+  (is_pure (WordOp (WordShiftVar W64 _)) = F) /\
   (is_pure (WordOp WordFromInt) = F) /\
   (is_pure (WordOp WordToInt) = F) /\
   (is_pure (WordOp (WordFromWord b)) = F) /\
@@ -34,13 +35,18 @@ Definition is_pure_def:
   (is_pure (BlockOp (FromList _)) = F) /\
   (is_pure (BlockOp ListAppend) = F) /\
   (is_pure (BlockOp Equal) = F) /\
+  (is_pure (BlockOp PtrEqual) = F) /\
   (is_pure (GlobOp (SetGlobal _)) = F) /\
   (is_pure (GlobOp SetGlobalsPtr) = F) /\
   (is_pure (MemOp Ref) = F) /\
   (is_pure (MemOp (RefByte _)) = F) /\
   (is_pure (MemOp RefArray) = F) /\
   (is_pure (MemOp Update) = F) /\
+  (is_pure (MemOp (MutCons _ _)) = F) /\
+  (is_pure (MemOp UpdateCons) = F) /\
+  (is_pure (MemOp FinaliseCons) = F) /\
   (is_pure (MemOp UpdateByte) = F) /\
+  (is_pure (MemOp UpdateBit) = F) /\
   (is_pure (MemOp FromListByte) = F) /\
   (is_pure (MemOp (CopyByte _)) = F) /\
   (is_pure (MemOp XorByte) = F) /\
@@ -59,6 +65,7 @@ Theorem is_pure_pmatch:
     | GlobOp SetGlobalsPtr => F
     | WordOp (WordOpw W64 _) => F
     | WordOp (WordShift W64 _ _) => F
+    | WordOp (WordShiftVar W64 _) => F
     | WordOp WordFromInt => F
     | WordOp WordToInt => F
     | WordOp (WordFromWord b) => F
@@ -71,11 +78,16 @@ Theorem is_pure_pmatch:
     | BlockOp (FromList _) => F
     | BlockOp ListAppend => F
     | BlockOp Equal => F
+    | BlockOp PtrEqual => F
     | MemOp Ref => F
     | MemOp (RefByte _) => F
     | MemOp RefArray => F
     | MemOp Update => F
+    | MemOp (MutCons _ _) => F
+    | MemOp UpdateCons => F
+    | MemOp FinaliseCons => F
     | MemOp UpdateByte => F
+    | MemOp UpdateBit => F
     | MemOp FromListByte => F
     | MemOp (CopyByte _) => F
     | MemOp XorByte => F
@@ -98,7 +110,7 @@ QED
 
 Definition compile_def:
   (compile Skip live = (Skip,live)) /\
-  (compile (Return n) live = (Return n, insert n () LN)) /\
+  (compile (Return ns) live = (Return ns, list_insert ns LN)) /\
   (compile (Raise n) live = (Raise n, insert n () LN)) /\
   (compile (Move n1 n2) live =
     (Move n1 n2, insert n2 () (delete n1 live))) /\
@@ -128,15 +140,14 @@ Definition compile_def:
        (Force (SOME (n,l1)) loc src,l2)) /\
   (compile (Call NONE dest vs handler) live =
      (Call NONE dest vs handler,list_to_num_set vs)) /\
-  (compile (Call (SOME (n,names)) dest vs NONE) live =
-     let l1 = inter names (delete n live) in
+  (compile (Call (SOME (ns,names)) dest vs NONE) live =
+     let l1 = inter names (list_delete ns live) in
      let l2 = list_insert vs l1 in
-       (Call (SOME (n,l1)) dest vs NONE,l2)) /\
-  (compile (Call (SOME (n,names)) dest vs (SOME (v,c))) live =
+       (Call (SOME (ns,l1)) dest vs NONE,l2)) /\
+  (compile (Call (SOME (ns,names)) dest vs (SOME (v,c))) live =
      let (d,l3) = compile c live in
-     let l0 = union (delete n live) (delete v l3) in
+     let l0 = union (list_delete ns live) (delete v l3) in
      let l1 = inter names l0 in
      let l2 = list_insert vs l1 in
-       (Call (SOME (n,l1)) dest vs (SOME (v,d)),l2))
+       (Call (SOME (ns,l1)) dest vs (SOME (v,d)),l2))
 End
-

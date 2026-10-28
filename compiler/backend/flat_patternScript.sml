@@ -8,7 +8,7 @@
 *)
 Theory flat_pattern
 Ancestors
-  misc flatLang sptree pattern_semantics pattern_comp
+  flatLang pattern_comp
 Libs
   preamble
 
@@ -44,12 +44,6 @@ End
 Definition enc_num_to_name_def:
   enc_num_to_name i = mlstring$implode (enc_num_to_name_aux i [])
 End
-
-Theorem pat1_size:
-  flatLang$pat1_size xs = LENGTH xs + SUM (MAP pat_size xs)
-Proof
-  Induct_on `xs` \\ simp [flatLangTheory.pat_size_def]
-QED
 
 Theorem MAPi_eq_MAP:
   MAPi (\n x. f x) xs = MAP f xs
@@ -90,8 +84,7 @@ Definition compile_pat_bindings_def:
     (insert k () spt, Let t (SOME nm) (App t (El 0) [x]) exp2))
 Termination
   WF_REL_TAC `measure (\(t, i, m, exp). SUM (MAP (pat_size o FST) m) + LENGTH m)`
-  \\ simp [flatLangTheory.pat_size_def]
-  \\ rw [MAP_MAP_o, o_DEF, UNCURRY, SUM_APPEND, pat1_size]
+  \\ rw [MAP_MAP_o, o_DEF, UNCURRY, SUM_APPEND, list_size_SUM_MAP]
   \\ simp [LENGTH_enumerate, MAP_enumerate_MAPi, MAPi_eq_MAP]
 End
 
@@ -170,10 +163,6 @@ Definition encode_pat_def:
     (MAP encode_pat ps) /\
   encode_pat (Pas p v) = encode_pat p /\
   encode_pat (Pref p) = Ref (encode_pat p)
-Termination
-  WF_REL_TAC `measure pat_size`
-  \\ rw [pat1_size]
-  \\ fs [MEM_SPLIT, SUM_APPEND]
 End
 
 Definition naive_pattern_match_def:
@@ -196,9 +185,8 @@ Definition naive_pattern_match_def:
     naive_pattern_match t ((p, App t (El 0) [v]) :: mats)
 Termination
   WF_REL_TAC `measure (\x. SUM (MAP (pat_size o FST) (SND x)) + LENGTH (SND x))`
-  \\ simp [flatLangTheory.pat_size_def]
   \\ rw []
-  \\ simp [o_DEF, MAPi_eq_MAP, SUM_APPEND, pat1_size]
+  \\ simp [o_DEF, MAPi_eq_MAP, SUM_APPEND, list_size_SUM_MAP]
 End
 
 Definition naive_pattern_matches_def:
@@ -283,6 +271,9 @@ Definition compile_exp_def:
     let (j, sg2, y2) = compile_exp cfg x2 in
     let (k, sg3, y3) = compile_exp cfg x3 in
     (MAX i (MAX j k), sg1 \/ sg2 \/ sg3, SmartIf t y1 y2 y3)) /\
+  (compile_exp cfg (flatLang$Tick t x) =
+    let (i, sg, y) = compile_exp cfg x in
+    (i, sg, flatLang$Tick t y)) /\
   (compile_exp cfg exp = (0, F, exp)) /\
   (compile_exps cfg [] = (0, F, [])) /\
   (compile_exps cfg (x::xs) =

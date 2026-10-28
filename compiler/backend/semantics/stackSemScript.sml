@@ -3,6 +3,7 @@
 *)
 Theory stackSem
 Ancestors
+  wordSem
   stackLang
   wordSem[qualified] (* for word_loc and word_cmp *)
 Libs
@@ -92,8 +93,8 @@ Datatype:
      ; mdomain : ('a word) set
      ; sh_mdomain : ('a word) set
      ; bitmaps : 'a word list
-     ; compile : 'c -> (num # 'a stackLang$prog) list -> (word8 list # 'c) option
-     ; compile_oracle : num -> 'c # (num # 'a stackLang$prog) list # 'a word list
+     ; compile : 'c -> (num # stackLang$prog # metadata) list -> (word8 list # 'c) option
+     ; compile_oracle : num -> 'c # (num # stackLang$prog # metadata) list # 'a word list
      ; code_buffer : ('a,8) buffer
      ; data_buffer : ('a,'a) buffer
      ; gc_fun  : 'a gc_fun_type
@@ -101,7 +102,7 @@ Datatype:
      ; use_store : bool
      ; use_alloc : bool
      ; clock   : num
-     ; code    : ('a stackLang$prog) num_map
+     ; code    : (stackLang$prog # metadata) num_map
      ; ffi     : 'ffi ffi_state
      ; ffi_save_regs : num set
      ; be      : bool (* is big-endian *) |>
@@ -126,7 +127,7 @@ Definition dec_clock_def:
 End
 
 Definition word_exp_def:
-  (word_exp s (Const w) = SOME w) /\
+  (word_exp s (Const i) = SOME (i2w i)) /\
   (word_exp s (Var v) =
      case FLOOKUP s.regs v of
      | SOME (Word w) => SOME w
@@ -149,10 +150,7 @@ Definition word_exp_def:
      | (SOME w, SOME w1) => word_sh sh w (w2n w1)
      | _ => NONE)
 Termination
-  WF_REL_TAC `measure (exp_size ARB o SND)`
-   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC wordLangTheory.MEM_IMP_exp_size
-   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-   \\ DECIDE_TAC
+  WF_REL_TAC `measure (exp_size o SND)`
 End
 
 Definition get_var_def:
@@ -472,6 +470,25 @@ Definition inst_def:
            SOME (set_var r1 (Word (n2w q)) (set_var r2 (Word (n2w (n MOD d))) s))
          else NONE
       | _ => NONE)
+    | Arith (IMul rd ra rb ro) =>
+       (case get_vars [ra;rb] s of
+       | SOME [Word a;Word b] =>
+           SOME (set_var ro
+             (Word (if w2i (a * b) ≠ w2i a * w2i b then 1w else 0w))
+             (set_var rd (Word (a * b)) s))
+       | _ => NONE)
+    | Arith (IDiv rq rr ra rb) =>
+       (case get_vars [ra;rb] s of
+       | SOME [Word wa;Word wb] =>
+           let a = w2i wa in
+           let b = w2i wb in
+           let q = a quot b in
+           let wq = i2w q : 'a word in
+             if b ≠ 0 ∧ w2i wq = q then
+               SOME (set_var rq (Word wq)
+                 (set_var rr (Word (i2w (a rem b))) s))
+             else NONE
+       | _ => NONE)
     | Mem Load r (Addr a w) =>
        (case word_exp s (Op Add [Var a; Const w]) of
         | NONE => NONE
@@ -638,15 +655,15 @@ Definition inst_def:
 End
 
 Definition get_var_imm_def:
-  (get_var_imm ((Reg n):'a reg_imm) s = get_var n s) /\
-  (get_var_imm (Imm w) s = SOME(Word w))
+  (get_var_imm ((Reg n):reg_imm) s = get_var n s) /\
+  (get_var_imm (Imm w) s = SOME(Word (i2w w)))
 End
 
 Definition find_code_def:
-  (find_code (INL p) regs code = sptree$lookup p code) /\
+  (find_code (INL p) regs code = OPTION_MAP FST (sptree$lookup p code)) /\
   (find_code (INR r) regs code =
      case FLOOKUP regs r of
-       SOME (Loc loc 0) => lookup loc code
+       SOME (Loc loc 0) => OPTION_MAP FST (lookup loc code)
      | other => NONE)
 End
 
@@ -682,7 +699,7 @@ End
 Definition loc_check_def:
   loc_check code (l1,l2) <=>
     (l2 = 0 /\ l1 ∈ domain code) \/
-    ?n e. lookup n code = SOME e /\ (l1,l2) IN get_labels e
+    ?n e. OPTION_MAP FST (lookup n code) = SOME e /\ (l1,l2) IN get_labels e
 End
 
 Definition copy_words_for_pattern_def:
@@ -743,11 +760,11 @@ End
 Definition check_store_consts_opt_def:
   check_store_consts_opt t1 t2 NONE _ = T ∧
   check_store_consts_opt t1 t2 (SOME n) c =
-    (lookup n c = SOME (Seq (StoreConsts t1 t2 NONE) (Return 0)))
+    (OPTION_MAP FST (lookup n c) = SOME (Seq (StoreConsts t1 t2 NONE) (Return 0)))
 End
 
 Definition dest_Seq_def:
-  dest_Seq (Seq p1 p2) = SOME (p1,p2:'a stackLang$prog) /\
+  dest_Seq (Seq p1 p2) = SOME (p1,p2:stackLang$prog) /\
   dest_Seq _ = NONE
 End
 
@@ -771,7 +788,7 @@ Definition exit_loop_def[simp]:
 End
 
 Definition evaluate_def:
-  (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:('a,'c,'ffi) stackSem$state)) /\
+  (evaluate (Skip:stackLang$prog,s) = (NONE,s:('a,'c,'ffi) stackSem$state)) /\
   (evaluate (Halt v,s) =
      case get_var v s of
      | SOME w => (SOME (Halt w), empty_env s)
@@ -850,7 +867,7 @@ Definition evaluate_def:
   (evaluate (RawCall dest,s) =
     case sptree$lookup dest s.code of
     | NONE => (SOME Error,s)
-    | SOME prog =>
+    | SOME (prog,md) =>
        (case dest_Seq prog of
         | SOME (_,body) =>
            if s.clock = 0 then (SOME TimeOut,empty_env s) else
@@ -890,17 +907,22 @@ Definition evaluate_def:
               | (SOME (Break _),s) => (SOME Error,s)
               | (SOME (Continue _),s) => (SOME Error,s)
               | (res,s) => (res,s)))) /\
-  (evaluate (Install ptr len dptr dlen ret,s) =
-    case (get_var ptr s, get_var len s, get_var dptr s, get_var dlen s) of
-    | SOME (Word w1), SOME (Word w2), SOME (Word w3), SOME (Word w4) =>
-        let (cfg,progs,bm) = s.compile_oracle 0 in
-       (case (buffer_flush s.code_buffer w1 w2,
-              if s.use_stack then buffer_flush s.data_buffer w3 w4
+  (evaluate (Install ptr len cptr dptr dptr_end ret,s) =
+   (case code_buffer_install (get_var ptr s)
+                             (get_var len s)
+                             (get_var cptr s)
+                             (mem_load_byte_aux s.memory s.mdomain s.be)
+                             s.code_buffer of
+    | SOME (bytes,cb) =>
+   (case (get_var dptr s, get_var dptr_end s) of
+    | SOME (Word dptrw), SOME (Word dptr_endw) =>
+       let (cfg,progs,bm) = s.compile_oracle 0 in
+       (case (if s.use_stack then buffer_flush s.data_buffer dptrw dptr_endw
               else SOME (bm, s.data_buffer)) of
-         SOME (bytes, cb), SOME (data, db) =>
+         SOME (data, db) =>
         let new_oracle = shift_seq 1 s.compile_oracle in
         (case s.compile cfg progs, progs of
-          | SOME (bytes',cfg'), (k,prog)::_ =>
+          | SOME (bytes',cfg'), (k,_)::_ =>
             if bytes = bytes' ∧ data = bm ∧ FST(new_oracle 0) = cfg' then
             let s' =
                 s with <|
@@ -911,27 +933,21 @@ Definition evaluate_def:
                 (* This order is convenient because it means all of s.code's entries are preserved *)
                 (* TODO: this might need to be a new field, cc_save_regs *)
                 ; regs := (DRESTRICT s.regs s.ffi_save_regs) |+ (ptr,Loc k 0)
+                ; fp_regs := FEMPTY
                 ; compile_oracle := new_oracle
                 |> in
               (NONE,s')
             else (SOME Error,s)
           | _ => (SOME Error,s))
         | _ => (SOME Error,s))
-      | _ => (SOME Error,s)) /\
+      | _ => (SOME Error,s))
+      | _ => (SOME Error,s))) /\
   (evaluate (ShMemOp op r (Addr a w),s) =
     (case word_exp s (Op Add [Var a; Const w]) of
      | SOME a =>
          if s.clock = 0 then (SOME TimeOut,empty_env s) else
            sh_mem_op op r a (dec_clock s)
      | _ => (SOME Error,s))) /\
-  (evaluate (CodeBufferWrite r1 r2,s) =
-    (case (get_var r1 s,get_var r2 s) of
-        | (SOME (Word w1), SOME (Word w2)) =>
-          (case buffer_write s.code_buffer w1 (w2w w2) of
-          | SOME new_cb =>
-            (NONE,s with code_buffer:=new_cb)
-          | _ => (SOME Error,s))
-        | _ => (SOME Error,s))) /\
   (evaluate (DataBufferWrite r1 r2,s) =
     if ~s.use_stack then (SOME Error,s) else
     (case (get_var r1 s,get_var r2 s) of
@@ -953,6 +969,7 @@ Definition evaluate_def:
                   let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
                     (NONE, s with <| memory := new_m ;
                                      regs := DRESTRICT s.regs s.ffi_save_regs;
+                                     fp_regs := FEMPTY;
                                      ffi := new_ffi |>))
           | _ => (SOME Error,s))
      | res => (SOME Error,s))) /\
@@ -977,9 +994,9 @@ Definition evaluate_def:
      if ~s.use_stack then (SOME Error,s) else
        case get_var rn s of
        | SOME (Word (w:'a word)) =>
-         let i = s.stack_space + w2n (w >>> word_shift (:'a)) in
+         let i = s.stack_space + w2n (w >>> word_shift (dimindex (:'a))) in
            if i < LENGTH s.stack /\
-              ((w >>> word_shift (:'a)) << word_shift (:'a) = w)
+              ((w >>> word_shift (dimindex (:'a))) << word_shift (dimindex (:'a)) = w)
            then (NONE, set_var r (EL i s.stack) s)
            else (SOME Error,empty_env s)
        | _ => (SOME Error,empty_env s)) /\
@@ -993,9 +1010,9 @@ Definition evaluate_def:
      if ~s.use_stack then (SOME Error,s) else
        case (get_var r s, get_var rn s) of
        | (SOME v, SOME (Word (w:'a word))) =>
-         let i = s.stack_space + w2n (w >>> word_shift (:'a)) in
+         let i = s.stack_space + w2n (w >>> word_shift (dimindex (:'a))) in
            if i < LENGTH s.stack /\
-              ((w >>> word_shift (:'a)) << word_shift (:'a) = w)
+              ((w >>> word_shift (dimindex (:'a))) << word_shift (dimindex (:'a)) = w)
            then (NONE, s with stack := LUPDATE v i s.stack)
            else (SOME Error,empty_env s)
        | _ => (SOME Error,empty_env s)) /\
@@ -1007,7 +1024,7 @@ Definition evaluate_def:
      case get_var r s of
      | SOME (Word (w:'a word)) =>
          if LENGTH s.stack ≤ w2n w then (SOME Error,empty_env s)
-         else (NONE, set_var r (Word (w << word_shift (:'a)))
+         else (NONE, set_var r (Word (w << word_shift (dimindex (:'a))))
                        (s with stack_space := w2n w))
      | _ => (SOME Error,s)) /\
   (evaluate (BitmapLoad r v,s) =
@@ -1018,7 +1035,7 @@ Definition evaluate_def:
          else (NONE, set_var r (Word (EL (w2n w) s.bitmaps)) s)
      | _ => (SOME Error,s))
 Termination
-  WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
+  WF_REL_TAC `(inv_image (measure I LEX measure prog_size)
                              (\(xs,(s:('a,'c,'ffi) stackSem$state)). (s.clock,xs)))`
    \\ rpt strip_tac
    \\ fs[empty_env_def,dec_clock_def,set_var_def,STOP_def]
@@ -1146,7 +1163,3 @@ End
 Definition read_stack_space_def:
   read_stack_space s = (s:('a,'b,'c) stackSem$state).stack_space
 End
-
-(* clean up *)
-
-val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];

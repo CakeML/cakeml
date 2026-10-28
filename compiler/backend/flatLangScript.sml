@@ -81,72 +81,9 @@ Datatype:
   | Mat tra exp ((pat # exp) list)
   | Let tra (varN option) exp exp
   | Letrec varN ((varN # varN # exp) list) exp
+  (* evaluate the body, then consume one clock tick *)
+  | Tick tra exp
 End
-
-val exp_size_def = definition"exp_size_def";
-
-Theorem exp6_size_APPEND[simp]:
-   flatLang$exp6_size (e ++ e2) = exp6_size e + exp6_size e2
-Proof
-  Induct_on`e`>>simp[exp_size_def]
-QED
-
-Theorem exp6_size_REVERSE[simp]:
-   flatLang$exp6_size (REVERSE es) = exp6_size es
-Proof
-  Induct_on`es`>>simp[exp_size_def]
-QED
-
-Theorem exp6_size:
-  exp6_size xs = LENGTH xs + SUM (MAP exp_size xs)
-Proof
-  Induct_on `xs` \\ simp [exp_size_def]
-QED
-
-Theorem exp1_size:
-  exp1_size xs = LENGTH xs + SUM (MAP exp2_size xs)
-Proof
-  Induct_on `xs` \\ simp [exp_size_def]
-QED
-
-Theorem exp3_size:
-  exp3_size xs = LENGTH xs + SUM (MAP exp5_size xs)
-Proof
-  Induct_on `xs` \\ simp [exp_size_def]
-QED
-
-Theorem exp_size_MAP:
-   (!xs. exp6_size (MAP SND xs) < exp3_size xs + 1) /\
-   (!xs. exp6_size (MAP (SND o SND) xs) < exp1_size xs + 1)
-Proof
-  conj_tac
-  >-
-   (Induct
-    \\ rw [exp_size_def]
-    \\ PairCases_on `h` \\ fs [exp_size_def])
-  \\ Induct
-  \\ rw [exp_size_def]
-  \\ PairCases_on `h` \\ fs [exp_size_def]
-QED
-
-Theorem exp_size_MEM:
-   (!xs x. MEM x xs ==> exp_size x < exp6_size xs) /\
-   (!xs x. MEM x xs ==> exp_size (SND (SND x)) < exp1_size xs) /\
-   (!xs x. MEM x xs ==> exp_size (SND x) < exp3_size xs)
-Proof
-  conj_tac
-  >-
-   (Induct
-    \\ rw [exp_size_def]
-    \\ res_tac
-    \\ decide_tac)
-  \\ conj_tac
-  \\ Induct
-  \\ rw [exp_size_def]
-  \\ PairCases_on `h` \\ fs [exp_size_def]
-  \\ res_tac
-  \\ decide_tac
-QED
 
 Definition bool_id_def:
   bool_id = 0n

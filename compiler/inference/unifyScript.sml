@@ -49,7 +49,7 @@ Theorem encode_infer_t_11[simp]:
   (∀it1 it2. encode_infer_t it1 = encode_infer_t it2 ⇔ it1 = it2) ∧
   (∀its1 its2. encode_infer_ts its1 = encode_infer_ts its2 ⇔ its1 = its2)
 Proof
-  ho_match_mp_tac (TypeBase.induction_of “:infer_t”) >>
+  ho_match_mp_tac encode_infer_t_ind >>
   rw[encode_infer_t_def]
   >- (Cases_on ‘it2’ >> simp[encode_infer_t_def])
   >- (Cases_on ‘it2’ >> simp[encode_infer_t_def] >> metis_tac[])
@@ -76,8 +76,8 @@ Theorem decode_left_inverse[simp]:
   (!t. decode_infer_t (encode_infer_t t) = t) ∧
   (!ts. decode_infer_ts (encode_infer_ts ts) = ts)
 Proof
-Induct >>
-rw [encode_infer_t_def, decode_infer_t_def]
+  ho_match_mp_tac encode_infer_t_ind >>
+  rw [encode_infer_t_def, decode_infer_t_def]
 QED
 
 Theorem decode_left_inverse_I[simp]:
@@ -410,7 +410,7 @@ Proof
   simp[AllCaseEqs()] >> rw[] >> gvs[swalk_encode_infer_ts_EQ_VAR] >>~-
   ([‘swalk _ (encode_infer_t _) = Var _’,
     ‘insert _ _ _ = map encode_infer_t _’],
-   qmatch_abbrev_tac ‘∃m. insert k M _ = _ m’ >>
+   qmatch_abbrev_tac ‘∃m. sptree$insert k M _ = _ m’ >>
    ‘∃M0. M = encode_infer_t M0’
      by (qpat_x_assum ‘swalk _ _ = M’ (SUBST1_TAC o SYM) >>
          irule swalk_result_encodable >> simp[cwfs_def, swfs_def]) >>
@@ -725,18 +725,20 @@ Proof
   simp[cwfs_def, cwalkstar_def, cunify_def, unify_unifier,
        PULL_EXISTS, wf_map, sp2fm_map] >> rpt strip_tac >>
   gvs[]>> drule_at (Pos last) sunify_result_encodable >>
-  simp[encode_t_vs_ts] >> rw[] >>
+  simp[encode_t_vs_ts] >>
+  disch_then (qx_choose_then `unified_subst` strip_assume_tac) >> gvs[] >>
   drule_all_then strip_assume_tac sunify_preserves_swfs >>
   drule_at (Pos last) sunify_wf >> simp[] >> strip_tac >>
   simp[SRULE [cwfs_def] map_decode_encode] >>
   gvs[sunify_def, swfs_def] >>
   drule_all unify_unifier
-  >- (simp[SUBMAP_FLOOKUP_EQN, FLOOKUP_o_f, AllCaseEqs(), PULL_EXISTS,
-           subspt_lookup, lookup_map] >> rpt strip_tac >> first_assum drule >>
-      ‘cwfs m’ by simp[cwfs_def, swfs_def] >>
-      first_x_assum (mp_tac o Q.AP_TERM ‘map decode_infer_t’) >>
-      simp[map_decode_encode, lookup_map] >> disch_then SUBST_ALL_TAC >>
-      first_x_assum drule >> simp[]) >>
+  >- (
+    simp[SUBMAP_FLOOKUP_EQN, FLOOKUP_o_f, AllCaseEqs(), PULL_EXISTS,
+         subspt_lookup, lookup_map] >> rpt strip_tac >> first_assum drule >>
+    `cwfs unified_subst` by simp[cwfs_def, swfs_def] >>
+    first_x_assum (mp_tac o Q.AP_TERM ‘sptree$map decode_infer_t’) >>
+    simp[map_decode_encode, lookup_map] >> disch_then SUBST_ALL_TAC >>
+    first_x_assum drule >> simp[]) >>
   rpt strip_tac >>
   rename [‘walkstar ((encode_infer_t o decode_infer_t) o_f z)’] >>
   ‘(encode_infer_t o decode_infer_t) o_f z = z’ suffices_by simp[] >>
@@ -1533,7 +1535,7 @@ Theorem kcunifyl_thm =
               (contify_CONV [contify_infer_case, contify_optbind]))
           |> SRULE [cwcp “tcwalk”, cwcp “tcwalk s”, cwcp “$=”, cwcp “$= x”,
                     cwcp “tcocwl”, cwcp “tcocwl s”, cwcp “SOME”,
-                    cwcp “CONS”, cwcp “insert”, cwcp “Infer_Tapp”,
+                    cwcp “CONS”, cwcp “sptree$insert”, cwcp “Infer_Tapp”,
                     cwcp “Infer_Tapp x”,
                     cwcp “sptree$insert v”, cwcp “sptree$insert x y”,
                     cwcp “cunifyl”, cwcp “cunifyl s”, cwcp “CONS h”,
@@ -1906,24 +1908,20 @@ Proof
       gvs[cwfs_var2_extend, encode_infer_t_def] >> SET_TAC[]) >~
   [‘kcuR (s,(l1,l2)::(t1,t2)::rest) (s,(h1::t1,h2::t2)::rest)’,
    ‘tcwalk _ _ = Infer_Tapp l1 n1’]
-  >- (simp[kcunifywlR_def, LEX_DEF] >> rpt strip_tac >>
-      TRY (SET_TAC []) >>~-
-      ([‘tcwalk s h = Infer_Tapp L _’, ‘isvars L ⊆ _’],
-       drule tcwalk_rangevars >>
-       disch_then (qpat_assum ‘tcwalk s h = Infer_Tapp L _’ o
-                   mp_then Any mp_tac) >>
-       simp[encode_infer_t_def, vars_encode_infer_ts] >>
-       SET_TAC[substvars_def]) >>
-      simp[PFLAT_eqn] >>
-      irule TC_RIGHT1_I >> simp[mlt1_def, PULL_EXISTS] >>
-      qexistsl [‘encode_infer_t h1’, ‘BAG_OF_LIST (MAP encode_infer_t l1)’]>>
-      simp[BAG_UNION_INSERT, BAG_IN_BAG_OF_LIST] >>
-      irule_at Any TC_SUBSET >> simp[mlt1_def, PULL_EXISTS] >>
-      qexistsl [‘encode_infer_t h2’, ‘BAG_OF_LIST (MAP encode_infer_t l2)’]>>
-      simp[BAG_UNION_INSERT, BAG_IN_BAG_OF_LIST,
-           AC COMM_BAG_UNION ASSOC_BAG_UNION] >>
-      simp[MEM_MAP, PULL_EXISTS] >>
-      metis_tac[walkstar_opth]) >>~-
+  >- (
+    imp_res_tac tcwalk_rangevars >>
+    fs[encode_infer_t_def, vars_encode_infer_ts] >>
+    simp[kcunifywlR_def, LEX_DEF] >> conj_tac >- ASM_SET_TAC[substvars_def] >>
+    simp[PFLAT_eqn] >>
+    irule TC_RIGHT1_I >> simp[mlt1_def, PULL_EXISTS] >>
+    qexistsl [‘encode_infer_t h1’, ‘BAG_OF_LIST (MAP encode_infer_t l1)’] >>
+    simp[BAG_UNION_INSERT, BAG_IN_BAG_OF_LIST] >>
+    irule_at Any TC_SUBSET >> simp[mlt1_def, PULL_EXISTS] >>
+    qexistsl [‘encode_infer_t h2’, ‘BAG_OF_LIST (MAP encode_infer_t l2)’] >>
+    simp[BAG_UNION_INSERT, BAG_IN_BAG_OF_LIST,
+         AC COMM_BAG_UNION ASSOC_BAG_UNION] >>
+    simp[MEM_MAP, PULL_EXISTS] >>
+    metis_tac[walkstar_opth]) >>~-
   ([‘kcuR (insert _ _ s0, (t1,t2)::rest) (s0, (h1::t1,h2::t2)::rest)’,
     ‘¬tcocwl s0 v [L]’],
    simp[kcunifywlR_def, LEX_DEF, mlt_BAG_INSERT2] >>

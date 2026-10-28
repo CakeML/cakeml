@@ -23,7 +23,8 @@ Definition state_rel_def:
     s.refs = t.refs ∧
     s.compile = pure_cc (insert_interp ## I) t.compile ∧
     t.compile_oracle = pure_co (insert_interp ## I) o s.compile_oracle ∧
-    oHD (s.globals) = SOME (SOME (Closure NONE [] [] 1 clos_interpreter))
+    oHD (s.globals) = SOME (SOME (Closure NONE [] [] 1 clos_interpreter)) ∧
+    t.ptr_eq_oracle = s.ptr_eq_oracle
 End
 
 Definition state_rel_1_def:
@@ -36,7 +37,8 @@ Definition state_rel_1_def:
     s.globals = t.globals ∧
     s.refs = t.refs ∧
     s.compile = pure_cc (insert_interp ## I) t.compile ∧
-    t.compile_oracle = pure_co (insert_interp ## I) o s.compile_oracle
+    t.compile_oracle = pure_co (insert_interp ## I) o s.compile_oracle ∧
+    t.ptr_eq_oracle = s.ptr_eq_oracle
 End
 
 Theorem LIST_REL_eq'[local]:
@@ -804,7 +806,7 @@ Proof
    (gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
     \\ first_assum $ drule_at $ Pos $ el 3
     \\ disch_then $ drule_at $ Pos last
-    \\ impl_tac >- (fs [exp_size_def] \\ strip_tac \\ gvs [])
+    \\ impl_tac >- (fs [] \\ strip_tac \\ gvs [])
     \\ strip_tac \\ fs []
     \\ reverse (gvs [CaseEq"result"])
     >- (qexists_tac ‘ck’ \\ fs [])
@@ -812,7 +814,7 @@ Proof
     \\ qpat_x_assum ‘evaluate (h::t,_) = _’ assume_tac
     \\ first_assum $ drule_at $ Pos $ el 3
     \\ disch_then $ drule_at $ Pos last
-    \\ impl_tac >- (fs [exp_size_def]
+    \\ impl_tac >- (fs []
                     \\  imp_res_tac evaluate_clock \\ fs []
                     \\ strip_tac \\ gvs [])
     \\ strip_tac
@@ -869,7 +871,7 @@ Proof
     >- (qexists_tac ‘0’ \\ fs [state_rel_def])
     \\ first_assum $ drule_at $ Pos $ el 3
     \\ disch_then $ qspec_then ‘dec_clock 1 t1’ mp_tac
-    \\ impl_tac >- (fs [exp_size_def,dec_clock_def] \\ gvs [state_rel_def])
+    \\ impl_tac >- (fs [dec_clock_def] \\ gvs [state_rel_def])
     \\ strip_tac
     \\ qexists_tac ‘ck’
     \\ ‘s1.clock = t1.clock’ by fs [state_rel_def]
@@ -881,14 +883,14 @@ Proof
    (gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
     \\ first_assum $ drule_at $ Pos $ el 3
     \\ disch_then $ drule_at $ Pos last
-    \\ impl_tac >- (fs [exp_size_def,dec_clock_def] \\ strip_tac \\ gvs [])
+    \\ impl_tac >- (fs [dec_clock_def] \\ strip_tac \\ gvs [])
     \\ strip_tac \\ qexists_tac ‘ck’ \\ fs []
     \\ gvs [AllCaseEqs()])
   >~ [‘If’] >-
    (gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
     \\ first_assum $ drule_at $ Pos $ el 3
     \\ disch_then $ drule_at $ Pos last
-    \\ impl_tac >- (fs [exp_size_def,dec_clock_def] \\ strip_tac \\ gvs [])
+    \\ impl_tac >- (fs [dec_clock_def] \\ strip_tac \\ gvs [])
     \\ strip_tac
     \\ reverse $ gvs [CaseEq"result"]
     >- (qexists_tac ‘ck’ \\ fs [])
@@ -909,7 +911,7 @@ Proof
    (gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
     \\ first_assum $ drule_at $ Pos $ el 3
     \\ disch_then $ drule_at $ Pos last
-    \\ impl_tac >- (fs [exp_size_def,dec_clock_def] \\ strip_tac \\ gvs [])
+    \\ impl_tac >- (fs [dec_clock_def] \\ strip_tac \\ gvs [])
     \\ strip_tac
     \\ reverse $ gvs [CaseEq"result"]
     >- (qexists_tac ‘ck’ \\ fs [])
@@ -927,7 +929,7 @@ Proof
    (gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
     \\ first_assum $ drule_at $ Pos $ el 3
     \\ disch_then $ drule_at $ Pos last
-    \\ impl_tac >- (fs [exp_size_def,dec_clock_def] \\ strip_tac \\ gvs [])
+    \\ impl_tac >- (fs [dec_clock_def] \\ strip_tac \\ gvs [])
     \\ strip_tac
     \\ gvs [AllCaseEqs()]
     \\ TRY (qexists_tac ‘ck’ \\ fs [] \\ NO_TAC)
@@ -945,7 +947,7 @@ Proof
    (gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
     \\ first_assum $ drule_at $ Pos $ el 3
     \\ disch_then $ drule_at $ Pos last
-    \\ impl_tac >- (fs [exp_size_def,dec_clock_def] \\ strip_tac \\ gvs [])
+    \\ impl_tac >- (fs [dec_clock_def] \\ strip_tac \\ gvs [])
     \\ strip_tac
     \\ reverse $ gvs [CaseEq"result"]
     >- (qexists_tac ‘ck’ \\ fs [])
@@ -957,7 +959,7 @@ Proof
     \\ gvs [CaseEq"bool",CaseEq"option"]
     \\ first_assum $ drule_at $ Pos $ el 3
     \\ disch_then $ drule_at $ Pos last
-    \\ (impl_tac >- (fs [exp_size_def,dec_clock_def] \\ strip_tac \\ gvs []))
+    \\ (impl_tac >- (fs [dec_clock_def] \\ strip_tac \\ gvs []))
     \\ strip_tac
     \\ qexists_tac ‘ck’ \\ fs [])
   \\ rename [‘Op t p xs’]
@@ -1025,6 +1027,7 @@ Proof
     \\ disch_then $ qspec_then ‘t3 with
                 <|clock := t3.clock − 1;
                   compile_oracle := shift_seq 1 t3.compile_oracle;
+                  ptr_eq_oracle := shift_seq 1 t3.ptr_eq_oracle;
                   code := t3.code |>’ mp_tac
     \\ impl_tac
     >-
@@ -1051,7 +1054,7 @@ Proof
     \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
     \\ qrefine `ck + ck'` \\ gvs []
     \\ `∀ck'. evaluate (xs,env,t1 with clock := ck + (ck' + t1.clock)) =
-          (Rval [RefPtr v0 ptr],t2 with clock := ck' + t2.clock)` by (
+          (Rval [RefPtr F ptr],t2 with clock := ck' + t2.clock)` by (
       rw [] \\ drule evaluate_add_clock \\ gvs []) \\ gvs []
     \\ imp_res_tac state_rel_refs_clocks_eqs \\ gvs [PULL_EXISTS]
     >- (qexists `0` \\ gvs [state_rel_def])
@@ -1095,7 +1098,7 @@ Definition v_ok_def[simp]:
     EVERY v_ok env1 ∧ EVERY v_ok vs1 ∧ i < LENGTH fns1 ∧
     EVERY ($~ o has_install o SND) fns1)
 Termination
-  WF_REL_TAC ‘measure v_size’ \\ simp[v_size_def]
+  WF_REL_TAC ‘measure v_size’
 End
 
 Definition res_ok_def[simp]:
@@ -1116,7 +1119,8 @@ Definition state_rel'_def:
     FEVERY (λ(k,v). ∀vs. v = ValueArray vs ⇒ EVERY v_ok vs) t.refs ∧
     FEVERY (λ(k,v). ∀m w. v = Thunk m w ⇒ v_ok w) t.refs ∧
     s.compile = pure_cc (insert_interp ## I) t.compile ∧
-    t.compile_oracle = pure_co (insert_interp ## I) o s.compile_oracle
+    t.compile_oracle = pure_co (insert_interp ## I) o s.compile_oracle ∧
+    t.ptr_eq_oracle = s.ptr_eq_oracle
 End
 
 Theorem lookup_vars_ok:
@@ -1345,19 +1349,19 @@ QED
  * ------------------------------------------------------------------------- *)
 
 Theorem init_globals[local]:
-  (initial_state ffi max_app f co cc ck).globals = []
+  (initial_state ffi max_app f co cc pe ck).globals = []
 Proof
   EVAL_TAC
 QED
 
 Theorem semantics_attach_interpreter:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (pure_cc (insert_interp ## I) cc) (attach_interpreter xs) <> Fail ==>
+     co (pure_cc (insert_interp ## I) cc) pe (attach_interpreter xs) <> Fail ==>
    (∀n. SND (SND (co n)) = []) ∧ 0 < max_app ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     (pure_co (insert_interp ## I) ∘ co) cc (attach_interpreter xs) =
+     (pure_co (insert_interp ## I) ∘ co) cc pe (attach_interpreter xs) =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (pure_cc (insert_interp ## I) cc) (attach_interpreter xs)
+     co (pure_cc (insert_interp ## I) cc) pe (attach_interpreter xs)
 Proof
   strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq \\ rw []
@@ -1376,7 +1380,7 @@ Proof
     \\ qspecl_then [‘xs’,‘[]’,‘iis’] mp_tac evaluate_interp_thm
     \\ disch_then drule \\ fs []
     \\ disch_then $ qspec_then ‘initial_state ffi max_app
-                                FEMPTY (pure_co (insert_interp ## I) ∘ co) cc k with
+                                FEMPTY (pure_co (insert_interp ## I) ∘ co) cc pe k with
                         globals := [SOME (Closure NONE [] [] 1 clos_interpreter)]’ mp_tac
     \\ impl_tac
     >- (simp [Abbr‘iis’,state_rel_def,initial_state_def]
@@ -1391,7 +1395,7 @@ Proof
                    (evaluate_change_oracle |> SIMP_RULE std_ss [] |> CONJUNCT1)
     \\ fs []
     \\ disch_then $ qspec_then ‘initial_state ffi max_app
-                                FEMPTY (pure_co (insert_interp ## I) ∘ co) cc k’ mp_tac
+                                FEMPTY (pure_co (insert_interp ## I) ∘ co) cc pe k’ mp_tac
     \\ impl_tac
     >- (simp [Abbr‘iis’,state_rel'_def,initial_state_def,FEVERY_FEMPTY]
         \\ fs [attach_interpreter_def,has_install_def] \\ EVAL_TAC)
@@ -1421,9 +1425,10 @@ Proof
     (∀x. can_interpret_list x ⇒ elist_globals x = {||} ∧ EVERY esgc_free x)’
   >- (rw [] \\ res_tac \\ fs [])
   \\ rpt $ pop_assum kall_tac
-  \\ Induct \\ fs [can_interpret_def]
+  \\ ho_match_mp_tac can_interpret_ind \\ fs [can_interpret_def]
   \\ Cases \\ fs [can_interpret_op_def,op_gbag_def]
-  \\ Cases_on `g` \\ fs [can_interpret_op_def,op_gbag_def]
+  \\ rename1 ‘GlobOp gop’
+  \\ Cases_on ‘gop’ \\ fs [can_interpret_op_def,op_gbag_def]
 QED
 
 Theorem elist_globals_insert_interp:

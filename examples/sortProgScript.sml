@@ -487,7 +487,7 @@ Proof
 QED
 
 Theorem sort_whole_prog_spec:
-   (if LENGTH cl ≤ 1 then (∃input. get_file_content fs 0 = SOME (input,0)) else hasFreeFD fs)
+   (if LENGTH cl ≤ 1 then (∃input. get_fd_content fs 0 = SOME (input,0)) else hasFreeFD fs)
    ⇒ whole_prog_spec ^(fetch_v "sort" (get_ml_prog_state())) cl fs NONE (valid_sort_result cl fs)
 Proof
   disch_then assume_tac
@@ -499,12 +499,5 @@ Proof
   \\ xsimpl
 QED
 
-val (sem_thm,prog_tm) = whole_prog_thm (get_ml_prog_state ()) "sort" (UNDISCH sort_whole_prog_spec)
-Definition sort_prog_def:
-  sort_prog = ^prog_tm
-End
-
 Theorem sort_semantics =
-  sem_thm |> ONCE_REWRITE_RULE[GSYM sort_prog_def]
-  |> DISCH_ALL
-  |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  prove_sem_thm "sort" "sort_prog" sort_whole_prog_spec;

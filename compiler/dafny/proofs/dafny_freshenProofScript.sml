@@ -842,7 +842,8 @@ Proof
     \\ gvs [evaluate_exp_def]
     \\ namedCases_on ‘get_member name env.prog’ ["", "member"] \\ gvs []
     \\ drule_all get_member_some \\ rpt strip_tac \\ gvs []
-    \\ Cases_on ‘member’ \\ gvs [freshen_member_def]
+    \\ qmatch_asmsub_rename_tac `get_member _ env.prog = SOME called_member`
+    \\ Cases_on `called_member` \\ gvs [freshen_member_def]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ rename [‘freshen_exp _ _ _ _ body = (_, body')’,
                ‘map_add_fresh _ _ _ = (cnt₁, m')’]
@@ -1418,7 +1419,8 @@ Proof
                ‘freshen_lhs_exps m _ _ cnt₁ lhss = (cnt₂, lhss')’]
     \\ namedCases_on ‘get_member name env.prog’ ["", "member"] \\ gvs []
     \\ drule_all get_member_some \\ rpt strip_tac \\ gvs []
-    \\ Cases_on ‘member’ \\ gvs [freshen_member_def]
+    \\ qmatch_asmsub_rename_tac `get_member _ env.prog = SOME called_member`
+    \\ Cases_on `called_member` \\ gvs [freshen_member_def]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ rename [‘map_add_fresh m₁' cnt₁' _ = (cnt₂', m₂')’,
                ‘freshen_stmt _ _ _ _ body = (_, body')’]
@@ -1534,7 +1536,7 @@ Proof
     \\ last_x_assum drule_all \\ gvs []
     \\ rpt strip_tac \\ gvs []
     >- (imp_res_tac freshen_stmt_mono \\ imp_res_tac state_rel_mono)
-    \\ last_x_assum drule \\ gvs [])
+    \\ last_x_assum drule_all \\ gvs [])
   >~ [‘If tst thn els’] >-
    (gvs [evaluate_stmt_def, freshen_stmt_def]
     \\ rpt (pairarg_tac \\ gvs [])
@@ -1726,7 +1728,6 @@ Termination
   wf_rel_tac ‘measure $ exp_size’
   \\ rpt strip_tac
   \\ gvs [list_size_pair_size_MAP_FST_SND]
-  \\ rewrite_tac [list_exp_size_snd]
   \\ drule MEM_list_size
   \\ disch_then $ qspec_then ‘exp_size’ assume_tac
   \\ gvs []
@@ -1956,9 +1957,9 @@ Proof
 QED
 
 Theorem is_fresh_member_freshen_member:
-  is_fresh_member (freshen_member member)
+  is_fresh_member (freshen_member member_decl)
 Proof
-  namedCases_on ‘member’
+  namedCases_on `member_decl`
     ["name ins reqs ens rds decrs outs mods body",
      "name ins res_t reqs rds decrs body"]
   \\ gvs [freshen_member_def]
@@ -2097,9 +2098,9 @@ Proof
 QED
 
 Theorem no_shadow_method_freshen_member:
-  no_shadow_method (freshen_member member)
+  no_shadow_method (freshen_member member_decl)
 Proof
-  namedCases_on ‘member’
+  namedCases_on `member_decl`
     ["name ins reqs ens rds decrs outs mods body",
      "name ins res_t reqs rds decrs body"]
   \\ simp [freshen_member_def]

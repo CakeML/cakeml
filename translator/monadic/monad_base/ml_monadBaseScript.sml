@@ -27,7 +27,6 @@ Definition liftM_def:
 End
 
 (* Definitions using monadic syntax *)
-val _ = ParseExtras.temp_loose_equality ();
 val _ = patternMatchesSyntax.temp_enable_pmatch();
 val _ = monadsyntax.temp_add_monadsyntax ();
 
@@ -88,19 +87,25 @@ Definition st_ex_return_def:
     λs. (M_success x, s)
 End
 
-Overload monad_bind[local] = ``st_ex_bind``
-Overload monad_unitbind[local] = ``st_ex_ignore_bind``
-Overload monad_ignore_bind[local] = ``st_ex_ignore_bind``
-Overload return[local] = ``st_ex_return``
-
 val _ = add_infix ("otherwise", 400, HOLgrammars.RIGHT);
 
 Definition otherwise_def:
-  x otherwise y =
+  (x otherwise y) =
     λs. case ((x : ('a, 'b, 'c) M) s) of
           (M_success y, s) => (M_success y, s)
         | (M_failure e, s) => (y : ('a, 'b, 'c) M) s
 End
+
+val _ = monadsyntax.declare_monad (
+  "st_ex",
+  {bind = “st_ex_bind”,
+   unit = “st_ex_return”,
+   ignorebind = SOME “st_ex_ignore_bind”,
+   choice = SOME “$otherwise”,
+   fail = NONE,
+   guard = NONE})
+
+val _ = monadsyntax.temp_enable_monad "st_ex"
 
 Definition can_def:
   can f x = (do f x ; return T od
@@ -357,8 +362,6 @@ Definition Mset_ref_def:
   Mset_ref set_var x = \s. (M_success (), set_var x s)
 End
 
-val _ = ParseExtras.temp_tight_equality ();
-
 (* Rules to deal with the monads *)
 Theorem st_ex_return_success[local]:
   !v st r st'.
@@ -559,5 +562,3 @@ Theorem monad_eqs =
 Definition run_def:
   run (x : ('a, 'b, 'c) M) state = FST (x state)
 End
-
-

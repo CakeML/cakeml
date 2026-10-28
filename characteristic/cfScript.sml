@@ -496,7 +496,8 @@ Definition pat_wildcards_def:
   pats_wildcards (p::ps) =
     (pat_wildcards p) + (pats_wildcards ps)
 Termination
-  WF_REL_TAC `measure pat_size`
+  WF_REL_TAC `measure (λx. case x of INL p => pat_size p
+                                   | INR ps => list_size pat_size ps)`
 End
 
 (* [v_of_pat]: from a pattern and a list of instantiations for the pattern
@@ -554,9 +555,7 @@ Definition v_of_pat_def:
   v_of_pat_list _ _ _ _ = NONE
 Termination
   WF_REL_TAC `measure v_of_matching_pat_aux_measure` \\
-  fs [v_of_matching_pat_aux_measure_def, list_size_def,
-      astTheory.pat_size_def] \\
-  gen_tac \\ Induct \\ fs [list_size_def, astTheory.pat_size_def]
+  fs [v_of_matching_pat_aux_measure_def]
 End
 
 Theorem v_of_pat_list_length:
@@ -695,50 +694,33 @@ Proof
 QED
 
 Theorem v_of_pat_remove_rest_insts:
-   (!pat envC insts wildcards v rest wildcards_rest.
+   (!envC pat insts wildcards v rest wildcards_rest.
        v_of_pat envC pat insts wildcards = SOME (v, rest, wildcards_rest) ==>
        ?insts'.
          insts = insts' ++ rest /\
          LENGTH insts' = LENGTH (pat_bindings pat) /\
          v_of_pat envC pat insts' wildcards = SOME (v, [], wildcards_rest)) /\
-    (!pats envC insts wildcards vs rest wildcards_rest.
+    (!envC pats insts wildcards vs rest wildcards_rest.
        v_of_pat_list envC pats insts wildcards = SOME (vs, rest, wildcards_rest) ==>
        ?insts'.
          insts = insts' ++ rest /\
          LENGTH insts' = LENGTH (pats_bindings pats) /\
          v_of_pat_list envC pats insts' wildcards = SOME (vs, [], wildcards_rest))
 Proof
-  HO_MATCH_MP_TAC astTheory.pat_induction \\ rpt strip_tac \\
-  try_finally (fs [v_of_pat_def, pat_bindings_def])
-  THEN1 (fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [])
-  THEN1 (fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ gvs [])
-  THEN1 (
+  HO_MATCH_MP_TAC v_of_pat_ind \\ rpt strip_tac
+  >~ [‘Pcon c pats’] >- (
     rename1 `Pcon c _` \\ Cases_on `c` \\
     fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [] \\ rw [] \\
-    first_assum progress \\ rw []
-  )
-  THEN1 (
-    fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ fs [] \\ rw [] \\
-    qpat_assum `v_of_pat _ _ _ _ = _` (first_assum o progress_with) \\
-    qpat_assum `v_of_pat_list _ _ _ _ = _` (first_assum o progress_with) \\
-    rw [] \\
-    rename1 `LENGTH insts_pats = LENGTH (pats_bindings pats)` \\
-    rename1 `LENGTH insts_pat = LENGTH (pat_bindings pat)` \\
-    rename1 `v_of_pat_list _ _ (_ ++ rest) _` \\
-    fs [APPEND_ASSOC] \\ every_case_tac \\ fs []
-    THEN1 (
-      progress_then (qspec_then `rest` assume_tac)
-        (fst (CONJ_PAIR v_of_pat_NONE_extend_insts)) \\
-      `LENGTH (insts_pat ++ insts_pats) >= LENGTH (pat_bindings pat)`
-        by (fs []) \\
-      `LENGTH wildcards >= pat_wildcards pat` by (
-        progress (fst (CONJ_PAIR v_of_pat_wildcards_count)) \\ fs []
-      ) \\ fs []
-    ) \\
-    rename1 `v_of_pat_list _ _ rest' _ = _` \\
-    qpat_x_assum `v_of_pat _ _ (_ ++ _) _ = _` (first_assum o progress_with) \\
-    `rest' = insts_pats` by (metis_tac [APPEND_11_LENGTH]) \\ fs [] \\ rw [] \\ fs []
-  )
+    first_assum progress \\ rw [])
+  >~ [‘pat::pats’] >- (
+    qpat_x_assum ‘v_of_pat_list _ (_::_) _ _ = _’ mp_tac
+    \\ simp [Once v_of_pat_def, AllCaseEqs(), PULL_EXISTS] \\ rpt strip_tac
+    \\ gvs []
+    \\ ‘v_of_pat envC pat (insts'' ++ insts') wildcards =
+          SOME (v,insts',wildcards_rest')’
+         by metis_tac [v_of_pat_extend_insts, APPEND]
+    \\ gvs [pat_bindings_def, v_of_pat_def])
+  \\ fs [v_of_pat_def, pat_bindings_def] \\ every_case_tac \\ gvs []
 QED
 
 Theorem v_of_pat_insts_unique:
@@ -1367,6 +1349,14 @@ Definition app_aw8sub_def:
        (H ==>> Q (Val (Litv (Word8 (EL (Num i) ws))))))
 End
 
+Definition app_aw8subbit_def:
+  app_aw8subbit a (i: int) H Q =
+    (∃ws F.
+       0 <= i /\ (Num i) < 8 * LENGTH ws /\
+       (H ==>> F * W8ARRAY a ws) /\
+       (H ==>> Q (Val (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8))))))
+End
+
 Definition app_aw8length_def:
   app_aw8length a H Q =
     (∃ws F.
@@ -1380,6 +1370,16 @@ Definition app_aw8update_def:
        0 <= i /\ (Num i) < LENGTH ws /\
        (H ==>> F * W8ARRAY a ws) /\
        (F * W8ARRAY a (LUPDATE w (Num i) ws) ==>> Q (Val (Conv NONE []))))
+End
+
+Definition app_aw8updatebit_def:
+  app_aw8updatebit a (i: int) b H Q =
+    (∃ws F.
+       0 <= i /\ (Num i) < 8 * LENGTH ws /\
+       (H ==>> F * W8ARRAY a ws) /\
+       (F * W8ARRAY a (LUPDATE (((Num i MOD 8) :+ b) (EL (Num i DIV 8) ws))
+                               (Num i DIV 8) ws)
+        ==>> Q (Val (Conv NONE []))))
 End
 
 Definition app_copyaw8aw8_def:
@@ -1640,6 +1640,14 @@ Definition cf_aw8sub_def:
       app_aw8sub a i H Q)
 End
 
+Definition cf_aw8subbit_def:
+  cf_aw8subbit xa xi = \env. local (\H Q.
+    ?a i.
+      exp2v env xa = SOME a /\
+      exp2v env xi = SOME (Litv (IntLit i)) /\
+      app_aw8subbit a i H Q)
+End
+
 Definition cf_aw8length_def:
   cf_aw8length xa = \env. local (\H Q.
     ?a.
@@ -1654,6 +1662,15 @@ Definition cf_aw8update_def:
       exp2v env xi = SOME (Litv (IntLit i)) /\
       exp2v env xw = SOME (Litv (Word8 w)) /\
       app_aw8update a i w H Q)
+End
+
+Definition cf_aw8updatebit_def:
+  cf_aw8updatebit xa xi xb = \env. local (\H Q.
+    ?a i b.
+      exp2v env xa = SOME a /\
+      exp2v env xi = SOME (Litv (IntLit i)) /\
+      exp2v env xb = SOME (Boolv b) /\
+      app_aw8updatebit a i b H Q)
 End
 
 Definition cf_copyaw8aw8_def:
@@ -1902,6 +1919,14 @@ Definition cf_def:
           (case args of
              | [l; n] => cf_aw8sub l n
              | _ => cf_bottom)
+        | Aw8subBit =>
+          (case args of
+             | [l; n] => cf_aw8subbit l n
+             | _ => cf_bottom)
+        | Aw8subBit_unsafe =>
+          (case args of
+             | [l; n] => cf_aw8subbit l n
+             | _ => cf_bottom)
         | Aw8length =>
           (case args of
              | [l] => cf_aw8length l
@@ -1913,6 +1938,14 @@ Definition cf_def:
         | Aw8update_unsafe =>
           (case args of
              | [l; n; w] => cf_aw8update l n w
+             | _ => cf_bottom)
+        | Aw8updateBit =>
+          (case args of
+             | [l; n; b] => cf_aw8updatebit l n b
+             | _ => cf_bottom)
+        | Aw8updateBit_unsafe =>
+          (case args of
+             | [l; n; b] => cf_aw8updatebit l n b
              | _ => cf_bottom)
         | CopyAw8Aw8 =>
           (case args of
@@ -2005,6 +2038,8 @@ val cf_defs = [
   cf_aw8sub_def,
   cf_aw8length_def,
   cf_aw8update_def,
+  cf_aw8subbit_def,
+  cf_aw8updatebit_def,
   cf_copyaw8aw8_def,
   cf_copystraw8_def,
   cf_copyaw8str_def,
@@ -3074,6 +3109,10 @@ Resume cf_sound[App]:
     progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
     fs [state_component_equality]
   )
+  >~ [‘App Aw8subBit’] >- suspend "subbit"
+  >~ [‘App Aw8subBit_unsafe’] >- suspend "subbit_unsafe"
+  >~ [‘App Aw8updateBit’] >- suspend "updatebit"
+  >~ [‘App Aw8updateBit_unsafe’] >- suspend "updatebit_unsafe"
   >~ [‘App XorAw8Str_unsafe’] >-
    (Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
     GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
@@ -3566,6 +3605,57 @@ Resume cf_sound[Mat]:
     \\ qexists_tac `ck`
     \\ cf_exp2v_evaluate_tac `st with clock := ck`
   )
+QED
+
+val aw8subbit_sound_tac =
+  Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
+  GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+  cf_exp2v_evaluate_tac `st` \\
+  fs [st2heap_def, app_aw8subbit_def, W8ARRAY_def] \\
+  fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+  progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
+  rpt (first_x_assum progress) \\ rename1 `a = Loc T l` \\ rw [] \\
+  assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+  fs [do_app_def, store_lookup_def] \\
+  `Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC \\
+  progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs [] \\
+  instantiate \\ fs [integerTheory.INT_ABS] \\
+  `i < &(8 * LENGTH ws)` by intLib.ARITH_TAC \\
+  fs [state_component_equality];
+
+val aw8updatebit_sound_tac =
+  Q.REFINE_EXISTS_TAC `Val tv` \\ simp [] \\ cf_evaluate_step_tac \\
+  GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+  cf_exp2v_evaluate_tac `st` \\
+  fs [st2heap_def, app_aw8updatebit_def, W8ARRAY_def] \\
+  fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+  first_x_assum progress \\ rename1 `a = Loc T l` \\ rw [] \\
+  assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+  `Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC \\
+  progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
+  fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def] \\
+  `i < &(8 * LENGTH ws)` by intLib.ARITH_TAC \\
+  fs [evaluateTheory.list_result_def] \\
+  qmatch_goalsub_abbrev_tac `W8array ws'` \\
+  qexists_tac `Mem l (W8array ws') INSERT u` \\
+  qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
+  THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC)
+  THEN1 (first_assum irule \\ instantiate \\ SPLIT_TAC);
+
+Resume cf_sound[subbit]:
+  aw8subbit_sound_tac
+QED
+
+Resume cf_sound[subbit_unsafe]:
+  aw8subbit_sound_tac
+QED
+
+Resume cf_sound[updatebit]:
+  aw8updatebit_sound_tac
+QED
+
+Resume cf_sound[updatebit_unsafe]:
+  aw8updatebit_sound_tac
 QED
 
 Finalise cf_sound

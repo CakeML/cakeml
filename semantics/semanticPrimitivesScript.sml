@@ -8,6 +8,26 @@ Ancestors
 
 val _ = numLib.temp_prefer_num();
 
+(* Define operator classes, that allow to group their behavior later *)
+Datatype:
+ op_class =
+    EvalOp (* Eval primitive *)
+  | FunApp (* function application *)
+  | Force (* forcing a thunk *)
+  | PtrEqOp (* pointer equality *)
+  | Simple (* arithmetic operation, no finite-precision/reals *)
+End
+
+Definition getOpClass_def[simp]:
+ getOpClass op =
+ case op of
+  | Opapp => FunApp
+  | Eval => EvalOp
+  | ThunkOp t => (if t = ForceThunk then Force else Simple)
+  | PtrEq => PtrEqOp
+  | _ => Simple
+End
+
 (* Constructors and exceptions need unique identities, which we represent by stamps. *)
 Datatype:
  stamp =
@@ -218,7 +238,7 @@ End
 *)
 Type compiler_args = ``: ((num # num) # v # dec list)``
 Type compiler_fun = ``: compiler_args ->
-     (v # word8 list # word64 list)option``
+     (v # mlstring # word64 list)option``
 
 Datatype:
  eval_decs_state =
@@ -261,6 +281,11 @@ Datatype:
    ; next_type_stamp : num
    ; next_exn_stamp : num
    ; eval_state :  eval_state option
+   (* oracle deciding whether each successive PtrEq returns the result of
+      structural equality (T) or is attenuated to false (F); indexed first by
+      install epoch, which advances at every Eval, and then by position
+      within that epoch *)
+   ; ptr_eq_oracle : num -> num -> bool
    |>
 End
 
@@ -277,6 +302,50 @@ Definition one_con_check_def[simp]:
   one_con_check envc (Con cn es) = do_con_check envc cn (LENGTH es) ∧
   one_con_check envc _ = T
 End
+
+(* Constructor prechecks also inspect unevaluated function bodies, but must
+   follow the lexical constructor environment through each local open. *)
+Definition check_exp_constructors_def:
+  check_exp_constructors envc (Raise e) = check_exp_constructors envc e ∧
+  check_exp_constructors envc (Handle e pes) =
+    (check_exp_constructors envc e ∧
+     EVERY (λ(p,e). check_exp_constructors envc e) pes) ∧
+  check_exp_constructors envc (Lit l) = T ∧
+  check_exp_constructors envc (Con cn es) =
+    (do_con_check envc cn (LENGTH es) ∧
+     EVERY (check_exp_constructors envc) es) ∧
+  check_exp_constructors envc (Var n) = T ∧
+  check_exp_constructors envc (Fun n e) = check_exp_constructors envc e ∧
+  check_exp_constructors envc (App op es) =
+    EVERY (check_exp_constructors envc) es ∧
+  check_exp_constructors envc (Log op e1 e2) =
+    (check_exp_constructors envc e1 ∧ check_exp_constructors envc e2) ∧
+  check_exp_constructors envc (If e1 e2 e3) =
+    (check_exp_constructors envc e1 ∧ check_exp_constructors envc e2 ∧
+     check_exp_constructors envc e3) ∧
+  check_exp_constructors envc (Mat e pes) =
+    (check_exp_constructors envc e ∧
+     EVERY (λ(p,e). check_exp_constructors envc e) pes) ∧
+  check_exp_constructors envc (Let n e1 e2) =
+    (check_exp_constructors envc e1 ∧ check_exp_constructors envc e2) ∧
+  check_exp_constructors envc (Letrec funs e) =
+    (EVERY (λ(f,n,e). check_exp_constructors envc e) funs ∧
+     check_exp_constructors envc e) ∧
+  check_exp_constructors envc (Tannot e t) = check_exp_constructors envc e ∧
+  check_exp_constructors envc (Lannot e l) = check_exp_constructors envc e ∧
+  check_exp_constructors envc (Open path e) =
+    (case nsOpen path envc of
+       NONE => F
+     | SOME opened => check_exp_constructors (nsAppend opened envc) e)
+End
+
+Theorem check_exp_constructors_open:
+  check_exp_constructors envc (Open path e) ⇔
+  ∃opened. nsOpen path envc = SOME opened ∧
+    check_exp_constructors (nsAppend opened envc) e
+Proof
+  Cases_on `nsOpen path envc` >> simp [check_exp_constructors_def]
+QED
 
 Definition build_conv_def:
   build_conv (envC:((mlstring),(mlstring),(num#stamp))namespace) cn vs =
@@ -522,20 +591,6 @@ Definition maybe_all_list_def:
         case maybe_all_list vs of NONE => NONE | SOME xs => SOME (x::xs)
 End
 
-Definition v_to_word8_def:
-  v_to_word8 v =
-    case v of
-    | Litv (Word8 w) => SOME w
-    | _ => NONE
-End
-
-Definition v_to_word8_list_def:
-  v_to_word8_list v =
-    case v_to_list v of
-    | NONE => NONE
-    | SOME xs => maybe_all_list (MAP v_to_word8 xs)
-End
-
 Definition v_to_word64_def:
   v_to_word64 v =
     case v of
@@ -548,6 +603,13 @@ Definition v_to_word64_list_def:
     case v_to_list v of
     | NONE => NONE
     | SOME xs => maybe_all_list (MAP v_to_word64 xs)
+End
+
+Definition v_to_mlstring_def:
+  v_to_mlstring v =
+    case v of
+    | Litv (StrLit s) => SOME s
+    | _ => NONE
 End
 
 Definition lookup_env_def:
@@ -610,9 +672,9 @@ Termination
 End
 
 Definition compiler_agrees_def:
-  compiler_agrees (f:((num#num)#v#(dec)list ->(v#(word8)list#(word64)list)option))
+  compiler_agrees (f:((num#num)#v#(dec)list ->(v#mlstring#(word64)list)option))
       args (st_v,bs_v,ws_v) ⇔
-    case (f args,args,v_to_word8_list bs_v,v_to_word64_list ws_v) of
+    case (f args,args,v_to_mlstring bs_v,v_to_word64_list ws_v) of
     | (SOME (st,c_bs,c_ws),(v16,prev_st_v,_),SOME bs,SOME ws) =>
         st = st_v ∧ c_bs = bs ∧ c_ws = ws ∧ concrete_v st_v ∧
         concrete_v prev_st_v
@@ -772,14 +834,56 @@ Definition xor_bytes_def:
     | SOME rest => SOME (word_xor b1 b2 :: rest)
 End
 
+(* With `dest_thunk` we check 3 things:
+     - The values contain exactly one reference
+     - The reference is valid
+     - The reference points to a thunk
+   We distinguish between `BadRef` and `NotThunk` instead of returning an option
+   with `NONE` for both, because we want `update_thunk` to succeed when
+   `dest_thunk` fails but only when the reference actually exists and points to
+   something other than a thunk. *)
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk [Loc b n] st =
+    (case store_lookup n st of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) =>
+         if b then BadRef else IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) =>
+         if b then BadRef else IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk vs st = NotThunk
+End
+
+Definition update_thunk_def:
+  update_thunk [Loc F n] st [v] =
+    (case dest_thunk [v] st of
+     | NotThunk => store_assign n (Thunk Evaluated v) st
+     | _ => NONE) ∧
+  update_thunk _ st _ = NONE
+End
+
+Definition bad_thunk_update_def:
+  bad_thunk_update m v st ⇔
+    m = Evaluated ∧ dest_thunk [v] st ≠ NotThunk
+End
+
 Definition thunk_op_def:
   thunk_op (s: v store_v list, t: 'ffi ffi_state) th_op vs =
     case (th_op,vs) of
     | (AllocThunk m, [v]) =>
-        (let (s',n) = store_alloc (Thunk m v) s in
+        (if bad_thunk_update m v s then NONE else
+         let (s',n) = store_alloc (Thunk m v) s in
            SOME ((s',t), Rval (Loc F n)))
-    | (UpdateThunk m, [Loc _ lnum; v]) =>
-        (case store_assign lnum (Thunk m v) s of
+    | (UpdateThunk m, [Loc F lnum; v]) =>
+        (if bad_thunk_update m v s then NONE else
+         case store_assign lnum (Thunk m v) s of
          | SOME s' => SOME ((s',t), Rval (Conv NONE []))
          | NONE => NONE)
     | _ => NONE
@@ -873,7 +977,7 @@ End
 Definition do_arith_def:
   (do_arith a Float64T vals =
      case (a, MAP the_Litv_Float64 vals) of
-     | (Abs,  [v1])       => SOME (INR $ Litv $ Float64 $ fp64_abs v1)
+     | (Absolute, [v1])   => SOME (INR $ Litv $ Float64 $ fp64_abs v1)
      | (Neg,  [v1])       => SOME (INR $ Litv $ Float64 $ fp64_negate v1)
      | (Sqrt, [v1])       => SOME (INR $ Litv $ Float64 $ fp64_sqrt roundTiesToEven v1)
      | (Add,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_add roundTiesToEven v1 v2)
@@ -899,6 +1003,8 @@ Definition do_arith_def:
      | (And, [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_and v1 v2)
      | (Or,  [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_or v1 v2)
      | (Xor, [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_xor v1 v2)
+     | (Shift sh, [v1;v2]) =>
+         SOME (INR $ Litv $ Word8 $ shift8_lookup sh v1 (w2n v2))
      | _ => NONE) ∧
   (do_arith a (WordT W64) vals =
      case (a, MAP the_Litv_Word64 vals) of
@@ -907,12 +1013,73 @@ Definition do_arith_def:
      | (And, [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_and v1 v2)
      | (Or,  [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_or v1 v2)
      | (Xor, [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_xor v1 v2)
+     | (Shift sh, [v1;v2]) =>
+         SOME (INR $ Litv $ Word64 $ shift64_lookup sh v1 (w2n v2))
      | _ => NONE) ∧
   (do_arith a BoolT vals =
      case (a, vals) of
      | (Not, [v1]) => SOME (INR $ Boolv (¬ (the_Boolv v1)))
      | _ => NONE) ∧
   (do_arith a _ vals = NONE)
+End
+
+(* The default bound is the 32-bit smallnum range. *)
+Definition index_in_bounds_def:
+  index_in_bounds NONE (i:int) =
+    (-(2 ** 30) <= i /\ i < 2 ** 30) /\
+  index_in_bounds (SOME limit) i =
+    (-&limit <= i /\ i <= &limit)
+End
+
+Definition index_witness_length_def:
+  index_witness_length s (Vectorv vs) = SOME (256 * LENGTH vs) /\
+  index_witness_length s (Litv (StrLit str)) = SOME (32 * strlen str) /\
+  index_witness_length s (Loc _ n) =
+    (case store_lookup n s of
+       SOME (Varray vs) => SOME (256 * LENGTH vs)
+     | SOME (W8array ws) => SOME (32 * LENGTH ws)
+     | _ => NONE) /\
+  index_witness_length s v = NONE
+End
+
+Definition unsafe_index_bound_def:
+  unsafe_index_bound s [] = SOME NONE /\
+  unsafe_index_bound s [witness] =
+    OPTION_MAP SOME (index_witness_length s witness) /\
+  unsafe_index_bound s _ = NONE
+End
+
+Definition do_unsafe_index_arith_def:
+  do_unsafe_index_arith s a vs =
+    case vs of
+      Litv (IntLit i1) :: Litv (IntLit i2) :: witnesses =>
+        (case unsafe_index_bound s witnesses of
+           NONE => NONE
+         | SOME bound =>
+             if index_in_bounds bound i1 /\ index_in_bounds bound i2 then
+               case do_arith a IntT [Litv (IntLit i1); Litv (IntLit i2)] of
+                 SOME (INR (Litv (IntLit result))) =>
+                   if index_in_bounds bound result then
+                     SOME (INR (Litv (IntLit result))) else NONE
+               | SOME (INL exn) => SOME (INL exn)
+               | _ => NONE
+             else NONE)
+    | _ => NONE
+End
+
+Definition do_unsafe_index_test_def:
+  do_unsafe_index_test s test vs =
+    case vs of
+      Litv (IntLit i1) :: Litv (IntLit i2) :: witnesses =>
+        (case unsafe_index_bound s witnesses of
+           NONE => NONE
+         | SOME bound =>
+             if index_in_bounds bound i1 /\ index_in_bounds bound i2 then
+               case do_test test IntT (Litv (IntLit i1)) (Litv (IntLit i2)) of
+                 Eq_val result => SOME result
+               | Eq_type_error => NONE
+             else NONE)
+    | _ => NONE
 End
 
 Definition do_conversion_def:
@@ -954,10 +1121,6 @@ Definition do_app_def:
           (SOME xs, SOME ys) => SOME ((s,t), Rval (list_to_v (xs ++ ys)))
         | _ => NONE
       )
-    | (Shift W8 op n, [Litv (Word8 w)]) =>
-        SOME ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
-    | (Shift W64 op n, [Litv (Word64 w)]) =>
-        SOME ((s,t), Rval (Litv (Word64 (shift64_lookup op w n))))
     | (Equality, [v1; v2]) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
@@ -1048,6 +1211,51 @@ Definition do_app_def:
                   )
         | _ => NONE
       )
+    | (Aw8subBit, [Loc _ lnum; Litv (IntLit i)]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+              SOME ((s,t), Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8))))
+            else SOME ((s,t), Rerr (Rraise sub_exn_v))
+        | _ => NONE
+      )
+    | (Aw8updateBit, [Loc _ lnum; Litv (IntLit i); v]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if ¬(v = Boolv T ∨ v = Boolv F) then NONE else
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+              (case store_assign lnum
+                      (W8array (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                         (EL (Num i DIV 8) ws))
+                                        (Num i DIV 8) ws)) s of
+                  NONE => NONE
+                | SOME s' => SOME ((s',t), Rval (Conv NONE []))
+              )
+            else SOME ((s,t), Rerr (Rraise sub_exn_v))
+        | _ => NONE
+      )
+    | (Aw8subBit_unsafe, [Loc _ lnum; Litv (IntLit i)]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+              SOME ((s,t), Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8))))
+            else NONE
+        | _ => NONE
+      )
+    | (Aw8updateBit_unsafe, [Loc _ lnum; Litv (IntLit i); v]) =>
+        (case store_lookup lnum s of
+          SOME (W8array ws) =>
+            if 0 ≤ i ∧ i < 8 * &LENGTH ws ∧ (v = Boolv T ∨ v = Boolv F) then
+              (case store_assign lnum
+                      (W8array (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                         (EL (Num i DIV 8) ws))
+                                        (Num i DIV 8) ws)) s of
+                  NONE => NONE
+                | SOME s' => SOME ((s',t), Rval (Conv NONE []))
+              )
+            else NONE
+        | _ => NONE
+      )
     | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
         SOME ((s,t),
         (case copy_array (explode str,off) len NONE of
@@ -1124,6 +1332,11 @@ Definition do_app_def:
               SOME ((s,t), Rerr (Rraise sub_exn_v))
             else
               SOME ((s,t), Rval (Litv (Char (EL n (explode str)))))
+    | (Strsub_unsafe, [Litv (StrLit str); Litv (IntLit i)]) =>
+        if (0:int) ≤ i ∧ Num i < strlen str then
+          SOME ((s,t), Rval (Litv (Char (EL (Num i) (explode str)))))
+        else
+          NONE
     | (Strlen, [Litv (StrLit str)]) =>
         SOME ((s,t), Rval (Litv(IntLit(int_of_num(strlen str)))))
     | (Strcat, [v]) =>
@@ -1266,6 +1479,15 @@ Definition do_app_def:
             | SOME (INL exn) => SOME ((s, t), Rerr (Rraise exn))
             | NONE           => NONE)
          else NONE)
+    | (UnsafeIndexArith a, vs) =>
+        (case do_unsafe_index_arith s a vs of
+           SOME (INR res) => SOME ((s,t), Rval res)
+         | SOME (INL exn) => SOME ((s,t), Rerr (Rraise exn))
+         | NONE => NONE)
+    | (UnsafeIndexTest test, vs) =>
+        (case do_unsafe_index_test s test vs of
+           SOME result => SOME ((s,t), Rval (Boolv result))
+         | NONE => NONE)
     | (FromTo ty1 ty2, [v]) =>
         (if check_type ty1 v then
            (case do_conversion v ty1 ty2 of
@@ -1331,38 +1553,17 @@ Definition extend_dec_env_def:
     <|c := nsAppend new_env.c env.c; v := nsAppend new_env.v env.v|>
 End
 
+(* Select a module's contents as a declaration delta.  In particular, this
+   does not append env: evaluate_decs performs that extension exactly once. *)
+Definition open_dec_env_def:
+  open_dec_env path (env:v sem_env) =
+    case nsOpen path env.v of
+    | NONE => NONE
+    | SOME env_v =>
+      case nsOpen path env.c of
+      | NONE => NONE
+      | SOME env_c => SOME <|v := env_v; c := env_c|>
+End
+
 val _ = set_fixity "+++" (Infixl 480);
 Overload "+++" = “extend_dec_env”;
-
-(* With `dest_thunk` we check 3 things:
-     - The values contain exactly one reference
-     - The reference is valid
-     - The reference points to a thunk
-   We distinguish between `BadRef` and `NotThunk` instead of returning an option
-   with `NONE` for both, because we want `update_thunk` to succeed when
-   `dest_thunk` fails but only when the reference actually exists and points to
-   something other than a thunk. *)
-Datatype:
-  dest_thunk_ret
-    = BadRef
-    | NotThunk
-    | IsThunk thunk_mode v
-End
-
-Definition dest_thunk_def:
-  dest_thunk [Loc _ n] st =
-    (case store_lookup n st of
-     | NONE => BadRef
-     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
-     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
-     | SOME _ => NotThunk) ∧
-  dest_thunk vs st = NotThunk
-End
-
-Definition update_thunk_def:
-  update_thunk [Loc _ n] st [v] =
-    (case dest_thunk [v] st of
-     | NotThunk => store_assign n (Thunk Evaluated v) st
-     | _ => NONE) ∧
-  update_thunk _ st _ = NONE
-End

@@ -16,7 +16,6 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 (* TODO: move *)
 
@@ -3572,8 +3571,10 @@ Proof
   \\ simp[LEFT_ADD_DISTRIB]
 QED
 
-Definition ccache_jump_ag32_code_def:
-  ccache_jump_ag32_code = [Encode (Jump (fSnd, 0w, Reg 0w)); 0w; 0w; 0w]
+Definition install_jump_ag32_code_def:
+  install_jump_ag32_code =
+    [Encode (Normal (fSnd, 1w, Imm 0w, Reg 3w));
+     Encode (Jump (fSnd, 0w, Reg 0w)); 0w; 0w]
 End
 
 Definition halt_jump_ag32_code_def:
@@ -3582,7 +3583,7 @@ End
 
 Definition ag32_ffi_jumps_def:
   ag32_ffi_jumps ffi_names =
-    FLAT (MAP (mk_jump_ag32_code ffi_names) (REVERSE ffi_names)) ++ ccache_jump_ag32_code ++ halt_jump_ag32_code
+    FLAT (MAP (mk_jump_ag32_code ffi_names) (REVERSE ffi_names)) ++ install_jump_ag32_code ++ halt_jump_ag32_code
 End
 
 Theorem LENGTH_ag32_ffi_jumps =
@@ -3623,7 +3624,7 @@ Definition code_start_offset_def:
   code_start_offset num_ffis =
     ffi_jumps_offset +
     ffi_offset *
-    (2 (* halt and ccache *) + num_ffis)
+    (2 (* halt and install *) + num_ffis)
 End
 
 Definition startup_asm_code_def:
@@ -3646,7 +3647,7 @@ Definition startup_asm_code_def:
          CakeML code
        --------------- <- start PC
     *)
-    num_ffis (code_length:word32) bitmaps_length =
+    num_ffis (code_length:num) (bitmaps_length:num) =
     (*
       r2 <- heap_start_offset
       r4 <- code_start_offset num_ffis
@@ -3664,20 +3665,20 @@ Definition startup_asm_code_def:
       r1 <- code_start_offset num_ffis
       jump r1
     *)
-    [Inst (Const 2 (n2w heap_start_offset));
-     Inst (Const 4 (n2w (code_start_offset num_ffis)));
-     Inst (Const 1 code_length);
+    [Inst (Const 2 (&heap_start_offset));
+     Inst (Const 4 (&(code_start_offset num_ffis)));
+     Inst (Const 1 (&code_length));
      Inst (Arith (Binop Add 4 4 (Reg 1)));
-     Inst (Mem Store 4 (Addr 2 (0w * bytes_in_word)));
-     Inst (Mem Store 4 (Addr 2 (3w * bytes_in_word)));
-     Inst (Mem Store 4 (Addr 2 (4w * bytes_in_word)));
-     Inst (Const 1 bitmaps_length);
+     Inst (Mem Store 4 (Addr 2 0));
+     Inst (Mem Store 4 (Addr 2 12));
+     Inst (Mem Store 4 (Addr 2 16));
+     Inst (Const 1 (&bitmaps_length));
      Inst (Arith (Binop Add 4 1 (Reg 4)));
-     Inst (Mem Store 4 (Addr 2 (1w * bytes_in_word)));
-     Inst (Mem Store 4 (Addr 2 (2w * bytes_in_word)));
-     Inst (Const 1 (n2w heap_size));
+     Inst (Mem Store 4 (Addr 2 4));
+     Inst (Mem Store 4 (Addr 2 8));
+     Inst (Const 1 (&heap_size));
      Inst (Arith (Binop Add 4 2 (Reg 1)));
-     Inst (Const 1 (n2w (code_start_offset num_ffis)));
+     Inst (Const 1 (&(code_start_offset num_ffis)));
      JumpReg 1]
 End
 
@@ -3686,7 +3687,7 @@ Theorem LENGTH_startup_asm_code =
 
 Definition startup_code_def:
   startup_code ffi_len code_len data_len =
-    FLAT (MAP ag32_enc (startup_asm_code ffi_len (n2w code_len) (n2w (4* data_len))))
+    FLAT (MAP ag32_enc (startup_asm_code ffi_len code_len (4 * data_len)))
 End
 
 Definition init_memory_words_def:
@@ -3712,7 +3713,7 @@ Definition init_memory_words_def:
   (* FFIs *)
   ag32_ffi_jumps ffis ++
   words_of_bytes F code ++
-  data (* ++ padding of 0w out to memory_size: not included here *)
+  MAP n2w data (* ++ padding of 0w out to memory_size: not included here *)
 End
 
 Definition init_memory_def:

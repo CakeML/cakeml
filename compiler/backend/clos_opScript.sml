@@ -5,7 +5,7 @@
 *)
 Theory clos_op
 Ancestors
-  closLang backend_common[qualified] misc[qualified]
+  closLang
 Libs
   preamble
 
@@ -261,9 +261,9 @@ Definition cons_measure_def:
 Termination
   WF_REL_TAC ‘measure exp_size’
   \\ Cases \\ fs [dest_Op_def]
-  \\ Cases_on ‘o'’ \\ fs [dest_Cons_def,exp_size_def]
-  \\ Cases_on ‘b’ \\ fs [dest_Cons_def,exp_size_def]
-  \\ Induct_on ‘l’ \\ fs [exp_size_def]
+  \\ Cases_on ‘o'’ \\ fs [dest_Cons_def]
+  \\ Cases_on ‘b’ \\ fs [dest_Cons_def]
+  \\ Induct_on ‘l’ \\ fs []
   \\ rw [] \\ res_tac \\ fs []
 End
 
@@ -326,18 +326,6 @@ Definition eq_pure_def:
   eq_pure x y = ConjList (append (eq_pure_list [(x,y)]))
 End
 
-Theorem eq_pure_list_test[local]:
-   append
-       (eq_pure_list
-          [(Var None 5,
-            Op None (BlockOp (Cons 70)) [Op None (IntOp (Const 2)) []; Op None (BlockOp (Cons 4)) []])]) =
-     [Op None (BlockOp (TagLenEq 70 2)) [Var None 5];
-      Op None (BlockOp (TagLenEq 4 0)) [Op None (BlockOp (ElemAt 0)) [Var None 5]];
-      Op None (BlockOp (EqualConst (Int 2))) [Op None (BlockOp (ElemAt 1)) [Var None 5]]]
-Proof
-  EVAL_TAC
-QED
-
 Definition dont_lift_def:
   dont_lift x =
     case dest_Op_Const x of
@@ -366,8 +354,8 @@ Definition lift_exps_def:
             (let (xs,n1,binds) = lift_exps xs (n + 1) (binds ++ [x]) in
               (Var None n::xs,n1,binds))
 Termination
-  WF_REL_TAC ‘measure (λ(xs,n,binds). exp3_size xs)’ \\ rw []
-  \\ Cases_on ‘x’ \\ fs [dest_Op_def,dest_Cons_def,exp_size_def]
+  WF_REL_TAC ‘measure (λ(xs,n,binds). list_size exp_size xs)’ \\ rw []
+  \\ Cases_on ‘x’ \\ fs [dest_Op_def,dest_Cons_def]
   \\ rename [‘Op _ oo _’] \\ Cases_on ‘oo’ \\ gvs [dest_Cons_def]
   \\ Cases_on ‘b’ \\ gvs [dest_Cons_def]
 End

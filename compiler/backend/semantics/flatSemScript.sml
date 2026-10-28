@@ -4,6 +4,7 @@
 Theory flatSem
 Ancestors
   flatLang semanticPrimitivesProps fpSem[qualified] evaluate
+  backendProps[qualified]
 Libs
   preamble
 
@@ -47,7 +48,7 @@ End
 
 Datatype:
   install_config =
-   <| compile : 'c -> flatLang$exp list -> (word8 list # word64 list # 'c) option
+   <| compile : 'c -> flatLang$exp list -> (mlstring # word64 list # 'c) option
     ; compile_oracle : num -> 'c # flatLang$exp list
     |>
 End
@@ -59,7 +60,10 @@ Datatype:
     ffi     : 'ffi ffi_state;
     globals : (v option) list;
     (* eval or install mode *)
-    eval_config : 'c install_config
+    eval_config : 'c install_config;
+    (* oracle deciding whether a structurally-equal PtrEq answers T, indexed
+       first by install epoch and then by position within that epoch *)
+    ptr_eq_oracle : num -> num -> bool
   |>
 End
 
@@ -214,8 +218,11 @@ Definition vs_to_string_def:
   (vs_to_string _ = NONE)
 End
 
-Definition v_to_bytes_def:
-  v_to_bytes lv = some ns. v_to_list lv = SOME (MAP (Litv o Word8) ns)
+Definition v_to_mlstring_def:
+  v_to_mlstring lv =
+    case lv of
+    | Litv (StrLit s) => SOME s
+    | _ => NONE
 End
 
 Definition v_to_words_def:
@@ -278,17 +285,63 @@ Definition flat_to_v_def:
   flat_to_v _ = Vectorv []
 End
 
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk [Loc b n] st =
+    (case store_lookup n st of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) =>
+         if b then BadRef else IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) =>
+         if b then BadRef else IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk vs st = NotThunk
+End
+
+Definition update_thunk_def:
+  update_thunk [Loc F n] st [v] =
+    (case dest_thunk [v] st of
+     | NotThunk => store_assign n (Thunk Evaluated v) st
+     | _ => NONE) ∧
+  update_thunk _ st _ = NONE
+End
+
+Definition bad_thunk_update_def:
+  bad_thunk_update m v refs ⇔
+    m = Evaluated ∧ dest_thunk [v] refs ≠ NotThunk
+End
+
+Definition index_witness_length_def:
+  index_witness_length refs (Vectorv vs) = SOME (256 * LENGTH vs) /\
+  index_witness_length refs (Litv (StrLit str)) = SOME (32 * strlen str) /\
+  index_witness_length refs (Loc _ n) =
+    (case store_lookup n refs of
+       SOME (Varray vs) => SOME (256 * LENGTH vs)
+     | SOME (W8array ws) => SOME (32 * LENGTH ws)
+     | _ => NONE) /\
+  index_witness_length refs v = NONE
+End
+
 Definition do_app_def:
   do_app s op (vs:flatSem$v list) =
   case (op, vs) of
-  | (Src (Shift wz sh n), [Litv w]) =>
-      (case do_shift sh n wz w of
-         | NONE => NONE
-         | SOME w => SOME (s, Rval (Litv w)))
   | (Src Equality, [v1; v2]) =>
     (case do_eq v1 v2 of
      | Eq_type_error => NONE
      | Eq_val b => SOME (s, Rval (Boolv b)))
+  | (Src PtrEq, [v1; v2]) =>
+    (case do_eq v1 v2 of
+     | Eq_type_error => NONE
+     | Eq_val b =>
+         SOME (s with ptr_eq_oracle :=
+                 (0 =+ shift_seq 1 (s.ptr_eq_oracle 0)) s.ptr_eq_oracle,
+               Rval (Boolv (b ∧ s.ptr_eq_oracle 0 0))))
   | (Src (Test test test_ty), [v1; v2]) =>
     (case do_test test test_ty v1 v2 of
      | Eq_type_error => NONE
@@ -301,6 +354,39 @@ Definition do_app_def:
           | SOME (INL exn) => SOME (s, Rerr (Rraise div_exn_v))
           | NONE           => NONE)
        else NONE)
+  | (Src (UnsafeIndexArith a), vs) =>
+    (case vs of
+       Litv (IntLit i1) :: Litv (IntLit i2) :: witnesses =>
+         (case backendProps$unsafe_index_bound
+                 (index_witness_length s.refs) witnesses of
+            NONE => NONE
+          | SOME bound =>
+              if index_in_bounds bound i1 /\ index_in_bounds bound i2 then
+                (case do_arith a IntT
+                        [semanticPrimitives$Litv (IntLit i1);
+                         semanticPrimitives$Litv (IntLit i2)] of
+                   SOME (INR (semanticPrimitives$Litv (IntLit result))) =>
+                     if index_in_bounds bound result then
+                       SOME (s, Rval (Litv (IntLit result))) else NONE
+                 | SOME (INL exn) => SOME (s, Rerr (Rraise div_exn_v))
+                 | _ => NONE)
+              else NONE)
+     | _ => NONE)
+  | (Src (UnsafeIndexTest test), vs) =>
+    (case vs of
+       Litv (IntLit i1) :: Litv (IntLit i2) :: witnesses =>
+         (case backendProps$unsafe_index_bound
+                 (index_witness_length s.refs) witnesses of
+            NONE => NONE
+          | SOME bound =>
+              if index_in_bounds bound i1 /\ index_in_bounds bound i2 then
+                (case do_test test IntT
+                        (semanticPrimitives$Litv (IntLit i1))
+                        (semanticPrimitives$Litv (IntLit i2)) of
+                   Eq_val result => SOME (s, Rval (Boolv result))
+                 | Eq_type_error => NONE)
+              else NONE)
+     | _ => NONE)
   | (Src (FromTo ty1 ty2), [v]) =>
     (let v = flat_to_v v in
        if check_type ty1 v then
@@ -381,6 +467,45 @@ Definition do_app_def:
               | NONE => NONE
               | SOME s' => SOME (s with refs := s', Rval Unitv))
      | _ => NONE)
+  | (Src Aw8subBit, [Loc _ lnum; Litv (IntLit i)]) =>
+    (case store_lookup lnum s.refs of
+     | SOME (W8array ws) =>
+       if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+         SOME (s, Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8))))
+       else SOME (s, Rerr (Rraise subscript_exn_v))
+     | _ => NONE)
+  | (Src Aw8updateBit, [Loc _ lnum; Litv (IntLit i); v]) =>
+    (case store_lookup lnum s.refs of
+     | SOME (W8array ws) =>
+       if ¬(v = Boolv T ∨ v = Boolv F) then NONE else
+       if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+         (case store_assign lnum
+                 (W8array (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                    (EL (Num i DIV 8) ws))
+                                   (Num i DIV 8) ws)) s.refs of
+          | NONE => NONE
+          | SOME s' => SOME (s with refs := s', Rval Unitv))
+       else SOME (s, Rerr (Rraise subscript_exn_v))
+     | _ => NONE)
+  | (Src Aw8subBit_unsafe, [Loc _ lnum; Litv (IntLit i)]) =>
+    (case store_lookup lnum s.refs of
+     | SOME (W8array ws) =>
+       if 0 ≤ i ∧ i < 8 * &LENGTH ws then
+         SOME (s, Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8))))
+       else NONE
+     | _ => NONE)
+  | (Src Aw8updateBit_unsafe, [Loc _ lnum; Litv (IntLit i); v]) =>
+    (case store_lookup lnum s.refs of
+     | SOME (W8array ws) =>
+       if 0 ≤ i ∧ i < 8 * &LENGTH ws ∧ (v = Boolv T ∨ v = Boolv F) then
+         (case store_assign lnum
+                 (W8array (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                    (EL (Num i DIV 8) ws))
+                                   (Num i DIV 8) ws)) s.refs of
+          | NONE => NONE
+          | SOME s' => SOME (s with refs := s', Rval Unitv))
+       else NONE
+     | _ => NONE)
   | (Src CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
       SOME (s,
       (case copy_array (explode str,off) len NONE of
@@ -442,6 +567,11 @@ Definition do_app_def:
           SOME (s, Rerr (Rraise subscript_exn_v))
         else
           SOME (s, Rval (Litv (Char (strsub str n))))
+  | (Src Strsub_unsafe, [Litv (StrLit str); Litv (IntLit i)]) =>
+    if 0 ≤ i ∧ Num i < strlen str then
+      SOME (s, Rval (Litv (Char (strsub str (Num i)))))
+    else
+      NONE
   | (Src Strlen, [Litv (StrLit str)]) =>
     SOME (s, Rval (Litv(IntLit(int_of_num(strlen str)))))
   | (Src Strcat, [v]) =>
@@ -564,10 +694,12 @@ Definition do_app_def:
   | (Src (ThunkOp th_op), vs) =>
      (case (th_op,vs) of
       | (AllocThunk m, [v]) =>
-          (let (r,n) = store_alloc (Thunk m v) s.refs in
+          (if bad_thunk_update m v s.refs then NONE else
+           let (r,n) = store_alloc (Thunk m v) s.refs in
              SOME (s with refs := r, Rval (Loc F n)))
-      | (UpdateThunk m, [Loc _ lnum; v]) =>
-          (case store_assign lnum (Thunk m v) s.refs of
+      | (UpdateThunk m, [Loc F lnum; v]) =>
+          (if bad_thunk_update m v s.refs then NONE else
+           case store_assign lnum (Thunk m v) s.refs of
            | SOME r => SOME (s with refs := r, Rval (Conv NONE []))
            | NONE => NONE)
       | _ => NONE)
@@ -704,7 +836,7 @@ Definition do_eval_def:
   do_eval (vs :v list) eval_config =
   (case vs of
     | [v1; v2] =>
-      (case (v_to_bytes v1, v_to_words v2) of
+      (case (v_to_mlstring v1, v_to_words v2) of
        | (SOME bytes, SOME data) =>
          let (st,decs) = eval_config.compile_oracle 0 in
          let new_oracle = shift_seq 1 eval_config.compile_oracle in
@@ -717,31 +849,6 @@ Definition do_eval_def:
           | _ => NONE)
        | _ => NONE)
     | _ => NONE)
-End
-
-Datatype:
-  dest_thunk_ret
-    = BadRef
-    | NotThunk
-    | IsThunk thunk_mode v
-End
-
-Definition dest_thunk_def:
-  dest_thunk [Loc _ n] st =
-    (case store_lookup n st of
-     | NONE => BadRef
-     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
-     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
-     | SOME _ => NotThunk) ∧
-  dest_thunk vs st = NotThunk
-End
-
-Definition update_thunk_def:
-  update_thunk [Loc _ n] st [v] =
-    (case dest_thunk [v] st of
-     | NotThunk => store_assign n (Thunk Evaluated v) st
-     | _ => NONE) ∧
-  update_thunk _ st _ = NONE
 End
 
 Definition AppUnit_def:
@@ -774,6 +881,7 @@ Definition exp_alt_size_def[simp]:
    (option_size mlstring_size a1 + (exp_alt_size a2 + exp_alt_size a3))) ∧
   exp_alt_size (Letrec a0 a1 a2) =
   1 + (mlstring_size a0 + (exp1_alt_size a1 + exp_alt_size a2)) ∧
+  exp_alt_size (Tick a0 a1) = 1 + (tra_size a0 + exp_alt_size a1) ∧
   exp1_alt_size [] = 0 ∧
   exp1_alt_size (a0::a1) = 1 + (exp2_alt_size a0 + exp1_alt_size a1) ∧
   exp2_alt_size (a0,a1) = 1 + (mlstring_size a0 + exp4_alt_size a1) ∧
@@ -856,7 +964,8 @@ Definition evaluate_def:
        else if op = Src Eval then
          (case do_eval (REVERSE vs) s.eval_config of
             | SOME (decs, eval_config, retv) =>
-              let s = s with <| eval_config := eval_config |> in
+              let s = s with <| eval_config := eval_config
+                              ; ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle |> in
               if s.clock = 0 then
                 (s, Rerr (Rabort Rtimeout_error))
               else (case evaluate_decs (dec_clock s) decs of
@@ -907,6 +1016,12 @@ Definition evaluate_def:
    if ALL_DISTINCT (MAP FST funs)
    then evaluate (env with v := build_rec_env funs env env.v) s [e]
    else (s, Rerr(Rabort Rtype_error))) ∧
+  (evaluate env s [Tick _ e] =
+   case evaluate env s [e] of
+   | (s, Rval vs) =>
+       if s.clock = 0 then (s, Rerr (Rabort Rtimeout_error))
+       else (dec_clock s, Rval vs)
+   | res => res) ∧
   (evaluate_dec s e =
    case evaluate <| v := [] |> s [e] of
    | (s, Rval x) =>
@@ -981,24 +1096,25 @@ Theorem evaluate_ind[allow_rebind] =
   REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
 
 Definition initial_state_def:
-  initial_state ffi k ec =
+  initial_state ffi k ec pe =
     <| clock       := k
      ; refs        := []
      ; ffi         := ffi
      ; globals     := []
      ; eval_config := ec
+     ; ptr_eq_oracle := pe
      |> :('c,'ffi) flatSem$state
 End
 
 Definition semantics_def:
-  semantics (ec:'c install_config) (ffi:'ffi ffi_state) prog =
-    if ∃k. SND (evaluate_decs (initial_state ffi k ec) prog)
+  semantics (ec:'c install_config) (ffi:'ffi ffi_state) pe prog =
+    if ∃k. SND (evaluate_decs (initial_state ffi k ec pe) prog)
            = SOME (Rabort Rtype_error)
       then Fail
     else
     case some res.
       ∃k s r outcome.
-        evaluate_decs (initial_state ffi k ec) prog = (s,r) ∧
+        evaluate_decs (initial_state ffi k ec pe) prog = (s,r) ∧
         (case r of
          | SOME (Rabort (Rffi_error e)) => outcome = FFI_outcome e
          | SOME (Rabort _) => F
@@ -1009,7 +1125,7 @@ Definition semantics_def:
        Diverge
          (lprefix_lub$build_lprefix_lub
            (IMAGE (λk. fromList
-             (FST (evaluate_decs (initial_state ffi k ec) prog)).ffi.io_events)
+             (FST (evaluate_decs (initial_state ffi k ec pe) prog)).ffi.io_events)
                UNIV))
 End
 

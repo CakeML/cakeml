@@ -28,7 +28,6 @@ val terms_alist = [
 (* Types used by the ml_monadBaseLib *)
 val types_alist = [
       ("exc", exc_ty),
-      ("pair", pairSyntax.mk_prod(alpha,beta)),
       ("num", numSyntax.num),
       ("M", M_ty)
     ]
@@ -40,7 +39,6 @@ fun get_type s = assoc s types_alist
 end (* local *)
 
 val exc_ty = get_type "exc"
-val pair_ty = get_type "pair"
 val a_ty = alpha
 val b_ty = beta
 val c_ty = gamma
@@ -67,6 +65,21 @@ val run_const = get_term "run"
 ******************************************************************************)
 
 fun mk_exc_type a b = Type.type_subst [a_ty |-> a, b_ty |-> b] exc_ty
+
+(*
+ * Bool arrays: state fields of type bool list that have been registered with
+ * add_bool_array are stored as CakeML byte arrays, with 8 elements per byte.
+ * The size of such an array is always given as a number of bytes, and the
+ * array is always initialised with F. Unregistered bool lists are ordinary
+ * arrays.
+ *)
+val bool_array_names = ref ([] : string list)
+
+fun add_bool_array name =
+  if mem name (!bool_array_names) then ()
+  else bool_array_names := name :: !bool_array_names
+
+fun is_bool_array name = mem name (!bool_array_names)
 
 (* TODO tidy *)
 fun mk_Mtype a b c =
@@ -252,38 +265,31 @@ fun define_monad_exception_functions exn_type state_type =
 
     val x_var = mk_var("x", monad_type)
 
-    (* case x st of (res, st) => ... *)
     val x_st_tm = mk_comb(x_var, state_var)
-    val case_x_st_tm = case_const_of pair_ty |>
-        Term.inst [alpha |-> exc_type, beta |-> state_type, gamma |-> pair_exc_type]
-    val case_x_st_tm = mk_comb(case_x_st_tm, x_st_tm)
     val res_var = mk_var("res", exc_type)
-
-    (*
-       case res of
-         M_success y => (M_success y, st)
-       | Failure e => ... *)
-    val case_res_tm = case_const_of exc_type |>
-        Term.inst [beta |-> exn_type, gamma |-> pair_exc_type]
     val y_var = mk_var ("y", a_ty)
     val success_tm = mk_abs(y_var, mk_pair((mk_Success y_var exn_type), state_var))
-    val case_res_tm = mk_comb(case_res_tm, res_var)
-    val case_res_tm = mk_comb(case_res_tm, success_tm)
-
     val e_var = mk_var("e", exn_type)
 
-    (* case e of *)
-    val exn_case_tm = case_const_of exn_type
-                   |> Term.inst [alpha |-> pair_exc_type]
-    val exn_case_tm = mk_comb(exn_case_tm, e_var)
-
-    (* For every constructor, make the approriate case function *)
+    (* For every constructor, make the appropriate case function. A case
+       constant's result type variable has no fixed name; list_mk_icomb
+       instantiates it from the arguments. *)
     fun mk_handle_fun (ctor, funs_list) =
       let
-        val case_tm = list_mk_comb (exn_case_tm, funs_list)
-        val case_tm = mk_comb(case_res_tm, mk_abs(e_var, case_tm))
+        (* case e of ... *)
+        val case_tm =
+          HolKernel.list_mk_icomb (case_const_of exn_type) (e_var :: funs_list)
+        (*
+           case res of
+             M_success y => (M_success y, st)
+           | Failure e => ... *)
+        val case_tm =
+          HolKernel.list_mk_icomb (case_const_of exc_type)
+            [res_var, success_tm, mk_abs(e_var, case_tm)]
         val case_tm = list_mk_abs([res_var,state_var], case_tm)
-        val case_tm = mk_comb(case_x_st_tm, case_tm)
+        (* case x st of (res, st) => ... *)
+        val case_tm =
+          HolKernel.list_mk_icomb (case_const_of pair_exc_type) [x_st_tm, case_tm]
         val case_tm = mk_abs(state_var, case_tm)
 
         val Mtype = mk_Mtype state_type a_ty exn_type
@@ -444,8 +450,18 @@ fun define_MRarray_manip_funs_aux sub_exn update_exn (name, get_fun_def, set_fun
 
     (* alloc *)
     val alloc_f = my_list_mk_comb(Marray_alloc_const, [set_fun])
-    val alloc_v = mk_var("alloc_" ^name, type_of alloc_f)
-    val alloc_def = Define `^alloc_v = ^alloc_f`
+    val alloc_def =
+      if is_bool_array name then let
+        (* bool arrays are byte arrays underneath: alloc_X n creates an
+           array of 8 * n elements, all F *)
+        val n = mk_var("n", num_ty)
+        val alloc_body = list_mk_comb(alloc_f,
+                           [numSyntax.mk_mult(numSyntax.term_of_int 8, n), boolSyntax.F])
+        val alloc_v = mk_var("alloc_" ^name, num_ty --> type_of alloc_body)
+      in Define `^alloc_v ^n = ^alloc_body` end
+      else let
+        val alloc_v = mk_var("alloc_" ^name, type_of alloc_f)
+      in Define `^alloc_v = ^alloc_f` end
 
     (* TODO: resize *)
   in
@@ -481,7 +497,10 @@ fun define_run state array_fields new_state_name =
           val (type_cons, elem_type) = dest_type field_type
           val _ = if type_cons <> "list" then failwith ("define_local_init_state : trying to define an array from a field which is not a list : " ^field_name) else ()
           val elem_type = hd elem_type
-          val ty = mk_type ("prod", [num_ty, elem_type])
+          (* bool arrays are initialised to all F: only the size, in
+             bytes, is given *)
+          val ty = if is_bool_array field_name then num_ty
+                   else mk_type ("prod", [num_ty, elem_type])
         in
           (field_name, dAQ ty)
         end
@@ -506,11 +525,16 @@ fun define_run state array_fields new_state_name =
     fun mk_new_field (field_name, {ty = field_type, accessor, ...}) =
       if mem field_name array_fields then
         let
-          val elem_type = dest_type field_type |> snd |> List.last
           val field_tm = mk_ucomb(accessor, new_state_var)
-          val length_tm = mk_ucomb(FST_const, field_tm)
-          val elem_tm = mk_ucomb(SND_const, field_tm)
-          val tm = list_mk_ucomb (REPLICATE_const, [length_tm, elem_tm])
+          val tm =
+            if is_bool_array field_name then
+              list_mk_ucomb (REPLICATE_const,
+                [numSyntax.mk_mult(numSyntax.term_of_int 8, field_tm),
+                 boolSyntax.F])
+            else let
+              val length_tm = mk_ucomb(FST_const, field_tm)
+              val elem_tm = mk_ucomb(SND_const, field_tm)
+            in list_mk_ucomb (REPLICATE_const, [length_tm, elem_tm]) end
         in
           tm
         end

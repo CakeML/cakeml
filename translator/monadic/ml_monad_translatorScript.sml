@@ -11,34 +11,31 @@ Libs
   ml_translatorLib ml_progLib Satisfy AC_Sort cfTacticsLib
   packLib preamble
 
-Overload monad_bind[local] = ``st_ex_bind``;
-Overload monad_unitbind[local] = ``st_ex_ignore_bind``;
-Overload monad_ignore_bind[local] = ``st_ex_ignore_bind``;
-Overload ex_bind[local] = ``st_ex_bind``;
-Overload ex_return[local] = ``st_ex_return``;
 Overload CONTAINER[local] = ``ml_translator$CONTAINER``;
 
 val _ = hide "state";
-
-fun imp1_fvs th =
-    let
-      val (bvs, c) = th |> concl |> strip_forall
-      val fvs = c |> strip_imp |> #1 |> hd |> strip_conj |> hd |> free_vars
-    in
-      op_set_diff aconv fvs bvs
-    end
-
-fun old_drule th =
-    let val fvs = imp1_fvs th
-    in
-      FREEZE_THEN drule (GENL fvs th)
-    end
 
 (* TODO: move *)
 Theorem s_with_same_clock[simp]:
    !s. (s with clock := s.clock) = s
 Proof
   fs [state_component_equality]
+QED
+
+Theorem s_with_same_clock_refs_oracle[simp]:
+  s with <|clock := s.clock; refs := refs; ptr_eq_oracle := po|> =
+  (s with refs := refs) with ptr_eq_oracle := po
+Proof
+  simp [state_component_equality]
+QED
+
+Theorem s_with_same_ffi_refs_oracle[simp]:
+  (s with <|refs := refs; ffi := s.ffi; ptr_eq_oracle := po|> =
+   s with <|refs := refs; ptr_eq_oracle := po|>) /\
+  (s with <|clock := ck; refs := refs; ffi := s.ffi; ptr_eq_oracle := po|> =
+   s with <|clock := ck; refs := refs; ptr_eq_oracle := po|>)
+Proof
+  simp [state_component_equality]
 QED
 (* -- *)
 
@@ -177,18 +174,17 @@ val H = mk_var("H",``:('a -> hprop) # 'ffi ffi_proj``);
 (* return *)
 Theorem EvalM_return:
    !H b. Eval env exp (a x) ==>
-         EvalM ro env st exp (MONAD a b (ex_return x)) ^H
+         EvalM ro env st exp (MONAD a b (st_ex_return x)) ^H
 Proof
   rw[Eval_def,EvalM_def,st_ex_return_def,MONAD_def]
   \\ first_x_assum(qspec_then`s.refs`strip_assume_tac)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
   \\ imp_res_tac (evaluate_empty_state_IMP)
   \\ fs [eval_rel_def,PULL_EXISTS]
   \\ drule evaluate_set_clock \\ simp []
   \\ disch_then (qspec_then `s.clock` mp_tac)
   \\ strip_tac \\ fs []
   \\ asm_exists_tac \\ simp []
-  \\ `(s with <|clock := s.clock; refs := s.refs ⧺ refs'|>) =
-      (s with <|refs := s.refs ⧺ refs'|>)` by fs [state_component_equality]
   \\ fs [REFS_PRED_FRAME_append]
 QED
 
@@ -200,7 +196,7 @@ Theorem EvalM_bind:
       EvalM ro (write name v env) (SND (x st)) e2
         (MONAD a c ((f z):('refs, 'a, 'c) M)) H) ==>
    (a1 /\ !z. (CONTAINER(FST(x st) = M_success z) ==> a2 z)) ==>
-   EvalM ro env st (Let (SOME name) e1 e2) (MONAD a c (ex_bind x f)) H
+   EvalM ro env st (Let (SOME name) e1 e2) (MONAD a c (st_ex_bind x f)) H
 Proof
   rw[EvalM_def,MONAD_def,st_ex_return_def,PULL_EXISTS, CONTAINER_def] \\ fs[]
   \\ last_x_assum drule \\ rw[]
@@ -278,7 +274,7 @@ Theorem EvalM_pure_seq:
   EvalM ro env st (Let NONE e1 e2) (MONAD a b (pure_seq y x)) ^H
 Proof
   rw []
-  \\ ‘pure_seq y x = monad_ignore_bind (ex_return y) x’ by
+  \\ ‘pure_seq y x = st_ex_ignore_bind (st_ex_return y) x’ by
     fs [pure_seq_def,st_ex_ignore_bind_def,st_ex_return_def, FUN_EQ_THM]
   \\ fs [] \\ irule EvalM_bind_ignore \\ fs []
   \\ conj_tac
@@ -311,11 +307,13 @@ Theorem Eval_IMP_PURE:
 Proof
   rw[Eval_def,EvalM_def,PURE_def,PULL_EXISTS]
   \\ first_x_assum(qspec_then`s.refs`strip_assume_tac)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
   \\ imp_res_tac evaluate_empty_state_IMP
   \\ fs[eval_rel_def]
   \\ drule evaluate_set_clock \\ fs []
   \\ disch_then (qspec_then `s.clock` mp_tac)
   \\ strip_tac \\ fs [] \\ asm_exists_tac
+  \\ simp []
   \\ fs [REFS_PRED_FRAME_append]
 QED
 
@@ -349,7 +347,7 @@ End
 val EvalM_Arrow_tac =
   rw[EvalM_def,ArrowM_def,ArrowP_def,PURE_def,PULL_EXISTS,evaluate_def,
      pair_case_eq,result_case_eq,PULL_EXISTS,EqSt_def,Eq_def,
-     astTheory.getOpClass_def]
+     semanticPrimitivesTheory.getOpClass_def]
   \\ first_x_assum drule \\ strip_tac
   \\ drule REFS_PRED_FRAME_imp
   \\ disch_then drule \\ strip_tac
@@ -523,7 +521,7 @@ Proof
   \\ first_x_assum drule \\ strip_tac
   \\ fs [do_opapp_def,GSYM PULL_FORALL]
   \\ strip_tac
-  \\ old_drule REFS_PRED_append \\ rw[]
+  \\ drule_then (qspec_then `junk` assume_tac) REFS_PRED_append
   \\ first_x_assum drule \\ strip_tac
   \\ asm_exists_tac \\ fs []
   \\ asm_exists_tac \\ fs []
@@ -558,7 +556,7 @@ Proof
   \\ first_x_assum drule \\ strip_tac
   \\ fs [do_opapp_def,GSYM PULL_FORALL]
   \\ strip_tac
-  \\ old_drule REFS_PRED_append \\ rw[]
+  \\ drule_then (qspec_then `junk` assume_tac) REFS_PRED_append
   \\ first_x_assum drule \\ strip_tac
   \\ asm_exists_tac \\ fs []
   \\ asm_exists_tac \\ fs []
@@ -592,7 +590,7 @@ Proof
   \\ first_x_assum drule \\ strip_tac
   \\ fs [do_opapp_def,GSYM PULL_FORALL]
   \\ strip_tac
-  \\ old_drule REFS_PRED_append \\ rw[]
+  \\ drule_then (qspec_then `junk` assume_tac) REFS_PRED_append
   \\ first_x_assum drule \\ strip_tac
   \\ asm_exists_tac \\ fs []
   \\ asm_exists_tac \\ fs []
@@ -616,7 +614,7 @@ Proof
   \\ qexists_tac `s` \\ fs []
   \\ fs [REFS_PRED_FRAME_same]
   \\ rw [do_opapp_def,find_recfun_def]
-  \\ old_drule REFS_PRED_append \\ rw[]
+  \\ drule_then (qspec_then `junk` assume_tac) REFS_PRED_append
   \\ last_x_assum drule \\ rw[]
   \\ first_x_assum drule \\ rw[] \\ fs [write_def,write_rec_def,build_rec_env_def]
   \\ asm_exists_tac \\ fs []
@@ -708,7 +706,7 @@ Proof
   \\ first_x_assum drule \\ rw[]
   \\ first_assum(qspec_then`ARB`strip_assume_tac) \\ fs[]
   \\ first_assum drule \\ disch_then strip_assume_tac \\ rw[]
-  \\ old_drule REFS_PRED_append \\ rw[]
+  \\ drule_then (qspec_then `junk` assume_tac) REFS_PRED_append
   \\ first_x_assum drule \\ disch_then strip_assume_tac
   \\ fs[]
   \\ first_x_assum(qspecl_then[`[]`]strip_assume_tac)
@@ -869,7 +867,7 @@ Theorem EvalM_Let:
     EvalM ro env st (Let (SOME name) exp body) (b (LET f res)) ^H
 Proof
   rw[]
-  \\ old_drule Eval_IMP_PURE \\ rw[]
+  \\ `EvalM ro env st exp (PURE a res) H` by (irule Eval_IMP_PURE \\ simp[])
   \\ fs[EvalM_def]
   \\ rpt strip_tac
   \\ first_x_assum drule
@@ -925,6 +923,7 @@ Proof
     \\ fs[EvalPatRel_def] \\ rw [] \\ res_tac
     \\ rename [`pmatch env.c refs2`]
     \\ pop_assum (qspec_then `refs2` strip_assume_tac)
+    \\ pop_assum (qspec_then `ARB` strip_assume_tac)
     \\ fs [CaseEq"bool",evaluate_def,CaseEq"match_result"])
   \\ rpt (pop_assum mp_tac)
   \\ rw[EvalM_def]
@@ -1203,9 +1202,10 @@ Theorem LIST_CONJ_Eval[local]:
     !xs Ps s:'d state.
       LIST_CONJ (MAP (λ(exp,P). Eval env exp P) (ZIP (xs,Ps))) /\
       LENGTH xs = LENGTH Ps ==>
-      ?ck vs junk.
+      ?ck vs junk po.
          evaluate (s with clock := ck) env xs =
-           (s with refs := s.refs ++ junk,Rval vs) /\ LIST_REL (\f x. f x) Ps vs
+           (s with <|refs := s.refs ++ junk; ptr_eq_oracle := po|>,Rval vs) /\
+         LIST_REL (\f x. f x) Ps vs
 Proof
   Induct \\ Cases_on `Ps` \\ fs [LIST_CONJ_def]
   THEN1 fs [state_component_equality]
@@ -1213,9 +1213,11 @@ Proof
   \\ first_x_assum drule \\ fs []
   \\ fs [Eval_def]
   \\ first_x_assum (qspec_then `s.refs` strip_assume_tac)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
   \\ imp_res_tac (evaluate_empty_state_IMP)
   \\ fs [eval_rel_def]
-  \\ disch_then (qspec_then `s with <|clock := ck2'; refs := s.refs ⧺ refs'|>`
+  \\ disch_then (qspec_then
+       `s with <|clock := ck2'; refs := s.refs ⧺ refs'; ptr_eq_oracle := po'|>`
        mp_tac)
   \\ strip_tac \\ fs []
   \\ drule evaluate_set_clock \\ fs []
@@ -1295,7 +1297,7 @@ Proof
   \\ imp_res_tac REF_EXISTS_LOC
   \\ rw[do_app_def]
   \\ fs[MONAD_def]
-  \\ rw[store_lookup_def,EL_APPEND1,EL_APPEND2, astTheory.getOpClass_def]
+  \\ rw[store_lookup_def,EL_APPEND1,EL_APPEND2, semanticPrimitivesTheory.getOpClass_def]
   >-(
       qexists_tac `s`
       \\ imp_res_tac STATE_EXTRACT_FROM_HPROP_REF
@@ -1326,9 +1328,10 @@ Proof
   \\ `?loc'. loc = Loc T loc'` by
         (fs[REFS_PRED_def, SEP_EXISTS_THM, SEP_CLAUSES, GSYM STAR_ASSOC] >>
                                    imp_res_tac REF_EXISTS_LOC >> rw[])
-  \\ rw[evaluate_def,PULL_EXISTS, astTheory.getOpClass_def]
+  \\ rw[evaluate_def,PULL_EXISTS, semanticPrimitivesTheory.getOpClass_def]
   \\ fs [Eval_def]
   \\ last_x_assum (qspec_then `s.refs` strip_assume_tac)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
   \\ drule evaluate_empty_state_IMP
   \\ strip_tac
   \\ ho_match_mp_tac (METIS_PROVE []
@@ -1500,8 +1503,9 @@ Proof
   rw[]
   \\ fs[Eval_def]
   \\ rw[EvalM_def]
-  \\ fs [evaluate_def, astTheory.getOpClass_def]
+  \\ fs [evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
   \\ first_x_assum (fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
   \\ fs [eval_rel_def]
   \\ ho_match_mp_tac (METIS_PROVE []
@@ -1514,7 +1518,9 @@ Proof
   \\ first_x_assum(qspec_then `StoreRef (LENGTH st)` ASSUME_TAC)
   \\ fs[with_same_ffi]
   \\ fs[EvalM_def]
-  \\ first_x_assum(qspecl_then [`s with refs := s.refs ++ refs' ++ [Refv res]`] ASSUME_TAC)
+  \\ first_x_assum (qspecl_then
+       [`s with <|refs := s.refs ++ refs' ++ [Refv res]; ptr_eq_oracle := po'|>`]
+       ASSUME_TAC)
   \\ imp_res_tac valid_state_refs_extension
   \\ first_x_assum(qspec_then`refs'` ASSUME_TAC)
   \\ fs[]
@@ -1787,7 +1793,7 @@ Proof
   rw[]
   \\ fs[EvalM_def]
   \\ rw[evaluate_def]
-  \\ rw[do_app_def, astTheory.getOpClass_def]
+  \\ rw[do_app_def, semanticPrimitivesTheory.getOpClass_def]
   \\ fs[REFS_PRED_def]
   \\ imp_res_tac STATE_REFS_EXTRACT
   \\ fs[GSYM STAR_ASSOC]
@@ -1875,10 +1881,11 @@ Theorem EvalM_Mref_assign:
   EvalM ro env st (App Opassign [Var (Short rname); xexpr])
   (MONAD UNIT_TYPE (\x v. F) (Mref_assign e (StoreRef r) x)) (STATE_REFS TYPE (ptrs1 ++ [rv] ++ ptrs2),p:'ffi ffi_proj)
 Proof
-  rw[]
-  \\ fs[EvalM_def,evaluate_def, astTheory.getOpClass_def]
+  rpt strip_tac
+  \\ fs[EvalM_def,evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ fs[Eval_def] \\ rw []
   \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
   \\ first_x_assum (fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
   \\ rw [] \\ fs [eval_rel_def]
   \\ drule evaluate_set_clock
@@ -1974,12 +1981,12 @@ Proof
   \\ fs[GSYM STAR_ASSOC]
   \\ imp_res_tac REF_EXISTS_LOC
   \\ rw[]
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ imp_res_tac do_app_Opderef_REF
   \\ first_x_assum(qspecl_then [`[]`] ASSUME_TAC) \\ fs[with_same_refs]
   \\ ho_match_mp_tac (METIS_PROVE []
        ``(?x4 x1 x2 x3. P x1 x2 x3 x4) ==> (?x1 x2 x3 x4. P x1 x2 x3 x4)``)
-  \\ once_rewrite_tac [evaluate_def, astTheory.getOpClass_def] \\ fs []
+  \\ once_rewrite_tac [evaluate_def, semanticPrimitivesTheory.getOpClass_def] \\ fs []
   \\ qexists_tac `s.clock` \\ fs [with_same_refs]
   \\ rw[Marray_length_def]
   \\ fs[MONAD_def]
@@ -2014,12 +2021,12 @@ QED
 
 val evaluate_empty_state_IMP_2 =
   evaluate_empty_state_IMP
-  |> Q.GEN`s` |> Q.SPEC`s with refs := s.refs ++ more`
+  |> Q.GEN`s` |> Q.SPEC`s with <|refs := s.refs ++ more; ptr_eq_oracle := more_po|>`
   |> SIMP_RULE(srw_ss())[];
 
 val evaluate_empty_state_IMP_3 =
   evaluate_empty_state_IMP
-  |> Q.GEN`s` |> Q.SPEC`s with refs := s.refs ++ more ++ more2`
+  |> Q.GEN`s` |> Q.SPEC`s with <|refs := s.refs ++ more ++ more2; ptr_eq_oracle := more_po|>`
   |> SIMP_RULE(srw_ss())[];
 
 Theorem EvalM_R_Marray_sub_subscript:
@@ -2033,12 +2040,13 @@ Theorem EvalM_R_Marray_sub_subscript:
      ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
 Proof
   rw[EvalM_def]
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ fs[Eval_def, NUM_def, INT_def]
   \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES, GSYM STAR_ASSOC]
   \\ imp_res_tac REF_EXISTS_LOC
   \\ first_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
   \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
   \\ drule evaluate_set_clock
@@ -2086,15 +2094,17 @@ Theorem EvalM_R_Marray_sub_handle:
      ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
 Proof
   rw[EvalM_def]
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ fs[Eval_def, NUM_def, INT_def]
   \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES, GSYM STAR_ASSOC]
   \\ imp_res_tac REF_EXISTS_LOC
   \\ last_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
   \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
   \\ first_assum(qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
   \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
   \\ drule evaluate_set_clock
@@ -2153,15 +2163,17 @@ Theorem EvalM_R_Marray_update_subscript:
 Proof
   rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES, GSYM STAR_ASSOC]
   \\ imp_res_tac REF_EXISTS_LOC
   \\ rw[]
   \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
   \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
   \\ last_x_assum(qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
   \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
   \\ drule evaluate_set_clock
@@ -2181,7 +2193,7 @@ Proof
   \\ fs[]
   \\ fs[Once STAR_COMM]
   \\ fs[GSYM STAR_ASSOC]
-  \\ fs[Once (GSYM with_same_refs)]
+  \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
   \\ imp_res_tac STATE_APPEND_JUNK
   \\ pop_assum(qspec_then`refs'++refs''` ASSUME_TAC o (PURE_REWRITE_RULE[GSYM STAR_ASSOC]))
   \\ Cases_on `n < LENGTH av`
@@ -2205,7 +2217,7 @@ Proof
       >> fs[MONAD_def, Marray_update_def, Mupdate_eq]
       >> fs[REFS_PRED_FRAME_def]
       >> rw[state_component_equality]
-      >> fs[Once (GSYM with_same_refs)]
+      >> full_simp_tac std_ss [Once (GSYM with_same_refs)]
       >> pop_assum(fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
       >> pop_assum(qspec_then`refs'++refs''` ASSUME_TAC)
       >> fs[GSYM STAR_ASSOC]
@@ -2262,18 +2274,21 @@ Theorem EvalM_R_Marray_update_handle:
 Proof
   rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES, GSYM STAR_ASSOC]
   \\ imp_res_tac REF_EXISTS_LOC
   \\ rw[]
   \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
   \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
   \\ last_x_assum(qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
   \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
   \\ first_x_assum(qspec_then `s.refs ++ refs' ++ refs''` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po''` strip_assume_tac)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_3 x |> STRIP_ASSUME_TAC)
   \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
   \\ drule evaluate_set_clock
@@ -2297,7 +2312,7 @@ Proof
   \\ pop_assum(qspec_then`refs'++refs''`assume_tac) \\ fs[]
   \\ fs[Once STAR_COMM]
   \\ fs[GSYM STAR_ASSOC]
-  \\ fs[Once (GSYM with_same_refs)]
+  \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
   \\ imp_res_tac STATE_APPEND_JUNK
   \\ pop_assum(qspec_then`refs'++refs''` ASSUME_TAC o (PURE_REWRITE_RULE[GSYM STAR_ASSOC]))
   \\ Cases_on `n < LENGTH av`
@@ -2322,7 +2337,7 @@ Proof
       >> fs[MONAD_def, Marray_update_def, Mupdate_eq]
       >> fs[REFS_PRED_FRAME_def]
       >> rw[state_component_equality]
-      >> fs[Once (GSYM with_same_refs)]
+      >> full_simp_tac std_ss [Once (GSYM with_same_refs)]
       >> pop_assum(fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
       >> pop_assum(qspec_then`refs'++refs''` ASSUME_TAC)
       >> fs[GSYM STAR_ASSOC]
@@ -2401,11 +2416,13 @@ Theorem EvalM_R_Marray_alloc:
 Proof
   rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
   \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
   \\ last_x_assum(qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
   \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
   \\ drule evaluate_set_clock
@@ -2482,7 +2499,7 @@ Theorem EvalM_F_Marray_length:
     ((λrefs. ARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
 Proof
   rw[EvalM_def]
-  \\ fs [evaluate_def, astTheory.getOpClass_def]
+  \\ fs [evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ fs[REFS_PRED_def, ARRAY_REL_def]
   \\ fs[SEP_CLAUSES, SEP_EXISTS_THM]
   \\ EXTRACT_PURE_FACTS_TAC
@@ -2517,6 +2534,7 @@ Proof
   \\ rw[]
   \\ imp_res_tac LIST_REL_LENGTH
   \\ last_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
   \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
   \\ drule evaluate_set_clock
@@ -2525,7 +2543,7 @@ Proof
   \\ disch_then(qx_choose_then`k1`strip_assume_tac)
   \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
   \\ qexists_tac`k1` \\ fs[]
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ first_x_assum (fn x => MATCH_MP do_app_Asub_ARRAY x |> ASSUME_TAC)
   \\ first_x_assum (qspec_then `refs'` assume_tac) \\ fs[]
   \\ Cases_on `n < LENGTH av`
@@ -2558,11 +2576,13 @@ Proof
   \\ first_assum (fn x => MATCH_MP ARRAY_EXISTS_LOC x |> ASSUME_TAC)
   \\ rw[]
   \\ imp_res_tac LIST_REL_LENGTH
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ last_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
   \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
   \\ first_x_assum (qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
   \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
   \\ drule evaluate_set_clock
@@ -2576,7 +2596,7 @@ Proof
   \\ disch_then(qx_choose_then`k1`strip_assume_tac)
   \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
   \\ qexists_tac`k1` \\ fs[]
-  \\ fs[Once (GSYM with_same_refs)]
+  \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
   \\ first_x_assum (fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
   \\ first_x_assum(qspec_then `refs'` ASSUME_TAC)
   \\ fs[GSYM STAR_ASSOC, GC_STAR_GC]
@@ -2614,7 +2634,7 @@ Theorem EvalM_F_Marray_update_subscript:
 Proof
   rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ pop_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, ARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES]
   \\ EXTRACT_PURE_FACTS_TAC
@@ -2622,8 +2642,10 @@ Proof
   \\ first_assum(fn x => MATCH_MP ARRAY_EXISTS_LOC x |> STRIP_ASSUME_TAC)
   \\ rw[]
   \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
   \\ last_x_assum(qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
   \\ fs[eval_rel_def]
   \\ drule evaluate_set_clock
@@ -2654,8 +2676,8 @@ Proof
       \\ fs[store_assign_def, store_v_same_type_def]
       \\ first_assum(fn x => MATCH_MP store2heap_IN_EL x |> ASSUME_TAC)
       \\ fs[]
-      \\ qexists_tac `s with refs := LUPDATE (Varray (LUPDATE res n av)) l
-         (s.refs ++ refs' ++ refs'')`
+      \\ qexists_tac `s with <|refs := LUPDATE (Varray (LUPDATE res n av)) l
+         (s.refs ++ refs' ++ refs''); ptr_eq_oracle := po''|>`
       \\ fs[state_component_equality]
       \\ qexists_tac `Rval [Conv NONE []]`
       \\ drule EL_APPEND1 \\ disch_then (qspec_then `refs' ++ refs''` assume_tac)
@@ -2665,7 +2687,7 @@ Proof
       \\ fs[MONAD_def, Marray_update_def, Mupdate_eq]
       \\ fs[REFS_PRED_FRAME_def]
       \\ rw[state_component_equality]
-      \\ fs[Once (GSYM with_same_refs)]
+      \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
       \\ pop_assum(fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
       \\ pop_assum(qspec_then`refs'++refs''` ASSUME_TAC)
       \\ fs[ARRAY_REL_def, SEP_CLAUSES, SEP_EXISTS_THM]
@@ -2698,7 +2720,7 @@ Theorem EvalM_F_Marray_update_handle:
 Proof
   rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ pop_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, ARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES]
   \\ EXTRACT_PURE_FACTS_TAC
@@ -2706,12 +2728,15 @@ Proof
   \\ first_assum(fn x => MATCH_MP ARRAY_EXISTS_LOC x |> STRIP_ASSUME_TAC)
   \\ rw[]
   \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
   \\ last_x_assum(qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
   \\ fs[]
   \\ last_x_assum(qspec_then `s.refs ++ (refs' ++ refs'')` STRIP_ASSUME_TAC)
   \\ fs[]
+  \\ first_x_assum (qspec_then `po''` strip_assume_tac)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_3 x |> STRIP_ASSUME_TAC)
   \\ fs[eval_rel_def]
   \\ drule evaluate_set_clock
@@ -2738,7 +2763,7 @@ Proof
   \\ first_assum(fn x => MATCH_MP (GEN_ALL store_lookup_CELL_st2heap) x |> ASSUME_TAC)
   \\ pop_assum(qspec_then`refs'++refs''` ASSUME_TAC o (PURE_REWRITE_RULE[GSYM STAR_ASSOC, GC_STAR_GC]))
   \\ fs[]
-  \\ fs[Once (GSYM with_same_refs)]
+  \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
   \\ first_x_assum(fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
   \\ pop_assum(qspec_then`refs'++refs''` ASSUME_TAC o (PURE_REWRITE_RULE[GSYM STAR_ASSOC, GC_STAR_GC]))
   \\ Cases_on `n < LENGTH av`
@@ -2753,7 +2778,7 @@ Proof
       \\ fs[MONAD_def, Marray_update_def, Mupdate_eq]
       \\ fs[REFS_PRED_FRAME_def]
       \\ rw[state_component_equality]
-      \\ fs[Once (GSYM with_same_refs)]
+      \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
       \\ pop_assum(fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
       \\ pop_assum(qspec_then`refs'++refs''` ASSUME_TAC)
       \\ fs[ARRAY_REL_def, SEP_CLAUSES, SEP_EXISTS_THM]
@@ -2771,6 +2796,1286 @@ Proof
   \\ fs[pmatch_def,can_pmatch_all_def]
   \\ fs[MONAD_def, Marray_update_def, Mupdate_exn_eq]
   \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append] \\ rfs []
+QED
+
+(* Fixed-size byte arrays *)
+Theorem W8ARRAY_EXISTS_LOC[local]:
+  (W8ARRAY rv v * H) s ==> ?l. rv = Loc T l
+Proof
+  rw[STAR_def, SEP_EXISTS_THM, SEP_CLAUSES, W8ARRAY_def, cond_def]
+QED
+
+Theorem do_app_Aw8length_W8ARRAY[local]:
+  (W8ARRAY rv v * H) (st2heap (p:'ffi ffi_proj) s) ==>
+  do_app (s.refs, s.ffi) Aw8length [rv] =
+  SOME ((s.refs, s.ffi), Rval (Litv(IntLit(int_of_num(LENGTH v)))))
+Proof
+  rw[do_app_def]
+  \\ fs[W8ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM]
+  \\ fs[GSYM STAR_ASSOC, HCOND_EXTRACT]
+  \\ imp_res_tac store_lookup_CELL_st2heap
+  \\ first_x_assum(qspec_then `[]` ASSUME_TAC)
+  \\ fs[]
+QED
+
+Theorem do_app_Aw8sub_W8ARRAY[local]:
+  (W8ARRAY rv v * H) (st2heap (p:'ffi ffi_proj) s) ==>
+  !junk. do_app (s.refs ++ junk, s.ffi) Aw8sub [rv; Litv (IntLit (&n))] =
+    if n < LENGTH v then SOME ((s.refs ++ junk, s.ffi), Rval (Litv (Word8 (EL n v))))
+    else SOME ((s.refs ++ junk, s.ffi), Rerr (Rraise ^Conv_Subscript))
+Proof
+  rw[do_app_def]
+  \\ fs[W8ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM]
+  \\ fs[GSYM STAR_ASSOC, HCOND_EXTRACT]
+  \\ imp_res_tac store_lookup_CELL_st2heap
+  \\ fs[ABS_NUM_EQ]
+  \\ Cases_on `n ≥ LENGTH v` \\ fs[] \\ EVAL_TAC
+QED
+
+Theorem WORD8_EQ[local]:
+  WORD (w:word8) v <=> v = Litv (Word8 w)
+Proof
+  EVAL_TAC \\ rw[]
+QED
+
+Theorem EvalM_B_Marray_length:
+   !vname loc EXC_TYPE H get_arr env.
+    nsLookup env.v (Short vname) = SOME loc ==>
+    EvalM ro env st (App Aw8length [Var (Short vname)])
+    ((MONAD NUM EXC_TYPE) (Marray_length get_arr))
+    ((λrefs. W8ARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
+  \\ fs [evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ fs[REFS_PRED_def, GSYM STAR_ASSOC]
+  \\ first_x_assum (fn x => MATCH_MP do_app_Aw8length_W8ARRAY x |> ASSUME_TAC)
+  \\ fs[with_same_refs, with_same_ffi]
+  \\ qexists_tac `st`
+  \\ qexists_tac `s.clock` \\ fs [with_same_clock]
+  \\ fs[MONAD_def, Marray_length_def, REFS_PRED_FRAME_same]
+QED
+
+Theorem EvalM_B_Marray_sub_subscript:
+   !vname loc EXC_TYPE H get_arr e env n nexp.
+   EXC_TYPE e ^Conv_Subscript ==>
+   nsLookup env.v (Short vname) = SOME loc ==>
+   lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
+   Eval env nexp (NUM n) ==>
+   EvalM ro env st (App Aw8sub [Var (Short vname); nexp])
+   ((MONAD WORD EXC_TYPE) (Marray_sub get_arr e n))
+   ((λrefs. W8ARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
+  \\ fs[Eval_def, NUM_def, INT_def]
+  \\ fs[REFS_PRED_def, GSYM STAR_ASSOC]
+  \\ first_assum (fn x => MATCH_MP W8ARRAY_EXISTS_LOC x |> ASSUME_TAC)
+  \\ rw[]
+  \\ last_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`s.clock`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1` \\ fs[]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ first_x_assum (fn x => MATCH_MP do_app_Aw8sub_W8ARRAY x |> ASSUME_TAC)
+  \\ first_x_assum (qspec_then `refs'` assume_tac) \\ fs[]
+  \\ Cases_on `n < LENGTH (get_arr st)`
+  >-(fs[MONAD_def, Marray_sub_def, Msub_eq, WORD8_EQ, with_same_ffi]
+     \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append])
+  \\ rw[with_same_ffi]
+  \\ qexists_tac `st`
+  \\ fs[MONAD_def, Marray_sub_def, Msub_exn_eq, REFS_PRED_FRAME_append]
+QED
+
+Theorem EvalM_B_Marray_sub_handle:
+   !vname loc EXC_TYPE H get_arr e rexp env n nexp.
+   nsLookup env.v (Short vname) = SOME loc ==>
+   lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
+   Eval env nexp (NUM n) ==>
+   Eval env rexp (EXC_TYPE e) ==>
+   EvalM ro env st (Handle (App Aw8sub [Var (Short vname); nexp])
+              [(Pcon (SOME (Short(«Subscript»))) [], Raise rexp)])
+   ((MONAD WORD EXC_TYPE) (Marray_sub get_arr e n))
+   ((λrefs. W8ARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
+  \\ fs[Eval_def, NUM_def, INT_def]
+  \\ fs[REFS_PRED_def, GSYM STAR_ASSOC]
+  \\ first_assum (fn x => MATCH_MP W8ARRAY_EXISTS_LOC x |> ASSUME_TAC)
+  \\ rw[]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ last_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
+  \\ first_x_assum (qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
+  \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`s.clock`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k2`strip_assume_tac)
+  \\ qpat_x_assum`evaluate _ _ [nexp] = _`assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`if n < LENGTH (get_arr st) then s.clock else k2`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1` \\ fs[]
+  \\ first_x_assum (fn x => MATCH_MP do_app_Aw8sub_W8ARRAY x |> ASSUME_TAC)
+  \\ first_x_assum (qspec_then `refs'` assume_tac) \\ fs[]
+  \\ Cases_on `n < LENGTH (get_arr st)`
+  >-(fs[MONAD_def, Marray_sub_def, Msub_eq, WORD8_EQ, with_same_ffi]
+     \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append])
+  \\ fs[with_same_refs]
+  \\ fs[lookup_cons_def]
+  \\ fs[same_type_def,namespaceTheory.id_to_n_def,same_ctor_def]
+  \\ rw[pat_bindings_def]
+  \\ fs[pmatch_def,can_pmatch_all_def]
+  \\ fs[same_type_def,namespaceTheory.id_to_n_def,same_ctor_def]
+  \\ fs[with_same_ffi]
+  \\ fs[MONAD_def, Marray_sub_def, Msub_exn_eq]
+  \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
+  \\ rw[REFS_PRED_FRAME_append] \\ rfs []
+QED
+
+Theorem STATE_UPDATE_HPROP_W8ARRAY[local]:
+   (W8ARRAY (Loc T l) av * H) (st2heap p s) ==> (W8ARRAY (Loc T l) av' * H)
+     (st2heap p (s with refs := (LUPDATE (W8array av') l s.refs)))
+Proof
+  rw[W8ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
+  fs[GSYM STAR_ASSOC, HCOND_EXTRACT] >>
+  irule STATE_UPDATE_HPROP_CELL >>
+  instantiate
+QED
+
+Theorem store_lookup_W8ARRAY_st2heap[local]:
+  (W8ARRAY (Loc T l) av * H) (st2heap (p:'ffi ffi_proj) s) ==>
+  l < LENGTH s.refs /\ !junk. store_lookup l (s.refs ++ junk) = SOME (W8array av)
+Proof
+  rw[W8ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM]
+  \\ fs[GSYM STAR_ASSOC, HCOND_EXTRACT]
+  \\ imp_res_tac store_lookup_CELL_st2heap \\ fs[]
+  \\ imp_res_tac st2heap_CELL_MEM
+  \\ imp_res_tac store2heap_IN_LENGTH
+QED
+
+Theorem EvalM_B_Marray_update_subscript:
+   !vname loc EXC_TYPE H get_arr set_arr e env n x xexp nexp.
+   nsLookup env.v (Short vname) = SOME loc ==>
+   lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
+   EXC_TYPE e ^Conv_Subscript ==>
+   (!refs x. get_arr (set_arr x refs) = x) ==>
+   (!refs x. H (set_arr x refs) = H refs) ==>
+   Eval env nexp (NUM n) ==>
+   Eval env xexp (WORD x) ==>
+   EvalM ro env st (App Aw8update [Var (Short vname); nexp; xexp])
+   ((MONAD UNIT_TYPE EXC_TYPE) (Marray_update get_arr set_arr e n x))
+   ((λrefs. W8ARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
+  \\ fs[Eval_def, NUM_def, INT_def, WORD8_EQ]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ fs[REFS_PRED_def, GSYM STAR_ASSOC]
+  \\ first_assum(fn x => MATCH_MP W8ARRAY_EXISTS_LOC x |> STRIP_ASSUME_TAC)
+  \\ rw[]
+  \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ last_x_assum(qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
+  \\ fs[eval_rel_def]
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`s.clock`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k2`strip_assume_tac)
+  \\ qpat_x_assum`evaluate _ _ [xexp] = _`assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`k2`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1` \\ fs[]
+  \\ drule store_lookup_W8ARRAY_st2heap \\ strip_tac
+  \\ pop_assum(qspec_then`refs'++refs''` ASSUME_TAC)
+  \\ fs[do_app_def, ABS_NUM_EQ]
+  \\ Cases_on `n < LENGTH (get_arr st)` \\ fs[with_same_ffi]
+  >-(
+      fs[store_assign_def, store_v_same_type_def, store_lookup_def]
+      \\ fs[EL_APPEND1, LUPDATE_APPEND1]
+      \\ qexists_tac `set_arr (LUPDATE x n (get_arr st)) st`
+      \\ fs[MONAD_def, Marray_update_def, Mupdate_eq]
+      \\ fs[REFS_PRED_FRAME_def]
+      \\ rw[state_component_equality]
+      \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
+      \\ pop_assum(fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
+      \\ pop_assum(qspec_then`refs'++refs''`
+           (assume_tac o PURE_REWRITE_RULE[GSYM STAR_ASSOC]))
+      \\ pop_assum(assume_tac o Q.INST[`av':word8 list` |-> `LUPDATE x n (get_arr st)`] o
+                   MATCH_MP STATE_UPDATE_HPROP_W8ARRAY)
+      \\ fs[STAR_ASSOC]
+      \\ qpat_x_assum `(W8ARRAY _ _ * _ * _ * _) _` mp_tac
+      \\ simp[LUPDATE_APPEND1])
+  \\ qexists_tac `st`
+  \\ fs[MONAD_def,Marray_update_def,Mupdate_exn_eq,EVAL ``sub_exn_v``]
+  \\ metis_tac[REFS_PRED_FRAME_append, GSYM APPEND_ASSOC]
+QED
+Theorem EvalM_B_Marray_update_handle:
+   !vname loc EXC_TYPE H get_arr set_arr e rexp env n x xexp nexp.
+   nsLookup env.v (Short vname) = SOME loc ==>
+   lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
+   (!refs x. get_arr (set_arr x refs) = x) ==>
+   (!refs x. H (set_arr x refs) = H refs) ==>
+   Eval env nexp (NUM n) ==>
+   Eval env rexp (EXC_TYPE e) ==>
+   Eval env xexp (WORD x) ==>
+   EvalM ro env st (Handle (App Aw8update [Var (Short vname); nexp; xexp])
+              [(Pcon (SOME (Short(«Subscript»))) [], Raise rexp)])
+   ((MONAD UNIT_TYPE EXC_TYPE) (Marray_update get_arr set_arr e n x))
+   ((λrefs. W8ARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
+  \\ fs[Eval_def, NUM_def, INT_def, WORD8_EQ]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ fs[REFS_PRED_def, GSYM STAR_ASSOC]
+  \\ first_assum(fn x => MATCH_MP W8ARRAY_EXISTS_LOC x |> STRIP_ASSUME_TAC)
+  \\ rw[]
+  \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ last_x_assum(qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
+  \\ fs[]
+  \\ last_x_assum(qspec_then `s.refs ++ (refs' ++ refs'')` STRIP_ASSUME_TAC)
+  \\ fs[]
+  \\ first_x_assum (qspec_then `po''` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_3 x |> STRIP_ASSUME_TAC)
+  \\ fs[eval_rel_def]
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`s.clock`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k3`strip_assume_tac)
+  \\ qpat_x_assum`evaluate _ _ [nexp] = _`assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`if n < LENGTH (get_arr st) then s.clock else k3`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k2`strip_assume_tac)
+  \\ qpat_x_assum`evaluate _ _ [xexp] = _`assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`k2`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1` \\ fs[]
+  \\ drule store_lookup_W8ARRAY_st2heap \\ strip_tac
+  \\ pop_assum(qspec_then`refs'++refs''` ASSUME_TAC)
+  \\ fs[do_app_def, ABS_NUM_EQ]
+  \\ Cases_on `n < LENGTH (get_arr st)` \\ fs[with_same_ffi]
+  >-(
+      fs[store_assign_def, store_v_same_type_def, store_lookup_def]
+      \\ fs[EL_APPEND1, LUPDATE_APPEND1]
+      \\ qexists_tac `set_arr (LUPDATE x n (get_arr st)) st`
+      \\ fs[MONAD_def, Marray_update_def, Mupdate_eq]
+      \\ fs[REFS_PRED_FRAME_def]
+      \\ rw[state_component_equality]
+      \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
+      \\ pop_assum(fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
+      \\ pop_assum(qspec_then`refs'++refs''`
+           (assume_tac o PURE_REWRITE_RULE[GSYM STAR_ASSOC]))
+      \\ pop_assum(assume_tac o Q.INST[`av':word8 list` |-> `LUPDATE x n (get_arr st)`] o
+                   MATCH_MP STATE_UPDATE_HPROP_W8ARRAY)
+      \\ fs[STAR_ASSOC]
+      \\ qpat_x_assum `(W8ARRAY _ _ * _ * _ * _) _` mp_tac
+      \\ simp[LUPDATE_APPEND1])
+  \\ fs[lookup_cons_def, EVAL ``sub_exn_v``]
+  \\ fs[same_type_def,namespaceTheory.id_to_n_def,same_ctor_def]
+  \\ rw[pat_bindings_def]
+  \\ fs[pmatch_def,can_pmatch_all_def]
+  \\ fs[MONAD_def, Marray_update_def, Mupdate_exn_eq]
+  \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append] \\ rfs []
+QED
+
+(* Resizable byte arrays *)
+Theorem STAR_ROTATE[local]:
+  A * (B * C) = B * (A * C)
+Proof
+  metis_tac[STAR_COMM, STAR_ASSOC]
+QED
+
+Theorem RW8ARRAY_st2heap[local]:
+  (RW8ARRAY rv av * H) (st2heap (p:'ffi ffi_proj) s) ==>
+  ?l l2. rv = Loc T l /\ l < LENGTH s.refs /\ l2 < LENGTH s.refs /\
+    !junk. store_lookup l (s.refs ++ junk) = SOME (Refv (Loc T l2)) /\
+           store_lookup l2 (s.refs ++ junk) = SOME (W8array av)
+Proof
+  rw[RW8ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM, GSYM STAR_ASSOC]
+  \\ fs[REF_def, W8ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM, GSYM STAR_ASSOC,
+        HCOND_EXTRACT]
+  \\ fs[Once STAR_ROTATE, HCOND_EXTRACT]
+  \\ rw[] \\ qexists_tac `loc'`
+  \\ imp_res_tac store_lookup_CELL_st2heap
+  \\ imp_res_tac st2heap_CELL_MEM
+  \\ imp_res_tac store2heap_IN_LENGTH
+  \\ fs[Once STAR_ROTATE]
+  \\ imp_res_tac store_lookup_CELL_st2heap
+  \\ imp_res_tac st2heap_CELL_MEM
+  \\ imp_res_tac store2heap_IN_LENGTH \\ fs[]
+QED
+
+Theorem RW8ARRAY_update_st2heap[local]:
+  (RW8ARRAY (Loc T l) av * H) (st2heap (p:'ffi ffi_proj) s) /\
+  store_lookup l s.refs = SOME (Refv (Loc T l2)) ==>
+  !av' junk. (RW8ARRAY (Loc T l) av' * H * GC)
+    (st2heap p (s with refs := LUPDATE (W8array av') l2 s.refs ++ junk))
+Proof
+  rw[RW8ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM, GSYM STAR_ASSOC]
+  \\ `arv = Loc T l2` by (
+       fs[REF_def, SEP_CLAUSES, SEP_EXISTS_THM, GSYM STAR_ASSOC, HCOND_EXTRACT]
+       \\ imp_res_tac store_lookup_CELL_st2heap
+       \\ first_x_assum (qspec_then `[]` assume_tac) \\ fs[])
+  \\ rw[] \\ qexists_tac `Loc T l2`
+  \\ fs[Once STAR_ROTATE]
+  \\ drule STATE_UPDATE_HPROP_W8ARRAY
+  \\ disch_then (qspec_then `av'` assume_tac)
+  \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
+  \\ drule STATE_APPEND_JUNK
+  \\ disch_then (qspec_then `junk` assume_tac)
+  \\ fs[Once STAR_ROTATE, STAR_ASSOC]
+QED
+
+Theorem W8ARRAY_alloc_st2heap[local]:
+  H (st2heap p (s with refs := refs)) /\ n = LENGTH refs ==>
+  (W8ARRAY (Loc T n) av * H) (st2heap p (s with refs := refs ++ [W8array av]))
+Proof
+  rw[STAR_def]
+  \\ qexists_tac `store2heap_aux (LENGTH refs) [W8array av]`
+  \\ qexists_tac `st2heap p (s with refs := refs)`
+  \\ PURE_REWRITE_TAC[Once SPLIT_SYM] \\ fs[STATE_SPLIT_REFS]
+  \\ rw[W8ARRAY_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def,
+        store2heap_aux_def]
+QED
+
+Theorem RW8ARRAY_alloc_st2heap[local]:
+  (RW8ARRAY (Loc T l) av * H) (st2heap (p:'ffi ffi_proj) s) ==>
+  !junk av'. (RW8ARRAY (Loc T l) av' * H * GC)
+    (st2heap p (s with refs := LUPDATE (Refv (Loc T (LENGTH (s.refs ++ junk)))) l
+                                 s.refs ++ junk ++ [W8array av']))
+Proof
+  rw[RW8ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM, GSYM STAR_ASSOC]
+  \\ qexists_tac `Loc T (LENGTH (s.refs ++ junk))`
+  \\ fs[Once STAR_ROTATE]
+  \\ irule W8ARRAY_alloc_st2heap \\ simp[]
+  \\ drule HPROP_TO_GC_L \\ strip_tac
+  \\ `(Loc T l ~~> arv * (H * GC)) (st2heap p s)` by metis_tac[STAR_COMM, STAR_ASSOC]
+  \\ first_x_assum (assume_tac o
+       Q.INST [`xv'` |-> `Loc T (LENGTH ((s:'ffi state).refs ++ junk))`] o
+       MATCH_MP STATE_UPDATE_HPROP_REF)
+  \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
+  \\ drule STATE_APPEND_JUNK
+  \\ disch_then (qspec_then `junk:v store_v list` assume_tac)
+  \\ fs[GSYM STAR_ASSOC, GC_STAR_GC]
+QED
+
+Theorem EvalM_RB_Marray_length:
+   !vname loc EXC_TYPE H get_arr env.
+    nsLookup env.v (Short vname) = SOME loc ==>
+    EvalM ro env st (App Aw8length [App Opderef [Var (Short vname)]])
+    ((MONAD NUM EXC_TYPE) (Marray_length get_arr))
+    ((λrefs. RW8ARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def, REFS_PRED_def]
+  \\ fs[GSYM STAR_ASSOC] \\ drule RW8ARRAY_st2heap \\ strip_tac
+  \\ pop_assum (qspec_then `[]` strip_assume_tac) \\ fs[]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def, do_app_def]
+  \\ qexists_tac `st` \\ qexists_tac `s.clock`
+  \\ fs[with_same_clock, with_same_refs, with_same_ffi, MONAD_def,
+        Marray_length_def, REFS_PRED_FRAME_same]
+QED
+
+Theorem EvalM_RB_Marray_sub_subscript:
+   !vname loc EXC_TYPE H get_arr e env n nexp.
+   EXC_TYPE e ^Conv_Subscript ==>
+   nsLookup env.v (Short vname) = SOME loc ==>
+   lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
+   Eval env nexp (NUM n) ==>
+   EvalM ro env st (App Aw8sub [App Opderef [Var (Short vname)]; nexp])
+   ((MONAD WORD EXC_TYPE) (Marray_sub get_arr e n))
+   ((λrefs. RW8ARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
+  \\ fs[Eval_def, NUM_def, INT_def, REFS_PRED_def, GSYM STAR_ASSOC]
+  \\ drule RW8ARRAY_st2heap \\ strip_tac \\ rw[]
+  \\ qpat_x_assum `!refs po. ?refs' po'. _` (qspec_then `s.refs` strip_assume_tac)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`s.clock`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1`
+  \\ qpat_x_assum `!junk. _` (qspec_then `refs'` strip_assume_tac)
+  \\ fs[evaluate_def, semanticPrimitivesTheory.getOpClass_def, do_app_def, ABS_NUM_EQ]
+  \\ Cases_on `n < LENGTH (get_arr st)` \\ fs[with_same_ffi]
+  >-(fs[MONAD_def, Marray_sub_def, Msub_eq, WORD8_EQ]
+     \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append])
+  \\ qexists_tac `st`
+  \\ fs[MONAD_def, Marray_sub_def, Msub_exn_eq, REFS_PRED_FRAME_append,
+        EVAL ``sub_exn_v``]
+QED
+
+Theorem EvalM_RB_Marray_sub_handle:
+   !vname loc EXC_TYPE H get_arr e rexp env n nexp.
+   nsLookup env.v (Short vname) = SOME loc ==>
+   lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
+   Eval env nexp (NUM n) ==>
+   Eval env rexp (EXC_TYPE e) ==>
+   EvalM ro env st (Handle (App Aw8sub [App Opderef [Var (Short vname)]; nexp])
+              [(Pcon (SOME (Short(«Subscript»))) [], Raise rexp)])
+   ((MONAD WORD EXC_TYPE) (Marray_sub get_arr e n))
+   ((λrefs. RW8ARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
+  \\ fs[Eval_def, NUM_def, INT_def, REFS_PRED_def, GSYM STAR_ASSOC]
+  \\ drule RW8ARRAY_st2heap \\ strip_tac \\ rw[]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ qpat_x_assum `!refs po. ?refs' po'. eval_rel _ _ nexp _ _`
+       (qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
+  \\ qpat_x_assum `!refs po. ?refs' po'. _` (qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
+  \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`s.clock`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k2`strip_assume_tac)
+  \\ qpat_x_assum`evaluate _ _ [nexp] = _`assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`if n < LENGTH (get_arr st) then s.clock else k2`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1` \\ fs[]
+  \\ qpat_x_assum `!junk. _` (qspec_then `refs'` strip_assume_tac)
+  \\ fs[do_app_def, ABS_NUM_EQ]
+  \\ Cases_on `n < LENGTH (get_arr st)` \\ fs[with_same_ffi]
+  >-(fs[MONAD_def, Marray_sub_def, Msub_eq, WORD8_EQ]
+     \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append])
+  \\ fs[lookup_cons_def, EVAL ``sub_exn_v``]
+  \\ fs[same_type_def,namespaceTheory.id_to_n_def,same_ctor_def]
+  \\ rw[pat_bindings_def]
+  \\ fs[pmatch_def,can_pmatch_all_def]
+  \\ fs[same_type_def,namespaceTheory.id_to_n_def,same_ctor_def]
+  \\ fs[MONAD_def, Marray_sub_def, Msub_exn_eq]
+  \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
+  \\ rw[REFS_PRED_FRAME_append] \\ rfs []
+QED
+
+Theorem EvalM_RB_Marray_update_subscript:
+   !vname loc EXC_TYPE H get_arr set_arr e env n x xexp nexp.
+   nsLookup env.v (Short vname) = SOME loc ==>
+   lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
+   EXC_TYPE e ^Conv_Subscript ==>
+   (!refs x. get_arr (set_arr x refs) = x) ==>
+   (!refs x. H (set_arr x refs) = H refs) ==>
+   Eval env nexp (NUM n) ==>
+   Eval env xexp (WORD x) ==>
+   EvalM ro env st (App Aw8update [App Opderef [Var (Short vname)]; nexp; xexp])
+   ((MONAD UNIT_TYPE EXC_TYPE) (Marray_update get_arr set_arr e n x))
+   ((λrefs. RW8ARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
+  \\ fs[Eval_def, NUM_def, INT_def, WORD8_EQ, REFS_PRED_def, GSYM STAR_ASSOC]
+  \\ drule RW8ARRAY_st2heap \\ strip_tac \\ rw[]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ qpat_x_assum `!refs po. ?refs' po'. eval_rel _ _ xexp _ _`
+       (qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ qpat_x_assum `!refs po. ?refs' po'. _` (qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
+  \\ fs[eval_rel_def]
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`s.clock`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k2`strip_assume_tac)
+  \\ qpat_x_assum`evaluate _ _ [xexp] = _`assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`k2`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1` \\ fs[]
+  \\ first_assum (qspec_then `[]` strip_assume_tac)
+  \\ qpat_x_assum `!junk. _` (qspec_then `refs' ++ refs''` strip_assume_tac)
+  \\ fs[do_app_def, ABS_NUM_EQ]
+  \\ Cases_on `n < LENGTH (get_arr st)` \\ fs[with_same_ffi]
+  >-(
+      `l2 < LENGTH (s.refs ++ refs' ++ refs'') /\
+       EL l2 (s.refs ++ refs' ++ refs'') = W8array (get_arr st)`
+         by fs[store_lookup_def, EL_APPEND1]
+      \\ fs[store_assign_def, store_v_same_type_def]
+      \\ qexists_tac `set_arr (LUPDATE x n (get_arr st)) st`
+      \\ fs[MONAD_def, Marray_update_def, Mupdate_eq]
+      \\ rw[REFS_PRED_FRAME_def, state_component_equality]
+      \\ fs[GSYM STAR_ASSOC]
+      \\ drule_all RW8ARRAY_update_st2heap
+      \\ disch_then (qspecl_then [`LUPDATE x n (get_arr st)`, `refs' ++ refs''`] mp_tac)
+      \\ simp[LUPDATE_APPEND1, STAR_ASSOC])
+  \\ qexists_tac `st`
+  \\ fs[MONAD_def,Marray_update_def,Mupdate_exn_eq,EVAL ``sub_exn_v``]
+  \\ metis_tac[REFS_PRED_FRAME_append, GSYM APPEND_ASSOC]
+QED
+
+Theorem EvalM_RB_Marray_update_handle:
+   !vname loc EXC_TYPE H get_arr set_arr e rexp env n x xexp nexp.
+   nsLookup env.v (Short vname) = SOME loc ==>
+   lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
+   (!refs x. get_arr (set_arr x refs) = x) ==>
+   (!refs x. H (set_arr x refs) = H refs) ==>
+   Eval env nexp (NUM n) ==>
+   Eval env rexp (EXC_TYPE e) ==>
+   Eval env xexp (WORD x) ==>
+   EvalM ro env st (Handle (App Aw8update [App Opderef [Var (Short vname)]; nexp; xexp])
+              [(Pcon (SOME (Short(«Subscript»))) [], Raise rexp)])
+   ((MONAD UNIT_TYPE EXC_TYPE) (Marray_update get_arr set_arr e n x))
+   ((λrefs. RW8ARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
+  \\ fs[Eval_def, NUM_def, INT_def, WORD8_EQ, REFS_PRED_def, GSYM STAR_ASSOC]
+  \\ drule RW8ARRAY_st2heap \\ strip_tac \\ rw[]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ qpat_x_assum `!refs po. ?refs' po'. eval_rel _ _ xexp _ _`
+       (qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ qpat_x_assum `!refs po. ?refs' po'. eval_rel _ _ nexp _ _`
+       (qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
+  \\ qpat_x_assum `!refs po. ?refs' po'. _` (qspec_then `s.refs ++ refs' ++ refs''` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po''` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_3 x |> STRIP_ASSUME_TAC)
+  \\ fs[eval_rel_def]
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`s.clock`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k3`strip_assume_tac)
+  \\ qpat_x_assum`evaluate _ _ [nexp] = _`assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`if n < LENGTH (get_arr st) then s.clock else k3`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k2`strip_assume_tac)
+  \\ qpat_x_assum`evaluate _ _ [xexp] = _`assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`k2`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1` \\ fs[]
+  \\ first_assum (qspec_then `[]` strip_assume_tac)
+  \\ qpat_x_assum `!junk. _` (qspec_then `refs' ++ refs''` strip_assume_tac)
+  \\ fs[do_app_def, ABS_NUM_EQ]
+  \\ Cases_on `n < LENGTH (get_arr st)` \\ fs[with_same_ffi]
+  >-(
+      `l2 < LENGTH (s.refs ++ refs' ++ refs'') /\
+       EL l2 (s.refs ++ refs' ++ refs'') = W8array (get_arr st)`
+         by fs[store_lookup_def, EL_APPEND1]
+      \\ fs[store_assign_def, store_v_same_type_def]
+      \\ qexists_tac `set_arr (LUPDATE x n (get_arr st)) st`
+      \\ fs[MONAD_def, Marray_update_def, Mupdate_eq]
+      \\ rw[REFS_PRED_FRAME_def, state_component_equality]
+      \\ fs[GSYM STAR_ASSOC]
+      \\ drule_all RW8ARRAY_update_st2heap
+      \\ disch_then (qspecl_then [`LUPDATE x n (get_arr st)`, `refs' ++ refs''`] mp_tac)
+      \\ simp[LUPDATE_APPEND1, STAR_ASSOC])
+  \\ fs[lookup_cons_def, EVAL ``sub_exn_v``]
+  \\ fs[same_type_def,namespaceTheory.id_to_n_def,same_ctor_def]
+  \\ rw[pat_bindings_def]
+  \\ fs[pmatch_def,can_pmatch_all_def]
+  \\ fs[MONAD_def, Marray_update_def, Mupdate_exn_eq]
+  \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append] \\ rfs []
+QED
+
+Theorem EvalM_RB_Marray_alloc:
+   !vname loc EXC_TYPE H get_arr set_arr n x env nexp xexp.
+   nsLookup env.v (Short vname) = SOME loc ==>
+   (!refs x. get_arr (set_arr x refs) = x) ==>
+   (!refs x. H (set_arr x refs) = H refs) ==>
+   Eval env nexp (NUM n) ==>
+   Eval env xexp (WORD x) ==>
+   EvalM ro env st (App Opassign [Var (Short vname); App Aw8alloc [nexp; xexp]])
+   ((MONAD UNIT_TYPE EXC_TYPE) (Marray_alloc set_arr n x))
+   ((λrefs. RW8ARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
+  \\ fs[Eval_def, NUM_def, INT_def, WORD8_EQ, REFS_PRED_def, GSYM STAR_ASSOC]
+  \\ drule RW8ARRAY_st2heap \\ strip_tac \\ rw[]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ qpat_x_assum `!refs po. ?refs' po'. eval_rel _ _ xexp _ _`
+       (qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ qpat_x_assum `!refs po. ?refs' po'. _` (qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
+  \\ fs[eval_rel_def]
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`s.clock`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k2`strip_assume_tac)
+  \\ qpat_x_assum`evaluate _ _ [xexp] = _`assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`k2`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1` \\ fs[]
+  \\ qpat_x_assum `!junk. _` (qspec_then `refs' ++ refs''` strip_assume_tac)
+  \\ `l < LENGTH (s.refs ++ refs' ++ refs'') /\
+      EL l (s.refs ++ refs' ++ refs'') = Refv (Loc T l2)`
+        by fs[store_lookup_def, EL_APPEND1]
+  \\ fs[do_app_def, store_alloc_def, store_assign_def, store_v_same_type_def,
+        EL_APPEND1, with_same_ffi]
+  \\ qexists_tac `set_arr (REPLICATE n x) st`
+  \\ fs[MONAD_def, Marray_alloc_def]
+  \\ rw[REFS_PRED_FRAME_def, state_component_equality]
+  \\ fs[GSYM STAR_ASSOC]
+  \\ drule RW8ARRAY_alloc_st2heap
+  \\ disch_then (qspecl_then [`refs' ++ refs''`, `REPLICATE n x`] mp_tac)
+  \\ simp[LUPDATE_APPEND1, STAR_ASSOC]
+QED
+
+(* Fixed-size bool arrays, stored as byte arrays *)
+Theorem BITARRAY_STAR[local]:
+  (BITARRAY rv bs * H) h <=>
+  ?ws. (W8ARRAY rv ws * H) h /\ bs = bytes_to_bits ws
+Proof
+  rw[BITARRAY_def, BITS_BYTES_def, SEP_CLAUSES, SEP_EXISTS_THM, HCOND_EXTRACT]
+  \\ metis_tac[]
+QED
+
+Theorem RBITARRAY_STAR[local]:
+  (RBITARRAY rv bs * H) h <=>
+  ?ws. (RW8ARRAY rv ws * H) h /\ bs = bytes_to_bits ws
+Proof
+  rw[RBITARRAY_def, BITS_BYTES_def, SEP_CLAUSES, SEP_EXISTS_THM, HCOND_EXTRACT]
+  \\ metis_tac[]
+QED
+
+Theorem BOOL_EQ[local]:
+  BOOL b v <=> v = Boolv b
+Proof
+  rw[BOOL_def]
+QED
+
+Theorem Num_8_LENGTH[local]:
+  (&n < 8 * &LENGTH ws <=> n < 8 * LENGTH ws) /\
+  (0 <= &n) /\ Num (&n) = n
+Proof
+  intLib.COOPER_TAC
+QED
+
+Theorem EvalM_BITS_Marray_length:
+   !vname loc EXC_TYPE H get_arr env.
+    nsLookup env.v (Short vname) = SOME loc ==>
+    EvalM ro env st
+      (App (Arith Mul IntT) [Lit (IntLit 8); App Aw8length [Var (Short vname)]])
+    ((MONAD NUM EXC_TYPE) (Marray_length get_arr))
+    ((λrefs. BITARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
+  \\ fs[REFS_PRED_def, GSYM STAR_ASSOC, BITARRAY_STAR]
+  \\ first_x_assum (fn x => MATCH_MP do_app_Aw8length_W8ARRAY x |> ASSUME_TAC)
+  \\ fs[evaluate_def, semanticPrimitivesTheory.getOpClass_def, do_app_def, do_arith_def,
+        check_type_def, with_same_refs, with_same_ffi]
+  \\ qexists_tac `st`
+  \\ qexists_tac `s.clock` \\ fs [with_same_clock]
+  \\ fs[MONAD_def, Marray_length_def, REFS_PRED_FRAME_same, NUM_def, INT_def,
+        LENGTH_bytes_to_bits, integerTheory.INT_MUL]
+QED
+
+Theorem do_app_Aw8subBit_W8ARRAY[local]:
+  (W8ARRAY rv v * H) (st2heap (p:'ffi ffi_proj) s) ==>
+  !junk. do_app (s.refs ++ junk, s.ffi) Aw8subBit [rv; Litv (IntLit (&n))] =
+    if n < 8 * LENGTH v then
+      SOME ((s.refs ++ junk, s.ffi),
+            Rval (Boolv (EL n (bytes_to_bits v))))
+    else SOME ((s.refs ++ junk, s.ffi), Rerr (Rraise ^Conv_Subscript))
+Proof
+  rw[do_app_def]
+  \\ fs[W8ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM]
+  \\ fs[GSYM STAR_ASSOC, HCOND_EXTRACT]
+  \\ imp_res_tac store_lookup_CELL_st2heap
+  \\ fs[Num_8_LENGTH, EL_bytes_to_bits] \\ EVAL_TAC
+QED
+
+Theorem EvalM_BITS_Marray_sub_subscript:
+   !vname loc EXC_TYPE H get_arr e env n nexp.
+   EXC_TYPE e ^Conv_Subscript ==>
+   nsLookup env.v (Short vname) = SOME loc ==>
+   lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
+   Eval env nexp (NUM n) ==>
+   EvalM ro env st (App Aw8subBit [Var (Short vname); nexp])
+   ((MONAD BOOL EXC_TYPE) (Marray_sub get_arr e n))
+   ((λrefs. BITARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
+  \\ fs[Eval_def, NUM_def, INT_def]
+  \\ fs[REFS_PRED_def, GSYM STAR_ASSOC, BITARRAY_STAR]
+  \\ first_assum (fn x => MATCH_MP W8ARRAY_EXISTS_LOC x |> ASSUME_TAC)
+  \\ rw[]
+  \\ last_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`s.clock`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1` \\ fs[]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ first_x_assum (fn x => MATCH_MP do_app_Aw8subBit_W8ARRAY x |> ASSUME_TAC)
+  \\ first_x_assum (qspec_then `refs'` assume_tac) \\ fs[]
+  \\ Cases_on `n < 8 * LENGTH ws`
+  >-(fs[MONAD_def, Marray_sub_def, Msub_eq, BOOL_EQ, with_same_ffi,
+        LENGTH_bytes_to_bits]
+     \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append])
+  \\ rw[with_same_ffi]
+  \\ qexists_tac `st`
+  \\ fs[MONAD_def, Marray_sub_def, Msub_exn_eq, REFS_PRED_FRAME_append,
+        LENGTH_bytes_to_bits]
+QED
+
+Theorem EvalM_BITS_Marray_sub_handle:
+   !vname loc EXC_TYPE H get_arr e rexp env n nexp.
+   nsLookup env.v (Short vname) = SOME loc ==>
+   lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
+   Eval env nexp (NUM n) ==>
+   Eval env rexp (EXC_TYPE e) ==>
+   EvalM ro env st (Handle (App Aw8subBit [Var (Short vname); nexp])
+              [(Pcon (SOME (Short(«Subscript»))) [], Raise rexp)])
+   ((MONAD BOOL EXC_TYPE) (Marray_sub get_arr e n))
+   ((λrefs. BITARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
+  \\ fs[Eval_def, NUM_def, INT_def]
+  \\ fs[REFS_PRED_def, GSYM STAR_ASSOC, BITARRAY_STAR]
+  \\ first_assum (fn x => MATCH_MP W8ARRAY_EXISTS_LOC x |> ASSUME_TAC)
+  \\ rw[]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ last_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
+  \\ first_x_assum (qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
+  \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`s.clock`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k2`strip_assume_tac)
+  \\ qpat_x_assum`evaluate _ _ [nexp] = _`assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`if n < 8 * LENGTH ws then s.clock else k2`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1` \\ fs[]
+  \\ first_x_assum (fn x => MATCH_MP do_app_Aw8subBit_W8ARRAY x |> ASSUME_TAC)
+  \\ first_x_assum (qspec_then `refs'` assume_tac) \\ fs[]
+  \\ Cases_on `n < 8 * LENGTH ws`
+  >-(fs[MONAD_def, Marray_sub_def, Msub_eq, BOOL_EQ, with_same_ffi,
+        LENGTH_bytes_to_bits]
+     \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append])
+  \\ fs[with_same_refs]
+  \\ fs[lookup_cons_def]
+  \\ fs[same_type_def,namespaceTheory.id_to_n_def,same_ctor_def]
+  \\ rw[pat_bindings_def]
+  \\ fs[pmatch_def,can_pmatch_all_def]
+  \\ fs[same_type_def,namespaceTheory.id_to_n_def,same_ctor_def]
+  \\ fs[with_same_ffi]
+  \\ fs[MONAD_def, Marray_sub_def, Msub_exn_eq, LENGTH_bytes_to_bits]
+  \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
+  \\ rw[REFS_PRED_FRAME_append] \\ rfs []
+QED
+
+Theorem BITARRAY_UPDATE_FRAME[local]:
+  (W8ARRAY (Loc T l) ws * H0) (st2heap p s) ==>
+  (!F. (W8ARRAY (Loc T l) ws * H1 * F) (st2heap p s) ==>
+       (W8ARRAY (Loc T l) ws' * H2 * F * GC) (st2heap p s')) ==>
+  (!F. (BITARRAY (Loc T l) (bytes_to_bits ws) * H1 * F) (st2heap p s) ==>
+       (BITARRAY (Loc T l) (bytes_to_bits ws') * H2 * F * GC) (st2heap p s'))
+Proof
+  rw[GSYM STAR_ASSOC, BITARRAY_STAR]
+  \\ imp_res_tac store_lookup_W8ARRAY_st2heap
+  \\ ntac 2 (first_x_assum (qspec_then `[]` assume_tac)) \\ fs[] \\ rw[]
+  \\ qexists_tac `ws'` \\ fs[STAR_ASSOC]
+QED
+
+Theorem EvalM_BITS_Marray_update_subscript:
+   !vname loc EXC_TYPE H get_arr set_arr e env n x xexp nexp.
+   nsLookup env.v (Short vname) = SOME loc ==>
+   lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
+   EXC_TYPE e ^Conv_Subscript ==>
+   (!refs x. get_arr (set_arr x refs) = x) ==>
+   (!refs x. H (set_arr x refs) = H refs) ==>
+   Eval env nexp (NUM n) ==>
+   Eval env xexp (BOOL x) ==>
+   EvalM ro env st (App Aw8updateBit [Var (Short vname); nexp; xexp])
+   ((MONAD UNIT_TYPE EXC_TYPE) (Marray_update get_arr set_arr e n x))
+   ((λrefs. BITARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
+  \\ fs[Eval_def, NUM_def, INT_def, BOOL_EQ]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ fs[REFS_PRED_def, GSYM STAR_ASSOC, BITARRAY_STAR]
+  \\ first_assum(fn x => MATCH_MP W8ARRAY_EXISTS_LOC x |> STRIP_ASSUME_TAC)
+  \\ rw[]
+  \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ last_x_assum(qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
+  \\ fs[eval_rel_def]
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`s.clock`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k2`strip_assume_tac)
+  \\ qpat_x_assum`evaluate _ _ [xexp] = _`assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`k2`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1` \\ fs[]
+  \\ drule store_lookup_W8ARRAY_st2heap \\ strip_tac
+  \\ pop_assum(qspec_then`refs'++refs''` ASSUME_TAC)
+  \\ fs[do_app_def, Num_8_LENGTH, Boolv_11]
+  \\ Cases_on `n < 8 * LENGTH ws` \\ fs[with_same_ffi]
+  >-(
+      fs[store_assign_def, store_v_same_type_def, store_lookup_def]
+      \\ fs[EL_APPEND1, LUPDATE_APPEND1]
+      \\ qexists_tac `set_arr (LUPDATE x n (get_arr st)) st`
+      \\ fs[MONAD_def, Marray_update_def, Mupdate_eq, LENGTH_bytes_to_bits,
+            LUPDATE_bytes_to_bits]
+      \\ fs[REFS_PRED_FRAME_def]
+      \\ rw[state_component_equality]
+      \\ irule BITARRAY_UPDATE_FRAME
+      \\ qexistsl_tac [`H st * GC`, `H st`, `s`, `ws`] \\ fs[] \\ rpt strip_tac
+      \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
+      \\ pop_assum(fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
+      \\ pop_assum(qspec_then`refs'++refs''`
+           (assume_tac o PURE_REWRITE_RULE[GSYM STAR_ASSOC]))
+      \\ pop_assum(assume_tac o Q.INST[`av':word8 list` |->
+           `LUPDATE ((n MOD 8 :+ x) (EL (n DIV 8) ws)) (n DIV 8) ws`] o
+           MATCH_MP STATE_UPDATE_HPROP_W8ARRAY)
+      \\ fs[STAR_ASSOC]
+      \\ pop_assum mp_tac \\ simp[LUPDATE_APPEND1])
+  \\ qexists_tac `st`
+  \\ fs[MONAD_def,Marray_update_def,Mupdate_exn_eq,EVAL ``sub_exn_v``,
+        LENGTH_bytes_to_bits]
+  \\ metis_tac[REFS_PRED_FRAME_append, GSYM APPEND_ASSOC]
+QED
+
+Theorem EvalM_BITS_Marray_update_handle:
+   !vname loc EXC_TYPE H get_arr set_arr e rexp env n x xexp nexp.
+   nsLookup env.v (Short vname) = SOME loc ==>
+   lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
+   (!refs x. get_arr (set_arr x refs) = x) ==>
+   (!refs x. H (set_arr x refs) = H refs) ==>
+   Eval env nexp (NUM n) ==>
+   Eval env rexp (EXC_TYPE e) ==>
+   Eval env xexp (BOOL x) ==>
+   EvalM ro env st (Handle (App Aw8updateBit [Var (Short vname); nexp; xexp])
+              [(Pcon (SOME (Short(«Subscript»))) [], Raise rexp)])
+   ((MONAD UNIT_TYPE EXC_TYPE) (Marray_update get_arr set_arr e n x))
+   ((λrefs. BITARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
+  \\ fs[Eval_def, NUM_def, INT_def, BOOL_EQ]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ fs[REFS_PRED_def, GSYM STAR_ASSOC, BITARRAY_STAR]
+  \\ first_assum(fn x => MATCH_MP W8ARRAY_EXISTS_LOC x |> STRIP_ASSUME_TAC)
+  \\ rw[]
+  \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ last_x_assum(qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
+  \\ fs[]
+  \\ last_x_assum(qspec_then `s.refs ++ (refs' ++ refs'')` STRIP_ASSUME_TAC)
+  \\ fs[]
+  \\ first_x_assum (qspec_then `po''` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_3 x |> STRIP_ASSUME_TAC)
+  \\ fs[eval_rel_def]
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`s.clock`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k3`strip_assume_tac)
+  \\ qpat_x_assum`evaluate _ _ [nexp] = _`assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`if n < 8 * LENGTH ws then s.clock else k3`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k2`strip_assume_tac)
+  \\ qpat_x_assum`evaluate _ _ [xexp] = _`assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`k2`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1` \\ fs[]
+  \\ drule store_lookup_W8ARRAY_st2heap \\ strip_tac
+  \\ pop_assum(qspec_then`refs'++refs''` ASSUME_TAC)
+  \\ fs[do_app_def, Num_8_LENGTH, Boolv_11]
+  \\ Cases_on `n < 8 * LENGTH ws` \\ fs[with_same_ffi]
+  >-(
+      fs[store_assign_def, store_v_same_type_def, store_lookup_def]
+      \\ fs[EL_APPEND1, LUPDATE_APPEND1]
+      \\ qexists_tac `set_arr (LUPDATE x n (get_arr st)) st`
+      \\ fs[MONAD_def, Marray_update_def, Mupdate_eq, LENGTH_bytes_to_bits,
+            LUPDATE_bytes_to_bits]
+      \\ fs[REFS_PRED_FRAME_def]
+      \\ rw[state_component_equality]
+      \\ irule BITARRAY_UPDATE_FRAME
+      \\ qexistsl_tac [`H st * GC`, `H st`, `s`, `ws`] \\ fs[] \\ rpt strip_tac
+      \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
+      \\ pop_assum(fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
+      \\ pop_assum(qspec_then`refs'++refs''`
+           (assume_tac o PURE_REWRITE_RULE[GSYM STAR_ASSOC]))
+      \\ pop_assum(assume_tac o Q.INST[`av':word8 list` |->
+           `LUPDATE ((n MOD 8 :+ x) (EL (n DIV 8) ws)) (n DIV 8) ws`] o
+           MATCH_MP STATE_UPDATE_HPROP_W8ARRAY)
+      \\ fs[STAR_ASSOC]
+      \\ pop_assum mp_tac \\ simp[LUPDATE_APPEND1])
+  \\ fs[lookup_cons_def, EVAL ``sub_exn_v``]
+  \\ fs[same_type_def,namespaceTheory.id_to_n_def,same_ctor_def]
+  \\ rw[pat_bindings_def]
+  \\ fs[pmatch_def,can_pmatch_all_def]
+  \\ fs[MONAD_def, Marray_update_def, Mupdate_exn_eq, LENGTH_bytes_to_bits]
+  \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append] \\ rfs []
+QED
+
+(* Resizable bool arrays, stored as resizable byte arrays *)
+Theorem RBITARRAY_FRAME[local]:
+  (RW8ARRAY (Loc T l) ws * H0) (st2heap p s) ==>
+  (!F. (RW8ARRAY (Loc T l) ws * H1 * F) (st2heap p s) ==>
+       (RW8ARRAY (Loc T l) ws' * H2 * F * GC) (st2heap p s')) ==>
+  (!F. (RBITARRAY (Loc T l) (bytes_to_bits ws) * H1 * F) (st2heap p s) ==>
+       (RBITARRAY (Loc T l) (bytes_to_bits ws') * H2 * F * GC) (st2heap p s'))
+Proof
+  rw[GSYM STAR_ASSOC, RBITARRAY_STAR]
+  \\ imp_res_tac RW8ARRAY_st2heap
+  \\ ntac 2 (first_x_assum (qspec_then `[]` assume_tac)) \\ gvs[]
+  \\ qexists_tac `ws'` \\ fs[STAR_ASSOC]
+QED
+
+Theorem EvalM_RBITS_Marray_length:
+   !vname loc EXC_TYPE H get_arr env.
+    nsLookup env.v (Short vname) = SOME loc ==>
+    EvalM ro env st
+      (App (Arith Mul IntT)
+         [Lit (IntLit 8); App Aw8length [App Opderef [Var (Short vname)]]])
+    ((MONAD NUM EXC_TYPE) (Marray_length get_arr))
+    ((λrefs. RBITARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def, REFS_PRED_def]
+  \\ fs[GSYM STAR_ASSOC, RBITARRAY_STAR] \\ drule RW8ARRAY_st2heap \\ strip_tac
+  \\ pop_assum (qspec_then `[]` strip_assume_tac) \\ fs[]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def, do_app_def, do_arith_def,
+        check_type_def]
+  \\ qexists_tac `st` \\ qexists_tac `s.clock`
+  \\ fs[with_same_clock, with_same_refs, with_same_ffi, MONAD_def,
+        Marray_length_def, REFS_PRED_FRAME_same, NUM_def, INT_def,
+        LENGTH_bytes_to_bits, integerTheory.INT_MUL]
+QED
+
+Theorem EvalM_RBITS_Marray_sub_subscript:
+   !vname loc EXC_TYPE H get_arr e env n nexp.
+   EXC_TYPE e ^Conv_Subscript ==>
+   nsLookup env.v (Short vname) = SOME loc ==>
+   lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
+   Eval env nexp (NUM n) ==>
+   EvalM ro env st (App Aw8subBit [App Opderef [Var (Short vname)]; nexp])
+   ((MONAD BOOL EXC_TYPE) (Marray_sub get_arr e n))
+   ((λrefs. RBITARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
+  \\ fs[Eval_def, NUM_def, INT_def, REFS_PRED_def, GSYM STAR_ASSOC, RBITARRAY_STAR]
+  \\ drule RW8ARRAY_st2heap \\ strip_tac \\ rw[]
+  \\ qpat_x_assum `!refs po. ?refs' po'. _` (qspec_then `s.refs` strip_assume_tac)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`s.clock`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1`
+  \\ qpat_x_assum `!junk. _` (qspec_then `refs'` strip_assume_tac)
+  \\ fs[evaluate_def, semanticPrimitivesTheory.getOpClass_def, do_app_def, Num_8_LENGTH]
+  \\ Cases_on `n < 8 * LENGTH ws` \\ fs[with_same_ffi]
+  >-(fs[MONAD_def, Marray_sub_def, Msub_eq, BOOL_EQ, LENGTH_bytes_to_bits,
+        EL_bytes_to_bits]
+     \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append])
+  \\ qexists_tac `st`
+  \\ fs[MONAD_def, Marray_sub_def, Msub_exn_eq, REFS_PRED_FRAME_append,
+        EVAL ``sub_exn_v``, LENGTH_bytes_to_bits]
+QED
+
+Theorem EvalM_RBITS_Marray_sub_handle:
+   !vname loc EXC_TYPE H get_arr e rexp env n nexp.
+   nsLookup env.v (Short vname) = SOME loc ==>
+   lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
+   Eval env nexp (NUM n) ==>
+   Eval env rexp (EXC_TYPE e) ==>
+   EvalM ro env st (Handle (App Aw8subBit [App Opderef [Var (Short vname)]; nexp])
+              [(Pcon (SOME (Short(«Subscript»))) [], Raise rexp)])
+   ((MONAD BOOL EXC_TYPE) (Marray_sub get_arr e n))
+   ((λrefs. RBITARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
+  \\ fs[Eval_def, NUM_def, INT_def, REFS_PRED_def, GSYM STAR_ASSOC, RBITARRAY_STAR]
+  \\ drule RW8ARRAY_st2heap \\ strip_tac \\ rw[]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ qpat_x_assum `!refs po. ?refs' po'. eval_rel _ _ nexp _ _`
+       (qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
+  \\ qpat_x_assum `!refs po. ?refs' po'. _` (qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
+  \\ pop_assum(strip_assume_tac o RW[eval_rel_def])
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`s.clock`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k2`strip_assume_tac)
+  \\ qpat_x_assum`evaluate _ _ [nexp] = _`assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`if n < 8 * LENGTH ws then s.clock else k2`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1` \\ fs[]
+  \\ qpat_x_assum `!junk. _` (qspec_then `refs'` strip_assume_tac)
+  \\ fs[do_app_def, Num_8_LENGTH]
+  \\ Cases_on `n < 8 * LENGTH ws` \\ fs[with_same_ffi]
+  >-(fs[MONAD_def, Marray_sub_def, Msub_eq, BOOL_EQ, LENGTH_bytes_to_bits,
+        EL_bytes_to_bits]
+     \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append])
+  \\ fs[lookup_cons_def, EVAL ``sub_exn_v``]
+  \\ fs[same_type_def,namespaceTheory.id_to_n_def,same_ctor_def]
+  \\ rw[pat_bindings_def]
+  \\ fs[pmatch_def,can_pmatch_all_def]
+  \\ fs[same_type_def,namespaceTheory.id_to_n_def,same_ctor_def]
+  \\ fs[MONAD_def, Marray_sub_def, Msub_exn_eq, LENGTH_bytes_to_bits]
+  \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
+  \\ rw[REFS_PRED_FRAME_append] \\ rfs []
+QED
+
+Theorem EvalM_RBITS_Marray_update_subscript:
+   !vname loc EXC_TYPE H get_arr set_arr e env n x xexp nexp.
+   nsLookup env.v (Short vname) = SOME loc ==>
+   lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
+   EXC_TYPE e ^Conv_Subscript ==>
+   (!refs x. get_arr (set_arr x refs) = x) ==>
+   (!refs x. H (set_arr x refs) = H refs) ==>
+   Eval env nexp (NUM n) ==>
+   Eval env xexp (BOOL x) ==>
+   EvalM ro env st
+     (App Aw8updateBit [App Opderef [Var (Short vname)]; nexp; xexp])
+   ((MONAD UNIT_TYPE EXC_TYPE) (Marray_update get_arr set_arr e n x))
+   ((λrefs. RBITARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
+  \\ fs[Eval_def, NUM_def, INT_def, BOOL_EQ, REFS_PRED_def, GSYM STAR_ASSOC,
+        RBITARRAY_STAR]
+  \\ drule RW8ARRAY_st2heap \\ strip_tac \\ rw[]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ qpat_x_assum `!refs po. ?refs' po'. eval_rel _ _ xexp _ _`
+       (qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ qpat_x_assum `!refs po. ?refs' po'. _` (qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
+  \\ fs[eval_rel_def]
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`s.clock`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k2`strip_assume_tac)
+  \\ qpat_x_assum`evaluate _ _ [xexp] = _`assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`k2`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1` \\ fs[]
+  \\ first_assum (qspec_then `[]` strip_assume_tac)
+  \\ qpat_x_assum `!junk. _` (qspec_then `refs' ++ refs''` strip_assume_tac)
+  \\ fs[do_app_def, Num_8_LENGTH, Boolv_11]
+  \\ Cases_on `n < 8 * LENGTH ws` \\ fs[with_same_ffi]
+  >-(
+      `l2 < LENGTH (s.refs ++ refs' ++ refs'') /\
+       EL l2 (s.refs ++ refs' ++ refs'') = W8array ws`
+         by fs[store_lookup_def, EL_APPEND1]
+      \\ fs[store_assign_def, store_v_same_type_def]
+      \\ qexists_tac `set_arr (LUPDATE x n (get_arr st)) st`
+      \\ fs[MONAD_def, Marray_update_def, Mupdate_eq, LENGTH_bytes_to_bits,
+            LUPDATE_bytes_to_bits]
+      \\ rw[REFS_PRED_FRAME_def, state_component_equality]
+      \\ irule RBITARRAY_FRAME
+      \\ qexistsl_tac [`H st * GC`, `H st`, `s`, `ws`] \\ fs[] \\ rpt strip_tac
+      \\ fs[GSYM STAR_ASSOC]
+      \\ drule_all RW8ARRAY_update_st2heap
+      \\ disch_then (qspecl_then
+           [`LUPDATE ((n MOD 8 :+ x) (EL (n DIV 8) ws)) (n DIV 8) ws`,
+            `refs' ++ refs''`] mp_tac)
+      \\ simp[LUPDATE_APPEND1, STAR_ASSOC])
+  \\ qexists_tac `st`
+  \\ fs[MONAD_def,Marray_update_def,Mupdate_exn_eq,EVAL ``sub_exn_v``,
+        LENGTH_bytes_to_bits]
+  \\ metis_tac[REFS_PRED_FRAME_append, GSYM APPEND_ASSOC]
+QED
+
+Theorem EvalM_RBITS_Marray_update_handle:
+   !vname loc EXC_TYPE H get_arr set_arr e rexp env n x xexp nexp.
+   nsLookup env.v (Short vname) = SOME loc ==>
+   lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
+   (!refs x. get_arr (set_arr x refs) = x) ==>
+   (!refs x. H (set_arr x refs) = H refs) ==>
+   Eval env nexp (NUM n) ==>
+   Eval env rexp (EXC_TYPE e) ==>
+   Eval env xexp (BOOL x) ==>
+   EvalM ro env st
+     (Handle (App Aw8updateBit [App Opderef [Var (Short vname)]; nexp; xexp])
+              [(Pcon (SOME (Short(«Subscript»))) [], Raise rexp)])
+   ((MONAD UNIT_TYPE EXC_TYPE) (Marray_update get_arr set_arr e n x))
+   ((λrefs. RBITARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
+  \\ fs[Eval_def, NUM_def, INT_def, BOOL_EQ, REFS_PRED_def, GSYM STAR_ASSOC,
+        RBITARRAY_STAR]
+  \\ drule RW8ARRAY_st2heap \\ strip_tac \\ rw[]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ qpat_x_assum `!refs po. ?refs' po'. eval_rel _ _ xexp _ _`
+       (qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ qpat_x_assum `!refs po. ?refs' po'. eval_rel _ _ nexp _ _`
+       (qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
+  \\ qpat_x_assum `!refs po. ?refs' po'. _` (qspec_then `s.refs ++ refs' ++ refs''` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po''` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_3 x |> STRIP_ASSUME_TAC)
+  \\ fs[eval_rel_def]
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`s.clock`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k3`strip_assume_tac)
+  \\ qpat_x_assum`evaluate _ _ [nexp] = _`assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`if n < 8 * LENGTH ws then s.clock else k3`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k2`strip_assume_tac)
+  \\ qpat_x_assum`evaluate _ _ [xexp] = _`assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`k2`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1` \\ fs[]
+  \\ first_assum (qspec_then `[]` strip_assume_tac)
+  \\ qpat_x_assum `!junk. _` (qspec_then `refs' ++ refs''` strip_assume_tac)
+  \\ fs[do_app_def, Num_8_LENGTH, Boolv_11]
+  \\ Cases_on `n < 8 * LENGTH ws` \\ fs[with_same_ffi]
+  >-(
+      `l2 < LENGTH (s.refs ++ refs' ++ refs'') /\
+       EL l2 (s.refs ++ refs' ++ refs'') = W8array ws`
+         by fs[store_lookup_def, EL_APPEND1]
+      \\ fs[store_assign_def, store_v_same_type_def]
+      \\ qexists_tac `set_arr (LUPDATE x n (get_arr st)) st`
+      \\ fs[MONAD_def, Marray_update_def, Mupdate_eq, LENGTH_bytes_to_bits,
+            LUPDATE_bytes_to_bits]
+      \\ rw[REFS_PRED_FRAME_def, state_component_equality]
+      \\ irule RBITARRAY_FRAME
+      \\ qexistsl_tac [`H st * GC`, `H st`, `s`, `ws`] \\ fs[] \\ rpt strip_tac
+      \\ fs[GSYM STAR_ASSOC]
+      \\ drule_all RW8ARRAY_update_st2heap
+      \\ disch_then (qspecl_then
+           [`LUPDATE ((n MOD 8 :+ x) (EL (n DIV 8) ws)) (n DIV 8) ws`,
+            `refs' ++ refs''`] mp_tac)
+      \\ simp[LUPDATE_APPEND1, STAR_ASSOC])
+  \\ fs[lookup_cons_def, EVAL ``sub_exn_v``]
+  \\ fs[same_type_def,namespaceTheory.id_to_n_def,same_ctor_def]
+  \\ rw[pat_bindings_def]
+  \\ fs[pmatch_def,can_pmatch_all_def]
+  \\ fs[MONAD_def, Marray_update_def, Mupdate_exn_eq, LENGTH_bytes_to_bits]
+  \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append] \\ rfs []
+QED
+
+Theorem EvalM_RBITS_Marray_alloc:
+   !vname loc EXC_TYPE H get_arr set_arr n env nexp.
+   nsLookup env.v (Short vname) = SOME loc ==>
+   (!refs x. get_arr (set_arr x refs) = x) ==>
+   (!refs x. H (set_arr x refs) = H refs) ==>
+   Eval env nexp (NUM n) ==>
+   EvalM ro env st
+     (App Opassign [Var (Short vname); App Aw8alloc [nexp; Lit (Word8 0w)]])
+   ((MONAD UNIT_TYPE EXC_TYPE) (Marray_alloc set_arr (8 * n) F))
+   ((λrefs. RBITARRAY loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
+  \\ fs[Eval_def, NUM_def, INT_def, REFS_PRED_def, GSYM STAR_ASSOC,
+        RBITARRAY_STAR]
+  \\ drule RW8ARRAY_st2heap \\ strip_tac \\ rw[]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ qpat_x_assum `!refs po. ?refs' po'. _` (qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ fs[eval_rel_def]
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`s.clock`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1` \\ fs[]
+  \\ first_assum (qspec_then `[]` strip_assume_tac)
+  \\ qpat_x_assum `!junk. _` (qspec_then `refs'` strip_assume_tac)
+  \\ `l < LENGTH (s.refs ++ refs') /\
+      EL l (s.refs ++ refs') = Refv (Loc T l2)`
+        by fs[store_lookup_def, EL_APPEND1]
+  \\ fs[do_app_def, store_alloc_def, store_assign_def, store_v_same_type_def,
+        EL_APPEND1, with_same_ffi]
+  \\ qexists_tac `set_arr (REPLICATE (8 * n) F) st`
+  \\ fs[MONAD_def, Marray_alloc_def]
+  \\ rw[REFS_PRED_FRAME_def, state_component_equality]
+  \\ rewrite_tac [GSYM bytes_to_bits_REPLICATE]
+  \\ irule RBITARRAY_FRAME
+  \\ qexistsl_tac [`H st * GC`, `H st`, `s`, `ws`] \\ fs[] \\ rpt strip_tac
+  \\ fs[GSYM STAR_ASSOC]
+  \\ drule RW8ARRAY_alloc_st2heap
+  \\ disch_then (qspecl_then [`refs'`, `REPLICATE n 0w`] mp_tac)
+  \\ simp[LUPDATE_APPEND1, STAR_ASSOC]
 QED
 
 (* TODO: implement support for 2d arrays *)
@@ -2814,46 +4119,50 @@ Proof
     \\ fs [EvalM_def,EXISTS_MEM,EXISTS_PROD,Eval_def]
     \\ rpt strip_tac
     \\ last_x_assum (qspec_then `s.refs` strip_assume_tac)
+    \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
     \\ first_x_assum drule \\ strip_tac
     \\ rveq \\ fs []
     \\ `REFS_PRED_FRAME ro H (st,s) (st,s with refs := s.refs ⧺ refs')` by
           fs [REFS_PRED_FRAME_append]
     \\ drule REFS_PRED_FRAME_imp
     \\ disch_then drule \\ strip_tac
-    \\ first_x_assum drule
-    \\ strip_tac
+    \\ first_x_assum (qspec_then
+         `s with <|refs := s.refs ++ refs'; ptr_eq_oracle := po'|>` mp_tac)
+    \\ simp [] \\ strip_tac
     \\ imp_res_tac evaluate_empty_state_IMP
     \\ fs [eval_rel_def]
     \\ drule evaluate_set_clock \\ fs []
     \\ disch_then (qspec_then `ck` strip_assume_tac)
     \\ rename [`evaluate (s with clock := ck5)`]
-    \\ fs [evaluate_def, astTheory.getOpClass_def]
+    \\ fs [evaluate_def, semanticPrimitivesTheory.getOpClass_def]
     \\ once_rewrite_tac [CONJ_COMM]
     \\ asm_exists_tac \\ fs []
     \\ qexists_tac `s2`
     \\ qexists_tac `ck5` \\ fs []
     \\ imp_res_tac REFS_PRED_FRAME_trans
     \\ fs [Mat_cases_def]
-    \\ fs [evaluate_def, astTheory.getOpClass_def,pmatch_def,pat_bindings_def,can_pmatch_all_def]
+    \\ fs [evaluate_def, semanticPrimitivesTheory.getOpClass_def,pmatch_def,pat_bindings_def,can_pmatch_all_def]
     \\ drule pmatch_list_MAP_Pvar
     \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []
     \\ fs [GSYM write_list_thm])
   \\ fs [Eval_def,EXISTS_MEM,EXISTS_PROD,EvalM_def]
   \\ rpt strip_tac
   \\ last_x_assum (qspec_then `s.refs` strip_assume_tac)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
   \\ first_x_assum drule \\ strip_tac
   \\ `REFS_PRED_FRAME ro H (st,s) (st,s with refs := s.refs ⧺ refs')` by
         fs [REFS_PRED_FRAME_append]
   \\ drule REFS_PRED_FRAME_imp
   \\ disch_then drule \\ strip_tac
-  \\ first_x_assum drule
-  \\ strip_tac
+  \\ first_x_assum (qspec_then
+       `s with <|refs := s.refs ++ refs'; ptr_eq_oracle := po'|>` mp_tac)
+  \\ simp [] \\ strip_tac
   \\ imp_res_tac evaluate_empty_state_IMP
   \\ fs [eval_rel_def]
   \\ drule evaluate_set_clock \\ fs []
   \\ disch_then (qspec_then `ck` strip_assume_tac)
   \\ rename [`evaluate (s with clock := ck5)`]
-  \\ fs [evaluate_def, astTheory.getOpClass_def]
+  \\ fs [evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ once_rewrite_tac [CONJ_COMM]
   \\ asm_exists_tac \\ fs []
   \\ qexists_tac `s2`
@@ -2894,7 +4203,7 @@ Proof
   \\ disch_then drule \\ fs []
   \\ simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ disch_then (fn th => rewrite_tac [th]) \\ fs []
-  \\ fs [evaluate_def, astTheory.getOpClass_def,pmatch_def,pat_bindings_def]
+  \\ fs [evaluate_def, semanticPrimitivesTheory.getOpClass_def,pmatch_def,pat_bindings_def]
   \\ fs [good_cons_env_def,lookup_cons_def]
   \\ `same_type t t /\ same_ctor t t` by (Cases_on `t` \\ EVAL_TAC) \\ fs []
   \\ drule pmatch_list_MAP_Pvar
@@ -2979,19 +4288,20 @@ Theorem EvalSt_to_Eval:
 Proof
   rw[EvalSt_def, Eval_def]
   \\ fs[REFS_PRED_def, SEP_CLAUSES, SAT_GC]
-  \\ first_x_assum(qspecl_then [`empty_state with refs := refs`]
+  \\ first_x_assum(qspecl_then [`build_state refs po`]
         STRIP_ASSUME_TAC)
   \\ fs[state_component_equality]
   \\ fs[REFS_PRED_FRAME_def, SEP_CLAUSES, eval_rel_def]
   \\ rw[PULL_EXISTS]
-  \\ ASSUME_TAC (ISPEC ``empty_state with refs := refs``
+  \\ ASSUME_TAC (ISPEC ``build_state refs po``
        REFS_PRED_FRAME_partial_frame_rule)
   \\ fs(TypeBase.updates_of ``:'a state``)
   \\ first_x_assum drule \\ rw[]
   \\ qexists_tac `res` \\ fs []
   \\ qexists_tac `junk` \\ fs []
+  \\ qexists_tac `po'` \\ fs []
   \\ qexists_tac `ck` \\ fs []
-  \\ fs[state_component_equality]
+  \\ fs[build_state_def,state_component_equality]
 QED
 
 Definition handle_mult_def:
@@ -3007,7 +4317,7 @@ Theorem evaluate_handle_mult_Rval[local]:
 Proof
   Cases
   \\ rw[handle_mult_def]
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
 QED
 
 Theorem evaluate_handle_mult_Rabort[local]:
@@ -3018,7 +4328,7 @@ Theorem evaluate_handle_mult_Rabort[local]:
 Proof
   Cases
   \\ rw[handle_mult_def]
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
 QED
 
 val EVERY_CONJ_1 = GSYM EVERY_CONJ |> SPEC_ALL |> EQ_IMP_RULE
@@ -3038,7 +4348,7 @@ Theorem evaluate_handle_all_Rval[local]:
 Proof
   Cases
   \\ rw[handle_all_def]
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
 QED
 
 Theorem evaluate_handle_all_Rabort[local]:
@@ -3048,7 +4358,7 @@ Theorem evaluate_handle_all_Rabort[local]:
 Proof
   Cases
   \\ rw[handle_all_def]
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
 QED
 
 Theorem evaluate_Success_CONS[local]:
@@ -3057,11 +4367,11 @@ Theorem evaluate_Success_CONS[local]:
   evaluate s env [Con (SOME (Short «M_success»)) [e]] = (s', Rval [Conv (SOME (TypeStamp «M_success» exc_stamp)) [v]])
 Proof
   rw[]
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ fs[lookup_cons_def]
   \\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def]
   \\ fs[namespaceTheory.id_to_n_def]
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ every_case_tac \\ fs []
 QED
 
@@ -3071,7 +4381,7 @@ Theorem evaluate_Success_CONS_err[local]:
   evaluate s env [Con (SOME (Short «M_success»)) [e]] = (s', Rerr v)
 Proof
   rw[]
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ fs[lookup_cons_def]
   \\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def]
   \\ fs[namespaceTheory.id_to_n_def]
@@ -3132,7 +4442,7 @@ Proof
   \\ qexists_tac `r`
   \\ qexists_tac `ck`
   \\ rw[handle_all_def]
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def,
           write_def,lookup_cons_def,PULL_EXISTS,pat_bindings_def,pmatch_def,
           can_pmatch_all_def]
@@ -3146,7 +4456,7 @@ Theorem EvalSt_Let_Fun:
 Proof
   rw[EvalSt_def]
   \\ last_x_assum imp_res_tac
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ rw[namespaceTheory.nsOptBind_def]
   \\ fs[write_def, merge_env_def]
   \\ metis_tac[]
@@ -3194,7 +4504,7 @@ Theorem EvalSt_Letrec_Fun:
 Proof
   rw[EvalSt_def]
   \\ qpat_x_assum `!s. A` imp_res_tac
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ `<|v := build_rec_env funs env env.v; c := env.c|> =
       env with v := build_rec_env funs env env.v` by fs[sem_env_component_equality]
   \\ fs[]
@@ -3226,14 +4536,14 @@ Theorem evaluate_Var_IMP[local]:
   evaluate s1 env [Var (Short name)] = (s2, Rval [v]) ==>
   nsLookup env.v (Short name) = SOME v
 Proof
-  rw[evaluate_def, astTheory.getOpClass_def] \\ every_case_tac \\ fs []
+  rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def] \\ every_case_tac \\ fs []
 QED
 
 Theorem evaluate_Var_same_state[local]:
   evaluate s1 env [Var (Short name)] = (s2, res) <=>
   evaluate s1 env [Var (Short name)] = (s2, res) /\ s2 = s1
 Proof
-  EQ_TAC \\ rw[evaluate_def, astTheory.getOpClass_def] \\ every_case_tac \\ fs []
+  EQ_TAC \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def] \\ every_case_tac \\ fs []
 QED
 
 Theorem EvalSt_Opref:
@@ -3245,10 +4555,11 @@ Theorem EvalSt_Opref:
       (Let (SOME loc_name) (App Opref [get_ref_exp]) exp) P (H,p)
 Proof
   rw[EvalSt_def]
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ fs[Eval_def]
   \\ fs[PULL_EXISTS]
   \\ last_x_assum (qspec_then `s.refs` strip_assume_tac)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> ASSUME_TAC)
   \\ ho_match_mp_tac (METIS_PROVE []
        ``(?x4 x1 x2 x3. P x1 x2 x3 x4) ==> (?x1 x2 x3 x4. P x1 x2 x3 x4)``)
@@ -3258,11 +4569,13 @@ Proof
   \\ disch_then (qspec_then `s.clock` strip_assume_tac) \\ fs []
   \\ rw[do_app_def,store_alloc_def,namespaceTheory.nsOptBind_def]
   \\ rw[state_component_equality,with_same_ffi]
-  \\ last_x_assum(qspecl_then [`Loc T (LENGTH (s.refs ++ refs'))`, `s with refs := s.refs ++ refs' ++ [Refv res]`] ASSUME_TAC)
+  \\ last_x_assum (qspecl_then [`Loc T (LENGTH (s.refs ++ refs'))`,
+       `s with <|refs := s.refs ++ refs' ++ [Refv res]; ptr_eq_oracle := po'|>`]
+       ASSUME_TAC)
   \\ first_assum(fn x => let val a = concl x |> dest_imp |> fst in sg `^a` end)
   >-(
       pop_assum (fn x => ALL_TAC)
-      \\ SIMP_TAC bool_ss [REFS_PRED_def]
+      \\ SIMP_TAC bool_ss [REFS_PRED_def,st2heap_refs_ptr_eq_oracle]
       \\ PURE_REWRITE_TAC[GSYM STAR_ASSOC]
       \\ SIMP_TAC bool_ss [Once STAR_def]
       \\ qexists_tac `store2heap_aux (LENGTH (s.refs ++ refs')) [Refv res]`
@@ -3332,7 +4645,7 @@ Theorem EvalSt_AllocEmpty:
        (Let (SOME loc_name) (App Opref [App AallocEmpty [Con NONE []]]) exp)
          P (H,p)
 Proof
-  rw[EvalSt_def,evaluate_def, astTheory.getOpClass_def]
+  rw[EvalSt_def,evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ fs[PULL_EXISTS]
   \\ fs[do_con_check_def, build_conv_def]
   \\ rw[do_app_def,store_alloc_def,namespaceTheory.nsOptBind_def]
@@ -3400,17 +4713,21 @@ Theorem EvalSt_Alloc:
           ((\st. ARRAY_REL TYPE loc (get_farray st) * H st),p)) ==>
      EvalSt env st (Let (SOME loc_name) (App Aalloc [nexp; xexp]) exp) P (H,p)
 Proof
-  rw[EvalSt_def,evaluate_def, astTheory.getOpClass_def]
+  rw[EvalSt_def,evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ fs[PULL_EXISTS]
   \\ fs[Eval_def]
   \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
-  \\ rw[evaluate_def, astTheory.getOpClass_def]
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
   \\ first_x_assum(qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
   \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
   \\ rw[do_app_def,store_alloc_def,namespaceTheory.nsOptBind_def]
   \\ fs[with_same_ffi]
-  \\ first_x_assum(qspecl_then [`Loc T (LENGTH (s.refs ++ refs' ++ refs''))`, `s with refs := s.refs ++ refs' ++ refs'' ++ [Varray (REPLICATE n res)]`] STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspecl_then [`Loc T (LENGTH (s.refs ++ refs' ++ refs''))`,
+       `s with <|refs := s.refs ++ refs' ++ refs'' ++ [Varray (REPLICATE n res)];
+                ptr_eq_oracle := po''|>`] STRIP_ASSUME_TAC)
   \\ fs[]
   \\ first_assum(fn x => let val a = concl x |> dest_imp |> fst in sg `^a` end)
   >-(
@@ -3422,7 +4739,7 @@ Proof
       \\ qexists_tac `st2heap p (s with refs := s.refs ++ refs' ++ refs'')`
       \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
       \\ SIMP_TAC bool_ss [STATE_SPLIT_REFS]
-      \\ fs[REFS_PRED_def] \\ fs[Once (GSYM with_same_refs)]
+      \\ fs[REFS_PRED_def] \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
       \\ first_x_assum(fn x => MATCH_MP (GEN_ALL STATE_APPEND_JUNK) x |> STRIP_ASSUME_TAC)
       \\ first_x_assum(qspec_then `refs' ++ refs''` STRIP_ASSUME_TAC)
       \\ fs[GSYM STAR_ASSOC, GC_STAR_GC]
@@ -3458,7 +4775,7 @@ Proof
       \\ qexists_tac `st2heap p (s with refs := s.refs ++ refs' ++ refs'')`
       \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
       \\ SIMP_TAC bool_ss [STATE_SPLIT_REFS]
-      \\ fs[REFS_PRED_def] \\ fs[Once (GSYM with_same_refs)]
+      \\ fs[REFS_PRED_def] \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
       \\ first_x_assum(fn x => MATCH_MP (GEN_ALL STATE_APPEND_JUNK) x |> STRIP_ASSUME_TAC)
       \\ first_x_assum(qspec_then `refs' ++ refs''` STRIP_ASSUME_TAC)
       \\ fs[STAR_ASSOC]
@@ -3472,11 +4789,315 @@ Proof
   \\ fs[]
 QED
 
+Theorem EvalSt_W8Alloc:
+   !exp nexp n xexp x get_farray loc_name env H P st.
+     EQ (get_farray st) (REPLICATE n x) ==>
+     Eval env nexp (\v. v = Litv (IntLit (&n))) ==>
+     Eval env xexp (WORD x) ==>
+     (!loc.
+        EvalSt (write loc_name loc env) st exp P
+          ((\st. W8ARRAY loc (get_farray st) * H st),p)) ==>
+     EvalSt env st (Let (SOME loc_name) (App Aw8alloc [nexp; xexp]) exp) P (H,p)
+Proof
+  rw[EvalSt_def,evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ fs[PULL_EXISTS]
+  \\ fs[Eval_def, WORD8_EQ]
+  \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ rw[evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ first_x_assum(qspec_then `s.refs ++ refs'` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `po'` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP_2 x |> STRIP_ASSUME_TAC)
+  \\ rw[do_app_def,store_alloc_def,namespaceTheory.nsOptBind_def]
+  \\ fs[with_same_ffi]
+  \\ first_x_assum (qspecl_then [`Loc T (LENGTH (s.refs ++ refs' ++ refs''))`,
+       `s with <|refs := s.refs ++ refs' ++ refs'' ++ [W8array (REPLICATE n x)];
+                ptr_eq_oracle := po''|>`] STRIP_ASSUME_TAC)
+  \\ fs[]
+  \\ first_assum(fn x => let val a = concl x |> dest_imp |> fst in sg `^a` end)
+  >-(
+      pop_assum (fn x => ALL_TAC)
+      \\ SIMP_TAC bool_ss [REFS_PRED_def]
+      \\ PURE_REWRITE_TAC[GSYM STAR_ASSOC]
+      \\ SIMP_TAC bool_ss [Once STAR_def]
+      \\ qexists_tac `store2heap_aux (LENGTH (s.refs ++ refs' ++ refs'')) [W8array (REPLICATE n x)]`
+      \\ qexists_tac `st2heap p (s with refs := s.refs ++ refs' ++ refs'')`
+      \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
+      \\ SIMP_TAC bool_ss [STATE_SPLIT_REFS]
+      \\ fs[REFS_PRED_def] \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
+      \\ first_x_assum(fn x => MATCH_MP (GEN_ALL STATE_APPEND_JUNK) x |> STRIP_ASSUME_TAC)
+      \\ first_x_assum(qspec_then `refs' ++ refs''` STRIP_ASSUME_TAC)
+      \\ fs[GSYM STAR_ASSOC, GC_STAR_GC]
+      \\ fs[EQ_def]
+      \\ rw[W8ARRAY_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def, store2heap_aux_def])
+  \\ fs[write_def]
+  \\ fs[eval_rel_def]
+  \\ qpat_x_assum`evaluate _ _ [nexp] = _`assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`ck`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k2`strip_assume_tac)
+  \\ qpat_x_assum`evaluate _ _ [xexp] = _`assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`k2`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1` \\ fs[with_same_ffi]
+  \\ fs[REFS_PRED_FRAME_def]
+  \\ qexists_tac `st2` \\ rw []
+  >-(rw[state_component_equality])
+  \\ first_x_assum(qspec_then `F' * GC` STRIP_ASSUME_TAC)
+  \\ first_assum(fn x => let val a = concl x |> dest_imp |> fst in sg `^a` end)
+  >-(
+      pop_assum (fn x => ALL_TAC)
+      \\ PURE_REWRITE_TAC[GSYM STAR_ASSOC]
+      \\ SIMP_TAC bool_ss [Once STAR_def]
+      \\ qexists_tac `store2heap_aux (LENGTH (s.refs ++ refs' ++ refs'')) [W8array (REPLICATE n x)]`
+      \\ qexists_tac `st2heap p (s with refs := s.refs ++ refs' ++ refs'')`
+      \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
+      \\ SIMP_TAC bool_ss [STATE_SPLIT_REFS]
+      \\ fs[REFS_PRED_def] \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
+      \\ first_x_assum(fn x => MATCH_MP (GEN_ALL STATE_APPEND_JUNK) x |> STRIP_ASSUME_TAC)
+      \\ first_x_assum(qspec_then `refs' ++ refs''` STRIP_ASSUME_TAC)
+      \\ fs[STAR_ASSOC]
+      \\ rw[W8ARRAY_def, SEP_EXISTS_THM, HCOND_EXTRACT, cell_def, one_def, store2heap_aux_def]
+      \\ fs[EQ_def])
+  \\ fs[GSYM STAR_ASSOC, GC_STAR_GC]
+  \\ pop_assum(fn x => ALL_TAC)
+  \\ first_x_assum(fn x => REWRITE_RULE[Once STAR_COMM] x |> ASSUME_TAC)
+  \\ fs[STAR_ASSOC]
+  \\ first_x_assum(fn x => MATCH_MP GC_ABSORB_R x |> ASSUME_TAC)
+  \\ fs[]
+QED
+
+Theorem RW8ARRAY_exact[local]:
+  RW8ARRAY (Loc T (n + 1)) av (store2heap_aux n [W8array av; Refv (Loc T n)])
+Proof
+  rw[RW8ARRAY_def, W8ARRAY_def, REF_def, SEP_EXISTS, HCOND_EXTRACT,
+     cell_def, one_def, STAR_def, SPLIT_def, store2heap_aux_def, cond_def]
+  \\ qexists_tac `Loc T n` \\ qexists_tac `{Mem n (W8array av)}`
+  \\ rw[EXTENSION] \\ metis_tac[]
+QED
+
+Theorem EvalSt_W8AllocEmpty:
+   !exp get_ref loc_name env H P st.
+     EQ (get_ref st) [] ==>
+     (!loc.
+       EvalSt (write loc_name loc env) st exp P
+         ((\st. RW8ARRAY loc (get_ref st) * H st),p)) ==>
+     EvalSt env st
+       (Let (SOME loc_name)
+          (App Opref [App Aw8alloc [Lit (IntLit 0); Lit (Word8 0w)]]) exp)
+       P (H,p)
+Proof
+  rw[EvalSt_def,evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ fs[PULL_EXISTS]
+  \\ fs[do_con_check_def, build_conv_def]
+  \\ rw[do_app_def,store_alloc_def,namespaceTheory.nsOptBind_def]
+  \\ simp[with_same_ffi]
+  \\ last_x_assum(qspecl_then [`Loc T (LENGTH (s.refs ++ [W8array []]))`, `s with refs := s.refs ++ [W8array []; Refv (Loc T (LENGTH s.refs))]`] ASSUME_TAC)
+  \\ first_assum(fn x => let val a = concl x |> dest_imp |> fst in sg `^a` end)
+  >-(
+      pop_assum (fn x => ALL_TAC)
+      \\ SIMP_TAC bool_ss [REFS_PRED_def]
+      \\ PURE_REWRITE_TAC[GSYM STAR_ASSOC]
+      \\ SIMP_TAC bool_ss [Once STAR_def]
+      \\ qexists_tac `store2heap_aux (LENGTH s.refs) [W8array []; Refv (Loc T (LENGTH s.refs))]`
+      \\ qexists_tac `st2heap p (s with refs := s.refs)`
+      \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
+      \\ SIMP_TAC bool_ss [STATE_SPLIT_REFS]
+      \\ ASM_SIMP_TAC bool_ss [GSYM REFS_PRED_def, with_same_refs]
+      \\ fs[EQ_def, RW8ARRAY_exact])
+  \\ first_x_assum drule \\ rw[]
+  \\ fs[merge_env_def, write_def]
+  \\ ho_match_mp_tac (METIS_PROVE []
+       ``(?x4 x1 x2 x3. P x1 x2 x3 x4) ==> (?x1 x2 x3 x4. P x1 x2 x3 x4)``)
+  \\ qexists_tac `ck` \\ fs []
+  \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
+  \\ fs []
+  \\ fs[REFS_PRED_FRAME_def]
+  \\ qexists_tac `st2` \\ rw[]
+  >-(rw[state_component_equality])
+  \\ first_x_assum(qspec_then `F' * GC` ASSUME_TAC)
+  \\ first_assum(fn x => let val a = concl x |> dest_imp |> fst in sg `^a` end)
+  >-(
+      rw[GSYM STAR_ASSOC]
+      \\ rw[Once STAR_def]
+      \\ qexists_tac `store2heap_aux (LENGTH s.refs) [W8array []; Refv (Loc T (LENGTH s.refs))]`
+      \\ qexists_tac `st2heap p (s with refs := s.refs)`
+      \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
+      \\ fs[STATE_SPLIT_REFS]
+      \\ rw[]
+      >- fs[EQ_def, RW8ARRAY_exact]
+      \\ fs[STAR_ASSOC]
+      \\ irule H_STAR_GC_SAT_IMP
+      \\ fs[with_same_refs])
+  \\ first_x_assum drule \\ rw[]
+  \\ fs[GSYM STAR_ASSOC, GC_STAR_GC]
+  \\ first_x_assum(fn x => PURE_ONCE_REWRITE_RULE[STAR_COMM] x |> ASSUME_TAC)
+  \\ fs[STAR_ASSOC]
+  \\ first_x_assum(fn x => MATCH_MP GC_ABSORB_R x |> ASSUME_TAC)
+  \\ fs[]
+QED
+
+Theorem BITARRAY_REPLICATE_exact[local]:
+  BITARRAY (Loc T l) (REPLICATE (8 * n) F)
+    (store2heap_aux l [W8array (REPLICATE n 0w)])
+Proof
+  rw[BITARRAY_def, BITS_BYTES_def, SEP_EXISTS_THM, HCOND_EXTRACT]
+  \\ qexists_tac `REPLICATE n 0w`
+  \\ rw[bytes_to_bits_REPLICATE, W8ARRAY_def, SEP_EXISTS_THM, HCOND_EXTRACT,
+        cell_def, one_def, store2heap_aux_def]
+QED
+
+Theorem EvalSt_BitAlloc:
+   !exp nexp n get_farray loc_name env H P st.
+     EQ (get_farray st) (REPLICATE (8 * n) F) ==>
+     Eval env nexp (\v. v = Litv (IntLit (&n))) ==>
+     (!loc.
+        EvalSt (write loc_name loc env) st exp P
+          ((\st. BITARRAY loc (get_farray st) * H st),p)) ==>
+     EvalSt env st
+       (Let (SOME loc_name) (App Aw8alloc [nexp; Lit (Word8 0w)]) exp) P (H,p)
+Proof
+  rw[EvalSt_def,evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ fs[PULL_EXISTS]
+  \\ fs[Eval_def]
+  \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
+  \\ first_x_assum (qspec_then `s.ptr_eq_oracle` strip_assume_tac)
+  \\ first_x_assum(fn x => MATCH_MP evaluate_empty_state_IMP x |> STRIP_ASSUME_TAC)
+  \\ rw[do_app_def,store_alloc_def,namespaceTheory.nsOptBind_def]
+  \\ fs[with_same_ffi]
+  \\ first_x_assum (qspecl_then [`Loc T (LENGTH (s.refs ++ refs'))`,
+       `s with <|refs := s.refs ++ refs' ++ [W8array (REPLICATE n 0w)];
+                ptr_eq_oracle := po'|>`] STRIP_ASSUME_TAC)
+  \\ fs[]
+  \\ first_assum(fn x => let val a = concl x |> dest_imp |> fst in sg `^a` end)
+  >-(
+      pop_assum (fn x => ALL_TAC)
+      \\ SIMP_TAC bool_ss [REFS_PRED_def]
+      \\ PURE_REWRITE_TAC[GSYM STAR_ASSOC]
+      \\ SIMP_TAC bool_ss [Once STAR_def]
+      \\ qexists_tac `store2heap_aux (LENGTH (s.refs ++ refs')) [W8array (REPLICATE n 0w)]`
+      \\ qexists_tac `st2heap p (s with refs := s.refs ++ refs')`
+      \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
+      \\ SIMP_TAC bool_ss [STATE_SPLIT_REFS]
+      \\ fs[REFS_PRED_def] \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
+      \\ first_x_assum(fn x => MATCH_MP (GEN_ALL STATE_APPEND_JUNK) x |> STRIP_ASSUME_TAC)
+      \\ first_x_assum(qspec_then `refs'` STRIP_ASSUME_TAC)
+      \\ fs[GSYM STAR_ASSOC, GC_STAR_GC]
+      \\ fs[EQ_def, BITARRAY_REPLICATE_exact])
+  \\ fs[write_def]
+  \\ fs[eval_rel_def]
+  \\ qpat_x_assum`evaluate _ _ [nexp] = _`assume_tac
+  \\ drule evaluate_set_clock
+  \\ disch_then(qspec_then`ck`mp_tac)
+  \\ impl_tac >- rw[]
+  \\ disch_then(qx_choose_then`k1`strip_assume_tac)
+  \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ck"]))
+  \\ qexists_tac`k1` \\ fs[with_same_ffi]
+  \\ fs[REFS_PRED_FRAME_def]
+  \\ qexists_tac `st2` \\ rw []
+  >-(rw[state_component_equality])
+  \\ first_x_assum(qspec_then `F' * GC` STRIP_ASSUME_TAC)
+  \\ first_assum(fn x => let val a = concl x |> dest_imp |> fst in sg `^a` end)
+  >-(
+      pop_assum (fn x => ALL_TAC)
+      \\ PURE_REWRITE_TAC[GSYM STAR_ASSOC]
+      \\ SIMP_TAC bool_ss [Once STAR_def]
+      \\ qexists_tac `store2heap_aux (LENGTH (s.refs ++ refs')) [W8array (REPLICATE n 0w)]`
+      \\ qexists_tac `st2heap p (s with refs := s.refs ++ refs')`
+      \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
+      \\ SIMP_TAC bool_ss [STATE_SPLIT_REFS]
+      \\ fs[REFS_PRED_def] \\ full_simp_tac std_ss [Once (GSYM with_same_refs)]
+      \\ first_x_assum(fn x => MATCH_MP (GEN_ALL STATE_APPEND_JUNK) x |> STRIP_ASSUME_TAC)
+      \\ first_x_assum(qspec_then `refs'` STRIP_ASSUME_TAC)
+      \\ fs[STAR_ASSOC]
+      \\ fs[EQ_def, BITARRAY_REPLICATE_exact])
+  \\ fs[GSYM STAR_ASSOC, GC_STAR_GC]
+  \\ pop_assum(fn x => ALL_TAC)
+  \\ first_x_assum(fn x => REWRITE_RULE[Once STAR_COMM] x |> ASSUME_TAC)
+  \\ fs[STAR_ASSOC]
+  \\ first_x_assum(fn x => MATCH_MP GC_ABSORB_R x |> ASSUME_TAC)
+  \\ fs[]
+QED
+
+Theorem RBITARRAY_empty_exact[local]:
+  RBITARRAY (Loc T (n + 1)) []
+    (store2heap_aux n [W8array []; Refv (Loc T n)])
+Proof
+  rw[RBITARRAY_def, BITS_BYTES_def, SEP_EXISTS_THM, HCOND_EXTRACT]
+  \\ qexists_tac `[]` \\ fs[bytes_to_bits_def, RW8ARRAY_exact]
+QED
+
+Theorem EvalSt_BitAllocEmpty:
+   !exp get_ref loc_name env H P st.
+     EQ (get_ref st) [] ==>
+     (!loc.
+       EvalSt (write loc_name loc env) st exp P
+         ((\st. RBITARRAY loc (get_ref st) * H st),p)) ==>
+     EvalSt env st
+       (Let (SOME loc_name)
+          (App Opref [App Aw8alloc [Lit (IntLit 0); Lit (Word8 0w)]]) exp)
+       P (H,p)
+Proof
+  rw[EvalSt_def,evaluate_def, semanticPrimitivesTheory.getOpClass_def]
+  \\ fs[PULL_EXISTS]
+  \\ fs[do_con_check_def, build_conv_def]
+  \\ rw[do_app_def,store_alloc_def,namespaceTheory.nsOptBind_def]
+  \\ simp[with_same_ffi]
+  \\ last_x_assum(qspecl_then [`Loc T (LENGTH (s.refs ++ [W8array []]))`, `s with refs := s.refs ++ [W8array []; Refv (Loc T (LENGTH s.refs))]`] ASSUME_TAC)
+  \\ first_assum(fn x => let val a = concl x |> dest_imp |> fst in sg `^a` end)
+  >-(
+      pop_assum (fn x => ALL_TAC)
+      \\ SIMP_TAC bool_ss [REFS_PRED_def]
+      \\ PURE_REWRITE_TAC[GSYM STAR_ASSOC]
+      \\ SIMP_TAC bool_ss [Once STAR_def]
+      \\ qexists_tac `store2heap_aux (LENGTH s.refs) [W8array []; Refv (Loc T (LENGTH s.refs))]`
+      \\ qexists_tac `st2heap p (s with refs := s.refs)`
+      \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
+      \\ SIMP_TAC bool_ss [STATE_SPLIT_REFS]
+      \\ ASM_SIMP_TAC bool_ss [GSYM REFS_PRED_def, with_same_refs]
+      \\ fs[EQ_def, RBITARRAY_empty_exact])
+  \\ first_x_assum drule \\ rw[]
+  \\ fs[merge_env_def, write_def]
+  \\ ho_match_mp_tac (METIS_PROVE []
+       ``(?x4 x1 x2 x3. P x1 x2 x3 x4) ==> (?x1 x2 x3 x4. P x1 x2 x3 x4)``)
+  \\ qexists_tac `ck` \\ fs []
+  \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
+  \\ fs []
+  \\ fs[REFS_PRED_FRAME_def]
+  \\ qexists_tac `st2` \\ rw[]
+  >-(rw[state_component_equality])
+  \\ first_x_assum(qspec_then `F' * GC` ASSUME_TAC)
+  \\ first_assum(fn x => let val a = concl x |> dest_imp |> fst in sg `^a` end)
+  >-(
+      rw[GSYM STAR_ASSOC]
+      \\ rw[Once STAR_def]
+      \\ qexists_tac `store2heap_aux (LENGTH s.refs) [W8array []; Refv (Loc T (LENGTH s.refs))]`
+      \\ qexists_tac `st2heap p (s with refs := s.refs)`
+      \\ PURE_REWRITE_TAC[Once SPLIT_SYM]
+      \\ fs[STATE_SPLIT_REFS]
+      \\ rw[]
+      >- fs[EQ_def, RBITARRAY_empty_exact]
+      \\ fs[STAR_ASSOC]
+      \\ irule H_STAR_GC_SAT_IMP
+      \\ fs[with_same_refs])
+  \\ first_x_assum drule \\ rw[]
+  \\ fs[GSYM STAR_ASSOC, GC_STAR_GC]
+  \\ first_x_assum(fn x => PURE_ONCE_REWRITE_RULE[STAR_COMM] x |> ASSUME_TAC)
+  \\ fs[STAR_ASSOC]
+  \\ first_x_assum(fn x => MATCH_MP GC_ABSORB_R x |> ASSUME_TAC)
+  \\ fs[]
+QED
+
 Theorem Eval_lookup_var:
    !env vname xv x TYPE. nsLookup env.v (Short vname) = SOME xv ==>
   (Eval env (Var (Short vname)) (TYPE x) <=> TYPE x xv)
 Proof
-  rw[Eval_def,eval_rel_def,evaluate_def, astTheory.getOpClass_def,state_component_equality]
+  rw[Eval_def,eval_rel_def,evaluate_def, semanticPrimitivesTheory.getOpClass_def,state_component_equality]
 QED
 
 Theorem nsBind_to_write[local]:
@@ -3567,6 +5188,40 @@ Theorem BETA_PAIR_THM:
   (\(x, y). f x y) (x, y) = (\x y. f x y) x y
 Proof
 fs[]
+QED
+
+Theorem IMP_STAR_GC:
+  (STAR a x) s ∧ (y = GC) ⇒ (STAR a y) s
+Proof
+  fs [set_sepTheory.STAR_def] >>
+  rw [] >> asm_exists_tac >> fs [] >>
+  EVAL_TAC >>
+  fs [set_sepTheory.SEP_EXISTS_THM] >>
+  qexists_tac `K T` >>
+  fs []
+QED
+
+Theorem st_ex_eta_intro:
+  ∀  f : 'b -> 'a -> ('d, 'c) exc # 'a .
+    f = ( λ x s . f x s)
+Proof
+  metis_tac[ETA_THM]
+QED
+
+Theorem ignore_st_ex_eta_intro:
+  ∀  f : 'a -> ('d, 'c) exc # 'a .
+    f = ( λ s . f s)
+Proof
+  fs[ETA_THM]
+QED
+
+Theorem remove_state_arg:
+  ∀ f:'a -> ('b, 'c) exc # 'a  g . (∀ s . (f s = g s)) ⇔ (f = λ a . g a)
+Proof
+  rw[] >>
+  EQ_TAC >>
+  rw[] >>
+  fs[ETA_THM, EQ_EXT]
 QED
 
 val _ = (print_asts := true);

@@ -3,6 +3,7 @@
 *)
 Theory loopSem
 Ancestors
+  wordSem
   loopLang alignment[qualified] finite_map[qualified]
   misc[qualified] wordSem[qualified] ffi[qualified]
   machine_ieee[qualified] (* for FP *)
@@ -18,7 +19,7 @@ Datatype:
      ; mdomain : ('a word) set
      ; sh_mdomain : ('a word) set
      ; clock   : num
-     ; code    : (num list # ('a loopLang$prog)) num_map
+     ; code    : (num list # (loopLang$prog)) num_map
      ; be      : bool
      ; ffi     : 'ffi ffi_state
      ; base_addr   : 'a word
@@ -69,7 +70,7 @@ Definition mem_load_def:
 End
 
 Definition eval_def:
-  (eval ^s ((Const w):'a loopLang$exp) = SOME (Word w)) /\
+  (eval ^s ((Const i):loopLang$exp) = SOME (Word (i2w i))) /\
   (eval s (Var v) = lookup v s.locals) /\
   (eval s (Lookup name) = FLOOKUP s.globals name) /\
   (eval s (Load addr) =
@@ -80,19 +81,16 @@ Definition eval_def:
      case the_words (MAP (eval s) wexps) of
      | SOME ws => (OPTION_MAP Word (word_op op ws))
      | _ => NONE) /\
-  (eval s (Shift sh wexp n) =
-     case eval s wexp of
-     | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
+  (eval s (Shift sh wexp1 wexp2) =
+     case (eval s wexp1, eval s wexp2) of
+     | (SOME (Word w1), SOME (Word w2)) => OPTION_MAP Word (word_sh sh w1 (w2n w2))
      | _ => NONE) /\
   (eval s BaseAddr =
         SOME (Word s.base_addr)) /\
   (eval s TopAddr =
         SOME (Word s.top_addr))
 Termination
-  WF_REL_TAC `measure (exp_size ARB o SND)`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-  \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-  \\ DECIDE_TAC
+  WF_REL_TAC `measure (exp_size o SND)`
 End
 
 Definition get_vars_def:
@@ -163,8 +161,8 @@ Definition find_code_def:
 End
 
 Definition get_var_imm_def:
-  (get_var_imm ((Reg n):'a reg_imm) ^s = sptree$lookup n s.locals) ∧
-  (get_var_imm (Imm w) s = SOME(Word w))
+  (get_var_imm (Reg n) ^s = sptree$lookup n s.locals) ∧
+  (get_var_imm (Imm w) s = SOME(Word (i2w w)))
 End
 
 Theorem fix_clock_IMP_LESS_EQ:
@@ -276,8 +274,8 @@ Definition exit_loop_def[simp]:
 End
 
 Definition evaluate_def:
-  (evaluate (Skip:'a loopLang$prog,^s) = (NONE, s)) /\
-  (evaluate (Fail:'a loopLang$prog,^s) = (SOME Error, s)) /\
+  (evaluate (Skip:loopLang$prog,^s) = (NONE, s)) /\
+  (evaluate (Fail:loopLang$prog,^s) = (SOME Error, s)) /\
   (evaluate (Assign v exp,s) =
      case eval s exp of
      | NONE => (SOME Error, s)
@@ -439,18 +437,12 @@ Definition evaluate_def:
           | _ => (SOME Error,s))
     | res => (SOME Error,s))
 Termination
-  WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
+  WF_REL_TAC `(inv_image (measure I LEX measure prog_size)
                (\(xs,^s). (s.clock,xs)))`
-  \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
-  \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ full_simp_tac(srw_ss())[]
-  \\ imp_res_tac (GSYM fix_clock_IMP_LESS_EQ)
-  \\ full_simp_tac(srw_ss())[set_var_def,call_env_def,dec_clock_def,set_globals_def,
-       LET_THM,cut_res_def,CaseEq"option",pair_case_eq,CaseEq"bool"]
-  \\ rveq \\ fs []
-  \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
-  \\ fs [cut_state_def]
-  \\ every_case_tac \\ rveq \\ full_simp_tac(srw_ss())[]
-  \\ decide_tac
+  \\ rw []
+  \\ gvs [set_var_def, call_env_def, dec_clock_def, set_globals_def,
+          cut_res_def, cut_state_def, UNCURRY_eq_pair,
+          oneline fix_clock_def, AllCaseEqs()]
 End
 
 (* We prove that the clock never increases *)

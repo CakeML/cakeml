@@ -9,10 +9,11 @@ Libs
 
 Definition compile_prog_def:
   compile_prog arch prog =
-  let prog = pan_simp$compile_prog prog;
+  let aw = arch_wordsize arch;
+      prog = pan_simp$compile_prog prog;
       prog = pan_structs$compile_top prog;
-      prog = pan_globals$compile_top prog «main»;
-      prog = pan_to_crep$compile_prog prog;
+      prog = pan_globals$compile_top aw prog «main»;
+      prog = pan_to_crep$compile_prog aw prog;
       prog = crep_to_loop$compile_prog arch prog in
     loop_to_word$compile prog
 End

@@ -24,7 +24,7 @@ Definition merge_moves_def:
 End
 
 Definition SimpSeq_def:
-  SimpSeq p1 (p2:'a wordLang$prog) =
+  SimpSeq p1 (p2:wordLang$prog) =
     let default = Seq p1 p2 in
       if p2 = Skip then p1 else
         case p1 of
@@ -68,16 +68,6 @@ Definition Seq_assoc_right_def:
 End
 
 Definition remove_unreach_def:
-  remove_unreach (e:'a wordLang$prog) =
+  remove_unreach (e:wordLang$prog) =
     Seq_assoc_right e Skip
 End
-
-Theorem remove_unreach_test[local]:
-  remove_unreach (Seq (Move 1 [(1,11);(2,22);(3,33)])
-                      (Move 1 [(3,1);(2,99)]))
-  =
-  Move 1 [(3,11); (2,99); (1,11)]
-Proof
-  EVAL_TAC
-QED
-

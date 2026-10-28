@@ -13,7 +13,7 @@ val _ = translation_extends "mlbasicsProg";
 val _ = ml_prog_update (open_module "Int");
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] «int» (Atapp [] (Short «int»))`` I);
+  ``Dtabbrev NoLocs [] «int» (Atapp [] (Short «int»))`` I);
 
 val _ = trans "+" intSyntax.plus_tm;
 val _ = trans "-" intSyntax.minus_tm;
@@ -25,6 +25,9 @@ val _ = trans ">" intSyntax.greater_tm;
 val _ = trans "<=" intSyntax.leq_tm;
 val _ = trans ">=" intSyntax.geq_tm;
 val _ = trans "~" ``\i. - (i:int)``;
+
+val _ = next_ml_names := ["abs"];
+val res = translate integerTheory.INT_ABS;
 
 val _ = ml_prog_update open_local_block;
 
@@ -171,6 +174,7 @@ Proof
   \\ first_assum $ irule_at Any
   \\ rw [] \\ last_x_assum drule
   \\ disch_then (qspec_then ‘refs''’ strip_assume_tac) \\ fs []
+  \\ first_x_assum (qspec_then ‘po''’ strip_assume_tac)
   \\ first_assum $ irule_at Any
   \\ fs [int_gcd_def,num_gcd_eq_gcd]
 QED
@@ -180,7 +184,25 @@ val _ = add_user_proved_v_thm gcd_v_thm;
 (* compare *)
 
 val _ = (next_ml_names := ["compare"]);
-val _ = translate mlintTheory.int_cmp_def;
+val int_cmp_v_thm = translate mlintTheory.int_cmp_def;
+
+Theorem num_cmp_v_thm:
+  (NUM --> NUM --> ORDERING_TYPE) (num_cmp : num -> num -> ordering) int_cmp_v
+Proof
+  assume_tac int_cmp_v_thm
+  \\ fs [ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def]
+  \\ fs [ml_translatorTheory.NUM_def]
+  \\ rw [] \\ last_x_assum drule
+  \\ disch_then (strip_assume_tac o SPEC_ALL) \\ fs []
+  \\ first_assum $ irule_at Any
+  \\ rw [] \\ last_x_assum drule
+  \\ disch_then (qspec_then ‘refs''’ strip_assume_tac) \\ fs []
+  \\ first_x_assum (qspec_then ‘po''’ strip_assume_tac)
+  \\ first_assum $ irule_at Any
+  \\ fs [int_cmp_def, num_cmp_thm]
+QED
+
+val _ = add_user_proved_v_thm num_cmp_v_thm;
 
 val _ = ml_prog_update close_local_blocks;
 

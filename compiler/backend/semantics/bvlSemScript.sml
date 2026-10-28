@@ -5,7 +5,6 @@ Theory bvlSem
 Ancestors
   bvl closSem
   clos_to_bvl (* for closure_tag and num_added_globals *)
-  backendProps[qualified]
 Libs
   preamble
 
@@ -21,6 +20,7 @@ Datatype:
                (* in closLang all are ByteArray F,
                   ByteArray T introduced in BVL to implement ByteVector *)
       | Thunk thunk_mode 'a
+      | MutBlock num bool ('a list) 'a ('a list)
 End
 
 (* these parts are shared by bytecode and, if bytecode is to be supported, need
@@ -50,10 +50,11 @@ Datatype:
     <| globals : (bvlSem$v option) list
      ; refs    : num |-> bvlSem$v ref
      ; clock   : num
-     ; compile : 'c -> (num # num # bvl$exp) list -> (word8 list # word64 list # 'c) option
-     ; compile_oracle : num -> 'c # (num # num # bvl$exp) list
-     ; code    : (num # bvl$exp) num_map
-     ; ffi     : 'ffi ffi_state |>
+     ; compile : 'c -> (num # num # bvl$exp # metadata) list -> (mlstring # word64 list # 'c) option
+     ; compile_oracle : num -> 'c # (num # num # bvl$exp # metadata) list
+     ; code    : (num # bvl$exp # metadata) num_map
+     ; ffi     : 'ffi ffi_state
+     ; ptr_eq_oracle : num -> num -> bool |>
 End
 
 Definition v_to_list_def:
@@ -114,9 +115,14 @@ End
 
 Overload Error[local] = ``(Rerr(Rabort Rtype_error)):(bvlSem$v#('c,'ffi) bvlSem$state, bvlSem$v)result``
 
-Definition v_to_bytes_def:
-  v_to_bytes lv = some ns:word8 list.
-                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)
+Definition v_to_mlstring_def:
+  v_to_mlstring refs lv =
+    case lv of
+    | RefPtr _ p =>
+        (case FLOOKUP refs p of
+         | SOME (ByteArray T bs) => SOME (bytes_to_mlstring bs)
+         | _ => NONE)
+    | _ => NONE
 End
 
 Definition v_to_words_def:
@@ -129,19 +135,20 @@ Definition do_install_def:
   do_install vs ^s =
       (case vs of
        | [v1;v2] =>
-           (case (v_to_bytes v1, v_to_words v2) of
+           (case (v_to_mlstring s.refs v1, v_to_words v2) of
             | (SOME bytes, SOME data) =>
                let (cfg,progs) = s.compile_oracle 0 in
                let new_oracle = shift_seq 1 s.compile_oracle in
                 (if DISJOINT (domain s.code) (set (MAP FST progs)) /\
                     ALL_DISTINCT (MAP FST progs) then
                  (case s.compile cfg progs, progs of
-                  | SOME (bytes',data',cfg'), (k,prog)::_ =>
+                  | SOME (bytes',data',cfg'), (k,_)::_ =>
                       if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then
                         let s' =
                           s with <|
                              code := union s.code (fromAList progs)
-                           ; compile_oracle := new_oracle |>
+                           ; compile_oracle := new_oracle
+                           ; ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle |>
                         in
                           Rval (CodePtr k, s')
                       else Rerr(Rabort Rtype_error)
@@ -172,6 +179,17 @@ Definition do_build_const_def:
   do_build_const xs refs = do_build (λx. Number 0) 0 xs refs
 End
 (* same as closSem$do_int_app *)
+Definition smallnum_witness_length_def:
+  smallnum_witness_length refs (Block tag xs) =
+    (if tag = 0 then SOME (256 * LENGTH xs) else NONE) /\
+  smallnum_witness_length refs (RefPtr _ ptr) =
+    (case FLOOKUP refs ptr of
+       SOME (ValueArray xs) => SOME (256 * LENGTH xs)
+     | SOME (ByteArray _ xs) => SOME (32 * LENGTH xs)
+     | _ => NONE) /\
+  smallnum_witness_length refs v = NONE
+End
+
 Definition do_int_app_def:
   do_int_app (Const n) [] = SOME (Number n) /\
   do_int_app (Add) [Number n1;Number n2] = SOME (Number (n1 + n2)) /\
@@ -188,6 +206,9 @@ Definition do_int_app_def:
   do_int_app (LessConstSmall n) [Number i] =
         (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then
           SOME (Boolv (i < &n)) else NONE) /\
+  do_int_app (Smallnum op) [Number i; Number j] =
+    OPTION_MAP (\r. case r of INL n => Number n | INR b => Boolv b)
+      (backendProps$bounded_smallnum_app NONE op i j) /\
   do_int_app (op:closLang$int_op) (vs:bvlSem$v list) = NONE
 End
 
@@ -239,6 +260,12 @@ Definition do_word_app_def:
         | SOME w => SOME (Number &(w2n (shift_lookup sh w n)))) /\
   do_word_app (WordShift W64 sh n) [Word64 w] =
        SOME (Word64 (shift_lookup sh w n)) /\
+  do_word_app (WordShiftVar W8 sh) [Number i; Number n] =
+       (case some (w:word8,count:word8). i = &(w2n w) /\ n = &(w2n count) of
+        | NONE => NONE
+        | SOME (w,count) => SOME (Number &(w2n (shift_lookup sh w (w2n count))))) /\
+  do_word_app (WordShiftVar W64 sh) [Word64 w; Word64 count] =
+       SOME (Word64 (shift_lookup sh w (w2n count))) /\
   do_word_app (WordFromInt) [Number i] =
        SOME (Word64 (i2w i)) /\
   do_word_app WordToInt [Word64 w] =
@@ -267,6 +294,30 @@ Definition do_word_app_def:
          | [Word64 w1; Word64 w2] => (SOME (Boolv (fp_cmp_comp cmp w1 w2)))
          | _ => NONE) /\
   do_word_app (op:closLang$word_op) (vs:bvlSem$v list) = NONE
+End
+
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk (RefPtr b ptr) refs =
+    (case FLOOKUP refs ptr of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) =>
+         if b then BadRef else IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) =>
+         if b then BadRef else IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk _ refs = NotThunk
+End
+
+Definition bad_thunk_update_def:
+  bad_thunk_update m v refs ⇔
+    m = Evaluated ∧ dest_thunk v refs ≠ NotThunk
 End
 
 (* same as closSem$do_app, except:
@@ -376,6 +427,24 @@ Definition do_app_def:
                  (ptr, ByteArray f (LUPDATE (i2w b) (Num i) bs)))
              else Error)
          | _ => Error)
+    | (MemOp DerefBit,[RefPtr _ ptr; Number i]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray _ ws) =>
+            (if 0 ≤ i ∧ i < 8 * &LENGTH ws
+             then Rval (Boolv ((EL (Num i DIV 8) ws) ' (Num i MOD 8)),s)
+             else Error)
+         | _ => Error)
+    | (MemOp UpdateBit,[RefPtr _ ptr; Number i; v]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray f bs) =>
+            (if 0 ≤ i ∧ i < 8 * &LENGTH bs ∧ (v = Boolv T ∨ v = Boolv F)
+             then
+               Rval (Unit, s with refs := s.refs |+
+                 (ptr, ByteArray f (LUPDATE (((Num i MOD 8) :+ (v = Boolv T))
+                                             (EL (Num i DIV 8) bs))
+                                            (Num i DIV 8) bs)))
+             else Error)
+         | _ => Error)
     | (MemOp ConcatByteVec,[lv]) =>
          (case
             (some wss. ∃ps.
@@ -452,6 +521,13 @@ Definition do_app_def:
         (case do_eq s.refs x1 x2 of
          | Eq_val b => Rval (Boolv b, s)
          | _ => Error)
+    | (BlockOp PtrEqual,[x1;x2]) =>
+        (case do_eq s.refs x1 x2 of
+         | Eq_val b =>
+             Rval (Boolv (b ∧ s.ptr_eq_oracle 0 0),
+                   s with ptr_eq_oracle :=
+                     (0 =+ shift_seq 1 (s.ptr_eq_oracle 0)) s.ptr_eq_oracle)
+         | _ => Error)
     | (MemOp Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
           Rval (RefPtr T ptr, s with refs := s.refs |+ (ptr,ValueArray xs))
@@ -465,6 +541,14 @@ Definition do_app_def:
          | _ => Error)
     | (Label n,[]) =>
         if n IN domain s.code then Rval (CodePtr n, s) else Error
+    | (IntOp (Smallnum smallop), [Number i; Number j; witness]) =>
+        (case smallnum_witness_length s.refs witness of
+           NONE => Error
+         | SOME len =>
+             case backendProps$bounded_smallnum_app (SOME len) smallop i j of
+               NONE => Error
+             | SOME (INL n) => Rval (Number n,s)
+             | SOME (INR b) => Rval (Boolv b,s))
     | (IntOp intop, vs) =>
         (case do_int_app intop vs of
         | SOME res => Rval (res ,s)
@@ -497,6 +581,14 @@ Definition do_app_def:
                Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
            | _ => Error)
          | _ => Error)
+    | (MemOp BoundsCheckBit,xs) =>
+        (case xs of
+         | [RefPtr _ ptr; Number i] =>
+          (case FLOOKUP s.refs ptr of
+           | SOME (ByteArray _ ws) =>
+               Rval (Boolv (0 <= i /\ i < 8 * & LENGTH ws),s)
+           | _ => Error)
+         | _ => Error)
     | (MemOp BoundsCheckArray,xs) =>
         (case xs of
          | [RefPtr _ ptr; Number i] =>
@@ -509,10 +601,12 @@ Definition do_app_def:
     | (ThunkOp th_op, vs) =>
         (case (th_op,vs) of
          | (AllocThunk m, [v]) =>
-             (let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
+             (if bad_thunk_update m v s.refs then Error else
+              let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
                 Rval (RefPtr F ptr, s with refs := s.refs |+ (ptr,Thunk m v)))
-         | (UpdateThunk m, [RefPtr _ ptr; v]) =>
-             (case FLOOKUP s.refs ptr of
+         | (UpdateThunk m, [RefPtr F ptr; v]) =>
+             (if bad_thunk_update m v s.refs then Error else
+              case FLOOKUP s.refs ptr of
               | SOME (Thunk NotEvaluated _) =>
                  Rval (Unit, s with refs := s.refs |+ (ptr,Thunk m v))
               | _ => Error)
@@ -530,7 +624,7 @@ Definition find_code_def:
   (find_code (SOME p) args code =
      case lookup p code of
      | NONE => NONE
-     | SOME (arity,exp) => if LENGTH args = arity then SOME (args,exp)
+     | SOME (arity,exp,md) => if LENGTH args = arity then SOME (args,exp)
                                                   else NONE) /\
   (find_code NONE args code =
      if args = [] then NONE else
@@ -538,29 +632,10 @@ Definition find_code_def:
        | CodePtr loc =>
            (case sptree$lookup loc code of
             | NONE => NONE
-            | SOME (arity,exp) => if LENGTH args = arity + 1
+            | SOME (arity,exp,md) => if LENGTH args = arity + 1
                                   then SOME (FRONT args,exp)
                                   else NONE)
        | other => NONE)
-End
-
-(* Functions for working with thunks *)
-
-Datatype:
-  dest_thunk_ret
-    = BadRef
-    | NotThunk
-    | IsThunk thunk_mode v
-End
-
-Definition dest_thunk_def:
-  dest_thunk (RefPtr _ ptr) refs =
-    (case FLOOKUP refs ptr of
-     | NONE => BadRef
-     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
-     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
-     | SOME _ => NotThunk) ∧
-  dest_thunk _ refs = NotThunk
 End
 
 (* The evaluation is defined as a clocked functional version of
@@ -727,21 +802,22 @@ Theorem evaluate_ind[allow_rebind] =
 (* observational semantics *)
 
 Definition initial_state_def:
-  initial_state ffi code co cc k = <|
+  initial_state ffi code co cc pe k = <|
     clock := k;
     ffi := ffi;
     code := code;
     compile := cc;
     compile_oracle := co;
     globals := [];
-    refs := FEMPTY
+    refs := FEMPTY;
+    ptr_eq_oracle := pe
   |>
 End
 
 Definition semantics_def:
-  semantics init_ffi code co cc start =
+  semantics init_ffi code co cc pe start =
   let es = [Call 0 (SOME start) []] in
-  let init = initial_state init_ffi code co cc in
+  let init = initial_state init_ffi code co cc pe in
     if ∃k. FST (evaluate (es,[],init k)) = Rerr (Rabort Rtype_error)
       then Fail
     else

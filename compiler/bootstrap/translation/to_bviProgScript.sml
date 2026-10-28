@@ -7,8 +7,6 @@ Ancestors
 Libs
   preamble ml_translatorLib
 
-open preamble ml_translatorLib ml_translatorTheory to_bvlProgTheory
-
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "to_bvlProg";
@@ -108,6 +106,59 @@ val r = translate bvi_tailrecTheory.rewrite_PMATCH;
 val r = translate bvi_tailrecTheory.compile_prog_def;
 
 (* ------------------------------------------------------------------------- *)
+(* bvi_inline                                                                *)
+(* ------------------------------------------------------------------------- *)
+
+val r = translate bvi_inlineTheory.bvi_mk_tick_def;
+
+val r = translate bvi_inlineTheory.canonical_wrapper_def;
+val r = translate bvi_inlineTheory.wrapper_ok_def;
+
+val r = translate bvi_inlineTheory.inline_exp_def;
+
+val r = translate (bvi_inlineTheory.remove_ticks_exp_def
+                     |> PURE_REWRITE_RULE [oneline OPTION_MAP_DEF, o_THM]);
+
+val r = translate bvi_inlineTheory.inline_all_def;
+val r = translate bvi_inlineTheory.compile_inc_def;
+val r = translate bvi_inlineTheory.compile_prog_def;
+
+val _ = r |> hyp |> null orelse
+        failwith "Unproved side condition in the translation of bvi_inlineTheory.compile_prog_def.";
+
+(* ------------------------------------------------------------------------- *)
+(* bvi_tmc                                                                   *)
+(* ------------------------------------------------------------------------- *)
+
+(* pure_exp/pure_exps is given by one mutually recursive definition, which is
+   what cv_trans needs but which this translator's preprocessor cannot reduce
+   to one line per function.  We therefore translate the equivalent non-mutual
+   equations for pure_exps instead (the same split as bvi_let$compile_def vs
+   bvi_let$compile_sing_def) and define pure_exp on top of them. *)
+
+val r = translate bvi_tmcTheory.pure_exps_eqns;
+val r = translate bvi_tmcTheory.pure_exp_eq;
+
+(* bvi_to_cb_aux_sing/bvi_to_cb_aux, by contrast, the preprocessor handles as
+   it stands. *)
+
+val r = translate bvi_tmcTheory.bvi_to_cb_aux_def;
+
+val r = translate bvi_tmcTheory.subst_def;
+
+Theorem bvi_tmc_subst_side[local]:
+  (∀xs e. bvi_tmc_subst_side xs e) ∧
+  (∀xs es. bvi_tmc_substs_side xs es)
+Proof
+  ho_match_mp_tac bvi_tmcTheory.subst_ind>>
+  rw[]>>
+  simp[Once (fetch "-" "bvi_tmc_subst_side_def")]>>
+  rw[LLOOKUP_THM]
+QED
+
+val _ = bvi_tmc_subst_side |> update_precondition;
+
+(* ------------------------------------------------------------------------- *)
 (* bvl_to_bvi                                                                *)
 (* ------------------------------------------------------------------------- *)
 
@@ -133,12 +184,6 @@ val bvl_to_bvi_compile_single_side = Q.prove(`
   EVAL_TAC \\ rw[]
   \\ imp_res_tac bvl_to_bviTheory.compile_exps_LENGTH
   \\ CCONTR_TAC \\ fs[]) |> update_precondition;
-
-val r = translate bvl_to_bviTheory.get_names_def;
-
-val bvl_to_bvi_get_names_side = Q.prove(`
-  ∀x y. bvl_to_bvi_get_names_side x y ⇔ T`,
-  EVAL_TAC \\ fs []) |> update_precondition;
 
 val r = translate bvl_to_bviTheory.compile_list_def;
 val r = translate bvl_to_bviTheory.compile_prog_def;

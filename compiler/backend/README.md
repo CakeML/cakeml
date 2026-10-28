@@ -35,6 +35,9 @@ One of the more notable differences is that exception handling is
 now bundled together with function calls: exceptions can only be
 caught at the point of function calls.
 
+[bvi_inlineScript.sml](bvi_inlineScript.sml):
+A deliberately small BVI inliner for CPR worker-wrapper functions.
+
 [bvi_letScript.sml](bvi_letScript.sml):
 This is a BVI transformation that propagates variable lookups that
 are immediately assigned to a new variable in Let bindings. This
@@ -43,6 +46,9 @@ optimisation is to run immediately when entering BVI.
 [bvi_tailrecScript.sml](bvi_tailrecScript.sml):
 A compiler phase that turns some non-tail-recursive functions into
 tail-recursive functions.
+
+[bvi_tmcScript.sml](bvi_tmcScript.sml):
+Perform tailrec modulo cons optimisation to make more functions tail-recursive.
 
 [bvi_to_dataScript.sml](bvi_to_dataScript.sml):
 A compiler phase that turns programs of the functional language BVI
@@ -195,11 +201,13 @@ unique global identifier. It removes andalso and orelse and
 replaces them with if, and removes the AallocEmpty primitive op and
 replaces it with an alloc call with 0.
 
-[flat_elimScript.sml](flat_elimScript.sml):
-Implementation for flatLang dead-code elimination.
-
 [flat_patternScript.sml](flat_patternScript.sml):
 Interface between flatLang and pattern compiler.
+
+[flat_ticksScript.sml](flat_ticksScript.sml):
+This compiler phase removes all Tick expressions from flatLang
+programs. Ticks are introduced by source_to_flat when it inlines
+calls to primitive wrappers. They have no observable behaviour.
 
 [flat_to_closScript.sml](flat_to_closScript.sml):
 Compilation from flatLang to closLang. This compiler phase converts
@@ -266,9 +274,18 @@ intermediate language.
 [serialiser](serialiser):
 Proofs and automation for serialising HOL values.
 
+[source_dceScript.sml](source_dceScript.sml):
+This is a source-to-source transformation that removes declarations
+that bind values that are never used and whose evaluation cannot have
+any externally observable effect on the state.
+
 [source_letScript.sml](source_letScript.sml):
 This is a source-to-source transformation that lifts Let/Letrec expressions
 that sit at the top of Dlet:s into their own Dlet/Dletrec:s.
+
+[source_lift_constsScript.sml](source_lift_constsScript.sml):
+This is a source-to-source transformation that lifts constants
+from within function expressions to top-level local-declarations.
 
 [source_to_flatScript.sml](source_to_flatScript.sml):
 This is the compiler phase that translates the CakeML source
@@ -310,6 +327,9 @@ load/store operations.
 This compiler phase maps stackLang programs, which have structure
 such as If, While, Return etc, to labLang programs that are a soup
 of goto-like jumps.
+
+[tests](tests):
+Tests for individual compiler backend passes.
 
 [wordLangScript.sml](wordLangScript.sml):
 The wordLang intermediate language consists of structured programs

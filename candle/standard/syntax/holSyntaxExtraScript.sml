@@ -11,25 +11,9 @@ Libs
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val cpn_distinct = TypeBase.distinct_of ``:ordering``
 val cpn_nchotomy = TypeBase.nchotomy_of ``:ordering``
-
-Theorem type_ind =
-  TypeBase.induction_of``:holSyntax$type``
-  |> Q.SPECL[`P`,`EVERY P`]
-  |> SIMP_RULE std_ss [EVERY_DEF]
-  |> UNDISCH_ALL
-  |> CONJUNCT1
-  |> DISCH_ALL
-  |> Q.GEN`P`
-
-Theorem type1_size_append:
-   ∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2
-Proof
-  Induct >> simp[type_size_def]
-QED
 
 Theorem extends_ind:
    ∀P. (∀upd ctxt. upd updates ctxt ∧ P ctxt ⇒ P (upd::ctxt)) ⇒
@@ -60,7 +44,7 @@ QED
 Theorem TYPE_SUBST_NIL[simp]:
    ∀ty. TYPE_SUBST [] ty = ty
 Proof
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   rw[REV_ASSOCD,MAP_EQ_ID] >>
   fs[EVERY_MEM]
 QED
@@ -109,7 +93,7 @@ Theorem TYPE_SUBST_tyvars:
         REV_ASSOCD (Tyvar x) tyin' (Tyvar x) =
         REV_ASSOCD (Tyvar x) tyin  (Tyvar x)
 Proof
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   simp[tyvars_def] >>
   conj_tac >- metis_tac[] >>
   Induct >> simp[] >>
@@ -384,7 +368,7 @@ Theorem irreflexive_type_lt[local]:
 Proof
   mp_tac StrongLinearOrder_mlstring_lt >>
   simp[StrongLinearOrder,StrongOrder,irreflexive_def] >>
-  strip_tac >> ho_match_mp_tac type_ind >>
+  strip_tac >> ho_match_mp_tac type_induction >>
   simp[type_lt_thm,LEX_DEF] >>
   Induct >> simp[]
 QED
@@ -394,7 +378,7 @@ Theorem trichotomous_type_lt[local]:
 Proof
   mp_tac StrongLinearOrder_mlstring_lt >>
   simp[StrongLinearOrder,trichotomous] >> strip_tac >>
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   conj_tac >- (
     gen_tac >> Cases >> simp[type_lt_thm] ) >>
   gen_tac >> strip_tac >> gen_tac >> Cases >> simp[type_lt_thm,LEX_DEF_THM] >>
@@ -561,7 +545,7 @@ Theorem type_cmp_thm:
     | (_, Tyvar _) => GREATER
     | (Tyapp x1 a1, Tyapp x2 a2) => pair_cmp mlstring$compare (list_cmp type_cmp) (x1,a1) (x2,a2)
 Proof
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   conj_tac >- (
     gen_tac >> Cases >>
     simp[type_cmp_def,TO_of_LinearOrder,type_lt_thm, mlstring_lt_def] >>
@@ -600,10 +584,10 @@ Theorem type_cmp_ind:
       ⇒ ∀t1 t2. P t1 t2
 Proof
   gen_tac >> strip_tac >>
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   rpt conj_tac >> TRY (gen_tac >> Cases >> rw[] >> NO_TAC) >>
   rpt gen_tac >> strip_tac >> gen_tac >>
-  ho_match_mp_tac type_ind >> rw[] >>
+  ho_match_mp_tac type_induction >> rw[] >>
   first_x_assum match_mp_tac >> simp[] >>
   fs[EVERY_MEM]
 QED
@@ -731,7 +715,7 @@ Proof
   qmatch_assum_abbrev_tac`p` >> fs[] >>
   qhdtm_x_assum`orda`mp_tac >>
   simp[Once orda_def] >>
-  rw[] >- fs[markerTheory.Abbrev_def] >>
+  rw[] >>
   pop_assum mp_tac >>
   BasicProvers.CASE_TAC >>
   BasicProvers.CASE_TAC >>
@@ -1348,7 +1332,7 @@ Theorem VFREE_IN_VSUBST:
 Proof
   Induct >> simp[VFREE_IN_def,VSUBST_def] >- metis_tac[] >>
   map_every qx_gen_tac[`u`,`uty`,`ilist`] >>
-  disch_then(qx_choosel_then[`b`,`bty`]strip_assume_tac) >> simp[] >>
+  disch_then(qx_choosel_then[`x`,`xty`]strip_assume_tac) >> simp[] >>
   BasicProvers.VAR_EQ_TAC >> qmatch_assum_rename_tac`welltyped tm` >>
   qmatch_abbrev_tac`VFREE_IN vu (if p then Abs (Var vx xty) (VSUBST l1 tm) else Abs (Var x xty) (VSUBST l2 tm)) ⇔ q` >>
   qsuff_tac`VFREE_IN vu (Abs (Var (if p then vx else x) xty) (VSUBST (if p then l1 else l2) tm)) ⇔ q` >- metis_tac[] >>
@@ -1582,7 +1566,7 @@ QED
 Theorem tyvars_ALL_DISTINCT[simp]:
    ∀ty. ALL_DISTINCT (tyvars ty)
 Proof
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   rw[tyvars_def] >>
   Induct_on`l` >> simp[] >>
   rw[ALL_DISTINCT_LIST_UNION]
@@ -1598,7 +1582,7 @@ Theorem tyvars_TYPE_SUBST:
    ∀ty tyin. set (tyvars (TYPE_SUBST tyin ty)) =
       { v | ∃x. MEM x (tyvars ty) ∧ MEM v (tyvars (REV_ASSOCD (Tyvar x) tyin (Tyvar x))) }
 Proof
-  ho_match_mp_tac type_ind >> simp[tyvars_def] >>
+  ho_match_mp_tac type_induction >> simp[tyvars_def] >>
   simp[EXTENSION,EVERY_MEM,MEM_FOLDR_LIST_UNION,PULL_EXISTS,MEM_MAP] >> rw[] >>
   metis_tac[]
 QED
@@ -3469,7 +3453,7 @@ Theorem type_ok_extend:
     type_ok tyenv t ⇒
     type_ok tyenv' t
 Proof
-  ho_match_mp_tac type_ind >>
+  ho_match_mp_tac type_induction >>
   rw[type_ok_def,EVERY_MEM] >>
   res_tac >>
   imp_res_tac FLOOKUP_SUBMAP
@@ -4135,7 +4119,7 @@ Theorem type_ok_arities_match:
    ∀tys ty1 ty2.
     type_ok tys ty1 ∧ type_ok tys ty2 ⇒ arities_match [ty1] [ty2]
 Proof
-  gen_tac >> ho_match_mp_tac type_ind >> simp[] >>
+  gen_tac >> ho_match_mp_tac type_induction >> simp[] >>
   gen_tac >> strip_tac >>
   gen_tac >> Cases >> simp[arities_match_def] >>
   rw[type_ok_def] >> fs[] >>

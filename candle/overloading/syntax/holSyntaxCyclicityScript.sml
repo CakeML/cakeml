@@ -405,7 +405,7 @@ Proof
   >> goal_assum $ drule_at Any
   >> goal_assum $ rev_drule_at Any
   >> fs[pred_setTheory.EXTENSION,GSYM LEFT_AND_OVER_OR,
-      holSyntaxRenamingTheory.list_complement_MEM,holSyntaxRenamingTheory.list_inter_set]
+      holSyntaxRenamingTheory.list_complement_MEM,miscTheory.list_inter_set]
 QED
 
 Theorem equiv_ts_on_TYPE_SUBST:
@@ -1945,7 +1945,7 @@ QED
 Theorem var_renaming_type_size:
   !e ty. var_renaming e ==> type_size' (TYPE_SUBST e ty) =  type_size' ty
 Proof
-  gen_tac >> ho_match_mp_tac type_ind
+  gen_tac >> ho_match_mp_tac type_induction
   >> rw[Excl"TYPE_SUBST_def",type_size'_def]
   >- (
     rename[`TYPE_SUBST e (Tyvar m)`]
@@ -1982,7 +1982,7 @@ Theorem equiv_ts_on_tyvars_type_size:
     ==> type_size' (TYPE_SUBST s p) = type_size' (TYPE_SUBST s' p)
 Proof
   ntac 2 gen_tac
-  >> ho_match_mp_tac type_ind
+  >> ho_match_mp_tac type_induction
   >> rw[]
   >- (drule equiv_ts_on_type_size >> fs[tyvars_def])
   >> dxrule_then assume_tac equiv_ts_on_tyvars_Tyapp
@@ -3015,7 +3015,7 @@ Proof
     >> fs[GSYM LR_TYPE_SUBST_compose,EL_APPEND1,EL_MAP]
   )
   >> pop_assum mp_tac
-  >> rw[equal_ts_on_def,holSyntaxRenamingTheory.list_inter_set,Excl"TYPE_SUBST_def"]
+  >> rw[equal_ts_on_def,miscTheory.list_inter_set,Excl"TYPE_SUBST_def"]
   >> qpat_x_assum `!x. _` $ dep_rewrite.DEP_REWRITE_TAC o single o GSYM
   >> conj_tac
   >- (
@@ -3176,7 +3176,7 @@ Proof
     >> Cases_on `l`
     >> fs[type_size'_def]
   )
-  >> ho_match_mp_tac type_ind
+  >> ho_match_mp_tac type_induction
   >> rw[tyvars_Tyapp,MEM_FLAT,MEM_MAP,tyvars_def,PULL_EXISTS,type_size'_def,type1_size'_SUM_MAP,MAP_MAP_o,EVERY_MEM]
   >> drule_at Any SUM_MAP_same_LESS_eq
   >> impl_tac
@@ -3297,11 +3297,11 @@ Proof
     `MEM x c` by rgs[Abbr`C`,Abbr`R`,holSyntaxRenamingTheory.list_complement_MEM]
     >> qspecl_then [`R`,`C`] mp_tac renn_disj_dom_img3
     >> ONCE_REWRITE_TAC[holSyntaxRenamingTheory.NULL_list_inter_COMM]
-    >> REWRITE_TAC[NULL_FILTER,Once list_inter_def,holSyntaxRenamingTheory.list_inter_set]
+    >> REWRITE_TAC[NULL_FILTER,Once list_inter_def,miscTheory.list_inter_set]
     >> disch_then $ qspec_then `Tyvar a` mp_tac
     >> impl_tac
     >- (
-      fs[o_DEF,MEM_MAP,holSyntaxRenamingTheory.list_inter_set]
+      fs[o_DEF,MEM_MAP,miscTheory.list_inter_set]
       >> rpt $ goal_assum $ drule_at Any
       >> fs[]
     )

@@ -1,0 +1,49 @@
+(*
+  Translates aig_cert_full.
+*)
+Theory aig_cert_fullProg
+Ancestors
+  aig_to_cnfProg aig_cert_full
+Libs
+  preamble ml_translatorLib aig_translationLib
+
+val _ = translation_extends "aig_to_cnfProg";
+
+val _ = use_sub_check true;
+val r = translate listRangeTheory.listRangeINC_def;  (* [x .. y] *)
+val _ = use_sub_check false;
+
+val r = translate aig_cert_fullTheory.range_inter_def;
+val r = translate aig_cert_fullTheory.range_diff_def;
+val r = translate aig_cert_fullTheory.range_is_subset_def;
+
+val r = translate syntax_helperTheory.print_lit_def;
+val r = translate syntax_helperTheory.print_lits_def;
+val r = translate syntax_helperTheory.print_header_line_def;
+val r = translate dimacsTheory.print_cnf_def;
+
+val r = translate (aig_cert_fullTheory.parse_model_def |> demonadify);
+val r = translate aig_cert_fullTheory.preprocess_model_def;
+
+val r = translate (aig_cert_fullTheory.parse_witness_def |> demonadify);
+
+val r = translate listTheory.TAKE_def;
+val r = translate aig_cert_fullTheory.resize_def;
+val r = translate listTheory.MAP2_DEF;
+val r = translate aig_cert_fullTheory.preprocess_witness_def;
+
+val r = translate (aig_cert_fullTheory.check_model_def |> demonadify);
+
+val r = translate listTheory.LIST_REL_def;
+
+val r = translate (aig_cert_fullTheory.process_and_check_def |> demonadify);
+
+val r = translate aig_cert_fullTheory.make_reset_string_def;
+val r = translate aig_cert_fullTheory.make_transition_string_def;
+val r = translate aig_cert_fullTheory.make_safety_string_def;
+val r = translate aig_cert_fullTheory.make_base_string_def;
+val r = translate aig_cert_fullTheory.make_induction_string_def;
+val r = translate aig_cert_fullTheory.make_liveness_string_def;
+val r = translate aig_cert_fullTheory.make_decrease_string_def;
+val r = translate aig_cert_fullTheory.make_closure_string_def;
+val r = translate aig_cert_fullTheory.make_stable_string_def;

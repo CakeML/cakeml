@@ -6,7 +6,7 @@
 *)
 Theory displayLang
 Ancestors
-  jsonLang mlint backend_common mlsexp (* for str_tree *)
+  jsonLang backend_common mlsexp (* for str_tree *)
 Libs
   preamble
 
@@ -17,8 +17,6 @@ Datatype:
     | Tuple (sExp list)
     | List (sExp list)
 End
-
-val sExp_size_def = fetch "-" "sExp_size_def";
 
 (* display_to_json *)
 Definition trace_to_json_def:
@@ -41,12 +39,6 @@ Definition trace_to_json_def:
   * the top level of a trace. *)
   (trace_to_json None = Null)
 End
-
-Theorem MEM_sExp_size:
-  !es a. MEM a es ==> sExp_size a < sExp1_size es
-Proof
-  Induct \\ fs [] \\ rw [sExp_size_def] \\ fs [] \\ res_tac \\ fs []
-QED
 
 (* Converts a display expression to JSON *)
 Definition display_to_json_def:

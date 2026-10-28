@@ -6,7 +6,7 @@
 Theory evaluate_skip
 Ancestors
   evaluate semanticPrimitives evaluateProps namespaceProps
-  ml_prog
+  ml_prog ml_translator
 Libs
   preamble helperLib[qualified]
 
@@ -128,6 +128,7 @@ Definition state_rel_def:
     s.eval_state = NONE ∧
     t.eval_state = NONE ∧
     t.ffi = s.ffi ∧
+    t.ptr_eq_oracle = s.ptr_eq_oracle ∧
     (∀n. n < l ⇒ FLOOKUP fr n = SOME (n:num) ∧ n < LENGTH s.refs) ∧
     FLOOKUP ft bool_type_num = SOME bool_type_num ∧
     FLOOKUP ft list_type_num = SOME list_type_num ∧
@@ -416,6 +417,60 @@ in
   fun the_ind_thm () = ind_thm
 end
 
+Theorem env_rel_one_con_check:
+  env_rel fr ft fe env env1 ⇒
+  one_con_check env1.c = one_con_check env.c
+Proof
+  strip_tac >> simp [FUN_EQ_THM] >>
+  qx_gen_tac `expression` >> Cases_on `expression` >>
+  simp [one_con_check_def] >> irule EQ_SYM >>
+  irule semanticPrimitivesPropsTheory.do_con_check_nsAll2 >>
+  fs [env_rel_def, ctor_rel_def] >>
+  irule nsAll2_mono >> first_assum (irule_at Any) >>
+  simp [FORALL_PROD]
+QED
+
+Theorem env_rel_check_exp_constructors:
+  env_rel fr ft fe env env1 ⇒
+  check_exp_constructors env1.c = check_exp_constructors env.c
+Proof
+  rw [FUN_EQ_THM] >> irule EQ_SYM >>
+  irule semanticPrimitivesPropsTheory.check_exp_constructors_nsAll2 >>
+  fs [env_rel_def, ctor_rel_def] >>
+  irule nsAll2_mono >> first_assum (irule_at Any) >>
+  simp [FORALL_PROD]
+QED
+
+Theorem nsAll2_const_nsOpen[local]:
+  nsAll2 (λid. R) env env1 ⇒
+  OPTREL (nsAll2 (λid. R)) (nsOpen path env) (nsOpen path env1)
+Proof
+  strip_tac
+  \\ Cases_on `nsOpen path env`
+  \\ Cases_on `nsOpen path env1`
+  \\ gs []
+  \\ imp_res_tac nsAll2_after_nsOpen
+  \\ imp_res_tac nsAll2_before_nsOpen
+  \\ gs []
+QED
+
+Theorem env_rel_open_dec_env:
+  ∀path fr ft fe env env1.
+    env_rel fr ft fe env env1 ⇒
+    OPTREL (env_rel fr ft fe)
+      (open_dec_env path env) (open_dec_env path env1)
+Proof
+  rpt strip_tac
+  \\ `OPTREL (nsAll2 (λid. v_rel fr ft fe))
+        (nsOpen path env.v) (nsOpen path env1.v)` by (
+    irule nsAll2_const_nsOpen \\ gs [env_rel_def])
+  \\ `OPTREL (nsAll2 (λid. ($= ### stamp_rel ft fe)))
+        (nsOpen path env.c) (nsOpen path env1.c)` by (
+    irule nsAll2_const_nsOpen \\ gs [env_rel_def, ctor_rel_def])
+  \\ fs [open_dec_env_def]
+  \\ rpt (CASE_TAC \\ gvs [env_rel_def, ctor_rel_def])
+QED
+
 Theorem evaluate_update:
   ^(evaluate_update ())
 Proof
@@ -427,7 +482,7 @@ Proof
   >~ [`Raise`] >- suspend "Raise"
   >~ [`Handle`] >- suspend "Handle"
   >~ [`Con`] >- suspend "Con"
-  >~ [`ast$Var`] >- suspend "Var"
+  >~ [`ast$Ident`] >- suspend "Ident"
   >~ [`ast$Fun`] >- suspend "Fun"
   >~ [`ast$App`] >- suspend "App"
   >~ [`Log`] >- suspend "Log"
@@ -437,6 +492,7 @@ Proof
   >~ [`Letrec`] >- suspend "Letrec"
   >~ [`Tannot`] >- suspend "Tannot"
   >~ [`Lannot`] >- suspend "Lannot"
+  >~ [`ast$Open`] >- suspend "Open"
   >~ [`[] : (pat # exp) list`] >- suspend "pmatch_Nil"
   >~ [`_::_ : (pat # exp) list`] >- suspend "pmatch_Cons"
   >~ [`[]:dec list`] >- suspend "decs_Nil"
@@ -447,6 +503,7 @@ Proof
   >~ [`Dtabbrev`] >- suspend "decs_Dtabbrev"
   >~ [`Denv`] >- suspend "decs_Denv"
   >~ [`Dexn`] >- suspend "decs_Dexn"
+  >~ [`Dopen`] >- suspend "decs_Dopen"
   >~ [`Dmod`] >- suspend "decs_Dmod"
   >~ [`Dlocal`] >- suspend "decs_Dlocal"
   \\ simp []
@@ -598,7 +655,7 @@ Resume evaluate_update[Con]:
   \\ gs [SF SFY_ss]
 QED
 
-Resume evaluate_update[Var]:
+Resume evaluate_update[Ident]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"]]
   \\ first_assum (irule_at Any) \\ gs [] \\ dsimp []
@@ -902,6 +959,54 @@ Proof
   \\ gvs [state_rel_def]
 QED
 
+Theorem v_rel_Boolv:
+  state_rel l fr ft fe s t ∧
+  v_rel fr ft fe v1 v2 ⇒
+    ∀b. v1 = Boolv b ⇔ v2 = Boolv b
+Proof
+  rw [Boolv_def, state_rel_def] \\ rw [EQ_IMP_THM]
+  \\ gvs [v_rel_def, OPTREL_def, Once stamp_rel_cases, flookup_thm]
+  \\ qpat_x_assum ‘INJ ($' ft) _ _’ mp_tac \\ rw [INJ_DEF]
+QED
+
+Theorem state_rel_index_witness_length:
+  state_rel l fr ft fe s t ∧ v_rel fr ft fe v w ⇒
+  index_witness_length s.refs v = index_witness_length t.refs w
+Proof
+  strip_tac
+  \\ Cases_on ‘v’ \\ gvs [v_rel_def, index_witness_length_def]
+  >~ [`index_witness_length _ (Litv _)`] >- (
+    qmatch_goalsub_rename_tac `Litv literal`
+    \\ Cases_on `literal`
+    \\ gvs [index_witness_length_def])
+  >- (
+    rename [‘FLOOKUP fr source_loc = SOME target_loc’]
+    \\ drule_all state_rel_store_lookup \\ strip_tac
+    \\ Cases_on ‘store_lookup source_loc s.refs’ \\ gvs [OPTREL_def]
+    \\ rename [‘ref_rel _ source_value target_value’]
+    \\ Cases_on ‘source_value’ \\ Cases_on ‘target_value’
+    \\ gvs [ref_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ simp [])
+  \\ metis_tac [LIST_REL_LENGTH]
+QED
+
+Theorem state_rel_unsafe_index_bound:
+  state_rel l fr ft fe s t ∧ LIST_REL (v_rel fr ft fe) vs ws ⇒
+  unsafe_index_bound s.refs vs = unsafe_index_bound t.refs ws
+Proof
+  strip_tac
+  \\ Cases_on ‘vs’ \\ gvs [LIST_REL_CONS1, unsafe_index_bound_def]
+  \\ rename [‘LIST_REL _ source_rest target_rest’]
+  \\ drule_all state_rel_index_witness_length \\ strip_tac
+  \\ Cases_on ‘source_rest’ \\ Cases_on ‘target_rest’
+  \\ gvs [unsafe_index_bound_def]
+QED
+
+Theorem exists_SUBMAP[local]:
+  ∃fr1 ft1 fe1. fr ⊑ fr1 ∧ ft ⊑ ft1 ∧ fe ⊑ fe1
+Proof
+  metis_tac [SUBMAP_REFL]
+QED
+
 Theorem do_app_update:
   do_app (s.refs,s.ffi) op vs = res ∧
   state_rel l fr ft fe s t ∧
@@ -926,6 +1031,20 @@ Theorem do_app_update:
               res res1
 Proof
   strip_tac
+  \\ Cases_on ‘(∃a. op = UnsafeIndexArith a) ∨ ∃test. op = UnsafeIndexTest test’
+  >- (
+    Cases_on ‘res’ \\ gvs [do_app_def, AllCaseEqs()]
+    \\ qexistsl_tac [‘fr’, ‘ft’, ‘fe’] \\ simp []
+    \\ gvs [do_unsafe_index_arith_def, do_unsafe_index_test_def,
+            AllCaseEqs(), v_rel_def]
+    \\ imp_res_tac state_rel_unsafe_index_bound \\ gvs []
+    \\ qexistsl_tac [‘s’, ‘t’] \\ gvs [v_rel_def]
+    >~ [‘do_arith arith _ _ = SOME (INL _)’] >- (
+      Cases_on ‘arith’
+      \\ gvs [do_arith_def, AllCaseEqs(), v_rel_def, div_exn_v_def,
+              div_stamp_def, stamp_rel_cases, state_rel_def])
+    \\ rw [Boolv_def, v_rel_def, stamp_rel_cases]
+    \\ gvs [state_rel_def])
   \\ Cases_on ‘∃a ty. op = Arith a ty’ \\ gs []
   >- (
     gvs [do_app_def] \\ rpt $ irule_at Any SUBMAP_REFL
@@ -936,7 +1055,9 @@ Proof
     >- prove_tac[LIST_REL_EL_EQN, EVERY_EL]
     \\ first_x_assum $ drule_then(qspec_then‘a’mp_tac)
     \\ rw[OPTREL_def] \\ gvs[CaseEq"sum",PULL_EXISTS]
-    \\ Cases_on‘x0’ \\ Cases_on‘y0’ \\ gvs[]
+    \\ qmatch_assum_rename_tac
+      `(v_rel fr ft fe +++ v_rel fr ft fe) source_result target_result`
+    \\ Cases_on `source_result` \\ Cases_on `target_result` \\ gvs []
     \\ prove_tac[] )
   \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ \\ gs []
   >- (
@@ -966,7 +1087,8 @@ Proof
     \\ gvs [CaseEqs ["eq_result"], EXISTS_PROD, PULL_EXISTS]
     \\ drule_all do_test_thm \\ fs [] \\ rw []
     \\ qpat_assum ‘state_rel l fr ft fe s t’ $ irule_at Any \\ fs []
-    \\ Cases_on ‘b’ \\ gvs [Boolv_def]
+    \\ qmatch_goalsub_rename_tac `Boolv test_result`
+    \\ Cases_on `test_result` \\ gvs [Boolv_def]
     \\ simp [Once v_rel_cases,stamp_rel_cases]
     \\ gvs [state_rel_def])
   \\ Cases_on ‘op = Env_id’ \\ gs []
@@ -1061,6 +1183,92 @@ Proof
     \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gs [ref_rel_def]
     \\ gvs [store_assign_def, store_lookup_def]
     \\ rw [] \\ gs [v_rel_def]
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r1; ffi := f1; clock := s.clock;
+          next_type_stamp := nts1; next_exn_stamp := nes1;
+          eval_state := NONE |>’ \\ gs []
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r2; ffi := f2; clock := t.clock;
+          next_type_stamp := nts2; next_exn_stamp := nes2;
+          eval_state := NONE |>’ \\ gs []
+    \\ gs [state_rel_def, EL_LUPDATE]
+    \\ qx_gen_tac ‘n1’
+    \\ first_x_assum (qspec_then ‘n1’ assume_tac)
+    \\ rw [] \\ gs [ref_rel_def]
+    \\ qpat_x_assum ‘INJ ($' fr) _ _’ mp_tac \\ rw [INJ_DEF]
+    \\ qpat_x_assum ‘FLOOKUP fr _ = _’ mp_tac \\ rw [flookup_thm]
+    \\ qpat_x_assum ‘FLOOKUP fr _ = _’ mp_tac \\ rw [flookup_thm]
+    \\ gs [])
+  \\ Cases_on ‘op = Aw8subBit_unsafe’ \\ gs []
+  >- (
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ drule_all_then assume_tac state_rel_store_lookup \\ gs [OPTREL_def]
+    \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gs [ref_rel_def]
+    \\ rw [] \\ gs []
+    \\ first_assum (irule_at Any) \\ gs [v_rel_def]
+    \\ rw [Boolv_def]
+    \\ gs [v_rel_def, stamp_rel_cases, state_rel_def])
+  \\ Cases_on ‘op = Aw8updateBit_unsafe’ \\ gs []
+  >- (
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ drule_all_then assume_tac state_rel_store_lookup \\ gs [OPTREL_def]
+    \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gs [ref_rel_def]
+    \\ gvs [store_assign_def, store_lookup_def]
+    \\ drule_all v_rel_Boolv
+    \\ disch_then (fn th => assume_tac (Q.SPEC ‘T’ th) \\ assume_tac (Q.SPEC ‘F’ th))
+    \\ gvs []
+    \\ gvs [store_v_same_type_def, AllCaseEqs()]
+    \\ rw [] \\ gs [v_rel_def]
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r1; ffi := f1; clock := s.clock;
+          next_type_stamp := nts1; next_exn_stamp := nes1;
+          eval_state := NONE |>’ \\ gs []
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r2; ffi := f2; clock := t.clock;
+          next_type_stamp := nts2; next_exn_stamp := nes2;
+          eval_state := NONE |>’ \\ gs []
+    \\ gs [state_rel_def, EL_LUPDATE]
+    \\ qx_gen_tac ‘n1’
+    \\ first_x_assum (qspec_then ‘n1’ assume_tac)
+    \\ rw [] \\ gs [ref_rel_def]
+    \\ qpat_x_assum ‘INJ ($' fr) _ _’ mp_tac \\ rw [INJ_DEF]
+    \\ qpat_x_assum ‘FLOOKUP fr _ = _’ mp_tac \\ rw [flookup_thm]
+    \\ qpat_x_assum ‘FLOOKUP fr _ = _’ mp_tac \\ rw [flookup_thm]
+    \\ gs [])
+  \\ Cases_on ‘op = Aw8subBit’ \\ gs []
+  >- (
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ drule_all_then assume_tac state_rel_store_lookup \\ gs [OPTREL_def]
+    \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gs [ref_rel_def]
+    \\ rw [] \\ gvs [LIST_REL_EL_EQN, v_rel_def, sub_exn_v_def,
+                     subscript_stamp_def, stamp_rel_cases]
+    \\ first_assum (irule_at Any) \\ gs [state_rel_def]
+    \\ rw [Boolv_def]
+    \\ gs [v_rel_def, stamp_rel_cases, state_rel_def])
+  \\ Cases_on ‘op = Aw8updateBit’ \\ gs []
+  >- (
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ drule_all_then assume_tac state_rel_store_lookup \\ gs [OPTREL_def]
+    \\ rename1 ‘ref_rel _ _ y0’ \\ Cases_on ‘y0’ \\ gs [ref_rel_def]
+    \\ gvs [store_assign_def, store_lookup_def]
+    \\ drule_all v_rel_Boolv
+    \\ disch_then (fn th => assume_tac (Q.SPEC ‘T’ th) \\ assume_tac (Q.SPEC ‘F’ th))
+    \\ gvs []
+    \\ gvs [store_v_same_type_def, AllCaseEqs()]
+    \\ rw [] \\ gs [v_rel_def, sub_exn_v_def, subscript_stamp_def,
+                    stamp_rel_cases]
     \\ Q.REFINE_EXISTS_TAC
       ‘<| refs := r1; ffi := f1; clock := s.clock;
           next_type_stamp := nts1; next_exn_stamp := nes1;
@@ -1188,10 +1396,9 @@ Proof
           eval_state := NONE |>’ \\ gs [])
   \\ Cases_on ‘op = AallocEmpty’ \\ gs []
   >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def, exists_SUBMAP,
                            CaseEqs ["list", "v", "option", "prod", "lit",
                                     "store_v"]]
-    \\ TRY (rpt (irule_at Any SUBMAP_REFL) \\ gs [] \\ NO_TAC)
     \\ rpt (pairarg_tac \\ gs []) \\ gvs []
     \\ gvs [store_alloc_def, v_rel_def, PULL_EXISTS]
     \\ qexists_tac ‘fr |+ (LENGTH s.refs,LENGTH t.refs)’
@@ -1229,10 +1436,9 @@ Proof
     \\ Q.LIST_EXISTS_TAC [‘fe’,‘fr’,‘ft’] \\ gs [])
   \\ Cases_on ‘op = Aalloc’ \\ gs []
   >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def, exists_SUBMAP,
                            CaseEqs ["list", "v", "option", "prod", "lit",
                                     "store_v"]]
-    \\ TRY (rpt (irule_at Any SUBMAP_REFL) \\ gs [] \\ NO_TAC)
     \\ rpt (pairarg_tac \\ gs []) \\ gvs []
     \\ gvs [store_alloc_def, v_rel_def, PULL_EXISTS, CaseEqs ["bool", "option"],
             v_rel_def, sub_exn_v_def, stamp_rel_cases, subscript_stamp_def]
@@ -1277,10 +1483,9 @@ Proof
     \\ first_assum (irule_at (Pat ‘v_rel’)) \\ gs [])
   \\ Cases_on ‘op = AallocFixed’ \\ gs []
   >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def, exists_SUBMAP,
                            CaseEqs ["list", "v", "option", "prod", "lit",
                                     "store_v"]]
-    \\ TRY (rpt (irule_at Any SUBMAP_REFL) \\ gs [state_rel_def, store_alloc_def] \\ NO_TAC)
     \\ rpt (pairarg_tac \\ gs []) \\ gvs []
     \\ gvs [store_alloc_def, v_rel_def, PULL_EXISTS, CaseEqs ["bool", "option"],
             v_rel_def, sub_exn_v_def, stamp_rel_cases, subscript_stamp_def]
@@ -1405,6 +1610,13 @@ Proof
     \\ first_assum (irule_at Any) \\ gs []
     \\ gs [v_rel_def, sub_exn_v_def, stamp_rel_cases, subscript_stamp_def,
            state_rel_def])
+  \\ Cases_on ‘op = Strsub_unsafe’ \\ gs []
+  >- (
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘op = Explode’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
@@ -1607,10 +1819,9 @@ Proof
     \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘op = Aw8alloc’ \\ gs []
   >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def, exists_SUBMAP,
                            CaseEqs ["list", "v", "option", "prod", "lit",
                                     "store_v"]]
-    \\ TRY (rpt (irule_at Any SUBMAP_REFL) \\ gs [] \\ NO_TAC)
     \\ rpt (pairarg_tac \\ gs []) \\ gvs []
     \\ gvs [store_alloc_def, v_rel_def, PULL_EXISTS, CaseEqs ["bool", "option"],
             v_rel_def, sub_exn_v_def, stamp_rel_cases, subscript_stamp_def]
@@ -1649,13 +1860,6 @@ Proof
     \\ first_assum (irule_at Any) \\ rw []
     \\ irule v_rel_update
     \\ first_assum (irule_at (Pat ‘v_rel’)) \\ gs [])
-  \\ Cases_on ‘∃sz sh n. op = Shift sz sh n’ \\ gs []
-  >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
-                           CaseEqs ["list", "v", "option", "prod", "lit",
-                                    "store_v", "word_size"]]
-    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
-    \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘op = Equality’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
@@ -1710,10 +1914,9 @@ Proof
     \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘op = Opref’ \\ gs []
   >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def, exists_SUBMAP,
                            CaseEqs ["list", "v", "option", "prod", "lit",
                                     "store_v"]]
-    \\ TRY (rpt (irule_at Any SUBMAP_REFL) \\ gs [] \\ NO_TAC)
     \\ rpt (pairarg_tac \\ gs []) \\ gvs []
     \\ gvs [store_alloc_def, v_rel_def]
     \\ qexists_tac ‘fr |+ (LENGTH s.refs,LENGTH t.refs)’
@@ -1758,13 +1961,32 @@ Proof
     Cases_on ‘res’ \\ gvs [do_app_def, AllCaseEqs(), thunk_op_def]
     \\ rpt (pairarg_tac \\ gvs [])
     >- metis_tac [SUBMAP_REFL]
+    >- (
+      reverse $ rw [GSYM PULL_EXISTS]
+      >- (
+        gvs [bad_thunk_update_def, oneline dest_thunk_def, AllCaseEqs()]
+        \\ qmatch_assum_rename_tac `v_rel fr ft fe source_value target_value`
+        \\ Cases_on `source_value` \\ gvs [v_rel_cases, store_alloc_def]
+        \\ drule_all state_rel_store_lookup \\ rw [OPTREL_def] \\ gvs []
+        \\ rename1 `ref_rel _ x y`
+        \\ Cases_on `x` \\ Cases_on `y` \\ gvs [ref_rel_def])
+      \\ metis_tac [SUBMAP_REFL])
     >- metis_tac [SUBMAP_REFL]
+    \\ qmatch_assum_rename_tac `v_rel fr ft fe source_value target_value`
+    \\ `¬bad_thunk_update m target_value t.refs` by (
+      gvs [store_alloc_def]
+      \\ gvs [bad_thunk_update_def] \\ rw []
+      \\ gvs [oneline dest_thunk_def, AllCaseEqs(), v_rel_cases,
+              store_lookup_def, SF DNF_ss]
+      \\ drule_all state_rel_store_lookup \\ rw [OPTREL_def] \\ gvs []
+      \\ gvs [store_lookup_def]
+      \\ qpat_x_assum `ref_rel _ _ _` mp_tac
+      \\ simp [oneline ref_rel_def] \\ TOP_CASE_TAC \\ gvs [])
     \\ qexists ‘fr |+ (LENGTH s.refs,LENGTH t.refs)’ \\ gvs []
     \\ rpt (irule_at Any SUBMAP_REFL \\ gvs [])
     \\ gvs [store_alloc_def]
-    \\ rename1 ‘v_rel _ _ _ v y’
-    \\ qexistsl [‘t with refs := t.refs ++ [Thunk m y]’,
-                 ‘s with refs := s.refs ++ [Thunk m v]’]
+    \\ qexistsl [`t with refs := t.refs ++ [Thunk m target_value]`,
+                 `s with refs := s.refs ++ [Thunk m source_value]`]
     \\ gvs [state_rel_def]
     \\ rw []
     >- (
@@ -1784,20 +2006,29 @@ Proof
         \\ irule v_rel_update \\ gvs []
         \\ first_x_assum $ irule_at Any \\ gvs [])
       >- (
-        first_x_assum $ qspec_then ‘n’ assume_tac \\ gvs []
+        qmatch_goalsub_rename_tac `FLOOKUP fr source_index`
+        \\ first_x_assum $ qspec_then `source_index` assume_tac \\ gvs []
         \\ irule ref_rel_mono \\ gvs []
         \\ first_x_assum $ irule_at Any \\ rw []
         \\ irule v_rel_update \\ gvs []
         \\ first_x_assum $ irule_at Any \\ gvs []))
     >- (
       gvs [FLOOKUP_UPDATE]
-      \\ first_x_assum $ qspec_then ‘n’ assume_tac \\ gvs [])
+      \\ qmatch_goalsub_rename_tac `FLOOKUP fr source_index`
+      \\ first_x_assum $ qspec_then `source_index` assume_tac \\ gvs [])
     >- gvs [v_rel_def, FLOOKUP_UPDATE])
   \\ Cases_on ‘∃m. op = ThunkOp (UpdateThunk m)’ \\ gs[]
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, AllCaseEqs(), thunk_op_def, OPTREL_def]
     \\ rpt (irule_at Any SUBMAP_REFL) \\ gs [v_rel_def]
     \\ rename1 ‘v_rel fr ft fe v w’
+    \\ `bad_thunk_update m v s.refs ⇔ bad_thunk_update m w t.refs` by (
+      gvs [bad_thunk_update_def, oneline dest_thunk_def, AllCaseEqs()]
+      \\ Cases_on `v` \\ Cases_on `w` \\ gvs [v_rel_cases]
+      \\ drule_all state_rel_store_lookup \\ rw [OPTREL_def] \\ gvs []
+      \\ rename1 `ref_rel _ x y`
+      \\ Cases_on `x` \\ Cases_on `y` \\ gvs [ref_rel_def])
+    \\ gvs []
     \\ ‘ref_rel (v_rel fr ft fe) (Thunk m v) (Thunk m w)’
       by gs [ref_rel_def]
     \\ drule_all state_rel_store_assign \\ rw [OPTREL_def]
@@ -1806,8 +2037,13 @@ Proof
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, AllCaseEqs(), thunk_op_def]
     \\ rpt (irule_at Any SUBMAP_REFL \\ gvs []))
+  \\ Cases_on ‘op = PtrEq’ \\ gs []
+  >- (
+    gvs [do_app_def]
+    \\ rpt (irule_at Any SUBMAP_REFL))
   \\ Cases_on ‘op’ \\ gs []
-  \\ Cases_on ‘t'’ \\ gs []
+  \\ qmatch_goalsub_rename_tac `ThunkOp thunk_primitive`
+  \\ Cases_on `thunk_primitive` \\ gs []
 QED
 
 (* TODO Move up *)
@@ -1977,6 +2213,29 @@ Resume evaluate_update[App_Op]:
       \\ drule_all state_rel_update_thunk_SOME \\ rw [] \\ gvs []
       \\ metis_tac [SUBMAP_TRANS]))
   >- (
+    ‘op = PtrEq’ by (Cases_on ‘op’ \\ gvs [] \\ Cases_on ‘t'’ \\ gvs [])
+    \\ gvs [CaseEqs ["prod", "result"], PULL_EXISTS]
+    \\ first_x_assum (drule_all_then strip_assume_tac)
+    \\ Cases_on ‘res1’ \\ gs []
+    >~ [‘res_rel _ _ (Rerr err1) (Rerr err2)’] >- (
+      first_assum (irule_at Any)
+      \\ gs [])
+    \\ dxrule_then assume_tac EVERY2_REVERSE
+    \\ Cases_on ‘REVERSE vs’ \\ gvs []
+    >- metis_tac []
+    \\ Cases_on ‘t'’ \\ gvs []
+    >- metis_tac []
+    \\ reverse (Cases_on ‘t''’) \\ gvs []
+    >- metis_tac []
+    \\ ‘do_eq h h' = do_eq y y'’
+      by (gs [state_rel_def] \\ irule (CONJUNCT1 v_rel_do_eq) \\ metis_tac [])
+    \\ ‘t1.ptr_eq_oracle = st'.ptr_eq_oracle’ by gs [state_rel_def]
+    \\ Cases_on ‘do_eq y y'’ \\ gvs []
+    >- (
+      qexistsl [‘fr1’,‘ft1’,‘fe1’] \\ gs [state_rel_def]
+      \\ rw [Boolv_def] \\ gs [v_rel_def, stamp_rel_cases])
+    \\ metis_tac [])
+  >- (
     gvs [CaseEqs ["prod", "result", "option"], PULL_EXISTS]
     \\ first_x_assum (drule_all_then strip_assume_tac)
     \\ Cases_on ‘res1’ \\ gs []
@@ -2044,16 +2303,6 @@ Resume evaluate_update[App_Opapp]:
   \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
   \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
   \\ gs [state_rel_def]
-QED
-
-Theorem v_rel_Boolv:
-  state_rel l fr ft fe s t ∧
-  v_rel fr ft fe v1 v2 ⇒
-    ∀b. v1 = Boolv b ⇔ v2 = Boolv b
-Proof
-  rw [Boolv_def, state_rel_def] \\ rw [EQ_IMP_THM]
-  \\ gvs [v_rel_def, OPTREL_def, Once stamp_rel_cases, flookup_thm]
-  \\ qpat_x_assum ‘INJ ($' ft) _ _’ mp_tac \\ rw [INJ_DEF]
 QED
 
 Theorem v_rel_do_log:
@@ -2192,6 +2441,17 @@ Resume evaluate_update[Lannot]:
   rw [evaluate_def]
 QED
 
+Resume evaluate_update[Open]:
+  rpt strip_tac >> drule env_rel_open_dec_env >>
+  disch_then (qspec_then `path` assume_tac) >>
+  Cases_on `open_dec_env path env` >>
+  Cases_on `open_dec_env path env1` >>
+  gvs [optionTheory.OPTREL_def, evaluate_def]
+  >- (qexistsl_tac [`fr`, `ft`, `fe`] >> simp []) >>
+  first_x_assum irule >> simp [] >>
+  irule env_rel_extend_dec_env >> simp []
+QED
+
 Resume evaluate_update[pmatch_Nil]:
   rw [evaluate_def] \\ gs []
   \\ first_assum (irule_at Any) \\ gs []
@@ -2270,26 +2530,12 @@ Resume evaluate_update[decs_Cons]:
   \\ gs [SF SFY_ss]
 QED
 
-Theorem env_rel_one_con_check:
-  env_rel fr ft fe env env1 ⇒
-  one_con_check env1.c = one_con_check env.c
-Proof
-  fs [one_con_check_def,FUN_EQ_THM]
-  \\ strip_tac \\ Cases \\ fs [one_con_check_def]
-  \\ rename [‘do_con_check _ a’] \\ Cases_on ‘a’ \\ fs [do_con_check_def]
-  \\ fs [env_rel_def,ctor_rel_def]
-  \\ pop_assum kall_tac
-  \\ drule namespacePropsTheory.nsAll2_nsLookup_none
-  \\ disch_then $ qspec_then ‘x’ assume_tac
-  \\ rpt (CASE_TAC \\ fs [])
-  \\ drule_all namespacePropsTheory.nsAll2_nsLookup2 \\ fs []
-QED
-
 Resume evaluate_update[decs_Dlet]:
   reverse $ rw [evaluate_decs_def]
-  >- (first_assum (irule_at Any) \\ gs [SF SFY_ss]
-      \\ imp_res_tac env_rel_one_con_check \\ fs [])
-  \\ imp_res_tac env_rel_one_con_check
+  >- (
+    first_assum (irule_at Any) \\ gs [SF SFY_ss]
+    \\ imp_res_tac env_rel_check_exp_constructors \\ fs [])
+  \\ imp_res_tac env_rel_check_exp_constructors
   \\ gvs [CaseEqs ["prod", "result"], PULL_EXISTS]
   \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
   \\ Cases_on ‘res1’ \\ gs []
@@ -2315,11 +2561,13 @@ QED
 Resume evaluate_update[decs_Dletrec]:
   reverse $ rw [evaluate_decs_def]
   >- (first_assum (irule_at Any) \\ gs [SF SFY_ss])
-  >- (CCONTR_TAC \\ fs []
-      \\ imp_res_tac env_rel_one_con_check \\ fs []
-      \\ gvs [EVERY_MEM,EXISTS_MEM] \\ res_tac \\ fs [])
-  >- (imp_res_tac env_rel_one_con_check \\ fs []
-      \\ gvs [EVERY_MEM,EXISTS_MEM] \\ res_tac \\ fs [])
+  >- (
+    CCONTR_TAC \\ fs []
+    \\ imp_res_tac env_rel_check_exp_constructors \\ fs []
+    \\ gvs [EVERY_MEM,EXISTS_MEM] \\ res_tac \\ fs [])
+  >- (
+    imp_res_tac env_rel_check_exp_constructors \\ fs []
+    \\ gvs [EVERY_MEM,EXISTS_MEM] \\ res_tac \\ fs [])
   \\ gvs [CaseEqs ["prod", "result"], PULL_EXISTS]
   \\ first_assum (irule_at Any) \\ gs []
   \\ gs [env_rel_def, ctor_rel_def, PULL_EXISTS, SF SFY_ss,
@@ -2508,6 +2756,19 @@ Resume evaluate_update[decs_Dexn]:
          FUNION_DEF, state_rel_def, FUN_FMAP_DEF]
 QED
 
+Resume evaluate_update[decs_Dopen]:
+  rpt strip_tac
+  \\ drule env_rel_open_dec_env
+  \\ disch_then (qspec_then `path` assume_tac)
+  \\ Cases_on `open_dec_env path env`
+  \\ Cases_on `open_dec_env path env1`
+  \\ gvs [optionTheory.OPTREL_def, evaluate_decs_def]
+  \\ qexists_tac `fr`
+  \\ qexists_tac `ft`
+  \\ qexists_tac `fe`
+  \\ gs []
+QED
+
 Resume evaluate_update[decs_Dmod]:
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["option", "prod", "result"]]
@@ -2560,4 +2821,36 @@ Proof
   \\ first_assum (irule_at Any) \\ rw []
   \\ irule env_rel_extend_dec_env \\ gs []
   \\ drule_all env_rel_update \\  gs []
+QED
+
+(* Data without closures has a unique image under fixed renaming maps. *)
+Theorem v_rel_no_closures_functional:
+  !value. no_closures value ==>
+    !fr ft fe left right.
+      v_rel fr ft fe value left /\ v_rel fr ft fe value right ==>
+      left = right
+Proof
+  ho_match_mp_tac no_closures_ind >> rw [Once no_closures_def] >>
+  fs [v_rel_def] >> gvs [Once no_closures_def]
+  >~ [‘tag1 = tag2 /\ fields1 = fields2’] >- (
+    ‘tag1 = tag2’ by (
+      qmatch_asmsub_rename_tac ‘OPTREL (stamp_rel ft fe) tag tag1’ >>
+      Cases_on ‘tag’ >> gvs [OPTREL_def, stamp_rel_cases]) >>
+    simp [] >> fs [LIST_REL_EL_EQN, EVERY_MEM] >>
+    irule LIST_EQ >> simp [] >> rw [] >> metis_tac [MEM_EL]) >>
+  fs [LIST_REL_EL_EQN, EVERY_MEM] >>
+  irule LIST_EQ >> simp [] >> rw [] >> metis_tac [MEM_EL]
+QED
+
+(* A successful physical write has a matching write in the clean store. *)
+Theorem state_rel_store_assign_success:
+  state_rel l fr ft fe s t /\ FLOOKUP fr n = SOME m /\
+  ref_rel (v_rel fr ft fe) value physical_value /\
+  store_assign m physical_value t.refs = SOME physical_refs ==>
+  ?refs. store_assign n value s.refs = SOME refs /\
+    state_rel l fr ft fe (s with refs := refs)
+      (t with refs := physical_refs)
+Proof
+  rw [] >> drule_all state_rel_store_assign >>
+  simp [OPTREL_def]
 QED

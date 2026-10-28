@@ -14,18 +14,22 @@ val _ = numLib.temp_prefer_num();
 (* getOpClass as a inductive to make the proofs potentially easier *)
 Inductive opClass:
 (∀ op. opClass (FFI op) Simple) ∧
-(∀ op1 op2 op3. opClass (Shift op1 op2 op3) Simple) ∧
 (∀ op. op = Equality ∨ op = Opassign ∨
        op = Opref ∨ op = Aw8alloc ∨ op = Aw8sub ∨ op = Aw8length ∨
        op = Aw8update ∨ op = CopyStrStr ∨ op = CopyStrAw8 ∨
        op = CopyAw8Str ∨ op = CopyAw8Aw8 ∨
-       op = Implode ∨ op = Explode ∨ op = Strsub ∨ op = Strlen ∨
+       op = Implode ∨ op = Explode ∨ op = Strsub ∨ op = Strsub_unsafe ∨
+       op = Strlen ∨
        op = Strcat ∨ op = VfromList ∨ op = Vsub ∨ op = Vsub_unsafe ∨
        op = XorAw8Str_unsafe ∨ (∃test ty. op = Test test ty) ∨
-       (∃a ty. op = Arith a ty) ∨ (∃ty1 ty2. op = FromTo ty1 ty2) ∨
+       (∃a ty. op = Arith a ty) ∨ (∃a. op = UnsafeIndexArith a) ∨
+       (∃test. op = UnsafeIndexTest test) ∨
+       (∃ty1 ty2. op = FromTo ty1 ty2) ∨
        op = Vlength ∨ op = Aalloc ∨ op = AallocEmpty ∨ op = Asub ∨
        op = Alength ∨ op = Aupdate ∨ op = Asub_unsafe ∨ op = Aupdate_unsafe ∨
        op = Aw8sub_unsafe ∨ op = Aw8update_unsafe ∨ op = ListAppend ∨
+       op = Aw8subBit_unsafe ∨ op = Aw8updateBit_unsafe ∨
+       op = Aw8subBit ∨ op = Aw8updateBit ∨
        op = ConfigGC ∨ op = Env_id ∨ op = Opderef ∨ op = AallocFixed
        ⇒
        opClass op Simple) ∧
@@ -33,6 +37,8 @@ Inductive opClass:
 (opClass Opapp FunApp) ∧
 (* Eval *)
 (opClass Eval EvalOp) ∧
+(* PtrEq *)
+(opClass PtrEq PtrEqOp) ∧
 (* Thunks *)
 (opClass (ThunkOp ForceThunk) Force) ∧
 (∀op. op ≠ ForceThunk ⇒ opClass (ThunkOp op) Simple)
@@ -229,9 +235,40 @@ evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
 /\ (! ck env op es vs s1 s2.
       evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
       do_app (s2.refs,s2.ffi) op (REVERSE vs) = NONE /\
-      ¬opClass op FunApp ∧ ¬opClass op Force
+      ¬opClass op FunApp ∧ ¬opClass op Force ∧ ¬opClass op PtrEqOp
 ==>
       evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
+
+∧
+
+(* PtrEq: result *)
+(∀ck env op es vs v1 v2 b s1 s2.
+  evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
+  opClass op PtrEqOp ∧
+  REVERSE vs = [v1; v2] ∧
+  do_eq v1 v2 = Eq_val b
+ ⇒ evaluate ck env s1 (App op es)
+     (s2 with ptr_eq_oracle := (0 =+ shift_seq 1 (s2.ptr_eq_oracle 0)) s2.ptr_eq_oracle,
+      Rval (Boolv (b ∧ s2.ptr_eq_oracle 0 0))))
+
+∧
+
+(* PtrEq: do_eq type error *)
+(∀ck env op es vs v1 v2 s1 s2.
+  evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
+  opClass op PtrEqOp ∧
+  REVERSE vs = [v1; v2] ∧
+  do_eq v1 v2 = Eq_type_error
+ ⇒ evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
+
+∧
+
+(* PtrEq: arity error *)
+(∀ck env op es vs s1 s2.
+  evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
+  opClass op PtrEqOp ∧
+  LENGTH vs ≠ 2
+ ⇒ evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
 
 /\ (! ck env op es err s1 s2.
 (evaluate_list ck env s1 (REVERSE es) (s2, Rerr err))
@@ -330,6 +367,17 @@ evaluate ck env s (Tannot e t) bv)
 ==>
 evaluate ck env s (Lannot e l) bv)
 
+/\ (! ck env path e opened s bv.
+(open_dec_env path env = SOME opened /\
+ evaluate ck (extend_dec_env opened env) s e bv)
+==>
+evaluate ck env s (Open path e) bv)
+
+/\ (! ck env path e s.
+open_dec_env path env = NONE
+==>
+evaluate ck env s (Open path e) (s, Rerr (Rabort Rtype_error)))
+
 /\ (! ck env s.
 T
 ==>
@@ -388,7 +436,7 @@ Inductive evaluate_dec:
 (! ck env p e v env' s1 s2 locs.
 (evaluate ck env s1 e (s2, Rval v) /\
 ALL_DISTINCT (pat_bindings p) /\
-every_exp (one_con_check env.c) e /\
+check_exp_constructors env.c e /\
 (pmatch env.c s2.refs p v [] = Match env'))
 ==>
 evaluate_dec ck env s1 (Dlet locs p e) (s2, Rval <| v := (alist_to_ns env'); c := nsEmpty |>))
@@ -396,7 +444,7 @@ evaluate_dec ck env s1 (Dlet locs p e) (s2, Rval <| v := (alist_to_ns env'); c :
 /\ (! ck env p e v s1 s2 locs.
 (evaluate ck env s1 e (s2, Rval v) /\
 ALL_DISTINCT (pat_bindings p) /\
-every_exp (one_con_check env.c) e /\
+check_exp_constructors env.c e /\
 (pmatch env.c s2.refs p v [] = No_match))
 ==>
 evaluate_dec ck env s1 (Dlet locs p e) (s2, Rerr (Rraise bind_exn_v)))
@@ -404,33 +452,33 @@ evaluate_dec ck env s1 (Dlet locs p e) (s2, Rerr (Rraise bind_exn_v)))
 /\ (! ck env p e v s1 s2 locs.
 (evaluate ck env s1 e (s2, Rval v) /\
 ALL_DISTINCT (pat_bindings p) /\
-every_exp (one_con_check env.c) e /\
+check_exp_constructors env.c e /\
 (pmatch env.c s2.refs p v [] = Match_type_error))
 ==>
 evaluate_dec ck env s1 (Dlet locs p e) (s2, Rerr (Rabort Rtype_error)))
 
 /\ (! ck env p e s locs.
 (~ (ALL_DISTINCT (pat_bindings p) /\
-    every_exp (one_con_check env.c) e))
+    check_exp_constructors env.c e))
 ==>
 evaluate_dec ck env s (Dlet locs p e) (s, Rerr (Rabort Rtype_error)))
 
 /\ (! ck env p e err s s' locs.
 (evaluate ck env s e (s', Rerr err) /\
 ALL_DISTINCT (pat_bindings p) /\
-every_exp (one_con_check env.c) e)
+check_exp_constructors env.c e)
 ==>
 evaluate_dec ck env s (Dlet locs p e) (s', Rerr err))
 
 /\ (! ck env funs s locs.
 (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) /\
- EVERY (λ(f,n,e). every_exp (one_con_check env.c) e) funs)
+ EVERY (λ(f,n,e). check_exp_constructors env.c e) funs)
 ==>
 evaluate_dec ck env s (Dletrec locs funs) (s, Rval <| v := (build_rec_env funs env nsEmpty); c := nsEmpty |>))
 
 /\ (! ck env funs s locs.
 (~ (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) /\
-    EVERY (λ(f,n,e). every_exp (one_con_check env.c) e) funs))
+    EVERY (λ(f,n,e). check_exp_constructors env.c e) funs))
 ==>
 evaluate_dec ck env s (Dletrec locs funs) (s, Rerr (Rabort Rtype_error)))
 
@@ -468,6 +516,16 @@ T
 evaluate_dec ck env s (Dexn locs cn ts)
     (( s with<| next_exn_stamp := (s.next_exn_stamp +( 1 : num)) |>),
      Rval  <| v := nsEmpty; c := (nsSing cn (LENGTH ts, ExnStamp s.next_exn_stamp)) |>))
+
+/\ (! ck env locs path opened s.
+(open_dec_env path env = SOME opened)
+==>
+evaluate_dec ck env s (Dopen locs path) (s,Rval opened))
+
+/\ (! ck env locs path s.
+(open_dec_env path env = NONE)
+==>
+evaluate_dec ck env s (Dopen locs path) (s,Rerr (Rabort Rtype_error)))
 
 /\ (! ck s1 s2 env ds mn new_env.
 (evaluate_decs ck env s1 ds (s2, Rval new_env))
@@ -510,8 +568,8 @@ End
 Inductive dec_diverges:
 (! env st locs p e.
 (ALL_DISTINCT (pat_bindings p) /\
- every_exp (one_con_check env.c) e /\
- e_diverges env (st.refs, st.ffi) e)
+ check_exp_constructors env.c e /\
+ e_diverges env (st.refs, st.ffi, st.ptr_eq_oracle) e)
 ==>
 dec_diverges env st (Dlet locs p e))
 

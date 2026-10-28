@@ -8,8 +8,6 @@ sig
 
   val FUNPOW_Next_from_SPEC : thm -> thm -> thm
 
-  val ag32_ffi_return_SPEC : thm
-
   val ag32_decompile : thm -> thm * thm
 
   val SPEC_COMPOSE_RULE : thm list -> thm
