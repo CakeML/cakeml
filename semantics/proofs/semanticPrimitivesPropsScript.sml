@@ -186,7 +186,15 @@ Proof
  >- (every_case_tac >> rw [])
  >- (every_case_tac >> rw [])
  >- (every_case_tac >> rw [])
- >> rpt (CASE_TAC >> rw [])
+ >> Cases_on `pmatch envc store p v env`
+ >> gvs []
+ >>~- ([`pmatch envc store p v env = Match a`],
+   qpat_x_assum `!x y. (a = x <=> _) /\ _`
+     (qspecl_then [`a`, `env2`] strip_assume_tac)
+   >> gvs [])
+ >> Cases_on `pmatch_list envc store ps vs env`
+ >> gvs []
+ >> gvs [AllCaseEqs ()]
  >> metis_tac [match_result_distinct, match_result_11]
 QED
 
@@ -1299,22 +1307,25 @@ Theorem simple_val_rel_do_app_rev_NONE:
   do_app (s,ffi) op xs = NONE
 Proof
   strip_tac>>gvs[]>>
+  Cases_on `op` >> (
   qpat_x_assum`do_app _ _ _ = NONE` mp_tac>>
   simp[Once do_app_def]>>
-  strip_tac>>
-  gvs[AllCaseEqs(),simple_val_rel_cases,is_clos_iff]>>
+  rpt strip_tac>>
+  gvs[AllCaseEqs()]>>
+  gvs[simple_val_rel_cases,is_clos_iff]>>
   imp_res_tac simple_val_rel_Boolv>>gvs[]>>
   simp[do_app_def]>>
   imp_res_tac LIST_REL_store_lookup>>
   gvs[sv_rel_cases,store_alloc_def]
-  >~ [`do_unsafe_index_arith`] >- (
+  >>~- ([`do_unsafe_index_arith`],
     drule_all simple_val_rel_unsafe_index_ops
     >> simp [])
-  >~ [`do_unsafe_index_test`] >- (
+  >>~- ([`do_unsafe_index_test`],
     drule_all simple_val_rel_unsafe_index_ops
     >> simp [])
   >>~- (
     [`do_arith`],
+    rename1 `do_arith a ty xs` >>
     drule LIST_REL_EVERY_check_type>>disch_then drule>>
     disch_then (qspec_then`ty` strip_assume_tac)>>
     IF_CASES_TAC>>gvs[]>>
@@ -1323,6 +1334,7 @@ Proof
     gvs[NOT_EVERY,combinTheory.o_DEF,EVERY_MEM,EXISTS_MEM])
   >>~- (
     [`do_conversion`],
+    rename1 `do_conversion x ty1 ty2` >>
     IF_CASES_TAC>>simp[]>>
     drule simple_val_rel_check_type_split>>disch_then drule>>
     disch_then (qspec_then`ty1` strip_assume_tac)>>gvs[])
@@ -1347,7 +1359,7 @@ Proof
   imp_res_tac store_assign_NONE_W8>>
   imp_res_tac EVERY2_LUPDATE_same>>
   imp_res_tac store_assign_NONE_Varray>>
-  gvs[]
+  gvs[])
 QED
 
 Theorem simple_val_rel_rewrites:
@@ -1519,13 +1531,17 @@ Proof
     gvs[simple_val_rel_rewrites,simple_val_rel_list_to_v]>>
     drule simple_val_rel_list_to_v>>strip_tac>>simp[]>>
     irule EVERY2_APPEND_suff>>simp[])
-  >>~- (
-    [`store_assign`],
-    imp_res_tac store_assign_SOME_Refv>>
-    imp_res_tac store_assign_SOME_W8>>
-    imp_res_tac store_assign_SOME_Varray_LUPDATE>>
-    imp_res_tac EVERY2_LUPDATE_same>>
-    imp_res_tac store_assign_SOME_Varray>>
+  >>~- ([`store_assign _ (Refv _) _ = SOME _`],
+    drule_all store_assign_SOME_Refv >> strip_tac >>
+    gvs[simple_val_rel_rewrites])
+  >>~- ([`store_assign _ (W8array _) _ = SOME _`],
+    drule_all store_assign_SOME_W8 >> strip_tac >>
+    gvs[simple_val_rel_rewrites])
+  >>~- ([`store_assign _ (Varray (LUPDATE _ _ _)) _ = SOME _`],
+    drule_all store_assign_SOME_Varray_LUPDATE >> strip_tac >>
+    gvs[simple_val_rel_rewrites])
+  >>~- ([`store_assign _ (Varray _) _ = SOME _`],
+    drule_all store_assign_SOME_Varray >> strip_tac >>
     gvs[simple_val_rel_rewrites])>>
   gvs[simple_val_rel_rewrites,sub_exn_v_def,div_exn_v_def,chr_exn_v_def,
       nat_to_v_def,LIST_REL_EL_EQN,EL_MAP,EL_REPLICATE]
@@ -1765,9 +1781,34 @@ Proof
   >~ [`do_unsafe_index_arith`] >- (
     drule_all shape_val_rel_unsafe_index_ops
     >> disch_tac >> fs []
-    >> gvs [do_unsafe_index_arith_def,AllCaseEqs()]
-    >> drule do_arith_INL
-    >> rw [div_exn_v_def,chr_exn_v_def]
+    >> qpat_x_assum `!test arith. _` kall_tac
+    >> namedCases_on `vs'` ["", "left rest"]
+    >> gvs [do_unsafe_index_arith_def]
+    >> namedCases_on `rest` ["", "right witnesses"]
+    >> gvs [do_unsafe_index_arith_def]
+    >> namedCases_on `left` ["left_literal", "", "", "", "", "", ""]
+    >> gvs [do_unsafe_index_arith_def]
+    >> Cases_on `left_literal`
+    >> gvs [do_unsafe_index_arith_def]
+    >> namedCases_on `right` ["right_literal", "", "", "", "", "", ""]
+    >> gvs [do_unsafe_index_arith_def]
+    >> Cases_on `right_literal`
+    >> gvs [do_unsafe_index_arith_def]
+    >> namedCases_on `unsafe_index_bound refs' witnesses` ["", "bound"]
+    >> gvs []
+    >> Cases_on `index_in_bounds bound i /\ index_in_bounds bound i'`
+    >> gvs []
+    >> namedCases_on `do_arith a'' IntT [Litv (IntLit i); Litv (IntLit i')]`
+         ["", "arith_result"]
+    >> gvs []
+    >> namedCases_on `arith_result` ["exn", "value"]
+    >- (gvs [] >> drule do_arith_INL
+        >> rw [div_exn_v_def,chr_exn_v_def] >> gvs [])
+    >> namedCases_on `value` ["literal", "", "", "", "", "", ""]
+    >> gvs []
+    >> Cases_on `literal`
+    >> gvs []
+    >> IF_CASES_TAC
     >> gvs [])
   >~ [`do_unsafe_index_test`] >- (
     drule_all shape_val_rel_unsafe_index_ops
