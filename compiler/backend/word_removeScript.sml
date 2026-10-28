@@ -49,9 +49,17 @@ Theorem remove_must_terminate_pmatch:
     Loop names (remove_must_terminate body) exit_names
   | prog => prog
 Proof
-  rpt(
-    rpt strip_tac
-    >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
-         PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
-    >> fs[remove_must_terminate_def])
+  Cases_on `prog`
+  >> simp[remove_must_terminate_def, patternMatchesTheory.PMATCH_EVAL,
+          patternMatchesTheory.PMATCH_ROW_COND_def, pairTheory.FORALL_PROD,
+          pairTheory.EXISTS_PROD, pairTheory.ELIM_UNCURRY]
+  >> pure_rewrite_tac[GSYM pairTheory.PAIR_EQ, pairTheory.PAIR]
+  >> simp[]
+  >> conj_tac
+  >- (namedCases_on `o'` ["", "ret"] >> simp[]
+      >> PairCases_on `ret`
+      >> simp[])
+  >> namedCases_on `o0` ["", "handler"] >> simp[]
+  >> PairCases_on `handler`
+  >> simp[]
 QED
