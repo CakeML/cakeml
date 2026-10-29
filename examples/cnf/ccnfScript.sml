@@ -28,6 +28,12 @@ Definition satisfies_ilit_def:
   else ¬ w (Num (-i))
 End
 
+Theorem satisfies_ilit_0:
+  ¬satisfies_ilit w 0
+Proof
+  simp[satisfies_ilit_def]
+QED
+
 Definition satisfies_cclause_def:
   satisfies_cclause w ls ⇔
     ∃i. MEM i ls ∧ satisfies_ilit w i
@@ -224,32 +230,48 @@ QED
 (*
   Part of the optimization for RUP,
   we take d to be a mapping num |-> bool option.
+
+  The result is NONE if the clause is neither falsified nor unit under dm.
+  Otherwise it is SOME (r,dm'):
+  - r = 0 when the clause is falsified (a conflict), or when its one
+    remaining literal is 0, which no assignment satisfies;
+  - r = v, the variable of the remaining literal, when v was unassigned;
+    dm' assigns v so that the literal is true;
+  - r = -v when the remaining literal was already true; then dm' = dm.
 *)
 Definition delete_literals_sing_def:
-  (delete_literals_sing dm [] = SOME (T,dm)) ∧
+  (delete_literals_sing dm [] = SOME (0,dm)) ∧
   (delete_literals_sing dm ((c:int)::cs) =
   if c < 0
   then
     (let nc = Num (-c) in
     case FLOOKUP dm nc of
       SOME F => delete_literals_sing dm cs
-    | _ =>
+    | SOME T =>
         if all_assigned dm c cs
-        then SOME (F, dm |+ (nc,T))
+        then SOME (c, dm)
+        else NONE
+    | NONE =>
+        if all_assigned dm c cs
+        then SOME (-c, dm |+ (nc,T))
         else NONE)
   else
     let nc = Num c in
     case FLOOKUP dm nc of
       SOME T => delete_literals_sing dm cs
-    | _ =>
+    | SOME F =>
         if all_assigned dm c cs
-        then SOME (F, dm |+ (nc,F))
+        then SOME (-c, dm)
+        else NONE
+    | NONE =>
+        if all_assigned dm c cs
+        then SOME (c, dm |+ (nc,F))
         else NONE)
 End
 
 Definition delete_literals_sing_vec_def:
   (delete_literals_sing_vec dm v i =
-  if i = 0 then SOME (T,dm)
+  if i = 0 then SOME (0,dm)
   else
     let i1 = i - 1 in
     let c = sub v i1 in
@@ -258,17 +280,25 @@ Definition delete_literals_sing_vec_def:
       (let nc = Num (-c) in
       case FLOOKUP dm nc of
         SOME F => delete_literals_sing_vec dm v i1
-      | _  =>
+      | SOME T =>
           if all_assigned_vec dm c v i1
-          then SOME (F, dm |+ (nc,T))
+          then SOME (c, dm)
+          else NONE
+      | NONE =>
+          if all_assigned_vec dm c v i1
+          then SOME (-c, dm |+ (nc,T))
           else NONE)
     else
       let nc = Num c in
       case FLOOKUP dm nc of
         SOME T => delete_literals_sing_vec dm v i1
-      | _ =>
+      | SOME F =>
           if all_assigned_vec dm c v i1
-          then SOME (F, dm |+ (nc,F))
+          then SOME (-c, dm)
+          else NONE
+      | NONE =>
+          if all_assigned_vec dm c v i1
+          then SOME (c, dm |+ (nc,F))
           else NONE)
 End
 
@@ -306,8 +336,8 @@ Definition unit_prop_def:
   | SOME c =>
   case delete_literals_sing dm (REVERSE c) of
     NONE => NONE
-  | SOME (T,dm) => SOME (T,dm)
-  | SOME (F,dm') => unit_prop fml dm' is)
+  | SOME (r,dm') =>
+    if r = 0 then SOME (T,dm') else unit_prop fml dm' is)
 End
 
 Definition unit_prop_vec_def:
@@ -318,8 +348,8 @@ Definition unit_prop_vec_def:
   | SOME c =>
   case delete_literals_sing_vec dm c (length c) of
     NONE => NONE
-  | SOME (T,dm) => SOME (T,dm)
-  | SOME (F,dm') => unit_prop_vec fml dm' is)
+  | SOME (r,dm') =>
+    if r = 0 then SOME (T,dm') else unit_prop_vec fml dm' is)
 End
 
 Theorem unit_prop_vec:
@@ -364,8 +394,8 @@ Definition unit_prop_vb_vec_def:
    | SOME c =>
    case delete_literals_sing_vec dm c (length c) of
      NONE => NONE
-   | SOME (T,dm) => SOME(NONE,dm)
-   | SOME (F,dm') => unit_prop_vb_vec fml dm' s i len)
+   | SOME (r,dm') =>
+     if r = 0 then SOME(NONE,dm') else unit_prop_vb_vec fml dm' s i len)
 Termination
   WF_REL_TAC `measure (\(fml,dm,s,i,len) . len - i)` >>
   rw[] >>
@@ -406,11 +436,25 @@ Definition lit_map_def:
     else MEM (-&n) d
 End
 
+Theorem lit_map_all_assigned:
+  ∀cs.
+  lit_map d dm ∧
+  all_assigned dm k cs ⇒
+  set cs ⊆ set (k::d)
+Proof
+  Induct>>rw[all_assigned_def]>>
+  gvs[AllCasePreds(),lit_map_def]>>
+  first_x_assum drule>>gvs[]>>
+  qmatch_goalsub_abbrev_tac`MEM hh d`>>
+  `hh = h` by (unabbrev_all_tac >> intLib.ARITH_TAC)>>
+  simp[]
+QED
+
 Theorem delete_literals_sing_SOME_T:
   ∀ls.
   lit_map d dm ∧
   satisfies_cclause w ls ∧
-  delete_literals_sing dm ls = SOME (T,dm') ⇒
+  delete_literals_sing dm ls = SOME (0,dm') ⇒
   satisfies_cclause w d
 Proof
   Induct
@@ -418,6 +462,12 @@ Proof
     rw[delete_literals_sing_def,satisfies_cclause_def]>>
   rw[]>>
   gvs[delete_literals_sing_def,AllCaseEqs()]
+  >>~- (
+    [`all_assigned dm 0 ls`],
+    drule_all lit_map_all_assigned>>
+    gvs[satisfies_cclause_CONS,satisfies_cclause_def,SUBSET_DEF,
+        satisfies_ilit_0]>>
+    metis_tac[satisfies_ilit_0])
   >- (
     fs[lit_map_def]>>
     first_x_assum drule>>
@@ -469,24 +519,10 @@ Proof
   rw[]
 QED
 
-Theorem lit_map_all_assigned:
-  ∀cs.
-  lit_map d dm ∧
-  all_assigned dm k cs ⇒
-  set cs ⊆ set (k::d)
-Proof
-  Induct>>rw[all_assigned_def]>>
-  gvs[AllCasePreds(),lit_map_def]>>
-  first_x_assum drule>>gvs[]>>
-  qmatch_goalsub_abbrev_tac`MEM hh d`>>
-  `hh = h` by (unabbrev_all_tac >> intLib.ARITH_TAC)>>
-  simp[]
-QED
-
 Theorem delete_literals_sing_SOME_F:
   ∀ls.
   lit_map d dm ∧
-  delete_literals_sing dm ls = SOME (F,dm') ⇒
+  delete_literals_sing dm ls = SOME (r,dm') ∧ r ≠ 0 ⇒
   ∃h.
   set ls DIFF set d ⊆ {h} ∧
   dm' = (dm |+ (Num (ABS h), h < 0))
@@ -496,6 +532,17 @@ Proof
     rw[delete_literals_sing_def,satisfies_cclause_def]>>
   rpt strip_tac>>
   gvs[delete_literals_sing_def,AllCaseEqs()]
+  >>~-(
+    [`FLOOKUP dm _ = SOME _`,`all_assigned`],
+    `Num (ABS h) = if h < 0 then Num (-h) else Num h` by intLib.ARITH_TAC>>
+    `dm |+ (Num (ABS h), h < 0) = dm` by (
+      irule FUPDATE_ELIM>>
+      gvs[FLOOKUP_DEF])>>
+    qexists_tac`h`>>
+    simp[]>>
+    drule_all lit_map_all_assigned>>
+    rw[EXTENSION,SUBSET_DEF]>>
+    metis_tac[])
   >>~-(
     [`all_assigned`],
     irule_at Any FUPDATE_EQ>>simp[]>>
@@ -522,6 +569,32 @@ Proof
       simp[])>>
     irule_at Any FUPDATE_EQ>>simp[]>>
     qexists_tac`h'`>>simp[])
+QED
+
+(* The step changes dm only by assigning the variable it returns, and only
+  when that variable was unassigned *)
+Theorem delete_literals_sing_assigns:
+  ∀ls dm r dm'.
+  delete_literals_sing dm ls = SOME (r,dm') ⇒
+  (r ≤ 0 ∧ dm' = dm) ∨
+  ∃n b. r = &n ∧ FLOOKUP dm n = NONE ∧ dm' = dm |+ (n,b)
+Proof
+  Induct
+  >- simp[delete_literals_sing_def]>>
+  rpt strip_tac>>
+  gvs[delete_literals_sing_def,AllCaseEqs()]
+  >- (
+    DISJ2_TAC>>
+    qexistsl_tac[`Num (-h)`,`T`]>>
+    simp[]>>
+    intLib.ARITH_TAC)
+  >- (
+    DISJ2_TAC>>
+    qexistsl_tac[`Num h`,`F`]>>
+    simp[]>>
+    intLib.ARITH_TAC)>>
+  DISJ1_TAC>>
+  intLib.ARITH_TAC
 QED
 
 Theorem unit_prop_SOME_T:
