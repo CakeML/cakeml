@@ -312,6 +312,18 @@ Proof
   \\ rw [] \\ gvs [CaseEqs ["option", "list"]]
 QED
 
+Theorem perms_ok_array_lookup[local]:
+  (∀n. n < LENGTH refs /\ RefMention n IN ps ==>
+       perms_ok_ref ps (EL n refs)) /\
+  RefMention pointer IN ps /\
+  store_lookup pointer refs = SOME (Varray values) ==>
+  EVERY (perms_ok ps) values
+Proof
+  rw [store_lookup_def]
+  \\ qpat_x_assum `!n. _` (qspec_then `pointer` mp_tac)
+  \\ simp [perms_ok_ref_def]
+QED
+
 Theorem do_app_perms:
   do_app (refs, ffi) op vs = SOME ((refs1,ffi1),res) ∧
   op ≠ Opapp ∧
@@ -342,6 +354,43 @@ Theorem do_app_perms:
     | Rerr (Rabort err) => T
 Proof
   strip_tac
+  \\ Cases_on `op = CopyVecVec`
+  >- (
+    gvs [do_app_cases,perms_ok_def]
+    \\ qpat_x_assum `copy_array _ _ _ = SOME _`
+         (mp_then Any (qspec_then `perms_ok ps` mp_tac) EVERY_copy_array)
+    \\ simp []
+  )
+  \\ Cases_on `op = CopyVecArr`
+  >- (
+    gvs [do_app_cases,perms_ok_def]
+    \\ imp_res_tac perms_ok_array_lookup
+    \\ qpat_assum `copy_array _ _ _ = SOME _`
+         (mp_then Any (qspec_then `perms_ok ps` mp_tac) EVERY_copy_array)
+    \\ simp []
+    \\ strip_tac
+    \\ gvs [store_assign_def]
+    \\ rw [EL_LUPDATE,perms_ok_ref_def]
+  )
+  \\ Cases_on `op = CopyArrVec`
+  >- (
+    gvs [do_app_cases,perms_ok_def]
+    \\ imp_res_tac perms_ok_array_lookup
+    \\ qpat_x_assum `copy_array _ _ _ = SOME _`
+         (mp_then Any (qspec_then `perms_ok ps` mp_tac) EVERY_copy_array)
+    \\ simp []
+  )
+  \\ Cases_on `op = CopyArrArr`
+  >- (
+    gvs [do_app_cases,perms_ok_def]
+    \\ imp_res_tac perms_ok_array_lookup
+    \\ qpat_assum `copy_array _ _ _ = SOME _`
+         (mp_then Any (qspec_then `perms_ok ps` mp_tac) EVERY_copy_array)
+    \\ simp []
+    \\ strip_tac
+    \\ gvs [store_assign_def]
+    \\ rw [EL_LUPDATE,perms_ok_ref_def]
+  )
   \\ qpat_x_assum ‘do_app _ _ _ = _’ mp_tac
   \\ Cases_on ‘op = Env_id’ \\ gs []
   >- (

@@ -108,6 +108,11 @@ Datatype:
   | CopyStrAw8
   | CopyAw8Str
   | CopyAw8Aw8
+  (* vector/array conversions *)
+  | CopyVecVec
+  | CopyVecArr
+  | CopyArrVec
+  | CopyArrArr
   | XorAw8Str_unsafe
   (* String operations *)
   | Implode

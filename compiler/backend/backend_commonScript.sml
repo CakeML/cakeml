@@ -156,7 +156,7 @@ Definition word_num_stubs_def:
 End
 
 Definition data_num_stubs_def:
-  data_num_stubs = word_num_stubs + (* general: *) 34 + (* bignum: *) 23
+  data_num_stubs = word_num_stubs + (* general: *) 38 + (* bignum: *) 23
 End
 
 Definition bvl_num_stubs_def:

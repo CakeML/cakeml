@@ -107,6 +107,7 @@ Datatype:
      | DerefBit      (* read a bit from a byte array *)
      | UpdateBit     (* update a bit of a byte array *)
      | ConcatByteVec (* concatenate list of byte vectors *)
+     | CopyWord bool (* copy a slice of an array/vector, T allocates a vector *)
      | CopyByte bool (* copy a slice of a byte array, T means target should be allocated *)
      | FromListByte  (* convert list of chars to ByteVector *)
      | ToListByte    (* convert ByteVector to list of chars *)
@@ -193,6 +194,7 @@ Definition pure_op_def:
     | MemOp RefArray => F
     | MemOp UpdateByte => F
     | MemOp UpdateBit => F
+    | MemOp (CopyWord F) => F
     | MemOp (CopyByte F) => F
     | MemOp XorByte => F
     | MemOp Ref => F

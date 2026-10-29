@@ -493,6 +493,16 @@ Definition type_op_def:
     | (CopyAw8Str, [t1; t2; t3]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t = Tstring)
     | (CopyAw8Aw8, [t1; t2; t3; t4; t5]) =>
       (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t4 = Tword8array) /\ (t5 = Tint) /\ (t = Ttup [])
+    | (CopyVecVec, [t1; t2; t3]) =>
+      (∃a. t1 = Tvector a ∧ t = Tvector a) ∧ (t2 = Tint) ∧ (t3 = Tint)
+    | (CopyVecArr, [t1; t2; t3; t4; t5]) =>
+      (∃a. t1 = Tvector a ∧ t4 = Tarray a) ∧
+      (t2 = Tint) ∧ (t3 = Tint) ∧ (t5 = Tint) ∧ (t = Ttup [])
+    | (CopyArrVec, [t1; t2; t3]) =>
+      (∃a. t1 = Tarray a ∧ t = Tvector a) ∧ (t2 = Tint) ∧ (t3 = Tint)
+    | (CopyArrArr, [t1; t2; t3; t4; t5]) =>
+      (∃a. t1 = Tarray a ∧ t4 = Tarray a) ∧
+      (t2 = Tint) ∧ (t3 = Tint) ∧ (t5 = Tint) ∧ (t = Ttup [])
     | (Implode, [t1]) => (t1 = Tlist Tchar) /\ (t = Tstring)
     | (Explode, [t1]) => (t1 = Tstring) /\ (t = Tlist Tchar)
     | (Strsub, [t1; t2]) => (t1 = Tstring) /\ (t2 = Tint) /\ (t = Tchar)

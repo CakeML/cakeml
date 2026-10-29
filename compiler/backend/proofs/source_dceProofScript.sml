@@ -943,6 +943,84 @@ Theorem do_app_v_rel[local]:
 Proof
   strip_tac
   \\ ‘INJ (FAPPLY f) (FDOM f) UNIV’ by gvs [state_rel_def]
+  \\ Cases_on `op = CopyVecVec`
+  >- (
+    gvs [semanticPrimitivesPropsTheory.do_app_cases, v_rel_simps]
+    \\ qexists_tac `f`
+    \\ gvs [state_with_id, v_rel_refl]
+    \\ rename1 `LIST_REL (v_rel f) copy_source copy_target`
+    \\ qmatch_asmsub_rename_tac `copy_array (copy_source,copy_offset) copy_length NONE`
+    \\ `OPTREL (LIST_REL (v_rel f))
+         (copy_array (copy_source,copy_offset) copy_length NONE)
+         (copy_array (copy_target,copy_offset) copy_length NONE)` by (
+      irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def, v_rel_simps, v_rel_refl]
+  )
+  \\ Cases_on `op = CopyVecArr`
+  >- (
+    gvs [semanticPrimitivesPropsTheory.do_app_cases, v_rel_simps]
+    \\ qexists_tac `f`
+    \\ gvs [state_with_id, v_rel_refl]
+    \\ imp_res_tac state_rel_store_lookup_type
+    \\ gvs []
+    \\ qmatch_asmsub_rename_tac
+         `copy_array (copy_source,copy_offset) copy_length
+            (SOME (copy_destination,copy_destination_offset))`
+    \\ rename1 `LIST_REL (v_rel f) copy_source copy_target`
+    \\ rename1 `LIST_REL (v_rel f) copy_destination copy_target_destination`
+    \\ `OPTREL (LIST_REL (v_rel f))
+         (copy_array (copy_source,copy_offset) copy_length
+            (SOME (copy_destination,copy_destination_offset)))
+         (copy_array (copy_target,copy_offset) copy_length
+            (SOME (copy_target_destination,copy_destination_offset)))` by (
+      irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def, state_with_id, v_rel_refl]
+    \\ irule state_rel_assign
+    \\ qpat_assum `store_assign _ _ s1.refs = SOME _` $ irule_at Any
+    \\ gvs []
+  )
+  \\ Cases_on `op = CopyArrVec`
+  >- (
+    gvs [semanticPrimitivesPropsTheory.do_app_cases, v_rel_simps]
+    \\ qexists_tac `f`
+    \\ gvs [state_with_id, v_rel_refl]
+    \\ imp_res_tac state_rel_store_lookup_type
+    \\ gvs []
+    \\ rename1 `LIST_REL (v_rel f) copy_source copy_target`
+    \\ qmatch_asmsub_rename_tac `copy_array (copy_source,copy_offset) copy_length NONE`
+    \\ `OPTREL (LIST_REL (v_rel f))
+         (copy_array (copy_source,copy_offset) copy_length NONE)
+         (copy_array (copy_target,copy_offset) copy_length NONE)` by (
+      irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def, v_rel_simps, v_rel_refl]
+  )
+  \\ Cases_on `op = CopyArrArr`
+  >- (
+    gvs [semanticPrimitivesPropsTheory.do_app_cases, v_rel_simps]
+    \\ qexists_tac `f`
+    \\ gvs [state_with_id, v_rel_refl]
+    \\ imp_res_tac state_rel_store_lookup_type
+    \\ gvs []
+    \\ qmatch_asmsub_rename_tac
+         `copy_array (copy_source,copy_offset) copy_length
+            (SOME (copy_destination,copy_destination_offset))`
+    \\ rename1 `LIST_REL (v_rel f) copy_source copy_target`
+    \\ rename1 `LIST_REL (v_rel f) copy_destination copy_target_destination`
+    \\ `OPTREL (LIST_REL (v_rel f))
+         (copy_array (copy_source,copy_offset) copy_length
+            (SOME (copy_destination,copy_destination_offset)))
+         (copy_array (copy_target,copy_offset) copy_length
+            (SOME (copy_target_destination,copy_destination_offset)))` by (
+      irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def, state_with_id, v_rel_refl]
+    \\ irule state_rel_assign
+    \\ qpat_assum `store_assign _ _ s1.refs = SOME _` $ irule_at Any
+    \\ gvs []
+  )
   \\ Cases_on ‘(∃a. op = UnsafeIndexArith a) ∨ ∃t. op = UnsafeIndexTest t’
   >- (
     gvs [semanticPrimitivesPropsTheory.do_app_cases,

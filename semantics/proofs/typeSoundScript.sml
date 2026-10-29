@@ -916,6 +916,82 @@ Proof
       rw [] >>
       simp [Once type_v_cases] >>
       metis_tac [store_type_extension_refl]) >~
+  [`CopyVecVec`] >- (
+    rw [do_app_cases,PULL_EXISTS]
+    >> qmatch_goalsub_rename_tac `copy_array (source_values,source_offset) copy_length NONE`
+    >> qexists_tac `tenvS`
+    >> Cases_on `copy_array (source_values,source_offset) copy_length NONE`
+    >> simp [store_type_extension_refl,type_v_exn,sub_exn_v_def]
+    >> drule_all (EVERY_copy_array |> Q.INST [`dst` |-> `NONE`]
+         |> SIMP_RULE (srw_ss()) [])
+    >> strip_tac
+    >> simp [Once type_v_cases]
+    >> fs [check_freevars_def]
+  ) >~
+  [`CopyArrVec`] >- (
+    res_tac
+    >> gvs []
+    >> rw [do_app_cases,PULL_EXISTS]
+    >> qmatch_goalsub_rename_tac `copy_array (source_values,source_offset) copy_length NONE`
+    >> qexists_tac `tenvS`
+    >> Cases_on `copy_array (source_values,source_offset) copy_length NONE`
+    >> simp [store_type_extension_refl,type_v_exn,sub_exn_v_def]
+    >> drule_all (EVERY_copy_array |> Q.INST [`dst` |-> `NONE`]
+         |> SIMP_RULE (srw_ss()) [])
+    >> strip_tac
+    >> simp [Once type_v_cases]
+    >> fs [check_freevars_def]
+  ) >~
+  [`CopyVecArr`] >- (
+    res_tac
+    >> gvs []
+    >> rw [do_app_cases,PULL_EXISTS]
+    >> qexists_tac `tenvS`
+    >> qmatch_goalsub_rename_tac
+         `copy_array (source_values,source_offset) copy_length
+            (SOME (target_values,target_offset))`
+    >> Cases_on `copy_array (source_values,source_offset) copy_length
+         (SOME (target_values,target_offset))`
+    >> simp [store_type_extension_refl,type_v_exn,sub_exn_v_def]
+    >> qmatch_goalsub_rename_tac `store_assign target_location (Varray copied_values)`
+    >> qmatch_asmsub_rename_tac
+         `FLOOKUP tenvS target_location = SOME (Varray_t element_type)`
+    >> drule_all (EVERY_copy_array
+         |> Q.INST [`dst` |-> `SOME (target_values,target_offset)`]
+         |> SIMP_RULE (srw_ss()) [])
+    >> strip_tac
+    >> `type_sv ctMap tenvS (Varray copied_values) (Varray_t element_type)` by
+      simp [type_sv_def]
+    >> drule_all store_assign_type_sound
+    >> disch_then (qx_choose_then `copied_store` strip_assume_tac)
+    >> qexists_tac `copied_store`
+    >> simp [Once type_v_cases]
+  ) >~
+  [`CopyArrArr`] >- (
+    res_tac
+    >> gvs []
+    >> rw [do_app_cases,PULL_EXISTS]
+    >> qexists_tac `tenvS`
+    >> qmatch_goalsub_rename_tac
+         `copy_array (source_values,source_offset) copy_length
+            (SOME (target_values,target_offset))`
+    >> Cases_on `copy_array (source_values,source_offset) copy_length
+         (SOME (target_values,target_offset))`
+    >> simp [store_type_extension_refl,type_v_exn,sub_exn_v_def]
+    >> qmatch_goalsub_rename_tac `store_assign target_location (Varray copied_values)`
+    >> qmatch_asmsub_rename_tac
+         `FLOOKUP tenvS target_location = SOME (Varray_t element_type)`
+    >> drule_all (EVERY_copy_array
+         |> Q.INST [`dst` |-> `SOME (target_values,target_offset)`]
+         |> SIMP_RULE (srw_ss()) [])
+    >> strip_tac
+    >> `type_sv ctMap tenvS (Varray copied_values) (Varray_t element_type)` by
+      simp [type_sv_def]
+    >> drule_all store_assign_type_sound
+    >> disch_then (qx_choose_then `copied_store` strip_assume_tac)
+    >> qexists_tac `copied_store`
+    >> simp [Once type_v_cases]
+  ) >~
   [‘CopyStrStr’]
   >- ((* copy string *)
       rw [do_app_cases, PULL_EXISTS] >>
@@ -1144,6 +1220,7 @@ Proof
   simp[Boolv_def, AllCaseEqs(), SF DNF_ss] >>
   gvs[ctMap_has_bools_def]
 QED
+
 
 Theorem build_conv_type_sound:
  !envC cn vs tvs ts ctMap tenvS ts' tn tenvC tvs' tenvE l.

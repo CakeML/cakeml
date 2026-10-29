@@ -31,6 +31,7 @@ Theorem op_space_reset_pmatch:
     | BlockOp (ConsExtend _) => T
     | MemOp RefArray => T
     | MemOp (RefByte _) => T
+    | MemOp (CopyWord new_flag) => new_flag
     | MemOp (CopyByte new_flag) => new_flag
     | MemOp ConfigGC => T
     | FFI _ => T
@@ -46,6 +47,7 @@ Theorem op_requires_names_eqn:
     (op_space_reset op ∨ (case op of
                           | FFI n => T
                           | Install => T
+                          | MemOp (CopyWord new_flag) => T
                           | MemOp (CopyByte new_flag) => T
                           | IntOp (Smallnum SmallDiv) => T
                           | IntOp (Smallnum SmallMod) => T
@@ -62,6 +64,7 @@ Theorem op_requires_names_pmatch:
   (op_space_reset op ∨ (pmatch op of
                         | FFI n => T
                         | Install => T
+                        | MemOp (CopyWord new_flag) => T
                         | MemOp (CopyByte new_flag) => T
                         | IntOp (Smallnum SmallDiv) => T
                         | IntOp (Smallnum SmallMod) => T

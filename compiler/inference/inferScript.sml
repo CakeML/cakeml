@@ -623,6 +623,10 @@ Definition op_to_string_def:
   (op_to_string CopyStrStr = («CopyStrStr», 3)) ∧
   (op_to_string CopyStrAw8 = («CopyStrAw8», 5)) ∧
   (op_to_string CopyAw8Str = («CopyAw8Str», 3)) ∧
+  (op_to_string CopyVecVec = («CopyVecVec», 3)) ∧
+  (op_to_string CopyVecArr = («CopyVecArr», 5)) ∧
+  (op_to_string CopyArrVec = («CopyArrVec», 3)) ∧
+  (op_to_string CopyArrArr = («CopyArrArr», 5)) ∧
   (op_to_string CopyAw8Aw8 = («CopyAw8Aw8», 5)) ∧
   (op_to_string Strsub = («Strsub», 2)) ∧
   (op_to_string Implode = («Implode», 1)) ∧
@@ -750,6 +754,38 @@ constrain_op l op ts s =
        do uvar <- fresh_uvar;
           () <- add_constraint l t (Infer_Tapp [uvar] Tref_num);
           return uvar
+       od s
+   | (CopyVecVec, [t1;t2;t3]) =>
+       do uvar <- fresh_uvar;
+          () <- add_constraint l t1 (Infer_Tapp [uvar] Tvector_num);
+          () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
+          () <- add_constraint l t3 (Infer_Tapp [] Tint_num);
+          return (Infer_Tapp [uvar] Tvector_num)
+       od s
+   | (CopyVecArr, [t1;t2;t3;t4;t5]) =>
+       do uvar <- fresh_uvar;
+          () <- add_constraint l t1 (Infer_Tapp [uvar] Tvector_num);
+          () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
+          () <- add_constraint l t3 (Infer_Tapp [] Tint_num);
+          () <- add_constraint l t4 (Infer_Tapp [uvar] Tarray_num);
+          () <- add_constraint l t5 (Infer_Tapp [] Tint_num);
+          return (Infer_Tapp [] Ttup_num)
+       od s
+   | (CopyArrVec, [t1;t2;t3]) =>
+       do uvar <- fresh_uvar;
+          () <- add_constraint l t1 (Infer_Tapp [uvar] Tarray_num);
+          () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
+          () <- add_constraint l t3 (Infer_Tapp [] Tint_num);
+          return (Infer_Tapp [uvar] Tvector_num)
+       od s
+   | (CopyArrArr, [t1;t2;t3;t4;t5]) =>
+       do uvar <- fresh_uvar;
+          () <- add_constraint l t1 (Infer_Tapp [uvar] Tarray_num);
+          () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
+          () <- add_constraint l t3 (Infer_Tapp [] Tint_num);
+          () <- add_constraint l t4 (Infer_Tapp [uvar] Tarray_num);
+          () <- add_constraint l t5 (Infer_Tapp [] Tint_num);
+          return (Infer_Tapp [] Ttup_num)
        od s
    | (VfromList, [t]) =>
        do uvar <- fresh_uvar;

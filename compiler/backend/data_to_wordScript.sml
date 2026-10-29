@@ -288,8 +288,20 @@ End
 Definition ScanNeq_location_def:
   ScanNeq_location = ScanEq_location+1
 End
+Definition WordCopy_location_def:
+  WordCopy_location = ScanNeq_location+1
+End
+Definition WordCopyLoop_location_def:
+  WordCopyLoop_location = WordCopy_location+1
+End
+Definition WordCopyAdd_location_def:
+  WordCopyAdd_location = WordCopyLoop_location+1
+End
+Definition WordCopySub_location_def:
+  WordCopySub_location = WordCopyAdd_location+1
+End
 Definition Bignum_location_def:
-  Bignum_location = ScanNeq_location+1
+  Bignum_location = WordCopySub_location+1
 End
 
 Theorem FromList_location_eq =
@@ -328,6 +340,14 @@ Theorem LongDiv_location_eq =
   ``LongDiv_location`` |> EVAL
 Theorem MemCopy_location_eq =
   ``MemCopy_location`` |> EVAL
+Theorem WordCopy_location_eq =
+  ``WordCopy_location`` |> EVAL
+Theorem WordCopyLoop_location_eq =
+  ``WordCopyLoop_location`` |> EVAL
+Theorem WordCopyAdd_location_eq =
+  ``WordCopyAdd_location`` |> EVAL
+Theorem WordCopySub_location_eq =
+  ``WordCopySub_location`` |> EVAL
 Theorem Bignum_location_eq =
   ``Bignum_location`` |> EVAL
 Theorem ByteCopy_location_eq =
@@ -1803,6 +1823,50 @@ val def = assign_Define `
       : wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_CopyWord (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) args =
+    case args of
+    | [src;off;len;dst;dstoff] =>
+        (list_Seq [
+          Assign 1 (Op Add [real_addr c (adjust_var src);
+                             real_offset c (adjust_var off)]);
+          Assign 3 (Op Add [real_addr c (adjust_var dst);
+                             real_offset c (adjust_var dstoff)]);
+          Assign 5 Unit;
+          MustTerminate
+            (Call (SOME ([adjust_var dest],adjust_sets (get_names names),Skip,secn,l))
+              (SOME WordCopy_location) [adjust_var len;1;3;5] NONE)],l+1)
+    | [src;off;len] =>
+        (case encode_header c 0 0 of
+         | NONE => (GiveUp,l)
+         | SOME header =>
+           let limit = MIN (2 ** c.len_size) ((2 ** arch_width_bits c.arch_width) DIV 16) in
+             (If Equal (adjust_var len) (Imm 0)
+               (Assign (adjust_var dest) (Const 0))
+               (list_Seq [
+                 BignumHalt (adjust_var len);
+                 Assign 1 (Var (adjust_var len));
+                 AllocVar c limit (list_insert args (get_names names));
+                 Assign 1 (Lookup NextFree);
+                 Assign 5 (Op Or [Const (& header);
+                   ShiftN Lsl (Var (adjust_var len))
+                     (arch_width_bits c.arch_width - c.len_size - 1)]);
+                 Store (Var 1) 5;
+                 Assign 7 (ShiftN Lsr (Var (adjust_var len)) 1);
+                 Assign 9 (Const 0);
+                 Make_ptr_bits_code c 9 7 3;
+                 Assign 13 (Op Add [Var 1; Const (& (arch_bytes c.arch_width))]);
+                 Set NextFree (Op Add [Var 13;
+                   ShiftN Lsl (Var 7) (arch_shift c.arch_width)]);
+                 Assign 11 (Op Add [real_addr c (adjust_var src);
+                                     real_offset c (adjust_var off)]);
+                 MustTerminate
+                   (Call (SOME ([adjust_var dest],adjust_sets (get_names names),Skip,secn,l))
+                     (SOME WordCopy_location) [adjust_var len;11;13;3] NONE)]),l+1))
+    | _ => (Skip,l)
+      : wordLang$prog # num`;
+
+val def = assign_Define `
   assign_RefArray (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
       let limit = MIN (2 ** c.len_size) ((2 ** arch_width_bits c.arch_width) DIV 16)
@@ -2857,6 +2921,7 @@ Definition assign_def:
     | MemOp XorByte => arg2 args (assign_XorByte c secn l dest names) (Skip,l)
     | MemOp (StringCmp b cmp) => arg2 args (assign_StringCmp c secn l dest names b cmp) (Skip,l)
     | Label n => (LocValue (adjust_var dest) n,l)
+    | MemOp (CopyWord alloc_new) => assign_CopyWord c secn l dest names args
     | MemOp (CopyByte alloc_new) => assign_CopyByte c secn l dest names args
     | MemOp RefArray => arg2 args (assign_RefArray c secn l dest names) (Skip,l)
     | BlockOp (BoolTest test) => arg2 args (assign_BoolTest l dest test) (Skip,l)
@@ -3256,6 +3321,69 @@ Definition ByteCopyNew_code_def:
       Call NONE (SOME ByteCopyAlign_location) [0;6;4;9;8] NONE] :wordLang$prog
 End
 
+(* Arguments: tagged count, source, destination, result. *)
+Definition WordCopy_code_def:
+  WordCopy_code c =
+    If Equal 2 (Imm 0) (Return 0 [8])
+      (list_Seq [
+        Assign 1 (ShiftN Lsl (Var 2) (arch_shift c.arch_width - 1));
+        Assign 3 (Op Sub [Var 6; Var 4]);
+        If Lower 3 (Reg 1)
+          (list_Seq [
+            Assign 4 (Op Add [Var 4; Var 1]);
+            Assign 6 (Op Add [Var 6; Var 1]);
+            Call NONE (SOME WordCopySub_location) [0;2;4;6;8] NONE])
+          (list_Seq [
+            Assign 3 (Op Sub [Var 4; Var 6]);
+            If Lower 3 (Reg 1)
+              (Call NONE (SOME WordCopyAdd_location) [0;2;4;6;8] NONE)
+              (Call NONE (SOME WordCopyLoop_location) [0;2;4;6;8] NONE)])])
+      :wordLang$prog
+End
+
+Definition WordCopyLoop_code_def:
+  WordCopyLoop_code c =
+    If Lower 2 (Imm 12)
+      (Call NONE (SOME WordCopyAdd_location) [0;2;4;6;8] NONE)
+      (list_Seq (
+        GENLIST (\i. Assign (2 * i + 1)
+          (Load (Op Add [Var 4; Const (& (i * arch_bytes c.arch_width))]))) 6 ++
+        GENLIST (\i. Store
+          (Op Add [Var 6; Const (& (i * arch_bytes c.arch_width))])
+          (2 * i + 1)) 6 ++
+        [Assign 2 (Op Sub [Var 2; Const 12]);
+         Assign 4 (Op Add [Var 4; Const (& (6 * arch_bytes c.arch_width))]);
+         Assign 6 (Op Add [Var 6; Const (& (6 * arch_bytes c.arch_width))]);
+         Call NONE (SOME WordCopyLoop_location) [0;2;4;6;8] NONE]))
+      :wordLang$prog
+End
+
+Definition WordCopyAdd_code_def:
+  WordCopyAdd_code c =
+    If Equal 2 (Imm 0) (Return 0 [8])
+      (list_Seq [
+        Assign 1 (Load (Var 4));
+        Store (Var 6) 1;
+        Assign 2 (Op Sub [Var 2; Const 2]);
+        Assign 4 (Op Add [Var 4; Const (& (arch_bytes c.arch_width))]);
+        Assign 6 (Op Add [Var 6; Const (& (arch_bytes c.arch_width))]);
+        Call NONE (SOME WordCopyAdd_location) [0;2;4;6;8] NONE])
+      :wordLang$prog
+End
+
+Definition WordCopySub_code_def:
+  WordCopySub_code c =
+    If Equal 2 (Imm 0) (Return 0 [8])
+      (list_Seq [
+        Assign 4 (Op Sub [Var 4; Const (& (arch_bytes c.arch_width))]);
+        Assign 6 (Op Sub [Var 6; Const (& (arch_bytes c.arch_width))]);
+        Assign 1 (Load (Var 4));
+        Store (Var 6) 1;
+        Assign 2 (Op Sub [Var 2; Const 2]);
+        Call NONE (SOME WordCopySub_location) [0;2;4;6;8] NONE])
+      :wordLang$prog
+End
+
 Definition stubs_def:
   stubs data_conf = [
     (FromList_location,4n,(FromList_code data_conf):wordLang$prog );
@@ -3291,6 +3419,10 @@ Definition stubs_def:
     (ByteCopyAdd_location,5n,ByteCopyAdd_code);
     (ByteCopySub_location,5n,ByteCopySub_code);
     (ByteCopyNew_location,4n,ByteCopyNew_code data_conf);
+    (WordCopy_location,5n,WordCopy_code data_conf);
+    (WordCopyLoop_location,5n,WordCopyLoop_code data_conf);
+    (WordCopyAdd_location,5n,WordCopyAdd_code data_conf);
+    (WordCopySub_location,5n,WordCopySub_code data_conf);
     (ByteCopyLoop_location,8n,ByteCopyLoop_code data_conf)
   ] ++ generated_bignum_stubs (arch_width_bits data_conf.arch_width) Bignum_location
 End
@@ -3330,6 +3462,10 @@ Definition stub_names_def:
     (ByteCopyAdd_location,«_ByteCopyAdd»);
     (ByteCopySub_location,«_ByteCopySub»);
     (ByteCopyNew_location,«_ByteCopyNew»);
+    (WordCopy_location,«_WordCopy»);
+    (WordCopyLoop_location,«_WordCopyLoop»);
+    (WordCopyAdd_location,«_WordCopyAdd»);
+    (WordCopySub_location,«_WordCopySub»);
     (ByteCopyLoop_location,«_ByteCopyLoop»)
   ] ++ GENLIST (\i. (i + Bignum_location, «_Bignum»))
     (data_num_stubs - Bignum_location)

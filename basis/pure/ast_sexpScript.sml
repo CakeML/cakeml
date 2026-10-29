@@ -141,6 +141,10 @@ Definition from_op_def:
   (from_op CopyStrStr          = Atom «CopyStrStr») ∧
   (from_op CopyStrAw8          = Atom «CopyStrAw8») ∧
   (from_op CopyAw8Str          = Atom «CopyAw8Str») ∧
+  (from_op CopyVecVec = Atom «CopyVecVec») ∧
+  (from_op CopyVecArr = Atom «CopyVecArr») ∧
+  (from_op CopyArrVec = Atom «CopyArrVec») ∧
+  (from_op CopyArrArr = Atom «CopyArrArr») ∧
   (from_op CopyAw8Aw8          = Atom «CopyAw8Aw8») ∧
   (from_op XorAw8Str_unsafe    = Atom «XorAw8Str_unsafe») ∧
   (from_op Implode             = Atom «Implode») ∧
@@ -543,6 +547,10 @@ Definition to_op_def:
      else if s = «CopyStrStr» then return CopyStrStr
      else if s = «CopyStrAw8» then return CopyStrAw8
      else if s = «CopyAw8Str» then return CopyAw8Str
+     else if s = «CopyVecVec» then return CopyVecVec
+     else if s = «CopyVecArr» then return CopyVecArr
+     else if s = «CopyArrVec» then return CopyArrVec
+     else if s = «CopyArrArr» then return CopyArrArr
      else if s = «CopyAw8Aw8» then return CopyAw8Aw8
      else if s = «XorAw8Str_unsafe» then return XorAw8Str_unsafe
      else if s = «Implode» then return Implode

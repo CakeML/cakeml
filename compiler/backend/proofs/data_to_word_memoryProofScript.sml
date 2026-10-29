@@ -9,6 +9,708 @@ Ancestors
 Libs
   preamble helperLib blastLib[qualified]
 
+Definition store_list_def:
+  (store_list a [] (m:'a word -> 'a word_loc) dm = SOME m) /\
+  (store_list a (w::ws) m dm =
+     if a IN dm then
+       store_list (a + bytes_in_word) ws ((a =+ w) m) dm
+     else NONE)
+End
+
+Theorem store_list_append:
+  ∀xs ys a dm m m1.
+    store_list a (xs ++ ys) m dm = SOME m1 ⇔
+    ∃m0. store_list a xs m dm = SOME m0 ∧
+         store_list (a + bytes_in_word * n2w (LENGTH xs)) ys m0 dm = SOME m1
+Proof
+  Induct \\ fs [store_list_def]
+  \\ fs [ADD1,word_add_n2w,bytes_in_word_def,word_mul_n2w,RIGHT_ADD_DISTRIB]
+  \\ fs [GSYM word_add_n2w,AC CONJ_COMM CONJ_ASSOC,PULL_EXISTS]
+QED
+
+Theorem store_list_domain:
+   ∀a xs m dm m1.
+   store_list a xs m dm = SOME m1 ==>
+   ∀n. n < LENGTH xs ==> a + n2w n * bytes_in_word ∈ dm
+Proof
+  Induct_on`xs`
+  \\ rw[store_list_def] \\ res_tac
+  \\ Cases_on`n` \\ fs[ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+QED
+
+Theorem store_list_append_imp:
+   ∀w1 a m dm m' w2.
+   store_list a (w1 ++ w2) m dm = SOME m' ⇒
+   ∃m''. store_list a w1 m dm = SOME m'' ∧
+         store_list (a + n2w (LENGTH w1) * bytes_in_word) w2 m'' dm = SOME m'
+Proof
+  Induct \\ rw[store_list_def]
+  \\ first_x_assum drule \\ rw[] \\ rw[]
+  \\ rw[ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+QED
+
+Theorem store_list_update_m_outside:
+   ∀ws a m dm m'.
+   store_list a ws m dm = SOME m' ∧
+   (∀i. i < LENGTH ws ⇒ a + n2w i * bytes_in_word ≠ a')
+   ⇒
+   store_list a ws ((a' =+ v) m) dm = SOME ((a' =+ v) m')
+Proof
+  Induct \\ rw[store_list_def]
+  \\ first_x_assum drule
+  \\ impl_tac
+  >- (
+    qx_gen_tac`i` \\ first_x_assum(qspec_then`SUC i`mp_tac)
+    \\ simp[ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB] )
+  \\ disch_then((SUBST1_TAC o SYM))
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ match_mp_tac UPDATE_COMMUTES
+  \\ first_x_assum(qspec_then`0`mp_tac)
+  \\ simp[]
+QED
+
+Definition memcopy_def:
+  memcopy k a1 a2 m dm =
+    if k = 0n then SOME m else
+      if a1 IN dm /\ a2 IN dm then
+        memcopy (k-1) (a1+bytes_in_word) (a2+bytes_in_word) ((a2 =+ m a1) m) dm
+      else NONE
+End
+
+Definition memcopy_bwd_def:
+  memcopy_bwd k a1 a2 m dm =
+    if k = 0n then SOME m else
+      let copy_source = a1 - bytes_in_word in
+      let copy_target = a2 - bytes_in_word in
+        if copy_source IN dm ∧ copy_target IN dm then
+          memcopy_bwd (k-1) copy_source copy_target ((copy_target =+ m copy_source) m) dm
+        else NONE
+End
+
+Definition copy_word_chunk_def:
+  copy_word_chunk k (a1:'a word) a2 m =
+    FOLDL (λnext i.
+      (a2 + n2w i * bytes_in_word =+ m (a1 + n2w i * bytes_in_word)) next)
+      m (GENLIST I k)
+End
+
+Theorem copy_word_chunk_SUC:
+  copy_word_chunk (SUC k) a1 a2 m =
+    (a2 + n2w k * bytes_in_word =+ m (a1 + n2w k * bytes_in_word))
+      (copy_word_chunk k a1 a2 m)
+Proof
+  simp [copy_word_chunk_def,GENLIST,FOLDL_SNOC]
+QED
+
+Definition memcopy6_def:
+  memcopy6 k a1 a2 m dm =
+    if k < 6 then memcopy k a1 a2 m dm else
+      if EVERY (λi. a1 + n2w i * bytes_in_word IN dm ∧
+                     a2 + n2w i * bytes_in_word IN dm) (GENLIST I 6) then
+        memcopy6 (k-6) (a1 + 6w * bytes_in_word) (a2 + 6w * bytes_in_word)
+          (copy_word_chunk 6 a1 a2 m) dm
+      else NONE
+End
+
+Theorem copy_word_chunk_unchanged:
+  ∀count copy_source copy_target memory address.
+    (∀i. i < count ⇒ copy_target + n2w i * bytes_in_word ≠ address) ⇒
+    copy_word_chunk count copy_source copy_target memory address = memory address
+Proof
+  Induct
+  >~ [`copy_word_chunk 0`] >- simp [copy_word_chunk_def]
+  >~ [`copy_word_chunk (SUC copied_count)`] >- (
+    pop_assum (assume_named_tac "copy_ih")
+    >> qx_genl_tac [`copy_source`,`copy_target`,`memory`,`address`]
+    >> disch_then (assume_named_tac "untouched")
+    >> `copy_target + n2w copied_count * bytes_in_word ≠ address` by (
+      LABEL_ASSUM "untouched" (qspec_then `copied_count` mp_tac)
+      >> simp [])
+    >> fs [copy_word_chunk_SUC,APPLY_UPDATE_THM]
+    >> LABEL_ASSUM "copy_ih" irule
+    >> qx_gen_tac `index`
+    >> strip_tac
+    >> LABEL_ASSUM "untouched" irule
+    >> decide_tac
+  )
+QED
+
+Theorem copy_word_chunk_store_list:
+  ∀count copy_source copy_target memory domain.
+    (∀i. i < count ⇒ copy_target + n2w i * bytes_in_word ∈ domain) ⇒
+    store_list copy_target
+      (GENLIST (λi. memory (copy_source + n2w i * bytes_in_word)) count)
+      memory domain = SOME (copy_word_chunk count copy_source copy_target memory)
+Proof
+  Induct
+  >~ [`copy_word_chunk 0`] >- simp [copy_word_chunk_def,store_list_def]
+  >~ [`copy_word_chunk (SUC copied_count)`] >- (
+    pop_assum (assume_named_tac "copy_ih")
+    >> qx_genl_tac [`copy_source`,`copy_target`,`memory`,`copy_domain`]
+    >> disch_then (assume_named_tac "mapped")
+    >> `∀i. i < copied_count ⇒
+             copy_target + n2w i * bytes_in_word ∈ copy_domain` by (
+      qx_gen_tac `index`
+      >> strip_tac
+      >> LABEL_ASSUM "mapped" irule
+      >> decide_tac)
+    >> LABEL_ASSUM "copy_ih" (qspecl_then
+         [`copy_source`,`copy_target`,`memory`,`copy_domain`] assume_tac)
+    >> `copy_target + n2w copied_count * bytes_in_word ∈ copy_domain` by (
+      LABEL_ASSUM "mapped" (qspec_then `copied_count` mp_tac)
+      >> simp [])
+    >> fs [GENLIST,SNOC_APPEND,store_list_append,store_list_def,copy_word_chunk_SUC])
+QED
+
+Theorem copy_word_address_add:
+  (copy_base:'a word) + n2w copy_prefix * bytes_in_word +
+    n2w copy_index * bytes_in_word =
+  copy_base + n2w (copy_index + copy_prefix) * bytes_in_word
+Proof
+  simp [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+QED
+
+Theorem copy_word_address_SUC:
+  (copy_base:'a word) + bytes_in_word + n2w copy_index * bytes_in_word =
+  copy_base + n2w (SUC copy_index) * bytes_in_word
+Proof
+  simp [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+QED
+
+Theorem memcopy_store_list:
+  ∀count copy_source copy_target memory domain.
+    (∀i. i < count ⇒ copy_source + n2w i * bytes_in_word ∈ domain) ∧
+    (∀i j. i < j ∧ j < count ⇒
+       copy_target + n2w i * bytes_in_word ≠ copy_source + n2w j * bytes_in_word) ⇒
+    memcopy count copy_source copy_target memory domain =
+    store_list copy_target
+      (GENLIST (λi. memory (copy_source + n2w i * bytes_in_word)) count) memory domain
+Proof
+  Induct
+  >~ [`memcopy 0`] >- simp [Once memcopy_def,store_list_def]
+  >~ [`memcopy (SUC copied_count)`] >- (
+    pop_assum (assume_named_tac "copy_ih")
+    >> qx_genl_tac [`copy_source`,`copy_target`,`memory`,`copy_domain`]
+    >> disch_then (CONJUNCTS_THEN2 (assume_named_tac "mapped")
+         (assume_named_tac "unread"))
+    >> `copy_source ∈ copy_domain` by (
+      LABEL_ASSUM "mapped" (qspec_then `0` mp_tac)
+      >> simp [])
+    >> simp [Once memcopy_def,GENLIST_CONS,store_list_def]
+    >> LABEL_ASSUM "copy_ih" (qspecl_then
+         [`copy_source + bytes_in_word`,`copy_target + bytes_in_word`,
+          `(copy_target =+ memory copy_source) memory`,`copy_domain`] mp_tac)
+    >> impl_tac
+    >- (
+      rewrite_tac [copy_word_address_SUC]
+      >> conj_tac
+      >~ [`∀i. i < copied_count ⇒
+             copy_source + n2w (SUC i) * bytes_in_word ∈ copy_domain`] >- (
+        qx_gen_tac `index`
+        >> strip_tac
+        >> LABEL_ASSUM "mapped" irule
+        >> decide_tac)
+      >> qx_genl_tac [`write_index`,`read_index`]
+      >> strip_tac
+      >> LABEL_ASSUM "unread" irule
+      >> decide_tac
+    )
+    >> disch_then (assume_named_tac "copy_tail")
+    >> `GENLIST
+       (λi. ((copy_target =+ memory copy_source) memory)
+         (copy_source + bytes_in_word + n2w i * bytes_in_word)) copied_count =
+     GENLIST ((λi. memory (copy_source + bytes_in_word * n2w i)) o SUC)
+       copied_count` by (
+      irule GENLIST_CONG
+      >> simp_tac std_ss [o_THM]
+      >> qx_gen_tac `index`
+      >> strip_tac
+      >> `copy_target ≠ copy_source + n2w (SUC index) * bytes_in_word` by (
+        LABEL_ASSUM "unread" (qspecl_then [`0`,`SUC index`] mp_tac)
+        >> simp [])
+      >> rewrite_tac [copy_word_address_SUC]
+      >> fs [APPLY_UPDATE_THM])
+    >> LABEL_ASSUM "copy_tail" (fn th => rewrite_tac [th])
+    >> fs []
+  )
+QED
+
+Theorem memcopy_bwd_store_list:
+  ∀count copy_source copy_target memory domain.
+    (∀i. i < count ⇒ copy_source + n2w i * bytes_in_word ∈ domain ∧
+                     copy_target + n2w i * bytes_in_word ∈ domain) ∧
+    (∀i j. i < j ∧ j < count ⇒
+       copy_target + n2w j * bytes_in_word ≠ copy_source + n2w i * bytes_in_word) ∧
+    (∀i j. i < count ∧ j < count ∧
+       copy_target + n2w i * bytes_in_word = copy_target + n2w j * bytes_in_word ⇒ i = j) ⇒
+    memcopy_bwd count (copy_source + n2w count * bytes_in_word)
+      (copy_target + n2w count * bytes_in_word) memory domain =
+    store_list copy_target
+      (GENLIST (λi. memory (copy_source + n2w i * bytes_in_word)) count) memory domain
+Proof
+  Induct
+  >~ [`memcopy_bwd 0`] >- simp [Once memcopy_bwd_def,store_list_def]
+  >~ [`memcopy_bwd (SUC copied_count)`] >- (
+    pop_assum (assume_named_tac "copy_ih")
+    >> qx_genl_tac [`copy_source`,`copy_target`,`memory`,`copy_domain`]
+    >> disch_then (CONJUNCTS_THEN2 (assume_named_tac "mapped")
+         (CONJUNCTS_THEN2 (assume_named_tac "unread")
+           (assume_named_tac "distinct")))
+    >> `copy_source + n2w copied_count * bytes_in_word ∈ copy_domain ∧
+        copy_target + n2w copied_count * bytes_in_word ∈ copy_domain` by (
+      LABEL_ASSUM "mapped" (qspec_then `copied_count` mp_tac)
+      >> simp [])
+    >> simp [Once memcopy_bwd_def]
+    >> fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+    >> LABEL_ASSUM "copy_ih" (qspecl_then
+         [`copy_source`,`copy_target`,
+          `(copy_target + n2w copied_count * bytes_in_word =+
+             memory (copy_source + n2w copied_count * bytes_in_word)) memory`,
+          `copy_domain`] mp_tac)
+    >> impl_tac
+    >- (
+      rpt conj_tac
+      >~ [`∀i. i < copied_count ⇒
+             copy_source + n2w i * bytes_in_word ∈ copy_domain ∧
+             copy_target + n2w i * bytes_in_word ∈ copy_domain (* g *)`] >- (
+        qx_gen_tac `index`
+        >> strip_tac
+        >> LABEL_ASSUM "mapped" irule
+        >> decide_tac)
+      >~ [`∀i j. i < j ∧ j < copied_count ⇒
+             copy_target + n2w j * bytes_in_word ≠
+             copy_source + n2w i * bytes_in_word (* g *)`] >- (
+        qx_genl_tac [`read_index`,`write_index`]
+        >> strip_tac
+        >> LABEL_ASSUM "unread" irule
+        >> decide_tac)
+      >> qx_genl_tac [`first_index`,`second_index`]
+      >> strip_tac
+      >> LABEL_ASSUM "distinct" irule
+      >> fs []
+      >> decide_tac
+    )
+    >> disch_then (assume_named_tac "copy_tail")
+    >> `∀i. i < copied_count ⇒
+       copy_target + n2w i * bytes_in_word ≠
+       copy_target + n2w copied_count * bytes_in_word` by (
+      qx_gen_tac `index`
+      >> strip_tac
+      >> CCONTR_TAC
+      >> `index = copied_count` by (
+        LABEL_ASSUM "distinct" irule
+        >> fs []
+        >> decide_tac)
+      >> decide_tac)
+    >> qabbrev_tac `source_words =
+         GENLIST (λi. memory (copy_source + n2w i * bytes_in_word)) copied_count`
+    >> `store_list copy_target source_words memory copy_domain =
+          SOME (copy_word_chunk copied_count copy_source copy_target memory)` by (
+      qunabbrev_tac `source_words`
+      >> irule copy_word_chunk_store_list
+      >> qx_gen_tac `index`
+      >> strip_tac
+      >> LABEL_ASSUM "mapped" (qspec_then `index` mp_tac)
+      >> impl_tac >- decide_tac
+      >> simp [])
+    >> `GENLIST
+         (λi. ((copy_target + n2w copied_count * bytes_in_word =+
+            memory (copy_source + n2w copied_count * bytes_in_word)) memory)
+            (copy_source + n2w i * bytes_in_word)) copied_count = source_words` by (
+      qunabbrev_tac `source_words`
+      >> irule GENLIST_CONG
+      >> simp_tac std_ss []
+      >> qx_gen_tac `index`
+      >> strip_tac
+      >> `copy_target + n2w copied_count * bytes_in_word ≠
+            copy_source + n2w index * bytes_in_word` by (
+        LABEL_ASSUM "unread" (qspecl_then [`index`,`copied_count`] mp_tac)
+        >> simp [])
+      >> fs [APPLY_UPDATE_THM])
+    >> qspecl_then
+         [`source_words`,`copy_target`,`memory`,`copy_domain`,
+          `copy_word_chunk copied_count copy_source copy_target memory`]
+         mp_tac (store_list_update_m_outside
+           |> Q.INST [`a'` |-> `(copy_target:'a word) + n2w copied_count * bytes_in_word`,
+                `v` |-> `memory ((copy_source:'a word) + n2w copied_count * bytes_in_word)`])
+    >> impl_tac >- fs [Abbr `source_words`]
+    >> disch_then (assume_named_tac "ordered_stores")
+    >> `store_list copy_target
+          (GENLIST (λi. memory (copy_source + n2w i * bytes_in_word))
+            (SUC copied_count)) memory copy_domain =
+        SOME (copy_word_chunk (SUC copied_count) copy_source copy_target memory)` by (
+      irule copy_word_chunk_store_list
+      >> qx_gen_tac `index`
+      >> strip_tac
+      >> LABEL_ASSUM "mapped" (qspec_then `index` mp_tac)
+      >> simp []
+    )
+    >> LABEL_ASSUM "copy_tail" (assume_tac o SIMP_RULE (srw_ss()) [])
+    >> LABEL_ASSUM "ordered_stores" (assume_tac o SIMP_RULE (srw_ss()) [])
+    >> fs [copy_word_chunk_SUC,Abbr `source_words`]
+    >> fs [ADD1]
+  )
+QED
+
+Theorem memcopy6_store_list:
+  ∀count copy_source copy_target memory domain.
+    (∀i. i < count ⇒ copy_source + n2w i * bytes_in_word ∈ domain ∧
+                     copy_target + n2w i * bytes_in_word ∈ domain) ∧
+    (∀i j. i < count ∧ j < count ⇒
+       copy_target + n2w i * bytes_in_word ≠ copy_source + n2w j * bytes_in_word) ⇒
+    memcopy6 count copy_source copy_target memory domain =
+    store_list copy_target
+      (GENLIST (λi. memory (copy_source + n2w i * bytes_in_word)) count) memory domain
+Proof
+  qx_gen_tac `copy_count`
+  >> completeInduct_on `copy_count`
+  >> pop_assum (assume_named_tac "copy_ih")
+  >> qx_genl_tac [`copy_source`,`copy_target`,`memory`,`copy_domain`]
+  >> disch_then (CONJUNCTS_THEN2 (assume_named_tac "mapped")
+       (assume_named_tac "copy_ranges_apart"))
+  >> Cases_on `copy_count < 6`
+  >~ [`copy_count < 6 (* a *)`] >- (
+    once_rewrite_tac [memcopy6_def]
+    >> asm_simp_tac std_ss []
+    >> irule memcopy_store_list
+    >> conj_tac
+    >~ [`∀i. i < copy_count ⇒
+           copy_source + n2w i * bytes_in_word ∈ copy_domain (* g *)`] >- (
+      qx_gen_tac `index`
+      >> strip_tac
+      >> LABEL_ASSUM "mapped" (qspec_then `index` mp_tac)
+      >> simp [])
+    >> qx_genl_tac [`write_index`,`read_index`]
+    >> strip_tac
+    >> LABEL_ASSUM "copy_ranges_apart" irule
+    >> decide_tac
+  )
+  >~ [`¬(copy_count < 6) (* a *)`] >- (
+    `EVERY (λi. copy_source + n2w i * bytes_in_word ∈ copy_domain ∧
+                copy_target + n2w i * bytes_in_word ∈ copy_domain) (GENLIST I 6)` by (
+      simp_tac std_ss [EVERY_GENLIST]
+      >> qx_gen_tac `index`
+      >> strip_tac
+      >> LABEL_ASSUM "mapped" irule
+      >> decide_tac)
+    >> once_rewrite_tac [memcopy6_def]
+    >> asm_simp_tac std_ss []
+    >> LABEL_ASSUM "copy_ih" (qspec_then `copy_count - 6` mp_tac)
+    >> impl_tac >- decide_tac
+    >> disch_then (qspecl_then
+         [`copy_source + 6w * bytes_in_word`,`copy_target + 6w * bytes_in_word`,
+          `copy_word_chunk 6 copy_source copy_target memory`,`copy_domain`] mp_tac)
+    >> impl_tac
+    >- (
+      rewrite_tac [copy_word_address_add]
+      >> conj_tac
+      >~ [`∀i. i < copy_count - 6 ⇒
+             copy_source + n2w (i + 6) * bytes_in_word ∈ copy_domain ∧
+             copy_target + n2w (i + 6) * bytes_in_word ∈ copy_domain (* g *)`] >- (
+        qx_gen_tac `index`
+        >> strip_tac
+        >> LABEL_ASSUM "mapped" irule
+        >> decide_tac)
+      >> qx_genl_tac [`write_index`,`read_index`]
+      >> strip_tac
+      >> LABEL_ASSUM "copy_ranges_apart" irule
+      >> decide_tac
+    )
+    >> disch_then (assume_named_tac "copy_tail")
+    >> qabbrev_tac `copy_head =
+      GENLIST (λi. memory (copy_source + n2w i * bytes_in_word)) 6`
+    >> qabbrev_tac `copy_rest =
+      GENLIST (λi. memory (copy_source + n2w (i + 6) * bytes_in_word))
+        (copy_count - 6)`
+    >> `store_list copy_target copy_head memory copy_domain =
+          SOME (copy_word_chunk 6 copy_source copy_target memory)` by (
+      qunabbrev_tac `copy_head`
+      >> irule copy_word_chunk_store_list
+      >> qx_gen_tac `index`
+      >> strip_tac
+      >> LABEL_ASSUM "mapped" (qspec_then `index` mp_tac)
+      >> impl_tac >- decide_tac
+      >> simp [])
+    >> `GENLIST
+          (λi. copy_word_chunk 6 copy_source copy_target memory
+            (copy_source + 6w * bytes_in_word + n2w i * bytes_in_word))
+          (copy_count - 6) = copy_rest` by (
+      qunabbrev_tac `copy_rest`
+      >> irule GENLIST_CONG
+      >> simp_tac std_ss []
+      >> qx_gen_tac `index`
+      >> strip_tac
+      >> rewrite_tac [copy_word_address_add]
+      >> irule copy_word_chunk_unchanged
+      >> qx_gen_tac `written_index`
+      >> strip_tac
+      >> LABEL_ASSUM "copy_ranges_apart" irule
+      >> decide_tac)
+    >> `GENLIST (λi. memory (copy_source + n2w i * bytes_in_word)) copy_count =
+          copy_head ++ copy_rest` by (
+      qunabbrev_tac `copy_head`
+      >> qunabbrev_tac `copy_rest`
+      >> `copy_count - 6 + 6 = copy_count` by decide_tac
+      >> qspecl_then
+           [`λi. memory (copy_source + n2w i * bytes_in_word)`,`copy_count - 6`,`6`]
+           mp_tac GENLIST_APPEND
+      >> simp [])
+    >> pop_assum (assume_named_tac "copy_split")
+    >> `store_list copy_target
+          (GENLIST (λi. memory (copy_source + n2w i * bytes_in_word)) copy_count)
+          memory copy_domain =
+        SOME (copy_word_chunk copy_count copy_source copy_target memory)` by (
+      irule copy_word_chunk_store_list
+      >> qx_gen_tac `index`
+      >> strip_tac
+      >> LABEL_ASSUM "mapped" (qspec_then `index` mp_tac)
+      >> simp [])
+    >> pop_assum (assume_named_tac "all_stores")
+    >> `store_list (copy_target + 6w * bytes_in_word) copy_rest
+          (copy_word_chunk 6 copy_source copy_target memory) copy_domain =
+        SOME (copy_word_chunk copy_count copy_source copy_target memory)` by (
+      `LENGTH copy_head = 6` by simp [Abbr `copy_head`]
+      >> LABEL_ASSUM "copy_split" (fn split_th =>
+           LABEL_ASSUM "all_stores" (mp_tac o REWRITE_RULE [split_th,store_list_append]))
+      >> fs []
+    )
+    >> LABEL_ASSUM "all_stores" (fn th => rewrite_tac [th])
+    >> LABEL_ASSUM "copy_tail" (assume_tac o SIMP_RULE (srw_ss()) [])
+    >> fs []
+  )
+QED
+
+Theorem copy_word_address_difference:
+  (copy_target:'a word) + copy_write_offset = copy_source + copy_read_offset ⇒
+  copy_target - copy_source = copy_read_offset - copy_write_offset
+Proof
+  disch_then (mp_tac o AP_TERM
+    ``λpointer:'a word. pointer - copy_write_offset - copy_source``)
+  >> simp_tac std_ss [WORD_ADD_SUB,WORD_ADD_SUB_ASSOC,WORD_ADD_SUB2,WORD_SUB_ADD2]
+QED
+
+Theorem copy_word_forward_alias:
+  copy_write_byte < copy_read_byte ∧ copy_read_byte < copy_span_bytes ∧
+  copy_span_bytes < dimword (:'a) ∧
+  (copy_target:'a word) + n2w copy_write_byte = copy_source + n2w copy_read_byte ⇒
+  0 < w2n (copy_target - copy_source) ∧
+  copy_target - copy_source <+ n2w copy_span_bytes
+Proof
+  strip_tac
+  >> `copy_write_byte ≤ copy_read_byte` by decide_tac
+  >> `copy_read_byte - copy_write_byte < dimword (:'a)` by decide_tac
+  >> drule copy_word_address_difference
+  >> strip_tac
+  >> asm_simp_tac std_ss [GSYM n2w_sub,WORD_LO,w2n_n2w,LESS_MOD]
+  >> decide_tac
+QED
+
+Theorem copy_word_opposite_range:
+  0 < w2n (copy_difference:'a word) ∧
+  copy_difference <+ n2w copy_span_bytes ∧
+  2 * copy_span_bytes < dimword (:'a) ⇒
+  ¬(-copy_difference <+ n2w copy_span_bytes)
+Proof
+  strip_tac
+  >> `copy_span_bytes < dimword (:'a)` by decide_tac
+  >> `w2n (copy_difference:'a word) < dimword (:'a)` by irule w2n_lt
+  >> `dimword (:'a) - w2n (copy_difference:'a word) < dimword (:'a)` by decide_tac
+  >> full_simp_tac std_ss [WORD_LO,word_2comp_def,w2n_n2w,LESS_MOD]
+  >> decide_tac
+QED
+
+
+Theorem copy_word_forward_overlap:
+  0 < dimindex (:'a) DIV 8 ∧
+  copy_count * (dimindex (:'a) DIV 8) < dimword (:'a) ∧
+  copy_write_index < copy_read_index ∧ copy_read_index < copy_count ∧
+  (copy_target:'a word) + n2w copy_write_index * bytes_in_word =
+    copy_source + n2w copy_read_index * bytes_in_word ⇒
+  0 < w2n (copy_target - copy_source) ∧
+  copy_target - copy_source <+ n2w copy_count * bytes_in_word
+Proof
+  strip_tac
+  >> `copy_write_index * (dimindex (:'a) DIV 8) <
+        copy_read_index * (dimindex (:'a) DIV 8)` by
+    asm_simp_tac std_ss [LT_MULT_RCANCEL]
+  >> `copy_read_index * (dimindex (:'a) DIV 8) <
+        copy_count * (dimindex (:'a) DIV 8)` by
+    asm_simp_tac std_ss [LT_MULT_RCANCEL]
+  >> `(copy_target:'a word) + n2w (copy_write_index * (dimindex (:'a) DIV 8)) =
+        copy_source + n2w (copy_read_index * (dimindex (:'a) DIV 8))` by
+    full_simp_tac std_ss [bytes_in_word_def,word_mul_n2w]
+  >> drule_all copy_word_forward_alias
+  >> strip_tac
+  >> asm_simp_tac std_ss [bytes_in_word_def,word_mul_n2w]
+QED
+
+Theorem copy_word_forward_safe:
+  0 < dimindex (:'a) DIV 8 ∧
+  copy_count * (dimindex (:'a) DIV 8) < dimword (:'a) ∧
+  ¬((copy_target:'a word) - copy_source <+ n2w copy_count * bytes_in_word) ∧
+  copy_write_index < copy_read_index ∧ copy_read_index < copy_count ⇒
+  copy_target + n2w copy_write_index * bytes_in_word ≠
+    copy_source + n2w copy_read_index * bytes_in_word
+Proof
+  strip_tac
+  >> CCONTR_TAC
+  >> full_simp_tac std_ss []
+  >> drule_all copy_word_forward_overlap
+  >> full_simp_tac std_ss []
+QED
+
+Theorem copy_word_backward_safe:
+  0 < dimindex (:'a) DIV 8 ∧
+  2 * (copy_count * (dimindex (:'a) DIV 8)) < dimword (:'a) ∧
+  (copy_target:'a word) - copy_source <+ n2w copy_count * bytes_in_word ∧
+  copy_read_index < copy_write_index ∧ copy_write_index < copy_count ⇒
+  copy_target + n2w copy_write_index * bytes_in_word ≠
+    copy_source + n2w copy_read_index * bytes_in_word
+Proof
+  strip_tac
+  >> `copy_count * (dimindex (:'a) DIV 8) < dimword (:'a)` by decide_tac
+  >> CCONTR_TAC
+  >> full_simp_tac std_ss []
+  >> mp_tac (copy_word_forward_overlap
+       |> Q.INST [`copy_target` |-> `(copy_source:'a word)`,
+            `copy_source` |-> `(copy_target:'a word)`,
+            `copy_write_index` |-> `copy_read_index`,
+            `copy_read_index` |-> `copy_write_index`])
+  >> impl_tac >- asm_simp_tac std_ss []
+  >> strip_tac
+  >> full_simp_tac std_ss [bytes_in_word_def,word_mul_n2w]
+  >> drule_all copy_word_opposite_range
+  >> full_simp_tac std_ss [WORD_NEG_SUB]
+QED
+
+Theorem copy_word_addresses_distinct:
+  0 < dimindex (:'a) DIV 8 ∧
+  copy_count * (dimindex (:'a) DIV 8) < dimword (:'a) ∧
+  copy_first_index < copy_count ∧ copy_second_index < copy_count ∧
+  (copy_target:'a word) + n2w copy_first_index * bytes_in_word =
+    copy_target + n2w copy_second_index * bytes_in_word ⇒
+  copy_first_index = copy_second_index
+Proof
+  strip_tac
+  >> `copy_first_index * (dimindex (:'a) DIV 8) <
+        copy_count * (dimindex (:'a) DIV 8) ∧
+      copy_second_index * (dimindex (:'a) DIV 8) <
+        copy_count * (dimindex (:'a) DIV 8)` by
+    asm_simp_tac std_ss [LT_MULT_RCANCEL]
+  >> `copy_first_index * (dimindex (:'a) DIV 8) < dimword (:'a) ∧
+      copy_second_index * (dimindex (:'a) DIV 8) < dimword (:'a)` by decide_tac
+  >> full_simp_tac std_ss
+       [WORD_EQ_ADD_LCANCEL,bytes_in_word_def,word_mul_n2w,n2w_11,LESS_MOD,
+        EQ_MULT_RCANCEL]
+  >> decide_tac
+QED
+
+Theorem copy_word_ranges_disjoint:
+  0 < dimindex (:'a) DIV 8 ∧
+  copy_count * (dimindex (:'a) DIV 8) < dimword (:'a) ∧
+  ¬((copy_target:'a word) - copy_source <+ n2w copy_count * bytes_in_word) ∧
+  ¬(copy_source - copy_target <+ n2w copy_count * bytes_in_word) ∧
+  copy_write_index < copy_count ∧ copy_read_index < copy_count ⇒
+  copy_target + n2w copy_write_index * bytes_in_word ≠
+    copy_source + n2w copy_read_index * bytes_in_word
+Proof
+  strip_tac
+  >> Cases_on `copy_write_index < copy_read_index`
+  >~ [`copy_write_index < copy_read_index (* a *)`,
+      `copy_target + n2w copy_write_index * bytes_in_word ≠
+         copy_source + n2w copy_read_index * bytes_in_word (* g *)`] >- (
+    CCONTR_TAC
+    >> full_simp_tac std_ss []
+    >> drule_all copy_word_forward_overlap
+    >> full_simp_tac std_ss [])
+  >> Cases_on `copy_read_index < copy_write_index`
+  >~ [`copy_read_index < copy_write_index (* a *)`,
+      `copy_target + n2w copy_write_index * bytes_in_word ≠
+         copy_source + n2w copy_read_index * bytes_in_word (* g *)`] >- (
+    CCONTR_TAC
+    >> full_simp_tac std_ss []
+    >> mp_tac (copy_word_forward_overlap
+         |> Q.INST [`copy_target` |-> `(copy_source:'a word)`,
+              `copy_source` |-> `(copy_target:'a word)`,
+              `copy_write_index` |-> `copy_read_index`,
+              `copy_read_index` |-> `copy_write_index`])
+    >> impl_tac >- asm_simp_tac std_ss []
+    >> full_simp_tac std_ss [])
+  >> `copy_write_index = copy_read_index` by decide_tac
+  >> `0 < copy_count` by decide_tac
+  >> CCONTR_TAC
+  >> rveq
+  >> full_simp_tac std_ss [WORD_EQ_ADD_RCANCEL]
+  >> rveq
+  >> fs [WORD_SUB_REFL,WORD_LO,bytes_in_word_def,word_mul_n2w,w2n_n2w,
+        ZERO_MOD,LESS_MOD,ZERO_LESS_MULT,ZERO_LT_dimword]
+  >> `copy_count * (dimindex (:'a) DIV 8) MOD dimword (:'a) =
+        copy_count * (dimindex (:'a) DIV 8)` by (
+    irule LESS_MOD
+    >> asm_simp_tac std_ss [])
+  >> fs [MULT_EQ_0]
+QED
+
+Definition eq_assum_def:
+  (eq_assum a m dm [] = T) /\
+  (eq_assum a m dm (v::vs) <=>
+     a IN dm /\ eq_assum (a + bytes_in_word) m dm vs)
+End
+
+Definition eq_explode_def:
+  (eq_explode a m dm [] = []) /\
+  (eq_explode a m dm (v::vs) = (v,m a) :: eq_explode (a + bytes_in_word) m dm vs)
+End
+
+Theorem eq_explode_APPEND[local]:
+    !xs ys a.
+      eq_explode a m dm (xs ++ ys) =
+      eq_explode a m dm xs ++
+      eq_explode (a + n2w (LENGTH xs) * bytes_in_word) m dm ys
+Proof
+  Induct \\ fs [eq_explode_def,ADD1,bytes_in_word_def,word_mul_n2w]
+  \\ fs [RIGHT_ADD_DISTRIB] \\ fs [GSYM word_add_n2w]
+QED
+
+Theorem eq_assum_APPEND[local]:
+    !xs ys a.
+      eq_assum a m dm (xs ++ ys) <=>
+      eq_assum a m dm xs /\
+      eq_assum (a + n2w (LENGTH xs) * bytes_in_word) m dm ys
+Proof
+  Induct \\ fs [eq_assum_def,ADD1,bytes_in_word_def,word_mul_n2w]
+  \\ fs [RIGHT_ADD_DISTRIB] \\ fs [GSYM word_add_n2w]
+  \\ rw [] \\ eq_tac \\ rw []
+QED
+
+Theorem eq_explode_GENLIST:
+  ∀copy_values copy_base.
+    eq_explode (copy_base:'a word) copy_memory copy_domain copy_values =
+    ZIP (copy_values,GENLIST
+      (λi. copy_memory (copy_base + n2w i * bytes_in_word)) (LENGTH copy_values))
+Proof
+  Induct
+  >~ [`LENGTH []`] >- simp [eq_explode_def,GENLIST,ZIP]
+  >> qx_gen_tac `copy_base`
+  >> asm_simp_tac std_ss
+       [eq_explode_def,LENGTH,GENLIST_CONS,ZIP,WORD_MULT_CLAUSES,WORD_ADD_0,
+        o_DEF,copy_word_address_SUC]
+QED
+
+Theorem eq_assum_GENLIST:
+  ∀copy_values copy_base.
+    eq_assum (copy_base:'a word) copy_memory copy_domain copy_values ⇔
+    ∀i. i < LENGTH copy_values ⇒ copy_base + n2w i * bytes_in_word ∈ copy_domain
+Proof
+  Induct
+  >~ [`LENGTH []`] >- simp [eq_assum_def]
+  >> rpt gen_tac
+  >> CONV_TAC (RAND_CONV (Ho_Rewrite.ONCE_REWRITE_CONV [FORALL_NUM]))
+  >> asm_simp_tac std_ss
+       [eq_assum_def,LENGTH,WORD_MULT_CLAUSES,WORD_ADD_0,LESS_MONO_EQ,
+        SUC_POS,copy_word_address_SUC]
+QED
+
 val _ = augment_srw_ss [rewrites [data_to_wordTheory.arch_size]];
 
 
@@ -8791,6 +9493,162 @@ Proof
   \\ SEP_R_TAC \\ fs []
 QED
 
+Theorem memory_rel_collect_fields:
+  (∀copy_index copy_roots.
+     copy_index < LENGTH copy_values ∧
+     memory_rel c be ts refs sp st copy_memory copy_domain (copy_root::copy_roots) ⇒
+     copy_base + n2w copy_index * bytes_in_word ∈ copy_domain ∧
+     memory_rel c be ts refs sp st copy_memory copy_domain
+       ((EL copy_index copy_values,
+         copy_memory (copy_base + n2w copy_index * bytes_in_word))::
+        copy_root::copy_roots)) ⇒
+  ∀copy_count copy_roots.
+    copy_count ≤ LENGTH copy_values ∧
+    memory_rel c be ts refs sp st copy_memory copy_domain (copy_root::copy_roots) ⇒
+    memory_rel c be ts refs sp st copy_memory copy_domain
+      (eq_explode copy_base copy_memory copy_domain (TAKE copy_count copy_values) ++
+       copy_root::copy_roots) ∧
+    eq_assum copy_base copy_memory copy_domain (TAKE copy_count copy_values)
+Proof
+  disch_then (assume_named_tac "copy_field_getter")
+  >> Induct
+  >~ [`TAKE 0 _`] >- simp [eq_explode_def,eq_assum_def]
+  >> pop_assum (assume_named_tac "copy_prefix_ih")
+  >> rename1 `TAKE (SUC copy_count) copy_values`
+  >> qx_gen_tac `copy_roots`
+  >> disch_then (CONJUNCTS_THEN2
+       (assume_named_tac "copy_prefix_bound") (assume_named_tac "copy_roots_related"))
+  >> `copy_count < LENGTH copy_values` by (
+    LABEL_ASSUM "copy_prefix_bound" mp_tac
+    >> decide_tac)
+  >> LABEL_ASSUM "copy_prefix_ih" (qspec_then `copy_roots` mp_tac)
+  >> impl_tac
+  >- (
+    simp []
+    >> LABEL_ASSUM "copy_roots_related" ACCEPT_TAC)
+  >> disch_then (CONJUNCTS_THEN2
+       (assume_named_tac "copy_prefix_related")
+       (assume_named_tac "copy_prefix_mapped"))
+  >> `memory_rel c be ts refs sp st copy_memory copy_domain
+        (copy_root::(eq_explode copy_base copy_memory copy_domain
+          (TAKE copy_count copy_values) ++ copy_roots))` by (
+    LABEL_ASSUM "copy_prefix_related" mp_tac
+    >> match_mp_tac memory_rel_rearrange
+    >> rw [MEM_APPEND] >> gvs [])
+  >> LABEL_ASSUM "copy_field_getter" (qspecl_then
+       [`copy_count`,`eq_explode copy_base copy_memory copy_domain
+          (TAKE copy_count copy_values) ++ copy_roots`] mp_tac)
+  >> impl_tac >- simp []
+  >> disch_then (CONJUNCTS_THEN2
+       (assume_named_tac "copy_next_mapped")
+       (assume_named_tac "copy_next_related"))
+  >> `TAKE (SUC copy_count) copy_values =
+        TAKE copy_count copy_values ++ [EL copy_count copy_values]` by (
+    drule (GSYM SNOC_EL_TAKE)
+    >> simp [SNOC_APPEND])
+  >> LABEL_ASSUM "copy_prefix_mapped" assume_tac
+  >> LABEL_ASSUM "copy_next_mapped" assume_tac
+  >> fs [eq_explode_APPEND,eq_assum_APPEND,eq_explode_def,eq_assum_def,
+         LENGTH_TAKE]
+  >> LABEL_ASSUM "copy_next_related" mp_tac
+  >> match_mp_tac memory_rel_rearrange
+  >> rw [MEM_APPEND] >> gvs []
+QED
+
+Theorem memory_rel_Block_fields:
+  get_real_addr c st copy_pointer = SOME copy_address ∧ good_dimindex (:'a) ⇒
+  ∀copy_count copy_roots.
+    copy_count ≤ LENGTH copy_values ∧
+    memory_rel c be ts refs sp st copy_memory copy_domain
+      ((Block copy_stamp copy_tag copy_values,Word copy_pointer)::copy_roots) ⇒
+    memory_rel c be ts refs sp st copy_memory copy_domain
+      (eq_explode (copy_address + bytes_in_word:'a word) copy_memory copy_domain
+         (TAKE copy_count copy_values) ++
+       (Block copy_stamp copy_tag copy_values,Word copy_pointer)::copy_roots) ∧
+    eq_assum (copy_address + bytes_in_word) copy_memory copy_domain
+      (TAKE copy_count copy_values)
+Proof
+  strip_tac
+  >> match_mp_tac memory_rel_collect_fields
+  >> qx_genl_tac [`copy_index`,`copy_roots`]
+  >> strip_tac
+  >> drule_all memory_rel_El'
+  >> strip_tac
+  >> gvs []
+QED
+
+Theorem memory_rel_ValueArray_fields:
+  get_real_addr c st copy_pointer = SOME copy_address ∧ good_dimindex (:'a) ∧
+  lookup copy_location refs = SOME (ValueArray copy_values) ⇒
+  ∀copy_count copy_roots.
+    copy_count ≤ LENGTH copy_values ∧
+    memory_rel c be ts refs sp st copy_memory copy_domain
+      ((RefPtr copy_flag copy_location,Word copy_pointer)::copy_roots) ⇒
+    memory_rel c be ts refs sp st copy_memory copy_domain
+      (eq_explode (copy_address + bytes_in_word:'a word) copy_memory copy_domain
+         (TAKE copy_count copy_values) ++
+       (RefPtr copy_flag copy_location,Word copy_pointer)::copy_roots) ∧
+    eq_assum (copy_address + bytes_in_word) copy_memory copy_domain
+      (TAKE copy_count copy_values)
+Proof
+  strip_tac
+  >> match_mp_tac memory_rel_collect_fields
+  >> qx_genl_tac [`copy_index`,`copy_roots`]
+  >> strip_tac
+  >> drule_all memory_rel_Deref'
+  >> strip_tac
+  >> gvs []
+QED
+
+Theorem memory_rel_fields_slice:
+  copy_offset + copy_count ≤ LENGTH copy_values ∧
+  memory_rel c be ts refs sp st copy_memory copy_domain
+    (eq_explode copy_base copy_memory copy_domain copy_values ++ copy_roots) ∧
+  eq_assum copy_base copy_memory copy_domain copy_values ⇒
+  memory_rel c be ts refs sp st copy_memory copy_domain
+    (ZIP (TAKE copy_count (DROP copy_offset copy_values),
+      GENLIST (λi. copy_memory
+        (copy_base + n2w copy_offset * bytes_in_word + n2w i * bytes_in_word))
+        copy_count) ++ copy_roots) ∧
+  ∀i. i < copy_count ⇒
+    copy_base + n2w copy_offset * bytes_in_word + n2w i * bytes_in_word ∈ copy_domain
+Proof
+  disch_then (CONJUNCTS_THEN2 (assume_named_tac "copy_slice_bound")
+    (CONJUNCTS_THEN2 (assume_named_tac "copy_fields_related")
+      (assume_named_tac "copy_fields_mapped")))
+  >> `LENGTH (TAKE copy_count (DROP copy_offset copy_values)) = copy_count` by (
+    irule LENGTH_TAKE
+    >> simp [LENGTH_DROP]
+    >> LABEL_ASSUM "copy_slice_bound" mp_tac
+    >> decide_tac)
+  >> conj_tac
+  >~ [`memory_rel c be ts refs sp st copy_memory copy_domain _ (* g *)`]
+  >- (
+    LABEL_ASSUM "copy_fields_related" mp_tac
+    >> match_mp_tac memory_rel_rearrange
+    >> rw [eq_explode_GENLIST,MEM_APPEND,MEM_ZIP,LENGTH_GENLIST]
+    >~ [`MEM _ copy_roots (* a *)`] >- simp []
+    >> rename1 `copy_index < copy_count`
+    >> `copy_index + copy_offset < LENGTH copy_values` by (
+      LABEL_ASSUM "copy_slice_bound" mp_tac
+      >> decide_tac)
+    >> disj1_tac
+    >> qexists_tac `copy_index + copy_offset`
+    >> simp [EL_TAKE,EL_DROP,EL_GENLIST]
+    >> rewrite_tac [GSYM WORD_ADD_ASSOC,GSYM WORD_LEFT_ADD_DISTRIB,word_add_n2w])
+  >> qx_gen_tac `copy_index`
+  >> strip_tac
+  >> `copy_index + copy_offset < LENGTH copy_values` by (
+    LABEL_ASSUM "copy_slice_bound" mp_tac
+    >> decide_tac)
+  >> simp [copy_word_address_add]
+  >> LABEL_ASSUM "copy_fields_mapped" (mp_tac o REWRITE_RULE [eq_assum_GENLIST])
+  >> disch_then (qspec_then `copy_index + copy_offset` mp_tac)
+  >> simp []
+QED
+
+
+
 Theorem memory_rel_Deref:
    memory_rel c be ts refs sp st m dm
      ((RefPtr bl nn,ptr)::(Number (&index),i)::vars) /\
@@ -8991,6 +9849,120 @@ Proof
   \\ SEP_W_TAC \\ fs [AC STAR_ASSOC STAR_COMM]
 QED
 
+Theorem memory_rel_store_array_slice:
+  ∀copy_values copy_words copy_offset copy_array copy_refs copy_memory
+    copy_result copy_roots.
+    lookup copy_location copy_refs = SOME (ValueArray copy_array) ∧
+    good_dimindex (:'a) ∧ get_real_addr c st copy_pointer = SOME copy_address ∧
+    LENGTH copy_values = LENGTH copy_words ∧
+    copy_offset + LENGTH copy_values ≤ LENGTH copy_array ∧
+    memory_rel c be ts copy_refs sp st copy_memory copy_domain
+      (ZIP (copy_values,copy_words) ++
+       (RefPtr copy_flag copy_location,Word copy_pointer)::copy_roots) ∧
+    store_list (copy_address + bytes_in_word + n2w copy_offset * bytes_in_word:'a word)
+      copy_words copy_memory copy_domain = SOME copy_result ⇒
+    memory_rel c be ts
+      (insert copy_location
+        (ValueArray (TAKE copy_offset copy_array ++ copy_values ++
+          DROP (copy_offset + LENGTH copy_values) copy_array)) copy_refs)
+      sp st copy_result copy_domain
+      ((RefPtr copy_flag copy_location,Word copy_pointer)::copy_roots)
+Proof
+  Induct
+  >~ [`LENGTH []`] >- suspend "Empty"
+  >> qx_gen_tac `copy_head`
+  >> rename1 `LENGTH (copy_head::copy_tail)`
+  >- suspend "Store"
+QED
+
+Resume memory_rel_store_array_slice[Empty]:
+  rw []
+  >> gvs [store_list_def]
+  >> drule insert_unchanged
+  >> simp []
+QED
+
+Resume memory_rel_store_array_slice[Store]:
+  pop_assum (assume_named_tac "copy_store_ih")
+  >> qx_genl_tac [`copy_words`,`copy_offset`,`copy_old_values`,`copy_refs`,
+       `copy_memory`,`copy_result`,`copy_roots`]
+  >> namedCases_on `copy_words` ["","copy_word copy_tail_words"]
+  >~ [`LENGTH []`] >- simp []
+  >> strip_tac
+  >> qpat_x_assum `memory_rel c be ts copy_refs sp st copy_memory copy_domain _`
+       (assume_named_tac "copy_values_related")
+  >> qpat_x_assum `store_list _ _ _ _ = SOME _`
+       (assume_named_tac "copy_slice_stores")
+  >> `copy_offset < LENGTH copy_old_values` by fs []
+  >> `memory_rel c be ts copy_refs sp st copy_memory copy_domain
+        ((copy_head,copy_word)::
+         (RefPtr copy_flag copy_location,Word copy_pointer)::
+         (ZIP (copy_tail,copy_tail_words) ++ copy_roots))` by (
+    LABEL_ASSUM "copy_values_related" mp_tac
+    >> match_mp_tac memory_rel_rearrange
+    >> rw [ZIP,MEM_APPEND] >> gvs [])
+  >> drule_all (memory_rel_Update' |> Q.INST [`index` |-> `copy_offset`])
+  >> strip_tac
+  >> gvs []
+  >> qpat_x_assum `memory_rel c be ts (insert copy_location _ copy_refs) _ _ _ _ _`
+       (assume_named_tac "copy_step_related")
+  >> `memory_rel c be ts
+        (insert copy_location (ValueArray (LUPDATE copy_head copy_offset copy_old_values))
+          copy_refs) sp st
+        ((copy_address + bytes_in_word + bytes_in_word * n2w copy_offset =+ copy_word)
+          copy_memory) copy_domain
+        (ZIP (copy_tail,copy_tail_words) ++
+         (RefPtr copy_flag copy_location,Word copy_pointer)::copy_roots)` by (
+    LABEL_ASSUM "copy_step_related" mp_tac
+    >> match_mp_tac memory_rel_rearrange
+    >> rw [MEM_APPEND] >> gvs [])
+  >> `store_list
+        (copy_address + bytes_in_word + n2w (SUC copy_offset) * bytes_in_word)
+        copy_tail_words
+        ((copy_address + bytes_in_word + bytes_in_word * n2w copy_offset =+ copy_word)
+          copy_memory) copy_domain = SOME copy_result` by (
+    LABEL_ASSUM "copy_slice_stores" mp_tac
+    >> simp [Once store_list_def,ADD1,GSYM word_add_n2w,WORD_RIGHT_ADD_DISTRIB]
+    >> simp [WORD_LEFT_ADD_DISTRIB])
+  >> LABEL_ASSUM "copy_store_ih" (qspecl_then
+       [`copy_tail_words:'a word_loc list`,`SUC copy_offset`,
+        `LUPDATE copy_head copy_offset copy_old_values`,
+        `insert copy_location (ValueArray (LUPDATE copy_head copy_offset copy_old_values))
+          copy_refs`,
+        `(((copy_address:'a word) + bytes_in_word + bytes_in_word * n2w copy_offset
+            =+ (copy_word:'a word_loc)) copy_memory)`,
+        `copy_result:'a word -> 'a word_loc`,`copy_roots`] mp_tac)
+  >> impl_tac >- simp [lookup_insert]
+  >> simp [insert_shadow]
+  >> `copy_offset < LENGTH copy_old_values` by fs []
+  >> `∀copy_prefix copy_old.
+        copy_prefix < LENGTH copy_old ⇒
+        TAKE (SUC copy_prefix) (LUPDATE copy_head copy_prefix copy_old) ++
+          copy_tail ++
+          DROP (LENGTH copy_tail + SUC copy_prefix)
+            (LUPDATE copy_head copy_prefix copy_old) =
+        TAKE copy_prefix copy_old ++ copy_head::copy_tail ++
+          DROP (copy_prefix + SUC (LENGTH copy_tail)) copy_old` by (
+    Induct
+    >- (Cases >> simp [LUPDATE_def,TAKE_def,DROP_def,ADD_CLAUSES])
+    >> pop_assum (assume_named_tac "copy_slice_ih")
+    >> Cases
+    >> fs [LUPDATE_def,TAKE_def,DROP_def,ADD_CLAUSES]
+    >> qmatch_goalsub_rename_tac `copy_slice_index < LENGTH copy_suffix`
+    >> LABEL_ASSUM "copy_slice_ih" (qspec_then `copy_suffix` mp_tac)
+    >> fs [ADD_CLAUSES,ADD_COMM])
+  >> pop_assum (qspecl_then [`copy_offset`,`copy_old_values`] mp_tac)
+  >> impl_tac >- simp []
+  >> disch_then (assume_named_tac "copy_slice_step")
+  >> qpat_x_assum `LENGTH copy_tail = LENGTH copy_tail_words`
+    (fn th => rewrite_tac [GSYM th])
+  >> LABEL_ASSUM "copy_slice_step" (rewrite_tac o single)
+QED
+
+
+
+Finalise memory_rel_store_array_slice;
+
 Theorem memory_rel_Update:
    memory_rel c be ts refs sp st m dm
      ((h,w)::(RefPtr bl nn,ptr)::(Number (&index),i)::vars) /\
@@ -9134,25 +10106,6 @@ Proof
   \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ SEP_R_TAC \\ fs []
   \\ SEP_W_TAC \\ fs [AC STAR_ASSOC STAR_COMM]
-QED
-
-Definition store_list_def:
-  (store_list a [] (m:'a word -> 'a word_loc) dm = SOME m) /\
-  (store_list a (w::ws) m dm =
-     if a IN dm then
-       store_list (a + bytes_in_word) ws ((a =+ w) m) dm
-     else NONE)
-End
-
-Theorem store_list_append:
-  ∀xs ys a dm m m1.
-    store_list a (xs ++ ys) m dm = SOME m1 ⇔
-    ∃m0. store_list a xs m dm = SOME m0 ∧
-         store_list (a + bytes_in_word * n2w (LENGTH xs)) ys m0 dm = SOME m1
-Proof
-  Induct \\ fs [store_list_def]
-  \\ fs [ADD1,word_add_n2w,bytes_in_word_def,word_mul_n2w,RIGHT_ADD_DISTRIB]
-  \\ fs [GSYM word_add_n2w,AC CONJ_COMM CONJ_ASSOC,PULL_EXISTS]
 QED
 
 Theorem minus_lemma[local]:
@@ -9462,47 +10415,6 @@ Proof
   \\ fs [SEP_EXISTS_THM,PULL_EXISTS] \\ rpt strip_tac
   \\ SEP_R_TAC \\ fs [] \\ SEP_W_TAC
   \\ SEP_F_TAC \\ rw [] \\ fs [AC STAR_COMM STAR_ASSOC]
-QED
-
-Theorem store_list_domain:
-   ∀a xs m dm m1.
-   store_list a xs m dm = SOME m1 ==>
-   ∀n. n < LENGTH xs ==> a + n2w n * bytes_in_word ∈ dm
-Proof
-  Induct_on`xs`
-  \\ rw[store_list_def] \\ res_tac
-  \\ Cases_on`n` \\ fs[ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
-QED
-
-Theorem store_list_append_imp:
-   ∀w1 a m dm m' w2.
-   store_list a (w1 ++ w2) m dm = SOME m' ⇒
-   ∃m''. store_list a w1 m dm = SOME m'' ∧
-         store_list (a + n2w (LENGTH w1) * bytes_in_word) w2 m'' dm = SOME m'
-Proof
-  Induct \\ rw[store_list_def]
-  \\ first_x_assum drule \\ rw[] \\ rw[]
-  \\ rw[ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
-QED
-
-Theorem store_list_update_m_outside:
-   ∀ws a m dm m'.
-   store_list a ws m dm = SOME m' ∧
-   (∀i. i < LENGTH ws ⇒ a + n2w i * bytes_in_word ≠ a')
-   ⇒
-   store_list a ws ((a' =+ v) m) dm = SOME ((a' =+ v) m')
-Proof
-  Induct \\ rw[store_list_def]
-  \\ first_x_assum drule
-  \\ impl_tac
-  >- (
-    qx_gen_tac`i` \\ first_x_assum(qspec_then`SUC i`mp_tac)
-    \\ simp[ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB] )
-  \\ disch_then((SUBST1_TAC o SYM))
-  \\ AP_THM_TAC \\ AP_TERM_TAC
-  \\ match_mp_tac UPDATE_COMMUTES
-  \\ first_x_assum(qspec_then`0`mp_tac)
-  \\ simp[]
 QED
 
 Theorem word_payload_IMP:
@@ -15164,38 +16076,6 @@ Proof
   \\ fs [good_dimindex_def,dimword_def,
          backend_commonTheory.partial_app_tag_def,
          backend_commonTheory.closure_tag_def]
-QED
-
-Definition eq_assum_def:
-  (eq_assum a m dm [] = T) /\
-  (eq_assum a m dm (v::vs) <=>
-     a IN dm /\ eq_assum (a + bytes_in_word) m dm vs)
-End
-
-Definition eq_explode_def:
-  (eq_explode a m dm [] = []) /\
-  (eq_explode a m dm (v::vs) = (v,m a) :: eq_explode (a + bytes_in_word) m dm vs)
-End
-
-Theorem eq_explode_APPEND[local]:
-    !xs ys a.
-      eq_explode a m dm (xs ++ ys) =
-      eq_explode a m dm xs ++
-      eq_explode (a + n2w (LENGTH xs) * bytes_in_word) m dm ys
-Proof
-  Induct \\ fs [eq_explode_def,ADD1,bytes_in_word_def,word_mul_n2w]
-  \\ fs [RIGHT_ADD_DISTRIB] \\ fs [GSYM word_add_n2w]
-QED
-
-Theorem eq_assum_APPEND[local]:
-    !xs ys a.
-      eq_assum a m dm (xs ++ ys) <=>
-      eq_assum a m dm xs /\
-      eq_assum (a + n2w (LENGTH xs) * bytes_in_word) m dm ys
-Proof
-  Induct \\ fs [eq_assum_def,ADD1,bytes_in_word_def,word_mul_n2w]
-  \\ fs [RIGHT_ADD_DISTRIB] \\ fs [GSYM word_add_n2w]
-  \\ rw [] \\ eq_tac \\ rw []
 QED
 
 Theorem memory_rel_Block_explode_lemma[local]:

@@ -1571,7 +1571,8 @@ Theorem do_app[local]:
    (op ≠ MemOp RefArray) ∧ (∀f. op ≠ MemOp (RefByte f)) ∧ (op ≠ MemOp UpdateByte) ∧
    (op ≠ MemOp UpdateBit) ∧
    (op ≠ MemOp FromListByte) ∧ op ≠ MemOp ConcatByteVec ∧
-   (∀b. op ≠ MemOp (CopyByte b)) ∧ (∀c. op ≠ BlockOp (Constant c)) ∧
+   (∀b. op ≠ MemOp (CopyByte b)) ∧ (∀b. op ≠ MemOp (CopyWord b)) ∧
+   (∀c. op ≠ BlockOp (Constant c)) ∧
    (∀n. op ≠ (FFI n)) ∧
    (∀t. op ≠ (ThunkOp t)) ==>
    ?w t2.
@@ -4789,6 +4790,98 @@ Proof
       \\ rw[]
       \\ match_mp_tac (GEN_ALL state_rel_UPDATE_REF)
       \\ simp[])
+    \\ Cases_on `?copy_new. op = MemOp (CopyWord copy_new)`
+    \\ fs []
+    >- (
+      `s.max_app = p1.max_app` by metis_tac [evaluate_const]
+      \\ gvs []
+      \\ Cases_on `copy_new`
+      \\ gvs [closSemTheory.do_app_def,AllCaseEqs(),v_rel_SIMP,SWAP_REVERSE_SYM]
+      \\ imp_res_tac state_rel_refs_lookup
+      \\ gvs [ref_rel_simp]
+      >- (
+        rename1 `LIST_REL (v_rel p1.max_app f2 t2.refs t2.code) copy_source copy_target`
+        \\ qmatch_asmsub_rename_tac `copy_array (copy_source,copy_offset) copy_length NONE`
+        \\ `OPTREL (LIST_REL (v_rel p1.max_app f2 t2.refs t2.code))
+             (copy_array (copy_source,copy_offset) copy_length NONE)
+             (copy_array (copy_target,copy_offset) copy_length NONE)` by (
+          irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+          \\ simp [OPTREL_def])
+        \\ gvs [OPTREL_def]
+        \\ simp [bvlSemTheory.do_app_def,EVAL ``clos_tag_shift 0``]
+        \\ qexists_tac `f2`
+        \\ simp []
+      )
+      >- (
+        rename1 `LIST_REL (v_rel p1.max_app f2 t2.refs t2.code) copy_source copy_target`
+        \\ qmatch_asmsub_rename_tac `copy_array (copy_source,copy_offset) copy_length NONE`
+        \\ `OPTREL (LIST_REL (v_rel p1.max_app f2 t2.refs t2.code))
+             (copy_array (copy_source,copy_offset) copy_length NONE)
+             (copy_array (copy_target,copy_offset) copy_length NONE)` by (
+          irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+          \\ simp [OPTREL_def])
+        \\ gvs [OPTREL_def]
+        \\ simp [bvlSemTheory.do_app_def,EVAL ``clos_tag_shift 0``]
+        \\ qexists_tac `f2`
+        \\ simp []
+      )
+      >- (
+        qmatch_asmsub_rename_tac
+          `copy_array (copy_source,copy_offset) copy_length
+             (SOME (copy_destination,copy_destination_offset))`
+        \\ rename1 `LIST_REL (v_rel p1.max_app f2 t2.refs t2.code) copy_source copy_target`
+        \\ rename1 `LIST_REL (v_rel p1.max_app f2 t2.refs t2.code)
+                       copy_destination copy_target_destination`
+        \\ qmatch_asmsub_rename_tac
+             `FLOOKUP p1.refs copy_destination_pointer = SOME (ValueArray copy_destination)`
+        \\ qmatch_asmsub_rename_tac `FLOOKUP f2 copy_destination_pointer = SOME copy_target_pointer`
+        \\ `OPTREL (LIST_REL (v_rel p1.max_app f2 t2.refs t2.code))
+             (copy_array (copy_source,copy_offset) copy_length
+                (SOME (copy_destination,copy_destination_offset)))
+             (copy_array (copy_target,copy_offset) copy_length
+                (SOME (copy_target_destination,copy_destination_offset)))` by (
+          irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+          \\ simp [OPTREL_def])
+        \\ gvs [OPTREL_def]
+        \\ simp [bvlSemTheory.do_app_def]
+        \\ `copy_target_pointer IN FRANGE f2` by (
+          simp [IN_FRANGE_FLOOKUP]
+          \\ qexists_tac `copy_destination_pointer`
+          \\ simp [])
+        \\ qexists_tac `f2`
+        \\ simp [FDIFF_FUPDATE]
+        \\ irule state_rel_UPDATE_REF
+        \\ simp []
+      )
+      >- (
+        qmatch_asmsub_rename_tac
+          `copy_array (copy_source,copy_offset) copy_length
+             (SOME (copy_destination,copy_destination_offset))`
+        \\ rename1 `LIST_REL (v_rel p1.max_app f2 t2.refs t2.code) copy_source copy_target`
+        \\ rename1 `LIST_REL (v_rel p1.max_app f2 t2.refs t2.code)
+                       copy_destination copy_target_destination`
+        \\ qmatch_asmsub_rename_tac
+             `FLOOKUP p1.refs copy_destination_pointer = SOME (ValueArray copy_destination)`
+        \\ qmatch_asmsub_rename_tac `FLOOKUP f2 copy_destination_pointer = SOME copy_target_pointer`
+        \\ `OPTREL (LIST_REL (v_rel p1.max_app f2 t2.refs t2.code))
+             (copy_array (copy_source,copy_offset) copy_length
+                (SOME (copy_destination,copy_destination_offset)))
+             (copy_array (copy_target,copy_offset) copy_length
+                (SOME (copy_target_destination,copy_destination_offset)))` by (
+          irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+          \\ simp [OPTREL_def])
+        \\ gvs [OPTREL_def]
+        \\ simp [bvlSemTheory.do_app_def]
+        \\ `copy_target_pointer IN FRANGE f2` by (
+          simp [IN_FRANGE_FLOOKUP]
+          \\ qexists_tac `copy_destination_pointer`
+          \\ simp [])
+        \\ qexists_tac `f2`
+        \\ simp [FDIFF_FUPDATE]
+        \\ irule state_rel_UPDATE_REF
+        \\ simp []
+      )
+    )
     \\ Cases_on`∃fl. op = MemOp (CopyByte fl)` \\ fs[] >- (
       fs[closSemTheory.do_app_def,bvlSemTheory.do_app_def,PULL_EXISTS]
       \\ Cases_on`fl`

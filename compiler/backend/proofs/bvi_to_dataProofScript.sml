@@ -599,6 +599,21 @@ Proof
   \\ qpat_x_assum `op ≠ MemOp (CopyByte T)` kall_tac
   \\ ‘∃this_is_case. this_is_case op’ by (qexists_tac ‘K T’ \\ fs [])
   \\ cases_on_op `op`
+  >~ [`do_app (MemOp (CopyWord _))`] >- (
+    rename1 `CopyWord copy_new`
+    \\ Cases_on `copy_new`
+    \\ fs [oneline bviSemTheory.do_app_def,
+            oneline bviSemTheory.do_app_aux_def, bvlSemTheory.do_app_def]
+    \\ rw [AllCaseEqs()]
+    \\ gvs [NULL_EQ_NIL, MAP_EQ_CONS, data_to_bvi_v_eq]
+    \\ rfs [state_rel_def, bvi_to_bvl_def, bvl_to_bvi_def]
+    \\ gvs [lookup_map, AllCaseEqs()]
+    \\ gvs [do_app_aux_def, semanticPrimitivesTheory.copy_array_def,
+            MAP_TAKE, MAP_DROP, AllCaseEqs()]
+    \\ rw [FLOOKUP_UPDATE, lookup_insert, MAP_TAKE, MAP_DROP]
+    \\ Cases_on `t.tstamps`
+    \\ fsrw_tac [DNF_ss] [with_fresh_ts_def, MAP_TAKE, MAP_DROP]
+    \\ tautLib.TAUT_TAC)
   >~ [`do_app (BlockOp (BoolTest test))`]
   >- (fs[oneline bviSemTheory.do_app_def,
       oneline bviSemTheory.do_app_aux_def,

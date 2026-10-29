@@ -324,12 +324,74 @@ QED
 fun cases_on_op q = Cases_on q >|
   map (MAP_EVERY Cases_on) [[], [], [], [], [`b`], [`g`], [`m`], [], [`t`]];
 
+Theorem state_ok_value_array_lookup[local]:
+  state_ok s /\ FLOOKUP s.refs pointer = SOME (ValueArray values) ==>
+  EVERY (bv_ok s.refs) values
+Proof
+  rw [state_ok_def]
+  \\ qpat_x_assum `!k. _` (qspec_then `pointer` mp_tac)
+  \\ simp []
+QED
+
+Theorem state_ok_value_array_update[local]:
+  state_ok s /\ pointer IN FDOM s.refs /\ EVERY (bv_ok s.refs) values ==>
+  state_ok (s with refs := s.refs |+ (pointer,ValueArray values))
+Proof
+  strip_tac
+  \\ `FDOM (s.refs |+ (pointer,ValueArray values)) = FDOM s.refs` by (
+    simp [EXTENSION]
+    \\ metis_tac [])
+  \\ `bv_ok (s.refs |+ (pointer,ValueArray values)) = bv_ok s.refs` by (
+    simp [FUN_EQ_THM]
+    \\ metis_tac [bv_ok_SUBSET_IMP,SUBSET_REFL])
+  \\ fs [state_ok_def,FLOOKUP_UPDATE]
+  \\ rw []
+QED
+
 Theorem do_app_ok_lemma[local]:
   state_ok r /\ EVERY (bv_ok r.refs) a /\
   (do_app op a r = Rval (q,t)) ==>
   state_ok t /\ bv_ok t.refs q
 Proof
   `?f. f () = op` by (qexists_tac `K op` \\ fs [])
+  \\ Cases_on `?copy_new. op = MemOp (CopyWord copy_new)`
+  >- (
+    gvs []
+    \\ Cases_on `copy_new`
+    \\ rw [bvlSemTheory.do_app_def, AllCaseEqs(), bv_ok_def]
+    \\ gvs [bv_ok_def]
+    >- (
+      qpat_x_assum `copy_array _ _ _ = SOME _`
+        (mp_then Any (qspec_then `bv_ok r.refs` mp_tac)
+           semanticPrimitivesPropsTheory.EVERY_copy_array)
+      \\ fs [EVERY_MEM]
+    )
+    >- (
+      imp_res_tac state_ok_value_array_lookup
+      \\ qpat_x_assum `copy_array _ _ _ = SOME _`
+        (mp_then Any (qspec_then `bv_ok r.refs` mp_tac)
+           semanticPrimitivesPropsTheory.EVERY_copy_array)
+      \\ fs [EVERY_MEM]
+    )
+    >- (
+      irule state_ok_value_array_update
+      \\ simp []
+      \\ imp_res_tac state_ok_value_array_lookup
+      \\ qpat_x_assum `copy_array _ _ _ = SOME _`
+        (mp_then Any (qspec_then `bv_ok r.refs` mp_tac)
+           semanticPrimitivesPropsTheory.EVERY_copy_array)
+      \\ fs [EVERY_MEM]
+    )
+    >- (
+      irule state_ok_value_array_update
+      \\ simp []
+      \\ imp_res_tac state_ok_value_array_lookup
+      \\ qpat_x_assum `copy_array _ _ _ = SOME _`
+        (mp_then Any (qspec_then `bv_ok r.refs` mp_tac)
+           semanticPrimitivesPropsTheory.EVERY_copy_array)
+      \\ fs [EVERY_MEM]
+    )
+  )
   \\ Cases_on `op = Install` THEN1
    (rw [] \\ fs [bvlSemTheory.do_app_def,bvlSemTheory.do_install_def,
       case_eq_thms,UNCURRY] \\ rveq \\ fs [state_ok_def]
@@ -1387,6 +1449,26 @@ Proof
   \\ fs [FLOOKUP_UPDATE] \\ metis_tac []
 QED
 
+Theorem state_rel_update_valuearray[local]:
+  state_rel b s (t:('c,'ffi) bviSem$state) /\ ptr IN FDOM s.refs ==>
+  state_rel b
+    (s with refs := s.refs |+ (ptr,ValueArray values))
+    (t with refs := t.refs |+ (b ptr,ValueArray (MAP (adjust_bv b) values)))
+Proof
+  rw [state_rel_def]
+  >- (fs [INJ_DEF] \\ metis_tac [])
+  >- (
+    qmatch_goalsub_rename_tac `FLOOKUP (s.refs |+ _) ref_index`
+    \\ qpat_x_assum `!k. case FLOOKUP s.refs k of NONE => _ | SOME value => _`
+      (qspec_then `ref_index` mp_tac)
+    \\ Cases_on `ref_index = ptr` \\ gvs [FLOOKUP_UPDATE]
+    \\ namedCases_on `FLOOKUP s.refs ref_index` ["", "stored_value"] \\ fs []
+    \\ Cases_on `stored_value` \\ fs []
+    \\ `b ref_index <> b ptr` by (fs [INJ_DEF,FLOOKUP_DEF] \\ metis_tac [])
+    \\ fs [])
+  \\ fs [FLOOKUP_UPDATE] \\ metis_tac []
+QED
+
 Theorem do_app_adjust[local]:
   state_rel b2 s5 t2 /\
   (!i. op ≠ IntOp (Const i)) /\ (op ≠ MemOp Ref) /\
@@ -1403,6 +1485,30 @@ Theorem do_app_adjust[local]:
       state_rel b2 r t3
 Proof
   `?debug. debug () = op` by (qexists_tac `K op` \\ fs [])
+  \\ Cases_on `?copy_new. op = MemOp (CopyWord copy_new)`
+  >- (
+    gvs []
+    \\ Cases_on `copy_new`
+    \\ rw [bvlSemTheory.do_app_def, AllCaseEqs(), SWAP_REVERSE_SYM]
+    \\ gvs [adjust_bv_def]
+    \\ imp_res_tac state_rel_FLOOKUP_valueArray
+    \\ gvs [bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,
+            bvlSemTheory.do_app_def,semanticPrimitivesTheory.copy_array_def,
+            MAP_TAKE,MAP_DROP,bvl_to_bvi_id,bvi_to_bvl_def,bvl_to_bvi_def,
+            AllCaseEqs()]
+    \\ CONV_TAC (DEPTH_CONV ETA_CONV)
+    \\ simp []
+    >- (
+      rewrite_tac [GSYM MAP_TAKE,GSYM MAP_DROP,GSYM MAP_APPEND]
+      \\ irule state_rel_update_valuearray
+      \\ fs [bv_ok_def]
+    )
+    >- (
+      rewrite_tac [GSYM MAP_TAKE,GSYM MAP_DROP,GSYM MAP_APPEND]
+      \\ irule state_rel_update_valuearray
+      \\ fs [bv_ok_def]
+    )
+  )
   \\ SIMP_TAC std_ss [Once bEvalOp_def,iEvalOp_def,do_app_aux_def]
   \\ Cases_on `op = MemOp El` \\ fs [] THEN1 (
     BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[adjust_bv_def,bEvalOp_def]
@@ -3302,92 +3408,32 @@ Resume compile_exps_correct[Op]:
       \\ METIS_TAC[LEAST_NOTIN_FDOM])
     \\ Cases_on`op = MemOp XorByte` \\ fs[]
     >- (
-      note_tac "Op: XorByte" \\
-      CONV_TAC(RESORT_EXISTS_CONV List.rev)
-      \\ qabbrev_tac`pp = LEAST ptr. ptr ∉ FDOM s5.refs`
-      \\ qabbrev_tac`qq = LEAST ptr. ptr ∉ FDOM t2.refs`
-      \\ (`MAP (adjust_bv ((pp =+ qq) b2)) env = MAP (adjust_bv b2) env`
-      by (
-        rw[MAP_EQ_f]
-        \\ match_mp_tac (GEN_ALL bv_ok_IMP_adjust_bv_eq) \\ qexists_tac `s5.refs`
-        \\ imp_res_tac evaluate_refs_SUBSET
-        \\ imp_res_tac bv_ok_SUBSET_IMP
-        \\ fs[EVERY_MEM]
-        \\ rw[APPLY_UPDATE_THM]
-        \\ METIS_TAC[LEAST_NOTIN_FDOM] ))
-      \\ qexists_tac`c`
-      \\ fs[compile_op_def,bEvalOp_def,case_eq_thms,SWAP_REVERSE_SYM]
-      \\ qexists_tac`b2`
-      \\ rw[iEval_def,adjust_bv_def,iEvalOp_def,do_app_aux_def,bEvalOp_def]
-      \\ fs[case_eq_thms,PULL_EXISTS] \\ rw[adjust_bv_def,APPLY_UPDATE_THM]
-      \\ rename1`FLOOKUP s5.refs src = SOME _`
-      \\ (`FLOOKUP t2.refs (b2 src) = FLOOKUP s5.refs src`
-      by (
-        fs[state_rel_def]
-        \\ ntac 4 (first_x_assum(qspec_then`src`mp_tac))
-        \\ simp[] \\ NO_TAC) ) \\ simp[APPLY_UPDATE_THM,bvl_to_bvi_with_refs,bvl_to_bvi_id]
-      \\ (`FLOOKUP t2.refs (b2 src') = FLOOKUP s5.refs src'`
-      by (
-        fs[state_rel_def]
-        \\ ntac 4 (first_x_assum(qspec_then`src'`mp_tac))
-        \\ simp[] \\ NO_TAC) ) \\ simp[APPLY_UPDATE_THM,bvl_to_bvi_with_refs,bvl_to_bvi_id]
-      \\ fs[state_rel_def,FLOOKUP_UPDATE]
-      \\ conj_tac
-      >- (
-        `src INSERT FDOM s5.refs = FDOM s5.refs ∧
-         b2 src INSERT FDOM t2.refs = FDOM t2.refs`
-        by (simp[GSYM ABSORPTION]
-          \\ fs[FLOOKUP_DEF]
-          \\ METIS_TAC[INJ_DEF] ) \\
-        simp[] )
-      \\ rw[]
-      >- (TOP_CASE_TAC \\ fs[FLOOKUP_DEF] \\ METIS_TAC[INJ_DEF])
-      >- ( fs[FLOOKUP_DEF] \\ METIS_TAC[] )
-      \\ METIS_TAC[] )
+      CONV_TAC (RESORT_EXISTS_CONV List.rev)
+      \\ qexists_tac `c`
+      \\ fs [compile_op_def,bEvalOp_def,case_eq_thms,SWAP_REVERSE_SYM]
+      \\ qexists_tac `b2`
+      \\ rw [iEval_def,adjust_bv_def,iEvalOp_def,do_app_aux_def,bEvalOp_def]
+      \\ fs [case_eq_thms,PULL_EXISTS]
+      \\ rw [adjust_bv_def,APPLY_UPDATE_THM]
+      \\ imp_res_tac state_rel_FLOOKUP_byteArray
+      \\ simp [bvl_to_bvi_with_refs,bvl_to_bvi_id]
+      \\ irule state_rel_update_bytearray
+      \\ fs [FLOOKUP_DEF]
+    )
     \\ Cases_on`op = MemOp (CopyByte F)` \\ fs[]
     >- (
-      note_tac "Op: CopyByte F" \\
-      CONV_TAC(RESORT_EXISTS_CONV List.rev)
-      \\ qabbrev_tac`pp = LEAST ptr. ptr ∉ FDOM s5.refs`
-      \\ qabbrev_tac`qq = LEAST ptr. ptr ∉ FDOM t2.refs`
-      \\ (`MAP (adjust_bv ((pp =+ qq) b2)) env = MAP (adjust_bv b2) env`
-      by (
-        rw[MAP_EQ_f]
-        \\ match_mp_tac (GEN_ALL bv_ok_IMP_adjust_bv_eq) \\ qexists_tac `s5.refs`
-        \\ imp_res_tac evaluate_refs_SUBSET
-        \\ imp_res_tac bv_ok_SUBSET_IMP
-        \\ fs[EVERY_MEM]
-        \\ rw[APPLY_UPDATE_THM]
-        \\ METIS_TAC[LEAST_NOTIN_FDOM] ))
-      \\ qexists_tac`c`
-      \\ fs[compile_op_def,bEvalOp_def,case_eq_thms,SWAP_REVERSE_SYM]
-      \\ qexists_tac`b2`
-      \\ rw[iEval_def,adjust_bv_def,iEvalOp_def,do_app_aux_def,bEvalOp_def]
-      \\ fs[case_eq_thms,PULL_EXISTS] \\ rw[adjust_bv_def,APPLY_UPDATE_THM]
-      \\ rename1`FLOOKUP s5.refs src = SOME _`
-      \\ (`FLOOKUP t2.refs (b2 src) = FLOOKUP s5.refs src`
-      by (
-        fs[state_rel_def]
-        \\ ntac 4 (first_x_assum(qspec_then`src`mp_tac))
-        \\ simp[] \\ NO_TAC) ) \\ simp[APPLY_UPDATE_THM,bvl_to_bvi_with_refs,bvl_to_bvi_id]
-      \\ `FLOOKUP t2.refs (b2 dst) = FLOOKUP s5.refs dst`
-      by (
-        fs[state_rel_def]
-        \\ ntac 4 (first_x_assum(qspec_then`dst`mp_tac))
-        \\ simp[] \\ NO_TAC ) \\ simp[APPLY_UPDATE_THM,bvl_to_bvi_with_refs,bvl_to_bvi_id]
-      \\ fs[state_rel_def,FLOOKUP_UPDATE]
-      \\ conj_tac
-      >- (
-        `dst INSERT FDOM s5.refs = FDOM s5.refs ∧
-         b2 dst INSERT FDOM t2.refs = FDOM t2.refs`
-        by (simp[GSYM ABSORPTION]
-          \\ fs[FLOOKUP_DEF]
-          \\ METIS_TAC[INJ_DEF] ) \\
-        simp[] )
-      \\ rw[]
-      >- (TOP_CASE_TAC \\ fs[FLOOKUP_DEF] \\ METIS_TAC[INJ_DEF])
-      >- ( fs[FLOOKUP_DEF] \\ METIS_TAC[] )
-      \\ METIS_TAC[] )
+      CONV_TAC (RESORT_EXISTS_CONV List.rev)
+      \\ qexists_tac `c`
+      \\ fs [compile_op_def,bEvalOp_def,case_eq_thms,SWAP_REVERSE_SYM]
+      \\ qexists_tac `b2`
+      \\ rw [iEval_def,adjust_bv_def,iEvalOp_def,do_app_aux_def,bEvalOp_def]
+      \\ fs [case_eq_thms,PULL_EXISTS]
+      \\ rw [adjust_bv_def,APPLY_UPDATE_THM]
+      \\ imp_res_tac state_rel_FLOOKUP_byteArray
+      \\ simp [bvl_to_bvi_with_refs,bvl_to_bvi_id]
+      \\ irule state_rel_update_bytearray
+      \\ fs [FLOOKUP_DEF]
+    )
     \\ Cases_on `op = MemOp (CopyByte T)` \\ fs []
     >- (
       gvs [bvlSemTheory.do_app_def,AllCaseEqs (),SWAP_REVERSE_SYM]

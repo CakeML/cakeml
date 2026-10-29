@@ -479,6 +479,31 @@ Definition do_app_def:
         (if 0 ≤ i ∧ i < &LENGTH bs then
            Rval (Number (&(w2n(EL (Num i) bs))), s)
          else Error)
+    | (MemOp (CopyWord F),[Block tag ws; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
+        (case FLOOKUP s.refs dst of
+         | SOME (ValueArray ds) =>
+           (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
+            | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ValueArray ds))
+            | NONE => Error)
+         | _ => Error)
+    | (MemOp (CopyWord F),[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
+        (case (FLOOKUP s.refs src, FLOOKUP s.refs dst) of
+         | (SOME (ValueArray ws), SOME (ValueArray ds)) =>
+           (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
+            | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ValueArray ds))
+            | NONE => Error)
+         | _ => Error)
+    | (MemOp (CopyWord T),[Block tag ws; Number srcoff; Number len]) =>
+        (case copy_array (ws,srcoff) len NONE of
+         | SOME ds => Rval (Block 0 ds, s)
+         | NONE => Error)
+    | (MemOp (CopyWord T),[RefPtr _ src; Number srcoff; Number len]) =>
+        (case FLOOKUP s.refs src of
+         | SOME (ValueArray ws) =>
+           (case copy_array (ws,srcoff) len NONE of
+            | SOME ds => Rval (Block 0 ds, s)
+            | NONE => Error)
+         | _ => Error)
     | (MemOp (CopyByte F),[ByteVector ws; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
         (case FLOOKUP s.refs dst of
          | SOME (ByteArray ds) =>

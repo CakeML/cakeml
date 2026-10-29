@@ -974,6 +974,274 @@ Proof
   \\ rveq \\ fs [] \\ rpt strip_tac \\ rveq \\ fs []
 QED
 
+Theorem evaluate_CopyWord_checked_new:
+  do_app (if source_array then MemOp Length else BlockOp LengthBlock)
+    [source] s = Rval (Number source_length,s) ==>
+  evaluate ([CopyWord_checked trace source_array T],
+    Number len::Number off::source::env,s) =
+  if off < 0 \/ len < 0 \/ source_length < off + len then
+    (Rerr (Rraise (Block subscript_tag [])),s)
+  else
+    evaluate ([Op trace (MemOp (CopyWord T))
+      [Var trace 0; Var trace 1; Var trace 2]],
+      Number len::Number off::source::env,s)
+Proof
+  Cases_on `source_array`
+  \\ rw [do_app_def,AllCaseEqs()]
+  \\ simp [CopyWord_checked_def,evaluate_def,do_app_def,do_int_app_def]
+  \\ rpt (IF_CASES_TAC \\ gvs [])
+  \\ fs [integerTheory.INT_ADD_COMM,integerTheory.INT_NOT_LT,
+         integerTheory.INT_NOT_LE]
+QED
+
+Theorem evaluate_CopyWord_checked_write:
+  do_app (if source_array then MemOp Length else BlockOp LengthBlock)
+    [source] s = Rval (Number source_length,s) /\
+  FLOOKUP s.refs destination = SOME (ValueArray destination_values) ==>
+  evaluate ([CopyWord_checked trace source_array F],
+    Number dstoff::RefPtr destination_flag destination::
+      Number len::Number off::source::env,s) =
+  if off < 0 \/ len < 0 \/ source_length < off + len \/
+     dstoff < 0 \/ &(LENGTH destination_values) < dstoff + len then
+    (Rerr (Rraise (Block subscript_tag [])),s)
+  else
+    evaluate ([Op trace (MemOp (CopyWord F))
+      [Var trace 0; Var trace 1; Var trace 2; Var trace 3; Var trace 4]],
+      Number dstoff::RefPtr destination_flag destination::
+        Number len::Number off::source::env,s)
+Proof
+  Cases_on `source_array`
+  \\ rw [do_app_def,AllCaseEqs()]
+  \\ simp [CopyWord_checked_def,evaluate_def,do_app_def,do_int_app_def]
+  \\ rpt (IF_CASES_TAC \\ gvs [])
+  \\ fs [integerTheory.INT_ADD_COMM,integerTheory.INT_NOT_LT,
+         integerTheory.INT_NOT_LE]
+QED
+
+Theorem state_rel_value_array_update[local]:
+  state_rel s t /\ pointer < LENGTH s.refs /\
+  LIST_REL v_rel values target_values ==>
+  state_rel
+    (s with refs := LUPDATE (Varray values) pointer s.refs)
+    (t with refs := t.refs |+ (pointer,ValueArray target_values))
+Proof
+  rw [state_rel_def,store_rel_def,FLOOKUP_UPDATE,EL_LUPDATE]
+  \\ qmatch_goalsub_rename_tac `LENGTH s.refs <= heap_index`
+  \\ qpat_x_assum `!i. _` (qspec_then `heap_index` mp_tac)
+  \\ Cases_on `heap_index = pointer`
+  \\ gvs []
+QED
+
+Theorem op_word_copy:
+  op = Src CopyVecVec \/ op = Src CopyVecArr \/
+  op = Src CopyArrVec \/ op = Src CopyArrArr ==>
+  ^op_goal
+Proof
+  rpt strip_tac
+  \\ gvs []
+  >~ [`compile_op _ (Src CopyVecVec) _`] >- (
+    gvs [flatSemTheory.do_app_def,AllCaseEqs(),v_rel_def,SWAP_REVERSE_SYM]
+    \\ rename1 `LIST_REL v_rel copy_source copy_target`
+    \\ qmatch_asmsub_rename_tac `copy_array (copy_source,copy_offset) copy_length NONE`
+    \\ `OPTREL (LIST_REL v_rel)
+         (copy_array (copy_source,copy_offset) copy_length NONE)
+         (copy_array (copy_target,copy_offset) copy_length NONE)` by (
+      irule LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def]
+    \\ simp [compile_op_def,evaluate_def]
+    >~ [`Rraise _`] >- (
+      `copy_offset < 0 \/ copy_length < 0 \/
+       &(LENGTH copy_target) < copy_offset + copy_length` by (
+        qpat_x_assum `copy_array (copy_target,_) _ NONE = NONE` mp_tac
+        \\ simp [copy_array_def,LET_THM]
+        \\ intLib.COOPER_TAC)
+      \\ simp [Q.INST [`source_array` |-> `F`,
+                    `source` |-> `Block 0 (copy_target:closSem$v list)`,
+                    `source_length` |-> `&(LENGTH (copy_target:closSem$v list))`]
+              evaluate_CopyWord_checked_new |> SIMP_RULE (srw_ss()) [do_app_def],
+            subscript_exn_v_def,v_rel_def]
+    )
+    >- (
+      `~(copy_offset < 0 \/ copy_length < 0 \/
+         &(LENGTH copy_target) < copy_offset + copy_length)` by (
+        qpat_x_assum `copy_array (copy_target,_) _ NONE = SOME _` mp_tac
+        \\ simp [copy_array_def,LET_THM]
+        \\ strip_tac
+        \\ intLib.COOPER_TAC)
+      \\ simp [Q.INST [`source_array` |-> `F`,
+                         `source` |-> `Block 0 (copy_target:closSem$v list)`,
+                         `source_length` |-> `&(LENGTH (copy_target:closSem$v list))`]
+                   evaluate_CopyWord_checked_new |>
+                   SIMP_RULE (srw_ss()) [do_app_def],evaluate_def,do_app_def]
+    )
+  )
+  >~ [`compile_op _ (Src CopyVecArr) _`] >- (
+    gvs [flatSemTheory.do_app_def,AllCaseEqs(),v_rel_def,SWAP_REVERSE_SYM]
+    \\ imp_res_tac lookup_array
+    \\ gvs []
+    \\ qmatch_asmsub_rename_tac
+         `copy_array (copy_source,copy_offset) copy_length
+            (SOME (copy_destination,copy_destination_offset))`
+    \\ rename1 `LIST_REL v_rel copy_source copy_target`
+    \\ rename1 `LIST_REL v_rel copy_destination copy_target_destination`
+    \\ qmatch_asmsub_rename_tac
+         `store_lookup copy_destination_pointer s1.refs = SOME (Varray copy_destination)`
+    \\ qmatch_asmsub_rename_tac `RefPtr copy_destination_flag copy_destination_pointer`
+    \\ `OPTREL (LIST_REL v_rel)
+         (copy_array (copy_source,copy_offset) copy_length
+            (SOME (copy_destination,copy_destination_offset)))
+         (copy_array (copy_target,copy_offset) copy_length
+            (SOME (copy_target_destination,copy_destination_offset)))` by (
+      irule LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def]
+    \\ simp [compile_op_def,evaluate_def]
+    >~ [`Rraise _`] >- (
+      `do_app (BlockOp LengthBlock) [Block 0 copy_target] t1 =
+       Rval (Number (&(LENGTH copy_target)),t1)` by simp [do_app_def]
+      \\ drule_all (Q.INST [`source_array` |-> `F`]
+           evaluate_CopyWord_checked_write |> SIMP_RULE (srw_ss()) [])
+      \\ disch_then assume_tac
+      \\ `copy_offset < 0 \/ copy_length < 0 \/
+           &(LENGTH copy_target) < copy_offset + copy_length \/
+           copy_destination_offset < 0 \/
+           &(LENGTH copy_target_destination) < copy_destination_offset + copy_length` by (
+        qpat_x_assum `copy_array (copy_target,_) _ (SOME _) = NONE` mp_tac
+        \\ simp [copy_array_def,LET_THM,AllCaseEqs()]
+        \\ intLib.COOPER_TAC)
+      \\ simp [subscript_exn_v_def,v_rel_def]
+    )
+    >- (
+      `do_app (BlockOp LengthBlock) [Block 0 copy_target] t1 =
+       Rval (Number (&(LENGTH copy_target)),t1)` by simp [do_app_def]
+      \\ drule_all (Q.INST [`source_array` |-> `F`]
+           evaluate_CopyWord_checked_write |> SIMP_RULE (srw_ss()) [])
+      \\ disch_then assume_tac
+      \\ `~(copy_offset < 0 \/ copy_length < 0 \/
+             &(LENGTH copy_target) < copy_offset + copy_length \/
+             copy_destination_offset < 0 \/
+             &(LENGTH copy_target_destination) < copy_destination_offset + copy_length)` by (
+        qpat_x_assum `copy_array (copy_target,_) _ (SOME _) = SOME _` mp_tac
+        \\ simp [copy_array_def,LET_THM,AllCaseEqs()]
+        \\ strip_tac
+        \\ intLib.COOPER_TAC)
+      \\ simp [evaluate_def,do_app_def,Unit_def,EVAL ``tuple_tag``]
+      \\ gvs [store_assign_def]
+      \\ irule state_rel_value_array_update
+      \\ simp []
+    )
+  )
+  >~ [`compile_op _ (Src CopyArrVec) _`] >- (
+    gvs [flatSemTheory.do_app_def,AllCaseEqs(),v_rel_def,SWAP_REVERSE_SYM]
+    \\ imp_res_tac lookup_array
+    \\ gvs []
+    \\ qmatch_asmsub_rename_tac `store_lookup copy_pointer s1.refs = SOME (Varray _)`
+    \\ qmatch_asmsub_rename_tac `RefPtr copy_flag copy_pointer`
+    \\ rename1 `LIST_REL v_rel copy_source copy_target`
+    \\ qmatch_asmsub_rename_tac `copy_array (copy_source,copy_offset) copy_length NONE`
+    \\ `OPTREL (LIST_REL v_rel)
+         (copy_array (copy_source,copy_offset) copy_length NONE)
+         (copy_array (copy_target,copy_offset) copy_length NONE)` by (
+      irule LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def]
+    \\ simp [compile_op_def,evaluate_def]
+    >~ [`Rraise _`] >- (
+      `do_app (MemOp Length) [RefPtr copy_flag copy_pointer] t1 =
+       Rval (Number (&(LENGTH copy_target)),t1)` by simp [do_app_def]
+      \\ qpat_x_assum `do_app (MemOp Length) _ _ = _`
+        (mp_then Any assume_tac
+          (Q.INST [`source_array` |-> `T`] evaluate_CopyWord_checked_new |>
+           SIMP_RULE (srw_ss()) []))
+      \\ `copy_offset < 0 \/ copy_length < 0 \/
+       &(LENGTH copy_target) < copy_offset + copy_length` by (
+        qpat_x_assum `copy_array (copy_target,_) _ NONE = NONE` mp_tac
+        \\ simp [copy_array_def,LET_THM]
+        \\ intLib.COOPER_TAC)
+      \\ simp [subscript_exn_v_def,v_rel_def]
+    )
+    >- (
+      `do_app (MemOp Length) [RefPtr copy_flag copy_pointer] t1 =
+       Rval (Number (&(LENGTH copy_target)),t1)` by simp [do_app_def]
+      \\ qpat_x_assum `do_app (MemOp Length) _ _ = _`
+        (mp_then Any assume_tac
+          (Q.INST [`source_array` |-> `T`] evaluate_CopyWord_checked_new |>
+           SIMP_RULE (srw_ss()) []))
+      \\ `~(copy_offset < 0 \/ copy_length < 0 \/
+         &(LENGTH copy_target) < copy_offset + copy_length)` by (
+        qpat_x_assum `copy_array (copy_target,_) _ NONE = SOME _` mp_tac
+        \\ simp [copy_array_def,LET_THM]
+        \\ strip_tac
+        \\ intLib.COOPER_TAC)
+      \\ simp [evaluate_def,do_app_def]
+    )
+  )
+  >~ [`compile_op _ (Src CopyArrArr) _`] >- (
+    gvs [flatSemTheory.do_app_def,AllCaseEqs(),v_rel_def,SWAP_REVERSE_SYM]
+    \\ imp_res_tac lookup_array
+    \\ gvs []
+    \\ qmatch_asmsub_rename_tac
+         `copy_array (copy_source,copy_offset) copy_length
+            (SOME (copy_destination,copy_destination_offset))`
+    \\ rename1 `LIST_REL v_rel copy_source copy_target`
+    \\ rename1 `LIST_REL v_rel copy_destination copy_target_destination`
+    \\ qmatch_asmsub_rename_tac
+         `store_lookup copy_destination_pointer s1.refs = SOME (Varray copy_destination)`
+    \\ qmatch_asmsub_rename_tac `RefPtr copy_destination_flag copy_destination_pointer`
+    \\ qmatch_asmsub_rename_tac
+         `store_lookup copy_pointer s1.refs = SOME (Varray copy_source)`
+    \\ qmatch_asmsub_rename_tac `RefPtr copy_flag copy_pointer`
+    \\ `OPTREL (LIST_REL v_rel)
+         (copy_array (copy_source,copy_offset) copy_length
+            (SOME (copy_destination,copy_destination_offset)))
+         (copy_array (copy_target,copy_offset) copy_length
+            (SOME (copy_target_destination,copy_destination_offset)))` by (
+      irule LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def]
+    \\ simp [compile_op_def,evaluate_def]
+    >~ [`Rraise _`] >- (
+      `do_app (MemOp Length) [RefPtr copy_flag copy_pointer] t1 =
+       Rval (Number (&(LENGTH copy_target)),t1)` by simp [do_app_def]
+      \\ qpat_assum
+           `FLOOKUP t1.refs copy_destination_pointer = SOME (ValueArray copy_target_destination)`
+        (mp_then Any (drule_then assume_tac)
+          (Q.INST [`source_array` |-> `T`] evaluate_CopyWord_checked_write |>
+           SIMP_RULE (srw_ss()) []))
+      \\ `copy_offset < 0 \/ copy_length < 0 \/
+           &(LENGTH copy_target) < copy_offset + copy_length \/
+           copy_destination_offset < 0 \/
+           &(LENGTH copy_target_destination) < copy_destination_offset + copy_length` by (
+        qpat_x_assum `copy_array (copy_target,_) _ (SOME _) = NONE` mp_tac
+        \\ simp [copy_array_def,LET_THM,AllCaseEqs()]
+        \\ intLib.COOPER_TAC)
+      \\ simp [subscript_exn_v_def,v_rel_def]
+    )
+    >- (
+      `do_app (MemOp Length) [RefPtr copy_flag copy_pointer] t1 =
+       Rval (Number (&(LENGTH copy_target)),t1)` by simp [do_app_def]
+      \\ qpat_assum
+           `FLOOKUP t1.refs copy_destination_pointer = SOME (ValueArray copy_target_destination)`
+        (mp_then Any (drule_then assume_tac)
+          (Q.INST [`source_array` |-> `T`] evaluate_CopyWord_checked_write |>
+           SIMP_RULE (srw_ss()) []))
+      \\ `~(copy_offset < 0 \/ copy_length < 0 \/
+             &(LENGTH copy_target) < copy_offset + copy_length \/
+             copy_destination_offset < 0 \/
+             &(LENGTH copy_target_destination) < copy_destination_offset + copy_length)` by (
+        qpat_x_assum `copy_array (copy_target,_) _ (SOME _) = SOME _` mp_tac
+        \\ simp [copy_array_def,LET_THM,AllCaseEqs()]
+        \\ strip_tac
+        \\ intLib.COOPER_TAC)
+      \\ simp [evaluate_def,do_app_def,Unit_def,EVAL ``tuple_tag``]
+      \\ gvs [store_assign_def]
+      \\ irule state_rel_value_array_update
+      \\ simp []
+    )
+  )
+QED
+
 Theorem op_byte_copy:
   op = Src CopyStrAw8 \/
   op = Src CopyAw8Str \/
@@ -1942,7 +2210,7 @@ Proof
     [op_refs, op_str, op_str_unsafe, op_thunk, op_eq_gc, op_byte_arrays, op_scan,
      op_arrays, op_test, op_arith, op_unsafe_arith, op_unsafe_test,
      op_from_to, op_globals, op_blocks,
-     op_ffi, op_byte_copy, op_byte_bits, op_byte_bits_safe, op_eval, op_vectors, op_id])
+     op_ffi, op_byte_copy, op_word_copy, op_byte_bits, op_byte_bits_safe, op_eval, op_vectors, op_id])
   \\ `?this_is_case. this_is_case op` by (qexists_tac `K T` \\ fs [])
   \\ rpt strip_tac \\ fs [] \\ Cases_on `op`
   >- (
@@ -2509,7 +2777,22 @@ Proof
   \\ simp [GSYM closPropsTheory.contains_App_SOME_EXISTS]
 QED
 
-val props_defs = [compile_shift_props, closPropsTheory.contains_App_SOME_def,
+Theorem CopyWord_checked_props:
+  set_globals (CopyWord_checked trace source_array alloc_new) = {||} /\
+  esgc_free (CopyWord_checked trace source_array alloc_new) /\
+  no_mti (CopyWord_checked trace source_array alloc_new) /\
+  every_Fn_vs_NONE [CopyWord_checked trace source_array alloc_new] /\
+  ~contains_App_SOME max_app [CopyWord_checked trace source_array alloc_new]
+Proof
+  Cases_on `source_array`
+  \\ Cases_on `alloc_new`
+  \\ simp [CopyWord_checked_def,closPropsTheory.set_globals_def,
+           closPropsTheory.esgc_free_def,closPropsTheory.no_mti_def,
+           closPropsTheory.every_Fn_vs_NONE_def,
+           closPropsTheory.contains_App_SOME_def,closPropsTheory.op_gbag_def]
+QED
+
+val props_defs = [CopyWord_checked_props, compile_shift_props, closPropsTheory.contains_App_SOME_def,
     closPropsTheory.every_Fn_vs_NONE_def,
     closPropsTheory.no_mti_def, Q.ISPEC `no_mti` ETA_THM,
     closPropsTheory.esgc_free_def]

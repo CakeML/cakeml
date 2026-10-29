@@ -328,6 +328,65 @@ Theorem do_app_ok:
         | _ => T
 Proof
   strip_tac
+  \\ Cases_on `op = CopyVecVec`
+  >- (
+    gvs [do_app_cases,v_ok_def]
+    \\ qexists_tac `st`
+    \\ gs [SF SFY_ss]
+    \\ qpat_x_assum `copy_array _ _ _ = SOME _`
+         (mp_then Any (qspec_then `v_ok ctxt` mp_tac) EVERY_copy_array)
+    \\ gs [SF SFY_ss]
+  )
+  \\ Cases_on `op = CopyVecArr`
+  >- (
+    gvs [do_app_cases,v_ok_def]
+    \\ qexists_tac `st`
+    \\ gs [SF SFY_ss]
+    \\ imp_res_tac ref_ok_array_lookup
+    \\ qpat_assum `copy_array _ _ _ = SOME _`
+         (mp_then Any (qspec_then `v_ok ctxt` mp_tac) EVERY_copy_array)
+    \\ simp []
+    \\ strip_tac
+    \\ gvs [store_assign_def]
+    \\ conj_tac >- (
+      rw []
+      \\ irule kernel_loc_ok_LUPDATE1
+      \\ gs []
+      \\ strip_tac
+      \\ gvs [])
+    \\ rw [oEL_LUPDATE,AllCaseEqs()]
+    \\ gs [ref_ok_def,SF SFY_ss]
+  )
+  \\ Cases_on `op = CopyArrVec`
+  >- (
+    gvs [do_app_cases,v_ok_def]
+    \\ imp_res_tac ref_ok_array_lookup
+    \\ qexists_tac `st`
+    \\ gs [SF SFY_ss]
+    \\ qpat_x_assum `copy_array _ _ _ = SOME _`
+         (mp_then Any (qspec_then `v_ok ctxt` mp_tac) EVERY_copy_array)
+    \\ gs [SF SFY_ss]
+  )
+  \\ Cases_on `op = CopyArrArr`
+  >- (
+    gvs [do_app_cases,v_ok_def]
+    \\ qexists_tac `st`
+    \\ gs [SF SFY_ss]
+    \\ imp_res_tac ref_ok_array_lookup
+    \\ qpat_assum `copy_array _ _ _ = SOME _`
+         (mp_then Any (qspec_then `v_ok ctxt` mp_tac) EVERY_copy_array)
+    \\ simp []
+    \\ strip_tac
+    \\ gvs [store_assign_def]
+    \\ conj_tac >- (
+      rw []
+      \\ irule kernel_loc_ok_LUPDATE1
+      \\ gs []
+      \\ strip_tac
+      \\ gvs [])
+    \\ rw [oEL_LUPDATE,AllCaseEqs()]
+    \\ gs [ref_ok_def,SF SFY_ss]
+  )
   \\ Cases_on ‘(∃a. op = UnsafeIndexArith a) ∨ ∃t. op = UnsafeIndexTest t’
   >- (
     gvs [do_app_cases, do_unsafe_index_arith_def,

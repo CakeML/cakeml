@@ -3989,6 +3989,8 @@ Definition no_change_refs_def:
         | Aw8updateBit => F
         | CopyStrAw8 => F
         | CopyAw8Aw8 => F
+        | CopyVecArr => F
+        | CopyArrArr => F
         | XorAw8Str_unsafe => F
         | Aalloc => F
         | AallocEmpty => F

@@ -256,6 +256,10 @@ Definition op_to_display_def:
   | Aw8sub => empty_item «Aw8sub»
   | Aw8length => empty_item «Aw8length»
   | Aw8update => empty_item «Aw8update»
+  | CopyVecVec => empty_item «CopyVecVec»
+  | CopyVecArr => empty_item «CopyVecArr»
+  | CopyArrVec => empty_item «CopyArrVec»
+  | CopyArrArr => empty_item «CopyArrArr»
   | CopyStrStr => empty_item «CopyStrStr»
   | CopyStrAw8 => empty_item «CopyStrAw8»
   | CopyAw8Str => empty_item «CopyAw8Str»
@@ -642,6 +646,7 @@ Definition clos_op_to_display_def:
     | MemOp DerefBit => String «DerefBit»
     | MemOp UpdateBit => String «UpdateBit»
     | MemOp ConcatByteVec => String «ConcatByteVec»
+    | MemOp (CopyWord b) => Item NONE «CopyWord» [bool_to_display b]
     | MemOp (CopyByte b) => Item NONE «CopyByte» [bool_to_display b]
     | MemOp FromListByte => String «FromListByte»
     | MemOp ToListByte => String «ToListByte»

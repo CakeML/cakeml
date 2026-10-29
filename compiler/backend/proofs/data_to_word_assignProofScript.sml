@@ -13,6 +13,549 @@ Ancestors
   semanticsProps alignment backendProps word_bignum wordLang
   word_bignumProof gc_shared word_gcFunctions word_simpProof wordConvs
 
+Theorem WordCopyAdd_thm:
+  ∀count c copy_source copy_target (s:('a,'c,'ffi) wordSem$state) memory domain
+    final_memory return_value ret_section ret_label.
+    memcopy count copy_source copy_target memory domain = SOME final_memory ∧
+    arch_width_bits c.arch_width = dimindex (:'a) ∧
+    s.memory = memory ∧ s.mdomain = domain ∧
+    (∃md. lookup WordCopyAdd_location s.code = SOME (5,WordCopyAdd_code c,md)) ∧
+    count ≤ s.clock ∧ 2 * count < dimword (:'a) ∧
+    get_var 0 s = SOME (Loc ret_section ret_label) ∧
+    get_var 2 s = SOME (Word (n2w (2 * count))) ∧
+    get_var 4 s = SOME (Word copy_source) ∧
+    get_var 6 s = SOME (Word copy_target) ∧
+    get_var 8 s = SOME return_value ⇒
+    ∃maximum.
+      evaluate (WordCopyAdd_code c,s) =
+        (SOME (Result (Loc ret_section ret_label) [return_value]),
+         s with <|clock := s.clock - count; memory := final_memory;
+                  locals := LN; locals_size := SOME 0; stack_max := maximum|>) ∧
+      backendProps$option_le maximum
+        (OPTION_MAP2 MAX s.stack_max
+          (OPTION_MAP2 $+ (stack_size s.stack)
+            (lookup WordCopyAdd_location s.stack_size)))
+Proof
+  Induct
+  >~ [`memcopy 0`] >- (
+    rw [Once memcopy_def]
+    >> simp [WordCopyAdd_code_def,Once wordSemTheory.evaluate_def,
+             wordSemTheory.get_var_imm_def,wordSemTheory.word_cmp_def,
+             integer_wordTheory.i2w_0]
+    >> simp [Once wordSemTheory.evaluate_def,wordSemTheory.get_vars_def,
+             wordSemTheory.flush_state_def]
+    >> qexists_tac `s.stack_max`
+    >> simp [wordSemTheory.state_component_equality,option_le_max_right])
+  >~ [`memcopy (SUC remaining)`] >- (
+    pop_assum (assume_named_tac "copy_ih")
+    >> qx_genl_tac [`c`,`copy_source`,`copy_target`,`s`,`memory`,`copy_domain`,
+                   `final_memory`,`return_value`,`ret_section`,`ret_label`]
+    >> simp [Once memcopy_def]
+    >> strip_tac
+    >> gvs []
+    >> `(n2w (2 * SUC remaining):'a word) ≠ 0w` by simp [n2w_11]
+    >> once_rewrite_tac [WordCopyAdd_code_def]
+    >> simp [Once wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,
+             wordSemTheory.word_cmp_def,integer_wordTheory.i2w_0]
+    >> `s.clock ≠ 0` by decide_tac
+    >> `(i2w (&arch_bytes c.arch_width):'a word) = bytes_in_word` by
+      simp [integer_wordTheory.i2w_pos,arch_size,bytes_in_word_def]
+    >> fs [list_Seq_def,wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,
+           wordSemTheory.get_var_def,wordSemTheory.set_var_def,lookup_insert,
+           wordSemTheory.mem_load_def,wordSemTheory.mem_store_def,
+           wordSemTheory.get_vars_def,wordSemTheory.the_words_def,
+           wordSemTheory.word_op_def,wordSemTheory.find_code_def,
+           wordSemTheory.bad_dest_args_def,wordSemTheory.add_ret_loc_def,
+           wordSemTheory.call_env_def,wordSemTheory.dec_clock_def,fromList2_def,
+           integer_wordTheory.i2w_pos,integer_wordTheory.i2w_0]
+    >> fs [MULT_CLAUSES,GSYM word_add_n2w]
+    >> qmatch_goalsub_abbrev_tac `(WordCopyAdd_code c,next_state)`
+    >> LABEL_ASSUM "copy_ih" (qspecl_then
+         [`c`,`copy_source + bytes_in_word`,`copy_target + bytes_in_word`,`next_state`,
+          `(copy_target =+ s.memory copy_source) s.memory`,`s.mdomain`,`final_memory`,
+          `return_value`,`ret_section`,`ret_label`] mp_tac)
+    >> impl_tac
+    >- (
+      simp [Abbr `next_state`,wordSemTheory.get_var_def,lookup_insert]
+      >> decide_tac)
+    >> disch_then (qx_choose_then `maximum` strip_assume_tac)
+    >> qexists_tac `maximum`
+    >> fs [Abbr `next_state`,wordSemTheory.state_component_equality,
+           option_le_max_right,ADD1])
+QED
+
+Theorem WordCopySub_thm:
+  ∀count c copy_source copy_target (s:('a,'c,'ffi) wordSem$state) memory domain
+    final_memory return_value ret_section ret_label.
+    memcopy_bwd count copy_source copy_target memory domain = SOME final_memory ∧
+    arch_width_bits c.arch_width = dimindex (:'a) ∧
+    s.memory = memory ∧ s.mdomain = domain ∧
+    (∃md. lookup WordCopySub_location s.code = SOME (5,WordCopySub_code c,md)) ∧
+    count ≤ s.clock ∧ 2 * count < dimword (:'a) ∧
+    get_var 0 s = SOME (Loc ret_section ret_label) ∧
+    get_var 2 s = SOME (Word (n2w (2 * count))) ∧
+    get_var 4 s = SOME (Word copy_source) ∧
+    get_var 6 s = SOME (Word copy_target) ∧
+    get_var 8 s = SOME return_value ⇒
+    ∃maximum.
+      evaluate (WordCopySub_code c,s) =
+        (SOME (Result (Loc ret_section ret_label) [return_value]),
+         s with <|clock := s.clock - count; memory := final_memory;
+                  locals := LN; locals_size := SOME 0; stack_max := maximum|>) ∧
+      backendProps$option_le maximum
+        (OPTION_MAP2 MAX s.stack_max
+          (OPTION_MAP2 $+ (stack_size s.stack)
+            (lookup WordCopySub_location s.stack_size)))
+Proof
+  Induct
+  >~ [`memcopy_bwd 0`] >- (
+    rw [Once memcopy_bwd_def]
+    >> simp [WordCopySub_code_def,Once wordSemTheory.evaluate_def,
+             wordSemTheory.get_var_imm_def,wordSemTheory.word_cmp_def,
+             integer_wordTheory.i2w_0]
+    >> simp [Once wordSemTheory.evaluate_def,wordSemTheory.get_vars_def,
+             wordSemTheory.flush_state_def]
+    >> qexists_tac `s.stack_max`
+    >> simp [wordSemTheory.state_component_equality,option_le_max_right])
+  >~ [`memcopy_bwd (SUC remaining)`] >- (
+    pop_assum (assume_named_tac "copy_ih")
+    >> qx_genl_tac [`c`,`copy_source`,`copy_target`,`s`,`memory`,`copy_domain`,
+                   `final_memory`,`return_value`,`ret_section`,`ret_label`]
+    >> simp [Once memcopy_bwd_def]
+    >> strip_tac
+    >> gvs []
+    >> `(n2w (2 * SUC remaining):'a word) ≠ 0w` by simp [n2w_11]
+    >> once_rewrite_tac [WordCopySub_code_def]
+    >> simp [Once wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,
+             wordSemTheory.word_cmp_def,integer_wordTheory.i2w_0]
+    >> `s.clock ≠ 0` by decide_tac
+    >> `(i2w (&arch_bytes c.arch_width):'a word) = bytes_in_word` by
+      simp [integer_wordTheory.i2w_pos,arch_size,bytes_in_word_def]
+    >> fs [list_Seq_def,wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,
+           wordSemTheory.get_var_def,wordSemTheory.set_var_def,lookup_insert,
+           wordSemTheory.mem_load_def,wordSemTheory.mem_store_def,
+           wordSemTheory.get_vars_def,wordSemTheory.the_words_def,
+           wordSemTheory.word_op_def,wordSemTheory.find_code_def,
+           wordSemTheory.bad_dest_args_def,wordSemTheory.add_ret_loc_def,
+           wordSemTheory.call_env_def,wordSemTheory.dec_clock_def,fromList2_def,
+           integer_wordTheory.i2w_pos,integer_wordTheory.i2w_0]
+    >> fs [MULT_CLAUSES,GSYM word_add_n2w]
+    >> qmatch_goalsub_abbrev_tac `(WordCopySub_code c,next_state)`
+    >> LABEL_ASSUM "copy_ih" (qspecl_then
+         [`c`,`copy_source - bytes_in_word`,`copy_target - bytes_in_word`,`next_state`,
+          `(copy_target - bytes_in_word =+ s.memory (copy_source - bytes_in_word)) s.memory`,
+          `s.mdomain`,`final_memory`,
+          `return_value`,`ret_section`,`ret_label`] mp_tac)
+    >> impl_tac
+    >- simp [Abbr `next_state`,wordSemTheory.get_var_def,lookup_insert]
+    >> disch_then (qx_choose_then `maximum` strip_assume_tac)
+    >> qexists_tac `maximum`
+    >> fs [Abbr `next_state`,wordSemTheory.state_component_equality,
+           option_le_max_right,ADD1])
+QED
+
+Definition copy_loop_ticks_def:
+  copy_loop_ticks (k:num) =
+    if k < 6 then k + 1 else 1 + copy_loop_ticks (k-6)
+End
+
+Theorem copy_loop_ticks_small:
+  k < 6 ⇒ copy_loop_ticks k = k + 1
+Proof
+  simp [Once copy_loop_ticks_def]
+QED
+
+Theorem copy_loop_ticks_large:
+  6 ≤ k ⇒ copy_loop_ticks k = 1 + copy_loop_ticks (k-6)
+Proof
+  simp [Once copy_loop_ticks_def]
+QED
+
+Theorem WordCopyLoop_thm:
+  ∀count c copy_source copy_target (s:('a,'c,'ffi) wordSem$state) memory domain
+    final_memory return_value ret_section ret_label.
+    memcopy6 count copy_source copy_target memory domain = SOME final_memory ∧
+    arch_width_bits c.arch_width = dimindex (:'a) ∧
+    s.memory = memory ∧ s.mdomain = domain ∧
+    (∃md. lookup WordCopyLoop_location s.code = SOME (5,WordCopyLoop_code c,md)) ∧
+    (∃md. lookup WordCopyAdd_location s.code = SOME (5,WordCopyAdd_code c,md)) ∧
+    copy_loop_ticks count ≤ s.clock ∧ 2 * count < dimword (:'a) ∧
+    get_var 0 s = SOME (Loc ret_section ret_label) ∧
+    get_var 2 s = SOME (Word (n2w (2 * count))) ∧
+    get_var 4 s = SOME (Word copy_source) ∧
+    get_var 6 s = SOME (Word copy_target) ∧
+    get_var 8 s = SOME return_value ⇒
+    ∃maximum.
+      evaluate (WordCopyLoop_code c,s) =
+        (SOME (Result (Loc ret_section ret_label) [return_value]),
+         s with <|clock := s.clock - copy_loop_ticks count; memory := final_memory;
+                  locals := LN; locals_size := SOME 0; stack_max := maximum|>) ∧
+      backendProps$option_le maximum
+        (OPTION_MAP2 MAX s.stack_max
+          (OPTION_MAP2 MAX
+            (OPTION_MAP2 $+ (stack_size s.stack)
+              (lookup WordCopyLoop_location s.stack_size))
+            (OPTION_MAP2 $+ (stack_size s.stack)
+              (lookup WordCopyAdd_location s.stack_size))))
+Proof
+  qx_gen_tac `copy_count`
+  >> completeInduct_on `copy_count`
+  >> pop_assum (assume_named_tac "copy_ih")
+  >> Cases_on `copy_count < 6`
+  >~ [`copy_count < 6 (* a *)`] >- (
+    qx_genl_tac [`c`,`copy_source`,`copy_target`,`s`,`memory`,`copy_domain`,
+                 `final_memory`,`return_value`,`ret_section`,`ret_label`]
+    >> simp [Once memcopy6_def,Once copy_loop_ticks_def]
+    >> strip_tac
+    >> gvs []
+    >> `12 < dimword (:'a)` by (
+      Cases_on `c.arch_width`
+      >> gvs [asmTheory.arch_width_bits_def,dimword_def])
+    >> `s.clock ≠ 0` by decide_tac
+    >> once_rewrite_tac [WordCopyLoop_code_def]
+    >> fs [wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,
+           wordSemTheory.word_cmp_def,WORD_LO,integer_wordTheory.i2w_pos,
+           wordSemTheory.get_vars_def,wordSemTheory.get_var_def,
+           wordSemTheory.find_code_def,wordSemTheory.add_ret_loc_def,
+           wordSemTheory.bad_dest_args_def,wordSemTheory.call_env_def,
+           wordSemTheory.dec_clock_def,fromList2_def]
+    >> qmatch_goalsub_abbrev_tac `(WordCopyAdd_code c,next_state)`
+    >> qspecl_then
+         [`copy_count`,`c`,`copy_source`,`copy_target`,`next_state`,`s.memory`,`s.mdomain`,
+          `final_memory`,`return_value`,`ret_section`,`ret_label`]
+         mp_tac WordCopyAdd_thm
+    >> impl_tac
+    >- (
+      simp [Abbr `next_state`,wordSemTheory.get_var_def,lookup_insert]
+      >> decide_tac)
+    >> disch_then (qx_choose_then `maximum` strip_assume_tac)
+    >> qexists_tac `maximum`
+    >> simp [Once copy_loop_ticks_def]
+    >> fs [Abbr `next_state`,wordSemTheory.state_component_equality,
+           option_le_max_right]
+  )
+  >~ [`¬(copy_count < 6) (* a *)`] >- (
+    qx_genl_tac [`c`,`copy_source`,`copy_target`,`s`,`memory`,`copy_domain`,
+                 `final_memory`,`return_value`,`ret_section`,`ret_label`]
+    >> simp [Once memcopy6_def,Once copy_loop_ticks_def]
+    >> strip_tac
+    >> gvs []
+    >> fs [EVAL ``GENLIST I 6``]
+    >> `∀i. (i2w (&(i * arch_bytes c.arch_width)):'a word) =
+               n2w i * bytes_in_word` by
+      simp [integer_wordTheory.i2w_pos,arch_size,bytes_in_word_def,word_mul_n2w]
+    >> `12 < dimword (:'a)` by decide_tac
+    >> `s.clock ≠ 0` by decide_tac
+    >> once_rewrite_tac [WordCopyLoop_code_def]
+    >> simp [Once wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def,
+             wordSemTheory.word_cmp_def,WORD_LO,integer_wordTheory.i2w_pos]
+    >> `(i2w (&arch_bytes c.arch_width):'a word) = bytes_in_word` by
+      simp [integer_wordTheory.i2w_pos,arch_size,bytes_in_word_def]
+    >> fs [list_Seq_def,wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,
+           wordSemTheory.get_var_def,wordSemTheory.set_var_def,lookup_insert,
+           wordSemTheory.mem_load_def,wordSemTheory.mem_store_def,
+           wordSemTheory.get_vars_def,wordSemTheory.the_words_def,
+           wordSemTheory.word_op_def,wordSemTheory.find_code_def,
+           wordSemTheory.bad_dest_args_def,wordSemTheory.add_ret_loc_def,
+           wordSemTheory.call_env_def,wordSemTheory.dec_clock_def,fromList2_def,
+           integer_wordTheory.i2w_pos,integer_wordTheory.i2w_0]
+    >> `2 * copy_count = 2 * (copy_count - 6) + 12` by decide_tac
+    >> fs [GSYM word_add_n2w]
+    >> qmatch_goalsub_abbrev_tac `(WordCopyLoop_code c,next_state)`
+    >> LABEL_ASSUM "copy_ih" (qspec_then `copy_count - 6` mp_tac)
+    >> impl_tac >- decide_tac
+    >> disch_then (qspecl_then
+         [`c`,`copy_source + 6w * bytes_in_word`,`copy_target + 6w * bytes_in_word`,
+          `next_state`,`copy_word_chunk 6 copy_source copy_target s.memory`,`s.mdomain`,
+          `final_memory`,`return_value`,`ret_section`,`ret_label`] mp_tac)
+    >> impl_tac
+    >- (
+      fs [Abbr `next_state`,copy_word_chunk_def,EVAL ``GENLIST I 6``,FOLDL,
+          wordSemTheory.get_var_def,lookup_insert]
+      >> decide_tac)
+    >> disch_then (qx_choose_then `maximum` strip_assume_tac)
+    >> qexists_tac `maximum`
+    >> simp [copy_loop_ticks_large]
+    >> fs [Abbr `next_state`,wordSemTheory.state_component_equality,
+           option_le_max_right]
+  )
+QED
+
+Theorem copy_byte_length:
+  arch_width_bits aw = dimindex (:'a) ⇒
+  (n2w (2 * k):'a word) ≪ (arch_shift aw - 1) = n2w k * bytes_in_word
+Proof
+  Cases_on `aw`
+  >> rw [asmTheory.arch_width_bits_def,asmTheory.arch_shift_def]
+  >> pop_assum (assume_tac o SYM)
+  >> simp [bytes_in_word_def,word_mul_n2w,word_lsl_n2w]
+QED
+
+Definition word_copy_plan_def:
+  word_copy_plan count (copy_source:'a word) copy_target memory domain =
+    let size = n2w count * bytes_in_word in
+      if count = 0 then (0,SOME memory)
+      else if copy_target - copy_source <+ size then
+        (count + 1,memcopy_bwd count (copy_source + size) (copy_target + size) memory domain)
+      else if copy_source - copy_target <+ size then
+        (count + 1,memcopy count copy_source copy_target memory domain)
+      else (copy_loop_ticks count + 1,memcopy6 count copy_source copy_target memory domain)
+End
+
+Theorem WordCopy_thm:
+  ∀count c copy_source copy_target (s:('a,'c,'ffi) wordSem$state) memory domain
+    final_memory ticks return_value ret_section ret_label.
+    word_copy_plan count copy_source copy_target memory domain = (ticks,SOME final_memory) ∧
+    arch_width_bits c.arch_width = dimindex (:'a) ∧
+    s.memory = memory ∧ s.mdomain = domain ∧
+    (∃md. lookup WordCopyAdd_location s.code = SOME (5,WordCopyAdd_code c,md)) ∧
+    (∃md. lookup WordCopySub_location s.code = SOME (5,WordCopySub_code c,md)) ∧
+    (∃md. lookup WordCopyLoop_location s.code = SOME (5,WordCopyLoop_code c,md)) ∧
+    ticks ≤ s.clock ∧ 2 * count < dimword (:'a) ∧
+    get_var 0 s = SOME (Loc ret_section ret_label) ∧
+    get_var 2 s = SOME (Word (n2w (2 * count))) ∧
+    get_var 4 s = SOME (Word copy_source) ∧
+    get_var 6 s = SOME (Word copy_target) ∧
+    get_var 8 s = SOME return_value ⇒
+    ∃maximum.
+      evaluate (WordCopy_code c,s) =
+        (SOME (Result (Loc ret_section ret_label) [return_value]),
+         s with <|clock := s.clock - ticks; memory := final_memory;
+                  locals := LN; locals_size := SOME 0; stack_max := maximum|>) ∧
+      backendProps$option_le maximum
+        (OPTION_MAP2 MAX s.stack_max
+          (OPTION_MAP2 MAX
+            (OPTION_MAP2 $+ (stack_size s.stack)
+              (lookup WordCopySub_location s.stack_size))
+            (OPTION_MAP2 MAX
+              (OPTION_MAP2 $+ (stack_size s.stack)
+                (lookup WordCopyLoop_location s.stack_size))
+              (OPTION_MAP2 $+ (stack_size s.stack)
+                (lookup WordCopyAdd_location s.stack_size)))))
+Proof
+  qx_genl_tac [`copy_count`,`c`,`copy_source`,`copy_target`,`s`,`memory`,`copy_domain`,
+               `final_memory`,`ticks`,`return_value`,`ret_section`,`ret_label`]
+  >> strip_tac
+  >> Cases_on `copy_count = 0`
+  >~ [`copy_count = 0 (* a *)`] >- (
+    gvs [word_copy_plan_def]
+    >> simp [WordCopy_code_def,Once wordSemTheory.evaluate_def,
+             wordSemTheory.get_var_imm_def,wordSemTheory.word_cmp_def,
+             integer_wordTheory.i2w_0]
+    >> simp [Once wordSemTheory.evaluate_def,wordSemTheory.get_vars_def,
+             wordSemTheory.flush_state_def]
+    >> qexists_tac `s.stack_max`
+    >> simp [wordSemTheory.state_component_equality,option_le_max_right])
+  >> Cases_on `copy_target - copy_source <+ n2w copy_count * bytes_in_word`
+  >~ [`copy_target - copy_source <+ n2w copy_count * bytes_in_word (* a *)`]
+    >- (
+      gvs [word_copy_plan_def]
+      >> `s.clock ≠ 0` by decide_tac
+      >> `(n2w (2 * copy_count):'a word) ≠ 0w` by simp [n2w_11]
+      >> `arch_shift c.arch_width - 1 < dimindex (:'a) ∧
+          arch_shift c.arch_width - 1 < dimword (:'a)` by (
+        Cases_on `c.arch_width`
+        >> gvs [asmTheory.arch_width_bits_def,asmTheory.arch_shift_def,dimword_def])
+      >> drule copy_byte_length
+      >> disch_then (qspec_then `copy_count` assume_tac)
+      >> once_rewrite_tac [WordCopy_code_def]
+      >> fs [list_Seq_def,wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,
+             wordSemTheory.get_var_def,wordSemTheory.set_var_def,lookup_insert,
+             wordSemTheory.get_var_imm_def,wordSemTheory.word_cmp_def,
+             wordSemTheory.word_sh_def,wordSemTheory.get_vars_def,
+             wordSemTheory.the_words_def,wordSemTheory.word_op_def,
+             wordSemTheory.find_code_def,wordSemTheory.bad_dest_args_def,
+             wordSemTheory.add_ret_loc_def,wordSemTheory.call_env_def,
+             wordSemTheory.dec_clock_def,fromList2_def,
+             integer_wordTheory.i2w_pos,integer_wordTheory.i2w_0]
+      >> qmatch_goalsub_abbrev_tac `(WordCopySub_code c,next_state)`
+      >> qspecl_then
+           [`copy_count`,`c`,`copy_source + n2w copy_count * bytes_in_word`,
+            `copy_target + n2w copy_count * bytes_in_word`,`next_state`,`s.memory`,
+            `s.mdomain`,`final_memory`,`return_value`,`ret_section`,`ret_label`]
+           mp_tac WordCopySub_thm
+      >> impl_tac
+      >- (
+        simp [Abbr `next_state`,wordSemTheory.get_var_def,lookup_insert]
+        >> decide_tac)
+      >> disch_then (qx_choose_then `maximum` strip_assume_tac)
+      >> qexists_tac `maximum`
+      >> fs [Abbr `next_state`,wordSemTheory.state_component_equality,
+             wordSemTheory.bad_fun_return_def,option_le_max_right]
+    )
+  >> Cases_on `copy_source - copy_target <+ n2w copy_count * bytes_in_word`
+  >~ [`copy_source - copy_target <+ n2w copy_count * bytes_in_word (* a *)`]
+    >- (
+      gvs [word_copy_plan_def]
+      >> `s.clock ≠ 0` by decide_tac
+      >> `(n2w (2 * copy_count):'a word) ≠ 0w` by simp [n2w_11]
+      >> `arch_shift c.arch_width - 1 < dimindex (:'a) ∧
+          arch_shift c.arch_width - 1 < dimword (:'a)` by (
+        Cases_on `c.arch_width`
+        >> gvs [asmTheory.arch_width_bits_def,asmTheory.arch_shift_def,dimword_def])
+      >> drule copy_byte_length
+      >> disch_then (qspec_then `copy_count` assume_tac)
+      >> once_rewrite_tac [WordCopy_code_def]
+      >> fs [list_Seq_def,wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,
+             wordSemTheory.get_var_def,wordSemTheory.set_var_def,lookup_insert,
+             wordSemTheory.get_var_imm_def,wordSemTheory.word_cmp_def,
+             wordSemTheory.word_sh_def,wordSemTheory.get_vars_def,
+             wordSemTheory.the_words_def,wordSemTheory.word_op_def,
+             wordSemTheory.find_code_def,wordSemTheory.bad_dest_args_def,
+             wordSemTheory.add_ret_loc_def,wordSemTheory.call_env_def,
+             wordSemTheory.dec_clock_def,fromList2_def,
+             integer_wordTheory.i2w_pos,integer_wordTheory.i2w_0]
+      >> qmatch_goalsub_abbrev_tac `(WordCopyAdd_code c,next_state)`
+      >> qspecl_then
+           [`copy_count`,`c`,`copy_source`,
+            `copy_target`,`next_state`,`s.memory`,
+            `s.mdomain`,`final_memory`,`return_value`,`ret_section`,`ret_label`]
+           mp_tac WordCopyAdd_thm
+      >> impl_tac
+      >- (
+        simp [Abbr `next_state`,wordSemTheory.get_var_def,lookup_insert]
+        >> decide_tac)
+      >> disch_then (qx_choose_then `maximum` strip_assume_tac)
+      >> qexists_tac `maximum`
+      >> fs [Abbr `next_state`,wordSemTheory.state_component_equality,
+             wordSemTheory.bad_fun_return_def,option_le_max_right]
+    )
+  >> gvs [word_copy_plan_def]
+  >> `s.clock ≠ 0` by decide_tac
+  >> `(n2w (2 * copy_count):'a word) ≠ 0w` by simp [n2w_11]
+  >> `arch_shift c.arch_width - 1 < dimindex (:'a) ∧
+      arch_shift c.arch_width - 1 < dimword (:'a)` by (
+    Cases_on `c.arch_width`
+    >> gvs [asmTheory.arch_width_bits_def,asmTheory.arch_shift_def,dimword_def])
+  >> drule copy_byte_length
+  >> disch_then (qspec_then `copy_count` assume_tac)
+  >> once_rewrite_tac [WordCopy_code_def]
+  >> fs [list_Seq_def,wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,
+         wordSemTheory.get_var_def,wordSemTheory.set_var_def,lookup_insert,
+         wordSemTheory.get_var_imm_def,wordSemTheory.word_cmp_def,
+         wordSemTheory.word_sh_def,wordSemTheory.get_vars_def,
+         wordSemTheory.the_words_def,wordSemTheory.word_op_def,
+         wordSemTheory.find_code_def,wordSemTheory.bad_dest_args_def,
+         wordSemTheory.add_ret_loc_def,wordSemTheory.call_env_def,
+         wordSemTheory.dec_clock_def,fromList2_def,
+         integer_wordTheory.i2w_pos,integer_wordTheory.i2w_0]
+  >> qmatch_goalsub_abbrev_tac `(WordCopyLoop_code c,next_state)`
+  >> qspecl_then
+       [`copy_count`,`c`,`copy_source`,
+        `copy_target`,`next_state`,`s.memory`,
+        `s.mdomain`,`final_memory`,`return_value`,`ret_section`,`ret_label`]
+       mp_tac WordCopyLoop_thm
+  >> impl_tac
+  >- (
+    simp [Abbr `next_state`,wordSemTheory.get_var_def,lookup_insert]
+    >> decide_tac)
+  >> disch_then (qx_choose_then `maximum` strip_assume_tac)
+  >> qexists_tac `maximum`
+  >> fs [Abbr `next_state`,wordSemTheory.state_component_equality,
+         wordSemTheory.bad_fun_return_def,option_le_max_right]
+QED
+
+Theorem word_copy_plan_store_list:
+  ∀copy_count copy_source copy_target copy_memory copy_domain.
+    0 < dimindex (:'a) DIV 8 ∧
+    2 * (copy_count * (dimindex (:'a) DIV 8)) < dimword (:'a) ∧
+    (∀i. i < copy_count ⇒
+       copy_source + n2w i * bytes_in_word ∈ copy_domain ∧
+       copy_target + n2w i * bytes_in_word ∈ copy_domain) ⇒
+    SND (word_copy_plan copy_count (copy_source:'a word) copy_target
+      copy_memory copy_domain) =
+    store_list copy_target
+      (GENLIST (λi. copy_memory (copy_source + n2w i * bytes_in_word)) copy_count)
+      copy_memory copy_domain
+Proof
+  qx_genl_tac [`copy_count`,`copy_source`,`copy_target`,`copy_memory`,`copy_domain`]
+  >> disch_then (CONJUNCTS_THEN2 assume_tac
+       (CONJUNCTS_THEN2 assume_tac (assume_named_tac "copy_ranges_mapped")))
+  >> `copy_count * (dimindex (:'a) DIV 8) < dimword (:'a)` by decide_tac
+  >> Cases_on `copy_count = 0`
+  >~ [`copy_count = 0 (* a *)`] >- simp [word_copy_plan_def,store_list_def]
+  >> Cases_on `copy_target - copy_source <+ n2w copy_count * bytes_in_word`
+  >~ [`copy_target - copy_source <+ n2w copy_count * bytes_in_word (* a *)`] >- (
+    asm_simp_tac std_ss [word_copy_plan_def,LET_THM]
+    >> irule memcopy_bwd_store_list
+    >> rpt conj_tac
+    >~ [`∀i. i < copy_count ⇒
+           copy_source + n2w i * bytes_in_word ∈ copy_domain ∧
+           copy_target + n2w i * bytes_in_word ∈ copy_domain (* g *)`]
+      >- LABEL_ASSUM "copy_ranges_mapped" ACCEPT_TAC
+    >~ [`∀i j. i < j ∧ j < copy_count ⇒
+           copy_target + n2w j * bytes_in_word ≠
+             copy_source + n2w i * bytes_in_word (* g *)`]
+      >- (
+        rpt gen_tac >> strip_tac
+        >> irule copy_word_backward_safe
+        >> asm_simp_tac std_ss []
+        >> qexists_tac `copy_count`
+        >> asm_simp_tac std_ss []
+      )
+    >> rpt gen_tac >> strip_tac
+    >> drule_all copy_word_addresses_distinct
+    >> asm_simp_tac std_ss []
+  )
+  >> Cases_on `copy_source - copy_target <+ n2w copy_count * bytes_in_word`
+  >~ [`copy_source - copy_target <+ n2w copy_count * bytes_in_word (* a *)`] >- (
+    asm_simp_tac std_ss [word_copy_plan_def,LET_THM]
+    >> irule memcopy_store_list
+    >> rpt conj_tac
+    >~ [`∀i. i < copy_count ⇒
+           copy_source + n2w i * bytes_in_word ∈ copy_domain (* g *)`]
+    >- (
+      qx_gen_tac `copy_index` >> strip_tac
+      >> LABEL_ASSUM "copy_ranges_mapped" (qspec_then `copy_index` mp_tac)
+      >> asm_simp_tac std_ss [])
+    >> rpt gen_tac >> strip_tac
+    >> irule copy_word_forward_safe
+    >> asm_simp_tac std_ss []
+    >> qexists_tac `copy_count`
+    >> asm_simp_tac std_ss []
+  )
+  >> asm_simp_tac std_ss [word_copy_plan_def,LET_THM]
+  >> irule memcopy6_store_list
+  >> rpt conj_tac
+  >~ [`∀i. i < copy_count ⇒
+         copy_source + n2w i * bytes_in_word ∈ copy_domain ∧
+         copy_target + n2w i * bytes_in_word ∈ copy_domain (* g *)`]
+    >- LABEL_ASSUM "copy_ranges_mapped" ACCEPT_TAC
+  >> rpt gen_tac >> strip_tac
+  >> irule copy_word_ranges_disjoint
+  >> asm_simp_tac std_ss []
+  >> qexists_tac `copy_count`
+  >> asm_simp_tac std_ss []
+QED
+
+Theorem copy_loop_ticks_bound:
+  ∀copy_count. copy_loop_ticks copy_count ≤ copy_count + 1
+Proof
+  qx_gen_tac `copy_count`
+  >> completeInduct_on `copy_count`
+  >> pop_assum (assume_named_tac "copy_clock_ih")
+  >> Cases_on `copy_count < 6`
+  >~ [`copy_count < 6 (* a *)`] >- simp [copy_loop_ticks_small]
+  >> `6 ≤ copy_count` by decide_tac
+  >> `copy_count - 6 < copy_count` by decide_tac
+  >> `copy_loop_ticks (copy_count - 6) ≤ copy_count - 6 + 1` by (
+    LABEL_ASSUM "copy_clock_ih" (qspec_then `copy_count - 6` mp_tac)
+    >> simp [])
+  >> simp [copy_loop_ticks_large]
+  >> decide_tac
+QED
+
+Theorem word_copy_plan_ticks_bound:
+  ∀copy_count copy_source copy_target copy_memory copy_domain.
+    FST (word_copy_plan copy_count copy_source copy_target copy_memory copy_domain) ≤
+      copy_count + 2
+Proof
+  qx_genl_tac [`copy_count`,`copy_source`,`copy_target`,`copy_memory`,`copy_domain`]
+  >> rw [word_copy_plan_def,LET_THM]
+  >> mp_tac (Q.SPEC `copy_count` copy_loop_ticks_bound)
+  >> decide_tac
+QED
+
 val _ = augment_srw_ss [rewrites [CONJUNCT2 data_to_wordTheory.arch_size]];
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
@@ -7551,6 +8094,2177 @@ Proof
            asmTheory.word_cmp_def,WORD_NOT_LOWER]
 QED
 
+Theorem assign_CopyWord:
+  op = MemOp (CopyWord F) ⇒ ^assign_thm_goal
+Proof
+  rpt strip_tac
+  >> gvs [dataLangTheory.op_requires_names_def]
+  >> namedCases_on `names_opt` ["","copy_kept_names"]
+  >> gvs []
+  >> drule_all state_rel_cut_state_opt_SOME
+  >> disch_then (qx_choosel_then [`copy_kept_locals`,`copy_argument_words`]
+       strip_assume_tac)
+  >> qpat_x_assum `state_rel c l1 l2 s t NONE locs`
+       (assume_named_tac "copy_before")
+  >> qpat_x_assum `state_rel c l1 l2 x (t with locals := copy_kept_locals) NONE locs`
+       (assume_named_tac "copy_after_cut")
+  >> drule do_app_stack_max
+  >> disch_then (assume_named_tac "copy_stack_grows")
+  >> qpat_x_assum `do_app (MemOp (CopyWord F)) vals x = Rval (v,s2)`
+       (assume_named_tac "copy_primitive")
+  >> LABEL_ASSUM "copy_primitive" assume_tac
+  >> fs [do_app,dataSemTheory.allowed_op_def]
+  >> gvs [AllCaseEqs()]
+  >~ [`get_vars _ s.locals = SOME
+         [Block copy_source_stamp copy_source_tag copy_source_values;
+          Number copy_source_offset; Number copy_length;
+          RefPtr copy_target_flag copy_target_location; Number copy_target_offset]
+          (* a *)`,
+       `copy_array (copy_source_values,copy_source_offset) copy_length
+          (SOME (copy_target_values,copy_target_offset)) = SOME copy_result_values
+          (* a *)`] >- suspend "VectorSource"
+  >~ [`get_vars _ s.locals = SOME
+         [RefPtr copy_source_flag copy_source_location;
+          Number copy_source_offset; Number copy_length;
+          RefPtr copy_target_flag copy_target_location; Number copy_target_offset]
+          (* a *)`,
+       `lookup copy_source_location x.refs = SOME (ValueArray copy_source_values)
+          (* a *)`,
+       `copy_array (copy_source_values,copy_source_offset) copy_length
+          (SOME (copy_target_values,copy_target_offset)) = SOME copy_result_values
+          (* a *)`] >- suspend "ArraySource"
+QED
+
+Resume assign_CopyWord[VectorSource]:
+  qpat_x_assum `LENGTH args = 5` (mp_tac o REWRITE_RULE [LENGTH_EQ_5])
+  >> disch_then (qx_choosel_then
+       [`copy_source_var`,`copy_source_offset_var`,`copy_length_var`,
+        `copy_target_var`,`copy_target_offset_var`] assume_tac)
+  >> qpat_x_assum `LENGTH copy_argument_words = 5`
+       (mp_tac o REWRITE_RULE [LENGTH_EQ_5])
+  >> disch_then (qx_choosel_then
+       [`copy_source_rep`,`copy_source_offset_rep`,`copy_length_rep`,
+        `copy_target_rep`,`copy_target_offset_rep`] assume_tac)
+  >> gvs []
+  >> LABEL_ASSUM "copy_before" (assume_tac o REWRITE_RULE [state_rel_thm])
+  >> full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+  >> drule_all (memory_rel_get_vars_IMP
+       |> Q.INST [`n` |-> `[copy_source_var; copy_source_offset_var; copy_length_var;
+                            copy_target_var; copy_target_offset_var]`]
+       |> SIMP_RULE (srw_ss()) [MAP])
+  >> disch_then (assume_named_tac "copy_arguments_related")
+  >> `x.refs = s.refs` by (
+    drule cut_state_opt_SOME_eq
+    >> strip_tac >> gvs [])
+  >> qabbrev_tac `copy_frame =
+       join_env s.locals (toAList (inter t.locals (adjust_set s.locals))) ++
+       (the_global s.global,t.store ' Globals)::flat s.stack t.stack`
+  >> `memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
+        ((Block copy_source_stamp copy_source_tag copy_source_values,copy_source_rep)::
+         (RefPtr copy_target_flag copy_target_location,copy_target_rep)::copy_frame)` by (
+    LABEL_ASSUM "copy_arguments_related" mp_tac
+    >> match_mp_tac memory_rel_rearrange
+    >> rw [ZIP,MEM_APPEND,Abbr `copy_frame`] >> gvs [])
+  >> drule_all memory_rel_Block_IMP
+  >> disch_then (qx_choose_then `copy_source_pointer`
+       (CONJUNCTS_THEN2 assume_tac (assume_named_tac "copy_vector_layout")))
+  >> `lookup copy_target_location s.refs = SOME (ValueArray copy_target_values)`
+       by fs []
+  >> `memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
+        ((RefPtr copy_target_flag copy_target_location,copy_target_rep)::copy_frame)` by (
+    LABEL_ASSUM "copy_arguments_related" mp_tac
+    >> match_mp_tac memory_rel_rearrange
+    >> rw [ZIP,MEM_APPEND,Abbr `copy_frame`] >> gvs [])
+  >> drule_all memory_rel_ValueArray_IMP
+  >> disch_then (qx_choosel_then
+       [`copy_target_pointer`,`copy_target_address`,`copy_target_header`]
+       strip_assume_tac)
+  >> `LENGTH copy_source_values < dimword (:'a) DIV 16 ∧
+      LENGTH copy_target_values < dimword (:'a) DIV 16` by (
+    LABEL_ASSUM "copy_vector_layout" mp_tac
+    >> Cases_on `copy_source_values = []`
+    >> simp [] >> strip_tac
+    >> fs [good_dimindex_def,dimword_def]
+    >> rfs [])
+  >> `∃copy_source_index copy_count copy_target_index.
+        copy_source_offset = &copy_source_index ∧ copy_length = &copy_count ∧
+        copy_target_offset = &copy_target_index ∧
+        copy_source_index + copy_count ≤ LENGTH copy_source_values ∧
+        copy_target_index + copy_count ≤ LENGTH copy_target_values` by (
+    fs [semanticPrimitivesTheory.copy_array_def,not_less_zero_int_eq]
+    >> rveq
+    >> fs [NOT_LESS,integerTheory.INT_ADD,integerTheory.INT_ABS_NUM])
+  >> gvs []
+  >> `copy_source_index < dimword (:'a) DIV 16 ∧
+      copy_count < dimword (:'a) DIV 16 ∧
+      copy_target_index < dimword (:'a) DIV 16` by decide_tac
+  >> `small_int (dimindex (:'a)) (&copy_source_index) ∧
+      small_int (dimindex (:'a)) (&copy_count) ∧
+      small_int (dimindex (:'a)) (&copy_target_index)` by (
+    fs [good_dimindex_def,dimword_def,small_int_def]
+    >> rfs [] >> decide_tac)
+  >> `2 * copy_source_index < dimword (:'a) ∧
+      2 * copy_target_index < dimword (:'a) ∧
+      2 * copy_count < dimword (:'a) ∧ 0 < dimindex (:'a) DIV 8 ∧
+      2 * (copy_count * (dimindex (:'a) DIV 8)) < dimword (:'a)` by (
+    fs [good_dimindex_def,dimword_def]
+    >> rfs [] >> decide_tac)
+  >> `memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
+        [(Number (&copy_source_index),copy_source_offset_rep);
+         (Number (&copy_count),copy_length_rep);
+         (Number (&copy_target_index),copy_target_offset_rep)]` by (
+    LABEL_ASSUM "copy_arguments_related" mp_tac
+    >> match_mp_tac memory_rel_rearrange
+    >> rw [ZIP,MEM_APPEND] >> gvs [])
+  >> ntac 2 (imp_res_tac memory_rel_tl)
+  >> imp_res_tac memory_rel_Number_IMP
+  >> gvs [Smallnum_def]
+  >> `∃copy_source_address.
+        get_real_addr c t.store copy_source_pointer = SOME copy_source_address` by (
+    fs [get_real_addr_def,AllCaseEqs()])
+  >> `memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
+        (eq_explode (copy_source_address + bytes_in_word) t.memory t.mdomain
+           (TAKE (LENGTH copy_source_values) copy_source_values) ++
+         (Block copy_source_stamp copy_source_tag copy_source_values,
+          Word copy_source_pointer)::
+         (RefPtr copy_target_flag copy_target_location,Word copy_target_pointer)::
+         copy_frame) ∧
+      eq_assum (copy_source_address + bytes_in_word) t.memory t.mdomain
+        (TAKE (LENGTH copy_source_values) copy_source_values)` by (
+    irule memory_rel_Block_fields
+    >> asm_simp_tac std_ss [])
+  >> fs []
+  >> `memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
+        (ZIP (TAKE copy_count (DROP copy_source_index copy_source_values),
+          GENLIST (λi. t.memory (copy_source_address + bytes_in_word +
+            n2w copy_source_index * bytes_in_word + n2w i * bytes_in_word))
+            copy_count) ++
+         (Block copy_source_stamp copy_source_tag copy_source_values,
+          Word copy_source_pointer)::
+         (RefPtr copy_target_flag copy_target_location,Word copy_target_pointer)::
+         copy_frame) ∧
+      ∀i. i < copy_count ⇒
+        copy_source_address + bytes_in_word + n2w copy_source_index * bytes_in_word +
+          n2w i * bytes_in_word ∈ t.mdomain` by (
+    irule memory_rel_fields_slice
+    >> asm_simp_tac std_ss [ADD_COMM])
+  >> `LENGTH (TAKE copy_count (DROP copy_source_index copy_source_values)) =
+        copy_count` by (
+    simp [LENGTH_TAKE,LENGTH_DROP]
+    >> decide_tac)
+  >> `∀i. i < copy_count ⇒
+        copy_target_address + bytes_in_word + n2w copy_target_index * bytes_in_word +
+          n2w i * bytes_in_word ∈ t.mdomain` by (
+    qx_gen_tac `copy_index`
+    >> strip_tac
+    >> `copy_target_index + copy_index < LENGTH copy_target_values` by decide_tac
+    >> drule_all (memory_rel_Deref'
+         |> Q.INST [`index` |-> `copy_target_index + copy_index`])
+    >> strip_tac
+    >> gvs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,WORD_ADD_ASSOC])
+  >> qabbrev_tac `copy_source_start =
+       copy_source_address + bytes_in_word + n2w copy_source_index * bytes_in_word`
+  >> qabbrev_tac `copy_target_start =
+       copy_target_address + bytes_in_word + n2w copy_target_index * bytes_in_word`
+  >> qabbrev_tac `copy_words =
+       GENLIST (λi. t.memory (copy_source_start + n2w i * bytes_in_word)) copy_count`
+  >> `store_list copy_target_start copy_words t.memory t.mdomain =
+        SOME (copy_word_chunk copy_count copy_source_start copy_target_start t.memory)` by (
+    asm_simp_tac std_ss [Abbr `copy_words`]
+    >> irule copy_word_chunk_store_list
+    >> simp [])
+  >> `SND (word_copy_plan copy_count copy_source_start copy_target_start
+        t.memory t.mdomain) =
+        SOME (copy_word_chunk copy_count copy_source_start copy_target_start t.memory)` by (
+    qspecl_then [`copy_count`,`copy_source_start`,`copy_target_start`,
+      `t.memory`,`t.mdomain`] mp_tac word_copy_plan_store_list
+    >> impl_tac >- asm_simp_tac std_ss []
+    >> fs [Abbr `copy_words`])
+  >> `memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
+        (ZIP (TAKE copy_count (DROP copy_source_index copy_source_values),copy_words) ++
+         (RefPtr copy_target_flag copy_target_location,Word copy_target_pointer)::
+         (Block copy_source_stamp copy_source_tag copy_source_values,
+          Word copy_source_pointer)::copy_frame)` by (
+    qpat_x_assum `memory_rel _ _ _ _ _ _ _ _ (ZIP _ ++ _)` mp_tac
+    >> match_mp_tac memory_rel_rearrange
+    >> rw [MEM_APPEND] >> gvs [])
+  >> `memory_rel c t.be (THE s.tstamps)
+        (insert copy_target_location
+          (ValueArray (TAKE copy_target_index copy_target_values ++
+            TAKE copy_count (DROP copy_source_index copy_source_values) ++
+            DROP (copy_target_index +
+              LENGTH (TAKE copy_count (DROP copy_source_index copy_source_values)))
+              copy_target_values)) s.refs)
+        s.space t.store
+        (copy_word_chunk copy_count copy_source_start copy_target_start t.memory)
+        t.mdomain
+        ((RefPtr copy_target_flag copy_target_location,Word copy_target_pointer)::
+         (Block copy_source_stamp copy_source_tag copy_source_values,
+          Word copy_source_pointer)::copy_frame)` by (
+    irule memory_rel_store_array_slice
+    >> asm_simp_tac std_ss [ADD_COMM]
+    >> qexistsl_tac [`t.memory`,`copy_words`]
+    >> asm_simp_tac std_ss []
+    >> simp [Abbr `copy_words`])
+  >> `copy_result_values = TAKE copy_target_index copy_target_values ++
+        TAKE copy_count (DROP copy_source_index copy_source_values) ++
+        DROP (copy_target_index + copy_count) copy_target_values` by (
+    fs [semanticPrimitivesTheory.copy_array_def,integerTheory.INT_ADD,
+        integerTheory.INT_ABS_NUM])
+  >> `arch_width_bits c.arch_width = dimindex (:'a)` by (
+    drule state_rel_arch_width >> simp [])
+  >> `get_var (adjust_var copy_source_var) t = SOME (Word copy_source_pointer) ∧
+      get_var (adjust_var copy_source_offset_var) t =
+        SOME (Word (n2w (2 * copy_source_index))) ∧
+      get_var (adjust_var copy_length_var) t = SOME (Word (n2w (2 * copy_count))) ∧
+      get_var (adjust_var copy_target_var) t = SOME (Word copy_target_pointer) ∧
+      get_var (adjust_var copy_target_offset_var) t =
+        SOME (Word (n2w (2 * copy_target_index)))` by (
+    qpat_x_assum `get_vars _ t = SOME _` mp_tac
+    >> simp [wordSemTheory.get_vars_def,AllCaseEqs()])
+  >> `word_exp t (real_addr c (adjust_var copy_source_var)) =
+        SOME (Word copy_source_address)` by (
+    irule get_real_addr_lemma >> simp [])
+  >> `word_exp t (real_addr c (adjust_var copy_target_var)) =
+        SOME (Word copy_target_address)` by (
+    irule get_real_addr_lemma >> simp [])
+  >> `get_real_offset (n2w (2 * copy_source_index):'a word) =
+        SOME (bytes_in_word + n2w copy_source_index * bytes_in_word) ∧
+      get_real_offset (n2w (2 * copy_target_index):'a word) =
+        SOME (bytes_in_word + n2w copy_target_index * bytes_in_word)` by (
+    fs [good_dimindex_def,get_real_offset_def,bytes_in_word_def,
+        word_lsl_n2w,word_mul_n2w]
+    >> simp [MULT_ASSOC,WORD_ADD_COMM])
+  >> `word_exp t (real_offset c (adjust_var copy_source_offset_var)) =
+        SOME (Word (bytes_in_word + n2w copy_source_index * bytes_in_word))` by (
+    irule get_real_offset_lemma >> simp [])
+  >> `word_exp t (real_offset c (adjust_var copy_target_offset_var)) =
+        SOME (Word (bytes_in_word + n2w copy_target_index * bytes_in_word))` by (
+    irule get_real_offset_lemma >> simp [])
+  >> `∀copy_temp.
+        word_exp (t with locals := insert 1 (Word copy_temp) t.locals)
+          (real_addr c (adjust_var copy_target_var)) =
+        SOME (Word copy_target_address)` by (
+    irule word_exp_real_addr >> fs [wordSemTheory.get_var_def])
+  >> `word_exp (t with locals := insert 1 (Word copy_source_start) t.locals)
+        (real_offset c (adjust_var copy_target_offset_var)) =
+        SOME (Word (bytes_in_word + n2w copy_target_index * bytes_in_word))` by (
+    irule get_real_offset_lemma
+    >> fs [wordSemTheory.get_var_def,lookup_insert])
+  >> `word_exp t (Op Add [real_addr c (adjust_var copy_source_var);
+        real_offset c (adjust_var copy_source_offset_var)]) =
+        SOME (Word copy_source_start)` by (
+    simp [wordSemTheory.word_exp_def,wordSemTheory.word_op_def,
+          wordSemTheory.the_words_def,Abbr `copy_source_start`,WORD_ADD_ASSOC])
+  >> `word_exp (t with locals := insert 1 (Word copy_source_start) t.locals)
+        (Op Add [real_addr c (adjust_var copy_target_var);
+          real_offset c (adjust_var copy_target_offset_var)]) =
+        SOME (Word copy_target_start)` by (
+    simp [wordSemTheory.word_exp_def,wordSemTheory.word_op_def,
+          wordSemTheory.the_words_def,Abbr `copy_target_start`,WORD_ADD_ASSOC])
+  >> `∃copy_md copy_add_md copy_sub_md copy_loop_md.
+        lookup WordCopy_location t.code = SOME (5,WordCopy_code c,copy_md) ∧
+        lookup WordCopyAdd_location t.code = SOME (5,WordCopyAdd_code c,copy_add_md) ∧
+        lookup WordCopySub_location t.code = SOME (5,WordCopySub_code c,copy_sub_md) ∧
+        lookup WordCopyLoop_location t.code = SOME (5,WordCopyLoop_code c,copy_loop_md)` by (
+    fs [data_to_word_gcProofTheory.code_rel_def,stubs_md_def,stubs_def,MAP_MAP_o,o_DEF])
+  >> simp [assign_def,assign_CopyWord_def,list_Seq_def,eq_eval,
+           data_to_wordTheory.Unit_def,GSYM WORD_ADD_ASSOC]
+  >> drule cut_env_IMP_cut_envs
+  >> disch_then (qx_choosel_then [`copy_saved_return`,`copy_saved_locals`] strip_assume_tac)
+  >> fs [get_names_def,wordSemTheory.get_var_def]
+  >> simp [domain_adjust_sets,cut_envs_adjust_sets_insert_ODD]
+  >> qmatch_goalsub_abbrev_tac `evaluate (WordCopy_code c,copy_call_state)`
+  >> `word_copy_plan copy_count copy_source_start copy_target_start t.memory t.mdomain =
+        (FST (word_copy_plan copy_count copy_source_start copy_target_start
+          t.memory t.mdomain),
+         SOME (copy_word_chunk copy_count copy_source_start copy_target_start t.memory))` by (
+    Cases_on `word_copy_plan copy_count copy_source_start copy_target_start
+      t.memory t.mdomain` >> fs [])
+  >> `copy_count + 2 < dimword (:'a)` by (
+    fs [good_dimindex_def,dimword_def] >> rfs [] >> decide_tac)
+  >> `FST (word_copy_plan copy_count copy_source_start copy_target_start
+        t.memory t.mdomain) < dimword (:'a)` by (
+    qspecl_then [`copy_count`,`copy_source_start`,`copy_target_start`,
+      `t.memory`,`t.mdomain`] mp_tac word_copy_plan_ticks_bound
+    >> decide_tac)
+  >> `FST (word_copy_plan copy_count copy_source_start copy_target_start
+        t.memory t.mdomain) ≤ MustTerminate_limit (:'a) - 1` by (
+    drule IMP_LESS_MustTerminate_limit >> decide_tac)
+  >> qpat_x_assum `word_copy_plan _ _ _ _ _ = _`
+       (assume_named_tac "copy_plan")
+  >> qspecl_then [`copy_count`,`c`,`copy_source_start`,`copy_target_start`,
+       `copy_call_state`,`t.memory`,`t.mdomain`,
+       `copy_word_chunk copy_count copy_source_start copy_target_start t.memory`,
+       `FST (word_copy_plan copy_count copy_source_start copy_target_start t.memory t.mdomain)`,
+       `Word (0w:'a word)`,`n`,`l`] mp_tac WordCopy_thm
+  >> impl_tac
+  >- (
+    simp [Abbr `copy_call_state`,wordSemTheory.get_var_def,lookup_insert]
+    >> LABEL_ASSUM "copy_plan" ACCEPT_TAC)
+  >> disch_then (qx_choose_then `copy_maximum` strip_assume_tac)
+  >> namedCases_on `env_to_list copy_saved_locals t.permute`
+    ["copy_saved_values copy_next_permute"]
+  >> `wf copy_saved_return ∧ wf copy_saved_locals` by (
+    gvs [wordSemTheory.cut_envs_def,wordSemTheory.cut_names_def,
+         AllCaseEqs(),wf_inter])
+  >> drule env_to_list_lookup_equiv >> strip_tac
+  >> `fromAList copy_saved_values = copy_saved_locals` by (
+    simp [spt_eq_thm,wf_fromAList,lookup_fromAList])
+  >> fs [Abbr `copy_call_state`,wordSemTheory.pop_env_def,wordSemTheory.push_env_def,
+         wordSemTheory.set_vars_def,alist_insert_def,fromAList_toAList,domain_union,
+         AC UNION_COMM UNION_ASSOC]
+  >> rfs [wordSemTheory.pop_env_def,wordSemTheory.set_vars_def,alist_insert_def,
+          fromAList_toAList,domain_union]
+  >> `x.stack = s.stack ∧ x.stack_max = s.stack_max ∧
+      x.locals_size = s.locals_size ∧ x.stack_frame_sizes = s.stack_frame_sizes ∧
+      x.tstamps = s.tstamps ∧ x.space = s.space ∧ x.global = s.global` by (
+    drule cut_state_opt_SOME_eq >> strip_tac >> gvs [])
+  >> LABEL_ASSUM "copy_after_cut" (assume_tac o REWRITE_RULE [state_rel_thm])
+  >> fs [state_rel_thm,dataSemTheory.set_var_def,lookup_insert,adjust_var_11]
+  >> drule evaluate_stack_max_le
+  >> simp [option_le_max,stack_size_eq,option_add_comm]
+  >> strip_tac
+  >> rfs []
+  >> conj_tac
+  >- (
+    qx_gen_tac `copy_local`
+    >> Cases_on `copy_local = dest` >> simp [])
+  >> `stack_size t.stack = size_of_stack s.stack` by (
+    irule stack_rel_IMP_size_of_stack >> first_assum (irule_at Any))
+  >> conj_tac
+  >- (
+    qmatch_asmsub_abbrev_tac `option_le copy_maximum copy_stack_bound`
+    >> irule option_le_trans
+    >> qexists_tac `copy_stack_bound`
+    >> conj_tac >- simp []
+    >> simp [Abbr `copy_stack_bound`,stack_size_eq,option_map2_max_add,
+             option_le_max,option_le_max_right,option_le_add,option_add_comm]
+    >> disj2_tac >> disj1_tac
+    >> irule (ONCE_REWRITE_RULE [option_add_comm] option_le_add))
+  >> full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  >> irule memory_rel_insert
+  >> rewrite_tac [APPEND]
+  >> irule memory_rel_Unit
+  >> asm_simp_tac std_ss []
+  >> qpat_x_assum `memory_rel _ _ _ (insert _ _ _) _ _ _ _ (_::_)`
+       (mp_tac o MATCH_MP memory_rel_tl o MATCH_MP memory_rel_tl)
+  >> match_mp_tac memory_rel_rearrange
+  >> rw [Abbr `copy_frame`,MEM_APPEND]
+  >> gvs []
+  >> `∀copy_index copy_value.
+        lookup copy_index x.locals = SOME copy_value ⇒
+        lookup copy_index s.locals = SOME copy_value` by (
+    drule cut_state_opt_SOME_eq >> strip_tac >> gvs []
+    >> rw [lookup_inter_alt,AllCaseEqs()] >> gvs [])
+  >> disj1_tac
+  >> fs [join_env_def,MEM_MAP,MEM_FILTER,EXISTS_PROD,MEM_toAList,
+         lookup_inter_alt,AllCaseEqs()]
+  >> qmatch_goalsub_rename_tac `THE (lookup ((copy_word_index - 2) DIV 2) x.locals)`
+  >> `∃copy_data_value.
+        lookup ((copy_word_index - 2) DIV 2) x.locals = SOME copy_data_value` by (
+    fs [domain_lookup,lookup_adjust_set,GSYM EVEN_ODD,IS_SOME_EXISTS])
+  >> qpat_x_assum `∀i v. lookup i x.locals = SOME v ⇒ _`
+       (qspecl_then [`(copy_word_index - 2) DIV 2`,`copy_data_value`] mp_tac)
+  >> asm_simp_tac std_ss []
+  >> strip_tac
+  >> drule_all cut_env_IMP_lookup >> strip_tac
+  >> qexists_tac `copy_word_index`
+  >> fs [lookup_adjust_set,domain_lookup,GSYM EVEN_ODD]
+QED
+
+Resume assign_CopyWord[ArraySource]:
+  qpat_x_assum `LENGTH args = 5` (mp_tac o REWRITE_RULE [LENGTH_EQ_5])
+  >> disch_then (qx_choosel_then
+       [`copy_source_var`,`copy_source_offset_var`,`copy_length_var`,
+        `copy_target_var`,`copy_target_offset_var`] assume_tac)
+  >> qpat_x_assum `LENGTH copy_argument_words = 5`
+       (mp_tac o REWRITE_RULE [LENGTH_EQ_5])
+  >> disch_then (qx_choosel_then
+       [`copy_source_rep`,`copy_source_offset_rep`,`copy_length_rep`,
+        `copy_target_rep`,`copy_target_offset_rep`] assume_tac)
+  >> gvs []
+  >> LABEL_ASSUM "copy_before" (assume_tac o REWRITE_RULE [state_rel_thm])
+  >> full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+  >> drule_all (memory_rel_get_vars_IMP
+       |> Q.INST [`n` |-> `[copy_source_var; copy_source_offset_var; copy_length_var;
+                            copy_target_var; copy_target_offset_var]`]
+       |> SIMP_RULE (srw_ss()) [MAP])
+  >> disch_then (assume_named_tac "copy_arguments_related")
+  >> `x.refs = s.refs` by (
+    drule cut_state_opt_SOME_eq
+    >> strip_tac >> gvs [])
+  >> qabbrev_tac `copy_frame =
+       join_env s.locals (toAList (inter t.locals (adjust_set s.locals))) ++
+       (the_global s.global,t.store ' Globals)::flat s.stack t.stack`
+  >> `memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
+        ((RefPtr copy_source_flag copy_source_location,copy_source_rep)::
+         (RefPtr copy_target_flag copy_target_location,copy_target_rep)::copy_frame)` by (
+    LABEL_ASSUM "copy_arguments_related" mp_tac
+    >> match_mp_tac memory_rel_rearrange
+    >> rw [ZIP,MEM_APPEND,Abbr `copy_frame`] >> gvs [])
+  >> `lookup copy_source_location s.refs = SOME (ValueArray copy_source_values)`
+       by fs []
+  >> drule_all memory_rel_ValueArray_IMP
+  >> disch_then (qx_choosel_then
+       [`copy_source_pointer`,`copy_source_address`,`copy_source_header`]
+       strip_assume_tac)
+  >> `lookup copy_target_location s.refs = SOME (ValueArray copy_target_values)`
+       by fs []
+  >> `memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
+        ((RefPtr copy_target_flag copy_target_location,copy_target_rep)::copy_frame)` by (
+    LABEL_ASSUM "copy_arguments_related" mp_tac
+    >> match_mp_tac memory_rel_rearrange
+    >> rw [ZIP,MEM_APPEND,Abbr `copy_frame`] >> gvs [])
+  >> drule_all memory_rel_ValueArray_IMP
+  >> disch_then (qx_choosel_then
+       [`copy_target_pointer`,`copy_target_address`,`copy_target_header`]
+       strip_assume_tac)
+  >> `LENGTH copy_source_values < dimword (:'a) DIV 16 ∧
+      LENGTH copy_target_values < dimword (:'a) DIV 16` by (
+    fs [good_dimindex_def,dimword_def] >> rfs [])
+  >> `∃copy_source_index copy_count copy_target_index.
+        copy_source_offset = &copy_source_index ∧ copy_length = &copy_count ∧
+        copy_target_offset = &copy_target_index ∧
+        copy_source_index + copy_count ≤ LENGTH copy_source_values ∧
+        copy_target_index + copy_count ≤ LENGTH copy_target_values` by (
+    fs [semanticPrimitivesTheory.copy_array_def,not_less_zero_int_eq]
+    >> rveq
+    >> fs [NOT_LESS,integerTheory.INT_ADD,integerTheory.INT_ABS_NUM])
+  >> gvs []
+  >> `copy_source_index < dimword (:'a) DIV 16 ∧
+      copy_count < dimword (:'a) DIV 16 ∧
+      copy_target_index < dimword (:'a) DIV 16` by decide_tac
+  >> `small_int (dimindex (:'a)) (&copy_source_index) ∧
+      small_int (dimindex (:'a)) (&copy_count) ∧
+      small_int (dimindex (:'a)) (&copy_target_index)` by (
+    fs [good_dimindex_def,dimword_def,small_int_def]
+    >> rfs [] >> decide_tac)
+  >> `2 * copy_source_index < dimword (:'a) ∧
+      2 * copy_target_index < dimword (:'a) ∧
+      2 * copy_count < dimword (:'a) ∧ 0 < dimindex (:'a) DIV 8 ∧
+      2 * (copy_count * (dimindex (:'a) DIV 8)) < dimword (:'a)` by (
+    fs [good_dimindex_def,dimword_def]
+    >> rfs [] >> decide_tac)
+  >> `memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
+        [(Number (&copy_source_index),copy_source_offset_rep);
+         (Number (&copy_count),copy_length_rep);
+         (Number (&copy_target_index),copy_target_offset_rep)]` by (
+    LABEL_ASSUM "copy_arguments_related" mp_tac
+    >> match_mp_tac memory_rel_rearrange
+    >> rw [ZIP,MEM_APPEND] >> gvs [])
+  >> ntac 2 (imp_res_tac memory_rel_tl)
+  >> imp_res_tac memory_rel_Number_IMP
+  >> gvs [Smallnum_def]
+  >> `memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
+        (eq_explode (copy_source_address + bytes_in_word) t.memory t.mdomain
+           (TAKE (LENGTH copy_source_values) copy_source_values) ++
+         (RefPtr copy_source_flag copy_source_location,
+          Word copy_source_pointer)::
+         (RefPtr copy_target_flag copy_target_location,Word copy_target_pointer)::
+         copy_frame) ∧
+      eq_assum (copy_source_address + bytes_in_word) t.memory t.mdomain
+        (TAKE (LENGTH copy_source_values) copy_source_values)` by (
+    irule memory_rel_ValueArray_fields
+    >> asm_simp_tac std_ss [])
+  >> fs []
+  >> `memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
+        (ZIP (TAKE copy_count (DROP copy_source_index copy_source_values),
+          GENLIST (λi. t.memory (copy_source_address + bytes_in_word +
+            n2w copy_source_index * bytes_in_word + n2w i * bytes_in_word))
+            copy_count) ++
+         (RefPtr copy_source_flag copy_source_location,
+          Word copy_source_pointer)::
+         (RefPtr copy_target_flag copy_target_location,Word copy_target_pointer)::
+         copy_frame) ∧
+      ∀i. i < copy_count ⇒
+        copy_source_address + bytes_in_word + n2w copy_source_index * bytes_in_word +
+          n2w i * bytes_in_word ∈ t.mdomain` by (
+    irule memory_rel_fields_slice
+    >> asm_simp_tac std_ss [ADD_COMM])
+  >> `LENGTH (TAKE copy_count (DROP copy_source_index copy_source_values)) =
+        copy_count` by (
+    simp [LENGTH_TAKE,LENGTH_DROP]
+    >> decide_tac)
+  >> `∀i. i < copy_count ⇒
+        copy_target_address + bytes_in_word + n2w copy_target_index * bytes_in_word +
+          n2w i * bytes_in_word ∈ t.mdomain` by (
+    qx_gen_tac `copy_index`
+    >> strip_tac
+    >> `copy_target_index + copy_index < LENGTH copy_target_values` by decide_tac
+    >> drule_all (memory_rel_Deref'
+         |> Q.INST [`index` |-> `copy_target_index + copy_index`])
+    >> strip_tac
+    >> gvs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,WORD_ADD_ASSOC])
+  >> qabbrev_tac `copy_source_start =
+       copy_source_address + bytes_in_word + n2w copy_source_index * bytes_in_word`
+  >> qabbrev_tac `copy_target_start =
+       copy_target_address + bytes_in_word + n2w copy_target_index * bytes_in_word`
+  >> qabbrev_tac `copy_words =
+       GENLIST (λi. t.memory (copy_source_start + n2w i * bytes_in_word)) copy_count`
+  >> `store_list copy_target_start copy_words t.memory t.mdomain =
+        SOME (copy_word_chunk copy_count copy_source_start copy_target_start t.memory)` by (
+    asm_simp_tac std_ss [Abbr `copy_words`]
+    >> irule copy_word_chunk_store_list
+    >> simp [])
+  >> `SND (word_copy_plan copy_count copy_source_start copy_target_start
+        t.memory t.mdomain) =
+        SOME (copy_word_chunk copy_count copy_source_start copy_target_start t.memory)` by (
+    qspecl_then [`copy_count`,`copy_source_start`,`copy_target_start`,
+      `t.memory`,`t.mdomain`] mp_tac word_copy_plan_store_list
+    >> impl_tac >- asm_simp_tac std_ss []
+    >> fs [Abbr `copy_words`])
+  >> `memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
+        (ZIP (TAKE copy_count (DROP copy_source_index copy_source_values),copy_words) ++
+         (RefPtr copy_target_flag copy_target_location,Word copy_target_pointer)::
+         (RefPtr copy_source_flag copy_source_location,
+          Word copy_source_pointer)::copy_frame)` by (
+    qpat_x_assum `memory_rel _ _ _ _ _ _ _ _ (ZIP _ ++ _)` mp_tac
+    >> match_mp_tac memory_rel_rearrange
+    >> rw [MEM_APPEND] >> gvs [])
+  >> `memory_rel c t.be (THE s.tstamps)
+        (insert copy_target_location
+          (ValueArray (TAKE copy_target_index copy_target_values ++
+            TAKE copy_count (DROP copy_source_index copy_source_values) ++
+            DROP (copy_target_index +
+              LENGTH (TAKE copy_count (DROP copy_source_index copy_source_values)))
+              copy_target_values)) s.refs)
+        s.space t.store
+        (copy_word_chunk copy_count copy_source_start copy_target_start t.memory)
+        t.mdomain
+        ((RefPtr copy_target_flag copy_target_location,Word copy_target_pointer)::
+         (RefPtr copy_source_flag copy_source_location,
+          Word copy_source_pointer)::copy_frame)` by (
+    irule memory_rel_store_array_slice
+    >> asm_simp_tac std_ss [ADD_COMM]
+    >> qexistsl_tac [`t.memory`,`copy_words`]
+    >> asm_simp_tac std_ss []
+    >> simp [Abbr `copy_words`])
+  >> `copy_result_values = TAKE copy_target_index copy_target_values ++
+        TAKE copy_count (DROP copy_source_index copy_source_values) ++
+        DROP (copy_target_index + copy_count) copy_target_values` by (
+    fs [semanticPrimitivesTheory.copy_array_def,integerTheory.INT_ADD,
+        integerTheory.INT_ABS_NUM])
+  >> `arch_width_bits c.arch_width = dimindex (:'a)` by (
+    drule state_rel_arch_width >> simp [])
+  >> `get_var (adjust_var copy_source_var) t = SOME (Word copy_source_pointer) ∧
+      get_var (adjust_var copy_source_offset_var) t =
+        SOME (Word (n2w (2 * copy_source_index))) ∧
+      get_var (adjust_var copy_length_var) t = SOME (Word (n2w (2 * copy_count))) ∧
+      get_var (adjust_var copy_target_var) t = SOME (Word copy_target_pointer) ∧
+      get_var (adjust_var copy_target_offset_var) t =
+        SOME (Word (n2w (2 * copy_target_index)))` by (
+    qpat_x_assum `get_vars _ t = SOME _` mp_tac
+    >> simp [wordSemTheory.get_vars_def,AllCaseEqs()])
+  >> `word_exp t (real_addr c (adjust_var copy_source_var)) =
+        SOME (Word copy_source_address)` by (
+    irule get_real_addr_lemma >> simp [])
+  >> `word_exp t (real_addr c (adjust_var copy_target_var)) =
+        SOME (Word copy_target_address)` by (
+    irule get_real_addr_lemma >> simp [])
+  >> `get_real_offset (n2w (2 * copy_source_index):'a word) =
+        SOME (bytes_in_word + n2w copy_source_index * bytes_in_word) ∧
+      get_real_offset (n2w (2 * copy_target_index):'a word) =
+        SOME (bytes_in_word + n2w copy_target_index * bytes_in_word)` by (
+    fs [good_dimindex_def,get_real_offset_def,bytes_in_word_def,
+        word_lsl_n2w,word_mul_n2w]
+    >> simp [MULT_ASSOC,WORD_ADD_COMM])
+  >> `word_exp t (real_offset c (adjust_var copy_source_offset_var)) =
+        SOME (Word (bytes_in_word + n2w copy_source_index * bytes_in_word))` by (
+    irule get_real_offset_lemma >> simp [])
+  >> `word_exp t (real_offset c (adjust_var copy_target_offset_var)) =
+        SOME (Word (bytes_in_word + n2w copy_target_index * bytes_in_word))` by (
+    irule get_real_offset_lemma >> simp [])
+  >> `∀copy_temp.
+        word_exp (t with locals := insert 1 (Word copy_temp) t.locals)
+          (real_addr c (adjust_var copy_target_var)) =
+        SOME (Word copy_target_address)` by (
+    irule word_exp_real_addr >> fs [wordSemTheory.get_var_def])
+  >> `word_exp (t with locals := insert 1 (Word copy_source_start) t.locals)
+        (real_offset c (adjust_var copy_target_offset_var)) =
+        SOME (Word (bytes_in_word + n2w copy_target_index * bytes_in_word))` by (
+    irule get_real_offset_lemma
+    >> fs [wordSemTheory.get_var_def,lookup_insert])
+  >> `word_exp t (Op Add [real_addr c (adjust_var copy_source_var);
+        real_offset c (adjust_var copy_source_offset_var)]) =
+        SOME (Word copy_source_start)` by (
+    simp [wordSemTheory.word_exp_def,wordSemTheory.word_op_def,
+          wordSemTheory.the_words_def,Abbr `copy_source_start`,WORD_ADD_ASSOC])
+  >> `word_exp (t with locals := insert 1 (Word copy_source_start) t.locals)
+        (Op Add [real_addr c (adjust_var copy_target_var);
+          real_offset c (adjust_var copy_target_offset_var)]) =
+        SOME (Word copy_target_start)` by (
+    simp [wordSemTheory.word_exp_def,wordSemTheory.word_op_def,
+          wordSemTheory.the_words_def,Abbr `copy_target_start`,WORD_ADD_ASSOC])
+  >> `∃copy_md copy_add_md copy_sub_md copy_loop_md.
+        lookup WordCopy_location t.code = SOME (5,WordCopy_code c,copy_md) ∧
+        lookup WordCopyAdd_location t.code = SOME (5,WordCopyAdd_code c,copy_add_md) ∧
+        lookup WordCopySub_location t.code = SOME (5,WordCopySub_code c,copy_sub_md) ∧
+        lookup WordCopyLoop_location t.code = SOME (5,WordCopyLoop_code c,copy_loop_md)` by (
+    fs [data_to_word_gcProofTheory.code_rel_def,stubs_md_def,stubs_def,MAP_MAP_o,o_DEF])
+  >> simp [assign_def,assign_CopyWord_def,list_Seq_def,eq_eval,
+           data_to_wordTheory.Unit_def,GSYM WORD_ADD_ASSOC]
+  >> drule cut_env_IMP_cut_envs
+  >> disch_then (qx_choosel_then [`copy_saved_return`,`copy_saved_locals`] strip_assume_tac)
+  >> fs [get_names_def,wordSemTheory.get_var_def]
+  >> simp [domain_adjust_sets,cut_envs_adjust_sets_insert_ODD]
+  >> qmatch_goalsub_abbrev_tac `evaluate (WordCopy_code c,copy_call_state)`
+  >> `word_copy_plan copy_count copy_source_start copy_target_start t.memory t.mdomain =
+        (FST (word_copy_plan copy_count copy_source_start copy_target_start
+          t.memory t.mdomain),
+         SOME (copy_word_chunk copy_count copy_source_start copy_target_start t.memory))` by (
+    Cases_on `word_copy_plan copy_count copy_source_start copy_target_start
+      t.memory t.mdomain` >> fs [])
+  >> `copy_count + 2 < dimword (:'a)` by (
+    fs [good_dimindex_def,dimword_def] >> rfs [] >> decide_tac)
+  >> `FST (word_copy_plan copy_count copy_source_start copy_target_start
+        t.memory t.mdomain) < dimword (:'a)` by (
+    qspecl_then [`copy_count`,`copy_source_start`,`copy_target_start`,
+      `t.memory`,`t.mdomain`] mp_tac word_copy_plan_ticks_bound
+    >> decide_tac)
+  >> `FST (word_copy_plan copy_count copy_source_start copy_target_start
+        t.memory t.mdomain) ≤ MustTerminate_limit (:'a) - 1` by (
+    drule IMP_LESS_MustTerminate_limit >> decide_tac)
+  >> qpat_x_assum `word_copy_plan _ _ _ _ _ = _`
+       (assume_named_tac "copy_plan")
+  >> qspecl_then [`copy_count`,`c`,`copy_source_start`,`copy_target_start`,
+       `copy_call_state`,`t.memory`,`t.mdomain`,
+       `copy_word_chunk copy_count copy_source_start copy_target_start t.memory`,
+       `FST (word_copy_plan copy_count copy_source_start copy_target_start t.memory t.mdomain)`,
+       `Word (0w:'a word)`,`n`,`l`] mp_tac WordCopy_thm
+  >> impl_tac
+  >- (
+    simp [Abbr `copy_call_state`,wordSemTheory.get_var_def,lookup_insert]
+    >> LABEL_ASSUM "copy_plan" ACCEPT_TAC)
+  >> disch_then (qx_choose_then `copy_maximum` strip_assume_tac)
+  >> namedCases_on `env_to_list copy_saved_locals t.permute`
+    ["copy_saved_values copy_next_permute"]
+  >> `wf copy_saved_return ∧ wf copy_saved_locals` by (
+    gvs [wordSemTheory.cut_envs_def,wordSemTheory.cut_names_def,
+         AllCaseEqs(),wf_inter])
+  >> drule env_to_list_lookup_equiv >> strip_tac
+  >> `fromAList copy_saved_values = copy_saved_locals` by (
+    simp [spt_eq_thm,wf_fromAList,lookup_fromAList])
+  >> fs [Abbr `copy_call_state`,wordSemTheory.pop_env_def,wordSemTheory.push_env_def,
+         wordSemTheory.set_vars_def,alist_insert_def,fromAList_toAList,domain_union,
+         AC UNION_COMM UNION_ASSOC]
+  >> rfs [wordSemTheory.pop_env_def,wordSemTheory.set_vars_def,alist_insert_def,
+          fromAList_toAList,domain_union]
+  >> `x.stack = s.stack ∧ x.stack_max = s.stack_max ∧
+      x.locals_size = s.locals_size ∧ x.stack_frame_sizes = s.stack_frame_sizes ∧
+      x.tstamps = s.tstamps ∧ x.space = s.space ∧ x.global = s.global` by (
+    drule cut_state_opt_SOME_eq >> strip_tac >> gvs [])
+  >> LABEL_ASSUM "copy_after_cut" (assume_tac o REWRITE_RULE [state_rel_thm])
+  >> fs [state_rel_thm,dataSemTheory.set_var_def,lookup_insert,adjust_var_11]
+  >> drule evaluate_stack_max_le
+  >> simp [option_le_max,stack_size_eq,option_add_comm]
+  >> strip_tac
+  >> rfs []
+  >> conj_tac
+  >- (
+    qx_gen_tac `copy_local`
+    >> Cases_on `copy_local = dest` >> simp [])
+  >> `stack_size t.stack = size_of_stack s.stack` by (
+    irule stack_rel_IMP_size_of_stack >> first_assum (irule_at Any))
+  >> conj_tac
+  >- (
+    qmatch_asmsub_abbrev_tac `option_le copy_maximum copy_stack_bound`
+    >> irule option_le_trans
+    >> qexists_tac `copy_stack_bound`
+    >> conj_tac >- simp []
+    >> simp [Abbr `copy_stack_bound`,stack_size_eq,option_map2_max_add,
+             option_le_max,option_le_max_right,option_le_add,option_add_comm]
+    >> disj2_tac >> disj1_tac
+    >> irule (ONCE_REWRITE_RULE [option_add_comm] option_le_add))
+  >> full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  >> irule memory_rel_insert
+  >> rewrite_tac [APPEND]
+  >> irule memory_rel_Unit
+  >> asm_simp_tac std_ss []
+  >> qpat_x_assum `memory_rel _ _ _ (insert _ _ _) _ _ _ _ (_::_)`
+       (mp_tac o MATCH_MP memory_rel_tl o MATCH_MP memory_rel_tl)
+  >> match_mp_tac memory_rel_rearrange
+  >> rw [Abbr `copy_frame`,MEM_APPEND]
+  >> gvs []
+  >> `∀copy_index copy_value.
+        lookup copy_index x.locals = SOME copy_value ⇒
+        lookup copy_index s.locals = SOME copy_value` by (
+    drule cut_state_opt_SOME_eq >> strip_tac >> gvs []
+    >> rw [lookup_inter_alt,AllCaseEqs()] >> gvs [])
+  >> disj1_tac
+  >> fs [join_env_def,MEM_MAP,MEM_FILTER,EXISTS_PROD,MEM_toAList,
+         lookup_inter_alt,AllCaseEqs()]
+  >> qmatch_goalsub_rename_tac `THE (lookup ((copy_word_index - 2) DIV 2) x.locals)`
+  >> `∃copy_data_value.
+        lookup ((copy_word_index - 2) DIV 2) x.locals = SOME copy_data_value` by (
+    fs [domain_lookup,lookup_adjust_set,GSYM EVEN_ODD,IS_SOME_EXISTS])
+  >> qpat_x_assum `∀i v. lookup i x.locals = SOME v ⇒ _`
+       (qspecl_then [`(copy_word_index - 2) DIV 2`,`copy_data_value`] mp_tac)
+  >> asm_simp_tac std_ss []
+  >> strip_tac
+  >> drule_all cut_env_IMP_lookup >> strip_tac
+  >> qexists_tac `copy_word_index`
+  >> fs [lookup_adjust_set,domain_lookup,GSYM EVEN_ODD]
+QED
+
+Finalise assign_CopyWord;
+
+Theorem copy_word_header[local]:
+  arch_width_bits c.arch_width = dimindex (:'a) ∧
+  c.len_size ≠ 0 ∧ c.len_size + 9 < dimindex (:'a) ⇒
+  (3w || (n2w (2 * copy_count):'a word) <<
+    (arch_width_bits c.arch_width - c.len_size - 1)) =
+  n2w (make_header c 0 copy_count)
+Proof
+  strip_tac
+  >> `dimindex (:'a) - c.len_size - 1 + 1 = dimindex (:'a) - c.len_size` by
+       decide_tac
+  >> `dimindex (:'a) - c.len_size < dimindex (:'a)` by decide_tac
+  >> `2 ** 2 ≤ 2 ** (dimindex (:'a) - c.len_size)` by (
+    irule bitTheory.TWOEXP_MONO2 >> decide_tac)
+  >> asm_rewrite_tac [make_header_def,LET_THM,MULT_CLAUSES,ADD_CLAUSES,TWO_MUL_LSL]
+  >> once_rewrite_tac [WORD_OR_COMM]
+  >> BETA_TAC
+  >> irule shifted_header_or
+  >> simp []
+QED
+
+Theorem assign_CopyWord_new:
+  op = MemOp (CopyWord T) ⇒ ^assign_thm_goal
+Proof
+  rpt strip_tac
+  >> gvs [dataLangTheory.op_requires_names_def]
+  >> namedCases_on `names_opt` ["","copy_kept_names"]
+  >> gvs []
+  >> drule_all state_rel_cut_state_opt_SOME
+  >> disch_then (qx_choosel_then [`copy_kept_locals`,`copy_argument_words`]
+       strip_assume_tac)
+  >> qpat_x_assum `state_rel c l1 l2 s t NONE locs`
+       (assume_named_tac "copy_before")
+  >> qpat_x_assum `state_rel c l1 l2 x (t with locals := copy_kept_locals) NONE locs`
+       (assume_named_tac "copy_after_cut")
+  >> `IS_SOME x.tstamps` by fs [state_rel_thm]
+  >> namedCases_on `x.tstamps` ["","copy_new_timestamp"]
+  >> fs []
+  >> drule do_app_stack_max
+  >> disch_then (assume_named_tac "copy_stack_grows")
+  >> qpat_x_assum `do_app (MemOp (CopyWord T)) vals x = Rval (v,s2)`
+       (assume_named_tac "copy_primitive")
+  >> LABEL_ASSUM "copy_primitive" assume_tac
+  >> fs [do_app,dataSemTheory.allowed_op_def,dataSemTheory.with_fresh_ts_def]
+  >> gvs [AllCaseEqs()]
+  >~ [`get_vars _ s.locals = SOME
+         [Block copy_source_stamp copy_source_tag copy_source_values;
+          Number copy_source_offset; Number copy_length] (* a *)`,
+       `copy_array (copy_source_values,copy_source_offset) copy_length NONE = SOME []
+          (* a *)`]
+    >- suspend "VectorEmpty"
+  >~ [`get_vars _ s.locals = SOME
+         [Block copy_source_stamp copy_source_tag copy_source_values;
+          Number copy_source_offset; Number copy_length] (* a *)`,
+       `copy_array (copy_source_values,copy_source_offset) copy_length NONE =
+          SOME copy_result_values (* a *)`, `copy_result_values ≠ [] (* a *)`]
+    >- suspend "VectorNonempty"
+  >~ [`get_vars _ s.locals = SOME
+         [RefPtr copy_source_flag copy_source_location;
+          Number copy_source_offset; Number copy_length] (* a *)`,
+       `lookup copy_source_location x.refs = SOME (ValueArray copy_source_values) (* a *)`,
+       `copy_array (copy_source_values,copy_source_offset) copy_length NONE = SOME []
+          (* a *)`]
+    >- suspend "ArrayEmpty"
+  >~ [`get_vars _ s.locals = SOME
+         [RefPtr copy_source_flag copy_source_location;
+          Number copy_source_offset; Number copy_length] (* a *)`,
+       `lookup copy_source_location x.refs = SOME (ValueArray copy_source_values) (* a *)`,
+       `copy_array (copy_source_values,copy_source_offset) copy_length NONE =
+          SOME copy_result_values (* a *)`, `copy_result_values ≠ [] (* a *)`]
+    >- suspend "ArrayNonempty"
+QED
+
+Resume assign_CopyWord_new[VectorEmpty]:
+  `∃copy_source_index copy_count.
+     copy_source_offset = &copy_source_index ∧ copy_length = &copy_count ∧
+     copy_source_index + copy_count ≤ LENGTH copy_source_values` by (
+    fs [semanticPrimitivesTheory.copy_array_def,not_less_zero_int_eq]
+    >> rveq
+    >> fs [NOT_LESS,integerTheory.INT_ADD,integerTheory.INT_ABS_NUM])
+  >> gvs []
+  >> `copy_count = 0` by (
+    fs [semanticPrimitivesTheory.copy_array_def,integerTheory.INT_ADD,
+        integerTheory.INT_ABS_NUM]
+    >> qpat_x_assum `TAKE _ _ = []` (mp_tac o AP_TERM ``LENGTH:dataSem$v list -> num``)
+    >> simp [LENGTH_TAKE,LENGTH_DROP]
+    >> decide_tac)
+  >> gvs []
+  >> qpat_x_assum `LENGTH args = 3` (mp_tac o REWRITE_RULE [LENGTH_EQ_3])
+  >> disch_then (qx_choosel_then
+       [`copy_source_var`,`copy_source_offset_var`,`copy_length_var`] assume_tac)
+  >> gvs []
+  >> `dataSem$get_var copy_length_var s.locals = SOME (Number (&0))` by (
+    qpat_x_assum `get_vars _ s.locals = SOME _` mp_tac
+    >> simp [dataSemTheory.get_vars_def,AllCaseEqs()])
+  >> `small_int (dimindex (:'a)) (&0)` by (
+    fs [state_rel_thm,good_dimindex_def,small_int_def])
+  >> LABEL_ASSUM "copy_before" assume_tac
+  >> drule_all state_rel_get_var_Number_IMP >> strip_tac
+  >> `arch_width_bits c.arch_width = dimindex (:'a)` by (
+    drule state_rel_arch_width >> simp [])
+  >> `good_dimindex (:'a)` by fs [state_rel_thm]
+  >> `encode_header c 0 0 = SOME 3` by (
+    fs [encode_header_def,make_header_def,good_dimindex_def] >> rfs [])
+  >> fs [Smallnum_def,wordSemTheory.get_var_def]
+  >> simp [assign_def,assign_CopyWord_def,eq_eval]
+  >> fs [state_rel_thm,dataSemTheory.set_var_def,lookup_insert,adjust_var_11,
+         option_le_max_right]
+  >> rfs []
+  >> conj_tac
+  >- (
+    qx_gen_tac `copy_local`
+    >> Cases_on `copy_local = dest` >> simp [])
+  >> conj_tac
+  >- (
+    qpat_x_assum `option_le (OPTION_MAP2 $+ (stack_size t.stack) t.locals_size)
+      t.stack_max` mp_tac
+    >> simp [])
+  >> irule memory_rel_zero_space
+  >> qexists_tac `x.space`
+  >> full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  >> irule memory_rel_insert
+  >> rewrite_tac [APPEND]
+  >> rewrite_tac [GSYM (SIMP_RULE std_ss [tuple_tag_def] dataSemTheory.Unit_def)]
+  >> irule memory_rel_Unit
+  >> asm_simp_tac std_ss []
+QED
+
+Resume assign_CopyWord_new[VectorNonempty]:
+  qpat_x_assum `LENGTH args = 3` (mp_tac o REWRITE_RULE [LENGTH_EQ_3])
+  >> disch_then (qx_choosel_then
+       [`copy_source_var`,`copy_source_offset_var`,`copy_length_var`] assume_tac)
+  >> qpat_x_assum `LENGTH copy_argument_words = 3`
+       (mp_tac o REWRITE_RULE [LENGTH_EQ_3])
+  >> disch_then (qx_choosel_then
+       [`copy_source_rep`,`copy_source_offset_rep`,`copy_length_rep`] assume_tac)
+  >> gvs []
+  >> `∃copy_source_index copy_count.
+        copy_source_offset = &copy_source_index ∧ copy_length = &copy_count ∧
+        copy_source_index + copy_count ≤ LENGTH copy_source_values` by (
+    fs [semanticPrimitivesTheory.copy_array_def,not_less_zero_int_eq]
+    >> rveq
+    >> fs [NOT_LESS,integerTheory.INT_ADD,integerTheory.INT_ABS_NUM])
+  >> gvs []
+  >> `copy_count ≠ 0` by (
+    CCONTR_TAC
+    >> fs [semanticPrimitivesTheory.copy_array_def,integerTheory.INT_ADD,
+           integerTheory.INT_ABS_NUM])
+  >> LABEL_ASSUM "copy_before" (assume_tac o REWRITE_RULE [state_rel_thm])
+  >> full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+  >> drule_all (memory_rel_get_vars_IMP
+       |> Q.INST [`n` |-> `[copy_source_var; copy_source_offset_var; copy_length_var]`]
+       |> SIMP_RULE (srw_ss()) [MAP])
+  >> disch_then (assume_named_tac "copy_arguments_related")
+  >> `x.refs = s.refs` by (
+    drule cut_state_opt_SOME_eq >> strip_tac >> gvs [])
+  >> qabbrev_tac `copy_frame =
+       join_env s.locals (toAList (inter t.locals (adjust_set s.locals))) ++
+       (the_global s.global,t.store ' Globals)::flat s.stack t.stack`
+  >> `memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
+        ((Block copy_source_stamp copy_source_tag copy_source_values,copy_source_rep)::copy_frame)` by (
+    LABEL_ASSUM "copy_arguments_related" mp_tac
+    >> match_mp_tac memory_rel_rearrange
+    >> rw [ZIP,MEM_APPEND,Abbr `copy_frame`] >> gvs [])
+  >> `copy_source_values ≠ []` by (CCONTR_TAC >> fs [])
+  >> drule_all memory_rel_Block_IMP
+  >> disch_then (qx_choose_then `copy_source_pointer`
+       (CONJUNCTS_THEN2 assume_tac (assume_named_tac "copy_vector_layout")))
+  >> LABEL_ASSUM "copy_vector_layout" mp_tac
+  >> asm_simp_tac std_ss []
+  >> disch_then (qx_choosel_then
+       [`copy_source_address`,`copy_source_encoding`]
+       strip_assume_tac)
+  >> `LENGTH copy_source_values < dimword (:'a) DIV 16` by (
+    fs [good_dimindex_def,dimword_def] >> rfs [])
+  >> `copy_source_index < dimword (:'a) DIV 16 ∧
+      copy_count < dimword (:'a) DIV 16` by decide_tac
+  >> `small_int (dimindex (:'a)) (&copy_source_index) ∧
+      small_int (dimindex (:'a)) (&copy_count)` by (
+    fs [good_dimindex_def,dimword_def,small_int_def] >> rfs [] >> decide_tac)
+  >> `2 * copy_source_index < dimword (:'a) ∧
+      2 * copy_count < dimword (:'a)` by (
+    fs [good_dimindex_def,dimword_def] >> rfs [] >> decide_tac)
+  >> `memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
+        [(Number (&copy_source_index),copy_source_offset_rep);
+         (Number (&copy_count),copy_length_rep)]` by (
+    LABEL_ASSUM "copy_arguments_related" mp_tac
+    >> match_mp_tac memory_rel_rearrange
+    >> rw [ZIP,MEM_APPEND] >> gvs [])
+  >> imp_res_tac memory_rel_tl
+  >> imp_res_tac memory_rel_Number_IMP
+  >> gvs [Smallnum_def]
+  >> `arch_width_bits c.arch_width = dimindex (:'a)` by (
+    drule state_rel_arch_width >> simp [])
+  >> `encode_header c 0 0 = SOME 3` by (
+    fs [encode_header_def,make_header_def,good_dimindex_def] >> rfs [])
+  >> `get_var (adjust_var copy_length_var) t = SOME (Word (n2w (2 * copy_count)))` by (
+    qpat_x_assum `get_vars _ t = SOME _` mp_tac
+    >> simp [wordSemTheory.get_vars_def,AllCaseEqs()])
+  >> `¬word_bit 0 (n2w (2 * copy_count):'a word)` by (
+    simp [word_bit_def,word_index,bitTheory.BIT0_ODD,ODD_MULT])
+  >> drule_all evaluate_BignumHalt2 >> simp [] >> strip_tac
+  >> `(n2w (2 * copy_count):'a word) ≠ 0w` by (
+    simp [GSYM w2n_11])
+  >> fs [wordSemTheory.get_var_def]
+  >> simp [assign_def,assign_CopyWord_def,list_Seq_def,eq_eval,GSYM dimword_def]
+  >> qpat_x_assum `¬word_bit 0 (n2w (2 * copy_count):'a word)`
+       (assume_tac o SIMP_RULE std_ss [word_bit_def])
+  >> simp [get_names_def]
+  >> qmatch_goalsub_abbrev_tac `evaluate (AllocVar c copy_limit copy_alloc_names,copy_alloc_start)`
+  >> `state_rel c l1 l2 s copy_alloc_start NONE locs` by (
+    LABEL_ASSUM "copy_before" mp_tac
+    >> simp [Abbr `copy_alloc_start`,state_rel_insert_1])
+  >> `get_var 1 copy_alloc_start = SOME (Word (n2w (2 * copy_count)))` by (
+    simp [Abbr `copy_alloc_start`,wordSemTheory.get_var_def,lookup_insert])
+  >> `copy_limit < dimword (:'a) DIV 8` by (
+    fs [Abbr `copy_limit`,good_dimindex_def,dimword_def] >> rfs [])
+  >> `domain copy_kept_names ⊆ domain s.locals` by (
+    fs [dataSemTheory.cut_state_opt_def,dataSemTheory.cut_state_def,
+        dataSemTheory.cut_env_def,AllCaseEqs()])
+  >> `set [copy_source_var;copy_source_offset_var;copy_length_var] ⊆ domain s.locals` by (
+    rw [SUBSET_DEF] >> metis_tac [get_vars_IMP_domain,MEM])
+  >> `∃copy_alloc_locals.
+        dataSem$cut_env copy_alloc_names s.locals = SOME copy_alloc_locals` by (
+    fs [dataSemTheory.cut_env_def,Abbr `copy_alloc_names`,domain_insert,SUBSET_DEF]
+    >> rw [] >> fs [])
+  >> namedCases_on `evaluate (AllocVar c copy_limit copy_alloc_names,copy_alloc_start)`
+       ["copy_alloc_result copy_alloc_state"]
+  >> qspecl_then [`c`,`l1`,`l2`,`s`,`copy_alloc_start`,`locs`,
+       `[copy_source_var;copy_source_offset_var;copy_length_var]`,`copy_kept_names`,
+       `copy_alloc_locals`,
+       `[Block copy_source_stamp copy_source_tag copy_source_values;
+         Number (&copy_source_index);Number (&copy_count)]`,
+       `copy_count`,`copy_limit`,`copy_alloc_result`,`copy_alloc_state`]
+       mp_tac AllocVar_thm_nary
+  >> impl_tac
+  >- fs [Abbr `copy_alloc_names`,list_insert_def]
+  >> disch_then (CONJUNCTS_THEN2
+       (assume_named_tac "copy_alloc_failure")
+       (assume_named_tac "copy_alloc_success"))
+  >> Cases_on `copy_alloc_result = SOME NotEnoughSpace`
+  >~ [`copy_alloc_result = SOME NotEnoughSpace (* a *)`]
+    >- (
+      LABEL_ASSUM "copy_alloc_failure" mp_tac
+      >> asm_simp_tac std_ss []
+      >> disch_then (CONJUNCTS_THEN2 assume_tac
+           (CONJUNCTS_THEN2 assume_tac (assume_named_tac "copy_heap_failure")))
+      >> `x.stack_max = s.stack_max ∧ x.limits = s.limits ∧
+          cut_locals copy_kept_names s = x` by (
+        fs [dataSemTheory.cut_state_opt_def,dataSemTheory.cut_state_def,
+            cut_locals_def,AllCaseEqs()]
+        >> rveq >> simp [])
+      >> simp []
+      >> conj_tac >- simp [option_le_max_right]
+      >> strip_tac >> disj1_tac
+      >> spose_not_then strip_assume_tac
+      >> fs []
+      >> `copy_count < copy_limit` by (
+        fs [Abbr `copy_limit`,limits_inv_def] >> rfs [])
+      >> LABEL_ASSUM "copy_heap_failure" mp_tac
+      >> asm_simp_tac std_ss []
+      >> fs [space_consumed_def]
+      >> decide_tac)
+  >> LABEL_ASSUM "copy_alloc_success" mp_tac
+  >> asm_simp_tac std_ss [] >> strip_tac
+  >> gvs []
+  >> `dataSem$get_vars [copy_source_var;copy_source_offset_var;copy_length_var]
+      copy_alloc_locals = SOME [Block copy_source_stamp copy_source_tag copy_source_values;
+        Number (&copy_source_index);Number (&copy_count)]` by (
+    gvs [dataSemTheory.cut_env_def,Abbr `copy_alloc_names`,
+         dataSemTheory.get_vars_def,dataSemTheory.get_var_def,
+         lookup_inter_alt,AllCaseEqs()])
+  >> qpat_x_assum `state_rel c l1 l2
+       (s with <|locals := copy_alloc_locals; space := copy_count + 1|>)
+       copy_alloc_state NONE locs` (assume_named_tac "copy_allocated_state")
+  >> LABEL_ASSUM "copy_allocated_state"
+       (mp_then (Pos hd) mp_tac state_rel_get_vars_IMP)
+  >> disch_then (qspecl_then
+       [`[copy_source_var;copy_source_offset_var;copy_length_var]`,
+        `[Block copy_source_stamp copy_source_tag copy_source_values;
+          Number (&copy_source_index);Number (&copy_count)]`] mp_tac)
+  >> impl_tac >- simp []
+  >> disch_then (qx_choose_then `copy_alloc_words` strip_assume_tac)
+  >> fs []
+  >> qpat_x_assum `3 = LENGTH copy_alloc_words`
+       (mp_tac o REWRITE_RULE [LENGTH_EQ_3] o GSYM)
+  >> disch_then (qx_choosel_then
+       [`copy_alloc_source_rep`,`copy_alloc_offset_rep`,`copy_alloc_length_rep`] assume_tac)
+  >> gvs []
+  >> LABEL_ASSUM "copy_allocated_state" (assume_tac o REWRITE_RULE [state_rel_thm])
+  >> fs []
+  >> full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+  >> drule_all (memory_rel_get_vars_IMP_lemma
+       |> Q.INST [`n` |-> `[copy_source_var;copy_source_offset_var;copy_length_var]`]
+       |> SIMP_RULE (srw_ss()) [MAP])
+  >> disch_then (assume_named_tac "copy_alloc_arguments_related")
+  >> qabbrev_tac `copy_alloc_frame =
+       join_env copy_alloc_locals
+         (toAList (inter copy_alloc_state.locals (adjust_set copy_alloc_locals))) ++
+       (the_global s.global,copy_alloc_state.store ' Globals)::
+       flat s.stack copy_alloc_state.stack`
+  >> `memory_rel c copy_alloc_state.be (THE s.tstamps) s.refs (copy_count + 1)
+        copy_alloc_state.store copy_alloc_state.memory copy_alloc_state.mdomain
+        ((Block copy_source_stamp copy_source_tag copy_source_values,copy_alloc_source_rep)::
+         copy_alloc_frame)` by (
+    LABEL_ASSUM "copy_alloc_arguments_related" mp_tac
+    >> match_mp_tac memory_rel_rearrange
+    >> rw [ZIP,MEM_APPEND,Abbr `copy_alloc_frame`] >> gvs [])
+  >> drule_all memory_rel_Block_IMP
+  >> disch_then (qx_choose_then `copy_alloc_source_pointer`
+       (CONJUNCTS_THEN2 assume_tac (assume_named_tac "copy_alloc_vector_layout")))
+  >> LABEL_ASSUM "copy_alloc_vector_layout" mp_tac
+  >> asm_simp_tac std_ss []
+  >> disch_then (qx_choose_then `copy_alloc_source_address` strip_assume_tac)
+  >> `memory_rel c copy_alloc_state.be (THE s.tstamps) s.refs (copy_count + 1)
+        copy_alloc_state.store copy_alloc_state.memory copy_alloc_state.mdomain
+        [(Number (&copy_source_index),copy_alloc_offset_rep);
+         (Number (&copy_count),copy_alloc_length_rep)]` by (
+    LABEL_ASSUM "copy_alloc_arguments_related" mp_tac
+    >> match_mp_tac memory_rel_rearrange
+    >> rw [ZIP,MEM_APPEND] >> gvs [])
+  >> imp_res_tac memory_rel_tl
+  >> imp_res_tac memory_rel_Number_IMP
+  >> qpat_x_assum `copy_alloc_offset_rep = Word (Smallnum (&copy_source_index))`
+    (assume_tac o SIMP_RULE (srw_ss()) [Smallnum_def])
+  >> qpat_x_assum `copy_alloc_length_rep = Word (Smallnum (&copy_count))`
+       (assume_tac o SIMP_RULE (srw_ss()) [Smallnum_def])
+  >> rveq
+  >> `get_var (adjust_var copy_source_var) copy_alloc_state =
+        SOME (Word copy_alloc_source_pointer) ∧
+      get_var (adjust_var copy_source_offset_var) copy_alloc_state =
+        SOME (Word (n2w (2 * copy_source_index))) ∧
+      get_var (adjust_var copy_length_var) copy_alloc_state =
+        SOME (Word (n2w (2 * copy_count)))` by (
+    qpat_x_assum `get_vars _ copy_alloc_state = SOME _` mp_tac
+    >> simp [wordSemTheory.get_vars_def,AllCaseEqs()])
+  >> `∃copy_header. encode_header c 0 copy_count = SOME copy_header` by (
+    qpat_x_assum `copy_count < copy_limit` mp_tac
+    >> qpat_x_assum `Abbrev (copy_limit = _)`
+         (fn th => rewrite_tac [REWRITE_RULE [markerTheory.Abbrev_def] th])
+    >> qpat_x_assum `arch_width_bits c.arch_width = dimindex (:'a)` mp_tac
+    >> qpat_x_assum `good_dimindex (:'a)` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> rw [good_dimindex_def,dimword_def]
+    >> qpat_x_assum `dimindex (:'a) = _` (fn th => fs [th,encode_header_def]))
+  >> `c.len_size ≠ 0 ∧ c.len_size + 9 < dimindex (:'a)` by (
+    drule memory_rel_len_size >> simp [])
+  >> qpat_assum `memory_rel c copy_alloc_state.be (THE s.tstamps) s.refs
+       (copy_count + 1) copy_alloc_state.store copy_alloc_state.memory
+       copy_alloc_state.mdomain
+       ((Block copy_source_stamp copy_source_tag copy_source_values,Word copy_alloc_source_pointer)::
+        copy_alloc_frame)`
+       (mp_tac o MATCH_MP (memory_rel_write
+         |> Q.INST [`w` |-> `Word (n2w copy_header:'a word)`]))
+  >> disch_then (qx_choose_then `copy_free`
+       (CONJUNCTS_THEN2 assume_tac
+         (qspec_then `0` (strip_assume_tac o SIMP_RULE (srw_ss()) [LET_THM,DECIDE ``0 < n + 1``]))))
+  >> qabbrev_tac `copy_header_memory =
+       (copy_free =+ Word (n2w copy_header)) copy_alloc_state.memory`
+  >> `memory_rel c copy_alloc_state.be (THE s.tstamps) s.refs (copy_count + 1)
+        copy_alloc_state.store copy_header_memory copy_alloc_state.mdomain
+        ((Block copy_source_stamp copy_source_tag copy_source_values,Word copy_alloc_source_pointer)::
+         copy_alloc_frame)` by simp [Abbr `copy_header_memory`]
+  >> `memory_rel c copy_alloc_state.be (THE s.tstamps) s.refs (copy_count + 1)
+        copy_alloc_state.store copy_header_memory copy_alloc_state.mdomain
+        (eq_explode (copy_alloc_source_address + bytes_in_word)
+           copy_header_memory copy_alloc_state.mdomain
+           (TAKE (LENGTH copy_source_values) copy_source_values) ++
+         (Block copy_source_stamp copy_source_tag copy_source_values,
+          Word copy_alloc_source_pointer)::copy_alloc_frame) ∧
+      eq_assum (copy_alloc_source_address + bytes_in_word) copy_header_memory
+        copy_alloc_state.mdomain
+        (TAKE (LENGTH copy_source_values) copy_source_values)` by (
+    irule memory_rel_Block_fields
+    >> asm_simp_tac std_ss [])
+  >> qpat_x_assum `memory_rel _ _ _ _ _ _ copy_header_memory _ (eq_explode _ _ _ _ ++ _)`
+       (assume_tac o SIMP_RULE (srw_ss()) [])
+  >> qpat_x_assum `eq_assum _ copy_header_memory _ _`
+       (assume_tac o SIMP_RULE (srw_ss()) [])
+  >> `memory_rel c copy_alloc_state.be (THE s.tstamps) s.refs (copy_count + 1)
+        copy_alloc_state.store copy_header_memory copy_alloc_state.mdomain
+        (ZIP (TAKE copy_count (DROP copy_source_index copy_source_values),
+          GENLIST (λi. copy_header_memory (copy_alloc_source_address + bytes_in_word +
+            n2w copy_source_index * bytes_in_word + n2w i * bytes_in_word))
+            copy_count) ++
+         (Block copy_source_stamp copy_source_tag copy_source_values,
+          Word copy_alloc_source_pointer)::copy_alloc_frame) ∧
+      ∀i. i < copy_count ⇒
+        copy_alloc_source_address + bytes_in_word + n2w copy_source_index * bytes_in_word +
+          n2w i * bytes_in_word ∈ copy_alloc_state.mdomain` by (
+    irule memory_rel_fields_slice
+    >> asm_simp_tac std_ss [ADD_COMM])
+  >> `copy_result_values = TAKE copy_count (DROP copy_source_index copy_source_values)` by (
+    fs [semanticPrimitivesTheory.copy_array_def,integerTheory.INT_ADD,integerTheory.INT_ABS_NUM])
+  >> `LENGTH copy_result_values = copy_count` by (
+    simp [LENGTH_TAKE,LENGTH_DROP]
+    >> decide_tac)
+  >> qabbrev_tac `copy_source_start =
+       copy_alloc_source_address + bytes_in_word + n2w copy_source_index * bytes_in_word`
+  >> qabbrev_tac `copy_words =
+       GENLIST (λi. copy_header_memory (copy_source_start + n2w i * bytes_in_word))
+         copy_count`
+  >> qspecl_then
+       [`copy_words`,
+        `(Block copy_source_stamp copy_source_tag copy_source_values,
+          Word copy_alloc_source_pointer)::copy_alloc_frame`,
+        `copy_result_values`,`THE s.tstamps`,`0`,`copy_alloc_state.store`,
+        `copy_count + 1`,`s.refs`,`copy_header_memory`,`copy_header`,
+        `copy_alloc_state.mdomain`,`c`,`copy_alloc_state.be`]
+       mp_tac (GEN_ALL memory_rel_Cons1)
+  >> impl_tac
+  >- (
+    simp [Abbr `copy_words`,Abbr `copy_source_start`]
+    >> fs [])
+  >> disch_then (qx_choosel_then
+       [`copy_result_free`,`copy_current_heap`,`copy_final_memory`]
+         (strip_assume_tac o SIMP_RULE std_ss [LET_THM]))
+  >> `copy_result_free = copy_free` by fs []
+  >> qpat_x_assum `copy_result_free = copy_free` SUBST_ALL_TAC
+  >> `LENGTH copy_words = copy_count` by simp [Abbr `copy_words`]
+  >> qabbrev_tac `copy_target_start = copy_free + bytes_in_word`
+  >> `store_list copy_target_start copy_words copy_header_memory
+        copy_alloc_state.mdomain = SOME copy_final_memory` by (
+    qpat_x_assum `store_list copy_free (_::_) _ _ = SOME copy_final_memory` mp_tac
+    >> simp [store_list_def,Abbr `copy_header_memory`,Abbr `copy_target_start`])
+  >> `∀i. i < copy_count ⇒
+        copy_target_start + n2w i * bytes_in_word ∈ copy_alloc_state.mdomain` by (
+    qpat_assum `store_list copy_target_start _ _ _ = SOME copy_final_memory`
+      (mp_tac o MATCH_MP store_list_domain)
+    >> simp [])
+  >> `SND (word_copy_plan copy_count copy_source_start copy_target_start
+        copy_header_memory copy_alloc_state.mdomain) = SOME copy_final_memory` by (
+    `0 < dimindex (:'a) DIV 8 ∧
+     2 * (copy_count * (dimindex (:'a) DIV 8)) < dimword (:'a)` by (
+      qpat_x_assum `copy_count + copy_source_index ≤ LENGTH copy_source_values` mp_tac
+      >> qpat_x_assum `LENGTH copy_source_values < dimword (:'a) DIV 16` mp_tac
+      >> qpat_x_assum `good_dimindex (:'a)` mp_tac
+      >> rpt (pop_assum kall_tac)
+      >> rw [good_dimindex_def,dimword_def]
+      >> qpat_x_assum `dimindex (:'a) = _` (fn th => fs [th])
+      >> decide_tac)
+    >> qspecl_then [`copy_count`,`copy_source_start`,`copy_target_start`,
+         `copy_header_memory`,`copy_alloc_state.mdomain`] mp_tac word_copy_plan_store_list
+    >> impl_tac >- asm_simp_tac std_ss []
+    >> fs [Abbr `copy_words`])
+  >> `copy_header = make_header c 0 copy_count` by fs [encode_header_def]
+  >> `3w || (n2w (2 * copy_count):'a word) <<
+        (dimindex (:'a) - (c.len_size + 1)) = n2w copy_header` by (
+    qspecl_then [`copy_count`,`c`] mp_tac (GEN_ALL copy_word_header)
+    >> asm_simp_tac std_ss [SUB_PLUS])
+  >> `(n2w (2 * copy_count):'a word) >>> 1 = n2w copy_count` by (
+    rewrite_tac [GSYM w2n_11,w2n_lsr]
+    >> fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV])
+  >> `1 < dimindex (:'a) ∧
+      dimindex (:'a) - (c.len_size + 1) < dimindex (:'a) ∧
+      dimindex (:'a) - (c.len_size + 1) < dimword (:'a)` by (
+    assume_tac dimindex_lt_dimword
+    >> fs [good_dimindex_def] >> decide_tac)
+  >> qpat_x_assum `get_var (adjust_var copy_source_var) copy_alloc_state = SOME _`
+       (assume_tac o REWRITE_RULE [wordSemTheory.get_var_def])
+  >> qpat_x_assum `get_var (adjust_var copy_source_offset_var) copy_alloc_state = SOME _`
+       (assume_tac o REWRITE_RULE [wordSemTheory.get_var_def])
+  >> qpat_x_assum `get_var (adjust_var copy_length_var) copy_alloc_state = SOME _`
+       (assume_tac o REWRITE_RULE [wordSemTheory.get_var_def])
+  >> qpat_x_assum `Word (n2w (2 * copy_count)) = Word (Smallnum (&copy_count))` kall_tac
+  >> qpat_x_assum `Word (n2w (2 * copy_source_index)) =
+       Word (Smallnum (&copy_source_index))` kall_tac
+  >> `(n2w (2 * copy_count):'a word) <<
+        (dimindex (:'a) - (c.len_size + 1)) || 3w = n2w copy_header` by (
+    once_rewrite_tac [WORD_OR_COMM]
+    >> qpat_assum `3w || _ = n2w copy_header` ACCEPT_TAC)
+  >> simp [wordSemTheory.get_store_def,wordSemTheory.word_sh_def,
+           wordSemTheory.mem_store_def,lookup_insert]
+  >> qmatch_goalsub_abbrev_tac
+       `evaluate (Make_ptr_bits_code c 9 7 3,copy_pointer_state)`
+  >> `c.tag_bits < dimindex (:'a) ∧ c.len_bits < dimindex (:'a) ∧
+      c.len_bits + 1 < dimindex (:'a) ∧
+      shift_length c < dimindex (:'a) + shift (dimindex (:'a))` by (
+    fs [shift_length_def] >> decide_tac)
+  >> `copy_count < dimword (:'a)` by decide_tac
+  >> `evaluate (Make_ptr_bits_code c 9 7 3,copy_pointer_state) =
+        (NONE,set_var 3
+          (make_cons_ptr c (copy_free - copy_current_heap) 0 copy_count)
+          copy_pointer_state)` by (
+    qspecl_then [`9`,`0`,`copy_pointer_state`,`7`,`copy_count`,`copy_free`,
+      `3`,`copy_current_heap`,`c`] mp_tac (GEN_ALL Make_ptr_bits_thm)
+    >> impl_tac >- simp [Abbr `copy_pointer_state`,lookup_insert]
+    >> simp [])
+  >> `shift (dimindex (:'a)) < dimindex (:'a) ∧
+      shift (dimindex (:'a)) < dimword (:'a)` by (
+    assume_tac dimindex_lt_dimword
+    >> rw [shift_def] >> fs [good_dimindex_def] >> decide_tac)
+  >> simp [Abbr `copy_pointer_state`,wordSemTheory.set_var_def,
+           wordSemTheory.set_store_def,lookup_insert,wordSemTheory.word_sh_def,shift_lsl]
+  >> qmatch_goalsub_abbrev_tac
+       `word_exp copy_source_state (real_addr c (adjust_var copy_source_var))`
+  >> `get_real_addr c copy_source_state.store copy_alloc_source_pointer =
+        SOME copy_alloc_source_address` by (
+    qpat_x_assum `get_real_addr c copy_alloc_state.store copy_alloc_source_pointer =
+      SOME copy_alloc_source_address` mp_tac
+    >> simp [Abbr `copy_source_state`,get_real_addr_def,FLOOKUP_UPDATE])
+  >> `get_var (adjust_var copy_source_var) copy_source_state =
+      SOME (Word copy_alloc_source_pointer) ∧
+   get_var (adjust_var copy_source_offset_var) copy_source_state =
+      SOME (Word (n2w (2 * copy_source_index))) ∧
+   get_var (adjust_var copy_length_var) copy_source_state =
+      SOME (Word (n2w (2 * copy_count)))` by (
+    simp [Abbr `copy_source_state`,wordSemTheory.get_var_def,lookup_insert])
+  >> `word_exp copy_source_state (real_addr c (adjust_var copy_source_var)) =
+        SOME (Word copy_alloc_source_address)` by (
+    irule get_real_addr_lemma >> simp [])
+  >> `get_real_offset (n2w (2 * copy_source_index):'a word) =
+        SOME (bytes_in_word + n2w copy_source_index * bytes_in_word)` by (
+    fs [good_dimindex_def,get_real_offset_def,bytes_in_word_def,
+        word_lsl_n2w,word_mul_n2w]
+    >> simp [MULT_ASSOC,WORD_ADD_COMM])
+  >> `word_exp copy_source_state (real_offset c (adjust_var copy_source_offset_var)) =
+        SOME (Word (bytes_in_word + n2w copy_source_index * bytes_in_word))` by (
+    irule get_real_offset_lemma >> simp [])
+  >> asm_simp_tac std_ss []
+  >> simp []
+  >> qpat_x_assum `copy_result_values = TAKE copy_count _`
+       (assume_named_tac "copy_values_slice")
+  >> qpat_x_assum `LENGTH copy_result_values = copy_count`
+       (assume_named_tac "copy_values_length")
+  >> `copy_alloc_state.termdep = t.termdep` by (
+    qpat_assum `evaluate (AllocVar _ _ _,copy_alloc_start) = (NONE,copy_alloc_state)`
+      (mp_tac o MATCH_MP wordSemTheory.evaluate_clock)
+    >> simp [Abbr `copy_alloc_start`])
+  >> `dataSem$cut_env copy_kept_names s.locals = SOME x.locals` by (
+    qpat_x_assum `cut_state_opt (SOME copy_kept_names) s = SOME x` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> simp [dataSemTheory.cut_state_opt_def,dataSemTheory.cut_state_def,AllCaseEqs()]
+    >> strip_tac >> gvs [])
+  >> `dataSem$cut_env copy_kept_names copy_alloc_locals = SOME x.locals` by (
+    irule cut_env_cut_env_list_insert
+    >> qexistsl_tac
+         [`s.locals`,`[copy_source_var;copy_source_offset_var;copy_length_var]`]
+    >> simp [list_insert_def,Abbr `copy_alloc_names`])
+  >> `cut_state_opt (SOME copy_kept_names)
+        (s with <|locals := copy_alloc_locals;space := copy_count + 1|>) =
+        SOME (x with space := copy_count + 1)` by (
+    qpat_x_assum `cut_state_opt (SOME copy_kept_names) s = SOME x` mp_tac
+    >> qpat_x_assum `dataSem$cut_env copy_kept_names copy_alloc_locals = SOME x.locals` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> simp [dataSemTheory.cut_state_opt_def,dataSemTheory.cut_state_def,AllCaseEqs()]
+    >> rpt strip_tac >> gvs [])
+  >> LABEL_ASSUM "copy_allocated_state"
+    (mp_then (Pos hd) mp_tac state_rel_cut_state_opt_SOME)
+  >> disch_then (qspecl_then
+       [`x with space := copy_count + 1`,
+        `[Block copy_source_stamp copy_source_tag copy_source_values;
+          Number (&copy_source_index);Number (&copy_count)]`,
+        `copy_kept_names`,
+        `[copy_source_var;copy_source_offset_var;copy_length_var]`] mp_tac)
+  >> impl_tac >- simp []
+  >> disch_then (qx_choosel_then
+       [`copy_after_alloc_locals`,`copy_after_alloc_words`] strip_assume_tac)
+  >> qpat_x_assum `state_rel c l1 l2 (x with space := copy_count + 1)
+       (copy_alloc_state with locals := copy_after_alloc_locals) NONE locs`
+       (assume_named_tac "copy_after_alloc_cut")
+  >> `∃copy_md copy_add_md copy_sub_md copy_loop_md.
+        lookup WordCopy_location copy_alloc_state.code = SOME (5,WordCopy_code c,copy_md) ∧
+        lookup WordCopyAdd_location copy_alloc_state.code = SOME (5,WordCopyAdd_code c,copy_add_md) ∧
+        lookup WordCopySub_location copy_alloc_state.code = SOME (5,WordCopySub_code c,copy_sub_md) ∧
+        lookup WordCopyLoop_location copy_alloc_state.code = SOME (5,WordCopyLoop_code c,copy_loop_md)` by (
+    qpat_x_assum `code_rel c s.code copy_alloc_state.code` mp_tac
+    >> simp [data_to_word_gcProofTheory.code_rel_def,stubs_md_def,stubs_def,MAP_MAP_o,o_DEF])
+  >> qpat_assum `cut_env (adjust_sets copy_kept_names) copy_alloc_state.locals =
+       SOME copy_after_alloc_locals` (mp_tac o MATCH_MP cut_env_IMP_cut_envs)
+  >> disch_then (qx_choosel_then
+       [`copy_saved_return`,`copy_saved_locals`] strip_assume_tac)
+  >> simp [lookup_insert,domain_adjust_sets,cut_envs_adjust_sets_insert_ODD]
+  >> qpat_x_assum `copy_alloc_state.code = copy_alloc_start.code`
+       (fn th => RULE_ASSUM_TAC (REWRITE_RULE [th]) >> assume_tac th)
+  >> simp []
+  >> qmatch_goalsub_abbrev_tac `evaluate (WordCopy_code c,copy_call_state)`
+  >> `word_copy_plan copy_count copy_source_start copy_target_start
+        copy_header_memory copy_alloc_state.mdomain =
+        (FST (word_copy_plan copy_count copy_source_start copy_target_start
+          copy_header_memory copy_alloc_state.mdomain),SOME copy_final_memory)` by (
+    qpat_x_assum `SND (word_copy_plan copy_count copy_source_start copy_target_start
+      copy_header_memory copy_alloc_state.mdomain) = SOME copy_final_memory` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> Cases_on `word_copy_plan copy_count copy_source_start copy_target_start
+      copy_header_memory copy_alloc_state.mdomain` >> simp [])
+  >> `copy_count + 2 < dimword (:'a)` by (
+    qpat_x_assum `copy_count + copy_source_index ≤ LENGTH copy_source_values` mp_tac
+    >> qpat_x_assum `LENGTH copy_source_values < dimword (:'a) DIV 16` mp_tac
+    >> qpat_x_assum `good_dimindex (:'a)` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> rw [good_dimindex_def,dimword_def]
+    >> qpat_x_assum `dimindex (:'a) = _` (fn th => fs [th])
+    >> decide_tac)
+  >> `FST (word_copy_plan copy_count copy_source_start copy_target_start
+        copy_header_memory copy_alloc_state.mdomain) < dimword (:'a)` by (
+    qpat_x_assum `copy_count + 2 < dimword (:'a)` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> qspecl_then [`copy_count`,`copy_source_start`,`copy_target_start`,
+         `copy_header_memory`,`copy_alloc_state.mdomain`] mp_tac word_copy_plan_ticks_bound
+    >> decide_tac)
+  >> `FST (word_copy_plan copy_count copy_source_start copy_target_start
+        copy_header_memory copy_alloc_state.mdomain) ≤ MustTerminate_limit (:'a) - 1` by (
+    qpat_x_assum `FST (word_copy_plan copy_count copy_source_start copy_target_start
+      copy_header_memory copy_alloc_state.mdomain) < dimword (:'a)`
+      (mp_tac o MATCH_MP IMP_LESS_MustTerminate_limit)
+    >> rpt (pop_assum kall_tac)
+    >> decide_tac)
+  >> qpat_x_assum `word_copy_plan _ _ _ _ _ = _`
+       (assume_named_tac "copy_plan")
+  >> qspecl_then [`copy_count`,`c`,`copy_source_start`,`copy_target_start`,
+       `copy_call_state`,`copy_header_memory`,`copy_alloc_state.mdomain`,
+       `copy_final_memory`,
+       `FST (word_copy_plan copy_count copy_source_start copy_target_start
+         copy_header_memory copy_alloc_state.mdomain)`,
+       `make_cons_ptr c (copy_free - copy_current_heap) 0 copy_count`,`n`,`l`]
+       mp_tac WordCopy_thm
+  >> impl_tac
+  >- (
+    conj_tac >- LABEL_ASSUM "copy_plan" ACCEPT_TAC
+    >> simp [Abbr `copy_call_state`,Abbr `copy_header_memory`,Abbr `copy_source_start`,
+             wordSemTheory.get_var_def,lookup_insert]
+    >> qpat_x_assum `FST (word_copy_plan _ _ _ _ _) ≤ MustTerminate_limit (:'a) - 1` mp_tac
+    >> qpat_x_assum `copy_header = make_header c 0 copy_count` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> simp [WORD_MULT_COMM])
+  >> disch_then (qx_choose_then `copy_maximum` strip_assume_tac)
+  >> qpat_x_assum `LENGTH copy_words = copy_count`
+       (assume_named_tac "copy_words_length")
+  >> namedCases_on `env_to_list copy_saved_locals copy_alloc_state.permute`
+       ["copy_saved_values copy_next_permute"]
+  >> `wf copy_saved_return ∧ wf copy_saved_locals` by (
+    qpat_x_assum `cut_envs (adjust_sets copy_kept_names) copy_alloc_state.locals =
+      SOME (copy_saved_return,copy_saved_locals)` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> gvs [wordSemTheory.cut_envs_def,wordSemTheory.cut_names_def,AllCaseEqs(),wf_inter]
+    >> strip_tac >> gvs [])
+  >> drule env_to_list_lookup_equiv >> strip_tac
+  >> `fromAList copy_saved_values = copy_saved_locals` by (
+    simp [spt_eq_thm,wf_fromAList,lookup_fromAList])
+  >> simp [Abbr `copy_call_state`,wordSemTheory.pop_env_def,wordSemTheory.push_env_def,
+        wordSemTheory.set_vars_def,alist_insert_def,fromAList_toAList,domain_union,
+        AC UNION_COMM UNION_ASSOC]
+  >> `x.stack = s.stack ∧ x.stack_max = s.stack_max ∧
+      x.locals_size = s.locals_size ∧ x.stack_frame_sizes = s.stack_frame_sizes ∧
+      x.tstamps = s.tstamps ∧ x.global = s.global ∧ x.clock = s.clock` by (
+    qpat_x_assum `cut_state_opt (SOME copy_kept_names) s = SOME x`
+      (mp_tac o MATCH_MP cut_state_opt_SOME_eq)
+    >> rpt (pop_assum kall_tac)
+    >> strip_tac >> gvs [])
+  >> LABEL_ASSUM "copy_after_alloc_cut"
+       (strip_assume_tac o SIMP_RULE (srw_ss()) [state_rel_thm])
+  >> simp [state_rel_thm,dataSemTheory.set_var_def,lookup_insert,adjust_var_11]
+  >> qpat_assum `copy_alloc_state.code = copy_alloc_start.code`
+       (fn th => RULE_ASSUM_TAC (REWRITE_RULE [th]))
+  >> qpat_assum `copy_alloc_state.compile_oracle = copy_alloc_start.compile_oracle`
+       (fn th => RULE_ASSUM_TAC (REWRITE_RULE [th]))
+  >> qpat_assum `copy_alloc_state.code_buffer = copy_alloc_start.code_buffer`
+       (fn th => RULE_ASSUM_TAC (REWRITE_RULE [th]))
+  >> qpat_assum `copy_alloc_state.data_buffer = copy_alloc_start.data_buffer`
+       (fn th => RULE_ASSUM_TAC (REWRITE_RULE [th]))
+  >> qpat_assum `copy_after_alloc_locals = union copy_saved_locals copy_saved_return`
+       (fn th => RULE_ASSUM_TAC (REWRITE_RULE [th]))
+  >> simp [FLOOKUP_UPDATE]
+  >> conj_tac
+  >- (
+    qx_gen_tac `copy_local`
+    >> Cases_on `copy_local = dest` >> simp [])
+  >> conj_tac
+  >- (
+    qpat_assum `evaluate (WordCopy_code c,_) = _`
+      (mp_tac o MATCH_MP evaluate_stack_max_le)
+    >> simp [option_le_max,stack_size_eq,option_add_comm]
+    >> strip_tac
+    >> qpat_x_assum `option_le (push_env _ _ _).stack_max copy_maximum` mp_tac
+    >> simp [wordSemTheory.push_env_def,option_le_max]
+    >> strip_tac
+    >> irule option_le_trans
+    >> qexists_tac `copy_alloc_state.stack_max`
+    >> simp []
+    >> qpat_x_assum `option_le (OPTION_MAP2 $+ (stack_size copy_alloc_state.stack) _)
+         copy_alloc_state.stack_max` mp_tac
+    >> simp [option_add_comm])
+  >> conj_tac
+  >- (
+    qpat_x_assum `option_le copy_maximum _` mp_tac
+    >> simp [wordSemTheory.push_env_def,stack_size_eq,option_add_comm]
+    >> strip_tac
+    >> `stack_size copy_alloc_state.stack = size_of_stack s.stack` by (
+      irule stack_rel_IMP_size_of_stack
+      >> qpat_assum `LIST_REL stack_rel s.stack copy_alloc_state.stack` ACCEPT_TAC)
+    >> qmatch_asmsub_abbrev_tac `option_le copy_maximum copy_stack_bound`
+    >> irule option_le_trans
+    >> qexists_tac `copy_stack_bound`
+    >> conj_tac >- simp []
+    >> simp [Abbr `copy_stack_bound`,option_map2_max_add,option_le_max,
+             option_le_max_right,option_le_add,option_add_comm]
+    >> disj2_tac >> disj1_tac
+    >> irule (ONCE_REWRITE_RULE [option_add_comm] option_le_add))
+  >> `s.tstamps = SOME copy_new_timestamp` by (
+    qpat_x_assum `x.tstamps = SOME copy_new_timestamp` mp_tac
+    >> simp [])
+  >> `copy_free + bytes_in_word * n2w (copy_count + 1) =
+        copy_target_start + bytes_in_word * n2w copy_count` by (
+    qpat_x_assum `Abbrev (copy_target_start = _)`
+      (fn th => rewrite_tac [REWRITE_RULE [markerTheory.Abbrev_def] th])
+    >> rpt (pop_assum kall_tac)
+    >> once_rewrite_tac [GSYM word_add_n2w]
+    >> rewrite_tac [WORD_LEFT_ADD_DISTRIB,WORD_MULT_CLAUSES]
+    >> simp_tac std_ss [AC WORD_ADD_ASSOC WORD_ADD_COMM])
+  >> `memory_rel c copy_alloc_state.be (copy_new_timestamp + 1) s.refs 0
+        (copy_alloc_state.store |+ (NextFree,
+          Word (copy_target_start + bytes_in_word * n2w copy_count)))
+        copy_final_memory copy_alloc_state.mdomain
+        ((Block copy_new_timestamp 0
+            (TAKE copy_count (DROP copy_source_index copy_source_values)),
+          make_cons_ptr c (copy_free - copy_current_heap) 0 copy_count)::
+         (Block copy_source_stamp copy_source_tag copy_source_values,
+          Word copy_alloc_source_pointer)::copy_alloc_frame)` by (
+    qpat_x_assum `memory_rel _ _ _ _ _ _ copy_final_memory _ ((Block _ _ _,_)::_)` mp_tac
+    >> LABEL_ASSUM "copy_words_length" mp_tac
+    >> LABEL_ASSUM "copy_values_slice" mp_tac
+    >> qpat_x_assum `s.tstamps = SOME copy_new_timestamp` mp_tac
+    >> qpat_x_assum `copy_free + bytes_in_word * n2w (copy_count + 1) = _` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> simp [])
+  >> qpat_x_assum `memory_rel _ _ _ _ 0 _ copy_final_memory _ ((Block _ _ _,_)::_)`
+       (assume_named_tac "copy_result_heap")
+  >> `∀copy_index copy_value.
+        lookup copy_index x.locals = SOME copy_value ⇒
+        lookup copy_index copy_alloc_locals = SOME copy_value` by (
+    qpat_x_assum `dataSem$cut_env copy_kept_names copy_alloc_locals = SOME x.locals` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> simp [dataSemTheory.cut_env_def,AllCaseEqs()]
+    >> strip_tac
+    >> qpat_x_assum `inter copy_alloc_locals copy_kept_names = x.locals`
+         (fn th => rewrite_tac [GSYM th])
+    >> rw [lookup_inter_alt,AllCaseEqs()] >> gvs [])
+  >> pop_assum (assume_named_tac "copy_data_submap")
+  >> `∀copy_index copy_value.
+        lookup copy_index (union copy_saved_locals copy_saved_return) = SOME copy_value ⇒
+        lookup copy_index copy_alloc_state.locals = SOME copy_value` by (
+    qpat_x_assum `cut_env (adjust_sets copy_kept_names) copy_alloc_state.locals =
+      SOME (union copy_saved_locals copy_saved_return)` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> strip_tac
+    >> qx_genl_tac [`copy_index`,`copy_value`] >> strip_tac
+    >> drule_all cut_env_IMP_lookup >> simp [])
+  >> pop_assum (assume_named_tac "copy_word_submap")
+  >> simp [FAPPLY_FUPDATE_THM]
+  >> asm_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  >> irule memory_rel_insert
+  >> rewrite_tac [APPEND]
+  >> LABEL_ASSUM "copy_result_heap" mp_tac
+  >> match_mp_tac memory_rel_rearrange
+  >> LABEL_ASSUM "copy_data_submap" mp_tac
+  >> LABEL_ASSUM "copy_word_submap" mp_tac
+  >> qpat_x_assum `Abbrev (copy_alloc_frame = _)`
+       (fn th => rewrite_tac [REWRITE_RULE [markerTheory.Abbrev_def] th])
+  >> rpt (pop_assum kall_tac)
+  >> rpt strip_tac
+  >> rw [MEM_APPEND] >> gvs []
+  >> disj2_tac >> disj2_tac >> disj1_tac
+  >> drule_all join_env_submap_MEM >> simp []
+QED
+
+Resume assign_CopyWord_new[ArrayEmpty]:
+  `∃copy_source_index copy_count.
+     copy_source_offset = &copy_source_index ∧ copy_length = &copy_count ∧
+     copy_source_index + copy_count ≤ LENGTH copy_source_values` by (
+    fs [semanticPrimitivesTheory.copy_array_def,not_less_zero_int_eq]
+    >> rveq
+    >> fs [NOT_LESS,integerTheory.INT_ADD,integerTheory.INT_ABS_NUM])
+  >> gvs []
+  >> `copy_count = 0` by (
+    fs [semanticPrimitivesTheory.copy_array_def,integerTheory.INT_ADD,
+        integerTheory.INT_ABS_NUM]
+    >> qpat_x_assum `TAKE _ _ = []` (mp_tac o AP_TERM ``LENGTH:dataSem$v list -> num``)
+    >> simp [LENGTH_TAKE,LENGTH_DROP]
+    >> decide_tac)
+  >> gvs []
+  >> qpat_x_assum `LENGTH args = 3` (mp_tac o REWRITE_RULE [LENGTH_EQ_3])
+  >> disch_then (qx_choosel_then
+       [`copy_source_var`,`copy_source_offset_var`,`copy_length_var`] assume_tac)
+  >> gvs []
+  >> `dataSem$get_var copy_length_var s.locals = SOME (Number (&0))` by (
+    qpat_x_assum `get_vars _ s.locals = SOME _` mp_tac
+    >> simp [dataSemTheory.get_vars_def,AllCaseEqs()])
+  >> `small_int (dimindex (:'a)) (&0)` by (
+    fs [state_rel_thm,good_dimindex_def,small_int_def])
+  >> LABEL_ASSUM "copy_before" assume_tac
+  >> drule_all state_rel_get_var_Number_IMP >> strip_tac
+  >> `arch_width_bits c.arch_width = dimindex (:'a)` by (
+    drule state_rel_arch_width >> simp [])
+  >> `good_dimindex (:'a)` by fs [state_rel_thm]
+  >> `encode_header c 0 0 = SOME 3` by (
+    fs [encode_header_def,make_header_def,good_dimindex_def] >> rfs [])
+  >> fs [Smallnum_def,wordSemTheory.get_var_def]
+  >> simp [assign_def,assign_CopyWord_def,eq_eval]
+  >> fs [state_rel_thm,dataSemTheory.set_var_def,lookup_insert,adjust_var_11,
+         option_le_max_right]
+  >> rfs []
+  >> conj_tac
+  >- (
+    qx_gen_tac `copy_local`
+    >> Cases_on `copy_local = dest` >> simp [])
+  >> conj_tac
+  >- (
+    qpat_x_assum `option_le (OPTION_MAP2 $+ (stack_size t.stack) t.locals_size)
+      t.stack_max` mp_tac
+    >> simp [])
+  >> irule memory_rel_zero_space
+  >> qexists_tac `x.space`
+  >> full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  >> irule memory_rel_insert
+  >> rewrite_tac [APPEND]
+  >> rewrite_tac [GSYM (SIMP_RULE std_ss [tuple_tag_def] dataSemTheory.Unit_def)]
+  >> irule memory_rel_Unit
+  >> asm_simp_tac std_ss []
+QED
+
+Resume assign_CopyWord_new[ArrayNonempty]:
+  qpat_x_assum `LENGTH args = 3` (mp_tac o REWRITE_RULE [LENGTH_EQ_3])
+  >> disch_then (qx_choosel_then
+       [`copy_source_var`,`copy_source_offset_var`,`copy_length_var`] assume_tac)
+  >> qpat_x_assum `LENGTH copy_argument_words = 3`
+       (mp_tac o REWRITE_RULE [LENGTH_EQ_3])
+  >> disch_then (qx_choosel_then
+       [`copy_source_rep`,`copy_source_offset_rep`,`copy_length_rep`] assume_tac)
+  >> gvs []
+  >> `∃copy_source_index copy_count.
+        copy_source_offset = &copy_source_index ∧ copy_length = &copy_count ∧
+        copy_source_index + copy_count ≤ LENGTH copy_source_values` by (
+    fs [semanticPrimitivesTheory.copy_array_def,not_less_zero_int_eq]
+    >> rveq
+    >> fs [NOT_LESS,integerTheory.INT_ADD,integerTheory.INT_ABS_NUM])
+  >> gvs []
+  >> `copy_count ≠ 0` by (
+    CCONTR_TAC
+    >> fs [semanticPrimitivesTheory.copy_array_def,integerTheory.INT_ADD,
+           integerTheory.INT_ABS_NUM])
+  >> LABEL_ASSUM "copy_before" (assume_tac o REWRITE_RULE [state_rel_thm])
+  >> full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+  >> drule_all (memory_rel_get_vars_IMP
+       |> Q.INST [`n` |-> `[copy_source_var; copy_source_offset_var; copy_length_var]`]
+       |> SIMP_RULE (srw_ss()) [MAP])
+  >> disch_then (assume_named_tac "copy_arguments_related")
+  >> `x.refs = s.refs` by (
+    drule cut_state_opt_SOME_eq >> strip_tac >> gvs [])
+  >> qabbrev_tac `copy_frame =
+       join_env s.locals (toAList (inter t.locals (adjust_set s.locals))) ++
+       (the_global s.global,t.store ' Globals)::flat s.stack t.stack`
+  >> `memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
+        ((RefPtr copy_source_flag copy_source_location,copy_source_rep)::copy_frame)` by (
+    LABEL_ASSUM "copy_arguments_related" mp_tac
+    >> match_mp_tac memory_rel_rearrange
+    >> rw [ZIP,MEM_APPEND,Abbr `copy_frame`] >> gvs [])
+  >> `lookup copy_source_location s.refs = SOME (ValueArray copy_source_values)` by fs []
+  >> drule_all memory_rel_ValueArray_IMP
+  >> disch_then (qx_choosel_then
+       [`copy_source_pointer`,`copy_source_address`,`copy_source_header`]
+       strip_assume_tac)
+  >> `LENGTH copy_source_values < dimword (:'a) DIV 16` by (
+    fs [good_dimindex_def,dimword_def] >> rfs [])
+  >> `copy_source_index < dimword (:'a) DIV 16 ∧
+      copy_count < dimword (:'a) DIV 16` by decide_tac
+  >> `small_int (dimindex (:'a)) (&copy_source_index) ∧
+      small_int (dimindex (:'a)) (&copy_count)` by (
+    fs [good_dimindex_def,dimword_def,small_int_def] >> rfs [] >> decide_tac)
+  >> `2 * copy_source_index < dimword (:'a) ∧
+      2 * copy_count < dimword (:'a)` by (
+    fs [good_dimindex_def,dimword_def] >> rfs [] >> decide_tac)
+  >> `memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
+        [(Number (&copy_source_index),copy_source_offset_rep);
+         (Number (&copy_count),copy_length_rep)]` by (
+    LABEL_ASSUM "copy_arguments_related" mp_tac
+    >> match_mp_tac memory_rel_rearrange
+    >> rw [ZIP,MEM_APPEND] >> gvs [])
+  >> imp_res_tac memory_rel_tl
+  >> imp_res_tac memory_rel_Number_IMP
+  >> gvs [Smallnum_def]
+  >> `arch_width_bits c.arch_width = dimindex (:'a)` by (
+    drule state_rel_arch_width >> simp [])
+  >> `encode_header c 0 0 = SOME 3` by (
+    fs [encode_header_def,make_header_def,good_dimindex_def] >> rfs [])
+  >> `get_var (adjust_var copy_length_var) t = SOME (Word (n2w (2 * copy_count)))` by (
+    qpat_x_assum `get_vars _ t = SOME _` mp_tac
+    >> simp [wordSemTheory.get_vars_def,AllCaseEqs()])
+  >> `¬word_bit 0 (n2w (2 * copy_count):'a word)` by (
+    simp [word_bit_def,word_index,bitTheory.BIT0_ODD,ODD_MULT])
+  >> drule_all evaluate_BignumHalt2 >> simp [] >> strip_tac
+  >> `(n2w (2 * copy_count):'a word) ≠ 0w` by (
+    simp [GSYM w2n_11])
+  >> fs [wordSemTheory.get_var_def]
+  >> simp [assign_def,assign_CopyWord_def,list_Seq_def,eq_eval,GSYM dimword_def]
+  >> qpat_x_assum `¬word_bit 0 (n2w (2 * copy_count):'a word)`
+       (assume_tac o SIMP_RULE std_ss [word_bit_def])
+  >> simp [get_names_def]
+  >> qmatch_goalsub_abbrev_tac `evaluate (AllocVar c copy_limit copy_alloc_names,copy_alloc_start)`
+  >> `state_rel c l1 l2 s copy_alloc_start NONE locs` by (
+    LABEL_ASSUM "copy_before" mp_tac
+    >> simp [Abbr `copy_alloc_start`,state_rel_insert_1])
+  >> `get_var 1 copy_alloc_start = SOME (Word (n2w (2 * copy_count)))` by (
+    simp [Abbr `copy_alloc_start`,wordSemTheory.get_var_def,lookup_insert])
+  >> `copy_limit < dimword (:'a) DIV 8` by (
+    fs [Abbr `copy_limit`,good_dimindex_def,dimword_def] >> rfs [])
+  >> `domain copy_kept_names ⊆ domain s.locals` by (
+    fs [dataSemTheory.cut_state_opt_def,dataSemTheory.cut_state_def,
+        dataSemTheory.cut_env_def,AllCaseEqs()])
+  >> `set [copy_source_var;copy_source_offset_var;copy_length_var] ⊆ domain s.locals` by (
+    rw [SUBSET_DEF] >> metis_tac [get_vars_IMP_domain,MEM])
+  >> `∃copy_alloc_locals.
+        dataSem$cut_env copy_alloc_names s.locals = SOME copy_alloc_locals` by (
+    fs [dataSemTheory.cut_env_def,Abbr `copy_alloc_names`,domain_insert,SUBSET_DEF]
+    >> rw [] >> fs [])
+  >> namedCases_on `evaluate (AllocVar c copy_limit copy_alloc_names,copy_alloc_start)`
+       ["copy_alloc_result copy_alloc_state"]
+  >> qspecl_then [`c`,`l1`,`l2`,`s`,`copy_alloc_start`,`locs`,
+       `[copy_source_var;copy_source_offset_var;copy_length_var]`,`copy_kept_names`,
+       `copy_alloc_locals`,
+       `[RefPtr copy_source_flag copy_source_location;
+         Number (&copy_source_index);Number (&copy_count)]`,
+       `copy_count`,`copy_limit`,`copy_alloc_result`,`copy_alloc_state`]
+       mp_tac AllocVar_thm_nary
+  >> impl_tac
+  >- fs [Abbr `copy_alloc_names`,list_insert_def]
+  >> disch_then (CONJUNCTS_THEN2
+       (assume_named_tac "copy_alloc_failure")
+       (assume_named_tac "copy_alloc_success"))
+  >> Cases_on `copy_alloc_result = SOME NotEnoughSpace`
+  >~ [`copy_alloc_result = SOME NotEnoughSpace (* a *)`]
+    >- (
+      LABEL_ASSUM "copy_alloc_failure" mp_tac
+      >> asm_simp_tac std_ss []
+      >> disch_then (CONJUNCTS_THEN2 assume_tac
+           (CONJUNCTS_THEN2 assume_tac (assume_named_tac "copy_heap_failure")))
+      >> `x.stack_max = s.stack_max ∧ x.limits = s.limits ∧
+          cut_locals copy_kept_names s = x` by (
+        fs [dataSemTheory.cut_state_opt_def,dataSemTheory.cut_state_def,
+            cut_locals_def,AllCaseEqs()]
+        >> rveq >> simp [])
+      >> simp []
+      >> conj_tac >- simp [option_le_max_right]
+      >> strip_tac >> disj1_tac
+      >> spose_not_then strip_assume_tac
+      >> fs []
+      >> `copy_count < copy_limit` by (
+        fs [Abbr `copy_limit`,limits_inv_def] >> rfs [])
+      >> LABEL_ASSUM "copy_heap_failure" mp_tac
+      >> asm_simp_tac std_ss []
+      >> fs [space_consumed_def]
+      >> decide_tac)
+  >> LABEL_ASSUM "copy_alloc_success" mp_tac
+  >> asm_simp_tac std_ss [] >> strip_tac
+  >> gvs []
+  >> `dataSem$get_vars [copy_source_var;copy_source_offset_var;copy_length_var]
+      copy_alloc_locals = SOME [RefPtr copy_source_flag copy_source_location;
+        Number (&copy_source_index);Number (&copy_count)]` by (
+    gvs [dataSemTheory.cut_env_def,Abbr `copy_alloc_names`,
+         dataSemTheory.get_vars_def,dataSemTheory.get_var_def,
+         lookup_inter_alt,AllCaseEqs()])
+  >> qpat_x_assum `state_rel c l1 l2
+       (s with <|locals := copy_alloc_locals; space := copy_count + 1|>)
+       copy_alloc_state NONE locs` (assume_named_tac "copy_allocated_state")
+  >> LABEL_ASSUM "copy_allocated_state"
+       (mp_then (Pos hd) mp_tac state_rel_get_vars_IMP)
+  >> disch_then (qspecl_then
+       [`[copy_source_var;copy_source_offset_var;copy_length_var]`,
+        `[RefPtr copy_source_flag copy_source_location;
+          Number (&copy_source_index);Number (&copy_count)]`] mp_tac)
+  >> impl_tac >- simp []
+  >> disch_then (qx_choose_then `copy_alloc_words` strip_assume_tac)
+  >> fs []
+  >> qpat_x_assum `3 = LENGTH copy_alloc_words`
+       (mp_tac o REWRITE_RULE [LENGTH_EQ_3] o GSYM)
+  >> disch_then (qx_choosel_then
+       [`copy_alloc_source_rep`,`copy_alloc_offset_rep`,`copy_alloc_length_rep`] assume_tac)
+  >> gvs []
+  >> LABEL_ASSUM "copy_allocated_state" (assume_tac o REWRITE_RULE [state_rel_thm])
+  >> fs []
+  >> full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+  >> drule_all (memory_rel_get_vars_IMP_lemma
+       |> Q.INST [`n` |-> `[copy_source_var;copy_source_offset_var;copy_length_var]`]
+       |> SIMP_RULE (srw_ss()) [MAP])
+  >> disch_then (assume_named_tac "copy_alloc_arguments_related")
+  >> qabbrev_tac `copy_alloc_frame =
+       join_env copy_alloc_locals
+         (toAList (inter copy_alloc_state.locals (adjust_set copy_alloc_locals))) ++
+       (the_global s.global,copy_alloc_state.store ' Globals)::
+       flat s.stack copy_alloc_state.stack`
+  >> `memory_rel c copy_alloc_state.be (THE s.tstamps) s.refs (copy_count + 1)
+        copy_alloc_state.store copy_alloc_state.memory copy_alloc_state.mdomain
+        ((RefPtr copy_source_flag copy_source_location,copy_alloc_source_rep)::
+         copy_alloc_frame)` by (
+    LABEL_ASSUM "copy_alloc_arguments_related" mp_tac
+    >> match_mp_tac memory_rel_rearrange
+    >> rw [ZIP,MEM_APPEND,Abbr `copy_alloc_frame`] >> gvs [])
+  >> drule_all memory_rel_ValueArray_IMP
+  >> disch_then (qx_choosel_then
+       [`copy_alloc_source_pointer`,`copy_alloc_source_address`,`copy_alloc_source_header`]
+       strip_assume_tac)
+  >> `memory_rel c copy_alloc_state.be (THE s.tstamps) s.refs (copy_count + 1)
+        copy_alloc_state.store copy_alloc_state.memory copy_alloc_state.mdomain
+        [(Number (&copy_source_index),copy_alloc_offset_rep);
+         (Number (&copy_count),copy_alloc_length_rep)]` by (
+    LABEL_ASSUM "copy_alloc_arguments_related" mp_tac
+    >> match_mp_tac memory_rel_rearrange
+    >> rw [ZIP,MEM_APPEND] >> gvs [])
+  >> imp_res_tac memory_rel_tl
+  >> imp_res_tac memory_rel_Number_IMP
+  >> qpat_x_assum `copy_alloc_offset_rep = Word (Smallnum (&copy_source_index))`
+    (assume_tac o SIMP_RULE (srw_ss()) [Smallnum_def])
+  >> qpat_x_assum `copy_alloc_length_rep = Word (Smallnum (&copy_count))`
+       (assume_tac o SIMP_RULE (srw_ss()) [Smallnum_def])
+  >> rveq
+  >> `get_var (adjust_var copy_source_var) copy_alloc_state =
+        SOME (Word copy_alloc_source_pointer) ∧
+      get_var (adjust_var copy_source_offset_var) copy_alloc_state =
+        SOME (Word (n2w (2 * copy_source_index))) ∧
+      get_var (adjust_var copy_length_var) copy_alloc_state =
+        SOME (Word (n2w (2 * copy_count)))` by (
+    qpat_x_assum `get_vars _ copy_alloc_state = SOME _` mp_tac
+    >> simp [wordSemTheory.get_vars_def,AllCaseEqs()])
+  >> `∃copy_header. encode_header c 0 copy_count = SOME copy_header` by (
+    qpat_x_assum `copy_count < copy_limit` mp_tac
+    >> qpat_x_assum `Abbrev (copy_limit = _)`
+         (fn th => rewrite_tac [REWRITE_RULE [markerTheory.Abbrev_def] th])
+    >> qpat_x_assum `arch_width_bits c.arch_width = dimindex (:'a)` mp_tac
+    >> qpat_x_assum `good_dimindex (:'a)` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> rw [good_dimindex_def,dimword_def]
+    >> qpat_x_assum `dimindex (:'a) = _` (fn th => fs [th,encode_header_def]))
+  >> `c.len_size ≠ 0 ∧ c.len_size + 9 < dimindex (:'a)` by (
+    drule memory_rel_len_size >> simp [])
+  >> qpat_assum `memory_rel c copy_alloc_state.be (THE s.tstamps) s.refs
+       (copy_count + 1) copy_alloc_state.store copy_alloc_state.memory
+       copy_alloc_state.mdomain
+       ((RefPtr copy_source_flag copy_source_location,Word copy_alloc_source_pointer)::
+        copy_alloc_frame)`
+       (mp_tac o MATCH_MP (memory_rel_write
+         |> Q.INST [`w` |-> `Word (n2w copy_header:'a word)`]))
+  >> disch_then (qx_choose_then `copy_free`
+       (CONJUNCTS_THEN2 assume_tac
+         (qspec_then `0` (strip_assume_tac o SIMP_RULE (srw_ss()) [LET_THM,DECIDE ``0 < n + 1``]))))
+  >> qabbrev_tac `copy_header_memory =
+       (copy_free =+ Word (n2w copy_header)) copy_alloc_state.memory`
+  >> `memory_rel c copy_alloc_state.be (THE s.tstamps) s.refs (copy_count + 1)
+        copy_alloc_state.store copy_header_memory copy_alloc_state.mdomain
+        ((RefPtr copy_source_flag copy_source_location,Word copy_alloc_source_pointer)::
+         copy_alloc_frame)` by simp [Abbr `copy_header_memory`]
+  >> `memory_rel c copy_alloc_state.be (THE s.tstamps) s.refs (copy_count + 1)
+        copy_alloc_state.store copy_header_memory copy_alloc_state.mdomain
+        (eq_explode (copy_alloc_source_address + bytes_in_word)
+           copy_header_memory copy_alloc_state.mdomain
+           (TAKE (LENGTH copy_source_values) copy_source_values) ++
+         (RefPtr copy_source_flag copy_source_location,
+          Word copy_alloc_source_pointer)::copy_alloc_frame) ∧
+      eq_assum (copy_alloc_source_address + bytes_in_word) copy_header_memory
+        copy_alloc_state.mdomain
+        (TAKE (LENGTH copy_source_values) copy_source_values)` by (
+    irule memory_rel_ValueArray_fields
+    >> asm_simp_tac std_ss [])
+  >> qpat_x_assum `memory_rel _ _ _ _ _ _ copy_header_memory _ (eq_explode _ _ _ _ ++ _)`
+       (assume_tac o SIMP_RULE (srw_ss()) [])
+  >> qpat_x_assum `eq_assum _ copy_header_memory _ _`
+       (assume_tac o SIMP_RULE (srw_ss()) [])
+  >> `memory_rel c copy_alloc_state.be (THE s.tstamps) s.refs (copy_count + 1)
+        copy_alloc_state.store copy_header_memory copy_alloc_state.mdomain
+        (ZIP (TAKE copy_count (DROP copy_source_index copy_source_values),
+          GENLIST (λi. copy_header_memory (copy_alloc_source_address + bytes_in_word +
+            n2w copy_source_index * bytes_in_word + n2w i * bytes_in_word))
+            copy_count) ++
+         (RefPtr copy_source_flag copy_source_location,
+          Word copy_alloc_source_pointer)::copy_alloc_frame) ∧
+      ∀i. i < copy_count ⇒
+        copy_alloc_source_address + bytes_in_word + n2w copy_source_index * bytes_in_word +
+          n2w i * bytes_in_word ∈ copy_alloc_state.mdomain` by (
+    irule memory_rel_fields_slice
+    >> asm_simp_tac std_ss [ADD_COMM])
+  >> `copy_result_values = TAKE copy_count (DROP copy_source_index copy_source_values)` by (
+    fs [semanticPrimitivesTheory.copy_array_def,integerTheory.INT_ADD,integerTheory.INT_ABS_NUM])
+  >> `LENGTH copy_result_values = copy_count` by (
+    simp [LENGTH_TAKE,LENGTH_DROP]
+    >> decide_tac)
+  >> qabbrev_tac `copy_source_start =
+       copy_alloc_source_address + bytes_in_word + n2w copy_source_index * bytes_in_word`
+  >> qabbrev_tac `copy_words =
+       GENLIST (λi. copy_header_memory (copy_source_start + n2w i * bytes_in_word))
+         copy_count`
+  >> qspecl_then
+       [`copy_words`,
+        `(RefPtr copy_source_flag copy_source_location,
+          Word copy_alloc_source_pointer)::copy_alloc_frame`,
+        `copy_result_values`,`THE s.tstamps`,`0`,`copy_alloc_state.store`,
+        `copy_count + 1`,`s.refs`,`copy_header_memory`,`copy_header`,
+        `copy_alloc_state.mdomain`,`c`,`copy_alloc_state.be`]
+       mp_tac (GEN_ALL memory_rel_Cons1)
+  >> impl_tac
+  >- (
+    simp [Abbr `copy_words`,Abbr `copy_source_start`]
+    >> fs [])
+  >> disch_then (qx_choosel_then
+       [`copy_result_free`,`copy_current_heap`,`copy_final_memory`]
+         (strip_assume_tac o SIMP_RULE std_ss [LET_THM]))
+  >> `copy_result_free = copy_free` by fs []
+  >> qpat_x_assum `copy_result_free = copy_free` SUBST_ALL_TAC
+  >> `LENGTH copy_words = copy_count` by simp [Abbr `copy_words`]
+  >> qabbrev_tac `copy_target_start = copy_free + bytes_in_word`
+  >> `store_list copy_target_start copy_words copy_header_memory
+        copy_alloc_state.mdomain = SOME copy_final_memory` by (
+    qpat_x_assum `store_list copy_free (_::_) _ _ = SOME copy_final_memory` mp_tac
+    >> simp [store_list_def,Abbr `copy_header_memory`,Abbr `copy_target_start`])
+  >> `∀i. i < copy_count ⇒
+        copy_target_start + n2w i * bytes_in_word ∈ copy_alloc_state.mdomain` by (
+    qpat_assum `store_list copy_target_start _ _ _ = SOME copy_final_memory`
+      (mp_tac o MATCH_MP store_list_domain)
+    >> simp [])
+  >> `SND (word_copy_plan copy_count copy_source_start copy_target_start
+        copy_header_memory copy_alloc_state.mdomain) = SOME copy_final_memory` by (
+    `0 < dimindex (:'a) DIV 8 ∧
+     2 * (copy_count * (dimindex (:'a) DIV 8)) < dimword (:'a)` by (
+      qpat_x_assum `copy_count + copy_source_index ≤ LENGTH copy_source_values` mp_tac
+      >> qpat_x_assum `LENGTH copy_source_values < dimword (:'a) DIV 16` mp_tac
+      >> qpat_x_assum `good_dimindex (:'a)` mp_tac
+      >> rpt (pop_assum kall_tac)
+      >> rw [good_dimindex_def,dimword_def]
+      >> qpat_x_assum `dimindex (:'a) = _` (fn th => fs [th])
+      >> decide_tac)
+    >> qspecl_then [`copy_count`,`copy_source_start`,`copy_target_start`,
+         `copy_header_memory`,`copy_alloc_state.mdomain`] mp_tac word_copy_plan_store_list
+    >> impl_tac >- asm_simp_tac std_ss []
+    >> fs [Abbr `copy_words`])
+  >> `copy_header = make_header c 0 copy_count` by fs [encode_header_def]
+  >> `3w || (n2w (2 * copy_count):'a word) <<
+        (dimindex (:'a) - (c.len_size + 1)) = n2w copy_header` by (
+    qspecl_then [`copy_count`,`c`] mp_tac (GEN_ALL copy_word_header)
+    >> asm_simp_tac std_ss [SUB_PLUS])
+  >> `(n2w (2 * copy_count):'a word) >>> 1 = n2w copy_count` by (
+    rewrite_tac [GSYM w2n_11,w2n_lsr]
+    >> fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV])
+  >> `1 < dimindex (:'a) ∧
+      dimindex (:'a) - (c.len_size + 1) < dimindex (:'a) ∧
+      dimindex (:'a) - (c.len_size + 1) < dimword (:'a)` by (
+    assume_tac dimindex_lt_dimword
+    >> fs [good_dimindex_def] >> decide_tac)
+  >> qpat_x_assum `get_var (adjust_var copy_source_var) copy_alloc_state = SOME _`
+       (assume_tac o REWRITE_RULE [wordSemTheory.get_var_def])
+  >> qpat_x_assum `get_var (adjust_var copy_source_offset_var) copy_alloc_state = SOME _`
+       (assume_tac o REWRITE_RULE [wordSemTheory.get_var_def])
+  >> qpat_x_assum `get_var (adjust_var copy_length_var) copy_alloc_state = SOME _`
+       (assume_tac o REWRITE_RULE [wordSemTheory.get_var_def])
+  >> qpat_x_assum `Word (n2w (2 * copy_count)) = Word (Smallnum (&copy_count))` kall_tac
+  >> qpat_x_assum `Word (n2w (2 * copy_source_index)) =
+       Word (Smallnum (&copy_source_index))` kall_tac
+  >> `(n2w (2 * copy_count):'a word) <<
+        (dimindex (:'a) - (c.len_size + 1)) || 3w = n2w copy_header` by (
+    once_rewrite_tac [WORD_OR_COMM]
+    >> qpat_assum `3w || _ = n2w copy_header` ACCEPT_TAC)
+  >> simp [wordSemTheory.get_store_def,wordSemTheory.word_sh_def,
+           wordSemTheory.mem_store_def,lookup_insert]
+  >> qmatch_goalsub_abbrev_tac
+       `evaluate (Make_ptr_bits_code c 9 7 3,copy_pointer_state)`
+  >> `c.tag_bits < dimindex (:'a) ∧ c.len_bits < dimindex (:'a) ∧
+      c.len_bits + 1 < dimindex (:'a) ∧
+      shift_length c < dimindex (:'a) + shift (dimindex (:'a))` by (
+    fs [shift_length_def] >> decide_tac)
+  >> `copy_count < dimword (:'a)` by decide_tac
+  >> `evaluate (Make_ptr_bits_code c 9 7 3,copy_pointer_state) =
+        (NONE,set_var 3
+          (make_cons_ptr c (copy_free - copy_current_heap) 0 copy_count)
+          copy_pointer_state)` by (
+    qspecl_then [`9`,`0`,`copy_pointer_state`,`7`,`copy_count`,`copy_free`,
+      `3`,`copy_current_heap`,`c`] mp_tac (GEN_ALL Make_ptr_bits_thm)
+    >> impl_tac >- simp [Abbr `copy_pointer_state`,lookup_insert]
+    >> simp [])
+  >> `shift (dimindex (:'a)) < dimindex (:'a) ∧
+      shift (dimindex (:'a)) < dimword (:'a)` by (
+    assume_tac dimindex_lt_dimword
+    >> rw [shift_def] >> fs [good_dimindex_def] >> decide_tac)
+  >> simp [Abbr `copy_pointer_state`,wordSemTheory.set_var_def,
+           wordSemTheory.set_store_def,lookup_insert,wordSemTheory.word_sh_def,shift_lsl]
+  >> qmatch_goalsub_abbrev_tac
+       `word_exp copy_source_state (real_addr c (adjust_var copy_source_var))`
+  >> `get_real_addr c copy_source_state.store copy_alloc_source_pointer =
+        SOME copy_alloc_source_address` by (
+    qpat_x_assum `get_real_addr c copy_alloc_state.store copy_alloc_source_pointer =
+      SOME copy_alloc_source_address` mp_tac
+    >> simp [Abbr `copy_source_state`,get_real_addr_def,FLOOKUP_UPDATE])
+  >> `get_var (adjust_var copy_source_var) copy_source_state =
+      SOME (Word copy_alloc_source_pointer) ∧
+   get_var (adjust_var copy_source_offset_var) copy_source_state =
+      SOME (Word (n2w (2 * copy_source_index))) ∧
+   get_var (adjust_var copy_length_var) copy_source_state =
+      SOME (Word (n2w (2 * copy_count)))` by (
+    simp [Abbr `copy_source_state`,wordSemTheory.get_var_def,lookup_insert])
+  >> `word_exp copy_source_state (real_addr c (adjust_var copy_source_var)) =
+        SOME (Word copy_alloc_source_address)` by (
+    irule get_real_addr_lemma >> simp [])
+  >> `get_real_offset (n2w (2 * copy_source_index):'a word) =
+        SOME (bytes_in_word + n2w copy_source_index * bytes_in_word)` by (
+    fs [good_dimindex_def,get_real_offset_def,bytes_in_word_def,
+        word_lsl_n2w,word_mul_n2w]
+    >> simp [MULT_ASSOC,WORD_ADD_COMM])
+  >> `word_exp copy_source_state (real_offset c (adjust_var copy_source_offset_var)) =
+        SOME (Word (bytes_in_word + n2w copy_source_index * bytes_in_word))` by (
+    irule get_real_offset_lemma >> simp [])
+  >> asm_simp_tac std_ss []
+  >> simp []
+  >> qpat_x_assum `copy_result_values = TAKE copy_count _`
+       (assume_named_tac "copy_values_slice")
+  >> qpat_x_assum `LENGTH copy_result_values = copy_count`
+       (assume_named_tac "copy_values_length")
+  >> `copy_alloc_state.termdep = t.termdep` by (
+    qpat_assum `evaluate (AllocVar _ _ _,copy_alloc_start) = (NONE,copy_alloc_state)`
+      (mp_tac o MATCH_MP wordSemTheory.evaluate_clock)
+    >> simp [Abbr `copy_alloc_start`])
+  >> `dataSem$cut_env copy_kept_names s.locals = SOME x.locals` by (
+    qpat_x_assum `cut_state_opt (SOME copy_kept_names) s = SOME x` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> simp [dataSemTheory.cut_state_opt_def,dataSemTheory.cut_state_def,AllCaseEqs()]
+    >> strip_tac >> gvs [])
+  >> `dataSem$cut_env copy_kept_names copy_alloc_locals = SOME x.locals` by (
+    irule cut_env_cut_env_list_insert
+    >> qexistsl_tac
+         [`s.locals`,`[copy_source_var;copy_source_offset_var;copy_length_var]`]
+    >> simp [list_insert_def,Abbr `copy_alloc_names`])
+  >> `cut_state_opt (SOME copy_kept_names)
+        (s with <|locals := copy_alloc_locals;space := copy_count + 1|>) =
+        SOME (x with space := copy_count + 1)` by (
+    qpat_x_assum `cut_state_opt (SOME copy_kept_names) s = SOME x` mp_tac
+    >> qpat_x_assum `dataSem$cut_env copy_kept_names copy_alloc_locals = SOME x.locals` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> simp [dataSemTheory.cut_state_opt_def,dataSemTheory.cut_state_def,AllCaseEqs()]
+    >> rpt strip_tac >> gvs [])
+  >> LABEL_ASSUM "copy_allocated_state"
+    (mp_then (Pos hd) mp_tac state_rel_cut_state_opt_SOME)
+  >> disch_then (qspecl_then
+       [`x with space := copy_count + 1`,
+        `[RefPtr copy_source_flag copy_source_location;
+          Number (&copy_source_index);Number (&copy_count)]`,
+        `copy_kept_names`,
+        `[copy_source_var;copy_source_offset_var;copy_length_var]`] mp_tac)
+  >> impl_tac >- simp []
+  >> disch_then (qx_choosel_then
+       [`copy_after_alloc_locals`,`copy_after_alloc_words`] strip_assume_tac)
+  >> qpat_x_assum `state_rel c l1 l2 (x with space := copy_count + 1)
+       (copy_alloc_state with locals := copy_after_alloc_locals) NONE locs`
+       (assume_named_tac "copy_after_alloc_cut")
+  >> `∃copy_md copy_add_md copy_sub_md copy_loop_md.
+        lookup WordCopy_location copy_alloc_state.code = SOME (5,WordCopy_code c,copy_md) ∧
+        lookup WordCopyAdd_location copy_alloc_state.code = SOME (5,WordCopyAdd_code c,copy_add_md) ∧
+        lookup WordCopySub_location copy_alloc_state.code = SOME (5,WordCopySub_code c,copy_sub_md) ∧
+        lookup WordCopyLoop_location copy_alloc_state.code = SOME (5,WordCopyLoop_code c,copy_loop_md)` by (
+    qpat_x_assum `code_rel c s.code copy_alloc_state.code` mp_tac
+    >> simp [data_to_word_gcProofTheory.code_rel_def,stubs_md_def,stubs_def,MAP_MAP_o,o_DEF])
+  >> qpat_assum `cut_env (adjust_sets copy_kept_names) copy_alloc_state.locals =
+       SOME copy_after_alloc_locals` (mp_tac o MATCH_MP cut_env_IMP_cut_envs)
+  >> disch_then (qx_choosel_then
+       [`copy_saved_return`,`copy_saved_locals`] strip_assume_tac)
+  >> simp [lookup_insert,domain_adjust_sets,cut_envs_adjust_sets_insert_ODD]
+  >> qpat_x_assum `copy_alloc_state.code = copy_alloc_start.code`
+       (fn th => RULE_ASSUM_TAC (REWRITE_RULE [th]) >> assume_tac th)
+  >> simp []
+  >> qmatch_goalsub_abbrev_tac `evaluate (WordCopy_code c,copy_call_state)`
+  >> `word_copy_plan copy_count copy_source_start copy_target_start
+        copy_header_memory copy_alloc_state.mdomain =
+        (FST (word_copy_plan copy_count copy_source_start copy_target_start
+          copy_header_memory copy_alloc_state.mdomain),SOME copy_final_memory)` by (
+    qpat_x_assum `SND (word_copy_plan copy_count copy_source_start copy_target_start
+      copy_header_memory copy_alloc_state.mdomain) = SOME copy_final_memory` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> Cases_on `word_copy_plan copy_count copy_source_start copy_target_start
+      copy_header_memory copy_alloc_state.mdomain` >> simp [])
+  >> `copy_count + 2 < dimword (:'a)` by (
+    qpat_x_assum `copy_count + copy_source_index ≤ LENGTH copy_source_values` mp_tac
+    >> qpat_x_assum `LENGTH copy_source_values < dimword (:'a) DIV 16` mp_tac
+    >> qpat_x_assum `good_dimindex (:'a)` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> rw [good_dimindex_def,dimword_def]
+    >> qpat_x_assum `dimindex (:'a) = _` (fn th => fs [th])
+    >> decide_tac)
+  >> `FST (word_copy_plan copy_count copy_source_start copy_target_start
+        copy_header_memory copy_alloc_state.mdomain) < dimword (:'a)` by (
+    qpat_x_assum `copy_count + 2 < dimword (:'a)` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> qspecl_then [`copy_count`,`copy_source_start`,`copy_target_start`,
+         `copy_header_memory`,`copy_alloc_state.mdomain`] mp_tac word_copy_plan_ticks_bound
+    >> decide_tac)
+  >> `FST (word_copy_plan copy_count copy_source_start copy_target_start
+        copy_header_memory copy_alloc_state.mdomain) ≤ MustTerminate_limit (:'a) - 1` by (
+    qpat_x_assum `FST (word_copy_plan copy_count copy_source_start copy_target_start
+      copy_header_memory copy_alloc_state.mdomain) < dimword (:'a)`
+      (mp_tac o MATCH_MP IMP_LESS_MustTerminate_limit)
+    >> rpt (pop_assum kall_tac)
+    >> decide_tac)
+  >> qpat_x_assum `word_copy_plan _ _ _ _ _ = _`
+       (assume_named_tac "copy_plan")
+  >> qspecl_then [`copy_count`,`c`,`copy_source_start`,`copy_target_start`,
+       `copy_call_state`,`copy_header_memory`,`copy_alloc_state.mdomain`,
+       `copy_final_memory`,
+       `FST (word_copy_plan copy_count copy_source_start copy_target_start
+         copy_header_memory copy_alloc_state.mdomain)`,
+       `make_cons_ptr c (copy_free - copy_current_heap) 0 copy_count`,`n`,`l`]
+       mp_tac WordCopy_thm
+  >> impl_tac
+  >- (
+    conj_tac >- LABEL_ASSUM "copy_plan" ACCEPT_TAC
+    >> simp [Abbr `copy_call_state`,Abbr `copy_header_memory`,Abbr `copy_source_start`,
+             wordSemTheory.get_var_def,lookup_insert]
+    >> qpat_x_assum `FST (word_copy_plan _ _ _ _ _) ≤ MustTerminate_limit (:'a) - 1` mp_tac
+    >> qpat_x_assum `copy_header = make_header c 0 copy_count` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> simp [WORD_MULT_COMM])
+  >> disch_then (qx_choose_then `copy_maximum` strip_assume_tac)
+  >> qpat_x_assum `LENGTH copy_words = copy_count`
+       (assume_named_tac "copy_words_length")
+  >> namedCases_on `env_to_list copy_saved_locals copy_alloc_state.permute`
+       ["copy_saved_values copy_next_permute"]
+  >> `wf copy_saved_return ∧ wf copy_saved_locals` by (
+    qpat_x_assum `cut_envs (adjust_sets copy_kept_names) copy_alloc_state.locals =
+      SOME (copy_saved_return,copy_saved_locals)` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> gvs [wordSemTheory.cut_envs_def,wordSemTheory.cut_names_def,AllCaseEqs(),wf_inter]
+    >> strip_tac >> gvs [])
+  >> drule env_to_list_lookup_equiv >> strip_tac
+  >> `fromAList copy_saved_values = copy_saved_locals` by (
+    simp [spt_eq_thm,wf_fromAList,lookup_fromAList])
+  >> simp [Abbr `copy_call_state`,wordSemTheory.pop_env_def,wordSemTheory.push_env_def,
+        wordSemTheory.set_vars_def,alist_insert_def,fromAList_toAList,domain_union,
+        AC UNION_COMM UNION_ASSOC]
+  >> `x.stack = s.stack ∧ x.stack_max = s.stack_max ∧
+      x.locals_size = s.locals_size ∧ x.stack_frame_sizes = s.stack_frame_sizes ∧
+      x.tstamps = s.tstamps ∧ x.global = s.global ∧ x.clock = s.clock` by (
+    qpat_x_assum `cut_state_opt (SOME copy_kept_names) s = SOME x`
+      (mp_tac o MATCH_MP cut_state_opt_SOME_eq)
+    >> rpt (pop_assum kall_tac)
+    >> strip_tac >> gvs [])
+  >> LABEL_ASSUM "copy_after_alloc_cut"
+       (strip_assume_tac o SIMP_RULE (srw_ss()) [state_rel_thm])
+  >> simp [state_rel_thm,dataSemTheory.set_var_def,lookup_insert,adjust_var_11]
+  >> qpat_assum `copy_alloc_state.code = copy_alloc_start.code`
+       (fn th => RULE_ASSUM_TAC (REWRITE_RULE [th]))
+  >> qpat_assum `copy_alloc_state.compile_oracle = copy_alloc_start.compile_oracle`
+       (fn th => RULE_ASSUM_TAC (REWRITE_RULE [th]))
+  >> qpat_assum `copy_alloc_state.code_buffer = copy_alloc_start.code_buffer`
+       (fn th => RULE_ASSUM_TAC (REWRITE_RULE [th]))
+  >> qpat_assum `copy_alloc_state.data_buffer = copy_alloc_start.data_buffer`
+       (fn th => RULE_ASSUM_TAC (REWRITE_RULE [th]))
+  >> qpat_assum `copy_after_alloc_locals = union copy_saved_locals copy_saved_return`
+       (fn th => RULE_ASSUM_TAC (REWRITE_RULE [th]))
+  >> simp [FLOOKUP_UPDATE]
+  >> conj_tac
+  >- (
+    qx_gen_tac `copy_local`
+    >> Cases_on `copy_local = dest` >> simp [])
+  >> conj_tac
+  >- (
+    qpat_assum `evaluate (WordCopy_code c,_) = _`
+      (mp_tac o MATCH_MP evaluate_stack_max_le)
+    >> simp [option_le_max,stack_size_eq,option_add_comm]
+    >> strip_tac
+    >> qpat_x_assum `option_le (push_env _ _ _).stack_max copy_maximum` mp_tac
+    >> simp [wordSemTheory.push_env_def,option_le_max]
+    >> strip_tac
+    >> irule option_le_trans
+    >> qexists_tac `copy_alloc_state.stack_max`
+    >> simp []
+    >> qpat_x_assum `option_le (OPTION_MAP2 $+ (stack_size copy_alloc_state.stack) _)
+         copy_alloc_state.stack_max` mp_tac
+    >> simp [option_add_comm])
+  >> conj_tac
+  >- (
+    qpat_x_assum `option_le copy_maximum _` mp_tac
+    >> simp [wordSemTheory.push_env_def,stack_size_eq,option_add_comm]
+    >> strip_tac
+    >> `stack_size copy_alloc_state.stack = size_of_stack s.stack` by (
+      irule stack_rel_IMP_size_of_stack
+      >> qpat_assum `LIST_REL stack_rel s.stack copy_alloc_state.stack` ACCEPT_TAC)
+    >> qmatch_asmsub_abbrev_tac `option_le copy_maximum copy_stack_bound`
+    >> irule option_le_trans
+    >> qexists_tac `copy_stack_bound`
+    >> conj_tac >- simp []
+    >> simp [Abbr `copy_stack_bound`,option_map2_max_add,option_le_max,
+             option_le_max_right,option_le_add,option_add_comm]
+    >> disj2_tac >> disj1_tac
+    >> irule (ONCE_REWRITE_RULE [option_add_comm] option_le_add))
+  >> `s.tstamps = SOME copy_new_timestamp` by (
+    qpat_x_assum `x.tstamps = SOME copy_new_timestamp` mp_tac
+    >> simp [])
+  >> `copy_free + bytes_in_word * n2w (copy_count + 1) =
+        copy_target_start + bytes_in_word * n2w copy_count` by (
+    qpat_x_assum `Abbrev (copy_target_start = _)`
+      (fn th => rewrite_tac [REWRITE_RULE [markerTheory.Abbrev_def] th])
+    >> rpt (pop_assum kall_tac)
+    >> once_rewrite_tac [GSYM word_add_n2w]
+    >> rewrite_tac [WORD_LEFT_ADD_DISTRIB,WORD_MULT_CLAUSES]
+    >> simp_tac std_ss [AC WORD_ADD_ASSOC WORD_ADD_COMM])
+  >> `memory_rel c copy_alloc_state.be (copy_new_timestamp + 1) s.refs 0
+        (copy_alloc_state.store |+ (NextFree,
+          Word (copy_target_start + bytes_in_word * n2w copy_count)))
+        copy_final_memory copy_alloc_state.mdomain
+        ((Block copy_new_timestamp 0
+            (TAKE copy_count (DROP copy_source_index copy_source_values)),
+          make_cons_ptr c (copy_free - copy_current_heap) 0 copy_count)::
+         (RefPtr copy_source_flag copy_source_location,
+          Word copy_alloc_source_pointer)::copy_alloc_frame)` by (
+    qpat_x_assum `memory_rel _ _ _ _ _ _ copy_final_memory _ ((Block _ _ _,_)::_)` mp_tac
+    >> LABEL_ASSUM "copy_words_length" mp_tac
+    >> LABEL_ASSUM "copy_values_slice" mp_tac
+    >> qpat_x_assum `s.tstamps = SOME copy_new_timestamp` mp_tac
+    >> qpat_x_assum `copy_free + bytes_in_word * n2w (copy_count + 1) = _` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> simp [])
+  >> qpat_x_assum `memory_rel _ _ _ _ 0 _ copy_final_memory _ ((Block _ _ _,_)::_)`
+       (assume_named_tac "copy_result_heap")
+  >> `∀copy_index copy_value.
+        lookup copy_index x.locals = SOME copy_value ⇒
+        lookup copy_index copy_alloc_locals = SOME copy_value` by (
+    qpat_x_assum `dataSem$cut_env copy_kept_names copy_alloc_locals = SOME x.locals` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> simp [dataSemTheory.cut_env_def,AllCaseEqs()]
+    >> strip_tac
+    >> qpat_x_assum `inter copy_alloc_locals copy_kept_names = x.locals`
+         (fn th => rewrite_tac [GSYM th])
+    >> rw [lookup_inter_alt,AllCaseEqs()] >> gvs [])
+  >> pop_assum (assume_named_tac "copy_data_submap")
+  >> `∀copy_index copy_value.
+        lookup copy_index (union copy_saved_locals copy_saved_return) = SOME copy_value ⇒
+        lookup copy_index copy_alloc_state.locals = SOME copy_value` by (
+    qpat_x_assum `cut_env (adjust_sets copy_kept_names) copy_alloc_state.locals =
+      SOME (union copy_saved_locals copy_saved_return)` mp_tac
+    >> rpt (pop_assum kall_tac)
+    >> strip_tac
+    >> qx_genl_tac [`copy_index`,`copy_value`] >> strip_tac
+    >> drule_all cut_env_IMP_lookup >> simp [])
+  >> pop_assum (assume_named_tac "copy_word_submap")
+  >> simp [FAPPLY_FUPDATE_THM]
+  >> asm_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  >> irule memory_rel_insert
+  >> rewrite_tac [APPEND]
+  >> LABEL_ASSUM "copy_result_heap" mp_tac
+  >> match_mp_tac memory_rel_rearrange
+  >> LABEL_ASSUM "copy_data_submap" mp_tac
+  >> LABEL_ASSUM "copy_word_submap" mp_tac
+  >> qpat_x_assum `Abbrev (copy_alloc_frame = _)`
+       (fn th => rewrite_tac [REWRITE_RULE [markerTheory.Abbrev_def] th])
+  >> rpt (pop_assum kall_tac)
+  >> rpt strip_tac
+  >> rw [MEM_APPEND] >> gvs []
+  >> disj2_tac >> disj2_tac >> disj1_tac
+  >> drule_all join_env_submap_MEM >> simp []
+QED
+
+Finalise assign_CopyWord_new;
+
+
+
 Theorem assign_CopyByte:
   (∃new_flag. op = MemOp (CopyByte new_flag) /\ ¬ new_flag) ==> ^assign_thm_goal
 Proof
@@ -14080,6 +16794,8 @@ Proof
   \\ suspend "replicate"
 QED
 
+
+
 Resume assign_RefArray[replicate]:
   fs[list_Seq_def]
   \\ qmatch_goalsub_abbrev_tac `(Call _ _ _ _,bigenv)`
@@ -14226,6 +16942,7 @@ Resume assign_RefArray[replicate]:
 QED
 
 Finalise assign_RefArray;
+
 
 Theorem LENGTH_n2mw_1[local]:
     LENGTH ((n2mw n) :'a word list) = 1 <=> n <> 0 /\ n < dimword (:'a)
@@ -22263,14 +24980,6 @@ Theorem IMP:
 Proof
   Cases_on `b1` \\ Cases_on `b2` \\ fs []
 QED
-
-Definition memcopy_def:
-  memcopy k a1 a2 m dm =
-    if k = 0n then SOME m else
-      if a1 IN dm /\ a2 IN dm then
-        memcopy (k-1) (a1+bytes_in_word) (a2+bytes_in_word) ((a2 =+ m a1) m) dm
-      else NONE
-End
 
 Theorem MemCopy_thm:
    !ret_val l1 l2 k c a1 a2 (s:('a,'c,'ffi) wordSem$state) m dm m1.

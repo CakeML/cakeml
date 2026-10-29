@@ -18,6 +18,8 @@ Inductive opClass:
        op = Opref ∨ op = Aw8alloc ∨ op = Aw8sub ∨ op = Aw8length ∨
        op = Aw8update ∨ op = CopyStrStr ∨ op = CopyStrAw8 ∨
        op = CopyAw8Str ∨ op = CopyAw8Aw8 ∨
+       op = CopyVecVec ∨ op = CopyVecArr ∨
+       op = CopyArrVec ∨ op = CopyArrArr ∨
        op = Implode ∨ op = Explode ∨ op = Strsub ∨ op = Strsub_unsafe ∨
        op = Aw8ScanEq ∨ op = Aw8ScanNeq ∨
        op = StrScanEq ∨ op = StrScanNeq ∨ op = Strlen ∨

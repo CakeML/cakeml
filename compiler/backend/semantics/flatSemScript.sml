@@ -563,6 +563,41 @@ Definition do_app_def:
               SOME s' => SOME (s with refs := s', Rval Unitv)
             | _ => NONE))
     | _ => NONE)
+  | (Src CopyVecVec, [Vectorv vs;Litv(IntLit off);Litv(IntLit len)]) =>
+      SOME (s,
+      (case copy_array (vs,off) len NONE of
+        NONE => Rerr (Rraise subscript_exn_v)
+      | SOME cs => Rval (Vectorv cs)))
+  | (Src CopyVecArr, [Vectorv vs;Litv(IntLit off);Litv(IntLit len);
+                  Loc _ dst;Litv(IntLit dstoff)]) =>
+      (case store_lookup dst s.refs of
+        SOME (Varray ws) =>
+          (case copy_array (vs,off) len (SOME(ws,dstoff)) of
+            NONE => SOME (s, Rerr (Rraise subscript_exn_v))
+          | SOME cs =>
+            (case store_assign dst (Varray cs) s.refs of
+              SOME s' =>  SOME (s with refs := s', Rval Unitv)
+            | _ => NONE))
+      | _ => NONE)
+  | (Src CopyArrVec, [Loc _ src;Litv(IntLit off);Litv(IntLit len)]) =>
+    (case store_lookup src s.refs of
+      SOME (Varray ws) =>
+      SOME (s,
+        (case copy_array (ws,off) len NONE of
+          NONE => Rerr (Rraise subscript_exn_v)
+        | SOME ws => Rval (Vectorv ws)))
+    | _ => NONE)
+  | (Src CopyArrArr, [Loc _ src;Litv(IntLit off);Litv(IntLit len);
+                  Loc _ dst;Litv(IntLit dstoff)]) =>
+    (case (store_lookup src s.refs, store_lookup dst s.refs) of
+      (SOME (Varray ws), SOME (Varray ds)) =>
+        (case copy_array (ws,off) len (SOME(ds,dstoff)) of
+          NONE => SOME (s, Rerr (Rraise subscript_exn_v))
+        | SOME ws =>
+            (case store_assign dst (Varray ws) s.refs of
+              SOME s' => SOME (s with refs := s', Rval Unitv)
+            | _ => NONE))
+    | _ => NONE)
   | (Src XorAw8Str_unsafe, [Loc _ dst; Litv (StrLit str_arg)]) =>
     (case store_lookup dst s.refs of
      | SOME (W8array ds) =>

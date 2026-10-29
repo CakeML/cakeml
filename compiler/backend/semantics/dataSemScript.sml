@@ -251,6 +251,8 @@ Definition space_consumed_def:
   (space_consumed ^s (BlockOp (ConsExtend tag)) (Block _ _ xs'::Number lower::Number len::Number tot::xs) =
    LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) + 1
   ) /\
+  (space_consumed s (MemOp (CopyWord T)) [src;off;Number len] =
+    if len = 0 then 0 else Num len + 1) /\
   (space_consumed s (MemOp RefArray) [Number len; _] = Num len + 1) /\
   (space_consumed s (MemOp (RefByte _)) [Number len; _] = Num len DIV (arch_size s.limits DIV 8) + 2) /\
   (space_consumed s (MemOp (CopyByte T)) [_; _; Number len] =
@@ -317,6 +319,11 @@ Definition stack_consumed_def:
       if op = SmallDiv \/ op = SmallMod
       then lookup SmallnumDivMod_location sfs else SOME 0
     else NONE) /\
+  (stack_consumed sfs lims (MemOp (CopyWord _)) vs =
+    OPTION_MAP2 MAX (sptree$lookup WordCopy_location sfs)
+      (OPTION_MAP2 MAX (lookup WordCopyLoop_location sfs)
+        (OPTION_MAP2 MAX (lookup WordCopyAdd_location sfs)
+          (lookup WordCopySub_location sfs)))) /\
   (stack_consumed sfs lims (MemOp (CopyByte new)) vs =
     OPTION_MAP2 MAX
      (lookup (if new then ByteCopyNew_location else ByteCopy_location) sfs)
@@ -661,6 +668,10 @@ Definition lim_safe_def[simp]:
       let jl = bignum_size lims.arch_64_bit i2 in
         il + jl <= 2 ** lims.length_limit)
   )
+∧ (lim_safe lims (MemOp (CopyWord T)) [src;off;Number len] =
+   (len = 0 ∨
+    (0 ≤ len ∧ Num len < 2 ** (arch_size lims) DIV 16 ∧
+     Num len < 2 ** lims.length_limit)))
 ∧ (lim_safe lims (MemOp RefArray) [Number i; v] =
    (0 <= i /\
     Num i < 2 ** (arch_size lims) DIV 16 /\
@@ -1106,6 +1117,33 @@ Definition do_app_aux_def:
             | SOME ds =>
               let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
                 Rval (RefPtr T ptr, s with refs := insert ptr (ByteArray T ds) s.refs)
+            | NONE => Error)
+         | _ => Error)
+    | (MemOp (CopyWord F),[Block ts tag ws; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
+        (case lookup dst s.refs of
+         | SOME (ValueArray ds) =>
+           (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
+            | SOME ds => Rval (Unit, s with refs := insert dst (ValueArray ds) s.refs)
+            | NONE => Error)
+         | _ => Error)
+    | (MemOp (CopyWord F),[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
+        (case (lookup src s.refs, lookup dst s.refs) of
+         | (SOME (ValueArray ws), SOME (ValueArray ds)) =>
+           (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
+            | SOME ds => Rval (Unit, s with refs := insert dst (ValueArray ds) s.refs)
+            | NONE => Error)
+         | _ => Error)
+    | (MemOp (CopyWord T),[Block ts tag ws; Number srcoff; Number len]) =>
+        (case copy_array (ws,srcoff) len NONE of
+         | SOME ds => if ds = [] then Rval (Block 0 0 [],s) else
+             with_fresh_ts s 1 (λts next. Rval (Block ts 0 ds,next))
+         | NONE => Error)
+    | (MemOp (CopyWord T),[RefPtr _ src; Number srcoff; Number len]) =>
+        (case lookup src s.refs of
+         | SOME (ValueArray ws) =>
+           (case copy_array (ws,srcoff) len NONE of
+            | SOME ds => if ds = [] then Rval (Block 0 0 [],s) else
+             with_fresh_ts s 1 (λts next. Rval (Block ts 0 ds,next))
             | NONE => Error)
          | _ => Error)
     | (MemOp (CopyByte F),[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
