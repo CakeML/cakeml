@@ -194,7 +194,7 @@ QED
 
 Quote add_cakeml:
   fun delete_literals_sing_arr lno carr b v i =
-  if i = 0 then True
+  if i = 0 then 0
   else
     let
       val i1 = Unsafe.Arith.subWitness i 1 v
@@ -211,7 +211,9 @@ Quote add_cakeml:
           else
             if all_assigned_arr carr b c v i1
             then
-              (Unsafe.update carr nc (Unsafe.Arith.+ b 1); False)
+              if Unsafe.Arith.< (Unsafe.sub carr nc) b
+              then (Unsafe.update carr nc (Unsafe.Arith.+ b 1); nc)
+              else c
             else
               raise Fail (format_failure lno "clause not empty or singleton after reduction")
         end
@@ -222,7 +224,9 @@ Quote add_cakeml:
         else
           if all_assigned_arr carr b c v i1
           then
-            (Unsafe.update carr c b; False)
+            if Unsafe.Arith.< (Unsafe.sub carr c) b
+            then (Unsafe.update carr c b; c)
+            else Unsafe.Arith.subWitness 0 c carr
           else
             raise Fail (format_failure lno "clause not empty or singleton after reduction")
     end
@@ -242,9 +246,9 @@ Theorem delete_literals_sing_arr_spec:
     (NUM_ARRAY Carrv Clist)
     (POSTve
       (λv.
-        SEP_EXISTS b' Clist'.
+        SEP_EXISTS r Clist'.
         NUM_ARRAY Carrv Clist' *
-        &(res = SOME(b',Clist') ∧ BOOL b' v))
+        &(res = SOME(r,Clist') ∧ INT r v))
       (λe.
         NUM_ARRAY Carrv Clist *
         &(Fail_exn e ∧ res = NONE))
@@ -261,8 +265,7 @@ Proof
   xlet_autop>>
   xif>>gvs[]
   >- (
-    xcon>>xsimpl>>
-    EVAL_TAC)>>
+    xlit>>xsimpl)>>
   xlet_auto_spec (SOME num_sub_vec_spec)
   >- xsimpl>>
   xlet_auto
@@ -289,18 +292,29 @@ Proof
     rpt xlet_autop>>
     xif>>gvs[]
     >- (
-      xlet_auto_spec (SOME num_add_spec)
-      >- xsimpl>>
-      xlet`POSTv uv. NUM_ARRAY Carrv
-        (LUPDATE (b+1) (Num (-sub vec (i-1))) Clist)`
+      xlet`POSTv sv. NUM_ARRAY Carrv Clist *
+        &NUM (EL (Num (-sub vec (i-1))) Clist) sv`
       >- (
         simp[NUM_ARRAY_def]>>xpull>>
         xapp>>xsimpl>>
         qexists_tac`Num (-sub vec (i-1))`>>
-        imp_res_tac LIST_REL_LENGTH>>
-        gvs[NUM_def,INT_def,EVERY2_LUPDATE_same])>>
-      xcon>>xsimpl>>
-      EVAL_TAC)>>
+        gvs[LIST_REL_EL_EQN,NUM_def,INT_def])>>
+      xlet_auto_spec (SOME num_lt_spec)
+      >- xsimpl>>
+      xif>>gvs[]
+      >- (
+        xlet_auto_spec (SOME num_add_spec)
+        >- xsimpl>>
+        xlet`POSTv uv. NUM_ARRAY Carrv
+          (LUPDATE (b+1) (Num (-sub vec (i-1))) Clist)`
+        >- (
+          simp[NUM_ARRAY_def]>>xpull>>
+          xapp>>xsimpl>>
+          qexists_tac`Num (-sub vec (i-1))`>>
+          imp_res_tac LIST_REL_LENGTH>>
+          gvs[NUM_def,INT_def,EVERY2_LUPDATE_same])>>
+        xvar>>xsimpl)>>
+      xvar>>xsimpl)>>
     rpt xlet_autop>>
     xraise>>xsimpl>>
     metis_tac[Fail_exn_def])>>
@@ -318,16 +332,32 @@ Proof
   xlet_autop>>
   xif>>fs[]
   >- (
-    xlet`POSTv uv. NUM_ARRAY Carrv
-      (LUPDATE b (Num (sub vec (i-1))) Clist)`
+    xlet`POSTv sv. NUM_ARRAY Carrv Clist *
+      &NUM (EL (Num (sub vec (i-1))) Clist) sv`
     >- (
       simp[NUM_ARRAY_def]>>xpull>>
       xapp>>xsimpl>>
       qexists_tac`Num (sub vec (i-1))`>>
-      imp_res_tac LIST_REL_LENGTH>>
-      gvs[NUM_def,INT_def,EVERY2_LUPDATE_same,integerTheory.INT_NOT_LT])>>
-    xcon>>xsimpl>>
-    EVAL_TAC)>>
+      gvs[LIST_REL_EL_EQN,NUM_def,INT_def,integerTheory.INT_NOT_LT])>>
+    xlet_auto_spec (SOME num_lt_spec)
+    >- xsimpl>>
+    xif>>gvs[]
+    >- (
+      xlet`POSTv uv. NUM_ARRAY Carrv
+        (LUPDATE b (Num (sub vec (i-1))) Clist)`
+      >- (
+        simp[NUM_ARRAY_def]>>xpull>>
+        xapp>>xsimpl>>
+        qexists_tac`Num (sub vec (i-1))`>>
+        imp_res_tac LIST_REL_LENGTH>>
+        gvs[NUM_def,INT_def,EVERY2_LUPDATE_same,integerTheory.INT_NOT_LT])>>
+      xvar>>xsimpl)>>
+    xapp_prepare_goal>>
+    irule cfAppTheory.app_weaken>>
+    irule_at Any int_sub_numarr_spec>>
+    qexistsl_tac [`sub vec (i-1)`,`0`]>>
+    simp[INT_def]>>
+    xsimpl)>>
   rpt xlet_autop>>
   xraise>>xsimpl>>
   metis_tac[Fail_exn_def]
@@ -630,7 +660,7 @@ Quote add_cakeml:
     case hints of
       [] => False
     | i::is =>
-      if unit_prop_one lno fml carr b i
+      if int_eq_0 (unit_prop_one lno fml carr b i)
       then
         True
       else
@@ -651,9 +681,9 @@ Theorem unit_prop_one_spec:
     (POSTve
       (λv.
         ARRAY fmlv fmllsv *
-        SEP_EXISTS b' Clist'.
+        SEP_EXISTS r Clist'.
         NUM_ARRAY Carrv Clist' *
-        &(res = SOME(b',Clist') ∧ BOOL b' v))
+        &(res = SOME(r,Clist') ∧ INT r v))
       (λe.
         ARRAY fmlv fmllsv *
         SEP_EXISTS Clist'.
@@ -747,7 +777,8 @@ Proof
     xsimpl>>
     gvs[AllCaseEqs()]>>
     metis_tac[NUM_ARRAY_refl])>>
-  xif>>gvs[]
+  xlet_autop>>
+  xif>>gvs[int_eq_0_def]
   >- (
     xcon>>xsimpl>>
     EVAL_TAC)>>
@@ -938,7 +969,7 @@ Quote add_cakeml:
     case parse_vb_int s i1 len of (m,i) =>
     if m <= 0 then Some i1
     else
-      if unit_prop_one lno fml carr b m
+      if int_eq_0 (unit_prop_one lno fml carr b m)
       then
         None
       else
@@ -996,11 +1027,12 @@ Proof
      >- (
        xsimpl >> rpt strip_tac >> rveq >> fs[] >>
        metis_tac[NUM_ARRAY_refl]) >>
+  xlet_autop >>
   xif >- (
       xcon >> xsimpl >>
-      gvs[AllCaseEqs(),OPTION_TYPE_def] >>
+      gvs[AllCaseEqs(),OPTION_TYPE_def,int_eq_0_def] >>
       metis_tac[NUM_ARRAY_refl]) >>
-  gvs[] >>
+  gvs[int_eq_0_def] >>
   `stamps_ok Clist' b` by metis_tac[stamps_ok_unit_prop_one'] >>
   `i' ≤ l` by metis_tac[parse_vb_int_le] >>
   first_x_assum drule_all >>
