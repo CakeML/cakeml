@@ -14,6 +14,9 @@ Libs
    Refactor tactics; should be stepable (i.e. modular and composed of things),
    and have good error messages. *)
 
+(* TODO Should we give hint when we have something of shape
+     x ∈ (dec_clock s).memaddrs as a side condition? *)
+
 (** set_sep and word helpers **************************************************)
 
 (* TODO move to set_sep *)
@@ -561,16 +564,20 @@ fun copy(to, from, num) {
 fun mw_fix(x_len, x) {
   while x_len {
     var t1 = lds 1 x;
-    if t1 { x_len = x_len - 1; } else { break; }
-    x = x - @biw;
+    if t1 {
+      break;
+    } else {
+      x_len = x_len - 1;
+      x = x - @biw;
+    }
   }
   return x_len;
 }
 
 fun mw_and_pan(x_len, xs, ys, zs) {
   while x_len {
-    var x = lds 1 x;
-    var y = lds 1 y;
+    var x = lds 1 xs;
+    var y = lds 1 ys;
     st zs, x & y;
     xs = xs + @biw;
     ys = ys + @biw;
@@ -581,11 +588,11 @@ fun mw_and_pan(x_len, xs, ys, zs) {
 }
 
 fun mw_and_flip_pan(x_len, x, y_len, y, z) {
-  if x_len <= y_len { mw_and(x_len, x, y, z); return x_len; }
-  else { mw_and(y_len, y, x, z); return y_len; }
+  if x_len <= y_len { mw_and_pan(x_len, x, y, z); return x_len; }
+  else { mw_and_pan(y_len, y, x, z); return y_len; }
 }
 
-fun and_neg_pos_geq(y_len, c, xs, ys, zs) {
+fun mwi_and_neg_pos_geq_pan(c, xs, y_len, ys, zs) {
   while y_len {
     var x = lds 1 xs;
     var y = lds 1 ys;
@@ -661,9 +668,11 @@ fun mwi_and_fused_pan(s, x_len, x, t, y_len, y, z) {
       return <1, z_len>;
     } else {
       if x_len < y_len {
-        var t1 = mwi_and_neg_pos_lt_pan(0, x, x_len, y, y_len, z);
+        mwi_and_neg_pos_lt_pan(0, x, x_len, y, y_len, z);
+        var t1 = y_len;
       } else {
-        var t1 = mwi_and_neg_pos_geq_pan(0, y, x, x_len, z);
+        mwi_and_neg_pos_geq_pan(0, y, x_len, x, z);
+        var t1 = y_len;
       }
       var z_len = mw_fix(t1, z);
       return <0, z_len>;
@@ -671,9 +680,11 @@ fun mwi_and_fused_pan(s, x_len, x, t, y_len, y, z) {
   } else {
     if t {
       if y_len < x_len {
-        var t1 = mwi_and_neg_pos_lt_pan(0, y_len, y, x_len, x, z);
+        mwi_and_neg_pos_lt_pan(0, y_len, y, x_len, x, z);
+        var t1 = y_len;
       } else {
-        var t1 = mwi_and_neg_pos_geq_pan(0, x, y, y_len, z);
+        mwi_and_neg_pos_geq_pan(0, x, y_len, y, z);
+        var t1 = x_len;
       }
       var z_len = mw_fix(t1, z);
       return <0, z_len>;
@@ -687,253 +698,19 @@ fun mwi_and_fused_pan(s, x_len, x, t, y_len, y, z) {
 End
 
 val mw_and_pan     = get_field "body" "mw_and_pan" and_prog
-val and_neg_pos_geq = get_field "body" "and_neg_pos_geq" and_prog
+val mwi_and_neg_pos_geq_pan = get_field "body" "mwi_and_neg_pos_geq_pan" and_prog
 
 Definition mw_and_pan_loop_def:
   mw_and_pan_loop =
     ^(find_term (can $ match_term “panLang$While _ _”) mw_and_pan)
 End
 
-Definition and_neg_pos_geq_loop_def:
-  and_neg_pos_geq_loop =
-    ^(find_term (can $ match_term “panLang$While _ _”) and_neg_pos_geq)
+Definition mwi_and_neg_pos_geq_pan_loop_def:
+  mwi_and_neg_pos_geq_pan_loop =
+    ^(find_term (can $ match_term “panLang$While _ _”) mwi_and_neg_pos_geq_pan)
 End
 
 (** Correctness ***************************************************************)
-
-(*
-Theorem mw_and_pan_thm:
-  ∀(xs: α word list) ys zs rs s x y z frame.
-    mw_and xs ys = zs ∧ LENGTH xs ≤ LENGTH ys ∧
-    LENGTH rs = LENGTH xs ∧ LENGTH xs ≤ s.clock ∧
-    FLOOKUP s.locals «x_len» = SOME (Val (Word (n2w (LENGTH xs)))) ∧
-    FLOOKUP s.locals «x» = SOME (Val (Word x)) ∧
-    FLOOKUP s.locals «y» = SOME (Val (Word y)) ∧
-    FLOOKUP s.locals «z» = SOME (Val (Word z)) ∧
-    (ones x (MAP Word xs) *
-     ones y (MAP Word ys) *
-     ones z rs *
-     frame) (fun2set (s.memory, s.memaddrs)) ∧
-    byte_dimindex (:α) ∧ 8 < dimindex (:α)
-    ⇒
-    ∃m l.
-      evaluate (mw_and_pan_loop,s) = (NONE,
-        s with <| memory := m;
-                  locals := l;
-                  clock := s.clock - LENGTH xs |>) ∧
-      (ones x (MAP Word xs) *
-       ones y (MAP Word ys) *
-       ones z (MAP Word zs) *
-       frame) (fun2set (m, s.memaddrs))
-Proof
-  simp []
-  >> Induct >> rw [mw_and_def]
-  >-
-   (simp [mw_and_pan_loop_def]
-    >> simp [Once evaluate_def,eval_def,asmTheory.word_cmp_def]
-    >> simp [state_component_equality])
-  >> simp [mw_and_pan_loop_def]
-  >> rename1 ‘evaluate (While (Var Local «x_len») _, _)’
-  >> irule_at (Pos hd) evaluate_While_True_NONE
-  >> simp []
-  >> ‘SUC (LENGTH xs) < dimword (:α)’ by
-    (drule_then assume_tac $
-       INST_TYPE [“:β” |-> “:α word_lab”] ones_leq_dimword
-     >> SEP_F_TAC >> simp [] >> strip_tac
-     >> drule_all_then assume_tac one_lt_w2n_bytes_in_word
-     >> irule_at (Pos hd) LESS_LESS_EQ_TRANS
-     >> first_assum $ irule_at (Pos last)
-     >> simp [])
-  >> simp []
-  >> rename1 ‘evaluate (Dec «t1» One (Load One (Var Local «x»)) _, _)’
-  >> irule_at (Pos hd) evaluate_Dec_NONE
-  >> irule_at (Pos hd) eval_Load_One_Local_SOME
-  >> simp []
-  >> fs [ones_def] >> SEP_R_TAC
-  >> simp []
-  >> rename1 ‘evaluate (Dec «t2» One (Load One (Var Local «y»)) _, _)’
-  >> irule_at (Pos hd) evaluate_Dec_NONE
-  >> irule_at (Pos hd) eval_Load_One_Local_SOME
-  >> simp [FLOOKUP_SIMP]
-  >> Cases_on ‘ys’ >> gvs []
-  >> fs [ones_def] >> SEP_R_TAC
-  >> simp []
-  (**)
-  >> rename1 ‘evaluate (Seq (Store (Var Local «z») _) _, _)’
-  >> irule_at (Pos hd) evaluate_Seq_NONE
-  >> irule_at (Pos hd) evaluate_Store_Local_NONE
-  >> simp [FLOOKUP_SIMP]
-  >> Cases_on ‘rs’ >> gvs []
-  >> fs [ones_def] >> SEP_R_TAC >> simp []
-  >> irule_at (Pos hd) eval_Op_And_SOME
-  >> simp [FLOOKUP_SIMP]
-  (* NOTE SEP_W_TAC seems to have an issue with this record access? *)
-  >> qabbrev_tac ‘memory = s.memory’
-  >> SEP_W_TAC
-  >> simp [Abbr ‘memory’]
-  >> rename1 ‘evaluate (Seq (Assign Local «x» _) _, _)’
-  >> irule_at (Pos hd) evaluate_Seq_NONE
-  >> irule_at (Pos hd) evaluate_Assign_Local
-  >> irule_at (Pos hd) eval_Op_Add_SOME
-  >> simp [FLOOKUP_SIMP]
-  >> rename1 ‘evaluate (Seq (Assign Local «y» _) _, _)’
-  >> irule_at (Pos hd) evaluate_Seq_NONE
-  >> irule_at (Pos hd) evaluate_Assign_Local
-  >> irule_at (Pos hd) eval_Op_Add_SOME
-  >> simp [FLOOKUP_SIMP]
-  >> rename1 ‘evaluate (Seq (Assign Local «z» _) _, _)’
-  >> irule_at (Pos hd) evaluate_Seq_NONE
-  >> irule_at (Pos hd) evaluate_Assign_Local
-  >> irule_at (Pos hd) eval_Op_Add_SOME
-  >> simp [FLOOKUP_SIMP]
-  >> rename1 ‘evaluate (Assign Local «x_len» _, _)’
-  >> irule_at (Pos hd) evaluate_Assign_Local
-  >> irule_at (Pos hd) eval_Op_Sub_SOME
-  >> simp [FLOOKUP_SIMP]
-  >> simp [Req0 $ GSYM mw_and_pan_loop_def]
-  >> rename1 ‘evaluate (mw_and_pan_loop, _)’
-  >> last_x_assum drule
-  >> disch_then drule
-  >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
-  >> disch_then $ qspec_then ‘s'’ mp_tac
-  >> simp [Abbr ‘s'’]
-  >> simp [dec_clock_def]
-  >> simp [n2w_SUC]
-  >> simp [mw_and_def]
-  >> strip_tac >> SEP_F_TAC
-  >> disch_then $ qx_choosel_then [‘m’, ‘l’] assume_tac
-  >> qexistsl [‘m’, ‘l’]
-  >> fs [state_component_equality, ones_def, ADD1]
-  >> fs [AC STAR_ASSOC STAR_COMM]
-QED
-
-Theorem and_neg_pos_geq_thm:
-  ∀(ys: α word list) xs zs rs s c x y z frame.
-    mwi_and_neg_pos_geq c xs ys = zs ∧ LENGTH ys ≤ LENGTH xs ∧
-    LENGTH rs = LENGTH ys ∧ LENGTH ys ≤ s.clock ∧
-    FLOOKUP s.locals «y_len» = SOME (Val (Word (n2w (LENGTH ys)))) ∧
-    FLOOKUP s.locals «c» = SOME (Val (Word (b2w c))) ∧
-    FLOOKUP s.locals «xs» = SOME (Val (Word x)) ∧
-    FLOOKUP s.locals «ys» = SOME (Val (Word y)) ∧
-    FLOOKUP s.locals «zs» = SOME (Val (Word z)) ∧
-    (ones x (MAP Word xs) *
-     ones y (MAP Word ys) *
-     ones z rs *
-     frame) (fun2set (s.memory, s.memaddrs)) ∧
-    byte_dimindex (:α) ∧ 8 < dimindex (:α)
-    ⇒
-    ∃m l.
-      evaluate (and_neg_pos_geq_loop,s) = (NONE,
-        s with <| memory := m;
-                  locals := l;
-                  clock := s.clock - LENGTH ys |>) ∧
-      (ones x (MAP Word xs) *
-       ones y (MAP Word ys) *
-       ones z (MAP Word zs) *
-       frame) (fun2set (m, s.memaddrs))
-Proof
-  simp [] >> Induct >> rw [and_neg_pos_geq_loop_def]
-  >- (simp [Once evaluate_def, state_component_equality])
-  >> rename1 ‘ones _ (Word h::MAP Word _)’
-  >> rename1 ‘evaluate (While (Var Local «y_len») _, _)’
-  >> irule_at (Pos hd) evaluate_While_True_NONE
-  >> simp []
-  >> ‘SUC (LENGTH ys) < dimword (:α)’ by
-    (drule_then mp_tac $
-       INST_TYPE [“:β” |-> “:α word_lab”] ones_leq_dimword
-     >> disch_then $ qspec_then ‘Word h::MAP Word ys’ assume_tac
-     >> SEP_F_TAC >> simp [] >> strip_tac
-     >> drule_all_then assume_tac one_lt_w2n_bytes_in_word
-     >> irule_at (Pos hd) LESS_LESS_EQ_TRANS
-     >> first_assum $ irule_at (Pos last)
-     >> simp [])
-  >> simp []
-  >> rename1 ‘evaluate (Dec «x» _ _ _, _)’
-  >> irule_at (Pos hd) evaluate_Dec_NONE
-  >> irule_at (Pos hd) eval_Load_One_Local_SOME
-  >> simp []
-  >> Cases_on ‘xs’ >> fs []
-  >> fs [ones_def] >> SEP_R_TAC
-  >> simp []
-  >> rename1 ‘evaluate (Dec «y» _ _ _, _)’
-  >> irule_at (Pos hd) evaluate_Dec_NONE
-  >> irule_at (Pos hd) eval_Load_One_Local_SOME
-  >> simp [FLOOKUP_SIMP]
-  >> SEP_R_TAC
-  >> simp []
-  >> rename1 ‘evaluate (Dec «y1c1» _ _ _, _)’
-  >> irule_at (Pos hd) evaluate_Dec_NONE
-  >> irule_at (Pos hd) eval_RStruct_One_One
-  >> simp []
-  >> rename1 ‘evaluate (Seq (Primitive «y1c1» AddCarry _) _, _)’
-  >> irule_at (Pos hd) evaluate_Seq_NONE
-  >> irule_at (Pos hd) evaluate_Primitive_AddCarry
-  >> simp [FLOOKUP_SIMP]
-  >> rename1 ‘evaluate (Dec «y2» _ _ _, _)’
-  >> irule_at (Pos hd) evaluate_Dec_NONE
-  >> irule_at (Pos hd) eval_Op_BitwiseNot_SOME
-  >> irule_at (Pos hd) eval_RField_Var_Local_SOME_ValWord
-  >> simp [FLOOKUP_SIMP, LLOOKUP_def]
-  >> rename1 ‘evaluate (Seq (Store (Var Local «zs») _) _, _)’
-  >> irule_at (Pos hd) evaluate_Seq_NONE
-  >> irule_at (Pos hd) evaluate_Store_Local_NONE
-  >> simp [FLOOKUP_SIMP]
-  >> Cases_on ‘rs’ >> gvs []
-  >> fs [ones_def] >> SEP_R_TAC >> simp []
-  >> irule_at (Pos hd) eval_Op_And_SOME
-  >> simp [FLOOKUP_SIMP]
-  >> qabbrev_tac ‘memory = s.memory’
-  >> SEP_W_TAC
-  >> simp [Abbr ‘memory’]
-  >> rename1 ‘evaluate (Seq (Assign Local «c» _) _, _)’
-  >> irule_at (Pos hd) evaluate_Seq_NONE
-  >> irule_at (Pos hd) evaluate_Assign_Local
-  >> irule_at (Pos hd) eval_RField_Var_Local_SOME_ValWord
-  >> simp [FLOOKUP_SIMP, LLOOKUP_def]
-  >> rename1 ‘evaluate (Seq (Assign Local «xs» _) _, _)’
-  >> irule_at (Pos hd) evaluate_Seq_NONE
-  >> irule_at (Pos hd) evaluate_Assign_Local
-  >> irule_at (Pos hd) eval_Op_Add_SOME
-  >> simp [FLOOKUP_SIMP]
-  >> rename1 ‘evaluate (Seq (Assign Local «ys» _) _, _)’
-  >> irule_at (Pos hd) evaluate_Seq_NONE
-  >> irule_at (Pos hd) evaluate_Assign_Local
-  >> irule_at (Pos hd) eval_Op_Add_SOME
-  >> simp [FLOOKUP_SIMP]
-  >> rename1 ‘evaluate (Seq (Assign Local «zs» _) _, _)’
-  >> irule_at (Pos hd) evaluate_Seq_NONE
-  >> irule_at (Pos hd) evaluate_Assign_Local
-  >> irule_at (Pos hd) eval_Op_Add_SOME
-  >> simp [FLOOKUP_SIMP]
-  >> rename1 ‘evaluate (Assign Local «y_len» _, _)’
-  >> irule_at (Pos hd) evaluate_Assign_Local
-  >> irule_at (Pos hd) eval_Op_Sub_SOME
-  >> simp [FLOOKUP_SIMP]
-  >> simp [Req0 $ GSYM and_neg_pos_geq_loop_def]
-  >> rename1 ‘evaluate (and_neg_pos_geq_loop, _)’
-  >> last_x_assum drule
-  >> disch_then drule
-  >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
-  >> disch_then $ qspec_then ‘s'’ mp_tac
-  >> simp [Abbr ‘s'’]
-  >> fs [GSYM b2w_ite, n2w_SUC, dec_clock_def]
-  >> disch_then $ qspec_then
-       ‘dimword (:α) ≤ w2n h + (dimword (:α) − 1 + if b2w c = 0w :α word then 0 else 1)’
-       mp_tac
-  >> simp []
-  >> strip_tac >> SEP_F_TAC
-  >> disch_then $ qx_choosel_then [‘m’, ‘l’] assume_tac
-  >> qexistsl [‘m’, ‘l’]
-  >> simp [mwi_and_neg_pos_geq_def]
-  >> rpt (pairarg_tac >> gvs [])
-  >> drule_then assume_tac single_sub_0w_co
-  >> fs [ones_def, AC STAR_ASSOC STAR_COMM, n2w_SUC, state_component_equality]
-QED
-*)
-
-(** tactics playground ********************************************************)
-
-val _ = max_print_depth := 13;
 
 Theorem stack_T:
   stack (T::xs) = stack xs
@@ -1350,7 +1127,77 @@ val g as (asl, w) = top_goal ();
 
 val _ = max_print_depth := ~1
 
-Theorem and_neg_pos_geq_thm:
+Theorem mw_and_pan_thm:
+  ∀(xs: α word list) ys zs rs s x y z frame.
+    mw_and xs ys = zs ∧ LENGTH xs ≤ LENGTH ys ∧
+    LENGTH rs = LENGTH xs ∧ LENGTH xs ≤ s.clock ∧
+    FLOOKUP s.locals «x_len» = SOME (Val (Word (n2w (LENGTH xs)))) ∧
+    FLOOKUP s.locals «xs» = SOME (Val (Word x)) ∧
+    FLOOKUP s.locals «ys» = SOME (Val (Word y)) ∧
+    FLOOKUP s.locals «zs» = SOME (Val (Word z)) ∧
+    (ones x (MAP Word xs) *
+     ones y (MAP Word ys) *
+     ones z rs *
+     frame) (fun2set (s.memory, s.memaddrs)) ∧
+    byte_dimindex (:α) ∧ 8 < dimindex (:α)
+    ⇒
+    ∃m l.
+      evaluate (mw_and_pan_loop,s) = (NONE,
+        s with <| memory := m;
+                  locals := l;
+                  clock := s.clock - LENGTH xs |>) ∧
+      (ones x (MAP Word xs) *
+       ones y (MAP Word ys) *
+       ones z (MAP Word zs) *
+       frame) (fun2set (m, s.memaddrs))
+Proof
+  simp [] >> Induct >> rw [mw_and_pan_loop_def]
+  >- (simp [Once evaluate_def, state_component_equality, mw_and_def])
+  (* TODO make this into a tactic and use it everythwere *)
+  >> once_rewrite_tac [GSYM stack_evaluate]
+  >> step >> walk
+  (* TODO Can we not prove something like this at the beginning for
+       everything? *)
+  >> have ‘SUC (LENGTH xs) < dimword (:α)’
+  >- (
+    drule_then mp_tac $
+      INST_TYPE [“:β” |-> “:α word_lab”] ones_leq_dimword
+    >> disch_then $ qspec_then ‘Word h::MAP Word xs’ assume_tac
+    >> SEP_F_TAC >> simp [] >> strip_tac
+    >> drule_all_then assume_tac one_lt_w2n_bytes_in_word
+    >> irule_at (Pos hd) LESS_LESS_EQ_TRANS
+    >> first_assum $ irule_at (Pos last)
+    >> simp []
+  )
+  >> walk
+  (* TODO Should SEP_R_TAC be able to find things in
+       ones x (Word h::MAP Word xs)? *)
+  >> fs [ones_def] >> SEP_R_TAC
+  >> walk
+  (* TODO SEP_R_TAC without the Cases seems to just do nothing?
+       Maybe it should fail instead, and give a hint?  *)
+  >> Cases_on ‘ys’ >> fs [ones_def]
+  >> SEP_R_TAC >> walk
+  >> Cases_on ‘rs’ >> fs [ones_def]
+  >> SEP_R_TAC >> walk
+  (* TODO simp [stack_evaluate] could be a tactic. *)
+  >> simp [stack_evaluate, Req0 $ GSYM mw_and_pan_loop_def]
+  (* Apply induction hypothesis *)
+  >> last_x_assum drule >> disch_then drule
+  >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
+  >> disch_then $ qspec_then ‘s'’ mp_tac
+  >> simp [Abbr ‘s'’]
+  (* TODO If I remember correctly, the qabbrev_tac is required here because
+       SEP_W_TAC don't handle records gracefully? *)
+  >> qabbrev_tac ‘memory = s.memory’ >> SEP_W_TAC >> simp [Abbr ‘memory’]
+  >> simp [FLOOKUP_SIMP, i2w_one, n2w_SUC, dec_clock_def]
+  >> strip_tac >> SEP_F_TAC
+  >> disch_then $ qx_choosel_then [‘m’, ‘l’] assume_tac
+  >> qexistsl [‘m’, ‘l’]
+  >> fs [state_component_equality, mw_and_def, AC STAR_ASSOC STAR_COMM, ones_def]
+QED
+
+Theorem mwi_and_neg_pos_geq_pan_thm:
   ∀(ys: α word list) xs zs rs s c x y z frame.
     mwi_and_neg_pos_geq c xs ys = zs ∧ LENGTH ys ≤ LENGTH xs ∧
     LENGTH rs = LENGTH ys ∧ LENGTH ys ≤ s.clock ∧
@@ -1366,7 +1213,7 @@ Theorem and_neg_pos_geq_thm:
     byte_dimindex (:α) ∧ 8 < dimindex (:α)
     ⇒
     ∃m l.
-      evaluate (and_neg_pos_geq_loop,s) = (NONE,
+      evaluate (mwi_and_neg_pos_geq_pan_loop,s) = (NONE,
         s with <| memory := m;
                   locals := l;
                   clock := s.clock - LENGTH ys |>) ∧
@@ -1375,7 +1222,7 @@ Theorem and_neg_pos_geq_thm:
        ones z (MAP Word zs) *
        frame) (fun2set (m, s.memaddrs))
 Proof
-  simp [] >> Induct >> rw [and_neg_pos_geq_loop_def]
+  simp [] >> Induct >> rw [mwi_and_neg_pos_geq_pan_loop_def]
   >- (simp [Once evaluate_def, state_component_equality, i2w_def])
   >> rename1 ‘ones _ (Word h::MAP Word _)’
   >> once_rewrite_tac [GSYM stack_evaluate]
@@ -1399,8 +1246,8 @@ Proof
   >> step_or_side
   >> walk
   >> rewrite_tac [stack_evaluate]
-  >> simp [Req0 $ GSYM and_neg_pos_geq_loop_def]
-  >> rename1 ‘evaluate (and_neg_pos_geq_loop, _)’
+  >> simp [Req0 $ GSYM mwi_and_neg_pos_geq_pan_loop_def]
+  >> rename1 ‘evaluate (mwi_and_neg_pos_geq_pan_loop, _)’
   >> last_x_assum drule
   >> disch_then drule
   >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
