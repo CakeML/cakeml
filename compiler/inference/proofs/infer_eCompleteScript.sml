@@ -142,9 +142,10 @@ Theorem not_t_oc[local]:
   (!t s v lim. t_wfs s ∧ check_t lim {} t ⇒ ¬ t_oc s t v) ∧
   (!ts s t v lim. t_wfs s ∧ EVERY (check_t lim {}) ts ⇒ ~ EXISTS (\t. t_oc s t v) ts)
 Proof
-  ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  reverse conj_asm1_tac
+  >- (rw[EVERY_MEM,EXISTS_MEM]>>metis_tac[])>>
+  Induct>>
   rw[check_t_def]>>
-  TRY (res_tac>>metis_tac[])>>
   SPOSE_NOT_THEN assume_tac>>
   Q.ISPEC_THEN `s` assume_tac t_oc_eqn>>
   rfs[]>> res_tac>>
@@ -242,7 +243,9 @@ t_walkstar (infer_deBruijn_inc tvs o_f s) t = t_walkstar s t) ∧
 EVERY (\t. t_walkstar (infer_deBruijn_inc tvs o_f s) t = t_walkstar s t) ts))
 Proof
   strip_tac>>
-  ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  reverse conj_asm1_tac
+  >- rw[EVERY_MEM]>>
+  Induct>>
   rw[]>>
   imp_res_tac inc_wfs>>
   fs[t_walkstar_eqn1]
@@ -326,6 +329,8 @@ Theorem deBruijn_subst_id[local]:
   (!t. deBruijn_subst 0 [] t = t) ∧
   (!ts. MAP (deBruijn_subst 0 []) ts = ts)
 Proof
+  reverse conj_asm1_tac
+  >- simp[MAP_EQ_ID]>>
   Induct>>rw[]>>fs[deBruijn_subst_def,MAP_EQ_ID]
 QED
 
@@ -372,7 +377,9 @@ Theorem t_walk_submap_walkstar[local]:
 (!hs. MAP ((t_walk s) o t_walkstar s') hs = MAP (t_walkstar s') hs)
 Proof
   ntac 3 strip_tac>>
-  ho_match_mp_tac infer_tTheory.infer_t_induction>>rw[]>>
+  reverse conj_asm1_tac
+  >- simp[MAP_EQ_f]>>
+  Induct>>rw[]>>
   fs[t_walkstar_eqn,t_walk_eqn,MAP_MAP_o]>>
   Cases_on`t_vwalk s' n`>>fs[t_walk_eqn]>>
   imp_res_tac t_vwalk_to_var>>
@@ -504,11 +511,14 @@ Theorem check_t_less:
   ⇒
   EVERY (check_t n (uvars ∩ (COMPL (FDOM s)))) (MAP (t_walkstar s) ts))
 Proof
-  ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  reverse conj_asm1_tac
+  >- (rw[EVERY_MEM,MEM_MAP]>>metis_tac[])>>
+  Induct>>
   rw[]
   >- fs[t_walkstar_eqn,t_walk_eqn,check_t_def]
-  >-
-    fs[t_walkstar_eqn,t_walk_eqn,check_t_def,EVERY_MEM,MEM_MAP]
+  >- (
+    fs[t_walkstar_eqn,t_walk_eqn,check_t_def,EVERY_MEM,MEM_MAP]>>
+    metis_tac[])
   >>
   Cases_on`n' ∈ FDOM s`
   >-
@@ -556,9 +566,12 @@ Proof
     imp_res_tac t_compat_ground>>
     res_tac>> metis_tac[])
   >>
-    ho_match_mp_tac infer_tTheory.infer_t_induction>>rw[]>>
-    fs[t_compat_def]>>
-    TRY(fs[t_walkstar_eqn,t_walk_eqn]>>NO_TAC)>>
+    reverse conj_asm1_tac
+    >- simp[MAP_EQ_f]>>
+    Induct>>rw[]>>
+    fs[t_compat_def]
+    >- fs[t_walkstar_eqn,t_walk_eqn]
+    >- fs[t_walkstar_eqn,t_walk_eqn,MAP_EQ_f]>>
     Cases_on`n' ∈ FDOM a`
     >-
       metis_tac[t_walkstar_no_vars]
@@ -1157,6 +1170,8 @@ Theorem infer_type_subst_check_t_less[local]:
   EVERY (check_t n {}) (MAP (infer_type_subst (ZIP(tvs,ls))) ts))
 Proof
   strip_tac>>
+  reverse conj_asm1_tac
+  >- (rw[EVERY_MEM,MEM_MAP]>>metis_tac[])>>
   Induct>>rw[]
   >-
     (rename1 ‘Tvar s’>>
@@ -1171,7 +1186,7 @@ Proof
     metis_tac[EVERY_EL])
   >>
     fs[infer_type_subst_alt,check_t_def,check_freevars_def]>>
-    fs[EVERY_MAP]>>metis_tac[]
+    fs[EVERY_MAP,EVERY_MEM]>>metis_tac[]
 QED
 
 Theorem infer_p_complete:
@@ -1714,7 +1729,7 @@ Theorem convert_infer_deBruijn_subst[local]:
   convert_t (infer_deBruijn_subst subst t) =
   deBruijn_subst 0 (MAP convert_t subst) (convert_t t)
 Proof
-  gen_tac \\ ho_match_mp_tac infer_t_ind >>
+  gen_tac \\ ho_match_mp_tac infer_t_induction >>
   rw[infer_deBruijn_subst_alt]>>
   EVAL_TAC>>simp[EL_MAP]>>rw[]>>fs[check_t_def]>>
   fs[MAP_MAP_o,MAP_EQ_f]>>rw[]>>
@@ -1740,14 +1755,15 @@ Theorem t_walkstar_infer_db_subst[local]:
 Proof
   ntac 6 strip_tac>>
   imp_res_tac t_wfs_SUBMAP>>
-  ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  reverse conj_asm1_tac
+  >- (rw[MAP_EQ_f]>>fs[EVERY_MEM])>>
+  Induct>>
   rw[]>>
   fs[infer_deBruijn_subst_alt]
   >-
     (IF_CASES_TAC>>fs[LENGTH_COUNT_LIST,EL_MAP,check_t_def,EL_COUNT_LIST])
   >-
-    (fs[t_walkstar_eqn1,check_t_def]>>
-    metis_tac[MAP_MAP_o])
+    (fs[t_walkstar_eqn1,check_t_def,MAP_MAP_o,MAP_EQ_f,EVERY_MEM])
   >>
     fs[check_t_def]>>res_tac>>
     imp_res_tac t_walkstar_no_vars>>

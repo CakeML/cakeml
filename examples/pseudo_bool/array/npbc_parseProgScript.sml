@@ -3604,7 +3604,7 @@ Definition init_ntn_def:
   init_ntn = init_state hash_str (compare:mlstring -> mlstring -> ordering)
 End
 
-val res = translate init_ntn_def;
+val res = translate (init_ntn_def |> SRULE [init_state_def]);
 
 Definition name_to_num_var_nf_def:
   name_to_num_var_nf v s =

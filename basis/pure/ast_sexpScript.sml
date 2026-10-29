@@ -123,6 +123,7 @@ Definition from_op_def:
   (from_op (FromTo t1 t2)      =
      Expr [Atom «FromTo»; from_prim_type t1; from_prim_type t2]) ∧
   (from_op Equality            = Atom «Equality») ∧
+  (from_op PtrEq               = Atom «PtrEq») ∧
   (from_op (Test x t)          =
      Expr [Atom «Test»; from_test x; from_prim_type t]) ∧
   (from_op Opapp               = Atom «Opapp») ∧
@@ -522,6 +523,7 @@ End
 Definition to_op_def:
   (to_op (Atom s) =
      if s = «Equality» then return Equality
+     else if s = «PtrEq» then return PtrEq
      else if s = «Opapp» then return Opapp
      else if s = «Opassign» then return Opassign
      else if s = «Opref» then return Opref
@@ -1130,7 +1132,7 @@ Theorem to_from_ast_t_ok:
   (∀t. to_ast_t (from_ast_t t) = SOME t) ∧
   (∀ts. to_ast_ts (from_ast_ts ts) = SOME ts)
 Proof
-  ho_match_mp_tac ast_t_induction
+  ho_match_mp_tac from_ast_t_ind
   >> rpt strip_tac
   >> simp [from_ast_t_def, Once to_ast_t_def, dest_tagged_def, dest_atom_def,
            dest_expr_def, to_from_id_ok, nth_def]
@@ -1140,7 +1142,7 @@ Theorem to_from_pat_ok:
   (∀pat. to_pat (from_pat pat) = SOME pat) ∧
   (∀pats. to_pats (from_pats pats) = SOME pats)
 Proof
-  ho_match_mp_tac pat_induction
+  ho_match_mp_tac from_pat_ind
   >> rw [from_pat_def, to_pat_def, dest_tagged_def, dest_atom_def,
          dest_expr_def, to_from_lit_ok, to_from_ast_t_ok, nth_def]
   >> irule to_from_option_some
@@ -1207,7 +1209,7 @@ Theorem to_from_dec_ok:
   (∀dec. to_dec (from_dec dec) = SOME dec) ∧
   (∀decs. to_decs (from_decs decs) = SOME decs)
 Proof
-  ho_match_mp_tac dec_induction
+  ho_match_mp_tac from_dec_ind
   >> simp [from_dec_def, to_dec_def, dest_tagged_def, dest_expr_def,
            dest_atom_def, nth_def]
   >> simp [to_from_locs_ok, to_from_pat_ok, to_from_exp_ok,

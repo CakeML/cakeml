@@ -176,6 +176,22 @@ val r = translate clos_to_bvlTheory.compile_inc_def;
 (* bvl_const                                                                 *)
 (* ------------------------------------------------------------------------- *)
 
+val r = translate_no_ind (INST_TYPE [beta |-> alpha] LIST_TO_SET_DEF);
+
+Theorem list_list_to_set_ind[local]:
+  list_list_to_set_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "list_list_to_set_ind_def"]
+  \\ rpt strip_tac
+  \\ qid_spec_tac ‘v4’
+  \\ Induct_on ‘v3’
+  \\ rpt strip_tac
+  \\ first_assum irule
+  \\ gvs []
+QED
+
+val _ = list_list_to_set_ind |> update_precondition;
+
 val r = translate bvl_constTheory.dest_simple_pmatch;
 val r = translate bvl_constTheory.dest_EqualInt_pmatch;
 val r = translate bvl_constTheory.case_op_const_pmatch;

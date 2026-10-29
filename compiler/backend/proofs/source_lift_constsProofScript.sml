@@ -154,10 +154,10 @@ Proof
 QED
 
 Theorem bump_patterns_le[local]:
-  (∀p n. n ≤ bump_pat n p) ∧
-  (∀ps n. n ≤ bump_pats n ps)
+  (∀n p. n ≤ bump_pat n p) ∧
+  (∀n ps. n ≤ bump_pats n ps)
 Proof
-  ho_match_mp_tac pat_induction
+  ho_match_mp_tac bump_pat_ind
   >> rw [bump_pat_def] >> metis_tac [bump_le,LESS_EQ_TRANS]
 QED
 
@@ -485,10 +485,10 @@ Proof
 QED
 
 Theorem bump_pattern_names[local]:
-  (∀p n x. MEM x (pat_bindings p) ⇒ bump x 0 ≤ bump_pat n p) ∧
-  (∀ps n x. MEM x (pats_bindings ps) ⇒ bump x 0 ≤ bump_pats n ps)
+  (∀n p x. MEM x (pat_bindings p) ⇒ bump x 0 ≤ bump_pat n p) ∧
+  (∀n ps x. MEM x (pats_bindings ps) ⇒ bump x 0 ≤ bump_pats n ps)
 Proof
-  ho_match_mp_tac pat_induction
+  ho_match_mp_tac bump_pat_ind
   >> rw [bump_pat_def,pat_bindings_def]
   >> metis_tac [bump_mono,bump_patterns_le,ZERO_LESS_EQ,LESS_EQ_TRANS]
 QED
@@ -1101,6 +1101,7 @@ QED
 Definition lift_state_rel_def:
   lift_state_rel R D (s:'ffi semanticPrimitives$state) s' ⇔
     s.clock = s'.clock ∧ s.ffi = s'.ffi ∧
+    s.ptr_eq_oracle = s'.ptr_eq_oracle ∧
     s.next_type_stamp = s'.next_type_stamp ∧
     s.next_exn_stamp = s'.next_exn_stamp ∧
     D s.eval_state s'.eval_state ∧
@@ -1887,37 +1888,26 @@ Proof
   >> once_rewrite_tac [lift_value_rel_cases_l] >> simp [lift_runtime_rel_value_rel]
 QED
 
-Theorem lift_runtime_rel_refl_mutual[local]:
-  (∀value. lift_runtime_rel value value) ∧
-  (∀values. LIST_REL lift_runtime_rel values values) ∧
-  (∀env:v sem_env. lift_runtime_env lift_runtime_rel env env) ∧
-  (∀ns:(mlstring,mlstring,v) namespace. ∀id.
-    OPTREL lift_runtime_rel (nsLookup ns id) (nsLookup ns id)) ∧
-  (∀bindings:(mlstring # v) list.
-    EVERY (λentry. lift_runtime_rel (SND entry) (SND entry)) bindings) ∧
-  (∀modules:(mlstring # (mlstring,mlstring,v) namespace) list.
-    EVERY (λentry. ∀id. OPTREL lift_runtime_rel
-      (nsLookup (SND entry) id) (nsLookup (SND entry) id)) modules) ∧
-  (∀entry:mlstring # v. lift_runtime_rel (SND entry) (SND entry)) ∧
-  (∀entry:mlstring # (mlstring,mlstring,v) namespace. ∀id.
-    OPTREL lift_runtime_rel (nsLookup (SND entry) id) (nsLookup (SND entry) id))
+Theorem lift_runtime_env_self[local]:
+  (∀v. v ∈ sem_envSET env ⇒ R v v) ⇒ lift_runtime_env R env env
 Proof
-  ho_match_mp_tac v_induction >> rpt conj_tac >> rpt gen_tac
-  >> simp [lift_runtime_rel_cases_l,lift_closure_certificate_def,
-           lift_runtime_env_def]
-  >> MATCH_ACCEPT_TAC namespace_lookup_self_rel
+  Cases_on ‘env’ >> rw [lift_runtime_env_def,sem_envSET_thm]
+  >> Cases_on ‘nsLookup n id’ >> simp []
+  >> metis_tac [nsLookup_namespaceSET3]
 QED
 
 Theorem lift_runtime_rel_refl[local]:
   lift_runtime_rel value value
 Proof
-  simp [lift_runtime_rel_refl_mutual]
+  qid_spec_tac ‘value’ >> ho_match_mp_tac v_induction
+  >> rw [lift_runtime_rel_cases_l,lift_closure_certificate_def,EVERY2_refl]
+  >> metis_tac [lift_runtime_env_self]
 QED
 
 Theorem lift_runtime_env_refl[local]:
   lift_runtime_env lift_runtime_rel env env
 Proof
-  simp [lift_runtime_rel_refl_mutual]
+  irule lift_runtime_env_self >> simp [lift_runtime_rel_refl]
 QED
 
 Theorem lift_runtime_env_bind[local]:
@@ -1948,7 +1938,7 @@ Theorem lift_runtime_store_refl[local]:
   sv_rel lift_runtime_rel stored stored
 Proof
   Cases_on ‘stored’
-  >> simp [sv_rel_def,lift_runtime_rel_refl_mutual]
+  >> simp [sv_rel_def,lift_runtime_rel_refl,EVERY2_refl]
 QED
 
 Theorem lift_runtime_state_refl[local]:
@@ -3565,6 +3555,42 @@ Proof
   >> Cases_on ‘result2’ >> gvs [list_result_def,lift_result_rel_cases]
   >> rename1 ‘exc_rel _ err _’ >> Cases_on ‘err’
   >> gvs [exc_rel_raise1,exc_rel_type_error1]
+QED
+
+Theorem lift_evaluate_ptr_eq[local]:
+  lift_eval_result_rel (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
+    (evaluate (s:'ffi semanticPrimitives$state) env (REVERSE es))
+    (evaluate s' env' (REVERSE es')) ⇒
+  lift_eval_refinement (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
+    (evaluate s env [App PtrEq es]) (evaluate s' env' [App PtrEq es'])
+Proof
+  strip_tac
+  >> Cases_on ‘evaluate s env (REVERSE es)’ >> Cases_on ‘evaluate s' env' (REVERSE es')’
+  >> gvs [evaluate_def,lift_eval_refinement_def,lift_eval_result_rel_def,
+          lift_result_rel_cases]
+  >> rename1 ‘evaluate s env (REVERSE es) = (t,Rval vs)’
+  >> rename1 ‘evaluate s' env' (REVERSE es') = (t',Rval vs')’
+  >> ‘LIST_REL (lift_value_rel C E) (REVERSE vs) (REVERSE vs')’
+       by simp [LIST_REL_REVERSE_EQ]
+  >> Cases_on ‘∃v1 v2. REVERSE vs = [v1; v2]’
+  >- (
+    gvs []
+    >> ‘LIST_REL (lift_value_rel C E) [v1; v2] (REVERSE vs')’
+         by metis_tac [LIST_REL_REVERSE_EQ]
+    >> qpat_x_assum ‘LIST_REL _ [_; _] _’
+         (strip_assume_tac o SIMP_RULE std_ss [LIST_REL_CONS1,LIST_REL_NIL])
+    >> rename1 ‘lift_value_rel C E v1 w1’ >> rename1 ‘lift_value_rel C E v2 w2’
+    >> ‘do_eq w1 w2 = do_eq v1 v2’
+         by metis_tac [shape_val_rel_do_eq_eq,lift_value_rel_shape]
+    >> gvs []
+    >> Cases_on ‘do_eq v1 v2’
+    >> gvs [lift_eval_result_rel_def,lift_state_rel_def,lift_result_rel_def,
+            Boolv_def,lift_value_rel_cases_l]
+    >> rw [lift_value_rel_cases_l])
+  >> disj1_tac
+  >> Cases_on ‘REVERSE vs’ >> simp []
+  >> rename1 ‘REVERSE vs = _::rest’ >> Cases_on ‘rest’ >> simp []
+  >> rename1 ‘REVERSE vs = _::_::rest’ >> Cases_on ‘rest’ >> gvs []
 QED
 
 Theorem lift_evaluate_append_refinement[local]:
@@ -6782,11 +6808,12 @@ Theorem lift_evaluate_dlocal_refinement[local]:
   lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
     (evaluate_decs (s:'ffi semanticPrimitives$state) env ds1)
     (evaluate_decs s' env' ds1') ∧
-  (∀(t:'ffi semanticPrimitives$state) t' e e'.
+  (∀t delta (t':'ffi semanticPrimitives$state) e'.
+    evaluate_decs s env ds1 = (t,Rval delta) ∧
     t.clock ≤ s.clock ∧ lift_state_rel lift_runtime_rel D t t' ∧
-    lift_runtime_env lift_runtime_rel e e' ⇒
+    lift_runtime_env lift_runtime_rel (delta +++ env) e' ⇒
     lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
-      (evaluate_decs t e ds2) (evaluate_decs t' e' ds2')) ⇒
+      (evaluate_decs t (delta +++ env) ds2) (evaluate_decs t' e' ds2')) ⇒
   lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
     (evaluate_decs s env [Dlocal ds1 ds2]) (evaluate_decs s' env' [Dlocal ds1' ds2'])
 Proof
@@ -6803,11 +6830,12 @@ Theorem lift_evaluate_decs_cons_refinement[local]:
   lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
     (evaluate_decs (s:'ffi semanticPrimitives$state) env [d])
     (evaluate_decs s' env' [d']) ∧
-  (∀(t:'ffi semanticPrimitives$state) t' e e'.
+  (∀t delta (t':'ffi semanticPrimitives$state) e'.
+    evaluate_decs s env [d] = (t,Rval delta) ∧
     t.clock ≤ s.clock ∧ lift_state_rel lift_runtime_rel D t t' ∧
-    lift_runtime_env lift_runtime_rel e e' ⇒
+    lift_runtime_env lift_runtime_rel (delta +++ env) e' ⇒
     lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
-      (evaluate_decs t e ds) (evaluate_decs t' e' ds')) ⇒
+      (evaluate_decs t (delta +++ env) ds) (evaluate_decs t' e' ds')) ⇒
   lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
     (evaluate_decs s env (d::ds)) (evaluate_decs s' env' (d'::ds'))
 Proof
@@ -6817,7 +6845,7 @@ Proof
   >> gvs [lift_eval_refinement_def,lift_eval_result_rel_def,lift_result_rel_cases]
   >> rename1 ‘evaluate_decs s env [d] = (t,Rval delta)’
   >> rename1 ‘evaluate_decs s' env' [d'] = (t',Rval delta')’
-  >> first_x_assum (qspecl_then [‘t’,‘t'’,‘delta +++ env’,‘delta' +++ env'’] mp_tac)
+  >> first_x_assum (qspecl_then [‘t'’,‘delta' +++ env'’] mp_tac)
   >> simp [lift_runtime_env_extend]
   >> Cases_on ‘evaluate_decs t (delta +++ env) ds’
   >> Cases_on ‘evaluate_decs t' (delta' +++ env') ds'’
@@ -6869,24 +6897,26 @@ Theorem lift_evaluate_decs_runtime_same_refinement[local]:
     lift_eval_refinement lift_runtime_rel D (LIST_REL lift_runtime_rel)
       (evaluate s env [e]) (evaluate s' env' [e])) ∧
   lift_declare_env_rel D ⇒
-  (∀d (s:'ffi semanticPrimitives$state) s' env env'.
+  ∀(s:'ffi semanticPrimitives$state) env ds s' env'.
     s.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D s s' ∧
     lift_runtime_env lift_runtime_rel env env' ⇒
     lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
-      (evaluate_decs s env [d]) (evaluate_decs s' env' [d])) ∧
-  (∀ds (s:'ffi semanticPrimitives$state) s' env env'.
-    s.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D s s' ∧
-    lift_runtime_env lift_runtime_rel env env' ⇒
-    lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
-      (evaluate_decs s env ds) (evaluate_decs s' env' ds))
+      (evaluate_decs s env ds) (evaluate_decs s' env' ds)
 Proof
   strip_tac
-  >> ho_match_mp_tac dec_induction >> rpt conj_tac
-  >- (
+  >> ho_match_mp_tac evaluate_decs_ind >> rpt conj_tac >> rpt gen_tac
+  >~ [‘evaluate_decs _ _ []’] >- (
+    rpt strip_tac
+    >> simp [evaluate_decs_def,lift_eval_refinement_def,lift_eval_result_rel_def,
+             lift_result_rel_def,lift_runtime_env_namespace])
+  >~ [‘d1::d2::ds’] >- (
+    rpt strip_tac >> irule lift_evaluate_decs_cons_refinement >> simp []
+    >> metis_tac [LESS_EQ_TRANS])
+  >~ [‘Dlet locs p e’] >- (
     rpt strip_tac >> irule lift_evaluate_dlet_refinement
     >> fs [lift_runtime_env_def])
-  >- (
-    qx_genl_tac [‘locs’,‘funs’,‘s’,‘s'’,‘env’,‘env'’] >> strip_tac
+  >~ [‘Dletrec locs funs’] >- (
+    rpt strip_tac
     >> ‘env.c = env'.c’ by fs [lift_runtime_env_def]
     >> have ‘∀name. lift_runtime_rel (Recclosure env funs name)
                  (Recclosure env' funs name)’
@@ -6896,32 +6926,28 @@ Proof
              lift_runtime_env_namespace,build_rec_env_nsBindList]
     >> irule namespacePropsTheory.nsAll2_nsBindList
     >> simp [LIST_REL_EL_EQN,EL_MAP,ELIM_UNCURRY])
-  >- (
+  >~ [‘Dtype locs tds’] >- (
     rpt strip_tac
     >> simp [evaluate_decs_def] >> IF_CASES_TAC
     >> fs [lift_eval_refinement_def,lift_eval_result_rel_def,lift_result_rel_def,
            lift_state_rel_def,lift_runtime_env_namespace])
-  >- (
+  >~ [‘Dtabbrev locs tvs tn t’] >- (
     rpt strip_tac
     >> simp [evaluate_decs_def,lift_eval_refinement_def,lift_eval_result_rel_def,
              lift_result_rel_def,lift_runtime_env_namespace])
-  >- (
+  >~ [‘Denv n’] >- (
+    rpt strip_tac >> irule lift_evaluate_denv_refinement >> simp [])
+  >~ [‘Dexn locs cn ts’] >- (
     rpt strip_tac
     >> fs [evaluate_decs_def,lift_eval_refinement_def,lift_eval_result_rel_def,
            lift_result_rel_def,lift_state_rel_def,lift_runtime_env_namespace])
-  >- (rpt strip_tac >> irule lift_evaluate_dmod_refinement >> first_x_assum irule >> simp [])
-  >- (
+  >~ [‘Dmod mn ds’] >- (
+    rpt strip_tac >> irule lift_evaluate_dmod_refinement
+    >> first_x_assum irule >> simp [])
+  >~ [‘Dlocal lds ds’] >- (
     rpt strip_tac >> irule lift_evaluate_dlocal_refinement >> simp []
     >> metis_tac [LESS_EQ_TRANS])
-  >- (rpt strip_tac >> irule lift_evaluate_denv_refinement >> simp [])
-  >- (rpt strip_tac >> irule lift_evaluate_dopen_refinement >> simp [])
-  >- (
-    rpt strip_tac
-    >> simp [evaluate_decs_def,lift_eval_refinement_def,lift_eval_result_rel_def,
-             lift_result_rel_def,lift_runtime_env_namespace])
-  >- (
-    rpt strip_tac >> irule lift_evaluate_decs_cons_refinement >> simp []
-    >> metis_tac [LESS_EQ_TRANS])
+  >> rpt strip_tac >> irule lift_evaluate_dopen_refinement >> simp []
 QED
 
 Theorem lift_eval_refinement_mono[local]:
@@ -7140,59 +7166,63 @@ Proof
   >- (gvs [EVERY_MEM,EXISTS_MEM,o_DEF] >> gvs [ELIM_UNCURRY]) >> simp []
 QED
 
+Theorem compile_decs_sing[local]:
+  compile_decs [d] = [compile_dec d]
+Proof
+  simp [compile_dec_def]
+QED
+
 Theorem compile_decs_refinement[local]:
   lift_app_sim (:'ffi) clock D ∧ lift_declare_env_rel D ⇒
-  (∀d (s:'ffi semanticPrimitives$state) s' env env'.
+  ∀(s:'ffi semanticPrimitives$state) env ds s' env'.
     s.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D s s' ∧
     lift_runtime_env lift_runtime_rel env env' ⇒
     lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
-      (evaluate_decs s env [d]) (evaluate_decs s' env' [compile_dec d])) ∧
-  (∀ds (s:'ffi semanticPrimitives$state) s' env env'.
-    s.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D s s' ∧
-    lift_runtime_env lift_runtime_rel env env' ⇒
-    lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
-      (evaluate_decs s env ds) (evaluate_decs s' env' (compile_decs ds)))
+      (evaluate_decs s env ds) (evaluate_decs s' env' (compile_decs ds))
 Proof
   strip_tac
-  >> ho_match_mp_tac dec_induction >> rpt conj_tac
-  >- (
+  >> ho_match_mp_tac evaluate_decs_ind >> rpt conj_tac >> rpt gen_tac
+  >~ [‘evaluate_decs _ _ []’] >- (
     rpt strip_tac
-    >> qpat_assum ‘lift_app_sim _ _ _’ (irule o MATCH_MP compile_dlet_refinement) >> simp [])
-  >- (
-    rpt strip_tac
-    >> qpat_assum ‘lift_app_sim _ _ _’ (irule o MATCH_MP compile_dletrec_refinement) >> simp [])
-  >- (
+    >> simp [compile_dec_def,evaluate_decs_def,lift_eval_refinement_def,
+             lift_eval_result_rel_def,lift_result_rel_def,lift_runtime_env_namespace])
+  >~ [‘d1::d2::ds’] >- (
+    simp [compile_dec_def] >> rpt strip_tac
+    >> irule lift_evaluate_decs_cons_refinement
+    >> simp [] >> metis_tac [LESS_EQ_TRANS])
+  >~ [‘Dlet locs p e’] >- (
+    rpt strip_tac >> simp [compile_decs_sing]
+    >> qpat_assum ‘lift_app_sim _ _ _’ (irule o MATCH_MP compile_dlet_refinement)
+    >> simp [])
+  >~ [‘Dletrec locs funs’] >- (
+    rpt strip_tac >> simp [compile_decs_sing]
+    >> qpat_assum ‘lift_app_sim _ _ _’ (irule o MATCH_MP compile_dletrec_refinement)
+    >> simp [])
+  >~ [‘Dtype locs tds’] >- (
     rpt strip_tac
     >> simp [compile_dec_def,evaluate_decs_def] >> IF_CASES_TAC
-    >> fs [lift_eval_refinement_def,lift_eval_result_rel_def,lift_result_rel_def,lift_state_rel_def,
-           lift_runtime_env_namespace])
-  >- (
+    >> fs [lift_eval_refinement_def,lift_eval_result_rel_def,lift_result_rel_def,
+           lift_state_rel_def,lift_runtime_env_namespace])
+  >~ [‘Dtabbrev locs tvs tn t’] >- (
     rpt strip_tac
     >> simp [compile_dec_def,evaluate_decs_def,lift_eval_refinement_def,
              lift_eval_result_rel_def,lift_result_rel_def,lift_runtime_env_namespace])
-  >- (
-    rpt strip_tac
-    >> fs [compile_dec_def,evaluate_decs_def,lift_eval_refinement_def,lift_eval_result_rel_def,
-           lift_result_rel_def,lift_state_rel_def,lift_runtime_env_namespace])
-  >- (
-    rpt strip_tac >> simp [compile_dec_def] >> irule lift_evaluate_dmod_refinement
-    >> first_x_assum irule >> simp [])
-  >- (
-    rpt strip_tac >> simp [compile_dec_def] >> irule lift_evaluate_dlocal_refinement
-    >> simp [] >> metis_tac [LESS_EQ_TRANS])
-  >- (
+  >~ [‘Denv n’] >- (
     rpt strip_tac >> simp [compile_dec_def] >> irule lift_evaluate_denv_refinement
     >> simp [])
-  >- (
-    rpt strip_tac >> simp [compile_dec_def] >> irule lift_evaluate_dopen_refinement
-    >> simp [])
-  >- (
+  >~ [‘Dexn locs cn ts’] >- (
     rpt strip_tac
-    >> simp [compile_dec_def,evaluate_decs_def,lift_eval_refinement_def,
-             lift_eval_result_rel_def,lift_result_rel_def,lift_runtime_env_namespace])
-  >- (
-    rpt strip_tac >> simp [compile_dec_def] >> irule lift_evaluate_decs_cons_refinement
+    >> fs [compile_dec_def,evaluate_decs_def,lift_eval_refinement_def,
+           lift_eval_result_rel_def,lift_result_rel_def,lift_state_rel_def,
+           lift_runtime_env_namespace])
+  >~ [‘Dmod mn ds’] >- (
+    rpt strip_tac >> simp [compile_dec_def] >> irule lift_evaluate_dmod_refinement
+    >> first_x_assum irule >> simp [])
+  >~ [‘Dlocal lds ds’] >- (
+    rpt strip_tac >> simp [compile_dec_def] >> irule lift_evaluate_dlocal_refinement
     >> simp [] >> metis_tac [LESS_EQ_TRANS])
+  >> rpt strip_tac >> simp [compile_dec_def] >> irule lift_evaluate_dopen_refinement
+  >> simp []
 QED
 
 Theorem lift_evaluate_eval_decs_refinement[local]:
@@ -7320,8 +7350,8 @@ Proof
   >- (
     qpat_assum ‘lift_app_sim _ _ _’
       (assume_tac o MATCH_MP lift_evaluate_runtime_same_refinement)
-    >> drule_all (cj 2 lift_evaluate_decs_runtime_same_refinement) >> simp [])
-  >> drule_all (cj 2 compile_decs_refinement) >> simp []
+    >> drule_all lift_evaluate_decs_runtime_same_refinement >> simp [])
+  >> drule_all compile_decs_refinement >> simp []
 QED
 
 (* ------------------------------------------------------------------------
@@ -7398,6 +7428,8 @@ Proof
            (qspecl_then [‘decs’,‘decs'’] mp_tac)
       >> simp [])
     >> simp [])
+  >> Cases_on ‘op = PtrEq’
+  >- (gvs [] >> irule (runtime_inst lift_evaluate_ptr_eq) >> simp [])
   >- (
     have ‘getOpClass op = Simple’
     >- (
@@ -7492,11 +7524,11 @@ Proof
        lift_eval_decs_state_rel_declare_env,lift_eval_decs_state_rel_reset]
 QED
 
-Theorem lift_semantics_prog_refinement[local]:
+Theorem lift_semantics_determ_refinement[local]:
   (∀clock. lift_eval_result_rel R D E
     (evaluate_decs ((s:'ffi semanticPrimitives$state) with clock := clock) env prog)
     (evaluate_decs (s' with clock := clock) env' prog')) ⇒
-  semantics_prog s env prog outcome ⇒ semantics_prog s' env' prog' outcome
+  semantics_determ s env prog outcome ⇒ semantics_determ s' env' prog' outcome
 Proof
   strip_tac
   >> ‘∀clock. ∃ffi r r'.
@@ -7508,7 +7540,7 @@ Proof
     >> Cases_on ‘evaluate_decs (s with clock := clock) env prog’
     >> Cases_on ‘evaluate_decs (s' with clock := clock) env' prog'’
     >> simp [evaluate_prog_with_clock_def,lift_eval_result_rel_def,lift_state_rel_def])
-  >> Cases_on ‘outcome’ >> rewrite_tac [semantics_prog_def] >> strip_tac
+  >> Cases_on ‘outcome’ >> rewrite_tac [semantics_determ_def] >> strip_tac
   >- (
     conj_tac
     >- (
@@ -7533,18 +7565,18 @@ Theorem lift_semantics_compiled[local]:
   lift_state_rel lift_runtime_rel D (s:'ffi semanticPrimitives$state) s' ∧
   lift_runtime_env lift_runtime_rel env env' ∧
   (prog' = prog ∨ prog' = compile_decs prog) ∧
-  ¬semantics_prog s env prog Fail ∧ semantics_prog s env prog outcome ⇒
-  semantics_prog s' env' prog' outcome
+  ¬semantics_determ s env prog Fail ∧ semantics_determ s env prog outcome ⇒
+  semantics_determ s' env' prog' outcome
 Proof
   disch_then (fn th => MAP_EVERY assume_tac (CONJUNCTS th))
   >> mp_tac (Q.INST [‘R’ |-> ‘lift_runtime_rel’,‘E’ |-> ‘lift_runtime_env lift_runtime_rel’]
-       (SPEC_ALL lift_semantics_prog_refinement))
+       (SPEC_ALL lift_semantics_determ_refinement))
   >> impl_tac
   >- (
     qx_gen_tac ‘clock’ >> irule lift_eval_refinement_nonfailure >> conj_tac
     >- (
-      qpat_x_assum ‘¬semantics_prog s env prog Fail’ mp_tac
-      >> simp [semantics_prog_def,evaluate_prog_with_clock_def,ELIM_UNCURRY])
+      qpat_x_assum ‘¬semantics_determ s env prog Fail’ mp_tac
+      >> simp [semantics_determ_def,evaluate_prog_with_clock_def,ELIM_UNCURRY])
     >> irule lift_evaluate_decs_compiled_refinement >> gvs [lift_state_rel_def]
     >> qexists_tac ‘clock’ >> simp [])
   >> simp []
@@ -7552,8 +7584,8 @@ QED
 
 Theorem compile_semantics:
   (∀x. (s:'ffi semanticPrimitives$state).eval_state = SOME x ⇒ ∃ev. x = EvalDecs ev) ∧
-  ¬semantics_prog s env prog Fail ∧ semantics_prog s env prog outcome ⇒
-  semantics_prog s env (compile_decs prog) outcome
+  ¬semantics_determ s env prog Fail ∧ semantics_determ s env prog outcome ⇒
+  semantics_determ s env (compile_decs prog) outcome
 Proof
   strip_tac >> irule lift_semantics_compiled
   >> qexistsl_tac [‘lift_eval_decs_state_rel’,‘env’,‘prog’,‘s’]
@@ -7814,9 +7846,9 @@ QED
 Theorem compile_semantics_oracle:
   ∀f.
   is_insert_oracle ci f s.eval_state ∧
-  ¬ semantics_prog s env prog Fail ∧
-  semantics_prog s env prog outcome ⇒
-  semantics_prog (s with eval_state updated_by
+  ¬ semantics_determ s env prog Fail ∧
+  semantics_determ s env prog outcome ⇒
+  semantics_determ (s with eval_state updated_by
             adjust_oracle ci (compile_decs ∘ f))
         env prog outcome
 Proof

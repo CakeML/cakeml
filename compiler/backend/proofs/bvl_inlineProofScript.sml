@@ -308,11 +308,11 @@ Theorem evaluate_compile_prog:
    evaluate ([Call 0 (SOME start) []], [],
              initial_state ffi0 (map
                 (I ## (λx. HD (remove_ticks [x])) ## I) prog)
-                (remove_ticks_co ∘ co) cc k) = (r, s) ⇒
+                (remove_ticks_co ∘ co) cc pe k) = (r, s) ⇒
    ∃ck (s2:('c,'ffi) bvlSem$state).
      evaluate
       ([Call 0 (SOME start) []], [],
-        initial_state ffi0 prog co (remove_ticks_cc cc) (k + ck)) = (r, s2) ∧
+        initial_state ffi0 prog co (remove_ticks_cc cc) pe (k + ck)) = (r, s2) ∧
      s2.ffi = s.ffi
 Proof
   strip_tac \\ fs [remove_ticks_co_def,remove_ticks_cc_def]
@@ -320,8 +320,8 @@ Proof
              (REWRITE_RULE [CONJ_ASSOC] evaluate_remove_ticks_thm))
   \\ disch_then (qspec_then `initial_state ffi0 prog co
         (λcfg prog'. cc cfg (MAP (I ## I ## (λx. HD (remove_ticks [x])) ## I) prog'))
-            k` mp_tac)
-  \\ impl_tac THEN1 fs [state_rel_def]
+            pe k` mp_tac)
+  \\ impl_tac THEN1 fs [state_rel_def, bvlSemTheory.initial_state_def]
   \\ strip_tac \\ fs []
   \\ qexists_tac `ck` \\ fs [state_rel_def]
 QED
@@ -333,8 +333,8 @@ val FST_EQ_LEMMA = prove(
 Theorem semantics_remove_ticks:
    semantics ffi (map (I ## (λx. HD (remove_ticks [x])) ## I) prog)
                  (remove_ticks_co ∘ co)
-                 cc start =
-   semantics (ffi:'b ffi_state) prog co (remove_ticks_cc cc) start
+                 cc pe start =
+   semantics (ffi:'b ffi_state) prog co (remove_ticks_cc cc) pe start
 Proof
   simp [Once semantics_def]
   \\ IF_CASES_TAC \\ fs []
@@ -354,7 +354,7 @@ Proof
       \\ CONV_TAC (LAND_CONV (SIMP_CONV (srw_ss()) [GSYM PULL_FORALL]))
       \\ impl_tac >- fs []
       \\ strip_tac
-      \\ qpat_x_assum `evaluate (_,_,_ _ (_ prog) _ _ _) = _` kall_tac
+      \\ qpat_x_assum `evaluate (_,_,_ _ (_ prog) _ _ _ _) = _` kall_tac
       \\ last_assum (qspec_then `k'` mp_tac)
       \\ goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`))
       \\ drule (GEN_ALL evaluate_compile_prog) \\ simp []
@@ -540,7 +540,7 @@ Proof
          ([Call 0 (SOME start) []],[],
           initial_state ffi
             (map (I ## (λx. HD (remove_ticks [x])) ## I) prog)
-            (remove_ticks_co ∘ co) cc k))`
+            (remove_ticks_co ∘ co) cc pe k))`
   \\ drule (GEN_ALL evaluate_compile_prog)
   \\ strip_tac \\ fs []
   \\ conj_tac \\ rw []
@@ -619,6 +619,7 @@ Definition in_state_rel_def:
     t.refs = s.refs ∧
     t.clock = s.clock ∧
     t.ffi = s.ffi ∧
+    t.ptr_eq_oracle = s.ptr_eq_oracle ∧
     t.compile_oracle = (λn.
       let ((cs,cfg),progs) = s.compile_oracle n in
       let (cs1,progs) = tick_compile_prog limit cs progs in
@@ -907,7 +908,8 @@ Proof
   \\ `t1 = t1 with <| globals := s1.globals ;
                                refs := s1.refs ;
                                clock := s1.clock ;
-                               ffi := s1.ffi |>` by
+                               ffi := s1.ffi ;
+                               ptr_eq_oracle := s1.ptr_eq_oracle |>` by
          fs [in_state_rel_def,state_component_equality]
   \\ pop_assum (fn th => once_rewrite_tac [th])
   THEN1 (strip_tac \\ match_mp_tac do_app_Rerr_swap \\ fs [in_state_rel_def])
@@ -923,17 +925,22 @@ Proof
   \\ imp_res_tac do_app_const \\ fs []
 QED
 
+Theorem exp_rel_LIST_REL:
+  ∀xs ys. LIST_REL (λx y. exp_rel cs [x] [y]) xs ys ⇒ exp_rel cs xs ys
+Proof
+  Induct \\ rw []
+  >- simp [Once exp_rel_cases]
+  \\ Cases_on ‘xs’ \\ gvs []
+  \\ simp [Once exp_rel_cases]
+QED
+
 Theorem exp_rel_refl:
    !cs xs. exp_rel cs xs xs
 Proof
-  qsuff_tac `(!e cs. exp_rel cs [e] [e]) /\
-             (!es cs. exp_rel cs es es)`
-  THEN1 metis_tac []
-  \\ ho_match_mp_tac bvlTheory.exp_induction \\ rw []
-  \\ once_rewrite_tac [exp_rel_cases] \\ fs []
-  \\ Cases_on `es` \\ fs []
-  \\ qpat_x_assum `!cs. exp_rel cs [e] [e]` (qspec_then `cs` mp_tac)
-  \\ simp [Once exp_rel_cases]
+  ‘∀e cs. exp_rel cs [e] [e]’
+    suffices_by (rw [] \\ irule exp_rel_LIST_REL \\ simp [EVERY2_refl])
+  \\ Induct \\ rw [] \\ simp [Once exp_rel_cases]
+  \\ irule exp_rel_LIST_REL \\ simp [EVERY2_refl]
 QED
 
 Theorem evaluate_inline:
@@ -1177,7 +1184,7 @@ QED
 val evaluate_initial_state = prove(
   ``evaluate
      ([Call 0 (SOME start) []],env,
-      initial_state ffi0 (fromAList prog) co cc k) = (res,s2) ∧
+      initial_state ffi0 (fromAList prog) co cc pe k) = (res,s2) ∧
     in_co limit co = co1 /\ in_cc limit cc1 = cc /\
     FST (FST (co 0)) = FST (tick_compile_prog limit LN prog) /\
     ALL_DISTINCT (MAP FST prog) /\
@@ -1186,12 +1193,12 @@ val evaluate_initial_state = prove(
       evaluate
         ([Call 0 (SOME start) []],env,
          initial_state ffi0
-          (fromAList (SND (tick_compile_prog limit LN prog))) co1 cc1 k) =
+          (fromAList (SND (tick_compile_prog limit LN prog))) co1 cc1 pe k) =
         (res,t2) ∧ in_state_rel limit s2 t2``,
   strip_tac
   \\ match_mp_tac evaluate_inline
   \\ qexists_tac `[Call 0 (SOME start) []]`
-  \\ qexists_tac `initial_state ffi0 (fromAList prog) co cc k`
+  \\ qexists_tac `initial_state ffi0 (fromAList prog) co cc pe k`
   \\ fs [exp_rel_refl]
   \\ fs [in_state_rel_def,initial_state_def,GSYM in_co_def]
   \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []
@@ -1205,7 +1212,7 @@ val evaluate_initial_state = prove(
 val in_evaluate_Call = prove(
   ``evaluate
      ([Call 0 (SOME start) []],env,
-      initial_state ffi0 (fromAList prog) co (in_cc limit cc1) k) = (res,s2) ∧
+      initial_state ffi0 (fromAList prog) co (in_cc limit cc1) pe k) = (res,s2) ∧
     FST (FST (co 0)) = FST (tick_compile_prog limit LN prog) /\
     ALL_DISTINCT (MAP FST prog) /\
     res ≠ Rerr (Rabort Rtype_error) ⇒
@@ -1214,17 +1221,17 @@ val in_evaluate_Call = prove(
         ([Call 0 (SOME start) []],env,
          initial_state ffi0
           (fromAList (SND (tick_compile_prog limit LN prog)))
-            (in_co limit co) cc1 k) =
+            (in_co limit co) cc1 pe k) =
         (res,t2) ∧ s2.ffi = t2.ffi``,
   metis_tac [evaluate_initial_state,in_state_rel_def]);
 
 val semantics_tick_inline = prove(
   ``FST (FST (co 0)) = FST (tick_compile_prog limit LN prog) /\
     ALL_DISTINCT (MAP FST prog) ==>
-    semantics ffi (fromAList prog) co (in_cc limit cc) start <> Fail ==>
+    semantics ffi (fromAList prog) co (in_cc limit cc) pe start <> Fail ==>
     semantics ffi (fromAList (SND (tick_compile_prog limit LN prog)))
-                  (in_co limit co) cc start =
-    semantics (ffi:'b ffi_state) (fromAList prog) co (in_cc limit cc) start``,
+                  (in_co limit co) cc pe start =
+    semantics (ffi:'b ffi_state) (fromAList prog) co (in_cc limit cc) pe start``,
   strip_tac
   \\ simp [Once semantics_def]
   \\ simp [Once semantics_def, SimpRHS]
@@ -1241,7 +1248,7 @@ val semantics_tick_inline = prove(
       \\ disch_then (qspec_then `k` mp_tac)
       \\ impl_tac >- fs []
       \\ strip_tac
-      \\ qpat_x_assum `evaluate (_,_,_ _ (_ prog) _ _ _) = _` kall_tac
+      \\ qpat_x_assum `evaluate (_,_,_ _ (_ prog) _ _ _ _) = _` kall_tac
       \\ last_assum (qspec_then `k'` mp_tac)
       \\ goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`))
       \\ rw [] \\ fs [] \\ rveq
@@ -1422,7 +1429,7 @@ val semantics_tick_inline = prove(
   \\ rpt gen_tac
   \\ Cases_on `evaluate
          ([Call 0 (SOME start) []],[],
-          initial_state ffi (fromAList prog) co (in_cc limit cc) k)`
+          initial_state ffi (fromAList prog) co (in_cc limit cc) pe k)`
   \\ drule (GEN_ALL in_evaluate_Call)
   \\ impl_tac >- (last_x_assum (qspec_then `k` mp_tac) \\ fs [])
   \\ strip_tac \\ fs []
@@ -1664,14 +1671,14 @@ End
 
 Theorem let_evaluate_Call[local]:
   evaluate ([Call 0 (SOME start) []], [],
-             initial_state ffi0 prog co (let_op_cc q4 l4 cc) k) = (r, s) /\
+             initial_state ffi0 prog co (let_op_cc q4 l4 cc) pe k) = (r, s) /\
    r <> Rerr (Rabort Rtype_error) ⇒
    ∃(s2:('c,'ffi) bvlSem$state).
      evaluate
       ([Call 0 (SOME start) []], [],
         initial_state ffi0 (map (let_opt q4 l4) prog)
           ((I ## MAP (I ## let_opt q4 l4)) o co)
-          cc k) = (r, s2) ∧
+          cc pe k) = (r, s2) ∧
      s2.ffi = s.ffi /\ s.clock = s2.clock
 Proof
   strip_tac \\ fs [let_op_cc_def]
@@ -1685,10 +1692,10 @@ Proof
 QED
 
 Theorem semantics_let_op[local]:
-  semantics ffi prog co (let_op_cc q4 l4 cc) start <> Fail ==>
+  semantics ffi prog co (let_op_cc q4 l4 cc) pe start <> Fail ==>
     semantics ffi (map (let_opt q4 l4) prog)
-                  ((I ## MAP (I ## let_opt q4 l4)) o co) cc start =
-    semantics (ffi:'b ffi_state) prog co (let_op_cc q4 l4 cc) start
+                  ((I ## MAP (I ## let_opt q4 l4)) o co) cc pe start =
+    semantics (ffi:'b ffi_state) prog co (let_op_cc q4 l4 cc) pe start
 Proof
   simp [Once semantics_def]
   \\ simp [Once semantics_def, SimpRHS]
@@ -1705,7 +1712,7 @@ Proof
       \\ drule evaluate_add_clock
       \\ `q <> Rerr (Rabort Rtimeout_error)` by (CCONTR_TAC \\ fs []) \\ fs []
       \\ CCONTR_TAC \\ fs []
-      \\ qpat_x_assum `evaluate (_,_,_ _ (_ prog) _ _ _) = _` kall_tac
+      \\ qpat_x_assum `evaluate (_,_,_ _ (_ prog) _ _ _ _) = _` kall_tac
       \\ last_assum (qspec_then `k'` mp_tac)
       \\ goal_term (subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`))
       \\ rw [] \\ fs [] \\ rveq
@@ -1880,7 +1887,7 @@ Proof
   \\ rpt gen_tac
   \\ Cases_on `evaluate
          ([Call 0 (SOME start) []],[],
-          initial_state ffi prog co (let_op_cc q4 l4 cc) k)`
+          initial_state ffi prog co (let_op_cc q4 l4 cc) pe k)`
   \\ drule (GEN_ALL let_evaluate_Call)
   \\ impl_tac >- (last_x_assum (qspec_then `k` mp_tac) \\ fs [])
   \\ strip_tac \\ fs []
@@ -1969,11 +1976,11 @@ val inline_ticks = prove(
   ``FST (FST (co 0)) = (FST (tick_compile_prog limit LN prog)) ∧
     ALL_DISTINCT (MAP FST prog) ⇒
     semantics ffi (fromAList prog) co
-      (in_cc limit (remove_ticks_cc cc)) start ≠ Fail ⇒
+      (in_cc limit (remove_ticks_cc cc)) pe start ≠ Fail ⇒
     semantics ffi (fromAList (MAP (I ## I ## (λx. HD (remove_ticks [x])) ## I)
                                 (SND (tick_compile_prog limit LN prog))))
-      (remove_ticks_co ∘ in_co limit co) cc start =
-    semantics ffi (fromAList prog) co (in_cc limit (remove_ticks_cc cc)) start``,
+      (remove_ticks_co ∘ in_co limit co) cc pe start =
+    semantics ffi (fromAList prog) co (in_cc limit (remove_ticks_cc cc)) pe start``,
   fs [ticks] \\ strip_tac
   \\ match_mp_tac semantics_tick_inline \\ fs []);
 
@@ -2025,11 +2032,11 @@ Theorem compile_prog_semantics:
     FST (FST (co 0)) = s1 /\
     ALL_DISTINCT (MAP FST prog) ⇒
     semantics ffi (fromAList prog) co (state_cc (compile_inc limit o1 o2) cc)
-      start ≠ Fail ⇒
+      pe start ≠ Fail ⇒
     semantics ffi (fromAList prog1) (state_co (compile_inc limit o1 o2) co) cc
-      start =
+      pe start =
     semantics ffi (fromAList prog) co (state_cc (compile_inc limit o1 o2) cc)
-      start
+      pe start
 Proof
   fs [state_cc_compile_inc_eq,state_co_compile_inc_eq]
   \\ fs [compile_prog_def,compile_inc_def]

@@ -323,6 +323,14 @@ Proof
   \\ rpt (pairarg_tac \\ gvs [])
 QED
 
+Theorem do_app_ptr_eq_oracle:
+  !s op vs s' r. do_app s op vs = SOME (s', r) ∧ op ≠ Src PtrEq ⇒
+     s'.ptr_eq_oracle = s.ptr_eq_oracle
+Proof
+  rw [do_app_def,AllCaseEqs()] \\ gvs []
+  \\ rpt (pairarg_tac \\ gvs [])
+QED
+
 Theorem evaluate_decs_append:
   !s ds1 s1 s2 r ds2.
     evaluate_decs s (ds1++ds2) =
@@ -619,8 +627,8 @@ QED
 
 Theorem evaluate_decs_add_to_clock_initial_state[local]:
   r ≠ SOME (Rabort Rtimeout_error) ∧
-   evaluate_decs (initial_state ffi k ec) decs = (s',r) ⇒
-   evaluate_decs (initial_state ffi (ck + k) ec) decs =
+   evaluate_decs (initial_state ffi k ec pe) decs = (s',r) ⇒
+   evaluate_decs (initial_state ffi (ck + k) ec pe) decs =
    (s' with clock := s'.clock + ck,r)
 Proof
   rw [initial_state_def]
@@ -628,9 +636,9 @@ Proof
 QED
 
 Theorem evaluate_decs_add_to_clock_initial_state_io_events_mono[local]:
-  evaluate_decs (initial_state ffi k ec) prog = (s',r) ==>
+  evaluate_decs (initial_state ffi k ec pe) prog = (s',r) ==>
    s'.ffi.io_events ≼
-   (FST (evaluate_decs (initial_state ffi (k+ck) ec) prog)).ffi.io_events
+   (FST (evaluate_decs (initial_state ffi (k+ck) ec pe) prog)).ffi.io_events
 Proof
   rw [initial_state_def]
   \\ qmatch_assum_abbrev_tac `evaluate_decs s1 _ = _`
@@ -641,8 +649,8 @@ Proof
 QED
 
 Theorem initial_state_with_clock[local]:
-  (initial_state ffi k ec with clock := (initial_state ffi k ec).clock + ck) =
-   initial_state ffi (k + ck) ec
+  (initial_state ffi k ec pe with clock := (initial_state ffi k ec pe).clock + ck) =
+   initial_state ffi (k + ck) ec pe
 Proof
   rw [initial_state_def]
 QED
@@ -654,15 +662,15 @@ Proof
 QED
 
 Definition eval_sim_def:
-  eval_sim ffi ds1 ds2 ec ec2 rel allow_fail =
+  eval_sim ffi pe ds1 ds2 ec ec2 rel allow_fail =
     !k res1 s2.
-      evaluate_decs (initial_state ffi k ec) ds1 =
+      evaluate_decs (initial_state ffi k ec pe) ds1 =
         (s2, res1) /\
       (allow_fail \/ res1 <> SOME (Rabort Rtype_error)) /\
       rel ds1 ds2
       ==>
       ?ck res2 t2.
-        evaluate_decs (initial_state ffi (k + ck) ec2) ds2 =
+        evaluate_decs (initial_state ffi (k + ck) ec2 pe) ds2 =
           (t2, res2) /\
         s2.ffi = t2.ffi /\
         (res1 = NONE ==> res2 = NONE) /\
@@ -671,11 +679,11 @@ Definition eval_sim_def:
 End
 
 Theorem IMP_semantics_eq:
-   eval_sim ffi ds1 ds2 ec ec2 rel F /\
-   semantics ec (ffi:'ffi ffi_state) ds1 <> Fail ==>
+   eval_sim ffi pe ds1 ds2 ec ec2 rel F /\
+   semantics ec (ffi:'ffi ffi_state) pe ds1 <> Fail ==>
    rel ds1 ds2 ==>
-   semantics ec ffi ds1 =
-   semantics ec2 ffi ds2
+   semantics ec ffi pe ds1 =
+   semantics ec2 ffi pe ds2
 Proof
   rewrite_tac [GSYM AND_IMP_INTRO]
   \\ strip_tac
@@ -729,7 +737,7 @@ Proof
   \\ simp [Once semantics_def]
   \\ IF_CASES_TAC \\ fs [SND_SND_lemma]
   >-
-   (`?a b. evaluate_decs (initial_state ffi k ec) ds1 = (a,b)`
+   (`?a b. evaluate_decs (initial_state ffi k ec pe) ds1 = (a,b)`
         by simp [PAIR_FST_SND_EQ]
     \\ first_x_assum (qspec_then `k` mp_tac)
     \\ simp []
@@ -743,7 +751,7 @@ Proof
   \\ DEEP_INTRO_TAC some_intro
   \\ fs [] \\ rw []
   >-
-   (`?a b. evaluate_decs (initial_state ffi k ec) ds1 = (a,b)`
+   (`?a b. evaluate_decs (initial_state ffi k ec pe) ds1 = (a,b)`
         by simp [PAIR_FST_SND_EQ]
     \\ last_x_assum (qspec_then `k` mp_tac)
     \\ simp []
@@ -780,7 +788,7 @@ Proof
   \\ unabbrev_all_tac \\ simp [PULL_EXISTS]
   \\ simp [LNTH_fromList, PULL_EXISTS, GSYM FORALL_AND_THM]
   \\ rpt gen_tac
-  \\ `?a b. evaluate_decs (initial_state ffi k ec) ds1 = (a,b)`
+  \\ `?a b. evaluate_decs (initial_state ffi k ec pe) ds1 = (a,b)`
     by simp [PAIR_FST_SND_EQ]
   \\ fs [eval_sim_def]
   \\ first_x_assum drule
@@ -799,21 +807,21 @@ Proof
 QED
 
 Theorem semantics_Fail[local]:
-  semantics ec ffi ds = Fail ⇔
-  ∃k. SND (evaluate_decs (initial_state ffi k ec) ds) = SOME (Rabort Rtype_error)
+  semantics ec ffi pe ds = Fail ⇔
+  ∃k. SND (evaluate_decs (initial_state ffi k ec pe) ds) = SOME (Rabort Rtype_error)
 Proof
   rw [semantics_def] \\ DEEP_INTRO_TAC some_intro \\ rw [] \\ fs []
 QED
 
 Theorem IMP_semantics_eq_no_fail:
-   eval_sim ffi ds1 ds2 ec ec2 rel T /\ rel ds1 ds2 ==>
-   semantics ec (ffi:'ffi ffi_state) ds1 =
-   semantics ec2 ffi ds2
+   eval_sim ffi pe ds1 ds2 ec ec2 rel T /\ rel ds1 ds2 ==>
+   semantics ec (ffi:'ffi ffi_state) pe ds1 =
+   semantics ec2 ffi pe ds2
 Proof
   rw []
-  \\ Cases_on `semantics ec ffi ds1 = Fail`
+  \\ Cases_on `semantics ec ffi pe ds1 = Fail`
   >- (
-    `semantics ec2 ffi ds2 = Fail` suffices_by simp []
+    `semantics ec2 ffi pe ds2 = Fail` suffices_by simp []
     \\ fs [semantics_Fail, SND_SND_lemma]
     \\ fs [eval_sim_def]
     \\ first_x_assum drule \\ simp []
@@ -847,8 +855,7 @@ Definition set_globals_def[simp]:
 Termination
   WF_REL_TAC ‘measure (\a. case a of INL e => exp_size e
                                    | INR es => list_size exp_size es)’
-  \\ rw [flatLangTheory.exp_size_def]
-  \\ fs [GSYM o_DEF]
+  \\ rw [GSYM o_DEF]
   >-
    (irule LESS_EQ_LESS_TRANS
     \\ qexists_tac ‘list_size
@@ -912,8 +919,8 @@ Proof
 QED
 
 Theorem initial_state_clock:
-  (initial_state ffi k ec).clock = k /\
-  ((initial_state ffi k ec with clock := k1) = initial_state ffi k1 ec)
+  (initial_state ffi k ec pe).clock = k /\
+  ((initial_state ffi k ec pe with clock := k1) = initial_state ffi k1 ec pe)
 Proof
   EVAL_TAC
 QED
@@ -1004,7 +1011,10 @@ Definition simple_state_rel_def:
         ==> sr (s with globals := sglob) (t with globals := tglob)) /\
     (!s t. sr s t ==> s.ffi = t.ffi) /\
     (!s t sffi tffi. sr s t /\ sffi = tffi
-        ==> sr (s with ffi := sffi) (t with ffi := tffi))
+        ==> sr (s with ffi := sffi) (t with ffi := tffi)) /\
+    (!s t. sr s t ==> s.ptr_eq_oracle = t.ptr_eq_oracle) /\
+    (!s t pe. sr s t
+        ==> sr (s with ptr_eq_oracle := pe) (t with ptr_eq_oracle := pe))
 End
 
 Theorem simple_do_eq_thm_ind:
@@ -1431,6 +1441,14 @@ Proof
     \\ fs [LIST_REL_APPEND_suff, sv_rel_cases, PULL_EXISTS]
     \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
   )
+  >~ [`Src PtrEq`] >- (
+    rpt strip_tac
+    \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]
+    \\ imp_res_tac simple_do_eq_thm
+    \\ `s1.ptr_eq_oracle = s2.ptr_eq_oracle` by fs [simple_state_rel_def]
+    \\ gvs [Boolv_def, simple_val_rel_simps]
+    \\ fs [simple_state_rel_def]
+  )
   \\ rpt strip_tac
   \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]
   \\ rpt (pairarg_tac \\ gvs [])
@@ -1563,14 +1581,6 @@ Definition result_vs_def[simp]:
   result_vs (Rerr (Rraise x)) = [x] /\
   result_vs (Rerr (Rabort y)) = []
 End
-
-Theorem v_size_aux:
-  (!env. v1_size env = 1 + v2_size (env.v)) /\
-  (!xs. v2_size xs = LENGTH xs + SUM (MAP v3_size xs)) /\
-  (!xs. v4_size xs = LENGTH xs + SUM (MAP v_size xs))
-Proof
-  rpt conj_tac \\ Induct \\ simp [v_size_def]
-QED
 
 Definition no_Mat_def[simp]:
   (no_Mat (flatLang$Raise t e) <=> no_Mat e) /\

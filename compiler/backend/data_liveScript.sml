@@ -35,6 +35,7 @@ Definition is_pure_def:
   (is_pure (BlockOp (FromList _)) = F) /\
   (is_pure (BlockOp ListAppend) = F) /\
   (is_pure (BlockOp Equal) = F) /\
+  (is_pure (BlockOp PtrEqual) = F) /\
   (is_pure (GlobOp (SetGlobal _)) = F) /\
   (is_pure (GlobOp SetGlobalsPtr) = F) /\
   (is_pure (MemOp Ref) = F) /\
@@ -77,6 +78,7 @@ Theorem is_pure_pmatch:
     | BlockOp (FromList _) => F
     | BlockOp ListAppend => F
     | BlockOp Equal => F
+    | BlockOp PtrEqual => F
     | MemOp Ref => F
     | MemOp (RefByte _) => F
     | MemOp RefArray => F

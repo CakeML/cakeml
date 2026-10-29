@@ -309,13 +309,6 @@ Definition ThunkBlock_def:
   ThunkBlock ev x = DataElement [x] 1 (ThunkTag ev,[])
 End
 
-Theorem v_size_LEMMA[local]:
-  !vs v. MEM v vs ==> v_size v <= v1_size vs
-Proof
-  Induct \\ full_simp_tac (srw_ss()) [v_size_def]
-  \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss [] \\ DECIDE_TAC
-QED
-
 (* v_inv conf v refs (x,f,tf,heap)
    v    : the dataSem value
    x    : the abstract gc value
@@ -508,23 +501,12 @@ Proof
 QED
 
 
-Theorem MEM_IMP_v_size[local]:
-  ∀l a. MEM a l ⇒ v_size a < 1 + list_size v_size l
-Proof
-  rw []
-  \\ imp_res_tac MEM_list_size
-  \\ pop_assum $ qspec_then ‘v_size’ mp_tac \\ gvs []
-QED
-
 Definition get_refs_def:
   (get_refs (Number _) = []) /\
   (get_refs (Word64 _) = []) /\
   (get_refs (CodePtr _) = []) /\
   (get_refs (RefPtr _ p) = [p]) /\
   (get_refs (Block _ _ vs) = FLAT (MAP get_refs vs))
-Termination
-  WF_REL_TAC `measure (v_size)` \\ rpt strip_tac \\ Induct_on `vs`
-  \\ srw_tac [] [v_size_def] \\ res_tac \\ DECIDE_TAC
 End
 
 Definition ref_edge_def:
@@ -585,8 +567,7 @@ Definition v_all_ts_def:
   v_all_ts (Block ts _ xs) = ts :: FLAT (MAP v_all_ts xs) ∧
   v_all_ts _ = []
 Termination
-  WF_REL_TAC `measure (v_size)` \\ rpt strip_tac \\ Induct_on `xs`
-  \\ srw_tac [] [v_size_def] \\ res_tac \\ DECIDE_TAC
+  WF_REL_TAC `measure (v_size)`
 End
 
 Definition find_ref_def[simp]:
@@ -858,13 +839,6 @@ Definition evaluated_thunk_ptr_def:
   evaluated_thunk_ptr refs n ⇔ ∃v. lookup n refs = SOME (Thunk Evaluated v)
 End
 
-val v_ind =
-  TypeBase.induction_of``:v``
-  |> Q.SPECL[`P`,`EVERY P`]
-  |> SIMP_RULE(srw_ss())[]
-  |> UNDISCH_ALL |> CONJUNCT1
-  |> DISCH_ALL
-
 Theorem v_inv_related_lemma[local]:
   ∀ck w refs x f tf heap1.
     v_inv conf w refs (x,f,tf,heap1) ∧
@@ -874,7 +848,7 @@ Theorem v_inv_related_lemma[local]:
       EVERY (λn. n ∉ evaluated_thunk_ptr refs ⇒ f ' n ∈ FDOM g) (get_refs w)
 Proof
   completeInduct_on `ck` \\ gvs []
-  \\ ho_match_mp_tac v_ind \\ rpt conj_tac
+  \\ ho_match_mp_tac dataSemTheory.v_induction \\ rpt conj_tac
   \\ ntac 2 (rpt gen_tac \\ rpt disch_tac) \\ gvs []
   >- (
     simp [get_refs_def]
@@ -907,7 +881,6 @@ Proof
       \\ gvs [gc_related_def]
       \\ first_x_assum drule \\ simp [BlockRep_def] \\ rw []
       \\ res_tac \\ gvs [])
-    \\ qpat_x_assum `EVERY _ _` kall_tac
     \\ gvs [v_inv_def]
     \\ Cases_on `l = []` \\ gvs [ADDR_APPLY_def]
     \\ simp [Once v_inv_ck_cases]
@@ -917,15 +890,16 @@ Proof
     \\ gvs [FLOOKUP_DEF, f_o_f_DEF]
     \\ strip_tac
     \\ gvs [LIST_REL_EL_EQN, LENGTH_ADDR_MAP] \\ rw []
-    \\ last_x_assum $ qspec_then `ck - 1` mp_tac \\ gvs []
-    \\ last_x_assum $ drule_then assume_tac
+    \\ qpat_x_assum ‘∀m. m < ck ⇒ _’ (qspec_then ‘ck - 1’ mp_tac) \\ gvs []
+    \\ qpat_x_assum ‘∀n. n < LENGTH xs ⇒ v_inv _ _ _ _’ drule \\ strip_tac
     \\ disch_then drule \\ gvs []
     \\ impl_tac \\ gvs [EL_ADDR_MAP]
     \\ reverse conj_tac
     >- metis_tac [MEM_EL]
     \\ rw []
-    \\ first_x_assum drule_all \\ rw []
-    \\ res_tac \\ gvs [])
+    \\ qpat_x_assum ‘∀i xs l d. _ ∧ heap_lookup _ heap1 = _ ⇒ _’ drule_all
+    \\ rw []
+    \\ res_tac)
   >- (
     simp [get_refs_def]
     \\ gvs [v_inv_def]
@@ -3977,7 +3951,7 @@ Proof
   conj_tac >- ( simp[] >> rw[] >> metis_tac[RTC_REFL] ) >>
   simp[ref_edge_ValueArray] >> rpt gen_tac >>
   IF_CASES_TAC >> simp[get_refs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >- (
-    gen_tac >> strip_tac >>
+    qx_gen_tac `a` >> strip_tac >>
     rpt gen_tac >> strip_tac >>
     BasicProvers.VAR_EQ_TAC >>
     first_assum(qspecl_then[`a`,`xs1`]mp_tac) >>
@@ -5957,13 +5931,6 @@ Theorem LIST_REL_IMP_LIST_REL[local]:
       LIST_REL P xs ys ==> LIST_REL Q xs ys
 Proof
   Induct \\ fs [PULL_EXISTS]
-QED
-
-Theorem v_size_LESS_EQ[local]:
-  !l x. MEM x l ==> v_size x <= list_size v_size l
-Proof
-  rw [] \\ imp_res_tac MEM_list_size
-  \\ pop_assum $ qspec_then ‘v_size’ mp_tac \\ gvs []
 QED
 
 Theorem v_inv_IMP_lemma[local]:
@@ -14206,10 +14173,6 @@ Definition v_same_type_def[simp]:
   (v_same_type _ _ = F)
 Termination
   wf_rel_tac`measure (v_size o FST)`
- \\ Induct_on`l1` \\ ntac 2 (rw[v_size_def])
- \\ Cases_on`l2` \\ fs[] \\ rw[]
- \\ res_tac \\ fs[] \\ rfs[]
- \\ first_x_assum(qspecl_then[`0`,`t1`]mp_tac) \\ rw[]
 End
 
 Theorem memory_rel_Block_MEM:
@@ -14267,16 +14230,13 @@ Proof
   \\ fs [] \\ rw [] \\ fs []
 QED
 
-Theorem memory_rel_pointer_eq = Q.prove(`
+Theorem memory_rel_pointer_eq_lemma[local]:
   ∀v1 v2 w b.
    good_dimindex (:'a) ∧
    do_eq refs v1 v2 = Eq_val b /\
-   memory_rel c be ts refs sp st m dm ((v1,(w:'a word_loc))::(v2,w)::vars) ==> b`,
-  ho_match_mp_tac v_ind \\ rw[] \\ Cases_on`v2` \\ fs[] \\ rveq
-  \\ TRY (
-    gvs [CaseEq"bool"]
-    \\ rpt_drule memory_rel_RefPtr_EQ \\ strip_tac \\ fs []
-    \\ every_case_tac \\ fs[] \\ rfs[] \\ NO_TAC)
+   memory_rel c be ts refs sp st m dm ((v1,(w:'a word_loc))::(v2,w)::vars) ==> b
+Proof
+  ho_match_mp_tac dataSemTheory.v_induction \\ rw[] \\ Cases_on`v2` \\ fs[] \\ rveq
   >- (
     rpt_drule memory_rel_Number_cmp \\ rw[]
     \\ fs[WORD_LESS_REFL]
@@ -14293,10 +14253,10 @@ Theorem memory_rel_pointer_eq = Q.prove(`
     \\ pop_assum mp_tac \\ rw[] \\ fs[]
     \\ rfs[good_dimindex_def]
     \\ fs[fcpTheory.CART_EQ,word_extract_def,word_bits_def,fcpTheory.FCP_BETA]
-    \\ rfs[] \\ rw[] \\
-    TRY (
+    \\ rfs[] \\ rw[]
+    >~ [‘dimindex (:α) = 64’] >- (
       rpt(first_x_assum(qspec_then`i`mp_tac))
-      \\ simp[fcpTheory.FCP_BETA,w2w] \\ NO_TAC)
+      \\ simp[fcpTheory.FCP_BETA,w2w])
     \\ Cases_on`i < 32` \\ fs[]
     >- (
       rpt(first_x_assum(qspec_then`i`mp_tac))
@@ -14331,9 +14291,8 @@ Theorem memory_rel_pointer_eq = Q.prove(`
     \\ fs [] \\ rveq
     \\ rpt_drule do_eq_list_F_IMP_MEM
     \\ CCONTR_TAC \\ fs []
-    \\ imp_res_tac EVERY_EL
-    \\ qpat_x_assum `EVERY _ _` kall_tac
-    \\ pop_assum mp_tac
+    \\ qpat_x_assum ‘∀a. MEM a l ⇒ _’ mp_tac
+    \\ simp_tac std_ss [MEM_EL, PULL_EXISTS]
     \\ fs [] \\ asm_exists_tac \\ fs []
     \\ rpt_drule memory_rel_Block_IMP \\ strip_tac
     \\ imp_res_tac memory_rel_swap
@@ -14347,25 +14306,26 @@ Theorem memory_rel_pointer_eq = Q.prove(`
     \\ drule memory_rel_rotate3
     \\ strip_tac
     \\ rpt_drule memory_rel_Block_MEM
-    \\ strip_tac \\ qexists_tac `m (a + y)`
-    \\ pop_assum mp_tac
+    \\ strip_tac
+    \\ qpat_assum ‘do_eq _ _ _ = Eq_val F’ $ irule_at Any
+    \\ qexists_tac ‘m (a + y)’
+    \\ qpat_x_assum ‘memory_rel _ _ _ _ _ _ _ _ ((EL i l,_)::_)’ mp_tac
     \\ match_mp_tac memory_rel_rearrange
-    \\ fs [] \\ rw [] \\ fs []))
-  |> REWRITE_RULE [CONJ_ASSOC] |> ONCE_REWRITE_RULE [CONJ_COMM];
-
-Theorem v1_size_map:
-   ∀ls. v1_size ls = SUM (MAP v_size ls) + LENGTH ls
-Proof
-  Induct \\ rw[v_size_def]
+    \\ fs [] \\ rw [] \\ fs [])
+  \\ gvs [CaseEq"bool"]
+  \\ rpt_drule memory_rel_RefPtr_EQ \\ strip_tac \\ fs []
+  \\ every_case_tac \\ fs[] \\ rfs[]
 QED
+
+Theorem memory_rel_pointer_eq =
+  memory_rel_pointer_eq_lemma
+  |> REWRITE_RULE [CONJ_ASSOC] |> ONCE_REWRITE_RULE [CONJ_COMM];
 
 Definition v_depth_def[simp]:
   (v_depth (Block _ _ ls) = (if NULL ls then 0 else 1) + MAX_LIST (MAP v_depth ls)) ∧
   (v_depth _ = 0n)
 Termination
-  WF_REL_TAC`measure v_size` \\
- ntac 2 gen_tac \\ Induct \\ rw[v_size_def] \\ rw[]
- \\ res_tac \\ rw[]
+  WF_REL_TAC`measure v_size`
 End
 
 val v_depth_ind = theorem"v_depth_ind";
@@ -14408,7 +14368,7 @@ Theorem memory_rel_depth_limit:
        v_depth v = LENGTH ls ∧
        elements_list (MAP FST ls ++ (v::(MAP FST vars)))
 Proof
-  ho_match_mp_tac v_ind
+  ho_match_mp_tac dataSemTheory.v_induction
   \\ rw[v_depth_def,LENGTH_NIL_SYM,NULL_EQ]
   \\ fsrw_tac[ETA_ss][]
   \\ `MEM (MAX_LIST (MAP v_depth l)) (MAP v_depth l)`
@@ -14653,8 +14613,8 @@ Theorem memory_rel_depth_size_limit:
    ⇒
    vb_size v ≤ dimword(:'a) ** (v_depth v + 1)
 Proof
-  ho_match_mp_tac v_ind \\ rw[vb_size_def,EXP,NULL_EQ]
-  \\ TRY ( fs[dimword_def] \\ NO_TAC )
+  ho_match_mp_tac dataSemTheory.v_induction \\ rw[vb_size_def,EXP,NULL_EQ]
+  >>~- ([‘1 ≤ dimword (:'a)’], fs[dimword_def])
   >- (
     rpt_drule memory_rel_Block_IMP
     \\ rw[X_LT_DIV] )
@@ -15789,6 +15749,79 @@ Proof
   \\ disch_then $ qspec_then `MustTerminate_limit (:α) - 1` mp_tac
   \\ impl_tac >- gvs [dimword_def, good_dimindex_def]
   \\ strip_tac \\ rw []
+QED
+
+Theorem vs_depth_le_v_depth[local]:
+  (∀v. vs_depth v ≤ v_depth v) ∧
+  (∀vs. vs_depth_list vs ≤ (if NULL vs then 0 else 1) + MAX_LIST (MAP v_depth vs))
+Proof
+  ho_match_mp_tac vs_depth_ind
+  \\ simp [vs_depth_def, MAX_LIST_def, SF ETA_ss]
+  \\ rw []
+  \\ `vs_depth_list vs ≤ MAX_LIST (MAP v_depth vs) + 1` by (Cases_on `NULL vs` \\ gvs [])
+  \\ `MAX_LIST (MAP v_depth vs) ≤ MAX (v_depth v) (MAX_LIST (MAP v_depth vs))`
+       by simp [MAX_DEF]
+  \\ intLib.ARITH_TAC
+QED
+
+Theorem memory_rel_v_depth_limit[local]:
+  memory_rel c be ts refs sp st m dm ((v1,w1:'a word_loc)::vars) ∧
+  good_dimindex (:'a) ⇒
+  v_depth v1 ≤ dimword (:'a)
+Proof
+  rw []
+  \\ `memory_rel c be ts refs sp st m dm [(v1,w1)]`
+       by (qhdtm_x_assum `memory_rel` mp_tac
+           \\ match_mp_tac memory_rel_rearrange \\ rw [])
+  \\ `elements_list [v1]` by simp []
+  \\ qpat_x_assum `memory_rel c be ts refs sp st m dm ((v1,w1)::vars)` kall_tac
+  \\ rpt_drule memory_rel_depth_limit
+  \\ simp []
+  \\ disch_then (qx_choose_then `ls` strip_assume_tac)
+  \\ rpt_drule memory_rel_elements_list_distinct \\ strip_tac
+  \\ rpt_drule memory_rel_elements_list_words \\ strip_tac
+  \\ gvs [MAP_TL]
+  \\ rpt_drule word_list_limit \\ strip_tac
+QED
+
+Definition word_ptr_eq_def:
+  word_ptr_eq c m dm st (w1:'a word) w2 ⇔
+    w1 = w2 ∨
+    ∃l1 ck1.
+      word_eq c st dm m (MustTerminate_limit (:'a) - 1)
+        (MustTerminate_limit (:'a)) w1 w2 = SOME (1w, l1, ck1)
+End
+
+Theorem word_ptr_eq_thm:
+  memory_rel c be ts refs sp st m dm
+    ((v1,Word w1)::(v2,Word w2:'a word_loc)::vars) ∧
+  do_eq refs v1 v2 = Eq_val b ∧ good_dimindex (:'a) ⇒
+  (word_ptr_eq c m dm st w1 w2 ⇔ b)
+Proof
+  rw []
+  \\ drule_all word_eq_thm
+  \\ disch_then (qx_choosel_then [`res`,`l1`,`ck1`] strip_assume_tac)
+  \\ `v_depth v1 ≤ dimword (:'a)` by (drule_all memory_rel_v_depth_limit \\ simp [])
+  \\ `vs_depth v1 ≤ dimword (:'a)` by
+       (irule LESS_EQ_TRANS \\ qexists_tac `v_depth v1`
+        \\ simp [cj 1 vs_depth_le_v_depth])
+  \\ `MIN (vs_depth v1) (vs_depth v2) ≤ MustTerminate_limit (:'a)` by
+       (rw [MIN_DEF, MustTerminate_limit_def] \\ intLib.ARITH_TAC)
+  \\ drule (cj 1 word_eq_add_clock)
+  \\ disch_then (qspec_then
+        `MustTerminate_limit (:'a) - MIN (vs_depth v1) (vs_depth v2)` assume_tac)
+  \\ `word_eq c st dm m (MustTerminate_limit (:'a) - 1)
+        (MustTerminate_limit (:'a)) w1 w2 =
+      SOME (res,l1,ck1 + (MustTerminate_limit (:'a) -
+                         MIN (vs_depth v1) (vs_depth v2)))` by
+       (`MIN (vs_depth v1) (vs_depth v2) +
+         (MustTerminate_limit (:'a) - MIN (vs_depth v1) (vs_depth v2)) =
+         MustTerminate_limit (:'a)` by simp []
+        \\ fs [])
+  \\ `w1 = w2 ⇒ b` by
+       (strip_tac \\ gvs [] \\ drule_all memory_rel_ptr_eq \\ simp [])
+  \\ simp [word_ptr_eq_def]
+  \\ metis_tac []
 QED
 
 Definition word_mem_eq_def:

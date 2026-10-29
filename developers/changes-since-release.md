@@ -25,6 +25,8 @@ For example, `val (a, b) = (~1, 2)` is represented as
      (Con NONE ((Lit (IntLit ~1)) (Lit (IntLit 2))))))
 ```
 
+The CakeML source language now supports pointer equality (#1561). Note that this makes the source semantics non-deterministic and many top-level theorems have changed shape.
+
 ## Basis library
 
 The shift and rotate functions `<<`, `>>`, `~>>` and `ror` in the `Word8` and
@@ -141,6 +143,8 @@ The PB checker has been reorganized with minor fixes, and also supports solution
 Its backing representation and corresponding algorithms have been optimized heavily (#1528).
 
 The CNF checker(s) have various improvements, especially the RUP algorithm has been updated. Additionally, there is now a centralized and cleaned up basis FFI C file for the checkers (#1495).
+
+A further improvement to the CNF checker(s), API, format-wise, algorithmically, and using the new unsafe ops (#1557).
 
 The new `socketEchoProg` contains a simple echo server meant for testing the Unix domain sockets from `SocketIO`.
 

@@ -172,9 +172,9 @@ Proof
   once_rewrite_tac [fetch "-" "source_dce_prune_pat_ind_def"]
   \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
-  \\ qsuff_tac ‘(∀p used. P0 used p) ∧ ∀ps used. P1 used ps’
+  \\ qsuff_tac ‘(∀used p. P0 used p) ∧ ∀used ps. P1 used ps’
   >- metis_tac []
-  \\ ho_match_mp_tac (TypeBase.induction_of “:ast$pat”)
+  \\ ho_match_mp_tac source_dceTheory.prune_pat_ind
   \\ rpt strip_tac
   \\ last_x_assum match_mp_tac
   \\ rpt strip_tac
@@ -246,10 +246,10 @@ Theorem IMP_maps_disjoint_v[local]:
 Proof
   rw [Arrow_def, AppReturns_def, MapProgTheory.FMAP_TYPE_def]
   \\ last_x_assum drule \\ strip_tac
-  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac
+  \\ first_x_assum $ qspecl_then [‘refs’,‘po’] strip_assume_tac
   \\ first_x_assum $ irule_at Any \\ rw []
   \\ last_x_assum drule \\ strip_tac
-  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac
+  \\ first_x_assum $ qspecl_then [‘refs’,‘po’] strip_assume_tac
   \\ gvs [mlmap_disjoint_thm]
   \\ metis_tac []
 QED

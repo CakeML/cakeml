@@ -14,6 +14,7 @@ Datatype:
     EvalOp (* Eval primitive *)
   | FunApp (* function application *)
   | Force (* forcing a thunk *)
+  | PtrEqOp (* pointer equality *)
   | Simple (* arithmetic operation, no finite-precision/reals *)
 End
 
@@ -23,6 +24,7 @@ Definition getOpClass_def[simp]:
   | Opapp => FunApp
   | Eval => EvalOp
   | ThunkOp t => (if t = ForceThunk then Force else Simple)
+  | PtrEq => PtrEqOp
   | _ => Simple
 End
 
@@ -279,6 +281,11 @@ Datatype:
    ; next_type_stamp : num
    ; next_exn_stamp : num
    ; eval_state :  eval_state option
+   (* oracle deciding whether each successive PtrEq returns the result of
+      structural equality (T) or is attenuated to false (F); indexed first by
+      install epoch, which advances at every Eval, and then by position
+      within that epoch *)
+   ; ptr_eq_oracle : num -> num -> bool
    |>
 End
 

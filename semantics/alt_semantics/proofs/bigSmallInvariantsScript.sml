@@ -103,7 +103,28 @@ Inductive evaluate_ctxt:
    store_assign loc (Thunk Evaluated v) s1.refs = SOME refs
     ⇒ evaluate_ctxt ck env s1 (Cforce loc) v (s1 with refs := refs, Rval v)) ∧
 
-  ((~opClass op FunApp ∧ ¬ opClass op Force) ∧
+  (opClass op PtrEqOp ∧
+   evaluate_list ck env s1 es (s2, Rval vs2) ∧
+   REVERSE vs2 ++ [v] ++ vs1 = [v1; v2] ∧
+   do_eq v1 v2 = Eq_val beq
+      ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
+          (s2 with ptr_eq_oracle := (0 =+ shift_seq 1 (s2.ptr_eq_oracle 0)) s2.ptr_eq_oracle,
+           Rval (Boolv (beq ∧ s2.ptr_eq_oracle 0 0)))) ∧
+
+  (opClass op PtrEqOp ∧
+   evaluate_list ck env s1 es (s2, Rval vs2) ∧
+   REVERSE vs2 ++ [v] ++ vs1 = [v1; v2] ∧
+   do_eq v1 v2 = Eq_type_error
+      ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
+          (s2, Rerr (Rabort Rtype_error))) ∧
+
+  (opClass op PtrEqOp ∧
+   evaluate_list ck env s1 es (s2, Rval vs2) ∧
+   LENGTH (REVERSE vs2 ++ [v] ++ vs1) ≠ 2
+      ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
+          (s2, Rerr (Rabort Rtype_error))) ∧
+
+  ((~opClass op FunApp ∧ ¬ opClass op Force ∧ ¬opClass op PtrEqOp) ∧
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
    do_app (s2.refs, s2.ffi) op (REVERSE vs2 ++ [v] ++ vs1) = NONE
       ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v

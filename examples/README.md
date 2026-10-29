@@ -48,6 +48,9 @@ Hello World on standard error.
 [helloProgScript.sml](helloProgScript.sml):
 Hello World example, printing to standard output.
 
+[hwmcc_checker](hwmcc_checker):
+Formalization of a certificate and proof checker for hardware model checking.
+
 [insertSortProgScript.sml](insertSortProgScript.sml):
 In-place insertion sort on a polymorphic array.
 

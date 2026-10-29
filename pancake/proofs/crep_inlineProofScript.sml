@@ -1782,10 +1782,7 @@ Proof
   >- (Cases_on `r1 = NONE` >> gvs[prog_size_def]) >>
   Cases_on `ctyp` >> gvs[prog_size_def] >>
   PairCases_on `x` >> fs[] >>
-  Cases_on `x1` >> gvs[]
-  >- (
-    gvs[prog_size_def]
-  ) >>
+  Cases_on `x1` >> gvs[] >>
   PairCases_on `x` >> fs[] >>
   rpt (pairarg_tac >> gvs[prog_size_def])
 QED

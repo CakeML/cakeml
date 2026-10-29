@@ -90,7 +90,9 @@ val _ = translate (word_to_stackTheory.call_dest_def)
 val _ = translate (word_to_stackTheory.wInst_def)
 
 val _ = translate (word_to_stackTheory.perf_call_prefix_def)
-val _ = translate (word_to_stackTheory.perf_call_suffix_def)
+(* top-level vals must not call functions (no_ptr_eq), so unfold list_Seq *)
+val _ = translate (word_to_stackTheory.perf_call_suffix_def
+                   |> REWRITE_RULE [stackLangTheory.list_Seq_def])
 
 val _ = translate (word_to_stackTheory.num_stack_ret_def |> INST_TYPE [alpha|->``:num``])
 val _ = translate (word_to_stackTheory.skip_free_def |> INST_TYPE [alpha|->``:num``,beta|->``:num``])

@@ -29,7 +29,17 @@ val res = cv_auto_trans tn_setup_fixes_def;
 val res = cv_auto_trans init_type_names_def;
 val res = cv_auto_trans FIND_tn_current_def;
 val res = cv_auto_trans get_tn_ok_def;
-val res = cv_auto_trans inf_t_to_ast_t_mono_def;
+
+val inf_t_to_ast_t_mono_pre = cv_auto_trans_pre "" inf_t_to_ast_t_mono_def;
+
+Theorem inf_t_to_ast_t_mono_pre[cv_pre,local]:
+  (∀ienv tn v. inf_t_to_ast_t_mono_pre ienv tn v) ∧
+  (∀ienv tn v. inf_t_to_ast_t_mono_map_pre ienv tn v)
+Proof
+  ho_match_mp_tac inf_t_to_ast_t_mono_ind \\ rpt strip_tac
+  \\ simp [Once inf_t_to_ast_t_mono_pre] \\ rpt strip_tac
+  \\ gvs [] \\ metis_tac []
+QED
 
 val res = cv_auto_trans_pre "" type_con_name_def;
 

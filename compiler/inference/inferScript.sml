@@ -365,39 +365,49 @@ Definition type_name_check_sub_def:
 End
 
 Theorem to_type_name_check_sub:
-  (∀t l f tenvT fvs.
+  (∀l tenvT fvs t f.
      type_name_check_subst l f tenvT fvs t =
      λs:'a. case type_name_check_sub l tenvT fvs t s of
          | (M_failure (x,INR r),s) => (M_failure (x,f r),s)
          | (M_failure (x,INL r),s) => (M_failure (x,r),s)
          | (M_success y,s) => (M_success y,s)) ∧
-  (∀t l f tenvT fvs.
+  (∀l tenvT fvs t f.
      type_name_check_subst_list l f tenvT fvs t =
      λs:'a. case type_name_check_sub_list l tenvT fvs t s of
          | (M_failure (x,INR r),s) => (M_failure (x,f r),s)
          | (M_failure (x,INL r),s) => (M_failure (x,r),s)
          | (M_success y,s) => (M_success y,s))
 Proof
-  ho_match_mp_tac ast_t_induction \\ rpt strip_tac
+  ho_match_mp_tac type_name_check_sub_ind \\ rpt strip_tac
   \\ simp [type_name_check_subst_alt,type_name_check_sub_def,FUN_EQ_THM]
   \\ rw []
-  >-
-   (Cases_on ‘type_name_check_sub l tenvT fvs t s’ \\ gvs []
+  >~ [‘Ttup’] >- (
+    Cases_on ‘type_name_check_sub_list l tenvT fvs t s’ \\ gvs []
     \\ Cases_on ‘q’ \\ gvs []
-    \\ Cases_on ‘type_name_check_sub l tenvT fvs t' r’ \\ gvs []
-    \\ rpt (TOP_CASE_TAC \\ gvs [AllCaseEqs()])
-    \\ gvs [AllCaseEqs()])
-  >-
-   (Cases_on ‘type_name_check_sub_list l tenvT fvs t s’ \\ gvs []
+    \\ rpt (TOP_CASE_TAC \\ gvs []))
+  >~ [‘type_subst’] >- (
+    Cases_on ‘type_name_check_sub_list l tenvT fvs t s’ \\ gvs []
     \\ Cases_on ‘q’ \\ gvs []
-    \\ rpt (TOP_CASE_TAC \\ gvs [AllCaseEqs()])
-    \\ gvs [AllCaseEqs()])
-  >-
-   (Cases_on ‘type_name_check_sub_list l tenvT fvs t s’ \\ gvs []
+    >- (
+      Cases_on ‘nsLookup tenvT tc’ \\ gvs []
+      \\ PairCases_on ‘x’ \\ rw [])
+    \\ PairCases_on ‘b’ \\ Cases_on ‘b1’ \\ gvs [])
+  >~ [‘Tfn’] >- (
+    Cases_on ‘type_name_check_sub l tenvT fvs t s’ \\ gvs []
     \\ Cases_on ‘q’ \\ gvs []
-    \\ rpt (TOP_CASE_TAC \\ gvs [])
-    \\ rpt (FULL_CASE_TAC \\ gvs []))
-  \\ rpt (FULL_CASE_TAC \\ gvs [])
+    >- (
+      first_x_assum drule \\ rw []
+      \\ Cases_on ‘type_name_check_sub l tenvT fvs t' r’ \\ Cases_on ‘q’ \\ gvs []
+      \\ PairCases_on ‘b’ \\ Cases_on ‘b1’ \\ gvs [])
+    \\ PairCases_on ‘b’ \\ Cases_on ‘b1’ \\ gvs [])
+  \\ Cases_on ‘type_name_check_sub l tenvT fvs t s’ \\ gvs []
+  \\ Cases_on ‘q’ \\ gvs []
+  >- (
+    first_x_assum drule \\ rw []
+    \\ Cases_on ‘type_name_check_sub_list l tenvT fvs t' r’ \\ Cases_on ‘q’
+    \\ gvs []
+    \\ PairCases_on ‘b’ \\ Cases_on ‘b1’ \\ gvs [])
+  \\ PairCases_on ‘b’ \\ Cases_on ‘b1’ \\ gvs []
 QED
 
 Theorem bind_type_name_check_subst:
@@ -595,6 +605,7 @@ End
 
 Definition op_to_string_def:
   (op_to_string Equality = («Equality», 2)) ∧
+  (op_to_string PtrEq = («PtrEq», 2)) ∧
   (op_to_string (Arith a ty) =
      («Arith»,
       case supported_arith a ty of SOME n => (n:num) | NONE => 0n)) ∧
@@ -720,6 +731,10 @@ constrain_op l op ts s =
     od s
   else pmatch (op,ts) of
    | (Equality, [t1;t2]) =>
+       do () <- add_constraint l t1 t2;
+          return (Infer_Tapp [] Tbool_num)
+       od s
+   | (PtrEq, [t1;t2]) =>
        do () <- add_constraint l t1 t2;
           return (Infer_Tapp [] Tbool_num)
        od s

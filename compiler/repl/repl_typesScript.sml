@@ -93,6 +93,10 @@ Inductive repl_types:
      FLOOKUP slots loc = SOME ty ∧ trusted_input_value catalogue ty value ∧
      store_assign loc (Refv value) s.refs = SOME new_store ⇒
      repl_types catalogue slots b (ffi,rs) (types,s with refs := new_store,env))
+[repl_types_oracle:]
+  (∀ffi rs types (s:'ffi semanticPrimitives$state) env po b.
+     repl_types catalogue slots b (ffi,rs) (types,s,env) ⇒
+     repl_types catalogue slots b (ffi,rs) (types,s with ptr_eq_oracle := po,env))
 End
 
 (* Mirror definitions for repl_types using the type system directly *)
@@ -159,6 +163,10 @@ Inductive repl_types_TS:
      FLOOKUP slots loc = SOME ty ∧ trusted_input_value catalogue ty value ∧
      store_assign loc (Refv value) s.refs = SOME new_store ⇒
      repl_types_TS catalogue slots (ffi,rs) (tids,tenv,s with refs := new_store,env))
+[repl_types_TS_oracle:]
+  (∀ffi rs tids tenv (s:'ffi semanticPrimitives$state) env po.
+     repl_types_TS catalogue slots (ffi,rs) (tids,tenv,s,env) ⇒
+     repl_types_TS catalogue slots (ffi,rs) (tids,tenv,s with ptr_eq_oracle := po,env))
 End
 
 Theorem init_config_tenv_to_ienv:
@@ -364,6 +372,17 @@ Proof
 QED
 
 
+Theorem input_typing_witnesses_oracle[local]:
+  input_typing_witnesses catalogue slots tids tenv
+    (st with ptr_eq_oracle := po) env ctMap tenvS <=>
+  input_typing_witnesses catalogue slots tids tenv
+    (st:'ffi semanticPrimitives$state) env ctMap tenvS
+Proof
+  simp [input_typing_witnesses_def,
+        typeSoundInvariantsTheory.type_sound_invariant_def,
+        typeSoundInvariantsTheory.consistent_ctMap_def]
+QED
+
 Theorem repl_types_TS_witnesses:
   !catalogue slots (ffi:'ffi ffi_state) rs tids tenv st env.
     repl_types_TS catalogue slots (ffi,rs) (tids,tenv,st,env) ==>
@@ -379,6 +398,7 @@ Proof
   >- suspend "ExnAssign"
   >- suspend "StringAssign"
   >- suspend "TrustedAssign"
+  >- suspend "Oracle"
 QED
 
 Resume repl_types_TS_witnesses[Init]:
@@ -436,6 +456,10 @@ Resume repl_types_TS_witnesses[TrustedAssign]:
     `input_typing_witnesses _ _ _ _ _ _ old_map old_store` >>
   drule_all input_typing_trusted_assign >> strip_tac >>
   qexistsl_tac [`old_map`,`old_store`] >> simp []
+QED
+
+Resume repl_types_TS_witnesses[Oracle]:
+  simp [input_typing_witnesses_oracle] >> metis_tac []
 QED
 
 Finalise repl_types_TS_witnesses;
@@ -521,7 +545,9 @@ Proof
   >~ [`trusted_input_value _ _ _`] >- (
     metis_tac [repl_types_TS_trusted_assign])
   >~ [`MEM (_,Str,_) _`] >- (
-    metis_tac [repl_types_TS_str_assign]) >>
+    metis_tac [repl_types_TS_str_assign])
+  >~ [`_ with ptr_eq_oracle := _`] >- (
+    metis_tac [repl_types_TS_oracle]) >>
   qmatch_asmsub_rename_tac
     `infertype_prog_inc previous_types _ = M_success updated_types` >>
   drule repl_types_inference_invariants >> strip_tac >>
@@ -581,14 +607,16 @@ Theorem repl_types_skip_alt:
 Proof
   strip_tac >> fs [rich_listTheory.IS_PREFIX_APPEND] >>
   qmatch_asmsub_rename_tac `next_st.refs = st.refs ++ junk` >>
-  `next_st = st with <|refs := st.refs ++ junk;
+  `next_st = (st with <|refs := st.refs ++ junk;
      clock := st.clock - (st.clock - next_st.clock);
      next_type_stamp := st.next_type_stamp +
        (next_st.next_type_stamp - st.next_type_stamp);
      next_exn_stamp := st.next_exn_stamp +
-       (next_st.next_exn_stamp - st.next_exn_stamp)|>` by (
+       (next_st.next_exn_stamp - st.next_exn_stamp)|>)
+     with ptr_eq_oracle := next_st.ptr_eq_oracle` by (
          fs [semanticPrimitivesTheory.state_component_equality]) >>
-  pop_assum SUBST1_TAC >> irule repl_types_skip >> simp []
+  pop_assum SUBST1_TAC >> irule repl_types_oracle >>
+  irule repl_types_skip >> simp []
 QED
 
 Theorem repl_types_set_clock:
@@ -606,6 +634,7 @@ Proof
   >- suspend "ExnAssign"
   >- suspend "StringAssign"
   >- suspend "TrustedAssign"
+  >- suspend "Oracle"
 QED
 
 Resume repl_types_set_clock[Init]:
@@ -680,6 +709,12 @@ Resume repl_types_set_clock[TrustedAssign]:
   simp [] >> metis_tac []
 QED
 
+Resume repl_types_set_clock[Oracle]:
+  ‘s with <|clock := ck; ptr_eq_oracle := po|> =
+   (s with clock := ck) with ptr_eq_oracle := po’ by simp [] >>
+  pop_assum SUBST1_TAC >> irule repl_types_oracle >> simp []
+QED
+
 Finalise repl_types_set_clock;
 
 Theorem INJ_count_ADD[local]:
@@ -708,6 +743,7 @@ Proof
   >- suspend "ExnAssign"
   >- suspend "StringAssign"
   >- suspend "TrustedAssign"
+  >- suspend "Oracle"
 QED
 
 Resume repl_types_T_F[Init]:
@@ -846,6 +882,13 @@ Resume repl_types_T_F[TrustedAssign]:
   qexistsl_tac [‘clean_state with refs := clean_refs’,‘clean_env’,
     ‘ref_map’,‘type_map’,‘exn_map’,‘protected_prefix’] >>
   simp [] >> metis_tac [repl_types_trusted_assign]
+QED
+
+Resume repl_types_T_F[Oracle]:
+  gvs [] >>
+  qexistsl_tac [‘clean with ptr_eq_oracle := po’,‘clean_env’,
+    ‘fr’,‘ft’,‘fe’,‘l’] >>
+  gvs [state_rel_def] >> irule repl_types_oracle >> simp []
 QED
 
 Finalise repl_types_T_F;

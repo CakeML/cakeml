@@ -107,12 +107,29 @@ fun one_line_ify_mutrec def = let
 Theorem can_interpret_ind = (DefnBase.lookup_indn “can_interpret” |> valOf |> fst);
 Theorem check_size_ind = (DefnBase.lookup_indn “check_size” |> valOf |> fst);
 
-val r = translate $ one_line_ify_mutrec clos_interpTheory.can_interpret_def;
-val r = translate $ one_line_ify_mutrec (clos_interpTheory.check_size_def |> RW [GSYM sub_check_def]);
+val res = translate_no_ind $ one_line_ify_mutrec (clos_interpTheory.check_size_def |> RW [GSYM sub_check_def]);
+
+Theorem clos_interp_check_size_ind[local]:
+  clos_interp_check_size_ind
+Proof
+  once_rewrite_tac [fetch "-" "clos_interp_check_size_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD, sub_check_def]
+QED
+
+val res = clos_interp_check_size_ind |> update_precondition;
 
 val r = translate clos_interpTheory.insert_interp_def;
 
 val r = translate flat_to_closTheory.inc_compile_decs_def;
+
+val _ = (length (hyp r) = 0)
+        orelse failwith "Unproved side condition: flat_to_clos_inc_compile_decs";
 
 val r = translate clos_interpTheory.clos_interpreter_def;
 val r = translate clos_interpTheory.compile_init_def;

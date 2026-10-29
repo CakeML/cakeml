@@ -58,7 +58,6 @@ Termination
   wf_rel_tac ‘measure (λx. case x of
                            | INL s => long_names_size (SND s) + 1
                            | INR l => long_names_size l)’
-  \\ simp [list_size_def, basicSizeTheory.pair_size_def]
 End
 
 Theorem names_set_empty_names[local,simp]:
@@ -290,6 +289,7 @@ Definition state_rel_def:
          store_lookup loc1 s1.refs = SOME sv1 ∧
          store_lookup loc2 s2.refs = SOME sv2 ∧
          sv_rel (v_rel f) sv1 sv2) ∧
+    s1.ptr_eq_oracle = s2.ptr_eq_oracle ∧
     s1.clock = s2.clock ∧
     s1.ffi = s2.ffi ∧
     s1.next_type_stamp = s2.next_type_stamp ∧
@@ -1269,6 +1269,18 @@ Resume evaluate_v_rel[App]:
       \\ gvs [] \\ first_assum $ irule_at Any \\ gvs []
       \\ imp_res_tac SUBMAP_TRANS \\ gvs [])
     \\ first_assum $ irule_at Any \\ imp_res_tac SUBMAP_TRANS \\ gvs [])
+  (* pointer equality preserves the relation and advances both oracles *)
+  >-
+   (gvs [AllCaseEqs()]
+    \\ qpat_x_assum ‘REVERSE xs = _’
+         (mp_tac o REWRITE_RULE [REVERSE_REVERSE, REVERSE_DEF] o
+          AP_TERM “REVERSE : v list -> v list”)
+    \\ strip_tac
+    \\ gvs [LIST_REL_CONS1]
+    \\ ‘INJ (FAPPLY g) (FDOM g) UNIV’ by gvs [state_rel_def]
+    \\ imp_res_tac (cj 1 v_rel_do_eq)
+    \\ qexists_tac ‘g’
+    \\ gvs [state_rel_def, REVERSE_DEF])
   (* the simple operations *)
   \\ gvs [AllCaseEqs()]
   \\ ‘LIST_REL (v_rel g) (REVERSE xs) (REVERSE ys)’ by gvs [LIST_REL_REVERSE_EQ]
@@ -1434,6 +1446,7 @@ Finalise evaluate_v_rel[local]
 
 Definition pure_st_def:
   pure_st (s:'ffi semanticPrimitives$state) s' ⇔
+    s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
     s'.clock = s.clock ∧ s'.ffi = s.ffi ∧
     s'.next_type_stamp = s.next_type_stamp ∧
     s'.next_exn_stamp = s.next_exn_stamp ∧
@@ -1584,16 +1597,16 @@ Proof
 QED
 
 Theorem prune_pat_bindings[local]:
-  (∀p used.
+  (∀used p.
      set (pat_bindings (prune_pat used p)) ⊆ set (pat_bindings p) ∧
      (ALL_DISTINCT (pat_bindings p) ⇒
       ALL_DISTINCT (pat_bindings (prune_pat used p)))) ∧
-  (∀ps used.
+  (∀used ps.
      set (pats_bindings (prune_pat_list used ps)) ⊆ set (pats_bindings ps) ∧
      (ALL_DISTINCT (pats_bindings ps) ⇒
       ALL_DISTINCT (pats_bindings (prune_pat_list used ps))))
 Proof
-  ho_match_mp_tac astTheory.pat_induction
+  ho_match_mp_tac prune_pat_ind
   \\ rpt conj_tac \\ rpt gen_tac \\ rpt strip_tac
   \\ gvs [prune_pat_def, astTheory.pat_bindings_def, ALL_DISTINCT_APPEND]
   \\ rw [] \\ gvs [prune_pat_def, astTheory.pat_bindings_def,
@@ -2669,19 +2682,19 @@ Theorem dce_decs_semantics[local]:
   dce_decs empty_names prog = (res,x) ∧
   ¬has_Denv_decs (append res) ∧ open_free_decs prog ∧
   (∀x. s.eval_state = SOME x ⇒ ∃ev. x = EvalDecs ev) ∧
-  ¬semantics_prog s env prog Fail ∧
-  semantics_prog s env prog outcome ⇒
-    semantics_prog s env (append res) outcome
+  ¬semantics_determ s env prog Fail ∧
+  semantics_determ s env prog outcome ⇒
+    semantics_determ s env (append res) outcome
 Proof
   Cases_on ‘outcome’ \\ fs [SF CONJ_ss]
   >~ [‘Terminate x y’] >-
-   (rw [semantics_prog_def]
+   (rw [semantics_determ_def]
     \\ drule_all evaluate_prog_with_clock_correct
     \\ strip_tac
     \\ first_x_assum $ irule_at Any
     \\ Cases_on ‘r’ \\ gvs [result_rel_def]
     \\ Cases_on ‘e’ \\ gvs [exc_rel_def])
-  \\ rw [semantics_prog_def]
+  \\ rw [semantics_determ_def]
   >-
    (first_x_assum $ qspec_then ‘k’ strip_assume_tac
     \\ drule evaluate_prog_with_clock_correct \\ gvs [])
@@ -2699,9 +2712,9 @@ QED
 Theorem compile_semantics:
   env.v = nsEmpty ∧
   (∀x. s.eval_state = SOME x ⇒ ∃ev. x = EvalDecs ev) ∧
-  ¬semantics_prog s env prog Fail ∧
-  semantics_prog s env prog outcome ⇒
-    semantics_prog s env (source_dce$compile_decs prog) outcome
+  ¬semantics_determ s env prog Fail ∧
+  semantics_determ s env prog outcome ⇒
+    semantics_determ s env (source_dce$compile_decs prog) outcome
 Proof
   rw [source_dceTheory.compile_decs_def]
   \\ Cases_on ‘dce_decs empty_names prog’

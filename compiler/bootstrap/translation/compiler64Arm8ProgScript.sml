@@ -66,14 +66,17 @@ val compiler64_arm8_prog_def = fetch "-" "compiler64_arm8_prog_def";
 Theorem semantics_compiler64_arm8_prog:
   ~has_repl_flag (TL cl) /\ IS_SOME (stdin_content fs) /\ wfcl cl /\ wfFS fs /\
   STD_streams fs ==>
-  ?io_events.
-    semantics_dec_list
+  sem_satisfies
+    (semantics_dec_list
       (init_state (basis_ffi ext cl fs) with
        eval_state := SOME (EvalDecs
          (eval_state_var with env_id_counter := (0,0,1))))
-      init_env compiler64_arm8_prog (Terminate Success io_events) /\
-    extract_fs ext (cl,fs) io_events =
-      SOME (full_compile_host HostArm8 (TL cl) (get_stdin fs) fs)
+      init_env compiler64_arm8_prog)
+    (\behaviour.
+       ?io_events.
+         behaviour = Terminate Success io_events /\
+         extract_fs ext (cl,fs) io_events =
+           SOME (full_compile_host HostArm8 (TL cl) (get_stdin fs) fs))
 Proof
   strip_tac
   \\ irule sem_thm

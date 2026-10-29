@@ -53,19 +53,37 @@ QED
 val _ = not (can (fetch "-") "my_even_ind") andalso
         not (can (fetch "-") "my_odd_ind") orelse
         failwith "Parity unexpectedly has function-named induction";
-val parity_expected_error =
+val parity_translation = translate parity_all_variable;
+val _ = length (fst (strip_forall (concl (latest_ind ())))) = 2 orelse
+        failwith "Parity did not use the registered mutual induction";
+val _ = null (hyp parity_translation) orelse
+        failwith "Parity translation retained an obligation";
+
+(* Restated mutual equations over constants with no registered induction:
+   the single-function fallback rejects them. *)
+Definition even_flag_def:
+  even_flag n ⇔ EVEN n
+End
+
+Definition odd_flag_def:
+  odd_flag n ⇔ ODD n
+End
+
+Theorem flags_all_variable[local]:
+  (∀n. even_flag n ⇔ if n = 0 then T else odd_flag (n - 1)) /\
+  (∀n. odd_flag n ⇔ if n = 0 then F else even_flag (n - 1))
+Proof
+  rw [even_flag_def, odd_flag_def] \\ Cases_on ‘n’
+  \\ gvs [arithmeticTheory.EVEN, arithmeticTheory.ODD, arithmeticTheory.EVEN_ODD]
+QED
+
+val flags_expected_error =
   "Preprocessor failed: definition defines more than one function.";
-val parity_preprocessing_error =
-  (mutual_to_single_line_def (Context.snapshot ()) parity_all_variable; NONE)
+val flags_translation_error =
+  (translate flags_all_variable; NONE)
   handle HOL_ERR err => SOME (Feedback.message_of err);
-val _ = parity_preprocessing_error = SOME parity_expected_error orelse
-        failwith "Parity preprocessing did not reject the single-function fallback";
-val parity_translation_error =
-  (translate parity_all_variable; NONE)
-  handle HOL_ERR err => SOME (Feedback.message_of err);
-val _ = parity_translation_error = SOME parity_expected_error orelse
-        failwith "Parity translation did not reject the single-function fallback";
-val _ = print "Parity: single-function fallback rejects the mutual definition.\n";
+val _ = flags_translation_error = SOME flags_expected_error orelse
+        failwith "Flags translation did not reject the single-function fallback";
 
 (* Define saves induction for the numeric recursion before state is exposed. *)
 Definition native_state_step_def:
@@ -150,7 +168,7 @@ Proof
   \\ ONCE_REWRITE_TAC [SWAP_FORALL_THM]
   \\ ho_match_mp_tac
        (fetch "-" "induction_tree_induction"
-        |> Q.SPECL [`P`, `λaux. T`, `λopt. T`]
+        |> Q.SPECL [`P`, `λaux. T`]
         |> SIMP_RULE std_ss [] |> Q.GEN `P`)
   \\ rpt strip_tac
   \\ qpat_x_assum `∀n tree. _ ⇒ P n tree` irule
@@ -332,6 +350,82 @@ End
 val res = translate char_to_byte_def;
 
 val res = translate MAP;
+
+(* Primitive recursion under MAP: no induction theorem is saved, and the
+   recursive call is stated unapplied or partially applied. *)
+Datatype:
+  rose_tree = RoseLeaf num | RoseNode num (rose_tree list)
+End
+
+Definition rose_flatten_def:
+  rose_flatten (RoseLeaf n) = [n] ∧
+  rose_flatten (RoseNode n ts) = n :: FLAT (MAP rose_flatten ts)
+End
+
+Definition rose_label_def:
+  rose_label k (RoseLeaf n) = [k + n] ∧
+  rose_label k (RoseNode n ts) = (k + n) :: FLAT (MAP (rose_label (k + 1)) ts)
+End
+
+val res = translate FLAT;
+val _ = not (can (fetch "-") "rose_flatten_ind") orelse
+        failwith "Rose flatten unexpectedly has saved induction";
+val rose_flatten_translation = translate rose_flatten_def;
+val _ = null (hyp rose_flatten_translation) orelse
+        failwith "Rose flatten translation retained an obligation";
+val _ = fst (dest_var (fst (dest_forall (concl (latest_ind ()))))) = "P0" orelse
+        failwith "Rose flatten did not use the datatype induction";
+val _ = not (String.isSubstring "genvar"
+               (term_to_string (fetch "-" "rose_flatten_v_def" |> concl |> rhs))) orelse
+        failwith "Rose flatten code leaks generated variable names";
+val rose_label_translation = translate rose_label_def;
+val _ = null (hyp rose_label_translation) orelse
+        failwith "Rose label translation retained an obligation";
+
+(* Mutual recursion over a datatype and its list, without a saved induction
+   theorem named after either function. *)
+Datatype:
+  list_data = LeafData num | ListData (list_data list)
+End
+
+Definition list_data_length_def:
+  (list_data_length1 (LeafData n) = n) /\
+  (list_data_length1 (ListData ds) = list_data_length2 ds) /\
+  (list_data_length2 [] = 0n) /\
+  (list_data_length2 (d::ds) = list_data_length1 d + list_data_length2 ds)
+End
+
+val _ = not (can (fetch "-") "list_data_length1_ind") orelse
+        failwith "List data length unexpectedly has function-named induction";
+val list_data_length_translation = translate list_data_length_def;
+val _ = null (hyp list_data_length_translation) orelse
+        failwith "List data length translation retained an obligation";
+val _ = aconv (concl (latest_ind ())) (concl (fetch "-" "list_data_length_ind")) orelse
+        failwith "List data length did not use the registered induction";
+
+(* Mutual recursion through options and pairs inside lists, with a definition
+   name that matches no function name. *)
+Datatype:
+  pexp = PLit num | PCon (num option) (pexp list) | PMat pexp ((num # pexp) list)
+End
+
+Definition pexp_measure_def:
+  (pexp_count (PLit n) = n) /\
+  (pexp_count (PCon opt es) = pexp_counts es) /\
+  (pexp_count (PMat e pes) = pexp_count e + pexp_count_pes pes) /\
+  (pexp_counts [] = 0) /\
+  (pexp_counts (e::es) = pexp_count e + pexp_counts es) /\
+  (pexp_count_pes [] = 0) /\
+  (pexp_count_pes ((n,e)::pes) = n + pexp_count e + pexp_count_pes pes)
+End
+
+val _ = not (can (fetch "-") "pexp_count_ind") orelse
+        failwith "Nested count unexpectedly has function-named induction";
+val pexp_translation = translate pexp_measure_def;
+val _ = null (hyp pexp_translation) orelse
+        failwith "Nested count translation retained an obligation";
+val _ = aconv (concl (latest_ind ())) (concl (fetch "-" "pexp_measure_ind")) orelse
+        failwith "Nested count did not use the registered induction";
 
 val _ = translate_tm “λx. pure_seq (n+1:num) x”
   |> concl |> find_term (can (match_term “Let NONE”))
@@ -1038,5 +1132,27 @@ val _ = List.app (fn (name, primitive) => let
    ("smallint_div_str_pre_test", “UnsafeIndexArith Div”),
    ("smallint_mod_str_pre_test", “UnsafeIndexArith ast$Mod”),
    ("smallint_lt_str_pre_test", “UnsafeIndexTest (Compare Lt)”)];
+
+(* if ptr_eq: a pointer-equality fast path. The side condition
+   x = y ⇒ t1 = t2 is discharged automatically when simp can prove it. *)
+Definition ptr_eq_fast_eq_def:
+  ptr_eq_fast_eq (xs:num list) ys = if ptr_eq xs ys then T else xs = ys
+End
+
+val ptr_eq_fast_eq_translation = translate ptr_eq_fast_eq_def;
+val _ = null (hyp ptr_eq_fast_eq_translation) orelse
+        failwith "ptr_eq fast path retained a precondition";
+val _ = can (find_term (can (match_term “App PtrEq args”)))
+          (fetch "-" "ptr_eq_fast_eq_v_def" |> concl |> rhs) orelse
+        failwith "ptr_eq was not translated to PtrEq";
+
+(* when the branches can differ on equal arguments, x = y ⇒ t1 = t2 becomes
+   a precondition (here simplified to x ≠ y) *)
+Definition ptr_eq_pre_test_def:
+  ptr_eq_pre_test (x:num) y = if ptr_eq x y then x else y + 1
+End
+
+val _ = check_precondition ptr_eq_pre_test_def
+  “λ(x:num) (y:num). x ≠ y”;
 
 end;

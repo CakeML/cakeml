@@ -505,7 +505,7 @@ Theorem infer_deBruijn_subst_walkstar:
     =
     t_walkstar s (infer_deBruijn_subst ts t)
 Proof
-  gen_tac \\ ho_match_mp_tac infer_t_ind
+  gen_tac \\ ho_match_mp_tac infer_t_induction
   >> rw [infer_deBruijn_subst_alt, EL_MAP]
   >- metis_tac [SUBMAP_REFL, t_walkstar_idempotent]
   >> rw [t_walkstar_eqn1, MAP_EQ_EVERY2, LIST_REL_EL_EQN]

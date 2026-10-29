@@ -248,11 +248,7 @@ Resume evaluate_basis_v_ok[App]:
   rw [evaluate_def]
   \\ Cases_on ‘getOpClass op’
   \\ gvs [CaseEqs ["bool", "option", "prod", "semanticPrimitives$result"], SF SFY_ss]
-  >- (Cases_on ‘op’ \\ gs[])
-  >- (Cases_on ‘op’ \\ gs[])
-  >- (Cases_on ‘op’ \\ gs[])
-  >- (Cases_on ‘op’ \\ gs[])
-  >- (Cases_on ‘op’ \\ gvs [])
+  \\ rpt (Cases_on ‘op’ \\ gvs [] \\ NO_TAC)
   >- (
     gvs [do_app_cases, Boolv_def]
     \\ rw [v_ok_def]

@@ -75,8 +75,8 @@ Definition inline_exp_def:
 Termination
   WF_REL_TAC ‘measure $ λx. pmatch x of
     | INL (_,e) => bvi$exp_size e
-    | INR (_,es) => bvi$exp2_size es’
-  >> rpt strip_tac >> simp [bviTheory.exp_size_def]
+    | INR (_,es) => list_size bvi$exp_size es’
+  >> rpt strip_tac >> simp []
 End
 
 Definition inline_all_def:
@@ -115,8 +115,8 @@ Definition remove_ticks_exp_def:
 Termination
   WF_REL_TAC ‘measure $ λx. pmatch x of
     | INL e => bvi$exp_size e
-    | INR es => bvi$exp2_size es’
-  >> rpt strip_tac >> simp [bviTheory.exp_size_def]
+    | INR es => list_size bvi$exp_size es’
+  >> rpt strip_tac >> simp []
 End
 
 Definition compile_inc_def:
