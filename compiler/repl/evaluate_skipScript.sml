@@ -1772,6 +1772,62 @@ Proof
           eval_state := NONE |>’ \\ gs []
     \\ gs [state_rel_def, EL_LUPDATE]
     \\ rw [] \\ gs [ref_rel_def, v_rel_def, stamp_rel_cases])
+  \\ Cases_on ‘op = CopyVecVec ∨ op = CopyArrVec’
+  >- (
+    pop_assum strip_assume_tac \\ gs []
+    \\ Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ imp_res_tac state_rel_store_lookup \\ gs [OPTREL_def]
+    \\ rpt (rename [‘ref_rel _ (_ _) y0’] \\ Cases_on ‘y0’ \\ gvs [ref_rel_def])
+    \\ rename1 ‘LIST_REL (v_rel fr ft fe) copy_source copy_target’
+    \\ qmatch_goalsub_rename_tac ‘copy_array (_,copy_offset) copy_length NONE’
+    \\ ‘OPTREL (LIST_REL (v_rel fr ft fe))
+          (copy_array (copy_source,copy_offset) copy_length NONE)
+          (copy_array (copy_target,copy_offset) copy_length NONE)’ by (
+      irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def]
+    \\ first_assum (irule_at Any)
+    \\ gs [v_rel_def, sub_exn_v_def, stamp_rel_cases, subscript_stamp_def,
+           state_rel_def])
+  \\ Cases_on ‘op = CopyVecArr ∨ op = CopyArrArr’
+  >- (
+    pop_assum strip_assume_tac \\ gs []
+    \\ Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ imp_res_tac state_rel_store_lookup \\ gs [OPTREL_def]
+    \\ rpt (rename [‘ref_rel _ (_ _) y0’] \\ Cases_on ‘y0’ \\ gvs [ref_rel_def])
+    \\ qmatch_asmsub_rename_tac
+         ‘copy_array (copy_source,copy_offset) copy_length
+            (SOME (copy_destination,copy_destination_offset))’
+    \\ rename1 ‘LIST_REL (v_rel fr ft fe) copy_source copy_target_source’
+    \\ rename1
+         ‘LIST_REL (v_rel fr ft fe) copy_destination copy_target_destination’
+    \\ ‘OPTREL (LIST_REL (v_rel fr ft fe))
+          (copy_array (copy_source,copy_offset) copy_length
+            (SOME (copy_destination,copy_destination_offset)))
+          (copy_array (copy_target_source,copy_offset) copy_length
+            (SOME (copy_target_destination,copy_destination_offset)))’ by (
+      irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def]
+    >>~- ([‘sub_exn_v’],
+      first_assum (irule_at Any)
+      \\ gs [v_rel_def, sub_exn_v_def, stamp_rel_cases, subscript_stamp_def,
+             state_rel_def])
+    \\ qmatch_asmsub_rename_tac
+         ‘store_assign copy_destination_location (Varray copy_result) s.refs’
+    \\ rename1 ‘LIST_REL (v_rel fr ft fe) copy_result copy_target_result’
+    \\ ‘ref_rel (v_rel fr ft fe) (Varray copy_result)
+          (Varray copy_target_result)’ by gs [ref_rel_def]
+    \\ drule_all
+         (Q.INST [‘n’ |-> ‘copy_destination_location’] state_rel_store_assign)
+    \\ rw [OPTREL_def] \\ gvs []
+    \\ first_assum (irule_at Any) \\ gs [v_rel_def])
   \\ Cases_on ‘op = Aw8update’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
