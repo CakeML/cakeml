@@ -1326,7 +1326,7 @@ Theorem every_inst_ok_less_shape_val:
   (∀e. every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2) (shape_val e)) ∧
   (∀es. EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (shape_vals es))
 Proof
-  Induct >>
+  ho_match_mp_tac panLangTheory.shape_val_ind >>
   rw[panLangTheory.shape_val_def,panPropsTheory.every_exp_def] >>
   gvs[EVERY_MEM]
 QED

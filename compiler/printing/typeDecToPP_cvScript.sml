@@ -18,10 +18,10 @@ val res = cv_trans id_to_str_def;
 val res = cv_auto_trans_pre "" pp_of_ast_t_def;
 
 Theorem pp_of_ast_t_pre[cv_pre]:
-  (∀v fixes. pp_of_ast_t_pre fixes v) ∧
-  (∀v fixes. pp_of_ast_ts_pre fixes v)
+  (∀fixes v. pp_of_ast_t_pre fixes v) ∧
+  (∀fixes v. pp_of_ast_ts_pre fixes v)
 Proof
-  ho_match_mp_tac astTheory.ast_t_induction
+  ho_match_mp_tac typeDecToPPTheory.pp_of_ast_t_ind
   \\ rpt strip_tac \\ simp [Once res]
 QED
 

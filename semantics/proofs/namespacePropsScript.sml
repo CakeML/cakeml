@@ -1573,3 +1573,12 @@ Proof
   >> drule_all EVERY_ALOOKUP
   >> simp []
 QED
+
+Theorem nsLookup_namespaceSET3:
+  ∀ns id v. nsLookup ns id = SOME v ⇒ v ∈ namespaceSET3 ns
+Proof
+  ho_match_mp_tac nsLookup_ind
+  >> rw [nsLookup_def, namespaceSET3_thm, AllCaseEqs(), PULL_EXISTS]
+  >- (disj1_tac >> qexists_tac ‘(n,v)’ >> simp [ALOOKUP_MEM])
+  >> disj2_tac >> qexistsl_tac [‘env’,‘(mn,env)’] >> simp [ALOOKUP_MEM]
+QED

@@ -27,8 +27,7 @@ Theorem collect_args_size:
     num_args' + exp_size e' ≤ num_args + exp_size e
 Proof
    ho_match_mp_tac collect_args_ind >>
-   srw_tac[][collect_args_def, exp_size_def] >>
-   srw_tac[][exp_size_def] >>
+   srw_tac[][collect_args_def] >>
    res_tac >>
    decide_tac
 QED
@@ -68,13 +67,6 @@ Definition collect_apps_def:
 End
 
 val collect_apps_ind = theorem "collect_apps_ind";
-
-Theorem exp3_size_append[local]:
-  !es1 es2. exp3_size (es1 ++ es2) = exp3_size es1 + exp3_size es2
-Proof
-  Induct_on `es1` >>
- simp [exp_size_def]
-QED
 
 Theorem collect_apps_more[local]:
   !max_app args e args' e'.

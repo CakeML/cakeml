@@ -53,7 +53,16 @@ Theorem generalise_none[local]:
    s' = FEMPTY ∧
    EVERY (check_t 0 {}) ts)
 Proof
-  ho_match_mp_tac infer_t_induction >>
+  ‘(∀m n s t s' t' x.
+      m = 0 ∧ n = 0 ∧ s = FEMPTY ∧ check_t 0 x t ∧
+      generalise m n s t = (0, s', t') ⇒
+      s' = FEMPTY ∧ check_t 0 {} t) ∧
+   (∀m n s ts s' ts' x.
+      m = 0 ∧ n = 0 ∧ s = FEMPTY ∧ EVERY (check_t 0 x) ts ∧
+      generalise_list m n s ts = (0, s', ts') ⇒
+      s' = FEMPTY ∧ EVERY (check_t 0 {}) ts)’
+    suffices_by metis_tac [] >>
+  ho_match_mp_tac generalise_ind >>
  rw [generalise_def, check_t_def, LET_THM, LAMBDA_PROD]
  >- (`?n s' t'. generalise_list 0 0 FEMPTY ts = (n,s',t')` by metis_tac [pair_CASES] >>
      fs [] >>
@@ -151,14 +160,14 @@ Proof
 QED
 
 Theorem infer_d_sound_no_open:
-   (!d tenv ienv st1 st2 ienv'.
+   (!ienv d tenv st1 st2 ienv'.
     infer_d ienv d st1 = (M_success ienv', st2) ∧
     env_rel tenv ienv ∧
     start_type_id ≤ st1.next_id ∧
     dopen_free_dec d
     ⇒
     type_d T tenv d (set_ids st1.next_id st2.next_id) (ienv_to_tenv ienv')) ∧
-  (!ds tenv ienv st1 st2 ienv'.
+  (!ienv ds tenv st1 st2 ienv'.
     infer_ds ienv ds st1 = (M_success ienv', st2) ∧
     env_rel tenv ienv ∧
     start_type_id ≤ st1.next_id ∧
@@ -166,7 +175,7 @@ Theorem infer_d_sound_no_open:
     ⇒
     type_ds T tenv ds (set_ids st1.next_id st2.next_id) (ienv_to_tenv ienv'))
 Proof
-  Induct
+  ho_match_mp_tac infer_d_ind >> rpt conj_tac
   >- (
     (* Dlet *)
     rw[infer_d_def,success_eqns]>>
@@ -270,7 +279,7 @@ Proof
             simp[convert_env_def,MAP_MAP_o,MAP_EQ_f,FORALL_PROD])>>
           fs[])>>
         rpt (disch_then drule) >>
-        disch_then (qspecl_then [`st1`,`<| loc := SOME l; err := ienv.inf_t |>`] mp_tac) >>
+        disch_then (qspecl_then [`st1`,`<| loc := SOME locs; err := ienv.inf_t |>`] mp_tac) >>
         strip_tac >>
         rfs [] >>
         fs[] >>
@@ -384,7 +393,7 @@ Proof
      >-
        (match_mp_tac (GEN_ALL infer_e_type_pe_determ)>>
        qexists_tac`st1` >>
-       qexists_tac `<| loc := SOME l; err := ienv.inf_t |>` >>
+       qexists_tac `<| loc := SOME locs; err := ienv.inf_t |>` >>
        HINT_EXISTS_TAC>>fs[]>>
        imp_res_tac(CONJUNCT2 generalise_none)>>
        pop_assum(qspec_then`count st1'.next_uvar` mp_tac)>>
@@ -679,6 +688,11 @@ Proof
     simp[Once type_d_cases]>>
     fs[set_ids_def,ienv_to_tenv_def,env_rel_def, env_rel_sound_def]>>
     metis_tac[ETA_AX])
+  >- (
+    fs [dopen_free_dec_def])
+  >- (
+    rename [`Denv`]
+    >> fs [infer_d_def,failwith_def,dopen_free_dec_def])
  >- (
     (* Dmod *)
     rw[infer_d_def,success_eqns,dopen_free_dec_def]>>
@@ -686,7 +700,6 @@ Proof
     qexists_tac `ienv_to_tenv ienv''` >>
     simp [ienv_to_tenv_lift] >>
     last_x_assum match_mp_tac >>
-    qexists_tac `ienv` >>
     metis_tac [])
   >- (
     (* Dlocal *)
@@ -708,11 +721,6 @@ Proof
     >> qexists_tac `set_ids st''.next_id st2.next_id`
     >> fs [set_ids_eq_union, set_ids_def, EXTENSION, DISJOINT_DEF]
   )
-  >- (
-    rename [`Denv`]
-    >> fs [infer_d_def,failwith_def,dopen_free_dec_def])
-  >- (
-    fs [dopen_free_dec_def])
   >- (
     (* infer_ds [] *)
     fs[infer_d_def,success_eqns,env_rel_def,dopen_free_dec_def]>>
@@ -748,7 +756,7 @@ Proof
 QED
 
 Theorem infer_d_sound_worker[local]:
-  (!d tenv ienv st1 st2 ienv'.
+  (!ienv d tenv st1 st2 ienv'.
     infer_d ienv d st1 = (M_success ienv', st2) ∧
     env_rel tenv ienv ∧
     start_type_id ≤ st1.next_id
@@ -757,7 +765,7 @@ Theorem infer_d_sound_worker[local]:
       type_d T tenv d (set_ids st1.next_id st2.next_id) tenv' ∧
       env_rel tenv' ienv' ∧
       (tenv = ienv_to_tenv ienv ⇒ tenv' = ienv_to_tenv ienv')) ∧
-  (!ds tenv ienv st1 st2 ienv'.
+  (!ienv ds tenv st1 st2 ienv'.
     infer_ds ienv ds st1 = (M_success ienv', st2) ∧
     env_rel tenv ienv ∧
     start_type_id ≤ st1.next_id
@@ -767,7 +775,7 @@ Theorem infer_d_sound_worker[local]:
       env_rel tenv' ienv' ∧
       (tenv = ienv_to_tenv ienv ⇒ tenv' = ienv_to_tenv ienv'))
 Proof
-  Induct
+  ho_match_mp_tac infer_d_ind >> rpt conj_tac
   >- (
     rw [] >>
     qexists_tac `ienv_to_tenv ienv'` >>
@@ -798,12 +806,32 @@ Proof
     simp [] >>
     metis_tac [infer_d_sound_no_open, infer_d_check,
                env_rel_ienv_to_tenv, env_rel_def, dopen_free_dec_def])
+  >- (
+    rw [infer_d_def, infer_open_success] >>
+    rename1 `open_ienv path ienv = SOME inferred_open` >>
+    `∃typed_open. open_tenv path tenv = SOME typed_open`
+      by metis_tac [env_rel_open_tenv_exists] >>
+    pop_assum strip_assume_tac >>
+    qexists_tac `typed_open` >>
+    simp [Once type_d_cases, set_ids_same] >>
+    conj_tac
+    >- (
+      irule env_rel_open >>
+      qexistsl_tac [`ienv`, `path`, `tenv`] >>
+      fs []) >>
+    strip_tac >>
+    rveq >>
+    drule ienv_to_tenv_open >>
+    fs [])
+  >- (
+    rename [`Denv`] >>
+    fs [infer_d_def, failwith_def])
   >- (
     rw [infer_d_def, success_eqns] >>
     first_x_assum drule >>
     disch_then drule >>
     rw [] >>
-    qexists_tac `tenvLift m tenv'` >>
+    qexists_tac `tenvLift mn tenv'` >>
     simp [Once type_d_cases] >>
     metis_tac [env_rel_lift, ienv_to_tenv_lift])
   >- (
@@ -811,11 +839,11 @@ Proof
     rename1 `infer_ds ienv ds st1 = (M_success ienv1, sti)` >>
     rename1 `infer_ds (extend_dec_ienv ienv1 ienv) ds' sti =
              (M_success ienv2, st2)` >>
-    last_x_assum drule >>
+    first_x_assum drule >>
     disch_then drule >>
     rw [] >>
     last_x_assum (qspecl_then
-      [`extend_dec_tenv tenv' tenv`, `extend_dec_ienv ienv1 ienv`,
+      [`ienv1`, `extend_dec_tenv tenv' tenv`,
        `sti`, `st2`, `ienv2`] mp_tac) >>
     impl_tac
     >- (
@@ -838,26 +866,6 @@ Proof
     strip_tac >>
     metis_tac [ienv_to_tenv_extend])
   >- (
-    rename [`Denv`] >>
-    fs [infer_d_def, failwith_def])
-  >- (
-    rw [infer_d_def, infer_open_success] >>
-    rename1 `open_ienv path ienv = SOME inferred_open` >>
-    `∃typed_open. open_tenv path tenv = SOME typed_open`
-      by metis_tac [env_rel_open_tenv_exists] >>
-    pop_assum strip_assume_tac >>
-    qexists_tac `typed_open` >>
-    simp [Once type_d_cases, set_ids_same] >>
-    conj_tac
-    >- (
-      irule env_rel_open >>
-      qexistsl_tac [`ienv`, `path`, `tenv`] >>
-      fs []) >>
-    strip_tac >>
-    rveq >>
-    drule ienv_to_tenv_open >>
-    fs [])
-  >- (
     rw [infer_d_def, success_eqns, Once type_d_cases, set_ids_same] >>
     simp [env_rel_empty, ienv_to_tenv_def])
   >- (
@@ -865,11 +873,11 @@ Proof
     rename1 `infer_d ienv d st1 = (M_success ienv1, sti)` >>
     rename1 `infer_ds (extend_dec_ienv ienv1 ienv) ds sti =
              (M_success ienv2, st2)` >>
-    last_x_assum drule >>
+    first_x_assum drule >>
     disch_then drule >>
     rw [] >>
     last_x_assum (qspecl_then
-      [`extend_dec_tenv tenv' tenv`, `extend_dec_ienv ienv1 ienv`,
+      [`ienv1`, `extend_dec_tenv tenv' tenv`,
        `sti`, `st2`, `ienv2`] mp_tac) >>
     impl_tac
     >- (
@@ -986,10 +994,12 @@ Theorem db_subst_infer_subst_swap2:
        convert_t)
       ts))
 Proof
-ho_match_mp_tac infer_t_induction >>
-rw [convert_t_def, deBruijn_subst_def, EL_MAP, t_walkstar_eqn1,
-    infer_deBruijn_subst_alt, MAP_MAP_o, combinTheory.o_DEF, check_t_def,
-    LENGTH_COUNT_LIST]
+  reverse conj_asm1_tac >- (rw [MAP_EQ_f] >> fs [EVERY_MEM]) >>
+  ho_match_mp_tac infer_t_induction >>
+  rw [convert_t_def, deBruijn_subst_def, EL_MAP, t_walkstar_eqn1,
+      infer_deBruijn_subst_alt, MAP_MAP_o, combinTheory.o_DEF, check_t_def,
+      LENGTH_COUNT_LIST] >>
+  rw [MAP_EQ_f] >> fs [EVERY_MEM]
 QED
 
 (*

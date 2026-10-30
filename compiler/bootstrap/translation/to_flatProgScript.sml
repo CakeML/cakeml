@@ -172,9 +172,9 @@ Proof
   once_rewrite_tac [fetch "-" "source_dce_prune_pat_ind_def"]
   \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
-  \\ qsuff_tac ‘(∀p used. P0 used p) ∧ ∀ps used. P1 used ps’
+  \\ qsuff_tac ‘(∀used p. P0 used p) ∧ ∀used ps. P1 used ps’
   >- metis_tac []
-  \\ ho_match_mp_tac (TypeBase.induction_of “:ast$pat”)
+  \\ ho_match_mp_tac source_dceTheory.prune_pat_ind
   \\ rpt strip_tac
   \\ last_x_assum match_mp_tac
   \\ rpt strip_tac

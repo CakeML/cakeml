@@ -139,12 +139,6 @@ Definition orderBool_to_pseudoBool_def:
   (orderBool_to_pseudoBool (OExactlyOne bs) =
    PExactlyOne (MAP orderBool_to_pseudoBool bs)) ∧
   (orderBool_to_pseudoBool (OOrderAxiom xs) = encode_orderAxiom xs)
-Termination
-  WF_REL_TAC ‘measure orderBool_size'’
-  >> rw[orderBool_size']
-  >> Induct_on ‘bs’
-  >> rw[pseudoBool_size']
-  >> gs[orderBool_size']
 End
 
 Definition orderBool_to_cnf_def:
@@ -171,21 +165,21 @@ Theorem orderBool_to_pseudoBool_preserves_sat:
     eval_orderBool w b =
     eval_pseudoBool w (orderBool_to_pseudoBool b)
 Proof
-  ho_match_mp_tac orderBool_to_pseudoBool_ind >> rw[]
+  ho_match_mp_tac (fetch "-" "orderBool_induction") >> rw[]
   >> TRY (rw[eval_orderBool_def, orderBool_to_pseudoBool_def,
              eval_pseudoBool_def]
           >> NO_TAC)
   >> TRY (gs[eval_orderBool_def, orderBool_to_pseudoBool_def,
              eval_pseudoBool_def]
-          >> qspecl_then [‘bs’, ‘w’] assume_tac sum_bools_equal
+          >> qspecl_then [‘l’, ‘w’] assume_tac sum_bools_equal
           >> gs[]
           >> metis_tac[]
           >> NO_TAC)
   >> rw[eval_orderBool_def, orderBool_to_pseudoBool_def]
-  >> Induct_on ‘xs’
+  >> Induct_on ‘l’
   >- rw[eval_orderAxiom_def, encode_orderAxiom_def, eval_pseudoBool_def]
   >> gs[eval_orderAxiom_def]
-  >> Induct_on ‘xs’
+  >> Induct_on ‘l’
   >- gs[encode_orderAxiom_def, eval_pseudoBool_def, cnfTheory.satisfies_lit_def]
   >> rw[]
   >> gs[eval_orderAxiom_def, encode_orderAxiom_def,

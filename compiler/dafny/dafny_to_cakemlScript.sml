@@ -165,11 +165,6 @@ Definition from_bin_op_def:
             (App (Arith Div IntT) [cml_e₀; Var (Short n_e₁)])
             (App (Arith Sub IntT)
                  [Lit (IntLit 0); App (Arith Div IntT) [cml_e₀; neg_cml_e₁]]))
-Termination
-  wf_rel_tac ‘measure (λx. case x of
-                           | (Neq, _, _) => bin_op_size Neq + 1
-                           | (Imp, _, _) => bin_op_size Imp + 1
-                           | (bop, _, _) => bin_op_size bop)’
 End
 
 Definition from_lit_def:

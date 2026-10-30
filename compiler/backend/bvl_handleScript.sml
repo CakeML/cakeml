@@ -266,13 +266,14 @@ Definition compile_sing_def:
 End
 
 Theorem compile_sing_eq:
-  (∀e l n. compile l n [e] = (λ(d,l,s,nr). ([d],l,s,nr)) (compile_sing l n e)) ∧
-  (∀es l n. compile l n es = compile_list l n es)
+  (∀l n e. compile l n [e] = (λ(d,l,s,nr). ([d],l,s,nr)) (compile_sing l n e)) ∧
+  (∀l n es. compile l n es = compile_list l n es)
 Proof
-  Induct >> rw[compile_def, compile_sing_def, OptionalLetLet_sing_eq] >>
-  rpt (pairarg_tac >> gvs[]) >>
-  rpt (TOP_CASE_TAC >> gvs[]) >>
-  Cases_on `es` >> gvs[compile_def]
+  ho_match_mp_tac compile_sing_ind
+  \\ rw [compile_def, compile_sing_def, OptionalLetLet_sing_eq]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ rpt (TOP_CASE_TAC \\ gvs [])
+  \\ Cases_on ‘es’ \\ gvs [compile_def]
 QED
 
 Definition compile_exp_def:

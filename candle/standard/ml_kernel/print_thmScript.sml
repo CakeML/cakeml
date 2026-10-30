@@ -12,8 +12,6 @@ Libs
 Definition ty_to_v_def:
   ty_to_v (Tyvar s) = Expr [Atom «Tyvar»; Atom s] ∧
   ty_to_v (Tyapp s tys) = Expr (Atom «Tyapp» :: Atom s :: (MAP ty_to_v tys))
-Termination
-  WF_REL_TAC ‘measure type_size’
 End
 
 Definition term_to_v_def:
@@ -46,12 +44,6 @@ End
 
 (* decoding from v *)
 
-Theorem MEM_IMP_sexp_size_LESS:
-  ∀xs a. MEM a xs ⇒ sexp_size a < list_size sexp_size xs
-Proof
-  Induct \\ rw [] \\ simp [] \\ res_tac \\ fs []
-QED
-
 Definition v_to_str_def[simp]:
   v_to_str (Atom s) = s
 End
@@ -66,7 +58,8 @@ Termination
   WF_REL_TAC ‘measure sexp_size’
   \\ Cases \\ simp []
   \\ Cases_on ‘t’ \\ simp [] \\ rw []
-  \\ imp_res_tac MEM_IMP_sexp_size_LESS \\ fs []
+  \\ drule MEM_list_size_lt
+  \\ disch_then $ qspec_then ‘sexp_size’ mp_tac \\ fs []
 End
 
 Definition v_to_term_def:
@@ -116,7 +109,7 @@ End
 Theorem ty_to_v_thm[simp]:
   ∀ty. v_to_ty (ty_to_v ty) = ty
 Proof
-  ho_match_mp_tac ty_to_v_ind \\ rw []
+  ho_match_mp_tac holSyntaxTheory.type_induction \\ rw []
   \\ simp [ty_to_v_def,v_to_ty_def]
   \\ fs [MAP_MAP_o,miscTheory.MAP_EQ_ID]
 QED

@@ -25,6 +25,8 @@ For example, `val (a, b) = (~1, 2)` is represented as
      (Con NONE ((Lit (IntLit ~1)) (Lit (IntLit 2))))))
 ```
 
+The CakeML source language now supports pointer equality (#1561). Note that this makes the source semantics non-deterministic and many top-level theorems have changed shape.
+
 ## Basis library
 
 The shift and rotate functions `<<`, `>>`, `~>>` and `ror` in the `Word8` and

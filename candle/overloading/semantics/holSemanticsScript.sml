@@ -113,7 +113,7 @@ Theorem builtin_closure_idem:
 Proof
   rw[FUN_EQ_THM]
   >> W (curry Q.SPEC_TAC) `x`
-  >> ho_match_mp_tac type_ind
+  >> ho_match_mp_tac type_induction
   >> rpt strip_tac
   >- simp[Once builtin_closure_cases]
   >> simp[Once builtin_closure_cases]
@@ -128,7 +128,7 @@ Theorem allTypes_no_tyvars_and_ok[local]:
         /\ is_std_sig sig
         ==> tyvars ty = [] /\ type_ok (tysof sig) ty
 Proof
-  ho_match_mp_tac type_ind >> rpt strip_tac
+  ho_match_mp_tac type_induction >> rpt strip_tac
   >> fs[allTypes'_defn]
   >- (BasicProvers.PURE_FULL_CASE_TAC >- fs[tyvars_def]
       >> qpat_x_assum `!x. _` mp_tac >> simp[] >> strip_tac
@@ -179,7 +179,7 @@ QED
 Theorem builtin_closure_allTypes:
   !ty q. (∀x. MEM x (allTypes' ty) ⇒ x ∈ q) ==> ty ∈ builtin_closure q
 Proof
-  ho_match_mp_tac type_ind >> rpt strip_tac
+  ho_match_mp_tac type_induction >> rpt strip_tac
   >- (fs[allTypes'_defn,boolTheory.IN_DEF] >> metis_tac[builtin_closure_rules])
   >- (fs[allTypes'_defn,listTheory.EVERY_MEM]
       >> BasicProvers.PURE_FULL_CASE_TAC
@@ -194,7 +194,7 @@ QED
 Theorem builtin_closure_allTypes'':
   !ty sigma q. (∀x. MEM x (allTypes' ty) ⇒ TYPE_SUBSTf sigma x ∈ q) ==> TYPE_SUBSTf sigma  ty ∈ builtin_closure q
 Proof
-  ho_match_mp_tac type_ind >> rpt strip_tac
+  ho_match_mp_tac type_induction >> rpt strip_tac
   >- (fs[allTypes'_defn,boolTheory.IN_DEF] >> metis_tac[builtin_closure_rules])
   >- (fs[allTypes'_defn,listTheory.EVERY_MEM]
       >> BasicProvers.PURE_FULL_CASE_TAC
@@ -209,7 +209,7 @@ QED
 Theorem builtin_closure_allTypes''':
   !ty sigma q. (∀y x. MEM x (allTypes' ty) /\ MEM y (allTypes' (TYPE_SUBSTf sigma x)) ⇒ y ∈ q) ==> TYPE_SUBSTf sigma ty ∈ builtin_closure q
 Proof
-  ho_match_mp_tac type_ind >> rpt strip_tac
+  ho_match_mp_tac type_induction >> rpt strip_tac
   >- (match_mp_tac builtin_closure_allTypes
       >> fs[allTypes'_defn])
   >> fs[allTypes'_defn]
@@ -717,7 +717,7 @@ Theorem ext_type_frag_idem:
     (ext_type_frag_builtins (ext_type_frag_builtins δ) ty)
      = ext_type_frag_builtins δ ty
 Proof
-  ho_match_mp_tac type_ind >> rpt strip_tac
+  ho_match_mp_tac type_induction >> rpt strip_tac
   >- (rw[Once ext_type_frag_builtins_def])
   >> rw[Once ext_type_frag_builtins_def]
   >> rpt(BasicProvers.PURE_TOP_CASE_TAC >> fs[])
@@ -730,7 +730,7 @@ Theorem ext_type_frag_mono_eq:
     (!ty'. MEM ty' (allTypes' ty) ==> δ1 ty' = δ2 ty')
     ==> ext_type_frag_builtins δ1 ty = ext_type_frag_builtins δ2 ty
 Proof
-  ho_match_mp_tac type_ind >> rpt strip_tac
+  ho_match_mp_tac type_induction >> rpt strip_tac
   >- (fs[ext_type_frag_builtins_def,allTypes'_defn])
   >> rw[Once ext_type_frag_builtins_def]
   >> rpt(BasicProvers.PURE_TOP_CASE_TAC >> fs[allTypes'_defn])
@@ -738,7 +738,7 @@ Proof
   >> simp[]
   >> qmatch_goalsub_abbrev_tac `Funspace a1 a2 = Funspace a3 a4`
   >> `a1 = a3 /\ a2 = a4` suffices_by simp[]
-  >> unabbrev_all_tac >> conj_tac >> first_x_assum match_mp_tac
+  >> unabbrev_all_tac >> conj_tac >> first_x_assum irule
   >> metis_tac[]
 QED
 
@@ -747,7 +747,7 @@ Theorem ext_type_frag_mono_eq'':
     (!ty' ty''. MEM ty' (allTypes' ty) /\ MEM ty'' (allTypes' (TYPE_SUBSTf sigma ty')) ==> δ1 ty'' = δ2 ty'')
     ==> ext_type_frag_builtins δ1 (TYPE_SUBSTf sigma ty) = ext_type_frag_builtins δ2 (TYPE_SUBSTf sigma ty)
 Proof
-  ho_match_mp_tac type_ind >> rpt strip_tac
+  ho_match_mp_tac type_induction >> rpt strip_tac
   >- (match_mp_tac ext_type_frag_mono_eq >> fs[allTypes'_defn])
   >> fs[TYPE_SUBSTf_def]
   >> simp[Once ext_type_frag_builtins_def,allTypes'_defn]
@@ -762,7 +762,7 @@ Proof
   >> qmatch_goalsub_abbrev_tac `Funspace a1 a2 = Funspace a3 a4`
   >> `a1 = a3 /\ a2 = a4` suffices_by simp[]
   >> unabbrev_all_tac
-  >> conj_tac >> first_x_assum match_mp_tac
+  >> conj_tac >> first_x_assum irule
   >> metis_tac[]
 QED
 
@@ -824,7 +824,7 @@ Overload is_std_type_assignment = ``is_std_type_assignment0 ^mem``
 Theorem ext_std_type_assignment:
   !ty δ. is_std_type_assignment δ ==> ext_type_frag_builtins δ ty = δ ty
 Proof
-  ho_match_mp_tac type_ind >> rpt strip_tac
+  ho_match_mp_tac type_induction >> rpt strip_tac
   >- fs[ext_type_frag_builtins_def]
   >- (simp[Once ext_type_frag_builtins_def]
       >> rpt(BasicProvers.PURE_TOP_CASE_TAC >> fs[])
@@ -1007,7 +1007,7 @@ Theorem fleq_type_interp_le:
     is_sig_fragment sig frag1 /\ ty ∈ types_of_frag frag1
    ==> ext_type_frag_builtins δ1 ty = ext_type_frag_builtins δ2 ty
 Proof
-  ho_match_mp_tac type_ind >> rpt strip_tac
+  ho_match_mp_tac type_induction >> rpt strip_tac
   >- (MAP_EVERY Cases_on [`frag1`,`frag2`]
       >> fs[fleq_def,types_of_frag_def]
       >> ONCE_REWRITE_TAC [ext_type_frag_builtins_def]
@@ -1024,7 +1024,8 @@ Proof
       >> qmatch_goalsub_abbrev_tac `Funspace a1 a2 = Funspace a3 a4`
       >> `a1 = a3 /\ a2 = a4` suffices_by simp[]
       >> unabbrev_all_tac
-      >> rpt(first_x_assum drule >> rpt(disch_then drule))
+      >> conj_tac >> first_x_assum irule >> simp[]
+      >> qexistsl [`(q,r)`,`(q',r')`,`sig`,`γ1`,`γ2`]
       >> simp[types_of_frag_def])
 QED
 
@@ -1165,7 +1166,7 @@ End
 Theorem ground_types_builtin_closure:
   !c sig. c ∈ ground_types sig ==> c ∈ builtin_closure (ground_types sig ∩ nonbuiltin_types)
 Proof
-  ho_match_mp_tac type_ind
+  ho_match_mp_tac type_induction
   \\ rpt strip_tac
   >- (fs[boolTheory.IN_DEF] \\ match_mp_tac builtin_closure_inj
       \\ fs[pred_setTheory.INTER_DEF,boolTheory.IN_DEF,nonbuiltin_types_def,is_builtin_type_def,

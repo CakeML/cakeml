@@ -16,9 +16,6 @@ Datatype:
   | Infer_Tuvar num
 End
 
-Theorem infer_t_ind = fetch "-" "infer_t_induction"
-  |> Q.SPEC ‘P’ |> Q.SPEC ‘EVERY P’ |> SRULE [] |> cj 1 |> SRULE [EVERY_MEM];
-
 Definition id_to_string_def:
   (id_to_string (Short s) = s) ∧
   (id_to_string (Long x id) =

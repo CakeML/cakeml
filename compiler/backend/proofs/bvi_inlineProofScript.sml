@@ -390,17 +390,13 @@ Proof
 QED
 
 Theorem exp_rel_refl[simp]:
-  ∀c x. exp_rel c x x
+  ∀x c. exp_rel c x x
 Proof
-  qsuff_tac
-    ‘(∀e c. exp_rel c e e) ∧
-     (∀handler c. OPTREL (exp_rel c) handler handler) ∧
-     (∀xs c. LIST_REL (exp_rel c) xs xs)’
-  >- metis_tac []
-  >> ho_match_mp_tac bviTheory.exp_induction
+  Induct
   >> rpt strip_tac
-  >> gvs [OPTREL_THM]
-  >> metis_tac [exp_rel_rules]
+  >> simp [Once exp_rel_cases, EVERY2_refl]
+  >> rename1 ‘OPTREL _ handler handler’
+  >> Cases_on ‘handler’ >> gvs []
 QED
 
 Theorem inline_call_none_exp_rel:

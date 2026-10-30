@@ -8,6 +8,8 @@ Ancestors
 Libs
   preamble
 
+val _ = Parse.hide "preds";
+
 Theorem xeval_lit_latch:
   xeval_lit ss xaig (Base (Latch l), b) ⇔ (b ⇎ SND ss l)
 Proof

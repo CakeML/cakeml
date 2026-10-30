@@ -3295,6 +3295,19 @@ Proof
   rw[]>>gvs[]
 QED
 
+Theorem MEM_list_size_lt:
+  MEM x ls ⇒
+  f x < list_size f ls
+Proof
+  Induct_on`ls`>>rw[]>>res_tac>>simp[]
+QED
+
+Theorem list_size_SUM_MAP:
+  list_size f l = LENGTH l + SUM (MAP f l)
+Proof
+  Induct_on`l`>>simp[]
+QED
+
 (* must be used instead of FUPDATE in defitions that go through translation *)
 Definition fmap_update_def[simp]:
   fmap_update f k v = f |+ (k,v)

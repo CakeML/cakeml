@@ -920,7 +920,7 @@ Proof
   ‘!identifier. v_rel fr ft fe (ID_v STRING_v STRING_v identifier)
     (ID_v STRING_v STRING_v identifier)’ by (
       match_mp_tac ast_identifier_encoder_self >> simp [STRING_v_def,v_rel_def]) >>
-  ho_match_mp_tac (TypeBase.induction_of ``:ast$ast_t``) >> rw [] >>
+  ho_match_mp_tac AST_T_v_ind >> rw [] >>
   simp [Once AST_T_v_def] >>
   fs [Once AST_T_v_def,ast_canonical_representation_stamps_def,
     STRING_v_def,v_rel_def,OPTREL_def]
@@ -955,7 +955,7 @@ Proof
     v_rel fr ft fe (OPTION_v (ID_v STRING_v STRING_v) constructor)
       (OPTION_v (ID_v STRING_v STRING_v) constructor)’ by (
         match_mp_tac ast_option_encoder_self >> simp []) >>
-  ho_match_mp_tac (TypeBase.induction_of ``:ast$pat``) >> rw [] >>
+  ho_match_mp_tac PAT_v_ind >> rw [] >>
   simp [Once PAT_v_def] >>
   fs [Once PAT_v_def,ast_canonical_representation_stamps_def,STRING_v_def,
     v_rel_def,OPTREL_def]
@@ -1046,7 +1046,7 @@ Proof
     qx_gen_tac ‘items’ >> match_mp_tac ast_encoder_list_self >>
     fs [ast_canonical_representation_stamps_def,list_type_num_def,
       STRING_v_def,v_rel_def]) >>
-  ho_match_mp_tac (TypeBase.induction_of ``:ast$exp``) >> rw [] >>
+  ho_match_mp_tac EXP_v_ind >> rw [] >>
   simp [Once EXP_v_def] >>
   fs [Once EXP_v_def,ast_canonical_representation_stamps_def,STRING_v_def,
     v_rel_def,OPTREL_def]
@@ -1066,7 +1066,7 @@ Proof
   ‘stamp_rel ft fe (TypeStamp «[]» list_type_num) (TypeStamp «[]» list_type_num) /\
     stamp_rel ft fe (TypeStamp «::» list_type_num) (TypeStamp «::» list_type_num)’ by (
       fs [ast_canonical_representation_stamps_def,list_type_num_def]) >>
-  ho_match_mp_tac (TypeBase.induction_of ``:ast$dec``) >> rw [] >>
+  ho_match_mp_tac DEC_v_ind >> rw [] >>
   simp [Once DEC_v_def] >>
   fs [Once DEC_v_def,ast_canonical_representation_stamps_def,STRING_v_def,
     v_rel_def,OPTREL_def,ast_encoder_pair_self,ast_encoder_list_self] >>

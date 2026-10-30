@@ -507,30 +507,28 @@ QED
 Theorem VFREE_IN_cexp_vars:
   ∀v. cexp_vars v = {n | VFREE_IN (Var n Cexp) (cexp2term v) }
 Proof
-  ho_match_mp_tac cexp2term_ind
+  ho_match_mp_tac compute_exp_induction
   \\ rw [cexp2term_def, cexp_vars_def]
-  >- (
+  >~ [‘num2bit’] >- (
     rw [EXTENSION]
     \\ qid_spec_tac ‘n’
     \\ ho_match_mp_tac num2bit_ind \\ rw []
     \\ simp [Once num2bit_def] \\ rw [] \\ gs [])
-  >- (
-    gs [EXTENSION, PULL_EXISTS, EQ_IMP_THM, SF DNF_ss, SF SFY_ss])
-  >- (
-    Cases_on ‘uop’ \\ gs [uop2term_def])
-  >- (
-    Cases_on ‘bop’ \\ gs [bop2term_def]
+  >~ [‘uop2term’] >- (
+    rename1 ‘uop2term uop’ \\ Cases_on ‘uop’ \\ gs [uop2term_def])
+  >~ [‘bop2term’] >- (
+    rename1 ‘bop2term bop’ \\ Cases_on ‘bop’ \\ gs [bop2term_def]
     \\ gs [EXTENSION, PULL_EXISTS, EQ_IMP_THM, SF DNF_ss, SF SFY_ss])
-  >- (
-    gs [EXTENSION, PULL_EXISTS, EQ_IMP_THM, SF DNF_ss, SF SFY_ss])
-  >- (
+  >~ [‘_ DIFF _’] >- (
     gs [EXTENSION, DIFF_DEF, PULL_EXISTS, EQ_IMP_THM, SF DNF_ss, SF SFY_ss])
-  >- (
+  >~ [‘FOLDL’] >- (
     gs [VFREE_IN_FOLDL, EXISTS_MAP, BIGUNION, EXISTS_MEM, MEM_MAP,
           PULL_EXISTS, EXTENSION]
     \\ rw [EQ_IMP_THM] \\ gs [SF SFY_ss, SF DNF_ss]
     \\ first_assum (irule_at Any) \\ gs []
+    \\ rename1 ‘MEM a l’
     \\ qexists_tac ‘cexp_vars a’ \\ gs [])
+  \\ gs [EXTENSION, PULL_EXISTS, EQ_IMP_THM, SF DNF_ss, SF SFY_ss]
 QED
 
 Theorem subst_VSUBST:

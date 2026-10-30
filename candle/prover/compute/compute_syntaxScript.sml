@@ -204,8 +204,6 @@ Definition cexp2term_def:
   cexp2term (Var s) = Var s Cexp ∧
   cexp2term (App s cs) =
     FOLDL Comb (Const s (app_type (LENGTH cs))) (MAP cexp2term cs)
-Termination
-  wf_rel_tac ‘measure compute_exp_size’
 End
 
 (* DIV and MOD definitions that are defined for zero (and as in HOL Light). *)

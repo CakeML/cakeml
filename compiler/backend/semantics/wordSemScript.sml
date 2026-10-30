@@ -402,9 +402,6 @@ Definition word_exp_def:
      | _ => NONE)
 Termination
   WF_REL_TAC `measure (exp_size o SND)`
-   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-   \\ DECIDE_TAC
 End
 
 (* Flushes the locals and (optionally) the store *)

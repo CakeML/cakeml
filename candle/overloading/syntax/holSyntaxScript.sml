@@ -716,12 +716,6 @@ Definition is_builtin_type_def:
        (m = «bool» /\ LENGTH ty = 0)))
 End
 
-Theorem type1_size_append[local]:
-  ∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2
-Proof
-  Induct >> simp[fetch "-" "type_size_def"]
-QED
-
 (* allTypes(\sigma) -- the smallest set of non-built-in types that can produce
  * \sigma by combinations of built-in types.
  * This corresponds to types^\bullet : term -> type set in the JAR
@@ -733,13 +727,6 @@ Definition allTypes'_defn:
     else [(Tyapp s tys)]
   )
   /\ (allTypes' (Tyvar n) = [Tyvar n])
-Termination
-  WF_REL_TAC `measure type_size`
-  >> Induct
-  >> rw[fetch "-" "type_size_def"]
-  >> fs[MEM_SPLIT]
-  >> rw[type1_size_append]
-  >> rw[fetch "-" "type_size_def"]
 End
 
 (* extend allTypes' to terms *)

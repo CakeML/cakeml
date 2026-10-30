@@ -136,7 +136,7 @@ Termination
   WF_REL_TAC ‘inv_image ($< LEX $<) (λ x . case x of
     | INL(e,_) => (exp_size e, case e of Letrecstar _ _ => 1 | _ => 0)
     | INR(INL(_,_,es,_)) => (list_size exp_size es, 2n)
-    | INR(INR(INL(_,bs,e,_))) => (exp1_size bs + exp_size e, 2)
+    | INR(INR(INL(_,bs,e,_))) => (list_size (pair_size mlstring_size exp_size) bs + exp_size e, 2)
     | INR(INR(INR(_,es,e))) => (list_size exp_size es + exp_size e, 2))’
   >> rpt conj_tac
   >> simp[exp_size_def]
