@@ -240,7 +240,10 @@ Theorem wordLang_max_var_exp_pre[cv_pre]:
   (∀v. wordLang_max_var_exp_pre v) ∧
   (∀v. backend_cv_max_var_exp_list_pre v)
 Proof
-  ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
+  qsuff_tac ‘∀v. wordLang_max_var_exp_pre v’
+  >- (strip_tac \\ gvs [] \\ Induct \\ gvs [Once pre])
+  \\ ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
+  \\ Induct_on ‘l’ \\ rw [] \\ simp [Once pre] \\ gvs []
 QED
 
 val _ = wordLangTheory.max_var_def |> cv_auto_trans;
@@ -262,7 +265,10 @@ Theorem backend_cv_apply_colour_exp'_pre[cv_pre]:
   (∀v colour. backend_cv_apply_colour_exp'_pre colour v) ∧
   (∀v colour. backend_cv_apply_colour_exp'_list_pre colour v)
 Proof
-  ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
+  qsuff_tac ‘∀v colour. backend_cv_apply_colour_exp'_pre colour v’
+  >- (strip_tac \\ gvs [] \\ Induct \\ gvs [Once pre])
+  \\ ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
+  \\ Induct_on ‘l’ \\ rw [] \\ simp [Once pre] \\ gvs []
 QED
 
 val pre = apply_colour'_eq |> cv_auto_trans_pre "";
@@ -281,7 +287,10 @@ Theorem word_alloc_get_reads_exp_pre[cv_pre]:
   (∀v. word_alloc_get_reads_exp_pre v) ∧
   (∀v. backend_cv_get_reads_exp_list_pre v)
 Proof
-  ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
+  qsuff_tac ‘∀v. word_alloc_get_reads_exp_pre v’
+  >- (strip_tac \\ gvs [] \\ Induct \\ gvs [Once pre])
+  \\ ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
+  \\ Induct_on ‘l’ \\ rw [] \\ simp [Once pre] \\ gvs []
 QED
 
 val _ = word_allocTheory.get_delta_inst_def |> cv_trans;
@@ -321,9 +330,12 @@ Theorem word_inst_pull_exp_pre[cv_pre]:
   (∀v. word_inst_pull_exp_pre v) ∧
   (∀v. backend_cv_pull_exp_list_pre v)
 Proof
-  ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
-  \\ rw [] \\ gvs [] \\ TRY (pop_assum mp_tac \\ simp [Once pre] \\ NO_TAC)
-  \\ irule optimize_consts_pre \\ gvs []
+  qsuff_tac ‘∀v. word_inst_pull_exp_pre v’
+  >- (strip_tac \\ gvs [] \\ Induct \\ gvs [Once pre])
+  \\ ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
+  \\ ‘backend_cv_pull_exp_list_pre l’
+       by (Induct_on ‘l’ \\ rw [] \\ simp [Once pre] \\ gvs [])
+  \\ rw [] \\ gvs [] \\ irule optimize_consts_pre \\ gvs []
 QED
 
 val pre = flatten_exp_eq |> cv_trans_pre "";
@@ -349,7 +361,10 @@ Theorem word_alloc_ssa_cc_trans_exp_pre[cv_pre,local]:
   (∀v t. word_alloc_ssa_cc_trans_exp_pre t v) ∧
   (∀v t. backend_cv_ssa_cc_trans_exp_list_pre t v)
 Proof
-  ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
+  qsuff_tac ‘∀v t. word_alloc_ssa_cc_trans_exp_pre t v’
+  >- (strip_tac \\ gvs [] \\ Induct \\ gvs [Once pre])
+  \\ ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
+  \\ Induct_on ‘l’ \\ rw [] \\ simp [Once pre] \\ gvs []
 QED
 
 val pre = word_allocTheory.ssa_cc_trans_def |> cv_auto_trans_pre "";
@@ -387,12 +402,11 @@ Theorem word_simp_const_fp_exp_pre[cv_pre,local]:
   (∀bits t v. word_simp_const_fp_exp_pre bits t v) ∧
   (∀bits t v. backend_cv_const_fp_exp_list_pre bits t v)
 Proof
-  qsuff_tac ‘∀bits.
-    (∀t v. word_simp_const_fp_exp_pre bits t v) ∧
-    (∀t v. backend_cv_const_fp_exp_list_pre bits t v)’
-  >- metis_tac []
+  qsuff_tac ‘∀bits t v. word_simp_const_fp_exp_pre bits t v’
+  >- (strip_tac \\ gvs [] \\ gen_tac \\ Induct \\ gvs [Once pre])
   \\ gen_tac
   \\ ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
+  \\ Induct_on ‘l’ \\ rw [] \\ simp [Once pre] \\ gvs []
 QED
 
 val pre = word_simpTheory.const_fp_loop_def |> cv_auto_trans_pre "";
@@ -498,6 +512,14 @@ val _ = cv_trans data_to_wordTheory.StoreAnyConsts_def;
 val locs_thm =
   DB.find "location_def" |> map fst |> filter (fn s => fst s = "data_to_word") |> map snd
   |> map (fetch "data_to_word") |> map (EVAL o lhs o concl) |> LIST_CONJ;
+
+val _ = data_to_wordTheory.SmallnumCompare_def |> cv_trans;
+val _ = data_to_wordTheory.SmallnumMul_def |> cv_trans;
+val _ = data_to_wordTheory.SmallnumDivLoop_def |> cv_trans;
+val _ = data_to_wordTheory.SmallnumUnsignedDiv_def |> cv_trans;
+val _ = data_to_wordTheory.SmallnumDivMod_def |> cv_trans;
+val _ = data_to_wordTheory.SmallnumDivCall_def |> SRULE [locs_thm] |> cv_trans;
+val _ = data_to_wordTheory.SmallnumDiv_def |> cv_trans;
 
 val code_defs =
   DB.find "_code_def" |> map fst |> filter (fn s => fst s = "data_to_word") |> map snd

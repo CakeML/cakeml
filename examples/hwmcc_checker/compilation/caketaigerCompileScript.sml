@@ -1,0 +1,17 @@
+(*
+  Generates the caketaiger binary.
+*)
+Theory caketaigerCompile
+Ancestors
+  caketaigerProgProof x64_config
+Libs
+  preamble eval_cake_compile_x64Lib
+
+Definition x64_config'_def:
+  x64_config' =
+  let x64_stack_conf = x64_backend_config.stack_conf with perf_calls := T in
+    x64_backend_config (* with stack_conf := x64_stack_conf *)
+End
+
+Theorem caketaiger_compiled =
+  eval_cake_compile_x64_with_conf "" x64_config'_def main_prog_def "caketaiger.S";

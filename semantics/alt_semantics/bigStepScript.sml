@@ -22,7 +22,9 @@ Inductive opClass:
        op = Strlen ∨
        op = Strcat ∨ op = VfromList ∨ op = Vsub ∨ op = Vsub_unsafe ∨
        op = XorAw8Str_unsafe ∨ (∃test ty. op = Test test ty) ∨
-       (∃a ty. op = Arith a ty) ∨ (∃ty1 ty2. op = FromTo ty1 ty2) ∨
+       (∃a ty. op = Arith a ty) ∨ (∃a. op = UnsafeIndexArith a) ∨
+       (∃test. op = UnsafeIndexTest test) ∨
+       (∃ty1 ty2. op = FromTo ty1 ty2) ∨
        op = Vlength ∨ op = Aalloc ∨ op = AallocEmpty ∨ op = Asub ∨
        op = Alength ∨ op = Aupdate ∨ op = Asub_unsafe ∨ op = Aupdate_unsafe ∨
        op = Aw8sub_unsafe ∨ op = Aw8update_unsafe ∨ op = ListAppend ∨
@@ -35,6 +37,8 @@ Inductive opClass:
 (opClass Opapp FunApp) ∧
 (* Eval *)
 (opClass Eval EvalOp) ∧
+(* PtrEq *)
+(opClass PtrEq PtrEqOp) ∧
 (* Thunks *)
 (opClass (ThunkOp ForceThunk) Force) ∧
 (∀op. op ≠ ForceThunk ⇒ opClass (ThunkOp op) Simple)
@@ -231,9 +235,40 @@ evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
 /\ (! ck env op es vs s1 s2.
       evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
       do_app (s2.refs,s2.ffi) op (REVERSE vs) = NONE /\
-      ¬opClass op FunApp ∧ ¬opClass op Force
+      ¬opClass op FunApp ∧ ¬opClass op Force ∧ ¬opClass op PtrEqOp
 ==>
       evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
+
+∧
+
+(* PtrEq: result *)
+(∀ck env op es vs v1 v2 b s1 s2.
+  evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
+  opClass op PtrEqOp ∧
+  REVERSE vs = [v1; v2] ∧
+  do_eq v1 v2 = Eq_val b
+ ⇒ evaluate ck env s1 (App op es)
+     (s2 with ptr_eq_oracle := (0 =+ shift_seq 1 (s2.ptr_eq_oracle 0)) s2.ptr_eq_oracle,
+      Rval (Boolv (b ∧ s2.ptr_eq_oracle 0 0))))
+
+∧
+
+(* PtrEq: do_eq type error *)
+(∀ck env op es vs v1 v2 s1 s2.
+  evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
+  opClass op PtrEqOp ∧
+  REVERSE vs = [v1; v2] ∧
+  do_eq v1 v2 = Eq_type_error
+ ⇒ evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
+
+∧
+
+(* PtrEq: arity error *)
+(∀ck env op es vs s1 s2.
+  evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
+  opClass op PtrEqOp ∧
+  LENGTH vs ≠ 2
+ ⇒ evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
 
 /\ (! ck env op es err s1 s2.
 (evaluate_list ck env s1 (REVERSE es) (s2, Rerr err))
@@ -534,7 +569,7 @@ Inductive dec_diverges:
 (! env st locs p e.
 (ALL_DISTINCT (pat_bindings p) /\
  check_exp_constructors env.c e /\
- e_diverges env (st.refs, st.ffi) e)
+ e_diverges env (st.refs, st.ffi, st.ptr_eq_oracle) e)
 ==>
 dec_diverges env st (Dlet locs p e))
 

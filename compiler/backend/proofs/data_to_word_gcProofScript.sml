@@ -4660,6 +4660,13 @@ Definition state_rel_thm:
        flat s.stack t.stack)
 End
 
+(* the word state runs the data state's pointer-equality oracle, attenuated by
+   the do_eq-equivalent heap relation *)
+Definition ptr_eq_link_def:
+  ptr_eq_link c (s:('c,'ffi) dataSem$state) (t:('a,'c,'ffi) wordSem$state) ⇔
+    t.ptr_eq_rel = word_ptr_eq c ∧ t.ptr_eq_oracle = SOME s.ptr_eq_oracle
+End
+
 Theorem state_rel_thm[allow_rebind] =
   state_rel_thm
 
@@ -4677,6 +4684,14 @@ QED
 Theorem state_rel_with_fp_regs:
    state_rel a b c s1 (s2:('a,'c,'ffi) wordSem$state) d e ⇒
    state_rel a b c s1 (s2 with fp_regs := f) d e
+Proof
+  srw_tac[][state_rel_def] \\ fs []
+QED
+
+(* the relation places no constraint on the pointer-equality oracle *)
+Theorem state_rel_with_ptr_eq_oracle:
+   state_rel a b c (s1:('c,'ffi) dataSem$state) s2 d e ⇒
+   state_rel a b c (s1 with ptr_eq_oracle := f) s2 d e
 Proof
   srw_tac[][state_rel_def] \\ fs []
 QED
@@ -4750,7 +4765,7 @@ Theorem state_rel_init:
     lim.has_fp_tops = c.has_fp_tern /\
     conf_ok (dimindex (:'a)) c /\
     init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ==>
-    state_rel c l1 l2 (initial_state ffi code co cc T lim t.stack_size t.clock)
+    state_rel c l1 l2 (initial_state ffi code co cc pe T lim t.stack_size t.clock)
                       (t:('a,'c,'ffi) state) NONE []
 Proof
   simp_tac std_ss [word_list_exists_ADD,conf_ok_def,init_store_ok_def]
@@ -7047,8 +7062,8 @@ Proof
   ho_match_mp_tac size_of_ind \\ rw []
   THEN1 (fs [size_of_def] \\ rveq \\ simp [Once traverse_heap_cases]
          \\ qexists_tac `p1` \\ fs [])
-  THEN1
-   (pop_assum mp_tac
+  >- (
+    pop_assum mp_tac
     \\ simp [size_of_def]
     \\ rpt (pairarg_tac \\ fs []) \\ strip_tac \\ rveq
     \\ qpat_x_assum `PERM _ _` mp_tac
@@ -7056,47 +7071,57 @@ Proof
     \\ strip_tac \\ rveq \\ fs [PULL_EXISTS]
     \\ imp_res_tac data_to_word_memoryProofTheory.EVERY2_APPEND_CONS
     \\ fs [] \\ rveq \\ fs []
+    \\ qmatch_asmsub_rename_tac
+         `LIST_REL _ (left_roots ++ head_root::right_roots)
+            (left_vars ++ [head_var] ++ right_vars)`
     \\ last_x_assum assume_tac
-    \\ last_x_assum (qspecl_then [`M++N`,`t1++t2`,`p1`,`refs`] mp_tac)
+    \\ last_x_assum (qspecl_then [`left_roots ++ right_roots`,`left_vars ++ right_vars`,`p1`,`refs`] mp_tac)
     \\ impl_tac THEN1
      (simp [] \\ rw []
       THEN1 (last_x_assum match_mp_tac
         \\ fs [reachable_refs_def,EXTENSION] \\ metis_tac [])
      \\ metis_tac [LIST_REL_APPEND,LIST_REL_LENGTH])
-    \\ strip_tac
-    \\ first_x_assum (qspecl_then [`p2`,`refs`,`t`] mp_tac)
+    \\ disch_then (qx_choose_then `tail_visited` strip_assume_tac)
+    \\ first_x_assum (qspecl_then [`tail_visited`,`refs`,`head_var`] mp_tac)
     \\ impl_tac THEN1
      (simp [] \\ rw [] \\ last_x_assum match_mp_tac
       \\ fs [reachable_refs_def,EXTENSION] \\ metis_tac [])
-    \\ strip_tac
-    \\ qexists_tac `p2'` \\ fs []
+    \\ disch_then (qx_choose_then `all_visited` strip_assume_tac)
+    \\ qexists_tac `all_visited` \\ fs []
     \\ match_mp_tac (CONJUNCT2 traverse_heap_rules |> CONJUNCT1)
     \\ asm_exists_tac \\ fs []
     \\ asm_exists_tac \\ fs []
     \\ fs [EXTENSION] \\ metis_tac [])
-  >~ [‘Word64’] >-
-   (fs [size_of_def] \\ rveq
+  >~ [`Word64`] >- (
+    fs [size_of_def] \\ rveq
     \\ fs [v_inv_def] \\ rveq \\ fs [Word64Rep_def]
     \\ every_case_tac \\ fs []
-    \\ qexists_tac `ptr :: p1`
+    \\ qmatch_asmsub_rename_tac `heap_lookup word_ptr heap = SOME _`
+    \\ qexists_tac `word_ptr :: p1`
     \\ fs [lookup_len_def,el_length_def]
     \\ fs [SUBSET_DEF]
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs [])
-  >~ [‘Number’] >-
-   (fs [] \\ rveq \\ fs [] \\ fs [v_inv_def]
-    \\ Cases_on `small_int (dimindex (:α)) i` \\ fs [] \\ rveq \\ fs []
-    THEN1
-     (qexists_tac `p1` \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
-      \\ fs [size_of_def])
-    \\ fs [size_of_def] \\ rveq \\ fs [Bignum_def,multiwordTheory.i2mw_def]
-    \\ IF_CASES_TAC THEN1
-     (qsuff_tac `F` \\ fs [] \\ fs [small_num_def,small_int_def,dimword_def]
-      \\ rfs [good_dimindex_def] \\ rfs [] \\ intLib.COOPER_TAC)
-    \\ qexists_tac `ptr :: p1` \\ fs []
-    \\ fs [lookup_len_def,el_length_def,bignum_size_def,
-           LENGTH_n2mw_LE_bignum_digits]
-    \\ fs [SUBSET_DEF]
+  >~ [`Number`] >- (
+    qmatch_asmsub_rename_tac `size_of lims [Number integer_value] _ _ = _`
+    \\ fs [] \\ rveq \\ fs [v_inv_def]
+    \\ Cases_on `small_int (dimindex (:'a)) integer_value`
+    \\ fs [] \\ rveq \\ fs []
+    >- (
+      qexists_tac `p1`
+      \\ once_rewrite_tac [traverse_heap_cases]
+      \\ fs [] \\ fs [size_of_def])
+    \\ qmatch_asmsub_rename_tac `heap_lookup heap_ptr heap = SOME _`
+    \\ fs [size_of_def] \\ rveq
+    \\ fs [Bignum_def,multiwordTheory.i2mw_def]
+    \\ qexists_tac `heap_ptr :: p1`
+    \\ fs [lookup_len_def,el_length_def,bignum_size_def,SUBSET_DEF]
+    \\ conj_tac
+    >- (
+      qsuff_tac `LENGTH ((n2mw (Num (ABS integer_value))) :'a word list) <=
+        bignum_digits (dimindex (:'a) = 64) (Num (ABS integer_value))`
+      >- decide_tac
+      \\ irule LENGTH_n2mw_LE_bignum_digits \\ simp [])
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs [])
   >~ [‘CodePtr’] >-
@@ -7104,17 +7129,19 @@ Proof
     \\ fs [v_inv_def] \\ rveq \\ fs []
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
     \\ qexists_tac `p1` \\ fs [])
-  >~ [‘RefPtr r1 r’] >-
-   (fs [size_of_def] \\ rveq
+  >~ [`RefPtr r1 r`] >- (
+    fs [size_of_def] \\ rveq
     \\ rename [‘lookup r refs1’]
     \\ ‘∀k e v. lookup r refs ≠ SOME (Thunk e v)’ by fs [no_thunks_in_refs_def]
     \\ qpat_x_assum ‘v_inv _ _ _ _’ mp_tac
     \\ simp [Once v_inv_def]
     \\ strip_tac
     \\ rpt var_eq_tac
-    (* the MutBlock conjunct of v_inv's RefPtr case gets in the way of the
-       first_assum picks below *)
-    \\ TRY (qpat_x_assum `!tg fin l c r'. _ ==> ~_` kall_tac)
+    (* Discard the unused MutBlock side condition. *)
+    \\ qpat_x_assum
+         `!tg fin ls centre rs.
+            lookup r refs = SOME (MutBlock tg fin ls centre rs) ==> ~r1`
+         kall_tac
     \\ Cases_on ‘lookup r refs1’ \\ fs []
     THEN1
      (qexists_tac `p1` \\ fs [] \\ qsuff_tac `MEM (f ' r) p1`
@@ -7123,12 +7150,9 @@ Proof
       \\ qexists_tac `r` \\ fs [] \\ gvs [domain_lookup])
     \\ rename [‘lookup r refs1 = SOME v’]
     \\ reverse (Cases_on `v`) \\ fs []
-    (* a MutBlock's payload is traversed exactly like a ValueArray's; the size
-       accounting lines up because lookup_len of BlockRep tg zs is
-       LENGTH zs + 1 = LENGTH ls + LENGTH rs + 2, which is what size_of charges
-       for a MutBlock ref *)
-    >~ [‘MutBlock tg fin ls cv rs’] >-
-     (pop_assum mp_tac
+    (* Mutable blocks use the same payload traversal as value arrays. *)
+    >~ [`MutBlock tg fin ls cv rs`] >- (
+      pop_assum mp_tac
       \\ pairarg_tac \\ fs [] \\ rw []
       \\ first_assum (qspec_then `r` mp_tac)
       \\ (impl_tac THEN1 fs [reachable_refs_def,get_refs_def])
@@ -7137,8 +7161,10 @@ Proof
       \\ first_assum drule \\ strip_tac \\ fs []
       \\ fs [FLOOKUP_DEF,BlockRep_def]
       \\ strip_tac
+      \\ qmatch_asmsub_rename_tac
+           `heap_lookup _ heap = SOME (DataElement heap_values _ _)`
       \\ last_x_assum
-           (qspecl_then [`ls ++ [cv] ++ rs`,`zs`,`f ' r :: p1`,`refs`] mp_tac)
+           (qspecl_then [`ls ++ [cv] ++ rs`,`heap_values`,`f ' r :: p1`,`refs`] mp_tac)
       \\ impl_tac THEN1
        (fs [] \\ drule EVERY2_SWAP \\ fs [lookup_delete,SUBSET_DEF,PULL_EXISTS]
         \\ rw [] \\ fs []
@@ -7146,12 +7172,14 @@ Proof
         \\ fs [reachable_refs_def,get_refs_def]
         (* one ref_edge step out of r reaches all three parts of the payload *)
         \\ once_rewrite_tac [RTC_CASES1] \\ disj2_tac
-        \\ qexists_tac `r'` \\ fs []
+        \\ rename1 `RTC (ref_edge refs) child_ref _`
+        \\ qexists_tac `child_ref` \\ fs []
         \\ simp [ref_edge_def,get_refs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS]
-        >- (disj1_tac \\ disj1_tac \\ qexists_tac `x` \\ fs [])
+        >- (disj1_tac \\ disj1_tac \\ asm_exists_tac \\ fs [])
         >- (disj1_tac \\ disj2_tac \\ gvs [])
-        \\ disj2_tac \\ qexists_tac `x` \\ fs [])
-      \\ strip_tac \\ qexists_tac `p2` \\ fs []
+        \\ disj2_tac \\ asm_exists_tac \\ fs [])
+      \\ disch_then (qx_choose_then `visited` strip_assume_tac)
+      \\ qexists_tac `visited` \\ fs []
       \\ rfs [lookup_len_def,el_length_def]
       \\ imp_res_tac LIST_REL_LENGTH \\ fs []
       \\ once_rewrite_tac [traverse_heap_cases]
@@ -7194,7 +7222,8 @@ Proof
       \\ rename [`RTC _ r5 r6`] \\ qexists_tac `r5` \\ fs []
       \\ simp [ref_edge_def,get_refs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS]
       \\ asm_exists_tac \\ fs [])
-    \\ strip_tac \\ qexists_tac `p2` \\ fs []
+    \\ disch_then (qx_choose_then `visited` strip_assume_tac)
+    \\ qexists_tac `visited` \\ fs []
     \\ rfs [lookup_len_def,el_length_def]
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ once_rewrite_tac [traverse_heap_cases]
@@ -7204,7 +7233,6 @@ Proof
     \\ fs [v_inv_def] \\ rveq \\ fs []
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
     \\ qexists_tac `p1` \\ fs [])
-  (* rest is non-empty Block *)
   \\ rename [‘size_of lims [Block ts tag (z0::zs0)]’]
   \\ qmatch_asmsub_abbrev_tac `Block _ _ payload`
   \\ `z0 INSERT set zs0 = set payload /\ payload <> []` by fs [Abbr`payload`]
@@ -7226,18 +7254,19 @@ Proof
   \\ strip_tac \\ rveq \\ fs [] \\ rveq \\ fs []
   \\ fs [v_inv_def] \\ rveq \\ fs []
   \\ fs [BlockRep_def]
-  \\ first_x_assum (qspecl_then [`payload`,`xs`,`tf ' ts :: p1`,`refs`] mp_tac)
+  \\ qmatch_asmsub_rename_tac `LIST_REL _ payload heap_values`
+  \\ first_x_assum (qspecl_then [`payload`,`heap_values`,`tf ' ts :: p1`,`refs`] mp_tac)
   \\ impl_tac THEN1
    (fs [] \\ reverse conj_tac THEN1 fs [SUBSET_DEF]
     \\ rw [] \\ first_x_assum match_mp_tac
     \\ fs [reachable_refs_def,get_refs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS]
     \\ asm_exists_tac \\ fs []
     \\ asm_exists_tac \\ fs [])
-  \\ strip_tac
+  \\ disch_then (qx_choose_then `visited` strip_assume_tac)
   \\ rfs [FLOOKUP_DEF] \\ rveq \\ fs []
   \\ fs [lookup_len_def] \\ rfs [el_length_def]
   \\ imp_res_tac LIST_REL_LENGTH
-  \\ fs [] \\ qexists_tac `p2` \\ simp []
+  \\ fs [] \\ qexists_tac `visited` \\ simp []
   \\ once_rewrite_tac [traverse_heap_cases]
   \\ ntac 3 (disj2_tac)
   \\ simp []

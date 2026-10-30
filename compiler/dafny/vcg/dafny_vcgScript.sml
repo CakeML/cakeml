@@ -5,11 +5,12 @@ Theory dafny_vcg
 Ancestors
   result_monad
   dafny_ast
-  dafnyProps  (* For list_exp_size_snd *)
   dafny_wp_calc  (* For met_spec and met *)
   mlint (* For num_to_str *)
 Libs
   preamble
+
+val _ = Parse.hide "member";
 
 Definition dest_VarLhs_def:
   dest_VarLhs (VarLhs var) = return var ∧
@@ -83,7 +84,6 @@ Termination
   wf_rel_tac ‘measure $ exp_size’
   \\ rpt strip_tac
   \\ gvs [list_size_pair_size_MAP_FST_SND]
-  \\ rewrite_tac [list_exp_size_snd]
   \\ drule MEM_list_size
   \\ disch_then $ qspec_then ‘exp_size’ assume_tac
   \\ gvs []

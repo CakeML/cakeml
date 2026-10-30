@@ -894,7 +894,8 @@ Inductive s_rel:
     ~ NULL s'.refs ∧
     LIST_REL (sv_rel genv) s.refs (TL s'.refs) ∧
     s.clock = s'.clock ∧
-    s.ffi = s'.ffi
+    s.ffi = s'.ffi ∧
+    s.ptr_eq_oracle = s'.ptr_eq_oracle
     ⇒
     s_rel genv s s')
 End
@@ -1234,6 +1235,73 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem index_witness_length_rel[local]:
+  !genv refs refs' v v' n.
+    genv_c_ok genv.c /\ ~NULL refs' /\
+    LIST_REL (sv_rel genv) refs (TL refs') /\
+    v_rel genv v v' /\
+    semanticPrimitives$index_witness_length refs v = SOME n
+    ==>
+    flatSem$index_witness_length refs' v' = SOME n
+Proof
+  rpt strip_tac
+  \\ Cases_on `v`
+  \\ gvs [semanticPrimitivesTheory.index_witness_length_def,
+          flatSemTheory.index_witness_length_def, v_rel_eqns]
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ gvs []
+  >~ [`flatSem$index_witness_length _ (flatSem$Litv _)`] >- (
+    qmatch_goalsub_rename_tac `flatSem$Litv literal`
+    \\ Cases_on `literal`
+    \\ gvs [semanticPrimitivesTheory.index_witness_length_def,
+            flatSemTheory.index_witness_length_def])
+  \\ Cases_on `refs'`
+  \\ gvs [store_lookup_def, LIST_REL_EL_EQN,
+          REWRITE_RULE [ADD1] EL, ADD1]
+  \\ rename1 `if ptr < LENGTH target_refs then SOME _ else NONE`
+  \\ Cases_on `ptr < LENGTH target_refs`
+  \\ gvs [sv_rel_cases, LIST_REL_LENGTH]
+  \\ qpat_x_assum `!k. k < LENGTH target_refs ==> _`
+       (qspec_then `ptr` assume_tac)
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ gvs [LIST_REL_EL_EQN]
+QED
+
+Theorem unsafe_index_bound_rel[local]:
+  genv_c_ok genv.c /\ ~NULL refs' /\
+  LIST_REL (sv_rel genv) refs (TL refs') /\
+  LIST_REL (v_rel genv) witnesses witnesses' /\
+  semanticPrimitives$unsafe_index_bound refs witnesses = SOME bound
+  ==>
+  backendProps$unsafe_index_bound
+    (flatSem$index_witness_length refs') witnesses' = SOME bound
+Proof
+  rpt strip_tac
+  \\ namedCases_on `witnesses` ["", "witness remaining_witnesses"]
+  \\ gvs [semanticPrimitivesTheory.unsafe_index_bound_def,
+          backendPropsTheory.unsafe_index_bound_def]
+  \\ Cases_on `remaining_witnesses`
+  \\ gvs [semanticPrimitivesTheory.unsafe_index_bound_def,
+          backendPropsTheory.unsafe_index_bound_def]
+  \\ drule_all index_witness_length_rel
+  \\ simp []
+QED
+
+Theorem unsafe_index_bound_rel_cons[local]:
+  genv_c_ok genv.c /\
+  LIST_REL (sv_rel genv) refs target_refs /\
+  LIST_REL (v_rel genv) witnesses witnesses' /\
+  semanticPrimitives$unsafe_index_bound refs witnesses = SOME bound
+  ==>
+  backendProps$unsafe_index_bound
+    (flatSem$index_witness_length (head::target_refs)) witnesses' = SOME bound
+Proof
+  rpt strip_tac
+  \\ irule unsafe_index_bound_rel
+  \\ simp []
+  \\ metis_tac []
+QED
+
 Theorem do_app[local]:
   ∀genv s1 s2 op vs r ^s1_i1 vs_i1.
     do_app s1 op vs = SOME (s2, r) ∧
@@ -1255,8 +1323,8 @@ Theorem do_app[local]:
        do_app s1_i1 (astOp_to_flatOp op) vs_i1 = SOME (s2_i1, r_i1)
 Proof
   rpt gen_tac >>
-  Cases_on `s1` >>
-  Cases_on `s1_i1.refs` >> simp [] >>
+  namedCases_on `s1` ["source_refs source_ffi"] >>
+  namedCases_on `s1_i1.refs` ["", "reserved_ref target_refs"] >> simp [] >>
   Cases_on `s1_i1` >>
   Cases_on `op = ConfigGC` >-
      (simp [astOp_to_flatOp_def] >>
@@ -1271,6 +1339,8 @@ Proof
       every_case_tac >>
       full_simp_tac(srw_ss())[] >>
       metis_tac [Boolv_11, do_eq, eq_result_11, eq_result_distinct, v_rel_lems])
+  >~ [‘PtrEq’] >- (
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases])
   >~ [‘Arith a ty’] >- (
       gvs [oneline semanticPrimitivesTheory.do_app_def,AllCaseEqs()]
       \\ gvs [oneline flatSemTheory.do_app_def,AllCaseEqs()]
@@ -1282,6 +1352,38 @@ Proof
       \\ simp [Once v_rel_cases]
       \\ gvs [genv_c_ok_def,has_exns_def,EVAL “div_tag”]
       \\ EVAL_TAC)
+  >~ [‘UnsafeIndexArith a’] >- (
+    rpt strip_tac
+    \\ gvs [oneline semanticPrimitivesTheory.do_app_def,
+            oneline flatSemTheory.do_app_def, AllCaseEqs()]
+    \\ gvs [do_unsafe_index_arith_def, AllCaseEqs(), v_rel_eqns]
+    \\ qmatch_asmsub_rename_tac
+         `semanticPrimitives$unsafe_index_bound source_refs source_witnesses = SOME witness_bound`
+    \\ qmatch_asmsub_rename_tac
+         `LIST_REL (v_rel genv) source_witnesses target_witnesses`
+    \\ `backendProps$unsafe_index_bound
+         (flatSem$index_witness_length (reserved_ref::target_refs)) target_witnesses = SOME witness_bound` by (
+      irule unsafe_index_bound_rel_cons \\ simp [] \\ metis_tac [])
+    >~ [`do_arith _ IntT _ = SOME (INL _)`] >- (
+      gvs [semanticPrimitivesTheory.do_arith_def, AllCaseEqs(),
+           result_rel_cases, div_exn_v_def, v_rel_eqns]
+      \\ gvs [genv_c_ok_def, has_exns_def, EVAL ``div_tag``]
+      \\ EVAL_TAC
+      \\ simp [Once v_rel_cases, semanticPrimitivesTheory.div_stamp_def])
+    \\ gvs [result_rel_cases, v_rel_eqns])
+  >~ [‘UnsafeIndexTest test’] >- (
+    rpt strip_tac
+    \\ gvs [oneline semanticPrimitivesTheory.do_app_def,
+            oneline flatSemTheory.do_app_def, AllCaseEqs()]
+    \\ gvs [do_unsafe_index_test_def, AllCaseEqs(), v_rel_eqns]
+    \\ qmatch_asmsub_rename_tac
+         `semanticPrimitives$unsafe_index_bound source_refs source_witnesses = SOME witness_bound`
+    \\ qmatch_asmsub_rename_tac
+         `LIST_REL (v_rel genv) source_witnesses target_witnesses`
+    \\ `backendProps$unsafe_index_bound
+          (flatSem$index_witness_length (reserved_ref::target_refs)) target_witnesses = SOME witness_bound`
+         by (irule unsafe_index_bound_rel_cons \\ simp [] \\ metis_tac [])
+    \\ gvs [result_rel_cases, v_rel_Bool_eqn])
   >~ [‘FromTo ty1 ty2’] >- (
       gvs [oneline semanticPrimitivesTheory.do_app_def,AllCaseEqs()]
       \\ gvs [oneline flatSemTheory.do_app_def,AllCaseEqs()]
@@ -1431,7 +1533,6 @@ Proof
           store_lookup_def,EXISTS_PROD,store_assign_def,Unitv_def]
     \\ fs [REWRITE_RULE [ADD1] EL, ADD1]
     \\ imp_res_tac LIST_REL_LENGTH \\ rw[]
-    \\ TRY (asm_exists_tac \\ simp[])
     \\ imp_res_tac LIST_REL_EL_EQN
     \\ rfs[sv_rel_cases,v_rel_lems,v_rel_eqns]
     \\ simp[store_v_same_type_def, REWRITE_RULE [ADD1] LUPDATE_def]
@@ -1443,7 +1544,6 @@ Proof
           store_lookup_def,EXISTS_PROD,store_assign_def,Unitv_def]
     \\ fs [REWRITE_RULE [ADD1] EL, ADD1]
     \\ imp_res_tac LIST_REL_LENGTH \\ rw[]
-    \\ TRY (asm_exists_tac \\ simp[])
     \\ imp_res_tac LIST_REL_EL_EQN
     \\ rfs[sv_rel_cases,v_rel_lems,v_rel_eqns]
     \\ simp[store_v_same_type_def, REWRITE_RULE [ADD1] LUPDATE_def]
@@ -1455,17 +1555,10 @@ Proof
       imp_res_tac v_to_char_list >>
       srw_tac[][])
   >~ [‘Explode’] >- (
-      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
-      imp_res_tac v_to_char_list >>
-      srw_tac[][] >>
-      namedCases_on ‘str’ ["s"] >>
-      fs [] >>
-      Induct_on `s` >>
-      fs [semanticPrimitivesTheory.list_to_v_def,flatSemTheory.list_to_v_def] >>
-      simp [Once v_rel_cases] >>
-      fs [genv_c_ok_def,has_lists_def] >>
-      simp [Once v_rel_cases])
+    srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+    full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+    irule list_to_v_v_rel >>
+    fs [genv_c_ok_def, LIST_REL_EL_EQN, EL_MAP, v_rel_eqns])
   >~ [‘Strsub’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_eqns] >>
@@ -1672,7 +1765,7 @@ Proof
       srw_tac[][v_rel_lems] >> CCONTR_TAC >> rfs [] >> rveq >>
       fs [flatSemTheory.Boolv_def, backend_commonTheory.true_tag_def,
           backend_commonTheory.false_tag_def])
-  >- ((* ThunkOp *)
+  >- (
     srw_tac[][semanticPrimitivesPropsTheory.do_app_cases,
               flatSemTheory.do_app_def, thunk_op_def] >>
     gvs[AllCaseEqs(), PULL_EXISTS]
@@ -1689,8 +1782,11 @@ Proof
       first_x_assum drule >> gvs[sv_rel_cases, EL_CONS, PRE_SUB1, SF DNF_ss])
     >- (
       gvs[store_assign_def, store_v_same_type_def] >>
-      Cases_on `EL lnum q` >> gvs[] >> Cases_on `t'` >> gvs[] >>
-      qpat_x_assum `v_rel _ (Loc _ _) y` mp_tac >> rw[Once v_rel_cases] >>
+      qmatch_asmsub_rename_tac `v_rel genv (Loc F source_index) target_location` >>
+      namedCases_on `EL source_index source_refs`
+        ["ref_value", "bytes", "values", "thunk_mode thunk_value"] >>
+      gvs[] >> Cases_on `thunk_mode` >> gvs[] >>
+      qpat_x_assum `v_rel _ (Loc _ _) _` mp_tac >> rw[Once v_rel_cases] >>
       gvs [LIST_REL_EL_EQN, REWRITE_RULE [ADD1] LUPDATE_def, EL_LUPDATE]
       >- (rw[] >> simp [Once sv_rel_cases])
       >- simp[Once result_rel_cases, Once v_rel_cases]
@@ -1700,7 +1796,8 @@ Proof
         gvs[oneline semanticPrimitivesTheory.dest_thunk_def,
              oneline dest_thunk_def, AllCaseEqs()] >>
         gvs[Once v_rel_cases, store_lookup_def] >>
-        first_x_assum $ qspec_then `n` assume_tac >>
+        qmatch_goalsub_rename_tac `EL (child_index + 1) (reserved_ref::target_refs)` >>
+        first_x_assum $ qspec_then `child_index` assume_tac >>
         gvs[sv_rel_cases, EL_CONS, PRE_SUB1, SF DNF_ss])
       >- (
         rw[REWRITE_RULE [ADD1] EL] >>
@@ -3530,8 +3627,11 @@ Theorem do_eval:
   decs' <> [] /\
   invariant interp g <|next := 0; generation := c.envs.next; envs := LN|> genv'
     (c.next, c'.next, idx_block idx end_idx ∪ other)
-    (s with eval_state := eval_state) (t with <| eval_config := eval_config';
-        globals := t.globals ++ REPLICATE (c'.next.vidx - c.next.vidx) NONE |>)
+    (s with <| eval_state := eval_state;
+        ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle |>)
+    (t with <| eval_config := eval_config';
+        globals := t.globals ++ REPLICATE (c'.next.vidx - c.next.vidx) NONE;
+        ptr_eq_oracle := shift_seq 1 t.ptr_eq_oracle |>)
   /\
   env_gen_rel <|next := 0; generation := c.envs.next; envs := LN|> eval_state /\
   (let (_, _, _, gen, _) = compile_decs [] 1 c.next
@@ -4947,6 +5047,35 @@ Resume compile_correct[App]:
       imp_res_tac subglobals_trans >> gvs[] >>
       drule_then irule orac_forward_rel_trans >> gvs[]
     )
+  )
+  >~ [‘getOpClass op = PtrEqOp’]
+  >- (
+    strip_tac
+    \\ gvs [AllCaseEqs()]
+    >- (
+      `op = PtrEq` by
+        (Cases_on `op` \\ fs [semanticPrimitivesTheory.getOpClass_def] \\ Cases_on `t'` \\ gvs [])
+      \\ gvs [result_rel_cases]
+      \\ fs [evaluate_def, compile_exps_reverse, astOp_to_flatOp_def]
+      \\ gvs [listTheory.SWAP_REVERSE_SYM]
+      \\ fs [flatSemTheory.do_app_def]
+      \\ `genv_c_ok genv'.c` by fs [invariant_def]
+      \\ imp_res_tac do_eq \\ fs []
+      \\ qexists_tac `genv'`
+      \\ `st'.ptr_eq_oracle = s'_i1.ptr_eq_oracle` by fs [s_rel_cases]
+      \\ fs [v_rel_lems]
+      \\ fs [invariant_def, s_rel_cases]
+    )
+    \\ `op = PtrEq` by
+         (Cases_on `op` \\ fs [semanticPrimitivesTheory.getOpClass_def] \\ Cases_on `t'` \\ gvs [])
+    \\ gvs [result_rel_cases]
+    \\ fs [evaluate_def, compile_exps_reverse, astOp_to_flatOp_def]
+    \\ gvs [listTheory.SWAP_REVERSE_SYM]
+    \\ fs [flatSemTheory.do_app_def]
+    \\ `genv_c_ok genv'.c` by fs [invariant_def]
+    \\ imp_res_tac do_eq \\ fs []
+    \\ qexists_tac `genv'`
+    \\ fs [v_rel_lems]
   ) >>
   fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, option_case_eq, pair_case_eq] >>
   rw [] >>
@@ -4959,7 +5088,8 @@ Resume compile_correct[App]:
   (impl_tac >- fs [invariant_def, s_rel_cases]) >>
   rw [] >>
   `astOp_to_flatOp op ≠ Src Opapp ∧ astOp_to_flatOp op ≠ Src Eval ∧
-   astOp_to_flatOp op ≠ Src (ThunkOp ForceThunk)`
+   astOp_to_flatOp op ≠ Src (ThunkOp ForceThunk) ∧
+   astOp_to_flatOp op ≠ Src PtrEq`
   by (
     rw [astOp_to_flatOp_def] >>
     Cases_on `op` >>
@@ -4968,6 +5098,7 @@ Resume compile_correct[App]:
     Cases_on `t'` >> gvs []) >>
   fs [evaluate_def, compile_exps_reverse] >>
   imp_res_tac do_app_state_unchanged >>
+  imp_res_tac flatPropsTheory.do_app_ptr_eq_oracle >>
   imp_res_tac do_app_const >>
   rename [`result_rel v_rel genv2`] >>
   qexists_tac `genv2` >>
@@ -5913,7 +6044,7 @@ Theorem invariant_begin_alloc_blanks:
     (init_genv with v := init_globs)
     (cfg.next with vidx := 1, cfg'.next, {})
     s1
-    (initial_state s1.ffi s1.clock eval_conf with
+    (initial_state s1.ffi s1.clock eval_conf s1.ptr_eq_oracle with
                <|refs := [Refv (Conv NONE [])]; globals := init_globs |>)
 Proof
   rw []
@@ -5922,7 +6053,7 @@ Proof
   \\ fs [compile_prog_def]
   \\ rfs []
   \\ rpt (pairarg_tac \\ fs [])
-  \\ simp [EVAL ``(initial_state ffi clock ec).eval_config``,
+  \\ simp [EVAL ``(initial_state ffi clock ec pe).eval_config``,
     env_gen_inv_def, eval_ref_inv_def]
   \\ fs [empty_config_def]
   \\ imp_res_tac compile_decs_idx_prev
@@ -5967,7 +6098,7 @@ Theorem compile_prog_correct:
   r <> Rerr (Rabort Rtype_error)
   ⇒
   ? s_i1 s_i1' genv' r_i1.
-  s_i1 = initial_state s.ffi s.clock eval_conf ∧
+  s_i1 = initial_state s.ffi s.clock eval_conf s.ptr_eq_oracle ∧
   evaluate_decs s_i1 ds' = (s_i1', r_i1) ∧
   s_rel genv' s' s_i1' ∧
   (! res. r = Rval res ⇒ r_i1 = NONE) ∧
@@ -5979,8 +6110,8 @@ Proof
   \\ rw []
   \\ fs [glob_alloc_def, alloc_env_ref_def, do_app_def, Unitv_def,
     evaluate_def, store_alloc_def]
-  \\ fs [EVAL ``(initial_state _ _ _).globals``,
-    EVAL ``(initial_state _ _ _).refs``]
+  \\ fs [EVAL ``(initial_state _ _ _ _).globals``,
+    EVAL ``(initial_state _ _ _ _).refs``]
   \\ drule invariant_begin_alloc_blanks
   \\ simp [compile_prog_def]
   \\ imp_res_tac compile_decs_idx_prev
@@ -6029,17 +6160,17 @@ QED
 
 Theorem compile_prog_semantics:
   precondition1 interp g s1 env1 conf eval_conf prog ⇒
-   ¬semantics_prog s1 env1 prog Fail ⇒
-   semantics_prog s1 env1 prog
-      (semantics eval_conf s1.ffi
+   ¬semantics_determ s1 env1 prog Fail ⇒
+   semantics_determ s1 env1 prog
+      (semantics eval_conf s1.ffi s1.ptr_eq_oracle
           (SND (compile_prog conf prog)))
 Proof
-  rw[semantics_prog_def,SND_eq]
+  rw[semantics_determ_def,SND_eq]
   \\ fs []
   \\ simp[flatSemTheory.semantics_def]
   \\ IF_CASES_TAC \\ fs[SND_eq]
   >- (
-    fs[semantics_prog_def,SND_eq]
+    fs[semantics_determ_def,SND_eq]
     \\ first_x_assum(qspec_then`k`mp_tac)
     \\ fs [PAIR_FST_SND_EQ, FST_SND_EQ_CASE]
     \\ fs[evaluate_prog_with_clock_def]
@@ -6055,7 +6186,7 @@ Proof
   \\ DEEP_INTRO_TAC some_intro \\ fs[]
   \\ conj_tac
   >- (
-    rw[] \\ rw[semantics_prog_def]
+    rw[] \\ rw[semantics_determ_def]
     \\ fs[evaluate_prog_with_clock_def]
     \\ qexists_tac`k`
     \\ pairarg_tac \\ fs[]
@@ -6070,7 +6201,7 @@ Proof
     \\ every_case_tac \\ fs [result_rel_cases]
   )
   \\ rw[]
-  \\ simp[semantics_prog_def]
+  \\ simp[semantics_determ_def]
   \\ conj_tac
   >- (
     rw[]
@@ -6139,13 +6270,13 @@ QED
 Theorem compile_flat_correct:
    flat_ticksProof$install_conf_rel ec1 ec /\
    flat_patternProof$install_conf_rel cfg ec ec2 /\
-   semantics ec1 ffi prog <> Fail
+   semantics ec1 ffi pe prog <> Fail
    ==>
-   semantics ec1 ffi prog =
-   semantics ec2 ffi (compile_flat cfg prog)
+   semantics ec1 ffi pe prog =
+   semantics ec2 ffi pe (compile_flat cfg prog)
 Proof
   rw [compile_flat_def]
-  \\ drule_then (qspecl_then [‘ffi’, ‘prog’] assume_tac)
+  \\ drule_then (qspecl_then [‘pe’, ‘ffi’, ‘prog’] assume_tac)
        flat_ticksProofTheory.remove_ticks_decs_semantics
   \\ metis_tac [flat_patternProofTheory.compile_decs_semantics]
 QED
@@ -6160,9 +6291,9 @@ End
 Theorem compile_semantics:
    precondition interp s env cfg ec prog
  ⇒
-   ¬semantics_prog s env prog Fail ⇒
-   semantics_prog s env prog
-      (semantics ec s.ffi (SND (compile cfg prog)))
+   ¬semantics_determ s env prog Fail ⇒
+   semantics_determ s env prog
+      (semantics ec s.ffi s.ptr_eq_oracle (SND (compile cfg prog)))
 Proof
   rw [compile_def]
   \\ pairarg_tac \\ fs []
@@ -6170,7 +6301,7 @@ Proof
   \\ imp_res_tac compile_prog_semantics \\ rfs []
   \\ ‘c'.pattern_cfg = cfg.pattern_cfg’
     by (fs [compile_prog_def] \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [])
-  \\ ‘semantics ec1 s.ffi p' ≠ Fail’ by (strip_tac \\ fs [])
+  \\ ‘semantics ec1 s.ffi s.ptr_eq_oracle p' ≠ Fail’ by (strip_tac \\ fs [])
   \\ drule_all compile_flat_correct
   \\ disch_then (assume_tac o GSYM) \\ fs []
 QED
@@ -6340,12 +6471,6 @@ Proof
   fs [inc_compile_def, inc_compile_prog_def, compile_flat_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ irule flat_patternProofTheory.compile_decs_no_Mat
-QED
-
-Theorem mem_size_lemma[local]:
-  list_size sz xs < N ==> (MEM x xs ⇒ sz x < N)
-Proof
-  Induct_on `xs` \\ rw [list_size_def] \\ fs []
 QED
 
 Definition num_bindings_def[simp]:

@@ -414,14 +414,68 @@ Proof
 QED
 
 (* Ensures that the dml is of sufficient size.
-  Advancing the stamp by 2 makes every existing entry read as unassigned. *)
+  Advancing the stamp by 2 makes every existing entry read as unassigned.
+  The map is cleared once the stamp reaches 2 ** 29, so that stamps and map
+  entries stay below 2 ** 30. *)
 Definition reset_dm_list_def:
   reset_dm_list dml (b:num) sz =
   if LENGTH dml < sz then
     (REPLICATE (2 * sz) (0:num), 1)
+  else if 2 ** 29 ≤ b then
+    (REPLICATE (LENGTH dml) 0, 1)
   else
     (dml,b+2)
 End
+
+(* The stamp bound kept by every map operation *)
+Definition stamps_ok_def:
+  stamps_ok dml (b:num) ⇔
+  b ≤ 2 ** 29 + 1 ∧ EVERY (λx. x ≤ b + 1) dml
+End
+
+Theorem stamps_ok_REPLICATE[simp]:
+  stamps_ok (REPLICATE n 0) 1
+Proof
+  rw[stamps_ok_def,EVERY_REPLICATE]
+QED
+
+Theorem stamps_ok_reset_dm_list:
+  stamps_ok dml b ∧
+  reset_dm_list dml b sz = (dml',b') ⇒
+  stamps_ok dml' b'
+Proof
+  rw[reset_dm_list_def]>>
+  gvs[stamps_ok_def,EVERY_MEM]>>
+  rw[]>>
+  first_x_assum drule>>
+  simp[]
+QED
+
+Theorem stamps_ok_update_resize:
+  stamps_ok dml b ∧ x ≤ b + 1 ⇒
+  stamps_ok (update_resize dml 0 x n) b
+Proof
+  rw[stamps_ok_def,update_resize_def]>>
+  irule IMP_EVERY_LUPDATE>>
+  simp[EVERY_REPLICATE]
+QED
+
+Theorem stamps_ok_bounds:
+  stamps_ok dml b ⇒
+  b + 2 < 2 ** 30 ∧ ∀n. n < LENGTH dml ⇒ EL n dml < 2 ** 30
+Proof
+  rw[stamps_ok_def,EVERY_EL]>>
+  first_x_assum drule>>
+  simp[]
+QED
+
+(* The stamp just below the bound advances; the one above clears the map *)
+Theorem reset_dm_list_stamp_bound[local]:
+  reset_dm_list [0;0] (2 ** 29 - 1) 1 = ([0;0], 2 ** 29 + 1) ∧
+  reset_dm_list [3;0] (2 ** 29 + 1) 1 = ([0;0], 1)
+Proof
+  EVAL_TAC
+QED
 
 Theorem dm_rel_FEMPTY_REPLICATE:
   dm_rel FEMPTY (REPLICATE n 0) 1
@@ -666,12 +720,9 @@ Definition unit_prop_vb_list_def:
   | SOME (F,dml') => unit_prop_vb_list fmlls dml' b s i len)
 Termination
   WF_REL_TAC `measure (\(fmlls, dml, b, s, i, len). len - i)` >>
-  rw[] >> fs[parse_vb_int_def,
-   parse_vb_num_def,
-   AllCaseEqs(),UNCURRY_EQ] >> rveq >> fs[] >>
-  last_x_assum (assume_tac o GSYM) >>
-  drule_all parse_vb_num_aux_i >>
-  fs[]
+  rw[] >>
+  drule_then strip_assume_tac parse_vb_int_i >>
+  gvs[]
 End
 
 Theorem unit_prop_vb_list:
@@ -716,11 +767,9 @@ Definition unit_prop_vb_list'_def:
   | SOME (F,dml') => unit_prop_vb_list' fmlls dml' b s i len))
 Termination
   WF_REL_TAC `measure (\(fmlls, dml, b, s, i, len). len - i)` >>
-  rw[] >> fs[parse_vb_int_def,parse_vb_num_def,
-   AllCaseEqs(),UNCURRY_EQ] >> rveq >> fs[] >>
-  last_x_assum (assume_tac o GSYM) >>
-  drule_all parse_vb_num_aux_i >>
-  fs[]
+  rw[] >>
+  drule_then strip_assume_tac parse_vb_int_i >>
+  gvs[]
 End
 
 Theorem unit_prop_vb_list':
@@ -845,6 +894,35 @@ Proof
   first_x_assum $ irule_at Any>>
   fs[]>>
   intLib.ARITH_TAC
+QED
+
+(* A successful scan reads the literal at i - 1 and finds it in range of
+  the assignment map, on either branch of its sign test *)
+Theorem all_assigned_list'_lit:
+  all_assigned_list' dml b k v i = SOME res ∧ i ≠ 0 ⇒
+  i - 1 < length v ∧ Num (ABS (sub v (i - 1))) < LENGTH dml
+Proof
+  simp[Once all_assigned_list'_def]>>
+  rw[integerTheory.INT_ABS]
+QED
+
+Theorem delete_literals_sing_list'_lit:
+  delete_literals_sing_list' dml b v i = SOME res ∧ i ≠ 0 ⇒
+  i - 1 < length v ∧ Num (ABS (sub v (i - 1))) < LENGTH dml
+Proof
+  simp[Once delete_literals_sing_list'_def]>>
+  rw[integerTheory.INT_ABS]
+QED
+
+Theorem init_lit_map_list'_lit:
+  init_lit_map_list' i v dml b = SOME res ∧ i ≠ 0 ⇒
+  i - 1 < length v ∧ Num (ABS (sub v (i - 1))) < LENGTH dml
+Proof
+  simp[Once init_lit_map_list'_def]>>
+  rw[integerTheory.INT_ABS]
+  >- intLib.ARITH_TAC>>
+  `sub v (i − 1) = 0` by intLib.ARITH_TAC>>
+  gvs[]
 QED
 
 Definition sz_lit_map_def:
@@ -1032,27 +1110,28 @@ Proof
   fs[]
 QED
 
+(* d is the value that marks a free slot: vcc_none in a clause array *)
 Definition delete_list_def:
-  delete_list fml i =
+  delete_list d fml i =
   if i < LENGTH fml
-  then LUPDATE vcc_none i fml
+  then LUPDATE d i fml
   else fml
 End
 
 Definition delete_ids_list_def:
-  (delete_ids_list fml ls =
-  FOLDL delete_list fml ls)
+  (delete_ids_list d fml ls =
+  FOLDL (delete_list d) fml ls)
 End
 
 Theorem LENGTH_delete_list[simp]:
-  LENGTH (delete_list fmlls i) = LENGTH fmlls
+  LENGTH (delete_list d fmlls i) = LENGTH fmlls
 Proof
   rw[delete_list_def]
 QED
 
 Theorem LENGTH_delete_ids_list[simp]:
   ∀l.
-  LENGTH (delete_ids_list fmlls l) = LENGTH fmlls
+  LENGTH (delete_ids_list d fmlls l) = LENGTH fmlls
 Proof
   simp[delete_ids_list_def,FOLDL_FOLDR_REVERSE]>>
   strip_tac>>
@@ -1061,9 +1140,17 @@ Proof
   Induct_on`ll`>>rw[]
 QED
 
+Theorem any_el_delete_list:
+  any_el n (delete_list d fmlls l) d =
+  if l = n then d else any_el n fmlls d
+Proof
+  rw[delete_list_def,any_el_ALT,EL_LUPDATE]>>
+  gvs[]
+QED
+
 Theorem fml_rel_delete_list:
   fml_rel fml fmlls ⇒
-  fml_rel (fml \\ l) (delete_list fmlls l)
+  fml_rel (fml \\ l) (delete_list vcc_none fmlls l)
 Proof
   simp[fml_rel_def,DOMSUB_FLOOKUP_THM]>>
   strip_tac>>
@@ -1077,7 +1164,7 @@ QED
 Theorem fml_rel_delete_ids_list:
   ∀l fml fmlls fmlls'.
   fml_rel fml fmlls ⇒
-  fml_rel (delete_ids fml l) (delete_ids_list fmlls l)
+  fml_rel (delete_ids fml l) (delete_ids_list vcc_none fmlls l)
 Proof
   simp[delete_ids_def,delete_ids_list_def]>>
   Induct>>rw[]>>
@@ -1126,7 +1213,7 @@ QED
 Theorem bnd_fml_delete_ids_list:
   ∀ls fmlls sz.
   bnd_fml fmlls sz ⇒
-  bnd_fml (delete_ids_list fmlls ls) sz
+  bnd_fml (delete_ids_list vcc_none fmlls ls) sz
 Proof
   Induct>>
   rw[]>>fs[delete_ids_list_def]>>
@@ -1137,24 +1224,21 @@ Proof
 QED
 
 Definition delete_ids_vb_list_def:
-  delete_ids_vb_list fmlls s i len =
+  delete_ids_vb_list d fmlls s i len =
   let (m,i) = parse_vb_int s i len in
   if m <= 0
   then fmlls
-  else delete_ids_vb_list (delete_list fmlls (Num m)) s i len
+  else delete_ids_vb_list d (delete_list d fmlls (Num m)) s i len
 Termination
-  WF_REL_TAC` measure (λ(f,x,i,r). r-i)`>>
-  rw[] >> fs[parse_vb_int_def,parse_vb_num_def,
-  UNCURRY_EQ,AllCaseEqs()] >> rveq >>
-  fs[] >>
-  last_x_assum (assume_tac o GSYM) >>
-  drule_all parse_vb_num_aux_i >>
-  fs[]
+  WF_REL_TAC` measure (λ(d,f,x,i,r). r-i)`>>
+  rw[] >>
+  drule_then strip_assume_tac parse_vb_int_i >>
+  gvs[]
 End
 
 Theorem LENGTH_delete_ids_vb_list[simp]:
-  ∀fmlls s i len.
-  LENGTH (delete_ids_vb_list fmlls s i len) = LENGTH fmlls
+  ∀d fmlls s i len.
+  LENGTH (delete_ids_vb_list d fmlls s i len) = LENGTH fmlls
 Proof
   ho_match_mp_tac delete_ids_vb_list_ind>>
   rw[]>>
@@ -1165,7 +1249,8 @@ QED
 Theorem fml_rel_delete_ids_vb_list:
   ∀fml s i len fmlls.
   fml_rel fml fmlls ⇒
-  fml_rel (delete_ids_vb fml s i len) (delete_ids_vb_list fmlls s i len)
+  fml_rel (delete_ids_vb fml s i len)
+    (delete_ids_vb_list vcc_none fmlls s i len)
 Proof
   ho_match_mp_tac delete_ids_vb_ind>>
   rw[]>>
@@ -1178,8 +1263,12 @@ QED
 Theorem bnd_fml_delete_ids_vb_list:
   ∀fmlls s i len sz.
   bnd_fml fmlls sz ⇒
-  bnd_fml (delete_ids_vb_list fmlls s i len) sz
+  bnd_fml (delete_ids_vb_list vcc_none fmlls s i len) sz
 Proof
+  qsuff_tac`∀d fmlls s i len sz.
+    d = vcc_none ∧ bnd_fml fmlls sz ⇒
+    bnd_fml (delete_ids_vb_list d fmlls s i len) sz`
+  >- metis_tac[]>>
   ho_match_mp_tac delete_ids_vb_list_ind>>
   rw[]>>
   simp[Once delete_ids_vb_list_def]>>
@@ -1393,6 +1482,153 @@ Proof
   drule is_rup_vb_list'>>
   rw[]>>gvs[]>>
   metis_tac[bnd_fml_le]
+QED
+
+(* Every map operation writes only b or b + 1 for the current stamp b *)
+Theorem stamps_ok_delete_literals_sing_list:
+  ∀dml b v i res dml'.
+  stamps_ok dml b ∧
+  delete_literals_sing_list dml b v i = SOME (res,dml') ⇒
+  stamps_ok dml' b
+Proof
+  ho_match_mp_tac delete_literals_sing_list_ind>>
+  rw[]>>
+  pop_assum mp_tac>>
+  simp[Once delete_literals_sing_list_def]>>
+  rw[]>>gvs[AllCaseEqs()]>>
+  irule stamps_ok_update_resize>>
+  simp[]
+QED
+
+Theorem stamps_ok_unit_prop_one:
+  stamps_ok dml b ∧
+  unit_prop_one fmlls dml b i = SOME (res,dml') ⇒
+  stamps_ok dml' b
+Proof
+  rw[unit_prop_one_def]>>
+  metis_tac[stamps_ok_delete_literals_sing_list]
+QED
+
+Theorem stamps_ok_unit_prop_one':
+  stamps_ok dml b ∧
+  unit_prop_one' fmlls dml b i = SOME (SOME (res,dml')) ⇒
+  stamps_ok dml' b
+Proof
+  metis_tac[unit_prop_one',stamps_ok_unit_prop_one]
+QED
+
+Theorem stamps_ok_unit_prop_list:
+  ∀is dml res dml'.
+  stamps_ok dml b ∧
+  unit_prop_list fmlls dml b is = SOME (res,dml') ⇒
+  stamps_ok dml' b
+Proof
+  Induct>>
+  rw[unit_prop_list_def]>>
+  gvs[AllCaseEqs()]>>
+  metis_tac[stamps_ok_unit_prop_one]
+QED
+
+Theorem stamps_ok_unit_prop_vb_list:
+  ∀fmlls dml b s i len res dml'.
+  stamps_ok dml b ∧
+  unit_prop_vb_list fmlls dml b s i len = SOME (res,dml') ⇒
+  stamps_ok dml' b
+Proof
+  ho_match_mp_tac unit_prop_vb_list_ind>>
+  rw[]>>
+  pop_assum mp_tac>>
+  simp[Once unit_prop_vb_list_def]>>
+  pairarg_tac>>gvs[]>>
+  rw[AllCaseEqs()]>>
+  metis_tac[stamps_ok_unit_prop_one]
+QED
+
+Theorem stamps_ok_init_lit_map_list:
+  ∀i v dml b.
+  stamps_ok dml b ⇒
+  stamps_ok (init_lit_map_list i v dml b) b
+Proof
+  ho_match_mp_tac init_lit_map_list_ind>>
+  rw[]>>
+  rw[Once init_lit_map_list_def]>>
+  first_x_assum irule>>
+  simp[]>>
+  irule stamps_ok_update_resize>>
+  simp[]
+QED
+
+Theorem stamps_ok_resize_dm:
+  stamps_ok dml b ∧
+  resize_dm dml b v = (dml',b') ⇒
+  stamps_ok dml' b'
+Proof
+  rw[resize_dm_def]>>
+  metis_tac[stamps_ok_reset_dm_list]
+QED
+
+Theorem stamps_ok_prepare_rup:
+  stamps_ok dml b ∧
+  prepare_rup dml b v = (dml',b') ⇒
+  stamps_ok dml' b'
+Proof
+  rw[prepare_rup_def,resize_dm_def]>>
+  gvs[UNCURRY_EQ]>>
+  irule stamps_ok_init_lit_map_list>>
+  metis_tac[stamps_ok_reset_dm_list]
+QED
+
+Theorem stamps_ok_is_rup_list:
+  stamps_ok dml b ∧
+  is_rup_list fmlls dml b v is = (res,dml',b') ⇒
+  stamps_ok dml' b'
+Proof
+  rw[is_rup_list_def]>>
+  gvs[UNCURRY_EQ,AllCaseEqs()]>>
+  metis_tac[stamps_ok_prepare_rup,stamps_ok_unit_prop_list]
+QED
+
+Theorem stamps_ok_is_rup_vb_list:
+  stamps_ok dml b ∧
+  is_rup_vb_list fmlls dml b v s = (res,dml',b') ⇒
+  stamps_ok dml' b'
+Proof
+  rw[is_rup_vb_list_def]>>
+  gvs[UNCURRY_EQ,AllCaseEqs()]>>
+  metis_tac[stamps_ok_prepare_rup,stamps_ok_unit_prop_vb_list]
+QED
+
+(* The invariant the checker loops keep on the formula and the map *)
+Definition dm_ok_def:
+  dm_ok fmlls dml b ⇔
+  bnd_fml fmlls (LENGTH dml) ∧ stamps_ok dml b
+End
+
+Theorem dm_ok_REPLICATE:
+  bnd_fml fmlls n ⇒
+  dm_ok fmlls (REPLICATE n 0) 1
+Proof
+  rw[dm_ok_def]
+QED
+
+Theorem dm_ok_is_rup_list:
+  dm_ok fmlls dml b ∧
+  is_rup_list fmlls dml b vc hints = (res,dml',b') ⇒
+  bnd_clause vc (LENGTH dml') ∧
+  dm_ok fmlls dml' b'
+Proof
+  rw[dm_ok_def]>>
+  metis_tac[bnd_fml_is_rup_list,stamps_ok_is_rup_list]
+QED
+
+Theorem dm_ok_is_rup_vb_list:
+  dm_ok fmlls dml b ∧
+  is_rup_vb_list fmlls dml b vc s = (res,dml',b') ⇒
+  bnd_clause vc (LENGTH dml') ∧
+  dm_ok fmlls dml' b'
+Proof
+  rw[dm_ok_def]>>
+  metis_tac[bnd_fml_is_rup_vb_list,stamps_ok_is_rup_vb_list]
 QED
 
 (* Search backwards through the IDs *)

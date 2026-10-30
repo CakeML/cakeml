@@ -113,8 +113,12 @@ Theorem allTypes_subtypes_at[local]:
   ==> ?p. subtype_at ty p = SOME x
   /\ !q. IS_PREFIX p q /\ p <> q ==>  (THE (subtype_at ty q)) ∉ nonbuiltin_types
 Proof
-  ho_match_mp_tac allTypes'_defn_ind
+  ho_match_mp_tac type_induction
   >> rw[nonbuiltin_types_def,allTypes'_defn]
+  >- (qexists_tac `[]` >> rw[subtype_at_def])
+  >> qpat_x_assum `MEM _ (if _ then _ else _)` mp_tac
+  >> rw[]
+  >> rename1 `Tyapp _ tys`
   >- (
     fs[MEM_MAP,MEM_FLAT,AND_IMP_INTRO,PULL_FORALL]
     >> rveq
@@ -144,7 +148,7 @@ Proof
     fs[allTypes_subtypes_at]
     >> REWRITE_TAC[allTypes'_nonbuiltin]
   )
-  >> ho_match_mp_tac type_ind
+  >> ho_match_mp_tac type_induction
   >> rw[]
   >- (
     imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS]subtype_at_Tyvar)
@@ -232,12 +236,12 @@ Proof
       >> ACCEPT_TAC type_ok_TYPE_SUBST_imp
     )
     >> ntac 2 gen_tac
-    >> ho_match_mp_tac type_ind
+    >> ho_match_mp_tac type_induction
     >> rw[type_ok_def,EVERY_MAP,EVERY_MEM]
     >> res_tac
   )
   >> ntac 2 gen_tac
-  >> ho_match_mp_tac type_ind
+  >> ho_match_mp_tac type_induction
   >> rw[type_ok_def,tyvars_def,EVERY_MEM]
   >> fs[MEM_MAP,MEM_FOLDR_LIST_UNION]
   >> last_x_assum (drule_then match_mp_tac)
@@ -275,8 +279,8 @@ Theorem ground_types_allTypes:
   ==> x ∈ ground_types (sigof ctxt)
 Proof
   CONV_TAC SWAP_FORALL_CONV
-  >> ho_match_mp_tac allTypes'_defn_ind
-  >> reverse conj_tac
+  >> ho_match_mp_tac type_induction
+  >> conj_tac
   >- fs[allTypes'_defn]
   >> rw[]
   >> fs[allTypes'_defn]
@@ -307,8 +311,9 @@ Proof
     fs[MEM_MAP,MEM_FLAT,PULL_EXISTS,Once CONJ_COMM] >>
     ACCEPT_TAC MEM_tyvars_allTypes'
   ) >>
-  ho_match_mp_tac allTypes'_defn_ind >>
+  ho_match_mp_tac type_induction >>
   rw[tyvars_def,allTypes'_defn] >>
+  rpt IF_CASES_TAC >> fs[tyvars_def] >>
   fs[MEM_FOLDR_LIST_UNION,EVERY_MEM,PULL_FORALL,AND_IMP_INTRO] >>
   first_x_assum (drule_all_then strip_assume_tac) >>
   fs[PULL_EXISTS,MEM_FLAT,MEM_MAP] >>
@@ -334,7 +339,7 @@ Theorem bool_not_allTypes:
 Proof
   conj_asm1_tac
   >- (
-    ho_match_mp_tac type_ind >>
+    ho_match_mp_tac type_induction >>
     rw[allTypes'_defn] >> rw[] >>
     CCONTR_TAC >>
     fs[MEM_FLAT,MEM_MAP,EVERY_MEM] >>
@@ -561,8 +566,8 @@ Theorem types_dependency:
   /\ MEM x (allTypes' a)
   ==> RTC (subst_clos (dependency ctxt)) (INL a) (INL x)
 Proof
-  ho_match_mp_tac allTypes'_defn_ind
-  >> reverse(rw[])
+  ho_match_mp_tac type_induction
+  >> rw[]
   >- fs[allTypes'_defn]
   >> rename1`Tyapp s tys`
   >> reverse (Cases_on `s = «fun» /\ LENGTH tys = 2`)
@@ -1616,7 +1621,7 @@ Theorem type_ok_subtype_lemma:
           arity = LENGTH args /\
           EVERY (type_ok(tysig |+ (name,arity))) args
 Proof
-  ho_match_mp_tac type_ind >> conj_tac >- simp[type_ok_def] >>
+  ho_match_mp_tac type_induction >> conj_tac >- simp[type_ok_def] >>
   rw[EVERY_MEM] >>
   rename1 `Tyapp name1 args` >>
   Cases_on `name = name1` >-
@@ -4505,8 +4510,8 @@ Theorem allTypes_TYPE_SUBSTf:
   !ty. set (allTypes' ty) ⊆ set (allTypes p) ∧ MEM x' (allTypes' (TYPE_SUBSTf s ty)) ⇒
   MEM x' (FLAT (MAP allTypes' (MAP (TYPE_SUBSTf s) (allTypes p))))
 Proof
-  ho_match_mp_tac allTypes'_defn_ind >>
-  reverse conj_tac
+  ho_match_mp_tac type_induction >>
+  conj_tac
   >- (
     rw[allTypes'_defn,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
     goal_assum drule >>

@@ -5,6 +5,7 @@ Theory closSem
 Ancestors
   closLang flatLang
   semanticPrimitivesProps (* for opw_lookup_def and others *)
+  backendProps[qualified]
 Libs
   preamble
 
@@ -41,6 +42,7 @@ Datatype:
      ; compile_oracle : 'c clos_co
      ; code    : num |-> (num # closLang$exp # metadata)
      ; max_app : num
+     ; ptr_eq_oracle : num -> num -> bool
     |>
 End
 
@@ -151,6 +153,7 @@ Definition do_install_def:
                           s with <|
                              code := s.code |++ aux
                            ; compile_oracle := new_oracle
+                           ; ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle
                            ; clock := s.clock - 1
                            |>
                         in
@@ -169,11 +172,18 @@ Definition make_const_def:
   make_const (ConstStr s) = ByteVector (MAP (n2w o ORD) (mlstring$explode s)) ∧
   make_const (ConstWord64 w) = Word64 w ∧
   make_const (ConstCons t cs) = Block t (MAP make_const cs)
-Termination
-  WF_REL_TAC ‘measure const_size’
-  \\ Induct_on ‘cs’ \\ rw []
-  \\ fs [const_size_def] \\ res_tac
-  \\ pop_assum (qspec_then ‘t’ assume_tac) \\ fs []
+End
+
+Definition smallnum_witness_length_def:
+  smallnum_witness_length refs (Block tag xs) =
+    (if tag = 0 then SOME (256 * LENGTH xs) else NONE) /\
+  smallnum_witness_length refs (ByteVector xs) = SOME (32 * LENGTH xs) /\
+  smallnum_witness_length refs (RefPtr _ ptr) =
+    (case FLOOKUP refs ptr of
+       SOME (ValueArray xs) => SOME (256 * LENGTH xs)
+     | SOME (ByteArray xs) => SOME (32 * LENGTH xs)
+     | _ => NONE) /\
+  smallnum_witness_length refs v = NONE
 End
 
 Definition do_int_app_def:
@@ -192,6 +202,9 @@ Definition do_int_app_def:
   do_int_app (LessConstSmall n) [Number i] =
         (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then
           SOME (Boolv (i < &n)) else NONE) /\
+  do_int_app (Smallnum op) [Number i; Number j] =
+    OPTION_MAP (\r. case r of INL n => Number n | INR b => Boolv b)
+      (backendProps$bounded_smallnum_app NONE op i j) /\
   do_int_app (op:closLang$int_op) (vs:closSem$v list) = NONE
 End
 
@@ -498,6 +511,13 @@ Definition do_app_def:
         (case do_eq x1 x2 of
          | Eq_val b => Rval (Boolv b, s)
          | _ => Error)
+    | (BlockOp PtrEqual,[x1;x2]) =>
+        (case do_eq x1 x2 of
+         | Eq_val b =>
+             Rval (Boolv (b ∧ s.ptr_eq_oracle 0 0),
+                   s with ptr_eq_oracle :=
+                     (0 =+ shift_seq 1 (s.ptr_eq_oracle 0)) s.ptr_eq_oracle)
+         | _ => Error)
     | (MemOp Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
           Rval (RefPtr T ptr, s with refs := s.refs |+ (ptr,ValueArray xs))
@@ -509,6 +529,14 @@ Definition do_app_def:
                               (ptr,ValueArray (LUPDATE x (Num i) xs)))
              else Error)
          | _ => Error)
+    | (IntOp (Smallnum smallop), [Number i; Number j; witness]) =>
+        (case smallnum_witness_length s.refs witness of
+           NONE => Error
+         | SOME len =>
+             case backendProps$bounded_smallnum_app (SOME len) smallop i j of
+               NONE => Error
+             | SOME (INL n) => Rval (Number n,s)
+             | SOME (INR b) => Rval (Boolv b,s))
     | (IntOp int_op, vs) =>
         (case do_int_app int_op vs of
         | SOME res => Rval (res ,s)
@@ -954,7 +982,7 @@ Theorem evaluate_ind[allow_rebind] =
 (* observational semantics *)
 
 Definition initial_state_def:
-  initial_state ffi ma code co cc k = <|
+  initial_state ffi ma code co cc pe k = <|
     max_app := ma;
     clock := k;
     ffi := ffi;
@@ -962,13 +990,14 @@ Definition initial_state_def:
     compile := cc;
     compile_oracle := co;
     globals := [];
-    refs := FEMPTY
+    refs := FEMPTY;
+    ptr_eq_oracle := pe
   |>
 End
 
 Definition semantics_def:
-  semantics ffi ma code co cc es =
-    let st = initial_state ffi ma code co cc in
+  semantics ffi ma code co cc pe es =
+    let st = initial_state ffi ma code co cc pe in
       if ∃k. FST (evaluate (es,[],st k)) = Rerr (Rabort Rtype_error)
         then Fail
       else

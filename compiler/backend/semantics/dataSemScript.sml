@@ -69,7 +69,8 @@ Datatype:
      ; limits      : limits
      ; safe_for_space   : bool
      ; peak_heap_length : num
-     ; compile_oracle   : num -> 'c # (num # num # dataLang$prog # metadata) list |>
+     ; compile_oracle   : num -> 'c # (num # num # dataLang$prog # metadata) list
+     ; ptr_eq_oracle    : num -> num -> bool |>
 End
 
 val s = ``(s:('c,'ffi) dataSem$state)``
@@ -309,6 +310,11 @@ Definition eq_code_stack_max_def:
 End
 
 Definition stack_consumed_def:
+  (stack_consumed sfs lims (IntOp (Smallnum op)) vs =
+    if allowed_op (IntOp (Smallnum op)) (LENGTH vs) then
+      if op = SmallDiv \/ op = SmallMod
+      then lookup SmallnumDivMod_location sfs else SOME 0
+    else NONE) /\
   (stack_consumed sfs lims (MemOp (CopyByte _)) vs =
     OPTION_MAP2 MAX
      (sptree$lookup ByteCopy_location sfs)
@@ -346,9 +352,7 @@ Definition stack_consumed_def:
        small_num lims.arch_64_bit n2 /\ 0 <= n2 /\
        small_num lims.arch_64_bit (n1 / n2)
     then
-      OPTION_MAP2 MAX
-        (lookup LongDiv_location sfs)
-        (lookup LongDiv1_location sfs)
+      lookup SmallnumDivMod_location sfs
     else
       OPTION_MAP2 MAX (lookup Div_location sfs)
         (max_depth sfs AnyArith_call_tree)) /\
@@ -357,9 +361,7 @@ Definition stack_consumed_def:
        small_num lims.arch_64_bit n2 /\ 0 <= n2 /\
        small_num lims.arch_64_bit (n1 % n2)
     then
-      OPTION_MAP2 MAX
-        (lookup LongDiv_location sfs)
-        (lookup LongDiv1_location sfs)
+      lookup SmallnumDivMod_location sfs
     else
       OPTION_MAP2 MAX (lookup Mod_location sfs)
         (max_depth sfs AnyArith_call_tree)) /\
@@ -520,7 +522,8 @@ Definition do_install_def:
                           s with <|
                              safe_for_space := F ;
                              code := union s.code (fromAList progs) ;
-                             compile_oracle := new_oracle |>
+                             compile_oracle := new_oracle ;
+                             ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle |>
                         in
                           Rval (CodePtr k, s')
                       else Rerr(Rabort Rtype_error)
@@ -738,6 +741,17 @@ Definition do_build_const_def:
   do_build_const xs s ts = do_build (λx. Number 0) 0 xs s ts
 End
 
+Definition smallnum_witness_length_def:
+  smallnum_witness_length refs (Block ts tag xs) =
+    (if tag = 0 then SOME (256 * LENGTH xs) else NONE) /\
+  smallnum_witness_length refs (RefPtr _ ptr) =
+    (case lookup ptr refs of
+       SOME (ValueArray xs) => SOME (256 * LENGTH xs)
+     | SOME (ByteArray _ xs) => SOME (32 * LENGTH xs)
+     | _ => NONE) /\
+  smallnum_witness_length refs v = NONE
+End
+
 Definition do_int_app_def:
   do_int_app (Const n) [] =
     (if small_enough_int n then SOME (Number n)
@@ -756,6 +770,9 @@ Definition do_int_app_def:
   do_int_app (LessConstSmall n) [Number i] =
         (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then
           SOME (Boolv (i < &n)) else NONE) /\
+  do_int_app (Smallnum op) [Number i; Number j] =
+    OPTION_MAP (\r. case r of INL n => Number n | INR b => Boolv b)
+      (backendProps$bounded_smallnum_app NONE op i j) /\
   do_int_app (op:closLang$int_op) (vs:dataSem$v list) = NONE
 End
 
@@ -1087,6 +1104,13 @@ Definition do_app_aux_def:
         (case do_eq s.refs x1 x2 of
          | Eq_val b => Rval (Boolv b, s)
          | _ => Error)
+    | (BlockOp PtrEqual,[x1;x2]) =>
+        (case do_eq s.refs x1 x2 of
+         | Eq_val b =>
+             Rval (Boolv (b ∧ s.ptr_eq_oracle 0 0),
+                   s with ptr_eq_oracle :=
+                     (0 =+ shift_seq 1 (s.ptr_eq_oracle 0)) s.ptr_eq_oracle)
+         | _ => Error)
     | (MemOp Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
           Rval (RefPtr T ptr, s with <| refs := insert ptr (ValueArray xs) s.refs|>)
@@ -1117,6 +1141,14 @@ Definition do_app_aux_def:
          | SOME (v,refs',ts') =>
              Rval (v, s with <| refs := refs' ; tstamps := ts' |>)
          | NONE => Error)
+    | (IntOp (Smallnum smallop), [Number i; Number j; witness]) =>
+        (case smallnum_witness_length s.refs witness of
+           NONE => Error
+         | SOME len =>
+             case backendProps$bounded_smallnum_app (SOME len) smallop i j of
+               NONE => Error
+             | SOME (INL n) => Rval (Number n,s)
+             | SOME (INR b) => Rval (Boolv b,s))
     | (IntOp intop, vs) =>
         (case do_int_app intop vs of
         | SOME res => Rval (res ,s)
@@ -1626,7 +1658,7 @@ Theorem evaluate_ind[allow_rebind] =
 (* observational semantics *)
 
 Definition initial_state_def:
-  initial_state ffi code coracle cc stamps lims ss k = <|
+  initial_state ffi code coracle cc pe stamps lims ss k = <|
     locals := LN
   ; locals_size := SOME 0
   ; stack := []
@@ -1638,6 +1670,7 @@ Definition initial_state_def:
   ; code := code
   ; compile := cc
   ; compile_oracle := coracle
+  ; ptr_eq_oracle := pe
   ; ffi := ffi
   ; space := 0
   ; tstamps := if stamps then SOME 0 else NONE
@@ -1649,9 +1682,9 @@ Definition initial_state_def:
 End
 
 Definition semantics_def:
-  semantics init_ffi code coracle cc lims ss start  =
+  semantics init_ffi code coracle cc pe lims ss start  =
   let p = Call NONE (SOME start) [] NONE in
-  let init = initial_state init_ffi code coracle cc T lims ss in
+  let init = initial_state init_ffi code coracle cc pe T lims ss in
     if ∃k. case FST(evaluate (p,init k)) of
              | SOME (Rerr e) => e ≠ Rabort Rtimeout_error /\ (!f. e ≠ Rabort(Rffi_error f))
              | NONE => T | _ => F
@@ -1673,10 +1706,10 @@ Definition semantics_def:
 End
 
 Definition data_lang_safe_for_space_def:
-  data_lang_safe_for_space init_ffi code (lims:dataSem$limits) (ss:num num_map) start =
+  data_lang_safe_for_space init_ffi pe code (lims:dataSem$limits) (ss:num num_map) start =
     !ck.
       let p = Call NONE (SOME start) [] NONE in
-      let init = initial_state init_ffi code ARB ARB T lims ss in
+      let init = initial_state init_ffi code ARB ARB pe T lims ss in
       let (res,s) = dataSem$evaluate (p,(init ck): (unit,'ffi) dataSem$state) in
         s.safe_for_space
 End

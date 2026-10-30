@@ -16,15 +16,15 @@ val _ = translation_extends "sat_encodersProg";
 val _ = show_assums := true;
 
 (* killerSudoku *)
-val res = translate get_positions_def;
-val res = translate get_sudoku_rangeList_def;
+val res = translate (get_positions_def |> CONV_RULE (RHS_CONV EVAL));
+val res = translate (get_sudoku_rangeList_def |> CONV_RULE (RHS_CONV EVAL));
 val res = translate ns_not_member_def;
 val res = translate ns_all_distinct_def;
 val res = translate ns_every_all_distinct_def;
-val res = translate get_row_positions_def;
-val res = translate get_col_positions_def;
-val res = translate get_block_positions_def;
-val res = translate get_row_col_block_positions_def;
+val res = translate (get_row_positions_def |> CONV_RULE (RHS_CONV EVAL));
+val res = translate (get_col_positions_def |> CONV_RULE (RHS_CONV EVAL));
+val res = translate (get_block_positions_def |> CONV_RULE (RHS_CONV EVAL));
+val res = translate (get_row_col_block_positions_def |> CONV_RULE (RHS_CONV EVAL));
 val res = translate one_cage_to_numBoolRanges_def;
 val res = translate cages_to_numBoolRanges_inner_def;
 val res = translate cages_to_numBoolRanges_def;
@@ -33,7 +33,7 @@ val res = translate one_cage_to_rangeList_def;
 val res = translate cages_to_rangeList_def;
 val res = translate get_killerSudoku_rangeList_def;
 val res = translate killerSudoku_to_cnf_def;
-val res = translate get_all_positions_def;
+val res = translate (get_all_positions_def |> CONV_RULE (RHS_CONV EVAL));
 val res = translate (REWRITE_RULE [MEMBER_INTRO] killerSudoku_ok_def);
 val res = translate assignment_to_cellAssignment_killerSudoku_def;
 

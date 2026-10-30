@@ -404,6 +404,13 @@ Proof
   simp[state_globals_approx_def]
 QED
 
+Theorem state_globals_approx_ptr_eq_oracleupd[simp]:
+   state_globals_approx (s with ptr_eq_oracle updated_by f) g ⇔
+   state_globals_approx s g
+Proof
+  simp[state_globals_approx_def]
+QED
+
 (* Mapped globals *)
 
 Definition mapped_globals_def:
@@ -622,6 +629,12 @@ Proof
   rpt gen_tac
   \\ `?this_is_case. this_is_case opn` by (qexists_tac `K T` \\ fs [])
   \\ cases_on_op `opn`
+  >~ [`known_op (IntOp _) _ _`] >- (
+    rename1 `IntOp intop`
+    \\ Cases_on `intop`
+    \\ gvs [known_op_def, do_app_def, oneline do_int_app_def, AllCaseEqs()]
+    \\ rpt strip_tac
+    \\ gvs [AllCaseEqs()])
   \\ simp [known_op_def, do_app_def, case_eq_thms, va_case_eq, bool_case_eq,
            pair_case_eq]
   \\ rpt strip_tac \\ rveq \\ fs[]
@@ -634,8 +647,7 @@ Proof
     \\ metis_tac [])
   >- (fs [state_globals_approx_def] \\ rw []
     \\ fs [lookup_insert, get_global_def, EL_LUPDATE, bool_case_eq] \\ rveq \\ fs []
-    >- (first_x_assum (qspecl_then [`k`, `v`, `merge other a'`] assume_tac)
-           \\ fs [] \\ metis_tac [val_approx_val_merge_I])
+    >- (irule val_approx_val_merge_I \\ simp [])
     >- metis_tac [])
   >- (fs [state_globals_approx_def, get_global_def,
         EL_APPEND_EQN, bool_case_eq]
@@ -643,9 +655,6 @@ Proof
     \\ gvs [EL_REPLICATE])
   >- (fs [CaseEq"ffi_result"] \\ rveq
     \\ fs [state_globals_approx_def] \\ metis_tac [])
-  >-(Cases_on `i` >> gvs[known_op_def])
-  >-(Cases_on `i` >> gvs[known_op_def] >>
-    gvs[oneline do_int_app_def,AllCaseEqs()])
   >- (
     rename1 `FLOOKUP _ _ = SOME (Thunk m _)`
     \\ Cases_on `m` \\ gvs [])
@@ -662,7 +671,8 @@ QED
 Theorem ssgc_free_do_install:
    !s. ssgc_free s ==>
    ssgc_free (s with <|compile_oracle := shift_seq 1 (s.compile_oracle);
-                       code := s.code |++ SND (SND (s.compile_oracle 0))|>)
+                       code := s.code |++ SND (SND (s.compile_oracle 0));
+                       ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle|>)
 Proof
   gen_tac \\ simp [ssgc_free_def] \\ strip_tac \\ rpt conj_tac
   THEN1 (`?exp aux. SND (s.compile_oracle 0) = (exp, aux)`
@@ -701,12 +711,6 @@ Proof
    \\ res_tac \\ rfs []
 QED
 
-val value_ind =
-  TypeBase.induction_of ``:closSem$v``
-   |> Q.SPECL [`P`, `EVERY P`]
-   |> SIMP_RULE (srw_ss()) []
-   |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> Q.GEN `P`;
-
 Theorem not_less_zero_imp[local]:
   ~(i < 0:int) ⇒ ∃k. i = & k
 Proof
@@ -728,10 +732,20 @@ Proof
   cases_on_op `opn` >>
   simp[do_app_def, case_eq_thms, op_gbag_def, PULL_EXISTS, bool_case_eq,
        pair_case_eq]
-  >~ [`IntOp`]
-  >- (Cases_on `i` >> simp[oneline do_int_app_def,case_eq_thms,PULL_EXISTS])
+  >~ [`BlockOp PtrEqual`]
+  >- (rw [] \\ gvs [Boolv_def, ssgc_free_def, mglobals_extend_refl]
+      \\ metis_tac [])
+  >~ [`IntOp`] >- (
+    rename1 `IntOp intop`
+    \\ Cases_on `intop`
+    \\ simp [oneline do_int_app_def, AllCaseEqs(), PULL_EXISTS]
+    \\ rpt strip_tac
+    \\ gvs [AllCaseEqs()])
   >~ [`WordOp`]
-  >- (Cases_on `w` >> dsimp[oneline do_word_app_def,AllCaseEqs(),PULL_EXISTS])
+  >- (
+    rename1 `do_word_app word_operation _`
+    \\ Cases_on `word_operation`
+    \\ dsimp [oneline do_word_app_def,AllCaseEqs(),PULL_EXISTS])
   >~ [`BoolNot`]
   >- (rw [] >> gvs [])
   >>~- ([`WordShift`], dsimp[])
@@ -755,22 +769,21 @@ Proof
       \\ fs [ssgc_free_def] \\ res_tac
       \\ imp_res_tac integerTheory.NUM_POSINT_EXISTS \\ rveq \\ fs []
       \\ fs [EVERY_EL] \\ rw [] \\ res_tac \\ fs [])
-  >- (rename [‘RefByte’] \\ simp[ssgc_free_def] >>
-      rpt (disch_then strip_assume_tac ORELSE gen_tac) >> rpt conj_tac
-      >- first_assum MATCH_ACCEPT_TAC >> fs[] >>
-      simp[FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
-  >- (rename [‘RefArray’] \\ simp[ssgc_free_def] >>
-      rpt (disch_then strip_assume_tac ORELSE gen_tac) >> rpt conj_tac
-      >- first_assum MATCH_ACCEPT_TAC >> fs[] >>
-      dsimp[FLOOKUP_UPDATE, bool_case_eq, EVERY_REPLICATE] >> metis_tac[])
-  >- (rename [‘UpdateByte’] \\ simp[ssgc_free_def] >>
-      rpt (disch_then strip_assume_tac ORELSE gen_tac) >> rpt conj_tac
-      >- first_assum MATCH_ACCEPT_TAC >> fs[] >>
-      dsimp[FLOOKUP_UPDATE, bool_case_eq, EVERY_REPLICATE] >> metis_tac[])
+  >~ [`RefByte`] >- (
+    dsimp [ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq]
+    \\ rw [] \\ metis_tac [])
+  >~ [`RefArray`] >- (
+    dsimp [ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq,EVERY_REPLICATE]
+    \\ rw [] \\ disj2_tac \\ rpt strip_tac \\ res_tac)
+  >~ [`UpdateByte`] >- (
+    dsimp [ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq]
+    \\ rw [] \\ metis_tac [])
   >- (rename [‘CopyByte’]
       \\ dsimp[ssgc_free_def,FLOOKUP_UPDATE,bool_case_eq] \\ rw[] \\ metis_tac[])
-  >- (rename [‘ToListByte’] \\ rw [] \\ rpt (pop_assum kall_tac)
-      \\ Induct_on `bs` \\ fs [list_to_v_def])
+  >~ [`ToListByte`] >- (
+    rw [] \\ rpt (pop_assum kall_tac)
+    \\ rename1 `list_to_v (MAP _ bytes)`
+    \\ Induct_on `bytes` \\ fs [list_to_v_def])
   >- (rename [‘Global’]
       \\ simp[get_global_def, ssgc_free_def]
       \\ rw [] \\ imp_res_tac not_less_zero_imp \\ gvs []
@@ -807,7 +820,7 @@ Proof
     simp [])
   >- (rename [‘FromList’] \\
       simp[PULL_FORALL] >> rpt gen_tac >> rename1 `v_to_list v = SOME vs` >>
-      map_every qid_spec_tac [`vs`, `v`] >> ho_match_mp_tac value_ind >>
+      map_every qid_spec_tac [`vs`, `v`] >> ho_match_mp_tac closSemTheory.v_induction >>
       simp[v_to_list_def] >> Cases >>
       simp[v_to_list_def] >>
       rename1 `closSem$Block _ (v1::vs)` >> Cases_on `vs` >>
@@ -822,7 +835,7 @@ Proof
       \\ asm_exists_tac \\ fs [])
   >- (rename [‘Constant c’]
       \\ rw [] \\ qid_spec_tac ‘c’
-      \\ ho_match_mp_tac make_const_ind
+      \\ ho_match_mp_tac closLangTheory.const_induction
       \\ fs [make_const_def,EVERY_MEM,MEM_MAP,PULL_EXISTS])
   >- (rename [‘EqualConst’]
       \\ rw [] \\ fs [Boolv_def])
@@ -2576,12 +2589,6 @@ Definition f_rel_def:
      n1 = n2 /\ exp_rel c (REPLICATE n1 Other ++ aenv) g e1 e2
 End
 
-Theorem v1_size_append:
-   !xs ys. closSem$v1_size (xs ++ ys) = v1_size xs + v1_size ys
-Proof
-  Induct \\ fs [closSemTheory.v_size_def]
-QED
-
 Definition v_rel_def:
   (v_rel c g (Number i) v <=> v = Number i) /\
   (v_rel c g (Word64 w) v <=> v = Word64 w) /\
@@ -2613,8 +2620,7 @@ Definition v_rel_def:
        LIST_REL (f_rel c (clos ++ aenv) g) funs1 funs2 /\
        v = Recclosure loc_opt args2 (env2a ++ env2b) funs2 i else F)
 Termination
-  WF_REL_TAC `measure (v_size o FST o SND o SND)` \\ simp [v1_size_append, v_size_def]
-  \\ rpt strip_tac \\ imp_res_tac v_size_lemma \\ simp []
+  WF_REL_TAC `measure (v_size o FST o SND o SND)`
 End
 
 Theorem v_rel_def[simp,compute,allow_rebind] =
@@ -2767,7 +2773,8 @@ Definition state_rel_def:
     LIST_REL (OPTREL (v_rel c g)) s.globals t.globals /\
     fmap_rel (ref_rel c g) s.refs t.refs /\
     s.compile = state_cc (compile_inc c) t.compile  /\
-    t.compile_oracle = state_co (compile_inc c) s.compile_oracle
+    t.compile_oracle = state_co (compile_inc c) s.compile_oracle ∧
+    t.ptr_eq_oracle = s.ptr_eq_oracle
 End
 
 Theorem compile_inc_upd_inline_factor[local]:
@@ -2944,8 +2951,7 @@ Proof
   \\ EVERY_CASE_TAC \\ simp []
 QED
 
-val v_caseT = v_case_eq |> INST_TYPE [alpha |-> bool] |> Q.INST [`v` |-> `T`]
-                        |> REWRITE_RULE []
+val v_caseT = v_case_eq |> Q.GEN ‘v’ |> Q.ISPEC ‘T’ |> REWRITE_RULE []
 val optcaset = ``option$option_CASE``
 val opt_caseT = case_eq_thms |> CONJUNCTS
                     |> List.find (fn th => th |> concl |> lhs |> lhs
@@ -4850,7 +4856,7 @@ QED
 
 Theorem semantics_known:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY co
-     (state_cc (compile_inc c) cc) xs <> Fail ==>
+     (state_cc (compile_inc c) cc) pe xs <> Fail ==>
    (!n. SND (SND (co n)) = []) /\
    (!n. fv_max 0 (FST (SND (co n)))) /\
    (!n exps aux. SND (co n) = (exps,aux) ==> EVERY esgc_free exps) /\
@@ -4866,9 +4872,9 @@ Theorem semantics_known:
    oracle_gapprox_disjoint g co /\
    known c xs [] LN = (eas, g) ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     (state_co (compile_inc c) co) cc (MAP FST eas) =
+     (state_co (compile_inc c) co) cc pe (MAP FST eas) =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (state_cc (compile_inc c) cc) xs
+     co (state_cc (compile_inc c) cc) pe xs
 Proof
   strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
@@ -4878,7 +4884,7 @@ Proof
   \\ disch_then drule
   \\ disch_then (qspec_then `[]` mp_tac)
   \\ disch_then (qspec_then `initial_state ffi max_app FEMPTY
-                               (state_co (compile_inc c) co) cc k` mp_tac)
+                               (state_co (compile_inc c) co) cc pe k` mp_tac)
   \\ rename1 `evaluate (xs, _, _) = (res1, s2)`
   \\ impl_tac
   THEN1
@@ -5149,7 +5155,7 @@ Proof
 QED
 
 Theorem semantics_compile:
-  closSem$semantics ffi max_app FEMPTY co cc1 xs ≠ Fail ∧
+  closSem$semantics ffi max_app FEMPTY co cc1 pe xs ≠ Fail ∧
    (cc1 = known_cc known_conf cc) ∧
    (co1 = known_co known_conf co) ∧
    (compile known_conf xs = (known_conf', es)) ∧
@@ -5157,8 +5163,8 @@ Theorem semantics_compile:
       syntax_oracle_ok (THE known_conf) xs co (THE known_conf').val_approx_spt ∧
       1 ≤ max_app)
    ⇒
-   semantics ffi max_app FEMPTY co1 cc es =
-   semantics ffi max_app FEMPTY co cc1 xs
+   semantics ffi max_app FEMPTY co1 cc pe es =
+   semantics ffi max_app FEMPTY co cc1 pe xs
 Proof
   simp [known_co_def,known_cc_def]
   \\ strip_tac

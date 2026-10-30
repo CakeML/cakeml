@@ -292,7 +292,10 @@ val res = translate def;
 val res = translate (primTypesTheory.prim_tenv_def
                      |> CONV_RULE (RAND_CONV EVAL));
 
-val res = translate inferTheory.init_config_def;
+(* top-level vals must not call functions (no_ptr_eq), so evaluate the
+   projections from prim_tenv *)
+val res = translate (inferTheory.init_config_def
+                     |> CONV_RULE (RAND_CONV EVAL));
 
 (* Compiler interface in compilerTheory
   TODO: some of these should be moved up, see comment above on exportScript
@@ -342,7 +345,10 @@ val res = translate
    |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
 
 (* arm7 *)
-val res = translate arm7_configTheory.arm7_names_def;
+(* top-level vals must not call functions (no_ptr_eq), so the register
+   name map is evaluated to sptree constructors (as the other targets'
+   *_names_def already are) *)
+val res = translate (arm7_configTheory.arm7_names_def |> CONV_RULE (RAND_CONV EVAL));
 val res = translate export_arm7Theory.startup_def;
 val res = translate export_arm7Theory.ffi_asm_def;
 val res = translate export_arm7Theory.export_func_def;
@@ -483,7 +489,7 @@ Proof
   \\ simp[FORALL_PROD,EXISTS_PROD]
   \\ conj_tac >- metis_tac[] \\ rw[]
   \\ imp_res_tac stdin_11 \\ rw[]
-  \\ imp_res_tac stdin_get_file_content
+  \\ imp_res_tac stdin_get_fd_content
   \\ xlet_auto >- xsimpl
   \\ xif
   >-
@@ -516,7 +522,7 @@ Proof
   \\ xlet_auto >- xsimpl
   \\ rename [‘stdin fs inp pos’]
   \\ ‘stdin_content fs = SOME inp ∧ pos = 0’ by
-    (gvs [stdin_def,get_file_content_def]
+    (gvs [stdin_def,get_fd_content_def]
      \\ fs [stdin_content_def,IS_SOME_EXISTS])
   \\ gvs []
   >> xif
@@ -602,14 +608,17 @@ val compiler32_prog_def = fetch "-" "compiler32_prog_def";
 
 Theorem semantics_compiler32_prog:
   IS_SOME (stdin_content fs) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ⇒
-  ∃io_events.
-    semantics_dec_list
+  sem_satisfies
+    (semantics_dec_list
       (init_state (basis_ffi ext cl fs) with
        eval_state :=
          SOME (EvalDecs (eval_state_var with env_id_counter := (0,0,1))))
-      init_env compiler32_prog (Terminate Success io_events) ∧
-    extract_fs ext (cl,fs) io_events =
-      SOME (full_compile_32 (TL cl) (get_stdin fs) fs)
+      init_env compiler32_prog)
+    (λbehaviour.
+       ∃io_events.
+         behaviour = Terminate Success io_events ∧
+         extract_fs ext (cl,fs) io_events =
+           SOME (full_compile_32 (TL cl) (get_stdin fs) fs))
 Proof
   strip_tac
   \\ irule sem_thm

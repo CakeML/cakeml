@@ -94,7 +94,10 @@ val _ = translate (data_to_wordTheory.real_addr_def |> inline_simp);
 val _ = translate data_to_wordTheory.real_offset_def;
 val _ = translate data_to_wordTheory.real_byte_offset_def;
 val _ = translate data_to_wordTheory.real_bit_offset_def;
-val _ = translate data_to_wordTheory.GiveUp_def;
+(* add_Dlet only accepts top-level vals whose code does not call functions
+   (no_ptr_eq), so the call to adjust_sets is evaluated away *)
+val _ = translate (data_to_wordTheory.GiveUp_def
+                   |> REWRITE_RULE [EVAL “adjust_sets (LN:num_set)”]);
 val _ = translate data_to_wordTheory.WriteWord32_on_32_def;
 val _ = translate data_to_wordTheory.WriteWord64_on_32_def;
 val _ = translate data_to_wordTheory.WordOp64_on_32_def;
@@ -162,6 +165,15 @@ val loc_values = find "location_def"
   |> filter (fn ((m,_),_) => m = "data_to_word")
   |> map (fn (_,(d,_,_)) => d |> concl |> dest_eq |> fst |> EVAL)
   |> LIST_CONJ;
+
+val _ = translate data_to_wordTheory.SmallnumCompare_def;
+val _ = translate data_to_wordTheory.SmallnumMul_def;
+val _ = translate data_to_wordTheory.SmallnumDivLoop_def;
+val _ = translate data_to_wordTheory.SmallnumUnsignedDiv_def;
+val _ = translate data_to_wordTheory.SmallnumDivMod_def;
+val _ = translate (data_to_wordTheory.SmallnumDivCall_def
+                   |> SIMP_RULE std_ss [loc_values]);
+val _ = translate data_to_wordTheory.SmallnumDiv_def;
 
 fun tweak_assign_def th =
   th |> SIMP_RULE std_ss [loc_values] |> inline_simp;
@@ -387,10 +399,14 @@ val _ = translate(data_to_wordTheory.Sub_code_def)
 val _ = translate(data_to_wordTheory.Mul_code_def)
 val _ = translate(data_to_wordTheory.Div_code_def)
 val _ = translate(data_to_wordTheory.Mod_code_def)
+val _ = translate(data_to_wordTheory.SmallnumDivMod_code_def)
 val _ = translate(data_to_wordTheory.MemCopy_code_def|> inline_simp)
 val r = translate(data_to_wordTheory.ByteCopy_code_def |> inline_simp)
-val r = translate(data_to_wordTheory.ByteCopyAdd_code_def)
-val r = translate(data_to_wordTheory.ByteCopySub_code_def )
+(* top-level vals must not call functions (no_ptr_eq), so unfold list_Seq *)
+val r = translate(data_to_wordTheory.ByteCopyAdd_code_def
+                  |> REWRITE_RULE [data_to_wordTheory.list_Seq_def])
+val r = translate(data_to_wordTheory.ByteCopySub_code_def
+                  |> REWRITE_RULE [data_to_wordTheory.list_Seq_def])
 val r = translate(data_to_wordTheory.ByteCopyNew_code_def)
 
 val r = translate(data_to_wordTheory.Install_code_def |> inline_simp)

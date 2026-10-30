@@ -27,6 +27,7 @@ Definition state_rel_def:
     s1.tstamps = t1.tstamps /\
     s1.limits  = t1.limits /\
     s1.stack_frame_sizes  = t1.stack_frame_sizes /\
+    s1.ptr_eq_oracle = t1.ptr_eq_oracle /\
     (* s1.safe_for_space = t1.safe_for_space /\ *) (* ASK: Probably don't need it *)
     (!x. x IN domain live ==> (lookup x s1.locals = lookup x t1.locals))
 End
@@ -153,10 +154,10 @@ Theorem is_pure_do_app_Rerr_IMP[local]:
   is_pure op /\ do_app op xs s = Rerr e ==>
     Rabort Rtype_error = e
 Proof
-  cases_on_op `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
-  \\ fs [is_pure_def,do_app_def,do_app_aux_def]
-  \\ simp[do_space_def,data_spaceTheory.op_space_req_def,
-          case_eq_thms,do_install_def,UNCURRY] \\ rw[]
+  dsimp [oneline is_pure_def,AllCasePreds()]
+  \\ rpt strip_tac \\ gvs [do_app_def,do_app_aux_def]
+  \\ gvs [do_space_def,data_spaceTheory.op_space_req_def,
+          do_install_def,UNCURRY,AllCaseEqs()]
 QED
 
 Theorem is_pure_do_app_Rval_IMP[local]:

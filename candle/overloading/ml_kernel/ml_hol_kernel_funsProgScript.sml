@@ -565,7 +565,7 @@ Theorem allTypes_ty_eqn =
   |> PURE_REWRITE_RULE [GSYM allTypes_ty_def]
 
 Theorem allTypes_ty_ind =
-  holSyntaxTheory.allTypes'_defn_ind
+  holSyntaxTheory.type_induction
 
 val def = allTypes_ty_eqn |> translate
 val def = holSyntaxTheory.allTypes_def

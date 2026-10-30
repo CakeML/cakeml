@@ -36,7 +36,7 @@ val cnf_raw = ``[
 
 val test = rconc (EVAL ``THE (parse_cnf ^(cnf_raw))``);
 
-val test2 = rconc (EVAL ``(print_cnf ^(test))``);
+val test2 = rconc (EVAL ``(print_cnf (max_cnf ^(test)) ^(test))``);
 
 (* Blank lines are skipped, and a clause is stored as it was written,
   repeated literal and all *)

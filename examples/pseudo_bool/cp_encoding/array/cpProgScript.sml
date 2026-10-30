@@ -429,7 +429,7 @@ val res = translate mk_lin_constraint_ge_def;
 
 val res = translate mk_constraint_one_ge_def;
 
-val res = translate init_ec_def;
+val res = translate (init_ec_def |> SRULE [mlmapTheory.empty_def, balanced_mapTheory.empty_def]);
 
 val res = translate encode_bvar_eq_def;
 val res = translate encode_bvar_lit_def;

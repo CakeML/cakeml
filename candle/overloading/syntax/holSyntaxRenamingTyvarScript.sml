@@ -657,7 +657,7 @@ Theorem var_renaming_inj:
   ==> x = x'
 Proof
   gen_tac
-  >> ho_match_mp_tac type_ind
+  >> ho_match_mp_tac type_induction
   >> fs[]
   >> rw[]
   >- (

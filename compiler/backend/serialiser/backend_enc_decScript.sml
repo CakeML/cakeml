@@ -136,12 +136,7 @@ Termination
   \\ rpt (pop_assum mp_tac)
   \\ rpt (goal_term (fn tm =>
             tmCases_on (rand (find_term (can (match_term “nth _ _”)) tm)) []
-            \\ fs [num_tree_size_def,list_dec'_def]))
-  \\ rename [‘list_dec' I xs’] \\ Cases_on ‘xs’
-  \\ fs [list_dec'_def] \\ rw []
-  \\ imp_res_tac MEM_num_tree_size \\ fs [num_tree_size_def]
-  \\ Cases_on ‘x’ \\ gvs [list_dec'_def]
-  \\ fs [num_tree_size_def]
+            \\ fs [list_dec'_def]))
 End
 
 Theorem backend_common_tra_enc'_thm[simp]:
@@ -183,7 +178,7 @@ Termination
   \\ pop_assum $ qspec_then ‘num_tree_size’ mp_tac
   \\ rpt (goal_term (fn tm =>
             tmCases_on (rand (find_term (can (match_term “nth _ _”)) tm)) []
-            \\ fs [num_tree_size_def,list_dec'_def]))
+            \\ fs [list_dec'_def]))
   \\ rename [‘list_dec' I xs’] \\ Cases_on ‘xs’
   \\ fs [list_dec'_def] \\ rw []
 End
@@ -231,6 +226,7 @@ val res = define_enc_dec “:fp_uop”;
 val res = define_enc_dec “:fp_bop”;
 val res = define_enc_dec “:fp_top”;
 val res = define_enc_dec “:const_part”;
+val res = define_enc_dec “:backend_common$smallnum_op”;
 val res = define_enc_dec “:closLang$int_op”;
 val res = define_enc_dec “:closLang$word_op”;
 val res = define_enc_dec “:closLang$block_op”;
@@ -244,20 +240,10 @@ val res = define_enc_dec “:tap_config”;
 
 val (e,d) = enc_dec_for “:closLang$exp”
 
-Theorem MEM_exp_size[local]:
-  (∀xs x. MEM x xs ⇒ exp_size x ≤ closLang$exp3_size xs) ∧
-  (∀xs x y. MEM (x,y) xs ⇒ exp_size y ≤ closLang$exp1_size xs)
-Proof
-  rpt conj_tac
-  \\ Induct \\ fs [] \\ rw [] \\ fs [closLangTheory.exp_size_def]
-  \\ res_tac \\ fs []
-QED
-
 Definition closLang_exp_enc'_def:
   ^e
 Termination
-  WF_REL_TAC ‘measure closLang$exp_size’ \\ rw []
-  \\ imp_res_tac MEM_exp_size \\ gvs []
+  WF_REL_TAC ‘measure closLang$exp_size’
 End
 
 Definition closLang_exp_dec'_def:
@@ -269,19 +255,11 @@ Termination
   \\ rpt (pop_assum $ qspec_then ‘num_tree_size’ mp_tac)
   \\ rpt (goal_term (fn tm =>
             tmCases_on (rand (find_term (can (match_term “nth _ _”)) tm)) []
-            \\ fs [num_tree_size_def,list_dec'_def]))
+            \\ fs [list_dec'_def]))
   \\ rename [‘list_dec' I xs’] \\ Cases_on ‘xs’
   \\ fs [list_dec'_def] \\ rw []
-  \\ imp_res_tac MEM_num_tree_size \\ fs [num_tree_size_def]
   \\ Cases_on ‘x’ \\ gvs [list_dec'_def]
 End
-
-Theorem bvl_MEM_exp_size[local]:
-  (∀xs x. MEM x xs ⇒ exp_size x ≤ bvl$exp1_size xs)
-Proof
-  Induct \\ fs [] \\ rw [] \\ fs [bvlTheory.exp_size_def]
-  \\ res_tac \\ fs []
-QED
 
 Theorem closLang_exp_enc'_thm[simp]:
   ∀x. closLang_exp_dec' (closLang_exp_enc' x) = x
@@ -304,8 +282,7 @@ val (e,d) = enc_dec_for “:bvl$exp”
 Definition bvl_exp_enc'_def:
   ^e
 Termination
-  WF_REL_TAC ‘measure bvl$exp_size’ \\ rw []
-  \\ imp_res_tac bvl_MEM_exp_size \\ gvs []
+  WF_REL_TAC ‘measure bvl$exp_size’
 End
 
 Definition bvl_exp_dec'_def:
@@ -317,7 +294,7 @@ Termination
   \\ rpt (pop_assum $ qspec_then ‘num_tree_size’ mp_tac)
   \\ rpt (goal_term (fn tm =>
             tmCases_on (rand (find_term (can (match_term “nth _ _”)) tm)) []
-            \\ fs [num_tree_size_def,list_dec'_def]))
+            \\ fs [list_dec'_def]))
   \\ rename [‘list_dec' I xs’] \\ Cases_on ‘xs’
   \\ fs [list_dec'_def] \\ rw []
 End
@@ -336,20 +313,12 @@ val _ = reg_enc_dec bvl_exp_enc'_thm;
 
 (* BVI's exp *)
 
-Theorem bvi_MEM_exp_size[local]:
-  (∀xs x. MEM x xs ⇒ bvi$exp_size x ≤ bvi$exp2_size xs)
-Proof
-  Induct \\ fs [] \\ rw [] \\ fs [bviTheory.exp_size_def]
-  \\ res_tac \\ fs []
-QED
-
 val (e,d) = enc_dec_for “:bvi$exp”
 
 Definition bvi_exp_enc'_def:
   ^e
 Termination
-  WF_REL_TAC ‘measure bvi$exp_size’ \\ rw []
-  \\ imp_res_tac bvi_MEM_exp_size \\ gvs [bviTheory.exp_size_def]
+  WF_REL_TAC ‘measure bvi$exp_size’
 End
 
 Definition bvi_exp_dec'_def:
@@ -365,7 +334,7 @@ Termination
   \\ rpt (pop_assum $ qspec_then ‘num_tree_size’ mp_tac)
   \\ rpt (goal_term (fn tm =>
             tmCases_on (rand (find_term (can (match_term “nth _ _”)) tm)) []
-            \\ fs [num_tree_size_def,list_dec'_def]))
+            \\ fs [list_dec'_def]))
   \\ rename [‘list_dec' I xs’] \\ Cases_on ‘xs’
   \\ fs [list_dec'_def] \\ rw []
 End
@@ -402,10 +371,9 @@ Termination
   \\ rpt (pop_assum $ qspec_then ‘num_tree_size’ mp_tac)
   \\ rpt (goal_term (fn tm =>
             tmCases_on (rand (find_term (can (match_term “nth _ _”)) tm)) []
-            \\ fs [num_tree_size_def,list_dec'_def]))
+            \\ fs [list_dec'_def]))
   \\ rename [‘list_dec' I xs’] \\ Cases_on ‘xs’
-  \\ fs [list_dec'_def] \\ rw []
-  \\ imp_res_tac MEM_num_tree_size \\ fs [num_tree_size_def]
+  \\ fs [list_dec'_def]
 End
 
 Theorem clos_known_val_approx_enc'_thm[simp]:

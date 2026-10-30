@@ -14,6 +14,8 @@ The monadic translator also has new support for space-efficient bool arrays repr
 
 The compiler now supports unsafe strsub (#1538).
 
+New primitives `UnsafeIndexArith` and `UnsafeIndexTest` provide smallnum arithmetic and comparisons without runtime bignum checks (#1551). The smallnumness obligations are met by a witness (index a vector, array, byte array or string) or by proving the numbers are smallnums even on 32-bit architectures.
+
 The S-expression representation of the AST was vastly simplified and **is not backwards-compatible**.
 It now follows the AST as close as possible.
 For example, `val (a, b) = (~1, 2)` is represented as
@@ -22,6 +24,8 @@ For example, `val (a, b) = (~1, 2)` is represented as
      (Pcon NONE ((Pvar a) (Pvar b)))
      (Con NONE ((Lit (IntLit ~1)) (Lit (IntLit 2))))))
 ```
+
+The CakeML source language now supports pointer equality (#1561). Note that this makes the source semantics non-deterministic and many top-level theorems have changed shape.
 
 ## Basis library
 
@@ -67,6 +71,12 @@ CF specs and proofs are still TODO, for now.
 `TextIO.output`'s behavior is now linear in the size of the string
 (previously quadratic -- oops!). This should allow users to output large strings
 (as in: much larger than 2kB) without the program hanging (#1425).
+
+`TextIO.outputFile` has been added to basis.
+It writes a string to a file, taking care of opening and closing.
+It comes with a CF spec.
+
+`TextIO.openOut` now has CF specs: `openOut_IOFS_spec` and `openOut_STDIO_spec`.
 
 `TextIO.inputAllFrom` has been added to basis. It reads all input from stdin
 (on `None`) or from a named file (on `Some fname`), closing the stream
@@ -134,9 +144,17 @@ Its backing representation and corresponding algorithms have been optimized heav
 
 The CNF checker(s) have various improvements, especially the RUP algorithm has been updated. Additionally, there is now a centralized and cleaned up basis FFI C file for the checkers (#1495).
 
+A further improvement to the CNF checker(s), API, format-wise, algorithmically, and using the new unsafe ops (#1557).
+
 The new `socketEchoProg` contains a simple echo server meant for testing the Unix domain sockets from `SocketIO`.
 
 Similarly, `rawBridgeProg` showcases `SocketIO`'s raw sockets.
+
+The new unsafe index arithmetic primitives (`UnsafeIndexArith` and `UnsafeIndexTest`) are demoed in `examples/unsafe_arith_exampleScript.sml` (#1551).
+
+The new `examples/hwmcc_checker` contains caketaiger, a verified checker for the
+certificates used in the Hardware Model Checking Competition. It comes with a
+formalization of And-Inverter Graphs and a parser for the binary AIGER 1.9 format.
 
 ## Build infrastructure
 
@@ -172,16 +190,38 @@ before translation, e.g. with `INST_TYPE [alpha |-> “:mlstring”]`, and `|++`
 must be rewritten into `FOLDL` over `|+`. The bootstrap translation calls
 `add_fmap_for_cmp` for `mlstring`, `int` and `num` keys in `decProg`.
 
-### simp additions
+### fsFFI
 
-The following simps have been added:
+`openFile_truncate` has been updated to create files if they are not present,
+better reflecting the implementation of `ffiopen_out` in `basis_ffi.c`.
 
-#### fsFFIProps
+`ffi_open_out` no longer requires the new file descriptor to be at most 255,
+in line with `ffi_open_in`.
 
-```
-Theorem get_mode_fsupdate[simp]:
-  get_mode (fsupdate fs fd' k pos content) fd = get_mode fs fd
-```
+`get_file_content` has been renamed to `get_fd_content` to better reflect
+its definition. Theorems mentioning it have been renamed accordingly, e.g.
+`stdin_get_file_content` is now `stdin_get_fd_content`.
+
+`file_content`, which returns the contents of a file by name (not a file
+descriptor), is now defined here instead of in `TextIOProof`.
+
+### fsFFIProps
+
+The following simps (among others) have been added: `get_mode_fsupdate`,
+`NOT_MEM_nextFD`, `consistentFS_AFUPDKEY`, `liveFS_AFUPDKEY` and
+`wfFS_updated_by`.
+
+The simp `consistentFS_with_numchars` is now an equivalence:
+`consistentFS (fs with numchars := ll) ⇔ consistentFS fs`.
+
+### TextIOProof
+
+`raw_closeIn_STDIO_spec` and `closeOut_STDIO_spec` no longer assume
+`fd >= 3 ∧ fd <= fs.maxFD`.
+
+### mlstringSyntax
+
+`mlstring_from_file` has been added. It reads a file into an `mlstring` term.
 
 ## Miscellaneous
 

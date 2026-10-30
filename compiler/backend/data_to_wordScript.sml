@@ -276,11 +276,11 @@ End
 Definition XorLoop_location_def:
   XorLoop_location = AppendLenLoop_location+1
 End
-Definition Unused_location_def:
-  Unused_location = XorLoop_location+1
+Definition SmallnumDivMod_location_def:
+  SmallnumDivMod_location = XorLoop_location+1
 End
 Definition StringCmpLoop_location_def:
-  StringCmpLoop_location = Unused_location+1
+  StringCmpLoop_location = SmallnumDivMod_location+1
 End
 Definition Bignum_location_def:
   Bignum_location = StringCmpLoop_location+1
@@ -348,8 +348,8 @@ Theorem AppendLenLoop_location_eq =
   ``AppendLenLoop_location`` |> EVAL
 Theorem XorLoop_location_eq =
   ``XorLoop_location`` |> EVAL
-Theorem Unused_location_eq =
-  ``Unused_location`` |> EVAL
+Theorem SmallnumDivMod_location_eq =
+  ``SmallnumDivMod_location`` |> EVAL
 Theorem StringCmpLoop_location_eq =
   ``StringCmpLoop_location`` |> EVAL
 
@@ -1746,6 +1746,12 @@ val def = assign_Define `
       : wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_PtrEq (l:num) (dest:num) v1 v2 =
+                 (PtrEq (adjust_var dest) (adjust_var v1) (adjust_var v2)
+                    2 0,l)
+      : wordLang$prog # num`;
+
+val def = assign_Define `
   assign_BoolNot (l:num) (dest:num) v1 =
                  (Assign (adjust_var dest)
                     (Op Xor [Var (adjust_var v1); Const 2]),l)
@@ -2050,6 +2056,74 @@ val def = assign_Define `
                         Move 2 [(adjust_var dest,1)]],l+1)
       : wordLang$prog # num`;
 
+Definition SmallnumDivLoop_def:
+  SmallnumDivLoop bits 0 = wordLang$Skip /\
+  SmallnumDivLoop bits (SUC k) =
+    Seq (list_Seq [
+      Assign 3 (Op Add [ShiftVar bits Lsl 3 1;
+                       ShiftVar bits Lsr 5 (bits - 1)]);
+      Assign 5 (ShiftVar bits Lsl 5 1);
+      Assign 1 (ShiftVar bits Lsl 1 1);
+      If Lower 3 (Reg 7) Skip
+        (list_Seq [Assign 3 (Op Sub [Var 3; Var 7]);
+                   Assign 1 (Op Add [Var 1; Const 1])])])
+      (SmallnumDivLoop bits k)
+End
+
+Definition SmallnumUnsignedDiv_def:
+  SmallnumUnsignedDiv c =
+    if c.has_div then
+      list_Seq [Inst (Arith (Div 1 5 7));
+                Inst (Arith (LongMul 9 3 1 7));
+                Assign 3 (Op Sub [Var 5; Var 3])]
+    else if c.has_longdiv then
+      list_Seq [Assign 3 (Const 0); Inst (Arith (LongDiv 1 3 3 5 7))]
+    else
+      list_Seq [Assign 1 (Const 0); Assign 3 (Const 0);
+                SmallnumDivLoop (arch_width_bits c.arch_width)
+                               (arch_width_bits c.arch_width)]
+End
+
+Definition SmallnumDivMod_def:
+  SmallnumDivMod c =
+    list_Seq [
+      If Less 2 (Imm 0)
+        (Assign 5 (Op Sub [Const 0;
+          ShiftVar (arch_width_bits c.arch_width) Asr 2 1]))
+        (Assign 5 (ShiftVar (arch_width_bits c.arch_width) Asr 2 1));
+      If Less 4 (Imm 0)
+        (Assign 7 (Op Sub [Const 0;
+          ShiftVar (arch_width_bits c.arch_width) Asr 4 1]))
+        (Assign 7 (ShiftVar (arch_width_bits c.arch_width) Asr 4 1));
+      SmallnumUnsignedDiv c;
+      Assign 3 (ShiftVar (arch_width_bits c.arch_width) Lsl 3 1);
+      If Less 2 (Imm 0) (Assign 3 (Op Sub [Const 0; Var 3])) Skip;
+      Assign 5 (Op Xor [Var 2; Var 4]);
+      If Less 5 (Imm 0) (Assign 1 (Op Sub [Const 0; Var 1])) Skip;
+      If Equal 3 (Imm 0) Skip
+        (list_Seq [
+          Assign 5 (Op Xor [Var 3; Var 4]);
+          If Less 5 (Imm 0)
+            (list_Seq [Assign 1 (Op Sub [Var 1; Const 1]);
+                       Assign 3 (Op Add [Var 3; Var 4])]) Skip]);
+      Assign 1 (ShiftVar (arch_width_bits c.arch_width) Lsl 1 1)]
+End
+
+Definition SmallnumDivMod_code_def:
+  SmallnumDivMod_code c =
+    if c.has_idiv then Skip
+    else Seq (SmallnumDivMod c) (Return 0 [1;3])
+End
+
+Definition SmallnumDivCall_def:
+  SmallnumDivCall is_mod secn l dest names v1 v2 =
+    list_Seq [
+      MustTerminate
+        (Call (SOME ([1;3],adjust_sets (get_names names),Skip,secn,l))
+          (SOME SmallnumDivMod_location) [adjust_var v1;adjust_var v2] NONE);
+      Move 2 [(adjust_var dest,if is_mod then 3 else 1)]]
+End
+
 (* Tagged inputs give an untagged quotient and a tagged remainder. Correct
    only the result needed by the consumer, leaving original operands intact. *)
 Definition SmallDivMod_def:
@@ -2062,6 +2136,15 @@ Definition SmallDivMod_def:
                                 Assign 3 (Op Add [Var 3; Var (adjust_var v2)])
                               else Assign 1 (Op Sub [Var 1; Const 1]))
                              Skip])] : wordLang$prog
+End
+
+Definition SmallnumDiv_def:
+  SmallnumDiv c is_mod secn l dest names v1 v2 =
+    if c.has_idiv then
+      Seq (SmallDivMod is_mod v1 v2)
+        (Assign (adjust_var dest)
+          (if is_mod then Var 3 else ShiftVar (arch_width_bits c.arch_width) Lsl 1 1))
+    else SmallnumDivCall is_mod secn l dest names v1 v2
 End
 
 val def = assign_Define `
@@ -2098,21 +2181,7 @@ val def = assign_Define `
            Assign 1 (Op Or [Var (adjust_var v1); Var (adjust_var v2)]);
            Assign 1 (Op Or [Var 1; ShiftVar (arch_width_bits c.arch_width) Lsr 1 ((arch_width_bits c.arch_width)-1)]);
            If Test 1 (Imm 1)
-             (if c.has_div then
-                list_Seq [Inst (Arith (Div 1 (adjust_var v1) (adjust_var v2)));
-                          Assign (adjust_var dest) (ShiftVar (arch_width_bits c.arch_width) Lsl 1 1)]
-              else if c.has_longdiv then
-                list_Seq [Assign 1 (Const 0);
-                          Inst (Arith (LongDiv 1 3 1 (adjust_var v1)(adjust_var v2)));
-                          Assign (adjust_var dest) (ShiftVar (arch_width_bits c.arch_width) Lsl 1 1)]
-              else
-                list_Seq
-                  [Assign 1 (Const 0);
-                   MustTerminate
-                    (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l+1))
-                      (SOME LongDiv_location)
-                        [1; adjust_var v1; adjust_var v2] NONE);
-                   Assign (adjust_var dest) (ShiftVar (arch_width_bits c.arch_width) Lsl 1 1)])
+             (SmallnumDivCall F secn (l+1) dest names v1 v2)
              (list_Seq
                 [MustTerminate
                    (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
@@ -2145,23 +2214,7 @@ val def = assign_Define `
            Assign 1 (Op Or [Var (adjust_var v1); Var (adjust_var v2)]);
            Assign 1 (Op Or [Var 1; ShiftVar (arch_width_bits c.arch_width) Lsr 1 ((arch_width_bits c.arch_width)-1)]);
            If Test 1 (Imm 1)
-             (if c.has_div then
-                list_Seq [Inst (Arith (Div 1 (adjust_var v1) (adjust_var v2)));
-                          Inst (Arith (LongMul 3 1 1 (adjust_var v2)));
-                          Assign (adjust_var dest)
-                            (Op Sub [Var (adjust_var v1); Var 1])]
-              else if c.has_longdiv then
-                list_Seq [Assign 1 (Const 0);
-                          Inst (Arith (LongDiv 1 3 1 (adjust_var v1)(adjust_var v2)));
-                          Move 2 [(adjust_var dest,3)]]
-              else
-                list_Seq
-                  [Assign 1 (Const 0);
-                   MustTerminate
-                    (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l+1))
-                      (SOME LongDiv_location)
-                        [1; adjust_var v1; adjust_var v2] NONE);
-                   Get (adjust_var dest) (Temp 28w)])
+             (SmallnumDivCall T secn (l+1) dest names v1 v2)
              (list_Seq
                 [MustTerminate
                    (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
@@ -2632,6 +2685,39 @@ val def = assign_Define `
                  (Assign (adjust_var dest) (Var (adjust_var v1)),l)
       : wordLang$prog # num`;
 
+Definition SmallnumCompare_def:
+  SmallnumCompare cmp dest v1 v2 =
+    If cmp (adjust_var v1) (Reg (adjust_var v2))
+      (Assign (adjust_var dest) TRUE_CONST)
+      (Assign (adjust_var dest) FALSE_CONST) : wordLang$prog
+End
+
+Definition SmallnumMul_def:
+  SmallnumMul c dest v1 v2 =
+    list_Seq [
+      Assign 1 (ShiftVar (arch_width_bits c.arch_width) Asr (adjust_var v1) 1);
+      if c.has_imul then Inst (Arith (IMul 1 1 (adjust_var v2) 3))
+      else Inst (Arith (LongMul 3 1 1 (adjust_var v2)));
+      Assign (adjust_var dest) (Var 1)]
+End
+
+val def = assign_Define `
+  assign_Smallnum c secn op (l:num) dest names v1 v2 =
+    ((case op of
+       | backend_common$SmallAdd =>
+           Assign (adjust_var dest) (Op Add [Var (adjust_var v1); Var (adjust_var v2)])
+       | SmallSub =>
+           Assign (adjust_var dest) (Op Sub [Var (adjust_var v1); Var (adjust_var v2)])
+       | SmallMult => SmallnumMul c dest v1 v2
+       | SmallDiv => SmallnumDiv c F secn l dest names v1 v2
+       | SmallMod => SmallnumDiv c T secn l dest names v1 v2
+       | backend_common$SmallLess => SmallnumCompare Less dest v1 v2
+       | SmallLessEq => SmallnumCompare NotLess dest v2 v1
+       | SmallGreater => SmallnumCompare Less dest v2 v1
+       | SmallGreaterEq => SmallnumCompare NotLess dest v1 v2
+       | SmallEqual => SmallnumCompare Equal dest v1 v2),
+      l + if ~c.has_idiv /\ (op = SmallDiv \/ op = SmallMod) then 1 else 0) : wordLang$prog # num`;
+
 Theorem all_assign_defs =
   LIST_CONJ (!assign_defs)
 
@@ -2640,6 +2726,11 @@ Definition assign_def:
     (args:num list) (names:num_set option) =
     case op of
     | IntOp (Const i) => assign_Const i l dest
+    | IntOp (closLang$Smallnum smallop) =>
+        (case args of
+         | [v1; v2] => assign_Smallnum c secn smallop l dest names v1 v2
+         | [v1; v2; witness] => assign_Smallnum c secn smallop l dest names v1 v2
+         | _ => (Skip,l))
     | GlobOp GlobalsPtr => (Assign (adjust_var dest) (Lookup Globals),l)
     | GlobOp SetGlobalsPtr => arg1 args (assign_SetGlobalsPtr c l dest) (Skip,l)
     | GlobOp (SetGlobal n) => arg1 args (assign_SetGlobal c n l dest) (Skip,l)
@@ -2669,6 +2760,7 @@ Definition assign_def:
     | MemOp (CopyByte alloc_new) => assign_CopyByte c secn l dest names args
     | MemOp RefArray => arg2 args (assign_RefArray c secn l dest names) (Skip,l)
     | BlockOp (BoolTest test) => arg2 args (assign_BoolTest l dest test) (Skip,l)
+    | BlockOp PtrEqual => arg2 args (assign_PtrEq l dest) (Skip,l)
     | BlockOp BoolNot => arg1 args (assign_BoolNot l dest) (Skip,l)
     | WordOp (WordTest ws test) => arg2 args (assign_WordTest l dest test) (Skip,l)
     | BlockOp (FromList tag) => arg2 args (assign_FromList c secn l dest names tag) (Skip,l)
@@ -2951,7 +3043,7 @@ Definition stubs_def:
     (AppendMainLoop_location,6n,AppendMainLoop_code data_conf);
     (AppendLenLoop_location,3n,AppendLenLoop_code data_conf);
     (XorLoop_location,4n,XorLoop_code data_conf);
-    (Unused_location,6n,Skip); (* TODO: use next time new stub is needed *)
+    (SmallnumDivMod_location,3n,SmallnumDivMod_code data_conf);
     (StringCmpLoop_location,6n,StringCmpLoop_code data_conf);
     (MemCopy_location,5n,MemCopy_code data_conf);
     (ByteCopy_location,6n,ByteCopy_code data_conf);
@@ -2988,7 +3080,7 @@ Definition stub_names_def:
     (AppendMainLoop_location,«_AppendMainLoop»);
     (AppendLenLoop_location,«_AppendLenLoop»);
     (XorLoop_location,«_XorLoop»);
-    (Unused_location,«_Unused»);
+    (SmallnumDivMod_location,«_SmallnumDivMod»);
     (StringCmpLoop_location,«_StringCmpLoop»);
     (MemCopy_location,«_MemCopy»);
     (ByteCopy_location,«_ByteCopy»);

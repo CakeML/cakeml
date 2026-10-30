@@ -456,6 +456,10 @@ val termination_lemma =
        FUPDATE_LIST, option_CASE_FLOOKUP_SIMP]
   |> GEN_ALL;
 
+(* top-level vals must not call functions (no_ptr_eq), so DigitSet is
+   evaluated to a charset literal *)
+val _ = translate (DigitSet_def |> CONV_RULE (RHS_CONV EVAL));
+
 val _ = translate
   (parse_regexp_def |> SRULE [pegexecTheory.peg_exec_def,coreloop_def', rePEG_def,
        FUPDATE_LIST, option_CASE_FLOOKUP_SIMP]);
@@ -522,7 +526,7 @@ Proof
          INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
          & (OPTION_TYPE STRING_TYPE (SOME line) v))’
   >- (xapp \\ qexistsl [‘emp’, ‘line::lines’, ‘fs’, ‘fd’, ‘#"\n"’] \\ xsimpl)
-  \\ simp [Once INSTREAM_LINES_get_file_content] \\ xpull
+  \\ simp [Once INSTREAM_LINES_get_fd_content] \\ xpull
   \\ gvs [OPTION_TYPE_def] \\ xmatch
   \\ xlet_auto >- xsimpl
   \\ qmatch_goalsub_abbrev_tac ‘STDIO (forwardFD _ _ _) * INSTREAM_LINES₁’

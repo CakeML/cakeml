@@ -14,6 +14,7 @@ paths relative to the root directory.
 [bin](bin):
 This directory represents a stage in the build sequence where the latest
 available cake binary is downloaded to perform testing and bootstrapping.
+(Note: do NOT track the generated README.md in bin/)
 
 [build-sequence](build-sequence):
 The regression test runs through this list of directories.

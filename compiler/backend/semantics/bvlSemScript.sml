@@ -53,7 +53,8 @@ Datatype:
      ; compile : 'c -> (num # num # bvl$exp # metadata) list -> (mlstring # word64 list # 'c) option
      ; compile_oracle : num -> 'c # (num # num # bvl$exp # metadata) list
      ; code    : (num # bvl$exp # metadata) num_map
-     ; ffi     : 'ffi ffi_state |>
+     ; ffi     : 'ffi ffi_state
+     ; ptr_eq_oracle : num -> num -> bool |>
 End
 
 Definition v_to_list_def:
@@ -146,7 +147,8 @@ Definition do_install_def:
                         let s' =
                           s with <|
                              code := union s.code (fromAList progs)
-                           ; compile_oracle := new_oracle |>
+                           ; compile_oracle := new_oracle
+                           ; ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle |>
                         in
                           Rval (CodePtr k, s')
                       else Rerr(Rabort Rtype_error)
@@ -177,6 +179,17 @@ Definition do_build_const_def:
   do_build_const xs refs = do_build (λx. Number 0) 0 xs refs
 End
 (* same as closSem$do_int_app *)
+Definition smallnum_witness_length_def:
+  smallnum_witness_length refs (Block tag xs) =
+    (if tag = 0 then SOME (256 * LENGTH xs) else NONE) /\
+  smallnum_witness_length refs (RefPtr _ ptr) =
+    (case FLOOKUP refs ptr of
+       SOME (ValueArray xs) => SOME (256 * LENGTH xs)
+     | SOME (ByteArray _ xs) => SOME (32 * LENGTH xs)
+     | _ => NONE) /\
+  smallnum_witness_length refs v = NONE
+End
+
 Definition do_int_app_def:
   do_int_app (Const n) [] = SOME (Number n) /\
   do_int_app (Add) [Number n1;Number n2] = SOME (Number (n1 + n2)) /\
@@ -193,6 +206,9 @@ Definition do_int_app_def:
   do_int_app (LessConstSmall n) [Number i] =
         (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then
           SOME (Boolv (i < &n)) else NONE) /\
+  do_int_app (Smallnum op) [Number i; Number j] =
+    OPTION_MAP (\r. case r of INL n => Number n | INR b => Boolv b)
+      (backendProps$bounded_smallnum_app NONE op i j) /\
   do_int_app (op:closLang$int_op) (vs:bvlSem$v list) = NONE
 End
 
@@ -505,6 +521,13 @@ Definition do_app_def:
         (case do_eq s.refs x1 x2 of
          | Eq_val b => Rval (Boolv b, s)
          | _ => Error)
+    | (BlockOp PtrEqual,[x1;x2]) =>
+        (case do_eq s.refs x1 x2 of
+         | Eq_val b =>
+             Rval (Boolv (b ∧ s.ptr_eq_oracle 0 0),
+                   s with ptr_eq_oracle :=
+                     (0 =+ shift_seq 1 (s.ptr_eq_oracle 0)) s.ptr_eq_oracle)
+         | _ => Error)
     | (MemOp Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
           Rval (RefPtr T ptr, s with refs := s.refs |+ (ptr,ValueArray xs))
@@ -518,6 +541,14 @@ Definition do_app_def:
          | _ => Error)
     | (Label n,[]) =>
         if n IN domain s.code then Rval (CodePtr n, s) else Error
+    | (IntOp (Smallnum smallop), [Number i; Number j; witness]) =>
+        (case smallnum_witness_length s.refs witness of
+           NONE => Error
+         | SOME len =>
+             case backendProps$bounded_smallnum_app (SOME len) smallop i j of
+               NONE => Error
+             | SOME (INL n) => Rval (Number n,s)
+             | SOME (INR b) => Rval (Boolv b,s))
     | (IntOp intop, vs) =>
         (case do_int_app intop vs of
         | SOME res => Rval (res ,s)
@@ -771,21 +802,22 @@ Theorem evaluate_ind[allow_rebind] =
 (* observational semantics *)
 
 Definition initial_state_def:
-  initial_state ffi code co cc k = <|
+  initial_state ffi code co cc pe k = <|
     clock := k;
     ffi := ffi;
     code := code;
     compile := cc;
     compile_oracle := co;
     globals := [];
-    refs := FEMPTY
+    refs := FEMPTY;
+    ptr_eq_oracle := pe
   |>
 End
 
 Definition semantics_def:
-  semantics init_ffi code co cc start =
+  semantics init_ffi code co cc pe start =
   let es = [Call 0 (SOME start) []] in
-  let init = initial_state init_ffi code co cc in
+  let init = initial_state init_ffi code co cc pe in
     if ∃k. FST (evaluate (es,[],init k)) = Rerr (Rabort Rtype_error)
       then Fail
     else

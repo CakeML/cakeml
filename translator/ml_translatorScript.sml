@@ -7,12 +7,10 @@ Theory ml_translator
 Ancestors
   machine_ieee integer ml_prog ast semanticPrimitives semanticPrimitivesProps
   evaluateProps fpSem mlvector
-  mlstring evaluate
+  mlstring mlint evaluate
 Libs
   packLib integer_wordSyntax preamble
   integer_wordSyntax[qualified]
-
-infix \\ val op \\ = op THEN;
 
 Type state = ``:'ffi semanticPrimitives$state``
 
@@ -32,24 +30,31 @@ Definition empty_state_def:
     ffi := initial_ffi_state ARB ();
     next_type_stamp := 0;
     next_exn_stamp := 0;
-    eval_state := NONE|>
+    eval_state := NONE;
+    ptr_eq_oracle := K (K F)|>
+End
+
+Definition build_state_def:
+  build_state refs po =
+    empty_state with <| refs := refs; ptr_eq_oracle := po |>
 End
 
 Definition Eval_def:
   Eval env exp P =
-    !refs. ?res refs'.
-      eval_rel (empty_state with refs := refs) env exp
-               (empty_state with refs := refs ++ refs') res /\
+    !refs po. ?res refs' po'.
+      eval_rel
+        (build_state refs po) env exp
+        (build_state (refs ++ refs') po') res /\
       P (res:v)
 End
 
 Definition AppReturns_def: (* think of this as a Hoare triple {P} cl {Q} *)
   AppReturns P cl Q =
     !v. P v ==>
-      !refs. ?env exp refs' u.
+      !refs po. ?env exp refs' po' u.
         do_opapp [cl;v] = SOME (env,exp) /\
-        eval_rel (empty_state with refs := refs) env exp
-                 (empty_state with refs := refs++refs') u /\
+        eval_rel (build_state refs po) env exp
+                 (build_state (refs++refs') po') u /\
         Q u
 End
 
@@ -146,15 +151,27 @@ End
 
 (* Theorems *)
 
+Theorem build_state_simp[simp]:
+  (build_state refs po).refs = refs ∧
+  (build_state refs po).ptr_eq_oracle = po ∧
+  (build_state refs po).clock = empty_state.clock ∧
+  (build_state refs po).ffi = empty_state.ffi ∧
+  (build_state refs po).next_type_stamp = empty_state.next_type_stamp ∧
+  (build_state refs po).next_exn_stamp = empty_state.next_exn_stamp ∧
+  (build_state refs po).eval_state = empty_state.eval_state
+Proof
+  fs [build_state_def]
+QED
+
 Theorem AppReturns_thm:
   AppReturns P cl Q ⇔
     ∀v. P v ⇒
         ∃env exp.
           do_opapp [cl;v] = SOME (env,exp) ∧
-          ∀refs.
-            ∃refs' u.
-              eval_rel (empty_state with refs := refs) env exp
-                       (empty_state with refs := refs++refs') u ∧
+          ∀refs po.
+            ∃refs' po' u.
+              eval_rel (build_state refs po) env exp
+                       (build_state (refs++refs') po') u ∧
               Q u
 Proof
   fs [AppReturns_def] \\ eq_tac \\ rw []
@@ -171,24 +188,32 @@ local
   val Eval_lemma = prove(
     ``∀env exp P.
         Eval env exp P ⇔
-         ∀refs.
-             ∃ck1 res refs' ck2.
-                 evaluate (empty_state with <|clock := ck1; refs := refs|>)
+         ∀refs po.
+             ∃ck1 res refs' ck2 po'.
+                 evaluate (empty_state with <|clock := ck1; refs := refs;
+                                              ptr_eq_oracle := po|>)
                    env [exp] =
-                 (empty_state with <|clock := ck2; refs := refs ⧺ refs'|>,
+                 (empty_state with <|clock := ck2; refs := refs ⧺ refs';
+                                     ptr_eq_oracle := po'|>,
                   Rval [res]) ∧ P res``,
-     metis_tac [Eval_def |> SIMP_RULE (srw_ss()) [eval_rel_def,PULL_EXISTS]]);
+     metis_tac [Eval_def |> SIMP_RULE (srw_ss())
+                  [eval_rel_def,build_state_def,PULL_EXISTS]]);
 in
-  val Eval_rw = CONJ evaluate_def Eval_lemma
+  val Eval_rw = LIST_CONJ [evaluate_def, Eval_lemma, build_state_def]
 end;
 
 Theorem evaluate_empty_state_IMP:
-   eval_rel (empty_state with refs := s.refs) env exp (empty_state with refs := s.refs ++ refs') x ⇒
-   eval_rel (s:'ffi state) env exp (s with refs := s.refs ++ refs') x
+   eval_rel (build_state s.refs s.ptr_eq_oracle) env exp
+            (build_state (s.refs ++ refs') po') x ⇒
+   eval_rel (s:'ffi state) env exp
+            (s with <| refs := s.refs ++ refs'; ptr_eq_oracle := po' |>) x
 Proof
   rw [eval_rel_def]
   \\ dxrule_then (qspec_then `s` mp_tac) evaluatePropsTheory.evaluate_ffi_etc_intro
-  \\ simp [empty_state_def]
+  \\ simp [empty_state_def,build_state_def]
+  \\ ‘s with ptr_eq_oracle := s.ptr_eq_oracle = s’ by
+       simp [state_component_equality]
+  \\ simp []
 QED
 
 Theorem Eval_Arrow:
@@ -197,12 +222,12 @@ Theorem Eval_Arrow:
     Eval env (App Opapp [x1;x2]) (b (f x))
 Proof
   rw[Eval_rw,Arrow_def,AppReturns_def]
-  \\ pop_assum (qspec_then `refs` strip_assume_tac) \\ fs []
+  \\ pop_assum (qspecl_then [`refs`,`po`] strip_assume_tac) \\ fs []
   \\ drule evaluate_add_to_clock
-  \\ first_x_assum (qspec_then `refs ++ refs'` strip_assume_tac) \\ fs []
+  \\ first_x_assum (qspecl_then [`refs ++ refs'`,`po'`] strip_assume_tac) \\ fs []
   \\ drule evaluate_add_to_clock
   \\ first_x_assum drule
-  \\ disch_then (qspec_then `refs ++ refs' ++ refs''` strip_assume_tac)
+  \\ disch_then (qspecl_then [`refs ++ refs' ++ refs''`,`po''`] strip_assume_tac)
   \\ fs [eval_rel_def]
   \\ disch_then (qspec_then `ck2+1+ck1''` strip_assume_tac)
   \\ disch_then (qspec_then `ck1'+1+ck1''` strip_assume_tac) \\ fs []
@@ -266,10 +291,10 @@ Theorem Eval_Let:
     Eval env (Let (SOME name) exp body) (b (LET f res))
 Proof
   rw[Eval_rw,write_def]
-  \\ last_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ last_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
   \\ drule evaluate_add_to_clock
   \\ first_x_assum drule
-  \\ disch_then (qspec_then `refs++refs'` strip_assume_tac)
+  \\ disch_then (qspecl_then [`refs++refs'`,`po'`] strip_assume_tac)
   \\ drule evaluate_add_to_clock
   \\ disch_then (qspec_then `ck2` strip_assume_tac)
   \\ disch_then (qspec_then `ck1'` strip_assume_tac)
@@ -668,9 +693,9 @@ Proof
 QED
 
 val Eval2_tac =
-  first_x_assum (qspec_then `refs` strip_assume_tac)
+  first_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
   \\ drule evaluate_add_to_clock
-  \\ first_x_assum (qspec_then `refs++refs'` strip_assume_tac)
+  \\ first_x_assum (qspecl_then [`refs++refs'`,`po'`] strip_assume_tac)
   \\ drule evaluate_add_to_clock
   \\ disch_then (qspec_then `ck2` strip_assume_tac)
   \\ disch_then (qspec_then `ck1'` strip_assume_tac)
@@ -687,6 +712,62 @@ Proof
   \\ rw[state_component_equality]
 QED
 
+Definition ptr_eq_def:
+  ptr_eq x y = (x = y:'a)
+End
+
+(* PtrEq returns some boolean c, and if c holds the arguments are equal *)
+Theorem Eval_PtrEq_guard[local]:
+  Eval env x1 (a y1) /\ Eval env x2 (a y2) ==>
+  EqualityType a ==>
+  Eval env (App PtrEq [x1;x2]) (λv. ∃c. v = Boolv c ∧ (c ⇒ y1 = y2))
+Proof
+  simp [Eval_rw] \\ rw []
+  \\ Eval2_tac
+  \\ imp_res_tac do_eq_succeeds \\ fs []
+  \\ rw [state_component_equality]
+QED
+
+(* If whose guard is only known to satisfy R *)
+Theorem Eval_If_guard[local]:
+  Eval env x1 (λv. ∃c. v = Boolv c ∧ R c) /\
+  Eval env x2 (b t1) /\ Eval env x3 (b t2) /\
+  (∀c. R c ⇒ (if c then t1 else t2) = t) ==>
+  Eval env (If x1 x2 x3) (b t)
+Proof
+  rw [Eval_rw]
+  \\ last_x_assum (qspecl_then [‘refs’,‘po’] strip_assume_tac)
+  \\ first_x_assum drule \\ strip_tac \\ gvs []
+  \\ ‘∀refs po. ∃ck1 res refs' ck2 po'.
+        evaluate (empty_state with <|clock := ck1; refs := refs;
+                                     ptr_eq_oracle := po|>)
+          env [if c then x2 else x3] =
+        (empty_state with <|clock := ck2; refs := refs ++ refs';
+                            ptr_eq_oracle := po'|>, Rval [res]) ∧
+        b (if c then t1 else t2) res’ by (Cases_on ‘c’ \\ fs [])
+  \\ first_x_assum (qspecl_then [‘refs ++ refs'’,‘po'’] strip_assume_tac)
+  \\ qpat_x_assum ‘evaluate _ env [x1] = _’ assume_tac
+  \\ drule_then (qspec_then ‘ck1'’ mp_tac) evaluate_add_to_clock
+  \\ qpat_x_assum ‘evaluate _ env [if c then x2 else x3] = _’ assume_tac
+  \\ drule_then (qspec_then ‘ck2’ mp_tac) evaluate_add_to_clock
+  \\ rw []
+  \\ qexists_tac ‘ck1 + ck1'’ \\ gvs [do_if_def, Boolv_def]
+  \\ rw [state_component_equality]
+QED
+
+Theorem Eval_PtrEq:
+  Eval env x1 (a y1) /\ Eval env x2 (a y2) /\ Eval env e1 (b t1) /\ Eval env e2 (b t2) ==>
+  EqualityType a /\ (y1 = y2 ⇒ t1 = t2) ==>
+  Eval env (If (App PtrEq [x1;x2]) e1 e2) (b (if ptr_eq y1 y2 then t1 else t2))
+Proof
+  rpt strip_tac
+  \\ irule Eval_If_guard
+  \\ qexistsl_tac [‘λc. c ⇒ y1 = y2’,‘t1’,‘t2’]
+  \\ simp []
+  \\ conj_tac >- (rw [ptr_eq_def] \\ gvs [])
+  \\ irule Eval_PtrEq_guard \\ qexists_tac ‘a’ \\ simp []
+QED
+
 (* booleans *)
 
 Theorem Eval_Or:
@@ -700,7 +781,7 @@ Proof
   \\ rw[Eval_rw,BOOL_def,CONTAINER_def] \\ fs []
   THEN1
    (pop_assum kall_tac
-    \\ pop_assum (qspec_then `refs` strip_assume_tac)
+    \\ pop_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
     \\ qexists_tac `ck1`
     \\ fs [EVAL``do_log Orelse (Boolv T) x``]
     \\ fs [EVAL``Boolv T``,state_component_equality])
@@ -721,7 +802,7 @@ Proof
   \\ rw[Eval_rw,BOOL_def,CONTAINER_def] \\ fs []
   THEN1
    (pop_assum kall_tac
-    \\ pop_assum (qspec_then `refs` strip_assume_tac)
+    \\ pop_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
     \\ qexists_tac `ck1`
     \\ fs [EVAL``do_log Andalso (Boolv F) x``]
     \\ fs [EVAL``Boolv F``,state_component_equality])
@@ -752,7 +833,7 @@ Theorem Eval_Bool_Not:
   Eval env (App (Arith Not BoolT) [x1]) (BOOL (~b1))
 Proof
   rw[Eval_rw,BOOL_def,do_app_def,do_arith_def]
-  \\ pop_assum (qspec_then `refs` strip_assume_tac)
+  \\ pop_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
   \\ qexists_tac `ck1` \\ fs [empty_state_def]
   \\ Cases_on `b1`
   \\ fs [check_type_def,dest_Litv_def,check_type_def,do_eq_def,Boolv_def,
@@ -767,7 +848,7 @@ Proof
   reverse (Cases_on `b1`)
   \\ rw[Eval_rw,BOOL_def,CONTAINER_def] \\ fs []
   >-
-   (last_assum (qspec_then `refs` strip_assume_tac)
+   (last_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
     \\ qexists_tac `ck1` \\ fs [EVAL ``do_if (Boolv F) x2 x1``]
     \\ fs [Eval_rw,do_app_def,state_component_equality,do_test_def,dest_Litv_def])
   \\ last_x_assum assume_tac \\ Eval2_tac
@@ -836,9 +917,9 @@ Theorem Eval_FUN_FORALL:
     Eval env exp ((FUN_FORALL x. p x) f)
 Proof
   rw[Eval_def,FUN_FORALL]
-  \\ first_assum (qspecl_then [`ARB`,`refs`] strip_assume_tac)
+  \\ first_assum (qspecl_then [`ARB`,`refs`,`po`] strip_assume_tac)
   \\ asm_exists_tac \\ fs [] \\ rw []
-  \\ first_assum (qspecl_then [`y`,`refs`] strip_assume_tac)
+  \\ first_assum (qspecl_then [`y`,`refs`,`po`] strip_assume_tac)
   \\ imp_res_tac eval_rel_11 \\ fs []
 QED
 
@@ -881,7 +962,7 @@ Proof
   \\ fs[Eval_rw,Arrow_def] \\ REPEAT STRIP_TAC
   \\ Cases_on `nsLookup env.v (Short fname)` \\ fs [state_component_equality]
   \\ rveq
-  \\ rw[AppReturns_def,Eq_def,do_opapp_def,PULL_EXISTS]
+  \\ rw[AppReturns_def,build_state_def,Eq_def,do_opapp_def,PULL_EXISTS]
   \\ fs[build_rec_env_def,FOLDR,eval_rel_def]
   \\ METIS_TAC[APPEND_ASSOC]
 QED
@@ -1114,7 +1195,7 @@ Theorem Eval_int_negate:
    Eval env (App (Arith Sub IntT) [Lit (IntLit 0); x1]) (INT (-i))
 Proof
   rw[Eval_rw]
-  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ first_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
   \\ qexists_tac `ck1`
   \\ fs [do_app_def,do_arith_def,check_type_def,
          INT_def,state_component_equality]
@@ -1231,7 +1312,7 @@ Theorem Eval_NUM_EQ_0:
         Eval env (App (Test Equal IntT) [x; Lit (IntLit 0)]) (BOOL (n = 0))
 Proof
   rw [Eval_def,evaluate_def,eval_rel_def,AllCaseEqs(),PULL_EXISTS]
-  \\ first_x_assum $ qspec_then ‘refs’ mp_tac \\ strip_tac
+  \\ first_x_assum $ qspecl_then [‘refs’,‘po’] mp_tac \\ strip_tac
   \\ last_x_assum $ irule_at Any
   \\ fs [do_app_def,do_test_def,check_type_def,NUM_def,INT_def,do_eq_def,
          lit_same_type_def,BOOL_def,empty_state_def,state_component_equality]
@@ -1581,7 +1662,7 @@ Theorem Eval_w2n:
       (NUM (w2n w))
 Proof
   rw[Eval_rw,WORD_def] \\ fs []
-  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ first_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
   \\ qexists_tac `ck1`
   \\ fs [do_app_def,state_component_equality,NUM_def,INT_def,do_conversion_def,check_type_def]
   \\ TRY (fs [w2w_def] \\ assume_tac w2n_lt \\ rfs [dimword_def] \\ NO_TAC)
@@ -1633,7 +1714,7 @@ Theorem Eval_i2w:
       (WORD ((i2w n):'a word))
 Proof
   rw[Eval_rw,WORD_def] \\ fs [] \\ rfs []
-  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ first_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
   \\ qexists_tac `ck1` \\ fs [do_app_def,INT_def]
   \\ fs [state_component_equality]
   \\ TRY
@@ -1703,7 +1784,7 @@ Proof
     \\ IF_CASES_TAC
     \\ fs [GSYM NOT_LESS] \\ fs [NOT_LESS]
     \\ fs [Eval_rw,WORD_def] \\ rpt strip_tac
-    \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
+    \\ pop_assum (qspecl_then [`refs`,`po`] mp_tac) \\ strip_tac
     \\ qexists_tac `ck1` \\ fs []
     \\ fs [empty_state_def]
     \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
@@ -1716,7 +1797,7 @@ Proof
   THEN1
    (fs [GSYM NOT_LESS] \\ fs [NOT_LESS]
     \\ fs [Eval_rw,WORD_def] \\ rpt strip_tac \\ rfs []
-    \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
+    \\ pop_assum (qspecl_then [`refs`,`po`] mp_tac) \\ strip_tac
     \\ qexists_tac `ck1` \\ fs []
     \\ simp [do_app_def,empty_state_def,do_conversion_def,check_type_def]
     \\ fs [shift64_lookup_def,shift8_lookup_def]
@@ -1731,7 +1812,7 @@ Proof
   THEN1
    (fs [GSYM NOT_LESS] \\ fs [NOT_LESS]
     \\ fs [Eval_rw,WORD_def] \\ rpt strip_tac \\ rfs []
-    \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
+    \\ pop_assum (qspecl_then [`refs`,`po`] mp_tac) \\ strip_tac
     \\ qexists_tac `ck1` \\ fs []
     \\ simp [do_app_def,empty_state_def,do_conversion_def,check_type_def]
     \\ fs [shift64_lookup_def,shift8_lookup_def]
@@ -1745,7 +1826,7 @@ Theorem Eval_word_lsl:
         (WORD (word_lsl w1 n))
 Proof
   rw[Eval_rw,WORD_def] \\ fs []
-  \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ pop_assum (qspecl_then [`refs`,`po`] mp_tac) \\ strip_tac
   \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def,check_type_def]
   \\ fs [LESS_EQ_EXISTS]
   \\ qpat_x_assum ‘_ + _ = NUMERAL _’ (assume_tac o GSYM)
@@ -1767,7 +1848,7 @@ Theorem Eval_word_lsr:
         (WORD (word_lsr w1 n))
 Proof
   rw[Eval_rw,WORD_def]
-  \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ first_x_assum (qspecl_then [`refs`,`po`] mp_tac) \\ strip_tac
   \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def,check_type_def]
   \\ TRY
    (fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
@@ -1796,7 +1877,7 @@ Theorem Eval_word_asr:
         (WORD (word_asr w1 n))
 Proof
   rw[Eval_rw,WORD_def]
-  \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ first_x_assum (qspecl_then [`refs`,`po`] mp_tac) \\ strip_tac
   \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def,check_type_def]
   \\ TRY (* takes care of = 8 and = 64 cases *)
    (fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
@@ -1825,7 +1906,7 @@ Proof
   Cases_on `dimindex (:'a) = 8` \\ fs []
   \\ Cases_on `dimindex (:'a) = 64` \\ fs []
   \\ rw[Eval_rw,WORD_def]
-  \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ first_x_assum (qspecl_then [`refs`,`po`] mp_tac) \\ strip_tac
   \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def,check_type_def]
   \\ fs [LESS_EQ_EXISTS]
   \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
@@ -1883,7 +1964,7 @@ Theorem WORD_dimindex[local]:
   Eval env x (WORD (w:'a word)) ==> dimindex (:'a) <= 64
 Proof
   rw [Eval_rw,WORD_def]
-  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ first_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
 QED
 
 Theorem Eval_ShiftExp8[local]:
@@ -1892,7 +1973,7 @@ Theorem Eval_ShiftExp8[local]:
     (WORD (shift8_lookup sh w n))
 Proof
   rw [Eval_rw,WORD_def]
-  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ first_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
   \\ qexists_tac `ck1` \\ fs [state_component_equality]
 QED
 
@@ -1902,7 +1983,7 @@ Theorem Eval_ShiftExp64[local]:
     (WORD (shift64_lookup sh w n))
 Proof
   rw [Eval_rw,WORD_def]
-  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ first_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
   \\ qexists_tac `ck1` \\ fs [state_component_equality]
 QED
 
@@ -2105,12 +2186,12 @@ Theorem Eval_FLOAT_FMA:
 Proof
   rw[Eval_rw,FLOAT64_def, lift_fp_top_def]
   \\ first_x_assum mp_tac
-  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ first_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
   \\ strip_tac
   \\ drule evaluate_add_to_clock
-  \\ last_x_assum (qspec_then `refs++refs'` strip_assume_tac)
+  \\ last_x_assum (qspecl_then [`refs++refs'`,`po'`] strip_assume_tac)
   \\ drule evaluate_add_to_clock
-  \\ first_x_assum (qspec_then `refs++refs'++refs''` strip_assume_tac)
+  \\ first_x_assum (qspecl_then [`refs++refs'++refs''`,`po''`] strip_assume_tac)
   \\ drule evaluate_add_to_clock
   \\ rpt (disch_then assume_tac)
   \\ pop_assum (qspec_then `ck1' + ck1''` strip_assume_tac)
@@ -2367,7 +2448,7 @@ Theorem Eval_FLOAT_ABS:
     Eval env (App (Arith Absolute Float64T) [x1]) (FLOAT64 (float64_abs f1))
 Proof
   rw[Eval_rw, FLOAT64_def]
-  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ first_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
   \\ fs[empty_state_def]
   \\ qexists_tac `ck1`
   \\ fs[do_app_def, state_component_equality, fp_uop_comp_def, do_arith_def, check_type_def]
@@ -2380,7 +2461,7 @@ Theorem Eval_FLOAT_NEG:
     Eval env (App (Arith Neg Float64T) [x1]) (FLOAT64 (float64_neg f1))
 Proof
   rw[Eval_rw, FLOAT64_def]
-  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ first_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
   \\ fs[empty_state_def]
   \\ qexists_tac `ck1`
   \\ fs[do_app_def, state_component_equality, fp_uop_comp_def, do_arith_def, check_type_def]
@@ -2393,7 +2474,7 @@ Theorem Eval_FLOAT_SQRT:
     Eval env (App (Arith Sqrt Float64T) [x1]) (FLOAT64 (float64_sqrt f1))
 Proof
   rw[Eval_rw, FLOAT64_def]
-  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ first_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
   \\ fs[empty_state_def]
   \\ qexists_tac `ck1`
   \\ fs[do_app_def, state_component_equality, fp_uop_comp_def, do_arith_def, check_type_def]
@@ -2406,7 +2487,7 @@ Theorem Eval_FP_fromWord:
     Eval env (App (FromTo (WordT W64) Float64T) [x1]) (FLOAT64 (fp64_to_float w1))
 Proof
   rw[Eval_rw,WORD_def,FLOAT64_def] >>
-  first_x_assum (qspec_then `refs` strip_assume_tac) >>
+  first_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac) >>
   fs[empty_state_def] >>
   qexists_tac `ck1` >>
   simp[do_app_def,check_type_def,do_conversion_def]
@@ -2418,7 +2499,7 @@ Theorem Eval_FP_toWord:
     Eval env (App (FromTo Float64T (WordT W64)) [x1]) (WORD (float_to_fp64 f1))
 Proof
   rw[Eval_rw,WORD_def,FLOAT64_def] >>
-  first_x_assum (qspec_then `refs` strip_assume_tac) >>
+  first_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac) >>
   fs[empty_state_def] >>
   qexists_tac `ck1` >>
   simp[do_app_def,check_type_def,do_conversion_def]
@@ -2508,7 +2589,7 @@ Theorem Eval_Ord:
     Eval env (App (FromTo CharT IntT) [x]) (NUM (ORD c))
 Proof
   rw[Eval_rw,CHAR_def,NUM_def,INT_def]
-  \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ first_x_assum (qspecl_then [`refs`,`po`] mp_tac) \\ strip_tac
   \\ qexists_tac `ck1`
   \\ fs [do_app_def,empty_state_def,check_type_def,do_conversion_def]
 QED
@@ -2519,7 +2600,7 @@ Theorem Eval_Chr:
     Eval env (App (FromTo IntT CharT) [x]) (CHAR (CHR n))
 Proof
   rw[Eval_rw,CHAR_def,NUM_def,INT_def]
-  \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ first_x_assum (qspecl_then [`refs`,`po`] mp_tac) \\ strip_tac
   \\ qexists_tac `ck1`
   \\ fs [do_app_def,empty_state_def,check_type_def,do_conversion_def]
   \\ simp[integerTheory.INT_ABS_NUM]
@@ -2532,7 +2613,7 @@ Theorem Eval_char_to_word8:
     Eval env (App (FromTo CharT (WordT W8)) [x]) (WORD (char_to_word8 c))
 Proof
   rw[Eval_rw,CHAR_def,NUM_def,INT_def,WORD_def]
-  \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ first_x_assum (qspecl_then [`refs`,`po`] mp_tac) \\ strip_tac
   \\ qexists_tac `ck1`
   \\ fs [do_app_def,empty_state_def,check_type_def,do_conversion_def]
 QED
@@ -2542,7 +2623,7 @@ Theorem Eval_word8_to_char:
     Eval env (App (FromTo (WordT W8) CharT) [x]) (CHAR (word8_to_char c))
 Proof
   rw[Eval_rw,CHAR_def,NUM_def,INT_def,WORD_def]
-  \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ first_x_assum (qspecl_then [`refs`,`po`] mp_tac) \\ strip_tac
   \\ qexists_tac `ck1`
   \\ fs [do_app_def,empty_state_def,check_type_def,do_conversion_def]
 QED
@@ -2611,7 +2692,7 @@ QED
 
 val tac1 =
   rw[Eval_rw,WORD_def]
-  \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ first_x_assum (qspecl_then [`refs`,`po`] mp_tac) \\ strip_tac
   \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
   \\ rw[BOOL_def,Boolv_11] \\ fs[STRING_TYPE_def]
 
@@ -2704,9 +2785,9 @@ Theorem Eval_substring:
 Proof
   fs [Eval_rw] \\ rw []
   \\ rw[Eval_rw,WORD_def]
-  \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
-  \\ first_x_assum (qspec_then `refs++refs'` mp_tac) \\ strip_tac
-  \\ first_x_assum (qspec_then `refs++refs'++refs''` mp_tac) \\ strip_tac
+  \\ first_x_assum (qspecl_then [`refs`,`po`] mp_tac) \\ strip_tac
+  \\ first_x_assum (qspecl_then [`refs++refs'`,`po'`] mp_tac) \\ strip_tac
+  \\ first_x_assum (qspecl_then [`refs++refs'++refs''`,`po''`] mp_tac) \\ strip_tac
   \\ drule evaluate_add_to_clock
   \\ qpat_x_assum `evaulate _ _ _ = _` kall_tac \\ fs []
   \\ drule evaluate_add_to_clock
@@ -2884,15 +2965,16 @@ Proof
   \\ `strlit (STRCAT s1 s2) =
       concat [strlit s1; strlit s2]` by EVAL_TAC
   \\ fs [] \\ match_mp_tac (Eval_concat)
-  \\ fs [Eval_def,eval_rel_def]
-  \\ fs [evaluate_def,do_con_check_def,build_conv_def] \\ gen_tac
-  \\ first_x_assum (qspecl_then [`refs`] strip_assume_tac)
-  \\ first_x_assum (qspecl_then [`refs++refs'`] strip_assume_tac)
+  \\ fs [Eval_def,build_state_def,eval_rel_def]
+  \\ fs [evaluate_def,do_con_check_def,build_conv_def] \\ rpt gen_tac
+  \\ first_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
+  \\ first_x_assum (qspecl_then [`refs++refs'`,`po'`] strip_assume_tac)
   \\ qpat_x_assum `_ [x2] = _` assume_tac
   \\ drule evaluate_set_clock \\ simp []
   \\ disch_then (qspec_then `ck1'` strip_assume_tac)
   \\ fs [LIST_TYPE_def,STRING_TYPE_def]
   \\ qexists_tac `refs' ++ refs''`
+  \\ qexists_tac `po''`
   \\ qexists_tac `ck1''` \\ fs []
   \\ fs [state_component_equality]
 QED
@@ -2915,11 +2997,12 @@ Proof
   \\ pop_assum (fn th => rewrite_tac [th])
   \\ irule (MP_CANON Eval_HOL_STRING_APPEND) \\ fs []
   \\ irule Eval_HOL_STRING_INTRO
-  \\ fs [Eval_def,eval_rel_def,lookup_cons_def]
-  \\ fs [evaluate_def,do_con_check_def,build_conv_def] \\ gen_tac
-  \\ last_x_assum (qspecl_then [`refs`] strip_assume_tac)
+  \\ fs [Eval_def,build_state_def,eval_rel_def,lookup_cons_def]
+  \\ fs [evaluate_def,do_con_check_def,build_conv_def] \\ rpt gen_tac
+  \\ last_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
   \\ fs [LIST_TYPE_def,CHAR_def]
   \\ qexists_tac `refs'` \\ fs []
+  \\ qexists_tac `po'` \\ fs []
   \\ qexists_tac `ck1` \\ fs []
   \\ qexists_tac `ck2` \\ fs []
 QED
@@ -2975,6 +3058,303 @@ Definition VECTOR_TYPE_def:
   VECTOR_TYPE a (Vector l) v <=>
     ?l'. v = Vectorv l' /\ LENGTH l = LENGTH l' /\ LIST_REL a l l'
 End
+
+Theorem Eval_UnsafeIndexArith:
+  Eval env x1 (INT i1) ==>
+  Eval env x2 (INT i2) ==>
+  PRECONDITION (index_in_bounds NONE i1 /\ index_in_bounds NONE i2 /\
+    index_in_bounds NONE result /\
+    do_arith arith IntT [Litv (IntLit i1); Litv (IntLit i2)] =
+      SOME (INR (Litv (IntLit result)))) ==>
+  Eval env (App (UnsafeIndexArith arith) [x1; x2]) (INT result)
+Proof
+  rw [Eval_rw,INT_def,PRECONDITION_def]
+  \\ Eval2_tac
+  \\ fs [do_app_def,do_unsafe_index_arith_def,unsafe_index_bound_def]
+  \\ rw [state_component_equality]
+QED
+
+Theorem Eval_UnsafeIndexTest:
+  Eval env x1 (INT i1) ==>
+  Eval env x2 (INT i2) ==>
+  PRECONDITION (index_in_bounds NONE i1 /\ index_in_bounds NONE i2 /\
+    do_test test IntT (Litv (IntLit i1)) (Litv (IntLit i2)) = Eq_val result) ==>
+  Eval env (App (UnsafeIndexTest test) [x1; x2]) (BOOL result)
+Proof
+  rw [Eval_rw,INT_def,BOOL_def,PRECONDITION_def]
+  \\ Eval2_tac
+  \\ fs [do_app_def,do_unsafe_index_test_def,unsafe_index_bound_def]
+  \\ rw [state_component_equality]
+QED
+
+Theorem Eval_UnsafeIndexArith_vec:
+  Eval env x1 (INT i1) ==>
+  Eval env x2 (INT i2) ==>
+  Eval env x3 (VECTOR_TYPE a witness) ==>
+  PRECONDITION (index_in_bounds (SOME (256 * length witness)) i1 /\
+    index_in_bounds (SOME (256 * length witness)) i2 /\
+    index_in_bounds (SOME (256 * length witness)) result /\
+    do_arith arith IntT [Litv (IntLit i1); Litv (IntLit i2)] =
+      SOME (INR (Litv (IntLit result)))) ==>
+  Eval env (App (UnsafeIndexArith arith) [x1; x2; x3]) (INT result)
+Proof
+  rw [Eval_rw,INT_def,PRECONDITION_def]
+  \\ qmatch_goalsub_rename_tac
+       `empty_state with <|clock := _; refs := initial_refs; ptr_eq_oracle := initial_po|>`
+  \\ qpat_x_assum `!r p. ?c v r' c' p'. evaluate _ env [x3] = _ /\ _`
+       (qspecl_then [`initial_refs`,`initial_po`] (qx_choosel_then
+         [`witness_clock`,`witness_value`,`witness_refs`,`witness_left`,`witness_po`]
+         strip_assume_tac))
+  \\ qpat_x_assum `!r p. ?c r' c' p'. evaluate _ env [x2] = _`
+       (qspecl_then [`initial_refs ++ witness_refs`,`witness_po`] (qx_choosel_then
+         [`right_clock`,`right_refs`,`right_left`,`right_po`] strip_assume_tac))
+  \\ qpat_x_assum `!r p. ?c r' c' p'. evaluate _ env [x1] = _`
+       (qspecl_then [`initial_refs ++ witness_refs ++ right_refs`,`right_po`]
+         (qx_choosel_then [`left_clock`,`left_refs`,`left_left`,`left_po`]
+           strip_assume_tac))
+  \\ qpat_x_assum `evaluate _ env [x3] = _`
+       (assume_tac o Q.SPEC `right_clock + left_clock` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x2] = _`
+       (assume_tac o Q.SPEC `witness_left + left_clock` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x1] = _`
+       (assume_tac o Q.SPEC `witness_left + right_left` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qexists_tac `witness_clock + right_clock + left_clock`
+  \\ fs [AC ADD_ASSOC ADD_COMM]
+  \\ namedCases_on `witness` ["entries"]
+  \\ gvs [VECTOR_TYPE_def,length_def,do_app_def,do_unsafe_index_arith_def,
+         unsafe_index_bound_def,index_witness_length_def]
+  \\ rw [state_component_equality]
+QED
+
+Theorem Eval_UnsafeIndexTest_vec:
+  Eval env x1 (INT i1) ==>
+  Eval env x2 (INT i2) ==>
+  Eval env x3 (VECTOR_TYPE a witness) ==>
+  PRECONDITION (index_in_bounds (SOME (256 * length witness)) i1 /\
+    index_in_bounds (SOME (256 * length witness)) i2 /\
+    do_test test IntT (Litv (IntLit i1)) (Litv (IntLit i2)) = Eq_val result) ==>
+  Eval env (App (UnsafeIndexTest test) [x1; x2; x3]) (BOOL result)
+Proof
+  rw [Eval_rw,INT_def,BOOL_def,PRECONDITION_def]
+  \\ qmatch_goalsub_rename_tac
+       `empty_state with <|clock := _; refs := initial_refs; ptr_eq_oracle := initial_po|>`
+  \\ qpat_x_assum `!r p. ?c v r' c' p'. evaluate _ env [x3] = _ /\ _`
+       (qspecl_then [`initial_refs`,`initial_po`] (qx_choosel_then
+         [`witness_clock`,`witness_value`,`witness_refs`,`witness_left`,`witness_po`]
+         strip_assume_tac))
+  \\ qpat_x_assum `!r p. ?c r' c' p'. evaluate _ env [x2] = _`
+       (qspecl_then [`initial_refs ++ witness_refs`,`witness_po`] (qx_choosel_then
+         [`right_clock`,`right_refs`,`right_left`,`right_po`] strip_assume_tac))
+  \\ qpat_x_assum `!r p. ?c r' c' p'. evaluate _ env [x1] = _`
+       (qspecl_then [`initial_refs ++ witness_refs ++ right_refs`,`right_po`]
+         (qx_choosel_then [`left_clock`,`left_refs`,`left_left`,`left_po`]
+           strip_assume_tac))
+  \\ qpat_x_assum `evaluate _ env [x3] = _`
+       (assume_tac o Q.SPEC `right_clock + left_clock` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x2] = _`
+       (assume_tac o Q.SPEC `witness_left + left_clock` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x1] = _`
+       (assume_tac o Q.SPEC `witness_left + right_left` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qexists_tac `witness_clock + right_clock + left_clock`
+  \\ fs [AC ADD_ASSOC ADD_COMM]
+  \\ namedCases_on `witness` ["entries"]
+  \\ gvs [VECTOR_TYPE_def,length_def,do_app_def,do_unsafe_index_test_def,
+         unsafe_index_bound_def,index_witness_length_def]
+  \\ rw [state_component_equality]
+QED
+
+Theorem Eval_UnsafeIndexArith_str:
+  Eval env x1 (INT i1) ==>
+  Eval env x2 (INT i2) ==>
+  Eval env x3 (STRING_TYPE witness) ==>
+  PRECONDITION (index_in_bounds (SOME (32 * strlen witness)) i1 /\
+    index_in_bounds (SOME (32 * strlen witness)) i2 /\
+    index_in_bounds (SOME (32 * strlen witness)) result /\
+    do_arith arith IntT [Litv (IntLit i1); Litv (IntLit i2)] =
+      SOME (INR (Litv (IntLit result)))) ==>
+  Eval env (App (UnsafeIndexArith arith) [x1; x2; x3]) (INT result)
+Proof
+  rw [Eval_rw,INT_def,PRECONDITION_def]
+  \\ qmatch_goalsub_rename_tac
+       `empty_state with <|clock := _; refs := initial_refs; ptr_eq_oracle := initial_po|>`
+  \\ qpat_x_assum `!r p. ?c v r' c' p'. evaluate _ env [x3] = _ /\ _`
+       (qspecl_then [`initial_refs`,`initial_po`] (qx_choosel_then
+         [`witness_clock`,`witness_value`,`witness_refs`,`witness_left`,`witness_po`]
+         strip_assume_tac))
+  \\ qpat_x_assum `!r p. ?c r' c' p'. evaluate _ env [x2] = _`
+       (qspecl_then [`initial_refs ++ witness_refs`,`witness_po`] (qx_choosel_then
+         [`right_clock`,`right_refs`,`right_left`,`right_po`] strip_assume_tac))
+  \\ qpat_x_assum `!r p. ?c r' c' p'. evaluate _ env [x1] = _`
+       (qspecl_then [`initial_refs ++ witness_refs ++ right_refs`,`right_po`]
+         (qx_choosel_then [`left_clock`,`left_refs`,`left_left`,`left_po`]
+           strip_assume_tac))
+  \\ qpat_x_assum `evaluate _ env [x3] = _`
+       (assume_tac o Q.SPEC `right_clock + left_clock` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x2] = _`
+       (assume_tac o Q.SPEC `witness_left + left_clock` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x1] = _`
+       (assume_tac o Q.SPEC `witness_left + right_left` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qexists_tac `witness_clock + right_clock + left_clock`
+  \\ fs [AC ADD_ASSOC ADD_COMM]
+  \\ gvs [STRING_TYPE_def,do_app_def,do_unsafe_index_arith_def,
+         unsafe_index_bound_def,index_witness_length_def]
+  \\ rw [state_component_equality]
+QED
+
+Theorem Eval_UnsafeIndexTest_str:
+  Eval env x1 (INT i1) ==>
+  Eval env x2 (INT i2) ==>
+  Eval env x3 (STRING_TYPE witness) ==>
+  PRECONDITION (index_in_bounds (SOME (32 * strlen witness)) i1 /\
+    index_in_bounds (SOME (32 * strlen witness)) i2 /\
+    do_test test IntT (Litv (IntLit i1)) (Litv (IntLit i2)) = Eq_val result) ==>
+  Eval env (App (UnsafeIndexTest test) [x1; x2; x3]) (BOOL result)
+Proof
+  rw [Eval_rw,INT_def,BOOL_def,PRECONDITION_def]
+  \\ qmatch_goalsub_rename_tac
+       `empty_state with <|clock := _; refs := initial_refs; ptr_eq_oracle := initial_po|>`
+  \\ qpat_x_assum `!r p. ?c v r' c' p'. evaluate _ env [x3] = _ /\ _`
+       (qspecl_then [`initial_refs`,`initial_po`] (qx_choosel_then
+         [`witness_clock`,`witness_value`,`witness_refs`,`witness_left`,`witness_po`]
+         strip_assume_tac))
+  \\ qpat_x_assum `!r p. ?c r' c' p'. evaluate _ env [x2] = _`
+       (qspecl_then [`initial_refs ++ witness_refs`,`witness_po`] (qx_choosel_then
+         [`right_clock`,`right_refs`,`right_left`,`right_po`] strip_assume_tac))
+  \\ qpat_x_assum `!r p. ?c r' c' p'. evaluate _ env [x1] = _`
+       (qspecl_then [`initial_refs ++ witness_refs ++ right_refs`,`right_po`]
+         (qx_choosel_then [`left_clock`,`left_refs`,`left_left`,`left_po`]
+           strip_assume_tac))
+  \\ qpat_x_assum `evaluate _ env [x3] = _`
+       (assume_tac o Q.SPEC `right_clock + left_clock` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x2] = _`
+       (assume_tac o Q.SPEC `witness_left + left_clock` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x1] = _`
+       (assume_tac o Q.SPEC `witness_left + right_left` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qexists_tac `witness_clock + right_clock + left_clock`
+  \\ fs [AC ADD_ASSOC ADD_COMM]
+  \\ gvs [STRING_TYPE_def,do_app_def,do_unsafe_index_test_def,
+         unsafe_index_bound_def,index_witness_length_def]
+  \\ rw [state_component_equality]
+QED
+
+Theorem index_in_bounds_num_sub[local]:
+  (index_in_bounds bound (&i) /\ index_in_bounds bound (&j) /\
+   index_in_bounds bound (&(i - j)) /\ &i - &j = &(i - j)) ⇔
+  (index_in_bounds bound (&i) /\ index_in_bounds bound (&j) /\ j <= i)
+Proof
+  Cases_on `j <= i`
+  >- (
+    simp [INT_SUB]
+    \\ Cases_on `bound`
+    \\ simp [index_in_bounds_def,INT_LE_LNEG,INT_ADD]
+    \\ decide_tac)
+  \\ `i - j = 0` by decide_tac
+  \\ simp [INT_SUB_0,INT_INJ]
+  \\ decide_tac
+QED
+
+Theorem index_in_bounds_num_div[local]:
+  (index_in_bounds bound (&i) /\ index_in_bounds bound (&j) /\
+   index_in_bounds bound (&(i DIV j)) /\ j <> 0) ⇔
+  (index_in_bounds bound (&i) /\ index_in_bounds bound (&j) /\ j <> 0)
+Proof
+  Cases_on `j = 0` \\ simp []
+  \\ `0 < j` by decide_tac
+  \\ drule DIV_LESS_EQ
+  \\ disch_then (qspec_then `i` assume_tac)
+  \\ Cases_on `bound`
+  \\ simp [index_in_bounds_def,INT_LE_LNEG,INT_ADD]
+QED
+
+Theorem index_in_bounds_num_mod[local]:
+  (index_in_bounds bound (&i) /\ index_in_bounds bound (&j) /\
+   index_in_bounds bound (&(i MOD j)) /\ j <> 0) ⇔
+  (index_in_bounds bound (&i) /\ index_in_bounds bound (&j) /\ j <> 0)
+Proof
+  Cases_on `j = 0` \\ simp []
+  \\ `0 < j` by decide_tac
+  \\ drule MOD_LESS
+  \\ disch_then (qspec_then `i` assume_tac)
+  \\ Cases_on `bound`
+  \\ simp [index_in_bounds_def,INT_LE_LNEG,INT_ADD]
+  \\ decide_tac
+QED
+
+Theorem index_in_bounds_mod[local]:
+  (index_in_bounds bound i /\ index_in_bounds bound j /\
+   index_in_bounds bound (i % j) /\ j <> 0) ⇔
+  (index_in_bounds bound i /\ index_in_bounds bound j /\ j <> 0)
+Proof
+  Cases_on `j = 0` \\ simp []
+  \\ drule INT_MOD_BOUNDS
+  \\ disch_then (qspec_then `i` mp_tac)
+  \\ Cases_on `bound`
+  \\ rw [index_in_bounds_def]
+  \\ intLib.ARITH_TAC
+QED
+
+local
+  val operations =
+    [("add", “ast$Add”, false), ("sub", “ast$Sub”, false), ("mul", “ast$Mul”, false),
+     ("div", “ast$Div”, false), ("mod", “ast$Mod”, false),
+     ("lt", “ast$Compare ast$Lt”, true), ("le", “ast$Compare ast$Leq”, true),
+     ("gt", “ast$Compare ast$Gt”, true), ("ge", “ast$Compare ast$Geq”, true), ("eq", “ast$Equal”, true)]
+  fun derive prefix suffix (name, primitive, is_test) = let
+    val is_num = prefix = "smallnum"
+    val with_witness = suffix <> ""
+    val args = if is_num then [“n1:num”, “n2:num”] else [“i1:int”, “i2:int”]
+    val args = args @ (case suffix of
+        "_vec" => [“witness:'a vector”]
+      | "_str" => [“witness:mlstring”]
+      | _ => [])
+    val def = DB.fetch "mlint" (prefix ^ "_" ^ name ^ suffix ^ "_def")
+      |> ISPECL args
+      |> SIMP_RULE (srw_ss()) [INT_GT,INT_GE,GREATER_DEF,GREATER_EQ]
+    val value = rhs (concl def)
+    val result = if is_num andalso not is_test then “&^value” else value
+    val generic = case (suffix, is_test) of
+        ("_vec", false) => Eval_UnsafeIndexArith_vec
+      | ("_vec", true) => Eval_UnsafeIndexTest_vec
+      | ("_str", false) => Eval_UnsafeIndexArith_str
+      | ("_str", true) => Eval_UnsafeIndexTest_str
+      | (_, false) => Eval_UnsafeIndexArith
+      | (_, true) => Eval_UnsafeIndexTest
+    val theorem = INST
+      [“i1:int” |-> (if is_num then “&n1” else “i1:int”),
+       “i2:int” |-> (if is_num then “&n2” else “i2:int”),
+       mk_var (if is_test then "test" else "arith", type_of primitive) |-> primitive,
+       mk_var ("result", type_of result) |-> result] (SPEC_ALL generic)
+      |> SIMP_RULE (srw_ss())
+           [GSYM NUM_def,do_arith_def,do_test_def,check_type_def,dest_Litv_def,
+            do_eq_def,lit_same_type_def,semanticPrimitivesTheory.int_cmp_def,
+            INT_ADD,INT_MUL,INT_DIV,INT_MOD,INT_LT,INT_LE,INT_GT,INT_GE,INT_INJ,
+            GREATER_DEF,GREATER_EQ]
+      |> REWRITE_RULE
+           [index_in_bounds_num_sub,index_in_bounds_num_div,
+            index_in_bounds_num_mod,index_in_bounds_mod]
+    val def = SIMP_RULE (srw_ss()) [] def
+    val theorem = CONV_RULE
+      (funpow (if with_witness then 4 else 3) RAND_CONV
+        (RAND_CONV (RAND_CONV (REWR_CONV (SYM def))))) theorem
+    in save_thm ("Eval_" ^ prefix ^ "_" ^ name ^ suffix, theorem) end
+in
+  val _ = List.app (fn prefix =>
+    List.app (fn suffix => List.app (fn operation =>
+      (derive prefix suffix operation; ())) operations) ["", "_vec", "_str"])
+    ["smallnum", "smallint"]
+end;
 
 Definition VECTOR_v_def:
   VECTOR_v v_a (Vector l) = Vectorv (MAP v_a l)
@@ -3100,8 +3480,8 @@ Proof
   fs [Eval_rw] \\ rw []
   \\ fs[Eval_rw,UNIT_TYPE_def,CaseEq"result",pair_case_eq,PULL_EXISTS,CaseEq"bool",
         CaseEq"match_result"]
-  \\ last_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
-  \\ first_x_assum (qspec_then `refs++refs'` mp_tac) \\ fs []
+  \\ last_x_assum (qspecl_then [`refs`,`po`] mp_tac) \\ strip_tac
+  \\ first_x_assum (qspecl_then [`refs++refs'`,`po'`] mp_tac) \\ fs []
   \\ drule evaluate_set_clock
   \\ disch_then (qspec_then `0` mp_tac) \\ fs [] \\ strip_tac
   \\ drule evaluate_add_to_clock
@@ -3147,7 +3527,7 @@ Theorem Eval_empty_ffi:
      (UNIT_TYPE (empty_ffi s))
 Proof
   rw[Eval_rw,WORD_def] \\ fs [store_alloc_def,do_app_def]
-  \\ first_x_assum (qspec_then `refs ++ [W8array []]` mp_tac) \\ strip_tac
+  \\ first_x_assum (qspecl_then [`refs ++ [W8array []]`,`po`] mp_tac) \\ strip_tac
   \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
   \\ Cases_on `s` \\ fs [STRING_TYPE_def]
   \\ rveq \\ fs [store_lookup_def]
@@ -3169,10 +3549,10 @@ Theorem Eval_pure_seq:
    Eval env y (b b1) ==>
    Eval env (Let NONE x y) (b (pure_seq a1 b1))
 Proof
-  rw [Eval_def,eval_rel_def,PULL_EXISTS]
+  rw [Eval_def,build_state_def,eval_rel_def,PULL_EXISTS]
   \\ fs [evaluate_def]
-  \\ last_x_assum (qspecl_then [‘refs’] strip_assume_tac)
-  \\ last_x_assum (qspecl_then [‘refs ++ refs'’] strip_assume_tac)
+  \\ last_x_assum (qspecl_then [‘refs’,‘po’] strip_assume_tac)
+  \\ last_x_assum (qspecl_then [‘refs ++ refs'’,‘po'’] strip_assume_tac)
   \\ last_x_assum assume_tac
   \\ drule evaluate_set_clock
   \\ disch_then (qspec_then ‘ck1'’ mp_tac)
@@ -3379,15 +3759,6 @@ Proof
   \\ fs [rich_listTheory.LENGTH_FILTER_LEQ]
 QED
 
-(* size lemmas *)
-
-Theorem v1_size[local]:
-  !vs v. (MEM v vs ==> v_size v < v1_size vs)
-Proof
-  Induct \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
-  \\ RES_TAC \\ DECIDE_TAC
-QED
-
 (* introducing a module (Tmod) *)
 
 Definition type_names_def:
@@ -3568,16 +3939,79 @@ Proof
 QED
 
 Theorem Eval_constant:
-  !refs.
+  !refs po.
     Eval env exp P ==>
-    ?v refs'. eval_rel (empty_state with refs := refs) env exp
-                       (empty_state with refs := refs ++ refs') v /\
-              (no_change_refs exp ==> refs' = [])
+    ?v refs' po'. eval_rel (build_state refs po) env exp
+                           (build_state (refs ++ refs') po') v /\
+                  (no_change_refs exp ==> refs' = [])
 Proof
   rw[Eval_def]
-  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
+  \\ first_x_assum(qspecl_then[`refs`,`po`]strip_assume_tac)
   \\ asm_exists_tac \\ fs [] \\ rw []
   \\ imp_res_tac eval_rel_no_change_refs \\ fs [] \\ rveq \\ fs []
+QED
+
+Theorem EqualityType_IMP_unique:
+  EqualityType a ==> !x v1 v2. a x v1 /\ a x v2 ==> v1 = v2
+Proof
+  rw [EqualityType_def] \\ metis_tac []
+QED
+
+Theorem VECTOR_TYPE_unique:
+  (!x v1 v2. a x v1 /\ a x v2 ==> v1 = v2) ==>
+  !x v1 v2. VECTOR_TYPE a x v1 /\ VECTOR_TYPE a x v2 ==> v1 = v2
+Proof
+  strip_tac \\ Cases \\ rw [VECTOR_TYPE_def]
+  \\ irule LIST_EQ
+  \\ fs [LIST_REL_EL_EQN] \\ metis_tac []
+QED
+
+(* When the type predicate pins the value uniquely, that one value serves at
+   every oracle. Otherwise the value is oracle-dependent and only the form
+   above is available. *)
+Theorem Eval_constant_unique:
+  (!v1 v2. a x v1 /\ a x v2 ==> v1 = v2) ==>
+  Eval env exp (a x) ==>
+  ?v. a x v /\
+      !refs po. ?refs' po'.
+        eval_rel (build_state refs po) env exp
+                 (build_state (refs ++ refs') po') v /\
+        (no_change_refs exp ==> refs' = [])
+Proof
+  rw[Eval_def]
+  \\ last_assum (qspecl_then [`[]`,`ARB`] strip_assume_tac)
+  \\ qexists_tac `res` \\ conj_tac THEN1 fs []
+  \\ rpt gen_tac
+  \\ last_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
+  \\ `res' = res` by metis_tac []
+  \\ gvs []
+  \\ qpat_x_assum `eval_rel (build_state refs po) _ _ _ _` assume_tac
+  \\ first_assum (irule_at Any) \\ rw []
+  \\ imp_res_tac eval_rel_no_change_refs \\ fs []
+QED
+
+(* without PtrEq, evaluation does not consult the oracle, so the value
+   computed under one oracle is computed under all of them *)
+Theorem Eval_constant_no_ptr_eq:
+  no_ptr_eq exp ==>
+  Eval env exp P ==>
+  !refs. ?v. P v /\
+    !po. ?refs' po'.
+      eval_rel (build_state refs po) env exp
+               (build_state (refs ++ refs') po') v /\
+      (no_change_refs exp ==> refs' = [])
+Proof
+  rw [Eval_def]
+  \\ first_x_assum (qspecl_then [`refs`,`ARB`] strip_assume_tac)
+  \\ qexists_tac `res` \\ rw []
+  \\ qexistsl_tac [`refs'`,`po`]
+  \\ reverse conj_tac
+  >- (rw [] \\ imp_res_tac eval_rel_no_change_refs \\ fs [])
+  \\ fs [eval_rel_def, build_state_def]
+  \\ drule_all evaluate_no_ptr_eq_with_oracle
+  \\ disch_then (qspec_then `po` assume_tac)
+  \\ qexistsl_tac [`ck1`,`ck2`]
+  \\ fs [semanticPrimitivesTheory.state_component_equality]
 QED
 
 Theorem Eval_evaluate_IMP:
@@ -3586,7 +4020,7 @@ Theorem Eval_evaluate_IMP:
     P v
 Proof
   fs [Eval_def] \\ rw []
-  \\ first_x_assum(qspec_then`s.refs`strip_assume_tac)
+  \\ first_x_assum(qspecl_then[`s.refs`,`s.ptr_eq_oracle`]strip_assume_tac)
   \\ imp_res_tac evaluate_empty_state_IMP
   \\ imp_res_tac eval_rel_11 \\ fs []
 QED
@@ -3833,11 +4267,11 @@ Proof
   rpt gen_tac \\ Cases_on `y`
   THEN1
    (Cases_on `x`
-    \\ fs [Eval_def,EXISTS_MEM,EXISTS_PROD,eval_rel_def]
+    \\ fs [Eval_def,build_state_def,EXISTS_MEM,EXISTS_PROD,eval_rel_def]
     \\ rpt strip_tac
-    \\ last_x_assum (qspec_then `refs` strip_assume_tac)
+    \\ last_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
     \\ first_x_assum drule \\ strip_tac
-    \\ last_x_assum (qspec_then `refs++refs'` strip_assume_tac)
+    \\ last_x_assum (qspecl_then [`refs++refs'`,`po'`] strip_assume_tac)
     \\ rveq \\ fs []
     \\ fs [PULL_EXISTS,evaluate_def]
     \\ drule evaluate_add_to_clock
@@ -3850,11 +4284,11 @@ Proof
     \\ fs [can_pmatch_all_def,evaluate_def, pmatch_def,pat_bindings_def]
     \\ fs [pmatch_list_MAP_Pvar,GSYM write_list_thm]
     \\ fs [state_component_equality])
-  \\ fs [Eval_def,EXISTS_MEM,EXISTS_PROD,eval_rel_def]
+  \\ fs [Eval_def,build_state_def,EXISTS_MEM,EXISTS_PROD,eval_rel_def]
   \\ rpt strip_tac
-  \\ last_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ last_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
   \\ first_x_assum drule \\ strip_tac
-  \\ last_x_assum (qspec_then `refs++refs'` strip_assume_tac)
+  \\ last_x_assum (qspecl_then [`refs++refs'`,`po'`] strip_assume_tac)
   \\ rveq \\ fs []
   \\ fs [PULL_EXISTS,evaluate_def]
   \\ drule evaluate_add_to_clock
@@ -3906,22 +4340,24 @@ Proof
 QED
 
 Theorem Eval_Con_lemma[local]:
-    !ps refs.
+    !ps refs po.
       (∀p_1 p_2. MEM (p_1,p_2) ps ⇒ Eval env p_2 p_1) ==>
-      ?ck1 ck2 refs' vals.
-        evaluate (empty_state with <|clock := ck1; refs := refs|>) env
+      ?ck1 ck2 refs' vals po'.
+        evaluate (empty_state with <|clock := ck1; refs := refs;
+                                     ptr_eq_oracle := po|>) env
                  (MAP SND ps) =
-        (empty_state with <|clock := ck2; refs := refs ⧺ refs'|>,Rval vals) /\
+        (empty_state with <|clock := ck2; refs := refs ⧺ refs';
+                            ptr_eq_oracle := po'|>,Rval vals) /\
         LIST_REL (λ(p,x) v. p v) ps vals
 Proof
   Induct THEN1 fs [state_component_equality]
-  \\ fs [FORALL_PROD,Eval_def,eval_rel_def,PULL_EXISTS]
+  \\ fs [FORALL_PROD,Eval_def,build_state_def,eval_rel_def,PULL_EXISTS]
   \\ rw [] \\ once_rewrite_tac [evaluate_cons]
   \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS]
   \\ first_assum (qspecl_then [`p_1`,`p_2`] mp_tac)
   \\ rewrite_tac []
-  \\ disch_then (qspec_then `refs` strip_assume_tac)
-  \\ last_x_assum (qspec_then `refs++refs'` strip_assume_tac)
+  \\ disch_then (qspecl_then [`refs`,`po`] strip_assume_tac)
+  \\ last_x_assum (qspecl_then [`refs++refs'`,`po'`] strip_assume_tac)
   \\ drule evaluate_add_to_clock
   \\ disch_then (qspec_then `ck2` assume_tac) \\ fs []
   \\ qpat_x_assum `_ env [p_2] = _` assume_tac
@@ -3940,12 +4376,12 @@ Theorem Eval_Con:
          q (Conv (SOME stamp) vals)) ==>
       Eval env (Con (SOME name) (MAP SND ps)) q
 Proof
-  rpt strip_tac \\ fs [EVERY_MEM,FORALL_PROD] \\ rw [Eval_def]
+  rpt strip_tac \\ fs [EVERY_MEM,FORALL_PROD] \\ rw [Eval_def,build_state_def]
   \\ simp [eval_rel_def,PULL_EXISTS,evaluate_def,do_con_check_def]
   \\ fs [lookup_cons_def,build_conv_def]
   \\ `∀p_1 p_2. MEM (p_1,p_2) (REVERSE ps) ⇒ Eval env p_2 p_1` by fs []
   \\ drule Eval_Con_lemma
-  \\ disch_then (qspec_then `refs` strip_assume_tac)
+  \\ disch_then (qspecl_then [`refs`,`po`] strip_assume_tac)
   \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS,MAP_REVERSE]
   \\ asm_exists_tac \\ fs []
   \\ fs [GSYM EVERY2_REVERSE1]
@@ -3959,12 +4395,12 @@ Theorem Eval_Con_NONE:
          q (Conv NONE vals)) ==>
       Eval env (Con NONE (MAP SND ps)) q
 Proof
-  rpt strip_tac \\ fs [EVERY_MEM,FORALL_PROD] \\ rw [Eval_def]
+  rpt strip_tac \\ fs [EVERY_MEM,FORALL_PROD] \\ rw [Eval_def,build_state_def]
   \\ simp [eval_rel_def,PULL_EXISTS,evaluate_def,do_con_check_def]
   \\ fs [lookup_cons_def,build_conv_def]
   \\ `∀p_1 p_2. MEM (p_1,p_2) (REVERSE ps) ⇒ Eval env p_2 p_1` by fs []
   \\ drule Eval_Con_lemma
-  \\ disch_then (qspec_then `refs` strip_assume_tac)
+  \\ disch_then (qspecl_then [`refs`,`po`] strip_assume_tac)
   \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS,MAP_REVERSE]
   \\ asm_exists_tac \\ fs []
   \\ fs [GSYM EVERY2_REVERSE1]
@@ -3973,20 +4409,24 @@ QED
 (* translation of a new ref *)
 
 Theorem new_ref_thm:
+  (∀v1 v2. a x v1 ∧ a x v2 ⇒ v1 = v2) ⇒
   Eval env e (a (x:'a)) ⇒
   no_change_refs e ⇒
-  ∀refs.
-    ∃init_v loc_v.
-      eval_rel (empty_state with refs := refs) env (App Opref [e])
-               (empty_state with refs := refs ++ [Refv init_v]) loc_v ∧
-      a x init_v ∧ loc_v = Loc T (LENGTH refs)
+  ∃init_v.
+    a x init_v ∧
+    ∀refs po.
+      ∃po'.
+        eval_rel (build_state refs po) env (App Opref [e])
+                 (build_state (refs ++ [Refv init_v]) po')
+                 (Loc T (LENGTH refs))
 Proof
-  fs [Eval_def] \\ rw []
-  \\ first_x_assum (qspec_then ‘refs’ strip_assume_tac)
-  \\ drule_all eval_rel_no_change_refs \\ fs []
-  \\ fs [eval_rel_def]
+  rpt strip_tac
+  \\ drule_all Eval_constant_unique \\ strip_tac
+  \\ qexists_tac ‘v’ \\ asm_rewrite_tac []
+  \\ rpt gen_tac
+  \\ first_x_assum (qspecl_then [‘refs’,‘po’] strip_assume_tac)
+  \\ gvs [build_state_def,eval_rel_def]
   \\ fs [evaluate_def] \\ rw []
-  \\ first_assum $ irule_at $ Pos last
   \\ fs [do_app_def,store_alloc_def,AllCaseEqs()]
   \\ first_assum $ irule_at $ Pos hd
   \\ fs [state_component_equality]

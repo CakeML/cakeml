@@ -1,0 +1,14 @@
+aig 16 3 2 0 11 0 0 1
+19
+23
+1
+33
+	
+l0 < 4
+l1 < 6
+c
+Instead of using the next state literals fresh inputs (or otherwise
+unused latches or gates) can be used to refrence the next-counter.
+After introducing the 2 inputs everything is shifted.
+Note that no literal mapping needs to be given explicitly as the
+default (first n inputs and first m latches) is the desired one.

@@ -131,8 +131,9 @@ Theorem evaluate_Eval:
   evaluate st env [App Eval [Var (Short «env»);  Var (Short «s1»);
                              Var (Short «decs»); Var (Short «s2»);
                              Var (Short «bs»);   Var (Short «ws»)]] =
-    let st = (st with eval_state := SOME (EvalDecs
-                   (add_decs_generation (s with compiler_state := s2_v)))) in
+    let st = (st with <| eval_state := SOME (EvalDecs
+                   (add_decs_generation (s with compiler_state := s2_v)));
+                         ptr_eq_oracle := shift_seq 1 st.ptr_eq_oracle |>) in
       if st.clock = 0 then (st, Rerr (Rabort Rtimeout_error)) else
         case evaluate_decs (dec_clock st) env1 decs of
         | (st2,Rval env2) =>
@@ -183,17 +184,18 @@ Theorem evaluate_App_Opapp = SIMP_CONV std_ss [evaluate_def,REVERSE_DEF,APPEND]
 Theorem Arrow_IMP:
   ∀x v (s:'ffi semanticPrimitives$state).
     (a --> b) (f:'a -> 'b) vv ∧ a x v ⇒
-    ∃env exp junk u ck s1 res.
+    ∃env exp junk u ck s1 res po.
       do_opapp [vv; v] = SOME (env,exp) ∧ b (f x) u ∧
       evaluate s env [exp] = (s1,res) ∧
       (res ≠ Rerr (Rabort Rtimeout_error) ⇒
-        s1 = s with <| clock := s.clock - ck; refs := s.refs ++ junk |> ∧
+        s1 = s with <| clock := s.clock - ck; refs := s.refs ++ junk;
+                       ptr_eq_oracle := po |> ∧
         res = Rval [u])
 Proof
   rw [Arrow_def,
       ml_translatorTheory.AppReturns_def]
   \\ first_x_assum drule
-  \\ disch_then (qspec_then ‘s.refs’ strip_assume_tac)
+  \\ disch_then (qspecl_then [‘s.refs’,‘s.ptr_eq_oracle’] strip_assume_tac)
   \\ fs [] \\ pop_assum $ irule_at Any
   \\ drule ml_translatorTheory.evaluate_empty_state_IMP
   \\ simp [ml_progTheory.eval_rel_def] \\ strip_tac
@@ -230,22 +232,23 @@ Theorem evaluate_eval:
                  Conv NONE [env_v; Litv (IntLit (&env_id))]; decs_v]]) ∧
     BACKEND_CONFIG_TYPE s1 s1_v ∧
     LIST_TYPE DEC_TYPE decs decs_v ∧
-    (∀ck junk st1 res. evaluate_decs (st with
+    (∀ck junk po st1 res. evaluate_decs (st with
                                          <|clock := st.clock − ck; refs := st.refs ++ junk;
-                                           eval_state := NONE |>) env1
+                                           eval_state := NONE; ptr_eq_oracle := po |>) env1
                                      decs = (st1,res) ⇒ res ≠ Rerr (Rabort Rtype_error)) ⇒
-    ∃res s1 ck msg junk.
+    ∃res s1 ck msg junk po.
       evaluate st env [App Opapp [Var (Short eval_str); Var (Short arg_str)]] = (s1,res) ∧
       (res ≠ Rerr (Rabort Rtimeout_error) ⇒
        res = Rval
              [Conv (SOME (TypeStamp «Compile_error» eval_res_stamp))
                    [Litv (StrLit msg)]] ∧
-       s1 = st with <|clock := st.clock − ck; refs := st.refs ++ junk|> ∨
+       s1 = st with <|clock := st.clock − ck; refs := st.refs ++ junk;
+                      ptr_eq_oracle := po|> ∨
        (∃f. res = Rerr (Rabort (Rffi_error f))) ∨
        (∃exn st7 ck1 ck2 s2_v s2.
           evaluate_decs (st with
                             <|clock := st.clock − ck1; refs := st.refs ++ junk;
-                              eval_state := NONE|>) env1 decs = (st7,Rerr (Rraise exn)) ∧
+                              eval_state := NONE; ptr_eq_oracle := po|>) env1 decs = (st7,Rerr (Rraise exn)) ∧
           BACKEND_CONFIG_TYPE s2 s2_v ∧
           res = Rval [Conv (SOME (TypeStamp «Eval_exn» eval_res_stamp))
                            [exn; Conv NONE [s2_v; Litv (IntLit (&next_gen + 1))]]] ∧
@@ -256,7 +259,7 @@ Theorem evaluate_eval:
        (∃env2 st7 ck1 ck2 s2_v s2.
           evaluate_decs (st with
                             <|clock := st.clock − ck1; refs := st.refs ++ junk;
-                              eval_state := NONE|>) env1 decs = (st7,Rval env2) ∧
+                              eval_state := NONE; ptr_eq_oracle := po|>) env1 decs = (st7,Rval env2) ∧
           BACKEND_CONFIG_TYPE s2 s2_v ∧
           res = Rval [Conv (SOME (TypeStamp «Eval_result» eval_res_stamp))
                            [Conv NONE
@@ -288,7 +291,7 @@ Proof
   \\ drule_all Arrow_IMP
   \\ disch_then (qspec_then `dec_clock (dec_clock st)`
        (qx_choosel_then [`host_env`,`host_exp`,`host_junk`,`host_fun`,
-                        `host_cost`,`host_state`,`host_res`] strip_assume_tac))
+                        `host_cost`,`host_state`,`host_res`,`host_po`] strip_assume_tac))
   \\ simp []
   \\ IF_CASES_TAC \\ fs []
   \\ Cases_on `host_res = Rerr (Rabort Rtimeout_error)` \\ gvs []
@@ -304,7 +307,8 @@ Proof
   \\ disch_then (qspec_then `compile_state` mp_tac)
   \\ disch_then (qx_choosel_then
        [`compile_env`,`compiler_call_body`,`compile_junk`,`compile_val`,
-        `compile_cost`,`compile_result_state`,`compile_res`] strip_assume_tac)
+        `compile_cost`,`compile_result_state`,`compile_res`,`compile_po`]
+        strip_assume_tac)
   \\ simp []
   \\ IF_CASES_TAC \\ fs []
   \\ Cases_on `compile_res = Rerr (Rabort Rtimeout_error)` \\ gvs []
@@ -323,7 +327,7 @@ Proof
     \\ fs [build_conv_def]
     \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
     \\ qexistsl_tac [`compile_cost + (host_cost + 3)`,
-                     `host_junk ++ compile_junk`]
+                     `host_junk ++ compile_junk`,`compile_po`]
     \\ simp [APPEND_ASSOC])
   \\ qmatch_asmsub_rename_tac `compiler_for_eval host _ = SOME compiled_output`
   \\ PairCases_on `compiled_output`
@@ -404,7 +408,8 @@ Proof
              namespaceTheory.nsOptBind_def,do_con_check_def,build_conv_def]
     \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
     \\ fs [add_decs_generation_def,reset_env_generation_def]
-    \\ qexistsl_tac [`host_junk ++ compile_junk`,`result_state`,
+    \\ qexistsl_tac [`host_junk ++ compile_junk`,`shift_seq 1 compile_po`,
+                     `result_state`,
                      `compile_cost + (host_cost + 5)`,`2`,`compiled_conf`]
     \\ simp [APPEND_ASSOC,semanticPrimitivesTheory.state_component_equality])
   \\ qmatch_asmsub_rename_tac
@@ -430,7 +435,8 @@ Proof
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def,do_con_check_def,build_conv_def]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ qexistsl_tac [`host_junk ++ compile_junk`,`result_env`,`result_state`,
+  \\ qexistsl_tac [`host_junk ++ compile_junk`,`shift_seq 1 compile_po`,
+                   `result_env`,`result_state`,
                    `compile_cost + (host_cost + 5)`,`2`,`compiled_conf`]
   \\ simp [APPEND_ASSOC,semanticPrimitivesTheory.state_component_equality]
 QED
@@ -453,7 +459,8 @@ Theorem repl_types_clock_refs:
   repl_types catalogue slots T (ffi,rs)
     (types, st with <| clock := st.clock − ck;
                        refs := st.refs ++ junk;
-                       eval_state := NONE |>,env1)
+                       eval_state := NONE;
+                       ptr_eq_oracle := po |>,env1)
 Proof
   strip_tac \\ drule_then irule repl_types_skip_alt \\ simp []
 QED
@@ -523,8 +530,9 @@ Theorem evaluate_repl_input[local]:
     evaluate (st:'ffi semanticPrimitives$state) env [repl_input_case] =
       (next_st,result) ∧
     (result ≠ Rerr (Rabort Rtimeout_error) ⇒
-      ∃ck junk normalized_v.
-        next_st = st with <|clock := st.clock − ck; refs := st.refs ++ junk|> ∧
+      ∃ck junk po normalized_v.
+        next_st = st with <|clock := st.clock − ck; refs := st.refs ++ junk;
+                            ptr_eq_oracle := po|> ∧
         result = Rval [normalized_v] ∧
         PAIR_TYPE (SUM_TYPE STRING_TYPE (LIST_TYPE DEC_TYPE)) STRING_TYPE
           (case input of INL text => (parse text,text) | INR decs => (INR decs,«»))
@@ -544,12 +552,12 @@ Proof
     \\ drule_all Arrow_IMP
     \\ disch_then (qspec_then ‘dec_clock st’ (qx_choosel_then
          [‘parser_env’,‘parser_exp’,‘parser_junk’,‘parser_value’,‘parser_ck’,
-          ‘parser_st’,‘parser_result’] strip_assume_tac))
+          ‘parser_st’,‘parser_result’,‘parser_po’] strip_assume_tac))
     \\ simp [] \\ IF_CASES_TAC \\ simp []
     \\ Cases_on ‘parser_result = Rerr (Rabort Rtimeout_error)’
     \\ gvs [dec_clock_def]
     \\ simp [evaluate_Con,evaluate_list,evaluate_Var]
-    \\ qexists_tac ‘parser_ck + 1’ \\ qexists_tac ‘parser_junk’
+    \\ qexistsl_tac [‘parser_ck + 1’,‘parser_junk’,‘parser_po’]
     \\ simp [ml_translatorTheory.PAIR_TYPE_def,ml_translatorTheory.STRING_TYPE_def])
   \\ rename1 ‘SUM_TYPE STRING_TYPE (LIST_TYPE DEC_TYPE) (INR ast_decs) input_v’
   \\ strip_tac \\ gvs [std_preludeTheory.SUM_TYPE_def]
@@ -560,7 +568,7 @@ Proof
   \\ simp [Once evaluate_def,evaluate_Var,namespaceTheory.nsOptBind_def]
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_list,do_con_check_def,build_conv_def]
   \\ simp [evaluate_Con,evaluate_list,evaluate_Var,evaluate_Lit]
-  \\ qexists_tac ‘0’ \\ qexists_tac ‘[]’
+  \\ qexists_tac ‘0’ \\ qexists_tac ‘[]’ \\ qexists_tac ‘st.ptr_eq_oracle’
   \\ simp [semanticPrimitivesTheory.state_component_equality,ml_translatorTheory.PAIR_TYPE_def,
         std_preludeTheory.SUM_TYPE_def,ml_translatorTheory.STRING_TYPE_def]
 QED
@@ -624,7 +632,7 @@ Proof
   \\ fs [dec_clock_def]
   \\ disch_then (qspec_then `st with clock := st.clock − 2`
        (qx_choosel_then [`check_env`,`check_body`,`junk`,`check_value`,
-                        `ck`,`check_state`,`res`] strip_assume_tac))
+                        `ck`,`check_state`,`res`,`check_po`] strip_assume_tac))
   \\ fs [] \\ IF_CASES_TAC \\ fs []
   \\ Cases_on `res = Rerr (Rabort Rtimeout_error)` \\ gvs []
   (* case split on result of check_and_tweak *)
@@ -663,7 +671,8 @@ Resume evaluate_repl[CheckError]:
            namespaceTheory.nsOptBind_def,do_app_def]
   \\ simp [repl_moduleProgTheory.errorMessage_def]
   \\ ‘repl_types repl_input_catalogue repl_input_slots T (ffi,repl_rs)
-        (SND types,st with <| eval_state := NONE ; refs := st.refs ++ junk |>,env1)’
+        (SND types,st with <| eval_state := NONE ; refs := st.refs ++ junk;
+                               ptr_eq_oracle := check_po |>,env1)’
        by (drule_then irule repl_types_skip_alt \\ fs [])
   \\ ‘MEM (Long «Repl» (Short «errorMessage»),Str,
            the_Loc errorMessage_loc) repl_rs’ by (
@@ -731,7 +740,8 @@ Resume evaluate_repl[CheckSuccess]:
     \\ irule_at Any repl_types_clock_refs
     \\ first_assum $ irule_at Any)
   \\ disch_then (qx_choosel_then
-       [`res`,`eval_result_state`,`eval_cost`,`msg`,`eval_junk`] strip_assume_tac)
+       [`res`,`eval_result_state`,`eval_cost`,`msg`,`eval_junk`,`eval_po`]
+       strip_assume_tac)
   \\ fs []
   \\ simp [Once evaluate_def,namespaceTheory.nsOptBind_def]
   \\ Cases_on ‘∃f. res = Rerr (Rabort (Rffi_error f))’ \\ fs []
@@ -769,7 +779,8 @@ Resume evaluate_repl[CompileError]:
            namespaceTheory.nsOptBind_def,do_app_def]
   \\ simp [repl_moduleProgTheory.errorMessage_def]
   \\ ‘repl_types repl_input_catalogue repl_input_slots T (ffi,repl_rs)
-        (SND types,st6 with <| eval_state := NONE ; refs := st6.refs ++ eval_junk |>,env1)’
+        (SND types,st6 with <| eval_state := NONE ; refs := st6.refs ++ eval_junk ;
+                               ptr_eq_oracle := eval_po |>,env1)’
        by (drule_then irule repl_types_skip_alt \\ fs [Abbr‘st6’]
            \\ simp_tac std_ss [GSYM APPEND_ASSOC,rich_listTheory.IS_PREFIX_APPEND3])
   \\ ‘MEM (Long «Repl» (Short «errorMessage»),Str,
@@ -800,7 +811,7 @@ QED
 Resume evaluate_repl[EvalException]:
   qmatch_asmsub_rename_tac
        ‘evaluate_decs (st6 with <|clock := st6.clock − decl_cost; refs := _;
-                                  eval_state := NONE|>) env1 safe_decs =
+                                  eval_state := NONE; ptr_eq_oracle := _|>) env1 safe_decs =
         (evaluated_state,Rerr (Rraise raised_exn))’
   \\ simp [Once evaluate_def,evaluate_Var]
   \\ gvs [can_pmatch_all_def,pmatch_def,evaluate_Var,std_preludeTheory.SUM_TYPE_def]
@@ -833,7 +844,8 @@ Resume evaluate_repl[EvalException]:
   \\ ‘repl_types repl_input_catalogue repl_input_slots T (ffi,repl_rs)
         (SND types,st6 with <| clock := st6.clock - decl_cost ;
                                refs := st6.refs ++ eval_junk ;
-                               eval_state := NONE |>,env1)’
+                               eval_state := NONE ;
+                               ptr_eq_oracle := eval_po |>,env1)’
        by (drule_then irule repl_types_skip_alt \\ fs [Abbr‘st6’]
            \\ simp_tac std_ss [GSYM APPEND_ASSOC,rich_listTheory.IS_PREFIX_APPEND3])
   \\ ‘MEM (Long «Repl» (Short «exn»),Exn,the_Loc exn) repl_rs’ by simp [repl_rs_def,
@@ -899,7 +911,8 @@ Resume evaluate_repl[EvalException]:
   \\ qmatch_goalsub_abbrev_tac ‘(st3, Rerr (Rabort Rtimeout_error))’
   \\ disch_then (qspec_then ‘dec_clock st3’
        (qx_choosel_then [‘rollback_env’,‘rollback_body’,‘rollback_junk’,‘rollback_value’,
-                        ‘rollback_cost’,‘rollback_state’,‘res’] strip_assume_tac))
+                        ‘rollback_cost’,‘rollback_state’,‘res’,‘rollback_po’]
+       strip_assume_tac))
   \\ fs []
   \\ fs [] \\ IF_CASES_TAC \\ fs []
   \\ unabbrev_all_tac \\ gvs [dec_clock_def]
@@ -993,8 +1006,8 @@ Resume evaluate_repl[EvalSuccess]:
   \\ Cases_on ‘normalized_result = Rerr (Rabort Rtimeout_error)’
   >- (gvs [] \\ simp [])
   \\ qpat_x_assum ‘_ ≠ _ ⇒ _’ (mp_tac o UNDISCH)
-  \\ disch_then (qx_choosel_then [‘input_ck’,‘input_junk’,‘normalized_value’]
-       strip_assume_tac)
+  \\ disch_then (qx_choosel_then [‘input_ck’,‘input_junk’,‘input_po’,
+       ‘normalized_value’] strip_assume_tac)
   \\ qmatch_asmsub_abbrev_tac
        ‘PAIR_TYPE (SUM_TYPE STRING_TYPE (LIST_TYPE DEC_TYPE)) STRING_TYPE
           normalized_input normalized_value’
@@ -1004,7 +1017,8 @@ Resume evaluate_repl[EvalSuccess]:
   \\ qmatch_asmsub_rename_tac ‘STRING_TYPE input_text input_text_value’
   \\ ‘repl_types repl_input_catalogue repl_input_slots T (ffi,repl_rs)
         (SND new_types,input_state with <|clock := input_state.clock - input_ck;
-          refs := input_state.refs ++ input_junk; eval_state := NONE|>,
+          refs := input_state.refs ++ input_junk; eval_state := NONE;
+          ptr_eq_oracle := input_po|>,
          evaluated_env +++ env1)’ by (
     simp [Abbr ‘input_state’]
     \\ drule_then irule repl_types_skip_alt \\ simp [])
@@ -1051,7 +1065,7 @@ Resume evaluate_repl[EvalSuccess]:
           store_lookup repl_error_location (input_state.refs ++ input_junk) =
             SOME (Refv (Litv (StrLit previous_error)))’ by (
       qpat_x_assum ‘repl_types _ _ _ _ (SND new_types,input_state with <|clock := _;
-        refs := _; eval_state := NONE|>,_)’
+        refs := _; eval_state := NONE; ptr_eq_oracle := _|>,_)’
         (mp_tac o MATCH_MP repl_types_thm)
       \\ simp [PULL_EXISTS,repl_rs_def,ref_lookup_ok_def,
            repl_moduleProgTheory.errorMessage_def,the_Loc_def])
@@ -1060,7 +1074,8 @@ Resume evaluate_repl[EvalSuccess]:
     \\ ‘repl_types repl_input_catalogue repl_input_slots T (ffi,repl_rs)
           (SND new_types,
            (input_state with <|clock := input_state.clock - input_ck;
-             refs := input_state.refs ++ input_junk; eval_state := NONE|>) with
+             refs := input_state.refs ++ input_junk; eval_state := NONE;
+             ptr_eq_oracle := input_po|>) with
              refs := LUPDATE (Refv (Litv (StrLit input_error))) repl_error_location
                (input_state.refs ++ input_junk),evaluated_env +++ env1)’ by (
       irule repl_types_str_assign
@@ -1188,12 +1203,13 @@ Proof
   \\ qmatch_goalsub_abbrev_tac `(st2, Rerr (Rabort Rtimeout_error))`
   \\ disch_then (qspec_then `st2 with clock := st2.clock − 1`
        (qx_choosel_then [`next_env`,`next_body`,`next_junk`,`next_value`,
-                        `next_cost`,`next_state`,`next_res`] strip_assume_tac))
+                        `next_cost`,`next_state`,`next_res`,`next_po`] strip_assume_tac))
   \\ fs [] \\ IF_CASES_TAC \\ fs [Abbr`st2`]
   \\ Cases_on `next_res = Rerr (Rabort Rtimeout_error)` \\ gvs []
   \\ rename1 ‘evaluate _ _ [_] =
     (st with <|clock := st.clock - (source_ck + 2);
-               refs := st.refs ++ source_junk|>,
+               refs := st.refs ++ source_junk;
+               ptr_eq_oracle := source_po|>,
      Rval [source_value])’
   (* Wrap the boot marker in Inl. *)
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,

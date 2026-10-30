@@ -261,9 +261,9 @@ Definition cons_measure_def:
 Termination
   WF_REL_TAC ‘measure exp_size’
   \\ Cases \\ fs [dest_Op_def]
-  \\ Cases_on ‘o'’ \\ fs [dest_Cons_def,exp_size_def]
-  \\ Cases_on ‘b’ \\ fs [dest_Cons_def,exp_size_def]
-  \\ Induct_on ‘l’ \\ fs [exp_size_def]
+  \\ Cases_on ‘o'’ \\ fs [dest_Cons_def]
+  \\ Cases_on ‘b’ \\ fs [dest_Cons_def]
+  \\ Induct_on ‘l’ \\ fs []
   \\ rw [] \\ res_tac \\ fs []
 End
 
@@ -354,8 +354,8 @@ Definition lift_exps_def:
             (let (xs,n1,binds) = lift_exps xs (n + 1) (binds ++ [x]) in
               (Var None n::xs,n1,binds))
 Termination
-  WF_REL_TAC ‘measure (λ(xs,n,binds). exp3_size xs)’ \\ rw []
-  \\ Cases_on ‘x’ \\ fs [dest_Op_def,dest_Cons_def,exp_size_def]
+  WF_REL_TAC ‘measure (λ(xs,n,binds). list_size exp_size xs)’ \\ rw []
+  \\ Cases_on ‘x’ \\ fs [dest_Op_def,dest_Cons_def]
   \\ rename [‘Op _ oo _’] \\ Cases_on ‘oo’ \\ gvs [dest_Cons_def]
   \\ Cases_on ‘b’ \\ gvs [dest_Cons_def]
 End

@@ -143,7 +143,8 @@ Theorem subst_infer_subst_swap:
    =
    MAP (infer_type_subst (ZIP (tvs, MAP (λn. t_walkstar s (Infer_Tuvar (uvar + n))) (COUNT_LIST (LENGTH tvs))))) ts))
 Proof
- ho_match_mp_tac t_induction >>
+ reverse conj_asm1_tac >- simp [MAP_MAP_o, combinTheory.o_DEF, Cong MAP_CONG] >>
+ Induct >>
  rw [type_subst_def, infer_type_subst_alt, t_walkstar_eqn1]
  >- (every_case_tac >>
      rw [t_walkstar_eqn1] >>
@@ -151,7 +152,8 @@ Proof
      fs [MAP_ZIP, LENGTH_COUNT_LIST, ALOOKUP_ZIP_MAP_SND] >>
      imp_res_tac ALOOKUP_MEM >>
      fs [MEM_ZIP, LENGTH_COUNT_LIST] >>
-     metis_tac [])
+     metis_tac []) >>
+ gvs [MAP_MAP_o, Cong MAP_CONG]
 QED
 
 val infer_t_induction = infer_tTheory.infer_t_induction;
@@ -160,9 +162,9 @@ Theorem infer_subst_FEMPTY:
  (!t. infer_subst FEMPTY t = t) ∧
  (!ts. MAP (infer_subst FEMPTY) ts = ts)
 Proof
-ho_match_mp_tac infer_t_induction >>
-rw [SUBSET_DEF, infer_subst_def] >>
-metis_tac []
+  reverse conj_asm1_tac >- simp [MAP_EQ_ID] >>
+  Induct >>
+  rw [infer_subst_def, MAP_EQ_ID]
 QED
 
 Theorem infer_subst_submap:
@@ -179,20 +181,22 @@ Theorem infer_subst_submap:
     ⇒
     (MAP (infer_subst s1) ts = MAP (infer_subst s2) ts))
 Proof
-  ho_match_mp_tac infer_t_induction >>
-  rw [SUBSET_DEF, infer_subst_def, t_vars_eqn]
-  >-
-    metis_tac []
+  reverse conj_asm1_tac
   >- (
-    full_case_tac >>
-    full_case_tac >>
-    rw [] >>
-    fs [SUBMAP_DEF, FLOOKUP_DEF] >>
-    metis_tac [])
-  >-
-    metis_tac []
-  >>
-    metis_tac []
+    rw [] >> irule MAP_CONG >> rw [] >>
+    first_x_assum irule >> simp [] >> qexists_tac ‘m’ >>
+    fs [SUBSET_DEF, MEM_MAP, PULL_EXISTS] >> metis_tac []) >>
+  Induct >>
+  rw [SUBSET_DEF, infer_subst_def, t_vars_eqn]
+  >- (
+    irule MAP_CONG >> rw [] >>
+    first_x_assum irule >> simp [] >> qexists_tac ‘m’ >>
+    fs [SUBSET_DEF, MEM_MAP, PULL_EXISTS] >> metis_tac []) >>
+  full_case_tac >>
+  full_case_tac >>
+  rw [] >>
+  fs [SUBMAP_DEF, FLOOKUP_DEF] >>
+  metis_tac []
 QED
 
 Theorem generalise_list_length:
@@ -206,7 +210,7 @@ Proof
 QED
 
 Theorem generalise_subst:
- (!t m n s tvs s' t'.
+ (!m n s t tvs s' t'.
   (generalise m n s t = (tvs, s', t'))
   ⇒
   (s SUBMAP s') ∧
@@ -214,7 +218,7 @@ Theorem generalise_subst:
   (!uv. uv ∈ FDOM s' DIFF FDOM s ⇒ ∃tv. (FAPPLY s' uv = tv) ∧ n ≤ tv ∧ tv < tvs + n) ∧
   (!uv. uv ∈ t_vars t' ⇒ uv < m) ∧
   (infer_subst s' t = infer_subst s t')) ∧
- (!ts m n s tvs s' ts'.
+ (!m n s ts tvs s' ts'.
   (generalise_list m n s ts = (tvs, s', ts'))
   ⇒
   (s SUBMAP s') ∧
@@ -223,94 +227,54 @@ Theorem generalise_subst:
   (!uv. uv ∈  BIGUNION (set (MAP t_vars ts')) ⇒ uv < m) ∧
   (MAP (infer_subst s') ts = MAP (infer_subst s) ts'))
 Proof
-  Induct >>
+  ho_match_mp_tac generalise_ind >> rpt conj_tac >>
   SIMP_TAC (srw_ss()) [t_vars_eqn, generalise_def, infer_subst_def]
   >- (
     REPEAT GEN_TAC  >>
     STRIP_TAC >>
     fs[]>>pairarg_tac>>fs[]>>
-    first_x_assum drule>> simp[]>>
     rveq>>fs[]>>
     rw [EXTENSION, infer_subst_def] >>
-    fs [t_vars_eqn] >>
+    fs [t_vars_eqn, SF ETA_ss] (* HOL#2098 *)
+    >>~- ([‘FAPPLY s' uv’],
+          qpat_x_assum ‘∀uv. uv ∈ FDOM s' ∧ _ ⇒ _’ (qspec_then ‘uv’ mp_tac) >>
+          simp [] >> metis_tac []) >>
     metis_tac [])
   >- (
     rw [] >>
     every_case_tac >>
     fs [] >>
     rw [] >>
-    rw [FLOOKUP_DEF, EXTENSION] >>
-    TRY (EQ_TAC) >>
-    rw [] >>
+    rw [FLOOKUP_DEF, EXTENSION, EQ_IMP_THM] >>
     fs [FLOOKUP_DEF, infer_subst_def, t_vars_eqn] >>
-    decide_tac)
-  >>
-    REPEAT GEN_TAC >>
-    STRIP_TAC >>
-    `?tvs s' t'. generalise m n s t = (tvs, s', t')`
-              by (cases_on `generalise m n s t` >>
-                  rw [] >>
-                  cases_on `r` >>
-                  fs []) >>
-    fs [LET_THM] >>
-    `?tvs s' ts'. generalise_list m (tvs'+n) s'' ts = (tvs, s', ts')`
-              by (cases_on `generalise_list m (tvs'+n) s'' ts` >>
-                  rw [] >>
-                  cases_on `r` >>
-                  fs []) >>
-    fs [LET_THM] >>
-    qpat_x_assum `!m'. P m'`
-          (mp_tac o Q.SPECL [`m`, `tvs'+n`, `s''`, `tvs''`, `s'''`, `ts''`]) >>
-    qpat_x_assum `!m'. P m'`
-          (mp_tac o Q.SPECL [`m`, `n`, `s`, `tvs'`, `s''`, `t'`]) >>
-    rw [INTER_UNION]
-    >-
-      metis_tac [SUBMAP_TRANS]
-    >- (rw [EXTENSION] >> metis_tac [])
+    decide_tac) >>
+  rpt gen_tac >> strip_tac >> rpt gen_tac >> strip_tac >>
+  Cases_on ‘generalise m n s t’ >> Cases_on ‘r’ >> gvs [] >>
+  pairarg_tac >> gvs [] >>
+  rename1 ‘generalise m n s t = (g1,s1,t1)’ >>
+  rename1 ‘generalise_list m (n + g1) s1 ts = (g2,s2,ts2)’ >>
+  rpt conj_tac
+  >- metis_tac [SUBMAP_TRANS]
+  >- (rw [EXTENSION] >> metis_tac [])
+  >- (
+    rpt gen_tac >> disch_tac >>
+    Cases_on ‘uv ∈ t_vars t ∧ m ≤ uv’
     >- (
-      `uv ∈ FDOM s''` by fs [] >>
-      res_tac >>
-      rw [INTER_UNION] >>
-      fs [SUBMAP_DEF])
-    >- (
-      `uv ∈ FDOM s''` by fs [] >>
-      res_tac >>
-      rw [INTER_UNION] >>
-      fs [SUBMAP_DEF] >>
-      res_tac >>
-      decide_tac)
-    >- (
-      `uv ∈ FDOM s'` by (fs [] >> metis_tac []) >>
-      cases_on `uv ∈ t_vars t` >>
-      rw [] >>
-      res_tac >>
-      rw [INTER_UNION] >>
-      fs [SUBMAP_DEF] >>
-      res_tac >>
-      decide_tac)
-    >- (
-      `uv ∈ FDOM s'` by (fs [] >> metis_tac []) >>
-      cases_on `uv ∈ t_vars t` >>
-      rw [] >>
-      `uv ∈ FDOM s''` by (fs [] >> metis_tac []) >>
-      res_tac >>
-      rw [INTER_UNION] >>
-      fs [SUBMAP_DEF] >>
-      res_tac >>
-      decide_tac)
-     >- metis_tac []
-     >- metis_tac []
-     >- (
-       `{uv | uv ∈ t_vars t ∧ m ≤ uv} ⊆ FDOM s'' ∧
-       (!uv. uv ∈ FDOM s' DIFF FDOM s'' ⇒ m ≤ uv)` by
-         rw [SUBSET_DEF] >>
-       metis_tac [infer_subst_submap])
-     >>
-     `{uv | ∃s. uv ∈ s ∧ MEM s (MAP t_vars ts'') ∧ m ≤ uv} ⊆ FDOM s ∧ (!uv. uv ∈ FDOM s'' DIFF FDOM s ⇒ m ≤ uv)` by
-       (rw [SUBSET_DEF] >>
-       `¬(x < m)` by decide_tac  >>
-       metis_tac []) >>
-     metis_tac [infer_subst_submap]
+      ‘uv ∈ FDOM s1’ by gvs [] >>
+      ‘s2 ' uv = s1 ' uv’ by gvs [SUBMAP_DEF] >>
+      qpat_x_assum ‘∀uv. _ ⇒ n ≤ s1 ' uv ∧ _’ (qspec_then ‘uv’ mp_tac) >>
+      simp []) >>
+    qpat_x_assum ‘∀uv. _ ⇒ n + g1 ≤ s2 ' uv ∧ _’ (qspec_then ‘uv’ mp_tac) >>
+    impl_tac >- (gvs [] >> metis_tac []) >>
+    simp [])
+  >- metis_tac []
+  >- (
+    ‘infer_subst s1 t = infer_subst s2 t’ suffices_by metis_tac [] >>
+    irule (cj 1 infer_subst_submap) >> simp [] >> qexists_tac ‘m’ >>
+    gvs [SUBSET_DEF] >> metis_tac []) >>
+  ‘MAP (infer_subst s) ts2 = MAP (infer_subst s1) ts2’ suffices_by simp [] >>
+  irule (cj 2 infer_subst_submap) >> simp [] >> qexists_tac ‘m’ >>
+  gvs [SUBSET_DEF, PULL_EXISTS] >> metis_tac [arithmeticTheory.NOT_LESS]
 QED
 
 Theorem generalise_subst_empty:
@@ -588,29 +552,38 @@ Proof
 QED
 
 Theorem type_name_check_subst_success:
-   (!t l f tenvT tvs r (s:'a) s'.
+   (!l f tenvT tvs t r (s:'a) s'.
     type_name_check_subst l f tenvT tvs t s = (M_success r, s')
     ⇔
     s = s' ∧ r = type_name_subst tenvT t ∧
     check_freevars_ast tvs t ∧ check_type_names tenvT t) ∧
-   (!ts l f tenvT tvs r (s:'a) s'.
+   (!l f tenvT tvs ts r (s:'a) s'.
     type_name_check_subst_list l f tenvT tvs ts s = (M_success r, s')
     ⇔
     s = s' ∧ r = MAP (type_name_subst tenvT) ts ∧
     EVERY (check_freevars_ast tvs) ts ∧ EVERY (check_type_names tenvT) ts)
 Proof
- Induct >>
+ ho_match_mp_tac type_name_check_subst_ind >>
  rw [type_name_check_subst_def, st_ex_bind_def, st_ex_ignore_bind_def,
      guard_def, st_ex_return_def,
      check_freevars_ast_def, check_type_names_def, failwith_def,
-     type_name_subst_def] >>
- every_case_tac >>
- fs [] >>
- rw [] >>
- TRY pairarg_tac >>
- fs [] >>
- every_case_tac >>
- fs [lookup_st_ex_success, lookup_st_ex_def] >>
+     type_name_subst_def]
+ >- metis_tac []
+ >- (
+   Cases_on ‘type_name_check_subst_list l f tenvT tvs ts s’ >> Cases_on ‘q’ >>
+   gvs [SF ETA_ss] (* HOL#2098 *) >>
+   metis_tac [exc_distinct, PAIR_EQ, NOT_EVERY])
+ >- (
+   gvs [AllCaseEqs(), PULL_EXISTS] >>
+   metis_tac [exc_distinct, PAIR_EQ])
+ >- (
+   Cases_on ‘type_name_check_subst_list l f tenvT tvs ts s’ >> Cases_on ‘q’ >>
+   gvs [SF ETA_ss] (* HOL#2098 *) >>
+   Cases_on ‘nsLookup tenvT tc’ >> gvs [lookup_st_ex_def]
+   >- (PairCases_on ‘x’ >> rw [] >> metis_tac []) >>
+   metis_tac [exc_distinct, PAIR_EQ, NOT_EVERY])
+ >- metis_tac [] >>
+ gvs [AllCaseEqs(), PULL_EXISTS] >>
  metis_tac [exc_distinct, PAIR_EQ, NOT_EVERY]
 QED
 
@@ -762,19 +735,13 @@ metis_tac []
 QED
 
 Theorem type_name_check_subst_state:
-  (!t l err tenvT fvs (st:'a) r st'. type_name_check_subst l err tenvT fvs t st = (r,st') ⇒ st = st') ∧
-  (!ts l err tenvT fvs (st:'a) r st'. type_name_check_subst_list l err tenvT fvs ts st = (r,st') ⇒ st = st')
+  (!l err tenvT fvs t (st:'a) r st'. type_name_check_subst l err tenvT fvs t st = (r,st') ⇒ st = st') ∧
+  (!l err tenvT fvs ts (st:'a) r st'. type_name_check_subst_list l err tenvT fvs ts st = (r,st') ⇒ st = st')
 Proof
-  Induct >>
+  ho_match_mp_tac type_name_check_subst_ind >>
   rw [type_name_check_subst_def, st_ex_bind_def, st_ex_ignore_bind_def,
       guard_def, st_ex_return_def, failwith_def, lookup_st_ex_def] >>
-  every_case_tac >>
-  fs [] >>
-  rw [] >>
-  TRY pairarg_tac >>
-  fs [] >>
-  every_case_tac >>
-  fs [] >>
+  gvs [AllCaseEqs(), UNCURRY, COND_RATOR] >>
   metis_tac []
 QED
 
@@ -1052,46 +1019,50 @@ Theorem check_t_more:
  (!t tvs. check_t tvs {} t ⇒ !uvs. check_t tvs uvs t) ∧
  (!ts tvs. EVERY (check_t tvs {}) ts ⇒ !uvs. EVERY (check_t tvs uvs) ts)
 Proof
-ho_match_mp_tac infer_t_induction >>
-rw [check_t_def] >>
-metis_tac []
+  reverse conj_asm1_tac >- (rw [EVERY_MEM] >> metis_tac []) >>
+  Induct >>
+  rw [check_t_def, EVERY_MEM] >>
+  metis_tac []
 QED
 
 Theorem check_t_more2:
  (!t tvs uvs. check_t tvs uvs t ⇒ !tvs'. check_t (tvs' + tvs) uvs t) ∧
  (!ts tvs uvs. EVERY (check_t tvs uvs) ts ⇒ !tvs'. EVERY (check_t (tvs' + tvs) uvs) ts)
 Proof
-ho_match_mp_tac infer_t_induction >>
-rw [check_t_def] >>
-metis_tac []
+  reverse conj_asm1_tac >- (rw [EVERY_MEM] >> metis_tac []) >>
+  Induct >>
+  rw [check_t_def, EVERY_MEM] >>
+  metis_tac []
 QED
 
 Theorem check_t_more3:
  (!t uvs tvs. check_t tvs (count uvs) t ⇒ !uvs'. check_t tvs (count (uvs + uvs')) t) ∧
  (!ts uvs tvs. EVERY (check_t tvs (count uvs)) ts ⇒ !uvs'. EVERY (check_t tvs (count (uvs + uvs'))) ts)
 Proof
-ho_match_mp_tac infer_t_induction >>
-rw [check_t_def] >-
-metis_tac [] >>
-decide_tac
+  reverse conj_asm1_tac >- (rw [EVERY_MEM] >> metis_tac []) >>
+  Induct >>
+  rw [check_t_def, EVERY_MEM] >>
+  gvs [] >> metis_tac []
 QED
 
 Theorem check_t_more4:
  (!t uvs tvs. check_t tvs (count uvs) t ⇒ !uvs'. uvs ≤ uvs' ⇒ check_t tvs (count uvs') t) ∧
  (!ts uvs tvs. EVERY (check_t tvs (count uvs)) ts ⇒ !uvs'. uvs ≤ uvs' ⇒ EVERY (check_t tvs (count uvs')) ts)
 Proof
-ho_match_mp_tac infer_t_induction >>
-srw_tac [ARITH_ss] [check_t_def] >>
-metis_tac []
+  reverse conj_asm1_tac >- (rw [EVERY_MEM] >> metis_tac []) >>
+  Induct >>
+  srw_tac [ARITH_ss] [check_t_def, EVERY_MEM] >>
+  metis_tac []
 QED
 
 Theorem check_t_more5:
  (!t uvs tvs. check_t tvs uvs t ⇒ !uvs'. uvs ⊆ uvs' ⇒ check_t tvs uvs' t) ∧
  (!ts uvs tvs. EVERY (check_t tvs uvs) ts ⇒ !uvs'. uvs ⊆ uvs' ⇒ EVERY (check_t tvs uvs') ts)
 Proof
-ho_match_mp_tac infer_t_induction >>
-rw [check_t_def, SUBSET_DEF] >>
-metis_tac []
+  reverse conj_asm1_tac >- (rw [EVERY_MEM] >> metis_tac []) >>
+  Induct >>
+  rw [check_t_def, EVERY_MEM] >>
+  metis_tac [SUBSET_DEF]
 QED
 
 Theorem check_t_t_vars:
@@ -1158,7 +1129,9 @@ Theorem infer_deBruijn_subst_twice:
     MAP ((infer_deBruijn_subst subst1) o (infer_deBruijn_subst subst2)) ts =
     MAP (infer_deBruijn_subst(MAP(infer_deBruijn_subst subst1) subst2)) ts)
 Proof
-  ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  reverse conj_asm1_tac
+  >- gvs[EVERY_MEM,MAP_EQ_f]>>
+  Induct>>
   rw[check_t_def,infer_deBruijn_subst_alt]>>
   simp[EL_MAP]>>
   fs[MAP_MAP_o,EVERY_MEM,MAP_EQ_f]
@@ -1348,8 +1321,10 @@ Theorem check_t_walkstar:
     ⇒
     EVERY (check_t tvs {} o t_walkstar s) ts)
 Proof
-  ho_match_mp_tac infer_t_induction >>
-  rw [check_t_def, t_walkstar_eqn1, EVERY_MAP] >>
+  reverse conj_asm1_tac
+  >- (rw [EVERY_MEM] >> metis_tac []) >>
+  Induct >>
+  rw [check_t_def, t_walkstar_eqn1, EVERY_MAP, EVERY_MEM] >>
   metis_tac []
 QED
 
@@ -1505,7 +1480,9 @@ Theorem check_infer_type_subst[local]:
   ⇒
   EVERY (\t. check_t 0 (count (LENGTH tvs + uvs)) (infer_type_subst (ZIP (tvs, MAP (λn. Infer_Tuvar (uvs + n)) (COUNT_LIST (LENGTH tvs)))) t)) ts)
 Proof
-  ho_match_mp_tac t_induction >>
+  reverse conj_asm1_tac
+  >- (rw [EVERY_MEM] >> metis_tac []) >>
+  Induct >>
   rw [check_freevars_def, check_t_def, infer_type_subst_alt]
   >- (
     pop_assum mp_tac >>
@@ -1518,7 +1495,7 @@ Proof
     qmatch_goalsub_abbrev_tac`MAP f2 _` >>
     `f1 = f2` by (unabbrev_all_tac \\ simp[FUN_EQ_THM]) >>
     fs[ADD1])
-  >> metis_tac [EVERY_MAP]
+  >> gvs [EVERY_MAP, EVERY_MEM]
 QED
 
 (* moved this one around a bit *)
@@ -1530,8 +1507,10 @@ Theorem infer_type_subst_empty_check:
 EVERY (check_freevars 0 []) ts ⇒
 EVERY (check_t 0 {}) (MAP (infer_type_subst []) ts)
 Proof
+  reverse conj_asm1_tac
+  >- gvs[EVERY_MEM,EVERY_MAP]>>
   Induct>>fs[check_freevars_def,infer_type_subst_alt,check_t_def]>>
-  metis_tac[]
+  gvs[EVERY_MEM,EVERY_MAP]
 QED
 
 Theorem type_name_check_subst_thm:
@@ -1696,10 +1675,13 @@ Theorem check_t_infer_db_subst[local]:
    =
    EVERY (check_t tvs (count (uvs + tvs))) ts)
 Proof
-  ho_match_mp_tac infer_t_induction >>
-rw [check_t_def, infer_deBruijn_subst_alt, LENGTH_COUNT_LIST,
-    EL_MAP, EL_COUNT_LIST, EVERY_MAP] >>
-metis_tac []
+  reverse conj_asm1_tac
+  >- simp [EVERY_MEM] >>
+  Induct >>
+  rw [check_t_def, infer_deBruijn_subst_alt, LENGTH_COUNT_LIST,
+      EL_MAP, EL_COUNT_LIST, EVERY_MAP] >>
+  gvs [EVERY_MEM] >>
+  metis_tac []
 QED
 
 Theorem check_t_infer_db_subst2:
@@ -1712,10 +1694,11 @@ Theorem check_t_infer_db_subst2:
    =
    EVERY (check_t (tvs1 + tvs2) (count tvs2)) ts)
 Proof
-ho_match_mp_tac infer_t_induction >>
-rw [check_t_def, infer_deBruijn_subst_alt, LENGTH_COUNT_LIST,
-    EL_MAP, EL_COUNT_LIST, EVERY_MAP] >-
-metis_tac []
+  reverse conj_asm1_tac >- simp [EVERY_MEM] >>
+  Induct >>
+  rw [check_t_def, infer_deBruijn_subst_alt, LENGTH_COUNT_LIST,
+      EL_MAP, EL_COUNT_LIST, EVERY_MAP] >>
+  simp [EVERY_MEM]
 QED
 
 Theorem ienv_val_ok_open_extend:
@@ -2516,14 +2499,6 @@ PairCases_on `x` >>
 rw []
 QED
 
-Theorem t_ind = t_induction
-  |> Q.SPECL[`P`,`EVERY P`]
-  |> UNDISCH_ALL
-  |> CONJUNCT1
-  |> DISCH_ALL
-  |> SIMP_RULE (srw_ss()) []
-  |> Q.GEN`P`
-
 (* Rename (type_system) type identifiers with a function *)
 Definition ts_tid_rename_def:
   (ts_tid_rename f (Tapp ts tn) = Tapp (MAP (ts_tid_rename f) ts) (f tn)) ∧
@@ -2543,7 +2518,7 @@ Theorem ts_tid_rename_I[simp]:
    ts_tid_rename I = I
 Proof
   simp[FUN_EQ_THM]
-  \\ ho_match_mp_tac t_ind
+  \\ ho_match_mp_tac t_induction
   \\ rw[ts_tid_rename_def, MAP_EQ_ID, EVERY_MEM]
 QED
 
@@ -2601,15 +2576,7 @@ Definition unconvert_t_def:
 (unconvert_t (Tvar_db n) = Infer_Tvar_db n) ∧
 (unconvert_t (Tapp ts tc) = Infer_Tapp (MAP unconvert_t ts) tc) ∧
 (unconvert_t (Tvar v) = Infer_Tuvar ARB)
-Termination
-  wf_rel_tac `measure t_size` >>
- rw [] >>
- induct_on `ts` >>
- rw [t_size_def] >>
- full_simp_tac (srw_ss()++ARITH_ss) []
 End
-
-val unconvert_t_ind = theorem"unconvert_t_ind"
 
 (* Properties about inferencer type identifiers *)
 Definition inf_set_tids_def:
@@ -2649,7 +2616,7 @@ Theorem inf_set_tids_infer_deBruijn_subst_SUBSET:
     inf_set_tids (infer_deBruijn_subst subst t) ⊆
     inf_set_tids t ∪ BIGUNION (IMAGE inf_set_tids (set subst))
 Proof
-  gen_tac \\ ho_match_mp_tac infer_t_ind
+  gen_tac \\ ho_match_mp_tac infer_t_induction
   \\ rw[infer_deBruijn_subst_alt, inf_set_tids_def,
         SUBSET_DEF, PULL_EXISTS, MEM_MAP]
   \\ metis_tac[MEM_EL]
@@ -3040,18 +3007,18 @@ Proof
 QED
 
 Theorem infer_d_check:
- (!d ienv st1 st2 ienv'.
+ (!ienv d st1 st2 ienv'.
   infer_d ienv d st1 = (M_success ienv', st2) ∧
   ienv_ok {} ienv
   ⇒
   ienv_ok {} ienv') ∧
- (!ds ienv st1 st2 ienv'.
+ (!ienv ds st1 st2 ienv'.
   infer_ds ienv ds st1 = (M_success ienv', st2) ∧
   ienv_ok {} ienv
   ⇒
   ienv_ok {} ienv')
 Proof
- Induct>>rw[]>>
+ ho_match_mp_tac infer_d_ind>>rw[]>>
  fs [infer_d_def, success_eqns, infer_open_success]>>
  rpt (pairarg_tac >> fs [success_eqns])>>
  fs [init_state_def]>> rw[]>>
@@ -3149,6 +3116,7 @@ Proof
    >> rw []
    >> irule check_freevars_type_name_subst
    >> fs [EVERY_MEM])
+ >- (irule ienv_ok_open_ienv >> metis_tac [])
  >- (
   fs[ienv_ok_def,lift_ienv_def,ienv_val_ok_def,
      typeSoundInvariantsTheory.tenv_ctor_ok_def,
@@ -3159,7 +3127,6 @@ Proof
   \\ rw []
   \\ metis_tac [ienv_ok_extend_dec_ienv]
  )
- >- (irule ienv_ok_open_ienv >> metis_tac [])
  >- fs [ienv_ok_def, ienv_val_ok_def]
  >>
    match_mp_tac ienv_ok_extend_dec_ienv>>
@@ -3217,14 +3184,14 @@ metis_tac [infer_p_next_id_const,pair_CASES]
 QED
 
 Theorem infer_d_next_id_mono:
- (!d ienv st t st'.
+ (!ienv d st t st'.
   infer_d ienv d st = (M_success t, st') ⇒
   st.next_id ≤ st'.next_id) ∧
- (!ds ienv st ts st'.
+ (!ienv ds st ts st'.
   (infer_ds ienv ds st = (M_success ts, st') ⇒
   st.next_id ≤ st'.next_id))
 Proof
-  Induct>>rw[]>>
+  ho_match_mp_tac infer_d_ind>>rw[]>>
   fs [infer_d_def, success_eqns, infer_open_success]>>
   rpt (pairarg_tac >> fs [success_eqns])>>
   fs[init_state_def,init_infer_state_def]>>
@@ -3253,9 +3220,11 @@ Theorem check_freevars_more_append[local]:
   EVERY (check_freevars x (fvs2++fvs1)) ts ∧
   EVERY (check_freevars x (fvs1++fvs2)) ts)
 Proof
+  reverse conj_asm1_tac
+  >- (rw [EVERY_MEM] >> metis_tac []) >>
   Induct >>
-rw [check_freevars_def] >>
-metis_tac []
+  rw [check_freevars_def, EVERY_MEM] >>
+  metis_tac []
 QED
 
 Theorem check_freevars_more:
@@ -3339,6 +3308,8 @@ Theorem infer_deBruijn_subst_id:
  (!t. infer_deBruijn_subst [] t = t) ∧
   (!ts. MAP (infer_deBruijn_subst []) ts = ts)
 Proof
+  reverse conj_asm1_tac
+  >- simp[MAP_EQ_ID]>>
   Induct>>rw[]>>fs[infer_deBruijn_subst_alt,MAP_EQ_ID]
 QED
 
@@ -3348,10 +3319,10 @@ Theorem deBruijn_subst_nothing:
   ∀ts.
   MAP (deBruijn_subst 0 []) ts = ts
 Proof
-  ho_match_mp_tac t_induction>>
-  fs[deBruijn_subst_def]>>rw[]>>
-  fs[LIST_EQ_REWRITE]>>rw[]>>
-  fs[MEM_EL,EL_MAP]
+  reverse conj_asm1_tac
+  >- simp[MAP_EQ_ID]>>
+  Induct>>
+  rw[deBruijn_subst_def,MAP_EQ_ID]
 QED
 
 Theorem infer_deBruijn_subst_id2:
@@ -3362,13 +3333,10 @@ Theorem infer_deBruijn_subst_id2:
   EVERY (check_t tvs {}) ts ⇒
   MAP (infer_deBruijn_subst (GENLIST (Infer_Tvar_db) tvs)) ts = ts)
 Proof
-  ho_match_mp_tac infer_tTheory.infer_t_induction>>
-  rw[]>>fs[check_t_def]
-  >-
-    fs[infer_deBruijn_subst_alt]
-  >>
-    fs[infer_deBruijn_subst_alt,EVERY_MEM]>>
-    metis_tac[]
+  reverse conj_asm1_tac
+  >- gvs[EVERY_MEM,MAP_EQ_ID]>>
+  Induct>>
+  rw[]>>fs[check_t_def,infer_deBruijn_subst_alt,EVERY_MEM,MAP_EQ_ID]
 QED
 
 Theorem check_t_infer_deBruijn_subst:
@@ -3378,7 +3346,7 @@ Theorem check_t_infer_deBruijn_subst:
     ⇒
     check_t tvs uvs (infer_deBruijn_subst subst t)
 Proof
-  gen_tac \\ ho_match_mp_tac infer_t_ind
+  gen_tac \\ ho_match_mp_tac infer_t_induction
   >> rw [infer_deBruijn_subst_alt, check_t_def, EVERY_MEM, MEM_EL]
   >- metis_tac []
   >> simp [EL_MAP]
@@ -3391,7 +3359,7 @@ Theorem infer_deBruijn_subst_uncheck:
     ⇒
     check_t (max_tvs + LENGTH s) uvs t
 Proof
-  gen_tac \\ ho_match_mp_tac infer_t_ind
+  gen_tac \\ ho_match_mp_tac infer_t_induction
   >> rw [check_t_def, infer_deBruijn_subst_alt]
   >> fs [EVERY_MAP, EVERY_EL]
   >> rw []
@@ -3403,7 +3371,7 @@ Theorem db_subst_inc_id:
    !inst t.
     infer_deBruijn_subst inst (infer_deBruijn_inc (LENGTH inst) t) = t
 Proof
-  gen_tac \\ ho_match_mp_tac infer_t_ind
+  gen_tac \\ ho_match_mp_tac infer_t_induction
   >> rw [infer_deBruijn_inc_def, infer_deBruijn_subst_alt,
          MAP_MAP_o, combinTheory.o_DEF]
   >> Induct_on `l` >> rw []
@@ -3417,7 +3385,7 @@ Theorem t_walkstar_db_subst:
     infer_deBruijn_subst (MAP (t_walkstar s) inst)
                (t_walkstar (infer_deBruijn_inc (LENGTH inst) o_f s) t)
 Proof
-  gen_tac \\ ho_match_mp_tac infer_t_ind
+  gen_tac \\ ho_match_mp_tac infer_t_induction
   >> rw [infer_deBruijn_subst_alt]
   >> drule inc_wfs
   >> disch_then (qspec_then `LENGTH inst` mp_tac)
@@ -3457,7 +3425,29 @@ Theorem generalise_subst_exist:
     (∀x. x ∈ FDOM b ⇒  EL (b ' x) (subst++subst') = t_walkstar s (Infer_Tuvar x)))
 Proof
   strip_tac>>
-  ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  ‘(∀m n smap t subst a b t'.
+      m = 0 ∧ LENGTH subst = n ∧ FRANGE smap ⊆ count n ∧
+      (∀x. MEM x subst ⇒ check_t tvs {} x) ∧
+      t_vars t ⊆ FDOM s ∧ check_t 0 (FDOM s) t ∧
+      (∀x. x ∈ FDOM smap ⇒ EL (smap ' x) subst = t_walkstar s (Infer_Tuvar x)) ∧
+      generalise m n smap t = (a,b,t') ⇒
+      ∃subst'.
+        LENGTH subst' = a ∧ (∀x. MEM x subst' ⇒ check_t tvs {} x) ∧
+        (∀x. x ∈ FDOM b ⇒ EL (b ' x) (subst++subst') = t_walkstar s (Infer_Tuvar x))) ∧
+   (∀m n smap ts subst a b ts'.
+      m = 0 ∧ LENGTH subst = n ∧ FRANGE smap ⊆ count n ∧
+      (∀x. MEM x subst ⇒ check_t tvs {} x) ∧
+      EVERY (λt. t_vars t ⊆ FDOM s) ts ∧ EVERY (check_t 0 (FDOM s)) ts ∧
+      (∀x. x ∈ FDOM smap ⇒ EL (smap ' x) subst = t_walkstar s (Infer_Tuvar x)) ∧
+      generalise_list m n smap ts = (a,b,ts') ⇒
+      ∃subst'.
+        LENGTH subst' = a ∧ (∀x. MEM x subst' ⇒ check_t tvs {} x) ∧
+        (∀x. x ∈ FDOM b ⇒ EL (b ' x) (subst++subst') = t_walkstar s (Infer_Tuvar x)))’
+    suffices_by (
+      strip_tac >> conj_tac >> rpt strip_tac
+      >- (last_x_assum irule >> simp [] >> metis_tac []) >>
+      first_x_assum irule >> simp [] >> metis_tac []) >>
+  ho_match_mp_tac generalise_ind>>
   srw_tac[][]>>
   fsrw_tac[][check_t_def]
   >-
@@ -3465,7 +3455,6 @@ Proof
     qpat_x_assum`A=(a,b,t')` mp_tac>>BasicProvers.LET_ELIM_TAC>>
     fsrw_tac[][]>>
     first_assum match_mp_tac>>
-    ntac 2 HINT_EXISTS_TAC >>
     fsrw_tac[][EVERY_MEM,t_vars_eqn,SUBSET_DEF,MEM_MAP]>>
     metis_tac[])
   >-
@@ -3473,12 +3462,12 @@ Proof
     fsrw_tac[][generalise_def]>>
     full_case_tac>>fsrw_tac[][]
     >-
-      (qexists_tac`[t_walkstar s (Infer_Tuvar n)]`>>
+      (qexists_tac`[t_walkstar s (Infer_Tuvar uv)]`>>
       qpat_x_assum`A=b` sym_sub_tac>>
       srw_tac[][]
       >-
         (simp[FAPPLY_FUPDATE_THM]>>
-        `x ≠ n` by
+        `x ≠ uv` by
           (CCONTR_TAC>>
           fs[flookup_thm])>>
         fs[]>>
@@ -3496,9 +3485,11 @@ Proof
     fsrw_tac[][generalise_def]>>
     qpat_x_assum`A=(a,b,t')` mp_tac>>BasicProvers.LET_ELIM_TAC>>
     imp_res_tac generalise_subst>>
-    first_x_assum(qspecl_then[`subst`,`smap`,`num_gen`,`s'`,`t'`] assume_tac)>>
+    first_x_assum(qspecl_then[`subst`,`num_gen`,`s'`,`t'`] assume_tac)>>
     rfs[]>>
-    first_x_assum(qspecl_then[`subst++subst'`,`s'`,`num_gen'`,`s''`,`ts''`] mp_tac)>>
+    first_x_assum(qspecl_then[`num_gen`,`s'`,`t'`] mp_tac)>>
+    simp[]>>
+    disch_then(qspec_then`subst++subst'` mp_tac)>>
     impl_tac>-
       (fsrw_tac [ARITH_ss] []>>
       reverse CONJ_TAC>-
@@ -3508,10 +3499,11 @@ Proof
       fs[SUBMAP_DEF]>>
       res_tac>>
       DECIDE_TAC)>>
-    rw[]>>
-    qexists_tac`subst'++subst''`>>fs[]>>
+    disch_then (qx_choose_then`subst2` strip_assume_tac)>>
+    qexists_tac`subst'++subst2`>>fs[]>>
     metis_tac[]
 QED
+
 
 Theorem infer_deBruijn_subst_infer_subst_walkstar:
     ∀b subst n m.
@@ -3534,14 +3526,13 @@ Theorem infer_deBruijn_subst_infer_subst_walkstar:
   MAP (t_walkstar s) ts))
 Proof
   ntac 5 strip_tac>>
-  ho_match_mp_tac infer_tTheory.infer_t_induction>>rw[]>>
+  reverse conj_asm1_tac
+  >- (rw[MAP_EQ_f,EVERY_MEM] >> metis_tac[]) >>
+  Induct>>rw[]>>
   fs[infer_subst_def,t_walkstar_eqn1,check_t_def,infer_deBruijn_subst_alt]
-  >-
-    (fs[LIST_EQ_REWRITE,EL_MAP,t_vars_eqn,PULL_EXISTS,SUBSET_DEF,MEM_MAP]>>
-    rw[]>>
-    first_assum (match_mp_tac o MP_CANON)>>
-    fs[EVERY_MEM]>>
-    metis_tac[])
+  >- (
+    rw[MAP_MAP_o,MAP_EQ_f] >> first_x_assum irule >>
+    fs[EVERY_MEM,SUBSET_DEF,t_vars_eqn,MEM_MAP,PULL_EXISTS] >> metis_tac[])
   >>
   (fs[t_vars_eqn] >> imp_res_tac flookup_thm>>
   fs[PULL_FORALL]>>
@@ -4041,21 +4032,22 @@ Proof
 QED
 
 Theorem generalise_inf_set_tids:
-   (∀d a b c e f g. generalise a b c d = (e,f,g) ⇒
+   (∀a b c d e f g. generalise a b c d = (e,f,g) ⇒
                     inf_set_tids g = inf_set_tids d) ∧
-   (∀d a b c e f g. generalise_list a b c d = (e,f,g) ⇒
+   (∀a b c d e f g. generalise_list a b c d = (e,f,g) ⇒
                     EVERY2 (inv_image $= inf_set_tids) d g)
 Proof
-  Induct
+  ho_match_mp_tac generalise_ind
   \\ rw[generalise_def, inf_set_tids_def]
-  \\ rw[inf_set_tids_def]
-  \\ every_case_tac \\ rw[] \\ fs[inf_set_tids_def]
-  \\ pairarg_tac \\ fs[] \\ rw[inf_set_tids_def]
-  \\ TRY(pairarg_tac \\ fs[]) \\ rw[]
-  \\ res_tac \\ fs[]
-  \\ AP_TERM_TAC
-  \\ fs[LIST_REL_EL_EQN, EXTENSION,MEM_MAP,PULL_EXISTS,MEM_EL]
-  \\ metis_tac[]
+  >- (
+    pairarg_tac \\ gvs[inf_set_tids_def]
+    \\ AP_TERM_TAC
+    \\ fs[LIST_REL_EL_EQN, EXTENSION,MEM_MAP,PULL_EXISTS,MEM_EL]
+    \\ metis_tac[])
+  >- (every_case_tac \\ gvs[inf_set_tids_def])
+  >- (every_case_tac \\ gvs[inf_set_tids_def])
+  >- simp[inf_set_tids_def]
+  \\ rpt (pairarg_tac \\ gvs[])
 QED
 
 Theorem start_type_id_prim_tids_count:
@@ -4117,20 +4109,20 @@ Proof
 QED
 
 Theorem infer_d_inf_set_tids:
-   (∀d ienv st ienv' st'.
+   (∀ienv d st ienv' st'.
      infer_d ienv d st = (M_success ienv', st') ∧
      start_type_id ≤ st.next_id ∧
      inf_set_tids_ienv (count st.next_id) ienv
      ⇒
      inf_set_tids_ienv (count st'.next_id) ienv') ∧
-  (∀ds ienv st ienv' st'.
+  (∀ienv ds st ienv' st'.
      infer_ds ienv ds st = (M_success ienv', st') ∧
      start_type_id ≤ st.next_id ∧
      inf_set_tids_ienv (count st.next_id) ienv
      ⇒
      inf_set_tids_ienv (count st'.next_id) ienv')
 Proof
-  Induct
+  ho_match_mp_tac infer_d_ind
   \\ rw[infer_d_def, success_eqns, infer_open_success]
   \\ rpt(pairarg_tac \\ fs[success_eqns]) \\ rw[]
   >~ [`open_ienv path ienv = SOME opened`]
@@ -4296,18 +4288,18 @@ Proof
 QED
 
 Theorem infer_d_wfs:
-   (∀d ienv st ienv' st'.
+   (∀ienv d st ienv' st'.
      infer_d ienv d st = (M_success ienv', st') ∧
      t_wfs st.subst
      ⇒
      t_wfs st'.subst) ∧
-  (∀ds ienv st ienv' st'.
+  (∀ienv ds st ienv' st'.
      infer_ds ienv ds st = (M_success ienv', st') ∧
      t_wfs st.subst
      ⇒
      t_wfs st'.subst)
 Proof
-  Induct
+  ho_match_mp_tac infer_d_ind
   \\ rw[infer_d_def, success_eqns, infer_open_success, init_state_def]
   \\ rpt(pairarg_tac \\ fs[success_eqns])
   \\ rw[] >>

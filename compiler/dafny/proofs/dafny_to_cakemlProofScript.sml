@@ -11,6 +11,8 @@ Ancestors
 Libs
   preamble
 
+val _ = Parse.hide "member";
+
 (* TODO Remove unused definition / trivialities *)
 
 Type dfy_state[pp] = “:dafny_semanticPrimitives$state”
@@ -4409,7 +4411,7 @@ Theorem from_exp_con_check[local]:
      has_cons envc ⇒
      EVERY (check_exp_constructors envc) cml_bodys)
 Proof
-  Induct \\ rpt gen_tac
+  ho_match_mp_tac from_exp_ind \\ rpt conj_tac \\ rpt gen_tac
   >~ [‘FunCall name args’] >- (
     simp [check_exp_constructors_def, from_exp_def, oneline bind_def, CaseEq "sum"]
     \\ rpt strip_tac
