@@ -98,11 +98,12 @@ Datatype:
        equals the number of Xs taking the (constant) cover value vs[j].
        clsd ⇒ every Xs[i] additionally takes some value in vs. *)
   | GlobalCardinality ('a varc list) (int list) ('a varc list) bool
-  (* BinPacking Xs sizes bins : each item i has size sizes[i] and is
-     assigned to bin Xs[i], and each bin j has (a) when bins = INL Ls,
-     load Ls[j] = Σ {sizes[i] | Xs[i] = j} (b) when bins = INR Cs,
-     capacity Cs[j] ≥ Σ {sizes[i] | Xs[i] = j} *)
-  | BinPacking ('a varc list) (num list) ('a varc list + num list)
+    (* BinPacking Xs sizes Bs lds : item i, of size sizes[i], is in bin
+       Xs[i] (0 ≤ Xs[i] < LENGTH Bs).
+       The load of bin b is Σ {sizes[i] | Xs[i] = b} and its capacity is Bs[b].
+       With the "capacities" keyword (lds = F), we enforce load ≤ capacity.
+       With the "loads" keyword (lds = T), we enforce load = capacity. *)
+  | BinPacking ('a varc list) (num list) ('a varc list) bool
 End
 
 Overload AllDifferent = ``λXs. AllDifferentExcept Xs []``;
@@ -153,8 +154,8 @@ Datatype:
   extensional_constr =
     (* Table: assignment must match one of the rows *)
     Table ((int option) list list) ('a varc list)
-    (* Regular vars nstates trans finals :
-       vars (read as a value string) is accepted by the NFA with states
+    (* Regular Xs nstates trans finals :
+       Xs (read as a value string) is accepted by the NFA with states
        0..nstates-1, start state 0, transition relation trans
        (EL q trans = list of (symbol,target) edges out of state q),
        and accepting set finals. *)
@@ -163,13 +164,15 @@ Datatype:
   | NegativeTable ((int option) list list) ('a varc list)
     (* SmartTable rows: holds iff some row's entries all hold. *)
   | SmartTable (('a smart_entry) list list)
-    (* Mdd vars nodes_per_layer trans finals :
-       vars (n of them, read as a value string) is accepted by the layered
-       MDD with n+1 layers, 0..n; nodes_per_layer[i] is the node count of
-       layer i; trans[i][q] gives a list of (symbol,target) edges from node
-       q in layer i to target nodes in layer i+1 indicated by the respective
-       symbols; finals indexes accepting nodes at the final layer n. *)
-  | Mdd ('a varc list) (num list) ((int # num) list list list) (num list)
+    (* MDD Xs npl trans finals :
+       Xs (read as a value string) labels a path through the decision diagram.
+       - The diagram has n+1 layers (0 to n, n = LENGTH Xs).
+       - Each layer 0 ≤ i ≤ n has npl[i] nodes;
+         the path starts at node 0 of layer 0.
+       - Given any (v,q') in EL q (EL i trans) we can follow the value v to
+         node q' in layer i+1; this may be nondeterministic.
+       - The path ends at an accepting node in finals (in the final layer). *)
+  | MDD ('a varc list) (num list) ((int # num) list list list) (num list)
 End
 
 (* The LexSmartTable and AtMostOneSmartTable constraints are implemented as
@@ -511,18 +514,22 @@ Definition global_cardinality_sem_def:
   (clsd ⇒ EVERY (λX. MEM (varc w X) vs) Xs)
 End
 
-(* Total (constant) size of the items assigned to bin b *)
+(* The sum of the sizes s over the (item,size) pairs (X,s) in Xsz whose
+   item X is in bin b *)
 Definition bin_load_def:
-  bin_load b Xs sizes w =
-  iSUM $ MAP (λ(x,y). b2i (varc w x = &b) * &y) $ ZIP (Xs,sizes)
+  bin_load b Xsz w =
+  iSUM $ MAP (λ(X,s). b2i (varc w X = &b) * &s) Xsz
 End
 
+(* Every item is in one of the bins 0..LENGTH Bs-1, and the load of each
+   bin b is at most Bs[b], and equals Bs[b] when lds *)
 Definition binpacking_sem_def:
-  binpacking_sem Xs sizes bins w ⇔
+  binpacking_sem Xs sizes Bs lds w ⇔
   LENGTH Xs = LENGTH sizes ∧
-  case bins of
-    INL Ls => ∀i. i < LENGTH Ls ⇒ bin_load i Xs sizes w = varc w $ EL i Ls
-  | INR Cs => ∀i. i < LENGTH Cs ⇒ bin_load i Xs sizes w ≤ &(EL i Cs)
+  EVERY (λX. 0 ≤ varc w X ∧ Num (varc w X) < LENGTH Bs) Xs ∧
+  ∀b. b < LENGTH Bs ⇒
+    let ld = bin_load b (ZIP (Xs,sizes)) w; r = varc w (EL b Bs) in
+    ld ≤ r ∧ (lds ⇒ r ≤ ld)
 End
 
 Definition counting_constr_sem_def:
@@ -537,7 +544,7 @@ Definition counting_constr_sem_def:
   | In Y Xs => in_sem Y Xs w
   | AtMostOne Xs Y => at_most_one_sem Xs Y w
   | GlobalCardinality Xs vs Cs clsd => global_cardinality_sem Xs vs Cs clsd w
-  | BinPacking Xs sizes bins => binpacking_sem Xs sizes bins w
+  | BinPacking Xs sizes Bs lds => binpacking_sem Xs sizes Bs lds w
 End
 
 (***
@@ -682,10 +689,10 @@ End
 
 (* The next functions help define semantics for Regular (NFA). *)
 
-(* The edge list for state q is EL q trans.
-  out-of-bounds qs have no transitions *)
-Definition nfa_edges_def:
-  nfa_edges trans q =
+(* trans_edges trans q: the (symbol,target) edges out of node q of the
+   transition table trans; an out-of-bounds q has no edges *)
+Definition trans_edges_def:
+  trans_edges trans q =
     if q < LENGTH trans then EL q trans else []
 End
 
@@ -697,7 +704,7 @@ Definition nfa_accepts_def:
     q < nstates ∧ MEM q finals) ∧
   (nfa_accepts trans finals nstates q (v::vs) ⇔
      q < nstates ∧
-     ∃q'. MEM (v,q') (nfa_edges trans q) ∧
+     ∃q'. MEM (v,q') (trans_edges trans q) ∧
           nfa_accepts trans finals nstates q' vs)
 End
 
@@ -732,36 +739,33 @@ Definition smart_table_sem_def:
 End
 
 (* mdd_edges trans idx q gives the transition edges specific to node q at
-   layer idx *)
+   layer idx; a missing layer has no transitions *)
 Definition mdd_edges_def:
   mdd_edges trans idx q =
-    if idx < LENGTH trans ∧ q < LENGTH (EL idx trans)
-    then EL q (EL idx trans) else []
+    if idx < LENGTH trans then trans_edges (EL idx trans) q else []
 End
 
-(* mdd_accepts trans finals nodes_per_layer idx q vs formulates that
-   given trans and nodes_per_layer, the value sequence vs traces out
-   a path from node q in layer idx to an accepting node among finals
-   (in the final layer) *)
+(* mdd_accepts trans finals npl idx q vs
+  formulates that given trans and npl, the value sequence vs traces
+  out a path from node q in layer idx to an accepting node among finals
+  (in the final layer, by construction in mdd_sem) *)
 Definition mdd_accepts_def:
-  (mdd_accepts trans finals nodes_per_layer idx q [] ⇔
-    idx < LENGTH nodes_per_layer ∧ q < EL idx nodes_per_layer ∧
+  (mdd_accepts trans finals npl idx q [] ⇔
+    idx < LENGTH npl ∧ q < EL idx npl ∧
     MEM q finals) ∧
-  (mdd_accepts trans finals nodes_per_layer idx q (v::vs) ⇔
-    idx < LENGTH nodes_per_layer ∧ q < EL idx nodes_per_layer ∧
+  (mdd_accepts trans finals npl idx q (v::vs) ⇔
+    idx < LENGTH npl ∧ q < EL idx npl ∧
     ∃q'. MEM (v,q') (mdd_edges trans idx q) ∧
-         mdd_accepts trans finals nodes_per_layer (idx+1) q' vs)
+         mdd_accepts trans finals npl (idx+1) q' vs)
 End
 
-(* mdd_sem XS nodes_per_layer trans finals w formulates that there are
-   n+1 layers, that there are n transition functions, where n = LENGTH Xs,
-   one per each pair of consecutive layers (indexed by the nodes), and that
-   the value of Xs traces a path from node 0 in layer 0 to an accepting node
-   among finals (at the final layer) *)
+(* mdd_sem: with n = LENGTH Xs, there are n+1 layers and n transition
+   tables, and the value string (MAP (varc w) Xs) is accepted from node 0
+   of layer 0. *)
 Definition mdd_sem_def:
-  mdd_sem Xs nodes_per_layer trans finals w ⇔
-  LENGTH nodes_per_layer = LENGTH Xs + 1 ∧ LENGTH trans = LENGTH Xs ∧
-  mdd_accepts trans finals nodes_per_layer 0 0 (MAP (varc w) Xs)
+  mdd_sem Xs npl trans finals w ⇔
+  LENGTH npl = LENGTH Xs + 1 ∧ LENGTH trans = LENGTH Xs ∧
+  mdd_accepts trans finals npl 0 0 (MAP (varc w) Xs)
 End
 
 Definition extensional_constr_sem_def:
@@ -772,8 +776,8 @@ Definition extensional_constr_sem_def:
       regular_sem Xs nstates trans finals w
   | NegativeTable tss Xs => negative_table_sem tss Xs w
   | SmartTable rows => smart_table_sem rows w
-  | Mdd Xs nodes_per_layer trans finals =>
-      mdd_sem Xs nodes_per_layer trans finals w
+  | MDD Xs npl trans finals =>
+      mdd_sem Xs npl trans finals w
 End
 
 (***
