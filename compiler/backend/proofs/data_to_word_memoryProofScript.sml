@@ -9545,39 +9545,25 @@ Proof
   >> rw [MEM_APPEND] >> gvs []
 QED
 
-Theorem memory_rel_Block_fields:
-  get_real_addr c st copy_pointer = SOME copy_address ∧ good_dimindex (:'a) ⇒
-  ∀copy_count copy_roots.
-    copy_count ≤ LENGTH copy_values ∧
-    memory_rel c be ts refs sp st copy_memory copy_domain
-      ((Block copy_stamp copy_tag copy_values,Word copy_pointer)::copy_roots) ⇒
-    memory_rel c be ts refs sp st copy_memory copy_domain
-      (eq_explode (copy_address + bytes_in_word:'a word) copy_memory copy_domain
-         (TAKE copy_count copy_values) ++
-       (Block copy_stamp copy_tag copy_values,Word copy_pointer)::copy_roots) ∧
-    eq_assum (copy_address + bytes_in_word) copy_memory copy_domain
-      (TAKE copy_count copy_values)
-Proof
-  strip_tac
-  >> match_mp_tac memory_rel_collect_fields
-  >> qx_genl_tac [`copy_index`,`copy_roots`]
-  >> strip_tac
-  >> drule_all memory_rel_El'
-  >> strip_tac
-  >> gvs []
-QED
+Definition word_copy_source_def:
+  word_copy_source refs copy_source copy_values ⇔
+    (∃copy_stamp copy_tag. copy_source = Block copy_stamp copy_tag copy_values) ∨
+    (∃copy_flag copy_location.
+       copy_source = RefPtr copy_flag copy_location ∧
+       lookup copy_location refs = SOME (ValueArray copy_values))
+End
 
-Theorem memory_rel_ValueArray_fields:
+Theorem memory_rel_copy_source_fields:
   get_real_addr c st copy_pointer = SOME copy_address ∧ good_dimindex (:'a) ∧
-  lookup copy_location refs = SOME (ValueArray copy_values) ⇒
+  word_copy_source refs copy_source copy_values ⇒
   ∀copy_count copy_roots.
     copy_count ≤ LENGTH copy_values ∧
     memory_rel c be ts refs sp st copy_memory copy_domain
-      ((RefPtr copy_flag copy_location,Word copy_pointer)::copy_roots) ⇒
+      ((copy_source,Word copy_pointer)::copy_roots) ⇒
     memory_rel c be ts refs sp st copy_memory copy_domain
       (eq_explode (copy_address + bytes_in_word:'a word) copy_memory copy_domain
          (TAKE copy_count copy_values) ++
-       (RefPtr copy_flag copy_location,Word copy_pointer)::copy_roots) ∧
+       (copy_source,Word copy_pointer)::copy_roots) ∧
     eq_assum (copy_address + bytes_in_word) copy_memory copy_domain
       (TAKE copy_count copy_values)
 Proof
@@ -9585,6 +9571,11 @@ Proof
   >> match_mp_tac memory_rel_collect_fields
   >> qx_genl_tac [`copy_index`,`copy_roots`]
   >> strip_tac
+  >> gvs [word_copy_source_def]
+  >~ [`Block _ _ _`] >- (
+    drule_all memory_rel_El'
+    >> strip_tac
+    >> gvs [])
   >> drule_all memory_rel_Deref'
   >> strip_tac
   >> gvs []
@@ -13103,6 +13094,23 @@ Proof
   \\ fs [good_dimindex_def]
   \\ fs [fcpTheory.FCP_BETA,word_lsl_def,word_index]
   \\ match_mp_tac header_11_bits \\ decide_tac
+QED
+
+Theorem memory_rel_copy_source_IMP:
+  memory_rel c be ts refs sp st m dm ((copy_source,v:'a word_loc)::vars) ∧
+  word_copy_source refs copy_source copy_values ∧ good_dimindex (:'a) ⇒
+  ∃w. v = Word w ∧ LENGTH copy_values < dimword (:'a) DIV 16 ∧
+      (copy_values ≠ [] ⇒ ∃a. get_real_addr c st w = SOME a)
+Proof
+  rw [word_copy_source_def]
+  >~ [`Block _ _ _`] >- (
+    drule_all memory_rel_Block_IMP
+    >> rw []
+    >> Cases_on `copy_values = []`
+    >> gvs [good_dimindex_def,dimword_def])
+  >> drule_all memory_rel_ValueArray_IMP
+  >> rw []
+  >> gvs [good_dimindex_def,dimword_def]
 QED
 
 Theorem blocks_unique_Thunk:
