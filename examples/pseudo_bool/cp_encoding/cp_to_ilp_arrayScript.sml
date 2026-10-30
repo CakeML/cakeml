@@ -8,62 +8,6 @@ Ancestors
   pbc cp ilp cp_to_ilp
 
 (* Element: Xs[Y - offset] = Z *)
-Definition encode_proper_index_def:
-  encode_proper_index bnd Yi n =
-  let
-    (Y,offset) = Yi;
-    (lb,ub) =
-    case Y of
-      INL vY => bnd vY
-    | INR cY => (cY,cY);
-    lbc =
-    if lb < offset
-    then [mk_constraint_one_ge 1 Y offset]
-    else [];
-    ubc =
-    if ub > offset + n - 1
-    then [mk_constraint_one_ge (-1) Y (1 - n - offset)]
-    else []
-  in
-    lbc ++ ubc
-End
-
-Theorem encode_proper_index_lem[local]:
-  valid_assignment bnd wi ∧
-  0 ≤ varc wi Y − offset ∧
-  Num (varc wi Y − offset) < n ⇒
-  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (encode_proper_index bnd (Y,offset) &n)
-Proof
-  rw[encode_proper_index_def]>>
-  every_case_tac>>
-  pairarg_tac>>
-  rw[]>>
-  intLib.ARITH_TAC
-QED
-
-Definition cencode_proper_index_def:
-  cencode_proper_index bnd Yi n name atag =
-  let
-    (Y,offset) = Yi;
-    (lb,ub) =
-      case Y of
-        INL vY => bnd vY
-      | INR cY => (cY,cY);
-    lbann =
-      if lb < offset
-      then [mk_name name $ atag ^ «lb»]
-      else [];
-    ubann =
-      if ub > offset + n - 1
-      then [mk_name name $ atag ^ «ub»]
-      else []
-  in
-    List $ mk_annotate
-      (lbann ++ ubann)
-      (encode_proper_index bnd Yi n)
-End
-
 Definition encode_element_aux_def:
   encode_element_aux bnd Xs Yi Z =
   let
@@ -150,35 +94,11 @@ Proof
   rename1 ‘(Y,offset)’>>
   Cases_on ‘Xs = []’>>
   rw[element_sem_def,mk_array_ind_def,
-    encode_element_def,encode_proper_index_lem,encode_element_aux_def,
+    encode_element_def,encode_proper_index_sem_1,encode_element_aux_def,
     encode_full_eq_lem]>>
   rw[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi]>>
     simp[EVERY_MEM,reify_avar_def,reify_reif_def,varc_def]>>
     intLib.ARITH_TAC
-QED
-
-Theorem encode_element_sem_2_aux:
-  valid_assignment bnd wi ∧
-  EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_proper_index bnd (Y,offset) (&len)) ⇒
-  0 ≤ varc wi Y − offset ∧ Num (varc wi Y − offset) < len
-Proof
-  Cases_on ‘Y’>>
-  strip_tac
-  >-(
-    rename1 ‘INL vY’>>
-    Cases_on ‘bnd vY’>>
-    fs[valid_assignment_def]>>
-    last_x_assum $ drule_then assume_tac>>
-    gs[encode_proper_index_def,varc_def]>>
-    every_case_tac>>
-    fs[varc_def]>>
-    intLib.ARITH_TAC)
-  >-(
-    gs[encode_proper_index_def,varc_def]>>
-    every_case_tac>>
-    fs[varc_def]>>
-    intLib.ARITH_TAC)
 QED
 
 Theorem encode_element_sem_2:
@@ -194,7 +114,7 @@ Proof
     MEM_FLAT,SF DNF_ss,EVERY_GENLIST]>>
   simp[CONJ_ASSOC]>>
   CONJ_ASM1_TAC
-  >-metis_tac[encode_element_sem_2_aux]>>
+  >-metis_tac[encode_proper_index_sem_2]>>
   fs[encode_element_aux_def,EVERY_FLAT,SF DNF_ss]>>
   gvs[MEM_MAPi,SF DNF_ss,EVERY_MEM]>>
   rpt (last_x_assum $ drule_then assume_tac)>>
@@ -371,7 +291,7 @@ Proof
     drule HEAD_MEM>>
     fs[EVERY_MEM])>>
   rw[encode_element2d_def,encode_element2d_aux_def,
-    encode_full_eq_lem,encode_proper_index_lem]
+    encode_full_eq_lem,encode_proper_index_sem_1]
   >-(
     ntac 2 (rw[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi])>>
     simp[EVERY_MEM,reify_avar_def,reify_reif_def,varc_def]>>
@@ -400,7 +320,7 @@ Proof
     gs[]>>
     simp[Once $ GSYM CONJ_ASSOC]>>
     CONJ_TAC>>
-    metis_tac[encode_element_sem_2_aux])>>
+    metis_tac[encode_proper_index_sem_2])>>
   fs[encode_element2d_aux_def,EVERY_FLAT]>>
   qmatch_asmsub_abbrev_tac ‘EVERY P (MAPi _ _)’>>
   fs[MEM_MAPi,SF DNF_ss,EVERY_MEM]>>

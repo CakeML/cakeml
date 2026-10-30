@@ -177,7 +177,6 @@ val res = translate sexp_reg_edge_def;
 val res = translate sexp_reg_edges_def;
 val res = translate sexp_reg_trans_def;
 val res = translate sexp_regular_body_def;
-val res = translate sexp_mdd_edges_def;
 val res = translate sexp_mdd_layer_def;
 val res = translate sexp_mdd_layers_def;
 val res = translate sexp_mdd_body_def;
@@ -416,18 +415,18 @@ val res = translate cfalse_constr_def;
 
 val res = translate flat_app_def;
 
-val res = translate encode_bitsum_def;
-val res = translate cencode_bitsum_def;
-
 val res = translate encode_wbitsum_def;
 val res = translate cencode_wbitsum_def;
-val res = translate encode_wbitsum_le_def;
-val res = translate cencode_wbitsum_le_def;
+val res = translate encode_bitsum_def;
+val res = translate cencode_bitsum_def;
 
 val res = translate mk_lin_constraint_ge_aux_def;
 val res = translate mk_lin_constraint_ge_def;
 
 val res = translate mk_constraint_one_ge_def;
+
+val res = translate encode_proper_index_def;
+val res = translate cencode_proper_index_def;
 
 val res = translate (init_ec_def |> SRULE [mlmapTheory.empty_def, balanced_mapTheory.empty_def]);
 
@@ -534,11 +533,7 @@ val res = translate cp_to_ilp_countingTheory.cencode_gcc_counts_def;
 val res = translate cp_to_ilp_countingTheory.cencode_global_cardinality_aux_def;
 val res = translate cp_to_ilp_countingTheory.cencode_global_cardinality_def;
 
-val res = translate cp_to_ilp_countingTheory.bin_range_def;
-val res = translate listTheory.MAP2_DEF;
-val res = translate cp_to_ilp_countingTheory.bp_weighted_atoms_def;
-val res = translate cp_to_ilp_countingTheory.binpacking_range_def;
-val res = translate cp_to_ilp_countingTheory.encode_binpacking_aux_def;
+val res = translate cp_to_ilp_countingTheory.bp_atoms_def;
 val res = translate cp_to_ilp_countingTheory.cencode_binpacking_aux_def;
 val res = translate cp_to_ilp_countingTheory.cencode_binpacking_def;
 
@@ -604,9 +599,6 @@ val _ = check_side res;
 
 (* cp_to_ilp_array *)
 
-val res = translate cp_to_ilp_arrayTheory.encode_proper_index_def;
-val res = translate cp_to_ilp_arrayTheory.cencode_proper_index_def;
-
 val res = translate cp_to_ilp_arrayTheory.encode_element_aux_def;
 val res = translate cp_to_ilp_arrayTheory.cencode_element_aux_def;
 val res = translate cp_to_ilp_arrayTheory.cencode_element_def;
@@ -654,28 +646,21 @@ val res = translate cp_to_ilp_extensionalTheory.cencode_smart_table_def;
 
 (* regular *)
 
-(* the translated EL precondition holds for any in-bounds index *)
-Theorem el_side_imp[local]:
-  ∀xs n. n < LENGTH xs ⇒ el_side n xs
-Proof
-  Induct>>rw[Once npbc_arrayProgTheory.el_side_def]
-QED
-
 Theorem el_side_eq[local]:
   ∀n xs. el_side n xs ⇔ n < LENGTH xs
 Proof
   Induct_on ‘n’>>Cases_on ‘xs’>>rw[Once npbc_arrayProgTheory.el_side_def]>>gvs[]
 QED
 
-val res = translate cpTheory.nfa_edges_def;
+val res = translate cpTheory.trans_edges_def;
 
-Theorem nfa_edges_side:
-  nfa_edges_side trans q ⇔ T
+Theorem trans_edges_side:
+  trans_edges_side trans q ⇔ T
 Proof
-  rw[fetch "-" "nfa_edges_side_def"]>>metis_tac[el_side_imp]
+  rw[fetch "-" "trans_edges_side_def",el_side_eq]
 QED
 
-val _ = update_precondition nfa_edges_side;
+val _ = update_precondition trans_edges_side;
 
 val res = translate cp_to_ilp_extensionalTheory.reg_state_def;
 val res = translate cp_to_ilp_extensionalTheory.state_idx_row;
@@ -690,68 +675,19 @@ val res = translate cp_to_ilp_extensionalTheory.cencode_regular_def;
 
 (* mdd *)
 
-val res = translate cpTheory.mdd_edges_def;
-
-Theorem mdd_edges_side:
-  mdd_edges_side trans idx q ⇔ T
-Proof
-  rw[fetch "-" "mdd_edges_side_def"]>>metis_tac[el_side_imp]
-QED
-
-val _ = update_precondition mdd_edges_side;
-
-val res = translate cp_to_ilp_extensionalTheory.mdd_state_def;
-val res = translate cp_to_ilp_extensionalTheory.mdd_state_idx_row_def;
-val res = translate cp_to_ilp_extensionalTheory.mdd_state_idx_def;
-val res = translate cp_to_ilp_extensionalTheory.mdd_init_state_def;
-
-val res = translate cp_to_ilp_extensionalTheory.mdd_accept_state_def;
-
-Theorem mdd_accept_state_side:
-  mdd_accept_state_side nm nodes_per_layer finals ⇔ nodes_per_layer ≠ []
-Proof
-  rw[fetch "-" "mdd_accept_state_side_def", el_side_eq]>>
-  Cases_on ‘nodes_per_layer’>>gvs[]
-QED
-
-val _ = update_precondition mdd_accept_state_side;
-
+val res = translate REPLICATE;
 val res = translate cp_to_ilp_extensionalTheory.mdd_targets_def;
-
-Theorem mdd_targets_side:
-  mdd_targets_side nodes_per_layer trns ix qn vl ⇔ T
-Proof
-  rw[fetch "-" "mdd_targets_side_def", el_side_eq]
-QED
-
-val _ = update_precondition mdd_targets_side;
-
-val res = translate cp_to_ilp_extensionalTheory.mdd_frame_def;
-
-Theorem mdd_frame_side:
-  mdd_frame_side nm nodes_per_layer finals ⇔ nodes_per_layer ≠ []
-Proof
-  rw[fetch "-" "mdd_frame_side_def", mdd_accept_state_side]
-QED
-
-val _ = update_precondition mdd_frame_side;
-
+val res = translate cp_to_ilp_extensionalTheory.mdd_node_tabs_def;
+val res = translate cp_to_ilp_extensionalTheory.mdd_trans_layer_def;
 val res = translate cp_to_ilp_extensionalTheory.mdd_trans_def;
-
-Theorem mdd_trans_side:
-  mdd_trans_side bnd nm nodes_per_layer trns Xs ⇔ T
-Proof
-  rw[fetch "-" "mdd_trans_side_def", mdd_targets_side, el_side_eq]
-QED
-
-val _ = update_precondition mdd_trans_side;
-
+val res = translate cp_to_ilp_extensionalTheory.mdd_state_idx_def;
+val res = translate cp_to_ilp_extensionalTheory.mdd_frame_def;
 val res = translate cp_to_ilp_extensionalTheory.cencode_mdd_def;
 
 Theorem cencode_mdd_side:
   cencode_mdd_side bnd Xs nodes_per_layer trns finals nm ec ⇔ T
 Proof
-  rw[fetch "-" "cencode_mdd_side_def", mdd_trans_side, mdd_frame_side]>>
+  rw[fetch "-" "cencode_mdd_side_def"]>>
   Cases_on ‘nodes_per_layer’>>gvs[]
 QED
 

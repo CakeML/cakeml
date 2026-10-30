@@ -429,25 +429,11 @@ Definition sexp_regular_body_def:
 End
 
 (* mdd: (vars) (nodes-per-layer) ((layer-edges)...) (accepting...).
-   Layers reuse the same "per-node list of (symbol,target) edges" shape as
-   regular's transition table, one list-nesting level deeper (a list of
-   layers, each a list of per-node edge lists). Unlike regular, mdd
-   transitions are deterministic: reject two edges on the same symbol out
-   of one node (mirrors GCS's read_mdd, the only .scp reader that enforces
-   this — regular's in-memory representation allows NFA multi-target
-   edges, so it has no analogous check). *)
-Definition sexp_mdd_edges_def:
-  sexp_mdd_edges e =
-  do
-    edges <- sexp_reg_edges e;
-    if ALL_DISTINCT (MAP FST edges) then return edges
-    else fail («an mdd node has two edges on the same symbol\n»)
-  od
-End
-
+   Each layer has regular's transition-table shape: a per-node list of
+   (symbol,target) edges. *)
 Definition sexp_mdd_layer_def:
   sexp_mdd_layer e =
-    sexp_list_of («expected per-node list of mdd edge lists\n») sexp_mdd_edges e
+    sexp_list_of («expected per-node list of mdd edge lists\n») sexp_reg_edges e
 End
 
 Definition sexp_mdd_layers_def:
@@ -464,7 +450,7 @@ Definition sexp_mdd_body_def:
          nodes_per_layer <- sexp_num_list nodes_per_layer_e;
          trans <- sexp_mdd_layers layers_e;
          finals <- sexp_num_list finals_e;
-         return (Extensional (Mdd Xs nodes_per_layer trans finals))
+         return (Extensional (MDD Xs nodes_per_layer trans finals))
        od)
     | _ =>
       fail («mdd expects 4 args: (X1 ... Xn) (n0 ... nk) ((layer-edges)...) (f1 ... fk)\n»)
@@ -786,9 +772,7 @@ Definition sexp_global_cardinality_body_def:
 End
 
 (* binpacking: (I1 ... In) (s1 ... sn) loads|capacities (B1 ... Bm).
-   The tag picks the form and disambiguates the trailing list, which is
-   per-bin either way: loads are variables (one equality per bin),
-   capacities are constants (one upper bound per bin). *)
+   Each bin's load equals Bj (loads) or is at most Bj (capacities). *)
 Definition sexp_binpacking_body_def:
   sexp_binpacking_body rest =
     case rest of
@@ -796,14 +780,13 @@ Definition sexp_binpacking_body_def:
       (do
          Xs <- sexp_varc_list Xs_e;
          sizes <- sexp_num_list sizes_e;
-         bins <-
-           (if tag = «loads» then
-              (do Ls <- sexp_varc_list bins_e; return (INL Ls) od)
-            else if tag = «capacities» then
-              (do Cs <- sexp_num_list bins_e; return (INR Cs) od)
+         lds <-
+           (if tag = «loads» then return T
+            else if tag = «capacities» then return F
             else
               fail («binpacking tag must be loads or capacities, got: » ^ tag ^ «\n»));
-         return (Counting (BinPacking Xs sizes bins))
+         Bs <- sexp_varc_list bins_e;
+         return (Counting (BinPacking Xs sizes Bs lds))
        od)
     | _ =>
       fail («binpacking expects 4 args: (I1 ... In) (s1 ... sn) loads|capacities (B1 ... Bm)\n»)
@@ -1350,17 +1333,17 @@ Proof
 QED
 
 Theorem test_mdd:
-  (* MDD encoding X0 ≠ X1 over domain 0..2 (cake_three_constraints_request.md) *)
+  (* MDD encoding X0 ≠ X1 over domain 0..2 *)
   sexp_constraint_dispatch («mdd»)
     (fromStringL («((X0 X1) (1 3 1) ((((0 0) (1 1) (2 2))) (((1 0) (2 0)) ((0 0) (2 0)) ((0 0) (1 0)))) (0))»)) =
-    INR (Extensional (Mdd [INL «X0»; INL «X1»] [1;3;1]
+    INR (Extensional (MDD [INL «X0»; INL «X1»] [1;3;1]
            [[[(0,0);(1,1);(2,2)]];
             [[(1,0);(2,0)]; [(0,0);(2,0)]; [(0,0);(1,0)]]]
            [0])) ∧
-  (* duplicate edge on the same symbol out of one node is rejected *)
+  (* two edges on the same symbol out of one node (nondeterministic) *)
   sexp_constraint_dispatch («mdd»)
-    (fromStringL («((X0) (1 1) ((((0 0) (0 1)))) (0))»)) =
-    INL («an mdd node has two edges on the same symbol\n») ∧
+    (fromStringL («((X0) (1 2) ((((0 0) (0 1)))) (0))»)) =
+    INR (Extensional (MDD [INL «X0»] [1;2] [[[(0,0);(0,1)]]] [0])) ∧
   (* wrong arity *)
   sexp_constraint_dispatch («mdd»)
     (fromStringL («((X0) (1 1))»)) =
@@ -1563,12 +1546,12 @@ Theorem test_counting:
   sexp_constraint_dispatch («binpacking»)
     (fromStringL («((I0 I1 I2) (1 2 3) loads (L0 L1 L2))»)) =
     INR (Counting (BinPacking [INL «I0»; INL «I1»; INL «I2»] [1; 2; 3]
-           (INL [INL «L0»; INL «L1»; INL «L2»]))) ∧
+           [INL «L0»; INL «L1»; INL «L2»] T)) ∧
   (* binpacking, constant-capacities form *)
   sexp_constraint_dispatch («binpacking»)
     (fromStringL («((I0 I1 I2) (1 2 3) capacities (3 3 3))»)) =
     INR (Counting (BinPacking [INL «I0»; INL «I1»; INL «I2»] [1; 2; 3]
-           (INR [3; 3; 3]))) ∧
+           [INR 3; INR 3; INR 3] F)) ∧
   (* binpacking, unrecognised tag *)
   sexp_constraint_dispatch («binpacking»)
     (fromStringL («((I0) (1) bogus (B0))»)) =
