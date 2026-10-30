@@ -369,7 +369,9 @@ End
    of layer idx+1) *)
 Definition mdd_targets_def:
   mdd_targets (nodes_per_layer:num list) trans (idx:num) (q:num) (v:int) =
-  MAP SND (FILTER (λvt. FST vt = v ∧ SND vt < EL (idx+1) nodes_per_layer)
+  MAP SND (FILTER (λvt. FST vt = v ∧
+    SND vt <
+      (if idx + 1 < LENGTH nodes_per_layer then EL (idx+1) nodes_per_layer else 0))
     (mdd_edges trans idx q))
 End
 
@@ -385,7 +387,7 @@ Definition mdd_trans_def:
             [Pos (mdd_state name idx q); Pos (INL (Eq X v))]
             (at_least_one (MAP (λt. Pos (mdd_state name (idx+1) t))
               (mdd_targets nodes_per_layer trans idx q v)))))
-        (EL idx nodes_per_layer))
+        (if idx < LENGTH nodes_per_layer then EL idx nodes_per_layer else 0))
       (domlist bnd X)))
     Xs))
 End
@@ -853,7 +855,7 @@ Proof
 QED
 
 Theorem mdd_trans_sem:
-  valid_assignment bnd wi ⇒
+  valid_assignment bnd wi ∧ LENGTH nodes_per_layer = LENGTH Xs + 1 ⇒
   (EVERY (λx. iconstraint_sem x (wi,wb))
     (abstr (mdd_trans bnd name nodes_per_layer trans Xs)) ⇔
   ∀idx q v.
@@ -866,13 +868,15 @@ Proof
   strip_tac>>
   simp[mdd_trans_def,append_thm,EVERY_MAP,EVERY_MEM,MEM_FLAT,
     MEM_MAPi,MEM_GENLIST,PULL_EXISTS]>>
+  ‘∀idx. idx < LENGTH Xs ⇒ idx < LENGTH nodes_per_layer’ by simp[]>>
   simp[MEM_MAP,PULL_EXISTS,MEM_EL]>>
   metis_tac[]
 QED
 
 Theorem MEM_mdd_targets:
-  MEM t (mdd_targets nodes_per_layer trans idx q v) ⇔
-  MEM (v,t) (mdd_edges trans idx q) ∧ t < EL (idx+1) nodes_per_layer
+  idx + 1 < LENGTH nodes_per_layer ⇒
+  (MEM t (mdd_targets nodes_per_layer trans idx q v) ⇔
+  MEM (v,t) (mdd_edges trans idx q) ∧ t < EL (idx+1) nodes_per_layer)
 Proof
   rw[mdd_targets_def,MEM_MAP,MEM_FILTER,EXISTS_PROD]>>
   metis_tac[]
