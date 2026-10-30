@@ -4810,8 +4810,7 @@ Proof
         \\ gvs [OPTREL_def]
         \\ simp [bvlSemTheory.do_app_def,EVAL ``clos_tag_shift 0``]
         \\ qexists_tac `f2`
-        \\ simp []
-      )
+        \\ simp [])
       >- (
         rename1 `LIST_REL (v_rel p1.max_app f2 t2.refs t2.code) copy_source copy_target`
         \\ qmatch_asmsub_rename_tac `copy_array (copy_source,copy_offset) copy_length NONE`
@@ -4823,8 +4822,7 @@ Proof
         \\ gvs [OPTREL_def]
         \\ simp [bvlSemTheory.do_app_def,EVAL ``clos_tag_shift 0``]
         \\ qexists_tac `f2`
-        \\ simp []
-      )
+        \\ simp [])
       >- (
         qmatch_asmsub_rename_tac
           `copy_array (copy_source,copy_offset) copy_length
@@ -4851,8 +4849,7 @@ Proof
         \\ qexists_tac `f2`
         \\ simp [FDIFF_FUPDATE]
         \\ irule state_rel_UPDATE_REF
-        \\ simp []
-      )
+        \\ simp [])
       >- (
         qmatch_asmsub_rename_tac
           `copy_array (copy_source,copy_offset) copy_length
@@ -4879,9 +4876,7 @@ Proof
         \\ qexists_tac `f2`
         \\ simp [FDIFF_FUPDATE]
         \\ irule state_rel_UPDATE_REF
-        \\ simp []
-      )
-    )
+        \\ simp []))
     \\ Cases_on`∃fl. op = MemOp (CopyByte fl)` \\ fs[] >- (
       fs[closSemTheory.do_app_def,bvlSemTheory.do_app_def,PULL_EXISTS]
       \\ Cases_on`fl`

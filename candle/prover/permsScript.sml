@@ -359,8 +359,7 @@ Proof
     gvs [do_app_cases,perms_ok_def]
     \\ qpat_x_assum `copy_array _ _ _ = SOME _`
          (mp_then Any (qspec_then `perms_ok ps` mp_tac) EVERY_copy_array)
-    \\ simp []
-  )
+    \\ simp [])
   \\ Cases_on `op = CopyVecArr`
   >- (
     gvs [do_app_cases,perms_ok_def]
@@ -370,16 +369,14 @@ Proof
     \\ simp []
     \\ strip_tac
     \\ gvs [store_assign_def]
-    \\ rw [EL_LUPDATE,perms_ok_ref_def]
-  )
+    \\ rw [EL_LUPDATE,perms_ok_ref_def])
   \\ Cases_on `op = CopyArrVec`
   >- (
     gvs [do_app_cases,perms_ok_def]
     \\ imp_res_tac perms_ok_array_lookup
     \\ qpat_x_assum `copy_array _ _ _ = SOME _`
          (mp_then Any (qspec_then `perms_ok ps` mp_tac) EVERY_copy_array)
-    \\ simp []
-  )
+    \\ simp [])
   \\ Cases_on `op = CopyArrArr`
   >- (
     gvs [do_app_cases,perms_ok_def]
@@ -389,8 +386,7 @@ Proof
     \\ simp []
     \\ strip_tac
     \\ gvs [store_assign_def]
-    \\ rw [EL_LUPDATE,perms_ok_ref_def]
-  )
+    \\ rw [EL_LUPDATE,perms_ok_ref_def])
   \\ qpat_x_assum ‘do_app _ _ _ = _’ mp_tac
   \\ Cases_on ‘op = Env_id’ \\ gs []
   >- (

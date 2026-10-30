@@ -926,8 +926,7 @@ Proof
          |> SIMP_RULE (srw_ss()) [])
     >> strip_tac
     >> simp [Once type_v_cases]
-    >> fs [check_freevars_def]
-  ) >~
+    >> fs [check_freevars_def]) >~
   [`CopyArrVec`] >- (
     res_tac
     >> gvs []
@@ -940,8 +939,7 @@ Proof
          |> SIMP_RULE (srw_ss()) [])
     >> strip_tac
     >> simp [Once type_v_cases]
-    >> fs [check_freevars_def]
-  ) >~
+    >> fs [check_freevars_def]) >~
   [`CopyVecArr`] >- (
     res_tac
     >> gvs []
@@ -965,8 +963,7 @@ Proof
     >> drule_all store_assign_type_sound
     >> disch_then (qx_choose_then `copied_store` strip_assume_tac)
     >> qexists_tac `copied_store`
-    >> simp [Once type_v_cases]
-  ) >~
+    >> simp [Once type_v_cases]) >~
   [`CopyArrArr`] >- (
     res_tac
     >> gvs []
@@ -990,8 +987,7 @@ Proof
     >> drule_all store_assign_type_sound
     >> disch_then (qx_choose_then `copied_store` strip_assume_tac)
     >> qexists_tac `copied_store`
-    >> simp [Once type_v_cases]
-  ) >~
+    >> simp [Once type_v_cases]) >~
   [‘CopyStrStr’]
   >- ((* copy string *)
       rw [do_app_cases, PULL_EXISTS] >>
@@ -1220,7 +1216,6 @@ Proof
   simp[Boolv_def, AllCaseEqs(), SF DNF_ss] >>
   gvs[ctMap_has_bools_def]
 QED
-
 
 Theorem build_conv_type_sound:
  !envC cn vs tvs ts ctMap tenvS ts' tn tenvC tvs' tenvE l.

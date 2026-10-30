@@ -742,7 +742,6 @@ Proof
     \\ Cases_on `copy_new`
     \\ simp [do_app_def, case_eq_thms, op_gbag_def, PULL_EXISTS,
              bool_case_eq, pair_case_eq]
-    \\ rw []
     \\ gvs [ssgc_free_def, mglobals_extend_refl, AllCaseEqs()]
     \\ rpt strip_tac
     \\ gvs [FLOOKUP_UPDATE, AllCaseEqs()]

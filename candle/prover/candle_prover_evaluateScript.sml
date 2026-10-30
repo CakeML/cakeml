@@ -335,8 +335,7 @@ Proof
     \\ gs [SF SFY_ss]
     \\ qpat_x_assum `copy_array _ _ _ = SOME _`
          (mp_then Any (qspec_then `v_ok ctxt` mp_tac) EVERY_copy_array)
-    \\ gs [SF SFY_ss]
-  )
+    \\ gs [SF SFY_ss])
   \\ Cases_on `op = CopyVecArr`
   >- (
     gvs [do_app_cases,v_ok_def]
@@ -355,8 +354,7 @@ Proof
       \\ strip_tac
       \\ gvs [])
     \\ rw [oEL_LUPDATE,AllCaseEqs()]
-    \\ gs [ref_ok_def,SF SFY_ss]
-  )
+    \\ gs [ref_ok_def,SF SFY_ss])
   \\ Cases_on `op = CopyArrVec`
   >- (
     gvs [do_app_cases,v_ok_def]
@@ -365,8 +363,7 @@ Proof
     \\ gs [SF SFY_ss]
     \\ qpat_x_assum `copy_array _ _ _ = SOME _`
          (mp_then Any (qspec_then `v_ok ctxt` mp_tac) EVERY_copy_array)
-    \\ gs [SF SFY_ss]
-  )
+    \\ gs [SF SFY_ss])
   \\ Cases_on `op = CopyArrArr`
   >- (
     gvs [do_app_cases,v_ok_def]
@@ -385,8 +382,7 @@ Proof
       \\ strip_tac
       \\ gvs [])
     \\ rw [oEL_LUPDATE,AllCaseEqs()]
-    \\ gs [ref_ok_def,SF SFY_ss]
-  )
+    \\ gs [ref_ok_def,SF SFY_ss])
   \\ Cases_on ‘(∃a. op = UnsafeIndexArith a) ∨ ∃t. op = UnsafeIndexTest t’
   >- (
     gvs [do_app_cases, do_unsafe_index_arith_def,

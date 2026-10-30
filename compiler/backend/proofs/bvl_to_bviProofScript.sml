@@ -364,15 +364,13 @@ Proof
       qpat_x_assum `copy_array _ _ _ = SOME _`
         (mp_then Any (qspec_then `bv_ok r.refs` mp_tac)
            semanticPrimitivesPropsTheory.EVERY_copy_array)
-      \\ fs [EVERY_MEM]
-    )
+      \\ fs [EVERY_MEM])
     >- (
       imp_res_tac state_ok_value_array_lookup
       \\ qpat_x_assum `copy_array _ _ _ = SOME _`
         (mp_then Any (qspec_then `bv_ok r.refs` mp_tac)
            semanticPrimitivesPropsTheory.EVERY_copy_array)
-      \\ fs [EVERY_MEM]
-    )
+      \\ fs [EVERY_MEM])
     >- (
       irule state_ok_value_array_update
       \\ simp []
@@ -380,8 +378,7 @@ Proof
       \\ qpat_x_assum `copy_array _ _ _ = SOME _`
         (mp_then Any (qspec_then `bv_ok r.refs` mp_tac)
            semanticPrimitivesPropsTheory.EVERY_copy_array)
-      \\ fs [EVERY_MEM]
-    )
+      \\ fs [EVERY_MEM])
     >- (
       irule state_ok_value_array_update
       \\ simp []
@@ -389,9 +386,7 @@ Proof
       \\ qpat_x_assum `copy_array _ _ _ = SOME _`
         (mp_then Any (qspec_then `bv_ok r.refs` mp_tac)
            semanticPrimitivesPropsTheory.EVERY_copy_array)
-      \\ fs [EVERY_MEM]
-    )
-  )
+      \\ fs [EVERY_MEM]))
   \\ Cases_on `op = Install` THEN1
    (rw [] \\ fs [bvlSemTheory.do_app_def,bvlSemTheory.do_install_def,
       case_eq_thms,UNCURRY] \\ rveq \\ fs [state_ok_def]
@@ -1501,14 +1496,11 @@ Proof
     >- (
       rewrite_tac [GSYM MAP_TAKE,GSYM MAP_DROP,GSYM MAP_APPEND]
       \\ irule state_rel_update_valuearray
-      \\ fs [bv_ok_def]
-    )
+      \\ fs [bv_ok_def])
     >- (
       rewrite_tac [GSYM MAP_TAKE,GSYM MAP_DROP,GSYM MAP_APPEND]
       \\ irule state_rel_update_valuearray
-      \\ fs [bv_ok_def]
-    )
-  )
+      \\ fs [bv_ok_def]))
   \\ SIMP_TAC std_ss [Once bEvalOp_def,iEvalOp_def,do_app_aux_def]
   \\ Cases_on `op = MemOp El` \\ fs [] THEN1 (
     BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[adjust_bv_def,bEvalOp_def]
@@ -3418,8 +3410,7 @@ Resume compile_exps_correct[Op]:
       \\ imp_res_tac state_rel_FLOOKUP_byteArray
       \\ simp [bvl_to_bvi_with_refs,bvl_to_bvi_id]
       \\ irule state_rel_update_bytearray
-      \\ fs [FLOOKUP_DEF]
-    )
+      \\ fs [FLOOKUP_DEF])
     \\ Cases_on`op = MemOp (CopyByte F)` \\ fs[]
     >- (
       CONV_TAC (RESORT_EXISTS_CONV List.rev)
@@ -3432,8 +3423,7 @@ Resume compile_exps_correct[Op]:
       \\ imp_res_tac state_rel_FLOOKUP_byteArray
       \\ simp [bvl_to_bvi_with_refs,bvl_to_bvi_id]
       \\ irule state_rel_update_bytearray
-      \\ fs [FLOOKUP_DEF]
-    )
+      \\ fs [FLOOKUP_DEF])
     \\ Cases_on `op = MemOp (CopyByte T)` \\ fs []
     >- (
       gvs [bvlSemTheory.do_app_def,AllCaseEqs (),SWAP_REVERSE_SYM]
@@ -3467,7 +3457,7 @@ Resume compile_exps_correct[Op]:
            metis_tac [state_rel_FLOOKUP_byteArray]
       \\ qexists_tac `t2 with refs := t2.refs |+ (new_target,ByteArray T copied_bytes)`
       \\ qpat_x_assum `MAP (adjust_bv b2) env = MAP (adjust_bv ((new_source =+ new_target) b2)) env`
-           (fn th => rewrite_tac [GSYM th])
+           (rewrite_tac o single o GSYM)
       \\ fs [adjust_bv_def]
       \\ simp [compile_op_def,iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,
                APPLY_UPDATE_THM,bvl_to_bvi_with_refs,bvl_to_bvi_id,Abbr `new_target`]

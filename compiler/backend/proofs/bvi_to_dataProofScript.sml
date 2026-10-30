@@ -595,7 +595,7 @@ Proof
     \\ strip_tac
     \\ Cases
     \\ simp [])
-  \\ pop_assum (fn th => once_rewrite_tac [GSYM th])
+  \\ pop_assum (once_rewrite_tac o single o GSYM)
   \\ qpat_x_assum `op ≠ MemOp (CopyByte T)` kall_tac
   \\ ‘∃this_is_case. this_is_case op’ by (qexists_tac ‘K T’ \\ fs [])
   \\ cases_on_op `op`

@@ -1365,13 +1365,7 @@ Proof
   simp[do_app_def]>>
   imp_res_tac LIST_REL_store_lookup>>
   gvs[sv_rel_cases,store_alloc_def]
-  >~ [`copy_array _ _ (SOME _) (* sg *)`] >- (
-    drule_all LIST_REL_copy_array_SOME
-    >> disch_then (qx_choose_then `copied` strip_assume_tac)
-    >> drule_all store_assign_NONE_Varray
-    >> disch_tac
-    >> simp [])
-  >~ [`copy_array _ _ (SOME _) (* sg *)`] >- (
+  >>~- ([`copy_array _ _ (SOME _) (* sg *)`],
     drule_all LIST_REL_copy_array_SOME
     >> disch_then (qx_choose_then `copied` strip_assume_tac)
     >> drule_all store_assign_NONE_Varray
@@ -1535,35 +1529,18 @@ Proof
   gvs[sv_rel_cases,store_alloc_def,simple_val_rel_rewrites,
       simple_val_rel_list_to_v,result_rel_Rval2]>>
   imp_res_tac LIST_REL_LENGTH>>gvs[]
-  >~ [`copy_array _ _ NONE (* sg *)`,
-      `copy_array _ _ NONE = NONE`] >- (
+  >>~- ([`copy_array _ _ NONE (* sg *)`,
+         `copy_array _ _ NONE = NONE`],
     gvs [copy_array_def,AllCaseEqs(),sub_exn_v_def,simple_val_rel_rewrites])
-  >~ [`copy_array _ _ NONE (* sg *)`,
-      `copy_array _ _ NONE = SOME _`] >- (
+  >>~- ([`copy_array _ _ NONE (* sg *)`,
+         `copy_array _ _ NONE = SOME _`],
     gvs [copy_array_def,AllCaseEqs(),simple_val_rel_rewrites,
          LIST_REL_TAKE,LIST_REL_DROP])
-  >~ [`copy_array _ _ (SOME _) (* sg *)`,
-      `copy_array _ _ (SOME _) = NONE`] >- (
+  >>~- ([`copy_array _ _ (SOME _) (* sg *)`,
+         `copy_array _ _ (SOME _) = NONE`],
     gvs [copy_array_def,AllCaseEqs(),sub_exn_v_def,simple_val_rel_rewrites])
-  >~ [`copy_array _ _ (SOME _) (* sg *)`,
-      `copy_array _ _ (SOME _) = SOME _`] >- (
-    drule_all LIST_REL_copy_array_SOME
-    >> disch_then (qx_choose_then `copied` strip_assume_tac)
-    >> drule_all store_assign_SOME_Varray
-    >> disch_then (qx_choose_then `updated` strip_assume_tac)
-    >> gvs [simple_val_rel_rewrites])
-  >~ [`copy_array _ _ NONE (* sg *)`,
-      `copy_array _ _ NONE = NONE`] >- (
-    gvs [copy_array_def,AllCaseEqs(),sub_exn_v_def,simple_val_rel_rewrites])
-  >~ [`copy_array _ _ NONE (* sg *)`,
-      `copy_array _ _ NONE = SOME _`] >- (
-    gvs [copy_array_def,AllCaseEqs(),simple_val_rel_rewrites,
-         LIST_REL_TAKE,LIST_REL_DROP])
-  >~ [`copy_array _ _ (SOME _) (* sg *)`,
-      `copy_array _ _ (SOME _) = NONE`] >- (
-    gvs [copy_array_def,AllCaseEqs(),sub_exn_v_def,simple_val_rel_rewrites])
-  >~ [`copy_array _ _ (SOME _) (* sg *)`,
-      `copy_array _ _ (SOME _) = SOME _`] >- (
+  >>~- ([`copy_array _ _ (SOME _) (* sg *)`,
+         `copy_array _ _ (SOME _) = SOME _`],
     drule_all LIST_REL_copy_array_SOME
     >> disch_then (qx_choose_then `copied` strip_assume_tac)
     >> drule_all store_assign_SOME_Varray
@@ -1879,11 +1856,11 @@ Proof
     >> rw [Boolv_def])
   >> gvs [sub_exn_v_def,Boolv_def]
   >> imp_res_tac LIST_REL_LENGTH
-  >~ [`copy_array _ _ (SOME _) (* sg *)`,
-      `copy_array _ _ (SOME _) = NONE`] >- (
+  >>~- ([`copy_array _ _ (SOME _) (* sg *)`,
+         `copy_array _ _ (SOME _) = NONE`],
     gvs [copy_array_def,AllCaseEqs()])
-  >~ [`copy_array _ _ (SOME _) (* sg *)`,
-      `copy_array _ _ (SOME _) = SOME _`] >- (
+  >>~- ([`copy_array _ _ (SOME _) (* sg *)`,
+         `copy_array _ _ (SOME _) = SOME _`],
     drule_all LIST_REL_copy_array_SOME_forward
     >> disch_then (qx_choose_then `copied` strip_assume_tac)
     >> qmatch_asmsub_rename_tac `store_assign copy_location (Varray copied_source) refs = SOME refs1`
@@ -1891,29 +1868,11 @@ Proof
     >> drule_all LIST_REL_sv_rel_store_assign
     >> disch_then (qx_choose_then `updated` strip_assume_tac)
     >> simp [])
-  >~ [`copy_array _ _ (SOME _) (* sg *)`,
-      `copy_array _ _ (SOME _) = NONE`] >- (
+  >>~- ([`copy_array _ _ NONE (* sg *)`,
+         `copy_array _ _ NONE = NONE`],
     gvs [copy_array_def,AllCaseEqs()])
-  >~ [`copy_array _ _ (SOME _) (* sg *)`,
-      `copy_array _ _ (SOME _) = SOME _`] >- (
-    drule_all LIST_REL_copy_array_SOME_forward
-    >> disch_then (qx_choose_then `copied` strip_assume_tac)
-    >> qmatch_asmsub_rename_tac `store_assign copy_location (Varray copied_source) refs = SOME refs1`
-    >> `sv_rel vr (Varray copied_source) (Varray copied)` by simp [sv_rel_cases]
-    >> drule_all LIST_REL_sv_rel_store_assign
-    >> disch_then (qx_choose_then `updated` strip_assume_tac)
-    >> simp [])
-  >~ [`copy_array _ _ NONE (* sg *)`,
-      `copy_array _ _ NONE = NONE`] >- (
-    gvs [copy_array_def,AllCaseEqs()])
-  >~ [`copy_array _ _ NONE (* sg *)`,
-      `copy_array _ _ NONE = SOME _`] >- (
-    gvs [copy_array_def,AllCaseEqs(),LIST_REL_TAKE,LIST_REL_DROP])
-  >~ [`copy_array _ _ NONE (* sg *)`,
-      `copy_array _ _ NONE = NONE`] >- (
-    gvs [copy_array_def,AllCaseEqs()])
-  >~ [`copy_array _ _ NONE (* sg *)`,
-      `copy_array _ _ NONE = SOME _`] >- (
+  >>~- ([`copy_array _ _ NONE (* sg *)`,
+         `copy_array _ _ NONE = SOME _`],
     gvs [copy_array_def,AllCaseEqs(),LIST_REL_TAKE,LIST_REL_DROP])
   >~ [‘thunk_op’] >- (drule_all shape_val_rel_thunk_op >> simp [])
   >>~- ([‘store_assign’],

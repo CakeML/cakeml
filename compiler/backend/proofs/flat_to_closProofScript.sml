@@ -1060,8 +1060,7 @@ Proof
                     `source` |-> `Block 0 (copy_target:closSem$v list)`,
                     `source_length` |-> `&(LENGTH (copy_target:closSem$v list))`]
               evaluate_CopyWord_checked_new |> SIMP_RULE (srw_ss()) [do_app_def],
-            subscript_exn_v_def,v_rel_def]
-    )
+            subscript_exn_v_def,v_rel_def])
     >- (
       `~(copy_offset < 0 \/ copy_length < 0 \/
          &(LENGTH copy_target) < copy_offset + copy_length)` by (
@@ -1073,9 +1072,7 @@ Proof
                          `source` |-> `Block 0 (copy_target:closSem$v list)`,
                          `source_length` |-> `&(LENGTH (copy_target:closSem$v list))`]
                    evaluate_CopyWord_checked_new |>
-                   SIMP_RULE (srw_ss()) [do_app_def],evaluate_def,do_app_def]
-    )
-  )
+                   SIMP_RULE (srw_ss()) [do_app_def],evaluate_def,do_app_def]))
   >~ [`compile_op _ (Src CopyVecArr) _`] >- (
     gvs [flatSemTheory.do_app_def,AllCaseEqs(),v_rel_def,SWAP_REVERSE_SYM]
     \\ imp_res_tac lookup_array
@@ -1110,8 +1107,7 @@ Proof
         qpat_x_assum `copy_array (copy_target,_) _ (SOME _) = NONE` mp_tac
         \\ simp [copy_array_def,LET_THM,AllCaseEqs()]
         \\ intLib.COOPER_TAC)
-      \\ simp [subscript_exn_v_def,v_rel_def]
-    )
+      \\ simp [subscript_exn_v_def,v_rel_def])
     >- (
       `do_app (BlockOp LengthBlock) [Block 0 copy_target] t1 =
        Rval (Number (&(LENGTH copy_target)),t1)` by simp [do_app_def]
@@ -1129,9 +1125,7 @@ Proof
       \\ simp [evaluate_def,do_app_def,Unit_def,EVAL ``tuple_tag``]
       \\ gvs [store_assign_def]
       \\ irule state_rel_value_array_update
-      \\ simp []
-    )
-  )
+      \\ simp []))
   >~ [`compile_op _ (Src CopyArrVec) _`] >- (
     gvs [flatSemTheory.do_app_def,AllCaseEqs(),v_rel_def,SWAP_REVERSE_SYM]
     \\ imp_res_tac lookup_array
@@ -1159,8 +1153,7 @@ Proof
         qpat_x_assum `copy_array (copy_target,_) _ NONE = NONE` mp_tac
         \\ simp [copy_array_def,LET_THM]
         \\ intLib.COOPER_TAC)
-      \\ simp [subscript_exn_v_def,v_rel_def]
-    )
+      \\ simp [subscript_exn_v_def,v_rel_def])
     >- (
       `do_app (MemOp Length) [RefPtr copy_flag copy_pointer] t1 =
        Rval (Number (&(LENGTH copy_target)),t1)` by simp [do_app_def]
@@ -1174,9 +1167,7 @@ Proof
         \\ simp [copy_array_def,LET_THM]
         \\ strip_tac
         \\ intLib.COOPER_TAC)
-      \\ simp [evaluate_def,do_app_def]
-    )
-  )
+      \\ simp [evaluate_def,do_app_def]))
   >~ [`compile_op _ (Src CopyArrArr) _`] >- (
     gvs [flatSemTheory.do_app_def,AllCaseEqs(),v_rel_def,SWAP_REVERSE_SYM]
     \\ imp_res_tac lookup_array
@@ -1216,8 +1207,7 @@ Proof
         qpat_x_assum `copy_array (copy_target,_) _ (SOME _) = NONE` mp_tac
         \\ simp [copy_array_def,LET_THM,AllCaseEqs()]
         \\ intLib.COOPER_TAC)
-      \\ simp [subscript_exn_v_def,v_rel_def]
-    )
+      \\ simp [subscript_exn_v_def,v_rel_def])
     >- (
       `do_app (MemOp Length) [RefPtr copy_flag copy_pointer] t1 =
        Rval (Number (&(LENGTH copy_target)),t1)` by simp [do_app_def]
@@ -1237,9 +1227,7 @@ Proof
       \\ simp [evaluate_def,do_app_def,Unit_def,EVAL ``tuple_tag``]
       \\ gvs [store_assign_def]
       \\ irule state_rel_value_array_update
-      \\ simp []
-    )
-  )
+      \\ simp []))
 QED
 
 Theorem op_byte_copy:
