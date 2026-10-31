@@ -219,7 +219,7 @@ Proof
   \\ simp[] \\ fs[SUBSET_DEF]
   \\ qexists_tac`SOME o m`
   \\ simp[]
-  \\ irule data_to_word_assign_commonProofTheory.IMP_read_bytearray_GENLIST
+  \\ irule data_to_word_assign_miscProofTheory.IMP_read_bytearray_GENLIST
   \\ simp[] \\ rw[]
   \\ last_x_assum(qspec_then`n2w i + n2w (4 * LENGTH ll)`mp_tac)
   \\ impl_tac
@@ -1221,7 +1221,7 @@ Proof
     simp[lab_to_targetTheory.ffi_offset_def,
          heap_size_def, memory_size_def,
          ag32_targetTheory.ag32_target_def]
-    \\ match_mp_tac data_to_word_assign_commonProofTheory.IMP_read_bytearray_GENLIST
+    \\ match_mp_tac data_to_word_assign_miscProofTheory.IMP_read_bytearray_GENLIST
     \\ simp[]
     \\ gen_tac \\ strip_tac
     \\ conj_tac >- (
