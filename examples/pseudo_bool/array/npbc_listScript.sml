@@ -1229,30 +1229,20 @@ Definition split_goals_pure_def:
   (split_goals_pure proved extra
     ((i,c)::(goals:(num # (int # num) list # int) list)) lp lf =
     if sptree$lookup i proved ≠ NONE then
-      split_goals_pure proved extra goals ((i,c)::lp) lf
+      split_goals_pure proved extra goals (c::lp) lf
     else if imp_slot extra c then
       split_goals_pure proved extra goals lp lf
     else
       split_goals_pure proved extra goals lp (c::lf))
 End
 
-(* The table of the goals proved by subproofs; none when there are none *)
-Definition mk_proved_table_def:
-  mk_proved_table (lp:(num # npbc) list) =
-  if NULL lp then []
-  else
-    mk_hashset_slot (MAP (λ(i,c). enc c T) lp) (REPLICATE (LENGTH lp) [])
-End
-
-(* Every goal is a proved goal in the table lph, or matches a slot (core
-  only, if b) of fml in the table bks *)
+(* Every goal matches a slot (core only, if b) of fml in the table tbl, or
+  is one of the proved goals lp *)
 Definition ht_goals_def:
-  (ht_goals b fml lph bks [] ⇔ T) ∧
-  (ht_goals b fml lph bks (c::cs) ⇔
-    let h = hash_constraint c in
-    ((¬NULL lph ∧ in_hashset_slot h c lph) ∨
-      ht_mem b fml c (EL (h MOD LENGTH bks) bks)) ∧
-    ht_goals b fml lph bks cs)
+  (ht_goals b fml lp tbl [] ⇔ T) ∧
+  (ht_goals b fml lp tbl (c::cs) ⇔
+    (ht_probe b fml c (hash_constraint c) tbl ∨ mem_constraint c lp) ∧
+    ht_goals b fml lp tbl cs)
 End
 
 (* The goals neither proved nor implied by extra are looked up in the
@@ -1264,8 +1254,8 @@ Definition split_goals_hash_def:
   if NULL lf then (T,ht)
   else
     let ht = ht_fill fml inds base ht in
-    let (hw,a,d,bks) = ht in
-    (ht_goals b fml (mk_proved_table lp) bks lf, ht)
+    let (hw,a,d,tbl) = ht in
+    (ht_goals b fml lp tbl lf, ht)
 End
 
 Theorem split_goals_hash_test:
@@ -1277,8 +1267,9 @@ Theorem split_goals_hash_test:
   (* a goal in the database: core only when b *)
   FST (run F [(5,gp); (6,([(2,1);(-3,4)],5)); (7,([(1,1)],1))]) ∧
   ¬FST (run T [(5,gp); (6,([(2,1);(-3,4)],5)); (7,([(1,1)],1))]) ∧
-  (* a goal equal to a proved goal *)
+  (* a goal equal to a proved goal, outside or inside the database *)
   FST (run T [(5,gp); (8,gp); (6,([(2,1);(-3,4)],5))]) ∧
+  FST (run F [(5,([(1,1)],1)); (7,([(1,1)],1))]) ∧
   ¬FST (run F [(8,gp)]) ∧
   (* a goal implied by extra *)
   FST (run F [(9,([(1,7)],1))]) ∧
@@ -2384,18 +2375,24 @@ Proof
   rw[reindex_def,reindex_aux]
 QED
 
-(* A hit in the table is a constraint of the formula, whatever the bucket *)
+(* A hit in the table is a constraint of the formula, wherever the walk
+  starts *)
 Theorem ht_mem_core_only_fml:
-  ∀is.
+  ∀b fmlls c tbl j fuel.
   fml_rel fml fmlls ∧
-  ht_mem b fmlls c is ⇒
+  ht_mem b fmlls c tbl j fuel ⇒
   c ∈ core_only_fml b fml
 Proof
-  Induct>>
-  rw[ht_mem_def]>>
-  Cases_on`lookup_core_only_list b fmlls h`>>
+  ho_match_mp_tac ht_mem_ind>>
+  rpt gen_tac>>
+  strip_tac>>
+  simp[Once ht_mem_def]>>
+  rw[]>>
   gvs[]>>
-  `lookup_core_only_list b fmlls h ≠ Empty` by simp[]>>
+  rename1`lookup_core_only_list b fmlls i`>>
+  Cases_on`lookup_core_only_list b fmlls i`>>
+  gvs[]>>
+  `lookup_core_only_list b fmlls i ≠ Empty` by simp[]>>
   drule_all fml_rel_lookup_core_only_enc>>
   rw[]>>
   gvs[eq_slot_enc,lookup_core_only_def,core_only_fml_def,AllCaseEqs()]>>
@@ -2528,7 +2525,8 @@ QED
 Theorem MEM_split_goals_pure:
   ∀goals lp lf lp' lf'.
   split_goals_pure proved extra goals lp lf = (lp',lf') ⇒
-  (∀x. MEM x lp' ⇔ MEM x lp ∨ (MEM x goals ∧ lookup (FST x) proved ≠ NONE)) ∧
+  (∀c. MEM c lp' ⇔ MEM c lp ∨
+    ∃i. MEM (i,c) goals ∧ lookup i proved ≠ NONE) ∧
   (∀c. MEM c lf' ⇔ MEM c lf ∨
     ∃i. MEM (i,c) goals ∧ lookup i proved = NONE ∧ ¬imp_slot extra c)
 Proof
@@ -2542,29 +2540,11 @@ QED
 
 Theorem ht_goals_EVERY:
   ∀cs.
-  ht_goals b fml lph bks cs ⇔
-  EVERY (λc.
-    (¬NULL lph ∧ in_hashset_slot (hash_constraint c) c lph) ∨
-    ht_mem b fml c (EL (hash_constraint c MOD LENGTH bks) bks)) cs
+  ht_goals b fml lp tbl cs ⇔
+  EVERY (λc. ht_probe b fml c (hash_constraint c) tbl ∨ mem_constraint c lp) cs
 Proof
   Induct>>
   rw[ht_goals_def]
-QED
-
-(* A hit in the table of the proved goals is a proved goal *)
-Theorem in_mk_proved_table:
-  ¬NULL (mk_proved_table lp) ∧
-  in_hashset_slot h c (mk_proved_table lp) ⇒
-  ∃i. MEM (i,c) lp
-Proof
-  rw[mk_proved_table_def]>>
-  drule in_hashset_slot_mk_hashset_slot>>
-  rw[]
-  >- (
-    gvs[MEM_MAP,EXISTS_PROD,eq_slot_enc]>>
-    metis_tac[])>>
-  Cases_on`lp`>>
-  gvs[in_hashset_slot_def,EL_REPLICATE,mem_slots_def]
 QED
 
 Theorem split_goals_hash_imp_split_goals:
@@ -2591,11 +2571,10 @@ Proof
   impl_tac >- metis_tac[]>>
   strip_tac
   >- (
-    drule_all in_mk_proved_table>>
-    metis_tac[pairTheory.FST])>>
-  disj1_tac>>
-  simp[range_mk_core_fml]>>
-  metis_tac[ht_mem_core_only_fml]
+    disj1_tac>>
+    simp[range_mk_core_fml]>>
+    metis_tac[ht_mem_core_only_fml,ht_probe_def])>>
+  metis_tac[mem_constraint_thm]
 QED
 
 Theorem lookup_core_only_list_list_delete_list:
@@ -3759,7 +3738,7 @@ Theorem slot_list_test:
   opt_cons F 1 3 (Vcount 9 [] []) = Vcount 10 [3] [] ∧
   opt_cons T 1 3 (Vcount 10 [] []) = Voverflow ∧
   split_goals_pure (insert 0 () LN) c1 [(0,([(1,1)],1)); (1,([(1,1)],1));
-    (2,([(1,2)],1))] [] [] = ([(0,([(1,1)],1))], [([(1,2)],1)])
+    (2,([(1,2)],1))] [] [] = ([([(1,1)],1)], [([(1,2)],1)])
 Proof
   EVAL_TAC
 QED
@@ -5859,60 +5838,49 @@ QED
 
 (* Output check against the table *)
 
-Theorem ht_mem_slots_MEM:
-  ∀is.
-  ht_mem_slots fmlls s is ⇒
-  ∃i. lookup_core_only_list T fmlls i ≠ Empty ∧
-    eq_slots s (lookup_core_only_list T fmlls i)
-Proof
-  Induct>>
-  rw[ht_mem_slots_def]>>
-  Cases_on`lookup_core_only_list T fmlls h`>>
-  gvs[]
-  >~ [`eq_slots s (Stored _ _ _ _ _ _)`] >- (
-    qexists_tac`h`>>
-    simp[])>>
-  metis_tac[]
-QED
-
 Theorem LENGTH_ht_mark:
-  ∀is mk. LENGTH (ht_mark fmlls s is mk) = LENGTH mk
+  ∀fmlls c tbl j fuel mk. LENGTH (ht_mark fmlls c tbl j fuel mk) = LENGTH mk
 Proof
-  Induct>>
-  rw[ht_mark_def]>>
-  Cases_on`lookup_core_only_list T fmlls h`>>
+  ho_match_mp_tac ht_mark_ind>>
+  rw[]>>
+  rw[Once ht_mark_def]>>
+  TOP_CASE_TAC>>
   rw[]
 QED
 
 Theorem EL_ht_mark:
-  ∀is mk j.
-  j < LENGTH mk ∧ EL j (ht_mark fmlls s is mk) ⇒
-  EL j mk ∨
-  (lookup_core_only_list T fmlls j ≠ Empty ∧
-    eq_slots s (lookup_core_only_list T fmlls j))
+  ∀fmlls c tbl j fuel mk k.
+  k < LENGTH mk ∧ EL k (ht_mark fmlls c tbl j fuel mk) ⇒
+  EL k mk ∨
+  (lookup_core_only_list T fmlls k ≠ Empty ∧
+    eq_slot c (lookup_core_only_list T fmlls k))
 Proof
-  Induct>>
-  rw[ht_mark_def]>>
-  Cases_on`lookup_core_only_list T fmlls h`>>
+  ho_match_mp_tac ht_mark_ind>>
+  rpt gen_tac>>
+  strip_tac>>
+  rpt gen_tac>>
+  simp[Once ht_mark_def]>>
+  rw[]>>
   gvs[]>>
   first_x_assum (drule_at (Pos last))>>
+  TOP_CASE_TAC>>
   rw[EL_LUPDATE]>>
   gvs[]
 QED
 
 Theorem LENGTH_ht_marks:
-  ∀ss mk. LENGTH (ht_marks fmlls bks ss mk) = LENGTH mk
+  ∀cs mk. LENGTH (ht_marks fmlls tbl cs mk) = LENGTH mk
 Proof
   Induct>>
   rw[ht_marks_def,LENGTH_ht_mark]
 QED
 
 Theorem EL_ht_marks:
-  ∀ss mk j.
-  j < LENGTH mk ∧ EL j (ht_marks fmlls bks ss mk) ⇒
+  ∀cs mk j.
+  j < LENGTH mk ∧ EL j (ht_marks fmlls tbl cs mk) ⇒
   EL j mk ∨
-  ∃s. MEM s ss ∧ lookup_core_only_list T fmlls j ≠ Empty ∧
-    eq_slots s (lookup_core_only_list T fmlls j)
+  ∃c. MEM c cs ∧ lookup_core_only_list T fmlls j ≠ Empty ∧
+    eq_slot c (lookup_core_only_list T fmlls j)
 Proof
   Induct>>
   rw[ht_marks_def]>>
@@ -5938,31 +5906,26 @@ Proof
   gvs[]
 QED
 
-(* The output slots are core constraints of the formula *)
+(* The output constraints are core constraints of the formula *)
 Theorem ht_include_fml_include:
   fml_rel fml fmlls ∧
-  ht_include fmlls bks (MAP (λc. enc c T) fmlt) ⇒
+  ht_include fmlls tbl fmlt ⇒
   fml_include (MAP SND (toAList (mk_core_fml T fml))) fmlt
 Proof
-  rw[ht_include_def,fml_include_def,EVERY_MAP,EVERY_MEM]>>
+  rw[ht_include_def,fml_include_def,EVERY_MEM,ht_probe_def]>>
   first_x_assum drule>>
   strip_tac>>
-  drule ht_mem_slots_MEM>>
-  strip_tac>>
-  drule_all fml_rel_lookup_core_only_enc>>
-  strip_tac>>
-  gvs[eq_slots_thm]>>
-  simp[MEM_MAP,EXISTS_PROD,MEM_toAList,lookup_mk_core_fml]>>
+  drule_all ht_mem_core_only_fml>>
+  rw[GSYM range_mk_core_fml,range_def,MEM_MAP,EXISTS_PROD,MEM_toAList]>>
   Cases_on`c`>>
-  simp[]>>
   metis_tac[]
 QED
 
-(* Every core constraint of the formula is an output slot *)
+(* Every core constraint of the formula is an output constraint *)
 Theorem all_marked_fml_include:
   fml_rel fml fmlls ∧
   (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
-  all_marked fmlls (ht_marks fmlls bks (MAP (λc. enc c T) fmlt) (REPLICATE id F)) id ⇒
+  all_marked fmlls (ht_marks fmlls tbl fmlt (REPLICATE id F)) id ⇒
   fml_include fmlt (MAP SND (toAList (mk_core_fml T fml)))
 Proof
   rw[fml_include_def,EVERY_MAP,EVERY_MEM,MEM_MAP,FORALL_PROD,MEM_toAList,
@@ -5983,14 +5946,14 @@ Proof
   drule_at (Pos last) EL_ht_marks>>
   simp[LENGTH_REPLICATE,EL_REPLICATE]>>
   strip_tac>>
-  gvs[MEM_MAP,eq_slots_thm]
+  gvs[eq_slot_enc]
 QED
 
 Theorem fml_rel_check_output_list:
   fml_rel fml' fmlls' ∧
   (∀n. n ≥ id' ⇒ any_el n fmlls' Empty = Empty) ∧
   check_output_list fmlls' inds' id' ht' pres obj bound dbound chk
-    (MAP (λc. enc c T) fmlt) prest objt output ⇒
+    fmlt prest objt output ⇒
   check_output fml' pres obj bound dbound chk fmlt prest objt output
 Proof
   rw[]>>
@@ -6014,9 +5977,8 @@ Theorem check_csteps_list_output:
     (LENGTH fml + 1)
     (init_conf chk pres obj, mk_vomap_opt obj, 0) ht =
     SOME(fmlls',assg',st',inds',vimap',id',(pc',vomap',cw'),ht') ∧
-  fmlts = MAP (λc. enc c T) fmlt ∧
   check_output_list fmlls' inds' id' ht'
-    pc'.pres pc'.obj pc'.bound pc'.dbound pc'.chk fmlts prest objt output ⇒
+    pc'.pres pc'.obj pc'.bound pc'.dbound pc'.chk fmlt prest objt output ⇒
   sem_output (set fml) obj (pres_set_spt pres) pc'.bound (set fmlt) objt (pres_set_spt prest) output
 Proof
   strip_tac>>

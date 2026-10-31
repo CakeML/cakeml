@@ -195,6 +195,28 @@ Proof
   Induct>>rw[app_enc_def,enc_list_def]
 QED
 
+(* The constraints stored in the slots ss *)
+(* TMC *)
+Definition dec_list_def:
+  (dec_list [] = []) ∧
+  (dec_list (s::ss) = let c = dec s in c :: dec_list ss)
+End
+
+val r = translate dec_list_def;
+
+Theorem dec_list_side:
+  ∀ss. EVERY wf_slot ss ⇒ dec_list_side ss
+Proof
+  Induct>>
+  rw[Once (fetch "-" "dec_list_side_def"),npbc_arrayProgTheory.dec_side]
+QED
+
+Theorem dec_list_enc_list:
+  ∀fml. dec_list (enc_list fml) = fml
+Proof
+  Induct>>fs[dec_list_def,enc_list_def]
+QED
+
 Theorem parse_norm_line_acc:
   parse_norm_line l s acc =
   case parse_norm_line l s [] of
@@ -875,7 +897,7 @@ Quote add_cakeml:
     (case
       map_out_concl_to_string
         (check_unsat_top True (name_to_num_var_nf,u)
-          fml pres obj fmlt prest objt f2) of
+          fml pres obj (dec_list fmlt) prest objt f2) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s))
 End
@@ -942,6 +964,12 @@ Proof
   simp[SUM_TYPE_def,PAIR_TYPE_def,enc_prob_def]>>rw[]>>
   xmatch>>
   xmatch>>
+  xlet`POSTv v. STDIO fs * &LIST_TYPE constraint_TYPE fmlt v`
+  >- (
+    xapp>>xsimpl>>
+    qexists_tac`enc_list fmlt`>>
+    gvs[npbc_arrayProgTheory.LIST_TYPE_fslot_TYPE,dec_list_side,
+      dec_list_enc_list])>>
   ntac 2 xlet_autop>>
   xlet`(POSTv v.
      STDIO fs *

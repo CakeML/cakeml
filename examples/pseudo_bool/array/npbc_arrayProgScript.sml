@@ -2393,8 +2393,9 @@ Proof
   xlet_auto>- (xcon>>xsimpl)>>
   xlet_auto>>
   `fslot_TYPE (any_el h fmlls Empty) v'` by (
-    rw[any_el_ALT]>>
-    gvs[LIST_REL_EL_EQN,fslot_TYPE_def,wf_slot_def,SLOT_TYPE_def])>>
+    gvs[]>>
+    irule LIST_REL_fslot_TYPE_any_el>>
+    gvs[SLOT_TYPE_def])>>
   rw[]>>
   simp[reindex_aux_def]>>
   Cases_on`any_el h fmlls Empty`>>gvs[fslot_TYPE_def,SLOT_TYPE_def]
@@ -3332,8 +3333,19 @@ QED
 
 val _ = hash_term_side |> update_precondition;
 
-val res = translate hash_pair_def;
 val res = translate (hash_list_def |> REWRITE_RULE hash_simps);
+
+Theorem hash_list_ind_thm[local]:
+  hash_list_ind
+Proof
+  rw[fetch "-" "hash_list_ind_def"]>>
+  qid_spec_tac`v5`>>
+  Induct_on`v6`>>
+  rw[]
+QED
+
+val _ = hash_list_ind_thm |> update_precondition;
+
 val res = translate (hash_constraint_def |> REWRITE_RULE hash_simps);
 val res = translate (hash_terms_slot_def |> REWRITE_RULE hash_simps);
 
@@ -3341,8 +3353,9 @@ Theorem hash_terms_slot_ind_thm[local]:
   hash_terms_slot_ind
 Proof
   rw[fetch "-" "hash_terms_slot_ind_def"]>>
-  qid_spec_tac`v2`>>
-  Induct_on`v4`>>
+  `∀k v2 v5 v4 v3 v1. v4 - v3 = k ⇒ P v2 v5 v4 v3 v1`
+    suffices_by metis_tac[]>>
+  Induct>>
   rw[]
 QED
 
@@ -3351,8 +3364,9 @@ val _ = hash_terms_slot_ind_thm |> update_precondition;
 val res = translate (hash_slot_def |> REWRITE_RULE hash_simps);
 
 Theorem hash_terms_slot_side[local]:
-  ∀i cs vs acc.
-  i ≤ length cs ∧ i ≤ length vs ⇒ hash_terms_slot_side cs vs i acc
+  ∀k cs vs n i acc.
+  n - i = k ∧ n ≤ length cs ∧ n ≤ length vs ⇒
+  hash_terms_slot_side cs vs n i acc
 Proof
   Induct>>
   rw[]>>
@@ -3368,156 +3382,133 @@ Proof
   simp[]
 QED
 
-val res = translate mem_slots_def;
-val res = translate eq_terms_slots_def;
-val res = translate eq_slots_def;
-
-Theorem eq_terms_slots_side[local]:
-  ∀i cs vs cs' vs'.
-  i ≤ length cs ∧ i ≤ length vs ∧ i ≤ length cs' ∧ i ≤ length vs' ⇒
-  eq_terms_slots_side cs vs cs' vs' i
-Proof
-  Induct>>
-  rw[]>>
-  simp[Once (fetch "-" "eq_terms_slots_side_def")]
-QED
-
-Theorem eq_slots_side:
-  wf_slot s ∧ wf_slot t ⇒ eq_slots_side s t
-Proof
-  Cases_on`s`>>Cases_on`t`>>
-  rw[fetch "-" "eq_slots_side_def",wf_slot_def]>>
-  irule eq_terms_slots_side>>
-  simp[]
-QED
-
-Theorem mem_slots_side:
-  ∀ss. EVERY wf_slot ss ⇒ mem_slots_side c ss
-Proof
-  Induct>>
-  rw[]>>
-  simp[Once (fetch "-" "mem_slots_side_def"),eq_slot_side]
-QED
-
-(* Adds each slot of ss to the hash table hs (with at least one bucket) *)
-Quote add_cakeml:
-  fun mk_hashset_arr ss hs =
-  case ss of [] => ()
-  | s::ss =>
-    let val h = hash_slot s mod Array.length hs in
-      Unsafe.update hs h (s::Unsafe.sub hs h);
-      mk_hashset_arr ss hs
-    end
+(* The table (hw,a,d,tbl); its places are in an array *)
+Definition ht_TYPE_def:
+  ht_TYPE bksv bkslsv (ht:num # num # num # num list) v ⇔
+  PAIR_TYPE NUM (PAIR_TYPE NUM (PAIR_TYPE NUM
+    (λl v. LIST_REL NUM l bkslsv ∧ v = bksv))) ht v
 End
 
-Theorem mk_hashset_arr_spec:
-  ∀ss ssv hs hsv.
-  LIST_TYPE fslot_TYPE ss ssv ∧
-  hs ≠ [] ∧
-  LIST_REL (LIST_TYPE fslot_TYPE) hs hsv
+val res = translate ht_next_def;
+
+Quote add_cakeml:
+  fun ht_put_arr i tbl j fuel =
+  if fuel = 0 then ()
+  else if Unsafe.sub tbl j = 0 then Unsafe.update tbl j i
+  else ht_put_arr i tbl (ht_next (Array.length tbl) j) (fuel - 1)
+End
+
+Theorem ht_put_arr_spec:
+  ∀fuel fuelv j jv tbllsv.
+  NUM i iv ∧ NUM j jv ∧ NUM fuel fuelv ∧
+  LIST_REL NUM tbl tbllsv ∧ j < LENGTH tbl
   ⇒
   app (p : 'ffi ffi_proj)
-    ^(fetch_v "mk_hashset_arr" (get_ml_prog_state()))
-    [ssv; hspv]
-    (ARRAY hspv hsv)
-    (POSTv resv.
-      &UNIT_TYPE () resv *
-      SEP_EXISTS hsv'.
-      ARRAY hspv hsv' *
-      &(LIST_REL (LIST_TYPE fslot_TYPE) (mk_hashset_slot ss hs) hsv'))
+    ^(fetch_v "ht_put_arr" (get_ml_prog_state()))
+    [iv; tblv; jv; fuelv]
+    (ARRAY tblv tbllsv)
+    (POSTv v.
+      SEP_EXISTS tbllsv'. ARRAY tblv tbllsv' *
+      &(UNIT_TYPE () v ∧ LIST_REL NUM (ht_put i tbl j fuel) tbllsv'))
 Proof
   Induct>>
-  rw[]>>simp[mk_hashset_slot_def]>>
-  xcf "mk_hashset_arr" (get_ml_prog_state ())>>
-  fs[LIST_TYPE_def]
+  rw[]>>
+  xcf "ht_put_arr" (get_ml_prog_state ())>>
+  simp[Once ht_put_def]
   >- (
-    xmatch>>
+    xlet_autop>>
+    xif>>
+    qexists_tac`T`>>simp[]>>
     xcon>>xsimpl)>>
-  xmatch>>
-  imp_res_tac LIST_REL_LENGTH>>
-  `LENGTH hs ≠ 0` by (
-    Cases_on`hs`>>gvs[])>>
   xlet_autop>>
-  xlet`POSTv v. ARRAY hspv hsv * &NUM (hash_slot h) v`
-  >- (
-    xapp>>xsimpl>>
-    gvs[fslot_TYPE_def]>>
-    metis_tac[hash_slot_side])>>
-  xlet_auto >- (xsimpl>>Cases_on`hsv`>>gvs[])>>
-  `NUM (hash_slot h MOD LENGTH hs) iv` by
-    metis_tac[NUM_def,integerTheory.INT_MOD]>>
-  `hash_slot h MOD LENGTH hs < LENGTH hs` by simp[]>>
-  xlet`POSTv v. ARRAY hspv hsv * &(v = EL (hash_slot h MOD LENGTH hs) hsv)`
+  xif>>
+  qexists_tac`F`>>simp[]>>
+  imp_res_tac LIST_REL_LENGTH>>
+  `NUM (EL j tbl) (EL j tbllsv)` by fs[LIST_REL_EL_EQN]>>
+  xlet`POSTv v. ARRAY tblv tbllsv * &(v = EL j tbllsv)`
   >- (
     xapp_spec UnsafeProofTheory.unsafe_array_sub_spec>>
     xsimpl>>
-    gvs[]>>
     metis_tac[])>>
   xlet_autop>>
-  xlet`POSTv uv. ARRAY hspv
-    (LUPDATE v'' (hash_slot h MOD LENGTH hs) hsv)`
+  xif
   >- (
     xapp_spec UnsafeProofTheory.unsafe_array_update_spec>>
     xsimpl>>
-    gvs[]>>
-    metis_tac[])>>
-  xapp>>simp[]>>
-  match_mp_tac EVERY2_LUPDATE_same>>
-  simp[LIST_TYPE_def]>>
-  fs[LIST_REL_EL_EQN]
+    qexists_tac`j`>>
+    simp[EVERY2_LUPDATE_same])>>
+  rpt xlet_autop>>
+  xapp>>
+  gvs[ht_next_def]
 QED
 
-(* The table (hw,a,d,bks); its buckets are in an array *)
-Definition ht_TYPE_def:
-  ht_TYPE bksv bkslsv (ht:num # num # num # num list list) v ⇔
-  PAIR_TYPE NUM (PAIR_TYPE NUM (PAIR_TYPE NUM
-    (λl v. LIST_REL (LIST_TYPE NUM) l bkslsv ∧ v = bksv))) ht v
-End
-
 Quote add_cakeml:
-  fun ht_mem_arr b fml c is =
-  case is of [] => False
-  | i::is =>
-    (case lookup_core_only_arr b fml i of
-      Empty => ht_mem_arr b fml c is
-    | s => eq_slot c s orelse ht_mem_arr b fml c is)
+  fun ht_mem_arr b fml c tbl j fuel =
+  if fuel = 0 then False
+  else
+    let val i = Unsafe.sub tbl j in
+      if i = 0 then False
+      else
+        (case lookup_core_only_arr b fml i of
+          Empty => False
+        | s => eq_slot c s) orelse
+        ht_mem_arr b fml c tbl (ht_next (Array.length tbl) j) (fuel - 1)
+    end
 End
 
 Theorem ht_mem_arr_spec:
-  ∀is isv.
+  ∀fuel fuelv j jv.
   BOOL b bv ∧
   LIST_REL fslot_TYPE fmlls fmllsv ∧
   constraint_TYPE c cv ∧
-  LIST_TYPE NUM is isv
+  NUM j jv ∧ NUM fuel fuelv ∧
+  LIST_REL NUM tbl tbllsv ∧ j < LENGTH tbl
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "ht_mem_arr" (get_ml_prog_state()))
-    [bv; fmlv; cv; isv]
-    (ARRAY fmlv fmllsv)
+    [bv; fmlv; cv; tblv; jv; fuelv]
+    (ARRAY fmlv fmllsv * ARRAY tblv tbllsv)
     (POSTv v.
-      ARRAY fmlv fmllsv *
-      &BOOL (ht_mem b fmlls c is) v)
+      ARRAY fmlv fmllsv * ARRAY tblv tbllsv *
+      &BOOL (ht_mem b fmlls c tbl j fuel) v)
 Proof
   Induct>>
   rw[]>>
   xcf "ht_mem_arr" (get_ml_prog_state ())>>
-  fs[LIST_TYPE_def,ht_mem_def]>>
-  xmatch
+  simp[Once ht_mem_def]
+  >- (
+    xlet_autop>>
+    xif>>
+    qexists_tac`T`>>simp[]>>
+    xcon>>xsimpl)>>
+  xlet_autop>>
+  xif>>
+  qexists_tac`F`>>simp[]>>
+  imp_res_tac LIST_REL_LENGTH>>
+  `NUM (EL j tbl) (EL j tbllsv)` by fs[LIST_REL_EL_EQN]>>
+  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY tblv tbllsv * &(v = EL j tbllsv)`
+  >- (
+    xapp_spec UnsafeProofTheory.unsafe_array_sub_spec>>
+    xsimpl>>
+    metis_tac[])>>
+  xlet_autop>>
+  xif
   >- (
     xcon>>xsimpl)>>
   xlet_autop>>
-  qpat_x_assum`fslot_TYPE _ _`
+  qpat_x_assum`fslot_TYPE (lookup_core_only_list _ _ _) _`
     (strip_assume_tac o REWRITE_RULE[fslot_TYPE_def])>>
-  Cases_on`lookup_core_only_list b fmlls h`>>
-  gvs[SLOT_TYPE_def]
+  qabbrev_tac`s = lookup_core_only_list b fmlls (EL j tbl)`>>
+  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY tblv tbllsv *
+    &BOOL (case s of Empty => F
+      | Stored a1 a2 a3 a4 a5 a6 => eq_slot c (Stored a1 a2 a3 a4 a5 a6)) v`
   >- (
-    xmatch>>
-    xapp>>simp[])>>
-  rename1`lookup_core_only_list b fmlls h = Stored cs vs d mc sm cb`>>
-  xmatch>>
-  xlet`POSTv v. ARRAY fmlv fmllsv *
-    &BOOL (eq_slot c (Stored cs vs d mc sm cb)) v`
-  >- (
+    Cases_on`s`>>
+    gvs[SLOT_TYPE_def]>>
+    xmatch
+    >- (
+      xcon>>xsimpl)>>
+    rename1`lookup_core_only_list b fmlls _ = Stored cs vs d mc sm cb`>>
     xapp>>xsimpl>>
     qexistsl_tac[`c`,`Stored cs vs d mc sm cb`]>>
     simp[SLOT_TYPE_def,eq_slot_side])>>
@@ -3525,8 +3516,11 @@ Proof
   xsimpl>>
   rw[]
   >- gvs[]>>
+  rpt xlet_autop>>
   xapp>>
-  gvs[]
+  xsimpl>>
+  qexists_tac`ht_next (LENGTH tbllsv) j`>>
+  rw[ht_next_def]
 QED
 
 Quote add_cakeml:
@@ -3569,8 +3563,9 @@ Proof
   xlet_auto >- (xcon>>xsimpl)>>
   xlet_auto>>
   `fslot_TYPE (any_el h fmlls Empty) v'` by (
-    rw[any_el_ALT]>>
-    gvs[LIST_REL_EL_EQN,fslot_TYPE_def,wf_slot_def,SLOT_TYPE_def])>>
+    gvs[]>>
+    irule LIST_REL_fslot_TYPE_any_el>>
+    gvs[SLOT_TYPE_def])>>
   Cases_on`any_el h fmlls Empty`>>
   gvs[fslot_TYPE_def,SLOT_TYPE_def]
   >- (
@@ -3581,124 +3576,113 @@ Proof
   xapp>>simp[]
 QED
 
+(* As ht_insert; returns k plus the number of ids put *)
 Quote add_cakeml:
-  fun ht_insert_arr fml hw inds bks =
-  case inds of [] => ()
+  fun ht_insert_arr fml hw inds tbl k =
+  case inds of [] => k
   | i::is =>
-    if i < hw then ()
+    if i < hw then k
     else
-      ((case Array.lookup fml Empty i of
-        Empty => ()
+      (case Array.lookup fml Empty i of
+        Empty => ht_insert_arr fml hw is tbl k
       | s =>
-        let val k = hash_slot s mod Array.length bks in
-          Unsafe.update bks k (i::Unsafe.sub bks k)
-        end);
-      ht_insert_arr fml hw is bks)
+        let val n = Array.length tbl in
+          (ht_put_arr i tbl (hash_slot s mod n) n;
+           ht_insert_arr fml hw is tbl (k + 1))
+        end)
 End
 
 Theorem ht_insert_arr_spec:
-  ∀inds indsv bks bkslsv.
+  ∀inds indsv tbl tbllsv k kv.
   LIST_REL fslot_TYPE fmlls fmllsv ∧
   NUM hw hwv ∧
   LIST_TYPE NUM inds indsv ∧
-  bks ≠ [] ∧
-  LIST_REL (LIST_TYPE NUM) bks bkslsv
+  tbl ≠ [] ∧
+  LIST_REL NUM tbl tbllsv ∧
+  NUM k kv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "ht_insert_arr" (get_ml_prog_state()))
-    [fmlv; hwv; indsv; bksv]
-    (ARRAY fmlv fmllsv * ARRAY bksv bkslsv)
+    [fmlv; hwv; indsv; tblv; kv]
+    (ARRAY fmlv fmllsv * ARRAY tblv tbllsv)
     (POSTv v.
       ARRAY fmlv fmllsv *
-      SEP_EXISTS bkslsv'.
-      ARRAY bksv bkslsv' *
-      &(UNIT_TYPE () v ∧
-        LIST_REL (LIST_TYPE NUM) (ht_insert fmlls hw inds bks) bkslsv'))
+      SEP_EXISTS tbllsv'.
+      ARRAY tblv tbllsv' *
+      &(NUM (ht_count fmlls hw inds k) v ∧
+        LIST_REL NUM (ht_insert fmlls hw inds tbl) tbllsv'))
 Proof
   Induct>>
   rw[]>>
   xcf "ht_insert_arr" (get_ml_prog_state ())>>
-  fs[LIST_TYPE_def,ht_insert_def]>>
+  fs[LIST_TYPE_def,ht_insert_def,ht_count_def]>>
   xmatch
   >- (
-    xcon>>xsimpl)>>
+    xvar>>xsimpl)>>
   xlet_autop>>
   xif
   >- (
-    xcon>>xsimpl)>>
+    xvar>>xsimpl)>>
   xlet_auto >- (xcon>>xsimpl)>>
   xlet_auto >- xsimpl>>
   `fslot_TYPE (any_el h fmlls Empty) v'` by (
-    rw[any_el_ALT]>>
-    gvs[LIST_REL_EL_EQN,fslot_TYPE_def,wf_slot_def,SLOT_TYPE_def])>>
+    gvs[]>>
+    irule LIST_REL_fslot_TYPE_any_el>>
+    gvs[SLOT_TYPE_def])>>
   Cases_on`any_el h fmlls Empty`>>
   gvs[fslot_TYPE_def,SLOT_TYPE_def]
   >- (
-    xlet`POSTv u. ARRAY fmlv fmllsv * ARRAY bksv bkslsv`
-    >- (
-      xmatch>>
-      xcon>>xsimpl)>>
+    xmatch>>
     xapp>>simp[])>>
   rename1`any_el h fmlls Empty = Stored cs vs d mc sm cb`>>
   imp_res_tac LIST_REL_LENGTH>>
-  `LENGTH bks ≠ 0` by (
-    Cases_on`bks`>>gvs[])>>
-  qabbrev_tac`k = hash_slot (Stored cs vs d mc sm cb) MOD LENGTH bks`>>
-  `k < LENGTH bks` by simp[Abbr`k`]>>
-  xlet`POSTv u. ARRAY fmlv fmllsv *
-    ARRAY bksv (LUPDATE (Conv (SOME (TypeStamp «::» 1)) [v2_1; EL k bkslsv])
-      k bkslsv)`
+  `LENGTH tbl ≠ 0` by (
+    Cases_on`tbl`>>gvs[])>>
+  qabbrev_tac`j = hash_slot (Stored cs vs d mc sm cb) MOD LENGTH tbl`>>
+  `j < LENGTH tbl` by simp[Abbr`j`]>>
+  xmatch>>
+  xlet_autop>>
+  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY tblv tbllsv *
+    &NUM (hash_slot (Stored cs vs d mc sm cb)) v`
   >- (
-    xmatch>>
-    xlet_autop>>
-    xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY bksv bkslsv *
-      &NUM (hash_slot (Stored cs vs d mc sm cb)) v`
-    >- (
-      xapp>>xsimpl>>
-      qexists_tac`Stored cs vs d mc sm cb`>>
-      gvs[SLOT_TYPE_def,hash_slot_side])>>
-    xlet_auto >- (xsimpl>>Cases_on`bkslsv`>>gvs[])>>
-    `NUM k iv` by (
-      simp[Abbr`k`]>>
-      metis_tac[NUM_def,integerTheory.INT_MOD])>>
-    xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY bksv bkslsv *
-      &(v = EL k bkslsv)`
-    >- (
-      xapp_spec UnsafeProofTheory.unsafe_array_sub_spec>>
-      xsimpl>>
-      gvs[]>>
-      metis_tac[])>>
-    xlet_autop>>
-    xapp_spec UnsafeProofTheory.unsafe_array_update_spec>>
-    xsimpl>>
-    gvs[]>>
-    metis_tac[])>>
+    xapp>>xsimpl>>
+    qexists_tac`Stored cs vs d mc sm cb`>>
+    gvs[SLOT_TYPE_def,hash_slot_side])>>
+  xlet_auto >- (xsimpl>>Cases_on`tbllsv`>>gvs[])>>
+  `NUM j iv` by (
+    simp[Abbr`j`]>>
+    metis_tac[NUM_def,integerTheory.INT_MOD])>>
+  xlet`POSTv u. ARRAY fmlv fmllsv * SEP_EXISTS tbllsv1. ARRAY tblv tbllsv1 *
+    &LIST_REL NUM (ht_put h tbl j (LENGTH tbl)) tbllsv1`
+  >- (
+    xapp>>xsimpl>>
+    qexistsl_tac[`tbl`,`j`,`h`,`LENGTH tbl`]>>
+    gvs[])>>
+  xlet_autop>>
   xapp>>
-  simp[LUPDATE_NIL]>>
-  match_mp_tac EVERY2_LUPDATE_same>>
-  simp[LIST_TYPE_def]>>
-  fs[LIST_REL_EL_EQN]
+  rw[]>>
+  metis_tac[LENGTH_ht_put,LENGTH_NIL]
 QED
 
-(* With no buckets, or when the new ids would take the table above two
-  ids per bucket, a new bucket array replaces the old one *)
+(* With no table, or when the new ids would fill more than three quarters
+  of its places, a new table replaces the old one *)
 Quote add_cakeml:
   fun ht_fill_arr fml inds base ht =
-  case ht of (hw,(a,(d,bks))) =>
+  case ht of (hw,(a,(d,tbl))) =>
   let
     val new = ht_count_arr fml hw inds 0
-    val nb = Array.length bks
+    val n = Array.length tbl
   in
-    if nb = 0 orelse 2 * nb < a + new then
+    if n = 0 orelse 3 * n < 4 * (a + new) then
       let
         val live = (if a < d then 0 else a - d) + new
-        val bks = Array.array (if live = 0 then 1 else 2 * live) []
-        val u = ht_insert_arr fml 0 inds bks
+        val tbl = Array.array (if live = 0 then 1 else 2 * live) 0
+        val a' = ht_insert_arr fml 0 inds tbl 0
       in
-        (base,(live,(0,bks)))
+        (base,(a',(0,tbl)))
       end
     else
-      (ht_insert_arr fml hw inds bks; (base,(a + new,(d,bks))))
+      (ht_insert_arr fml hw inds tbl 0; (base,(a + new,(d,tbl))))
   end
 End
 
@@ -3730,7 +3714,7 @@ Proof
   xlet_autop>>
   xlet_autop>>
   xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY bksv bkslsv *
-    &BOOL (ht3 = [] ∨ 2 * LENGTH ht3 < ht1 + new) v`
+    &BOOL (ht3 = [] ∨ 3 * LENGTH ht3 < 4 * (ht1 + new)) v`
   >- (
     xlog>>
     xsimpl>>
@@ -3739,10 +3723,9 @@ Proof
     rpt xlet_autop>>
     xapp>>
     xsimpl>>
-    Cases_on`ht3`>>
-    gvs[]>>
-    qexistsl_tac[`&(ht1 + new)`,`&(2 * SUC (LENGTH ys))`]>>
-    fs[NUM_def])>>
+    qexistsl_tac[`&(4 * (ht1 + new))`,`&(3 * LENGTH bkslsv)`]>>
+    `ht3 ≠ []` by (strip_tac>>gvs[])>>
+    gvs[NUM_def,Abbr`new`])>>
   xif
   >- (
     qpat_x_assum`ht3 = [] ∨ _` kall_tac>>
@@ -3757,7 +3740,6 @@ Proof
       fs[NUM_def,integerTheory.INT_SUB])>>
     xlet_autop>>
     xlet_autop>>
-    xlet_autop>>
     xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY bksv bkslsv *
       &NUM (MAX (2 * (ht1 − ht2 + new)) 1) v`
     >- (
@@ -3769,32 +3751,34 @@ Proof
       qexists_tac`&(ht1 − ht2 + new)`>>
       fs[Abbr`new`,NUM_def,INT_def,MAX_DEF,integerTheory.INT_MUL])>>
     xlet_autop>>
-    qmatch_goalsub_abbrev_tac`ARRAY av (REPLICATE sz nilv)`>>
-    `LIST_REL (LIST_TYPE NUM) (REPLICATE sz []) (REPLICATE sz nilv)` by
-      simp[Abbr`nilv`,LIST_REL_EL_EQN,EL_REPLICATE,LIST_TYPE_def]>>
-    `REPLICATE sz ([]:num list) ≠ []` by
+    qmatch_goalsub_abbrev_tac`ARRAY av (REPLICATE sz zv)`>>
+    `LIST_REL NUM (REPLICATE sz 0) (REPLICATE sz zv)` by
+      (simp[Abbr`zv`,LIST_REL_EL_EQN,EL_REPLICATE]>>EVAL_TAC)>>
+    `REPLICATE sz (0:num) ≠ []` by
       simp[Abbr`sz`,REPLICATE_NIL]>>
     `NUM 0 (Litv (IntLit 0i))` by EVAL_TAC>>
-    xlet`POSTv u. ARRAY fmlv fmllsv * ARRAY bksv bkslsv *
+    xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY bksv bkslsv *
       SEP_EXISTS ls1. ARRAY av ls1 *
-      &LIST_REL (LIST_TYPE NUM) (ht_insert fmlls 0 inds (REPLICATE sz [])) ls1`
+      &(NUM (ht_count fmlls 0 inds 0) v ∧
+        LIST_REL NUM (ht_insert fmlls 0 inds (REPLICATE sz 0)) ls1)`
     >- (
       xapp>>xsimpl>>
-      qexistsl_tac[`inds`,`fmlls`,`REPLICATE sz []`]>>
+      qexistsl_tac[`REPLICATE sz 0`,`inds`,`fmlls`]>>
       simp[])>>
-    `ht_insert fmlls 0 inds (REPLICATE sz []) ≠ []` by
+    `ht_insert fmlls 0 inds (REPLICATE sz 0) ≠ []` by
       metis_tac[LENGTH_ht_insert,LENGTH_NIL]>>
     rpt xlet_autop>>
     xcon>>xsimpl>>
     simp[PAIR_TYPE_def]>>
     qexists_tac`ls1`>>
     fs[Abbr`new`,Abbr`sz`]>>
-    xsimpl)>>
+    xsimpl>>
+    gvs[markerTheory.Abbrev_def])>>
   xlet`POSTv u. ARRAY fmlv fmllsv * SEP_EXISTS bkslsv1. ARRAY bksv bkslsv1 *
-    &LIST_REL (LIST_TYPE NUM) (ht_insert fmlls ht0 inds ht3) bkslsv1`
+    &LIST_REL NUM (ht_insert fmlls ht0 inds ht3) bkslsv1`
   >- (
     xapp>>xsimpl>>
-    qexistsl_tac[`inds`,`ht0`,`fmlls`,`ht3`]>>
+    qexistsl_tac[`ht3`,`inds`,`ht0`,`fmlls`]>>
     simp[])>>
   rpt xlet_autop>>
   xcon>>xsimpl>>
@@ -3845,8 +3829,9 @@ Proof
   xlet_auto >- (xcon>>xsimpl)>>
   xlet_auto>>
   `fslot_TYPE (any_el h fmlls Empty) v'` by (
-    rw[any_el_ALT]>>
-    gvs[LIST_REL_EL_EQN,fslot_TYPE_def,wf_slot_def,SLOT_TYPE_def])>>
+    gvs[]>>
+    irule LIST_REL_fslot_TYPE_any_el>>
+    gvs[SLOT_TYPE_def])>>
   Cases_on`any_el h fmlls Empty`>>
   gvs[fslot_TYPE_def,SLOT_TYPE_def]
   >- (
@@ -3912,8 +3897,6 @@ Proof
   xsimpl
 QED
 
-val res = translate PART_DEF;
-val res = translate PARTITION_DEF;
 val res = translate split_goals_pure_def;
 
 Theorem split_goals_pure_side:
@@ -3924,80 +3907,16 @@ Proof
   rw[Once (fetch "-" "split_goals_pure_side_def"),imp_slot_side]
 QED
 
-Definition enc_goals_def:
-  enc_goals (lp:(num # npbc) list) = MAP (λ(i,c). enc c T) lp
-End
-
-val res = translate enc_goals_def;
-
-(* The table of the proved goals: an empty array when there are none *)
+(* The first goal of ls that neither matches a slot (core only, if b) of
+  fml in the table tbl nor is a proved goal of lp, printed *)
 Quote add_cakeml:
-  fun mk_proved_table_arr lp =
-  case lp of [] => Array.arrayEmpty ()
-  | _ =>
-    let
-      val ss = enc_goals lp
-      val hs = Array.array (List.length ss) []
-      val u = mk_hashset_arr ss hs
-    in
-      hs
-    end
-End
-
-Theorem mk_proved_table_arr_spec:
-  LIST_TYPE (PAIR_TYPE NUM constraint_TYPE) lp lpv
-  ⇒
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "mk_proved_table_arr" (get_ml_prog_state()))
-    [lpv]
-    emp
-    (POSTv v.
-      SEP_EXISTS lphlsv.
-      ARRAY v lphlsv *
-      &LIST_REL (LIST_TYPE fslot_TYPE) (mk_proved_table lp) lphlsv)
-Proof
-  rw[mk_proved_table_def]>>
-  xcf "mk_proved_table_arr" (get_ml_prog_state ())>>
-  `EVERY wf_slot (enc_goals lp)` by
-    simp[enc_goals_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]>>
-  Cases_on`lp`>>
-  fs[LIST_TYPE_def]>>
-  xmatch
-  >- (
-    xlet_autop>>
-    xapp>>xsimpl)>>
-  xlet`POSTv v. &LIST_TYPE NPBC_SLOT_SLOT_TYPE (enc_goals (h::t)) v`
-  >- (
-    xapp>>
-    simp[LIST_TYPE_def])>>
-  rpt xlet_autop>>
-  xlet_auto>>
-  xlet`POSTv u. SEP_EXISTS hsv1. ARRAY av hsv1 *
-    &LIST_REL (LIST_TYPE fslot_TYPE)
-      (mk_hashset_slot (enc_goals (h::t))
-        (REPLICATE (LENGTH (enc_goals (h::t))) [])) hsv1`
-  >- (
-    xapp>>xsimpl>>
-    qexistsl_tac[`enc_goals (h::t)`,`REPLICATE (LENGTH (enc_goals (h::t))) []`]>>
-    simp[LIST_TYPE_fslot_TYPE,LIST_REL_EL_EQN,EL_REPLICATE,LIST_TYPE_def]>>
-    simp[enc_goals_def])>>
-  xvar>>xsimpl>>
-  fs[enc_goals_def]
-QED
-
-(* The first goal of ls that is neither a proved goal in lph nor matches a
-  slot (core only, if b) of fml in the table bks, printed *)
-Quote add_cakeml:
-  fun ht_goals_arr b fml lph bks ls =
+  fun ht_goals_arr b fml lp tbl ls =
   case ls of [] => None
   | c::cs =>
-    let
-      val h = hash_constraint c
-      val nl = Array.length lph
-    in
-      if (nl <> 0 andalso mem_slots c (Unsafe.sub lph (h mod nl))) orelse
-        ht_mem_arr b fml c (Unsafe.sub bks (h mod Array.length bks))
-      then ht_goals_arr b fml lph bks cs
+    let val n = Array.length tbl in
+      if ht_mem_arr b fml c tbl (hash_constraint c mod n) n orelse
+        mem_constraint c lp
+      then ht_goals_arr b fml lp tbl cs
       else Some (npbc_constr_string c)
     end
 End
@@ -4006,20 +3925,20 @@ Theorem ht_goals_arr_spec:
   ∀ls lsv.
   BOOL b bv ∧
   LIST_REL fslot_TYPE fmlls fmllsv ∧
-  LIST_REL (LIST_TYPE fslot_TYPE) lph lphlsv ∧
-  bks ≠ [] ∧
-  LIST_REL (LIST_TYPE NUM) bks bkslsv ∧
+  LIST_TYPE constraint_TYPE lp lpv ∧
+  tbl ≠ [] ∧
+  LIST_REL NUM tbl tbllsv ∧
   LIST_TYPE constraint_TYPE ls lsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "ht_goals_arr" (get_ml_prog_state()))
-    [bv; fmlv; lphv; bksv; lsv]
-    (ARRAY fmlv fmllsv * ARRAY lphv lphlsv * ARRAY bksv bkslsv)
+    [bv; fmlv; lpv; tblv; lsv]
+    (ARRAY fmlv fmllsv * ARRAY tblv tbllsv)
     (POSTv v.
-      ARRAY fmlv fmllsv * ARRAY lphv lphlsv * ARRAY bksv bkslsv *
+      ARRAY fmlv fmllsv * ARRAY tblv tbllsv *
       & ∃err.
         OPTION_TYPE STRING_TYPE
-          (if ht_goals b fmlls lph bks ls then NONE else SOME err) v)
+          (if ht_goals b fmlls lp tbl ls then NONE else SOME err) v)
 Proof
   Induct>>
   rw[]>>
@@ -4030,61 +3949,37 @@ Proof
     xcon>>xsimpl>>
     simp[OPTION_TYPE_def])>>
   imp_res_tac LIST_REL_LENGTH>>
-  xlet_autop>>
-  xlet_autop>>
-  xlet_autop>>
-  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY lphv lphlsv * ARRAY bksv bkslsv *
-    &BOOL (¬NULL lph ∧ in_hashset_slot (hash_constraint h) h lph) v`
+  `tbllsv ≠ []` by (
+    Cases_on`tbl`>>gvs[])>>
+  rpt xlet_autop>>
+  `hash_constraint h MOD LENGTH tbl < LENGTH tbl` by (
+    Cases_on`tbl`>>gvs[])>>
+  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY tblv tbllsv *
+    &BOOL (ht_mem b fmlls h tbl (hash_constraint h MOD LENGTH tbl)
+      (LENGTH tbl)) v`
   >- (
-    xlog>>xsimpl>>
-    rw[]
-    >- (
-      xlet_auto >- xsimpl>>
-      `hash_constraint h MOD LENGTH lphlsv < LENGTH lphlsv` by (
-        Cases_on`lphlsv`>>gvs[])>>
-      xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY lphv lphlsv * ARRAY bksv bkslsv *
-        &(v = EL (hash_constraint h MOD LENGTH lphlsv) lphlsv)`
-      >- (
-        xapp_spec UnsafeProofTheory.unsafe_array_sub_spec>>
-        xsimpl>>
-        metis_tac[])>>
-      `LIST_TYPE fslot_TYPE (EL (hash_constraint h MOD LENGTH lphlsv) lph) v` by
-        gvs[LIST_REL_EL_EQN]>>
-      gvs[LIST_TYPE_fslot_TYPE]>>
-      xapp>>xsimpl>>
-      qexistsl_tac[`EL (hash_constraint h MOD LENGTH lphlsv) lph`,`h`]>>
-      simp[mem_slots_side,in_hashset_slot_def]>>
-      Cases_on`lph`>>gvs[])>>
-    Cases_on`lph`>>gvs[])>>
-  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY lphv lphlsv * ARRAY bksv bkslsv *
-    &BOOL ((¬NULL lph ∧ in_hashset_slot (hash_constraint h) h lph) ∨
-      ht_mem b fmlls h (EL (hash_constraint h MOD LENGTH bks) bks)) v`
+    xapp>>xsimpl>>
+    qexistsl_tac[`tbl`,`hash_constraint h MOD LENGTH tbl`,`LENGTH tbl`,
+      `fmlls`,`h`,`b`]>>
+    gvs[])>>
+  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY tblv tbllsv *
+    &BOOL (ht_mem b fmlls h tbl (hash_constraint h MOD LENGTH tbl)
+      (LENGTH tbl) ∨ mem_constraint h lp) v`
   >- (
-    xlog>>xsimpl>>
+    xlog>>
+    xsimpl>>
     rw[]
     >- gvs[]>>
-    xlet_autop>>
-    `bkslsv ≠ []` by (
-      Cases_on`bks`>>gvs[])>>
-    xlet_autop>>
-    `hash_constraint h MOD LENGTH bkslsv < LENGTH bkslsv` by (
-      Cases_on`bkslsv`>>gvs[])>>
-    xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY lphv lphlsv * ARRAY bksv bkslsv *
-      &(v = EL (hash_constraint h MOD LENGTH bkslsv) bkslsv)`
-    >- (
-      xapp_spec UnsafeProofTheory.unsafe_array_sub_spec>>
-      xsimpl>>
-      metis_tac[])>>
     xapp>>xsimpl>>
-    qexistsl_tac[`EL (hash_constraint h MOD LENGTH bkslsv) bks`,`fmlls`,`h`,`b`]>>
-    fs[LIST_REL_EL_EQN])>>
+    metis_tac[])>>
   xif
   >- (
-    xapp>>xsimpl)>>
+    xapp>>xsimpl>>
+    gvs[ht_probe_def]>>
+    metis_tac[])>>
   rpt xlet_autop>>
   xcon>>xsimpl>>
-  rw[OPTION_TYPE_def]>>
-  gvs[OPTION_TYPE_def]>>
+  gvs[ht_probe_def,OPTION_TYPE_def]>>
   metis_tac[]
 QED
 
@@ -4093,12 +3988,9 @@ Quote add_cakeml:
   case split_goals_pure proved extra goals [] [] of (lp,lf) =>
   case lf of [] => (None, ht)
   | _ =>
-    let
-      val ht = ht_fill_arr fml inds base ht
-      val lph = mk_proved_table_arr lp
-    in
-      case ht of (hw,(a,(d,bks))) =>
-        (ht_goals_arr b fml lph bks lf, ht)
+    let val ht = ht_fill_arr fml inds base ht in
+      case ht of (hw,(a,(d,tbl))) =>
+        (ht_goals_arr b fml lp tbl lf, ht)
     end
 End
 
@@ -4133,7 +4025,7 @@ Proof
   xlet_autop>>
   xlet_autop>>
   xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY bksv bkslsv *
-    &PAIR_TYPE (LIST_TYPE (PAIR_TYPE NUM constraint_TYPE))
+    &PAIR_TYPE (LIST_TYPE constraint_TYPE)
       (LIST_TYPE constraint_TYPE) (split_goals_pure proved extra goals [] []) v`
   >- (
     xapp>>xsimpl>>
@@ -4159,18 +4051,15 @@ Proof
       SND (SND (SND (ht_fill fmlls inds base ht))) ≠ [])`
   >- (
     xapp>>xsimpl)>>
-  xlet_autop>>
   Cases_on`ht_fill fmlls inds base ht`>>
   PairCases_on`r`>>
   gvs[ht_TYPE_def,PAIR_TYPE_def]>>
   xmatch>>
-  xlet`POSTv v. ARRAY v' lphlsv * ARRAY fmlv fmllsv * ARRAY bksv1 bkslsv1 *
+  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY bksv1 bkslsv1 *
     & ∃err. OPTION_TYPE STRING_TYPE
-      (if ht_goals b fmlls (mk_proved_table lp) r2 (h::t) then NONE
-       else SOME err) v`
+      (if ht_goals b fmlls lp r2 (h::t) then NONE else SOME err) v`
   >- (
     xapp>>xsimpl>>
-    qexistsl_tac[`h::t`,`mk_proved_table lp`,`fmlls`,`r2`,`b`]>>
     simp[LIST_TYPE_def])>>
   xcon>>xsimpl>>
   qexistsl_tac[`bksv1`,`bkslsv1`]>>
@@ -9229,98 +9118,72 @@ Definition marks_bytes_def:
   marks_bytes mk = MAP (λb. if b then w8o else w8z) mk
 End
 
+(* Marks every id from place j up to the first free place, trying at most
+  fuel places, whose slot (core only) matches c; whether there is one, or
+  found *)
 Quote add_cakeml:
-  fun ht_mem_slots_arr fml s is =
-  case is of [] => False
-  | i::is =>
-    (case lookup_core_only_arr True fml i of
-      Empty => ht_mem_slots_arr fml s is
-    | t => eq_slots s t orelse ht_mem_slots_arr fml s is)
-End
-
-Theorem ht_mem_slots_arr_spec:
-  ∀is isv.
-  LIST_REL fslot_TYPE fmlls fmllsv ∧
-  fslot_TYPE s sv ∧
-  LIST_TYPE NUM is isv
-  ⇒
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "ht_mem_slots_arr" (get_ml_prog_state()))
-    [fmlv; sv; isv]
-    (ARRAY fmlv fmllsv)
-    (POSTv v.
-      ARRAY fmlv fmllsv *
-      &BOOL (ht_mem_slots fmlls s is) v)
-Proof
-  Induct>>
-  rw[]>>
-  xcf "ht_mem_slots_arr" (get_ml_prog_state ())>>
-  fs[LIST_TYPE_def,ht_mem_slots_def]>>
-  xmatch
-  >- (
-    xcon>>xsimpl)>>
-  `BOOL T (Conv (SOME (TypeStamp «True» 0)) [])` by EVAL_TAC>>
-  xlet_autop>>
-  xlet_autop>>
-  qpat_x_assum`fslot_TYPE (lookup_core_only_list _ _ _) _`
-    (strip_assume_tac o REWRITE_RULE[fslot_TYPE_def])>>
-  Cases_on`lookup_core_only_list T fmlls h`>>
-  gvs[SLOT_TYPE_def]
-  >- (
-    xmatch>>
-    xapp>>simp[])>>
-  rename1`lookup_core_only_list T fmlls h = Stored cs vs d mc sm cb`>>
-  xmatch>>
-  xlet`POSTv v. ARRAY fmlv fmllsv *
-    &BOOL (eq_slots s (Stored cs vs d mc sm cb)) v`
-  >- (
-    xapp>>xsimpl>>
-    qexistsl_tac[`Stored cs vs d mc sm cb`,`s`]>>
-    gvs[fslot_TYPE_def,SLOT_TYPE_def,eq_slots_side])>>
-  xlog>>
-  xsimpl>>
-  rw[]
-  >- gvs[]>>
-  xapp>>
-  gvs[]
-QED
-
-(* Marks every id of the bucket is whose slot (core only) matches the
-  slot s; whether there is one, or found *)
-Quote add_cakeml:
-  fun ht_mark_arr fml s is mk found =
-  case is of [] => found
-  | i::is =>
-    (case lookup_core_only_arr True fml i of
-      Empty => ht_mark_arr fml s is mk found
-    | t =>
-      if eq_slots s t then
-        ((if i < Word8Array.length mk then Unsafe.w8update mk i w8o else ());
-        ht_mark_arr fml s is mk True)
-      else ht_mark_arr fml s is mk found)
+  fun ht_mark_arr fml c tbl j fuel mk found =
+  if fuel = 0 then found
+  else
+    let val i = Unsafe.sub tbl j in
+      if i = 0 then found
+      else
+        let
+          val found =
+            (case lookup_core_only_arr True fml i of
+              Empty => found
+            | s =>
+              if eq_slot c s then
+                ((if i < Word8Array.length mk then Unsafe.w8update mk i w8o
+                  else ());
+                 True)
+              else found)
+        in
+          ht_mark_arr fml c tbl (ht_next (Array.length tbl) j) (fuel - 1) mk
+            found
+        end
+    end
 End
 
 Theorem ht_mark_arr_spec:
-  ∀is isv mk found foundv.
+  ∀fuel fuelv j jv mk found foundv.
   LIST_REL fslot_TYPE fmlls fmllsv ∧
-  fslot_TYPE s sv ∧
-  LIST_TYPE NUM is isv ∧
+  constraint_TYPE c cv ∧
+  NUM j jv ∧ NUM fuel fuelv ∧
+  LIST_REL NUM tbl tbllsv ∧ j < LENGTH tbl ∧
   BOOL found foundv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "ht_mark_arr" (get_ml_prog_state()))
-    [fmlv; sv; isv; mkv; foundv]
-    (ARRAY fmlv fmllsv * W8ARRAY mkv (marks_bytes mk))
+    [fmlv; cv; tblv; jv; fuelv; mkv; foundv]
+    (ARRAY fmlv fmllsv * ARRAY tblv tbllsv * W8ARRAY mkv (marks_bytes mk))
     (POSTv v.
-      ARRAY fmlv fmllsv *
-      W8ARRAY mkv (marks_bytes (ht_mark fmlls s is mk)) *
-      &BOOL (found ∨ ht_mem_slots fmlls s is) v)
+      ARRAY fmlv fmllsv * ARRAY tblv tbllsv *
+      W8ARRAY mkv (marks_bytes (ht_mark fmlls c tbl j fuel mk)) *
+      &BOOL (found ∨ ht_mem T fmlls c tbl j fuel) v)
 Proof
   Induct>>
   rw[]>>
   xcf "ht_mark_arr" (get_ml_prog_state ())>>
-  fs[LIST_TYPE_def,ht_mark_def,ht_mem_slots_def]>>
-  xmatch
+  simp[Once ht_mark_def,Once ht_mem_def]
+  >- (
+    xlet_autop>>
+    xif>>
+    qexists_tac`T`>>simp[]>>
+    xvar>>xsimpl)>>
+  xlet_autop>>
+  xif>>
+  qexists_tac`F`>>simp[]>>
+  imp_res_tac LIST_REL_LENGTH>>
+  `NUM (EL j tbl) (EL j tbllsv)` by fs[LIST_REL_EL_EQN]>>
+  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY tblv tbllsv *
+    W8ARRAY mkv (marks_bytes mk) * &(v = EL j tbllsv)`
+  >- (
+    xapp_spec UnsafeProofTheory.unsafe_array_sub_spec>>
+    xsimpl>>
+    metis_tac[])>>
+  xlet_autop>>
+  xif
   >- (
     xvar>>xsimpl)>>
   `BOOL T (Conv (SOME (TypeStamp «True» 0)) [])` by EVAL_TAC>>
@@ -9328,159 +9191,95 @@ Proof
   xlet_autop>>
   qpat_x_assum`fslot_TYPE (lookup_core_only_list _ _ _) _`
     (strip_assume_tac o REWRITE_RULE[fslot_TYPE_def])>>
-  Cases_on`lookup_core_only_list T fmlls h`>>
-  gvs[SLOT_TYPE_def]
+  qabbrev_tac`i = EL j tbl`>>
+  qabbrev_tac`s = lookup_core_only_list T fmlls i`>>
+  qabbrev_tac`mk1 = case s of Empty => mk
+    | Stored a1 a2 a3 a4 a5 a6 =>
+      if eq_slot c (Stored a1 a2 a3 a4 a5 a6) then LUPDATE T i mk else mk`>>
+  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY tblv tbllsv *
+    W8ARRAY mkv (marks_bytes mk1) *
+    &BOOL (found ∨ case s of Empty => F
+      | Stored a1 a2 a3 a4 a5 a6 => eq_slot c (Stored a1 a2 a3 a4 a5 a6)) v`
   >- (
-    xmatch>>
-    xapp>>simp[])>>
-  rename1`lookup_core_only_list T fmlls h = Stored cs vs d mc sm cb`>>
-  xmatch>>
-  xlet`POSTv v. ARRAY fmlv fmllsv * W8ARRAY mkv (marks_bytes mk) *
-    &BOOL (eq_slots s (Stored cs vs d mc sm cb)) v`
-  >- (
-    xapp>>xsimpl>>
-    qexistsl_tac[`Stored cs vs d mc sm cb`,`s`]>>
-    gvs[fslot_TYPE_def,SLOT_TYPE_def,eq_slots_side])>>
-  xif
-  >- (
-    xlet_auto
-    >- (xsimpl>>metis_tac[])>>
-    xlet_autop>>
-    xlet`POSTv u. ARRAY fmlv fmllsv *
-      W8ARRAY mkv (marks_bytes (LUPDATE T h mk))`
+    Cases_on`s`>>
+    gvs[SLOT_TYPE_def,Abbr`mk1`]>>
+    xmatch
     >- (
-      xif
+      xvar>>xsimpl)>>
+    rename1`lookup_core_only_list T fmlls i = Stored cs vs d mc sm cb`>>
+    xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY tblv tbllsv *
+      W8ARRAY mkv (marks_bytes mk) *
+      &BOOL (eq_slot c (Stored cs vs d mc sm cb)) v`
+    >- (
+      xapp>>xsimpl>>
+      qexistsl_tac[`c`,`Stored cs vs d mc sm cb`]>>
+      simp[SLOT_TYPE_def,eq_slot_side])>>
+    xif
+    >- (
+      xlet_auto
+      >- (xsimpl>>metis_tac[])>>
+      xlet_autop>>
+      xlet`POSTv u. ARRAY fmlv fmllsv * ARRAY tblv tbllsv *
+        W8ARRAY mkv (marks_bytes (LUPDATE T i mk))`
       >- (
-        assume_tac w8o_v_thm>>
-        xapp>>xsimpl>>
-        simp[marks_bytes_def,LUPDATE_MAP]>>
-        qexistsl_tac[`w8o`,`h`]>>
-        gvs[marks_bytes_def])>>
-      `LUPDATE T h mk = mk` by
-        gvs[LIST_EQ_REWRITE,EL_LUPDATE,marks_bytes_def]>>
+        xif
+        >- (
+          assume_tac w8o_v_thm>>
+          xapp>>xsimpl>>
+          simp[marks_bytes_def,LUPDATE_MAP]>>
+          qexistsl_tac[`w8o`,`i`]>>
+          gvs[marks_bytes_def])>>
+        `LUPDATE T i mk = mk` by
+          gvs[LIST_EQ_REWRITE,EL_LUPDATE,marks_bytes_def]>>
+        xcon>>xsimpl)>>
       xcon>>xsimpl)>>
-    xlet_autop>>
-    xapp>>
-    qexistsl_tac[`emp`,`LUPDATE T h mk`,`T`]>>
-    xsimpl)>>
-  xapp>>simp[]
+    xvar>>xsimpl)>>
+  rpt xlet_autop>>
+  xapp>>
+  qexistsl_tac[`emp`,`mk1`,`ht_next (LENGTH tbllsv) j`,
+    `found ∨ case s of Empty => F
+      | Stored a1 a2 a3 a4 a5 a6 => eq_slot c (Stored a1 a2 a3 a4 a5 a6)`]>>
+  xsimpl>>
+  gvs[ht_next_def]>>
+  simp[DISJ_ASSOC]
 QED
 
-(* The first slot of ss without a matching core slot in the table,
-  printed *)
+(* Marks every core slot in the table that matches a constraint of cs; res
+  is the first constraint so far without a match, printed *)
 Quote add_cakeml:
-  fun ht_include_arr fml bks ss =
-  case ss of [] => None
-  | s::ss =>
-    if ht_mem_slots_arr fml s
-      (Unsafe.sub bks (hash_slot s mod Array.length bks))
-    then ht_include_arr fml bks ss
-    else Some (npbc_constr_string (dec s))
-End
-
-Theorem ht_include_arr_spec:
-  ∀ss ssv.
-  LIST_REL fslot_TYPE fmlls fmllsv ∧
-  bks ≠ [] ∧
-  LIST_REL (LIST_TYPE NUM) bks bkslsv ∧
-  LIST_TYPE fslot_TYPE ss ssv
-  ⇒
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "ht_include_arr" (get_ml_prog_state()))
-    [fmlv; bksv; ssv]
-    (ARRAY fmlv fmllsv * ARRAY bksv bkslsv)
-    (POSTv v.
-      ARRAY fmlv fmllsv * ARRAY bksv bkslsv *
-      & ∃err.
-        OPTION_TYPE STRING_TYPE
-          (if ht_include fmlls bks ss then NONE else SOME err) v)
-Proof
-  Induct>>
-  rw[]>>
-  xcf "ht_include_arr" (get_ml_prog_state ())>>
-  fs[LIST_TYPE_def,ht_include_def]>>
-  xmatch
-  >- (
-    xcon>>xsimpl>>
-    simp[OPTION_TYPE_def])>>
-  imp_res_tac LIST_REL_LENGTH>>
-  `bkslsv ≠ []` by (
-    Cases_on`bks`>>gvs[])>>
-  xlet_autop>>
-  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY bksv bkslsv * &NUM (hash_slot h) v`
-  >- (
-    xapp>>xsimpl>>
-    gvs[fslot_TYPE_def]>>
-    metis_tac[hash_slot_side])>>
-  xlet_auto >- (xsimpl>>Cases_on`bkslsv`>>gvs[])>>
-  `hash_slot h MOD LENGTH bks < LENGTH bks` by (
-    Cases_on`bks`>>gvs[])>>
-  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY bksv bkslsv *
-    &(v = EL (hash_slot h MOD LENGTH bks) bkslsv)`
-  >- (
-    xapp_spec UnsafeProofTheory.unsafe_array_sub_spec>>
-    xsimpl>>
-    gvs[]>>
-    metis_tac[])>>
-  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY bksv bkslsv *
-    &BOOL (ht_mem_slots fmlls h (EL (hash_slot h MOD LENGTH bks) bks)) v`
-  >- (
-    xapp>>xsimpl>>
-    qexistsl_tac[`h`,`EL (hash_slot h MOD LENGTH bkslsv) bks`,`fmlls`]>>
-    gvs[LIST_REL_EL_EQN])>>
-  xif
-  >- (
-    xapp>>xsimpl)>>
-  xlet`POSTv cv. ARRAY fmlv fmllsv * ARRAY bksv bkslsv *
-    &constraint_TYPE (dec h) cv`
-  >- (
-    xapp>>xsimpl>>
-    gvs[fslot_TYPE_def]>>
-    qexists_tac`h`>>
-    simp[dec_side])>>
-  xlet_autop>>
-  xcon>>xsimpl>>
-  simp[OPTION_TYPE_def]>>
-  metis_tac[]
-QED
-
-(* As ht_include_arr, also marking every core slot that matches a slot of
-  ss; res is the first slot so far without a match *)
-Quote add_cakeml:
-  fun ht_marks_arr fml bks mk ss res =
-  case ss of [] => res
-  | s::ss =>
+  fun ht_marks_arr fml tbl mk cs res =
+  case cs of [] => res
+  | c::cs =>
     let
-      val found =
-        ht_mark_arr fml s
-          (Unsafe.sub bks (hash_slot s mod Array.length bks)) mk False
+      val n = Array.length tbl
+      val found = ht_mark_arr fml c tbl (hash_constraint c mod n) n mk False
     in
       case res of
         None =>
-        if found then ht_marks_arr fml bks mk ss None
-        else ht_marks_arr fml bks mk ss (Some (npbc_constr_string (dec s)))
-      | _ => ht_marks_arr fml bks mk ss res
+        if found then ht_marks_arr fml tbl mk cs None
+        else ht_marks_arr fml tbl mk cs (Some (npbc_constr_string c))
+      | _ => ht_marks_arr fml tbl mk cs res
     end
 End
 
 Theorem ht_marks_arr_spec:
-  ∀ss ssv mk res resv.
+  ∀cs csv mk res resv.
   LIST_REL fslot_TYPE fmlls fmllsv ∧
-  bks ≠ [] ∧
-  LIST_REL (LIST_TYPE NUM) bks bkslsv ∧
-  LIST_TYPE fslot_TYPE ss ssv ∧
+  tbl ≠ [] ∧
+  LIST_REL NUM tbl tbllsv ∧
+  LIST_TYPE constraint_TYPE cs csv ∧
   OPTION_TYPE STRING_TYPE res resv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "ht_marks_arr" (get_ml_prog_state()))
-    [fmlv; bksv; mkv; ssv; resv]
-    (ARRAY fmlv fmllsv * ARRAY bksv bkslsv * W8ARRAY mkv (marks_bytes mk))
+    [fmlv; tblv; mkv; csv; resv]
+    (ARRAY fmlv fmllsv * ARRAY tblv tbllsv * W8ARRAY mkv (marks_bytes mk))
     (POSTv v.
-      ARRAY fmlv fmllsv * ARRAY bksv bkslsv *
-      W8ARRAY mkv (marks_bytes (ht_marks fmlls bks ss mk)) *
+      ARRAY fmlv fmllsv * ARRAY tblv tbllsv *
+      W8ARRAY mkv (marks_bytes (ht_marks fmlls tbl cs mk)) *
       & ∃err.
         OPTION_TYPE STRING_TYPE
-          (if res = NONE ∧ ht_include fmlls bks ss then NONE else SOME err) v)
+          (if res = NONE ∧ ht_include fmlls tbl cs then NONE else SOME err) v)
 Proof
   Induct>>
   rw[]>>
@@ -9492,35 +9291,21 @@ Proof
     Cases_on`res`>>gvs[OPTION_TYPE_def]>>
     metis_tac[])>>
   imp_res_tac LIST_REL_LENGTH>>
-  `bkslsv ≠ []` by (
-    Cases_on`bks`>>gvs[])>>
-  xlet_autop>>
-  xlet_autop>>
-  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY bksv bkslsv *
-    W8ARRAY mkv (marks_bytes mk) * &NUM (hash_slot h) v`
+  `tbllsv ≠ []` by (
+    Cases_on`tbl`>>gvs[])>>
+  `hash_constraint h MOD LENGTH tbl < LENGTH tbl` by (
+    Cases_on`tbl`>>gvs[])>>
+  rpt xlet_autop>>
+  qabbrev_tac`mk1 =
+    ht_mark fmlls h tbl (hash_constraint h MOD LENGTH tbl) (LENGTH tbl) mk`>>
+  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY tblv tbllsv *
+    W8ARRAY mkv (marks_bytes mk1) *
+    &BOOL (ht_probe T fmlls h (hash_constraint h) tbl) v`
   >- (
     xapp>>xsimpl>>
-    gvs[fslot_TYPE_def]>>
-    metis_tac[hash_slot_side])>>
-  xlet_auto >- xsimpl>>
-  `hash_slot h MOD LENGTH bks < LENGTH bks` by (
-    Cases_on`bks`>>gvs[])>>
-  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY bksv bkslsv *
-    W8ARRAY mkv (marks_bytes mk) *
-    &(v = EL (hash_slot h MOD LENGTH bks) bkslsv)`
-  >- (
-    xapp_spec UnsafeProofTheory.unsafe_array_sub_spec>>
-    xsimpl>>
-    gvs[]>>
-    metis_tac[])>>
-  qabbrev_tac`is = EL (hash_slot h MOD LENGTH bks) bks`>>
-  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY bksv bkslsv *
-    W8ARRAY mkv (marks_bytes (ht_mark fmlls h is mk)) *
-    &BOOL (ht_mem_slots fmlls h is) v`
-  >- (
-    xapp>>xsimpl>>
-    qexistsl_tac[`h`,`mk`,`is`,`F`,`fmlls`]>>
-    gvs[markerTheory.Abbrev_def,LIST_REL_EL_EQN]>>
+    qexistsl_tac[`tbl`,`mk`,`hash_constraint h MOD LENGTH tbl`,`LENGTH tbl`,
+      `F`,`fmlls`,`h`]>>
+    simp[Abbr`mk1`,ht_probe_def]>>
     EVAL_TAC)>>
   Cases_on`res`>>gvs[OPTION_TYPE_def]>>
   xmatch
@@ -9529,27 +9314,18 @@ Proof
     >- (
       xlet_autop>>
       xapp>>
-      qexistsl_tac[`emp`,`NONE`,`ht_mark fmlls h is mk`]>>
+      qexistsl_tac[`emp`,`NONE`,`mk1`]>>
       simp[OPTION_TYPE_def]>>
       xsimpl>>
       metis_tac[])>>
-    xlet`POSTv cv. ARRAY fmlv fmllsv * ARRAY bksv bkslsv *
-      W8ARRAY mkv (marks_bytes (ht_mark fmlls h is mk)) *
-      &constraint_TYPE (dec h) cv`
-    >- (
-      xapp>>xsimpl>>
-      gvs[fslot_TYPE_def]>>
-      qexists_tac`h`>>
-      simp[dec_side])>>
     rpt xlet_autop>>
     xapp>>
-    qexistsl_tac[`emp`,`SOME (npbc_constr_string (dec h))`,
-      `ht_mark fmlls h is mk`]>>
+    qexistsl_tac[`emp`,`SOME (npbc_constr_string h)`,`mk1`]>>
     simp[OPTION_TYPE_def]>>
     xsimpl>>
     metis_tac[])>>
   xapp>>
-  qexistsl_tac[`emp`,`SOME x`,`ht_mark fmlls h is mk`]>>
+  qexistsl_tac[`emp`,`SOME x`,`mk1`]>>
   simp[OPTION_TYPE_def]>>
   xsimpl
 QED
@@ -9776,36 +9552,25 @@ Quote add_cakeml:
     pres obj bound dbound chk fml' pres' obj' output =
   case output of
     Nooutput => None
-  | Derivable =>
-    (case ht_fill_arr fml inds id ht of (hw,(a,(d,bks))) =>
-      derivable_res dbound (ht_include_arr fml bks fml'))
-  | Equisatisfiable =>
-    (case ht_fill_arr fml inds id ht of (hw,(a,(d,bks))) =>
-    let
-      val mk = Word8Array.array id w8z
-      val b2 = ht_marks_arr fml bks mk fml' None
-    in
-      equisatisfiable_res
-        bound dbound chk b2 (all_marked_arr fml mk id)
-    end)
-  | Equioptimal =>
-    (case ht_fill_arr fml inds id ht of (hw,(a,(d,bks))) =>
-    let
-      val mk = Word8Array.array id w8z
-      val b2 = ht_marks_arr fml bks mk fml' None
-    in
-      equioptimal_res
-        bound dbound chk obj obj' b2 (all_marked_arr fml mk id)
-    end)
-  | Equisolvable =>
-    (case ht_fill_arr fml inds id ht of (hw,(a,(d,bks))) =>
-    let
-      val mk = Word8Array.array id w8z
-      val b2 = ht_marks_arr fml bks mk fml' None
-    in
-      equisolvable_res
-        bound dbound chk obj obj' pres pres' b2 (all_marked_arr fml mk id)
-    end)
+  | _ =>
+    (case ht_fill_arr fml inds id ht of (hw,(a,(d,tbl))) =>
+    case output of
+      Derivable =>
+      (* no marks: ht_mark_arr marks only ids below the mark array's length *)
+      derivable_res dbound
+        (ht_marks_arr fml tbl (Word8Array.array 0 w8z) fml' None)
+    | _ =>
+      let
+        val mk = Word8Array.array id w8z
+        val b2 = ht_marks_arr fml tbl mk fml' None
+        val b3 = all_marked_arr fml mk id
+      in
+        case output of
+          Equisatisfiable => equisatisfiable_res bound dbound chk b2 b3
+        | Equioptimal => equioptimal_res bound dbound chk obj obj' b2 b3
+        | Equisolvable =>
+          equisolvable_res bound dbound chk obj obj' pres pres' b2 b3
+      end)
 End
 
 val PBC_OUTPUT_TYPE_def = theorem"PBC_OUTPUT_TYPE_def";
@@ -9820,7 +9585,7 @@ Theorem check_output_arr_spec:
   OPTION_TYPE INT dbound dboundv ∧
   BOOL chk chkv ∧
   PBC_OUTPUT_TYPE output outputv ∧
-  LIST_TYPE fslot_TYPE fmlt fmltv ∧
+  LIST_TYPE constraint_TYPE fmlt fmltv ∧
   obj_TYPE objt objtv ∧
   pres_TYPE prest prestv ∧
   LIST_REL fslot_TYPE fmlls fmllsv
@@ -9855,20 +9620,28 @@ Proof
   Cases_on`ht_fill fmlls inds id ht`>>
   PairCases_on`r`>>
   gvs[ht_TYPE_def,PAIR_TYPE_def]>>
+  assume_tac w8z_v_thm>>
+  xmatch>>
   xmatch
   >- (
+    xlet_autop>>
+    xlet_autop>>
+    qmatch_goalsub_rename_tac`W8ARRAY mkv _`>>
     xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY bksv1 bkslsv1 *
+      W8ARRAY mkv (marks_bytes (ht_marks fmlls r2 fmlt [])) *
       & ∃err. OPTION_TYPE STRING_TYPE
         (if ht_include fmlls r2 fmlt then NONE else SOME err) v`
     >- (
-      xapp>>xsimpl)>>
+      xapp>>xsimpl>>
+      qexistsl_tac[`r2`,`NONE`,`[]`,`fmlls`,`fmlt`]>>
+      simp[OPTION_TYPE_def,marks_bytes_def])>>
     xapp>>
-    qexistsl_tac[`ARRAY fmlv fmllsv * ARRAY bksv1 bkslsv1`,
+    qexistsl_tac[`ARRAY fmlv fmllsv * ARRAY bksv1 bkslsv1 *
+        W8ARRAY mkv (marks_bytes (ht_marks fmlls r2 fmlt []))`,
       `if ht_include fmlls r2 fmlt then NONE else SOME err`,`dbound`]>>
     xsimpl>>
     rw[derivable_res_def]>>
     metis_tac[])>>
-  assume_tac w8z_v_thm>>
   xlet_autop>>
   `REPLICATE id w8z = marks_bytes (REPLICATE id F)` by
     simp[marks_bytes_def]>>
@@ -9882,7 +9655,7 @@ Proof
         (if ht_include fmlls r2 fmlt then NONE else SOME err) v`
     >- (
       xapp>>xsimpl>>
-      qexistsl_tac[`fmlt`,`NONE`,`REPLICATE id F`,`fmlls`,`r2`]>>
+      qexistsl_tac[`r2`,`NONE`,`REPLICATE id F`,`fmlls`,`fmlt`]>>
       simp[OPTION_TYPE_def]))>>
   qabbrev_tac`mk = ht_marks fmlls r2 fmlt (REPLICATE id F)`>>
   `id ≤ LENGTH mk` by
@@ -9896,6 +9669,7 @@ Proof
       xapp>>xsimpl>>
       qexistsl_tac[`id`,`mk`,`fmlls`]>>
       simp[]))>>
+  xmatch>>
   xapp
   >- (
     qexistsl_tac[`ARRAY fmlv fmllsv * ARRAY bksv1 bkslsv1 *

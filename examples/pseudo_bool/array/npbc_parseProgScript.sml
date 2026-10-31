@@ -2623,7 +2623,7 @@ Theorem check_output_hconcl_arr_spec:
   OPTION_TYPE INT dbound1 dbound1v ∧
   NUM enum enumv ∧
   BOOL chk1 chk1v ∧
-  LIST_TYPE fslot_TYPE fmlt fmltv ∧
+  LIST_TYPE constraint_TYPE fmlt fmltv ∧
   pres_TYPE prest prestv ∧
   obj_TYPE objt objtv ∧
   PBC_OUTPUT_TYPE output outputv ∧
@@ -2712,7 +2712,7 @@ Theorem run_concl_file_spec:
   OPTION_TYPE INT dbound1 dbound1v ∧
   BOOL chk1 chk1v ∧
   NUM enum enumv ∧
-  LIST_TYPE fslot_TYPE fmlt fmltv ∧
+  LIST_TYPE constraint_TYPE fmlt fmltv ∧
   obj_TYPE objt objtv ∧
   pres_TYPE prest prestv ∧
   LIST_REL fslot_TYPE fmlls fmllsv
@@ -2973,8 +2973,7 @@ Theorem check_unsat'_spec:
   fmls = MAP (λc. enc c T) fml ∧
   obj_TYPE obj objv ∧
   pres_TYPE pres presv ∧
-  LIST_TYPE fslot_TYPE fmlts fmltv ∧
-  fmlts = MAP (λc. enc c T) fmlt ∧
+  LIST_TYPE constraint_TYPE fmlt fmltv ∧
   obj_TYPE objt objtv ∧
   pres_TYPE prest prestv
   ⇒
@@ -3192,7 +3191,7 @@ Proof
             SOME (output,hconcl) ∧
           check_output_list res3 res4 res6 (res7,res8,res9,res10)
             pc'.pres pc'.obj pc'.bound pc'.dbound pc'.chk
-            (MAP (λc. enc c T) fmlt) prest objt output ∧
+            fmlt prest objt output ∧
           check_hconcl_list (MAP (λc. enc c T) fml) obj res3
             pc'.obj pc'.bound pc'.dbound pc'.enum hconcl
         | INL l => T))`
@@ -3202,7 +3201,7 @@ Proof
         get_enum_def]>>
       qexistsl_tac[`emp`,`res0`,`prest`,`pc'.pres`,`objt`,`pc'.obj`,`obj`,
         `lines'`,`res4`,`res6`,`(res7,res8,res9,res10)`,`forwardFD fs fd k`,
-        `(res1,res2)`,`MAP (λc. enc c T) fmlt`,`res3`,
+        `(res1,res2)`,`fmlt`,`res3`,
         `MAP (λc. enc c T) fml`,`fd`,`pc'.enum`,`pc'.dbound`,`pc'.chk`,
         `pc'.bound`,`bksv'`,`bkslsv'`,`lno'`,`a`]>>
       simp[PAIR_TYPE_def]>>
@@ -3391,8 +3390,7 @@ Theorem check_unsat_top_spec:
   fmls = MAP (λc. enc c T) fml ∧
   obj_TYPE obj objv ∧
   pres_TYPE pres presv ∧
-  LIST_TYPE fslot_TYPE fmlts fmltv ∧
-  fmlts = MAP (λc. enc c T) fmlt ∧
+  LIST_TYPE constraint_TYPE fmlt fmltv ∧
   obj_TYPE objt objtv ∧
   pres_TYPE prest prestv ∧
   FILENAME f fv ∧
@@ -3625,7 +3623,7 @@ Quote add_cakeml:
   case normalise_full_2 prob probt of
     ((pres,(obj,fml)),((prest,(objt,fmlt)),t)) =>
     check_unsat_top b (name_to_num_var_nf,t) (enc_list fml) pres obj
-      (enc_list fmlt) prest objt fname
+      fmlt prest objt fname
 End
 
 Overload "prob_TYPE" = ``
@@ -3681,8 +3679,7 @@ Proof
   gvs[PAIR_TYPE_def]>>
   xmatch>>
   rpt xlet_autop>>
-  `LIST_TYPE fslot_TYPE (MAP (λc. enc c T) fml) v' ∧
-   LIST_TYPE fslot_TYPE (MAP (λc. enc c T) fmlt) v` by
+  `LIST_TYPE fslot_TYPE (MAP (λc. enc c T) fml) v` by
     gvs[npbc_arrayProgTheory.LIST_TYPE_fslot_TYPE,enc_list_def,EVERY_MAP]>>
   xapp_spec (check_unsat_top_spec |>
     INST_TYPE[alpha|->``:mlstring name_to_num_state``])>>

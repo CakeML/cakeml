@@ -548,6 +548,8 @@ Proof
   rw[EVERY_FILTER]
 QED
 
+val res = translate PART_DEF;
+val res = translate PARTITION_DEF;
 val res = translate mk_outr_def;
 val res = translate split_varc_in_list_eq;
 
