@@ -5,7 +5,8 @@ Theory distrup_fullProg
 Libs
   preamble basis wordsLib
 Ancestors
-  distrup_list ccnf_arith distrup_arrayProg words cfHeapsBase cv_std byte
+  distrup_list array_ofProof ccnf_arith distrup_arrayProg words cfHeapsBase
+  cv_std byte
 
 val _ = hide_environments true;
 
@@ -1730,7 +1731,6 @@ QED
 
 Theorem check_top_SOME:
   NUM lno lnov ∧
-  LIST_REL vcclause_TYPE fmlls fmllsv ∧
   NUM b bv ∧
   DISTRUP_DISTRUP_TYPE inst instv ∧
   dm_ok fmlls Clist b ∧
@@ -1738,8 +1738,8 @@ Theorem check_top_SOME:
     Conv (SOME (TypeStamp «Some» 2))
       [Conv NONE [fmlv; Carrv; bv]] ⇒
   app (p:'ffi ffi_proj) check_top_v [lnov; instv; stv]
-      (ARRAY fmlv fmllsv *
-       NUM_ARRAY Carrv Clist)
+      (ARRAY_OF vcclause_TYPE fmlv fmlls *
+       ARRAY_OF NUM Carrv Clist)
       (POSTv res.
          SEP_EXISTS v1 v2 msg stopt.
          &(res = Conv NONE [v1;v2] ∧
@@ -1748,14 +1748,13 @@ Theorem check_top_SOME:
            NONE =>
             &(v1 = Conv (SOME (TypeStamp «None» 2)) [])
          | SOME (fmlls', Clist', b') =>
-            SEP_EXISTS v11 v12 v13 fmllsv'.
-            ARRAY v11 fmllsv' *
-            NUM_ARRAY v12 Clist' *
+            SEP_EXISTS v11 v12 v13.
+            ARRAY_OF vcclause_TYPE v11 fmlls' *
+            ARRAY_OF NUM v12 Clist' *
             &(
               v1 = Conv (SOME (TypeStamp «Some» 2))
                 [Conv NONE [v11;v12;v13]] ∧
-              NUM b' v13 ∧
-              LIST_REL vcclause_TYPE fmlls' fmllsv'
+              NUM b' v13
             )
       )
 Proof
@@ -1971,10 +1970,9 @@ Proof
 QED
 
 Theorem loop_SOME:
-  ∀inputs lno lnov events aevents fmlls fmllsv Clist step_arr step_arrv
+  ∀inputs lno lnov events aevents fmlls Clist step_arr step_arrv
     buf_arr buf_arrv b bv stv fmlv Carrv.
     NUM lno lnov ∧
-    LIST_REL vcclause_TYPE fmlls fmllsv ∧
     NUM b bv ∧
     dm_ok fmlls Clist b ∧
     events_ok st events aevents (SOME (fmlls, Clist, b)) ∧
@@ -1984,8 +1982,8 @@ Theorem loop_SOME:
     LENGTH step_arr = 17 ⇒
     app (p:'ffi ffi_proj) loop_v [step_arrv; buf_arrv; stv; lnov]
         (CUSTOM_FFI Step inputs events tb *
-         ARRAY fmlv fmllsv *
-         NUM_ARRAY Carrv Clist *
+         ARRAY_OF vcclause_TYPE fmlv fmlls *
+         ARRAY_OF NUM Carrv Clist *
          W8ARRAY buf_arrv buf_arr *
          W8ARRAY step_arrv step_arr)
         (POSTv res.
@@ -2022,8 +2020,8 @@ Proof
             SEP_EXISTS step_arr1 buf_arrv buf_arr produce_events cl hs i.
               CUSTOM_FFI Produce_callback inputs (events ++ produce_events) tb *
               W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
-              ARRAY fmlv fmllsv *
-              NUM_ARRAY Carrv Clist *
+              ARRAY_OF vcclause_TYPE fmlv fmlls *
+              ARRAY_OF NUM Carrv Clist *
               cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"a" ∧
                     is_produce_events i cl produce_events ∧
                     ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Lrup i cl hs)) v ∧
@@ -2078,9 +2076,9 @@ Proof
     xlet_autop>>
     xlet_autop>>
     xapp>>xsimpl>>
+    qrefinel [`_`,`fmlls'`,`_`,`Clist'`]>>
     irule_at Any SEP_IMP_REFL_emp>>
     pop_assum $ irule_at Any>>
-    first_x_assum $ irule_at Any>>
     first_x_assum $ irule_at Any>>
     simp[GSYM PULL_EXISTS]>>
     CONJ_TAC >-
@@ -2095,8 +2093,8 @@ Proof
             SEP_EXISTS step_arr1 buf_arrv buf_arr import_events cl i.
               CUSTOM_FFI Import_callback inputs (events ++ import_events) tb *
               W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
-              ARRAY fmlv fmllsv *
-              NUM_ARRAY Carrv Clist *
+              ARRAY_OF vcclause_TYPE fmlv fmlls *
+              ARRAY_OF NUM Carrv Clist *
               cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"i" ∧
                     is_import_events i cl import_events ∧
                     ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Import i cl)) v ∧
@@ -2133,9 +2131,9 @@ Proof
     xlet_autop>>
     xlet_autop>>
     xapp>>xsimpl>>
+    qrefinel [`_`,`fmlls'`,`_`,`Clist'`]>>
     irule_at Any SEP_IMP_REFL_emp>>
     pop_assum $ irule_at Any>>
-    first_x_assum $ irule_at Any>>
     first_x_assum $ irule_at Any>>
     simp[GSYM PULL_EXISTS]>>
     CONJ_TAC >-
@@ -2150,8 +2148,8 @@ Proof
             SEP_EXISTS step_arr1 buf_arrv buf_arr delete_events hs.
               CUSTOM_FFI Delete_callback inputs (events ++ delete_events) tb *
               W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
-              ARRAY fmlv fmllsv *
-              NUM_ARRAY Carrv Clist *
+              ARRAY_OF vcclause_TYPE fmlv fmlls *
+              ARRAY_OF NUM Carrv Clist *
               cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"d" ∧
                     is_delete_events delete_events ∧
                     ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Del hs)) v ∧
@@ -2188,9 +2186,9 @@ Proof
     xlet_autop>>
     xlet_autop>>
     xapp>>xsimpl>>
+    qrefinel [`_`,`fmlls'`,`_`,`Clist'`]>>
     irule_at Any SEP_IMP_REFL_emp>>
     pop_assum $ irule_at Any>>
-    first_x_assum $ irule_at Any>>
     first_x_assum $ irule_at Any>>
     simp[GSYM PULL_EXISTS]>>
     CONJ_TAC >-
@@ -2205,8 +2203,8 @@ Proof
             SEP_EXISTS step_arr1 buf_arrv buf_arr validate_events.
               CUSTOM_FFI Validate_UNSAT_callback inputs (events ++ validate_events) tb *
               W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
-              ARRAY fmlv fmllsv *
-              NUM_ARRAY Carrv Clist *
+              ARRAY_OF vcclause_TYPE fmlv fmlls *
+              ARRAY_OF NUM Carrv Clist *
               cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"V" ∧
                     is_validate_events validate_events ∧
                     ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME ValidateUnsat) v ∧
@@ -2263,9 +2261,9 @@ Proof
     xlet_autop>>
     xlet_autop>>
     xapp>>xsimpl>>
+    qrefinel [`_`,`fmlls'`,`_`,`Clist'`]>>
     irule_at Any SEP_IMP_REFL_emp>>
     pop_assum $ irule_at Any>>
-    first_x_assum $ irule_at Any>>
     first_x_assum $ irule_at Any>>
     simp[GSYM PULL_EXISTS]>>
     CONJ_TAC >-
@@ -2290,8 +2288,11 @@ Proof
   rpt strip_tac >>
   xcf_with_def (fetch "-" "main_v_def") >>
   xmatch  >> gvs [] >>
-  ntac 5 xlet_autop>>
-  xlet_auto_spec (SOME ccnf_arrayProgTheory.NUM_ARRAY_alloc_zero_spec)
+  ntac 4 xlet_autop>>
+  assume_tac ccnf_arrayProgTheory.vcc_none_v_thm>>
+  xlet_auto_spec (SOME (Q.ISPEC`vcclause_TYPE` ARRAY_OF_alloc_spec))
+  >- xsimpl>>
+  xlet_auto_spec (SOME (Q.ISPEC`NUM` ARRAY_OF_alloc_spec))
   >- xsimpl>>
   rpt xlet_autop>>
   xapp_spec loop_SOME >>
@@ -2302,9 +2303,6 @@ Proof
   qexists ‘REPLICATE 4096 vcc_none’ >>
   qexists_tac`REPLICATE 1024 0`>>
   xsimpl >>
-  conj_tac >-
-   (gvs [LIST_REL_EL_EQN,EL_REPLICATE,
-         ccnf_arrayProgTheory.vcc_none_v_thm]) >>
   conj_tac >-
    (gvs [ccnf_listTheory.dm_ok_def,ccnf_listTheory.bnd_fml_def,
           miscTheory.any_el_ALT,EL_REPLICATE, SF CONJ_ss]) >>
