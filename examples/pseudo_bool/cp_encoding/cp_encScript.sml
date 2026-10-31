@@ -85,11 +85,10 @@ Proof
 QED
 
 Definition encode_def:
-  encode bnd cs =
-  let bndm = map_bnd_lookup (alist_to_fmap bnd) in
-  let cs = append (FST (cencode_constraints bndm cs init_ec)) in
-  let cs' = MAP (I ## encode_iconstraint_one bndm avar_epb) cs in
-  let bndcs = cencode_bound_all bndm (MAP FST bnd) in
+  encode bnd vs cs =
+  let cs = append (FST (cencode_constraints bnd cs init_ec)) in
+  let cs' = MAP (I ## encode_iconstraint_one bnd avar_epb) cs in
+  let bndcs = cencode_bound_all bnd vs in
   append (Append bndcs (List cs'))
 End
 
@@ -111,14 +110,13 @@ End
 (* Returns the optional preserved set and the objective *)
 Definition encode_prob_type_def:
   encode_prob_type bnd pty =
-  let bndm = map_bnd_lookup (alist_to_fmap bnd) in
   case pty of
     Decide => (NONE, NONE)
-  | Minimize v => (NONE, SOME (encode_ivar bndm v, 0i))
-  | Maximize v => (NONE, SOME (encode_nivar bndm v, 0i))
+  | Minimize v => (NONE, SOME (encode_ivar bnd v, 0i))
+  | Maximize v => (NONE, SOME (encode_nivar bnd v, 0i))
   | Enumerate vs =>
     (SOME
-      (FLAT (MAP (proj_ivar bndm) vs)),
+      (FLAT (MAP (proj_ivar bnd) vs)),
     NONE)
 End
 
@@ -145,10 +143,10 @@ Theorem encode_sem_1:
   cp_sat (bnd_lookup bnd) (set (MAP SND cs)) wi ⇒
   ∃wb.
   satisfies (reify_epb (wi,wb))
-    (set (MAP SND (encode bnd cs)))
+    (set (MAP SND (encode (bnd_lookup bnd) (MAP FST bnd) cs)))
 Proof
   `∃es ec'. cencode_constraints (bnd_lookup bnd) cs init_ec = (es,ec')` by metis_tac[PAIR]>>
-  rw[encode_def,map_bnd_lookup_alist_to_fmap,cp_sat_def,MAP_SND_MAP_I_FST]>>
+  rw[encode_def,cp_sat_def,MAP_SND_MAP_I_FST]>>
   qexists_tac`reify_avar cs wi`>>
   simp[GSYM encode_iconstraint_all_def,GSYM encode_iconstraint_all_sem_1]>>
   fs[GSYM EVERY_MEM,EVERY_MAP]>>
@@ -159,12 +157,12 @@ Proof
 QED
 
 Theorem encode_sem_2:
-  satisfies w (set (MAP SND (encode bnd cs))) ⇒
+  satisfies w (set (MAP SND (encode (bnd_lookup bnd) (MAP FST bnd) cs))) ⇒
   cp_sat (bnd_lookup bnd) (set (MAP SND cs))
     (unreify_epb (bnd_lookup bnd) w)
 Proof
   `∃es ec'. cencode_constraints (bnd_lookup bnd) cs init_ec = (es,ec')` by metis_tac[PAIR]>>
-  rw[encode_def,map_bnd_lookup_alist_to_fmap]>>
+  rw[encode_def]>>
   fs[MAP_SND_MAP_I_FST,cencode_bound_all_def,MAP_MAP_o,o_DEF]>>
   drule_at Any encode_bound_all_sem_2>>
   impl_tac >- (
@@ -847,7 +845,8 @@ Theorem encode_EEnum_BIJ[local]:
   ALL_DISTINCT (MAP FST cs) ⇒
   ∃f. BIJ f
     (proj_pres (set (FLAT (MAP (proj_ivar (bnd_lookup bnd)) vs)))
-               {w | satisfies w (set (MAP SND (encode bnd cs)))})
+               {w | satisfies w
+                      (set (MAP SND (encode (bnd_lookup bnd) (MAP FST bnd) cs)))})
     (cp_proj vs {w | cp_sat (bnd_lookup bnd) (set (MAP SND cs)) w})
 Proof
   strip_tac >>
@@ -874,10 +873,11 @@ End
 
 Definition full_encode_def:
   full_encode (bnd,cs,pty) =
-  let (pres,obj) = encode_prob_type bnd pty in
+  let bndm = map_bnd_lookup (alist_to_fmap bnd) in
+  let (pres,obj) = encode_prob_type bndm pty in
   (OPTION_MAP (MAP format_string) pres,
     map_obj format_string obj,
-    MAP (annot_list ## map_pbc format_string) (encode bnd cs))
+    MAP (annot_list ## map_pbc format_string) (encode bndm (MAP FST bnd) cs))
 End
 
 (* Check validity and convert a PB conclusion into a CP one *)
@@ -903,7 +903,7 @@ Theorem full_encode_sem_concl:
   cp_inst_sem_concl (bnd,cs,pty) concl'
 Proof
   strip_tac>>
-  gvs[full_encode_def]>>
+  gvs[full_encode_def,map_bnd_lookup_alist_to_fmap]>>
   qpat_x_assum`sem_concl _ _ _ _` mp_tac>>
   gvs[UNCURRY_EQ]>>
   rename1`_ = (pres,obj)`>>
@@ -939,7 +939,7 @@ Proof
   >~[`OBounds lbi ubi`]
   >- (
     gvs[AllCaseEqs(),cp_inst_sem_concl_def,cp_sem_concl_def,
-      sem_concl_def,encode_prob_type_def,map_bnd_lookup_alist_to_fmap]>>
+      sem_concl_def,encode_prob_type_def]>>
     strip_tac
     >- (
       simp[cp_is_lb_def,cp_has_ub_def]>>
@@ -982,7 +982,7 @@ Proof
   >~[`EEnum n b`]
   >- (
     gvs[AllCaseEqs(),cp_inst_sem_concl_def,cp_sem_concl_def,
-      sem_concl_def,encode_prob_type_def,map_bnd_lookup_alist_to_fmap]>>
+      sem_concl_def,encode_prob_type_def]>>
     qmatch_goalsub_abbrev_tac`CARD proj_pb_sols`>>
     qmatch_goalsub_abbrev_tac`_ ⇒ n ≤ CARD proj_cp_sols ∧ _`>>
     `?f. BIJ f proj_pb_sols proj_cp_sols` by

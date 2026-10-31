@@ -44,7 +44,6 @@ val res = translate (nub_def |> REWRITE_RULE [MEMBER_INTRO]);
 
 val res = translate ISL;
 val res = translate ISR;
-val res = translate OUTL;
 val res = translate OUTR;
 
 val res = translate MIN_DEF;
@@ -415,9 +414,11 @@ val res = translate cfalse_constr_def;
 
 val res = translate flat_app_def;
 
+val res = translate (nub_int_aux_def |> REWRITE_RULE [GSYM miscTheory.fmap_update_def]);
+val res = translate nub_int_def;
+
 val res = translate encode_wbitsum_def;
 val res = translate cencode_wbitsum_def;
-val res = translate encode_bitsum_def;
 val res = translate cencode_bitsum_def;
 
 val res = translate mk_lin_constraint_ge_aux_def;
@@ -526,13 +527,9 @@ val res = translate cp_to_ilp_countingTheory.eqi_def;
 val res = translate cp_to_ilp_countingTheory.cencode_count_aux_def;
 val res = translate cp_to_ilp_countingTheory.cencode_count_def;
 
-val res = translate (cp_to_ilp_countingTheory.nub_int_aux_def
-                     |> REWRITE_RULE [GSYM miscTheory.fmap_update_def]);
-val res = translate cp_to_ilp_countingTheory.nub_int_def;
 val res = translate cp_to_ilp_countingTheory.cencode_among_aux_def;
 val res = translate cp_to_ilp_countingTheory.cencode_among_def;
 
-val res = translate cp_to_ilp_countingTheory.cencode_gcc_counts_def;
 val res = translate cp_to_ilp_countingTheory.cencode_global_cardinality_aux_def;
 val res = translate cp_to_ilp_countingTheory.cencode_global_cardinality_def;
 
@@ -825,6 +822,8 @@ val res = translate cp_to_ilp_schedulingTheory.cumul_sact_def;
 val res = translate cp_to_ilp_schedulingTheory.cumul_scc_def;
 val res = translate cp_to_ilp_schedulingTheory.cumul_sccs_def;
 val res = translate cp_to_ilp_schedulingTheory.cumul_task_active_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_hw_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_active_def;
 val res = translate cp_to_ilp_schedulingTheory.cumul_pair_def;
 val res = translate cp_to_ilp_schedulingTheory.cumul_contrib_def;
 val res = translate cp_to_ilp_schedulingTheory.cumul_gate_def;

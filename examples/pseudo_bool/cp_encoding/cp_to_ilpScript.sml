@@ -2035,6 +2035,32 @@ Proof
   simp[flat_app_def,append_thm]
 QED
 
+(* nub, tracking the values already kept in a finite map *)
+Definition nub_int_aux_def:
+  nub_int_aux [] = (FEMPTY : int |-> unit, []) ∧
+  nub_int_aux ((x:int)::xs) =
+    let (seen,ys) = nub_int_aux xs in
+    if IS_SOME (FLOOKUP seen x) then (seen,ys) else (seen |+ (x,()), x::ys)
+End
+
+Definition nub_int_def:
+  nub_int xs = SND (nub_int_aux xs)
+End
+
+Theorem nub_int_aux_nub[local]:
+  ∀xs. FDOM (FST (nub_int_aux xs)) = set xs ∧ SND (nub_int_aux xs) = nub xs
+Proof
+  Induct>>simp[nub_int_aux_def,nub_def]>>
+  qx_gen_tac ‘x’>>pairarg_tac>>gvs[FLOOKUP_DEF]>>
+  Cases_on ‘MEM x xs’>>gvs[ABSORPTION_RWT]
+QED
+
+Theorem nub_int_nub:
+  nub_int xs = nub xs
+Proof
+  simp[nub_int_def,nub_int_aux_nub]
+QED
+
 Theorem abstrl_mk_annotate[simp]:
   ∀ls ys.
   abstrl (mk_annotate ls ys) = ys

@@ -945,26 +945,6 @@ Proof
   simp[]
 QED
 
-(* nub, tracking the values already kept in a finite map *)
-Definition nub_int_aux_def:
-  nub_int_aux [] = (FEMPTY : int |-> unit, []) ∧
-  nub_int_aux ((x:int)::xs) =
-    let (seen,ys) = nub_int_aux xs in
-    if IS_SOME (FLOOKUP seen x) then (seen,ys) else (seen |+ (x,()), x::ys)
-End
-
-Definition nub_int_def:
-  nub_int xs = SND (nub_int_aux xs)
-End
-
-Theorem nub_int_aux_nub[local]:
-  ∀xs. FDOM (FST (nub_int_aux xs)) = set xs ∧ SND (nub_int_aux xs) = nub xs
-Proof
-  Induct>>simp[nub_int_aux_def,nub_def]>>
-  qx_gen_tac ‘x’>>pairarg_tac>>gvs[FLOOKUP_DEF]>>
-  Cases_on ‘MEM x xs’>>gvs[ABSORPTION_RWT]
-QED
-
 (* Among: Y equals the number of times values from iS appear in Xs. *)
 Definition cencode_among_aux_def:
   cencode_among_aux bnd Xs iS Y name =
@@ -981,7 +961,7 @@ Theorem cencode_among_aux_nub:
       (FLAT (MAP (λX. MAP (λv. INL (Eq X v)) vs) Xs))
       Y name «»
 Proof
-  simp[cencode_among_aux_def,nub_int_def,nub_int_aux_nub]
+  simp[cencode_among_aux_def,nub_int_nub]
 QED
 
 Definition encode_among_def:
@@ -1057,15 +1037,6 @@ QED
    per cover value vs[j], a reified-sum equality  Σ_i [Xi = vs[j]] = Cs[j];
    when `clsd`, additionally each Xi ∈ vs (per-variable membership).
    The [Xi = v] eq-atoms are shared/registered once via the eq-grid. *)
-
-(* count line per cover value, walking vs/Cs in parallel; j indexes the name *)
-Definition cencode_gcc_counts_def:
-  (cencode_gcc_counts Xs vs Cs name =
-    flat_app
-    (MAPi (λi (v,C).
-      cencode_bitsum (MAP (λX. INL (Eq X v)) Xs) C name (toString i ^ «_»))
-      (ZIP (vs,Cs))))
-End
 
 (* the non-grid part: count lines, plus clsd membership per variable *)
 Definition cencode_global_cardinality_aux_def:

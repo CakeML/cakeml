@@ -935,24 +935,25 @@ Definition vp_precede_blocks_def:
   | _ => Nil
 End
 
-(* the fresh (no shared-reif) part of the encoding *)
+(* the fresh (no shared-reif) part of the encoding; vs = nub ch *)
 Definition vp_blocks_def:
-  vp_blocks bnd name Xs ch =
+  vp_blocks bnd name Xs vs ch =
   let w = vp_width (LENGTH Xs); n = LENGTH Xs in
   Append
-    (flat_app (MAP (vp_value_block bnd name Xs w) (nub ch)))
+    (flat_app (MAP (vp_value_block bnd name Xs w) vs))
     (vp_precede_blocks bnd name w n 0 ch)
 End
 
 Definition cencode_value_precede_def:
   cencode_value_precede bnd ch Xs name ec =
-  let (egrid, ec') = cencode_eq_grid bnd Xs (nub ch) ec in
-  (Append egrid (vp_blocks bnd name Xs ch), ec')
+  let vs = nub_int ch in
+  let (egrid, ec') = cencode_eq_grid bnd Xs vs ec in
+  (Append egrid (vp_blocks bnd name Xs vs ch), ec')
 End
 
 Definition encode_value_precede_def:
   encode_value_precede bnd ch Xs name =
-  encode_eq_grid bnd Xs (nub ch) ++ abstr (vp_blocks bnd name Xs ch)
+  encode_eq_grid bnd Xs (nub ch) ++ abstr (vp_blocks bnd name Xs (nub ch) ch)
 End
 
 (* seq_precede_chain: clamp values to [1,m], m = min(max declared ub, n);
@@ -1479,7 +1480,7 @@ Theorem cencode_value_precede_sem:
   cencode_value_precede bnd ch Xs name ec = (es,ec') ⇒
   enc_rel wi es (encode_value_precede bnd ch Xs name) ec ec'
 Proof
-  rw[cencode_value_precede_def,encode_value_precede_def]>>
+  rw[cencode_value_precede_def,encode_value_precede_def,nub_int_nub]>>
   pairarg_tac>>gvs[]>>
   irule enc_rel_Append>>
   irule_at Any enc_rel_encode_eq_grid>>

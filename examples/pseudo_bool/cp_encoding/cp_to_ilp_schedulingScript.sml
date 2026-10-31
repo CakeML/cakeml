@@ -463,24 +463,55 @@ Definition cumul_pair_def:
       ([],[(1,Pos (cumul_sb name i j));(1,Pos (cumul_sa name i j))],2)))
 End
 
-(* the load term of contributor i at checkpoint j *)
+(* the bit width of a height (unused for a constant) *)
+Definition cumul_hw_def:
+  cumul_hw bnd h =
+  case h of
+    INL hv => bit_width bnd hv
+  | INR c => (F,0n)
+End
+
+(* the active tasks from index k on, as (i,x,w,h,cumul_hw bnd h) *)
+Definition cumul_active_def:
+  (cumul_active bnd (k:num) [] = []) ∧
+  (cumul_active bnd k ((x,w,h)::ts) =
+    let rest = cumul_active bnd (k + 1) ts in
+    if cumul_task_active bnd w h then (k,x,w,h,cumul_hw bnd h)::rest else rest)
+End
+
+Theorem FLAT_MAP_cumul_active:
+  ∀ts k f.
+  FLAT (MAP f (cumul_active bnd k ts)) =
+  FLAT (MAPi (λi (x,w,h).
+    if cumul_task_active bnd w h then f (i + k,x,w,h,cumul_hw bnd h) else []) ts)
+Proof
+  Induct>>simp[cumul_active_def]>>
+  qx_gen_tac`t`>>PairCases_on`t`>>rpt gen_tac>>
+  pop_assum (fn ih =>
+    rw[cumul_active_def,indexedListsTheory.MAPi_def,combinTheory.o_DEF,ADD1,ih])>>
+  `∀i. k + (i + 1) = i + (k + 1)` by simp[]>>
+  asm_rewrite_tac[]
+QED
+
+(* the load term of contributor i at checkpoint j; hw = cumul_hw bnd h *)
 Definition cumul_contrib_def:
-  cumul_contrib bnd name i j h =
+  cumul_contrib name i j h hw =
   case h of
     INR c => [(c, Pos (cumul_sact name i j))]
   | INL hv =>
-    let (comp,w) = bit_width bnd hv in
+    let (comp,w) = hw in
     let bits = pos_num (cumul_scc name i j) w in
     if comp then (-&(2**w), Pos (cumul_sccs name i j)) :: bits else bits
 End
 
-(* scc(i,j,k) ⇔ sact(i,j) ∧ bit_k(h), and the sign analogue *)
+(* scc(i,j,k) ⇔ sact(i,j) ∧ bit_k(h), and the sign analogue;
+   hw = cumul_hw bnd h *)
 Definition cumul_gate_def:
-  cumul_gate bnd name i j h =
+  cumul_gate bnd name i j h hw =
   case h of
     INR c => Nil
   | INL hv =>
-    let (comp,w) = bit_width bnd hv in
+    let (comp,w) = hw in
     let act = Pos (cumul_sact name i j) in
     Append
       (flat_app (GENLIST (λk.
@@ -492,12 +523,12 @@ Definition cumul_gate_def:
        else Nil)
 End
 
-(* checkpoint row of active task j:  Σ_i contrib(i,j) + own height ≤ cap *)
+(* checkpoint row of active task j:  Σ_i contrib(i,j) + own height ≤ cap,
+   over the active tasks act *)
 Definition cumul_scap_row_def:
-  cumul_scap_row bnd name tasks cap j w_j h_j =
-  let loadbs = FLAT (MAPi (λi (x,w,h).
-      if cumul_task_active bnd w h ∧ (i ≠ j ∨ ISL w)
-      then cumul_contrib bnd name i j h else []) tasks) in
+  cumul_scap_row name act cap j w_j h_j =
+  let loadbs = FLAT (MAP (λ(i,x,w,h,hw).
+      if i ≠ j ∨ ISL w then cumul_contrib name i j h hw else []) act) in
   let (dis,dfix) =
       if ISL w_j then ([],0i)
       else (case h_j of INL hv => ([(-1i,hv)],0i) | INR c => ([],c)) in
@@ -530,6 +561,31 @@ Definition cencode_cumulative_def:
   if LENGTH Xs ≠ LENGTH Ws ∨ LENGTH Xs ≠ LENGTH Hs then cfalse_constr
   else
     let tasks = ZIP (Xs, ZIP (Ws, Hs)) in
+    let act = cumul_active bnd 0 tasks in
+    Append (cumul_nonneg name tasks cap)
+    (flat_app (MAP (λ(j,x_j,w_j,h_j,hw_j).
+       Append
+         (flat_app (MAP (λ(i,x_i,w_i,h_i,hw_i).
+            if i = j then
+              (if ISL w_j then
+                 Append
+                   (cbimply_var bnd (cumul_sact name j j)
+                      (mk_constraint_one_ge 1 w_j 1))
+                   (cumul_gate bnd name j j h_j hw_j)
+               else Nil)
+            else
+              Append (cumul_pair bnd name i x_i w_i j x_j)
+                     (cumul_gate bnd name i j h_i hw_i)) act))
+         (cumul_scap_row name act cap j w_j h_j)) act))
+End
+
+(* every task pair, skipping the inactive ones *)
+Theorem cencode_cumulative_ACTIVE:
+  append (cencode_cumulative bnd Xs Ws Hs cap name) =
+  append (
+  if LENGTH Xs ≠ LENGTH Ws ∨ LENGTH Xs ≠ LENGTH Hs then cfalse_constr
+  else
+    let tasks = ZIP (Xs, ZIP (Ws, Hs)) in
     Append (cumul_nonneg name tasks cap)
     (flat_app (MAPi (λj (x_j,w_j,h_j).
        if ¬cumul_task_active bnd w_j h_j then Nil
@@ -542,13 +598,22 @@ Definition cencode_cumulative_def:
                    Append
                      (cbimply_var bnd (cumul_sact name j j)
                         (mk_constraint_one_ge 1 w_j 1))
-                     (cumul_gate bnd name j j h_j)
+                     (cumul_gate bnd name j j h_j (cumul_hw bnd h_j))
                  else Nil)
               else
                 Append (cumul_pair bnd name i x_i w_i j x_j)
-                       (cumul_gate bnd name i j h_i)) tasks))
-           (cumul_scap_row bnd name tasks cap j w_j h_j)) tasks))
-End
+                       (cumul_gate bnd name i j h_i (cumul_hw bnd h_i))) tasks))
+           (cumul_scap_row name (cumul_active bnd 0 tasks) cap j w_j h_j)) tasks)))
+Proof
+  rw[cencode_cumulative_def,append_thm,append_flat_app,MAP_MAP_o,
+     FLAT_MAP_cumul_active,indexedListsTheory.MAP_MAPi]>>
+  AP_TERM_TAC>>irule indexedListsTheory.MAPi_CONG>>simp[]>>
+  qx_genl_tac[`t`,`j`]>>strip_tac>>PairCases_on`t`>>
+  rw[append_thm,append_flat_app,indexedListsTheory.MAP_MAPi]>>
+  AP_TERM_TAC>>irule indexedListsTheory.MAPi_CONG>>simp[]>>
+  qx_genl_tac[`s`,`i`]>>strip_tac>>PairCases_on`s`>>
+  rw[append_thm]
+QED
 
 Definition encode_cumulative_def:
   encode_cumulative bnd Xs Ws Hs cap name =
@@ -591,12 +656,13 @@ QED
 (* the gate rows force the load term to the height when running, else 0 *)
 Theorem cumul_gate_sem:
   valid_assignment bnd wi ∧ bit_faithful bnd wi wb ∧
-  EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (cumul_gate bnd name i j h)) ⇒
-  eval_lin_term wb (cumul_contrib bnd name i j h) =
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr (cumul_gate bnd name i j h (cumul_hw bnd h))) ⇒
+  eval_lin_term wb (cumul_contrib name i j h (cumul_hw bnd h)) =
   if wb (cumul_sact name i j) then varc wi h else 0
 Proof
   strip_tac>>
-  Cases_on`h`>>gvs[cumul_gate_def,cumul_contrib_def]
+  Cases_on`h`>>gvs[cumul_gate_def,cumul_contrib_def,cumul_hw_def]
   >- (
     rename1 `bit_width bnd hv`>>
     `∃comp w. bit_width bnd hv = (comp,w)` by metis_tac[PAIR]>>
@@ -623,14 +689,15 @@ Theorem cumul_contrib_reify:
   valid_assignment bnd wi ∧
   ALOOKUP cs (name:mlstring) = SOME (Scheduling (Cumulative Xs Ws Hs cap)) ∧
   i < LENGTH Xs ∧ j < LENGTH Xs ⇒
-  eval_lin_term (reify_avar cs wi) (cumul_contrib bnd name i j (EL i Hs)) =
+  eval_lin_term (reify_avar cs wi)
+    (cumul_contrib name i j (EL i Hs) (cumul_hw bnd (EL i Hs))) =
   if varc wi (EL i Xs) ≤ varc wi (EL j Xs) ∧
      varc wi (EL i Xs) + varc wi (EL i Ws) ≥ varc wi (EL j Xs) + 1
   then varc wi (EL i Hs) else 0
 Proof
   strip_tac>>
   Cases_on`EL i Hs`>>
-  gvs[cumul_contrib_def,reify_avar_def,reify_flag_def,integerTheory.NUM_OF_INT,
+  gvs[cumul_contrib_def,cumul_hw_def,reify_avar_def,reify_flag_def,integerTheory.NUM_OF_INT,
       pbc_encodeTheory.b2i_alt]
   >- (
     rename1 `bit_width bnd hv`>>
@@ -663,16 +730,21 @@ QED
 
 Theorem cumul_scap_row_sem:
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (abstr (cumul_scap_row bnd name tasks cap j w_j h_j)) ⇔
+    (abstr (cumul_scap_row name (cumul_active bnd 0 tasks) cap j w_j h_j)) ⇔
   iSUM (MAPi (λi (x,w,h).
     if cumul_task_active bnd w h ∧ (i ≠ j ∨ ISL w)
-    then eval_lin_term wb (cumul_contrib bnd name i j h) else 0) tasks) +
+    then eval_lin_term wb (cumul_contrib name i j h (cumul_hw bnd h)) else 0) tasks) +
   (if ISL w_j then 0 else varc wi h_j) ≤ varc wi cap
 Proof
-  simp[cumul_scap_row_def]>>
+  `∀B X. eval_lin_term wb (if B then X else []) =
+     if B then eval_lin_term wb X else 0` by rw[eval_lin_term_NIL]>>
+  `∀A B (e:int). (if A then if B then e else 0 else 0) = if A ∧ B then e else 0` by
+    (Cases_on`A`>>simp[])>>
+  simp[cumul_scap_row_def,FLAT_MAP_cumul_active]>>
   Cases_on`cap`>>Cases_on`w_j`>>Cases_on`h_j`>>
   gvs[iconstraint_sem_def,eval_ilin_term_def,iSUM_def,varc_def,
       eval_lin_term_FLAT_MAPi_if]>>
+  rpt (pop_assum kall_tac)>>
   intLib.ARITH_TAC
 QED
 
@@ -757,10 +829,10 @@ Theorem cumul_gate_reify:
   ALOOKUP cs (name:mlstring) = SOME (Scheduling (Cumulative Xs Ws Hs cap)) ∧
   i < LENGTH Xs ∧ j < LENGTH Xs ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (abstr (cumul_gate bnd name i j (EL i Hs)))
+    (abstr (cumul_gate bnd name i j (EL i Hs) (cumul_hw bnd (EL i Hs))))
 Proof
   strip_tac>>
-  Cases_on`EL i Hs`>>gvs[cumul_gate_def]>>
+  Cases_on`EL i Hs`>>gvs[cumul_gate_def,cumul_hw_def]>>
   rename1`bit_width bnd hv`>>
   `∃comp w. bit_width bnd hv = (comp,w)` by metis_tac[PAIR]>>
   gvs[append_thm,MAP_GENLIST,combinTheory.o_DEF,abstr_cbimply_var]>>
@@ -849,7 +921,7 @@ Theorem encode_cumulative_sem_1:
 Proof
   rw[]>>
   `LENGTH Xs = LENGTH Ws ∧ LENGTH Xs = LENGTH Hs` by fs[cumulative_sem_def]>>
-  simp[encode_cumulative_def,cencode_cumulative_def,append_thm,EVERY_APPEND]>>
+  simp[encode_cumulative_def,cencode_cumulative_ACTIVE,append_thm,EVERY_APPEND]>>
   conj_tac
   >- (
     simp[cumul_nonneg_sem]>>
@@ -882,7 +954,8 @@ Proof
   conj_tac
   >- (
     rw[]>>simp[]>>
-    `eval_lin_term (reify_avar cs wi) (cumul_contrib bnd name i j (EL i Hs)) =
+    `eval_lin_term (reify_avar cs wi)
+       (cumul_contrib name i j (EL i Hs) (cumul_hw bnd (EL i Hs))) =
      if varc wi (EL i Xs) ≤ varc wi (EL j Xs) ∧
         varc wi (EL i Xs) + varc wi (EL i Ws) ≥ varc wi (EL j Xs) + 1
      then varc wi (EL i Hs) else 0` by (irule cumul_contrib_reify>>simp[])>>
@@ -890,7 +963,8 @@ Proof
     simp[intLib.ARITH_PROVE ``∀a b t:int. (a + b ≥ t + 1) ⇔ (t < a + b)``]>>
     rw[])>>
   Cases_on`EL j Ws`>>gvs[cumul_task_active_def,varc_bnd_def,varc_def]>>
-  `eval_lin_term (reify_avar cs wi) (cumul_contrib bnd name j j (EL j Hs)) =
+  `eval_lin_term (reify_avar cs wi)
+     (cumul_contrib name j j (EL j Hs) (cumul_hw bnd (EL j Hs))) =
    if varc wi (EL j Xs) ≤ varc wi (EL j Xs) ∧
       varc wi (EL j Xs) + varc wi (EL j Ws) ≥ varc wi (EL j Xs) + 1
    then varc wi (EL j Hs) else 0` by (irule cumul_contrib_reify>>simp[])>>
@@ -928,7 +1002,7 @@ Proof
   strip_tac>>
   `LENGTH Xs = LENGTH Ws ∧ LENGTH Xs = LENGTH Hs` by
     (CCONTR_TAC>>gvs[encode_cumulative_def,cencode_cumulative_def,cfalse_constr_def])>>
-  gvs[encode_cumulative_def,cencode_cumulative_def,append_thm,EVERY_APPEND]>>
+  gvs[encode_cumulative_def,cencode_cumulative_ACTIVE,append_thm,EVERY_APPEND]>>
   `0 ≤ varc wi cap ∧ EVERY (λ(x,w,h). 0 ≤ varc wi h) (ZIP (Xs,ZIP (Ws,Hs)))` by
     (qpat_x_assum`EVERY _ (abstr (cumul_nonneg _ _ _))`mp_tac>>simp[cumul_nonneg_sem])>>
   `∀j. j < LENGTH Hs ⇒ 0 ≤ varc wi (EL j Hs)` by
