@@ -73,7 +73,7 @@ Proof
     \\ DEP_REWRITE_TAC[align_add_aligned_gen]
     \\ simp[Abbr`bw`]
     \\ CONV_TAC(REWR_CONV(GSYM alignmentTheory.byte_aligned_def))
-    \\ (data_to_word_assignProofTheory.byte_aligned_bytes_in_word
+    \\ (data_to_word_assign_memProofTheory.byte_aligned_bytes_in_word
         |> Q.GEN`w` |> Q.SPEC`1w` |> UNDISCH |> mp_tac)
     \\ simp[] )
   \\ simp[]
@@ -219,7 +219,7 @@ Proof
   \\ simp[] \\ fs[SUBSET_DEF]
   \\ qexists_tac`SOME o m`
   \\ simp[]
-  \\ irule data_to_word_assignProofTheory.IMP_read_bytearray_GENLIST
+  \\ irule data_to_word_assign_commonProofTheory.IMP_read_bytearray_GENLIST
   \\ simp[] \\ rw[]
   \\ last_x_assum(qspec_then`n2w i + n2w (4 * LENGTH ll)`mp_tac)
   \\ impl_tac
@@ -1221,7 +1221,7 @@ Proof
     simp[lab_to_targetTheory.ffi_offset_def,
          heap_size_def, memory_size_def,
          ag32_targetTheory.ag32_target_def]
-    \\ match_mp_tac data_to_word_assignProofTheory.IMP_read_bytearray_GENLIST
+    \\ match_mp_tac data_to_word_assign_commonProofTheory.IMP_read_bytearray_GENLIST
     \\ simp[]
     \\ gen_tac \\ strip_tac
     \\ conj_tac >- (
