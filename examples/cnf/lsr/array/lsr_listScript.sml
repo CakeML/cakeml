@@ -1502,25 +1502,43 @@ Proof
   metis_tac[hints_between_refl,unit_prop_vb_undo_list_hints_between]
 QED
 
-(* The walk over the groups from offset g, which holds a group header or
-  ends the hints. prev: the previous group's id, which the next one must
-  exceed; cand: the offset of the candidate's (n's) group, 0 while none.
-  A named live clause gets its pass; a dead id is skipped. *)
-Definition walk_list_def:
-  walk_list fmlls dml b rat p sarr tally n s g len prev cand =
+(* The ids of the group headers from offset g, which holds a group header or
+  ends the hints *)
+Definition group_ids_def:
+  group_ids s g len =
   let (m,k) = parse_vb_int s g len in
-  if m = 0 then SOME (cand,dml,tally)
+  if 0 ≤ m then []
+  else Num (-m) :: group_ids s (skip_hints_vb s k len) len
+Termination
+  WF_REL_TAC `measure (λ(s,g,len). len - g)`>>
+  rpt gen_tac>>strip_tac>>
+  `m ≠ 0` by intLib.ARITH_TAC>>
+  `g < len ∧ g < k` by metis_tac[parse_vb_int_i]>>
+  qspecl_then [`s`,`k`,`len`] assume_tac skip_hints_vb_ge>>
+  simp[]
+End
+
+(* The walk over the groups from offset g, which holds a group header or
+  ends the hints. prev: the previous group's id; srt: whether every id so
+  far exceeded its predecessor; cand: the offset of the candidate's (n's)
+  group, 0 while none. A named live clause gets its pass; a dead id is
+  skipped. *)
+Definition walk_list_def:
+  walk_list fmlls dml b rat p sarr tally n s g len prev cand srt =
+  let (m,k) = parse_vb_int s g len in
+  if m = 0 then SOME (cand,srt,dml,tally)
   else if 0 < m then NONE
   else
     let D = Num (-m) in
-    if D ≤ prev then NONE
-    else if D = n then
+    let srt = (if D ≤ prev then F else srt) in
+    if D = n then
       walk_list fmlls dml b rat p sarr tally n s (skip_hints_vb s k len) len D k
+        srt
     else
       let c = any_el D fmlls vcc_none in
       if c = vcc_none then
         walk_list fmlls dml b rat p sarr tally n s (skip_hints_vb s k len) len D
-          cand
+          cand srt
       else
         case red_pass_list fmlls dml b rat p sarr tally c (length c) s k len of
           NONE => NONE
@@ -1528,9 +1546,9 @@ Definition walk_list_def:
           if r = 0 then NONE
           else
             walk_list fmlls dml' b rat p sarr tally' n s (skip_hints_vb s r len)
-              len D cand
+              len D cand srt
 Termination
-  WF_REL_TAC `measure (λ(fmlls,dml,b,rat,p,sarr,tally,n,s,g,len,prev,cand).
+  WF_REL_TAC `measure (λ(fmlls,dml,b,rat,p,sarr,tally,n,s,g,len,prev,cand,srt).
     len - g)`>>
   rpt conj_tac
   >- (
@@ -1594,6 +1612,15 @@ Proof
   simp[]
 QED
 
+Theorem group_ids_header:
+  parse_vb_int s g len = (-&d,k) ∧ 0 < d ⇒
+  group_ids s g len = d :: group_ids s (skip_hints_vb s k len) len
+Proof
+  strip_tac>>
+  CONV_TAC (LHS_CONV (ONCE_REWRITE_CONV [group_ids_def]))>>
+  simp[]
+QED
+
 (* The pass of one named live clause d, read as the walk needs it *)
 Theorem walk_live_step:
   fml_rel fml fmlls ∧ nz_vcfml (FRANGE fml) ∧
@@ -1635,30 +1662,36 @@ Proof
   metis_tac[red_ok_check_sr,red_pass_list_hints_between]
 QED
 
+(* V lists the group ids the walk read; G the live ones other than n, each
+  of which passed its round. The candidate's offset is the one the spec
+  finds when no id is repeated. *)
 Theorem walk_list:
-  ∀fmlls dml b rat p sarr tally n s g len prev cand cand' dml' tally'.
+  ∀fmlls dml b rat p sarr tally n s g len prev cand srt cand' srt' dml' tally'.
   fml_rel fml fmlls ∧ nz_vcfml (FRANGE fml) ∧
   bnd_fml fmlls (LENGTH dml) ∧ bnd_fml fmlls (LENGTH sarr) ∧
   dm_rel dm dml b ∧ sarr_rel σ rat p sarr ∧ img_bnd rat p sarr ∧
   LENGTH sarr ≤ LENGTH dml ∧
-  walk_list fmlls dml b rat p sarr tally n s g len prev cand =
-    SOME (cand',dml',tally') ⇒
+  walk_list fmlls dml b rat p sarr tally n s g len prev cand srt =
+    SOME (cand',srt',dml',tally') ⇒
   dm_rel dm dml' b ∧ LENGTH dml' = LENGTH dml ∧
   ∃G V.
-    EVERY (λj. prev < j) V ∧ SORTED $< V ∧ SORTED $< G ∧
+    V = group_ids s g len ∧
+    (srt' ⇒ srt ∧ EVERY (λj. prev < j) V ∧ SORTED $< V) ∧
+    (ALL_DISTINCT V ⇒ ALL_DISTINCT G) ∧
     EVERY (λj. MEM j V ∧ j ≠ n ∧ any_el j fmlls vcc_none ≠ vcc_none) G ∧
     tally' =
       FOLDL (λt j. add_tally σ (REVERSE (toList (any_el j fmlls vcc_none))) t)
         tally G ∧
     (∀j. MEM j G ⇒ check_sr fml dm σ s g len (j,any_el j fmlls vcc_none)) ∧
     (∀j. ¬MEM j V ⇒ group_offset s g len j = NONE) ∧
-    (if MEM n V then cand' ≠ 0 ∧ group_offset s g len n = SOME cand'
+    (ALL_DISTINCT V ⇒
+     if MEM n V then cand' ≠ 0 ∧ group_offset s g len n = SOME cand'
      else cand' = cand)
 Proof
   ho_match_mp_tac walk_list_ind>>
   rpt gen_tac>>strip_tac>>
   rpt gen_tac>>strip_tac>>
-  qpat_x_assum`walk_list _ _ _ _ _ _ _ _ _ _ _ _ _ = _` mp_tac>>
+  qpat_x_assum`walk_list _ _ _ _ _ _ _ _ _ _ _ _ _ _ = _` mp_tac>>
   once_rewrite_tac[walk_list_def]>>
   Cases_on`parse_vb_int s g len`>>
   rename1`parse_vb_int s g len = (m,k)`>>
@@ -1674,10 +1707,10 @@ Proof
   pop_assum SUBST1_TAC>>
   drule_all group_offset_header>>
   strip_tac>>
+  drule_all group_ids_header>>
+  strip_tac>>
   `g < k` by metis_tac[parse_vb_int_i,integerTheory.INT_NEG_EQ0,
     DECIDE ``0 < d ⇒ d ≠ 0n``,integerTheory.INT_INJ]>>
-  IF_CASES_TAC
-  >- simp[]>>
   IF_CASES_TAC
   >- suspend "Cand">>
   IF_CASES_TAC
@@ -1688,7 +1721,8 @@ QED
 Resume walk_list[End]:
   rpt (qpat_x_assum`∀m'. _` kall_tac)>>
   strip_tac>>gvs[]>>
-  qexistsl_tac[`[]`,`[]`]>>
+  `group_ids s g len = []` by simp[Once group_ids_def]>>
+  qexists_tac`[]`>>
   simp[]>>
   rw[Once group_offset_def]
 QED
@@ -1702,14 +1736,11 @@ Resume walk_list[Cand]:
   `∀j. j ≠ d ⇒
      group_offset s (skip_hints_vb s k len) len j = group_offset s g len j`
     by simp[group_offset_skip_hints_vb]>>
-  `¬MEM d V` by (strip_tac>>gvs[EVERY_MEM]>>res_tac>>gvs[])>>
-  qexistsl_tac [`G`,`d::V`]>>
-  `cand' = k` by gvs[]>>
+  qexists_tac`G`>>
   `transitive ($< : num -> num -> bool)`
     by simp[relationTheory.transitive_def]>>
   rpt conj_tac
-  >- (gvs[EVERY_MEM]>>rw[]>>res_tac>>simp[])
-  >- gvs[SORTED_EQ,EVERY_MEM]
+  >- (strip_tac>>gvs[SORTED_EQ,EVERY_MEM]>>rw[]>>res_tac>>simp[])
   >- simp[]
   >- gvs[EVERY_MEM]
   >- simp[]
@@ -1718,8 +1749,8 @@ Resume walk_list[Cand]:
     `j ≠ d` by gvs[EVERY_MEM]>>
     metis_tac[check_sr_group_offset])
   >- (rw[]>>metis_tac[])>>
-  simp[]>>
-  intLib.ARITH_TAC
+  strip_tac>>
+  gvs[]
 QED
 
 Resume walk_list[Dead]:
@@ -1731,30 +1762,29 @@ Resume walk_list[Dead]:
   `∀j. j ≠ d ⇒
      group_offset s (skip_hints_vb s k len) len j = group_offset s g len j`
     by simp[group_offset_skip_hints_vb]>>
-  `¬MEM d V` by (strip_tac>>gvs[EVERY_MEM]>>res_tac>>gvs[])>>
-  qexistsl_tac [`G`,`d::V`]>>
+  qexists_tac`G`>>
   `transitive ($< : num -> num -> bool)`
     by simp[relationTheory.transitive_def]>>
   rpt conj_tac
-  >- (gvs[EVERY_MEM]>>rw[]>>res_tac>>simp[])
-  >- gvs[SORTED_EQ,EVERY_MEM]
+  >- (strip_tac>>gvs[SORTED_EQ,EVERY_MEM]>>rw[]>>res_tac>>simp[])
   >- simp[]
   >- gvs[EVERY_MEM]
   >- simp[]
   >- (
     rw[]>>
-    `j ≠ d` by (gvs[EVERY_MEM]>>metis_tac[prim_recTheory.LESS_REFL])>>
+    `j ≠ d` by (gvs[EVERY_MEM]>>metis_tac[])>>
     metis_tac[check_sr_group_offset])
   >- (rw[]>>metis_tac[])>>
+  strip_tac>>
   gvs[]>>
   rw[]>>
   metis_tac[]
 QED
 
 Resume walk_list[Live]:
-  qpat_x_assum`∀m cand prev'. _` kall_tac>>
-  qpat_x_assum`∀m k' prev' c. _` kall_tac>>
-  qpat_x_assum`∀m k' prev' c fmlls' r b' dml' tally'. _` mp_tac>>
+  qpat_x_assum`∀m cand prev' srt'. _` kall_tac>>
+  qpat_x_assum`∀m k' prev' srt' c. _` kall_tac>>
+  qpat_x_assum`∀m k' prev' srt' c fmlls' r b' dml' tally'. _` mp_tac>>
   Cases_on`red_pass_list fmlls dml b rat p sarr tally (any_el d fmlls vcc_none)
     (length (any_el d fmlls vcc_none)) s k len`>>
   simp[]>>
@@ -1766,30 +1796,31 @@ Resume walk_list[Live]:
   strip_tac>>
   strip_tac>>
   strip_tac>>
-  first_x_assum (qspecl_then [`cand'`,`dml'`,`tally'`] mp_tac)>>
+  first_x_assum (qspecl_then [`cand'`,`srt'`,`dml'`,`tally'`] mp_tac)>>
   impl_tac
   >- simp[]>>
   strip_tac>>
+  `skip_hints_vb s r len = skip_hints_vb s k len` by gvs[hints_between_def]>>
+  pop_assum (fn th => RULE_ASSUM_TAC (REWRITE_RULE [th]))>>
   `∀j. j ≠ d ⇒
-     group_offset s (skip_hints_vb s r len) len j = group_offset s g len j`
-    by gvs[group_offset_skip_hints_vb,hints_between_def]>>
-  `¬MEM d V` by (strip_tac>>gvs[EVERY_MEM]>>res_tac>>gvs[])>>
+     group_offset s (skip_hints_vb s k len) len j = group_offset s g len j`
+    by simp[group_offset_skip_hints_vb]>>
   `transitive ($< : num -> num -> bool)`
     by simp[relationTheory.transitive_def]>>
   simp[]>>
-  qexistsl_tac [`d::G`,`d::V`]>>
+  qexists_tac`d::G`>>
   rpt conj_tac
-  >- (gvs[EVERY_MEM]>>rw[]>>res_tac>>simp[])
-  >- gvs[SORTED_EQ,EVERY_MEM]
-  >- (gvs[SORTED_EQ,EVERY_MEM]>>metis_tac[])
+  >- (strip_tac>>gvs[SORTED_EQ,EVERY_MEM]>>rw[]>>res_tac>>simp[])
+  >- (strip_tac>>gvs[EVERY_MEM]>>metis_tac[])
   >- gvs[EVERY_MEM]
   >- simp[]
   >- (
     rw[]>>
-    simp[]>>
-    `j ≠ d` by (gvs[EVERY_MEM]>>metis_tac[prim_recTheory.LESS_REFL])>>
+    Cases_on`j = d`>>
+    gvs[]>>
     metis_tac[check_sr_group_offset])
   >- (rw[]>>metis_tac[])>>
+  strip_tac>>
   gvs[]>>
   rw[]>>
   metis_tac[]
@@ -2506,10 +2537,10 @@ Proof
 QED
 
 Theorem stamps_ok_walk_list:
-  ∀fmlls dml b rat p sarr tally n s g len prev cand cand' dml' tally'.
+  ∀fmlls dml b rat p sarr tally n s g len prev cand srt cand' srt' dml' tally'.
   stamps_ok dml b ∧
-  walk_list fmlls dml b rat p sarr tally n s g len prev cand =
-    SOME (cand',dml',tally') ⇒
+  walk_list fmlls dml b rat p sarr tally n s g len prev cand srt =
+    SOME (cand',srt',dml',tally') ⇒
   stamps_ok dml' b
 Proof
   ho_match_mp_tac walk_list_ind>>
@@ -2580,9 +2611,9 @@ QED
 (* The walk returns the candidate offset it was given, or one within the
   hints *)
 Theorem walk_list_cand_le:
-  ∀fmlls dml b rat p sarr tally n s g len prev cand cand' dml' tally'.
-  walk_list fmlls dml b rat p sarr tally n s g len prev cand =
-    SOME (cand',dml',tally') ⇒
+  ∀fmlls dml b rat p sarr tally n s g len prev cand srt cand' srt' dml' tally'.
+  walk_list fmlls dml b rat p sarr tally n s g len prev cand srt =
+    SOME (cand',srt',dml',tally') ⇒
   cand' = cand ∨ cand' ≤ len
 Proof
   ho_match_mp_tac walk_list_ind>>
@@ -2602,7 +2633,7 @@ Proof
     strip_tac>>
     gvs[])
   >- (
-    qpat_x_assum`_ ⇒ ∀a b c. walk_list _ _ _ _ _ _ _ _ _ _ _ _ cand = _ ⇒ _`
+    qpat_x_assum`_ ⇒ ∀a b c d. walk_list _ _ _ _ _ _ _ _ _ _ _ _ cand _ = _ ⇒ _`
       mp_tac>>
     impl_tac
     >- (rpt conj_tac>>first_assum ACCEPT_TAC)>>
@@ -2617,10 +2648,10 @@ Proof
 QED
 
 Theorem walk_list_LENGTH:
-  ∀fmlls dml b rat p sarr tally n s g len prev cand cand' dml' tally'.
+  ∀fmlls dml b rat p sarr tally n s g len prev cand srt cand' srt' dml' tally'.
   bnd_fml fmlls (LENGTH dml) ∧
-  walk_list fmlls dml b rat p sarr tally n s g len prev cand =
-    SOME (cand',dml',tally') ⇒
+  walk_list fmlls dml b rat p sarr tally n s g len prev cand srt =
+    SOME (cand',srt',dml',tally') ⇒
   LENGTH dml' = LENGTH dml ∧ LENGTH tally' = LENGTH tally
 Proof
   ho_match_mp_tac walk_list_ind>>
@@ -2688,9 +2719,11 @@ Definition check_lsr_list_def:
       let (rat,p) = (case rat_pivot w of SOME p => (T,p) | NONE => (F,0)) in
       let sarr2 = (if rat then sarr1 else fill_subst (LENGTH sarr1) w sarr1) in
       let len = strlen h in
-      case walk_list fmlls dml2 b1 rat p sarr2 tally1 n h i0 len 0 0 of
+      case walk_list fmlls dml2 b1 rat p sarr2 tally1 n h i0 len 0 0 T of
         NONE => NONE
-      | SOME (cand,dml3,tally2) =>
+      | SOME (cand,srt,dml3,tally2) =>
+        if ¬srt ∧ ¬ALL_DISTINCT (group_ids h i0 len) then NONE
+        else
         let lim = MIN tp (LENGTH fmlls) in
         let cnt2 = catch_up fmlls wm lim cnt1 in
         if ¬cert_list rat p sarr2 cnt2 tally2 w then NONE
@@ -2837,15 +2870,24 @@ Proof
       irule sarr_rel_rat>>
       simp[])>>
     gvs[EVERY_0_any_el,any_el_clear_subst])>>
-  qpat_x_assum`option_CASE (walk_list _ _ _ _ _ _ _ _ _ _ _ _ _) _ _ = _` mp_tac>>
+  qpat_x_assum`option_CASE (walk_list _ _ _ _ _ _ _ _ _ _ _ _ _ _) _ _ = _` mp_tac>>
   simp[AllCaseEqs()]>>
-  strip_tac>>
+  disch_then (strip_assume_tac o PURE_ONCE_REWRITE_RULE [DISJ_EQ_IMP])>>
   rpt VAR_EQ_TAC>>
   drule_at (Pos last) walk_list>>
   disch_then (qspecl_then [`σ`,`fml`,`dm'`] mp_tac)>>
   impl_tac
   >- gvs[]>>
   strip_tac>>
+  `ALL_DISTINCT V` by (
+    Cases_on`srt`>>gvs[]>>
+    irule SORTED_ALL_DISTINCT>>
+    qexists_tac`$<`>>
+    simp[relationTheory.irreflexive_def,relationTheory.transitive_def])>>
+  qpat_x_assum`ALL_DISTINCT V ⇒ ALL_DISTINCT G`
+    (fn th => first_assum (assume_tac o MATCH_MP th))>>
+  qpat_x_assum`ALL_DISTINCT V ⇒ if _ then _ else _`
+    (fn th => first_assum (assume_tac o MATCH_MP th))>>
   `∀j. j < length C ⇒ sub C j ≠ 0 ∧ Num (ABS (sub C j)) < LENGTH sarr2` by (
     qpat_x_assum`¬MEM 0 _` mp_tac>>
     qpat_x_assum`bnd_clause _ _` mp_tac>>
@@ -2879,7 +2921,6 @@ Proof
       rpt (pop_assum kall_tac)>>
       Cases_on`C`>>
       simp[toList_thm,length_def])>>
-    gvs[]>>
     Cases_on`MEM n V`>>gvs[])>>
   sg`EVERY (check_sr fml dm' σ h i0 (strlen h)) (fmap_to_alist fml)`
   >- (
@@ -2909,7 +2950,7 @@ Proof
       match_mp_tac EVERY_MONOTONIC>>
       simp[])>>
     qexistsl_tac[`G`,`2 * LENGTH dml1`]>>
-    rpt conj_tac
+    conj_tac
     >- (
       rpt strip_tac>>
       `EVERY (λ(v,x). v < LENGTH sarr2) w` by gvs[w_bnd_vars]>>
@@ -2917,12 +2958,9 @@ Proof
         qpat_x_assum`cert_list _ _ _ _ _ _` (assume_tac o REWRITE_RULE [th]))>>
       drule cert_list_count>>
       disch_then irule>>
-      gvs[])
-    >- (
-      irule SORTED_ALL_DISTINCT>>
-      qexists_tac`$<`>>
-      simp[relationTheory.irreflexive_def,relationTheory.transitive_def])
-    >- first_assum ACCEPT_TAC
+      gvs[])>>
+    rpt (conj_tac >- first_assum ACCEPT_TAC)>>
+    conj_tac
     >- (
       qpat_x_assum`EVERY (λj. any_el j fmlls vcc_none ≠ vcc_none) G` mp_tac>>
       match_mp_tac EVERY_MONOTONIC>>

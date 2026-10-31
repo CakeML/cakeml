@@ -78,6 +78,7 @@ End
 Definition cake_lsr_run_def:
   cake_lsr_run cl fs mc ms ⇔
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
+  (reads_stdin cl ⇒ stdin_content fs ≠ NONE) ∧
   installed_x64 cake_lsr_code mc ms
 End
 
@@ -86,18 +87,23 @@ Theorem machine_code_sound:
   ∃io.
   machine_sem mc (basis_ffi ext cl fs) ms ⊆
     extend_with_resource_limit {Terminate Success io} ∧
-  ∃out err.
+  ∃k out err.
     extract_fs ext (cl,fs) io =
-      SOME (add_stdout (add_stderr fs err) out) ∧
-  if LENGTH cl = 2 then
-    (case get_cnf fs (EL 1 cl) of
-      NONE => out = «»
-    | SOME fml => out = concat (print_cnf (max_cnf fml) fml))
-  else if LENGTH cl = 3 then
-    (out ≠ «» ⇒
-      out = «s VERIFIED UNSAT\n» ∧
-      ∃fml. get_cnf fs (EL 1 cl) = SOME fml ∧ unsatisfiable_cnf (set fml))
-  else out = «»
+      SOME (add_stdout (add_stderr (forwardFD fs 0 k) err) out) ∧
+  case split_flags F (TL cl) of
+    (SOME T, [f1]) =>
+      (case get_cnf fs f1 of
+        NONE => out = «»
+      | SOME fml => out = concat (print_cnf (max_cnf fml) fml))
+  | (SOME F, [f1]) =>
+      (out ≠ «» ⇒
+        out = «s VERIFIED UNSAT\n» ∧
+        ∃fml. get_cnf fs f1 = SOME fml ∧ unsatisfiable_cnf (set fml))
+  | (SOME F, [f1; f2]) =>
+      (out ≠ «» ⇒
+        out = «s VERIFIED UNSAT\n» ∧
+        ∃fml. get_cnf fs f1 = SOME fml ∧ unsatisfiable_cnf (set fml))
+  | _ => out = «»
 Proof
   strip_tac>>
   fs[installed_x64_def,cake_lsr_code_def,cake_lsr_run_def]>>
@@ -105,6 +111,6 @@ Proof
   disch_then (qspec_then `ext` strip_assume_tac)>>
   goal_assum drule>>
   qpat_x_assum `result = _` SUBST_ALL_TAC>>
-  qexists_tac`out`>>qexists_tac`err`>>
+  qexistsl_tac[`k`,`out`,`err`]>>
   gvs[check_unsat_sem_def,check_unsat_1_sem_def,check_unsat_2_sem_def]
 QED
