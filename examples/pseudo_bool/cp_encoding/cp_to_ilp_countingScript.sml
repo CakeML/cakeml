@@ -945,14 +945,44 @@ Proof
   simp[]
 QED
 
-(* Among: Y equals the number of times values from iS appear in Xs.
-  NOTE: nub might need to be optimized here. *)
+(* nub, tracking the values already kept in a finite map *)
+Definition nub_int_aux_def:
+  nub_int_aux [] = (FEMPTY : int |-> unit, []) ∧
+  nub_int_aux ((x:int)::xs) =
+    let (seen,ys) = nub_int_aux xs in
+    if IS_SOME (FLOOKUP seen x) then (seen,ys) else (seen |+ (x,()), x::ys)
+End
+
+Definition nub_int_def:
+  nub_int xs = SND (nub_int_aux xs)
+End
+
+Theorem nub_int_aux_nub[local]:
+  ∀xs. FDOM (FST (nub_int_aux xs)) = set xs ∧ SND (nub_int_aux xs) = nub xs
+Proof
+  Induct>>simp[nub_int_aux_def,nub_def]>>
+  qx_gen_tac ‘x’>>pairarg_tac>>gvs[FLOOKUP_DEF]>>
+  Cases_on ‘MEM x xs’>>gvs[ABSORPTION_RWT]
+QED
+
+(* Among: Y equals the number of times values from iS appear in Xs. *)
 Definition cencode_among_aux_def:
   cencode_among_aux bnd Xs iS Y name =
+    let vs = nub_int iS in
     cencode_bitsum
-      (FLAT (MAP (λX. MAP (λv. INL (Eq X v)) (nub iS)) Xs))
+      (FLAT (MAP (λX. MAP (λv. INL (Eq X v)) vs) Xs))
       Y name «»
 End
+
+Theorem cencode_among_aux_nub:
+  cencode_among_aux bnd Xs iS Y name =
+    let vs = nub iS in
+    cencode_bitsum
+      (FLAT (MAP (λX. MAP (λv. INL (Eq X v)) vs) Xs))
+      Y name «»
+Proof
+  simp[cencode_among_aux_def,nub_int_def,nub_int_aux_nub]
+QED
 
 Definition encode_among_def:
   encode_among bnd Xs iS Y name =
@@ -978,7 +1008,7 @@ Theorem encode_among_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_among bnd Xs iS Y name)
 Proof
-  rw[cencode_among_aux_def,encode_among_def,among_sem_def]>>
+  rw[cencode_among_aux_nub,encode_among_def,among_sem_def]>>
   simp[reify_avar_def,reify_reif_def]>>
   drule_then (fn thm => simp[thm]) encode_bitsum_sem>>
   simp[MAP_FLAT,pbc_encodeTheory.iSUM_FLAT,MAP_MAP_o,o_DEF]>>
@@ -995,7 +1025,7 @@ Theorem encode_among_sem_2:
     (encode_among bnd Xs iS Y name) ⇒
   among_sem Xs iS Y wi
 Proof
-  rw[cencode_among_aux_def,encode_among_def,EVERY_FLAT,among_sem_def]>>
+  rw[cencode_among_aux_nub,encode_among_def,EVERY_FLAT,among_sem_def]>>
   drule_then (fn thm => gs[thm]) encode_bitsum_sem>>
   pop_assum (SUBST_ALL_TAC o SYM)>>
   simp[MAP_FLAT,pbc_encodeTheory.iSUM_FLAT,MAP_MAP_o,o_DEF]>>

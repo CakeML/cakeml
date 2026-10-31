@@ -33,17 +33,28 @@ End
 Definition encode_ivar_def:
   encode_ivar bnd (X:'a) =
   let (comp,h) = bit_width bnd X in
-  let bits = GENLIST (λi. (&(2**i),Pos (Bit X i))) h in
+  let bits = MAPi (λi c. (&c,Pos (Bit X i))) (pow2_list h) in
   if comp then
       (-&(2**h),Pos(Sign X)):: bits
   else (bits:('a,'b) epb lin_term)
 End
 
+Theorem encode_ivar_GENLIST:
+  encode_ivar bnd (X:'a) =
+  let (comp,h) = bit_width bnd X in
+  let bits = GENLIST (λi. (&(2**i),Pos (Bit X i))) h in
+  if comp then
+      (-&(2**h),Pos(Sign X)):: bits
+  else (bits:('a,'b) epb lin_term)
+Proof
+  simp[encode_ivar_def,MAPi_pow2_list]
+QED
+
 Theorem encode_ivar_sem_2:
   eval_lin_term w (encode_ivar bnd X) =
   unreify_epb bnd w X
 Proof
-  rw[encode_ivar_def,unreify_epb_def]>>
+  rw[encode_ivar_GENLIST,unreify_epb_def]>>
   pairarg_tac>>gvs[]>>
   IF_CASES_TAC>>gvs[two_comp_eval]>>
   simp[eval_lin_term_def,MAP_GENLIST,eval_term_def,o_DEF,int_of_bits_def,
@@ -56,7 +67,7 @@ Theorem encode_ivar_sem_1:
     (reify_epb (wi,wb)) (encode_ivar bnd X) =
   wi X
 Proof
-  rw[encode_ivar_def]>>
+  rw[encode_ivar_GENLIST]>>
   pairarg_tac>>gvs[]>>
   `?q r. bnd X = (q,r)` by metis_tac[PAIR]>>
   `q ≤ wi X ∧ wi X ≤ r` by (gvs[valid_assignment_def]>>metis_tac[])>>

@@ -5,7 +5,7 @@ Theory cp_enc
 Libs
   preamble
 Ancestors
-  cp pbc cp_to_ilp cp_to_ilp_all ilp_to_pb mlmap
+  cp pbc cp_to_ilp cp_to_ilp_all ilp_to_pb
 
 Definition cencode_bound_var_def:
   cencode_bound_var bnd X =
@@ -26,43 +26,18 @@ Definition cencode_bound_all_def:
       (cencode_bound_all bnd xs))
 End
 
-(* Bounds map keyed by fast_compare (from cp_to_ilp); first occurrence
-  of a key wins, matching ALOOKUP *)
-Definition mk_bnd_map_def:
-  (mk_bnd_map [] = mlmap$empty fast_compare) ∧
-  (mk_bnd_map ((k,v)::bnd) = mlmap$insert (mk_bnd_map bnd) k v)
-End
-
-Theorem map_ok_mk_bnd_map:
-  ∀bnd. map_ok (mk_bnd_map bnd)
-Proof
-  Induct
-  >- rw[mk_bnd_map_def,mlmapTheory.empty_thm,mlstringTheory.TotOrd_fast_compare]>>
-  Cases_on`h`>>
-  rw[mk_bnd_map_def,mlmapTheory.insert_thm]
-QED
-
-Theorem lookup_mk_bnd_map:
-  ∀bnd x. mlmap$lookup (mk_bnd_map bnd) x = ALOOKUP bnd x
-Proof
-  Induct
-  >- rw[mk_bnd_map_def,mlmapTheory.lookup_thm,mlmapTheory.empty_thm,
-        mlstringTheory.TotOrd_fast_compare]>>
-  Cases_on`h`>>
-  rw[mk_bnd_map_def,mlmapTheory.lookup_insert,map_ok_mk_bnd_map]
-QED
-
+(* bnd_lookup through the bounds as a finite map (alist_to_fmap bnd) *)
 Definition map_bnd_lookup_def:
-  map_bnd_lookup m x =
-  case mlmap$lookup m x of
+  map_bnd_lookup (m:mlstring |-> int # int) x =
+  case FLOOKUP m x of
     NONE => (0i,0i)
   | SOME v => v
 End
 
-Theorem map_bnd_lookup_mk_bnd_map:
-  map_bnd_lookup (mk_bnd_map bnd) = bnd_lookup bnd
+Theorem map_bnd_lookup_alist_to_fmap:
+  map_bnd_lookup (alist_to_fmap bnd) = bnd_lookup bnd
 Proof
-  rw[FUN_EQ_THM,map_bnd_lookup_def,bnd_lookup_def,lookup_mk_bnd_map]
+  rw[FUN_EQ_THM,map_bnd_lookup_def,bnd_lookup_def,alistTheory.ALOOKUP_EQ_FLOOKUP]
 QED
 
 (* An ILP Boolean variable becomes a PB variable; the Bit/Sign literals of an
@@ -111,8 +86,7 @@ QED
 
 Definition encode_def:
   encode bnd cs =
-  let m = mk_bnd_map bnd in
-  let bndm = map_bnd_lookup m in
+  let bndm = map_bnd_lookup (alist_to_fmap bnd) in
   let cs = append (FST (cencode_constraints bndm cs init_ec)) in
   let cs' = MAP (I ## encode_iconstraint_one bndm avar_epb) cs in
   let bndcs = cencode_bound_all bndm (MAP FST bnd) in
@@ -137,13 +111,14 @@ End
 (* Returns the optional preserved set and the objective *)
 Definition encode_prob_type_def:
   encode_prob_type bnd pty =
+  let bndm = map_bnd_lookup (alist_to_fmap bnd) in
   case pty of
     Decide => (NONE, NONE)
-  | Minimize v => (NONE, SOME (encode_ivar (bnd_lookup bnd) v, 0i))
-  | Maximize v => (NONE, SOME (encode_nivar (bnd_lookup bnd) v, 0i))
+  | Minimize v => (NONE, SOME (encode_ivar bndm v, 0i))
+  | Maximize v => (NONE, SOME (encode_nivar bndm v, 0i))
   | Enumerate vs =>
     (SOME
-      (FLAT (MAP (proj_ivar (bnd_lookup bnd)) vs)),
+      (FLAT (MAP (proj_ivar bndm) vs)),
     NONE)
 End
 
@@ -173,7 +148,7 @@ Theorem encode_sem_1:
     (set (MAP SND (encode bnd cs)))
 Proof
   `∃es ec'. cencode_constraints (bnd_lookup bnd) cs init_ec = (es,ec')` by metis_tac[PAIR]>>
-  rw[encode_def,map_bnd_lookup_mk_bnd_map,cp_sat_def,MAP_SND_MAP_I_FST]>>
+  rw[encode_def,map_bnd_lookup_alist_to_fmap,cp_sat_def,MAP_SND_MAP_I_FST]>>
   qexists_tac`reify_avar cs wi`>>
   simp[GSYM encode_iconstraint_all_def,GSYM encode_iconstraint_all_sem_1]>>
   fs[GSYM EVERY_MEM,EVERY_MAP]>>
@@ -189,7 +164,7 @@ Theorem encode_sem_2:
     (unreify_epb (bnd_lookup bnd) w)
 Proof
   `∃es ec'. cencode_constraints (bnd_lookup bnd) cs init_ec = (es,ec')` by metis_tac[PAIR]>>
-  rw[encode_def,map_bnd_lookup_mk_bnd_map]>>
+  rw[encode_def,map_bnd_lookup_alist_to_fmap]>>
   fs[MAP_SND_MAP_I_FST,cencode_bound_all_def,MAP_MAP_o,o_DEF]>>
   drule_at Any encode_bound_all_sem_2>>
   impl_tac >- (
@@ -964,7 +939,7 @@ Proof
   >~[`OBounds lbi ubi`]
   >- (
     gvs[AllCaseEqs(),cp_inst_sem_concl_def,cp_sem_concl_def,
-      sem_concl_def,encode_prob_type_def]>>
+      sem_concl_def,encode_prob_type_def,map_bnd_lookup_alist_to_fmap]>>
     strip_tac
     >- (
       simp[cp_is_lb_def,cp_has_ub_def]>>
@@ -1007,7 +982,7 @@ Proof
   >~[`EEnum n b`]
   >- (
     gvs[AllCaseEqs(),cp_inst_sem_concl_def,cp_sem_concl_def,
-      sem_concl_def,encode_prob_type_def]>>
+      sem_concl_def,encode_prob_type_def,map_bnd_lookup_alist_to_fmap]>>
     qmatch_goalsub_abbrev_tac`CARD proj_pb_sols`>>
     qmatch_goalsub_abbrev_tac`_ ⇒ n ≤ CARD proj_cp_sols ∧ _`>>
     `?f. BIJ f proj_pb_sols proj_cp_sols` by

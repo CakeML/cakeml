@@ -7,22 +7,8 @@ Libs
 Ancestors
   pbc pbc_encode cp ilp cp_to_ilp int_bitwise int_bitwiseExtra
 
-(* Generic, CP-free helpers (bit lookup, iSUM/FILTER counting, list/PERM/SORTED
-   and finite-self-map facts) shared across the Sort/ArgSort encodings. *)
-
-(* total, subtraction-free bit lookup into a little-endian bool list (for
-   translation: avoids EL/BIT side conditions; see sort_guard_alt) *)
-Definition nth_bit_def:
-  (nth_bit [] b = F) ∧
-  (nth_bit (x::xs) 0 = x) ∧
-  (nth_bit (x::xs) (SUC b) = nth_bit xs b)
-End
-
-Theorem nth_bit_eq[local]:
-  ∀l b. nth_bit l b ⇔ b < LENGTH l ∧ EL b l
-Proof
-  Induct>>rw[nth_bit_def]>>Cases_on`b`>>gvs[nth_bit_def]
-QED
+(* Generic, CP-free helpers (iSUM/FILTER counting, list/PERM/SORTED and
+   finite-self-map facts) shared across the Sort/ArgSort encodings. *)
 
 (* sum of indicator weights = number of satisfied indices *)
 Theorem iSUM_b2i_GENLIST[local]:
@@ -317,19 +303,28 @@ End
 Definition sort_guard_def:
   sort_guard name w i j =
   MAPi (λb sb. (if sb then Pos else Neg) (sort_posbit name i b))
-       (PAD_RIGHT F w (bits_of_num j))
+       (pad_bits w (bits_of_num j))
 End
+
+Theorem sort_guard_PAD_RIGHT:
+  sort_guard name w i j =
+  MAPi (λb sb. (if sb then Pos else Neg) (sort_posbit name i b))
+       (PAD_RIGHT F w (bits_of_num j))
+Proof
+  rw[sort_guard_def,pad_bits_PAD_RIGHT]
+QED
 
 (* (e) position channel: (pos[i]=j) → y[j] = x[i], emitted as ≤ and ≥ *)
 Definition sort_chan_lines_def:
   sort_chan_lines bnd name w Xs Ys =
   flat_app (MAPi (λi xi.
     flat_app (MAPi (λj yj.
+      let g = sort_guard name w i j in
       Append
         (List [(SOME (mk_name name («cle» ^ toString i ^ «_» ^ toString j)),
-                 bits_imply bnd (sort_guard name w i j) (mk_le yj xi))])
+                 bits_imply bnd g (mk_le yj xi))])
         (List [(SOME (mk_name name («cge» ^ toString i ^ «_» ^ toString j)),
-                 bits_imply bnd (sort_guard name w i j) (mk_ge yj xi))]))
+                 bits_imply bnd g (mk_ge yj xi))]))
       Ys))
     Xs)
 End
@@ -396,29 +391,13 @@ Proof
   >- gvs[]
 QED
 
-(* translation-friendly forms (subtraction-free) of the two width/guard helpers:
-   the truncated subtractions n-1 and w-LENGTH(...) would otherwise force carried
-   preconditions through the whole Sort/ArgSort encoder.  Both are value-preserving. *)
+(* translation-friendly form (subtraction-free) of the width helper: the
+   truncated subtraction n-1 would otherwise force a carried precondition
+   through the whole Sort/ArgSort encoder.  Value-preserving. *)
 Theorem sort_width_alt:
   sort_width n = if n = 0 then 0 else LENGTH (bits_of_num (n − 1))
 Proof
   rw[sort_width_def]>>simp[Once bits_of_num_def]
-QED
-
-Theorem sort_guard_alt:
-  sort_guard name w i j =
-  GENLIST (λb. (if nth_bit (bits_of_num j) b then Pos else Neg) (sort_posbit name i b))
-          (MAX (LENGTH (bits_of_num j)) w)
-Proof
-  rw[sort_guard_def]>>irule LIST_EQ>>
-  `LENGTH (PAD_RIGHT F w (bits_of_num j)) = MAX (LENGTH (bits_of_num j)) w` by
-    rw[bitstringTheory.length_pad_right,MAX_DEF]>>
-  simp[indexedListsTheory.LENGTH_MAPi,LENGTH_GENLIST,
-       indexedListsTheory.EL_MAPi,EL_GENLIST]>>
-  rpt strip_tac>>
-  `EL x (PAD_RIGHT F w (bits_of_num j)) = nth_bit (bits_of_num j) x` by
-    (simp[nth_bit_eq,PAD_RIGHT,EL_APPEND_EQN,MAX_DEF]>>rw[]>>gvs[EL_GENLIST])>>
-  simp[]
 QED
 
 (* the proof-only before-flag is the stable order on the value list *)
@@ -537,7 +516,7 @@ Theorem sort_guard_lit[local]:
 Proof
   strip_tac>>
   `LENGTH (bits_of_num j) ≤ w` by simp[LENGTH_bits_of_num_LE]>>
-  simp[sort_guard_def,EVERY_EL,LENGTH_MAPi,PAD_RIGHT,EL_MAPi]>>
+  simp[sort_guard_PAD_RIGHT,EVERY_EL,LENGTH_MAPi,PAD_RIGHT,EL_MAPi]>>
   eq_tac>>rw[]>>
   first_x_assum drule>>
   simp[EL_PAD_RIGHT_bits |> SIMP_RULE std_ss [PAD_RIGHT]]>>
@@ -891,8 +870,16 @@ End
 Definition argsort_y_num_def:
   argsort_y_num name j h =
     (-&(2 ** h), Pos (argsort_ysgn name j)) ::
-    GENLIST (λb. (&(2 ** b), Pos (argsort_ybit name j b))) h
+    MAPi (λb c. (&c, Pos (argsort_ybit name j b))) (pow2_list h)
 End
+
+Theorem argsort_y_num_GENLIST:
+  argsort_y_num name j h =
+    (-&(2 ** h), Pos (argsort_ysgn name j)) ::
+    GENLIST (λb. (&(2 ** b), Pos (argsort_ybit name j b))) h
+Proof
+  simp[argsort_y_num_def,MAPi_pow2_list]
+QED
 
 (* two's-complement width (comp,h) for y: covers [min lb(x), max ub(x)] over the
    Xs entries (seed 0 keeps 0 in range, so comp ⇔ some x can be negative).  Each
@@ -982,19 +969,6 @@ QED
 (* ArgSort encoder: runs Sort's rank core on Xs over an internal proof-only
    signed value array y, then links the permutation Ps. *)
 
-(* wrap a raw iconstraint list into the app_list container with names *)
-Definition cwrap_def:
-  cwrap name tag cs =
-  List (MAPi (λi c. (SOME (mk_name name (tag ^ toString i)), c)) cs)
-End
-
-Theorem abstr_cwrap[simp]:
-  abstr (cwrap name tag cs) = cs
-Proof
-  rw[cwrap_def]>>
-  simp[combinTheory.o_DEF,LIST_EQ_REWRITE,indexedListsTheory.EL_MAPi]
-QED
-
 (* (a) the internal value array is non-decreasing: y[j] ≤ y[j+1] *)
 Definition argsort_chain_le_def:
   argsort_chain_le name h n =
@@ -1018,16 +992,16 @@ QED
 (* (e) position channel: whenever pos[i]'s bits spell j, y[j] = x[i] *)
 Definition argsort_pos_chan_def:
   argsort_pos_chan bnd name w h Xs =
+  let ys = GENLIST (λj. argsort_y_num name j h) (LENGTH Xs) in
   flat_app (MAPi (λi xi.
-    flat_app (MAP (λj.
+    flat_app (MAPi (λj yj.
+      let g = sort_guard name w i j in
       Append
         (List [(SOME (mk_name name («acle» ^ toString i ^ «_» ^ toString j)),
-                 bits_imply bnd (sort_guard name w i j)
-                   (lin_le_varc (argsort_y_num name j h) xi))])
+                 bits_imply bnd g (lin_le_varc yj xi))])
         (List [(SOME (mk_name name («acge» ^ toString i ^ «_» ^ toString j)),
-                 bits_imply bnd (sort_guard name w i j)
-                   (lin_ge_varc (argsort_y_num name j h) xi))]))
-      (COUNT_LIST (LENGTH Xs))))
+                 bits_imply bnd g (lin_ge_varc yj xi))]))
+      ys))
     Xs)
 End
 
@@ -1039,17 +1013,6 @@ Definition argsort_p_range_def:
             mk_constraint_one_ge 1 pj offset);
           (SOME (mk_name name («pub» ^ toString j)),
             mk_constraint_one_ge (-1) pj (-(offset + &n - 1)))])
-    Ps)
-End
-
-(* equality flags: pin [p[j] = offset+k] (and the needed Ge flags) *)
-Definition argsort_eq_flags_def:
-  argsort_eq_flags bnd name Ps offset n =
-  flat_app (MAPi (λj pj.
-    flat_app (MAP (λk.
-      cwrap name («peq» ^ toString j ^ «_» ^ toString k)
-        (encode_full_eq bnd pj (offset + &k)))
-      (COUNT_LIST n)))
     Ps)
 End
 
@@ -1066,14 +1029,15 @@ End
 Definition argsort_valchan_def:
   argsort_valchan bnd name h Xs Ps offset =
   flat_app (MAPi (λj pj.
+    let yj = argsort_y_num name j h in
     flat_app (MAPi (λk xk.
       Append
         (List [(SOME (mk_name name («vcle» ^ toString j ^ «_» ^ toString k)),
                  bits_imply bnd [Pos (INL (Eq pj (offset + &k)))]
-                   (lin_le_varc (argsort_y_num name j h) xk))])
+                   (lin_le_varc yj xk))])
         (List [(SOME (mk_name name («vcge» ^ toString j ^ «_» ^ toString k)),
                  bits_imply bnd [Pos (INL (Eq pj (offset + &k)))]
-                   (lin_ge_varc (argsort_y_num name j h) xk))]))
+                   (lin_ge_varc yj xk))]))
       Xs))
     Ps)
 End
@@ -1126,27 +1090,40 @@ Proof
   rw[argsort_tiebreak_def]>>Cases_on`n`>>gvs[]
 QED
 
-Definition cencode_argsort_def:
-  cencode_argsort bnd Xs Ps offset name =
+(* the blocks other than the [p[j] = offset+k] reifications *)
+Definition cencode_argsort_aux_def:
+  cencode_argsort_aux bnd Xs Ps offset name =
   let n = LENGTH Xs in
-  if LENGTH Ps ≠ n then cfalse_constr
-  else
-    let w = sort_width n in
-    let h = SND (argsort_width bnd Xs) in
+  let w = sort_width n in
+  let h = SND (argsort_width bnd Xs) in
     Append (argsort_chain_le name h n)
     (Append (sort_bf_lines bnd name Xs)
     (Append (sort_rank_lines name w n)
     (Append (argsort_pos_chan bnd name w h Xs)
     (Append (argsort_p_range name Ps offset n)
-    (Append (argsort_eq_flags bnd name Ps offset n)
     (Append (argsort_perm name Ps offset n)
     (Append (argsort_valchan bnd name h Xs Ps offset)
     (Append (argsort_rankchan bnd name w Ps offset n)
-            (argsort_tiebreak bnd name h Ps n)))))))))
+            (argsort_tiebreak bnd name h Ps n))))))))
+End
+
+Definition cencode_argsort_def:
+  cencode_argsort bnd Xs Ps offset name ec =
+  let n = LENGTH Xs in
+  if LENGTH Ps ≠ n then (cfalse_constr, ec)
+  else
+    let (eqs,ec') =
+      cencode_eq_grid bnd Ps (GENLIST (λk. offset + &k) n) ec in
+    (Append eqs (cencode_argsort_aux bnd Xs Ps offset name), ec')
 End
 
 Definition encode_argsort_def:
-  encode_argsort bnd Xs Ps offset name = abstr (cencode_argsort bnd Xs Ps offset name)
+  encode_argsort bnd Xs Ps offset name =
+  let n = LENGTH Xs in
+  if LENGTH Ps ≠ n then [false_constr]
+  else
+    encode_eq_grid bnd Ps (GENLIST (λk. offset + &k) n) ++
+    abstr (cencode_argsort_aux bnd Xs Ps offset name)
 End
 
 (* ArgSort block-level semantics (reify-free): each block holds iff its
@@ -1185,28 +1162,24 @@ Proof
   strip_tac>>
   simp[argsort_pos_chan_def, EVERY_FLAT]>>
   simp[Once EVERY_MEM,MEM_MAPi,PULL_EXISTS,combinTheory.o_DEF]>>
-  simp[EVERY_FLAT]>>
-  simp[Once EVERY_MEM,MEM_MAP,MEM_COUNT_LIST,PULL_EXISTS]>>
+  simp[EVERY_FLAT,MAPi_GENLIST_GENLIST]>>
+  simp[Once EVERY_MEM,MEM_GENLIST,PULL_EXISTS]>>
   `∀g (a:int) b. ((g ⇒ a ≤ b) ∧ (g ⇒ a ≥ b)) ⇔ (g ⇒ a = b)` by
     (rw[]>>eq_tac>>rw[]>>intLib.ARITH_TAC)>>
   metis_tac[]
 QED
 
 (* equality flags: pin [p[j] = offset+k] and the bracketing Ge flags *)
-Theorem argsort_eq_flags_sem[local]:
+Theorem argsort_eq_grid_sem[local]:
   valid_assignment bnd wi ⇒
-  (EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (argsort_eq_flags bnd name Ps offset n)) ⇔
+  (EVERY (λx. iconstraint_sem x (wi,wb))
+     (encode_eq_grid bnd Ps (GENLIST (λk. offset + &k) n)) ⇔
    ∀j k. j < LENGTH Ps ∧ k < n ⇒
      (wb (INL (Ge (EL j Ps) (offset + &k))) ⇔ varc wi (EL j Ps) ≥ offset + &k) ∧
      (wb (INL (Ge (EL j Ps) (offset + &k + 1))) ⇔ varc wi (EL j Ps) ≥ offset + &k + 1) ∧
      (wb (INL (Eq (EL j Ps) (offset + &k))) ⇔ varc wi (EL j Ps) = offset + &k))
 Proof
-  strip_tac>>
-  simp[argsort_eq_flags_def,EVERY_FLAT]>>
-  simp[Once EVERY_MEM,MEM_MAPi,PULL_EXISTS,combinTheory.o_DEF]>>
-  simp[EVERY_FLAT]>>
-  simp[Once EVERY_MEM,MEM_MAP,MEM_COUNT_LIST,PULL_EXISTS]>>
-  metis_tac[encode_full_eq_sem]
+  strip_tac>>simp[MEM_GENLIST,MEM_EL,PULL_EXISTS]
 QED
 
 (* (5) permutation: each value offset+k is taken by at most one position *)
@@ -1410,14 +1383,14 @@ Theorem encode_argsort_sem_2:
 Proof
   strip_tac>>
   `LENGTH Ps = LENGTH Xs` by
-    (CCONTR_TAC>>gvs[encode_argsort_def,cencode_argsort_def,cfalse_constr_def])>>
-  fs[encode_argsort_def,cencode_argsort_def,append_thm,EVERY_APPEND]>>
+    (CCONTR_TAC>>gvs[encode_argsort_def,cfalse_constr_def])>>
+  fs[encode_argsort_def,cencode_argsort_aux_def,append_thm,EVERY_APPEND]>>
   `∀j. j < LENGTH Ps ⇒
      offset ≤ varc wi (EL j Ps) ∧ varc wi (EL j Ps) ≤ offset + &LENGTH Xs - 1` by
     metis_tac[argsort_p_range_sem]>>
   `∀j k. j < LENGTH Ps ∧ k < LENGTH Xs ⇒
      (wb (INL (Eq (EL j Ps) (offset + &k))) ⇔ varc wi (EL j Ps) = offset + &k)` by
-    metis_tac[argsort_eq_flags_sem]>>
+    metis_tac[argsort_eq_grid_sem]>>
   `∀j k. j < LENGTH Ps ∧ k < LENGTH Xs ⇒
      wb (INL (Eq (EL j Ps) (offset + &k))) ⇒
        eval_lin_term wb (sort_pos_num name k (sort_width (LENGTH Xs))) = &j` by
@@ -1595,7 +1568,7 @@ Theorem argsort_y_reconstruct[local]:
   -&(2 ** h) ≤ argsort_yval wi Xs j ∧ argsort_yval wi Xs j < &(2 ** h) ⇒
   eval_lin_term (reify_avar cs wi) (argsort_y_num name j h) = argsort_yval wi Xs j
 Proof
-  rw[argsort_y_num_def,two_comp_eval]>>
+  rw[argsort_y_num_GENLIST,two_comp_eval]>>
   `∀b. reify_avar cs wi (INR (name,Values [&j; &b] (SOME «y»))) ⇔
        int_bit b (argsort_yval wi Xs j)` by
     (gen_tac>>drule reify_argsort_y>>simp[])>>
@@ -1659,10 +1632,11 @@ Proof
     rw[]>>
     `-&(2 ** h) ≤ argsort_yval wi Xs j ∧ argsort_yval wi Xs j < &(2 ** h)` by metis_tac[]>>
     metis_tac[argsort_y_reconstruct])>>
-  simp[encode_argsort_def,cencode_argsort_def]>>
+  simp[encode_argsort_def,cencode_argsort_aux_def]>>
   `¬(LENGTH Ps ≠ LENGTH Xs)` by simp[]>>
   simp[append_thm,EVERY_APPEND]>>
   rpt conj_tac
+  >- (simp[argsort_eq_grid_sem]>>rw[]>>simp[reify_avar_def,reify_reif_def])
   >- (
     simp[argsort_chain_le_sem]>>rpt strip_tac>>
     `j + 1 < LENGTH Xs` by simp[]>>
@@ -1703,7 +1677,6 @@ Proof
       (qpat_x_assum`∀j. j < LENGTH Xs ⇒ argsort_yval _ _ _ = _`(qspec_then`j`mp_tac)>>simp[])>>
     rpt(qpat_x_assum`∀j. _`kall_tac)>>gvs[])
   >- (simp[argsort_p_range_sem]>>gvs[])
-  >- (simp[argsort_eq_flags_sem]>>rw[]>>simp[reify_avar_def,reify_reif_def])
   >- (
     simp[argsort_perm_sem]>>rw[]>>
     `MAP (b2i ∘ lit (reify_avar cs wi))
@@ -1798,10 +1771,14 @@ QED
 
 Theorem cencode_argsort_sem:
   valid_assignment bnd wi ∧
-  cencode_argsort bnd Xs Ps offset name = es ⇒
-  enc_rel wi es (encode_argsort bnd Xs Ps offset name) ec ec
+  cencode_argsort bnd Xs Ps offset name ec = (es,ec') ⇒
+  enc_rel wi es (encode_argsort bnd Xs Ps offset name) ec ec'
 Proof
-  rw[encode_argsort_def]
+  rw[cencode_argsort_def,encode_argsort_def]>>
+  gvs[UNCURRY_EQ]>>
+  irule enc_rel_Append>>
+  irule_at Any enc_rel_abstr>>
+  simp[enc_rel_encode_eq_grid]
 QED
 
 (* Category dispatch *)
@@ -1821,7 +1798,7 @@ Definition cencode_sorting_constr_def:
     Sorted lex Xs =>
       (cencode_sorted lex Xs name, ec)
   | Sort Xs Ys => (cencode_sort bnd Xs Ys name, ec)
-  | ArgSort Xs Ps offset => (cencode_argsort bnd Xs Ps offset name, ec)
+  | ArgSort Xs Ps offset => cencode_argsort bnd Xs Ps offset name ec
 End
 
 Theorem encode_sorting_constr_sem_1:
@@ -1855,6 +1832,8 @@ Theorem cencode_sorting_constr_sem:
   enc_rel wi es (encode_sorting_constr bnd c name) ec ec'
 Proof
   Cases_on`c`>>
-  simp[cencode_sorting_constr_def,encode_sorting_constr_def,
-    cencode_sorted_def,encode_sorted_def,encode_sort_def,encode_argsort_def]
+  rw[cencode_sorting_constr_def,encode_sorting_constr_def,
+    cencode_sorted_def,encode_sorted_def,encode_sort_def]>>
+  irule cencode_argsort_sem>>
+  simp[]
 QED

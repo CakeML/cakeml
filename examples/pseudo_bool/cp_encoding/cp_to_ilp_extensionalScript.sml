@@ -258,10 +258,21 @@ Definition reg_frame_def:
     (init_state name))
 End
 
-(* successor states of q on reading value v (only valid states < nstates) *)
-Definition reg_targets_def:
-  reg_targets (nstates:num) trans q v =
-  MAP SND (FILTER (λvt. FST vt = v ∧ SND vt < nstates) (trans_edges trans q))
+(* the edge lists of nodes 0..nq-1 with transition table tr *)
+Definition node_tabs_def:
+  node_tabs nq (tr:(int # num) list list) = TAKE nq (tr ++ REPLICATE nq [])
+End
+
+Definition edge_lookup_def:
+  edge_lookup (m:int |-> num list) v =
+  case FLOOKUP m v of NONE => [] | SOME ts => ts
+End
+
+(* a node's edges as a map from symbol to its targets below nq', in edge order *)
+Definition edge_map_def:
+  edge_map (nq':num) (es:(int # num) list) =
+  FOLDR (λ(s,t) m. if t < nq' then m |+ (s, t :: edge_lookup m s) else m)
+    FEMPTY es
 End
 
 (* transition / forbidding clauses
@@ -270,20 +281,20 @@ End
       For each state q in nstates,
         state_idx_is_q and X=v ⇒
           al1 ( state_{idx + 1} is q' for q' in transitions q,v ) *)
-(* QUADRATIC: reg_targets scans state q's whole edge list once per value v *)
 Definition reg_trans_def:
   reg_trans bnd name nstates trans Xs =
+  let tabs = MAP (edge_map nstates) (node_tabs nstates trans) in
   List (FLAT (MAPi (λidx X.
     FLAT (MAPi (λvi v.
-      GENLIST (λq.
+      MAPi (λq m.
         (SOME (mk_name name
           (toString idx ^ «_» ^ toString q ^ «_» ^ toString vi ^ «t»)),
          bits_imply bnd
            [Pos (reg_state name idx q); Pos (INL (Eq X v))]
            (at_least_one
              (MAP (λt. Pos (reg_state name (idx+1) t))
-                  (reg_targets nstates trans q v))))
-      ) nstates
+                  (edge_lookup m v))))
+      ) tabs
     ) (domlist bnd X))
   ) Xs))
 End
@@ -335,31 +346,19 @@ Definition mdd_frame_def:
       (init_state name))
 End
 
-(* successor nodes below nq' along the edges es on reading value v *)
-Definition mdd_targets_def:
-  mdd_targets (nq':num) es (v:int) =
-  MAP SND (FILTER (λ(s,t). s = v ∧ t < nq') es)
-End
-
-(* the edge lists of nodes 0..nq-1 of a layer with transition table tr *)
-Definition mdd_node_tabs_def:
-  mdd_node_tabs nq (tr:(int # num) list list) = TAKE nq (tr ++ REPLICATE nq [])
-End
-
 (* transition rows of layer idx, reading X, with nq nodes and nq' nodes in
    the next layer: node q and X = v imply one of q's successors on v *)
-(* QUADRATIC: mdd_targets scans node q's whole edge list once per value v *)
 Definition mdd_trans_layer_def:
   mdd_trans_layer bnd name idx X nq nq' tr =
-  let tabs = mdd_node_tabs nq tr in
+  let tabs = MAP (edge_map nq') (node_tabs nq tr) in
   flat_app (MAPi (λvi v.
-    List (MAPi (λq es.
+    List (MAPi (λq m.
       (SOME (mk_name name
         (toString idx ^ «_» ^ toString q ^ «_» ^ toString vi ^ «t»)),
        bits_imply bnd
          [Pos (reg_state name idx q); Pos (INL (Eq X v))]
          (at_least_one (MAP (λt. Pos (reg_state name (idx+1) t))
-           (mdd_targets nq' es v)))))
+           (edge_lookup m v)))))
       tabs)) (domlist bnd X))
 End
 
@@ -537,6 +536,29 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Theorem node_tabs_EL:
+  LENGTH (node_tabs nq tr) = nq ∧
+  (q < nq ⇒ EL q (node_tabs nq tr) = trans_edges tr q)
+Proof
+  rw[node_tabs_def,trans_edges_def,LENGTH_TAKE,EL_TAKE]>>
+  simp[EL_APPEND1,EL_APPEND2,EL_REPLICATE]
+QED
+
+Theorem edge_lookup_edge_map:
+  ∀es. edge_lookup (edge_map nq' es) v =
+       MAP SND (FILTER (λ(s,t). s = v ∧ t < nq') es)
+Proof
+  Induct>>fs[edge_map_def,edge_lookup_def]>>
+  Cases>>rw[FLOOKUP_UPDATE]>>gvs[]
+QED
+
+Theorem MEM_edge_lookup_edge_map:
+  MEM t (edge_lookup (edge_map nq' es) v) ⇔ MEM (v,t) es ∧ t < nq'
+Proof
+  simp[edge_lookup_edge_map,MEM_FILTER,MEM_MAP,EXISTS_PROD]>>
+  simp[Once CONJ_COMM]
+QED
+
 (* --- semantics of the transition clauses --- *)
 Theorem reg_trans_sem:
   valid_assignment bnd wi ⇒
@@ -545,12 +567,14 @@ Theorem reg_trans_sem:
   ∀idx q v.
     idx < LENGTH Xs ∧ q < nstates ∧ MEM v (domlist bnd (EL idx Xs)) ⇒
     (wb (reg_state name idx q) ∧ wb (INL (Eq (EL idx Xs) v)) ⇒
-     ∃t. MEM t (reg_targets nstates trans q v) ∧ wb (reg_state name (idx+1) t)))
+     ∃t. MEM (v,t) (trans_edges trans q) ∧ t < nstates ∧
+       wb (reg_state name (idx+1) t)))
 Proof
   strip_tac>>
   simp[reg_trans_def,append_thm,EVERY_MAP,EVERY_MEM,MEM_FLAT,
-    MEM_MAPi,MEM_GENLIST,PULL_EXISTS]>>
-  simp[bits_imply_sem,at_least_one_sem,MEM_MAP,PULL_EXISTS]>>
+    MEM_MAPi,PULL_EXISTS,node_tabs_EL,EL_MAP]>>
+  simp[bits_imply_sem,at_least_one_sem,MEM_MAP,MEM_edge_lookup_edge_map,
+    PULL_EXISTS]>>
   eq_tac>>rw[]>>
   gvs[MEM_EL]>>
   metis_tac[MEM_EL]
@@ -563,13 +587,6 @@ Proof
   rw[]>>
   DEP_REWRITE_TAC[encode_full_eq_sem]>>
   simp[reify_avar_def,reify_reif_def]
-QED
-
-Theorem MEM_reg_targets:
-  MEM t (reg_targets nstates trans q v) ⇔ MEM (v,t) (trans_edges trans q) ∧ t < nstates
-Proof
-  rw[reg_targets_def,MEM_MAP,MEM_FILTER,EXISTS_PROD]>>
-  metis_tac[]
 QED
 
 Theorem encode_full_eqs_reify:
@@ -632,7 +649,6 @@ Proof
     simp[reg_trans_sem,reify_avar_def,reify_flag_def]>>
     rw[]>>
     gvs[reify_reif_def]>>
-    simp[MEM_reg_targets]>>
     first_x_assum drule>>gvs[EL_MAP])
 QED
 
@@ -715,7 +731,7 @@ Proof
     last_x_assum (qspecl_then[`i`,`run i`,`varc wi (EL i Xs)`] mp_tac)>>
     impl_tac >- gvs[]>>
     strip_tac>>
-    gvs[MEM_reg_targets,EL_MAP]>>
+    gvs[EL_MAP]>>
     `t = run (i + 1)` by (first_x_assum irule>>gvs[ADD1])>>
     gvs[])
   >- (
@@ -838,21 +854,6 @@ Proof
   simp[Once mdd_accepts_def]
 QED
 
-Theorem mdd_node_tabs_EL:
-  LENGTH (mdd_node_tabs nq tr) = nq ∧
-  (q < nq ⇒ EL q (mdd_node_tabs nq tr) = trans_edges tr q)
-Proof
-  rw[mdd_node_tabs_def,trans_edges_def,LENGTH_TAKE,EL_TAKE]>>
-  simp[EL_APPEND1,EL_APPEND2,EL_REPLICATE]
-QED
-
-Theorem MEM_mdd_targets:
-  MEM t (mdd_targets nq' es v) ⇔ MEM (v,t) es ∧ t < nq'
-Proof
-  simp[mdd_targets_def,MEM_MAP,MEM_FILTER,EXISTS_PROD]>>
-  simp[Once CONJ_COMM]
-QED
-
 Theorem mdd_edges_EL:
   i < LENGTH trans ⇒ mdd_edges trans i q = trans_edges (EL i trans) q
 Proof
@@ -872,8 +873,8 @@ Proof
   strip_tac>>
   simp[mdd_trans_layer_def,append_flat_app,append_thm,EVERY_FLAT,EVERY_MAP,
     MAP_MAPi,o_DEF]>>
-  simp[EVERY_MEM,MEM_MAPi,PULL_EXISTS,mdd_node_tabs_EL]>>
-  simp[MEM_MAP,MEM_mdd_targets,PULL_EXISTS,lit_def]>>
+  simp[EVERY_MEM,MEM_MAPi,PULL_EXISTS,node_tabs_EL,EL_MAP]>>
+  simp[MEM_MAP,MEM_edge_lookup_edge_map,PULL_EXISTS,lit_def]>>
   eq_tac>>rpt strip_tac
   >- (
     qpat_x_assum ‘MEM v _’ (strip_assume_tac o REWRITE_RULE[MEM_EL])>>

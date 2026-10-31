@@ -409,7 +409,8 @@ Definition cencode_circuit_pos_def:
   cencode_circuit_pos bnd Xs name =
   let
     n = LENGTH Xs;
-    n1 = n - 1
+    n1 = n - 1;
+    ubs = GENLIST (λj. ub_num name j n1) n
   in
     Append
       (* pos 0 = 0 *)
@@ -419,11 +420,59 @@ Definition cencode_circuit_pos_def:
         mk_ubnd_bin (ub_num name 0 n1) 0)])
       (* pos i < n for i = 0 to n-1 *)
       (Append (List
+        (MAPi
+        (λi ubi. SOME $ mk_name name
+          («pos» ^ toString i ^ «lt» ^ toString n),
+        mk_ubnd_bin ubi (&n1)) ubs))
+      (* for 0 ≤ i, j < n *)
+      (flat_app (MAPi
+        (λi X.
+            let ubi = ub_num name i n1 in
+            (flat_app $ MAPi
+              (λj ubj.
+                let
+                  cond = INL (Eq X (&j))
+                in
+                 List $ mk_annotate
+                 [
+                   mk_name name («pos_suc_» ^ toString i ^ «_» ^ toString j ^ «_ge»);
+                   mk_name name («pos_suc_» ^ toString i ^ «_» ^ toString j ^ «_le»)
+                 ]
+                 (if j = 0
+                 then
+                   (* Xs[i] = 0  ⇒  pos i = n-1  *)
+                   (MAP
+                     (λcc. bits_imply bnd [Pos cond] cc)
+                       (mk_bounds_bin ubi (&n1) (&n1)))
+                 else
+                   (* Xs[i] = j  ⇒  pos j = pos i + 1 *)
+                   [
+                     bits_imply bnd [Pos cond] $
+                       mk_constraint_ge_bin (-1) ubi 1 ubj 1;
+                     bits_imply bnd [Pos cond] $
+                       mk_constraint_ge_bin 1 ubi (-1) ubj (-1);
+                   ]))
+              ubs))
+        Xs)))
+End
+
+(* the same rows with each position's bit-sum written in place *)
+Theorem cencode_circuit_pos_GENLIST:
+  cencode_circuit_pos bnd Xs name =
+  let
+    n = LENGTH Xs;
+    n1 = n - 1
+  in
+    Append
+      (List [
+        (SOME $ mk_name name
+          («pos0eq0»),
+        mk_ubnd_bin (ub_num name 0 n1) 0)])
+      (Append (List
         (GENLIST
         (λi. SOME $ mk_name name
           («pos» ^ toString i ^ «lt» ^ toString n),
         mk_ubnd_bin (ub_num name i n1) (&n1)) n))
-      (* for 0 ≤ i, j < n *)
       (flat_app (MAPi
         (λi X.
             (flat_app $ GENLIST
@@ -438,12 +487,10 @@ Definition cencode_circuit_pos_def:
                  ]
                  (if j = 0
                  then
-                   (* Xs[i] = 0  ⇒  pos i = n-1  *)
                    (MAP
                      (λcc. bits_imply bnd [Pos cond] cc)
                        (mk_bounds_bin (ub_num name i n1) (&n1) (&n1)))
                  else
-                   (* Xs[i] = j  ⇒  pos j = pos i + 1 *)
                    [
                      bits_imply bnd [Pos cond] $
                        mk_constraint_ge_bin (-1) (ub_num name i n1) 1 (ub_num name j n1) 1;
@@ -452,7 +499,9 @@ Definition cencode_circuit_pos_def:
                    ]))
               n))
         Xs)))
-End
+Proof
+  simp[cencode_circuit_pos_def,MAPi_GENLIST_GENLIST]
+QED
 
 (* The static circuit constraints:
      - every successor Xs[i] lies in [0, n-1];
@@ -579,7 +628,7 @@ Proof
     rw[Abbr‘a’,Abbr‘b’]>>
     fs[EL_MAP])>>
   (* constraints on position variables *)
-  fs[MEM_EL,SF DNF_ss,cencode_circuit_pos_def]>>
+  fs[MEM_EL,SF DNF_ss,cencode_circuit_pos_GENLIST]>>
   qabbrev_tac‘n = LENGTH Xs’>>
   qabbrev_tac‘dom = (λi. i < n)’>>
   qabbrev_tac‘suc = λm. Num (varc wi $ EL m Xs)’>>
@@ -698,7 +747,7 @@ Proof
       simp[Abbr`pos`,ub_num_num_of_bits]>>
     qexists`pos`>>
     qpat_x_assum`EVERY _ (abstr (cencode_circuit_pos _ _ _))` mp_tac>>
-    simp[cencode_circuit_pos_def,append_thm,EVERY_APPEND]>>
+    simp[cencode_circuit_pos_GENLIST,append_thm,EVERY_APPEND]>>
     strip_tac>>
     (* pos 0 = 0 from the pos0eq0 constraint *)
     `pos 0 = 0` by (

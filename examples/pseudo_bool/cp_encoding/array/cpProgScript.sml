@@ -11,7 +11,7 @@ Ancestors
   cp_to_ilp_channeling cp_to_ilp_misc cp_to_ilp_scheduling cp_to_ilp_sorting
   cp_to_ilp_all
 Libs
-  preamble basis
+  preamble basis MapProgLib
 
 val _ = translation_extends"npbc_parseProg";
 
@@ -52,6 +52,10 @@ val res = translate TAKE_def;
 val res = translate indexedListsTheory.MAPi_ACC_def;
 val res = translate indexedListsTheory.MAPi_compute;
 
+(* finite maps keyed by int and by mlstring *)
+val _ = add_fmap_for_cmp mlintTheory.TotOrd_int_cmp;
+val _ = add_fmap_for_cmp mlstringTheory.TotOrd_fast_compare;
+
 (* pbc *)
 
 val res = translate b2i_def;
@@ -66,8 +70,6 @@ val res = translate min_lin_term_def;
 val res = translate max_lin_term_def;
 
 (* cp *)
-val res = translate bnd_lookup_def;
-
 val _ = register_type``:'a constraint``;
 
 (* cp_parse *)
@@ -264,6 +266,9 @@ val _ = check_side res;
 (* int_bitwiseExtra *)
 
 val res = translate bit_width_def;
+val res = translate pow2_aux_def;
+val res = translate pow2_list_def;
+val res = translate pad_bits_def;
 
 (* ilp *)
 
@@ -330,12 +335,6 @@ val res = translate format_var_def;
 val res = translate encode_ge_aux_def;
 val res = translate encode_eq_aux_def;
 
-(* iconstraint-list eq/ge builders (used by the ArgSort equality flags) *)
-val res = translate ilpTheory.bimply_bit_def;
-val res = translate encode_ge_def;
-val res = translate encode_eq_def;
-val res = translate encode_full_eq_def;
-
 val res = translate mk_constraint_ge_def;
 val res = translate mk_ge_def;
 val res = translate mk_le_def;
@@ -380,14 +379,15 @@ val _ = update_precondition domlist_side;
 
 val res = translate union_dom_def;
 
-val res = translate lookup_int_def;
-val res = translate insert_int_def;
-
 val res = translate fast_compare_def;
 val res = translate varc_compare_def;
+val res = translate (int_varc_cmp_def
+                     |> SRULE [comparisonTheory.pair_cmp_def, FUN_EQ_THM]);
+val _ = add_fmap_for_cmp TotOrd_int_varc_cmp;
 
 val res = translate lookup_ht_def;
-val res = translate insert_ht_def;
+val res = translate (insert_ht_def
+                     |> REWRITE_RULE [GSYM miscTheory.fmap_update_def]);
 
 val res = translate has_ge_def;
 val res = translate has_eq_def;
@@ -428,7 +428,7 @@ val res = translate mk_constraint_one_ge_def;
 val res = translate encode_proper_index_def;
 val res = translate cencode_proper_index_def;
 
-val res = translate (init_ec_def |> SRULE [mlmapTheory.empty_def, balanced_mapTheory.empty_def]);
+val res = translate init_ec_def;
 
 val res = translate encode_bvar_eq_def;
 val res = translate encode_bvar_lit_def;
@@ -526,6 +526,9 @@ val res = translate cp_to_ilp_countingTheory.eqi_def;
 val res = translate cp_to_ilp_countingTheory.cencode_count_aux_def;
 val res = translate cp_to_ilp_countingTheory.cencode_count_def;
 
+val res = translate (cp_to_ilp_countingTheory.nub_int_aux_def
+                     |> REWRITE_RULE [GSYM miscTheory.fmap_update_def]);
+val res = translate cp_to_ilp_countingTheory.nub_int_def;
 val res = translate cp_to_ilp_countingTheory.cencode_among_aux_def;
 val res = translate cp_to_ilp_countingTheory.cencode_among_def;
 
@@ -646,28 +649,17 @@ val res = translate cp_to_ilp_extensionalTheory.cencode_smart_table_def;
 
 (* regular *)
 
-Theorem el_side_eq[local]:
-  ∀n xs. el_side n xs ⇔ n < LENGTH xs
-Proof
-  Induct_on ‘n’>>Cases_on ‘xs’>>rw[Once npbc_arrayProgTheory.el_side_def]>>gvs[]
-QED
-
-val res = translate cpTheory.trans_edges_def;
-
-Theorem trans_edges_side:
-  trans_edges_side trans q ⇔ T
-Proof
-  rw[fetch "-" "trans_edges_side_def",el_side_eq]
-QED
-
-val _ = update_precondition trans_edges_side;
+val res = translate REPLICATE;
+val res = translate cp_to_ilp_extensionalTheory.node_tabs_def;
+val res = translate cp_to_ilp_extensionalTheory.edge_lookup_def;
+val res = translate (cp_to_ilp_extensionalTheory.edge_map_def
+                     |> REWRITE_RULE [GSYM miscTheory.fmap_update_def]);
 
 val res = translate cp_to_ilp_extensionalTheory.reg_state_def;
 val res = translate cp_to_ilp_extensionalTheory.state_idx_row;
 val res = translate cp_to_ilp_extensionalTheory.state_idx_def;
 val res = translate cp_to_ilp_extensionalTheory.start_state_def;
 val res = translate cp_to_ilp_extensionalTheory.accept_state_def;
-val res = translate cp_to_ilp_extensionalTheory.reg_targets_def;
 val res = translate cp_to_ilp_extensionalTheory.reg_frame_def;
 val res = translate cp_to_ilp_extensionalTheory.reg_trans_def;
 val res = translate cp_to_ilp_extensionalTheory.reg_eq_pairs_def;
@@ -675,9 +667,6 @@ val res = translate cp_to_ilp_extensionalTheory.cencode_regular_def;
 
 (* mdd *)
 
-val res = translate REPLICATE;
-val res = translate cp_to_ilp_extensionalTheory.mdd_targets_def;
-val res = translate cp_to_ilp_extensionalTheory.mdd_node_tabs_def;
 val res = translate cp_to_ilp_extensionalTheory.mdd_trans_layer_def;
 val res = translate cp_to_ilp_extensionalTheory.mdd_trans_def;
 val res = translate cp_to_ilp_extensionalTheory.mdd_state_idx_def;
@@ -851,9 +840,9 @@ val _ = check_side res;
 val res = translate cp_to_ilp_sortingTheory.sort_chain_def;
 val res = translate cp_to_ilp_sortingTheory.cencode_sorted_def;
 
-(* Sort core.  sort_width/sort_guard are translated via their value-preserving,
-   subtraction-free alt forms (sort_width_alt/sort_guard_alt) so the truncated
-   subtractions (n-1, w-LENGTH...) don't carry preconditions through the encoder. *)
+(* Sort core.  sort_width is translated via its value-preserving,
+   subtraction-free alt form (sort_width_alt) so the truncated subtraction n-1
+   doesn't carry a precondition through the encoder. *)
 val res = translate cp_to_ilp_sortingTheory.sort_bf_def;
 val res = translate cp_to_ilp_sortingTheory.sort_posbit_def;
 val res = translate cp_to_ilp_sortingTheory.sort_width_alt;
@@ -862,8 +851,7 @@ val res = translate cp_to_ilp_sortingTheory.sort_before_sum_def;
 val res = translate cp_to_ilp_sortingTheory.sort_chain_le_def;
 val res = translate cp_to_ilp_sortingTheory.sort_bf_lines_def;
 val res = translate cp_to_ilp_sortingTheory.sort_rank_lines_def;
-val res = translate cp_to_ilp_sortingTheory.nth_bit_def;
-val res = translate cp_to_ilp_sortingTheory.sort_guard_alt;
+val res = translate cp_to_ilp_sortingTheory.sort_guard_def;
 val res = translate cp_to_ilp_sortingTheory.sort_chan_lines_def;
 val res = translate cp_to_ilp_sortingTheory.cencode_sort_def;
 
@@ -878,16 +866,15 @@ val res = translate cp_to_ilp_sortingTheory.lin_le_varc_def;
 val res = translate cp_to_ilp_sortingTheory.lin_ge_lin_def;
 val res = translate cp_to_ilp_sortingTheory.lin_ge_const_def;
 val res = translate cp_to_ilp_sortingTheory.lin_le_const_def;
-val res = translate cp_to_ilp_sortingTheory.cwrap_def;
 val res = translate cp_to_ilp_sortingTheory.argsort_chain_le_alt;
 val res = translate cp_to_ilp_sortingTheory.argsort_pos_chan_def;
 val res = translate cp_to_ilp_sortingTheory.argsort_p_range_def;
-val res = translate cp_to_ilp_sortingTheory.argsort_eq_flags_def;
 val res = translate cp_to_ilp_sortingTheory.argsort_perm_def;
 val res = translate cp_to_ilp_sortingTheory.argsort_valchan_def;
 val res = translate cp_to_ilp_sortingTheory.argsort_rankchan_def;
 val res = translate cp_to_ilp_sortingTheory.adj_pairs_def;
 val res = translate cp_to_ilp_sortingTheory.argsort_tiebreak_alt;
+val res = translate cp_to_ilp_sortingTheory.cencode_argsort_aux_def;
 val res = translate cp_to_ilp_sortingTheory.cencode_argsort_def;
 
 val res = translate cp_to_ilp_sortingTheory.cencode_sorting_constr_def;
@@ -907,7 +894,9 @@ val res = translate cencode_constraints_def;
 val res = translate cencode_bound_var_def;
 val res = translate cencode_bound_all_def;
 
-val res = translate mk_bnd_map_def;
+val res = translate (alist_to_fmap_def
+                     |> REWRITE_RULE [GSYM miscTheory.fmap_update_def]
+                     |> INST_TYPE [alpha |-> “:mlstring”]);
 val res = translate map_bnd_lookup_def;
 
 val res = translate avar_epb_def;

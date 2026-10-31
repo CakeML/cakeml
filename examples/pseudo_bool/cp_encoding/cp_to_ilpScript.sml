@@ -5,7 +5,7 @@ Theory cp_to_ilp
 Libs
   preamble
 Ancestors
-  mlstring cp ilp pbc pbc_encode sptree int_bitwiseExtra mlmap
+  mlstring cp ilp pbc pbc_encode sptree int_bitwiseExtra comparison
 
 (* The shared infrastructure for all encodings goes into this file *)
 
@@ -551,18 +551,30 @@ Proof
   rw[iconstraint_sem_def,eval_ilin_term_def,iSUM_def]
 QED
 
+Theorem MAPi_GENLIST_GENLIST:
+  MAPi f (GENLIST g n) = GENLIST (λi. f i (g i)) n
+Proof
+  simp[indexedListsTheory.MAPi_GENLIST,GENLIST_FUN_EQ,EL_GENLIST]
+QED
+
 (* Proof-only natural as a positive-bit sum: bit b carried by flag b with
    coefficient 2^b. The key-agnostic kernel shared by the Sort stable-rank and
    value-precede first-occurrence encodings (no sign bit; naturals only). *)
 Definition pos_num_def:
-  pos_num flag w = GENLIST (λb. (&(2 ** b), Pos (flag b))) w
+  pos_num flag w = MAPi (λb c. (&c, Pos (flag b))) (pow2_list w)
 End
+
+Theorem pos_num_GENLIST:
+  pos_num flag w = GENLIST (λb. (&(2 ** b), Pos (flag b))) w
+Proof
+  simp[pos_num_def,MAPi_pow2_list]
+QED
 
 Theorem pos_num_num_of_bits:
   eval_lin_term wb (pos_num flag w) =
   &num_of_bits (GENLIST (λb. wb (flag b)) w)
 Proof
-  rw[num_of_bits_GENLIST,pos_num_def,eval_lin_term_def,MAP_GENLIST,o_DEF,
+  rw[num_of_bits_GENLIST,pos_num_GENLIST,eval_lin_term_def,MAP_GENLIST,o_DEF,
      eval_term_def,eval_lit_def,lit_def]
 QED
 
@@ -633,7 +645,7 @@ Proof
   drule_all two_comp_reconstruct>>
   strip_tac>>
   IF_CASES_TAC
-  >- gvs[Excl "eval_lin_term_CONS",pos_num_def,two_comp_eval]>>
+  >- gvs[Excl "eval_lin_term_CONS",pos_num_GENLIST,two_comp_eval]>>
   gvs[pos_num_num_of_bits,int_bitwiseTheory.int_of_bits_def]
 QED
 
@@ -1189,11 +1201,25 @@ Proof
   metis_tac[TotOrd_fast_compare,mlintTheory.TotOrd_int_cmp,totoTheory.TotOrd]
 QED
 
+(* Total order on (value, varc) pairs: the reif-cache keys *)
+Definition int_varc_cmp_def:
+  int_varc_cmp = pair_cmp int_cmp varc_compare
+End
+
+Theorem TotOrd_int_varc_cmp:
+  TotOrd int_varc_cmp
+Proof
+  rw[int_varc_cmp_def]>>
+  irule miscTheory.TotOrd_pair_cmp>>
+  simp[TotOrd_varc_compare,mlintTheory.TotOrd_int_cmp]
+QED
+
+(* the (v,X) whose Ge resp. Eq flag definitions have been emitted *)
 Datatype:
   enc_conf =
     <|
-       ge : (mlstring varc, num_set) map
-     ; eq : (mlstring varc, num_set) map
+       ge : (int # mlstring varc) |-> unit
+     ; eq : (int # mlstring varc) |-> unit
     |>
 End
 
@@ -1231,28 +1257,14 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Definition lookup_int_def:
-  lookup_int i t =
-  lookup (intnum i) t
-End
-
-Definition insert_int_def:
-  insert_int i v t =
-  insert (intnum i) v t
-End
-
 Definition lookup_ht_def:
-  lookup_ht (k:mlstring varc) (n:int) ht =
-  case mlmap$lookup ht k of
-    NONE => F
-  | SOME t => IS_SOME (lookup_int n t)
+  lookup_ht (k:mlstring varc) (n:int) (ht:(int # mlstring varc) |-> unit) =
+  IS_SOME (FLOOKUP ht (n,k))
 End
 
 Definition insert_ht_def:
-  insert_ht k n ht =
-  case mlmap$lookup ht k of
-    NONE => mlmap$insert ht k (insert_int n () LN)
-  | SOME t => mlmap$insert ht k (insert_int n () t)
+  insert_ht (k:mlstring varc) (n:int) (ht:(int # mlstring varc) |-> unit) =
+  ht |+ ((n,k),())
 End
 
 (* lookup for when the given ge for a variable has been encoded *)
@@ -1264,14 +1276,8 @@ Definition has_eq_def:
   has_eq Y n ec = lookup_ht Y n ec.eq
 End
 
-(* Well-formedness of the balanced maps in enc_conf *)
-Definition ec_ok_def:
-  ec_ok ec ⇔ map_ok ec.ge ∧ map_ok ec.eq
-End
-
 Definition good_reif_def:
   good_reif wb wi ec ⇔
-  ec_ok ec ∧
   (∀Y n. has_ge Y n ec ⇒ (wb (INL (Ge Y n)) ⇔ varc wi Y ≥ n)) ∧
   (∀Y n. has_eq Y n ec ⇒ (wb (INL (Eq Y n)) ⇔
     wb (INL (Ge Y n)) ∧ ¬wb (INL (Ge Y (n + 1)))))
@@ -1343,52 +1349,19 @@ Definition add_eq_def:
   ec with eq := insert_ht Y n ec.eq
 End
 
-Theorem lookup_int_insert_int:
-  lookup_int k1 (insert_int k2 v t) =
-    if k1 = k2 then SOME v else lookup_int k1 t
-Proof
-  rw[lookup_int_def,insert_int_def,sptreeTheory.lookup_insert]>>
-  metis_tac[numint_intnum]
-QED
-
-Theorem map_ok_insert_ht[simp]:
-  map_ok ht ⇒ map_ok (insert_ht k n ht)
-Proof
-  rw[insert_ht_def]>>
-  every_case_tac>>
-  simp[mlmapTheory.insert_thm]
-QED
-
 Theorem lookup_ht_insert_ht:
-  map_ok ht ⇒
-  (lookup_ht X n (insert_ht Y m ht) ⇔ X = Y ∧ n = m ∨ lookup_ht X n ht)
+  lookup_ht X n (insert_ht Y m ht) ⇔ X = Y ∧ n = m ∨ lookup_ht X n ht
 Proof
-  rw[lookup_ht_def,insert_ht_def]>>
-  every_case_tac>>
-  gvs[mlmapTheory.lookup_insert,lookup_int_insert_int,AllCaseEqs()]>>
-  gvs[lookup_int_def,sptreeTheory.lookup_def]>>
-  rw[]
-QED
-
-Theorem ec_ok_add_ge[simp]:
-  ec_ok ec ⇒ ec_ok (add_ge Y n ec)
-Proof
-  rw[ec_ok_def,add_ge_def]
-QED
-
-Theorem ec_ok_add_eq[simp]:
-  ec_ok ec ⇒ ec_ok (add_eq Y n ec)
-Proof
-  rw[ec_ok_def,add_eq_def]
+  rw[lookup_ht_def,insert_ht_def,FLOOKUP_UPDATE]>>
+  metis_tac[]
 QED
 
 Theorem has_ge_add_ge[simp]:
-  ec_ok ec ⇒
-  (has_ge X n (add_ge Y m ec) ⇔
+  has_ge X n (add_ge Y m ec) ⇔
   X = Y ∧ n = m ∨
-  has_ge X n ec)
+  has_ge X n ec
 Proof
-  rw[has_ge_def,add_ge_def,ec_ok_def,lookup_ht_insert_ht]
+  rw[has_ge_def,add_ge_def,lookup_ht_insert_ht]
 QED
 
 Theorem has_ge_add_eq[simp]:
@@ -1399,12 +1372,11 @@ Proof
 QED
 
 Theorem has_eq_add_eq[simp]:
-  ec_ok ec ⇒
-  (has_eq X n (add_eq Y m ec) ⇔
+  has_eq X n (add_eq Y m ec) ⇔
   X = Y ∧ n = m ∨
-  has_eq X n ec)
+  has_eq X n ec
 Proof
-  rw[has_eq_def,add_eq_def,ec_ok_def,lookup_ht_insert_ht]
+  rw[has_eq_def,add_eq_def,lookup_ht_insert_ht]
 QED
 
 Theorem has_eq_add_ge[simp]:
@@ -1796,21 +1768,13 @@ Proof
 QED
 
 Definition init_ec_def:
-  init_ec = <| ge := mlmap$empty varc_compare ; eq := mlmap$empty varc_compare |>
+  init_ec = <| ge := FEMPTY ; eq := FEMPTY |>
 End
 
 Theorem lookup_ht_empty[simp]:
-  ¬lookup_ht k n (empty varc_compare)
+  ¬lookup_ht k n FEMPTY
 Proof
-  rw[lookup_ht_def]>>
-  DEP_REWRITE_TAC[mlmapTheory.lookup_thm]>>
-  simp[mlmapTheory.empty_thm,TotOrd_varc_compare]
-QED
-
-Theorem ec_ok_init_ec[simp]:
-  ec_ok init_ec
-Proof
-  rw[ec_ok_def,init_ec_def,mlmapTheory.empty_thm,TotOrd_varc_compare]
+  rw[lookup_ht_def]
 QED
 
 Theorem enc_rel_abstr[simp]:
@@ -1932,24 +1896,32 @@ End
   name[p,b0] + 2 * name[p,b1]  + ... *)
 Definition ub_num_def:
   ub_num name (p:num) (n:num) =
+  MAPi (λi c. (&c, Pos $ neiv name p i (SOME «bin»)))
+    (pow2_list (LENGTH (bits_of_num n)))
+End
+
+Theorem ub_num_GENLIST:
+  ub_num name p n =
   let h = LENGTH (bits_of_num n) in
   GENLIST (λi. (&(2**i),
     Pos $ neiv name p i (SOME «bin»))) h
-End
+Proof
+  simp[ub_num_def,MAPi_pow2_list]
+QED
 
 Theorem ub_num_num_of_bits:
   eval_lin_term wb (ub_num name p n) =
   &num_of_bits (GENLIST (λi.
     wb (neiv name p i (SOME «bin»))) (LENGTH (bits_of_num n)))
 Proof
-  rw[num_of_bits_GENLIST,ub_num_def,eval_lin_term_def,MAP_GENLIST,o_DEF]
+  rw[num_of_bits_GENLIST,ub_num_GENLIST,eval_lin_term_def,MAP_GENLIST,o_DEF]
 QED
 
 Theorem ub_num_neg:
   eval_lin_term wb (MAP (λ(ai,li). (-1 * ai,li)) (ub_num name p n)) =
   -eval_lin_term wb (ub_num name p n)
 Proof
-  simp[eval_lin_term_def,ub_num_def,MAP_GENLIST,o_DEF]>>
+  simp[eval_lin_term_def,ub_num_GENLIST,MAP_GENLIST,o_DEF]>>
   simp[GSYM MAP_COUNT_LIST,GSYM integerTheory.INT_MUL_ASSOC,
     iSUM_MAP_lin_const]>>
   rename1‘-1 * a’>>

@@ -234,3 +234,46 @@ Proof
   `n < 2**h` by intLib.ARITH_TAC>>
   simp[arithmeticTheory.LESS_MOD]
 QED
+
+(* the powers c, 2c, ..., 2^(k-1) c, each from its predecessor by one doubling *)
+Definition pow2_aux_def:
+  pow2_aux 0 (c:num) = [] ∧
+  pow2_aux (SUC k) c = c :: pow2_aux k (2 * c)
+End
+
+(* the bit weights 2^0, ..., 2^(w-1) *)
+Definition pow2_list_def:
+  pow2_list w = pow2_aux w 1
+End
+
+Theorem pow2_aux_GENLIST[local]:
+  ∀k c. pow2_aux k c = GENLIST (λb. c * 2 ** b) k
+Proof
+  Induct>>rw[pow2_aux_def,GENLIST_CONS,combinTheory.o_DEF,EXP]
+QED
+
+Theorem pow2_list_GENLIST:
+  pow2_list w = GENLIST (λb. 2 ** b) w
+Proof
+  simp[pow2_list_def,pow2_aux_GENLIST]
+QED
+
+Theorem MAPi_pow2_list:
+  MAPi f (pow2_list w) = GENLIST (λb. f b (2 ** b)) w
+Proof
+  simp[pow2_list_GENLIST,indexedListsTheory.MAPi_GENLIST,GENLIST_FUN_EQ,
+       EL_GENLIST]
+QED
+
+(* PAD_RIGHT F w by structural recursion *)
+Definition pad_bits_def:
+  pad_bits 0 bs = bs ∧
+  pad_bits (SUC w) [] = F :: pad_bits w [] ∧
+  pad_bits (SUC w) (b::bs) = b :: pad_bits w bs
+End
+
+Theorem pad_bits_PAD_RIGHT:
+  ∀w bs. pad_bits w bs = PAD_RIGHT F w bs
+Proof
+  ho_match_mp_tac pad_bits_ind>>rw[pad_bits_def,PAD_RIGHT,GENLIST_CONS]
+QED

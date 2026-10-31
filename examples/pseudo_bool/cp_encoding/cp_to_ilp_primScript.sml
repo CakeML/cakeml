@@ -539,8 +539,16 @@ End
 (* BinRep(|XY|) = Σ_{i<n,j<m} 2^(i+j) · prod_ij *)
 Definition mult_prod_term_def:
   mult_prod_term pf n m =
-  FLAT (GENLIST (λi. GENLIST (λj. (&(2 ** (i + j)), Pos (pf i j))) m) n)
+  let pm = pow2_list m in
+  FLAT (MAPi (λi ci. MAPi (λj cj. (&(ci * cj), Pos (pf i j))) pm) (pow2_list n))
 End
+
+Theorem mult_prod_term_GENLIST:
+  mult_prod_term pf n m =
+  FLAT (GENLIST (λi. GENLIST (λj. (&(2 ** (i + j)), Pos (pf i j))) m) n)
+Proof
+  simp[mult_prod_term_def,MAPi_pow2_list,EXP_ADD]
+QED
 
 (* c·Zc + bs ≥ k, folding a constant Zc into the RHS *)
 Definition mult_varc_row_def:
@@ -710,7 +718,7 @@ Theorem eval_mult_prod_row[local]:
   &(2 ** i) * b2i g * eval_lin_term wb (pos_num by m)
 Proof
   Induct>>
-  rw[pos_num_def,GENLIST,SNOC_APPEND]>>
+  rw[pos_num_GENLIST,GENLIST,SNOC_APPEND]>>
   Cases_on ‘g’>>Cases_on ‘wb (by m)’>>
   gvs[EXP_ADD,integerTheory.INT_LDISTRIB]
 QED
@@ -723,8 +731,8 @@ Theorem eval_mult_prod_term[local]:
   eval_lin_term wb (pos_num bx n) * eval_lin_term wb (pos_num by m)
 Proof
   Induct>>
-  rw[mult_prod_term_def,pos_num_def,GENLIST,SNOC_APPEND]>>
-  gvs[GSYM pos_num_def,GSYM mult_prod_term_def]>>
+  rw[mult_prod_term_GENLIST,pos_num_GENLIST,GENLIST,SNOC_APPEND]>>
+  gvs[GSYM pos_num_GENLIST,GSYM mult_prod_term_GENLIST]>>
   ‘eval_lin_term wb (GENLIST (λj. (&(2 ** (j + n)),Pos (pf n j))) m) =
    &(2 ** n) * b2i (wb (bx n)) * eval_lin_term wb (pos_num by m)’ by
     (once_rewrite_tac[arithmeticTheory.ADD_COMM]>>
