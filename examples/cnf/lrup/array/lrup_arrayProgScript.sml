@@ -3,7 +3,8 @@
 *)
 Theory lrup_arrayProg
 Ancestors
-  misc mllist UnsafeProof ccnf_arith ccnf_arrayProg ccnf_parseProg cnf ccnf
+  misc mllist UnsafeProof array_ofProof ccnf_arith ccnf_arrayProg ccnf_parseProg
+  cnf ccnf
   ccnf_list syntax_helper lrup lrup_list
   mlint mlvector
 Libs
@@ -47,7 +48,6 @@ QED
 Theorem check_lrup_arr_spec:
   NUM lno lnov ∧
   LRUP_LRUP_TYPE lrup lrupv ∧
-  LIST_REL vcclause_TYPE fmlls fmllsv ∧
   NUM b bv ∧
   dm_ok fmlls Clist b ∧
   lrup_vb_ok lrup
@@ -55,25 +55,16 @@ Theorem check_lrup_arr_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_lrup_arr" (get_ml_prog_state()))
     [lnov; lrupv; fmlv; Carrv; bv]
-    (ARRAY fmlv fmllsv * NUM_ARRAY Carrv Clist)
+    (ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF NUM Carrv Clist)
     (POSTve
       (λv.
-        SEP_EXISTS v1 v2 v3.
+        SEP_EXISTS v1 v2 v3 fmlls' Clist' b'.
           &(v = Conv NONE [v1; v2; v3]) *
-          (SEP_EXISTS fmllsv' clist'.
-            ARRAY v1 fmllsv' *
-            NUM_ARRAY v2 clist' *
-            &(
-            case check_lrup_list lrup fmlls Clist b of
-              NONE => F
-            | SOME (fmlls', Clist', b') =>
-                dm_ok fmlls' Clist' b' ∧
-                LIST_REL vcclause_TYPE fmlls' fmllsv' ∧
-                NUM b' v3 ∧
-                Clist' = clist'
-            ))
-      )
-      (λe. ARRAY fmlv fmllsv *
+          ARRAY_OF vcclause_TYPE v1 fmlls' *
+          ARRAY_OF NUM v2 Clist' *
+          &(check_lrup_list lrup fmlls Clist b = SOME (fmlls',Clist',b') ∧
+            dm_ok fmlls' Clist' b' ∧ NUM b' v3))
+      (λe. ARRAY_OF vcclause_TYPE fmlv fmlls *
         &(Fail_exn e ∧
         check_lrup_list lrup fmlls Clist b = NONE)))
 Proof
@@ -93,12 +84,12 @@ Proof
     POSTve
       (λres.
            (SEP_EXISTS b' Carrv' Clist'.
-              NUM_ARRAY Carrv' Clist' *
+              ARRAY_OF NUM Carrv' Clist' *
               &(PAIR_TYPE $= NUM (Carrv',b') res ∧
                is_rup_vb_list fmlls Clist b v m = (T,Clist',b'))) *
-           ARRAY fmlv fmllsv)
+           ARRAY_OF vcclause_TYPE fmlv fmlls)
       (λe.
-          ARRAY fmlv fmllsv *
+          ARRAY_OF vcclause_TYPE fmlv fmlls *
           &(Fail_exn e ∧ ¬FST (is_rup_vb_list fmlls Clist b v m)))`
   >- (
     xapp>>xsimpl>>
@@ -111,13 +102,12 @@ Proof
   gvs[PAIR_TYPE_def]>>
   xmatch>>
   xlet`POSTv resv.
-    NUM_ARRAY Carrv' Clist' *
-    SEP_EXISTS fmllsv'. ARRAY resv fmllsv' *
-    &LIST_REL vcclause_TYPE (insert_vcc_list fmlls n v) fmllsv'`
+    ARRAY_OF NUM Carrv' Clist' *
+    ARRAY_OF vcclause_TYPE resv (insert_vcc_list fmlls n v)`
   >- (
-    xapp>>xsimpl>>
-    qexistsl_tac [`v`,`n`,`fmlls`]>>
-    simp[])>>
+    xapp>>
+    qexistsl_tac [`ARRAY_OF NUM Carrv' Clist'`,`v`,`n`,`fmlls`]>>
+    xsimpl)>>
   xcon>>xsimpl>>
   drule_all dm_ok_is_rup_vb_list>>
   rw[dm_ok_def]>>
@@ -137,7 +127,7 @@ Theorem parse_lrup_chunk_side[local]:
   ∀s. parse_lrup_chunk_side s
 Proof
   rw[fetch "-" "parse_lrup_chunk_side_def"]>>
-  simp[fetch "ccnf_arrayProg" "parse_vb_num_side_def",parse_vb_num_aux_side]>>
+  simp[parse_vb_num_side]>>
   irule parse_vb_ilits_side>>
   simp[]>>
   drule parse_vb_num_le>>
@@ -290,31 +280,28 @@ Quote add_cakeml:
 End
 
 Theorem check_unsat''_spec:
-  ∀lines fmlls Clist b fs fmlv fmllsv Carrv lno lnov bv.
+  ∀lines fmlls Clist b fs fmlv Carrv lno lnov bv.
   NUM lno lnov ∧
-  LIST_REL vcclause_TYPE fmlls fmllsv ∧
   NUM b bv ∧
   dm_ok fmlls Clist b
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat''" (get_ml_prog_state()))
     [fdv; lnov; fmlv; Carrv; bv]
-    (STDIO fs * ARRAY fmlv fmllsv *
-      NUM_ARRAY Carrv Clist * INSTREAM_LINES nulc fd fdv lines fs)
+    (STDIO fs * ARRAY_OF vcclause_TYPE fmlv fmlls *
+      ARRAY_OF NUM Carrv Clist * INSTREAM_LINES nulc fd fdv lines fs)
     (POSTve
       (λv.
-        SEP_EXISTS k fmllsv'.
+        SEP_EXISTS k fmlls'.
           STDIO (forwardFD fs fd k) *
           INSTREAM_LINES nulc fd fdv [] (forwardFD fs fd k) *
-          ARRAY v fmllsv' *
-          &(unwrap_TYPE
-            (LIST_REL vcclause_TYPE)
-            (parse_and_run_file_list lines fmlls Clist b) fmllsv'))
+          ARRAY_OF vcclause_TYPE v fmlls' *
+          &(parse_and_run_file_list lines fmlls Clist b = SOME fmlls'))
       (λe.
-        SEP_EXISTS k fmlv' fmllsv' lines'.
+        SEP_EXISTS k fmlv' fmlls' lines'.
           STDIO (forwardFD fs fd k) *
           INSTREAM_LINES nulc fd fdv lines' (forwardFD fs fd k) *
-          ARRAY fmlv' fmllsv' *
+          ARRAY_OF vcclause_TYPE fmlv' fmlls' *
           &(Fail_exn e ∧
             parse_and_run_file_list lines fmlls Clist b = NONE)))
 Proof
@@ -328,7 +315,7 @@ Proof
         SEP_EXISTS k lines'.
           STDIO (forwardFD fs fd k) *
           INSTREAM_LINES nulc fd fdv lines' (forwardFD fs fd k) *
-          ARRAY fmlv fmllsv * NUM_ARRAY Carrv Clist *
+          ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF NUM Carrv Clist *
           &(parse_lrup_one lines ≠ NONE ∧
             OPTION_TYPE LRUP_LRUP_TYPE
               (OPTION_MAP FST (THE (parse_lrup_one lines))) v ∧
@@ -339,12 +326,12 @@ Proof
         SEP_EXISTS k lines'.
           STDIO (forwardFD fs fd k) *
           INSTREAM_LINES nulc fd fdv lines' (forwardFD fs fd k) *
-          ARRAY fmlv fmllsv *
+          ARRAY_OF vcclause_TYPE fmlv fmlls *
           &(Fail_exn e ∧ parse_lrup_one lines = NONE))`
   >- (
     xapp>>
-    qexistsl_tac [`ARRAY fmlv fmllsv * NUM_ARRAY Carrv Clist`,`lines`,`fs`,
-      `fd`]>>
+    qexistsl_tac [`ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF NUM Carrv Clist`,
+      `lines`,`fs`,`fd`]>>
     xsimpl>>
     qexists_tac`lno`>>simp[]>>
     rw[]>>
@@ -352,7 +339,7 @@ Proof
     xsimpl)
   >- (
     xsimpl>>rw[]>>
-    qexistsl_tac [`x`,`fmlv`,`fmllsv`,`x'`]>>
+    qexistsl_tac [`x`,`fmlv`,`fmlls`,`x'`]>>
     xsimpl>>
     simp[Once parse_and_run_file_list_def])>>
   Cases_on`parse_lrup_one lines`>>gvs[]>>
@@ -361,7 +348,6 @@ Proof
   >- (
     xmatch>>
     xvar>>xsimpl>>
-    simp[unwrap_TYPE_def]>>
     qexists_tac`k`>>xsimpl)>>
   rename1`parse_lrup_one lines = SOME (SOME stp)`>>
   Cases_on`stp`>>gvs[]>>
@@ -369,17 +355,13 @@ Proof
   drule_then assume_tac parse_lrup_one_vb_ok>>
   xmatch>>
   xlet_auto
+  >- xsimpl
   >- (
     xsimpl>>rw[]>>
-    sep_triv)
-  >- (
-    xsimpl>>rw[]>>
-    qexistsl_tac [`k`,`fmlv`,`fmllsv`,`rest`]>>
+    qexistsl_tac [`k`,`fmlv`,`fmlls`,`rest`]>>
     xsimpl>>
     simp[Once parse_and_run_file_list_def])>>
-  Cases_on`check_lrup_list step fmlls Clist b`>>gvs[]>>
-  rename1`check_lrup_list step fmlls Clist b = SOME res`>>
-  PairCases_on`res`>>gvs[]>>
+  gvs[]>>
   xmatch>>
   xlet_autop>>
   xapp>>xsimpl>>
@@ -464,7 +446,7 @@ Proof
     (SOME (openInSetBufferSize_spec_lines |> Q.GEN `c0` |> Q.SPEC `nulc`))>>xsimpl>>
   qmatch_goalsub_abbrev_tac`STDIO fss`>>
   xlet_autop>>
-  xlet_auto_spec (SOME NUM_ARRAY_alloc_zero_spec)
+  xlet_auto_spec (SOME (Q.ISPEC`NUM` ARRAY_OF_alloc_spec))
   >- xsimpl>>
   qabbrev_tac`fmlls = build_cfml_list 1 (conv_cfml cfml) nc`>>
   qabbrev_tac`Clist = REPLICATE n (0:num)`>>
@@ -476,35 +458,35 @@ Proof
     fs[])>>
   qabbrev_tac`lines = all_lines_file_gen nulc fs f`>>
   xlet`POSTv resv.
-    SEP_EXISTS v0 fmllsv' fmlv' k rest.
+    SEP_EXISTS v0 fmlls' fmlv' k rest.
       STDIO (forwardFD fss (nextFD fs) k) *
       INSTREAM_LINES nulc (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
-      ARRAY fmlv' fmllsv' *
+      ARRAY_OF vcclause_TYPE fmlv' fmlls' *
       &(
       case parse_and_run_file_list lines fmlls Clist 1 of
         NONE => resv = Conv (SOME (TypeStamp «Inl» 4)) [v0] ∧ ∃s. STRING_TYPE s v0
       | SOME fmlls'' =>
         resv = Conv (SOME (TypeStamp «Inr» 4)) [fmlv'] ∧
-        LIST_REL vcclause_TYPE fmlls'' fmllsv'
+        fmlls'' = fmlls'
       )`
   >- (
     simp[]>>
     TOP_CASE_TAC
     >- (
       xhandle`POSTe e.
-        SEP_EXISTS fmlv' fmllsv' rest k.
+        SEP_EXISTS fmlv' fmlls' rest k.
           STDIO (forwardFD fss (nextFD fs) k) *
           INSTREAM_LINES nulc (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
-          ARRAY fmlv' fmllsv' *
+          ARRAY_OF vcclause_TYPE fmlv' fmlls' *
           &(Fail_exn e ∧
             parse_and_run_file_list lines fmlls Clist 1 = NONE)`
       >- (
         xlet`POSTe e.
-          SEP_EXISTS k fmlv' fmllsv' lines'.
+          SEP_EXISTS k fmlv' fmlls' lines'.
             STDIO (forwardFD fss (nextFD fs) k) *
             INSTREAM_LINES nulc (nextFD fs) is lines'
               (forwardFD fss (nextFD fs) k) *
-            ARRAY fmlv' fmllsv' *
+            ARRAY_OF vcclause_TYPE fmlv' fmlls' *
             &(Fail_exn e ∧
               parse_and_run_file_list lines fmlls Clist 1 = NONE)`
         >- (
@@ -515,7 +497,6 @@ Proof
           qexistsl_tac [`lines`,`fss`,`nextFD fs`,`emp`]>>
           xsimpl>>
           simp[Abbr`Clist`]>>
-          fs[unwrap_TYPE_def]>>
           rw[]>>
           sep_triv)>>
         xsimpl>>rw[]>>
@@ -527,24 +508,20 @@ Proof
       asm_exists_tac>>simp[]>>
       sep_triv)>>
     xhandle`POSTv v.
-      SEP_EXISTS k rest fmllsv'.
+      SEP_EXISTS k rest fmlls'.
         STDIO (forwardFD fss (nextFD fs) k) *
         INSTREAM_LINES nulc (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
         (SEP_EXISTS fmlv'.
           &(v = Conv (SOME (TypeStamp «Inr» 4)) [fmlv']) *
-          ARRAY fmlv' fmllsv') *
-        &(unwrap_TYPE
-          (LIST_REL vcclause_TYPE)
-          (parse_and_run_file_list lines fmlls Clist 1) fmllsv')`
+          ARRAY_OF vcclause_TYPE fmlv' fmlls') *
+        &(parse_and_run_file_list lines fmlls Clist 1 = SOME fmlls')`
     >- (
       xlet`POSTv v.
-        SEP_EXISTS k fmllsv'.
+        SEP_EXISTS k fmlls'.
           STDIO (forwardFD fss (nextFD fs) k) *
           INSTREAM_LINES nulc (nextFD fs) is [] (forwardFD fss (nextFD fs) k) *
-          ARRAY v fmllsv' *
-          &(unwrap_TYPE
-            (LIST_REL vcclause_TYPE)
-            (parse_and_run_file_list lines fmlls Clist 1) fmllsv')`
+          ARRAY_OF vcclause_TYPE v fmlls' *
+          &(parse_and_run_file_list lines fmlls Clist 1 = SOME fmlls')`
       >- (
         xapp_spec check_unsat''_spec>>
         xsimpl>>
@@ -553,24 +530,23 @@ Proof
         qexistsl_tac [`lines`,`fss`,`nextFD fs`,`emp`]>>
         xsimpl>>
         simp[Abbr`Clist`]>>
-        fs[unwrap_TYPE_def]>>
         rw[]>>
         sep_triv)>>
       xcon>>xsimpl>>
       sep_triv)>>
     xsimpl>>
-    simp[unwrap_TYPE_def]>>
     rw[]>>
     sep_triv)>>
   qspecl_then [`lines`,`fmlls`,`Clist`,`1`]
     strip_assume_tac parse_and_run_file_list_eq>>
   gs[]>>
   pop_assum kall_tac>>
-  xlet `POSTv v. STDIO fs * ARRAY fmlv' fmllsv'`
+  xlet `POSTv v. STDIO fs * ARRAY_OF vcclause_TYPE fmlv' fmlls'`
   >- (
     xapp_spec closeIn_spec_lines>>
-    rename [`ARRAY a1 a2`]>>
-    qexistsl_tac [`ARRAY a1 a2`,`rest`,`forwardFD fss (nextFD fs) k`,
+    rename [`ARRAY_OF vcclause_TYPE a1 a2`]>>
+    qexistsl_tac [`ARRAY_OF vcclause_TYPE a1 a2`,`rest`,
+      `forwardFD fss (nextFD fs) k`,
       `nextFD fs`,`nulc`]>>
     conj_tac >- (
       fs [forwardFD_def,Abbr`fss`]>>
@@ -598,7 +574,8 @@ Proof
     qexists_tac`INL s`>>
     simp[SUM_TYPE_def])>>
   xmatch>>
-  xlet_autop>>
+  xlet_auto_spec (SOME (Q.INST [`fmlls`|->`fmlls'`] contains_emp_arr_spec))
+  >- xsimpl>>
   xcon>>xsimpl>>
   qexists_tac`INR (contains_emp_list x')`>>
   simp[SUM_TYPE_def]>>
