@@ -21,6 +21,9 @@ An distributed RUP checker
 [lrup](lrup):
 An LRUP checker for compressed (variable-byte encoded) proofs
 
+[lsr](lsr):
+An LSR checker for compressed (variable-byte encoded) proofs
+
 [syntax_helperScript.sml](syntax_helperScript.sml):
 Syntactic print/parse helper files
 
