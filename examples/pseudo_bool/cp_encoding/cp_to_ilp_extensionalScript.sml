@@ -1142,55 +1142,120 @@ QED
 
 (* SmartTable: per row a selector flag, ⇔ all entries hold; at_least_one row.
    Entry indicator: var-vs-const reuses reif_gen (shared Eq/Ge atoms, no flag);
-   var-vs-var uses fresh flags sgt/slt (orderings) (+ seq for =/≠); a set entry
+   var-vs-var uses flags sgt/slt (orderings) (+ seq for =/≠), one per distinct
+   key (v1,v2,kind), named by the entry where the key first occurs; a set entry
    uses a membership flag sset. *)
+
+(* the flag kind a var-vs-var comparison reads, and whether it reads it
+   positively *)
+Definition smart_cmp_kind_def:
+  smart_cmp_kind cmp =
+  case cmp of
+    Lexop GreaterThan  => («sgt»,T)
+  | Lexop LessEqual    => («sgt»,F)
+  | Lexop LessThan     => («slt»,T)
+  | Lexop GreaterEqual => («slt»,F)
+  | Equal              => («seq»,T)
+  | NotEqual           => («seq»,F)
+End
+
+(* the keys (v1,v2,kind) of the var-vs-var flags entry e reads; seq is defined
+   from the pair's sgt and slt flags *)
+Definition smart_entry_keys_def:
+  smart_entry_keys e =
+  case e of
+    SCmp v1 cmp v2 =>
+      if ISL v2 then
+        let kind = FST (smart_cmp_kind cmp) in
+        if kind = «sgt» ∨ kind = «slt» then [(v1,v2,kind)]
+        else [(v1,v2,«sgt»); (v1,v2,«slt»); (v1,v2,«seq»)]
+      else []
+  | SSet v b vs => []
+End
+
+(* each key paired with the (row,position) of every entry reading it, in table
+   order; ALOOKUP finds the first occurrence *)
+Definition smart_positions_def:
+  smart_positions rows =
+  FLAT (MAPi (λk es. FLAT (MAPi (λj e.
+    MAP (λkey. (key,(k,j))) (smart_entry_keys e)) es)) rows)
+End
+
+(* the position of key's flag; kj when look has none *)
+Definition smart_pos_def:
+  smart_pos look kj key = case look key of NONE => kj | SOME p => p
+End
+
+Definition smart_flag_def:
+  smart_flag name look kj (v1,v2,kind) =
+  let p = smart_pos look kj (v1,v2,kind) in
+  INR (name, Indices [FST p; SND p] (SOME kind))
+End
 
 (* the "this entry holds" indicator literal for entry j of row k *)
 Definition smart_entry_lit_def:
-  smart_entry_lit name k j e =
+  smart_entry_lit name look k j e =
   case e of
     SCmp v1 cmp v2 =>
       (case v2 of
         INR c => reif_gen (v1,cmp,c)
       | INL _ =>
-        (case cmp of
-          Lexop GreaterThan  => Pos (INR (name, Indices [k;j] (SOME «sgt»)))
-        | Lexop LessEqual    => Neg (INR (name, Indices [k;j] (SOME «sgt»)))
-        | Lexop LessThan     => Pos (INR (name, Indices [k;j] (SOME «slt»)))
-        | Lexop GreaterEqual => Neg (INR (name, Indices [k;j] (SOME «slt»)))
-        | Equal        => Pos (INR (name, Indices [k;j] (SOME «seq»)))
-        | NotEqual     => Neg (INR (name, Indices [k;j] (SOME «seq»)))))
+        let
+          (kind,pos) = smart_cmp_kind cmp;
+          f = smart_flag name look (k,j) (v1,v2,kind)
+        in
+          if pos then Pos f else Neg f)
   | SSet v b vs =>
       if b then Pos (INR (name, Indices [k;j] (SOME «sset»)))
       else      Neg (INR (name, Indices [k;j] (SOME «sset»)))
 End
 
+(* the defining row of key's flag *)
+Definition smart_key_body_def:
+  smart_key_body name look kj (v1,v2,kind) =
+  if kind = «sgt» then mk_gt v1 v2
+  else if kind = «slt» then mk_lt v1 v2
+  else ([],[(1,Neg (smart_flag name look kj (v1,v2,«sgt»)));
+            (1,Neg (smart_flag name look kj (v1,v2,«slt»)))],2)
+End
+
+(* the definitions of the var-vs-var flags entry e (at kj) reads, each emitted
+   only at its key's own position *)
+Definition cencode_smart_defs_def:
+  cencode_smart_defs bnd name look kj e =
+  flat_app (MAP (λkey.
+    if smart_pos look kj key = kj
+    then cbimply_var bnd (smart_flag name look kj key)
+           (smart_key_body name look kj key)
+    else Nil) (smart_entry_keys e))
+End
+
+Theorem cencode_smart_defs_sem:
+  valid_assignment bnd wi ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb))
+     (abstr (cencode_smart_defs bnd name look kj e)) ⇔
+   ∀key. MEM key (smart_entry_keys e) ∧ smart_pos look kj key = kj ⇒
+     (wb (smart_flag name look kj key) ⇔
+      iconstraint_sem (smart_key_body name look kj key) (wi,wb)))
+Proof
+  strip_tac>>
+  simp[cencode_smart_defs_def]>>
+  qspec_tac(`smart_entry_keys e`,`ks`)>>
+  Induct>>
+  simp[DISJ_IMP_THM,FORALL_AND_THM]>>
+  gen_tac>>IF_CASES_TAC>>
+  simp[EVERY_REVERSE,lit_def]>>
+  metis_tac[]
+QED
+
 (* defining constraints for entry j of row k *)
 Definition encode_smart_entry_def:
-  encode_smart_entry bnd name k j e =
+  encode_smart_entry bnd name look k j e =
   case e of
     SCmp v1 cmp v2 =>
       (case v2 of
         INR c => encode_reif_gen bnd (v1,cmp,c)
-      | INL _ =>
-        let
-          fgt = INR (name, Indices [k;j] (SOME «sgt»));
-          flt = INR (name, Indices [k;j] (SOME «slt»));
-          feq = INR (name, Indices [k;j] (SOME «seq»))
-        in
-        (case cmp of
-          Lexop GreaterThan  => abstr (cbimply_var bnd fgt (mk_gt v1 v2))
-        | Lexop LessEqual    => abstr (cbimply_var bnd fgt (mk_gt v1 v2))
-        | Lexop LessThan     => abstr (cbimply_var bnd flt (mk_lt v1 v2))
-        | Lexop GreaterEqual => abstr (cbimply_var bnd flt (mk_lt v1 v2))
-        | Equal =>
-            abstr (cbimply_var bnd fgt (mk_gt v1 v2)) ++
-            abstr (cbimply_var bnd flt (mk_lt v1 v2)) ++
-            abstr (cbimply_var bnd feq ([],[(1,Neg fgt);(1,Neg flt)],2))
-        | NotEqual =>
-            abstr (cbimply_var bnd fgt (mk_gt v1 v2)) ++
-            abstr (cbimply_var bnd flt (mk_lt v1 v2)) ++
-            abstr (cbimply_var bnd feq ([],[(1,Neg fgt);(1,Neg flt)],2))))
+      | INL _ => abstr (cencode_smart_defs bnd name look (k,j) e))
   | SSet v b vs =>
       let fset = INR (name, Indices [k;j] (SOME «sset»)) in
       FLAT (MAP (λc. encode_full_eq bnd v c) vs) ++
@@ -1200,25 +1265,72 @@ End
 
 (* one row: entry defs, then selector ⇔ (all indicators hold) *)
 Definition encode_smart_row_def:
-  encode_smart_row bnd name k es =
-  let lits = MAPi (λj e. smart_entry_lit name k j e) es in
-  FLAT (MAPi (λj e. encode_smart_entry bnd name k j e) es) ++
+  encode_smart_row bnd name look k es =
+  let lits = MAPi (λj e. smart_entry_lit name look k j e) es in
+  FLAT (MAPi (λj e. encode_smart_entry bnd name look k j e) es) ++
   abstr (cbimply_var bnd (INR (Index name k))
     ([], MAP (λl. (1,l)) lits, &LENGTH es))
 End
 
 Definition encode_smart_table_def:
   encode_smart_table bnd rows name =
-  FLAT (MAPi (λk es. encode_smart_row bnd name k es) rows) ++
+  let look = ALOOKUP (smart_positions rows) in
+  FLAT (MAPi (λk es. encode_smart_row bnd name look k es) rows) ++
   abstr (cat_least_one name «»
     (MAPi (λk es. Pos (INR (Index name k))) rows))
 End
 
-(* one entry's indicator reflects whether the entry holds *)
+(* the meaning of the flag for key (v1,v2,kind) *)
+Definition smart_key_holds_def:
+  smart_key_holds wi (v1,v2,kind) ⇔
+  if kind = «sgt» then varc wi v1 > varc wi v2
+  else if kind = «slt» then varc wi v1 < varc wi v2
+  else varc wi v1 = varc wi v2
+End
+
+(* a key's defining row means the key, given (for seq) the meaning of the
+   pair's sgt and slt flags *)
+Theorem smart_key_body_sem:
+  (kind ≠ «sgt» ∧ kind ≠ «slt» ⇒
+     (wb (smart_flag name look kj (v1,v2,«sgt»)) ⇔ varc wi v1 > varc wi v2) ∧
+     (wb (smart_flag name look kj (v1,v2,«slt»)) ⇔ varc wi v1 < varc wi v2)) ⇒
+  (iconstraint_sem (smart_key_body name look kj (v1,v2,kind)) (wi,wb) ⇔
+   smart_key_holds wi (v1,v2,kind))
+Proof
+  rw[smart_key_body_def,smart_key_holds_def]>>
+  rpt (pop_assum kall_tac)>>intLib.ARITH_TAC
+QED
+
+Theorem MEM_smart_positions:
+  MEM (key,p) (smart_positions rows) ⇔
+  FST p < LENGTH rows ∧ SND p < LENGTH (EL (FST p) rows) ∧
+  MEM key (smart_entry_keys (EL (SND p) (EL (FST p) rows)))
+Proof
+  PairCases_on`p`>>
+  simp[smart_positions_def,MEM_FLAT,MEM_MAPi,MEM_MAP,PULL_EXISTS]
+QED
+
+(* a key read at kj has a first occurrence, which smart_pos returns *)
+Theorem smart_pos_ALOOKUP:
+  MEM (key,kj) ps ⇒
+  ALOOKUP ps key = SOME (smart_pos (ALOOKUP ps) kj key) ∧
+  MEM (key,smart_pos (ALOOKUP ps) kj key) ps
+Proof
+  strip_tac>>
+  simp[smart_pos_def]>>
+  Cases_on`ALOOKUP ps key`>>simp[]
+  >- (gvs[ALOOKUP_NONE,MEM_MAP]>>metis_tac[FST])>>
+  irule ALOOKUP_MEM>>simp[]
+QED
+
+(* one entry's indicator reflects whether the entry holds, given the meaning
+   of the var-vs-var flags it reads *)
 Theorem smart_entry_lit_sem:
   valid_assignment bnd wi ∧
-  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_smart_entry bnd name k j e) ⇒
-  (lit wb (smart_entry_lit name k j e) ⇔ smart_entry_holds e wi)
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_smart_entry bnd name look k j e) ∧
+  (∀key. MEM key (smart_entry_keys e) ⇒
+     (wb (smart_flag name look (k,j) key) ⇔ smart_key_holds wi key)) ⇒
+  (lit wb (smart_entry_lit name look k j e) ⇔ smart_entry_holds e wi)
 Proof
   strip_tac>>
   Cases_on`e`
@@ -1226,13 +1338,15 @@ Proof
     simp[encode_smart_entry_def,smart_entry_lit_def,smart_entry_holds_def]>>
     Cases_on`s0`>>simp[]
     >- (
-      every_case_tac>>
-      gvs[encode_smart_entry_def,abstr_cbimply_var,EVERY_REVERSE,EVERY_APPEND,
-          lit_def,cmpop_val_def]>>
-      rpt strip_tac>>
-      rpt(qpat_x_assum`_ ⇔ wb _`(assume_tac o GSYM))>>
-      gvs[]>>
-      intLib.ARITH_TAC)>>
+      qpat_x_assum`∀key. _`mp_tac>>
+      Cases_on`c`
+      >- (
+        Cases_on`l`>>
+        simp[smart_entry_keys_def,smart_cmp_kind_def,smart_key_holds_def,lit_def,
+             cmpop_val_def,integerTheory.int_ge,integerTheory.int_gt,
+             integerTheory.INT_NOT_LT])>>
+      simp[smart_entry_keys_def,smart_cmp_kind_def,smart_key_holds_def,lit_def,
+           cmpop_val_def])>>
     fs[encode_smart_entry_def]>>
     gvs[encode_reif_gen_sem,varc_def])
   >- (
@@ -1271,12 +1385,35 @@ Proof
   rw[smart_reify_def,reify_flag_def]
 QED
 
+(* under reify a var-vs-var flag reads back as its key's meaning *)
+Theorem smart_flag_reify:
+  smart_reify cs wi name rows ∧
+  MEM (key,kj) (smart_positions rows) ⇒
+  (reify_avar cs wi (smart_flag name (ALOOKUP (smart_positions rows)) kj key) ⇔
+   smart_key_holds wi key)
+Proof
+  strip_tac>>
+  drule smart_pos_ALOOKUP>>strip_tac>>
+  qabbrev_tac`p = smart_pos (ALOOKUP (smart_positions rows)) kj key`>>
+  PairCases_on`key`>>
+  gvs[MEM_smart_positions]>>
+  `∃cmp. EL (SND p) (EL (FST p) rows) = SCmp key0 cmp key1` by (
+    qpat_x_assum`MEM _ (smart_entry_keys _)`mp_tac>>
+    Cases_on`EL (SND p) (EL (FST p) rows)`>>
+    rw[smart_entry_keys_def]>>every_case_tac>>gvs[])>>
+  `smart_pos (ALOOKUP (smart_positions rows)) kj (key0,key1,key2) = p` by
+    simp[Abbr`p`]>>
+  gvs[smart_flag_def,reify_avar_def,smart_reify_def,reify_smart_flag_def,
+      smart_key_holds_def]
+QED
+
 Theorem smart_entry_reify:
   valid_assignment bnd wi ∧
   smart_reify cs wi name rows ∧
   k < LENGTH rows ∧ j < LENGTH (EL k rows) ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (encode_smart_entry bnd name k j (EL j (EL k rows)))
+    (encode_smart_entry bnd name (ALOOKUP (smart_positions rows)) k j
+       (EL j (EL k rows)))
 Proof
   strip_tac>>
   Cases_on`EL j (EL k rows)`
@@ -1284,11 +1421,27 @@ Proof
     simp[encode_smart_entry_def]>>
     Cases_on`s0`
     >- (
-      simp[]>>
-      every_case_tac>>
-      gs[EVERY_REVERSE,EVERY_APPEND]>>
-      gs[smart_reify_def,reify_avar_def,reify_smart_flag_def]>>
-      intLib.ARITH_TAC)>>
+      rename1`SCmp v1 cmp (INL y)`>>
+      `∀kind. MEM (v1,INL y,kind) (smart_entry_keys (SCmp v1 cmp (INL y))) ⇒
+         (reify_avar cs wi
+            (smart_flag name (ALOOKUP (smart_positions rows)) (k,j) (v1,INL y,kind)) ⇔
+          smart_key_holds wi (v1,INL y,kind))` by (
+        rw[]>>irule smart_flag_reify>>simp[MEM_smart_positions])>>
+      simp[cencode_smart_defs_sem]>>
+      rw[]>>
+      PairCases_on`key`>>
+      `key0 = v1 ∧ key1 = INL y ∧
+       (key2 ≠ «sgt» ∧ key2 ≠ «slt» ⇒
+          MEM (v1,INL y,«sgt») (smart_entry_keys (SCmp v1 cmp (INL y))) ∧
+          MEM (v1,INL y,«slt») (smart_entry_keys (SCmp v1 cmp (INL y))))` by (
+        qpat_x_assum`MEM _ (smart_entry_keys _)`mp_tac>>
+        rw[smart_entry_keys_def]>>gvs[])>>
+      gvs[]>>
+      DEP_REWRITE_TAC[smart_key_body_sem]>>
+      strip_tac>>
+      qpat_assum`∀kind. _`(qspec_then`«sgt»`mp_tac)>>
+      qpat_x_assum`∀kind. _`(qspec_then`«slt»`mp_tac)>>
+      gvs[smart_key_holds_def])>>
     simp[]>>irule encode_reif_gen_reify>>simp[])
   >- (
     simp[encode_smart_entry_def,EVERY_APPEND]>>
@@ -1323,17 +1476,24 @@ QED
 (* selector ⇔ all entries of the row hold *)
 Theorem encode_smart_row_sem:
   valid_assignment bnd wi ∧
-  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_smart_row bnd name k es) ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_smart_row bnd name look k es) ∧
+  (∀j key. j < LENGTH es ∧ MEM key (smart_entry_keys (EL j es)) ⇒
+     (wb (smart_flag name look (k,j) key) ⇔ smart_key_holds wi key)) ⇒
   (wb (INR (Index name k)) ⇔ EVERY (λe. smart_entry_holds e wi) es)
 Proof
   simp[encode_smart_row_def,EVERY_APPEND,abstr_cbimply_var,EVERY_REVERSE]>>
   strip_tac>>
   qpat_x_assum`EVERY _ (bimply_bit _ _ _)` mp_tac>>simp[o_DEF]>>strip_tac>>
-  `∀j. j < LENGTH es ⇒
-     (lit wb (smart_entry_lit name k j (EL j es)) ⇔ smart_entry_holds (EL j es) wi)` by
-    (rw[]>>irule smart_entry_lit_sem>>first_assum (irule_at Any)>>
-     qpat_x_assum`EVERY _ (FLAT _)` mp_tac>>
-     simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS,EL_MAP])>>
+  sg`∀j. j < LENGTH es ⇒
+     (lit wb (smart_entry_lit name look k j (EL j es)) ⇔
+      smart_entry_holds (EL j es) wi)`
+  >- (
+    rw[]>>irule smart_entry_lit_sem>>
+    conj_tac
+    >- (rw[]>>qpat_x_assum`∀j key. _`irule>>simp[])>>
+    qexists`bnd`>>simp[]>>
+    qpat_x_assum`EVERY _ (FLAT _)` mp_tac>>
+    simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS,EL_MAP])>>
   qpat_x_assum`_ ⇔ wb (INR (Index name k))` mp_tac>>
   simp[eval_lin_term_MAPi_ge_LENGTH,EVERY_EL]
 QED
@@ -1344,17 +1504,23 @@ Theorem encode_smart_row_reify:
   smart_reify cs wi name rows ∧
   k < LENGTH rows ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (encode_smart_row bnd name k (EL k rows))
+    (encode_smart_row bnd name (ALOOKUP (smart_positions rows)) k (EL k rows))
 Proof
   strip_tac>>
   `∀j. j < LENGTH (EL k rows) ⇒
      EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-       (encode_smart_entry bnd name k j (EL j (EL k rows)))` by
+       (encode_smart_entry bnd name (ALOOKUP (smart_positions rows)) k j
+          (EL j (EL k rows)))` by
     (rw[]>>irule smart_entry_reify>>rpt(first_assum (irule_at Any))>>simp[])>>
-  `∀j. j < LENGTH (EL k rows) ⇒
-     (lit (reify_avar cs wi) (smart_entry_lit name k j (EL j (EL k rows))) ⇔
-      smart_entry_holds (EL j (EL k rows)) wi)` by
-    (rw[]>>irule smart_entry_lit_sem>>first_assum (irule_at Any)>>simp[])>>
+  sg`∀j. j < LENGTH (EL k rows) ⇒
+     (lit (reify_avar cs wi)
+        (smart_entry_lit name (ALOOKUP (smart_positions rows)) k j (EL j (EL k rows))) ⇔
+      smart_entry_holds (EL j (EL k rows)) wi)`
+  >- (
+    rw[]>>irule smart_entry_lit_sem>>
+    conj_tac
+    >- (rw[]>>irule smart_flag_reify>>simp[MEM_smart_positions])>>
+    qexists`bnd`>>simp[])>>
   simp[encode_smart_row_def,EVERY_APPEND]>>
   conj_tac
   >- simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS,EL_MAP]
@@ -1385,6 +1551,66 @@ Proof
     gs[smart_reify_def,lit_def,reify_avar_def,reify_smart_flag_def])
 QED
 
+(* when every entry's defs hold, each var-vs-var flag means its key *)
+Theorem smart_flags_sem:
+  valid_assignment bnd wi ∧
+  (∀k j. k < LENGTH rows ∧ j < LENGTH (EL k rows) ⇒
+     EVERY (λx. iconstraint_sem x (wi,wb))
+       (encode_smart_entry bnd name (ALOOKUP (smart_positions rows)) k j
+          (EL j (EL k rows)))) ∧
+  MEM (key,kj) (smart_positions rows) ⇒
+  (wb (smart_flag name (ALOOKUP (smart_positions rows)) kj key) ⇔
+   smart_key_holds wi key)
+Proof
+  strip_tac>>
+  sg`∀ky q. MEM (ky,q) (smart_positions rows) ⇒
+       (wb (smart_flag name (ALOOKUP (smart_positions rows)) q ky) ⇔
+        iconstraint_sem
+          (smart_key_body name (ALOOKUP (smart_positions rows))
+             (smart_pos (ALOOKUP (smart_positions rows)) q ky) ky) (wi,wb))`
+  >- (
+    rpt strip_tac>>
+    drule smart_pos_ALOOKUP>>strip_tac>>
+    qabbrev_tac`p = smart_pos (ALOOKUP (smart_positions rows)) q ky`>>
+    qpat_x_assum`MEM (_,p) _`mp_tac>>
+    simp[MEM_smart_positions]>>strip_tac>>
+    `∃v1 cmp y. EL (SND p) (EL (FST p) rows) = SCmp v1 cmp (INL y)` by (
+      qpat_x_assum`MEM _ (smart_entry_keys _)`mp_tac>>
+      Cases_on`EL (SND p) (EL (FST p) rows)`>>simp[smart_entry_keys_def]>>
+      rename1`SCmp v1 cmp v2`>>Cases_on`v2`>>simp[])>>
+    qpat_x_assum`∀k j. _`(qspecl_then [`FST p`,`SND p`] mp_tac)>>
+    gvs[encode_smart_entry_def,cencode_smart_defs_sem]>>
+    disch_then (qspec_then`ky`mp_tac)>>
+    `smart_pos (ALOOKUP (smart_positions rows)) p ky = p ∧
+     (wb (smart_flag name (ALOOKUP (smart_positions rows)) q ky) ⇔
+      wb (smart_flag name (ALOOKUP (smart_positions rows)) p ky))` by
+      (PairCases_on`ky`>>simp[smart_flag_def,smart_pos_def])>>
+    simp[])>>
+  PairCases_on`key`>>
+  qpat_assum`∀ky q. _`(qspecl_then [`(key0,key1,key2)`,`kj`] mp_tac)>>
+  simp[]>>
+  irule smart_key_body_sem>>
+  strip_tac>>
+  drule smart_pos_ALOOKUP>>strip_tac>>
+  qabbrev_tac`p = smart_pos (ALOOKUP (smart_positions rows)) kj (key0,key1,key2)`>>
+  `MEM ((key0,key1,«sgt»),p) (smart_positions rows) ∧
+   MEM ((key0,key1,«slt»),p) (smart_positions rows)` by (
+    qpat_x_assum`MEM (_,p) _`mp_tac>>
+    simp[MEM_smart_positions]>>strip_tac>>
+    qpat_x_assum`MEM _ (smart_entry_keys _)`mp_tac>>
+    Cases_on`EL (SND p) (EL (FST p) rows)`>>simp[smart_entry_keys_def]>>
+    rw[]>>gvs[])>>
+  `∀kind. (kind = «sgt» ∨ kind = «slt») ∧
+     MEM ((key0,key1,kind),p) (smart_positions rows) ⇒
+     (wb (smart_flag name (ALOOKUP (smart_positions rows)) p (key0,key1,kind)) ⇔
+      smart_key_holds wi (key0,key1,kind))` by (
+    rpt strip_tac>>
+    qpat_assum`∀ky q. _`(qspecl_then [`(key0,key1,kind)`,`p`] mp_tac)>>
+    simp[]>>
+    irule smart_key_body_sem>>gvs[])>>
+  gvs[smart_key_holds_def]
+QED
+
 Theorem encode_smart_table_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
@@ -1394,10 +1620,29 @@ Proof
   strip_tac>>
   fs[encode_smart_table_def,EVERY_APPEND]>>
   `∀k. k < LENGTH rows ⇒
-     (wb (INR (Index name k)) ⇔ EVERY (λe. smart_entry_holds e wi) (EL k rows))` by
-    (rw[]>>irule encode_smart_row_sem>>first_assum (irule_at Any)>>
-     qpat_x_assum`EVERY _ (FLAT _)` mp_tac>>
-     simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS,EL_MAP])>>
+     EVERY (λx. iconstraint_sem x (wi,wb))
+       (encode_smart_row bnd name (ALOOKUP (smart_positions rows)) k (EL k rows))` by (
+    qpat_x_assum`EVERY _ (FLAT _)` mp_tac>>
+    simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS,EL_MAP])>>
+  sg`∀k j. k < LENGTH rows ∧ j < LENGTH (EL k rows) ⇒
+     EVERY (λx. iconstraint_sem x (wi,wb))
+       (encode_smart_entry bnd name (ALOOKUP (smart_positions rows)) k j
+          (EL j (EL k rows)))`
+  >- (
+    rw[]>>first_x_assum drule>>
+    simp[encode_smart_row_def,EVERY_APPEND]>>
+    strip_tac>>
+    qpat_x_assum`EVERY _ (FLAT (MAPi _ (EL k rows)))`mp_tac>>
+    simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]>>
+    disch_then drule>>simp[])>>
+  `∀k. k < LENGTH rows ⇒
+     (wb (INR (Index name k)) ⇔ EVERY (λe. smart_entry_holds e wi) (EL k rows))` by (
+    rw[]>>irule encode_smart_row_sem>>
+    qexistsl[`bnd`,`ALOOKUP (smart_positions rows)`]>>
+    simp[]>>rw[]>>
+    irule smart_flags_sem>>
+    simp[MEM_smart_positions]>>
+    qexists`bnd`>>simp[])>>
   gvs[MEM_MAPi,lit_def]>>
   simp[smart_table_sem_def,MEM_EL]>>
   metis_tac[]
@@ -1619,33 +1864,15 @@ Proof
 QED
 
 (* concrete SmartTable encoder: mirrors encode_smart_* but threads ec for the
-   shared Eq/Ge atoms (reif_gen / full_eq); fresh sgt/slt/seq/sset flags and
+   shared Eq/Ge atoms (reif_gen / full_eq); the sgt/slt/seq/sset flags and
    the selector cbimply carry no ec. *)
 Definition cencode_smart_entry_def:
-  cencode_smart_entry bnd name k j e ec =
+  cencode_smart_entry bnd name look k j e ec =
   case e of
     SCmp v1 cmp v2 =>
       (case v2 of
         INR c => cencode_reif_gen bnd (v1,cmp,c) ec
-      | INL _ =>
-        let
-          fgt = INR (name, Indices [k;j] (SOME «sgt»));
-          flt = INR (name, Indices [k;j] (SOME «slt»));
-          feq = INR (name, Indices [k;j] (SOME «seq»))
-        in
-        (case cmp of
-          Lexop GreaterThan  => (cbimply_var bnd fgt (mk_gt v1 v2), ec)
-        | Lexop LessEqual    => (cbimply_var bnd fgt (mk_gt v1 v2), ec)
-        | Lexop LessThan     => (cbimply_var bnd flt (mk_lt v1 v2), ec)
-        | Lexop GreaterEqual => (cbimply_var bnd flt (mk_lt v1 v2), ec)
-        | Equal =>
-            (Append (cbimply_var bnd fgt (mk_gt v1 v2))
-              (Append (cbimply_var bnd flt (mk_lt v1 v2))
-                (cbimply_var bnd feq ([],[(1,Neg fgt);(1,Neg flt)],2))), ec)
-        | NotEqual =>
-            (Append (cbimply_var bnd fgt (mk_gt v1 v2))
-              (Append (cbimply_var bnd flt (mk_lt v1 v2))
-                (cbimply_var bnd feq ([],[(1,Neg fgt);(1,Neg flt)],2))), ec)))
+      | INL _ => (cencode_smart_defs bnd name look (k,j) e, ec))
   | SSet v b vs =>
       let fset = INR (name, Indices [k;j] (SOME «sset»)) in
       let (eqs,ec') = fold_cenc (λc ec. cencode_full_eq bnd v c ec) vs ec in
@@ -1655,20 +1882,52 @@ Definition cencode_smart_entry_def:
 End
 
 Definition cencode_smart_row_def:
-  cencode_smart_row bnd name k es ec =
+  cencode_smart_row bnd name look k es ec =
   let (eqs,ec') =
-    fold_cenc (λ(j,e) ec. cencode_smart_entry bnd name k j e ec)
+    fold_cenc (λ(j,e) ec. cencode_smart_entry bnd name look k j e ec)
       (enumerate 0 es) ec in
   (Append eqs
     (cbimply_var bnd (INR (Index name k))
-      ([], MAP (λl. (1,l)) (MAPi (λj e. smart_entry_lit name k j e) es),
+      ([], MAP (λl. (1,l)) (MAPi (λj e. smart_entry_lit name look k j e) es),
        &LENGTH es)), ec')
 End
 
+(* the first position of each key, as a finite map *)
+Definition smart_flag_map_def:
+  smart_flag_map [] =
+    (FEMPTY : (mlstring varc # mlstring varc # mlstring) |-> num # num) ∧
+  smart_flag_map ((key,p)::ps) = smart_flag_map ps |+ (key,p)
+End
+
+Theorem FLOOKUP_smart_flag_map:
+  ∀ps. FLOOKUP (smart_flag_map ps) = ALOOKUP ps
+Proof
+  Induct>>simp[smart_flag_map_def,FUN_EQ_THM]>>
+  qx_gen_tac`h`>>PairCases_on`h`>>
+  rw[smart_flag_map_def,FLOOKUP_UPDATE]>>
+  rw[]
+QED
+
+(* the key order of smart_flag_map *)
+Definition smart_key_cmp_def:
+  smart_key_cmp = pair_cmp varc_compare (pair_cmp varc_compare fast_compare)
+End
+
+Theorem TotOrd_smart_key_cmp:
+  TotOrd smart_key_cmp
+Proof
+  rw[smart_key_cmp_def]>>
+  irule miscTheory.TotOrd_pair_cmp>>
+  simp[TotOrd_varc_compare]>>
+  irule miscTheory.TotOrd_pair_cmp>>
+  simp[TotOrd_varc_compare,mlstringTheory.TotOrd_fast_compare]
+QED
+
 Definition cencode_smart_table_def:
   cencode_smart_table bnd rows name ec =
+  let look = FLOOKUP (smart_flag_map (smart_positions rows)) in
   let (eqs,ec') =
-    fold_cenc (λ(k,es) ec. cencode_smart_row bnd name k es ec)
+    fold_cenc (λ(k,es) ec. cencode_smart_row bnd name look k es ec)
       (enumerate 0 rows) ec in
   (Append eqs
     (cat_least_one name «» (MAPi (λk es. Pos (INR (Index name k))) rows)), ec')
@@ -1691,17 +1950,14 @@ QED
 
 Theorem cencode_smart_entry_sem:
   valid_assignment bnd wi ∧
-  cencode_smart_entry bnd name k j e ec = (es,ec') ⇒
-  enc_rel wi es (encode_smart_entry bnd name k j e) ec ec'
+  cencode_smart_entry bnd name look k j e ec = (es,ec') ⇒
+  enc_rel wi es (encode_smart_entry bnd name look k j e) ec ec'
 Proof
   strip_tac>>
   Cases_on`e`>>
   gvs[cencode_smart_entry_def,encode_smart_entry_def]
   >- (
-    Cases_on`s0`>>gvs[]
-    >- (
-      every_case_tac>>
-      gvs[]>>irule enc_rel_abstr'>>simp[])>>
+    Cases_on`s0`>>gvs[]>>
     metis_tac[enc_rel_encode_reif_gen])
   >- (
     pairarg_tac>>gvs[]>>
@@ -1714,8 +1970,8 @@ QED
 
 Theorem cencode_smart_row_sem:
   valid_assignment bnd wi ∧
-  cencode_smart_row bnd name k es ec = (xs,ec') ⇒
-  enc_rel wi xs (encode_smart_row bnd name k es) ec ec'
+  cencode_smart_row bnd name look k es ec = (xs,ec') ⇒
+  enc_rel wi xs (encode_smart_row bnd name look k es) ec ec'
 Proof
   rw[cencode_smart_row_def,encode_smart_row_def]>>
   pairarg_tac>>gvs[]>>
@@ -1733,7 +1989,7 @@ Theorem cencode_smart_table_sem:
   cencode_smart_table bnd rows name ec = (es,ec') ⇒
   enc_rel wi es (encode_smart_table bnd rows name) ec ec'
 Proof
-  rw[cencode_smart_table_def,encode_smart_table_def]>>
+  rw[cencode_smart_table_def,encode_smart_table_def,FLOOKUP_smart_flag_map]>>
   pairarg_tac>>gvs[]>>
   simp[MAPi_enumerate_MAP]>>
   irule enc_rel_Append>>

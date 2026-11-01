@@ -312,35 +312,6 @@ Proof
     encode_all_different_except_aux_def]
 QED
 
-(* TODO: move, perhaps generalize? *)
-Definition cmk_bounds_def:
-  cmk_bounds name tag X a b =
-  List
-  (mk_annotate
-    [mk_name name (tag ^ «_lb»);mk_name name (tag ^ «_ub»)]
-    (mk_bounds X a b))
-End
-
-(* Give uniform bound lb ≤ Xs ≤ ub *)
-Definition cmk_bounds_all_def:
-  cmk_bounds_all name Xs lb ub =
-  flat_app
-    (MAPi
-      (λi X.
-        cmk_bounds name («X_» ^ toString (i+1)) X lb ub) Xs)
-End
-
-Theorem cmk_bounds_all_sem:
-  EVERY (λx. iconstraint_sem x (wi,wb))
-    (abstr (cmk_bounds_all name Xs lb ub)) ⇔
-  (∀X. MEM X Xs ⇒
-    varc wi X ≥ lb ∧ varc wi X ≤ ub)
-Proof
-  rw[cmk_bounds_all_def,EVERY_FLAT]>>
-  simp[Once EVERY_MEM,MEM_MAPi]>>
-  simp[PULL_EXISTS,cmk_bounds_def,MEM_EL]
-QED
-
 Definition cencode_symmetric_all_different_aux_def:
   cencode_symmetric_all_different_aux bnd Xs start name =
   let n = LENGTH Xs in
@@ -348,7 +319,7 @@ Definition cencode_symmetric_all_different_aux_def:
   (* All different *)
   (cencode_all_different bnd Xs name)
   (* Range *)
-  (Append (cmk_bounds_all name Xs start (start + &n -1))
+  (Append (cmk_bounds_all bnd name «X_» Xs start (start + &n -1))
   (* Involution *)
   (flat_app (MAPi (λi X.
     flat_app (MAPi (λj Y.
@@ -457,7 +428,8 @@ Proof
     simp[all_different_except_sem_def])
   >- (
     (* range *)
-    fs[cmk_bounds_all_sem,EVERY_MEM]>>
+    qpat_x_assum`EVERY _ (abstr (cmk_bounds_all _ _ _ _ _ _))`mp_tac>>
+    simp[cmk_bounds_all_sem,EVERY_MEM]>>
     rw[]>>first_x_assum drule>>
     rpt (pop_assum kall_tac)>>
     intLib.ARITH_TAC)>>
@@ -1206,12 +1178,10 @@ Proof
   simp[cencode_binpacking_aux_def,o_DEF,EVERY_FLAT]>>
   conj_tac
   >- (
-    qpat_x_assum ‘EVERY _ Xs’ mp_tac>>
-    simp[EVERY_MAP]>>
-    match_mp_tac EVERY_MONOTONIC>>
+    simp[Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]>>
     rw[]>>
-    irule encode_proper_index_sem_1>>
-    simp[])>>
+    irule cencode_proper_index_sem_1>>
+    gvs[EVERY_EL])>>
   simp[Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]>>
   rpt strip_tac>>
   ‘bin_load b (ZIP (Xs,sizes)) wi =
@@ -1239,12 +1209,14 @@ Proof
   simp[binpacking_sem_def]>>
   conj_tac
   >- (
-    qpat_x_assum ‘EVERY _ (MAP _ Xs)’ mp_tac>>
-    simp[EVERY_MAP]>>
-    match_mp_tac EVERY_MONOTONIC>>
-    simp[]>>
+    qpat_x_assum ‘EVERY _ (MAPi (λi X. abstr _) Xs)’ mp_tac>>
+    simp[Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]>>
+    strip_tac>>
+    simp[Once EVERY_EL]>>
     gen_tac>>strip_tac>>
-    drule_all encode_proper_index_sem_2>>
+    qpat_x_assum ‘∀i. i < _ ⇒ EVERY _ _’ drule>>
+    strip_tac>>
+    drule_all cencode_proper_index_sem_2>>
     simp[])>>
   qpat_x_assum ‘EVERY _ (MAPi _ Bs)’ mp_tac>>
   simp[Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]>>

@@ -504,7 +504,8 @@ Proof
 QED
 
 (* The static circuit constraints:
-     - every successor Xs[i] lies in [0, n-1];
+     - every successor Xs[i] lies in [0, n-1] (each side emitted only when
+       Xs[i]'s declared bounds do not imply it);
      - the successors are all-distinct (reusing cencode_all_different), so they
        form a permutation of 0..n-1;
      - the positions form a single Hamiltonian cycle (cencode_circuit_pos). *)
@@ -513,14 +514,7 @@ Definition cencode_circuit_aux_def:
   let n = LENGTH Xs in
     Append
       (Append
-        (flat_app (MAPi
-          (λi X. List $ mk_annotate
-            [
-              mk_name name (toString i ^ «lb»);
-              mk_name name (toString i ^ «ub»)
-            ]
-            (mk_bounds X 0 &(n - 1)))
-          Xs))
+        (cmk_bounds_all bnd name «X_» Xs 0 (&n - 1))
         (cencode_all_different bnd Xs name))
       (cencode_circuit_pos bnd Xs name)
 End
@@ -603,11 +597,9 @@ Proof
   simp[cencode_circuit_aux_def]>>
   rpt CONJ_TAC
   >-((* bounds 0 ≤ Xs[i] < n *)
-    simp[mk_bounds_def,mk_annotate_def,o_ABS_R,EVERY_FLAT,EVERY_MAP]>>
-    rw[EVERY_MEM,integerTheory.INT_GE,GSYM integerTheory.INT_NEG_MINUS1]>>
-    last_assum $ drule_then mp_tac>>
-    rename1‘0 ≤ a ∧ Num _ < b’>>
-    simp[intLib.ARITH_PROVE“0 ≤ (a:int) ∧ Num a < (b:num) ⇒ a ≤ &(b − 1)”])
+    simp[cmk_bounds_all_sem,integerTheory.INT_GE]>>
+    rw[]>>first_x_assum drule>>
+    simp[intLib.ARITH_PROVE“0 ≤ (a:int) ∧ Num a < (b:num) ⇒ a ≤ &b − 1”])
   >-((* all different Xs[i] = Xs[j] iff i = j
        should try to take advantage of what has been proved *)
     simp[cencode_all_different_def,
@@ -723,16 +715,10 @@ Proof
   simp[circuit_sem_alt]>>
   rpt conj_tac
   >- ( (* bounds 0 ≤ Xs[i] < n *)
-    qpat_x_assum`EVERY _ (FLAT (MAPi _ Xs))` mp_tac>>
-    simp[EVERY_FLAT,EVERY_MEM,MEM_MAPi,PULL_EXISTS,o_DEF]>>
-    strip_tac>>
-    `∀m. m < LENGTH Xs ⇒
-       0 ≤ varc wi (EL m Xs) ∧ varc wi (EL m Xs) ≤ &(LENGTH Xs − 1)` by (
-      rw[]>>first_x_assum drule>>
-      simp[GSYM EVERY_MEM,integerTheory.INT_GE])>>
-    rw[]>>gvs[MEM_EL]>>
-    first_x_assum drule>>strip_tac>>
-    intLib.ARITH_TAC)
+    qpat_x_assum`EVERY _ (abstr (cmk_bounds_all _ _ _ _ _ _))` mp_tac>>
+    simp[cmk_bounds_all_sem,integerTheory.INT_GE,EVERY_MEM]>>
+    rw[]>>first_x_assum drule>>
+    simp[intLib.ARITH_PROVE“0 ≤ (a:int) ∧ a ≤ &b − 1 ⇒ Num a < b”])
   >- ( (* ALL_DISTINCT: reuse all_different_except soundness with iS = [] *)
     `all_different_except_sem Xs [] wi` suffices_by
       simp[all_different_except_sem_def]>>
@@ -772,15 +758,15 @@ Proof
     (* range bounds 0 ≤ Xs[m] ≤ n-1 *)
     `∀m. m < LENGTH Xs ⇒
        0 ≤ varc wi (EL m Xs) ∧ varc wi (EL m Xs) ≤ &(LENGTH Xs − 1)` by (
-      qpat_x_assum`EVERY _ (FLAT (MAPi ($o _ ∘ (λi X. List _)) Xs))` mp_tac>>
-      simp[EVERY_FLAT,EVERY_MEM,MEM_MAPi,PULL_EXISTS,o_DEF]>>
-      rw[]>>first_x_assum drule>>
-      simp[GSYM EVERY_MEM,integerTheory.INT_GE])>>
+      qpat_x_assum`EVERY _ (abstr (cmk_bounds_all _ _ _ _ _ _))` mp_tac>>
+      simp[cmk_bounds_all_sem,integerTheory.INT_GE]>>
+      rpt strip_tac>>first_x_assum (qspec_then`EL m Xs`mp_tac)>>simp[EL_MEM]>>
+      qpat_x_assum`0 < LENGTH Xs`mp_tac>>rpt (pop_assum kall_tac)>>intLib.ARITH_TAC)>>
     (* the bulky constraint assumptions are spent; drop them so the
        remaining simplification stays cheap *)
     qpat_x_assum`EVERY _ (FLAT (MAP _ Xs))` kall_tac>>
     qpat_x_assum`EVERY _ (abstrl (GENLIST _ _))` kall_tac>>
-    qpat_x_assum`EVERY _ (FLAT (MAPi ($o _ ∘ (λi X. List _)) Xs))` kall_tac>>
+    qpat_x_assum`EVERY _ (abstr (cmk_bounds_all _ _ _ _ _ _))` kall_tac>>
     qpat_x_assum`_ ≥ 0` kall_tac>>
     simp[]
     >- ((* successor: pos (Xs[i]) = (pos i + 1) MOD n *)

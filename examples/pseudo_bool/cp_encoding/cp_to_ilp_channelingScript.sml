@@ -16,28 +16,37 @@ Ancestors
         Xs[i - offx] = j ⇔ Ys[j - offy] = i
 *)
 
-Definition encode_inverse_aux_def:
-  encode_inverse_aux Xsi Ysi =
-  let (Xs,offx) = Xsi in
-  let (Ys,offy) = Ysi in
-  let n = LENGTH Xs in
-  if n ≠ LENGTH Ys then
-    [false_constr]
-  else
-    FLAT (
-      MAP (λX. mk_bounds X offy (offy + &n - 1)) Xs ++
-      MAP (λY. mk_bounds Y offx (offx + &n - 1)) Ys ++
-      FLAT (MAPi
-        (λi X. MAPi
-          (λj Y. encode_bvar_eq
-            (INL (Eq X (offy + &j)))
-            (INL (Eq Y (offx + &i))))
-          Ys)
-        Xs))
+(* the channel rows: Xs[i] = offy+j ⇔ Ys[j] = offx+i *)
+Definition cencode_inverse_pairs_def:
+  cencode_inverse_pairs name Xs offx Ys offy =
+  flat_app (MAPi (λi X. flat_app (MAPi (λj Y.
+    List (mk_annotate
+      [mk_name name (toString (i+1) ^ «_» ^ toString (j+1) ^ «ge»);
+       mk_name name (toString (i+1) ^ «_» ^ toString (j+1) ^ «le»)]
+      (encode_bvar_eq (INL (Eq X (offy + &j))) (INL (Eq Y (offx + &i))))))
+    Ys)) Xs)
 End
 
+(* the range rows of Xs and Ys, then the channel rows *)
+Definition cencode_inverse_rows_def:
+  cencode_inverse_rows bnd name Xs offx Ys offy =
+  let n = LENGTH Xs in
+  Append (cmk_bounds_all bnd name «X_» Xs offy (offy + &n - 1))
+    (Append (cmk_bounds_all bnd name «Y_» Ys offx (offx + &n - 1))
+      (cencode_inverse_pairs name Xs offx Ys offy))
+End
+
+Theorem abstr_cencode_inverse_pairs:
+  abstr (cencode_inverse_pairs name Xs offx Ys offy) =
+  FLAT (FLAT (MAPi (λi X. MAPi (λj Y.
+    encode_bvar_eq (INL (Eq X (offy + &j))) (INL (Eq Y (offx + &i)))) Ys) Xs))
+Proof
+  simp[cencode_inverse_pairs_def,indexedListsTheory.MAP_MAPi,o_DEF,
+       abstrl_mk_annotate,rich_listTheory.FLAT_FLAT]
+QED
+
 Definition encode_inverse_def:
-  encode_inverse bnd Xsi Ysi =
+  encode_inverse bnd Xsi Ysi name =
   let (Xs,offx) = Xsi in
   let (Ys,offy) = Ysi in
   let n = LENGTH Xs in
@@ -49,18 +58,19 @@ Definition encode_inverse_def:
         (MAP (λX. encode_full_eq bnd X (offy + &i)) Xs) ++
         (MAP (λY. encode_full_eq bnd Y (offx + &i)) Ys))
       n) ++
-    encode_inverse_aux Xsi Ysi
+    abstr (cencode_inverse_rows bnd name Xs offx Ys offy)
 End
 
 Theorem encode_inverse_sem_1:
   valid_assignment bnd wi ∧
   inverse_sem Xsi Ysi wi ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (encode_inverse bnd Xsi Ysi)
+    (encode_inverse bnd Xsi Ysi name)
 Proof
-  simp[encode_inverse_def,encode_inverse_aux_def]>>
+  simp[encode_inverse_def,cencode_inverse_rows_def,append_thm,
+       abstr_cencode_inverse_pairs]>>
   rpt (pairarg_tac>>fs[inverse_sem_def])>>
-  rw[]
+  rw[cmk_bounds_all_sem]
   >~[‘encode_full_eq _ _ _’]
   >-(
     simp[EVERY_FLAT,EVERY_GENLIST,EVERY_MAP,reify_avar_def]>>
@@ -81,9 +91,6 @@ Proof
       c = e ∧ d = f’ suffices_by metis_tac[]>>
     unabbrev_all_tac>>
     intLib.ARITH_TAC)>>
-  simp[mk_bounds_def,EVERY_FLAT]>>
-  qmatch_goalsub_abbrev_tac‘EVERY P (MAP _ _)’>>
-  rw[EVERY_MAP,EVERY_MEM,Abbr‘P’]>>
   fs[EVERY_MEM,mk_array_ind_def]>>
   last_x_assum $ drule_then mp_tac>>
   intLib.ARITH_TAC
@@ -92,35 +99,50 @@ QED
 Theorem encode_inverse_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_inverse bnd Xsi Ysi) ⇒
+    (encode_inverse bnd Xsi Ysi name) ⇒
   inverse_sem Xsi Ysi wi
 Proof
-  simp[encode_inverse_def,encode_inverse_aux_def]>>
+  simp[encode_inverse_def,cencode_inverse_rows_def,append_thm,
+       abstr_cencode_inverse_pairs]>>
   rpt (pairarg_tac>>fs[])>>
   rename1‘inverse_sem (Xs,offx) (Ys,offy) _’>>
   simp[inverse_sem_def]>>
-  IF_CASES_TAC>>
-  rw[EVERY_FLAT,EVERY_GENLIST,EVERY_MAP]>>
-  qmatch_asmsub_abbrev_tac‘EVERY (EVERY P) _’>>
-  fs[EVERY_MEM,MEM_MAPi,SF DNF_ss]>>
-  gvs[Abbr‘P’]
-  >~[‘varc _ (EL (Num (i - _)) _) = j ⇔ _’]
-  >-(
-    ‘Num (i - offx) < LENGTH Ys’ by intLib.ARITH_TAC>>
-    ‘Num (j - offy) < LENGTH Ys’ by intLib.ARITH_TAC>>
-    gs[EL_MEM]>>
-    pop_assum mp_tac>>
-    first_x_assum $ drule_then assume_tac>>
-    strip_tac>>
-    first_x_assum $ drule_then assume_tac>>
-    qmatch_asmsub_abbrev_tac‘_ = a ⇔ _ = b’>>
-    ‘a = j ∧ b = i’ suffices_by metis_tac[]>>
-    unabbrev_all_tac>>
-    intLib.ARITH_TAC)>>
-  rw[mk_array_ind_def]>>
-  last_x_assum $ drule_then mp_tac>>
-  first_x_assum $ drule_then mp_tac>>
-  intLib.ARITH_TAC
+  IF_CASES_TAC
+  >- rw[]>>
+  strip_tac>>
+  fs[EVERY_APPEND]>>
+  qpat_x_assum`EVERY _ (abstr (cmk_bounds_all _ _ «X_» _ _ _))`mp_tac>>
+  qpat_x_assum`EVERY _ (abstr (cmk_bounds_all _ _ «Y_» _ _ _))`mp_tac>>
+  simp[cmk_bounds_all_sem]>>
+  rpt strip_tac
+  >- (
+    rw[EVERY_MEM,mk_array_ind_def]>>
+    qpat_x_assum`∀X. MEM X Xs ⇒ _`drule>>intLib.ARITH_TAC)
+  >- (
+    rw[EVERY_MEM,mk_array_ind_def]>>
+    qpat_x_assum`∀X. MEM X Ys ⇒ _`drule>>intLib.ARITH_TAC)>>
+  `Num (i − offx) < LENGTH Ys ∧ Num (j − offy) < LENGTH Ys ∧
+   offx + &Num (i − offx) = i ∧ offy + &Num (j − offy) = j` by intLib.ARITH_TAC>>
+  qabbrev_tac`a = Num (i − offx)`>>
+  qabbrev_tac`b = Num (j − offy)`>>
+  sg`wb (INL (Eq (EL a Xs) (offy + &b))) ⇔ wb (INL (Eq (EL b Ys) (offx + &a)))`
+  >- (
+    qpat_x_assum`EVERY _ (FLAT (FLAT (MAPi _ _)))`mp_tac>>
+    simp[EVERY_FLAT]>>
+    simp[Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]>>
+    simp[Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]>>
+    disch_then (qspec_then`a`mp_tac)>>simp[]>>
+    disch_then (qspec_then`b`mp_tac)>>simp[])>>
+  qpat_x_assum`EVERY _ (FLAT (FLAT (GENLIST _ _)))`mp_tac>>
+  simp[EVERY_FLAT,EVERY_GENLIST,EVERY_MAP,EVERY_MEM]>>
+  strip_tac>>
+  `wb (INL (Eq (EL a Xs) j)) ⇔ varc wi (EL a Xs) = j` by (
+    first_x_assum (qspec_then`b`mp_tac)>>simp[EL_MEM])>>
+  `wb (INL (Eq (EL b Ys) i)) ⇔ varc wi (EL b Ys) = i` by (
+    first_x_assum (qspec_then`a`mp_tac)>>simp[EL_MEM])>>
+  qpat_x_assum`wb _ ⇔ wb _`mp_tac>>
+  ntac 2 (qpat_x_assum`_ + _ = _`(SUBST_ALL_TAC o SYM))>>
+  simp[]
 QED
 
 Definition cencode_inverse_def:
@@ -145,42 +167,7 @@ Definition cencode_inverse_def:
           (COUNT_LIST n)
           ec
     in
-      (Append xs
-        (List $ mk_annotate
-          (FLAT
-            (GENLIST
-              (λi.
-                [
-                  mk_name name
-                    («X_» ^ toString (i+1) ^ «_lb»);
-                  mk_name name
-                    («X_» ^ toString (i+1) ^ «_ub»);
-                ])
-              n ++
-            GENLIST
-              (λi.
-                [
-                  mk_name name
-                    («Y_» ^ toString (i+1) ^ «_lb»);
-                  mk_name name
-                    («Y_» ^ toString (i+1) ^ «_ub»);
-                ])
-              n ++
-            FLAT (GENLIST
-              (λi. GENLIST
-                (λj.
-                  [
-                    mk_name name
-                      (toString (i+1) ^ «_» ^
-                        toString (j+1) ^ «ge»);
-                    mk_name name
-                      (toString (i+1) ^ «_» ^
-                        toString (j+1) ^ «le»)
-                  ])
-                n)
-              n)))
-          (encode_inverse_aux Xsi Ysi)),
-      ec')
+      (Append xs (cencode_inverse_rows bnd name Xs offx Ys offy), ec')
 End
 
 Theorem FLAT_FLAT_MAP:
@@ -193,14 +180,14 @@ QED
 Theorem cencode_inverse_sem:
   valid_assignment bnd wi ∧
   cencode_inverse bnd Xsi Ysi name ec = (es, ec') ⇒
-  enc_rel wi es (encode_inverse bnd Xsi Ysi) ec ec'
+  enc_rel wi es (encode_inverse bnd Xsi Ysi name) ec ec'
 Proof
   simp[cencode_inverse_def,encode_inverse_def]>>
   rpt (pairarg_tac>>fs[])>>
   IF_CASES_TAC>>
   rw[]>>
   irule enc_rel_Append>>
-  irule_at Any enc_rel_List_mk_annotate>>
+  irule_at Any enc_rel_abstr>>
   simp[GSYM MAP_COUNT_LIST]>>
   rename1‘MAP _ ls’>>
   qmatch_goalsub_abbrev_tac‘FLAT (MAP f _)’>>
@@ -226,7 +213,7 @@ QED
 Definition encode_channeling_constr_def:
   encode_channeling_constr bnd c name =
   case c of Inverse Xsi Ysi =>
-    encode_inverse bnd Xsi Ysi
+    encode_inverse bnd Xsi Ysi name
 End
 
 Theorem encode_channeling_constr_sem_1:

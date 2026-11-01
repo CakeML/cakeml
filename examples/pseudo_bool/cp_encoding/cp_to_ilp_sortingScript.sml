@@ -263,10 +263,10 @@ Definition sort_pos_num_def:
   sort_pos_num name i w = pos_num (sort_posbit name i) w
 End
 
-(* Σ_{ip<n} before[ip][i] as a bit lin-term (before[i][i] is forced false) *)
+(* Σ_{ip<n, ip≠i} before[ip][i] as a bit lin-term *)
 Definition sort_before_sum_def:
   sort_before_sum name n i =
-  GENLIST (λip. (1i, Pos (sort_bf name ip i))) n
+  MAP (λip. (1i, Pos (sort_bf name ip i))) (FILTER (λip. ip ≠ i) (COUNT_LIST n))
 End
 
 (* (a) the non-decreasing chain y[0] ≤ y[1] ≤ … : sorted (≤) over Ys *)
@@ -274,14 +274,16 @@ Definition sort_chain_le_def:
   sort_chain_le name Ys = cencode_sorted LessEqual Ys name
 End
 
-(* (b) two-way pin each before-flag to its stable comparison; the indices i/ip
-   name the flag, the elements xi/xip feed the comparison *)
+(* (b) two-way pin each before-flag (ip ≠ i) to its stable comparison; the
+   indices i/ip name the flag, the elements xi/xip feed the comparison *)
 Definition sort_bf_lines_def:
   sort_bf_lines bnd name Xs =
   flat_app (MAPi (λi xi.
     flat_app (MAPi (λip xip.
-      cbimply_var bnd (sort_bf name ip i)
-        (if ip < i then mk_le xip xi else mk_lt xip xi))
+      if ip = i then Nil
+      else
+        cbimply_var bnd (sort_bf name ip i)
+          (if ip < i then mk_le xip xi else mk_lt xip xi))
       Xs))
     Xs)
 End
@@ -498,14 +500,21 @@ Proof
   rw[sort_pos_num_def,pos_num_num_of_bits]
 QED
 
+(* a unit-coefficient sum of positive literals counts the true ones *)
+Theorem eval_lin_term_MAP_unit[local]:
+  ∀ls. eval_lin_term wb (MAP (λx. (1i, Pos (f x))) ls) =
+       &LENGTH (FILTER (λx. wb (f x)) ls)
+Proof
+  Induct>>rw[eval_lin_term_NIL,eval_lin_term_CONS,integerTheory.INT]>>
+  intLib.ARITH_TAC
+QED
+
 (* the unit-coefficient before-flag sum counts the set before-flags *)
 Theorem sort_before_sum_count[local]:
   eval_lin_term wb (sort_before_sum name n i) =
-  &(LENGTH (FILTER (λip. wb (sort_bf name ip i)) (COUNT_LIST n)))
+  &(LENGTH (FILTER (λip. ip ≠ i ∧ wb (sort_bf name ip i)) (COUNT_LIST n)))
 Proof
-  rw[sort_before_sum_def,eval_lin_term_def,MAP_GENLIST,o_DEF,
-     eval_term_def,eval_lit_def,lit_def]>>
-  simp[GSYM iSUM_b2i_GENLIST]
+  simp[sort_before_sum_def,eval_lin_term_MAP_unit,FILTER_FILTER,CONJ_COMM]
 QED
 
 (* the bit-pattern guard for pos[i]=j holds iff every bit of pos[i] matches j *)
@@ -530,7 +539,7 @@ QED
 Theorem sort_bf_lines_sem[local]:
   valid_assignment bnd wi ⇒
   (EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (sort_bf_lines bnd name Xs)) ⇔
-   ∀ip i. ip < LENGTH Xs ∧ i < LENGTH Xs ⇒
+   ∀ip i. ip < LENGTH Xs ∧ i < LENGTH Xs ∧ ip ≠ i ⇒
      (wb (sort_bf name ip i) ⇔ sort_before wi Xs ip i))
 Proof
   strip_tac>>
@@ -544,7 +553,11 @@ Proof
         else mk_constraint_ge 1 (EL i Xs) (-1) (EL ip Xs) 1) (wi,wb) ⇔
      sort_before wi Xs ip i)` by
     (rw[sort_before_def,mk_constraint_ge_sem]>>intLib.ARITH_TAC)>>
-  metis_tac[]
+  eq_tac>>rw[]
+  >- (
+    qpat_x_assum`∀n. _ ⇒ ∀ip. _ ⇒ EVERY _ _`(qspec_then`i`mp_tac)>>
+    simp[]>>disch_then (qspec_then`ip`mp_tac)>>simp[])>>
+  Cases_on`ip = n`>>simp[]
 QED
 
 (* (d) the rank equation forces the bit-sum to equal the before-flag count *)
@@ -701,6 +714,12 @@ Proof
   >- (irule sort_rank_2EXP>>simp[])
 QED
 
+Theorem sort_before_irrefl[local]:
+  ¬sort_before wi Xs i i
+Proof
+  simp[sort_before_def]
+QED
+
 (* under reify_avar the before-flag sum also evaluates to the stable rank *)
 Theorem sort_before_sum_reify[local]:
   ALOOKUP cs name = SOME (Sorting (Sort Xs Ys)) ⇒
@@ -709,7 +728,8 @@ Theorem sort_before_sum_reify[local]:
 Proof
   rw[sort_before_sum_count,sort_rank_def]>>
   AP_TERM_TAC>>
-  simp[FILTER_EQ,MEM_COUNT_LIST]>>rw[]>>drule reify_bf>>simp[]
+  simp[FILTER_EQ,MEM_COUNT_LIST]>>rw[]>>drule reify_bf>>simp[]>>
+  metis_tac[sort_before_irrefl]
 QED
 
 Theorem encode_sort_sem_1:
@@ -757,14 +777,16 @@ QED
 
 (* given the per-flag pinning, the before-flag sum reads back as the rank *)
 Theorem sort_before_sum_count_eq[local]:
-  (∀ip. ip < LENGTH Xs ⇒ (wb (sort_bf name ip i) ⇔ sort_before wi Xs ip i)) ⇒
+  (∀ip. ip < LENGTH Xs ∧ ip ≠ i ⇒
+     (wb (sort_bf name ip i) ⇔ sort_before wi Xs ip i)) ⇒
   eval_lin_term wb (sort_before_sum name (LENGTH Xs) i) = &(sort_rank wi Xs i)
 Proof
   strip_tac>>
   rw[sort_before_sum_count,sort_rank_def]>>
   AP_TERM_TAC>>
   simp[FILTER_EQ,MEM_COUNT_LIST]>>rw[]>>
-  first_x_assum drule>>simp[]
+  Cases_on`ip = i`>>simp[sort_before_irrefl]>>
+  first_x_assum drule_all>>simp[]
 QED
 
 (* a bijection on [0,n) that channels xs through ys witnesses a permutation *)
@@ -866,19 +888,20 @@ Definition argsort_yge_def[simp]:
   argsort_yge name j = INR (name, Values [&j] (SOME «yge»))
 End
 
-(* signed (two's-complement) bit-sum for y[j] over an h-bit layout *)
+(* bit-sum for y[j] over the width (comp,h): two's complement when comp,
+   otherwise unsigned *)
 Definition argsort_y_num_def:
-  argsort_y_num name j h =
-    (-&(2 ** h), Pos (argsort_ysgn name j)) ::
-    MAPi (λb c. (&c, Pos (argsort_ybit name j b))) (pow2_list h)
+  argsort_y_num name j (comp,h) =
+    let bits = pos_num (argsort_ybit name j) h in
+    if comp then (-&(2 ** h), Pos (argsort_ysgn name j)) :: bits else bits
 End
 
 Theorem argsort_y_num_GENLIST:
-  argsort_y_num name j h =
-    (-&(2 ** h), Pos (argsort_ysgn name j)) ::
-    GENLIST (λb. (&(2 ** b), Pos (argsort_ybit name j b))) h
+  argsort_y_num name j (comp,h) =
+    let bits = GENLIST (λb. (&(2 ** b), Pos (argsort_ybit name j b))) h in
+    if comp then (-&(2 ** h), Pos (argsort_ysgn name j)) :: bits else bits
 Proof
-  simp[argsort_y_num_def,MAPi_pow2_list]
+  simp[argsort_y_num_def,pos_num_GENLIST]
 QED
 
 (* two's-complement width (comp,h) for y: covers [min lb(x), max ub(x)] over the
@@ -971,19 +994,19 @@ QED
 
 (* (a) the internal value array is non-decreasing: y[j] ≤ y[j+1] *)
 Definition argsort_chain_le_def:
-  argsort_chain_le name h n =
+  argsort_chain_le name ch n =
   List (MAP (λj.
     (SOME (mk_name name («yle» ^ toString j)),
-     lin_ge_lin (argsort_y_num name (j+1) h) (argsort_y_num name j h)))
+     lin_ge_lin (argsort_y_num name (j+1) ch) (argsort_y_num name j ch)))
     (COUNT_LIST (n-1)))
 End
 
 (* translation-friendly form: guard the n-1 subtraction (cf. sort_width_alt) *)
 Theorem argsort_chain_le_alt:
-  argsort_chain_le name h n =
+  argsort_chain_le name ch n =
   List (MAP (λj.
     (SOME (mk_name name («yle» ^ toString j)),
-     lin_ge_lin (argsort_y_num name (j+1) h) (argsort_y_num name j h)))
+     lin_ge_lin (argsort_y_num name (j+1) ch) (argsort_y_num name j ch)))
     (COUNT_LIST (if n = 0 then 0 else n - 1)))
 Proof
   rw[argsort_chain_le_def]>>Cases_on`n`>>gvs[]
@@ -991,8 +1014,8 @@ QED
 
 (* (e) position channel: whenever pos[i]'s bits spell j, y[j] = x[i] *)
 Definition argsort_pos_chan_def:
-  argsort_pos_chan bnd name w h Xs =
-  let ys = GENLIST (λj. argsort_y_num name j h) (LENGTH Xs) in
+  argsort_pos_chan bnd name w ch Xs =
+  let ys = GENLIST (λj. argsort_y_num name j ch) (LENGTH Xs) in
   flat_app (MAPi (λi xi.
     flat_app (MAPi (λj yj.
       let g = sort_guard name w i j in
@@ -1007,12 +1030,11 @@ End
 
 (* range: offset ≤ p[j] ≤ offset+n−1 *)
 Definition argsort_p_range_def:
-  argsort_p_range name Ps offset n =
+  argsort_p_range bnd name Ps offset n =
   flat_app (MAPi (λj pj.
-    List [(SOME (mk_name name («plb» ^ toString j)),
-            mk_constraint_one_ge 1 pj offset);
-          (SOME (mk_name name («pub» ^ toString j)),
-            mk_constraint_one_ge (-1) pj (-(offset + &n - 1)))])
+    Append
+      (cmk_lb bnd (mk_name name («plb» ^ toString j)) pj offset)
+      (cmk_ub bnd (mk_name name («pub» ^ toString j)) pj (offset + &n - 1)))
     Ps)
 End
 
@@ -1027,9 +1049,9 @@ End
 
 (* (6) value channel: (p[j] = offset+k) → y[j] = x[k] *)
 Definition argsort_valchan_def:
-  argsort_valchan bnd name h Xs Ps offset =
+  argsort_valchan bnd name ch Xs Ps offset =
   flat_app (MAPi (λj pj.
-    let yj = argsort_y_num name j h in
+    let yj = argsort_y_num name j ch in
     flat_app (MAPi (λk xk.
       Append
         (List [(SOME (mk_name name («vcle» ^ toString j ^ «_» ^ toString k)),
@@ -1060,11 +1082,11 @@ End
 
 (* (8) stable tie-break: eq_j ⇔ y[j] ≥ y[j+1]; eq_j → p[j]+1 ≤ p[j+1] *)
 Definition argsort_tiebreak_def:
-  argsort_tiebreak bnd name h Ps n =
+  argsort_tiebreak bnd name ch Ps n =
   Append
     (flat_app (MAP (λj.
        cbimply_var bnd (argsort_yge name j)
-         (lin_ge_lin (argsort_y_num name j h) (argsort_y_num name (j+1) h)))
+         (lin_ge_lin (argsort_y_num name j ch) (argsort_y_num name (j+1) ch)))
        (COUNT_LIST (n-1))))
     (flat_app (MAPi (λj (pj,pj1).
        List [(SOME (mk_name name («tb» ^ toString j)),
@@ -1075,11 +1097,11 @@ End
 
 (* translation-friendly form: guard the n-1 subtraction (cf. sort_width_alt) *)
 Theorem argsort_tiebreak_alt:
-  argsort_tiebreak bnd name h Ps n =
+  argsort_tiebreak bnd name ch Ps n =
   Append
     (flat_app (MAP (λj.
        cbimply_var bnd (argsort_yge name j)
-         (lin_ge_lin (argsort_y_num name j h) (argsort_y_num name (j+1) h)))
+         (lin_ge_lin (argsort_y_num name j ch) (argsort_y_num name (j+1) ch)))
        (COUNT_LIST (if n = 0 then 0 else n - 1))))
     (flat_app (MAPi (λj (pj,pj1).
        List [(SOME (mk_name name («tb» ^ toString j)),
@@ -1095,16 +1117,16 @@ Definition cencode_argsort_aux_def:
   cencode_argsort_aux bnd Xs Ps offset name =
   let n = LENGTH Xs in
   let w = sort_width n in
-  let h = SND (argsort_width bnd Xs) in
-    Append (argsort_chain_le name h n)
+  let ch = argsort_width bnd Xs in
+    Append (argsort_chain_le name ch n)
     (Append (sort_bf_lines bnd name Xs)
     (Append (sort_rank_lines name w n)
-    (Append (argsort_pos_chan bnd name w h Xs)
-    (Append (argsort_p_range name Ps offset n)
+    (Append (argsort_pos_chan bnd name w ch Xs)
+    (Append (argsort_p_range bnd name Ps offset n)
     (Append (argsort_perm name Ps offset n)
-    (Append (argsort_valchan bnd name h Xs Ps offset)
+    (Append (argsort_valchan bnd name ch Xs Ps offset)
     (Append (argsort_rankchan bnd name w Ps offset n)
-            (argsort_tiebreak bnd name h Ps n))))))))
+            (argsort_tiebreak bnd name ch Ps n))))))))
 End
 
 Definition cencode_argsort_def:
@@ -1142,13 +1164,17 @@ QED
 
 (* range: every p[j] lies in [offset, offset+n−1] *)
 Theorem argsort_p_range_sem[local]:
-  EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (argsort_p_range name Ps offset n)) ⇔
-  ∀j. j < LENGTH Ps ⇒
-    offset ≤ varc wi (EL j Ps) ∧ varc wi (EL j Ps) ≤ offset + &n - 1
+  valid_assignment bnd wi ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb))
+     (abstr (argsort_p_range bnd name Ps offset n)) ⇔
+   ∀j. j < LENGTH Ps ⇒
+     offset ≤ varc wi (EL j Ps) ∧ varc wi (EL j Ps) ≤ offset + &n - 1)
 Proof
+  strip_tac>>
   simp[argsort_p_range_def,EVERY_FLAT]>>
-  simp[Once EVERY_MEM,MEM_MAPi,PULL_EXISTS,combinTheory.o_DEF]>>
-  rw[]>>eq_tac>>rw[]>>first_x_assum drule>>rw[]>>intLib.ARITH_TAC
+  simp[Once EVERY_MEM,MEM_MAPi,PULL_EXISTS,combinTheory.o_DEF,append_thm,
+       cmk_lb_sem,cmk_ub_sem]>>
+  metis_tac[]
 QED
 
 (* (e) position channel: when pos[i]'s bits spell j, y[j] = x[i] *)
@@ -1496,7 +1522,8 @@ Theorem sort_before_sum_reify_argsort[local]:
 Proof
   rw[sort_before_sum_count,sort_rank_def]>>
   AP_TERM_TAC>>
-  simp[FILTER_EQ,MEM_COUNT_LIST]>>rw[]>>drule reify_argsort_bf>>simp[]
+  simp[FILTER_EQ,MEM_COUNT_LIST]>>rw[]>>drule reify_argsort_bf>>simp[]>>
+  metis_tac[sort_before_irrefl]
 QED
 
 (* SORTED stable_lt gives the adjacent strict comparison on the mapped pairs *)
@@ -1511,15 +1538,17 @@ Proof
   DEP_REWRITE_TAC[EL_MAP]>>simp[]
 QED
 
-(* the order statistic / any x entry fits the chosen two's-complement width *)
+(* any x entry fits the chosen width, and is non-negative when unsigned *)
 Theorem argsort_y_width[local]:
-  valid_assignment bnd wi ∧ k < LENGTH Xs ⇒
-  -&(2 ** SND (argsort_width bnd Xs)) ≤ varc wi (EL k Xs) ∧
-  varc wi (EL k Xs) < &(2 ** SND (argsort_width bnd Xs))
+  valid_assignment bnd wi ∧ k < LENGTH Xs ∧ argsort_width bnd Xs = (comp,h) ⇒
+  -&(2 ** h) ≤ varc wi (EL k Xs) ∧ varc wi (EL k Xs) < &(2 ** h) ∧
+  (¬comp ⇒ 0 ≤ varc wi (EL k Xs))
 Proof
   strip_tac>>
+  qpat_x_assum`argsort_width _ _ = _`mp_tac>>
   simp[argsort_width_def,MAP_MAP_o,o_DEF]>>
   qmatch_goalsub_abbrev_tac`bit_width (λu. (lb,ub)) ()`>>
+  strip_tac>>
   `FST (case EL k Xs of INL v => bnd v | INR c => (c,c)) ≤ varc wi (EL k Xs) ∧
    varc wi (EL k Xs) ≤ SND (case EL k Xs of INL v => bnd v | INR c => (c,c))` by (
     Cases_on`EL k Xs`>>simp[varc_def]>>
@@ -1535,9 +1564,7 @@ Proof
       simp[Abbr`ub`]>>irule FOLDR_int_max_GE_MEM>>
       simp[MEM_MAP]>>qexists`EL k Xs`>>simp[EL_MEM])>>
     intLib.ARITH_TAC)>>
-  Cases_on`bit_width (λu. (lb,ub)) ()`>>simp[]>>
-  qmatch_asmsub_rename_tac`bit_width _ _ = (comp,h)`>>
-  conj_tac
+  rpt conj_tac
   >- (
     Cases_on`0 ≤ varc wi (EL k Xs)`
     >- intLib.ARITH_TAC>>
@@ -1559,24 +1586,37 @@ Proof
         (drule bit_width_lemma1>>disch_then(qspecl_then[`ub`,`lb`,`m`]mp_tac)>>gvs[])>>
       qpat_x_assum`varc wi _ = &m`SUBST1_TAC>>
       gvs[integerTheory.INT_LT])>>
-    intLib.ARITH_TAC)
+    intLib.ARITH_TAC)>>
+  strip_tac>>
+  `¬(lb < 0)` by (qpat_x_assum`bit_width _ _ = _`mp_tac>>rw[bit_width_def])>>
+  qpat_x_assum`lb ≤ _`mp_tac>>qpat_x_assum`¬(lb < 0)`mp_tac>>
+  rpt (pop_assum kall_tac)>>intLib.ARITH_TAC
 QED
 
-(* under reify the proof-only signed bit-sum reconstructs the order statistic *)
+(* under reify the proof-only bit-sum reconstructs the order statistic *)
 Theorem argsort_y_reconstruct[local]:
   ALOOKUP cs name = SOME (Sorting (ArgSort Xs Ps offset)) ∧
-  -&(2 ** h) ≤ argsort_yval wi Xs j ∧ argsort_yval wi Xs j < &(2 ** h) ⇒
-  eval_lin_term (reify_avar cs wi) (argsort_y_num name j h) = argsort_yval wi Xs j
+  -&(2 ** h) ≤ argsort_yval wi Xs j ∧ argsort_yval wi Xs j < &(2 ** h) ∧
+  (¬comp ⇒ 0 ≤ argsort_yval wi Xs j) ⇒
+  eval_lin_term (reify_avar cs wi) (argsort_y_num name j (comp,h)) =
+  argsort_yval wi Xs j
 Proof
-  rw[argsort_y_num_GENLIST,two_comp_eval]>>
+  strip_tac>>
   `∀b. reify_avar cs wi (INR (name,Values [&j; &b] (SOME «y»))) ⇔
        int_bit b (argsort_yval wi Xs j)` by
     (gen_tac>>drule reify_argsort_y>>simp[])>>
   `reify_avar cs wi (INR (name,Values [&j] (SOME «ysgn»))) ⇔ argsort_yval wi Xs j < 0` by
     (drule reify_argsort_ysgn>>simp[])>>
-  asm_simp_tac std_ss []>>
-  DEP_REWRITE_TAC[two_comp_reconstruct]>>
-  simp[]
+  Cases_on`comp`
+  >- (
+    rw[argsort_y_num_GENLIST,two_comp_eval]>>
+    asm_simp_tac std_ss []>>
+    DEP_REWRITE_TAC[two_comp_reconstruct]>>
+    simp[])>>
+  gvs[argsort_y_num_def,pos_num_num_of_bits]>>
+  `¬(argsort_yval wi Xs j < 0)` by simp[integerTheory.INT_NOT_LT]>>
+  drule_all two_comp_reconstruct>>
+  simp[int_of_bits_def]
 QED
 
 (* projections of the stable order *)
@@ -1595,7 +1635,7 @@ Theorem encode_argsort_sem_1:
 Proof
   rw[]>>
   `LENGTH Ps = LENGTH Xs` by fs[argsort_sem_def]>>
-  qabbrev_tac`h = SND (argsort_width bnd Xs)`>>
+  `∃comp h. argsort_width bnd Xs = (comp,h)` by metis_tac[PAIR]>>
   fs[argsort_sem_def]>>
   qmatch_asmsub_abbrev_tac`PERM qs _`>>
   `LENGTH qs = LENGTH Xs` by gvs[Abbr`qs`]>>
@@ -1622,15 +1662,18 @@ Proof
     `EL j qs < LENGTH Xs` by metis_tac[]>>
     metis_tac[argsort_yval_rank])>>
   `∀j. j < LENGTH Xs ⇒
-     -&(2 ** h) ≤ argsort_yval wi Xs j ∧ argsort_yval wi Xs j < &(2 ** h)` by (
+     -&(2 ** h) ≤ argsort_yval wi Xs j ∧ argsort_yval wi Xs j < &(2 ** h) ∧
+     (¬comp ⇒ 0 ≤ argsort_yval wi Xs j)` by (
     rw[]>>
     `argsort_yval wi Xs j = varc wi (EL (EL j qs) Xs)` by metis_tac[]>>
     `EL j qs < LENGTH Xs` by metis_tac[]>>
-    simp[Abbr`h`]>>metis_tac[argsort_y_width])>>
+    metis_tac[argsort_y_width])>>
   `∀j. j < LENGTH Xs ⇒
-     eval_lin_term (reify_avar cs wi) (argsort_y_num name j h) = argsort_yval wi Xs j` by (
+     eval_lin_term (reify_avar cs wi) (argsort_y_num name j (comp,h)) =
+     argsort_yval wi Xs j` by (
     rw[]>>
-    `-&(2 ** h) ≤ argsort_yval wi Xs j ∧ argsort_yval wi Xs j < &(2 ** h)` by metis_tac[]>>
+    `-&(2 ** h) ≤ argsort_yval wi Xs j ∧ argsort_yval wi Xs j < &(2 ** h) ∧
+     (¬comp ⇒ 0 ≤ argsort_yval wi Xs j)` by metis_tac[]>>
     metis_tac[argsort_y_reconstruct])>>
   simp[encode_argsort_def,cencode_argsort_aux_def]>>
   `¬(LENGTH Ps ≠ LENGTH Xs)` by simp[]>>
@@ -1671,7 +1714,7 @@ Proof
       `EL j qs < LENGTH Xs` by
         (qpat_x_assum`∀j. j < LENGTH Xs ⇒ EL j qs < LENGTH Xs`(qspec_then`j`mp_tac)>>simp[])>>
       metis_tac[sort_rank_inj])>>
-    `eval_lin_term (reify_avar cs wi) (argsort_y_num name j h) = argsort_yval wi Xs j` by
+    `eval_lin_term (reify_avar cs wi) (argsort_y_num name j (comp,h)) = argsort_yval wi Xs j` by
       (qpat_x_assum`∀j. j < LENGTH Xs ⇒ eval_lin_term _ _ = _`(qspec_then`j`mp_tac)>>simp[])>>
     `argsort_yval wi Xs j = varc wi (EL (EL j qs) Xs)` by
       (qpat_x_assum`∀j. j < LENGTH Xs ⇒ argsort_yval _ _ _ = _`(qspec_then`j`mp_tac)>>simp[])>>
@@ -1706,7 +1749,7 @@ Proof
         (qpat_x_assum`varc wi _ = offset + &(EL j qs)`mp_tac>>
          qpat_x_assum`varc wi _ = offset + &k`mp_tac>>simp[integerTheory.INT_EQ_LADD])>>
       fs[integerTheory.INT_INJ])>>
-    `eval_lin_term (reify_avar cs wi) (argsort_y_num name j h) = argsort_yval wi Xs j` by
+    `eval_lin_term (reify_avar cs wi) (argsort_y_num name j (comp,h)) = argsort_yval wi Xs j` by
       (qpat_x_assum`∀j. j < LENGTH Xs ⇒ eval_lin_term _ _ = _`(qspec_then`j`mp_tac)>>simp[])>>
     `argsort_yval wi Xs j = varc wi (EL (EL j qs) Xs)` by
       (qpat_x_assum`∀j. j < LENGTH Xs ⇒ argsort_yval _ _ _ = _`(qspec_then`j`mp_tac)>>simp[])>>
@@ -1733,9 +1776,9 @@ Proof
     >- (
       rpt strip_tac>>
       `j + 1 < LENGTH Xs ∧ j < LENGTH Xs` by simp[]>>
-      `eval_lin_term (reify_avar cs wi) (argsort_y_num name j h) = argsort_yval wi Xs j` by
+      `eval_lin_term (reify_avar cs wi) (argsort_y_num name j (comp,h)) = argsort_yval wi Xs j` by
         (qpat_x_assum`∀j. j < LENGTH Xs ⇒ eval_lin_term _ _ = _`(qspec_then`j`mp_tac)>>simp[])>>
-      `eval_lin_term (reify_avar cs wi) (argsort_y_num name (j+1) h) = argsort_yval wi Xs (j+1)` by
+      `eval_lin_term (reify_avar cs wi) (argsort_y_num name (j+1) (comp,h)) = argsort_yval wi Xs (j+1)` by
         (qpat_x_assum`∀j. j < LENGTH Xs ⇒ eval_lin_term _ _ = _`(qspec_then`j+1`mp_tac)>>simp[])>>
       simp[]>>
       qpat_x_assum`∀i. reify_avar _ _ _ ⇔ _`(qspec_then`j`mp_tac)>>simp[])

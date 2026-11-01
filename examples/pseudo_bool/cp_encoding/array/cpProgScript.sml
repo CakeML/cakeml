@@ -426,17 +426,12 @@ val res = translate mk_lin_constraint_ge_def;
 
 val res = translate mk_constraint_one_ge_def;
 
-val res = translate encode_proper_index_def;
-val res = translate cencode_proper_index_def;
-
 val res = translate init_ec_def;
 
 val res = translate encode_bvar_eq_def;
 val res = translate encode_bvar_lit_def;
 
 val res = translate neiv_def;
-
-val res = translate mk_bounds_def;
 
 val res = translate cp_to_ilpTheory.mk_constraint_ge_bin_def;
 val res = translate cp_to_ilpTheory.mk_lbnd_bin_def;
@@ -446,6 +441,10 @@ val res = translate cp_to_ilpTheory.ub_num_def;
 
 val res = translate cp_to_ilpTheory.pos_num_def;
 val res = translate cp_to_ilpTheory.varc_bnd_def;
+val res = translate cp_to_ilpTheory.cmk_lb_def;
+val res = translate cp_to_ilpTheory.cmk_ub_def;
+val res = translate cp_to_ilpTheory.cmk_bounds_all_def;
+val res = translate cencode_proper_index_def;
 val res = translate cp_to_ilpTheory.arri_def;
 
 val res = translate cp_to_ilpTheory.encode_lex_def;
@@ -513,8 +512,6 @@ val res = translate cp_to_ilp_countingTheory.cencode_all_different_except_aux_de
 val res = translate cp_to_ilp_countingTheory.cencode_all_different_except_def;
 val res = translate cp_to_ilp_countingTheory.cencode_all_different_def;
 
-val res = translate cp_to_ilp_countingTheory.cmk_bounds_def;
-val res = translate cp_to_ilp_countingTheory.cmk_bounds_all_def;
 val res = translate cp_to_ilp_countingTheory.cencode_symmetric_all_different_aux_def;
 val res = translate cp_to_ilp_countingTheory.cencode_symmetric_all_different_def;
 
@@ -639,9 +636,21 @@ val res = translate cp_to_ilp_extensionalTheory.cencode_neg_tuple_def;
 val res = translate cp_to_ilp_extensionalTheory.cencode_negative_table_def;
 
 (* smart_table *)
+val res = translate (cp_to_ilp_extensionalTheory.smart_key_cmp_def
+                     |> SRULE [comparisonTheory.pair_cmp_def, FUN_EQ_THM]);
+val _ = add_fmap_for_cmp cp_to_ilp_extensionalTheory.TotOrd_smart_key_cmp;
+val res = translate cp_to_ilp_extensionalTheory.smart_cmp_kind_def;
+val res = translate cp_to_ilp_extensionalTheory.smart_entry_keys_def;
+val res = translate cp_to_ilp_extensionalTheory.smart_positions_def;
+val res = translate cp_to_ilp_extensionalTheory.smart_pos_def;
+val res = translate cp_to_ilp_extensionalTheory.smart_flag_def;
 val res = translate cp_to_ilp_extensionalTheory.smart_entry_lit_def;
+val res = translate cp_to_ilp_extensionalTheory.smart_key_body_def;
+val res = translate cp_to_ilp_extensionalTheory.cencode_smart_defs_def;
 val res = translate cp_to_ilp_extensionalTheory.cencode_smart_entry_def;
 val res = translate cp_to_ilp_extensionalTheory.cencode_smart_row_def;
+val res = translate (cp_to_ilp_extensionalTheory.smart_flag_map_def
+                     |> REWRITE_RULE [GSYM miscTheory.fmap_update_def]);
 val res = translate cp_to_ilp_extensionalTheory.cencode_smart_table_def;
 
 (* regular *)
@@ -758,7 +767,8 @@ val _ = check_side res;
 
 (* cp_to_ilp_channeling *)
 
-val res = translate cp_to_ilp_channelingTheory.encode_inverse_aux_def;
+val res = translate cp_to_ilp_channelingTheory.cencode_inverse_pairs_def;
+val res = translate cp_to_ilp_channelingTheory.cencode_inverse_rows_def;
 val res = translate cp_to_ilp_channelingTheory.cencode_inverse_def;
 
 val res = translate cp_to_ilp_channelingTheory.cencode_channeling_constr_def;

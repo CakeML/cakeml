@@ -1064,23 +1064,6 @@ Proof
   intLib.ARITH_TAC
 QED
 
-(* Bounds constraint: lb ≤ varc wi X ≤ ub *)
-Definition mk_bounds_def:
-  mk_bounds X a b =
-  [
-    mk_constraint_one_ge 1 X a;
-    mk_constraint_one_ge (-1) X (-b)
-  ]
-End
-
-Theorem mk_bounds_sem[simp]:
-  EVERY (λx. iconstraint_sem x (wi,wb)) (mk_bounds X a b) ⇔
-  varc wi X ≥ a ∧ varc wi X ≤ b
-Proof
-  simp[mk_bounds_def]>>
-  intLib.ARITH_TAC
-QED
-
 Definition split_iclin_term_def:
   (split_iclin_term ([]:'a iclin_term)
     (acc:'a ilin_term) rhs = (acc,rhs)) ∧
@@ -2082,76 +2065,98 @@ Proof
   simp[cencode_bitsum_def,encode_bitsum_def]
 QED
 
-(* encodes offset ≤ Y ≤ offset + n - 1, omitting each bound Y's domain implies *)
-Definition encode_proper_index_def:
-  encode_proper_index bnd Yi n =
-  let
-    (Y,offset) = Yi;
-    (lb,ub) =
-    case Y of
-      INL vY => bnd vY
-    | INR cY => (cY,cY);
-    lbc =
-    if lb < offset
-    then [mk_constraint_one_ge 1 Y offset]
-    else [];
-    ubc =
-    if ub > offset + n - 1
-    then [mk_constraint_one_ge (-1) Y (1 - n - offset)]
-    else []
-  in
-    lbc ++ ubc
+(* the row lo ≤ X, labelled lbl, omitted when X's declared bounds imply it *)
+Definition cmk_lb_def:
+  cmk_lb bnd lbl X lo =
+  if FST (varc_bnd bnd X) < lo
+  then List [(SOME lbl, mk_constraint_one_ge 1 X lo)]
+  else Nil
 End
 
-Theorem encode_proper_index_sem_1:
+(* the row X ≤ hi, labelled lbl, omitted when X's declared bounds imply it *)
+Definition cmk_ub_def:
+  cmk_ub bnd lbl X hi =
+  if hi < SND (varc_bnd bnd X)
+  then List [(SOME lbl, mk_constraint_one_ge (-1) X (-hi))]
+  else Nil
+End
+
+Theorem cmk_lb_sem:
+  valid_assignment bnd wi ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (cmk_lb bnd lbl X lo)) ⇔
+   lo ≤ varc wi X)
+Proof
+  strip_tac>>
+  drule_then (qspec_then`X`strip_assume_tac) varc_bnd_valid>>
+  rw[cmk_lb_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem cmk_ub_sem:
+  valid_assignment bnd wi ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (cmk_ub bnd lbl X hi)) ⇔
+   varc wi X ≤ hi)
+Proof
+  strip_tac>>
+  drule_then (qspec_then`X`strip_assume_tac) varc_bnd_valid>>
+  rw[cmk_ub_def]>>
+  intLib.ARITH_TAC
+QED
+
+(* lb ≤ X ≤ ub for every X of Xs, labelled pref<i+1>_lb / pref<i+1>_ub;
+   rows the declared bounds imply are omitted *)
+Definition cmk_bounds_all_def:
+  cmk_bounds_all bnd name pref Xs lb ub =
+  flat_app
+    (MAPi
+      (λi X.
+        let tag = pref ^ toString (i+1) in
+        Append (cmk_lb bnd (mk_name name (tag ^ «_lb»)) X lb)
+               (cmk_ub bnd (mk_name name (tag ^ «_ub»)) X ub)) Xs)
+End
+
+Theorem cmk_bounds_all_sem:
+  valid_assignment bnd wi ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr (cmk_bounds_all bnd name pref Xs lb ub)) ⇔
+  (∀X. MEM X Xs ⇒
+    varc wi X ≥ lb ∧ varc wi X ≤ ub))
+Proof
+  strip_tac>>
+  rw[cmk_bounds_all_def,EVERY_FLAT]>>
+  simp[Once EVERY_MEM,MEM_MAPi]>>
+  simp[PULL_EXISTS,append_thm,cmk_lb_sem,cmk_ub_sem,MEM_EL,integerTheory.int_ge]
+QED
+
+(* offset ≤ Y ≤ offset + n - 1, labelled atag^lb / atag^ub; rows the declared
+   bounds imply are omitted *)
+Definition cencode_proper_index_def:
+  cencode_proper_index bnd Yi n name atag =
+  let (Y,offset) = Yi in
+  Append (cmk_lb bnd (mk_name name (atag ^ «lb»)) Y offset)
+         (cmk_ub bnd (mk_name name (atag ^ «ub»)) Y (offset + n - 1))
+End
+
+Theorem cencode_proper_index_sem_1:
   valid_assignment bnd wi ∧
   0 ≤ varc wi Y − offset ∧
   Num (varc wi Y − offset) < n ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (encode_proper_index bnd (Y,offset) &n)
+    (abstr (cencode_proper_index bnd (Y,offset) (&n) name atag))
 Proof
-  rw[encode_proper_index_def,pairTheory.ELIM_UNCURRY]>>
+  strip_tac>>
+  simp[cencode_proper_index_def,append_thm,cmk_lb_sem,cmk_ub_sem]>>
   intLib.ARITH_TAC
 QED
 
-Theorem encode_proper_index_sem_2:
+Theorem cencode_proper_index_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_proper_index bnd (Y,offset) (&len)) ⇒
+    (abstr (cencode_proper_index bnd (Y,offset) (&len) name atag)) ⇒
   0 ≤ varc wi Y − offset ∧ Num (varc wi Y − offset) < len
 Proof
   strip_tac>>
-  drule_then (qspec_then ‘Y’ mp_tac) varc_bnd_valid>>
   qpat_x_assum ‘EVERY _ _’ mp_tac>>
-  rw[encode_proper_index_def,varc_bnd_def,pairTheory.ELIM_UNCURRY]>>
+  simp[cencode_proper_index_def,append_thm,cmk_lb_sem,cmk_ub_sem]>>
   intLib.ARITH_TAC
-QED
-
-Definition cencode_proper_index_def:
-  cencode_proper_index bnd Yi n name atag =
-  let
-    (Y,offset) = Yi;
-    (lb,ub) =
-      case Y of
-        INL vY => bnd vY
-      | INR cY => (cY,cY);
-    lbann =
-      if lb < offset
-      then [mk_name name $ atag ^ «lb»]
-      else [];
-    ubann =
-      if ub > offset + n - 1
-      then [mk_name name $ atag ^ «ub»]
-      else []
-  in
-    List $ mk_annotate
-      (lbann ++ ubann)
-      (encode_proper_index bnd Yi n)
-End
-
-Theorem abstr_cencode_proper_index[simp]:
-  abstr (cencode_proper_index bnd Yi n name atag) = encode_proper_index bnd Yi n
-Proof
-  PairCases_on ‘Yi’>>
-  simp[cencode_proper_index_def,pairTheory.ELIM_UNCURRY]
 QED

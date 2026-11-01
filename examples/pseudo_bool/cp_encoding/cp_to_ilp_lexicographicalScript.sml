@@ -957,8 +957,9 @@ Definition encode_value_precede_def:
 End
 
 (* seq_precede_chain: clamp values to [1,m], m = min(max declared ub, n);
-   delegate to value_precede with chain [1..m]. The clamp is emitted whenever
-   m ≥ 1 (a value > m cannot satisfy the chain); the precede part only for m ≥ 2. *)
+   delegate to value_precede with chain [1..m]. For m ≥ 1, X ≤ m is emitted for
+   each X whose declared ub exceeds m (a value > m cannot satisfy the chain);
+   the precede part only for m ≥ 2. *)
 Definition vp_seq_m_def:
   vp_seq_m bnd Xs =
   let mx = FOLDR (λX a. int_max (SND (varc_bnd bnd X)) a) 0 Xs in
@@ -966,29 +967,28 @@ Definition vp_seq_m_def:
 End
 
 Definition vp_clamp_def:
-  vp_clamp name Xs m =
-  List (MAPi (λi X.
-    (SOME (mk_name name (toString i ^ «cl»)),
-     mk_constraint_one_ge (-1) X (-&m))) Xs)
+  vp_clamp bnd name Xs m =
+  flat_app (MAPi (λi X.
+    cmk_ub bnd (mk_name name (toString i ^ «cl»)) X (&m)) Xs)
 End
 
 Definition cencode_seq_precede_chain_def:
   cencode_seq_precede_chain bnd Xs name ec =
   let m = vp_seq_m bnd Xs in
   if m < 1 then (Nil, ec)
-  else if m < 2 then (vp_clamp name Xs m, ec)
+  else if m < 2 then (vp_clamp bnd name Xs m, ec)
   else
     let (e,ec') = cencode_value_precede bnd (GENLIST (λk. &(k+1)) m) Xs name ec in
-    (Append (vp_clamp name Xs m) e, ec')
+    (Append (vp_clamp bnd name Xs m) e, ec')
 End
 
 Definition encode_seq_precede_chain_def:
   encode_seq_precede_chain bnd Xs name =
   let m = vp_seq_m bnd Xs in
   if m < 1 then []
-  else if m < 2 then abstr (vp_clamp name Xs m)
+  else if m < 2 then abstr (vp_clamp bnd name Xs m)
   else
-    abstr (vp_clamp name Xs m) ++
+    abstr (vp_clamp bnd name Xs m) ++
     encode_value_precede bnd (GENLIST (λk. &(k+1)) m) Xs name
 End
 
@@ -1490,13 +1490,13 @@ QED
 
 (* the clamp constraints hold iff every variable is bounded by m *)
 Theorem vp_clamp_sem[local]:
-  EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (vp_clamp name Xs m)) ⇔
-  ∀X. MEM X Xs ⇒ varc wi X ≤ &m
+  valid_assignment bnd wi ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (vp_clamp bnd name Xs m)) ⇔
+   ∀X. MEM X Xs ⇒ varc wi X ≤ &m)
 Proof
-  `∀(v:int). -1 * v ≥ -&m ⇔ v ≤ &m` by intLib.ARITH_TAC>>
-  pop_assum(fn th =>
-    simp[vp_clamp_def,combinTheory.o_DEF,EVERY_EL,indexedListsTheory.LENGTH_MAPi,
-         indexedListsTheory.EL_MAPi,EL_MAP,th,EVERY_MEM,MEM_EL,PULL_EXISTS])
+  strip_tac>>
+  simp[vp_clamp_def,EVERY_FLAT]>>
+  simp[Once EVERY_MEM,MEM_MAPi,PULL_EXISTS,cmk_ub_sem,MEM_EL]
 QED
 
 (* every assigned value is dominated by the largest declared upper bound *)
@@ -1649,8 +1649,13 @@ Proof
   reverse(Cases_on`vp_seq_m bnd Xs < 1`)>>fs[]
   >- (
     reverse(Cases_on`vp_seq_m bnd Xs < 2`)>>fs[]
-    >- (fs[EVERY_APPEND]>>rw[]>>fs[vp_clamp_sem])>>
-    rw[]>>fs[vp_clamp_sem])>>
+    >- (
+      fs[EVERY_APPEND]>>rw[]>>
+      qpat_x_assum`EVERY _ (abstr (vp_clamp _ _ _ _))`mp_tac>>
+      simp[vp_clamp_sem]>>disch_then drule>>simp[])>>
+    rw[]>>
+    qpat_x_assum`EVERY _ (abstr (vp_clamp _ _ _ _))`mp_tac>>
+    simp[vp_clamp_sem]>>disch_then drule>>simp[])>>
   rw[]>>
   `varc wi X ≤ 0` by metis_tac[vp_seq_zero_ub]>>
   `vp_seq_m bnd Xs = 0` by fs[]>>

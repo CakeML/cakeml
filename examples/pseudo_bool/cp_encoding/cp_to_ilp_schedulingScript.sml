@@ -109,13 +109,13 @@ Proof
     intLib.ARITH_TAC)
 QED
 
-(* separation clauses: for every ordered pair i≠j of possibly-active tasks,
+(* separation clauses: for every pair i<j of possibly-active tasks,
    at-least-one of the before-orders (per pair-annotation) and the precomputed
    zero-escape literals of i and j. task_info element = (zero-lits, inactive). *)
 Definition mk_sep_clauses_def:
   mk_sep_clauses name pair_anns task_info =
   flat_app (FLAT (MAPi (λi ii. FLAT (MAPi (λj jj.
-    if i = j ∨ SND ii ∨ SND jj then []
+    if j ≤ i ∨ SND ii ∨ SND jj then []
     else
       [cat_least_one name (toString i ^ «_» ^ toString j ^ «sep») (
           FLAT (MAP (λa. [Pos (disj_before name a i j);
@@ -141,13 +141,17 @@ Proof
   eq_tac>>rw[]
   >- (
     rpt (pairarg_tac>>gvs[])>>rw[]>>
-    first_x_assum (drule_at (Pos (el 2)))>>
-    qpat_x_assum`i < _` assume_tac>>
-    disch_then drule>>rw[]>>
-    gvs[MEM_FLAT,MEM_MAP]>>
+    qpat_x_assum`∀ls i j. _`(assume_tac o SIMP_RULE (srw_ss()) [COND_RAND])>>
+    Cases_on`i < j`
+    >- (
+      first_x_assum (qspecl_then [`i`,`j`] mp_tac)>>
+      simp[MEM_FLAT,MEM_MAP,PULL_EXISTS]>>rw[]>>gvs[lit_def]>>
+      metis_tac[])>>
+    first_x_assum (qspecl_then [`j`,`i`] mp_tac)>>
+    simp[MEM_FLAT,MEM_MAP,PULL_EXISTS]>>rw[]>>gvs[lit_def]>>
     metis_tac[])>>
   pop_assum mp_tac>>rw[]>>gvs[]>>
-  first_x_assum drule_all>>
+  first_x_assum (qspecl_then [`i`,`j`] mp_tac)>>simp[]>>
   rpt (pairarg_tac>>gvs[])>>rw[]>>
   gvs[MEM_FLAT,MEM_MAP,PULL_EXISTS]>>
   metis_tac[lit_def]
@@ -538,22 +542,24 @@ Definition cumul_scap_row_def:
          (cis ++ dis, flip_coeffs loadbs, rhs))]
 End
 
-(* non-negativity good default: capacity ≥ 0 and each height ≥ 0 *)
+(* capacity ≥ 0 and each height ≥ 0; rows the declared bounds imply are omitted *)
 Definition cumul_nonneg_def:
-  cumul_nonneg name tasks cap =
-  List (mk_annotate
-    (mk_name name «cap_ge0» ::
-     MAPi (λi (x,w,h). mk_name name («h_» ^ toString i ^ «_ge0»)) tasks)
-    (mk_constraint_one_ge 1 cap 0 ::
-     MAP (λ(x,w,h). mk_constraint_one_ge 1 h 0) tasks))
+  cumul_nonneg bnd name tasks cap =
+  Append (cmk_lb bnd (mk_name name «cap_ge0») cap 0)
+    (flat_app (MAPi (λi (x,w,h).
+       cmk_lb bnd (mk_name name («h_» ^ toString i ^ «_ge0»)) h 0) tasks))
 End
 
 Theorem cumul_nonneg_sem:
-  EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (cumul_nonneg name tasks cap)) ⇔
-  0 ≤ varc wi cap ∧ EVERY (λ(x,w,h). 0 ≤ varc wi h) tasks
+  valid_assignment bnd wi ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (cumul_nonneg bnd name tasks cap)) ⇔
+   0 ≤ varc wi cap ∧ EVERY (λ(x,w,h). 0 ≤ varc wi h) tasks)
 Proof
-  rw[cumul_nonneg_def,abstrl_mk_annotate,EVERY_MAP]>>
-  simp[integerTheory.INT_GE,LAMBDA_PROD]
+  strip_tac>>
+  simp[cumul_nonneg_def,append_thm,cmk_lb_sem,EVERY_FLAT]>>
+  simp[Once EVERY_EL]>>
+  simp[indexedListsTheory.EL_MAPi,pairTheory.ELIM_UNCURRY,cmk_lb_sem]>>
+  simp[EVERY_EL]
 QED
 
 Definition cencode_cumulative_def:
@@ -562,7 +568,7 @@ Definition cencode_cumulative_def:
   else
     let tasks = ZIP (Xs, ZIP (Ws, Hs)) in
     let act = cumul_active bnd 0 tasks in
-    Append (cumul_nonneg name tasks cap)
+    Append (cumul_nonneg bnd name tasks cap)
     (flat_app (MAP (λ(j,x_j,w_j,h_j,hw_j).
        Append
          (flat_app (MAP (λ(i,x_i,w_i,h_i,hw_i).
@@ -586,7 +592,7 @@ Theorem cencode_cumulative_ACTIVE:
   if LENGTH Xs ≠ LENGTH Ws ∨ LENGTH Xs ≠ LENGTH Hs then cfalse_constr
   else
     let tasks = ZIP (Xs, ZIP (Ws, Hs)) in
-    Append (cumul_nonneg name tasks cap)
+    Append (cumul_nonneg bnd name tasks cap)
     (flat_app (MAPi (λj (x_j,w_j,h_j).
        if ¬cumul_task_active bnd w_j h_j then Nil
        else
@@ -1004,7 +1010,7 @@ Proof
     (CCONTR_TAC>>gvs[encode_cumulative_def,cencode_cumulative_def,cfalse_constr_def])>>
   gvs[encode_cumulative_def,cencode_cumulative_ACTIVE,append_thm,EVERY_APPEND]>>
   `0 ≤ varc wi cap ∧ EVERY (λ(x,w,h). 0 ≤ varc wi h) (ZIP (Xs,ZIP (Ws,Hs)))` by
-    (qpat_x_assum`EVERY _ (abstr (cumul_nonneg _ _ _))`mp_tac>>simp[cumul_nonneg_sem])>>
+    (qpat_x_assum`EVERY _ (abstr (cumul_nonneg _ _ _ _))`mp_tac>>simp[cumul_nonneg_sem])>>
   `∀j. j < LENGTH Hs ⇒ 0 ≤ varc wi (EL j Hs)` by
     (gvs[EVERY_EL,LENGTH_ZIP]>>rw[]>>first_x_assum drule>>simp[EL_ZIP])>>
   `∀j. j < LENGTH Hs ∧ cumul_task_active bnd (EL j Ws) (EL j Hs) ⇒
