@@ -24,3 +24,21 @@ rev = "9783a49979c94c401ff8c0e51b2eefae7ea95ae3"
 from = "hol"
 path = "."
 manifest = "holextra.manifest.toml"
+
+# Keep the existing proofs where tighter limits would require scaffolding.
+[build.theory_tactic_timeouts]
+"compiler/backend/data_liveScript.sml" = 5.0
+"pancake/parser/panPEGScript.sml" = 20.0
+"compiler/backend/word_removeScript.sml" = 10.0
+"compiler/backend/reg_alloc/proofs/reg_allocProofScript.sml" = 10.0
+"compiler/backend/word_allocScript.sml" = 60.0
+"compiler/backend/semantics/wordConvsScript.sml" = 10.0
+"compiler/backend/semantics/wordSemScript.sml" = 30.0
+"compiler/backend/reg_alloc/proofs/linear_scanProofScript.sml" = 10.0
+"compiler/backend/semantics/stackSemScript.sml" = 10.0
+"compiler/backend/word_instScript.sml" = 10.0
+"semantics/proofs/semanticPrimitivesPropsScript.sml" = 10.0
+"compiler/backend/clos_knownScript.sml" = 20.0
+"compiler/backend/semantics/stackPropsScript.sml" = 30.0
+"compiler/backend/gc/gen_gc_partialScript.sml" = 10.0
+"compiler/backend/bvi_to_dataScript.sml" = 10.0

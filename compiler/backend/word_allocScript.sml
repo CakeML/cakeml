@@ -1614,54 +1614,23 @@ Theorem get_forced_pmatch:
       get_forced c body acc
     | _ => acc)
 Proof
-  rpt gen_tac
-  >> Cases_on `prog`
-  >~ [`get_forced c (Inst i) acc`]
-  >- (Cases_on `i`
-      >~ [`get_forced c (Inst (Arith a)) acc`]
-      >- (Cases_on `a`
-          >> simp[get_forced_def, patternMatchesTheory.PMATCH_EVAL,
-                  patternMatchesTheory.PMATCH_ROW_COND_def,
-                  pairTheory.FORALL_PROD, pairTheory.EXISTS_PROD,
-                  pairTheory.ELIM_UNCURRY]
-          >> pure_rewrite_tac[GSYM pairTheory.PAIR_EQ, pairTheory.PAIR]
-          >> simp[])
-      >~ [`get_forced c (Inst (FP f)) acc`]
-      >- (Cases_on `f`
-          >> simp[get_forced_def, patternMatchesTheory.PMATCH_EVAL,
-                  patternMatchesTheory.PMATCH_ROW_COND_def,
-                  pairTheory.FORALL_PROD, pairTheory.EXISTS_PROD,
-                  pairTheory.ELIM_UNCURRY]
-          >> pure_rewrite_tac[GSYM pairTheory.PAIR_EQ, pairTheory.PAIR]
-          >> simp[])
-      >> simp[get_forced_def, patternMatchesTheory.PMATCH_EVAL,
-              patternMatchesTheory.PMATCH_ROW_COND_def,
-              pairTheory.FORALL_PROD, pairTheory.EXISTS_PROD,
-              pairTheory.ELIM_UNCURRY])
-  >~ [`get_forced c (Call ret dest args handler) acc`]
-  >- (namedCases_on `ret` ["", "retdata"]
-      >- simp[get_forced_def, patternMatchesTheory.PMATCH_EVAL,
-              patternMatchesTheory.PMATCH_ROW_COND_def,
-              pairTheory.FORALL_PROD, pairTheory.EXISTS_PROD]
-      >> PairCases_on `retdata`
-      >> namedCases_on `handler` ["", "handlerdata"]
-      >> simp[get_forced_def, patternMatchesTheory.PMATCH_EVAL,
-              patternMatchesTheory.PMATCH_ROW_COND_def,
-              pairTheory.FORALL_PROD, pairTheory.EXISTS_PROD,
-              pairTheory.ELIM_UNCURRY]
-      >> pure_rewrite_tac[GSYM CONJ_ASSOC]
-      >> pure_rewrite_tac[GSYM pairTheory.PAIR_EQ, pairTheory.PAIR]
-      >> simp[]
-      >> PairCases_on `handlerdata`
-      >> simp[]
-      >> pure_rewrite_tac[GSYM CONJ_ASSOC]
-      >> pure_rewrite_tac[GSYM pairTheory.PAIR_EQ, pairTheory.PAIR]
-      >> simp[])
-  >> simp[get_forced_def, patternMatchesTheory.PMATCH_EVAL,
-          patternMatchesTheory.PMATCH_ROW_COND_def, pairTheory.FORALL_PROD,
-          pairTheory.EXISTS_PROD, pairTheory.ELIM_UNCURRY]
-  >> pure_rewrite_tac[GSYM pairTheory.PAIR_EQ, pairTheory.PAIR]
-  >> simp[]
+  rpt strip_tac
+  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
+  >> rpt strip_tac
+  >> every_case_tac
+  >> fs[get_forced_def]
+  >> gvs[]
+  >>~- ([`(if c.ISA = x86_64 ∧ _ then [(r,r)] else []) = []`],
+        IF_CASES_TAC >> gvs[])
+  >> rpt(POP_ASSUM MP_TAC)
+  >> (fn (asms,g) => (asms,g) |> EVERY(map UNDISCH_TAC asms))
+  >> Q.SPEC_TAC (`acc`,`acc`) >> Q.SPEC_TAC (`prog`,`prog`) >> Q.SPEC_TAC (`c`,`c`)
+  >> ho_match_mp_tac (theorem "get_forced_ind")
+  >> rpt strip_tac
+  >> fs[get_forced_def]
+  >> every_case_tac
+  >> fs[]
+  >> metis_tac[pair_CASES]
 QED
 
 (*col is injective over every cut set*)

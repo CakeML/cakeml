@@ -103,16 +103,9 @@ Theorem is_pure_pmatch:
     | ThunkOp _ => F
     | _ => T
 Proof
-  Cases_on `op`
-  >> simp[is_pure_def, patternMatchesTheory.PMATCH_EVAL,
-          patternMatchesTheory.PMATCH_ROW_COND_def, pairTheory.FORALL_PROD]
-  >- (Cases_on `i` >> simp[is_pure_def])
-  >- (Cases_on `w` >> simp[is_pure_def]
-      >> rename1 `width <> W64`
-      >> Cases_on `width` >> simp[is_pure_def])
-  >- (Cases_on `b` >> simp[is_pure_def])
-  >- (Cases_on `g` >> simp[is_pure_def])
-  >> Cases_on `m` >> simp[is_pure_def]
+  rpt strip_tac
+  >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  >> every_case_tac >> fs[is_pure_def]
 QED
 
 Definition compile_def:

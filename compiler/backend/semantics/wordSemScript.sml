@@ -1441,10 +1441,8 @@ Proof
   \\ rpt (disch_then strip_assume_tac)
   \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ rpt (pop_assum mp_tac)
-  \\ simp_tac (srw_ss()) [AllCaseEqs()]
+  \\ rpt (BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[])
   \\ rpt (disch_then strip_assume_tac)
-  \\ rpt var_eq_tac
-  \\ full_simp_tac (srw_ss()) []
   \\ imp_res_tac alloc_clock \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[set_vars_def,set_var_def,set_store_def,unset_var_def]
@@ -1464,10 +1462,6 @@ Proof
   \\ full_simp_tac(srw_ss())[push_env_def,LET_THM]
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ gvs [cut_state_def,CaseEq"option"]
-  \\ qmatch_asmsub_rename_tac `push_env envs (SOME handler_data)`
-  \\ PairCases_on `handler_data`
-  \\ fs [push_env_def,LET_THM]
-  \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ decide_tac
 QED
 

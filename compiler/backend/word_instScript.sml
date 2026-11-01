@@ -353,31 +353,10 @@ Theorem inst_select_exp_pmatch:
   (*Make it total*)
   | _ => Skip
 Proof
-  rpt strip_tac >> Cases_on `exp`
-  >> simp [Once inst_select_exp_def, patternMatchesTheory.PMATCH_EVAL,
-           patternMatchesTheory.PMATCH_ROW_COND_def, pairTheory.EXISTS_PROD,
-           pairTheory.FORALL_PROD, pairTheory.ELIM_UNCURRY]
-  >> pure_rewrite_tac [GSYM pairTheory.PAIR_EQ, pairTheory.PAIR]
-  >> simp []
-  >- (Cases_on `e` >> simp [pairTheory.EXISTS_PROD]
-      >> rename1 `Op op es`
-      >> Cases_on `op` >> simp []
-      >> Cases_on `es` >> simp []
-      >> rename1 `h::t` >> Cases_on `t` >> simp []
-      >> rename1 `h::e2::rest` >> Cases_on `e2` >> simp []
-      >> Cases_on `rest` >> simp []
-      >> pure_rewrite_tac [GSYM pairTheory.PAIR_EQ, pairTheory.PAIR]
-      >> simp [])
-  >> Cases_on `l`
-  >- simp [inst_select_exp_def]
-  >> rename1 `h::t` >> Cases_on `t`
-  >- simp [inst_select_exp_def]
-  >> rename1 `h::e2::rest` >> Cases_on `rest`
-  >- (simp []
-      >> pure_rewrite_tac [GSYM pairTheory.PAIR_EQ, pairTheory.PAIR]
-      >> simp [Once inst_select_exp_def]
-      >> Cases_on `e2` >> simp [])
-  >> simp [inst_select_exp_def]
+  rpt strip_tac
+  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
+         PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
+  >> fs[inst_select_exp_def] >> metis_tac[DIMINDEX_GT_0, NOT_ZERO_LT_ZERO]
 QED
 
 (*
@@ -509,31 +488,12 @@ Theorem inst_select_pmatch:
     Loop names (inst_select bits c temp body) exit_names
   | prog => prog
 Proof
-  rpt strip_tac >> Cases_on `prog`
-  >> simp [Once inst_select_def, patternMatchesTheory.PMATCH_EVAL,
-           patternMatchesTheory.PMATCH_ROW_COND_def, pairTheory.EXISTS_PROD,
-           pairTheory.FORALL_PROD, pairTheory.ELIM_UNCURRY]
-  >> pure_rewrite_tac [GSYM pairTheory.PAIR_EQ, pairTheory.PAIR]
-  >> simp []
-  >- (Cases_on `flatten_exp (pull_exp e)` >> simp []
-      >> rename1 `Op op es` >> Cases_on `op` >> simp []
-      >> Cases_on `es` >> simp []
-      >> rename1 `h::t` >> Cases_on `t` >> simp []
-      >> rename1 `h::e2::rest` >> Cases_on `e2` >> simp []
-      >> Cases_on `rest` >> simp []
-      >> pure_rewrite_tac [GSYM pairTheory.PAIR_EQ, pairTheory.PAIR]
-      >> simp [])
-  >- (conj_tac
-      >- (Cases_on `o'` >> simp [] >> PairCases_on `x` >> simp [])
-      >> Cases_on `o0` >> simp [] >> PairCases_on `x` >> simp [])
-  >> Cases_on `flatten_exp (pull_exp e)` >> simp []
-  >> rename1 `Op op es` >> Cases_on `op` >> simp []
-  >> Cases_on `es` >> simp []
-  >> rename1 `h::t` >> Cases_on `t` >> simp []
-  >> rename1 `h::e2::rest` >> Cases_on `e2` >> simp []
-  >> Cases_on `rest` >> simp []
-  >> pure_rewrite_tac [GSYM pairTheory.PAIR_EQ, pairTheory.PAIR]
-  >> simp []
+  rpt(
+    rpt strip_tac
+    >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
+         PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
+    >> TRY (rename1 ‘Ag32’>>CASE_TAC>>gvs[])
+    >> fs[inst_select_def] )
 QED
 
 (*
@@ -615,20 +575,11 @@ Theorem three_to_two_reg_pmatch:
     Loop names (three_to_two_reg body) exit_names
   | prog => prog
 Proof
-  rpt strip_tac >> Cases_on `prog`
-  >> simp [Once three_to_two_reg_def, patternMatchesTheory.PMATCH_EVAL,
-           patternMatchesTheory.PMATCH_ROW_COND_def, pairTheory.EXISTS_PROD,
-           pairTheory.FORALL_PROD, pairTheory.ELIM_UNCURRY]
-  >> pure_rewrite_tac [GSYM pairTheory.PAIR_EQ, pairTheory.PAIR]
-  >> simp []
-  >- (Cases_on `i`
-      >> simp [Once three_to_two_reg_def]
-      >> rename1 `Arith a` >> Cases_on `a` >> simp []
-      >> pure_rewrite_tac [GSYM pairTheory.PAIR_EQ, pairTheory.PAIR]
-      >> simp [three_to_two_reg_def])
-  >> conj_tac
-  >- (Cases_on `o'` >> simp [] >> PairCases_on `x` >> simp [])
-  >> Cases_on `o0` >> simp [] >> PairCases_on `x` >> simp []
+  rpt(
+    rpt strip_tac
+    >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
+         PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
+    >> fs[three_to_two_reg_def])
 QED
 
 Definition three_to_two_reg_prog_def:

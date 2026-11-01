@@ -771,20 +771,12 @@ QED
 Theorem PEG_wellformed[simp]:
   wfG pancake_peg
 Proof
-  rewrite_tac[wfG_def, Gexprs_def, peg_start, peg_range] >>
-  rewrite_tac[pred_setTheory.IMAGE_INSERT, pred_setTheory.IMAGE_EMPTY,
-              pred_setTheory.BIGUNION_INSERT, pred_setTheory.BIGUNION_EMPTY,
-              pred_setTheory.FORALL_IN_UNION, pred_setTheory.FORALL_IN_INSERT,
-              pred_setTheory.NOT_IN_EMPTY] >>
-  rpt conj_tac >>
-  simp[subexprs_mknt, subexprs_def, DISJ_IMP_THM, FORALL_AND_THM,
+  simp[wfG_def, Gexprs_def, subexprs_def,
+       subexprs_mknt, peg_start, peg_range, DISJ_IMP_THM,FORALL_AND_THM,
        choicel_def, seql_def, pegf_def, keep_tok_def, consume_tok_def,
        keep_kw_def, consume_kw_def, keep_int_def, keep_nat_def,
        keep_ident_def, keep_annot_def, keep_ffi_ident_def, try_def,
        try_default_def, try_ProgNT_def] >>
-  rewrite_tac[pred_setTheory.FORALL_IN_INSERT,
-              pred_setTheory.FORALL_IN_UNION, pred_setTheory.NOT_IN_EMPTY] >>
-  rpt conj_tac >>
   simp(pancake_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts)
 QED
 

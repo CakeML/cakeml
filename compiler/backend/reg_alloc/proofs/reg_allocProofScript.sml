@@ -3423,15 +3423,7 @@ Proof
   qsuff_tac`v=v'`
   >-
     (qpat_x_assum`INJ _ _ _` mp_tac>>
-    qpat_x_assum`lookup p_1 ta = _` mp_tac>>
-    qpat_x_assum`lookup p_2 ta = _` mp_tac>>
-    qpat_x_assum`in_clash_tree ct p_1` mp_tac>>
-    qpat_x_assum`in_clash_tree ct p_2` mp_tac>>
-    rpt(pop_assum kall_tac)>>
-    rpt strip_tac>>
-    fs[INJ_DEF]>>
-    first_x_assum irule>>
-    simp[sp_default_def])
+    simp[INJ_DEF,sp_default_def])
   >>
   pop_assum mp_tac>>
   fs[MEM_EL,PULL_EXISTS]>>
