@@ -3478,6 +3478,47 @@ Proof
   \\ fs [LIST_REL_EL_EQN]
 QED
 
+Theorem Eval_subvector:
+  !env x1 x2 x3 a v off len.
+     Eval env x1 (VECTOR_TYPE a v) ==>
+     Eval env x2 (NUM off) ==>
+     Eval env x3 (NUM len) ==>
+     off + len <= length v ==>
+     Eval env (App CopyVecVec [x1; x2; x3])
+       (VECTOR_TYPE a (subvector v off len))
+Proof
+  rw [Eval_rw,NUM_def,INT_def]
+  \\ qpat_x_assum `!r p. ?ck r' left p'. evaluate _ env [x3] = _`
+       (qspecl_then [`refs`,`po`] (qx_choosel_then
+         [`clock3`,`added3`,`left3`,`po3`] strip_assume_tac))
+  \\ qpat_x_assum `!r p. ?ck r' left p'. evaluate _ env [x2] = _`
+       (qspecl_then [`refs ++ added3`,`po3`] (qx_choosel_then
+         [`clock2`,`added2`,`left2`,`po2`] strip_assume_tac))
+  \\ qpat_x_assum `!r p. ?ck res r' left p'. evaluate _ env [x1] = _ /\ _`
+       (qspecl_then [`refs ++ added3 ++ added2`,`po2`] (qx_choosel_then
+         [`clock1`,`vecv`,`added1`,`left1`,`po1`] strip_assume_tac))
+  \\ qpat_x_assum `evaluate _ env [x3] = _`
+       (assume_tac o Q.SPEC `clock2 + clock1` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x2] = _`
+       (assume_tac o Q.SPEC `left3 + clock1` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x1] = _`
+       (assume_tac o Q.SPEC `left3 + left2` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qexists_tac `clock3 + clock2 + clock1`
+  \\ fs [AC ADD_ASSOC ADD_COMM]
+  \\ `?l. v = Vector l` by metis_tac [vector_nchotomy]
+  \\ gvs [VECTOR_TYPE_def,length_def]
+  \\ rename1 `LIST_REL a l vs`
+  \\ Q.LIST_EXISTS_TAC
+       [`Vectorv (TAKE len (DROP off vs))`, `added3 ++ added2 ++ added1`,
+        `left1 + (left2 + left3)`, `po1`]
+  \\ simp [do_app_def,copy_array_def,state_component_equality,INT_ADD,
+           INT_ABS_NUM,subvector_def,toList_thm,VECTOR_TYPE_def]
+  \\ gvs [LIST_REL_EL_EQN,EL_TAKE,EL_DROP]
+QED
+
 Theorem Eval_vector:
   !env x1 a l.
      Eval env x1 (LIST_TYPE a l) ==>

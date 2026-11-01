@@ -11,7 +11,7 @@ val _ = translation_extends "Word8ArrayProg";
 
 val basis_st = get_ml_prog_state;
 
-Theorem scan_curry[local]:
+Theorem app_Closure_Fun:
   app (p:'ffi ffi_proj)
     (Closure (env with v := nsBind x xv env.v) y body) (yv::ys) H Q ==>
   app p (Closure env x (Fun y body)) (xv::yv::ys) H Q
@@ -29,7 +29,7 @@ Proof
   \\ qexists_tac `H` \\ simp []
 QED
 
-Theorem scan_apply[local]:
+Theorem app_Closure_evaluate:
   (!st h_i h_k.
     SPLIT (st2heap p st) (h_i,h_k) ==> H h_i ==>
     evaluate (st with clock := 0)
@@ -117,10 +117,10 @@ Theorem w8array_scanEq_spec:
          W8ARRAY av ws)
 Proof
   rw [WORD_def,NUM_def,INT_def,Word8Array_scanEq_v_def]
-  \\ irule scan_curry
-  \\ irule scan_curry
-  \\ irule scan_curry
-  \\ irule scan_apply
+  \\ irule app_Closure_Fun
+  \\ irule app_Closure_Fun
+  \\ irule app_Closure_Fun
+  \\ irule app_Closure_evaluate
   \\ rpt strip_tac
   \\ drule_all scan_store_lookup \\ strip_tac
   \\ gvs []
@@ -141,10 +141,10 @@ Theorem w8array_scanNeq_spec:
          W8ARRAY av ws)
 Proof
   rw [WORD_def,NUM_def,INT_def,Word8Array_scanNeq_v_def]
-  \\ irule scan_curry
-  \\ irule scan_curry
-  \\ irule scan_curry
-  \\ irule scan_apply
+  \\ irule app_Closure_Fun
+  \\ irule app_Closure_Fun
+  \\ irule app_Closure_Fun
+  \\ irule app_Closure_evaluate
   \\ rpt strip_tac
   \\ drule_all scan_store_lookup \\ strip_tac
   \\ gvs []
