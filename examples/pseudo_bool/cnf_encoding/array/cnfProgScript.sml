@@ -576,9 +576,10 @@ Quote add_cakeml:
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (fml,(nv,nc)) =>
     let val n = None in
+    case enc_list_mv fml [] 0 of (fmls,mx) =>
     (case
       ores_to_string (
-        check_unsat_top False (plainlim_ns nv) (enc_list fml) n n [] n n f2) of
+        check_unsat_top False (plainlim_ns nv) fmls mx n n [] n n f2) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s)
     end
@@ -629,7 +630,19 @@ Proof
   PairCases_on`y`>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>
-  ntac 4 xlet_autop>>
+  ntac 2 xlet_autop>>
+  xlet`POSTv v. STDIO fs *
+    &PAIR_TYPE (LIST_TYPE NPBC_SLOT_SLOT_TYPE) NUM
+      (enc_list_mv (fml_to_pbf fml) [] 0) v`
+  >- (
+    xapp>>xsimpl>>
+    qexistsl_tac[`[]`,`fml_to_pbf fml`]>>
+    simp[LIST_TYPE_def])>>
+  qspec_then`fml_to_pbf fml` assume_tac
+    (Q.GEN`fml` (Q.INST [`mx`|->`0`] npbc_parseProgTheory.max_var_list_bound))>>
+  gvs[npbc_parseProgTheory.enc_list_mv_thm,PAIR_TYPE_def]>>
+  xmatch>>
+  ntac 2 xlet_autop>>
   xlet`POSTv v. STDIO fs * &BOOL F v`
   >-
     (xcon>>xsimpl)>>
@@ -646,9 +659,10 @@ Proof
            sem_concl (set (fml_to_pbf fml)) NONE {} concl
         | INL l => T)`
   >- (
-    `LIST_TYPE fslot_TYPE (MAP (λc. enc c T) (fml_to_pbf fml)) v''` by
-      gvs[npbc_arrayProgTheory.LIST_TYPE_fslot_TYPE,
-        npbc_parseProgTheory.enc_list_def,EVERY_MAP]>>
+    qmatch_asmsub_rename_tac`LIST_TYPE NPBC_SLOT_SLOT_TYPE _ fmlsv`>>
+    fs[npbc_parseProgTheory.enc_list_def]>>
+    `LIST_TYPE fslot_TYPE (MAP (λc. enc c T) (fml_to_pbf fml)) fmlsv` by
+      gvs[npbc_arrayProgTheory.LIST_TYPE_fslot_TYPE,EVERY_MAP]>>
     drule_at (Pos (el 2)) check_unsat_top_spec>>
     disch_then drule>>
     strip_tac>>

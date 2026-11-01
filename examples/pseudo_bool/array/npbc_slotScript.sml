@@ -1327,63 +1327,6 @@ Proof
   gvs[]
 QED
 
-Definition cond_pos_def:
-  cond_pos x cc =
-    EXISTS (λ(c:int,n:num). 0 ≤ c ∧ n = x) cc
-End
-
-Definition cond_neg_def:
-  cond_neg x cc =
-    EXISTS (λ(c:int,n:num). c < 0 ∧ n = x) cc
-End
-
-(* (x occurs with a nonnegative coefficient, x occurs with a negative
-  coefficient) *)
-Definition restore_scan_def:
-  restore_scan cs vs (x:num) i p q =
-  if i = 0 then (p,q)
-  else
-    let i1 = i - 1 in
-    if sub_unsafe vs i1 = x then
-      let c:int = sub_unsafe cs i1 in
-      restore_scan cs vs x i1 (p ∨ 0 ≤ c) (q ∨ c < 0)
-    else restore_scan cs vs x i1 p q
-End
-
-Definition restore_slot_def:
-  restore_slot x s =
-  case s of
-    Empty => (F,F)
-  | Stored cs vs d mc sm b => restore_scan cs vs x (length cs) F F
-End
-
-Theorem restore_slot_test:
-  restore_slot 4 (enc ([(2,1);(-3,4);(1,4)],3) T) = (T,T) ∧
-  restore_slot 1 (enc ([(2,1);(-3,4);(1,4)],3) T) = (T,F) ∧
-  restore_slot 2 (enc ([(2,1);(-3,4);(1,4)],3) T) = (F,F)
-Proof
-  EVAL_TAC
-QED
-
-Theorem restore_scan_thm:
-  ∀i p q.
-  restore_scan cs vs x i p q =
-    (p ∨ cond_pos x (GENLIST (λj. (sub cs j, sub vs j)) i),
-     q ∨ cond_neg x (GENLIST (λj. (sub cs j, sub vs j)) i))
-Proof
-  Induct>>
-  rw[Once restore_scan_def,cond_pos_def,cond_neg_def,GENLIST,EXISTS_SNOC]>>
-  metis_tac[]
-QED
-
-Theorem restore_slot_thm:
-  restore_slot x s = (cond_pos x (FST (dec s)), cond_neg x (FST (dec s)))
-Proof
-  Cases_on`s`>>
-  simp[restore_slot_def,dec_def,dec_terms_GENLIST,restore_scan_thm]>>
-  simp[cond_pos_def,cond_neg_def]
-QED
-
 (* Hashing *)
 
 Definition h_base_def:

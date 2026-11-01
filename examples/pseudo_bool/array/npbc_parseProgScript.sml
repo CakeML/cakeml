@@ -2260,14 +2260,14 @@ QED
 Theorem check_unsat''_spec:
   ∀fns ss fmlls assg st inds vimap id cfg ht
     fnsv lno lnov fmllsv assgv stv indsv idv cfgv lines fs fmlv vimaplsv
-    vimapv htv bksv bkslsv.
+    vimapa vimapv htv bksv bkslsv.
   fns_TYPE a fns fnsv ∧
   NUM lno lnov ∧
   LIST_REL fslot_TYPE fmlls fmllsv ∧
   fml_bound fmlls (LENGTH assg) ∧
   NUM st stv ∧
   (LIST_TYPE NUM) inds indsv ∧
-  LIST_REL vimapn_TYPE vimap vimaplsv ∧
+  VIMAP_TYPE vimaplsv vimapa vimap vimapv ∧
   NUM id idv ∧
   cfg_TYPE cfg cfgv ∧
   ht_TYPE bksv bkslsv ht htv ∧
@@ -2278,7 +2278,7 @@ Theorem check_unsat''_spec:
     [fnsv; fdv; lnov; fmlv; assgv; stv; indsv; vimapv; idv; cfgv; htv]
     (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs *
       ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
-      ARRAY vimapv vimaplsv * ARRAY bksv bkslsv)
+      ARRAY vimapa vimaplsv * ARRAY bksv bkslsv)
     (POSTve
       (λv.
          SEP_EXISTS k lines' lno' fmlv' fmllsv' bksv' bkslsv' res.
@@ -2320,7 +2320,7 @@ Proof
     >- (
       xapp>>xsimpl>>
       qexistsl_tac[`ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
-        ARRAY vimapv vimaplsv * ARRAY bksv bkslsv`,`lines`,`fs`,`fns`,`fd`,`a`,
+        ARRAY vimapa vimaplsv * ARRAY bksv bkslsv`,`lines`,`fs`,`fns`,`fd`,`a`,
         `lno`]>>
       xsimpl>>
       rw[]>>
@@ -2336,7 +2336,7 @@ Proof
     SEP_EXISTS k lines' lno'.
          STDIO (forwardFD fs fd k) *
          INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
-         ARRAY fmlv fmllsv * NUM_ARRAY assgv assg * ARRAY vimapv vimaplsv *
+         ARRAY fmlv fmllsv * NUM_ARRAY assgv assg * ARRAY vimapa vimaplsv *
          ARRAY bksv bkslsv *
          &(
             case parse_cstep fns (MAP toks_fast lines) of
@@ -2352,7 +2352,7 @@ Proof
   >- (
     xapp>>xsimpl>>
     qexistsl_tac[`ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
-      ARRAY vimapv vimaplsv * ARRAY bksv bkslsv`,`lines`,`fs`,`fns`,`fd`,`a`,
+      ARRAY vimapa vimaplsv * ARRAY bksv bkslsv`,`lines`,`fs`,`fns`,`fd`,`a`,
       `lno`]>>
     xsimpl>>
     rw[]>>
@@ -2374,9 +2374,9 @@ Proof
   xmatch>>
   xlet`POSTve
     (λv'.
-      SEP_EXISTS fmlv' fmllsv' assgv' assg' vimapv' vimaplsv' bksv' bkslsv'.
+      SEP_EXISTS fmlv' fmllsv' assgv' assg' vimapa' vimaplsv' bksv' bkslsv'.
       ARRAY fmlv' fmllsv' * NUM_ARRAY assgv' assg' *
-      ARRAY vimapv' vimaplsv' * ARRAY bksv' bkslsv' *
+      ARRAY vimapa' vimaplsv' * ARRAY bksv' bkslsv' *
       STDIO (forwardFD fs fd k) *
       INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
       &case check_cstep_list cstep fmlls assg st inds vimap id
@@ -2388,7 +2388,7 @@ Proof
           (PAIR_TYPE NUM
           (PAIR_TYPE (LIST_TYPE NUM)
             (PAIR_TYPE
-              (λl v. LIST_REL vimapn_TYPE l vimaplsv' ∧ v = vimapv')
+              (VIMAP_TYPE vimaplsv' vimapa')
               (PAIR_TYPE NUM
                 (PAIR_TYPE cfg_TYPE (ht_TYPE bksv' bkslsv'))))))) res v')
     (λe.
@@ -2402,8 +2402,8 @@ Proof
     xapp>>xsimpl>>
     qexistsl_tac[`STDIO (forwardFD fs fd k) *
       INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k)`,
-      `cfg1`,`vimap`,`st`,`cfg0`,`inds`,`id`,`ht`,`fmlls`,`cfg2`,`cstep`,
-      `bksv`,`bkslsv`,`assg`,`lno`]>>
+      `cfg1`,`vimaplsv`,`vimapa`,`vimap`,`st`,`cfg0`,`inds`,`id`,`ht`,`fmlls`,
+      `cfg2`,`cstep`,`bksv`,`bkslsv`,`assg`,`lno`]>>
     xsimpl>>
     rw[]
     >- simp[PAIR_TYPE_def]
@@ -2424,7 +2424,8 @@ Proof
   fs[PAIR_TYPE_def,PULL_EXISTS]>>
   xmatch>>
   xapp>>xsimpl>>
-  qexistsl_tac[`emp`,`lines'`,`forwardFD fs fd k`,`bksv'`,`bkslsv'`,`lno'`]>>
+  qexistsl_tac[`emp`,`vimaplsv'`,`vimapa'`,`lines'`,`forwardFD fs fd k`,
+    `bksv'`,`bkslsv'`,`lno'`]>>
   simp[]>>xsimpl>>
   rw[]>>simp[forwardFD_o]
   >- (
@@ -2827,82 +2828,22 @@ Proof
   xapp>>xsimpl
 QED
 
-(* Indexes the model's slots, from index k, and returns their largest
-  variable *)
-Quote add_cakeml:
-  fun mk_vimap_arr k ls vimap mx =
-  case ls of [] => (vimap, mx)
-  | (s::ss) =>
-    let
-      val m = slot_max_var s
-      val vimap = update_vimap_slot_arr False vimap k m s
-    in
-      mk_vimap_arr (k+1) ss vimap (if mx < m then m else mx)
-    end
-End
-
-Theorem mk_vimap_arr_spec:
-  ∀ls lsv vimap vimapv vimaplsv k kv mx mxv.
-  NUM k kv ∧
-  LIST_TYPE fslot_TYPE ls lsv ∧
-  LIST_REL vimapn_TYPE vimap vimaplsv ∧
-  NUM mx mxv
-  ⇒
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "mk_vimap_arr" (get_ml_prog_state()))
-    [kv; lsv; vimapv; mxv]
-    (ARRAY vimapv vimaplsv)
-    (POSTv v.
-       SEP_EXISTS vimapv' vimaplsv'.
-        ARRAY vimapv' vimaplsv' *
-        &(PAIR_TYPE (λl v. LIST_REL vimapn_TYPE l vimaplsv' ∧ v = vimapv')
-            NUM (mk_vimap vimap mx (enumerate k ls)) v))
-Proof
-  Induct>>rw[]>>
-  xcf "mk_vimap_arr" (get_ml_prog_state ())>>
-  gvs[LIST_TYPE_def,miscTheory.enumerate_def,npbc_listTheory.mk_vimap_def]>>
-  xmatch
-  >- (
-    xcon>>xsimpl>>simp[PAIR_TYPE_def]>>
-    qexists_tac`vimaplsv`>>xsimpl)>>
-  rename1`fslot_TYPE s _`>>
-  qpat_x_assum`fslot_TYPE s _`
-    (strip_assume_tac o REWRITE_RULE[fslot_TYPE_def])>>
-  rpt xlet_autop>>
-  xlet`POSTv vimapv1. SEP_EXISTS vimaplsv1.
-    ARRAY vimapv1 vimaplsv1 *
-    &LIST_REL vimapn_TYPE
-      (update_vimap_slot F vimap k (slot_max_var s) s) vimaplsv1`
-  >- (
-    xapp>>xsimpl>>
-    simp[fslot_TYPE_def,npbc_slotTheory.slot_bound_slot_max_var]>>
-    EVAL_TAC)>>
-  xlet_autop>>
-  xlet`POSTv v. ARRAY vimapv1 vimaplsv1 *
-    &NUM (if mx < slot_max_var s then slot_max_var s else mx) v`
-  >- (xif>>xvar>>xsimpl)>>
-  xlet_autop>>
-  xapp>>xsimpl
-QED
-
 Definition get_enum_def:
   get_enum pc = pc.enum
 End
 
 val res = translate get_enum_def;
 
-(* NOTE: 100000 just a random number *)
+(* mx is the largest variable of the slots fml; the index starts empty,
+  with the input ids 1 to LENGTH fml *)
 Quote add_cakeml:
-  fun check_unsat' b fns fd lno fml pres obj fmlt prest objt =
+  fun check_unsat' b fns fd lno fml mx pres obj fmlt prest objt =
   let
     val id = List.length fml + 1
     val arr = Array.array (2*id) Empty
     val arr = fill_arr arr 1 fml
     val inds = rev_enum_full 1 fml
-    val vimap = Array.array 100000 Vnone
-  in
-    case mk_vimap_arr 1 fml vimap 0 of (vimap,mx) =>
-    let
+    val vimap = (id - 1, (0, Array.array (mx + 1) Vnone))
     val assg = Array.array (mx + 1) 0
     val vomap = mk_vomap_opt_arr obj
     val cfg = (init_conf True pres obj, (vomap, 0))
@@ -2919,7 +2860,6 @@ Quote add_cakeml:
     (get_chk pc') (get_enum pc')
     fmlt prest objt))
     handle Fail s => Inl s
-  end
   end
 End
 
@@ -2971,6 +2911,8 @@ Theorem check_unsat'_spec:
   NUM lno lnov ∧
   LIST_TYPE fslot_TYPE fmls fmlv ∧
   fmls = MAP (λc. enc c T) fml ∧
+  NUM mx mxv ∧
+  EVERY (λs. slot_bound s (mx+1)) fmls ∧
   obj_TYPE obj objv ∧
   pres_TYPE pres presv ∧
   LIST_TYPE constraint_TYPE fmlt fmltv ∧
@@ -2979,7 +2921,7 @@ Theorem check_unsat'_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat'" (get_ml_prog_state()))
-    [bv; fnsv; fdv; lnov; fmlv; presv; objv; fmltv; prestv; objtv]
+    [bv; fnsv; fdv; lnov; fmlv; mxv; presv; objv; fmltv; prestv; objtv]
     (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
     (POSTv v.
      SEP_EXISTS k lines' res.
@@ -3023,46 +2965,10 @@ Proof
       `REPLICATE (2 * (LENGTH fml + 1)) Empty`]>>
     simp[])>>
   rpt xlet_autop>>
-  xlet`POSTv v. SEP_EXISTS vimapv vimaplsv.
-    ARRAY vimapv vimaplsv * ARRAY resv arrlsv' * STDIO fs *
-    INSTREAM_LINES #"\n" fd fdv lines fs *
-    &PAIR_TYPE (λl v. LIST_REL vimapn_TYPE l vimaplsv ∧ v = vimapv) NUM
-      (mk_vimap (REPLICATE 100000 Vnone) 0
-        (enumerate 1 (MAP (λc. enc c T) fml))) v`
-  >- (
-    xapp>>xsimpl>>
-    qexistsl_tac[`REPLICATE 100000 Vnone`,`MAP (λc. enc c T) fml`]>>
-    conj_tac
-    >- (irule (iffRL LIST_REL_REPLICATE_same)>>EVAL_TAC)>>
-    conj_tac
-    >- first_assum ACCEPT_TAC>>
-    rpt strip_tac>>
-    first_assum (irule_at Any)>>
-    xsimpl)>>
-  `∃vimap1 mx.
-    mk_vimap (REPLICATE 100000 Vnone) 0
-      (enumerate 1 (MAP (λc. enc c T) fml)) = (vimap1,mx)` by
-    metis_tac[PAIR]>>
-  gvs[PAIR_TYPE_def]>>
-  xmatch>>
-  xlet_autop>>
-  xlet`POSTv assgv.
-    NUM_ARRAY assgv (REPLICATE (mx+1) 0) * ARRAY vimapv vimaplsv *
-    ARRAY resv arrlsv' * STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs`
-  >- (
-    simp[npbc_arrayProgTheory.NUM_ARRAY_def]>>
-    xapp>>xsimpl>>
-    qexists_tac`mx+1`>>
-    simp[LIST_REL_REPLICATE_same]>>
-    EVAL_TAC)>>
   `BOOL T (Conv (SOME (TypeStamp «True» 0)) [])` by EVAL_TAC>>
   rpt xlet_autop>>
-  qmatch_goalsub_rename_tac`ARRAY bkv []`>>
-  `EVERY (λs. slot_bound s (mx+1)) (MAP (λc. enc c T) fml)` by (
-    qspecl_then [`fml`,`1`,`REPLICATE 100000 Vnone`,`0`] mp_tac
-      (INST [``b:bool``|->``T``,``b':bool``|->``T``]
-        npbc_listTheory.mk_vimap_bound)>>
-    simp[EVERY_MAP])>>
+  qmatch_goalsub_rename_tac
+    `ARRAY bkv [] * ARRAY assgv _ * ARRAY vimapa (REPLICATE _ vnone)`>>
   `fml_bound
     (FOLDL (λacc (i,v). update_resize acc Empty v i)
       (REPLICATE (2 * (LENGTH fml + 1)) Empty)
@@ -3078,6 +2984,7 @@ Proof
   qabbrev_tac`inds = rev_enum_full 1 (MAP (λc. enc c T) fml)`>>
   qabbrev_tac`vomap = mk_vomap_opt obj`>>
   qabbrev_tac`assg = REPLICATE (mx+1) (0:num)`>>
+  qabbrev_tac`vimap1 = (LENGTH fml, 0:num, REPLICATE (mx+1) Vnone)`>>
   Cases_on`
     parse_and_run fns (MAP toks_fast lines) fmlls assg 1 inds vimap1
       (LENGTH fml + 1) (init_conf T pres obj, vomap, 0) ht_empty`
@@ -3095,16 +3002,26 @@ Proof
            &(Fail_exn e)`
       >- (
         xapp>>xsimpl>>
-        qexistsl_tac[`emp`,`vimap1`,`lines`,`inds`,`LENGTH fml + 1`,
-          `ht_empty`,`fs`,`fns`,`fmlls`,`fd`,
+        qexistsl_tac[`emp`,`REPLICATE (mx+1) vnone`,`vimapa`,`vimap1`,`lines`,
+          `inds`,`LENGTH fml + 1`,`ht_empty`,`fs`,`fns`,`fmlls`,`fd`,
           `(init_conf T pres obj, vomap, 0)`,`bkv`,`[]`,`assg`,`a`,`lno`]>>
         xsimpl>>
         conj_tac >- (
           simp[PAIR_TYPE_def,Abbr`vomap`]>>
           simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])>>
         conj_tac >- (
+          simp[npbc_arrayProgTheory.VIMAP_TYPE_def,PAIR_TYPE_def,Abbr`vimap1`,
+            LIST_REL_REPLICATE_same]>>
+          simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def]>>
+          EVAL_TAC)>>
+        conj_tac >- (
           simp[ht_TYPE_def,npbc_slotTheory.ht_empty_def,PAIR_TYPE_def]>>
           simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])>>
+        conj_tac >- (
+          simp[npbc_arrayProgTheory.NUM_ARRAY_def,Abbr`assg`]>>
+          xsimpl>>
+          simp[LIST_REL_REPLICATE_same]>>
+          EVAL_TAC)>>
         rw[]>>
         qmatch_goalsub_rename_tac
           `ARRAY _ _ * STDIO (forwardFD fs fd kk) *
@@ -3154,16 +3071,26 @@ Proof
                 (PAIR_TYPE NUM (ht_TYPE bksv' bkslsv'))))))) (lno',res) v)`
     >- (
       xapp>>xsimpl>>
-      qexistsl_tac[`emp`,`vimap1`,`lines`,`inds`,`LENGTH fml + 1`,`ht_empty`,
-        `fs`,`fns`,`fmlls`,`fd`,`(init_conf T pres obj, vomap, 0)`,`bkv`,
-        `[]`,`assg`,`a`,`lno`]>>
+      qexistsl_tac[`emp`,`REPLICATE (mx+1) vnone`,`vimapa`,`vimap1`,`lines`,
+        `inds`,`LENGTH fml + 1`,`ht_empty`,`fs`,`fns`,`fmlls`,`fd`,
+        `(init_conf T pres obj, vomap, 0)`,`bkv`,`[]`,`assg`,`a`,`lno`]>>
       xsimpl>>
       conj_tac >- (
         simp[PAIR_TYPE_def,Abbr`vomap`]>>
         simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])>>
       conj_tac >- (
+        simp[npbc_arrayProgTheory.VIMAP_TYPE_def,PAIR_TYPE_def,Abbr`vimap1`,
+          LIST_REL_REPLICATE_same]>>
+        simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def]>>
+        EVAL_TAC)>>
+      conj_tac >- (
         simp[ht_TYPE_def,npbc_slotTheory.ht_empty_def,PAIR_TYPE_def]>>
         simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])>>
+      conj_tac >- (
+        simp[npbc_arrayProgTheory.NUM_ARRAY_def,Abbr`assg`]>>
+        xsimpl>>
+        simp[LIST_REL_REPLICATE_same]>>
+        EVAL_TAC)>>
       rw[]>>
       qmatch_goalsub_rename_tac
         `STDIO (forwardFD fs fd kk) * INSTREAM_LINES _ fd fdv ll _ *
@@ -3232,9 +3159,6 @@ Proof
     drule parse_and_run_check_csteps_list>>
     rw[]>>fs[]>>
     simp[GSYM PULL_EXISTS]>>
-    `vimap1 = FST (mk_vimap (REPLICATE 100000 Vnone) 0
-      (enumerate 1 (MAP (λc. enc c T) fml)))` by simp[]>>
-    pop_assum SUBST_ALL_TAC>>
     unabbrev_all_tac>>
     fs[rev_enum_full_rev_enumerate]>>
     conj_tac
@@ -3355,7 +3279,7 @@ End
 val r = translate notfound_string_def;
 
 Quote add_cakeml:
-  fun check_unsat_top b fns fml pres obj fmlt prest objt fname =
+  fun check_unsat_top b fns fml mx pres obj fmlt prest objt fname =
   let
     val fd = TextIO.openIn fname
   in
@@ -3365,7 +3289,7 @@ Quote add_cakeml:
       Inl (format_failure n "Unable to parse header"))
     | None =>
       let val res =
-        (check_unsat' b fns fd 3 fml pres obj fmlt prest objt)
+        (check_unsat' b fns fd 3 fml mx pres obj fmlt prest objt)
         val close = TextIO.closeIn fd;
       in
         res
@@ -3388,6 +3312,8 @@ Theorem check_unsat_top_spec:
   fns_TYPE a fns fnsv ∧
   LIST_TYPE fslot_TYPE fmls fmlv ∧
   fmls = MAP (λc. enc c T) fml ∧
+  NUM mx mxv ∧
+  EVERY (λs. slot_bound s (mx+1)) fmls ∧
   obj_TYPE obj objv ∧
   pres_TYPE pres presv ∧
   LIST_TYPE constraint_TYPE fmlt fmltv ∧
@@ -3397,7 +3323,7 @@ Theorem check_unsat_top_spec:
   hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) ^(fetch_v"check_unsat_top"(get_ml_prog_state()))
-  [bv; fnsv; fmlv; presv; objv; fmltv; prestv; objtv; fv]
+  [bv; fnsv; fmlv; mxv; presv; objv; fmltv; prestv; objtv; fv]
   (STDIO fs)
   (POSTv v.
      STDIO fs *
@@ -3618,11 +3544,86 @@ End
 
 val res = translate enc_list_def;
 
+(* The largest of mx and the variables of the constraints *)
+Definition max_var_list_def:
+  max_var_list (fml:npbc list) mx = FOLDL (λm c. MAX m (max_var (FST c))) mx fml
+End
+
+Theorem max_var_list_bound:
+  EVERY (λs. slot_bound s (max_var_list fml mx + 1)) (enc_list fml)
+Proof
+  `∀fml mx. mx ≤ max_var_list fml mx ∧
+     EVERY (λc. max_var (FST c) ≤ max_var_list fml mx) fml` by (
+    Induct>>
+    rw[max_var_list_def]>>
+    first_x_assum (qspec_then`MAX mx (max_var (FST h))` strip_assume_tac)>>
+    gvs[max_var_list_def])>>
+  simp[enc_list_def,EVERY_MAP]>>
+  first_x_assum (qspecl_then[`fml`,`mx`] strip_assume_tac)>>
+  pop_assum mp_tac>>
+  match_mp_tac EVERY_MONOTONIC>>
+  rw[]>>
+  irule npbc_slotTheory.slot_bound_mono>>
+  qexists_tac`max_var (FST x) + 1`>>
+  simp[npbc_slotTheory.slot_bound_enc_max_var]
+QED
+
+Theorem max_var_list_MAX:
+  ∀fml mx. max_var_list fml mx = MAX mx (max_var_list fml 0)
+Proof
+  Induct>>
+  rw[max_var_list_def]>>
+  once_rewrite_tac[GSYM max_var_list_def]>>
+  pop_assum (fn th => once_rewrite_tac[th])>>
+  rw[MAX_DEF]
+QED
+
+Theorem max_var_list_APPEND:
+  max_var_list (l1 ++ l2) mx = max_var_list l1 (max_var_list l2 mx)
+Proof
+  rw[max_var_list_def,FOLDL_APPEND]>>
+  rewrite_tac[GSYM max_var_list_def]>>
+  qspecl_then[`l1`,`max_var_list l2 mx`] SUBST1_TAC max_var_list_MAX>>
+  qspecl_then[`l2`,`max_var_list l1 mx`] SUBST1_TAC max_var_list_MAX>>
+  qspecl_then[`l1`,`mx`] SUBST1_TAC max_var_list_MAX>>
+  qspecl_then[`l2`,`mx`] SUBST1_TAC max_var_list_MAX>>
+  rw[MAX_DEF]
+QED
+
+Theorem max_var_list_REVERSE:
+  ∀fml mx. max_var_list (REVERSE fml) mx = max_var_list fml mx
+Proof
+  Induct>>
+  rw[max_var_list_APPEND]>>
+  simp[max_var_list_def]
+QED
+
+(* The stored (core) forms of the constraints, with the largest of mx and
+  their variables *)
+Definition enc_list_mv_def:
+  (enc_list_mv [] acc (mx:num) = (REVERSE acc, mx)) ∧
+  (enc_list_mv (c::cs) acc mx =
+    let (s,m) = enc_mv c T in
+    enc_list_mv cs (s::acc) (if mx < m then m else mx))
+End
+
+val res = translate enc_list_mv_def;
+
+Theorem enc_list_mv_thm:
+  ∀fml acc mx.
+  enc_list_mv fml acc mx = (REVERSE acc ++ enc_list fml, max_var_list fml mx)
+Proof
+  Induct>>
+  rw[enc_list_mv_def,enc_list_def,max_var_list_def,npbc_slotTheory.enc_mv_enc]>>
+  gvs[enc_list_def,max_var_list_def,MAX_DEF]
+QED
+
 Quote add_cakeml:
   fun check_unsat_top_norm b prob probt fname =
   case normalise_full_2 prob probt of
     ((pres,(obj,fml)),((prest,(objt,fmlt)),t)) =>
-    check_unsat_top b (name_to_num_var_nf,t) (enc_list fml) pres obj
+    case enc_list_mv fml [] 0 of (fmls,mx) =>
+    check_unsat_top b (name_to_num_var_nf,t) fmls mx pres obj
       fmlt prest objt fname
 End
 
@@ -3679,13 +3680,24 @@ Proof
   gvs[PAIR_TYPE_def]>>
   xmatch>>
   rpt xlet_autop>>
-  `LIST_TYPE fslot_TYPE (MAP (λc. enc c T) fml) v` by
-    gvs[npbc_arrayProgTheory.LIST_TYPE_fslot_TYPE,enc_list_def,EVERY_MAP]>>
+  xlet`POSTv v. STDIO fs *
+    &PAIR_TYPE (LIST_TYPE NPBC_SLOT_SLOT_TYPE) NUM (enc_list_mv fml [] 0) v`
+  >- (
+    xapp>>xsimpl>>
+    qexistsl_tac[`[]`,`fml`]>>
+    simp[LIST_TYPE_def])>>
+  assume_tac (Q.INST [`mx`|->`0`] max_var_list_bound)>>
+  gvs[enc_list_mv_thm,enc_list_def,PAIR_TYPE_def]>>
+  xmatch>>
+  xlet_autop>>
+  rename1`LIST_TYPE NPBC_SLOT_SLOT_TYPE _ fmlsv`>>
+  `LIST_TYPE fslot_TYPE (MAP (λc. enc c T) fml) fmlsv` by
+    gvs[npbc_arrayProgTheory.LIST_TYPE_fslot_TYPE,EVERY_MAP]>>
   xapp_spec (check_unsat_top_spec |>
     INST_TYPE[alpha|->``:mlstring name_to_num_state``])>>
   xsimpl>>
   qexistsl_tac[`emp`,`prest`,`pres`,`objt`,`obj`,`fs`,`fmlt`,`fml`,`b`,`f`,
-    `PBC_NORMALISE_NAME_TO_NUM_STATE_TYPE STRING_TYPE`,
+    `max_var_list fml 0`,`PBC_NORMALISE_NAME_TO_NUM_STATE_TYPE STRING_TYPE`,
     `(name_to_num_var_nf,t)`]>>
   xsimpl>>
   CONJ_TAC
