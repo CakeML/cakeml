@@ -111,3 +111,9 @@ manifest = "holextra.manifest.toml"
 "compiler/backend/proofs/clos_mtiProofScript.sml" = 10.0
 
 "compiler/backend/proofs/clos_knownProofScript.sml" = 10.0
+
+"compiler/backend/proofs/clos_to_bvlProofScript.sml" = 60.0
+
+"compiler/parsing/proofs/pegCompleteScript.sml" = 10.0
+
+"compiler/inference/proofs/type_dCanonScript.sml" = 10.0
