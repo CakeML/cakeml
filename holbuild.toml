@@ -56,7 +56,7 @@ manifest = "holextra.manifest.toml"
 "compiler/backend/semantics/bvlPropsScript.sml" = 10.0
 "compiler/backend/semantics/bviPropsScript.sml" = 60.0
 "compiler/backend/proofs/bvl_constProofScript.sml" = 120.0
-"compiler/backend/proofs/bvi_tailrecProofScript.sml" = 30.0
+"compiler/backend/proofs/bvi_tailrecProofScript.sml" = 90.0
 "compiler/backend/semantics/closPropsScript.sml" = 10.0
 "compiler/backend/proofs/bvl_to_bviProofScript.sml" = 30.0
 "compiler/backend/proofs/clos_callProofScript.sml" = 10.0
@@ -103,3 +103,11 @@ manifest = "holextra.manifest.toml"
 "compiler/backend/proofs/clos_ticksProofScript.sml" = 10.0
 
 "compiler/parsing/lexer_implScript.sml" = 10.0
+
+"compiler/backend/proofs/clos_opProofScript.sml" = 30.0
+
+"compiler/backend/proofs/bvi_tmcProofScript.sml" = 10.0
+
+"compiler/backend/proofs/clos_mtiProofScript.sml" = 10.0
+
+"compiler/backend/proofs/clos_knownProofScript.sml" = 10.0
