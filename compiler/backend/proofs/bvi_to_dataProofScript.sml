@@ -549,7 +549,7 @@ Theorem data_to_bvi_do_app:
     op ≠ IntOp GreaterEq ∧
     op ≠ WordOp (WordTest W8 (Compare Gt)) ∧
     op ≠ WordOp (WordTest W8 (Compare Geq)) ∧
-    (∀b. op ≠ MemOp (CopyByte b)) ∧
+    op ≠ MemOp (CopyByte F) ∧
     op ≠ ThunkOp ForceThunk ∧
     state_rel r t ∧
     do_app op (MAP data_to_bvi_v z) r = Rval (res,s1)
@@ -559,8 +559,47 @@ Theorem data_to_bvi_do_app:
        state_rel s1 s2
 Proof
   strip_tac
+  \\ Cases_on `op = MemOp (CopyByte T)`
+  >- (
+    rpt gen_tac \\ strip_tac
+    \\ gvs [bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,
+            bvlSemTheory.do_app_def,AllCaseEqs (),MAP_EQ_CONS,SWAP_REVERSE_SYM]
+    \\ rename1 `copy_array (source_bytes,source_offset) copy_len NONE = SOME copied_bytes`
+    \\ qmatch_asmsub_rename_tac
+         `FLOOKUP r.refs source_ptr = SOME (ByteArray source_flag source_bytes)`
+    \\ fs [state_rel_def]
+    \\ drule_then assume_tac refs_rel_LEAST_eq
+    \\ `lookup source_ptr t.refs = SOME (ByteArray source_flag source_bytes)` by (
+      qpat_x_assum `∀n. FLOOKUP r.refs n = _` (qspec_then `source_ptr` mp_tac)
+      \\ simp [lookup_map,AllCaseEqs ()])
+    \\ simp [do_app_aux_def,bvl_to_bvi_def,bvi_to_bvl_def,
+             FLOOKUP_UPDATE,lookup_map,map_insert,lookup_insert]
+    \\ rw [])
+  \\ `(∀b. op ≠ MemOp (CopyByte b)) ⇔ op ≠ MemOp (CopyByte F)` by (
+    eq_tac
+    >- (disch_then (qspec_then `F` ACCEPT_TAC))
+    \\ strip_tac
+    \\ Cases
+    \\ simp [])
+  \\ pop_assum (once_rewrite_tac o single o GSYM)
+  \\ qpat_x_assum `op ≠ MemOp (CopyByte T)` kall_tac
   \\ ‘∃this_is_case. this_is_case op’ by (qexists_tac ‘K T’ \\ fs [])
   \\ cases_on_op `op`
+  >~ [`do_app (MemOp (CopyWord _))`] >- (
+    rename1 `CopyWord copy_new`
+    \\ Cases_on `copy_new`
+    \\ fs [oneline bviSemTheory.do_app_def,
+            oneline bviSemTheory.do_app_aux_def, bvlSemTheory.do_app_def]
+    \\ rw [AllCaseEqs()]
+    \\ gvs [NULL_EQ_NIL, MAP_EQ_CONS, data_to_bvi_v_eq]
+    \\ rfs [state_rel_def, bvi_to_bvl_def, bvl_to_bvi_def]
+    \\ gvs [lookup_map, AllCaseEqs()]
+    \\ gvs [do_app_aux_def, semanticPrimitivesTheory.copy_array_def,
+            MAP_TAKE, MAP_DROP, AllCaseEqs()]
+    \\ rw [FLOOKUP_UPDATE, lookup_insert, MAP_TAKE, MAP_DROP]
+    \\ Cases_on `t.tstamps`
+    \\ fsrw_tac [DNF_ss] [with_fresh_ts_def, MAP_TAKE, MAP_DROP]
+    \\ tautLib.TAUT_TAC)
   >~ [`do_app (BlockOp (BoolTest test))`]
   >- (fs[oneline bviSemTheory.do_app_def,
       oneline bviSemTheory.do_app_aux_def,
@@ -1675,7 +1714,7 @@ Resume compile_correct[Op]:
       \\ fs[jump_exc_def,dataSemTheory.do_stack_def]
       \\ TOP_CASE_TAC \\ fs[]
       \\ TOP_CASE_TAC \\ fs[])
-    \\ Cases_on`∃b. op = MemOp (CopyByte b)` >-
+    \\ Cases_on `op = MemOp (CopyByte F)` >-
   (fs[dataLangTheory.op_requires_names_def]
       \\ qhdtm_x_assum`bviSem$do_app`mp_tac
       \\ simp[bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,closSemTheory.case_eq_thms]

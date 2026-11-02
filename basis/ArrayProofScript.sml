@@ -3,7 +3,8 @@
 *)
 Theory ArrayProof
 Ancestors
-  ml_translator mlbasicsProg ArrayProg
+  ml_translator mlbasicsProg ArrayProg Word8ArrayProof
+  semanticPrimitives[qualified] evaluate[qualified] cfStore[qualified]
 Libs
   preamble ml_translatorLib cfLib
 
@@ -278,38 +279,180 @@ Proof
     \\ EVAL_TAC \\ rw[lupdate_append2]
 QED
 
-Theorem array_copy_aux_spec:
-   !src n srcv dstv di div nv max maxv bfr mid afr.
-      NUM di div /\ NUM n nv /\ NUM max maxv /\
-      di = LENGTH bfr/\ LENGTH mid = max - n /\ n <= max /\
-      max <= LENGTH src
-      ==> app (p:'ffi ffi_proj) Array_copy_aux_v [srcv; dstv; div; maxv; nv]
-      (ARRAY srcv src * ARRAY dstv (bfr ++ mid ++ afr))
-    (POSTv uv. ARRAY srcv src *
-               ARRAY dstv (bfr ++ (TAKE (max -n) (DROP n src)) ++ afr))
+Theorem array_store_lookup[local]:
+  SPLIT (st2heap p st) (h_i,h_k) /\ (H * ARRAY av xs) h_i ==>
+  ?loc. av = Loc T loc /\
+        store_lookup loc st.refs = SOME (Varray xs)
 Proof
-  gen_tac \\ gen_tac \\ Induct_on `max - n` >>
-  rpt strip_tac \\ xcf_with_def Array_copy_aux_v_def
-  >-(xlet_auto >> (xsimpl >> xif) >>
-     instantiate >> xcon >> xsimpl >> metis_tac[TAKE_0,LENGTH_NIL]) >>
-  xlet_auto >- xsimpl >>
-  xif >> instantiate >>
-  NTAC 4 (xlet_auto >- xsimpl) >>
-  xapp >> xsimpl >>
-  cases_on`mid` >> fs[] >>
-  qexists_tac`1 + n` >> qexists_tac`t` >>
-  qexists_tac`max` >> qexists_tac`bfr ++ [EL n src]` >> fs[] >>
-  qexists_tac`afr` >> rw[]
-  >-(`LENGTH bfr <= LENGTH bfr` by fs[] >>
-     imp_res_tac LUPDATE_APPEND2 >>
-     first_x_assum (assume_tac o Q.SPECL[`EL n src`, `[h] ⧺ t ⧺ afr`]) >>
-     fs[LUPDATE_def]) >>
- cases_on`DROP n src` >- fs[DROP_NIL] >>
- `EL (0 + n) src = EL 0 (DROP n src)` by fs[EL_DROP] >> fs[] >>
- `DROP 1 (DROP n src) = t'` by fs[GSYM DROP_DROP_T] >>
- fs[DROP_DROP_T]
+  once_rewrite_tac [STAR_COMM]
+  \\ rw [ARRAY_def,SEP_CLAUSES,SEP_EXISTS_THM,GSYM STAR_ASSOC,cond_STAR]
+  \\ fs [STAR_def,cell_def,one_def]
+  \\ `Mem loc (Varray xs) IN st2heap p st` by fs [SPLIT_EQ,SUBSET_DEF]
+  \\ `Mem loc (Varray xs) IN store2heap st.refs` by
+       fs [cfStoreTheory.st2heap_def,cfStoreTheory.Mem_NOT_IN_ffi2heap]
+  \\ imp_res_tac cfStoreTheory.store2heap_IN_LENGTH
+  \\ imp_res_tac cfStoreTheory.store2heap_IN_EL
+  \\ simp [semanticPrimitivesTheory.store_lookup_def]
 QED
 
+Theorem app_Closure_update_array[local]:
+  (!st h_i h_k loc.
+    SPLIT (st2heap p st) (h_i,h_k) ==> (H * ARRAY av xs) h_i ==>
+    av = Loc T loc ==>
+    store_lookup loc st.refs = SOME (Varray xs) ==>
+    evaluate (st with clock := 0)
+      (env with v := nsBind parameter arg env.v) [body] =
+      (st with <| clock := 0; refs := LUPDATE (Varray ys) loc st.refs |>,
+       Rval [result])) ==>
+  app (p:'ffi ffi_proj) (Closure env parameter body) [arg]
+    (H * ARRAY av xs) (POSTv v. &(v = result) * H * ARRAY av ys)
+Proof
+  rw [app_def,app_basic_def,semanticPrimitivesTheory.do_opapp_def]
+  \\ drule_all array_store_lookup \\ strip_tac \\ gvs []
+  \\ first_x_assum drule_all \\ strip_tac
+  \\ qpat_x_assum `(H * _) h_i` (strip_assume_tac o
+       SIMP_RULE std_ss [STAR_def,cell_def,one_def] o
+       SIMP_RULE std_ss [Once STAR_COMM,ARRAY_def,SEP_CLAUSES,SEP_EXISTS_THM,
+                         GSYM STAR_ASSOC,cond_STAR])
+  \\ gvs [] \\ rename1 `H hv`
+  \\ `Mem loc (Varray xs) IN st2heap p st` by fs [SPLIT_EQ,SUBSET_DEF]
+  \\ fs [cfStoreTheory.st2heap_def,cfStoreTheory.Mem_NOT_IN_ffi2heap]
+  \\ drule cfStoreTheory.store2heap_LUPDATE
+  \\ disch_then (qspec_then `Varray ys` assume_tac)
+  \\ Q.LIST_EXISTS_TAC [`Val result`, `Mem loc (Varray ys) INSERT hv`, `{}`,
+       `st2heap p (st with <| clock := 0; refs := LUPDATE (Varray ys) loc st.refs |>)`]
+  \\ simp [evaluate_to_heap_def,evaluate_ck_def,cfStoreTheory.st2heap_def]
+  \\ `!zs. Mem loc (Varray zs) IN store2heap st.refs ∪ ffi2heap p st.ffi ==>
+           zs = xs` by (
+    rw [cfStoreTheory.Mem_NOT_IN_ffi2heap]
+    \\ qspecl_then [`st.refs`,`loc`,`Varray xs`] mp_tac
+         cfStoreTheory.store2heap_IN_unique_key
+    \\ simp [] \\ disch_then drule \\ simp [])
+  \\ `~(Mem loc (Varray ys) IN hv) /\ ~(Mem loc (Varray ys) IN h_k)` by (
+    rpt strip_tac
+    \\ `Mem loc (Varray ys) IN store2heap st.refs ∪ ffi2heap p st.ffi` by
+      SPLIT_TAC
+    \\ first_x_assum drule \\ strip_tac \\ gvs []
+    \\ SPLIT_TAC)
+  \\ rpt conj_tac
+  >- (
+    `~(Mem loc (Varray xs) IN ffi2heap p st.ffi) /\
+     ~(Mem loc (Varray ys) IN ffi2heap p st.ffi)` by
+      simp [cfStoreTheory.Mem_NOT_IN_ffi2heap]
+    \\ SPLIT_TAC)
+  >- (
+    simp [SEP_CLAUSES,ARRAY_def,SEP_EXISTS_THM,cond_STAR,STAR_def,cell_def,one_def]
+    \\ qexists_tac `hv` \\ qexists_tac `{Mem loc (Varray ys)}`
+    \\ simp [cond_def] \\ SPLIT_TAC)
+  \\ qexists_tac `0` \\ simp []
+QED
+
+Theorem array_copySlice_spec:
+   !src srcv srcoff srcoffv len lenv dst dstv dstoff dstoffv.
+     NUM srcoff srcoffv /\ NUM dstoff dstoffv /\ NUM len lenv /\
+     srcoff + len <= LENGTH src /\
+     dstoff + len <= LENGTH dst ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "Array.copySlice" array_st)
+       [srcv; srcoffv; lenv; dstv; dstoffv]
+       (ARRAY srcv src * ARRAY dstv dst)
+       (POSTv v. &(UNIT_TYPE () v) * ARRAY srcv src *
+                 ARRAY dstv (TAKE dstoff dst ++
+                             TAKE len (DROP srcoff src) ++
+                             DROP (dstoff + len) dst))
+Proof
+  rw [NUM_def,INT_def,Array_copySlice_v_def]
+  \\ rpt (irule app_Closure_Fun)
+  \\ irule app_weaken
+  \\ irule_at (Pos last) app_Closure_update_array
+  \\ Q.LIST_EXISTS_TAC
+       [`TAKE dstoff dst ++ TAKE len (DROP srcoff src) ++ DROP (dstoff + len) dst`,
+        `Conv NONE []`]
+  \\ conj_tac
+  >- (
+    rpt strip_tac
+    \\ qpat_x_assum `(ARRAY srcv src * _) h_i`
+         (assume_tac o ONCE_REWRITE_RULE [STAR_COMM])
+    \\ drule_all array_store_lookup
+    \\ disch_then (qx_choose_then `srcloc` strip_assume_tac)
+    \\ gvs [evaluateTheory.evaluate_def,ml_progTheory.nsLookup_nsBind_compute,
+            semanticPrimitivesTheory.do_app_def,
+            semanticPrimitivesTheory.copy_array_def,
+            semanticPrimitivesTheory.store_assign_def,
+            semanticPrimitivesTheory.store_lookup_def,
+            semanticPrimitivesTheory.store_v_same_type_def,
+            semanticPrimitivesTheory.state_component_equality,
+            evaluateTheory.list_result_def,integerTheory.INT_ADD,
+            integerTheory.INT_ABS_NUM])
+  \\ xsimpl \\ simp [UNIT_TYPE_def]
+QED
+
+Theorem array_copyVecSlice_spec:
+   !src srcoff srcoffv len lenv dst dstv dstoff dstoffv.
+     NUM srcoff srcoffv /\ NUM dstoff dstoffv /\ NUM len lenv /\
+     srcoff + len <= LENGTH src /\
+     dstoff + len <= LENGTH dst ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "Array.copyVecSlice" array_st)
+       [Vectorv src; srcoffv; lenv; dstv; dstoffv]
+       (ARRAY dstv dst)
+       (POSTv v. &(UNIT_TYPE () v) *
+                 ARRAY dstv (TAKE dstoff dst ++
+                             TAKE len (DROP srcoff src) ++
+                             DROP (dstoff + len) dst))
+Proof
+  rw [NUM_def,INT_def,Array_copyVecSlice_v_def]
+  \\ rpt (irule app_Closure_Fun)
+  \\ irule app_weaken
+  \\ irule_at (Pos last)
+       (app_Closure_update_array |> Q.INST [`H` |-> `emp`]
+                                 |> REWRITE_RULE [SEP_CLAUSES])
+  \\ Q.LIST_EXISTS_TAC
+       [`TAKE dstoff dst ++ TAKE len (DROP srcoff src) ++ DROP (dstoff + len) dst`,
+        `Conv NONE []`]
+  \\ conj_tac
+  >- (
+    rpt strip_tac
+    \\ gvs [evaluateTheory.evaluate_def,ml_progTheory.nsLookup_nsBind_compute,
+            semanticPrimitivesTheory.do_app_def,
+            semanticPrimitivesTheory.copy_array_def,
+            semanticPrimitivesTheory.store_assign_def,
+            semanticPrimitivesTheory.store_lookup_def,
+            semanticPrimitivesTheory.store_v_same_type_def,
+            semanticPrimitivesTheory.state_component_equality,
+            evaluateTheory.list_result_def,integerTheory.INT_ADD,
+            integerTheory.INT_ABS_NUM])
+  \\ xsimpl \\ simp [UNIT_TYPE_def]
+QED
+
+Theorem array_subvector_spec:
+   !src srcv srcoff srcoffv len lenv.
+     NUM srcoff srcoffv /\ NUM len lenv /\
+     srcoff + len <= LENGTH src ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "Array.subvector" array_st)
+       [srcv; srcoffv; lenv]
+       (ARRAY srcv src)
+       (POSTv v. &(v = Vectorv (TAKE len (DROP srcoff src))) *
+                 ARRAY srcv src)
+Proof
+  rw [NUM_def,INT_def,Array_subvector_v_def]
+  \\ rpt (irule app_Closure_Fun)
+  \\ irule app_weaken
+  \\ irule_at (Pos last) app_Closure_evaluate
+  \\ qexists_tac `Vectorv (TAKE len (DROP srcoff src))`
+  \\ conj_tac
+  >- (
+    rpt strip_tac
+    \\ drule_all (array_store_lookup |> Q.INST [`H` |-> `emp`]
+                                     |> REWRITE_RULE [SEP_CLAUSES])
+    \\ strip_tac
+    \\ gvs [evaluateTheory.evaluate_def,ml_progTheory.nsLookup_nsBind_compute,
+            semanticPrimitivesTheory.do_app_def,
+            semanticPrimitivesTheory.copy_array_def,
+            semanticPrimitivesTheory.store_lookup_def,
+            semanticPrimitivesTheory.state_component_equality,
+            evaluateTheory.list_result_def,integerTheory.INT_ADD,
+            integerTheory.INT_ABS_NUM])
+  \\ xsimpl
+QED
 
 Theorem array_copy_spec:
    !src srcv bfr mid afr dstv di div.
@@ -318,10 +461,38 @@ Theorem array_copy_spec:
       (ARRAY srcv src * ARRAY dstv (bfr ++ mid ++ afr))
     (POSTv uv. ARRAY srcv src * ARRAY dstv (bfr ++ src ++ afr))
 Proof
-  rpt strip_tac \\
-  xcf "Array.copy" array_st \\
-  xlet_auto >- xsimpl >> xapp >> xsimpl >> instantiate >>
-  fs[] >> instantiate >> metis_tac[TAKE_LENGTH_ID]
+  rpt strip_tac
+  \\ xcf "Array.copy" array_st
+  \\ xlet_auto >- xsimpl
+  \\ xapp_spec array_copySlice_spec
+  \\ Q.LIST_EXISTS_TAC
+       [`emp`,`0`,`src`,`LENGTH src`,`LENGTH bfr`,`bfr ++ mid ++ afr`]
+  \\ gvs [NUM_def,INT_def] \\ xsimpl
+  \\ simp [TAKE_APPEND,DROP_APPEND,TAKE_LENGTH_TOO_LONG,DROP_LENGTH_TOO_LONG]
+QED
+
+Theorem array_copyVec_spec:
+   !src bfr mid afr dstv di div.
+      NUM di div /\ LENGTH src = LENGTH mid /\ di = LENGTH bfr
+      ==> app (p:'ffi ffi_proj) ^(fetch_v "Array.copyVec" array_st)
+            [Vectorv src; dstv; div]
+      (ARRAY dstv (bfr ++ mid ++ afr))
+    (POSTv uv. ARRAY dstv (bfr ++ src ++ afr))
+Proof
+  rpt strip_tac
+  \\ xcf "Array.copyVec" array_st
+  \\ xlet `POSTv nv. &NUM (LENGTH src) nv * ARRAY dstv (bfr ++ mid ++ afr)`
+  >- (
+    xapp_spec (VectorProgTheory.vector_length_v_thm
+               |> INST_TYPE [alpha |-> ``:v``])
+    \\ xsimpl
+    \\ qexists_tac `Vector src` \\ qexists_tac `(=)`
+    \\ simp [VECTOR_TYPE_def,mlvectorTheory.length_def,LIST_REL_EL_EQN])
+  \\ xapp_spec array_copyVecSlice_spec
+  \\ Q.LIST_EXISTS_TAC
+       [`emp`,`0`,`LENGTH src`,`LENGTH bfr`,`bfr ++ mid ++ afr`]
+  \\ gvs [NUM_def,INT_def] \\ xsimpl
+  \\ simp [TAKE_APPEND,DROP_APPEND,TAKE_LENGTH_TOO_LONG,DROP_LENGTH_TOO_LONG]
 QED
 
 Theorem array_app_aux_spec:

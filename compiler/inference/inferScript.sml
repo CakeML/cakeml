@@ -619,6 +619,8 @@ Definition op_to_string_def:
   (op_to_string Opderef = («Opderef», 1)) ∧
   (op_to_string Aw8alloc = («Aw8alloc», 2)) ∧
   (op_to_string Aw8sub = («Aw8sub», 2)) ∧
+  (op_to_string Aw8ScanEq = («Aw8ScanEq», 4)) ∧
+  (op_to_string Aw8ScanNeq = («Aw8ScanNeq», 4)) ∧
   (op_to_string Aw8length = («Aw8length», 1)) ∧
   (op_to_string Aw8update = («Aw8update», 3)) ∧
   (op_to_string Aw8sub_unsafe = («Aw8sub_unsafe», 2)) ∧
@@ -631,10 +633,16 @@ Definition op_to_string_def:
   (op_to_string CopyStrStr = («CopyStrStr», 3)) ∧
   (op_to_string CopyStrAw8 = («CopyStrAw8», 5)) ∧
   (op_to_string CopyAw8Str = («CopyAw8Str», 3)) ∧
+  (op_to_string CopyVecVec = («CopyVecVec», 3)) ∧
+  (op_to_string CopyVecArr = («CopyVecArr», 5)) ∧
+  (op_to_string CopyArrVec = («CopyArrVec», 3)) ∧
+  (op_to_string CopyArrArr = («CopyArrArr», 5)) ∧
   (op_to_string CopyAw8Aw8 = («CopyAw8Aw8», 5)) ∧
   (op_to_string Strsub = («Strsub», 2)) ∧
   (op_to_string Implode = («Implode», 1)) ∧
   (op_to_string Explode = («Explode», 1)) ∧
+  (op_to_string StrScanEq = («StrScanEq», 4)) ∧
+  (op_to_string StrScanNeq = («StrScanNeq», 4)) ∧
   (op_to_string Strlen = («Strlen», 1)) ∧
   (op_to_string Strcat = («Strcat», 1)) ∧
   (op_to_string VfromList = («VfromList», 1)) ∧
@@ -687,6 +695,8 @@ op_simple_constraints op =
                       Tem Tbool_num)
    | Aw8alloc => (T, [Tem Tint_num; Tem Tword8_num], Tem Tword8array_num)
    | Aw8sub => (T, [Tem Tword8array_num; Tem Tint_num], Tem Tword8_num)
+   | Aw8ScanEq => (T, [Tem Tint_num; Tem Tint_num; Tem Tword8_num; Tem Tword8array_num], Tem Tint_num)
+   | Aw8ScanNeq => (T, [Tem Tint_num; Tem Tint_num; Tem Tword8_num; Tem Tword8array_num], Tem Tint_num)
    | Aw8length => (T, [Tem Tword8array_num], Tem Tint_num)
    | Aw8update => (T, [Tem Tword8array_num; Tem Tint_num; Tem Tword8_num],
         Tem Ttup_num)
@@ -702,6 +712,8 @@ op_simple_constraints op =
    | CopyAw8Aw8 => (T, [Tem Tword8array_num; Tem Tint_num; Tem Tint_num;
             Tem Tword8array_num; Tem Tint_num], Tem Ttup_num)
    | Strsub => (T, [Tem Tstring_num; Tem Tint_num], Tem Tchar_num)
+   | StrScanEq => (T, [Tem Tint_num; Tem Tint_num; Tem Tchar_num; Tem Tstring_num], Tem Tint_num)
+   | StrScanNeq => (T, [Tem Tint_num; Tem Tint_num; Tem Tchar_num; Tem Tstring_num], Tem Tint_num)
    | Strlen => (T, [Tem Tstring_num], Tem Tint_num)
    | ConfigGC => (T, [Tem Tint_num; Tem Tint_num], Tem Ttup_num)
    | FFI _ => (T, [Tem Tstring_num; Tem Tword8array_num], Tem Ttup_num)
@@ -752,6 +764,38 @@ constrain_op l op ts s =
        do uvar <- fresh_uvar;
           () <- add_constraint l t (Infer_Tapp [uvar] Tref_num);
           return uvar
+       od s
+   | (CopyVecVec, [t1;t2;t3]) =>
+       do uvar <- fresh_uvar;
+          () <- add_constraint l t1 (Infer_Tapp [uvar] Tvector_num);
+          () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
+          () <- add_constraint l t3 (Infer_Tapp [] Tint_num);
+          return (Infer_Tapp [uvar] Tvector_num)
+       od s
+   | (CopyVecArr, [t1;t2;t3;t4;t5]) =>
+       do uvar <- fresh_uvar;
+          () <- add_constraint l t1 (Infer_Tapp [uvar] Tvector_num);
+          () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
+          () <- add_constraint l t3 (Infer_Tapp [] Tint_num);
+          () <- add_constraint l t4 (Infer_Tapp [uvar] Tarray_num);
+          () <- add_constraint l t5 (Infer_Tapp [] Tint_num);
+          return (Infer_Tapp [] Ttup_num)
+       od s
+   | (CopyArrVec, [t1;t2;t3]) =>
+       do uvar <- fresh_uvar;
+          () <- add_constraint l t1 (Infer_Tapp [uvar] Tarray_num);
+          () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
+          () <- add_constraint l t3 (Infer_Tapp [] Tint_num);
+          return (Infer_Tapp [uvar] Tvector_num)
+       od s
+   | (CopyArrArr, [t1;t2;t3;t4;t5]) =>
+       do uvar <- fresh_uvar;
+          () <- add_constraint l t1 (Infer_Tapp [uvar] Tarray_num);
+          () <- add_constraint l t2 (Infer_Tapp [] Tint_num);
+          () <- add_constraint l t3 (Infer_Tapp [] Tint_num);
+          () <- add_constraint l t4 (Infer_Tapp [uvar] Tarray_num);
+          () <- add_constraint l t5 (Infer_Tapp [] Tint_num);
+          return (Infer_Tapp [] Ttup_num)
        od s
    | (VfromList, [t]) =>
        do uvar <- fresh_uvar;

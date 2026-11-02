@@ -77,6 +77,7 @@ Alist.delete: ('a * 'b) list -> 'a -> ('a * 'b) list
 Vector.fromList: 'a list -> 'a Vector.vector
 Vector.length: 'a Vector.vector -> int
 Vector.sub: 'a Vector.vector -> int -> 'a
+Vector.subvector: 'a Vector.vector -> int -> int -> 'a Vector.vector
 Vector.tabulate: int -> (int -> 'a) -> 'a Vector.vector
 Vector.toList: 'a Vector.vector -> 'a list
 Vector.update: 'a Vector.vector -> int -> 'a -> 'a Vector.vector
@@ -102,6 +103,8 @@ String.<=: string -> string -> bool
 String.>: string -> string -> bool
 String.>=: string -> string -> bool
 String.sub: string -> int -> char
+String.scanEq: int -> int -> char -> string -> int
+String.scanNeq: int -> int -> char -> string -> int
 String.implode: char list -> string
 String.explode: string -> char list
 String.size: string -> int
@@ -245,6 +248,8 @@ Word8.~>>: Word8.word -> Word8.word -> Word8.word
 Word8.ror: Word8.word -> Word8.word -> Word8.word
 Word8Array.array: int -> Word8.word -> byte_array
 Word8Array.sub: byte_array -> int -> Word8.word
+Word8Array.scanEq: int -> int -> Word8.word -> byte_array -> int
+Word8Array.scanNeq: int -> int -> Word8.word -> byte_array -> int
 Word8Array.subBit: byte_array -> int -> bool
 Word8Array.length: byte_array -> int
 Word8Array.update: byte_array -> int -> Word8.word -> unit
@@ -258,6 +263,9 @@ Array.arrayEmpty: unit -> 'a Array.array
 Array.sub: 'a Array.array -> int -> 'a
 Array.length: 'a Array.array -> int
 Array.update: 'a Array.array -> int -> 'a -> unit
+Array.copySlice: 'a Array.array -> int -> int -> 'a Array.array -> int -> unit
+Array.copyVecSlice: 'a Vector.vector -> int -> int -> 'a Array.array -> int -> unit
+Array.subvector: 'a Array.array -> int -> int -> 'a Vector.vector
 Array.fromList: 'a list -> 'a Array.array
 Array.tabulate: int -> (int -> 'a) -> 'a Array.array
 Array.copy: 'a Array.array -> 'a Array.array -> int -> unit

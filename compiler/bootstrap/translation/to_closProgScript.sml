@@ -78,6 +78,19 @@ val r = translate flat_to_closTheory.dest_nop_def;
 
 val _ = patternMatchesSyntax.temp_enable_pmatch();
 
+val _ = translate flat_to_closTheory.CopyWord_checked_def;
+
+Theorem flat_to_clos_copyword_checked_total[local]:
+  ∀trace source_array alloc_new.
+    flat_to_clos_copyword_checked_side trace source_array alloc_new ⇔ T
+Proof
+  rpt gen_tac
+  \\ Cases_on `alloc_new`
+  \\ simp [DB.fetch "-" "flat_to_clos_copyword_checked_side_def"]
+QED
+
+val _ = update_precondition flat_to_clos_copyword_checked_total;
+
 val r = translate flat_to_closTheory.compile_def;
 
 val r = translate flat_to_closTheory.compile_decs_def;
