@@ -117,3 +117,9 @@ manifest = "holextra.manifest.toml"
 "compiler/parsing/proofs/pegCompleteScript.sml" = 10.0
 
 "compiler/inference/proofs/type_dCanonScript.sml" = 10.0
+
+"compiler/backend/proofs/source_evalProofScript.sml" = 60.0
+
+"compiler/inference/proofs/infer_eSoundScript.sml" = 10.0
+
+"compiler/backend/proofs/stack_allocProofScript.sml" = 60.0
