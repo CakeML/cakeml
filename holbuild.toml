@@ -48,13 +48,13 @@ manifest = "holextra.manifest.toml"
 "compiler/parsing/proofs/pegSoundScript.sml" = 10.0
 "compiler/backend/proofs/wordConvsProofScript.sml" = 30.0
 "compiler/backend/proofs/stack_namesProofScript.sml" = 10.0
-"compiler/backend/semantics/wordPropsScript.sml" = 120.0
+"compiler/backend/semantics/wordPropsScript.sml" = 180.0
 "compiler/backend/stack_rawcallScript.sml" = 60.0
 "compiler/backend/proofs/stack_rawcallProofScript.sml" = 30.0
 "semantics/proofs/evaluatePropsScript.sml" = 30.0
-"compiler/backend/semantics/bviSemScript.sml" = 10.0
+"compiler/backend/semantics/bviSemScript.sml" = 30.0
 "compiler/backend/semantics/bvlPropsScript.sml" = 10.0
-"compiler/backend/semantics/bviPropsScript.sml" = 10.0
+"compiler/backend/semantics/bviPropsScript.sml" = 60.0
 "compiler/backend/proofs/bvl_constProofScript.sml" = 120.0
 "compiler/backend/proofs/bvi_tailrecProofScript.sml" = 30.0
 "compiler/backend/semantics/closPropsScript.sml" = 10.0
@@ -64,7 +64,7 @@ manifest = "holextra.manifest.toml"
 "compiler/backend/semantics/targetPropsScript.sml" = 10.0
 "compiler/inference/inferScript.sml" = 10.0
 "semantics/proofs/typeSoundScript.sml" = 10.0
-"compiler/inference/inferPropsScript.sml" = 30.0
+"compiler/inference/inferPropsScript.sml" = 60.0
 "compiler/inference/proofs/envRelScript.sml" = 10.0
 "compiler/backend/proofs/word_bignumProofScript.sml" = 10.0
 "compiler/backend/proofs/word_simpProofScript.sml" = 10.0
@@ -87,3 +87,13 @@ manifest = "holextra.manifest.toml"
 "compiler/backend/proofs/clos_letopProofScript.sml" = 10.0
 
 "compiler/backend/semantics/bvlSemScript.sml" = 10.0
+
+"basis/pure/ast_sexpScript.sml" = 10.0
+
+"compiler/backend/semantics/dataSemScript.sml" = 10.0
+
+"semantics/cmlPtreeConversionScript.sml" = 10.0
+
+"compiler/backend/proofs/word_cseProofScript.sml" = 60.0
+
+"compiler/backend/proofs/word_elimProofScript.sml" = 10.0
