@@ -60,7 +60,7 @@ manifest = "holextra.manifest.toml"
 "compiler/backend/semantics/closPropsScript.sml" = 10.0
 "compiler/backend/proofs/bvl_to_bviProofScript.sml" = 30.0
 "compiler/backend/proofs/clos_callProofScript.sml" = 10.0
-"compiler/backend/semantics/flatPropsScript.sml" = 10.0
+"compiler/backend/semantics/flatPropsScript.sml" = 60.0
 "compiler/backend/semantics/targetPropsScript.sml" = 10.0
 "compiler/inference/inferScript.sml" = 10.0
 "semantics/proofs/typeSoundScript.sml" = 10.0
@@ -123,3 +123,7 @@ manifest = "holextra.manifest.toml"
 "compiler/inference/proofs/infer_eSoundScript.sml" = 10.0
 
 "compiler/backend/proofs/stack_allocProofScript.sml" = 60.0
+
+"compiler/backend/proofs/flat_to_closProofScript.sml" = 60.0
+
+"compiler/backend/proofs/source_dceProofScript.sml" = 10.0
