@@ -45,7 +45,7 @@ manifest = "holextra.manifest.toml"
 "compiler/backend/clos_interpScript.sml" = 10.0
 "compiler/backend/bvl_to_bviScript.sml" = 60.0
 "compiler/backend/clos_to_bvlScript.sml" = 30.0
-"compiler/parsing/proofs/pegSoundScript.sml" = 10.0
+"compiler/parsing/proofs/pegSoundScript.sml" = 60.0
 "compiler/backend/proofs/wordConvsProofScript.sml" = 30.0
 "compiler/backend/proofs/stack_namesProofScript.sml" = 10.0
 "compiler/backend/semantics/wordPropsScript.sml" = 180.0
@@ -97,3 +97,9 @@ manifest = "holextra.manifest.toml"
 "compiler/backend/proofs/word_cseProofScript.sml" = 60.0
 
 "compiler/backend/proofs/word_elimProofScript.sml" = 10.0
+
+"compiler/backend/proofs/bvi_inlineProofScript.sml" = 10.0
+
+"compiler/backend/proofs/clos_ticksProofScript.sml" = 10.0
+
+"compiler/parsing/lexer_implScript.sml" = 10.0
