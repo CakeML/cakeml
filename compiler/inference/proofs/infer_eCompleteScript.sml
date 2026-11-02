@@ -838,11 +838,6 @@ fun extend_uvar_tac t=
   unconversion_tac>>
   rw[];
 
-val replace_uvar_tac =
-  rpt (qpat_x_assum `t_walkstar s A = B` (fn th =>
-  (((Q.SUBGOAL_THEN `t_walkstar s' h = ^(th|>concl|>rhs)` assume_tac))>-
-  (metis_tac[check_t_def,submap_t_walkstar_replace,th]))) )
-
 val rest_uvar_tac =
   pure_add_constraints_ignore_tac `s'`>>
   pure_add_constraints_combine_tac [`st`,`constraints'`,`s'`]>>
@@ -853,8 +848,6 @@ val rest_uvar_tac =
   TRY(metis_tac[check_freevars_empty_convert_unconvert_id]);
 
 val extend_uvar_tac = Q_TAC extend_uvar_tac;
-
-fun TRY1 tac = TRY (tac >> NO_TAC)
 
 Theorem constrain_op_complete_simple_helper[local]:
   !n.
@@ -954,155 +947,246 @@ Proof
   fs[add_constraint_success2,success_eqns,sub_completion_def,Tword64_def,word_tc_def]>>
   Q.SPECL_THEN [`st.subst`,`constraints`,`s`] mp_tac pure_add_constraints_success>>
   impl_tac>>rw[] >> RULE_ASSUM_TAC flip_converts
-  >> TRY1
-    (qpat_x_assum `_ <> SND (op_to_string _)` mp_tac>>
-      simp [op_to_string_def])
-  >> TRY1
-    (* ... -> t->int*)
-    (unconversion_tac>>
-    Q.EXISTS_TAC `Infer_Tapp [] Tint_num`>>
-    fs[pure_add_constraints_combine]>>
-    qpat_abbrev_tac `ls = (h,_)::_` >>
-    pac_tac)
-  >> TRY1 (* ... -> t ->bool*)
-    (unconversion_tac>>
-    Q.EXISTS_TAC`Infer_Tapp [] Tbool_num`>>
-    fs[pure_add_constraints_combine]>>
-    qpat_abbrev_tac `ls = (h,_)::_` >>
-    pac_tac)
-  >> TRY1
-    (* ... ->t->word8*)
-    (unconversion_tac>>
-    Q.EXISTS_TAC`Infer_Tapp [] Tword8_num`>>
-    fs[pure_add_constraints_combine]>>
-    qpat_abbrev_tac `ls = (h,_)::_` >>
-    pac_tac)
-  >> TRY1 (* ... -> t->double*)
-    (unconversion_tac>>
-    Q.EXISTS_TAC `Infer_Tapp [] Tdouble_num`>>
-    fs[pure_add_constraints_combine]>>
-    qpat_abbrev_tac `ls = (h,_)::_` >>
-    pac_tac)
-  >> TRY1 (* ... -> t->word64*)
-    (unconversion_tac>>
-    Q.EXISTS_TAC `Infer_Tapp [] Tword64_num`>>
-    fs[pure_add_constraints_combine]>>
-    qpat_abbrev_tac `ls = (h,_)::_` >>
-    pac_tac)
-  >> TRY1 (*simple t->t'*)
-    (unconversion_tac>>
-    qpat_abbrev_tac `ls = [(h,B)]`>>
-    pac_tac)
-  >> TRY1 (*Opapp --> Example with fresh unification variable*)
-    ((*First find the extension to s and prove every property of s is carried over*)
-    extend_uvar_tac `t`>>
-    qpat_abbrev_tac`ls = [(h,Infer_Tapp B C)]`>>
-    `t_walkstar s' h' = t_walkstar s h'` by
-      metis_tac[submap_t_walkstar_replace]>>
-    `t_walkstar s' h = t_walkstar s h` by
-      metis_tac[submap_t_walkstar_replace]>>
-    rest_uvar_tac)
-  >> TRY1 (* 'a -> 'a ref Opref *)
-    (Q.EXISTS_TAC`s`>>Q.EXISTS_TAC`constraints`>>
-    fs[t_compat_refl]>>
-    fs[convert_t_def,Once t_walkstar_eqn,Once t_walk_eqn,SimpRHS])
-  >> TRY1 (* 'a ref -> 'a Opderef *)
-    (extend_uvar_tac `t`>>
-    qpat_abbrev_tac `ls = [(h,Infer_Tapp A B)]`>>
-    rename1 `[(h, Infer_Tapp _ _)]` >>
-    replace_uvar_tac>>
-    rest_uvar_tac)
-  >> TRY1 (* ... ->  word8array *)
-    (unconversion_tac>>
-    Q.EXISTS_TAC`Infer_Tapp [] Tword8array_num`>>
-    fs[pure_add_constraints_combine]>>
-    qpat_abbrev_tac `ls = (h,_)::_` >>
-    pac_tac)
-  >> TRY1 (* ... -> t -> tup *)
-    (unconversion_tac >>
-    qexists_tac`Infer_Tapp [] Ttup_num` >>
-    fs[pure_add_constraints_combine] >>
-    qpat_abbrev_tac `ls = (h,_)::_` >>
-    pac_tac )
-  >> TRY1 ( (* ... -> string *)
-    unconversion_tac >>
-    qexists_tac`Infer_Tapp [] Tstring_num` >>
-    fs[pure_add_constraints_combine] >>
-    qpat_abbrev_tac `ls = (h,_)::_` >>
-    pac_tac )
-  >> TRY1 ( (* ... -> char *)
-    unconversion_tac >>
-    qexists_tac`Infer_Tapp [] Tchar_num` >>
-    fs[pure_add_constraints_combine] >>
-    qpat_abbrev_tac `ls = (h,_)::_` >>
-    pac_tac )
-  >> TRY1 (* list -> vector *)
-    (rename1`Tapp [t2] Tvector_num` >>
-    extend_uvar_tac `t2`>>
-    qpat_abbrev_tac `ls = [(h,Infer_Tapp A B)]`>>
-    rename1 `[(h,Infer_Tapp _ _)]` >>
-    replace_uvar_tac>>
-    rest_uvar_tac>>
-    `t_wfs si` by metis_tac[pure_add_constraints_wfs]>>
-    fs[convert_t_def,t_walkstar_eqn,t_walk_eqn]>>
-    metis_tac[check_freevars_empty_convert_unconvert_id])
-  >> TRY1
-    (* ... ->list*)
-    (
-    qexists_tac`Infer_Tapp [Infer_Tuvar st.next_uvar] Tlist_num` >>
-    fs[pure_add_constraints_combine]>>
-    rename1`Tapp [t1] Tlist_num` >>
-    extend_uvar_tac`t1`>>
-    qpat_abbrev_tac `ls = (h,_)::_` >>
-    `pure_add_constraints s' ls s'` by
-      (match_mp_tac pure_add_constraints_ignore >>
-      fs[Abbr`ls`]>>
-      simp[t_walkstar_eqn1]>>
-      metis_tac[t_walkstar_no_vars,t_walkstar_SUBMAP])>>
-    pure_add_constraints_combine_tac [`st`,`constraints'`,`s'`]>>
-    fs[pure_add_constraints_append]>>
-    Q.EXISTS_TAC `<|subst:=s2' ; next_uvar := st.next_uvar+1; next_id := st.next_id |>` >>fs[]>>
-    Q.EXISTS_TAC`si`>>
-    Q.EXISTS_TAC`constraints'`>>
-    Q.SPECL_THEN [`n`,`si`,`s'`] assume_tac (GEN_ALL t_compat_bi_ground)>>
-    rfs[]>>
-    rw[]
-    >-
-      metis_tac[t_compat_trans]
-    >-
-      metis_tac[pure_add_constraints_success]
-    >>
-      `t_wfs si` by metis_tac[pure_add_constraints_wfs]>>
-      fs[t_walkstar_eqn,t_walk_eqn,convert_t_def]>>
-      metis_tac[check_freevars_empty_convert_unconvert_id])
-  >> TRY1
-    (rename1`Tapp [t1] Tvector_num` >>
-    extend_uvar_tac `t1`>>
-    qpat_abbrev_tac `ls = [(h,Infer_Tapp A B)]`>>
-    rename1 `[(h, Infer_Tapp _ _)]` >>
-    replace_uvar_tac>>
-    rest_uvar_tac)
-  >> TRY1
-    (rename1`Tapp [t1] Tarray_num` >>
-    extend_uvar_tac `t1`>>
-    qpat_abbrev_tac `ls = [(h,Infer_Tapp A B)]`>>
-    rename1 `[(h, Infer_Tapp _ _)]` >>
-    replace_uvar_tac>>
-    rest_uvar_tac>>
-    `t_wfs si` by metis_tac[pure_add_constraints_wfs]>>
-    fs[convert_t_def,t_walkstar_eqn,t_walk_eqn]>>
-    metis_tac[check_freevars_empty_convert_unconvert_id])
-  >> TRY1
-    (Q.EXISTS_TAC `Infer_Tuvar st.next_uvar`>>
-    fs[pure_add_constraints_combine]>>
-    extend_uvar_tac `t`>>
-    qpat_abbrev_tac `ls = [(h,Infer_Tapp A B);C]`>>
-    rename1 `[(h,Infer_Tapp _ _); _]` >>
-    replace_uvar_tac>>
-    `t_walkstar s' h' = Infer_Tapp [] Tint_num` by
-      metis_tac[submap_t_walkstar_replace]>>
-    rest_uvar_tac)
+
+  >~ [`is_case Equality`] >- suspend "Equality"
+  >~ [`is_case PtrEq`] >- suspend "PtrEq"
+  >~ [`is_case Opapp`] >- suspend "Apply"
+  >~ [`is_case Opassign`] >- suspend "Assign"
+  >~ [`is_case Opref`] >- suspend "Ref"
+  >~ [`is_case Opderef`] >- suspend "Deref"
+  >~ [`is_case CopyVecVec`] >- suspend "CopyVecVec"
+  >~ [`is_case CopyVecArr`] >- suspend "CopyVecArr"
+  >~ [`is_case CopyArrVec`] >- suspend "CopyArrVec"
+  >~ [`is_case CopyArrArr`] >- suspend "CopyArrArr"
+  >~ [`is_case VfromList`] >- suspend "VectorFromList"
+  >~ [`is_case Vsub`] >- suspend "VectorSub"
+  >~ [`is_case Vlength`] >- suspend "VectorLength"
+  >~ [`is_case Aalloc`] >- suspend "ArrayAlloc"
+  >~ [`is_case AallocEmpty`] >- suspend "ArrayAllocEmpty"
+  >~ [`is_case Asub`] >- suspend "ArraySub"
+  >~ [`is_case Alength`] >- suspend "ArrayLength"
+  >~ [`is_case Aupdate`] >- suspend "ArrayUpdate"
+  >~ [`is_case ListAppend`] >- suspend "ListAppend"
 QED
+
+Resume constrain_op_complete[Equality]:
+  unconversion_tac
+  >> qmatch_goalsub_abbrev_tac `pure_add_constraints st.subst ls _`
+  >> pac_tac
+QED
+
+Resume constrain_op_complete[PtrEq]:
+  unconversion_tac
+  >> qmatch_goalsub_abbrev_tac `pure_add_constraints st.subst ls _`
+  >> pac_tac
+QED
+
+Resume constrain_op_complete[Apply]:
+  rename1 `pure_add_constraints st.subst
+    [(function_type,Infer_Tapp [argument_type; _] Tfn_num)] _`
+  >> extend_uvar_tac `t`
+  >> qmatch_goalsub_abbrev_tac `pure_add_constraints st.subst ls _`
+  >> `t_walkstar s' argument_type = t_walkstar s argument_type` by (
+    metis_tac [submap_t_walkstar_replace])
+  >> `t_walkstar s' function_type = t_walkstar s function_type` by (
+    metis_tac [submap_t_walkstar_replace])
+  >> rest_uvar_tac
+QED
+
+Resume constrain_op_complete[Assign]:
+  unconversion_tac
+  >> qmatch_goalsub_abbrev_tac `pure_add_constraints st.subst ls _`
+  >> pac_tac
+QED
+
+Resume constrain_op_complete[Ref]:
+  qexists_tac `s`
+  >> qexists_tac `constraints`
+  >> fs [t_compat_refl]
+  >> fs [convert_t_def, Once t_walkstar_eqn, Once t_walk_eqn, SimpRHS]
+QED
+
+Resume constrain_op_complete[Deref]:
+  rename1 `pure_add_constraints st.subst
+    [(reference_type,Infer_Tapp _ Tref_num)] _`
+  >> extend_uvar_tac `t`
+  >> qmatch_goalsub_abbrev_tac `pure_add_constraints st.subst ls _`
+  >> `t_walkstar s' reference_type = t_walkstar s reference_type` by (
+    metis_tac [submap_t_walkstar_replace])
+  >> rest_uvar_tac
+QED
+
+Resume constrain_op_complete[CopyVecVec]:
+  rename1 `Tapp [element_type] Tvector_num`
+  >> qexists_tac `Infer_Tapp [Infer_Tuvar st.next_uvar] Tvector_num`
+  >> fs [pure_add_constraints_combine]
+  >> extend_uvar_tac `element_type`
+  >> qmatch_goalsub_abbrev_tac `pure_add_constraints st.subst ls _`
+  >> `∀argument_type. check_t n {} (t_walkstar s argument_type) ⇒
+        t_walkstar s' argument_type = t_walkstar s argument_type` by (
+    metis_tac [submap_t_walkstar_replace])
+  >> rest_uvar_tac
+  >> qmatch_goalsub_rename_tac `t_walkstar result_substitution _`
+  >> `t_wfs result_substitution` by metis_tac [pure_add_constraints_wfs]
+  >> fs [convert_t_def, t_walkstar_eqn1]
+  >> metis_tac [check_freevars_empty_convert_unconvert_id]
+QED
+
+Resume constrain_op_complete[CopyVecArr]:
+  rename1 `Tapp [element_type] Tvector_num`
+  >> qexists_tac `Infer_Tapp [] Ttup_num`
+  >> fs [pure_add_constraints_combine]
+  >> extend_uvar_tac `element_type`
+  >> qmatch_goalsub_abbrev_tac `pure_add_constraints st.subst ls _`
+  >> `∀argument_type. check_t n {} (t_walkstar s argument_type) ⇒
+        t_walkstar s' argument_type = t_walkstar s argument_type` by (
+    metis_tac [submap_t_walkstar_replace])
+  >> rest_uvar_tac
+QED
+
+Resume constrain_op_complete[CopyArrVec]:
+  rename1 `Tapp [element_type] Tvector_num`
+  >> qexists_tac `Infer_Tapp [Infer_Tuvar st.next_uvar] Tvector_num`
+  >> fs [pure_add_constraints_combine]
+  >> extend_uvar_tac `element_type`
+  >> qmatch_goalsub_abbrev_tac `pure_add_constraints st.subst ls _`
+  >> `∀argument_type. check_t n {} (t_walkstar s argument_type) ⇒
+        t_walkstar s' argument_type = t_walkstar s argument_type` by (
+    metis_tac [submap_t_walkstar_replace])
+  >> rest_uvar_tac
+  >> qmatch_goalsub_rename_tac `t_walkstar result_substitution _`
+  >> `t_wfs result_substitution` by metis_tac [pure_add_constraints_wfs]
+  >> fs [convert_t_def, t_walkstar_eqn1]
+  >> metis_tac [check_freevars_empty_convert_unconvert_id]
+QED
+
+Resume constrain_op_complete[CopyArrArr]:
+  rename1 `Tapp [element_type] Tarray_num`
+  >> qexists_tac `Infer_Tapp [] Ttup_num`
+  >> fs [pure_add_constraints_combine]
+  >> extend_uvar_tac `element_type`
+  >> qmatch_goalsub_abbrev_tac `pure_add_constraints st.subst ls _`
+  >> `∀argument_type. check_t n {} (t_walkstar s argument_type) ⇒
+        t_walkstar s' argument_type = t_walkstar s argument_type` by (
+    metis_tac [submap_t_walkstar_replace])
+  >> rest_uvar_tac
+QED
+
+Resume constrain_op_complete[VectorFromList]:
+  rename1 `Tapp [element_type] Tvector_num`
+  >> rename1 `pure_add_constraints st.subst
+       [(list_type,Infer_Tapp _ Tlist_num)] _`
+  >> extend_uvar_tac `element_type`
+  >> qmatch_goalsub_abbrev_tac `pure_add_constraints st.subst ls _`
+  >> `t_walkstar s' list_type = t_walkstar s list_type` by (
+    metis_tac [submap_t_walkstar_replace])
+  >> rest_uvar_tac
+  >> qmatch_goalsub_rename_tac `t_walkstar result_substitution _`
+  >> `t_wfs result_substitution` by metis_tac [pure_add_constraints_wfs]
+  >> fs [convert_t_def, t_walkstar_eqn1]
+  >> metis_tac [check_freevars_empty_convert_unconvert_id]
+QED
+
+Resume constrain_op_complete[VectorSub]:
+  rename1 `convert_t (t_walkstar s vector_type) = Tapp [t] Tvector_num`
+  >> rename1 `convert_t (t_walkstar s index_type) = Tapp [] Tint_num`
+  >> qexists_tac `Infer_Tuvar st.next_uvar`
+  >> fs [pure_add_constraints_combine]
+  >> extend_uvar_tac `t`
+  >> qmatch_goalsub_abbrev_tac `pure_add_constraints st.subst ls _`
+  >> `t_walkstar s' vector_type = t_walkstar s vector_type` by (
+    metis_tac [submap_t_walkstar_replace])
+  >> `t_walkstar s' index_type = t_walkstar s index_type` by (
+    metis_tac [submap_t_walkstar_replace])
+  >> rest_uvar_tac
+QED
+
+Resume constrain_op_complete[VectorLength]:
+  rename1 `Tapp [element_type] Tvector_num`
+  >> rename1 `pure_add_constraints st.subst
+       [(vector_type,Infer_Tapp _ Tvector_num)] _`
+  >> extend_uvar_tac `element_type`
+  >> qmatch_goalsub_abbrev_tac `pure_add_constraints st.subst ls _`
+  >> `t_walkstar s' vector_type = t_walkstar s vector_type` by (
+    metis_tac [submap_t_walkstar_replace])
+  >> rest_uvar_tac
+QED
+
+Resume constrain_op_complete[ArrayAlloc]:
+  unconversion_tac
+  >> qmatch_goalsub_abbrev_tac `pure_add_constraints st.subst ls _`
+  >> pac_tac
+QED
+
+Resume constrain_op_complete[ArrayAllocEmpty]:
+  rename1 `Tapp [element_type] Tarray_num`
+  >> rename1 `pure_add_constraints st.subst
+       [(unit_type,Infer_Tapp _ Ttup_num)] _`
+  >> extend_uvar_tac `element_type`
+  >> qmatch_goalsub_abbrev_tac `pure_add_constraints st.subst ls _`
+  >> `t_walkstar s' unit_type = t_walkstar s unit_type` by (
+    metis_tac [submap_t_walkstar_replace])
+  >> rest_uvar_tac
+  >> qmatch_goalsub_rename_tac `t_walkstar result_substitution _`
+  >> `t_wfs result_substitution` by metis_tac [pure_add_constraints_wfs]
+  >> fs [convert_t_def, t_walkstar_eqn1]
+  >> metis_tac [check_freevars_empty_convert_unconvert_id]
+QED
+
+Resume constrain_op_complete[ArraySub]:
+  rename1 `convert_t (t_walkstar s array_type) = Tapp [t] Tarray_num`
+  >> rename1 `convert_t (t_walkstar s index_type) = Tapp [] Tint_num`
+  >> qexists_tac `Infer_Tuvar st.next_uvar`
+  >> fs [pure_add_constraints_combine]
+  >> extend_uvar_tac `t`
+  >> qmatch_goalsub_abbrev_tac `pure_add_constraints st.subst ls _`
+  >> `t_walkstar s' array_type = t_walkstar s array_type` by (
+    metis_tac [submap_t_walkstar_replace])
+  >> `t_walkstar s' index_type = t_walkstar s index_type` by (
+    metis_tac [submap_t_walkstar_replace])
+  >> rest_uvar_tac
+QED
+
+Resume constrain_op_complete[ArrayLength]:
+  rename1 `Tapp [element_type] Tarray_num`
+  >> rename1 `pure_add_constraints st.subst
+       [(array_type,Infer_Tapp _ Tarray_num)] _`
+  >> extend_uvar_tac `element_type`
+  >> qmatch_goalsub_abbrev_tac `pure_add_constraints st.subst ls _`
+  >> `t_walkstar s' array_type = t_walkstar s array_type` by (
+    metis_tac [submap_t_walkstar_replace])
+  >> rest_uvar_tac
+QED
+
+Resume constrain_op_complete[ArrayUpdate]:
+  unconversion_tac
+  >> qexists_tac `Infer_Tapp [] Ttup_num`
+  >> fs [pure_add_constraints_combine]
+  >> qmatch_goalsub_abbrev_tac `pure_add_constraints st.subst ls _`
+  >> pac_tac
+QED
+
+Resume constrain_op_complete[ListAppend]:
+  rename1 `Tapp [element_type] Tlist_num`
+  >> qexists_tac `Infer_Tapp [Infer_Tuvar st.next_uvar] Tlist_num`
+  >> fs [pure_add_constraints_combine]
+  >> rename1 `pure_add_constraints st.subst
+       [(left_list_type,_); (right_list_type,_)] _`
+  >> extend_uvar_tac `element_type`
+  >> qmatch_goalsub_abbrev_tac `pure_add_constraints st.subst ls _`
+  >> `t_walkstar s' left_list_type = t_walkstar s left_list_type` by (
+    metis_tac [submap_t_walkstar_replace])
+  >> `t_walkstar s' right_list_type = t_walkstar s right_list_type` by (
+    metis_tac [submap_t_walkstar_replace])
+  >> rest_uvar_tac
+  >> qmatch_goalsub_rename_tac `t_walkstar result_substitution _`
+  >> `t_wfs result_substitution` by metis_tac [pure_add_constraints_wfs]
+  >> fs [convert_t_def, t_walkstar_eqn1]
+  >> metis_tac [check_freevars_empty_convert_unconvert_id]
+QED
+
+Finalise constrain_op_complete;
+
 
 Definition simp_tenv_invC_def:
   simp_tenv_invC s tvs tenv tenvE ⇔

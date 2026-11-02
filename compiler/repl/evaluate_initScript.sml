@@ -598,9 +598,10 @@ Proof
   \\ Cases_on ‘op = Strcat’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
-  \\ Cases_on ‘op = Strlen’ \\ gs []
+  \\ Cases_on ‘op = Strlen ∨ op = StrScanEq ∨ op = StrScanNeq’
   >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
+    pop_assum strip_assume_tac \\ gs []
+    \\ gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
   \\ Cases_on ‘op = Strsub’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
@@ -640,6 +641,31 @@ Proof
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def, copy_array_def, store_assign_def])
+  \\ Cases_on ‘op = CopyVecVec ∨ op = CopyArrVec’
+  >- (
+    pop_assum strip_assume_tac
+    \\ gvs [do_app_cases, v_ok_thm, with_same_refs_and_ffi, store_lookup_def]
+    \\ irule semanticPrimitivesPropsTheory.EVERY_copy_array
+    \\ qpat_assum ‘copy_array _ _ _ = _’ (irule_at Any) \\ simp []
+    \\ drule_then assume_tac state_ok_refs_ok
+    \\ fs [EVERY_EL] \\ first_x_assum drule \\ rw [ref_ok_thm, EVERY_EL])
+  \\ Cases_on ‘op = CopyVecArr ∨ op = CopyArrArr’
+  >- (
+    pop_assum strip_assume_tac
+    \\ gvs [do_app_cases, v_ok_thm, with_same_refs_and_ffi, store_lookup_def,
+            store_assign_def]
+    \\ ‘∀n vs. n < LENGTH s.refs ∧ EL n s.refs = Varray vs ⇒
+               EVERY (v_ok s) vs’ by (
+      rw [] \\ drule_then assume_tac state_ok_refs_ok
+      \\ fs [EVERY_EL] \\ first_x_assum drule \\ rw [ref_ok_thm, EVERY_EL])
+    \\ res_tac
+    \\ qmatch_asmsub_rename_tac ‘copy_array _ _ _ = SOME copy_result’
+    \\ ‘ref_ok s (Varray copy_result)’ by (
+      simp [ref_ok_thm]
+      \\ irule semanticPrimitivesPropsTheory.EVERY_copy_array
+      \\ qpat_assum ‘copy_array _ _ _ = _’ (irule_at Any) \\ simp [])
+    \\ gs [state_ok_def, state_rel_def, EL_LUPDATE, FLOOKUP_FUN_FMAP, ref_ok_def]
+    \\ rw [])
   \\ Cases_on ‘op = Aw8update’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
@@ -650,9 +676,10 @@ Proof
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def, copy_array_def, store_assign_def])
-  \\ Cases_on ‘op = Aw8length’ \\ gs []
+  \\ Cases_on ‘op = Aw8length ∨ op = Aw8ScanEq ∨ op = Aw8ScanNeq’
   >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
+    pop_assum strip_assume_tac \\ gs []
+    \\ gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def, copy_array_def, store_assign_def])
   \\ Cases_on ‘op = Aw8alloc’ \\ gs []
   >- (

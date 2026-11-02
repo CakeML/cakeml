@@ -167,7 +167,6 @@ Definition do_app_aux_def:
     | (MemOp FromListByte, _) => NONE
     | (MemOp ToListByte, _) => NONE
     | (MemOp ConcatByteVec, _) => NONE
-    | (MemOp (CopyByte T), _) => NONE
     | _ => SOME NONE
 End
 

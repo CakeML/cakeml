@@ -49,6 +49,7 @@ Definition op_space_reset_def:
   (op_space_reset (MemOp RefArray) = T) /\
   (op_space_reset (MemOp (RefByte _)) = T) /\
   (op_space_reset (BlockOp (ConsExtend _)) = T) /\
+  (op_space_reset (MemOp (CopyWord new_flag)) = new_flag) /\
   (op_space_reset (MemOp (CopyByte new_flag)) = new_flag) /\
   (op_space_reset (MemOp ConfigGC) = T) /\
   (op_space_reset (FFI _) = T) /\
@@ -58,7 +59,9 @@ End
 Definition op_requires_names_def:
   op_requires_names op = (op_space_reset op ∨ (∃n. op = FFI n) ∨
                          (∃new_flag. op = (MemOp (CopyByte new_flag))) ∨
+                         (∃new_flag. op = MemOp (CopyWord new_flag)) ∨
                          (op = MemOp XorByte) ∨
+                         (∃neq. op = MemOp (ScanByte neq)) ∨
                          (op = IntOp (Smallnum SmallDiv)) ∨
                          (op = IntOp (Smallnum SmallMod)) ∨
                          (∃b cmp. op = MemOp (StringCmp b cmp)) ∨

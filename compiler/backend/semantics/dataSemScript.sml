@@ -251,8 +251,12 @@ Definition space_consumed_def:
   (space_consumed ^s (BlockOp (ConsExtend tag)) (Block _ _ xs'::Number lower::Number len::Number tot::xs) =
    LENGTH (xs++TAKE (Num len) (DROP (Num lower) xs')) + 1
   ) /\
+  (space_consumed s (MemOp (CopyWord T)) [src;off;Number len] =
+    if len = 0 then 0 else Num len + 1) /\
   (space_consumed s (MemOp RefArray) [Number len; _] = Num len + 1) /\
   (space_consumed s (MemOp (RefByte _)) [Number len; _] = Num len DIV (arch_size s.limits DIV 8) + 2) /\
+  (space_consumed s (MemOp (CopyByte T)) [_; _; Number len] =
+    Num len DIV (arch_size s.limits DIV 8) + 2) /\
   (space_consumed s (BlockOp (FromList n)) [Number len;lv] = Num len + 1) /\
   (space_consumed s (IntOp Add) [Number i1; Number i2] =
     if small_num s.limits.arch_64_bit i1 /\
@@ -315,12 +319,21 @@ Definition stack_consumed_def:
       if op = SmallDiv \/ op = SmallMod
       then lookup SmallnumDivMod_location sfs else SOME 0
     else NONE) /\
-  (stack_consumed sfs lims (MemOp (CopyByte _)) vs =
+  (stack_consumed sfs lims (MemOp (CopyWord _)) vs =
+    OPTION_MAP2 MAX (sptree$lookup WordCopy_location sfs)
+      (OPTION_MAP2 MAX (lookup WordCopyLoop_location sfs)
+        (OPTION_MAP2 MAX (lookup WordCopyAdd_location sfs)
+          (lookup WordCopySub_location sfs)))) /\
+  (stack_consumed sfs lims (MemOp (CopyByte new)) vs =
     OPTION_MAP2 MAX
-     (sptree$lookup ByteCopy_location sfs)
+     (lookup (if new then ByteCopyNew_location else ByteCopy_location) sfs)
      (OPTION_MAP2 MAX
-        (lookup ByteCopyAdd_location sfs)
-        (lookup ByteCopySub_location sfs))) /\
+       (lookup ByteCopyAlign_location sfs)
+       (OPTION_MAP2 MAX
+         (lookup ByteCopyLoop_location sfs)
+         (OPTION_MAP2 MAX
+           (lookup ByteCopyAdd_location sfs)
+           (if new then SOME 0 else lookup ByteCopySub_location sfs))))) /\
   (stack_consumed sfs lims (MemOp (RefByte _)) vs =
     OPTION_MAP2 MAX
      (lookup RefByte_location sfs)
@@ -329,6 +342,8 @@ Definition stack_consumed_def:
     OPTION_MAP2 MAX
      (lookup RefArray_location sfs)
      (lookup Replicate_location sfs)) /\
+  (stack_consumed sfs lims (MemOp (ScanByte neq)) vs =
+    lookup (if neq then ScanNeq_location else ScanEq_location) sfs) /\
   (stack_consumed sfs lims (MemOp XorByte) vs =
     lookup XorLoop_location sfs) /\
   (stack_consumed sfs lims (MemOp (StringCmp b cmp)) vs =
@@ -653,12 +668,22 @@ Definition lim_safe_def[simp]:
       let jl = bignum_size lims.arch_64_bit i2 in
         il + jl <= 2 ** lims.length_limit)
   )
+∧ (lim_safe lims (MemOp (CopyWord T)) [src;off;Number len] =
+   (len = 0 ∨
+    (0 ≤ len ∧ Num len < 2 ** (arch_size lims) DIV 16 ∧
+     Num len < 2 ** lims.length_limit)))
 ∧ (lim_safe lims (MemOp RefArray) [Number i; v] =
    (0 <= i /\
     Num i < 2 ** (arch_size lims) DIV 16 /\
     Num i < 2 ** lims.length_limit)
   )
 ∧ (lim_safe lims (MemOp (RefByte _)) (Number i::xs) =
+   (0 <= i /\
+    Num i DIV (arch_size lims DIV 8) < 2 ** (arch_size lims) DIV arch_size lims /\
+    Num i DIV (arch_size lims DIV 8) + 1 < 2 ** lims.length_limit /\
+    small_num lims.arch_64_bit i)
+  )
+∧ (lim_safe lims (MemOp (CopyByte T)) [_; _; Number i] =
    (0 <= i /\
     Num i DIV (arch_size lims DIV 8) < 2 ** (arch_size lims) DIV arch_size lims /\
     Num i DIV (arch_size lims DIV 8) + 1 < 2 ** lims.length_limit /\
@@ -957,7 +982,6 @@ Definition do_app_aux_def:
     | (GlobOp AllocGlobal, _)  => Rerr (Rabort Rtype_error)
     | (MemOp FromListByte, _)  => Rerr (Rabort Rtype_error)
     | (MemOp ConcatByteVec, _) => Rerr (Rabort Rtype_error)
-    | (MemOp (CopyByte T), _)  => Rerr (Rabort Rtype_error)
     (* bvl part *)
     | (BlockOp (Build parts),[]) =>
         (case do_build_const parts s.refs s.tstamps of
@@ -1029,6 +1053,16 @@ Definition do_app_aux_def:
                   s with <|refs := insert ptr
                                           (ValueArray (REPLICATE (Num i) v)) s.refs|>)
          else Error
+    | (MemOp (ScanByte neq),[Number start; Number end; Number b; RefPtr _ ptr]) =>
+        (case lookup ptr s.refs of
+         | SOME (ByteArray _ ws) =>
+             if 0 ≤ start ∧ start ≤ &LENGTH ws ∧ 0 ≤ end ∧ end ≤ &LENGTH ws ∧
+                0 ≤ b ∧ b < 256 then
+               Rval (Number (&(if Num end ≤ Num start then Num end else Num start +
+                 LENGTH (FST (SPLITP (\w. (w = i2w b) ⇔ ¬neq)
+                   (DROP (Num start) (TAKE (Num end) ws)))))),s)
+             else Error
+         | _ => Error)
     | (MemOp DerefByte,[RefPtr _ ptr; Number i]) =>
         (case lookup ptr s.refs of
          | SOME (ByteArray _ ws) =>
@@ -1075,6 +1109,42 @@ Definition do_app_aux_def:
              (let s1 = implode (MAP (CHR o w2n) ws1) in
               let s2 = implode (MAP (CHR o w2n) ws2) in
                 Rval (Boolv (semanticPrimitives$str_cmp b cmp s1 s2), s))
+         | _ => Error)
+    | (MemOp (CopyByte T),[RefPtr _ src; Number srcoff; Number len]) =>
+        (case lookup src s.refs of
+         | SOME (ByteArray _ ws) =>
+           (case copy_array (ws,srcoff) len NONE of
+            | SOME ds =>
+              let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
+                Rval (RefPtr T ptr, s with refs := insert ptr (ByteArray T ds) s.refs)
+            | NONE => Error)
+         | _ => Error)
+    | (MemOp (CopyWord F),[Block ts tag ws; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
+        (case lookup dst s.refs of
+         | SOME (ValueArray ds) =>
+           (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
+            | SOME ds => Rval (Unit, s with refs := insert dst (ValueArray ds) s.refs)
+            | NONE => Error)
+         | _ => Error)
+    | (MemOp (CopyWord F),[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
+        (case (lookup src s.refs, lookup dst s.refs) of
+         | (SOME (ValueArray ws), SOME (ValueArray ds)) =>
+           (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
+            | SOME ds => Rval (Unit, s with refs := insert dst (ValueArray ds) s.refs)
+            | NONE => Error)
+         | _ => Error)
+    | (MemOp (CopyWord T),[Block ts tag ws; Number srcoff; Number len]) =>
+        (case copy_array (ws,srcoff) len NONE of
+         | SOME ds => if ds = [] then Rval (Block 0 0 [],s) else
+             with_fresh_ts s 1 (λts next. Rval (Block ts 0 ds,next))
+         | NONE => Error)
+    | (MemOp (CopyWord T),[RefPtr _ src; Number srcoff; Number len]) =>
+        (case lookup src s.refs of
+         | SOME (ValueArray ws) =>
+           (case copy_array (ws,srcoff) len NONE of
+            | SOME ds => if ds = [] then Rval (Block 0 0 [],s) else
+             with_fresh_ts s 1 (λts next. Rval (Block ts 0 ds,next))
+            | NONE => Error)
          | _ => Error)
     | (MemOp (CopyByte F),[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
         (case (lookup src s.refs, lookup dst s.refs) of
