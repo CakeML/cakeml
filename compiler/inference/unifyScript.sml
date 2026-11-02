@@ -1935,17 +1935,18 @@ Proof
    gvs[] >> gs[encode_infer_t_def, swalk_def] >>
    gvs[cwfs_def, swfs_def] >> drule_all walk_to_var >>
    simp[map_insert, wf_insert, encode_infer_t_def] >>
-   rpt strip_tac >~
-   [‘wfs (_ |+ _)’]
-   >- (irule wfs_extend >> simp[] >>
-       gvs[cocl_EXISTS, EVERY_MEM, coc_def, soc_def, oc_eq_vars_walkstar] >>
-       simp[vars_walkstar_encode_infer_ts] >> metis_tac[]) >~
-   [‘substvars (_ |+ _)’]
-   >- (simp[substvars_FUPDATE, DOMSUB_NOT_IN_DOM, encode_infer_t_def] >>
-       gvs[encode_infer_t_def] >> conj_tac
-       >- (rename [‘vwalk _ u = Var v’, ‘v ∉ domain s0’] >>
-           drule_all vwalk_rangevars >> simp[sp2fm_map] >> rw[] >>
-           simp[substvars_def]) >>
+   rpt strip_tac >>~-
+   ([‘wfs (_ |+ _)’],
+    irule wfs_extend >> simp[] >>
+    gvs[cocl_EXISTS, EVERY_MEM, coc_def, soc_def, oc_eq_vars_walkstar] >>
+    simp[vars_walkstar_encode_infer_ts] >> metis_tac[]) >>~-
+   ([‘substvars (_ |+ _)’],
+    simp[substvars_FUPDATE, DOMSUB_NOT_IN_DOM, encode_infer_t_def] >>
+       gvs[encode_infer_t_def] >> conj_tac >>~-
+       ([‘v ∈ _ ∨ _’],
+        rename [‘vwalk _ u = Var v’, ‘v ∉ domain s0’] >>
+        drule_all vwalk_rangevars >> simp[sp2fm_map] >> rw[] >>
+        simp[substvars_def]) >>
        drule_all walk_rangevars >> simp[substvars_def, sp2fm_map] >>
        SET_TAC[]) >>
    SET_TAC[]) >>~-
@@ -1958,11 +1959,10 @@ Proof
    gvs[] >> gs[encode_infer_t_def, swalk_def] >>
    gvs[cwfs_def, swfs_def] >> drule_all walk_to_var >>
    simp[map_insert, wf_insert, encode_infer_t_def] >>
-   rpt strip_tac >> gvs[encode_infer_t_def] >~
-   [‘wfs (_ |+ _)’]
-   >- (irule wfs_extend >> simp[]) >~
-   [‘substvars (_ o_f _ |+ _) ⊆ _’]
-   >- (simp[substvars_FUPDATE, DOMSUB_NOT_IN_DOM] >>
+   rpt strip_tac >> gvs[encode_infer_t_def] >>~-
+   ([‘wfs (_ |+ _)’], irule wfs_extend >> simp[]) >>~-
+   ([‘substvars (_ o_f _ |+ _) ⊆ _’],
+    simp[substvars_FUPDATE, DOMSUB_NOT_IN_DOM] >>
        drule_all vwalk_rangevars >> rw[sp2fm_map] >> simp[substvars_def]) >>
    SET_TAC[])
 QED

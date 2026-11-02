@@ -793,13 +793,12 @@ Theorem PEG_exprs =
 Theorem PEG_wellformed[simp]:
    wfG cmlPEG
 Proof
-  simp[wfG_def, Gexprs_def, subexprs_def,
-       subexprs_pnt, peg_start, peg_range, DISJ_IMP_THM, FORALL_AND_THM,
-       choicel_def, seql_def, pegf_def, tokeq_def, try_def,
-       peg_linfix_def, peg_UQConstructorName_def, peg_TypeDec_def,
-       peg_V_def, peg_EbaseParen_def, tokSymP_def,
-       peg_longV_def, peg_StructName_def] >>
-  simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts)
+  rewrite_tac[wfG_def] >>
+  rewrite_tac[PEG_exprs] >>
+  rewrite_tac[pred_setTheory.FORALL_IN_INSERT,
+              pred_setTheory.FORALL_IN_UNION] >>
+  rpt conj_tac >>
+  simp(tokSymP_def :: cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts)
 QED
 
 Theorem parse_TopLevelDecs_total =
