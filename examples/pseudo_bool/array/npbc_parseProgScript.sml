@@ -2269,7 +2269,7 @@ Theorem check_unsat''_spec:
   (LIST_TYPE NUM) inds indsv ∧
   VIMAP_TYPE vimaplsv vimapa vimap vimapv ∧
   NUM id idv ∧
-  cfg_TYPE cfg cfgv ∧
+  cfg_TYPE cfg cfgv ∧ SND (SND (SND cfg)) = mk_ord_pre (FST cfg).ord ∧
   ht_TYPE bksv bkslsv ht htv ∧
   MAP toks_fast lines = ss
   ⇒
@@ -2380,7 +2380,7 @@ Proof
       STDIO (forwardFD fs fd k) *
       INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
       &case check_cstep_list cstep fmlls assg st inds vimap id
-          (cfg0,cfg1,cfg2) ht of
+          (cfg0,cfg1,cfg2,mk_ord_pre cfg0.ord) ht of
         NONE => F
       | SOME res =>
         PAIR_TYPE (λl v. LIST_REL fslot_TYPE l fmllsv' ∧ v = fmlv')
@@ -2397,7 +2397,7 @@ Proof
       INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
       &(Fail_exn e ∧
         check_cstep_list cstep fmlls assg st inds vimap id
-          (cfg0,cfg1,cfg2) ht = NONE))`
+          (cfg0,cfg1,cfg2,mk_ord_pre cfg0.ord) ht = NONE))`
   >- (
     xapp>>xsimpl>>
     qexistsl_tac[`STDIO (forwardFD fs fd k) *
@@ -2419,7 +2419,8 @@ Proof
   TOP_CASE_TAC>>simp[]>>strip_tac>>
   rename1`check_cstep_list _ _ _ _ _ _ _ _ _ = SOME res`>>
   PairCases_on`res`>>
-  drule_all npbc_listTheory.fml_bound_check_cstep_list>>
+  drule_at (Pos last) npbc_listTheory.fml_bound_check_cstep_list>>
+  impl_tac >- fs[]>>
   strip_tac>>
   fs[PAIR_TYPE_def,PULL_EXISTS]>>
   xmatch>>
@@ -2846,7 +2847,7 @@ Quote add_cakeml:
     val vimap = (id - 1, (0, Array.array (mx + 1) Vnone))
     val assg = Array.array (mx + 1) 0
     val vomap = mk_vomap_opt_arr obj
-    val cfg = (init_conf True pres obj, (vomap, 0))
+    val cfg = (init_conf True pres obj, (vomap, (0, None)))
     val ht = (0,(0,(0,Array.arrayEmpty ())))
   in
     (case check_unsat'' fns fd lno arr assg 1 inds vimap id cfg ht of
@@ -2868,9 +2869,9 @@ Theorem parse_and_run_check_csteps_list:
     ht'.
   parse_and_run fns ss fml assg st inds vimap id cfg ht =
     SOME (rest, s, fns', (fml', inds', pc', id', ht')) ⇒
-  ∃csteps assg' st' vimap' vomap' cw'.
+  ∃csteps assg' st' vimap' vomap' cw' po'.
   check_csteps_list csteps fml assg st inds vimap id cfg ht =
-    SOME (fml', assg', st', inds', vimap', id', (pc', vomap', cw'), ht')
+    SOME (fml', assg', st', inds', vimap', id', (pc', vomap', cw', po'), ht')
 Proof
   ho_match_mp_tac parse_and_run_ind>>
   rw[]>>
@@ -2987,7 +2988,7 @@ Proof
   qabbrev_tac`vimap1 = (LENGTH fml, 0:num, REPLICATE (mx+1) Vnone)`>>
   Cases_on`
     parse_and_run fns (MAP toks_fast lines) fmlls assg 1 inds vimap1
-      (LENGTH fml + 1) (init_conf T pres obj, vomap, 0) ht_empty`
+      (LENGTH fml + 1) (init_conf T pres obj, vomap, 0, NONE) ht_empty`
   >- (
     xhandle`POSTe e.
       SEP_EXISTS k lines' fmlv' fmllsv'.
@@ -3004,11 +3005,14 @@ Proof
         xapp>>xsimpl>>
         qexistsl_tac[`emp`,`REPLICATE (mx+1) vnone`,`vimapa`,`vimap1`,`lines`,
           `inds`,`LENGTH fml + 1`,`ht_empty`,`fs`,`fns`,`fmlls`,`fd`,
-          `(init_conf T pres obj, vomap, 0)`,`bkv`,`[]`,`assg`,`a`,`lno`]>>
+          `(init_conf T pres obj, vomap, 0, NONE)`,`bkv`,`[]`,`assg`,`a`,
+          `lno`]>>
         xsimpl>>
+        conj_tac >- simp[init_conf_def,npbc_listTheory.mk_ord_pre_def]>>
         conj_tac >- (
           simp[PAIR_TYPE_def,Abbr`vomap`]>>
-          simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])>>
+          simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def,
+            OPTION_TYPE_def])>>
         conj_tac >- (
           simp[npbc_arrayProgTheory.VIMAP_TYPE_def,PAIR_TYPE_def,Abbr`vimap1`,
             LIST_REL_REPLICATE_same]>>
@@ -3060,7 +3064,7 @@ Proof
          &(
           parse_and_run fns (MAP toks_fast lines)
             fmlls assg 1 inds vimap1 (LENGTH fml + 1)
-            (init_conf T pres obj, vomap, 0) ht_empty =
+            (init_conf T pres obj, vomap, 0, NONE) ht_empty =
               SOME (MAP toks_fast lines',res) ∧
             PAIR_TYPE NUM (
             PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (
@@ -3073,11 +3077,14 @@ Proof
       xapp>>xsimpl>>
       qexistsl_tac[`emp`,`REPLICATE (mx+1) vnone`,`vimapa`,`vimap1`,`lines`,
         `inds`,`LENGTH fml + 1`,`ht_empty`,`fs`,`fns`,`fmlls`,`fd`,
-        `(init_conf T pres obj, vomap, 0)`,`bkv`,`[]`,`assg`,`a`,`lno`]>>
+        `(init_conf T pres obj, vomap, 0, NONE)`,`bkv`,`[]`,`assg`,`a`,
+        `lno`]>>
       xsimpl>>
+      conj_tac >- simp[init_conf_def,npbc_listTheory.mk_ord_pre_def]>>
       conj_tac >- (
         simp[PAIR_TYPE_def,Abbr`vomap`]>>
-        simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])>>
+        simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def,
+          OPTION_TYPE_def])>>
       conj_tac >- (
         simp[npbc_arrayProgTheory.VIMAP_TYPE_def,PAIR_TYPE_def,Abbr`vimap1`,
           LIST_REL_REPLICATE_same]>>

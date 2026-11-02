@@ -1155,6 +1155,43 @@ Definition check_subproofs_list_def:
       | _ => NONE)
 End
 
+(* A scope hypothesis: a constraint, or its slot with its largest
+  variable *)
+Type sc_hyp = ``:npbc + (slot # num)``
+
+Definition sc_hyp_dec_def[simp]:
+  (sc_hyp_dec (INL c) = c) ∧
+  (sc_hyp_dec (INR (s,mv)) = dec s)
+End
+
+(* A slot hypothesis is an encoding with its largest variable *)
+Definition sc_hyp_ok_def[simp]:
+  (sc_hyp_ok (INL c) ⇔ T) ∧
+  (sc_hyp_ok (INR (s,mv)) ⇔ ∃c. s = enc c F ∧ mv = max_var (FST c))
+End
+
+Definition dec_scopes_def:
+  dec_scopes (pfs:(sc_hyp list option # 'a) list) =
+    MAP (λ(scopt,pf). (OPTION_MAP (MAP sc_hyp_dec) scopt, pf)) pfs
+End
+
+Definition scopes_ok_def:
+  scopes_ok (pfs:(sc_hyp list option # 'a) list) ⇔
+    EVERY (λ(scopt,pf). ∀sc. scopt = SOME sc ⇒ EVERY sc_hyp_ok sc) pfs
+End
+
+(* Inserts scope hypotheses, as core iff b *)
+Definition list_insert_sc_list_def:
+  (list_insert_sc_list ([]:sc_hyp list) b id fml assg st =
+    (id,fml,assg,st)) ∧
+  (list_insert_sc_list (h::hs) b id fml assg st =
+    let (fml',id',assg',st') =
+      (case h of
+        INL c => opt_update fml (SOME (c,b)) id assg st
+      | INR (s,mv) => store_slot fml (set_core_slot s b) mv id assg st) in
+    list_insert_sc_list hs b id' fml' assg' st')
+End
+
 Definition check_scopes_list_def:
   (check_scopes_list [] b fml mindel id assg st =
     SOME (fml,id,assg,st)) ∧
@@ -1166,8 +1203,8 @@ Definition check_scopes_list_def:
           NONE => NONE
         | SOME (fml',id',assg',st') =>
             check_scopes_list scpfs b fml' mindel id' assg' st')
-    | SOME sc =>
-    let (cid,cfml,assg,st) = list_insert_fml_list sc b id fml assg st in
+    | SOME (sc:sc_hyp list) =>
+    let (cid,cfml,assg,st) = list_insert_sc_list sc b id fml assg st in
     case check_subproofs_list pf b cfml id cid assg st of
       NONE => NONE
     | SOME (fml',id',assg',st') =>
@@ -1222,13 +1259,36 @@ Definition check_red_list_fast_def:
     NONE
 End
 
+(* The INL ids proved by a list of proofs, as keys of a list, and the INR
+  ids, as a set *)
+Definition extract_pids_list_def:
+  (extract_pids_list [] (l:(num # unit) list) r = (l,r)) ∧
+  (extract_pids_list (cpf::pfs) l r =
+  case FST cpf of
+    NONE => extract_pids_list pfs l r
+  | SOME (i,n) =>
+    (case i of
+      INL i => extract_pids_list pfs ((i,())::l) r
+    | INR i => extract_pids_list pfs l (insert i () r)))
+End
+
+Definition extract_scoped_pids_list_def:
+  (extract_scoped_pids_list [] l r = (l,r)) ∧
+  (extract_scoped_pids_list ((scopt,pf)::scpfs) l r =
+  if extract_scope_val scopt
+  then
+      let (l,r) = extract_pids_list pf l r in
+        extract_scoped_pids_list scpfs l r
+  else extract_scoped_pids_list scpfs l r)
+End
+
 (* The proved goals, and the goals neither proved nor implied by extra,
   in one pass; both in reverse order *)
 Definition split_goals_pure_def:
-  (split_goals_pure (proved:num_set) extra [] lp lf = (lp,lf)) ∧
+  (split_goals_pure (proved:unit lmap) extra [] lp lf = (lp,lf)) ∧
   (split_goals_pure proved extra
     ((i,c)::(goals:(num # (int # num) list # int) list)) lp lf =
-    if sptree$lookup i proved ≠ NONE then
+    if map_lookup proved i ≠ NONE then
       split_goals_pure proved extra goals (c::lp) lf
     else if imp_slot extra c then
       split_goals_pure proved extra goals lp lf
@@ -1246,11 +1306,12 @@ Definition ht_goals_def:
 End
 
 (* The goals neither proved nor implied by extra are looked up in the
-  table, which is filled first; base is the first id of the step *)
+  table, which is filled first; pids are the proved ids and base is the
+  first id of the step *)
 Definition split_goals_hash_def:
-  split_goals_hash b fml inds base ht extra (proved:num_set)
+  split_goals_hash b fml inds base ht extra (pids:(num # unit) list)
     (goals:(num # (int # num) list # int) list) =
-  let (lp,lf) = split_goals_pure proved extra goals [] [] in
+  let (lp,lf) = split_goals_pure (mk_map [] pids) extra goals [] [] in
   if NULL lf then (T,ht)
   else
     let ht = ht_fill fml inds base ht in
@@ -1261,7 +1322,7 @@ End
 Theorem split_goals_hash_test:
   let fml = [Empty; enc ([(2,1);(-3,4)],5) T; enc ([(1,1)],1) F] in
   let extra = enc ([(1,7)],1) T in
-  let proved = sptree$insert 5 () LN in
+  let proved = [(5n,())] in
   let gp = ([(1,9)],1) in
   let run b gs = split_goals_hash b fml [2;1] 3 ht_empty extra proved gs in
   (* a goal in the database: core only when b *)
@@ -1273,6 +1334,7 @@ Theorem split_goals_hash_test:
   ¬FST (run F [(8,gp)]) ∧
   (* a goal implied by extra *)
   FST (run F [(9,([(1,7)],1))]) ∧
+  FST (split_goals_hash F fml [2;1] 3 ht_empty extra [] [(9,([(1,7)],1))]) ∧
   (* nothing to look up: the table is not filled *)
   run F [(5,gp); (9,([(1,7)],1))] = (T,ht_empty) ∧
   FST (SND (run F [(6,([(2,1);(-3,4)],5))])) = 3
@@ -1283,7 +1345,7 @@ QED
 Definition red_cond_check_def:
   red_cond_check b fml inds base ht extra pfs
     (rsubs:((int # num) list # int) list list) goals skipped =
-  let (l,r) = extract_scoped_pids pfs LN LN in
+  let (l,r) = extract_scoped_pids_list pfs [] LN in
   if check_hash_goals_slot extra skipped r rsubs then
     split_goals_hash b fml inds base ht extra l goals
   else (F,ht)
@@ -1578,16 +1640,902 @@ Definition fast_obj_constraint_def:
   else full_obj_single (subst_fun s) l
 End
 
+(* The order precomputed at its load.
+
+  A record of an order constraint c: c renamed with the empty witness (each
+  formal of us and vs replaced by its literal of xs), its negation, the
+  terms of c on the formals of us and of vs as
+  (coefficient, problem variable, sign bit), and the renamed constraint
+  encoded as a non-core slot with its largest variable.
+
+  The precomputed order: the records of f and of g, the length of f, and
+  for us and for vs, a map from a problem variable to the ids (f's records
+  first, then g's) of the records with a term on a formal mapped to it *)
+Type ord_rec = ``:npbc # npbc # (int # num # bool) list #
+  (int # num # bool) list # (slot # num)``
+
+Type ord_pre = ``:ord_rec list # ord_rec list # num #
+  num list lmap # num list lmap``
+
+Definition ord_ww0_def:
+  ord_ww0 us_xs vs_xs n =
+    case map_lookup us_xs n of
+      SOME (v,b) => SOME (INR (mk_lit (v,b)))
+    | NONE => OPTION_MAP (INR o mk_lit) (map_lookup vs_xs n)
+End
+
+(* The terms of l on the keys of m, as (coefficient, variable, sign bit) *)
+Definition formal_terms_def:
+  (formal_terms (m:(num # bool) lmap) [] acc = acc) ∧
+  (formal_terms m ((c:int,n)::l) acc =
+    case map_lookup m n of
+      NONE => formal_terms m l acc
+    | SOME (v,b) => formal_terms m l ((c,v,b)::acc))
+End
+
+Definition mk_ord_rec_def:
+  mk_ord_rec us_xs vs_xs (c:npbc) =
+  let c0 = subst (ord_ww0 us_xs vs_xs) c in
+  ((c0, not c0, formal_terms us_xs (FST c) [], formal_terms vs_xs (FST c) [],
+    enc_mv c0 F):ord_rec)
+End
+
+(* Adds id j to the entry of each variable of l *)
+Definition ord_index_aux_def:
+  (ord_index_aux (t:num list num_map) (j:num) [] = t) ∧
+  (ord_index_aux t j (((c:int),v,(b:bool))::l) =
+    ord_index_aux
+      (insert v (case lookup v t of NONE => [j] | SOME js => j::js) t) j l)
+End
+
+Definition ord_index_def:
+  (ord_index side t j ([]:ord_rec list) = t) ∧
+  (ord_index side t j ((c0,ncs,uts,vts,sl)::rs) =
+    ord_index side (ord_index_aux t j (if side then uts else vts)) (j+1) rs)
+End
+
+Definition compact_terms_def:
+  (compact_terms ([]:(int # num) list) ⇔ T) ∧
+  (compact_terms [x] ⇔ FST x ≠ 0) ∧
+  (compact_terms (x::y::l) ⇔
+    FST x ≠ 0 ∧ SND x < SND y ∧ compact_terms (y::l))
+End
+
+(* The precomputed order, when every constraint is compact and no formal
+  is in both us and vs *)
+Definition mk_ord_pre_def:
+  mk_ord_pre (ord:ord_s option) =
+  case ord of NONE => NONE
+  | SOME (((f,g,us,vs,as),xs),us_xs,vs_xs,xsv,asv) =>
+    if EVERY (compact_terms o FST) f ∧ EVERY (compact_terms o FST) g ∧
+      EVERY (λn. map_lookup us_xs n = NONE) vs
+    then
+      let frs = MAP (mk_ord_rec us_xs vs_xs) f in
+      let grs = MAP (mk_ord_rec us_xs vs_xs) g in
+      let rs = frs ++ grs in
+      SOME ((frs, grs, LENGTH f,
+        mk_map [] (toAList (ord_index T LN 0 rs)),
+        mk_map [] (toAList (ord_index F LN 0 rs))):ord_pre)
+    else NONE
+End
+
+(* The ids of the records with a term on a variable of the witness, in
+  increasing order, possibly repeated *)
+Definition ord_touched_aux_def:
+  (ord_touched_aux (idx:num list lmap) ([]:subst_raw) acc = acc) ∧
+  (ord_touched_aux idx ((v,x)::sr) acc =
+    case map_lookup idx v of
+      NONE => ord_touched_aux idx sr acc
+    | SOME ids => ord_touched_aux idx sr (ids ++ acc))
+End
+
+Definition ord_touched_def:
+  ord_touched idx sr = mllist$sort (λx y. x ≤ y) (ord_touched_aux idx sr [])
+End
+
+(* The change, under witness w, of the renamed terms l of a record: a
+  constraint (dts, k) with dts not normalised *)
+Definition delta_terms_def:
+  (delta_terms w [] dts (k:int) = (dts,k)) ∧
+  (delta_terms w ((c,v,b)::l) dts k =
+    case w v of
+      NONE => delta_terms w l dts k
+    | SOME res =>
+      let dts = (if b then -c else c, v)::dts in
+      let k = k + ABS c in
+      case mk_bit_lit b res of
+        INL b' => delta_terms w l dts (if is_Pos c = b' then k - ABS c else k)
+      | INR (Pos n) => delta_terms w l ((c,n)::dts) k
+      | INR (Neg n) => delta_terms w l ((-c,n)::dts) k)
+End
+
+(* A renamed constraint corrected by the witness *)
+Definition touched_rec_def:
+  touched_rec w (c0:npbc) l =
+  let (dts,k) = delta_terms w l [] 0 in
+  let (sorted,k2) = clean_up dts in
+  add c0 (sorted, k - k2)
+End
+
+(* The negation of a renamed constraint corrected by the witness, from the
+  negation nc0 of the renamed constraint *)
+Definition touched_not_def:
+  touched_not w (nc0:npbc) l =
+  let (dts,k) = delta_terms w l [] 0 in
+  let (sorted,k2) = clean_up dts in
+  let (nds,r) = not (sorted, k - k2) in
+  add nc0 (nds, r - 1)
+End
+
+(* The records from id j renamed under witness w, on side us (side) or vs;
+  ts holds the touched ids *)
+(* TMC *)
+Definition fast_rn_def:
+  (fast_rn w side ([]:ord_rec list) ts (j:num) = []) ∧
+  (fast_rn w side (r::rs) ts j =
+    case ts of
+      [] => FST r :: fast_rn w side rs [] (j+1)
+    | (t::ts') =>
+      if t < j then fast_rn w side (r::rs) ts' j
+      else if t = j then
+        (case r of (c0,ncs,uts,vts,sl) =>
+          touched_rec w c0 (if side then uts else vts) ::
+          fast_rn w side rs ts' (j+1))
+      else FST r :: fast_rn w side rs ts (j+1))
+Termination
+  WF_REL_TAC`measure (λ(w,side,rs,ts,j). LENGTH rs + LENGTH ts)`
+  \\ rw []
+End
+
+(* As fast_rn on side us, as the one-element lists of the negations *)
+(* TMC *)
+Definition fast_rn_not_def:
+  (fast_rn_not w ([]:ord_rec list) ts (j:num) = ([]:npbc list list)) ∧
+  (fast_rn_not w (r::rs) ts j =
+    case ts of
+      [] => [FST (SND r)] :: fast_rn_not w rs [] (j+1)
+    | (t::ts') =>
+      if t < j then fast_rn_not w (r::rs) ts' j
+      else if t = j then
+        (case r of (c0,nc0,uts,vts,sl) =>
+          [touched_not w nc0 uts] :: fast_rn_not w rs ts' (j+1))
+      else [FST (SND r)] :: fast_rn_not w rs ts (j+1))
+Termination
+  WF_REL_TAC`measure (λ(w,rs,ts,j). LENGTH rs + LENGTH ts)`
+  \\ rw []
+End
+
+(* As fast_rn, as scope hypotheses: the slot of an untouched record *)
+(* TMC *)
+Definition fast_rn_sc_def:
+  (fast_rn_sc w side ([]:ord_rec list) ts (j:num) = ([]:sc_hyp list)) ∧
+  (fast_rn_sc w side (r::rs) ts j =
+    case ts of
+      [] => INR (SND (SND (SND (SND r)))) :: fast_rn_sc w side rs [] (j+1)
+    | (t::ts') =>
+      if t < j then fast_rn_sc w side (r::rs) ts' j
+      else if t = j then
+        (case r of (c0,ncs,uts,vts,sl) =>
+          INL (touched_rec w c0 (if side then uts else vts)) ::
+          fast_rn_sc w side rs ts' (j+1))
+      else INR (SND (SND (SND (SND r)))) :: fast_rn_sc w side rs ts (j+1))
+Termination
+  WF_REL_TAC`measure (λ(w,side,rs,ts,j). LENGTH rs + LENGTH ts)`
+  \\ rw []
+End
+
+(* The negated f subgoals and the g scope hypotheses of dom_subst *)
+Definition dom_subst_fast_def:
+  dom_subst_fast hs w sr ((frs,grs,nf,uidx,vidx):ord_pre) =
+  let ts = ord_touched uidx sr in
+  (fast_rn_not w frs ts 0, if hs then fast_rn_sc w T grs ts nf else [])
+End
+
+Definition neg_dom_subst_fast_def:
+  neg_dom_subst_fast w sr ((frs,grs,nf,uidx,vidx):ord_pre) =
+  let ts = ord_touched vidx sr in
+  (fast_rn w F frs ts 0, fast_rn_sc w F grs ts nf)
+End
+
+(* dom_subst as negated f subgoals and scope hypotheses, from the
+  precomputed order po when present *)
+Definition dom_subst_list_def:
+  dom_subst_list hs w sr ord (po:ord_pre option) =
+  case po of
+    NONE =>
+      let (fs,gs) = dom_subst hs w ord in
+      (MAP (λc. [not c]) fs, MAP INL gs : sc_hyp list)
+  | SOME p => dom_subst_fast hs w sr p
+End
+
 Definition fast_red_subgoals_def:
-  fast_red_subgoals ord s sr def obj vomap hs =
+  fast_red_subgoals ord po s sr def obj vomap hs =
   let cobj =
     case obj of NONE => []
     | SOME l => [[not (fast_obj_constraint s sr l vomap)]] in
   let w = subst_fun s in
-  let (fs,gs) = dom_subst hs w ord in
+  let (nfs,gs) = dom_subst_list hs w sr ord po in
   let c0 = subst_slot s def in
-  ([not c0]::(MAP (λc. [not c]) fs) ++ cobj, [gs])
+  ([not c0]::nfs ++ cobj, [gs])
 End
+
+(* dom_subgoals, from the precomputed order po when present *)
+Definition dom_subgoals_list_def:
+  dom_subgoals_list (aspo:ord_s) (po:ord_pre option) s sr obj =
+  let w = subst_fun s in
+  let (nfs,gs) = dom_subst_list T w sr (SOME aspo) po in
+  let (fs',gs') =
+    (case po of
+      NONE =>
+        let (fs',gs') = neg_dom_subst w aspo in
+        (fs', MAP INL gs' : sc_hyp list)
+    | SOME p => neg_dom_subst_fast w sr p) in
+  let cobj =
+    case obj of NONE => []
+    | SOME l => [[not (obj_constraint w l)]] in
+  (nfs ++ fs' :: cobj, [gs; gs'], LENGTH nfs)
+End
+
+(* The precomputed order renames as dom_subst and neg_dom_subst do; xs
+  repeats variable 10, and a witness may repeat a key or miss the order *)
+Theorem dom_subst_fast_test:
+  let f = [([(4,1);(2,2);(1,3);(-4,4);(-2,5);(-1,6)],0); ([(3,1);(1,7)],1)] in
+  let g = [([(1,2);(-1,5)],0); ([(2,3);(1,7)],1)] in
+  let xs = [(10,T);(11,F);(10,T)] in
+  let ord = mk_ordsub ((f,g,[1;2;3],[4;5;6],[7]), mk_as_vec [7]) xs in
+  let po = mk_ord_pre ord in
+  let dec_nfs = λ(nfs,gs). (nfs, MAP sc_hyp_dec gs) in
+  let dec_gs = λ(fs,gs). (fs, MAP sc_hyp_dec gs) in
+  let neg_fs = λ(fs,gs). (MAP (λc. [not c]) fs, gs) in
+  let chk sr =
+    let w = subst_fun (mk_subst [] sr) in
+    dec_nfs (dom_subst_list T w sr ord po) = neg_fs (dom_subst T w ord) ∧
+    dec_gs (neg_dom_subst_fast w sr (THE po)) = neg_dom_subst w (THE ord) in
+  IS_SOME po ∧
+  chk [] ∧ chk [(10,INL T)] ∧ chk [(11,INR (Pos 12))] ∧
+  chk [(10,INR (Neg 11)); (11,INL F)] ∧ chk [(10,INL T); (10,INL F)] ∧
+  chk [(20,INL T)] ∧ chk [(11,INR (Neg 10)); (10,INR (Pos 11))] ∧
+  chk [(10,INR (Neg 7))] ∧ chk [(10,INR (Pos 7)); (11,INR (Pos 10))] ∧
+  (* a formal in both us and vs: no precomputation *)
+  mk_ord_pre (mk_ordsub ((f,g,[1;2;3],[3;5;6],[7]), mk_as_vec [7]) xs) = NONE
+Proof
+  EVAL_TAC
+QED
+
+(* The maps of a loaded order are built from its formals and xs, as
+  mk_ordsub builds them *)
+Definition ord_maps_ok_def:
+  ord_maps_ok ((((f,g,us,vs,as),xs),us_xs,vs_xs,xsv,asv):ord_s) ⇔
+  us_xs = mk_map [] (ZIP (us,xs)) ∧
+  vs_xs = mk_map [] (ZIP (vs,xs))
+End
+
+Theorem compact_terms_thm:
+  ∀l. compact_terms l ⇔
+    SORTED $< (MAP SND l) ∧ EVERY (λc. c ≠ 0) (MAP FST l)
+Proof
+  recInduct compact_terms_ind
+  \\ rw[compact_terms_def]
+  \\ eq_tac \\ rw[]
+QED
+
+(* The renaming of dom_subst (m1 = us_xs, m2 = vs_xs) and of neg_dom_subst
+  (m1 = vs_xs, m2 = us_xs) under witness w *)
+Definition ord_ww_def:
+  ord_ww (m1:(num # bool) lmap) (m2:(num # bool) lmap) w =
+    λn.
+    case map_lookup m1 n of
+      SOME (v,b) =>
+        SOME (mk_bit_lit b
+          (case w v of NONE => INR (Pos v) | SOME res => res))
+    | NONE => OPTION_MAP (INR o mk_lit) (map_lookup m2 n)
+End
+
+Theorem dom_subst_ord_ww:
+  dom_subst hs w (SOME (((f,g,us,vs,as),xs),us_xs,vs_xs,xsv,asv)) =
+  (MAP (subst (ord_ww us_xs vs_xs w)) f,
+   if hs then MAP (subst (ord_ww us_xs vs_xs w)) g else [])
+Proof
+  simp[dom_subst_def, ord_ww_def]
+QED
+
+Theorem neg_dom_subst_ord_ww:
+  neg_dom_subst w (((f,g,us,vs,as),xs),us_xs,vs_xs,xsv,asv) =
+  (MAP (subst (ord_ww vs_xs us_xs w)) f, MAP (subst (ord_ww vs_xs us_xs w)) g)
+Proof
+  simp[neg_dom_subst_def, ord_ww_def]
+QED
+
+Theorem ord_ww0_ord_ww:
+  ord_ww0 m1 m2 = ord_ww m1 m2 (K NONE)
+Proof
+  simp[FUN_EQ_THM, ord_ww0_def, ord_ww_def]
+  \\ qx_gen_tac ‘n’ \\ Cases_on ‘map_lookup m1 n’ \\ simp[]
+  \\ rename1 ‘SOME p’ \\ PairCases_on ‘p’
+  \\ simp[npbcTheory.mk_bit_lit_def]
+QED
+
+Theorem ord_ww_swap:
+  (∀n. map_lookup m1 n = NONE ∨ map_lookup m2 n = NONE) ⇒
+  ord_ww m1 m2 (K NONE) = ord_ww m2 m1 (K NONE)
+Proof
+  strip_tac \\ simp[FUN_EQ_THM, ord_ww_def]
+  \\ qx_gen_tac ‘n’
+  \\ ‘map_lookup m1 n = NONE ∨ map_lookup m2 n = NONE’ by simp[]
+  \\ Cases_on ‘map_lookup m1 n’ \\ Cases_on ‘map_lookup m2 n’ \\ gvs[]
+  \\ qmatch_asmsub_rename_tac ‘_ = SOME q’ \\ PairCases_on ‘q’
+  \\ simp[npbcTheory.mk_bit_lit_def]
+QED
+
+Theorem formal_terms_acc:
+  ∀l acc. formal_terms m l acc = formal_terms m l [] ++ acc
+Proof
+  Induct >- simp[formal_terms_def]
+  \\ rpt strip_tac \\ rename1 ‘formal_terms m (t::l) acc’
+  \\ PairCases_on ‘t’
+  \\ qpat_x_assum ‘∀acc. _’ (fn ih =>
+    simp[formal_terms_def] \\ Cases_on ‘map_lookup m t1’ \\ simp[]
+    >- (once_rewrite_tac [ih] \\ simp[])
+    \\ qmatch_asmsub_rename_tac ‘_ = SOME q’ \\ PairCases_on ‘q’ \\ simp[]
+    \\ once_rewrite_tac [ih] \\ simp[])
+QED
+
+Theorem formal_terms_nonzero:
+  ∀l acc.
+  EVERY (λc. c ≠ 0) (MAP FST l) ∧ EVERY (λ(c,v,b). c ≠ 0) acc ⇒
+  EVERY (λ(c,v,b). c ≠ 0) (formal_terms m l acc)
+Proof
+  Induct >- simp[formal_terms_def]
+  \\ rpt strip_tac \\ rename1 ‘formal_terms m (t::l) acc’
+  \\ PairCases_on ‘t’ \\ gvs[formal_terms_def]
+  \\ Cases_on ‘map_lookup m t1’ \\ simp[]
+  \\ qmatch_asmsub_rename_tac ‘_ = SOME q’ \\ PairCases_on ‘q’ \\ simp[]
+QED
+
+Theorem delta_terms_APPEND:
+  ∀l1 l2 dts k.
+  delta_terms w (l1 ++ l2) dts k =
+  UNCURRY (delta_terms w l2) (delta_terms w l1 dts k)
+Proof
+  Induct \\ simp[delta_terms_def, FORALL_PROD]
+  \\ rw[] \\ every_case_tac \\ simp[]
+QED
+
+Theorem delta_terms_untouched:
+  ∀l dts k.
+  EVERY (λ(c,v,b). w v = NONE) l ⇒ delta_terms w l dts k = (dts,k)
+Proof
+  Induct \\ simp[delta_terms_def, FORALL_PROD]
+QED
+
+Theorem delta_terms_nonzero:
+  ∀l dts k dts' k'.
+  delta_terms w l dts k = (dts',k') ∧
+  EVERY (λ(c,v,b). c ≠ 0) l ∧ EVERY (λc. c ≠ 0) (MAP FST dts) ⇒
+  EVERY (λc. c ≠ 0) (MAP FST dts')
+Proof
+  Induct \\ simp[delta_terms_def, FORALL_PROD]
+  \\ rw[] \\ every_case_tac \\ gvs[]
+  \\ first_x_assum drule \\ simp[]
+QED
+
+(* The change made by the witness to a term on a formal *)
+Theorem delta_one:
+  map_lookup m1 x = SOME (v,b) ∧
+  delta_terms w [(c,v,b)] d k = (d',k') ⇒
+  &SUM (MAP (eval_term w') d') − k' =
+  &SUM (MAP (eval_term w') d) − k +
+  (&eval_term (assign (ord_ww m1 m2 w) w') (c,x) −
+   &eval_term (assign (ord_ww m1 m2 (K NONE)) w') (c,x))
+Proof
+  strip_tac
+  \\ gvs[delta_terms_def, npbcTheory.assign_def, ord_ww_def]
+  \\ Cases_on ‘w v’ \\ gvs[delta_terms_def]
+  \\ qmatch_asmsub_rename_tac ‘w v = SOME res’
+  \\ Cases_on ‘res’
+  >- (
+    rename1 ‘INL bb’
+    \\ strip_assume_tac (Q.SPEC ‘c’ integerTheory.INT_NUM_CASES)
+    \\ gvs[npbcTheory.mk_bit_lit_def, npbcTheory.mk_lit_def]
+    \\ Cases_on ‘b’ \\ Cases_on ‘bb’ \\ Cases_on ‘w' v’
+    \\ gvs[] \\ intLib.ARITH_TAC)
+  \\ rename1 ‘INR l’ \\ Cases_on ‘l’
+  >- (
+    rename1 ‘INR (Pos n)’
+    \\ strip_assume_tac (Q.SPEC ‘c’ integerTheory.INT_NUM_CASES)
+    \\ gvs[npbcTheory.mk_bit_lit_def, npbcTheory.mk_lit_def]
+    \\ Cases_on ‘b’ \\ Cases_on ‘w' v’ \\ Cases_on ‘w' n’
+    \\ gvs[npbcTheory.mk_lit_def] \\ intLib.ARITH_TAC)
+  \\ rename1 ‘INR (Neg n)’
+  \\ strip_assume_tac (Q.SPEC ‘c’ integerTheory.INT_NUM_CASES)
+  \\ gvs[npbcTheory.mk_bit_lit_def, npbcTheory.mk_lit_def]
+  \\ Cases_on ‘b’ \\ Cases_on ‘w' v’ \\ Cases_on ‘w' n’
+  \\ gvs[npbcTheory.mk_lit_def] \\ intLib.ARITH_TAC
+QED
+
+(* The change made by the witness to the terms of l *)
+Theorem delta_formal_terms:
+  ∀l dts k dts' k'.
+  delta_terms w (formal_terms m1 l []) dts k = (dts',k') ⇒
+  &SUM (MAP (eval_term w') dts') − k' =
+  &SUM (MAP (eval_term w') dts) − k +
+  (&SUM (MAP (eval_term (assign (ord_ww m1 m2 w) w')) l) −
+   &SUM (MAP (eval_term (assign (ord_ww m1 m2 (K NONE)) w')) l))
+Proof
+  Induct >- simp[formal_terms_def, delta_terms_def]
+  \\ rpt strip_tac \\ rename1 ‘formal_terms m1 (t::l) []’
+  \\ PairCases_on ‘t’
+  \\ gvs[formal_terms_def]
+  \\ Cases_on ‘map_lookup m1 t1’ \\ gvs[]
+  >- (
+    ‘assign (ord_ww m1 m2 w) w' t1 = assign (ord_ww m1 m2 (K NONE)) w' t1’ by
+      simp[npbcTheory.assign_def, ord_ww_def]
+    \\ pop_assum SUBST1_TAC
+    \\ first_x_assum drule
+    \\ qmatch_goalsub_abbrev_tac ‘&(_ + h) − &(_ + h)’
+    \\ rpt (pop_assum kall_tac) \\ intLib.ARITH_TAC)
+  \\ qmatch_asmsub_rename_tac ‘map_lookup m1 t1 = SOME q’ \\ PairCases_on ‘q’
+  \\ gvs[]
+  \\ qpat_x_assum ‘delta_terms _ _ _ _ = _’ mp_tac
+  \\ once_rewrite_tac [formal_terms_acc]
+  \\ simp[delta_terms_APPEND]
+  \\ Cases_on ‘delta_terms w (formal_terms m1 l []) dts k’ \\ simp[]
+  \\ strip_tac
+  \\ first_x_assum drule
+  \\ drule_all delta_one
+  \\ disch_then (qspecl_then [‘w'’,‘m2’] mp_tac)
+  \\ simp[]
+  \\ qabbrev_tac ‘EA = Num (ABS t0) *
+      if t0 < 0 then 1 − b2n (assign (ord_ww m1 m2 w) w' t1)
+      else b2n (assign (ord_ww m1 m2 w) w' t1)’
+  \\ qabbrev_tac ‘EB = Num (ABS t0) *
+      if t0 < 0 then 1 − b2n (assign (ord_ww m1 m2 (K NONE)) w' t1)
+      else b2n (assign (ord_ww m1 m2 (K NONE)) w' t1)’
+  \\ rpt (pop_assum kall_tac) \\ intLib.ARITH_TAC
+QED
+
+(* A record's renamed constraint and its negation, corrected by the
+  witness, are the constraint and its negation renamed under the witness *)
+Theorem touched_rec_thm:
+  compact c ⇒
+  touched_rec w (subst (ord_ww m1 m2 (K NONE)) c)
+    (formal_terms m1 (FST c) []) = subst (ord_ww m1 m2 w) c ∧
+  touched_not w (not (subst (ord_ww m1 m2 (K NONE)) c))
+    (formal_terms m1 (FST c) []) = not (subst (ord_ww m1 m2 w) c)
+Proof
+  strip_tac
+  \\ Cases_on ‘delta_terms w (formal_terms m1 (FST c) []) [] 0’
+  \\ rename1 ‘_ = (dts,k)’
+  \\ Cases_on ‘clean_up dts’ \\ rename1 ‘clean_up dts = (srt,k2)’
+  \\ ‘EVERY (λc. c ≠ 0) (MAP FST dts)’ by (
+    drule delta_terms_nonzero \\ disch_then irule \\ simp[]
+    \\ irule formal_terms_nonzero \\ Cases_on ‘c’ \\ gvs[])
+  \\ ‘compact (srt, k − k2)’ by (
+    drule_all npbcTheory.clean_up_sorted \\ simp[])
+  \\ drule delta_formal_terms \\ strip_tac
+  \\ drule_then assume_tac npbcTheory.clean_up_thm
+  \\ simp[touched_rec_def, touched_not_def]
+  \\ conj_tac
+  >- (
+    irule npbcTheory.compact_unique
+    \\ simp[npbcTheory.compact_add, npbcTheory.compact_subst,
+      npbcTheory.add_val, npbcTheory.subst_val]
+    \\ qx_gen_tac ‘u’
+    \\ qpat_x_assum ‘∀w' m2. _’ (qspecl_then [‘u’,‘m2’] mp_tac)
+    \\ qpat_x_assum ‘∀w. _ = _ + k2’ (qspec_then ‘u’ mp_tac)
+    \\ rpt (pop_assum kall_tac) \\ simp[] \\ intLib.ARITH_TAC)
+  \\ Cases_on ‘not (srt,k − k2)’ \\ rename1 ‘_ = (nds,r)’ \\ simp[]
+  \\ ‘compact (nds,r − 1)’ by (
+    ‘compact (nds,r)’ by metis_tac[npbcTheory.compact_not]
+    \\ gvs[])
+  \\ irule npbcTheory.compact_unique
+  \\ simp[npbcTheory.compact_add, npbcTheory.compact_subst,
+    npbcTheory.compact_not, npbcTheory.add_val, npbcTheory.not_val,
+    npbcTheory.subst_val]
+  \\ qx_gen_tac ‘u’
+  \\ mp_tac (Q.INST [‘w:num->bool’ |-> ‘u’, ‘c’ |-> ‘(srt,k − k2)’]
+    npbcTheory.not_val)
+  \\ qpat_x_assum ‘∀w' m2. _’ (qspecl_then [‘u’,‘m2’] mp_tac)
+  \\ qpat_x_assum ‘∀w. _ = _ + k2’ (qspec_then ‘u’ mp_tac)
+  \\ qpat_x_assum ‘not _ = _’ (simp o single)
+  \\ ‘&SUM (MAP (eval_term u) (FST (subst (ord_ww m1 m2 w) c))) −
+      SND (subst (ord_ww m1 m2 w) c) =
+      &SUM (MAP (eval_term (assign (ord_ww m1 m2 w) u)) (FST c)) − SND c’ by
+    simp[npbcTheory.subst_val]
+  \\ pop_assum mp_tac
+  \\ ‘&SUM (MAP (eval_term u) (FST (subst (ord_ww m1 m2 (K NONE)) c))) −
+      SND (subst (ord_ww m1 m2 (K NONE)) c) =
+      &SUM (MAP (eval_term (assign (ord_ww m1 m2 (K NONE)) u)) (FST c)) −
+      SND c’ by
+    simp[npbcTheory.subst_val]
+  \\ pop_assum mp_tac
+  \\ rpt (pop_assum kall_tac) \\ intLib.ARITH_TAC
+QED
+
+Theorem untouched_rec_thm:
+  compact c ∧ EVERY (λ(c,v,b). w v = NONE) (formal_terms m1 (FST c) []) ⇒
+  subst (ord_ww m1 m2 (K NONE)) c = subst (ord_ww m1 m2 w) c
+Proof
+  strip_tac
+  \\ ‘touched_rec w (subst (ord_ww m1 m2 (K NONE)) c)
+        (formal_terms m1 (FST c) []) = subst (ord_ww m1 m2 w) c’ by
+    simp[touched_rec_thm]
+  \\ pop_assum (SUBST1_TAC o SYM)
+  \\ simp[touched_rec_def, delta_terms_untouched, npbcTheory.clean_up_def,
+    npbcTheory.add_empty]
+QED
+
+Theorem fast_rn_MAPi:
+  ∀w side rs ts j.
+  SORTED $<= ts ⇒
+  fast_rn w side rs ts j =
+  MAPi (λi r. if MEM (i + j) ts then
+      (case r of (c0,ncs,uts,vts,sl) =>
+        touched_rec w c0 (if side then uts else vts))
+    else FST r) rs
+Proof
+  recInduct fast_rn_ind \\ rpt strip_tac
+  >- simp[fast_rn_def]
+  \\ Cases_on ‘ts’
+  >- (gvs[] \\ simp[Once fast_rn_def, combinTheory.o_DEF, ADD1])
+  \\ rename1 ‘SORTED _ (x::xs)’
+  \\ ‘transitive ($<= : num -> num -> bool)’ by
+    simp[relationTheory.transitive_def]
+  \\ ‘SORTED $<= xs ∧ ∀y. MEM y xs ⇒ x ≤ y’ by
+    gvs[sortingTheory.SORTED_EQ]
+  \\ gvs[]
+  \\ simp[Once fast_rn_def, combinTheory.o_DEF, ADD1]
+  \\ Cases_on ‘x < j’ \\ gvs[]
+  \\ Cases_on ‘x = j’ \\ gvs[]
+  >- (
+    PairCases_on ‘r’ \\ gvs[]
+    \\ AP_THM_TAC \\ AP_TERM_TAC
+    \\ simp[FUN_EQ_THM] \\ qx_gen_tac ‘i’
+    \\ ‘j + (i + 1) = i + (j + 1)’ by decide_tac
+    \\ pop_assum SUBST1_TAC \\ simp[])
+  \\ ‘¬MEM j xs’ by (strip_tac \\ res_tac \\ decide_tac)
+  \\ simp[]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ simp[FUN_EQ_THM] \\ qx_gen_tac ‘i’
+  \\ ‘j + (i + 1) = i + (j + 1)’ by decide_tac
+  \\ pop_assum SUBST1_TAC \\ simp[]
+QED
+
+Theorem fast_rn_not_MAPi:
+  ∀w rs ts j.
+  SORTED $<= ts ⇒
+  fast_rn_not w rs ts j =
+  MAPi (λi r. if MEM (i + j) ts then
+      (case r of (c0,nc0,uts,vts,sl) => [touched_not w nc0 uts])
+    else [FST (SND r)]) rs
+Proof
+  recInduct fast_rn_not_ind \\ rpt strip_tac
+  >- simp[fast_rn_not_def]
+  \\ Cases_on ‘ts’
+  >- (gvs[] \\ simp[Once fast_rn_not_def, combinTheory.o_DEF, ADD1])
+  \\ rename1 ‘SORTED _ (x::xs)’
+  \\ ‘transitive ($<= : num -> num -> bool)’ by
+    simp[relationTheory.transitive_def]
+  \\ ‘SORTED $<= xs ∧ ∀y. MEM y xs ⇒ x ≤ y’ by
+    gvs[sortingTheory.SORTED_EQ]
+  \\ gvs[]
+  \\ simp[Once fast_rn_not_def, combinTheory.o_DEF, ADD1]
+  \\ Cases_on ‘x < j’ \\ gvs[]
+  \\ Cases_on ‘x = j’ \\ gvs[]
+  >- (
+    PairCases_on ‘r’ \\ gvs[]
+    \\ AP_THM_TAC \\ AP_TERM_TAC
+    \\ simp[FUN_EQ_THM] \\ qx_gen_tac ‘i’
+    \\ ‘j + (i + 1) = i + (j + 1)’ by decide_tac
+    \\ pop_assum SUBST1_TAC \\ simp[])
+  \\ ‘¬MEM j xs’ by (strip_tac \\ res_tac \\ decide_tac)
+  \\ simp[]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ simp[FUN_EQ_THM] \\ qx_gen_tac ‘i’
+  \\ ‘j + (i + 1) = i + (j + 1)’ by decide_tac
+  \\ pop_assum SUBST1_TAC \\ simp[]
+QED
+
+Theorem fast_rn_sc_MAPi:
+  ∀w side rs ts j.
+  SORTED $<= ts ⇒
+  fast_rn_sc w side rs ts j =
+  MAPi (λi r. if MEM (i + j) ts then
+      (case r of (c0,ncs,uts,vts,sl) =>
+        INL (touched_rec w c0 (if side then uts else vts)))
+    else INR (SND (SND (SND (SND r))))) rs
+Proof
+  recInduct fast_rn_sc_ind \\ rpt strip_tac
+  >- simp[fast_rn_sc_def]
+  \\ Cases_on ‘ts’
+  >- (gvs[] \\ simp[Once fast_rn_sc_def, combinTheory.o_DEF, ADD1])
+  \\ rename1 ‘SORTED _ (x::xs)’
+  \\ ‘transitive ($<= : num -> num -> bool)’ by
+    simp[relationTheory.transitive_def]
+  \\ ‘SORTED $<= xs ∧ ∀y. MEM y xs ⇒ x ≤ y’ by
+    gvs[sortingTheory.SORTED_EQ]
+  \\ gvs[]
+  \\ simp[Once fast_rn_sc_def, combinTheory.o_DEF, ADD1]
+  \\ Cases_on ‘x < j’ \\ gvs[]
+  \\ Cases_on ‘x = j’ \\ gvs[]
+  >- (
+    PairCases_on ‘r’ \\ gvs[]
+    \\ AP_THM_TAC \\ AP_TERM_TAC
+    \\ simp[FUN_EQ_THM] \\ qx_gen_tac ‘i’
+    \\ ‘j + (i + 1) = i + (j + 1)’ by decide_tac
+    \\ pop_assum SUBST1_TAC \\ simp[])
+  \\ ‘¬MEM j xs’ by (strip_tac \\ res_tac \\ decide_tac)
+  \\ simp[]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ simp[FUN_EQ_THM] \\ qx_gen_tac ‘i’
+  \\ ‘j + (i + 1) = i + (j + 1)’ by decide_tac
+  \\ pop_assum SUBST1_TAC \\ simp[]
+QED
+
+Theorem ord_touched_SORTED:
+  SORTED $<= (ord_touched idx sr)
+Proof
+  simp[ord_touched_def]
+  \\ mp_tac (Q.ISPECL [‘λx y:num. x ≤ y’, ‘ord_touched_aux idx sr []’]
+    mllistTheory.sort_SORTED)
+  \\ simp[relationTheory.transitive_def, relationTheory.total_def]
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ simp[]
+QED
+
+Theorem MEM_ord_index_aux:
+  ∀l t.
+  MEM i (case lookup v (ord_index_aux t j l) of NONE => [] | SOME ids => ids) ⇔
+  MEM i (case lookup v t of NONE => [] | SOME ids => ids) ∨
+  (i = j ∧ ∃c b. MEM (c,v,b) l)
+Proof
+  Induct >- simp[ord_index_aux_def]
+  \\ rpt strip_tac \\ rename1 ‘ord_index_aux t j (h::l)’
+  \\ PairCases_on ‘h’ \\ simp[ord_index_aux_def, lookup_insert]
+  \\ Cases_on ‘v = h1’ \\ gvs[]
+  \\ Cases_on ‘lookup h1 t’ \\ gvs[]
+  \\ metis_tac[]
+QED
+
+Theorem MEM_ord_index:
+  ∀rs t j.
+  MEM i (case lookup v (ord_index side t j rs) of NONE => [] | SOME ids => ids) ⇔
+  MEM i (case lookup v t of NONE => [] | SOME ids => ids) ∨
+  ∃k c b. k < LENGTH rs ∧ i = j + k ∧
+    MEM (c,v,b)
+      (case EL k rs of (c0,ncs,uts,vts,sl) => if side then uts else vts)
+Proof
+  Induct >- simp[ord_index_def]
+  \\ rpt strip_tac \\ rename1 ‘ord_index side t j (r::rs)’
+  \\ PairCases_on ‘r’
+  \\ simp[ord_index_def, MEM_ord_index_aux, arithmeticTheory.LT_SUC,
+    LEFT_AND_OVER_OR, RIGHT_AND_OVER_OR, EXISTS_OR_THM, PULL_EXISTS]
+  \\ simp[ADD1]
+  \\ metis_tac[]
+QED
+
+Theorem MEM_ord_touched_aux[local]:
+  ∀sr acc.
+  MEM j (ord_touched_aux idx sr acc) ⇔
+  MEM j acc ∨ ∃v x ids. MEM (v,x) sr ∧ map_lookup idx v = SOME ids ∧ MEM j ids
+Proof
+  Induct >- simp[ord_touched_aux_def]
+  \\ rpt strip_tac \\ rename1 ‘ord_touched_aux idx (h::sr) acc’
+  \\ PairCases_on ‘h’ \\ simp[ord_touched_aux_def]
+  \\ Cases_on ‘map_lookup idx h0’
+  \\ simp[RIGHT_AND_OVER_OR, EXISTS_OR_THM]
+  \\ simp[AC DISJ_ASSOC DISJ_COMM]
+QED
+
+(* Every record with a term on a variable that the witness maps is
+  touched *)
+Theorem ord_touched_complete:
+  (∀v. (w:num -> (bool + num lit) option) v ≠ NONE ⇒ MEM v (MAP FST sr)) ∧
+  k < LENGTH rs ∧
+  MEM (c,v,b)
+    (case EL k rs of (c0,ncs,uts,vts,sl) => if side then uts else vts) ∧
+  w v ≠ NONE ⇒
+  MEM k (ord_touched (mk_map [] (toAList (ord_index side LN 0 rs))) sr)
+Proof
+  strip_tac
+  \\ simp[ord_touched_def, mllistTheory.sort_MEM, MEM_ord_touched_aux,
+    spt_to_vecTheory.map_lookup_mk_map, ALOOKUP_toAList]
+  \\ ‘MEM k (case lookup v (ord_index side LN 0 rs) of
+       NONE => [] | SOME ids => ids)’ by (
+    simp[MEM_ord_index] \\ qexistsl_tac [‘c’,‘b’] \\ simp[])
+  \\ ‘MEM v (MAP FST sr)’ by metis_tac[]
+  \\ gvs[MEM_MAP, EXISTS_PROD]
+  \\ Cases_on ‘lookup v (ord_index side LN 0 rs)’ \\ gvs[]
+  \\ metis_tac[]
+QED
+
+(* A record, touched (t) or not, renames its constraint and its negation
+  as ord_ww does, if every record with a term on a mapped variable is
+  touched *)
+Theorem ord_rec_elem:
+  compact c ∧
+  (EXISTS (λ(c,v,b). w v ≠ NONE) (formal_terms m1 (FST c) []) ⇒ t) ⇒
+  (if t then
+     touched_rec w (subst (ord_ww m1 m2 (K NONE)) c)
+       (formal_terms m1 (FST c) [])
+   else subst (ord_ww m1 m2 (K NONE)) c) = subst (ord_ww m1 m2 w) c ∧
+  (if t then
+     touched_not w (not (subst (ord_ww m1 m2 (K NONE)) c))
+       (formal_terms m1 (FST c) [])
+   else not (subst (ord_ww m1 m2 (K NONE)) c)) =
+    not (subst (ord_ww m1 m2 w) c)
+Proof
+  strip_tac \\ Cases_on ‘t’ \\ simp[touched_rec_thm]
+  \\ ‘subst (ord_ww m1 m2 (K NONE)) c = subst (ord_ww m1 m2 w) c’ by (
+    irule untouched_rec_thm
+    \\ gvs[EXISTS_MEM, EVERY_MEM, FORALL_PROD] \\ metis_tac[])
+  \\ simp[]
+QED
+
+(* The records of cs, with ids from off, renamed on side us (side) or vs,
+  where m1 is that side's map *)
+Theorem fast_rn_elems[local]:
+  ∀cs off m1 m2 side us_xs vs_xs w ts.
+  (∀i. i < LENGTH cs ⇒
+     compact (EL i cs) ∧
+     (EXISTS (λ(c,v,b). w v ≠ NONE) (formal_terms m1 (FST (EL i cs)) []) ⇒
+      MEM (i + off) ts)) ∧
+  ord_ww0 us_xs vs_xs = ord_ww m1 m2 (K NONE) ∧
+  m1 = (if side then us_xs else vs_xs) ⇒
+  MAPi (λi r. if MEM (i + off) ts then
+      (case r of (c0,ncs,uts,vts,sl) =>
+        touched_rec w c0 (if side then uts else vts))
+    else FST r) (MAP (mk_ord_rec us_xs vs_xs) cs) =
+    MAP (subst (ord_ww m1 m2 w)) cs ∧
+  (side ⇒
+    MAPi (λi r. if MEM (i + off) ts then
+        (case r of (c0,nc0,uts,vts,sl) => [touched_not w nc0 uts])
+      else [FST (SND r)]) (MAP (mk_ord_rec us_xs vs_xs) cs) =
+    MAP (λc. [not (subst (ord_ww m1 m2 w) c)]) cs) ∧
+  MAP sc_hyp_dec (MAPi (λi r. if MEM (i + off) ts then
+      (case r of (c0,ncs,uts,vts,sl) =>
+        INL (touched_rec w c0 (if side then uts else vts)))
+    else INR (SND (SND (SND (SND r))))) (MAP (mk_ord_rec us_xs vs_xs) cs)) =
+    MAP (subst (ord_ww m1 m2 w)) cs ∧
+  EVERY sc_hyp_ok (MAPi (λi r. if MEM (i + off) ts then
+      (case r of (c0,ncs,uts,vts,sl) =>
+        INL (touched_rec w c0 (if side then uts else vts)))
+    else INR (SND (SND (SND (SND r))))) (MAP (mk_ord_rec us_xs vs_xs) cs))
+Proof
+  rpt gen_tac \\ strip_tac
+  \\ Cases_on ‘side’ \\ gvs[]
+  \\ rpt conj_tac
+  \\ simp[LIST_EQ_REWRITE, EL_MAPi, EL_MAP, mk_ord_rec_def, EVERY_EL]
+  \\ rpt strip_tac
+  \\ first_x_assum drule \\ strip_tac
+  \\ drule_all ord_rec_elem \\ strip_tac
+  \\ rw[] \\ gvs[enc_mv_enc]
+  \\ metis_tac[]
+QED
+
+(* The records of f and g renamed on side us (side) or vs; the vs side
+  needs the keys of us_xs and vs_xs to be disjoint *)
+Theorem fast_rn_ok:
+  ∀f g side us_xs vs_xs w sr.
+  EVERY (compact_terms o FST) f ∧ EVERY (compact_terms o FST) g ∧
+  (side ∨ ∀n. map_lookup us_xs n = NONE ∨ map_lookup vs_xs n = NONE) ∧
+  (∀v. w v ≠ NONE ⇒ MEM v (MAP FST sr)) ⇒
+  let m1 = (if side then us_xs else vs_xs) in
+  let m2 = (if side then vs_xs else us_xs) in
+  let frs = MAP (mk_ord_rec us_xs vs_xs) f in
+  let grs = MAP (mk_ord_rec us_xs vs_xs) g in
+  let ts =
+    ord_touched (mk_map [] (toAList (ord_index side LN 0 (frs ++ grs)))) sr in
+  fast_rn w side frs ts 0 = MAP (subst (ord_ww m1 m2 w)) f ∧
+  (side ⇒
+    fast_rn_not w frs ts 0 = MAP (λc. [not (subst (ord_ww m1 m2 w) c)]) f) ∧
+  MAP sc_hyp_dec (fast_rn_sc w side grs ts (LENGTH f)) =
+    MAP (subst (ord_ww m1 m2 w)) g ∧
+  EVERY sc_hyp_ok (fast_rn_sc w side grs ts (LENGTH f))
+Proof
+  rpt gen_tac \\ disch_then (map_every assume_tac o CONJUNCTS)
+  \\ qabbrev_tac ‘m1 = if side then us_xs else vs_xs’
+  \\ qabbrev_tac ‘m2 = if side then vs_xs else us_xs’
+  \\ qabbrev_tac ‘rs = MAP (mk_ord_rec us_xs vs_xs) f ++
+                        MAP (mk_ord_rec us_xs vs_xs) g’
+  \\ qabbrev_tac
+    ‘ts = ord_touched (mk_map [] (toAList (ord_index side LN 0 rs))) sr’
+  \\ simp[]
+  \\ ‘ord_ww0 us_xs vs_xs = ord_ww m1 m2 (K NONE)’ by (
+    simp[Abbr ‘m1’, Abbr ‘m2’]
+    \\ rw[ord_ww0_ord_ww] \\ gvs[] \\ irule ord_ww_swap \\ simp[])
+  \\ ‘SORTED $<= ts’ by simp[Abbr ‘ts’, ord_touched_SORTED]
+  \\ sg ‘∀k. k < LENGTH rs ∧
+        EXISTS (λ(c,v,b). w v ≠ NONE)
+          (case EL k rs of (c0,ncs,uts,vts,sl) => if side then uts else vts) ⇒
+        MEM k ts’
+  >- (
+    qunabbrev_tac ‘ts’ \\ rpt strip_tac
+    \\ gvs[EXISTS_MEM]
+    \\ rename1 ‘MEM e _’ \\ PairCases_on ‘e’ \\ gvs[]
+    \\ irule ord_touched_complete
+    \\ simp[] \\ metis_tac[])
+  \\ qspecl_then [‘f’,‘0’,‘m1’,‘m2’,‘side’,‘us_xs’,‘vs_xs’,‘w’,‘ts’]
+    mp_tac fast_rn_elems
+  \\ impl_tac
+  >- (
+    rpt conj_tac
+    >- (
+      rpt gen_tac \\ strip_tac
+      \\ ‘compact_terms (FST (EL i f))’ by gvs[EVERY_EL]
+      \\ conj_tac >- (Cases_on ‘EL i f’ \\ gvs[compact_terms_thm])
+      \\ strip_tac
+      \\ qpat_x_assum ‘∀k. _’ (qspec_then ‘i’ mp_tac)
+      \\ simp[Abbr ‘rs’, EL_APPEND1, EL_MAP, mk_ord_rec_def]
+      \\ disch_then irule
+      \\ gvs[Abbr ‘m1’] \\ Cases_on ‘side’ \\ gvs[])
+    >- simp[]
+    \\ simp[Abbr ‘m1’])
+  \\ qspecl_then [‘g’,‘LENGTH f’,‘m1’,‘m2’,‘side’,‘us_xs’,‘vs_xs’,‘w’,‘ts’]
+    mp_tac fast_rn_elems
+  \\ impl_tac
+  >- (
+    rpt conj_tac
+    >- (
+      rpt gen_tac \\ strip_tac
+      \\ ‘compact_terms (FST (EL i g))’ by gvs[EVERY_EL]
+      \\ conj_tac >- (Cases_on ‘EL i g’ \\ gvs[compact_terms_thm])
+      \\ strip_tac
+      \\ qpat_x_assum ‘∀k. _’ (qspec_then ‘i + LENGTH f’ mp_tac)
+      \\ simp[Abbr ‘rs’, EL_APPEND2, EL_MAP, mk_ord_rec_def]
+      \\ disch_then irule
+      \\ gvs[Abbr ‘m1’] \\ Cases_on ‘side’ \\ gvs[])
+    >- simp[]
+    \\ simp[Abbr ‘m1’])
+  \\ simp[fast_rn_MAPi, fast_rn_not_MAPi, fast_rn_sc_MAPi]
+QED
+
+Theorem dom_subst_list_thm:
+  po = mk_ord_pre ord ∧ (∀v. w v ≠ NONE ⇒ MEM v (MAP FST sr)) ⇒
+  (λ(nfs,gs). (nfs, MAP sc_hyp_dec gs)) (dom_subst_list hs w sr ord po) =
+  (λ(fs,gs). (MAP (λc. [not c]) fs, gs)) (dom_subst hs w ord) ∧
+  EVERY sc_hyp_ok (SND (dom_subst_list hs w sr ord po))
+Proof
+  strip_tac \\ gvs[]
+  \\ Cases_on ‘mk_ord_pre ord’ \\ simp[dom_subst_list_def]
+  >- (
+    Cases_on ‘dom_subst hs w ord’
+    \\ simp[MAP_MAP_o, combinTheory.o_DEF, EVERY_MAP])
+  \\ Cases_on ‘ord’ \\ gvs[mk_ord_pre_def]
+  \\ rename1 ‘SOME aspo’ \\ PairCases_on ‘aspo’
+  \\ gvs[mk_ord_pre_def, AllCaseEqs()]
+  \\ simp[dom_subst_fast_def, dom_subst_ord_ww]
+  \\ qspecl_then [‘aspo0’,‘aspo1’,‘T’,‘aspo6’,‘aspo7’,‘w’,‘sr’]
+    mp_tac fast_rn_ok
+  \\ rw[MAP_MAP_o, combinTheory.o_DEF]
+QED
+
+Theorem ALOOKUP_ZIP_MEM[local]:
+  ∀l1 l2. ALOOKUP (ZIP (l1,l2)) n = SOME y ⇒ MEM n l1
+Proof
+  Induct \\ Cases_on ‘l2’ \\ rw[ZIP_def] \\ metis_tac[]
+QED
+
+Theorem neg_dom_subst_fast_thm:
+  mk_ord_pre (SOME aspo) = SOME p ∧ ord_maps_ok aspo ∧
+  (∀v. w v ≠ NONE ⇒ MEM v (MAP FST sr)) ⇒
+  (λ(fs,gs). (fs, MAP sc_hyp_dec gs)) (neg_dom_subst_fast w sr p) =
+  neg_dom_subst w aspo ∧
+  EVERY sc_hyp_ok (SND (neg_dom_subst_fast w sr p))
+Proof
+  strip_tac
+  \\ PairCases_on ‘aspo’
+  \\ gvs[mk_ord_pre_def, AllCaseEqs(), ord_maps_ok_def]
+  \\ simp[neg_dom_subst_fast_def, neg_dom_subst_ord_ww]
+  \\ ‘∀n. map_lookup (mk_map [] (ZIP (aspo2,aspo5))) n = NONE ∨
+       map_lookup (mk_map [] (ZIP (aspo3,aspo5))) n = NONE’ by (
+    rw[spt_to_vecTheory.map_lookup_mk_map]
+    \\ Cases_on ‘ALOOKUP (ZIP (aspo3,aspo5)) n’ \\ simp[]
+    \\ drule ALOOKUP_ZIP_MEM \\ strip_tac
+    \\ gvs[EVERY_MEM, spt_to_vecTheory.map_lookup_mk_map])
+  \\ qspecl_then [‘aspo0’,‘aspo1’,‘F’,‘mk_map [] (ZIP (aspo2,aspo5))’,
+      ‘mk_map [] (ZIP (aspo3,aspo5))’,‘w’,‘sr’] mp_tac fast_rn_ok
+  \\ simp[]
+QED
 
 (* Per variable: the indices of the constraints where it occurs
   positively and negatively, newest first. The ids up to m (the input
@@ -1894,7 +2842,7 @@ QED
 
 (* The fast path allows for faster checked deletion *)
 Definition check_red_list_def:
-  check_red_list pres ord obj b tcb fml inds id fc mv s
+  check_red_list pres ord po obj b tcb fml inds id fc mv s
     (pfs:scope) idopt vimap vomap assg st ht =
   if check_pres pres s
   then
@@ -1910,7 +2858,7 @@ Definition check_red_list_def:
     let ss = mk_subst rinds s in
     let nfc = not_slot fc b in
     let (fml_not_c,id1,assg,st) = store_slot fml nfc mv id assg st in
-    let (rsubs,rscopes) = fast_red_subgoals ord ss s fc obj vomap hs in
+    let (rsubs,rscopes) = fast_red_subgoals ord po ss s fc obj vomap hs in
     case extract_scopes_list rscopes ss b fml rsubs pfs of
       NONE => NONE
     | SOME cpfs =>
@@ -1956,7 +2904,7 @@ Definition ht_lstep_def:
 End
 
 Definition check_sstep_list_def:
-  (check_sstep_list (sstep:sstep) pres ord obj tcb
+  (check_sstep_list (sstep:sstep) pres ord po obj tcb
     (fml: slot list) (inds:num list) (id:num)
     vimap vomap assg st ht =
   case sstep of
@@ -1969,7 +2917,7 @@ Definition check_sstep_list_def:
       SOME (fml',inds',vimap,id'',assg'',st'',ht_lstep fml lstep ht))
   | Red c s pfs idopt =>
     let (fc,mv) = enc_mv c tcb in
-    case check_red_list pres ord obj F tcb fml inds id fc mv s pfs
+    case check_red_list pres ord po obj F tcb fml inds id fc mv s pfs
       idopt vimap vomap assg st ht of
       SOME (rfml,rinds,vimap',id',assg',st',ht') =>
       let (fml'',inds'',id'',assg'',st'') =
@@ -2008,15 +2956,28 @@ QED
 Theorem fml_rel_extract_scopes_list:
   ∀ls s b fml fmlls rsubs.
   fml_rel fml fmlls ⇒
-  extract_scopes scopes ls (subst_fun s) b fml rsubs =
-  extract_scopes_list scopes s b fmlls rsubs ls
+  extract_scopes (MAP (MAP sc_hyp_dec) scopes) ls (subst_fun s) b fml rsubs =
+  OPTION_MAP dec_scopes (extract_scopes_list scopes s b fmlls rsubs ls)
 Proof
   Induct>>rw[]
-  >- simp[extract_scopes_def,extract_scopes_list_def]>>
-  Cases_on`h`>> simp[extract_scopes_def,extract_scopes_list_def]>>
-  TOP_CASE_TAC>>simp[]>>
+  >- simp[extract_scopes_def,extract_scopes_list_def,dec_scopes_def]>>
+  Cases_on`h`>> simp[extract_scopes_def,extract_scopes_list_def,mk_scope_def]>>
+  first_x_assum (drule_then assume_tac)>>
   DEP_REWRITE_TAC [fml_rel_extract_clauses_list]>> simp[]>>
-  metis_tac[]
+  Cases_on`q`>> simp[EL_MAP]>>
+  every_case_tac>> gvs[dec_scopes_def]
+QED
+
+Theorem scopes_ok_extract_scopes_list:
+  ∀ls cpfs.
+  EVERY (EVERY sc_hyp_ok) scopes ∧
+  extract_scopes_list scopes s b fmlls rsubs ls = SOME cpfs ⇒
+  scopes_ok cpfs
+Proof
+  Induct>>rw[extract_scopes_list_def,scopes_ok_def]>>
+  rename1`extract_scopes_list _ _ _ _ _ (h::_)`>>
+  PairCases_on`h`>>gvs[extract_scopes_list_def,AllCaseEqs(),mk_scope_def]>>
+  gvs[scopes_ok_def,EVERY_EL]
 QED
 
 (* Index list must lazily overapproximate the
@@ -2179,6 +3140,77 @@ Proof
   gvs[any_el_update_resize]
 QED
 
+(* Scope hypotheses whose slots are encodings are inserted as their
+  decoded constraints *)
+Theorem list_insert_sc_list_eq:
+  ∀hs b id fmlls assg st.
+  EVERY sc_hyp_ok hs ⇒
+  list_insert_sc_list hs b id fmlls assg st =
+  list_insert_fml_list (MAP sc_hyp_dec hs) b id fmlls assg st
+Proof
+  Induct>>simp[list_insert_sc_list_def,list_insert_fml_list_def]>>
+  Cases>>simp[]>>
+  rename1`INR p`>>PairCases_on`p`>>
+  rw[]>>gvs[opt_update_def,enc_mv_enc]
+QED
+
+(* Each scope hypothesis is stored at the next id *)
+Theorem list_insert_sc_list_step[local]:
+  (case h of
+     INL c => opt_update fml (SOME (c,b)) id assg st
+   | INR (s,mv) => store_slot fml (set_core_slot s b) mv id assg st) =
+    (fml',id',assg',st') ⇒
+  ∃s. fml' = update_resize fml Empty s id ∧ id' = id + 1
+Proof
+  Cases_on`h`
+  >- (rw[opt_update_SOME]>>metis_tac[])>>
+  rename1`INR p`>>PairCases_on`p`>>
+  rw[store_slot_def]>>
+  pairarg_tac>>gvs[]>>
+  metis_tac[]
+QED
+
+Theorem list_insert_sc_list_id:
+  ∀cs b id fmlls assg st cid cfmlls assg' st'.
+  list_insert_sc_list cs b id fmlls assg st =
+    (cid,cfmlls,assg',st') ⇒
+  id ≤ cid
+Proof
+  Induct>>rw[list_insert_sc_list_def]>>
+  pairarg_tac>>gvs[]>>
+  drule list_insert_sc_list_step>>strip_tac>>gvs[]>>
+  first_x_assum drule>>
+  simp[]
+QED
+
+Theorem list_insert_sc_list_id_upper:
+  ∀cs b id fmlls assg st cid cfmlls assg' st'.
+  list_insert_sc_list cs b id fmlls assg st =
+    (cid,cfmlls,assg',st') ∧
+  (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ⇒
+  (∀n. n ≥ cid ⇒ any_el n cfmlls Empty = Empty)
+Proof
+  Induct>>rw[list_insert_sc_list_def]
+  >- gvs[]>>
+  pairarg_tac>>gvs[]>>
+  drule list_insert_sc_list_step>>strip_tac>>gvs[]>>
+  first_x_assum drule>>
+  simp[any_el_update_resize]
+QED
+
+Theorem list_insert_sc_list_mindel:
+  ∀cs b id fmlls assg st cid cfmlls assg' st'.
+  list_insert_sc_list cs b id fmlls assg st =
+    (cid,cfmlls,assg',st') ⇒
+  (∀n. n < id ⇒ any_el n cfmlls Empty = any_el n fmlls Empty)
+Proof
+  Induct>>rw[list_insert_sc_list_def]>>
+  pairarg_tac>>gvs[]>>
+  drule list_insert_sc_list_step>>strip_tac>>gvs[]>>
+  first_x_assum drule>>
+  simp[any_el_update_resize]
+QED
+
 Theorem fml_rel_check_subproofs_list:
   ∀pfs b fmlls mindel id assg st fmlls' id' assg' st' fml.
     fml_rel fml fmlls ∧ rup_inv fmlls assg st ∧
@@ -2316,16 +3348,16 @@ Theorem fml_rel_check_scopes_list:
   ∀pfs b fmlls mindel id assg st fmlls' id' assg' st' fml.
     fml_rel fml fmlls ∧ rup_inv fmlls assg st ∧
     (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
-    mindel ≤ id ∧
+    mindel ≤ id ∧ scopes_ok pfs ∧
     check_scopes_list pfs b fmlls mindel id assg st =
       SOME (fmlls', id', assg', st') ⇒
     ∃fml'.
-      check_scopes pfs b fml id =
+      check_scopes (dec_scopes pfs) b fml id =
         SOME (fml',id') ∧
       fml_rel fml' fmlls' ∧ rup_inv fmlls' assg' st'
 Proof
   ho_match_mp_tac check_scopes_list_ind>>rw[]>>
-  fs[check_scopes_def,check_scopes_list_def]>>
+  fs[check_scopes_def,check_scopes_list_def,dec_scopes_def,scopes_ok_def]>>
   gvs[AllCaseEqs()]
   >- (
     drule_all fml_rel_check_subproofs_list>>
@@ -2336,7 +3368,7 @@ Proof
     drule check_subproofs_list_id_upper>>
     simp[])>>
   rpt (pairarg_tac>>gvs[])>>
-  gvs[AllCaseEqs()]>>
+  gvs[AllCaseEqs(),list_insert_sc_list_eq]>>
   rename1`list_insert_fml_list _ _ _ _ _ _ = (cid1,cfmlls,assg1,st1)`>>
   rename1`check_subproofs_list _ _ _ _ _ _ _ = SOME (fml2,id2,assg2,st2)`>>
   drule_all fml_rel_list_insert_fml_list>>
@@ -2376,7 +3408,7 @@ Proof
   rpt(pairarg_tac>>fs[])>>
   gvs[AllCaseEqs()]>>
   imp_res_tac check_subproofs_list_id>>
-  imp_res_tac list_insert_fml_list_id>>
+  imp_res_tac list_insert_sc_list_id>>
   gvs[]
 QED
 
@@ -2408,8 +3440,8 @@ Proof
   qpat_x_assum`_ ⇒ _` (irule_at Any)>>
   simp[rollback_list_delete,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
   rw[]>>
-  qpat_x_assum`list_insert_fml_list _ _ _ _ _ _ = _` assume_tac>>
-  drule list_insert_fml_list_id_upper>>
+  qpat_x_assum`list_insert_sc_list _ _ _ _ _ _ = _` assume_tac>>
+  drule list_insert_sc_list_id_upper>>
   simp[]>>
   strip_tac>>
   qpat_x_assum`check_subproofs_list _ _ _ _ _ _ _ = _` assume_tac>>
@@ -2434,9 +3466,9 @@ Proof
   rpt(pairarg_tac>>fs[])>>
   gvs[AllCaseEqs()]>>
   drule check_subproofs_list_mindel>> fs[]>>
-  drule (list_insert_fml_list_mindel)>>fs[]>>
+  drule (list_insert_sc_list_mindel)>>fs[]>>
   rw[]>>
-  drule (list_insert_fml_list_id)>>
+  drule (list_insert_sc_list_id)>>
   drule check_subproofs_list_id>>rw[]>>
   gvs[rollback_list_delete,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]
 QED
@@ -2608,9 +3640,9 @@ Theorem MEM_split_goals_pure:
   ∀goals lp lf lp' lf'.
   split_goals_pure proved extra goals lp lf = (lp',lf') ⇒
   (∀c. MEM c lp' ⇔ MEM c lp ∨
-    ∃i. MEM (i,c) goals ∧ lookup i proved ≠ NONE) ∧
+    ∃i. MEM (i,c) goals ∧ map_lookup proved i ≠ NONE) ∧
   (∀c. MEM c lf' ⇔ MEM c lf ∨
-    ∃i. MEM (i,c) goals ∧ lookup i proved = NONE ∧ ¬imp_slot extra c)
+    ∃i. MEM (i,c) goals ∧ map_lookup proved i = NONE ∧ ¬imp_slot extra c)
 Proof
   Induct>>
   simp[split_goals_pure_def,FORALL_PROD]>>
@@ -2629,16 +3661,55 @@ Proof
   rw[ht_goals_def]
 QED
 
+(* The INL proved ids as keys of a list, and the INR ones as a set, are
+  extract_pids's *)
+Theorem extract_pids_list_thm:
+  ∀pf l r l1.
+  (∀i. lookup i l1 = NONE ⇔ ALOOKUP l i = NONE) ⇒
+  SND (extract_pids_list pf l r) = SND (extract_pids pf l1 r) ∧
+  ∀i. lookup i (FST (extract_pids pf l1 r)) = NONE ⇔
+      ALOOKUP (FST (extract_pids_list pf l r)) i = NONE
+Proof
+  Induct >- simp[extract_pids_list_def,extract_pids_def]>>
+  rpt gen_tac>>strip_tac>>
+  rename1`extract_pids_list (cpf::pf) l r`>>
+  simp[extract_pids_list_def,extract_pids_def]>>
+  Cases_on`FST cpf`>>simp[]>>
+  rename1`SOME p`>>PairCases_on`p`>>Cases_on`p0`>>simp[]>>
+  first_x_assum irule>>
+  rw[lookup_insert]>>
+  metis_tac[]
+QED
+
+Theorem extract_scoped_pids_list_thm:
+  ∀pfs l r l1.
+  (∀i. lookup i l1 = NONE ⇔ ALOOKUP l i = NONE) ⇒
+  SND (extract_scoped_pids_list pfs l r) = SND (extract_scoped_pids pfs l1 r) ∧
+  ∀i. lookup i (FST (extract_scoped_pids pfs l1 r)) = NONE ⇔
+      ALOOKUP (FST (extract_scoped_pids_list pfs l r)) i = NONE
+Proof
+  Induct >- simp[extract_scoped_pids_list_def,extract_scoped_pids_def]>>
+  rpt gen_tac>>strip_tac>>
+  rename1`extract_scoped_pids_list (h::pfs) l r`>>PairCases_on`h`>>
+  simp[extract_scoped_pids_list_def,extract_scoped_pids_def]>>
+  Cases_on`extract_scope_val h0`>>simp[]>>
+  qspecl_then [`h1`,`l`,`r`,`l1`] mp_tac extract_pids_list_thm>>
+  simp[]>>
+  Cases_on`extract_pids_list h1 l r`>>Cases_on`extract_pids h1 l1 r`>>
+  rw[]
+QED
+
 Theorem split_goals_hash_imp_split_goals:
   fml_rel fml fmlls ∧
-  split_goals_hash b fmlls inds base ht (enc nc b0) proved goals = (T,ht') ⇒
+  split_goals_hash b fmlls inds base ht (enc nc b0) pids goals = (T,ht') ∧
+  (∀i. lookup i proved ≠ NONE ⇔ ALOOKUP pids i ≠ NONE) ⇒
   split_goals (mk_core_fml b fml) nc proved goals
 Proof
   rw[split_goals_hash_def]>>
   pairarg_tac>>gvs[]>>
   irule split_goals_MEM>>
   drule MEM_split_goals_pure>>
-  rw[]>>
+  rw[spt_to_vecTheory.map_lookup_mk_map]>>
   Cases_on`imp_slot (enc nc b0) c`
   >- gvs[imp_slot_enc]>>
   `MEM c lf` by metis_tac[]>>
@@ -3511,6 +4582,15 @@ Definition vomap_rel_def:
     x < strlen ls ∧ strsub ls x ≠ ^zw
 End
 
+(* po is the precomputation of the loaded order ord, whose maps are built
+  by mk_ordsub. OPTION_ALL ord_maps_ok ord duplicates part of the
+  invariant OPTION_ALL good_aspo_subst pc.ord that npbc_check proves for
+  check_cstep (check_cstep_correct); it is carried again here because
+  that theorem's other hypotheses are not available at this level *)
+Definition po_rel_def:
+  po_rel ord po ⇔ po = mk_ord_pre ord ∧ OPTION_ALL ord_maps_ok ord
+End
+
 Theorem add_lists_map_negate_coeff:
   ∀ls rs.
   rs = (MAP (λ(c,l). (-c,l)) ls) ⇒
@@ -3571,13 +4651,38 @@ Proof
 QED
 
 Theorem vomap_rel_fast_red_subgoals:
-  vomap_rel obj vomap ⇒
-  fast_red_subgoals ord (mk_subst r sr) sr (enc def b) obj vomap hs =
-  red_subgoals ord (subst_fun (mk_subst r sr)) def obj hs
+  vomap_rel obj vomap ∧ po = mk_ord_pre ord ∧
+  fast_red_subgoals ord po (mk_subst r sr) sr (enc def b) obj vomap hs =
+    (rsubs,rscopes) ⇒
+  red_subgoals ord (subst_fun (mk_subst r sr)) def obj hs =
+    (rsubs, MAP (MAP sc_hyp_dec) rscopes)
 Proof
+  strip_tac>>
+  mp_tac (Q.INST [‘po’ |-> ‘mk_ord_pre ord’,
+    ‘w’ |-> ‘subst_fun (mk_subst r sr)’] dom_subst_list_thm)>>
+  impl_tac
+  >- rw[subst_fun_mk_subst,ALOOKUP_NONE]>>
+  qpat_x_assum`fast_red_subgoals _ _ _ _ _ _ _ _ = _` mp_tac>>
   rw[fast_red_subgoals_def,red_subgoals_def,subst_slot_enc]>>
-  every_case_tac>>fs[]>>
+  Cases_on`dom_subst_list hs (subst_fun (mk_subst r sr)) sr ord (mk_ord_pre ord)`>>
+  Cases_on`dom_subst hs (subst_fun (mk_subst r sr)) ord`>>
+  rw[]>>
+  every_case_tac>>gvs[]>>
   metis_tac[vomap_rel_fast_obj_constraint]
+QED
+
+Theorem fast_red_subgoals_scopes_ok:
+  po = mk_ord_pre ord ∧
+  fast_red_subgoals ord po (mk_subst r sr) sr def obj vomap hs =
+    (rsubs,rscopes) ⇒
+  EVERY (EVERY sc_hyp_ok) rscopes
+Proof
+  strip_tac>>
+  mp_tac (Q.INST [‘po’ |-> ‘mk_ord_pre ord’,
+    ‘w’ |-> ‘subst_fun (mk_subst r sr)’] dom_subst_list_thm)>>
+  simp[subst_fun_mk_subst,ALOOKUP_NONE]>>
+  gvs[fast_red_subgoals_def]>>
+  rpt (pairarg_tac>>gvs[])
 QED
 
 Theorem vimap_rel_check_fresh_aux_fml_vimap:
@@ -3707,9 +4812,9 @@ Theorem fml_rel_check_red_list:
   fml_rel fml fmlls ∧ rup_inv fmlls assg st ∧
   ind_rel fmlls inds ∧
   vimap_rel fmlls vimap ∧ FST (SND vimap) ≤ id ∧
-  vomap_rel obj vomap ∧
+  vomap_rel obj vomap ∧ po = mk_ord_pre ord ∧
   (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
-  check_red_list pres ord obj b tcb fmlls inds id (enc c b0) (max_var (FST c)) s pfs
+  check_red_list pres ord po obj b tcb fmlls inds id (enc c b0) (max_var (FST c)) s pfs
     idopt vimap vomap assg st ht =
     SOME (fmlls', inds', vimap', id', assg', st', ht') ⇒
     check_red pres ord obj b tcb fml id c s pfs idopt = SOME id' ∧
@@ -3723,14 +4828,18 @@ Proof
   fs[check_red_list_def,not_slot_enc,store_slot_enc,max_var_not]>>
   gvs[AllCaseEqs()]
   >- (
-    gvs[vomap_rel_fast_red_subgoals]>>
     rpt (pairarg_tac>>fs[])>>
     gvs[AllCaseEqs()]>>
+    drule_at (Pos last) vomap_rel_fast_red_subgoals>>
+    simp[]>>strip_tac>>
+    drule_at (Pos last) fast_red_subgoals_scopes_ok>>
+    simp[]>>strip_tac>>
     drule_all fill_get_set_indices>>
     strip_tac>>
     simp[check_red_def]>>
     qspecl_then [`[]`,`rinds`,`s`] SUBST_ALL_TAC subst_fun_mk_subst_rinds>> simp[]>>
     DEP_REWRITE_TAC [fml_rel_extract_scopes_list]>> simp[]>>
+    drule_all scopes_ok_extract_scopes_list>> strip_tac>>
     drule_all rup_inv_opt_update>> strip_tac>>
     drule_all fml_rel_opt_update>> strip_tac>>
     gvs[opt_update_SOME]>>
@@ -3757,15 +4866,21 @@ Proof
       gvs[do_red_check_def,red_cond_check_def,AllCaseEqs(),insert_fml_def,
         check_hash_goals_slot_enc]
       >- (
-        rpt (pairarg_tac>>fs[])>>
+        Cases_on`extract_scoped_pids_list pfs [] LN`>>
+        rename1`extract_scoped_pids_list pfs [] LN = (pl,pr)`>>
+        qspecl_then [`pfs`,`[]`,`LN`,`LN`] mp_tac
+          extract_scoped_pids_list_thm>>
+        simp[]>>strip_tac>>gvs[]>>
         CONJ_TAC >- (
           disch_tac>>
           gvs[]>>
           metis_tac[vimap_rel_vomap_rel_check_fresh_aspo_list])>>
-        Cases_on`check_hash_goals c skipped r rsubs`>>
+        Cases_on`check_hash_goals c skipped pr rsubs`>>
         gvs[]>>
-        drule_at (Pos last) split_goals_hash_imp_split_goals>>
+        drule_at (Pos (el 2)) split_goals_hash_imp_split_goals>>
         disch_then drule>>
+        disch_then (qspec_then`l` mp_tac)>>
+        impl_tac >- simp[]>>
         match_mp_tac split_goals_same_goals>>
         simp[EXTENSION,FORALL_PROD]>>
         rw[]>>eq_tac>>rw[]
@@ -3956,9 +5071,9 @@ Theorem fml_rel_check_sstep_list:
     fml_rel fml fmlls ∧ rup_inv fmlls assg st ∧
     ind_rel fmlls inds ∧
     vimap_rel fmlls vimap ∧ FST (SND vimap) ≤ id ∧
-    vomap_rel obj vomap ∧
+    vomap_rel obj vomap ∧ po = mk_ord_pre ord ∧
     (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
-    check_sstep_list sstep pres ord obj tcb fmlls inds id vimap vomap assg st
+    check_sstep_list sstep pres ord po obj tcb fmlls inds id vimap vomap assg st
       ht =
       SOME (fmlls',inds',vimap',id',assg',st',ht') ⇒
     ∃fml'.
@@ -3991,8 +5106,9 @@ Proof
     simp[])>>
   rpt (pairarg_tac>>gvs[])>>
   gvs[AllCaseEqs(),insert_fml_def,enc_mv_enc,store_ind_enc]>>
-  drule_all fml_rel_check_red_list>>
-  strip_tac>>
+  drule_at (Pos last) fml_rel_check_red_list>>
+  disch_then (qspec_then`fml` mp_tac)>>
+  simp[]>>strip_tac>>
   gvs[opt_update_SOME]>>
   qmatch_asmsub_abbrev_tac`UNCURRY _ SI = SOME _`>>
   PairCases_on`SI`>>
@@ -4006,7 +5122,7 @@ QED
 Definition do_dom_check_def:
   do_dom_check idopt fml rfml inds base ht goals extra pfs dsubs dindex =
   case idopt of NONE =>
-    let (l,r) = extract_scoped_pids pfs LN LN in
+    let (l,r) = extract_scoped_pids_list pfs [] LN in
     if
       find_scope_1 dindex pfs ∧
       check_hash_goals_slot extra [dindex] r dsubs
@@ -4244,7 +5360,7 @@ Theorem slot_list_test:
   core_from_inds [c1; Empty] [1] = NONE ∧
   all_core_list [c1; Empty; c3] [2;1;0] [] = SOME [2;0] ∧
   all_core_list [c1; c2] [1;0] [] = NONE ∧
-  split_goals_pure (insert 0 () LN) c1 [(0,([(1,1)],1)); (1,([(1,1)],1));
+  split_goals_pure (mk_map [] [(0,())]) c1 [(0,([(1,1)],1)); (1,([(1,1)],1));
     (2,([(1,2)],1))] [] [] = ([([(1,1)],1)], [([(1,2)],1)])
 Proof
   EVAL_TAC
@@ -4551,22 +5667,34 @@ Proof
   gvs[]
 QED
 
+Theorem fml_bound_list_insert_sc_list:
+  ∀cs b id fmlls assg st id' fmlls' assg' st'.
+  fml_bound fmlls (LENGTH assg) ∧ EVERY sc_hyp_ok cs ∧
+  list_insert_sc_list cs b id fmlls assg st = (id',fmlls',assg',st') ⇒
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
+Proof
+  rpt strip_tac>>
+  gvs[list_insert_sc_list_eq]>>
+  drule_all fml_bound_list_insert_fml_list>>
+  simp[]
+QED
+
 Theorem fml_bound_check_scopes_list:
   ∀pfs b fmlls mindel id assg st fmlls' id' assg' st'.
-  fml_bound fmlls (LENGTH assg) ∧
+  fml_bound fmlls (LENGTH assg) ∧ scopes_ok pfs ∧
   check_scopes_list pfs b fmlls mindel id assg st =
     SOME (fmlls',id',assg',st') ⇒
   fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
 Proof
   ho_match_mp_tac check_scopes_list_ind>>
-  simp[check_scopes_list_def]>>
+  simp[check_scopes_list_def,scopes_ok_def]>>
   rpt strip_tac>>
   gvs[AllCaseEqs()]>>
   rpt (pairarg_tac>>gvs[AllCaseEqs()])>>
-  imp_res_tac fml_bound_list_insert_fml_list>>
+  imp_res_tac fml_bound_list_insert_sc_list>>
   imp_res_tac fml_bound_check_subproofs_list>>
   imp_res_tac bound_rollback>>
-  gvs[]
+  gvs[scopes_ok_def]
 QED
 
 Theorem fml_bound_check_red_list_fast:
@@ -4587,7 +5715,8 @@ QED
 
 Theorem fml_bound_check_red_list:
   fml_bound fmlls (LENGTH assg) ∧ slot_bound fc (mv + 1) ∧
-  check_red_list pres ord obj b tcb fmlls inds id fc mv s pfs idopt
+  po = mk_ord_pre ord ∧
+  check_red_list pres ord po obj b tcb fmlls inds id fc mv s pfs idopt
     vimap vomap assg st ht =
     SOME (fmlls',inds',vimap',id',assg',st',ht') ⇒
   fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
@@ -4596,6 +5725,9 @@ Proof
   gvs[check_red_list_def,AllCaseEqs()]
   >- (
     rpt (pairarg_tac>>gvs[AllCaseEqs()])>>
+    drule_at (Pos last) fast_red_subgoals_scopes_ok>>
+    simp[]>>strip_tac>>
+    drule_all scopes_ok_extract_scopes_list>>strip_tac>>
     drule_at (Pos last) fml_bound_store_slot>>
     gvs[]>>
     strip_tac>>
@@ -4610,8 +5742,8 @@ Definition check_spec_aux_list_def:
   (check_spec_aux_list asv fml inds id (((c,s,pfs,idopt)::gs):specproof) vimap assg st ht =
   if check_support asv s then
     let (fc,mv) = enc_mv c F in
-    case check_red_list (NONE:num_set option) (NONE:ord_s option) NONE F F
-      fml inds id fc mv s pfs idopt vimap «» assg st ht of
+    case check_red_list (NONE:num_set option) (NONE:ord_s option) NONE NONE
+      F F fml inds id fc mv s pfs idopt vimap «» assg st ht of
         NONE => NONE
       | SOME (fml',inds',vimap',id',assg',st',ht') =>
         let (fml'',inds'',id'',assg'',st'') =
@@ -4641,7 +5773,7 @@ Proof
   rpt (pairarg_tac>>gvs[AllCaseEqs()])>>
   gvs[enc_mv_enc]>>
   drule_at (Pos last) fml_rel_check_red_list>>
-  simp[vomap_rel_def]>>
+  simp[vomap_rel_def,mk_ord_pre_def]>>
   disch_then drule>>
   strip_tac>>
   gvs[store_ind_enc,opt_update_SOME,insert_fml_def]>>
@@ -4665,7 +5797,7 @@ Proof
   rpt (pairarg_tac>>gvs[AllCaseEqs()])>>
   gvs[enc_mv_enc]>>
   drule_at (Pos last) fml_bound_check_red_list>>
-  simp[slot_bound_enc_max_var]>>
+  simp[slot_bound_enc_max_var,mk_ord_pre_def]>>
   strip_tac>>
   gvs[store_ind_enc]>>
   drule_all fml_bound_opt_update>>
@@ -4674,12 +5806,23 @@ Proof
   simp[]
 QED
 
+(* The largest variable of the specification's constraints, at least mv *)
+Definition spec_max_var_def:
+  (spec_max_var ([]:specproof) mv = mv:num) ∧
+  (spec_max_var ((c,rest)::gs) mv =
+    let (s,m,mv') = sum_max_abs (FST c) 0 0 mv in
+    spec_max_var gs mv')
+End
+
 (* The specification is checked on its own formula and index, with the
-  assignment array of the main proof *)
+  assignment array of the main proof; the index starts sized to the
+  specification's variables *)
 Definition check_spec_list_def:
   check_spec_list (us,vs,as) gs assg st =
     let asv = mk_as_vec as in
-    case check_spec_aux_list asv [] [] 1 gs (0,0,[]) assg st ht_empty of
+    let mv = spec_max_var gs 0 in
+    case check_spec_aux_list asv [] [] 1 gs (0,0,REPLICATE (mv+1) Vnone)
+      assg st ht_empty of
       NONE => NONE
     | SOME (assg',st') => SOME (asv,assg',st')
 End
@@ -4916,11 +6059,12 @@ Definition check_storeorder_def:
     else NONE
 End
 
-(* The configuration (pc, vomap, cw) changes only in the configuration
-  steps; every stored slot below the watermark cw is core. The table ht
+(* The configuration (pc, vomap, cw, po) changes only in the configuration
+  steps; every stored slot below the watermark cw is core, and po is the
+  precomputed loaded order. The table ht
   changes only in the goal checks and the deletions *)
 Definition check_cstep_list_def:
-  check_cstep_list cstep fml assg st inds vimap id (pc,vomap,cw) ht =
+  check_cstep_list cstep fml assg st inds vimap id (pc,vomap,cw,po) ht =
   case cstep of
     Dom c s pfs idopt =>
     (case pc.ord of
@@ -4933,15 +6077,14 @@ Definition check_cstep_list_def:
     if check_pres pc.pres s ∧
       check_fresh_aspo_list fc s pc.ord vimap vomap then
     ( let (rinds,vimap') = get_set_indices fml s vimap in
-      let s = mk_subst rinds s in
-      let w = subst_fun s in
+      let ss = mk_subst rinds s in
       let goals =
         case idopt of
-          NONE => subst_indexes s T fml rinds
+          NONE => subst_indexes ss T fml rinds
         | SOME _ => [] in
       let (fml_not_c,id1,assg1,st1) = store_slot fml nfc mv id assg st in
-      let (dsubs,dscopes,dindex) = dom_subgoals spo w c pc.obj in
-      case extract_scopes_list dscopes s F fml dsubs pfs of
+      let (dsubs,dscopes,dindex) = dom_subgoals_list spo po ss s pc.obj in
+      case extract_scopes_list dscopes ss F fml dsubs pfs of
         NONE => NONE
       | SOME cpfs =>
         (case check_scopes_list cpfs F
@@ -4955,15 +6098,15 @@ Definition check_cstep_list_def:
           if res then
             let (fml'',inds'',id'',assg'',st'') =
               store_ind rfml fc mv id' inds assg' st' in
-            SOME(fml'', assg'', st'', inds'', vimap', id'', (pc,vomap,cw),
+            SOME(fml'', assg'', st'', inds'', vimap', id'', (pc,vomap,cw,po),
               ht')
           else NONE))
     else NONE)
   | Sstep sstep =>
-    (case check_sstep_list sstep pc.pres pc.ord pc.obj pc.tcb
+    (case check_sstep_list sstep pc.pres pc.ord po pc.obj pc.tcb
       fml inds id vimap vomap assg st ht of
       SOME(fml',inds',vimap',id',assg',st',ht') =>
-        SOME(fml',assg',st', inds', vimap', id', (pc,vomap,cw), ht')
+        SOME(fml',assg',st', inds', vimap', id', (pc,vomap,cw,po), ht')
     | NONE => NONE)
   | CheckedDelete n s pfs idopt => (
     if check_tcb_idopt pc.tcb idopt then
@@ -4972,11 +6115,11 @@ Definition check_cstep_list_def:
       | fc =>
           (let nfml = delete_list n fml in
           let mv = slot_max_var fc in
-          case check_red_list pc.pres pc.ord pc.obj T pc.tcb
+          case check_red_list pc.pres pc.ord po pc.obj T pc.tcb
             nfml inds id fc mv s pfs idopt vimap vomap assg st
             (ht_del fml [n] ht) of
             SOME (ncf',inds',vimap',id',assg',st',ht') =>
-            SOME (ncf',assg',st', inds', vimap', id', (pc,vomap,cw), ht')
+            SOME (ncf',assg',st', inds', vimap', id', (pc,vomap,cw,po), ht')
           | NONE => NONE) )
     else NONE)
   | UncheckedDelete ls => (
@@ -4984,43 +6127,44 @@ Definition check_cstep_list_def:
     if ¬pc.tcb ∧ pc.ord = NONE
     then
       SOME (list_delete_list ls fml, assg, st, inds,
-        vimap, id, (pc with chk := F, vomap, cw), ht_del fml ls ht)
+        vimap, id, (pc with chk := F, vomap, cw, po), ht_del fml ls ht)
     else
     case all_core_list fml inds [] of NONE => NONE
     | SOME inds' =>
       SOME (list_delete_list ls fml, assg, st, inds',
-        vimap, id, (pc with chk := F, vomap, cw), ht_del fml ls ht))
+        vimap, id, (pc with chk := F, vomap, cw, po), ht_del fml ls ht))
   | Transfer ls =>
     (case core_from_inds fml ls of NONE => NONE
     | SOME fml' =>
-      SOME (fml', assg, st, inds, vimap, id, (pc,vomap,cw), ht))
+      SOME (fml', assg, st, inds, vimap, id, (pc,vomap,cw,po), ht))
   | StrengthenToCore b =>
     (let pc' = pc with tcb := b in
     if b
     then
       SOME (core_from_range fml cw id, assg, st, inds, vimap, id,
-        (pc', vomap, id), ht)
+        (pc', vomap, id, po), ht)
     else
-      SOME (fml, assg, st, inds, vimap, id, (pc', vomap, cw), ht))
+      SOME (fml, assg, st, inds, vimap, id, (pc', vomap, cw, po), ht))
   | LoadOrder nn xs =>
     (case ALOOKUP pc.orders nn of NONE => NONE
     | SOME ord' =>
       if guard_ord_t ord' xs then
+        let ord = mk_ordsub ord' xs in
         SOME (core_from_range fml cw id, assg, st, inds,
           vimap, id,
-          (pc with ord := mk_ordsub ord' xs, vomap, id), ht)
+          (pc with ord := ord, vomap, id, mk_ord_pre ord), ht)
       else NONE)
   | UnloadOrder =>
     (case pc.ord of NONE => NONE
     | SOME spo =>
         SOME (fml, assg, st, inds,
-          vimap, id, (pc with ord := NONE, vomap, cw), ht))
+          vimap, id, (pc with ord := NONE, vomap, cw, NONE), ht))
   | StoreOrder nn vars gspec f pfsr pfst =>
     (case check_storeorder vars gspec f pfst pfsr assg st of NONE => NONE
     | SOME (aord,assg',st') =>
       SOME (fml, assg', st', inds,
         vimap, id,
-        (pc with orders := (nn ,aord)::pc.orders, vomap, cw), ht))
+        (pc with orders := (nn ,aord)::pc.orders, vomap, cw, po), ht))
   | Obj w mi bopt => (
     case check_obj_core pc.obj w fml inds bopt of
       NONE => NONE
@@ -5038,13 +6182,13 @@ Definition check_cstep_list_def:
             fml', assg', st', inds', vimap, id',
             (pc with
             <| bound := bound';
-               dbound := dbound' |>, vomap, cw), ht)
+               dbound := dbound' |>, vomap, cw, po), ht)
         else NONE
       else
         SOME (fml, assg, st, rinds, vimap, id,
           (pc with
           <| bound := bound';
-             dbound := dbound' |>, vomap, cw), ht))
+             dbound := dbound' |>, vomap, cw, po), ht))
   | ChangeObj b fc' pfs =>
     (case check_change_obj_list b fml id pc.obj
         fc' pfs assg st of
@@ -5053,10 +6197,10 @@ Definition check_cstep_list_def:
       SOME (
         fml', assg', st', inds,
         vimap, id',
-        (pc with obj:=SOME fc', mk_vomap (strlen vomap) fc', cw), ht))
+        (pc with obj:=SOME fc', mk_vomap (strlen vomap) fc', cw, po), ht))
   | CheckObj fc' =>
     if check_eq_obj pc.obj fc'
-    then SOME (fml, assg, st, inds, vimap, id, (pc,vomap,cw), ht)
+    then SOME (fml, assg, st, inds, vimap, id, (pc,vomap,cw,po), ht)
     else NONE
   | AssertObj i => (
       if pc.obj ≠ NONE then
@@ -5067,7 +6211,7 @@ Definition check_cstep_list_def:
           store_ind fml s mv id inds assg st in
           SOME (
             fml', assg', st', inds', vimap, id',
-            (pc with dbound := dbound', vomap, cw), ht)
+            (pc with dbound := dbound', vomap, cw, po), ht)
       else NONE
     )
   | ChangePres b v c pfs =>
@@ -5078,7 +6222,7 @@ Definition check_cstep_list_def:
       SOME (
         fml', assg', st', inds,
         vimap, id',
-        (pc with pres:=SOME pres', vomap, cw), ht))
+        (pc with pres:=SOME pres', vomap, cw, po), ht))
   | Sol w free =>
     (if pc.obj ≠ NONE ∨ ¬pc.chk ∨ ¬free_ok pc.pres free then NONE
     else
@@ -5097,10 +6241,10 @@ Definition check_cstep_list_def:
           (pc with
           <| bound := bound';
              dbound := dbound';
-             enum := pc.enum + cube_count free |>, vomap, cw), ht))
+             enum := pc.enum + cube_count free |>, vomap, cw, po), ht))
   | CheckPres ls' =>
     if check_eq_pres pc.pres ls'
-    then SOME (fml, assg, st, inds, vimap, id, (pc,vomap,cw), ht)
+    then SOME (fml, assg, st, inds, vimap, id, (pc,vomap,cw,po), ht)
     else NONE
 End
 
@@ -5349,25 +6493,96 @@ Proof
   metis_tac[]
 QED
 
+Theorem ord_maps_ok_mk_ordsub:
+  OPTION_ALL ord_maps_ok (mk_ordsub a xs)
+Proof
+  PairCases_on`a`>>simp[mk_ordsub_def,ord_maps_ok_def]
+QED
+
+Theorem fast_rn_sc_ok:
+  ∀w side rs ts j.
+  EVERY (λr. ∃c. r = mk_ord_rec m1 m2 c) rs ⇒
+  EVERY sc_hyp_ok (fast_rn_sc w side rs ts j)
+Proof
+  recInduct fast_rn_sc_ind>>rw[]>>
+  simp[Once fast_rn_sc_def]>>
+  every_case_tac>>gvs[mk_ord_rec_def,enc_mv_enc]>>
+  metis_tac[]
+QED
+
+Theorem dom_subgoals_list_scopes_ok:
+  po = mk_ord_pre (SOME aspo) ∧
+  dom_subgoals_list aspo po s sr obj = (dsubs,dscopes,dindex) ⇒
+  EVERY (EVERY sc_hyp_ok) dscopes
+Proof
+  strip_tac>>
+  qpat_x_assum`dom_subgoals_list _ _ _ _ _ = _` mp_tac>>
+  simp[dom_subgoals_list_def]>>
+  Cases_on`mk_ord_pre (SOME aspo)`>>
+  simp[dom_subst_list_def]
+  >- (
+    Cases_on`dom_subst T (subst_fun s) (SOME aspo)`>>
+    Cases_on`neg_dom_subst (subst_fun s) aspo`>>
+    rw[]>>
+    simp[EVERY_MAP])>>
+  PairCases_on`aspo`>>
+  gvs[mk_ord_pre_def,AllCaseEqs(),dom_subst_fast_def,neg_dom_subst_fast_def]>>
+  rw[]>>
+  simp[]>>rw[]>>
+  irule fast_rn_sc_ok>>
+  simp[EVERY_MAP,EVERY_MEM]>>
+  metis_tac[]
+QED
+
+Theorem dom_subgoals_list_thm:
+  po_rel (SOME aspo) po ∧
+  dom_subgoals_list aspo po (mk_subst r sr) sr obj = (dsubs,dscopes,dindex) ⇒
+  dom_subgoals aspo (subst_fun (mk_subst r sr)) def obj =
+    (dsubs, MAP (MAP sc_hyp_dec) dscopes, dindex)
+Proof
+  strip_tac>>
+  gvs[po_rel_def]>>
+  mp_tac (Q.INST [‘po’ |-> ‘mk_ord_pre (SOME aspo)’, ‘ord’ |-> ‘SOME aspo’,
+    ‘hs’ |-> ‘T’, ‘w’ |-> ‘subst_fun (mk_subst r sr)’] dom_subst_list_thm)>>
+  impl_tac >- rw[subst_fun_mk_subst,ALOOKUP_NONE]>>
+  qpat_x_assum`dom_subgoals_list _ _ _ _ _ = _` mp_tac>>
+  simp[dom_subgoals_list_def,dom_subgoals_def]>>
+  Cases_on`dom_subst_list T (subst_fun (mk_subst r sr)) sr (SOME aspo)
+    (mk_ord_pre (SOME aspo))`>>
+  Cases_on`dom_subst T (subst_fun (mk_subst r sr)) (SOME aspo)`>>
+  simp[]>>
+  Cases_on`neg_dom_subst (subst_fun (mk_subst r sr)) aspo`>>
+  Cases_on`mk_ord_pre (SOME aspo)`>>simp[]
+  >- (
+    rw[]>>
+    simp[MAP_MAP_o,combinTheory.o_DEF,EVERY_MAP])>>
+  qmatch_asmsub_rename_tac`mk_ord_pre (SOME aspo) = SOME p`>>
+  mp_tac (Q.INST [‘w’ |-> ‘subst_fun (mk_subst r sr)’] neg_dom_subst_fast_thm)>>
+  impl_tac >- rw[subst_fun_mk_subst,ALOOKUP_NONE]>>
+  Cases_on`neg_dom_subst_fast (subst_fun (mk_subst r sr)) sr p`>>
+  rw[]>>
+  simp[]
+QED
+
 Theorem fml_rel_check_cstep_list:
   fml_rel fml fmlls ∧ rup_inv fmlls assg st ∧
   ind_rel fmlls inds ∧
   vimap_rel fmlls vimap ∧ FST (SND vimap) ≤ id ∧
-  vomap_rel pc.obj vomap ∧
+  vomap_rel pc.obj vomap ∧ po_rel pc.ord po ∧
   (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
   core_below cw fmlls ∧
-  check_cstep_list cstep fmlls assg st inds vimap id (pc,vomap,cw) ht =
-    SOME (fmlls',assg',st',inds',vimap',id',(pc',vomap',cw'),ht') ⇒
+  check_cstep_list cstep fmlls assg st inds vimap id (pc,vomap,cw,po) ht =
+    SOME (fmlls',assg',st',inds',vimap',id',(pc',vomap',cw',po'),ht') ⇒
   ∃fml'.
     check_cstep cstep fml id pc = SOME (fml', id', pc') ∧
     fml_rel fml' fmlls' ∧ rup_inv fmlls' assg' st' ∧
     ind_rel fmlls' inds' ∧
     vimap_rel fmlls' vimap' ∧ FST (SND vimap') ≤ id' ∧
-    vomap_rel pc'.obj vomap' ∧
+    vomap_rel pc'.obj vomap' ∧ po_rel pc'.ord po' ∧
     (∀n. n ≥ id' ⇒ any_el n fmlls' Empty = Empty) ∧
     id ≤ id'
 Proof
-  Cases_on`cstep`>>rw[]
+  Cases_on`cstep`>>rw[po_rel_def]
   >~ [‘Dom’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
     rpt(pairarg_tac>>gvs[])>>
@@ -5377,12 +6592,18 @@ Proof
     qpat_x_assum`Abbrev _`
       (assume_tac o GSYM o REWRITE_RULE[markerTheory.Abbrev_def])>>
     gvs[]>>
+    `dom_subgoals spo (subst_fun (mk_subst rinds l)) p pc.obj =
+       (dsubs',MAP (MAP sc_hyp_dec) dscopes',dindex')` by (
+      irule dom_subgoals_list_thm>>simp[po_rel_def])>>
+    drule_at (Pos last) dom_subgoals_list_scopes_ok>>
+    simp[]>>strip_tac>>
     drule_all fill_get_set_indices>> strip_tac>>
     qspecl_then [`[]`,`rinds`,`l`] SUBST_ALL_TAC subst_fun_mk_subst_rinds>> gvs[]>>
     drule_all fill_check_fresh_aspo_list>>
     disch_then $ irule_at Any>>
     DEP_REWRITE_TAC[fml_rel_extract_scopes_list]>>
     simp[PULL_EXISTS]>>
+    drule_all scopes_ok_extract_scopes_list>> strip_tac>>
     qpat_x_assum`opt_update fmlls _ _ _ _ = _` assume_tac>>
     drule_all rup_inv_opt_update>> strip_tac>>
     gvs[opt_update_SOME]>>
@@ -5404,14 +6625,21 @@ Proof
     CONJ_TAC >- (
       qmatch_asmsub_rename_tac
         `do_dom_check dopt _ _ _ _ _ _ (enc (not dc) F) dpfs _ _ = _`>>
-      qmatch_asmsub_rename_tac`extract_scoped_pids _ LN LN = (_,dr)`>>
+      qmatch_asmsub_rename_tac`extract_scoped_pids _ LN LN = (dl,dr)`>>
       Cases_on`dopt`>>
       gvs[do_dom_check_def,check_hash_goals_slot_enc]
       >- (
+        Cases_on`extract_scoped_pids_list dpfs [] LN`>>
+        rename1`extract_scoped_pids_list dpfs [] LN = (pl,pr)`>>
+        qspecl_then [`dpfs`,`[]`,`LN`,`LN`] mp_tac
+          extract_scoped_pids_list_thm>>
+        simp[]>>strip_tac>>gvs[]>>
         Cases_on`find_scope_1 dindex dpfs ∧ check_hash_goals dc [dindex] dr dsubs`>>
         gvs[]>>
-        drule_at (Pos last) split_goals_hash_imp_split_goals>>
+        drule_at (Pos (el 2)) split_goals_hash_imp_split_goals>>
         disch_then drule>>
+        disch_then (qspec_then`dl` mp_tac)>>
+        impl_tac >- simp[]>>
         match_mp_tac split_goals_same_goals>>
         simp[EXTENSION,FORALL_PROD]>>
         rw[]>>eq_tac>>rw[]
@@ -5441,8 +6669,9 @@ Proof
     simp[])
   >~ [‘Sstep’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
-    drule_all fml_rel_check_sstep_list>>
-    rw[]>>simp[])
+    drule_at (Pos last) fml_rel_check_sstep_list>>
+    disch_then (qspec_then`fml` mp_tac)>>
+    simp[]>>rw[]>>simp[])
   >~ [‘CheckedDelete’] >- (
     gvs[check_cstep_list_def,slot_CASE_default,AllCaseEqs(),check_cstep_def]>>
     drule_all fml_rel_lookup_core_only_enc>> strip_tac>> gvs[]>>
@@ -5496,7 +6725,7 @@ Proof
     >~ [`vimap_rel`] >- metis_tac[vimap_rel_core_from_range]>>
     metis_tac[any_el_core_from_range_Empty])
   >~ [‘LoadOrder’] >- (
-    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
+    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def,ord_maps_ok_mk_ordsub]>>
     rw[]
     >~ [`fml_rel (map _ _)`] >- metis_tac[fml_rel_core_from_range]
     >~ [`rup_inv`] >- metis_tac[rup_inv_core_from_range]
@@ -5505,7 +6734,7 @@ Proof
       metis_tac[vimap_rel_core_from_range]>>
     metis_tac[any_el_core_from_range_Empty])
   >~ [‘UnloadOrder’] >- (
-    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def])
+    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def,mk_ord_pre_def])
   >~ [‘StoreOrder’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def,check_storeorder_def]>>
     gvs[rup_inv_def]>>
@@ -5561,7 +6790,7 @@ Proof
     simp[rollback_list_delete,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
     rw[])
   >~ [‘CheckObj’] >- (
-    fs[check_cstep_def,check_cstep_list_def])
+    gvs[check_cstep_def,check_cstep_list_def,AllCaseEqs()])
   >~ [‘AssertObj’] >- (
     gvs[check_cstep_def,check_cstep_list_def]>>
     rpt (pairarg_tac>>gvs[])>>
@@ -5600,7 +6829,7 @@ Proof
     simp[rollback_list_delete,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
     rw[])
   >~ [‘CheckPres’] >- (
-    fs[check_cstep_def,check_cstep_list_def])
+    gvs[check_cstep_def,check_cstep_list_def,AllCaseEqs()])
   >~ [‘Sol’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def,
       check_sol_core_thm,check_sol_slots_thm]>>
@@ -5623,7 +6852,7 @@ Proof
 QED
 
 Theorem check_red_list_id:
-  check_red_list pres ord obj b tcb fmlls inds id fc mv s pfs idopt
+  check_red_list pres ord po obj b tcb fmlls inds id fc mv s pfs idopt
     vimap vomap assg st ht =
     SOME (fmlls',inds',vimap',id',assg',st',ht') ⇒
   id ≤ id'
@@ -5661,7 +6890,7 @@ Proof
 QED
 
 Theorem check_sstep_list_id:
-  check_sstep_list sstep pres ord obj tcb fmlls inds id vimap vomap assg st
+  check_sstep_list sstep pres ord po obj tcb fmlls inds id vimap vomap assg st
     ht =
     SOME (fmlls',inds',vimap',id',assg',st',ht') ⇒
   id ≤ id'
@@ -5694,7 +6923,7 @@ Proof
 QED
 
 Theorem check_red_list_mindel:
-  check_red_list pres ord obj b tcb fmlls inds id fc mv s pfs idopt
+  check_red_list pres ord po obj b tcb fmlls inds id fc mv s pfs idopt
     vimap vomap assg st ht =
     SOME (fmlls',inds',vimap',id',assg',st',ht') ∧
   n < id ⇒
@@ -5744,7 +6973,7 @@ QED
 
 (* ids below id are only deleted *)
 Theorem check_sstep_list_id_del:
-  check_sstep_list sstep pres ord obj tcb fmlls inds id vimap vomap assg st
+  check_sstep_list sstep pres ord po obj tcb fmlls inds id vimap vomap assg st
     ht =
     SOME (fmlls',inds',vimap',id',assg',st',ht') ∧
   n < id ∧
@@ -5772,8 +7001,8 @@ QED
 
 Theorem core_below_check_cstep_list:
   core_below cw fmlls ∧ cw ≤ id ∧
-  check_cstep_list cstep fmlls assg st inds vimap id (pc,vomap,cw) ht =
-    SOME (fmlls',assg',st',inds',vimap',id',(pc',vomap',cw'),ht') ⇒
+  check_cstep_list cstep fmlls assg st inds vimap id (pc,vomap,cw,po) ht =
+    SOME (fmlls',assg',st',inds',vimap',id',(pc',vomap',cw',po'),ht') ⇒
   core_below cw' fmlls' ∧ cw' ≤ id'
 Proof
   Cases_on`cstep`>>
@@ -5847,22 +7076,22 @@ Definition check_csteps_list_def:
 End
 
 Theorem fml_rel_check_csteps_list:
-  ∀csteps fml fmlls assg st inds vimap id pc vomap cw ht
-    fmlls' assg' st' inds' vimap' id' pc' vomap' cw' ht'.
+  ∀csteps fml fmlls assg st inds vimap id pc vomap cw po ht
+    fmlls' assg' st' inds' vimap' id' pc' vomap' cw' po' ht'.
   fml_rel fml fmlls ∧ rup_inv fmlls assg st ∧
   ind_rel fmlls inds ∧
   vimap_rel fmlls vimap ∧ FST (SND vimap) ≤ id ∧
-  vomap_rel pc.obj vomap ∧
+  vomap_rel pc.obj vomap ∧ po_rel pc.ord po ∧
   (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
   core_below cw fmlls ∧ cw ≤ id ∧
-  check_csteps_list csteps fmlls assg st inds vimap id (pc,vomap,cw) ht =
-    SOME (fmlls', assg', st', inds', vimap', id', (pc',vomap',cw'), ht') ⇒
+  check_csteps_list csteps fmlls assg st inds vimap id (pc,vomap,cw,po) ht =
+    SOME (fmlls', assg', st', inds', vimap', id', (pc',vomap',cw',po'), ht') ⇒
   ∃fml'.
     check_csteps csteps fml id pc = SOME (fml', id', pc') ∧
     fml_rel fml' fmlls' ∧ rup_inv fmlls' assg' st' ∧
     ind_rel fmlls' inds' ∧
     vimap_rel fmlls' vimap' ∧ FST (SND vimap') ≤ id' ∧
-    vomap_rel pc'.obj vomap' ∧
+    vomap_rel pc'.obj vomap' ∧ po_rel pc'.ord po' ∧
     (∀n. n ≥ id' ⇒ any_el n fmlls' Empty = Empty) ∧
     id ≤ id'
 Proof
@@ -5910,8 +7139,8 @@ Proof
 QED
 
 Theorem fml_bound_check_sstep_list:
-  fml_bound fmlls (LENGTH assg) ∧
-  check_sstep_list sstep pres ord obj tcb fmlls inds id vimap vomap assg st
+  fml_bound fmlls (LENGTH assg) ∧ po = mk_ord_pre ord ∧
+  check_sstep_list sstep pres ord po obj tcb fmlls inds id vimap vomap assg st
     ht =
     SOME (fmlls',inds',vimap',id',assg',st',ht') ⇒
   fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
@@ -5979,10 +7208,11 @@ Proof
 QED
 
 Theorem fml_bound_check_cstep_list:
-  fml_bound fmlls (LENGTH assg) ∧
-  check_cstep_list cstep fmlls assg st inds vimap id (pc,vomap,cw) ht =
-    SOME (fmlls',assg',st',inds',vimap',id',(pc',vomap',cw'),ht') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
+  fml_bound fmlls (LENGTH assg) ∧ po = mk_ord_pre pc.ord ∧
+  check_cstep_list cstep fmlls assg st inds vimap id (pc,vomap,cw,po) ht =
+    SOME (fmlls',assg',st',inds',vimap',id',(pc',vomap',cw',po'),ht') ⇒
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  po' = mk_ord_pre pc'.ord
 Proof
   Cases_on`cstep`>>
   strip_tac>>
@@ -5990,9 +7220,12 @@ Proof
   rpt (pairarg_tac>>gvs[])>>
   gvs[AllCaseEqs(),neg_pos_slot_enc,enc_mv_enc]>>
   rpt (pairarg_tac>>gvs[])
-  >~ [`dom_subgoals`] >- (
+  >~ [`dom_subgoals_list`] >- (
     `slot_bound (enc (not p) F) (max_var (FST p) + 1)` by
       metis_tac[slot_bound_enc_max_var,max_var_not]>>
+    drule_at (Pos last) dom_subgoals_list_scopes_ok>>
+    simp[]>>strip_tac>>
+    drule_all scopes_ok_extract_scopes_list>>strip_tac>>
     drule_all fml_bound_store_slot>>
     strip_tac>>
     drule_all fml_bound_check_scopes_list>>
@@ -6000,7 +7233,7 @@ Proof
     drule_at (Pos last) fml_bound_store_ind>>
     gvs[bound_rollback,slot_bound_enc_max_var])
   >~ [`check_sstep_list`] >- (
-    drule_all fml_bound_check_sstep_list>>
+    drule_at (Pos last) fml_bound_check_sstep_list>>
     simp[])
   >~ [`check_red_list`] >- (
     drule_at (Pos last) fml_bound_check_red_list>>
@@ -6014,7 +7247,7 @@ Proof
   imp_res_tac fml_bound_core_from_inds>>
   imp_res_tac fml_bound_check_change_obj_list>>
   imp_res_tac fml_bound_check_change_pres_list>>
-  gvs[bound_list_delete_list,fml_bound_core_from_range]>>
+  gvs[bound_list_delete_list,fml_bound_core_from_range,mk_ord_pre_def]>>
   drule_at (Pos last) fml_bound_store_ind>>
   gvs[slot_bound_enc_max_var]
 QED
@@ -6309,8 +7542,8 @@ Theorem check_csteps_list_concl:
     (REVERSE (MAP FST (enumerate 1 fmls)))
     (LENGTH fml, 0, ents)
     (LENGTH fml + 1)
-    (init_conf chk pres obj, mk_vomap_opt obj, 0) ht =
-    SOME(fmlls',assg',st',inds',vimap',id',(pc',vomap',cw'),ht') ∧
+    (init_conf chk pres obj, mk_vomap_opt obj, 0, NONE) ht =
+    SOME(fmlls',assg',st',inds',vimap',id',(pc',vomap',cw',po'),ht') ∧
   check_hconcl_list fmls obj fmlls'
     pc'.obj pc'.bound pc'.dbound pc'.enum hconcl ⇒
   sem_concl (set fml) obj (pres_set_spt pres) (hconcl_concl hconcl)
@@ -6327,6 +7560,8 @@ Proof
     simp[Abbr`fmlls`,Abbr`inds`,Abbr`vimap`,Abbr`vomap`,Abbr`pc`,Abbr`id`]>>
     metis_tac[])>>
   `core_below 0 fmlls ∧ 0 ≤ id` by simp[]>>
+  `po_rel pc.ord NONE` by
+    simp[Abbr`pc`,init_conf_def,po_rel_def,mk_ord_pre_def]>>
   drule_all fml_rel_check_csteps_list>>
   rw[]>>
   drule check_csteps_check_hconcl>>
@@ -6519,8 +7754,8 @@ Theorem check_csteps_list_output:
     (REVERSE (MAP FST (enumerate 1 fmls)))
     (LENGTH fml, 0, ents)
     (LENGTH fml + 1)
-    (init_conf chk pres obj, mk_vomap_opt obj, 0) ht =
-    SOME(fmlls',assg',st',inds',vimap',id',(pc',vomap',cw'),ht') ∧
+    (init_conf chk pres obj, mk_vomap_opt obj, 0, NONE) ht =
+    SOME(fmlls',assg',st',inds',vimap',id',(pc',vomap',cw',po'),ht') ∧
   check_output_list fmlls' inds' id' ht'
     pc'.pres pc'.obj pc'.bound pc'.dbound pc'.chk fmlt prest objt output ⇒
   sem_output (set fml) obj (pres_set_spt pres) pc'.bound (set fmlt) objt (pres_set_spt prest) output
@@ -6537,6 +7772,8 @@ Proof
     simp[Abbr`fmlls`,Abbr`inds`,Abbr`vimap`,Abbr`vomap`,Abbr`pc`,Abbr`id`]>>
     metis_tac[])>>
   `core_below 0 fmlls ∧ 0 ≤ id` by simp[]>>
+  `po_rel pc.ord NONE` by
+    simp[Abbr`pc`,init_conf_def,po_rel_def,mk_ord_pre_def]>>
   drule_all fml_rel_check_csteps_list>>
   rw[]>>
   drule check_csteps_check_output>>

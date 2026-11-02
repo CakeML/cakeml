@@ -6,7 +6,7 @@
 Theory npbc_fullProofARM8
 Ancestors
   semanticsProps backendProof arm8_asl_configProof TextIOProof
-  npbc_fullProg npbc_fullCompile npbc_compile_configProof
+  npbc_fullProg npbc_fullCompile npbc_compile_config npbc_compile_configProof
 Libs
   preamble
 

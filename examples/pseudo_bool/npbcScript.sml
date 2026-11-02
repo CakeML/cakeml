@@ -233,6 +233,127 @@ Proof
   \\ pairarg_tac \\ fs [] \\ metis_tac [add_lists_sorted]
 QED
 
+(* The coefficient of variable v in the terms xs *)
+Definition term_coeff_def:
+  term_coeff (xs:(int # var) list) v =
+  case ALOOKUP (MAP (λ(c,v). (v,c)) xs) v of NONE => 0 | SOME c => c
+End
+
+Theorem term_coeff_MEM:
+  ALL_DISTINCT (MAP SND xs) ∧ EVERY (λc. c ≠ 0) (MAP FST xs) ⇒
+  (MEM (c,x) xs ⇔ c ≠ 0 ∧ term_coeff xs x = c)
+Proof
+  rw[term_coeff_def]
+  \\ ‘MAP FST (MAP (λ(c,v). (v,c)) xs) = MAP SND xs’ by
+    (rpt (pop_assum kall_tac) \\ Induct_on ‘xs’ \\ simp[FORALL_PROD])
+  \\ eq_tac \\ strip_tac
+  >- (
+    ‘ALOOKUP (MAP (λ(c,v). (v,c)) xs) x = SOME c’ by (
+      irule ALOOKUP_ALL_DISTINCT_MEM
+      \\ simp[MEM_MAP, EXISTS_PROD])
+    \\ gvs[EVERY_MEM, MEM_MAP, PULL_EXISTS]
+    \\ strip_tac \\ first_x_assum (qspec_then ‘(c,x)’ mp_tac) \\ simp[])
+  \\ Cases_on ‘ALOOKUP (MAP (λ(c,v). (v,c)) xs) x’ \\ gvs[]
+  \\ drule ALOOKUP_MEM \\ simp[MEM_MAP, EXISTS_PROD]
+QED
+
+(* The terms whose literals are all false sum to 0 *)
+Theorem SUM_eval_term_zero:
+  (∀c x. MEM (c,x) xs ⇒ (w x ⇔ c < 0)) ⇒
+  SUM (MAP (eval_term w) xs) = 0
+Proof
+  Induct_on ‘xs’ \\ simp[FORALL_PROD]
+  \\ rw[] \\ gvs[DISJ_IMP_THM, FORALL_AND_THM]
+  \\ Cases_on ‘p_1 < 0’ \\ gvs[]
+QED
+
+(* Setting v true rather than false adds the coefficient of v *)
+Theorem SUM_eval_term_flip:
+  ∀xs. ALL_DISTINCT (MAP SND xs) ⇒
+  &SUM (MAP (eval_term ((v =+ T) w)) xs) -
+  &SUM (MAP (eval_term ((v =+ F) w)) xs) = term_coeff xs v
+Proof
+  Induct \\ simp[term_coeff_def, FORALL_PROD]
+  \\ rpt strip_tac \\ gvs[GSYM term_coeff_def]
+  \\ qabbrev_tac ‘a = Num (ABS p_1)’
+  \\ ‘&a = if p_1 < 0 then -p_1 else p_1’ by
+    (simp[Abbr ‘a’] \\ intLib.ARITH_TAC)
+  \\ Cases_on ‘p_2 = v’ \\ gvs[APPLY_UPDATE_THM]
+  >- (
+    ‘ALOOKUP (MAP (λ(c,v). (v,c)) xs) p_2 = NONE’ by
+      gvs[ALOOKUP_NONE, MEM_MAP, EXISTS_PROD, FORALL_PROD]
+    \\ ‘term_coeff xs p_2 = 0’ by simp[term_coeff_def]
+    \\ qpat_x_assum ‘Abbrev _’ kall_tac
+    \\ Cases_on ‘p_1 < 0’ \\ gvs[]
+    \\ intLib.ARITH_TAC)
+  \\ simp[GSYM term_coeff_def]
+  \\ qmatch_goalsub_abbrev_tac ‘&(_ + h) − _’
+  \\ qpat_x_assum ‘&SUM _ − _ = _’ mp_tac
+  \\ rpt (pop_assum kall_tac) \\ intLib.ARITH_TAC
+QED
+
+(* A compact constraint is determined by its affine function *)
+Theorem compact_unique:
+  compact c1 ∧ compact c2 ∧
+  (∀w. &SUM (MAP (eval_term w) (FST c1)) - SND c1 =
+       &SUM (MAP (eval_term w) (FST c2)) - SND c2) ⇒
+  c1 = c2
+Proof
+  Cases_on ‘c1’ \\ Cases_on ‘c2’
+  \\ rename1 ‘compact (xs,n) ∧ compact (ys,m) ∧ _’
+  \\ REWRITE_TAC [pairTheory.FST, pairTheory.SND, pairTheory.PAIR_EQ]
+  \\ strip_tac
+  \\ ‘ALL_DISTINCT (MAP SND xs) ∧ ALL_DISTINCT (MAP SND ys)’ by (
+    gvs[] \\ conj_tac \\ irule SORTED_ALL_DISTINCT
+    \\ qexists_tac ‘$<’ \\ simp[relationTheory.irreflexive_def])
+  \\ ‘∀v. term_coeff xs v = term_coeff ys v’ by (
+    gen_tac
+    \\ mp_tac (Q.SPEC ‘xs’ (Q.INST [‘w’ |-> ‘K F’] SUM_eval_term_flip))
+    \\ mp_tac (Q.SPEC ‘ys’ (Q.INST [‘w’ |-> ‘K F’] SUM_eval_term_flip))
+    \\ simp[]
+    \\ qpat_assum ‘∀w. _’ (qspec_then ‘(v =+ T) (K F)’ mp_tac)
+    \\ qpat_assum ‘∀w. _’ (qspec_then ‘(v =+ F) (K F)’ mp_tac)
+    \\ rpt (pop_assum kall_tac) \\ intLib.ARITH_TAC)
+  \\ ‘n = m’ by (
+    qabbrev_tac ‘w0 = λx. term_coeff xs x < 0’
+    \\ ‘SUM (MAP (eval_term w0) xs) = 0 ∧
+        SUM (MAP (eval_term w0) ys) = 0’ by (
+      conj_tac \\ irule SUM_eval_term_zero \\ rw[Abbr ‘w0’]
+      \\ gvs[term_coeff_MEM])
+    \\ qpat_x_assum ‘∀w. _’ (qspec_then ‘w0’ mp_tac)
+    \\ simp[])
+  \\ simp[]
+  \\ irule SORTED_PERM_EQ
+  \\ conj_tac
+  >- (
+    irule PERM_ALL_DISTINCT
+    \\ imp_res_tac ALL_DISTINCT_MAP
+    \\ gvs[FORALL_PROD, term_coeff_MEM])
+  \\ qexists_tac ‘λa b. SND a < SND b’
+  \\ ‘inv_image $< SND = (λa b:int # num. SND a < SND b)’ by
+    simp[FUN_EQ_THM, relationTheory.inv_image_def]
+  \\ gvs[sorted_map, relationTheory.transitive_def,
+    relationTheory.antisymmetric_def]
+QED
+
+(* The affine value of a sum *)
+Theorem add_val:
+  &SUM (MAP (eval_term w) (FST (add c1 c2))) - SND (add c1 c2) =
+  (&SUM (MAP (eval_term w) (FST c1)) - SND c1) +
+  (&SUM (MAP (eval_term w) (FST c2)) - SND c2)
+Proof
+  Cases_on ‘c1’ \\ Cases_on ‘c2’ \\ simp[add_def]
+  \\ pairarg_tac \\ simp[]
+  \\ drule_then (qspec_then ‘w’ assume_tac) add_lists_thm
+  \\ intLib.ARITH_TAC
+QED
+
+Theorem add_empty:
+  add c ([],0) = c
+Proof
+  PairCases_on ‘c’ \\ Cases_on ‘c0’ \\ simp[add_def, add_lists_def]
+QED
+
 (* faster version of add_lists *)
 
 Definition add_lists'_def:
@@ -1059,6 +1180,17 @@ Proof
   \\ intLib.ARITH_TAC
 QED
 
+Theorem not_val:
+  &SUM (MAP (eval_term w) (FST (not c))) - SND (not c) =
+  -(&SUM (MAP (eval_term w) (FST c)) - SND c) - 1
+Proof
+  Cases_on ‘c’ \\ simp[not_def, not_lhs]
+  \\ rename1 ‘SUM (MAP (eval_term w) l)’
+  \\ ‘SUM (MAP (eval_term w) l) ≤ SUM (MAP (λi. Num (ABS (FST i))) l)’ by
+    simp[ABS_coeff_le]
+  \\ intLib.ARITH_TAC
+QED
+
 Theorem compact_not:
   compact c ⇒ compact (not c)
 Proof
@@ -1464,6 +1596,16 @@ Proof
   pairarg_tac \\ fs[] \\
   drule subst_lhs_thm \\ strip_tac \\
   simp[satisfies_npbc_def,integerTheory.INT_LE_SUB_RADD]
+QED
+
+Theorem subst_val:
+  &SUM (MAP (eval_term w) (FST (subst f c))) - SND (subst f c) =
+  &SUM (MAP (eval_term (assign f w)) (FST c)) - SND c
+Proof
+  Cases_on ‘c’ \\ simp[subst_def]
+  \\ pairarg_tac \\ simp[]
+  \\ drule_then (qspec_then ‘w’ assume_tac) subst_lhs_thm
+  \\ intLib.ARITH_TAC
 QED
 
 Definition subst_opt_aux_acc_def:
