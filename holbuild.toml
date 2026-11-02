@@ -133,3 +133,7 @@ manifest = "holextra.manifest.toml"
 "compiler/backend/proofs/source_to_flatProofScript.sml" = 60.0
 
 "compiler/backend/proofs/word_to_wordProofScript.sml" = 10.0
+
+"compiler/backend/semantics/labPropsScript.sml" = 60.0
+
+"compiler/backend/semantics/dataPropsScript.sml" = 180.0
