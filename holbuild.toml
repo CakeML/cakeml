@@ -147,3 +147,7 @@ manifest = "holextra.manifest.toml"
 "compiler/backend/proofs/lab_to_targetProofScript.sml" = 60.0
 
 "compiler/backend/proofs/data_to_word_syntaxProofScript.sml" = 180.0
+
+"compiler/backend/proofs/data_to_word_memoryProofScript.sml" = 60.0
+
+"compiler/backend/proofs/bvi_to_dataProofScript.sml" = 60.0
