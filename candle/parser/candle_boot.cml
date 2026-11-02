@@ -1568,7 +1568,9 @@ structure CandleConversionSupport = struct
     if mn = "Text_io" then "TextIO"
     else if mn = "Pretty_printer" then "PrettyPrinter"
     else if mn = "Command_line" then "CommandLine"
-    else if mn = "Word8_array" then "Word8Array" else mn;
+    else if mn = "Word8_array" then "Word8Array"
+    else if mn = "Ast_sexp" then "AstSexp"
+    else if mn = "Socket_io" then "SocketIO" else mn;
   fun destLf pt = case pt of Lf x => Inr x | Nd (_,l) _ => Inl (l,"destLf");
   fun token pt = fmap (fn (tk,_) => tk) (destLf pt);
   fun ident pt = bind (token pt) (fn tk =>
