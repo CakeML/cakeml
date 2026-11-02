@@ -37,19 +37,19 @@ manifest = "holextra.manifest.toml"
 "compiler/backend/reg_alloc/proofs/linear_scanProofScript.sml" = 10.0
 "compiler/backend/semantics/stackSemScript.sml" = 10.0
 "compiler/backend/word_instScript.sml" = 10.0
-"semantics/proofs/semanticPrimitivesPropsScript.sml" = 10.0
+"semantics/proofs/semanticPrimitivesPropsScript.sml" = 30.0
 "compiler/backend/clos_knownScript.sml" = 20.0
 "compiler/backend/semantics/stackPropsScript.sml" = 30.0
 "compiler/backend/gc/gen_gc_partialScript.sml" = 10.0
 "compiler/backend/bvi_to_dataScript.sml" = 10.0
 "compiler/backend/clos_interpScript.sml" = 10.0
-"compiler/backend/bvl_to_bviScript.sml" = 30.0
+"compiler/backend/bvl_to_bviScript.sml" = 60.0
 "compiler/backend/clos_to_bvlScript.sml" = 30.0
 "compiler/parsing/proofs/pegSoundScript.sml" = 10.0
-"compiler/backend/proofs/wordConvsProofScript.sml" = 10.0
+"compiler/backend/proofs/wordConvsProofScript.sml" = 30.0
 "compiler/backend/proofs/stack_namesProofScript.sml" = 10.0
 "compiler/backend/semantics/wordPropsScript.sml" = 120.0
-"compiler/backend/stack_rawcallScript.sml" = 30.0
+"compiler/backend/stack_rawcallScript.sml" = 60.0
 "compiler/backend/proofs/stack_rawcallProofScript.sml" = 30.0
 "semantics/proofs/evaluatePropsScript.sml" = 30.0
 "compiler/backend/semantics/bviSemScript.sml" = 10.0
@@ -71,3 +71,19 @@ manifest = "holextra.manifest.toml"
 "compiler/backend/proofs/clos_constantProofScript.sml" = 10.0
 "compiler/backend/proofs/word_copyProofScript.sml" = 10.0
 "compiler/backend/proofs/word_instProofScript.sml" = 30.0
+"compiler/backend/proofs/word_depthProofScript.sml" = 90.0
+"compiler/backend/proofs/word_allocProofScript.sml" = 30.0
+
+"compiler/backend/data_spaceScript.sml" = 10.0
+
+"compiler/backend/bvi_tailrecScript.sml" = 10.0
+
+"compiler/encoders/asm/asmPropsScript.sml" = 10.0
+
+"compiler/backend/word_simpScript.sml" = 10.0
+
+"compiler/backend/proofs/clos_fvsProofScript.sml" = 10.0
+
+"compiler/backend/proofs/clos_letopProofScript.sml" = 10.0
+
+"compiler/backend/semantics/bvlSemScript.sml" = 10.0
