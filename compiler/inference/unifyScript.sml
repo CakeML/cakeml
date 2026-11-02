@@ -1942,7 +1942,7 @@ Proof
        simp[vars_walkstar_encode_infer_ts] >> metis_tac[]) >~
    [‘substvars (_ |+ _)’]
    >- (simp[substvars_FUPDATE, DOMSUB_NOT_IN_DOM, encode_infer_t_def] >>
-       gvs[encode_infer_t_def] >> conj_tac >~ [‘v ∈ _ ∨ _’]
+       gvs[encode_infer_t_def] >> conj_tac
        >- (rename [‘vwalk _ u = Var v’, ‘v ∉ domain s0’] >>
            drule_all vwalk_rangevars >> simp[sp2fm_map] >> rw[] >>
            simp[substvars_def]) >>

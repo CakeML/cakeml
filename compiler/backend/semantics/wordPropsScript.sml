@@ -6195,8 +6195,8 @@ Resume locals_rel_evaluate_thm[ShareInst]:
   >>~- ([`sh_mem_set_var`],
     fs[oneline sh_mem_set_var_def] >>
     gvs[AllCaseEqs()] >> fs[set_var_def]
-    >~ [`locals_rel`] >- (irule locals_rel_set_var >> fs[]) >>
-    simp[state_component_equality]) >>
+    >-(irule locals_rel_set_var >> fs[]) >>
+   simp[state_component_equality]) >>
   fs[sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def,
      sh_mem_store16_def] >>
   gvs[AllCaseEqs()] >> simp[state_component_equality]
@@ -6660,7 +6660,6 @@ Proof
         sh_mem_load_byte_def,sh_mem_load32_def,sh_mem_store32_def]
     >>~- ([`sh_mem_set_var`],
       every_case_tac
-      >~ [`sh_mem_set_var (SOME _)`]
       >- (
         qmatch_asmsub_abbrev_tac `sh_mem_set_var (SOME x)` >>
         Cases_on `x` >>
