@@ -94,6 +94,10 @@ Proof
   rw [update_def, toList_thm, EL_LUPDATE, length_def, sub_def]
 QED
 
+Definition subvector_def:
+  subvector vec off len = Vector (TAKE len (DROP off (toList vec)))
+End
+
 
 
 Definition concat_def:

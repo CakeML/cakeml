@@ -97,6 +97,38 @@ Definition CopyByteAw8_def:
   CopyByteAw8 t = ^checkF
 End
 
+Definition compile_scan_def:
+  compile_scan t neq xs =
+    Let t xs
+      (If t (Op t (MemOp (BoundsCheckByte T)) [Var t 3; Var t 0])
+        (If t (Op t (MemOp (BoundsCheckByte T)) [Var t 2; Var t 0])
+          (Op t (MemOp (ScanByte neq)) [Var t 0; Var t 1; Var t 2; Var t 3])
+          (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+        (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+End
+
+Definition CopyWord_checked_def:
+  CopyWord_checked t src_array alloc_new =
+    let src_len = if src_array then MemOp Length else BlockOp LengthBlock in
+    let fail = Raise t (Op t (BlockOp (Cons subscript_tag)) []) in
+    let finish =
+      if alloc_new then
+        Op t (MemOp (CopyWord T)) [Var t 0; Var t 1; Var t 2]
+      else
+        If t (Op t (IntOp Less) [Op t (IntOp (Const 0)) []; Var t 0]) fail
+          (If t (Op t (IntOp LessEq)
+             [Op t (MemOp Length) [Var t 1];
+              Op t (IntOp Add) [Var t 2; Var t 0]])
+            (Op t (MemOp (CopyWord F))
+              [Var t 0; Var t 1; Var t 2; Var t 3; Var t 4]) fail) in
+    let n = if alloc_new then 2 else 4 in
+      If t (Op t (IntOp Less) [Op t (IntOp (Const 0)) []; Var t (n-1)]) fail
+        (If t (Op t (IntOp Less) [Op t (IntOp (Const 0)) []; Var t (n-2)]) fail
+          (If t (Op t (IntOp LessEq)
+            [Op t src_len [Var t n];
+             Op t (IntOp Add) [Var t (n-1); Var t (n-2)]]) finish fail))
+End
+
 Definition compile_shift_def:
   compile_shift t ws sh xs =
     case (ws,xs) of
@@ -208,6 +240,10 @@ Definition compile_op_def:
     | Src Explode => Op t (MemOp ToListByte) xs
     | Src Strlen => Op t (MemOp LengthByteVec) xs
     | Src Strcat => Op t (MemOp ConcatByteVec) xs
+    | Src CopyVecVec => Let t xs (CopyWord_checked t F T)
+    | Src CopyVecArr => Let t xs (CopyWord_checked t F F)
+    | Src CopyArrVec => Let t xs (CopyWord_checked t T T)
+    | Src CopyArrArr => Let t xs (CopyWord_checked t T F)
     | Src CopyStrStr => Let t xs (CopyByteStr t)
     | Src CopyStrAw8 => Let t xs (CopyByteAw8 t)
     | Src CopyAw8Str => Let t xs (CopyByteStr t)
@@ -256,6 +292,10 @@ Definition compile_op_def:
                                 (Op t (MemOp Update) [Var t 0; Var t 1; Var t 2])
                                 (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
     | Src Aupdate_unsafe => Op t (MemOp Update) xs
+    | Src Aw8ScanEq => compile_scan t F xs
+    | Src Aw8ScanNeq => compile_scan t T xs
+    | Src StrScanEq => compile_scan t F xs
+    | Src StrScanNeq => compile_scan t T xs
     | Src Aw8sub => Let t xs (If t (Op t (MemOp (BoundsCheckByte F)) [Var t 0; Var t 1])
                                (Op t (MemOp DerefByte) [Var t 0; Var t 1])
                                (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))

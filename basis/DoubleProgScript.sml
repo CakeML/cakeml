@@ -170,9 +170,10 @@ Quote add_cakeml:
     let
       val _ = write_bytes 0 (toWord d)
       val _ = #(double_toString) "" bytes;
-      val n = fst (Option.valOf (Word8Array.findi is_0_byte bytes));
+      val n = Word8Array.scanEq 0 (Word8Array.length bytes) (Word8.fromInt 0) bytes;
     in
-      Word8Array.substring bytes 0 n
+      if n = Word8Array.length bytes then Option.valOf None
+      else Word8Array.substring bytes 0 n
     end
 End
 

@@ -1954,7 +1954,8 @@ QED
 (* ---- the pointer-equality oracle ---- *)
 
 (* TODO: this section is only used by backendProof, data_to_wordProof and
-   data_to_word_assignProof; factor it out into its own theory. *)
+   the data_to_word_assign_*Proof theories; factor it out into its own
+   theory. *)
 
 (* The oracle is indexed by install epoch: [po e] is the answer stream of the
    e-th epoch, PtrEq consumes one answer of the current epoch and Install moves
