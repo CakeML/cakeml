@@ -1,6 +1,3 @@
-[holbuild]
-schema = 2
-
 [project]
 name = "holextra"
 version = "0.1.0"

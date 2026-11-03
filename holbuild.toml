@@ -1,5 +1,4 @@
 [holbuild]
-schema = 2
 minimum_version = "0.11.7"
 
 [project]
@@ -132,13 +131,9 @@ manifest = "holextra.manifest.toml"
 "compiler/backend/bvi_inlineScript.sml" = 60.0
 "compiler/backend/bvl_handleScript.sml" = 60.0
 "compiler/parsing/cmlPEGScript.sml" = 60.0
-
 "compiler/backend/proofs/bvl_handleProofScript.sml" = 10.0
-
 "characteristic/cfStoreScript.sml" = 10.0
-
 "compiler/backend/proofs/data_to_word_gcProofScript.sml" = 10.0
-
 "compiler/backend/proofs/data_to_word_assign_wordProofScript.sml" = 10.0
 
 [actions.newsTheory]
