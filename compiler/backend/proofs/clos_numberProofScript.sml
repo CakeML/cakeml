@@ -294,23 +294,24 @@ Proof
   full_simp_tac(srw_ss())[LET_THM, check_loc_def] >>
   srw_tac[][] >>
   imp_res_tac EVERY2_LENGTH >>
-  srw_tac[][] >>~- ([`F`], decide_tac) >>
-  Cases_on `EL k es` >>
-  full_simp_tac(srw_ss())[] >>
-  BasicProvers.EVERY_CASE_TAC >>
-  full_simp_tac(srw_ss())[] >>
-  Cases_on `renumber_code_locs_list n (MAP SND es)` >>
-  imp_res_tac renumber_code_locs_list_length >>
-  srw_tac[][] >>
-  Cases_on `EL k (ZIP (MAP FST es,r'))` >>
-  srw_tac[][] >>
-  CCONTR_TAC >>
-  full_simp_tac(srw_ss())[] >>
-  `k < LENGTH es` by decide_tac >>
-  `LENGTH (MAP FST es) = LENGTH r'` by metis_tac [LENGTH_MAP] >>
-  full_simp_tac(srw_ss())[EL_ZIP, EL_MAP] >>
-  srw_tac[][] >>
-  rev_full_simp_tac(srw_ss())[]
+  srw_tac[][] >~ [`_ = NONE`]
+  >- (Cases_on `EL k es` >>
+      full_simp_tac(srw_ss())[] >>
+      BasicProvers.EVERY_CASE_TAC >>
+      full_simp_tac(srw_ss())[] >>
+      Cases_on `renumber_code_locs_list n (MAP SND es)` >>
+      imp_res_tac renumber_code_locs_list_length >>
+      srw_tac[][] >>
+      Cases_on `EL k (ZIP (MAP FST es,r'))` >>
+      srw_tac[][] >>
+      CCONTR_TAC >>
+      full_simp_tac(srw_ss())[] >>
+      `k < LENGTH es` by decide_tac >>
+      `LENGTH (MAP FST es) = LENGTH r'` by metis_tac [LENGTH_MAP] >>
+      full_simp_tac(srw_ss())[EL_ZIP, EL_MAP] >>
+      srw_tac[][] >>
+      rev_full_simp_tac(srw_ss())[]) >>
+  decide_tac
 QED
 
 Theorem dest_closure_v_rel_partial[local]:
