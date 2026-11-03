@@ -232,7 +232,7 @@ Theorem FST_ALOOKUP_add_stdo_infds:
 Proof
   mp_tac TextIOProofTheory.add_stdo_MAP_FST_infds
   \\ strip_tac
-  \\ drule (GEN_ALL data_to_word_bignumProofTheory.MAP_FST_EQ_IMP_IS_SOME_ALOOKUP)
+  \\ drule (GEN_ALL data_to_word_assign_commonProofTheory.MAP_FST_EQ_IMP_IS_SOME_ALOOKUP)
   \\ disch_then(qspec_then`fd'`mp_tac)
   \\ Cases_on`ALOOKUP fs.infds fd'` \\ simp[]
   \\ rw[IS_SOME_EXISTS] \\ rw[]

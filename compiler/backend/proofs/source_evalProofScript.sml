@@ -710,7 +710,106 @@ Proof
   rw [s_rel_def]
   \\ fs []
   \\ qmatch_asmsub_rename_tac `LIST_REL (v_rel eval_oracle) xs ys`
-  \\ last_x_assum mp_tac
+
+  \\ Cases_on `op = CopyVecVec`
+  >- (
+    gvs []
+    \\ qpat_x_assum `do_app _ _ _ = SOME _` mp_tac
+    \\ simp [Once do_app_cases]
+    \\ rw [listTheory.SWAP_REVERSE_SYM]
+    \\ fs [CaseEq "ffi_result", option_case_eq]
+    \\ rveq \\ fs []
+    \\ simp [do_app_def, sub_exn_v_def]
+    \\ rename1 `LIST_REL (v_rel eval_oracle) copy_source copy_target`
+    \\ qmatch_asmsub_rename_tac
+         `copy_array (copy_source,copy_offset) copy_length NONE`
+    \\ `OPTREL (LIST_REL (v_rel eval_oracle))
+          (copy_array (copy_source,copy_offset) copy_length NONE)
+          (copy_array (copy_target,copy_offset) copy_length NONE)` by (
+      irule LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def])
+  \\ Cases_on `op = CopyVecArr`
+  >- (
+    gvs []
+    \\ qpat_x_assum `do_app _ _ _ = SOME _` mp_tac
+    \\ simp [Once do_app_cases]
+    \\ rw [listTheory.SWAP_REVERSE_SYM]
+    \\ fs [CaseEq "ffi_result", option_case_eq]
+    \\ rveq \\ fs []
+    \\ simp [do_app_def, sub_exn_v_def]
+    \\ drule_then imp_res_tac store_lookup
+    \\ gvs [sv_rel_l_cases]
+    \\ qmatch_asmsub_rename_tac
+         `copy_array (copy_source,copy_offset) copy_length
+           (SOME (copy_destination,copy_destination_offset))`
+    \\ rename1 `LIST_REL (v_rel eval_oracle) copy_source copy_target_source`
+    \\ rename1
+         `LIST_REL (v_rel eval_oracle) copy_destination copy_target_destination`
+    \\ `OPTREL (LIST_REL (v_rel eval_oracle))
+          (copy_array (copy_source,copy_offset) copy_length
+            (SOME (copy_destination,copy_destination_offset)))
+          (copy_array (copy_target_source,copy_offset) copy_length
+            (SOME (copy_target_destination,copy_destination_offset)))` by (
+      irule LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def]
+    \\ drule_then (drule_then mp_tac) store_assign
+    \\ simp [sv_rel_l_cases, PULL_EXISTS]
+    \\ disch_then drule
+    \\ strip_tac
+    \\ gvs [])
+  \\ Cases_on `op = CopyArrVec`
+  >- (
+    gvs []
+    \\ qpat_x_assum `do_app _ _ _ = SOME _` mp_tac
+    \\ simp [Once do_app_cases]
+    \\ rw [listTheory.SWAP_REVERSE_SYM]
+    \\ fs [CaseEq "ffi_result", option_case_eq]
+    \\ rveq \\ fs []
+    \\ simp [do_app_def, sub_exn_v_def]
+    \\ drule_then imp_res_tac store_lookup
+    \\ gvs [sv_rel_l_cases]
+    \\ rename1 `LIST_REL (v_rel eval_oracle) copy_source copy_target`
+    \\ qmatch_asmsub_rename_tac
+         `copy_array (copy_source,copy_offset) copy_length NONE`
+    \\ `OPTREL (LIST_REL (v_rel eval_oracle))
+          (copy_array (copy_source,copy_offset) copy_length NONE)
+          (copy_array (copy_target,copy_offset) copy_length NONE)` by (
+      irule LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def])
+  \\ Cases_on `op = CopyArrArr`
+  >- (
+    gvs []
+    \\ qpat_x_assum `do_app _ _ _ = SOME _` mp_tac
+    \\ simp [Once do_app_cases]
+    \\ rw [listTheory.SWAP_REVERSE_SYM]
+    \\ fs [CaseEq "ffi_result", option_case_eq]
+    \\ rveq \\ fs []
+    \\ simp [do_app_def, sub_exn_v_def]
+    \\ drule_then imp_res_tac store_lookup
+    \\ gvs [sv_rel_l_cases]
+    \\ qmatch_asmsub_rename_tac
+         `copy_array (copy_source,copy_offset) copy_length
+           (SOME (copy_destination,copy_destination_offset))`
+    \\ rename1 `LIST_REL (v_rel eval_oracle) copy_source copy_target_source`
+    \\ rename1
+         `LIST_REL (v_rel eval_oracle) copy_destination copy_target_destination`
+    \\ `OPTREL (LIST_REL (v_rel eval_oracle))
+          (copy_array (copy_source,copy_offset) copy_length
+            (SOME (copy_destination,copy_destination_offset)))
+          (copy_array (copy_target_source,copy_offset) copy_length
+            (SOME (copy_target_destination,copy_destination_offset)))` by (
+      irule LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def]
+    \\ drule_then (drule_then mp_tac) store_assign
+    \\ simp [sv_rel_l_cases, PULL_EXISTS]
+    \\ disch_then drule
+    \\ strip_tac
+    \\ gvs [])
+  \\ qpat_x_assum `do_app _ _ _ = SOME _` mp_tac
   \\ simp [Once do_app_cases] \\ rw [listTheory.SWAP_REVERSE_SYM]
   \\ fs [CaseEq "ffi_result", option_case_eq] \\ rveq \\ fs []
   \\ simp [do_app_def]

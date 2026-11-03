@@ -20,6 +20,7 @@ val _ = ml_prog_update (add_dec
 val _ = trans "fromList" ``regexp_compiler$Vector``;
 val _ = trans "length" ``regexp_compiler$length``;
 val _ = trans "sub" ``regexp_compiler$sub``;
+val _ = trans "subvector" ``mlvector$subvector``;
 
 val _ = next_ml_names := ["tabulate"];
 val result = translate tabulate_def;

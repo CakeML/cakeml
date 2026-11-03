@@ -293,11 +293,6 @@ local val compile_op_quotation = `
                [Op (IntOp (Const 0)) [];
                 Call 0 (SOME SumListLength_location)
                   [Var 0; Op (IntOp (Const 0)) []] NONE]] NONE)
-    | MemOp (CopyByte T) => (* TODO: this should eventually be implemented in data_to_word instead for efficiency *)
-      Let (if LENGTH c1 < 3 then (c1 ++ REPLICATE 3 (Op (IntOp (Const 0)) [])) else c1)
-        (Let [Op (MemOp (RefByte T)) [Op (IntOp (Const 0)) []; Var 0]]
-           (Let [Op (MemOp (CopyByte F)) [Op (IntOp (Const 0)) []; Var 0; Var 1; Var 2; Var 3]]
-             (Var 1)))
     | Label l => Op (Label (bvl_num_stubs + bvl_to_bvi_namespaces * l)) c1
     | BlockOp (Build ps) => Op (BlockOp (Build ps)) c1
     | BlockOp (EqualConst p) => Op (BlockOp (EqualConst p)) c1

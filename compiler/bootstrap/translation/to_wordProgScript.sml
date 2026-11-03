@@ -401,12 +401,17 @@ val _ = translate(data_to_wordTheory.Div_code_def)
 val _ = translate(data_to_wordTheory.Mod_code_def)
 val _ = translate(data_to_wordTheory.SmallnumDivMod_code_def)
 val _ = translate(data_to_wordTheory.MemCopy_code_def|> inline_simp)
+val r = translate(data_to_wordTheory.ByteCopyWords_code_def)
+val r = translate(data_to_wordTheory.ByteCopyShiftWords_code_def)
+val r = translate(data_to_wordTheory.ByteCopyLoop_code_def |> inline_simp)
+val r = translate(data_to_wordTheory.ByteCopyAlign_code_def |> inline_simp)
 val r = translate(data_to_wordTheory.ByteCopy_code_def |> inline_simp)
 (* top-level vals must not call functions (no_ptr_eq), so unfold list_Seq *)
 val r = translate(data_to_wordTheory.ByteCopyAdd_code_def
                   |> REWRITE_RULE [data_to_wordTheory.list_Seq_def])
 val r = translate(data_to_wordTheory.ByteCopySub_code_def
                   |> REWRITE_RULE [data_to_wordTheory.list_Seq_def])
+val r = translate(data_to_wordTheory.ByteCopyNewInit_code_def |> inline_simp)
 val r = translate(data_to_wordTheory.ByteCopyNew_code_def)
 
 val r = translate(data_to_wordTheory.Install_code_def |> inline_simp)
@@ -417,6 +422,14 @@ val _ = translate(data_to_wordTheory.AppendMainLoop_code_def|> inline_simp)
 val _ = translate(data_to_wordTheory.AppendLenLoop_code_def|> inline_simp)
 val _ = translate(data_to_wordTheory.XorLoop_code_def|> inline_simp)
 val _ = translate(data_to_wordTheory.StringCmpLoop_code_def|> inline_simp)
+
+val _ = translate data_to_wordTheory.ScanByte_step_def;
+val _ = translate (data_to_wordTheory.ScanByte_tail_code_def |> SRULE [LET_THM]);
+val _ = translate (data_to_wordTheory.ScanByte_word_body_def |> SRULE [LET_THM]);
+val _ = translate (data_to_wordTheory.ScanByte_bulk_def |> SRULE [LET_THM]);
+val _ = translate (data_to_wordTheory.ScanByte_code_def |> SRULE [LET_THM]);
+val _ = translate data_to_wordTheory.ScanEq_code_def;
+val _ = translate data_to_wordTheory.ScanNeq_code_def;
 
 val _ = translate(data_to_wordTheory.Compare1_code_def|> inline_simp)
 val _ = translate(data_to_wordTheory.Compare_code_def|> inline_simp)
