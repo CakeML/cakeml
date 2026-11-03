@@ -107,7 +107,7 @@ Optimisations can be configured using the following advanced options.
   --tailrec=B true means attempts to turn functions into tail-rec form
   --inline_factor=N  threshold used by for ClosLang inliner in known pass
   --max_body_size=N  threshold used by for ClosLang inliner in known pass
-  --max_app=N   max number of optimised curried applications in multi pass
+  --max_app=N   max number of optimised curried applications in multi pass (1 to 1000)
   --inline_size=N  threshold used by for BVL inliner pass
   --exp_cut=N  threshold for when to cut large expression into subfunctions
   --split=B  true means main expression will be split at sequencing (;)
@@ -455,7 +455,11 @@ Definition parse_clos_conf_def:
   let known = find_bool «--known=» ls (IS_SOME clos.known_conf) in
   let inline_factor = find_num «--inline_factor=» ls default_inline_factor in
   let call = find_bool «--call=» ls clos.do_call in
-  let maxapp = find_num «--max_app=» ls clos.max_app in
+  let maxapp =
+    (case find_num «--max_app=» ls clos.max_app of
+     | INL n => if 0 < n ∧ n ≤ 1000 then INL n
+                else INR «--max_app must be between 1 and 1000»
+     | err => err) in
   case (multi,known,inline_factor,call,maxapp) of
     (INL m,INL k,INL i,INL c,INL n) =>
     if k then
