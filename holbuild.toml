@@ -173,3 +173,11 @@ manifest = "holextra.manifest.toml"
 "compiler/backend/proofs/data_to_word_assign_intProofScript.sml" = 10.0
 
 "characteristic/cfDivScript.sml" = 10.0
+
+"compiler/backend/proofs/data_to_wordProofScript.sml" = 60.0
+
+"compiler/backend/proofs/backendProofScript.sml" = 10.0
+
+"basis/CommandLineProofScript.sml" = 10.0
+"basis/TextIOProofScript.sml" = 60.0
+"basis/SexpProgScript.sml" = 10.0
