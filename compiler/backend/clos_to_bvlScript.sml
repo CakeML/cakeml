@@ -277,9 +277,10 @@ End
 Definition partial_app_fn_location_code_def:
   partial_app_fn_location_code max_app tot_exp prev_exp : bvl$exp =
     Let [tot_exp]
-     (Op (IntOp Add) [prev_exp;
-        Op (IntOp Div) [mk_const 2;
-          Op (IntOp Mult) [Var 0; Op (IntOp Sub) [mk_const 1; Var 0]]]])
+     (Op (IntOp (Smallnum SmallAdd)) [prev_exp;
+        Op (IntOp (Smallnum SmallDiv)) [mk_const 2;
+          Op (IntOp (Smallnum SmallMult))
+            [Var 0; Op (IntOp (Smallnum SmallSub)) [mk_const 1; Var 0]]]])
 End
 
 Definition mk_cl_call_def:
@@ -292,8 +293,8 @@ End
 (* Generic application of a function to n+1 arguments *)
 Definition generate_generic_app_def:
   generate_generic_app max_app n =
-    Let [Op (IntOp Sub) [mk_const (n+1); mk_elem_at (Var (n+1)) 1]] (* The number of arguments remaining - 1 *)
-        (If (Op (IntOp Less) [mk_const 0; Var 0])
+    Let [Op (IntOp (Smallnum SmallSub)) [mk_const (n+1); mk_elem_at (Var (n+1)) 1]] (* The number of arguments remaining - 1 *)
+        (If (Op (IntOp (Smallnum SmallLess)) [mk_const 0; Var 0])
             (* Over application *)
             (Jump (mk_elem_at (Var (n+2)) 1)
               (GENLIST (\num_args.
@@ -318,19 +319,20 @@ Definition generate_generic_app_def:
                        Var (n + 2) ::
                        GENLIST (\n. Var (n + 1)) (n + 1))))
                 (* Partial application of a partially applied closure *)
-                (Let [Op (IntOp Sub) [mk_const 3; Op (BlockOp LengthBlock) [Var (n+2)]]] (* The number of previous args *)
+                (Let [Op (IntOp (Smallnum SmallSub)) [mk_const 3; Op (BlockOp LengthBlock) [Var (n+2)]]] (* The number of previous args *)
                   (Op (BlockOp (ConsExtend partial_app_tag))
                     (REVERSE
                       (Var (n + 3) ::
                        mk_const 3 ::
                        Var 0 ::
-                       Op (IntOp Add) [Var 0; mk_const (n+4)] ::
+                       Op (IntOp (Smallnum SmallAdd)) [Var 0; mk_const (n+4)] ::
                        mk_el (Op (GlobOp (Global 0)) [])
                          (partial_app_fn_location_code max_app
-                           (Op (IntOp Add) [Var 0; Op (IntOp Add) [mk_const (n + 1); Var 1]])
+                           (Op (IntOp (Smallnum SmallAdd))
+                              [Var 0; Op (IntOp (Smallnum SmallAdd)) [mk_const (n + 1); Var 1]])
                            (* Shift from Var0 to Var1 because of Let in
                             * partial_app_fn_location_code *)
-                           (Op (IntOp Add) [Var 1; mk_const n])) ::
+                           (Op (IntOp (Smallnum SmallAdd)) [Var 1; mk_const n])) ::
                        Var 1 ::
                        mk_elem_at (Var (n+3)) 2 ::
                        GENLIST (\this_arg. Var (this_arg + 2)) (n + 1))))))))

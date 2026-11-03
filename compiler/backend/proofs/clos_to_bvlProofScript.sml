@@ -424,10 +424,17 @@ Proof
              DECIDE ``(SUC 0) = 1``, DECIDE ``SUC (SUC 0) = 2``, ADD1]
 QED
 
+Theorem small_int_app[local] =
+  LIST_CONJ [backendPropsTheory.bounded_smallnum_app_def,
+             backendPropsTheory.smallnum_app_def,
+             semanticPrimitivesTheory.index_in_bounds_def,
+             integerTheory.INT_SUB, integerTheory.INT_ADD,
+             integerTheory.INT_MUL];
+
 Theorem evaluate_partial_app_fn_location_code[local]:
   !max_app n total_args st args tag ptr x fvs.
      partial_app_fn_location max_app total_args n ∈ domain st.code ∧
-     n < total_args ∧ total_args < max_app ⇒
+     n < total_args ∧ total_args < max_app ∧ max_app ≤ 1000 ⇒
      evaluate
        ([partial_app_fn_location_code max_app
                (mk_elem_at (Var (LENGTH args + 1)) 1)
@@ -437,10 +444,15 @@ Theorem evaluate_partial_app_fn_location_code[local]:
      =
      (Rval [Number (&(total_args * (total_args - 1) DIV 2 + n))], st)
 Proof
-  rw [partial_app_fn_location_code_def, evaluate_def, do_app_def,do_int_app_def,
-      EL_CONS, el_append2, PRE_SUB1, partial_app_fn_location_def] >>
-  rw [integerTheory.INT_ADD, integerTheory.INT_MUL, integerTheory.INT_DIV,
-      integerTheory.INT_SUB]
+  rpt strip_tac >>
+  `total_args * (total_args - 1) ≤ 1000 * 1000` by
+    (irule LESS_MONO_MULT2 >> simp []) >>
+  `total_args * (total_args - 1) DIV 2 ≤ total_args * (total_args - 1)` by
+    simp [DIV_LESS_EQ] >>
+  `&total_args − 1 = &(total_args − 1) : int` by simp [integerTheory.INT_SUB] >>
+  simp [partial_app_fn_location_code_def, evaluate_def, do_app_def,do_int_app_def,
+        EL_CONS, el_append2, PRE_SUB1, partial_app_fn_location_def,
+        small_int_app]
 QED
 
 Definition global_table_def:
@@ -454,7 +466,7 @@ Theorem evaluate_generic_app1[local]:
   !n args st total_args l fvs cl.
     partial_app_fn_location max_app total_args n ∈ domain st.code ∧
     n < total_args ∧
-    total_args < max_app ∧
+    total_args < max_app ∧ max_app ≤ 1000 ∧
     n + 1 = LENGTH args ∧
     get_global 0 st.globals = SOME (SOME (global_table max_app)) ∧
     cl = Block closure_tag (CodePtr l :: Number (&total_args) :: fvs)
@@ -472,7 +484,7 @@ Proof
   srw_tac[][generate_generic_app_def] >>
   srw_tac[][evaluate_def, do_app_def,do_int_app_def] >>
   full_simp_tac (srw_ss() ++ ARITH_ss) [el_append2] >>
-  fsrw_tac[][do_int_app_def] >>
+  fsrw_tac[ARITH_ss][do_int_app_def, small_int_app] >>
   `((&total_args):int − &(n+1) >= 0)` by intLib.ARITH_TAC >>
   srw_tac[][] >>
   TRY (rfs [] >> NO_TAC) >>
@@ -481,7 +493,7 @@ Proof
   srw_tac[][DECIDE ``x + 2 = SUC (SUC x)``, el_append2_lemma, evaluate_APPEND] >>
   srw_tac [ARITH_ss] [ADD1, evaluate_genlist_vars_rev, evaluate_def] >>
   rw [LENGTH_GENLIST, evaluate_def, do_app_def, evaluate_APPEND, el_append2] >>
-  TRY (fs [dec_clock_def, LESS_OR_EQ]) >>
+  fs [dec_clock_def] >>
   simp [evaluate_partial_app_fn_location_code, global_table_def] >>
   simp [triangle_table_size, partial_app_fn_location_def, triangle_el_no_suff,
         triangle_div_lemma] >>
@@ -496,7 +508,7 @@ Theorem evaluate_generic_app2[local]:
     n < rem_args ∧
     n + 1 = LENGTH args ∧
     LENGTH prev_args > 0 ∧
-    rem_args + LENGTH prev_args < max_app ∧
+    rem_args + LENGTH prev_args < max_app ∧ max_app ≤ 1000 ∧
     get_global 0 st.globals = SOME (SOME (global_table max_app)) ∧
     cl = Block partial_app_tag (CodePtr l :: Number (&rem_args) :: clo :: prev_args)
     ⇒
@@ -512,29 +524,34 @@ Theorem evaluate_generic_app2[local]:
          dec_clock n st)
 Proof
   srw_tac[][generate_generic_app_def, mk_const_def] >>
+  `(rem_args + LENGTH prev_args) * (rem_args + LENGTH prev_args - 1) ≤ 1000 * 1000` by
+    (irule LESS_MONO_MULT2 >> simp []) >>
+  `(rem_args + LENGTH prev_args) * (rem_args + LENGTH prev_args - 1) DIV 2 ≤
+   (rem_args + LENGTH prev_args) * (rem_args + LENGTH prev_args - 1)` by
+    simp [DIV_LESS_EQ] >>
   srw_tac[][evaluate_def, do_app_def, do_int_app_def] >>
   full_simp_tac (srw_ss() ++ ARITH_ss) [] >>
   `~(&rem_args − &(n+1):int < 0)` by intLib.ARITH_TAC >>
   srw_tac[][el_append2] >>
-  fsrw_tac[][do_int_app_def] >>
+  fsrw_tac[ARITH_ss][do_int_app_def, small_int_app] >>
   TRY (fs [dec_clock_def, LESS_OR_EQ] >> NO_TAC) >>
   rev_full_simp_tac(srw_ss())[evaluate_mk_tick] >>
   full_simp_tac (srw_ss()++ARITH_ss) [] >>
   srw_tac[][evaluate_def, do_app_def] >>
   srw_tac[][DECIDE ``x + 2 = SUC (SUC x)``, el_append2_lemma, evaluate_APPEND] >>
   srw_tac[][ADD1] >>
-  full_simp_tac(srw_ss())[do_int_app_def] >>
+  full_simp_tac(srw_ss()++ARITH_ss)[do_int_app_def, small_int_app] >>
   TRY (fs [dec_clock_def, LESS_OR_EQ] >> NO_TAC) >>
   fs [] >>
   srw_tac [ARITH_ss] [evaluate_genlist_vars_rev, EL_CONS, PRE_SUB1, el_append2] >>
   simp [evaluate_def, do_app_def] >>
   srw_tac [ARITH_ss] [EL_CONS, PRE_SUB1, el_append2] >>
-  fsrw_tac[][do_int_app_def] >>
+  fsrw_tac[ARITH_ss][do_int_app_def, small_int_app] >>
   simp [dec_clock_def] >>
   `&rem_args − &LENGTH args + &(n + (LENGTH prev_args + 1)):int = &(rem_args + LENGTH prev_args)` by intLib.ARITH_TAC >>
   fs [partial_app_fn_location_code_def, global_table_def] >>
   simp [evaluate_APPEND, REVERSE_APPEND, TAKE_LENGTH_APPEND, LENGTH_GENLIST,
-        evaluate_def, do_app_def, do_int_app_def,mk_label_def] >>
+        evaluate_def, do_app_def, do_int_app_def, small_int_app, mk_label_def] >>
   simp [integerTheory.INT_ADD, integerTheory.INT_MUL, integerTheory.INT_DIV, integerTheory.INT_SUB] >>
   rw [REVERSE_APPEND, ADD1] >>
   rw [] >>
@@ -575,7 +592,7 @@ Theorem evaluate_generic_app_partial[local]:
       max_app
       total_args
       (LENGTH prev_args + (LENGTH args - 1)) ∈ domain st.code ∧
-    total_args < max_app ∧
+    total_args < max_app ∧ max_app ≤ 1000 ∧
     LENGTH args < (total_args + 1) - LENGTH prev_args ∧
     LENGTH args ≠ 0 ∧
     get_global 0 st.globals = SOME (SOME (global_table max_app)) ∧
@@ -623,7 +640,7 @@ Theorem evaluate_generic_app_full[local]:
     lookup l st.code = SOME (rem_args + 2, exp, md) ∧
     n + 1 = LENGTH args ∧
     n > rem_args ∧
-    rem_args < max_app
+    n < max_app ∧ max_app ≤ 1000
     ⇒
     evaluate ([generate_generic_app max_app n], args++[Block tag (CodePtr l :: Number (&rem_args) :: vs)], st) =
     if st.clock < rem_args + 1 then (Rerr(Rabort Rtimeout_error), st with clock := 0) else
@@ -646,7 +663,9 @@ Proof
   srw_tac[][generate_generic_app_def, mk_const_def] >>
   srw_tac[][evaluate_def, do_app_def, do_int_app_def, el_append2] >>
   full_simp_tac (srw_ss() ++ ARITH_ss) [partial_app_tag_def] >>
-  fsrw_tac[][do_int_app_def] >>
+  `-1073741824 ≤ &rem_args − &LENGTH args ∧
+   &rem_args − &LENGTH args < 1073741824 : int` by intLib.ARITH_TAC >>
+  fsrw_tac[ARITH_ss][do_int_app_def, small_int_app] >>
   `(&rem_args − &(LENGTH args):int < 0)` by intLib.ARITH_TAC >>
   srw_tac[][] >>
   `evaluate ([mk_elem_at (Var (LENGTH args + 1)) 1],
@@ -743,7 +762,7 @@ Theorem evaluate_mk_cl_call[local]:
       SOME (LENGTH args' + 1,
             generate_generic_app max_app (LENGTH args' - 1), md1)) ∧
     LENGTH args' - 1 ≥ n ∧
-    n < max_app ∧
+    LENGTH args' ≤ max_app ∧ max_app ≤ 1000 ∧
     LENGTH args ≠ 0
     ⇒
     evaluate ([mk_cl_call cl args],env,s) =
@@ -1128,6 +1147,7 @@ Definition state_rel_def:
            ?y m. (FLOOKUP f n = SOME m) /\
                  (FLOOKUP t.refs m = SOME y) /\
                  ref_rel (v_rel s.max_app f t.refs t.code) x y) /\
+    s.max_app ≤ 1000 ∧
     (!n. n < s.max_app ⇒
          ?md. lookup (generic_app_fn_location n) t.code =
                 SOME (n + 2, generate_generic_app s.max_app n, md)) ∧
@@ -2366,7 +2386,7 @@ Theorem evaluate_mk_cl_call_spec[local]:
     (?md1. lookup (generic_app_fn_location (LENGTH args - 1)) s.code =
       SOME (LENGTH args + 1, generate_generic_app max_app (LENGTH args - 1),md1)) ∧
     LENGTH args - 1 ≥ n ∧
-    n < max_app ∧
+    LENGTH args ≤ max_app ∧ max_app ≤ 1000 ∧
     LENGTH args ≠ 0
     ⇒
     evaluate ([mk_cl_call (Var (LENGTH args)) (GENLIST Var (LENGTH args))],args ++ [Block tag (CodePtr p::Number (&n)::xs)] ++ env,s) =
@@ -5483,6 +5503,7 @@ Proof
         `LENGTH args' + LENGTH prev_args − 1 = LENGTH prev_args + (LENGTH args − 1)` by simp [] >>
         `LENGTH args' < total_args + 1 − LENGTH prev_args` by simp [] >>
         full_simp_tac(srw_ss())[] >>
+        `s1.max_app ≤ 1000` by fs [state_rel_def] >>
         Q.ISPECL_THEN [`s1.max_app`, `total_args`, `prev_args`, `dec_clock 1 (t1 with clock := s1.clock)`, `args'`] assume_tac (Q.GEN`max_app`evaluate_generic_app_partial) >>
         rev_full_simp_tac(srw_ss())[domain_lookup] >>
         pop_assum mp_tac >>
@@ -5573,6 +5594,8 @@ Proof
              (qspec_then `LENGTH args' - 1` mp_tac)
         \\ simp [] \\ strip_tac \\ fsrw_tac [ARITH_ss] []
 ) \\ (
+        `s1.max_app ≤ 1000` by fs [state_rel_def] >>
+        `LENGTH args' ≤ s1.max_app` by decide_tac >>
         `LENGTH args' - 1 + 2  = LENGTH args' + 1` by decide_tac >>
         full_simp_tac(srw_ss())[] >>
         `(&rem_args):int - 1 = &n ∧ rem_args + 1 = n + 2`
@@ -6533,6 +6556,7 @@ QED
 
 Definition init_code_def:
   init_code code1 code2 max_app <=>
+    max_app ≤ 1000 ∧
     (∀n.
        n < max_app ⇒
        ∃md. lookup (generic_app_fn_location n) code2 =
@@ -7933,6 +7957,7 @@ QED
 
 Definition syntax_oracle_ok_def:
   syntax_oracle_ok c c' es co ⇔
+   c.max_app ≤ 1000 ∧
    (∀n. SND (SND (co n)) = []) ∧
    (c.do_mti ⇒ 1 ≤ c.max_app ∧ EVERY no_mti es ∧
      (∀n. EVERY no_mti (FST(SND(co n))))) ∧
@@ -9107,6 +9132,7 @@ Theorem compile_semantics:
      (compile_common_inc c (pure_cc (compile_inc c.max_app) cc)) pe es
 Proof
   strip_tac
+  \\ `c.max_app ≤ 1000` by fs [syntax_oracle_ok_def]
   \\ imp_res_tac compile_all_distinct_locs
   \\ fs[compile_def,GSYM add_metadata_def]
   \\ pairarg_tac \\ fs[] \\ rveq

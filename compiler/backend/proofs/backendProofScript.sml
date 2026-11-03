@@ -72,7 +72,7 @@ val compile_tap_def = backend_passesTheory.compile_tap_def;
 Definition backend_config_ok_def:
   backend_config_ok (asm_conf:asm_config) (c:config) ⇔
     c.source_conf = prim_src_config ∧
-    0 < c.clos_conf.max_app ∧
+    0 < c.clos_conf.max_app ∧ c.clos_conf.max_app ≤ 1000 ∧
     c.bvl_conf.next_name2 = bvl_num_stubs + 2 ∧
     LENGTH asm_conf.avoid_regs + 13 ≤ asm_conf.reg_count ∧
     c.lab_conf.pos = 0 ∧
@@ -1190,7 +1190,7 @@ Theorem cake_orac_clos_syntax_oracle_ok:
   compile c2 clos_prog = (clos_c', clos_prog') /\
   (?st. c'.clos_conf = clos_c' with start := st) /\
   c2 = c.clos_conf /\ clos_prog = SND (to_clos c prog) /\
-  1 <= c.clos_conf.max_app /\
+  1 <= c.clos_conf.max_app /\ c.clos_conf.max_app ≤ 1000 /\
   c.source_conf = prim_src_config ==>
   clos_to_bvlProof$syntax_oracle_ok c.clos_conf clos_c' clos_prog
      (cake_orac (:'a) asm_conf c' syntax (SND ∘ config_tuple1) (λps.ps.clos_prog))
