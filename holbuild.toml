@@ -181,3 +181,4 @@ manifest = "holextra.manifest.toml"
 "basis/CommandLineProofScript.sml" = 10.0
 "basis/TextIOProofScript.sml" = 60.0
 "basis/SexpProgScript.sml" = 10.0
+"compiler/proofs/compilerProofScript.sml" = 10.0
