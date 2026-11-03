@@ -801,6 +801,17 @@ val iEval_def = bviSemTheory.evaluate_def;
 val bEvalOp_def = bvlSemTheory.do_app_def;
 val iEvalOp_def = bviSemTheory.do_app_def;
 
+Theorem bounded_smallnum_app_num[local]:
+  (m + k ≤ len ⇒
+   bounded_smallnum_app (SOME len) SmallAdd (&m) (&k) = SOME (INL (&(m + k)))) ∧
+  (k ≤ m ∧ m ≤ len ⇒
+   bounded_smallnum_app (SOME len) SmallSub (&m) (&k) = SOME (INL (&(m - k))))
+Proof
+  rw [bounded_smallnum_app_def, smallnum_app_def,
+      semanticPrimitivesTheory.index_in_bounds_def]
+  \\ intLib.COOPER_TAC
+QED
+
 Theorem evaluate_CopyGlobals_code[local]:
   ∀n l1 s.
    lookup CopyGlobals_location s.code = SOME (3,SND CopyGlobals_code,md) ∧
@@ -816,8 +827,9 @@ Theorem evaluate_CopyGlobals_code[local]:
      (Rval [Unit], s with refs := s.refs |+ (p1, ValueArray (TAKE (SUC n) ls ++ DROP (SUC n) l1)))
 Proof
   Induct >> srw_tac[][] >> srw_tac[][CopyGlobals_code_def] >>
-  srw_tac[][iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,do_int_app_def,
-  bvl_to_bvi_id,backend_commonTheory.small_enough_int_def,bvl_to_bvi_with_refs] >- (
+  srw_tac[ARITH_ss][iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,do_int_app_def,
+  bvl_to_bvi_id,backend_commonTheory.small_enough_int_def,bvl_to_bvi_with_refs,
+  smallnum_witness_length_def,FLOOKUP_UPDATE,bounded_smallnum_app_num] >- (
     qexists_tac`0`>>simp[inc_clock_ZERO,state_component_equality] >>
     rpt AP_TERM_TAC >>
     simp[LIST_EQ_REWRITE,EL_LUPDATE] >>
@@ -900,12 +912,17 @@ Proof
   \\ gvs [bvl_to_bvi_def,bvi_to_bvl_def]
   \\ ntac 2 $ simp [Once iEval_def]
   \\ simp [iEvalOp_def,do_app_aux_def,bvlSemTheory.do_app_def,integerTheory.INT_ADD]
-  \\ ntac 10 $ simp [Once iEval_def]
+  \\ qabbrev_tac ‘new_p = LEAST ptr. ptr ≠ p ∧ ptr ∉ FDOM s.refs’
+  \\ ‘p ≠ new_p ∧ new_p ∉ FDOM s.refs’ by
+    (`∃x. (λptr. ptr NOTIN FDOM (s.refs |+ (p,ARB))) x` by
+          (SIMP_TAC std_ss [] \\ METIS_TAC [NUM_NOT_IN_FDOM])
+     \\ drule WhileTheory.LEAST_INTRO \\ fs [])
+  \\ ntac 12 $ simp [Once iEval_def]
   \\ simp [iEvalOp_def,do_app_aux_def,bvlSemTheory.do_app_def,do_int_app_def]
   \\ simp [EVAL “small_enough_int 0”,EVAL “small_enough_int 1”]
-  \\ simp [do_int_app_def]
+  \\ simp [do_int_app_def,smallnum_witness_length_def,FLOOKUP_UPDATE,
+           bounded_smallnum_app_num]
   \\ gvs [bvl_to_bvi_def,bvi_to_bvl_def,find_code_def,dec_clock_def]
-  \\ qabbrev_tac ‘new_p = LEAST ptr. ptr ≠ p ∧ ptr ∉ FDOM s.refs’
   \\ qexists_tac ‘new_p’ \\ fs []
   \\ Q.REFINE_EXISTS_TAC ‘ccc+1’ \\ fs []
   \\ gvs [AllCaseEqs()]
@@ -917,10 +934,6 @@ Proof
         by fs [Abbr‘s1’]
   \\ drule (GEN_ALL evaluate_CopyGlobals_code)
   \\ disch_then $ qspecl_then [‘new_p’,‘p’] mp_tac
-  \\ ‘p ≠ new_p ∧ new_p ∉ FDOM s.refs’ by
-    (`∃x. (λptr. ptr NOTIN FDOM (s.refs |+ (p,ARB))) x` by
-          (SIMP_TAC std_ss [] \\ METIS_TAC [NUM_NOT_IN_FDOM])
-     \\ drule WhileTheory.LEAST_INTRO \\ fs [])
   \\ fs []
   \\ simp [Abbr‘s1’,FLOOKUP_UPDATE,Abbr‘new_refs’,inc_clock_def]
   \\ disch_then $ qspecl_then [‘T’,‘T’,‘LENGTH ls’] mp_tac
@@ -991,7 +1004,8 @@ Proof
   >- ( first_x_assum(qspec_then`n2w h'`mp_tac) \\ fs[] )
   \\ simp[iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,do_int_app_def,
           backend_commonTheory.small_enough_int_def,
-          bvl_to_bvi_with_refs,bvl_to_bvi_id]
+          bvl_to_bvi_with_refs,bvl_to_bvi_id,
+          smallnum_witness_length_def,FLOOKUP_UPDATE,bounded_smallnum_app_num]
   \\ simp[find_code_def]
   \\ qmatch_goalsub_abbrev_tac`inc_clock _ _ with refs := refs`
   \\ qmatch_asmsub_abbrev_tac`ByteArray fl (h1::t1)`
@@ -1002,10 +1016,7 @@ Proof
   \\ qexists_tac`c+1`
   \\ simp[] \\ fs[ADD1]
   \\ fs[dec_clock_def,inc_clock_def]
-  \\ qmatch_goalsub_abbrev_tac`Number n1`
-  \\ qmatch_asmsub_abbrev_tac`Number n2`
-  \\ `n1 = n2` by (simp[Abbr`n1`,Abbr`n2`,integerTheory.INT_ADD])
-  \\ fs[Abbr`n1`,Abbr`n2`,state_component_equality]
+  \\ fs[state_component_equality]
   \\ simp[Abbr`refs`,fmap_eq_flookup,FLOOKUP_UPDATE] \\ rw[]
   \\ rw[LIST_EQ_REWRITE,EL_TAKE,EL_LUPDATE]
   \\ rw[EL_TAKE,EL_APPEND1,EL_APPEND2]
@@ -1037,7 +1048,7 @@ Proof
   \\ ntac 11 (simp [Once evaluate_def,do_app_def,do_int_app_def,
                     do_app_aux_def,bvlSemTheory.do_app_def,
                     backend_commonTheory.small_enough_int_def,ADD1,
-                    intLib.COOPER_PROVE ``& (n + 1) - 1:int = & n``])
+                    smallnum_witness_length_def,bounded_smallnum_app_num])
   \\ simp [ToListByte_code_def,Once evaluate_def,do_app_def,do_app_aux_def,
         bvlSemTheory.do_app_def,inc_clock_def,bvl_to_bvi_def,bvi_to_bvl_def]
   \\ fs [SNOC_APPEND]
@@ -1046,7 +1057,7 @@ Proof
   \\ fs []
   \\ ntac 11 (simp [Once evaluate_def,do_app_def,do_app_aux_def,bvlSemTheory.do_app_def,
                     backend_commonTheory.small_enough_int_def,ADD1,
-                    intLib.COOPER_PROVE ``& (n + 1) - 1:int = & n``])
+                    bounded_smallnum_app_num])
   \\ fs [find_code_def]
   \\ simp [Once evaluate_def,do_app_def,do_app_aux_def,dec_clock_def,
         bvlSemTheory.do_app_def,inc_clock_def,bvl_to_bvi_def,bvi_to_bvl_def]
@@ -1121,7 +1132,8 @@ Proof
   \\ Cases_on`wss` \\ fs[]
   \\ rw[evaluate_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,do_int_app_def,
         bvl_to_bvi_id,backend_commonTheory.small_enough_int_def,
-        semanticPrimitivesTheory.copy_array_def]
+        semanticPrimitivesTheory.copy_array_def,
+        smallnum_witness_length_def,FLOOKUP_UPDATE]
   \\ TRY intLib.COOPER_TAC
   \\ rw[find_code_def,inc_clock_ZERO,bvl_to_bvi_with_refs,bvl_to_bvi_id]
   \\ qpat_abbrev_tac`refs = s.refs |+ _`
@@ -1148,6 +1160,7 @@ Proof
   \\ simp[] \\ disch_then(qx_choose_then`c`strip_assume_tac)
   \\ qexists_tac`c+1`
   \\ fs[inc_clock_def,dec_clock_def,state_component_equality,Abbr`refs`]
+  \\ simp[bounded_smallnum_app_num,bvl_to_bvi_id]
 QED
 
 (* compiler correctness *)
@@ -2972,9 +2985,8 @@ Resume compile_exps_correct[Op]:
       \\ ‘∃j. i = & j’ by (Cases_on ‘i’ \\ fs []) \\ gvs []
       \\ gvs [bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def]
       \\ gvs [bvlSemTheory.do_app_def,bviSemTheory.do_app_aux_def]
-      \\ simp [AllCaseEqs()]
+      \\ simp [AllCaseEqs(),smallnum_witness_length_def,bounded_smallnum_app_num]
       \\ simp[EL_APPEND1,EL_MAP,miscTheory.the_def,bvl_to_bvi_with_clock,bvl_to_bvi_id]
-      \\ ‘&j + 2 = &(j + 2):int’ by intLib.COOPER_TAC \\ fs []
       \\ simp [DECIDE “j+2 = SUC (j+1)”,EL]
       \\ simp [rich_listTheory.EL_APPEND1,EL_MAP,miscTheory.the_def])
     \\ Cases_on`∃n. op = GlobOp (SetGlobal n)` \\ full_simp_tac(srw_ss())[]

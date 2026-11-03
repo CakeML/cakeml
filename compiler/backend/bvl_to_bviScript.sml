@@ -153,14 +153,17 @@ Definition AllocGlobal_code_def:
          (Let [Op (MemOp RefArray) [Op (IntOp (Const 0)) []; Op (IntOp Add) [Var 2; Var 2]]] $
           Let [Op (GlobOp SetGlobalsPtr) [Var 0]] $
             Call 0 (SOME CopyGlobals_location)
-              [Var 1; Var 6; Op (IntOp Sub) [Op (IntOp (Const 1)) []; Var 3]] NONE))
+              [Var 1; Var 6;
+               Op (IntOp (Smallnum SmallSub)) [Var 6; Op (IntOp (Const 1)) []; Var 3]] NONE))
 End
 
 Definition CopyGlobals_code_def:
   CopyGlobals_code = (3:num, (* ptr to new array, ptr to old array, index to copy *)
     Let [Op (MemOp Update) [Op (MemOp El) [Var 2; Var 1]; Var 2; Var 0]]
-      (If (Op (BlockOp Equal) [Op (IntOp (Const 0)) []; Var 3]) (Var 0)
-        (Call 0 (SOME CopyGlobals_location) [Var 1; Var 2; Op (IntOp Sub) [Op (IntOp (Const 1)) []; Var 3]] NONE)))
+      (If (Op (BlockOp (EqualConst (Int 0i))) [Var 3]) (Var 0)
+        (Call 0 (SOME CopyGlobals_location)
+           [Var 1; Var 2;
+            Op (IntOp (Smallnum SmallSub)) [Var 1; Op (IntOp (Const 1)) []; Var 3]] NONE)))
 End
 
 Definition InitGlobals_max_def:
@@ -190,14 +193,14 @@ Definition FromListByte_code_def:
       (Let [Op (MemOp UpdateByte) [Op (MemOp El) [Op (IntOp (Const 0)) []; Var 0]; Var 1; Var 2]]
         (Call 0 (SOME FromListByte_location)
           [Op (MemOp El) [Op (IntOp (Const 1)) []; Var 1];
-           Op (IntOp Add) [Var 2; Op (IntOp (Const 1)) []];
+           Op (IntOp (Smallnum SmallAdd)) [Var 3; Var 2; Op (IntOp (Const 1)) []];
            Var 3] NONE)))
 End
 
 Definition ToListByte_code_def:
   ToListByte_code = (3n, (* list, current index, byte array *)
     If (Op (BlockOp (EqualConst (Int 0i))) [Var 1]) (Var 0)
-      (Let [Op (IntOp Sub) [Op (IntOp (Const 1)) []; Var 1]]
+      (Let [Op (IntOp (Smallnum SmallSub)) [Var 2; Op (IntOp (Const 1)) []; Var 1]]
       (Let [Op (MemOp DerefByte) [Var 0; Var 3]]
         (Call 0 (SOME ToListByte_location)
           [Op (BlockOp (Cons 0)) [Var 2; Var 0];
@@ -224,7 +227,7 @@ Definition ConcatByte_code_def:
                   [Var 3; Var 4; Var 0; Op (IntOp (Const 0)) []; Var 1]]
             (Call 0 (SOME ConcatByte_location)
               [Op (MemOp El) [Op (IntOp (Const 1)) []; Var 3];
-               Op (IntOp Add) [Var 4; Var 1];
+               Op (IntOp (Smallnum SmallAdd)) [Var 5; Var 4; Var 1];
                Var 5] NONE)))))
 End
 
@@ -252,7 +255,8 @@ local val compile_op_quotation = `
     | GlobOp (Global n) =>
       (if NULL c1 then Op (GlobOp (Global (n+1))) []
       else Let c1 (Op (MemOp El) [
-        Op (IntOp Add) [Op (IntOp (Const 2)) []; Var 0];
+        Op (IntOp (Smallnum SmallAdd))
+          [Op (GlobOp GlobalsPtr) []; Op (IntOp (Const 2)) []; Var 0];
         Op (GlobOp GlobalsPtr) []]))
     | GlobOp (SetGlobal n) => Op (GlobOp (SetGlobal (n+1))) c1
     | GlobOp AllocGlobal => Call 0 (SOME AllocGlobal_location) c1 NONE
