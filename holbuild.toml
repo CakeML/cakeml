@@ -137,5 +137,7 @@ manifest = "holextra.manifest.toml"
 
 "characteristic/cfStoreScript.sml" = 10.0
 
+"compiler/backend/proofs/data_to_word_gcProofScript.sml" = 10.0
+
 [actions.newsTheory]
 extra_deps = ["pancake/NEWS.md"]
