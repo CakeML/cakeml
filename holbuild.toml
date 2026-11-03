@@ -132,3 +132,6 @@ manifest = "holextra.manifest.toml"
 "compiler/backend/bvi_inlineScript.sml" = 60.0
 "compiler/backend/bvl_handleScript.sml" = 60.0
 "compiler/parsing/cmlPEGScript.sml" = 60.0
+
+[actions.newsTheory]
+extra_deps = ["pancake/NEWS.md"]
