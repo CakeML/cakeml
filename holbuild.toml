@@ -135,5 +135,7 @@ manifest = "holextra.manifest.toml"
 
 "compiler/backend/proofs/bvl_handleProofScript.sml" = 10.0
 
+"characteristic/cfStoreScript.sml" = 10.0
+
 [actions.newsTheory]
 extra_deps = ["pancake/NEWS.md"]
