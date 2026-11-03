@@ -159,3 +159,17 @@ manifest = "holextra.manifest.toml"
 "compiler/backend/proofs/data_to_word_assign_commonProofScript.sml" = 180.0
 
 "compiler/backend/proofs/data_to_word_assign_blockProofScript.sml" = 60.0
+
+"compiler/backend/proofs/stack_to_labProofScript.sml" = 60.0
+
+"compiler/backend/proofs/data_to_word_assign_memProofScript.sml" = 10.0
+
+"characteristic/cfAppScript.sml" = 10.0
+
+"characteristic/cfScript.sml" = 10.0
+
+"compiler/backend/proofs/data_to_word_bignumProofScript.sml" = 10.0
+
+"compiler/backend/proofs/data_to_word_assign_intProofScript.sml" = 10.0
+
+"characteristic/cfDivScript.sml" = 10.0
