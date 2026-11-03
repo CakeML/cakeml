@@ -797,7 +797,6 @@ Proof
   rewrite_tac[PEG_exprs] >>
   rewrite_tac[pred_setTheory.FORALL_IN_INSERT,
               pred_setTheory.FORALL_IN_UNION] >>
-  rpt conj_tac >>
   simp(tokSymP_def :: cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts)
 QED
 
