@@ -1637,9 +1637,6 @@ Proof
     \\ imp_res_tac v_to_list \\ fs [] \\ rveq \\ rfs [] \\ rw []
     \\ match_mp_tac list_to_v_v_rel
     \\ fs [EVERY2_APPEND_suff])
-  \\ Cases_on `?i. op = IntOp (LessConstSmall i)` THEN1
-    (srw_tac[][closSemTheory.do_app_def,oneline closSemTheory.do_int_app_def] \\ fs [] \\ every_case_tac \\ fs []
-     \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def,bvlSemTheory.do_int_app_def])
   \\ Cases_on `op = BlockOp BoundsCheckBlock` THEN1
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []
      \\ fs[v_rel_SIMP] \\ rveq \\ fs [bvlSemTheory.do_app_def]

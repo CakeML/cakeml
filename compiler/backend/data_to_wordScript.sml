@@ -1895,13 +1895,6 @@ val def = assign_Define `
       : wordLang$prog # num`;
 
 val def = assign_Define `
-  assign_LessConstSmall (l:num) (dest:num) i v1 =
-                 (If Less (adjust_var v1) (Imm (&(2 * i)))
-                    (Assign (adjust_var dest) TRUE_CONST)
-                    (Assign (adjust_var dest) FALSE_CONST),l)
-      : wordLang$prog # num`;
-
-val def = assign_Define `
   assign_BoolTest (l:num) (dest:num) (test: ast$test) v1 v2 =
                  (If Equal (adjust_var v1) (Reg (adjust_var v2))
                    (Assign (adjust_var dest) TRUE_CONST)
@@ -2929,7 +2922,6 @@ Definition assign_def:
     | BlockOp BoolNot => arg1 args (assign_BoolNot l dest) (Skip,l)
     | WordOp (WordTest ws test) => arg2 args (assign_WordTest l dest test) (Skip,l)
     | BlockOp (FromList tag) => arg2 args (assign_FromList c secn l dest names tag) (Skip,l)
-    | IntOp (LessConstSmall i) => arg1 args (assign_LessConstSmall l dest i) (Skip,l)
     | MemOp (BoundsCheckByte leq) =>
         arg2 args (assign_BoundsCheckByte c secn l dest names leq) (Skip,l)
     | MemOp BoundsCheckArray =>

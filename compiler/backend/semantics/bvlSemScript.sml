@@ -203,9 +203,6 @@ Definition do_int_app_def:
   do_int_app (LessEq) [Number n1;Number n2] = SOME (Boolv (n1 <= n2)) /\
   do_int_app (Greater) [Number n1;Number n2] = SOME (Boolv (n1 > n2)) /\
   do_int_app (GreaterEq) [Number n1;Number n2] = SOME (Boolv (n1 >= n2)) /\
-  do_int_app (LessConstSmall n) [Number i] =
-        (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then
-          SOME (Boolv (i < &n)) else NONE) /\
   do_int_app (Smallnum op) [Number i; Number j] =
     OPTION_MAP (\r. case r of INL n => Number n | INR b => Boolv b)
       (backendProps$bounded_smallnum_app NONE op i j) /\
@@ -232,9 +229,7 @@ Theorem do_int_app_eq_some:
   (do_int_app (Greater) vs = SOME res ==>
     ?n1 n2. vs = [Number n1;Number n2] /\ res = Boolv (n1 > n2)) /\
   (do_int_app (GreaterEq) vs = SOME res ==>
-    ?n1 n2. vs = [Number n1;Number n2] /\ res = Boolv (n1 >= n2)) /\
-  (!n. do_int_app (LessConstSmall n) vs = SOME res ==>
-    ?i. vs = [Number i] /\ 0 <= i /\ i <= 1000000 /\ n < 1000000 /\ res = Boolv (i < &n))
+    ?n1 n2. vs = [Number n1;Number n2] /\ res = Boolv (n1 >= n2))
 Proof
   simp [oneline do_int_app_def] \\ rpt CASE_TAC \\ rw []
 QED
