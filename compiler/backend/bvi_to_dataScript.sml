@@ -239,10 +239,9 @@ Definition compile_sing_def:
          let (c2,vs,n2) = compile_list n1 env (v1::live) xs in
            (Seq c1 c2, v1 :: vs, n2))
 Termination
-  WF_REL_TAC ‘measure $ λx. case x of
-                              INL (n,env,t,l,x) => exp_size x
+  WF_REL_TAC ‘measure $ λx. pmatch x of
+                            | INL (n,env,t,l,x) => exp_size x
                             | INR (n,env,l,xs) => list_size exp_size xs’
-  \\ rpt strip_tac
   \\ simp[]
 End
 

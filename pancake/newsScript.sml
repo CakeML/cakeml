@@ -7,9 +7,6 @@ Ancestors
 Libs
   preamble TextIO listSyntax stringLib pairSyntax bitstringSyntax
 
-fun holbuild_extra_deps (_ : string list) = ()
-val _ = holbuild_extra_deps ["NEWS.md"]
-
 fun toMLstring s = mk_comb(“implode”,fromMLstring s)
 
 val news_in = openIn "NEWS.md";

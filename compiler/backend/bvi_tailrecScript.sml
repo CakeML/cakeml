@@ -47,9 +47,7 @@ Theorem is_const_PMATCH:
     | _               => F
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV)
-  \\ Cases \\ simp [is_const_def]
-  \\ rename1 `IntOp iop`
-  \\ Cases_on `iop` \\ simp [is_const_def]
+  \\ Cases \\ rpt CASE_TAC \\ rw [is_const_def]
 QED
 
 Datatype:

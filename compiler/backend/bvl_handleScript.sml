@@ -110,9 +110,9 @@ Definition handle_simp_def:
                                    (handle_simp b3)
      | NONE => (Handle (handle_simp x1) (handle_adj_vars 1 l (handle_simp x2))))
 Termination
-  WF_REL_TAC ‘measure $ λx. case x of INL a => handle_size a
-                            | INR y => (case y of INL a => handle_size1 a
-                                      | INR p => (case p of (a,b,l) => handle_size a + handle_size b))’
+  WF_REL_TAC ‘measure $ λx. pmatch x of INL a => handle_size a
+                                    | INR (INL a) => handle_size1 a
+                                    | INR (INR (a,b,_)) => handle_size a + handle_size b’
   \\ rpt conj_tac \\ rpt gen_tac
   \\ simp_tac std_ss []
   \\ fs [handle_size_def] \\ rw []

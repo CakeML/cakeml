@@ -294,7 +294,8 @@ Proof
   full_simp_tac(srw_ss())[LET_THM, check_loc_def] >>
   srw_tac[][] >>
   imp_res_tac EVERY2_LENGTH >>
-  srw_tac[][] >>~- ([`F`], decide_tac) >>
+  srw_tac[][] >>
+  TRY decide_tac >>
   Cases_on `EL k es` >>
   full_simp_tac(srw_ss())[] >>
   BasicProvers.EVERY_CASE_TAC >>
