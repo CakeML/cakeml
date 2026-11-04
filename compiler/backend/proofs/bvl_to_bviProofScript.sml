@@ -1298,6 +1298,10 @@ Proof
   rpt strip_tac
   \\ Cases_on `v`
   \\ gvs [bvlSemTheory.smallnum_witness_length_def, adjust_bv_def, AllCaseEqs()]
+  >~ [`MAX (256 * LENGTH xs) _`] >- (
+    qspecl_then [`b`,`Block 0 xs`] mp_tac (GEN_ALL v_to_list_adjust)
+    \\ simp [adjust_bv_def, ETA_AX]
+    \\ Cases_on `v_to_list (Block 0 xs)` \\ simp [])
   \\ fs [state_rel_def]
   \\ qmatch_asmsub_rename_tac `FLOOKUP s.refs ptr = SOME _`
   \\ qpat_x_assum `!k. option_CASE (FLOOKUP s.refs k) _ _`

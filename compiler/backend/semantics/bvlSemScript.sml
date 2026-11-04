@@ -179,9 +179,15 @@ Definition do_build_const_def:
   do_build_const xs refs = do_build (λx. Number 0) 0 xs refs
 End
 (* same as closSem$do_int_app *)
+(* a list also bounds indices up to three times its length *)
 Definition smallnum_witness_length_def:
   smallnum_witness_length refs (Block tag xs) =
-    (if tag = 0 then SOME (256 * LENGTH xs) else NONE) /\
+    (if tag = 0 then
+       SOME (MAX (256 * LENGTH xs)
+                 (case v_to_list (Block tag xs) of
+                  | SOME vs => 3 * LENGTH vs
+                  | NONE => 0))
+     else NONE) /\
   smallnum_witness_length refs (RefPtr _ ptr) =
     (case FLOOKUP refs ptr of
        SOME (ValueArray xs) => SOME (256 * LENGTH xs)
