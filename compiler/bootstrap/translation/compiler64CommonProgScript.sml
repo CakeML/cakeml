@@ -3,13 +3,13 @@
 *)
 Theory compiler64CommonProg[no_sig_docs]
 Ancestors
-  mipsProg compiler export ml_translator basis_ffi[qualified]
+  from_pancakeProg compiler export ml_translator basis_ffi[qualified]
 Libs
   preamble ml_translatorLib cfLib basis
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = translation_extends "mipsProg";
+val _ = translation_extends "from_pancakeProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "compiler64Prog");
 val _ = ml_translatorLib.use_sub_check true;

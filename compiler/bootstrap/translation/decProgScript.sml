@@ -4,11 +4,11 @@
 Theory decProg
 Ancestors
   ast ml_translator ml_pmatch[qualified] semanticPrimitives
-  hol_baseProg ast_extras
+  x64Prog ast_extras
 Libs
   preamble ml_translatorLib ml_progLib
 
-val _ = translation_extends "hol_baseProg";
+val _ = translation_extends "x64Prog";
 
 Theorem IsTypeRep_LIST_v = fetch_v_fun “:'a list” |> snd |> hd;
 

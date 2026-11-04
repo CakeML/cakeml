@@ -3,14 +3,14 @@
 *)
 Theory compiler32Prog[no_sig_docs]
 Ancestors
-  compiler export ml_translator ag32Prog[qualified]
-  arm7Prog[qualified] basis_ffi[qualified]
+  compiler export ml_translator from_pancakeProg[qualified]
+  basis_ffi[qualified]
 Libs
   preamble ml_translatorLib cfLib basis
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = translation_extends "ag32Prog";
+val _ = translation_extends "from_pancakeProg";
 val _ = ml_translatorLib.use_sub_check true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "compiler32Prog");
