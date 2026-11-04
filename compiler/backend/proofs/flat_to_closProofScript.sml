@@ -1230,6 +1230,27 @@ Proof
       \\ simp []))
 QED
 
+Theorem bounded_smallnum_add_offsets[local]:
+  0 ≤ a ∧ a ≤ &l ∧ 0 ≤ b ∧ b ≤ &l ⇒
+  backendProps$bounded_smallnum_app (SOME (32 * l)) SmallAdd a b =
+  SOME (INL (a + b))
+Proof
+  rw [backendPropsTheory.bounded_smallnum_app_def,
+      backendPropsTheory.smallnum_app_def,
+      semanticPrimitivesTheory.index_in_bounds_def]
+  \\ intLib.COOPER_TAC
+QED
+
+Theorem if_offsets_in_bounds[local]:
+  (if 0 ≤ len ∧ len ≤ l then
+     if 0 ≤ off ∧ off ≤ l then if off + len ≤ l then x else y else y
+   else y) =
+  (if len < 0 then y else if off < 0 then y else
+   if 0 ≤ off + len ∧ off + len ≤ l then x else (y:'a))
+Proof
+  rw [] \\ `F` suffices_by simp [] \\ intLib.COOPER_TAC
+QED
+
 Theorem op_byte_copy:
   op = Src CopyStrAw8 \/
   op = Src CopyAw8Str \/
@@ -1245,7 +1266,10 @@ Proof
   \\ fs [] \\ rveq \\ fs [PULL_EXISTS,SWAP_REVERSE_SYM,v_rel_def] \\ rveq \\ fs []
   \\ imp_res_tac lookup_byte_array
   \\ fs [compile_op_def,subscript_exn_v_def,v_rel_def,CopyByteAw8_def,CopyByteStr_def]
-  \\ simp [evaluate_def,do_app_def,do_int_app_def]
+  \\ simp [evaluate_def,do_app_def,do_int_app_def,
+           closSemTheory.smallnum_witness_length_def,
+           bounded_smallnum_add_offsets]
+  \\ simp [if_offsets_in_bounds]
   THEN1
    (fs [copy_array_def,AllCaseEqs()]
     \\ first_x_assum $ irule_at $ Pos last

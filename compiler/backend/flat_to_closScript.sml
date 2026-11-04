@@ -74,11 +74,15 @@ QED
 
 fun var_fun m n = ``closLang$Var t ^(numSyntax.term_of_int(m-n))``;
 
+(* both offsets are within the source, so their sum is a small index *)
 fun check1 tm var =
-``(If t (Op t (IntOp Less) [Op t (IntOp (Const 0)) []; ^(var 2)]) (Raise t (Op t (BlockOp (Cons subscript_tag)) []))
-  (If t (Op t (IntOp Less) [Op t (IntOp (Const 0)) []; ^(var 1)]) (Raise t (Op t (BlockOp (Cons subscript_tag)) []))
-  (If t (Op t (MemOp (BoundsCheckByte T)) [Op t (IntOp Add) [^(var 2); ^(var 1)]; ^(var 0)]) ^tm
-  (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))))``;
+``(If t (Op t (MemOp (BoundsCheckByte T)) [^(var 2); ^(var 0)])
+  (If t (Op t (MemOp (BoundsCheckByte T)) [^(var 1); ^(var 0)])
+  (If t (Op t (MemOp (BoundsCheckByte T))
+          [Op t (IntOp (Smallnum SmallAdd)) [^(var 0); ^(var 2); ^(var 1)]; ^(var 0)]) ^tm
+  (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+  (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+  (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))``;
 
 val checkT = check1
   ``(closLang$Op t (MemOp (CopyByte T)) [Var t 0; Var t 1; Var t 2])`` (var_fun 2);
