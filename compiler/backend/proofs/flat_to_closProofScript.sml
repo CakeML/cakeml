@@ -1862,7 +1862,8 @@ Proof
     \\ fs [compile_op_def, arg1_def]
     \\ simp [closSemTheory.evaluate_def, closSemTheory.do_app_def,
              closSemTheory.do_int_app_def]
-    \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def, integer_wordTheory.w2n_i2w])
+    \\ rw [v_rel_def, flatSemTheory.v_to_flat_def, integer_wordTheory.w2n_i2w]
+    \\ intLib.COOPER_TAC)
   >~ [‘FromTo IntT (WordT W64)’] >-
    (gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
     \\ gvs [MAP_EQ_CONS, PULL_EXISTS]

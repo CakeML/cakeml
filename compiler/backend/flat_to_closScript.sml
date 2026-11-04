@@ -329,7 +329,13 @@ Definition compile_op_def:
         compile_unsafe_index t (\ys. compile_smallnum_test t test ys) xs
     | Src (FromTo (WordT W8) IntT) => arg1 xs (\x. x)
     | Src (FromTo (WordT W64) IntT) => Op t (WordOp WordToInt) xs
-    | Src (FromTo IntT (WordT W8)) => arg1 xs (\x. Op t (IntOp Mod) [Op t (IntOp (Const 256)) []; x])
+    | Src (FromTo IntT (WordT W8)) =>
+        (* avoid the division when the int is already a byte *)
+        Let t xs (If t (Op t (IntOp Less) [Op None (IntOp (Const 0)) []; Var t 0])
+                   (Op t (IntOp Mod) [Op None (IntOp (Const 256)) []; Var t 0])
+                   (If t (Op t (IntOp Less) [Op None (IntOp (Const 256)) []; Var t 0])
+                     (Var t 0)
+                     (Op t (IntOp Mod) [Op None (IntOp (Const 256)) []; Var t 0])))
     | Src (FromTo IntT (WordT W64)) => Op t (WordOp WordFromInt) xs
     | Src (FromTo IntT CharT) => Let t xs (If t (Op t (IntOp Less) [Op None (IntOp (Const 0)) []; Var t 0])
                         (Raise t (Op t (BlockOp (Cons chr_tag)) []))
