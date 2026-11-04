@@ -840,72 +840,6 @@ Proof
   >> simp[Once evaluate_def, fix_clock_evaluate]
 QED
 
-Theorem evaluate_Recclosure_3_args:
-  nsLookup env.v (Short fvar) = SOME (Recclosure rho [(f,x,Fun y (Fun z body))] f) /\
-  (!q:'ffi state. evaluate q env [ea] = (q,Rval [va])) /\
-  (!q:'ffi state. evaluate q env [eb] = (q,Rval [vb])) /\
-  (!q:'ffi state. evaluate q env [ec] = (q,Rval [vc])) ==>
-  evaluate ((st:'ffi state) with clock := start+3) env
-    [App Opapp [App Opapp [App Opapp [Var (Short fvar); ea]; eb]; ec]] =
-  evaluate (st with clock := start)
-    (rho with v := nsBind z vc (nsBind y vb (nsBind x va
-      (build_rec_env [(f,x,Fun y (Fun z body))] rho rho.v)))) [body]
-Proof
-  strip_tac
-  >> qabbrev_tac `e1 = rho with v := nsBind x va
-       (build_rec_env [(f,x,Fun y (Fun z body))] rho rho.v)`
-  >> `!s:'ffi state. s.clock <> 0 ==>
-       evaluate s env [App Opapp [Var (Short fvar); ea]] =
-       (dec_clock s, Rval [Closure e1 y (Fun z body)])`
-    by (gen_tac >> strip_tac >> irule EQ_TRANS
-        >> qexists `evaluate (dec_clock s) e1 [Fun y (Fun z body)]`
-        >> conj_tac
-        >- (irule evaluate_Opapp_body >> conj_tac >- simp[]
-            >> qexists `[va; Recclosure rho [(f,x,Fun y (Fun z body))] f]`
-            >> conj_tac >- simp[do_opapp_Recclosure_singleton, Abbr `e1`]
-            >> simp[Once evaluate_cons, cj 7 evaluate_def])
-        >> simp[cj 8 evaluate_def])
-  >> qabbrev_tac `e2 = e1 with v := nsBind y vb e1.v`
-  >> `!s:'ffi state. 1 < s.clock ==>
-       evaluate s env [App Opapp [App Opapp [Var (Short fvar); ea]; eb]] =
-       (dec_clock (dec_clock s), Rval [Closure e2 z body])`
-    by (gen_tac >> strip_tac >> irule EQ_TRANS
-        >> qexists `evaluate (dec_clock (dec_clock s)) e2 [Fun z body]`
-        >> conj_tac
-        >- (irule evaluate_Opapp_body >> conj_tac >- simp[dec_clock_def]
-            >> qexists `[vb; Closure e1 y (Fun z body)]`
-            >> conj_tac >- simp[do_opapp_def, Abbr `e2`]
-            >> simp[Once evaluate_cons])
-        >> simp[cj 8 evaluate_def])
-  >> irule EQ_TRANS
-  >> qexists `evaluate (dec_clock (dec_clock (dec_clock (st with clock := start+3))))
-       (e2 with v := nsBind z vc e2.v) [body]`
-  >> conj_tac
-  >- (irule evaluate_Opapp_body >> conj_tac >- simp[dec_clock_def]
-      >> qexists `[vc; Closure e2 z body]`
-      >> conj_tac >- simp[do_opapp_def]
-      >> simp[Once evaluate_cons, dec_clock_def])
-  >> simp[Abbr `e2`, Abbr `e1`, dec_clock_def]
-QED
-
-Theorem evaluate_Recclosure_3:
-  nsLookup env.v (Short fvar) = SOME (Recclosure rho [(f,x,Fun y (Fun z body))] f) /\
-  nsLookup env.v (Short a) = SOME va /\
-  nsLookup env.v (Short b) = SOME vb /\
-  nsLookup env.v (Short c) = SOME vc
-  ==>
-  evaluate ((st:'ffi state) with clock := start + 3) env
-    [App Opapp [App Opapp [App Opapp [Var (Short fvar); Var (Short a)];
-      Var (Short b)]; Var (Short c)]] =
-  evaluate (st with clock := start)
-    (rho with v := nsBind z vc (nsBind y vb (nsBind x va
-      (build_rec_env [(f,x,Fun y (Fun z body))] rho rho.v)))) [body]
-Proof
-  strip_tac
-  >> irule evaluate_Recclosure_3_args
-  >> simp[cj 7 evaluate_def]
-QED
-
 (* a true result from PtrEq certifies structural equality of its arguments *)
 Theorem ptr_eq_sound:
   evaluate st env [App PtrEq es] = (st', Rval [v]) ⇒
@@ -1590,6 +1524,49 @@ Proof
 QED
 
 (* Evaluation of known values and Let/Letrec *)
+
+Theorem evaluate_Recclosure_3_args:
+  nsLookup env.v (Short fvar) = SOME (Recclosure rho [(f,x,Fun y (Fun z body))] f) /\
+  (!q:'ffi state. evaluate q env [ea] = (q,Rval [va])) /\
+  (!q:'ffi state. evaluate q env [eb] = (q,Rval [vb])) /\
+  (!q:'ffi state. evaluate q env [ec] = (q,Rval [vc])) ==>
+  evaluate ((st:'ffi state) with clock := start+3) env
+    [App Opapp [App Opapp [App Opapp [Var (Short fvar); ea]; eb]; ec]] =
+  evaluate (st with clock := start)
+    (rho with v := nsBind z vc (nsBind y vb (nsBind x va
+      (build_rec_env [(f,x,Fun y (Fun z body))] rho rho.v)))) [body]
+Proof
+  strip_tac
+  >> ‘!q:'ffi state. evaluate q env [ec;eb;ea] = (q,Rval [vc;vb;va])’
+    by (gen_tac >> simp[Once evaluate_cons] >> simp[Once evaluate_cons])
+  >> first_x_assum (qspec_then ‘st with clock := start+3’ assume_tac)
+  >> drule evaluate_Apps
+  >> disch_then (qspecl_then
+       [‘[y;z]’, ‘Short fvar’,
+        ‘rho with v := nsBind x va
+          (build_rec_env [(f,x,Fun y (Fun z body))] rho rho.v)’,
+        ‘body’, ‘Recclosure rho [(f,x,Fun y (Fun z body))] f’] mp_tac)
+  >> simp[do_opapp_Recclosure_singleton, Funs_def, Apps_def,
+          nsAppend_to_nsBindList, nsBindList_clauses]
+QED
+
+Theorem evaluate_Recclosure_3:
+  nsLookup env.v (Short fvar) = SOME (Recclosure rho [(f,x,Fun y (Fun z body))] f) /\
+  nsLookup env.v (Short a) = SOME va /\
+  nsLookup env.v (Short b) = SOME vb /\
+  nsLookup env.v (Short c) = SOME vc
+  ==>
+  evaluate ((st:'ffi state) with clock := start + 3) env
+    [App Opapp [App Opapp [App Opapp [Var (Short fvar); Var (Short a)];
+      Var (Short b)]; Var (Short c)]] =
+  evaluate (st with clock := start)
+    (rho with v := nsBind z vc (nsBind y vb (nsBind x va
+      (build_rec_env [(f,x,Fun y (Fun z body))] rho rho.v)))) [body]
+Proof
+  strip_tac
+  >> irule evaluate_Recclosure_3_args
+  >> simp[cj 7 evaluate_def]
+QED
 
 Theorem evaluate_constant_list:
   ∀es.
