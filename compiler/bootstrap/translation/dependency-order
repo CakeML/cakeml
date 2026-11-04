@@ -9,6 +9,7 @@ different modules can be made more independent and different combinations can
 be selected than simple prefixes of the current ordering.
 *)
 
+hol_base
 decProg
 to_flat
 to_clos

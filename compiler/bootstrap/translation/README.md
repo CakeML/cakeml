@@ -43,6 +43,9 @@ Translate the compiler explorer parts of the compiler.
 [from_pancakeProgScript.sml](from_pancakeProgScript.sml):
 Translate the pan_to_target part of the compiler for all targets.
 
+[hol_baseProgScript.sml](hol_baseProgScript.sml):
+Translation of standard library functions
+
 [inferProgScript.sml](inferProgScript.sml):
 Translate the compiler's type inferencer.
 
