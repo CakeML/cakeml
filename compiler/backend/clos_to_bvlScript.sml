@@ -111,6 +111,11 @@ End
 
 (* / Constant flattening *)
 
+(* the stubs' smallnum arithmetic is sound for max_app up to this limit *)
+Definition max_app_limit_def:
+  max_app_limit = 1000n
+End
+
 Definition num_added_globals_def:
   num_added_globals = 1n
 End

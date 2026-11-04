@@ -454,7 +454,7 @@ Theorem evaluate_generic_app1[local]:
   !n args st total_args l fvs cl.
     partial_app_fn_location max_app total_args n ∈ domain st.code ∧
     n < total_args ∧
-    total_args < max_app ∧ max_app ≤ 1000 ∧
+    total_args < max_app ∧ max_app ≤ max_app_limit ∧
     n + 1 = LENGTH args ∧
     get_global 0 st.globals = SOME (SOME (global_table max_app)) ∧
     cl = Block closure_tag (CodePtr l :: Number (&total_args) :: fvs)
@@ -469,6 +469,7 @@ Theorem evaluate_generic_app1[local]:
                                       args)],
          dec_clock n st)
 Proof
+  rewrite_tac [max_app_limit_def] >>
   srw_tac[][generate_generic_app_def] >>
   srw_tac[][evaluate_def, do_app_def,do_int_app_def] >>
   full_simp_tac (srw_ss() ++ ARITH_ss) [el_append2] >>
@@ -499,7 +500,7 @@ Theorem evaluate_generic_app2[local]:
     n < rem_args ∧
     n + 1 = LENGTH args ∧
     LENGTH prev_args > 0 ∧
-    rem_args + LENGTH prev_args < max_app ∧ max_app ≤ 1000 ∧
+    rem_args + LENGTH prev_args < max_app ∧ max_app ≤ max_app_limit ∧
     get_global 0 st.globals = SOME (SOME (global_table max_app)) ∧
     cl = Block partial_app_tag (CodePtr l :: Number (&rem_args) :: clo :: prev_args)
     ⇒
@@ -514,6 +515,7 @@ Theorem evaluate_generic_app2[local]:
                                       prev_args)],
          dec_clock n st)
 Proof
+  rewrite_tac [max_app_limit_def] >>
   srw_tac[][generate_generic_app_def, mk_const_def] >>
   srw_tac[][evaluate_def, do_app_def, do_int_app_def] >>
   full_simp_tac (srw_ss() ++ ARITH_ss) [] >>
@@ -558,7 +560,7 @@ Theorem evaluate_generic_app_partial[local]:
       max_app
       total_args
       (LENGTH prev_args + (LENGTH args - 1)) ∈ domain st.code ∧
-    total_args < max_app ∧ max_app ≤ 1000 ∧
+    total_args < max_app ∧ max_app ≤ max_app_limit ∧
     LENGTH args < (total_args + 1) - LENGTH prev_args ∧
     LENGTH args ≠ 0 ∧
     get_global 0 st.globals = SOME (SOME (global_table max_app)) ∧
@@ -606,7 +608,7 @@ Theorem evaluate_generic_app_full[local]:
     lookup l st.code = SOME (rem_args + 2, exp, md) ∧
     n + 1 = LENGTH args ∧
     n > rem_args ∧
-    n < max_app ∧ max_app ≤ 1000
+    n < max_app ∧ max_app ≤ max_app_limit
     ⇒
     evaluate ([generate_generic_app max_app n], args++[Block tag (CodePtr l :: Number (&rem_args) :: vs)], st) =
     if st.clock < rem_args + 1 then (Rerr(Rabort Rtimeout_error), st with clock := 0) else
@@ -626,6 +628,7 @@ Theorem evaluate_generic_app_full[local]:
              | x => x)
         | x => x
 Proof
+  rewrite_tac [max_app_limit_def] >>
   srw_tac[][generate_generic_app_def, mk_const_def] >>
   srw_tac[][evaluate_def, do_app_def, do_int_app_def, el_append2] >>
   full_simp_tac (srw_ss() ++ ARITH_ss) [partial_app_tag_def] >>
@@ -728,7 +731,7 @@ Theorem evaluate_mk_cl_call[local]:
       SOME (LENGTH args' + 1,
             generate_generic_app max_app (LENGTH args' - 1), md1)) ∧
     LENGTH args' - 1 ≥ n ∧
-    LENGTH args' ≤ max_app ∧ max_app ≤ 1000 ∧
+    LENGTH args' ≤ max_app ∧ max_app ≤ max_app_limit ∧
     LENGTH args ≠ 0
     ⇒
     evaluate ([mk_cl_call cl args],env,s) =
@@ -1113,7 +1116,7 @@ Definition state_rel_def:
            ?y m. (FLOOKUP f n = SOME m) /\
                  (FLOOKUP t.refs m = SOME y) /\
                  ref_rel (v_rel s.max_app f t.refs t.code) x y) /\
-    s.max_app ≤ 1000 ∧
+    s.max_app ≤ max_app_limit ∧
     (!n. n < s.max_app ⇒
          ?md. lookup (generic_app_fn_location n) t.code =
                 SOME (n + 2, generate_generic_app s.max_app n, md)) ∧
@@ -2349,7 +2352,7 @@ Theorem evaluate_mk_cl_call_spec[local]:
     (?md1. lookup (generic_app_fn_location (LENGTH args - 1)) s.code =
       SOME (LENGTH args + 1, generate_generic_app max_app (LENGTH args - 1),md1)) ∧
     LENGTH args - 1 ≥ n ∧
-    LENGTH args ≤ max_app ∧ max_app ≤ 1000 ∧
+    LENGTH args ≤ max_app ∧ max_app ≤ max_app_limit ∧
     LENGTH args ≠ 0
     ⇒
     evaluate ([mk_cl_call (Var (LENGTH args)) (GENLIST Var (LENGTH args))],args ++ [Block tag (CodePtr p::Number (&n)::xs)] ++ env,s) =
@@ -5466,7 +5469,7 @@ Proof
         `LENGTH args' + LENGTH prev_args − 1 = LENGTH prev_args + (LENGTH args − 1)` by simp [] >>
         `LENGTH args' < total_args + 1 − LENGTH prev_args` by simp [] >>
         full_simp_tac(srw_ss())[] >>
-        `s1.max_app ≤ 1000` by fs [state_rel_def] >>
+        `s1.max_app ≤ max_app_limit` by fs [state_rel_def] >>
         Q.ISPECL_THEN [`s1.max_app`, `total_args`, `prev_args`, `dec_clock 1 (t1 with clock := s1.clock)`, `args'`] assume_tac (Q.GEN`max_app`evaluate_generic_app_partial) >>
         rev_full_simp_tac(srw_ss())[domain_lookup] >>
         pop_assum mp_tac >>
@@ -5557,7 +5560,7 @@ Proof
              (qspec_then `LENGTH args' - 1` mp_tac)
         \\ simp [] \\ strip_tac \\ fsrw_tac [ARITH_ss] []
 ) \\ (
-        `s1.max_app ≤ 1000` by fs [state_rel_def] >>
+        `s1.max_app ≤ max_app_limit` by fs [state_rel_def] >>
         `LENGTH args' ≤ s1.max_app` by decide_tac >>
         `LENGTH args' - 1 + 2  = LENGTH args' + 1` by decide_tac >>
         full_simp_tac(srw_ss())[] >>
@@ -6520,7 +6523,7 @@ QED
 
 Definition init_code_def:
   init_code code1 code2 max_app <=>
-    max_app ≤ 1000 ∧
+    max_app ≤ max_app_limit ∧
     (∀n.
        n < max_app ⇒
        ∃md. lookup (generic_app_fn_location n) code2 =
@@ -7921,7 +7924,7 @@ QED
 
 Definition syntax_oracle_ok_def:
   syntax_oracle_ok c c' es co ⇔
-   c.max_app ≤ 1000 ∧
+   c.max_app ≤ max_app_limit ∧
    (∀n. SND (SND (co n)) = []) ∧
    (c.do_mti ⇒ 1 ≤ c.max_app ∧ EVERY no_mti es ∧
      (∀n. EVERY no_mti (FST(SND(co n))))) ∧
@@ -9096,7 +9099,7 @@ Theorem compile_semantics:
      (compile_common_inc c (pure_cc (compile_inc c.max_app) cc)) pe es
 Proof
   strip_tac
-  \\ `c.max_app ≤ 1000` by fs [syntax_oracle_ok_def]
+  \\ `c.max_app ≤ max_app_limit` by fs [syntax_oracle_ok_def]
   \\ imp_res_tac compile_all_distinct_locs
   \\ fs[compile_def,GSYM add_metadata_def]
   \\ pairarg_tac \\ fs[] \\ rveq

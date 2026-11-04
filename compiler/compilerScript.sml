@@ -457,7 +457,7 @@ Definition parse_clos_conf_def:
   let call = find_bool «--call=» ls clos.do_call in
   let maxapp =
     (case find_num «--max_app=» ls clos.max_app of
-     | INL n => if 0 < n ∧ n ≤ 1000 then INL n
+     | INL n => if 0 < n ∧ n ≤ max_app_limit then INL n
                 else INR «--max_app must be between 1 and 1000»
      | err => err) in
   case (multi,known,inline_factor,call,maxapp) of
