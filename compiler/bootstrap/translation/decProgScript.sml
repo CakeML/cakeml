@@ -6,7 +6,7 @@ Ancestors
   ast ml_translator ml_pmatch[qualified] semanticPrimitives
   hol_baseProg ast_extras
 Libs
-  preamble ml_translatorLib ml_progLib MapProgLib
+  preamble ml_translatorLib ml_progLib
 
 val _ = translation_extends "hol_baseProg";
 
@@ -41,35 +41,3 @@ val r = translate namespaceTheory.id_to_n_def;
 val r = translate repl_decs_allowedTheory.safe_exp_pmatch;
 val r = translate candle_prover_invTheory.safe_dec_def;
 val r = translate repl_decs_allowedTheory.decs_allowed_def;
-
-(* --- *)
-
-(* teach the translator how to translate fmap operations for key types:
-    - mlstring
-    - int
- (* - num *)
-*)
-
-val _ = MapProgLib.add_fmap_for_cmp mlstringTheory.TotOrd_fast_compare;
-val _ = MapProgLib.add_fmap_for_cmp mlintTheory.TotOrd_int_cmp;
-val _ = MapProgLib.add_fmap_for_cmp miscTheory.TotOrd_num_cmp;
-
-val RW = REWRITE_RULE;
-
-val _ = translate (alist_to_fmap_def |> RW [GSYM fmap_update_def]
-                                     |> INST_TYPE [alpha|->“:mlstring”]);
-
-val _ = translate (alist_to_fmap_def |> RW [GSYM fmap_update_def]
-                                     |> INST_TYPE [alpha|->“:int”]);
-
-val _ = translate (alist_to_fmap_def |> RW [GSYM fmap_update_def]
-                                     |> INST_TYPE [alpha|->“:num”]);
-
-val _ = translate (miscTheory.fmap_update_def |> GSYM |> oneline
-                                              |> INST_TYPE [alpha|->“:mlstring”]);
-
-val _ = translate (miscTheory.fmap_update_def |> GSYM |> oneline
-                                              |> INST_TYPE [alpha|->“:int”]);
-
-val _ = translate (miscTheory.fmap_update_def |> GSYM |> oneline
-                                              |> INST_TYPE [alpha|->“:num”]);

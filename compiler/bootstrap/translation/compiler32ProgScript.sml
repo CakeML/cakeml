@@ -22,14 +22,6 @@ val () = use_long_names := true;
 val spec32 = INST_TYPE[alpha|->``:32``]
 val dimindex_32 = EVAL ``dimindex (:32)``;
 
-val res = translate $ errorLogMonadTheory.return_def;
-val res = translate $ errorLogMonadTheory.bind_def;
-val res = translate $ errorLogMonadTheory.log_def;
-val res = translate $ errorLogMonadTheory.error_def;
-
-val res = translate $ listTheory.OPT_MMAP_def;
-val res = translate $ listTheory.dropWhile_def;
-
 Theorem OPT_MMAP_eq_MAP[local]:
   OPT_MMAP f xs = (OPT_MMAP I o MAP f) xs
 Proof
@@ -76,8 +68,6 @@ val res = translate $ panStaticTheory.binop_to_str_def;
 val res = translate $ panStaticTheory.panop_to_str_def;
 val res = translate $ panStaticTheory.primop_to_str_def;
 val res = translate $ panStaticTheory.sh_bd_to_str_def;
-
-val res = translate $ alistTheory.ADELKEY_def;
 
 val res = translate $ panStaticTheory.primitive_idents_def;
 val res = translate $ panStaticTheory.add_primitive_hint_def;

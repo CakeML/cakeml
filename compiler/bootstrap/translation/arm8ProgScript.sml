@@ -330,22 +330,6 @@ fun specv64 v = INST_TYPE [v|->``:64``]
 val _ = translate (specv64 ``:'N`` EncodeBitMaskAux_def |> gconv |>
 SIMP_RULE std_ss [CountTrailing_eq, word_ror_eq_any_word64_ror])
 
-val _ = translate bitstringTheory.zero_extend_def
-val _ = translate bitstringTheory.fixwidth_def
-val _ = translate bitstringTheory.field_def
-val _ = translate bitstringTheory.v2n_def;
-
-(* TODO: already in lexerProg but not stored *)
-val l2n_side = Q.prove(`
-  ∀b a. a ≠ 0 ⇒ lexerProg$l2n_side a b`,
-  Induct>>
-  rw[Once lexerProgTheory.l2n_side_def]) |> update_precondition;
-
-val v2n_side = Q.prove(`
-  v2n_side v ⇔ T`,
-  EVAL_TAC>>
-  fs[l2n_side]) |> update_precondition;
-
 Theorem notw[local]:
   !a. ~a = (-1w ?? (a))
 Proof

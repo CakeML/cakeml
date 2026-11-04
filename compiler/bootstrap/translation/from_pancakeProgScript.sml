@@ -13,8 +13,6 @@ Libs
 
 val _ = translation_extends "to_targetProg";
 
-val _ = translate OPTION_BIND_def;
-
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "from_pancakeProg");
 val _ = ml_translatorLib.use_sub_check true;
 
@@ -443,8 +441,6 @@ Theorem OPT_MMAP_eq_MAP[local]:
 Proof
   simp [miscTheory.OPT_MMAP_MAP_o]
 QED
-
-val res = translate $ listTheory.OPT_MMAP_def;
 
 val res = panPtreeConversionTheory.conv_Shape_def
   |> REWRITE_RULE [OPT_MMAP_eq_MAP, parserProgTheory.OPTION_BIND_THM, option_map_thm]

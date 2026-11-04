@@ -69,26 +69,6 @@ val _ = use_long_names:=true;
 (* source_to_flat                                                            *)
 (* ------------------------------------------------------------------------- *)
 
-(* TODO:
- *   - This is a discrepancy between HOL's standard libraries and mllist.
- *     Probably the compiler should be using the mllist versions?
- *)
-val res = translate EL;
-val list_el_side = Q.prove(
-  `!n xs. list_el_side n xs = (n < LENGTH xs)`,
-  Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "list_el_side_def"]
-  THEN fs[CONTAINER_def])
-  |> update_precondition;
-
-(* -- *)
-
-val res = translate listTheory.REV_DEF;
-val res = translate listTheory.TAKE_def;
-val res = translate listTheory.DROP_def;
-
-val res = translate sumTheory.ISL;
-val res = translate sumTheory.ISR;
-
 val res = translate source_to_flatTheory.alloc_tags1_def;
 val res = translate (DefnBase.one_line_ify NONE namespaceTheory.nsMap_def);
 val res = translate source_to_flatTheory.alloc_tags_def;
@@ -210,13 +190,12 @@ val res = translate source_dceTheory.has_Denv_dec_def;
 (* ------------------------------------------------------------------------- *)
 
 (* The translator supports finite maps only at the key types set up in
-   decProg, so the helpers that are polymorphic in the key are translated
+   hol_baseProg, so the helpers that are polymorphic in the key are translated
    at the key type the pass uses: mlstring. *)
 
 val res = translate source_lift_constsTheory.delete_all_def;
 val res = translate source_lift_constsTheory.bind_all_def;
 val res = translate source_lift_constsTheory.rename_var_def;
-val res = translate (FUPDATE_LIST_THM |> INST_TYPE [alpha |-> “:mlstring”]);
 
 (* maps_disjoint compares finite maps, which the translator cannot do;
    it is implemented by a check over the underlying mlmap instead. *)
@@ -313,12 +292,6 @@ val _ = (length (hyp res) = 0)
         orelse failwith "Unproved side condition: source_to_source_inc_compile";
 
 (* ------------------------------------------------------------------------- *)
-(* sptree                                                                    *)
-(* ------------------------------------------------------------------------- *)
-
-val res = translate sptreeTheory.subspt_eq;
-
-(* ------------------------------------------------------------------------- *)
 (* flat_pattern                                                              *)
 (* ------------------------------------------------------------------------- *)
 
@@ -332,8 +305,6 @@ val res = translate flat_patternTheory.enc_num_to_name_def;
 
 val res = translate (flat_patternTheory.sum_string_ords_def |> RW [GSYM sub_check_def]);
 val res = translate flat_patternTheory.dec_name_to_num_def;
-
-val res = translate rich_listTheory.COUNT_LIST_compute;
 
 val res = translate flat_patternTheory.compile_dec_def;
 

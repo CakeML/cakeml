@@ -69,14 +69,6 @@ val _ = use_long_names:=true;
 (* ------------------------------------------------------------------------- *)
 
 val r = translate bvi_to_dataTheory.op_requires_names_pmatch;
-val r = translate COUNT_LIST_compute;
-
-(* TODO:
- *   - For some reason, the following def on sptrees fails to translate in a
- *     standalone manner (when the rest of this file's translation isn't
- *     loaded). Needs investigation.
- *)
-val r = translate list_to_num_set_def;
 
 val res = translate bvi_to_dataTheory.compile_def;
 

@@ -43,35 +43,6 @@ fun def_of_const tm = let
 val _ = find_def_for_const := def_of_const;
 val _ = use_long_names := true;
 
-(* Signed constants and bit operations are independent of the target width. *)
-val _ = translate int_bitwiseTheory.int_not_def;
-val _ = translate int_bitwiseTheory.bits_of_num_def;
-val _ = translate int_bitwiseTheory.bits_of_int_def;
-
-Theorem int_bitwise_bits_of_int_side[local]:
-  ∀i. int_bitwise_bits_of_int_side i
-Proof
-  rw [fetch "-" "int_bitwise_bits_of_int_side_def",
-      int_bitwiseTheory.int_not_def] \\ intLib.COOPER_TAC
-QED
-val _ = update_precondition int_bitwise_bits_of_int_side;
-
-val _ = translate int_bitwiseTheory.num_of_bits_def;
-val _ = translate int_bitwiseTheory.int_of_bits_def;
-val _ = translate int_bitwiseTheory.bits_bitwise_def;
-val _ = translate int_bitwiseTheory.int_bitwise_def;
-Theorem boolean_ops[local]:
-  (($/\ : bool -> bool -> bool) = λx y. x /\ y) ∧
-  (($\/ : bool -> bool -> bool) = λx y. x \/ y)
-Proof
-  simp [FUN_EQ_THM]
-QED
-
-val _ = translate (int_bitwiseTheory.int_and_def |> SRULE [FUN_EQ_THM]
-  |> ONCE_REWRITE_RULE [boolean_ops]);
-val _ = translate (int_bitwiseTheory.int_or_def |> SRULE [FUN_EQ_THM] |> ONCE_REWRITE_RULE [boolean_ops]);
-val _ = translate (int_bitwiseTheory.int_xor_def |> SRULE [FUN_EQ_THM] |> ONCE_REWRITE_RULE [boolean_ops]);
-
 val _ = translate asmTheory.arch_width_bits_def;
 val _ = translate asmTheory.arch_bytes_def;
 val _ = translate asmTheory.arch_shift_def;
@@ -127,26 +98,6 @@ val _ = translate data_to_wordTheory.Smallnum_def;
 val _ = translate data_to_wordTheory.MemEqList_def;
 val _ = translate data_to_wordTheory.SmallDivMod_def;
 
-(* Constant construction converts through both fixed HOL word widths. *)
-fun translate_word_conversions ty = let
-  val spec = INST_TYPE [alpha |-> ty]
-  val conv = GEN_ALL o CONV_RULE wordsLib.WORD_CONV o spec o SPEC_ALL
-  val _ = translate (integer_wordTheory.w2i_eq_w2n |> conv)
-  val r = translate_no_ind (multiwordTheory.n2mw_def |> conv)
-  val pre_tm = hd (hyp r)
-  val pre_name = fst (dest_const pre_tm)
-  val pre_def = fetch "-" (pre_name ^ "_def")
-  val total = prove (pre_tm,
-    rw [pre_def] \\ completeInduct_on `v1` \\ last_x_assum irule
-    \\ rw [] \\ first_x_assum irule \\ simp [DIV_LT_X])
-  val _ = save_thm (pre_name ^ "_total", total)
-  val _ = update_precondition total
-  val _ = translate (multiwordTheory.i2mw_def |> conv)
-  val _ = translate (byteTheory.byte_index_def |> conv)
-  val _ = translate (if ty = “:32” then byteTheory.set_byte_32 else byteTheory.set_byte_64)
-  val _ = translate (byteTheory.bytes_to_word_def |> conv)
- in () end;
-val _ = List.app translate_word_conversions [“:32”,“:64”];
 val _ = translate data_to_wordTheory.lookup_mem_def;
 val _ = translate (data_to_wordTheory.write_bytes_def |> SRULE [LET_THM]);
 val _ = translate (data_to_wordTheory.part_to_words_def |> inline_simp
@@ -204,7 +155,6 @@ val _ = translate (data_to_wordTheory.comp_def |> SIMP_RULE std_ss [LET_THM]);
 val res = word_cseTheory.map_insert_def |> DefnBase.one_line_ify NONE |> translate;
 
 val res = translate word_cseTheory.bm_inter_eq_def;
-val res = translate sptreeTheory.inter_eq_def;
 val res = translate word_cseTheory.merge_data_def;
 
 val _ = translate word_cseTheory.intToNum_def;
@@ -240,23 +190,6 @@ val _ = res |> hyp |> null orelse
                   "word_cseTheory.word_common_subexp_elim_def.");
 
 val res = translate (word_copyTheory.copy_prop_def);
-
-val res = translate_no_ind miscTheory.anub_def;
-
-Theorem misc_anub_ind[local]:
-  misc_anub_ind (:'a) (:'b)
-Proof
-  once_rewrite_tac [fetch "-" "misc_anub_ind_def"]
-  \\ rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (latest_ind ())
-  \\ rpt strip_tac
-  \\ last_x_assum match_mp_tac
-  \\ rpt strip_tac
-  \\ gvs [FORALL_PROD]
-QED
-
-val _ = misc_anub_ind |> update_precondition;
 
 val res = translate (word_unreachTheory.remove_unreach_def);
 

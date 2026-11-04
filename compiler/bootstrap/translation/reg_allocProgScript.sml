@@ -25,9 +25,6 @@ val _ = register_type ``:tag``;
 val _ = register_type ``:clash_tree``;
 val _ = register_type ``:algorithm``;
 
-val res = translate sortingTheory.PART_DEF;
-val res = translate sortingTheory.PARTITION_DEF;
-
 (*
  *  Set up the monadic translator
  *)
@@ -105,8 +102,6 @@ val _ = translate COUNT_LIST_compute
 
 *)
 
-val _ = translate difference_def;
-
 val _ = translate list_remap_def;
 val _ = translate mk_bij_aux_def;
 
@@ -114,7 +109,6 @@ val _ = translate mk_bij_def;
 val _ = translate is_phy_var_def;
 val _ = translate sp_default_def;
 val _ = translate extract_tag_def;
-val _ = translate fromAList_def;
 
 val _ = m_translate dec_deg_def;
 val _ = m_translate dec_degree_def;
@@ -183,7 +177,6 @@ val _ = m_translate (do_prefreeze_def |> REWRITE_RULE [rewrite_subs]);
 val _ = m_translate do_freeze_def;
 
 val _ = translate safe_div_def;
-val _ = translate lookup_any_def;
 val _ = m_translate st_ex_list_MIN_cost_def;
 val _ = m_translate st_ex_list_MAX_deg_def;
 val _ = m_translate do_spill_def;
@@ -218,7 +211,6 @@ val _ = m_translate extract_color_def;
 val _ = translate pri_move_insert_def;
 val _ = translate undir_move_insert_def;
 val _ = translate moves_to_sp_def;
-val _ = translate sptreeTheory.map_def;
 val _ = translate resort_moves_def;
 
 val _ = m_translate (full_consistency_ok_def |> REWRITE_RULE [MEMBER_INTRO,
@@ -308,12 +300,10 @@ val _ = start_dynamic_init_fixed_store_translation
 
 (* Translate basics *)
 
-val res = translate the_def;
 val res = translate numset_list_delete_def;
 val res = translate linear_scanTheory.numset_list_insert_def;
 val res = translate is_stack_var_def;
 val res = translate is_phy_var_def;
-val res = translate pairTheory.LEX_DEF;
 
 (* Translate linear scan register allocator *)
 

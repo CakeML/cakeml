@@ -97,8 +97,6 @@ val r = translate flat_to_closTheory.compile_decs_def;
 
 val r = translate (EVAL “clos_interpreter”)
 
-val r = translate optionTheory.IS_NONE_DEF;
-
 val r = translate clos_interpTheory.can_interpret_op_pmatch;
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
@@ -184,7 +182,6 @@ val r = translate clos_mtiTheory.cond_mti_compile_inc_def;
 val r = translate clos_numberTheory.renumber_code_locs_def;
 
 val r = translate clos_numberTheory.ignore_table_def;
-val r = translate miscTheory.make_even_def;
 val r = translate clos_numberTheory.compile_inc_def;
 
 (* ------------------------------------------------------------------------- *)

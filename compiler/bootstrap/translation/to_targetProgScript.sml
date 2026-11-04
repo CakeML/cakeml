@@ -74,9 +74,6 @@ val _ = translate (word_to_stackTheory.write_bitmap_def
   |> REWRITE_RULE (!extra_preprocessing));
 val _ = translate (word_to_stackTheory.wLive_def |> SIMP_RULE std_ss [LET_THM]);
 
-(* TODO: the name is messed up (pair_) *)
-val _ = translate PAIR_MAP
-
 val _ = translate parmoveTheory.fstep_def
 
 val parmove_fstep_side = Q.prove(`
