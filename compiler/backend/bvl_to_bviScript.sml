@@ -103,11 +103,8 @@ QED
 Definition AllocGlobal_location_def:
   AllocGlobal_location = data_num_stubs
 End
-Definition CopyGlobals_location_def:
-  CopyGlobals_location = AllocGlobal_location+1
-End
 Definition InitGlobals_location_def:
-  InitGlobals_location = CopyGlobals_location+1
+  InitGlobals_location = AllocGlobal_location+1
 End
 Definition ListLength_location_def:
   ListLength_location = InitGlobals_location+1
@@ -127,8 +124,6 @@ End
 
 Theorem AllocGlobal_location_eq =
   ``AllocGlobal_location`` |> EVAL
-Theorem CopyGlobals_location_eq =
-  ``CopyGlobals_location`` |> EVAL
 Theorem InitGlobals_location_eq =
   ``InitGlobals_location`` |> EVAL
 Theorem ListLength_location_eq =
@@ -152,18 +147,8 @@ Definition AllocGlobal_code_def:
       If (Op (IntOp Less) [Var 1; Var 2]) (Var 0)
          (Let [Op (MemOp RefArray) [Op (IntOp (Const 0)) []; Op (IntOp Add) [Var 2; Var 2]]] $
           Let [Op (GlobOp SetGlobalsPtr) [Var 0]] $
-            Call 0 (SOME CopyGlobals_location)
-              [Var 1; Var 6;
-               Op (IntOp (Smallnum SmallSub)) [Var 6; Op (IntOp (Const 1)) []; Var 3]] NONE))
-End
-
-Definition CopyGlobals_code_def:
-  CopyGlobals_code = (3:num, (* ptr to new array, ptr to old array, index to copy *)
-    Let [Op (MemOp Update) [Op (MemOp El) [Var 2; Var 1]; Var 2; Var 0]]
-      (If (Op (BlockOp (EqualConst (Int 0i))) [Var 3]) (Var 0)
-        (Call 0 (SOME CopyGlobals_location)
-           [Var 1; Var 2;
-            Op (IntOp (Smallnum SmallSub)) [Var 1; Op (IntOp (Const 1)) []; Var 3]] NONE)))
+            Op (MemOp (CopyWord F))
+              [Op (IntOp (Const 0)) []; Var 1; Var 3; Op (IntOp (Const 0)) []; Var 6]))
 End
 
 Definition InitGlobals_max_def:
@@ -235,7 +220,6 @@ Definition stubs_def:
   stubs start n =
     MAP (λ(loc,(args,x),name). (loc,args,x,Metadata name [Stub]))
       [(AllocGlobal_location, AllocGlobal_code, «AllocGlobal»);
-       (CopyGlobals_location, CopyGlobals_code, «CopyGlobals»);
        (InitGlobals_location, InitGlobals_code start n, «start»);
        (ListLength_location, ListLength_code, «ListLength»);
        (FromListByte_location, FromListByte_code, «FromListByte»);

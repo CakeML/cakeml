@@ -116,7 +116,6 @@ Definition state_rel_def:
     t.compile_oracle = state_co compile_inc s.compile_oracle /\
     s.compile = state_cc compile_inc t.compile /\
     (lookup AllocGlobal_location t.code = SOME (stub_entry «AllocGlobal» AllocGlobal_code)) ∧
-    (lookup CopyGlobals_location t.code = SOME (stub_entry «CopyGlobals» CopyGlobals_code)) ∧
     (lookup ListLength_location t.code = SOME (stub_entry «ListLength» ListLength_code)) ∧
     (lookup FromListByte_location t.code = SOME (stub_entry «FromListByte» FromListByte_code)) ∧
     (lookup ToListByte_location t.code = SOME (stub_entry «ToListByte» ToListByte_code)) ∧
@@ -812,62 +811,9 @@ Proof
   \\ intLib.COOPER_TAC
 QED
 
-Theorem evaluate_CopyGlobals_code[local]:
-  ∀n l1 s.
-   lookup CopyGlobals_location s.code = SOME (3,SND CopyGlobals_code,md) ∧
-   FLOOKUP s.refs p = SOME (ValueArray ls) ∧
-   FLOOKUP s.refs p1 = SOME (ValueArray l1) ∧
-   p ≠ p1 ∧
-   n < LENGTH ls ∧ n < LENGTH l1
-   ⇒
-   ∃c.
-     evaluate ([SND CopyGlobals_code],
-               [RefPtr b1 p1; RefPtr b p; Number &n],
-               inc_clock c s) =
-     (Rval [Unit], s with refs := s.refs |+ (p1, ValueArray (TAKE (SUC n) ls ++ DROP (SUC n) l1)))
-Proof
-  Induct >> srw_tac[][] >> srw_tac[][CopyGlobals_code_def] >>
-  srw_tac[ARITH_ss][iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,do_int_app_def,
-  bvl_to_bvi_id,backend_commonTheory.small_enough_int_def,bvl_to_bvi_with_refs,
-  smallnum_witness_length_def,FLOOKUP_UPDATE,bounded_smallnum_app_num] >- (
-    qexists_tac`0`>>simp[inc_clock_ZERO,state_component_equality] >>
-    rpt AP_TERM_TAC >>
-    simp[LIST_EQ_REWRITE,EL_LUPDATE] >>
-    srw_tac[][] >> simp[EL_APPEND2,EL_DROP] >>
-    Cases_on`ls`>>full_simp_tac(srw_ss())[]) >>
-  simp[find_code_def] >>
-  simp[Once inc_clock_def] >>
-  qpat_abbrev_tac`l2 = LUPDATE x y z` >>
-  qpat_abbrev_tac`rf = s.refs |+ X` >>
-  first_x_assum(qspecl_then[`l2`,`s with refs := rf`]mp_tac) >>
-  impl_tac >- (
-    simp[Abbr`rf`,FLOOKUP_UPDATE] >>
-    simp[Abbr`l2`] ) >>
-  strip_tac >>
-  qexists_tac`c+1` >>
-  simp[Once inc_clock_def] >>
-  qpat_abbrev_tac`ss = dec_clock 1 Z` >>
-  `ss = inc_clock c (s with refs := rf)` by (
-    simp[Abbr`ss`] >> EVAL_TAC >>
-    simp[state_component_equality] ) >>
-  simp[Abbr`ss`] >>
-  `&SUC n - 1 = &n:int` by (
-    simp[ADD1] >> intLib.COOPER_TAC ) >>
-  simp[state_component_equality] >>
-  simp[Abbr`rf`,fmap_eq_flookup,FLOOKUP_UPDATE] >>
-  srw_tac[][] >>
-  simp[LIST_EQ_REWRITE,Abbr`l2`] >> srw_tac[][] >>
-  Cases_on`x < SUC n` >> simp[EL_APPEND1,EL_TAKE] >>
-  simp[EL_APPEND2,EL_DROP,EL_LUPDATE] >>
-  Cases_on`x = SUC n` >> simp[EL_APPEND1,EL_TAKE,EL_APPEND2,EL_DROP]
-QED
-val evaluate_CopyGlobals_code = Q.GEN `ls` evaluate_CopyGlobals_code;
-val _ = print "Proved evaluate_CopyGlobals_code\n";
-
 Theorem evaluate_AllocGlobal_code[local]:
    FLOOKUP s.refs p = SOME (ValueArray (Number(&(SUC n))::ls)) ∧ n ≤ LENGTH ls ∧
-   s.global = SOME p ∧
-   (?md. lookup CopyGlobals_location s.code = SOME (3,SND CopyGlobals_code,md))
+   s.global = SOME p
    ⇒
    ∃p1 c extra.
      (p1 ≠ p ⇒ p1 ∉ FDOM s.refs) ∧
@@ -917,33 +863,13 @@ Proof
     (`∃x. (λptr. ptr NOTIN FDOM (s.refs |+ (p,ARB))) x` by
           (SIMP_TAC std_ss [] \\ METIS_TAC [NUM_NOT_IN_FDOM])
      \\ drule WhileTheory.LEAST_INTRO \\ fs [])
-  \\ ntac 12 $ simp [Once iEval_def]
-  \\ simp [iEvalOp_def,do_app_aux_def,bvlSemTheory.do_app_def,do_int_app_def]
-  \\ simp [EVAL “small_enough_int 0”,EVAL “small_enough_int 1”]
-  \\ simp [do_int_app_def,smallnum_witness_length_def,FLOOKUP_UPDATE,
-           bounded_smallnum_app_num]
-  \\ gvs [bvl_to_bvi_def,bvi_to_bvl_def,find_code_def,dec_clock_def]
-  \\ qexists_tac ‘new_p’ \\ fs []
-  \\ Q.REFINE_EXISTS_TAC ‘ccc+1’ \\ fs []
-  \\ gvs [AllCaseEqs()]
-  \\ qpat_abbrev_tac ‘new_refs = _ |+ _ |+ _’
-  \\ simp [GSYM integerTheory.INT_ADD,int_arithTheory.elim_minus_ones]
-  \\ qabbrev_tac ‘s1 = s with <| refs := new_refs ; global := SOME new_p; ffi := s.ffi ;
-                                 ptr_eq_oracle := s.ptr_eq_oracle |>’
-  \\ ‘lookup CopyGlobals_location s1.code = SOME (3,SND CopyGlobals_code,md)’
-        by fs [Abbr‘s1’]
-  \\ drule (GEN_ALL evaluate_CopyGlobals_code)
-  \\ disch_then $ qspecl_then [‘new_p’,‘p’] mp_tac
-  \\ fs []
-  \\ simp [Abbr‘s1’,FLOOKUP_UPDATE,Abbr‘new_refs’,inc_clock_def]
-  \\ disch_then $ qspecl_then [‘T’,‘T’,‘LENGTH ls’] mp_tac
-  \\ impl_tac >- gvs []
-  \\ strip_tac \\ gvs [LUPDATE_def]
-  \\ qexists_tac ‘c’ \\ fs []
-  \\ simp [state_component_equality]
-  \\ qmatch_goalsub_abbrev_tac ‘REPLICATE kk’
-  \\ qexists_tac ‘kk’ \\ fs [Abbr‘kk’]
-  \\ simp [integerTheory.INT_ADD]
+  \\ qexistsl_tac [‘new_p’, ‘0’, ‘2 * k + (2 * n + 2) − (LENGTH ls + 1)’]
+  \\ simp [iEval_def,iEvalOp_def,do_app_aux_def,bvlSemTheory.do_app_def,
+           FLOOKUP_UPDATE,EVAL “small_enough_int 0”,inc_clock_ZERO]
+  \\ simp [semanticPrimitivesTheory.copy_array_def,LUPDATE_def,
+           rich_listTheory.DROP_REPLICATE,bvl_to_bvi_def,bvi_to_bvl_def,
+           state_component_equality,fmap_eq_flookup,FLOOKUP_UPDATE]
+  \\ rw [] \\ fs []
 QED
 
 Theorem evaluate_ListLength_code:
@@ -3040,8 +2966,6 @@ Resume compile_exps_correct[Op]:
          \\ Cases_on ‘t2.global’ \\ fs []
          \\ drule_then (qspec_then ‘k’ mp_tac) evaluate_AllocGlobal_code
          \\ simp []
-         \\ impl_tac
-         >- EVAL_TAC
          \\ strip_tac
          \\ qpat_x_assum ‘_ = (Rval [Number (&k)],t2)’ assume_tac
          \\ drule evaluate_add_clock \\ fs []
@@ -4868,7 +4792,7 @@ Theorem stubs_no_mutcons[local]:
   EVERY (no_mutcons o FST o SND o SND) (bvl_to_bvi$stubs start n)
 Proof
   rw [bvl_to_bviTheory.stubs_def, bvl_to_bviTheory.AllocGlobal_code_def,
-      bvl_to_bviTheory.CopyGlobals_code_def, bvl_to_bviTheory.InitGlobals_code_def,
+      bvl_to_bviTheory.InitGlobals_code_def,
       bvl_to_bviTheory.ListLength_code_def, bvl_to_bviTheory.FromListByte_code_def,
       bvl_to_bviTheory.ToListByte_code_def, bvl_to_bviTheory.SumListLength_code_def,
       bvl_to_bviTheory.ConcatByte_code_def, bvi_tmcProofTheory.no_mutcons_op_def]
