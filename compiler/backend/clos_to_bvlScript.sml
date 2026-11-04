@@ -274,13 +274,11 @@ Definition partial_app_fn_location_def:
     max_app + tot * (tot - 1) DIV 2 + prev
 End
 
+(* Looks up the label of partial_app_fn_location max_app tot prev in the
+   table stored in global 0, which has one row per tot *)
 Definition partial_app_fn_location_code_def:
   partial_app_fn_location_code max_app tot_exp prev_exp : bvl$exp =
-    Let [tot_exp]
-     (Op (IntOp (Smallnum SmallAdd)) [prev_exp;
-        Op (IntOp (Smallnum SmallDiv)) [mk_const 2;
-          Op (IntOp (Smallnum SmallMult))
-            [Var 0; Op (IntOp (Smallnum SmallSub)) [mk_const 1; Var 0]]]])
+    mk_el (mk_el (Op (GlobOp (Global 0)) []) tot_exp) prev_exp
 End
 
 Definition mk_cl_call_def:
@@ -312,10 +310,9 @@ Definition generate_generic_app_def:
                 (* Partial application of a normal closure *)
                 (Op (BlockOp (Cons partial_app_tag))
                     (REVERSE
-                      (mk_el (Op (GlobOp (Global 0)) [])
-                        (partial_app_fn_location_code max_app
-                          (mk_elem_at (Var (n+2)) 1)
-                          (mk_const n)) ::
+                      (partial_app_fn_location_code max_app
+                         (mk_elem_at (Var (n+2)) 1)
+                         (mk_const n) ::
                        Var 0 ::
                        Var (n + 2) ::
                        GENLIST (\n. Var (n + 1)) (n + 1))))
@@ -327,13 +324,10 @@ Definition generate_generic_app_def:
                        mk_const 3 ::
                        Var 0 ::
                        Op (IntOp (Smallnum SmallAdd)) [Var 0; mk_const (n+4)] ::
-                       mk_el (Op (GlobOp (Global 0)) [])
-                         (partial_app_fn_location_code max_app
-                           (Op (IntOp (Smallnum SmallAdd))
-                              [Var 0; Op (IntOp (Smallnum SmallAdd)) [mk_const (n + 1); Var 1]])
-                           (* Shift from Var0 to Var1 because of Let in
-                            * partial_app_fn_location_code *)
-                           (Op (IntOp (Smallnum SmallAdd)) [Var 1; mk_const n])) ::
+                       partial_app_fn_location_code max_app
+                         (Op (IntOp (Smallnum SmallAdd))
+                            [Var 0; Op (IntOp (Smallnum SmallAdd)) [mk_const (n + 1); Var 1]])
+                         (Op (IntOp (Smallnum SmallAdd)) [Var 0; mk_const n]) ::
                        Var 1 ::
                        mk_elem_at (Var (n+3)) 2 ::
                        GENLIST (\this_arg. Var (this_arg + 2)) (n + 1))))))))
@@ -381,13 +375,15 @@ Definition init_globals_def:
     (Let
       [Op (GlobOp (SetGlobal partial_app_label_table_loc))
         [Op (BlockOp (Cons tuple_tag))
-          (REVERSE (FLAT
+          (REVERSE
             (GENLIST
               (\tot.
-                GENLIST
-                  (\prev. mk_label (partial_app_fn_location max_app tot prev))
-                  tot)
-              max_app)))]]
+                Op (BlockOp (Cons tuple_tag))
+                  (REVERSE
+                    (GENLIST
+                      (\prev. mk_label (partial_app_fn_location max_app tot prev))
+                      tot)))
+              max_app))]]
       (* Expect the real start of the program in code location 3 *)
       (Call 0 (SOME start_loc) []))
 End

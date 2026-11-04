@@ -431,36 +431,24 @@ Theorem small_int_app[local] =
              integerTheory.INT_SUB, integerTheory.INT_ADD,
              integerTheory.INT_MUL];
 
-Theorem evaluate_partial_app_fn_location_code[local]:
-  !max_app n total_args st args tag ptr x fvs.
-     partial_app_fn_location max_app total_args n ∈ domain st.code ∧
-     n < total_args ∧ total_args < max_app ∧ max_app ≤ 1000 ⇒
-     evaluate
-       ([partial_app_fn_location_code max_app
-               (mk_elem_at (Var (LENGTH args + 1)) 1)
-               (Op (IntOp (Const (&n))) [])],
-        (x::(args++[Block tag (ptr::Number(&total_args)::fvs)])),
-        st)
-     =
-     (Rval [Number (&(total_args * (total_args - 1) DIV 2 + n))], st)
-Proof
-  rpt strip_tac >>
-  `total_args * (total_args - 1) ≤ 1000 * 1000` by
-    (irule LESS_MONO_MULT2 >> simp []) >>
-  `total_args * (total_args - 1) DIV 2 ≤ total_args * (total_args - 1)` by
-    simp [DIV_LESS_EQ] >>
-  `&total_args − 1 = &(total_args − 1) : int` by simp [integerTheory.INT_SUB] >>
-  simp [partial_app_fn_location_code_def, evaluate_def, do_app_def,do_int_app_def,
-        EL_CONS, el_append2, PRE_SUB1, partial_app_fn_location_def,
-        small_int_app]
-QED
-
 Definition global_table_def:
   global_table max_app =
     Block tuple_tag
-      (FLAT (GENLIST (\tot. GENLIST
-        (\prev. CodePtr (partial_app_fn_location max_app tot prev)) tot) max_app))
+      (GENLIST (\tot. Block tuple_tag (GENLIST
+        (\prev. CodePtr (partial_app_fn_location max_app tot prev)) tot)) max_app)
 End
+
+Theorem evaluate_partial_app_fn_location_code[local]:
+  evaluate ([tot_exp],env,st) = (Rval [Number (&tot)],st) ∧
+  evaluate ([prev_exp],env,st) = (Rval [Number (&prev)],st) ∧
+  get_global 0 st.globals = SOME (SOME (global_table max_app)) ∧
+  prev < tot ∧ tot < max_app ⇒
+  evaluate ([partial_app_fn_location_code max_app tot_exp prev_exp],env,st) =
+  (Rval [CodePtr (partial_app_fn_location max_app tot prev)],st)
+Proof
+  rw [partial_app_fn_location_code_def, evaluate_def, do_app_def,
+      global_table_def]
+QED
 
 Theorem evaluate_generic_app1[local]:
   !n args st total_args l fvs cl.
@@ -494,12 +482,15 @@ Proof
   srw_tac [ARITH_ss] [ADD1, evaluate_genlist_vars_rev, evaluate_def] >>
   rw [LENGTH_GENLIST, evaluate_def, do_app_def, evaluate_APPEND, el_append2] >>
   fs [dec_clock_def] >>
-  simp [evaluate_partial_app_fn_location_code, global_table_def] >>
-  simp [triangle_table_size, partial_app_fn_location_def, triangle_el_no_suff,
-        triangle_div_lemma] >>
-  srw_tac[][evaluate_def, do_app_def, int_arithTheory.INT_NUM_SUB, el_append2, TAKE_LENGTH_APPEND] >>
-  CCONTR_TAC >>
-  intLib.ARITH_TAC
+  qmatch_goalsub_abbrev_tac `evaluate ([partial_app_fn_location_code _ _ _],env1,st1)` >>
+  `evaluate ([partial_app_fn_location_code max_app
+                (mk_elem_at (Var (LENGTH args + 1)) 1)
+                (Op (IntOp (Const (&n))) [])],env1,st1) =
+   (Rval [CodePtr (partial_app_fn_location max_app total_args n)],st1)` by
+    (irule evaluate_partial_app_fn_location_code >>
+     simp [Abbr`env1`, Abbr`st1`, evaluate_def, do_app_def, do_int_app_def,
+           EL_CONS, PRE_SUB1, el_append2]) >>
+  simp [TAKE_LENGTH_APPEND, REVERSE_APPEND]
 QED
 
 Theorem evaluate_generic_app2[local]:
@@ -524,11 +515,6 @@ Theorem evaluate_generic_app2[local]:
          dec_clock n st)
 Proof
   srw_tac[][generate_generic_app_def, mk_const_def] >>
-  `(rem_args + LENGTH prev_args) * (rem_args + LENGTH prev_args - 1) ≤ 1000 * 1000` by
-    (irule LESS_MONO_MULT2 >> simp []) >>
-  `(rem_args + LENGTH prev_args) * (rem_args + LENGTH prev_args - 1) DIV 2 ≤
-   (rem_args + LENGTH prev_args) * (rem_args + LENGTH prev_args - 1)` by
-    simp [DIV_LESS_EQ] >>
   srw_tac[][evaluate_def, do_app_def, do_int_app_def] >>
   full_simp_tac (srw_ss() ++ ARITH_ss) [] >>
   `~(&rem_args − &(n+1):int < 0)` by intLib.ARITH_TAC >>
@@ -548,30 +534,10 @@ Proof
   srw_tac [ARITH_ss] [EL_CONS, PRE_SUB1, el_append2] >>
   fsrw_tac[ARITH_ss][do_int_app_def, small_int_app] >>
   simp [dec_clock_def] >>
-  `&rem_args − &LENGTH args + &(n + (LENGTH prev_args + 1)):int = &(rem_args + LENGTH prev_args)` by intLib.ARITH_TAC >>
   fs [partial_app_fn_location_code_def, global_table_def] >>
   simp [evaluate_APPEND, REVERSE_APPEND, TAKE_LENGTH_APPEND, LENGTH_GENLIST,
         evaluate_def, do_app_def, do_int_app_def, small_int_app, mk_label_def] >>
-  simp [integerTheory.INT_ADD, integerTheory.INT_MUL, integerTheory.INT_DIV, integerTheory.INT_SUB] >>
-  rw [REVERSE_APPEND, ADD1] >>
-  rw [] >>
-  fs [ADD1]
-  >- intLib.ARITH_TAC
-  >- intLib.ARITH_TAC
-  >- (
-    REWRITE_TAC [ADD_ASSOC, triangle_el_no_suff] >>
-    `n + LENGTH prev_args < rem_args + LENGTH prev_args` by decide_tac >>
-    `rem_args + LENGTH prev_args < max_app` by decide_tac >>
-    REWRITE_TAC [ADD_ASSOC] >>
-    simp [triangle_el_no_suff, triangle_div_lemma])
-  >- (
-    fs [triangle_table_size] >>
-    pop_assum mp_tac >>
-    REWRITE_TAC [ADD_ASSOC, triangle_el_no_suff] >>
-    `n + LENGTH prev_args < rem_args + LENGTH prev_args` by decide_tac >>
-    `rem_args + LENGTH prev_args < max_app` by decide_tac >>
-    REWRITE_TAC [ADD_ASSOC] >>
-    simp [triangle_div_lemma])
+  simp [ADD1, integerTheory.int_gt]
 QED
 
 Inductive unpack_closure:
@@ -6335,19 +6301,20 @@ Theorem evaluate_init[local]:
   (∀m n. m < mapp2 ∧ n < m ⇒
   partial_app_fn_location mapp1 m n ∈ domain st.code) ⇒
   bvlSem$evaluate (REVERSE
-  (FLAT (GENLIST (λtot. GENLIST
-  (λprev. Op (Label (partial_app_fn_location mapp1 tot prev))[]) tot) mapp2)) ,[Unit],st) =
+  (GENLIST (λtot. Op (BlockOp (Cons tuple_tag)) (REVERSE (GENLIST
+  (λprev. Op (Label (partial_app_fn_location mapp1 tot prev))[]) tot))) mapp2),
+  [Unit],st) =
     (Rval (REVERSE
-    (FLAT (GENLIST (λtot. GENLIST
-    (λprev. CodePtr (partial_app_fn_location mapp1 tot prev)) tot) mapp2))),st)
+    (GENLIST (λtot. Block tuple_tag (GENLIST
+    (λprev. CodePtr (partial_app_fn_location mapp1 tot prev)) tot)) mapp2)),st)
 Proof
   Induct>>fs[bvlSemTheory.evaluate_def]>>
-  simp[GENLIST,FLAT_SNOC]>>
-  simp[REVERSE_APPEND,bvlPropsTheory.evaluate_APPEND]>>
-  rw[]>>
+  rw[]>>simp[GENLIST,REVERSE_SNOC]>>
+  ONCE_REWRITE_TAC[CONS_APPEND]>>
+  simp[bvlPropsTheory.evaluate_APPEND,bvlSemTheory.evaluate_def]>>
   `∀n. n < mapp2 ⇒ partial_app_fn_location mapp1 mapp2 n ∈ domain st.code` by fs[] >>
   drule evaluate_init1>>
-  simp[]
+  simp[do_app_def]
 QED
 
 Theorem FST_EQ_LEMMA[local]:
