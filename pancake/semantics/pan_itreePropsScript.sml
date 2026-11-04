@@ -331,19 +331,21 @@ Proof
       fs[FUNPOW_Tau_bind]>>
       fs[mrec_h_handle_call_ret_lemma]>>
       fs[mrec_h_handle_deccall_ret_lemma]>>
-      (rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
+      (namedCases_on ‘r'’ ["bad","rr"]
+       >- gvs[FUNPOW_Ret_simp]>>
+       PairCases_on ‘rr’>>
+       Cases_on ‘rr0’>>gvs[FUNPOW_Ret_simp]>>
+       rename1 ‘SOME result’>>Cases_on ‘result’>>
+       gvs[FUNPOW_Ret_simp]>>
+       rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
       fs[GSYM FUNPOW]>>
       fs[FUNPOW_Ret_simp]>>
       qmatch_asmsub_abbrev_tac ‘itree_bind (ltree _ Y) _’>>
       Cases_on ‘div (FST fs, SND (comp_ffi fs X)) Y’>>fs[]>>
       fs[FUNPOW_Tau_bind]>>gvs[]>>
       imp_res_tac div_imp_spin>>fs[spin_bind]
-       >- (qhdtm_x_assum ‘FUNPOW’ mp_tac>>
-           rewrite_tac[Once (Q.SPEC ‘SUC (n - SUC n')’ spin_FUNPOW_Tau)]>>
-           rw[]>>fs[FUNPOW_Ret_simp]))>>
-      qhdtm_x_assum ‘FUNPOW’ mp_tac>>
-      rewrite_tac[Once (Q.SPEC ‘SUC (n - SUC n')’ spin_FUNPOW_Tau)]>>
-      rw[]>>fs[FUNPOW_Ret_simp])>>
+       >- gvs[GSYM spin_FUNPOW_Tau,GSYM spin,FUNPOW_Ret_spin_F])>>
+      gvs[GSYM FUNPOW_SUC,FUNPOW_Ret_simp])>>
   (fs[mrec_Call,mrec_DecCall]>>
    rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
    qmatch_asmsub_abbrev_tac ‘itree_bind (ltree _ X) _’>>
