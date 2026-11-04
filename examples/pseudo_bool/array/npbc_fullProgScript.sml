@@ -3,14 +3,24 @@
 *)
 Theory npbc_fullProg
 Ancestors
-  basis_ffi pb_parse pbc_normalise npbc_parseProg
+  basis_ffi pb_parse pbc_normalise npbc_parseProg mlint
 Libs
   preamble basis
 
 val _ = translation_extends"npbc_parseProg";
 
 (* Translation for parsing an OPB file *)
-val r = translate nocomment_line_def;
+val r = translate (nocomment_line_def |> REWRITE_RULE [strlen_small]);
+
+Theorem nocomment_line_side[local]:
+  ∀l. nocomment_line_side l ⇔ T
+Proof
+  rw[fetch "-" "nocomment_line_side_def",smallnum_lt_str_def,
+     semanticPrimitivesTheory.index_in_bounds_def]>>
+  intLib.ARITH_TAC
+QED
+
+val _ = nocomment_line_side |> update_precondition;
 
 val r = translate parse_constraint_def;
 val r = translate parse_annot_def;
@@ -145,7 +155,35 @@ End
 
 (* Parsing an OPB file one line at a time, numbering and normalising each
   constraint as it is read *)
-val r = translate skip_annot_def;
+val r = translate_no_ind (skip_annot_def |> REWRITE_RULE [strlen_small]);
+
+Theorem skip_annot_ind_small[local]:
+  skip_annot_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "skip_annot_ind_def"]>>
+  rpt gen_tac>>
+  rpt (disch_then strip_assume_tac)>>
+  match_mp_tac pb_parseTheory.skip_annot_ind>>
+  rpt strip_tac>>
+  last_x_assum match_mp_tac>>
+  rpt strip_tac>>
+  gvs[strlen_small]
+QED
+
+val _ = skip_annot_ind_small |> update_precondition;
+
+Theorem skip_annot_side[local]:
+  ∀line. skip_annot_side line ⇔ T
+Proof
+  ho_match_mp_tac skip_annot_ind>>
+  rw[]>>
+  simp[Once (fetch "-" "skip_annot_side_def")]>>
+  rw[smallnum_lt_str_def,semanticPrimitivesTheory.index_in_bounds_def]>>
+  rpt (pop_assum kall_tac)>>
+  intLib.ARITH_TAC
+QED
+
+val _ = skip_annot_side |> update_precondition;
 val r = translate parse_constraint_front_def;
 val r = translate parse_cmp_deg_def;
 val r = translate parse_constraint_ns_def;
@@ -159,15 +197,6 @@ Definition noparse_line_string_def:
 End
 
 val r = translate noparse_line_string_def;
-
-val inputLineTokens_specialize =
-  inputLineTokens_spec_lines
-  |> Q.GEN `f` |> Q.SPEC`blanks`
-  |> Q.GEN `fv` |> Q.SPEC`blanks_v`
-  |> Q.GEN `g` |> Q.ISPEC`tokenize`
-  |> Q.GEN `gv` |> Q.ISPEC`tokenize_v`
-  |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
-  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_v_thm,blanks_def] ;
 
 Overload "ntn_TYPE" = ``PBC_NORMALISE_NAME_TO_NUM_STATE_TYPE STRING_TYPE``
 
@@ -241,7 +270,7 @@ QED
 (* lno counts the lines read so far *)
 Quote add_cakeml:
   fun next_nocomment_arr lno fd =
-  case TextIO.inputLineTokens #"\n" fd blanks tokenize of
+  case input_toks fd of
     None => (lno, None)
   | Some l =>
     if nocomment_line l then (lno+1, Some l)
@@ -276,7 +305,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     >- (
-      xapp_spec inputLineTokens_specialize>>
+      xapp_spec input_toks_spec>>
       qexistsl_tac [`emp`,‘[]’,‘fs’]>>
       qexists_tac ‘fd’>>xsimpl>>fs [])>>
     gvs[OPTION_TYPE_def]>>
@@ -293,7 +322,7 @@ Proof
               & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
                   (SOME (toks h)) v)’
   >- (
-    xapp_spec inputLineTokens_specialize>>
+    xapp_spec input_toks_spec>>
     qexistsl_tac [`emp`,‘h::lines’,‘fs’]>>
     qexists_tac ‘fd’>>xsimpl>>fs []>>
     rw []>>qexists_tac ‘x’>>xsimpl>>
@@ -322,7 +351,7 @@ QED
 
 Quote add_cakeml:
   fun parse_norm_body_arr lno fd s acc mx =
-  case TextIO.inputLineTokens #"\n" fd blanks tokenize of
+  case input_toks fd of
     None => Inr ((acc, mx), s)
   | Some l =>
     if nocomment_line l then
@@ -367,7 +396,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     >- (
-      xapp_spec inputLineTokens_specialize>>
+      xapp_spec input_toks_spec>>
       qexistsl_tac [`emp`,‘[]’,‘fs’]>>
       qexists_tac ‘fd’>>xsimpl>>fs [])>>
     gvs[OPTION_TYPE_def]>>
@@ -384,7 +413,7 @@ Proof
               & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
                   (SOME (toks h)) v)’
   >- (
-    xapp_spec inputLineTokens_specialize>>
+    xapp_spec input_toks_spec>>
     qexistsl_tac [`emp`,‘h::lines’,‘fs’]>>
     qexists_tac ‘fd’>>xsimpl>>fs []>>
     rw []>>qexists_tac ‘x’>>xsimpl>>
@@ -587,7 +616,7 @@ QED
 Quote add_cakeml:
   fun parse_norm_pbf_full f s =
   let
-    val fd = TextIO.openIn f
+    val fd = TextIO.openInSetBufferSize f 65531
     val res = parse_norm_toks_arr fd s
     val close = TextIO.closeIn fd
   in
@@ -628,7 +657,7 @@ Proof
       &(~inFS_fname fs f) *
       STDIO fs`
     >-
-      (xlet_auto_spec (SOME openIn_STDIO_spec)>>xsimpl)
+      (xlet_auto_spec (SOME openInSetBufferSize_STDIO_spec)>>xsimpl)
     >>
       fs[BadFileName_exn_def]>>
       xcases>>rw[]>>
@@ -638,7 +667,7 @@ Proof
   qmatch_goalsub_abbrev_tac`$POSTv Qval`>>
   xhandle`$POSTv Qval`>>xsimpl>>
   qunabbrev_tac`Qval`>>
-  xlet_auto_spec (SOME (openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `#"\n"`))>>xsimpl>>
+  xlet_auto_spec (SOME (openInSetBufferSize_spec_lines |> Q.GEN `c0` |> Q.SPEC `#"\n"`))>>xsimpl>>
   qmatch_goalsub_abbrev_tac`STDIO fss`>>
   qmatch_goalsub_abbrev_tac`INSTREAM_LINES _ fdd fddv lines fss`>>
   xlet`(POSTv v.

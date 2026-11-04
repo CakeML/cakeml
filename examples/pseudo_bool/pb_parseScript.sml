@@ -3,7 +3,7 @@
 *)
 Theory pb_parse
 Ancestors
-  pbc pbc_normalise npbc_check
+  pbc pbc_normalise npbc_check mlint
 Libs
   preamble
 
@@ -168,6 +168,370 @@ Definition toks_def:
   toks s = MAP tokenize (tokens blanks s)
 End
 
+(* One pass over a line computing toks (toks_scan_toks below).
+  The token being read spans s[i..j); m is the scanner state:
+  0 between tokens, 1 after a leading sign (~, - or +), 2 in a run of digits
+  (acc holds their value, neg the sign, k counts them up to 9),
+  3 in a token that is not a number.
+  Arithmetic is on small integers (mlint's smallnum functions): indices with s as the
+  witness, character codes below 256, and the first nine digits of a number,
+  whose value stays below 10 ** 9 < 2 ** 30; later digits use unbounded
+  arithmetic. *)
+Definition scan_tok_def:
+  scan_tok s (m:num) neg (acc:num) i j =
+  if smallnum_eq m 2 then INR (if neg then -&acc else &acc:int)
+  else INL (substring s i (smallnum_sub_str j i s))
+End
+
+(* TMC *)
+Definition scan_toks_def:
+  scan_toks s n (m:num) neg (acc:num) (k:num) i j =
+  if smallnum_lt_str j n s then
+    let oc = ORD (strsub_unsafe s j) in
+    let j1 = smallnum_add_str j 1 s in
+    if ¬smallnum_lt 32 oc ∧
+       (smallnum_eq oc 32 ∨ smallnum_eq oc 10 ∨ smallnum_eq oc 9 ∨ smallnum_eq oc 13)
+    then
+      if smallnum_eq m 0 then scan_toks s n 0 F 0 0 j1 j1
+      else
+        let t = scan_tok s m neg acc i j in
+        t :: scan_toks s n 0 F 0 0 j1 j1
+    else if smallnum_eq m 3 then scan_toks s n 3 F 0 0 i j1
+    else if smallnum_eq m 0 then
+      if smallnum_le 48 oc ∧ smallnum_le oc 57 then
+        scan_toks s n 2 F (smallnum_sub oc 48) 1 j j1
+      else if smallnum_eq oc 126 ∨ smallnum_eq oc 45 then
+        scan_toks s n 1 T 0 0 j j1
+      else if smallnum_eq oc 43 then scan_toks s n 1 F 0 0 j j1
+      else scan_toks s n 3 F 0 0 j j1
+    else if smallnum_le 48 oc ∧ smallnum_le oc 57 then
+      if smallnum_lt k 9 then
+        scan_toks s n 2 neg
+          (smallnum_add (smallnum_mul acc 10) (smallnum_sub oc 48))
+          (smallnum_add k 1) i j1
+      else scan_toks s n 2 neg (acc * 10 + smallnum_sub oc 48) k i j1
+    else scan_toks s n 3 F 0 0 i j1
+  else if smallnum_eq m 0 then []
+  else [scan_tok s m neg acc i j]
+Termination
+  WF_REL_TAC`measure (λ(s,n,m,neg,acc,k,i,j). n - j)`>>
+  rw[smallnum_lt_str_def,smallnum_add_str_def]
+End
+
+(* TODO: move to mlstringTheory, generalising strsub_substring_0_thm *)
+Theorem strsub_substring[local]:
+  a < n ∧ i + n ≤ strlen s ⇒
+  strsub (substring s i n) a = strsub s (i + a)
+Proof
+  Cases_on`s`>>
+  rw[mlstringTheory.strsub_def,mlstringTheory.substring_def,
+     SEG_TAKE_DROP,EL_TAKE,EL_DROP]
+QED
+
+(* TODO: move to mlstringTheory *)
+Theorem substring_substring[local]:
+  a + b ≤ n ∧ i + n ≤ strlen s ⇒
+  substring (substring s i n) a b = substring s (i + a) b
+Proof
+  Cases_on`s`>>
+  rw[mlstringTheory.substring_def,SEG_TAKE_DROP,TAKE_TAKE,DROP_DROP,DROP_TAKE]
+QED
+
+(* TODO: move to mlintTheory, generalising fromChars_range_unsafe_0_substring_thm *)
+Theorem fromChars_range_unsafe_substring[local]:
+  ∀n p len s.
+  n ≤ len ∧ p + len ≤ strlen s ⇒
+  fromChars_range_unsafe 0 n (substring s p len) = fromChars_range_unsafe p n s
+Proof
+  Induct>>
+  rw[fromChars_range_unsafe_def,strsub_substring]
+QED
+
+Theorem EL_explode_strsub[local]:
+  a < strlen t ⇒ EL a (explode t) = strsub t a
+Proof
+  Cases_on`t`>>
+  simp[mlstringTheory.strsub_def]
+QED
+
+(* TODO: move to mlintTheory *)
+Theorem fromChars_substring_NONE[local]:
+  p ≤ q ∧ q < p + n ∧ p + n ≤ strlen s ∧ ¬isDigit (strsub s q) ⇒
+  fromChars n (substring s p n) = NONE
+Proof
+  strip_tac>>
+  `¬IS_SOME (fromChars n (substring s p n))` suffices_by
+    (Cases_on`fromChars n (substring s p n)`>>simp[])>>
+  DEP_REWRITE_TAC [mlintTheory.fromChars_IS_SOME_IFF]>>
+  simp[mlstringTheory.strlen_substring,TAKE_LENGTH_ID_rwt,EXISTS_MEM,MEM_EL,
+       PULL_EXISTS]>>
+  qexists_tac`q - p`>>
+  simp[EL_explode_strsub,strsub_substring,mlstringTheory.strlen_substring]
+QED
+
+(* TODO: move to mlintTheory *)
+Theorem fromChars_substring_SOME[local]:
+  (∀q. p ≤ q ∧ q < p + n ⇒ isDigit (strsub s q)) ∧ 0 < n ∧ p + n ≤ strlen s ⇒
+  fromChars n (substring s p n) = SOME (fromChars_range_unsafe p n s)
+Proof
+  strip_tac>>
+  DEP_REWRITE_TAC [mlintTheory.fromChars_eq_unsafe]>>
+  simp[mlstringTheory.strlen_substring,mlintTheory.fromChars_range_unsafe_eq,
+       fromChars_range_unsafe_substring,EVERY_EL,EL_explode_strsub,
+       strsub_substring]
+QED
+
+(* What scan_toks knows about the token s[i..j) it is reading in state m *)
+Definition scan_inv_def:
+  scan_inv s m neg acc k i j ⇔
+    m ≤ (3:num) ∧
+    (m = 0 ⇒ i = j) ∧
+    (m ≠ 0 ⇒ i < j ∧ ∀q. i ≤ q ∧ q < j ⇒ ¬blanks (strsub s q)) ∧
+    (m = 1 ⇒ j = i + 1 ∧ acc = 0 ∧ k = 0 ∧
+      (strsub s i = #"~" ∨ strsub s i = #"-" ∨ strsub s i = #"+") ∧
+      (neg ⇔ strsub s i = #"~" ∨ strsub s i = #"-")) ∧
+    (m = 2 ⇒ ∃p.
+      (p = i ∧ ¬neg ∨
+       p = i + 1 ∧ (strsub s i = #"~" ∨ strsub s i = #"-" ∨ strsub s i = #"+") ∧
+       (neg ⇔ strsub s i = #"~" ∨ strsub s i = #"-")) ∧
+      p < j ∧ (∀q. p ≤ q ∧ q < j ⇒ isDigit (strsub s q)) ∧
+      acc = fromChars_range_unsafe p (j - p) s ∧ k = MIN (j - p) 9) ∧
+    (m = 3 ⇒ ∃q. i ≤ q ∧ q < j ∧ ¬isDigit (strsub s q) ∧
+      (q = i ⇒ strsub s i ≠ #"~" ∧ strsub s i ≠ #"-" ∧ strsub s i ≠ #"+"))
+End
+
+Theorem scan_tok_tokenize[local]:
+  scan_inv s m neg acc k i j ∧ m ≠ 0 ∧ j ≤ strlen s ⇒
+  scan_tok s m neg acc i j = tokenize (substring s i (j - i))
+Proof
+  simp[scan_tok_def,smallnum_eq_def,smallnum_sub_str_def,tokenize_def]>>
+  strip_tac>>
+  IF_CASES_TAC
+  >- (
+    gvs[scan_inv_def]
+    >- (
+      `isDigit (strsub s i)` by simp[]>>
+      `strsub s i ≠ #"~" ∧ strsub s i ≠ #"-" ∧ strsub s i ≠ #"+"` by
+        (rpt strip_tac>>fs[]>>qpat_x_assum `isDigit _` mp_tac>>EVAL_TAC)>>
+      rw[mlintTheory.fromString_def,mlstringTheory.strlen_substring,
+         strsub_substring]>>
+      DEP_REWRITE_TAC [fromChars_substring_SOME]>>
+      simp[])>>
+    rw[mlintTheory.fromString_def,mlstringTheory.strlen_substring,
+       strsub_substring,substring_substring]>>
+    DEP_REWRITE_TAC [fromChars_substring_SOME]>>
+    simp[])>>
+  `fromString (substring s i (j − i)) = NONE` suffices_by simp[]>>
+  Cases_on`m = 1`
+  >- (
+    gvs[scan_inv_def]>>
+    simp[mlintTheory.fromString_def,mlstringTheory.strlen_substring,
+         strsub_substring,mlintTheory.fromChars_def])>>
+  gvs[scan_inv_def]>>
+  `m = 3` by decide_tac>>
+  gvs[]>>
+  rw[mlintTheory.fromString_def,mlstringTheory.strlen_substring,strsub_substring,
+     substring_substring]>>
+  irule fromChars_substring_NONE>>
+  simp[]>>
+  qexists_tac`q`>>
+  gvs[]
+QED
+
+(* TODO: move to stringTheory *)
+Theorem ORD_eq_CHR[local]:
+  n < 256 ⇒ (ORD c = n ⇔ c = CHR n)
+Proof
+  rw[EQ_IMP_THM]>>
+  simp[stringTheory.CHR_ORD,stringTheory.ORD_CHR_RWT]
+QED
+
+Theorem scan_blank[local]:
+  (¬(32 < ORD c) ∧
+   (ORD c = 32 ∨ ORD c = 10 ∨ ORD c = 9 ∨ ORD c = 13)) ⇔ blanks c
+Proof
+  rw[blanks_def,ORD_eq_CHR]>>
+  eq_tac>>rw[]>>
+  simp[]
+QED
+
+Theorem scan_nonblank[local]:
+  (32 < ORD c ∨
+   ORD c ≠ 32 ∧ ORD c ≠ 10 ∧ ORD c ≠ 9 ∧ ORD c ≠ 13) ⇔ ¬blanks c
+Proof
+  PURE_REWRITE_TAC [GSYM scan_blank]>>
+  tautLib.TAUT_TAC
+QED
+
+Theorem one_point_range[local]:
+  ((∀q. i ≤ q ∧ q < i + 1 ⇒ P q) ⇔ P i) ∧
+  ((∃q. i ≤ q ∧ q < i + 1 ∧ Q q) ⇔ Q (i:num))
+Proof
+  rw[EQ_IMP_THM]
+  >- (`q = i` by decide_tac>>gvs[])
+  >- (`q = i` by decide_tac>>gvs[])>>
+  qexists_tac`i`>>simp[]
+QED
+
+(* TODO: move to mlintTheory *)
+Theorem fromChars_range_unsafe_1[local]:
+  fromChars_range_unsafe l 1 s = ORD (strsub s l) − 48
+Proof
+  REWRITE_TAC[ONE,mlintTheory.fromChars_range_unsafe_def,
+              mlintTheory.fromChar_unsafe_def]>>
+  simp[]
+QED
+
+Theorem range_snoc[local]:
+  i ≤ j ⇒
+  ((∀q. i ≤ q ∧ q < j + 1 ⇒ P q) ⇔ (∀q. i ≤ q ∧ q < j ⇒ P q) ∧ P (j:num))
+Proof
+  rw[EQ_IMP_THM]>>
+  Cases_on`q = j`>>gvs[]
+QED
+
+(* TODO: move to mlintTheory *)
+Theorem fromChars_range_unsafe_snoc[local]:
+  p ≤ j ⇒
+  fromChars_range_unsafe p (j + 1 - p) s =
+  10 * fromChars_range_unsafe p (j - p) s + (ORD (strsub s j) − 48)
+Proof
+  strip_tac>>
+  `j + 1 - p = SUC (j - p)` by decide_tac>>
+  pop_assum SUBST1_TAC>>
+  REWRITE_TAC[mlintTheory.fromChars_range_unsafe_def,
+              mlintTheory.fromChar_unsafe_def]>>
+  simp[]
+QED
+
+Theorem scan_inv_2_intro[local]:
+  (p = i ∧ ¬neg ∨
+   p = i + 1 ∧ (strsub s i = #"~" ∨ strsub s i = #"-" ∨ strsub s i = #"+") ∧
+   (neg ⇔ strsub s i = #"~" ∨ strsub s i = #"-")) ∧
+  i < j ∧ (∀q. i ≤ q ∧ q < j ⇒ ¬blanks (strsub s q)) ∧
+  p < j ∧ (∀q. p ≤ q ∧ q < j ⇒ isDigit (strsub s q)) ∧
+  acc = fromChars_range_unsafe p (j - p) s ∧ k = MIN (j - p) 9 ⇒
+  scan_inv s 2 neg acc k i j
+Proof
+  rw[scan_inv_def]
+  >- (qexists_tac`i`>>simp[])>>
+  qexists_tac`i + 1`>>simp[]
+QED
+
+Theorem scan_inv_digit[local]:
+  scan_inv s m neg acc k i j ∧ m ≠ 0 ∧ m ≠ 3 ∧ j < strlen s ∧
+  ¬blanks (strsub s j) ∧ 48 ≤ ORD (strsub s j) ∧ ORD (strsub s j) ≤ 57 ⇒
+  scan_inv s 2 neg (10 * acc + ORD (strsub s j) − 48)
+    (if k < 9 then k + 1 else k) i (j + 1)
+Proof
+  strip_tac>>
+  `i < j ∧ ∀q. i ≤ q ∧ q < j ⇒ ¬blanks (strsub s q)` by fs[scan_inv_def]>>
+  `∃p. (p = i ∧ ¬neg ∨
+        p = i + 1 ∧ (strsub s i = #"~" ∨ strsub s i = #"-" ∨ strsub s i = #"+") ∧
+        (neg ⇔ strsub s i = #"~" ∨ strsub s i = #"-")) ∧
+       p ≤ j ∧ (∀q. p ≤ q ∧ q < j ⇒ isDigit (strsub s q)) ∧
+       acc = fromChars_range_unsafe p (j - p) s ∧ k = MIN (j - p) 9` by (
+    Cases_on`m = 1`
+    >- (
+      `j = i + 1 ∧ acc = 0 ∧ k = 0 ∧
+       (strsub s i = #"~" ∨ strsub s i = #"-" ∨ strsub s i = #"+") ∧
+       (neg ⇔ strsub s i = #"~" ∨ strsub s i = #"-")` by fs[scan_inv_def]>>
+      qexists_tac`j`>>
+      simp[mlintTheory.fromChars_range_unsafe_def])>>
+    `m = 2` by fs[scan_inv_def]>>
+    fs[scan_inv_def]>>
+    qexists_tac`p`>>
+    simp[])>>
+  irule scan_inv_2_intro>>
+  (
+    conj_tac >- simp[range_snoc]>>
+    conj_tac >- simp[]>>
+    qexists_tac`p`>>
+    simp[range_snoc,fromChars_range_unsafe_snoc,isDigit_def]>>
+    rw[MIN_DEF])
+QED
+
+Theorem scan_toks_tokens_alt_aux[local]:
+  ∀s n m neg acc k i j.
+  n = strlen s ∧ j ≤ n ∧ scan_inv s m neg acc k i j ⇒
+  scan_toks s n m neg acc k i j = MAP tokenize (tokens_alt_aux blanks s i j n)
+Proof
+  ho_match_mp_tac scan_toks_ind>>
+  rpt gen_tac>>
+  strip_tac>>
+  rpt strip_tac>>
+  simp[Once scan_toks_def,Once mlstringTheory.tokens_alt_aux_def]>>
+  fs[smallnum_lt_str_def,smallnum_add_str_def,smallnum_eq_def,smallnum_lt_def,
+     smallnum_le_def,smallnum_sub_def,smallnum_add_def,smallnum_mul_def,
+     mlstringTheory.strsub_unsafe_eq_strsub,scan_blank,scan_nonblank]>>
+  reverse (Cases_on`j < strlen s`)
+  >- (
+    `j = strlen s` by decide_tac>>
+    Cases_on`m = 0`
+    >- gvs[scan_inv_def]>>
+    `i ≠ j` by fs[scan_inv_def]>>
+    simp[]>>
+    irule scan_tok_tokenize>>
+    simp[]>>
+    qexists_tac`k`>>
+    gvs[])>>
+  Cases_on`blanks (strsub s j)`
+  >- (
+    Cases_on`m = 0`
+    >- (
+      `i = j` by fs[scan_inv_def]>>
+      gvs[]>>
+      qpat_x_assum `scan_inv s 0 F 0 0 _ _ ⇒ _` irule>>
+      simp[scan_inv_def])>>
+    `i ≠ j` by fs[scan_inv_def]>>
+    gvs[]>>
+    conj_tac
+    >- (
+      irule scan_tok_tokenize>>
+      simp[]>>
+      qexists_tac`k`>>
+      simp[])>>
+    qpat_x_assum `scan_inv s 0 F 0 0 _ _ ⇒ _` irule>>
+    simp[scan_inv_def])>>
+  fs[]>>
+  Cases_on`m = 3`
+  >- (
+    gvs[]>>
+    qpat_x_assum `scan_inv s 3 F 0 0 i (j + 1) ⇒ _` irule>>
+    gvs[scan_inv_def]>>
+    rw[]
+    >- (Cases_on`q' = j`>>gvs[])>>
+    qexists_tac`q`>>
+    simp[])>>
+  Cases_on`m = 0`
+  >- (
+    `i = j` by fs[scan_inv_def]>>
+    gvs[]>>
+    rw[]>>
+    first_x_assum irule>>
+    simp[scan_inv_def,isDigit_def,GSYM ORD_eq_CHR,one_point_range,
+         fromChars_range_unsafe_1])>>
+  qpat_x_assum `m = 3 ⇒ _` kall_tac>>
+  simp[]>>
+  rw[]>>
+  first_x_assum irule>>
+  simp[]
+  >- (drule_all scan_inv_digit>>simp[])
+  >- (drule_all scan_inv_digit>>simp[])>>
+  `i < j ∧ ∀q. i ≤ q ∧ q < j ⇒ ¬blanks (strsub s q)` by fs[scan_inv_def]>>
+  simp[scan_inv_def,range_snoc]>>
+  qexists_tac`j`>>
+  simp[isDigit_def]
+QED
+
+Theorem toks_scan_toks:
+  toks s = scan_toks s (strlen s) 0 F 0 0 0 0
+Proof
+  rw[toks_def,mlstringTheory.tokens_alt]>>
+  irule (GSYM scan_toks_tokens_alt_aux)>>
+  simp[scan_inv_def]
+QED
+
 (* OPB parser
   Parses a literal s, ~s
   Valid names may contain a-z,A-Z,0-9,[]{}_^- characters
@@ -232,6 +596,61 @@ End
 Definition strip_term_line_def:
   strip_term_line ss = strip_term_line_aux ss []
 End
+
+(* What becomes of the last token when ; is stripped:
+  NONE: the line is not terminated;
+  SOME NONE: the last token is ; itself and is dropped;
+  SOME (SOME t): the last token ended in ; and is replaced by t *)
+Definition term_last_def:
+  (term_last [] = NONE) ∧
+  (term_last [x] =
+    case x of INR n => NONE
+    | INL s =>
+    if s = «;» then SOME NONE
+    else
+      case strip_term s of
+        SOME s => SOME (SOME (tokenize s))
+      | NONE => NONE) ∧
+  (term_last (x::xs) = term_last xs)
+End
+
+(* TMC *)
+Definition replace_last_def:
+  replace_last x xs t =
+  case xs of
+    [] => (case t of NONE => [] | SOME y => [y])
+  | (y::ys) => x :: replace_last y ys t
+End
+
+Theorem strip_term_line_aux_last:
+  ∀xs x acc.
+  strip_term_line_aux (x::xs) acc =
+  case term_last (x::xs) of
+    NONE => NONE
+  | SOME t => SOME (REVERSE acc ++ replace_last x xs t)
+Proof
+  Induct
+  >- (
+    Cases>>
+    rw[strip_term_line_aux_def,term_last_def,Once replace_last_def]>>
+    TOP_CASE_TAC>>
+    simp[Once replace_last_def])>>
+  rw[strip_term_line_aux_def,term_last_def]>>
+  TOP_CASE_TAC>>
+  simp[Once replace_last_def,SimpRHS]
+QED
+
+Theorem strip_term_line_last:
+  strip_term_line ss =
+  case ss of [] => NONE
+  | (x::xs) =>
+    case term_last ss of
+      NONE => NONE
+    | SOME t => SOME (replace_last x xs t)
+Proof
+  Cases_on`ss`>>
+  simp[strip_term_line_def,strip_term_line_aux_def,strip_term_line_aux_last]
+QED
 
 (*
   EVAL ``strip_term_line (toks «foo bar aaa;»)``
@@ -1021,18 +1440,6 @@ QED
   Parsing a proof file
 *)
 
-(* Fast tokenization *)
-Definition fromString_unsafe_def:
-  fromString_unsafe str =
-    if strlen str = 0
-    then 0i
-    else if strsub_unsafe str 0 = #"~" ∨
-            strsub_unsafe str 0 = #"-"
-      then ~&fromChars_unsafe (strlen str - 1)
-                              (substring str 1 (strlen str - 1))
-      else &fromChars_unsafe (strlen str) str
-End
-
 Definition is_numeric_def:
   is_numeric c =
   let n = ORD c in
@@ -1120,17 +1527,6 @@ Proof
   \\ drule fromString_int_start
   \\ simp []
 QED
-
-Definition tokenize_fast_def:
-  tokenize_fast (s:mlstring) =
-  if int_start s then
-    INR (fromString_unsafe s)
-  else INL s
-End
-
-Definition toks_fast_def:
-  toks_fast s = MAP tokenize_fast (tokens blanks s)
-End
 
 Type name_fun[pp] = “:(mlstring -> α -> (num # α) option) # α”
 
@@ -1231,7 +1627,7 @@ Definition parse_cutting_def:
 End
 
 (*
-  EVAL ``parse_cutting (plainVar_nf,()) (toks_fast «8 2 + 3 + 1 s + 9 2 n + x5 2 * + 5 -»)``;
+  EVAL ``parse_cutting (plainVar_nf,()) (toks «8 2 + 3 + 1 s + 9 2 n + x5 2 * + 5 -»)``;
 *)
 
 (* Parse a pseudo-Boolean constraint *)
@@ -1308,6 +1704,40 @@ Definition strip_rup_hint_def:
   strip_rup_hint xs = strip_rup_hint_aux xs []
 End
 
+Definition rup_hint_ok_def:
+  (rup_hint_ok [] ⇔ T) ∧
+  (rup_hint_ok (x::xs) ⇔
+    (case x of INR n => n ≥ (0:int) | INL s => s = «~») ∧ rup_hint_ok xs)
+End
+
+(* The numbers of a checked token list; a non-number token stands for 0 *)
+(* TMC *)
+Definition tok_nums_def:
+  (tok_nums [] = []) ∧
+  (tok_nums (x::xs) =
+    let y = (case x of INR n => Num n | INL _ => 0n) in
+    y :: tok_nums xs)
+End
+
+Theorem strip_rup_hint_aux_ok:
+  ∀xs acc.
+  strip_rup_hint_aux xs acc =
+  if rup_hint_ok xs then SOME (REVERSE acc ++ tok_nums xs) else NONE
+Proof
+  Induct
+  >- rw[strip_rup_hint_aux_def,rup_hint_ok_def,tok_nums_def]>>
+  Cases>>
+  rw[strip_rup_hint_aux_def,rup_hint_ok_def,tok_nums_def]>>
+  gvs[]
+QED
+
+Theorem strip_rup_hint_ok:
+  strip_rup_hint xs =
+  if rup_hint_ok xs then SOME (tok_nums xs) else NONE
+Proof
+  simp[strip_rup_hint_def,strip_rup_hint_aux_ok]
+QED
+
 Definition parse_rup_hint_def:
   (parse_rup_hint [] = NONE) ∧
   (parse_rup_hint (x::xs) =
@@ -1328,7 +1758,7 @@ Definition parse_rup_def:
 End
 
 (*
-  EVAL ``parse_rup (plainVar_nf,()) (toks_fast «1 ~x5 1 x26 +1 x27 1 x28 1 x29 >= 1 : 6 11 ~»)``
+  EVAL ``parse_rup (plainVar_nf,()) (toks «1 ~x5 1 x26 +1 x27 1 x28 1 x29 >= 1 : 6 11 ~»)``
 *)
 
 Definition start_subproof_def:
@@ -1357,7 +1787,7 @@ Definition parse_pbc_header_def:
 End
 
 (*
-  EVAL ``parse_pbc_header (plainVar_nf,()) (toks_fast «3 x1 -3 x2 2 x3 >= 5 : subproof»)``
+  EVAL ``parse_pbc_header (plainVar_nf,()) (toks «3 x1 -3 x2 2 x3 >= 5 : subproof»)``
 *)
 
 Definition strip_numbers_aux_def:
@@ -1373,6 +1803,31 @@ End
 Definition strip_numbers_def:
   strip_numbers xs = strip_numbers_aux xs []
 End
+
+Definition numbers_ok_def:
+  (numbers_ok [] ⇔ T) ∧
+  (numbers_ok (x::xs) ⇔
+    (case x of INR n => n ≥ (0:int) | INL _ => F) ∧ numbers_ok xs)
+End
+
+Theorem strip_numbers_aux_ok:
+  ∀xs acc.
+  strip_numbers_aux xs acc =
+  if numbers_ok xs then SOME (REVERSE acc ++ tok_nums xs) else NONE
+Proof
+  Induct
+  >- rw[strip_numbers_aux_def,numbers_ok_def,tok_nums_def]>>
+  Cases>>
+  rw[strip_numbers_aux_def,numbers_ok_def,tok_nums_def]>>
+  gvs[]
+QED
+
+Theorem strip_numbers_ok:
+  strip_numbers xs =
+  if numbers_ok xs then SOME (tok_nums xs) else NONE
+Proof
+  simp[strip_numbers_def,strip_numbers_aux_ok]
+QED
 
 (* Parse a single line of lstep including ; terminator
   pbc does not end with terminator.
@@ -1454,11 +1909,11 @@ Definition check_mark_qed_id_def:
 End
 
 (*
-EVAL `` check_mark_qed_id (INL «pbc») (toks_fast «qed pbc : 4 ;»)``
+EVAL `` check_mark_qed_id (INL «pbc») (toks «qed pbc : 4 ;»)``
 
-EVAL `` check_mark_qed_id_opt (INL «pbc») (toks_fast «qed pbc;»)``
+EVAL `` check_mark_qed_id_opt (INL «pbc») (toks «qed pbc;»)``
 
-EVAL `` check_mark_qed_id_opt (INL «pbc») (toks_fast «qed;»)``
+EVAL `` check_mark_qed_id_opt (INL «pbc») (toks «qed;»)``
 *)
 
 (* Parsing lsteps in a subproof until parsing
@@ -1536,7 +1991,7 @@ End
 
 (*
   EVAL`` parse_lsteps (plainVar_nf,())
-  (MAP toks_fast [
+  (MAP toks [
   «pbc +3 x1 +3 x2 +2 x3 >= 5 : subproof»;
   «pbc +3 x1 +3 x2 +2 x3 >= 5 : subproof»;
   «pol 1 2 +;»;
@@ -1674,7 +2129,7 @@ End
 
 (*
   EVAL`` parse_subproof (plainVar_nf,())
-  (MAP toks_fast [
+  (MAP toks [
   «pol 12 11 + 5 + 6 +;»;
   «proofgoal #1»;
   «pol 12 11 + 5 + 6 +;»;
@@ -1826,7 +2281,7 @@ End
 
 (*
   EVAL`` parse_sstep (plainVar_nf,())
-  (MAP toks_fast
+  (MAP toks
   [«red 1 x1 >= 1 : x1 -> x3 x3 -> x5 x5 -> x1 x2 -> x4 x4 -> x6 x6 -> x2 : subproof»;
   «proofgoal #1»;
   «pol 12 11 + 5 + 6 +;»;
@@ -1914,7 +2369,7 @@ Definition hashString_nf_def:
 End
 
 EVAL ``parse_vars_block (hashString_nf,0)
-  (MAP toks_fast
+  (MAP toks
   [«vars»;
   «  left u1 u2 u3 u4 u5 u6 u7 u8 u9 u10;»;
   «  right v1 v2 v3 v4 v5 v6 v7 v8 v9 v10;»;
@@ -1922,7 +2377,7 @@ EVAL ``parse_vars_block (hashString_nf,0)
   «end;»;])``
 
 EVAL ``parse_vars_block (hashString_nf,0)
-  (MAP toks_fast
+  (MAP toks
   [«vars»;
   «  left u1 u2 u3 u4 u5 u6 u7 u8 u9 u10;»;
   «  right v1 v2 v3 v4 v5 v6 v7 v8 v9 v10;»;
@@ -1994,7 +2449,7 @@ End
 (*
   -- handle spec parsing if it exists
   EVAL``parse_spec_block (hashString_nf,0)
-  (MAP toks_fast ([«spec»;
+  (MAP toks ([«spec»;
   «red 1 u1 1 ~v1 1 ~$a1 >= 1 : $a1 -> 0 : subproof»;
   «qed;»;
   «red 1 u1 1 ~v1 1 ~$a1 >= 1 : $a1 -> 0 : subproof»;
@@ -2004,7 +2459,7 @@ End
 
   -- if no spec block, then the next block is the definition block
   EVAL``parse_spec_block (hashString_nf,0)
-  (MAP toks_fast ([«def»;
+  (MAP toks ([«def»;
   «FOO»;
   ]))``
 *)
@@ -2042,14 +2497,14 @@ End
 (* -- the def block takes an optional line from the optional spec block
   EVAL``parse_def_block (hashString_nf,0)
   NONE
-  (MAP toks_fast ([
+  (MAP toks ([
     «def»;
     «1 $d10 >= 1;»;
     «end;»;]))``
 
   EVAL``parse_def_block (hashString_nf,0)
   (SOME ([INL «def»]))
-  (MAP toks_fast ([
+  (MAP toks ([
     «1 $d10 >= 1;»;
     «end;»;]))``
 *)
@@ -2147,7 +2602,7 @@ End
 
 (*
 EVAL``parse_trans_block (hashString_nf,0)
-  (MAP toks_fast ([
+  (MAP toks ([
   «transitivity»;
   «vars»;
   «fresh_right w1 w2 w3;»;
@@ -2164,7 +2619,7 @@ EVAL``parse_trans_block (hashString_nf,0)
   «end;»;]))``
 
 EVAL``parse_trans_block (hashString_nf,0)
-  (MAP toks_fast ([
+  (MAP toks ([
   «transitivity»;
   «vars»;
   «fresh_right w1 w2 w3;»;
@@ -2278,7 +2733,7 @@ End
 
 (*
   EVAL``parse_pre_order (hashString_nf,0)
-  (MAP toks_fast ([
+  (MAP toks ([
   «vars»;
   «left u1;»;
   «right v1;»;
@@ -2388,9 +2843,9 @@ Definition parse_sol_def:
 End
 
 (*
-EVAL ``parse_sol (plainVar_nf,()) (INL «soli») (toks_fast «x1 ~x2 ~x3 : -2»)``
-EVAL ``parse_sol (plainVar_nf,()) (INL «sol») (toks_fast «x1 ~x2 ~x3 : -2»)``
-EVAL ``parse_sol (plainVar_nf,()) (INL «soli») (toks_fast «x1 ~x2 ~x3»)``
+EVAL ``parse_sol (plainVar_nf,()) (INL «soli») (toks «x1 ~x2 ~x3 : -2»)``
+EVAL ``parse_sol (plainVar_nf,()) (INL «sol») (toks «x1 ~x2 ~x3 : -2»)``
+EVAL ``parse_sol (plainVar_nf,()) (INL «soli») (toks «x1 ~x2 ~x3»)``
 *)
 
 Definition parse_solx_aux_def:
@@ -2415,7 +2870,7 @@ Definition parse_solx_def:
 End
 
 (*
-EVAL ``parse_solx (plainVar_nf,()) (toks_fast «x1 ~x2 ~x3»)``
+EVAL ``parse_solx (plainVar_nf,()) (toks «x1 ~x2 ~x3»)``
 *)
 
 Definition parse_obj_term_npbc_def:
@@ -2457,7 +2912,7 @@ Definition parse_delc_header_def:
 End
 
 (*
-EVAL``parse_delc_header (plainVar_nf,()) (toks_fast «2 : x1 -> ~x2 : subproof»)``
+EVAL``parse_delc_header (plainVar_nf,()) (toks «2 : x1 -> ~x2 : subproof»)``
 *)
 
 (* Take off : subproof at the end *)
@@ -2488,7 +2943,7 @@ Definition parse_b_obj_term_npbc_def:
 End
 
 (*
-EVAL``parse_b_obj_term_npbc (plainVar_nf,()) (toks_fast «new 1 x1 2 : subproof»)``
+EVAL``parse_b_obj_term_npbc (plainVar_nf,()) (toks «new 1 x1 2 : subproof»)``
 *)
 
 (* preserve_add and remove steps *)
@@ -2509,7 +2964,7 @@ Definition parse_preserve_def:
 End
 
 (*
-  EVAL``parse_preserve (plainVar_nf,()) (toks_fast «x1 : 1 x1 2 x2 >= 5 : subproof»)``
+  EVAL``parse_preserve (plainVar_nf,()) (toks «x1 : 1 x1 2 x2 >= 5 : subproof»)``
 *)
 
 Definition parse_epres_def:
@@ -2521,7 +2976,7 @@ Definition parse_epres_def:
 End
 
 (*
-  EVAL``parse_epres (plainVar_nf,()) (toks_fast «x4 x2 x3»)``
+  EVAL``parse_epres (plainVar_nf,()) (toks «x4 x2 x3»)``
 *)
 
 (* Parse the first line of a cstep, sstep supported differently later
@@ -2579,46 +3034,46 @@ End
 
 (*
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast «dom 1 ~x1 1 x2 >= 1 : x1 -> x2 x2 -> x1 : subproof»)``;
+``parse_cstep_head (plainVar_nf,()) (toks «dom 1 ~x1 1 x2 >= 1 : x1 -> x2 x2 -> x1 : subproof»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast «delc 2 : : subproof»)``;
+``parse_cstep_head (plainVar_nf,()) (toks «delc 2 : : subproof»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast «delc 1 2 3 4 5;»)``;
+``parse_cstep_head (plainVar_nf,()) (toks «delc 1 2 3 4 5;»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast «load_order lex10 x1 ~x4 x9 ~x10 ;»)``;
+``parse_cstep_head (plainVar_nf,()) (toks «load_order lex10 x1 ~x4 x9 ~x10 ;»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast «strengthening_to_core off;»)``;
+``parse_cstep_head (plainVar_nf,()) (toks «strengthening_to_core off;»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast «core id 1 2 3 4 5;»)``;
+``parse_cstep_head (plainVar_nf,()) (toks «core id 1 2 3 4 5;»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast «soli ~x1 ~x2 ~x3 ~x4 ~x5 ~x6 x7 ~x8 x9 ~x10 ~x11 x12 : 50;»)``;
+``parse_cstep_head (plainVar_nf,()) (toks «soli ~x1 ~x2 ~x3 ~x4 ~x5 ~x6 x7 ~x8 x9 ~x10 ~x11 x12 : 50;»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast «solx ~x1 ~x2 ~x3 ~x4 ~x5 ~x6 x7 ~x8 x9 ~x10 ~x11 x12 ;»)``;
+``parse_cstep_head (plainVar_nf,()) (toks «solx ~x1 ~x2 ~x3 ~x4 ~x5 ~x6 x7 ~x8 x9 ~x10 ~x11 x12 ;»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast «obji -100 ;»)``;
+``parse_cstep_head (plainVar_nf,()) (toks «obji -100 ;»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast «eobj 1 x1 -100 ;»)``;
+``parse_cstep_head (plainVar_nf,()) (toks «eobj 1 x1 -100 ;»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast «epreserved x3 x2 x5;»)``;
+``parse_cstep_head (plainVar_nf,()) (toks «epreserved x3 x2 x5;»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast «obju new 1 x1 2 : subproof»)``;
+``parse_cstep_head (plainVar_nf,()) (toks «obju new 1 x1 2 : subproof»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast «soli x1 ~x2 ~x3 : -2;»)``
+``parse_cstep_head (plainVar_nf,()) (toks «soli x1 ~x2 ~x3 : -2;»)``
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast «delc 2 : : subproof»)``;
+``parse_cstep_head (plainVar_nf,()) (toks «delc 2 : : subproof»)``;
 
 *)
 
@@ -2778,16 +3233,16 @@ End
 (*
 
 EVAL
-``parse_concl (plainVar_nf,()) (toks_fast «conclusion NONE ;»)``;
+``parse_concl (plainVar_nf,()) (toks «conclusion NONE ;»)``;
 
 EVAL
-``parse_concl (plainVar_nf,()) (toks_fast «conclusion UNSAT : 1234 ;»)``;
+``parse_concl (plainVar_nf,()) (toks «conclusion UNSAT : 1234 ;»)``;
 
 EVAL
-``parse_concl (plainVar_nf,()) (toks_fast «conclusion ENUMERATION_PARTIAL 5 ;»)``;
+``parse_concl (plainVar_nf,()) (toks «conclusion ENUMERATION_PARTIAL 5 ;»)``;
 
 EVAL
-``parse_concl (plainVar_nf,()) (toks_fast «conclusion ENUMERATION_COMPLETE 5 ;»)``;
+``parse_concl (plainVar_nf,()) (toks «conclusion ENUMERATION_COMPLETE 5 ;»)``;
 *)
 
 (* Parse a PBC output line.
@@ -2860,6 +3315,6 @@ Definition parse_pbp_toks_def:
 End
 
 Definition parse_pbp_def:
-  parse_pbp strs = parse_pbp_toks (MAP toks_fast strs)
+  parse_pbp strs = parse_pbp_toks (MAP toks strs)
 End
 *)
