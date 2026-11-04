@@ -872,12 +872,23 @@ Proof
   \\ rw [] \\ fs []
 QED
 
+Theorem smallnum_witness_length_list[local]:
+  v_to_list v = SOME vs ==>
+  ?len. smallnum_witness_length refs v = SOME len /\ LENGTH vs <= len
+Proof
+  Cases_on `v` \\ simp [v_to_list_def, smallnum_witness_length_def]
+  \\ simp [Once (oneline v_to_list_def), AllCaseEqs(), DISJ_IMP_THM,
+           PULL_EXISTS, backend_commonTheory.nil_tag_def,
+           backend_commonTheory.cons_tag_def]
+QED
+
 Theorem evaluate_ListLength_code:
    !lv vs n.
-      (?md. lookup ListLength_location s.code = SOME (2,SND ListLength_code,md)) /\
-      v_to_list lv = SOME vs ==>
-      ∃p1 c.
-        evaluate ([SND ListLength_code],[lv;Number (&n)],inc_clock c s) =
+      (?md. lookup ListLength_location s.code = SOME (3,SND ListLength_code,md)) /\
+      v_to_list lv = SOME vs /\ v_to_list wv = SOME ws /\
+      n + LENGTH vs <= LENGTH ws ==>
+      ∃c.
+        evaluate ([SND ListLength_code],[lv;Number (&n);wv],inc_clock c s) =
           (Rval [Number (&(n + LENGTH vs))],s)
 Proof
   HO_MATCH_MP_TAC v_to_list_ind \\ rw [] \\ fs [v_to_list_def] \\ rveq
@@ -893,7 +904,13 @@ Proof
          EVAL ``bviSem$do_app (IntOp Add) [Number (&n); Number (&m)] s``,
          bvlSemTheory.find_code_def]
   \\ Cases_on `v_to_list lv` \\ fs [] \\ rw [] \\ fs []
-  \\ first_x_assum (qspec_then `n+1` mp_tac) \\ strip_tac
+  \\ `?len. smallnum_witness_length s.refs wv = SOME len /\
+            LENGTH ws <= len` by (irule smallnum_witness_length_list \\ simp [])
+  \\ simp [bviSemTheory.do_app_def, do_app_aux_def, bvlSemTheory.do_app_def,
+           do_int_app_def, bvl_to_bvi_id, bounded_smallnum_app_num]
+  \\ first_x_assum (qspec_then `n+1` mp_tac)
+  \\ impl_tac >- simp []
+  \\ strip_tac
   \\ qexists_tac `c+1` \\ fs []
   \\ qpat_abbrev_tac `s1 = dec_clock 1 _`
   \\ `inc_clock c s = s1` by
@@ -901,6 +918,20 @@ Proof
        bviSemTheory.dec_clock_def] \\ fs [inc_clock_def])
   \\ fs [] \\ pop_assum kall_tac
   \\ `(1 + &n) = (&(n + 1)):int` by intLib.COOPER_TAC \\ fs []
+QED
+
+Theorem evaluate_ListLength_code_0:
+   !lv vs.
+      (?md. lookup ListLength_location s.code = SOME (3,SND ListLength_code,md)) /\
+      v_to_list lv = SOME vs ==>
+      ∃c.
+        evaluate ([SND ListLength_code],[lv;Number 0;lv],inc_clock c s) =
+          (Rval [Number (&LENGTH vs)],s)
+Proof
+  rw []
+  \\ qspecl_then [`lv`,`vs`,`0`] mp_tac
+       (Q.INST [`wv`|->`lv`,`ws`|->`vs`] evaluate_ListLength_code)
+  \\ fs []
 QED
 
 Theorem evaluate_FromListByte_code:
@@ -2293,15 +2324,15 @@ Resume compile_exps_correct[Op]:
       \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `b2`
       \\ CONV_TAC SWAP_EXISTS_CONV
       \\ `?md. lookup ListLength_location t2.code =
-             SOME (2,SND ListLength_code,md)` by
+             SOME (3,SND ListLength_code,md)` by
               fs [state_rel_def,EVAL ``FST ListLength_code``] \\ fs []
       \\ fs [EVAL ``ListLength_code``] \\ fs [GSYM (EVAL ``SND ListLength_code``)]
-      \\ metadata_drule (GEN_ALL evaluate_ListLength_code |> SIMP_RULE std_ss [PULL_EXISTS])
+      \\ metadata_drule (GEN_ALL evaluate_ListLength_code_0 |> SIMP_RULE std_ss [PULL_EXISTS])
       \\ fs [v_to_words_def,some_def]
       \\ rfs [MAP_Word_11,o_DEF] \\ rveq
       \\ disch_then (qspec_then `adjust_bv b2 v2` mp_tac) \\ fs []
       \\ simp [v_to_list_adjust]
-      \\ disch_then (qspec_then `0` strip_assume_tac) \\ fs []
+      \\ strip_tac \\ fs []
       \\ qexists_tac `c + c' + 1`
       \\ pop_assum mp_tac
       \\ drule bviPropsTheory.evaluate_add_clock
@@ -2515,14 +2546,14 @@ Resume compile_exps_correct[Op]:
       \\ qexists_tac `t2`
       \\ qexists_tac `b2`
       \\ `?md. lookup ListLength_location t2.code =
-             SOME (2,SND ListLength_code,md)` by
+             SOME (3,SND ListLength_code,md)` by
               (fs [state_rel_def,EVAL ``FST ListLength_code``] \\ NO_TAC) \\ fs []
       \\ fs [EVAL ``ListLength_code``] \\ fs [GSYM (EVAL ``SND ListLength_code``)]
       \\ `v_to_list (adjust_bv b2 h) = SOME (MAP (adjust_bv b2) x)` by
              fs [v_to_list_adjust]
-      \\ metadata_drule (evaluate_ListLength_code |> SIMP_RULE std_ss [PULL_EXISTS])
+      \\ metadata_drule (evaluate_ListLength_code_0 |> SIMP_RULE std_ss [PULL_EXISTS])
       \\ disch_then metadata_drule \\ fs []
-      \\ disch_then (qspec_then `0` strip_assume_tac)
+      \\ strip_tac
       \\ qexists_tac `c+1+c'`
       \\ fs [bviSemTheory.evaluate_def,EVAL ``bviSem$do_app (IntOp (Const 0)) [] t2``]
       \\ qpat_assum `evaluate ([h'],_) = _` assume_tac
@@ -3128,7 +3159,7 @@ Resume compile_exps_correct[Op]:
       \\ imp_res_tac evaluate_IMP_LENGTH
       \\ fs[LENGTH_EQ_NUM_compute] \\ rw[]
       \\ simp[Once iEval_def]
-      \\ `(?md. lookup ListLength_location t2.code = SOME (2,SND ListLength_code,md))`
+      \\ `(?md. lookup ListLength_location t2.code = SOME (3,SND ListLength_code,md))`
       by ( fs[state_rel_def,ListLength_code_def])
       \\ qabbrev_tac`p = (LEAST ptr. ptr ∉ FDOM (bvi_to_bvl t2).refs)`
       \\ qmatch_goalsub_abbrev_tac`_ |+ (ptr,_)`
@@ -3145,9 +3176,9 @@ Resume compile_exps_correct[Op]:
       \\ `v_to_list (adjust_bv b2 lv) = v_to_list lv`
       by (simp[v_to_list_adjust,MAP_MAP_o,o_DEF,adjust_bv_def])
       \\ rfs[]
-      \\ metadata_drule (evaluate_ListLength_code |> SIMP_RULE std_ss [PULL_EXISTS])
+      \\ metadata_drule (evaluate_ListLength_code_0 |> SIMP_RULE std_ss [PULL_EXISTS])
       \\ disch_then metadata_drule \\ simp[]
-      \\ disch_then(qspec_then`0`(qx_choose_then`cl`strip_assume_tac))
+      \\ disch_then(qx_choose_then`cl`strip_assume_tac)
       \\ drule (Q.GENL[`p`,`fl`]evaluate_FromListByte_code |> Q.INST [‘b’|->‘T’])
       \\ qabbrev_tac`bs = REPLICATE (LENGTH x) (0w:word8)`
       \\ disch_then(qspecl_then[`p`,`T`,`0`,`bs`,`t2 with refs := t2.refs |+ (p,ByteArray T bs)`]mp_tac)
@@ -3179,6 +3210,7 @@ Resume compile_exps_correct[Op]:
       \\ simp[Once iEval_def]
       \\ simp[Once iEval_def]
       \\ simp[Once iEvalOp_def,do_app_aux_def,backend_commonTheory.small_enough_int_def]
+      \\ ntac 2 (simp[Once iEval_def])
       \\ simp[find_code_def]
       \\ simp[inc_clock_def,dec_clock_def]
       \\ qspecl_then[`[SND ListLength_code]`]drule evaluate_add_clock

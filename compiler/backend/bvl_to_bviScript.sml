@@ -165,11 +165,13 @@ Definition InitGlobals_code_def:
 End
 
 Definition ListLength_code_def:
-  ListLength_code = (2n, (* ptr to array, accumulated length *)
+  ListLength_code = (3n, (* list, accumulated length, original list *)
     If (Op (BlockOp (TagLenEq nil_tag 0)) [Var 0])
       (Var 1) (Call 0 (SOME ListLength_location)
                 [Op (MemOp El) [Op (IntOp (Const 1)) []; Var 0];
-                 Op (IntOp Add) [Var 1; Op (IntOp (Const 1)) []]] NONE))
+                 Op (IntOp (Smallnum SmallAdd))
+                   [Var 2; Var 1; Op (IntOp (Const 1)) []];
+                 Var 2] NONE))
 End
 
 Definition FromListByte_code_def:
@@ -247,13 +249,14 @@ local val compile_op_quotation = `
     | BlockOp (FromList n) => Let
         (if NULL c1 then [Op (IntOp (Const 0)) []] else c1)
         (Op (BlockOp (FromList n))
-        [Var 0; Call 0 (SOME ListLength_location) [Var 0; Op (IntOp (Const 0)) []] NONE])
+        [Var 0; Call 0 (SOME ListLength_location)
+                 [Var 0; Op (IntOp (Const 0)) []; Var 0] NONE])
     | Install => Let
       (if LENGTH c1 <> 2
        then [Let c1 (Op (IntOp (Const 0)) []); Op (IntOp (Const 0)) []] else c1)
       (Op Install
        [Call 0 (SOME ListLength_location)
-          [Var 0; Op (IntOp (Const 0)) []] NONE;
+          [Var 0; Op (IntOp (Const 0)) []; Var 0] NONE;
         Var 0; Var 1])
     | MemOp FromListByte =>
         Let (if NULL c1 then [Op (IntOp (Const 0)) []] else c1)
@@ -263,7 +266,7 @@ local val compile_op_quotation = `
               Op (MemOp (RefByte T))
                 [Op (IntOp (Const 0)) [];
                  Call 0 (SOME ListLength_location)
-                   [Var 0; Op (IntOp (Const 0)) []] NONE]]
+                   [Var 0; Op (IntOp (Const 0)) []; Var 0] NONE]]
              NONE)
     | MemOp ToListByte =>
         Let (if NULL c1 then [Op (IntOp (Const 0)) []] else c1)
