@@ -295,7 +295,8 @@ Definition generate_generic_app_def:
   generate_generic_app max_app n =
     Let [Op (IntOp (Smallnum SmallSub)) [mk_const (n+1); mk_elem_at (Var (n+1)) 1]] (* The number of arguments remaining - 1 *)
         (If (Op (IntOp (Smallnum SmallLess)) [mk_const 0; Var 0])
-            (* Over application *)
+            (* Over application; exact applications never get here, so the
+               closure expects fewer than n+1 arguments *)
             (Jump (mk_elem_at (Var (n+2)) 1)
               (GENLIST (\num_args.
                  Let [Call num_args
@@ -304,7 +305,7 @@ Definition generate_generic_app_def:
                             [Var (n + 3)] ++
                             [mk_elem_at (Var (n + 3)) 0])]
                    (mk_cl_call (Var 0) (GENLIST (\n. Var (n + 3)) (n - num_args))))
-               max_app))
+               n))
             (* Partial application *)
             (mk_tick n
             (If (Op (BlockOp (TagEq closure_tag)) [Var (n+2)])
