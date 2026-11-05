@@ -37,6 +37,10 @@ examples/sat_encodings/translation/compilation/*_encoder
 candle/overloading/ml_checker/cyclicity_checker.sexp
 compiler/bootstrap/compilation/x64/64/candle.out
 
+# Build information stamp (see misc/update_build_info.sh)
+misc/build_info.txt
+misc/build_info.txt.tmp.*
+
 # regression test logs
 regression.log
 timing.log
