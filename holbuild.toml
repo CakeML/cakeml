@@ -26,6 +26,8 @@ manifest = "holextra.manifest.toml"
 
 # Keep the existing proofs where tighter limits would require scaffolding.
 [build.theory_tactic_timeouts]
+"pancake/semantics/pan_itreePropsScript.sml" = 10.0
+"pancake/proofs/pan_itreeEquivProofScript.sml" = 300.0
 "compiler/backend/data_liveScript.sml" = 5.0
 "pancake/parser/panPEGScript.sml" = 20.0
 "compiler/backend/word_removeScript.sml" = 10.0
