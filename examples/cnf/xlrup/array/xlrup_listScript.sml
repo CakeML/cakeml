@@ -3,7 +3,7 @@
 *)
 Theory xlrup_list
 Ancestors
-  cnf ccnf syntax_helper xor xor_list xlrup ccnf_list mlstring
+  cnf ccnf syntax_helper xor xor_list xlrup ccnf_list ccnf_dm mlstring
   mlvector sptree comparison
 Libs
   preamble

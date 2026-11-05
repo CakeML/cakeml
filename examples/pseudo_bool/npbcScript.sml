@@ -1679,6 +1679,49 @@ Proof
   \\ rw [] \\ Cases_on ‘w p_2’ \\ gvs []
 QED
 
+(* The charge of add_lists is half of the decrease in the sum of the
+  absolute coefficients *)
+Theorem add_lists_lslack:
+  ∀xs ys zs n.
+  add_lists xs ys = (zs,n) ⇒
+  lslack zs + 2 * n = lslack xs + lslack ys
+Proof
+  ho_match_mp_tac add_lists_ind>>
+  rw[add_lists_def]>>
+  gvs[UNCURRY_EQ,lslack_def]>>
+  `Num (ABS (c + d)) + 2 * offset c d = Num (ABS c) + Num (ABS d)` by (
+    rw[offset_def]>>
+    intLib.ARITH_TAC)>>
+  gvs[add_terms_def,AllCaseEqs()]>>
+  `Num (ABS d) = Num (ABS c)` by intLib.ARITH_TAC>>
+  simp[]
+QED
+
+(* So twice the degree less the sum of the absolute coefficients adds up *)
+Theorem add_degree_lslack:
+  2 * SND (add a b) - &lslack (FST (add a b)) =
+  (2 * SND a - &lslack (FST a)) + (2 * SND b - &lslack (FST b))
+Proof
+  PairCases_on`a`>>PairCases_on`b`>>
+  simp[add_def]>>
+  pairarg_tac>>simp[]>>
+  drule add_lists_lslack>>
+  intLib.ARITH_TAC
+QED
+
+Theorem lslack_multiply:
+  lslack (FST (multiply c k)) = k * lslack (FST c)
+Proof
+  PairCases_on`c`>>
+  rw[multiply_def,lslack_def]>>
+  Induct_on`c0`>>
+  simp[FORALL_PROD,LEFT_ADD_DISTRIB]>>
+  rw[GSYM INT_ABS_MUL]>>
+  `ABS p_1 = &Num (ABS p_1)` by intLib.ARITH_TAC>>
+  pop_assum SUBST1_TAC>>
+  simp[integerTheory.INT_MUL]
+QED
+
 (* short circuit the lslack check against an RHS *)
 Definition check_lslack_def:
   (check_lslack ls rhs =

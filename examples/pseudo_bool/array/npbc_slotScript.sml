@@ -4,7 +4,7 @@
 *)
 Theory npbc_slot
 Ancestors
-  npbc npbc_check mlvector
+  npbc npbc_check mlvector mlint ccnf_dm
 Libs
   preamble
 
@@ -28,11 +28,6 @@ End
 Definition enc_opt_def:
   enc_opt NONE = Empty ∧
   enc_opt (SOME (c,b)) = enc c b
-End
-
-Definition wf_slot_def:
-  wf_slot Empty = T ∧
-  wf_slot (Stored cs vs d mc sm b) = (length cs = length vs)
 End
 
 Definition core_slot_def:
@@ -71,25 +66,174 @@ Definition dec_def:
   | Stored cs vs d mc sm b => (dec_terms cs vs (length cs) [], d)
 End
 
-(* The assignment, as in ccnf: an entry below the stamp b is unassigned,
-  b is false and b+1 is true *)
-Definition dm_rel_def:
-  dm_rel dm dml (b:num) ⇔
-  0 < b ∧
-  ∀n.
-    (FLOOKUP dm n = NONE ⇔ (any_el n dml 0 < b)) ∧
-    (FLOOKUP dm n = SOME F ⇔ any_el n dml 0 = b) ∧
-    (FLOOKUP dm n = SOME T ⇔ any_el n dml 0 = b+1)
+(* A slot is well-formed if its vectors have the same length and its
+  metadata are the largest and the sum of the absolute coefficients of
+  the decoded terms; wf_slot_eq_enc shows that these are the encodings *)
+Definition wf_slot_def:
+  wf_slot Empty = T ∧
+  wf_slot (Stored cs vs d mc sm b) =
+  (length cs = length vs ∧
+   mc = max_coeff (dec_terms cs vs (length cs) []) ∧
+   sm = lslack (dec_terms cs vs (length cs) []))
 End
 
-(* Ensures that the assignment has at least sz entries, all unassigned.
-  Advancing the stamp by 2 makes every existing entry read as unassigned. *)
-Definition reset_dm_list_def:
-  reset_dm_list dml (b:num) sz =
-  if LENGTH dml < sz then
-    (REPLICATE (2 * sz) (0:num), 1)
-  else
-    (dml,b+2)
+(* Merges of slot vectors and term lists for linear combinations.  Each
+  computes FST (add_lists xs ys) of the slot suffixes [i, length vs),
+  decoded and scaled by their factor, and of the lists.  The arithmetic
+  is on small integers: callers ensure that every coefficient sum and
+  product, and every variable, is below 2 ** 29. *)
+
+(* A slot suffix scaled by k, as a term list *)
+(* TMC *)
+Definition vterms_def:
+  vterms cs vs (i:num) (k:int) =
+  if smallnum_lt_vec i (length vs) vs then
+    let c = smallint_mul k (sub_unsafe cs i) in
+    let v = sub_unsafe vs i in
+    let t = (c,v) in
+      t :: vterms cs vs (smallnum_add_vec i 1 vs) k
+  else []
+Termination
+  WF_REL_TAC `measure (λ(cs,vs,i,k). length vs - i)` >>
+  rw[smallnum_lt_vec_def,smallnum_add_vec_def]
+End
+
+(* TMC *)
+Definition vmerge_def:
+  vmerge cs1 vs1 (i:num) (k1:int) cs2 vs2 (j:num) (k2:int) =
+  if smallnum_lt_vec i (length vs1) vs1 then
+    if smallnum_lt_vec j (length vs2) vs2 then
+      let x = sub_unsafe vs1 i in
+      let y = sub_unsafe vs2 j in
+      if smallnum_lt x y then
+        let c = smallint_mul k1 (sub_unsafe cs1 i) in
+        let t = (c,x) in
+          t :: vmerge cs1 vs1 (smallnum_add_vec i 1 vs1) k1 cs2 vs2 j k2
+      else if smallnum_lt y x then
+        let c = smallint_mul k2 (sub_unsafe cs2 j) in
+        let t = (c,y) in
+          t :: vmerge cs1 vs1 i k1 cs2 vs2 (smallnum_add_vec j 1 vs2) k2
+      else
+        let c = smallint_add (smallint_mul k1 (sub_unsafe cs1 i))
+                  (smallint_mul k2 (sub_unsafe cs2 j)) in
+        let i1 = smallnum_add_vec i 1 vs1 in
+        let j1 = smallnum_add_vec j 1 vs2 in
+        if smallint_eq c 0 then vmerge cs1 vs1 i1 k1 cs2 vs2 j1 k2
+        else
+          let t = (c,x) in
+            t :: vmerge cs1 vs1 i1 k1 cs2 vs2 j1 k2
+    else vterms cs1 vs1 i k1
+  else vterms cs2 vs2 j k2
+Termination
+  WF_REL_TAC `measure (λ(cs1,vs1,i,k1,cs2,vs2,j,k2).
+    (length vs1 - i) + (length vs2 - j))` >>
+  rw[smallnum_lt_vec_def,smallnum_add_vec_def,smallnum_lt_def]
+End
+
+(* TMC *)
+Definition lmerge_def:
+  lmerge (xs:(int # num) list) (ys:(int # num) list) =
+  case xs of
+    [] => ys
+  | (x::xr) =>
+    case ys of
+      [] => xs
+    | (y::yr) =>
+      let (cx,vx) = x in
+      let (cy,vy) = y in
+      if smallnum_lt vx vy then x :: lmerge xr ys
+      else if smallnum_lt vy vx then y :: lmerge xs yr
+      else
+        let c = smallint_add cx cy in
+        if smallint_eq c 0 then lmerge xr yr
+        else
+          let t = (c,vx) in
+            t :: lmerge xr yr
+Termination
+  WF_REL_TAC `measure (λ(xs,ys). LENGTH xs + LENGTH ys)`>>
+  simp[]
+End
+
+(* The sum of the absolute coefficients of a term list *)
+Definition abs_sum_def:
+  (abs_sum [] (acc:int) = acc) ∧
+  (abs_sum ((c:int,v:num)::l) acc =
+    abs_sum l (if smallint_lt c 0 then smallint_sub acc c
+               else smallint_add acc c))
+End
+
+(* TMC *)
+Definition lmerge_round_def:
+  (lmerge_round (x::y::xs) = let h = lmerge x y in h :: lmerge_round xs) ∧
+  (lmerge_round xs = xs)
+End
+
+Theorem lmerge_round_eq:
+  ∀xs. lmerge_round xs = bal_round lmerge xs
+Proof
+  ho_match_mp_tac lmerge_round_ind>>
+  rw[lmerge_round_def,bal_round_def]
+QED
+
+Definition bal_lmerge_def:
+  bal_lmerge xs =
+  case xs of
+    [] => []
+  | [x] => x
+  | _ => bal_lmerge (lmerge_round xs)
+Termination
+  WF_REL_TAC ‘measure LENGTH’>>
+  simp[lmerge_round_eq,bal_round_def,GSYM LESS_EQ_IFF_LESS_SUC,
+    LENGTH_bal_round]
+End
+
+Theorem bal_lmerge_eq:
+  ∀xs. bal_lmerge xs = bal lmerge [] xs
+Proof
+  ho_match_mp_tac bal_lmerge_ind>>
+  rpt strip_tac>>
+  ONCE_REWRITE_TAC[bal_lmerge_def,bal_def]>>
+  Cases_on`xs`>>simp[]>>
+  rename1`_::rest`>>
+  Cases_on`rest`>>gvs[lmerge_round_eq]
+QED
+
+(* The start index of an operand: a zero factor makes it empty *)
+Definition vstart_def:
+  vstart (vs:num vector) (k:num) = if k = 0 then length vs else 0
+End
+
+(* The first round over the stored operands of a linear combination *)
+(* TMC *)
+Definition lincomb_r1_def:
+  (lincomb_r1 ((s1,k1)::(s2,k2)::rest) =
+    let h =
+      (case s1 of
+        Stored cs1 vs1 d1 mc1 sm1 b1 =>
+        (case s2 of
+          Stored cs2 vs2 d2 mc2 sm2 b2 =>
+            vmerge cs1 vs1 (vstart vs1 k1) (&k1) cs2 vs2 (vstart vs2 k2) (&k2)
+        | _ => [])
+      | _ => []) in
+      h :: lincomb_r1 rest) ∧
+  (lincomb_r1 [(s,k)] =
+    case s of
+      Stored cs vs d mc sm b => [vterms cs vs (vstart vs k) (&k)]
+    | _ => [[]]) ∧
+  (lincomb_r1 [] = [])
+End
+
+(* The sum of k·sm and of k·d over the stored operands; NONE for an
+  empty cell or a factor of 2 ** 29 or more *)
+Definition lincomb_bound_def:
+  (lincomb_bound [] (g:num) (dd:int) = SOME (g,dd)) ∧
+  (lincomb_bound ((s,k:num)::rest) g dd =
+    case s of
+      Stored cs vs d mc sm b =>
+      if k < 536870912 then
+        lincomb_bound rest (g + k * sm) (dd + &k * d)
+      else NONE
+    | _ => NONE)
 End
 
 (* Ensures that the assignment has at least sz entries *)
@@ -160,13 +304,52 @@ Definition max_var_def:
   max_var ((i,n)::xs) = MAX n (max_var xs)
 End
 
-(* The sum and the largest of the absolute coefficients, and the largest
-  variable, in one pass *)
+(* The sum and the largest of the absolute coefficients, the largest
+  variable and the length, in one pass *)
 Definition sum_max_abs_def:
-  (sum_max_abs [] (s:num) (m:num) (mv:num) = (s,m,mv)) ∧
-  (sum_max_abs ((c:int,v:num)::l) s m mv =
+  (sum_max_abs [] (s:num) (m:num) (mv:num) (n:num) = (s,m,mv,n)) ∧
+  (sum_max_abs ((c:int,v:num)::l) s m mv n =
     let k = Num (ABS c) in
-    sum_max_abs l (s + k) (if m < k then k else m) (if mv < v then v else mv))
+    sum_max_abs l (s + k) (if m < k then k else m) (if mv < v then v else mv)
+      (n + 1))
+End
+
+(* Charge-free addition of term lists with known Σ|c| g and degree sum dd:
+  the degree drops by half of the decrease in Σ|c| *)
+Definition merge_degree_def:
+  merge_degree (dd:int) (g:int) (l:(int # num) list) =
+  dd - (g - abs_sum l 0) / 2
+End
+
+(* The linear combination as bal_add computes it on the decoded operands *)
+Definition lincomb_slow_def:
+  lincomb_slow sks (ncs:npbc list) =
+  bal_add (bal_add (MAP (λ(s,k). multiply (dec s) k) sks) :: ncs)
+End
+
+(* A linear combination: the stored operands sks (slot, factor) and the
+  evaluated nested parts ncs (already scaled), = lincomb_slow sks ncs.
+  A single stored operand is read from its vectors (its degree is k·d:
+  no addition, no charge).  With more, if every slot variable is below
+  vb ≤ 2 ** 29, every factor and Σ k·sm are below 2 ** 29, the stored
+  operands are merged from their vectors without the charge and the
+  degree follows from the Σ|c| identity; the nested parts are then added
+  by bal_add. *)
+Definition lincomb_eval_def:
+  lincomb_eval (vb:num) sks (ncs:npbc list) =
+  case sks of
+    [(Stored cs vs d mc sm b, k)] =>
+    if k < 536870912 ∧ k * sm < 536870912 then
+      bal_add ((vterms cs vs (vstart vs k) (&k), &k * d) :: ncs)
+    else lincomb_slow sks ncs
+  | _ =>
+    case (if vb ≤ 536870912 then lincomb_bound sks 0 0 else NONE) of
+      SOME (g,dd) =>
+      if g < 536870912 then
+        let l1 = bal_lmerge (lincomb_r1 sks) in
+          bal_add ((l1, merge_degree dd (&g) l1) :: ncs)
+      else lincomb_slow sks ncs
+    | NONE => lincomb_slow sks ncs
 End
 
 Definition terms_fst_def:
@@ -259,13 +442,6 @@ QED
 
 (* Interface *)
 
-Theorem wf_slot_enc[simp]:
-  wf_slot (enc c b)
-Proof
-  PairCases_on`c`>>
-  simp[enc_def,wf_slot_def,mlvectorTheory.length_def]
-QED
-
 Theorem enc_NOT_Empty[simp]:
   enc c b ≠ Empty
 Proof
@@ -293,10 +469,40 @@ Proof
     mlvectorTheory.sub_def,LIST_EQ_REWRITE,EL_MAP]
 QED
 
+Theorem dec_terms_MAP:
+  dec_terms (Vector (MAP FST l)) (Vector (MAP SND l)) (LENGTH l) [] = l
+Proof
+  simp[dec_terms_GENLIST,mlvectorTheory.sub_def,LIST_EQ_REWRITE,EL_MAP]
+QED
+
+Theorem wf_slot_enc[simp]:
+  wf_slot (enc c b)
+Proof
+  PairCases_on`c`>>
+  simp[enc_def,wf_slot_def,mlvectorTheory.length_def,dec_terms_MAP]
+QED
+
+(* The well-formed stored slots are exactly the encodings *)
+Theorem wf_slot_eq_enc:
+  wf_slot s ⇔ s = Empty ∨ s = enc (dec s) (core_slot s)
+Proof
+  eq_tac
+  >- (
+    namedCases_on`s`["","cs vs d mc sm b"]>>
+    rw[wf_slot_def,enc_def,dec_def,core_slot_def]>>
+    Cases_on`cs`>>Cases_on`vs`>>
+    gvs[dec_terms_GENLIST,mlvectorTheory.length_def,mlvectorTheory.sub_def,
+      LIST_EQ_REWRITE,EL_MAP])>>
+  rw[]>>
+  simp[wf_slot_def]>>
+  pop_assum SUBST1_TAC>>
+  simp[]
+QED
+
 Theorem sum_max_abs_thm:
-  ∀l s m mv.
-  sum_max_abs l s m mv =
-  (s + lslack l, MAX m (max_coeff l), MAX mv (max_var l))
+  ∀l s m mv n.
+  sum_max_abs l s m mv n =
+  (s + lslack l, MAX m (max_coeff l), MAX mv (max_var l), n + LENGTH l)
 Proof
   Induct>>
   simp[sum_max_abs_def,lslack_def,max_coeff_def,max_var_def,FORALL_PROD]>>
@@ -331,7 +537,7 @@ QED
 (* Encoding with one metadata pass and two maps for vector contents *)
 Theorem enc_thm:
   enc ((l,d):npbc) b =
-  let (s,mc,mv) = sum_max_abs l 0 0 0 in
+  let (s,mc,mv,n) = sum_max_abs l 0 0 0 0 in
   Stored (Vector (terms_fst l)) (Vector (terms_snd l)) d mc s b
 Proof
   simp[enc_def,sum_max_abs_thm,terms_fst_MAP,terms_snd_MAP]
@@ -440,36 +646,336 @@ Proof
   simp[max_var_def,FORALL_PROD]
 QED
 
-(* RUP *)
+(* Linear combinations *)
 
-Theorem dm_rel_FEMPTY_REPLICATE:
-  dm_rel FEMPTY (REPLICATE n 0) 1
+Theorem lmerge_eq:
+  ∀xs ys. lmerge xs ys = FST (add_lists xs ys)
 Proof
-  pure_rewrite_tac[dm_rel_def]>>
-  rw[any_el_ALT,EL_REPLICATE]
+  ho_match_mp_tac lmerge_ind>>
+  rpt strip_tac>>
+  simp[Once lmerge_def]>>
+  Cases_on`xs`>>Cases_on`ys`>>
+  simp[add_lists_def]>>
+  rename1`add_lists (x::xr) (y::yr)`>>
+  PairCases_on`x`>>PairCases_on`y`>>
+  gvs[add_lists_def,smallnum_lt_def,smallint_add_def,smallint_eq_def]>>
+  rw[UNCURRY,add_terms_def]
 QED
 
-Theorem dm_rel_imp_any_el:
-  dm_rel dm dml b ⇒
-  any_el n dml 0 < b+2
+Theorem vterms_eq:
+  ∀cs vs i k.
+  vterms cs vs i k =
+  GENLIST (λj. (k * sub cs (i + j), sub vs (i + j))) (length vs - i)
 Proof
-  rw[dm_rel_def]>>
-  first_x_assum(qspec_then`n` assume_tac)>>
-  Cases_on`FLOOKUP dm n`>>gvs[]
+  ho_match_mp_tac vterms_ind>>
+  rw[]>>
+  simp[Once vterms_def,smallnum_lt_vec_def,smallnum_add_vec_def,
+    smallint_mul_def]>>
+  rw[]
+  >- (
+    `length vs − i = SUC (length vs − (i + 1))` by decide_tac>>
+    pop_assum SUBST1_TAC>>
+    simp[GENLIST_CONS,combinTheory.o_DEF,ADD1])>>
+  `length vs − i = 0` by decide_tac>>
+  simp[]
 QED
 
-Theorem dm_rel_reset_dm_list:
-  dm_rel dm dml b ∧
-  reset_dm_list dml b sz = (dml',b') ⇒
-  dm_rel FEMPTY dml' b' ∧ sz ≤ LENGTH dml'
+Theorem vterms_cons:
+  i < length vs ⇒
+  vterms cs vs i k = (k * sub cs i, sub vs i)::vterms cs vs (i + 1) k
 Proof
-  rw[reset_dm_list_def]>>
-  fs[LENGTH_REPLICATE,dm_rel_FEMPTY_REPLICATE]>>
-  drule dm_rel_imp_any_el>>
-  rw[dm_rel_def]>>
-  qpat_x_assum`∀n. _`(qspec_then`n` assume_tac)>>
+  simp[Once vterms_def,smallnum_lt_vec_def,smallnum_add_vec_def,
+    smallint_mul_def]
+QED
+
+Theorem vterms_nil:
+  ¬(i < length vs) ⇒ vterms cs vs i k = []
+Proof
+  simp[Once vterms_def,smallnum_lt_vec_def]
+QED
+
+Theorem vmerge_eq:
+  ∀cs1 vs1 i k1 cs2 vs2 j k2.
+  vmerge cs1 vs1 i k1 cs2 vs2 j k2 =
+  lmerge (vterms cs1 vs1 i k1) (vterms cs2 vs2 j k2)
+Proof
+  ho_match_mp_tac vmerge_ind>>
+  rpt strip_tac>>
+  simp[Once vmerge_def,smallnum_lt_vec_def,smallnum_add_vec_def,
+    smallnum_lt_def,smallint_mul_def,smallint_add_def,smallint_eq_def]>>
+  rw[]>>
+  simp[vterms_cons,vterms_nil]>>
+  simp[SimpRHS,Once lmerge_def,smallnum_lt_def,smallint_add_def,
+    smallint_eq_def]
+QED
+
+Theorem abs_sum_eq:
+  ∀l acc. abs_sum l acc = acc + &lslack l
+Proof
+  Induct>>
+  simp[abs_sum_def,lslack_def,FORALL_PROD,smallint_lt_def,smallint_sub_def,
+    smallint_add_def]>>
+  rw[]>>
+  intLib.ARITH_TAC
+QED
+
+(* The scaled terms of a stored operand, read from its vectors *)
+Theorem vterms_multiply:
+  wf_slot (Stored cs vs d mc sm b) ⇒
+  vterms cs vs (vstart vs k) (&k) =
+  FST (multiply (dec (Stored cs vs d mc sm b)) k)
+Proof
+  rw[vterms_eq,vstart_def,multiply_def,dec_def,wf_slot_def,
+    dec_terms_GENLIST,MAP_GENLIST,combinTheory.o_DEF]>>
+  simp[Once integerTheory.INT_MUL_COMM]
+QED
+
+Theorem lincomb_r1_eq:
+  ∀sks.
+  EVERY (λ(s,k). wf_slot s ∧ s ≠ Empty) sks ⇒
+  lincomb_r1 sks =
+  bal_round lmerge (MAP (λ(s,k). FST (multiply (dec s) k)) sks)
+Proof
+  ho_match_mp_tac lincomb_r1_ind>>
+  rw[lincomb_r1_def,bal_round_def]
+  >- (
+    Cases_on`s1`>>Cases_on`s2`>>
+    gvs[vmerge_eq]>>
+    imp_res_tac vterms_multiply>>
+    simp[])>>
+  Cases_on`s`>>gvs[]>>
+  imp_res_tac vterms_multiply>>
+  simp[]
+QED
+
+(* Bounds on the merged lists: their sum of absolute coefficients is at
+  most their operands', and their variables are their operands' *)
+Theorem lmerge_lslack:
+  ∀xs ys. lslack (lmerge xs ys) ≤ lslack xs + lslack ys
+Proof
+  rpt gen_tac>>
+  simp[lmerge_eq]>>
+  Cases_on`add_lists xs ys`>>
+  drule add_lists_lslack>>
+  simp[]
+QED
+
+Theorem lmerge_vars:
+  ∀xs ys.
+  EVERY (λ(c,v). v < n) xs ∧ EVERY (λ(c,v). v < n) ys ⇒
+  EVERY (λ(c,v). v < n) (lmerge xs ys)
+Proof
+  ho_match_mp_tac lmerge_ind>>
+  rpt strip_tac>>
+  simp[Once lmerge_def]>>
+  Cases_on`xs`>>Cases_on`ys`>>gvs[]>>
+  rename1`x::lmerge xr (y::yr)`>>
+  PairCases_on`x`>>PairCases_on`y`>>
+  gvs[]>>
+  rw[]
+QED
+
+Theorem lmerge_round_lslack:
+  ∀L. SUM (MAP lslack (lmerge_round L)) ≤ SUM (MAP lslack L)
+Proof
+  ho_match_mp_tac lmerge_round_ind>>
+  rw[lmerge_round_def]>>
+  rename1`lmerge x y`>>
+  qspecl_then[`x`,`y`] assume_tac lmerge_lslack>>
   decide_tac
 QED
+
+Theorem lmerge_round_vars:
+  ∀L.
+  EVERY (EVERY (λ(c,v). v < n)) L ⇒
+  EVERY (EVERY (λ(c,v). v < n)) (lmerge_round L)
+Proof
+  ho_match_mp_tac lmerge_round_ind>>
+  rw[lmerge_round_def,lmerge_vars]
+QED
+
+Theorem bal_lmerge_lslack:
+  ∀L. lslack (bal_lmerge L) ≤ SUM (MAP lslack L)
+Proof
+  ho_match_mp_tac bal_lmerge_ind>>
+  rw[]>>
+  simp[Once bal_lmerge_def]>>
+  Cases_on`L`
+  >- simp[lslack_def]>>
+  rename1`_::rest`>>
+  Cases_on`rest`>>gvs[]>>
+  rename1`lmerge_round (x::y::zs)`>>
+  irule LESS_EQ_TRANS>>
+  first_x_assum (irule_at Any)>>
+  qspec_then`x::y::zs` mp_tac lmerge_round_lslack>>
+  simp[]
+QED
+
+Theorem bal_lmerge_vars:
+  ∀L.
+  EVERY (EVERY (λ(c,v). v < n)) L ⇒
+  EVERY (λ(c,v). v < n) (bal_lmerge L)
+Proof
+  ho_match_mp_tac bal_lmerge_ind>>
+  rw[]>>
+  simp[Once bal_lmerge_def]>>
+  Cases_on`L`>>gvs[]>>
+  rename1`_::rest`>>
+  Cases_on`rest`>>gvs[]>>
+  first_x_assum irule>>
+  irule lmerge_round_vars>>
+  simp[]
+QED
+
+Theorem slot_bound_multiply_vars:
+  wf_slot s ∧ slot_bound s n ⇒
+  EVERY (λ(c,v). v < n) (FST (multiply (dec s) k))
+Proof
+  Cases_on`s`>>
+  rw[dec_def,multiply_def,slot_bound_def,wf_slot_def,dec_terms_GENLIST,
+    EVERY_MAP,EVERY_GENLIST]
+QED
+
+Theorem lincomb_bound_sum:
+  ∀sks g dd g' dd'.
+  EVERY (λ(s,k). wf_slot s) sks ∧
+  lincomb_bound sks g dd = SOME (g',dd') ⇒
+  g' = g + SUM (MAP (λ(s,k). k * lslack (FST (dec s))) sks) ∧
+  EVERY (λ(s,k). s ≠ Empty ∧ k < 536870912) sks
+Proof
+  Induct>>
+  simp[lincomb_bound_def,FORALL_PROD]>>
+  qx_gen_tac`s`>>qx_gen_tac`k`>>
+  rpt gen_tac>>
+  namedCases_on`s`["","cs vs d mc sm b"]>>
+  simp[lincomb_bound_def]>>
+  rw[]>>
+  first_x_assum drule_all>>
+  strip_tac>>
+  `lslack (FST (dec (Stored cs vs d mc sm b))) = sm` by fs[wf_slot_def,dec_def]>>
+  simp[]
+QED
+
+(* The first round's lists: their sum of absolute coefficients is at most
+  that of the scaled operands, and their variables are the operands' *)
+Theorem lincomb_r1_bounds:
+  EVERY (λ(s,k). wf_slot s ∧ s ≠ Empty ∧ slot_bound s n) sks ⇒
+  SUM (MAP lslack (lincomb_r1 sks)) ≤
+    SUM (MAP (λ(s,k). k * lslack (FST (dec s))) sks) ∧
+  EVERY (EVERY (λ(c,v). v < n)) (lincomb_r1 sks)
+Proof
+  strip_tac>>
+  `EVERY (λ(s,k). wf_slot s ∧ s ≠ Empty) sks` by
+    (fs[EVERY_MEM,FORALL_PROD]>>metis_tac[])>>
+  simp[lincomb_r1_eq,GSYM lmerge_round_eq]>>
+  conj_tac
+  >- (
+    irule LESS_EQ_TRANS>>
+    irule_at Any lmerge_round_lslack>>
+    simp[MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD,lslack_multiply])>>
+  irule lmerge_round_vars>>
+  simp[EVERY_MAP]>>
+  irule EVERY_MONOTONIC>>
+  qpat_x_assum`EVERY (λ(s,k). _ ∧ _ ∧ slot_bound _ _) _` (irule_at Any)>>
+  simp[FORALL_PROD,slot_bound_multiply_vars]
+QED
+
+(* The sums that lincomb_bound accumulates: those of k·sm and of k·d, so
+  that twice the second less the first is the sum of 2·degree − Σ|c|
+  over the scaled operands *)
+Theorem lincomb_bound_SOME:
+  ∀sks g dd g' dd'.
+  EVERY (λ(s,k). wf_slot s) sks ∧
+  lincomb_bound sks g dd = SOME (g',dd') ⇒
+  EVERY (λ(s,k). s ≠ Empty) sks ∧
+  FOLDR (λc a. 2 * SND c - &lslack (FST c) + a) 0
+    (MAP (λ(s,k). multiply (dec s) k) sks) =
+  2 * (dd' - dd) - (&g' - &g)
+Proof
+  Induct>>
+  simp[lincomb_bound_def,FORALL_PROD]>>
+  qx_gen_tac`s`>>qx_gen_tac`k`>>
+  rpt gen_tac>>
+  namedCases_on`s`["","cs vs d mc sm b"]>>
+  simp[lincomb_bound_def]>>
+  rw[]>>
+  first_x_assum drule_all>>
+  strip_tac>>
+  simp[lslack_multiply]>>
+  `lslack (FST (dec (Stored cs vs d mc sm b))) = sm` by fs[wf_slot_def,dec_def]>>
+  `SND (multiply (dec (Stored cs vs d mc sm b)) k) = &k * d` by
+    rw[multiply_def,dec_def,integerTheory.INT_MUL_COMM]>>
+  simp[GSYM integerTheory.INT_ADD]>>
+  qabbrev_tac`kd = &k * d`>>
+  qabbrev_tac`ks = k * sm`>>
+  intLib.ARITH_TAC
+QED
+
+(* The terms of a balanced sum are the balanced merge of its operands' *)
+Theorem FST_bal_add:
+  ∀L. FST (bal_add L) = bal_lmerge (MAP FST L)
+Proof
+  gen_tac>>
+  `∀x y. FST (add x y) = lmerge (FST x) (FST y)` by (
+    Cases>>Cases>>
+    simp[add_def,lmerge_eq,UNCURRY])>>
+  drule bal_hom>>
+  simp[bal_add_eq,bal_lmerge_eq]
+QED
+
+(* Merging the stored operands from their vectors is their balanced sum,
+  with the degree from the Σ|c| identity *)
+Theorem lincomb_merge_eq:
+  EVERY (λ(s,k). wf_slot s) sks ∧
+  lincomb_bound sks 0 0 = SOME (g,dd) ⇒
+  bal_add (MAP (λ(s,k). multiply (dec s) k) sks) =
+  (bal_lmerge (lincomb_r1 sks),
+   merge_degree dd (&g) (bal_lmerge (lincomb_r1 sks)))
+Proof
+  strip_tac>>
+  drule_all lincomb_bound_SOME>>
+  strip_tac>>
+  `EVERY (λ(s,k). wf_slot s ∧ s ≠ Empty) sks` by
+    (fs[EVERY_MEM,FORALL_PROD]>>metis_tac[])>>
+  qabbrev_tac`L = MAP (λ(s,k). multiply (dec s) k) sks`>>
+  `FST (bal_add L) = bal_lmerge (lincomb_r1 sks)` by
+    simp[FST_bal_add,lincomb_r1_eq,bal_lmerge_eq,bal_bal_round,Abbr`L`,
+      MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD]>>
+  qspec_then`L` assume_tac bal_add_degree_lslack>>
+  Cases_on`bal_add L`>>
+  gvs[merge_degree_def,abs_sum_eq]>>
+  rename1`2 * r − &lslack l`>>
+  `&g − &lslack l = 2 * (dd − r)` by intLib.ARITH_TAC>>
+  simp[integerTheory.INT_DIV_LMUL]
+QED
+
+Theorem lincomb_eval_eq:
+  EVERY (λ(s,k). wf_slot s) sks ⇒
+  lincomb_eval vb sks ncs = lincomb_slow sks ncs
+Proof
+  strip_tac>>
+  `∀g dd.
+    lincomb_bound sks 0 0 = SOME (g,dd) ⇒
+    bal_add ((bal_lmerge (lincomb_r1 sks),
+      merge_degree dd (&g) (bal_lmerge (lincomb_r1 sks)))::ncs) =
+    lincomb_slow sks ncs` by (
+    rw[lincomb_slow_def]>>
+    drule_all lincomb_merge_eq>>
+    simp[])>>
+  simp[lincomb_eval_def]>>
+  rpt TOP_CASE_TAC>>
+  gvs[]>>
+  rename1`bal_add ((vterms cs vs (vstart vs k) (&k),&k * d)::ncs)`>>
+  imp_res_tac vterms_multiply>>
+  `∀x. bal_add [x] = x` by simp[Once bal_add_def]>>
+  simp[lincomb_slow_def]>>
+  simp[dec_def,multiply_def]>>
+  rw[]>>
+  `&k * d = d * &k` by simp[integerTheory.INT_MUL_COMM]>>
+  simp[]
+QED
+
+(* RUP *)
 
 Theorem dm_rel_grow_assg:
   dm_rel dm dml b ∧
@@ -482,25 +988,18 @@ Proof
   metis_tac[dm_rel_FEMPTY_REPLICATE]
 QED
 
-Theorem reset_dm_list_LENGTH:
-  reset_dm_list dml b sz = (dml',b') ⇒
-  LENGTH dml ≤ LENGTH dml'
-Proof
-  rw[reset_dm_list_def]>>
-  simp[]
-QED
-
-Theorem reset_dm_list_sz:
-  reset_dm_list dml b sz = (dml',b') ⇒
-  sz ≤ LENGTH dml'
-Proof
-  rw[reset_dm_list_def]>>
-  simp[]
-QED
-
 Theorem grow_assg_LENGTH:
   grow_assg dml b sz = (dml',b') ⇒
   sz ≤ LENGTH dml' ∧ LENGTH dml ≤ LENGTH dml'
+Proof
+  rw[grow_assg_def]>>
+  simp[]
+QED
+
+Theorem stamps_ok_grow_assg:
+  stamps_ok dml b ∧
+  grow_assg dml b sz = (dml',b') ⇒
+  stamps_ok dml' b'
 Proof
   rw[grow_assg_def]>>
   simp[]
@@ -514,6 +1013,37 @@ Proof
   rw[]>>
   res_tac>>
   gvs[]
+QED
+
+Theorem max_coeff_lslack:
+  ∀l. max_coeff l ≤ lslack l
+Proof
+  Induct>>
+  simp[max_coeff_def,lslack_def,FORALL_PROD]>>
+  fs[lslack_def]
+QED
+
+(* The metadata of a well-formed slot, read off its coefficient vector *)
+Theorem wf_slot_sm:
+  wf_slot (Stored cs vs d mc sm b) ⇒
+  sm = SUM (GENLIST (λj. Num (ABS (sub cs j))) (length cs)) ∧ mc ≤ sm
+Proof
+  rw[wf_slot_def,max_coeff_lslack]>>
+  simp[lslack_def,dec_terms_GENLIST,MAP_GENLIST,combinTheory.o_DEF]
+QED
+
+Theorem wf_slot_coeff:
+  wf_slot (Stored cs vs d mc sm b) ∧ j < length cs ⇒
+  Num (ABS (sub cs j)) ≤ mc ∧ mc ≤ sm
+Proof
+  strip_tac>>
+  drule wf_slot_sm>>
+  rw[]>>
+  gvs[wf_slot_def]>>
+  irule max_coeff_MEM>>
+  qexists_tac`sub vs j`>>
+  simp[dec_terms_GENLIST,MEM_GENLIST]>>
+  metis_tac[]
 QED
 
 Theorem rup_pass1_acc:
@@ -898,6 +1428,19 @@ Proof
   rw[Once rup_pass1_slot_def]
 QED
 
+(* The slack found is at most acc plus the absolute coefficients read *)
+Theorem rup_pass1_slot_le:
+  ∀i acc.
+    FST (rup_pass1_slot assg b cs vs lim i acc) ≤
+    acc + SUM (GENLIST (λj. Num (ABS (sub cs j))) i)
+Proof
+  Induct>>
+  rw[Once rup_pass1_slot_def,GENLIST,SUM_SNOC]>>
+  irule LESS_EQ_TRANS>>
+  first_x_assum (irule_at Any)>>
+  simp[]
+QED
+
 Theorem LENGTH_rup_pass2_slot:
   ∀i assg.
     LENGTH (FST (rup_pass2_slot assg b max cs vs l i)) = LENGTH assg
@@ -924,6 +1467,30 @@ Proof
   rpt (pairarg_tac>>gvs[])>>
   rw[]>>
   metis_tac[LENGTH_rup_pass2_slot,FST]
+QED
+
+(* The passes write only the stamp b and b + 1 *)
+Theorem stamps_ok_rup_pass2_slot:
+  ∀i assg.
+    stamps_ok assg b ⇒
+    stamps_ok (FST (rup_pass2_slot assg b max cs vs l i)) b
+Proof
+  Induct>>
+  rw[Once rup_pass2_slot_def]>>
+  first_x_assum irule>>
+  irule stamps_ok_LUPDATE>>
+  rw[]
+QED
+
+Theorem stamps_ok_update_assg_slot:
+  stamps_ok assg b ⇒
+  stamps_ok (FST (SND (update_assg_slot assg b s))) b
+Proof
+  Cases_on`s`>>
+  rw[update_assg_slot_def]>>
+  rpt (pairarg_tac>>gvs[])>>
+  rw[]>>
+  metis_tac[stamps_ok_rup_pass2_slot,FST]
 QED
 
 Theorem update_assg_slot_pre:
@@ -1882,7 +2449,7 @@ QED
 (* Encoding with the largest variable, from the same pass *)
 Definition enc_mv_def:
   enc_mv ((l,d):npbc) b =
-  let (s,mc,mv) = sum_max_abs l 0 0 0 in
+  let (s,mc,mv,n) = sum_max_abs l 0 0 0 0 in
   (Stored (Vector (terms_fst l)) (Vector (terms_snd l)) d mc s b, mv)
 End
 
@@ -1895,10 +2462,10 @@ QED
 
 (* The negation and its largest variable *)
 Definition neg_slot_def:
-  neg_slot ((l,n):npbc) b =
-  let (s,mc,mv) = sum_max_abs l 0 0 0 in
+  neg_slot ((l,d):npbc) b =
+  let (s,mc,mv,n) = sum_max_abs l 0 0 0 0 in
   (Stored (Vector (terms_neg_fst l)) (Vector (terms_snd l))
-    (&s + 1 - n) mc s b, mv)
+    (&s + 1 - d) mc s b, mv)
 End
 
 Theorem max_coeff_negate:
@@ -2055,8 +2622,11 @@ QED
 Theorem wf_slot_not_slot:
   wf_slot s ⇒ wf_slot (not_slot s b)
 Proof
-  Cases_on`s`>>
-  rw[not_slot_def,wf_slot_def,mlvectorTheory.length_def,LENGTH_neg_terms]
+  rw[]>>
+  `s = Empty ∨ s = enc (dec s) (core_slot s)` by fs[GSYM wf_slot_eq_enc]
+  >- simp[not_slot_def,wf_slot_def]>>
+  pop_assum SUBST1_TAC>>
+  simp[not_slot_enc]
 QED
 
 Theorem slot_bound_not_slot[simp]:
@@ -2071,7 +2641,7 @@ QED
 Definition neg_pos_slot_def:
   neg_pos_slot ((l,n):npbc) b1 b2 =
   let vs = Vector (terms_snd l) in
-  let (s,mc,mv) = sum_max_abs l 0 0 0 in
+  let (s,mc,mv,len) = sum_max_abs l 0 0 0 0 in
   (Stored (Vector (terms_fst l)) vs n mc s b1,
    Stored (Vector (terms_neg_fst l)) vs (&s + 1 - n) mc s b2,
    mv)

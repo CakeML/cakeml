@@ -3,7 +3,7 @@
 *)
 Theory npbc_list
 Ancestors
-  npbc_check npbc_slot
+  npbc_check npbc_slot ccnf_dm
 Libs
   preamble
 
@@ -23,56 +23,59 @@ Definition lookup_core_only_dec_def:
   | s => SOME (dec s)
 End
 
-Definition lookup_lincomb_list_def:
-  (lookup_lincomb_list b fml [] = SOME []) ∧
-  (lookup_lincomb_list b fml ((n,k)::ids) =
-    case lookup_core_only_dec b fml n of
-      NONE => NONE
-    | SOME c =>
-      case lookup_lincomb_list b fml ids of
+(* The stored operands of a linear combination, as slots with factors *)
+Definition lookup_lincomb_slots_def:
+  (lookup_lincomb_slots b fml [] = SOME []) ∧
+  (lookup_lincomb_slots b fml ((n,k:num)::ids) =
+    case lookup_core_only_list b fml n of
+      Empty => NONE
+    | s =>
+      case lookup_lincomb_slots b fml ids of
         NONE => NONE
-      | SOME cs => SOME (multiply c k :: cs))
+      | SOME sks => SOME ((s,k) :: sks))
 End
 
 (* TODO: optimize this using arrays instead of lists
   alternative:
     collapse all adds into one big list before normalizing
 *)
+(* vb is the length of the assignment, which bounds the variables of the
+  stored constraints; it selects only how a Lincomb is evaluated *)
 Definition check_cutting_list_def:
-  (check_cutting_list b (fml: slot list) (Id n) =
+  (check_cutting_list b (vb:num) (fml: slot list) (Id n) =
     lookup_core_only_dec b fml n) ∧
-  (check_cutting_list b fml (Add c1 c2) =
-    OPTION_MAP2 add (check_cutting_list b fml c1) (check_cutting_list b fml c2)) ∧
-  (check_cutting_list b fml (Mul c k) =
-       OPTION_MAP (λc. multiply c k) (check_cutting_list b fml c)) ∧
-  (check_cutting_list b fml (Div dty c k) =
+  (check_cutting_list b vb fml (Add c1 c2) =
+    OPTION_MAP2 add (check_cutting_list b vb fml c1) (check_cutting_list b vb fml c2)) ∧
+  (check_cutting_list b vb fml (Mul c k) =
+       OPTION_MAP (λc. multiply c k) (check_cutting_list b vb fml c)) ∧
+  (check_cutting_list b vb fml (Div dty c k) =
     if k ≠ 0 then
-      OPTION_MAP (λc. do_divide dty c k) (check_cutting_list b fml c)
+      OPTION_MAP (λc. do_divide dty c k) (check_cutting_list b vb fml c)
     else NONE) ∧
-  (check_cutting_list b fml (Minus c k) =
-       OPTION_MAP (λc. minus c k) (check_cutting_list b fml c)) ∧
-  (check_cutting_list b fml (Sat c) =
-    OPTION_MAP saturate (check_cutting_list b fml c)) ∧
-  (check_cutting_list b fml (Lit l) =
+  (check_cutting_list b vb fml (Minus c k) =
+       OPTION_MAP (λc. minus c k) (check_cutting_list b vb fml c)) ∧
+  (check_cutting_list b vb fml (Sat c) =
+    OPTION_MAP saturate (check_cutting_list b vb fml c)) ∧
+  (check_cutting_list b vb fml (Lit l) =
     case l of
       Pos v => SOME ([(1,v)],0)
     | Neg v => SOME ([(-1,v)],0)) ∧
-  (check_cutting_list b fml (Triv ls) = SOME (clean_triv ls)) ∧
-  (check_cutting_list b fml (Weak c var) =
-    OPTION_MAP (λc. weaken_sorted c var) (check_cutting_list b fml c)) ∧
-  (check_cutting_list b fml (Lincomb ids ns) =
-    case lookup_lincomb_list b fml ids of
+  (check_cutting_list b vb fml (Triv ls) = SOME (clean_triv ls)) ∧
+  (check_cutting_list b vb fml (Weak c var) =
+    OPTION_MAP (λc. weaken_sorted c var) (check_cutting_list b vb fml c)) ∧
+  (check_cutting_list b vb fml (Lincomb ids ns) =
+    case lookup_lincomb_slots b fml ids of
       NONE => NONE
-    | SOME ics =>
-      case check_cutting_list_nest b fml ns of
+    | SOME sks =>
+      case check_cutting_list_nest b vb fml ns of
         NONE => NONE
-      | SOME ncs => SOME (bal_add (bal_add ics :: ncs))) ∧
-  (check_cutting_list_nest b fml [] = SOME []) ∧
-  (check_cutting_list_nest b fml ((c,k)::ns) =
-    case check_cutting_list b fml c of
+      | SOME ncs => SOME (lincomb_eval vb sks ncs)) ∧
+  (check_cutting_list_nest b vb fml [] = SOME []) ∧
+  (check_cutting_list_nest b vb fml ((c,k)::ns) =
+    case check_cutting_list b vb fml c of
       NONE => NONE
     | SOME c =>
-      case check_cutting_list_nest b fml ns of
+      case check_cutting_list_nest b vb fml ns of
         NONE => NONE
       | SOME cs => SOME (multiply c k :: cs))
 End
@@ -208,7 +211,7 @@ Definition check_lstep_list_def:
       else
         NONE
   | Cutting constr =>
-    (case check_cutting_list b fml (to_triv constr) of
+    (case check_cutting_list b (LENGTH assg) fml (to_triv constr) of
       NONE => NONE
     | SOME c =>
       SOME (fml, SOME(c,b), id, assg, st))
@@ -582,6 +585,14 @@ Proof
   gvs[enc_opt_def]
 QED
 
+Theorem fml_rel_wf_slot:
+  fml_rel fml fmlls ⇒ wf_slot (any_el n fmlls Empty)
+Proof
+  rw[fml_rel_def]>>
+  Cases_on`lookup n fml`>>simp[enc_opt_def,wf_slot_def]>>
+  rename1`SOME p`>>PairCases_on`p`>>simp[enc_opt_def]
+QED
+
 Theorem fml_rel_lookup_core_only_dec:
   fml_rel fml fmlls ⇒
   lookup_core_only_dec b fmlls n = lookup_core_only b fml n
@@ -591,35 +602,64 @@ Proof
   simp[]
 QED
 
-Theorem fml_rel_lookup_lincomb:
+Theorem fml_rel_lookup_lincomb_slots:
   ∀ids.
   fml_rel fml fmlls ⇒
-  lookup_lincomb_list b fmlls ids = lookup_lincomb b fml ids
+  OPTION_MAP (MAP (λ(s,k). multiply (dec s) k))
+    (lookup_lincomb_slots b fmlls ids) = lookup_lincomb b fml ids
 Proof
   Induct>>
-  simp[FORALL_PROD,lookup_lincomb_list_def,lookup_lincomb_def]>>
+  simp[FORALL_PROD,lookup_lincomb_slots_def,lookup_lincomb_def]>>
   rw[]>>
   drule fml_rel_lookup_core_only_dec>>
-  simp[]
+  disch_then (simp o single o GSYM)>>
+  simp[lookup_core_only_dec_def]>>
+  TOP_CASE_TAC>>simp[]>>
+  gvs[]>>
+  Cases_on`lookup_lincomb_slots b fmlls ids`>>gvs[]>>
+  qpat_x_assum`SOME _ = lookup_lincomb _ _ _` (simp o single o GSYM)
+QED
+
+(* The looked-up slots are entries of the formula *)
+Theorem lookup_lincomb_slots_EVERY:
+  ∀ids sks.
+  (∀n. P (any_el n fmlls Empty)) ∧
+  lookup_lincomb_slots b fmlls ids = SOME sks ⇒
+  EVERY (λ(s,k). P s) sks
+Proof
+  Induct>>
+  simp[lookup_lincomb_slots_def,FORALL_PROD,AllCaseEqs()]>>
+  rw[]>>
+  gvs[]>>
+  qpat_x_assum`lookup_core_only_list _ _ _ = _` mp_tac>>
+  rw[lookup_core_only_list_def]>>
+  metis_tac[]
 QED
 
 Theorem fml_rel_check_cutting_mutual[local]:
-  (∀b fmlls p.
+  (∀b vb fmlls p.
     fml_rel fml fmlls ⇒
-    check_cutting_list b fmlls p = check_cutting b fml p) ∧
-  (∀b fmlls ns.
+    check_cutting_list b vb fmlls p = check_cutting b fml p) ∧
+  (∀b vb fmlls ns.
     fml_rel fml fmlls ⇒
-    check_cutting_list_nest b fmlls ns = check_cutting_nest b fml ns)
+    check_cutting_list_nest b vb fmlls ns = check_cutting_nest b fml ns)
 Proof
   ho_match_mp_tac check_cutting_list_ind>>
   rw[check_cutting_list_def,check_cutting_def]
   >~[`lookup_core_only_dec`]
   >- metis_tac[fml_rel_lookup_core_only_dec]
-  >~[`lookup_lincomb_list`]
+  >~[`lookup_lincomb_slots`]
   >- (
-    drule_then assume_tac fml_rel_lookup_lincomb>>
-    gvs[]>>
-    TOP_CASE_TAC>>gvs[])
+    drule_then (qspecl_then [`b`,`ids`] assume_tac)
+      fml_rel_lookup_lincomb_slots>>
+    Cases_on`lookup_lincomb_slots b fmlls ids`>>gvs[]>>
+    rename1`lookup_lincomb_slots _ _ _ = SOME sks`>>
+    qpat_x_assum`SOME _ = lookup_lincomb _ _ _` (simp o single o GSYM)>>
+    `EVERY (λ(s,k). wf_slot s) sks` by (
+      irule lookup_lincomb_slots_EVERY>>
+      metis_tac[fml_rel_wf_slot])>>
+    TOP_CASE_TAC>>
+    simp[lincomb_eval_eq,lincomb_slow_def])
   >~[`multiply`]
   >- (TOP_CASE_TAC>>gvs[])
 QED
@@ -627,7 +667,7 @@ QED
 Theorem fml_rel_check_cutting:
   ∀p.
   fml_rel fml fmlls ⇒
-  check_cutting_list b fmlls p = check_cutting b fml p
+  check_cutting_list b vb fmlls p = check_cutting b fml p
 Proof
   metis_tac[fml_rel_check_cutting_mutual]
 QED
@@ -3816,14 +3856,6 @@ Proof
   EVAL_TAC
 QED
 
-Theorem fml_rel_wf_slot:
-  fml_rel fml fmlls ⇒ wf_slot (any_el n fmlls Empty)
-Proof
-  rw[fml_rel_def]>>
-  Cases_on`lookup n fml`>>simp[enc_opt_def,wf_slot_def]>>
-  rename1`SOME p`>>PairCases_on`p`>>simp[enc_opt_def]
-QED
-
 Theorem MEM_dec_Stored:
   length cs = length vs ⇒
   (MEM (c,x) (FST (dec (Stored cs vs d mc sm b))) ⇔
@@ -5482,28 +5514,33 @@ Definition check_change_pres_list_def:
     else NONE
 End
 
-(* The bound on the assignment: every variable of every stored constraint
-  stays below its length, which the unchecked reads of the RUP passes
-  rely on *)
+(* The invariants of the assignment between steps, which the unchecked
+  operations of the RUP passes rely on: every variable of every stored
+  constraint stays below its length, and the stamps stay bounded
+  (stamps_ok) *)
 
 Theorem fml_bound_store_slot:
   fml_bound fmlls (LENGTH assg) ∧ slot_bound s (mv + 1) ∧
   store_slot fmlls s mv id assg st = (fmlls',id',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
 Proof
   rpt strip_tac>>
   gvs[store_slot_def]>>
   pairarg_tac>>gvs[]>>
   drule grow_assg_LENGTH>>
-  rw[]>>
-  irule bound_update_resize>>
-  metis_tac[bound_mono,slot_bound_mono]
+  rw[]
+  >- (
+    irule bound_update_resize>>
+    metis_tac[bound_mono,slot_bound_mono])>>
+  metis_tac[stamps_ok_grow_assg]
 QED
 
 Theorem fml_bound_opt_update:
   fml_bound fmlls (LENGTH assg) ∧
   opt_update fmlls c id assg st = (fmlls',id',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
 Proof
   Cases_on`c`
   >- (rw[]>>gvs[])>>
@@ -5538,8 +5575,33 @@ Proof
   rpt (pairarg_tac>>gvs[])>>
   imp_res_tac check_rup_loop_list_LENGTH>>
   imp_res_tac reset_dm_list_LENGTH>>
-  imp_res_tac reset_dm_list_sz>>
   simp[]
+QED
+
+Theorem stamps_ok_check_rup_loop_list:
+  ∀ns assg res assg' pre.
+  stamps_ok assg st ∧
+  check_rup_loop_list b nc fmlls assg st ns = (res,assg',pre) ⇒
+  stamps_ok assg' st
+Proof
+  Induct>>
+  simp[check_rup_loop_list_def]>>
+  rpt gen_tac>>
+  TOP_CASE_TAC>>
+  simp[]>>
+  rpt (pairarg_tac>>simp[])>>
+  rw[]>>
+  metis_tac[stamps_ok_update_assg_slot,FST,SND]
+QED
+
+Theorem stamps_ok_check_rup_list:
+  stamps_ok assg st ∧
+  check_rup_list b nc sz fmlls assg st ns = (res,assg',st',pre) ⇒
+  stamps_ok assg' st'
+Proof
+  rw[check_rup_list_def]>>
+  rpt (pairarg_tac>>gvs[])>>
+  metis_tac[stamps_ok_reset_dm_list,stamps_ok_check_rup_loop_list]
 QED
 
 Theorem check_rup_loop_list_pre:
@@ -5583,7 +5645,6 @@ Proof
   drule_at (Pos last) check_rup_loop_list_pre>>
   disch_then irule>>
   imp_res_tac reset_dm_list_LENGTH>>
-  imp_res_tac reset_dm_list_sz>>
   metis_tac[bound_mono,slot_bound_mono]
 QED
 
@@ -5592,12 +5653,14 @@ Theorem fml_bound_check_lstep_list:
     fml_bound fmlls (LENGTH assg) ∧
     check_lstep_list lstep b fmlls mindel id assg st =
       SOME (fmlls',c,id',assg',st') ⇒
-    fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg') ∧
+    fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+    (stamps_ok assg st ⇒ stamps_ok assg' st')) ∧
   (∀lsteps b fmlls mindel id assg st fmlls' id' assg' st'.
     fml_bound fmlls (LENGTH assg) ∧
     check_lsteps_list lsteps b fmlls mindel id assg st =
       SOME (fmlls',id',assg',st') ⇒
-    fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg')
+    fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+    (stamps_ok assg st ⇒ stamps_ok assg' st'))
 Proof
   ho_match_mp_tac check_lstep_list_ind>>
   rpt conj_tac>>
@@ -5616,7 +5679,7 @@ Proof
     >~ [`check_rup_list`]
     >- (
       drule check_rup_list_LENGTH>>
-      metis_tac[bound_mono])>>
+      metis_tac[bound_mono,stamps_ok_check_rup_list])>>
     drule_all fml_bound_opt_update>>
     strip_tac>>
     first_x_assum drule_all>>
@@ -5636,7 +5699,8 @@ Theorem fml_bound_list_insert_fml_list:
   ∀cs b id fmlls assg st id' fmlls' assg' st'.
   fml_bound fmlls (LENGTH assg) ∧
   list_insert_fml_list cs b id fmlls assg st = (id',fmlls',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
 Proof
   Induct>>
   simp[list_insert_fml_list_def]>>
@@ -5654,7 +5718,8 @@ Theorem fml_bound_check_subproofs_list:
   fml_bound fmlls (LENGTH assg) ∧
   check_subproofs_list pfs b fmlls mindel id assg st =
     SOME (fmlls',id',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
 Proof
   ho_match_mp_tac check_subproofs_list_ind>>
   simp[check_subproofs_list_def]>>
@@ -5671,7 +5736,8 @@ Theorem fml_bound_list_insert_sc_list:
   ∀cs b id fmlls assg st id' fmlls' assg' st'.
   fml_bound fmlls (LENGTH assg) ∧ EVERY sc_hyp_ok cs ∧
   list_insert_sc_list cs b id fmlls assg st = (id',fmlls',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
 Proof
   rpt strip_tac>>
   gvs[list_insert_sc_list_eq]>>
@@ -5684,7 +5750,8 @@ Theorem fml_bound_check_scopes_list:
   fml_bound fmlls (LENGTH assg) ∧ scopes_ok pfs ∧
   check_scopes_list pfs b fmlls mindel id assg st =
     SOME (fmlls',id',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
 Proof
   ho_match_mp_tac check_scopes_list_ind>>
   simp[check_scopes_list_def,scopes_ok_def]>>
@@ -5701,7 +5768,8 @@ Theorem fml_bound_check_red_list_fast:
   fml_bound fmlls (LENGTH assg) ∧ slot_bound fc (mv + 1) ∧
   check_red_list_fast b fmlls inds id fc mv pf cid vimap assg st ht =
     SOME (fmlls',inds',vimap',id',assg',st',ht') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
 Proof
   strip_tac>>
   gvs[check_red_list_fast_def]>>
@@ -5719,7 +5787,8 @@ Theorem fml_bound_check_red_list:
   check_red_list pres ord po obj b tcb fmlls inds id fc mv s pfs idopt
     vimap vomap assg st ht =
     SOME (fmlls',inds',vimap',id',assg',st',ht') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
 Proof
   strip_tac>>
   gvs[check_red_list_def,AllCaseEqs()]
@@ -5788,7 +5857,7 @@ Theorem check_spec_aux_list_LENGTH:
   ∀gs fmlls inds vimap id assg st ht.
   fml_bound fmlls (LENGTH assg) ∧
   check_spec_aux_list as fmlls inds id gs vimap assg st ht = SOME (assg',st') ⇒
-  LENGTH assg ≤ LENGTH assg'
+  LENGTH assg ≤ LENGTH assg' ∧ (stamps_ok assg st ⇒ stamps_ok assg' st')
 Proof
   Induct>>
   rw[check_spec_aux_list_def]>>
@@ -5803,14 +5872,16 @@ Proof
   drule_all fml_bound_opt_update>>
   strip_tac>>
   first_x_assum drule_all>>
-  simp[]
+  strip_tac>>
+  simp[]>>
+  metis_tac[]
 QED
 
 (* The largest variable of the specification's constraints, at least mv *)
 Definition spec_max_var_def:
   (spec_max_var ([]:specproof) mv = mv:num) ∧
   (spec_max_var ((c,rest)::gs) mv =
-    let (s,m,mv') = sum_max_abs (FST c) 0 0 mv in
+    let (s,m,mv',n) = sum_max_abs (FST c) 0 0 mv 0 in
     spec_max_var gs mv')
 End
 
@@ -5848,10 +5919,11 @@ QED
 
 Theorem check_spec_list_LENGTH:
   check_spec_list vars gs assg st = SOME (asv,assg',st') ⇒
-  LENGTH assg ≤ LENGTH assg'
+  LENGTH assg ≤ LENGTH assg' ∧ (stamps_ok assg st ⇒ stamps_ok assg' st')
 Proof
   PairCases_on`vars`>>
-  rw[check_spec_list_def,AllCaseEqs()]>>
+  simp[check_spec_list_def,AllCaseEqs()]>>
+  strip_tac>>gvs[]>>
   drule_at (Pos last) check_spec_aux_list_LENGTH>>
   disch_then irule>>
   simp[fml_bound_def,any_el_ALT]>>
@@ -7113,7 +7185,8 @@ Theorem fml_bound_store_ind:
   fml_bound fmlls (LENGTH assg) ∧ slot_bound s (mv + 1) ∧
   store_ind fmlls s mv id inds assg st =
     (fmlls',inds',id',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
 Proof
   strip_tac>>
   gvs[store_ind_def]>>
@@ -7126,7 +7199,8 @@ Theorem fml_bound_opt_update_inds:
   fml_bound fmlls (LENGTH assg) ∧
   opt_update_inds fmlls c id inds assg st =
     (fmlls',inds',id',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
 Proof
   Cases_on`c`
   >- (rw[opt_update_inds_def]>>gvs[opt_update_inds_def])>>
@@ -7143,7 +7217,8 @@ Theorem fml_bound_check_sstep_list:
   check_sstep_list sstep pres ord po obj tcb fmlls inds id vimap vomap assg st
     ht =
     SOME (fmlls',inds',vimap',id',assg',st',ht') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
 Proof
   strip_tac>>
   gvs[check_sstep_list_def,AllCaseEqs()]
@@ -7166,7 +7241,8 @@ Theorem fml_bound_check_change_obj_list:
   fml_bound fmlls (LENGTH assg) ∧
   check_change_obj_list b fmlls id obj fc' pfs assg st =
     SOME (fmlls',fc'',id',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
 Proof
   rw[check_change_obj_list_def,AllCaseEqs()]>>
   imp_res_tac fml_bound_check_subproofs_list>>
@@ -7177,7 +7253,8 @@ Theorem fml_bound_check_change_pres_list:
   fml_bound fmlls (LENGTH assg) ∧
   check_change_pres_list b fmlls id pres v c pfs assg st =
     SOME (fmlls',pres',id',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
 Proof
   rw[check_change_pres_list_def,AllCaseEqs()]>>
   imp_res_tac fml_bound_check_subproofs_list>>
@@ -7212,6 +7289,7 @@ Theorem fml_bound_check_cstep_list:
   check_cstep_list cstep fmlls assg st inds vimap id (pc,vomap,cw,po) ht =
     SOME (fmlls',assg',st',inds',vimap',id',(pc',vomap',cw',po'),ht') ⇒
   fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st') ∧
   po' = mk_ord_pre pc'.ord
 Proof
   Cases_on`cstep`>>

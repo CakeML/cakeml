@@ -291,6 +291,94 @@ Proof
   Cases_on`rest`>>gvs[bal_add_round_eq]
 QED
 
+Theorem bal_bal_round:
+  bal f e (bal_round f xs) = bal f e xs
+Proof
+  Cases_on`xs`>>simp[bal_round_def]>>
+  rename1`_::rest`>>
+  Cases_on`rest`>>simp[bal_round_def]>>
+  simp[SimpRHS,Once bal_def,bal_round_def]
+QED
+
+Theorem MAP_bal_round:
+  ∀f xs.
+  (∀x y. h (f x y) = g (h x) (h y)) ⇒
+  MAP h (bal_round f xs) = bal_round g (MAP h xs)
+Proof
+  ho_match_mp_tac bal_round_ind>>
+  rw[bal_round_def]
+QED
+
+Theorem FOLDR_bal_round:
+  ∀f xs.
+  (∀x y z. f x (f y z) = f (f x y) z) ⇒
+  FOLDR f e (bal_round f xs) = FOLDR f e xs
+Proof
+  ho_match_mp_tac bal_round_ind>>
+  rw[bal_round_def]
+QED
+
+(* A map that turns f into g commutes with the balanced combination *)
+Theorem bal_hom:
+  (∀x y. h (f x y) = g (h x) (h y)) ⇒
+  ∀e xs. h (bal f e xs) = bal g (h e) (MAP h xs)
+Proof
+  strip_tac>>
+  gen_tac>>
+  completeInduct_on`LENGTH xs`>>
+  rw[]>>
+  ONCE_REWRITE_TAC[bal_def]>>
+  Cases_on`xs`>>simp[]>>
+  rename1`x::rest`>>
+  Cases_on`rest`>>simp[]>>
+  rename1`x::y::t`>>
+  first_x_assum (qspec_then`LENGTH (bal_round f (x::y::t))` mp_tac)>>
+  impl_tac >- (irule (CONJUNCT2 (SPEC_ALL LENGTH_bal_round))>>simp[])>>
+  disch_then (qspec_then`bal_round f (x::y::t)` mp_tac)>>
+  drule MAP_bal_round>>
+  simp[]
+QED
+
+(* For an associative f with right unit e, the balanced combination is
+  the fold *)
+Theorem bal_FOLDR:
+  (∀x y z. f x (f y z) = f (f x y) z) ∧ (∀x. f x e = x) ⇒
+  ∀xs. bal f e xs = FOLDR f e xs
+Proof
+  strip_tac>>
+  completeInduct_on`LENGTH xs`>>
+  rw[]>>
+  ONCE_REWRITE_TAC[bal_def]>>
+  Cases_on`xs`>>simp[]>>
+  rename1`x::rest`>>
+  Cases_on`rest`>>simp[]>>
+  rename1`x::y::t`>>
+  first_x_assum (qspec_then`LENGTH (bal_round f (x::y::t))` mp_tac)>>
+  impl_tac >- (irule (CONJUNCT2 (SPEC_ALL LENGTH_bal_round))>>simp[])>>
+  disch_then (qspec_then`bal_round f (x::y::t)` mp_tac)>>
+  drule FOLDR_bal_round>>
+  simp[]
+QED
+
+(* Twice the degree less the sum of the absolute coefficients of a
+  balanced sum is the sum of those of its operands (add_degree_lslack) *)
+Theorem bal_add_degree_lslack:
+  ∀L.
+  2 * SND (bal_add L) - &lslack (FST (bal_add L)) =
+  FOLDR (λc a. 2 * SND c - &lslack (FST c) + a) 0 L
+Proof
+  gen_tac>>
+  qabbrev_tac`h = λc:npbc. 2 * SND c - &lslack (FST c)`>>
+  `∀x y. h (add x y) = h x + h y` by simp[Abbr`h`,add_degree_lslack]>>
+  drule bal_hom>>
+  disch_then (qspecl_then [`([],0)`,`L`] mp_tac)>>
+  `h ([],0) = 0` by simp[Abbr`h`,lslack_def]>>
+  `bal $+ 0 (MAP h L) = FOLDR $+ 0 (MAP h L)` by (
+    irule bal_FOLDR>>
+    simp[integerTheory.INT_ADD_ASSOC])>>
+  simp[GSYM bal_add_eq,FOLDR_MAP]
+QED
+
 (* The IDs' constraints, each scaled by its factor *)
 Definition lookup_lincomb_def:
   (lookup_lincomb b fml [] = SOME []) ∧

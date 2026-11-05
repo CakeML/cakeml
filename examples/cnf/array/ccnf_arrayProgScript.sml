@@ -4,7 +4,7 @@
 Theory ccnf_arrayProg
 Ancestors
   UnsafeProg UnsafeProof
-  ccnf ccnf_list mlint syntax_helper ccnf_arith
+  ccnf ccnf_list ccnf_dm mlint syntax_helper ccnf_arith
 Libs
   preamble basis blastLib
 

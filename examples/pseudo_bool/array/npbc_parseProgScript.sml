@@ -2410,7 +2410,7 @@ Theorem check_unsat''_spec:
   fns_TYPE a fns fnsv ∧
   NUM lno lnov ∧
   LIST_REL fslot_TYPE fmlls fmllsv ∧
-  fml_bound fmlls (LENGTH assg) ∧
+  fml_bound fmlls (LENGTH assg) ∧ stamps_ok assg st ∧
   NUM st stv ∧
   (LIST_TYPE NUM) inds indsv ∧
   VIMAP_TYPE vimaplsv vimapa vimap vimapv ∧
@@ -3156,6 +3156,7 @@ Proof
           `lno`]>>
         xsimpl>>
         conj_tac >- simp[init_conf_def,npbc_listTheory.mk_ord_pre_def]>>
+        conj_tac >- simp[Abbr`assg`,ccnf_dmTheory.stamps_ok_REPLICATE]>>
         conj_tac >- (
           simp[PAIR_TYPE_def,Abbr`vomap`]>>
           simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def,
@@ -3169,7 +3170,7 @@ Proof
           simp[ht_TYPE_def,npbc_slotTheory.ht_empty_def,PAIR_TYPE_def]>>
           simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])>>
         conj_tac >- (
-          simp[npbc_arrayProgTheory.NUM_ARRAY_def,Abbr`assg`]>>
+          simp[ccnf_arithTheory.NUM_ARRAY_def,Abbr`assg`]>>
           xsimpl>>
           simp[LIST_REL_REPLICATE_same]>>
           EVAL_TAC)>>
@@ -3228,6 +3229,7 @@ Proof
         `lno`]>>
       xsimpl>>
       conj_tac >- simp[init_conf_def,npbc_listTheory.mk_ord_pre_def]>>
+      conj_tac >- simp[Abbr`assg`,ccnf_dmTheory.stamps_ok_REPLICATE]>>
       conj_tac >- (
         simp[PAIR_TYPE_def,Abbr`vomap`]>>
         simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def,
@@ -3241,7 +3243,7 @@ Proof
         simp[ht_TYPE_def,npbc_slotTheory.ht_empty_def,PAIR_TYPE_def]>>
         simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])>>
       conj_tac >- (
-        simp[npbc_arrayProgTheory.NUM_ARRAY_def,Abbr`assg`]>>
+        simp[ccnf_arithTheory.NUM_ARRAY_def,Abbr`assg`]>>
         xsimpl>>
         simp[LIST_REL_REPLICATE_same]>>
         EVAL_TAC)>>
@@ -3321,12 +3323,12 @@ Proof
         drule_at (Pos (el 4)) npbc_listTheory.check_csteps_list_concl>>
         disch_then irule>>
         simp[]>>
-        metis_tac[npbc_slotTheory.dm_rel_FEMPTY_REPLICATE])>>
+        metis_tac[ccnf_dmTheory.dm_rel_FEMPTY_REPLICATE])>>
       simp[get_bound_def]>>
       drule_at (Pos (el 4)) npbc_listTheory.check_csteps_list_output>>
       disch_then irule>>
       simp[]>>
-      metis_tac[npbc_slotTheory.dm_rel_FEMPTY_REPLICATE])>>
+      metis_tac[ccnf_dmTheory.dm_rel_FEMPTY_REPLICATE])>>
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
   xsimpl
 QED

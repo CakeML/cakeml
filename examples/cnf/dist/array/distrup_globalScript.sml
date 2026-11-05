@@ -323,7 +323,7 @@ Proof
     gvs[flookup_thm] >>
     rw[] >>
     simp[ccnf_listTheory.fml_rel_REPLICATE_vcc_none] >>
-    irule_at Any ccnf_listTheory.dm_rel_FEMPTY_REPLICATE)>>
+    irule_at Any ccnf_dmTheory.dm_rel_FEMPTY_REPLICATE)>>
   drule_all state_rel_reduce >>
   rw[] >>
   first_assum $ irule_at $ Pos last >>

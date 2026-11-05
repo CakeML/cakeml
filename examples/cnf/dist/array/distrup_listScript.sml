@@ -3,7 +3,7 @@
 *)
 Theory distrup_list
 Ancestors
-  cnf ccnf distrup ccnf_list
+  cnf ccnf distrup ccnf_list ccnf_dm
 Libs
   preamble
 

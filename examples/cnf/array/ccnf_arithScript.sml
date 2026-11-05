@@ -20,6 +20,65 @@ Proof
   xsimpl
 QED
 
+Theorem NUM_ARRAY_alloc_spec:
+  ∀n nv x v.
+  NUM n nv ∧ NUM x v ⇒
+  app (p:'ffi ffi_proj) Array_array_v
+    [nv; v]
+    emp (POSTv av. NUM_ARRAY av (REPLICATE n x))
+Proof
+  rw[NUM_ARRAY_def]>>
+  xapp_spec ArrayProofTheory.array_alloc_spec>>xsimpl>>
+  qexists_tac`n`>>
+  simp[LIST_REL_REPLICATE_same]
+QED
+
+Theorem NUM_ARRAY_length_spec:
+  ∀xs av.
+  app (p:'ffi ffi_proj) Array_length_v
+    [av]
+    (NUM_ARRAY av xs)
+    (POSTv v. &NUM (LENGTH xs) v * NUM_ARRAY av xs)
+Proof
+  rw[NUM_ARRAY_def]>>
+  xpull>>
+  xapp_spec ArrayProofTheory.array_length_spec>>xsimpl>>
+  imp_res_tac LIST_REL_LENGTH>>
+  simp[]
+QED
+
+Theorem NUM_ARRAY_unsafe_sub_spec:
+  ∀xs av n nv.
+  NUM n nv ∧ n < LENGTH xs ⇒
+  app (p:'ffi ffi_proj) Unsafe_sub_v
+    [av; nv]
+    (NUM_ARRAY av xs)
+    (POSTv v. &NUM (EL n xs) v * NUM_ARRAY av xs)
+Proof
+  rw[NUM_ARRAY_def]>>
+  xpull>>
+  imp_res_tac LIST_REL_LENGTH>>
+  xapp_spec unsafe_array_sub_spec>>xsimpl>>
+  qexists_tac`n`>>
+  gvs[LIST_REL_EL_EQN]
+QED
+
+Theorem NUM_ARRAY_unsafe_update_spec:
+  ∀xs av n nv x v.
+  NUM n nv ∧ n < LENGTH xs ∧ NUM x v ⇒
+  app (p:'ffi ffi_proj) Unsafe_update_v
+    [av; nv; v]
+    (NUM_ARRAY av xs)
+    (POSTv uv. &UNIT_TYPE () uv * NUM_ARRAY av (LUPDATE x n xs))
+Proof
+  rw[NUM_ARRAY_def]>>
+  xpull>>
+  imp_res_tac LIST_REL_LENGTH>>
+  xapp_spec unsafe_array_update_spec>>xsimpl>>
+  qexists_tac`n`>>
+  simp[EVERY2_LUPDATE_same]
+QED
+
 Theorem index_witness_num_array:
   index_witness_heap p (NUM_ARRAY av ls) av (256 * LENGTH ls)
 Proof

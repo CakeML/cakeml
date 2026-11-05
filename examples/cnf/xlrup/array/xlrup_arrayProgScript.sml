@@ -4,7 +4,8 @@
 Theory xlrup_arrayProg
 Ancestors
   misc mllist UnsafeProof ccnf_arith ccnf_arrayProg ccnf_parseProg cnf ccnf
-  ccnf_list syntax_helper xor xor_list xlrup_cnf xlrup xlrup_list xlrup_parsing
+  ccnf_list ccnf_dm syntax_helper xor xor_list xlrup_cnf xlrup xlrup_list
+  xlrup_parsing
   mlint mlvector sptree
 Libs
   preamble basis blastLib

@@ -3,7 +3,7 @@
 *)
 Theory lrup_list
 Ancestors
-  cnf ccnf lrup ccnf_list mlstring mlvector
+  cnf ccnf lrup ccnf_list ccnf_dm mlstring mlvector
 Libs
   preamble
 
