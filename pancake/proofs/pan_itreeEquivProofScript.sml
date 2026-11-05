@@ -294,30 +294,11 @@ Proof
   >~ [‘Case (Assign _ _ _)’]
   >- (Cases_on ‘eval s e’>>gvs[]>>
       Cases_on ‘v’>>gvs[AllCaseEqs()])
-  >~ [‘Case (Primitive _ _ _)’]
-  >- (Cases_on ‘OPT_MMAP (eval s) l’>>gvs[]>>
-      Cases_on ‘pan_primop p' x’>>gvs[AllCaseEqs()])
-  >~ [‘Case (Store _ _)’]
-  >- (Cases_on ‘eval s e’>>gvs[]>>
-      Cases_on ‘x’>>gvs[]>>Cases_on ‘w’>>gvs[]>>
-      Cases_on ‘eval s e0’>>gvs[AllCaseEqs()])
-  >~ [‘Case (Store32 _ _)’]
-  >- (Cases_on ‘eval s e’>>gvs[]>>
-      Cases_on ‘x’>>gvs[]>>Cases_on ‘w’>>gvs[]>>
-      Cases_on ‘eval s e0’>>gvs[]>>
-      Cases_on ‘x’>>gvs[]>>Cases_on ‘w’>>gvs[AllCaseEqs()])
-  >~ [‘Case (StoreByte _ _)’]
-  >- (Cases_on ‘eval s e’>>gvs[]>>
-      Cases_on ‘x’>>gvs[]>>Cases_on ‘w’>>gvs[]>>
-      Cases_on ‘eval s e0’>>gvs[]>>
-      Cases_on ‘x’>>gvs[]>>Cases_on ‘w’>>gvs[AllCaseEqs()])
-  >~ [‘Case (Return _)’]
-  >- (Cases_on ‘eval s e’>>gvs[AllCaseEqs()])
   >~ [‘Case (Raise _ _)’]
   >- (Cases_on ‘FLOOKUP s.eshapes m’>>gvs[]>>
       Cases_on ‘eval s e’>>gvs[]>>
-      Cases_on ‘shape_of x' = x’>>gvs[AllCaseEqs()])
-  >> gvs[AllCaseEqs()]
+      Cases_on ‘shape_of x' = x’>>gvs[AllCaseEqs()])>>
+  gvs[AllCaseEqs()]
 QED
 
 Theorem nondiv_evaluate':
@@ -373,9 +354,7 @@ Proof
     disch_then $ qspecl_then [‘tt’,‘rr’,‘s.clock’] mp_tac>>
     ‘s with clock := s.clock = s’ by simp[state_component_equality]>>
     simp[]>>
-    (fs[]>>strip_tac THEN_LT
-     Tactical.SELECT_LT_THEN (Q.RENAME_TAC [‘Abbrev (rr = _)’])
-       (fs[Abbr‘rr’]))>>
+    fs[]>>strip_tac>>fs[markerTheory.Abbrev_def]>>
     pop_assum $ assume_tac o GSYM>>fs[]>>
     ‘s.ffi.oracle = tt.ffi.oracle’ by
       (irule EQ_SYM>>irule evaluate_invariant_oracle>>metis_tac[])>>
@@ -410,11 +389,17 @@ Proof
   >~ [‘Case (Tick,_)’] >- (rpt (FULL_CASE_TAC>>fs[])>>
       gvs[dec_clock_def,empty_locals_defs]>>
       metis_tac[FUNPOW])>>
-  (* Call / DecCall: select constructors, not success of a solver. *)
-  (all_tac THEN_LT Tactical.SELECT_LT_THEN
-    (FIRST [qpat_assum ‘Case (Call _ _ _,_)’ kall_tac,
-            qpat_assum ‘Case (DecCall _ _ _ _ _,_)’ kall_tac])
-   (simp[mrec_Call,mrec_DecCall]>>
+  all_tac
+  >~ [‘Case (Call _ _ _,_)’] >- suspend "call"
+  >~ [‘Case (DecCall _ _ _ _ _,_)’] >- suspend "call">>
+  (* The remaining primitive constructors terminate without a Tau step. *)
+  gvs[AllCaseEqs(),empty_locals_defs,kvar_defs2]>>
+  qexists ‘0’>>simp[FUNPOW]
+QED
+
+Resume evaluate_imp_nondiv[call]:
+  RESUME_TAC>>
+  simp[mrec_Call,mrec_DecCall]>>
   fs[AllCaseEqs(),kvar_defs2,
      empty_locals_defs,dec_clock_def,FUNPOW_Tau_bind]>>
   rpt (pairarg_tac>>fs[])>>
@@ -433,11 +418,10 @@ Proof
   gvs[FUNPOW_Tau_bind]>>
   gvs[AllCaseEqs(),SF CONJ_ss]>>
   simp[GSYM FUNPOW_SUC]>>rewrite_tac[GSYM FUNPOW_ADD]>>
-  simp[]>>IF_CASES_TAC>>gvs[GSYM FUNPOW_SUC]))>>
-  (* The remaining primitive constructors terminate without a Tau step. *)
-  gvs[AllCaseEqs(),empty_locals_defs,kvar_defs2]>>
-  qexists ‘0’>>simp[FUNPOW]
+  simp[]>>IF_CASES_TAC>>gvs[GSYM FUNPOW_SUC]
 QED
+
+Finalise evaluate_imp_nondiv
 
 Theorem nondiv_not_timeout:
   ltree fs (mrec h_prog (h_prog (p,s))) = FUNPOW Tau n (Ret (INR (res,t))):'a ptree ⇒
@@ -471,31 +455,6 @@ Proof
       rename [‘ltree _ _ = FUNPOW Tau n _’]>>
       last_x_assum $ qspec_then ‘n’ assume_tac>>fs[]>>
       metis_tac[])>>
-  all_tac
-  >~ [‘Case (Assign _ _ _)’]
-  >- (Cases_on ‘eval s e’>>gvs[AllCaseEqs()])
-  >~ [‘Case (Primitive _ _ _)’]
-  >- (Cases_on ‘OPT_MMAP (eval s) l’>>gvs[]>>
-      Cases_on ‘pan_primop p' x’>>gvs[AllCaseEqs()])
-  >~ [‘Case (Store _ _)’]
-  >- (Cases_on ‘eval s e’>>gvs[]>>
-      Cases_on ‘x’>>gvs[]>>Cases_on ‘w’>>gvs[]>>
-      Cases_on ‘eval s e0’>>gvs[AllCaseEqs()])
-  >~ [‘Case (Store32 _ _)’]
-  >- (Cases_on ‘eval s e’>>gvs[]>>
-      Cases_on ‘x’>>gvs[]>>Cases_on ‘w’>>gvs[]>>
-      Cases_on ‘eval s e0’>>gvs[]>>
-      Cases_on ‘x’>>gvs[]>>Cases_on ‘w’>>gvs[AllCaseEqs()])
-  >~ [‘Case (StoreByte _ _)’]
-  >- (Cases_on ‘eval s e’>>gvs[]>>
-      Cases_on ‘x’>>gvs[]>>Cases_on ‘w’>>gvs[]>>
-      Cases_on ‘eval s e0’>>gvs[]>>
-      Cases_on ‘x’>>gvs[]>>Cases_on ‘w’>>gvs[AllCaseEqs()])
-  >~ [‘Case (Return _)’]
-  >- (Cases_on ‘eval s e’>>gvs[AllCaseEqs()])
-  >~ [‘Case (Raise _ _)’]
-  >- (Cases_on ‘FLOOKUP s.eshapes m’>>gvs[]>>
-      Cases_on ‘eval s e’>>gvs[AllCaseEqs()])>>
   all_tac
   >~ [‘Case (If _ _ _)’]
   >- (Cases_on ‘eval s e’>>gvs[]>>
@@ -636,6 +595,10 @@ Proof
       rename1 ‘Tau _ = FUNPOW Tau n _’>>
       Cases_on ‘n’>>gvs[FUNPOW_SUC]>>
       Cases_on ‘n'’>>gvs[FUNPOW_SUC])
+  >~ [‘Case (Assign _ _ _)’]
+  >- (Cases_on ‘eval s e’>>gvs[AllCaseEqs()])>>
+  (* Only primitive constructors remain. *)
+  gvs[AllCaseEqs()]
 QED
 
 Theorem nondiv_imp_evaluate:
@@ -683,26 +646,17 @@ Proof
     (Cases_on ‘eval s e’>>gvs[]>>Cases_on ‘v’>>gvs[AllCaseEqs()]>>
      Cases_on ‘n’>>gvs[FUNPOW_SUC,bst_def])
   >~ [‘Case (Primitive _ _ _)’] >-
-    (Cases_on ‘OPT_MMAP (eval s) l’>>gvs[]>>
-     Cases_on ‘pan_primop p' x’>>gvs[AllCaseEqs()]>>
-     Cases_on ‘n’>>gvs[FUNPOW_SUC,bst_def])
+    (gvs[AllCaseEqs()]>>Cases_on ‘n’>>gvs[FUNPOW_SUC,bst_def])
   >~ [‘Case (Store _ _)’] >-
-    (Cases_on ‘eval s e’>>gvs[]>>Cases_on ‘x’>>gvs[]>>
-     Cases_on ‘w’>>gvs[]>>Cases_on ‘eval s e0’>>gvs[AllCaseEqs()]>>
-     Cases_on ‘n’>>gvs[FUNPOW_SUC,bst_def])
+    (gvs[AllCaseEqs()]>>Cases_on ‘n’>>gvs[FUNPOW_SUC,bst_def])
   >~ [‘Case (Store32 _ _)’] >-
-    (Cases_on ‘eval s e’>>gvs[]>>Cases_on ‘x’>>gvs[]>>Cases_on ‘w’>>gvs[]>>
-     Cases_on ‘eval s e0’>>gvs[]>>Cases_on ‘x’>>gvs[]>>Cases_on ‘w’>>
-     gvs[AllCaseEqs()]>>Cases_on ‘n’>>gvs[FUNPOW_SUC,bst_def])
+    (gvs[AllCaseEqs()]>>Cases_on ‘n’>>gvs[FUNPOW_SUC,bst_def])
   >~ [‘Case (StoreByte _ _)’] >-
-    (Cases_on ‘eval s e’>>gvs[]>>Cases_on ‘x’>>gvs[]>>Cases_on ‘w’>>gvs[]>>
-     Cases_on ‘eval s e0’>>gvs[]>>Cases_on ‘x’>>gvs[]>>Cases_on ‘w’>>
-     gvs[AllCaseEqs()]>>Cases_on ‘n’>>gvs[FUNPOW_SUC,bst_def])
+    (gvs[AllCaseEqs()]>>Cases_on ‘n’>>gvs[FUNPOW_SUC,bst_def])
   >~ [‘Case (Return _)’] >-
-    (Cases_on ‘eval s e’>>gvs[AllCaseEqs(),empty_locals_defs,bst_def])
+    (gvs[AllCaseEqs(),empty_locals_defs,bst_def])
   >~ [‘Case (Raise _ _)’] >-
-    (Cases_on ‘FLOOKUP s.eshapes m’>>gvs[]>>Cases_on ‘eval s e’>>gvs[]>>
-     Cases_on ‘shape_of x' = x’>>gvs[AllCaseEqs(),empty_locals_defs,bst_def])
+    (gvs[AllCaseEqs(),empty_locals_defs,bst_def])
   >~ [‘Case (ShMemLoad _ _ _ _)’] >- suspend "shmemload"
   >~ [‘Case (ShMemStore _ _ _)’] >- suspend "shmemstore"
   >- (rpt (TOP_CASE_TAC>>fs[])>>
@@ -783,17 +737,8 @@ Proof
       last_assum $ qspec_then ‘n’ mp_tac>>
       (impl_tac >- simp[])>>
       disch_then drule>>strip_tac>>fs[]>>
-      (let val terminal = qexists ‘SUC k’>>fs[]>>NO_TAC
-       in
-         EVERY (map (fn pat => all_tac THEN_LT Tactical.SELECT_LT_THEN
-           (qpat_assum pat kall_tac) terminal)
-           [‘evaluate _ = (SOME Break,_)’,
-            ‘evaluate _ = (SOME Error,_)’,
-            ‘evaluate _ = (SOME TimeOut,_)’,
-            ‘evaluate _ = (SOME (Return _),_)’,
-            ‘evaluate _ = (SOME (Exception _ _),_)’,
-            ‘evaluate _ = (SOME (FinalFFI _),_)’])
-       end)>>
+      all_tac
+      >>~- ([‘Tau _ = FUNPOW Tau n _’],
       rename [‘Tau _ = FUNPOW Tau n _’]>>
       Cases_on ‘n’>>fs[FUNPOW_SUC]>>gvs[]>>
       dxrule evaluate_min_clock>>
@@ -811,7 +756,8 @@ Proof
       strip_tac>>fs[]>>
       qexists ‘SUC (k' + k'')’>>
       rev_drule panPropsTheory.evaluate_add_clock_eq>>
-      disch_then $ qspec_then ‘k''’ assume_tac>>fs[])
+      disch_then $ qspec_then ‘k''’ assume_tac>>fs[])>>
+      qexists ‘SUC k’>>fs[])
   (* deccall *)
   >- (rpt (PURE_CASE_TAC>>fs[])>>gvs[dec_clock_def,empty_locals_defs]>>
       rename [‘_ _ = FUNPOW Tau n _’]>>
@@ -824,31 +770,12 @@ Proof
       rename [‘r' = INR x'’]>>Cases_on ‘x'’>>gvs[]>>
       fs[mrec_h_handle_deccall_ret_lemma]>>
       rpt (FULL_CASE_TAC>>fs[])>>
-      (all_tac THEN_LT Tactical.SELECT_LT_THEN
-        (qpat_assum ‘shape_of _ = _’ kall_tac)
-        (qpat_x_assum ‘shape_of _ = _’ $ fs o single o GSYM))>>
+      gvs[]>>
       gvs[empty_locals_defs]>>
-      (let
-         val terminal =
-           last_x_assum $ qspec_then ‘n''’ mp_tac>>simp[]>>
-           ‘s.ffi = (s with locals := r).ffi’ by simp[]>>
-           rename [‘h_prog (q, bst _)’]>>
-           disch_then $ qspecl_then [‘q’,‘s with locals := r’] mp_tac>>
-           fs[]>>strip_tac>>
-           qexists ‘SUC k’>>gvs[bst_def]>>NO_TAC
-       in
-         EVERY (map (fn pat => all_tac THEN_LT Tactical.SELECT_LT_THEN
-           (qpat_assum pat kall_tac) terminal)
-           [‘ltree _ _ = FUNPOW Tau _ (Ret (INR (NONE,_)))’,
-            ‘ltree _ _ = FUNPOW Tau _ (Ret (INR (SOME Break,_)))’,
-            ‘ltree _ _ = FUNPOW Tau _ (Ret (INR (SOME Continue,_)))’,
-            ‘ltree _ _ = FUNPOW Tau _ (Ret (INR (SOME Error,_)))’,
-            ‘ltree _ _ = FUNPOW Tau _ (Ret (INR (SOME TimeOut,_)))’,
-            ‘ltree _ _ = FUNPOW Tau _ (Ret (INR (SOME (Exception _ _),_)))’,
-            ‘ltree _ _ = FUNPOW Tau _ (Ret (INR (SOME (FinalFFI _),_)))’])
-       end)
-      >- (
-        (* Return with correct shape *)
+      all_tac
+      >>~- ([‘ltree _ _ = FUNPOW Tau _ (Ret (INR (SOME (Return _),_)))’],
+        all_tac
+        >>~- ([‘Tau _ = FUNPOW Tau n _’],
         rename [‘Tau _ = FUNPOW Tau n _’]>>
         Cases_on ‘n’>>gvs[FUNPOW_SUC,empty_locals_defs]>>
         drule nondiv_ltree_bind_lemma'>>
@@ -893,7 +820,12 @@ Proof
       >> disch_then drule >> fs[]
       >> disch_tac >> fs[Abbr ‘t’]
       >> qexists ‘SUC k’ >> fs[]
-      >> Cases_on ‘shape_of v = s'’ >> fs[]
+      >> Cases_on ‘shape_of v = s'’ >> fs[])>>
+      last_x_assum $ qspec_then ‘n''’ mp_tac>>simp[]>>
+      ‘s.ffi = (s with locals := r).ffi’ by simp[]>>
+      rename [‘h_prog (q, bst _)’]>>
+      disch_then $ qspecl_then [‘q’,‘s with locals := r’] mp_tac>>
+      fs[]>>strip_tac>>qexists ‘SUC k’>>gvs[bst_def]
   )>>
   rpt (PURE_CASE_TAC>>fs[])>>
 (*  rename [‘_ _ = FUNPOW Tau n _’]>>
@@ -956,19 +888,8 @@ Resume nondiv_imp_evaluate[call]:
   >~ [‘evaluate _ = (SOME Continue,_)’] >- (qexists ‘SUC k'’>>simp[bst_def])
   >~ [‘evaluate _ = (SOME (FinalFFI _),_)’] >- (qexists ‘SUC k'’>>simp[bst_def])
   >~ [‘evaluate _ = (SOME (Return _),_)’] >-
-    (reverse (Cases_on ‘shape_of v = rshape’>>gvs[])
-     >- (qexists ‘SUC k'’>>simp[bst_def])>>
-     Cases_on ‘o'’>>gvs[]
-     >- (qexists ‘SUC k'’>>simp[bst_def])>>
-     rename1 ‘Case (Call (SOME handler) _ _)’>>PairCases_on ‘handler’>>gvs[]>>
-     Cases_on ‘handler0’>>gvs[]
-     >- (qexists ‘SUC k'’>>simp[bst_def])>>
-     PairCases_on ‘x'’>>gvs[]>>Cases_on ‘x'0’>>gvs[]>>
-     qpat_abbrev_tac ‘dest = FLOOKUP _ x'1’>>Cases_on ‘dest’>>gvs[]
-     >- (qexists ‘SUC k'’>>simp[bst_def])
-     >- (Cases_on ‘shape_of v = shape_of x'’>>gvs[]>>qexists ‘SUC k'’>>simp[bst_def])
-     >- (qexists ‘SUC k'’>>simp[bst_def])>>
-     Cases_on ‘shape_of v = shape_of x'’>>gvs[]>>qexists ‘SUC k'’>>simp[bst_def])
+    (qexists ‘SUC k'’>>simp[]>>
+     rpt (FULL_CASE_TAC>>gvs[])>>simp[bst_def])
   >> Cases_on ‘o'’>>gvs[]
   >- (qexists ‘SUC k'’>>simp[bst_def])>>
   rename1 ‘Case (Call (SOME handler) _ _)’>>PairCases_on ‘handler’>>gvs[]>>
@@ -1046,30 +967,18 @@ Proof
   qpat_x_assum ‘evaluate _ = _’ mp_tac
   >~ [‘ExtCall’] >-
    (simp[Once evaluate_def,mrec_ExtCall,call_FFI_def]>>
-    namedCases_on ‘eval s ptr1’ ["","v1"]
-    >- (strip_tac>>gvs[LAPPEND_NIL_2ND])>>
-    reverse (Cases_on ‘v1’)
-    >- (strip_tac>>gvs[LAPPEND_NIL_2ND])
-    >- (strip_tac>>gvs[LAPPEND_NIL_2ND])>>
-    namedCases_on ‘eval s len1’ ["","v2"]
-    >- (strip_tac>>gvs[LAPPEND_NIL_2ND])>>
-    reverse (Cases_on ‘v2’)
-    >- (strip_tac>>gvs[LAPPEND_NIL_2ND])
-    >- (strip_tac>>gvs[LAPPEND_NIL_2ND])>>
-    namedCases_on ‘eval s ptr2’ ["","v3"]
-    >- (strip_tac>>gvs[LAPPEND_NIL_2ND])>>
-    reverse (Cases_on ‘v3’)
-    >- (strip_tac>>gvs[LAPPEND_NIL_2ND])
-    >- (strip_tac>>gvs[LAPPEND_NIL_2ND])>>
-    namedCases_on ‘eval s len2’ ["","v4"]
-    >- (strip_tac>>gvs[LAPPEND_NIL_2ND])>>
-    reverse (Cases_on ‘v4’)
-    >- (strip_tac>>gvs[LAPPEND_NIL_2ND])
-    >- (strip_tac>>gvs[LAPPEND_NIL_2ND])>>
-    rpt (PURE_CASE_TAC>>fs[])>>
-    strip_tac>>gvs[LAPPEND_NIL_2ND]>>
-    fs[LAPPEND_NIL_2ND,dec_clock_def,
-       empty_locals_defs,GSYM LAPPEND_fromList,explode_eq_implode])>>
+    namedCases_on ‘eval s ptr1’ ["","v1"]>>simp[]>>
+    rpt strip_tac>>gvs[LAPPEND_NIL_2ND]>>
+    Cases_on ‘v1’>>gvs[LAPPEND_NIL_2ND]>>
+    namedCases_on ‘eval s len1’ ["","v2"]>>gvs[LAPPEND_NIL_2ND]>>
+    Cases_on ‘v2’>>gvs[LAPPEND_NIL_2ND]>>
+    namedCases_on ‘eval s ptr2’ ["","v3"]>>gvs[LAPPEND_NIL_2ND]>>
+    Cases_on ‘v3’>>gvs[LAPPEND_NIL_2ND]>>
+    namedCases_on ‘eval s len2’ ["","v4"]>>gvs[LAPPEND_NIL_2ND]>>
+    Cases_on ‘v4’>>gvs[LAPPEND_NIL_2ND]>>
+    rpt (PURE_CASE_TAC>>fs[])>>gvs[LAPPEND_NIL_2ND]>>
+    gvs[LAPPEND_NIL_2ND,dec_clock_def,
+        empty_locals_defs,GSYM LAPPEND_fromList,explode_eq_implode])>>
   simp[mrec_prog_simps,
        mrec_If,
        Once evaluate_def,kvar_defs2,
@@ -1726,25 +1635,8 @@ Proof
   fs[FUNPOW_Ret_simp]>>
   rename1 ‘Ret (INR y)’>>Cases_on ‘y’>>gvs[]>>
   rpt (FULL_CASE_TAC>>fs[])>>
-  (let
-     val terminal =
-       rename [‘mrec _ _ = FUNPOW Tau n (Ret _)’]>>
-       ‘n < SUC n’ by simp[]>>res_tac>>gvs[]>>
-       qexistsl [‘SUC k’,‘k'’]>>simp[]>>gvs[]>>NO_TAC
-   in
-     (all_tac THEN_LT Tactical.SELECT_LT_THEN
-       (qpat_assum ‘mrec _ _ = FUNPOW Tau _ (Ret (INR (SOME Break,_)))’ kall_tac) terminal)>>
-     (all_tac THEN_LT Tactical.SELECT_LT_THEN
-       (qpat_assum ‘mrec _ _ = FUNPOW Tau _ (Ret (INR (SOME Error,_)))’ kall_tac) terminal)>>
-     (all_tac THEN_LT Tactical.SELECT_LT_THEN
-       (qpat_assum ‘mrec _ _ = FUNPOW Tau _ (Ret (INR (SOME TimeOut,_)))’ kall_tac) terminal)>>
-     (all_tac THEN_LT Tactical.SELECT_LT_THEN
-       (qpat_assum ‘mrec _ _ = FUNPOW Tau _ (Ret (INR (SOME (Return _),_)))’ kall_tac) terminal)>>
-     (all_tac THEN_LT Tactical.SELECT_LT_THEN
-       (qpat_assum ‘mrec _ _ = FUNPOW Tau _ (Ret (INR (SOME (Exception _ _),_)))’ kall_tac) terminal)>>
-     (all_tac THEN_LT Tactical.SELECT_LT_THEN
-       (qpat_assum ‘mrec _ _ = FUNPOW Tau _ (Ret (INR (SOME (FinalFFI _),_)))’ kall_tac) terminal)
-   end)>>
+  all_tac
+  >>~- ([‘Tau _ = FUNPOW Tau n _’],
   rename [‘Tau _ = FUNPOW Tau n _’]>>
   Cases_on ‘n’>>gvs[FUNPOW_SUC]>>
   rename1 ‘mrec _ (_ (While _ _,_)) = FUNPOW Tau n _’>>
@@ -1770,6 +1662,9 @@ Proof
   first_x_assum $ qspec_then ‘ffi’ assume_tac>>fs[]>>
   rev_drule panPropsTheory.evaluate_add_clock_eq>>
   disch_then $ qspec_then ‘p'’ assume_tac>>fs[])>>
+  rename [‘mrec _ _ = FUNPOW Tau n (Ret _)’]>>
+  ‘n < SUC n’ by simp[]>>res_tac>>gvs[]>>
+  qexistsl [‘SUC k’,‘k'’]>>simp[]>>gvs[])>>
   simp[AllCaseEqs()]>>rpt strip_tac>>
   gvs[FUNPOW_SUC,ext_def]
 QED
@@ -1892,9 +1787,7 @@ Proof
             drule_all io_events_eq_imp_ffi_eq>>rw[])>>rw[])))>>
     imp_res_tac mrec_FUNPOW_Ret_INR>>fs[]>>
     rename [‘_ = INR y’]>>Cases_on ‘y’>>fs[]>>
-    (Cases_on ‘q’>>fs[] THEN_LT
-     Tactical.SELECT_LT_THEN (Q.RENAME_TAC [‘INR (SOME body_result,_)’])
-       (Cases_on ‘body_result’>>fs[]))>>
+    Cases_on ‘q’>>fs[AllCaseEqs()]>>
     Cases_on ‘n' - m’>>fs[FUNPOW_SUC]>>
     imp_res_tac mrec_FUNPOW_Ret_evaluate>>fs[]>>
     first_x_assum $ qspec_then ‘s.ffi’ assume_tac>>
@@ -1940,12 +1833,10 @@ Proof
             qpat_assum ‘evaluate (q,_) = _’
               (mp_then Any mp_tac io_events_eq_imp_ffi_eq)>>
             simp[])>>rw[]))>>
-    (all_tac THEN_LT Tactical.SELECT_LT_THEN
-      (qpat_assum ‘mrec _ _ = FUNPOW Tau _ (Ret _)’ kall_tac)
-      (imp_res_tac mrec_FUNPOW_Ret_INR>>
-       rename1 ‘_ = INR y’>>Cases_on ‘y’>>gvs[]>>
-       fs[mrec_h_handle_call_ret_lemma,empty_locals_defs,kvar_defs2]>>
-       gvs[AllCaseEqs()]))>>
+    imp_res_tac mrec_FUNPOW_Ret_INR>>
+    rename1 ‘_ = INR y’>>Cases_on ‘y’>>gvs[]>>
+    fs[mrec_h_handle_call_ret_lemma,empty_locals_defs,kvar_defs2]>>
+    gvs[AllCaseEqs()]>>
     Cases_on ‘n' - m'’>>fs[FUNPOW_SUC]>>
     imp_res_tac bind_FUNPOW_Vis>>fs[FUNPOW_Tau_bind]>>
     imp_res_tac mrec_FUNPOW_Ret_evaluate>>fs[]>>
@@ -2073,12 +1964,12 @@ Proof
   >~[‘If’]>-
    (fs[mrec_If]>>rw[]>>
     rpt (CASE_TAC>>fs[])>>
-    (all_tac THEN_LT Tactical.SELECT_LT_THEN
-      (Q.RENAME_TAC [‘Tau _ = FUNPOW Tau _ _’])
-      (qrefine ‘SUC n’>>simp[FUNPOW_SUC]>>fs[]>>
-       res_tac>>pop_assum kall_tac>>
-       first_x_assum $ qspecl_then [‘s'’,‘k’,‘ffi’] assume_tac>>
-       rfs[]>>fs[FUNPOW_Tau_bind]>>NO_TAC))>>
+    all_tac
+    >>~- ([‘Tau _ = FUNPOW Tau _ _’],
+      qrefine ‘SUC n’>>simp[FUNPOW_SUC]>>fs[]>>
+      res_tac>>pop_assum kall_tac>>
+      first_x_assum $ qspecl_then [‘s'’,‘k’,‘ffi’] assume_tac>>
+      rfs[]>>fs[FUNPOW_Tau_bind])>>
     gvs[]>>metis_tac[FUNPOW])
   >~[‘While’]>-
    (simp[Once mrec_While]>>
@@ -2110,14 +2001,14 @@ Proof
     first_x_assum $ qspecl_then [‘s'’,‘ffi’,‘k-1’] assume_tac>>
     rw[]>>imp_res_tac panPropsTheory.evaluate_io_events_mono>>
     gvs[IS_PREFIX_ANTISYM]>>simp[FUNPOW_Tau_bind]>>
-    (all_tac THEN_LT Tactical.SELECT_LT_THEN
-      (qpat_assum ‘evaluate (While _ _,_)=_’ kall_tac)
-      (qpat_x_assum ‘evaluate (While _ _,_)=_’
+    all_tac
+    >>~- ([‘evaluate (While _ _,_)=_’],
+      qpat_x_assum ‘evaluate (While _ _,_)=_’
          (assume_tac o SRULE [Once evaluate_def])>>
        gvs[]>>
        first_x_assum $ qspecl_then [‘bst s1’,‘s1.ffi’,‘s1.clock’] mp_tac>>
        drule_all IS_PREFIX_ANTISYM>>rw[]>>simp[]>>
-       qexists ‘SUC (n + SUC n')’>>simp[FUNPOW_ADD,FUNPOW_SUC]))>>
+       qexists ‘SUC (n + SUC n')’>>simp[FUNPOW_ADD,FUNPOW_SUC])>>
     rw[]>>gvs[]>>qexists ‘SUC n’>>simp[FUNPOW_SUC])
   >~[‘Seq’]>-
    (fs[Once mrec_While,mrec_prog_nonrec,mrec_If]>>gvs[]>>
@@ -2392,9 +2283,9 @@ Proof
           fs[FUNPOW_Ret_simp,FUNPOW_Tau_bind]>>
           drule_then (assume_tac o GSYM) evaluate_invariant_oracle>>
           rpt (CASE_TAC>>fs[])>>
-          (all_tac THEN_LT Tactical.SELECT_LT_THEN
-            (Q.RENAME_TAC [‘Ret _ = FUNPOW Tau _ _’])
-            (irule_at Any LESS_EQ_REFL>>simp[FUNPOW]))>>
+          all_tac
+          >>~- ([‘Ret _ = FUNPOW Tau _ _’],
+                 irule_at Any LESS_EQ_REFL>>simp[FUNPOW])>>
           drule evaluate_mrec_FUNPOW_Ret>>simp[]>>
           first_x_assum $ qspec_then ‘k’ mp_tac>>simp[]>>rw[]>>
           drule io_events_eq_imp_ffi_eq>>rw[]>>
@@ -2861,10 +2752,8 @@ Proof
           Cases_on ‘x’>>fs[]>>
           imp_res_tac nondiv_imp_evaluate>>gvs[]>>
           dxrule evaluate_min_clock>>rw[]>>
-          (Cases_on ‘q’>>fs[] THEN_LT
-           Tactical.SELECT_LT_THEN
-             (Q.RENAME_TAC [‘evaluate _ = (SOME body_result,_)’])
-             (Cases_on ‘body_result’))>>gvs[]>>
+          (namedCases_on ‘q’ ["", "body_result"] THEN_LT
+             NTH_GOAL (Cases_on ‘body_result’) 2)>>fs[]>>gvs[]>>
           imp_res_tac panPropsTheory.evaluate_io_events_mono>>
           fs[IS_PREFIX_APPEND]>>gvs[]>>
           imp_res_tac evaluate_nondiv_trace_eq>>fs[]>>
@@ -2909,10 +2798,8 @@ Proof
       imp_res_tac nondiv_INR>>fs[]>>
       Cases_on ‘x’>>fs[]>>
       imp_res_tac nondiv_imp_evaluate>>gvs[]>>
-      (Cases_on ‘q’>>fs[] THEN_LT
-       Tactical.SELECT_LT_THEN
-         (Q.RENAME_TAC [‘evaluate _ = (SOME body_result,_)’])
-         (Cases_on ‘body_result’))>>gvs[]>>
+      (namedCases_on ‘q’ ["", "body_result"] THEN_LT
+             NTH_GOAL (Cases_on ‘body_result’) 2)>>fs[]>>gvs[]>>
       qmatch_asmsub_abbrev_tac ‘evaluate (_,s with clock := k) = (X,t')’>>
       (Cases_on ‘res ≠ SOME TimeOut’>>fs[]
       >- (‘res = X ∧ t' = s1 with clock := t'.clock’ by
