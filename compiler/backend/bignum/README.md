@@ -19,5 +19,11 @@ Bignum and operation implementation in Pancake
 [multiword_extScript.sml](multiword_extScript.sml):
 Extensions to multiword that should be upstreamed.
 
+[set_sep_extLib.sml](set_sep_extLib.sml):
+General separation logic tactics.
+
+[set_sep_extScript.sml](set_sep_extScript.sml):
+Extensions to set_sep that should be eventually merged into it.
+
 [stackTestScript.sml](stackTestScript.sml):
 test test

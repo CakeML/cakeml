@@ -4,9 +4,9 @@
 Theory bignum_and
 Ancestors
   errorLogMonad panPtreeConversion panLang panStatic multiword multiword_ext
-  stackTest set_sep address backend_common wordLang integer_word wordSem panSem
+  stackTest set_sep set_sep_ext address backend_common wordLang integer_word wordSem panSem
 Libs
-  stringLib numLib intLib preamble helperLib
+  stringLib numLib intLib preamble helperLib set_sep_extLib
 
 (* TODO Check for consistent naming *)
 
@@ -18,32 +18,6 @@ Libs
      x ∈ (dec_clock s).memaddrs as a side condition? *)
 
 (** set_sep and word helpers **************************************************)
-
-(* TODO move to set_sep *)
-Definition ones_def:
-  ones a [] = emp ∧
-  ones a (x::xs) = one (a,x) * ones (a + bytes_in_word) xs
-End
-
-(* TODO move to set_sep *)
-Theorem ones_append:
-  ∀xs ys a.
-    ones a (xs ++ ys) =
-    ones a xs * ones (a + n2w (LENGTH xs) * bytes_in_word) ys
-Proof
-  Induct
-  >> rw [ones_def, SEP_CLAUSES]
-  >> simp [ADD1, WORD_LEFT_ADD_DISTRIB, GSYM word_add_n2w]
-  >> fs [AC STAR_ASSOC STAR_COMM]
-QED
-
-(* TODO move to set_sep *)
-Theorem ones_SNOC:
-  ones a (SNOC x xs) =
-  ones a xs * one (a + n2w (LENGTH xs) * bytes_in_word, x)
-Proof
-  simp [SNOC_APPEND, ones_append, ones_def, SEP_CLAUSES]
-QED
 
 (* TODO Move somewhere better *)
 Definition byte_dimindex_def:
@@ -561,9 +535,9 @@ fun copy(to, from, num) {
 }
 
 (* Assumes x points to the end *)
-fun mw_fix(x_len, x) {
+fun mw_fix_pan(x_len, xs) {
   while x_len {
-    var t1 = lds 1 x;
+    var t1 = lds 1 xs;
     if t1 {
       break;
     } else {
@@ -664,7 +638,7 @@ fun mwi_and_fused_pan(s, x_len, x, t, y_len, y, z) {
       } else {
         var t1 = mwi_and_neg_neg_pan(0, 0, 1, y, x_len, x, z);
       }
-      var z_len = mw_fix(t1, z);
+      var z_len = mw_fix_pan(t1, z);
       return <1, z_len>;
     } else {
       if x_len < y_len {
@@ -674,7 +648,7 @@ fun mwi_and_fused_pan(s, x_len, x, t, y_len, y, z) {
         mwi_and_neg_pos_geq_pan(0, y, x_len, x, z);
         var t1 = y_len;
       }
-      var z_len = mw_fix(t1, z);
+      var z_len = mw_fix_pan(t1, z);
       return <0, z_len>;
     }
   } else {
@@ -686,19 +660,27 @@ fun mwi_and_fused_pan(s, x_len, x, t, y_len, y, z) {
         mwi_and_neg_pos_geq_pan(0, x, y_len, y, z);
         var t1 = x_len;
       }
-      var z_len = mw_fix(t1, z);
+      var z_len = mw_fix_pan(t1, z);
       return <0, z_len>;
     } else {
       var t1 = mw_and_flip_pan(x_len, x, y_len, y, z);
-      var z_len = mw_fix(t1, z);
+      var z_len = mw_fix_pan(t1, z);
       return <0, z_len>;
     }
   }
 }
 End
 
+(* TODO Run the Pancake static analyzer here *)
+
+val mw_fix_pan     = get_field "body" "mw_fix_pan" and_prog
 val mw_and_pan     = get_field "body" "mw_and_pan" and_prog
 val mwi_and_neg_pos_geq_pan = get_field "body" "mwi_and_neg_pos_geq_pan" and_prog
+
+Definition mw_fix_pan_loop_def:
+  mw_fix_pan_loop =
+    ^(find_term (can $ match_term “panLang$While _ _”) mw_fix_pan)
+End
 
 Definition mw_and_pan_loop_def:
   mw_and_pan_loop =
@@ -1126,6 +1108,53 @@ val g as (asl, w) = top_goal ();
 *)
 
 val _ = max_print_depth := ~1
+
+Theorem mw_fix_pan_thm:
+  ∀(xs: α word list) rs s x frame.
+    mw_fix xs = rs ∧
+    LENGTH xs ≤ s.clock ∧  (* LENGTH xs - LENGTH rs would probably be enough *)
+    FLOOKUP s.locals «x_len» = SOME (Val (Word (n2w (LENGTH xs)))) ∧
+    FLOOKUP s.locals «xs»    = SOME (Val (Word (el_addr x (LENGTH xs - 1)))) ∧
+    (ones x (MAP Word xs) * frame) (fun2set (s.memory, s.memaddrs)) ∧
+    byte_dimindex (:α) ∧ 8 < dimindex (:α)
+    ⇒
+    ∃m l.
+      evaluate (mw_fix_pan_loop,s) = (NONE,
+        s with <| memory := m;
+                  locals := l;
+                  clock := s.clock - LENGTH xs + LENGTH rs |>) ∧
+      FLOOKUP s.locals «x_len» = SOME (Val (Word (n2w (LENGTH rs)))) ∧
+      (ones x (MAP Word rs) * frame) (fun2set (m, s.memaddrs))
+Proof
+  simp []
+  >> Induct using SNOC_INDUCT
+  >> rw [mw_fix_pan_loop_def]
+  >- (
+    simp [Once evaluate_def, state_component_equality]
+    >> once_rewrite_tac [mw_fix_def] >> simp []
+  )
+  >> once_rewrite_tac [GSYM stack_evaluate]
+  >> step >> walk
+  >> have ‘SUC (LENGTH xs) < dimword (:α)’
+  >- (
+    drule_then mp_tac $
+      INST_TYPE [“:β” |-> “:α word_lab”] ones_leq_dimword
+    >> disch_then drule >> simp [] >> strip_tac
+    >> drule_all_then assume_tac one_lt_w2n_bytes_in_word
+    >> irule_at (Pos hd) LESS_LESS_EQ_TRANS
+    >> first_assum $ irule_at (Pos last)
+    >> simp []
+  )
+  >> walk
+  >> hsimp []
+  >> rename1 ‘el_addr base _’
+  >> read_ones_at_auto ‘base’ ‘LENGTH xs’
+  >> have ‘(MAP Word (SNOC x xs))❲LENGTH xs❳ = Word x’
+  >- simp [EL_MAP, EL_LENGTH_SNOC]
+  >> Cases_on ‘x’ >> gvs []
+  >> walk
+  >> cheat
+QED
 
 Theorem mw_and_pan_thm:
   ∀(xs: α word list) ys zs rs s x y z frame.
