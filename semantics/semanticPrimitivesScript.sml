@@ -983,7 +983,7 @@ Definition do_arith_def:
      | (Add,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_add roundTiesToEven v1 v2)
      | (Sub,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_sub roundTiesToEven v1 v2)
      | (Mul,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_mul roundTiesToEven v1 v2)
-     | (Div,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_div roundTiesToEven v1 v2)
+     | (Div _, [v1;v2])   => SOME (INR $ Litv $ Float64 $ fp64_div roundTiesToEven v1 v2)
      | (FMA,  [v1;v2;v3]) => SOME (INR $ Litv $ Float64 $ fp64_mul_add roundTiesToEven v2 v3 v1)
      | _ => NONE) ∧
   (do_arith a IntT vals =
@@ -991,10 +991,14 @@ Definition do_arith_def:
      | (Add,  [v1;v2]) => SOME (INR $ Litv $ IntLit $ v1 + v2)
      | (Sub,  [v1;v2]) => SOME (INR $ Litv $ IntLit $ v1 - v2)
      | (Mul,  [v1;v2]) => SOME (INR $ Litv $ IntLit $ v1 * v2)
-     | (Div,  [v1;v2]) => SOME (if v2 = 0 then INL div_exn_v else
-                                  INR (Litv $ IntLit $ v1 / v2))
-     | (Mod,  [v1;v2]) => SOME (if v2 = 0 then INL div_exn_v else
-                                  INR (Litv $ IntLit $ v1 % v2))
+     | (Div RoundDown,   [v1;v2]) => SOME (if v2 = 0 then INL div_exn_v else
+                                           INR (Litv $ IntLit $ v1 / v2))
+     | (Mod RoundDown,   [v1;v2]) => SOME (if v2 = 0 then INL div_exn_v else
+                                           INR (Litv $ IntLit $ v1 % v2))
+     | (Div TowardsZero, [v1;v2]) => SOME (if v2 = 0 then INL div_exn_v else
+                                           INR (Litv $ IntLit $ v1 quot v2))
+     | (Mod TowardsZero, [v1;v2]) => SOME (if v2 = 0 then INL div_exn_v else
+                                           INR (Litv $ IntLit $ v1 rem v2))
      | _ => NONE) ∧
   (do_arith a (WordT W8) vals =
      case (a, MAP the_Litv_Word8 vals) of

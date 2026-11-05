@@ -2978,6 +2978,8 @@ val builtin_binops =
    Eval_INT_MULT,
    Eval_INT_DIV,
    Eval_INT_MOD,
+   Eval_INT_QUOT,
+   Eval_INT_REM,
    Eval_INT_EQ,
    Eval_INT_LESS,
    Eval_INT_LESS_EQ,

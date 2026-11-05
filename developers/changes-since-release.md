@@ -33,6 +33,10 @@ range of a byte array or string for the first position whose element is equal
 scans word-at-a-time. The same PR adds primitives `CopyVecVec`, `CopyVecArr`,
 `CopyArrVec` and `CopyArrArr` for copying slices between vectors and arrays.
 
+The integer division and modulus primitives now take a rounding mode.
+Instead of `Div`, one now gets to choose between `Div RoundDown` and
+`Div TowardsZero`. Same for `Mod`. These are ignored for floats.
+
 ## Basis library
 
 The shift and rotate functions `<<`, `>>`, `~>>` and `ror` in the `Word8` and
@@ -43,6 +47,12 @@ Programs that call these functions with an int amount need to be updated.
 The modules Ast and AstSexp have been added.
 These modules provide the CakeML AST and functions to convert an ast
 to/from S-expression.
+
+### Int
+
+`Int.quot` and `Int.rem` have been added. They implement integer
+division and modulus rounding towards zero. Previously existing
+`Int.div` and `Int.mod` round down.
 
 ### List
 

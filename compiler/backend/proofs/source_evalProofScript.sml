@@ -834,9 +834,9 @@ Proof
     \\ first_assum $ irule_at Any
     \\ Cases_on `arithmetic_op` \\ Cases_on `arithmetic_type` using prim_type_cases
     \\ namedCases_on `xs` ["", "head_arg tail_args"]
-    \\ gvs[do_arith_def, CaseEq"list", check_type_def, CaseEq"bool"]
-    >- (EVAL_TAC \\ rw[])
-    >- (EVAL_TAC \\ rw[])
+    \\ gvs[do_arith_def, CaseEq"list", check_type_def, CaseEq"bool",
+           CaseEq"div_round"]
+    >>~- ([‘v_rel _ div_exn_v div_exn_v’], EVAL_TAC \\ rw[])
     \\ Cases_on `tail_args` \\ gvs[check_type_def])
   >~ [‘do_unsafe_index_arith’] >- (
     qmatch_asmsub_rename_tac
