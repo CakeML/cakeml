@@ -104,18 +104,6 @@ val res = translate (data_to_wordTheory.max_heap_limit_def
 
 val r = translate presLangTheory.default_tap_config_def;
 
-val def = spec64
-          (backendTheory.attach_bitmaps_def
-             |> Q.GENL[`c'`,`bytes`,`c`]
-             |> Q.ISPECL[`lab_conf:lab_to_target$config`,`bytes:word8 list`,`c:backend$config`])
-
-val res = translate def
-
-val def = spec64 backendTheory.compile_def
-  |> REWRITE_RULE[dimindex_64]
-
-val res = translate def
-
 val _ = register_type “:any_prog”
 
 val r = backend_passesTheory.to_flat_all_def |> spec64 |> translate;
@@ -213,7 +201,7 @@ val _ = r |> hyp |> null orelse
 
 (* exportTheory *)
 (* TODO: exportTheory functions that don't depend on the word size
-   should probably be moved up to to_dataProg or something*)
+   should probably be moved up to from_dataProg or something*)
 val res = translate all_bytes_eq
 val res = translate byte_to_string_eq
 val res = translate escape_sym_char_def

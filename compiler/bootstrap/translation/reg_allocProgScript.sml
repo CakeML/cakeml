@@ -6,11 +6,11 @@ Libs
   preamble ml_monad_translatorLib
 Ancestors
   linear_scan state_transformer ml_translator
-  pancake_parseProg reg_alloc reg_allocProof
+  from_stackProg reg_alloc reg_allocProof
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
-val _ = translation_extends "pancake_parseProg";
+val _ = translation_extends "from_stackProg";
 val _ = ml_translatorLib.use_sub_check true;
 (*
 val _ = translation_extends "basisProg";
@@ -20,6 +20,12 @@ val _ = monadsyntax.temp_add_monadsyntax()
 val _ = monadsyntax.temp_enable_monad "st_ex";
 
 val _ = hide "state";
+
+val _ = translate listTheory.FOLDL;
+val _ = translate sptreeTheory.foldi_def;
+val _ = translate sptreeTheory.toAList_def;
+val _ = translate sptreeTheory.delete_def;
+val _ = translate sptreeTheory.union_def;
 
 val _ = register_type ``:tag``;
 val _ = register_type ``:clash_tree``;
@@ -246,14 +252,11 @@ val _ = m_translate_run reg_alloc_aux_trans_def;
 (* The final function used by the compiler *)
 val _ = translate reg_alloc_def;
 
-
 (* === Translation of linear scan register allocator === *)
-
 
 (*
  *  Set up the monadic translator
  *)
-
 
 (* The record types used for the monadic state and exceptions *)
 val state_type = ``:linear_scan_hidden_state``

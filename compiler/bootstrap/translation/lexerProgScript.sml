@@ -3,13 +3,13 @@
 *)
 Theory lexerProg[no_sig_docs]
 Ancestors
-  lexer_fun lexer_impl to_dataProg ml_translator
+  lexer_fun lexer_impl from_cakeProg ml_translator
 Libs
   preamble ml_translatorLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
-val _ = translation_extends "to_dataProg";
+val _ = translation_extends "from_cakeProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "lexerProg");
 

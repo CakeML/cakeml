@@ -1,17 +1,17 @@
 (*
-  Translate the backend phase from BVL to BVI.
+  Translate the backend from BVL to target code.
 *)
-Theory to_bviProg[no_sig_docs]
+Theory from_bvlProg[no_sig_docs]
 Ancestors
-  ml_translator to_bvlProg
+  ml_translator from_bviProg
 Libs
   preamble ml_translatorLib
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = translation_extends "to_bvlProg";
+val _ = translation_extends "from_bviProg";
 
-val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_bviProg");
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "from_bvlProg");
 
 (* ------------------------------------------------------------------------- *)
 (* Setup                                                                     *)
@@ -63,6 +63,186 @@ fun def_of_const tm = let
 val _ = (find_def_for_const := def_of_const);
 
 val _ = use_long_names:=true;
+
+(* N.B.
+ * Do not remove this! prove_EvalPatRel depends on it (though it should be
+ * expanded there, not added to the simpset).
+ *)
+Theorem same_type_def[simp] =
+  semanticPrimitivesTheory.same_type_def
+
+(* ------------------------------------------------------------------------- *)
+(* bvl_const                                                                 *)
+(* ------------------------------------------------------------------------- *)
+
+val r = translate bvl_constTheory.dest_simple_pmatch;
+val r = translate bvl_constTheory.dest_EqualInt_pmatch;
+val r = translate bvl_constTheory.case_op_const_pmatch;
+val r = translate bvl_constTheory.SmartOp_flip_pmatch;
+(* val r = translate bvl_constTheory.SmartOp2_pmatch *) (* prove_EvalPatBind *)
+val r = translate bvl_constTheory.SmartOp2_def;
+
+Theorem bvl_const_smartop2_size:
+  bvl_const_smartop2_side v = T
+Proof
+  PairCases_on ‘v’
+  \\ fs [fetch "-" "bvl_const_smartop2_side_def"]
+  \\ rpt strip_tac \\ gvs []
+  \\ rw [] \\ intLib.COOPER_TAC
+QED
+
+val _ = update_precondition bvl_const_smartop2_size;
+
+val r = translate bvl_constTheory.SmartOp_pmatch;
+val r = translate bvl_constTheory.extract_pmatch;
+val r = translate bvl_constTheory.extract_list_def;
+val r = translate bvl_constTheory.delete_var_pmatch;
+val r = translate bvl_constTheory.compile_def;
+
+val bvl_const_compile_side = Q.prove(`
+  ∀x y. bvl_const_compile_side x y ⇔ T`,
+  ho_match_mp_tac bvl_constTheory.compile_ind>>
+  `∀a b. bvl_const$compile a [b] ≠ []` by
+    (CCONTR_TAC>>fs[]>>
+    pop_assum (mp_tac o Q.AP_TERM`LENGTH`)>>
+    simp[bvl_constTheory.compile_length])>>
+  rw[]>>
+  simp[Once (fetch "-" "bvl_const_compile_side_def")])
+  |> update_precondition;
+
+val r = translate bvl_constTheory.compile_exp_def;
+
+(* ------------------------------------------------------------------------- *)
+(* bvl_handle                                                                *)
+(* ------------------------------------------------------------------------- *)
+
+val r = translate (bvl_handleTheory.LetLet_def
+                   |> SIMP_RULE std_ss [MAPi_enumerate_MAP]);
+
+val r = translate bvl_handleTheory.compile_def;
+
+val bvl_handle_compile_side = Q.prove(`
+  ∀x y z. bvl_handle_compile_side x y z ⇔ T`,
+  ho_match_mp_tac bvl_handleTheory.compile_ind>>
+  `∀a b c d e. bvl_handle$compile a b [c] ≠ ([],d,e)` by
+  (CCONTR_TAC>>fs[]>>
+  imp_res_tac bvl_handleTheory.compile_sing>>
+  fs[])>>
+  rw[]>>
+  simp[Once (fetch "-" "bvl_handle_compile_side_def")]>>
+  TRY (metis_tac[])>>
+  rw[]>>fs[]>>
+  metis_tac[]) |> update_precondition;
+
+val r = translate bvl_handleTheory.compile_exp_def;
+
+val bvl_handle_compile_exp_side = Q.prove(`
+  ∀x y z. bvl_handle_compile_exp_side x y z ⇔ T`,
+  EVAL_TAC \\ rpt strip_tac
+  \\ pop_assum(mp_tac o Q.AP_TERM`LENGTH`)
+  \\ rw[]) |> update_precondition;
+
+(* ------------------------------------------------------------------------- *)
+(* bvl_inline                                                                *)
+(* ------------------------------------------------------------------------- *)
+
+val r = translate bvl_inlineTheory.tick_inline_def;
+
+val bvl_inline_tick_inline_side = Q.prove (
+  `!a0 a1. bvl_inline_tick_inline_side a0 a1 <=> T`,
+  ho_match_mp_tac bvl_inlineTheory.tick_inline_ind
+  \\ `!a x. LENGTH (tick_inline a x) = LENGTH x` by
+   (ho_match_mp_tac bvl_inlineTheory.tick_inline_ind \\ rw []
+    \\ fs [bvl_inlineTheory.tick_inline_def]
+    \\ every_case_tac \\ fs [])
+  \\ `!a x. tick_inline a [x] <> []` by
+   (CCONTR_TAC \\ fs []
+    \\ last_x_assum (qspecl_then [`a`,`[x]`] assume_tac)
+    \\ rfs [])
+  \\ rw [] \\ once_rewrite_tac [fetch "-" "bvl_inline_tick_inline_side_def"]
+  \\ fs [])
+  |> update_precondition;
+
+val r = translate (bvl_inlineTheory.is_small_aux_def |> REWRITE_RULE [GSYM sub_check_def]);
+
+Theorem bvl_inline_is_small_aux_ind[local]:
+  bvl_inline_is_small_aux_ind
+Proof
+  once_rewrite_tac [fetch "-" "bvl_inline_is_small_aux_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD,sub_check_def]
+QED
+
+val _ = bvl_inline_is_small_aux_ind |> update_precondition;
+
+val r = translate bvl_inlineTheory.tick_inline_all_def;
+
+val bvl_inline_tick_inline_all_side = Q.prove (
+  `!a0 a1 a2 a3. bvl_inline_tick_inline_all_side a0 a1 a2 a3 <=> T`,
+  ho_match_mp_tac bvl_inlineTheory.tick_inline_all_ind
+  \\ `!(x:(num # bvl$exp) num_map) y. tick_inline x [y] <> []` by
+   (CCONTR_TAC \\ fs []
+    \\ Q.ISPECL_THEN [`x`,`[y]`] assume_tac bvl_inlineTheory.LENGTH_tick_inline
+    \\ rfs [])
+  \\ rw []
+  \\ once_rewrite_tac [fetch "-" "bvl_inline_tick_inline_all_side_def"]
+  \\ fs [])
+  |> update_precondition;
+
+val r = translate bvl_inlineTheory.let_op_def;
+
+Theorem let_op_SING_NOT_NIL[simp]:
+   let_op [x] <> []
+Proof
+  Cases_on `x` \\ fs [bvl_inlineTheory.let_op_def]
+  \\ CASE_TAC \\ fs []
+QED
+
+val bvl_inline_let_op_side = Q.prove(`
+  ∀a. bvl_inline_let_op_side a ⇔ T`,
+  ho_match_mp_tac bvl_inlineTheory.let_op_ind \\ rw []
+  \\ once_rewrite_tac [fetch "-" "bvl_inline_let_op_side_def"] \\ fs [])
+  |> update_precondition;
+
+val r = translate bvl_inlineTheory.remove_ticks_def;
+
+Theorem bvl_inline_remove_ticks_side = Q.prove(`
+  !a. bvl_inline_remove_ticks_side a`,
+  ho_match_mp_tac bvl_inlineTheory.remove_ticks_ind
+  \\ sg `!x. remove_ticks [x] <> []`
+  >-
+   (CCONTR_TAC \\ fs []
+    \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
+    \\ fs [bvl_inlineTheory.LENGTH_remove_ticks])
+  \\ rw [] \\ rw [Once (fetch "-" "bvl_inline_remove_ticks_side_def")])
+  |> update_precondition;
+
+val r = translate bvl_inlineTheory.compile_prog_def;
+
+Theorem bvl_inline_compile_prog_side = Q.prove(`
+  !a b c d. bvl_inline_compile_prog_side a b c d`,
+  rw [Once (fetch "-" "bvl_inline_compile_prog_side_def"),
+      Once (fetch "-" "bvl_inline_compile_inc_side_def"),
+      Once (fetch "-" "bvl_inline_optimise_side_def")]
+  \\ strip_tac
+  \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
+  \\ fs [bvl_inlineTheory.LENGTH_remove_ticks])
+  |> update_precondition;
+
+Theorem bvl_inline_compile_inc_side = Q.prove(`
+  !a b c d e. bvl_inline_compile_inc_side a b c d e`,
+  rw [Once (fetch "-" "bvl_inline_compile_prog_side_def"),
+      Once (fetch "-" "bvl_inline_compile_inc_side_def"),
+      Once (fetch "-" "bvl_inline_optimise_side_def")]
+  \\ strip_tac
+  \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
+  \\ fs [bvl_inlineTheory.LENGTH_remove_ticks])
+  |> update_precondition;
 
 (* ------------------------------------------------------------------------- *)
 (* bvi_let                                                                   *)
@@ -194,6 +374,12 @@ val _ = r |> hyp |> null orelse
 
 val r = translate bvl_to_bviTheory.compile_inc_def;
 val r = translate bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def;
+
+(* ------------------------------------------------------------------------- *)
+(* backend                                                                   *)
+(* ------------------------------------------------------------------------- *)
+
+val _ = translate backendTheory.from_bvl_def;
 
 (* ------------------------------------------------------------------------- *)
 

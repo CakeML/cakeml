@@ -1,17 +1,17 @@
 (*
-  Translate the backend phase from BVI to dataLang.
+  Translate the backend from BVI to target code.
 *)
-Theory to_dataProg[no_sig_docs]
+Theory from_bviProg[no_sig_docs]
 Ancestors
-  ml_translator to_bviProg backend[qualified]
+  ml_translator from_dataProg backend[qualified]
 Libs
   preamble ml_translatorLib
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = translation_extends "to_bviProg";
+val _ = translation_extends "from_dataProg";
 
-val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_dataProg");
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "from_bviProg");
 
 (* ------------------------------------------------------------------------- *)
 (* Setup                                                                     *)
@@ -122,6 +122,12 @@ val r = translate bvi_to_dataTheory.compile_exp_def;
 print_find"bvi_to_data_compile_exp_side"
 
 val r = translate bvi_to_dataTheory.compile_prog_def;
+
+(* ------------------------------------------------------------------------- *)
+(* backend                                                                   *)
+(* ------------------------------------------------------------------------- *)
+
+val _ = translate backendTheory.from_bvi_def;
 
 (* ------------------------------------------------------------------------- *)
 

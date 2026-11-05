@@ -1,20 +1,17 @@
 (*
-  Translate the backend phase from flatLang to closLang.
+  Translate the backend from closLang to target code.
 *)
-Theory to_closProg[no_sig_docs]
+Theory from_closProg[no_sig_docs]
 Ancestors
-  ml_translator to_flatProg flat_to_clos[qualified]
-  clos_mti[qualified] clos_number[qualified]
-  clos_known[qualified] clos_call[qualified]
-  clos_annotate[qualified]
+  ml_translator from_bvlProg backend[qualified]
 Libs
   preamble ml_translatorLib
 
-val _ = temp_delsimps ["NORMEQ_CONV"]
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = translation_extends "to_flatProg";
+val _ = translation_extends "from_bvlProg";
 
-val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_closProg");
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "from_closProg");
 
 (* ------------------------------------------------------------------------- *)
 (* Setup                                                                     *)
@@ -66,90 +63,6 @@ fun def_of_const tm = let
 val _ = (find_def_for_const := def_of_const);
 
 val _ = use_long_names:=true;
-
-(* ------------------------------------------------------------------------- *)
-(* flat_to_clos                                                               *)
-(* ------------------------------------------------------------------------- *)
-
-val r = translate flat_to_closTheory.dest_pat_pmatch;
-val r = translate flat_to_closTheory.arg1_pmatch;
-val r = translate flat_to_closTheory.arg2_pmatch;
-val r = translate flat_to_closTheory.dest_nop_def;
-
-val _ = patternMatchesSyntax.temp_enable_pmatch();
-
-val _ = translate flat_to_closTheory.CopyWord_checked_def;
-
-Theorem flat_to_clos_copyword_checked_total[local]:
-  ∀trace source_array alloc_new.
-    flat_to_clos_copyword_checked_side trace source_array alloc_new ⇔ T
-Proof
-  rpt gen_tac
-  \\ Cases_on `alloc_new`
-  \\ simp [DB.fetch "-" "flat_to_clos_copyword_checked_side_def"]
-QED
-
-val _ = update_precondition flat_to_clos_copyword_checked_total;
-
-val r = translate flat_to_closTheory.compile_def;
-
-val r = translate flat_to_closTheory.compile_decs_def;
-
-val r = translate (EVAL “clos_interpreter”)
-
-val r = translate clos_interpTheory.can_interpret_op_pmatch;
-val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val r = translate (clos_interpTheory.check_size_op_pmatch |> RW [GSYM sub_check_def]);
-
-val r = translate clos_interpTheory.to_constant_op_pmatch;
-
-fun one_line_ify_mutrec def = let
-  val ths = CONJUNCTS def |> map SPEC_ALL
-  val xs = ths |> map (fn th => (th,(th |> concl |> dest_eq |> fst |> repeat rator
-                                        |> dest_const |> fst)))
-  fun nub [] = []
-    | nub (x::xs) = x :: nub (filter (fn y => y <> x) xs)
-  val ys = nub (map snd xs)
-  in ys |> map (fn y => map fst (filter (fn (_,x) => x = y) xs) |> LIST_CONJ
-                        |> DefnBase.one_line_ify NONE |> GEN_ALL) |> LIST_CONJ
-  end
-
-Theorem can_interpret_ind = (DefnBase.lookup_indn “can_interpret” |> valOf |> fst);
-Theorem check_size_ind = (DefnBase.lookup_indn “check_size” |> valOf |> fst);
-
-val res = translate_no_ind $ one_line_ify_mutrec (clos_interpTheory.check_size_def |> RW [GSYM sub_check_def]);
-
-Theorem clos_interp_check_size_ind[local]:
-  clos_interp_check_size_ind
-Proof
-  once_rewrite_tac [fetch "-" "clos_interp_check_size_ind_def"]
-  \\ rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (latest_ind ())
-  \\ rpt strip_tac
-  \\ last_x_assum match_mp_tac
-  \\ rpt strip_tac
-  \\ gvs [FORALL_PROD, sub_check_def]
-QED
-
-val res = clos_interp_check_size_ind |> update_precondition;
-
-val r = translate clos_interpTheory.insert_interp_def;
-
-val r = translate flat_to_closTheory.inc_compile_decs_def;
-
-val _ = (length (hyp r) = 0)
-        orelse failwith "Unproved side condition: flat_to_clos_inc_compile_decs";
-
-val r = translate clos_interpTheory.clos_interpreter_def;
-val r = translate clos_interpTheory.compile_init_def;
-val r = translate closLangTheory.has_install_def;
-val r = translate clos_interpTheory.attach_interpreter_def;
-val r = translate flat_to_closTheory.compile_prog_def;
-
-val _ = (length (hyp r) = 0)
-        orelse failwith "Unproved side condition: flat_to_clos_compile_prog";
 
 (* ------------------------------------------------------------------------- *)
 (* clos_mti                                                                  *)
@@ -392,6 +305,115 @@ val clos_annotate_compile_inc_side = Q.prove(
 val r = translate clos_letopTheory.compile_inc_def;
 val r = translate clos_fvsTheory.compile_inc_def;
 val r = translate clos_ticksTheory.compile_inc_def;
+
+(* ------------------------------------------------------------------------- *)
+(* clos_to_bvl                                                               *)
+(* ------------------------------------------------------------------------- *)
+
+val r = translate clos_to_bvlTheory.add_part_def;
+val r = translate clos_to_bvlTheory.add_parts_def;
+val r = translate (clos_to_bvlTheory.compile_const_def |> DefnBase.one_line_ify NONE);
+val r = translate clos_to_bvlTheory.compile_op_pmatch;
+
+val r = translate (bvl_jumpTheory.JumpList_def |> REWRITE_RULE [GSYM mllistTheory.take_def,GSYM mllistTheory.drop_def]);
+
+Theorem bvl_jump_jumplist_ind[local]:
+  bvl_jump_jumplist_ind
+Proof
+  once_rewrite_tac [fetch "-" "bvl_jump_jumplist_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD,mllistTheory.take_def,mllistTheory.drop_def]
+  \\ Cases_on`xs` \\ gvs[]
+QED
+
+val _ = bvl_jump_jumplist_ind |> update_precondition;
+
+val bvl_jump_jumplist_side = Q.prove(`
+  ∀a b. bvl_jump_jumplist_side a b ⇔ T`,
+  completeInduct_on`LENGTH (b:bvl$exp list)`>>
+  rw[Once (fetch "-" "bvl_jump_jumplist_side_def")]
+  >-
+    (Cases_on`b`>>fs[])
+  >>
+  fs[PULL_FORALL]>>
+  first_assum match_mp_tac>>
+  fs[]
+  >-
+    (Cases_on`x1_n_`>>fs[ADD_DIV_RWT,ADD1,mllistTheory.take_def,mllistTheory.drop_def])
+  >>
+    `SUC x1_n_ DIV 2 < SUC x1_n_` by
+      fs[]>>
+    simp[mllistTheory.take_def]) |> update_precondition;
+
+val r = translate (clos_to_bvlTheory.mk_cl_call_def |> REWRITE_RULE [GSYM sub_check_def])
+val r = translate (clos_to_bvlTheory.generate_generic_app_def |> REWRITE_RULE [GSYM sub_check_def]);
+
+val r = translate (clos_to_bvlTheory.generate_partial_app_closure_fn_def |> REWRITE_RULE [GSYM sub_check_def]);
+val r = translate (clos_to_bvlTheory.recc_Let_def |> REWRITE_RULE [GSYM sub_check_def]);
+val r = translate (clos_to_bvlTheory.recc_Let0_def |> REWRITE_RULE [GSYM sub_check_def]);
+val r = translate (clos_to_bvlTheory.num_stubs_def |> REWRITE_RULE [GSYM sub_check_def]);
+
+val r = translate (clos_to_bvlTheory.compile_exps_def |> REWRITE_RULE [GSYM sub_check_def]);
+
+val clos_to_bvl_recc_lets_side = Q.prove(`
+  ∀a b c d.
+  c = LENGTH b ⇒
+  clos_to_bvl_recc_lets_side a b c d`,
+  ho_match_mp_tac clos_to_bvlTheory.recc_Lets_ind>>
+  rw[]>>
+  simp[Once (fetch"-" "clos_to_bvl_recc_lets_side_def")]>>
+  Cases_on`b`>>fs[]) |> update_precondition;
+
+val clos_to_bvl_compile_exps_side = Q.prove(`
+  ∀max_app a b. clos_to_bvl_compile_exps_side max_app a b`,
+  ho_match_mp_tac clos_to_bvlTheory.compile_exps_ind>>
+  `∀max_app a b c. compile_exps max_app [a] b ≠ ([],c)` by
+    (CCONTR_TAC>>fs[]>>
+    imp_res_tac clos_to_bvlTheory.compile_exps_SING>>
+    fs[])>>
+  rw[]>>
+  simp[Once (fetch "-" "clos_to_bvl_compile_exps_side_def")]>>
+  TRY (metis_tac[])>>
+  rw[]
+  >-
+    (fs[fetch"-" "clos_to_bvl_build_recc_lets_side_def"]>>
+    match_mp_tac clos_to_bvl_recc_lets_side>>
+    simp[LENGTH_TL])
+  >>
+  rename1`compile_exps max_app [xx] yy = (_,zz)` >>
+  first_x_assum(qspecl_then[`max_app`,`xx`,`yy`,`zz`] assume_tac)>>
+  CCONTR_TAC>>fs[]) |> update_precondition;
+
+val r = translate clos_to_bvlTheory.compile_common_def;
+
+val r = translate (clos_to_bvlTheory.init_code_def |> REWRITE_RULE [GSYM sub_check_def]);
+val r = translate (clos_to_bvlTheory.partial_app_fn_location_def |> REWRITE_RULE [GSYM sub_check_def]);
+
+val r = translate (clos_to_bvlTheory.compile_prog_def |> REWRITE_RULE [GSYM sub_check_def]);
+
+val r = translate clos_to_bvlTheory.compile_def;
+
+val clos_to_bvl_compile_side = Q.prove(`
+  clos_to_bvl_compile_side v10 v11 = T`,
+  fs [fetch "-" "clos_to_bvl_compile_side_def"]
+  \\ rw[clos_to_bvlTheory.num_stubs_def])
+  |> update_precondition;
+
+val r = translate clos_to_bvlTheory.extract_name_pmatch;
+val r = translate clos_to_bvlTheory.compile_inc_def;
+
+val res = translate clos_to_bvlTheory.clos_to_bvl_compile_inc_def
+
+(* ------------------------------------------------------------------------- *)
+(* backend                                                                   *)
+(* ------------------------------------------------------------------------- *)
+
+val _ = translate backendTheory.from_clos_def;
 
 (* ------------------------------------------------------------------------- *)
 

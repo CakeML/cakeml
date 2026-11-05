@@ -40,8 +40,35 @@ Translate the compiler's state decoder.
 [explorerProgScript.sml](explorerProgScript.sml):
 Translate the compiler explorer parts of the compiler.
 
+[from_bviProgScript.sml](from_bviProgScript.sml):
+Translate the backend from BVI to target code.
+
+[from_bvlProgScript.sml](from_bvlProgScript.sml):
+Translate the backend from BVL to target code.
+
+[from_cakeProgScript.sml](from_cakeProgScript.sml):
+Translate the complete CakeML compiler backend.
+
+[from_closProgScript.sml](from_closProgScript.sml):
+Translate the backend from closLang to target code.
+
+[from_dataProgScript.sml](from_dataProgScript.sml):
+Translate the backend from dataLang to target code.
+
+[from_flatProgScript.sml](from_flatProgScript.sml):
+Translate the backend from flatLang to target code.
+
+[from_labProgScript.sml](from_labProgScript.sml):
+Translate the backend from labelled assembly to target code.
+
 [from_pancakeProgScript.sml](from_pancakeProgScript.sml):
 Translate the pan_to_target part of the compiler for all targets.
+
+[from_stackProgScript.sml](from_stackProgScript.sml):
+Translate the backend from stackLang to target code.
+
+[from_wordProgScript.sml](from_wordProgScript.sml):
+Translate wordLang optimization and lowering to target code.
 
 [hol_baseProgScript.sml](hol_baseProgScript.sml):
 Translation of standard library functions
@@ -75,27 +102,6 @@ Translate the compiler's register allocator.
 
 [riscvProgScript.sml](riscvProgScript.sml):
 Translate the RISC-V instruction encoder and RISC-V-specific config.
-
-[to_bviProgScript.sml](to_bviProgScript.sml):
-Translate the backend phase from BVL to BVI.
-
-[to_bvlProgScript.sml](to_bvlProgScript.sml):
-Translate the backend phase from closLang to BVL.
-
-[to_closProgScript.sml](to_closProgScript.sml):
-Translate the backend phase from flatLang to closLang.
-
-[to_dataProgScript.sml](to_dataProgScript.sml):
-Translate the backend phase from BVI to dataLang.
-
-[to_flatProgScript.sml](to_flatProgScript.sml):
-Translate backend phases up to and including flatLang.
-
-[to_targetProgScript.sml](to_targetProgScript.sml):
-Translate the final part of the compiler backend for all targets.
-
-[to_wordProgScript.sml](to_wordProgScript.sml):
-Translate the data_to_word part of the compiler.
 
 [x64ProgScript.sml](x64ProgScript.sml):
 Translate the x64 instruction encoder and x64-specific config.

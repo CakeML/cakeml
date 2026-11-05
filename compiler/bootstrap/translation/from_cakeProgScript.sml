@@ -1,18 +1,18 @@
 (*
-  Translate backend phases up to and including flatLang.
+  Translate the complete CakeML compiler backend.
 *)
-Theory to_flatProg[no_sig_docs]
+Theory from_cakeProg[no_sig_docs]
 Ancestors
-  ml_translator decProg source_to_flat[qualified]
-  source_to_source[qualified] source_lift_consts[qualified]
+  ml_translator from_flatProg source_to_flat[qualified]
+  source_to_source[qualified] source_lift_consts[qualified] backend[qualified]
 Libs
   preamble ml_translatorLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
-val _ = translation_extends "decProg";
+val _ = translation_extends "from_flatProg";
 
-val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_flatProg");
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "from_cakeProg");
 
 (* ------------------------------------------------------------------------- *)
 (* Setup                                                                     *)
@@ -326,6 +326,17 @@ val res = translate source_to_flatTheory.inc_compile_def;
 
 val _ = (length (hyp res) = 0)
         orelse failwith "Unproved side condition: source_to_flat_inc_compile";
+
+(* ------------------------------------------------------------------------- *)
+(* backend                                                                   *)
+(* ------------------------------------------------------------------------- *)
+
+val _ = translate backendTheory.from_source_def;
+val res = translate (backendTheory.from_source_def
+  |> REWRITE_RULE [GSYM backendTheory.compile_eq_from_source]);
+
+val _ = null (hyp res)
+        orelse failwith "Unproved side condition: backend_compile";
 
 (* ------------------------------------------------------------------------- *)
 
