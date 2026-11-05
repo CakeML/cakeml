@@ -388,25 +388,11 @@ val _ = res |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of " ^
                   "compile_64_def.");
 
-val compile_pancake_spec = spec64 compile_pancake_def |> SPEC_ALL;
-
-Definition compile_pancake_fixed_def:
-  compile_pancake_fixed asm_conf c input =
-    ^(compile_pancake_spec |> concl |> rhs)
-End
-
-Theorem compile_pancake_fixed_eq[local]:
-  compiler$compile_pancake (:64) = compile_pancake_fixed
-Proof
-  simp [FUN_EQ_THM, compile_pancake_def, compile_pancake_fixed_def]
-QED
-
-val res = translate compile_pancake_fixed_def;
+val res = translate compile_pancake_def;
 
 val res = translate pancake_backend_conf_def;
 
-val res = translate (compile_pancake_64_def
-  |> REWRITE_RULE [compile_pancake_fixed_eq]);
+val res = translate compile_pancake_64_def;
 
 val _ = res |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of " ^
