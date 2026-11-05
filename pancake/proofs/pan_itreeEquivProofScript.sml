@@ -2583,7 +2583,7 @@ Theorem bounded_trace_eq:
   fromList (SND (evaluate (p, s:('a,'b) state))).ffi.io_events
 Proof
   map_every qid_spec_tac [‘s’,‘p’]>>
-  recInduct evaluate_ind>>rw[]
+  recInduct (name_ind_cases [] evaluate_ind)>>rw[]
   >~ [‘ShMemLoad’] >-
    (drule div_imp_timeout>>simp[]>>
     disch_then (qspec_then ‘s.clock’ strip_assume_tac)>>gvs[]>>
@@ -2601,28 +2601,34 @@ Proof
     Cases_on ‘address’>>gvs[]>>
     namedCases_on ‘eval s e’ ["","value"]>>gvs[]>>
     Cases_on ‘value’>>gvs[AllCaseEqs()])
+  >~ [‘Case (Assign _ _ _,_)’] >-
+   (drule div_imp_timeout>>simp[]>>
+    disch_then (qspec_then ‘s.clock’ strip_assume_tac)>>gvs[]>>
+    qpat_x_assum ‘!k'. _’ kall_tac>>
+    gvs[Once evaluate_def,AllCaseEqs()])
+  >~ [‘Case (ExtCall _ _ _ _ _,_)’] >-
+   (drule div_imp_timeout>>simp[]>>
+    disch_then (qspec_then ‘s.clock’ strip_assume_tac)>>gvs[]>>
+    qpat_x_assum ‘!k'. _’ kall_tac>>
+    gvs[Once evaluate_def,call_FFI_def,AllCaseEqs()])>>
+  pop_assum mp_tac>>pop_assum mp_tac>>
+  once_rewrite_tac[evaluate_def]>>
+  simp[sh_mem_load_def,sh_mem_store_def]>>
+  simp[mrec_prog_simps,mrec_Dec,mrec_If,mrec_ExtCall,
+       mrec_ShMemLoad,mrec_ShMemStore]>>
+  fs[panPropsTheory.eval_upd_clock_eq,call_FFI_def,kvar_defs2,
+     panPropsTheory.opt_mmap_eval_upd_clock_eq1,explode_eq_implode]>>
   (* Recursive constructors use their trace-composition arguments. *)
-  >~ [‘Dec’] >- (pop_assum mp_tac>>pop_assum mp_tac>>
-      once_rewrite_tac[evaluate_def]>>
-      simp[sh_mem_load_def,sh_mem_store_def]>>
-      simp[mrec_prog_simps,mrec_Dec,mrec_If,mrec_ExtCall,
-           mrec_ShMemLoad,mrec_ShMemStore]>>
-      fs[panPropsTheory.eval_upd_clock_eq,call_FFI_def,kvar_defs2,
-         panPropsTheory.opt_mmap_eval_upd_clock_eq1,explode_eq_implode]>>rpt (TOP_CASE_TAC>>fs[])>>
+  all_tac
+  >~ [‘Case (Dec _ _ _ _,_)’] >- (rpt (TOP_CASE_TAC>>fs[])>>
       rpt (pairarg_tac>>fs[])>>
       rw[]>>gvs[iterateTheory.LAMBDA_PAIR]>>
       (fs[div_bind_cases]
        >- (imp_res_tac trace_prefix_bind_div>>fs[]))>>
       imp_res_tac div_bind2>>fs[])
   (* Seq *)
-  >~ [‘Seq’]
-  >- (pop_assum mp_tac>>pop_assum mp_tac>>
-      once_rewrite_tac[evaluate_def]>>
-      simp[sh_mem_load_def,sh_mem_store_def]>>
-      simp[mrec_prog_simps,mrec_Dec,mrec_If,mrec_ExtCall,
-           mrec_ShMemLoad,mrec_ShMemStore]>>
-      fs[panPropsTheory.eval_upd_clock_eq,call_FFI_def,kvar_defs2,
-         panPropsTheory.opt_mmap_eval_upd_clock_eq1,explode_eq_implode]>>simp[mrec_Seq]>>
+  >~ [‘Case (Seq _ _,_)’]
+  >- (simp[mrec_Seq]>>
       rpt (TOP_CASE_TAC>>fs[])>>
       rpt (pairarg_tac>>fs[])>>
       rw[]>>gvs[iterateTheory.LAMBDA_PAIR]
@@ -2712,25 +2718,13 @@ Proof
         drule panPropsTheory.evaluate_add_clock_eq>>
         disch_then $ qspec_then ‘k’ assume_tac>>gvs[])>>rw[])
      (* If (the same as Dec) *)
-  >~ [‘If’] >- (pop_assum mp_tac>>pop_assum mp_tac>>
-      once_rewrite_tac[evaluate_def]>>
-      simp[sh_mem_load_def,sh_mem_store_def]>>
-      simp[mrec_prog_simps,mrec_Dec,mrec_If,mrec_ExtCall,
-           mrec_ShMemLoad,mrec_ShMemStore]>>
-      fs[panPropsTheory.eval_upd_clock_eq,call_FFI_def,kvar_defs2,
-         panPropsTheory.opt_mmap_eval_upd_clock_eq1,explode_eq_implode]>>rpt (TOP_CASE_TAC>>fs[])>>
+  >~ [‘Case (If _ _ _,_)’] >- (rpt (TOP_CASE_TAC>>fs[])>>
       rpt (pairarg_tac>>fs[])>>
       rw[]>>gvs[iterateTheory.LAMBDA_PAIR]>>
       (fs[div_bind_cases]
        >- (imp_res_tac trace_prefix_bind_div>>fs[]))>>
       imp_res_tac div_bind2>>fs[])
-  >~ [‘While’] >- (pop_assum mp_tac>>pop_assum mp_tac>>
-      once_rewrite_tac[evaluate_def]>>
-      simp[sh_mem_load_def,sh_mem_store_def]>>
-      simp[mrec_prog_simps,mrec_Dec,mrec_If,mrec_ExtCall,
-           mrec_ShMemLoad,mrec_ShMemStore]>>
-      fs[panPropsTheory.eval_upd_clock_eq,call_FFI_def,kvar_defs2,
-         panPropsTheory.opt_mmap_eval_upd_clock_eq1,explode_eq_implode]>>once_rewrite_tac[mrec_While]>>
+  >~ [‘Case (While _ _,_)’] >- (once_rewrite_tac[mrec_While]>>
       rpt (TOP_CASE_TAC>>fs[])>>
       rpt (pairarg_tac>>fs[])>>
       rw[]>>gvs[iterateTheory.LAMBDA_PAIR]>>
@@ -2898,14 +2892,8 @@ Proof
          drule panPropsTheory.evaluate_add_clock_eq>>
          disch_then $ qspec_then ‘k’ assume_tac>>gvs[])>>rw[]))
 (* Call *)
-  >~ [‘Call’] >- (
-      pop_assum mp_tac>>pop_assum mp_tac>>
-      once_rewrite_tac[evaluate_def]>>
-      simp[sh_mem_load_def,sh_mem_store_def]>>
-      simp[mrec_prog_simps,mrec_Dec,mrec_If,mrec_ExtCall,
-           mrec_ShMemLoad,mrec_ShMemStore]>>
-      fs[panPropsTheory.eval_upd_clock_eq,call_FFI_def,kvar_defs2,
-         panPropsTheory.opt_mmap_eval_upd_clock_eq1,explode_eq_implode]>>simp[mrec_Call,empty_locals_defs,kvar_defs2]>>
+  >~ [‘Case (Call _ _ _,_)’] >- (
+      simp[mrec_Call,empty_locals_defs,kvar_defs2]>>
       ntac 5 (TOP_CASE_TAC>>fs[])
       >- (rw[]>>fs[div_bind_cases]
           >- (imp_res_tac trace_prefix_bind_div>>fs[]>>
@@ -3123,13 +3111,7 @@ Proof
             disch_then $ qspec_then ‘k’ assume_tac>>rw[]>>gvs[])>>rw[])
       )
   (* DecCall *)
-  >~ [‘DecCall’] >- (pop_assum mp_tac>>pop_assum mp_tac>>
-      once_rewrite_tac[evaluate_def]>>
-      simp[sh_mem_load_def,sh_mem_store_def]>>
-      simp[mrec_prog_simps,mrec_Dec,mrec_If,mrec_ExtCall,
-           mrec_ShMemLoad,mrec_ShMemStore]>>
-      fs[panPropsTheory.eval_upd_clock_eq,call_FFI_def,kvar_defs2,
-         panPropsTheory.opt_mmap_eval_upd_clock_eq1,explode_eq_implode]>>
+  >~ [‘Case (DecCall _ _ _ _ _,_)’] >- (
   simp[mrec_DecCall,empty_locals_defs]>>
   ntac 5 (TOP_CASE_TAC>>fs[])
   >- (rw[]>>fs[div_bind_cases]
@@ -3329,15 +3311,6 @@ Proof
     drule panPropsTheory.evaluate_add_clock_eq>>
     disch_then $ qspec_then ‘k’ assume_tac>>rw[]>>gvs[]>>
     pairarg_tac>>fs[])>>rw[])
-  >~ [‘Tick’] >- gvs[mrec_prog_simps,div_def]>>
-  (* A primitive command cannot time out, hence cannot diverge. *)
-  drule div_imp_timeout>>simp[]>>
-  disch_then (qspec_then ‘s.clock’ strip_assume_tac)>>gvs[]>>
-  qpat_x_assum ‘!k'. _’ kall_tac>>
-  gvs[Once evaluate_def,call_FFI_def,kvar_defs2]>>
-  rpt (TOP_CASE_TAC>>gvs[])>>
-  rpt (pairarg_tac>>gvs[])>>
-  gvs[AllCaseEqs()]
 QED
 
 (**************************)
