@@ -37,12 +37,12 @@ decode
 basis_def
 printing
 from_pancake
---- (the translation splits into two paths for 32- and 64-bit targets)
-compiler32
+compiler_common
+--- (the native AG32 batch entry point extends compiler_common)
+compiler_ag32
+--- (compiler_main also extends compiler_common)
+compiler_main
+--- (the native x64 and ARM8 entry points both extend compiler_main)
+compiler_x64
 ---
-compiler64Common
-compiler64Main
---- (the native entry points both extend compiler64Main)
-compiler64X64
----
-compiler64Arm8
+compiler_arm8

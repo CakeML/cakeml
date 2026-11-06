@@ -1,0 +1,2 @@
+This directory contains the end-to-end correctness theorem for the
+fused CakeML compiler compiled to x64 machine code.

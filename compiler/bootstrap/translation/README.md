@@ -16,20 +16,20 @@ Translate the ARMv8 instruction encoder and ARMv8-specific config.
 [basis_defProgScript.sml](basis_defProgScript.sml):
 Translate the basis library term.
 
-[compiler32ProgScript.sml](compiler32ProgScript.sml):
-Finish translation of the 32-bit version of the compiler.
+[compiler_ag32ProgScript.sml](compiler_ag32ProgScript.sml):
+Native AG32 batch entry point for the fused compiler.
 
-[compiler64Arm8ProgScript.sml](compiler64Arm8ProgScript.sml):
-Native ARM8 entry point for the 64-bit compiler.
+[compiler_arm8ProgScript.sml](compiler_arm8ProgScript.sml):
+Native ARM8 entry point for the compiler.
 
-[compiler64CommonProgScript.sml](compiler64CommonProgScript.sml):
-Shared translation of the 64-bit compiler backends and command-line interface.
+[compiler_commonProgScript.sml](compiler_commonProgScript.sml):
+Shared translation of the compiler backends and command-line interface.
 
-[compiler64MainProgScript.sml](compiler64MainProgScript.sml):
-Shared host selection and entry points for the native 64-bit compiler programs.
+[compiler_mainProgScript.sml](compiler_mainProgScript.sml):
+Shared host selection, REPL and entry points for the native compiler programs.
 
-[compiler64X64ProgScript.sml](compiler64X64ProgScript.sml):
-Native x64 entry point for the 64-bit compiler.
+[compiler_x64ProgScript.sml](compiler_x64ProgScript.sml):
+Native x64 entry point for the compiler.
 
 [decProgScript.sml](decProgScript.sml):
 Translation of CakeML source AST

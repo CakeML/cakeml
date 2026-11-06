@@ -18,8 +18,8 @@
 *.S
 
 # Generated tarball
-cake-arm-64.tar.gz
-cake-x64-64.tar.gz
+cake-arm8.tar.gz
+cake-x64.tar.gz
 config_enc_str.txt
 
 # Developer generated executables
@@ -35,7 +35,7 @@ examples/sat_encodings/translation/compilation/*_encoder
 
 # Generated checker and bootstrap output
 candle/overloading/ml_checker/cyclicity_checker.sexp
-compiler/bootstrap/compilation/x64/64/candle.out
+compiler/bootstrap/compilation/x64/candle.out
 
 # regression test logs
 regression.log
