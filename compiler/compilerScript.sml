@@ -57,9 +57,8 @@ OPTIONS:
                 compiler always uses gc=none.
 
   --target=T    specifies that compilation should produce code for target
-                T, where T can be one of x64, arm8, mips, riscv for
-                the 64-bit compiler; for the 32-bit compiler T can be
-                one of arm7 and ag32.
+                T, where T can be one of x64, arm8, mips, riscv, arm7
+                and ag32. The default is x64.
 
   --sexp=B      B can be either true or false; here false means that the
                 input will be parsed as normal CakeML concrete syntax;
@@ -295,7 +294,7 @@ Definition compile_def:
 End
 
 Definition compile_pancake_def:
-  compile_pancake (:'a) asm_conf c input =
+  compile_pancake asm_conf c input =
   let _ = empty_ffi «finished: start up» in
   case panPtreeConversion$parse_topdecs_to_ast input of
   | INR errs =>
@@ -640,8 +639,8 @@ Definition extend_conf_def:
 End
 
 (* Defaults to x64 if no target given *)
-Definition parse_target_64_def:
-  parse_target_64 ls =
+Definition parse_target_def:
+  parse_target ls =
   case find_str «--target=» ls of
     NONE => INL (x64_backend_config,x64_export,x64_config)
   | SOME rest =>
@@ -649,18 +648,9 @@ Definition parse_target_64_def:
     else if rest = «arm8» then INL (arm8_backend_config,arm8_export,arm8_config)
     else if rest = «mips» then INL (mips_backend_config,mips_export,mips_config)
     else if rest = «riscv» then INL (riscv_backend_config,riscv_export,riscv_config)
-    else INR (concat [«Unrecognized 64-bit target option: »;rest])
-End
-
-(* Defaults to arm7 if no target given *)
-Definition parse_target_32_def:
-  parse_target_32 ls =
-  case find_str «--target=» ls of
-    NONE => INL (arm7_backend_config,arm7_export,arm7_config)
-  | SOME rest =>
-    if rest = «arm7» then INL (arm7_backend_config,arm7_export,arm7_config)
+    else if rest = «arm7» then INL (arm7_backend_config,arm7_export,arm7_config)
     else if rest = «ag32» then INL (ag32_backend_config,ag32_export,ag32_config)
-    else INR (concat [«Unrecognized 32-bit target option: »;rest])
+    else INR (concat [«Unrecognized target option: »;rest])
 End
 
 Definition parse_top_config_def:
@@ -712,12 +702,10 @@ Definition add_tap_output_def:
     if td = Nil then out else td :mlstring app_list
 End
 
-(* The top-level compiler with everything instantiated except it doesn't do exporting *)
-
-(* The top-level compiler with almost everything instantiated except the top-level configuration *)
-Definition compile_64_def:
-  compile_64 cl input =
-  let confexp = parse_target_64 cl in
+(* Compile CakeML using command-line options. *)
+Definition compile_main_def:
+  compile_main cl input =
+  let confexp = parse_target cl in
   let topconf = parse_top_config cl in
   case (confexp,topconf) of
     (INL (conf,export,aconf), INL(sexp,prelude,typeinfer,onlyprinttypes,sexpprint,mainret,nowarn)) =>
@@ -753,9 +741,10 @@ Definition pancake_backend_conf_def:
     c with data_conf := (c.data_conf with gc_kind := None)
 End
 
-Definition compile_pancake_64_def:
-  compile_pancake_64 cl input =
-  let confexp = parse_target_64 cl in
+(* Compile Pancake using command-line options. *)
+Definition compile_pancake_main_def:
+  compile_pancake_main cl input =
+  let confexp = parse_target cl in
   case confexp of
   | INR err => (List[], error_to_str (ConfigError err))
   | INL (conf, export, aconf) =>
@@ -769,7 +758,7 @@ Definition compile_pancake_64_def:
               (List[], error_to_str (ConfigError (get_err_str ext_conf)))
           | INL ext_conf =>
               let ext_conf = pancake_backend_conf ext_conf in
-              case compiler$compile_pancake (:64) aconf ext_conf input of
+              case compiler$compile_pancake aconf ext_conf input of
               | (M_failure err, td, warns) =>
                   (List[], concat (MAP error_to_str (err::(if nowarn then [] else warns))))
               | (M_success (bytes, data, c), td, warns) =>
@@ -780,8 +769,8 @@ Definition compile_pancake_64_def:
                    concat (MAP error_to_str (if nowarn then [] else warns)))
 End
 
-Definition full_compile_64_def:
-  full_compile_64 cl inp fs =
+Definition full_compile_def:
+  full_compile cl inp fs =
   if has_help_flag cl then
     add_stdout fs help_string
   else if has_version_flag cl then
@@ -792,88 +781,9 @@ Definition full_compile_64_def:
     | NONE =>
         let (out, err) =
             if has_pancake_flag cl then
-              compile_pancake_64 cl inp
+              compile_pancake_main cl inp
             else
-              compile_64 cl inp
-        in
-          add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err
-End
-
-Definition compile_32_def:
-  compile_32 cl input =
-  let confexp = parse_target_32 cl in
-  let topconf = parse_top_config cl in
-  case (confexp,topconf) of
-    (INL (conf,export,aconf), INL(sexp,prelude,typeinfer,onlyprinttypes,sexpprint,mainret,nowarn)) =>
-    (let ext_conf = extend_conf cl conf in
-    case ext_conf of
-      INL ext_conf =>
-        let compiler_conf =
-          <| inferencer_config   := init_config;
-             backend_config      := ext_conf;
-             asm_config           := aconf;
-             input_is_sexp       := sexp;
-             exclude_prelude     := prelude;
-             skip_type_inference := typeinfer;
-             only_print_types    := onlyprinttypes;
-             only_print_sexp     := sexpprint;
-             |> in
-        (case compiler$compile compiler_conf basis input of
-          (M_success (bytes,data,c), td) =>
-            (add_tap_output td (export
-              (ffinames_to_string_list $
-                the [] c.lab_conf.ffi_names)
-                bytes data c.symbols c.exported mainret F),
-              implode "")
-        | (M_failure err, td) => (List [], error_to_str err))
-    | INR err =>
-    (List[], error_to_str (ConfigError (get_err_str ext_conf))))
-  | _ =>
-    (List[], error_to_str (ConfigError (concat [get_err_str confexp;get_err_str topconf])))
-End
-
-Definition compile_pancake_32_def:
-  compile_pancake_32 cl input =
-  let confexp = parse_target_32 cl in
-  case confexp of
-  | INR err => (List[], error_to_str (ConfigError err))
-  | INL (conf, export, aconf) =>
-      let topconf = parse_top_config cl in
-      case (topconf) of
-      | INR err => (List[], error_to_str (ConfigError err))
-      | INL (sexp,prelude,typeinfer,onlyprinttypes,sexpprint,mainret,nowarn) =>
-          let ext_conf = extend_conf cl conf in
-          case ext_conf of
-          | INR err =>
-              (List[], error_to_str (ConfigError (get_err_str ext_conf)))
-          | INL ext_conf =>
-              let ext_conf = pancake_backend_conf ext_conf in
-              case compiler$compile_pancake (:32) aconf ext_conf input of
-              | (M_failure err, td, warns) =>
-                  (List[], concat (MAP error_to_str (err::(if nowarn then [] else warns))))
-              | (M_success (bytes, data, c), td, warns) =>
-                  (add_tap_output td
-                    (export (ffinames_to_string_list $
-                      the [] c.lab_conf.ffi_names) bytes data c.symbols
-                      c.exported mainret T),
-                   concat (MAP error_to_str (if nowarn then [] else warns)))
-End
-
-Definition full_compile_32_def:
-  full_compile_32 cl inp fs =
-  if has_help_flag cl then
-    add_stdout fs help_string
-  else if has_version_flag cl then
-    add_stdout fs current_build_info_str
-  else
-    case parse_pancake_feature cl of
-      SOME rest => add_stdout fs $ print_bool $ query_news rest
-    | NONE =>
-        let (out, err) =
-            if has_pancake_flag cl then
-              compile_pancake_32 cl inp
-            else
-              compile_32 cl inp
+              compile_main cl inp
         in
           add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err
 End
