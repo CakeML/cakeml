@@ -3,13 +3,13 @@
 *)
 Theory lexerProg[no_sig_docs]
 Ancestors
-  lexer_fun lexer_impl to_dataProg ml_translator
+  lexer_fun lexer_impl from_cakeProg ml_translator
 Libs
   preamble ml_translatorLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
-val _ = translation_extends "to_dataProg";
+val _ = translation_extends "from_cakeProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "lexerProg");
 
@@ -71,14 +71,7 @@ val _ = translate (next_token_def |> SIMP_RULE std_ss [next_sym_eq])
 val _ = translate lexer_fun_aux_def
 val _ = translate lexer_fun_def
 
-Theorem l2n_side:
-  ∀b a. a ≠ 0 ⇒ l2n_side a b
-Proof
-  Induct>>
-  rw[Once (fetch"-""l2n_side_def")]
-QED
-
-val _ = update_precondition l2n_side;
+Theorem l2n_side = hol_baseProgTheory.l2n_side;
 
 val num_from_dec_string_alt_side = Q.prove(`
   ∀x. num_from_dec_string_alt_side x ⇔ T`,
