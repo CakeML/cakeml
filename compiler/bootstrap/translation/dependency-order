@@ -9,37 +9,40 @@ different modules can be made more independent and different combinations can
 be selected than simple prefixes of the current ordering.
 *)
 
+hol_base
+ag32
+arm7
+arm8
+riscv
+mips
+x64
 decProg
-to_flat
-to_clos
-to_bvl
-to_bvi
-to_data
+from_lab
+from_stack
+reg_alloc
+from_word
+from_data
+from_bvi
+from_bvl
+from_clos
+from_flat
+from_cake
 lexer
 parser
 pancake_lex
 pancake_parse
-reg_alloc
 infer
 explorer
 decode
 basis_def
 printing
-to_word
-to_target
 from_pancake
---- (the translation splits into two paths for 32- and 64-bit targets)
-arm7
-ag32
-compiler32
+compiler_common
+--- (the native AG32 batch entry point extends compiler_common)
+compiler_ag32
+--- (compiler_main also extends compiler_common)
+compiler_main
+--- (the native x64 and ARM8 entry points both extend compiler_main)
+compiler_x64
 ---
-x64
-arm8
-riscv
-mips
-compiler64Common
-compiler64Main
---- (the native entry points both extend compiler64Main)
-compiler64X64
----
-compiler64Arm8
+compiler_arm8

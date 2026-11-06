@@ -1,0 +1,144 @@
+[holbuild]
+minimum_version = "0.11.7"
+
+[project]
+name = "cakeml-compiler"
+version = "0.1.1"
+
+[build]
+roots = ["compiler/proofs/compilerProofScript.sml"]
+exclude = ["candle",
+           "compiler/benchmarks",
+           "compiler/bootstrap",
+           "translator/other-examples",
+           "unverified",
+           "tutorial",
+           "examples"]
+
+[dependencies.hol]
+git = "https://github.com/HOL-Theorem-Prover/HOL.git"
+rev = "9783a49979c94c401ff8c0e51b2eefae7ea95ae3"
+
+[dependencies.holextra]
+from = "hol"
+path = "."
+manifest = "holextra.manifest.toml"
+
+# Keep the existing proofs where tighter limits would require scaffolding.
+[build.theory_tactic_timeouts]
+"compiler/backend/data_liveScript.sml" = 5.0
+"pancake/parser/panPEGScript.sml" = 20.0
+"compiler/backend/word_removeScript.sml" = 10.0
+"compiler/backend/reg_alloc/proofs/reg_allocProofScript.sml" = 10.0
+"compiler/backend/word_allocScript.sml" = 60.0
+"compiler/backend/semantics/wordConvsScript.sml" = 10.0
+"compiler/backend/semantics/wordSemScript.sml" = 30.0
+"compiler/backend/reg_alloc/proofs/linear_scanProofScript.sml" = 10.0
+"compiler/backend/semantics/stackSemScript.sml" = 10.0
+"compiler/backend/word_instScript.sml" = 10.0
+"semantics/proofs/semanticPrimitivesPropsScript.sml" = 30.0
+"compiler/backend/clos_knownScript.sml" = 20.0
+"compiler/backend/semantics/stackPropsScript.sml" = 30.0
+"compiler/backend/gc/gen_gc_partialScript.sml" = 10.0
+"compiler/backend/bvi_to_dataScript.sml" = 60.0
+"compiler/backend/clos_interpScript.sml" = 10.0
+"compiler/backend/bvl_to_bviScript.sml" = 60.0
+"compiler/backend/clos_to_bvlScript.sml" = 30.0
+"compiler/parsing/proofs/pegSoundScript.sml" = 60.0
+"compiler/backend/proofs/wordConvsProofScript.sml" = 30.0
+"compiler/backend/proofs/stack_namesProofScript.sml" = 10.0
+"compiler/backend/semantics/wordPropsScript.sml" = 180.0
+"compiler/backend/stack_rawcallScript.sml" = 60.0
+"compiler/backend/proofs/stack_rawcallProofScript.sml" = 30.0
+"semantics/proofs/evaluatePropsScript.sml" = 30.0
+"compiler/backend/semantics/bviSemScript.sml" = 30.0
+"compiler/backend/semantics/bvlPropsScript.sml" = 10.0
+"compiler/backend/semantics/bviPropsScript.sml" = 60.0
+"compiler/backend/proofs/bvl_constProofScript.sml" = 120.0
+"compiler/backend/proofs/bvi_tailrecProofScript.sml" = 90.0
+"compiler/backend/semantics/closPropsScript.sml" = 10.0
+"compiler/backend/proofs/bvl_to_bviProofScript.sml" = 30.0
+"compiler/backend/proofs/clos_callProofScript.sml" = 10.0
+"compiler/backend/semantics/flatPropsScript.sml" = 60.0
+"compiler/backend/semantics/targetPropsScript.sml" = 10.0
+"compiler/inference/inferScript.sml" = 10.0
+"semantics/proofs/typeSoundScript.sml" = 10.0
+"compiler/inference/inferPropsScript.sml" = 60.0
+"compiler/inference/proofs/envRelScript.sml" = 10.0
+"compiler/backend/proofs/word_bignumProofScript.sml" = 10.0
+"compiler/backend/proofs/word_simpProofScript.sml" = 10.0
+"compiler/backend/proofs/clos_constantProofScript.sml" = 10.0
+"compiler/backend/proofs/word_copyProofScript.sml" = 10.0
+"compiler/backend/proofs/word_instProofScript.sml" = 30.0
+"compiler/backend/proofs/word_depthProofScript.sml" = 90.0
+"compiler/backend/proofs/word_allocProofScript.sml" = 30.0
+"compiler/backend/data_spaceScript.sml" = 10.0
+"compiler/backend/bvi_tailrecScript.sml" = 60.0
+"compiler/encoders/asm/asmPropsScript.sml" = 10.0
+"compiler/backend/word_simpScript.sml" = 10.0
+"compiler/backend/proofs/clos_fvsProofScript.sml" = 10.0
+"compiler/backend/proofs/clos_letopProofScript.sml" = 10.0
+"compiler/backend/semantics/bvlSemScript.sml" = 10.0
+"basis/pure/ast_sexpScript.sml" = 10.0
+"compiler/backend/semantics/dataSemScript.sml" = 10.0
+"semantics/cmlPtreeConversionScript.sml" = 10.0
+"compiler/backend/proofs/word_cseProofScript.sml" = 60.0
+"compiler/backend/proofs/word_elimProofScript.sml" = 10.0
+"compiler/backend/proofs/bvi_inlineProofScript.sml" = 10.0
+"compiler/backend/proofs/clos_ticksProofScript.sml" = 10.0
+"compiler/parsing/lexer_implScript.sml" = 10.0
+"compiler/backend/proofs/clos_opProofScript.sml" = 30.0
+"compiler/backend/proofs/bvi_tmcProofScript.sml" = 10.0
+"compiler/backend/proofs/clos_mtiProofScript.sml" = 10.0
+"compiler/backend/proofs/clos_knownProofScript.sml" = 10.0
+"compiler/backend/proofs/clos_to_bvlProofScript.sml" = 60.0
+"compiler/parsing/proofs/pegCompleteScript.sml" = 10.0
+"compiler/inference/proofs/type_dCanonScript.sml" = 10.0
+"compiler/backend/proofs/source_evalProofScript.sml" = 60.0
+"compiler/inference/proofs/infer_eSoundScript.sml" = 10.0
+"compiler/backend/proofs/stack_allocProofScript.sml" = 60.0
+"compiler/backend/proofs/flat_to_closProofScript.sml" = 60.0
+"compiler/backend/proofs/source_dceProofScript.sml" = 10.0
+"compiler/backend/proofs/source_lift_constsProofScript.sml" = 10.0
+"compiler/backend/proofs/source_to_flatProofScript.sml" = 60.0
+"compiler/backend/proofs/word_to_wordProofScript.sml" = 10.0
+"compiler/backend/semantics/labPropsScript.sml" = 60.0
+"compiler/backend/semantics/dataPropsScript.sml" = 180.0
+"compiler/backend/proofs/stack_removeProofScript.sml" = 60.0
+"compiler/backend/proofs/lab_filterProofScript.sml" = 10.0
+"compiler/backend/proofs/data_liveProofScript.sml" = 60.0
+"compiler/backend/proofs/lab_to_targetProofScript.sml" = 60.0
+"compiler/backend/proofs/data_to_word_syntaxProofScript.sml" = 180.0
+"compiler/backend/proofs/data_to_word_memoryProofScript.sml" = 60.0
+"compiler/backend/proofs/bvi_to_dataProofScript.sml" = 60.0
+"basis/fsFFIPropsScript.sml" = 10.0
+"compiler/backend/proofs/word_to_stackProofScript.sml" = 60.0
+"compiler/backend/proofs/data_to_word_assign_commonProofScript.sml" = 180.0
+"compiler/backend/proofs/data_to_word_assign_blockProofScript.sml" = 60.0
+"compiler/backend/proofs/stack_to_labProofScript.sml" = 60.0
+"compiler/backend/proofs/data_to_word_assign_memProofScript.sml" = 10.0
+"characteristic/cfAppScript.sml" = 10.0
+"characteristic/cfScript.sml" = 10.0
+"compiler/backend/proofs/data_to_word_bignumProofScript.sml" = 10.0
+"compiler/backend/proofs/data_to_word_assign_intProofScript.sml" = 10.0
+"characteristic/cfDivScript.sml" = 10.0
+"compiler/backend/proofs/data_to_wordProofScript.sml" = 60.0
+"compiler/backend/proofs/backendProofScript.sml" = 60.0
+"basis/CommandLineProofScript.sml" = 10.0
+"basis/TextIOProofScript.sml" = 60.0
+"basis/SexpProgScript.sml" = 10.0
+"compiler/proofs/compilerProofScript.sml" = 10.0
+"compiler/backend/bvi_inlineScript.sml" = 60.0
+"compiler/backend/bvl_handleScript.sml" = 60.0
+"compiler/parsing/cmlPEGScript.sml" = 60.0
+"compiler/backend/proofs/bvl_handleProofScript.sml" = 10.0
+"characteristic/cfStoreScript.sml" = 10.0
+"compiler/backend/proofs/data_to_word_gcProofScript.sml" = 10.0
+"compiler/backend/proofs/data_to_word_assign_wordProofScript.sml" = 10.0
+
+[actions.newsTheory]
+extra_deps = ["pancake/NEWS.md"]
+
+# This theory records the current build date and tool versions.
+[actions.compilerTheory]
+impure = true

@@ -6,13 +6,11 @@
 *)
 Theory basisTypeCheck[no_sig_docs]
 Ancestors
-  basisProg infer_cv
+  basisProg_cv infer_cv
 Libs
   preamble cv_transLib
 
 val _ = cv_auto_trans inferTheory.init_config_def;
-
-val _ = cv_trans_deep_embedding EVAL basis_def;
 
 val basis_types = cv_eval “infertype_prog init_config basis”;
 
