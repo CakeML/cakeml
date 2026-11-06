@@ -8,9 +8,9 @@ Ancestors
   semantics semanticPrimitives evaluateProps sptree perms
   candle_kernel_funs candle_kernel_vals candle_prover_evaluate
   ast_extras holKernelProof basisProg ml_hol_kernel_funsProg
-  ml_prog
+  ml_prog basisProg_cv backend_cv
 Libs
-  preamble helperLib ml_translatorLib ml_progLib[qualified]
+  preamble cv_transLib helperLib ml_translatorLib ml_progLib[qualified]
 
 
 val _ = translation_extends "candle_kernelProg";
@@ -80,7 +80,7 @@ Theorem env_ok_basis_env:
   env_ok ctxt basis_env
 Proof
   assume_tac basis_Decls_thm
-  \\ ‘prog_syntax_ok basis’ by EVAL_TAC (* cv_eval instead? *)
+  \\ ‘prog_syntax_ok basis’ by (CONV_TAC cv_eval)
   \\ drule_all Decls_IMP_Prog \\ strip_tac
   \\ gs [Prog_def]
   \\ drule_then (qspec_then ‘ctxt’ mp_tac) evaluate_basis_v_ok_decs

@@ -411,6 +411,16 @@ Definition do_app_def:
             Rval (RefPtr T ptr, s with refs := s.refs |+
               (ptr,ValueArray (REPLICATE (Num i) v)))
          else Error
+    | (MemOp (ScanByte neq),[Number start; Number end; Number b; RefPtr _ ptr]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray _ ws) =>
+             if 0 ≤ start ∧ start ≤ &LENGTH ws ∧ 0 ≤ end ∧ end ≤ &LENGTH ws ∧
+                0 ≤ b ∧ b < 256 then
+               Rval (Number (&(if Num end ≤ Num start then Num end else Num start +
+                 LENGTH (FST (SPLITP (\w. (w = i2w b) ⇔ ¬neq)
+                   (DROP (Num start) (TAKE (Num end) ws)))))),s)
+             else Error
+         | _ => Error)
     | (MemOp DerefByte,[RefPtr _ ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray _ ws) =>
@@ -469,6 +479,31 @@ Definition do_app_def:
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray f bs) =>
             (Rval (list_to_v (MAP (\b. Number (& (w2n b))) bs), s))
+         | _ => Error)
+    | (MemOp (CopyWord F),[Block tag ws; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
+        (case FLOOKUP s.refs dst of
+         | SOME (ValueArray ds) =>
+           (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
+            | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ValueArray ds))
+            | NONE => Error)
+         | _ => Error)
+    | (MemOp (CopyWord F),[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
+        (case (FLOOKUP s.refs src, FLOOKUP s.refs dst) of
+         | (SOME (ValueArray ws), SOME (ValueArray ds)) =>
+           (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
+            | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ValueArray ds))
+            | NONE => Error)
+         | _ => Error)
+    | (MemOp (CopyWord T),[Block tag ws; Number srcoff; Number len]) =>
+        (case copy_array (ws,srcoff) len NONE of
+         | SOME ds => Rval (Block 0 ds, s)
+         | NONE => Error)
+    | (MemOp (CopyWord T),[RefPtr _ src; Number srcoff; Number len]) =>
+        (case FLOOKUP s.refs src of
+         | SOME (ValueArray ws) =>
+           (case copy_array (ws,srcoff) len NONE of
+            | SOME ds => Rval (Block 0 ds, s)
+            | NONE => Error)
          | _ => Error)
     | (MemOp (CopyByte F),[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
         (case (FLOOKUP s.refs src, FLOOKUP s.refs dst) of

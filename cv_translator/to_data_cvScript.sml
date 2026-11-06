@@ -489,6 +489,10 @@ QED
 
 val _ = cv_trans is_trivial_alt;
 val _ = cv_trans source_lift_constsTheory.make_name_def;
+val _ = cv_trans source_lift_constsTheory.is_shift_name_def;
+val _ = cv_trans source_lift_constsTheory.is_word64_lit_def;
+val _ = cv_trans source_lift_constsTheory.is_shift_call_def;
+val _ = cv_trans source_lift_constsTheory.is_lit_shift_def;
 val _ = cv_trans source_lift_constsTheory.allow_lift_def;
 val _ = cv_trans source_lift_constsTheory.choose_name_def;
 val _ = cv_trans source_lift_constsTheory.choose_names_def;

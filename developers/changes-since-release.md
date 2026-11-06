@@ -27,6 +27,12 @@ For example, `val (a, b) = (~1, 2)` is represented as
 
 The CakeML source language now supports pointer equality (#1561). Note that this makes the source semantics non-deterministic and many top-level theorems have changed shape.
 
+New primitives `Aw8ScanEq`, `Aw8ScanNeq`, `StrScanEq` and `StrScanNeq` scan a
+range of a byte array or string for the first position whose element is equal
+(or not equal) to a given byte or char (#1559). The compiler implements these
+scans word-at-a-time. The same PR adds primitives `CopyVecVec`, `CopyVecArr`,
+`CopyArrVec` and `CopyArrArr` for copying slices between vectors and arrays.
+
 ## Basis library
 
 The shift and rotate functions `<<`, `>>`, `~>>` and `ror` in the `Word8` and
@@ -53,6 +59,17 @@ has been added to basis.
 `String.Fast.compare` has been added.
 Like the other operations in the `String.Fast` module, it orders strings by
 length first and only compares contents when the lengths are equal, which is faster.
+
+`String.scanEq` and `String.scanNeq` have been added (#1559):
+```
+String.scanEq: int -> int -> char -> string -> int
+String.scanNeq: int -> int -> char -> string -> int
+```
+`String.scanEq start end c s` returns the first index `i` with
+`start <= i < end` such that `String.sub s i = c`, or `end` if there is no
+such index (or if `end <= start`). `String.scanNeq` is the same but looks for
+a char different from `c`. Both raise `Subscript` if `start` or `end` is
+outside `0` to `String.size s`.
 
 ### Map
 
@@ -92,6 +109,33 @@ Word8Array.updateBit: byte_array -> int -> bool -> unit
 The supplied index `i` is used as follows: `i div 8` is the read/updated byte,
 and, in that byte, bit `i mod 8` is read/updated.
 
+There are new primitives for scanning a range of a byte array (#1559):
+```
+Word8Array.scanEq: int -> int -> Word8.word -> byte_array -> int
+Word8Array.scanNeq: int -> int -> Word8.word -> byte_array -> int
+```
+These behave like `String.scanEq` and `String.scanNeq`, but on byte arrays.
+
+### Array
+
+There are new primitives for copying slices of arrays and vectors (#1559):
+```
+Array.copySlice: 'a Array.array -> int -> int -> 'a Array.array -> int -> unit
+Array.copyVecSlice: 'a Vector.vector -> int -> int -> 'a Array.array -> int -> unit
+Array.subvector: 'a Array.array -> int -> int -> 'a Vector.vector
+```
+`Array.copySlice src srcoff len dst dstoff` copies `len` elements of `src`,
+starting at `srcoff`, into `dst` at `dstoff`. `Array.copyVecSlice` does the
+same with a vector as the source. `Array.subvector arr off len` returns a new
+vector holding `len` elements of `arr` starting at `off`. All three raise
+`Subscript` if a slice is out of bounds.
+
+### Vector
+
+`Vector.subvector: 'a Vector.vector -> int -> int -> 'a Vector.vector` has been
+added (#1559). `Vector.subvector vec off len` returns the `len` elements of
+`vec` starting at `off`.
+
 ## Compiler backend and runtime
 
 The compiler handles dynamic installation of new code in new way (#1487). This
@@ -122,6 +166,11 @@ compiler backend (#1542).
 The compiler backend now attaches a bit of metadata to every function (#1535).
 This is completely internal to the compiler. Debug names for functions now come
 from metadata rather than a separate mapping (#1539).
+
+Byte-array copying is now implemented efficiently in `data_to_word` (#1559):
+after a bytewise prefix up to word alignment, it copies whole words at a time
+(shifting them into place if the destination is unaligned), then copies the
+remaining bytes one at a time. Overlapping copies still use the byte-by-byte loops.
 
 ## Pancake
 
