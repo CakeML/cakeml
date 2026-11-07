@@ -521,7 +521,7 @@ Theorem assign_no_inst[local]:
    (a.has_idiv ⇒ (ac.ISA ∈ {x86_64; ARMv8; MIPS; RISC_V})) ∧
    (a.has_fp_ops ⇒ 1 < ac.fp_reg_count) ∧
    (a.has_fp_tern ==> 2 < ac.fp_reg_count /\ ac.ISA = ARMv7) /\
-  addr_offset_ok ac 0 /\ byte_offset_ok ac 0) ⇒
+  addr_offset_ok ac 0 /\ (∀w. -8 ≤ w ∧ w ≤ 8 ⇒ byte_offset_ok ac w)) ⇒
   every_inst (inst_ok_less ac) (FST(assign a b c d e f g) :wordLang$prog)
 Proof
   Cases_on `e`
@@ -613,7 +613,10 @@ Resume assign_no_inst[MemOp]:
     oneline AssignCmp_def, SetBool_def, adjust_var_NEQ] >>
   rpt (
     TOP_CASE_TAC >>
-    simp [every_inst_def, list_Seq_def])
+    simp [every_inst_def, list_Seq_def]) >>
+  (* header offset of byte and bit accesses *)
+  first_assum irule >>
+  Cases_on `a.arch_width` >> EVAL_TAC
 QED
 
 Resume assign_no_inst[Install]:
@@ -647,7 +650,7 @@ Theorem comp_no_inst:
    (c.has_idiv ⇒ (ac.ISA ∈ {x86_64; ARMv8; MIPS; RISC_V})) ∧
    (c.has_fp_ops ⇒ 1 < ac.fp_reg_count) ∧
    (c.has_fp_tern ==> 2 < ac.fp_reg_count /\ ac.ISA = ARMv7)) /\
-  addr_offset_ok ac 0 /\ byte_offset_ok ac 0 ⇒
+  addr_offset_ok ac 0 /\ (∀w. -8 ≤ w ∧ w ≤ 8 ⇒ byte_offset_ok ac w) ⇒
   every_inst (inst_ok_less ac) (FST(comp c n m p) :wordLang$prog)
 Proof
   ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
