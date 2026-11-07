@@ -39,6 +39,24 @@ Theorem scheme_init_env_defs =
   find "scheme_to_cake_env_env~def" |> map (fn (_,(th,_,_)) => th) |> rev |> LIST_CONJ
     |> SRULE [ml_progTheory.write_def];
 
+(* Value bindings do not change the constructor namespace. *)
+Theorem scheme_init_env_cons:
+  scheme_to_cake_env_env_2.c = scheme_to_cake_env_env_1.c /\
+  scheme_to_cake_env_env_3.c = scheme_to_cake_env_env_1.c /\
+  scheme_to_cake_env_env_4.c = scheme_to_cake_env_env_1.c /\
+  scheme_to_cake_env_env_5.c = scheme_to_cake_env_env_1.c /\
+  scheme_to_cake_env_env_6.c = scheme_to_cake_env_env_1.c /\
+  scheme_to_cake_env_env_7.c = scheme_to_cake_env_env_1.c /\
+  scheme_to_cake_env_env_8.c = scheme_to_cake_env_env_1.c /\
+  scheme_to_cake_env_env_9.c = scheme_to_cake_env_env_1.c /\
+  scheme_to_cake_env_env_10.c = scheme_to_cake_env_env_1.c /\
+  scheme_to_cake_env_env_11.c = scheme_to_cake_env_env_1.c /\
+  scheme_to_cake_env_env_12.c = scheme_to_cake_env_env_1.c /\
+  scheme_to_cake_env_env_13.c = scheme_to_cake_env_env_1.c
+Proof
+  simp[scheme_init_env_defs]
+QED
+
 Theorem scheme_init_st_defs =
   find "scheme_to_cake_env_st~def" |> map (fn (_,(th,_,_)) => th) |> rev |> LIST_CONJ
     |> SRULE [ml_progTheory.write_def];

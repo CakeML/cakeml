@@ -830,6 +830,16 @@ Proof
   rw [evaluate_def, fix_clock_evaluate]
 QED
 
+Theorem evaluate_Opapp_body:
+  evaluate st env (REVERSE es) = (st1,Rval vs) /\
+  do_opapp (REVERSE vs) = SOME (env1,body) /\ st1.clock <> 0
+  ==>
+  evaluate st env [App Opapp es] = evaluate (dec_clock st1) env1 [body]
+Proof
+  rpt strip_tac
+  >> simp[Once evaluate_def, fix_clock_evaluate]
+QED
+
 (* a true result from PtrEq certifies structural equality of its arguments *)
 Theorem ptr_eq_sound:
   evaluate st env [App PtrEq es] = (st', Rval [v]) ⇒
@@ -1514,6 +1524,49 @@ Proof
 QED
 
 (* Evaluation of known values and Let/Letrec *)
+
+Theorem evaluate_Recclosure_3_args:
+  nsLookup env.v (Short fvar) = SOME (Recclosure rho [(f,x,Fun y (Fun z body))] f) /\
+  (!q:'ffi state. evaluate q env [ea] = (q,Rval [va])) /\
+  (!q:'ffi state. evaluate q env [eb] = (q,Rval [vb])) /\
+  (!q:'ffi state. evaluate q env [ec] = (q,Rval [vc])) ==>
+  evaluate ((st:'ffi state) with clock := start+3) env
+    [App Opapp [App Opapp [App Opapp [Var (Short fvar); ea]; eb]; ec]] =
+  evaluate (st with clock := start)
+    (rho with v := nsBind z vc (nsBind y vb (nsBind x va
+      (build_rec_env [(f,x,Fun y (Fun z body))] rho rho.v)))) [body]
+Proof
+  strip_tac
+  >> ‘!q:'ffi state. evaluate q env [ec;eb;ea] = (q,Rval [vc;vb;va])’
+    by (gen_tac >> simp[Once evaluate_cons] >> simp[Once evaluate_cons])
+  >> first_x_assum (qspec_then ‘st with clock := start+3’ assume_tac)
+  >> drule evaluate_Apps
+  >> disch_then (qspecl_then
+       [‘[y;z]’, ‘Short fvar’,
+        ‘rho with v := nsBind x va
+          (build_rec_env [(f,x,Fun y (Fun z body))] rho rho.v)’,
+        ‘body’, ‘Recclosure rho [(f,x,Fun y (Fun z body))] f’] mp_tac)
+  >> simp[do_opapp_Recclosure_singleton, Funs_def, Apps_def,
+          nsAppend_to_nsBindList, nsBindList_clauses]
+QED
+
+Theorem evaluate_Recclosure_3:
+  nsLookup env.v (Short fvar) = SOME (Recclosure rho [(f,x,Fun y (Fun z body))] f) /\
+  nsLookup env.v (Short a) = SOME va /\
+  nsLookup env.v (Short b) = SOME vb /\
+  nsLookup env.v (Short c) = SOME vc
+  ==>
+  evaluate ((st:'ffi state) with clock := start + 3) env
+    [App Opapp [App Opapp [App Opapp [Var (Short fvar); Var (Short a)];
+      Var (Short b)]; Var (Short c)]] =
+  evaluate (st with clock := start)
+    (rho with v := nsBind z vc (nsBind y vb (nsBind x va
+      (build_rec_env [(f,x,Fun y (Fun z body))] rho rho.v)))) [body]
+Proof
+  strip_tac
+  >> irule evaluate_Recclosure_3_args
+  >> simp[cj 7 evaluate_def]
+QED
 
 Theorem evaluate_constant_list:
   ∀es.

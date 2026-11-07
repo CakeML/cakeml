@@ -82,7 +82,7 @@ Proof
     >> simp[scheme_cons_env_def]
   )
   >- (
-    qexists `merge_env scheme_to_cake_env_env_12 init_env`
+    qexists ‘merge_env scheme_to_cake_env_env_12 init_env’
     >> simp[cj 11 scheme_init_env_defs]
     >> simp[scheme_init_v_defs]
     >> simp[merge_env_def]
@@ -100,6 +100,7 @@ Proof
     >> simp[cj 9 scheme_init_env_defs]
     >> simp[scheme_cons_env_def]
     >> simp[scheme_init_v_defs, merge_env_def]
+    >> simp[scheme_init_env_cons]
     >> simp[scheme_init_env_defs_but_1]
     >> simp[scheme_init_v_defs]
     >> simp[merge_env_def]
@@ -319,6 +320,22 @@ QED
 
 Theorem mlv_always_conv[allow_rebind] = SRULE [] mlv_always_conv;
 
+Theorem ml_v_vals_not_num:
+  ml_v_vals v mlv /\ (!n. v <> SNum n) ==>
+  !xs. mlv <> Conv (SOME (scheme_typestamp «SNum»)) xs
+Proof
+  rpt strip_tac
+  >> gvs[Once ml_v_vals_cases]
+QED
+
+Theorem ml_v_vals_not_bool:
+  ml_v_vals v mlv /\ (!b. v <> SBool b) ==>
+  !xs. mlv <> Conv (SOME (scheme_typestamp «SBool»)) xs
+Proof
+  rpt strip_tac
+  >> gvs[Once ml_v_vals_cases]
+QED
+
 val (store_entry_rel_rules,store_entry_rel_ind,store_entry_rel_cases) =
 (fn (x,y,z) => (SRULE [] x,SRULE [] y, SRULE [] z)) $ Hol_reln ‘
   store_entry_rel (Mut NONE) (Refv (Conv (SOME (scheme_typestamp «None»)) [])) ∧
@@ -372,7 +389,7 @@ Proof
   >> iff_tac
   >> rpt strip_tac
   >> simp[]
-  >> Cases_on `es`
+  >> Cases_on ‘es’
   >> gvs[]
 QED
 
@@ -389,15 +406,15 @@ Theorem cons_trivial_eval:
       )) scheme_conses
 Proof
   rpt strip_tac
-  >> gvs[scheme_env_def, scheme_cons_env_simp, scheme_conses_def, nsLookup_def]
+  >> simp_tac std_ss [scheme_cons_env_simp, scheme_conses_def, EVERY_DEF, nsLookup_def]
   >> simp [evaluate_def, do_con_check_def, build_conv_def, nsLookup_def]
   >> rpt strip_tac
-  >> Cases_on `es` using SNOC_CASES
+  >> Cases_on ‘es’ using SNOC_CASES
   >> gvs[]
   >> simp[REVERSE_SNOC]
   >> simp[Once evaluate_cons]
   >> gvs[Once LIST_REL_SNOC]
-  >> Cases_on `l` using SNOC_CASES
+  >> Cases_on ‘l’ using SNOC_CASES
   >> gvs[]
   (*I barely know what I'm doing here*)
 QED
@@ -462,8 +479,8 @@ Proof
   >> rpt strip_tac
   >> gvs[FEVERY_DEF]
   >> strip_tac
-  >> rename1 `y = x`
-  >> Cases_on `y = x`
+  >> rename1 ‘y = x’
+  >> Cases_on ‘y = x’
   >> simp[FAPPLY_FUPDATE_THM]
 QED
 
@@ -501,7 +518,7 @@ Proof
   >> simp[Ntimes evaluate_def 2, nsOptBind_def]
   >> irule_at (Pos last) EQ_REFL
   >> scheme_env_tac
-  >> qexists `[]`
+  >> qexists ‘[]’
   >> simp[Once cont_rel_cases]
   >> metis_tac[]
 QED
@@ -655,23 +672,23 @@ Proof
     do_app_def, store_alloc_def, nsOptBind_def]
   >> simp_tac bool_ss [SIMP_RULE bool_ss [Once CONS_APPEND] GENLIST_CONS, APPEND_ASSOC]
   >> simp[]
-  >> Cases_on `mlenv.v`
+  >> Cases_on ‘mlenv.v’
   >> simp_tac bool_ss [nsAppend_def, GSYM APPEND_ASSOC]
   >> simp_tac bool_ss [GSYM nsAppend_def]
   >> simp[GSYM nsBind_def]
   >> pop_assum $ simp o single o GSYM
-  >> `! l . GENLIST SUC l = MAP SUC $ GENLIST I l` by simp[MAP_GENLIST]
+  >> ‘! l . GENLIST SUC l = MAP SUC $ GENLIST I l’ by simp[MAP_GENLIST]
   >> pop_assum $ simp o single
   >> simp[cj 2 ZIP_MAP, MAP_MAP_o, o_DEF]
-  >> qpat_abbrev_tac `st' = st with refs := _`
-  >> qpat_abbrev_tac `mlenv' = mlenv with v := _`
-  >> last_x_assum $ qspec_then `st'` $
-    qspec_then `mlenv'` $ qspec_then `e` $ assume_tac
-  >> `scheme_env mlenv'` by
+  >> qpat_abbrev_tac ‘st' = st with refs := _’
+  >> qpat_abbrev_tac ‘mlenv' = mlenv with v := _’
+  >> last_x_assum $ qspec_then ‘st'’ $
+    qspec_then ‘mlenv'’ $ qspec_then ‘e’ $ assume_tac
+  >> ‘scheme_env mlenv'’ by
     (unabbrev_all_tac >> rpt scheme_env_tac >> simp [strcat_thm])
   >> unabbrev_all_tac
   >> simp[]
-  >> `! n . SUC n = n + 1` by simp[]
+  >> ‘! n . SUC n = n + 1’ by simp[]
   >> simp[]
 QED
 
@@ -685,27 +702,27 @@ Theorem letpreinit_env_rel:
 Proof
   simp[letrec_preinit_env_def, letpreinit_mlenv_def, env_rel_cases]
   >> gen_tac
-  >> `? mlenvv . mlenv.v = mlenvv` by simp[]
+  >> ‘? mlenvv . mlenv.v = mlenvv’ by simp[]
   >> pop_assum $ simp o single
-  >> qid_spec_tac `mlenvv`
-  >> Induct_on `xs`
+  >> qid_spec_tac ‘mlenvv’
+  >> Induct_on ‘xs’
   >> simp[GSYM nsEmpty_def, FUPDATE_LIST]
   >> rpt strip_tac
   >> simp[GENLIST_CONS]
   >> simp[GSYM FUPDATE_LIST]
-  >> Cases_on `mlenvv`
+  >> Cases_on ‘mlenvv’
   >> simp_tac bool_ss [nsAppend_def, GSYM APPEND_ASSOC]
   >> simp[GSYM nsAppend_def, GSYM nsBind_def]
-  >> `! l . GENLIST SUC l = MAP SUC $ GENLIST I l` by simp[MAP_GENLIST]
+  >> ‘! l . GENLIST SUC l = MAP SUC $ GENLIST I l’ by simp[MAP_GENLIST]
   >> pop_assum $ simp o single
   >> simp[cj 2 ZIP_MAP, MAP_MAP_o, o_DEF]
-  >> `! x y . x + SUC y = SUC x + y` by simp[]
+  >> ‘! x y . x + SUC y = SUC x + y’ by simp[]
   >> pop_assum $ simp_tac bool_ss o single
   >> last_x_assum irule
   >> gvs[FEVERY_DEF, SPECIFICATION]
-  >> rename1 `_ |+ (x,l)`
-  >> qx_gen_tac `x'`
-  >> Cases_on `x' = x`
+  >> rename1 ‘_ |+ (x,l)’
+  >> qx_gen_tac ‘x'’
+  >> Cases_on ‘x' = x’
   >> simp[FAPPLY_FUPDATE_THM]
 QED
 
@@ -730,11 +747,11 @@ Theorem allocate_list_ml:
       ml_v_vals tail mltail /\
       st.ffi = st'.ffi
 Proof
-  Induct_on `vs`
+  Induct_on ‘vs’
   >> rpt strip_tac
-  >> qpat_x_assum `closure_in_env _ _ _` $ assume_tac o EVAL_RULE
+  >> qpat_x_assum ‘closure_in_env _ _ _’ $ assume_tac o EVAL_RULE
   >> gvs[allocate_list_def, vcons_list_def, scheme_cons_env_simp]
-  >> qrefine `ck+1`
+  >> qrefine ‘ck+1’
   >> simp[evaluate_def, dec_clock_def]
   >> simp[do_opapp_def]
   >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
@@ -742,28 +759,28 @@ Proof
     same_type_def, same_ctor_def, evaluate_match_def, pat_bindings_def]
   >- (
     simp[evaluate_def, do_con_check_def, build_conv_def, nsLookup_def]
-    >> qexists `0`
+    >> qexists ‘0’
     >> simp[Once ml_v_vals_cases]
-    >> first_assum $ irule_at $ Pat `LIST_REL _ _ _`
+    >> first_assum $ irule_at $ Pat ‘LIST_REL _ _ _’
     >> simp[]
   )
   >> gvs[fresh_loc_def]
   >> rpt (pairarg_tac >> gvs[])
   >> simp[Ntimes evaluate_def 3, do_con_check_def, build_conv_def, nsLookup_def]
-  >> qpat_abbrev_tac `newenv = env_list with v := _`
-  >> last_x_assum $ drule_at_then (Pat `allocate_list _ _`) assume_tac
-  >> rpt (pop_assum $ drule_at_then (Pat `LIST_REL _ _ _`) assume_tac)
-  >> `closure_in_env newenv scheme_basis_list env_list`
+  >> qpat_abbrev_tac ‘newenv = env_list with v := _’
+  >> last_x_assum $ drule_at_then (Pat ‘allocate_list _ _’) assume_tac
+  >> rpt (pop_assum $ drule_at_then (Pat ‘LIST_REL _ _ _’) assume_tac)
+  >> ‘closure_in_env newenv scheme_basis_list env_list’
     by (EVAL_TAC >> unabbrev_all_tac >> simp[])
-  >> first_x_assum $ dxrule_at_then (Pat `closure_in_env _ _`) assume_tac
-  >> pop_assum $ qspec_then `«ts'»` assume_tac
+  >> first_x_assum $ dxrule_at_then (Pat ‘closure_in_env _ _’) assume_tac
+  >> pop_assum $ qspec_then ‘«ts'»’ assume_tac
   >> unabbrev_all_tac
   >> gvs[scheme_runtime_funs_def]
-  >> qexists `ck`
+  >> qexists ‘ck’
   >> simp[]
   >> simp[Once evaluate_def, do_app_def, store_alloc_def, SNOC_APPEND]
-  >> qpat_abbrev_tac `newst = _ with refs := _`
-  >> qexists `newst`
+  >> qpat_abbrev_tac ‘newst = _ with refs := _’
+  >> qexists ‘newst’
   >> unabbrev_all_tac
   >> simp[store_entry_rel_cases]
   >> simp[Once ml_v_vals_cases]
@@ -823,15 +840,15 @@ Proof
   >> drule_all_then assume_tac $ cj 2 $ iffLR LIST_REL_EL_EQN
   >> gvs[store_entry_rel_cases]
   >> (reduce_to_cps 0 []
-  >> qpat_abbrev_tac `newst = st with refs := _`
-  >> `st.ffi = newst.ffi` by (unabbrev_all_tac >> simp[])
+  >> qpat_abbrev_tac ‘newst = st with refs := _’
+  >> ‘st.ffi = newst.ffi’ by (unabbrev_all_tac >> simp[])
   >> pop_assum $ simp o single
   >> last_x_assum irule
   >> unabbrev_all_tac
   >> first_assum $ irule_at $ Pos last
   >> simp[]
   >> irule_at (Pos hd) EVERY_MONOTONIC
-  >> last_assum $ irule_at $ Pat `EVERY _ _`
+  >> last_assum $ irule_at $ Pat ‘EVERY _ _’
   >> strip_tac >- (
     rpt strip_tac
     >> irule valid_val_LUPDATE_same
@@ -841,6 +858,545 @@ Proof
   >> irule EVERY2_LUPDATE_same
   >> simp[store_entry_rel_cases])
 QED
+
+(* Selection computes only the recursive-list spine, never function bodies. *)
+fun app_recfun_conv tm =
+  let
+    val unfold = REWR_CONV find_recfun_def tm
+    val cases = FIRST_CONV
+      (map REWR_CONV (CONJUNCTS (TypeBase.case_def_of ``:'a list``)))
+    val pairs = REWR_CONV (TypeBase.case_def_of ``:'a # 'b``)
+    val step = (cases THENC
+      (RATOR_CONV BETA_CONV THENC BETA_CONV) THENC
+      pairs THENC (RATOR_CONV BETA_CONV THENC BETA_CONV) THENC
+      pairs THENC (RATOR_CONV BETA_CONV THENC BETA_CONV) THENC
+      RATOR_CONV (RATOR_CONV (RAND_CONV EVAL)) THENC COND_CONV)
+      (rhs (concl unfold))
+    val result = TRANS unfold step
+  in
+    if same_const (#1 (strip_comb tm)) (#1 (strip_comb (rhs (concl result)))) then
+      TRANS result (app_recfun_conv (rhs (concl result)))
+    else result
+  end;
+
+(* Reduce the match spine, but never descend into a selected expression. *)
+fun app_match_conv tests tm =
+  let
+    val unfold = FIRST_CONV (map REWR_CONV (CONJUNCTS evaluate_match_def)) tm
+    val after = rhs (concl unfold)
+  in
+    if boolSyntax.is_cond after then
+      let
+        val guard = (RATOR_CONV (RATOR_CONV (RAND_CONV tests))
+                     THENC COND_CONV) after
+        val select = (RATOR_CONV (RATOR_CONV (RATOR_CONV
+                        (RAND_CONV tests))) THENC
+                      FIRST_CONV (map REWR_CONV
+                        (CONJUNCTS (TypeBase.case_def_of ``:'a match_result``)))
+                      THENC REPEATC BETA_CONV) (rhs (concl guard))
+        val result = TRANS unfold (TRANS guard select)
+        val rest = rhs (concl result)
+      in
+        if same_const (#1 (strip_comb tm)) (#1 (strip_comb rest)) then
+          TRANS result (app_match_conv tests rest)
+        else result
+      end
+    else unfold
+  end;
+
+Theorem sadd_evaluate_nil_exact:
+  !env env_sadd (n:int) kv (st:'ffi state).
+    env.c = scheme_cons_env /\
+    env_sadd.c = scheme_cons_env /\
+    closure_in_env env (EL 0 scheme_basis) env_sadd /\
+    nsLookup env.v (Short «n») = SOME (Litv (IntLit n)) /\
+    nsLookup env.v (Short «ts») = SOME (vcons_list []) /\
+    nsLookup env.v (Short «k») = SOME kv
+    ==>
+    !start.
+      evaluate (st with clock := start + 3) env
+        [App Opapp [App Opapp [App Opapp
+          [Var (Short «sadd»); Var (Short «k»)]; Var (Short «n»)];
+          Var (Short «ts»)]] =
+      val_eval (st with clock := start) env «k»
+        (Con (SOME (Short «SNum»)) [Lit (IntLit n)])
+Proof
+  rpt strip_tac
+  >> fs[closure_in_env_def, scheme_basis_def]
+  >> drule_all (Q.INST [‘a’ |-> ‘«k»’, ‘b’ |-> ‘«n»’, ‘c’ |-> ‘«ts»’] evaluate_Recclosure_3)
+  >> disch_then (qspecl_then [‘start’, ‘st’] mp_tac)
+  >> disch_then SUBST1_TAC
+  >> simp[Once (cj 12 evaluate_def), cj 7 evaluate_def,
+          vcons_list_def, can_pmatch_all_def, pmatch_def,
+          same_type_def, same_ctor_def, evaluate_match_def, pat_bindings_def]
+  >> simp[val_eval_def, Once (cj 9 evaluate_def), Once evaluate_cons,
+          cj 6 evaluate_def, cj 7 evaluate_def, cj 3 evaluate_def,
+          do_con_check_def, build_conv_def]
+  >> simp[SimpRHS, Once (cj 9 evaluate_def), Once evaluate_cons,
+          cj 6 evaluate_def, cj 7 evaluate_def, cj 3 evaluate_def,
+          do_con_check_def, build_conv_def]
+  >> simp[]
+QED
+
+Theorem sadd_evaluate_nonnum_exact:
+  !env env_sadd v mlv mlvs (n:int) kv (st:'ffi state).
+    env.c = scheme_cons_env /\
+    env_sadd.c = scheme_cons_env /\
+    closure_in_env env (EL 0 scheme_basis) env_sadd /\
+    ml_v_vals v mlv /\ ~(?i. v = SNum i) /\
+    nsLookup env.v (Short «n») = SOME (Litv (IntLit n)) /\
+    nsLookup env.v (Short «ts») = SOME (vcons_list (mlv::mlvs)) /\
+    nsLookup env.v (Short «k») = SOME kv
+    ==>
+    !start.
+      evaluate (st with clock := start + 3) env
+        [App Opapp [App Opapp [App Opapp
+          [Var (Short «sadd»); Var (Short «k»)]; Var (Short «n»)];
+          Var (Short «ts»)]] =
+      ex_eval (st with clock := start) env «Arith-op applied to non-number»
+Proof
+  rpt strip_tac
+  >> ‘!vs. mlv <> Conv (SOME (scheme_typestamp «SNum»)) vs’
+       by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
+  >> drule_then strip_assume_tac mlv_always_conv
+  >> gvs[]
+  >> fs[closure_in_env_def, scheme_basis_def]
+  >> drule_all (Q.INST [‘a’ |-> ‘«k»’, ‘b’ |-> ‘«n»’, ‘c’ |-> ‘«ts»’] evaluate_Recclosure_3)
+  >> disch_then (qspecl_then [‘start’, ‘st’] mp_tac)
+  >> disch_then SUBST1_TAC
+  >> simp[Once (cj 12 evaluate_def), cj 7 evaluate_def,
+          vcons_list_def, can_pmatch_all_def, pmatch_def,
+          same_type_def, same_ctor_def, evaluate_match_def, pat_bindings_def]
+  >> simp[Once (cj 12 evaluate_def), cj 7 evaluate_def,
+          can_pmatch_all_def, pmatch_def, same_type_def, same_ctor_def,
+          evaluate_match_def, pat_bindings_def]
+  >> simp[ex_eval_def, evaluate_def, do_con_check_def, build_conv_def]
+QED
+
+Theorem sadd_evaluate_nil:
+  !env env_sadd (n:int) kv (st:'ffi state).
+    env.c = scheme_cons_env /\
+    env_sadd.c = scheme_cons_env /\
+    closure_in_env env (EL 0 scheme_basis) env_sadd /\
+    nsLookup env.v (Short «n») = SOME (Litv (IntLit n)) /\
+    nsLookup env.v (Short «ts») = SOME (vcons_list []) /\
+    nsLookup env.v (Short «k») = SOME kv
+    ==>
+    ?ck. !start.
+      evaluate (st with clock := start + ck) env
+        [App Opapp [App Opapp [App Opapp
+          [Var (Short «sadd»); Var (Short «k»)]; Var (Short «n»)];
+          Var (Short «ts»)]] =
+      val_eval (st with clock := start) env «k»
+        (Con (SOME (Short «SNum»)) [Lit (IntLit n)])
+Proof
+  rpt strip_tac >> qexists_tac ‘3’ >> irule sadd_evaluate_nil_exact >> metis_tac[]
+QED
+
+Theorem sadd_evaluate_nonnum:
+  !env env_sadd v mlv mlvs (n:int) kv (st:'ffi state).
+    env.c = scheme_cons_env /\
+    env_sadd.c = scheme_cons_env /\
+    closure_in_env env (EL 0 scheme_basis) env_sadd /\
+    ml_v_vals v mlv /\ ~(?i. v = SNum i) /\
+    nsLookup env.v (Short «n») = SOME (Litv (IntLit n)) /\
+    nsLookup env.v (Short «ts») = SOME (vcons_list (mlv::mlvs)) /\
+    nsLookup env.v (Short «k») = SOME kv
+    ==>
+    ?ck. !start.
+      evaluate (st with clock := start + ck) env
+        [App Opapp [App Opapp [App Opapp
+          [Var (Short «sadd»); Var (Short «k»)]; Var (Short «n»)];
+          Var (Short «ts»)]] =
+      ex_eval (st with clock := start) env «Arith-op applied to non-number»
+Proof
+  rpt strip_tac >> qexists_tac ‘3’ >> irule sadd_evaluate_nonnum_exact >> metis_tac[]
+QED
+
+Theorem val_eval_SNum_env:
+  !env env' k kv m (st:'ffi state).
+    env.c = env'.c /\
+    nsLookup env.v (Short k) = SOME kv /\
+    nsLookup env'.v (Short k) = SOME kv ==>
+    val_eval st env k (Con (SOME (Short «SNum»)) [Lit (IntLit m)]) =
+    val_eval st env' k (Con (SOME (Short «SNum»)) [Lit (IntLit m)])
+Proof
+  rpt strip_tac
+  >> simp[val_eval_def, Once (cj 9 evaluate_def), Once evaluate_cons,
+          cj 6 evaluate_def, cj 7 evaluate_def, cj 3 evaluate_def,
+          do_con_check_def, build_conv_def]
+  >> simp[SimpRHS, Once (cj 9 evaluate_def), Once evaluate_cons,
+          cj 6 evaluate_def, cj 7 evaluate_def, cj 3 evaluate_def,
+          do_con_check_def, build_conv_def]
+  >> simp[]
+QED
+
+Theorem ex_eval_env:
+  !env env' s (st:'ffi state).
+    env.c = env'.c ==> ex_eval st env s = ex_eval st env' s
+Proof
+  rpt strip_tac
+  >> simp[ex_eval_def, evaluate_def, do_con_check_def, build_conv_def]
+QED
+
+Theorem sadd_evaluate_step:
+  !env env_sadd (n:int) i kv mlvs.
+    env.c = scheme_cons_env /\ env_sadd.c = scheme_cons_env /\
+    closure_in_env env (EL 0 scheme_basis) env_sadd /\
+    nsLookup env.v (Short «n») = SOME (Litv (IntLit n)) /\
+    nsLookup env.v (Short «ts») = SOME
+      (vcons_list (Conv (SOME (scheme_typestamp «SNum»)) [Litv (IntLit i)]::mlvs)) /\
+    nsLookup env.v (Short «k») = SOME kv ==>
+    ?rho.
+      rho.c = scheme_cons_env /\
+      closure_in_env rho (EL 0 scheme_basis) env_sadd /\
+      nsLookup rho.v (Short «n») = SOME (Litv (IntLit (i+n))) /\
+      nsLookup rho.v (Short «ts») = SOME (vcons_list mlvs) /\
+      nsLookup rho.v (Short «k») = SOME kv /\
+      !s (st:'ffi state).
+        evaluate (st with clock := s+6) env
+          [App Opapp [App Opapp [App Opapp
+            [Var (Short «sadd»); Var (Short «k»)]; Var (Short «n»)];
+            Var (Short «ts»)]] =
+        evaluate (st with clock := s+3) rho
+          [App Opapp [App Opapp [App Opapp
+            [Var (Short «sadd»); Var (Short «k»)]; Var (Short «n»)];
+            Var (Short «ts»)]]
+Proof
+  rpt strip_tac
+  >> fs[closure_in_env_def, scheme_basis_def]
+  >> qmatch_asmsub_abbrev_tac ‘SOME (Recclosure env_sadd funs «sadd»)’
+  >> qabbrev_tac ‘rho = env_sadd with v :=
+       nsBind «ts» (vcons_list mlvs)
+         (nsBind «n» (Litv (IntLit (i+n)))
+           (nsBind «k» kv (build_rec_env funs env_sadd env_sadd.v)))’
+  >> qexists_tac ‘rho’
+  >> conj_tac >- simp[Abbr ‘rho’]
+  >> conj_tac
+  >- simp[Abbr ‘rho’, closure_in_env_def, scheme_basis_def,
+          Abbr ‘funs’, build_rec_env_def]
+  >> conj_tac >- simp[Abbr ‘rho’]
+  >> conj_tac >- simp[Abbr ‘rho’]
+  >> conj_tac >- simp[Abbr ‘rho’]
+  >> rpt gen_tac
+  >> qpat_x_assum ‘Abbrev (funs = _)’ (SUBST_ALL_TAC o
+       REWRITE_RULE [markerTheory.Abbrev_def])
+  >> drule_all (Q.INST [‘a’ |-> ‘«k»’, ‘b’ |-> ‘«n»’, ‘c’ |-> ‘«ts»’] evaluate_Recclosure_3)
+  >> disch_then (qspecl_then [‘s+3’, ‘st’] mp_tac)
+  >> simp[ADD_ASSOC]
+  >> disch_then SUBST1_TAC
+  >> simp[Once (cj 12 evaluate_def), cj 7 evaluate_def,
+          vcons_list_def, can_pmatch_all_def, pmatch_def,
+          same_type_def, same_ctor_def, evaluate_match_def, pat_bindings_def]
+  >> simp[Once (cj 12 evaluate_def), cj 7 evaluate_def,
+          can_pmatch_all_def, pmatch_def, same_type_def, same_ctor_def,
+          evaluate_match_def, pat_bindings_def]
+  >> qmatch_goalsub_abbrev_tac ‘evaluate _ call_env [App Opapp _]’
+  >> qmatch_asmsub_abbrev_tac
+       ‘Recclosure env_sadd [(«sadd»,«k»,Fun «n» (Fun «ts» body))] «sadd»’
+  >> ‘nsLookup call_env.v (Short «sadd») =
+        SOME (Recclosure env_sadd [(«sadd»,«k»,Fun «n» (Fun «ts» body))] «sadd») /\
+      nsLookup call_env.v (Short «k») = SOME kv /\
+      nsLookup call_env.v (Short «n») = SOME (Litv (IntLit n)) /\
+      nsLookup call_env.v (Short «tn») = SOME (Litv (IntLit i)) /\
+      nsLookup call_env.v (Short «ts'») = SOME (vcons_list mlvs)’
+       by simp[Abbr ‘call_env’, build_rec_env_def]
+  >> ‘!q:'ffi state. evaluate q call_env
+        [App (Arith Add IntT) [Var (Short «n»); Var (Short «tn»)]] =
+        (q,Rval [Litv (IntLit (i+n))])’
+    by (gen_tac
+        >> simp[Once (cj 9 evaluate_def), do_app_def, do_arith_def,
+                check_type_def]
+        >> simp[Once evaluate_cons, cj 7 evaluate_def, cj 3 evaluate_def]
+        >> simp[check_type_def, list_result_def, INT_ADD_COMM])
+  >> ‘!q:'ffi state. evaluate q call_env [Var (Short «k»)] = (q,Rval [kv])’
+       by simp[cj 7 evaluate_def]
+  >> ‘!q:'ffi state. evaluate q call_env [Var (Short «ts'»)] =
+        (q,Rval [vcons_list mlvs])’ by simp[cj 7 evaluate_def]
+  >> drule_all (Q.INST
+       [‘ea’ |-> ‘Var (Short «k»)’,
+        ‘eb’ |-> ‘App (Arith Add IntT) [Var (Short «n»); Var (Short «tn»)]’,
+        ‘ec’ |-> ‘Var (Short «ts'»)’] evaluate_Recclosure_3_args)
+  >> disch_then (qspecl_then [‘s’, ‘st’] mp_tac)
+  >> disch_then SUBST1_TAC
+  >> ‘nsLookup rho.v (Short «sadd») =
+        SOME (Recclosure env_sadd [(«sadd»,«k»,Fun «n» (Fun «ts» body))] «sadd») /\
+      nsLookup rho.v (Short «k») = SOME kv /\
+      nsLookup rho.v (Short «n») = SOME (Litv (IntLit (i+n))) /\
+      nsLookup rho.v (Short «ts») = SOME (vcons_list mlvs)’
+       by simp[Abbr ‘rho’, build_rec_env_def]
+  >> qpat_x_assum ‘nsLookup env.v (Short «sadd») = _’ kall_tac
+  >> qpat_x_assum ‘nsLookup call_env.v (Short «sadd») = _’ kall_tac
+  >> drule_all (Q.INST [‘a’ |-> ‘«k»’, ‘b’ |-> ‘«n»’, ‘c’ |-> ‘«ts»’] evaluate_Recclosure_3)
+  >> disch_then (qspecl_then [‘s’, ‘st’] mp_tac)
+  >> simp[]
+QED
+
+Theorem sadd_evaluate_offset[local]:
+  !vs mlvs env env_sadd (n:int) kv (st:'ffi state).
+    env.c = scheme_cons_env /\ env_sadd.c = scheme_cons_env /\
+    closure_in_env env (EL 0 scheme_basis) env_sadd /\
+    LIST_REL ml_v_vals vs mlvs /\
+    nsLookup env.v (Short «n») = SOME (Litv (IntLit n)) /\
+    nsLookup env.v (Short «ts») = SOME (vcons_list mlvs) /\
+    nsLookup env.v (Short «k») = SOME kv ==>
+    ?d. !start.
+      evaluate (st with clock := start+(d+3)) env
+        [App Opapp [App Opapp [App Opapp
+          [Var (Short «sadd»); Var (Short «k»)]; Var (Short «n»)];
+          Var (Short «ts»)]] =
+      case sadd vs n of
+        Val (SNum m) => val_eval (st with clock := start) env «k»
+          (Con (SOME (Short «SNum»)) [Lit (IntLit m)])
+      | Exception s => ex_eval (st with clock := start) env s
+      | _ => ex_eval (st with clock := start) env «Arith-op applied to non-number»
+Proof
+  Induct >> rpt gen_tac >> strip_tac
+  >- (gvs[] >> qexists_tac ‘0’ >> simp[sadd_def]
+      >> irule sadd_evaluate_nil_exact >> simp[] >> metis_tac[])
+  >> Cases_on ‘mlvs’ >> gvs[]
+  >> rename1 ‘ml_v_vals h mlv’
+  >> Cases_on ‘?i. h = SNum i’
+  >- (gvs[Once ml_v_vals_cases]
+      >> drule_all (SRULE [] sadd_evaluate_step) >> strip_tac
+      >> first_x_assum (drule_all_then (qspec_then ‘st’ strip_assume_tac))
+      >> qexists_tac ‘d+3’ >> gen_tac
+      >> qpat_x_assum ‘!s st. _’ (qspecl_then [‘start+d’, ‘st’] mp_tac)
+      >> ‘d+3+(start+3) = start+d+6’ by decide_tac
+      >> ‘start+d+3 = d+(start+3)’ by decide_tac
+      >> pure_asm_rewrite_tac []
+      >> disch_then SUBST1_TAC
+      >> pure_rewrite_tac [Once sadd_def]
+      >> qspecl_then [‘vs’, ‘i+n’] strip_assume_tac sadd_num_or_exception
+      >> simp[]
+      >- (irule val_eval_SNum_env >> metis_tac[])
+      >> irule ex_eval_env >> simp[])
+  >> qexists_tac ‘0’ >> fs[NOT_EXISTS_THM]
+  >> simp[sadd_not_num_exception]
+  >> irule sadd_evaluate_nonnum_exact >> simp[] >> metis_tac[]
+QED
+
+Theorem sadd_evaluate:
+  !vs mlvs env env_sadd (n:int) kv (st:'ffi state).
+    env.c = scheme_cons_env /\ env_sadd.c = scheme_cons_env /\
+    closure_in_env env (EL 0 scheme_basis) env_sadd /\
+    LIST_REL ml_v_vals vs mlvs /\
+    nsLookup env.v (Short «n») = SOME (Litv (IntLit n)) /\
+    nsLookup env.v (Short «ts») = SOME (vcons_list mlvs) /\
+    nsLookup env.v (Short «k») = SOME kv ==>
+    ?ck. !start.
+      evaluate (st with clock := start+ck) env
+        [App Opapp [App Opapp [App Opapp
+          [Var (Short «sadd»); Var (Short «k»)]; Var (Short «n»)];
+          Var (Short «ts»)]] =
+      case sadd vs n of
+        Val (SNum m) => val_eval (st with clock := start) env «k»
+          (Con (SOME (Short «SNum»)) [Lit (IntLit m)])
+      | Exception s => ex_eval (st with clock := start) env s
+      | _ => ex_eval (st with clock := start) env «Arith-op applied to non-number»
+Proof
+  rpt strip_tac >> drule_all sadd_evaluate_offset
+  >> disch_then (qspec_then ‘st’ strip_assume_tac)
+  >> qexists_tac ‘d+3’ >> asm_rewrite_tac[]
+QED
+
+Theorem sadd_evaluate_body:
+  !env_sadd body vs mlvs (n:int) kv (st:'ffi state).
+    env_sadd.c = scheme_cons_env /\ LIST_REL ml_v_vals vs mlvs /\
+    EL 0 scheme_basis = Dletrec NoLocs [(«sadd»,«k»,Fun «n» (Fun «ts» body))] ==>
+    ?ck. !start.
+      evaluate (st with clock := start+ck) (env_sadd with v := nsBind «ts» (vcons_list mlvs)
+      (nsBind «n» (Litv (IntLit n))
+        (nsBind «k» kv (build_rec_env [(«sadd»,«k»,Fun «n» (Fun «ts» body))] env_sadd env_sadd.v)))) [body] =
+      case sadd vs n of
+        Val (SNum m) => val_eval (st with clock := start) (env_sadd with v := nsBind «ts» (vcons_list mlvs)
+      (nsBind «n» (Litv (IntLit n))
+        (nsBind «k» kv (build_rec_env [(«sadd»,«k»,Fun «n» (Fun «ts» body))] env_sadd env_sadd.v)))) «k»
+          (Con (SOME (Short «SNum»)) [Lit (IntLit m)])
+      | Exception s => ex_eval (st with clock := start) (env_sadd with v := nsBind «ts» (vcons_list mlvs)
+      (nsBind «n» (Litv (IntLit n))
+        (nsBind «k» kv (build_rec_env [(«sadd»,«k»,Fun «n» (Fun «ts» body))] env_sadd env_sadd.v)))) s
+      | _ => ex_eval (st with clock := start) (env_sadd with v := nsBind «ts» (vcons_list mlvs)
+      (nsBind «n» (Litv (IntLit n))
+        (nsBind «k» kv (build_rec_env [(«sadd»,«k»,Fun «n» (Fun «ts» body))] env_sadd env_sadd.v)))) «Arith-op applied to non-number»
+Proof
+  rpt gen_tac >> strip_tac >> simp_tac bool_ss [LET_THM]
+  >> qmatch_goalsub_abbrev_tac ‘evaluate _ rho [body]’
+  >> ‘rho.c = scheme_cons_env /\
+      closure_in_env rho (EL 0 scheme_basis) env_sadd /\
+      nsLookup rho.v (Short «n») = SOME (Litv (IntLit n)) /\
+      nsLookup rho.v (Short «ts») = SOME (vcons_list mlvs) /\
+      nsLookup rho.v (Short «k») = SOME kv’
+    by (simp[Abbr ‘rho’, closure_in_env_def]
+        >> simp[build_rec_env_def])
+  >> drule_all sadd_evaluate_offset
+  >> disch_then (qspec_then ‘st’ strip_assume_tac)
+  >> qexists_tac ‘d’ >> gen_tac
+  >> ‘nsLookup rho.v (Short «sadd») = SOME
+        (Recclosure env_sadd [(«sadd»,«k»,Fun «n» (Fun «ts» body))] «sadd»)’
+       by simp[Abbr ‘rho’, build_rec_env_def]
+  >> drule_all (Q.INST [‘a’ |-> ‘«k»’, ‘b’ |-> ‘«n»’, ‘c’ |-> ‘«ts»’] evaluate_Recclosure_3)
+  >> disch_then (qspecl_then [‘start+d’, ‘st’] mp_tac)
+  >> ‘start+d+3 = start+(d+3)’ by decide_tac
+  >> pure_asm_rewrite_tac[]
+  >> simp[Abbr ‘rho’]
+QED
+
+Theorem sminus_evaluate_body:
+  !env_sminus env_sadd body vs mlvs kv (st:'ffi state).
+    env_sminus.c = scheme_cons_env /\ env_sadd.c = scheme_cons_env /\
+    closure_in_env env_sminus (EL 0 scheme_basis) env_sadd /\
+    LIST_REL ml_v_vals vs mlvs /\
+    EL 2 scheme_basis = Dlet NoLocs (Pvar «sminus») (Fun «k» (Fun «ts» body)) ==>
+    ?ck. !start.
+      evaluate (st with clock := start+ck) (env_sminus with v := nsBind «ts» (vcons_list mlvs)
+      (nsBind «k» kv env_sminus.v)) [body] =
+      case sminus vs of
+        Val (SNum m) => val_eval (st with clock := start) (env_sminus with v := nsBind «ts» (vcons_list mlvs)
+      (nsBind «k» kv env_sminus.v)) «k»
+          (Con (SOME (Short «SNum»)) [Lit (IntLit m)])
+      | Exception s => ex_eval (st with clock := start) (env_sminus with v := nsBind «ts» (vcons_list mlvs)
+      (nsBind «k» kv env_sminus.v)) s
+      | _ => ex_eval (st with clock := start) (env_sminus with v := nsBind «ts» (vcons_list mlvs)
+      (nsBind «k» kv env_sminus.v)) «Arith-op applied to non-number»
+Proof
+  rpt gen_tac >> strip_tac
+  >> fs[scheme_basis_def]
+  >> simp_tac bool_ss [LET_THM]
+  >> Cases_on ‘vs’ >> gvs[]
+  >- (qexists_tac ‘0’
+      >> simp[sminus_def, vcons_list_def, ex_eval_def,
+           Ntimes evaluate_def 2, evaluate_match_def, can_pmatch_all_def,
+           pmatch_def, nsLookup_def, same_type_def, same_ctor_def, pat_bindings_def])
+  >> rename1 ‘ml_v_vals v mlv’
+  >> rename1 ‘LIST_REL ml_v_vals vs mlvs’
+  >> Cases_on ‘?i. v = SNum i’
+  >- (gvs[Once ml_v_vals_cases]
+      >> Cases_on ‘vs’ >> gvs[]
+      >- (qexists_tac ‘0’
+          >> simp[sminus_def, vcons_list_def, val_eval_def,
+               Ntimes evaluate_def 3, evaluate_match_def, can_pmatch_all_def,
+               pmatch_def, nsLookup_def, same_type_def, same_ctor_def,
+               pat_bindings_def, do_arith_def, check_type_def]
+          >> simp[evaluate_def, evaluate_match_def, can_pmatch_all_def,
+               pmatch_def, nsLookup_def, same_type_def, same_ctor_def,
+               pat_bindings_def, do_arith_def, check_type_def, build_conv_def,
+               do_con_check_def, do_app_def])
+      >> qmatch_goalsub_abbrev_tac ‘evaluate _ rho [_]’
+      >> qmatch_asmsub_abbrev_tac ‘closure_in_env _ sadd_decl _’
+      >> simp[cj 12 evaluate_def, cj 7 evaluate_def, vcons_list_def, evaluate_match_def,
+           can_pmatch_all_def, pmatch_def, nsLookup_def, same_type_def,
+           same_ctor_def, pat_bindings_def, Abbr ‘rho’]
+      >> fs[closure_in_env_def, Abbr ‘sadd_decl’]
+      >> qmatch_asmsub_abbrev_tac ‘Recclosure env_sadd [(«sadd»,«k»,Fun «n» (Fun «ts» sum_body))] «sadd»’
+      >> qmatch_goalsub_abbrev_tac ‘evaluate _ call_env [_]’
+      >> ‘nsLookup call_env.v (Short «ts'») = SOME (vcons_list (y::ys))’
+          by simp[Abbr ‘call_env’, vcons_list_def]
+      >> qmatch_goalsub_abbrev_tac ‘Fun «t» minus_cont’
+      >> qabbrev_tac ‘minus_k = Closure call_env «t» minus_cont’
+      >> ‘nsLookup call_env.v (Short «sadd») = SOME
+           (Recclosure env_sadd [(«sadd»,«k»,Fun «n» (Fun «ts» sum_body))] «sadd»)’
+          by simp[Abbr ‘call_env’]
+      >> ‘!q:'ffi state. evaluate q call_env [Fun «t» minus_cont] =
+            (q,Rval [minus_k])’ by simp[cj 8 evaluate_def, Abbr ‘minus_k’]
+      >> ‘!q:'ffi state. evaluate q call_env [Lit (IntLit 0)] =
+            (q,Rval [Litv (IntLit 0)])’ by simp[cj 3 evaluate_def]
+      >> ‘!q:'ffi state. evaluate q call_env [Var (Short «ts'»)] =
+            (q,Rval [vcons_list (y::ys)])’ by simp[cj 7 evaluate_def]
+      >> ‘EL 0 scheme_basis = Dletrec NoLocs
+           [(«sadd»,«k»,Fun «n» (Fun «ts» sum_body))]’
+          by simp[scheme_basis_def, Abbr ‘sum_body’]
+      >> qspecl_then [‘env_sadd’, ‘sum_body’, ‘h::t’, ‘y::ys’] mp_tac sadd_evaluate_body
+      >> simp[]
+      >> disch_then (qspecl_then [‘0’, ‘minus_k’, ‘st’] strip_assume_tac)
+      >> drule_all (Q.INST
+           [‘ea’ |-> ‘Fun «t» minus_cont’, ‘eb’ |-> ‘Lit (IntLit 0)’,
+            ‘ec’ |-> ‘Var (Short «ts'»)’] evaluate_Recclosure_3_args)
+      >> disch_then (mk_asm "entry")
+      >> qspecl_then [‘h::t’, ‘0’] strip_assume_tac sadd_num_or_exception
+      >- (qexists_tac ‘ck+4’ >> gen_tac
+      >> asm "entry" (qspecl_then [‘start+ck+1’, ‘st’] mp_tac)
+      >> ‘ck+4+start = start+ck+1+3’ by decide_tac
+      >> pure_asm_rewrite_tac[]
+      >> disch_then SUBST1_TAC
+      >> qmatch_asmsub_abbrev_tac ‘evaluate _ sum_env [sum_body]’
+      >> ‘start+ck+1 = ck+(start+1)’ by decide_tac
+      >> pure_asm_rewrite_tac[]
+      >> first_x_assum (qspec_then ‘start+1’ mp_tac)
+      >> simp[sminus_def]
+      >> disch_then SUBST1_TAC
+      >> qpat_x_assum ‘Abbrev (sum_body = _)’ kall_tac
+      >> qpat_x_assum ‘EL 0 scheme_basis = _’ kall_tac
+      >> qpat_x_assum ‘nsLookup env_sminus.v _ = _’ kall_tac
+      >> qpat_x_assum ‘nsLookup call_env.v (Short «sadd») = _’ kall_tac
+      >> qpat_x_assum ‘nsLookup call_env.v (Short «ts'») = _’ kall_tac
+      >> qpat_x_assum ‘!q. evaluate q _ [Fun _ _] = _’ kall_tac
+      >> qpat_x_assum ‘!q. evaluate q _ [Lit _] = _’ kall_tac
+      >> qpat_x_assum ‘!q. evaluate q _ [Var _] = _’ kall_tac
+      >> simp[SimpLHS, val_eval_def, Once (cj 9 evaluate_def),
+           Once evaluate_cons, cj 6 evaluate_def, cj 7 evaluate_def,
+           cj 3 evaluate_def, Abbr ‘sum_env’, do_con_check_def, build_conv_def]
+      >> simp[Abbr ‘minus_k’, do_opapp_def, dec_clock_def]
+      >> simp[Abbr ‘minus_cont’, cj 12 evaluate_def, cj 7 evaluate_def,
+           evaluate_match_def, can_pmatch_all_def, pmatch_def,
+           same_type_def, same_ctor_def, pat_bindings_def, Abbr ‘call_env’]
+      >> simp[val_eval_def, Once (cj 9 evaluate_def), Once evaluate_cons,
+           cj 6 evaluate_def, cj 7 evaluate_def, cj 3 evaluate_def,
+           do_con_check_def, build_conv_def]
+      >> simp[Once (cj 9 evaluate_def), Once evaluate_cons,
+           cj 7 evaluate_def, cj 3 evaluate_def, do_app_def,
+           do_arith_def, check_type_def, list_result_def]
+      >> simp[Once evaluate_cons, cj 7 evaluate_def, cj 3 evaluate_def,
+           do_app_def, do_arith_def, check_type_def, list_result_def]
+      >> simp[Once (cj 9 evaluate_def), Once evaluate_cons,
+           cj 6 evaluate_def, cj 7 evaluate_def, cj 3 evaluate_def,
+           do_con_check_def, build_conv_def]
+      >> simp[SimpRHS, Once evaluate_cons, cj 6 evaluate_def, cj 7 evaluate_def,
+           cj 3 evaluate_def, do_con_check_def, build_conv_def]
+      >> Cases_on ‘do_opapp [kv; Conv (SOME (TypeStamp «SNum» 4)) [Litv (IntLit (i-m))]]’
+      >> simp[]
+      >> PairCases_on ‘x’ >> simp[]
+      >> Cases_on ‘start = 0’ >> simp[]
+      >> Cases_on ‘evaluate (dec_clock (st with clock := start)) x0 [x1]’
+      >> Cases_on ‘r’ >> simp[])
+      >> qexists_tac ‘ck+3’ >> gen_tac
+      >> asm "entry" (qspecl_then [‘start+ck’, ‘st’] mp_tac)
+      >> ‘ck+3+start = start+ck+3’ by decide_tac
+      >> pure_asm_rewrite_tac[] >> disch_then SUBST1_TAC
+      >> qpat_x_assum ‘!start. _’ (qspec_then ‘start’ mp_tac)
+      >> simp[sminus_def, ADD_COMM]
+      >> disch_then SUBST1_TAC
+      >> simp[ex_eval_def, evaluate_def,
+           do_con_check_def, build_conv_def])
+  >> ‘!xs. mlv <> Conv (SOME (scheme_typestamp «SNum»)) xs’
+      by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
+  >> drule_then strip_assume_tac mlv_always_conv
+  >> fs[NOT_EXISTS_THM]
+  >> drule sminus_not_num_exception >> disch_then (qspec_then ‘vs’ assume_tac)
+  >> ‘cons <> «SNum»’ by (strip_tac >> gvs[scheme_typestamp_def])
+  >> qpat_x_assum ‘closure_in_env _ _ _’ kall_tac
+  >> qexists_tac ‘0’
+  >> simp[sminus_not_num_exception, vcons_list_def, ex_eval_def,
+       Ntimes evaluate_def 3, evaluate_match_def, can_pmatch_all_def,
+       pmatch_def, nsLookup_def, same_type_def, same_ctor_def, pat_bindings_def]
+  >> simp[cj 12 evaluate_def, cj 7 evaluate_def, evaluate_match_def,
+       can_pmatch_all_def, pmatch_def, same_type_def, same_ctor_def,
+       pat_bindings_def]
+  >> simp[evaluate_def, do_con_check_def, build_conv_def]
+QED
+
+(* Common terminal cases for the finite eqv? argument classification. *)
+val seqv_arity_error =
+  simp[seqv_def] >>
+  reduce_to_cps 0 [can_pmatch_all_def, pmatch_def, nsLookup_def] >>
+  simp[GSYM eval_eq_def] >> irule_at (Pos hd) eval_eq_trivial >>
+  simp[Once cps_rel_cases] >> first_assum (irule_at (Pos hd));
+
+val seqv_false_result =
+  simp[GSYM eval_eq_def] >> irule_at (Pos hd) eval_eq_trivial >>
+  simp[seqv_not_num_false, seqv_not_bool_false, seqv_not_num_or_bool_false] >>
+  simp[Once cps_rel_cases, Once ml_v_vals_cases, bool_val_rel_cases] >>
+  simp[evaluate_def, do_con_check_def, build_conv_def, nsLookup_def];
 
 Theorem application_preservation:
   ∀ store store' env env' fn vs e' ks ks' (st : 'ffi state) t mlfn ts mlvs mlenv k kv mle .
@@ -874,17 +1430,80 @@ Theorem application_preservation:
 Proof
   rpt strip_tac
   >> drule_all_then assume_tac cons_list_val
+  >> gvs[Once ml_v_vals_cases, prim_val_rel_cases]
   >> drule $ cj 2 $ iffLR scheme_env_def
   >> strip_tac
-  >> gvs[Once ml_v_vals_cases, prim_val_rel_cases]
+  >> qmatch_asmsub_abbrev_tac ‘Recclosure env_app app_funs «app»’
+  >> qpat_assum ‘Abbrev (app_funs = _)’
+    (assume_tac o CONV_RULE (RHS_CONV app_recfun_conv) o
+      AP_TERM ``find_recfun «app» : (mlstring # mlstring # exp) list -> (mlstring # exp) option`` o
+      REWRITE_RULE [markerTheory.Abbrev_def])
+  >> qpat_assum ‘Abbrev (app_funs = _)’
+    (assume_tac o CONV_RULE (RHS_CONV (listLib.MAP_CONV (REWR_CONV pairTheory.FST))) o
+      AP_TERM ``MAP FST : (mlstring # mlstring # exp) list -> mlstring list`` o
+      REWRITE_RULE [markerTheory.Abbrev_def])
+  >> ‘(\(f,x,e). f) = (FST : (mlstring # mlstring # exp) -> mlstring)’
+    by simp[FUN_EQ_THM, FORALL_PROD]
+  >> ‘! env base. build_rec_env app_funs env base =
+        nsBind «callcc» (Recclosure env app_funs «callcc»)
+          (nsBind «app» (Recclosure env app_funs «app») base)’
+    by simp[semanticPrimitivesPropsTheory.build_rec_env_nsBindList_names, nsBindList_def]
+  >> qmatch_asmsub_abbrev_tac ‘SOME («k», Fun «fn» dispatch)’
+  >> qabbrev_tac ‘app_env = env_app with v :=
+       nsBind «k» kv (build_rec_env app_funs env_app env_app.v)’
+  >> ‘!app_st : 'ffi state. app_st.clock <> 0 ==>
+       evaluate app_st mlenv [App Opapp [Var (Short «app»); Var (Short k)]] =
+       (dec_clock app_st, Rval [Closure app_env «fn» dispatch])’
+    by (qx_gen_tac ‘app_st’ >> strip_tac
+        >> irule EQ_TRANS >> qexists ‘evaluate (dec_clock app_st) app_env [Fun «fn» dispatch]’
+        >> conj_tac
+        >- (irule evaluate_Opapp_body
+            >> conj_tac >- simp[]
+            >> qexists ‘[kv; Recclosure env_app app_funs «app»]’
+            >> conj_tac
+            >- simp[do_opapp_def, Abbr ‘app_env’]
+            >> simp[Once evaluate_cons, cj 7 evaluate_def])
+        >> simp[Once evaluate_def])
+  >> qmatch_asmsub_abbrev_tac ‘nsLookup mlenv.v (Short t) = SOME fn_val’
+  >> qabbrev_tac ‘fn_env = app_env with v := nsBind «fn» fn_val app_env.v’
+  >> ‘!app_st : 'ffi state. 1 < app_st.clock ==>
+       evaluate app_st mlenv
+         [App Opapp [App Opapp [Var (Short «app»); Var (Short k)]; Var (Short t)]] =
+       evaluate (dec_clock (dec_clock app_st)) fn_env [dispatch]’
+    by (qx_gen_tac ‘app_st’ >> strip_tac
+        >> irule evaluate_Opapp_body
+        >> conj_tac >- simp[dec_clock_def]
+        >> qexists ‘[fn_val; Closure app_env «fn» dispatch]’
+        >> conj_tac >- simp[do_opapp_def, Abbr ‘fn_env’]
+        >> simp[Once evaluate_cons, cj 7 evaluate_def])
+  >> qmatch_asmsub_abbrev_tac ‘Abbrev (dispatch = Mat _ branches)’
+  >> ‘!app_st : 'ffi state. evaluate app_st fn_env [dispatch] =
+        evaluate_match app_st fn_env fn_val branches bind_exn_v’
+    by simp[Abbr ‘dispatch’, cj 12 evaluate_def, cj 7 evaluate_def, Abbr ‘fn_env’,
+            Abbr ‘branches’, Abbr ‘fn_val’, Abbr ‘app_env’,
+            can_pmatch_all_def, pmatch_def, same_type_def, same_ctor_def]
+  >> ‘fn_env.c = env_app.c’ by simp[Abbr ‘fn_env’, Abbr ‘app_env’]
+  >> qpat_x_assum ‘!app_st. evaluate app_st fn_env [dispatch] = _’ mp_tac
+  >> qpat_assum ‘Abbrev (branches = _)’ (fn th =>
+       CONV_TAC (LAND_CONV (BINDER_CONV (RHS_CONV
+         (RATOR_CONV (RAND_CONV
+           (REWR_CONV (REWRITE_RULE [markerTheory.Abbrev_def] th))))))))
+  >> qpat_assum ‘Abbrev (fn_val = _)’ (fn th =>
+       CONV_TAC (LAND_CONV (BINDER_CONV (RHS_CONV
+         (RATOR_CONV (RATOR_CONV (RAND_CONV
+           (REWR_CONV (REWRITE_RULE [markerTheory.Abbrev_def] th)))))))))
+  >> ASSUM_LIST (fn ths => CONV_TAC (LAND_CONV (BINDER_CONV (RHS_CONV
+       (app_match_conv (SIMP_CONV (srw_ss())
+         (ths @ [pmatch_def, same_type_def, same_ctor_def, pat_bindings_def])))))))
+  >> strip_tac
   >> qrefine ‘ck+3’
-  >> simp[Ntimes evaluate_def 10, do_opapp_def, dec_clock_def,
-       Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
-  >> simp[Ntimes evaluate_def 3]
-  >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
-    same_type_def, same_ctor_def, evaluate_match_def,
-    pat_bindings_def]
-  >~ [`Prim SAdd`] >- (
+  >> simp[Once (cj 9 evaluate_def), Once evaluate_cons,
+          cj 8 evaluate_def, do_opapp_def, dec_clock_def]
+  >> simp[Abbr ‘fn_env’, Abbr ‘app_env’]
+  >> qpat_x_assum ‘!app_st. app_st.clock <> 0 ==> _’ kall_tac
+  >> qpat_x_assum ‘!app_st. 1 < app_st.clock ==> _’ kall_tac
+  >> qpat_x_assum ‘!app_st. evaluate app_st _ [dispatch] = _’ kall_tac
+  >~ [‘Prim SAdd’] >- (
     drule $ cj 2 $ iffLR scheme_env_app_def
     >> strip_tac
     >> gvs[application_def]
@@ -893,67 +1512,28 @@ Proof
     >> simp[do_opapp_def, dec_clock_def]
     >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
     >> simp[Ntimes evaluate_def 2]
-    >> `? n . 0:int = n` by simp[]
-    >> pop_assum $ simp_tac std_ss o single
-    >> rpt $ pop_assum mp_tac
-    >> qid_spec_tac `n`
-    >> qid_spec_tac `vs`
-    >> qid_spec_tac `ts`
-    >> Induct_on `mlvs`
-    >> rpt strip_tac >- (
-      fs[cons_list_def, vcons_list_def, sadd_def]
-      >> rpt strip_tac
-      >> reduce_to_cps 0 [can_pmatch_all_def, pmatch_def, nsLookup_def,
-        same_type_def, same_ctor_def, evaluate_match_def,
-        pat_bindings_def]
-      >> simp[GSYM eval_eq_def]
-      >> irule_at (Pos hd) eval_eq_trivial
-      >> simp[Once cps_rel_cases, Once ml_v_vals_cases]
-      >> simp[evaluate_def, do_con_check_def, build_conv_def, nsLookup_def]
-    )
-    >> Cases_on `vs`
-    >> fs[]
-    >> Cases_on `ts`
-    >> fs[cons_list_def, vcons_list_def]
-    >> simp[Ntimes evaluate_def 2]
-    >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
-      same_type_def, same_ctor_def, evaluate_match_def,
-      pat_bindings_def]
-    >> rename1 `sadd (v::vs) _`
-    >> Cases_on `? i . v = SNum i` >>> HEADGOAL $ gvs[Once ml_v_vals_cases]
-    >>> LASTGOAL (
-      gvs[]
-      >> rename1 `ml_v_vals v mlv`
-      >> `! vs . mlv <> Conv (SOME $ scheme_typestamp «SNum») vs`
-        by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
-      >> drule_then assume_tac mlv_always_conv
-      >> gvs[]
-    )
-    >> simp[Ntimes evaluate_def 2]
-    >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
-      same_type_def, same_ctor_def, evaluate_match_def,
-      pat_bindings_def]
-    >- (
-      qrefine ‘ck+3’
-      >> simp[evaluate_def]
-      >> simp[do_opapp_def, do_app_def, dec_clock_def, do_arith_def, check_type_def]
-      >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
-      >> simp[Ntimes evaluate_def 2]
-      >> simp[sadd_def]
-      >> simp[Once INT_ADD_COMM]
-      >> last_x_assum irule
-      >> simp[]
-      >> last_assum $ irule_at $ Pos last
-      >> irule cons_list_val
-      >> simp[]
-    )
-    >> simp[sadd_not_num_exception]
-    >> simp[GSYM eval_eq_def]
-    >> irule_at (Pos hd) eval_eq_trivial
-    >> simp[Once cps_rel_cases]
-    >> first_assum $ irule_at $ Pos hd
+    >> qmatch_goalsub_abbrev_tac ‘evaluate _ rho [body]’
+    >> qspec_then ‘env_cl’ mp_tac sadd_evaluate_body
+    >> disch_then (qspec_then ‘body’ mp_tac)
+    >> simp[Abbr ‘body’, scheme_basis_def]
+    >> disch_then drule
+    >> disch_then (qspecl_then [‘0’, ‘kv’, ‘st’] mp_tac)
+    >> simp[LET_THM, build_rec_env_def]
+    >> strip_tac
+    >> qexists_tac ‘ck’
+    >> simp[ADD_COMM]
+    >> qspecl_then [‘vs’, ‘0’] strip_assume_tac sadd_num_or_exception
+    >> simp[]
+    >- (qexistsl_tac [‘st’, ‘rho’, ‘«k»’, ‘kv’,
+          ‘App Opapp [Var (Short «k»); Con (SOME (Short «SNum»)) [Lit (IntLit m)]]’]
+        >> simp[val_eval_def, Once cps_rel_cases, Once ml_v_vals_cases]
+        >> simp[Abbr ‘rho’, evaluate_def, do_con_check_def, build_conv_def, nsLookup_def])
+    >> qexistsl_tac [‘st’, ‘rho’, ‘«k»’, ‘kv’,
+         ‘Con (SOME (Short «Ex»)) [Lit (StrLit s)]’]
+    >> simp[ex_eval_def, Once cps_rel_cases]
+    >> simp[Abbr ‘rho’]
   )
-  >~ [`Prim SMul`] >- (
+  >~ [‘Prim SMul’] >- (
     drule $ cj 3 $ iffLR scheme_env_app_def
     >> strip_tac
     >> gvs[application_def]
@@ -962,13 +1542,13 @@ Proof
     >> simp[do_opapp_def, dec_clock_def]
     >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
     >> simp[Ntimes evaluate_def 2]
-    >> `? n . 1:int = n` by simp[]
+    >> ‘? n . 1:int = n’ by simp[]
     >> pop_assum $ simp_tac std_ss o single
     >> rpt $ pop_assum mp_tac
-    >> qid_spec_tac `n`
-    >> qid_spec_tac `vs`
-    >> qid_spec_tac `ts`
-    >> Induct_on `mlvs`
+    >> qid_spec_tac ‘n’
+    >> qid_spec_tac ‘vs’
+    >> qid_spec_tac ‘ts’
+    >> Induct_on ‘mlvs’
     >> rpt strip_tac >- (
       fs[cons_list_def, vcons_list_def, smul_def]
       >> rpt strip_tac
@@ -980,20 +1560,20 @@ Proof
       >> simp[Once cps_rel_cases, Once ml_v_vals_cases]
       >> simp[evaluate_def, do_con_check_def, build_conv_def, nsLookup_def]
     )
-    >> Cases_on `vs`
+    >> Cases_on ‘vs’
     >> fs[]
-    >> Cases_on `ts`
+    >> Cases_on ‘ts’
     >> fs[cons_list_def, vcons_list_def]
     >> simp[Ntimes evaluate_def 2]
     >> simp[can_pmatch_all_def, pmatch_def, nsLookup_def,
       same_type_def, same_ctor_def, evaluate_match_def,
       pat_bindings_def]
-    >> rename1 `smul (v::vs) _`
-    >> Cases_on `? i . v = SNum i` >>> HEADGOAL $ gvs[Once ml_v_vals_cases]
+    >> rename1 ‘smul (v::vs) _’
+    >> Cases_on ‘? i . v = SNum i’ >>> HEADGOAL $ gvs[Once ml_v_vals_cases]
     >>> LASTGOAL (
       gvs[]
-      >> rename1 `ml_v_vals v mlv`
-      >> `! vs . mlv <> Conv (SOME $ scheme_typestamp «SNum») vs`
+      >> rename1 ‘ml_v_vals v mlv’
+      >> ‘! vs . mlv <> Conv (SOME $ scheme_typestamp «SNum») vs’
         by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
       >> drule_then assume_tac mlv_always_conv
       >> gvs[]
@@ -1022,7 +1602,7 @@ Proof
     >> simp[Once cps_rel_cases]
     >> first_assum $ irule_at $ Pos hd
   )
-  >~ [`Prim SMinus`] >- (
+  >~ [‘Prim SMinus’] >- (
     drule $ cj 12 $ iffLR scheme_env_app_def
     >> strip_tac
     >> gvs[application_def]
@@ -1030,118 +1610,30 @@ Proof
     >> simp[evaluate_def]
     >> simp[do_opapp_def, dec_clock_def]
     >> simp[Once evaluate_def]
-    >> Cases_on `mlvs`
-    >> gvs[vcons_list_def] >>> LASTGOAL (
-      rename1 `vcons_list mlvs`
-      >> rename1 `LIST_REL ml_v_vals vs mlvs`
-      >> rename1 `ml_v_vals v mlv`
-      >> Cases_on `? i . v = SNum i` >>> LASTGOAL (
-        gvs[]
-        >> rename1 `ml_v_vals v mlv`
-        >> `! vs . mlv <> Conv (SOME $ scheme_typestamp «SNum») vs`
-          by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
-        >> drule_then assume_tac mlv_always_conv
-        >> gvs[]
-      )
-      >>> HEADGOAL (
-        gvs[Once ml_v_vals_cases]
-        >> Cases_on `mlvs = []`
-        >> gvs[vcons_list_def] >>> LASTGOAL (
-          ‘∃ mlv' mlvs' . mlv'::mlvs'=mlvs’ by (Cases_on ‘mlvs’ >> gvs[])
-          >> ‘∃ v' vs' . v'::vs' = vs’ by gvs[]
-          >> first_assum $ simp_tac bool_ss o single o GSYM
-          >> simp[sminus_def]
-          >> pop_assum $ simp_tac bool_ss o single
-          >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
-            same_type_def, same_ctor_def, evaluate_match_def,
-            pat_bindings_def, do_arith_def, check_type_def]
-          >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
-            same_type_def, same_ctor_def, evaluate_match_def,
-            pat_bindings_def, do_arith_def, check_type_def]
-          >> simp[Ntimes evaluate_def 3]
-          >> pop_assum $ simp_tac bool_ss o single o (fn x => Ntimes x 2) o GSYM
-          >> simp[evaluate_match_def, can_pmatch_all_def, pmatch_def, nsLookup_def,
-            same_type_def, same_ctor_def, evaluate_match_def,
-            pat_bindings_def, do_arith_def, check_type_def, vcons_list_def]
-          >> pop_assum kall_tac
-          >> qrefine `ck+3`
-          >> simp[Ntimes evaluate_def 3, can_pmatch_all_def, pmatch_def, nsLookup_def,
-            same_type_def, same_ctor_def, evaluate_match_def,
-            pat_bindings_def]
-          >> simp[Ntimes evaluate_def 7, do_opapp_def]
-          >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
-          >> simp[Ntimes evaluate_def 2, dec_clock_def]
-          >> ‘∃ n . 0i = n’ by simp[]
-          >> pop_assum $ simp o single
-          >> qpat_abbrev_tac `env_sminus' = env_sminus with v := _`
-          >> ‘nsLookup env_sminus'.v (Short «n») = SOME (Litv (IntLit i))’ by (unabbrev_all_tac >> gvs[])
-          >> ‘nsLookup env_sminus'.v (Short «k») = SOME kv’ by (unabbrev_all_tac >> gvs[])
-          >> ‘env_sminus'.c = env_sminus.c’ by (unabbrev_all_tac >> gvs[])
-          >> qpat_x_assum ‘Abbrev _’ kall_tac
-          >> qpat_x_assum ‘! _ . _’ kall_tac
-          >> gvs[]
-          >> qpat_x_assum `LIST_REL (\ _ _ . nsLookup _ _ = _) _ _` kall_tac
-          >> rpt $ pop_assum mp_tac
-          >> qid_spec_tac ‘n’
-          >> qid_spec_tac ‘mlvs’
-          >> qid_spec_tac ‘vs’
-          >> Induct_on `mlvs`
-          >> Cases_on `vs`
-          >> rpt strip_tac
-          >> gvs[vcons_list_def] >- (
-            simp[sadd_def]
-            >> reduce_to_cps 0 [can_pmatch_all_def, pmatch_def, nsLookup_def,
-              same_type_def, same_ctor_def, evaluate_match_def,
-              pat_bindings_def]
-            >> simp[Once evaluate_def]
-            >> reduce_to_cps 1 [can_pmatch_all_def, pmatch_def, nsLookup_def,
-              same_type_def, same_ctor_def, evaluate_match_def,
-              pat_bindings_def, do_arith_def, check_type_def]
-            >> simp[GSYM eval_eq_def]
-            >> irule_at (Pos hd) eval_eq_trivial
-            >> simp[Once cps_rel_cases, Once ml_v_vals_cases]
-            >> simp[evaluate_def, build_conv_def, do_con_check_def,
-              nsLookup_def, do_app_def, do_arith_def, check_type_def]
-          )
-          >> rename1 `sadd (v::vs) _`
-          >> Cases_on `? i . v = SNum i`
-          >>> LASTGOAL (
-            gvs[]
-            >> rename1 `ml_v_vals v mlv`
-            >> `! vs . mlv <> Conv (SOME $ scheme_typestamp «SNum») vs`
-              by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
-            >> drule_then assume_tac mlv_always_conv
-            >> gvs[]
-          )
-          >- (
-            gvs[Once ml_v_vals_cases]
-            >> simp[sadd_def, vcons_list_def]
-            >> simp[evaluate_def, do_opapp_def, do_app_def,
-              do_arith_def, check_type_def, can_pmatch_all_def, pmatch_def, nsLookup_def,
-              same_type_def, same_ctor_def, evaluate_match_def,
-              pat_bindings_def, do_con_check_def, build_conv_def, dec_clock_def]
-            >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
-            >> qrefine ‘ck+3’
-            >> simp[Ntimes evaluate_def 2]
-            >> simp[Once INT_ADD_COMM]
-            >> last_x_assum irule
-          )
-        )
-      )
-    )
-    >> reduce_to_cps 0 [can_pmatch_all_def, pmatch_def, nsLookup_def,
-      same_type_def, same_ctor_def, evaluate_match_def,
-      pat_bindings_def, do_arith_def, check_type_def]
-    >> simp[sminus_not_num_exception, sadd_not_num_exception]
-    >> simp[sminus_def, sadd_def]
-    >> simp[GSYM eval_eq_def]
-    >> irule_at (Pos hd) eval_eq_trivial
-    >> simp[Once cps_rel_cases, Once ml_v_vals_cases]
-    >> TRY $ first_assum $ irule_at $ Pos hd
-    >> simp[evaluate_def, build_conv_def, do_con_check_def,
-      nsLookup_def, do_app_def, do_arith_def, check_type_def]
+    >> qmatch_goalsub_abbrev_tac ‘evaluate _ rho [body]’
+    >> ‘closure_in_env env_sminus (EL 0 scheme_basis) env_sadd’
+         by simp[closure_in_env_def, scheme_basis_def]
+    >> ‘EL 2 scheme_basis = Dlet NoLocs (Pvar «sminus») (Fun «k» (Fun «ts» body))’
+         by simp[scheme_basis_def, Abbr ‘body’]
+    >> drule_all sminus_evaluate_body
+    >> disch_then (qspecl_then [‘kv’, ‘st’] mp_tac)
+    >> simp[LET_THM]
+    >> strip_tac
+    >> qexists_tac ‘ck’
+    >> simp[Abbr ‘rho’, ADD_COMM]
+    >> qmatch_goalsub_abbrev_tac ‘val_eval _ rho’
+    >> qspec_then ‘vs’ strip_assume_tac sminus_num_or_exception
+    >> simp[]
+    >- (qexistsl_tac [‘st’, ‘rho’, ‘«k»’, ‘kv’,
+          ‘App Opapp [Var (Short «k»); Con (SOME (Short «SNum»)) [Lit (IntLit m)]]’]
+        >> simp[val_eval_def, Once cps_rel_cases, Once ml_v_vals_cases]
+        >> simp[Abbr ‘rho’, evaluate_def, do_con_check_def, build_conv_def, nsLookup_def])
+    >> qexistsl_tac [‘st’, ‘rho’, ‘«k»’, ‘kv’,
+         ‘Con (SOME (Short «Ex»)) [Lit (StrLit s)]’]
+    >> simp[ex_eval_def, Once cps_rel_cases]
+    >> simp[Abbr ‘rho’]
   )
-  >~ [`Prim SEqv`] >- (
+  >~ [‘Prim SEqv’] >- (
     drule $ cj 4 $ iffLR scheme_env_app_def
     >> strip_tac
     >> gvs[application_def]
@@ -1149,32 +1641,23 @@ Proof
     >> simp[evaluate_def]
     >> simp[do_opapp_def, dec_clock_def]
     >> simp[Once evaluate_def]
-    >> Cases_on `mlvs`
-    >> Cases_on `vs`
-    >> gvs[vcons_list_def] >>> LASTGOAL (
-      rename1 `vcons_list mlvs`
-      >> rename1 `LIST_REL ml_v_vals vs mlvs`
-      >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
-        same_type_def, same_ctor_def, evaluate_match_def,
-        pat_bindings_def, do_arith_def, check_type_def]
-      >> Cases_on `mlvs`
-      >> Cases_on `vs`
-      >> gvs[vcons_list_def] >>> LASTGOAL (
-        rename1 `vcons_list mlvs`
-        >> rename1 `LIST_REL ml_v_vals vs mlvs`
-        >> rename1 `seqv (v::v'::_)`
-        >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
-          same_type_def, same_ctor_def, evaluate_match_def,
-          pat_bindings_def, do_arith_def, check_type_def]
-        >> Cases_on `mlvs`
-        >> Cases_on `vs`
-        >> gvs[vcons_list_def] >- (
+    >> Cases_on ‘vs’
+    >> gvs[LIST_REL_CONS1, vcons_list_def]
+    >- seqv_arity_error
+    >> rename1 ‘seqv (v::vs)’
+    >> Cases_on ‘vs’
+    >> gvs[LIST_REL_CONS1, vcons_list_def]
+    >- seqv_arity_error
+    >> rename1 ‘seqv (v::v'::vs)’
+    >> Cases_on ‘vs’
+    >> gvs[LIST_REL_CONS1, vcons_list_def]
+    >- (
           reduce_to_cps 0 [can_pmatch_all_def, pmatch_def, nsLookup_def,
             same_type_def, same_ctor_def, evaluate_match_def,
             pat_bindings_def, do_arith_def, check_type_def]
-          >> Cases_on `? n . v = SNum n` >- (
+          >> Cases_on ‘? n . v = SNum n’ >- (
             gvs[Once ml_v_vals_cases]
-            >> Cases_on `? m . v' = SNum m` >- (
+            >> Cases_on ‘? m . v' = SNum m’ >- (
               gvs[Once ml_v_vals_cases]
               >> simp[seqv_def]
               >> reduce_to_cps 0 [can_pmatch_all_def, pmatch_def, nsLookup_def,
@@ -1186,21 +1669,17 @@ Proof
               >> IF_CASES_TAC
               >> simp[do_con_check_def, build_conv_def, nsLookup_def]
             )
-            >> rename1 `ml_v_vals v' mlv'`
-            >> `! vs . mlv' <> Conv (SOME $ scheme_typestamp «SNum») vs`
-              by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
+            >> rename1 ‘ml_v_vals v' mlv'’
+            >> ‘! vs . mlv' <> Conv (SOME $ scheme_typestamp «SNum») vs’
+              by metis_tac[ml_v_vals_not_num]
             >> drule_then assume_tac mlv_always_conv
             >> gvs[]
             >> reduce_to_cps 0 [can_pmatch_all_def, pmatch_def, nsLookup_def]
-            >> simp[GSYM eval_eq_def]
-            >> irule_at (Pos hd) eval_eq_trivial
-            >> simp[seqv_not_num_false]
-            >> simp[Once cps_rel_cases, Once ml_v_vals_cases, bool_val_rel_cases]
-            >> simp[evaluate_def, do_con_check_def, build_conv_def, nsLookup_def]
+            >> seqv_false_result
           )
-          >> Cases_on `? b . v = SBool b` >- (
+          >> Cases_on ‘? b . v = SBool b’ >- (
             gvs[Once ml_v_vals_cases]
-            >> Cases_on `? b' . v' = SBool b'` >- (
+            >> Cases_on ‘? b' . v' = SBool b'’ >- (
               gvs[bool_val_rel_cases]
               >> gvs[Once ml_v_vals_cases, bool_val_rel_cases]
               >> simp[seqv_def]
@@ -1213,49 +1692,31 @@ Proof
               >> simp[do_con_check_def, build_conv_def, nsLookup_def, ctor_same_type_def, same_type_def]
             )
             >> gvs[]
-            >> rename1 `ml_v_vals v' mlv'`
-            >>`! vs . mlv' <> Conv (SOME $ scheme_typestamp «SBool») vs`
-              by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
+            >> rename1 ‘ml_v_vals v' mlv'’
+            >> ‘! vs . mlv' <> Conv (SOME $ scheme_typestamp «SBool») vs’
+              by metis_tac[ml_v_vals_not_bool]
             >> drule_then assume_tac mlv_always_conv
             >> gvs[]
             >> reduce_to_cps 0 [can_pmatch_all_def, pmatch_def, nsLookup_def]
-            >> simp[GSYM eval_eq_def]
-            >> irule_at (Pos hd) eval_eq_trivial
-            >> simp[seqv_not_bool_false]
-            >> simp[Once cps_rel_cases, Once ml_v_vals_cases, bool_val_rel_cases]
-            >> simp[evaluate_def, do_con_check_def, build_conv_def, nsLookup_def]
+            >> seqv_false_result
           )
-          >> rename1 `ml_v_vals v mlv`
-          >> `! vs . mlv <> Conv (SOME $ scheme_typestamp «SNum») vs`
-            by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
-          >>`! vs . mlv <> Conv (SOME $ scheme_typestamp «SBool») vs`
-            by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
+          >> rename1 ‘ml_v_vals v mlv’
+          >> ‘! vs . mlv <> Conv (SOME $ scheme_typestamp «SNum») vs’
+            by metis_tac[ml_v_vals_not_num]
+          >> ‘! vs . mlv <> Conv (SOME $ scheme_typestamp «SBool») vs’
+            by metis_tac[ml_v_vals_not_bool]
           >> rev_drule_then assume_tac mlv_always_conv
           >> gvs[]
           >> reduce_to_cps 0 [can_pmatch_all_def, pmatch_def, nsLookup_def,
             do_eq_def, Boolv_def, bool_type_num_def, ctor_same_type_def]
-          >> simp[seqv_not_num_or_bool_false]
-          >> simp[GSYM eval_eq_def]
-          >> irule_at (Pos hd) eval_eq_trivial
-          >> simp[Once cps_rel_cases, Once ml_v_vals_cases, bool_val_rel_cases]
-          >> simp[evaluate_def, do_con_check_def, build_conv_def, nsLookup_def]
-          (*Currently getting through evaluate with non-equality, but it doesn't
-            play nicely with pattern matching so I'm having to write loads of little
-            lemmas about the semantic definitions*)
-        )
-      )
+          >> seqv_false_result
     )
-    >> simp[seqv_def]
-    >> reduce_to_cps 0 [can_pmatch_all_def, vcons_list_def, pmatch_def, nsLookup_def]
-    >> simp[GSYM eval_eq_def]
-    >> irule_at (Pos hd) eval_eq_trivial
-    >> simp[Once cps_rel_cases]
-    >> first_assum $ irule_at $ Pos hd
+    >> seqv_arity_error
   )
-  >~ [`Proc se xs xp e`] >- (
+  >~ [‘Proc se xs xp e’] >- (
     pop_assum kall_tac
     >> pop_assum kall_tac
-    >> rename1 `Closure proc_env _ _`
+    >> rename1 ‘Closure proc_env _ _’
     >> qrefine ‘ck+1’
     >> simp[evaluate_def]
     >> simp[do_opapp_def, dec_clock_def]
@@ -1265,30 +1726,32 @@ Proof
     >> last_x_assum kall_tac
     >> last_x_assum kall_tac
     >> last_x_assum kall_tac
-    >> qpat_x_assum `! _._` kall_tac
-    >> qpat_x_assum `scheme_env mlenv` kall_tac
-    >> qpat_x_assum `env_rel _ mlenv` kall_tac
-    >> qpat_x_assum `scheme_env_app _` kall_tac
-    >> rpt $ qpat_x_assum `nsLookup mlenv.v _ = _` kall_tac
-    >> qpat_x_assum `LIST_REL _ ts _` kall_tac
-    >> qpat_abbrev_tac `proc_env' = proc_env with v:= _`
-    >> `scheme_env proc_env'` by (unabbrev_all_tac >> rpt scheme_env_tac)
-    >> `env_rel se proc_env'` by
-      (simp[Abbr `proc_env'`]
+    >> qpat_x_assum ‘! _._’ kall_tac
+    >> qpat_x_assum ‘scheme_env mlenv’ kall_tac
+    >> qpat_x_assum ‘env_rel _ mlenv’ kall_tac
+    >> qpat_x_assum ‘scheme_env_app _’ kall_tac
+    >> rpt $ qpat_x_assum ‘nsLookup mlenv.v _ = _’ kall_tac
+    >> qpat_x_assum ‘LIST_REL _ ts _’ kall_tac
+    >> qpat_abbrev_tac ‘proc_env' = proc_env with v:= _’
+    >> ‘scheme_env proc_env'’ by (unabbrev_all_tac >> rpt scheme_env_tac)
+    >> ‘env_rel se proc_env'’ by
+      (simp[Abbr ‘proc_env'’]
        >> DEP_REWRITE_TAC [env_rel_non_var]
        >> simp [strcat_thm])
-    >> `nsLookup proc_env'.v (Short «ts») = SOME (vcons_list mlvs)` by simp[Abbr `proc_env'`]
-    >> `nsLookup proc_env'.v (Short «k») = SOME kv` by simp[Abbr `proc_env'`]
-    >> qpat_x_assum `Abbrev _` kall_tac
-    >> qpat_x_assum `scheme_env proc_env` kall_tac
-    >> qpat_x_assum `env_rel _ proc_env` kall_tac
+    >> ‘nsLookup proc_env'.v (Short «ts») = SOME (vcons_list mlvs)’ by simp[Abbr ‘proc_env'’]
+    >> ‘nsLookup proc_env'.v (Short «k») = SOME kv’ by simp[Abbr ‘proc_env'’]
+    >> qpat_x_assum ‘Abbrev _’ kall_tac
+    >> qpat_x_assum ‘scheme_env proc_env’ kall_tac
+    >> qpat_x_assum ‘env_rel _ proc_env’ kall_tac
+    >> qpat_x_assum ‘!s. evaluate s mlenv _ = _’ kall_tac
+    >> qpat_x_assum ‘Abbrev (fn_val = _)’ kall_tac
     >> rpt $ pop_assum mp_tac
-    >> qid_spec_tac `se`
-    >> qid_spec_tac `proc_env'`
-    >> qid_spec_tac `store`
-    >> qid_spec_tac `st`
-    >> qid_spec_tac `vs`
-    >> qid_spec_tac `mlvs`
+    >> qid_spec_tac ‘se’
+    >> qid_spec_tac ‘proc_env'’
+    >> qid_spec_tac ‘store’
+    >> qid_spec_tac ‘st’
+    >> qid_spec_tac ‘vs’
+    >> qid_spec_tac ‘mlvs’
     >> Induct_on ‘xs’
     >> rpt strip_tac
     >> gvs[]
@@ -1308,16 +1771,16 @@ Proof
       >> rpt (pairarg_tac >> gvs[])
       >> simp[Ntimes evaluate_def 3, nsOptBind_def, dec_clock_def,
         do_con_check_def, build_conv_def, do_opapp_def]
-      >> drule_at_then (Pat `allocate_list _ _ = _`) assume_tac allocate_list_ml
-      >> rpt $ pop_assum $ drule_at_then (Pat `LIST_REL _ _ _`) assume_tac
+      >> drule_at_then (Pat ‘allocate_list _ _ = _’) assume_tac allocate_list_ml
+      >> rpt $ pop_assum $ drule_at_then (Pat ‘LIST_REL _ _ _’) assume_tac
       >> drule_then assume_tac $ cj 1 $ iffLR scheme_env_def
       >> drule $ cj 3 $ iffLR scheme_env_def
       >> strip_tac
-      >> `closure_in_env proc_env' scheme_basis_list env_list` by (EVAL_TAC >> simp[])
-      >> first_x_assum $ drule_at_then (Pat `closure_in_env _ _ _`) assume_tac
-      >> pop_assum $ qspec_then `«ts»` assume_tac
+      >> ‘closure_in_env proc_env' scheme_basis_list env_list’ by (EVAL_TAC >> simp[])
+      >> first_x_assum $ drule_at_then (Pat ‘closure_in_env _ _ _’) assume_tac
+      >> pop_assum $ qspec_then ‘«ts»’ assume_tac
       >> gvs[scheme_cons_env_simp, scheme_runtime_funs_def]
-      >> qrefine `ck + ck'`
+      >> qrefine ‘ck + ck'’
       >> simp[do_app_def, store_alloc_def]
       >> simp[GSYM eval_eq_def]
       >> irule_at (Pos hd) eval_eq_trivial
@@ -1340,15 +1803,15 @@ Proof
       >> gvs[scheme_env_def]
     )
     >> reduce_to_cps 0 [can_pmatch_all_def, vcons_list_def, pmatch_def, store_alloc_def]
-    >> qpat_abbrev_tac `new_st = st with refs := new_refs`
-    >> `st.ffi = new_st.ffi` by (unabbrev_all_tac >> simp[])
+    >> qpat_abbrev_tac ‘new_st = st with refs := new_refs’
+    >> ‘st.ffi = new_st.ffi’ by (unabbrev_all_tac >> simp[])
     >> pop_assum $ simp o single
-    >> last_x_assum irule
+    >> qpat_x_assum ‘!mlvs vs st store proc_env se. _’ irule
     >> unabbrev_all_tac
     >> simp[]
     >> rpt scheme_env_tac
     >> gvs[fresh_loc_def]
-    >> first_assum $ irule_at $ Pat `parameterize _ _ _ _ _ _ = _`
+    >> first_assum $ irule_at $ Pat ‘parameterize _ _ _ _ _ _ = _’
     >> simp[SNOC_APPEND]
     >> simp[Once store_entry_rel_cases]
     >> rev_drule_then assume_tac LIST_REL_LENGTH
@@ -1358,23 +1821,26 @@ Proof
     >> irule_at Any EQ_REFL
     >> simp[]
   )
-  >~ [`Prim CallCC`] >- (
-    gvs[application_def]
+  >~ [‘Prim CallCC’] >- (
+    qmatch_asmsub_abbrev_tac ‘(«callcc», «k», callcc_fun)’
+    >> ‘find_recfun «callcc» app_funs = SOME («k», callcc_fun)’
+      by simp[Abbr ‘app_funs’, find_recfun_def]
+    >> gvs[application_def]
     >> qrefine ‘ck+1’
     >> simp[evaluate_def]
     >> simp[do_opapp_def, dec_clock_def]
-    >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
+    >> simp[Abbr ‘callcc_fun’]
     >> simp[Once evaluate_def]
-    >> Cases_on `mlvs`
-    >> Cases_on `vs`
+    >> Cases_on ‘mlvs’
+    >> Cases_on ‘vs’
     >> gvs[vcons_list_def] >>> LASTGOAL (
-      rename1 `vcons_list mlvs`
-      >> rename1 `LIST_REL ml_v_vals vs mlvs`
+      rename1 ‘vcons_list mlvs’
+      >> rename1 ‘LIST_REL ml_v_vals vs mlvs’
       >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
         same_type_def, same_ctor_def, evaluate_match_def,
         pat_bindings_def, do_arith_def, check_type_def]
-      >> Cases_on `mlvs`
-      >> Cases_on `vs`
+      >> Cases_on ‘mlvs’
+      >> Cases_on ‘vs’
       >> gvs[vcons_list_def] >- (
         reduce_to_cps 0 [can_pmatch_all_def, vcons_list_def, pmatch_def, nsLookup_def]
         >> simp[GSYM eval_eq_def]
@@ -1395,25 +1861,25 @@ Proof
     >> first_assum $ irule_at $ Pos hd
     >> gvs[scheme_env_app_def]
   )
-  >~ [`Throw ks`] >- (
+  >~ [‘Throw ks’] >- (
     drule $ cj 10 $ iffLR scheme_env_app_def
     >> strip_tac
     >> gvs[application_def]
     >> qrefine ‘ck+1’
     >> simp[evaluate_def]
     >> simp[do_opapp_def, dec_clock_def]
-    >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
+    >> simp[Abbr ‘app_funs’, Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
     >> simp[Once evaluate_def]
-    >> Cases_on `mlvs`
-    >> Cases_on `vs`
+    >> Cases_on ‘mlvs’
+    >> Cases_on ‘vs’
     >> gvs[vcons_list_def] >>> LASTGOAL (
-      rename1 `vcons_list mlvs`
-      >> rename1 `LIST_REL ml_v_vals vs mlvs`
+      rename1 ‘vcons_list mlvs’
+      >> rename1 ‘LIST_REL ml_v_vals vs mlvs’
       >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
         same_type_def, same_ctor_def, evaluate_match_def,
         pat_bindings_def, do_arith_def, check_type_def]
-      >> Cases_on `mlvs`
-      >> Cases_on `vs`
+      >> Cases_on ‘mlvs’
+      >> Cases_on ‘vs’
       >> gvs[vcons_list_def]
     )
     >> reduce_to_cps 0 [can_pmatch_all_def, vcons_list_def, pmatch_def, nsLookup_def]
@@ -1425,7 +1891,7 @@ Proof
     >> first_assum $ irule_at $ Pos hd
     >> simp[evaluate_def]
   )
-  >~ [`Prim Cons`] >- (
+  >~ [‘Prim Cons’] >- (
     drule $ cj 5 $ iffLR scheme_env_app_def
     >> strip_tac
     >> gvs[application_def]
@@ -1433,24 +1899,24 @@ Proof
     >> simp[evaluate_def]
     >> simp[do_opapp_def, dec_clock_def]
     >> simp[Once evaluate_def]
-    >> Cases_on `mlvs`
-    >> Cases_on `vs`
+    >> Cases_on ‘mlvs’
+    >> Cases_on ‘vs’
     >> gvs[vcons_list_def] >>> LASTGOAL (
-      rename1 `vcons_list mlvs`
-      >> rename1 `LIST_REL ml_v_vals vs mlvs`
+      rename1 ‘vcons_list mlvs’
+      >> rename1 ‘LIST_REL ml_v_vals vs mlvs’
       >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
         same_type_def, same_ctor_def, evaluate_match_def,
         pat_bindings_def, do_arith_def, check_type_def]
-      >> Cases_on `mlvs`
-      >> Cases_on `vs`
+      >> Cases_on ‘mlvs’
+      >> Cases_on ‘vs’
       >> gvs[vcons_list_def] >>> LASTGOAL (
-        rename1 `vcons_list mlvs`
-        >> rename1 `LIST_REL ml_v_vals vs mlvs`
+        rename1 ‘vcons_list mlvs’
+        >> rename1 ‘LIST_REL ml_v_vals vs mlvs’
         >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
           same_type_def, same_ctor_def, evaluate_match_def,
           pat_bindings_def, do_arith_def, check_type_def]
-        >> Cases_on `mlvs`
-        >> Cases_on `vs`
+        >> Cases_on ‘mlvs’
+        >> Cases_on ‘vs’
         >> gvs[vcons_list_def] >- (
           reduce_to_cps 0 [can_pmatch_all_def, vcons_list_def, pmatch_def, store_alloc_def, nsLookup_def]
           >> gvs[fresh_loc_def]
@@ -1472,7 +1938,7 @@ Proof
     >> simp[Once cps_rel_cases]
     >> first_assum $ irule_at $ Pos hd
   )
-  >~ [`Prim Car`] >- (
+  >~ [‘Prim Car’] >- (
     drule $ cj 6 $ iffLR scheme_env_app_def
     >> strip_tac
     >> gvs[application_def]
@@ -1480,19 +1946,19 @@ Proof
     >> simp[evaluate_def]
     >> simp[do_opapp_def, dec_clock_def]
     >> simp[Once evaluate_def]
-    >> Cases_on `mlvs`
-    >> Cases_on `vs`
+    >> Cases_on ‘mlvs’
+    >> Cases_on ‘vs’
     >> gvs[vcons_list_def] >>> LASTGOAL (
-      rename1 `vcons_list mlvs`
-      >> rename1 `LIST_REL ml_v_vals vs mlvs`
+      rename1 ‘vcons_list mlvs’
+      >> rename1 ‘LIST_REL ml_v_vals vs mlvs’
       >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
         same_type_def, same_ctor_def, evaluate_match_def,
         pat_bindings_def, do_arith_def, check_type_def]
-      >> Cases_on `mlvs`
-      >> Cases_on `vs`
+      >> Cases_on ‘mlvs’
+      >> Cases_on ‘vs’
       >> gvs[vcons_list_def] >>> HEADGOAL (
-        rename1 `ml_v_vals v mlv`
-        >> Cases_on `? l . v = PairP l`
+        rename1 ‘ml_v_vals v mlv’
+        >> Cases_on ‘? l . v = PairP l’
         >>> HEADGOAL (
           gvs[Once ml_v_vals_cases]
           >> rfs[Once valid_val_cases]
@@ -1502,7 +1968,7 @@ Proof
           >> gvs[Once store_entry_rel_cases]
         )
         >>> LASTGOAL (
-          `! vs . mlv <> Conv (SOME $ scheme_typestamp «PairP») vs`
+          ‘! vs . mlv <> Conv (SOME $ scheme_typestamp «PairP») vs’
             by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
           >> drule_then assume_tac mlv_always_conv
           >> gvs[car_not_pairp_exception]
@@ -1518,7 +1984,7 @@ Proof
     >> first_assum $ irule_at $ Pos hd
     >> simp[evaluate_def]
   )
-  >~ [`Prim Cdr`] >- (
+  >~ [‘Prim Cdr’] >- (
     drule $ cj 7 $ iffLR scheme_env_app_def
     >> strip_tac
     >> gvs[application_def]
@@ -1526,19 +1992,19 @@ Proof
     >> simp[evaluate_def]
     >> simp[do_opapp_def, dec_clock_def]
     >> simp[Once evaluate_def]
-    >> Cases_on `mlvs`
-    >> Cases_on `vs`
+    >> Cases_on ‘mlvs’
+    >> Cases_on ‘vs’
     >> gvs[vcons_list_def] >>> LASTGOAL (
-      rename1 `vcons_list mlvs`
-      >> rename1 `LIST_REL ml_v_vals vs mlvs`
+      rename1 ‘vcons_list mlvs’
+      >> rename1 ‘LIST_REL ml_v_vals vs mlvs’
       >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
         same_type_def, same_ctor_def, evaluate_match_def,
         pat_bindings_def, do_arith_def, check_type_def]
-      >> Cases_on `mlvs`
-      >> Cases_on `vs`
+      >> Cases_on ‘mlvs’
+      >> Cases_on ‘vs’
       >> gvs[vcons_list_def] >>> HEADGOAL (
-        rename1 `ml_v_vals v mlv`
-        >> Cases_on `? l . v = PairP l`
+        rename1 ‘ml_v_vals v mlv’
+        >> Cases_on ‘? l . v = PairP l’
         >>> HEADGOAL (
           gvs[Once ml_v_vals_cases]
           >> rfs[Once valid_val_cases]
@@ -1548,7 +2014,7 @@ Proof
           >> gvs[Once store_entry_rel_cases]
         )
         >>> LASTGOAL (
-          `! vs . mlv <> Conv (SOME $ scheme_typestamp «PairP») vs`
+          ‘! vs . mlv <> Conv (SOME $ scheme_typestamp «PairP») vs’
             by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
           >> drule_then assume_tac mlv_always_conv
           >> gvs[cdr_not_pairp_exception]
@@ -1564,7 +2030,7 @@ Proof
     >> first_assum $ irule_at $ Pos hd
     >> simp[evaluate_def]
   )
-  >~ [`Prim IsNull`] >- (
+  >~ [‘Prim IsNull’] >- (
     drule $ cj 8 $ iffLR scheme_env_app_def
     >> strip_tac
     >> gvs[application_def]
@@ -1572,21 +2038,21 @@ Proof
     >> simp[evaluate_def]
     >> simp[do_opapp_def, dec_clock_def]
     >> simp[Once evaluate_def]
-    >> Cases_on `mlvs`
-    >> Cases_on `vs`
+    >> Cases_on ‘mlvs’
+    >> Cases_on ‘vs’
     >> gvs[vcons_list_def] >>> LASTGOAL (
-      rename1 `vcons_list mlvs`
-      >> rename1 `LIST_REL ml_v_vals vs mlvs`
+      rename1 ‘vcons_list mlvs’
+      >> rename1 ‘LIST_REL ml_v_vals vs mlvs’
       >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
         same_type_def, same_ctor_def, evaluate_match_def,
         pat_bindings_def, do_arith_def, check_type_def]
-      >> Cases_on `mlvs`
-      >> Cases_on `vs`
+      >> Cases_on ‘mlvs’
+      >> Cases_on ‘vs’
       >> gvs[vcons_list_def] >>> HEADGOAL (
-        rename1 `ml_v_vals v mlv`
-        >> Cases_on `v = Null` >>> HEADGOAL $ gvs[Once ml_v_vals_cases]
+        rename1 ‘ml_v_vals v mlv’
+        >> Cases_on ‘v = Null’ >>> HEADGOAL $ gvs[Once ml_v_vals_cases]
         >>> LASTGOAL (
-          `! vs . mlv <> Conv (SOME $ scheme_typestamp «Null») vs`
+          ‘! vs . mlv <> Conv (SOME $ scheme_typestamp «Null») vs’
             by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
           >> drule_then assume_tac mlv_always_conv
           >> gvs[isnull_not_null_false]
@@ -1601,7 +2067,7 @@ Proof
     >> TRY $ first_assum $ irule_at $ Pos hd
     >> simp[evaluate_def, do_con_check_def, build_conv_def, nsLookup_def]
   )
-  >~ [`Prim IsPair`] >- (
+  >~ [‘Prim IsPair’] >- (
     drule $ cj 9 $ iffLR scheme_env_app_def
     >> strip_tac
     >> gvs[application_def]
@@ -1609,21 +2075,21 @@ Proof
     >> simp[evaluate_def]
     >> simp[do_opapp_def, dec_clock_def]
     >> simp[Once evaluate_def]
-    >> Cases_on `mlvs`
-    >> Cases_on `vs`
+    >> Cases_on ‘mlvs’
+    >> Cases_on ‘vs’
     >> gvs[vcons_list_def] >>> LASTGOAL (
-      rename1 `vcons_list mlvs`
-      >> rename1 `LIST_REL ml_v_vals vs mlvs`
+      rename1 ‘vcons_list mlvs’
+      >> rename1 ‘LIST_REL ml_v_vals vs mlvs’
       >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
         same_type_def, same_ctor_def, evaluate_match_def,
         pat_bindings_def, do_arith_def, check_type_def]
-      >> Cases_on `mlvs`
-      >> Cases_on `vs`
+      >> Cases_on ‘mlvs’
+      >> Cases_on ‘vs’
       >> gvs[vcons_list_def] >>> HEADGOAL (
-        rename1 `ml_v_vals v mlv`
-        >> Cases_on `? l . v = PairP l` >>> HEADGOAL $ gvs[Once ml_v_vals_cases]
+        rename1 ‘ml_v_vals v mlv’
+        >> Cases_on ‘? l . v = PairP l’ >>> HEADGOAL $ gvs[Once ml_v_vals_cases]
         >>> LASTGOAL (
-          `! vs . mlv <> Conv (SOME $ scheme_typestamp «PairP») vs`
+          ‘! vs . mlv <> Conv (SOME $ scheme_typestamp «PairP») vs’
             by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
           >> drule_then assume_tac mlv_always_conv
           >> gvs[ispair_not_pairp_false]
@@ -1758,7 +2224,7 @@ Proof
         >> simp[nsLookup_nsAppend_some, id_to_mods_def,
           nsLookup_def, ALOOKUP_NONE, MEM_MAP]
         >> first_assum $ irule_at $ Pos hd
-        >> qexists `env_list`
+        >> qexists ‘env_list’
         >> simp[]
         >> rpt strip_tac
         >> disj2_tac
@@ -1797,7 +2263,7 @@ Proof
         >> simp[nsLookup_nsAppend_some, id_to_mods_def,
           nsLookup_def, ALOOKUP_NONE, MEM_MAP]
         >> first_assum $ irule_at $ Pos hd
-        >> qexists `env_list`
+        >> qexists ‘env_list’
         >> simp[]
         >> rpt strip_tac
         >> disj2_tac
@@ -1811,8 +2277,8 @@ Proof
     >> simp[cps_transform_def]
     >~ [‘Lit l’] >>> HEADGOAL (
       Cases_on ‘l’
-      >~ [`LitBool b`] >>> HEADGOAL $ Cases_on ‘b’ (*for Bool cases*)
-      >~ [`LitPrim p`] >>> HEADGOAL $ Cases_on `p`
+      >~ [‘LitBool b’] >>> HEADGOAL $ Cases_on ‘b’ (*for Bool cases*)
+      >~ [‘LitPrim p’] >>> HEADGOAL $ Cases_on ‘p’
       >> simp[lit_to_val_def, lit_to_ml_val_def]
     )
     >> rpt strip_tac
@@ -1847,7 +2313,7 @@ Proof
     >> simp[Once cps_rel_cases]
     >> simp[Once ml_v_vals_cases, Once cont_rel_cases,
       bool_val_rel_cases, prim_val_rel_cases]
-    >~ [`Lambda x xp e`] >- (
+    >~ [‘Lambda x xp e’] >- (
       first_assum $ irule_at Any
       >> irule_at Any EQ_REFL
       >> simp[]
@@ -1875,11 +2341,11 @@ Proof
       >> simp[step_def, return_def]
       >> simp[Once cps_rel_cases, Once cont_rel_cases]
       >> rpt strip_tac
-      >> Cases_on `? b . v = SBool b`
+      >> Cases_on ‘? b . v = SBool b’
       >>> HEADGOAL $ gvs[Once ml_v_vals_cases, bool_val_rel_cases]
       >>> LASTGOAL (
         gvs[]
-        >> `! vs . mlv <> Conv (SOME $ scheme_typestamp «SBool») vs`
+        >> ‘! vs . mlv <> Conv (SOME $ scheme_typestamp «SBool») vs’
          by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases, bool_val_rel_cases])
         >> drule_then assume_tac mlv_always_conv
         >> gvs[]
@@ -1978,7 +2444,7 @@ Proof
         >> dxrule_then assume_tac EVERY2_LENGTH
         >> drule_at_then (Pos $ el 2) assume_tac $ cj 1 MEM_ZIP_MEM_MAP
         >> gvs[]
-        >> qmatch_goalsub_abbrev_tac `nsLookup (nsBind x1 _ _) (Short x2) = SOME _`
+        >> qmatch_goalsub_abbrev_tac ‘nsLookup (nsBind x1 _ _) (Short x2) = SOME _’
         >> Cases_on ‘x1 = x2’
         >> gvs[]
       )
@@ -2014,7 +2480,7 @@ Proof
         >> rpt strip_tac
         >> drule_at_then (Pos $ el 2) assume_tac $ cj 1 MEM_ZIP_MEM_MAP
         >> gvs[]
-        >> qmatch_goalsub_abbrev_tac `nsLookup (nsBind x1 _ _) (Short x2) = SOME _`
+        >> qmatch_goalsub_abbrev_tac ‘nsLookup (nsBind x1 _ _) (Short x2) = SOME _’
         >> Cases_on ‘x1 = x2’
         >> gvs[]
       )
@@ -2086,7 +2552,7 @@ Proof
       >> simp[lex_sim_order_simp]
       >> simp[cps_transform_def]
       >> simp_tac bool_ss [Once ADD_COMM]
-      >> `cons_list [] = cons_list $ MAP (Var o Short) []` by simp[]
+      >> ‘cons_list [] = cons_list $ MAP (Var o Short) []’ by simp[]
       >> pop_assum $ simp_tac bool_ss o single
       >> irule application_preservation
       >> simp[]
@@ -2113,11 +2579,11 @@ Proof
       >> simp[]
       >> drule cps_app_ts_distinct >> strip_tac
       >> rpt scheme_env_tac
-      >> first_assum $ irule_at $ Pat `application _ _ _ _ = _`
+      >> first_assum $ irule_at $ Pat ‘application _ _ _ _ = _’
       >> first_assum $ irule_at $ Pos hd
       >> gvs[Once valid_state_cases]
       >> gvs[Once valid_cont_cases]
-      >> qrefine `SNOC front lst`
+      >> qrefine ‘SNOC front lst’
       >> simp[SNOC_APPEND]
       >> rpt $ irule_at Any EVERY2_REVERSE
       >> first_assum $ irule_at $ Pos hd
@@ -2337,11 +2803,15 @@ Proof
   >- (
     gvs[cps_transform_def]
     >> gvs[evaluate_def]
-    >> Cases_on `prog`
-    >~ [`LitPrim p`] >>> HEADGOAL $ Cases_on `p`
-    >~ [`LitBool b`] >>> HEADGOAL $ Cases_on `b`
+    >> Cases_on ‘prog’
+    >~ [‘LitPrim p’] >>> HEADGOAL $ Cases_on ‘p’
+    >~ [‘LitBool b’] >>> HEADGOAL $ Cases_on ‘b’
     >> gvs[lit_to_ml_val_def, evaluate_def, do_con_check_def, build_conv_def]
-    >> rpt (FULL_CASE_TAC >> gvs[])
+    >> Cases_on ‘nsLookup env.v (Short k)’ >> gvs[]
+    >> qmatch_asmsub_abbrev_tac ‘do_opapp args’
+    >> Cases_on ‘do_opapp args’ >> gvs[]
+    >> rename1 ‘do_opapp args = SOME result’
+    >> PairCases_on ‘result’ >> gvs[]
   )
   >- (
     gvs[cps_transform_def]
@@ -2351,13 +2821,31 @@ Proof
   >- (
     gvs[cps_transform_def]
     >> gvs[evaluate_def, do_app_def, do_con_check_def, build_conv_def]
-    >> rpt (FULL_CASE_TAC >> gvs[])
+    >> Cases_on ‘nsLookup env.v (Short («var» ^ x))’ >> gvs[]
+    >> rename1 ‘nsLookup env.v _ = SOME v’
+    >> Cases_on ‘v’ >> gvs[]
+    >> rename1 ‘store_lookup n st.refs’
+    >> Cases_on ‘store_lookup n st.refs’ >> gvs[]
+    >> rename1 ‘store_lookup n st.refs = SOME sv’
+    >> Cases_on ‘sv’ >> gvs[]
+    >> qmatch_asmsub_abbrev_tac ‘can_pmatch_all _ _ pats a’
+    >> Cases_on ‘can_pmatch_all env.c st.refs pats a’ >> gvs[]
+    >> gvs[pat_bindings_def]
+    >> Cases_on ‘pmatch env.c st.refs (Pcon (SOME (Short «None»)) []) a []’ >> gvs[]
+    >> Cases_on ‘pmatch env.c st.refs (Pcon (SOME (Short «Some»)) [Pvar «t»]) a []’ >> gvs[]
+    >> rename1 ‘Match binds’
+    >> Cases_on ‘nsLookup (nsAppend (alist_to_ns binds) env.v) (Short «t»)’ >> gvs[]
+    >> Cases_on ‘nsLookup (nsAppend (alist_to_ns binds) env.v) (Short k)’ >> gvs[]
+    >> qmatch_asmsub_abbrev_tac ‘do_opapp args’
+    >> Cases_on ‘do_opapp args’ >> gvs[]
+    >> rename1 ‘do_opapp args = SOME result’
+    >> PairCases_on ‘result’ >> gvs[]
   )
-  >~ [`Letrec ((_,_)::_) _`] >- (
+  >~ [‘Letrec ((_,_)::_) _’] >- (
     gvs[cps_transform_def, letinit_ml_def, letpreinit_ml_def]
     >> gvs[evaluate_def, do_app_def, store_alloc_def, nsOptBind_def]
-    >> qmatch_asmsub_abbrev_tac `evaluate _ newenv _`
-    >> `scheme_env newenv` by
+    >> qmatch_asmsub_abbrev_tac ‘evaluate _ newenv _’
+    >> ‘scheme_env newenv’ by
       (unabbrev_all_tac
        >> DEP_REWRITE_TAC [scheme_env_sub]
        >> simp[scheme_runtime_funs_def, strcat_thm])
@@ -2370,18 +2858,18 @@ Proof
     >> simp[nsLookup_nsAppend_some, id_to_mods_def,
       nsLookup_def, ALOOKUP_NONE, MEM_MAP]
     >> first_assum $ irule_at $ Pos hd
-    >> qexists `env_list'`
+    >> qexists ‘env_list'’
     >> simp[]
     >> rpt strip_tac
     >> disj2_tac
     >> PairCases
     >> simp[strcat_thm]
   )
-  >~ [`Letrecstar ((_,_)::_) _`] >- (
+  >~ [‘Letrecstar ((_,_)::_) _’] >- (
     gvs[cps_transform_def, letinit_ml_def, letpreinit_ml_def]
     >> gvs[evaluate_def, do_app_def, store_alloc_def, nsOptBind_def]
-    >> qmatch_asmsub_abbrev_tac `evaluate _ newenv _`
-    >> `scheme_env newenv` by
+    >> qmatch_asmsub_abbrev_tac ‘evaluate _ newenv _’
+    >> ‘scheme_env newenv’ by
       (unabbrev_all_tac
        >> DEP_REWRITE_TAC [scheme_env_sub]
        >> simp[scheme_runtime_funs_def, strcat_thm])
@@ -2394,7 +2882,7 @@ Proof
     >> simp[nsLookup_nsAppend_some, id_to_mods_def,
       nsLookup_def, ALOOKUP_NONE, MEM_MAP]
     >> first_assum $ irule_at $ Pos hd
-    >> qexists `env_list'`
+    >> qexists ‘env_list'’
     >> simp[]
     >> rpt strip_tac
     >> disj2_tac
@@ -2418,7 +2906,7 @@ Proof
     gvs[evaluate_def]
     >> FULL_CASE_TAC
     >> gvs[]
-    >> Cases_on `x`
+    >> Cases_on ‘x’
     >> gvs[]
   )
   >- (
@@ -2443,16 +2931,16 @@ Theorem diverges:
       = (st', Rerr (Rabort Rtimeout_error)) ∧
       st.ffi = st'.ffi
 Proof
-  Induct_on `ck_e` using lex_sim_order_ind
+  Induct_on ‘ck_e’ using lex_sim_order_ind
   >> rpt strip_tac
   >> gvs[]
-  >> Cases_on `step (store, ks, e)`
-  >~ [`step _ = (store',ks_e')`]
-  >> PairCases_on `ks_e'`
-  >~ [`step _ = (store',ks',e')`]
+  >> Cases_on ‘step (store, ks, e)’
+  >~ [‘step _ = (store',ks_e')’]
+  >> PairCases_on ‘ks_e'’
+  >~ [‘step _ = (store',ks',e')’]
   >> drule_all_then assume_tac step_preservation
   >> gvs[]
-  >> Cases_on `ck' <= ck` >- (
+  >> Cases_on ‘ck' <= ck’ >- (
     gvs[LESS_EQ_EXISTS]
     >> last_x_assum irule
     >> rpt $ first_assum $ irule_at Any
@@ -2461,13 +2949,13 @@ Proof
     >> gvs[]
     >> conj_tac >- (
       gen_tac
-      >> last_x_assum $ qspec_then `SUC n` assume_tac
+      >> last_x_assum $ qspec_then ‘SUC n’ assume_tac
       >> gvs[FUNPOW]
     )
-    >> last_x_assum $ qspec_then `0` assume_tac
+    >> last_x_assum $ qspec_then ‘0’ assume_tac
     >> gvs[FUNPOW]
   )
-  >> first_x_assum $ qspec_then `0` assume_tac
+  >> first_x_assum $ qspec_then ‘0’ assume_tac
   >> gvs[]
   >> gvs [GSYM NOT_LESS]
   >> drule evaluate_too_small_clock_lemma
