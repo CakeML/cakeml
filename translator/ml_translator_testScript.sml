@@ -982,8 +982,8 @@ val _ = let
     in length args = arity orelse
        failwith (name ^ " translated with the wrong primitive arity") end
   in
-    check "smallnum_div_test" “UnsafeIndexArith Div” 2;
-    check "smallint_div_test" “UnsafeIndexArith Div” 2;
+    check "smallnum_div_test" “UnsafeIndexArith (Div RoundDown)” 2;
+    check "smallint_div_test" “UnsafeIndexArith (Div RoundDown)” 2;
     check "smallnum_add_vec_test" “UnsafeIndexArith Add” 3;
     check "smallint_lt_vec_test" “UnsafeIndexTest (Compare Lt)” 3
   end;
@@ -1127,10 +1127,10 @@ val _ = List.app (fn (name, primitive) => let
   in if length args = 3 then () else
      failwith (name ^ " lost its string witness argument") end)
   [("smallnum_sub_str_pre_test", “UnsafeIndexArith Sub”),
-   ("smallnum_div_str_pre_test", “UnsafeIndexArith Div”),
-   ("smallnum_mod_str_pre_test", “UnsafeIndexArith ast$Mod”),
-   ("smallint_div_str_pre_test", “UnsafeIndexArith Div”),
-   ("smallint_mod_str_pre_test", “UnsafeIndexArith ast$Mod”),
+   ("smallnum_div_str_pre_test", “UnsafeIndexArith (Div RoundDown)”),
+   ("smallnum_mod_str_pre_test", “UnsafeIndexArith (ast$Mod RoundDown)”),
+   ("smallint_div_str_pre_test", “UnsafeIndexArith (Div RoundDown)”),
+   ("smallint_mod_str_pre_test", “UnsafeIndexArith (ast$Mod RoundDown)”),
    ("smallint_lt_str_pre_test", “UnsafeIndexTest (Compare Lt)”)];
 
 (* if ptr_eq: a pointer-equality fast path. The side condition

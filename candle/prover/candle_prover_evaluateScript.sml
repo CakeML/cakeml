@@ -698,7 +698,7 @@ Proof
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ Cases_on ‘a’ \\ Cases_on ‘ty’ using prim_type_cases
-    \\ gvs[do_arith_def,CaseEq"list",CaseEq"bool"]
+    \\ gvs[do_arith_def,CaseEq"list",CaseEq"bool",CaseEq"div_round"]
     \\ simp [Boolv_def]
     \\ rw [v_ok_def]
     \\ first_x_assum irule
