@@ -215,7 +215,8 @@ val loc_rwt = enc_thm "loc" [e_opsize_def, boolTheory.LET_DEF]
 
 local
   val rwts =
-    [Zreg2num_num2Zreg, e_opsize_def, e_opsize_imm_def, xmm_reg, xmm_reg2,
+    [x64_fix_nan_ast_def,
+     Zreg2num_num2Zreg, e_opsize_def, e_opsize_imm_def, xmm_reg, xmm_reg2,
      e_imm_8_32_def, e_imm8_def, e_imm32_def, encode_sse_binop_def,
      boolTheory.LET_DEF]
 in

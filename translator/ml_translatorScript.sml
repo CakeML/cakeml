@@ -2170,9 +2170,13 @@ Definition lift_fp_top_def:
                              (float_to_fp64 f3))
 End
 
+Definition float64_fix_NaN_def:
+  float64_fix_NaN (f:(52,11)float) = fp64_to_float (fix_NaN (float_to_fp64 f))
+End
+
 Definition float64_fma_def:
   float64_fma (f1:(52,11)float) f2 f3 =
-  SND (float_mul_add roundTiesToEven f1 f2 f3)
+  float64_fix_NaN (SND (float_mul_add roundTiesToEven f1 f2 f3))
 End
 
 Theorem Eval_FLOAT_FMA:
@@ -2198,7 +2202,7 @@ Proof
   \\ fs[] \\ qexists_tac `ck1 + ck1' + ck1''` \\ fs[]
   \\ fs[empty_state_def, do_app_def, state_component_equality]
   \\ fs [check_type_def,do_arith_def]
-  \\ fs [fpfma_def, lift_fp_top_def, GSYM float64_fma_def,
+  \\ fs [fpfma_def, lift_fp_top_def, float64_fma_def, float64_fix_NaN_def,
          fp64_to_float_float_to_fp64, fp64_mul_add_def]
 QED
 
@@ -2212,9 +2216,10 @@ Definition float64_add_def:
 End
 
 Theorem float64_add_thm:
-  float64_add f1 f2 = SND (float_add roundTiesToEven f1 f2)
+  float64_add f1 f2 = float64_fix_NaN (SND (float_add roundTiesToEven f1 f2))
 Proof
   simp[float64_add_def, lift_fp_bop_def, fp_bop_comp_def, fp64_add_def,
+       float64_fix_NaN_def,
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
@@ -2223,9 +2228,10 @@ Definition float64_sub_def:
 End
 
 Theorem float64_sub_thm:
-  float64_sub f1 f2 = SND (float_sub roundTiesToEven f1 f2)
+  float64_sub f1 f2 = float64_fix_NaN (SND (float_sub roundTiesToEven f1 f2))
 Proof
   simp[float64_sub_def, lift_fp_bop_def, fp_bop_comp_def, fp64_sub_def,
+       float64_fix_NaN_def,
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
@@ -2234,9 +2240,10 @@ Definition float64_mul_def:
 End
 
 Theorem float64_mul_thm:
-  float64_mul f1 f2 = SND (float_mul roundTiesToEven f1 f2)
+  float64_mul f1 f2 = float64_fix_NaN (SND (float_mul roundTiesToEven f1 f2))
 Proof
   simp[float64_mul_def, lift_fp_bop_def, fp_bop_comp_def, fp64_mul_def,
+       float64_fix_NaN_def,
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
@@ -2245,9 +2252,10 @@ Definition float64_div_def:
 End
 
 Theorem float64_div_thm:
-  float64_div f1 f2 = SND (float_div roundTiesToEven f1 f2)
+  float64_div f1 f2 = float64_fix_NaN (SND (float_div roundTiesToEven f1 f2))
 Proof
   simp[float64_div_def, lift_fp_bop_def, fp_bop_comp_def, fp64_div_def,
+       float64_fix_NaN_def,
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
@@ -2436,9 +2444,10 @@ Definition float64_sqrt_def:
 End
 
 Theorem float64_sqrt_thm:
-  float64_sqrt f1 = SND (float_sqrt roundTiesToEven f1)
+  float64_sqrt f1 = float64_fix_NaN (SND (float_sqrt roundTiesToEven f1))
 Proof
   simp[float64_sqrt_def, lift_fp_uop_def, fp_uop_comp_def, fp64_sqrt_def,
+       float64_fix_NaN_def,
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 

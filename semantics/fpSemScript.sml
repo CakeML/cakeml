@@ -21,6 +21,11 @@ Datatype:
   fp_top = FP_Fma
 End
 
+(* Canonicalise NaNs: every NaN result becomes the all-ones NaN (-1w) *)
+Definition fix_NaN_def:
+  fix_NaN (w:word64) = if fp64_isNan w then -1w else w
+End
+
 Definition fp_cmp_def:
   fp_cmp cmp =
   case cmp of
@@ -45,20 +50,20 @@ Definition fp_uop_comp_def:
   case fop of
     FP_Abs => fp64_abs
   | FP_Neg => fp64_negate
-  | FP_Sqrt => fp64_sqrt roundTiesToEven
+  | FP_Sqrt => λx. fix_NaN (fp64_sqrt roundTiesToEven x)
 End
 
 Definition fp_bop_comp_def:
   fp_bop_comp fop =
   case fop of
-  | FP_Add => fp64_add roundTiesToEven
-  | FP_Sub => fp64_sub roundTiesToEven
-  | FP_Mul => fp64_mul roundTiesToEven
-  | FP_Div => fp64_div roundTiesToEven
+  | FP_Add => λx y. fix_NaN (fp64_add roundTiesToEven x y)
+  | FP_Sub => λx y. fix_NaN (fp64_sub roundTiesToEven x y)
+  | FP_Mul => λx y. fix_NaN (fp64_mul roundTiesToEven x y)
+  | FP_Div => λx y. fix_NaN (fp64_div roundTiesToEven x y)
 End
 
 Definition fpfma_def:
-  fpfma v1 v2 v3 = fp64_mul_add roundTiesToEven v2 v3 v1
+  fpfma v1 v2 v3 = fix_NaN (fp64_mul_add roundTiesToEven v2 v3 v1)
 End
 
 Definition fp_top_comp_def:

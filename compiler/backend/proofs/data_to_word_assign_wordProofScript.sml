@@ -3493,10 +3493,7 @@ Proof
   \\ simp[wordSemTheory.get_var_def]
   \\ fs[lookup_insert,good_dimindex_def,consume_space_def]
   \\ rfs [extract_append_id]
-  \\ (qpat_abbrev_tac `ww = fp64_add _ _ _`
-      ORELSE qpat_abbrev_tac `ww = fp64_sub _ _ _`
-      ORELSE qpat_abbrev_tac `ww = fp64_mul _ _ _`
-      ORELSE qpat_abbrev_tac `ww = fp64_div _ _ _`)
+  \\ qpat_abbrev_tac `ww = fpSem$fix_NaN _`
   \\ disch_then (qspec_then `ww` mp_tac) \\ fs []
   \\ TRY impl_tac \\ TRY (rw [] \\ NO_TAC)
   \\ strip_tac \\ fs [FAPPLY_FUPDATE_THM]
@@ -3620,9 +3617,7 @@ Proof
   \\ simp[wordSemTheory.get_var_def]
   \\ fs[lookup_insert,good_dimindex_def,consume_space_def]
   \\ rfs [extract_append_id]
-  \\ (qpat_abbrev_tac `ww = fp64_abs _`
-      ORELSE qpat_abbrev_tac `ww = fp64_negate _`
-      ORELSE qpat_abbrev_tac `ww = fp64_sqrt _ _`)
+  \\ qmatch_goalsub_abbrev_tac `insert dest (Word64 ww) _`
   \\ disch_then (qspec_then `ww` mp_tac) \\ fs []
   \\ strip_tac \\ fs [FAPPLY_FUPDATE_THM]
   \\ rveq \\ fs [] \\ rw []

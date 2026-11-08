@@ -257,7 +257,8 @@ val arm7_enc22 = replace_at 22 (fn th => th |> SIMP_RULE (srw_ss())
   COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
 (* FP *)
-val fp_defaults = [arm7_vfp_cmp_def,e_vfp_def,EncodeVFPReg_def]@defaults
+val fp_defaults =
+  [arm7_vfp_cmp_def,arm7_fix_nan_def,e_vfp_def,EncodeVFPReg_def]@defaults
 
 val arm7_enc23_to_38 = map (fn i => replace_at i (fn th => th |>
   (SIMP_RULE (srw_ss()) fp_defaults) |> finish |> SIMP_RULE

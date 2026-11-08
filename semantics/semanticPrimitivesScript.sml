@@ -979,12 +979,12 @@ Definition do_arith_def:
      case (a, MAP the_Litv_Float64 vals) of
      | (Absolute, [v1])   => SOME (INR $ Litv $ Float64 $ fp64_abs v1)
      | (Neg,  [v1])       => SOME (INR $ Litv $ Float64 $ fp64_negate v1)
-     | (Sqrt, [v1])       => SOME (INR $ Litv $ Float64 $ fp64_sqrt roundTiesToEven v1)
-     | (Add,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_add roundTiesToEven v1 v2)
-     | (Sub,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_sub roundTiesToEven v1 v2)
-     | (Mul,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_mul roundTiesToEven v1 v2)
-     | (Div,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_div roundTiesToEven v1 v2)
-     | (FMA,  [v1;v2;v3]) => SOME (INR $ Litv $ Float64 $ fp64_mul_add roundTiesToEven v2 v3 v1)
+     | (Sqrt, [v1])       => SOME (INR $ Litv $ Float64 $ fix_NaN $ fp64_sqrt roundTiesToEven v1)
+     | (Add,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fix_NaN $ fp64_add roundTiesToEven v1 v2)
+     | (Sub,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fix_NaN $ fp64_sub roundTiesToEven v1 v2)
+     | (Mul,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fix_NaN $ fp64_mul roundTiesToEven v1 v2)
+     | (Div,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fix_NaN $ fp64_div roundTiesToEven v1 v2)
+     | (FMA,  [v1;v2;v3]) => SOME (INR $ Litv $ Float64 $ fix_NaN $ fp64_mul_add roundTiesToEven v2 v3 v1)
      | _ => NONE) ∧
   (do_arith a IntT vals =
      case (a, MAP the_Litv_IntLit vals) of

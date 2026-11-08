@@ -100,6 +100,18 @@ Definition arm7_vfp_cmp_def:
     ]
 End
 
+(* D31 saves R12 and SP while a NaN result is replaced by all ones. *)
+Definition arm7_fix_nan_def:
+  arm7_fix_nan dst =
+  arm7_encode
+    [(AL, VFP (vcmp (T, n2w dst, SOME (n2w dst))));
+     (AL, VFP (vmrs 15w));
+     (VS, VFP (vmov_double (F, 12w, 13w, 31w)));
+     (VS, Data (Move (F, T, 12w, 0w)));
+     (VS, VFP (vmov_double (F, 12w, 12w, n2w dst)));
+     (VS, VFP (vmov_double (T, 12w, 13w, 31w)))]
+End
+
 Definition arm7_enc_def:
    (arm7_enc (Inst Skip) =
       (* >= ARMv6T2 has dedicated NOP but using MOV r0, r0 instead. *)
@@ -210,18 +222,19 @@ Definition arm7_enc_def:
    (arm7_enc (Inst (FP (FPNeg d1 d2))) =
       enc (VFP (vneg (T, n2w d1, n2w d2)))) /\
    (arm7_enc (Inst (FP (FPSqrt d1 d2))) =
-      enc (VFP (vsqrt (T, n2w d1, n2w d2)))) /\
+      enc (VFP (vsqrt (T, n2w d1, n2w d2))) ++ arm7_fix_nan d1) /\
    (arm7_enc (Inst (FP (FPAdd d1 d2 d3))) =
-      enc (VFP (vadd (T, n2w d1, n2w d2, n2w d3)))) /\
+      enc (VFP (vadd (T, n2w d1, n2w d2, n2w d3))) ++ arm7_fix_nan d1) /\
    (arm7_enc (Inst (FP (FPSub d1 d2 d3))) =
-      enc (VFP (vsub (T, n2w d1, n2w d2, n2w d3)))) /\
+      enc (VFP (vsub (T, n2w d1, n2w d2, n2w d3))) ++ arm7_fix_nan d1) /\
    (arm7_enc (Inst (FP (FPMul d1 d2 d3))) =
-      enc (VFP (vmul (T, n2w d1, n2w d2, n2w d3)))) /\
+      enc (VFP (vmul (T, n2w d1, n2w d2, n2w d3))) ++ arm7_fix_nan d1) /\
    (arm7_enc (Inst (FP (FPDiv d1 d2 d3))) =
-      enc (VFP (vdiv (T, n2w d1, n2w d2, n2w d3)))) /\
+      enc (VFP (vdiv (T, n2w d1, n2w d2, n2w d3))) ++ arm7_fix_nan d1) /\
    (arm7_enc (Inst (FP (FPFma d1 d2 d3))) =
       (* FIXME: T or F for flags?? *)
-      enc (VFP (vfma_vfms (T, T, n2w d1, n2w d2, n2w d3)))) /\
+      enc (VFP (vfma_vfms (T, T, n2w d1, n2w d2, n2w d3))) ++
+      arm7_fix_nan d1) /\
    (arm7_enc (Inst (FP (FPMovToReg r1 r2 d))) =
       enc (VFP (vmov_double (T, n2w r1, n2w r2, n2w d)))) /\
    (arm7_enc (Inst (FP (FPMovFromReg d r1 r2))) =
@@ -299,7 +312,7 @@ Definition arm7_config_def:
     ; encode := arm7_enc
     ; code_alignment := 2
     ; reg_count := 16
-    ; fp_reg_count := 32
+    ; fp_reg_count := 31 (* D31 is the NaN-canonicalization scratch register *)
     ; avoid_regs := [13; 15]
     ; link_reg := SOME 14
     ; two_reg_arith := F

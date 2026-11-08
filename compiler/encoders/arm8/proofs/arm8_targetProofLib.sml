@@ -279,11 +279,12 @@ val encode_rwts =
    let
       open arm8Theory
    in
-      [arm8_enc, arm8_ast, arm8_load_store_ast_def, arm8_load_store_ast32_def,
+      [arm8_enc, arm8_ast, arm8_fix_nan_ast_def,
+       arm8_load_store_ast_def, arm8_load_store_ast32_def,
        arm8_load_store_ast16_def, arm8_shv_def,
        arm8_encode_def, Encode_def,
        e_data_def, e_branch_def, e_load_store_def, e_sf_def,
-       e_LoadStoreImmediate_def, EncodeLogicalOp_def, NoOperation_def,
+       e_LoadStoreImmediate_def, e_fp_def, EncodeLogicalOp_def, NoOperation_def,
        ShiftType2num_thm, SystemHintOp2num_thm, ShiftType2num_thm,
        asmSemTheory.is_test_def
       ]

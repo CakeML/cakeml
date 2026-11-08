@@ -746,7 +746,11 @@ Proof
   drule float_value_float_to_real >> disch_then (assume_tac o SYM) >> gvs[] >>
   ‘f2r uf ≠ 0’ by metis_tac[float_ulp_EQ0] >>
   ‘float_is_finite uf’ by simp[float_is_finite_thm] >>
-  simp[round_representable_nonzero, float_is_zero_to_real]
+  ‘¬float_is_nan uf’
+    by (Cases_on ‘float_value uf’ >> fs[float_is_finite_def, float_is_nan_def]) >>
+  simp[round_representable_nonzero, float_is_zero_to_real,
+       ml_translatorTheory.float64_fix_NaN_def, fpSemTheory.fix_NaN_def,
+       fp64_isNan_def, fp64_to_float_float_to_fp64]
 QED
 
 (* --------------------------------------------------------------------------

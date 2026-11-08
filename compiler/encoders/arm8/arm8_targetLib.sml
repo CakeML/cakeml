@@ -32,11 +32,12 @@ in
      (ERR "arm8_encode_conv" "")
      (computeLib.compset_conv (wordsLib.words_compset)
       [computeLib.Defs
-       [arm8_enc, arm8_ast, arm8_load_store_ast_def, arm8_encode_def,
+       [arm8_enc, arm8_ast, arm8_fix_nan_ast_def, arm8_load_store_ast_def,
+        arm8_encode_def,
         bop_enc_def, cmp_cond_def, arm8_enc_mov_imm_def, CountTrailing_def,
         EncodeBitMaskAux_def, EncodeBitMask_def, Encode_def, e_data_def,
         e_branch_def, e_load_store_def, e_sf_def, e_LoadStoreImmediate_def,
-        EncodeLogicalOp_def, NoOperation_def, ShiftType2num_thm,
+        e_fp_def, EncodeLogicalOp_def, NoOperation_def, ShiftType2num_thm,
         SystemHintOp2num_thm, ShiftType2num_thm, DecodeBitMasks_def,
         HighestSetBit_def, Ones_def, Replicate_def, pred_setTheory.IN_INSERT,
         pred_setTheory.NOT_IN_EMPTY],
@@ -46,7 +47,7 @@ in
        computeLib.Tys
        (sumSyntax.mk_sum(alpha,beta) ::
          List.map arm_type
-          ["instruction", "Data", "Branch", "LoadStore", "SystemHintOp",
+          ["instruction", "Data", "FloatingPoint", "Branch", "LoadStore", "SystemHintOp",
            "MoveWideOp", "LogicalOp", "MemOp", "BranchType", "ShiftType",
            "AccType", "MachineCode"])])
 end

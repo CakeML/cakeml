@@ -70,7 +70,7 @@ val store16_rwt = enc_thm "store16" [e_store_def]
 val store8_rwt = enc_thm "store8" [e_store_def]
 
 val fp_rwts =
-  [arm7_vfp_cmp_def, e_vfp_def, e_data_def, EncodeVFPReg_def,
+  [arm7_vfp_cmp_def, arm7_fix_nan_def, e_vfp_def, e_data_def, EncodeVFPReg_def,
    boolTheory.LET_DEF]
 
 val fp_less_rwt = enc_thm "fp less" fp_rwts

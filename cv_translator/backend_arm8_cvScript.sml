@@ -129,6 +129,7 @@ val _ = cv_trans RevOp2num_thm;
 val _ = cv_trans e_data_def;
 val _ = cv_trans SystemHintOp2num_thm;
 val _ = cv_trans MemBarrierOp2num_thm;
+val _ = cv_trans e_fp_def;
 val _ = cv_trans arm8Theory.Encode_def;
 val _ = cv_trans arm8_encode_def;
 
@@ -142,6 +143,7 @@ val _ = cv_trans cmp_cond_def;
 val _ = cv_trans asmSemTheory.is_test_def;
 val bop_enc_pre = cv_trans_pre "" bop_enc_def;
 val _ = cv_trans arm8_targetTheory.arm8_shv_def;
+val _ = cv_trans arm8_targetTheory.arm8_fix_nan_ast_def;
 val arm8_ast_pre = cv_trans_pre "" (SRULE [SF LET_ss] arm8_ast_def);
 
 Theorem arm8_ast_pre[cv_pre]:

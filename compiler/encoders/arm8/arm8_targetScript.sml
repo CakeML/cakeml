@@ -22,7 +22,7 @@ Definition arm8_ok_def:
    (ms.PSTATE.EL = 0w) /\
    ~ms.SCTLR_EL1.E0E  /\ ~ms.SCTLR_EL1.SA0 /\
    ~ms.TCR_EL1.TBI1 /\ ~ms.TCR_EL1.TBI0 /\
-   (ms.exception = NoException) /\ aligned 2 ms.PC
+   (ms.exception = NoException) /\ (ms.FPCR = 0w) /\ aligned 2 ms.PC
 End
 
 (* --- Encode ASM instructions to ARM bytes. --- *)
@@ -77,6 +77,15 @@ Definition arm8_enc_mov_imm_def:
 End
 
 val temp = ``26w : word5``
+
+(* FCMP marks NaNs as unordered (V = 1).  Skip the replacement otherwise. *)
+Definition arm8_fix_nan_ast_def:
+   arm8_fix_nan_ast dst =
+   [FloatingPoint (FCompare (dst, dst));
+    Branch (BranchConditional (12w, 7w));
+    Data (MoveWide@64 (1w, MoveWideOp_N, 0w, 0w, ^temp));
+    FloatingPoint (FMovFromGeneral@64 (1w, ^temp, dst))]
+End
 
 Definition arm8_load_store_ast_def:
   arm8_load_store_ast ls r1 r2 a =
@@ -260,7 +269,44 @@ Definition arm8_ast_def:
          (LoadStoreImmediate@8
             (0w, F, MemOp_STORE, AccType_NORMAL, F, F, F, F, F,
              ~word_msb (i2w a : word64), i2w a, n2w r2, n2w r1))]) /\
-   (arm8_ast (Inst (FP _)) = arm8_encode_fail) /\
+   (arm8_ast (Inst (FP (FPAbs d n))) =
+      [FloatingPoint (FAbs (n2w n, n2w d))]) /\
+   (arm8_ast (Inst (FP (FPNeg d n))) =
+      [FloatingPoint (FNeg (n2w n, n2w d))]) /\
+   (arm8_ast (Inst (FP (FPSqrt d n))) =
+      FloatingPoint (FSqrt (n2w n, n2w d)) :: arm8_fix_nan_ast (n2w d)) /\
+   (arm8_ast (Inst (FP (FPMov d n))) =
+      [FloatingPoint (FMov (n2w n, n2w d))]) /\
+   (arm8_ast (Inst (FP (FPAdd d n m))) =
+      FloatingPoint (FAdd (n2w m, n2w n, n2w d)) :: arm8_fix_nan_ast (n2w d)) /\
+   (arm8_ast (Inst (FP (FPSub d n m))) =
+      FloatingPoint (FSub (n2w m, n2w n, n2w d)) :: arm8_fix_nan_ast (n2w d)) /\
+   (arm8_ast (Inst (FP (FPMul d n m))) =
+      FloatingPoint (FMul (n2w m, n2w n, n2w d)) :: arm8_fix_nan_ast (n2w d)) /\
+   (arm8_ast (Inst (FP (FPDiv d n m))) =
+      FloatingPoint (FDiv (n2w m, n2w n, n2w d)) :: arm8_fix_nan_ast (n2w d)) /\
+   (arm8_ast (Inst (FP (FPFma d n m))) =
+      FloatingPoint (FMAdd (n2w m, n2w d, n2w n, n2w d)) ::
+      arm8_fix_nan_ast (n2w d)) /\
+   (arm8_ast (Inst (FP (FPLess r n m))) =
+      [FloatingPoint (FCompare (n2w n, n2w m));
+       Data (ConditionalSelect@64 (1w, F, T, 5w, 31w, 31w, n2w r))]) /\
+   (arm8_ast (Inst (FP (FPLessEqual r n m))) =
+      [FloatingPoint (FCompare (n2w n, n2w m));
+       Data (ConditionalSelect@64 (1w, F, T, 8w, 31w, 31w, n2w r))]) /\
+   (arm8_ast (Inst (FP (FPEqual r n m))) =
+      [FloatingPoint (FCompare (n2w n, n2w m));
+       Data (ConditionalSelect@64 (1w, F, T, 1w, 31w, 31w, n2w r))]) /\
+   (arm8_ast (Inst (FP (FPMovToReg r unused d))) =
+      [FloatingPoint (FMovToGeneral@64 (1w, n2w d, n2w r))]) /\
+   (arm8_ast (Inst (FP (FPMovFromReg d r unused))) =
+      [FloatingPoint (FMovFromGeneral@64 (1w, n2w r, n2w d))]) /\
+   (arm8_ast (Inst (FP (FPToInt d n))) =
+      [FloatingPoint (FToInt32 (n2w n, ^temp));
+       FloatingPoint (FMovFromGeneral@32 (0w, ^temp, n2w d))]) /\
+   (arm8_ast (Inst (FP (FPFromInt d n))) =
+      [FloatingPoint (FMovToGeneral@32 (0w, n2w n, ^temp));
+       FloatingPoint (FFromInt32 (^temp, n2w d))]) /\
    (arm8_ast (Jump a) =
       [Branch (BranchImmediate ((i2w a : word64), BranchType_JMP))]) /\
    (arm8_ast (JumpCmp cmp r1 (Reg r2) a) =
@@ -345,7 +391,7 @@ Definition arm8_config_def:
    <| ISA := ARMv8
     ; encode := arm8_enc
     ; reg_count := 32
-    ; fp_reg_count := 0
+    ; fp_reg_count := 32
       (* register x18 is reserved on some platforms, e.g., Apple platforms *)
     ; avoid_regs := [18; 26; 31]
     ; link_reg := SOME 30
@@ -364,8 +410,8 @@ End
 
 Definition arm8_proj_def:
    arm8_proj d s =
-   (s.PSTATE, s.SCTLR_EL1, s.TCR_EL1, s.exception, s.REG, fun2set (s.MEM,d),
-    s.PC)
+   (s.PSTATE, s.SCTLR_EL1, s.TCR_EL1, s.exception, s.REG, s.FP_REG,
+    s.FPCR, fun2set (s.MEM,d), s.PC)
 End
 
 Definition arm8_target_def:
@@ -374,6 +420,7 @@ Definition arm8_target_def:
     ; config := arm8_config
     ; get_pc := arm8_state_PC
     ; get_reg := (\s. arm8_state_REG s o n2w)
+    ; get_fp_reg := (\s. arm8_state_FP_REG s o n2w)
     ; get_byte := arm8_state_MEM
     ; state_ok := arm8_ok
     ; proj := arm8_proj
