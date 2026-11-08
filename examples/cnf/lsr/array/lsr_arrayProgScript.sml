@@ -17,36 +17,6 @@ val _ = translation_extends "lsr_roundProg";
   The walk over the group headers of a line
  ***)
 
-(* Whether a formula slot holds the deleted-clause sentinel, tested as the
-  core's unit_prop_one does *)
-Quote add_cakeml:
-  fun is_vcc_none_arr c =
-  Vector.length c = 1 andalso int_eq_0 (Unsafe.vsub c 0)
-End
-
-Theorem is_vcc_none_arr_spec:
-  vcclause_TYPE c cv ⇒
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "is_vcc_none_arr" (get_ml_prog_state()))
-    [cv]
-    emp
-    (POSTv bv. &BOOL (c = vcc_none) bv)
-Proof
-  strip_tac>>
-  xcf "is_vcc_none_arr" (get_ml_prog_state ())>>
-  rpt xlet_autop>>
-  xlog>>
-  simp[GSYM is_vcc_none]>>
-  reverse IF_CASES_TAC>>gvs[]
-  >- xsimpl>>
-  xlet_auto
-  >- (xsimpl>>gvs[UnsafeProgTheory.vsub_side_def])>>
-  xapp>>
-  xsimpl>>
-  qexists_tac`sub c 0`>>
-  simp[int_eq_0_def]
-QED
-
 Quote add_cakeml:
   fun walk_arr lno fml carr b piv sarr tally n s g prev cand =
   case parse_vb_int s g (String.size s) of (m,k) =>
@@ -2594,7 +2564,7 @@ Proof
   imp_res_tac parse_vb_num_le>>
   imp_res_tac parse_vb_int_le>>
   imp_res_tac parse_vb_cl_le>>
-  gvs[parse_vb_int_side,parse_vb_cl_side,parse_vb_ilits_side]
+  gvs[parse_vb_int_side,parse_vb_cl_side,parse_vb_ilits_fwd_side]
 QED
 
 val _ = parse_lsr_chunk_side |> update_precondition;
@@ -3019,94 +2989,66 @@ Proof
             res = fmlls' ∧
             resv = Conv (SOME (TypeStamp «Inr» 4)) [fmlv'])`
   >- (
-    simp[]>>
-    TOP_CASE_TAC
+    xhandle`POSTve
+      (λv. SEP_EXISTS k fmlv' fmlls'.
+        STDIO (forwardFD fs fd k) *
+        INSTREAM_LINES nulc fd isv [] (forwardFD fs fd k) *
+        ARRAY_OF vcclause_TYPE fmlv' fmlls' *
+        &(v = Conv (SOME (TypeStamp «Inr» 4)) [fmlv'] ∧
+          parse_and_run_file_list lines fmlls (REPLICATE n 0) 1
+            (REPLICATE n 0) (REPLICATE (2 * n) 0) 0 (REPLICATE (2 * n) 0) tp0 =
+          SOME fmlls'))
+      (λe. SEP_EXISTS k fmlv' fmlls' lines'.
+        STDIO (forwardFD fs fd k) *
+        INSTREAM_LINES nulc fd isv lines' (forwardFD fs fd k) *
+        ARRAY_OF vcclause_TYPE fmlv' fmlls' *
+        &(Fail_exn e ∧
+          parse_and_run_file_list lines fmlls (REPLICATE n 0) 1
+            (REPLICATE n 0) (REPLICATE (2 * n) 0) 0 (REPLICATE (2 * n) 0) tp0 =
+          NONE))`
     >- (
-      xhandle`POSTe e.
-        SEP_EXISTS fmlv' fmlls' rest k.
+      xlet`POSTve
+        (λv. SEP_EXISTS k fmlls'.
           STDIO (forwardFD fs fd k) *
-          INSTREAM_LINES nulc fd isv rest (forwardFD fs fd k) *
+          INSTREAM_LINES nulc fd isv [] (forwardFD fs fd k) *
+          ARRAY_OF vcclause_TYPE v fmlls' *
+          &(parse_and_run_file_list lines fmlls (REPLICATE n 0) 1
+              (REPLICATE n 0) (REPLICATE (2 * n) 0) 0 (REPLICATE (2 * n) 0) tp0 =
+            SOME fmlls'))
+        (λe. SEP_EXISTS k fmlv' fmlls' lines'.
+          STDIO (forwardFD fs fd k) *
+          INSTREAM_LINES nulc fd isv lines' (forwardFD fs fd k) *
           ARRAY_OF vcclause_TYPE fmlv' fmlls' *
           &(Fail_exn e ∧
             parse_and_run_file_list lines fmlls (REPLICATE n 0) 1
               (REPLICATE n 0) (REPLICATE (2 * n) 0) 0 (REPLICATE (2 * n) 0) tp0 =
-              NONE)`
+            NONE))`
       >- (
-        xlet`POSTe e.
-          SEP_EXISTS k fmlv' fmlls' lines'.
-            STDIO (forwardFD fs fd k) *
-            INSTREAM_LINES nulc fd isv lines'
-              (forwardFD fs fd k) *
-            ARRAY_OF vcclause_TYPE fmlv' fmlls' *
-            &(Fail_exn e ∧
-              parse_and_run_file_list lines fmlls (REPLICATE n 0) 1
-                (REPLICATE n 0) (REPLICATE (2 * n) 0) 0 (REPLICATE (2 * n) 0) tp0 =
-                NONE)`
-        >- (
-          xapp_spec check_unsat''_spec>>
-          qexistsl_tac [`emp`,`0`,`tp0`,`REPLICATE (2 * n) 0`,`REPLICATE n 0`,
-            `lines`,`fs`,`fmlls`,`fd`,`REPLICATE n 0`,
-            `REPLICATE (2 * n) 0`,`1`]>>
-          xsimpl>>
-          qexists_tac`fml`>>
-          simp[]>>
-          rpt strip_tac>>
-          metis_tac[SEP_IMP_REFL])
-        >- (
-          xsimpl>>
-          rpt strip_tac>>
-          rename1`ARRAY_OF vcclause_TYPE av1 al1`>>
-          rename1`INSTREAM_LINES nulc fd isv ls
-            (forwardFD fs fd k)`>>
-          qexistsl_tac [`av1`,`al1`,`ls`,`k`]>>
-          xsimpl))>>
+        xapp_spec check_unsat''_spec>>
+        qexistsl_tac [`emp`,`0`,`tp0`,`REPLICATE (2 * n) 0`,`REPLICATE n 0`,
+          `lines`,`fs`,`fmlls`,`fd`,`REPLICATE n 0`,
+          `REPLICATE (2 * n) 0`,`1`]>>
+        xsimpl>>
+        qexists_tac`fml`>>
+        simp[]>>
+        rpt strip_tac>>
+        metis_tac[SEP_IMP_REFL])
+      >- (
+        xsimpl>>
+        rpt strip_tac>>
+        metis_tac[SEP_IMP_REFL])>>
+      xcon>>xsimpl>>
+      qexists_tac`k`>>xsimpl)
+    >- (
+      xsimpl>>rw[]>>simp[]>>
+      sep_triv)
+    >- (
       fs[Fail_exn_def]>>
       xcases>>
       xcon>>xsimpl>>
-      qexistsl_tac [`sv`,`fmlls'`,`fmlv'`,`k`,`rest`]>>
-      xsimpl>>
-      metis_tac[])
-    >- (
-      xhandle`POSTv v.
-        SEP_EXISTS k rest fmlls'.
-          STDIO (forwardFD fs fd k) *
-          INSTREAM_LINES nulc fd isv rest (forwardFD fs fd k) *
-          (SEP_EXISTS fmlv'.
-            &(v = Conv (SOME (TypeStamp «Inr» 4)) [fmlv']) *
-            ARRAY_OF vcclause_TYPE fmlv' fmlls') *
-          &(parse_and_run_file_list lines fmlls (REPLICATE n 0) 1
-              (REPLICATE n 0) (REPLICATE (2 * n) 0) 0 (REPLICATE (2 * n) 0) tp0 =
-            SOME fmlls')`
-      >- (
-        xlet`POSTv v.
-          SEP_EXISTS k fmlls'.
-            STDIO (forwardFD fs fd k) *
-            INSTREAM_LINES nulc fd isv [] (forwardFD fs fd k) *
-            ARRAY_OF vcclause_TYPE v fmlls' *
-            &(parse_and_run_file_list lines fmlls (REPLICATE n 0) 1
-                (REPLICATE n 0) (REPLICATE (2 * n) 0) 0 (REPLICATE (2 * n) 0) tp0 =
-              SOME fmlls')`
-        >- (
-          xapp_spec check_unsat''_spec>>
-          qexistsl_tac [`emp`,`0`,`tp0`,`REPLICATE (2 * n) 0`,`REPLICATE n 0`,
-            `lines`,`fs`,`fmlls`,`fd`,`REPLICATE n 0`,
-            `REPLICATE (2 * n) 0`,`1`]>>
-          xsimpl>>
-          qexists_tac`fml`>>
-          simp[]>>
-          rpt strip_tac>>
-          metis_tac[SEP_IMP_REFL])>>
-        xcon>>xsimpl>>
-        qexistsl_tac [`k`,`[]`]>>
-        gvs[]>>
-        xsimpl)>>
-      xsimpl>>
-      rpt strip_tac>>
-      rename1`INSTREAM_LINES nulc fd isv ls1
-        (forwardFD fs fd k1)`>>
-      qexistsl_tac [`k1`,`ls1`]>>
-      gvs[]>>
-      xsimpl))>>
+      simp[PULL_EXISTS]>>
+      asm_exists_tac>>simp[]>>
+      sep_triv))>>
   qspecl_then [`lines`,`fmlls`,`REPLICATE n 0`,`1`,`REPLICATE n 0`,
     `REPLICATE (2 * n) 0`,`0`,`REPLICATE (2 * n) 0`,`tp0`]
     strip_assume_tac parse_and_run_file_list_eq>>

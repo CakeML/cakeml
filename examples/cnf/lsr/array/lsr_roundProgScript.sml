@@ -644,14 +644,14 @@ Quote add_cakeml:
       val i1 = Unsafe.Arith.subWitness i 1 d
       val l = Unsafe.vsub d i1
       val c = lit_code_arr carr l
+      val kk = Array.length carr
       val y =
         (if piv = 0 then Unsafe.sub sarr c
-         else if Unsafe.Arith.eqWitness l piv carr then Array.length carr
+         else if Unsafe.Arith.eqWitness l piv carr then kk
          else if Unsafe.Arith.eqWitness l
                    (Unsafe.Arith.subWitness 0 piv carr) carr
-         then Unsafe.Arith.subWitness 0 (Array.length carr) carr
+         then Unsafe.Arith.subWitness 0 kk carr
          else 0)
-      val kk = Array.length carr
     in
       if Unsafe.Arith.eqWitness y kk carr then
         (tally_rest_arr piv sarr carr tally d i1; k)
@@ -743,6 +743,14 @@ Proof
   `Num (ABS ^l_tm) < LENGTH sarr` by simp[]>>
   xlet_auto_spec (SOME lit_code_arr_spec)
   >- (xsimpl>>simp[])>>
+  xlet`POSTv kv. &NUM (LENGTH dml) kv * ARRAY_OF NUM carrv dml *
+    ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF INT sarrv (lit_sarr sarr) *
+    ARRAY_OF NUM tallyv tally`
+  >- (
+    xapp_spec (Q.ISPEC`NUM` ARRAY_OF_length_spec)>>
+    qexistsl_tac [`ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF INT sarrv (lit_sarr sarr) *
+      ARRAY_OF NUM tallyv tally`,`dml`]>>
+    xsimpl)>>
   xlet_autop>>
   xlet`POSTv yv. &INT (^y_tm) yv * ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF NUM carrv dml *
     ARRAY_OF INT sarrv (lit_sarr sarr) * ARRAY_OF NUM tallyv tally`
@@ -760,25 +768,14 @@ Proof
     >- (xsimpl>>gvs[])>>
     xif
     >- (
-      xapp_spec (Q.ISPEC`NUM` ARRAY_OF_length_spec)>>
-      qexistsl_tac [`ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF INT sarrv (lit_sarr sarr) *
-        ARRAY_OF NUM tallyv tally`,`dml`]>>
-      xsimpl>>
-      simp[NUM_def])>>
+      xvar>>xsimpl>>
+      gvs[NUM_def])>>
     xlet_auto_spec (SOME (Q.ISPEC`NUM` int_sub_arr_spec))
     >- (xsimpl>>gvs[]>>intLib.ARITH_TAC)>>
     xlet_auto_spec (SOME (Q.ISPEC`NUM` int_eq_arr_spec))
     >- (xsimpl>>gvs[]>>intLib.ARITH_TAC)>>
     xif
     >- (
-      xlet`POSTv kv. &NUM (LENGTH dml) kv * ARRAY_OF vcclause_TYPE fmlv fmlls *
-        ARRAY_OF INT sarrv (lit_sarr sarr) * ARRAY_OF NUM carrv dml *
-        ARRAY_OF NUM tallyv tally`
-      >- (
-        xapp_spec (Q.ISPEC`NUM` ARRAY_OF_length_spec)>>
-        qexistsl_tac [`ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF INT sarrv (lit_sarr sarr) *
-          ARRAY_OF NUM tallyv tally`,`dml`]>>
-        xsimpl)>>
       xapp_prepare_goal>>
       irule cfAppTheory.app_wgframe>>
       irule_at Any (Q.ISPEC`NUM` int_sub_arr_spec)>>
@@ -788,14 +785,6 @@ Proof
       xsimpl>>
       intLib.ARITH_TAC)>>
     xlit>>xsimpl)>>
-  xlet`POSTv kv. &NUM (LENGTH dml) kv * ARRAY_OF NUM carrv dml *
-    ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF INT sarrv (lit_sarr sarr) *
-    ARRAY_OF NUM tallyv tally`
-  >- (
-    xapp_spec (Q.ISPEC`NUM` ARRAY_OF_length_spec)>>
-    qexistsl_tac [`ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF INT sarrv (lit_sarr sarr) *
-      ARRAY_OF NUM tallyv tally`,`dml`]>>
-    xsimpl)>>
   `Num (ABS ^y_tm) ≤ LENGTH sarr` by metis_tac[img_bnd_def]>>
   `LENGTH dml ≠ 0` by (strip_tac>>gvs[])>>
   xlet_auto_spec (SOME (Q.ISPEC`NUM` int_eq_arr_spec))

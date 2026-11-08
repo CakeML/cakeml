@@ -3,7 +3,7 @@
  *)
 Theory distInferRefine
 Ancestors
-  finite_map list pred_set relation distInfer cnf ccnf
+  finite_map list pred_set relation distInferBase distInfer cnf ccnf
 Libs
   bossLib
 

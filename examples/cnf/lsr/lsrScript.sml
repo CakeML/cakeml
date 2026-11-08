@@ -420,7 +420,7 @@ Definition parse_lsr_chunk_def:
       if p = 0 then SOME (INR (m DIV 2, Vector [], []))
       else
         let (cl,i) = parse_vb_cl s i len p [p] in
-        case split_witness p (REVERSE (parse_vb_ilits s i len [])) of
+        case split_witness p (parse_vb_ilits_fwd s i len) of
           NONE => NONE
         | SOME w => SOME (INR (m DIV 2, Vector cl, top_entry p :: w))
   else NONE
@@ -607,8 +607,7 @@ Proof
   gvs[parse_lsr_chunk_def,AllCaseEqs(),wf_lsr_def]>>
   rpt (pairarg_tac>>gvs[AllCaseEqs(),wf_lsr_def])>>
   rw[toList_thm,top_entry_wf]>>
-  metis_tac[parse_vb_cl_nz,FST,MEM,split_witness_wf,parse_vb_ilits_nz,
-            MEM_REVERSE]
+  metis_tac[parse_vb_cl_nz,FST,MEM,split_witness_wf,parse_vb_ilits_fwd_nz]
 QED
 
 Theorem parse_lsrs_wf_lsr:
