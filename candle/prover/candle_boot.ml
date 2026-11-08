@@ -14,7 +14,8 @@ let (==) x y = !x; !y; x = y
 
 let ref x = Ref x;;
 
-let (/) x y = div x y;;
+let (/) x y = Int.quot x y;;
+let (mod) x y = Int.rem x y;;
 let (-.) x y = Double.(-) x y;;
 let (+.) x y = Double.(+) x y;;
 let ( *.) x y = Double.( * ) x y;;
