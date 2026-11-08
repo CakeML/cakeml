@@ -7,28 +7,6 @@ Ancestors
 Libs
   preamble
 
-(* TODO: misc? *)
-Theorem range_map:
-  misc$range (map f fml) =
-  IMAGE f (range fml)
-Proof
-  rw[miscTheory.range_def,EXTENSION,lookup_map]>>
-  metis_tac[]
-QED
-
-Theorem map_I:
-  ∀t.
-  sptree$map I t = t
-Proof
-  Induct>>rw[map_def]
-QED
-
-Theorem NOT_NONE_SOME_EXISTS:
-  x ≠ NONE ⇔ ?y. x = SOME y
-Proof
-  Cases_on`x`>>rw[]
-QED
-
 Datatype:
   lit = Pos 'a | Neg 'a
 End

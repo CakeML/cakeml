@@ -470,58 +470,30 @@ Proof
         fmlls'' = fmlls'
       )`
   >- (
-    simp[]>>
-    TOP_CASE_TAC
-    >- (
-      xhandle`POSTe e.
-        SEP_EXISTS fmlv' fmlls' rest k.
-          STDIO (forwardFD fss (nextFD fs) k) *
-          INSTREAM_LINES nulc (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
-          ARRAY_OF vcclause_TYPE fmlv' fmlls' *
-          &(Fail_exn e ∧
-            parse_and_run_file_list lines fmlls Clist 1 = NONE)`
-      >- (
-        xlet`POSTe e.
-          SEP_EXISTS k fmlv' fmlls' lines'.
-            STDIO (forwardFD fss (nextFD fs) k) *
-            INSTREAM_LINES nulc (nextFD fs) is lines'
-              (forwardFD fss (nextFD fs) k) *
-            ARRAY_OF vcclause_TYPE fmlv' fmlls' *
-            &(Fail_exn e ∧
-              parse_and_run_file_list lines fmlls Clist 1 = NONE)`
-        >- (
-          xapp_spec check_unsat''_spec>>
-          xsimpl>>
-          rpt(first_x_assum (irule_at Any))>>
-          xsimpl>>
-          qexistsl_tac [`lines`,`fss`,`nextFD fs`,`emp`]>>
-          xsimpl>>
-          simp[Abbr`Clist`]>>
-          rw[]>>
-          sep_triv)>>
-        xsimpl>>rw[]>>
-        sep_triv)>>
-      fs[Fail_exn_def]>>
-      xcases>>
-      xcon>>xsimpl>>
-      simp[PULL_EXISTS]>>
-      asm_exists_tac>>simp[]>>
-      sep_triv)>>
-    xhandle`POSTv v.
-      SEP_EXISTS k rest fmlls'.
+    xhandle`POSTve
+      (λv. SEP_EXISTS k fmlv' fmlls'.
         STDIO (forwardFD fss (nextFD fs) k) *
-        INSTREAM_LINES nulc (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
-        (SEP_EXISTS fmlv'.
-          &(v = Conv (SOME (TypeStamp «Inr» 4)) [fmlv']) *
-          ARRAY_OF vcclause_TYPE fmlv' fmlls') *
-        &(parse_and_run_file_list lines fmlls Clist 1 = SOME fmlls')`
+        INSTREAM_LINES nulc (nextFD fs) is [] (forwardFD fss (nextFD fs) k) *
+        ARRAY_OF vcclause_TYPE fmlv' fmlls' *
+        &(v = Conv (SOME (TypeStamp «Inr» 4)) [fmlv'] ∧
+          parse_and_run_file_list lines fmlls Clist 1 = SOME fmlls'))
+      (λe. SEP_EXISTS k fmlv' fmlls' lines'.
+        STDIO (forwardFD fss (nextFD fs) k) *
+        INSTREAM_LINES nulc (nextFD fs) is lines' (forwardFD fss (nextFD fs) k) *
+        ARRAY_OF vcclause_TYPE fmlv' fmlls' *
+        &(Fail_exn e ∧ parse_and_run_file_list lines fmlls Clist 1 = NONE))`
     >- (
-      xlet`POSTv v.
-        SEP_EXISTS k fmlls'.
+      xlet`POSTve
+        (λv. SEP_EXISTS k fmlls'.
           STDIO (forwardFD fss (nextFD fs) k) *
           INSTREAM_LINES nulc (nextFD fs) is [] (forwardFD fss (nextFD fs) k) *
           ARRAY_OF vcclause_TYPE v fmlls' *
-          &(parse_and_run_file_list lines fmlls Clist 1 = SOME fmlls')`
+          &(parse_and_run_file_list lines fmlls Clist 1 = SOME fmlls'))
+        (λe. SEP_EXISTS k fmlv' fmlls' lines'.
+          STDIO (forwardFD fss (nextFD fs) k) *
+          INSTREAM_LINES nulc (nextFD fs) is lines' (forwardFD fss (nextFD fs) k) *
+          ARRAY_OF vcclause_TYPE fmlv' fmlls' *
+          &(Fail_exn e ∧ parse_and_run_file_list lines fmlls Clist 1 = NONE))`
       >- (
         xapp_spec check_unsat''_spec>>
         xsimpl>>
@@ -531,12 +503,22 @@ Proof
         xsimpl>>
         simp[Abbr`Clist`]>>
         rw[]>>
+        sep_triv)
+      >- (
+        xsimpl>>rw[]>>
         sep_triv)>>
       xcon>>xsimpl>>
-      sep_triv)>>
-    xsimpl>>
-    rw[]>>
-    sep_triv)>>
+      sep_triv)
+    >- (
+      xsimpl>>rw[]>>simp[]>>
+      sep_triv)
+    >- (
+      fs[Fail_exn_def]>>
+      xcases>>
+      xcon>>xsimpl>>
+      simp[PULL_EXISTS]>>
+      asm_exists_tac>>simp[]>>
+      sep_triv))>>
   qspecl_then [`lines`,`fmlls`,`Clist`,`1`]
     strip_assume_tac parse_and_run_file_list_eq>>
   gs[]>>

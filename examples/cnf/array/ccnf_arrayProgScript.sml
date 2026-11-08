@@ -621,6 +621,35 @@ Proof
   rw[ARRAY_OF_refl]
 QED
 
+(* Whether a formula slot holds the deleted-clause sentinel *)
+Quote add_cakeml:
+  fun is_vcc_none_arr c =
+  Vector.length c = 1 andalso int_eq_0 (Unsafe.vsub c 0)
+End
+
+Theorem is_vcc_none_arr_spec:
+  vcclause_TYPE c cv ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "is_vcc_none_arr" (get_ml_prog_state()))
+    [cv]
+    emp
+    (POSTv bv. &BOOL (c = vcc_none) bv)
+Proof
+  strip_tac>>
+  xcf "is_vcc_none_arr" (get_ml_prog_state ())>>
+  rpt xlet_autop>>
+  xlog>>
+  simp[GSYM is_vcc_none]>>
+  reverse IF_CASES_TAC>>gvs[]
+  >- xsimpl>>
+  xlet_auto
+  >- (xsimpl>>gvs[UnsafeProgTheory.vsub_side_def])>>
+  xapp>>
+  xsimpl>>
+  qexists_tac`sub c 0`>>
+  simp[int_eq_0_def]
+QED
+
 Quote add_cakeml:
   fun unit_prop_one lno fml carr b i =
   if i < Array.length fml
@@ -957,6 +986,20 @@ Proof
 QED
 
 val _ = parse_vb_ilits_side |> update_precondition;
+
+val res = translate parse_vb_ilits_fwd_def;
+
+Theorem parse_vb_ilits_fwd_side:
+  ∀s i len.
+  len ≤ strlen s ∧ i ≤ len ⇒ parse_vb_ilits_fwd_side s i len
+Proof
+  ho_match_mp_tac parse_vb_ilits_fwd_ind>>
+  rw[]>>
+  simp[Once (fetch "-" "parse_vb_ilits_fwd_side_def"),parse_vb_int_side]>>
+  metis_tac[parse_vb_int_le]
+QED
+
+val _ = parse_vb_ilits_fwd_side |> update_precondition;
 
 Quote add_cakeml:
   fun unit_prop_vb_arr lno fml carr b s i1 len =

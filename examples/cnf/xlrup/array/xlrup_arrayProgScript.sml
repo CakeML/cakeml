@@ -3264,20 +3264,6 @@ val _ = register_type``:xlrupb_rest``;
 val XLRUP_PARSING_XLRUPB_REST_TYPE_def =
   fetch "-" "XLRUP_PARSING_XLRUPB_REST_TYPE_def";
 
-val res = translate parse_vb_ilits_fwd_def;
-
-Theorem parse_vb_ilits_fwd_side[local]:
-  ∀s i len.
-  len ≤ strlen s ∧ i ≤ len ⇒ parse_vb_ilits_fwd_side s i len
-Proof
-  ho_match_mp_tac parse_vb_ilits_fwd_ind>>
-  rw[]>>
-  simp[Once (fetch "-" "parse_vb_ilits_fwd_side_def"),parse_vb_int_side]>>
-  metis_tac[parse_vb_int_le]
-QED
-
-val _ = parse_vb_ilits_fwd_side |> update_precondition;
-
 Theorem parse_xlrupb_chunk_small:
   parse_xlrupb_chunk s =
   if strlen s = 0 then NONE
