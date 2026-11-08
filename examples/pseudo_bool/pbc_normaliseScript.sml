@@ -2115,3 +2115,29 @@ Proof
   irule normalise_prob_sem_output>>
   simp[]
 QED
+
+(* Two problems numbered one after the other, from a well-formed state *)
+Theorem name_norm_prob_2_sem:
+  name_to_num_state_ok s ∧
+  name_norm_prob (pres,obj,fml) s = ((pres',obj',fml'),t) ∧
+  name_norm_prob (prest,objt,fmlt) t = ((prest',objt',fmlt'),u) ⇒
+  (pbc$sem_concl (set fml) obj (pres_set_list pres) concl ⇔
+   npbc$sem_concl (set fml') obj' (pres_set_spt pres') concl) ∧
+  (pbc$sem_output (set fml) obj (pres_set_list pres) bound
+     (set fmlt) objt (pres_set_list prest) output ⇔
+   npbc$sem_output (set fml') obj' (pres_set_spt pres') bound
+     (set fmlt') objt' (pres_set_spt prest') output)
+Proof
+  strip_tac>>
+  drule_all name_to_num_state_ok_name_norm_prob>>
+  strip_tac>>
+  qpat_assum`name_norm_prob (pres,obj,fml) s = _`
+    (mp_then (Pos hd) mp_tac name_norm_prob_sem_concl)>>
+  qpat_assum`name_norm_prob (pres,obj,fml) s = _`
+    (mp_then (Pos hd)
+      (fn th =>
+        qpat_assum`name_norm_prob (prest,objt,fmlt) t = _`
+          (mp_then (Pos hd) mp_tac th))
+      name_norm_prob_sem_output)>>
+  simp[]
+QED

@@ -502,40 +502,6 @@ Proof
   simp[get_fml_def,parse_cnf_def]
 QED
 
-(* NOTE: Reuse infrastructure from pbc_normalise *)
-
-(* Variables x1 ... xl maps to 1 ... l respectively
-  everything else uses the mapping *)
-Definition plainLim_nf_def:
-  plainLim_nf l s nhm =
-  if strlen s ≥ 1 ∧ strsub_unsafe s 0 = #"x" then
-    case mlint$fromNatString (substring s 1 (strlen s - 1)) of
-      NONE => NONE
-    | SOME n =>
-      if n ≤ l then SOME (n,nhm)
-      else SOME(name_to_num_var s nhm)
-  else
-    SOME(name_to_num_var s nhm)
-End
-
-val res = translate plainLim_nf_def;
-
-val res = translate pbc_normaliseTheory.mk_map_def;
-val res = translate pbc_normaliseTheory.name_to_num_var_def;
-
-Definition cnf_init_state_def:
-  cnf_init_state n =
-  <| to_num := LN; to_str := LN; hash_fun := hash_str; cmp_name := compare; next_num := n+1 |>
-End
-
-Definition plainLim_ns_def:
-  plainLim_ns n = (plainLim_nf n,
-    cnf_init_state n)
-End
-
-val res = translate cnf_init_state_def;
-val res = translate plainLim_ns_def;
-
 Definition UNSAT_string_def:
   UNSAT_string = «s VERIFIED UNSAT\n»
 End
@@ -575,11 +541,12 @@ Quote add_cakeml:
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (fml,(nv,nc)) =>
-    let val n = None in
+    let val n = None
+        val tv = nt_new (Some nv) (nv + 1) in
     case enc_list_mv fml [] 0 of (fmls,mx) =>
     (case
       ores_to_string (
-        check_unsat_top False (plainlim_ns nv) fmls mx n n [] n n f2) of
+        check_unsat_top False tv fmls mx n n [] n n f2) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s)
     end
@@ -613,7 +580,7 @@ Proof
   xcf "check_unsat_2" (get_ml_prog_state ())>>
   reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
   xlet_autop>>
-  Cases_on`res`
+  namedCases_on`res`["err","parsed"]
   >- (
     fs[SUM_TYPE_def]>>
     xmatch>>
@@ -622,20 +589,31 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`x`>>
+    qexists_tac`err`>>
     xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   fs[SUM_TYPE_def]>>
-  PairCases_on`y`>>
+  PairCases_on`parsed`>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>
-  ntac 2 xlet_autop>>
-  xlet`POSTv v. STDIO fs *
+  rpt xlet_autop>>
+  xlet`POSTv tv.
+    STDIO fs * NT_TABLE (SOME parsed1) (nt_init (parsed1 + 1)) tv`
+  >- (
+    xapp>>
+    xsimpl>>
+    qexistsl_tac[`parsed1 + 1`,`SOME parsed1`]>>
+    simp[OPTION_TYPE_def]>>
+    xsimpl)>>
+  xlet_autop>>
+  xlet`POSTv v.
+    STDIO fs * NT_TABLE (SOME parsed1) (nt_init (parsed1 + 1)) tv *
     &PAIR_TYPE (LIST_TYPE NPBC_SLOT_SLOT_TYPE) NUM
       (enc_list_mv (fml_to_pbf fml) [] 0) v`
   >- (
-    xapp>>xsimpl>>
+    xapp>>
+    xsimpl>>
     qexistsl_tac[`[]`,`fml_to_pbf fml`]>>
     simp[LIST_TYPE_def])>>
   qspec_then`fml_to_pbf fml` assume_tac
@@ -643,63 +621,55 @@ Proof
   gvs[npbc_parseProgTheory.enc_list_mv_thm,PAIR_TYPE_def]>>
   xmatch>>
   ntac 2 xlet_autop>>
-  xlet`POSTv v. STDIO fs * &BOOL F v`
-  >-
-    (xcon>>xsimpl)>>
   xlet`POSTv v.
     STDIO fs *
-    SEP_EXISTS res.
-     &(
-        SUM_TYPE STRING_TYPE
-         (PAIR_TYPE PBC_OUTPUT_TYPE
-           (PAIR_TYPE (OPTION_TYPE INT) PBC_CONCL_TYPE))
-          res v ∧
-        case res of
-         INR (output,bound,concl) =>
-           sem_concl (set (fml_to_pbf fml)) NONE {} concl
-        | INL l => T)`
+    SEP_EXISTS res st'.
+    NT_TABLE (SOME parsed1) st' tv *
+    &(SUM_TYPE STRING_TYPE
+        (PAIR_TYPE PBC_OUTPUT_TYPE
+          (PAIR_TYPE (OPTION_TYPE INT) PBC_CONCL_TYPE)) res v ∧
+      case res of
+        INR (output,bound,concl) =>
+        sem_concl (set (fml_to_pbf fml)) NONE {} concl
+      | INL l => T)`
   >- (
-    qmatch_asmsub_rename_tac`LIST_TYPE NPBC_SLOT_SLOT_TYPE _ fmlsv`>>
-    fs[npbc_parseProgTheory.enc_list_def]>>
-    `LIST_TYPE fslot_TYPE (MAP (λc. enc c T) (fml_to_pbf fml)) fmlsv` by
-      gvs[npbc_arrayProgTheory.LIST_TYPE_fslot_TYPE,EVERY_MAP]>>
-    drule_at (Pos (el 2)) check_unsat_top_spec>>
-    disch_then drule>>
-    strip_tac>>
-    xapp>>
+    xapp_spec check_unsat_top_spec>>
     xsimpl>>
-    fs[FILENAME_def,validArg_def,OPTION_TYPE_def]>>
-    rpt (first_x_assum (irule_at Any))>>
-    qexists_tac`NONE`>>qexists_tac`NONE`>>
-    qexists_tac`NONE`>>qexists_tac`NONE`>>
-    qexists_tac`[]`>>
+    qexistsl_tac[`emp`,`nt_init (parsed1 + 1)`,`NONE`,`NONE`,`NONE`,`NONE`,
+                 `SOME parsed1`,`fs`,`[]`,`fml_to_pbf fml`,`F`,`f2`,
+                 `max_var_list (fml_to_pbf fml) 0`]>>
     xsimpl>>
-    simp[OPTION_TYPE_def,LIST_TYPE_def]>>
-    rw[]>> asm_exists_tac>>simp[]>>
-    every_case_tac>>fs[npbcTheory.pres_set_spt_def])>>
+    gvs[npbc_parseProgTheory.enc_list_def,
+        npbc_arrayProgTheory.LIST_TYPE_fslot_TYPE,EVERY_MAP,FILENAME_def,
+        validArg_def,OPTION_TYPE_def,LIST_TYPE_def]>>
+    rw[]>>
+    qexistsl_tac[`x`,`x'`]>>
+    xsimpl>>
+    rpt (TOP_CASE_TAC>>gvs[npbcTheory.pres_set_spt_def]))>>
   xlet_autop>>
-  Cases_on`ores_to_string res`>>fs[SUM_TYPE_def]>>
+  namedCases_on`ores_to_string res`["oerr","ostr"]>>
+  fs[SUM_TYPE_def]>>
   xmatch
   >- (
-    xapp_spec output_stderr_spec \\ xsimpl>>
-    asm_exists_tac>>xsimpl>>
-    qexists_tac`emp`>>xsimpl>>
-    qexists_tac`fs`>>xsimpl>>
+    xapp_spec output_stderr_spec>>
+    xsimpl>>
+    qexistsl_tac[`NT_TABLE (SOME parsed1) st' tv`,`oerr`,`fs`]>>
+    xsimpl>>
     rw[]>>
-    qexists_tac`«»`>>
-    simp[]>>
-    qexists_tac`x`>>
-    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    qexistsl_tac[`«»`,`oerr`]>>
+    fs[STD_streams_add_stderr,STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
-  xapp>>asm_exists_tac>>xsimpl>>
-  qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
+  xapp>>
+  xsimpl>>
+  qexistsl_tac[`NT_TABLE (SOME parsed1) st' tv`,`ostr`,`fs`]>>
+  xsimpl>>
   rw[]>>
-  qexists_tac`y`>>
-  qexists_tac`«»`>>
+  qexistsl_tac[`ostr`,`«»`]>>
   simp[STD_streams_stderr,add_stdo_nil]>>
-  reverse CONJ_TAC>- xsimpl>>
+  xsimpl>>
   rw[]>>
-  every_case_tac>>fs[ores_to_string_def,SUM_TYPE_def]>>
+  every_case_tac>>
+  fs[ores_to_string_def,SUM_TYPE_def]>>
   gvs[AllCaseEqs(),npbc_checkTheory.hconcl_concl_def,npbcTheory.sem_concl_def]
   >- (
     DISJ2_TAC>>

@@ -27,10 +27,10 @@ Definition Fail_exn_def:
   Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)
 End
 
-val _ = register_type ``:constr``
+val _ = register_type ``:'a constr``
 
 Theorem EqualityType_NPBC_CHECK_CONSTR_TYPE[simp]:
-  EqualityType NPBC_CHECK_CONSTR_TYPE
+  EqualityType (NPBC_CHECK_CONSTR_TYPE NUM)
 Proof
   ‘EqualityType (APP_LIST_TYPE (PAIR_TYPE NUM (PBC_LIT_TYPE NUM)))’
     by simp (eq_lemmas())>>
@@ -644,15 +644,17 @@ Proof
     lincomb_r1_def]
 QED
 
+val res = translate core_slot_def;
+val res = translate core_only_def;
+
+Theorem wf_slot_core_only:
+  wf_slot s ⇒ wf_slot (core_only b s)
+Proof
+  rw[core_only_def,wf_slot_def]
+QED
+
 Quote add_cakeml:
-  fun lookup_core_only_arr b fml n =
-  let val s = Array.lookup fml Empty n in
-    case s of
-      Empty => Empty
-    | Stored cs vs d mc sm b' =>
-      if not b orelse b' then s
-      else Empty
-  end
+  fun lookup_core_only_arr b fml n = core_only b (Array.lookup fml Empty n)
 End
 
 Theorem lookup_core_only_arr_spec:
@@ -676,38 +678,17 @@ Proof
   `fslot_TYPE (any_el n fmlls Empty) v'` by (
     rw[any_el_ALT]>>
     gvs[LIST_REL_EL_EQN,fslot_TYPE_def,wf_slot_def,SLOT_TYPE_def])>>
-  Cases_on`any_el n fmlls Empty`>>
-  gvs[fslot_TYPE_def,SLOT_TYPE_def,core_slot_def]
-  >- (
-    xmatch>>
-    xcon>>xsimpl>>
-    simp[wf_slot_def,SLOT_TYPE_def])>>
-  xmatch>>
-  xlet_autop>>
-  xlet`POSTv v. ARRAY fmlv fmllsv * &BOOL (¬b ∨ b') v`
-  >- (
-    xlog>>xsimpl>>
-    Cases_on`b`>>gvs[]>>
-    xvar>>xsimpl)>>
-  xif
-  >- (
-    xvar>>xsimpl>>
-    simp[SLOT_TYPE_def])>>
-  xcon>>xsimpl>>
-  simp[wf_slot_def,SLOT_TYPE_def]
+  gvs[fslot_TYPE_def]>>
+  xapp>>xsimpl>>
+  metis_tac[wf_slot_core_only]
 QED
 
 Quote add_cakeml:
   fun lookup_core_only_err_arr lno b fml n =
-  let val s = Array.lookup fml Empty n in
-    case s of
-      Empty =>
-        raise Fail (format_failure lno (lookup_err_string b ^ Int.toString n))
-    | Stored cs vs d mc sm b' =>
-      if not b orelse b' then s
-      else
-        raise Fail (format_failure lno (lookup_err_string b ^ Int.toString n))
-  end
+  case core_only b (Array.lookup fml Empty n) of
+    Empty =>
+      raise Fail (format_failure lno (lookup_err_string b ^ Int.toString n))
+  | s => s
 End
 
 Theorem lookup_core_only_err_arr_spec:
@@ -738,8 +719,12 @@ Proof
   `fslot_TYPE (any_el n fmlls Empty) v'` by (
     rw[any_el_ALT]>>
     gvs[LIST_REL_EL_EQN,fslot_TYPE_def,wf_slot_def,SLOT_TYPE_def])>>
-  Cases_on`any_el n fmlls Empty`>>
-  gvs[fslot_TYPE_def,SLOT_TYPE_def,core_slot_def]
+  gvs[fslot_TYPE_def]>>
+  xlet_autop>>
+  `wf_slot (core_only b (any_el n fmlls Empty))` by
+    metis_tac[wf_slot_core_only]>>
+  Cases_on`core_only b (any_el n fmlls Empty)`>>
+  gvs[SLOT_TYPE_def]
   >- (
     xmatch>>
     rpt xlet_autop>>
@@ -747,20 +732,8 @@ Proof
     simp[Fail_exn_def]>>
     metis_tac[])>>
   xmatch>>
-  xlet_autop>>
-  xlet`POSTv v. ARRAY fmlv fmllsv * &BOOL (¬b ∨ b') v`
-  >- (
-    xlog>>xsimpl>>
-    Cases_on`b`>>gvs[]>>
-    xvar>>xsimpl)>>
-  xif
-  >- (
-    xvar>>xsimpl>>
-    simp[SLOT_TYPE_def])>>
-  rpt xlet_autop>>
-  xraise>>xsimpl>>
-  simp[Fail_exn_def]>>
-  metis_tac[]
+  xvar>>xsimpl>>
+  simp[SLOT_TYPE_def]
 QED
 
 (* TMC *)
@@ -857,7 +830,7 @@ End
 
 Theorem check_cutting_arr_spec_aux:
   (∀b vb fmlls constr constrv lno lnov bv vbv fmllsv fmlv.
-  NPBC_CHECK_CONSTR_TYPE constr constrv ∧
+  NPBC_CHECK_CONSTR_TYPE NUM constr constrv ∧
   NUM lno lnov ∧
   BOOL b bv ∧
   NUM vb vbv ∧ fml_bound fmlls vb ∧
@@ -877,7 +850,7 @@ Theorem check_cutting_arr_spec_aux:
         & (Fail_exn e ∧
           check_cutting_list b vb fmlls constr = NONE)))) ∧
   (∀b vb fmlls ns nsv lno lnov bv vbv fmllsv fmlv.
-  LIST_TYPE (PAIR_TYPE NPBC_CHECK_CONSTR_TYPE NUM) ns nsv ∧
+  LIST_TYPE (PAIR_TYPE (NPBC_CHECK_CONSTR_TYPE NUM) NUM) ns nsv ∧
   NUM lno lnov ∧
   BOOL b bv ∧
   NUM vb vbv ∧ fml_bound fmlls vb ∧
@@ -933,7 +906,7 @@ Proof
     simp[LIST_TYPE_def])
   >~[`check_cutting_list_nest _ _ _ (_::_)`] >- (
     fs[check_cutting_list_def,LIST_TYPE_def,PAIR_TYPE_def]>>
-    rename1`NPBC_CHECK_CONSTR_TYPE c _`>>
+    rename1`NPBC_CHECK_CONSTR_TYPE NUM c _`>>
     xmatch>>
     xlet_autop >- (xsimpl>>simp[])>>
     Cases_on`check_cutting_list b vb fmlls c`>>fs[]>>
@@ -1328,7 +1301,7 @@ Proof
   >- (
     xmatch>>
     `lookup_core_only_list T fmlls h = Empty` by
-      simp[lookup_core_only_list_def,core_slot_def]>>
+      simp[lookup_core_only_list_def,core_only_def,core_slot_def]>>
     `delete_list h fmlls = fmlls` by (
       rw[delete_list_def]>>gvs[any_el_ALT]>>
       rw[LIST_EQ_REWRITE,EL_LUPDATE]>>rw[])>>
@@ -1349,7 +1322,7 @@ Proof
   xif
   >- (
     `lookup_core_only_list T fmlls h = Empty` by
-      simp[lookup_core_only_list_def,core_slot_def]>>
+      simp[lookup_core_only_list_def,core_only_def,core_slot_def]>>
     xlet_auto >- (xcon>>xsimpl)>>
     xlet_auto >- xsimpl>>
     simp[delete_ids_list_def,delete_list_def]>>
@@ -1357,7 +1330,7 @@ Proof
     simp[]>>
     match_mp_tac EVERY2_LUPDATE_same>> simp[SLOT_TYPE_def])>>
   xcon>>xsimpl>>
-  gvs[delete_ids_list_def,lookup_core_only_list_def,core_slot_def]
+  gvs[delete_ids_list_def,lookup_core_only_list_def,core_only_def,core_slot_def]
 QED
 
 Quote add_cakeml:
@@ -2590,13 +2563,11 @@ Quote add_cakeml:
     [] =>
       raise Fail (format_failure lno ("contradiction not derived at end of hints"))
   | (n::ns) =>
-    (case (if n = 0 then nc else Array.lookup fml Empty n) of
+    (case (if n = 0 then nc else core_only b (Array.lookup fml Empty n)) of
       Empty =>
         raise Fail (format_failure lno (lookup_err_string b ^ Int.toString n))
     | Stored cs vs d mc sm b' =>
-      if n <> 0 andalso b andalso not b' then
-        raise Fail (format_failure lno (lookup_err_string b ^ Int.toString n))
-      else if update_assg_fields_arr assg st cs vs d mc sm then ()
+      if update_assg_fields_arr assg st cs vs d mc sm then ()
       else check_rup_loop_arr lno b nc fml assg st ns)
 End
 
@@ -2632,53 +2603,28 @@ Proof
     simp[Fail_exn_def]>>metis_tac[])>>
   xmatch>>
   xlet_autop>>
-  qabbrev_tac`s0 = if h = 0 then nc else any_el h fmlls Empty`>>
+  qabbrev_tac`s0 = get_rup_constraint_list b fmlls h nc`>>
   xlet`POSTv v. ARRAY fmlv fmllsv * NUM_ARRAY assgv assg * &fslot_TYPE s0 v`
   >- (
     xif
-    >- (xvar>>xsimpl>>gvs[Abbr`s0`])>>
+    >- (xvar>>xsimpl>>gvs[Abbr`s0`,get_rup_constraint_list_def])>>
     xlet_auto >- (xcon>>xsimpl)>>
+    xlet_auto >- xsimpl>>
+    `fslot_TYPE (any_el h fmlls Empty) v'` by (
+      rw[any_el_ALT]>>
+      gvs[LIST_REL_EL_EQN,fslot_TYPE_def,wf_slot_def,SLOT_TYPE_def])>>
+    gvs[fslot_TYPE_def]>>
     xapp>>xsimpl>>
-    qexists_tac`h`>>
-    rw[Abbr`s0`,any_el_ALT]>>
-    gvs[LIST_REL_EL_EQN,fslot_TYPE_def,wf_slot_def,SLOT_TYPE_def])>>
-  `get_rup_constraint_list b fmlls h nc =
-    if h ≠ 0 ∧ b ∧ ¬core_slot s0 then Empty else s0` by (
-    rw[Abbr`s0`,get_rup_constraint_list_def,lookup_core_only_list_def]>>
-    gvs[])>>
-  pop_assum SUBST_ALL_TAC>>
-  Cases_on`s0`>>fs[fslot_TYPE_def,SLOT_TYPE_def,core_slot_def]
+    gvs[Abbr`s0`,get_rup_constraint_list_def,lookup_core_only_list_def]>>
+    metis_tac[wf_slot_core_only])>>
+  Cases_on`s0`>>fs[fslot_TYPE_def,SLOT_TYPE_def]
   >- (
     xmatch>>
     rpt xlet_autop>>
     xraise>>xsimpl>>
     simp[Fail_exn_def]>>metis_tac[])>>
   xmatch>>
-  xlet_autop>>
-  xlet`POSTv bv. ARRAY fmlv fmllsv * NUM_ARRAY assgv assg * &BOOL (h ≠ 0 ∧ b) bv`
-  >- (
-    xlog>>xsimpl>>
-    Cases_on`h ≠ 0`>>gvs[]>>
-    xvar>>xsimpl)>>
-  xlet`POSTv bv. ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
-    &BOOL (h ≠ 0 ∧ b ∧ ¬b') bv`
-  >- (
-    xlog>>xsimpl>>
-    Cases_on`h ≠ 0 ∧ b`>>gvs[]>>
-    xapp>>xsimpl>>
-    qexists_tac`b'`>>simp[])>>
-  xif
-  >- (
-    gvs[]>>
-    rpt xlet_autop>>
-    xraise>>xsimpl>>
-    simp[Fail_exn_def]>>metis_tac[])>>
-  qpat_x_assum `(if _ then _ else _) = _` kall_tac>>
   qpat_x_assum `_ = (res,assg',T)` mp_tac>>
-  IF_CASES_TAC
-  >- metis_tac[]>>
-  qpat_x_assum `_ ∨ _` kall_tac>>
-  qpat_x_assum `¬(_ ∧ _)` kall_tac>>
   simp[]>>strip_tac>>
   rpt (pairarg_tac>>gvs[])>>
   `pre` by (every_case_tac>>gvs[])>>
@@ -2832,7 +2778,7 @@ val res = translate npbc_checkTheory.mk_lincomb_def;
 val res = translate npbc_checkTheory.to_triv_def;
 
 Theorem to_triv_ind_thm[local]:
-  to_triv_ind
+  to_triv_ind (:'a)
 Proof
   once_rewrite_tac [fetch "-" "to_triv_ind_def"]
   \\ rpt gen_tac
@@ -2874,6 +2820,16 @@ Proof
   Cases_on`s`>>
   rw[fetch "-" "eq_slot_side_def",wf_slot_def]>>
   irule eq_terms_side>>
+  simp[]
+QED
+
+val res = translate eq_stored_def;
+
+Theorem eq_stored_side:
+  wf_slot s ⇒ eq_stored_side c s
+Proof
+  rw[fetch "-" "eq_stored_side_def"]>>
+  irule eq_slot_side>>
   simp[]
 QED
 
@@ -3945,20 +3901,17 @@ Proof
 QED
 
 val res = translate set_core_slot_def;
+val res = translate sc_slot_def;
 
 Quote add_cakeml:
   fun list_insert_sc_arr ls b id fml assg st =
     case ls of
       [] => (id,(fml,(assg,st)))
     | (h::hs) =>
-      (case
-        (case h of
-          Inl c =>
-            (case enc_mv c b of (s,mv) => store_slot_arr fml s mv id assg st)
-        | Inr (s,mv) => store_slot_arr fml (set_core_slot s b) mv id assg st)
-      of
-        (fml',(id',(assg',st'))) =>
-        list_insert_sc_arr hs b id' fml' assg' st')
+      (case sc_slot b h of (s,mv) =>
+       case store_slot_arr fml s mv id assg st of
+         (fml',(id',(assg',st'))) =>
+         list_insert_sc_arr hs b id' fml' assg' st')
 End
 
 Theorem list_insert_sc_arr_spec:
@@ -3994,11 +3947,14 @@ Proof
     simp[PAIR_TYPE_def]>>
     xsimpl)>>
   xmatch>>
+  qabbrev_tac`c = sc_hyp_dec h`>>
+  `sc_slot b h = (enc c b, max_var (FST c))` by
+    metis_tac[sc_slot_enc]>>
+  xlet_autop>>
+  gvs[PAIR_TYPE_def]>>
+  xmatch>>
   `∃f1 i1 a1 s1.
-    (case h of
-      INL c => opt_update fmlls (SOME (c,b)) id assg st
-    | INR (s,mv) => store_slot fmlls (set_core_slot s b) mv id assg st) =
-    (f1,i1,a1,s1)` by
+    store_slot fmlls (enc c b) (max_var (FST c)) id assg st = (f1,i1,a1,s1)` by
     metis_tac[PAIR]>>
   xlet`POSTv v. SEP_EXISTS fmlv1 fmllsv1 assgv1.
     ARRAY fmlv1 fmllsv1 * NUM_ARRAY assgv1 a1 *
@@ -4006,22 +3962,6 @@ Proof
       (PAIR_TYPE NUM (PAIR_TYPE (λl v. l = a1 ∧ v = assgv1) NUM))
       (f1,i1,a1,s1) v`
   >- (
-    Cases_on`h`>>fs[SUM_TYPE_def]
-    >- (
-      xmatch>>
-      xlet_autop>>
-      gvs[enc_mv_enc,PAIR_TYPE_def,opt_update_def]>>
-      xmatch>>
-      xapp>>xsimpl>>
-      qexistsl_tac[`emp`,`st`,`enc x b`,`max_var (FST x)`,`id`,`fmlls`,`assg`]>>
-      simp[fslot_TYPE_def]>>
-      xsimpl>>
-      rw[]>>
-      gvs[PAIR_TYPE_def]>>
-      xsimpl)>>
-    PairCases_on`y`>>gvs[PAIR_TYPE_def]>>
-    xmatch>>
-    xlet_autop>>
     xapp>>xsimpl>>
     qexistsl_tac[`emp`,`st`,`enc c b`,`max_var (FST c)`,`id`,`fmlls`,`assg`]>>
     simp[fslot_TYPE_def]>>
@@ -4532,9 +4472,7 @@ Quote add_cakeml:
     let val i = Unsafe.sub tbl j in
       if i = 0 then False
       else
-        (case lookup_core_only_arr b fml i of
-          Empty => False
-        | s => eq_slot c s) orelse
+        eq_stored c (lookup_core_only_arr b fml i) orelse
         ht_mem_arr b fml c tbl (ht_next (Array.length tbl) j) (fuel - 1)
     end
 End
@@ -4582,19 +4520,11 @@ Proof
   qpat_x_assum`fslot_TYPE (lookup_core_only_list _ _ _) _`
     (strip_assume_tac o REWRITE_RULE[fslot_TYPE_def])>>
   qabbrev_tac`s = lookup_core_only_list b fmlls (EL j tbl)`>>
-  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY tblv tbllsv *
-    &BOOL (case s of Empty => F
-      | Stored a1 a2 a3 a4 a5 a6 => eq_slot c (Stored a1 a2 a3 a4 a5 a6)) v`
+  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY tblv tbllsv * &BOOL (eq_stored c s) v`
   >- (
-    Cases_on`s`>>
-    gvs[SLOT_TYPE_def]>>
-    xmatch
-    >- (
-      xcon>>xsimpl)>>
-    rename1`lookup_core_only_list b fmlls _ = Stored cs vs d mc sm cb`>>
     xapp>>xsimpl>>
-    qexistsl_tac[`c`,`Stored cs vs d mc sm cb`]>>
-    simp[SLOT_TYPE_def,eq_slot_side])>>
+    qexistsl_tac[`s`,`c`]>>
+    simp[eq_stored_side])>>
   xlog>>
   xsimpl>>
   rw[]
@@ -4747,19 +4677,20 @@ Proof
   metis_tac[LENGTH_ht_put,LENGTH_NIL]
 QED
 
-(* With no table, or when the new ids would fill more than three quarters
-  of its places, a new table replaces the old one *)
+val res = translate ht_regrow_def;
+val _ = use_sub_check true;
+val res = translate ht_size_def;
+val _ = use_sub_check false;
+
 Quote add_cakeml:
   fun ht_fill_arr fml inds base ht =
   case ht of (hw,(a,(d,tbl))) =>
   let
     val new = ht_count_arr fml hw inds 0
-    val n = Array.length tbl
   in
-    if n = 0 orelse 3 * n < 4 * (a + new) then
+    if ht_regrow (Array.length tbl) a new then
       let
-        val live = (if a < d then 0 else a - d) + new
-        val tbl = Array.array (if live = 0 then 1 else 2 * live) 0
+        val tbl = Array.array (ht_size a d new) 0
         val a' = ht_insert_arr fml 0 inds tbl 0
       in
         (base,(a',(0,tbl)))
@@ -4796,49 +4727,15 @@ Proof
   qabbrev_tac`new = ht_count fmlls ht0 inds 0`>>
   xlet_autop>>
   xlet_autop>>
-  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY bksv bkslsv *
-    &BOOL (ht3 = [] ∨ 3 * LENGTH ht3 < 4 * (ht1 + new)) v`
-  >- (
-    xlog>>
-    xsimpl>>
-    IF_CASES_TAC
-    >- gvs[]>>
-    rpt xlet_autop>>
-    xapp>>
-    xsimpl>>
-    qexistsl_tac[`&(4 * (ht1 + new))`,`&(3 * LENGTH bkslsv)`]>>
-    `ht3 ≠ []` by (strip_tac>>gvs[])>>
-    gvs[NUM_def,Abbr`new`])>>
   xif
   >- (
-    qpat_x_assum`ht3 = [] ∨ _` kall_tac>>
     xlet_autop>>
-    xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY bksv bkslsv * &NUM (ht1 − ht2) v`
-    >- (
-      xif
-      >- (
-        xlit>>xsimpl)>>
-      xapp>>xsimpl>>
-      qexistsl_tac[`&ht2`,`&ht1`]>>
-      fs[NUM_def,integerTheory.INT_SUB])>>
-    xlet_autop>>
-    xlet_autop>>
-    xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY bksv bkslsv *
-      &NUM (MAX (2 * (ht1 − ht2 + new)) 1) v`
-    >- (
-      xif
-      >- (
-        xlit>>xsimpl>>
-        fs[Abbr`new`,NUM_def,INT_def,MAX_DEF])>>
-      xapp>>xsimpl>>
-      qexists_tac`&(ht1 − ht2 + new)`>>
-      fs[Abbr`new`,NUM_def,INT_def,MAX_DEF,integerTheory.INT_MUL])>>
     xlet_autop>>
     qmatch_goalsub_abbrev_tac`ARRAY av (REPLICATE sz zv)`>>
     `LIST_REL NUM (REPLICATE sz 0) (REPLICATE sz zv)` by
       (simp[Abbr`zv`,LIST_REL_EL_EQN,EL_REPLICATE]>>EVAL_TAC)>>
     `REPLICATE sz (0:num) ≠ []` by
-      simp[Abbr`sz`,REPLICATE_NIL]>>
+      simp[Abbr`sz`,REPLICATE_NIL,ht_size_def]>>
     `NUM 0 (Litv (IntLit 0i))` by EVAL_TAC>>
     xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY bksv bkslsv *
       SEP_EXISTS ls1. ARRAY av ls1 *
@@ -4857,6 +4754,7 @@ Proof
     fs[Abbr`new`,Abbr`sz`]>>
     xsimpl>>
     gvs[markerTheory.Abbrev_def])>>
+  `ht3 ≠ []` by (strip_tac>>gvs[ht_regrow_def])>>
   xlet`POSTv u. ARRAY fmlv fmllsv * SEP_EXISTS bkslsv1. ARRAY bksv bkslsv1 *
     &LIST_REL NUM (ht_insert fmlls ht0 inds ht3) bkslsv1`
   >- (
@@ -5066,9 +4964,19 @@ Proof
   metis_tac[]
 QED
 
+val res = translate split_goals_pids_def;
+
+Theorem split_goals_pids_side:
+  wf_slot extra ⇒ split_goals_pids_side pids extra goals
+Proof
+  rw[fetch "-" "split_goals_pids_side_def"]>>
+  irule split_goals_pure_side>>
+  simp[]
+QED
+
 Quote add_cakeml:
   fun split_goals_hash_arr b fml inds base ht extra pids goals =
-  case split_goals_pure (mk_map [] pids) extra goals [] [] of (lp,lf) =>
+  case split_goals_pids pids extra goals of (lp,lf) =>
   case lf of [] => (None, ht)
   | _ =>
     let val ht = ht_fill_arr fml inds base ht in
@@ -5105,23 +5013,15 @@ Proof
   xcf "split_goals_hash_arr" (get_ml_prog_state ())>>
   qpat_x_assum`fslot_TYPE extra _`
     (strip_assume_tac o REWRITE_RULE[fslot_TYPE_def])>>
-  ntac 3 xlet_autop>>
-  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY bksv bkslsv *
-    &SPT_TO_VEC_LMAP_TYPE UNIT_TYPE (mk_map [] pids) v`
-  >- (
-    xapp_spec (fetch "-" "mk_map_v_thm" |> INST_TYPE [alpha |-> ``:unit``])>>
-    xsimpl>>
-    qexistsl_tac[`pids`,`[]`,`UNIT_TYPE`]>>
-    simp[LIST_TYPE_def])>>
   xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY bksv bkslsv *
     &PAIR_TYPE (LIST_TYPE constraint_TYPE)
       (LIST_TYPE constraint_TYPE)
-      (split_goals_pure (mk_map [] pids) extra goals [] []) v`
+      (split_goals_pids pids extra goals) v`
   >- (
     xapp>>xsimpl>>
-    qexistsl_tac[`[]`,`[]`,`goals`,`extra`,`mk_map [] pids`]>>
-    simp[LIST_TYPE_def,split_goals_pure_side])>>
-  Cases_on`split_goals_pure (mk_map [] pids) extra goals [] []`>>
+    qexistsl_tac[`pids`,`goals`,`extra`]>>
+    simp[split_goals_pids_side])>>
+  Cases_on`split_goals_pids pids extra goals`>>
   rename1`_ = (lp,lf)`>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>
@@ -7529,9 +7429,8 @@ Quote add_cakeml:
   | (i::is) =>
     (case Array.lookup fml Empty i of
       Empty => sat_inds_arr lno wv fml is
-    | Stored cs vs d mc sm b =>
-      if not b orelse d <= 0 orelse
-        sat_slot_aux wv cs vs 0 (Vector.length cs) d
+    | s =>
+      if sat_slot wv (core_only True s)
       then i :: sat_inds_arr lno wv fml is
       else raise Fail (format_failure lno
         "supplied assignment did not satisfy constraints or did not improve objective"))
@@ -7572,24 +7471,25 @@ Proof
   >- (
     xmatch>>
     xapp>>xsimpl>>
-    simp[lookup_core_only_list_def,sat_slot_def,reindex_characterize])>>
+    simp[lookup_core_only_list_def,core_only_def,sat_slot_def,reindex_characterize])>>
   qmatch_asmsub_rename_tac`any_el h fmlls Empty = Stored cs vs d mc sm b`>>
   xmatch>>
   xlet_autop>>
-  xlet`POSTv bv. ARRAY fmlv fmllsv * &BOOL (¬b ∨ d ≤ 0) bv`
-  >- (xlog>>xsimpl>>rw[]>>gvs[]>>xapp>>xsimpl>>qexists_tac`d`>>simp[])>>
-  xlet`POSTv bv. ARRAY fmlv fmllsv *
-    &BOOL (¬b ∨ d ≤ 0 ∨ sat_slot_aux wv cs vs 0 (length cs) d) bv`
+  `BOOL T (Conv (SOME (TypeStamp «True» 0)) [])` by EVAL_TAC>>
+  xlet`POSTv v. ARRAY fmlv fmllsv *
+    &NPBC_SLOT_SLOT_TYPE (core_only T (Stored cs vs d mc sm b)) v`
   >- (
-    xlog>>xsimpl>>rw[]>>gvs[]>>
-    xlet_autop>>
     xapp>>xsimpl>>
-    qexistsl_tac[`wv`,`vs`,`d`,`length cs`,`cs`]>>
-    gvs[wf_slot_def,sat_slot_aux_side])>>
+    qexistsl_tac[`Stored cs vs d mc sm b`,`T`]>>
+    simp[SLOT_TYPE_def])>>
+  xlet`POSTv bv. ARRAY fmlv fmllsv *
+    &BOOL (sat_slot wv (lookup_core_only_list T fmlls h)) bv`
+  >- (
+    xapp>>xsimpl>>
+    gvs[lookup_core_only_list_def]>>
+    metis_tac[sat_slot_side,wf_slot_core_only])>>
   xif
   >- (
-    `sat_slot wv (lookup_core_only_list T fmlls h)` by
-      (Cases_on`b`>>gvs[lookup_core_only_list_def,core_slot_def,sat_slot_def])>>
     xlet`POSTve
       (λv. ARRAY fmlv fmllsv *
         &(EVERY (λi. sat_slot wv (lookup_core_only_list T fmlls i)) inds ∧
@@ -7603,7 +7503,7 @@ Proof
     gvs[reindex_characterize,LIST_TYPE_def])>>
   rpt xlet_autop>>
   xraise>>xsimpl>>
-  gvs[Fail_exn_def,lookup_core_only_list_def,core_slot_def,sat_slot_def]>>
+  gvs[Fail_exn_def]>>
   metis_tac[]
 QED
 
@@ -7690,9 +7590,8 @@ Quote add_cakeml:
   | (i::is) =>
     (case Array.lookup fml Empty i of
       Empty => cube_inds_arr lno cv fml is
-    | Stored cs vs d mc sm b =>
-      if not b orelse d <= 0 orelse
-        cube_slot_aux cv cs vs 0 (Vector.length cs) d
+    | s =>
+      if cube_slot cv (core_only True s)
       then i :: cube_inds_arr lno cv fml is
       else raise Fail (format_failure lno
         "supplied solution cube has conflicting assignments or does not satisfy constraints"))
@@ -7733,24 +7632,25 @@ Proof
   >- (
     xmatch>>
     xapp>>xsimpl>>
-    simp[lookup_core_only_list_def,cube_slot_def,reindex_characterize])>>
+    simp[lookup_core_only_list_def,core_only_def,cube_slot_def,reindex_characterize])>>
   qmatch_asmsub_rename_tac`any_el h fmlls Empty = Stored cs vs d mc sm b`>>
   xmatch>>
   xlet_autop>>
-  xlet`POSTv bv. ARRAY fmlv fmllsv * &BOOL (¬b ∨ d ≤ 0) bv`
-  >- (xlog>>xsimpl>>rw[]>>gvs[]>>xapp>>xsimpl>>qexists_tac`d`>>simp[])>>
-  xlet`POSTv bv. ARRAY fmlv fmllsv *
-    &BOOL (¬b ∨ d ≤ 0 ∨ cube_slot_aux cv cs vs 0 (length cs) d) bv`
+  `BOOL T (Conv (SOME (TypeStamp «True» 0)) [])` by EVAL_TAC>>
+  xlet`POSTv v. ARRAY fmlv fmllsv *
+    &NPBC_SLOT_SLOT_TYPE (core_only T (Stored cs vs d mc sm b)) v`
   >- (
-    xlog>>xsimpl>>rw[]>>gvs[]>>
-    xlet_autop>>
     xapp>>xsimpl>>
-    qexistsl_tac[`vs`,`d`,`length cs`,`cv`,`cs`]>>
-    gvs[wf_slot_def,cube_slot_aux_side])>>
+    qexistsl_tac[`Stored cs vs d mc sm b`,`T`]>>
+    simp[SLOT_TYPE_def])>>
+  xlet`POSTv bv. ARRAY fmlv fmllsv *
+    &BOOL (cube_slot cv (lookup_core_only_list T fmlls h)) bv`
+  >- (
+    xapp>>xsimpl>>
+    gvs[lookup_core_only_list_def]>>
+    metis_tac[cube_slot_side,wf_slot_core_only])>>
   xif
   >- (
-    `cube_slot cv (lookup_core_only_list T fmlls h)` by
-      (Cases_on`b`>>gvs[lookup_core_only_list_def,core_slot_def,cube_slot_def])>>
     xlet`POSTve
       (λv. ARRAY fmlv fmllsv *
         &(EVERY (λi. cube_slot cv (lookup_core_only_list T fmlls i)) inds ∧
@@ -7764,7 +7664,7 @@ Proof
     gvs[reindex_characterize,LIST_TYPE_def])>>
   rpt xlet_autop>>
   xraise>>xsimpl>>
-  gvs[Fail_exn_def,lookup_core_only_list_def,core_slot_def,cube_slot_def]>>
+  gvs[Fail_exn_def]>>
   metis_tac[]
 QED
 
@@ -10042,7 +9942,7 @@ Proof
   rw[fetch "-" "check_ub_side_def",check_obj_slots_side]
 QED
 
-val _ = register_type ``:hconcl``
+val _ = register_type ``:'a hconcl``
 
 val res = translate npbc_checkTheory.lower_bound_def;
 
@@ -10060,7 +9960,8 @@ Definition bool_to_string_def:
 End
 
 Definition hdunsat_res_def:
-  hdunsat_res b1 b2 =
+  hdunsat_res (dbound :int option) b2 =
+  let b1 = (dbound = NONE) in
   if b1 ∧ b2 then NONE
   else SOME (
       «conclusion UNSATISFIABLE check failed:» ^
@@ -10109,9 +10010,7 @@ Quote add_cakeml:
     Hnoconcl => None
   | Hdsat wopt => hdsat_res (check_sat fml obj bound' wopt)
   | Hdunsat n =>
-    hdunsat_res
-      (dbound' = None)
-      (check_contradiction_fml_arr False fml' n)
+    hdunsat_res dbound' (check_contradiction_fml_arr False fml' n)
   | Hobounds lbi ubi n wopt =>
     let
     val b1 = opt_le lbi dbound'
@@ -10143,7 +10042,7 @@ Theorem check_hconcl_arr_spec:
   OPTION_TYPE INT bound1 bound1v ∧
   OPTION_TYPE INT dbound1 dbound1v ∧
   NUM enum enumv ∧
-  NPBC_CHECK_HCONCL_TYPE hconcl hconclv ∧
+  NPBC_CHECK_HCONCL_TYPE NUM hconcl hconclv ∧
   LIST_REL fslot_TYPE fmlls fmllsv
   ⇒
   app (p : 'ffi ffi_proj)
@@ -10176,15 +10075,6 @@ Proof
     xlet`POSTv v. ARRAY fml1v fmllsv *
       &BOOL (check_contradiction_fml_list F fmlls n) v`
     >- (xapp>>xsimpl)>>
-    rpt xlet_autop>>
-    xlet`POSTv v. ARRAY fml1v fmllsv * &BOOL (dbound1 = NONE) v`
-    >- (
-      xapp_spec (mlbasicsProgTheory.eq_v_thm |>
-        INST_TYPE [alpha |-> ``:int option``])>>
-      rpt (first_x_assum (irule_at Any))>>
-      qexists_tac`NONE`>>xsimpl>>
-      simp[OPTION_TYPE_def]>>
-      metis_tac[EqualityType_OPTION_TYPE,EqualityType_NUM_BOOL])>>
     xapp>>xsimpl>>
     rpt (first_x_assum (irule_at Any))>>
     simp[hdunsat_res_def]>>rw[]>>
@@ -10276,14 +10166,11 @@ Quote add_cakeml:
       else
         let
           val found =
-            (case lookup_core_only_arr True fml i of
-              Empty => found
-            | s =>
-              if eq_slot c s then
-                ((if i < Word8Array.length mk then Unsafe.w8update mk i w8o
-                  else ());
-                 True)
-              else found)
+            if eq_stored c (lookup_core_only_arr True fml i) then
+              ((if i < Word8Array.length mk then Unsafe.w8update mk i w8o
+                else ());
+               True)
+            else found
         in
           ht_mark_arr fml c tbl (ht_next (Array.length tbl) j) (fuel - 1) mk
             found
@@ -10339,27 +10226,17 @@ Proof
     (strip_assume_tac o REWRITE_RULE[fslot_TYPE_def])>>
   qabbrev_tac`i = EL j tbl`>>
   qabbrev_tac`s = lookup_core_only_list T fmlls i`>>
-  qabbrev_tac`mk1 = case s of Empty => mk
-    | Stored a1 a2 a3 a4 a5 a6 =>
-      if eq_slot c (Stored a1 a2 a3 a4 a5 a6) then LUPDATE T i mk else mk`>>
+  qabbrev_tac`mk1 = if eq_stored c s then LUPDATE T i mk else mk`>>
   xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY tblv tbllsv *
-    W8ARRAY mkv (marks_bytes mk1) *
-    &BOOL (found ∨ case s of Empty => F
-      | Stored a1 a2 a3 a4 a5 a6 => eq_slot c (Stored a1 a2 a3 a4 a5 a6)) v`
+    W8ARRAY mkv (marks_bytes mk) * &BOOL (eq_stored c s) v`
   >- (
-    Cases_on`s`>>
-    gvs[SLOT_TYPE_def,Abbr`mk1`]>>
-    xmatch
-    >- (
-      xvar>>xsimpl)>>
-    rename1`lookup_core_only_list T fmlls i = Stored cs vs d mc sm cb`>>
-    xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY tblv tbllsv *
-      W8ARRAY mkv (marks_bytes mk) *
-      &BOOL (eq_slot c (Stored cs vs d mc sm cb)) v`
-    >- (
-      xapp>>xsimpl>>
-      qexistsl_tac[`c`,`Stored cs vs d mc sm cb`]>>
-      simp[SLOT_TYPE_def,eq_slot_side])>>
+    xapp>>xsimpl>>
+    qexistsl_tac[`s`,`c`]>>
+    simp[eq_stored_side])>>
+  xlet`POSTv v. ARRAY fmlv fmllsv * ARRAY tblv tbllsv *
+    W8ARRAY mkv (marks_bytes mk1) * &BOOL (found ∨ eq_stored c s) v`
+  >- (
+    gvs[Abbr`mk1`]>>
     xif
     >- (
       xlet_auto
@@ -10382,9 +10259,7 @@ Proof
     xvar>>xsimpl)>>
   rpt xlet_autop>>
   xapp>>
-  qexistsl_tac[`emp`,`mk1`,`ht_next (LENGTH tbllsv) j`,
-    `found ∨ case s of Empty => F
-      | Stored a1 a2 a3 a4 a5 a6 => eq_slot c (Stored a1 a2 a3 a4 a5 a6)`]>>
+  qexistsl_tac[`emp`,`mk1`,`ht_next (LENGTH tbllsv) j`,`found ∨ eq_stored c s`]>>
   xsimpl>>
   gvs[ht_next_def]>>
   simp[DISJ_ASSOC]

@@ -515,7 +515,7 @@ Theorem fml_rel_lookup_core_only:
     Empty => NONE
   | s => SOME (dec s)
 Proof
-  rw[fml_rel_def,lookup_core_only_def,lookup_core_only_list_def]>>
+  rw[fml_rel_def,lookup_core_only_def,lookup_core_only_list_def,core_only_def]>>
   first_x_assum (qspec_then`n` assume_tac)>>
   Cases_on`lookup n fml`>>
   gvs[enc_opt_def]>>
@@ -534,7 +534,7 @@ Theorem fml_rel_lookup_core_only_enc:
 Proof
   rw[fml_rel_def]>>
   qpat_x_assum`_ ≠ Empty` mp_tac>>
-  simp[lookup_core_only_list_def,lookup_core_only_def]>>
+  simp[lookup_core_only_list_def,core_only_def,lookup_core_only_def]>>
   Cases_on`lookup n fml`>>
   simp[enc_opt_def]>>
   rename1`lookup n fml = SOME p`>>
@@ -632,7 +632,7 @@ Proof
   rw[]>>
   gvs[]>>
   qpat_x_assum`lookup_core_only_list _ _ _ = _` mp_tac>>
-  rw[lookup_core_only_list_def]>>
+  rw[lookup_core_only_list_def,core_only_def]>>
   metis_tac[]
 QED
 
@@ -827,7 +827,7 @@ Theorem lookup_core_only_list_cases:
   lookup_core_only_list b fmlls n = Empty ∨
   lookup_core_only_list b fmlls n = any_el n fmlls Empty
 Proof
-  rw[lookup_core_only_list_def]
+  rw[lookup_core_only_list_def,core_only_def]
 QED
 
 Theorem get_rup_constraint_list_enc:
@@ -1220,15 +1220,30 @@ Definition scopes_ok_def:
     EVERY (λ(scopt,pf). ∀sc. scopt = SOME sc ⇒ EVERY sc_hyp_ok sc) pfs
 End
 
+(* The slot a scope hypothesis is stored as, core iff b, with its largest
+  variable *)
+Definition sc_slot_def:
+  (sc_slot b (INL c) = enc_mv c b) ∧
+  (sc_slot b (INR (s,mv)) = (set_core_slot s b, mv:num))
+End
+
+Theorem sc_slot_enc:
+  sc_hyp_ok h ⇒
+  sc_slot b h = (enc (sc_hyp_dec h) b, max_var (FST (sc_hyp_dec h)))
+Proof
+  Cases_on`h`>>simp[sc_slot_def,enc_mv_enc]>>
+  rename1`INR p`>>PairCases_on`p`>>
+  rw[sc_slot_def]>>
+  simp[]
+QED
+
 (* Inserts scope hypotheses, as core iff b *)
 Definition list_insert_sc_list_def:
   (list_insert_sc_list ([]:sc_hyp list) b id fml assg st =
     (id,fml,assg,st)) ∧
   (list_insert_sc_list (h::hs) b id fml assg st =
-    let (fml',id',assg',st') =
-      (case h of
-        INL c => opt_update fml (SOME (c,b)) id assg st
-      | INR (s,mv) => store_slot fml (set_core_slot s b) mv id assg st) in
+    let (s,mv) = sc_slot b h in
+    let (fml',id',assg',st') = store_slot fml s mv id assg st in
     list_insert_sc_list hs b id' fml' assg' st')
 End
 
@@ -1336,6 +1351,13 @@ Definition split_goals_pure_def:
       split_goals_pure proved extra goals lp (c::lf))
 End
 
+(* The goals proved by the subproofs pids, and the others that extra does
+  not imply *)
+Definition split_goals_pids_def:
+  split_goals_pids (pids:(num # unit) list) extra goals =
+  split_goals_pure (mk_map [] pids) extra goals [] []
+End
+
 (* Every goal matches a slot (core only, if b) of fml in the table tbl, or
   is one of the proved goals lp *)
 Definition ht_goals_def:
@@ -1351,7 +1373,7 @@ End
 Definition split_goals_hash_def:
   split_goals_hash b fml inds base ht extra (pids:(num # unit) list)
     (goals:(num # (int # num) list # int) list) =
-  let (lp,lf) = split_goals_pure (mk_map [] pids) extra goals [] [] in
+  let (lp,lf) = split_goals_pids pids extra goals in
   if NULL lf then (T,ht)
   else
     let ht = ht_fill fml inds base ht in
@@ -1762,7 +1784,7 @@ End
 (* The ids of the records with a term on a variable of the witness, in
   increasing order, possibly repeated *)
 Definition ord_touched_aux_def:
-  (ord_touched_aux (idx:num list lmap) ([]:subst_raw) acc = acc) ∧
+  (ord_touched_aux (idx:num list lmap) ([]:var subst_raw) acc = acc) ∧
   (ord_touched_aux idx ((v,x)::sr) acc =
     case map_lookup idx v of
       NONE => ord_touched_aux idx sr acc
@@ -2818,7 +2840,7 @@ End
 (* Whether a step reads the index: its witness is not empty, or it checks
   that the auxiliary variables of the order are fresh *)
 Definition reads_vimap_def:
-  reads_vimap (s:subst_raw) fresh (ord:ord_s option) ⇔
+  reads_vimap (s:var subst_raw) fresh (ord:ord_s option) ⇔
     ¬NULL s ∨
     fresh ∧
     (case ord of NONE => F
@@ -2856,7 +2878,7 @@ End
 (* The part of check_fresh_aspo_list that does not read vimap, and the
   auxiliary variables to check against vimap *)
 Definition mk_get_ord_def:
-  mk_get_ord fc (s:subst_raw) (ord:ord_s option) vomap =
+  mk_get_ord fc (s:var subst_raw) (ord:ord_s option) vomap =
   case ord of NONE => SOME (INL ())
   | SOME (((f,g,us,vs,as),xs),us_xs,vs_xs,xsv,asv) =>
     if
@@ -3188,26 +3210,17 @@ Theorem list_insert_sc_list_eq:
   list_insert_sc_list hs b id fmlls assg st =
   list_insert_fml_list (MAP sc_hyp_dec hs) b id fmlls assg st
 Proof
-  Induct>>simp[list_insert_sc_list_def,list_insert_fml_list_def]>>
-  Cases>>simp[]>>
-  rename1`INR p`>>PairCases_on`p`>>
-  rw[]>>gvs[opt_update_def,enc_mv_enc]
+  Induct>>rw[list_insert_sc_list_def,list_insert_fml_list_def]>>
+  gvs[sc_slot_enc,store_slot_enc]
 QED
 
 (* Each scope hypothesis is stored at the next id *)
-Theorem list_insert_sc_list_step[local]:
-  (case h of
-     INL c => opt_update fml (SOME (c,b)) id assg st
-   | INR (s,mv) => store_slot fml (set_core_slot s b) mv id assg st) =
-    (fml',id',assg',st') ⇒
-  ∃s. fml' = update_resize fml Empty s id ∧ id' = id + 1
+Theorem store_slot_step[local]:
+  store_slot fml s mv id assg st = (fml',id',assg',st') ⇒
+  fml' = update_resize fml Empty s id ∧ id' = id + 1
 Proof
-  Cases_on`h`
-  >- (rw[opt_update_SOME]>>metis_tac[])>>
-  rename1`INR p`>>PairCases_on`p`>>
   rw[store_slot_def]>>
-  pairarg_tac>>gvs[]>>
-  metis_tac[]
+  pairarg_tac>>gvs[]
 QED
 
 Theorem list_insert_sc_list_id:
@@ -3217,8 +3230,8 @@ Theorem list_insert_sc_list_id:
   id ≤ cid
 Proof
   Induct>>rw[list_insert_sc_list_def]>>
-  pairarg_tac>>gvs[]>>
-  drule list_insert_sc_list_step>>strip_tac>>gvs[]>>
+  rpt (pairarg_tac>>gvs[])>>
+  drule store_slot_step>>strip_tac>>gvs[]>>
   first_x_assum drule>>
   simp[]
 QED
@@ -3232,8 +3245,8 @@ Theorem list_insert_sc_list_id_upper:
 Proof
   Induct>>rw[list_insert_sc_list_def]
   >- gvs[]>>
-  pairarg_tac>>gvs[]>>
-  drule list_insert_sc_list_step>>strip_tac>>gvs[]>>
+  rpt (pairarg_tac>>gvs[])>>
+  drule store_slot_step>>strip_tac>>gvs[]>>
   first_x_assum drule>>
   simp[any_el_update_resize]
 QED
@@ -3245,8 +3258,8 @@ Theorem list_insert_sc_list_mindel:
   (∀n. n < id ⇒ any_el n cfmlls Empty = any_el n fmlls Empty)
 Proof
   Induct>>rw[list_insert_sc_list_def]>>
-  pairarg_tac>>gvs[]>>
-  drule list_insert_sc_list_step>>strip_tac>>gvs[]>>
+  rpt (pairarg_tac>>gvs[])>>
+  drule store_slot_step>>strip_tac>>gvs[]>>
   first_x_assum drule>>
   simp[any_el_update_resize]
 QED
@@ -3540,7 +3553,7 @@ Proof
   ho_match_mp_tac ht_mem_ind>>
   rpt gen_tac>>
   strip_tac>>
-  simp[Once ht_mem_def]>>
+  simp[Once ht_mem_def,eq_stored_def]>>
   rw[]>>
   gvs[]>>
   rename1`lookup_core_only_list b fmlls i`>>
@@ -3745,7 +3758,7 @@ Theorem split_goals_hash_imp_split_goals:
   (∀i. lookup i proved ≠ NONE ⇔ ALOOKUP pids i ≠ NONE) ⇒
   split_goals (mk_core_fml b fml) nc proved goals
 Proof
-  rw[split_goals_hash_def]>>
+  rw[split_goals_hash_def,split_goals_pids_def]>>
   pairarg_tac>>gvs[]>>
   irule split_goals_MEM>>
   drule MEM_split_goals_pure>>
@@ -3778,7 +3791,7 @@ Theorem lookup_core_only_list_list_delete_list:
   else
     lookup_core_only_list b fml n
 Proof
-  rw[lookup_core_only_list_def,any_el_list_delete_list]>>
+  rw[lookup_core_only_list_def,core_only_def,any_el_list_delete_list]>>
   gvs[]
 QED
 
@@ -6362,7 +6375,7 @@ Theorem ind_rel_lookup_core_only_list:
   lookup_core_only_list b fmlls x ≠ Empty ⇒
   MEM x rinds
 Proof
-  rw[ind_rel_def,lookup_core_only_list_def]>>
+  rw[ind_rel_def,lookup_core_only_list_def,core_only_def]>>
   gvs[AllCaseEqs()]
 QED
 
@@ -7720,9 +7733,8 @@ Proof
   rw[]>>
   gvs[]>>
   first_x_assum (drule_at (Pos last))>>
-  TOP_CASE_TAC>>
   rw[EL_LUPDATE]>>
-  gvs[]
+  gvs[eq_stored_thm]
 QED
 
 Theorem LENGTH_ht_marks:
@@ -7792,7 +7804,7 @@ Proof
   strip_tac>>
   `n < id` by (
     CCONTR_TAC>>
-    gvs[lookup_core_only_list_def,NOT_LESS,GREATER_EQ]>>
+    gvs[lookup_core_only_list_def,core_only_def,NOT_LESS,GREATER_EQ]>>
     first_x_assum drule>>
     strip_tac>>
     gvs[core_slot_def])>>

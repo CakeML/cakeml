@@ -1975,11 +1975,14 @@ QED
 
 (* The table of the formula's ids *)
 
+(* The slot s, or Empty when b asks for core constraints only and s is not one *)
+Definition core_only_def:
+  core_only b s = if ¬b ∨ core_slot s then s else Empty
+End
+
 (* returns the stored slot itself *)
 Definition lookup_core_only_list_def:
-  lookup_core_only_list b fml n =
-  let s = any_el n fml Empty in
-  if ¬b ∨ core_slot s then s else Empty
+  lookup_core_only_list b fml n = core_only b (any_el n fml Empty)
 End
 
 (* The table (hw,a,d,tbl) holds formula ids in the places of tbl, each id
@@ -2008,6 +2011,21 @@ End
 
 (* Some id from place j up to the first free place, trying at most fuel
   places, whose slot (core only, if b) matches c *)
+(* c is the constraint stored in slot s *)
+Definition eq_stored_def:
+  eq_stored c s ⇔
+  case s of
+    Empty => F
+  | _ => eq_slot c s
+End
+
+Theorem eq_stored_thm:
+  eq_stored c s ⇔ s ≠ Empty ∧ eq_slot c s
+Proof
+  Cases_on`s`>>
+  simp[eq_stored_def]
+QED
+
 Definition ht_mem_def:
   ht_mem b fml c tbl j fuel ⇔
   if fuel = 0n then F
@@ -2015,9 +2033,7 @@ Definition ht_mem_def:
     let i = EL j tbl in
     if i = 0n then F
     else
-      (case lookup_core_only_list b fml i of
-        Empty => F
-      | s => eq_slot c s) ∨
+      eq_stored c (lookup_core_only_list b fml i) ∨
       ht_mem b fml c tbl (ht_next (LENGTH tbl) j) (fuel - 1)
 End
 
@@ -2071,18 +2087,28 @@ Proof
   simp[LENGTH_ht_put]
 QED
 
+(* A table of m places, a of them taken, is rebuilt when there is none or
+  when new ids would fill more than three quarters of its places *)
+Definition ht_regrow_def:
+  ht_regrow (m:num) a new ⇔ m = 0 ∨ 3 * m < 4 * (a + new)
+End
+
+(* A rebuilt table has twice as many places as live ids, live = (a - d) + new,
+  and at least one *)
+Definition ht_size_def:
+  ht_size (a:num) d new = MAX (2 * ((a - d) + new)) 1
+End
+
 (* Inserts the stored ids of inds at or above hw, all of them below base
-  (inds is decreasing). Rebuilds from all of inds into MAX (2 * live) 1
-  places, live = (a - d) + new, when there is no table or when the new ids
-  would fill more than three quarters of its places; it puts at most
-  a + new ≤ 2 * live ids, since 2 * d ≤ a, and records the number put as a *)
+  (inds is decreasing), rebuilding from all of inds when ht_regrow says so;
+  a rebuild puts at most a + new ≤ ht_size a d new ids, since 2 * d ≤ a, and
+  records the number put as a *)
 Definition ht_fill_def:
   ht_fill fml inds base (hw,a,d,tbl) =
   let new = ht_count fml hw inds 0 in
-  if LENGTH tbl = 0 ∨ 3 * LENGTH tbl < 4 * (a + new) then
-    let live = (a - d) + new in
+  if ht_regrow (LENGTH tbl) a new then
     (base:num, ht_count fml 0 inds 0, 0n,
-      ht_insert fml 0 inds (REPLICATE (MAX (2 * live) 1) 0))
+      ht_insert fml 0 inds (REPLICATE (ht_size a d new) 0))
   else
     (base, a + new, d, ht_insert fml hw inds tbl)
 End
@@ -2120,9 +2146,8 @@ Definition ht_mark_def:
     if i = 0n then mk
     else
       ht_mark fml c tbl (ht_next (LENGTH tbl) j) (fuel - 1)
-        (case lookup_core_only_list T fml i of
-          Empty => mk
-        | s => if eq_slot c s then LUPDATE T i mk else mk)
+        (if eq_stored c (lookup_core_only_list T fml i)
+         then LUPDATE T i mk else mk)
 End
 
 (* Every constraint of cs matches a core slot in the table *)

@@ -3,7 +3,7 @@
 *)
 Theory npbc_fullProg
 Ancestors
-  basis_ffi pb_parse pbc_normalise npbc_parseProg mlint
+  basis_ffi pb_parse pbc_normalise name_table npbc_parseProg mlint
 Libs
   preamble basis
 
@@ -184,12 +184,6 @@ Proof
 QED
 
 val _ = skip_annot_side |> update_precondition;
-val r = translate parse_constraint_front_def;
-val r = translate parse_cmp_deg_def;
-val r = translate parse_constraint_ns_def;
-val r = translate parse_norm_line_def;
-val r = translate parse_norm_lines_def;
-val r = translate parse_norm_header_def;
 
 Definition noparse_line_string_def:
   noparse_line_string f (lno:num) =
@@ -198,8 +192,6 @@ End
 
 val r = translate noparse_line_string_def;
 
-Overload "ntn_TYPE" = ``PBC_NORMALISE_NAME_TO_NUM_STATE_TYPE STRING_TYPE``
-
 Overload "nprob_TYPE" = ``
   PAIR_TYPE pres_TYPE (PAIR_TYPE obj_TYPE
     (PAIR_TYPE (LIST_TYPE fslot_TYPE) NUM))``
@@ -207,9 +199,9 @@ Overload "nprob_TYPE" = ``
 (* The parsed problem with its constraints stored, and their largest
   variable *)
 Definition enc_prob_def:
-  enc_prob (((pres,obj,fml),t):
-    (num_set option # ((int # num) list # int) option # npbc list) # 'a) =
-  ((pres,obj,enc_list fml,max_var_list fml 0),t)
+  enc_prob ((pres,obj,fml):
+    num_set option # ((int # num) list # int) option # npbc list) =
+  (pres,obj,enc_list fml,max_var_list fml 0)
 End
 
 (* Stores the new constraints in front of acc; also returns the largest of
@@ -254,17 +246,6 @@ Theorem dec_list_enc_list:
   ∀fml. dec_list (enc_list fml) = fml
 Proof
   Induct>>fs[dec_list_def,enc_list_def]
-QED
-
-Theorem parse_norm_line_acc:
-  parse_norm_line l s acc =
-  case parse_norm_line l s [] of
-    NONE => NONE
-  | SOME (new,s1) => SOME (new ++ acc,s1)
-Proof
-  rw[parse_norm_line_def,name_norm_pbc_def]>>
-  TOP_CASE_TAC>>
-  rpt (pairarg_tac>>gvs[])
 QED
 
 (* lno counts the lines read so far *)
@@ -349,38 +330,99 @@ Proof
   simp[PAIR_TYPE_def,OPTION_TYPE_def]
 QED
 
+(* The constraints of line l, numbered with the table, normalised and
+  stored in front of acc; NONE if l is not a constraint *)
 Quote add_cakeml:
-  fun parse_norm_body_arr lno fd s acc mx =
+  fun parse_norm_line_arr tv l acc mx =
+    case parse_constraint_ns (skip_annot l) of
+      None => None
+    | Some c => Some (app_enc_mv (norm_pbc (nt_pbc tv 0 c)) acc mx)
+End
+
+Theorem parse_norm_line_arr_spec:
+  line_TYPE l lv ∧
+  LIST_TYPE fslot_TYPE (enc_list acc) accv ∧
+  NUM (max_var_list acc mx) mxv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "parse_norm_line_arr" (get_ml_prog_state()))
+    [tv; lv; accv; mxv]
+    (NT_TABLE NONE s tv)
+    (POSTv v.
+      SEP_EXISTS s'.
+      NT_TABLE NONE s' tv *
+      &(OPTION_TYPE (PAIR_TYPE (LIST_TYPE fslot_TYPE) NUM)
+          (case parse_norm_line l s acc of
+            NONE => NONE
+          | SOME (x,t) => SOME (enc_list x, max_var_list x mx)) v ∧
+        ∀x t. parse_norm_line l s acc = SOME (x,t) ⇒ s' = t))
+Proof
+  rw[]>>
+  xcf "parse_norm_line_arr" (get_ml_prog_state ())>>
+  rpt xlet_autop>>
+  simp[parse_norm_line_def]>>
+  namedCases_on`parse_constraint_ns (skip_annot l)`["","c"]>>
+  fs[OPTION_TYPE_def]>>
+  xmatch
+  >- (
+    xcon>>
+    xsimpl>>
+    qexists_tac`s`>>
+    xsimpl)>>
+  xlet`POSTve
+    (λv. SEP_EXISTS c1 s1. NT_TABLE NONE s1 tv *
+      &(name_pbc NONE c s = SOME (c1,s1) ∧ pbc_TYPE NUM c1 v))
+    (λe. SEP_EXISTS s1. NT_TABLE NONE s1 tv *
+      &(Fail_exn e ∧ name_pbc NONE c s = NONE))`
+  >- (
+    xapp>>
+    xsimpl)
+  >- (
+    xsimpl>>
+    simp[name_pbc_NONE])>>
+  gvs[npbc_arrayProgTheory.LIST_TYPE_fslot_TYPE]>>
+  rpt xlet_autop>>
+  xcon>>
+  xsimpl>>
+  qexists_tac`s1`>>
+  gvs[name_pbc_NONE,name_norm_pbc_norm_pbc,app_enc_mv_enc_list,
+      GSYM max_var_list_APPEND,PAIR_TYPE_def,OPTION_TYPE_def,
+      npbc_arrayProgTheory.LIST_TYPE_fslot_TYPE]>>
+  xsimpl>>
+  simp[enc_list_def,EVERY_MAP]
+QED
+
+Quote add_cakeml:
+  fun parse_norm_body_arr lno fd tv acc mx =
   case input_toks fd of
-    None => Inr ((acc, mx), s)
+    None => Inr (acc, mx)
   | Some l =>
     if nocomment_line l then
-      (case parse_norm_line l s [] of
+      (case parse_norm_line_arr tv l acc mx of
         None => Inl (lno+1)
-      | Some res => case res of (new,s1) =>
-        case app_enc_mv new acc mx of (acc',mx') =>
-        parse_norm_body_arr (lno+1) fd s1 acc' mx')
-    else parse_norm_body_arr (lno+1) fd s acc mx
+      | Some (acc',mx') => parse_norm_body_arr (lno+1) fd tv acc' mx')
+    else parse_norm_body_arr (lno+1) fd tv acc mx
 End
 
 Theorem parse_norm_body_arr_spec:
-  ∀lines fd fdv fs s sv acc accv lno lnov mx mxv.
+  ∀lines fd fdv fs s acc accv lno lnov mx mxv.
   NUM lno lnov ∧
-  ntn_TYPE s sv ∧
   LIST_TYPE fslot_TYPE (enc_list acc) accv ∧
   NUM (max_var_list acc mx) mxv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_norm_body_arr" (get_ml_prog_state()))
-    [lnov; fdv; sv; accv; mxv]
-    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
+    [lnov; fdv; tv; accv; mxv]
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs * NT_TABLE NONE s tv)
     (POSTv v.
+      SEP_EXISTS s'.
+      NT_TABLE NONE s' tv *
       &(∃n.
-        SUM_TYPE NUM
-          (PAIR_TYPE (PAIR_TYPE (LIST_TYPE fslot_TYPE) NUM) ntn_TYPE)
+        SUM_TYPE NUM (PAIR_TYPE (LIST_TYPE fslot_TYPE) NUM)
           (case parse_norm_lines (MAP toks lines) s acc of
             NONE => INL n
-          | SOME (x,t) => INR ((enc_list x, max_var_list x mx),t)) v) *
+          | SOME (x,t) => INR (enc_list x, max_var_list x mx)) v ∧
+        ∀x t. parse_norm_lines (MAP toks lines) s acc = SOME (x,t) ⇒ s' = t) *
       SEP_EXISTS k lines'.
         STDIO (forwardFD fs fd k) *
         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k))
@@ -390,113 +432,215 @@ Proof
   rpt strip_tac>>
   xcf "parse_norm_body_arr" (get_ml_prog_state ())
   >- (
-    xlet ‘(POSTv v.
-            SEP_EXISTS k.
-                STDIO (forwardFD fs fd k) *
-                INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
-                &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
+    xlet`POSTv v.
+      SEP_EXISTS k.
+        STDIO (forwardFD fs fd k) *
+        INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
+        NT_TABLE NONE s tv *
+        &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v`
     >- (
       xapp_spec input_toks_spec>>
-      qexistsl_tac [`emp`,‘[]’,‘fs’]>>
-      qexists_tac ‘fd’>>xsimpl>>fs [])>>
+      qexistsl_tac[`NT_TABLE NONE s tv`,`[]`,`fs`,`fd`]>>
+      xsimpl>>
+      rw[]>>
+      qexists_tac`x`>>
+      xsimpl)>>
     gvs[OPTION_TYPE_def]>>
     xmatch>>
     rpt xlet_autop>>
-    xcon>>xsimpl>>
+    xcon>>
+    xsimpl>>
+    qexistsl_tac[`k`,`[]`]>>
     simp[SUM_TYPE_def,PAIR_TYPE_def]>>
-    qexistsl_tac [‘k’,`[]`]>>
     xsimpl)>>
-  xlet ‘(POSTv v.
-          SEP_EXISTS k.
-              STDIO (forwardFD fs fd k) *
-              INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
-              & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
-                  (SOME (toks h)) v)’
+  xlet`POSTv v.
+    SEP_EXISTS k.
+      STDIO (forwardFD fs fd k) *
+      INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
+      NT_TABLE NONE s tv *
+      &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks h)) v`
   >- (
     xapp_spec input_toks_spec>>
-    qexistsl_tac [`emp`,‘h::lines’,‘fs’]>>
-    qexists_tac ‘fd’>>xsimpl>>fs []>>
-    rw []>>qexists_tac ‘x’>>xsimpl>>
-    simp[toks_def])>>
+    qexistsl_tac[`NT_TABLE NONE s tv`,`h::lines`,`fs`,`fd`]>>
+    xsimpl>>
+    rw[]>>
+    qexists_tac`x`>>
+    xsimpl)>>
   gvs[OPTION_TYPE_def]>>
-  xmatch>>fs []>>
+  xmatch>>
   xlet_autop>>
   reverse IF_CASES_TAC
   >- (
-    xif>>asm_exists_tac>>xsimpl>>
+    xif>>
+    asm_exists_tac>>
+    xsimpl>>
     xlet_autop>>
-    xapp>>xsimpl>>
-    rpt (first_x_assum (irule_at Any))>>
-    qexistsl_tac [`forwardFD fs fd k`,`fd`]>>
+    xapp>>
+    xsimpl>>
+    qexistsl_tac[`emp`,`s`,`mx`,`forwardFD fs fd k`,`fd`,`acc`,`lno + 1`]>>
     xsimpl>>
     rw[]>>
+    qexistsl_tac[`x`,`k + x'`,`x''`,`n`]>>
     simp[forwardFD_o]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
-  xif>>asm_exists_tac>>simp[]>>
-  rpt xlet_autop>>
-  gvs[]>>
-  `LIST_TYPE constraint_TYPE [] (Conv (SOME (TypeStamp «[]» 1)) [])` by
-    simp[LIST_TYPE_def]>>
-  xlet_autop>>
-  simp[Once parse_norm_line_acc]>>
-  Cases_on`parse_norm_line (toks h) s []`>>
+    xsimpl)>>
+  xif>>
+  asm_exists_tac>>
+  simp[]>>
+  xlet`POSTv v.
+    SEP_EXISTS s1.
+    NT_TABLE NONE s1 tv *
+    &(OPTION_TYPE (PAIR_TYPE (LIST_TYPE fslot_TYPE) NUM)
+        (case parse_norm_line (toks h) s acc of
+          NONE => NONE
+        | SOME (x,t) => SOME (enc_list x, max_var_list x mx)) v ∧
+      ∀x t. parse_norm_line (toks h) s acc = SOME (x,t) ⇒ s1 = t) *
+    STDIO (forwardFD fs fd k) *
+    INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k)`
+  >- (
+    xapp>>
+    xsimpl>>
+    qexistsl_tac[`STDIO (forwardFD fs fd k) *
+                  INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k)`,
+                 `s`,`mx`,`toks h`,`acc`]>>
+    xsimpl>>
+    rw[]>>
+    qexists_tac`x`>>
+    xsimpl)>>
+  Cases_on`parse_norm_line (toks h) s acc`>>
   fs[OPTION_TYPE_def]
   >- (
     xmatch>>
-    xlet_autop>>
-    xcon>>xsimpl>>
-    qexistsl_tac [`k`,`lines`]>>
+    rpt xlet_autop>>
+    xcon>>
     xsimpl>>
+    qexistsl_tac[`s1`,`k`,`lines`]>>
     simp[SUM_TYPE_def]>>
-    metis_tac[])>>
-  rename1`parse_norm_line (toks h) s [] = SOME res`>>
+    xsimpl>>
+    qexists_tac`lno + 1`>>
+    simp[])>>
+  rename1`parse_norm_line _ _ _ = SOME res`>>
   PairCases_on`res`>>
-  fs[PAIR_TYPE_def]>>
-  xmatch>>
-  xmatch>>
-  gvs[npbc_arrayProgTheory.LIST_TYPE_fslot_TYPE]>>
-  xlet_autop>>
-  gvs[app_enc_mv_enc_list,PAIR_TYPE_def,
-    GSYM npbc_parseProgTheory.max_var_list_APPEND]>>
+  fs[OPTION_TYPE_def,PAIR_TYPE_def]>>
   xmatch>>
   xlet_autop>>
-  xapp>>xsimpl>>
-  qexistsl_tac [`emp`,`res1`,`mx`,`forwardFD fs fd k`,`fd`,`res0 ++ acc`,
-    `lno + 1`]>>
+  xapp>>
   xsimpl>>
-  simp[enc_list_def,EVERY_MAP]>>
+  qexistsl_tac[`emp`,`res1`,`mx`,`forwardFD fs fd k`,`fd`,`res0`,`lno + 1`]>>
+  xsimpl>>
   rw[]>>
+  qexistsl_tac[`x`,`k + x'`,`x''`,`n`]>>
   simp[forwardFD_o]>>
-  metis_tac[STDIO_INSTREAM_LINES_refl_gc]
+  xsimpl
 QED
 
+(* The constraints of the header lines that are neither the objective nor
+  the preserved line *)
 Quote add_cakeml:
-  fun parse_norm_toks_arr fd s =
+  fun parse_norm_rest_arr tv ls acc mx =
+    case ls of
+      [] => Some (acc,mx)
+    | (l::ls) =>
+      case parse_norm_line_arr tv l acc mx of
+        None => None
+      | Some (acc',mx') => parse_norm_rest_arr tv ls acc' mx'
+End
+
+Theorem parse_norm_rest_arr_spec:
+  ∀ls lsv s acc accv mx mxv.
+  EVERY nocomment_line ls ∧
+  LIST_TYPE line_TYPE ls lsv ∧
+  LIST_TYPE fslot_TYPE (enc_list acc) accv ∧
+  NUM (max_var_list acc mx) mxv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "parse_norm_rest_arr" (get_ml_prog_state()))
+    [tv; lsv; accv; mxv]
+    (NT_TABLE NONE s tv)
+    (POSTv v.
+      SEP_EXISTS s'.
+      NT_TABLE NONE s' tv *
+      &(OPTION_TYPE (PAIR_TYPE (LIST_TYPE fslot_TYPE) NUM)
+          (case parse_norm_lines ls s acc of
+            NONE => NONE
+          | SOME (x,t) => SOME (enc_list x, max_var_list x mx)) v ∧
+        ∀x t. parse_norm_lines ls s acc = SOME (x,t) ⇒ s' = t))
+Proof
+  Induct>>
+  rw[]>>
+  xcf "parse_norm_rest_arr" (get_ml_prog_state ())>>
+  gvs[LIST_TYPE_def]>>
+  xmatch
+  >- (
+    xlet_autop>>
+    xcon>>
+    xsimpl>>
+    qexists_tac`s`>>
+    simp[parse_norm_lines_def,OPTION_TYPE_def,PAIR_TYPE_def]>>
+    xsimpl)>>
+  xlet`POSTv v.
+    SEP_EXISTS s1.
+    NT_TABLE NONE s1 tv *
+    &(OPTION_TYPE (PAIR_TYPE (LIST_TYPE fslot_TYPE) NUM)
+        (case parse_norm_line h s acc of
+          NONE => NONE
+        | SOME (x,t) => SOME (enc_list x, max_var_list x mx)) v ∧
+      ∀x t. parse_norm_line h s acc = SOME (x,t) ⇒ s1 = t)`
+  >- (
+    xapp>>
+    xsimpl)>>
+  simp[parse_norm_lines_def]>>
+  namedCases_on`parse_norm_line h s acc`["","xt"]
+  >- (
+    fs[OPTION_TYPE_def]>>
+    xmatch>>
+    xcon>>
+    xsimpl>>
+    qexists_tac`s1`>>
+    xsimpl)>>
+  PairCases_on`xt`>>
+  gvs[OPTION_TYPE_def,PAIR_TYPE_def]>>
+  xmatch>>
+  xapp>>
+  xsimpl
+QED
+
+val res = translate opt_list_def;
+val res = translate split_header_def;
+
+Quote add_cakeml:
+  fun parse_norm_toks_arr fd tv =
   case next_nocomment_arr 0 fd of (lno1,l1) =>
   case next_nocomment_arr lno1 fd of (lno2,l2) =>
-  case parse_norm_header l1 l2 s of
-    None => Inl lno2
-  | Some res => case res of (pres,(obj,(acc,s1))) =>
-    (case app_enc_mv acc [] 0 of (eacc,mx) =>
-    case parse_norm_body_arr lno2 fd s1 eacc mx of
-      Inl n => Inl n
-    | Inr res => case res of ((acc1,mx1),t) =>
-      Inr ((pres,(obj,(List.rev acc1,mx1))),t))
+  case split_header l1 l2 of (obj,(pres,rest)) =>
+  let
+    val pres1 = nt_pres tv pres
+    val obj1 = nt_obj tv obj
+  in
+    case parse_norm_rest_arr tv rest [] 0 of
+      None => Inl lno2
+    | Some (acc,mx) =>
+      case parse_norm_body_arr lno2 fd tv acc mx of
+        Inl n => Inl n
+      | Inr (acc1,mx1) =>
+        Inr (pres1,(normalise_obj obj1,(List.rev acc1,mx1)))
+  end
 End
 
 Theorem parse_norm_toks_arr_spec:
-  ntn_TYPE s sv
-  ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "parse_norm_toks_arr" (get_ml_prog_state()))
-    [fdv; sv]
-    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
+    [fdv; tv]
+    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs * NT_TABLE NONE s tv)
     (POSTv v.
+      SEP_EXISTS s'.
+      NT_TABLE NONE s' tv *
       &(∃n.
-        SUM_TYPE NUM (PAIR_TYPE nprob_TYPE ntn_TYPE)
+        SUM_TYPE NUM nprob_TYPE
           (case parse_norm_pbf_toks (MAP toks lines) s of
             NONE => INL n
-          | SOME x => INR (enc_prob x)) v) *
+          | SOME (prob,t) => INR (enc_prob prob)) v ∧
+        ∀prob t. parse_norm_pbf_toks (MAP toks lines) s = SOME (prob,t) ⇒
+          s' = t) *
       SEP_EXISTS k lines'.
         STDIO (forwardFD fs fd k) *
         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k))
@@ -508,12 +652,14 @@ Proof
       SEP_EXISTS k1 lines1 lno1.
         STDIO (forwardFD fs fd k1) *
         INSTREAM_LINES #"\n" fd fdv lines1 (forwardFD fs fd k1) *
+        NT_TABLE NONE s tv *
         &(PAIR_TYPE NUM (OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)))
             (lno1,oHD fl) v ∧
           FILTER nocomment_line (MAP toks lines1) = DROP 1 fl))`
   >- (
-    xapp>>xsimpl>>
-    qexistsl_tac [`emp`,`lines`,`fs`,`fd`]>>
+    xapp>>
+    xsimpl>>
+    qexistsl_tac [`NT_TABLE NONE s tv`,`lines`,`fs`,`fd`]>>
     xsimpl>>
     rw[Abbr`fl`]>>
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
@@ -523,101 +669,158 @@ Proof
       SEP_EXISTS k2 lines2 lno2.
         STDIO (forwardFD fs fd k2) *
         INSTREAM_LINES #"\n" fd fdv lines2 (forwardFD fs fd k2) *
+        NT_TABLE NONE s tv *
         &(PAIR_TYPE NUM (OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)))
             (lno2,oHD (DROP 1 fl)) v ∧
           FILTER nocomment_line (MAP toks lines2) = DROP 2 fl))`
   >- (
-    xapp>>xsimpl>>
-    qexistsl_tac [`emp`,`lines1`,`forwardFD fs fd k1`,`fd`,`lno1`]>>
+    xapp>>
+    xsimpl>>
+    qexistsl_tac [`NT_TABLE NONE s tv`,`lines1`,`forwardFD fs fd k1`,`fd`,
+                  `lno1`]>>
     xsimpl>>
     rw[]>>
     fs[forwardFD_o,DROP_DROP_T]>>
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
   fs[PAIR_TYPE_def]>>
   xmatch>>
+  qmatch_goalsub_abbrev_tac`STDIO fs2`>>
   xlet_autop>>
-  gvs[Abbr`fl`,parse_norm_pbf_toks_def]>>
-  qmatch_asmsub_abbrev_tac`parse_norm_header l1 l2 s`>>
-  Cases_on`parse_norm_header l1 l2 s`>>
+  qabbrev_tac`iof = STDIO fs2 * INSTREAM_LINES #"\n" fd fdv lines2 fs2`>>
+  `∃obj pres rest.
+     split_header (oHD (FILTER nocomment_line (MAP toks lines)))
+       (oHD (DROP 1 (FILTER nocomment_line (MAP toks lines)))) =
+     (obj,pres,rest)` by
+    metis_tac[PAIR]>>
+  fs[PAIR_TYPE_def]>>
+  xmatch>>
+  xlet_auto
+  >- (
+    qexistsl_tac[`iof`,`s`]>>
+    xsimpl)>>
+  Cases_on`name_to_num_pres pres s`>>
+  fs[]>>
+  rename1`name_to_num_pres pres s = (pres1,s1)`>>
+  xlet_autop>>
+  Cases_on`name_to_num_obj obj s1`>>
+  fs[]>>
+  rename1`name_to_num_obj obj s1 = (obj1,s2)`>>
+  xlet_autop>>
+  xlet`POSTv v.
+    SEP_EXISTS s3.
+    iof * NT_TABLE NONE s3 tv *
+    &(OPTION_TYPE (PAIR_TYPE (LIST_TYPE fslot_TYPE) NUM)
+        (case parse_norm_lines rest s2 [] of
+          NONE => NONE
+        | SOME (x,t) => SOME (enc_list x, max_var_list x 0)) v ∧
+      ∀x t. parse_norm_lines rest s2 [] = SOME (x,t) ⇒ s3 = t)`
+  >- (
+    sg`EVERY nocomment_line rest`
+    >- (
+      gvs[split_header_oHD]>>
+      drule_then irule parse_obj_pres_maybe_EVERY>>
+      `EVERY nocomment_line fl` by
+        simp[Abbr`fl`,EVERY_FILTER]>>
+      simp[rich_listTheory.EVERY_TAKE])>>
+    xapp>>
+    xsimpl>>
+    qexistsl_tac[`iof`,`s2`,`0`,`rest`,`[]`]>>
+    xsimpl>>
+    simp[max_var_list_def,enc_list_def,LIST_TYPE_def]>>
+    rw[]>>
+    qexists_tac`x`>>
+    xsimpl)>>
+  sg`parse_norm_pbf_toks (MAP toks lines) s =
+     case parse_norm_lines rest s2 [] of
+       NONE => NONE
+     | SOME (acc,t1) =>
+       case parse_norm_lines (MAP toks lines2) t1 acc of
+         NONE => NONE
+       | SOME (acc1,t) =>
+         SOME ((OPTION_MAP list_to_num_set pres1,normalise_obj obj1,
+                REVERSE acc1),t)`
+  >- (
+    simp[parse_norm_pbf_toks_def,parse_norm_header_def]>>
+    qunabbrev_tac`fl`>>
+    qpat_x_assum`FILTER nocomment_line (MAP toks lines2) = _`
+      (assume_tac o GSYM)>>
+    simp[parse_norm_lines_FILTER]>>
+    namedCases_on`parse_norm_lines rest s2 []`["","res"]>>
+    simp[]>>
+    PairCases_on`res`>>
+    simp[])>>
+  pop_assum SUBST1_TAC>>
+  Cases_on`parse_norm_lines rest s2 []`>>
   fs[OPTION_TYPE_def]
   >- (
     xmatch>>
     xcon>>
     xsimpl>>
-    qexistsl_tac [`k2`,`lines2`]>>
-    xsimpl>>
-    simp[SUM_TYPE_def]>>
-    metis_tac[])>>
-  rename1`parse_norm_header l1 l2 s = SOME hdr`>>
-  PairCases_on`hdr`>>
-  fs[PAIR_TYPE_def]>>
+    qexistsl_tac[`s3`,`k2`,`lines2`]>>
+    simp[SUM_TYPE_def,Abbr`iof`,Abbr`fs2`]>>
+    conj_tac
+    >- (
+      qexists_tac`lno2`>>
+      simp[])>>
+    xsimpl)>>
+  rename1`parse_norm_lines rest s2 [] = SOME res`>>
+  PairCases_on`res`>>
+  gvs[OPTION_TYPE_def,PAIR_TYPE_def]>>
   xmatch>>
-  xmatch>>
-  xlet_autop>>
+  qunabbrev_tac`iof`>>
   xlet`POSTv v.
-    STDIO (forwardFD fs fd k2) *
-    INSTREAM_LINES #"\n" fd fdv lines2 (forwardFD fs fd k2) *
-    &PAIR_TYPE (LIST_TYPE NPBC_SLOT_SLOT_TYPE) NUM (app_enc_mv hdr2 [] 0) v`
+    SEP_EXISTS s4.
+    NT_TABLE NONE s4 tv *
+    &(∃n.
+      SUM_TYPE NUM (PAIR_TYPE (LIST_TYPE fslot_TYPE) NUM)
+        (case parse_norm_lines (MAP toks lines2) res1 res0 of
+          NONE => INL n
+        | SOME (x,t) => INR (enc_list x, max_var_list x 0)) v ∧
+      ∀x t. parse_norm_lines (MAP toks lines2) res1 res0 = SOME (x,t) ⇒
+        s4 = t) *
+    SEP_EXISTS k3 lines3.
+      STDIO (forwardFD fs fd k3) *
+      INSTREAM_LINES #"\n" fd fdv lines3 (forwardFD fs fd k3)`
   >- (
-    xapp>>xsimpl>>
-    qexistsl_tac[`[]`,`hdr2`]>>
-    simp[LIST_TYPE_def])>>
-  `app_enc_mv hdr2 [] 0 = (enc_list hdr2, max_var_list hdr2 0)` by
-    metis_tac[app_enc_mv_enc_list,enc_list_def,MAP,APPEND_NIL]>>
-  gvs[PAIR_TYPE_def]>>
-  xmatch>>
-  xlet`(POSTv v.
-      &(∃n.
-        SUM_TYPE NUM
-          (PAIR_TYPE (PAIR_TYPE (LIST_TYPE fslot_TYPE) NUM) ntn_TYPE)
-          (case parse_norm_lines (MAP toks lines2) hdr3 hdr2 of
-            NONE => INL n
-          | SOME (x,t) => INR ((enc_list x, max_var_list x 0),t)) v) *
-      SEP_EXISTS k3 lines3.
-        STDIO (forwardFD fs fd k3) *
-        INSTREAM_LINES #"\n" fd fdv lines3 (forwardFD fs fd k3))`
-  >- (
-    xapp>>xsimpl>>
-    qexistsl_tac [`emp`,`hdr3`,`0`,`lines2`,`forwardFD fs fd k2`,`fd`,`hdr2`,
-      `lno2`]>>
+    xapp>>
     xsimpl>>
-    simp[npbc_arrayProgTheory.LIST_TYPE_fslot_TYPE,enc_list_def,EVERY_MAP]>>
+    qexistsl_tac[`emp`,`res1`,`0`,`lines2`,`fs2`,`fd`,`res0`,`lno2`]>>
+    xsimpl>>
     rw[]>>
-    fs[forwardFD_o]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
-  `parse_norm_lines (DROP 2 (FILTER nocomment_line (MAP toks lines)))
-     hdr3 hdr2 = parse_norm_lines (MAP toks lines2) hdr3 hdr2` by
-    metis_tac[parse_norm_lines_FILTER]>>
-  simp[]>>
-  Cases_on`parse_norm_lines (MAP toks lines2) hdr3 hdr2`>>
+    qexistsl_tac[`x`,`k2 + x'`,`x''`]>>
+    simp[Abbr`fs2`,forwardFD_o]>>
+    xsimpl>>
+    qexists_tac`n`>>
+    simp[])>>
+  namedCases_on`parse_norm_lines (MAP toks lines2) res1 res0`["","body"]>>
   fs[SUM_TYPE_def]
   >- (
     xmatch>>
     xcon>>
     xsimpl>>
-    qexistsl_tac [`k3`,`lines3`]>>
-    xsimpl>>
-    simp[SUM_TYPE_def]>>
-    metis_tac[])>>
-  rename1`parse_norm_lines _ hdr3 hdr2 = SOME body`>>
+    qexistsl_tac[`s4`,`k3`,`lines3`]>>
+    conj_tac
+    >- (
+      qexists_tac`n`>>
+      simp[])>>
+    xsimpl)>>
   PairCases_on`body`>>
-  fs[SUM_TYPE_def,PAIR_TYPE_def]>>
-  xmatch>>
+  gvs[SUM_TYPE_def,PAIR_TYPE_def]>>
   xmatch>>
   rpt xlet_autop>>
   xcon>>
   xsimpl>>
-  qexistsl_tac [`k3`,`lines3`]>>
-  xsimpl>>
-  fs[SUM_TYPE_def,PAIR_TYPE_def,enc_prob_def,enc_list_def,MAP_REVERSE,
-    npbc_parseProgTheory.max_var_list_REVERSE]
+  qexistsl_tac[`k3`,`lines3`]>>
+  gvs[enc_prob_def,enc_list_def,MAP_REVERSE,max_var_list_REVERSE,
+      PAIR_TYPE_def]>>
+  xsimpl
 QED
 
 Quote add_cakeml:
-  fun parse_norm_pbf_full f s =
+  fun parse_norm_pbf_full f tv =
   let
     val fd = TextIO.openInSetBufferSize f 65531
-    val res = parse_norm_toks_arr fd s
+    val res = parse_norm_toks_arr fd tv
     val close = TextIO.closeIn fd
   in
     case res of
@@ -630,17 +833,20 @@ End
 Theorem parse_norm_pbf_full_spec:
   STRING_TYPE f fv ∧
   validArg f ∧
-  hasFreeFD fs ∧
-  ntn_TYPE s sv
+  hasFreeFD fs
   ⇒
   app (p:'ffi ffi_proj) ^(fetch_v"parse_norm_pbf_full"(get_ml_prog_state()))
-    [fv; sv]
-    (STDIO fs)
+    [fv; tv]
+    (STDIO fs * NT_TABLE NONE s tv)
     (POSTv v.
-    & (∃err. SUM_TYPE STRING_TYPE (PAIR_TYPE nprob_TYPE ntn_TYPE)
-    (case get_fml fs f of
-      NONE => INL err
-    | SOME prob => INR (enc_prob (name_norm_prob prob s))) v) * STDIO fs)
+      SEP_EXISTS s'.
+      NT_TABLE NONE s' tv *
+      &(∃err. SUM_TYPE STRING_TYPE nprob_TYPE
+        (case get_fml fs f of
+          NONE => INL err
+        | SOME prob => INR (enc_prob (FST (name_norm_prob prob s)))) v ∧
+        ∀prob. get_fml fs f = SOME prob ⇒ s' = SND (name_norm_prob prob s)) *
+      STDIO fs)
 Proof
   rw[]>>
   xcf"parse_norm_pbf_full"(get_ml_prog_state()) >>
@@ -655,15 +861,19 @@ Proof
     xhandle`POSTe ev.
       &BadFileName_exn ev *
       &(~inFS_fname fs f) *
-      STDIO fs`
-    >-
-      (xlet_auto_spec (SOME openInSetBufferSize_STDIO_spec)>>xsimpl)
-    >>
-      fs[BadFileName_exn_def]>>
-      xcases>>rw[]>>
-      xlet_auto>>xsimpl>>
-      xcon>>xsimpl>>
-      simp[SUM_TYPE_def]>>metis_tac[])>>
+      STDIO fs * NT_TABLE NONE s tv`
+    >- (xlet_auto_spec (SOME openInSetBufferSize_STDIO_spec)>>xsimpl)>>
+    fs[BadFileName_exn_def]>>
+    xcases>>rw[]>>
+    xlet_auto>>xsimpl>>
+    xcon>>xsimpl>>
+    simp[SUM_TYPE_def]>>
+    qexists_tac`s`>>
+    conj_tac
+    >- (
+      qexists_tac`notfound_string f`>>
+      simp[])>>
+    xsimpl)>>
   qmatch_goalsub_abbrev_tac`$POSTv Qval`>>
   xhandle`$POSTv Qval`>>xsimpl>>
   qunabbrev_tac`Qval`>>
@@ -671,24 +881,31 @@ Proof
   qmatch_goalsub_abbrev_tac`STDIO fss`>>
   qmatch_goalsub_abbrev_tac`INSTREAM_LINES _ fdd fddv lines fss`>>
   xlet`(POSTv v.
+      SEP_EXISTS s'.
+      NT_TABLE NONE s' tv *
       &(∃n.
-        SUM_TYPE NUM (PAIR_TYPE nprob_TYPE ntn_TYPE)
+        SUM_TYPE NUM nprob_TYPE
           (case parse_norm_pbf_toks (MAP toks lines) s of
             NONE => INL n
-          | SOME x => INR (enc_prob x)) v) *
+          | SOME (prob,t) => INR (enc_prob prob)) v ∧
+        ∀prob t. parse_norm_pbf_toks (MAP toks lines) s = SOME (prob,t) ⇒
+          s' = t) *
       SEP_EXISTS k lines'.
-         STDIO (forwardFD fss fdd k) *
-         INSTREAM_LINES #"\n" fdd fddv lines' (forwardFD fss fdd k))`
+        STDIO (forwardFD fss fdd k) *
+        INSTREAM_LINES #"\n" fdd fddv lines' (forwardFD fss fdd k))`
   >- (
-    xapp>>xsimpl>>
-    qexistsl_tac [`emp`,`s`,`lines`,`fss`,`fdd`]>>
+    xapp>>
+    xsimpl>>
+    qexistsl_tac[`emp`,`s`,`lines`,`fss`,`fdd`]>>
     xsimpl>>
     rw[]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
-  xlet `POSTv v. STDIO fs`
+    qexistsl_tac[`x`,`x'`,`x''`,`n`]>>
+    xsimpl)>>
+  xlet `POSTv v. STDIO fs * NT_TABLE NONE s' tv`
   >- (
     xapp_spec closeIn_spec_lines >>
-    qexistsl_tac [`emp`,`lines'`,`forwardFD fss fdd k`,`fdd`,`#"\n"`]>>
+    qexistsl_tac [`NT_TABLE NONE s' tv`,`lines'`,`forwardFD fss fdd k`,`fdd`,
+                  `#"\n"`]>>
     conj_tac >-
      (unabbrev_all_tac>>
       imp_res_tac fsFFIPropsTheory.nextFD_ltX>>fs []>>
@@ -714,11 +931,18 @@ Proof
     xcon>>
     xsimpl>>
     simp[SUM_TYPE_def]>>
-    metis_tac[])>>
+    qexists_tac`s'`>>
+    conj_tac
+    >- (
+      qexists_tac`noparse_line_string f n`>>
+      simp[])>>
+    xsimpl)>>
+  rename1`parse_pbf_toks _ = SOME aprob`>>
+  Cases_on`name_norm_prob (strip_annot_prob aprob) s`>>
+  fs[SUM_TYPE_def]>>
   xmatch>>
   xcon>>
-  xsimpl>>
-  simp[SUM_TYPE_def]
+  xsimpl
 QED
 
 Definition check_unsat_2_sem_def:
@@ -743,15 +967,16 @@ val res = translate map_concl_to_string_def;
 
 Quote add_cakeml:
   fun check_unsat_2 f1 f2 =
-  case parse_norm_pbf_full f1 init_ntn of
+  let val tv = nt_new None 0 in
+  case parse_norm_pbf_full f1 tv of
     Inl err => TextIO.output TextIO.stdErr err
-  | Inr res => case res of ((pres,(obj,(fml,mx))),t) =>
+  | Inr (pres,(obj,(fml,mx))) =>
     (case
       map_concl_to_string
-        (check_unsat_top False (name_to_num_var_nf,t)
-          fml mx pres obj [] None None f2) of
+        (check_unsat_top False tv fml mx pres obj [] None None f2) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s)
+  end
 End
 
 Theorem check_unsat_2_spec:
@@ -769,91 +994,102 @@ Theorem check_unsat_2_spec:
 Proof
   rw[check_unsat_2_sem_def]>>
   xcf "check_unsat_2" (get_ml_prog_state ())>>
-  reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
-  assume_tac init_ntn_v_thm>>
-  xlet_autop>>
-  pop_assum mp_tac>>
-  TOP_CASE_TAC
+  reverse (Cases_on `STD_streams fs`)
   >- (
-    simp[SUM_TYPE_def]>>rw[]>>
+    fs [TextIOProofTheory.STDIO_def]>>
+    xpull)>>
+  xlet_autop>>
+  xlet`POSTv tv. STDIO fs * NT_TABLE NONE (nt_init 0) tv`
+  >- (
+    xapp>>
+    xsimpl>>
+    qexists_tac`NONE`>>
+    simp[OPTION_TYPE_def]>>
+    xsimpl)>>
+  xlet`POSTv v.
+    SEP_EXISTS s'.
+    NT_TABLE NONE s' tv *
+    &(∃err. SUM_TYPE STRING_TYPE nprob_TYPE
+      (case get_fml fs f1 of
+        NONE => INL err
+      | SOME prob => INR (enc_prob (FST (name_norm_prob prob (nt_init 0))))) v ∧
+      ∀prob. get_fml fs f1 = SOME prob ⇒
+        s' = SND (name_norm_prob prob (nt_init 0))) *
+    STDIO fs`
+  >- (
+    xapp>>
+    xsimpl)>>
+  Cases_on`get_fml fs f1`>>
+  fs[SUM_TYPE_def]
+  >- (
     xmatch>>
-    xapp_spec output_stderr_spec \\ xsimpl>>
-    asm_exists_tac>>xsimpl>>
-    qexists_tac`emp`>>xsimpl>>
-    qexists_tac`fs`>>xsimpl>>
+    xapp_spec output_stderr_spec>>
+    xsimpl>>
+    qexistsl_tac[`NT_TABLE NONE s' tv`,`err`,`fs`]>>
+    xsimpl>>
     rw[]>>
-    qexists_tac`err`>>xsimpl>>rw[]>>
-    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    qexists_tac`err`>>
+    fs[STD_streams_add_stderr,STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   rename1`get_fml fs f1 = SOME prob`>>
   PairCases_on`prob`>>
   `∃pres obj fml t.
-    name_norm_prob (prob0,prob1,prob2) init_ntn = ((pres,obj,fml),t)` by
+    name_norm_prob (prob0,prob1,prob2) (nt_init 0) = ((pres,obj,fml),t)` by
     metis_tac[PAIR]>>
-  simp[SUM_TYPE_def,PAIR_TYPE_def,enc_prob_def]>>rw[]>>
+  fs[SUM_TYPE_def,PAIR_TYPE_def,enc_prob_def]>>
   xmatch>>
-  xmatch>>
-  ntac 5 xlet_autop>>
-  xlet`(POSTv v.
-     STDIO fs *
-     SEP_EXISTS res.
-     &(
-       SUM_TYPE STRING_TYPE
-         (PAIR_TYPE PBC_OUTPUT_TYPE
-           (PAIR_TYPE (OPTION_TYPE INT) PBC_CONCL_TYPE))
-         res v ∧
-       case res of
-         INR (output,bound,concl) =>
-         npbc$sem_concl (set fml) obj (pres_set_spt pres) concl
-      | INL l => T))`
+  ntac 4 xlet_autop>>
+  xlet`POSTv v.
+    STDIO fs *
+    SEP_EXISTS res st'.
+    NT_TABLE NONE st' tv *
+    &(SUM_TYPE STRING_TYPE
+        (PAIR_TYPE PBC_OUTPUT_TYPE
+          (PAIR_TYPE (OPTION_TYPE INT) PBC_CONCL_TYPE)) res v ∧
+      case res of
+        INR (output,bound,concl) =>
+        npbc$sem_concl (set fml) obj (pres_set_spt pres) concl
+      | INL l => T)`
   >- (
     assume_tac (Q.INST [`mx`|->`0`] npbc_parseProgTheory.max_var_list_bound)>>
-    xapp_spec (check_unsat_top_spec
-      |> INST_TYPE[alpha|->``:mlstring name_to_num_state``])>>
+    xapp_spec check_unsat_top_spec>>
     xsimpl>>
-    qexistsl_tac [`emp`,`NONE`,`pres`,`NONE`,`obj`,`fs`,`[]`,`fml`,`F`,`f2`,
-      `max_var_list fml 0`,`ntn_TYPE`,`(name_to_num_var_nf,t)`]>>
+    qexistsl_tac[`emp`,`t`,`NONE`,`pres`,`NONE`,`obj`,`NONE`,`fs`,`[]`,`fml`,
+                 `F`,`f2`,`max_var_list fml 0`]>>
     xsimpl>>
-    fs[validArg_def,FILENAME_def,LIST_TYPE_def,OPTION_TYPE_def,
-      PAIR_TYPE_def,enc_list_def]>>
-    CONJ_TAC
-    >- simp[name_to_num_var_nf_v_thm]>>
+    fs[validArg_def,FILENAME_def,LIST_TYPE_def,OPTION_TYPE_def,enc_list_def]>>
     rw[]>>
-    asm_exists_tac>>
-    simp[]>>
+    qexistsl_tac[`x`,`x'`]>>
+    xsimpl>>
     rpt (TOP_CASE_TAC>>gvs[]))>>
   xlet_autop>>
-  Cases_on`res`>>fs[map_concl_to_string_def,SUM_TYPE_def]
+  namedCases_on`res`["errs","outc"]>>
+  fs[map_concl_to_string_def,SUM_TYPE_def]
   >- (
     xmatch>>
-    xapp_spec output_stderr_spec \\ xsimpl>>
-    asm_exists_tac>>xsimpl>>
-    qexists_tac`emp`>>xsimpl>>
-    qexists_tac`fs`>>xsimpl>>
+    xapp_spec output_stderr_spec>>
+    xsimpl>>
+    qexistsl_tac[`NT_TABLE NONE st' tv`,`errs`,`fs`]>>
+    xsimpl>>
     rw[]>>
-    qexists_tac`«»`>>
-    rename1`add_stderr _ err`>>
-    qexists_tac`err`>>xsimpl>>rw[]>>
-    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    qexistsl_tac[`«»`,`errs`]>>
+    fs[STD_streams_add_stderr,STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
-  PairCases_on`y`>>fs[SUM_TYPE_def,map_concl_to_string_def]>>
+  PairCases_on`outc`>>
+  fs[SUM_TYPE_def,map_concl_to_string_def]>>
   xmatch>>
-  xapp>>asm_exists_tac>>xsimpl>>
-  qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
-  rw[]>>
-  qexists_tac`concl_to_string y2`>>simp[]>>
-  qexists_tac`«»`>>
-  rw[]>>simp[STD_streams_stderr,add_stdo_nil]>>
+  xapp>>
   xsimpl>>
-  qexists_tac`y2`>>
-  simp[]>>
+  qexistsl_tac[`NT_TABLE NONE st' tv`,`concl_to_string outc2`,`fs`]>>
+  xsimpl>>
+  rw[]>>
+  qexistsl_tac[`concl_to_string outc2`,`«»`]>>
+  simp[STD_streams_stderr,add_stdo_nil]>>
+  xsimpl>>
+  rw[]>>
+  qexists_tac`outc2`>>
   drule name_norm_prob_sem_concl>>
-  impl_tac
-  >- (
-    simp[init_ntn_def]>>
-    match_mp_tac init_state_ok>>
-    fs[TotOrd_compare])>>
-  simp[]
+  simp[nt_init_ok]
 QED
 
 Definition check_unsat_1_sem_def:
@@ -948,18 +1184,20 @@ val res = translate map_out_concl_to_string_def;
 
 Quote add_cakeml:
   fun check_unsat_3 f1 f2 f3 =
-  case parse_norm_pbf_full f1 init_ntn of
+  let val tv = nt_new None 0 in
+  case parse_norm_pbf_full f1 tv of
     Inl err => TextIO.output TextIO.stdErr err
-  | Inr res => case res of ((pres,(obj,(fml,mx))),t) =>
-  (case parse_norm_pbf_full f3 t of
+  | Inr (pres,(obj,(fml,mx))) =>
+  (case parse_norm_pbf_full f3 tv of
     Inl err => TextIO.output TextIO.stdErr err
-  | Inr rest => case rest of ((prest,(objt,(fmlt,mxt))),u) =>
+  | Inr (prest,(objt,(fmlt,mxt))) =>
     (case
       map_out_concl_to_string
-        (check_unsat_top True (name_to_num_var_nf,u)
+        (check_unsat_top True tv
           fml mx pres obj (dec_list fmlt) prest objt f2) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s))
+  end
 End
 
 Theorem check_unsat_3_spec:
@@ -978,77 +1216,112 @@ Theorem check_unsat_3_spec:
 Proof
   rw[check_unsat_3_sem_def]>>
   xcf "check_unsat_3" (get_ml_prog_state ())>>
-  reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
-  assume_tac init_ntn_v_thm>>
-  xlet_autop>>
-  pop_assum mp_tac>>
-  TOP_CASE_TAC
+  reverse (Cases_on `STD_streams fs`)
   >- (
-    simp[SUM_TYPE_def]>>rw[]>>
+    fs [TextIOProofTheory.STDIO_def]>>
+    xpull)>>
+  xlet_autop>>
+  xlet`POSTv tv. STDIO fs * NT_TABLE NONE (nt_init 0) tv`
+  >- (
+    xapp>>
+    xsimpl>>
+    qexists_tac`NONE`>>
+    simp[OPTION_TYPE_def]>>
+    xsimpl)>>
+  xlet`POSTv v.
+    SEP_EXISTS s'.
+    NT_TABLE NONE s' tv *
+    &(∃err. SUM_TYPE STRING_TYPE nprob_TYPE
+      (case get_fml fs f1 of
+        NONE => INL err
+      | SOME prob => INR (enc_prob (FST (name_norm_prob prob (nt_init 0))))) v ∧
+      ∀prob. get_fml fs f1 = SOME prob ⇒
+        s' = SND (name_norm_prob prob (nt_init 0))) *
+    STDIO fs`
+  >- (
+    xapp>>
+    xsimpl)>>
+  Cases_on`get_fml fs f1`>>
+  fs[SUM_TYPE_def]
+  >- (
     xmatch>>
-    xapp_spec output_stderr_spec \\ xsimpl>>
-    asm_exists_tac>>xsimpl>>
-    qexists_tac`emp`>>xsimpl>>
-    qexists_tac`fs`>>xsimpl>>
+    xapp_spec output_stderr_spec>>
+    xsimpl>>
+    qexistsl_tac[`NT_TABLE NONE s' tv`,`err`,`fs`]>>
+    xsimpl>>
     rw[]>>
-    qexists_tac`err`>>xsimpl>>rw[]>>
-    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    qexists_tac`err`>>
+    fs[STD_streams_add_stderr,STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   rename1`get_fml fs f1 = SOME prob`>>
   PairCases_on`prob`>>
   `∃pres obj fml t.
-    name_norm_prob (prob0,prob1,prob2) init_ntn = ((pres,obj,fml),t)` by
+    name_norm_prob (prob0,prob1,prob2) (nt_init 0) = ((pres,obj,fml),t)` by
     metis_tac[PAIR]>>
-  simp[SUM_TYPE_def,PAIR_TYPE_def,enc_prob_def]>>rw[]>>
+  fs[SUM_TYPE_def,PAIR_TYPE_def,enc_prob_def]>>
   xmatch>>
-  xmatch>>
-  xlet_autop>>
-  pop_assum mp_tac>>
-  TOP_CASE_TAC
+  xlet`POSTv v.
+    SEP_EXISTS s2.
+    NT_TABLE NONE s2 tv *
+    &(∃err. SUM_TYPE STRING_TYPE nprob_TYPE
+      (case get_fml fs f3 of
+        NONE => INL err
+      | SOME prob => INR (enc_prob (FST (name_norm_prob prob t)))) v ∧
+      ∀prob. get_fml fs f3 = SOME prob ⇒
+        s2 = SND (name_norm_prob prob t)) *
+    STDIO fs`
   >- (
-    simp[SUM_TYPE_def]>>rw[]>>
-    xmatch>>
-    xapp_spec output_stderr_spec \\ xsimpl>>
-    asm_exists_tac>>xsimpl>>
-    qexists_tac`emp`>>xsimpl>>
-    qexists_tac`fs`>>xsimpl>>
+    xapp>>
+    xsimpl>>
+    qexistsl_tac[`emp`,`t`,`fs`,`f3`]>>
+    xsimpl>>
     rw[]>>
-    qexists_tac`err`>>xsimpl>>rw[]>>
-    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    qexistsl_tac[`x`,`err`]>>
+    xsimpl)>>
+  Cases_on`get_fml fs f3`>>
+  fs[SUM_TYPE_def]
+  >- (
+    xmatch>>
+    xapp_spec output_stderr_spec>>
+    xsimpl>>
+    qexistsl_tac[`NT_TABLE NONE s2 tv`,`err`,`fs`]>>
+    xsimpl>>
+    rw[]>>
+    qexists_tac`err`>>
+    fs[STD_streams_add_stderr,STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   rename1`get_fml fs f3 = SOME probt`>>
   PairCases_on`probt`>>
   `∃prest objt fmlt u.
     name_norm_prob (probt0,probt1,probt2) t = ((prest,objt,fmlt),u)` by
     metis_tac[PAIR]>>
-  simp[SUM_TYPE_def,PAIR_TYPE_def,enc_prob_def]>>rw[]>>
+  fs[SUM_TYPE_def,PAIR_TYPE_def,enc_prob_def]>>
   xmatch>>
-  xmatch>>
-  xlet`POSTv v. STDIO fs * &LIST_TYPE constraint_TYPE fmlt v`
+  xlet`POSTv v.
+    STDIO fs * NT_TABLE NONE u tv * &LIST_TYPE constraint_TYPE fmlt v`
   >- (
-    xapp>>xsimpl>>
+    xapp>>
+    xsimpl>>
     qexists_tac`enc_list fmlt`>>
     gvs[npbc_arrayProgTheory.LIST_TYPE_fslot_TYPE,dec_list_side,
-      dec_list_enc_list])>>
-  ntac 2 xlet_autop>>
-  xlet`(POSTv v.
-     STDIO fs *
-     SEP_EXISTS res.
-     &(
-       SUM_TYPE STRING_TYPE
-         (PAIR_TYPE PBC_OUTPUT_TYPE
-           (PAIR_TYPE (OPTION_TYPE INT) PBC_CONCL_TYPE))
-         res v ∧
-       case res of
-         INR (output,bound,concl) =>
-         npbc$sem_concl (set fml) obj (pres_set_spt pres) concl ∧
-         npbc$sem_output (set fml) obj (pres_set_spt pres) bound
+        dec_list_enc_list])>>
+  xlet_autop>>
+  xlet`POSTv v.
+    STDIO fs *
+    SEP_EXISTS res st'.
+    NT_TABLE NONE st' tv *
+    &(SUM_TYPE STRING_TYPE
+        (PAIR_TYPE PBC_OUTPUT_TYPE
+          (PAIR_TYPE (OPTION_TYPE INT) PBC_CONCL_TYPE)) res v ∧
+      case res of
+        INR (output,bound,concl) =>
+        npbc$sem_concl (set fml) obj (pres_set_spt pres) concl ∧
+        npbc$sem_output (set fml) obj (pres_set_spt pres) bound
           (set fmlt) objt (pres_set_spt prest) output
-       | INL l => T))`
+      | INL l => T)`
   >- (
     assume_tac (Q.INST [`mx`|->`0`] npbc_parseProgTheory.max_var_list_bound)>>
-    xapp_spec (check_unsat_top_spec
-      |> INST_TYPE[alpha|->``:mlstring name_to_num_state``])>>
+    xapp_spec check_unsat_top_spec>>
     xsimpl>>
     fs[enc_list_def]>>
     rw[]
@@ -1057,55 +1330,38 @@ Proof
       EVAL_TAC)
     >- (
       qexists_tac`f2`>>
-      fs[FILENAME_def,validArg_def])
-    >- (
-      qexists_tac`max_var_list fml 0`>>
-      simp[])>>
-    qexistsl_tac [`ntn_TYPE`,`(name_to_num_var_nf,u)`]>>
-    simp[PAIR_TYPE_def,name_to_num_var_nf_v_thm])>>
-  xlet_auto
-  >- xsimpl>>
-  Cases_on`res`>>fs[map_out_concl_to_string_def,SUM_TYPE_def]
+      fs[FILENAME_def,validArg_def])>>
+    qexists_tac`max_var_list fml 0`>>
+    simp[])>>
+  xlet_autop>>
+  namedCases_on`res`["errs","outc"]>>
+  fs[map_out_concl_to_string_def,SUM_TYPE_def]
   >- (
     xmatch>>
-    xapp_spec output_stderr_spec \\ xsimpl>>
-    asm_exists_tac>>xsimpl>>
-    qexists_tac`emp`>>xsimpl>>
-    qexists_tac`fs`>>xsimpl>>
+    xapp_spec output_stderr_spec>>
+    xsimpl>>
+    qexistsl_tac[`NT_TABLE NONE st' tv`,`errs`,`fs`]>>
+    xsimpl>>
     rw[]>>
-    qexists_tac`«»`>>
-    rename1`add_stderr _ err`>>
-    qexists_tac`err`>>xsimpl>>rw[]>>
-    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    qexistsl_tac[`«»`,`errs`]>>
+    fs[STD_streams_add_stderr,STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
-  PairCases_on`y`>>fs[SUM_TYPE_def,map_out_concl_to_string_def]>>
+  PairCases_on`outc`>>
+  fs[SUM_TYPE_def,map_out_concl_to_string_def]>>
   xmatch>>
-  xapp>>asm_exists_tac>>xsimpl>>
-  qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
-  rw[]>>
-  qexists_tac`concl_to_string y2 ^ output_to_string y1 y0`>>simp[]>>
-  qexists_tac`«»`>>
-  rw[]>>simp[STD_streams_stderr,add_stdo_nil]>>
+  xapp>>
   xsimpl>>
-  qexistsl_tac [`y0`,`y1`,`y2`]>>
-  simp[]>>
-  `name_to_num_state_ok init_ntn` by (
-    simp[init_ntn_def]>>
-    match_mp_tac init_state_ok>>
-    fs[TotOrd_compare])>>
-  `name_to_num_state_ok t` by
-    metis_tac[name_to_num_state_ok_name_norm_prob]>>
-  CONJ_TAC
-  >- (
-    qpat_assum`name_norm_prob _ init_ntn = _`
-      (mp_then (Pos hd) mp_tac name_norm_prob_sem_concl)>>
-    simp[])>>
-  `sem_output (set prob2) prob1 (pres_set_list prob0) y1
-     (set probt2) probt1 (pres_set_list probt0) y0 ⇔
-   sem_output (set fml) obj (pres_set_spt pres) y1
-     (set fmlt) objt (pres_set_spt prest) y0` by (
-    irule name_norm_prob_sem_output>>
-    metis_tac[])>>
+  qexistsl_tac[`NT_TABLE NONE st' tv`,
+               `concl_to_string outc2 ^ output_to_string outc1 outc0`,`fs`]>>
+  xsimpl>>
+  rw[]>>
+  qexistsl_tac[`concl_to_string outc2 ^ output_to_string outc1 outc0`,`«»`]>>
+  simp[STD_streams_stderr,add_stdo_nil]>>
+  xsimpl>>
+  rw[]>>
+  qexistsl_tac[`outc0`,`outc1`,`outc2`]>>
+  assume_tac (Q.INST [`n`|->`0`] nt_init_ok)>>
+  drule_all name_norm_prob_2_sem>>
   simp[]
 QED
 

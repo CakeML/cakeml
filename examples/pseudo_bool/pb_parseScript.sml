@@ -3,7 +3,7 @@
 *)
 Theory pb_parse
 Ancestors
-  pbc pbc_normalise npbc_check mlint
+  pbc pbc_normalise name_table npbc_check mlint
 Libs
   preamble
 
@@ -218,69 +218,6 @@ Termination
   rw[smallnum_lt_str_def,smallnum_add_str_def]
 End
 
-(* TODO: move to mlstringTheory, generalising strsub_substring_0_thm *)
-Theorem strsub_substring[local]:
-  a < n ∧ i + n ≤ strlen s ⇒
-  strsub (substring s i n) a = strsub s (i + a)
-Proof
-  Cases_on`s`>>
-  rw[mlstringTheory.strsub_def,mlstringTheory.substring_def,
-     SEG_TAKE_DROP,EL_TAKE,EL_DROP]
-QED
-
-(* TODO: move to mlstringTheory *)
-Theorem substring_substring[local]:
-  a + b ≤ n ∧ i + n ≤ strlen s ⇒
-  substring (substring s i n) a b = substring s (i + a) b
-Proof
-  Cases_on`s`>>
-  rw[mlstringTheory.substring_def,SEG_TAKE_DROP,TAKE_TAKE,DROP_DROP,DROP_TAKE]
-QED
-
-(* TODO: move to mlintTheory, generalising fromChars_range_unsafe_0_substring_thm *)
-Theorem fromChars_range_unsafe_substring[local]:
-  ∀n p len s.
-  n ≤ len ∧ p + len ≤ strlen s ⇒
-  fromChars_range_unsafe 0 n (substring s p len) = fromChars_range_unsafe p n s
-Proof
-  Induct>>
-  rw[fromChars_range_unsafe_def,strsub_substring]
-QED
-
-Theorem EL_explode_strsub[local]:
-  a < strlen t ⇒ EL a (explode t) = strsub t a
-Proof
-  Cases_on`t`>>
-  simp[mlstringTheory.strsub_def]
-QED
-
-(* TODO: move to mlintTheory *)
-Theorem fromChars_substring_NONE[local]:
-  p ≤ q ∧ q < p + n ∧ p + n ≤ strlen s ∧ ¬isDigit (strsub s q) ⇒
-  fromChars n (substring s p n) = NONE
-Proof
-  strip_tac>>
-  `¬IS_SOME (fromChars n (substring s p n))` suffices_by
-    (Cases_on`fromChars n (substring s p n)`>>simp[])>>
-  DEP_REWRITE_TAC [mlintTheory.fromChars_IS_SOME_IFF]>>
-  simp[mlstringTheory.strlen_substring,TAKE_LENGTH_ID_rwt,EXISTS_MEM,MEM_EL,
-       PULL_EXISTS]>>
-  qexists_tac`q - p`>>
-  simp[EL_explode_strsub,strsub_substring,mlstringTheory.strlen_substring]
-QED
-
-(* TODO: move to mlintTheory *)
-Theorem fromChars_substring_SOME[local]:
-  (∀q. p ≤ q ∧ q < p + n ⇒ isDigit (strsub s q)) ∧ 0 < n ∧ p + n ≤ strlen s ⇒
-  fromChars n (substring s p n) = SOME (fromChars_range_unsafe p n s)
-Proof
-  strip_tac>>
-  DEP_REWRITE_TAC [mlintTheory.fromChars_eq_unsafe]>>
-  simp[mlstringTheory.strlen_substring,mlintTheory.fromChars_range_unsafe_eq,
-       fromChars_range_unsafe_substring,EVERY_EL,EL_explode_strsub,
-       strsub_substring]
-QED
-
 (* What scan_toks knows about the token s[i..j) it is reading in state m *)
 Definition scan_inv_def:
   scan_inv s m neg acc k i j ⇔
@@ -388,20 +325,6 @@ Theorem range_snoc[local]:
 Proof
   rw[EQ_IMP_THM]>>
   Cases_on`q = j`>>gvs[]
-QED
-
-(* TODO: move to mlintTheory *)
-Theorem fromChars_range_unsafe_snoc[local]:
-  p ≤ j ⇒
-  fromChars_range_unsafe p (j + 1 - p) s =
-  10 * fromChars_range_unsafe p (j - p) s + (ORD (strsub s j) − 48)
-Proof
-  strip_tac>>
-  `j + 1 - p = SUC (j - p)` by decide_tac>>
-  pop_assum SUBST1_TAC>>
-  REWRITE_TAC[mlintTheory.fromChars_range_unsafe_def,
-              mlintTheory.fromChar_unsafe_def]>>
-  simp[]
 QED
 
 Theorem scan_inv_2_intro[local]:
@@ -673,7 +596,7 @@ Definition is_arrow_def:
   is_arrow s ⇔ s = «==>» ∨ s = «<==» ∨ s = «<==>»
 End
 
-(* No arrow may also be a comparison. parse_constraint_npbc's unreified
+(* No arrow may also be a comparison. parse_pbc_rest's unreified
   path matches INL cmp :: INR deg :: rest, so were an arrow to parse as a
   comparison it would accept a line whose comparison token is an arrow —
   e.g. a preserved_add whose preserved variable is missing. *)
@@ -1286,14 +1209,20 @@ Definition parse_norm_lines_def:
     else parse_norm_lines ls s acc)
 End
 
-(* The objective and preserved lines are among the first two lines.
+Definition opt_list_def:
+  opt_list NONE = [] ∧
+  opt_list (SOME x) = [x]
+End
+
+(* The objective and preserved lines are among the first two lines l1, l2.
   Whatever they leave over is a constraint. *)
+Definition split_header_def:
+  split_header l1 l2 = parse_obj_pres_maybe (opt_list l1 ++ opt_list l2)
+End
+
 Definition parse_norm_header_def:
   parse_norm_header l1 l2 s =
-  let ls =
-    (case l1 of NONE => [] | SOME l => [l]) ++
-    (case l2 of NONE => [] | SOME l => [l]) in
-  let (obj,pres,rest) = parse_obj_pres_maybe ls in
+  let (obj,pres,rest) = split_header l1 l2 in
   let (pres',s') = name_to_num_pres pres s in
   let (obj',s'') = name_to_num_obj obj s' in
   case parse_norm_lines rest s'' [] of
@@ -1399,21 +1328,30 @@ Proof
   simp[parse_obj_maybe_def,parse_pres_maybe_def]
 QED
 
+Theorem parse_obj_pres_maybe_EVERY:
+  parse_obj_pres_maybe ls = (obj,pres,rest) ∧ EVERY P ls ⇒ EVERY P rest
+Proof
+  metis_tac[parse_obj_pres_maybe_TAKE]
+QED
+
+Theorem split_header_oHD:
+  split_header (oHD ls) (oHD (DROP 1 ls)) = parse_obj_pres_maybe (TAKE 2 ls)
+Proof
+  Cases_on`ls`>>
+  simp[split_header_def,opt_list_def]>>
+  Cases_on`t`>>
+  simp[opt_list_def]
+QED
+
 Theorem parse_norm_pbf_toks_thm:
   parse_norm_pbf_toks tokss s =
   OPTION_MAP (λprob. name_norm_prob (strip_annot_prob prob) s)
     (parse_pbf_toks tokss)
 Proof
-  simp[parse_norm_pbf_toks_def,parse_pbf_toks_def,parse_norm_header_def]>>
+  simp[parse_norm_pbf_toks_def,parse_pbf_toks_def,parse_norm_header_def,
+       split_header_oHD]>>
   qabbrev_tac`fl = FILTER nocomment_line tokss`>>
   `EVERY nocomment_line fl` by simp[Abbr`fl`,EVERY_FILTER]>>
-  `(case oHD fl of NONE => [] | SOME l => [l]) ++
-   (case oHD (DROP 1 fl) of NONE => [] | SOME l => [l]) = TAKE 2 fl` by (
-    Cases_on`fl`>>
-    simp[]>>
-    rename1`l1::tl`>>
-    Cases_on`tl`>>
-    simp[])>>
   `∃obj pres rest. parse_obj_pres_maybe fl = (obj,pres,rest)` by
     metis_tac[PAIR]>>
   drule parse_obj_pres_maybe_TAKE>>
@@ -1528,39 +1466,13 @@ Proof
   \\ simp []
 QED
 
-Type name_fun[pp] = “:(mlstring -> α -> (num # α) option) # α”
+(*
+  Parsing a proof file, one line at a time.
 
-(* String literals are automatically mapped to internal names *)
-Definition apply_lit_def:
-  apply_lit ((f,ns):'a name_fun) (Pos x) =
-    (case f x ns of
-     | NONE => NONE
-     | SOME (y,ns1) => SOME (Pos y,f,ns1)) ∧
-  apply_lit (f,ns) (Neg x) =
-    (case f x ns of
-     | NONE => NONE
-     | SOME (y,ns1) => SOME (Neg y,f,ns1))
-End
-
-(* Unused, but useful for testing *)
-Definition plainVar_nf_def:
-  plainVar_nf s (u:unit) =
-  if strlen s ≥ 1 ∧ strsub s 0 = #"x" then
-    case mlint$fromNatString (substring s 1 (strlen s - 1)) of
-      NONE => NONE
-    | SOME n => SOME (n,())
-  else
-    NONE
-End
-
-(* The cutting planes polish notation stack is formed from constraints, where
-  factors and variables are also encoded using Id *)
-Definition parse_lit_num_def:
-  parse_lit_num (f_ns:'a name_fun) s =
-    case parse_lit s of
-    | NONE => NONE
-    | SOME l => apply_lit f_ns l
-End
+  parse_line reads a line into a pline over names; name_pline numbers its
+  names (the table in npbc_parseProg implements it); fin_lstep and
+  fin_cstep turn the numbered line into the step it states.
+*)
 
 Definition binopc_def:
   binopc stack =
@@ -1571,10 +1483,10 @@ End
 
 (* Parsing cutting planes in polish notation (header "pol", ";" stripped) *)
 Definition parse_cutting_aux_def:
-  (parse_cutting_aux f_ns (x::xs) stack =
+  (parse_cutting_aux (x::xs) (stack:mlstring constr list) =
   case x of INR n =>
     if n ≥ 0 then
-      parse_cutting_aux f_ns xs (Id (Num n) :: stack)
+      parse_cutting_aux xs (Id (Num n) :: stack)
     else NONE
   | INL s =>
   if strlen s = 1
@@ -1582,108 +1494,67 @@ Definition parse_cutting_aux_def:
     let c = strsub_unsafe s 0 in
       if c = #"+" then
         (case stack of
-          a::b::rest => parse_cutting_aux f_ns xs (Add b a::rest)
+          a::b::rest => parse_cutting_aux xs (Add b a::rest)
         | _ => NONE)
       else if c = #"*" then
         (case binopc stack of NONE => NONE
-        | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Mul b a::rest))
+        | SOME (a,b,rest) => parse_cutting_aux xs (Mul b a::rest))
       else if c = #"w" then
         (case stack of
-          Lit (Pos v)::a::rest => parse_cutting_aux f_ns xs (Weak a [v]::rest)
+          Lit (Pos v)::a::rest => parse_cutting_aux xs (Weak a [v]::rest)
         | _ => NONE)
       else if c = #"s" then
         (case stack of
-          a::rest => parse_cutting_aux f_ns xs (Sat a::rest)
+          a::rest => parse_cutting_aux xs (Sat a::rest)
         | _ => NONE)
      else if c = #"c" then
       (case binopc stack of NONE => NONE
-      | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Div Cd b a::rest))
+      | SOME (a,b,rest) => parse_cutting_aux xs (Div Cd b a::rest))
      else if c = #"d" then
       (case binopc stack of NONE => NONE
-      | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Div Dd b a::rest))
+      | SOME (a,b,rest) => parse_cutting_aux xs (Div Dd b a::rest))
      else if c = #"m" then
       (case binopc stack of NONE => NONE
-      | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Div Md b a::rest))
+      | SOME (a,b,rest) => parse_cutting_aux xs (Div Md b a::rest))
      else if c = #"n" then
       (case binopc stack of NONE => NONE
-      | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Div Nd b a::rest))
+      | SOME (a,b,rest) => parse_cutting_aux xs (Div Nd b a::rest))
      else if c = #"-" then
       (case binopc stack of NONE => NONE
-      | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Minus b a::rest))
+      | SOME (a,b,rest) => parse_cutting_aux xs (Minus b a::rest))
      else
-      (case parse_lit_num f_ns s of
-      | SOME (l,f_ns1)=> parse_cutting_aux f_ns1 xs (Lit l::stack)
+      (case parse_lit s of
+      | SOME l => parse_cutting_aux xs (Lit l::stack)
       | NONE => NONE)
   else
-    case parse_lit_num f_ns s of
-    | SOME (l,f_ns1)=> parse_cutting_aux f_ns1 xs (Lit l::stack)
+    case parse_lit s of
+    | SOME l => parse_cutting_aux xs (Lit l::stack)
     | NONE => NONE) ∧
-  (parse_cutting_aux f_ns [] [c] = SOME (c,f_ns)) ∧
-  (parse_cutting_aux f_ns [] _ = NONE)
+  (parse_cutting_aux [] [c] = SOME c) ∧
+  (parse_cutting_aux [] _ = NONE)
 End
 
 Definition parse_cutting_def:
-  parse_cutting f_ns ls = parse_cutting_aux f_ns ls []
+  parse_cutting ls = parse_cutting_aux ls []
 End
 
 (*
-  EVAL ``parse_cutting (plainVar_nf,()) (toks «8 2 + 3 + 1 s + 9 2 n + x5 2 * + 5 -»)``;
+  EVAL ``parse_cutting (toks «8 2 + 3 + 1 s + 9 2 n + x5 2 * + 5 -»)``;
 *)
 
-(* Parse a pseudo-Boolean constraint *)
-Definition map_f_ns_def:
-  (map_f_ns f_ns [] = SOME ([],f_ns)) ∧
-  (map_f_ns f_ns ((c,l)::xs) =
-  case apply_lit f_ns l of
-    NONE => NONE
-  | SOME (l',f_ns') =>
-    case map_f_ns f_ns' xs of NONE => NONE
-    | SOME (ys,f_ns'') =>
-      SOME ((c,l')::ys,f_ns''))
-End
-
-Definition map_f_ns_lits_def:
-  (map_f_ns_lits f_ns [] = SOME ([],f_ns)) ∧
-  (map_f_ns_lits f_ns (l::ls) =
-  case apply_lit f_ns l of
-    NONE => NONE
-  | SOME (l',f_ns') =>
-    case map_f_ns_lits f_ns' ls of NONE => NONE
-    | SOME (ys,f_ns'') =>
-      SOME (l'::ys,f_ns''))
-End
-
-(* A proof-file constraint is accepted exactly when its head expands to a
-  single normalised constraint, since lstep/sstep hold one npbc *)
-Definition mk_npbc_def:
-  mk_npbc f_ns arrow gs rel lhs deg =
-  case map_f_ns_lits f_ns gs of NONE => NONE
-  | SOME (gs',f_ns') =>
-    (case map_f_ns f_ns' lhs of NONE => NONE
-    | SOME (lhs',f_ns'') =>
-      (case mk_hd arrow gs' rel of
+(* A proof-file constraint and the tokens after its degree *)
+Definition parse_pbc_rest_def:
+  parse_pbc_rest line =
+  case parse_constraint_front line of (arrow,gs,lhs,rest) =>
+  case rest of
+    INL cmp :: INR deg :: rest' =>
+    (case parse_op cmp of
+      NONE => NONE
+    | SOME rel =>
+      (case mk_hd arrow gs rel of
         NONE => NONE
-      | SOME hd =>
-        (case to_gnpbc (hd,lhs',deg) of
-          [gc] => SOME (inject gc,f_ns'')
-        | _ => NONE)))
-End
-
-Definition parse_constraint_npbc_def:
-  parse_constraint_npbc f_ns line =
-  let (arrow,gs,body) =
-    (case parse_reif_aux line [] of
-      NONE => («==>»,[],line)
-    | SOME (arrow,gs,rest) => (arrow,gs,rest)) in
-  (case parse_constraint_LHS body of (rest,lhs) =>
-    (case rest of (INL cmp :: INR deg :: rest') =>
-      (case parse_op cmp of
-        NONE => NONE
-      | SOME rel =>
-        (case mk_npbc f_ns arrow gs rel lhs deg of
-          NONE => NONE
-        | SOME (c,f_ns') => SOME (c,rest',f_ns')))
-    | _ => NONE))
+      | SOME hd => SOME (((hd,lhs,deg):mlstring pbc),rest')))
+  | _ => NONE
 End
 
 (* A rup hint must be a sequence of numbers *)
@@ -1749,16 +1620,16 @@ End
 
 (* Parsing RUP step (header "rup", ";" stripped) *)
 Definition parse_rup_def:
-  parse_rup f_ns line =
-  case parse_constraint_npbc f_ns line of
-    SOME (constr,rest,f_ns') =>
+  parse_rup line =
+  case parse_pbc_rest line of
+    SOME (c,rest) =>
       (case parse_rup_hint rest of NONE => NONE
-      | SOME ns => SOME(constr,ns,f_ns'))
-  | _ => NONE
+      | SOME ns => SOME (c,ns))
+  | NONE => NONE
 End
 
 (*
-  EVAL ``parse_rup (plainVar_nf,()) (toks «1 ~x5 1 x26 +1 x27 1 x28 1 x29 >= 1 : 6 11 ~»)``
+  EVAL ``parse_rup (toks «1 ~x5 1 x26 +1 x27 1 x28 1 x29 >= 1 : 6 11 ~»)``
 *)
 
 Definition start_subproof_def:
@@ -1777,17 +1648,17 @@ Definition colon_id_opt_def:
 End
 
 Definition parse_pbc_header_def:
-  parse_pbc_header f_ns line =
-  case parse_constraint_npbc f_ns line of
-    SOME (constr,rest,f_ns') =>
+  parse_pbc_header line =
+  case parse_pbc_rest line of
+    SOME (c,rest) =>
       if start_subproof rest
-      then SOME (constr,f_ns')
+      then SOME c
       else NONE
-  | _ => NONE
+  | NONE => NONE
 End
 
 (*
-  EVAL ``parse_pbc_header (plainVar_nf,()) (toks «3 x1 -3 x2 2 x3 >= 5 : subproof»)``
+  EVAL ``parse_pbc_header (toks «3 x1 -3 x2 2 x3 >= 5 : subproof»)``
 *)
 
 Definition strip_numbers_aux_def:
@@ -1829,59 +1700,6 @@ Proof
   simp[strip_numbers_def,strip_numbers_aux_ok]
 QED
 
-(* Parse a single line of lstep including ; terminator
-  pbc does not end with terminator.
-  NONE -> failed to parse
-  INL c -> beginning of a proof-by-contradiction
-  INR s -> lstep *)
-Definition parse_lstep_aux_def:
-  (parse_lstep_aux f_ns s =
-    case s of [] => NONE
-    | (r::rs) =>
-      if r = INL «pbc» then
-        case parse_pbc_header f_ns rs of NONE => NONE
-        | SOME (c,f_ns') =>
-          SOME (INR c,f_ns')
-      else
-      case strip_term_line rs of NONE => NONE
-      | SOME rs =>
-      if r = INL «deld» then
-        (case strip_numbers rs of NONE => NONE
-        | SOME n => SOME (INL (Delete n),f_ns))
-      else if r = INL «pol» then
-        (case parse_cutting f_ns rs of NONE => NONE
-        | SOME (p,f_ns') => SOME (INL (Cutting p),f_ns'))
-      else if r = INL «rup» then
-        (case parse_rup f_ns rs of NONE => NONE
-        | SOME (c,ns,f_ns') => SOME (INL (Rup c ns),f_ns'))
-      else if r = INL «e» then
-        (case parse_constraint_npbc f_ns rs of
-          NONE => NONE
-        | SOME (c,rest,f_ns') =>
-          case colon_id_opt rest of
-          | SOME (SOME res) =>
-            SOME (INL (Check res c), f_ns')
-          | _ => NONE)
-      else if r = INL «ia» then
-        (case parse_constraint_npbc f_ns rs of
-          NONE => NONE
-        | SOME (c,rest,f_ns') =>
-          case colon_id_opt rest of
-          | SOME (SOME res) =>
-            SOME (INL (ImplyAdd res c), f_ns')
-          | _ => NONE)
-      else if r = INL «e» then
-        (case parse_constraint_npbc f_ns rs of
-          NONE => NONE
-        | SOME (c,rest,f_ns') =>
-          case colon_id_opt rest of
-          | SOME (SOME res) =>
-            SOME (INL (Check res c), f_ns')
-          | _ => NONE)
-      else if r = INL «*» then SOME (INL NoOp,f_ns)
-      else NONE)
-End
-
 (* qed mark : ID ; --- ID is optional *)
 Definition check_mark_qed_id_opt_def:
   check_mark_qed_id_opt mark (h:(mlstring + int) list ) =
@@ -1916,141 +1734,55 @@ EVAL `` check_mark_qed_id_opt (INL «pbc») (toks «qed pbc;»)``
 EVAL `` check_mark_qed_id_opt (INL «pbc») (toks «qed;»)``
 *)
 
-(* Parsing lsteps in a subproof until parsing
-  fails and return the failing line
-  (note: this expects a failing line, i.e.,
-  in an lstep parse, it should match everything nested
-  pbc step except the outermost one ) *)
-Definition parse_lsteps_aux_def:
-  (parse_lsteps_aux f_ns
-    ([]:(mlstring + int) list list)
-    (acc:lstep list) = NONE) ∧
-  (parse_lsteps_aux f_ns (s::ss) acc =
-    case parse_lstep_aux f_ns s of
-    | NONE => SOME (REVERSE acc, f_ns, s, ss)
-    | SOME (INL step, f_ns') =>
-      parse_lsteps_aux f_ns' ss (step::acc)
-    | SOME (INR c, f_ns') =>
-      case parse_lsteps_aux f_ns' ss [] of
-        NONE => NONE
-      | SOME (pf,f_ns'',s,rest) =>
-      if LENGTH rest < LENGTH ss then
-        case check_mark_qed_id (INL «pbc») s of
-          NONE => NONE
-        | SOME id =>
-          parse_lsteps_aux f_ns'' rest (Con c pf id::acc)
-      else NONE)
-Termination
-  WF_REL_TAC ‘measure (LENGTH o FST o SND)’
-  \\ rw[] \\ fs[]
-End
-
-Theorem parse_lsteps_aux_LENGTH:
-  ∀f_ns ss acc acc' f_ns' s ss'.
-  parse_lsteps_aux f_ns ss acc = SOME(acc',f_ns' ,s,ss') ⇒
-  LENGTH ss' < LENGTH ss
-Proof
-  ho_match_mp_tac parse_lsteps_aux_ind>>
-  rw[parse_lsteps_aux_def]>>
-  every_case_tac>>
-  gs[]
-QED
-
-Theorem parse_lsteps_aux_thm:
-  (∀f_ns acc.
-    parse_lsteps_aux f_ns
-    ([]:(mlstring + int) list list)
-    (acc:lstep list) = NONE) ∧
-  (∀f_ns s ss acc.
-    parse_lsteps_aux f_ns (s::ss) acc =
-    case parse_lstep_aux f_ns s of
-    | NONE => SOME (REVERSE acc, f_ns, s, ss)
-    | SOME (INL step, f_ns') =>
-      parse_lsteps_aux f_ns' ss (step::acc)
-    | SOME (INR c, f_ns') =>
-        case parse_lsteps_aux f_ns' ss [] of
-          NONE => NONE
-        | SOME (pf,f_ns'',s,rest) =>
-          case check_mark_qed_id (INL «pbc») s of
-            NONE => NONE
-          | SOME id =>
-            parse_lsteps_aux f_ns'' rest (Con c pf id::acc))
-Proof
-  rw[]
-  >-
-    simp[Once parse_lsteps_aux_def]
-  >- (
-    simp[Once parse_lsteps_aux_def]>>
-    every_case_tac>>fs[]>>
-    imp_res_tac parse_lsteps_aux_LENGTH)
-QED
-
-Definition parse_lsteps_def:
-  parse_lsteps f_ns ss = parse_lsteps_aux f_ns ss []
-End
-
-(*
-  EVAL`` parse_lsteps (plainVar_nf,())
-  (MAP toks [
-  «pbc +3 x1 +3 x2 +2 x3 >= 5 : subproof»;
-  «pbc +3 x1 +3 x2 +2 x3 >= 5 : subproof»;
-  «pol 1 2 +;»;
-  «rup >= 1 : 1234;»;
-  «qed pbc : 4;»;
-  «qed pbc : 4;»;
-  «qed pbc : 4;»;
-  ])``
-*)
-
 Definition parse_var_def:
-  parse_var f_ns v =
-  case parse_lit_num f_ns v of
-    SOME (Pos n,f_ns) => SOME (n,f_ns)
+  parse_var v =
+  case parse_lit v of
+    SOME (Pos n) => SOME n
   | _ => NONE
 End
 
 (* Parse a substitution {var -> lit} *)
 Definition parse_subst_aux_def:
-  (parse_subst_aux f_ns (INL v :: INL arr :: r ::rest) acc =
+  (parse_subst_aux (INL v :: INL arr :: r ::rest) acc =
   if arr = «->» then
-    case parse_var f_ns v of
-      NONE => ([],[],f_ns)
-    | SOME (v,f_ns) =>
+    case parse_var v of
+      NONE => ([],[])
+    | SOME v =>
     (case r of
         INR r =>
-          if r = 0:int then parse_subst_aux f_ns rest ((v,INL F)::acc)
-          else if r = 1 then parse_subst_aux f_ns rest ((v,INL T)::acc)
-          else ([],[],f_ns)
+          if r = 0:int then parse_subst_aux rest ((v,INL F)::acc)
+          else if r = 1 then parse_subst_aux rest ((v,INL T)::acc)
+          else ([],[])
       | INL r =>
-          (case parse_lit_num f_ns r of NONE => ([],[],f_ns)
-          | SOME (l, f_ns)  => parse_subst_aux f_ns rest ((v,INR l)::acc)))
-  else ([],[],f_ns)) ∧
-  (parse_subst_aux f_ns ls acc = (ls, acc,f_ns))
+          (case parse_lit r of NONE => ([],[])
+          | SOME l => parse_subst_aux rest ((v,INR l)::acc)))
+  else ([],[])) ∧
+  (parse_subst_aux ls acc = (ls, acc:mlstring subst_raw))
 End
 
 Definition parse_subst_def:
-  (parse_subst f_ns [] = NONE) ∧
-  (parse_subst f_ns (x::xs) =
+  (parse_subst [] = NONE) ∧
+  (parse_subst (x::xs) =
     case x of
       INL s =>
       if s = «:» then
-      SOME (parse_subst_aux f_ns xs [])
+      SOME (parse_subst_aux xs [])
       else NONE
     | _ => NONE)
 End
 
 (* A strengthening rule header *)
 Definition parse_red_header_def:
-  parse_red_header f_ns line =
-  case parse_constraint_npbc f_ns line of
-    SOME (constr,rest,f_ns') =>
-      (case parse_subst f_ns' rest of
+  parse_red_header line =
+  case parse_pbc_rest line of
+    SOME (c,rest) =>
+      (case parse_subst rest of
         NONE => NONE
-      | SOME (rest,ss,f_ns'') =>
+      | SOME (rest,ss) =>
         if start_subproof rest
-        then SOME (constr,ss,f_ns'')
+        then SOME (c,ss)
         else NONE)
-  | _ => NONE
+  | NONE => NONE
 End
 
 (* parse a subproof and returns the next failing line
@@ -2097,64 +1829,6 @@ Definition mk_proofgoal_mark_def:
   | INR n => INL («#» ^ toString (n+1))
 End
 
-Definition parse_subproof_aux_def:
-  (parse_subproof_aux f_ns ss (acc:subproof) =
-  case parse_lsteps f_ns ss of
-    NONE => NONE
-  | SOME (pf,f_ns',s,rest) =>
-    let acc = mk_acc pf acc in
-    case parse_proofgoal s of
-      NONE => SOME (REVERSE acc, f_ns', s, rest)
-    | SOME ind =>
-      (case parse_lsteps f_ns' rest of
-        NONE => NONE
-      | SOME (pf,f_ns'',s,rest) =>
-        case check_mark_qed_id (mk_proofgoal_mark ind) s of
-          NONE => NONE
-        | SOME id =>
-        parse_subproof_aux f_ns'' rest ((SOME (ind,id),pf)::acc)
-       )
-  )
-Termination
-  WF_REL_TAC ‘measure (LENGTH o FST o SND)’
-  \\ rw[] \\ fs[parse_lsteps_def]>>
-  imp_res_tac parse_lsteps_aux_LENGTH>>
-  fs[]
-End
-
-Definition parse_subproof_def:
-  parse_subproof f_ns ss =
-  parse_subproof_aux f_ns ss []
-End
-
-(*
-  EVAL`` parse_subproof (plainVar_nf,())
-  (MAP toks [
-  «pol 12 11 + 5 + 6 +;»;
-  «proofgoal #1»;
-  «pol 12 11 + 5 + 6 +;»;
-  «pbc +3 x1 +3 x2 +2 x3 >= 5 : subproof»;
-  «pol 1 2 +;»;
-  «pbc +3 x1 +3 x2 +2 x3 >= 5 : subproof»;
-  «pol 1 2 +;»;
-  «rup >= 1 : 1234;»;
-  «qed pbc : 4;»;
-  «rup >= 1 : 1234;»;
-  «qed pbc : 4;»;
-  «pol 14 x6 +;»;
-  «qed #1 : 15;»;
-  «pol 12 11 + 5 + 6 +;»;
-  «pbc +3 x1 +3 x2 +2 x3 >= 5 : subproof»;
-  «pol 1 2 +;»;
-  «rup >= 1 : 1234;»;
-  «qed pbc : 4;»;
-  «proofgoal 1»;
-  «pol 16 2 +;»;
-  «qed 1 : 17;»;
-  «qed;»;
-  ])``
-*)
-
 (* leq -> 0, geq -> 1 *)
 Definition parse_scopetext_def:
   parse_scopetext line =
@@ -2194,106 +1868,6 @@ Definition check_end_def:
   | _ => F
 End
 
-Theorem parse_subproof_aux_LENGTH:
-  ∀f_ns ss acc res acc' f_ns' ss'.
-  parse_subproof_aux f_ns ss acc = SOME(res,acc',f_ns',ss') ⇒
-  LENGTH ss' < LENGTH ss
-Proof
-  ho_match_mp_tac (fetch "-" "parse_subproof_aux_ind")>>
-  rw[]>>
-  pop_assum mp_tac>>
-  simp[Once parse_subproof_aux_def]>>
-  every_case_tac>>fs[parse_lsteps_def]>>
-  rw[]>>imp_res_tac parse_lsteps_aux_LENGTH>>
-  fs[]
-QED
-
-(* parse a scope and returns the next failing line
-  Type scope = ``:(num option, subproof) alist``;
-*)
-Definition parse_scope_aux_def:
-  (parse_scope_aux f_ns ss (acc:(num option, subproof) alist) =
-  case parse_subproof f_ns ss of
-    NONE => NONE
-  | SOME (pf,f_ns',s,rest) =>
-    let acc = mk_acc pf acc in
-    case parse_scopehead s of
-      NONE => SOME (REVERSE acc, f_ns', s, rest)
-    | SOME ind =>
-      (case parse_subproof f_ns' rest of
-        NONE => NONE
-      | SOME (pf,f_ns'',s,rest) =>
-        if check_end (mk_scope_mark ind) s
-        then
-          parse_scope_aux f_ns'' rest ((SOME ind,pf)::acc)
-        else NONE
-       )
-  )
-Termination
-  WF_REL_TAC ‘measure (LENGTH o FST o SND)’
-  \\ rw[parse_subproof_def]>>
-  imp_res_tac parse_subproof_aux_LENGTH>>
-  fs[]
-End
-
-Definition parse_scope_def:
-  parse_scope f_ns ss =
-  parse_scope_aux f_ns ss []
-End
-
-Definition parse_red_header_red_def:
-  parse_red_header_red f_ns line =
-  case line of [] => NONE
-  | x::line =>
-  if x = INL «red»
-  then parse_red_header f_ns line
-  else NONE
-End
-
-(* Parse 1 sstep, until an unparseable line is reached. *)
-Definition parse_sstep_def:
-  (parse_sstep f_ns [] = NONE) ∧
-  (parse_sstep f_ns (s::ss) =
-    case parse_lstep_aux f_ns s of
-      NONE =>
-      (case parse_red_header_red f_ns s of
-        NONE => SOME (INL s,f_ns,ss)
-      | SOME (c,s,f_ns') =>
-        case parse_scope f_ns' ss of
-          NONE => NONE
-        | SOME (pf, f_ns'', h, rest) =>
-          case check_mark_qed_id_opt (INL «red») h of
-            NONE => NONE
-          | SOME idopt =>
-            SOME (INR (Red c s pf idopt),f_ns'',rest)
-      )
-    | SOME (INL step,f_ns') =>
-        SOME (INR (Lstep step),f_ns',ss)
-    | SOME (INR c, f_ns') =>
-      (case parse_lsteps f_ns' ss of
-        NONE => NONE
-      | SOME (pf,f_ns'',s,rest) =>
-        case check_mark_qed_id (INL «pbc») s of
-          NONE => NONE
-        | SOME id =>
-        SOME (INR (Lstep (Con c pf id)),f_ns'',rest)))
-End
-
-(*
-  EVAL`` parse_sstep (plainVar_nf,())
-  (MAP toks
-  [«red 1 x1 >= 1 : x1 -> x3 x3 -> x5 x5 -> x1 x2 -> x4 x4 -> x6 x6 -> x2 : subproof»;
-  «proofgoal #1»;
-  «pol 12 11 + 5 + 6 +;»;
-  «pol 13 4 +;»;
-  «pol 14 x6 +;»;
-  «qed : 15;»;
-  «proofgoal 1»;
-  «pol 16 2 +;»;
-  «qed : 17;»;
-  «qed;»;])``
-*)
-
 (* def_order parsing. We parse the sections in order.
   First, the vars block
 *)
@@ -2308,206 +1882,27 @@ Definition parse_def_order_head_def:
 End
 
 Definition parse_vars_line_aux_def:
-  (parse_vars_line_aux f_ns [] = SOME ([],f_ns)) ∧
-  (parse_vars_line_aux f_ns (x::xs) =
+  (parse_vars_line_aux [] = SOME []) ∧
+  (parse_vars_line_aux (x::xs) =
   case x of
     INL v =>
-    (case parse_var f_ns v of
+    (case parse_var v of
       NONE => NONE
-    | SOME (vv,f_ns') =>
-      (case parse_vars_line_aux f_ns' xs of NONE => NONE
-      | SOME (vvs,f_ns'') => SOME (vv::vvs,f_ns'')))
+    | SOME vv =>
+      (case parse_vars_line_aux xs of NONE => NONE
+      | SOME vvs => SOME (vv::vvs)))
   | _ => NONE)
 End
 
 Definition parse_vars_line_def:
-  parse_vars_line f_ns n l =
+  parse_vars_line n l =
   case strip_term_line l of
     SOME (h::rest) =>
     if h = INL n then
-        parse_vars_line_aux f_ns rest
+        parse_vars_line_aux rest
     else NONE
   | _ => NONE
 End
-
-Definition parse_vars_aux_def:
-  parse_vars_aux f_ns v l r a =
-    if v = [INL «vars»] then
-      case parse_vars_line f_ns «left» l of NONE => NONE
-      | SOME (us,f_ns) =>
-      case parse_vars_line f_ns «right» r of NONE => NONE
-      | SOME (vs,f_ns) =>
-      case a of NONE => SOME ((us,vs,[]),f_ns)
-      | SOME a =>
-      case parse_vars_line f_ns «aux» a of NONE => NONE
-      | SOME (as,f_ns) => SOME ((us,vs,as),f_ns)
-  else NONE
-End
-
-Definition parse_vars_block_def:
-  parse_vars_block f_ns ss =
-  case ss of
-    v::l::r::ae::rest =>
-    if check_end [INL «vars»] ae
-    then
-      OPTION_MAP (λ(res,f_ns). (res,f_ns,rest))
-        (parse_vars_aux f_ns v l r NONE)
-    else
-      (case rest of [] => NONE
-      | e::rest =>
-      if check_end [INL «vars»] e
-      then
-        OPTION_MAP (λ(res,f_ns). (res,f_ns,rest))
-          (parse_vars_aux f_ns v l r (SOME ae))
-      else NONE)
-  | _ => NONE
-End
-
-(*
-Definition hashString_nf_def:
-  hashString_nf s (t:num) = SOME(hashString s,t+1)
-End
-
-EVAL ``parse_vars_block (hashString_nf,0)
-  (MAP toks
-  [«vars»;
-  «  left u1 u2 u3 u4 u5 u6 u7 u8 u9 u10;»;
-  «  right v1 v2 v3 v4 v5 v6 v7 v8 v9 v10;»;
-  «  aux $a1 $a2 $a3 $a4 $a5 $a6 $a7 $a8 $a9 $d1 $d2 $d3 $d4 $d5 $d6 $d7 $d8 $d9 $d10 ;»;
-  «end;»;])``
-
-EVAL ``parse_vars_block (hashString_nf,0)
-  (MAP toks
-  [«vars»;
-  «  left u1 u2 u3 u4 u5 u6 u7 u8 u9 u10;»;
-  «  right v1 v2 v3 v4 v5 v6 v7 v8 v9 v10;»;
-  «end;»;])``
-*)
-
-Theorem parse_scope_aux_LENGTH:
-  ∀f_ns ss acc res acc' f_ns' ss'.
-  parse_scope_aux f_ns ss acc = SOME(res,acc',f_ns',ss') ⇒
-  LENGTH ss' < LENGTH ss
-Proof
-  ho_match_mp_tac (fetch "-" "parse_scope_aux_ind")>>
-  rw[]>>
-  pop_assum mp_tac>>
-  simp[Once parse_scope_aux_def]>>
-  every_case_tac>>
-  fs[parse_subproof_def]>>
-  rw[]>>
-  imp_res_tac parse_subproof_aux_LENGTH>>
-  fs[]
-QED
-
-Theorem parse_sstep_LENGTH:
-  parse_sstep f_ns ss = SOME(a,b,ss') ⇒
-  LENGTH ss' < LENGTH ss
-Proof
-  Cases_on`ss`>>rw[parse_sstep_def]>>
-  gvs[AllCaseEqs(),parse_scope_def,parse_lsteps_def]
-  >- (
-    imp_res_tac parse_scope_aux_LENGTH>>
-    simp[])>>
-  imp_res_tac parse_lsteps_aux_LENGTH>>
-  simp[]
-QED
-
-(* parse specification block *)
-Definition parse_spec_aux_def:
-  (parse_spec_aux f_ns ss acc =
-    case parse_sstep f_ns ss of
-    | SOME (INR (Red c s pf idopt),f_ns',ss) =>
-      parse_spec_aux f_ns' ss ((c,s,pf,idopt)::acc)
-    | SOME (INL s,f_ns',ss) =>
-      if check_end [INL «spec»] s then
-        SOME(REVERSE acc,f_ns',ss)
-      else NONE
-    | _ => NONE)
-Termination
-  WF_REL_TAC ‘measure (LENGTH o FST o SND)’
-  \\ rw[]
-  \\ imp_res_tac parse_sstep_LENGTH
-End
-
-(* Return an optional line since spec block is optional,
-  but following blocks are mandatory *)
-Definition parse_spec_block_def:
-  parse_spec_block f_ns ss =
-  case ss of
-    h::rest =>
-    if h = [INL «spec»] then
-      case parse_spec_aux f_ns rest [] of
-        NONE => NONE
-      | SOME (spec,f_ns',ss) =>
-        SOME (NONE, spec, f_ns', ss)
-    else
-      SOME (SOME h, [], f_ns, rest)
-  | _ => NONE
-End
-
-(*
-  -- handle spec parsing if it exists
-  EVAL``parse_spec_block (hashString_nf,0)
-  (MAP toks ([«spec»;
-  «red 1 u1 1 ~v1 1 ~$a1 >= 1 : $a1 -> 0 : subproof»;
-  «qed;»;
-  «red 1 u1 1 ~v1 1 ~$a1 >= 1 : $a1 -> 0 : subproof»;
-  «qed;»;
-  «end;»;
-  ]))``
-
-  -- if no spec block, then the next block is the definition block
-  EVAL``parse_spec_block (hashString_nf,0)
-  (MAP toks ([«def»;
-  «FOO»;
-  ]))``
-*)
-
-(* parse definition block of constraints *)
-Definition parse_def_aux_def:
-  (parse_def_aux f_ns [] acc = NONE) ∧
-  (parse_def_aux f_ns (s::ss) acc =
-    if check_end [INL «def»] s then
-      SOME(REVERSE acc,f_ns,ss)
-    else
-      case strip_term_line s of NONE => NONE
-      | SOME s =>
-      (case parse_constraint_npbc f_ns s of
-        SOME (c,[],f_ns') =>
-          parse_def_aux f_ns' ss (c::acc)
-      | _ => NONE))
-End
-
-Definition parse_def_block_def:
-  parse_def_block f_ns s ss =
-  (case s of NONE =>
-    (case ss of
-      h::rest =>
-      if h = [INL «def»] then
-        parse_def_aux f_ns rest []
-      else NONE
-    | _ => NONE)
-  | SOME h =>
-    if h = [INL «def»] then
-      parse_def_aux f_ns ss []
-    else NONE)
-End
-
-(* -- the def block takes an optional line from the optional spec block
-  EVAL``parse_def_block (hashString_nf,0)
-  NONE
-  (MAP toks ([
-    «def»;
-    «1 $d10 >= 1;»;
-    «end;»;]))``
-
-  EVAL``parse_def_block (hashString_nf,0)
-  (SOME ([INL «def»]))
-  (MAP toks ([
-    «1 $d10 >= 1;»;
-    «end;»;]))``
-*)
 
 Definition check_qed_def:
   check_qed marks (h:(mlstring + int) list ) =
@@ -2521,218 +1916,992 @@ Definition check_qed_def:
   | _ => F
 End
 
-(* parse a regular proof block WITHOUT scope and
-  with an extra "proof" and "qed" at the end,
-  followed by an "end" line *)
+Definition split_lit_def:
+  split_lit l =
+  case l of Pos v => (v,T) | Neg v => (v,F)
+End
+
+Definition parse_lits_line_aux_def:
+  (parse_lits_line_aux [] = SOME []) ∧
+  (parse_lits_line_aux (x::xs) =
+  case x of
+    INL v =>
+    (case parse_lit v of
+      NONE => NONE
+    | SOME ll =>
+      (case parse_lits_line_aux xs of NONE => NONE
+      | SOME lls => SOME (split_lit ll::lls)))
+  | _ => NONE)
+End
+
+Definition parse_assg_def:
+  (parse_assg [] acc = SOME (acc,NONE)) ∧
+  (parse_assg (INL s::ss) acc =
+    case parse_lit s of
+      NONE =>
+        if s = «:» then
+          (case ss of [INR i] => SOME (acc,SOME i)
+          | _ => NONE)
+        else NONE
+    | SOME l => parse_assg ss (split_lit l :: acc)) ∧
+  (parse_assg _ acc = NONE)
+End
+
+Definition parse_solx_aux_def:
+  (parse_solx_aux [] assg free = SOME (assg,free)) ∧
+  (parse_solx_aux (INL s::ss) assg free =
+    if strlen s > 0 ∧ strsub_unsafe s 0 = #"*" then
+      case parse_var (substring s 1 (strlen s - 1)) of
+        NONE => NONE
+      | SOME v => parse_solx_aux ss assg (v::free)
+    else
+      case parse_lit s of
+        NONE => NONE
+      | SOME l => parse_solx_aux ss (split_lit l::assg) free) ∧
+  (parse_solx_aux _ assg free = NONE)
+End
+
+Definition parse_delc_header_def:
+  parse_delc_header line =
+  case line of
+    INR id::rest =>
+    if id ≥ 0 then
+      (case parse_subst rest of
+        NONE => NONE
+      | SOME (rest,ss) =>
+        if start_subproof rest
+        then SOME (Num id,ss)
+        else NONE)
+    else NONE
+  | _ => NONE
+End
+
+(*
+EVAL``parse_delc_header (toks «2 : x1 -> ~x2 : subproof»)``
+*)
+
+(* Take off : subproof at the end *)
+Definition strip_obju_end_def:
+  strip_obju_end ls =
+  let lls = LENGTH ls in
+  if lls < 2
+  then
+    NONE
+  else
+    let tls = TAKE (lls-2) ls in
+    let dls = DROP (lls-2) ls in
+    if start_subproof dls
+    then SOME tls
+    else NONE
+End
+
+Definition parse_b_obj_term_def:
+  (parse_b_obj_term rest =
+   case strip_obju_end rest of NONE => NONE
+  | SOME [] => NONE
+  | SOME (r::rs) =>
+  case parse_obj_term rs of NONE => NONE
+  | SOME f =>
+    if r = INL «new» then SOME (T,f)
+    else if r = INL «diff» then SOME (F,f)
+    else NONE)
+End
+
+(*
+EVAL``parse_b_obj_term (toks «new 1 x1 2 : subproof»)``
+*)
+
+(* preserve_add and remove steps *)
+Definition parse_preserve_def:
+  (parse_preserve rest =
+   case strip_obju_end rest of
+   | SOME (INL c::INL s::cs) =>
+    if s = «:» then
+      (case parse_var c of
+        NONE => NONE
+      | SOME x =>
+      (case parse_pbc_rest cs of
+        SOME (constr,[]) => SOME (x,constr)
+        | _ => NONE))
+    else NONE
+  | _ => NONE)
+End
+
+(*
+  EVAL``parse_preserve (toks «x1 : 1 x1 2 x2 >= 5 : subproof»)``
+*)
+
+(* A proof line, its names not yet numbered *)
+Datatype:
+  pline =
+  | PbcHd ('a pbc)                                (* pbc ... : subproof *)
+  | Pol ('a constr)
+  | RupL ('a pbc) (num list)
+  | CheckL num ('a pbc)                           (* e *)
+  | ImplyL num ('a pbc)                           (* ia *)
+  | RedHd ('a pbc) ('a subst_raw)                 (* red ... : subproof *)
+  | DomHd ('a pbc) ('a subst_raw)                 (* dom ... : subproof *)
+  | DelcHd num ('a subst_raw)                     (* delc ... : subproof *)
+  | ObjuHd bool ((int # 'a lit) list # int)       (* obju ... : subproof *)
+  | PresHd bool 'a ('a pbc)                       (* preserved_* ... : subproof *)
+  | LoadOrd mlstring (('a # bool) list)
+  | SolL ('a assg_raw) bool (int option)          (* sol, soli *)
+  | SolxL ('a assg_raw) ('a list)
+  | EObj ((int # 'a lit) list # int)
+  | EPres ('a list)
+  | OrdHd mlstring                                (* def_order *)
+  | LDone lstep                                   (* steps without names *)
+  | CDone cstep
+End
+
+(*
+  The keywords of the three kinds of lines (lsteps, the red header and the
+  csteps) are disjoint, so one dispatch reads all of them. The lines that
+  structure a proof (qed, proofgoal, scope, end, output, conclusion) are
+  not plines: parse_line returns NONE for them, as for a line that does
+  not parse.
+*)
+Definition parse_line_def:
+  parse_line s =
+  case s of
+    [] => NONE
+  | INR _ :: rs => NONE
+  | INL k :: rs =>
+    if k = «pol» then
+      (case strip_term_line rs of NONE => NONE
+      | SOME rs =>
+        case parse_cutting rs of NONE => NONE
+        | SOME c => SOME (Pol c))
+    else if k = «rup» then
+      (case strip_term_line rs of NONE => NONE
+      | SOME rs =>
+        case parse_rup rs of NONE => NONE
+        | SOME (c,ns) => SOME (RupL c ns))
+    else if k = «pbc» then
+      (case parse_pbc_header rs of NONE => NONE
+      | SOME c => SOME (PbcHd c))
+    else if k = «red» then
+      (case parse_red_header rs of NONE => NONE
+      | SOME (c,ss) => SOME (RedHd c ss))
+    else if k = «dom» then
+      (case parse_red_header rs of NONE => NONE
+      | SOME (c,ss) => SOME (DomHd c ss))
+    else if k = «delc» then
+      (case parse_delc_header rs of
+        SOME (n,ss) => SOME (DelcHd n ss)
+      | NONE =>
+        case strip_term_line rs of NONE => NONE
+        | SOME rs =>
+          case strip_numbers rs of NONE => NONE
+          | SOME n => SOME (CDone (UncheckedDelete n)))
+    else if k = «def_order» then
+      (case rs of [INL n] => SOME (OrdHd n)
+      | _ => NONE)
+    else if k = «obju» then
+      (case parse_b_obj_term rs of NONE => NONE
+      | SOME (b,f) => SOME (ObjuHd b f))
+    else if k = «preserved_add» then
+      (case parse_preserve rs of NONE => NONE
+      | SOME (x,c) => SOME (PresHd T x c))
+    else if k = «preserved_rm» then
+      (case parse_preserve rs of NONE => NONE
+      | SOME (x,c) => SOME (PresHd F x c))
+    else
+    case strip_term_line rs of NONE => NONE
+    | SOME rs =>
+    if k = «deld» then
+      (case strip_numbers rs of NONE => NONE
+      | SOME n => SOME (LDone (Delete n)))
+    else if k = «e» then
+      (case parse_pbc_rest rs of NONE => NONE
+      | SOME (c,rest) =>
+        case colon_id_opt rest of
+          SOME (SOME id) => SOME (CheckL id c)
+        | _ => NONE)
+    else if k = «ia» then
+      (case parse_pbc_rest rs of NONE => NONE
+      | SOME (c,rest) =>
+        case colon_id_opt rest of
+          SOME (SOME id) => SOME (ImplyL id c)
+        | _ => NONE)
+    else if k = «*» then SOME (LDone NoOp)
+    else if k = «core» then
+      (case rs of
+        INL r :: ns =>
+          if r = «id» then
+            (case strip_numbers ns of NONE => NONE
+            | SOME n => SOME (CDone (Transfer n)))
+          else NONE
+      | _ => NONE)
+    else if k = «strengthening_to_core» then
+      (case rs of
+        [INL b] =>
+          if b = «on» then SOME (CDone (StrengthenToCore T))
+          else if b = «off» then SOME (CDone (StrengthenToCore F))
+          else NONE
+      | _ => NONE)
+    else if k = «load_order» then
+      (case rs of
+        [] => SOME (CDone UnloadOrder)
+      | INL r :: ws =>
+        (case parse_lits_line_aux ws of NONE => NONE
+        | SOME ws => SOME (LoadOrd r ws))
+      | _ => NONE)
+    else if k = «soli» then
+      (case parse_assg rs [] of NONE => NONE
+      | SOME (assg,ov) => SOME (SolL assg T ov))
+    else if k = «sol» then
+      (case parse_assg rs [] of NONE => NONE
+      | SOME (assg,ov) => SOME (SolL assg F ov))
+    else if k = «solx» then
+      (case parse_solx_aux rs [] [] of NONE => NONE
+      | SOME (assg,free) => SOME (SolxL assg free))
+    else if k = «obji» then
+      (case rs of [INR i] => SOME (CDone (AssertObj i))
+      | _ => NONE)
+    else if k = «eobj» then
+      (case parse_obj_term rs of NONE => NONE
+      | SOME f => SOME (EObj f))
+    else if k = «epreserved» then
+      (case parse_vars_line_aux rs of NONE => NONE
+      | SOME vs => SOME (EPres vs))
+    else NONE
+End
+
+(*
+  EVAL ``parse_line (toks «dom 1 ~x1 1 x2 >= 1 : x1 -> x2 x2 -> x1 : subproof»)``;
+  EVAL ``parse_line (toks «delc 2 : : subproof»)``;
+  EVAL ``parse_line (toks «delc 1 2 3 4 5;»)``;
+  EVAL ``parse_line (toks «load_order lex10 x1 ~x4 x9 ~x10 ;»)``;
+  EVAL ``parse_line (toks «strengthening_to_core off;»)``;
+  EVAL ``parse_line (toks «core id 1 2 3 4 5;»)``;
+  EVAL ``parse_line (toks «soli ~x1 ~x2 ~x3 x7 ~x8 : 50;»)``;
+  EVAL ``parse_line (toks «solx ~x1 *x2 ~x3 ;»)``;
+  EVAL ``parse_line (toks «obji -100 ;»)``;
+  EVAL ``parse_line (toks «eobj 1 x1 -100 ;»)``;
+  EVAL ``parse_line (toks «epreserved x3 x2 x5;»)``;
+  EVAL ``parse_line (toks «obju new 1 x1 2 : subproof»)``;
+  EVAL ``parse_line (toks «red 1 x1 >= 1 : x1 -> x3 x3 -> x5 : subproof»)``;
+  EVAL ``parse_line (toks «pbc +3 x1 +3 x2 +2 x3 >= 5 : subproof»)``;
+  EVAL ``parse_line (toks «rup >= 1 : 1234;»)``;
+*)
+
+(* parse a hconcl *)
+Definition parse_unsat_def:
+  parse_unsat rest =
+  case rest of
+    [INL s; INR n] =>
+    if s = «:» ∧ n ≥ 0 then SOME (Num n) else NONE
+  | _ => NONE
+End
+
+Definition parse_sat_def:
+  parse_sat rest =
+  case rest of
+    INL s::rest =>
+    if s = «:» then
+      (case parse_assg rest [] of NONE => NONE
+      | SOME (a,_) => SOME (SOME a))
+    else NONE
+  | [] => SOME NONE
+  | _ => NONE
+End
+
+(* Parse a number or infinity *)
+Definition parse_int_inf_def:
+  parse_int_inf l =
+  case l of INR n => SOME (SOME n)
+  | INL s => if s = «INF» then SOME NONE else NONE
+End
+
+(* lb : id ub [: optional assignment] *)
+Definition parse_lb_def:
+  parse_lb s =
+  case s of
+    lb :: INL s :: INR n :: rest =>
+    if s = «:» ∧ n ≥ 0 then
+      case parse_int_inf lb of NONE => NONE
+      | SOME lb => SOME ((lb,Num n), rest)
+    else NONE
+  | _ => NONE
+End
+
+Definition parse_ub_def:
+  parse_ub s =
+  case s of
+    ub :: rest =>
+      (case parse_int_inf ub of NONE => NONE
+      | SOME ub =>
+        (case rest of [] => SOME(ub, NONE)
+        | INL s::rest =>
+          if s = «:» then
+            (case parse_assg rest [] of NONE => NONE
+            | SOME (a,_) => SOME(ub,SOME a))
+          else NONE
+        | _ => NONE))
+    | _ => NONE
+End
+
+(* parse hints for OBound *)
+Definition parse_bounds_def:
+  parse_bounds rest =
+  case parse_lb rest of NONE => NONE
+  | SOME ((lb,n),rest') =>
+    (case parse_ub rest' of NONE => NONE
+    | SOME (ub,a) => SOME (lb,ub,n,a))
+End
+
+Definition parse_enum_def:
+  parse_enum s =
+  case s of
+    INR n :: rest =>
+      if n < 0 then NONE
+      else
+        (case rest of [] => SOME(Num n, NONE)
+        | INL s::INR i :: rest =>
+          if s = «:» ∧ i ≥ 0 then
+              SOME (Num n, SOME (Num i))
+          else NONE
+        | _ => NONE)
+    | _ => NONE
+End
+
+Definition parse_concl_def:
+  parse_concl s =
+  case strip_term_line s of NONE => NONE
+  | SOME s =>
+  case s of
+  x::y::rest =>
+  if x = INL «conclusion» then
+    if y = INL «NONE» ∧ rest = [] then SOME (HNoConcl:mlstring hconcl)
+    else if y = INL «UNSAT» then
+      OPTION_MAP HDUnsat (parse_unsat rest)
+    else if y = INL «SAT» then
+      OPTION_MAP HDSat (parse_sat rest)
+    else if y = INL «BOUNDS» then
+      case parse_bounds rest of NONE => NONE
+      | SOME (lb,ub,n,a) => SOME (HOBounds lb ub n a)
+    else if y = INL «ENUMERATION_COMPLETE» then
+      (case parse_enum rest of NONE => NONE
+      | SOME (n, hint) => SOME (HEEnum n T hint))
+    else if y = INL «ENUMERATION_PARTIAL» then
+      (case parse_enum rest of NONE => NONE
+      | SOME (n, hint) => SOME (HEEnum n F hint))
+    else NONE
+  else NONE
+  | _ => NONE
+End
+
+(*
+  EVAL ``parse_concl (toks «conclusion NONE ;»)``;
+  EVAL ``parse_concl (toks «conclusion UNSAT : 1234 ;»)``;
+  EVAL ``parse_concl (toks «conclusion SAT : x1 ~x2 ;»)``;
+  EVAL ``parse_concl (toks «conclusion ENUMERATION_PARTIAL 5 ;»)``;
+*)
+
+(* Parse a PBC output line.
+  TODO: equienumerable currently aliases equisolvable *)
+Definition parse_output_def:
+  parse_output s =
+  case strip_term_line s of NONE => NONE
+  | SOME s =>
+  case s of
+    [x;y] =>
+    if x = INL «output» ∧ y = INL «NONE»
+    then SOME NoOutput
+    else NONE
+  | [x;y;z] =>
+    if x = INL «output» ∧ z = INL «FILE»
+    then (
+      if y = INL «DERIVABLE» then SOME Derivable
+      else if y = INL «EQUISATISFIABLE» then SOME Equisatisfiable
+      else if y = INL «EQUIOPTIMAL» then SOME Equioptimal
+      else if y = INL «EQUIENUMERABLE» then SOME Equisolvable
+      else if y = INL «EQUISOLVABLE» then SOME Equisolvable
+      else NONE)
+    else NONE
+  | _ => NONE
+End
+
+(*
+  Numbering the names of a line, left to right (name_table)
+*)
+Definition name_subst_def:
+  (name_subst lim [] s = SOME ([],s)) ∧
+  (name_subst lim ((v,r)::ss) s =
+    case res_var lim v s of
+      NONE => NONE
+    | SOME (n,s1) =>
+      case r of
+        INL b =>
+        (case name_subst lim ss s1 of
+          NONE => NONE
+        | SOME (ss1,s2) => SOME ((n,INL b)::ss1,s2))
+      | INR l =>
+        (case name_lit lim l s1 of
+          NONE => NONE
+        | SOME (l1,s2) =>
+          case name_subst lim ss s2 of
+            NONE => NONE
+          | SOME (ss1,s3) => SOME ((n,INR l1)::ss1,s3)))
+End
+
+(* Triv and Lincomb are formed by the checker and never parsed *)
+Definition name_constr_def:
+  (name_constr lim (Id n) s = SOME (Id n,s)) ∧
+  (name_constr lim (Add c1 c2) s =
+    case name_constr lim c1 s of
+      NONE => NONE
+    | SOME (d1,s1) =>
+      case name_constr lim c2 s1 of
+        NONE => NONE
+      | SOME (d2,s2) => SOME (Add d1 d2,s2)) ∧
+  (name_constr lim (Mul c k) s =
+    case name_constr lim c s of
+      NONE => NONE
+    | SOME (d,s1) => SOME (Mul d k,s1)) ∧
+  (name_constr lim (Div dt c k) s =
+    case name_constr lim c s of
+      NONE => NONE
+    | SOME (d,s1) => SOME (Div dt d k,s1)) ∧
+  (name_constr lim (Minus c k) s =
+    case name_constr lim c s of
+      NONE => NONE
+    | SOME (d,s1) => SOME (Minus d k,s1)) ∧
+  (name_constr lim (Sat c) s =
+    case name_constr lim c s of
+      NONE => NONE
+    | SOME (d,s1) => SOME (Sat d,s1)) ∧
+  (name_constr lim (Lit l) s =
+    case name_lit lim l s of
+      NONE => NONE
+    | SOME (l1,s1) => SOME (Lit l1,s1)) ∧
+  (name_constr lim (Weak c vs) s =
+    case name_constr lim c s of
+      NONE => NONE
+    | SOME (d,s1) =>
+      case name_vars lim vs s1 of
+        NONE => NONE
+      | SOME (ns,s2) => SOME (Weak d ns,s2)) ∧
+  (name_constr lim (Triv _) s = NONE) ∧
+  (name_constr lim (Lincomb _ _) s = NONE)
+End
+
+Definition name_hconcl_def:
+  (name_hconcl lim HNoConcl s = SOME (HNoConcl,s)) ∧
+  (name_hconcl lim (HDSat NONE) s = SOME (HDSat NONE,s)) ∧
+  (name_hconcl lim (HDSat (SOME a)) s =
+    case name_assg lim a s of
+      NONE => NONE
+    | SOME (a1,s1) => SOME (HDSat (SOME a1),s1)) ∧
+  (name_hconcl lim (HDUnsat n) s = SOME (HDUnsat n,s)) ∧
+  (name_hconcl lim (HOBounds lb ub n NONE) s = SOME (HOBounds lb ub n NONE,s)) ∧
+  (name_hconcl lim (HOBounds lb ub n (SOME a)) s =
+    case name_assg lim a s of
+      NONE => NONE
+    | SOME (a1,s1) => SOME (HOBounds lb ub n (SOME a1),s1)) ∧
+  (name_hconcl lim (HEEnum n b h) s = SOME (HEEnum n b h,s))
+End
+
+Definition name_pline_def:
+  (name_pline lim (PbcHd c) s =
+    case name_pbc lim c s of
+      NONE => NONE
+    | SOME (c1,s1) => SOME (PbcHd c1,s1)) ∧
+  (name_pline lim (Pol c) s =
+    case name_constr lim c s of
+      NONE => NONE
+    | SOME (c1,s1) => SOME (Pol c1,s1)) ∧
+  (name_pline lim (RupL c ns) s =
+    case name_pbc lim c s of
+      NONE => NONE
+    | SOME (c1,s1) => SOME (RupL c1 ns,s1)) ∧
+  (name_pline lim (CheckL n c) s =
+    case name_pbc lim c s of
+      NONE => NONE
+    | SOME (c1,s1) => SOME (CheckL n c1,s1)) ∧
+  (name_pline lim (ImplyL n c) s =
+    case name_pbc lim c s of
+      NONE => NONE
+    | SOME (c1,s1) => SOME (ImplyL n c1,s1)) ∧
+  (name_pline lim (RedHd c ss) s =
+    case name_pbc lim c s of
+      NONE => NONE
+    | SOME (c1,s1) =>
+      case name_subst lim ss s1 of
+        NONE => NONE
+      | SOME (ss1,s2) => SOME (RedHd c1 ss1,s2)) ∧
+  (name_pline lim (DomHd c ss) s =
+    case name_pbc lim c s of
+      NONE => NONE
+    | SOME (c1,s1) =>
+      case name_subst lim ss s1 of
+        NONE => NONE
+      | SOME (ss1,s2) => SOME (DomHd c1 ss1,s2)) ∧
+  (name_pline lim (DelcHd n ss) s =
+    case name_subst lim ss s of
+      NONE => NONE
+    | SOME (ss1,s1) => SOME (DelcHd n ss1,s1)) ∧
+  (name_pline lim (ObjuHd b (f,k)) s =
+    case name_lin lim f s of
+      NONE => NONE
+    | SOME (f1,s1) => SOME (ObjuHd b (f1,k),s1)) ∧
+  (name_pline lim (PresHd b x c) s =
+    case res_var lim x s of
+      NONE => NONE
+    | SOME (n,s1) =>
+      case name_pbc lim c s1 of
+        NONE => NONE
+      | SOME (c1,s2) => SOME (PresHd b n c1,s2)) ∧
+  (name_pline lim (LoadOrd r ws) s =
+    case name_assg lim ws s of
+      NONE => NONE
+    | SOME (ws1,s1) => SOME (LoadOrd r ws1,s1)) ∧
+  (name_pline lim (SolL a b ov) s =
+    case name_assg lim a s of
+      NONE => NONE
+    | SOME (a1,s1) => SOME (SolL a1 b ov,s1)) ∧
+  (name_pline lim (SolxL a fr) s =
+    case name_assg lim a s of
+      NONE => NONE
+    | SOME (a1,s1) =>
+      case name_vars lim fr s1 of
+        NONE => NONE
+      | SOME (fr1,s2) => SOME (SolxL a1 fr1,s2)) ∧
+  (name_pline lim (EObj (f,k)) s =
+    case name_lin lim f s of
+      NONE => NONE
+    | SOME (f1,s1) => SOME (EObj (f1,k),s1)) ∧
+  (name_pline lim (EPres vs) s =
+    case name_vars lim vs s of
+      NONE => NONE
+    | SOME (ns,s1) => SOME (EPres ns,s1)) ∧
+  (name_pline lim (OrdHd n) s = SOME (OrdHd n,s)) ∧
+  (name_pline lim (LDone st) s = SOME (LDone st,s)) ∧
+  (name_pline lim (CDone st) s = SOME (CDone st,s))
+End
+
+(*
+  Finishing a numbered line
+*)
+
+(* A proof-file constraint is accepted exactly when its head expands to a
+  single normalised constraint, since lstep/sstep hold one npbc *)
+Definition mk_npbc_def:
+  mk_npbc (c:num pbc) =
+  case to_gnpbc c of
+    [gc] => SOME (inject gc)
+  | _ => NONE
+End
+
+Definition is_lstep_def:
+  (is_lstep (PbcHd _) ⇔ T) ∧
+  (is_lstep (Pol _) ⇔ T) ∧
+  (is_lstep (RupL _ _) ⇔ T) ∧
+  (is_lstep (CheckL _ _) ⇔ T) ∧
+  (is_lstep (ImplyL _ _) ⇔ T) ∧
+  (is_lstep (LDone _) ⇔ T) ∧
+  (is_lstep _ ⇔ F)
+End
+
+(* The lstep of a one-line lstep *)
+Definition fin_lstep_def:
+  (fin_lstep (Pol c) = SOME (Cutting c)) ∧
+  (fin_lstep (RupL c ns) =
+    case mk_npbc c of
+      NONE => NONE
+    | SOME c1 => SOME (Rup c1 ns)) ∧
+  (fin_lstep (CheckL n c) =
+    case mk_npbc c of
+      NONE => NONE
+    | SOME c1 => SOME (Check n c1)) ∧
+  (fin_lstep (ImplyL n c) =
+    case mk_npbc c of
+      NONE => NONE
+    | SOME c1 => SOME (ImplyAdd n c1)) ∧
+  (fin_lstep (LDone st) = SOME st) ∧
+  (fin_lstep _ = NONE)
+End
+
+(* The cstep of a one-line cstep *)
+Definition fin_cstep_def:
+  (fin_cstep (CDone st) = SOME st) ∧
+  (fin_cstep (LoadOrd r ws) = SOME (LoadOrder r ws)) ∧
+  (fin_cstep (SolL a b ov) = SOME (Obj a b ov)) ∧
+  (fin_cstep (SolxL a fr) = SOME (Sol a (list_to_num_set fr))) ∧
+  (fin_cstep (EObj f) =
+    case normalise_obj (SOME f) of
+      NONE => NONE
+    | SOME f1 => SOME (CheckObj f1)) ∧
+  (fin_cstep (EPres vs) = SOME (CheckPres (list_to_num_set vs))) ∧
+  (fin_cstep _ = NONE)
+End
+
+(*
+  The proof readers of npbc_parseProg, over a list of tokenized lines.
+  lim and s are the table's limit and numbering state; each reader returns
+  the state after the lines it read.
+*)
+
+(* Parsing lsteps in a subproof until a line that is not an lstep, which
+  is returned with the remaining lines *)
+Definition parse_lsteps_aux_def:
+  (parse_lsteps_aux lim s ([]:(mlstring + int) list list) (acc:lstep list) =
+    NONE) ∧
+  (parse_lsteps_aux lim s (l::ls) acc =
+    case parse_line l of
+      NONE => SOME (REVERSE acc,s,l,ls)
+    | SOME pl =>
+      if is_lstep pl then
+        case name_pline lim pl s of
+          NONE => NONE
+        | SOME (pl1,s1) =>
+          case pl1 of
+            PbcHd c =>
+            (case mk_npbc c of
+              NONE => NONE
+            | SOME c1 =>
+              case parse_lsteps_aux lim s1 ls [] of
+                NONE => NONE
+              | SOME (pf,s2,l2,rest) =>
+                if LENGTH rest < LENGTH ls then
+                  case check_mark_qed_id (INL «pbc») l2 of
+                    NONE => NONE
+                  | SOME id => parse_lsteps_aux lim s2 rest (Con c1 pf id::acc)
+                else NONE)
+          | _ =>
+            (case fin_lstep pl1 of
+              NONE => NONE
+            | SOME step => parse_lsteps_aux lim s1 ls (step::acc))
+      else SOME (REVERSE acc,s,l,ls))
+Termination
+  WF_REL_TAC ‘measure (LENGTH o FST o SND o SND)’
+  \\ rw[] \\ fs[]
+End
+
+Theorem parse_lsteps_aux_LENGTH:
+  ∀lim s ss acc acc' s' l ss'.
+  parse_lsteps_aux lim s ss acc = SOME(acc',s',l,ss') ⇒
+  LENGTH ss' < LENGTH ss
+Proof
+  ho_match_mp_tac parse_lsteps_aux_ind>>
+  rpt strip_tac>>
+  qpat_x_assum`parse_lsteps_aux _ _ _ _ = _` mp_tac>>
+  simp[Once parse_lsteps_aux_def]>>
+  rw[AllCaseEqs()]>>
+  gvs[]
+QED
+
+Theorem parse_lsteps_aux_thm:
+  (∀lim s acc.
+    parse_lsteps_aux lim s ([]:(mlstring + int) list list) acc = NONE) ∧
+  (∀lim s l ls acc.
+    parse_lsteps_aux lim s (l::ls) acc =
+    case parse_line l of
+      NONE => SOME (REVERSE acc,s,l,ls)
+    | SOME pl =>
+      if is_lstep pl then
+        case name_pline lim pl s of
+          NONE => NONE
+        | SOME (pl1,s1) =>
+          case pl1 of
+            PbcHd c =>
+            (case mk_npbc c of
+              NONE => NONE
+            | SOME c1 =>
+              case parse_lsteps_aux lim s1 ls [] of
+                NONE => NONE
+              | SOME (pf,s2,l2,rest) =>
+                case check_mark_qed_id (INL «pbc») l2 of
+                  NONE => NONE
+                | SOME id => parse_lsteps_aux lim s2 rest (Con c1 pf id::acc))
+          | _ =>
+            (case fin_lstep pl1 of
+              NONE => NONE
+            | SOME step => parse_lsteps_aux lim s1 ls (step::acc))
+      else SOME (REVERSE acc,s,l,ls))
+Proof
+  rw[]
+  >- simp[Once parse_lsteps_aux_def]>>
+  simp[Once parse_lsteps_aux_def]>>
+  rpt (TOP_CASE_TAC>>gvs[])>>
+  imp_res_tac parse_lsteps_aux_LENGTH
+QED
+
+Definition parse_lsteps_def:
+  parse_lsteps lim s ss = parse_lsteps_aux lim s ss []
+End
+
+(* Parsing a subproof: lsteps and proofgoals, up to the first line that is
+  neither *)
+Definition parse_subproof_aux_def:
+  parse_subproof_aux lim s ss (acc:subproof) =
+  case parse_lsteps lim s ss of
+    NONE => NONE
+  | SOME (pf,s1,l,rest) =>
+    let acc = mk_acc pf acc in
+    case parse_proofgoal l of
+      NONE => SOME (REVERSE acc,s1,l,rest)
+    | SOME ind =>
+      (case parse_lsteps lim s1 rest of
+        NONE => NONE
+      | SOME (pf,s2,l2,rest2) =>
+        case check_mark_qed_id (mk_proofgoal_mark ind) l2 of
+          NONE => NONE
+        | SOME id =>
+          parse_subproof_aux lim s2 rest2 ((SOME (ind,id),pf)::acc))
+Termination
+  WF_REL_TAC ‘measure (LENGTH o FST o SND o SND)’
+  \\ rw[] \\ fs[parse_lsteps_def]>>
+  imp_res_tac parse_lsteps_aux_LENGTH>>
+  fs[]
+End
+
+Definition parse_subproof_def:
+  parse_subproof lim s ss = parse_subproof_aux lim s ss []
+End
+
+Theorem parse_subproof_aux_LENGTH:
+  ∀lim s ss acc res s' l ss'.
+  parse_subproof_aux lim s ss acc = SOME(res,s',l,ss') ⇒
+  LENGTH ss' < LENGTH ss
+Proof
+  ho_match_mp_tac parse_subproof_aux_ind>>
+  rpt strip_tac>>
+  qpat_x_assum`parse_subproof_aux _ _ _ _ = _` mp_tac>>
+  simp[Once parse_subproof_aux_def,parse_lsteps_def]>>
+  rw[AllCaseEqs()]>>
+  imp_res_tac parse_lsteps_aux_LENGTH>>
+  gvs[parse_lsteps_def]
+QED
+
+(* Parsing a scope: subproofs and scope blocks, up to the first line that
+  is neither *)
+Definition parse_scope_aux_def:
+  parse_scope_aux lim s ss (acc:(num option, subproof) alist) =
+  case parse_subproof lim s ss of
+    NONE => NONE
+  | SOME (pf,s1,l,rest) =>
+    let acc = mk_acc pf acc in
+    case parse_scopehead l of
+      NONE => SOME (REVERSE acc,s1,l,rest)
+    | SOME ind =>
+      (case parse_subproof lim s1 rest of
+        NONE => NONE
+      | SOME (pf,s2,l2,rest2) =>
+        if check_end (mk_scope_mark ind) l2
+        then parse_scope_aux lim s2 rest2 ((SOME ind,pf)::acc)
+        else NONE)
+Termination
+  WF_REL_TAC ‘measure (LENGTH o FST o SND o SND)’
+  \\ rw[parse_subproof_def]>>
+  imp_res_tac parse_subproof_aux_LENGTH>>
+  fs[]
+End
+
+Definition parse_scope_def:
+  parse_scope lim s ss = parse_scope_aux lim s ss []
+End
+
+Theorem parse_scope_aux_LENGTH:
+  ∀lim s ss acc res s' l ss'.
+  parse_scope_aux lim s ss acc = SOME(res,s',l,ss') ⇒
+  LENGTH ss' < LENGTH ss
+Proof
+  ho_match_mp_tac parse_scope_aux_ind>>
+  rpt strip_tac>>
+  qpat_x_assum`parse_scope_aux _ _ _ _ = _` mp_tac>>
+  simp[Once parse_scope_aux_def,parse_subproof_def]>>
+  rw[AllCaseEqs()]>>
+  imp_res_tac parse_subproof_aux_LENGTH>>
+  gvs[parse_subproof_def]
+QED
+
+(*
+  The order block, after its def_order line
+*)
+Definition parse_vars_block_def:
+  parse_vars_block lim s ss =
+  case ss of
+    v::l::r::ae::rest =>
+    if v = [INL «vars»] then
+      case parse_vars_line «left» l of NONE => NONE
+      | SOME us =>
+      case name_vars lim us s of NONE => NONE
+      | SOME (us1,s1) =>
+      case parse_vars_line «right» r of NONE => NONE
+      | SOME vs =>
+      case name_vars lim vs s1 of NONE => NONE
+      | SOME (vs1,s2) =>
+      if check_end [INL «vars»] ae then SOME ((us1,vs1,[]),s2,rest)
+      else
+        case parse_vars_line «aux» ae of NONE => NONE
+        | SOME as =>
+        case name_vars lim as s2 of NONE => NONE
+        | SOME (as1,s3) =>
+        case rest of
+          e::rest1 =>
+          if check_end [INL «vars»] e then SOME ((us1,vs1,as1),s3,rest1)
+          else NONE
+        | [] => NONE
+    else NONE
+  | _ => NONE
+End
+
+(* The red steps of a spec block, up to its end line *)
+Definition parse_spec_aux_def:
+  (parse_spec_aux lim s [] acc = NONE) ∧
+  (parse_spec_aux lim s (l::ls) acc =
+    case parse_line l of
+      SOME (RedHd c ss) =>
+      (case name_pbc lim c s of NONE => NONE
+      | SOME (c1,s1) =>
+        case name_subst lim ss s1 of NONE => NONE
+        | SOME (ss1,s2) =>
+          case mk_npbc c1 of NONE => NONE
+          | SOME c2 =>
+            case parse_scope lim s2 ls of NONE => NONE
+            | SOME (pf,s3,l3,rest) =>
+              if LENGTH rest < LENGTH ls then
+                case check_mark_qed_id_opt (INL «red») l3 of NONE => NONE
+                | SOME idopt =>
+                  parse_spec_aux lim s3 rest ((c2,ss1,pf,idopt)::acc)
+              else NONE)
+    | _ =>
+      if check_end [INL «spec»] l then SOME (REVERSE acc,s,ls)
+      else NONE)
+Termination
+  WF_REL_TAC ‘measure (LENGTH o FST o SND o SND)’
+  \\ rw[]
+End
+
+(* The optional spec block and the def line after it *)
+Definition parse_spec_block_def:
+  parse_spec_block lim s ss =
+  case ss of
+    h::rest =>
+    if h = [INL «spec»] then
+      case parse_spec_aux lim s rest [] of NONE => NONE
+      | SOME (spec,s1,rest1) =>
+        case rest1 of
+          h1::rest2 =>
+          if h1 = [INL «def»] then SOME (spec,s1,rest2) else NONE
+        | [] => NONE
+    else if h = [INL «def»] then SOME ([],s,rest)
+    else NONE
+  | [] => NONE
+End
+
+(* The constraints of a def block, up to its end line *)
+Definition parse_def_aux_def:
+  (parse_def_aux lim s [] acc = NONE) ∧
+  (parse_def_aux lim s (l::ls) acc =
+    if check_end [INL «def»] l then SOME (REVERSE acc,s,ls)
+    else
+      case parse_constraint_ns l of NONE => NONE
+      | SOME c =>
+        case name_pbc lim c s of NONE => NONE
+        | SOME (c1,s1) =>
+          case mk_npbc c1 of NONE => NONE
+          | SOME c2 => parse_def_aux lim s1 ls (c2::acc))
+End
+
+(* The first two lines of a transitivity block *)
+Definition trans_vars_head_def:
+  trans_vars_head h v ⇔ h = [INL «transitivity»] ∧ v = [INL «vars»]
+End
+
+Definition parse_trans_vars_def:
+  parse_trans_vars lim s ss =
+  case ss of
+    h::v::f::ae::rest =>
+    if trans_vars_head h v then
+      case parse_vars_line «fresh_right» f of NONE => NONE
+      | SOME ws =>
+      case name_vars lim ws s of NONE => NONE
+      | SOME (ws1,s1) =>
+      if check_end [INL «vars»] ae then SOME ((ws1,[],[]),s1,rest)
+      else
+        case parse_vars_line «fresh_aux_1» ae of NONE => NONE
+        | SOME bs =>
+        case name_vars lim bs s1 of NONE => NONE
+        | SOME (bs1,s2) =>
+        case rest of
+          a2::e::rest1 =>
+          (case parse_vars_line «fresh_aux_2» a2 of NONE => NONE
+          | SOME cs =>
+          case name_vars lim cs s2 of NONE => NONE
+          | SOME (cs1,s3) =>
+          if check_end [INL «vars»] e then SOME ((ws1,bs1,cs1),s3,rest1)
+          else NONE)
+        | _ => NONE
+    else NONE
+  | _ => NONE
+End
+
+(* A proof block without scopes, with a "proof" line, a "qed" line and an
+  "end" line *)
 Definition parse_proof_block_def:
-  parse_proof_block f_ns end ss =
+  parse_proof_block lim s end ss =
   case ss of [] => NONE
   | h::ss =>
   if h = [INL «proof»] then
-    case parse_subproof f_ns ss of
-    | SOME (pf,f_ns',s,rest) =>
-      if check_qed [INL «proof»] s
+    case parse_subproof lim s ss of
+    | SOME (pf,s1,l,rest) =>
+      if check_qed [INL «proof»] l
       then
         case rest of [] => NONE
-        | (s::rest) =>
-          if check_end end s
-          then
-            SOME (pf,f_ns',rest)
+        | (e::rest1) =>
+          if check_end end e
+          then SOME (pf,s1,rest1)
           else NONE
       else NONE
     | _ => NONE
   else NONE
 End
 
-Definition parse_trans_aux_def:
-  parse_trans_aux f_ns h v f a12 =
-    if
-       h = [INL «transitivity»] ∧
-       v = [INL «vars»]
-    then
-      case parse_vars_line f_ns «fresh_right» f of
-        NONE => NONE
-      | SOME (ws,f_ns) =>
-      case a12 of NONE =>
-        SOME ((ws,[],[]),f_ns)
-      | SOME (a1,a2) =>
-        case parse_vars_line f_ns «fresh_aux_1» a1 of
-          NONE => NONE
-        | SOME (bs,f_ns) =>
-        case parse_vars_line f_ns «fresh_aux_2» a2 of
-          NONE => NONE
-        | SOME (cs,f_ns) =>
-          SOME ((ws,bs,cs),f_ns)
-    else NONE
-End
-
-Definition parse_trans_block_aux_def:
-  parse_trans_block_aux f_ns ss =
-  case ss of
-    h::v::f::ae::rest =>
-    if check_end [INL «vars»] ae
-    then
-      case parse_trans_aux f_ns h v f NONE of
-        NONE => NONE
-      | SOME (vars,f_ns) => SOME (vars,f_ns,rest)
-    else
-      (case rest of
-      | a2::e::rest =>
-        if check_end [INL «vars»] e
-        then
-          case parse_trans_aux f_ns h v f (SOME (ae,a2)) of
-            NONE => NONE
-          | SOME (vars,f_ns) => SOME (vars,f_ns,rest)
-        else NONE
-      | _ => NONE)
-  | _ => NONE
-End
-
 Definition parse_trans_block_def:
-  parse_trans_block f_ns ss =
-  case parse_trans_block_aux f_ns ss of
+  parse_trans_block lim s ss =
+  case parse_trans_vars lim s ss of
     NONE => NONE
-  | SOME ((ws,bs,cs),f_ns,rest) =>
-  case parse_proof_block f_ns
-    [INL «transitivity»] rest of
+  | SOME ((ws,bs,cs),s1,rest) =>
+  case parse_proof_block lim s1 [INL «transitivity»] rest of
     NONE => NONE
-  | SOME (pf,f_ns',ss) =>
-    SOME((ws,bs,cs,pf),f_ns',ss)
+  | SOME (pf,s2,rest1) => SOME ((ws,bs,cs,pf),s2,rest1)
 End
-
-(*
-EVAL``parse_trans_block (hashString_nf,0)
-  (MAP toks ([
-  «transitivity»;
-  «vars»;
-  «fresh_right w1 w2 w3;»;
-  «fresh_aux_1 $b1 $b2 ;»;
-  «fresh_aux_2 $c1 $c2 ;»;
-  «end;»;
-  «proof»;
-  «pol 120 148 + 222 + 223 + s 241 3 * +;»;
-  «pol 242 114 + s;»;
-  «proofgoal #1»;
-  «pol ~x5 243 117 + +;»;
-  «qed : 244;»;
-  «qed;»;
-  «end;»;]))``
-
-EVAL``parse_trans_block (hashString_nf,0)
-  (MAP toks ([
-  «transitivity»;
-  «vars»;
-  «fresh_right w1 w2 w3;»;
-  «end vars;»;
-  «proof»;
-  «pol 120 148 + 222 + 223 + s 241 3 * +;»;
-  «pol 242 114 + s;»;
-  «proofgoal #1»;
-  «pol 243 117 +;»;
-  «qed #1 : 244;»;
-  «qed proof;»;
-  «end transitivity;»;]))``
-*)
 
 Definition parse_refl_block_def:
-  parse_refl_block f_ns ss =
+  parse_refl_block lim s ss =
   case ss of
     h::ss =>
     if h = [INL «reflexivity»] then
-      parse_proof_block f_ns [INL «reflexivity»] ss
-    else NONE
-  | _ => NONE
-End
-
-Definition parse_trans_refl_block_def:
-  parse_trans_refl_block f_ns ss =
-  case parse_trans_block f_ns ss of NONE => NONE
-  | SOME (pft,f_ns,ss) =>
-  case parse_refl_block f_ns ss of NONE => NONE
-  | SOME(pfr,f_ns,ss) => SOME (pfr, pft, f_ns, ss)
-End
-
-Definition parse_spec_def_block_def:
-  parse_spec_def_block f_ns ss =
-  case parse_spec_block f_ns ss of NONE => NONE
-  | SOME (sopt,gspec,f_ns,ss) =>
-  case parse_def_block f_ns sopt ss of NONE => NONE
-  | SOME (f, f_ns, ss) => SOME (f,gspec,f_ns,ss)
-End
-
-(* read until we have all the lines for def_order
-  for unambiguity, we must read until we find
-  "reflexivity" "end reflexivity" "end [def_order]"
-  INL means a opening keyword
-  INR means an ending keyword *)
-Definition check_open_def:
-  check_open h (x: (mlstring + int) list) =
-    ( x = [INL h] )
-End
-
-Definition read_open_def:
-  (read_open h [] acc = NONE) ∧
-  (read_open h (x::xs) acc =
-    if check_open h x then SOME (x::acc,xs)
-    else read_open h xs (x::acc))
-End
-
-Definition check_end_full_def:
-  check_end_full xx h =
-  check_end [INL xx] h
-End
-
-Definition read_end_def:
-  (read_end h [] acc = NONE) ∧
-  (read_end h (x::xs) acc =
-    if check_end_full h x then SOME (x::acc,xs)
-    else read_end h xs (x::acc))
-End
-
-Definition read_while_def:
-  (read_while [] ss acc = SOME (REVERSE acc,ss)) ∧
-  (read_while (h::hs) ss acc =
-    case h of
-      INL h =>
-        (case read_open h ss acc of NONE => NONE
-        | SOME (acc,ss) => read_while hs ss acc)
-    | INR h =>
-        case read_end h ss acc of NONE => NONE
-        | SOME (acc,ss) => read_while hs ss acc)
-End
-
-Definition pre_order_symbols_def:
-  pre_order_symbols =
-  [ INL «reflexivity»; INR «reflexivity»; INR «def_order»]
-End
-
-Definition parse_pre_order_pure_def:
-  parse_pre_order_pure f_ns ss =
-  case parse_vars_block f_ns ss of NONE => NONE
-  | SOME (vars, f_ns, ss) =>
-  case parse_spec_def_block f_ns ss of NONE => NONE
-  | SOME (f,gspec,f_ns, ss) =>
-  case parse_trans_refl_block f_ns ss of NONE => NONE
-  | SOME (pfr, pft,f_ns, ss) =>
-  case ss of
-    [h] =>
-    if check_end [INL «def_order»] h then
-      SOME (vars,gspec,f,pfr,pft,f_ns)
+      parse_proof_block lim s [INL «reflexivity»] ss
     else NONE
   | _ => NONE
 End
 
 Definition parse_pre_order_def:
-  parse_pre_order f_ns ss =
-  case read_while pre_order_symbols ss [] of NONE => NONE
-  | SOME (ss,rest) =>
-  case parse_pre_order_pure f_ns ss of NONE => NONE
-  | SOME (vars,gspec,f,pfr,pft,f_ns) =>
-    SOME (vars,gspec,f,pfr,pft,f_ns,rest)
+  parse_pre_order lim s ss =
+  case parse_vars_block lim s ss of NONE => NONE
+  | SOME (vars,s1,ss1) =>
+  case parse_spec_block lim s1 ss1 of NONE => NONE
+  | SOME (gspec,s2,ss2) =>
+  case parse_def_aux lim s2 ss2 [] of NONE => NONE
+  | SOME (f,s3,ss3) =>
+  case parse_trans_block lim s3 ss3 of NONE => NONE
+  | SOME (pft,s4,ss4) =>
+  case parse_refl_block lim s4 ss4 of NONE => NONE
+  | SOME (pfr,s5,ss5) =>
+  case ss5 of
+    h::rest =>
+    if check_end [INL «def_order»] h then
+      SOME (vars,gspec,f,pfr,pft,s5,rest)
+    else NONE
+  | [] => NONE
 End
 
 (*
-  EVAL``parse_pre_order (hashString_nf,0)
+  EVAL``parse_pre_order NONE (nt_init 0)
   (MAP toks ([
   «vars»;
   «left u1;»;
@@ -2764,510 +2933,123 @@ End
   ]))``
 *)
 
-(* Partially parsed information for csteps *)
-Datatype:
-  par =
-  | Done cstep
-  | Dompar npbc subst_raw
-  | StoreOrderpar mlstring
-  | CheckedDeletepar num subst_raw
-  | ChangeObjpar bool ((int # num) list # int)
-  | ChangePrespar bool num npbc
-End
+Theorem parse_spec_aux_LENGTH[local]:
+  ∀lim s ss acc res s' ss'.
+  parse_spec_aux lim s ss acc = SOME (res,s',ss') ⇒
+  LENGTH ss' < LENGTH ss
+Proof
+  ho_match_mp_tac parse_spec_aux_ind>>
+  rpt strip_tac>>
+  qpat_x_assum`parse_spec_aux _ _ _ _ = _` mp_tac>>
+  simp[Once parse_spec_aux_def]>>
+  rw[AllCaseEqs()]>>
+  gvs[]
+QED
 
-Definition split_lit_def:
-  split_lit l =
-  case l of Pos v => (v,T) | Neg v => (v,F)
-End
+Theorem parse_def_aux_LENGTH[local]:
+  ∀lim s ss acc res s' ss'.
+  parse_def_aux lim s ss acc = SOME (res,s',ss') ⇒
+  LENGTH ss' < LENGTH ss
+Proof
+  Induct_on`ss`>>
+  rw[parse_def_aux_def,AllCaseEqs()]>>
+  res_tac>>
+  simp[]
+QED
 
-Definition parse_lits_line_aux_def:
-  (parse_lits_line_aux f_ns [] = SOME ([],f_ns)) ∧
-  (parse_lits_line_aux f_ns (x::xs) =
-  case x of
-    INL v =>
-    (case parse_lit_num f_ns v of
-      NONE => NONE
-    | SOME (ll,f_ns') =>
-      (case parse_lits_line_aux f_ns' xs of NONE => NONE
-      | SOME (lls,f_ns'') => SOME (split_lit ll::lls,f_ns'')))
-  | _ => NONE)
-End
+Theorem parse_pre_order_LENGTH:
+  parse_pre_order lim s ss = SOME (a,b,c,d,e,s',ss') ⇒
+  LENGTH ss' < LENGTH ss
+Proof
+  rw[parse_pre_order_def,parse_vars_block_def,parse_spec_block_def,
+     parse_trans_block_def,parse_trans_vars_def,parse_proof_block_def,
+     parse_refl_block_def,parse_subproof_def,AllCaseEqs()]>>
+  imp_res_tac parse_spec_aux_LENGTH>>
+  imp_res_tac parse_def_aux_LENGTH>>
+  imp_res_tac parse_subproof_aux_LENGTH>>
+  gvs[]
+QED
 
-(* load_order over literals (";" stripped) *)
-Definition parse_load_order_def:
-  (parse_load_order f_ns [] = SOME (Done UnloadOrder,f_ns)) ∧
-  (parse_load_order f_ns (INL r::rs) =
-    case parse_lits_line_aux f_ns rs of
-      NONE => NONE
-    | SOME (ws,f_ns') => SOME (Done (LoadOrder r ws),f_ns')) ∧
-  (parse_load_order f_ns _ = NONE)
-End
-
-Definition parse_strengthen_def:
-  (parse_strengthen f_ns [INL b] =
-    if b = «on» then SOME (Done (StrengthenToCore T), f_ns)
-    else if b = «off» then SOME (Done (StrengthenToCore F), f_ns)
-    else NONE) ∧
-  (parse_strengthen f_ns _ = NONE)
-End
-
-Definition parse_to_core_def:
-  (parse_to_core f_ns (INL r::rs) =
-    if r = «id»
-    then
-      case strip_numbers rs of NONE => NONE
-      | SOME n => SOME (Done (Transfer n), f_ns)
-    else NONE) ∧
-  (parse_to_core _ _ = NONE)
-End
-
-Definition parse_assg_def:
-  (parse_assg f_ns [] acc = SOME (acc,NONE,f_ns)) ∧
-  (parse_assg f_ns (INL s::ss) acc =
-    case parse_lit_num f_ns s of
-      NONE =>
-        if s = «:» then
-          (case ss of [INR i] => SOME (acc,SOME i,f_ns)
-          | _ => NONE)
-        else NONE
-    | SOME (l,f_ns') => parse_assg f_ns' ss (split_lit l :: acc)) ∧
-  (parse_assg f_ns _ acc = NONE)
-End
-
-Definition parse_sol_def:
-  (parse_sol f_ns r rs =
-  case parse_assg f_ns rs [] of NONE => NONE
-  | SOME (assg,ov,f_ns') =>
-    let b = (r = INL «soli») in
-      SOME (Done (Obj assg b ov),f_ns'))
-End
-
-(*
-EVAL ``parse_sol (plainVar_nf,()) (INL «soli») (toks «x1 ~x2 ~x3 : -2»)``
-EVAL ``parse_sol (plainVar_nf,()) (INL «sol») (toks «x1 ~x2 ~x3 : -2»)``
-EVAL ``parse_sol (plainVar_nf,()) (INL «soli») (toks «x1 ~x2 ~x3»)``
-*)
-
-Definition parse_solx_aux_def:
-  (parse_solx_aux f_ns [] assg free = SOME ((assg,free),f_ns)) ∧
-  (parse_solx_aux f_ns (INL s::ss) assg free =
-    if strlen s > 0 ∧ strsub_unsafe s 0 = #"*" then
-      case parse_var f_ns (substring s 1 (strlen s - 1)) of
-        NONE => NONE
-      | SOME (v,f_ns') => parse_solx_aux f_ns' ss assg (insert v () free)
-    else
-      case parse_lit_num f_ns s of
-        NONE => NONE
-      | SOME (l,f_ns') => parse_solx_aux f_ns' ss (split_lit l::assg) free) ∧
-  (parse_solx_aux f_ns _ assg free = NONE)
-End
-
-Definition parse_solx_def:
-  parse_solx f_ns rs =
-  case parse_solx_aux f_ns rs [] LN of
-    SOME ((assg,free),f_ns') => SOME (Done (Sol assg free),f_ns')
-  | NONE => NONE
-End
-
-(*
-EVAL ``parse_solx (plainVar_nf,()) (toks «x1 ~x2 ~x3»)``
-*)
-
-Definition parse_obj_term_npbc_def:
-  parse_obj_term_npbc f_ns rest =
-  case parse_obj_term rest of NONE => NONE
-  | SOME (f,c) =>
-    (case map_f_ns f_ns f of NONE => NONE
-     | SOME (f',f_ns') =>
-      case normalise_obj (SOME (f',c)) of NONE => NONE
-      | SOME fc' => SOME (fc', f_ns'))
-End
-
-Definition parse_obji_def:
-  parse_obji f_ns rs =
-  (case rs of [INR i] => SOME (Done (AssertObj i), f_ns)
-   | _ => NONE)
-End
-
-Definition parse_eobj_def:
-  parse_eobj f_ns rs =
-  case parse_obj_term_npbc f_ns rs of
-    NONE => NONE
-  | SOME (f',f_ns') => SOME (Done (CheckObj f'), f_ns')
-End
-
-Definition parse_delc_header_def:
-  parse_delc_header f_ns line =
-  case line of
-    INR id::rest =>
-    if id ≥ 0 then
-      (case parse_subst f_ns rest of
-        NONE => NONE
-      | SOME (rest,ss,f_ns'') =>
-        if start_subproof rest
-        then SOME (Num id,ss,f_ns'')
-        else NONE)
-    else NONE
-  | _ => NONE
-End
-
-(*
-EVAL``parse_delc_header (plainVar_nf,()) (toks «2 : x1 -> ~x2 : subproof»)``
-*)
-
-(* Take off : subproof at the end *)
-Definition strip_obju_end_def:
-  strip_obju_end ls =
-  let lls = LENGTH ls in
-  if lls < 2
-  then
-    NONE
-  else
-    let tls = TAKE (lls-2) ls in
-    let dls = DROP (lls-2) ls in
-    if start_subproof dls
-    then SOME tls
-    else NONE
-End
-
-Definition parse_b_obj_term_npbc_def:
-  (parse_b_obj_term_npbc f_ns rest =
-   case strip_obju_end rest of NONE => NONE
-  | SOME [] => NONE
-  | SOME (r::rs) =>
-  case parse_obj_term_npbc f_ns rs of NONE => NONE
-  | SOME res =>
-    if r = INL «new» then SOME (T,res)
-    else if r = INL «diff» then SOME (F,res)
-    else NONE)
-End
-
-(*
-EVAL``parse_b_obj_term_npbc (plainVar_nf,()) (toks «new 1 x1 2 : subproof»)``
-*)
-
-(* preserve_add and remove steps *)
-Definition parse_preserve_def:
-  (parse_preserve f_ns rest =
-   case strip_obju_end rest of
-   | SOME (INL c::INL s::cs) =>
-    if s = «:» then
-      (case parse_var f_ns c of
-        NONE => NONE
-      | SOME (x,f_ns') =>
-      (case parse_constraint_npbc f_ns' cs of
-        SOME (constr,[],f_ns'') =>
-          SOME (x,constr,f_ns'')
-        | _ => NONE))
-    else NONE
-  | _ => NONE)
-End
-
-(*
-  EVAL``parse_preserve (plainVar_nf,()) (toks «x1 : 1 x1 2 x2 >= 5 : subproof»)``
-*)
-
-Definition parse_epres_def:
-  parse_epres f_ns rs =
-  case parse_vars_line_aux f_ns rs of
-    SOME (vs,f_ns') =>
-      SOME (Done (CheckPres (list_to_num_set vs)), f_ns')
-  | _ => NONE
-End
-
-(*
-  EVAL``parse_epres (plainVar_nf,()) (toks «x4 x2 x3»)``
-*)
-
-(* Parse the first line of a cstep, sstep supported differently later
-  Here we first parse the multi-line, then the single line steps *)
-Definition parse_cstep_head_def:
-  parse_cstep_head f_ns s =
-  case s of [] => NONE
-  | (r::rs) =>
-    if r = INL «dom» then
-      case parse_red_header f_ns rs of
-        SOME (c,s,f_ns') => SOME (Dompar c s,f_ns')
-      | _ => NONE
-    else if r = INL «delc» then
-      case parse_delc_header f_ns rs of
-      | SOME (n,s,f_ns') =>
-        SOME (CheckedDeletepar n s,f_ns')
-      | NONE =>
-        (case OPTION_BIND (strip_term_line rs) strip_numbers of NONE => NONE
-        | SOME n => SOME (Done (UncheckedDelete n),f_ns))
-    else if r = INL «def_order» then
-      case rs of [INL n] => SOME (StoreOrderpar n, f_ns)
-      | _ => NONE
-    else if r = INL «obju» then
-      (case parse_b_obj_term_npbc f_ns rs of NONE => NONE
-      | SOME (b,f',f_ns') =>
-        SOME (ChangeObjpar b f', f_ns'))
-    else if r = INL «preserved_add» ∨
-            r = INL «preserved_rm» then
-      case parse_preserve f_ns rs of NONE => NONE
-      | SOME (x, c, f_ns') =>
-        let b = (r = INL «preserved_add») in
-          SOME (ChangePrespar b x c,f_ns')
-    else
-    case strip_term_line rs of NONE => NONE
-    | SOME rs =>
-    if r = INL «core» then
-      parse_to_core f_ns rs
-    else if r = INL «strengthening_to_core» then
-      parse_strengthen f_ns rs
-    else if r = INL «load_order» then
-      parse_load_order f_ns rs
-    else if r = INL «soli» ∨ r = INL «sol» then
-      parse_sol f_ns r rs
-    else if r = INL «solx» then
-      parse_solx f_ns rs
-    else if r = INL «obji» then
-      parse_obji f_ns rs
-    else if r = INL «eobj» then
-      parse_eobj f_ns rs
-    else if
-      r = INL «epreserved» then
-      parse_epres f_ns rs
-    else NONE
-End
-
-(*
-EVAL
-``parse_cstep_head (plainVar_nf,()) (toks «dom 1 ~x1 1 x2 >= 1 : x1 -> x2 x2 -> x1 : subproof»)``;
-
-EVAL
-``parse_cstep_head (plainVar_nf,()) (toks «delc 2 : : subproof»)``;
-
-EVAL
-``parse_cstep_head (plainVar_nf,()) (toks «delc 1 2 3 4 5;»)``;
-
-EVAL
-``parse_cstep_head (plainVar_nf,()) (toks «load_order lex10 x1 ~x4 x9 ~x10 ;»)``;
-
-EVAL
-``parse_cstep_head (plainVar_nf,()) (toks «strengthening_to_core off;»)``;
-
-EVAL
-``parse_cstep_head (plainVar_nf,()) (toks «core id 1 2 3 4 5;»)``;
-
-EVAL
-``parse_cstep_head (plainVar_nf,()) (toks «soli ~x1 ~x2 ~x3 ~x4 ~x5 ~x6 x7 ~x8 x9 ~x10 ~x11 x12 : 50;»)``;
-
-EVAL
-``parse_cstep_head (plainVar_nf,()) (toks «solx ~x1 ~x2 ~x3 ~x4 ~x5 ~x6 x7 ~x8 x9 ~x10 ~x11 x12 ;»)``;
-
-EVAL
-``parse_cstep_head (plainVar_nf,()) (toks «obji -100 ;»)``;
-
-EVAL
-``parse_cstep_head (plainVar_nf,()) (toks «eobj 1 x1 -100 ;»)``;
-
-EVAL
-``parse_cstep_head (plainVar_nf,()) (toks «epreserved x3 x2 x5;»)``;
-
-EVAL
-``parse_cstep_head (plainVar_nf,()) (toks «obju new 1 x1 2 : subproof»)``;
-
-EVAL
-``parse_cstep_head (plainVar_nf,()) (toks «soli x1 ~x2 ~x3 : -2;»)``
-
-EVAL
-``parse_cstep_head (plainVar_nf,()) (toks «delc 2 : : subproof»)``;
-
-*)
-
+(* Parsing one cstep, or returning the line that is not one *)
 Definition parse_cstep_def:
-  (parse_cstep f_ns ss =
-    case parse_sstep f_ns ss of
-      NONE => NONE
-    | SOME (INR sstep, f_ns',rest) =>
-      SOME (INR (Sstep sstep), f_ns', rest)
-    | SOME (INL s,f_ns',rest) =>
-      case parse_cstep_head f_ns' s of
-        NONE => SOME (INL s,f_ns',rest)
-      | SOME (Done cstep,f_ns'') => SOME (INR cstep, f_ns'', rest)
-      | SOME (Dompar c s,f_ns'') =>
-        (case parse_scope f_ns'' rest of
-          NONE => NONE
-        | SOME (pf, f_ns''', h, rest) =>
-          case check_mark_qed_id_opt (INL «dom») h of
-            NONE => NONE
-          | SOME idopt =>
-            SOME (INR (Dom c s pf idopt),f_ns''',rest))
-      | SOME (CheckedDeletepar n s, f_ns'') =>
-        (case parse_scope f_ns'' rest of
-          NONE => NONE
-        | SOME (pf,f_ns''',h,rest) =>
-          case check_mark_qed_id_opt (INL «delc») h of
-            NONE => NONE
-          | SOME idopt =>
-            SOME (INR (CheckedDelete n s pf idopt), f_ns''', rest))
-      | SOME (StoreOrderpar name, f_ns'') =>
-        (case parse_pre_order f_ns'' rest of NONE => NONE
-        | SOME (vars,gspec,f,pfr,pft,f_ns''',rest) =>
-          SOME (INR (StoreOrder name vars gspec f pfr pft), f_ns''',rest))
-      | SOME (ChangeObjpar b f, f_ns'') =>
-        (case parse_subproof f_ns'' rest of
-          NONE => NONE
-        | SOME (pf,f_ns''',s,rest) =>
-        (case check_mark_qed_id_opt (INL «obju») s of
-            SOME NONE => SOME (INR (ChangeObj b f pf), f_ns''', rest)
-        | _ => NONE))
-      | SOME (ChangePrespar b x c, f_ns'') =>
-        (case parse_subproof f_ns'' rest of
-          NONE => NONE
-        | SOME (pf,f_ns''',s,rest) =>
-        (case check_mark_qed_id_opt
-          (if b then INL «preserved_add» else INL «preserved_rm») s of
-            SOME NONE => SOME (INR (ChangePres b x c pf), f_ns''', rest)
-        | _ => NONE))
-  )
+  (parse_cstep lim s [] = NONE) ∧
+  (parse_cstep lim s (l::ls) =
+    case parse_line l of
+      NONE => SOME (INL l,s,ls)
+    | SOME pl =>
+      case name_pline lim pl s of
+        NONE => NONE
+      | SOME (pl1,s1) =>
+      case pl1 of
+        PbcHd c =>
+        (case mk_npbc c of NONE => NONE
+        | SOME c1 =>
+          case parse_lsteps lim s1 ls of NONE => NONE
+          | SOME (pf,s2,l2,rest) =>
+            case check_mark_qed_id (INL «pbc») l2 of NONE => NONE
+            | SOME id => SOME (INR (Sstep (Lstep (Con c1 pf id))),s2,rest))
+      | RedHd c ss =>
+        (case mk_npbc c of NONE => NONE
+        | SOME c1 =>
+          case parse_scope lim s1 ls of NONE => NONE
+          | SOME (pf,s2,l2,rest) =>
+            case check_mark_qed_id_opt (INL «red») l2 of NONE => NONE
+            | SOME idopt => SOME (INR (Sstep (Red c1 ss pf idopt)),s2,rest))
+      | DomHd c ss =>
+        (case mk_npbc c of NONE => NONE
+        | SOME c1 =>
+          case parse_scope lim s1 ls of NONE => NONE
+          | SOME (pf,s2,l2,rest) =>
+            case check_mark_qed_id_opt (INL «dom») l2 of NONE => NONE
+            | SOME idopt => SOME (INR (Dom c1 ss pf idopt),s2,rest))
+      | DelcHd n ss =>
+        (case parse_scope lim s1 ls of NONE => NONE
+        | SOME (pf,s2,l2,rest) =>
+          case check_mark_qed_id_opt (INL «delc») l2 of NONE => NONE
+          | SOME idopt => SOME (INR (CheckedDelete n ss pf idopt),s2,rest))
+      | OrdHd name =>
+        (case parse_pre_order lim s1 ls of NONE => NONE
+        | SOME (vars,gspec,f,pfr,pft,s2,rest) =>
+          SOME (INR (StoreOrder name vars gspec f pfr pft),s2,rest))
+      | ObjuHd b f =>
+        (case normalise_obj (SOME f) of NONE => NONE
+        | SOME f1 =>
+          case parse_subproof lim s1 ls of NONE => NONE
+          | SOME (pf,s2,l2,rest) =>
+            case check_mark_qed_id_opt (INL «obju») l2 of
+              SOME NONE => SOME (INR (ChangeObj b f1 pf),s2,rest)
+            | _ => NONE)
+      | PresHd b x c =>
+        (case mk_npbc c of NONE => NONE
+        | SOME c1 =>
+          case parse_subproof lim s1 ls of NONE => NONE
+          | SOME (pf,s2,l2,rest) =>
+            case check_mark_qed_id_opt
+              (if b then INL «preserved_add» else INL «preserved_rm») l2 of
+              SOME NONE => SOME (INR (ChangePres b x c1 pf),s2,rest)
+            | _ => NONE)
+      | _ =>
+        if is_lstep pl1 then
+          case fin_lstep pl1 of NONE => NONE
+          | SOME step => SOME (INR (Sstep (Lstep step)),s1,ls)
+        else
+          case fin_cstep pl1 of NONE => NONE
+          | SOME cs => SOME (INR cs,s1,ls))
 End
 
-(* parse a hconcl *)
-Definition parse_unsat_def:
-  parse_unsat rest =
-  case rest of
-    [INL s; INR n] =>
-    if s = «:» ∧ n ≥ 0 then SOME (Num n) else NONE
-  | _ => NONE
-End
-
-Definition parse_sat_def:
-  parse_sat f_ns rest =
-  case rest of
-    INL s::rest =>
-    if s = «:» then
-      OPTION_MAP (SOME o FST) (parse_assg f_ns rest [])
-    else NONE
-  | [] => SOME NONE
-  | _ => NONE
-End
-
-(* Parse a number or infinity *)
-Definition parse_int_inf_def:
-  parse_int_inf l =
-  case l of INR n => SOME (SOME n)
-  | INL s => if s = «INF» then SOME NONE else NONE
-End
-
-(* lb : id ub [: optional assignment] *)
-Definition parse_lb_def:
-  parse_lb s =
-  case s of
-    lb :: INL s :: INR n :: rest =>
-    if s = «:» ∧ n ≥ 0 then
-      case parse_int_inf lb of NONE => NONE
-      | SOME lb => SOME ((lb,Num n), rest)
-    else NONE
-  | _ => NONE
-End
-
-Definition parse_ub_def:
-  parse_ub f_ns s =
-  case s of
-    ub :: rest =>
-      (case parse_int_inf ub of NONE => NONE
-      | SOME ub =>
-        (case rest of [] => SOME(ub, NONE)
-        | INL s::rest =>
-          if s = «:» then
-            (case parse_assg f_ns rest [] of NONE => NONE
-            | SOME (a,f_ns') => SOME(ub,SOME a))
-          else NONE
-        | _ => NONE))
-    | _ => NONE
-End
-
-(* parse hints for OBound *)
-Definition parse_bounds_def:
-  parse_bounds f_ns rest =
-  case parse_lb rest of NONE => NONE
-  | SOME ((lb,n),rest') =>
-    (case parse_ub f_ns rest' of NONE => NONE
-    | SOME (ub,a) => SOME (lb,ub,n,a))
-End
-
-Definition parse_enum_def:
-  parse_enum s =
-  case s of
-    INR n :: rest =>
-      if n < 0 then NONE
-      else
-        (case rest of [] => SOME(Num n, NONE)
-        | INL s::INR i :: rest =>
-          if s = «:» ∧ i ≥ 0 then
-              SOME (Num n, SOME (Num i))
-          else NONE
-        | _ => NONE)
-    | _ => NONE
-End
-
-Definition parse_concl_def:
-  parse_concl f_ns s =
-  case strip_term_line s of NONE => NONE
-  | SOME s =>
-  case s of
-  x::y::rest =>
-  if x = INL «conclusion» then
-    if y = INL «NONE» ∧ rest = [] then SOME HNoConcl
-    else if y = INL «UNSAT» then
-      OPTION_MAP HDUnsat (parse_unsat rest)
-    else if y = INL «SAT» then
-      OPTION_MAP HDSat (parse_sat f_ns rest)
-    else if y = INL «BOUNDS» then
-      case parse_bounds f_ns rest of NONE => NONE
-      | SOME (lb,ub,n,a) => SOME (HOBounds lb ub n a)
-    else if y = INL «ENUMERATION_COMPLETE» then
-      (case parse_enum rest of NONE => NONE
-      | SOME (n, hint) => SOME (HEEnum n T hint))
-    else if y = INL «ENUMERATION_PARTIAL» then
-      (case parse_enum rest of NONE => NONE
-      | SOME (n, hint) => SOME (HEEnum n F hint))
-    else NONE
-  else NONE
-  | _ => NONE
-End
-
-(*
-
-EVAL
-``parse_concl (plainVar_nf,()) (toks «conclusion NONE ;»)``;
-
-EVAL
-``parse_concl (plainVar_nf,()) (toks «conclusion UNSAT : 1234 ;»)``;
-
-EVAL
-``parse_concl (plainVar_nf,()) (toks «conclusion ENUMERATION_PARTIAL 5 ;»)``;
-
-EVAL
-``parse_concl (plainVar_nf,()) (toks «conclusion ENUMERATION_COMPLETE 5 ;»)``;
-*)
-
-(* Parse a PBC output line.
-  TODO: equienumerable currently aliases equisolvable *)
-Definition parse_output_def:
-  parse_output s =
-  case strip_term_line s of NONE => NONE
-  | SOME s =>
-  case s of
-    [x;y] =>
-    if x = INL «output» ∧ y = INL «NONE»
-    then SOME NoOutput
-    else NONE
-  | [x;y;z] =>
-    if x = INL «output» ∧ z = INL «FILE»
-    then (
-      if y = INL «DERIVABLE» then SOME Derivable
-      else if y = INL «EQUISATISFIABLE» then SOME Equisatisfiable
-      else if y = INL «EQUIOPTIMAL» then SOME Equioptimal
-      else if y = INL «EQUIENUMERABLE» then SOME Equisolvable
-      else if y = INL «EQUISOLVABLE» then SOME Equisolvable
-      else NONE)
-    else NONE
-  | _ => NONE
-End
+Theorem parse_cstep_LENGTH:
+  parse_cstep lim s ss = SOME (res,s',ss') ⇒
+  LENGTH ss' < LENGTH ss
+Proof
+  Cases_on`ss`>>
+  rw[parse_cstep_def,parse_lsteps_def,parse_scope_def,parse_subproof_def,
+     AllCaseEqs()]>>
+  imp_res_tac parse_lsteps_aux_LENGTH>>
+  imp_res_tac parse_scope_aux_LENGTH>>
+  imp_res_tac parse_subproof_aux_LENGTH>>
+  imp_res_tac parse_pre_order_LENGTH>>
+  gvs[]
+QED
 
 (*
 Definition parse_csteps_def:

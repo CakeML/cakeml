@@ -45,9 +45,9 @@ Datatype:
   | Div div_ty constr num      (* Divide by a constant factor *)
   | Minus constr num      (* Subtract from RHS *)
   | Sat constr          (* Saturation *)
-  | Lit (num lit)       (* Literal axiom lit ≥ 0 (superseded by triv but used in parsing) *)
-  | Weak constr (var list)     (* Addition of literal axioms until "var" disappears *)
-  | Triv ((num # num lit) app_list) (* Literal axiom corresponds to [1,l] ≥ 0 *)
+  | Lit ('a lit)       (* Literal axiom lit ≥ 0 (superseded by triv but used in parsing) *)
+  | Weak constr ('a list)     (* Addition of literal axioms until "var" disappears *)
+  | Triv ((num # 'a lit) app_list) (* Literal axiom corresponds to [1,l] ≥ 0 *)
   | Lincomb ((num # num) list) ((constr # num) list)
     (* Sum of the IDs' constraints and of the nested constraints,
        each scaled by its factor *)
@@ -57,7 +57,7 @@ End
 Datatype:
   lstep =
   | Delete (num list) (* Ids to delete *)
-  | Cutting constr    (* Adds a constraint using cutting planes, written in reverse polish notation *)
+  | Cutting (var constr)    (* Adds a constraint using cutting planes, written in reverse polish notation *)
   | Rup npbc (num list) (* Add a constraint by RUP *)
   | Con npbc (lstep list) num
     (* Prove constraint by contradiction, indicated by the id *)
@@ -151,8 +151,8 @@ Definition to_triv_def:
     let (ids,ns,lits) = acc in (ids,(to_triv c,m)::ns,lits))
 Termination
   WF_REL_TAC ‘measure (λx. case x of
-    INL c => 2 * constr_size c
-  | INR (c,_,_) => 2 * constr_size c + 1)’
+    INL c => 2 * constr_size (K 0) c
+  | INR (c,_,_) => 2 * constr_size (K 0) c + 1)’
 End
 
 Definition sing_lit_def:
@@ -1241,7 +1241,7 @@ Proof
 QED
 *)
 
-Type subst_raw = ``:(num , bool + num lit) alist``;
+Type subst_raw = ``:('a , bool + 'a lit) alist``;
 
 (*
   The subproof type is complicated and explained as follows:
@@ -1265,7 +1265,7 @@ Type scope = ``:(num option, subproof) alist``;
 Datatype:
   sstep =
   | Lstep lstep (* Id representing a contradiction *)
-  | Red npbc subst_raw scope (num option)
+  | Red npbc (var subst_raw) scope (num option)
 End
 
 Definition list_list_insert_def:
@@ -1557,7 +1557,7 @@ Definition mk_core_fml_def:
 End
 
 Definition mk_subst_def:
-  mk_subst (rinds:num list) (s:subst_raw) = (mk_map rinds s : subst)
+  mk_subst (rinds:num list) (s:var subst_raw) = (mk_map rinds s : subst)
 End
 
 Theorem subst_fun_mk_subst:
@@ -1747,7 +1747,7 @@ End
   The "hs" flag skips computation of certain checks related to scopes
 *)
 Definition check_red_def:
-  check_red pres (ordsub :ord_s option) obj b tcb fml id c (s: subst_raw )
+  check_red pres (ordsub :ord_s option) obj b tcb fml id c (s: var subst_raw )
     (pfs:scope) idopt =
   if check_pres pres s then
     ( let nc = not c in
@@ -2964,20 +2964,20 @@ Proof
   metis_tac[good_aspo_imp_po_of_aspo_trans]
 QED
 
-Type assg_raw = ``:((num # bool) list)``;
+Type assg_raw = ``:('a # bool) list``;
 
 Type aord = ``:(npbc list # npbc list # var list # var list # var list)``;
 
-Type specproof = ``:((npbc # subst_raw # scope # (num option)) list)``
+Type specproof = ``:((npbc # var subst_raw # scope # (num option)) list)``
 
 Datatype:
   cstep =
   (* Derivation steps *)
-  | Dom npbc subst_raw scope (num option)
+  | Dom npbc (var subst_raw) scope (num option)
   | Sstep sstep
 
   (* Deletion steps *)
-  | CheckedDelete num subst_raw scope (num option)
+  | CheckedDelete num (var subst_raw) scope (num option)
   | UncheckedDelete (num list)
   | Transfer (num list) (* Move to core *)
 
@@ -2995,7 +2995,7 @@ Datatype:
      (* transitivity proof ws, bs, cs, proof *)
 
   (* Objective steps *)
-  | Obj assg_raw bool (int option)
+  | Obj (var assg_raw) bool (int option)
   | ChangeObj bool ((int # var) list # int) subproof
     (* the bool indicates T (new) or F (diff) mode *)
   | CheckObj ((int # var) list # int)
@@ -3004,7 +3004,7 @@ Datatype:
   (* Preserved set step b=T is add, b=F is remove *)
   | ChangePres bool var npbc subproof
   | CheckPres num_set
-  | Sol assg_raw num_set
+  | Sol (var assg_raw) num_set
 End
 
 Definition hide_def:
@@ -3112,7 +3112,7 @@ Termination
 End
 
 Definition mk_obj_vec_def:
-  mk_obj_vec (wm:((num # bool) list)) =
+  mk_obj_vec (wm:var assg_raw) =
     let wms = sort (λx y. FST x ≤ FST y) wm in
     Vector (to_flat_d F 0 wms)
 End
@@ -3200,7 +3200,7 @@ Proof
 QED
 
 Definition mk_cube_vec_def:
-  mk_cube_vec (wm:(num # bool) list) (free:num_set) =
+  mk_cube_vec (wm:var assg_raw) (free:num_set) =
     let fixed =
       MAP (λ(v,b). (v,if b then 1n else 0)) (toSortedAList (fromAList wm)) in
     let holes = MAP (λ(v,u). (v,2n)) (toSortedAList free) in
@@ -6311,9 +6311,9 @@ QED
 Datatype:
   hconcl =
   | HNoConcl
-  | HDSat (assg_raw option)
+  | HDSat ('a assg_raw option)
   | HDUnsat num
-  | HOBounds (int option) (int option) num (assg_raw option)
+  | HOBounds (int option) (int option) num ('a assg_raw option)
   | HEEnum num bool (num option)
 End
 

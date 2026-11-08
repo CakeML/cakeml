@@ -12,6 +12,10 @@ CP semantics and encoders
 [graph_encoding](graph_encoding):
 Encoders for various graph problems.
 
+[name_tableScript.sml](name_tableScript.sml):
+A hash table from names to numbers: its hash function, its buckets and
+their relation to the name_to_num_state that specifies the numbering
+
 [npbcScript.sml](npbcScript.sml):
 Formalisation of normalised pseudo-boolean constraints
 
