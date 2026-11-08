@@ -1332,10 +1332,11 @@ Resume red_pass_list[Unassigned]:
   simp[]>>
   rename1`_ = SOME res`>>
   PairCases_on`res`>>
+  rename1`_ = SOME (r1,dml2,tally2)`>>
   simp[]>>
   strip_tac>>
   first_x_assum (qspecl_then [`fmlls`,`dml1`,`b`,`rat`,`p`,`sarr`,`tally1`,`D`,
-    `s`,`k`,`len`,`dm |+ (Num (ABS m), m > 0)`,`res0`,`res1`,`res2`]
+    `s`,`k`,`len`,`dm |+ (Num (ABS m), m > 0)`,`r1`,`dml2`,`tally2`]
     mp_tac)>>
   impl_tac
   >- simp[]>>
@@ -1572,6 +1573,14 @@ Proof
   simp[reduct_def,MAP_REVERSE,FILTER_REVERSE]
 QED
 
+Theorem assume_neg_reduct_REVERSE:
+  assume_neg dm (reduct σ (REVERSE ls)) = assume_neg dm (reduct σ ls)
+Proof
+  simp[reduct_REVERSE]>>
+  irule assume_neg_PERM>>
+  simp[PERM_REVERSE_EQ]
+QED
+
 (* A clause's pass, read back as the spec's check of that clause *)
 Theorem red_ok_check_sr:
   group_offset h i len j = SOME k ∧
@@ -1579,13 +1588,8 @@ Theorem red_ok_check_sr:
   check_sr fml dm σ h i len (j,D)
 Proof
   strip_tac>>
-  `assume_neg dm (reduct σ (REVERSE (toList D))) =
-   assume_neg dm (reduct σ (toList D))` by (
-    simp[reduct_REVERSE]>>
-    irule assume_neg_PERM>>
-    simp[PERM_REVERSE_EQ])>>
   gvs[red_ok_def,check_sr_def,classify_def,check_red_def,EXISTS_REVERSE,
-      EVERY_REVERSE]>>
+      EVERY_REVERSE,assume_neg_reduct_REVERSE]>>
   rw[]>>
   Cases_on`assume_neg dm (reduct σ (toList D))`>>gvs[]
 QED
@@ -1679,6 +1683,7 @@ Theorem walk_list:
     (srt' ⇒ srt ∧ EVERY (λj. prev < j) V ∧ SORTED $< V) ∧
     (ALL_DISTINCT V ⇒ ALL_DISTINCT G) ∧
     EVERY (λj. MEM j V ∧ j ≠ n ∧ any_el j fmlls vcc_none ≠ vcc_none) G ∧
+    (∀j. MEM j V ∧ j ≠ n ∧ any_el j fmlls vcc_none ≠ vcc_none ⇒ MEM j G) ∧
     tally' =
       FOLDL (λt j. add_tally σ (REVERSE (toList (any_el j fmlls vcc_none))) t)
         tally G ∧
@@ -1737,12 +1742,11 @@ Resume walk_list[Cand]:
      group_offset s (skip_hints_vb s k len) len j = group_offset s g len j`
     by simp[group_offset_skip_hints_vb]>>
   qexists_tac`G`>>
-  `transitive ($< : num -> num -> bool)`
-    by simp[relationTheory.transitive_def]>>
   rpt conj_tac
   >- (strip_tac>>gvs[SORTED_EQ,EVERY_MEM]>>rw[]>>res_tac>>simp[])
   >- simp[]
   >- gvs[EVERY_MEM]
+  >- metis_tac[]
   >- simp[]
   >- (
     rw[]>>
@@ -1763,12 +1767,11 @@ Resume walk_list[Dead]:
      group_offset s (skip_hints_vb s k len) len j = group_offset s g len j`
     by simp[group_offset_skip_hints_vb]>>
   qexists_tac`G`>>
-  `transitive ($< : num -> num -> bool)`
-    by simp[relationTheory.transitive_def]>>
   rpt conj_tac
   >- (strip_tac>>gvs[SORTED_EQ,EVERY_MEM]>>rw[]>>res_tac>>simp[])
   >- simp[]
   >- gvs[EVERY_MEM]
+  >- metis_tac[]
   >- simp[]
   >- (
     rw[]>>
@@ -1805,14 +1808,13 @@ Resume walk_list[Live]:
   `∀j. j ≠ d ⇒
      group_offset s (skip_hints_vb s k len) len j = group_offset s g len j`
     by simp[group_offset_skip_hints_vb]>>
-  `transitive ($< : num -> num -> bool)`
-    by simp[relationTheory.transitive_def]>>
   simp[]>>
   qexists_tac`d::G`>>
   rpt conj_tac
   >- (strip_tac>>gvs[SORTED_EQ,EVERY_MEM]>>rw[]>>res_tac>>simp[])
   >- (strip_tac>>gvs[EVERY_MEM]>>metis_tac[])
   >- gvs[EVERY_MEM]
+  >- metis_tac[MEM]
   >- simp[]
   >- (
     rw[]>>
@@ -2201,12 +2203,8 @@ Theorem cand_ok_check_cand:
   check_cand fml dm σ h i len n C
 Proof
   strip_tac>>
-  `assume_neg dm (reduct σ (REVERSE (toList C))) =
-   assume_neg dm (reduct σ (toList C))` by (
-    simp[reduct_REVERSE]>>
-    irule assume_neg_PERM>>
-    simp[PERM_REVERSE_EQ])>>
-  gvs[cand_ok_def,check_cand_def,check_red_def,EXISTS_REVERSE]>>
+  gvs[cand_ok_def,check_cand_def,check_red_def,EXISTS_REVERSE,
+      assume_neg_reduct_REVERSE]>>
   Cases_on`assume_neg dm (reduct σ (toList C))`>>gvs[]
 QED
 
@@ -2639,8 +2637,10 @@ Proof
     >- (rpt conj_tac>>first_assum ACCEPT_TAC)>>
     disch_then drule>>
     simp[])>>
+  qmatch_asmsub_rename_tac
+    `red_pass_list _ _ _ _ _ _ _ _ _ _ _ _ = SOME (r1,dml1,tally1)`>>
   qpat_x_assum`∀r dml tally. _`
-    (qspecl_then [`r'`,`dml''`,`tally''`] mp_tac)>>
+    (qspecl_then [`r1`,`dml1`,`tally1`] mp_tac)>>
   impl_tac
   >- (rpt conj_tac>>first_assum ACCEPT_TAC)>>
   disch_then drule>>
@@ -2662,6 +2662,311 @@ Proof
   simp_tac (srw_ss()) [LET_THM]>>
   rw[AllCaseEqs()]>>
   metis_tac[red_pass_list_LENGTH]
+QED
+
+(***
+  The fallback when the certificate fails: every live clause outside the
+  groups that has a literal of L gets a round without hints, which passes
+  only if σ satisfies the clause or the line's map refutes its reduct
+ ***)
+
+(* Some literal of D below index i is in L *)
+Definition has_L_list_def:
+  has_L_list rat p sarr D i ⇔
+  if i = 0 then F
+  else
+    let l = sub D (i - 1) in
+    let y = img_code rat p sarr l in
+    if y = 0 ∨ y = l ∨ y = &LENGTH sarr then has_L_list rat p sarr D (i - 1)
+    else T
+End
+
+Theorem has_L_list:
+  ∀i.
+  sarr_rel σ rat p sarr ∧ i ≤ length D ∧
+  (∀j. j < i ⇒ Num (ABS (sub D j)) < LENGTH sarr) ⇒
+  (has_L_list rat p sarr D i ⇔ EXISTS (in_L σ) (TAKE i (toList D)))
+Proof
+  Induct
+  >- simp[Once has_L_list_def]>>
+  rpt strip_tac>>
+  `Num (ABS (sub D i)) < LENGTH sarr` by simp[]>>
+  drule_all img_code_in_L>>
+  strip_tac>>
+  `has_L_list rat p sarr D i ⇔ EXISTS (in_L σ) (TAKE i (toList D))` by (
+    first_x_assum irule>>
+    simp[])>>
+  simp[Once has_L_list_def,TAKE_SUC_toList]>>
+  rw[]>>
+  metis_tac[]
+QED
+
+(* An empty hint stream: no hint lies at offset 1 of a string of length 1 *)
+Definition fb_hints_def:
+  fb_hints = strlit " "
+End
+
+Theorem unit_prop_vb_vec_fb_hints:
+  unit_prop_vb_vec fml dm fb_hints 1 1 = SOME (SOME 1,dm)
+Proof
+  rw[Once unit_prop_vb_vec_def]>>
+  Cases_on`parse_vb_int fb_hints 1 1`>>
+  rename1`_ = (m,k)`>>
+  qpat_x_assum`_ = (m,k)` (assume_tac o SYM)>>
+  drule parse_vb_int_i>>
+  simp[]
+QED
+
+(* A round without hints passes only if σ satisfies the clause or the map
+  refutes its reduct, so the clause's check needs no group *)
+Theorem red_ok_fb_check_sr:
+  red_ok fml dm σ fb_hints 1 1 (REVERSE (toList D)) ⇒
+  check_sr fml dm σ h i len (j,D)
+Proof
+  strip_tac>>
+  gvs[red_ok_def,check_sr_def,classify_def,check_red_def,EXISTS_REVERSE,
+      unit_prop_vb_vec_fb_hints,assume_neg_reduct_REVERSE]>>
+  rw[]>>
+  Cases_on`assume_neg dm (reduct σ (toList D))`>>gvs[]
+QED
+
+(* The round of a clause c outside the groups: skipped if c is dead or has
+  no literal of L *)
+Definition fb_clause_list_def:
+  fb_clause_list fmlls dml b rat p sarr tally c =
+  if c = vcc_none ∨ ¬has_L_list rat p sarr c (length c) then SOME (dml,tally)
+  else
+    case red_pass_list fmlls dml b rat p sarr tally c (length c) fb_hints 1 1 of
+      NONE => NONE
+    | SOME (r,dml',tally') => if r = 0 then NONE else SOME (dml',tally')
+End
+
+Theorem fb_clause_list:
+  fml_rel fml fmlls ∧ nz_vcfml (FRANGE fml) ∧
+  bnd_fml fmlls (LENGTH dml) ∧ bnd_fml fmlls (LENGTH sarr) ∧
+  dm_rel dm dml b ∧ sarr_rel σ rat p sarr ∧ img_bnd rat p sarr ∧
+  LENGTH sarr ≤ LENGTH dml ∧
+  fb_clause_list fmlls dml b rat p sarr tally (any_el k fmlls vcc_none) =
+    SOME (dml',tally') ⇒
+  dm_rel dm dml' b ∧ LENGTH dml' = LENGTH dml ∧
+  (∃U. tally' =
+     FOLDL (λt j. add_tally σ (REVERSE (toList (any_el j fmlls vcc_none))) t)
+       tally U) ∧
+  ∀D. FLOOKUP fml k = SOME D ⇒ check_sr fml dm σ h i len (k,D)
+Proof
+  strip_tac>>
+  qabbrev_tac`c = any_el k fmlls vcc_none`>>
+  Cases_on`c = vcc_none`
+  >- (
+    gvs[fb_clause_list_def]>>
+    conj_tac
+    >- (qexists_tac`[]`>>simp[])>>
+    rw[]>>
+    drule_all fml_rel_live>>
+    metis_tac[])>>
+  `FLOOKUP fml k = SOME c`
+    by metis_tac[fml_rel_any_el_NEQ_vcc_none_FLOOKUP]>>
+  `¬MEM 0 (toList c)` by (
+    gvs[nz_vcfml_def,FRANGE_FLOOKUP,PULL_EXISTS]>>
+    metis_tac[])>>
+  `bnd_clause c (LENGTH sarr)` by gvs[bnd_fml_def,Abbr`c`]>>
+  `∀j. j < length c ⇒ sub c j ≠ 0 ∧ Num (ABS (sub c j)) < LENGTH sarr` by (
+    rw[]>>
+    gvs[bnd_clause_def]>>
+    Cases_on`c`>>
+    gvs[toList_thm,sub_def,length_def,MEM_EL]>>
+    metis_tac[])>>
+  `TAKE (length c) (toList c) = toList c` by (
+    Cases_on`c`>>simp[toList_thm,length_def])>>
+  `has_L_list rat p sarr c (length c) ⇔ EXISTS (in_L σ) (toList c)` by (
+    qpat_x_assum`TAKE _ _ = _` (SUBST1_TAC o SYM)>>
+    irule has_L_list>>
+    simp[])>>
+  qpat_x_assum`fb_clause_list _ _ _ _ _ _ _ _ = _` mp_tac>>
+  simp[fb_clause_list_def]>>
+  IF_CASES_TAC
+  >- (
+    strip_tac>>
+    gvs[]>>
+    conj_tac
+    >- (qexists_tac`[]`>>simp[])>>
+    irule check_sr_not_in_L>>
+    gvs[EVERY_MEM,EXISTS_MEM])>>
+  rw[AllCaseEqs()]>>
+  drule_at (Pos last) red_pass_list>>
+  disch_then (qspecl_then [`σ`,`fml`,`dm`] mp_tac)>>
+  simp[]>>
+  strip_tac>>
+  gvs[]
+  >- (qexists_tac`[k]`>>simp[Abbr`c`])>>
+  irule red_ok_fb_check_sr>>
+  simp[]
+QED
+
+(* The scan over the ids from j below lim, skipping those in ids (sorted) *)
+Definition fb_list_def:
+  fb_list fmlls dml b rat p sarr tally ids j lim =
+  if lim ≤ j then SOME (dml,tally)
+  else
+    case ids of
+      x::ids' =>
+      if x ≤ j then
+        fb_list fmlls dml b rat p sarr tally ids' (if x = j then j + 1 else j)
+          lim
+      else
+        (case fb_clause_list fmlls dml b rat p sarr tally
+                (any_el j fmlls vcc_none) of
+           NONE => NONE
+         | SOME (dml',tally') =>
+           fb_list fmlls dml' b rat p sarr tally' ids (j + 1) lim)
+    | [] =>
+      (case fb_clause_list fmlls dml b rat p sarr tally
+              (any_el j fmlls vcc_none) of
+         NONE => NONE
+       | SOME (dml',tally') =>
+         fb_list fmlls dml' b rat p sarr tally' ids (j + 1) lim)
+Termination
+  WF_REL_TAC `measure (λ(fmlls,dml,b,rat,p,sarr,tally,ids,j,lim).
+    lim - j + LENGTH ids)`>>
+  rw[]
+End
+
+(* Every live clause at an id from j below lim that is not in ids passed;
+  the tally counted the clauses U that had their round *)
+Theorem fb_list:
+  ∀fmlls dml b rat p sarr tally ids j lim dml' tally'.
+  fml_rel fml fmlls ∧ nz_vcfml (FRANGE fml) ∧
+  bnd_fml fmlls (LENGTH dml) ∧ bnd_fml fmlls (LENGTH sarr) ∧
+  dm_rel dm dml b ∧ sarr_rel σ rat p sarr ∧ img_bnd rat p sarr ∧
+  LENGTH sarr ≤ LENGTH dml ∧
+  fb_list fmlls dml b rat p sarr tally ids j lim = SOME (dml',tally') ⇒
+  dm_rel dm dml' b ∧ LENGTH dml' = LENGTH dml ∧
+  (∃U. tally' =
+     FOLDL (λt j. add_tally σ (REVERSE (toList (any_el j fmlls vcc_none))) t)
+       tally U) ∧
+  ∀k D. j ≤ k ∧ k < lim ∧ ¬MEM k ids ∧ FLOOKUP fml k = SOME D ⇒
+    check_sr fml dm σ h i len (k,D)
+Proof
+  ho_match_mp_tac fb_list_ind>>
+  rpt gen_tac>>strip_tac>>
+  rpt gen_tac>>strip_tac>>
+  qpat_x_assum`fb_list _ _ _ _ _ _ _ _ _ _ = _` mp_tac>>
+  once_rewrite_tac[fb_list_def]>>
+  IF_CASES_TAC
+  >- (
+    strip_tac>>
+    gvs[]>>
+    conj_tac
+    >- (qexists_tac`[]`>>simp[])>>
+    rpt strip_tac>>
+    `F` by decide_tac)>>
+  Cases_on`ids`
+  >- (
+    qpat_x_assum`∀x' ids''. _ ⇒ ∀dml' tally'. _` kall_tac>>
+    qpat_x_assum`∀x' ids'' fmlls' dml' tally'. _` kall_tac>>
+    Cases_on`fb_clause_list fmlls dml b rat p sarr tally (any_el j fmlls vcc_none)`>>
+    simp_tac (srw_ss()) []>>
+    rename1`_ = SOME res`>>
+    PairCases_on`res`>>
+    rename1`_ = SOME (dml1,tally1)`>>
+    simp_tac (srw_ss()) []>>
+    strip_tac>>
+    qpat_x_assum`∀fmlls' dml' tally'. _`
+      (qspecl_then [`(dml1,tally1)`,`dml1`,`tally1`] mp_tac)>>
+    simp[]>>
+    drule_all fb_clause_list>>
+    strip_tac>>
+    simp[]>>
+    strip_tac>>
+    qpat_x_assum`∀len i h. _` (qspecl_then [`len`,`i`,`h`] assume_tac)>>
+    conj_tac
+    >- metis_tac[FOLDL_APPEND]>>
+    rw[]>>
+    Cases_on`k = j`>>
+    gvs[])>>
+  rename1`x::ids'`>>
+  simp_tac (srw_ss()) []>>
+  IF_CASES_TAC
+  >- (
+    strip_tac>>
+    qpat_x_assum`∀fmlls' dml' tally'. _` kall_tac>>
+    qpat_x_assum`∀x' ids'' fmlls' dml' tally'. _` kall_tac>>
+    qpat_x_assum`∀x' ids''. _` (qspecl_then [`x`,`ids'`] mp_tac)>>
+    simp[])>>
+  qpat_x_assum`∀fmlls' dml' tally'. _` kall_tac>>
+  qpat_x_assum`∀x' ids''. _ ⇒ ∀dml' tally'. _` kall_tac>>
+  Cases_on`fb_clause_list fmlls dml b rat p sarr tally (any_el j fmlls vcc_none)`>>
+  simp_tac (srw_ss()) []>>
+  rename1`_ = SOME res`>>
+  PairCases_on`res`>>
+  rename1`_ = SOME (dml1,tally1)`>>
+  simp_tac (srw_ss()) []>>
+  strip_tac>>
+  qpat_x_assum`∀x' ids'' fmlls' dml' tally'. _`
+    (qspecl_then [`x`,`ids'`,`(dml1,tally1)`,`dml1`,`tally1`] mp_tac)>>
+  simp[]>>
+  drule_all fb_clause_list>>
+  strip_tac>>
+  simp[]>>
+  strip_tac>>
+  qpat_x_assum`∀len i h. _` (qspecl_then [`len`,`i`,`h`] assume_tac)>>
+  conj_tac
+  >- metis_tac[FOLDL_APPEND]>>
+  rw[]>>
+  Cases_on`k = j`>>
+  gvs[]
+QED
+
+Theorem stamps_ok_fb_list:
+  ∀fmlls dml b rat p sarr tally ids j lim dml' tally'.
+  stamps_ok dml b ∧
+  fb_list fmlls dml b rat p sarr tally ids j lim = SOME (dml',tally') ⇒
+  stamps_ok dml' b
+Proof
+  ho_match_mp_tac fb_list_ind>>
+  rpt gen_tac>>strip_tac>>
+  rpt gen_tac>>
+  once_rewrite_tac[fb_list_def]>>
+  rw[AllCaseEqs(),fb_clause_list_def]>>
+  metis_tac[stamps_ok_red_pass_list]
+QED
+
+Theorem fb_list_LENGTH:
+  ∀fmlls dml b rat p sarr tally ids j lim dml' tally'.
+  bnd_fml fmlls (LENGTH dml) ∧
+  fb_list fmlls dml b rat p sarr tally ids j lim = SOME (dml',tally') ⇒
+  LENGTH dml' = LENGTH dml ∧ LENGTH tally' = LENGTH tally
+Proof
+  ho_match_mp_tac fb_list_ind>>
+  rpt gen_tac>>strip_tac>>
+  rpt gen_tac>>
+  once_rewrite_tac[fb_list_def]>>
+  rw[AllCaseEqs(),fb_clause_list_def]>>
+  imp_res_tac red_pass_list_LENGTH>>
+  gvs[]
+QED
+
+(* The group ids, sorted for the scan *)
+Definition sort_ids_def:
+  sort_ids (l:num list) = sort $<= l
+End
+
+Theorem MEM_sort_ids:
+  MEM x (sort_ids l) ⇔ MEM x l
+Proof
+  simp[sort_ids_def]
+QED
+
+Theorem sort_ids_REVERSE:
+  sort_ids (REVERSE l) = sort_ids l
+Proof
+  mp_tac (sortingTheory.SORTS_PERM_EQ
+    |> Q.ISPEC `$<= : num -> num -> bool`
+    |> Q.INST [`f` |-> `sort : (num -> num -> bool) -> num list -> num list`])>>
+  impl_tac
+  >- simp[mllistTheory.sort_SORTS,relationTheory.total_def,
+          relationTheory.antisymmetric_def]>>
+  disch_then (fn th => simp[sort_ids_def,th,PERM_REVERSE_EQ])
 QED
 
 (* When the map grows, sarr and tally are replaced by zero arrays and the
@@ -2726,14 +3031,17 @@ Definition check_lsr_list_def:
         else
         let lim = MIN tp (LENGTH fmlls) in
         let cnt2 = catch_up fmlls wm lim cnt1 in
-        if ¬cert_list rat p sarr2 cnt2 tally2 w then NONE
-        else
-          case cand_pass_list fmlls dml3 b1 rat p sarr2 C (length C) h cand len of
+        case (if cert_list rat p sarr2 cnt2 tally2 w then SOME (dml3,tally2)
+              else fb_list fmlls dml3 b1 rat p sarr2 tally2
+                     (sort_ids (group_ids h i0 len)) 0 lim) of
+          NONE => NONE
+        | SOME (dml5,tally3) =>
+          case cand_pass_list fmlls dml5 b1 rat p sarr2 C (length C) h cand len of
             SOME (T,dml4) =>
               (case insert_cnt_list fmlls cnt2 lim n C of
                 (fmlls',cnt3) =>
                 SOME (fmlls',dml4,b1,clear_subst w sarr2,cnt3,lim,
-                      clear_tally w tally2,MAX tp (n + 1)))
+                      clear_tally w tally3,MAX tp (n + 1)))
           | _ => NONE
 End
 
@@ -2762,6 +3070,120 @@ Proof
   gvs[EVERY_REPLICATE]>>
   irule count_rel_grow>>
   simp[]
+QED
+
+(* After the walk, every clause of the formula passes its check: a clause
+  named by a group passed in the walk, and any other live clause is covered
+  by the certificate or, when that fails, by the scan *)
+Theorem cert_or_fb_list_check_sr:
+  (if cert_list rat p sarr cnt tally2 w then SOME (dml,tally2)
+   else fb_list fmlls dml b rat p sarr tally2 (sort_ids V) 0 lim) =
+    SOME (dml',tally') ∧
+  fml_rel fml fmlls ∧ nz_vcfml (FRANGE fml) ∧
+  bnd_fml fmlls (LENGTH dml) ∧ LENGTH sarr = LENGTH dml ∧
+  dm_rel dm dml b ∧ stamps_ok dml b ∧
+  sarr_rel σ rat p sarr ∧ img_bnd rat p sarr ∧
+  (∀v. v ∈ FDOM σ ⇒ MEM v (MAP FST w)) ∧ w_bnd w (LENGTH sarr) ∧
+  EVERY ($= 0) tally ∧ LENGTH tally = LENGTH cnt ∧
+  count_rel fmlls cnt (LENGTH fmlls) ∧ codes_fml fmlls (LENGTH cnt) ∧
+  tally2 =
+    FOLDL (λt j. add_tally σ (REVERSE (toList (any_el j fmlls vcc_none))) t)
+      tally G ∧
+  ALL_DISTINCT G ∧
+  EVERY (λj. MEM j V ∧ j ≠ n ∧ any_el j fmlls vcc_none ≠ vcc_none) G ∧
+  (∀j. MEM j V ∧ j ≠ n ∧ any_el j fmlls vcc_none ≠ vcc_none ⇒ MEM j G) ∧
+  (∀j. MEM j G ⇒ check_sr fml dm σ h i len (j,any_el j fmlls vcc_none)) ∧
+  n ∉ FDOM fml ∧ top_ok fmlls tp ∧ lim = MIN tp (LENGTH fmlls) ⇒
+  dm_rel dm dml' b ∧ LENGTH dml' = LENGTH dml ∧ stamps_ok dml' b ∧
+  (∃U. tally' =
+     FOLDL (λt j. add_tally σ (REVERSE (toList (any_el j fmlls vcc_none))) t)
+       tally (G ++ U)) ∧
+  EVERY (check_sr fml dm σ h i len) (fmap_to_alist fml)
+Proof
+  strip_tac>>
+  reverse (Cases_on`cert_list rat p sarr cnt tally2 w`)
+  >- (
+    qpat_x_assum`(if _ then _ else _) = _` mp_tac>>
+    qpat_assum`¬cert_list _ _ _ _ _ _` (fn th => simp_tac (srw_ss()) [th])>>
+    strip_tac>>
+    `bnd_fml fmlls (LENGTH sarr) ∧ LENGTH sarr ≤ LENGTH dml` by simp[]>>
+    drule_all fb_list>>
+    strip_tac>>
+    qpat_x_assum`∀len i h. _` (qspecl_then [`len`,`i`,`h`] strip_assume_tac)>>
+    ntac 2 (conj_tac >- simp[])>>
+    rpt conj_tac
+    >- metis_tac[stamps_ok_fb_list]
+    >- (
+      qexists_tac`U`>>
+      simp[FOLDL_APPEND])>>
+    simp[EVERY_MEM,FORALL_PROD,MEM_fmap_to_alist_FLOOKUP]>>
+    rpt strip_tac>>
+    rename1`FLOOKUP fml j = SOME D`>>
+    drule_all fml_rel_live>>
+    strip_tac>>
+    Cases_on`MEM j G`
+    >- (
+      qpat_x_assum`∀j. MEM j G ⇒ _` drule>>
+      simp[])>>
+    `j ≠ n` by (strip_tac>>gvs[FLOOKUP_DEF])>>
+    `¬MEM j V` by metis_tac[]>>
+    `j < tp` by (
+      CCONTR_TAC>>
+      gvs[top_ok_def,any_el_ALT])>>
+    qpat_x_assum`∀k D. _ ∧ _ ∧ ¬MEM k _ ∧ _ ⇒ _` irule>>
+    simp[MEM_sort_ids])>>
+  qpat_x_assum`(if _ then _ else _) = _` mp_tac>>
+  qpat_assum`cert_list _ _ _ _ _ _` (fn th => simp_tac (srw_ss()) [th])>>
+  strip_tac>>
+  qpat_x_assum`dml = dml'` (SUBST_ALL_TAC o SYM)>>
+  qpat_x_assum`tally2 = tally'` (SUBST_ALL_TAC o SYM)>>
+  simp[]>>
+  conj_tac
+  >- (qexists_tac`[]`>>simp[])>>
+  simp[EVERY_MEM,FORALL_PROD,MEM_fmap_to_alist_FLOOKUP]>>
+  rpt strip_tac>>
+  rename1`FLOOKUP fml j = SOME D`>>
+  drule_all fml_rel_live>>
+  strip_tac>>
+  Cases_on`MEM j G`
+  >- (
+    qpat_x_assum`∀j. MEM j G ⇒ _` drule>>
+    simp[])>>
+  irule check_sr_not_in_L>>
+  `¬MEM 0 (toList D)` by (
+    qpat_x_assum`nz_vcfml _` mp_tac>>
+    simp[nz_vcfml_def,FRANGE_FLOOKUP]>>
+    disch_then match_mp_tac>>
+    qexists_tac`j`>>
+    first_assum ACCEPT_TAC)>>
+  `EL j fmlls = D` by gvs[any_el_ALT]>>
+  qpat_assum`EL j fmlls = D` (SUBST1_TAC o SYM)>>
+  irule cert_unnamed>>
+  qpat_assum`EL j fmlls = D` SUBST1_TAC>>
+  rpt (conj_tac >- first_assum ACCEPT_TAC)>>
+  `EVERY (λj. any_el j fmlls vcc_none ≠ vcc_none) G` by (
+    qpat_x_assum`EVERY (λj. MEM j V ∧ _) G` mp_tac>>
+    match_mp_tac EVERY_MONOTONIC>>
+    simp[])>>
+  qexistsl_tac[`G`,`LENGTH cnt`]>>
+  conj_tac
+  >- (
+    rpt strip_tac>>
+    `EVERY (λ(v,x). v < LENGTH sarr) w` by gvs[w_bnd_vars]>>
+    qpat_x_assum`tally2 = _` (fn th =>
+      qpat_x_assum`cert_list _ _ _ _ _ _` (assume_tac o REWRITE_RULE [th]))>>
+    drule cert_list_count>>
+    disch_then irule>>
+    gvs[])>>
+  rpt (conj_tac >- first_assum ACCEPT_TAC)>>
+  conj_tac
+  >- (
+    qpat_x_assum`EVERY (λj. any_el j fmlls vcc_none ≠ vcc_none) G` mp_tac>>
+    match_mp_tac EVERY_MONOTONIC>>
+    rw[any_el_ALT]>>
+    CCONTR_TAC>>
+    gvs[])>>
+  first_assum ACCEPT_TAC
 QED
 
 Theorem check_lsr_list:
@@ -2896,11 +3318,6 @@ Proof
     Cases_on`C`>>
     rw[bnd_clause_def,toList_thm,sub_def,length_def,MEM_EL]>>
     metis_tac[])>>
-  drule_at (Pos last) cand_pass_list>>
-  disch_then (qspecl_then [`σ`,`fml`,`dm'`] mp_tac)>>
-  impl_tac
-  >- gvs[]>>
-  strip_tac>>
   `∀v. v ∈ FDOM σ ⇒ MEM v (MAP FST w)`
     by simp[Abbr`σ`,mk_subst_def,FDOM_FUPDATE_LIST]>>
   `codes_fml fmlls (2 * LENGTH dml1)` by simp[bnd_fml_codes_fml]>>
@@ -2914,6 +3331,34 @@ Proof
     qpat_assum`count_rel _ (catch_up _ _ _ _) lim` (irule_at Any)>>
     qpat_assum`top_ok _ _` (irule_at Any)>>
     simp[Abbr`lim`])>>
+  `stamps_ok dml3 b'` by (
+    drule_at (Pos last) stamps_ok_walk_list>>
+    disch_then irule>>
+    first_assum ACCEPT_TAC)>>
+  sg`dm_rel dm' dml5 b' ∧ LENGTH dml5 = LENGTH dml3 ∧ stamps_ok dml5 b' ∧
+     (∃U. tally3 =
+        FOLDL (λt j. add_tally σ (REVERSE (toList (any_el j fmlls vcc_none))) t)
+          tally1 (G ++ U)) ∧
+     EVERY (check_sr fml dm' σ h i0 (strlen h)) (fmap_to_alist fml)`
+  >- (
+    `(if cert_list rat p sarr2 (catch_up fmlls wm lim cnt1) tally2 w
+      then SOME (dml3,tally2)
+      else fb_list fmlls dml3 b' rat p sarr2 tally2 (sort_ids V) 0 lim) =
+     SOME (dml5,tally3)` by (
+      Cases_on`cert_list rat p sarr2 (catch_up fmlls wm lim cnt1) tally2 w`>>
+      gvs[])>>
+    drule_at (Pos hd) cert_or_fb_list_check_sr>>
+    disch_then irule>>
+    gvs[Abbr`lim`]>>
+    conj_tac
+    >- (qexists_tac`n`>>simp[])>>
+    qexists_tac`tp`>>
+    simp[])>>
+  drule_at (Pos last) cand_pass_list>>
+  disch_then (qspecl_then [`σ`,`fml`,`dm'`] mp_tac)>>
+  impl_tac
+  >- gvs[]>>
+  strip_tac>>
   `check_cand fml dm' σ h i0 (strlen h) n C` by (
     irule cand_ok_check_cand>>
     qexists_tac`cand`>>
@@ -2922,67 +3367,17 @@ Proof
       Cases_on`C`>>
       simp[toList_thm,length_def])>>
     Cases_on`MEM n V`>>gvs[])>>
-  sg`EVERY (check_sr fml dm' σ h i0 (strlen h)) (fmap_to_alist fml)`
-  >- (
-    simp[EVERY_MEM,FORALL_PROD,MEM_fmap_to_alist_FLOOKUP]>>
-    rpt strip_tac>>
-    rename1`FLOOKUP fml j = SOME D`>>
-    drule_all fml_rel_live>>
-    strip_tac>>
-    Cases_on`MEM j G`
-    >- (
-      qpat_x_assum`∀j. MEM j G ⇒ _` drule>>
-      simp[])>>
-    irule check_sr_not_in_L>>
-    `¬MEM 0 (toList D)` by (
-      qpat_x_assum`nz_vcfml _` mp_tac>>
-      simp[nz_vcfml_def,FRANGE_FLOOKUP]>>
-      disch_then match_mp_tac>>
-      qexists_tac`j`>>
-      first_assum ACCEPT_TAC)>>
-    `EL j fmlls = D` by gvs[any_el_ALT]>>
-    qpat_assum`EL j fmlls = D` (SUBST1_TAC o SYM)>>
-    irule cert_unnamed>>
-    qpat_assum`EL j fmlls = D` SUBST1_TAC>>
-    rpt (conj_tac >- first_assum ACCEPT_TAC)>>
-    `EVERY (λj. any_el j fmlls vcc_none ≠ vcc_none) G` by (
-      qpat_x_assum`EVERY (λj. MEM j V ∧ _) G` mp_tac>>
-      match_mp_tac EVERY_MONOTONIC>>
-      simp[])>>
-    qexistsl_tac[`G`,`2 * LENGTH dml1`]>>
-    conj_tac
-    >- (
-      rpt strip_tac>>
-      `EVERY (λ(v,x). v < LENGTH sarr2) w` by gvs[w_bnd_vars]>>
-      qpat_x_assum`tally2 = _` (fn th =>
-        qpat_x_assum`cert_list _ _ _ _ _ _` (assume_tac o REWRITE_RULE [th]))>>
-      drule cert_list_count>>
-      disch_then irule>>
-      gvs[])>>
-    rpt (conj_tac >- first_assum ACCEPT_TAC)>>
-    conj_tac
-    >- (
-      qpat_x_assum`EVERY (λj. any_el j fmlls vcc_none ≠ vcc_none) G` mp_tac>>
-      match_mp_tac EVERY_MONOTONIC>>
-      rw[any_el_ALT]>>
-      CCONTR_TAC>>
-      gvs[])>>
-    first_assum ACCEPT_TAC)>>
   `codes_in C (LENGTH (catch_up fmlls wm lim cnt1))` by gvs[bnd_clause_codes_in]>>
   drule_at (Pos last) count_rel_insert_cnt_list>>
   impl_tac
   >- (rpt conj_tac>>first_assum ACCEPT_TAC)>>
   strip_tac>>
-  `stamps_ok dml3 b'` by (
-    drule_at (Pos last) stamps_ok_walk_list>>
-    disch_then irule>>
-    first_assum ACCEPT_TAC)>>
   `stamps_ok dml' b'` by (
     drule_at (Pos last) stamps_ok_cand_pass_list>>
     disch_then irule>>
     first_assum ACCEPT_TAC)>>
-  `EVERY ($= 0) (clear_tally w tally2) ∧ LENGTH tally2 = LENGTH tally1` by (
-    qpat_x_assum`tally2 = _` SUBST1_TAC>>
+  `EVERY ($= 0) (clear_tally w tally3) ∧ LENGTH tally3 = LENGTH tally1` by (
+    qpat_x_assum`tally3 = _` SUBST1_TAC>>
     simp[]>>
     irule clear_tally_FOLDL_zero>>
     conj_tac>>
@@ -3069,38 +3464,6 @@ Proof
   rw[lsr_inv_def,dm_ok_REPLICATE,EVERY_REPLICATE]
   >- metis_tac[dm_rel_FEMPTY_REPLICATE]>>
   rw[count_rel_def,lit_count_def,EL_REPLICATE]
-QED
-
-(* The checker's guarantee at the list level, phrased on the parsed
-  formula rather than on the checker's internal representation *)
-Theorem check_lsrs_unsat_list_sound:
-  check_lsrs_unsat_list lsrs
-    (build_cfml_list kc (conv_cfml cfml) nc)
-    (REPLICATE n 0) 1 (REPLICATE n 0) (REPLICATE (2 * n) 0) 0
-    (REPLICATE (2 * n) 0) (kc + LENGTH cfml) ∧
-  EVERY (EVERY nz_lit) cfml ∧
-  EVERY (EVERY (λl. var_lit l < n)) cfml ∧
-  EVERY wf_lsr lsrs ⇒
-  unsatisfiable_cnf (set cfml)
-Proof
-  strip_tac>>
-  irule check_lsrs_unsat_conv_sound>>
-  simp[]>>
-  qexistsl_tac [`kc`,`lsrs`]>>
-  simp[]>>
-  irule check_lsrs_unsat_list>>
-  simp[range_build_cfml,nz_vcfml_conv_cfml]>>
-  first_x_assum (irule_at Any)>>
-  simp[fml_rel_build_cfml_list]>>
-  irule lsr_inv_init>>
-  conj_tac
-  >- (
-    irule bnd_fml_build_cfml_list>>
-    irule bnd_clause_conv_cfml>>
-    first_assum ACCEPT_TAC)>>
-  `LENGTH cfml = LENGTH (conv_cfml cfml)` by simp[conv_cfml_def]>>
-  pop_assum SUBST1_TAC>>
-  simp[top_ok_build_cfml_list]
 QED
 
 (* A slot holding vcc_none is a deleted clause, so dropping such entries

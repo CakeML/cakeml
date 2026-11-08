@@ -1614,6 +1614,355 @@ Proof
   rewrite_tac[APPEND]
 QED
 
+(***
+  The fallback when the certificate fails: a round without hints for every
+  live clause outside the groups that has a literal of L
+ ***)
+
+val res = translate fb_hints_def;
+val res = translate sort_ids_def;
+
+(* Some literal of d below index i is in L *)
+Quote add_cakeml:
+  fun has_L_arr piv sarr carr d i =
+  if i = 0 then False
+  else
+    let
+      val i1 = Unsafe.Arith.subWitness i 1 d
+      val l = Unsafe.vsub d i1
+      val y = img_code_arr piv sarr carr l
+    in
+      if y = 0 then has_L_arr piv sarr carr d i1
+      else if Unsafe.Arith.eqWitness y l carr then has_L_arr piv sarr carr d i1
+      else if Unsafe.Arith.eqWitness y (Array.length carr) carr then
+        has_L_arr piv sarr carr d i1
+      else True
+    end
+End
+
+Theorem has_L_arr_spec:
+  ∀rat piv sarr D i pivv sarrv dv iv.
+  INT piv pivv ∧ (rat ⇔ piv ≠ 0) ∧
+  LENGTH sarr = LENGTH dml ∧ Num (ABS piv) ≤ LENGTH sarr ∧
+  img_bnd rat piv sarr ∧
+  vcclause_TYPE D dv ∧ NUM i iv ∧ i ≤ length D ∧
+  (∀j. j < i ⇒ Num (ABS (sub D j)) < LENGTH sarr) ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "has_L_arr" (get_ml_prog_state()))
+    [pivv; sarrv; carrv; dv; iv]
+    (ARRAY_OF INT sarrv (lit_sarr sarr) * ARRAY_OF NUM carrv dml)
+    (POSTv v. &BOOL (has_L_list rat piv sarr D i) v *
+      ARRAY_OF INT sarrv (lit_sarr sarr) * ARRAY_OF NUM carrv dml)
+Proof
+  ho_match_mp_tac has_L_list_ind>>
+  rpt gen_tac>>
+  strip_tac>>
+  rpt gen_tac>>
+  strip_tac>>
+  xcf "has_L_arr" (get_ml_prog_state ())>>
+  xlet_autop>>
+  xif
+  >- (
+    simp[Once has_L_list_def]>>
+    xcon>>xsimpl)>>
+  xlet_auto_spec (SOME num_sub_vec_spec)
+  >- xsimpl>>
+  xlet_auto
+  >- (
+    xsimpl>>
+    gvs[UnsafeProgTheory.vsub_side_def])>>
+  `Num (ABS (sub D (i − 1))) < LENGTH sarr` by simp[]>>
+  simp[Once has_L_list_def]>>
+  qabbrev_tac`l = sub D (i − 1)`>>
+  qabbrev_tac`y = img_code (piv ≠ 0) piv sarr l`>>
+  xlet`POSTv yv. &INT y yv *
+    ARRAY_OF INT sarrv (lit_sarr sarr) * ARRAY_OF NUM carrv dml`
+  >- (
+    xapp_spec img_code_arr_spec>>
+    xsimpl>>
+    qexistsl_tac [`emp`,`sarr`,`piv`,`l`,`dml`]>>
+    xsimpl>>
+    simp[Abbr`y`])>>
+  `Num (ABS y) ≤ LENGTH sarr` by gvs[img_bnd_def,Abbr`y`]>>
+  xlet_autop>>
+  xif
+  >- (
+    qpat_x_assum`_ ∨ _ ⇒ _` mp_tac>>
+    impl_tac
+    >- gvs[NUM_def]>>
+    strip_tac>>
+    xapp>>xsimpl>>gvs[])>>
+  xlet_auto_spec (SOME (Q.ISPEC`NUM` int_eq_arr_spec))
+  >- (xsimpl>>gvs[])>>
+  xif
+  >- (
+    qpat_x_assum`_ ∨ _ ⇒ _` mp_tac>>
+    impl_tac
+    >- gvs[NUM_def]>>
+    strip_tac>>
+    xapp>>xsimpl>>gvs[])>>
+  xlet`POSTv kv. &NUM (LENGTH dml) kv *
+    ARRAY_OF INT sarrv (lit_sarr sarr) * ARRAY_OF NUM carrv dml`
+  >- (
+    xapp_spec (Q.ISPEC`NUM` ARRAY_OF_length_spec)>>
+    qexistsl_tac [`ARRAY_OF INT sarrv (lit_sarr sarr)`,`dml`]>>
+    xsimpl)>>
+  xlet_auto_spec (SOME (Q.ISPEC`NUM` int_eq_arr_spec))
+  >- (xsimpl>>gvs[NUM_def])>>
+  xif
+  >- (
+    qpat_x_assum`_ = &LENGTH dml ⇒ _` mp_tac>>
+    impl_tac
+    >- simp[]>>
+    strip_tac>>
+    xapp>>xsimpl>>gvs[])>>
+  xcon>>xsimpl>>
+  gvs[NUM_def]
+QED
+
+(* The round of the clause c outside the groups, as fb_clause_list *)
+Quote add_cakeml:
+  fun fb_clause_arr lno fml carr b piv sarr tally c =
+  if is_vcc_none_arr c then ()
+  else if has_L_arr piv sarr carr c (Vector.length c) then
+    (if red_pass_arr lno fml carr b piv sarr tally c (Vector.length c)
+          fb_hints 1 = 0
+     then raise Fail (format_failure lno
+       "a clause with a moved literal has no group and its reduct is not refuted")
+     else ())
+  else ()
+End
+
+Theorem fb_clause_arr_spec:
+  NUM lno lnov ∧ NUM b bv ∧ INT piv pivv ∧ (rat ⇔ piv ≠ 0) ∧
+  vcclause_TYPE c cv ∧
+  stamps_ok dml b ∧ bnd_fml fmlls (LENGTH dml) ∧
+  (c ≠ vcc_none ⇒ bnd_clause c (LENGTH sarr)) ∧ img_bnd rat piv sarr ∧
+  LENGTH sarr = LENGTH dml ∧ Num (ABS piv) ≤ LENGTH sarr ∧
+  2 * LENGTH sarr ≤ LENGTH tally ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "fb_clause_arr" (get_ml_prog_state()))
+    [lnov; fmlv; carrv; bv; pivv; sarrv; tallyv; cv]
+    (ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF NUM carrv dml *
+     ARRAY_OF INT sarrv (lit_sarr sarr) * ARRAY_OF NUM tallyv tally)
+    (POSTve
+      (λv. ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF INT sarrv (lit_sarr sarr) *
+        SEP_EXISTS dml' tally'.
+          ARRAY_OF NUM carrv dml' * ARRAY_OF NUM tallyv tally' *
+          &(fb_clause_list fmlls dml b rat piv sarr tally c = SOME (dml',tally') ∧
+            UNIT_TYPE () v))
+      (λe. ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF INT sarrv (lit_sarr sarr) *
+        SEP_EXISTS dml' tally'.
+          ARRAY_OF NUM carrv dml' * ARRAY_OF NUM tallyv tally' *
+          &(Fail_exn e ∧ fb_clause_list fmlls dml b rat piv sarr tally c = NONE)))
+Proof
+  strip_tac>>
+  xcf "fb_clause_arr" (get_ml_prog_state ())>>
+  xlet_auto_spec (SOME is_vcc_none_arr_spec)
+  >- xsimpl>>
+  xif
+  >- (
+    simp[fb_clause_list_def]>>
+    xcon>>xsimpl)>>
+  gvs[bnd_clause_def]>>
+  xlet_autop>>
+  xlet_auto_spec (SOME has_L_arr_spec)
+  >- (
+    xsimpl>>
+    simp[])>>
+  reverse xif
+  >- (
+    simp[fb_clause_list_def]>>
+    xcon>>xsimpl)>>
+  xlet_autop>>
+  assume_tac (fetch "-" "fb_hints_v_thm")>>
+  xlet`POSTve
+    (λrv. ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF INT sarrv (lit_sarr sarr) *
+      SEP_EXISTS r dml' tally'.
+        ARRAY_OF NUM carrv dml' * ARRAY_OF NUM tallyv tally' *
+        &(red_pass_list fmlls dml b (piv ≠ 0) piv sarr tally c (length c)
+            fb_hints 1 1 = SOME (r,dml',tally') ∧ NUM r rv))
+    (λe. ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF INT sarrv (lit_sarr sarr) *
+      SEP_EXISTS dml' tally'.
+        ARRAY_OF NUM carrv dml' * ARRAY_OF NUM tallyv tally' *
+        &(Fail_exn e ∧
+          red_pass_list fmlls dml b (piv ≠ 0) piv sarr tally c (length c)
+            fb_hints 1 1 = NONE))`
+  >- (
+    xapp_spec red_pass_arr_spec>>
+    xsimpl>>
+    qexistsl_tac [`emp`,`tally`,`sarr`,`fb_hints`,`piv`,`length c`,`fmlls`,`dml`,`b`,
+      `c`,`lno`]>>
+    xsimpl>>
+    simp[fb_hints_def]>>
+    rw[]>>
+    xsimpl>>
+    qmatch_goalsub_rename_tac`ARRAY_OF NUM carrv dmlx * ARRAY_OF NUM tallyv tallyx`>>
+    qexistsl_tac [`dmlx`,`tallyx`]>>
+    xsimpl)
+  >- (
+    xsimpl>>
+    rw[fb_clause_list_def]>>
+    qmatch_goalsub_rename_tac`ARRAY_OF NUM carrv dmlx * ARRAY_OF NUM tallyv tallyx`>>
+    qexistsl_tac [`dmlx`,`tallyx`]>>
+    xsimpl)>>
+  xlet_autop>>
+  xif
+  >- (
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    gvs[fb_clause_list_def,Fail_exn_def]>>
+    qexistsl_tac [`dml'`,`tally'`]>>
+    conj_tac
+    >- metis_tac[]>>
+    xsimpl)>>
+  xcon>>xsimpl>>
+  simp[fb_clause_list_def]>>
+  xsimpl
+QED
+
+(* The scan over the ids from j below lim, skipping those in ids, as
+  fb_list *)
+Quote add_cakeml:
+  fun fb_scan_arr lno fml carr b piv sarr tally ids j lim =
+  if lim <= j then ()
+  else
+    case ids of
+      x :: ids' =>
+      if x <= j then
+        fb_scan_arr lno fml carr b piv sarr tally ids'
+          (if x = j then j + 1 else j) lim
+      else
+        (fb_clause_arr lno fml carr b piv sarr tally (Unsafe.sub fml j);
+         fb_scan_arr lno fml carr b piv sarr tally ids (j + 1) lim)
+    | [] =>
+      (fb_clause_arr lno fml carr b piv sarr tally (Unsafe.sub fml j);
+       fb_scan_arr lno fml carr b piv sarr tally ids (j + 1) lim)
+End
+
+Theorem fb_scan_arr_spec:
+  ∀fmlls dml b rat piv sarr tally ids j lim
+   lnov bv pivv tallyv idsv jv limv.
+  NUM lno lnov ∧ NUM b bv ∧ INT piv pivv ∧ (rat ⇔ piv ≠ 0) ∧
+  LIST_TYPE NUM ids idsv ∧ NUM j jv ∧ NUM lim limv ∧
+  stamps_ok dml b ∧ bnd_fml fmlls (LENGTH dml) ∧
+  bnd_fml fmlls (LENGTH sarr) ∧ img_bnd rat piv sarr ∧
+  LENGTH sarr = LENGTH dml ∧ Num (ABS piv) ≤ LENGTH sarr ∧
+  2 * LENGTH sarr ≤ LENGTH tally ∧ lim ≤ LENGTH fmlls ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "fb_scan_arr" (get_ml_prog_state()))
+    [lnov; fmlv; carrv; bv; pivv; sarrv; tallyv; idsv; jv; limv]
+    (ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF NUM carrv dml *
+     ARRAY_OF INT sarrv (lit_sarr sarr) * ARRAY_OF NUM tallyv tally)
+    (POSTve
+      (λv. ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF INT sarrv (lit_sarr sarr) *
+        SEP_EXISTS dml' tally'.
+          ARRAY_OF NUM carrv dml' * ARRAY_OF NUM tallyv tally' *
+          &(fb_list fmlls dml b rat piv sarr tally ids j lim = SOME (dml',tally') ∧
+            UNIT_TYPE () v))
+      (λe. ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF INT sarrv (lit_sarr sarr) *
+        SEP_EXISTS dml' tally'.
+          ARRAY_OF NUM carrv dml' * ARRAY_OF NUM tallyv tally' *
+          &(Fail_exn e ∧ fb_list fmlls dml b rat piv sarr tally ids j lim = NONE)))
+Proof
+  ho_match_mp_tac fb_list_ind>>
+  rpt gen_tac>>
+  strip_tac>>
+  rpt gen_tac>>
+  strip_tac>>
+  xcf "fb_scan_arr" (get_ml_prog_state ())>>
+  xlet_autop>>
+  xif
+  >- (
+    simp[Once fb_list_def]>>
+    xcon>>xsimpl)>>
+  reverse (Cases_on`ids`)>>
+  gvs[LIST_TYPE_def]>>
+  xmatch
+  >>> HEADGOAL (
+    qmatch_goalsub_rename_tac`fb_list _ _ _ _ _ _ _ (x::ids1) j lim`>>
+    xlet_autop>>
+    xif
+    >- (
+      xlet_autop>>
+      xlet`POSTv kv. &NUM (if x = j then j + 1 else j) kv *
+        ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF NUM carrv dml *
+        ARRAY_OF INT sarrv (lit_sarr sarr) * ARRAY_OF NUM tallyv tally`
+      >- (
+        xif
+        >- (
+          xapp>>xsimpl>>
+          qexists_tac`&j`>>
+          gvs[NUM_def,integerTheory.INT_ADD])>>
+        xvar>>xsimpl)>>
+      qpat_x_assum`x ≤ j ⇒ _` mp_tac>>
+      simp[]>>
+      strip_tac>>
+      simp[Once fb_list_def]>>
+      xapp>>
+      xsimpl>>
+      rpt strip_tac>>
+      qmatch_goalsub_rename_tac`ARRAY_OF NUM carrv dmlx * ARRAY_OF NUM tallyv tallyx`>>
+      qexistsl_tac [`dmlx`,`tallyx`]>>
+      simp[Once fb_list_def]>>
+      xsimpl))
+  >>> ALLGOALS (
+    `j < LENGTH fmlls` by simp[]>>
+    xlet`POSTv cv. &vcclause_TYPE (EL j fmlls) cv *
+      ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF NUM carrv dml *
+      ARRAY_OF INT sarrv (lit_sarr sarr) * ARRAY_OF NUM tallyv tally`
+    >- (
+      xapp_spec (Q.ISPEC`vcclause_TYPE` ARRAY_OF_unsafe_sub_spec)>>
+      qrefinel [`_`,`fmlls`,`j`]>>
+      xsimpl)>>
+    `any_el j fmlls vcc_none = EL j fmlls` by simp[any_el_ALT]>>
+    `EL j fmlls ≠ vcc_none ⇒ bnd_clause (EL j fmlls) (LENGTH sarr)` by (
+      gvs[bnd_fml_def]>>
+      metis_tac[])>>
+    xlet`POSTve
+      (λuv. ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF INT sarrv (lit_sarr sarr) *
+        SEP_EXISTS dml1 tally1.
+          ARRAY_OF NUM carrv dml1 * ARRAY_OF NUM tallyv tally1 *
+          &(fb_clause_list fmlls dml b (piv ≠ 0) piv sarr tally (EL j fmlls) =
+              SOME (dml1,tally1)))
+      (λe. ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF INT sarrv (lit_sarr sarr) *
+        SEP_EXISTS dml1 tally1.
+          ARRAY_OF NUM carrv dml1 * ARRAY_OF NUM tallyv tally1 *
+          &(Fail_exn e ∧
+            fb_clause_list fmlls dml b (piv ≠ 0) piv sarr tally (EL j fmlls) = NONE))`
+    >- (
+      xapp_spec fb_clause_arr_spec>>
+      xsimpl>>
+      qexistsl_tac [`emp`,`tally`,`sarr`,`piv`,`fmlls`,`dml`,`EL j fmlls`,`b`,`lno`]>>
+      xsimpl>>
+      rw[]>>
+      qmatch_goalsub_rename_tac`ARRAY_OF NUM carrv dmlx * ARRAY_OF NUM tallyv tallyx`>>
+      qexistsl_tac [`dmlx`,`tallyx`]>>
+      xsimpl)
+    >- (
+      xsimpl>>
+      rw[]>>
+      qmatch_goalsub_rename_tac`ARRAY_OF NUM carrv dmlx * ARRAY_OF NUM tallyv tallyx`>>
+      qexistsl_tac [`dmlx`,`tallyx`]>>
+      simp[Once fb_list_def]>>
+      xsimpl)>>
+    `LENGTH dml1 = LENGTH dml ∧ LENGTH tally1 = LENGTH tally ∧ stamps_ok dml1 b` by (
+      gvs[fb_clause_list_def,AllCaseEqs()]>>
+      metis_tac[red_pass_list_LENGTH,stamps_ok_red_pass_list])>>
+    xlet_autop>>
+    qpat_x_assum`∀dml' tally'. _` (qspecl_then [`dml1`,`tally1`] mp_tac)>>
+    simp[]>>
+    strip_tac>>
+    simp[Once fb_list_def]>>
+    xapp>>
+    xsimpl>>
+    rpt strip_tac>>
+    qmatch_goalsub_rename_tac`ARRAY_OF NUM carrv dmlx * ARRAY_OF NUM tallyv tallyx`>>
+    qexistsl_tac [`dmlx`,`tallyx`]>>
+    simp[Once fb_list_def]>>
+    xsimpl)
+QED
+
 (* The state is the formula, the map and its stamp, tp, and aux. A RUP line
   and a deletion return aux as it is; a non-RUP line moves the watermark to
   the catch-up limit. *)
@@ -1655,21 +2004,22 @@ Quote add_cakeml:
            else r)
         val lim = (if tp < Array.length fml then tp else Array.length fml)
         val u2 = catch_up_arr fml wm lim cnt1
-      in
-        if cert_list_arr piv sarr1 carr1 cnt1 tally1 w then
-          (if cand_pass_arr lno fml carr1 b1 piv sarr1 c (Vector.length c) h
-                cand then
-             let
-               val fml1 = insert_cnt_arr fml cnt1 lim n c
-               val u3 = clear_arr piv w sarr1 carr1 tally1
-             in
-               (fml1, carr1, b1, tp1, (sarr1, cnt1, lim, tally1))
-             end
+        val u4 =
+          (if cert_list_arr piv sarr1 carr1 cnt1 tally1 w then ()
            else
-             raise Fail (format_failure lno "candidate round did not conflict"))
+             fb_scan_arr lno fml carr1 b1 piv sarr1 tally1
+               (sort_ids (group_ids_arr h i0 [])) 0 lim)
+      in
+        if cand_pass_arr lno fml carr1 b1 piv sarr1 c (Vector.length c) h
+             cand then
+          let
+            val fml1 = insert_cnt_arr fml cnt1 lim n c
+            val u3 = clear_arr piv w sarr1 carr1 tally1
+          in
+            (fml1, carr1, b1, tp1, (sarr1, cnt1, lim, tally1))
+          end
         else
-          raise Fail (format_failure lno
-            "a clause with a moved literal has no group")
+          raise Fail (format_failure lno "candidate round did not conflict")
       end
     end
     end
@@ -1816,8 +2166,7 @@ Proof
   PairCases_on`cnt1t`>>
   rename1`_ = (sarr1,cnt1,tally1)`>>
   qspecl_then [`LENGTH dml1`,`sarr`,`cnt`,`tally`,`sarr1`,`cnt1`,`tally1`]
-    mp_tac (Q.GENL [`fmlls`,`wm`,`dml`] grow_list_inv |>
-      Q.SPECL [`fmlls`,`wm`,`dml`])>>
+    mp_tac grow_list_inv>>
   impl_tac
   >- simp[]>>
   strip_tac>>
@@ -2066,43 +2415,80 @@ Proof
       `cnt2`]>>
     gvs[]>>
     xsimpl)>>
-  reverse xif
+  qabbrev_tac`fb = fb_list fmlls dml3 b1 (piv_of w ≠ 0) (piv_of w) sarr2 tally2
+    (sort_ids (group_ids h i0 (strlen h))) 0 lim`>>
+  xlet`POSTve
+    (λuv. ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF INT sarrv (lit_sarr sarr2) *
+      ARRAY_OF NUM cntv cnt2 *
+      SEP_EXISTS dml5 tally3.
+        ARRAY_OF NUM carrv1 dml5 * ARRAY_OF NUM tallyv tally3 *
+        &((if cert_list (piv_of w ≠ 0) (piv_of w) sarr2 cnt2 tally2 w
+           then SOME (dml3,tally2) else fb) = SOME (dml5,tally3)))
+    (λe. ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF INT sarrv (lit_sarr sarr2) *
+      ARRAY_OF NUM cntv cnt2 *
+      SEP_EXISTS dml5 tally3.
+        ARRAY_OF NUM carrv1 dml5 * ARRAY_OF NUM tallyv tally3 *
+        &(Fail_exn e ∧
+          (if cert_list (piv_of w ≠ 0) (piv_of w) sarr2 cnt2 tally2 w
+           then SOME (dml3,tally2) else fb) = NONE))`
   >- (
-    rpt xlet_autop>>
-    xraise>>xsimpl>>
-    simp[Fail_exn_def,GC_STAR_GC]>>
-    qexists_tac`fmlls`>>
-    conj_tac
-    >- metis_tac[]>>
-    simp[GSYM STAR_ASSOC,GC_STAR_GC]>>
-    xsimpl)>>
+    xif
+    >- (xcon>>xsimpl)>>
+    xlet_autop>>
+    xlet`POSTv lv. &LIST_TYPE NUM (REVERSE (group_ids h i0 (strlen h)) ++ []) lv *
+      ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF INT sarrv (lit_sarr sarr2) *
+      ARRAY_OF NUM cntv cnt2 * ARRAY_OF NUM carrv1 dml3 * ARRAY_OF NUM tallyv tally2`
+    >- (
+      xapp_spec group_ids_arr_spec>>
+      qexistsl_tac [`ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF INT sarrv (lit_sarr sarr2) *
+        ARRAY_OF NUM cntv cnt2 * ARRAY_OF NUM carrv1 dml3 * ARRAY_OF NUM tallyv tally2`,
+        `h`,`strlen h`,`i0`,`[]`]>>
+      xsimpl>>
+      simp[LIST_TYPE_def])>>
+    xlet_autop>>
+    RULE_ASSUM_TAC (REWRITE_RULE [sort_ids_REVERSE])>>
+    xapp_spec fb_scan_arr_spec>>
+    xsimpl>>
+    qexistsl_tac [`ARRAY_OF NUM cntv cnt2`,`tally2`,`sarr2`,`piv_of w`,`lim`,
+      `sort_ids (group_ids h i0 (strlen h))`,`fmlls`,`dml3`,`b1`,`lno`]>>
+    xsimpl>>
+    simp[Abbr`fb`]>>
+    rpt strip_tac>>
+    qmatch_goalsub_rename_tac`ARRAY_OF NUM carrv1 dmlx * ARRAY_OF NUM tallyv tallyx`>>
+    qexistsl_tac [`dmlx`,`tallyx`]>>
+    xsimpl)
+  >- (xsimpl>>rw[]>>qexists_tac`fmlls`>>xsimpl)>>
+  `LENGTH dml5 = LENGTH dml3 ∧ LENGTH tally3 = LENGTH tally2 ∧ stamps_ok dml5 b1` by (
+    Cases_on`cert_list (piv_of w ≠ 0) (piv_of w) sarr2 cnt2 tally2 w`>>
+    gvs[Abbr`fb`]>>
+    metis_tac[fb_list_LENGTH,stamps_ok_fb_list])>>
   xlet_autop>>
   `∀j. j < length C ⇒ Num (ABS (sub C j)) < LENGTH sarr2` by
     gvs[bnd_clause_def]>>
   xlet`POSTve
     (λbv. ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF INT sarrv (lit_sarr sarr2) *
-      ARRAY_OF NUM cntv cnt2 * ARRAY_OF NUM tallyv tally2 *
+      ARRAY_OF NUM cntv cnt2 * ARRAY_OF NUM tallyv tally3 *
       SEP_EXISTS res dml4. ARRAY_OF NUM carrv1 dml4 *
-        &(cand_pass_list fmlls dml3 b1 (piv_of w ≠ 0) (piv_of w) sarr2 C
+        &(cand_pass_list fmlls dml5 b1 (piv_of w ≠ 0) (piv_of w) sarr2 C
             (length C) h cand (strlen h) = SOME (res,dml4) ∧ BOOL res bv))
     (λe. ARRAY_OF vcclause_TYPE fmlv fmlls * ARRAY_OF INT sarrv (lit_sarr sarr2) *
-      ARRAY_OF NUM cntv cnt2 * ARRAY_OF NUM tallyv tally2 *
+      ARRAY_OF NUM cntv cnt2 * ARRAY_OF NUM tallyv tally3 *
       SEP_EXISTS dml4. ARRAY_OF NUM carrv1 dml4 *
         &(Fail_exn e ∧
-          cand_pass_list fmlls dml3 b1 (piv_of w ≠ 0) (piv_of w) sarr2 C
+          cand_pass_list fmlls dml5 b1 (piv_of w ≠ 0) (piv_of w) sarr2 C
             (length C) h cand (strlen h) = NONE))`
   >- (
     xapp_spec cand_pass_arr_spec>>
     xsimpl>>
-    qexistsl_tac [`ARRAY_OF NUM cntv cnt2 * ARRAY_OF NUM tallyv tally2`,`sarr2`,`h`,
-      `piv_of w`,`cand`,`length C`,`fmlls`,`dml3`,`b1`,`C`,`lno`]>>
+    qexistsl_tac [`ARRAY_OF NUM cntv cnt2 * ARRAY_OF NUM tallyv tally3`,`sarr2`,`h`,
+      `piv_of w`,`cand`,`length C`,`fmlls`,`dml5`,`b1`,`C`,`lno`]>>
     gvs[]>>
     xsimpl>>
     rpt strip_tac>>
     qexists_tac`x`>>
     xsimpl)
   >- (xsimpl>>rw[]>>qexists_tac`fmlls`>>xsimpl)>>
-  `LENGTH dml4 = LENGTH dml3` by (
+  `LENGTH dml4 = LENGTH dml5` by (
     drule_at (Pos last) cand_pass_list_LENGTH>>
     simp[])>>
   reverse xif
@@ -2119,19 +2505,19 @@ Proof
   xlet`POSTv fmlv1.
     ARRAY_OF vcclause_TYPE fmlv1 (FST (insert_cnt_list fmlls cnt2 lim n C)) *
     ARRAY_OF NUM cntv (SND (insert_cnt_list fmlls cnt2 lim n C)) *
-    ARRAY_OF INT sarrv (lit_sarr sarr2) * ARRAY_OF NUM tallyv tally2 *
+    ARRAY_OF INT sarrv (lit_sarr sarr2) * ARRAY_OF NUM tallyv tally3 *
     ARRAY_OF NUM carrv1 dml4`
   >- (
     xapp_spec insert_cnt_arr_spec>>
     xsimpl>>
-    qexistsl_tac [`ARRAY_OF INT sarrv (lit_sarr sarr2) * ARRAY_OF NUM tallyv tally2 *
+    qexistsl_tac [`ARRAY_OF INT sarrv (lit_sarr sarr2) * ARRAY_OF NUM tallyv tally3 *
       ARRAY_OF NUM carrv1 dml4`,`lim`,`n`,`fmlls`,`cnt2`,`C`]>>
     xsimpl)>>
   Cases_on`insert_cnt_list fmlls cnt2 lim n C`>>
   rename1`insert_cnt_list _ _ _ _ _ = (fmlls3,cnt3)`>>
   xlet`POSTv uv. ARRAY_OF vcclause_TYPE fmlv1 fmlls3 * ARRAY_OF NUM cntv cnt3 *
     ARRAY_OF INT sarrv (lit_sarr (clear_subst w sarr2)) *
-    ARRAY_OF NUM carrv1 dml4 * ARRAY_OF NUM tallyv (clear_tally w tally2)`
+    ARRAY_OF NUM carrv1 dml4 * ARRAY_OF NUM tallyv (clear_tally w tally3)`
   >- (
     xapp_spec clear_arr_spec>>
     xsimpl>>
@@ -2143,7 +2529,7 @@ Proof
       rpt strip_tac>>
       res_tac>>
       simp[])>>
-    qexistsl_tac [`ARRAY_OF vcclause_TYPE fmlv1 fmlls3 * ARRAY_OF NUM cntv cnt3`,`w`,`tally2`,
+    qexistsl_tac [`ARRAY_OF vcclause_TYPE fmlv1 fmlls3 * ARRAY_OF NUM cntv cnt3`,`w`,`tally3`,
       `sarr2`,`dml4`]>>
     simp[]>>
     qexists_tac`piv_of w`>>
@@ -2156,6 +2542,7 @@ Proof
   xsimpl>>
   metis_tac[]
 QED
+
 
 (*** Reading and checking a proof file, one record at a time ***)
 
