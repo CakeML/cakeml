@@ -243,7 +243,7 @@ Resume compile_correct[Loop]:
       \\ strip_tac
       \\ asm_exists_tac \\ fs [])
   \\ fs [PULL_EXISTS]
-  \\ reverse (Cases_on ‘fixedpoint lt live_in LN (union live_in (inter live_out l0)) body’) \\ fs []
+  \\ reverse (Cases_on ‘fixedpoint lt live_in LN (inter live_out l0) body’) \\ fs []
   >- ((* Loop_fix *)
       rpt strip_tac
       \\ gvs []
@@ -257,7 +257,7 @@ Resume compile_correct[Loop]:
           \\ fs [SUBSET_DEF, domain_inter])
       \\ gvs []
       \\ last_x_assum
-           (qspecl_then [‘(inter live_in v2, union live_in (inter live_out l0))::lt’,
+           (qspecl_then [‘(inter live_in v2, inter live_out l0)::lt’,
                          ‘inter locals (inter live_in v2)’,
                          ‘v1’, ‘v2’, ‘union live_in (inter live_out l0)’] mp_tac)
       \\ impl_tac
