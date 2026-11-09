@@ -55,12 +55,17 @@ Definition from_shift_def:
   (from_shift Ror = Atom «Ror»)
 End
 
+Definition from_div_round_def:
+  (from_div_round TowardsZero = Atom «TowardsZero») ∧
+  (from_div_round RoundDown = Atom «RoundDown»)
+End
+
 Definition from_arith_def:
   (from_arith Add  = Atom «Add») ∧
   (from_arith Sub  = Atom «Sub») ∧
   (from_arith Mul  = Atom «Mul») ∧
-  (from_arith Div  = Atom «Div») ∧
-  (from_arith Mod  = Atom «Mod») ∧
+  (from_arith (Div r) = Expr [Atom «Div»; from_div_round r]) ∧
+  (from_arith (Mod r) = Expr [Atom «Mod»; from_div_round r]) ∧
   (from_arith Neg  = Atom «Neg») ∧
   (from_arith And  = Atom «And») ∧
   (from_arith Xor  = Atom «Xor») ∧
@@ -432,13 +437,19 @@ Definition to_shift_def:
   (to_shift _ = fail)
 End
 
+Definition to_div_round_def:
+  (to_div_round (Atom s) =
+     if s = «TowardsZero» then return TowardsZero
+     else if s = «RoundDown» then return RoundDown
+     else fail) ∧
+  (to_div_round _ = fail)
+End
+
 Definition to_arith_def:
   (to_arith (Atom s) =
      if s = «Add» then return Add
      else if s = «Sub» then return Sub
      else if s = «Mul» then return Mul
-     else if s = «Div» then return Div
-     else if s = «Mod» then return Mod
      else if s = «Neg» then return Neg
      else if s = «And» then return And
      else if s = «Xor» then return Xor
@@ -451,9 +462,23 @@ Definition to_arith_def:
   (to_arith sexp =
    do
      (tag, args) <- dest_tagged sexp;
-     assert (tag = «Shift» ∧ LENGTH args = 1);
-     s <- to_shift (nth args 0);
-     return (Shift s)
+     assert (LENGTH args = 1);
+     if tag = «Shift» then
+       do
+         s <- to_shift (nth args 0);
+         return (Shift s)
+       od
+     else if tag = «Div» then
+       do
+         r <- to_div_round (nth args 0);
+         return (Div r)
+       od
+     else if tag = «Mod» then
+       do
+         r <- to_div_round (nth args 0);
+         return (Mod r)
+       od
+     else fail
    od)
 End
 
@@ -1084,12 +1109,18 @@ Proof
   Cases_on ‘s’ >> simp [from_shift_def, to_shift_def]
 QED
 
+Theorem to_from_div_round_ok:
+  to_div_round (from_div_round r) = SOME r
+Proof
+  Cases_on ‘r’ >> simp [from_div_round_def, to_div_round_def]
+QED
+
 Theorem to_from_arith_ok:
   to_arith (from_arith a) = SOME a
 Proof
   Cases_on ‘a’
   >> simp [from_arith_def, to_arith_def, dest_tagged_def, to_from_shift_ok,
-           nth_def]
+           to_from_div_round_ok, nth_def]
 QED
 
 Theorem to_from_word_size_ok:

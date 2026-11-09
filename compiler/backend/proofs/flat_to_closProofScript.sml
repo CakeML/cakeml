@@ -705,6 +705,64 @@ Proof
   rw [evaluate_def]
 QED
 
+Theorem int_quot_rem_by_div_mod[local]:
+  y ≠ 0 ⇒
+  x quot y = (if x % y ≠ 0 ∧ (if x < 0 then 0 ≤ y else y < 0)
+              then x / y + 1 else x / y) ∧
+  x rem y = (if x % y ≠ 0 ∧ (if x < 0 then 0 ≤ y else y < 0)
+             then x % y - y else x % y)
+Proof
+  strip_tac
+  \\ Cases_on `x = 0`
+  >- simp [integerTheory.INT_DIV_0, integerTheory.INT_MOD0,
+           integerTheory.INT_QUOT_0, integerTheory.INT_REM0]
+  \\ qspec_then `y` mp_tac integerTheory.INT_DIVISION
+  \\ simp [] \\ disch_then (qspec_then `x` strip_assume_tac)
+  \\ qabbrev_tac `d = x / y` \\ qabbrev_tac `m = x % y`
+  \\ IF_CASES_TAC \\ simp []
+  >- (
+    conj_tac
+    >- (
+      irule integerTheory.INT_QUOT_UNIQUE \\ qexists_tac `m - y`
+      \\ simp [integerTheory.INT_RDISTRIB, integerTheory.INT_ABS]
+      \\ intLib.ARITH_TAC)
+    \\ irule integerTheory.INT_REM_UNIQUE
+    \\ simp [integerTheory.INT_ABS]
+    \\ conj_tac
+    >- (
+      qexists_tac `d + 1` \\ simp [integerTheory.INT_RDISTRIB]
+      \\ intLib.ARITH_TAC)
+    \\ intLib.ARITH_TAC)
+  \\ conj_tac
+  >- (
+    irule integerTheory.INT_QUOT_UNIQUE \\ qexists_tac `m`
+    \\ simp [integerTheory.INT_ABS]
+    \\ intLib.ARITH_TAC)
+  \\ irule integerTheory.INT_REM_UNIQUE
+  \\ simp [integerTheory.INT_ABS]
+  \\ conj_tac >- (qexists_tac `d` \\ simp [])
+  \\ intLib.ARITH_TAC
+QED
+
+Theorem evaluate_compile_trunc_div[local]:
+  evaluate (xs,db,t) = (Rval ws,t1) ∧ 2 ≤ LENGTH ws ∧ k = LENGTH ws - 2 ∧
+  EL k ws = Number y ∧ EL (k + 1) ws = Number x ⇒
+  evaluate ([compile_trunc_div tt is_div k xs],db,t) =
+    if y = 0 then (Rerr (Rraise (Block div_tag [])),t1)
+    else (Rval [Number (if is_div then x quot y else x rem y)],t1)
+Proof
+  rpt strip_tac \\ gvs []
+  \\ simp [compile_trunc_div_def, compile_quot_def, compile_rem_def,
+           compile_sign_differs_def, evaluate_def, do_app_def, do_int_app_def,
+           do_eq_def, EL_APPEND2, EL_APPEND1]
+  \\ IF_CASES_TAC \\ simp []
+  \\ Cases_on `is_div`
+  \\ simp [evaluate_def, do_app_def, do_int_app_def, do_eq_def, EL_APPEND2,
+           EL_APPEND1, rich_listTheory.EL_CONS]
+  \\ simp [int_quot_rem_by_div_mod]
+  \\ rw [] \\ gvs [Boolv_def, integerTheory.int_ge, integerTheory.INT_ADD_COMM]
+QED
+
 Theorem compile_op_evaluates_args:
   evaluate (xs,db,t) = (Rerr err,t1) /\
   op <> Src Opapp /\ op <> Src Eval /\ op <> Src (ThunkOp ForceThunk)
@@ -717,7 +775,8 @@ Proof
     >~ [`Src (Arith _ _)`] >- (
       rename1 `Src (Arith a ty)` >> rw [compile_op_def] >>
       Cases_on `ty` >> Cases_on `a` >>
-      simp [compile_arith_def, evaluate_compile_shift, evaluate_def]
+      simp [compile_arith_def, evaluate_compile_shift, evaluate_def] >>
+      CASE_TAC >> simp [compile_trunc_div_def, evaluate_def]
     )
     >~ [`Src (UnsafeIndexArith _)`] >- (
       qmatch_goalsub_rename_tac `UnsafeIndexArith index_arith`
@@ -725,8 +784,11 @@ Proof
       \\ simp [compile_op_def, compile_unsafe_index_def]
       \\ IF_CASES_TAC
       \\ simp [evaluate_def]
-      \\ Cases_on `index_arith`
-      \\ simp [compile_smallnum_arith_def, compile_smallnum_div_def, evaluate_def])
+      \\ namedCases_on `index_arith`
+           ["", "", "", "rnd", "rnd", "", "", "", "", "", "", "", "", "sh"]
+      \\ simp [compile_smallnum_arith_def, compile_smallnum_div_def, evaluate_def]
+      \\ Cases_on `rnd`
+      \\ simp [compile_smallnum_div_def, compile_trunc_div_def, evaluate_def])
     >~ [`Src (UnsafeIndexTest _)`] >- (
       qmatch_goalsub_rename_tac `UnsafeIndexTest index_test`
       \\ rpt strip_tac
@@ -1717,7 +1779,8 @@ Proof
     gvs [flatSemTheory.flat_to_v_def, semanticPrimitivesTheory.the_Litv_IntLit_def,
          v_rel_def, SWAP_REVERSE_SYM] >>
     simp [compile_op_def, compile_arith_def, evaluate_def, do_app_def,
-          do_int_app_def, do_eq_def, div_exn_v_def, v_rel_def]) >>
+          do_int_app_def, do_eq_def, div_exn_v_def, v_rel_def] >>
+    drule evaluate_compile_trunc_div >> simp []) >>
   Cases_on `ty` using prim_type_cases >>
   gvs [semanticPrimitivesTheory.do_arith_def, AllCaseEqs(),
        LENGTH_EQ_NUM_compute, MAP_EQ_CONS, PULL_EXISTS] >>
@@ -1742,6 +1805,8 @@ Proof
         backend_commonTheory.false_tag_def, v_rel_def] >>
   simp [fpSemTheory.fp_bop_comp_def, fpSemTheory.fp_uop_comp_def,
         fpSemTheory.fp_top_comp_def, fpSemTheory.fpfma_def]
+  >>~- ([`compile_trunc_div _ _ _ _`],
+    drule evaluate_compile_trunc_div >> simp [])
   >~ [`shift64_lookup sh _ _`] >- (
     Cases_on `sh` >> simp [shift64_lookup_def]) >>
   DEEP_INTRO_TAC some_intro >> simp [FORALL_PROD] >>
@@ -1980,10 +2045,15 @@ Proof
     Cases_on `bound` \\ simp [index_in_bounds_def])
   \\ gvs [oneline backendPropsTheory.unsafe_index_bound_def, AllCaseEqs()]
   \\ imp_res_tac evaluate_IMP_LENGTH
-  \\ Cases_on `a`
+  \\ namedCases_on `a`
+       ["", "", "", "rnd", "rnd", "", "", "", "", "", "", "", "", "sh"]
   \\ gvs [semanticPrimitivesTheory.do_arith_def, compile_smallnum_arith_def,
           compile_smallnum_div_def, evaluate_def, do_app_def, do_int_app_def,
           bounded_smallnum_app_def, smallnum_app_def]
+  \\ Cases_on `rnd`
+  \\ gvs [compile_smallnum_div_def, evaluate_def, do_app_def, do_int_app_def,
+          bounded_smallnum_app_def, smallnum_app_def]
+  \\ drule evaluate_compile_trunc_div \\ simp []
 QED
 
 Theorem evaluate_compile_smallnum_arith_exn[local]:
@@ -1998,10 +2068,15 @@ Proof
   rpt strip_tac
   \\ gvs [oneline backendPropsTheory.unsafe_index_bound_def, AllCaseEqs()]
   \\ imp_res_tac evaluate_IMP_LENGTH
-  \\ Cases_on `a`
+  \\ namedCases_on `a`
+       ["", "", "", "rnd", "rnd", "", "", "", "", "", "", "", "", "sh"]
   \\ gvs [semanticPrimitivesTheory.do_arith_def, compile_smallnum_arith_def,
           compile_smallnum_div_def, evaluate_def, do_app_def, do_int_app_def,
           bounded_smallnum_app_def, smallnum_app_def]
+  \\ Cases_on `rnd`
+  \\ gvs [compile_smallnum_div_def, evaluate_def, do_app_def, do_int_app_def,
+          bounded_smallnum_app_def, smallnum_app_def]
+  \\ drule evaluate_compile_trunc_div \\ simp []
 QED
 
 Theorem evaluate_compile_smallnum_test[local]:
@@ -2862,6 +2937,19 @@ Proof
        Once every_Fn_vs_NONE_EVERY, Once contains_App_SOME_EXISTS,
        EXISTS_MEM, MEM_GENLIST])
   \\ simp [elist_globals_empty, MEM_GENLIST, PULL_EXISTS, contains_App_SOME_def]
+QED
+
+Theorem compile_trunc_div_props[simp]:
+  set_globals (compile_trunc_div t is_div k xs) = elist_globals xs /\
+  (esgc_free (compile_trunc_div t is_div k xs) = EVERY esgc_free xs) /\
+  (no_mti (compile_trunc_div t is_div k xs) = EVERY no_mti xs) /\
+  (every_Fn_vs_NONE [compile_trunc_div t is_div k xs] = every_Fn_vs_NONE xs) /\
+  (contains_App_SOME max_app [compile_trunc_div t is_div k xs] =
+   contains_App_SOME max_app xs)
+Proof
+  Cases_on `is_div`
+  \\ simp ([compile_trunc_div_def, compile_quot_def, compile_rem_def,
+            compile_sign_differs_def, closPropsTheory.op_gbag_def] @ props_defs)
 QED
 
 Theorem compile_scan_props[simp]:

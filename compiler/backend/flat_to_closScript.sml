@@ -141,6 +141,48 @@ Definition compile_shift_def:
     | _ => Op t (WordOp (WordShiftVar ws sh)) xs
 End
 
+(* Helper code for integer division rounding towards zero (quot/rem),
+   implemented using the flooring Div and Mod of closLang. In each helper,
+   Var k holds the divisor y (assumed non-zero) and Var (k+1) the dividend x.
+   The results of Div/Mod need correcting exactly when x % y <> 0 and the
+   signs of x and y differ. *)
+
+Definition compile_sign_differs_def:
+  compile_sign_differs t k =
+    If t (Op t (IntOp Less) [Op t (IntOp (Const 0)) []; Var t (k+1)])
+      (Op t (IntOp GreaterEq) [Op t (IntOp (Const 0)) []; Var t k])
+      (Op t (IntOp Less) [Op t (IntOp (Const 0)) []; Var t k])
+End
+
+Definition compile_quot_def:
+  compile_quot t k =
+    Let t [Op t (IntOp Mod) [Var t k; Var t (k+1)];
+           Op t (IntOp Div) [Var t k; Var t (k+1)]]
+      (If t (Op t (BlockOp Equal) [Var t 0; Op t (IntOp (Const 0)) []])
+         (Var t 1)
+         (If t (compile_sign_differs t (k+2))
+            (Op t (IntOp Add) [Var t 1; Op t (IntOp (Const 1)) []])
+            (Var t 1)))
+End
+
+Definition compile_rem_def:
+  compile_rem t k =
+    Let t [Op t (IntOp Mod) [Var t k; Var t (k+1)]]
+      (If t (Op t (BlockOp Equal) [Var t 0; Op t (IntOp (Const 0)) []])
+         (Var t 0)
+         (If t (compile_sign_differs t (k+1))
+            (Op t (IntOp Sub) [Var t (k+1); Var t 0])
+            (Var t 0)))
+End
+
+Definition compile_trunc_div_def:
+  compile_trunc_div t is_div k xs =
+    Let t xs
+      (If t (Op t (BlockOp Equal) [Var t k; Op t (IntOp (Const 0)) []])
+         (Raise t (Op t (BlockOp (Cons div_tag)) []))
+         (if is_div then compile_quot t k else compile_rem t k))
+End
+
 Definition compile_arith_def:
   compile_arith t (a: ast$arith) ty xs =
     case ty of
@@ -148,12 +190,14 @@ Definition compile_arith_def:
                | Add => Op t (IntOp Add) xs
                | Sub => Op t (IntOp Sub) xs
                | Mul => Op t (IntOp Mult) xs
-               | Div => Let t xs (If t (Op t (BlockOp Equal) [Var t 0; Op t (IntOp (Const 0)) []])
+               | Div RoundDown => Let t xs (If t (Op t (BlockOp Equal) [Var t 0; Op t (IntOp (Const 0)) []])
                                    (Raise t (Op t (BlockOp (Cons div_tag)) []))
                                    (Op t (IntOp closLang$Div) [Var t 0; Var t 1]))
-               | Mod => Let t xs (If t (Op t (BlockOp Equal) [Var t 0; Op t (IntOp (Const 0)) []])
+               | Mod RoundDown => Let t xs (If t (Op t (BlockOp Equal) [Var t 0; Op t (IntOp (Const 0)) []])
                                    (Raise t (Op t (BlockOp (Cons div_tag)) []))
                                    (Op t (IntOp closLang$Mod) [Var t 0; Var t 1]))
+               | Div TowardsZero => compile_trunc_div t T 0 xs
+               | Mod TowardsZero => compile_trunc_div t F 0 xs
                | _ => Let None xs (Var None 0))
     | Float64T => (case a of
                    | Absolute => Op t (WordOp (FP_uop FP_Abs)) xs
@@ -162,7 +206,7 @@ Definition compile_arith_def:
                    | Add => Op t (WordOp (FP_bop FP_Add)) xs
                    | Sub => Op t (WordOp (FP_bop FP_Sub)) xs
                    | Mul => Op t (WordOp (FP_bop FP_Mul)) xs
-                   | Div => Op t (WordOp (FP_bop FP_Div)) xs
+                   | Div _ => Op t (WordOp (FP_bop FP_Div)) xs
                    | FMA => Op t (WordOp (FP_top FP_Fma)) xs
                    | _   => Let None xs (Var None 0))
     | WordT ws => (case a of
@@ -195,8 +239,10 @@ Definition compile_smallnum_arith_def:
     | Add => Op t (IntOp (Smallnum SmallAdd)) xs
     | Sub => Op t (IntOp (Smallnum SmallSub)) xs
     | Mul => Op t (IntOp (Smallnum SmallMult)) xs
-    | Div => compile_smallnum_div t SmallDiv xs
-    | Mod => compile_smallnum_div t SmallMod xs
+    | Div RoundDown => compile_smallnum_div t SmallDiv xs
+    | Mod RoundDown => compile_smallnum_div t SmallMod xs
+    | Div TowardsZero => compile_trunc_div t T (if LENGTH xs = 3 then 1 else 0) xs
+    | Mod TowardsZero => compile_trunc_div t F (if LENGTH xs = 3 then 1 else 0) xs
     | _ => Let None xs (Var None 0)
 End
 

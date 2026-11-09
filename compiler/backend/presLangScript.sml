@@ -198,12 +198,17 @@ Definition test_to_display_def:
   test_to_display (AltCompare cmp) = Item NONE «AltCompare» [opb_to_display cmp]
 End
 
+Definition div_round_to_display_def:
+  div_round_to_display TowardsZero = empty_item «TowardsZero» ∧
+  div_round_to_display RoundDown = empty_item «RoundDown»
+End
+
 Definition arith_to_display_def:
   arith_to_display Add = empty_item «Add» ∧
   arith_to_display Sub = empty_item «Sub» ∧
   arith_to_display Mul = empty_item «Mul» ∧
-  arith_to_display Div = empty_item «Div» ∧
-  arith_to_display Mod = empty_item «Mod» ∧
+  arith_to_display (Div r) = Item NONE «Div» [div_round_to_display r] ∧
+  arith_to_display (Mod r) = Item NONE «Mod» [div_round_to_display r] ∧
   arith_to_display And = empty_item «And» ∧
   arith_to_display Xor = empty_item «Xor» ∧
   arith_to_display Or  = empty_item «Or» ∧
