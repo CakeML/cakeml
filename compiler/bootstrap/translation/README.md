@@ -17,13 +17,13 @@ Translate the ARMv8 instruction encoder and ARMv8-specific config.
 Translate the basis library term.
 
 [compiler_ag32ProgScript.sml](compiler_ag32ProgScript.sml):
-Native AG32 batch entry point for the fused compiler.
+Native AG32 batch entry point for the compiler.
 
 [compiler_arm8ProgScript.sml](compiler_arm8ProgScript.sml):
 Native ARM8 entry point for the compiler.
 
 [compiler_commonProgScript.sml](compiler_commonProgScript.sml):
-Shared translation of the compiler backends and command-line interface.
+Shared CakeML compiler translation for the native entry points.
 
 [compiler_mainProgScript.sml](compiler_mainProgScript.sml):
 Shared host selection, REPL and entry points for the native compiler programs.
@@ -61,14 +61,11 @@ Translate the backend from flatLang to target code.
 [from_labProgScript.sml](from_labProgScript.sml):
 Translate the backend from labelled assembly to target code.
 
-[from_pancakeProgScript.sml](from_pancakeProgScript.sml):
-Translate the pan_to_target part of the compiler for all targets.
-
 [from_stackProgScript.sml](from_stackProgScript.sml):
 Translate the backend from stackLang to target code.
 
 [from_wordProgScript.sml](from_wordProgScript.sml):
-Translate wordLang optimization and lowering to target code.
+Translate the wordLang backend and shared compiler interface.
 
 [hol_baseProgScript.sml](hol_baseProgScript.sml):
 Translation of standard library functions
@@ -84,12 +81,6 @@ Translate the compiler's lexer.
 
 [mipsProgScript.sml](mipsProgScript.sml):
 Translate the MIPS instruction encoder and MIPS-specific config.
-
-[pancake_lexProgScript.sml](pancake_lexProgScript.sml):
-Translate pancake's lexer
-
-[pancake_parseProgScript.sml](pancake_parseProgScript.sml):
-Translate pancake's parser
 
 [parserProgScript.sml](parserProgScript.sml):
 Translate the compiler's parser.

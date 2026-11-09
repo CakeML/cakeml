@@ -1,10 +1,10 @@
 (*
-  Translate wordLang optimization and lowering to target code.
+  Translate the wordLang backend and shared compiler interface.
 *)
 Theory from_wordProg[no_sig_docs]
 Ancestors
   ml_translator reg_allocProg std_prelude word_to_stack word_simp
-  word_alloc word_inst backend[qualified]
+  word_alloc word_inst backend[qualified] backend_passes compiler_common export
 Libs
   preamble ml_translatorLib
 
@@ -290,5 +290,223 @@ val r = presLangTheory.word_prog_to_display_def
 
 val r = presLangTheory.word_fun_to_display_def |> translate
 
+val _ = register_type “:any_prog”;
+
+val res = translate (data_to_wordTheory.max_heap_limit_def
+  |> SIMP_RULE std_ss [backend_commonTheory.word_shift_def]);
+
+val r = backend_passesTheory.word_internal_all_def |> translate;
+
+val r = backend_passesTheory.from_lab_all_def |> translate;
+
+val r = backend_passesTheory.from_stack_all_def |> translate;
+
+val r = backend_passesTheory.from_word_all_def |> translate;
+
+val r = backend_passesTheory.from_word_0_all_def |> translate;
+
+val r = presLangTheory.word_to_strs_def |> translate
+val r = presLangTheory.stack_to_strs_def |> translate
+val r = labLangTheory.Section_num_def |> translate
+val r = labLangTheory.Section_metadata_def |> translate
+val r = presLangTheory.lab_to_strs_def |> translate
+
+val r = backend_passesTheory.any_prog_pp_def |> translate;
+val r = backend_passesTheory.pp_with_title_def |> translate;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
+
+val _ = use_long_names := false;
+val _ = translate lexer_implTheory.num_from_dec_string_alt_def;
+val _ = translate lexer_implTheory.num_from_hex_string_alt_def;
+
+Theorem unhex_alt_side_total[local]:
+  ∀c. unhex_alt_side c
+Proof
+  simp [Once (fetch "-" "unhex_alt_side_def"),
+        Once (fetch "-" "unhex_side_def"),isDigit_def,isHexDigit_def]
+  \\ Cases \\ fs [ORD_CHR]
+  \\ strip_tac \\ fs []
+QED
+
+Theorem num_from_dec_string_alt_side:
+  ∀x. num_from_dec_string_alt_side x
+Proof
+  simp [Once (fetch "-" "num_from_dec_string_alt_side_def"),
+        Once (fetch "-" "s2n_side_def"),hol_baseProgTheory.l2n_side,
+        unhex_alt_side_total]
+QED
+
+val _ = update_precondition num_from_dec_string_alt_side;
+
+Theorem num_from_hex_string_alt_side:
+  ∀x. num_from_hex_string_alt_side x
+Proof
+  simp [Once (fetch "-" "num_from_hex_string_alt_side_def"),
+        Once (fetch "-" "s2n_side_def"),hol_baseProgTheory.l2n_side,
+        unhex_alt_side_total]
+QED
+
+val _ = update_precondition num_from_hex_string_alt_side;
+val _ = use_long_names := true;
+
+val res = translate all_bytes_eq
+val res = translate byte_to_string_eq
+val res = translate escape_sym_char_def
+val res = translate get_sym_label_def
+val res = translate get_sym_labels_def
+val res = translate emit_symbol_def
+val res = translate emit_symbols_def
+
+Theorem export_byte_to_string_side_total[local]:
+  ∀b. export_byte_to_string_side b
+Proof
+  fs [fetch "-" "export_byte_to_string_side_def"]
+  \\ Cases \\ fs [] \\ EVAL_TAC \\ fs []
+QED
+
+val _ = update_precondition export_byte_to_string_side_total;
+
+val res = translate split16_def;
+val res = translate preamble_def;
+val res = translate (data_buffer_def |> CONV_RULE (RAND_CONV EVAL));
+val res = translate (code_buffer_def |> CONV_RULE (RAND_CONV EVAL));
+
+fun is_strcat_lits tm =
+let val (t1,t2) = stringSyntax.dest_strcat tm in
+  stringSyntax.is_string_literal t1 andalso
+              stringSyntax.is_string_literal t2
+              end handle HOL_ERR _ => false
+val res = translate
+          ( data_section_def
+              |> SIMP_RULE std_ss [MAP]
+              |> CONV_RULE(DEPTH_CONV(EVAL o (assert is_strcat_lits)))
+              |> SIMP_RULE std_ss [mlstringTheory.implode_STRCAT]
+              |> SIMP_RULE std_ss [mlstringTheory.strcat_assoc]
+              |> SIMP_RULE std_ss [GSYM mlstringTheory.implode_STRCAT]
+              |> CONV_RULE(DEPTH_CONV(EVAL o (assert is_strcat_lits)))
+              |> SIMP_RULE std_ss [mlstringTheory.implode_STRCAT])
+(* -- *)
+
+val res = translate comm_strlit_def;
+val res = translate newl_strlit_def;
+val res = translate comma_cat_def;
+
+val res = translate words_line_def;
+
+val res = translate word_to_string_def;
+(* -- *)
+
+val _ = translate compiler_commonTheory.find_next_newline_def;
+val _ = translate compiler_commonTheory.safe_substring_def;
+val _ = translate compiler_commonTheory.get_nth_line_def;
+val _ = translate compiler_commonTheory.locs_to_string_def;
+
+val res = translate compiler_commonTheory.parse_bool_def;
+val res = translate compiler_commonTheory.parse_num_def;
+
+val res = translate compiler_commonTheory.find_str_def;
+val res = translate compiler_commonTheory.find_strs_def;
+val res = translate compiler_commonTheory.find_bool_def;
+val res = translate compiler_commonTheory.find_num_def;
+val res = translate compiler_commonTheory.get_err_str_def;
+
+val res = translate compiler_commonTheory.parse_num_list_def;
+
+(* comma_tokens treats strings as char lists so we switch modes temporarily *)
+val res = translate compiler_commonTheory.comma_tokens_def;
+val res = translate compiler_commonTheory.parse_nums_def;
+
+val res = translate clos_knownTheory.default_inline_factor_def;
+val res = translate clos_knownTheory.default_max_body_size_def;
+val res = translate clos_knownTheory.mk_config_def;
+val res = translate compiler_commonTheory.parse_clos_conf_def;
+val res = translate compiler_commonTheory.parse_bvl_conf_def;
+val res = translate compiler_commonTheory.parse_wtw_conf_def;
+val res = translate compiler_commonTheory.parse_gc_def;
+val res = translate compiler_commonTheory.parse_data_conf_def;
+val res = translate compiler_commonTheory.parse_stack_conf_def;
+val res = translate (compiler_commonTheory.parse_tap_conf_def
+                     |> REWRITE_RULE [MEMBER_INTRO]);
+val res = translate compiler_commonTheory.parse_lab_conf_def;
+
+
+val res = translate backendTheory.prim_src_config_eq;
+
+(* x64 *)
+val res = translate x64_configTheory.x64_names_def;
+val res = translate export_x64Theory.startup_def;
+val res = translate export_x64Theory.ffi_asm_def;
+val res = translate export_x64Theory.windows_ffi_asm_def;
+val res = translate export_x64Theory.export_func_def;
+val res = translate export_x64Theory.export_funcs_def;
+val res = translate export_x64Theory.x64_export_def;
+val res = translate
+          (x64_configTheory.x64_backend_config_def
+             |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
+
+(* riscv *)
+val res = translate riscv_configTheory.riscv_names_def;
+val res = translate export_riscvTheory.startup_def;
+val res = translate export_riscvTheory.ffi_asm_def;
+val res = translate export_riscvTheory.export_func_def;
+val res = translate export_riscvTheory.export_funcs_def;
+val res = translate export_riscvTheory.riscv_export_def;
+val res = translate
+          (riscv_configTheory.riscv_backend_config_def
+             |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
+
+(* mips *)
+val res = translate mips_configTheory.mips_names_def;
+val res = translate export_mipsTheory.startup_def;
+val res = translate export_mipsTheory.ffi_asm_def;
+val res = translate export_mipsTheory.export_func_def;
+val res = translate export_mipsTheory.export_funcs_def;
+val res = translate export_mipsTheory.mips_export_def;
+val res = translate
+          (mips_configTheory.mips_backend_config_def
+             |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
+
+(* arm8 *)
+val res = translate arm8_configTheory.arm8_names_def;
+val res = translate export_arm8Theory.startup_def;
+val res = translate export_arm8Theory.ffi_asm_def;
+val res = translate export_arm8Theory.export_func_def;
+val res = translate export_arm8Theory.export_funcs_def;
+val res = translate (export_arm8Theory.arm8_code_buffer_def
+                       |> CONV_RULE (RAND_CONV EVAL));
+val res = translate export_arm8Theory.arm8_export_def;
+val res = translate
+          (arm8_configTheory.arm8_backend_config_def
+             |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
+
+(* ag32 *)
+val res = translate ag32_configTheory.ag32_names_def;
+val res = translate export_ag32Theory.ag32_export_def;
+val res = translate
+  (ag32_configTheory.ag32_backend_config_def
+   |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
+
+(* arm7 *)
+(* top-level vals must not call functions (no_ptr_eq), so the register
+   name map is evaluated to sptree constructors (as the other targets'
+   *_names_def already are) *)
+val res = translate (arm7_configTheory.arm7_names_def |> CONV_RULE (RAND_CONV EVAL));
+val res = translate export_arm7Theory.startup_def;
+val res = translate export_arm7Theory.ffi_asm_def;
+val res = translate export_arm7Theory.export_func_def;
+val res = translate export_arm7Theory.export_funcs_def;
+val res = translate export_arm7Theory.arm7_export_def;
+val res = translate
+  (arm7_configTheory.arm7_backend_config_def
+   |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
+
+val _ = translate (compiler_commonTheory.extend_conf_def |> REWRITE_RULE [MEMBER_INTRO]);
+val _ = translate (compiler_commonTheory.parse_target_def |> REWRITE_RULE [MEMBER_INTRO]);
+val _ = translate (compiler_commonTheory.add_tap_output_def |> REWRITE_RULE [MEMBER_INTRO]);
+val _ = translate (compiler_commonTheory.has_version_flag_def |> REWRITE_RULE [MEMBER_INTRO]);
+val _ = translate (compiler_commonTheory.has_help_flag_def |> REWRITE_RULE [MEMBER_INTRO]);
+val _ = translate (compiler_commonTheory.is_error_msg_def |> REWRITE_RULE [MEMBER_INTRO]);
+val _ = translate (compiler_commonTheory.print_option_def |> REWRITE_RULE [MEMBER_INTRO]);
+val _ = translate backendTheory.ffinames_to_string_list_def;
+
 val _ = ml_translatorLib.clean_on_exit := true;

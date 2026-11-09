@@ -19,6 +19,7 @@
 *.S
 
 # Generated tarball
+pancake-*.tar.gz
 cake-arm8.tar.gz
 cake-x64.tar.gz
 config_enc_str.txt
@@ -99,3 +100,7 @@ compiler/benchmarks/*.html
 icing/examples/output/*/*.sexp.cml
 icing/examples/*_data_prog.txt
 .DS_Store
+
+pancake/compilation/x64/pancake
+pancake/compilation/arm8/pancake
+pancake/compilation/riscv/pancake

@@ -3,7 +3,7 @@
 *)
 Theory compiler_mainProg[no_sig_docs]
 Ancestors
-  compiler_commonProg compiler export ml_translator
+  compiler_commonProg compiler compiler_common export ml_translator
   basis_ffi[qualified]
 Libs
   preamble ml_translatorLib cfLib basis
@@ -41,8 +41,8 @@ Theorem host_args_arm8_default:
   parse_target (host_args HostArm8 cl) =
     INL (arm8_backend_config,arm8_export,arm8_config)
 Proof
-  simp [host_args_def, compilerTheory.parse_target_def,
-        compilerTheory.find_str_def]
+  simp [host_args_def, compiler_commonTheory.parse_target_def,
+        compiler_commonTheory.find_str_def]
   >> simp [EVAL “isPrefix «--target=» «--target=arm8»”,
            EVAL “extract «--target=arm8» 9 NONE”]
 QED
@@ -267,7 +267,6 @@ End
 
 val _ = next_ml_names := ["compiler_has_repl_flag"];
 val r = translate (has_repl_flag_def |> REWRITE_RULE [MEMBER_INTRO]);
-val r = translate (has_pancake_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO]);
 
 Definition full_compile_host_def:
   full_compile_host host cl inp fs =
@@ -276,16 +275,8 @@ Definition full_compile_host_def:
   else if has_version_flag cl then
     add_stdout fs current_build_info_str
   else
-    case parse_pancake_feature cl of
-      SOME rest => add_stdout fs $ print_bool $ news$query_news rest
-    | NONE =>
-        let (out, err) =
-            if has_pancake_flag cl then
-              compile_pancake_main (host_args host cl) inp
-            else
-              compile_main (host_args host cl) inp
-        in
-          add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err
+    let (out, err) = compile_main (host_args host cl) inp in
+      add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err
 End
 
 Theorem full_compile_host_x64:
@@ -301,26 +292,15 @@ Quote add_cakeml:
   in
     if compiler_has_repl_flag cl then
       run_interactive_repl (host,cl)
-    else if compiler_has_help_flag cl then
+    else if compiler_common_has_help_flag cl then
       print compiler_help_string
-    else if compiler_has_version_flag cl then
+    else if compiler_common_has_version_flag cl then
       print compiler_current_build_info_str
     else
-      case compiler_parse_pancake_feature cl of
-        Some rest => print (compiler_print_bool (news_query_news rest))
-      | None =>
-          let val compile_cl = host_args host cl in
-            if compiler_has_pancake_flag cl then
-              case compiler_compile_pancake_main compile_cl
-                     (String.explode (TextIO.inputAll (TextIO.openStdIn ()))) of
-                (c,e) => (print_app_list c; TextIO.output TextIO.stdErr e;
-                           compiler_commonprog_nonzero_exit_code_for_error_msg e)
-            else
-              case compiler_compile_main compile_cl
-                     (String.explode (TextIO.inputAll (TextIO.openStdIn ()))) of
-                (c,e) => (print_app_list c; TextIO.output TextIO.stdErr e;
-                           compiler_commonprog_nonzero_exit_code_for_error_msg e)
-          end
+      case compiler_compile_main (host_args host cl)
+             (String.explode (TextIO.inputAll (TextIO.openStdIn ()))) of
+        (c,e) => (print_app_list c; TextIO.output TextIO.stdErr e;
+                   compiler_commonprog_nonzero_exit_code_for_error_msg e)
   end
 End
 
@@ -388,55 +368,40 @@ Proof
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac `fs`
     \\ xsimpl)
-  \\ xlet_auto >- xsimpl
-  \\ gvs [oneline std_preludeTheory.OPTION_TYPE_def]
-  \\ reverse PURE_FULL_CASE_TAC
+  \\ rename1 `stdin fs source_input stdin_position`
+  \\ `stdin_content fs = SOME source_input /\ stdin_position = 0` by (
+    gvs [stdin_def,get_fd_content_def]
+    \\ fs [stdin_content_def,IS_SOME_EXISTS])
   \\ gvs []
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto_spec (SOME openStdIn_spec_str) >- xsimpl
+  \\ xlet `POSTv v. &STRING_TYPE (implode source_input) v *
+                   STDIO (fastForwardFD fs 0) * COMMANDLINE cl`
   >- (
-    xmatch
-    \\ xlet_auto >- xsimpl
-    \\ xlet_auto >- xsimpl
-    \\ simp [full_compile_host_def]
-    \\ xapp
-    \\ first_assum $ irule_at $ Pos hd
-    \\ qexists_tac `fs`
+    xapp
+    \\ qexistsl_tac [`COMMANDLINE cl`,`source_input`,`fs`,`0`]
+    \\ fs [STD_streams_get_mode]
     \\ xsimpl)
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ namedCases_on `compiler$compile_main (host_args host (TL cl)) source_input`
+       ["compiler_output compiler_diagnostics"]
+  \\ gvs [full_compile_host_def,ml_translatorTheory.PAIR_TYPE_def]
   \\ xmatch
   \\ xlet_auto >- xsimpl
-  \\ xlet_auto >- xsimpl
-  \\ xif
-  \\ (
-    xlet_auto >- (xcon \\ xsimpl)
-    \\ rename [`stdin fs inp pos`]
-    \\ `stdin_content fs = SOME inp /\ pos = 0` by (
-      gvs [stdin_def,get_fd_content_def]
-      \\ fs [stdin_content_def,IS_SOME_EXISTS])
-    \\ gvs []
-    \\ xlet_auto_spec (SOME openStdIn_spec_str) >- xsimpl
-    \\ xlet `POSTv v. &STRING_TYPE (implode inp) v *
-                    STDIO (fastForwardFD fs 0) * COMMANDLINE cl`
-    >- (
-      xapp
-      \\ qexistsl [`COMMANDLINE cl`, `inp`, `fs`, `0`]
-      \\ xsimpl)
-    \\ xlet_auto >- xsimpl
-    \\ xlet_auto >- xsimpl
-    \\ fs [full_compile_host_def]
-    \\ pairarg_tac
-    \\ fs [ml_translatorTheory.PAIR_TYPE_def]
-    \\ gvs [CaseEq "bool"]
-    \\ xmatch
-    \\ xlet_auto >- xsimpl
-    \\ qmatch_goalsub_abbrev_tac `STDIO output_fs`
-    \\ xlet `POSTv uv. &UNIT_TYPE () uv *
-                      STDIO (add_stderr output_fs err) * COMMANDLINE cl`
-    >- (
-      xapp_spec output_stderr_spec \\ xsimpl
-      \\ qexists_tac `COMMANDLINE cl`
-      \\ asm_exists_tac \\ xsimpl
-      \\ qexists_tac `output_fs` \\ xsimpl)
-    \\ xapp
-    \\ asm_exists_tac \\ simp [] \\ xsimpl)
+  \\ qmatch_goalsub_abbrev_tac `STDIO output_fs`
+  \\ xlet `POSTv uv. &UNIT_TYPE () uv *
+                   STDIO (add_stderr output_fs compiler_diagnostics) *
+                   COMMANDLINE cl`
+  >- (
+    xapp_spec output_stderr_spec
+    \\ xsimpl
+    \\ qexists_tac `COMMANDLINE cl`
+    \\ asm_exists_tac \\ xsimpl
+    \\ qexists_tac `output_fs` \\ xsimpl)
+  \\ xapp
+  \\ asm_exists_tac \\ simp [] \\ xsimpl
 QED
 
 Theorem full_compile_host_with_numchars:
@@ -445,6 +410,5 @@ Theorem full_compile_host_with_numchars:
 Proof
   rw [full_compile_host_def,UNCURRY,fastForwardFD_with_numchars,
       add_stdo_with_numchars]
-  \\ Cases_on `parse_pancake_feature cl`
-  \\ simp []
+
 QED
