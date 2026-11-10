@@ -37,7 +37,6 @@ Datatype:
      | LessEq             (* <= over the integers *)
      | Greater            (* > over the integers *)
      | GreaterEq          (* >= over the integers *)
-     | LessConstSmall num (* checks < const for small ints *)
      | Smallnum smallnum_op
 End
 
