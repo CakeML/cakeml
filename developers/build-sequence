@@ -163,6 +163,10 @@ examples/cnf/xlrup
 examples/cnf/xlrup/array
 examples/cnf/xlrup/array/compilation
 examples/cnf/xlrup/array/compilation/proofs
+examples/cnf/lsr
+examples/cnf/lsr/array
+examples/cnf/lsr/array/compilation
+examples/cnf/lsr/array/compilation/proofs
 
 examples/hwmcc_checker
 examples/hwmcc_checker/translation
