@@ -12,7 +12,7 @@ Ancestors
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
-val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "getOpClass_def"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val type_num_defs = LIST_CONJ [
     Tarray_num_def,
@@ -1889,7 +1889,6 @@ Proof
      >> disch_then drule
      >> disch_then drule
      >> rw []
-     >> fs [getOpClass_def]
      >> Cases_on `s1.clock = 0`
      >> fs []
      >> rw []
@@ -1904,29 +1903,25 @@ Proof
      >> simp [bind_tvar_def]
      >> rw []
      >> metis_tac [store_type_extension_trans])
-   >> `getOpClass op ≠ FunApp`
-     by (Cases_on `op` >> fs[getOpClass_def,AllCaseEqs()])
-   >> Cases_on ‘getOpClass op = Force’
+   >> Cases_on ‘op = ThunkOp ForceThunk’
    >- (
-     Cases_on ‘op’ >> gvs[getOpClass_def,AllCaseEqs()]
+     gvs []
      >> Cases_on ‘ts’ >> fs[type_op_def])
-   >> Cases_on ‘getOpClass op = EvalOp’
+   >> Cases_on ‘op = Eval’
    >- (
-     Cases_on ‘op’ >> gs[getOpClass_def]
+     gvs []
      >> Cases_on ‘ts’ >> fs[type_op_def])
-   >> Cases_on ‘getOpClass op = PtrEqOp’
+   >> Cases_on ‘op = PtrEq’
    >- (
-     gvs [getOpClass_PtrEqOp, getOpClass_def]
+     gvs []
      >> gvs [type_op_cases]
      >> gvs [AllCaseEqs()]
      >> metis_tac [Tbool_def, type_v_Boolv, eq_same_type])
    >> fs [bind_tvar_def]
    >> `good_ctMap ctMap` by simp [good_ctMap_def]
-   >> `op ≠ PtrEq` by metis_tac [getOpClass_PtrEqOp]
    >> drule op_type_sound
    >> rpt (disch_then drule)
    >> disch_then (qspec_then `s1.ffi` mp_tac)
-   >> `getOpClass op = Simple` by (Cases_on `op` >> fs[getOpClass_def,AllCaseEqs()])
    >> rw []
    >> rename1 `do_app _ _ _ = SOME ((store1, ffi1), r1)`
    >> Cases_on `r1`
