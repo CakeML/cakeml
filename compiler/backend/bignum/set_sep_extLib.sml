@@ -28,24 +28,6 @@ in
 
 (******************************************************************************)
 
-(* TODO This might be useful for HOL more generally? *)
-(* Fails if the resulting term has free variables that are not in FVs nor
-   begin with _. *)
-fun strict_parse_in_context_in c FVs q = let
-  val tm = parse_in_context_in c FVs q
-    handle e => raise WRAP "strict_parse_in_context_in" e
-  val tm_fvs =
-    filter (not o String.isPrefix "_" o fst o dest_var) (free_vars tm)
-  val new_fvs = op_set_diff aconv tm_fvs FVs
-in
-  if null new_fvs then tm
-  else raise ERR "strict_parse_in_context_in"
-    ("new free variables (prefix with _ to allow): " ^
-     String.concatWith ", " (map term_to_string new_fvs))
-end
-
-(******************************************************************************)
-
 val s1     = HolKernel.syntax_fns1 "set_sep"
 val s2     = HolKernel.syntax_fns2 "set_sep"
 val s2_ext = HolKernel.syntax_fns2 "set_sep_ext"
@@ -54,6 +36,7 @@ val (fun2set_tm, mk_fun2set, dest_fun2set, is_fun2set) = s1 "fun2set"
 val (star_tm, mk_star, dest_star, is_star) = s2 "STAR"
 val (sep_imp_tm, mk_sep_imp, dest_sep_imp, is_sep_imp) = s2 "SEP_IMP"
 val (sep_wand_tm, mk_sep_wand, dest_sep_wand, is_sep_wand) = s2_ext "SEP_WAND"
+val (ones_tm, mk_ones, dest_ones, is_ones) = s2_ext "ones"
 
 val list_mk_star = list_mk_lbinop (curry mk_star)
 val strip_star = HolKernel.strip_binop dest_star
@@ -116,41 +99,69 @@ in REARRANGE_STAR_CONV (K (rest @ to_pull')) tm end
 
 (******************************************************************************)
 
+
+(* Free vars of tm not in FVs, ignoring "_"-prefixed (wildcard) vars *)
+fun check_no_new_fvs err what FVs tm = let
+  val tm_fvs =
+    filter (not o String.isPrefix "_" o fst o dest_var) (free_vars tm)
+  val new_fvs = op_set_diff aconv tm_fvs FVs
+in
+  if not $ null new_fvs
+    then err ("Parsing " ^ what ^ " resulted in new free variables \
+               \(prefix with _ to allow): " ^
+              String.concatWith ", " (map term_to_string new_fvs))
+end
+
+(*
+val discharge = NONE
+val qa = ‘base’
+val qi = ‘LENGTH xs’
+val (g as (asl ,w)) = top_goal ()
+val c = Context.snapshot ()
+*)
+
 (* Tries to read the location qa at qi.
-   Requires that the assumption mentions ‘ones <qa>’.
+   Requires a fun2set assumption mentioning ‘ones <qa>’
    If discharge is SOME tac, it tries to prove that the access is in-bounds
    with tac, failing if it doesn't succeed.
-   If discharge is NONE, it generated a subgoal instead. *)
+   If discharge is NONE, it generates a subgoal instead. *)
 fun read_ones_at_core
   (discharge : tactic option) (qa: term quotation) (qi: term quotation) : tactic
   =
   fn (g as (asl, w)) => fn c => let
   fun err msg = raise ERR "read_ones_at_core" msg
-  (* Find (... * ... ) (fun2set (_, _)) in assumptions *)
+  (* Compute free variables for parsing *)
+  val fvsl = free_varsl (w::asl)
+  (* Parse index as number *)
+  val tmi = typed_parse_in_context_in c numSyntax.num fvsl qi
+    handle HOL_ERR herr =>
+      err ("failed to parse index as num: " ^ message_of herr)
+  val _ = check_no_new_fvs err "the index" fvsl tmi
+  (* Find (... * ...) (fun2set (_, _)) in assumptions *)
   val f2s =
     case filter (can dest_star_fun2set) asl of
       [f2s] => f2s
     | []    => err "could not find fun2set"
     | _     => err "multiple fun2set in assumptions are currently unsupported"
-  (* Compute free variables *)
-  val fvs = FVL (w::asl) empty_tmset
-  val fvsl = HOLset.listItems fvs
-  (* Make sure qi parses as a num *)
-  val tmi = strict_parse_in_context_in c fvsl qi
-  val tmi_ty = type_of tmi
-  val _ = if not $ tmi_ty = numSyntax.num then
-    err ("expected index to be of type num, got " ^ type_to_string tmi_ty)
+  val dom_ty = #1 (dom_rng $ type_of $ #2 (dest_star_fun2set f2s))
+  (* Parse base as word *)
+  val tma = typed_parse_in_context_in c dom_ty fvsl qa
+    handle HOL_ERR herr => err (
+      "failed to parse base as " ^ type_to_string dom_ty ^ ": " ^
+       message_of herr)
+  val _ = check_no_new_fvs err "the base" fvsl tma
   (* Find ‘ones <qa> _’ in f2s *)
-  val pat = strict_parse_in_context_in c fvsl (‘ones (’ @ qa @ ‘) _’)
+  fun is_ones_tma tm = is_ones tm andalso aconv (#1 (dest_ones tm)) tma
   val ones =
-    case filter (can $ match_terml [] fvs pat) (#1 (dest_star_fun2set f2s)) of
+    case filter is_ones_tma (#1 (dest_star_fun2set f2s)) of
       [ones] => ones
     | []     =>
         err $ concat
-          ["could not find a match for ", term_to_string pat, " in fun2set"]
+          ["could not find ones with base ", term_to_string tma, " in fun2set"]
     | _      =>
         err $ concat
-          ["multiple matches for ", term_to_string pat, " are currently unsupported"]
+          ["multiple matches for ones with base ", term_to_string tma,
+           " are currently unsupported"]
   (* Instantiate read_el_addr *)
   val pulled =
     CONV_RULE (SEP_FUN2SET_CONV (PULL_STAR_CONV false [ones])) (ASSUME f2s)
@@ -163,7 +174,7 @@ fun read_ones_at_core
     | SOME tac => let
       val in_bounds_thm = TAC_PROOF_in c ((asl, in_bounds), tac)
         handle HOL_ERR _ =>
-          err "Failed to show that access is in-bounds. \
+          err "failed to show that access is in-bounds. \
                    \Hint: use read_ones_at and manually prove the subgoal."
       in strip_assume_tac (MP read_i in_bounds_thm) end
 in
