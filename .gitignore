@@ -23,6 +23,9 @@ cake-arm8.tar.gz
 cake-x64.tar.gz
 config_enc_str.txt
 
+# Generated Candle REPL startup
+candle/parser/candle_boot.cml
+
 # Developer generated executables
 developers/readme_gen
 developers/lint_build_dirs

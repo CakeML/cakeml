@@ -1,5 +1,5 @@
 ARCH = arm8
-INCLUDES = $(CAKEMLDIR)/unverified/sexpr-bootstrap/export
+INCLUDES = $(CAKEMLDIR)/unverified/sexpr-bootstrap/export $(CAKEMLDIR)/candle/parser
 all: $(DEFAULT_TARGETS) README.md cake-$(ARCH).tar.gz # test-hello-cake test-candle-records
 .PHONY: all # test-hello-cake test-candle-records
 
