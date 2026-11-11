@@ -16,7 +16,7 @@ Definition JumpList_def:
          let ys = TAKE k xs in
          let zs = DROP k xs in
          let lt = (if n + l < 1000000 /\ n + k < 1000000
-                   then Op (IntOp (LessConstSmall (n+k))) [Var 0]
+                   then Op (IntOp (Smallnum SmallLess)) [Op (IntOp (Const (&(n+k)))) []; Var 0]
                    else Op (IntOp Less) [Op (IntOp (Const (&(n+k)))) []; Var 0]) in
            If lt (JumpList n ys) (JumpList (n + k) zs))
 Termination

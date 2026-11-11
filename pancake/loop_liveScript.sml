@@ -67,7 +67,7 @@ Definition shrink_def:
   (shrink lt (Loop live_in body live_out) l =
      let l2 = inter live_out l in
      let bex = union live_in l2 in
-       case fixedpoint lt live_in LN bex body of
+       case fixedpoint lt live_in LN l2 body of
        | SOME (body,l0) =>
            (let l = inter live_in l0 in (Loop l body l2, l))
        | NONE => let (b,_) = shrink ((live_in,l2)::lt) body bex in
@@ -141,7 +141,7 @@ Definition shrink_def:
   (shrink lt prog l = (prog,l)) /\
 
   (fixedpoint lt live_in l1 l2 body =
-     let (b,l0) = shrink ((inter live_in l1,l2)::lt) body l2 in
+     let (b,l0) = shrink ((inter live_in l1,l2)::lt) body (union live_in l2) in
      let l0' = inter live_in l0 in
        if l0' = l1 then (* fixed point found! *) SOME (b,l0) else
        if size l0' ≤ size l1 then (* no progress made, not possible *) NONE else
@@ -167,7 +167,7 @@ Theorem exp_ind = vars_of_exp_ind
 Theorem fixedpoint_thm:
   ∀lt live_in l1 l2 (body:loopLang$prog) l0 b.
     fixedpoint lt live_in l1 l2 body = SOME (b, l0) ⇒
-    shrink ((inter live_in l0, l2)::lt) body l2 = (b, l0)
+    shrink ((inter live_in l0, l2)::lt) body (union live_in l2) = (b, l0)
 Proof
   qmatch_abbrev_tac ‘entire_goal’
   \\ qsuff_tac

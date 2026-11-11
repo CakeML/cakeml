@@ -593,7 +593,7 @@ Proof
   >- (
     rw [do_app_cases]
     \\ Cases_on ‘a’ \\ Cases_on ‘ty’ using prim_type_cases
-    \\ gvs [do_arith_def, CaseEq"list",CaseEq"sum"]
+    \\ gvs [do_arith_def, CaseEq"list",CaseEq"sum",CaseEq"div_round"]
     \\ simp [Boolv_def]
     \\ rw [perms_ok_def])
   \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ \\ gs []

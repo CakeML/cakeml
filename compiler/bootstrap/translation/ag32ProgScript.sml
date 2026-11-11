@@ -3,13 +3,13 @@
 *)
 Theory ag32Prog[no_sig_docs]
 Ancestors
-  evaluate ml_translator ag32_target ag32 arm7Prog[qualified]
+  evaluate ml_translator ag32_target ag32 hol_baseProg[qualified]
 Libs
   preamble ml_translatorLib inliningLib
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = translation_extends "arm7Prog";
+val _ = translation_extends "hol_baseProg";
 val _ = ml_translatorLib.use_sub_check true;
 
 Theorem ri2bits_eq[local]:
