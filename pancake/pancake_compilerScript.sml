@@ -46,8 +46,8 @@ Definition help_string_def:
      «\n»;
      «--help                 print this help\n»;
      «--version              print build information\n»;
-     «--target=T             x64, arm8, mips, riscv, arm7 or ag32 (default: native)\n»;
-     «--pancake_feature=T     query support for feature T (see pancake/NEWS.md)\n»;
+     «--target=T             x64, arm8, mips, riscv, or arm7 (default: native)\n»;
+     «--pancake_feature=T    query support for feature T (see pancake/NEWS.md)\n»;
      «--no_warn              silence warnings\n»;
      «--main_return=B        return to caller instead of exit (default: false)\n»;
      «--explore              print intermediate compiler forms\n»;
