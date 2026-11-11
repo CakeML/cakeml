@@ -149,7 +149,7 @@ Theorem unconvert_11[local]:
   !t1 t2. check_freevars 0 [] t1 ∧ check_freevars 0 [] t2 ⇒
   (unconvert_t t1 = unconvert_t t2 ⇔ t1 = t2)
 Proof
-  ho_match_mp_tac unconvert_t_ind >>
+  ho_match_mp_tac t_induction >>
  rw [unconvert_t_def] >>
  Cases_on `t2` >>
  fs [unconvert_t_def, check_freevars_def] >>
@@ -159,8 +159,8 @@ Proof
  match_mp_tac LIST_EQ >>
  rw []
  >- metis_tac [LENGTH_MAP] >>
- `x < LENGTH l` by metis_tac [LENGTH_MAP] >>
- `EL x (MAP (λa. unconvert_t a) ts) = EL x (MAP (λa. unconvert_t a) l)` by metis_tac [] >>
+ `x < LENGTH l'` by metis_tac [LENGTH_MAP] >>
+ `EL x (MAP unconvert_t l) = EL x (MAP unconvert_t l')` by metis_tac [] >>
  rfs [EL_MAP] >>
  metis_tac [EL_MEM]
 QED
@@ -203,6 +203,7 @@ Theorem t_vars_check_t:
     check_t 0 s x ⇒
     ∃n'. n' ∈ s ∧ n' ∈ t_vars x)
 Proof
+  reverse conj_asm1_tac >- metis_tac [] >>
   ho_match_mp_tac infer_tTheory.infer_t_induction>>
   rw[check_t_def,t_vars_eqn]>>
   fs[EXISTS_MEM,EVERY_MEM]>>res_tac>>
@@ -221,6 +222,7 @@ Theorem t_walkstar_diff:
     n ∈ t_vars x ⇒ t_walkstar s1 x ≠ t_walkstar s2 x)
 Proof
   strip_tac>>
+  reverse conj_asm1_tac >- metis_tac [] >>
   ho_match_mp_tac infer_tTheory.infer_t_induction>>
   rw[t_vars_eqn]>>fs[]>>
   fs[t_walkstar_eqn,t_walk_eqn,MEM_MAP]>>

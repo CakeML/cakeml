@@ -13,36 +13,24 @@ Libs
 
 
 Theorem generalise_no_uvars[local]:
-  (!t m n s dbvars.
+  (!m n s t dbvars.
   check_t dbvars {} t
   ⇒
   generalise m n s t = (0,s,t)) ∧
- (!ts m n s dbvars.
+ (!m n s ts dbvars.
   EVERY (check_t dbvars {}) ts
   ⇒
   generalise_list m n s ts = (0,s,ts))
 Proof
-  ho_match_mp_tac infer_tTheory.infer_t_induction >>
+  ho_match_mp_tac generalise_ind >>
  srw_tac[] [generalise_def, check_t_def]
  >- metis_tac [PAIR_EQ] >>
- rw [PULL_FORALL] >>
- res_tac >>
- pop_assum (qspecl_then [`s`, `n`, `m`] mp_tac) >>
- rw [] >>
- rw [] >>
- first_x_assum (qspecl_then [`s'`, `n`, `m`] mp_tac) >>
- rw [] >>
- rw [] >>
- metis_tac [PAIR_EQ]
+ last_x_assum drule >>
+ strip_tac >>
+ gvs [] >>
+ first_x_assum drule >>
+ gvs []
 QED
-
-val t_ind = t_induction
-  |> Q.SPECL[`P`,`EVERY P`]
-  |> UNDISCH_ALL
-  |> CONJUNCT1
-  |> DISCH_ALL
-  |> SIMP_RULE (srw_ss()) []
-  |> Q.GEN`P`;
 
 Theorem env_rel_binding_lemma:
   !t fvs fvs' subst.
@@ -60,7 +48,7 @@ Theorem env_rel_binding_lemma:
              | SOME t => Infer_Tvar_db t)) (LENGTH fvs))
      (infer_type_subst (ZIP (fvs,GENLIST (λx. Infer_Tvar_db x) (LENGTH fvs))) t)
 Proof
-  ho_match_mp_tac t_ind >>
+  ho_match_mp_tac t_induction >>
   rw [infer_type_subst_alt, infer_deBruijn_subst_alt, check_freevars_def]
   >- (
     qmatch_assum_abbrev_tac `MEM name _` >>
@@ -95,7 +83,9 @@ Proof
   >- (
     irule LIST_EQ >>
     rw [EL_MAP] >>
-    fs [EVERY_EL])
+    fs [EVERY_EL] >>
+    first_x_assum irule >>
+    fs [EL_MEM])
 QED
 
 Theorem env_rel_binding_lemma2:
@@ -114,7 +104,7 @@ Theorem env_rel_binding_lemma2:
               | SOME t => Infer_Tvar_db t)) (LENGTH fvs'))
       (infer_type_subst (ZIP (fvs',MAP Infer_Tvar_db (COUNT_LIST (LENGTH fvs')))) t)
 Proof
-  ho_match_mp_tac t_ind >>
+  ho_match_mp_tac t_induction >>
   rw [infer_type_subst_alt, infer_deBruijn_subst_alt, check_freevars_def]
   >- (
     qmatch_assum_abbrev_tac `MEM name _` >>
@@ -148,7 +138,9 @@ Proof
   >- (
     irule LIST_EQ >>
     rw [EL_MAP] >>
-    fs [EVERY_EL])
+    fs [EVERY_EL] >>
+    first_x_assum irule >>
+    fs [EL_MEM])
 QED
 
 Theorem unconvert_type_subst:
@@ -161,6 +153,7 @@ Theorem unconvert_type_subst:
      MAP (unconvert_t o type_subst (alist_to_fmap subst)) ts =
      MAP (infer_type_subst (MAP (\(x,y). (x, unconvert_t y)) subst)) ts)
 Proof
+ reverse conj_asm1_tac >- (rw [MAP_EQ_f] >> fs [EVERY_MEM] >> metis_tac []) >>
  Induct >>
  rw [unconvert_t_def, type_subst_def, infer_type_subst_alt, MAP_MAP_o,
      check_freevars_def] >>
@@ -171,7 +164,7 @@ Proof
    fs [] >>
    fs [ALOOKUP_NONE, SUBSET_DEF] >>
    metis_tac []) >>
- metis_tac []
+ rw [MAP_EQ_f] >> fs [EVERY_MEM] >> metis_tac []
 QED
 
 Theorem env_rel_binding:
@@ -610,7 +603,7 @@ Proof
 QED
 
 Theorem infer_d_complete_canon:
-  (!d n tenv ids tenv' ienv st1.
+  (!ienv d n tenv ids tenv' st1.
    type_d_canon n tenv d ids tenv' ∧
    env_rel tenv ienv ∧
    inf_set_tids_ienv (count n) ienv ∧
@@ -620,7 +613,7 @@ Theorem infer_d_complete_canon:
      env_rel tenv' ienv' ∧
      st2.next_id = st1.next_id + ids ∧
      infer_d ienv d st1 = (M_success ienv', st2)) ∧
-  (!ds n tenv ids tenv' ienv st1.
+  (!ienv ds n tenv ids tenv' st1.
    type_ds_canon n tenv ds ids tenv' ∧
    env_rel tenv ienv ∧
    inf_set_tids_ienv (count n) ienv ∧
@@ -631,7 +624,7 @@ Theorem infer_d_complete_canon:
      st2.next_id = st1.next_id + ids ∧
      infer_ds ienv ds st1 = (M_success ienv', st2))
 Proof
-  Induct >>
+  ho_match_mp_tac infer_d_ind >>
   rw [] >>
   imp_res_tac type_d_canon_tenv_ok >>
   qpat_x_assum `_ _ _ _ _ tenv'` mp_tac >>
@@ -642,9 +635,9 @@ Proof
   >- suspend "Dtype"
   >- suspend "Dtabbrev"
   >- suspend "Dexn"
+  >- suspend "Dopen"
   >- suspend "Dmod"
   >- suspend "Dlocal"
-  >- suspend "Dopen"
   >- suspend "Nil"
   >- suspend "Cons"
 QED
@@ -657,7 +650,7 @@ Resume infer_d_complete_canon[LetPoly]:
   pop_assum (qspec_then`tvs` assume_tac)>>
   drule (GEN_ALL infer_pe_complete) >>
   rpt (disch_then drule) >>
-  disch_then (qspecl_then [`st1`,`<| loc := SOME l; err := ienv.inf_t |>`] mp_tac) >>
+  disch_then (qspecl_then [`st1`,`<| loc := SOME locs; err := ienv.inf_t |>`] mp_tac) >>
   rw [] >>
   simp [init_state_def, success_eqns] >>
   pairarg_tac >>
@@ -693,7 +686,7 @@ Resume infer_d_complete_canon[LetPoly]:
        (imp_res_tac infer_d_check >>
        pop_assum kall_tac>>
        pop_assum (mp_tac o (CONV_RULE (RESORT_FORALL_CONV (sort_vars ["d","st1"]))))>>
-       disch_then(qspecl_then[`Dlet l p e`,`st1`] assume_tac)>>
+       disch_then(qspecl_then[`Dlet locs p e`,`st1`] assume_tac)>>
        fs[infer_d_def,success_eqns,init_state_def])
     >-
       (fs[namespaceTheory.alist_to_ns_def]>>
@@ -968,7 +961,7 @@ Resume infer_d_complete_canon[LetMono]:
   disch_then (qspec_then`0` mp_tac)>>
   fs[bind_tvar_def]>>
   rpt (disch_then drule) >>
-  disch_then (qspecl_then [`st1`,`<| loc := SOME l; err := ienv.inf_t |>`] mp_tac) >>
+  disch_then (qspecl_then [`st1`,`<| loc := SOME locs; err := ienv.inf_t |>`] mp_tac) >>
   rw [] >>
   simp[success_eqns]>>
   pairarg_tac >> fs[success_eqns]>>
@@ -1366,7 +1359,7 @@ Resume infer_d_complete_canon[Dmod]:
   rw[infer_d_def,success_eqns]>>
   first_x_assum drule>>
   disch_then drule>>
-  disch_then (qspec_then`st1` assume_tac)>>rfs[]>>
+  disch_then assume_tac>>rfs[]>>
   match_mp_tac env_rel_lift>>
   fs[]
 QED
@@ -1376,12 +1369,18 @@ Resume infer_d_complete_canon[Dlocal]:
   rpt (first_x_assum drule >> rw [])>>
   str_assums [ISPEC ``infer_st_next_id`` ap_lemma]>>
   fs[]>>
-  first_x_assum match_mp_tac>>
-  fs[env_rel_extend]>>
-  irule inf_set_tids_extend_dec_ienv>>
-  imp_res_tac (CONJUNCT2 infer_d_inf_set_tids)>>
-  rfs[]>>
-  goal_assum(first_assum o mp_then Any mp_tac)>>
+  last_x_assum (qspecl_then [`ienv'`, `extend_dec_tenv tenv1 tenv`, `decls2`,
+                             `tenv'`, `st2`] mp_tac)>>
+  impl_tac
+  >- (
+    fs[env_rel_extend]>>
+    irule inf_set_tids_extend_dec_ienv>>
+    imp_res_tac (CONJUNCT2 infer_d_inf_set_tids)>>
+    rfs[]>>
+    goal_assum(first_assum o mp_then Any mp_tac)>>
+    fs[])>>
+  disch_then (qx_choosel_then [`ienv2`, `st3`] strip_assume_tac)>>
+  qexistsl_tac [`ienv2`, `st3`]>>
   fs[]
 QED
 
@@ -1406,7 +1405,7 @@ QED
 Resume infer_d_complete_canon[Cons]:
   rw[infer_d_def,success_eqns]>>
   last_x_assum drule>>disch_then drule>>
-  disch_then (qspec_then`st1` assume_tac)>>rfs[]>>
+  disch_then assume_tac>>rfs[]>>
   qpat_x_assum`_ = _` (assume_tac o SYM)>>
   fs[]>>last_x_assum drule>>
   drule env_rel_extend>>

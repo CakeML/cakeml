@@ -1333,6 +1333,28 @@ Proof
   pop_assum mp_tac >>
   Cases_on `op` >>
   simp [astOp_to_flatOp_def, semanticPrimitivesTheory.getOpClass_def]
+  >~ [‘Aw8ScanEq’] >- (
+    rw [semanticPrimitivesPropsTheory.do_app_cases,flatSemTheory.do_app_def]
+    \\ gvs [v_rel_eqns,result_rel_cases,v_rel_lems]
+    \\ gvs [store_lookup_def,AllCaseEqs(),ADD1,REWRITE_RULE [ADD1] EL]
+    \\ gvs [LIST_REL_EL_EQN,sv_rel_cases]
+    \\ res_tac \\ gvs []
+    \\ fs [v_rel_lems]
+  )
+  >~ [‘Aw8ScanNeq’] >- (
+    rw [semanticPrimitivesPropsTheory.do_app_cases,flatSemTheory.do_app_def]
+    \\ gvs [v_rel_eqns,result_rel_cases,v_rel_lems]
+    \\ gvs [store_lookup_def,AllCaseEqs(),ADD1,REWRITE_RULE [ADD1] EL]
+    \\ gvs [LIST_REL_EL_EQN,sv_rel_cases]
+    \\ res_tac \\ gvs []
+    \\ fs [v_rel_lems]
+  )
+  >~ [‘StrScanEq’] >- (
+    rw [semanticPrimitivesPropsTheory.do_app_cases,flatSemTheory.do_app_def]
+    \\ gvs [v_rel_eqns,result_rel_cases,v_rel_lems])
+  >~ [‘StrScanNeq’] >- (
+    rw [semanticPrimitivesPropsTheory.do_app_cases,flatSemTheory.do_app_def]
+    \\ gvs [v_rel_eqns,result_rel_cases,v_rel_lems])
   >~ [‘Equality’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
@@ -1504,6 +1526,86 @@ Proof
       srw_tac[][v_rel_lems] >>
       fs [flatSemTheory.Boolv_def, backend_commonTheory.true_tag_def,
       backend_commonTheory.false_tag_def])
+  >~ [`CopyVecVec`] >- (
+    rw [semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
+    \\ fs [v_rel_eqns, result_rel_cases, v_rel_lems]
+    \\ rename1 `LIST_REL (v_rel genv) copy_source copy_target`
+    \\ qmatch_asmsub_rename_tac
+         `copy_array (copy_source,copy_offset) copy_length NONE`
+    \\ `OPTREL (LIST_REL (v_rel genv))
+          (copy_array (copy_source,copy_offset) copy_length NONE)
+          (copy_array (copy_target,copy_offset) copy_length NONE)` by (
+      irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def, v_rel_lems, v_rel_eqns])
+  >~ [`CopyVecArr`] >- (
+    rw [semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
+    \\ fs [v_rel_eqns, result_rel_cases, PULL_EXISTS,
+            store_lookup_def, EXISTS_PROD, store_assign_def, Unitv_def]
+    \\ fs [REWRITE_RULE [ADD1] EL, ADD1]
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ rw []
+    \\ imp_res_tac LIST_REL_EL_EQN
+    \\ rfs [sv_rel_cases, v_rel_lems, v_rel_eqns, ADD1]
+    \\ qmatch_asmsub_rename_tac
+         `copy_array (copy_source,copy_offset) copy_length
+           (SOME (copy_destination,copy_destination_offset))`
+    \\ rename1 `LIST_REL (v_rel genv) copy_source copy_target_source`
+    \\ rename1 `LIST_REL (v_rel genv) copy_destination copy_target_destination`
+    \\ `OPTREL (LIST_REL (v_rel genv))
+          (copy_array (copy_source,copy_offset) copy_length
+            (SOME (copy_destination,copy_destination_offset)))
+          (copy_array (copy_target_source,copy_offset) copy_length
+            (SOME (copy_target_destination,copy_destination_offset)))` by (
+      irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def, v_rel_lems, v_rel_eqns, store_v_same_type_def,
+             REWRITE_RULE [ADD1] LUPDATE_def]
+    \\ match_mp_tac EVERY2_LUPDATE_same
+    \\ simp [sv_rel_cases])
+  >~ [`CopyArrVec`] >- (
+    rw [semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
+    \\ fs [v_rel_eqns, result_rel_cases, PULL_EXISTS,
+            store_lookup_def, EXISTS_PROD]
+    \\ fs [REWRITE_RULE [ADD1] EL, ADD1]
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ rw []
+    \\ imp_res_tac LIST_REL_EL_EQN
+    \\ rfs [sv_rel_cases, v_rel_lems, v_rel_eqns, ADD1]
+    \\ rename1 `LIST_REL (v_rel genv) copy_source copy_target`
+    \\ qmatch_asmsub_rename_tac
+         `copy_array (copy_source,copy_offset) copy_length NONE`
+    \\ `OPTREL (LIST_REL (v_rel genv))
+          (copy_array (copy_source,copy_offset) copy_length NONE)
+          (copy_array (copy_target,copy_offset) copy_length NONE)` by (
+      irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def, v_rel_lems, v_rel_eqns])
+  >~ [`CopyArrArr`] >- (
+    rw [semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
+    \\ fs [v_rel_eqns, result_rel_cases, PULL_EXISTS,
+            store_lookup_def, EXISTS_PROD, store_assign_def, Unitv_def]
+    \\ fs [REWRITE_RULE [ADD1] EL, ADD1]
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ rw []
+    \\ imp_res_tac LIST_REL_EL_EQN
+    \\ rfs [sv_rel_cases, v_rel_lems, v_rel_eqns, ADD1]
+    \\ qmatch_asmsub_rename_tac
+         `copy_array (copy_source,copy_offset) copy_length
+           (SOME (copy_destination,copy_destination_offset))`
+    \\ rename1 `LIST_REL (v_rel genv) copy_source copy_target_source`
+    \\ rename1 `LIST_REL (v_rel genv) copy_destination copy_target_destination`
+    \\ `OPTREL (LIST_REL (v_rel genv))
+          (copy_array (copy_source,copy_offset) copy_length
+            (SOME (copy_destination,copy_destination_offset)))
+          (copy_array (copy_target_source,copy_offset) copy_length
+            (SOME (copy_target_destination,copy_destination_offset)))` by (
+      irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def, v_rel_lems, v_rel_eqns, store_v_same_type_def,
+             REWRITE_RULE [ADD1] LUPDATE_def]
+    \\ match_mp_tac EVERY2_LUPDATE_same
+    \\ simp [sv_rel_cases])
   >~ [‘CopyStrStr’] >- (
     rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
     \\ fs[v_rel_eqns,IMPLODE_EXPLODE_I,result_rel_cases]
@@ -6471,12 +6573,6 @@ Proof
   fs [inc_compile_def, inc_compile_prog_def, compile_flat_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ irule flat_patternProofTheory.compile_decs_no_Mat
-QED
-
-Theorem mem_size_lemma[local]:
-  list_size sz xs < N ==> (MEM x xs ⇒ sz x < N)
-Proof
-  Induct_on `xs` \\ rw [list_size_def] \\ fs []
 QED
 
 Definition num_bindings_def[simp]:

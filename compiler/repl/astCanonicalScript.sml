@@ -183,6 +183,18 @@ Proof
   metis_tac [SHIFT_TYPE_def]
 QED
 
+Theorem type_rep_complete_div_round:
+  ctMap_ok ctMap /\ ~MEM type_id prim_type_nums /\
+  datatype_signature ctMap type_id = ast_canonical_signature tenvT «div_round» ==>
+  type_rep_complete tvs ctMap tenvS (Tapp [] type_id) DIV_ROUND_TYPE
+Proof
+  strip_tac >> rewrite_tac [type_rep_complete_def] >>
+  qx_gen_tac `value` >> strip_tac >>
+  drule_all type_v_datatype_signature >> strip_tac >>
+  gvs [ast_canonical_signatures] >>
+  metis_tac [DIV_ROUND_TYPE_def]
+QED
+
 Theorem type_rep_complete_word_size:
   ctMap_ok ctMap /\ ~MEM type_id prim_type_nums /\
   datatype_signature ctMap type_id = ast_canonical_signature tenvT «word_size» ==>
@@ -258,7 +270,9 @@ Theorem type_rep_complete_arith:
   datatype_signature ctMap type_id =
     ast_canonical_signature (ast_canonical_tenvT base identities) «arith» /\
   type_rep_complete tvs ctMap tenvS (Tapp [] (identities «shift»))
-    SHIFT_TYPE ==>
+    SHIFT_TYPE /\
+  type_rep_complete tvs ctMap tenvS (Tapp [] (identities «div_round»))
+    DIV_ROUND_TYPE ==>
   type_rep_complete tvs ctMap tenvS (Tapp [] type_id) ARITH_TYPE
 Proof
   strip_tac >> rewrite_tac [type_rep_complete_def] >>
@@ -701,7 +715,8 @@ val family_groups = ast_canonical_type_groups_def |> concl |> rand
 (* The proof inventory: a registered type without exactly one matching theorem
    here, or a theorem without a registered type, fails the checks below. *)
 val family_proofs =
-  [type_rep_complete_lop,type_rep_complete_shift,type_rep_complete_word_size,
+  [type_rep_complete_lop,type_rep_complete_shift,type_rep_complete_div_round,
+   type_rep_complete_word_size,
    type_rep_complete_thunk_mode,type_rep_complete_opb,type_rep_complete_lit,
    type_rep_complete_prim_type,type_rep_complete_arith,type_rep_complete_thunk_op,
    type_rep_complete_test,type_rep_complete_op,type_rep_complete_locs,
@@ -782,6 +797,10 @@ Proof
   `type_rep_complete tvs ctMap tenvS (Tapp [] (identities «shift»)) SHIFT_TYPE` by (
     irule type_rep_complete_shift >> simp [] >>
     qexists_tac `ast_canonical_tenvT base identities` >> simp []) >>
+  `type_rep_complete tvs ctMap tenvS (Tapp [] (identities «div_round»))
+    DIV_ROUND_TYPE` by (
+      irule type_rep_complete_div_round >> simp [] >>
+      qexists_tac `ast_canonical_tenvT base identities` >> simp []) >>
   `type_rep_complete tvs ctMap tenvS (Tapp [] (identities «word_size»))
     WORD_SIZE_TYPE` by (
       irule type_rep_complete_word_size >> simp [] >>
@@ -920,7 +939,7 @@ Proof
   ‘!identifier. v_rel fr ft fe (ID_v STRING_v STRING_v identifier)
     (ID_v STRING_v STRING_v identifier)’ by (
       match_mp_tac ast_identifier_encoder_self >> simp [STRING_v_def,v_rel_def]) >>
-  ho_match_mp_tac (TypeBase.induction_of ``:ast$ast_t``) >> rw [] >>
+  ho_match_mp_tac AST_T_v_ind >> rw [] >>
   simp [Once AST_T_v_def] >>
   fs [Once AST_T_v_def,ast_canonical_representation_stamps_def,
     STRING_v_def,v_rel_def,OPTREL_def]
@@ -955,7 +974,7 @@ Proof
     v_rel fr ft fe (OPTION_v (ID_v STRING_v STRING_v) constructor)
       (OPTION_v (ID_v STRING_v STRING_v) constructor)’ by (
         match_mp_tac ast_option_encoder_self >> simp []) >>
-  ho_match_mp_tac (TypeBase.induction_of ``:ast$pat``) >> rw [] >>
+  ho_match_mp_tac PAT_v_ind >> rw [] >>
   simp [Once PAT_v_def] >>
   fs [Once PAT_v_def,ast_canonical_representation_stamps_def,STRING_v_def,
     v_rel_def,OPTREL_def]
@@ -975,6 +994,7 @@ Theorem ast_leaf_encoders_self[local]:
   (!arg. v_rel fr ft fe (BOOL_v arg) (BOOL_v arg)) /\
   (!arg. v_rel fr ft fe (LOP_v arg) (LOP_v arg)) /\
   (!arg. v_rel fr ft fe (SHIFT_v arg) (SHIFT_v arg)) /\
+  (!arg. v_rel fr ft fe (DIV_ROUND_v arg) (DIV_ROUND_v arg)) /\
   (!arg. v_rel fr ft fe (WORD_SIZE_v arg) (WORD_SIZE_v arg)) /\
   (!arg. v_rel fr ft fe (OPB_v arg) (OPB_v arg)) /\
   (!arg. v_rel fr ft fe (THUNK_MODE_v arg) (THUNK_MODE_v arg)) /\
@@ -989,7 +1009,7 @@ Proof
     match_mp_tac ast_encoder_pair_self >> simp [INT_v_def,v_rel_def]) >>
   rpt conj_tac >> simp [] >> Cases >>
   fs [ast_canonical_representation_stamps_def,BOOL_v_def,Boolv_def,
-    LOP_v_def,SHIFT_v_def,WORD_SIZE_v_def,OPB_v_def,THUNK_MODE_v_def,
+    LOP_v_def,SHIFT_v_def,DIV_ROUND_v_def,WORD_SIZE_v_def,OPB_v_def,THUNK_MODE_v_def,
     PRIM_v_v_def,LOCS_v_def,v_rel_def,OPTREL_def]
 QED
 
@@ -1046,7 +1066,7 @@ Proof
     qx_gen_tac ‘items’ >> match_mp_tac ast_encoder_list_self >>
     fs [ast_canonical_representation_stamps_def,list_type_num_def,
       STRING_v_def,v_rel_def]) >>
-  ho_match_mp_tac (TypeBase.induction_of ``:ast$exp``) >> rw [] >>
+  ho_match_mp_tac EXP_v_ind >> rw [] >>
   simp [Once EXP_v_def] >>
   fs [Once EXP_v_def,ast_canonical_representation_stamps_def,STRING_v_def,
     v_rel_def,OPTREL_def]
@@ -1066,7 +1086,7 @@ Proof
   ‘stamp_rel ft fe (TypeStamp «[]» list_type_num) (TypeStamp «[]» list_type_num) /\
     stamp_rel ft fe (TypeStamp «::» list_type_num) (TypeStamp «::» list_type_num)’ by (
       fs [ast_canonical_representation_stamps_def,list_type_num_def]) >>
-  ho_match_mp_tac (TypeBase.induction_of ``:ast$dec``) >> rw [] >>
+  ho_match_mp_tac DEC_v_ind >> rw [] >>
   simp [Once DEC_v_def] >>
   fs [Once DEC_v_def,ast_canonical_representation_stamps_def,STRING_v_def,
     v_rel_def,OPTREL_def,ast_encoder_pair_self,ast_encoder_list_self] >>

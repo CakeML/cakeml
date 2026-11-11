@@ -161,7 +161,7 @@ Theorem subst_subst:
     EVERY (λx. ∃v. SND x = from_cv v) ys ⇒
     subst xs (subst ys e) = subst (ys ++ xs) e
 Proof
-  ho_match_mp_tac compute_syntaxProofTheory.cexp_vars_ind \\ rw []
+  ho_match_mp_tac compute_exp_induction \\ rw []
   \\ gvs [subst_def,FILTER_APPEND,MAP_MAP_o,combinTheory.o_DEF,MAP_EQ_f]
   \\ gvs [ALOOKUP_APPEND]
   \\ every_case_tac  \\ fs [subst_def]
@@ -176,7 +176,7 @@ Theorem alookup_subst:
     ALOOKUP xs = ALOOKUP ys ⇒
     subst xs e = subst ys e
 Proof
-  ho_match_mp_tac compute_syntaxProofTheory.cexp_vars_ind \\ rw []
+  ho_match_mp_tac compute_exp_induction \\ rw []
   \\ gvs [subst_def,MAP_EQ_f]
   \\ first_x_assum irule
   \\ fs [ALOOKUP_FILTER,FUN_EQ_THM]
@@ -208,14 +208,15 @@ Theorem subst_eq_subst_lemma:
     ALL_DISTINCT (MAP FST xs) ∧ xs = REVERSE ys ⇒
     subst xs s = subst ys s
 Proof
-  ho_match_mp_tac compute_syntaxProofTheory.cexp_vars_ind
+  ho_match_mp_tac compute_exp_induction
   \\ rw [] \\ gvs [subst_def]
   \\ fs [MAP_EQ_f]
   \\ imp_res_tac alistTheory.alookup_distinct_reverse
   \\ fs [FILTER_REVERSE]
+  \\ rename1 ‘FILTER (λ(n,x). n ≠ nm) ys’
   \\ first_x_assum irule
   \\ fs [MAP_REVERSE]
-  \\ qsuff_tac ‘MAP FST (FILTER (λ(n,x). n ≠ s) ys) = FILTER (λn. n ≠ s) (MAP FST ys)’
+  \\ qsuff_tac ‘MAP FST (FILTER (λ(n,x). n ≠ nm) ys) = FILTER (λn. n ≠ nm) (MAP FST ys)’
   \\ fs [FILTER_ALL_DISTINCT]
   \\ qid_spec_tac ‘ys’ \\ Induct \\ fs [FORALL_PROD]
   \\ rw []
@@ -383,14 +384,14 @@ Theorem code_rel_to_ce:
     ALL_DISTINCT (MAP FST eqs) ⇒
     code_rel eqs vars e (to_ce eqs vars e)
 Proof
-  ho_match_mp_tac compute_syntaxProofTheory.cexp_vars_ind
+  ho_match_mp_tac compute_exp_induction
   \\ rw [to_ce_def,cexp_consts_ok_def]
   \\ simp [Once code_rel_cases]
   >-
    (Induct_on ‘vars’ \\ fs [] \\ rw [] \\ fs [indexedListsTheory.findi_def]
     \\ rw [] \\ fs []
     \\ qexists_tac ‘h::v1’ \\ qexists_tac ‘v2’ \\ fs [])
-  >-
+  >~ [‘code_rel eqs (_::vars)’] >-
    (first_x_assum irule
     \\ fs [SUBSET_DEF] \\ metis_tac [])
   \\ gvs [MEM_MAP,EXISTS_PROD,LIST_REL_MAP_lemma]

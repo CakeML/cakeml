@@ -211,6 +211,19 @@ Definition ref_ok_def:
   ref_ok ctxt (Thunk m v) = v_ok ctxt v
 End
 
+Theorem ref_ok_array_lookup:
+  (∀loc r. loc NOTIN kernel_locs /\ LLOOKUP refs loc = SOME r ==>
+           ref_ok ctxt r) /\
+  pointer NOTIN kernel_locs /\
+  store_lookup pointer refs = SOME (Varray values) ==>
+  EVERY (v_ok ctxt) values
+Proof
+  rw [store_lookup_def]
+  \\ qpat_x_assum `!loc r. _`
+       (qspecl_then [`pointer`,`Varray values`] mp_tac)
+  \\ simp [LLOOKUP_EQ_EL,ref_ok_def]
+QED
+
 Definition kernel_loc_ok_def:
   kernel_loc_ok s loc refs ⇔
     ∃v. LLOOKUP refs loc = SOME (Refv v) ∧

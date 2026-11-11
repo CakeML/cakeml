@@ -1945,7 +1945,7 @@ QED
 Theorem var_renaming_type_size:
   !e ty. var_renaming e ==> type_size' (TYPE_SUBST e ty) =  type_size' ty
 Proof
-  gen_tac >> ho_match_mp_tac type_ind
+  gen_tac >> ho_match_mp_tac type_induction
   >> rw[Excl"TYPE_SUBST_def",type_size'_def]
   >- (
     rename[`TYPE_SUBST e (Tyvar m)`]
@@ -1982,7 +1982,7 @@ Theorem equiv_ts_on_tyvars_type_size:
     ==> type_size' (TYPE_SUBST s p) = type_size' (TYPE_SUBST s' p)
 Proof
   ntac 2 gen_tac
-  >> ho_match_mp_tac type_ind
+  >> ho_match_mp_tac type_induction
   >> rw[]
   >- (drule equiv_ts_on_type_size >> fs[tyvars_def])
   >> dxrule_then assume_tac equiv_ts_on_tyvars_Tyapp
@@ -3176,7 +3176,7 @@ Proof
     >> Cases_on `l`
     >> fs[type_size'_def]
   )
-  >> ho_match_mp_tac type_ind
+  >> ho_match_mp_tac type_induction
   >> rw[tyvars_Tyapp,MEM_FLAT,MEM_MAP,tyvars_def,PULL_EXISTS,type_size'_def,type1_size'_SUM_MAP,MAP_MAP_o,EVERY_MEM]
   >> drule_at Any SUM_MAP_same_LESS_eq
   >> impl_tac

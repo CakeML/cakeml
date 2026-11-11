@@ -410,9 +410,6 @@ Definition binary_branch_exp_def:
   (binary_branch_exp exp = T)
 Termination
   WF_REL_TAC `measure exp_size`
-   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-   \\ full_simp_tac(srw_ss())[exp_size_def]
-   \\ TRY (DECIDE_TAC)
 End
 
 (* flatten_exp syntax *)

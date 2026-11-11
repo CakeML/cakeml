@@ -13,13 +13,6 @@ Libs
 Definition convert_t_def:
 (convert_t (Infer_Tvar_db n) = Tvar_db n) ∧
 (convert_t (Infer_Tapp ts tc) = Tapp (MAP convert_t ts) tc)
-Termination
-  WF_REL_TAC `measure infer_t_size` >>
- rw [] >>
- induct_on `ts` >>
- rw [infer_tTheory.infer_t_size_def] >>
- res_tac >>
- decide_tac
 End
 
 Definition convert_env_def:
@@ -64,11 +57,11 @@ Theorem convert_inc:
   ⇒
   (convert_t (infer_deBruijn_inc tvs t) = deBruijn_inc 0 tvs (convert_t t))
 Proof
-ho_match_mp_tac (fetch "-" "convert_t_ind") >>
-rw [check_t_def, convert_t_def, infer_deBruijn_inc_def, deBruijn_inc_def] >>
-induct_on `ts` >>
-fs [] >>
-metis_tac []
+  ho_match_mp_tac infer_t_induction >>
+  rw [check_t_def, convert_t_def, infer_deBruijn_inc_def, deBruijn_inc_def,
+      MAP_MAP_o, MAP_EQ_f] >>
+  fs [EVERY_MEM] >>
+  metis_tac []
 QED
 
 val infer_t_induction = infer_tTheory.infer_t_induction;
@@ -103,35 +96,37 @@ Theorem db_subst_infer_subst_swap:
        t_walkstar (infer_deBruijn_inc tvs o_f s))
       ts))
 Proof
-ho_match_mp_tac infer_t_induction >>
-rw [convert_t_def, deBruijn_subst_def, EL_MAP, t_walkstar_eqn1,
-    infer_deBruijn_subst_alt, MAP_MAP_o, combinTheory.o_DEF, check_t_def,
-    LENGTH_COUNT_LIST] >|
-[`t_wfs (infer_deBruijn_inc tvs o_f s)` by metis_tac [inc_wfs] >>
-     fs [t_walkstar_eqn1, convert_t_def, deBruijn_subst_def,
-         LENGTH_COUNT_LIST] >>
-     fs [LENGTH_MAP, el_map_count, EL_COUNT_LIST],
- `t_wfs (infer_deBruijn_inc tvs o_f s)` by metis_tac [inc_wfs] >>
-     fs [t_walkstar_eqn1, convert_t_def, deBruijn_subst_def, MAP_MAP_o,
-         combinTheory.o_DEF] >>
-     metis_tac [],
- res_tac >>
-     imp_res_tac convert_inc >>
-     rw [walkstar_inc2] >>
-     metis_tac [subst_inc_cancel, arithmeticTheory.ADD,
-                deBruijn_inc0,
-                LENGTH_COUNT_LIST, LENGTH_MAP],
- metis_tac [],
- metis_tac []]
+  reverse conj_asm1_tac >- (rw [MAP_EQ_f] >> fs [EVERY_MEM] >> metis_tac []) >>
+  Induct >>
+  rw [convert_t_def, deBruijn_subst_def, EL_MAP, t_walkstar_eqn1,
+      infer_deBruijn_subst_alt, MAP_MAP_o, combinTheory.o_DEF, check_t_def,
+      LENGTH_COUNT_LIST]
+  >- (
+    `t_wfs (infer_deBruijn_inc tvs o_f s)` by metis_tac [inc_wfs] >>
+    fs [t_walkstar_eqn1, convert_t_def, deBruijn_subst_def,
+        LENGTH_COUNT_LIST] >>
+    fs [LENGTH_MAP, el_map_count, EL_COUNT_LIST])
+  >- (
+    `t_wfs (infer_deBruijn_inc tvs o_f s)` by metis_tac [inc_wfs] >>
+    fs [t_walkstar_eqn1, convert_t_def, deBruijn_subst_def, MAP_MAP_o,
+        combinTheory.o_DEF, MAP_EQ_f, EVERY_MEM] >>
+    metis_tac []) >>
+  res_tac >>
+  imp_res_tac convert_inc >>
+  rw [walkstar_inc2] >>
+  metis_tac [subst_inc_cancel, arithmeticTheory.ADD,
+             deBruijn_inc0,
+             LENGTH_COUNT_LIST, LENGTH_MAP]
 QED
 
 Theorem inc_convert_t:
  (!t tvs' tvs. check_t tvs' {} t ⇒ (deBruijn_inc tvs' tvs (convert_t t) = convert_t t)) ∧
  (!ts tvs' tvs. EVERY (check_t tvs' {}) ts ⇒ (MAP (deBruijn_inc tvs' tvs o convert_t) ts = MAP convert_t ts))
 Proof
-ho_match_mp_tac infer_t_induction >>
-rw [check_t_def, convert_t_def, deBruijn_inc_def] >>
-metis_tac [MAP_MAP_o]
+  reverse conj_asm1_tac >- (rw [MAP_EQ_f, EVERY_MEM] >> metis_tac []) >>
+  Induct >>
+  rw [check_t_def, convert_t_def, deBruijn_inc_def, MAP_MAP_o, MAP_EQ_f] >>
+  fs [EVERY_MEM]
 QED
 
 Theorem convert_t_subst:
@@ -146,22 +141,24 @@ Theorem convert_t_subst:
     MAP convert_t (MAP (infer_type_subst (ZIP (tvs,ts'))) ts) =
     MAP (type_subst (alist_to_fmap (ZIP (tvs, MAP convert_t ts')))) ts)
 Proof
-ho_match_mp_tac t_induction >>
-rw [check_freevars_def, convert_t_def, type_subst_def, infer_type_subst_alt] >|
-[full_case_tac >>
-     full_case_tac >>
-     fs [ALOOKUP_FAILS] >>
-     imp_res_tac ALOOKUP_MEM >>
-     REPEAT (pop_assum mp_tac) >>
-     rw [MAP_ZIP] >>
-     REPEAT (pop_assum mp_tac) >>
-     Q.SPEC_TAC (`tvs`,`tvs`) >>
-     induct_on `ts'` >>
-     rw [] >>
-     cases_on `tvs` >>
-     fs [] >>
-     metis_tac [optionTheory.SOME_11],
- metis_tac []]
+  reverse conj_asm1_tac >- (rw [MAP_MAP_o, MAP_EQ_f] >> fs [EVERY_MEM]) >>
+  Induct >>
+  rw [check_freevars_def, convert_t_def, type_subst_def, infer_type_subst_alt]
+  >- (
+    full_case_tac >>
+    full_case_tac >>
+    fs [ALOOKUP_FAILS] >>
+    imp_res_tac ALOOKUP_MEM >>
+    REPEAT (pop_assum mp_tac) >>
+    rw [MAP_ZIP] >>
+    REPEAT (pop_assum mp_tac) >>
+    Q.SPEC_TAC (`tvs`,`tvs`) >>
+    induct_on `ts'` >>
+    rw [] >>
+    cases_on `tvs` >>
+    fs [] >>
+    metis_tac [optionTheory.SOME_11]) >>
+  rw [MAP_MAP_o, MAP_EQ_f] >> fs [EVERY_MEM]
 QED
 
 Theorem deBruijn_subst_convert:
@@ -175,7 +172,9 @@ Theorem deBruijn_subst_convert:
   =
   MAP (convert_t o (infer_deBruijn_subst subst)) ts)
 Proof
-  ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  reverse conj_asm1_tac
+  >- (rw[MAP_EQ_f,EVERY_MEM] >> metis_tac[])>>
+  Induct>>
   rw[check_t_def]>>
   fs[convert_t_def,deBruijn_subst_def,infer_deBruijn_subst_alt]
   >-
@@ -187,7 +186,7 @@ QED
 Theorem check_freevars_empty_convert_unconvert_id:
  !t. check_freevars n [] t ⇒ convert_t (unconvert_t t) = t
 Proof
-  ho_match_mp_tac unconvert_t_ind>>
+  ho_match_mp_tac t_induction>>
   rw[]>>fs[unconvert_t_def,convert_t_def,check_freevars_def]>>
   fs[MAP_MAP_o,MAP_EQ_ID,EVERY_MEM]
 QED
@@ -196,7 +195,7 @@ Theorem check_t_empty_unconvert_convert_id:
  !t n. check_t n {} t ⇒
   unconvert_t (convert_t t) = t
 Proof
-  ho_match_mp_tac (fetch "-" "convert_t_ind") >>
+  ho_match_mp_tac infer_t_induction >>
   rw[]>>
   fs[unconvert_t_def,convert_t_def,check_t_def]>>
   fs[MAP_MAP_o,MAP_EQ_ID,EVERY_MEM] >>
@@ -206,7 +205,7 @@ QED
 Theorem check_freevars_to_check_t:
  !t z. check_freevars n [] t ⇒ check_t n {} (unconvert_t t)
 Proof
-  ho_match_mp_tac unconvert_t_ind>>rw[]>>
+  ho_match_mp_tac t_induction>>rw[]>>
   fs[unconvert_t_def,check_freevars_def,check_t_def]>>
   fs[EVERY_MAP,EVERY_MEM]
 QED
@@ -215,9 +214,12 @@ Theorem infer_type_subst_nil:
    (∀t. check_freevars n [] t ⇒ infer_type_subst [] t = unconvert_t t) ∧
     (∀ts. EVERY (check_freevars n []) ts ⇒ MAP (infer_type_subst []) ts = MAP unconvert_t ts)
 Proof
-  ho_match_mp_tac(TypeBase.induction_of(``:t``)) >>
-  rw[infer_type_subst_alt,convert_t_def,unconvert_t_def,check_freevars_def] >>
-  fsrw_tac[boolSimps.ETA_ss][]
+  reverse conj_asm1_tac
+  >- (rw[MAP_EQ_f,EVERY_MEM] >> metis_tac[]) >>
+  Induct >>
+  rw[infer_type_subst_alt,convert_t_def,unconvert_t_def,check_freevars_def,
+     MAP_EQ_f] >>
+  fs[EVERY_MEM]
 QED
 
 (* ---------- relating inference and type system environments ---------- *)
@@ -340,7 +342,7 @@ Theorem unconvert_db_subst:
      unconvert_t (deBruijn_subst 0 subst t) =
      infer_deBruijn_subst (MAP unconvert_t subst) (unconvert_t t)
 Proof
- ho_match_mp_tac t_ind >>
+ ho_match_mp_tac t_induction >>
  rw [deBruijn_subst_def, unconvert_t_def, infer_deBruijn_subst_alt,
      check_freevars_def, EL_MAP] >>
  irule LIST_EQ >>
@@ -479,7 +481,7 @@ Theorem db_subst_infer_subst_swap3:
     =
     deBruijn_subst 0 (MAP (convert_t o t_walkstar s) subst) t
 Proof
- ho_match_mp_tac unconvert_t_ind
+ ho_match_mp_tac t_induction
  >> rw [unconvert_t_def, infer_deBruijn_subst_alt, deBruijn_subst_def,
         check_freevars_def, convert_t_def, t_walkstar_eqn1]
  >- rw [EL_MAP]

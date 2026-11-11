@@ -192,14 +192,6 @@ Proof
   >> Cases_on ‘pair_to_list p’ >> gvs[list_size_def]
 QED
 
-Theorem list_size_snoc[simp]:
-  ∀ f x xs .
-    list_size f (SNOC x xs) = 1 + (f x + list_size f xs)
-Proof
-  Induct_on ‘xs’
-  >> simp[list_size_def]
-QED
-
 Definition cons_formals_def:
   cons_formals ps Nil = INR (REVERSE ps, NONE) ∧
   cons_formals ps (Word w) = INR (REVERSE ps, SOME (implode w)) ∧

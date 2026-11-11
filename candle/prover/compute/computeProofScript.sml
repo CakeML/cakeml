@@ -108,7 +108,7 @@ QED
 Theorem const_list_ok[local]:
   ∀vs. set (const_list vs) = cexp_consts vs
 Proof
-  ho_match_mp_tac const_list_ind
+  ho_match_mp_tac compute_exp_induction
   \\ rw [const_list_def, cexp_consts_def]
   \\ simp [Once EXTENSION]
   \\ rw [MEM_FLAT, MEM_MAP, PULL_EXISTS]
@@ -120,7 +120,7 @@ QED
 Theorem var_list_ok[local]:
   ∀vs. set (var_list vs) = cexp_vars vs
 Proof
-  ho_match_mp_tac var_list_ind
+  ho_match_mp_tac compute_exp_induction
   \\ rw [var_list_def, cexp_vars_def, LIST_TO_SET_FILTER, INTER_DEF, DIFF_DEF]
   \\ simp [Once EXTENSION]
   \\ rw [MEM_FLAT, MEM_MAP, PULL_EXISTS]
@@ -339,7 +339,7 @@ Proof
   \\ pop_assum mp_tac
   \\ qid_spec_tac ‘eqs’
   \\ qid_spec_tac ‘cexp’
-  \\ ho_match_mp_tac const_list_ind \\ rw []
+  \\ ho_match_mp_tac compute_exp_induction \\ rw []
   \\ gs [const_list_def, cexp_consts_ok_def]
   \\ gs [EVERY_MEM, MEM_MAP, MEM_FLAT, EXISTS_PROD, PULL_EXISTS, FORALL_PROD,
          SF SFY_ss]

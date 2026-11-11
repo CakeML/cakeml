@@ -366,12 +366,13 @@ Definition compile_sing_def:
 End
 
 Theorem compile_eq:
-  (∀e env. compile env [e] = [compile_sing env e]) ∧
-  (∀es env. compile env es = compile_list env es)
+  (∀env e. compile env [e] = [compile_sing env e]) ∧
+  (∀env es. compile env es = compile_list env es)
 Proof
-  Induct >> rw[compile_def, compile_sing_def] >>
-  rpt (TOP_CASE_TAC >> gvs[]) >>
-  Cases_on `es` >> simp[compile_def, compile_sing_def]
+  ho_match_mp_tac compile_sing_ind
+  \\ rw [compile_def, compile_sing_def]
+  \\ rpt (TOP_CASE_TAC \\ gvs [])
+  \\ Cases_on ‘es’ \\ gvs [compile_def]
 QED
 
 Theorem compile_length[simp]:

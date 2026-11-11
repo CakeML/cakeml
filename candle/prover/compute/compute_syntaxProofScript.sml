@@ -1252,8 +1252,6 @@ Definition cexp_consts_def:
   cexp_consts (If p q r) =  cexp_consts p ∪ cexp_consts q ∪ cexp_consts r ∧
   cexp_consts (Let s p q) = cexp_consts p ∪ cexp_consts q ∧
   cexp_consts (App s cs) = {s, LENGTH cs} ∪ BIGUNION (set (MAP cexp_consts cs))
-Termination
-  wf_rel_tac ‘measure compute_exp_size’
 End
 
 Definition cexp_vars_def:
@@ -1265,8 +1263,6 @@ Definition cexp_vars_def:
   cexp_vars (If p q r) =  cexp_vars p ∪ cexp_vars q ∪ cexp_vars r ∧
   cexp_vars (Let s p q) = cexp_vars p ∪ (cexp_vars q DIFF {s}) ∧
   cexp_vars (App s cs) = BIGUNION (set (MAP cexp_vars cs))
-Termination
-  wf_rel_tac ‘measure compute_exp_size’
 End
 
 (* The semantics of 'ill-typed' operations on the compute_exp type is to
@@ -2016,12 +2012,13 @@ QED
 Theorem cexp2term_typeof[simp]:
   ∀cv. typeof (cexp2term cv) = Cexp
 Proof
-  ho_match_mp_tac cexp2term_ind \\ rw []
+  ho_match_mp_tac compute_exp_induction \\ rw []
   \\ simp [cexp2term_def, FOLDL_MAP]
   >~ [‘bop2term _’] >- (
-    Cases_on ‘bop’ \\ gs [bop2term_def])
+    rename1 ‘bop2term bop’ \\ Cases_on ‘bop’ \\ gs [bop2term_def])
   >~ [‘uop2term _’] >- (
-    Cases_on ‘uop’ \\ gs [uop2term_def])
+    rename1 ‘uop2term uop’ \\ Cases_on ‘uop’ \\ gs [uop2term_def])
+  \\ rename1 ‘FOLDL _ _ cs’
   \\ pop_assum mp_tac
   \\ ‘∀tm.
         typeof tm = app_type (LENGTH cs) ⇒
@@ -2034,12 +2031,12 @@ QED
 Theorem cexp2term_has_type[simp]:
   ∀cv. cexp2term cv has_type Cexp
 Proof
-  ho_match_mp_tac cexp2term_ind \\ rw [] \\ simp [cexp2term_def]
+  ho_match_mp_tac compute_exp_induction \\ rw [] \\ simp [cexp2term_def]
   >~ [‘_CEXP_NUM _’] >- (
     rw [Ntimes has_type_cases 3]
     \\ rw [Ntimes has_type_cases 3])
   >~ [‘uop2term _’] >- (
-    Cases_on ‘uop’ \\ simp [uop2term_def]
+    rename1 ‘uop2term uop’ \\ Cases_on ‘uop’ \\ simp [uop2term_def]
     \\ rw [Ntimes has_type_cases 3])
   >~ [‘_CEXP_PAIR _ _’] >- (
     rw [Ntimes has_type_cases 3])
@@ -2047,13 +2044,14 @@ Proof
     rw [Ntimes has_type_cases 3]
     \\ rw [Ntimes has_type_cases 3])
   >~ [‘bop2term _ _ _’] >- (
-    Cases_on ‘bop’ \\ simp [bop2term_def]
+    rename1 ‘bop2term bop’ \\ Cases_on ‘bop’ \\ simp [bop2term_def]
     \\ rw [Ntimes has_type_cases 3])
   >~ [‘_LET _ _’] >- (
     rw [Ntimes has_type_cases 3]
     \\ rw [Ntimes has_type_cases 3])
   >~ [‘Var _’] >- (
     rw [has_type_rules])
+  \\ rename1 ‘MAP cexp2term cs’
   \\ simp [FOLDL_MAP]
   \\ ‘∀tm.
         tm has_type app_type (LENGTH cs) ⇒
@@ -2103,7 +2101,7 @@ Theorem cexp2term_term_ok:
 Proof
   strip_tac
   \\ drule_then strip_assume_tac compute_thy_ok_terms_ok
-  \\ ho_match_mp_tac cexp2term_ind \\ rw []
+  \\ ho_match_mp_tac compute_exp_induction \\ rw []
   \\ gs [cexp2term_def, cexp_consts_def]
   >~ [‘_CEXP_NUM _’] >- (
     simp [term_ok_def, compute_thy_ok_def, num2bit_term_ok, SF SFY_ss])
@@ -2119,6 +2117,7 @@ Proof
     simp [term_ok_def])
   >~ [‘Var s _’] >- (
     simp [term_ok_def])
+  \\ rename1 ‘MAP cexp2term cs’
   \\ gvs [FOLDL_MAP, MEM_MAP, SF SFY_ss, SF DNF_ss]
   \\ ‘∀tm.
         term_ok (sigof thy) tm ∧
@@ -2159,7 +2158,7 @@ Proof
   \\ ‘∀p q. cexp_value p ∧ cexp_value q ⇒
               (thy,[]) |-  (cexp2term p === cexp2term q) === bool2term (p = q)’
     suffices_by rw [sym_equation]
-  \\ ho_match_mp_tac cexp2term_ind \\ rw []
+  \\ ho_match_mp_tac compute_exp_induction \\ rw []
   >~ [‘Num n’] >- (
     rw [cexp2term_def]
     \\ Cases_on ‘q = Num n’ \\ gvs [bool2term_def, cexp2term_def]

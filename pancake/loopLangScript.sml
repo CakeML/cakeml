@@ -61,14 +61,6 @@ Datatype:
          (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
 End
 
-Theorem MEM_IMP_exp_size:
-   !xs a. MEM a xs ==> (exp_size a < exp1_size xs)
-Proof
-  Induct \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ REPEAT STRIP_TAC \\ SRW_TAC [] [definition"exp_size_def"]
-  \\ RES_TAC \\ DECIDE_TAC
-QED
-
 Definition nested_seq_def:
   (nested_seq [] = Skip) /\
   (nested_seq (e::es) = Seq e (nested_seq es))
@@ -83,11 +75,6 @@ Definition locals_touched_def:
   (locals_touched (Shift sh wexp1 wexp2) = locals_touched wexp1 ++ locals_touched wexp2) ∧
   (locals_touched BaseAddr = []) ∧
   (locals_touched TopAddr = [])
-Termination
-  wf_rel_tac `measure exp_size` >>
-  rpt strip_tac >>
-  imp_res_tac MEM_IMP_exp_size >>
-  decide_tac
 End
 
 Definition assigned_vars_def:

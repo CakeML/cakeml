@@ -24,7 +24,21 @@ val r = translate lexer_def;
 val r = translate scheme_valuesTheory.head_def;
 (*val r = translate quote_def;*)
 val r = translate (IN_UNION |> SIMP_RULE bool_ss [SPECIFICATION]);
-val r = translate LIST_TO_SET_DEF;
+val r = translate_no_ind (INST_TYPE [beta |-> alpha] LIST_TO_SET_DEF);
+
+Theorem list_to_set_ind[local]:
+  list_to_set_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "list_to_set_ind_def"]
+  \\ rpt strip_tac
+  \\ qid_spec_tac ‘v4’
+  \\ Induct_on ‘v3’
+  \\ rpt strip_tac
+  \\ first_assum irule
+  \\ gvs []
+QED
+
+val _ = list_to_set_ind |> update_precondition;
 val r = translate static_scope_def;
 val r = translate parse_def;
 val r = translate pair_to_list_def;

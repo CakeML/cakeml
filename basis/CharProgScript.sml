@@ -78,7 +78,21 @@ val _ = update_precondition some_char_side_thm;
 
 val _ = ml_prog_update close_local_blocks;
 
+Theorem contains_scanEq[local]:
+  contains s c = (scan_eq 0 (strlen s) c s < strlen s)
+Proof
+  namedCases_on ‘s’ ["chars"]
+  \\ simp [contains_thm,scan_eq_def]
+  \\ Induct_on ‘chars’
+  >- simp [SPLITP]
+  \\ qx_gen_tac ‘head’
+  \\ Cases_on ‘head = c’
+  >- simp [Once SPLITP]
+  \\ simp [Once SPLITP]
+  \\ Cases_on ‘chars = []’ \\ simp []
+QED
+
 val _ = next_ml_names := ["contains"];
-val res = translate mlstringTheory.contains_def;
+val res = translate contains_scanEq;
 
 val _ = ml_prog_update (close_module NONE);

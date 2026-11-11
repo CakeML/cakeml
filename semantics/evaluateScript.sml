@@ -43,12 +43,6 @@ Proof
   Cases_on ‘x’ \\ fs [fix_clock_def] \\ rw [] \\ fs []
 QED
 
-Theorem list_size_REVERSE[local]:
-  ∀xs. list_size f (REVERSE xs) = list_size f xs
-Proof
-  Induct \\ fs [listTheory.list_size_def,listTheory.list_size_append]
-QED
-
 Definition sing_env_def:
   sing_env n v =
     <| v := nsBind n v nsEmpty; c := nsEmpty |> : v sem_env
@@ -298,7 +292,6 @@ Termination
          | INR(INR (s,_,ds)) => (s.clock,list_size dec_size ds))’
   \\ rw [do_if_def,do_log_def,do_eval_res_def,dec_clock_def]
   \\ imp_res_tac fix_clock_IMP \\ fs []
-  \\ fs [listTheory.list_size_def,list_size_REVERSE]
 End
 
 (* tidy up evalute_def and evaluate_ind *)

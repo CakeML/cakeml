@@ -20,8 +20,14 @@ Datatype:
   shift = Lsl | Lsr | Asr | Ror
 End
 
+(* Rounding mode for integer division and modulus: TowardsZero gives
+   quot/rem (truncating), RoundDown gives div/mod (flooring) *)
 Datatype:
-  arith = Add | Sub | Mul | Div | Mod | Neg | And | Xor | Or | Not
+  div_round = TowardsZero | RoundDown
+End
+
+Datatype:
+  arith = Add | Sub | Mul | Div div_round | Mod div_round | Neg | And | Xor | Or | Not
         | Absolute  (* Abs is reserved for Candle *)
         | Sqrt | FMA | Shift shift
 End
@@ -98,6 +104,8 @@ Datatype:
   | Aw8alloc
   | Aw8sub
   | Aw8length
+  | Aw8ScanEq
+  | Aw8ScanNeq
   | Aw8update
   | Aw8subBit
   | Aw8updateBit
@@ -106,12 +114,19 @@ Datatype:
   | CopyStrAw8
   | CopyAw8Str
   | CopyAw8Aw8
+  (* vector/array conversions *)
+  | CopyVecVec
+  | CopyVecArr
+  | CopyArrVec
+  | CopyArrArr
   | XorAw8Str_unsafe
   (* String operations *)
   | Implode
   | Explode
   | Strsub
   | Strlen
+  | StrScanEq
+  | StrScanNeq
   | Strcat
   (* Vector operations *)
   | VfromList

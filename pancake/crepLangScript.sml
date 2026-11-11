@@ -71,14 +71,6 @@ End
 (* we can make return varaiable an option, but then might not be able to
    compile to loopLang *)
 
-Theorem MEM_IMP_exp_size:
-   !xs a. MEM a xs ==> (exp_size a < exp1_size xs)
-Proof
-  Induct \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ REPEAT STRIP_TAC \\ SRW_TAC [] [definition"exp_size_def"]
-  \\ RES_TAC \\ DECIDE_TAC
-QED
-
 Definition load_shape_def:
   (load_shape aw a 0 e = []) ∧
   (load_shape aw a (SUC i) e =
@@ -139,10 +131,7 @@ Definition var_cexp_def:
   (var_cexp BaseAddr = []) ∧
   (var_cexp TopAddrl = [])
 Termination
-  wf_rel_tac `measure (\e. exp_size e)` >>
-  rpt strip_tac >>
-  imp_res_tac MEM_IMP_exp_size >>
-  decide_tac
+  wf_rel_tac `measure (\e. exp_size e)`
 End
 
 Definition assigned_free_vars_def:
@@ -202,11 +191,6 @@ Definition exps_def:
   (exps (Shift sh e1 e2) = exps e1 ++ exps e2) ∧
   (exps BaseAddr = [BaseAddr]) ∧
   (exps TopAddr = [TopAddr])
-Termination
-  wf_rel_tac `measure (\e. exp_size e)` >>
-  rpt strip_tac >>
-  imp_res_tac MEM_IMP_exp_size >>
-  decide_tac
 End
 
 Overload shift = “backend_common$word_shift”

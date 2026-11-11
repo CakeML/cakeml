@@ -1233,6 +1233,11 @@ fun EqualityType_via_n2typ is_exn_type typ = let
 
 fun matching_induction_of typ = let
     val ind = TypeBase.induction_of typ
+    (* TypeBase's induction for a nested type has a single predicate; the
+       callers need one predicate per type, nested instances included *)
+    val ind = case Lib.total legacyInduction.operators_of ind of
+                NONE => ind
+              | SOME ops => legacyInduction.mutual_induction ops ind
     val ind_c = concl ind |> strip_forall |> snd |> dest_imp |> snd
     val var_tys = strip_conj ind_c |> map (type_of o fst o dest_forall)
     val matches = mapfilter (fn vty => match_type vty typ) var_tys
@@ -1377,9 +1382,11 @@ fun define_v_fun ctxt ty = let
       in mk_eq (mk_v_app op_tups t, mk_Conv (stamp,
             listSyntax.mk_list (map (mk_v_app op_tups) xs, v_ty))) end
     val def = map case_eqn cases |> list_mk_conj
-    val def_name = (hd ops |> strip_comb |> fst |> dest_var |> fst) ^ "_def"
-    val def_thm = new_recursive_definition
-        {name = def_name, rec_axiom = TypeBase.axiom_of ty, def=def}
+    (* Define, not new_recursive_definition: the latter rejects recursion
+       through the encoders of nested types. The encoders are the _v
+       functions defined here, one per type; each calls the encoders of the
+       types nested in it. *)
+    val def_thm = Define [ANTIQUOTE def]
     val const_ops = def_thm |> concl |> strip_conj
         |> map (rator o fst o dest_eq o snd o strip_forall)
         |> HOLset.fromList Term.compare |> HOLset.listItems
@@ -2850,7 +2857,14 @@ fun get_induction_for_def ctxt def = let
   val ind = MP lemma (ind |> UNDISCH_ALL) |> DISCH_ALL
             |> GENL (map fst res)
   in ind end handle HOL_ERR _ =>
-  failwith "unable to construct induction theorem from TypeBase info"
+  (* the saved induction is named after the definition, which need not be
+     a function's name; the registry keyed by constant has it regardless.
+     This is reached only when the name lookups and the TypeBase
+     construction both fail. *)
+  (case DefnBase.lookup_indn (def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
+                                  |> concl |> dest_eq |> fst |> repeat rator) of
+     SOME (ind,_) => ind
+   | NONE => failwith "unable to construct induction theorem from TypeBase info")
 
 fun mutual_to_single_line_def ctxt def = let
   (* get induction theorem *)
@@ -2928,8 +2942,14 @@ fun smallnum_evals suffix =
     map (fn name => DB.fetch "ml_translator" ("Eval_" ^ prefix ^ "_" ^ name ^ suffix))
       smallnum_operations) ["smallnum", "smallint"]);
 
+val builtin_quadops =
+  [Eval_scan_eq, Eval_scan_neq]
+  |> map (fn th =>
+      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> strip_comb |> fst, th))
+
 val builtin_terops =
   ([Eval_substring,
+    Eval_subvector,
     Eval_FLOAT_FMA] @ smallnum_evals "_vec" @ smallnum_evals "_str")
   |> map (fn th =>
       (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator |> rator, th))
@@ -2958,6 +2978,8 @@ val builtin_binops =
    Eval_INT_MULT,
    Eval_INT_DIV,
    Eval_INT_MOD,
+   Eval_INT_QUOT,
+   Eval_INT_REM,
    Eval_INT_EQ,
    Eval_INT_LESS,
    Eval_INT_LESS_EQ,
@@ -3040,8 +3062,12 @@ val builtin_sub_check =
  |> map (fn th =>
       (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th))
 
-val AUTO_ETA_EXPAND_CONV = let (* K ($=) --> K (\x y. x = y) *)
+(* fns: the functions being defined, each with the arity of its equations.
+   Their partial applications are expanded as well, since match_rec_pattern
+   recognises a recursive call only when fully applied. *)
+fun AUTO_ETA_EXPAND_CONV fns = let (* K ($=) --> K (\x y. x = y) *)
   val must_eta_expand_ops =
+    map fst builtin_quadops @
     map fst builtin_terops @
     map fst builtin_binops @
     map fst builtin_sub_check @
@@ -3051,19 +3077,23 @@ val AUTO_ETA_EXPAND_CONV = let (* K ($=) --> K (\x y. x = y) *)
   fun must_eta_expand tm =
     TypeBase.is_constructor tm orelse
     tmem tm must_eta_expand_ops orelse
-    can (match_term boolSyntax.equality) tm
+    can (match_term boolSyntax.equality) tm orelse
+    can (op_assoc aconv tm) fns
   fun full_arg_num tm = let
     fun n ty = n (snd (dest_fun_type ty)) + 1 handle HOL_ERR _ => 0
-    in n (type_of tm) end
-  fun FULL_ETA_CONV tm = let
-    val v = genvar (fst (dest_fun_type (type_of tm)))
+    in op_assoc aconv tm fns handle HOL_ERR _ => n (type_of tm) end
+  fun FULL_ETA_CONV 0 tm = ALL_CONV tm
+    | FULL_ETA_CONV k tm = let
+    (* not a genvar, whose name would reach the generated code;
+       rename_bound_vars_rule turns a spaced name into a plain vN *)
+    val v = variant (free_vars tm)
+              (mk_var(" variable ",fst (dest_fun_type (type_of tm))))
     val lemma = ETA_CONV (mk_abs(v,mk_comb(tm,v)))
-    in ((K (SYM lemma)) THENC ABS_CONV (FULL_ETA_CONV)) tm end
-    handle HOL_ERR _ => ALL_CONV tm
+    in ((K (SYM lemma)) THENC ABS_CONV (FULL_ETA_CONV (k-1))) tm end
   fun aux n tm =
     if is_const tm then
       if n < full_arg_num tm andalso must_eta_expand tm
-      then FULL_ETA_CONV tm
+      then FULL_ETA_CONV (full_arg_num tm) tm
       else ALL_CONV tm
     else if is_comb tm then let
       val (f,x) = dest_comb tm
@@ -3087,6 +3117,8 @@ fun preprocess_def ctxt def = let
   val def = force_eqns def
   val is_rec = is_rec_def def
   val (defs,ind) = mutual_to_single_line_def ctxt def
+  val fns = map (fn d => d |> SPEC_ALL |> concl |> dest_eq |> fst |> strip_comb
+                           |> (fn (c,xs) => (c,length xs))) defs
   fun rephrase_def def = let
     val def = PURE_ONCE_REWRITE_RULE [GSYM TRUE_def, GSYM FALSE_def] def
     val def = remove_pair_abs ctxt def |> SPEC_ALL
@@ -3097,7 +3129,7 @@ fun preprocess_def ctxt def = let
     val def = CONV_RULE (DEPTH_CONV mlstringLib.mlstring_case_conv) def
     val def = PURE_REWRITE_RULE ([ADD1,boolTheory.literal_case_DEF,
                 num_case_thm] @ get_preprocessor_rws()) def
-    val def = CONV_RULE (AUTO_ETA_EXPAND_CONV THENC REDEPTH_CONV BETA_CONV) def
+    val def = CONV_RULE (AUTO_ETA_EXPAND_CONV fns THENC REDEPTH_CONV BETA_CONV) def
     val def = rename_bound_vars_rule "v" (GEN_ALL def) |> SPEC_ALL
     in def end;
   val defs = map rephrase_def defs
@@ -3116,6 +3148,16 @@ fun preprocess_def ctxt def = let
 
 
 (* definition of the main work horse: hol2deep: term -> thm *)
+
+fun dest_builtin_quadop tm = let
+  val (pxxx,r4) = dest_comb tm
+  val (pxx,r3) = dest_comb pxxx
+  val (px,r2) = dest_comb pxx
+  val (p,r1) = dest_comb px
+  val (x,th) = first (fn (x,_) => can (match_term x) p) builtin_quadops
+  val (ss,ii) = match_term x p
+  val th = INST ss (INST_TYPE ii th)
+  in (p,r1,r2,r3,r4,th) end handle HOL_ERR _ => failwith("Not a builtin operator")
 
 fun dest_builtin_terop tm = let
   val (pxx,r3) = dest_comb tm
@@ -3586,6 +3628,17 @@ fun hol2deep ctxt tm =
     val (ss,ii) = match_term pat inv
     val result = INST ss (INST_TYPE ii th)
     in check_inv "lookup_eval_thm" tm result end else
+  (* built-in operations with four arguments *)
+  if can dest_builtin_quadop tm then let
+    val (p,x1,x2,x3,x4,lemma) = dest_builtin_quadop tm
+    val th1 = hol2deep ctxt x1
+    val th2 = hol2deep ctxt x2
+    val th3 = hol2deep ctxt x3
+    val th4 = hol2deep ctxt x4
+    val result =
+      MATCH_MP (MATCH_MP (MATCH_MP (MATCH_MP lemma th1) (UNDISCH_ALL th2))
+        (UNDISCH_ALL th3)) (UNDISCH_ALL th4) |> UNDISCH_ALL
+    in check_inv "quadop" tm result end else
   (* built-in ternary operations *)
   if can dest_builtin_terop tm then let
     val (p,x1,x2,x3,lemma) = dest_builtin_terop tm

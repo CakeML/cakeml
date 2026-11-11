@@ -138,8 +138,6 @@ Definition eval_def:
         SOME (Word s.top_addr))
 Termination
   wf_rel_tac `measure (exp_size o SND)`
-  \\ rpt strip_tac \\ imp_res_tac MEM_IMP_exp_size
-  \\ decide_tac
 End
 
 Definition dec_clock_def:

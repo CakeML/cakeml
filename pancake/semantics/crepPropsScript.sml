@@ -1329,8 +1329,5 @@ Definition every_exp_def:
   (every_exp P (BaseAddr) = P BaseAddr) ∧
   (every_exp P (TopAddr) = P TopAddr)
 Termination
-  wf_rel_tac `measure (exp_size o SND)` >>
-  rpt strip_tac >>
-  imp_res_tac MEM_IMP_exp_size >>
-  decide_tac
+  wf_rel_tac `measure (exp_size o SND)`
 End

@@ -117,6 +117,28 @@ Definition do_app_def:
                     SOME (s, Rval (Litv (Word8 (EL n ws))))
           | _ => NONE
         )
+    | (Aw8ScanEq, [Litv (IntLit start); Litv (IntLit end); Litv (Word8 w); Loc _ lnum]) =>
+        (case store_lookup lnum s of
+            SOME (W8array ws) =>
+              if 0 ≤ start ∧ start ≤ &LENGTH ws ∧ 0 ≤ end ∧ end ≤ &LENGTH ws then
+                SOME (s, Rval (Litv (IntLit
+                  (&(if Num end ≤ Num start then Num end else Num start +
+                    LENGTH (FST (SPLITP (\x. x = w)
+                      (DROP (Num start) (TAKE (Num end) ws)))))))))
+              else SOME (s, Rraise sub_exn_v)
+          | _ => NONE
+        )
+    | (Aw8ScanNeq, [Litv (IntLit start); Litv (IntLit end); Litv (Word8 w); Loc _ lnum]) =>
+        (case store_lookup lnum s of
+            SOME (W8array ws) =>
+              if 0 ≤ start ∧ start ≤ &LENGTH ws ∧ 0 ≤ end ∧ end ≤ &LENGTH ws then
+                SOME (s, Rval (Litv (IntLit
+                  (&(if Num end ≤ Num start then Num end else Num start +
+                    LENGTH (FST (SPLITP (\x. x ≠ w)
+                      (DROP (Num start) (TAKE (Num end) ws)))))))))
+              else SOME (s, Rraise sub_exn_v)
+          | _ => NONE
+        )
     | (Aw8length, [Loc _ n]) =>
         (case store_lookup n s of
             SOME (W8array ws) =>
@@ -244,6 +266,50 @@ Definition do_app_def:
           )
       | _ => NONE
       )
+    | (CopyVecVec, [Vectorv vs;Litv(IntLit off);Litv(IntLit len)]) =>
+        SOME (s,
+        (case copy_array (vs,off) len NONE of
+          NONE => Rraise sub_exn_v
+        | SOME cs => Rval (Vectorv cs)
+        ))
+    | (CopyVecArr, [Vectorv vs;Litv(IntLit off);Litv(IntLit len);
+                    Loc _ dst;Litv(IntLit dstoff)]) =>
+        (case store_lookup dst s of
+          SOME (Varray ws) =>
+            (case copy_array (vs,off) len (SOME(ws,dstoff)) of
+              NONE => SOME (s, Rraise sub_exn_v)
+            | SOME cs =>
+              (case store_assign dst (Varray cs) s of
+                SOME s' =>  SOME (s', Rval (Conv NONE []))
+              | _ => NONE
+              )
+            )
+        | _ => NONE
+        )
+    | (CopyArrVec, [Loc _ src;Litv(IntLit off);Litv(IntLit len)]) =>
+      (case store_lookup src s of
+        SOME (Varray ws) =>
+        SOME (s,
+          (case copy_array (ws,off) len NONE of
+            NONE => Rraise sub_exn_v
+          | SOME ws => Rval (Vectorv ws)
+          ))
+      | _ => NONE
+      )
+    | (CopyArrArr, [Loc _ src;Litv(IntLit off);Litv(IntLit len);
+                    Loc _ dst;Litv(IntLit dstoff)]) =>
+      (case (store_lookup src s, store_lookup dst s) of
+        (SOME (Varray ws), SOME (Varray ds)) =>
+          (case copy_array (ws,off) len (SOME(ds,dstoff)) of
+            NONE => SOME (s, Rraise sub_exn_v)
+          | SOME ws =>
+              (case store_assign dst (Varray ws) s of
+                SOME s' => SOME (s', Rval (Conv NONE []))
+              | _ => NONE
+              )
+          )
+      | _ => NONE
+      )
     | (XorAw8Str_unsafe, [Loc _ dst; Litv (StrLit str_arg)]) =>
         (case store_lookup dst s of
           SOME (W8array bs) =>
@@ -281,6 +347,14 @@ Definition do_app_def:
           SOME (s, Rval (Litv (Char (EL (Num i) (explode str)))))
         else
           NONE
+    | (StrScanEq, [Litv (IntLit start); Litv (IntLit end); Litv (Char c); Litv (StrLit str)]) =>
+        if 0 ≤ start ∧ start ≤ &strlen str ∧ 0 ≤ end ∧ end ≤ &strlen str then
+          SOME (s, Rval (Litv (IntLit (&scan_eq (Num start) (Num end) c str))))
+        else SOME (s, Rraise sub_exn_v)
+    | (StrScanNeq, [Litv (IntLit start); Litv (IntLit end); Litv (Char c); Litv (StrLit str)]) =>
+        if 0 ≤ start ∧ start ≤ &strlen str ∧ 0 ≤ end ∧ end ≤ &strlen str then
+          SOME (s, Rval (Litv (IntLit (&scan_neq (Num start) (Num end) c str))))
+        else SOME (s, Rraise sub_exn_v)
     | (Strlen, [Litv (StrLit str)]) =>
         SOME (s, Rval (Litv(IntLit(int_of_num(strlen str)))))
     | (Strcat, [v]) =>

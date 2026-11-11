@@ -568,14 +568,6 @@ Definition sing_renum_def:
   sing_renum m n = λx. if x = m then n else x
 End
 
-val ast_t_ind = ast_t_induction
-  |> Q.SPECL[`P`,`EVERY P`]
-  |> UNDISCH_ALL
-  |> CONJUNCT1
-  |> DISCH_ALL
-  |> SIMP_RULE (srw_ss()) []
-  |> Q.GEN`P`;
-
 Theorem sing_renum_NOT_tscheme_inst[local]:
   ∀t.
   m ∈ set_tids t ∧
@@ -585,7 +577,7 @@ Theorem sing_renum_NOT_tscheme_inst[local]:
   ¬tscheme_inst (tvs,ts_tid_rename (sing_renum m n) t) (tvs',t) ∧
   ¬tscheme_inst (tvs',t) (tvs,ts_tid_rename (sing_renum m n) t)
 Proof
-  ho_match_mp_tac t_ind>>rw[]>>
+  ho_match_mp_tac t_induction>>rw[]>>
   fs[set_tids_def,ts_tid_rename_def,sing_renum_def]>>
   rw[]>>
   simp[tscheme_inst_def,deBruijn_subst_def]>>
@@ -618,7 +610,7 @@ Theorem sing_renum_NOTIN_ID:
   m ∉ set_tids t ⇒
   ts_tid_rename (sing_renum m n) t = t
 Proof
-  ho_match_mp_tac t_ind>>rw[]>>
+  ho_match_mp_tac t_induction>>rw[]>>
   fs[ts_tid_rename_def,sing_renum_def,set_tids_def]>>
   fs[EVERY_MEM,MAP_EQ_ID,MEM_MAP]>>
   metis_tac[]
@@ -627,7 +619,7 @@ QED
 Theorem sing_renum_IN_NOT_ID:
    ∀t.  m ∈ set_tids t ∧ m ≠ n ⇒ ts_tid_rename (sing_renum m n) t ≠ t
 Proof
-  ho_match_mp_tac t_ind>>rw[]>>
+  ho_match_mp_tac t_induction>>rw[]>>
   fs[ts_tid_rename_def,sing_renum_def,set_tids_def]>>
   fs[EVERY_MEM,MAP_EQ_ID,MEM_MAP]>>
   metis_tac[]
@@ -1827,7 +1819,7 @@ Proof
     \\ res_tac
     \\ pop_assum mp_tac
     \\ qid_spec_tac`e`
-    \\ ho_match_mp_tac ast_t_ind
+    \\ ho_match_mp_tac ast_t_induction
     \\ rw[check_type_names_def]
     \\ TRY( fs[EVERY_MEM] \\ NO_TAC)
     \\ CASE_TAC

@@ -7,6 +7,7 @@ Ancestors
   primSemEnv semanticsProps backend source_to_sourceProof
   source_to_flatProof flat_to_closProof clos_to_bvlProof
   bvl_to_bviProof bvi_inlineProof bvi_to_dataProof data_to_wordProof
+  data_to_word_syntaxProof
   word_to_stackProof stack_to_labProof lab_to_targetProof
   backend_common backendProps word_to_stack dataProps[qualified]
   backend_passes[qualified]
@@ -71,7 +72,7 @@ val compile_tap_def = backend_passesTheory.compile_tap_def;
 Definition backend_config_ok_def:
   backend_config_ok (asm_conf:asm_config) (c:config) ⇔
     c.source_conf = prim_src_config ∧
-    0 < c.clos_conf.max_app ∧
+    0 < c.clos_conf.max_app ∧ c.clos_conf.max_app ≤ max_app_limit ∧
     c.bvl_conf.next_name2 = bvl_num_stubs + 2 ∧
     LENGTH asm_conf.avoid_regs + 13 ≤ asm_conf.reg_count ∧
     c.lab_conf.pos = 0 ∧
@@ -1189,7 +1190,7 @@ Theorem cake_orac_clos_syntax_oracle_ok:
   compile c2 clos_prog = (clos_c', clos_prog') /\
   (?st. c'.clos_conf = clos_c' with start := st) /\
   c2 = c.clos_conf /\ clos_prog = SND (to_clos c prog) /\
-  1 <= c.clos_conf.max_app /\
+  1 <= c.clos_conf.max_app /\ c.clos_conf.max_app ≤ max_app_limit /\
   c.source_conf = prim_src_config ==>
   clos_to_bvlProof$syntax_oracle_ok c.clos_conf clos_c' clos_prog
      (cake_orac (:'a) asm_conf c' syntax (SND ∘ config_tuple1) (λps.ps.clos_prog))
@@ -1472,7 +1473,7 @@ Proof
   \\ PairCases_on`pp4`
   \\ pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])
   \\ fs[data_to_wordTheory.compile_part_def]
-  \\ qspecl_then[`c4_data_conf`,`pp40`,`2`,`pp42`]mp_tac data_to_wordProofTheory.data_to_word_lab_pres_lem
+  \\ qspecl_then[`c4_data_conf`,`pp40`,`2`,`pp42`]mp_tac data_to_word_syntaxProofTheory.data_to_word_lab_pres_lem
   \\ simp[]
   \\ pairarg_tac \\ fs[]
   \\ simp[EVERY_MEM]
@@ -2575,7 +2576,7 @@ Resume good_code_lab_oracle[word_convs]:
       \\ simp[data_to_wordTheory.compile_part_def]
       \\ simp[PULL_EXISTS]
       \\ rw[]
-      \\ irule data_to_wordProofTheory.comp_no_inst
+      \\ irule data_to_word_syntaxProofTheory.comp_no_inst
       \\ simp []
       \\ EVAL_TAC
       \\ fs[backend_config_ok_def, asmTheory.int_offset_ok_def,
@@ -2662,7 +2663,7 @@ Proof
     \\ simp[data_to_wordTheory.compile_part_def]
     \\ simp[PULL_EXISTS]
     \\ rw[]
-    \\ irule data_to_wordProofTheory.comp_no_inst
+    \\ irule data_to_word_syntaxProofTheory.comp_no_inst
     \\ simp []
     \\ drule_then (fn t => simp [t]) cake_orac_config_eqs
     \\ fs[backend_config_ok_def, asmTheory.int_offset_ok_def, ensure_fp_conf_ok_def,
@@ -2710,7 +2711,7 @@ Proof
   \\ PairCases_on`pp4`
   \\ pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])
   \\ fs[data_to_wordTheory.compile_part_def]
-  \\ qspecl_then[`c4_data_conf`,`pp40`,`2`,`pp42`]mp_tac data_to_wordProofTheory.data_to_word_lab_pres_lem
+  \\ qspecl_then[`c4_data_conf`,`pp40`,`2`,`pp42`]mp_tac data_to_word_syntaxProofTheory.data_to_word_lab_pres_lem
   \\ simp[]
   \\ pairarg_tac \\ fs[]
   \\ simp[EVERY_MEM]
@@ -2766,7 +2767,7 @@ Proof
   drule stack_to_lab_stack_good_handler_labels
   \\ simp []
   \\ disch_then match_mp_tac
-  \\ drule data_to_wordProofTheory.data_to_word_good_handlers
+  \\ drule data_to_word_syntaxProofTheory.data_to_word_good_handlers
   \\ disch_tac
   \\ drule_then drule word_to_stack_good_handler_labels
   \\ simp []

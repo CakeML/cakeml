@@ -983,7 +983,7 @@ Definition do_arith_def:
      | (Add,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_add roundTiesToEven v1 v2)
      | (Sub,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_sub roundTiesToEven v1 v2)
      | (Mul,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_mul roundTiesToEven v1 v2)
-     | (Div,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_div roundTiesToEven v1 v2)
+     | (Div _, [v1;v2])   => SOME (INR $ Litv $ Float64 $ fp64_div roundTiesToEven v1 v2)
      | (FMA,  [v1;v2;v3]) => SOME (INR $ Litv $ Float64 $ fp64_mul_add roundTiesToEven v2 v3 v1)
      | _ => NONE) ∧
   (do_arith a IntT vals =
@@ -991,10 +991,14 @@ Definition do_arith_def:
      | (Add,  [v1;v2]) => SOME (INR $ Litv $ IntLit $ v1 + v2)
      | (Sub,  [v1;v2]) => SOME (INR $ Litv $ IntLit $ v1 - v2)
      | (Mul,  [v1;v2]) => SOME (INR $ Litv $ IntLit $ v1 * v2)
-     | (Div,  [v1;v2]) => SOME (if v2 = 0 then INL div_exn_v else
-                                  INR (Litv $ IntLit $ v1 / v2))
-     | (Mod,  [v1;v2]) => SOME (if v2 = 0 then INL div_exn_v else
-                                  INR (Litv $ IntLit $ v1 % v2))
+     | (Div RoundDown,   [v1;v2]) => SOME (if v2 = 0 then INL div_exn_v else
+                                           INR (Litv $ IntLit $ v1 / v2))
+     | (Mod RoundDown,   [v1;v2]) => SOME (if v2 = 0 then INL div_exn_v else
+                                           INR (Litv $ IntLit $ v1 % v2))
+     | (Div TowardsZero, [v1;v2]) => SOME (if v2 = 0 then INL div_exn_v else
+                                           INR (Litv $ IntLit $ v1 quot v2))
+     | (Mod TowardsZero, [v1;v2]) => SOME (if v2 = 0 then INL div_exn_v else
+                                           INR (Litv $ IntLit $ v1 rem v2))
      | _ => NONE) ∧
   (do_arith a (WordT W8) vals =
      case (a, MAP the_Litv_Word8 vals) of
@@ -1173,6 +1177,28 @@ Definition do_app_def:
                     SOME ((s,t), Rval (Litv (Word8 (EL n ws))))
           | _ => NONE
         )
+    | (Aw8ScanEq, [Litv (IntLit start); Litv (IntLit end); Litv (Word8 w); Loc _ lnum]) =>
+        (case store_lookup lnum s of
+            SOME (W8array ws) =>
+              if 0 ≤ start ∧ start ≤ &LENGTH ws ∧ 0 ≤ end ∧ end ≤ &LENGTH ws then
+                SOME ((s,t), Rval (Litv (IntLit
+                  (&(if Num end ≤ Num start then Num end else Num start +
+                    LENGTH (FST (SPLITP (\x. x = w)
+                      (DROP (Num start) (TAKE (Num end) ws)))))))))
+              else SOME ((s,t), Rerr (Rraise sub_exn_v))
+          | _ => NONE
+        )
+    | (Aw8ScanNeq, [Litv (IntLit start); Litv (IntLit end); Litv (Word8 w); Loc _ lnum]) =>
+        (case store_lookup lnum s of
+            SOME (W8array ws) =>
+              if 0 ≤ start ∧ start ≤ &LENGTH ws ∧ 0 ≤ end ∧ end ≤ &LENGTH ws then
+                SOME ((s,t), Rval (Litv (IntLit
+                  (&(if Num end ≤ Num start then Num end else Num start +
+                    LENGTH (FST (SPLITP (\x. x ≠ w)
+                      (DROP (Num start) (TAKE (Num end) ws)))))))))
+              else SOME ((s,t), Rerr (Rraise sub_exn_v))
+          | _ => NONE
+        )
     | (Aw8length, [Loc _ n]) =>
         (case store_lookup n s of
             SOME (W8array ws) =>
@@ -1300,6 +1326,50 @@ Definition do_app_def:
           )
       | _ => NONE
       )
+    | (CopyVecVec, [Vectorv vs;Litv(IntLit off);Litv(IntLit len)]) =>
+        SOME ((s,t),
+        (case copy_array (vs,off) len NONE of
+          NONE => Rerr (Rraise sub_exn_v)
+        | SOME cs => Rval (Vectorv cs)
+        ))
+    | (CopyVecArr, [Vectorv vs;Litv(IntLit off);Litv(IntLit len);
+                    Loc _ dst;Litv(IntLit dstoff)]) =>
+        (case store_lookup dst s of
+          SOME (Varray ws) =>
+            (case copy_array (vs,off) len (SOME(ws,dstoff)) of
+              NONE => SOME ((s,t), Rerr (Rraise sub_exn_v))
+            | SOME cs =>
+              (case store_assign dst (Varray cs) s of
+                SOME s' =>  SOME ((s',t), Rval (Conv NONE []))
+              | _ => NONE
+              )
+            )
+        | _ => NONE
+        )
+    | (CopyArrVec, [Loc _ src;Litv(IntLit off);Litv(IntLit len)]) =>
+      (case store_lookup src s of
+        SOME (Varray ws) =>
+        SOME ((s,t),
+              (case copy_array (ws,off) len NONE of
+                 NONE => Rerr (Rraise sub_exn_v)
+               | SOME ws => Rval (Vectorv ws)
+              ))
+       | _ => NONE
+      )
+    | (CopyArrArr, [Loc _ src;Litv(IntLit off);Litv(IntLit len);
+                    Loc _ dst;Litv(IntLit dstoff)]) =>
+      (case (store_lookup src s, store_lookup dst s) of
+        (SOME (Varray ws), SOME (Varray ds)) =>
+          (case copy_array (ws,off) len (SOME(ds,dstoff)) of
+            NONE => SOME ((s,t), Rerr (Rraise sub_exn_v))
+          | SOME ws =>
+              (case store_assign dst (Varray ws) s of
+                SOME s' => SOME ((s',t), Rval (Conv NONE []))
+              | _ => NONE
+              )
+          )
+      | _ => NONE
+      )
     | (XorAw8Str_unsafe, [Loc _ dst; Litv (StrLit str_arg)]) =>
         (case store_lookup dst s of
           SOME (W8array bs) =>
@@ -1337,6 +1407,14 @@ Definition do_app_def:
           SOME ((s,t), Rval (Litv (Char (EL (Num i) (explode str)))))
         else
           NONE
+    | (StrScanEq, [Litv (IntLit start); Litv (IntLit end); Litv (Char c); Litv (StrLit str)]) =>
+        if 0 ≤ start ∧ start ≤ &strlen str ∧ 0 ≤ end ∧ end ≤ &strlen str then
+          SOME ((s,t), Rval (Litv (IntLit (&scan_eq (Num start) (Num end) c str))))
+        else SOME ((s,t), Rerr (Rraise sub_exn_v))
+    | (StrScanNeq, [Litv (IntLit start); Litv (IntLit end); Litv (Char c); Litv (StrLit str)]) =>
+        if 0 ≤ start ∧ start ≤ &strlen str ∧ 0 ≤ end ∧ end ≤ &strlen str then
+          SOME ((s,t), Rval (Litv (IntLit (&scan_neq (Num start) (Num end) c str))))
+        else SOME ((s,t), Rerr (Rraise sub_exn_v))
     | (Strlen, [Litv (StrLit str)]) =>
         SOME ((s,t), Rval (Litv(IntLit(int_of_num(strlen str)))))
     | (Strcat, [v]) =>

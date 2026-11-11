@@ -55,12 +55,17 @@ Definition from_shift_def:
   (from_shift Ror = Atom «Ror»)
 End
 
+Definition from_div_round_def:
+  (from_div_round TowardsZero = Atom «TowardsZero») ∧
+  (from_div_round RoundDown = Atom «RoundDown»)
+End
+
 Definition from_arith_def:
   (from_arith Add  = Atom «Add») ∧
   (from_arith Sub  = Atom «Sub») ∧
   (from_arith Mul  = Atom «Mul») ∧
-  (from_arith Div  = Atom «Div») ∧
-  (from_arith Mod  = Atom «Mod») ∧
+  (from_arith (Div r) = Expr [Atom «Div»; from_div_round r]) ∧
+  (from_arith (Mod r) = Expr [Atom «Mod»; from_div_round r]) ∧
   (from_arith Neg  = Atom «Neg») ∧
   (from_arith And  = Atom «And») ∧
   (from_arith Xor  = Atom «Xor») ∧
@@ -133,18 +138,26 @@ Definition from_op_def:
   (from_op Aw8alloc            = Atom «Aw8alloc») ∧
   (from_op Aw8sub              = Atom «Aw8sub») ∧
   (from_op Aw8length           = Atom «Aw8length») ∧
+  (from_op Aw8ScanEq           = Atom «Aw8ScanEq») ∧
+  (from_op Aw8ScanNeq          = Atom «Aw8ScanNeq») ∧
   (from_op Aw8update           = Atom «Aw8update») ∧
   (from_op Aw8subBit           = Atom «Aw8subBit») ∧
   (from_op Aw8updateBit        = Atom «Aw8updateBit») ∧
   (from_op CopyStrStr          = Atom «CopyStrStr») ∧
   (from_op CopyStrAw8          = Atom «CopyStrAw8») ∧
   (from_op CopyAw8Str          = Atom «CopyAw8Str») ∧
+  (from_op CopyVecVec = Atom «CopyVecVec») ∧
+  (from_op CopyVecArr = Atom «CopyVecArr») ∧
+  (from_op CopyArrVec = Atom «CopyArrVec») ∧
+  (from_op CopyArrArr = Atom «CopyArrArr») ∧
   (from_op CopyAw8Aw8          = Atom «CopyAw8Aw8») ∧
   (from_op XorAw8Str_unsafe    = Atom «XorAw8Str_unsafe») ∧
   (from_op Implode             = Atom «Implode») ∧
   (from_op Explode             = Atom «Explode») ∧
   (from_op Strsub              = Atom «Strsub») ∧
   (from_op Strlen              = Atom «Strlen») ∧
+  (from_op StrScanEq           = Atom «StrScanEq») ∧
+  (from_op StrScanNeq          = Atom «StrScanNeq») ∧
   (from_op Strcat              = Atom «Strcat») ∧
   (from_op VfromList           = Atom «VfromList») ∧
   (from_op Vsub                = Atom «Vsub») ∧
@@ -424,13 +437,19 @@ Definition to_shift_def:
   (to_shift _ = fail)
 End
 
+Definition to_div_round_def:
+  (to_div_round (Atom s) =
+     if s = «TowardsZero» then return TowardsZero
+     else if s = «RoundDown» then return RoundDown
+     else fail) ∧
+  (to_div_round _ = fail)
+End
+
 Definition to_arith_def:
   (to_arith (Atom s) =
      if s = «Add» then return Add
      else if s = «Sub» then return Sub
      else if s = «Mul» then return Mul
-     else if s = «Div» then return Div
-     else if s = «Mod» then return Mod
      else if s = «Neg» then return Neg
      else if s = «And» then return And
      else if s = «Xor» then return Xor
@@ -443,9 +462,23 @@ Definition to_arith_def:
   (to_arith sexp =
    do
      (tag, args) <- dest_tagged sexp;
-     assert (tag = «Shift» ∧ LENGTH args = 1);
-     s <- to_shift (nth args 0);
-     return (Shift s)
+     assert (LENGTH args = 1);
+     if tag = «Shift» then
+       do
+         s <- to_shift (nth args 0);
+         return (Shift s)
+       od
+     else if tag = «Div» then
+       do
+         r <- to_div_round (nth args 0);
+         return (Div r)
+       od
+     else if tag = «Mod» then
+       do
+         r <- to_div_round (nth args 0);
+         return (Mod r)
+       od
+     else fail
    od)
 End
 
@@ -531,18 +564,26 @@ Definition to_op_def:
      else if s = «Aw8alloc» then return Aw8alloc
      else if s = «Aw8sub» then return Aw8sub
      else if s = «Aw8length» then return Aw8length
+     else if s = «Aw8ScanEq» then return Aw8ScanEq
+     else if s = «Aw8ScanNeq» then return Aw8ScanNeq
      else if s = «Aw8update» then return Aw8update
      else if s = «Aw8subBit» then return Aw8subBit
      else if s = «Aw8updateBit» then return Aw8updateBit
      else if s = «CopyStrStr» then return CopyStrStr
      else if s = «CopyStrAw8» then return CopyStrAw8
      else if s = «CopyAw8Str» then return CopyAw8Str
+     else if s = «CopyVecVec» then return CopyVecVec
+     else if s = «CopyVecArr» then return CopyVecArr
+     else if s = «CopyArrVec» then return CopyArrVec
+     else if s = «CopyArrArr» then return CopyArrArr
      else if s = «CopyAw8Aw8» then return CopyAw8Aw8
      else if s = «XorAw8Str_unsafe» then return XorAw8Str_unsafe
      else if s = «Implode» then return Implode
      else if s = «Explode» then return Explode
      else if s = «Strsub» then return Strsub
      else if s = «Strlen» then return Strlen
+     else if s = «StrScanEq» then return StrScanEq
+     else if s = «StrScanNeq» then return StrScanNeq
      else if s = «Strcat» then return Strcat
      else if s = «VfromList» then return VfromList
      else if s = «Vsub» then return Vsub
@@ -1068,12 +1109,18 @@ Proof
   Cases_on ‘s’ >> simp [from_shift_def, to_shift_def]
 QED
 
+Theorem to_from_div_round_ok:
+  to_div_round (from_div_round r) = SOME r
+Proof
+  Cases_on ‘r’ >> simp [from_div_round_def, to_div_round_def]
+QED
+
 Theorem to_from_arith_ok:
   to_arith (from_arith a) = SOME a
 Proof
   Cases_on ‘a’
   >> simp [from_arith_def, to_arith_def, dest_tagged_def, to_from_shift_ok,
-           nth_def]
+           to_from_div_round_ok, nth_def]
 QED
 
 Theorem to_from_word_size_ok:
@@ -1132,7 +1179,7 @@ Theorem to_from_ast_t_ok:
   (∀t. to_ast_t (from_ast_t t) = SOME t) ∧
   (∀ts. to_ast_ts (from_ast_ts ts) = SOME ts)
 Proof
-  ho_match_mp_tac ast_t_induction
+  ho_match_mp_tac from_ast_t_ind
   >> rpt strip_tac
   >> simp [from_ast_t_def, Once to_ast_t_def, dest_tagged_def, dest_atom_def,
            dest_expr_def, to_from_id_ok, nth_def]
@@ -1142,7 +1189,7 @@ Theorem to_from_pat_ok:
   (∀pat. to_pat (from_pat pat) = SOME pat) ∧
   (∀pats. to_pats (from_pats pats) = SOME pats)
 Proof
-  ho_match_mp_tac pat_induction
+  ho_match_mp_tac from_pat_ind
   >> rw [from_pat_def, to_pat_def, dest_tagged_def, dest_atom_def,
          dest_expr_def, to_from_lit_ok, to_from_ast_t_ok, nth_def]
   >> irule to_from_option_some
@@ -1209,7 +1256,7 @@ Theorem to_from_dec_ok:
   (∀dec. to_dec (from_dec dec) = SOME dec) ∧
   (∀decs. to_decs (from_decs decs) = SOME decs)
 Proof
-  ho_match_mp_tac dec_induction
+  ho_match_mp_tac from_dec_ind
   >> simp [from_dec_def, to_dec_def, dest_tagged_def, dest_expr_def,
            dest_atom_def, nth_def]
   >> simp [to_from_locs_ok, to_from_pat_ok, to_from_exp_ok,

@@ -62,7 +62,7 @@ QED
 Theorem test_impure[local]:
   compile_decs
     [Dlet l Pany (App Opassign [Var (Short «out»); Lit (IntLit 0)]);
-     Dlet l Pany (App (Arith Div IntT) [Lit (IntLit 1); Var (Short «n»)]);
+     Dlet l Pany (App (Arith (Div RoundDown) IntT) [Lit (IntLit 1); Var (Short «n»)]);
      Dlet l Pany (App (FromTo IntT CharT) [Lit (IntLit 300)]);
      Dlet l Pany (App Asub [Var (Short «arr»); Lit (IntLit 0)]);
      Dlet l Pany (App Aalloc [Var (Short «n»); Lit (IntLit 0)]);
@@ -73,7 +73,7 @@ Theorem test_impure[local]:
      Dlet l Pany (Raise (Con (SOME (Short «Bind»)) []));
      Dlet l (Plit (IntLit 3)) (Lit (IntLit 3))] =
     [Dlet l Pany (App Opassign [Var (Short «out»); Lit (IntLit 0)]);
-     Dlet l Pany (App (Arith Div IntT) [Lit (IntLit 1); Var (Short «n»)]);
+     Dlet l Pany (App (Arith (Div RoundDown) IntT) [Lit (IntLit 1); Var (Short «n»)]);
      Dlet l Pany (App (FromTo IntT CharT) [Lit (IntLit 300)]);
      Dlet l Pany (App Asub [Var (Short «arr»); Lit (IntLit 0)]);
      Dlet l Pany (App Aalloc [Var (Short «n»); Lit (IntLit 0)]);

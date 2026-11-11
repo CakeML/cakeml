@@ -212,7 +212,6 @@ Termination
   wf_rel_tac ‘measure $ exp_size’
   \\ rpt strip_tac
   \\ gvs [list_size_pair_size_MAP_FST_SND]
-  \\ rewrite_tac [list_exp_size_snd]
   \\ drule MEM_list_size
   \\ disch_then $ qspec_then ‘exp_size’ assume_tac
   \\ gvs []
@@ -348,7 +347,6 @@ Termination
   wf_rel_tac ‘measure $ exp_size’
   \\ rpt strip_tac
   \\ gvs [list_size_pair_size_MAP_FST_SND]
-  \\ rewrite_tac [list_exp_size_snd]
   \\ drule MEM_list_size
   \\ disch_then $ qspec_then ‘exp_size’ assume_tac
   \\ gvs []
@@ -638,7 +636,6 @@ Termination
   wf_rel_tac ‘measure $ exp_size o SND’
   \\ rpt strip_tac
   \\ gvs [list_size_pair_size_MAP_FST_SND]
-  \\ rewrite_tac [list_exp_size_snd]
   \\ drule MEM_list_size
   \\ disch_then $ qspec_then ‘exp_size’ assume_tac
   \\ gvs []
@@ -671,7 +668,6 @@ Termination
   wf_rel_tac ‘measure $ exp_size o SND’
   \\ rpt strip_tac
   \\ gvs [list_size_pair_size_MAP_FST_SND]
-  \\ rewrite_tac [list_exp_size_snd]
   \\ drule MEM_list_size
   \\ disch_then $ qspec_then ‘exp_size’ assume_tac
   \\ gvs []
@@ -702,7 +698,6 @@ Termination
   wf_rel_tac ‘measure $ exp_size’
   \\ rpt strip_tac
   \\ gvs [list_size_pair_size_MAP_FST_SND]
-  \\ rewrite_tac [list_exp_size_snd]
   \\ drule MEM_list_size
   \\ disch_then $ qspec_then ‘exp_size’ assume_tac
   \\ gvs []
@@ -752,7 +747,6 @@ Termination
   wf_rel_tac ‘measure $ exp_size’
   \\ rpt strip_tac
   \\ gvs [list_size_pair_size_MAP_FST_SND]
-  \\ rewrite_tac [list_exp_size_snd]
   \\ drule MEM_list_size
   \\ disch_then $ qspec_then ‘exp_size’ assume_tac
   \\ gvs []

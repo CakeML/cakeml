@@ -1504,13 +1504,82 @@ Proof
   \\ Cases_on `v`
   \\ gvs [bvlSemTheory.smallnum_witness_length_def, AllCaseEqs(),
           v_rel_cases]
-  \\ imp_res_tac LIST_REL_LENGTH
-  \\ simp []
+  >~ [`v_to_list (Block 0 l)`] >- (
+    rename1 `LIST_REL (v_rel f) xs ys`
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ Cases_on `v_to_list (Block 0 xs)` \\ simp []
+    \\ `v_rel f (Block 0 xs) (Block 0 ys)` by simp [v_rel_cases]
+    \\ drule_all v_to_list_v_rel \\ strip_tac
+    \\ imp_res_tac LIST_REL_LENGTH \\ simp [])
   \\ drule_all state_ref_rel_lookup
   \\ strip_tac
   \\ gvs [ref_rel_cases]
   \\ imp_res_tac LIST_REL_LENGTH
   \\ simp [bvlSemTheory.smallnum_witness_length_def]
+QED
+
+Theorem do_app_copybyte_new_rel[local]:
+  state_rel f s s' /\ LIST_REL (v_rel f) vs vs' /\
+  do_app (MemOp (CopyByte T)) vs s = Rval (v,t) ==>
+  ∃f' v' t'.
+    do_app (MemOp (CopyByte T)) vs' s' = Rval (v',t') ∧ v_rel f' v v' ∧
+    state_rel f' t t' ∧ f ⊑ f' ∧ only_fresh f f' s'.refs ∧
+    holes_unchanged_except f s'.refs t'.refs ∅ ∧
+    holes_still_not_finalised f s'.refs t'.refs
+Proof
+  rw []
+  \\ gvs [do_app_def,do_app_aux_def,bvlSemTheory.do_app_def,
+          AllCaseEqs (),v_rel_cases]
+  \\ `state_ref_rel f s.refs s'.refs` by gvs [state_rel_def]
+  \\ drule_all state_ref_rel_lookup
+  \\ strip_tac
+  \\ gvs [ref_rel_cases]
+  \\ simp [bvl_to_bvi_refs]
+  \\ qmatch_goalsub_abbrev_tac `s.refs |+ (_,bytes)`
+  \\ drule state_rel_alloc
+  \\ disch_then (qspecl_then
+       [`LEAST ptr. ptr ∉ FDOM s.refs`, `LEAST ptr. ptr ∉ FDOM s'.refs`,
+        `bytes`,`bytes`] mp_tac)
+  \\ impl_tac
+  >- (
+    simp [fresh_ptr_fresh]
+    \\ conj_tac
+    >- (
+      irule fresh_not_in_range_f
+      \\ first_assum (irule_at Any))
+    \\ unabbrev_all_tac
+    \\ simp [ref_rel_cases])
+  \\ strip_tac
+  \\ qexists_tac `f |+ ((LEAST ptr. ptr ∉ FDOM s.refs),
+                           (LEAST ptr. ptr ∉ FDOM s'.refs))`
+  \\ gvs []
+QED
+
+Theorem state_rel_values_update[local]:
+  state_rel f s t ∧ FLOOKUP f source_pointer = SOME target_pointer ∧
+  LIST_REL (v_rel f) source_values target_values ⇒
+  state_rel f
+    (s with refs := s.refs |+ (source_pointer,ValueArray source_values))
+    (t with refs := t.refs |+ (target_pointer,ValueArray target_values)) ∧
+  holes_unchanged_except f t.refs
+    (t.refs |+ (target_pointer,ValueArray target_values)) ∅ ∧
+  holes_still_not_finalised f t.refs
+    (t.refs |+ (target_pointer,ValueArray target_values))
+Proof
+  strip_tac
+  >> conj_tac
+  >- (
+    gvs [state_rel_def]
+    >> irule state_ref_rel_update
+    >> simp [ref_rel_cases])
+  >> conj_tac
+  >- (
+    irule holes_unchanged_except_frange_update
+    >> qexists_tac `source_pointer`
+    >> simp [])
+  >> irule holes_still_not_finalised_frange_update
+  >> qexists_tac `source_pointer`
+  >> simp []
 QED
 
 Theorem do_app_op_rel:
@@ -1810,16 +1879,117 @@ drule do_app_op_finalise_rel
 >> gvs [v_rel_cases]
 
 Resume do_app_op_rel[MemOp]:
-  Cases_on ‘m’
+  Cases_on `m = CopyByte T`
+  >- (
+    gvs []
+    \\ irule do_app_copybyte_new_rel
+    \\ qexistsl [`s`,`vs`]
+    \\ gvs [])
+  \\ Cases_on ‘m’
+  >~ [`do_app (MemOp El)`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >~ [`FLOOKUP s.refs _ = SOME (ValueArray _)`] >- memop_el_ref_tac
+    >> memop_el_block_tac)
+  >~ [`do_app (MemOp (CopyWord _))`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >> qexists_tac `f`
+    >> `state_ref_rel f s.refs s'.refs` by gvs [state_rel_def]
+    >> `fmap_inj f` by gvs [state_rel_def]
+    >> imp_res_tac state_ref_rel_lookup
+    >> gvs [ref_rel_cases]
+    >> imp_res_tac LIST_REL_LENGTH
+    >> gvs [semanticPrimitivesTheory.copy_array_def, AllCaseEqs(),
+            bvl_to_bvi_id, bvl_to_bvi_refs, only_fresh_refl,
+            holes_unchanged_except_refl, holes_still_not_finalised_refl,
+            LIST_REL_TAKE, LIST_REL_DROP]
+    >> simp [bvlSemTheory.Unit_def]
+    >> irule state_rel_values_update
+    >> simp [LIST_REL_APPEND_suff, LIST_REL_TAKE, LIST_REL_DROP])
+  >~ [`do_app (MemOp FinaliseCons)`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >~ [`finalise_cons (Block _ _) _ = SOME _`] >- memop_finalise_block_tac
+    >> memop_finalise_tac)
+  >~ [`do_app (MemOp Ref)`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >> memop_create_tac)
+  >~ [`do_app (MemOp Update)`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >> memop_update_val_tac)
+  >~ [`do_app (MemOp Length)`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >> memop_read_tac)
+  >~ [`do_app (MemOp LengthByte)`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >> memop_read_tac)
+  >~ [`do_app (MemOp (RefByte _))`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >> memop_create_tac)
+  >~ [`do_app (MemOp RefArray)`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >> memop_create_tac)
+  >~ [`do_app (MemOp DerefByte)`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >> memop_read_tac)
+  >~ [`do_app (MemOp UpdateByte)`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >> memop_update_byte_tac)
+  >~ [`do_app (MemOp DerefBit)`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >> memop_read_tac)
+  >~ [`do_app (MemOp UpdateBit)`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >> memop_update_bit_tac)
+  >~ [`do_app (MemOp (CopyByte _))`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >> memop_update_byte_tac)
+  >~ [`do_app (MemOp (StringCmp _ _))`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >> memop_strcmp_tac)
+  >~ [`do_app (MemOp (ScanByte _))`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >> memop_read_tac)
+  >~ [`do_app (MemOp XorByte)`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >> memop_update_byte_tac)
+  >~ [`do_app (MemOp BoundsCheckArray)`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >> memop_read_tac)
+  >~ [`do_app (MemOp BoundsCheckBit)`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >> memop_read_tac)
+  >~ [`do_app (MemOp (BoundsCheckByte _))`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >> memop_read_tac)
+  >~ [`do_app (MemOp UpdateCons)`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >> memop_mutblock_tac)
+  >~ [`do_app (MemOp ConfigGC)`] >- (
+    gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+         no_mutcons_op_def, v_rel_cases]
+    >> memop_configgc_tac)
   >> gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
-          no_mutcons_op_def, v_rel_cases]
-  >> FIRST [memop_mutblock_tac >> NO_TAC, memop_finalise_tac >> NO_TAC,
-            memop_create_tac >> NO_TAC, memop_update_val_tac >> NO_TAC,
-            memop_update_byte_tac >> NO_TAC, memop_update_bit_tac >> NO_TAC,
-            memop_el_ref_tac >> NO_TAC,
-            memop_el_block_tac >> NO_TAC, memop_read_tac >> NO_TAC,
-            memop_configgc_tac >> NO_TAC, memop_strcmp_tac >> NO_TAC,
-            memop_finalise_tac >> NO_TAC, memop_finalise_block_tac >> NO_TAC]
+       no_mutcons_op_def, v_rel_cases]
 QED
 
 Theorem dest_thunk_not_thunk_rel:
@@ -2607,40 +2777,38 @@ Proof
 QED
 
 Theorem evaluate_pure_exp_lemma[local]:
-  (∀e n.
+  (∀n e.
      pure_exp n e ⇒
      ∀env.
        n ≤ LENGTH env ⇒
        ∃v. ∀(s:('c,'ffi) bviSem$state). evaluate ([e],env,s) = (Rval v,s)) ∧
-  (∀(x:bvi$exp option). T) ∧
-  (∀xs n.
+  (∀n xs.
      pure_exps n xs ⇒
      ∀env.
        n ≤ LENGTH env ⇒
        ∃v. ∀(s:('c,'ffi) bviSem$state). evaluate (xs,env,s) = (Rval v,s))
 Proof
-  ho_match_mp_tac bviTheory.exp_induction
+  ho_match_mp_tac pure_exp_ind
   >> rw []
   >> gvs [pure_exp_def, evaluate_def]
-  >- (* Let *)
-   (qpat_x_assum ‘∀n. pure_exps n xs ⇒ _’ drule >> strip_tac
-    >> first_x_assum drule >> strip_tac >> gvs []
-    >> qpat_x_assum ‘∀n. pure_exp n e ⇒ _’ drule >> strip_tac
-    >> first_x_assum irule >> gvs [])
-  >- (* Op *)
-   (qpat_x_assum ‘∀n. pure_exps n xs ⇒ _’ drule >> strip_tac
-    >> first_x_assum drule >> strip_tac >> gvs []
-    >> Cases_on ‘x’ >> gvs [pure_op_def, do_app_def, do_app_aux_def]
-    >- (* IntOp *)
-     (Cases_on ‘i’ >> Cases_on ‘xs’ >> gvs [pure_op_def, evaluate_def])
-    (* BlockOp *)
-    >> Cases_on ‘b’ >> gvs [pure_op_def, do_app_def, do_app_aux_def, bvl_to_bvi_id])
-  (* cons *)
+  >~ [‘evaluate ([e],_ ++ env,_)’] >- (
+    qpat_x_assum ‘∀env. _ ⇒ ∃v. ∀s. evaluate (xs,_,_) = _’ drule
+    >> strip_tac >> gvs []
+    >> first_x_assum irule >> simp [])
+  >~ [‘do_app op _ _’] >- (
+    qpat_x_assum ‘∀env. _ ⇒ ∃v. ∀s. evaluate (xs,_,_) = _’ drule
+    >> strip_tac >> gvs []
+    >> Cases_on ‘op’ >> gvs [pure_op_def, do_app_def, do_app_aux_def]
+    >- (
+      rename1 ‘IntOp iop’
+      >> Cases_on ‘iop’ >> Cases_on ‘xs’ >> gvs [pure_op_def, evaluate_def])
+    >> rename1 ‘BlockOp bop’
+    >> Cases_on ‘bop’ >> gvs [pure_op_def, do_app_def, do_app_aux_def, bvl_to_bvi_id])
   >> once_rewrite_tac [evaluate_CONS]
-  >> qpat_x_assum ‘∀n. pure_exp n e ⇒ _’ drule >> strip_tac
-  >> first_x_assum drule >> strip_tac >> gvs []
-  >> qpat_x_assum ‘∀n. pure_exps n xs ⇒ _’ drule >> strip_tac
-  >> first_x_assum drule >> strip_tac >> gvs []
+  >> qpat_x_assum ‘∀env. _ ⇒ ∃v. ∀s. evaluate ([e],_,_) = _’ drule
+  >> strip_tac
+  >> qpat_x_assum ‘∀env. _ ⇒ ∃v. ∀s. evaluate (xs,_,_) = _’ drule
+  >> strip_tac >> gvs []
 QED
 
 Theorem evaluate_pure_exps:
@@ -3007,54 +3175,48 @@ Proof
 QED
 
 Theorem subst_uses_lt_lemma[local]:
-  (∀E xs e us.
+  (∀xs E e us.
      subst xs E = SOME (e,us) ⇒ EVERY (λi. i < LENGTH xs) us) ∧
-  (∀(x:bvi$exp option). T) ∧
-  (∀Es xs es us.
+  (∀xs Es es us.
      substs xs Es = SOME (es,us) ⇒ EVERY (λi. i < LENGTH xs) us)
 Proof
-  ho_match_mp_tac bviTheory.exp_induction
+  ho_match_mp_tac subst_ind
   >> rw [subst_def, AllCaseEqs ()] >> gvs [LLOOKUP_EQ_EL]
   >> res_tac
 QED
 
 Theorem subst_pure_fwd_lemma[local]:
-  (∀E xs e us n.
+  (∀xs E e us n.
      subst xs E = SOME (e,us) ∧ pure_exp (n + LENGTH xs) E ∧
      (∀i. MEM i us ⇒ pure_exp n (EL i xs)) ⇒
      pure_exp n e) ∧
-  (∀(x:bvi$exp option). T) ∧
-  (∀Es xs es us n.
+  (∀xs Es es us n.
      substs xs Es = SOME (es,us) ∧ pure_exps (n + LENGTH xs) Es ∧
      (∀i. MEM i us ⇒ pure_exp n (EL i xs)) ⇒
      pure_exps n es)
 Proof
-  ho_match_mp_tac bviTheory.exp_induction
+  ho_match_mp_tac subst_ind
   >> rw [subst_def, AllCaseEqs ()] >> gvs [pure_exp_def, LLOOKUP_THM]
-  >~ [‘pure_op _ _ ∧ _’] >- (
-    rename [‘substs xs Es = SOME (es1,us)’, ‘pure_op op Es’]
-    >> reverse conj_tac
-    >- (first_x_assum irule >> first_assum $ irule_at Any >> simp [])
-    >> qpat_x_assum ‘substs _ _ = _’ mp_tac
-    >> Cases_on ‘Es’ >> rw [subst_def, AllCaseEqs ()]
-    >> Cases_on ‘op’ >> gvs [pure_op_def]
-    >~ [‘IntOp i’] >- (Cases_on ‘i’ >> gvs [pure_op_def])
-    >> Cases_on ‘b’ >> gvs [pure_op_def])
-  >> conj_tac >> first_x_assum irule >> first_assum $ irule_at Any >> simp []
+  >> rename [‘substs xs Es = SOME (es1,us)’, ‘pure_op op Es’]
+  >> qpat_x_assum ‘substs _ _ = _’ mp_tac
+  >> Cases_on ‘Es’ >> rw [subst_def, AllCaseEqs ()]
+  >> Cases_on ‘op’ >> gvs [pure_op_def]
+  >~ [‘IntOp i’] >- (Cases_on ‘i’ >> gvs [pure_op_def])
+  >> rename1 ‘BlockOp bop’
+  >> Cases_on ‘bop’ >> gvs [pure_op_def]
 QED
 
 Theorem subst_size_lemma[local]:
-  (∀E xs e us.
+  (∀xs E e us.
      subst xs E = SOME (e,us) ⇒
      exp_size e + LENGTH us ≤
      exp_size E + SUM (MAP (λi. exp_size (EL i xs)) us)) ∧
-  (∀(x:bvi$exp option). T) ∧
-  (∀Es xs es us.
+  (∀xs Es es us.
      substs xs Es = SOME (es,us) ⇒
      list_size exp_size es + LENGTH us ≤
      list_size exp_size Es + SUM (MAP (λi. exp_size (EL i xs)) us))
 Proof
-  ho_match_mp_tac bviTheory.exp_induction
+  ho_match_mp_tac subst_ind
   >> rw [subst_def, AllCaseEqs ()] >> gvs [LLOOKUP_THM, SUM_APPEND]
   >> rpt (first_x_assum drule) >> simp []
 QED
@@ -3107,15 +3269,14 @@ Proof
 QED
 
 Theorem subst_no_mutcons_lemma[local]:
-  (∀E xs e us.
+  (∀xs E e us.
      subst xs E = SOME (e,us) ∧ EVERY no_mutcons xs ∧ no_mutcons E ⇒
      no_mutcons e) ∧
-  (∀(x:bvi$exp option). T) ∧
-  (∀Es xs es us.
+  (∀xs Es es us.
      substs xs Es = SOME (es,us) ∧ EVERY no_mutcons xs ∧ EVERY no_mutcons Es ⇒
      EVERY no_mutcons es)
 Proof
-  ho_match_mp_tac bviTheory.exp_induction
+  ho_match_mp_tac subst_ind
   >> rw [subst_def, AllCaseEqs ()] >> gvs [LLOOKUP_THM, ETA_THM]
   >~ [‘no_mutcons (EL _ _)’] >- gvs [EVERY_EL]
   >> rpt (first_x_assum drule) >> simp []
@@ -3181,7 +3342,7 @@ Proof
       >> rename1 ‘EL k xs’
       >> qpat_x_assum ‘∀k. _ ⇒ pure_exp _ _’ (qspec_then ‘SUC k’ mp_tac)
       >> simp [])
-    >> drule_all (cj 3 evaluate_pure_exp_lemma) >> strip_tac
+    >> drule_all (cj 2 evaluate_pure_exp_lemma) >> strip_tac
     >> namedCases_on ‘evaluate ([x],env,s)’ ["r s2"]
     >> namedCases_on ‘r’ ["w", "err"] >> gvs []
     >> drule evaluate_SING_IMP >> strip_tac >> gvs [])
@@ -3198,21 +3359,20 @@ Proof
 QED
 
 Theorem evaluate_subst_0_lemma[local]:
-  (∀E xs e us n env (s:('c,'ffi) bviSem$state) vs s1.
+  (∀xs E e us n env (s:('c,'ffi) bviSem$state) vs s1.
      subst xs E = SOME (e,us) ∧
      (∀i. MEM i us ⇒ pure_exp n (EL i xs)) ∧
      evaluate (xs,env,s) = (Rval vs,s1) ∧ n ≤ LENGTH env ⇒
      ∀(t:('c,'ffi) bviSem$state).
        evaluate ([e],env,t) = evaluate ([E],vs ++ env,t)) ∧
-  (∀(x:bvi$exp option). T) ∧
-  (∀Es xs es us n env (s:('c,'ffi) bviSem$state) vs s1.
+  (∀xs Es es us n env (s:('c,'ffi) bviSem$state) vs s1.
      substs xs Es = SOME (es,us) ∧
      (∀i. MEM i us ⇒ pure_exp n (EL i xs)) ∧
      evaluate (xs,env,s) = (Rval vs,s1) ∧ n ≤ LENGTH env ⇒
      ∀(t:('c,'ffi) bviSem$state).
        evaluate (es,env,t) = evaluate (Es,vs ++ env,t))
 Proof
-  ho_match_mp_tac bviTheory.exp_induction
+  ho_match_mp_tac subst_ind
   >> rw [subst_def, AllCaseEqs ()]
   >~ [‘LLOOKUP xs _ = NONE’] >- (
     gvs [LLOOKUP_THM] >> imp_res_tac evaluate_IMP_LENGTH
@@ -3229,7 +3389,7 @@ Proof
 QED
 
 Theorem evaluate_subst_1_lemma[local]:
-  (∀E xs e us j n env (s:('c,'ffi) bviSem$state) s1.
+  (∀xs E e us j n env (s:('c,'ffi) bviSem$state) s1.
      subst xs E = SOME (e,us) ∧ ALL_DISTINCT us ∧ MEM j us ∧
      (∀k. k < LENGTH xs ∧ k ≠ j ⇒ pure_exp n (EL k xs)) ∧
      pure_exp (n + LENGTH xs) E ∧ n ≤ LENGTH env ⇒
@@ -3237,8 +3397,7 @@ Theorem evaluate_subst_1_lemma[local]:
            evaluate ([e],env,s) = evaluate ([E],vs ++ env,s1)) ∧
      (∀err. evaluate (xs,env,s) = (Rerr err,s1) ⇒
             evaluate ([e],env,s) = (Rerr err,s1))) ∧
-  (∀(x:bvi$exp option). T) ∧
-  (∀Es xs es us j n env (s:('c,'ffi) bviSem$state) s1.
+  (∀xs Es es us j n env (s:('c,'ffi) bviSem$state) s1.
      substs xs Es = SOME (es,us) ∧ ALL_DISTINCT us ∧ MEM j us ∧
      (∀k. k < LENGTH xs ∧ k ≠ j ⇒ pure_exp n (EL k xs)) ∧
      pure_exps (n + LENGTH xs) Es ∧ n ≤ LENGTH env ⇒
@@ -3247,7 +3406,7 @@ Theorem evaluate_subst_1_lemma[local]:
      (∀err. evaluate (xs,env,s) = (Rerr err,s1) ⇒
             evaluate (es,env,s) = (Rerr err,s1)))
 Proof
-  ho_match_mp_tac bviTheory.exp_induction >> simp []
+  ho_match_mp_tac subst_ind >> simp []
   >> rpt strip_tac
   >> gvs [subst_def, AllCaseEqs (), pure_exp_def]
   >~ [‘evaluate ([Var _],_,_)’] >- (
@@ -3275,15 +3434,15 @@ Proof
   >> gvs [ALL_DISTINCT_APPEND]
   >~ [‘evaluate (_::_,_,_) = evaluate _’] >- (
     (* the hole is in the head *)
-    qpat_x_assum ‘∀xs (e:bvi$exp) us j n env s s1. _’
-      (qspecl_then [‘xs’, ‘e1’, ‘u1’, ‘j’, ‘n’, ‘env’, ‘s’, ‘s1’] mp_tac)
+    qpat_x_assum ‘∀j n env s s1. MEM j u1 ∧ _ ⇒ _’
+      (qspecl_then [‘j’, ‘n’, ‘env’, ‘s’, ‘s1’] mp_tac)
     >> impl_tac >- simp []
     >> strip_tac >> first_x_assum drule >> strip_tac
     >> ‘∀i. MEM i u2 ⇒ pure_exp n (EL i xs)’ by (
-      drule (cj 3 subst_uses_lt_lemma) >> rw [EVERY_MEM]
+      drule (cj 2 subst_uses_lt_lemma) >> rw [EVERY_MEM]
       >> qpat_x_assum ‘∀k. _ ⇒ pure_exp _ _’ irule
       >> simp [] >> strip_tac >> gvs [])
-    >> drule_all (cj 3 evaluate_subst_0_lemma) >> strip_tac
+    >> drule_all (cj 2 evaluate_subst_0_lemma) >> strip_tac
     >> imp_res_tac evaluate_IMP_LENGTH
     >> drule (cj 1 evaluate_pure_exp_lemma)
     >> disch_then (qspec_then ‘vs ++ env’ mp_tac) >> impl_tac >- simp []
@@ -3296,8 +3455,8 @@ Proof
       >> qpat_x_assum ‘∀k. _ ⇒ pure_exp _ _’ irule
       >> simp [] >> strip_tac >> gvs [])
     >> drule_all (cj 1 evaluate_subst_0_lemma) >> strip_tac
-    >> qpat_x_assum ‘∀xs (es:bvi$exp list) us j n env s s1. _’
-         (qspecl_then [‘xs’, ‘es1’, ‘u2’, ‘j’, ‘n’, ‘env’, ‘s’, ‘s1’] mp_tac)
+    >> qpat_x_assum ‘∀j n env s s1. MEM j u2 ∧ _ ⇒ _’
+         (qspecl_then [‘j’, ‘n’, ‘env’, ‘s’, ‘s1’] mp_tac)
     >> impl_tac >- simp []
     >> strip_tac >> first_x_assum drule >> strip_tac
     >> imp_res_tac evaluate_IMP_LENGTH
@@ -3307,8 +3466,8 @@ Proof
     >> once_rewrite_tac [evaluate_CONS] >> simp [])
   >~ [‘evaluate (_::_,_,_)’] >- (
     (* the hole is in the head *)
-    qpat_x_assum ‘∀xs (e:bvi$exp) us j n env s s1. _’
-      (qspecl_then [‘xs’, ‘e1’, ‘u1’, ‘j’, ‘n’, ‘env’, ‘s’, ‘s1’] mp_tac)
+    qpat_x_assum ‘∀j n env s s1. MEM j u1 ∧ _ ⇒ _’
+      (qspecl_then [‘j’, ‘n’, ‘env’, ‘s’, ‘s1’] mp_tac)
     >> impl_tac >- simp []
     >> strip_tac >> first_x_assum drule >> strip_tac
     >> once_rewrite_tac [evaluate_CONS] >> simp [])
@@ -3319,8 +3478,8 @@ Proof
     >> simp [] >> strip_tac >> gvs [])
   >> drule_all (cj 1 subst_pure_fwd_lemma) >> strip_tac
   >> drule_all (cj 1 evaluate_pure_exp_lemma) >> strip_tac
-  >> qpat_x_assum ‘∀xs (es:bvi$exp list) us j n env s s1. _’
-       (qspecl_then [‘xs’, ‘es1’, ‘u2’, ‘j’, ‘n’, ‘env’, ‘s’, ‘s1’] mp_tac)
+  >> qpat_x_assum ‘∀j n env s s1. MEM j u2 ∧ _ ⇒ _’
+       (qspecl_then [‘j’, ‘n’, ‘env’, ‘s’, ‘s1’] mp_tac)
   >> impl_tac >- simp []
   >> strip_tac >> first_x_assum drule >> strip_tac
   >> once_rewrite_tac [evaluate_CONS] >> simp []
@@ -3334,7 +3493,7 @@ Proof
   recInduct inline_ind
   >> rw [inline_def, AllCaseEqs ()]
   >> ‘pure_exps m xs’ by simp [pure_exps_EVERY]
-  >> drule_all (cj 3 evaluate_pure_exp_lemma) >> strip_tac
+  >> drule_all (cj 2 evaluate_pure_exp_lemma) >> strip_tac
   >> first_assum (qspec_then ‘s’ assume_tac)
   >> imp_res_tac evaluate_IMP_LENGTH
   >> ‘∀i. MEM i us ⇒ pure_exp m (EL i xs)’ by (
@@ -6657,18 +6816,17 @@ Proof
 QED
 
 Theorem subst_code_labels_lemma[local]:
-  (∀E xs e us.
+  (∀xs E e us.
      subst xs E = SOME (e,us) ⇒
      get_code_labels e ⊆
      get_code_labels E ∪ BIGUNION (set (MAP get_code_labels xs))) ∧
-  (∀(x:bvi$exp option). T) ∧
-  (∀Es xs es us.
+  (∀xs Es es us.
      substs xs Es = SOME (es,us) ⇒
      BIGUNION (set (MAP get_code_labels es)) ⊆
      BIGUNION (set (MAP get_code_labels Es)) ∪
      BIGUNION (set (MAP get_code_labels xs)))
 Proof
-  ho_match_mp_tac bviTheory.exp_induction
+  ho_match_mp_tac subst_ind
   >> rw [subst_def, AllCaseEqs ()] >> gvs [get_code_labels_def, LLOOKUP_EQ_EL]
   >~ [‘get_code_labels (EL _ _)’] >- (
     simp [SUBSET_DEF, MEM_MAP, PULL_EXISTS] >> metis_tac [MEM_EL])

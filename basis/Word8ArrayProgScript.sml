@@ -17,6 +17,14 @@ val _ = ml_prog_update (open_module "Word8Array");
 val _ = append_decs
    ``[mk_binop «array» Aw8alloc;
       mk_binop «sub» Aw8sub;
+      Dlet NoLocs (Pvar «scanEq»)
+        (Fun «start» (Fun «stop» (Fun «w» (Fun «a»
+          (App Aw8ScanEq [Var (Short «start»); Var (Short «stop»);
+                            Var (Short «w»); Var (Short «a»)])))));
+      Dlet NoLocs (Pvar «scanNeq»)
+        (Fun «start» (Fun «stop» (Fun «w» (Fun «a»
+          (App Aw8ScanNeq [Var (Short «start»); Var (Short «stop»);
+                            Var (Short «w»); Var (Short «a»)])))));
       mk_binop «subBit» Aw8subBit;
       mk_unop «length» Aw8length;
       Dlet NoLocs (Pvar «update») (Fun «x» (Fun «y» (Fun «z»

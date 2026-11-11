@@ -198,12 +198,17 @@ Definition test_to_display_def:
   test_to_display (AltCompare cmp) = Item NONE «AltCompare» [opb_to_display cmp]
 End
 
+Definition div_round_to_display_def:
+  div_round_to_display TowardsZero = empty_item «TowardsZero» ∧
+  div_round_to_display RoundDown = empty_item «RoundDown»
+End
+
 Definition arith_to_display_def:
   arith_to_display Add = empty_item «Add» ∧
   arith_to_display Sub = empty_item «Sub» ∧
   arith_to_display Mul = empty_item «Mul» ∧
-  arith_to_display Div = empty_item «Div» ∧
-  arith_to_display Mod = empty_item «Mod» ∧
+  arith_to_display (Div r) = Item NONE «Div» [div_round_to_display r] ∧
+  arith_to_display (Mod r) = Item NONE «Mod» [div_round_to_display r] ∧
   arith_to_display And = empty_item «And» ∧
   arith_to_display Xor = empty_item «Xor» ∧
   arith_to_display Or  = empty_item «Or» ∧
@@ -251,15 +256,23 @@ Definition op_to_display_def:
   | Opref => empty_item «Opref»
   | Opderef => empty_item «Opderef»
   | Aw8alloc => empty_item «Aw8alloc»
+  | Aw8ScanEq => empty_item «Aw8ScanEq»
+  | Aw8ScanNeq => empty_item «Aw8ScanNeq»
   | Aw8sub => empty_item «Aw8sub»
   | Aw8length => empty_item «Aw8length»
   | Aw8update => empty_item «Aw8update»
+  | CopyVecVec => empty_item «CopyVecVec»
+  | CopyVecArr => empty_item «CopyVecArr»
+  | CopyArrVec => empty_item «CopyArrVec»
+  | CopyArrArr => empty_item «CopyArrArr»
   | CopyStrStr => empty_item «CopyStrStr»
   | CopyStrAw8 => empty_item «CopyStrAw8»
   | CopyAw8Str => empty_item «CopyAw8Str»
   | CopyAw8Aw8 => empty_item «CopyAw8Aw8»
   | Implode => empty_item «Implode»
   | Explode => empty_item «Explode»
+  | StrScanEq => empty_item «StrScanEq»
+  | StrScanNeq => empty_item «StrScanNeq»
   | Strsub => empty_item «Strsub»
   | Strlen => empty_item «Strlen»
   | Strcat => empty_item «Strcat»
@@ -419,12 +432,6 @@ End
 
 (* flatLang *)
 
-Theorem MEM_pat_size[local]:
-  !pats a. MEM a (pats:flatLang$pat list) ==> pat_size a < pat1_size pats
-Proof
-  Induct \\ rw [] \\ rw [flatLangTheory.pat_size_def] \\ res_tac \\ fs []
-QED
-
 Definition opt_con_to_display_def:
   opt_con_to_display ocon = case ocon of
     | NONE => empty_item «ConIdNone»
@@ -461,27 +468,6 @@ Definition flat_op_to_display_def:
     | El n => item_with_num «El» n
     | Id => empty_item «Id»
 End
-
-Theorem MEM_funs_size[local]:
-  !fs v1 v2 e. MEM (v1,v2,e) fs ==> flatLang$exp_size e < exp1_size fs
-Proof
-  Induct \\ fs [flatLangTheory.exp_size_def] \\ rw []
-  \\ fs [flatLangTheory.exp_size_def] \\ res_tac \\ fs []
-QED
-
-Theorem MEM_exps_size[local]:
-  !exps e. MEM e exps ==> flatLang$exp_size e < exp6_size exps
-Proof
-  Induct \\ fs [flatLangTheory.exp_size_def] \\ rw []
-  \\ fs [flatLangTheory.exp_size_def] \\ res_tac \\ fs []
-QED
-
-Theorem MEM_pats_size[local]:
-  !pats p e. MEM (p, e) pats ==> flatLang$exp_size e < exp3_size pats
-Proof
-  Induct \\ fs [flatLangTheory.exp_size_def] \\ rw []
-  \\ fs [flatLangTheory.exp_size_def] \\ res_tac \\ fs []
-QED
 
 Definition add_name_hint_def:
   add_name_hint prefix name_hint =
@@ -632,11 +618,13 @@ Definition clos_op_to_display_def:
     | MemOp LengthByte => String «LengthByte»
     | MemOp (RefByte b) => Item NONE «RefByte» [bool_to_display b]
     | MemOp RefArray => String «RefArray»
+    | MemOp (ScanByte neq) => Item NONE «ScanByte» [bool_to_display neq]
     | MemOp DerefByte => String «DerefByte»
     | MemOp UpdateByte => String «UpdateByte»
     | MemOp DerefBit => String «DerefBit»
     | MemOp UpdateBit => String «UpdateBit»
     | MemOp ConcatByteVec => String «ConcatByteVec»
+    | MemOp (CopyWord b) => Item NONE «CopyWord» [bool_to_display b]
     | MemOp (CopyByte b) => Item NONE «CopyByte» [bool_to_display b]
     | MemOp FromListByte => String «FromListByte»
     | MemOp ToListByte => String «ToListByte»
@@ -664,7 +652,6 @@ Definition clos_op_to_display_def:
     | IntOp LessEq => String «LessEq»
     | IntOp Greater => String «Greater»
     | IntOp GreaterEq => String «GreaterEq»
-    | IntOp (LessConstSmall num) => item_with_num «LessConstSmall» num
     | IntOp (Smallnum SmallAdd) => String «SmallAdd»
     | IntOp (Smallnum SmallSub) => String «SmallSub»
     | IntOp (Smallnum SmallMult) => String «SmallMult»
@@ -698,13 +685,6 @@ Definition clos_op_to_display_def:
     | Install => String «Install»
     | ThunkOp t => thunk_op_to_display t
 End
-
-Theorem MEM_clos_exps_size[local]:
-  !exps e. MEM e exps ==> closLang$exp_size e < exp3_size exps
-Proof
-  Induct \\ fs [closLangTheory.exp_size_def] \\ rw []
-  \\ fs [closLangTheory.exp_size_def] \\ res_tac \\ fs []
-QED
 
 Definition commas_def:
   commas [] = «» ∧
@@ -793,13 +773,6 @@ End
 
 (* bvl to displayLang *)
 
-Theorem MEM_bvl_exps_size[local]:
-  !exps e. MEM e exps ==> bvl$exp_size e < exp1_size exps
-Proof
-  Induct \\ fs [bvlTheory.exp_size_def] \\ rw []
-  \\ fs [bvlTheory.exp_size_def] \\ res_tac \\ fs []
-QED
-
 Definition bvl_to_display_def:
   (bvl_to_display ns h (Var n) =
     Item NONE «var» [display_num_as_varn (h-n-1)]) /\
@@ -852,13 +825,6 @@ Definition bvl_fun_to_display_def:
 End
 
 (* bvi to displayLang *)
-
-Theorem MEM_bvi_exps_size[local]:
-  !exps e. MEM e exps ==> bvi$exp_size e < exp2_size exps
-Proof
-  Induct \\ fs [bviTheory.exp_size_def] \\ rw []
-  \\ fs [bviTheory.exp_size_def] \\ res_tac \\ fs []
-QED
 
 Definition bvi_to_display_def:
   (bvi_to_display ns h (Var n) =
@@ -939,7 +905,7 @@ End
 Theorem MEM_append_data_seqs[local]:
   ∀x. MEM a (append (data_seqs x)) ⇒ prog_size a ≤ prog_size x
 Proof
-  Induct \\ simp [Once data_seqs_def,dataLangTheory.prog_size_def]
+  Induct \\ simp [Once data_seqs_def]
   \\ rw [] \\ res_tac \\ gvs []
 QED
 
@@ -948,7 +914,7 @@ Theorem list_size_append_data_seqs[local]:
   list_size prog_size (append (data_seqs x)) =
   prog_size x + 1
 Proof
-  Induct \\ simp [Once data_seqs_def,dataLangTheory.prog_size_def,list_size_def,list_size_append]
+  Induct \\ simp [Once data_seqs_def,list_size_append]
 QED
 
 Definition data_prog_to_display_def:
@@ -1160,7 +1126,7 @@ End
 Theorem MEM_append_stack_seqs[local]:
   ∀x. MEM a (append (stack_seqs x)) ⇒ prog_size a ≤ prog_size x
 Proof
-  Induct \\ simp [Once stack_seqs_def,stackLangTheory.prog_size_def]
+  Induct \\ simp [Once stack_seqs_def]
   \\ rw [] \\ res_tac \\ gvs []
 QED
 
@@ -1169,7 +1135,7 @@ Theorem list_size_append_stack_seqs[local]:
   list_size prog_size (append (stack_seqs x)) =
   prog_size x + 1
 Proof
-  Induct \\ simp [Once stack_seqs_def,stackLangTheory.prog_size_def,list_size_def,list_size_append]
+  Induct \\ simp [Once stack_seqs_def,list_size_append]
 QED
 
 Definition stack_prog_to_display_def:
@@ -1330,11 +1296,9 @@ End
 Theorem MEM_append_word_seqs[local]:
   ∀x. MEM a (append (word_seqs x)) ⇒ prog_size a ≤ prog_size x
 Proof
-  Induct \\ simp [Once word_seqs_def,wordLangTheory.prog_size_def]
+  Induct \\ simp [Once word_seqs_def]
   \\ rw [] \\ res_tac \\ gvs []
 QED
-
-Theorem MEM_word_exps_size[local] = wordLangTheory.MEM_IMP_exp_size;
 
 Definition word_exp_to_display_def:
   (word_exp_to_display (wordLang$Const v)

@@ -53,12 +53,6 @@ Definition compile_var_def:
   compile_var t (Local _ s) = Var_local t s
 End
 
-Theorem ast_pat1_size:
-  ast$pat1_size xs = LENGTH xs + SUM (MAP pat_size xs)
-Proof
-  Induct_on `xs` \\ simp [astTheory.pat_size_def]
-QED
-
 Definition compile_pat_def:
   (compile_pat env (ast$Pvar v) = flatLang$Pvar v) ∧
   (compile_pat env Pany = Pany) ∧
@@ -71,9 +65,7 @@ Definition compile_pat_def:
   (compile_pat env (Pas p i) = Pas (compile_pat env p) i) ∧
   (compile_pat env (Ptannot p t) = compile_pat env p)
 Termination
-  WF_REL_TAC `measure (pat_size o SND)` >>
-  rw [ast_pat1_size] >>
-  fs [MEM_SPLIT, SUM_APPEND]
+  WF_REL_TAC `measure (pat_size o SND)`
 End
 
 Definition pat_tups_def:

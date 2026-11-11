@@ -322,6 +322,23 @@ Definition drop_consts_def:
     | SOME w => SmartSeq (drop_consts cs ns) (Assign n (Const w))
 End
 
+Definition cmp_symmetric_def:
+  cmp_symmetric Equal = T ∧
+  cmp_symmetric NotEqual = T ∧
+  cmp_symmetric (_:cmp) = F
+End
+
+(* Use an immediate for a compared variable whose value is known *)
+Definition const_fp_if_args_def:
+  const_fp_if_args cmp lhs rhs cs =
+    case get_var_imm_cs rhs cs of
+    | SOME c => (lhs, Imm c)
+    | NONE =>
+      case (lookup lhs cs, rhs) of
+      | (SOME c, Reg r) => if cmp_symmetric cmp then (r, Imm c) else (lhs, rhs)
+      | _ => (lhs, rhs)
+End
+
 Definition const_fp_loop_def:
   (const_fp_loop bits (Move pri moves : prog) cs = (Move pri moves, const_fp_move_cs moves cs cs)) /\
   (const_fp_loop bits (Inst i) cs = (Inst i, const_fp_inst_cs bits i cs)) /\
@@ -344,9 +361,10 @@ Definition const_fp_loop_def:
       | (SOME clhs, SOME crhs) =>
         (if int_cmp bits cmp clhs crhs
          then const_fp_loop bits p1 cs else const_fp_loop bits p2 cs)
-      | _ => (let (p1', p1cs) = const_fp_loop bits p1 cs in
+      | _ => (let (lhs',rhs') = const_fp_if_args cmp lhs rhs cs in
+              let (p1', p1cs) = const_fp_loop bits p1 cs in
               let (p2', p2cs) = const_fp_loop bits p2 cs in
-               (wordLang$If cmp lhs rhs p1' p2', inter_eq p1cs p2cs))) /\
+               (wordLang$If cmp lhs' rhs' p1' p2', inter_eq p1cs p2cs))) /\
   (const_fp_loop bits (Call ret dest args handler) cs =
     case ret of
       | NONE => (SmartSeq (drop_consts cs args) (Call ret dest args handler),

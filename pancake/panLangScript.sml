@@ -127,14 +127,6 @@ Overload TailCall = “Call NONE”
 Overload AssignCall = “\s h. Call (SOME (SOME s , h))”
 Overload StandAloneCall = “\h. Call (SOME (NONE , h))”
 
-Theorem MEM_IMP_shape_size:
-   !shapes a. MEM a shapes ==> (shape_size a < 1 + shape1_size shapes)
-Proof
-  Induct >> fs [] >>
-  rpt strip_tac >> rw [fetch "-" "shape_size_def"] >>
-  res_tac >> decide_tac
-QED
-
 Definition is_wf_shape_def:
   is_wf_shape ctxt One = T /\
   is_wf_shape ctxt (Comb shs) = EVERY (is_wf_shape ctxt) shs /\
@@ -193,18 +185,6 @@ Definition shape_val_def:
   shape_vals [] = [] ∧
   shape_vals (sh::shs) = shape_val sh :: shape_vals shs
 End
-
-Theorem MEM_IMP_exp_size:
-  (!xs a. MEM a xs ==> (exp_size a < exp3_size xs)) ∧
-  (!xs a. MEM a xs ==> (exp_size (SND a) < exp1_size xs))
-Proof
-  conj_tac
-  >- (
-    Induct >> simp [] >> rpt strip_tac >>
-    gvs [definition "exp_size_def"] >> res_tac >> decide_tac) >>
-  Induct >> simp [] >> rpt strip_tac >>
-  Cases_on ‘a’ >> gvs [definition "exp_size_def"] >> res_tac >> decide_tac
-QED
 
 Definition nested_seq_def:
   (nested_seq [] = Skip) /\
@@ -288,10 +268,7 @@ Definition global_var_exp_def:
   (global_var_exp (Cmp c e1 e2) = global_var_exp e1 ++ global_var_exp e2) ∧
   (global_var_exp (Shift sh e1 e2) = global_var_exp e1 ++ global_var_exp e2)
 Termination
-  wf_rel_tac `measure exp_size` >>
-  rpt strip_tac >>
-  imp_res_tac MEM_IMP_exp_size >>
-  decide_tac
+  wf_rel_tac `measure exp_size`
 End
 
 Definition load_op_def:

@@ -323,45 +323,47 @@ Proof
 QED
 
 Theorem mem_stores_load_disjoint:
-  (∀sh (addr:'a word) vs addrs memory m stcs addr'.
+  (∀sh addr' addrs m stcs (addr:'a word) vs memory.
     mem_stores addr vs addrs memory = SOME m ∧
     stcs = [] ∧ is_wf_shape stcs sh ∧
     DISJOINT (addresses addr' (size_of_shape sh)) (addresses addr (LENGTH vs)) ⇒
     mem_load sh addr' addrs m stcs = mem_load sh addr' addrs memory []) ∧
-  (∀shs (addr:'a word) vs addrs memory m stcs addr'.
+  (∀shs addr' addrs m stcs (addr:'a word) vs memory.
     mem_stores addr vs addrs memory = SOME m ∧
     stcs = [] ∧ EVERY (is_wf_shape stcs) shs ∧
     DISJOINT (addresses addr' (SUM(MAP size_of_shape shs))) (addresses addr (LENGTH vs)) ⇒
-    mem_loads shs addr' addrs m stcs = mem_loads shs addr' addrs memory [])
+    mem_loads shs addr' addrs m stcs = mem_loads shs addr' addrs memory []) ∧
+  (∀fs (addr':'a word) addrs m stcs vfs.
+    mem_load_flds fs addr' addrs m stcs = SOME vfs ∧ stcs = [] ∧ T ⇒ T)
 Proof
-  Induct >>
-  PURE_ONCE_REWRITE_TAC[mem_load_def] >>
-  rw[addresses_def,size_of_shape_def,
-     CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV addresses_def,
-     ETA_THM, is_wf_shape_def, SF ETA_ss] >> fs []
-  >- metis_tac[mem_stores_lookup]
-  >- metis_tac[] >>
-  ntac 2 $ first_x_assum drule >>
-  rename1 ‘mem_loads _ (start_addr + _)’ >>
-  disch_then $ qspec_then ‘start_addr’ mp_tac >>
-  impl_tac
-  >- (gvs[addresses_thm,DISJOINT_ALT,PULL_EXISTS] >>
-      rpt strip_tac >>
-      first_x_assum $ qspec_then ‘i’ mp_tac >>
-      simp[] >>
-      metis_tac[]) >>
-  strip_tac >>
-  simp[] >>
+  ho_match_mp_tac mem_load_ind >>
+  rw[]
+  >- (Cases_on ‘sh’ >>
+      gvs[mem_load_def,addresses_def,size_of_shape_def,is_wf_shape_def,
+          CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV addresses_def,ETA_THM] >> (* HOL#2098 *)
+      metis_tac[mem_stores_lookup])
+  >- simp[mem_load_def] >>
+  simp[cj 3 mem_load_def] >>
+  ‘mem_load sh addr' addrs m [] = mem_load sh addr' addrs memory' []’
+    by (first_x_assum irule >>
+        simp[] >>
+        qexistsl [‘addr’,‘vs’] >>
+        gvs[addresses_thm,DISJOINT_ALT,PULL_EXISTS] >>
+        rpt strip_tac >>
+        first_x_assum $ qspec_then ‘i’ mp_tac >>
+        simp[] >>
+        metis_tac[]) >>
   qmatch_goalsub_abbrev_tac ‘mem_loads _ a1’ >>
-  disch_then $ qspec_then ‘a1’ mp_tac >>
-  impl_tac
-  >- (gvs[addresses_thm,DISJOINT_ALT,PULL_EXISTS, Abbr ‘a1’] >>
-      rpt strip_tac >>
-      first_x_assum $ qspec_then ‘i + size_of_shape sh’ mp_tac >>
-      gs[size_of_sh_with_ctxt_eq] >>
-      simp[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB] >>
-      metis_tac[]) >>
-  strip_tac >>
+  ‘mem_loads shs a1 addrs m [] = mem_loads shs a1 addrs memory' []’
+    by (first_x_assum irule >>
+        simp[] >>
+        qexistsl [‘addr’,‘vs’] >>
+        gvs[addresses_thm,DISJOINT_ALT,PULL_EXISTS,Abbr ‘a1’] >>
+        rpt strip_tac >>
+        first_x_assum $ qspec_then ‘i + size_of_shape sh’ mp_tac >>
+        gs[size_of_sh_with_ctxt_eq] >>
+        simp[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB] >>
+        metis_tac[]) >>
   simp[]
 QED
 
@@ -382,46 +384,46 @@ Theorem mem_stores_mem_load_back:
     mem_loads (MAP shape_of vals) addr addrs m sctxt =
     SOME vals)
 Proof
-  Induct >>
-  rw[flatten_def,shape_of_def,mem_stores_def,AllCaseEqs(),
-     mem_store_def,mem_load_def,is_wf_shape_def] >>
-  rw[UPDATE_APPLY]
-  >- (rw[Once $ oneline shape_of_def] >> PURE_CASE_TAC >> simp[])
-  >- (first_x_assum drule >> gvs[ETA_THM, EVERY_MAP])
-  >- (gvs[mem_stores_append,AllCaseEqs()] >>
-      res_tac >>
-      fs[] >>
-      Cases_on `shape_of val` >> fs [is_wf_shape_def]
-      >- (
-          gvs [mem_load_def] >>
-          fs [flatten_def, mem_stores_def, option_case_eq] >>
-          drule_then irule mem_stores_lookup >>
-          simp[addresses_thm] >>
-          gvs[shape_of_val] >>
-          SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
-          rpt strip_tac >>
-          gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def]) >>
-      simp[mem_load_def] >>
-      drule $ cj 2 mem_stores_load_disjoint >>
-      simp [] >>
-      disch_then $ qspecl_then [‘l’,‘addr’] mp_tac >>
-      fs [mem_load_def, option_case_eq] >>
-      reverse impl_tac >- pop_assum $ simp o single >>
-      gvs[shape_of_def,ETA_THM,LENGTH_FLAT,
-          MAP_MAP_o,o_DEF,length_flatten_eq_size_of_shape,
-          size_of_shape_def, is_wf_shape_def, SF ETA_ss
-         ] >>
-      gvs[SF ETA_ss, DISJOINT_ALT,addresses_thm,PULL_EXISTS] >>
+  conj_asm1_tac
+  >- (
+    Induct >>
+    rw[flatten_def,shape_of_def,mem_stores_def,AllCaseEqs(),
+       mem_store_def,mem_load_def,is_wf_shape_def]
+    >- (rw[Once $ oneline shape_of_def] >> PURE_CASE_TAC >> simp[])
+    >- rw[UPDATE_APPLY] >>
+    rpt (pop_assum mp_tac) >>
+    map_every qid_spec_tac [‘m’,‘memory'’,‘addr’] >>
+    Induct_on ‘l’
+    >- simp[mem_load_def] >>
+    rw[cj 3 mem_load_def,mem_stores_append,AllCaseEqs()]
+    >- (
+      ‘mem_load (shape_of h) addr addrs memory'' [] = SOME h’
+        by (first_x_assum irule >>
+            simp[] >>
+            qexists ‘memory'’ >>
+            simp[]) >>
+      pop_assum (SUBST1_TAC o GSYM) >>
+      irule (cj 1 mem_stores_load_disjoint) >>
+      simp[] >>
+      goal_assum drule >>
+      gvs[GSYM length_flatten_eq_size_of_shape,DISJOINT_ALT,addresses_thm,PULL_EXISTS] >>
       rw[] >>
-      gvs[ETA_THM] >>
       FULL_SIMP_TAC std_ss [GSYM WORD_ADD_ASSOC, addressTheory.WORD_EQ_ADD_CANCEL] >>
       spose_not_then strip_assume_tac >>
       gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def,
-          LEFT_ADD_DISTRIB,shape_of_def]) >>
-  gvs[mem_stores_append,AllCaseEqs()] >>
-  first_x_assum drule >> simp[] >>
-  strip_tac >>
-  gvs[size_of_sh_with_ctxt_eq, length_flatten_eq_size_of_shape]
+          LEFT_ADD_DISTRIB]) >>
+    ‘size_of_sh_with_ctxt [] (shape_of h) = LENGTH (flatten h)’
+      by gs[size_of_sh_with_ctxt_eq,length_flatten_eq_size_of_shape] >>
+    simp[] >>
+    qpat_x_assum ‘∀addr memory' m. _’ irule >>
+    simp[] >>
+    metis_tac[]) >>
+  rpt strip_tac >>
+  gvs[ETA_THM] >> (* HOL#2098 *)
+  first_x_assum $ qspec_then ‘RStruct vals’ mp_tac >>
+  simp[flatten_def,shape_of_def,is_wf_shape_def,mem_load_def,ETA_THM] >> (* HOL#2098 *)
+  disch_then drule >>
+  gvs[AllCaseEqs(),SF ETA_ss] (* HOL#2098 *)
 QED
 
 Theorem LESS_MULT_MONO'[local]:
@@ -647,31 +649,39 @@ Theorem mem_load_disjoint:
      EVERY is_wf_shape_nil (MAP shape_of vals) ⇒
      mem_loads (MAP shape_of vals) addr' addrs memory⦇addr'' ↦ v⦈ stcs = SOME vals)
 Proof
-  Induct
-  >- (Cases >>
-      rw[mem_load_def,AllCaseEqs(),shape_of_def,size_of_shape_def,
-         CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV addresses_def,
-         APPLY_UPDATE_THM
-        ])
-  >- (rw[mem_load_def,AllCaseEqs(),shape_of_def,size_of_shape_def,is_wf_shape_def,
-         CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV addresses_def,
-         APPLY_UPDATE_THM,MAP_MAP_o,o_DEF,SF ETA_ss
-        ])
-  >- simp [is_wf_shape_def, shape_of_def]
-  >- (rw[mem_load_def,shape_of_def]) >>
-  rw[cj 3 mem_load_def,AllCaseEqs()]
-  >- (first_x_assum irule >>
-      gvs[addresses_thm] >>
-      rw[] >>
-      first_x_assum $ resolve_then Any mp_tac EQ_REFL >>
-      simp[]) >>
-  first_x_assum irule >>
-  simp[] >>
-  gvs[addresses_thm] >>
-  rw[] >>
-  first_x_assum $ qspec_then ‘i + size_of_shape (shape_of val)’ mp_tac >>
-  impl_tac
-  >- simp[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,size_of_sh_with_ctxt_eq] >>
+  conj_asm1_tac
+  >- (
+    Induct
+    >- (Cases >>
+        rw[mem_load_def,AllCaseEqs(),shape_of_def,size_of_shape_def,
+           CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV addresses_def,
+           APPLY_UPDATE_THM
+          ])
+    >- (rw[mem_load_def,AllCaseEqs(),shape_of_def,size_of_shape_def,is_wf_shape_def,
+           MAP_MAP_o,o_DEF] >>
+        rpt (pop_assum mp_tac) >>
+        map_every qid_spec_tac [‘memory'’,‘addr'’] >>
+        Induct_on ‘l’
+        >- simp[mem_load_def] >>
+        rw[cj 3 mem_load_def,AllCaseEqs()]
+        >- (qpat_x_assum ‘∀v. v = h ∨ _ ⇒ _’ irule >>
+            gvs[addresses_thm] >>
+            rw[] >>
+            first_x_assum $ resolve_then Any mp_tac EQ_REFL >>
+            simp[]) >>
+        qpat_x_assum ‘∀addr' memory'. _’ irule >>
+        simp[] >>
+        gvs[addresses_thm] >>
+        rw[] >>
+        first_x_assum $ qspec_then ‘i + size_of_shape (shape_of h)’ mp_tac >>
+        simp[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,size_of_sh_with_ctxt_eq])
+    >> simp [is_wf_shape_def, shape_of_def]) >>
+  rpt strip_tac >>
+  gvs[o_DEF] >>
+  first_x_assum $ qspec_then ‘RStruct vals’ mp_tac >>
+  simp[shape_of_def,mem_load_def,size_of_shape_def,is_wf_shape_def,MAP_MAP_o,o_DEF,
+       AllCaseEqs(),SF ETA_ss] >> (* HOL#2098 *)
+  disch_then irule >>
   simp[]
 QED
 
@@ -973,7 +983,7 @@ Theorem eval_shape_val_NONE[simp]:
   (∀shs.
      OPT_MMAP (eval t) (shape_vals shs) = NONE ⇔ F)
 Proof
-  Induct >>
+  ho_match_mp_tac shape_val_ind >>
   rw[shape_val_def,eval_def] >>
   CONV_TAC $ DEPTH_CONV ETA_CONV >>
   PURE_TOP_CASE_TAC >> gvs[]
@@ -987,7 +997,7 @@ Theorem eval_shape_val_thm:
     OPT_MMAP (eval t) (shape_vals shs) = SOME vs ∧
     EVERY is_wf_shape_nil shs ⇒ shs = MAP shape_of vs)
 Proof
-  Induct >>
+  ho_match_mp_tac shape_val_ind >>
   rw[shape_val_def,eval_def,shape_of_def,is_wf_shape_def] >>
   gvs [AllCaseEqs(), shape_of_def, SF ETA_ss]
 QED
@@ -3229,7 +3239,7 @@ Theorem localised_exp_shape_val:
   (∀sh. localised_exp ((shape_val sh):panLang$exp)) ∧
   (∀shs. EVERY localised_exp ((shape_vals shs):panLang$exp list))
 Proof
-  Induct >> rw[shape_val_def,localised_exp_simps] >> gvs[ETA_THM]
+  ho_match_mp_tac shape_val_ind >> rw[shape_val_def,localised_exp_simps] >> gvs[ETA_THM]
 QED
 
 Theorem compile_localised:

@@ -318,7 +318,7 @@ Theorem const_enc_aux_thm[cv_inline,local]:
   closLang_const_enc' = const_enc_aux ∧
   MAP closLang_const_enc' = const_enc_aux_list
 Proof
-  gvs [FUN_EQ_THM] \\ Induct
+  gvs [FUN_EQ_THM] \\ ho_match_mp_tac const_enc_aux_ind
   \\ gvs [const_enc_aux_def,backend_enc_decTheory.closLang_const_enc'_def,
           num_tree_enc_decTheory.list_enc'_def,SF ETA_ss]
 QED
@@ -346,7 +346,7 @@ Theorem bvl_exp_enc_aux_thm[cv_inline,local]:
   bvl_exp_enc' = bvl_exp_enc_aux ∧
   MAP bvl_exp_enc' = bvl_exp_enc_aux_list
 Proof
-  gvs [FUN_EQ_THM] \\ Induct
+  gvs [FUN_EQ_THM] \\ ho_match_mp_tac bvl_exp_enc_aux_ind
   \\ gvs [bvl_exp_enc_aux_def,backend_enc_decTheory.bvl_exp_enc'_def,
           num_tree_enc_decTheory.list_enc'_def,SF ETA_ss]
 QED
@@ -453,7 +453,7 @@ Theorem val_approx_enc_aux_thm[cv_inline,local]:
   clos_known_val_approx_enc' = val_approx_enc_aux ∧
   MAP clos_known_val_approx_enc' = val_approx_enc_aux_list
 Proof
-  gvs [FUN_EQ_THM] \\ Induct
+  gvs [FUN_EQ_THM] \\ ho_match_mp_tac val_approx_enc_aux_ind
   \\ gvs [val_approx_enc_aux_def,backend_enc_decTheory.clos_known_val_approx_enc'_def,
           num_tree_enc_decTheory.list_enc'_def,SF ETA_ss]
 QED
@@ -753,7 +753,10 @@ Theorem word_alloc_get_live_exp_pre[cv_pre]:
   (∀v:wordLang$exp. word_alloc_get_live_exp_pre v) ∧
   (∀v:wordLang$exp list. get_live_exps_pre v)
 Proof
-  ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
+  qsuff_tac ‘∀v:wordLang$exp. word_alloc_get_live_exp_pre v’
+  >- (strip_tac \\ gvs [] \\ Induct \\ gvs [Once pre])
+  \\ ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
+  \\ Induct_on ‘l’ \\ rw [] \\ simp [Once pre] \\ gvs []
 QED
 
 val _ = cv_trans word_instTheory.is_Lookup_CurrHeap_def;

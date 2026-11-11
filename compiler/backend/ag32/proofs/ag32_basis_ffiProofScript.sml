@@ -1125,7 +1125,7 @@ Proof
   \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_keeps_iostreams)
   \\ disch_then drule
   \\ simp[Abbr`fs'`, AFUPDKEY_ALOOKUP]
-  \\ simp[data_to_word_assignProofTheory.IMP]
+  \\ simp[data_to_word_assign_blockProofTheory.IMP]
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac`off + nw`
   \\ fs[Abbr`new_content`]
@@ -1526,7 +1526,7 @@ Proof
   \\ `bs = SOME bs'`
   by (
     simp[Abbr`bs`]
-    \\ irule data_to_word_assignProofTheory.IMP_read_bytearray_GENLIST
+    \\ irule data_to_word_assign_miscProofTheory.IMP_read_bytearray_GENLIST
     \\ fs[Abbr`bs'`]
     \\ gen_tac \\ strip_tac
     \\ drule bytes_in_memory_EL
@@ -1546,7 +1546,7 @@ Proof
   \\ `bs = SOME conf`
   by (
     simp[Abbr`bs`]
-    \\ irule data_to_word_assignProofTheory.IMP_read_bytearray_GENLIST
+    \\ irule data_to_word_assign_miscProofTheory.IMP_read_bytearray_GENLIST
     \\ fs[]
     \\ gen_tac \\ strip_tac
     \\ conj_tac
@@ -2942,7 +2942,7 @@ Proof
     \\ simp[Abbr`ls`]
     \\ simp[MIN_DEF, output_buffer_size_def] )
   \\ qpat_x_assum`Abbrev(n0' = _)`kall_tac
-  \\ irule data_to_word_assignProofTheory.IMP_read_bytearray_GENLIST
+  \\ irule data_to_word_assign_miscProofTheory.IMP_read_bytearray_GENLIST
   \\ simp[]
   \\ gen_tac \\ strip_tac
   \\ `n2w i + n2w output_offset :word32= (n2w output_offset) + n2w i` by simp[]
@@ -4222,7 +4222,7 @@ Proof
       \\ rveq \\ fs[]
       \\ qpat_x_assum`_ MOD _ < _`mp_tac \\ simp[]
       \\ qpat_x_assum`_ ≤ _ MOD _`mp_tac \\ simp[] )
-    \\ simp[data_to_word_assignProofTheory.IMP]
+    \\ simp[data_to_word_assign_blockProofTheory.IMP]
     \\ strip_tac
     \\ qx_gen_tac`j`
     \\ Cases_on`j < 428` \\ simp[])
@@ -4332,7 +4332,7 @@ Proof
     \\ simp[APPLY_UPDATE_THM]
     \\ conj_tac
     >- (
-      fs[data_to_word_assignProofTheory.IMP]
+      fs[data_to_word_assign_blockProofTheory.IMP]
       \\ CCONTR_TAC \\ fs[]
       \\ qpat_x_assum`_ ∉ all_words _ _`mp_tac
       \\ simp[]
@@ -4345,7 +4345,7 @@ Proof
     \\ rveq \\ EVAL_TAC
     \\ simp[] )
   \\ simp[MIN_DEF]
-  \\ fs[data_to_word_assignProofTheory.IMP]
+  \\ fs[data_to_word_assign_blockProofTheory.IMP]
   \\ fs[EVAL``output_buffer_size``]
   \\ qpat_x_assum`_ ∉ ag32_ffi_mem_domain`mp_tac
   \\ EVAL_TAC
@@ -7615,7 +7615,7 @@ Proof
       \\ qexists_tac`SOME o m2`
       \\ qexists_tac`LENGTH inp`
       \\ simp[]
-      \\ irule data_to_word_assignProofTheory.IMP_read_bytearray_GENLIST
+      \\ irule data_to_word_assign_miscProofTheory.IMP_read_bytearray_GENLIST
       \\ simp[]
       \\ simp[init_memory_def]
       (* TODO: this could be an init_memory_stdin lemma *)
@@ -7760,7 +7760,7 @@ Proof
     \\ qexists_tac`SOME o m2`
     \\ qexists_tac`lf`
     \\ simp[]
-    \\ irule data_to_word_assignProofTheory.IMP_read_bytearray_GENLIST
+    \\ irule data_to_word_assign_miscProofTheory.IMP_read_bytearray_GENLIST
     \\ simp[]
     \\ simp[init_memory_def]
     \\ `byte_aligned ((n2w (startup_code_size + 4)):word32)` by EVAL_TAC
