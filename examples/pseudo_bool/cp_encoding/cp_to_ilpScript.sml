@@ -328,6 +328,19 @@ Definition reify_flag_def:
         BIT (Num (EL 1 vs)) (vp_first_occ wi Xs (EL 0 vs))
       else (* ann = SOME («pge») *)
         &(vp_first_occ wi Xs (EL 0 vs)) ≥ EL 1 vs
+    | SOME (Misc (MinDistance Xs Z D optR)) =>
+      (* «u» [a]: some position takes site a; «d» [a]: at least two positions
+         take site a; «w» [a;b]: sites a and b are both taken; «m» [t]: two
+         distinct positions are at distance at most t *)
+      if ann = SOME («u») then
+        MEM (HD vs) $ MAP (varc wi) Xs
+      else if ann = SOME («d») then
+        2 ≤ LENGTH (FILTER (λX. varc wi X = HD vs) Xs)
+      else if ann = SOME («w») then
+        MEM (EL 0 vs) (MAP (varc wi) Xs) ∧ MEM (EL 1 vs) (MAP (varc wi) Xs)
+      else (* ann = SOME («m») *)
+        ∃i j. i < LENGTH Xs ∧ j < LENGTH Xs ∧ i ≠ j ∧
+          &pos_dist D Xs wi i j ≤ HD vs
     )
 End
 
@@ -751,6 +764,35 @@ Theorem encode_full_eq_sem[simp]:
 Proof
   rw[encode_full_eq_def]>>
   metis_tac[encode_eq_sem]
+QED
+
+Theorem encode_full_eq_reify:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi)) (encode_full_eq bnd X v)
+Proof
+  rw[]>>
+  DEP_REWRITE_TAC[encode_full_eq_sem]>>
+  simp[reify_avar_def,reify_reif_def]
+QED
+
+Theorem encode_full_eqs_reify:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
+    (FLAT (MAP (λ(X,v). encode_full_eq bnd X v) l))
+Proof
+  strip_tac>>Induct_on`l`>>rw[]>>
+  PairCases_on`h`>>gvs[]>>
+  simp[reify_avar_def,reify_reif_def]
+QED
+
+Theorem encode_full_eqs_sem_2:
+  ∀l.
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (FLAT (MAP (λ(X,v). encode_full_eq bnd X v) l)) ⇒
+  ∀X v. MEM (X,v) l ⇒ (wb (INL (Eq X v)) ⇔ varc wi X = v)
+Proof
+  Induct>>rw[]>>gvs[]
 QED
 
 (* encodes that the values of the Boolean variables X and Y are equal *)
@@ -1409,6 +1451,12 @@ Definition cencode_full_eq_def:
     (Append (Append x1 x2) x3, ec''')
 End
 
+Definition cencode_full_eqs_def:
+  cencode_full_eqs bnd xs ec =
+    fold_cenc
+      (λXt ec. cencode_full_eq bnd (FST Xt) (SND Xt) ec) xs ec
+End
+
 Definition cencode_reif_gen_def:
   cencode_reif_gen bnd Zc ec =
     case Zc of
@@ -1715,6 +1763,17 @@ Proof
   metis_tac[enc_rel_encode_ge]
 QED
 
+Theorem enc_rel_cencode_full_eqs:
+  valid_assignment bnd wi ∧
+  cencode_full_eqs bnd l ec = (es,ec') ⇒
+  enc_rel wi es (FLAT (MAP (λ(X,v). encode_full_eq bnd X v) l)) ec ec'
+Proof
+  rw[cencode_full_eqs_def]>>
+  irule enc_rel_fold_cenc>>
+  first_x_assum (irule_at Any)>>
+  rw[]>>pairarg_tac>>gvs[enc_rel_encode_full_eq]
+QED
+
 Theorem enc_rel_encode_reif_gen:
   valid_assignment bnd wi ∧ cencode_reif_gen bnd Zc ec = (x1,ec') ⇒
   enc_rel wi x1 (encode_reif_gen bnd Zc) ec ec'
@@ -1764,6 +1823,21 @@ Theorem enc_rel_abstr[simp]:
   enc_rel wi ls (abstr ls) ec ec
 Proof
   rw[enc_rel_def,EVERY_MAP]
+QED
+
+(* abstr (cbimply_var ..) is [simp]-rewritten to REVERSE (bimply_bit ..), so
+   the spec side never shows abstr; relate any ec-preserving block to it by
+   discharging the (simp-provable) abstr equation. *)
+Theorem enc_rel_abstr':
+  es' = abstr es ⇒ enc_rel wi es es' ec ec
+Proof
+  rw[]>>irule enc_rel_abstr
+QED
+
+Theorem enc_rel_cbimply_var:
+  enc_rel wi (cbimply_var bnd x cc) (REVERSE (bimply_bit bnd (Pos x) cc)) ec ec
+Proof
+  irule enc_rel_abstr'>>simp[]
 QED
 
 Definition mk_name_def:

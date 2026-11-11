@@ -858,6 +858,1303 @@ Proof
   intLib.ARITH_TAC
 QED
 
+(* ------------------------------------------------------------------------
+   min_distance. Encoding consists of the groups:
+   (i) Site-used flags
+   (ii) Duplicate bound
+   (iii) Pair upper bounds
+   (iv) Min-attained ladder
+   (v) Requirement clauses
+
+   Auxiliary definitions/theorems before final assembly are organized below:
+   1. shared (preprocessing, specification, literals and atoms)
+   2. range rows
+   3. the counting shared by (ii) and (iv)
+   4. the groups (i)-(v)
+
+   Terms for the constructor MinDistance Xs Z D R:
+   Xs: positions
+   Z: objective
+   D: distance matrix
+   R: optional requirement matrix
+   n (= LENGTH D): number/indices of sites
+   ------------------------------------------------------------------------ *)
+
+(* shared: preprocessing. The sites are the values in [0,n) the positions
+   can take *)
+
+(* kept separate so that Num's translator precondition is discharged once *)
+Definition mindist_nnum_def:
+  mindist_nnum (d:int) = if d < 0 then 0 else Num d
+End
+
+(* the sites X can take, ascending: its bounds clipped to [0,n) *)
+Definition mindist_psites_def:
+  mindist_psites bnd n X =
+  let
+    (lo,hi) = varc_bnd bnd X;
+    l = mindist_nnum lo;
+    h = MIN (mindist_nnum hi + 1) n
+  in
+    if hi < &l ∨ h ≤ l then [] else GENLIST (λk. l + k) (h - l)
+End
+
+(* site |-> the positions (as varcs, in order) that can take it *)
+Definition mindist_pos_map_def:
+  mindist_pos_map (xps : ('a varc # num list) list) =
+  FOLDR (λ(X,ps) t.
+    FOLDL (λt a. insert a (X :: lookup_any a t []) t) t ps) LN xps
+End
+
+Definition mindist_dtab_def:
+  mindist_dtab (D:num list list) = sptree$fromList (MAP sptree$fromList D)
+End
+
+(* D[a][b]; the 0 fallback is never reached for a, b < n on a square D *)
+Definition mindist_dist_def:
+  mindist_dist (dt:num num_map num_map) a b = lookup_any b (lookup_any a dt LN) 0
+End
+
+(* site pairs a < b with their distance, in lexicographic order *)
+Definition mindist_dpairs_def:
+  (mindist_dpairs dt [] = []) ∧
+  (mindist_dpairs dt (a::as) =
+    MAP (λb. (a,b,mindist_dist dt a b)) as ++ mindist_dpairs dt as)
+End
+
+Definition mindist_prep_def:
+  mindist_prep bnd Xs D =
+  let
+    dt = mindist_dtab D;
+    xps = MAP (λX. (X, mindist_psites bnd (LENGTH D) X)) Xs;
+    sites = MAP FST (toSortedAList (list_insert (FLAT (MAP SND xps)) LN));
+    dps = mindist_dpairs dt sites;
+    levels =
+      MAP FST (toSortedAList (list_insert (0 :: MAP (λ(a,b,d). d) dps) LN))
+  in
+    (dt, xps, sites, mindist_pos_map xps, dps, levels)
+End
+
+(* the setting of the min_distance lemmas: a valid assignment, a square,
+   zero-diagonal, symmetric D, every position's value a site index, and the
+   preprocessing *)
+Definition mindist_ctx_def:
+  mindist_ctx bnd Xs D wi (dt,xps,sites,pm,dps,levels) ⇔
+    valid_assignment bnd wi ∧
+    EVERY (λrow. LENGTH row = LENGTH D) D ∧
+    (∀i. i < LENGTH D ⇒ EL i (EL i D) = 0) ∧
+    (∀i j. i < LENGTH D ∧ j < LENGTH D ⇒ EL i (EL j D) = EL j (EL i D)) ∧
+    EVERY (λX. 0 ≤ varc wi X ∧ Num (varc wi X) < LENGTH D) Xs ∧
+    mindist_prep bnd Xs D = (dt,xps,sites,pm,dps,levels)
+End
+
+(* not in sptree or misc: lookup_any after insert *)
+Theorem lookup_any_insert[local]:
+  lookup_any a (insert k v t) d = if a = k then v else lookup_any a t d
+Proof
+  rw[lookup_any_def,lookup_insert]
+QED
+
+(* a position's candidate sites: the in-range values within its bounds,
+   without repetition *)
+Theorem mindist_psites_thm[local]:
+  (MEM a (mindist_psites bnd n X) ⇔
+    FST (varc_bnd bnd X) ≤ &a ∧ &a ≤ SND (varc_bnd bnd X) ∧ a < n) ∧
+  ALL_DISTINCT (mindist_psites bnd n X)
+Proof
+  Cases_on`varc_bnd bnd X`>>rename1`(lo,hi)`>>
+  Cases_on`lo`>>Cases_on`hi`>>
+  rw[mindist_psites_def,mindist_nnum_def,MEM_GENLIST,MIN_DEF,ALL_DISTINCT_GENLIST]>>
+  intLib.COOPER_TAC
+QED
+
+Theorem lookup_any_FOLDL_cons[local]:
+  ∀ps t. ALL_DISTINCT ps ⇒
+    lookup_any a (FOLDL (λt a. insert a (X :: lookup_any a t []) t) t ps) [] =
+    if MEM a ps then X :: lookup_any a t [] else lookup_any a t []
+Proof
+  Induct>>rw[lookup_any_insert]>>gvs[]
+QED
+
+Theorem mindist_at_pos_map[local]:
+  ∀xps. EVERY (ALL_DISTINCT o SND) xps ⇒
+    lookup_any a (mindist_pos_map xps) [] =
+    MAP FST (FILTER (λ(X,ps). MEM a ps) xps)
+Proof
+  Induct>>simp[mindist_pos_map_def,lookup_any_def,FORALL_PROD]>>
+  rw[GSYM lookup_any_def,GSYM mindist_pos_map_def,lookup_any_FOLDL_cons]
+QED
+
+Theorem mindist_dist_dtab[local]:
+  EVERY (λrow. LENGTH row = LENGTH D) D ∧ a < LENGTH D ∧ b < LENGTH D ⇒
+  mindist_dist (mindist_dtab D) a b = EL b (EL a D)
+Proof
+  rw[mindist_dist_def,lookup_any_def,mindist_dtab_def,lookup_fromList,EL_MAP]>>
+  gvs[EVERY_EL]
+QED
+
+Theorem MEM_mindist_dpairs[local]:
+  ∀l. SORTED $< l ⇒
+  (MEM (a,b,d) (mindist_dpairs dt l) ⇔
+    MEM a l ∧ MEM b l ∧ a < b ∧ d = mindist_dist dt a b)
+Proof
+  Induct>>rw[mindist_dpairs_def,MEM_MAP]>>
+  gvs[SORTED_EQ,transitive_LESS]>>
+  eq_tac>>rw[]>>gvs[]>>res_tac>>gvs[]
+QED
+
+Theorem mindist_prep_facts[local]:
+  EVERY (λrow. LENGTH row = LENGTH D) D ∧
+  mindist_prep bnd Xs D = (dt,xps,sites,pm,dps,levels) ⇒
+  xps = MAP (λX. (X,mindist_psites bnd (LENGTH D) X)) Xs ∧
+  dt = mindist_dtab D ∧
+  SORTED $< sites ∧
+  (∀a. MEM a sites ⇔ ∃X. MEM X Xs ∧ MEM a (mindist_psites bnd (LENGTH D) X)) ∧
+  (∀a. MEM a sites ⇒ a < LENGTH D) ∧
+  (∀a. lookup_any a pm [] =
+      FILTER (λX. MEM a (mindist_psites bnd (LENGTH D) X)) Xs) ∧
+  (∀a b d. MEM (a,b,d) dps ⇔
+    MEM a sites ∧ MEM b sites ∧ a < b ∧ d = EL b (EL a D)) ∧
+  SORTED $< levels ∧
+  (∀t. MEM t levels ⇔
+    t = 0 ∨ ∃a b. MEM a sites ∧ MEM b sites ∧ a < b ∧ t = EL b (EL a D))
+Proof
+  strip_tac>>
+  gvs[mindist_prep_def]>>
+  ‘∀a (s:unit num_map). lookup a s = SOME () ⇔ a ∈ domain s’
+    by simp[domain_lookup]>>
+  simp[SORTED_toSortedAList,MEM_toSortedAList,domain_list_insert,MEM_FLAT,MEM_MAP,
+    EXISTS_PROD,PULL_EXISTS,MEM_mindist_dpairs,mindist_at_pos_map,EVERY_MAP,
+    cj 2 mindist_psites_thm,FILTER_MAP,MAP_MAP_o,o_DEF]>>
+  fs[SF CONJ_ss,cj 1 mindist_psites_thm,mindist_dist_dtab]>>
+  simp[AC CONJ_ASSOC CONJ_COMM]
+QED
+
+(* a position's value, or a value equal to it, is among its candidate sites *)
+Theorem mindist_val_psites[local]:
+  valid_assignment bnd wi ⇒
+  (varc wi X = &a ∧ a < n ⇒ MEM a (mindist_psites bnd n X)) ∧
+  (varc wi X = varc wi Y ∧ 0 ≤ varc wi Y ∧ Num (varc wi Y) < n ⇒
+    MEM (Num (varc wi Y)) (mindist_psites bnd n X))
+Proof
+  rw[mindist_psites_thm]>>
+  qpat_x_assum`varc wi X = _`(SUBST_ALL_TAC o SYM)>>
+  fs[iffRL integerTheory.INT_OF_NUM,varc_bnd_valid]
+QED
+
+(* each position's value is a site; so is every value a position takes *)
+Theorem mindist_pos_site[local]:
+  mindist_ctx bnd Xs D wi (dt,xps,sites,pm,dps,levels) ⇒
+  EVERY (λX. MEM (Num (varc wi X)) sites) Xs ∧
+  ∀a. MEM (&a) (MAP (varc wi) Xs) ⇒ MEM a sites
+Proof
+  strip_tac>>drule_then strip_assume_tac (iffLR mindist_ctx_def)>>
+  drule_all_then strip_assume_tac mindist_prep_facts>>
+  gvs[EVERY_MEM,MEM_MAP]>>rw[]>>
+  first_assum (irule_at Any)>>
+  metis_tac[mindist_val_psites,integerTheory.NUM_OF_INT]
+QED
+
+(* shared: specification *)
+
+Definition mindist_valid_def:
+  mindist_valid p D optR ⇔
+  let n = LENGTH D in
+    2 ≤ p ∧ n ≠ 0 ∧
+    EVERY (λrow. LENGTH row = n) D ∧
+    (let dt = mindist_dtab D in
+      EVERY (λi. mindist_dist dt i i = 0) (COUNT_LIST n) ∧
+      EVERY (λ(i,j,d). mindist_dist dt j i = d)
+        (FLAT (MAPi (λi row. MAPi (λj d. (i,j,d)) row) D))) ∧
+    case optR of
+      NONE => T
+    | SOME R =>
+        LENGTH R = p ∧ EVERY (λrow. LENGTH row = p) R ∧
+        EVERY (λb. b) (FLAT (MAPi (λi row. MAPi (λj r. i < j ⇒ 0 ≤ r) row) R))
+End
+
+Theorem mindist_valid_thm:
+  mindist_valid p D optR ⇔
+  2 ≤ p ∧ LENGTH D ≠ 0 ∧
+  EVERY (λrow. LENGTH row = LENGTH D) D ∧
+  (∀i. i < LENGTH D ⇒ EL i (EL i D) = 0) ∧
+  (∀i j. i < LENGTH D ∧ j < LENGTH D ⇒ EL i (EL j D) = EL j (EL i D)) ∧
+  case optR of
+    NONE => T
+  | SOME R =>
+      LENGTH R = p ∧ EVERY (λrow. LENGTH row = p) R ∧
+      ∀i j. i < j ∧ j < p ⇒ 0 ≤ EL j (EL i R)
+Proof
+  simp[mindist_valid_def]>>
+  Cases_on`EVERY (λrow. LENGTH row = LENGTH D) D`>>simp[]>>
+  simp[EVERY_MEM,MEM_COUNT_LIST,MEM_FLAT,MEM_MAPi,PULL_EXISTS,FORALL_PROD]>>
+  fs[GSYM AND_IMP_INTRO,mindist_dist_dtab,EVERY_EL]>>
+  Cases_on`optR`>>rw[EQ_IMP_THM]>>
+  first_x_assum irule>>gvs[MEM_EL,PULL_EXISTS]
+QED
+
+(* some two distinct positions are at distance d *)
+Definition mindist_realised_def:
+  mindist_realised Xs D w d ⇔
+  ∃i j. i < LENGTH Xs ∧ j < LENGTH Xs ∧ i ≠ j ∧
+    pos_dist D Xs w i j = d
+End
+
+(* readings of a realised distance, for a zero-diagonal, symmetric D:
+   0 from two positions on one value, or D[a][b] for values a < b that
+   positions take; one realised by an ordered pair i < j; the Z line of
+   mindistance_sem (lower bound and attainment over pairs i < j) over
+   realised distances; and, as a lower bound on z, a duplicate case and a
+   taken-pair case *)
+Theorem mindist_realised_thm[local]:
+  (∀i. i < LENGTH D ⇒ EL i (EL i (D:num list list)) = 0) ∧
+  (∀i j. i < LENGTH D ∧ j < LENGTH D ⇒ EL i (EL j D) = EL j (EL i D)) ∧
+  EVERY (λX. 0 ≤ varc w X ∧ Num (varc w X) < LENGTH D) Xs ⇒
+  (∀d. mindist_realised Xs D w d ⇔
+    (d = 0 ∧ ∃i j. i < LENGTH Xs ∧ j < LENGTH Xs ∧ i ≠ j ∧
+      varc w (EL i Xs) = varc w (EL j Xs)) ∨
+    ∃a b. a < b ∧ MEM (&a) (MAP (varc w) Xs) ∧ MEM (&b) (MAP (varc w) Xs) ∧
+      EL b (EL a D) = d) ∧
+  (∀d. mindist_realised Xs D w d ⇔
+    ∃i j. i < j ∧ j < LENGTH Xs ∧
+      pos_dist D Xs w i j = d) ∧
+  (((∀i j. i < j ∧ j < LENGTH Xs ⇒
+      z ≤ &pos_dist D Xs w i j) ⇔
+    ∀d. mindist_realised Xs D w d ⇒ z ≤ &d) ∧
+  ((∃i j. i < j ∧ j < LENGTH Xs ∧
+      z = &pos_dist D Xs w i j) ⇔
+    0 ≤ z ∧ mindist_realised Xs D w (Num z))) ∧
+  ((∀d. mindist_realised Xs D w d ⇒ z ≤ &d) ⇔
+    (∀i j. i < LENGTH Xs ∧ j < LENGTH Xs ∧ i ≠ j ∧
+      varc w (EL i Xs) = varc w (EL j Xs) ⇒ z ≤ 0) ∧
+    ∀a b. a < b ∧ MEM (&a) (MAP (varc w) Xs) ∧ MEM (&b) (MAP (varc w) Xs) ⇒
+      z ≤ &EL b (EL a D))
+Proof
+  strip_tac>>
+  conj_asm1_tac
+  >- (
+    rw[mindist_realised_def,pos_dist_def,EQ_IMP_THM]
+    >- (
+      Cases_on`varc w (EL i Xs) = varc w (EL j Xs)`
+      >- (disj1_tac>>qpat_assum`i ≠ j`(irule_at Any)>>gvs[EVERY_EL])>>
+      disj2_tac>>
+      `∃n m. varc w (EL i Xs) = (&n:int) ∧ varc w (EL j Xs) = &m`
+        by (gvs[EVERY_EL]>>metis_tac[integerTheory.NUM_POSINT_EXISTS])>>
+      gvs[]>>
+      Cases_on`n < m`
+      >- (irule_at Any EQ_REFL>>gvs[]>>metis_tac[MEM_MAP_f,EL_MEM])>>
+      qpat_x_assum`∀i j. _ ⇒ EL _ (EL _ D) = _`(irule_at Any)>>
+      gvs[EVERY_EL]>>metis_tac[MEM_MAP_f,EL_MEM,integerTheory.NUM_OF_INT])
+    >- (qpat_assum`i ≠ j`(irule_at Any)>>gvs[EVERY_EL])>>
+    gvs[MEM_MAP,MEM_EL,intLib.ARITH_PROVE``(&a = x ⇔ 0 ≤ x ∧ a = Num x) ∧ (x = &a ⇔ 0 ≤ x ∧ a = Num (x:int))``]>>
+    irule_at Any EQ_REFL>>rw[]>>strip_tac>>gvs[])>>
+  conj_asm1_tac
+  >- (
+    qpat_x_assum`∀d. mindist_realised _ _ _ _ ⇔ _`kall_tac>>
+    rw[mindist_realised_def,pos_dist_def,EQ_IMP_THM]
+    >- (
+      Cases_on`i < j`
+      >- (irule_at Any EQ_REFL>>simp[])>>
+      qexistsl_tac[`j`,`i`]>>simp[]>>
+      qpat_x_assum`∀i j. _ ⇒ EL _ (EL _ D) = _`irule>>gvs[EVERY_EL])>>
+    irule_at Any EQ_REFL>>simp[])>>
+  conj_tac
+  >- (
+    qpat_x_assum`∀d. mindist_realised _ _ _ _ ⇔ _ ∨ _`kall_tac>>
+    simp[PULL_EXISTS]>>
+    metis_tac[integerTheory.INT_OF_NUM,integerTheory.NUM_OF_INT,integerTheory.INT_POS])>>
+  qpat_x_assum`∀d. mindist_realised _ _ _ _ ⇔ ∃i j. _`kall_tac>>
+  simp[DISJ_IMP_THM,FORALL_AND_THM,PULL_EXISTS]
+QED
+
+(* shared: literals and atoms *)
+
+Definition mindist_flag_def:
+  mindist_flag name tag vs = INR (name, Values vs (SOME tag))
+End
+
+(* the X = a literals the rows use *)
+Definition mindist_eqpairs_def:
+  mindist_eqpairs (xps : ('a varc # num list) list) =
+  FLAT (MAP (λ(X,ps). MAP (λa. (X, &a)) ps) xps)
+End
+
+(* the z comparisons the rows use *)
+Definition mindist_ztriples_def:
+  mindist_ztriples bnd Z pm sites dps levels =
+  let (zlo,zhi) = varc_bnd bnd Z in
+  (if 0 < zhi ∧ zlo < 1 ∧ EXISTS (λa. 2 ≤ LENGTH (lookup_any a pm [])) sites
+    then [(Z,Lexop GreaterEqual,1i)] else []) ++
+  MAP (λ(a,b,d). (Z,Lexop LessEqual,&d))
+    (FILTER (λ(a,b,d). &d < zhi) dps) ++
+  MAP (λt. (Z,Lexop GreaterEqual,&t)) (FILTER (λt. zlo < &t) levels)
+End
+
+(* the atoms the rows use are faithful under wb: the Eq atoms, the u flags,
+   and the z literals *)
+Definition mindist_faith_def:
+  mindist_faith bnd Xs Z D wi wb name (dt,xps,sites,pm,dps,levels) ⇔
+    (∀X a. MEM X Xs ∧ MEM a (mindist_psites bnd (LENGTH D) X) ⇒
+      (wb (INL (Eq X (&a))) ⇔ varc wi X = &a)) ∧
+    (∀a. MEM a sites ⇒
+      (wb (mindist_flag name «u» [&a]) ⇔ MEM (&a) (MAP (varc wi) Xs))) ∧
+    (∀Zc. MEM Zc (mindist_ztriples bnd Z pm sites dps levels) ⇒
+      (lit wb (reif_gen Zc) ⇔ reify_cmp_val wi Zc))
+End
+
+(* the atom rows make every Eq atom and every Z literal the rows use faithful *)
+Theorem mindist_atoms_faithful[local]:
+  mindist_ctx bnd Xs D wi (dt,xps,sites,pm,dps,levels) ∧
+  EVERY (λx. iconstraint_sem x (wi,wb)) (FLAT
+    (MAP (λ(X,v). encode_full_eq bnd X v) (mindist_eqpairs xps))) ∧
+  EVERY (λx. iconstraint_sem x (wi,wb)) (FLAT (MAP (encode_reif_gen bnd)
+    (mindist_ztriples bnd Z pm sites dps levels))) ⇒
+  (∀X a. MEM X Xs ∧ MEM a (mindist_psites bnd (LENGTH D) X) ⇒
+    (wb (INL (Eq X (&a))) ⇔ varc wi X = &a)) ∧
+  (∀Zc. MEM Zc (mindist_ztriples bnd Z pm sites dps levels) ⇒
+    (lit wb (reif_gen Zc) ⇔ reify_cmp_val wi Zc))
+Proof
+  strip_tac>>drule_then strip_assume_tac (iffLR mindist_ctx_def)>>
+  rpt strip_tac
+  >- (
+    drule_all_then strip_assume_tac mindist_prep_facts>>gvs[]>>
+    irule encode_full_eqs_sem_2>>
+    qpat_assum`EVERY _ (FLAT (MAP (λ(X,v). _) _))`(irule_at Any)>>
+    simp[mindist_eqpairs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS]>>
+    qpat_assum`MEM X Xs`(irule_at Any)>>simp[])>>
+  irule encode_reif_gen_sem_lit>>
+  first_assum (irule_at Any)>>
+  qpat_x_assum`EVERY _ (FLAT (MAP (encode_reif_gen _) _))`
+    (mp_tac o SRULE[EVERY_FLAT,EVERY_MAP,EVERY_MEM])>>
+  disch_then drule>>simp[EVERY_MEM]
+QED
+
+(* each Z literal the rows use is faithful: [Z ≥ 1] at a site with two
+   candidates, [Z ≤ D[a][b]] for an emitted pair row, [Z ≥ t] for a guarded
+   level *)
+Theorem mindist_zlits[local]:
+  mindist_ctx bnd Xs D wi (dt,xps,sites,pm,dps,levels) ∧
+  mindist_faith bnd Xs Z D wi wb name (dt,xps,sites,pm,dps,levels) ∧
+  varc_bnd bnd Z = (zlo,zhi) ⇒
+  (0 < zhi ∧ zlo < 1 ∧ MEM a sites ∧ 2 ≤ LENGTH (lookup_any a pm []) ⇒
+    (lit wb (reif_gen (Z,Lexop GreaterEqual,1)) ⇔ varc wi Z ≥ 1)) ∧
+  (MEM a sites ∧ MEM b sites ∧ a < b ∧ &EL b (EL a D) < zhi ⇒
+    (lit wb (reif_gen (Z,Lexop LessEqual,&EL b (EL a D))) ⇔
+    varc wi Z ≤ &EL b (EL a D))) ∧
+  (MEM t levels ∧ zlo < &t ⇒
+    (lit wb (reif_gen (Z,Lexop GreaterEqual,&t)) ⇔ varc wi Z ≥ &t))
+Proof
+  strip_tac>>drule_then strip_assume_tac (iffLR mindist_ctx_def)>>drule_then strip_assume_tac (iffLR mindist_faith_def)>>
+  drule_all_then strip_assume_tac mindist_prep_facts>>
+  rpt conj_tac>>strip_tac>>
+  qpat_x_assum`∀Zc. MEM Zc (mindist_ztriples _ _ _ _ _ _) ⇒ _`
+    (DEP_ONCE_REWRITE_TAC o single)>>
+  gvs[cmpop_val_def,mindist_ztriples_def,MEM_MAP,MEM_FILTER,EXISTS_MEM,
+    EXISTS_PROD]>>
+  rw[]>>metis_tac[]
+QED
+
+Theorem mindist_reify_flags[local]:
+  ALOOKUP cs name = SOME (Misc (MinDistance Xs Z D optR)) ⇒
+  (reify_avar cs wi (mindist_flag name «u» [&a]) ⇔
+    MEM (&a) (MAP (varc wi) Xs)) ∧
+  (reify_avar cs wi (mindist_flag name «d» [&a]) ⇔
+    2 ≤ LENGTH (FILTER (λX. varc wi X = &a) Xs)) ∧
+  (reify_avar cs wi (mindist_flag name «w» [&a;&b]) ⇔
+    MEM (&a) (MAP (varc wi) Xs) ∧ MEM (&b) (MAP (varc wi) Xs)) ∧
+  (reify_avar cs wi (mindist_flag name «m» [&t]) ⇔
+    ∃d. mindist_realised Xs D wi d ∧ d ≤ t)
+Proof
+  rw[mindist_flag_def,reify_avar_def,reify_flag_def,mindist_realised_def]>>
+  metis_tac[]
+QED
+
+(* range rows: every position in [0,n) *)
+
+Theorem mindist_range_sem[local]:
+  valid_assignment bnd wi ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr (cmk_bounds_all bnd name «X_» Xs 0 (&n − 1))) ⇔
+  EVERY (λX. 0 ≤ varc wi X ∧ Num (varc wi X) < n) Xs)
+Proof
+  rw[cmk_bounds_all_sem,EVERY_MEM,EQ_IMP_THM]>>
+  first_x_assum drule>>
+  qspec_then`varc wi X`strip_assume_tac integerTheory.INT_NUM_CASES>>
+  gvs[]>>intLib.ARITH_TAC
+QED
+
+(* shared by (ii) and (iv): counting the positions at a site *)
+
+Theorem mindist_eq_count[local]:
+  iSUM (MAP (b2i ∘ lit wb) (MAP (λX. Pos (INL (Eq X (&a)))) xs)) =
+    &LENGTH (FILTER (λX. wb (INL (Eq X (&a)))) xs) ∧
+  eval_lin_term wb (MAP (λl. (-1,l)) (MAP (λX. Pos (INL (Eq X (&a)))) xs)) =
+    -&LENGTH (FILTER (λX. wb (INL (Eq X (&a)))) xs) ∧
+  eval_lin_term wb (MAP (λX. (1,Pos (INL (Eq X (&a))))) xs) =
+    &LENGTH (FILTER (λX. wb (INL (Eq X (&a)))) xs)
+Proof
+  simp[eval_lin_term_def,MAP_MAP_o,o_DEF,lit_def,
+    SRULE[o_DEF] iSUM_FILTER]>>
+  Induct_on`xs`>>rw[iSUM_def]>>intLib.ARITH_TAC
+QED
+
+Theorem LENGTH_FILTER_two[local]:
+  ∀l. 2 ≤ LENGTH (FILTER P l) ⇔
+  ∃i j. i < LENGTH l ∧ j < LENGTH l ∧ i ≠ j ∧ P (EL i l) ∧ P (EL j l)
+Proof
+  Induct>>rw[]
+  >- (
+    `2 ≤ SUC (LENGTH (FILTER P l)) ⇔ ∃k. k < LENGTH l ∧ P (EL k l)`
+      by (`2 ≤ SUC (LENGTH (FILTER P l)) ⇔ FILTER P l ≠ []`
+            by (Cases_on`FILTER P l`>>simp[])>>
+          simp[FILTER_EQ_NIL,NOT_EVERY,EXISTS_MEM,MEM_EL,PULL_EXISTS]>>
+          metis_tac[])>>
+    simp[]>>eq_tac>>rw[]
+    >- (qexistsl_tac[`0`,`SUC k`]>>simp[])>>
+    Cases_on`i`>>gvs[]
+    >- (Cases_on`j`>>gvs[]>>metis_tac[])>>
+    metis_tac[])>>
+  eq_tac>>rw[]
+  >- (qexistsl_tac[`SUC i`,`SUC j`]>>simp[])>>
+  Cases_on`i`>>Cases_on`j`>>gvs[]>>
+  metis_tac[]
+QED
+
+Theorem mindist_at_filter[local]:
+  mindist_ctx bnd Xs D wi (dt,xps,sites,pm,dps,levels) ∧
+  mindist_faith bnd Xs Z D wi wb name (dt,xps,sites,pm,dps,levels) ∧
+  MEM a sites ⇒
+  FILTER (λX. wb (INL (Eq X (&a)))) (lookup_any a pm []) =
+  FILTER (λX. varc wi X = &a) Xs
+Proof
+  strip_tac>>drule_then strip_assume_tac (iffLR mindist_ctx_def)>>
+  drule_then strip_assume_tac (iffLR mindist_faith_def)>>
+  drule_all_then strip_assume_tac mindist_prep_facts>>
+  qpat_x_assum`∀a. MEM a sites ⇔ _`kall_tac>>
+  qpat_assum`∀a. MEM a sites ⇒ _`(drule_then assume_tac)>>
+  rw[FILTER_FILTER,rich_listTheory.FILTER_EQ]>>
+  Cases_on`varc wi X = &a`
+  >- (drule_all_then assume_tac (cj 1 mindist_val_psites)>>gvs[])>>
+  CCONTR_TAC>>gvs[]
+QED
+
+(* two distinct positions with equal values sit at a site with two candidates *)
+Theorem mindist_same_site[local]:
+  mindist_ctx bnd Xs D wi (dt,xps,sites,pm,dps,levels) ∧
+  i < LENGTH Xs ∧ j < LENGTH Xs ∧ i ≠ j ∧
+  varc wi (EL i Xs) = varc wi (EL j Xs) ⇒
+  ∃a. varc wi (EL i Xs) = &a ∧ varc wi (EL j Xs) = &a ∧
+      MEM a sites ∧ 2 ≤ LENGTH (lookup_any a pm [])
+Proof
+  strip_tac>>drule_then strip_assume_tac (iffLR mindist_ctx_def)>>
+  drule_all_then strip_assume_tac mindist_prep_facts>>
+  qpat_x_assum`∀a. MEM a sites ⇔ _`kall_tac>>
+  drule_all_then assume_tac mindist_pos_site>>
+  gvs[LENGTH_FILTER_two,
+    intLib.ARITH_PROVE``(&a = x ⇔ 0 ≤ x ∧ a = Num x) ∧ (x = &a ⇔ 0 ≤ x ∧ a = Num (x:int))``]>>
+  qpat_assum`_ ≠ _`(irule_at Any)>>
+  gvs[EVERY_EL,mindist_val_psites]
+QED
+
+(* (i) site-used flags: u_a ⇔ ∃i. x_i = a *)
+
+(* u_a ⇔ some position takes site a (cencode_some_eq fixes NValue's flag and
+   ranges over all of Xs, not the positions that can take a) *)
+Definition mindist_used_def:
+  mindist_used bnd name pm sites =
+  flat_app (MAP
+    (λa. cbimply_var bnd (mindist_flag name «u» [&a]) (at_least_one
+      (MAP (λX. Pos (INL (Eq X (&a)))) (lookup_any a pm []))))
+    sites)
+End
+
+Theorem mindist_used_iff[local]:
+  mindist_ctx bnd Xs D wi (dt,xps,sites,pm,dps,levels) ∧
+  (∀X a. MEM X Xs ∧ MEM a (mindist_psites bnd (LENGTH D) X) ⇒
+    (wb (INL (Eq X (&a))) ⇔ varc wi X = &a)) ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr (mindist_used bnd name pm sites)) ⇔
+  ∀a. MEM a sites ⇒
+    (wb (mindist_flag name «u» [&a]) ⇔ MEM (&a) (MAP (varc wi) Xs)))
+Proof
+  strip_tac>>drule_then strip_assume_tac (iffLR mindist_ctx_def)>>
+  drule_all_then strip_assume_tac mindist_prep_facts>>
+  simp[mindist_used_def]>>
+  simp[EVERY_FLAT,EVERY_MAP]>>
+  simp[EVERY_SND,EVERY_REVERSE]>>
+  simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,lit_def,MEM_FILTER]>>
+  metis_tac[mindist_val_psites,mindist_psites_thm]
+QED
+
+(* (ii) duplicate bound: two positions on one site force z ≤ 0 *)
+
+(* at most one position on a site unless z can be 0:
+   count_a + (p-1)[z ≥ 1] ≤ p *)
+Definition mindist_dup_def:
+  mindist_dup Z name p zlo zhi pm sites =
+  if zhi ≤ 0 then Nil else
+  let amo = (1 ≤ zlo) in
+  flat_app (MAP (λa.
+    let xs = lookup_any a pm [] in
+    if LENGTH xs < 2 then Nil else
+    let
+      lbl = SOME (mk_name name («mindist_dup_» ^ toString a));
+      lits = MAP (λX. Pos (INL (Eq X (&a)))) xs
+    in
+      if amo then List [(lbl, at_most_one lits)]
+      else
+        List [(lbl, ([], MAP (λl. (-1,l)) lits ++
+          [(1 - &p, reif_gen (Z,Lexop GreaterEqual,1))], -&p))]) sites)
+End
+
+(* the arithmetic of one site's mindist_dup row, for a count c of its
+   positions out of p and the reified B = [z ≥ 1]: the negated row read as an
+   upper bound, and that bound forcing z ≤ 0 exactly when two positions are
+   at the site *)
+Theorem mindist_dup_arith[local]:
+  (-c + (1 − p) * b2i B ≥ -p ⇔ c + (p − 1) * b2i B ≤ p) ∧
+  ((zlo:int) ≤ z ∧ (zlo < 1 ⇒ (B ⇔ z ≥ 1)) ⇒
+    ((if 1 ≤ zlo then LENGTH (FILTER (P:'x -> bool) l) ≤ 1
+      else &LENGTH (FILTER P l) + (&LENGTH l − 1) * b2i B ≤ &LENGTH l) ⇔
+    (2 ≤ LENGTH (FILTER P l) ⇒ z ≤ 0)))
+Proof
+  qspecl_then[`P`,`l`]assume_tac LENGTH_FILTER_LEQ>>
+  Cases_on`B`>>rw[b2i_def]>>intLib.ARITH_TAC
+QED
+
+Theorem mindist_dup_sem:
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr (mindist_dup Z name p zlo zhi pm sites)) ⇔
+  (0 < zhi ⇒
+    ∀a. MEM a sites ∧ 2 ≤ LENGTH (lookup_any a pm []) ⇒
+      if 1 ≤ zlo then
+        LENGTH (FILTER (λX. wb (INL (Eq X (&a)))) (lookup_any a pm [])) ≤ 1
+      else
+        &LENGTH (FILTER (λX. wb (INL (Eq X (&a)))) (lookup_any a pm [])) +
+        (&p − 1) * b2i (lit wb (reif_gen (Z,Lexop GreaterEqual,1))) ≤ &p)
+Proof
+  rw[mindist_dup_def]
+  >- intLib.ARITH_TAC>>
+  fs[integerTheory.INT_NOT_LE]>>
+  simp[EVERY_FLAT,EVERY_MAP]>>
+  simp[EVERY_SND,SF COND_elim_ss]>>
+  Cases_on`1 ≤ zlo`>>simp[EVERY_MEM,mindist_eq_count,cj 1 mindist_dup_arith]>>
+  simp[DISJ_EQ_IMP,NOT_LESS,AND_IMP_INTRO]
+QED
+
+(* one site's mindist_dup row: two positions at the site force z ≤ 0 *)
+Theorem mindist_dup_at[local]:
+  mindist_ctx bnd Xs D wi (dt,xps,sites,pm,dps,levels) ∧
+  mindist_faith bnd Xs Z D wi wb name (dt,xps,sites,pm,dps,levels) ∧
+  varc_bnd bnd Z = (zlo,zhi) ∧
+  0 < zhi ∧ MEM a sites ∧ 2 ≤ LENGTH (lookup_any a pm []) ⇒
+  ((if 1 ≤ zlo then
+      LENGTH (FILTER (λX. wb (INL (Eq X (&a)))) (lookup_any a pm [])) ≤ 1
+    else
+      &LENGTH (FILTER (λX. wb (INL (Eq X (&a)))) (lookup_any a pm [])) +
+      (&LENGTH Xs − 1) * b2i (lit wb (reif_gen (Z,Lexop GreaterEqual,1))) ≤
+      &LENGTH Xs) ⇔
+    ∀i j. i < LENGTH Xs ∧ j < LENGTH Xs ∧ i ≠ j ∧
+      varc wi (EL i Xs) = &a ∧ varc wi (EL j Xs) = &a ⇒ varc wi Z ≤ 0)
+Proof
+  strip_tac>>drule_then strip_assume_tac (iffLR mindist_ctx_def)>>
+  drule_then strip_assume_tac (iffLR mindist_faith_def)>>
+  drule_then (qspec_then`Z`mp_tac) varc_bnd_valid>>simp[]>>strip_tac>>
+  drule_all_then (fn th => rewrite_tac[th]) mindist_at_filter>>
+  `zlo < 1 ⇒ (lit wb (reif_gen (Z,Lexop GreaterEqual,1)) ⇔ varc wi Z ≥ 1)`
+    by metis_tac[cj 1 mindist_zlits]>>
+  drule_all_then (fn th => rewrite_tac[th]) (cj 2 mindist_dup_arith)>>
+  simp[LENGTH_FILTER_two,PULL_EXISTS]
+QED
+
+Theorem mindist_dup_iff[local]:
+  mindist_ctx bnd Xs D wi (dt,xps,sites,pm,dps,levels) ∧
+  mindist_faith bnd Xs Z D wi wb name (dt,xps,sites,pm,dps,levels) ∧
+  varc_bnd bnd Z = (zlo,zhi) ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr (mindist_dup Z name (LENGTH Xs) zlo zhi pm sites)) ⇔
+  ∀i j. i < LENGTH Xs ∧ j < LENGTH Xs ∧ i ≠ j ∧
+    varc wi (EL i Xs) = varc wi (EL j Xs) ⇒ varc wi Z ≤ 0)
+Proof
+  strip_tac>>drule_then strip_assume_tac (iffLR mindist_ctx_def)>>
+  simp[mindist_dup_sem]>>
+  eq_tac>>rpt strip_tac
+  >- (
+    drule_then (qspec_then`Z`mp_tac) varc_bnd_valid>>simp[]>>strip_tac>>
+    reverse (Cases_on`0 < zhi`)
+    >- metis_tac[integerTheory.INT_LE_TRANS,integerTheory.INT_NOT_LT]>>
+    drule_all mindist_same_site>>strip_tac>>
+    qpat_x_assum`0 < zhi ⇒ _`drule_all>>
+    drule_all_then (fn th => rewrite_tac[th]) mindist_dup_at>>
+    metis_tac[])>>
+  drule_all_then (fn th => rewrite_tac[th]) mindist_dup_at>>
+  metis_tac[]
+QED
+
+(* (iii) pair upper bounds: ¬u_a ∨ ¬u_b ∨ [z ≤ D[a][b]] *)
+
+(* z ≤ D[a,b] when sites a and b are both taken *)
+Definition mindist_pair_def:
+  mindist_pair Z name zhi dps =
+  flat_app (MAP
+    (λ(a,b,d).
+      if zhi ≤ &d then Nil else
+      List [(
+        SOME (mk_name name («mindist_pair_» ^ toString a ^ «_» ^ toString b)),
+        at_least_one [
+          Neg (mindist_flag name «u» [&a]);
+          Neg (mindist_flag name «u» [&b]);
+          reif_gen (Z,Lexop LessEqual,&d)])])
+    dps)
+End
+
+Theorem mindist_pair_sem:
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr (mindist_pair Z name zhi dps)) ⇔
+  ∀a b d. MEM (a,b,d) dps ∧ &d < zhi ⇒
+    ¬wb (mindist_flag name «u» [&a]) ∨ ¬wb (mindist_flag name «u» [&b]) ∨
+    lit wb (reif_gen (Z,Lexop LessEqual,&d))
+Proof
+  simp[mindist_pair_def]>>
+  simp[EVERY_FLAT,EVERY_MAP]>>
+  simp[EVERY_MEM,FORALL_PROD,SF COND_elim_ss]>>
+  simp[GSYM integerTheory.INT_NOT_LT,SF CONJ_ss]>>
+  simp[at_least_one_def]>>
+  simp[RIGHT_AND_OVER_OR,EXISTS_OR_THM,lit_def,integerTheory.INT_NOT_LE,
+    AND_IMP_INTRO]
+QED
+
+Theorem mindist_pair_iff[local]:
+  mindist_ctx bnd Xs D wi (dt,xps,sites,pm,dps,levels) ∧
+  mindist_faith bnd Xs Z D wi wb name (dt,xps,sites,pm,dps,levels) ∧
+  varc_bnd bnd Z = (zlo,zhi) ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr (mindist_pair Z name zhi dps)) ⇔
+  ∀a b. a < b ∧ MEM (&a) (MAP (varc wi) Xs) ∧ MEM (&b) (MAP (varc wi) Xs) ⇒
+    varc wi Z ≤ &EL b (EL a D))
+Proof
+  strip_tac>>drule_then strip_assume_tac (iffLR mindist_ctx_def)>>drule_then strip_assume_tac (iffLR mindist_faith_def)>>
+  drule_all_then assume_tac mindist_zlits>>
+  drule_all_then strip_assume_tac mindist_pos_site>>
+  drule_all_then strip_assume_tac mindist_prep_facts>>
+  qpat_x_assum`∀a. MEM a sites ⇔ _`kall_tac>>
+  drule_then (qspec_then`Z`mp_tac) varc_bnd_valid>>simp[]>>strip_tac>>
+  simp[mindist_pair_sem,PULL_EXISTS]>>
+  eq_tac>>rw[]>>
+  metis_tac[integerTheory.INT_LE_TRANS,integerTheory.INT_NOT_LT]
+QED
+
+(* (iv) min-attained ladder: z is at least the least realised distance *)
+
+(* distance |-> the site pairs at that distance, in lexicographic order *)
+Definition mindist_pairs_map_def:
+  mindist_pairs_map (dps:(num # num # num) list) =
+  FOLDR (λ(a,b,d) t. insert d ((a,b) :: lookup_any d t []) t) LN dps
+End
+
+(* the witnesses at distance t, with their definitions: at t = 0 the
+   duplicate witnesses d_a ⇔ count_a ≥ 2 for each site with two candidate
+   positions, and w_ab ⇔ u_a ∧ u_b for the site pairs at t *)
+Definition mindist_ws_def:
+  mindist_ws bnd name pm sites pmap t =
+  (if t = 0 then MAP
+    (λa. let d = mindist_flag name «d» [&a] in
+      (cbimply_var bnd d
+        ([], MAP (λX. (1, Pos (INL (Eq X (&a))))) (lookup_any a pm []), 2),
+      Pos d))
+    (FILTER (λa. 2 ≤ LENGTH (lookup_any a pm [])) sites)
+  else []) ++
+  MAP
+    (λ(a,b). let w = mindist_flag name «w» [&a;&b] in
+      (cbimply_var bnd w
+        ([], [(1, Pos (mindist_flag name «u» [&a]));
+          (1, Pos (mindist_flag name «u» [&b]))], 2),
+      Pos w))
+    (lookup_any t pmap [])
+End
+
+(* the min-attained ladder over the ascending levels: the guard
+   [z ≥ t] ∨ m_acc at each level above z's lower bound, and below the top
+   level m_t ⇔ m_acc ∨ (witnesses at distance t), where m_t holds iff two
+   positions are at distance at most t *)
+Definition mindist_ladder_def:
+  (mindist_ladder bnd Z name zlo pm sites pmap macc [] = Nil) ∧
+  (mindist_ladder bnd Z name zlo pm sites pmap macc (t::ts) =
+    let
+      prev = (case macc of NONE => [] | SOME m => [m]);
+      guard =
+        if zlo < &t then
+        List [(SOME (mk_name name («mindist_guard_» ^ toString t)),
+          at_least_one (reif_gen (Z,Lexop GreaterEqual,&t) :: prev))]
+        else Nil
+    in
+      if NULL ts then guard else
+      let ws = mindist_ws bnd name pm sites pmap t in
+        if NULL ws then
+        Append guard (mindist_ladder bnd Z name zlo pm sites pmap macc ts)
+        else
+          let m = mindist_flag name «m» [&t] in
+            Append guard
+              (Append (flat_app (MAP FST ws))
+                (Append
+                  (cbimply_var bnd m (at_least_one (prev ++ MAP SND ws)))
+                  (mindist_ladder bnd Z name zlo pm sites pmap
+                    (SOME (Pos m)) ts))))
+End
+
+Theorem MEM_mindist_pairs_map[local]:
+  ∀dps. MEM (a,b) (lookup_any t (mindist_pairs_map dps) []) ⇔ MEM (a,b,t) dps
+Proof
+  Induct
+  >- simp[mindist_pairs_map_def,lookup_any_def]>>
+  simp[FORALL_PROD]>>
+  gvs[mindist_pairs_map_def,lookup_any_insert]>>
+  rw[]>>simp[]
+QED
+
+(* one step down the ascending levels t0::ts, upward closed under P: the
+   tail keeps both properties, "below every later level" means "at most t0",
+   t0 is the minimum, and t0 is not the last level *)
+Theorem mindist_level_step[local]:
+  SORTED $< ((t0:num)::ts) ∧
+  (∀d t. P d ∧ MEM t (t0::ts) ∧ t ≤ d ⇒ MEM d (t0::ts)) ⇒
+  SORTED $< ts ∧
+  (∀d t. P d ∧ MEM t ts ∧ t ≤ d ⇒ MEM d ts) ∧
+  ((∃d. P d ∧ ∀t. MEM t ts ⇒ d < t) ⇔ ∃d. P d ∧ d ≤ t0) ∧
+  (∀d. (∀t. t = t0 ∨ MEM t ts ⇒ d < t) ⇔ d < t0) ∧
+  (ts ≠ [] ⇒ LAST (t0::ts) = LAST ts ∧ t0 ≠ LAST ts)
+Proof
+  rw[SORTED_EQ,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,DISJ_IMP_THM,
+    FORALL_AND_THM,EQ_IMP_THM,LAST_CONS_cond]
+  >- (
+    first_x_assum drule_all>>rw[]>>
+    qpat_x_assum`∀y. MEM y ts ⇒ _`drule>>decide_tac)
+  >- (
+    first_assum (irule_at Any)>>
+    spose_not_then (assume_tac o SRULE[NOT_LESS_EQUAL])>>
+    drule_then assume_tac LESS_IMP_LESS_OR_EQ>>
+    qpat_x_assum`∀d. P d ∧ t0 ≤ d ⇒ _`drule_all>>rw[]>>strip_tac>>
+    qpat_x_assum`∀t. MEM t ts ⇒ d < t`drule>>simp[])
+  >- (
+    first_assum (irule_at Any)>>rw[]>>
+    qpat_x_assum`∀y. MEM y ts ⇒ _`drule>>decide_tac)
+  >- (first_x_assum drule>>decide_tac)>>
+  drule_then (assume_tac o SRULE[]) MEM_LAST_NOT_NIL>>
+  qpat_x_assum`∀y. MEM y ts ⇒ _`drule>>decide_tac
+QED
+
+Theorem EXISTS_LE_SPLIT[local]:
+  (∃d. P d ∧ d ≤ t) ⇔ (∃d. P d ∧ d < t) ∨ P (t:num)
+Proof
+  simp[LESS_OR_EQ,LEFT_AND_OVER_OR,EXISTS_OR_THM]
+QED
+
+(* the ladder's guard at level t: [z ≥ t] or the accumulated m, with the
+   accumulated m read as an optional literal *)
+Theorem mindist_guard_sem[local]:
+  ((∃l. MEM l (case macc of NONE => [] | SOME m => [m]) ∧ lit wb l) ⇔
+    case macc of NONE => F | SOME l => lit wb l) ∧
+  (EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (
+    if (zlo:int) < &(t:num) then
+    List [(
+      lbl,
+      at_least_one (reif_gen (Z,Lexop GreaterEqual,&t) ::
+        case macc of NONE => [] | SOME m => [m]))]
+    else Nil)) ⇔
+  (zlo < &t ⇒
+    lit wb (reif_gen (Z,Lexop GreaterEqual,&t)) ∨
+    case macc of NONE => F | SOME l => lit wb l))
+Proof
+  Cases_on`macc`>>rw[RIGHT_AND_OVER_OR,EXISTS_OR_THM]
+QED
+
+Theorem mindist_ladder_sem:
+  ∀ts macc.
+    valid_assignment bnd wi ∧ SORTED $< ts ∧
+    (∀d t. Pd d ∧ MEM t ts ∧ t ≤ d ⇒ MEM d ts) ∧
+    (∀t. MEM t ts ∧ zlo < &t ⇒
+      (lit wb (reif_gen (Z,Lexop GreaterEqual,&t)) ⇔ varc wi Z ≥ &t)) ∧
+    (∀t.
+      MEM t ts ∧
+      EVERY (λx. iconstraint_sem x (wi,wb))
+        (abstr (flat_app (MAP FST (mindist_ws bnd name pm sites prm t)))) ⇒
+      ((∃w. MEM w (mindist_ws bnd name pm sites prm t) ∧ lit wb (SND w)) ⇔
+      Pd t)) ∧
+    ((case macc of NONE => F | SOME l => lit wb l) ⇔
+      ∃d. Pd d ∧ ∀t. MEM t ts ⇒ d < t) ⇒
+    (EVERY (λx. iconstraint_sem x (wi,wb))
+      (abstr (mindist_ladder bnd Z name zlo pm sites prm macc ts)) ⇔
+    (∀t. MEM t ts ∧ t ≠ LAST ts ⇒
+      EVERY (λx. iconstraint_sem x (wi,wb))
+        (abstr (flat_app (MAP FST (mindist_ws bnd name pm sites prm t)))) ∧
+      (¬NULL (mindist_ws bnd name pm sites prm t) ⇒
+        (wb (mindist_flag name «m» [&t]) ⇔ ∃d. Pd d ∧ d ≤ t))) ∧
+    (∀t. MEM t ts ∧ zlo < &t ⇒ varc wi Z ≥ &t ∨ ∃d. Pd d ∧ d < t))
+Proof
+  Induct
+  >- simp[mindist_ladder_def]>>
+  rpt gen_tac>>strip_tac>>
+  rename1`t0::ts`>>
+  drule_all_then strip_assume_tac mindist_level_step>>
+  fs[]>>
+  fs[RIGHT_AND_OVER_OR,DISJ_IMP_THM,FORALL_AND_THM]>>
+  Cases_on`ts = []`
+  >- simp[mindist_ladder_def,mindist_guard_sem]>>
+  fs[]>>
+  simp[Once mindist_ladder_def,NULL_EQ]>>
+  Cases_on`mindist_ws bnd name pm sites prm t0 = []`
+  >- (
+    simp[mindist_guard_sem]>>
+    qpat_x_assum`∀m. _ ⇒ (_ (abstr (mindist_ladder _ _ _ _ _ _ _ m _)) ⇔ _)`
+      (DEP_ONCE_REWRITE_TAC o single)>>
+    gvs[EXISTS_LE_SPLIT,NULL_EQ]>>asm_rewrite_tac[]>>
+    simp[AC CONJ_ASSOC CONJ_COMM])>>
+  simp[mindist_guard_sem,MEM_MAP,RIGHT_AND_OVER_OR,EXISTS_OR_THM,PULL_EXISTS]>>
+  reverse (Cases_on`EVERY (λx. iconstraint_sem x (wi,wb))
+    (FLAT (MAP (λls. abstr ls) (MAP FST (mindist_ws bnd name pm sites prm t0))))`)
+  >- asm_rewrite_tac[]>>
+  gvs[EXISTS_LE_SPLIT]>>
+  Cases_on`wb (mindist_flag name «m» [&t0]) ⇔ (∃d. Pd d ∧ d < t0) ∨ Pd t0`>>
+  gvs[]>>
+  qpat_x_assum`∀m. _ ⇒ (_ (abstr (mindist_ladder _ _ _ _ _ _ _ m _)) ⇔ _)`
+    (DEP_ONCE_REWRITE_TAC o single)>>
+  gvs[NULL_EQ]>>asm_rewrite_tac[]>>
+  simp[AC CONJ_ASSOC CONJ_COMM]
+QED
+
+(* a level's witnesses: their definition rows, and which of them are set *)
+Theorem mindist_ws_sem[local]:
+  valid_assignment bnd wi ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb)) (FLAT (MAP
+    (λls. abstr ls)
+    (MAP FST (mindist_ws bnd name pm sites prm t)))) ⇔
+  (t = 0 ⇒ ∀a. MEM a sites ∧ 2 ≤ LENGTH (lookup_any a pm []) ⇒
+    (wb (mindist_flag name «d» [&a]) ⇔
+       2 ≤ LENGTH (FILTER (λX. wb (INL (Eq X (&a)))) (lookup_any a pm [])))) ∧
+    (∀a b. MEM (a,b) (lookup_any t prm []) ⇒
+      (wb (mindist_flag name «w» [&a;&b]) ⇔
+        wb (mindist_flag name «u» [&a]) ∧ wb (mindist_flag name «u» [&b])))) ∧
+  ((∃w. MEM w (mindist_ws bnd name pm sites prm t) ∧ lit wb (SND w)) ⇔
+    (t = 0 ∧ ∃a. MEM a sites ∧ 2 ≤ LENGTH (lookup_any a pm []) ∧
+      wb (mindist_flag name «d» [&a])) ∨
+    ∃a b. MEM (a,b) (lookup_any t prm []) ∧ wb (mindist_flag name «w» [&a;&b]))
+Proof
+  strip_tac>>
+  `EVERY (λx. iconstraint_sem x (wi,wb))
+    (FLAT (MAP (λls. abstr ls) (MAP FST (mindist_ws bnd name pm sites prm t)))) ⇔
+    ∀w. MEM w (mindist_ws bnd name pm sites prm t) ⇒
+      EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (FST w))`
+    by (rw[EVERY_FLAT,EVERY_MEM,MEM_MAP,PULL_EXISTS]>>metis_tac[])>>
+  pop_assum (fn th => rewrite_tac[th])>>
+  Cases_on`t = 0`>>
+  simp[mindist_ws_def,RIGHT_AND_OVER_OR,EXISTS_OR_THM]>>
+  simp[MEM_MAP,MEM_FILTER,PULL_EXISTS,FORALL_PROD,EXISTS_PROD,
+    EVERY_REVERSE,iconstraint_sem_def,mindist_eq_count,DISJ_IMP_THM,
+    FORALL_AND_THM,eval_lin_term_def,iSUM_def,lit_def]>>
+  simp[integerTheory.int_ge]>>
+  metis_tac[]
+QED
+
+Theorem mindist_realised_level[local]:
+  mindist_ctx bnd Xs D wi (dt,xps,sites,pm,dps,levels) ∧
+  mindist_realised Xs D wi d ⇒
+  MEM d levels
+Proof
+  strip_tac>>drule_then strip_assume_tac (iffLR mindist_ctx_def)>>
+  drule_all_then strip_assume_tac mindist_pos_site>>
+  drule_all_then strip_assume_tac mindist_prep_facts>>
+  qpat_x_assum`∀a. MEM a sites ⇔ _`kall_tac>>
+  drule_all_then (fn th => fs[th]) (cj 1 mindist_realised_thm)>>
+  metis_tac[]
+QED
+
+(* a set duplicate witness d_a means two positions share a value *)
+Theorem mindist_dup_wits[local]:
+  mindist_ctx bnd Xs D wi (dt,xps,sites,pm,dps,levels) ∧
+  mindist_faith bnd Xs Z D wi wb name (dt,xps,sites,pm,dps,levels) ∧
+  (∀a. MEM a sites ∧ 2 ≤ LENGTH (lookup_any a pm []) ⇒
+    (wb (mindist_flag name «d» [&a]) ⇔
+      2 ≤ LENGTH (FILTER (λX. wb (INL (Eq X (&a)))) (lookup_any a pm [])))) ⇒
+  ((∃a. MEM a sites ∧ 2 ≤ LENGTH (lookup_any a pm []) ∧
+        wb (mindist_flag name «d» [&a])) ⇔
+    ∃i j. i < LENGTH Xs ∧ j < LENGTH Xs ∧ i ≠ j ∧
+      varc wi (EL i Xs) = varc wi (EL j Xs))
+Proof
+  strip_tac>>eq_tac>>strip_tac
+  >- (
+    qpat_x_assum`∀a. _ ∧ _ ⇒ (wb _ ⇔ _)`drule_all>>
+    drule_all_then (fn th => rewrite_tac[th]) mindist_at_filter>>
+    gvs[LENGTH_FILTER_two]>>
+    strip_tac>>qpat_assum`_ ≠ _`(irule_at Any)>>fs[])>>
+  drule_all_then strip_assume_tac mindist_same_site>>
+  qpat_assum`MEM a sites`(irule_at Any)>>
+  qpat_x_assum`∀a. _ ∧ _ ⇒ (wb _ ⇔ _)`drule_all>>
+  drule_all_then (fn th => rewrite_tac[th]) mindist_at_filter>>
+  gvs[LENGTH_FILTER_two]>>
+  strip_tac>>qpat_assum`_ ≠ _`(irule_at Any)>>fs[]
+QED
+
+(* a set pair witness w_ab at distance t means two values a < b that
+   positions take are at distance t *)
+Theorem mindist_pair_wits[local]:
+  mindist_ctx bnd Xs D wi (dt,xps,sites,pm,dps,levels) ∧
+  mindist_faith bnd Xs Z D wi wb name (dt,xps,sites,pm,dps,levels) ∧
+  (∀a b. MEM (a,b) (lookup_any t (mindist_pairs_map dps) []) ⇒
+    (wb (mindist_flag name «w» [&a;&b]) ⇔
+      wb (mindist_flag name «u» [&a]) ∧ wb (mindist_flag name «u» [&b]))) ⇒
+  ((∃a b. MEM (a,b) (lookup_any t (mindist_pairs_map dps) []) ∧
+          wb (mindist_flag name «w» [&a;&b])) ⇔
+    ∃a b. a < b ∧ MEM (&a) (MAP (varc wi) Xs) ∧ MEM (&b) (MAP (varc wi) Xs) ∧
+      EL b (EL a D) = t)
+Proof
+  strip_tac>>drule_then strip_assume_tac (iffLR mindist_ctx_def)>>drule_then strip_assume_tac (iffLR mindist_faith_def)>>
+  drule_all_then strip_assume_tac mindist_pos_site>>
+  drule_all_then strip_assume_tac mindist_prep_facts>>
+  qpat_x_assum`∀a. MEM a sites ⇔ _`kall_tac>>
+  fs[MEM_mindist_pairs_map]>>
+  metis_tac[]
+QED
+
+Theorem mindist_wit_realised[local]:
+  mindist_ctx bnd Xs D wi (dt,xps,sites,pm,dps,levels) ∧
+  mindist_faith bnd Xs Z D wi wb name (dt,xps,sites,pm,dps,levels) ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (FLAT (MAP (λls. abstr ls) (MAP FST
+      (mindist_ws bnd name pm sites
+        (mindist_pairs_map dps) t)))) ⇒
+  ((∃w. MEM w (mindist_ws bnd name pm sites (mindist_pairs_map dps) t) ∧
+      lit wb (SND w)) ⇔
+  mindist_realised Xs D wi t)
+Proof
+  strip_tac>>drule_then strip_assume_tac (iffLR mindist_ctx_def)>>
+  drule_then (fn th => fs[th]) mindist_ws_sem>>
+  drule_all_then (fn th => rewrite_tac[th]) (cj 1 mindist_realised_thm)>>
+  drule_all_then (fn th => rewrite_tac[th]) mindist_pair_wits>>
+  Cases_on`t = 0`>>gvs[]>>
+  drule_all_then (fn th => rewrite_tac[th]) mindist_dup_wits
+QED
+
+Theorem mindist_ladder_inst[local]:
+  mindist_ctx bnd Xs D wi (dt,xps,sites,pm,dps,levels) ∧
+  mindist_faith bnd Xs Z D wi wb name (dt,xps,sites,pm,dps,levels) ∧
+  varc_bnd bnd Z = (zlo,zhi) ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr (mindist_ladder bnd Z name zlo pm sites
+      (mindist_pairs_map dps) NONE levels)) ⇔
+    (∀t. MEM t levels ∧ t ≠ LAST levels ⇒
+      EVERY (λx. iconstraint_sem x (wi,wb))
+        (abstr (flat_app (MAP FST (mindist_ws bnd name
+          pm sites (mindist_pairs_map dps) t)))) ∧
+      (¬NULL (mindist_ws bnd name pm sites (mindist_pairs_map dps) t) ⇒
+        (wb (mindist_flag name «m» [&t]) ⇔
+        ∃d. mindist_realised Xs D wi d ∧ d ≤ t))) ∧
+    (∀t. MEM t levels ∧ zlo < &t ⇒
+      varc wi Z ≥ &t ∨ ∃d. mindist_realised Xs D wi d ∧ d < t))
+Proof
+  strip_tac>>drule_then strip_assume_tac (iffLR mindist_ctx_def)>>
+  drule_then strip_assume_tac (iffLR mindist_faith_def)>>
+  irule mindist_ladder_sem>>
+  drule_all mindist_prep_facts>>strip_tac>>
+  rpt conj_tac
+  >- (rpt strip_tac>>drule_all mindist_realised_level>>simp[])
+  >- (
+    rpt strip_tac>>
+    qpat_x_assum`EVERY _ (abstr (flat_app _))`(assume_tac o SRULE[])>>
+    drule_all mindist_wit_realised>>simp[])
+  >- (
+    rpt strip_tac>>
+    drule_all (cj 3 mindist_zlits)>>simp[])
+  >- (simp[]>>metis_tac[DECIDE ``∀d:num. ¬(d < 0)``])>>
+  simp[]
+QED
+
+Theorem mindist_attain[local]:
+  mindist_ctx bnd Xs D wi (dt,xps,sites,pm,dps,levels) ∧
+  2 ≤ LENGTH Xs ∧
+  mindist_faith bnd Xs Z D wi wb name (dt,xps,sites,pm,dps,levels) ∧
+  varc_bnd bnd Z = (zlo,zhi) ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr (if EXISTS (λt. zlo < &t) levels then
+      mindist_ladder bnd Z name zlo pm sites
+        (mindist_pairs_map dps) NONE levels
+      else Nil)) ∧
+  (∀d. mindist_realised Xs D wi d ⇒ varc wi Z ≤ &d) ⇒
+  0 ≤ varc wi Z ∧ mindist_realised Xs D wi (Num (varc wi Z))
+Proof
+  strip_tac>>drule_then strip_assume_tac (iffLR mindist_ctx_def)>>
+  drule_then strip_assume_tac (iffLR mindist_faith_def)>>
+  drule_then (qspec_then`Z`mp_tac) varc_bnd_valid>>simp[]>>strip_tac>>
+  (* mu: the least realised distance *)
+  `∃mu. mindist_realised Xs D wi mu ∧ ∀d. d < mu ⇒ ¬mindist_realised Xs D wi d`
+    by (irule arithmeticTheory.WOP>>
+        simp[mindist_realised_def,PULL_EXISTS]>>
+        qexistsl_tac[`0`,`1`]>>simp[])>>
+  `varc wi Z = &mu` suffices_by simp[]>>
+  simp[GSYM integerTheory.INT_LE_ANTISYM]>>
+  (* z < mu would violate the ladder's guard at level mu *)
+  CCONTR_TAC>>
+  fs[integerTheory.INT_NOT_LE]>>
+  drule_all mindist_realised_level>>strip_tac>>
+  `zlo < &mu` by metis_tac[integerTheory.INT_LET_TRANS]>>
+  qpat_x_assum`EVERY _ (abstr (if _ then _ else _))`
+    (mp_tac o SRULE[SF COND_elim_ss,DISJ_EQ_IMP])>>
+  impl_tac
+  >- (simp[EXISTS_MEM]>>first_assum (irule_at Any)>>simp[])>>
+  strip_tac>>
+  drule_all_then (fn th => fs[th]) mindist_ladder_inst>>
+  qpat_x_assum`∀t. MEM t levels ∧ zlo < &t ⇒ _`drule_all>>
+  strip_tac
+  >- metis_tac[integerTheory.int_ge,integerTheory.INT_NOT_LE]>>
+  metis_tac[]
+QED
+
+(* (v) requirement clauses: x_i ≠ a ∨ x_j ≠ b when D[a][b] < R_ij *)
+
+(* requirements: positions i < j cannot take sites closer than R[i,j]. The
+   scan over both positions' sites is inherent: each test decides a row. *)
+Definition mindist_req_row_def:
+  (mindist_req_row dt name pre j Xi psi ((Xj,psj)::xps) (r::rs) =
+    Append
+      (if r ≤ 0 then Nil else
+        let pre_j = pre ^ toString j ^ «_» in
+        flat_app (MAP (λa.
+          let pre_a = pre_j ^ toString a ^ «_» in
+          flat_app (MAP (λb.
+            if &(mindist_dist dt a b) < r then
+              List [(
+                SOME (mk_name name (pre_a ^ toString b)),
+                at_least_one [
+                  Neg (INL (Eq Xi (&a)));
+                  Neg (INL (Eq Xj (&b)))])]
+            else Nil) psj)) psi))
+      (mindist_req_row dt name pre (j+1) Xi psi xps rs)) ∧
+  (mindist_req_row dt name pre j Xi psi _ _ = Nil)
+End
+
+Definition mindist_req_def:
+  (mindist_req dt name i ((Xi,psi)::xps) (Ri::Rs) =
+    Append
+      (mindist_req_row dt name («mindist_req_» ^ toString i ^ «_») (i+1)
+        Xi psi xps (DROP (i+1) Ri))
+      (mindist_req dt name (i+1) xps Rs)) ∧
+  (mindist_req dt name i _ _ = Nil)
+End
+
+Theorem mindist_req_row_sem[local]:
+  ∀xps rs j.
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr (mindist_req_row dt name pre j Xi psi xps rs)) ⇔
+  ∀m a b.
+    m < LENGTH xps ∧ m < LENGTH rs ∧ MEM a psi ∧ MEM b (SND (EL m xps)) ∧
+    &mindist_dist dt a b < EL m rs ⇒
+    ¬wb (INL (Eq Xi (&a))) ∨ ¬wb (INL (Eq (FST (EL m xps)) (&b)))
+Proof
+  Induct>>simp[mindist_req_row_def]>>
+  gen_tac>>PairCases_on`h`>>rename1`(Xj,psj)::xps`>>
+  namedCases_on`rs`["","r rs"]>>simp[mindist_req_row_def]>>
+  gen_tac>>
+  CONV_TAC (RAND_CONV (HO_REWR_CONV arithmeticTheory.FORALL_NUM))>>
+  simp[SF COND_elim_ss,MAP_MAP_o,o_DEF]>>
+  simp[EVERY_FLAT,EVERY_MAP]>>
+  simp[EVERY_MEM,SF COND_elim_ss,RIGHT_AND_OVER_OR,EXISTS_OR_THM,lit_def]>>
+  Cases_on`r ≤ 0`>>
+  fs[AND_IMP_INTRO,GSYM RIGHT_FORALL_IMP_THM,GSYM CONJ_ASSOC,
+    intLib.ARITH_PROVE``r ≤ 0 ⇒ ¬(&n < r:int)``]
+QED
+
+Theorem mindist_req_sem:
+  ∀xps Rs i.
+  EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (mindist_req dt name i xps Rs)) ⇔
+  ∀k m a b.
+    k < LENGTH xps ∧ k < LENGTH Rs ∧
+    m < LENGTH (DROP (k + 1) xps) ∧ m < LENGTH (DROP (k + i + 1) (EL k Rs)) ∧
+    MEM a (SND (EL k xps)) ∧ MEM b (SND (EL m (DROP (k + 1) xps))) ∧
+    &mindist_dist dt a b < EL m (DROP (k + i + 1) (EL k Rs)) ⇒
+    ¬wb (INL (Eq (FST (EL k xps)) (&a))) ∨
+    ¬wb (INL (Eq (FST (EL m (DROP (k + 1) xps))) (&b)))
+Proof
+  Induct>>simp[mindist_req_def]>>
+  gen_tac>>PairCases_on`h`>>rename1`(Xi,psi)::xps`>>
+  namedCases_on`Rs`["","R Rs"]>>simp[mindist_req_def,mindist_req_row_sem]>>
+  gen_tac>>
+  CONV_TAC (RAND_CONV (HO_REWR_CONV arithmeticTheory.FORALL_NUM))>>
+  simp[ADD1]
+QED
+
+Theorem mindist_req_iff[local]:
+  mindist_ctx bnd Xs D wi (dt,xps,sites,pm,dps,levels) ∧
+  mindist_faith bnd Xs Z D wi wb name (dt,xps,sites,pm,dps,levels) ∧
+  LENGTH R = LENGTH Xs ∧ EVERY (λrow. LENGTH row = LENGTH Xs) R ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr (mindist_req dt name 0 xps R)) ⇔
+  ∀i j. i < j ∧ j < LENGTH Xs ⇒
+    EL j (EL i R) ≤
+      &pos_dist D Xs wi i j)
+Proof
+  strip_tac>>drule_then strip_assume_tac (iffLR mindist_ctx_def)>>
+  drule_then strip_assume_tac (iffLR mindist_faith_def)>>
+  drule_all_then strip_assume_tac mindist_prep_facts>>
+  gvs[mindist_req_sem,EL_DROP,EL_MAP,pos_dist_def]>>
+  eq_tac>>rpt strip_tac
+  >- (
+    (* R[i][j] > dist i j would violate the row for the two current sites *)
+    CCONTR_TAC>>fs[integerTheory.INT_NOT_LE]>>
+    `LENGTH (EL i R) = LENGTH Xs ∧
+      0 ≤ varc wi (EL i Xs) ∧ Num (varc wi (EL i Xs)) < LENGTH D ∧
+      0 ≤ varc wi (EL j Xs) ∧ Num (varc wi (EL j Xs)) < LENGTH D` by gvs[EVERY_EL]>>
+    qpat_x_assum`∀k m a b. _`(qspecl_then[`i`,`j − (i + 1)`,
+      `Num (varc wi (EL i Xs))`,`Num (varc wi (EL j Xs))`]mp_tac)>>
+    simp[EL_DROP,EL_MAP,mindist_val_psites,EL_MEM,integerTheory.INT_OF_NUM]>>
+    gvs[mindist_dist_dtab,EVERY_EL])>>
+  (* a violated row would put two positions closer than R allows *)
+  `LENGTH (EL k R) = LENGTH Xs` by gvs[EVERY_EL]>>
+  `a < LENGTH D ∧ b < LENGTH D` by gvs[mindist_psites_thm,EL_DROP,EL_MAP]>>
+  gvs[EL_DROP,EL_MAP,mindist_dist_dtab,EVERY_EL]>>
+  simp[EL_MEM]>>CCONTR_TAC>>fs[]>>
+  qpat_x_assum`∀i j. _`(qspecl_then[`k`,`k + (m + 1)`]mp_tac)>>
+  simp[integerTheory.INT_NOT_LE]
+QED
+
+(* the assembled encoder and its correctness *)
+
+Definition mindist_rows_def:
+  mindist_rows bnd Xs Z optR name n (dt,xps,sites,pm,dps,levels) =
+  let
+    (zlo,zhi) = varc_bnd bnd Z;
+    reqs = (case optR of NONE => Nil | SOME R => mindist_req dt name 0 xps R);
+    ladder =
+      if EXISTS (λt. zlo < &t) levels then
+        mindist_ladder bnd Z name zlo pm sites
+          (mindist_pairs_map dps) NONE levels
+      else Nil
+  in
+    flat_app [
+      cmk_bounds_all bnd name «X_» Xs 0 (&n - 1);
+      mindist_used bnd name pm sites;
+      mindist_dup Z name (LENGTH Xs) zlo zhi pm sites;
+      mindist_pair Z name zhi dps;
+      reqs; ladder]
+End
+
+Definition cencode_mindistance_def:
+  cencode_mindistance bnd Xs Z D optR name ec =
+  if ¬mindist_valid (LENGTH Xs) D optR then (cfalse_constr, ec) else
+  let
+    pr = mindist_prep bnd Xs D;
+    (dt,xps,sites,pm,dps,levels) = pr;
+    (eqs,ec1) = cencode_full_eqs bnd (mindist_eqpairs xps) ec;
+    (zs,ec2) = fold_cenc (cencode_reif_gen bnd)
+      (mindist_ztriples bnd Z pm sites dps levels) ec1
+  in
+    (Append eqs (Append zs
+      (mindist_rows bnd Xs Z optR name (LENGTH D) pr)), ec2)
+End
+
+Definition encode_mindistance_def:
+  encode_mindistance bnd Xs Z D optR name =
+  if ¬mindist_valid (LENGTH Xs) D optR then abstr cfalse_constr else
+  let
+    pr = mindist_prep bnd Xs D;
+    (dt,xps,sites,pm,dps,levels) = pr
+  in
+    FLAT (MAP (λ(X,v). encode_full_eq bnd X v) (mindist_eqpairs xps)) ++
+    FLAT (MAP (encode_reif_gen bnd)
+      (mindist_ztriples bnd Z pm sites dps levels)) ++
+    abstr (mindist_rows bnd Xs Z optR name (LENGTH D) pr)
+End
+
+Theorem cencode_mindistance_sem:
+  valid_assignment bnd wi ∧
+  cencode_mindistance bnd Xs Z D optR name ec = (es, ec') ⇒
+  enc_rel wi es (encode_mindistance bnd Xs Z D optR name) ec ec'
+Proof
+  rw[cencode_mindistance_def,encode_mindistance_def]>>
+  rpt (pairarg_tac>>gvs[])>>
+  REWRITE_TAC[GSYM APPEND_ASSOC]>>
+  irule enc_rel_Append>>qexists_tac`ec1`>>conj_tac
+  >- (irule enc_rel_cencode_full_eqs>>simp[])>>
+  irule enc_rel_Append>>qexists_tac`ec'`>>simp[]>>
+  irule enc_rel_fold_cenc>>
+  first_x_assum (irule_at Any)>>
+  rw[]>>
+  irule enc_rel_encode_reif_gen>>simp[]
+QED
+
+Theorem encode_mindistance_sem_1:
+  valid_assignment bnd wi ∧
+  ALOOKUP cs name = SOME (Misc (MinDistance Xs Z D optR)) ∧
+  mindistance_sem Xs Z D optR wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
+    (encode_mindistance bnd Xs Z D optR name)
+Proof
+  simp[SF CONJ_ss,mindistance_sem_def,cj 3 mindist_realised_thm,
+    cj 4 mindist_realised_thm]>>
+  rw[encode_mindistance_def]
+  >- (
+    gvs[mindist_valid_thm,mindist_realised_def,EVERY_EL]>>
+    Cases_on`optR`>>gvs[])>>
+  pairarg_tac>>gvs[mindist_rows_def]>>
+  pairarg_tac>>gvs[]>>
+  drule_then assume_tac mindist_reify_flags>>
+  drule_all_then (fn th => fs[th]) (cj 5 mindist_realised_thm)>>
+  `mindist_ctx bnd Xs D wi (dt,xps,sites,pm,dps,levels) ∧
+    mindist_faith bnd Xs Z D wi (reify_avar cs wi) name
+      (dt,xps,sites,pm,dps,levels)`
+    by simp[mindist_ctx_def,mindist_faith_def,reify_avar_def,reify_reif_def,
+      lit_reify_avar_reif_gen_alt]>>
+  drule_then strip_assume_tac (iffLR mindist_faith_def)>>
+  rpt conj_tac
+  >- simp[encode_full_eqs_reify]
+  >- simp[EVERY_FLAT,EVERY_MAP,encode_reif_gen_sem_reify_avar]
+  >- simp[mindist_range_sem]
+  >- (drule_all mindist_used_iff>>simp[])
+  >- drule_all_then (fn th => asm_rewrite_tac[th]) mindist_dup_iff
+  >- drule_all_then (fn th => asm_rewrite_tac[th]) mindist_pair_iff
+  >- (Cases_on`optR`>>gvs[]>>drule_all mindist_req_iff>>simp[])>>
+  simp[SF COND_elim_ss,DISJ_EQ_IMP]>>strip_tac>>
+  drule_all_then (fn th => simp[th]) mindist_ladder_inst>>
+  simp[mindist_ws_sem]>>
+  conj_tac
+  >- (rpt strip_tac>>drule_all_then (fn th => simp[th]) mindist_at_filter)>>
+  rpt strip_tac>>
+  qpat_x_assum`0 ≤ varc wi Z`
+    (strip_assume_tac o MATCH_MP integerTheory.NUM_POSINT_EXISTS)>>
+  gvs[]>>
+  Cases_on`t ≤ n`>>simp[integerTheory.int_ge]>>
+  first_assum (irule_at Any)>>simp[]
+QED
+
+Theorem encode_mindistance_sem_2:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_mindistance bnd Xs Z D optR name) ⇒
+  mindistance_sem Xs Z D optR wi
+Proof
+  strip_tac>>
+  reverse (Cases_on`mindist_valid (LENGTH Xs) D optR`)
+  >- gvs[encode_mindistance_def,cfalse_constr_def]>>
+  gvs[encode_mindistance_def]>>
+  pairarg_tac>>gvs[mindist_rows_def]>>
+  pairarg_tac>>gvs[]>>
+  qpat_assum`mindist_valid _ _ _`(strip_assume_tac o SRULE[mindist_valid_thm])>>
+  drule_all_then (fn th => fs[th]) mindist_range_sem>>
+  `mindist_ctx bnd Xs D wi (dt,xps,sites,pm,dps,levels)`
+    by simp[mindist_ctx_def]>>
+  drule_all_then strip_assume_tac mindist_atoms_faithful>>
+  drule_all_then (fn th => fs[th]) mindist_used_iff>>
+  `mindist_faith bnd Xs Z D wi wb name (dt,xps,sites,pm,dps,levels)`
+    by simp[mindist_faith_def]>>
+  drule_all_then (fn th => fs[th]) mindist_dup_iff>>
+  drule_all_then (fn th => fs[th]) mindist_pair_iff>>
+  simp[mindistance_sem_def,cj 3 mindist_realised_thm,cj 4 mindist_realised_thm]>>
+  conj_asm1_tac
+  >- drule_all_then (fn th => asm_rewrite_tac[th]) (cj 5 mindist_realised_thm)>>
+  drule_all mindist_attain>>strip_tac>>
+  simp[]>>
+  Cases_on`optR`>>gvs[]>>
+  drule_all_then (fn th => fs[th]) mindist_req_iff
+QED
+
 Definition encode_misc_constr_def:
   encode_misc_constr bnd c name =
   case c of
@@ -865,6 +2162,8 @@ Definition encode_misc_constr_def:
     encode_circuit bnd Xs name
   | Knapsack css Xs Ts =>
     encode_knapsack css Xs Ts name
+  | MinDistance Xs Z D optR =>
+    encode_mindistance bnd Xs Z D optR name
 End
 
 Theorem encode_misc_constr_sem_1:
@@ -878,6 +2177,7 @@ Proof
   rw[encode_misc_constr_def,misc_constr_sem_def]
   >- metis_tac[encode_circuit_sem_1]
   >- metis_tac[encode_knapsack_sem_1]
+  >- metis_tac[encode_mindistance_sem_1]
 QED
 
 Theorem encode_misc_constr_sem_2:
@@ -890,6 +2190,7 @@ Proof
   rw[encode_misc_constr_def,misc_constr_sem_def]
   >- metis_tac[encode_circuit_sem_2]
   >- metis_tac[encode_knapsack_sem_2]
+  >- metis_tac[encode_mindistance_sem_2]
 QED
 
 (* Concrete encodings *)
@@ -900,6 +2201,8 @@ Definition cencode_misc_constr_def:
     cencode_circuit bnd Xs name ec
   | Knapsack css Xs Ts =>
     (cencode_knapsack css Xs Ts name, ec)
+  | MinDistance Xs Z D optR =>
+    cencode_mindistance bnd Xs Z D optR name ec
 End
 
 Theorem cencode_misc_constr_sem:
@@ -911,4 +2214,5 @@ Proof
   rw[cencode_misc_constr_def,encode_misc_constr_def]
   >- metis_tac[cencode_circuit_sem]
   >- simp[cencode_knapsack_def,encode_knapsack_def]
+  >- metis_tac[cencode_mindistance_sem]
 QED

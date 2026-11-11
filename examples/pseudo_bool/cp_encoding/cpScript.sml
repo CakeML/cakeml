@@ -279,6 +279,8 @@ Datatype:
     Circuit ('a varc list)
     (* General Knapsack *)
   | Knapsack (int list list) ('a varc list) ('a varc list)
+    (* Min-distance between designated sites, optional pairwise requirements *)
+  | MinDistance ('a varc list) ('a varc) (num list list) ((int list list) option)
 End
 
 Datatype:
@@ -1001,11 +1003,38 @@ Definition knapsack_sem_def:
   LIST_REL (λcs t. eval_iclin_term w (ZIP (cs,Xs)) = t) css (MAP (varc w) Ts)
 End
 
+(* the distance in D between the sites taken by positions i and j *)
+Definition pos_dist_def:
+  pos_dist D Xs w i j =
+    EL (Num $ varc w $ EL j Xs) $ EL (Num $ varc w $ EL i Xs) D
+End
+
+Definition mindistance_sem_def:
+  mindistance_sem Xs Z D optR w ⇔
+  let
+    p = LENGTH Xs; n = LENGTH D;
+    dist = (λi j. &(pos_dist D Xs w i j) : int)
+  in
+    EVERY (λX. 0 ≤ varc w X ∧ Num (varc w X) < n) Xs ∧
+    EVERY (λrow. LENGTH row = n) D ∧
+    (∀i. i < n ⇒ EL i $ EL i D = 0) ∧
+    (∀i j. i < n ∧ j < n ⇒ EL i $ EL j D = EL j $ EL i D) ∧
+    (∀i j. i < j ∧ j < p ⇒ varc w Z ≤ dist i j) ∧
+    (∃i j. i < j ∧ j < p ∧ varc w Z = dist i j) ∧
+    case optR of
+      NONE => T
+    | SOME R =>
+        LENGTH R = p ∧ EVERY (λrow. LENGTH row = p) R ∧
+        ∀i j. i < j ∧ j < p ⇒
+          0 ≤ EL j $ EL i R ∧ EL j $ EL i R ≤ dist i j
+End
+
 Definition misc_constr_sem_def:
   misc_constr_sem c w ⇔
   case c of
     Circuit Xs => circuit_sem Xs w
   | Knapsack css Xs Ts => knapsack_sem css Xs Ts w
+  | MinDistance Xs Z D optR => mindistance_sem Xs Z D optR w
 End
 
 (***

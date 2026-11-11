@@ -893,6 +893,11 @@ Definition sexp_int_rows_def:
     sexp_list_of («expected s-expression list of integer rows\n») sexp_int_list e
 End
 
+Definition sexp_num_rows_def:
+  sexp_num_rows e =
+    sexp_list_of («expected s-expression list of rows of nats\n») sexp_num_list e
+End
+
 (* knapsack: ((c11 ... c1n) ...) (X1 ... Xn) (t1 ... tm) -- each row cs with
    target t asserts the linear equation sum(cs_i * Xs_i) = t *)
 Definition sexp_knapsack_body_def:
@@ -908,10 +913,37 @@ Definition sexp_knapsack_body_def:
     | _ => fail («knapsack expects 3 args: ((c11 ...) ...) (X1 ... Xn) (t1 ... tm)\n»)
 End
 
+(* min_distance: (X1 ... Xn) Z ((d11 ...) ...) [((r11 ...) ...)] -- the Xi
+   pick sites, Z is the minimum pairwise distance between the chosen
+   sites, the square matrix gives inter-site distances, and the optional
+   trailing matrix gives per-pair minimum requirements. Matches GCS's
+   scp_reader.cc read_min_distance (5 or 6 terms incl. label/keyword). *)
+Definition sexp_min_distance_body_def:
+  sexp_min_distance_body rest =
+    case rest of
+      [Xs_e; Z_e; D_e] =>
+      (do
+         Xs <- sexp_varc_list Xs_e;
+         Z <- sexp_varc Z_e;
+         D <- sexp_num_rows D_e;
+         return (Misc (MinDistance Xs Z D NONE))
+       od)
+    | [Xs_e; Z_e; D_e; R_e] =>
+      (do
+         Xs <- sexp_varc_list Xs_e;
+         Z <- sexp_varc Z_e;
+         D <- sexp_num_rows D_e;
+         R <- sexp_int_rows R_e;
+         return (Misc (MinDistance Xs Z D (SOME R)))
+       od)
+    | _ => fail («min_distance expects 3 or 4 args: (X1 ... Xn) Z ((d11 ...) ...) [((r11 ...) ...)]\n»)
+End
+
 Definition sexp_misc_dispatch_def:
   sexp_misc_dispatch ctype rest =
     if ctype = «circuit» then SOME (sexp_circuit_body rest)
     else if ctype = «knapsack» then SOME (sexp_knapsack_body rest)
+    else if ctype = «min_distance» then SOME (sexp_min_distance_body rest)
     else NONE
 End
 
@@ -1560,6 +1592,33 @@ Theorem test_counting:
   sexp_constraint_dispatch («binpacking»)
     (fromStringL («((I0) (1) loads)»)) =
     INL («binpacking expects 4 args: (I1 ... In) (s1 ... sn) loads|capacities (B1 ... Bm)\n»)
+Proof
+  EVAL_TAC
+QED
+
+Theorem test_misc:
+  (* circuit *)
+  sexp_constraint_dispatch («circuit»)
+    (fromStringL («((A B C))»)) =
+    INR (Misc (Circuit [INL «A»; INL «B»; INL «C»])) ∧
+  (* knapsack *)
+  sexp_constraint_dispatch («knapsack»)
+    (fromStringL («(((1 2) (3 4)) (X Y) (A B))»)) =
+    INR (Misc (Knapsack [[1;2];[3;4]] [INL «X»; INL «Y»] [INL «A»; INL «B»])) ∧
+  (* min_distance, no requirements matrix *)
+  sexp_constraint_dispatch («min_distance»)
+    (fromStringL («((X0 X1) Z ((0 1 3) (1 0 2) (3 2 0)))»)) =
+    INR (Misc (MinDistance [INL «X0»; INL «X1»] (INL «Z»)
+      [[0;1;3];[1;0;2];[3;2;0]] NONE)) ∧
+  (* min_distance, with requirements matrix *)
+  sexp_constraint_dispatch («min_distance»)
+    (fromStringL («((X0 X1) Z ((0 1 3) (1 0 2) (3 2 0)) ((0 2) (0 0)))»)) =
+    INR (Misc (MinDistance [INL «X0»; INL «X1»] (INL «Z»)
+      [[0;1;3];[1;0;2];[3;2;0]] (SOME [[0;2];[0;0]]))) ∧
+  (* min_distance wrong arity *)
+  sexp_constraint_dispatch («min_distance»)
+    (fromStringL («((X0 X1) Z)»)) =
+    INL («min_distance expects 3 or 4 args: (X1 ... Xn) Z ((d11 ...) ...) [((r11 ...) ...)]\n»)
 Proof
   EVAL_TAC
 QED

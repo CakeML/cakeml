@@ -580,25 +580,6 @@ Proof
   metis_tac[MEM_EL]
 QED
 
-Theorem encode_full_eq_reify:
-  valid_assignment bnd wi ⇒
-  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi)) (encode_full_eq bnd X v)
-Proof
-  rw[]>>
-  DEP_REWRITE_TAC[encode_full_eq_sem]>>
-  simp[reify_avar_def,reify_reif_def]
-QED
-
-Theorem encode_full_eqs_reify:
-  valid_assignment bnd wi ⇒
-  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (FLAT (MAP (λ(X,v). encode_full_eq bnd X v) l))
-Proof
-  strip_tac>>Induct_on`l`>>rw[]>>
-  PairCases_on`h`>>gvs[]>>
-  simp[reify_avar_def,reify_reif_def]
-QED
-
 Theorem b2i_ge_1[local]:
   b2i b ≥ 1 ⇔ b
 Proof
@@ -658,16 +639,6 @@ Theorem MEM_reg_eq_pairs:
 Proof
   rw[reg_eq_pairs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS]>>
   metis_tac[EL_MEM]
-QED
-
-Theorem encode_full_eqs_sem_2:
-  ∀l.
-  valid_assignment bnd wi ∧
-  EVERY (λx. iconstraint_sem x (wi,wb))
-    (FLAT (MAP (λ(X,v). encode_full_eq bnd X v) l)) ⇒
-  ∀X v. MEM (X,v) l ⇒ (wb (INL (Eq X v)) ⇔ varc wi X = v)
-Proof
-  Induct>>rw[]>>gvs[]
 QED
 
 Theorem reg_onehot_unique:
@@ -1787,13 +1758,6 @@ Proof
             encode_smart_table_sem_2,encode_mdd_sem_2]
 QED
 
-(* The reifications needed for tuple eq on a given row *)
-Definition cencode_full_eqs_def:
-  cencode_full_eqs bnd xs ec =
-    fold_cenc
-      (λXt ec. cencode_full_eq bnd (FST Xt) (SND Xt) ec) xs ec
-End
-
 Definition creify_tuple_eq_def:
   creify_tuple_eq bnd Xts name n ec =
   let
@@ -1857,10 +1821,7 @@ Proof
   simp[cat_least_one_def]>>
   qexists_tac`ec'`>>reverse conj_tac
   >- irule enc_rel_List_refl_1>>
-  fs[cencode_full_eqs_def]>>
-  irule enc_rel_fold_cenc>>
-  first_x_assum (irule_at Any)>>
-  rw[]>>pairarg_tac>>gvs[enc_rel_encode_full_eq]
+  drule_all enc_rel_cencode_full_eqs>>simp[]
 QED
 
 (* concrete SmartTable encoder: mirrors encode_smart_* but threads ec for the
@@ -1932,21 +1893,6 @@ Definition cencode_smart_table_def:
   (Append eqs
     (cat_least_one name «» (MAPi (λk es. Pos (INR (Index name k))) rows)), ec')
 End
-
-(* abstr (cbimply_var ..) is [simp]-rewritten to REVERSE (bimply_bit ..), so
-   the spec side never shows abstr; relate any ec-preserving block to it by
-   discharging the (simp-provable) abstr equation. *)
-Theorem enc_rel_abstr'[local]:
-  es' = abstr es ⇒ enc_rel wi es es' ec ec
-Proof
-  rw[]>>irule enc_rel_abstr
-QED
-
-Theorem enc_rel_cbimply_var[local]:
-  enc_rel wi (cbimply_var bnd x cc) (REVERSE (bimply_bit bnd (Pos x) cc)) ec ec
-Proof
-  irule enc_rel_abstr'>>simp[]
-QED
 
 Theorem cencode_smart_entry_sem:
   valid_assignment bnd wi ∧
@@ -2035,12 +1981,7 @@ Proof
     pairarg_tac>>gvs[]>>
     irule enc_rel_Append>>
     irule_at Any enc_rel_abstr>>
-    irule_at Any enc_rel_fold_cenc>>
-    fs[cencode_full_eqs_def]>>
-    first_x_assum (irule_at Any)>>
-    rw[]>>
-    pairarg_tac>>
-    gvs[enc_rel_encode_full_eq])
+    drule_all enc_rel_cencode_full_eqs>>simp[])
   >- metis_tac[cencode_regular_sem]
   >- metis_tac[cencode_negative_table_sem]
   >- metis_tac[cencode_smart_table_sem]

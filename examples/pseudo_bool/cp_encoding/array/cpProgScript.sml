@@ -48,6 +48,7 @@ val res = translate OUTR;
 
 val res = translate MIN_DEF;
 val res = translate TAKE_def;
+val res = translate DROP_def;
 val res = translate indexedListsTheory.MAPi_ACC_def;
 val res = translate indexedListsTheory.MAPi_compute;
 
@@ -229,7 +230,9 @@ val _ = check_side res;
 (* misc *)
 val res = translate sexp_circuit_body_def;
 val res = translate sexp_int_rows_def;
+val res = translate sexp_num_rows_def;
 val res = translate sexp_knapsack_body_def;
+val res = translate sexp_min_distance_body_def;
 val res = translate sexp_misc_dispatch_def;
 
 val _ = check_side res;
@@ -401,6 +404,7 @@ val res = translate cencode_ge_def;
 val res = translate cencode_eq_def;
 
 val res = translate cencode_full_eq_def;
+val res = translate cencode_full_eqs_def;
 val res = translate cencode_eq_grid_def;
 val res = translate cencode_reif_gen_def;
 
@@ -626,7 +630,6 @@ val _ = check_side res;
 val res = translate cp_to_ilp_extensionalTheory.filter_match_def;
 val res = translate cp_to_ilp_extensionalTheory.cencode_tuple_eq_def;
 val res = translate cp_to_ilp_extensionalTheory.ctable_al1_def;
-val res = translate cp_to_ilp_extensionalTheory.cencode_full_eqs_def;
 val res = translate cp_to_ilp_extensionalTheory.creify_tuple_eq_def;
 val res = translate cp_to_ilp_extensionalTheory.creify_tuple_eqs_def;
 val res = translate cp_to_ilp_extensionalTheory.cencode_table_def;
@@ -809,6 +812,41 @@ val _ = update_precondition cencode_circuit_side;
 
 val res = translate cp_to_ilp_miscTheory.cencode_knapsack1_def;
 val res = translate cp_to_ilp_miscTheory.cencode_knapsack_def;
+
+val res = translate cp_to_ilp_miscTheory.mindist_nnum_def;
+
+Theorem mindist_nnum_side[local]:
+  mindist_nnum_side d ⇔ T
+Proof
+  EVAL_TAC>>rw[]>>
+  intLib.ARITH_TAC
+QED
+
+val _ = update_precondition mindist_nnum_side;
+
+val res = translate cp_to_ilp_miscTheory.mindist_psites_def;
+
+val res = translate miscTheory.lookup_any_def;
+val res = translate cp_to_ilp_miscTheory.mindist_pos_map_def;
+val res = translate sptreeTheory.fromList_def;
+val res = translate cp_to_ilp_miscTheory.mindist_dtab_def;
+val res = translate cp_to_ilp_miscTheory.mindist_dist_def;
+val res = translate cp_to_ilp_miscTheory.mindist_dpairs_def;
+val res = translate cp_to_ilp_miscTheory.mindist_pairs_map_def;
+val res = translate cp_to_ilp_miscTheory.mindist_prep_def;
+val res = translate cp_to_ilp_miscTheory.mindist_flag_def;
+val res = translate cp_to_ilp_miscTheory.mindist_used_def;
+val res = translate cp_to_ilp_miscTheory.mindist_dup_def;
+val res = translate cp_to_ilp_miscTheory.mindist_pair_def;
+val res = translate cp_to_ilp_miscTheory.mindist_req_row_def;
+val res = translate cp_to_ilp_miscTheory.mindist_req_def;
+val res = translate cp_to_ilp_miscTheory.mindist_ws_def;
+val res = translate cp_to_ilp_miscTheory.mindist_ladder_def;
+val res = translate cp_to_ilp_miscTheory.mindist_rows_def;
+val res = translate cp_to_ilp_miscTheory.mindist_eqpairs_def;
+val res = translate cp_to_ilp_miscTheory.mindist_ztriples_def;
+val res = translate cp_to_ilp_miscTheory.mindist_valid_def;
+val res = translate cp_to_ilp_miscTheory.cencode_mindistance_def;
 
 val res = translate cp_to_ilp_miscTheory.cencode_misc_constr_def;
 
