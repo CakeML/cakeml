@@ -1504,8 +1504,13 @@ Proof
   \\ Cases_on `v`
   \\ gvs [bvlSemTheory.smallnum_witness_length_def, AllCaseEqs(),
           v_rel_cases]
-  \\ imp_res_tac LIST_REL_LENGTH
-  \\ simp []
+  >~ [`v_to_list (Block 0 l)`] >- (
+    rename1 `LIST_REL (v_rel f) xs ys`
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ Cases_on `v_to_list (Block 0 xs)` \\ simp []
+    \\ `v_rel f (Block 0 xs) (Block 0 ys)` by simp [v_rel_cases]
+    \\ drule_all v_to_list_v_rel \\ strip_tac
+    \\ imp_res_tac LIST_REL_LENGTH \\ simp [])
   \\ drule_all state_ref_rel_lookup
   \\ strip_tac
   \\ gvs [ref_rel_cases]

@@ -90,7 +90,7 @@ Optimisations can be configured using the following advanced options.
   --tailrec=B true means attempts to turn functions into tail-rec form
   --inline_factor=N  threshold used by for ClosLang inliner in known pass
   --max_body_size=N  threshold used by for ClosLang inliner in known pass
-  --max_app=N   max number of optimised curried applications in multi pass
+  --max_app=N   max number of optimised curried applications in multi pass (1 to 1000)
   --inline_size=N  threshold used by for BVL inliner pass
   --exp_cut=N  threshold for when to cut large expression into subfunctions
   --split=B  true means main expression will be split at sequencing (;)

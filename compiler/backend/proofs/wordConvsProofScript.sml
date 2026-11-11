@@ -278,6 +278,7 @@ Theorem const_fp_loop_dummy_cases[local]:
 Proof
   rw [const_fp_loop_def, dest_Raise_num_def]
   \\ gvs [CaseEq "option", CaseEq "bool"]
+  \\ pairarg_tac \\ gvs []
 QED
 
 Theorem dest_If_thm[local]:
@@ -448,8 +449,7 @@ Proof
       \\ first_x_assum drule \\ fs [])
   \\ fs [const_fp_loop_def] \\ rw [] \\ fs [every_inst_def]
   \\ every_case_tac \\ rw [] \\ fs [every_inst_def]
-  \\ pairarg_tac \\ fs [] \\ rw [] \\ fs [every_inst_def]
-  \\ pairarg_tac \\ fs [] \\ rw [] \\ fs [every_inst_def]
+  \\ rpt (pairarg_tac \\ fs [] \\ rw [] \\ fs [every_inst_def])
 QED
 
 Theorem try_if_hoist2_no_inst[local]:

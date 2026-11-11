@@ -20,8 +20,14 @@ Datatype:
   shift = Lsl | Lsr | Asr | Ror
 End
 
+(* Rounding mode for integer division and modulus: TowardsZero gives
+   quot/rem (truncating), RoundDown gives div/mod (flooring) *)
 Datatype:
-  arith = Add | Sub | Mul | Div | Mod | Neg | And | Xor | Or | Not
+  div_round = TowardsZero | RoundDown
+End
+
+Datatype:
+  arith = Add | Sub | Mul | Div div_round | Mod div_round | Neg | And | Xor | Or | Not
         | Absolute  (* Abs is reserved for Candle *)
         | Sqrt | FMA | Shift shift
 End

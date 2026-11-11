@@ -714,7 +714,7 @@ Proof
          store_lookup_def, copy_array_def, store_assign_def,
          CaseEq"sum"]
     \\ Cases_on ‘a’ \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
-    \\ gvs[do_arith_def,CaseEq"list",v_ok_thm] )
+    \\ gvs[do_arith_def,CaseEq"list",CaseEq"div_round",v_ok_thm] )
   \\ Cases_on ‘op = Opderef’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,

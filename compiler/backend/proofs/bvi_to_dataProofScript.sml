@@ -199,6 +199,11 @@ Proof
   \\ gvs [bvlSemTheory.smallnum_witness_length_def,
           dataSemTheory.smallnum_witness_length_def,
           state_rel_def, lookup_map]
+  >~ [`v_to_list (Block ts _ xs)`] >- (
+    rw []
+    \\ qspec_then `Block ts 0 xs` mp_tac v_to_list_eq
+    \\ rewrite_tac [data_to_bvi_v_def] \\ strip_tac \\ simp []
+    \\ Cases_on `v_to_list (Block ts 0 xs)` \\ simp [])
   \\ qmatch_goalsub_rename_tac `lookup ptr t.refs`
   \\ Cases_on `lookup ptr t.refs`
   \\ simp []

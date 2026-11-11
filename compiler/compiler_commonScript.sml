@@ -154,7 +154,11 @@ Definition parse_clos_conf_def:
   let known = find_bool «--known=» ls (IS_SOME clos.known_conf) in
   let inline_factor = find_num «--inline_factor=» ls default_inline_factor in
   let call = find_bool «--call=» ls clos.do_call in
-  let maxapp = find_num «--max_app=» ls clos.max_app in
+  let maxapp =
+    (case find_num «--max_app=» ls clos.max_app of
+     | INL n => if 0 < n ∧ n ≤ max_app_limit then INL n
+                else INR «--max_app must be between 1 and 1000»
+     | err => err) in
   case (multi,known,inline_factor,call,maxapp) of
     (INL m,INL k,INL i,INL c,INL n) =>
     if k then

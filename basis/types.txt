@@ -142,6 +142,8 @@ Int.-: int -> int -> int
 Int.*: int -> int -> int
 Int.div: int -> int -> int
 Int.mod: int -> int -> int
+Int.quot: int -> int -> int
+Int.rem: int -> int -> int
 Int.<: int -> int -> bool
 Int.>: int -> int -> bool
 Int.<=: int -> int -> bool
@@ -449,6 +451,7 @@ Ast.pp_lop: Ast.lop -> PrettyPrinter.pp_data
 Ast.pp_shift: Ast.shift -> PrettyPrinter.pp_data
 Ast.pp_word_size: Ast.word_size -> PrettyPrinter.pp_data
 Ast.pp_prim_type: Ast.prim_type -> PrettyPrinter.pp_data
+Ast.pp_div_round: Ast.div_round -> PrettyPrinter.pp_data
 Ast.pp_arith: Ast.arith -> PrettyPrinter.pp_data
 Ast.pp_thunk_mode: Ast.thunk_mode -> PrettyPrinter.pp_data
 Ast.pp_thunk_op: Ast.thunk_op -> PrettyPrinter.pp_data
@@ -463,6 +466,7 @@ AstSexp.from_int_pair: int * int -> Sexp.sexp
 AstSexp.from_id: (string, string) Ast.id -> Sexp.sexp
 AstSexp.from_lit: Ast.lit -> Sexp.sexp
 AstSexp.from_shift: Ast.shift -> Sexp.sexp
+AstSexp.from_div_round: Ast.div_round -> Sexp.sexp
 AstSexp.from_arith: Ast.arith -> Sexp.sexp
 AstSexp.from_word_size: Ast.word_size -> Sexp.sexp
 AstSexp.from_thunk_mode: Ast.thunk_mode -> Sexp.sexp
@@ -495,6 +499,7 @@ AstSexp.to_option: (Sexp.sexp -> 'a option) -> Sexp.sexp -> 'a option option
 AstSexp.to_id: Sexp.sexp -> (string, string) Ast.id option
 AstSexp.to_lit: Sexp.sexp -> Ast.lit option
 AstSexp.to_shift: Sexp.sexp -> Ast.shift option
+AstSexp.to_div_round: Sexp.sexp -> Ast.div_round option
 AstSexp.to_arith: Sexp.sexp -> Ast.arith option
 AstSexp.to_word_size: Sexp.sexp -> Ast.word_size option
 AstSexp.to_thunk_mode: Sexp.sexp -> Ast.thunk_mode option
