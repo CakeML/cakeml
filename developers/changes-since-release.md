@@ -18,6 +18,8 @@ The integer division and modulus primitives now take a rounding mode. Instead of
 
 ## Examples
 
+A new LSR checker has been added, with some surrounding (beneficial) fallout cleanups in cnf (#1588).
+
 ## Build infrastructure
 
 ## Proof engineering and tooling

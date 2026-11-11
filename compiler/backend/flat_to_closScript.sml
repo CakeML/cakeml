@@ -74,11 +74,15 @@ QED
 
 fun var_fun m n = ``closLang$Var t ^(numSyntax.term_of_int(m-n))``;
 
+(* both offsets are within the source, so their sum is a small index *)
 fun check1 tm var =
-``(If t (Op t (IntOp Less) [Op t (IntOp (Const 0)) []; ^(var 2)]) (Raise t (Op t (BlockOp (Cons subscript_tag)) []))
-  (If t (Op t (IntOp Less) [Op t (IntOp (Const 0)) []; ^(var 1)]) (Raise t (Op t (BlockOp (Cons subscript_tag)) []))
-  (If t (Op t (MemOp (BoundsCheckByte T)) [Op t (IntOp Add) [^(var 2); ^(var 1)]; ^(var 0)]) ^tm
-  (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))))``;
+``(If t (Op t (MemOp (BoundsCheckByte T)) [^(var 2); ^(var 0)])
+  (If t (Op t (MemOp (BoundsCheckByte T)) [^(var 1); ^(var 0)])
+  (If t (Op t (MemOp (BoundsCheckByte T))
+          [Op t (IntOp (Smallnum SmallAdd)) [^(var 0); ^(var 2); ^(var 1)]; ^(var 0)]) ^tm
+  (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+  (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+  (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))``;
 
 val checkT = check1
   ``(closLang$Op t (MemOp (CopyByte T)) [Var t 0; Var t 1; Var t 2])`` (var_fun 2);
@@ -371,7 +375,13 @@ Definition compile_op_def:
         compile_unsafe_index t (\ys. compile_smallnum_test t test ys) xs
     | Src (FromTo (WordT W8) IntT) => arg1 xs (\x. x)
     | Src (FromTo (WordT W64) IntT) => Op t (WordOp WordToInt) xs
-    | Src (FromTo IntT (WordT W8)) => arg1 xs (\x. Op t (IntOp Mod) [Op t (IntOp (Const 256)) []; x])
+    | Src (FromTo IntT (WordT W8)) =>
+        (* avoid the division when the int is already a byte *)
+        Let t xs (If t (Op t (IntOp Less) [Op None (IntOp (Const 0)) []; Var t 0])
+                   (Op t (IntOp Mod) [Op None (IntOp (Const 256)) []; Var t 0])
+                   (If t (Op t (IntOp Less) [Op None (IntOp (Const 256)) []; Var t 0])
+                     (Var t 0)
+                     (Op t (IntOp Mod) [Op None (IntOp (Const 256)) []; Var t 0])))
     | Src (FromTo IntT (WordT W64)) => Op t (WordOp WordFromInt) xs
     | Src (FromTo IntT CharT) => Let t xs (If t (Op t (IntOp Less) [Op None (IntOp (Const 0)) []; Var t 0])
                         (Raise t (Op t (BlockOp (Cons chr_tag)) []))

@@ -286,6 +286,7 @@ val res = translate parse_nums_def;
 val res = translate clos_knownTheory.default_inline_factor_def;
 val res = translate clos_knownTheory.default_max_body_size_def;
 val res = translate clos_knownTheory.mk_config_def;
+val res = translate clos_to_bvlTheory.max_app_limit_def;
 val res = translate parse_clos_conf_def;
 val res = translate parse_bvl_conf_def;
 val res = translate parse_wtw_conf_def;
