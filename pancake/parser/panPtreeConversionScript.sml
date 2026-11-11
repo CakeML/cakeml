@@ -35,6 +35,7 @@ End
 Overload "'"[local] = ``λf a. OPTION_BIND a f``
 
 Overload ptree_size[local] = ``parsetree_size (K 0) (K 0) (K 0)``;
+Overload ptree1_size[local] = ``parsetree1_size (K 0) (K 0) (K 0)``;
 
 Definition tokcheck_def:
   tokcheck pt expected =
@@ -83,7 +84,7 @@ Definition conv_nat_def:
 End
 
 Definition conv_const_def:
-  conv_const t = lift (panLang$Const) $ conv_int t
+  conv_const t = lift (panLang$Const o i2w) $ conv_int t
 End
 
 Definition conv_ident_def:
@@ -234,6 +235,7 @@ Definition conv_params_def:
   | _ => NONE
 End
 
+
 (** Convert a expression parse tree into the corresponding AST.
   *
   * The definition is slightly complicated by the requirement that
@@ -286,8 +288,15 @@ Definition conv_Exp_def:
     else if isNT nodeNT ENotNT then
       case args of
         [t] => conv_Exp t
-      | [_; t] => lift (Cmp Equal (Const 0)) (conv_Exp t)
+      | [_; t] => lift (Cmp Equal (Const 0w)) (conv_Exp t)
       | _ => NONE
+    (* else if isNT nodeNT VariantNT then
+      case args of
+        [t1;t2] => do nm <- conv_ident t1;
+                      fld <- conv_Field t2;
+                      SOME $ VariantE nm fld
+                    od
+      | _ => NONE *)
     else if isNT nodeNT ELoadByteNT then
       case args of
         [t] => lift LoadByte (conv_Exp t)
@@ -317,14 +326,14 @@ Definition conv_Exp_def:
       case args of
         [e] => conv_Exp e
       | e1::args' => do es  <- OPT_MMAP conv_Exp $ e1::args';
-                        SOME $ Cmp NotEqual (Const 0) $ Op Or es
+                        SOME $ Cmp NotEqual (Const 0w) $ Op Or es
                      od
       | _ => NONE
     else if isNT nodeNT EBoolAndNT then
       case args of
         [e] => conv_Exp e
       | e1::args' => do es  <- OPT_MMAP conv_Exp $ e1::args';
-                        SOME $ Op And $ MAP (λe. Cmp NotEqual (Const 0) e) es
+                        SOME $ Op And $ MAP (λe. Cmp NotEqual (Const 0w) e) es
                      od
       | _ => NONE
     else if isNT nodeNT EShiftNT then
@@ -343,8 +352,8 @@ Definition conv_Exp_def:
   (conv_Exp leaf = if tokcheck leaf (kw BaseK) then SOME BaseAddr
                    else if tokcheck leaf (kw TopK) then SOME TopAddr
                    else if tokcheck leaf (kw BiwK) then SOME BytesInWord
-                   else if tokcheck leaf (kw TrueK) then SOME $ Const 1
-                   else if tokcheck leaf (kw FalseK) then SOME $ Const 0
+                   else if tokcheck leaf (kw TrueK) then SOME $ Const 1w
+                   else if tokcheck leaf (kw FalseK) then SOME $ Const 0w
                    else conv_const leaf ++ conv_var leaf) ∧
   conv_binaryExps [] e = SOME e ∧
   (conv_binaryExps (t1::t2::ts) res =
@@ -515,6 +524,14 @@ Proof
   IF_CASES_TAC>>gs[list_size_def]
 QED
 
+Theorem list_size_MEM:
+  ∀xs x. MEM x xs ⇒ f x ≤ list_size f xs
+Proof
+  Induct>>rw[]>>gs[list_size_def]>>
+  last_x_assum (qspec_then ‘x’ assume_tac)>>
+  gs[]
+QED
+
 Definition parsetree_locs_def:
   parsetree_locs tree = (case tree of
     | Nd (_, Locs p1 p2) _ => (p1, p2)
@@ -586,6 +603,7 @@ Definition conv_ExnDec_def:
     | _ => NONE
 End
 
+
 Definition conv_DecCall_def:
   (conv_DecCall (^Nd nodeNT args) =
    if isNT nodeNT DecCallNT then
@@ -595,7 +613,7 @@ Definition conv_DecCall_def:
             i' <- conv_ident i;
             e' <- conv_ident e;
             args' <- (case ts of [] => SOME [] | args::_ => conv_ArgList args);
-            SOME (s',i',e',args': exp list)
+            SOME (s',i',e',args': 'a exp list)
          od
      | _ => NONE
    else
@@ -642,6 +660,34 @@ Definition conv_Prog_def:
                       SOME (add_locs_annot nd (While e' p'))
                    od
        | _ => NONE
+     else if isNT nodeNT CaseNT then
+      case args of
+        [i; p] => do i' <- conv_ident i;
+                     p' <- conv_Prog p;
+                     SOME (add_locs_annot nd (Case i' p'))
+                  od
+        |_ => NONE
+      else if isNT nodeNT CaseListNT then
+        case args of
+          (a::as) => do ps <- (OPT_MMAP conv_Prog) (a::as);
+                        SOME (add_locs_annot nd (CaseList ps))
+                     od
+          | [] => SOME (add_locs_annot nd (CaseList []))
+          | _ => NONE
+     else if isNT nodeNT MatchNT then
+        case args of
+          [i; clist; d] => do i' <- conv_Exp i;
+                              clist' <- conv_Prog clist;
+                              d' <- conv_Prog d;
+                              SOME (add_locs_annot nd (Match i' clist' d'))
+                           od
+        | _ => NONE
+    else if isNT nodeNT DefaultNT then
+      case args of
+        [p] => do p' <- conv_Prog p;
+                  SOME (add_locs_annot nd (Default p'))
+               od
+      | _ => NONE
      else if isNT nodeNT DecCallNT then
        case args of
          [dec; p] =>
@@ -704,8 +750,9 @@ Termination
       by irule list_size_butlast>>
     gs[])
   >- (
+    fs [MEM_SPLIT, list_size_append]) >- (
     ‘ptree_size (LAST ts) ≤ list_size ptree_size ts’
-      by (irule MEM_list_size>>
+      by (irule list_size_MEM>>
           gs[LAST_EL, MEM_EL]>>
           qexists_tac ‘PRE (LENGTH ts)’>>gs[]>>
           Cases_on ‘ts’>>gs[])>>
@@ -750,6 +797,21 @@ Definition conv_StructName_def:
   conv_StructName _ = NONE
 End
 
+Definition conv_UnionName_def:
+(conv_UnionName (^Nd nodeNT args) =
+  if isNT nodeNT UnionNT then
+    case args of
+      [id; flds] =>
+        do nm <- conv_ident id;
+          flds' <- conv_FieldNameList flds;
+          SOME (nm, flds')
+        od
+    | _ => NONE
+  else
+    NONE) ∧
+    conv_UnionName _ = NONE
+End
+
 Definition conv_TopDec_def:
   conv_TopDec tree =
   case argsNT tree FunNT of
@@ -773,7 +835,9 @@ Definition conv_TopDec_def:
                | _ =>
                    (case conv_ExnDec tree of
                       SOME (eid, sh) => SOME $ ExnDecl eid sh
-                    | NONE => NONE)))
+                    | _ => case conv_UnionName tree of
+                      | SOME (nm, flds) => SOME $ UnionD nm flds
+                      | _ => NONE )))
 End
 
 Definition conv_TopDecList_def:
@@ -834,6 +898,15 @@ Definition localise_exp_def:
 End
 
 Definition localise_prog_def:
+  localise_prog ls (Match varexp prog1 prog2) =
+  Match (localise_exp ls varexp) (localise_prog ls prog1) (localise_prog ls prog2) ∧
+  localise_prog ls (CaseList progs) =
+  CaseList (MAP (\prog. localise_prog ls prog) progs) ∧
+  localise_prog ls (Default prog) =
+  Default (localise_prog ls prog) ∧
+  (* TODO check this one *)
+  localise_prog ls (Case fldname prog) =
+  Case fldname (localise_prog ls prog) ∧
   localise_prog ls (Dec varname shape exp prog) =
   Dec varname shape
       (localise_exp ls exp)
@@ -897,6 +970,7 @@ Definition localise_topdec_def:
   localise_topdec ls (Decl sh v e) = Decl sh v e ∧
   localise_topdec ls (Name nm fld) = Name nm fld ∧
   localise_topdec ls (ExnDecl nm sh) = ExnDecl nm sh ∧
+  localise_topdec ls (UnionD nm sh) = UnionD nm sh ∧
   localise_topdec ls (Function fi) =
   Function $ fi with body := localise_prog (FOLDL (\m p. insert m p ()) ls (MAP FST fi.params)) fi.body
 End
@@ -905,7 +979,132 @@ Definition localise_topdecs_def:
   localise_topdecs decs = MAP (localise_topdec $ empty mlstring$compare) decs
 End
 
+Definition identify_variants_exp_def:
+  identify_variants_exp ls (Var varkind varname) = Var varkind varname ∧
+  identify_variants_exp ls (RStruct exps) = RStruct (identify_variants_exps ls exps) ∧
+  identify_variants_exp ls (RField index exp) = RField index (identify_variants_exp ls exp) ∧
+  (identify_variants_exp ls (NStruct nm flds) =
+    (let flds' = (MAP (\fld, e. (fld, identify_variants_exp ls e)) flds) in
+      if MEM nm ls then
+        (case flds' of
+                [(nfld , v)] => VariantE nm (nfld , v)
+                (* TODO check whats happening here *)
+                | _ => NStruct nm flds')
+      else NStruct nm flds')
+  ) ∧
+  identify_variants_exp ls (NField fld exp) = NField fld (identify_variants_exp ls exp) ∧
+  identify_variants_exp ls (Load shape exp) = Load shape (identify_variants_exp ls exp) ∧
+  identify_variants_exp ls (LoadByte exp) = LoadByte (identify_variants_exp ls exp) ∧
+  identify_variants_exp ls (Load32 exp) = Load32 (identify_variants_exp ls exp) ∧
+  identify_variants_exp ls (Op binop exps) = Op binop (identify_variants_exps ls exps) ∧
+  identify_variants_exp ls (Panop panop exps) = Panop panop (identify_variants_exps ls exps) ∧
+  identify_variants_exp ls (Cmp cmp exp1 exp2) = Cmp cmp (identify_variants_exp ls exp1) (identify_variants_exp ls exp2) ∧
+  identify_variants_exp ls (Shift shift exp1 exp2) = Shift shift (identify_variants_exp ls exp1) (identify_variants_exp ls exp2) ∧
+  identify_variants_exp ls e = e ∧
+  identify_variants_exps ls [] = [] ∧
+  identify_variants_exps ls (e::es) = identify_variants_exp ls e::identify_variants_exps ls es
+End
+
+Definition identify_variants_prog_def:
+  identify_variants_prog ls (Match varname prog1 prog2) =
+  Match varname
+    (identify_variants_prog ls prog1)
+    (identify_variants_prog ls prog2) ∧
+  identify_variants_prog ls (CaseList progs) =
+  CaseList (MAP (\prog. identify_variants_prog ls prog) progs) ∧
+  identify_variants_prog ls (Case fldname prog) =
+  Case fldname (identify_variants_prog ls prog) ∧
+  identify_variants_prog ls (Default prog) =
+  Default (identify_variants_prog ls prog) ∧
+  identify_variants_prog ls (Dec varname shape exp prog) =
+  Dec varname shape
+      (identify_variants_exp ls exp)
+      (identify_variants_prog ls prog) ∧
+  identify_variants_prog ls (Assign varkind varname exp) =
+  Assign varkind varname
+        (identify_variants_exp ls exp) ∧
+  identify_variants_prog ls (Primitive varname pop exps) =
+  Primitive varname pop (MAP (identify_variants_exp ls) exps) ∧
+  identify_variants_prog ls (Store exp1 exp2) =
+  Store (identify_variants_exp ls exp1)
+        (identify_variants_exp ls exp2) ∧
+  identify_variants_prog ls (StoreByte exp1 exp2) =
+  StoreByte (identify_variants_exp ls exp1)
+            (identify_variants_exp ls exp2) ∧
+  identify_variants_prog ls (Store32 exp1 exp2) =
+  Store32 (identify_variants_exp ls exp1)
+          (identify_variants_exp ls exp2) ∧
+  identify_variants_prog ls (Seq prog1 prog2) =
+  Seq (identify_variants_prog ls prog1)
+      (identify_variants_prog ls prog2) ∧
+  identify_variants_prog ls (If exp prog1 prog2) =
+  If (identify_variants_exp ls exp)
+     (identify_variants_prog ls prog1)
+     (identify_variants_prog ls prog2) ∧
+  identify_variants_prog ls (While exp prog) =
+  While (identify_variants_exp ls exp)
+        (identify_variants_prog ls prog) ∧
+  identify_variants_prog ls (panLang$Call call name exps) =
+  panLang$Call call
+       name
+       (MAP (identify_variants_exp ls) exps) ∧
+  identify_variants_prog ls (DecCall varname shape fname exps prog) =
+  DecCall varname shape
+          fname
+          (MAP (identify_variants_exp ls) exps)
+          (identify_variants_prog ls prog) ∧
+  identify_variants_prog ls (ExtCall funname exp1 exp2 exp3 exp4) =
+  ExtCall funname
+          (identify_variants_exp ls exp1) (identify_variants_exp ls exp2)
+          (identify_variants_exp ls exp3) (identify_variants_exp ls exp4) ∧
+  identify_variants_prog ls (Raise eid exp) =
+  Raise eid (identify_variants_exp ls exp) ∧
+  identify_variants_prog ls (Return exp) =
+  Return (identify_variants_exp ls exp) ∧
+  identify_variants_prog ls (ShMemLoad opsize varkind varname exp) =
+  ShMemLoad opsize
+            varkind
+            varname
+            (identify_variants_exp ls exp) ∧
+  identify_variants_prog ls (ShMemStore opsize exp1 exp2) =
+  ShMemStore opsize (identify_variants_exp ls exp1) (identify_variants_exp ls exp2) ∧
+  identify_variants_prog ls p = p
+End
+
+(* TODO check the logic about the ls/ls' happening, right now decl must happen before lookup*)
+Definition identify_variant_def:
+  identify_variant ls [] = (ls, []) ∧
+  identify_variant ls (Decl sh v e :: decs) =
+    (let (ls', decs') = identify_variant ls decs in
+      (ls', ((Decl sh v (identify_variants_exp ls' e) :: decs')))) ∧
+  identify_variant ls (ExnDecl nm sh :: decs) =
+    (let (ls', decs') = identify_variant ls decs in
+      (ls', ((ExnDecl nm sh) :: decs'))) ∧
+  identify_variant ls ((UnionD nm fld) :: decs) =
+    (let (ls', decs') = identify_variant (nm :: ls) decs in
+     (ls', ((UnionD nm fld) :: decs'))) ∧
+  identify_variant ls ((Name nm fld) :: decs) =
+  (let (ls', decs') = identify_variant ls decs in
+    (ls', ((Name nm fld) :: decs')))  ∧
+  identify_variant ls (Function fi :: decs) =
+    let (ls', decs') = identify_variant ls decs in
+      (ls', (Function $ fi with body := identify_variants_prog ls' fi.body) :: decs')
+End
+
 Definition parse_topdecs_to_ast_def:
+  parse_topdecs_to_ast s =
+    (case safe_pancake_lex s of
+     | INL toks =>
+        (case parse toks of
+           | INL e =>
+             (case conv_TopDecList e of
+              | SOME funs => INL (SND (identify_variant ([]:mlstring list) (localise_topdecs funs)))
+              | NONE => INR [(«Parse tree conversion failed»,unknown_loc)])
+           | INR err => INR err)
+     | INR err => INR err)
+End
+
+(* Definition parse_topdecs_to_ast_def:
   parse_topdecs_to_ast s =
     (case safe_pancake_lex s of
      | INL toks =>
@@ -916,4 +1115,4 @@ Definition parse_topdecs_to_ast_def:
               | NONE => INR [(«Parse tree conversion failed»,unknown_loc)])
            | INR err => INR err)
      | INR err => INR err)
-End
+End *)

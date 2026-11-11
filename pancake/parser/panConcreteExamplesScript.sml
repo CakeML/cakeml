@@ -682,3 +682,130 @@ val malformed_number_parses =
          assert (can (find_term (same_const “LexErrorT”)) o rhs o concl) $
            lex_pancake ex)
       malformed_number_exs
+
+val unions_global =
+‘
+  union example_union {
+    2 variant_1,
+    1 variant_2,
+    2 variant_3
+  }
+
+  struct my_struct {
+    1 field_1,
+    2 field_2
+  }
+  var test = my_struct <field_1 = 1, field_2 = <1,1>>;
+  var my_union = example_union <variant_1 = <2,3> >;
+’
+
+val union_parse = parse_pancake unions_global;
+
+val unions_local =
+‘
+  union example_union {
+    2 variant_1,
+    1 variant_2,
+    2 variant_3
+  }
+  fun main() {
+    var my_union = example_union <variant_1 = <2,3> >;
+  }
+
+’
+
+val union_parse = parse_pancake unions_local;
+
+val unions_and_struct =
+‘
+  union example_union {
+    2 variant_1,
+    1 variant_2,
+    2 variant_3
+  }
+  fun main() {
+    var my_union = example_union <variant_1 = <2,3> >;
+  }
+
+’
+
+val union_parse = parse_pancake unions_and_struct;
+
+val named_structs =
+ ‘
+  union my_union {
+    2 tuple_v,
+    1 value_v
+  }
+
+  struct my_other_struct {
+    my_union u
+  }
+
+  fun my_struct f(my_struct a) {
+    return my_struct <tuple = a.tuple, value = a.value>;
+  }
+
+  fun my_struct g() {
+    var test = my_other_struct <u = my_union <tuple_v = <1, 2>>>;
+  }
+  ’
+
+val named_structs_parse = parse_pancake named_structs;
+
+val match =
+‘
+  union example_union {
+    2 variant_1,
+    1 variant_2,
+    2 variant_3
+  }
+  fun main() {
+    var example_union my_union = example_union < variant_1 = <1,2> >;
+    match (my_union) {
+      case variant_1 {
+        return my_union.2;
+      }
+      case variant_2 {
+        return my_union.1;
+      }
+      default {
+        return 1;
+      }
+    }
+  }
+’
+val match_parse = check_success $ parse_pancake match;
+
+val match_emptycase =
+‘
+  fun main() {
+    match (my_union) {
+      default {
+        return 1;
+      }
+    }
+  }
+’
+
+val match_parse = check_success $ parse_pancake match_emptycase;
+
+val var_after_decl =
+‘
+  val example_union x = example_union < variant_1 = <1,2> >;
+  union example_union {
+    2 variant_1,
+    1 variant_2,
+    2 variant_3
+  }
+’
+
+val exposed_case =
+‘
+  fun main() {
+    case variant_1 {
+      return 1;
+    }
+  }
+’
+val exposed_case = parse_pancake exposed_case;

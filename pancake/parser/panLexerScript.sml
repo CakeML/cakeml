@@ -19,7 +19,7 @@ Datatype:
   keyword = SkipK | StK | StwK | St8K | St16K | St32K | IfK | ElseK | WhileK
   | BrK | ContK | ThrowK | RetK | TicK | VarK | TryK | CatchK | BiwK | NamedK
   | LdsK | Ld8K | LdwK | Ld16K | Ld32K | BaseK | TopK | InK | FunK | ExportK | TrueK | FalseK
-  | InlineK | ExceptionK
+  | InlineK | ExceptionK | UnionK | CaseK | MatchK | DefaultK
 End
 
 Datatype:
@@ -147,6 +147,10 @@ Definition get_keyword_def:
   if s = "inline" then (KeywordT InlineK) else
   if s = "exception" then (KeywordT ExceptionK) else
   if s = "struct" then (KeywordT NamedK) else
+  if s = "union"  then (KeywordT UnionK) else
+  if s = "match" then (KeywordT MatchK) else
+  if s = "case" then (KeywordT CaseK) else
+  if s = "default" then (KeywordT DefaultK) else
   if s = "" then LexErrorT $ «Expected keyword, found empty string» else
   if 2 <= LENGTH s ∧ EL 0 s = #"@" then ForeignIdent (DROP 1 s)
   else
