@@ -4,7 +4,7 @@ Pancake Changelog
 User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
-Nov 11th 2026
+Nov 12th 2026
 -------------------
 
 ### Standalone Pancake compiler
