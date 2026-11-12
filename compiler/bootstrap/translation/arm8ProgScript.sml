@@ -3,7 +3,7 @@
 *)
 Theory arm8Prog[no_sig_docs]
 Ancestors
-  arm8_target arm8 evaluate ml_translator x64Prog
+  arm8_target arm8 evaluate ml_translator arm7Prog
 Libs
   preamble ml_translatorLib inliningLib
 
@@ -11,7 +11,7 @@ val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = computeLib.upd_compset (fn c => computeLib.set_skip c “COND” (SOME 1));
 
-val _ = translation_extends "x64Prog";
+val _ = translation_extends "arm7Prog";
 val _ = ml_translatorLib.use_sub_check true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "arm8Prog");
@@ -49,6 +49,8 @@ fun def_of_const tm = let
   in def end
 
 val _ = (find_def_for_const := def_of_const);
+
+val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
 
 Theorem IS_SOME_rw[local]:
   (if IS_SOME a then b else c) =
@@ -133,7 +135,7 @@ val arm8_enc1_1 = el 1 arm8_enc1s |> wc_simp |> we_simp |> gconv
 val arm8_enc1_2 = el 2 arm8_enc1s |> SIMP_RULE (srw_ss()++LET_ss)
   ([Q.ISPEC `LIST_BIND` COND_RAND, Ntimes
   (Q.ISPEC`option_CASE`COND_RAND) 8,
-  Q.ISPEC`MachineCode_CASE`COND_RAND, COND_RATOR, LIST_BIND_APPEND,
+  Q.ISPEC`arm8$MachineCode_CASE`COND_RAND, COND_RATOR, LIST_BIND_APPEND,
   IS_SOME_rw]@defaults) |> SIMP_RULE (srw_ss()) ([option_case_compute,
   Q.ISPEC`LIST_BIND`COND_RAND, COND_RATOR]@defaults) |> SIMP_RULE
   (srw_ss()) ((GSYM option_case_compute)::exh_machine_code::defaults)
@@ -159,7 +161,7 @@ val binopregth = reconstruct_case
 
 val binopimm = binopimm_aux |> CONJUNCTS |> map(fn th => th
   |> SIMP_RULE (srw_ss()++LET_ss)
-               (Q.ISPEC`LIST_BIND`COND_RAND ::Q.ISPEC`Data_CASE`COND_RAND:: COND_RATOR :: word_mul_def :: defaults)
+               (Q.ISPEC`LIST_BIND`COND_RAND ::Q.ISPEC`arm8$Data_CASE`COND_RAND:: COND_RATOR :: word_mul_def :: defaults)
   |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO])
 (*TODO: fix -- avoid MachineCode type*)
 
@@ -329,22 +331,6 @@ val res = translate ct_curr_def
 fun specv64 v = INST_TYPE [v|->``:64``]
 val _ = translate (specv64 ``:'N`` EncodeBitMaskAux_def |> gconv |>
 SIMP_RULE std_ss [CountTrailing_eq, word_ror_eq_any_word64_ror])
-
-val _ = translate bitstringTheory.zero_extend_def
-val _ = translate bitstringTheory.fixwidth_def
-val _ = translate bitstringTheory.field_def
-val _ = translate bitstringTheory.v2n_def;
-
-(* TODO: already in lexerProg but not stored *)
-val l2n_side = Q.prove(`
-  ∀b a. a ≠ 0 ⇒ lexerProg$l2n_side a b`,
-  Induct>>
-  rw[Once lexerProgTheory.l2n_side_def]) |> update_precondition;
-
-val v2n_side = Q.prove(`
-  v2n_side v ⇔ T`,
-  EVAL_TAC>>
-  fs[l2n_side]) |> update_precondition;
 
 Theorem notw[local]:
   !a. ~a = (-1w ?? (a))

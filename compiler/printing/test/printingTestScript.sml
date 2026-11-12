@@ -124,8 +124,6 @@ fun print_types tm = let
   val _ = print "\n"
   in () end
 
-val _ = cv_trans_deep_embedding EVAL basisProgTheory.basis_def;
-
 val basis_infer_res =
   cv_eval “infertype_prog_inc (init_config, start_type_id) basis” |> concl |> rhs;
 val _ = check basis_infer_res;

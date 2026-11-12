@@ -173,7 +173,7 @@ Proof
   strip_tac>>gvs[]>>
   gvs[mrec_h_handle_call_ret_lemma,o_DEF,kvar_defs2,AllCaseEqs()]>>
   rpt (PURE_TOP_CASE_TAC>>fs[])>>
-  rpt (FULL_CASE_TAC>>gvs[])>>rw[]>>gvs[]>>
+  rpt (PURE_FULL_CASE_TAC>>gvs[])>>rw[]>>gvs[]>>
   TRY (imp_res_tac comp_ffi_bind>>gvs[]>>
        rw[]>>gvs[empty_locals_defs,set_var_defs]>>
        NO_TAC)>>

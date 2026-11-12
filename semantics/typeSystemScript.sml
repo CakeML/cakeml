@@ -427,10 +427,11 @@ End
 
 Definition supported_arith_def[simp]:
   (supported_arith a IntT =
-     if MEM a [Add; Sub; Mul; Div; Mod] then SOME (2:num) else NONE) ∧
+     if MEM a [Add; Sub; Mul; Div TowardsZero; Div RoundDown;
+               Mod TowardsZero; Mod RoundDown] then SOME (2:num) else NONE) ∧
   (supported_arith a Float64T =
      if MEM a [Absolute; Neg; Sqrt] then SOME 1 else
-     if MEM a [Add; Sub; Mul; Div] then SOME 2 else
+     if MEM a [Add; Sub; Mul; Div TowardsZero; Div RoundDown] then SOME 2 else
      if MEM a [FMA] then SOME 3 else NONE) ∧
   (supported_arith a (WordT _) =
      if MEM a [Add; Sub; And; Or; Xor;
@@ -479,6 +480,10 @@ Definition type_op_def:
     | (Opderef, [t1]) => t1 = Tref t
     | (Aw8alloc, [t1; t2]) => (t1 = Tint) /\ (t2 = Tword8) /\ (t = Tword8array)
     | (Aw8sub, [t1; t2]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t = Tword8)
+    | (Aw8ScanEq, [t1; t2; t3; t4]) =>
+        (t1 = Tint) /\ (t2 = Tint) /\ (t3 = Tword8) /\ (t4 = Tword8array) /\ (t = Tint)
+    | (Aw8ScanNeq, [t1; t2; t3; t4]) =>
+        (t1 = Tint) /\ (t2 = Tint) /\ (t3 = Tword8) /\ (t4 = Tword8array) /\ (t = Tint)
     | (Aw8length, [t1]) => (t1 = Tword8array) /\ (t = Tint)
     | (Aw8update, [t1; t2; t3]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tword8) /\ (t = Ttup [])
     | (Aw8subBit, [t1; t2]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t = Tbool)
@@ -489,9 +494,23 @@ Definition type_op_def:
     | (CopyAw8Str, [t1; t2; t3]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t = Tstring)
     | (CopyAw8Aw8, [t1; t2; t3; t4; t5]) =>
       (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t4 = Tword8array) /\ (t5 = Tint) /\ (t = Ttup [])
+    | (CopyVecVec, [t1; t2; t3]) =>
+      (∃a. t1 = Tvector a ∧ t = Tvector a) ∧ (t2 = Tint) ∧ (t3 = Tint)
+    | (CopyVecArr, [t1; t2; t3; t4; t5]) =>
+      (∃a. t1 = Tvector a ∧ t4 = Tarray a) ∧
+      (t2 = Tint) ∧ (t3 = Tint) ∧ (t5 = Tint) ∧ (t = Ttup [])
+    | (CopyArrVec, [t1; t2; t3]) =>
+      (∃a. t1 = Tarray a ∧ t = Tvector a) ∧ (t2 = Tint) ∧ (t3 = Tint)
+    | (CopyArrArr, [t1; t2; t3; t4; t5]) =>
+      (∃a. t1 = Tarray a ∧ t4 = Tarray a) ∧
+      (t2 = Tint) ∧ (t3 = Tint) ∧ (t5 = Tint) ∧ (t = Ttup [])
     | (Implode, [t1]) => (t1 = Tlist Tchar) /\ (t = Tstring)
     | (Explode, [t1]) => (t1 = Tstring) /\ (t = Tlist Tchar)
     | (Strsub, [t1; t2]) => (t1 = Tstring) /\ (t2 = Tint) /\ (t = Tchar)
+    | (StrScanEq, [t1; t2; t3; t4]) =>
+        (t1 = Tint) /\ (t2 = Tint) /\ (t3 = Tchar) /\ (t4 = Tstring) /\ (t = Tint)
+    | (StrScanNeq, [t1; t2; t3; t4]) =>
+        (t1 = Tint) /\ (t2 = Tint) /\ (t3 = Tchar) /\ (t4 = Tstring) /\ (t = Tint)
     | (Strlen, [t1]) => (t1 = Tstring) /\ (t = Tint)
     | (Strcat, [t1]) => (t1 = Tlist Tstring) /\ (t = Tstring)
     | (VfromList, [Tapp [t1] ctor]) => (ctor = Tlist_num) /\ (t = Tvector t1)

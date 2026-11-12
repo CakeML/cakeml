@@ -525,6 +525,23 @@ Proof
   rw [] \\ Cases_on `x` \\ fs [get_var_imm_cs_def, get_var_imm_def]
 QED
 
+Theorem evaluate_const_fp_if_args:
+  (∀v w. lookup v cs = SOME w ⇒ get_var v s = SOME (Word (i2w w))) ∧
+  const_fp_if_args cmp lhs rhs cs = (lhs',rhs') ⇒
+  ∀p1 p2. evaluate (If cmp lhs' rhs' p1 p2, s) = evaluate (If cmp lhs rhs p1 p2, s)
+Proof
+  rw [const_fp_if_args_def, AllCaseEqs()]
+  >~ [`get_var_imm_cs rhs cs = SOME c`]
+  >- (drule_all get_var_imm_cs_imp_get_var_imm
+      \\ simp [evaluate_def, get_var_imm_def])
+  \\ Cases_on `cmp` \\ gvs [cmp_symmetric_def]
+  \\ `get_var lhs s = SOME (Word (i2w c))` by (first_assum irule \\ simp [])
+  \\ simp [evaluate_def, get_var_imm_def]
+  \\ Cases_on `get_var lhs' s` \\ simp []
+  \\ rename1 `word_cmp _ v (Word _)`
+  \\ Cases_on `v` \\ simp [word_cmp_def, EQ_SYM_EQ]
+QED
+
 (* Helpful lemmas about locals *)
 (*TODO move*)
 Theorem get_var_set_var_thm:
@@ -1201,7 +1218,9 @@ Proof
     fs [int_cmp_correct] \\ Cases_on `word_cmp cmp (i2w x:'a word) (i2w x')` \\ fs [] \\ res_tac \\ rw [])
 
     \\ (* Otherwise *)
-    (rpt (pairarg_tac \\ fs []) \\ every_case_tac \\ rw [evaluate_def] \\
+    (rpt (pairarg_tac \\ fs []) \\ rveq \\
+    drule_all_then (rewrite_tac o single) evaluate_const_fp_if_args \\
+    every_case_tac \\ rw [evaluate_def] \\
     res_tac \\ fs [lookup_inter_eq] \\ every_case_tac \\ rw []))
 
   >- (** Call **)

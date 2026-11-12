@@ -3,6 +3,9 @@ An distributed RUP checker
 [array](array):
 A distributed RUP checker
 
+[distInferBaseScript.sml](distInferBaseScript.sml):
+Properties of inference relations shared by the distributed specifications
+
 [distInferHashScript.sml](distInferHashScript.sml):
 Abstract specification including fingerprinting and an attacker
 

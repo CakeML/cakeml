@@ -198,12 +198,17 @@ Definition test_to_display_def:
   test_to_display (AltCompare cmp) = Item NONE «AltCompare» [opb_to_display cmp]
 End
 
+Definition div_round_to_display_def:
+  div_round_to_display TowardsZero = empty_item «TowardsZero» ∧
+  div_round_to_display RoundDown = empty_item «RoundDown»
+End
+
 Definition arith_to_display_def:
   arith_to_display Add = empty_item «Add» ∧
   arith_to_display Sub = empty_item «Sub» ∧
   arith_to_display Mul = empty_item «Mul» ∧
-  arith_to_display Div = empty_item «Div» ∧
-  arith_to_display Mod = empty_item «Mod» ∧
+  arith_to_display (Div r) = Item NONE «Div» [div_round_to_display r] ∧
+  arith_to_display (Mod r) = Item NONE «Mod» [div_round_to_display r] ∧
   arith_to_display And = empty_item «And» ∧
   arith_to_display Xor = empty_item «Xor» ∧
   arith_to_display Or  = empty_item «Or» ∧
@@ -251,15 +256,23 @@ Definition op_to_display_def:
   | Opref => empty_item «Opref»
   | Opderef => empty_item «Opderef»
   | Aw8alloc => empty_item «Aw8alloc»
+  | Aw8ScanEq => empty_item «Aw8ScanEq»
+  | Aw8ScanNeq => empty_item «Aw8ScanNeq»
   | Aw8sub => empty_item «Aw8sub»
   | Aw8length => empty_item «Aw8length»
   | Aw8update => empty_item «Aw8update»
+  | CopyVecVec => empty_item «CopyVecVec»
+  | CopyVecArr => empty_item «CopyVecArr»
+  | CopyArrVec => empty_item «CopyArrVec»
+  | CopyArrArr => empty_item «CopyArrArr»
   | CopyStrStr => empty_item «CopyStrStr»
   | CopyStrAw8 => empty_item «CopyStrAw8»
   | CopyAw8Str => empty_item «CopyAw8Str»
   | CopyAw8Aw8 => empty_item «CopyAw8Aw8»
   | Implode => empty_item «Implode»
   | Explode => empty_item «Explode»
+  | StrScanEq => empty_item «StrScanEq»
+  | StrScanNeq => empty_item «StrScanNeq»
   | Strsub => empty_item «Strsub»
   | Strlen => empty_item «Strlen»
   | Strcat => empty_item «Strcat»
@@ -605,11 +618,13 @@ Definition clos_op_to_display_def:
     | MemOp LengthByte => String «LengthByte»
     | MemOp (RefByte b) => Item NONE «RefByte» [bool_to_display b]
     | MemOp RefArray => String «RefArray»
+    | MemOp (ScanByte neq) => Item NONE «ScanByte» [bool_to_display neq]
     | MemOp DerefByte => String «DerefByte»
     | MemOp UpdateByte => String «UpdateByte»
     | MemOp DerefBit => String «DerefBit»
     | MemOp UpdateBit => String «UpdateBit»
     | MemOp ConcatByteVec => String «ConcatByteVec»
+    | MemOp (CopyWord b) => Item NONE «CopyWord» [bool_to_display b]
     | MemOp (CopyByte b) => Item NONE «CopyByte» [bool_to_display b]
     | MemOp FromListByte => String «FromListByte»
     | MemOp ToListByte => String «ToListByte»
@@ -637,7 +652,6 @@ Definition clos_op_to_display_def:
     | IntOp LessEq => String «LessEq»
     | IntOp Greater => String «Greater»
     | IntOp GreaterEq => String «GreaterEq»
-    | IntOp (LessConstSmall num) => item_with_num «LessConstSmall» num
     | IntOp (Smallnum SmallAdd) => String «SmallAdd»
     | IntOp (Smallnum SmallSub) => String «SmallSub»
     | IntOp (Smallnum SmallMult) => String «SmallMult»

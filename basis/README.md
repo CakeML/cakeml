@@ -136,6 +136,9 @@ Functions that aid building the CakeML code for the basis library.
 [basisProgScript.sml](basisProgScript.sml):
 Contains the code for the entire CakeML basis library in basis_def.
 
+[basisProg_cvScript.sml](basisProg_cvScript.sml):
+CV encoding of the CakeML basis program.
+
 [basis_ffi.c](basis_ffi.c):
 Implements the foreign function interface (FFI) used in the CakeML basis
 library, as a thin wrapper around the relevant system calls.

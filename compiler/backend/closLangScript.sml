@@ -37,7 +37,6 @@ Datatype:
      | LessEq             (* <= over the integers *)
      | Greater            (* > over the integers *)
      | GreaterEq          (* >= over the integers *)
-     | LessConstSmall num (* checks < const for small ints *)
      | Smallnum smallnum_op
 End
 
@@ -101,11 +100,13 @@ Datatype:
      | LengthByte    (* get length of byte array *)
      | RefByte bool  (* makes a byte array, T = immutable/compare-by-contents *)
      | RefArray      (* makes an array by replicating a value *)
+     | ScanByte bool (* T finds the first unequal byte; F finds the first equal byte *)
      | DerefByte     (* loads a byte from a byte array *)
      | UpdateByte    (* updates a byte array *)
      | DerefBit      (* read a bit from a byte array *)
      | UpdateBit     (* update a bit of a byte array *)
      | ConcatByteVec (* concatenate list of byte vectors *)
+     | CopyWord bool (* copy a slice of an array/vector, T allocates a vector *)
      | CopyByte bool (* copy a slice of a byte array, T means target should be allocated *)
      | FromListByte  (* convert list of chars to ByteVector *)
      | ToListByte    (* convert ByteVector to list of chars *)
@@ -181,6 +182,7 @@ Definition pure_op_def:
     | MemOp RefArray => F
     | MemOp UpdateByte => F
     | MemOp UpdateBit => F
+    | MemOp (CopyWord F) => F
     | MemOp (CopyByte F) => F
     | MemOp XorByte => F
     | MemOp Ref => F

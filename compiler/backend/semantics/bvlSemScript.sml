@@ -179,9 +179,15 @@ Definition do_build_const_def:
   do_build_const xs refs = do_build (λx. Number 0) 0 xs refs
 End
 (* same as closSem$do_int_app *)
+(* a list also bounds indices up to three times its length *)
 Definition smallnum_witness_length_def:
   smallnum_witness_length refs (Block tag xs) =
-    (if tag = 0 then SOME (256 * LENGTH xs) else NONE) /\
+    (if tag = 0 then
+       SOME (MAX (256 * LENGTH xs)
+                 (case v_to_list (Block tag xs) of
+                  | SOME vs => 3 * LENGTH vs
+                  | NONE => 0))
+     else NONE) /\
   smallnum_witness_length refs (RefPtr _ ptr) =
     (case FLOOKUP refs ptr of
        SOME (ValueArray xs) => SOME (256 * LENGTH xs)
@@ -203,9 +209,6 @@ Definition do_int_app_def:
   do_int_app (LessEq) [Number n1;Number n2] = SOME (Boolv (n1 <= n2)) /\
   do_int_app (Greater) [Number n1;Number n2] = SOME (Boolv (n1 > n2)) /\
   do_int_app (GreaterEq) [Number n1;Number n2] = SOME (Boolv (n1 >= n2)) /\
-  do_int_app (LessConstSmall n) [Number i] =
-        (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then
-          SOME (Boolv (i < &n)) else NONE) /\
   do_int_app (Smallnum op) [Number i; Number j] =
     OPTION_MAP (\r. case r of INL n => Number n | INR b => Boolv b)
       (backendProps$bounded_smallnum_app NONE op i j) /\
@@ -232,9 +235,7 @@ Theorem do_int_app_eq_some:
   (do_int_app (Greater) vs = SOME res ==>
     ?n1 n2. vs = [Number n1;Number n2] /\ res = Boolv (n1 > n2)) /\
   (do_int_app (GreaterEq) vs = SOME res ==>
-    ?n1 n2. vs = [Number n1;Number n2] /\ res = Boolv (n1 >= n2)) /\
-  (!n. do_int_app (LessConstSmall n) vs = SOME res ==>
-    ?i. vs = [Number i] /\ 0 <= i /\ i <= 1000000 /\ n < 1000000 /\ res = Boolv (i < &n))
+    ?n1 n2. vs = [Number n1;Number n2] /\ res = Boolv (n1 >= n2))
 Proof
   simp [oneline do_int_app_def] \\ rpt CASE_TAC \\ rw []
 QED
@@ -411,6 +412,16 @@ Definition do_app_def:
             Rval (RefPtr T ptr, s with refs := s.refs |+
               (ptr,ValueArray (REPLICATE (Num i) v)))
          else Error
+    | (MemOp (ScanByte neq),[Number start; Number end; Number b; RefPtr _ ptr]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray _ ws) =>
+             if 0 ≤ start ∧ start ≤ &LENGTH ws ∧ 0 ≤ end ∧ end ≤ &LENGTH ws ∧
+                0 ≤ b ∧ b < 256 then
+               Rval (Number (&(if Num end ≤ Num start then Num end else Num start +
+                 LENGTH (FST (SPLITP (\w. (w = i2w b) ⇔ ¬neq)
+                   (DROP (Num start) (TAKE (Num end) ws)))))),s)
+             else Error
+         | _ => Error)
     | (MemOp DerefByte,[RefPtr _ ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray _ ws) =>
@@ -469,6 +480,31 @@ Definition do_app_def:
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray f bs) =>
             (Rval (list_to_v (MAP (\b. Number (& (w2n b))) bs), s))
+         | _ => Error)
+    | (MemOp (CopyWord F),[Block tag ws; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
+        (case FLOOKUP s.refs dst of
+         | SOME (ValueArray ds) =>
+           (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
+            | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ValueArray ds))
+            | NONE => Error)
+         | _ => Error)
+    | (MemOp (CopyWord F),[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
+        (case (FLOOKUP s.refs src, FLOOKUP s.refs dst) of
+         | (SOME (ValueArray ws), SOME (ValueArray ds)) =>
+           (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
+            | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ValueArray ds))
+            | NONE => Error)
+         | _ => Error)
+    | (MemOp (CopyWord T),[Block tag ws; Number srcoff; Number len]) =>
+        (case copy_array (ws,srcoff) len NONE of
+         | SOME ds => Rval (Block 0 ds, s)
+         | NONE => Error)
+    | (MemOp (CopyWord T),[RefPtr _ src; Number srcoff; Number len]) =>
+        (case FLOOKUP s.refs src of
+         | SOME (ValueArray ws) =>
+           (case copy_array (ws,srcoff) len NONE of
+            | SOME ds => Rval (Block 0 ds, s)
+            | NONE => Error)
          | _ => Error)
     | (MemOp (CopyByte F),[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
         (case (FLOOKUP s.refs src, FLOOKUP s.refs dst) of

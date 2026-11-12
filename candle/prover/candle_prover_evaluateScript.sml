@@ -328,6 +328,61 @@ Theorem do_app_ok:
         | _ => T
 Proof
   strip_tac
+  \\ Cases_on `op = CopyVecVec`
+  >- (
+    gvs [do_app_cases,v_ok_def]
+    \\ qexists_tac `st`
+    \\ gs [SF SFY_ss]
+    \\ qpat_x_assum `copy_array _ _ _ = SOME _`
+         (mp_then Any (qspec_then `v_ok ctxt` mp_tac) EVERY_copy_array)
+    \\ gs [SF SFY_ss])
+  \\ Cases_on `op = CopyVecArr`
+  >- (
+    gvs [do_app_cases,v_ok_def]
+    \\ qexists_tac `st`
+    \\ gs [SF SFY_ss]
+    \\ imp_res_tac ref_ok_array_lookup
+    \\ qpat_assum `copy_array _ _ _ = SOME _`
+         (mp_then Any (qspec_then `v_ok ctxt` mp_tac) EVERY_copy_array)
+    \\ simp []
+    \\ strip_tac
+    \\ gvs [store_assign_def]
+    \\ conj_tac >- (
+      rw []
+      \\ irule kernel_loc_ok_LUPDATE1
+      \\ gs []
+      \\ strip_tac
+      \\ gvs [])
+    \\ rw [oEL_LUPDATE,AllCaseEqs()]
+    \\ gs [ref_ok_def,SF SFY_ss])
+  \\ Cases_on `op = CopyArrVec`
+  >- (
+    gvs [do_app_cases,v_ok_def]
+    \\ imp_res_tac ref_ok_array_lookup
+    \\ qexists_tac `st`
+    \\ gs [SF SFY_ss]
+    \\ qpat_x_assum `copy_array _ _ _ = SOME _`
+         (mp_then Any (qspec_then `v_ok ctxt` mp_tac) EVERY_copy_array)
+    \\ gs [SF SFY_ss])
+  \\ Cases_on `op = CopyArrArr`
+  >- (
+    gvs [do_app_cases,v_ok_def]
+    \\ qexists_tac `st`
+    \\ gs [SF SFY_ss]
+    \\ imp_res_tac ref_ok_array_lookup
+    \\ qpat_assum `copy_array _ _ _ = SOME _`
+         (mp_then Any (qspec_then `v_ok ctxt` mp_tac) EVERY_copy_array)
+    \\ simp []
+    \\ strip_tac
+    \\ gvs [store_assign_def]
+    \\ conj_tac >- (
+      rw []
+      \\ irule kernel_loc_ok_LUPDATE1
+      \\ gs []
+      \\ strip_tac
+      \\ gvs [])
+    \\ rw [oEL_LUPDATE,AllCaseEqs()]
+    \\ gs [ref_ok_def,SF SFY_ss])
   \\ Cases_on ‘(∃a. op = UnsafeIndexArith a) ∨ ∃t. op = UnsafeIndexTest t’
   >- (
     gvs [do_app_cases, do_unsafe_index_arith_def,
@@ -521,9 +576,10 @@ Proof
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
-  \\ Cases_on ‘op = Strlen’ \\ gs []
+  \\ Cases_on ‘op = Strlen ∨ op = StrScanEq ∨ op = StrScanNeq’
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
+    pop_assum strip_assume_tac \\ gs []
+    \\ rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘op = Strsub’ \\ gs []
@@ -598,9 +654,10 @@ Proof
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
-  \\ Cases_on ‘op = Aw8length’ \\ gs []
+  \\ Cases_on ‘op = Aw8length ∨ op = Aw8ScanEq ∨ op = Aw8ScanNeq’
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
+    pop_assum strip_assume_tac \\ gs []
+    \\ rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘op = Aw8alloc’ \\ gs []
@@ -641,7 +698,7 @@ Proof
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ Cases_on ‘a’ \\ Cases_on ‘ty’ using prim_type_cases
-    \\ gvs[do_arith_def,CaseEq"list",CaseEq"bool"]
+    \\ gvs[do_arith_def,CaseEq"list",CaseEq"bool",CaseEq"div_round"]
     \\ simp [Boolv_def]
     \\ rw [v_ok_def]
     \\ first_x_assum irule

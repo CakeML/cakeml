@@ -1055,7 +1055,7 @@ Theorem Eval_INT_DIV:
     Eval env x1 (INT n1) ⇒
     Eval env x2 (INT n2) ⇒
     PRECONDITION (n2 ≠ 0) ⇒
-    Eval env (App (Arith Div IntT) [x1; x2]) (INT (n1 / n2))
+    Eval env (App (Arith (Div RoundDown) IntT) [x1; x2]) (INT (n1 / n2))
 Proof
   rw[Eval_rw,INT_def,PRECONDITION_def]
   \\ Eval2_tac \\ fs [do_app_def, do_arith_def] \\ rw []
@@ -1067,7 +1067,31 @@ Theorem Eval_INT_MOD:
     Eval env x1 (INT n1) ⇒
     Eval env x2 (INT n2) ⇒
     PRECONDITION (n2 ≠ 0) ⇒
-    Eval env (App (Arith Mod IntT) [x1; x2]) (INT (n1 % n2))
+    Eval env (App (Arith (Mod RoundDown) IntT) [x1; x2]) (INT (n1 % n2))
+Proof
+  rw[Eval_rw,INT_def,PRECONDITION_def]
+  \\ Eval2_tac \\ fs [do_app_def, do_arith_def] \\ rw []
+  \\ fs [state_component_equality, check_type_def]
+QED
+
+Theorem Eval_INT_QUOT:
+  ∀n1 n2.
+    Eval env x1 (INT n1) ⇒
+    Eval env x2 (INT n2) ⇒
+    PRECONDITION (n2 ≠ 0) ⇒
+    Eval env (App (Arith (Div TowardsZero) IntT) [x1; x2]) (INT (n1 quot n2))
+Proof
+  rw[Eval_rw,INT_def,PRECONDITION_def]
+  \\ Eval2_tac \\ fs [do_app_def, do_arith_def] \\ rw []
+  \\ fs [state_component_equality, check_type_def]
+QED
+
+Theorem Eval_INT_REM:
+  ∀n1 n2.
+    Eval env x1 (INT n1) ⇒
+    Eval env x2 (INT n2) ⇒
+    PRECONDITION (n2 ≠ 0) ⇒
+    Eval env (App (Arith (Mod TowardsZero) IntT) [x1; x2]) (INT (n1 rem n2))
 Proof
   rw[Eval_rw,INT_def,PRECONDITION_def]
   \\ Eval2_tac \\ fs [do_app_def, do_arith_def] \\ rw []
@@ -2294,7 +2318,7 @@ Theorem Eval_FLOAT_DIV:
   ∀f1 f2.
     Eval env x1 (FLOAT64 f1) ⇒
     Eval env x2 (FLOAT64 f2) ⇒
-    Eval env (App (Arith Div Float64T) [x1; x2]) (FLOAT64 (float64_div f1 f2))
+    Eval env (App (Arith (Div RoundDown) Float64T) [x1; x2]) (FLOAT64 (float64_div f1 f2))
 Proof
   rw[Eval_rw,FLOAT64_def,lift_fp_bop_def]
   \\ Eval2_tac \\ fs [do_app_def] \\ rw []
@@ -2731,6 +2755,88 @@ Proof
   Cases_on`s` \\ tac1
   \\ fs[NUM_def,INT_def,mlstringTheory.strlen_def]
   \\ metis_tac[]
+QED
+
+Theorem Eval_scan_eq:
+   !env x1 x2 x3 x4 start end c s.
+      Eval env x1 (NUM start) ==>
+      Eval env x2 (NUM end) ==>
+      Eval env x3 (CHAR c) ==>
+      Eval env x4 (STRING_TYPE s) ==>
+      start ≤ strlen s ∧ end ≤ strlen s ==>
+      Eval env (App StrScanEq [x1; x2; x3; x4]) (NUM (scan_eq start end c s))
+Proof
+  rw [Eval_rw,NUM_def,INT_def,CHAR_def,STRING_TYPE_def]
+  \\ qpat_x_assum `!r p. ?ck r' left p'. evaluate _ env [x4] = _`
+       (qspecl_then [`refs`,`po`] (qx_choosel_then
+         [`clock4`,`added4`,`left4`,`po4`] strip_assume_tac))
+  \\ qpat_x_assum `!r p. ?ck r' left p'. evaluate _ env [x3] = _`
+       (qspecl_then [`refs ++ added4`,`po4`] (qx_choosel_then
+         [`clock3`,`added3`,`left3`,`po3`] strip_assume_tac))
+  \\ qpat_x_assum `!r p. ?ck r' left p'. evaluate _ env [x2] = _`
+       (qspecl_then [`refs ++ added4 ++ added3`,`po3`] (qx_choosel_then
+         [`clock2`,`added2`,`left2`,`po2`] strip_assume_tac))
+  \\ qpat_x_assum `!r p. ?ck r' left p'. evaluate _ env [x1] = _`
+       (qspecl_then [`refs ++ added4 ++ added3 ++ added2`,`po2`] (qx_choosel_then
+         [`clock1`,`added1`,`left1`,`po1`] strip_assume_tac))
+  \\ qpat_x_assum `evaluate _ env [x4] = _`
+       (assume_tac o Q.SPEC `clock3 + clock2 + clock1` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x3] = _`
+       (assume_tac o Q.SPEC `left4 + clock2 + clock1` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x2] = _`
+       (assume_tac o Q.SPEC `left4 + left3 + clock1` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x1] = _`
+       (assume_tac o Q.SPEC `left4 + left3 + left2` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qexists_tac `clock4 + clock3 + clock2 + clock1`
+  \\ fs [AC ADD_ASSOC ADD_COMM]
+  \\ Q.LIST_EXISTS_TAC
+       [`added4 ++ added3 ++ added2 ++ added1`, `left1 + (left2 + (left3 + left4))`, `po1`]
+  \\ simp [do_app_def,state_component_equality]
+QED
+
+Theorem Eval_scan_neq:
+   !env x1 x2 x3 x4 start end c s.
+      Eval env x1 (NUM start) ==>
+      Eval env x2 (NUM end) ==>
+      Eval env x3 (CHAR c) ==>
+      Eval env x4 (STRING_TYPE s) ==>
+      start ≤ strlen s ∧ end ≤ strlen s ==>
+      Eval env (App StrScanNeq [x1; x2; x3; x4]) (NUM (scan_neq start end c s))
+Proof
+  rw [Eval_rw,NUM_def,INT_def,CHAR_def,STRING_TYPE_def]
+  \\ qpat_x_assum `!r p. ?ck r' left p'. evaluate _ env [x4] = _`
+       (qspecl_then [`refs`,`po`] (qx_choosel_then
+         [`clock4`,`added4`,`left4`,`po4`] strip_assume_tac))
+  \\ qpat_x_assum `!r p. ?ck r' left p'. evaluate _ env [x3] = _`
+       (qspecl_then [`refs ++ added4`,`po4`] (qx_choosel_then
+         [`clock3`,`added3`,`left3`,`po3`] strip_assume_tac))
+  \\ qpat_x_assum `!r p. ?ck r' left p'. evaluate _ env [x2] = _`
+       (qspecl_then [`refs ++ added4 ++ added3`,`po3`] (qx_choosel_then
+         [`clock2`,`added2`,`left2`,`po2`] strip_assume_tac))
+  \\ qpat_x_assum `!r p. ?ck r' left p'. evaluate _ env [x1] = _`
+       (qspecl_then [`refs ++ added4 ++ added3 ++ added2`,`po2`] (qx_choosel_then
+         [`clock1`,`added1`,`left1`,`po1`] strip_assume_tac))
+  \\ qpat_x_assum `evaluate _ env [x4] = _`
+       (assume_tac o Q.SPEC `clock3 + clock2 + clock1` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x3] = _`
+       (assume_tac o Q.SPEC `left4 + clock2 + clock1` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x2] = _`
+       (assume_tac o Q.SPEC `left4 + left3 + clock1` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x1] = _`
+       (assume_tac o Q.SPEC `left4 + left3 + left2` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qexists_tac `clock4 + clock3 + clock2 + clock1`
+  \\ fs [AC ADD_ASSOC ADD_COMM]
+  \\ Q.LIST_EXISTS_TAC
+       [`added4 ++ added3 ++ added2 ++ added1`, `left1 + (left2 + (left3 + left4))`, `po1`]
+  \\ simp [do_app_def,state_component_equality]
 QED
 
 Theorem Eval_strsub:
@@ -3308,7 +3414,7 @@ QED
 local
   val operations =
     [("add", “ast$Add”, false), ("sub", “ast$Sub”, false), ("mul", “ast$Mul”, false),
-     ("div", “ast$Div”, false), ("mod", “ast$Mod”, false),
+     ("div", “ast$Div RoundDown”, false), ("mod", “ast$Mod RoundDown”, false),
      ("lt", “ast$Compare ast$Lt”, true), ("le", “ast$Compare ast$Leq”, true),
      ("gt", “ast$Compare ast$Gt”, true), ("ge", “ast$Compare ast$Geq”, true), ("eq", “ast$Equal”, true)]
   fun derive prefix suffix (name, primitive, is_test) = let
@@ -3394,6 +3500,47 @@ Proof
   \\ rw []
   \\ fs [VECTOR_TYPE_def, length_def, NUM_def, sub_unsafe_def, INT_def]
   \\ fs [LIST_REL_EL_EQN]
+QED
+
+Theorem Eval_subvector:
+  !env x1 x2 x3 a v off len.
+     Eval env x1 (VECTOR_TYPE a v) ==>
+     Eval env x2 (NUM off) ==>
+     Eval env x3 (NUM len) ==>
+     off + len <= length v ==>
+     Eval env (App CopyVecVec [x1; x2; x3])
+       (VECTOR_TYPE a (subvector v off len))
+Proof
+  rw [Eval_rw,NUM_def,INT_def]
+  \\ qpat_x_assum `!r p. ?ck r' left p'. evaluate _ env [x3] = _`
+       (qspecl_then [`refs`,`po`] (qx_choosel_then
+         [`clock3`,`added3`,`left3`,`po3`] strip_assume_tac))
+  \\ qpat_x_assum `!r p. ?ck r' left p'. evaluate _ env [x2] = _`
+       (qspecl_then [`refs ++ added3`,`po3`] (qx_choosel_then
+         [`clock2`,`added2`,`left2`,`po2`] strip_assume_tac))
+  \\ qpat_x_assum `!r p. ?ck res r' left p'. evaluate _ env [x1] = _ /\ _`
+       (qspecl_then [`refs ++ added3 ++ added2`,`po2`] (qx_choosel_then
+         [`clock1`,`vecv`,`added1`,`left1`,`po1`] strip_assume_tac))
+  \\ qpat_x_assum `evaluate _ env [x3] = _`
+       (assume_tac o Q.SPEC `clock2 + clock1` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x2] = _`
+       (assume_tac o Q.SPEC `left3 + clock1` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qpat_x_assum `evaluate _ env [x1] = _`
+       (assume_tac o Q.SPEC `left3 + left2` o SIMP_RULE (srw_ss()) [] o
+        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] evaluate_add_to_clock))
+  \\ qexists_tac `clock3 + clock2 + clock1`
+  \\ fs [AC ADD_ASSOC ADD_COMM]
+  \\ `?l. v = Vector l` by metis_tac [vector_nchotomy]
+  \\ gvs [VECTOR_TYPE_def,length_def]
+  \\ rename1 `LIST_REL a l vs`
+  \\ Q.LIST_EXISTS_TAC
+       [`Vectorv (TAKE len (DROP off vs))`, `added3 ++ added2 ++ added1`,
+        `left1 + (left2 + left3)`, `po1`]
+  \\ simp [do_app_def,copy_array_def,state_component_equality,INT_ADD,
+           INT_ABS_NUM,subvector_def,toList_thm,VECTOR_TYPE_def]
+  \\ gvs [LIST_REL_EL_EQN,EL_TAKE,EL_DROP]
 QED
 
 Theorem Eval_vector:
@@ -3898,6 +4045,8 @@ Definition no_change_refs_def:
         | Aw8updateBit => F
         | CopyStrAw8 => F
         | CopyAw8Aw8 => F
+        | CopyVecArr => F
+        | CopyArrArr => F
         | XorAw8Str_unsafe => F
         | Aalloc => F
         | AallocEmpty => F

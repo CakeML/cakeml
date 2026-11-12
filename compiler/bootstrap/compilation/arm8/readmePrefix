@@ -1,0 +1,2 @@
+This directory contains scripts that compile the fused CakeML compiler
+inside the logic to produce verified arm8 machine code.

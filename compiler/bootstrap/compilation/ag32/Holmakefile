@@ -1,0 +1,16 @@
+ARCH = ag32
+all: $(DEFAULT_TARGETS) README.md cake-$(ARCH).tar.gz
+.PHONY: all
+
+sinclude $(CAKEMLDIR)/developers/readme.mk
+
+cake.S: *$(ARCH)BootstrapScript.sml
+
+cake-$(ARCH).tar.gz: cake.S basis_ffi.c Makefile
+	tar -chzf $@ --transform='s|^|cake-$(ARCH)/|' cake.S basis_ffi.c Makefile
+
+EXTRA_CLEANS = cake.S cake-$(ARCH).tar.gz
+
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_ag32_heap
+endif

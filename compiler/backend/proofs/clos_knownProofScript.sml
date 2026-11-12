@@ -4,7 +4,8 @@
 Theory clos_knownProof
 Ancestors
   closLang closSem closProps clos_known clos_knownProps db_vars
-  backendProps clos_opProof clos_letopProof[qualified]
+  backendProps semanticPrimitivesProps[qualified]
+  clos_opProof clos_letopProof[qualified]
   clos_ticksProof[qualified] clos_fvsProof[qualified]
 Libs
   preamble bagLib[qualified]
@@ -729,9 +730,25 @@ Theorem do_app_ssgc:
 Proof
   gen_tac >>
   `?this_is_case. this_is_case = opn` by metis_tac [] >>
-  cases_on_op `opn` >>
+  cases_on_op `opn`
+  >~ [`MemOp (CopyWord _)`] >- (
+    rename1 `CopyWord copy_new`
+    \\ Cases_on `copy_new`
+    \\ simp [do_app_def, case_eq_thms, op_gbag_def, PULL_EXISTS,
+             bool_case_eq, pair_case_eq]
+    \\ gvs [ssgc_free_def, mglobals_extend_refl, AllCaseEqs()]
+    \\ rpt strip_tac
+    \\ gvs [FLOOKUP_UPDATE, AllCaseEqs()]
+    \\ res_tac
+    \\ gvs []
+    \\ qpat_x_assum `copy_array _ _ _ = SOME _`
+         (mp_then Any (qspec_then `vsgc_free` mp_tac)
+           semanticPrimitivesPropsTheory.EVERY_copy_array)
+    \\ simp [])
+  >>
   simp[do_app_def, case_eq_thms, op_gbag_def, PULL_EXISTS, bool_case_eq,
        pair_case_eq]
+  >~ [`ScanByte`] >- dsimp []
   >~ [`BlockOp PtrEqual`]
   >- (rw [] \\ gvs [Boolv_def, ssgc_free_def, mglobals_extend_refl]
       \\ metis_tac [])

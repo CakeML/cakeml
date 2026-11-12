@@ -3,14 +3,14 @@
 *)
 Theory inferProg[no_sig_docs]
 Ancestors
-  ml_monadBase parserProg reg_allocProg infer ml_translator semanticPrimitives
+  ml_monadBase parserProg pancake_parseProg infer ml_translator semanticPrimitives
   inferProps
 Libs
   preamble ml_translatorLib
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = translation_extends "reg_allocProg";
+val _ = translation_extends "pancake_parseProg";
 val _ = ml_translatorLib.use_sub_check true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "inferProg");
@@ -249,10 +249,6 @@ Theorem ts_unify_side_def[allow_rebind] = Q.prove(`
 val r = translate alist_nub_def;
 val r = translate (oneline ns_nub_def);
 
-Theorem anub_ind =
-  REWRITE_RULE[MEMBER_INTRO]miscTheory.anub_ind
-val _ = translate (REWRITE_RULE[MEMBER_INTRO] miscTheory.anub_def)
-
 val _ = (extra_preprocessing :=
   [MEMBER_INTRO, MAP, OPTION_BIND_THM, st_ex_bind_def, st_ex_ignore_bind_def,
    st_ex_return_def, failwith_def, guard_def, read_def, write_def]);
@@ -267,9 +263,6 @@ val _ = translate (def_of_const ``get_next_uvar``)
 val _ = translate (def_of_const ``infer_deBruijn_subst``)
 val _ = translate (def_of_const ``generalise``)
 val _ = translate (def_of_const ``infer_type_subst``)
-
-val _ = translate rich_listTheory.COUNT_LIST_AUX_def
-val _ = translate rich_listTheory.COUNT_LIST_compute
 
 Theorem pair_abs_hack[local]:
   (\(v2:mlstring,v1:infer_t). (v2,0,v1)) =

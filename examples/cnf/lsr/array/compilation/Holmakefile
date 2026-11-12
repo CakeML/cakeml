@@ -1,0 +1,13 @@
+CLINE_OPTIONS =
+
+all: $(DEFAULT_TARGETS) README.md
+.PHONY: all
+
+sinclude $(CAKEMLDIR)/developers/readme.mk
+
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
+endif
+
+cake_lsr.S: *lsrCompileScript.sml
+cake_lsr_arm8.S: *lsrCompileARM8Script.sml

@@ -1245,6 +1245,89 @@ Theorem simple_do_app_thm:
 Proof
   disch_tac \\ fs [] \\ Cases_on `op`
   >>> SELECT_LT_THEN (Q.RENAME_TAC [`Src source_op`]) (Cases_on `source_op`)
+  >~ [`Src CopyVecVec`] >- (
+    rpt strip_tac
+    \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss,
+            simple_val_rel_simps, simple_basic_val_rel_def, v_container_xs_def]
+    \\ rename1 `LIST_REL vr copy_source copy_target`
+    \\ qmatch_asmsub_rename_tac
+         `copy_array (copy_source,copy_offset) copy_length NONE`
+    \\ `OPTREL (LIST_REL vr)
+          (copy_array (copy_source,copy_offset) copy_length NONE)
+          (copy_array (copy_target,copy_offset) copy_length NONE)` by (
+      irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def, subscript_exn_v_def])
+  >~ [`Src CopyVecArr`] >- (
+    rpt strip_tac
+    \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss,
+            simple_val_rel_simps, simple_basic_val_rel_def, v_container_xs_def]
+    \\ drule_all simple_state_rel_store_lookup
+    \\ strip_tac
+    \\ gvs [sv_rel_cases]
+    \\ qmatch_asmsub_rename_tac
+         `copy_array (copy_source,copy_offset) copy_length
+           (SOME (copy_destination,copy_destination_offset))`
+    \\ rename1 `LIST_REL vr copy_source copy_target_source`
+    \\ rename1 `LIST_REL vr copy_destination copy_target_destination`
+    \\ `OPTREL (LIST_REL vr)
+          (copy_array (copy_source,copy_offset) copy_length
+            (SOME (copy_destination,copy_destination_offset)))
+          (copy_array (copy_target_source,copy_offset) copy_length
+            (SOME (copy_target_destination,copy_destination_offset)))` by (
+      irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def, subscript_exn_v_def]
+    \\ drule_then (drule_then drule) simple_state_rel_store_assign
+    \\ simp [sv_rel_cases, PULL_EXISTS]
+    \\ disch_then drule
+    \\ rw []
+    \\ simp [Unitv_def])
+  >~ [`Src CopyArrVec`] >- (
+    rpt strip_tac
+    \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss,
+            simple_val_rel_simps, simple_basic_val_rel_def, v_container_xs_def]
+    \\ drule_all simple_state_rel_store_lookup
+    \\ strip_tac
+    \\ gvs [sv_rel_cases]
+    \\ rename1 `LIST_REL vr copy_source copy_target`
+    \\ qmatch_asmsub_rename_tac
+         `copy_array (copy_source,copy_offset) copy_length NONE`
+    \\ `OPTREL (LIST_REL vr)
+          (copy_array (copy_source,copy_offset) copy_length NONE)
+          (copy_array (copy_target,copy_offset) copy_length NONE)` by (
+      irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def, subscript_exn_v_def])
+  >~ [`Src CopyArrArr`] >- (
+    rpt strip_tac
+    \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss,
+            simple_val_rel_simps, simple_basic_val_rel_def, v_container_xs_def]
+    \\ qmatch_asmsub_rename_tac
+      `copy_array (copy_source,copy_offset) copy_length
+        (SOME (copy_destination,copy_destination_offset))`
+    \\ qpat_assum `store_lookup _ s1.refs = SOME (Varray copy_source)`
+         (mp_then Any (drule_then (drule_then strip_assume_tac))
+           simple_state_rel_store_lookup)
+    \\ qpat_assum `store_lookup _ s1.refs = SOME (Varray copy_destination)`
+         (mp_then Any (drule_then (drule_then strip_assume_tac))
+           simple_state_rel_store_lookup)
+    \\ gvs [sv_rel_cases]
+    \\ rename1 `LIST_REL vr copy_source copy_target_source`
+    \\ rename1 `LIST_REL vr copy_destination copy_target_destination`
+    \\ `OPTREL (LIST_REL vr)
+          (copy_array (copy_source,copy_offset) copy_length
+            (SOME (copy_destination,copy_destination_offset)))
+          (copy_array (copy_target_source,copy_offset) copy_length
+            (SOME (copy_target_destination,copy_destination_offset)))` by (
+      irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def, subscript_exn_v_def]
+    \\ drule_then (drule_then drule) simple_state_rel_store_assign
+    \\ simp [sv_rel_cases, PULL_EXISTS]
+    \\ disch_then drule
+    \\ rw []
+    \\ simp [Unitv_def])
   (* handle specific ops: Arith, FromTo, Test, ThunkOp *)
   >~ [`Src (Arith _ _)`] >-
    (gvs [do_app_def,AllCaseEqs(),SF DNF_ss] \\ rw []
@@ -1253,7 +1336,8 @@ Proof
     \\ imp_res_tac semanticPrimitivesPropsTheory.do_arith_check_type
     \\ rename [`check_type ty`]
     \\ Cases_on `ty` using semanticPrimitivesPropsTheory.prim_type_cases
-    \\ gvs[semanticPrimitivesTheory.do_arith_def,CaseEq"list",TypeBase.case_eq_of ``:ast$arith``]
+    \\ gvs[semanticPrimitivesTheory.do_arith_def,CaseEq"list",TypeBase.case_eq_of ``:ast$arith``,
+           TypeBase.case_eq_of ``:ast$div_round``]
     \\ gvs[simple_val_rel_simps,v_to_flat_def]
     >~ [`check_type BoolT (flat_to_v operand)`]
     >- (
