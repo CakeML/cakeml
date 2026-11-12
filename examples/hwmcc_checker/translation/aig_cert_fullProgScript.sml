@@ -27,10 +27,13 @@ val r = translate aig_cert_fullTheory.preprocess_model_def;
 
 val r = translate (aig_cert_fullTheory.parse_witness_def |> demonadify);
 
-val r = translate listTheory.TAKE_def;
-val r = translate aig_cert_fullTheory.resize_def;
 val r = translate listTheory.MAP2_DEF;
 val r = translate aig_cert_fullTheory.preprocess_witness_def;
+
+val r = translate listTheory.TAKE_def;
+val r = translate listTheory.DROP_def;
+val r = translate aig_cert_fullTheory.pad_msignals_def;
+val r = translate aig_cert_fullTheory.pad_mlive_def;
 
 val r = translate (aig_cert_fullTheory.check_model_def |> demonadify);
 
