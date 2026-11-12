@@ -1150,6 +1150,77 @@ Proof
   Cases_on`bnd x`>>simp[]
 QED
 
+(* v lies within the range (lo,hi); callers pass a variable's varc_bnd *)
+Definition in_bnd_def:
+  in_bnd (lo:int,hi:int) v ⇔ lo ≤ v ∧ v ≤ hi
+End
+
+Theorem in_bnd_varc:
+  valid_assignment bnd wi ⇒ in_bnd (varc_bnd bnd X) (varc wi X)
+Proof
+  strip_tac>>
+  drule_then (qspec_then`X`strip_assume_tac) varc_bnd_valid>>
+  Cases_on`varc_bnd bnd X`>>gvs[in_bnd_def]
+QED
+
+Theorem MEM_FILTER_in_bnd:
+  valid_assignment bnd wi ⇒
+  (MEM (varc wi X) (FILTER (in_bnd (varc_bnd bnd X)) vs) ⇔
+   MEM (varc wi X) vs)
+Proof
+  rw[MEM_FILTER,in_bnd_varc]
+QED
+
+Theorem iSUM_FILTER_in_bnd:
+  valid_assignment bnd wi ⇒
+  iSUM (MAP (λX. b2i (varc wi X = v))
+    (FILTER (λX. in_bnd (varc_bnd bnd X) v) Xs)) =
+  iSUM (MAP (λX. b2i (varc wi X = v)) Xs)
+Proof
+  strip_tac>>
+  Induct_on`Xs`>>rw[iSUM_def]>>
+  rename1`¬in_bnd (varc_bnd bnd X) v`>>
+  `varc wi X ≠ v` by metis_tac[in_bnd_varc]>>
+  simp[]
+QED
+
+(* each value of vs with the variables of Xs that may take it, in order *)
+Definition may_take_def:
+  may_take bnd Xs vs =
+  let Xbs = MAP (λX. (X, varc_bnd bnd X)) Xs in
+  MAP (λv. (v, MAP FST (FILTER (λXb. in_bnd (SND Xb) v) Xbs))) vs
+End
+
+Theorem may_take_alt:
+  may_take bnd Xs vs =
+  MAP (λv. (v, FILTER (λX. in_bnd (varc_bnd bnd X) v) Xs)) vs
+Proof
+  rw[may_take_def,MAP_EQ_f]>>
+  Induct_on`Xs`>>rw[]
+QED
+
+(* the reifications X=v over each value's candidates, value-major *)
+Definition encode_in_grid_def:
+  encode_in_grid bnd cs =
+    FLAT (MAP (λc. FLAT (MAP (λX. encode_full_eq bnd X (FST c)) (SND c))) cs)
+End
+
+Theorem encode_in_grid_sem[simp]:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_in_grid bnd (may_take bnd Xs vs)) =
+  (∀X i.
+    MEM X Xs ∧ MEM i vs ∧ in_bnd (varc_bnd bnd X) i ⇒
+    ((wb (INL (Ge X i)) ⇔ varc wi X ≥ i) ∧
+    (wb (INL (Ge X (i+1))) ⇔ varc wi X ≥ i+1) ∧
+    (wb (INL (Eq X i)) ⇔ varc wi X = i)))
+Proof
+  strip_tac>>
+  simp[encode_in_grid_def,may_take_alt,EVERY_FLAT,EVERY_MAP]>>
+  simp[EVERY_MEM,MEM_FILTER]>>
+  metis_tac[]
+QED
+
 (*
   Helper functions for bit implications, but we
     specialize with annotations and only use a single bit
@@ -1474,6 +1545,12 @@ Definition cencode_eq_grid_def:
       fold_cenc (λX ec. cencode_full_eq bnd X v ec) Xs ec) vs ec
 End
 
+Definition cencode_in_grid_def:
+  cencode_in_grid bnd cs ec =
+    fold_cenc (λc ec.
+      fold_cenc (λX ec. cencode_full_eq bnd X (FST c) ec) (SND c) ec) cs ec
+End
+
 (* TODO: lemmas *)
 Theorem iSUM_FILTER:
   iSUM (MAP (b2i o P) ls) = &(LENGTH $ FILTER P ls)
@@ -1774,6 +1851,19 @@ Proof
   rw[]>>pairarg_tac>>gvs[enc_rel_encode_full_eq]
 QED
 
+Theorem enc_rel_encode_in_grid:
+  valid_assignment bnd wi ∧ cencode_in_grid bnd cs ec = (es,ec') ⇒
+  enc_rel wi es (encode_in_grid bnd cs) ec ec'
+Proof
+  rw[cencode_in_grid_def,encode_in_grid_def]>>
+  irule enc_rel_fold_cenc>>
+  first_x_assum (irule_at Any)>>
+  rw[]>>
+  irule enc_rel_fold_cenc>>
+  first_x_assum (irule_at Any)>>
+  metis_tac[enc_rel_encode_full_eq]
+QED
+
 Theorem enc_rel_encode_reif_gen:
   valid_assignment bnd wi ∧ cencode_reif_gen bnd Zc ec = (x1,ec') ⇒
   enc_rel wi x1 (encode_reif_gen bnd Zc) ec ec'
@@ -1825,21 +1915,6 @@ Proof
   rw[enc_rel_def,EVERY_MAP]
 QED
 
-(* abstr (cbimply_var ..) is [simp]-rewritten to REVERSE (bimply_bit ..), so
-   the spec side never shows abstr; relate any ec-preserving block to it by
-   discharging the (simp-provable) abstr equation. *)
-Theorem enc_rel_abstr':
-  es' = abstr es ⇒ enc_rel wi es es' ec ec
-Proof
-  rw[]>>irule enc_rel_abstr
-QED
-
-Theorem enc_rel_cbimply_var:
-  enc_rel wi (cbimply_var bnd x cc) (REVERSE (bimply_bit bnd (Pos x) cc)) ec ec
-Proof
-  irule enc_rel_abstr'>>simp[]
-QED
-
 Definition mk_name_def:
   mk_name name tag =
   «c[» ^ name ^ «][» ^ tag ^ «]»
@@ -1863,6 +1938,12 @@ Proof
   metis_tac[]
 QED
 
+Theorem enc_rel_cbimply_var:
+  enc_rel wi (cbimply_var bnd x cc) (REVERSE (bimply_bit bnd (Pos x) cc)) ec ec
+Proof
+  irule enc_rel_abstr_cong>>simp[]
+QED
+
 (* at least one over literals.
   We define the raw version and abstract over it. *)
 Definition at_least_one_def:
@@ -1882,6 +1963,28 @@ Theorem at_least_one_sem[simp]:
 Proof
   rw[iconstraint_sem_def,at_least_one_def,eval_lin_term_def]>>
   simp[MAP_MAP_o,o_DEF]
+QED
+
+(* encodes f ⇔ some X in Xs takes v *)
+Definition cencode_some_eq_def:
+  cencode_some_eq bnd f Xs v =
+  cbimply_var bnd f (at_least_one $ MAP (λX. Pos (INL (Eq X v))) Xs)
+End
+
+Definition encode_some_eq_def:
+  encode_some_eq bnd f Xs v =
+  abstr $ cencode_some_eq bnd f Xs v
+End
+
+Theorem encode_some_eq_sem:
+  valid_assignment bnd wi ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb)) (encode_some_eq bnd f Xs v) ⇔
+  (wb f ⇔ ∃X. MEM X Xs ∧ wb (INL (Eq X v))))
+Proof
+  strip_tac>>
+  simp[encode_some_eq_def,cencode_some_eq_def,EVERY_REVERSE,MEM_MAP,
+    PULL_EXISTS]>>
+  metis_tac[]
 QED
 
 Theorem abstr_cat_least_one[simp]:

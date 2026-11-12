@@ -468,84 +468,39 @@ Definition elm_def[simp]:
   INR (name, Values [v] NONE)
 End
 
-(* encodes fnvalue_v ⇔ some X = v *)
-Definition cencode_some_eq_def:
-  cencode_some_eq bnd Xs v name =
-  cbimply_var bnd (elm name v) (at_least_one $ MAP (λX. Pos (INL (Eq X v))) Xs)
+(* per value v with candidates Ys: the flag v ⇔ some Y takes v; then the
+   number of set flags *)
+Definition cencode_n_value_aux_def:
+  cencode_n_value_aux bnd cs Y name =
+  Append
+    (flat_app (MAP (λc.
+      cencode_some_eq bnd (elm name (FST c)) (SND c) (FST c)) cs))
+    (cencode_bitsum (MAP (λc. elm name (FST c)) cs) Y name «»)
 End
-
-Definition encode_some_eq_def:
-  encode_some_eq bnd Xs v name =
-  abstr $ cencode_some_eq bnd Xs v name
-End
-
-Theorem iSUM_ge_0:
-  (∀x. MEM x ls ⇒ x ≥ 0) ⇒
-  iSUM ls ≥ 0
-Proof
-  Induct_on`ls`>> rw[iSUM_def]>>
-  fs[SF DNF_ss]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem b2i_alt:
-  b2i b = if b then 1 else 0
-Proof
-  rw[]
-QED
-
-Theorem eval_lin_term_ge_1:
-  eval_lin_term wb (MAP (λe. (1, f e)) ls) ≥ 1 ⇔
-  ∃e. MEM e ls ∧ lit wb (f e)
-Proof
-  rw[eval_lin_term_def]>>
-  Induct_on ‘ls’>>
-  rw[iSUM_def,b2i_alt]
-  >-(
-    simp[SF DNF_ss]>>
-    qmatch_goalsub_abbrev_tac`_ + iSUM lss ≥ _`>>
-    `iSUM lss ≥ 0` by (
-      irule iSUM_ge_0>>
-      simp[Abbr`lss`,MEM_MAP,PULL_EXISTS,b2i_alt]>>
-      rw[])>>
-    intLib.ARITH_TAC)
-  >- metis_tac[]
-QED
-
-Theorem encode_some_eq_sem:
-  valid_assignment bnd wi ∧
-  EVERY (λX. wb (INL (Eq X v)) ⇔ varc wi X = v) Xs ⇒
-  (EVERY (λx. iconstraint_sem x (wi,wb)) (encode_some_eq bnd Xs v name) =
-  (wb (elm name v) ⇔ ∃X. MEM X Xs ∧ wb (INL (Eq X v))))
-Proof
-  rw[cencode_some_eq_def,encode_some_eq_def,MEM_MAP,
-    iconstraint_sem_def,eval_lin_term_ge_1,PULL_EXISTS]>>
-  metis_tac[]
-QED
 
 Definition encode_n_value_def:
   encode_n_value bnd Xs Y name =
   let
-    vals = union_dom bnd Xs
+    cs = may_take bnd Xs (union_dom bnd Xs)
   in
-    encode_eq_grid bnd Xs vals ++
-    FLAT (MAP (λv. encode_some_eq bnd Xs v name) vals) ++
-    encode_bitsum (MAP (elm name) vals) Y
+    encode_in_grid bnd cs ++ abstr (cencode_n_value_aux bnd cs Y name)
 End
 
 Theorem encode_n_value_aux:
   valid_assignment bnd wi ⇒
   (EVERY (λx. iconstraint_sem x (wi,wb)) (encode_n_value bnd Xs Y name) ⇔
     (∀v. MEM v (union_dom bnd Xs) ⇒ (
-      EVERY (λX. wb (INL (Ge X v)) ⇔ varc wi X ≥ v) Xs ∧
-      EVERY (λX. wb (INL (Ge X (v + 1))) ⇔ varc wi X ≥ v + 1) Xs ∧
-      EVERY (λX. wb (INL (Eq X v)) ⇔ varc wi X = v) Xs ∧
+      EVERY (λX. in_bnd (varc_bnd bnd X) v ⇒
+        (wb (INL (Ge X v)) ⇔ varc wi X ≥ v) ∧
+        (wb (INL (Ge X (v + 1))) ⇔ varc wi X ≥ v + 1) ∧
+        (wb (INL (Eq X v)) ⇔ varc wi X = v)) Xs ∧
       (wb (INR (name,Values [v] NONE)) ⇔ MEM v (MAP (varc wi) Xs)))) ∧
     &LENGTH (FILTER (λx. wb (INR (name,Values [x] NONE))) (union_dom bnd Xs)) =
       varc wi Y)
 Proof
   strip_tac>>
-  simp[encode_n_value_def]>>
+  simp[encode_n_value_def,cencode_n_value_aux_def]>>
+  simp[may_take_alt,MAP_MAP_o,o_DEF,GSYM encode_some_eq_def]>>
   irule LEFT_AND_CONG>>rw[]
   >- (
     simp[IMP_CONJ_THM, SF DNF_ss]>>
@@ -553,14 +508,18 @@ Proof
     irule LEFT_AND_CONG>>rw[]
     >- (
       simp[EVERY_MEM]>>metis_tac[])>>
-    simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
-    drule encode_some_eq_sem>>
-    fs[EVERY_MEM]>>
-    metis_tac[])
+    simp[EVERY_FLAT,EVERY_MAP,encode_some_eq_sem,MEM_FILTER]>>
+    simp[EVERY_MEM]>>
+    `∀v. MEM v (union_dom bnd Xs) ⇒
+       ((∃X. (in_bnd (varc_bnd bnd X) v ∧ MEM X Xs) ∧ wb (INL (Eq X v))) ⇔
+        MEM v (MAP (varc wi) Xs))` by (
+      rw[MEM_MAP]>>gvs[EVERY_MEM]>>
+      metis_tac[in_bnd_varc])>>
+    eq_tac>>rw[]>>metis_tac[])
   >- (
     drule_then (fn thm => simp[thm]) encode_bitsum_sem>>
     simp[MAP_MAP_o]>>
-    simp[iSUM_FILTER,o_DEF,encode_some_eq_sem,MEM_MAP,EVERY_MEM])
+    simp[iSUM_FILTER,o_DEF,MEM_MAP,EVERY_MEM])
 QED
 
 Theorem encode_n_value_sem_1:
@@ -623,14 +582,10 @@ QED
 Definition cencode_n_value_def:
   cencode_n_value bnd Xs Y name ec =
   let
-    vals = union_dom bnd Xs;
-    (xs,ec') = cencode_eq_grid bnd Xs vals ec
+    cs = may_take bnd Xs (union_dom bnd Xs);
+    (xs,ec') = cencode_in_grid bnd cs ec
   in
-    (Append
-      (Append xs
-        (flat_app $ MAP (λv.
-          cencode_some_eq bnd Xs v name) vals))
-      (cencode_bitsum (MAP (elm name) vals) Y name «»), ec')
+    (Append xs (cencode_n_value_aux bnd cs Y name), ec')
 End
 
 Theorem cencode_n_value_sem:
@@ -641,16 +596,8 @@ Proof
   rw[cencode_n_value_def,encode_n_value_def]>>
   gvs[AllCaseEqs(),UNCURRY_EQ]>>
   irule enc_rel_Append>>
-  qmatch_asmsub_abbrev_tac ‘(xs,_)’>>
-  qexists ‘ec'’>>
-  CONJ_TAC
-  >-(
-    irule enc_rel_Append>>
-    qexists ‘ec'’>>
-    simp[enc_rel_encode_eq_grid]>>
-    irule enc_rel_abstr_cong>>
-    simp[abstr_flat_app,encode_some_eq_def,MAP_MAP_o,o_DEF])>>
-  simp[]
+  irule_at Any enc_rel_abstr>>
+  simp[enc_rel_encode_in_grid]
 QED
 
 Definition eqi_def[simp]:
@@ -917,29 +864,22 @@ Proof
   simp[]
 QED
 
-(* Among: Y equals the number of times values from iS appear in Xs. *)
+(* Among: Y equals the number of times values from iS appear in Xs; vs is iS
+   without repetition *)
 Definition cencode_among_aux_def:
-  cencode_among_aux bnd Xs iS Y name =
-    let vs = nub_int iS in
+  cencode_among_aux bnd Xs vs Y name =
     cencode_bitsum
-      (FLAT (MAP (λX. MAP (λv. INL (Eq X v)) vs) Xs))
+      (FLAT (MAP (λX.
+        let b = varc_bnd bnd X in
+        MAP (λv. INL (Eq X v)) (FILTER (in_bnd b) vs)) Xs))
       Y name «»
 End
 
-Theorem cencode_among_aux_nub:
-  cencode_among_aux bnd Xs iS Y name =
-    let vs = nub iS in
-    cencode_bitsum
-      (FLAT (MAP (λX. MAP (λv. INL (Eq X v)) vs) Xs))
-      Y name «»
-Proof
-  simp[cencode_among_aux_def,nub_int_nub]
-QED
-
 Definition encode_among_def:
   encode_among bnd Xs iS Y name =
-  encode_eq_grid bnd Xs iS ++
-  abstr (cencode_among_aux bnd Xs iS Y name)
+  let vs = nub iS in
+  encode_in_grid bnd (may_take bnd Xs vs) ++
+  abstr (cencode_among_aux bnd Xs vs Y name)
 End
 
 Theorem iSUM_ALL_DISTINCT_MEM:
@@ -953,6 +893,22 @@ Proof
   Cases_on`f h`>>gvs[]
 QED
 
+(* X's term in Among's sum counts whether X takes a value of vs *)
+Theorem among_count_var:
+  valid_assignment bnd wi ∧
+  (∀v. MEM v vs ∧ in_bnd (varc_bnd bnd X) v ⇒ (f v ⇔ varc wi X = v)) ⇒
+  iSUM (MAP (λv. b2i (f v)) (FILTER (in_bnd (varc_bnd bnd X)) (nub vs))) =
+  b2i (MEM (varc wi X) vs)
+Proof
+  strip_tac>>
+  `MEM (varc wi X) vs ⇔
+   MEM (varc wi X) (FILTER (in_bnd (varc_bnd bnd X)) (nub vs))`
+    by simp[MEM_FILTER_in_bnd]>>
+  pop_assum SUBST1_TAC>>
+  irule iSUM_ALL_DISTINCT_MEM>>
+  simp[FILTER_ALL_DISTINCT,all_distinct_nub,MEM_FILTER]
+QED
+
 Theorem encode_among_sem_1:
   valid_assignment bnd wi ∧
   ALOOKUP cs name = SOME (Counting (Among Xs iS Y)) ∧
@@ -960,14 +916,13 @@ Theorem encode_among_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_among bnd Xs iS Y name)
 Proof
-  rw[cencode_among_aux_nub,encode_among_def,among_sem_def]>>
+  rw[cencode_among_aux_def,encode_among_def,among_sem_def]>>
   simp[reify_avar_def,reify_reif_def]>>
   drule_then (fn thm => simp[thm]) encode_bitsum_sem>>
   simp[MAP_FLAT,pbc_encodeTheory.iSUM_FLAT,MAP_MAP_o,o_DEF]>>
   rw[reify_avar_def,reify_reif_def]>>
   cong_tac NONE>>
-  PURE_REWRITE_TAC[Once (GSYM MEM_nub)]>>
-  ho_match_mp_tac iSUM_ALL_DISTINCT_MEM>>
+  ho_match_mp_tac among_count_var>>
   simp[]
 QED
 
@@ -977,20 +932,22 @@ Theorem encode_among_sem_2:
     (encode_among bnd Xs iS Y name) ⇒
   among_sem Xs iS Y wi
 Proof
-  rw[cencode_among_aux_nub,encode_among_def,EVERY_FLAT,among_sem_def]>>
+  rw[cencode_among_aux_def,encode_among_def,EVERY_FLAT,among_sem_def]>>
   drule_then (fn thm => gs[thm]) encode_bitsum_sem>>
   pop_assum (SUBST_ALL_TAC o SYM)>>
   simp[MAP_FLAT,pbc_encodeTheory.iSUM_FLAT,MAP_MAP_o,o_DEF]>>
   cong_tac NONE>>
-  PURE_REWRITE_TAC[Once (GSYM MEM_nub)]>>
-  ho_match_mp_tac iSUM_ALL_DISTINCT_MEM>>
-  rw[]
+  ho_match_mp_tac among_count_var>>
+  simp[]
 QED
 
 Definition cencode_among_def:
   cencode_among bnd Xs iS Y name ec =
-  let (xs,ec') = cencode_eq_grid bnd Xs iS ec in
-  (Append xs (cencode_among_aux bnd Xs iS Y name), ec')
+  let
+    vs = nub_int iS;
+    (xs,ec') = cencode_in_grid bnd (may_take bnd Xs vs) ec
+  in
+    (Append xs (cencode_among_aux bnd Xs vs Y name), ec')
 End
 
 Theorem cencode_among_sem:
@@ -998,11 +955,11 @@ Theorem cencode_among_sem:
   cencode_among bnd Xs iS Y name ec = (es, ec') ⇒
   enc_rel wi es (encode_among bnd Xs iS Y name) ec ec'
 Proof
-  rw[cencode_among_def,encode_among_def]>>
+  rw[cencode_among_def,encode_among_def,nub_int_nub]>>
   gvs[AllCaseEqs(),UNCURRY_EQ]>>
   irule enc_rel_Append>>
   irule_at Any enc_rel_abstr>>
-  simp[enc_rel_encode_eq_grid]
+  simp[enc_rel_encode_in_grid]
 QED
 
 (* GlobalCardinality Xs vs Cs clsd:
@@ -1010,20 +967,23 @@ QED
    when `clsd`, additionally each Xi ∈ vs (per-variable membership).
    The [Xi = v] eq-atoms are shared/registered once via the eq-grid. *)
 
-(* the non-grid part: count lines, plus clsd membership per variable *)
+(* the non-grid part: count lines over each value's candidates cs, plus clsd
+   membership per variable *)
 Definition cencode_global_cardinality_aux_def:
-  cencode_global_cardinality_aux Xs vs Cs clsd name =
+  cencode_global_cardinality_aux bnd cs Xs vs Cs clsd name =
   if LENGTH vs = LENGTH Cs then
     Append
       (flat_app
-        (MAPi (λi (v,C).
-          cencode_bitsum (MAP (λX. INL (Eq X v)) Xs) C name (toString i ^ «_»))
-          (ZIP (vs,Cs))))
+        (MAPi (λi (c,C).
+          cencode_bitsum (MAP (λX. INL (Eq X (FST c))) (SND c))
+            C name (toString i ^ «_»))
+          (ZIP (cs,Cs))))
       (if clsd then
          flat_app
            (MAPi (λi X.
+              let b = varc_bnd bnd X in
               cat_least_one name (toString i ^ «_»)
-                (MAP (λv. Pos (INL (Eq X v))) vs)) Xs)
+                (MAP (λv. Pos (INL (Eq X v))) (FILTER (in_bnd b) vs))) Xs)
        else Nil)
   else
     cfalse_constr
@@ -1031,14 +991,18 @@ End
 
 Definition cencode_global_cardinality_def:
   cencode_global_cardinality bnd Xs vs Cs clsd name ec =
-  let (xs,ec') = cencode_eq_grid bnd Xs vs ec in
-  (Append xs (cencode_global_cardinality_aux Xs vs Cs clsd name), ec')
+  let
+    cs = may_take bnd Xs vs;
+    (xs,ec') = cencode_in_grid bnd cs ec
+  in
+    (Append xs (cencode_global_cardinality_aux bnd cs Xs vs Cs clsd name), ec')
 End
 
 Definition encode_global_cardinality_def:
   encode_global_cardinality bnd Xs vs Cs clsd name =
-  encode_eq_grid bnd Xs vs ++
-  abstr (cencode_global_cardinality_aux Xs vs Cs clsd name)
+  let cs = may_take bnd Xs vs in
+  encode_in_grid bnd cs ++
+  abstr (cencode_global_cardinality_aux bnd cs Xs vs Cs clsd name)
 End
 
 Theorem cencode_global_cardinality_sem:
@@ -1050,7 +1014,7 @@ Proof
   gvs[AllCaseEqs(),UNCURRY_EQ]>>
   irule enc_rel_Append>>
   irule_at Any enc_rel_abstr>>
-  simp[enc_rel_encode_eq_grid]
+  simp[enc_rel_encode_in_grid]
 QED
 
 Theorem encode_global_cardinality_sem_1:
@@ -1061,7 +1025,7 @@ Theorem encode_global_cardinality_sem_1:
 Proof
   rw[global_cardinality_sem_def,encode_global_cardinality_def]>>
   simp[reify_avar_def,reify_reif_def]>>
-  simp[cencode_global_cardinality_aux_def]>>
+  simp[cencode_global_cardinality_aux_def,may_take_alt]>>
   reverse IF_CASES_TAC
   >- fs[LIST_REL_EL_EQN]>>
   simp[]>>
@@ -1069,13 +1033,13 @@ Proof
   >- (
     simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]>>rw[]>>
     DEP_REWRITE_TAC[EL_ZIP]>>
-    fs[LIST_REL_EL_EQN]>>
+    fs[LIST_REL_EL_EQN,EL_MAP]>>
     DEP_REWRITE_TAC[encode_bitsum_sem]>>
-    simp[MAP_MAP_o,o_DEF,reify_avar_def,reify_reif_def])
+    simp[MAP_MAP_o,o_DEF,reify_avar_def,reify_reif_def,iSUM_FILTER_in_bnd])
   >- (
     rw[]>>gvs[]>>
     simp[EVERY_MEM,MEM_MAPi,MEM_FLAT,PULL_EXISTS,MEM_MAP,
-      reify_avar_def,reify_reif_def]>>
+      reify_avar_def,reify_reif_def,MEM_FILTER_in_bnd]>>
     fs[EVERY_EL])
 QED
 
@@ -1095,25 +1059,35 @@ Proof
   >- (
     pop_assum kall_tac>>
     pop_assum mp_tac>>
-    simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]>>
+    simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS,may_take_alt]>>
     rw[LIST_REL_EL_EQN]>>
     first_x_assum drule>>
     DEP_REWRITE_TAC[EL_ZIP]>>
-    gvs[]>>
+    gvs[EL_MAP]>>
     DEP_REWRITE_TAC[encode_bitsum_sem]>>
     simp[MAP_MAP_o,o_DEF]>>
     disch_then sym_sub_tac>>
+    rename1`k < LENGTH Cs`>>
+    `iSUM (MAP (λX. b2i (varc wi X = EL k vs)) Xs) =
+     iSUM (MAP (λX. b2i (varc wi X = EL k vs))
+       (FILTER (λX. in_bnd (varc_bnd bnd X) (EL k vs)) Xs))`
+      by simp[iSUM_FILTER_in_bnd]>>
+    pop_assum SUBST1_TAC>>
     cong_tac NONE>>
+    gvs[MEM_FILTER]>>
     metis_tac[EL_MEM])>>
   rw[]>>gvs[]>>
   pop_assum mp_tac>>
-  simp[EVERY_MEM,MEM_MAPi,MEM_FLAT,PULL_EXISTS,MEM_MAP]>>
+  simp[EVERY_MEM,MEM_MAPi,MEM_FLAT,PULL_EXISTS,MEM_MAP,MEM_FILTER]>>
+  qpat_x_assum`EVERY _ (FLAT _)`kall_tac>>
   metis_tac[MEM_EL]
 QED
 
-(* BinPacking: the (size, [X = b]) atoms of bin b over the (item,size) pairs Xsz *)
+(* BinPacking: the (size, [X = b]) atoms of bin b over the (item,size,bounds)
+   triples Xszb whose item may go in bin b *)
 Definition bp_atoms_def:
-  bp_atoms Xsz b = MAP (λ(X,s). (&s:int, INL (Eq X b))) Xsz
+  bp_atoms Xszb b =
+  MAP (λ(X,s,xb). (&s:int, INL (Eq X b))) (FILTER (λ(X,s,xb). in_bnd xb b) Xszb)
 End
 
 (* per item i, rows 0 ≤ Xs[i] < LENGTH Bs; per bin b, the row
@@ -1121,24 +1095,28 @@ End
 Definition cencode_binpacking_aux_def:
   cencode_binpacking_aux bnd Xs sizes Bs lds name =
   if LENGTH Xs = LENGTH sizes then
-    let Xsz = ZIP (Xs,sizes); nb = LENGTH Bs in
+    let
+      Xszb = MAP (λ(X,s). (X,s,varc_bnd bnd X)) (ZIP (Xs,sizes));
+      nb = LENGTH Bs
+    in
     Append
       (flat_app (MAPi (λi X.
         cencode_proper_index bnd (X,0) (&nb) name (toString i ^ «_»)) Xs))
       (flat_app (MAPi (λb B.
-        cencode_wbitsum lds (bp_atoms Xsz (&b)) B name (toString b ^ «_»)) Bs))
+        cencode_wbitsum lds (bp_atoms Xszb (&b)) B name (toString b ^ «_»)) Bs))
   else cfalse_constr
 End
 
 Definition cencode_binpacking_def:
   cencode_binpacking bnd Xs sizes Bs lds name ec =
-  let (xs,ec') = cencode_eq_grid bnd Xs (GENLIST (λb. &b) (LENGTH Bs)) ec in
+  let (xs,ec') =
+    cencode_in_grid bnd (may_take bnd Xs (GENLIST (λb. &b) (LENGTH Bs))) ec in
   (Append xs (cencode_binpacking_aux bnd Xs sizes Bs lds name), ec')
 End
 
 Definition encode_binpacking_def:
   encode_binpacking bnd Xs sizes Bs lds name =
-  encode_eq_grid bnd Xs (GENLIST (λb. &b) (LENGTH Bs)) ++
+  encode_in_grid bnd (may_take bnd Xs (GENLIST (λb. &b) (LENGTH Bs))) ++
   abstr (cencode_binpacking_aux bnd Xs sizes Bs lds name)
 End
 
@@ -1151,20 +1129,31 @@ Proof
   gvs[AllCaseEqs(),UNCURRY_EQ]>>
   irule enc_rel_Append>>
   irule_at Any enc_rel_abstr>>
-  simp[enc_rel_encode_eq_grid]
+  simp[enc_rel_encode_in_grid]
 QED
 
 Theorem bin_load_bp_atoms:
-  (∀X s. MEM (X,s) Xsz ⇒ (wb (INL (Eq X (&b))) ⇔ varc wi X = &b)) ⇒
-  bin_load b Xsz wi = iSUM (MAP (λ(c,a). c * b2i (wb a)) (bp_atoms Xsz (&b)))
+  valid_assignment bnd wi ∧
+  (∀X s. MEM (X,s) Xsz ∧ in_bnd (varc_bnd bnd X) (&b) ⇒
+    (wb (INL (Eq X (&b))) ⇔ varc wi X = &b)) ⇒
+  bin_load b Xsz wi =
+  iSUM (MAP (λ(c,a). c * b2i (wb a))
+    (bp_atoms (MAP (λ(X,s). (X,s,varc_bnd bnd X)) Xsz) (&b)))
 Proof
-  rw[bin_load_def,bp_atoms_def,MAP_MAP_o,o_DEF]>>
-  AP_TERM_TAC>>
-  irule MAP_CONG>>
-  simp[FORALL_PROD]>>
-  rpt strip_tac>>
-  qpat_x_assum ‘∀X s. MEM (X,s) Xsz ⇒ _’ drule>>
-  simp[integerTheory.INT_MUL_COMM]
+  strip_tac>>
+  pop_assum mp_tac>>
+  simp[bin_load_def,bp_atoms_def,MAP_MAP_o,o_DEF]>>
+  Induct_on`Xsz`>>
+  simp[FORALL_PROD,iSUM_def]>>
+  qx_genl_tac[`X`,`s`]>>strip_tac>>
+  qpat_x_assum`(∀X s. MEM (X,s) Xsz ∧ _ ⇒ _) ⇒ _`mp_tac>>
+  impl_tac
+  >- metis_tac[]>>
+  disch_then SUBST1_TAC>>
+  IF_CASES_TAC>>simp[iSUM_def]
+  >- simp[integerTheory.INT_MUL_COMM]>>
+  `varc wi X ≠ &b` by metis_tac[in_bnd_varc]>>
+  simp[]
 QED
 
 Theorem encode_binpacking_sem_1:
@@ -1186,7 +1175,7 @@ Proof
   rpt strip_tac>>
   ‘bin_load b (ZIP (Xs,sizes)) wi =
     iSUM (MAP (λ(c,a). c * b2i (reify_avar cs wi a))
-      (bp_atoms (ZIP (Xs,sizes)) (&b)))’
+      (bp_atoms (MAP (λ(X,s). (X,s,varc_bnd bnd X)) (ZIP (Xs,sizes))) (&b)))’
     by (irule bin_load_bp_atoms>>simp[reify_avar_def,reify_reif_def])>>
   qpat_x_assum ‘∀b. b < LENGTH Bs ⇒ _’ (drule_then mp_tac)>>
   simp[encode_wbitsum_sem]
@@ -1203,7 +1192,7 @@ Proof
     CCONTR_TAC>>
     gvs[encode_binpacking_def,cencode_binpacking_aux_def,cfalse_constr_def])>>
   qpat_x_assum ‘EVERY _ _’ mp_tac>>
-  simp[encode_binpacking_def,encode_eq_grid_sem,cencode_binpacking_aux_def,
+  simp[encode_binpacking_def,encode_in_grid_sem,cencode_binpacking_aux_def,
     o_DEF,EVERY_FLAT,MEM_GENLIST]>>
   strip_tac>>
   simp[binpacking_sem_def]>>
@@ -1221,15 +1210,17 @@ Proof
   qpat_x_assum ‘EVERY _ (MAPi _ Bs)’ mp_tac>>
   simp[Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]>>
   strip_tac>>gen_tac>>strip_tac>>
-  ‘∀X. MEM X Xs ⇒ (wb (INL (Eq X (&b))) ⇔ varc wi X = &b)’ by (
+  ‘∀X. MEM X Xs ∧ in_bnd (varc_bnd bnd X) (&b) ⇒
+    (wb (INL (Eq X (&b))) ⇔ varc wi X = &b)’ by (
     rpt strip_tac>>
     qpat_x_assum ‘∀X i. _’ (qspecl_then [‘X’,‘&b’] mp_tac)>>
     simp[])>>
   ‘bin_load b (ZIP (Xs,sizes)) wi =
-    iSUM (MAP (λ(c,a). c * b2i (wb a)) (bp_atoms (ZIP (Xs,sizes)) (&b)))’ by (
+    iSUM (MAP (λ(c,a). c * b2i (wb a))
+      (bp_atoms (MAP (λ(X,s). (X,s,varc_bnd bnd X)) (ZIP (Xs,sizes))) (&b)))’ by (
     irule bin_load_bp_atoms>>
     rw[MEM_ZIP]>>
-    qpat_x_assum ‘∀X. MEM X Xs ⇒ _’ irule>>
+    qpat_x_assum ‘∀X. MEM X Xs ∧ _ ⇒ _’ irule>>
     simp[EL_MEM])>>
   qpat_x_assum ‘∀b. b < LENGTH Bs ⇒ EVERY _ _’ drule>>
   simp[encode_wbitsum_sem]

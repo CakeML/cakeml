@@ -883,7 +883,7 @@ QED
 (* shared: preprocessing. The sites are the values in [0,n) the positions
    can take *)
 
-(* kept separate so that Num's translator precondition is discharged once *)
+(* d as a num, with negatives sent to 0 *)
 Definition mindist_nnum_def:
   mindist_nnum (d:int) = if d < 0 then 0 else Num d
 End
@@ -948,7 +948,6 @@ Definition mindist_ctx_def:
     mindist_prep bnd Xs D = (dt,xps,sites,pm,dps,levels)
 End
 
-(* not in sptree or misc: lookup_any after insert *)
 Theorem lookup_any_insert[local]:
   lookup_any a (insert k v t) d = if a = k then v else lookup_any a t d
 Proof
@@ -1358,13 +1357,10 @@ QED
 
 (* (i) site-used flags: u_a ⇔ ∃i. x_i = a *)
 
-(* u_a ⇔ some position takes site a (cencode_some_eq fixes NValue's flag and
-   ranges over all of Xs, not the positions that can take a) *)
 Definition mindist_used_def:
   mindist_used bnd name pm sites =
   flat_app (MAP
-    (λa. cbimply_var bnd (mindist_flag name «u» [&a]) (at_least_one
-      (MAP (λX. Pos (INL (Eq X (&a)))) (lookup_any a pm []))))
+    (λa. cencode_some_eq bnd (mindist_flag name «u» [&a]) (lookup_any a pm []) (&a))
     sites)
 End
 
@@ -1379,7 +1375,7 @@ Theorem mindist_used_iff[local]:
 Proof
   strip_tac>>drule_then strip_assume_tac (iffLR mindist_ctx_def)>>
   drule_all_then strip_assume_tac mindist_prep_facts>>
-  simp[mindist_used_def]>>
+  simp[mindist_used_def,cencode_some_eq_def]>>
   simp[EVERY_FLAT,EVERY_MAP]>>
   simp[EVERY_SND,EVERY_REVERSE]>>
   simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,lit_def,MEM_FILTER]>>

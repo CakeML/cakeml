@@ -7,32 +7,27 @@ Libs
 Ancestors
   pbc cp ilp cp_to_ilp
 
-(* Element: Xs[Y - offset] = Z *)
-Definition encode_element_aux_def:
-  encode_element_aux bnd Xs Yi Z =
-  let
-    (Y,offset) = Yi
-  in
-    FLAT $ MAPi
-      (λi X.
-        [
-          bits_imply bnd [Pos $ INL (Eq Y $ offset + &i)] (mk_ge X Z);
-          bits_imply bnd [Pos $ INL (Eq Y $ offset + &i)] (mk_le X Z)
-        ])
-      Xs
-End
-
+(* Element: Xs[Y - offset] = Z; index i gets rows only when Y may take
+   offset + i *)
 Definition cencode_element_aux_def:
   cencode_element_aux bnd Xs Yi Z name =
-  List $ mk_annotate
-    (FLAT $ MAPi
+  let
+    (Y,offset) = Yi;
+    yb = varc_bnd bnd Y
+  in
+    flat_app $ MAPi
       (λi X.
-        [
-          mk_name name (toString i ^ «ge»);
-          mk_name name (toString i ^ «le»)
-        ])
-      Xs)
-    (encode_element_aux bnd Xs Yi Z)
+        let y = offset + &i in
+        if in_bnd yb y then
+          let s = toString i in
+          List [
+            (SOME (mk_name name (s ^ «ge»)),
+              bits_imply bnd [Pos $ INL (Eq Y y)] (mk_ge X Z));
+            (SOME (mk_name name (s ^ «le»)),
+              bits_imply bnd [Pos $ INL (Eq Y y)] (mk_le X Z))
+          ]
+        else Nil)
+      Xs
 End
 
 Definition cencode_element_def:
@@ -40,15 +35,8 @@ Definition cencode_element_def:
   let
     len = LENGTH Xs;
     (Y,offset) = Yi;
-    (lb,ub) =
-      case Y of
-        INL vY => bnd vY
-      | INR cY => (cY,cY);
     (xs,ec') =
-      fold_cenc
-        (λi ec. cencode_full_eq bnd Y (offset + &i) ec)
-        (COUNT_LIST len)
-        ec
+      cencode_in_grid bnd (may_take bnd [Y] (GENLIST (λi. offset + &i) len)) ec
   in
     (Append
       xs
@@ -62,26 +50,26 @@ Definition encode_element_def:
   encode_element bnd Xs Yi Z name =
   let
     len = LENGTH Xs;
-    (Y,offset) = Yi;
-    (lb,ub) =
-      case Y of
-        INL vY => bnd vY
-      | INR cY => (cY,cY)
+    (Y,offset) = Yi
   in
-    (FLAT $ GENLIST (λi. encode_full_eq bnd Y (offset + &i)) len) ++
+    encode_in_grid bnd (may_take bnd [Y] (GENLIST (λi. offset + &i) len)) ++
     abstr (cencode_proper_index bnd Yi (&len) name «») ++
-    (encode_element_aux bnd Xs Yi Z)
+    abstr (cencode_element_aux bnd Xs Yi Z name)
 End
 
-Theorem encode_full_eq_lem[local]:
+Theorem cencode_element_aux_sem[local]:
   valid_assignment bnd wi ⇒
-  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (FLAT (GENLIST
-      (λi. encode_full_eq bnd Y (offset + &i))
-      (LENGTH Xs)))
+  (EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr (cencode_element_aux bnd Xs (Y,offset) Z name)) ⇔
+  ∀i. i < LENGTH Xs ∧ in_bnd (varc_bnd bnd Y) (offset + &i) ∧
+    wb (INL (Eq Y (offset + &i))) ⇒
+    varc wi (EL i Xs) = varc wi Z)
 Proof
-  rw[EVERY_FLAT,Once EVERY_MEM,MEM_GENLIST]>>
-  simp[encode_full_eq_sem,reify_avar_def,reify_reif_def]
+  strip_tac>>
+  simp[cencode_element_aux_def,abstr_flat_app]>>
+  simp[EVERY_FLAT,EVERY_MAP]>>
+  simp[Once EVERY_EL,EL_MAPi,COND_RAND]>>
+  eq_tac>>rw[]>>res_tac>>intLib.ARITH_TAC
 QED
 
 Theorem encode_element_sem_1:
@@ -92,13 +80,9 @@ Theorem encode_element_sem_1:
 Proof
   PairCases_on ‘Yi’>>
   rename1 ‘(Y,offset)’>>
-  Cases_on ‘Xs = []’>>
-  rw[element_sem_def,mk_array_ind_def,
-    encode_element_def,cencode_proper_index_sem_1,encode_element_aux_def,
-    encode_full_eq_lem]>>
-  rw[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi]>>
-    simp[EVERY_MEM,reify_avar_def,reify_reif_def,varc_def]>>
-    intLib.ARITH_TAC
+  rw[element_sem_def,mk_array_ind_def,encode_element_def,
+    cencode_proper_index_sem_1,cencode_element_aux_sem]>>
+  gvs[reify_avar_def,reify_reif_def]
 QED
 
 Theorem encode_element_sem_2:
@@ -110,15 +94,19 @@ Proof
   PairCases_on ‘Yi’>>
   rename1 ‘element_sem _ (Y,offset) _ _’>>
   strip_tac>>
-  gs[EVERY_FLAT,element_sem_def,mk_array_ind_def,encode_element_def,
-    MEM_FLAT,SF DNF_ss,EVERY_GENLIST]>>
-  simp[CONJ_ASSOC]>>
-  CONJ_ASM1_TAC
-  >-metis_tac[cencode_proper_index_sem_2]>>
-  fs[encode_element_aux_def,EVERY_FLAT,SF DNF_ss]>>
-  gvs[MEM_MAPi,SF DNF_ss,EVERY_MEM]>>
-  rpt (last_x_assum $ drule_then assume_tac)>>
-  intLib.ARITH_TAC
+  gs[encode_element_def,cencode_element_aux_sem]>>
+  drule_all_then strip_assume_tac cencode_proper_index_sem_2>>
+  simp[element_sem_def,mk_array_ind_def]>>
+  qabbrev_tac`k = Num (varc wi Y − offset)`>>
+  `offset + &k = varc wi Y` by (
+    simp[Abbr`k`,integerTheory.INT_OF_NUM]>>
+    intLib.ARITH_TAC)>>
+  `in_bnd (varc_bnd bnd Y) (offset + &k)` by metis_tac[in_bnd_varc]>>
+  `wb (INL (Eq Y (offset + &k)))` by (
+    qpat_x_assum`∀i. MEM i (GENLIST _ _) ∧ _ ⇒ _`(qspec_then`offset + &k`mp_tac)>>
+    simp[MEM_GENLIST]>>
+    metis_tac[])>>
+  metis_tac[]
 QED
 
 Theorem cencode_element_sem:
@@ -131,62 +119,48 @@ Proof
   rw[cencode_element_def,encode_element_def,UNCURRY_EQ]>>
   pure_rewrite_tac[GSYM APPEND_ASSOC]>>
   irule enc_rel_Append>>
-  drule_at Any enc_rel_fold_cenc>>
-  gs[SYM MAP_COUNT_LIST]>>
-  disch_then $ irule_at Any>>
-  simp[enc_rel_encode_full_eq]>>
+  irule_at Any enc_rel_encode_in_grid>>
+  first_assum (irule_at Any)>>
+  simp[]>>
   irule enc_rel_Append>>
   irule_at Any enc_rel_abstr>>
-  simp[cencode_element_aux_def,enc_rel_List_mk_annotate]
+  simp[enc_rel_abstr]
 QED
 
-(* Element2D: Xss[Y1 - offset1][Y2 - offset2] = Z *)
-Definition encode_element2d_aux_def:
-  encode_element2d_aux bnd Xss Y1i Y2i Z =
-  let
-    (Y1,offset1) = Y1i;
-    (Y2,offset2) = Y2i
-  in
-    FLAT $ MAPi
-      (λi Xs. FLAT $ MAPi
-        (λj X.
-          [
-            bits_imply
-              bnd
-              [Pos $ INL (Eq Y1 $ offset1 + &i); Pos $ INL (Eq Y2 $ offset2 + &j)]
-              (mk_ge X Z);
-            bits_imply
-              bnd
-              [Pos $ INL (Eq Y1 $ offset1 + &i); Pos $ INL (Eq Y2 $ offset2 + &j)]
-              (mk_le X Z)
-          ])
-        Xs)
-      Xss
-End
-
+(* Element2D: Xss[Y1 - offset1][Y2 - offset2] = Z; cell (i,j) gets rows only
+   when Y1 may take offset1 + i and Y2 may take offset2 + j *)
 Definition cencode_element2d_aux_def:
   cencode_element2d_aux bnd Xss Y1i Y2i Z name =
   let
     (Y1,offset1) = Y1i;
-    (Y2,offset2) = Y2i
+    (Y2,offset2) = Y2i;
+    yb1 = varc_bnd bnd Y1;
+    yb2 = varc_bnd bnd Y2
   in
-    List $ mk_annotate
-      (FLAT $ MAPi
-        (λi Xs. FLAT $ MAPi
-          (λj X.
-            [
-              mk_name
-                name
-                (toString i ^ «_» ^
-                  toString j ^ «ge»);
-              mk_name
-                name
-                (toString i ^ «_» ^
-                  toString j ^ «le»)
-            ])
-          Xs)
-        Xss)
-      (encode_element2d_aux bnd Xss Y1i Y2i Z)
+    flat_app $ MAPi
+      (λi Xs.
+        let y1 = offset1 + &i in
+        if in_bnd yb1 y1 then
+          let si = toString i ^ «_» in
+          flat_app $ MAPi
+            (λj X.
+              let y2 = offset2 + &j in
+              if in_bnd yb2 y2 then
+                let s = si ^ toString j in
+                List [
+                  (SOME (mk_name name (s ^ «ge»)),
+                    bits_imply bnd
+                      [Pos $ INL (Eq Y1 y1); Pos $ INL (Eq Y2 y2)]
+                      (mk_ge X Z));
+                  (SOME (mk_name name (s ^ «le»)),
+                    bits_imply bnd
+                      [Pos $ INL (Eq Y1 y1); Pos $ INL (Eq Y2 y2)]
+                      (mk_le X Z))
+                ]
+              else Nil)
+            Xs
+        else Nil)
+      Xss
 End
 
 Definition cencode_element2d_def:
@@ -204,24 +178,12 @@ Definition cencode_element2d_def:
       let
         (Y1,offset1) = Y1i;
         (Y2,offset2) = Y2i;
-        (lb1,ub1) =
-          case Y1 of
-            INL vY1 => bnd vY1
-          | INR cY1 => (cY1,cY1);
-        (lb2,ub2) =
-          case Y2 of
-            INL vY2 => bnd vY2
-          | INR cY2 => (cY2,cY2);
         (xs',ec') =
-          fold_cenc
-            (λi ec. cencode_full_eq bnd Y1 (offset1 + &i) ec)
-            (COUNT_LIST len1)
-            ec;
+          cencode_in_grid bnd
+            (may_take bnd [Y1] (GENLIST (λi. offset1 + &i) len1)) ec;
         (xs'',ec'') =
-          fold_cenc
-            (λj ec. cencode_full_eq bnd Y2 (offset2 + &j) ec)
-            (COUNT_LIST len2)
-            ec'
+          cencode_in_grid bnd
+            (may_take bnd [Y2] (GENLIST (λj. offset2 + &j) len2)) ec'
         in
           (Append
             (Append xs' xs'')
@@ -249,23 +211,33 @@ Definition encode_element2d_def:
       len1 = LENGTH Xss;
       len2 = LENGTH $ HD Xss;
       (Y1,offset1) = Y1i;
-      (Y2,offset2) = Y2i;
-      (lb1,ub1) =
-        case Y1 of
-          INL vY1 => bnd vY1
-        | INR cY1 => (cY1,cY1);
-      (lb2,ub2) =
-        case Y2 of
-          INL vY2 => bnd vY2
-        | INR cY2 => (cY2,cY2)
+      (Y2,offset2) = Y2i
     in
-      (FLAT $ GENLIST (λi. encode_full_eq bnd Y1 (offset1 + &i)) len1) ++
-      (FLAT $ GENLIST (λj. encode_full_eq bnd Y2 (offset2 + &j)) len2) ++
+      encode_in_grid bnd (may_take bnd [Y1] (GENLIST (λi. offset1 + &i) len1)) ++
+      encode_in_grid bnd (may_take bnd [Y2] (GENLIST (λj. offset2 + &j) len2)) ++
       abstr (cencode_proper_index bnd Y1i (&len1) name «1») ++
       abstr (cencode_proper_index bnd Y2i (&len2) name «2») ++
-      (encode_element2d_aux bnd Xss Y1i Y2i Z)
+      abstr (cencode_element2d_aux bnd Xss Y1i Y2i Z name)
   else [false_constr]
 End
+
+Theorem cencode_element2d_aux_sem[local]:
+  valid_assignment bnd wi ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr (cencode_element2d_aux bnd Xss (Y1,offset1) (Y2,offset2) Z name)) ⇔
+  ∀i j. i < LENGTH Xss ∧ j < LENGTH (EL i Xss) ∧
+    in_bnd (varc_bnd bnd Y1) (offset1 + &i) ∧ wb (INL (Eq Y1 (offset1 + &i))) ∧
+    in_bnd (varc_bnd bnd Y2) (offset2 + &j) ∧ wb (INL (Eq Y2 (offset2 + &j))) ⇒
+    varc wi (EL j (EL i Xss)) = varc wi Z)
+Proof
+  strip_tac>>
+  simp[cencode_element2d_aux_def,abstr_flat_app]>>
+  simp[EVERY_FLAT,EVERY_MAP]>>
+  simp[Once EVERY_EL,EL_MAPi,COND_RAND,abstr_flat_app]>>
+  simp[EVERY_FLAT,EVERY_MAP]>>
+  simp[Once EVERY_EL,EL_MAPi,COND_RAND]>>
+  eq_tac>>rw[]>>res_tac>>intLib.ARITH_TAC
+QED
 
 Theorem encode_element2d_sem_1:
   valid_assignment bnd wi ∧
@@ -282,13 +254,9 @@ Proof
   ‘len = LENGTH (HD Xss)’ by (
     drule HEAD_MEM>>
     fs[EVERY_MEM])>>
-  rw[encode_element2d_def,encode_element2d_aux_def,
-    encode_full_eq_lem,cencode_proper_index_sem_1]
-  >-(
-    ntac 2 (rw[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi])>>
-    simp[EVERY_MEM,reify_avar_def,reify_reif_def,varc_def]>>
-    intLib.ARITH_TAC)
-  >-metis_tac[NOT_EVERY]
+  rw[encode_element2d_def,cencode_element2d_aux_sem,cencode_proper_index_sem_1]>>
+  gvs[reify_avar_def,reify_reif_def]>>
+  metis_tac[NOT_EVERY]
 QED
 
 Theorem encode_element2d_sem_2:
@@ -299,34 +267,48 @@ Theorem encode_element2d_sem_2:
 Proof
   PairCases_on ‘Y1i’>>
   PairCases_on ‘Y2i’>>
-  rename1 ‘element2d_sem _ (Y1,offset1) _ _ _’>>
-  rw[encode_element2d_def,element2d_sem_def,mk_array_ind_def,
-    EVERY_FLAT,MEM_FLAT,EVERY_GENLIST,SF DNF_ss]>>
+  rename1 ‘element2d_sem _ (Y1,offset1) (Y2,offset2) _ _’>>
+  strip_tac>>
+  qpat_x_assum ‘EVERY _ (encode_element2d _ _ _ _ _ _)’ mp_tac>>
+  simp[encode_element2d_def]>>
+  IF_CASES_TAC>>
+  simp[cencode_element2d_aux_sem]>>
+  strip_tac>>
   ‘EVERY (λXs. LENGTH Xs = LENGTH (HD Xss)) Xss’ by (
     Cases_on ‘Xss’>>
     fs[])>>
-  qexists ‘LENGTH (HD Xss)’>>
-  simp[CONJ_ASSOC]>>
-  CONJ_ASM1_TAC
-  >-(
-    gs[]>>
-    simp[Once $ GSYM CONJ_ASSOC]>>
-    CONJ_TAC>>
-    metis_tac[cencode_proper_index_sem_2])>>
-  fs[encode_element2d_aux_def,EVERY_FLAT]>>
-  qmatch_asmsub_abbrev_tac ‘EVERY P (MAPi _ _)’>>
-  fs[MEM_MAPi,SF DNF_ss,EVERY_MEM]>>
-  first_x_assum $ drule_then assume_tac>>
-  fs[Abbr‘P’,EVERY_FLAT]>>
-  qmatch_asmsub_abbrev_tac ‘EVERY P (MAPi _ _)’>>
-  fs[EVERY_MEM,MEM_MAPi,SF DNF_ss]>>
-  ‘LENGTH (EL (Num (varc wi Y1 − offset1)) Xss) =
-    LENGTH (HD Xss)’ by simp[EL_MEM]>>
-  fs[]>>
-  rpt (first_x_assum $ drule_then assume_tac)>>
-  unabbrev_all_tac>>
-  gs[]>>
-  intLib.ARITH_TAC
+  ‘0 ≤ varc wi Y1 − offset1 ∧ Num (varc wi Y1 − offset1) < LENGTH Xss’ by
+    metis_tac[cencode_proper_index_sem_2]>>
+  ‘0 ≤ varc wi Y2 − offset2 ∧ Num (varc wi Y2 − offset2) < LENGTH (HD Xss)’ by
+    metis_tac[cencode_proper_index_sem_2]>>
+  simp[element2d_sem_def,mk_array_ind_def]>>
+  conj_tac
+  >- (
+    qexists ‘LENGTH (HD Xss)’>>
+    simp[])>>
+  qabbrev_tac`k1 = Num (varc wi Y1 − offset1)`>>
+  qabbrev_tac`k2 = Num (varc wi Y2 − offset2)`>>
+  `offset1 + &k1 = varc wi Y1` by (
+    simp[Abbr`k1`,integerTheory.INT_OF_NUM]>>
+    intLib.ARITH_TAC)>>
+  `offset2 + &k2 = varc wi Y2` by (
+    simp[Abbr`k2`,integerTheory.INT_OF_NUM]>>
+    intLib.ARITH_TAC)>>
+  `LENGTH (EL k1 Xss) = LENGTH (HD Xss)` by fs[EVERY_EL]>>
+  `in_bnd (varc_bnd bnd Y1) (offset1 + &k1) ∧
+   in_bnd (varc_bnd bnd Y2) (offset2 + &k2)` by
+    metis_tac[in_bnd_varc]>>
+  `wb (INL (Eq Y1 (offset1 + &k1)))` by (
+    qpat_x_assum`∀i. MEM i (GENLIST (λi. offset1 + &i) _) ∧ _ ⇒ _`
+      (qspec_then`offset1 + &k1`mp_tac)>>
+    simp[MEM_GENLIST]>>
+    metis_tac[])>>
+  `wb (INL (Eq Y2 (offset2 + &k2)))` by (
+    qpat_x_assum`∀i. MEM i (GENLIST (λj. offset2 + &j) _) ∧ _ ⇒ _`
+      (qspec_then`offset2 + &k2`mp_tac)>>
+    simp[MEM_GENLIST]>>
+    metis_tac[])>>
+  metis_tac[]
 QED
 
 Theorem cencode_element2d_len_lem[local]:
@@ -345,17 +327,17 @@ Proof
   PairCases_on ‘Y1i’>>
   PairCases_on ‘Y2i’>>
   simp[cencode_element2d_def,encode_element2d_def,cencode_element2d_len_lem]>>
-  rw[UNCURRY_EQ,SYM MAP_COUNT_LIST]>>
+  rw[UNCURRY_EQ]>>
   gvs[]>>
   pure_rewrite_tac[METIS_PROVE[APPEND_ASSOC]
     “a ++ b ++ c ++ d ++ e = a ++ b ++ (c ++ d ++ e)”]>>
   rpt (irule_at Any enc_rel_Append)>>
-  drule_at Any enc_rel_fold_cenc>>
+  ntac 3 (irule_at Any enc_rel_abstr)>>
+  drule_at Any enc_rel_encode_in_grid>>
   disch_then $ irule_at Any>>
-  rev_drule_at Any enc_rel_fold_cenc>>
+  rev_drule_at Any enc_rel_encode_in_grid>>
   disch_then $ irule_at Any>>
-  ntac 2 (irule_at Any enc_rel_abstr)>>
-  simp[enc_rel_encode_full_eq,enc_rel_List_mk_annotate,cencode_element2d_aux_def]
+  simp[]
 QED
 
 (* ArrayMax: Y = max(Xs) *)

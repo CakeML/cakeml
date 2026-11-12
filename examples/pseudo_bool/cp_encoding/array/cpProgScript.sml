@@ -445,6 +445,10 @@ val res = translate cp_to_ilpTheory.ub_num_def;
 
 val res = translate cp_to_ilpTheory.pos_num_def;
 val res = translate cp_to_ilpTheory.varc_bnd_def;
+val res = translate cp_to_ilpTheory.in_bnd_def;
+val res = translate cp_to_ilpTheory.may_take_def;
+val res = translate cp_to_ilpTheory.cencode_in_grid_def;
+val res = translate cp_to_ilpTheory.cencode_some_eq_def;
 val res = translate cp_to_ilpTheory.cmk_lb_def;
 val res = translate cp_to_ilpTheory.cmk_ub_def;
 val res = translate cp_to_ilpTheory.cmk_bounds_all_def;
@@ -520,8 +524,8 @@ val res = translate cp_to_ilp_countingTheory.cencode_symmetric_all_different_aux
 val res = translate cp_to_ilp_countingTheory.cencode_symmetric_all_different_def;
 
 val res = translate cp_to_ilp_countingTheory.elm_def;
-val res = translate cp_to_ilp_countingTheory.cencode_some_eq_def;
 
+val res = translate cp_to_ilp_countingTheory.cencode_n_value_aux_def;
 val res = translate cp_to_ilp_countingTheory.cencode_n_value_def;
 
 val res = translate cp_to_ilp_countingTheory.eqi_def;
@@ -600,11 +604,9 @@ val _ = check_side res;
 
 (* cp_to_ilp_array *)
 
-val res = translate cp_to_ilp_arrayTheory.encode_element_aux_def;
 val res = translate cp_to_ilp_arrayTheory.cencode_element_aux_def;
 val res = translate cp_to_ilp_arrayTheory.cencode_element_def;
 
-val res = translate cp_to_ilp_arrayTheory.encode_element2d_aux_def;
 val res = translate cp_to_ilp_arrayTheory.cencode_element2d_aux_def;
 
 val res = translate cp_to_ilp_arrayTheory.cencode_element2d_def;

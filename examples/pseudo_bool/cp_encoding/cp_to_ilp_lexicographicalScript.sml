@@ -877,9 +877,6 @@ Proof
     simp[])
 QED
 
-(* per distinct chain value v (vi = its index in nub chain, for labels):
-   vp_ge flag defs (k=1..n), upper-bound pins, existence pins. The bit-sum pv
-   and the Eq-literal list are hoisted (computed once). *)
 (* vp_ge flag defs: vp_ge_flag v k ⇔ pos[v] ≥ k, for k = 1..n *)
 Definition vp_ge_defs_def:
   vp_ge_defs bnd name v pv n =
@@ -887,35 +884,47 @@ Definition vp_ge_defs_def:
     cbimply_var bnd (vp_ge_flag name v (j+1)) ([], pv, &(j+1))) n)
 End
 
-(* upper-bound pins: (X = v) → pos[v] ≤ i  (npv = negated pos bits) *)
+(* ms pairs each X_i with whether it may take v; sv is v's label suffix *)
+
+(* upper-bound pins: (X_i = v) → pos[v] ≤ i, for each X_i that may take v
+   (npv = negated pos bits) *)
 Definition vp_ub_pins_def:
-  vp_ub_pins bnd name v npv Xs =
-  List (MAPi (λi X.
-    (SOME (mk_name name (toString i ^ «ub» ^ «_» ^ int_to_string #"-" v)),
-     bits_imply bnd [Pos (INL (Eq X v))] ([], npv, -&i))) Xs)
+  vp_ub_pins bnd name v sv npv ms =
+  flat_app (MAPi (λi m.
+    if SND m then
+      List [(SOME (mk_name name (toString i ^ «ub» ^ sv)),
+        bits_imply bnd [Pos (INL (Eq (FST m) v))] ([], npv, -&i))]
+    else Nil) ms)
 End
 
-(* existence pins: [pos[v] ≥ i+1] ∨ ∃k≤i. X_k = v *)
+(* existence pins: pos[v] = i → X_i = v, as
+   ¬[pos[v] ≥ i] ∨ [pos[v] ≥ i+1] ∨ [X_i = v]; the first literal is absent at
+   i = 0, the last when X_i cannot take v *)
 Definition vp_ex_pins_def:
-  vp_ex_pins name v eqlits n =
-  List (GENLIST (λi.
-    (SOME (mk_name name (toString i ^ «ex» ^ «_» ^ int_to_string #"-" v)),
-     at_least_one (Pos (vp_ge_flag name v (i+1)) :: TAKE (i+1) eqlits))) n)
+  vp_ex_pins name v sv ms =
+  List (MAPi (λi m.
+    (SOME (mk_name name (toString i ^ «ex» ^ sv)),
+     at_least_one
+       ((if 0 < i then [Neg (vp_ge_flag name v i)] else []) ++
+        Pos (vp_ge_flag name v (i+1)) ::
+        (if SND m then [Pos (INL (Eq (FST m) v))] else [])))) ms)
 End
 
-(* per distinct chain value v: vp_ge defs + upper-bound pins + existence pins.
-   The bit-sum pv (and its negation) and the Eq-literal list are hoisted. *)
+(* per distinct chain value v: pos[v] ≤ n, vp_ge defs, upper-bound pins and
+   existence pins, over the variables with their bounds Xbs *)
 Definition vp_value_block_def:
-  vp_value_block bnd name Xs w v =
-  let pv = vp_pos_num name v w;
-      npv = flip_coeffs pv;
-      eqlits = MAPi (λi X. Pos (INL (Eq X v))) Xs in
-  Append (List [
-    (SOME (mk_name name («ubn» ^ «_» ^ int_to_string #"-" v)),
-     ([], npv, -&(LENGTH Xs)))])
-  (Append (vp_ge_defs bnd name v pv (LENGTH Xs))
-  (Append (vp_ub_pins bnd name v npv Xs)
-          (vp_ex_pins name v eqlits (LENGTH Xs))))
+  vp_value_block bnd name Xbs w v =
+  let
+    pv = vp_pos_num name v w;
+    npv = flip_coeffs pv;
+    n = LENGTH Xbs;
+    sv = «_» ^ int_to_string #"-" v;
+    ms = MAP (λXb. (FST Xb, in_bnd (SND Xb) v)) Xbs
+  in
+    Append (List [(SOME (mk_name name («ubn» ^ sv)), ([], npv, -&n))])
+    (Append (vp_ge_defs bnd name v pv n)
+    (Append (vp_ub_pins bnd name v sv npv ms)
+            (vp_ex_pins name v sv ms)))
 End
 
 (* per consecutive (s,t) of chain: precede (s≠t, guarded by t occurring) or
@@ -938,22 +947,27 @@ End
 (* the fresh (no shared-reif) part of the encoding; vs = nub ch *)
 Definition vp_blocks_def:
   vp_blocks bnd name Xs vs ch =
-  let w = vp_width (LENGTH Xs); n = LENGTH Xs in
-  Append
-    (flat_app (MAP (vp_value_block bnd name Xs w) vs))
-    (vp_precede_blocks bnd name w n 0 ch)
+  let
+    w = vp_width (LENGTH Xs);
+    n = LENGTH Xs;
+    Xbs = MAP (λX. (X, varc_bnd bnd X)) Xs
+  in
+    Append
+      (flat_app (MAP (vp_value_block bnd name Xbs w) vs))
+      (vp_precede_blocks bnd name w n 0 ch)
 End
 
 Definition cencode_value_precede_def:
   cencode_value_precede bnd ch Xs name ec =
   let vs = nub_int ch in
-  let (egrid, ec') = cencode_eq_grid bnd Xs vs ec in
+  let (egrid, ec') = cencode_in_grid bnd (may_take bnd Xs vs) ec in
   (Append egrid (vp_blocks bnd name Xs vs ch), ec')
 End
 
 Definition encode_value_precede_def:
   encode_value_precede bnd ch Xs name =
-  encode_eq_grid bnd Xs (nub ch) ++ abstr (vp_blocks bnd name Xs (nub ch) ch)
+  encode_in_grid bnd (may_take bnd Xs (nub ch)) ++
+  abstr (vp_blocks bnd name Xs (nub ch) ch)
 End
 
 (* seq_precede_chain: clamp values to [1,m], m = min(max declared ub, n);
@@ -1006,63 +1020,52 @@ QED
 
 Theorem vp_ub_pins_sem[local]:
   valid_assignment bnd wi ⇒
-  (EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (vp_ub_pins bnd name v npv Xs)) ⇔
-   ∀i. i < LENGTH Xs ⇒
-     (wb (INL (Eq (EL i Xs) v)) ⇒ eval_lin_term wb npv ≥ -&i))
+  (EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr (vp_ub_pins bnd name v sv npv ms)) ⇔
+   ∀i. i < LENGTH ms ⇒
+     (SND (EL i ms) ∧ wb (INL (Eq (FST (EL i ms)) v)) ⇒
+      eval_lin_term wb npv ≥ -&i))
 Proof
-  rw[vp_ub_pins_def,append_thm,EVERY_MEM,MEM_MAP,MEM_MAPi,PULL_EXISTS]>>
+  strip_tac>>
+  simp[vp_ub_pins_def,abstr_flat_app]>>
+  simp[EVERY_FLAT,EVERY_MAP]>>
+  simp[Once EVERY_EL,EL_MAPi,COND_RAND]>>
   metis_tac[]
 QED
 
 Theorem vp_ex_pins_sem[local]:
-  (EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (vp_ex_pins name v eqlits n)) ⇔
-   ∀i. i < n ⇒
-     (wb (vp_ge_flag name v (i+1)) ∨
-      ∃l. MEM l (TAKE (i+1) eqlits) ∧ lit wb l))
+  (EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (vp_ex_pins name v sv ms)) ⇔
+   ∀i. i < LENGTH ms ⇒
+     (0 < i ∧ ¬wb (vp_ge_flag name v i)) ∨ wb (vp_ge_flag name v (i+1)) ∨
+     (SND (EL i ms) ∧ wb (INL (Eq (FST (EL i ms)) v))))
 Proof
-  rw[vp_ex_pins_def,append_thm,EVERY_MEM,MEM_MAP,MEM_GENLIST,PULL_EXISTS,
+  rw[vp_ex_pins_def,append_thm,EVERY_MEM,MEM_MAP,MEM_MAPi,PULL_EXISTS,
      at_least_one_sem]>>
-  metis_tac[lit_def]
-QED
-
-(* the existence-clause literal list (a prefix of the Eq literals) is satisfied
-   iff some earlier position takes value v *)
-Theorem vp_take_eqlits[local]:
-  i < LENGTH Xs ⇒
-  ((∃l. MEM l (TAKE (i+1) (MAP (λX. Pos (INL (Eq X v))) Xs)) ∧ lit wb l) ⇔
-   ∃k. k < i+1 ∧ wb (INL (Eq (EL k Xs) v)))
-Proof
-  rw[]>>
-  `i + 1 ≤ LENGTH Xs` by simp[]>>
-  simp[MEM_EL,LENGTH_TAKE,EL_TAKE,EL_MAP,PULL_EXISTS]>>
-  `∀n. n < i+1 ⇒
-     EL n (TAKE (i+1) (MAP (λX. Pos (INL (Eq X v))) Xs)) =
-     Pos (INL (Eq (EL n Xs) v))` by
-    (rw[]>>DEP_REWRITE_TAC[EL_TAKE,EL_MAP]>>simp[])>>
-  metis_tac[lit_def]
+  simp[COND_RAND,RIGHT_AND_OVER_OR,EXISTS_OR_THM,lit_def,AllCaseEqs(),
+    DISJ_ASSOC]
 QED
 
 (* characterization of one value's block under an arbitrary wb *)
 Theorem vp_value_block_sem[local]:
   valid_assignment bnd wi ⇒
   (EVERY (λx. iconstraint_sem x (wi,wb))
-     (abstr (vp_value_block bnd name Xs w v)) ⇔
+     (abstr (vp_value_block bnd name (MAP (λX. (X, varc_bnd bnd X)) Xs) w v)) ⇔
    (eval_lin_term wb (vp_pos_num name v w) ≤ &(LENGTH Xs)) ∧
    (∀j. j < LENGTH Xs ⇒
       (wb (vp_ge_flag name v (j+1)) ⇔
        eval_lin_term wb (vp_pos_num name v w) ≥ &(j+1))) ∧
    (∀i. i < LENGTH Xs ⇒
-      (wb (INL (Eq (EL i Xs) v)) ⇒
+      (in_bnd (varc_bnd bnd (EL i Xs)) v ∧ wb (INL (Eq (EL i Xs) v)) ⇒
        eval_lin_term wb (vp_pos_num name v w) ≤ &i)) ∧
    (∀i. i < LENGTH Xs ⇒
-      (wb (vp_ge_flag name v (i+1)) ∨
-       ∃k. k < i+1 ∧ wb (INL (Eq (EL k Xs) v)))))
+      (0 < i ∧ ¬wb (vp_ge_flag name v i)) ∨ wb (vp_ge_flag name v (i+1)) ∨
+      (in_bnd (varc_bnd bnd (EL i Xs)) v ∧ wb (INL (Eq (EL i Xs) v)))))
 Proof
   strip_tac>>
   simp[vp_value_block_def,append_thm,EVERY_APPEND,vp_ge_defs_sem,
-       vp_ub_pins_sem,vp_ex_pins_sem]>>
+       vp_ub_pins_sem,vp_ex_pins_sem,EL_MAP]>>
   `∀(x:int) (i:num). -x ≥ -&i ⇔ x ≤ &i` by intLib.ARITH_TAC>>
-  metis_tac[vp_take_eqlits]
+  metis_tac[]
 QED
 
 (* per-pair precede facts over an arbitrary wb (the bit-level analogue of
@@ -1100,7 +1103,7 @@ Theorem vp_value_block_reify[local]:
   valid_assignment bnd wi ∧
   vp_reifies cs wi name Xs ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (abstr (vp_value_block bnd name Xs (vp_width (LENGTH Xs)) v))
+    (abstr (vp_value_block bnd name (MAP (λX. (X, varc_bnd bnd X)) Xs) (vp_width (LENGTH Xs)) v))
 Proof
   strip_tac>>
   `∀k. reify_avar cs wi (vp_ge_flag name v k) ⇔ &(vp_first_occ wi Xs v) ≥ &k` by
@@ -1112,16 +1115,14 @@ Proof
     simp[reify_avar_def,reify_reif_def]>>
   simp[vp_value_block_sem]>>
   rw[]
-  >- (`vp_first_occ wi Xs v ≤ LENGTH Xs` by simp[vp_first_occ_le]>>
-      intLib.ARITH_TAC)
+  >- simp[vp_first_occ_le]
   >- (CCONTR_TAC>>gvs[NOT_LESS_EQUAL]>>metis_tac[vp_first_occ_least])>>
-  Cases_on`vp_first_occ wi Xs v ≤ i`
+  Cases_on`vp_first_occ wi Xs v = i`
   >- (
-    disj2_tac>>
-    qexists_tac`vp_first_occ wi Xs v`>>
-    `vp_first_occ wi Xs v < LENGTH Xs` by simp[]>>
-    simp[vp_first_occ_occ])>>
-  disj1_tac>>gvs[NOT_LESS_EQUAL,integerTheory.INT_GE,integerTheory.INT_LE]
+    `varc wi (EL i Xs) = v` by metis_tac[vp_first_occ_occ]>>
+    metis_tac[in_bnd_varc])>>
+  Cases_on`vp_first_occ wi Xs v < i`>>
+  simp[integerTheory.INT_GE,integerTheory.INT_LE]
 QED
 
 (* recursive per-adjacent-pair first-occurrence precede: the readback analogue of
@@ -1252,7 +1253,7 @@ Proof
   simp[EVERY_FLAT,EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
   rw[]>>
   `EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-     (abstr (vp_value_block bnd name Xs (vp_width (LENGTH Xs)) y))` by
+     (abstr (vp_value_block bnd name (MAP (λX. (X, varc_bnd bnd X)) Xs) (vp_width (LENGTH Xs)) y))` by
     (irule vp_value_block_reify>>metis_tac[])>>
   fs[EVERY_MEM,MEM_MAP]>>metis_tac[]
 QED
@@ -1260,15 +1261,18 @@ QED
 (* completeness bridge: under an arbitrary wb the per-value pins + the eq grid
    force the bit-sum to read back the first-occurrence index (sentinel n) *)
 Theorem vp_pin_bridge[local]:
-  (∀X. MEM X Xs ⇒ (wb (INL (Eq X v)) ⇔ varc wi X = v)) ∧
+  (∀i. i < LENGTH Xs ⇒
+     (in_bnd (varc_bnd bnd (EL i Xs)) v ∧ wb (INL (Eq (EL i Xs) v)) ⇔
+      varc wi (EL i Xs) = v)) ∧
   (∀j. j < LENGTH Xs ⇒
      (wb (vp_ge_flag name v (j+1)) ⇔
       eval_lin_term wb (vp_pos_num name v (vp_width (LENGTH Xs))) ≥ &(j+1))) ∧
   (∀i. i < LENGTH Xs ⇒
-     (wb (INL (Eq (EL i Xs) v)) ⇒
+     (in_bnd (varc_bnd bnd (EL i Xs)) v ∧ wb (INL (Eq (EL i Xs) v)) ⇒
       eval_lin_term wb (vp_pos_num name v (vp_width (LENGTH Xs))) ≤ &i)) ∧
   (∀i. i < LENGTH Xs ⇒
-     (wb (vp_ge_flag name v (i+1)) ∨ ∃k. k < i+1 ∧ wb (INL (Eq (EL k Xs) v)))) ⇒
+     (0 < i ∧ ¬wb (vp_ge_flag name v i)) ∨ wb (vp_ge_flag name v (i+1)) ∨
+     (in_bnd (varc_bnd bnd (EL i Xs)) v ∧ wb (INL (Eq (EL i Xs) v)))) ⇒
   (vp_first_occ wi Xs v < LENGTH Xs ⇒
      eval_lin_term wb (vp_pos_num name v (vp_width (LENGTH Xs))) =
      &(vp_first_occ wi Xs v)) ∧
@@ -1278,42 +1282,39 @@ Proof
   strip_tac>>
   qabbrev_tac`P = eval_lin_term wb (vp_pos_num name v (vp_width (LENGTH Xs)))`>>
   `0 ≤ P` by simp[Abbr`P`,vp_pos_num_def,pos_num_num_of_bits]>>
-  `∀i. i < LENGTH Xs ⇒ (wb (INL (Eq (EL i Xs) v)) ⇔ varc wi (EL i Xs) = v)` by
-    (rw[]>>first_x_assum irule>>simp[EL_MEM])>>
-  `∀k. k < vp_first_occ wi Xs v ⇒ ¬wb (INL (Eq (EL k Xs) v))` by (
-    rw[]>>
-    `vp_first_occ wi Xs v ≤ LENGTH Xs` by simp[vp_first_occ_le]>>
-    `k < LENGTH Xs` by simp[]>>
-    metis_tac[vp_first_occ_least])>>
-  reverse conj_tac
+  `∃p. P = &p` by (qexists_tac`Num P`>>simp[integerTheory.INT_OF_NUM])>>
+  sg`p < LENGTH Xs ⇒ varc wi (EL p Xs) = v`
   >- (
     strip_tac>>
-    Cases_on`LENGTH Xs = 0`>-(gvs[]>>intLib.ARITH_TAC)>>
-    `LENGTH Xs - 1 + 1 = LENGTH Xs` by simp[]>>
-    `∀k. k < LENGTH Xs ⇒ ¬wb (INL (Eq (EL k Xs) v))` by metis_tac[]>>
-    `wb (vp_ge_flag name v (LENGTH Xs)) ⇔ P ≥ &LENGTH Xs` by
-      (qpat_x_assum`∀j. j < LENGTH Xs ⇒ (_ ⇔ _ ≥ _)`
-         (qspec_then`LENGTH Xs - 1` mp_tac)>>simp[])>>
-    `wb (vp_ge_flag name v (LENGTH Xs))` by
-      (qpat_x_assum`∀i. i < LENGTH Xs ⇒ (_ ∨ _)`
-         (qspec_then`LENGTH Xs - 1` mp_tac)>>simp[]>>metis_tac[])>>
-    metis_tac[])>>
+    `¬wb (vp_ge_flag name v (p+1))` by (
+      qpat_x_assum`∀j. j < LENGTH Xs ⇒ (_ ⇔ _ ≥ _)` (qspec_then`p`mp_tac)>>
+      simp[integerTheory.INT_GE])>>
+    `0 < p ⇒ wb (vp_ge_flag name v p)` by (
+      strip_tac>>
+      qpat_x_assum`∀j. j < LENGTH Xs ⇒ (_ ⇔ _ ≥ _)` (qspec_then`p - 1`mp_tac)>>
+      simp[integerTheory.INT_GE])>>
+    qpat_x_assum`∀i. i < LENGTH Xs ⇒ _ ∨ _` (qspec_then`p`mp_tac)>>
+    simp[]>>
+    rw[]>>
+    gvs[])>>
+  conj_tac
+  >- (
+    strip_tac>>
+    `varc wi (EL (vp_first_occ wi Xs v) Xs) = v` by metis_tac[vp_first_occ_occ]>>
+    `P ≤ &(vp_first_occ wi Xs v)` by metis_tac[]>>
+    `p ≤ vp_first_occ wi Xs v` by gvs[]>>
+    `varc wi (EL p Xs) = v` by gvs[]>>
+    `vp_first_occ wi Xs v ≤ p` by (irule vp_first_occ_leq>>simp[])>>
+    `p = vp_first_occ wi Xs v` by decide_tac>>
+    simp[])>>
   strip_tac>>
-  `varc wi (EL (vp_first_occ wi Xs v) Xs) = v` by metis_tac[vp_first_occ_occ]>>
-  `P ≤ &(vp_first_occ wi Xs v)` by metis_tac[]>>
-  `&(vp_first_occ wi Xs v) ≤ P`
-    suffices_by metis_tac[integerTheory.INT_LE_ANTISYM]>>
-  Cases_on`vp_first_occ wi Xs v = 0`
-  >-(qpat_x_assum`vp_first_occ wi Xs v = 0`(fn th => fs[th])>>simp[])>>
-  `vp_first_occ wi Xs v - 1 + 1 = vp_first_occ wi Xs v` by simp[]>>
-  `wb (vp_ge_flag name v (vp_first_occ wi Xs v)) ⇔
-   P ≥ &(vp_first_occ wi Xs v)` by
-    (qpat_x_assum`∀j. j < LENGTH Xs ⇒ (_ ⇔ _ ≥ _)`
-       (qspec_then`vp_first_occ wi Xs v - 1` mp_tac)>>simp[])>>
-  `wb (vp_ge_flag name v (vp_first_occ wi Xs v))` by
-    (qpat_x_assum`∀i. i < LENGTH Xs ⇒ (_ ∨ _)`
-       (qspec_then`vp_first_occ wi Xs v - 1` mp_tac)>>simp[]>>metis_tac[])>>
-  gvs[integerTheory.INT_GE]
+  CCONTR_TAC>>
+  `p < LENGTH Xs` by (
+    qpat_x_assum`¬(P ≥ _)`mp_tac>>
+    simp[integerTheory.INT_GE])>>
+  `varc wi (EL p Xs) = v` by simp[]>>
+  `vp_first_occ wi Xs v ≤ p` by (irule vp_first_occ_leq>>simp[])>>
+  decide_tac
 QED
 
 (* the precede blocks (over an arbitrary wb) + the per-value first-occurrence
@@ -1390,9 +1391,9 @@ QED
    first-occurrence readback (occ / absent) and the sentinel ge flag *)
 Theorem value_precede_pins[local]:
   valid_assignment bnd wi ∧ LENGTH Xs ≠ 0 ∧
-  (∀X. MEM X Xs ⇒ (wb (INL (Eq X v)) ⇔ varc wi X = v)) ∧
+  (∀X. MEM X Xs ∧ in_bnd (varc_bnd bnd X) v ⇒ (wb (INL (Eq X v)) ⇔ varc wi X = v)) ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (abstr (vp_value_block bnd name Xs (vp_width (LENGTH Xs)) v)) ⇒
+    (abstr (vp_value_block bnd name (MAP (λX. (X, varc_bnd bnd X)) Xs) (vp_width (LENGTH Xs)) v)) ⇒
   (vp_first_occ wi Xs v < LENGTH Xs ⇒
      eval_lin_term wb (vp_pos_num name v (vp_width (LENGTH Xs))) =
      &(vp_first_occ wi Xs v)) ∧
@@ -1406,20 +1407,29 @@ Proof
       (wb (vp_ge_flag name v (j+1)) ⇔
        eval_lin_term wb (vp_pos_num name v (vp_width (LENGTH Xs))) ≥ &(j+1))) ∧
    (∀i. i < LENGTH Xs ⇒
-      (wb (INL (Eq (EL i Xs) v)) ⇒
+      (in_bnd (varc_bnd bnd (EL i Xs)) v ∧ wb (INL (Eq (EL i Xs) v)) ⇒
        eval_lin_term wb (vp_pos_num name v (vp_width (LENGTH Xs))) ≤ &i)) ∧
    (∀i. i < LENGTH Xs ⇒
-      (wb (vp_ge_flag name v (i+1)) ∨
-       ∃k. k < i+1 ∧ wb (INL (Eq (EL k Xs) v))))` by
+      (0 < i ∧ ¬wb (vp_ge_flag name v i)) ∨ wb (vp_ge_flag name v (i+1)) ∨
+      (in_bnd (varc_bnd bnd (EL i Xs)) v ∧ wb (INL (Eq (EL i Xs) v))))` by
     metis_tac[vp_value_block_sem]>>
+  `∀i. i < LENGTH Xs ⇒
+     (in_bnd (varc_bnd bnd (EL i Xs)) v ∧ wb (INL (Eq (EL i Xs) v)) ⇔
+      varc wi (EL i Xs) = v)` by
+    metis_tac[EL_MEM,in_bnd_varc]>>
   `(LENGTH Xs - 1) + 1 = LENGTH Xs ∧ LENGTH Xs - 1 < LENGTH Xs` by
     (Cases_on`LENGTH Xs`>>fs[])>>
-  `(vp_first_occ wi Xs v < LENGTH Xs ⇒
+  sg`(vp_first_occ wi Xs v < LENGTH Xs ⇒
       eval_lin_term wb (vp_pos_num name v (vp_width (LENGTH Xs))) =
       &(vp_first_occ wi Xs v)) ∧
    (vp_first_occ wi Xs v = LENGTH Xs ⇒
       eval_lin_term wb (vp_pos_num name v (vp_width (LENGTH Xs))) ≥
-      &LENGTH Xs)` by (irule vp_pin_bridge>>gs[])>>
+      &LENGTH Xs)`
+  >- (
+    irule vp_pin_bridge>>
+    simp[]>>
+    qexists_tac`bnd`>>
+    gs[])>>
   `wb (vp_ge_flag name v (LENGTH Xs)) ⇔
    eval_lin_term wb (vp_pos_num name v (vp_width (LENGTH Xs))) ≥ &LENGTH Xs` by (
     qpat_x_assum`∀j. j < LENGTH Xs ⇒ (_ ⇔ _ ≥ _)`
@@ -1430,10 +1440,11 @@ QED
 (* the per-value first-occurrence readback, for every value of the chain *)
 Theorem value_precede_all_pins[local]:
   valid_assignment bnd wi ∧ LENGTH Xs ≠ 0 ∧
-  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_eq_grid bnd Xs (nub ch)) ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_in_grid bnd (may_take bnd Xs (nub ch))) ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
     (FLAT (MAP (λls. abstr ls)
-      (MAP (vp_value_block bnd name Xs (vp_width (LENGTH Xs))) (nub ch)))) ⇒
+      (MAP (vp_value_block bnd name (MAP (λX. (X, varc_bnd bnd X)) Xs) (vp_width (LENGTH Xs))) (nub ch)))) ⇒
   ∀v. MEM v ch ⇒
     (vp_first_occ wi Xs v < LENGTH Xs ⇒
        eval_lin_term wb (vp_pos_num name v (vp_width (LENGTH Xs))) =
@@ -1448,13 +1459,13 @@ Proof
   strip_tac>>gen_tac>>strip_tac>>
   `MEM v (nub ch)` by simp[MEM_nub]>>
   `EVERY (λx. iconstraint_sem x (wi,wb))
-     (abstr (vp_value_block bnd name Xs (vp_width (LENGTH Xs)) v))` by (
+     (abstr (vp_value_block bnd name (MAP (λX. (X, varc_bnd bnd X)) Xs) (vp_width (LENGTH Xs)) v))` by (
     qpat_x_assum`EVERY _ (FLAT _)`mp_tac>>
     simp[EVERY_FLAT,EVERY_MAP,EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
     metis_tac[])>>
-  `∀X. MEM X Xs ⇒ (wb (INL (Eq X v)) ⇔ varc wi X = v)` by (
-    qpat_x_assum`EVERY _ (encode_eq_grid _ _ _)`mp_tac>>
-    simp[encode_eq_grid_sem]>>
+  `∀X. MEM X Xs ∧ in_bnd (varc_bnd bnd X) v ⇒ (wb (INL (Eq X v)) ⇔ varc wi X = v)` by (
+    qpat_x_assum`EVERY _ (encode_in_grid _ _)`mp_tac>>
+    simp[encode_in_grid_sem]>>
     metis_tac[])>>
   metis_tac[value_precede_pins]
 QED
@@ -1483,7 +1494,7 @@ Proof
   rw[cencode_value_precede_def,encode_value_precede_def,nub_int_nub]>>
   pairarg_tac>>gvs[]>>
   irule enc_rel_Append>>
-  irule_at Any enc_rel_encode_eq_grid>>
+  irule_at Any enc_rel_encode_in_grid>>
   first_assum (irule_at Any)>>
   simp[enc_rel_abstr]
 QED
