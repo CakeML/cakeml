@@ -1,0 +1,8 @@
+Native x64 Pancake compiler.
+
+Unpack `pancake-x64.tar.gz` and run `make pancake` on x64 Linux.
+The archive includes assembly, FFI source, a standalone Makefile and this
+README.
+Set `CC` to use a cross compiler. Run `./pancake --help` for compiler options.
+
+In a CakeML checkout, run `Holmake pancake-x64.tar.gz` to build the archive.

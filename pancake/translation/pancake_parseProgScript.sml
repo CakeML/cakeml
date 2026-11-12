@@ -111,6 +111,25 @@ val _ = translate (REWRITE_RULE [choicel_def, seql_def, pegf_def,
                                  consume_tok_eta, mknt_def, mkleaf_def,
                                  FST, SND, FOLDR] try_ProgNT_def);
 
+Theorem INTRO_FLOOKUP[local]:
+   (if n ∈ FDOM G.rules then
+      pegexec$EV (G.rules ' n) i r eo errs (appf1 tf3 k) fk
+    else Looped) =
+   (case FLOOKUP G.rules n of
+      NONE => Looped
+    | SOME x => pegexec$EV x i r eo errs (appf1 tf3 k) fk)
+Proof
+  SRW_TAC [] [finite_mapTheory.FLOOKUP_DEF]
+QED
+
+Theorem option_CASE_FLOOKUP_SIMP[local]:
+  option_CASE (FLOOKUP FEMPTY n) f h = f ∧
+  option_CASE (FLOOKUP (m |+ (a,b)) n) f h =
+  if n = a then h b else option_CASE (FLOOKUP m n) f h
+Proof
+  rw [] \\ gvs [FLOOKUP_SIMP]
+QED
+
 Definition peg_pancake_rules_def:
   peg_pancake_rules n fk k tf3 errs eo r i =
   case FLOOKUP pancake_peg.rules n of
@@ -120,12 +139,12 @@ End
 
 val r = peg_pancake_rules_def
   |> RW [pancake_peg_def, oneline OPTION_BIND_def]
-  |> SRULE [FUPDATE_LIST, parserProgTheory.option_CASE_FLOOKUP_SIMP, FOLDL]
+  |> SRULE [FUPDATE_LIST, option_CASE_FLOOKUP_SIMP, FOLDL]
   |> translate;
 
 val r = parse_def
   |> RW [pegexecTheory.peg_exec_def, GSYM peg_pancake_rules_def,
-         pegexecTheory.coreloop_def, parserProgTheory.INTRO_FLOOKUP]
+         pegexecTheory.coreloop_def, INTRO_FLOOKUP]
   |> SRULE [pancake_peg_def]
   |> with_flag (use_long_names, true) translate;
 
@@ -140,7 +159,7 @@ Proof
   \\ pop_assum mp_tac
   \\ rewrite_tac [pegexecTheory.coreloop_def,
                   pegexecTheory.peg_exec_def, GSYM peg_pancake_rules_def,
-                  parserProgTheory.INTRO_FLOOKUP]
+                  INTRO_FLOOKUP]
   \\ simp [pancake_peg_def]
   \\ qmatch_goalsub_abbrev_tac ‘OWHILE _ f2’ \\ strip_tac
   \\ qmatch_goalsub_abbrev_tac ‘OWHILE _ g2’

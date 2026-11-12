@@ -111,7 +111,6 @@ Theorem compile_correct_gen_determ[local]:
     | M_failure (TypeError e) => semantics st prelude input = IllTyped
     | M_failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
     | M_failure (ConfigError e) => T (* configuration string is malformed *)
-    | M_failure (StaticError e) => T
     | M_success (code,data,c) =>
       ∃behaviours source_decs.
         (semantics st prelude input = Execute behaviours) ∧
@@ -208,7 +207,6 @@ Theorem compile_correct_gen:
     | M_failure (TypeError e) => semantics st prelude input = IllTyped
     | M_failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
     | M_failure (ConfigError e) => T (* configuration string is malformed *)
-    | M_failure (StaticError e) => T
     | M_success (code,data,c) =>
       ∃behaviours source_decs.
         (semantics st prelude input = Execute behaviours) ∧
@@ -242,7 +240,6 @@ Theorem compile_correct_lemma:
     | M_failure (TypeError e) => semantics_init ffi prelude input = IllTyped
     | M_failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
     | M_failure (ConfigError e) => T (* configuration string is malformed *)
-    | M_failure (StaticError e) => T
     | M_success (code,data,c) =>
       ∃behaviours source_decs.
         (semantics_init ffi prelude input = Execute behaviours) ∧
@@ -312,7 +309,7 @@ Proof
   \\ fs [semanticsPropsTheory.extend_with_resource_limit'_def]
 QED
 
-Theorem compile_correct = Q.prove(`
+Theorem compile_correct:
   ∀(ffi:'ffi ffi_state) prelude input (cc:compiler$config) mc data_sp cbspace.
     config_ok cc mc ⇒
     case FST (compiler$compile cc prelude input) of
@@ -320,7 +317,6 @@ Theorem compile_correct = Q.prove(`
     | M_failure (TypeError e) => semantics_init ffi prelude input = IllTyped
     | M_failure AssembleError => T (* see theorem about to_lab to avoid AssembleError *)
     | M_failure (ConfigError e) => T (* configuration string is malformed *)
-    | M_failure (StaticError e) => T
     | M_success (code,data,c) =>
       ∃behaviours.
         (semantics_init ffi prelude input = Execute behaviours) ∧
@@ -330,7 +326,8 @@ Theorem compile_correct = Q.prove(`
           machine_sem mc ffi ms ⊆
             extend_with_resource_limit behaviours
           (* see the compile_correct_safe_for_space version above
-             for the one without the ⊆ and extend_with_resource_limit *)`,
+             for the one without the ⊆ and extend_with_resource_limit *)
+Proof
   rw [] \\ mp_tac (SPEC_ALL compile_correct_lemma)
   \\ fs [] \\ TOP_CASE_TAC \\ fs []
   \\ rename [‘(M_success a,_)’]
@@ -343,8 +340,10 @@ Theorem compile_correct = Q.prove(`
   \\ fs [FUN_EQ_THM,semanticsTheory.semantics_prog_def]
   \\ rw [semanticsPropsTheory.extend_with_resource_limit'_def,
           semanticsPropsTheory.extend_with_resource_limit_def,SUBSET_DEF,IN_DEF]
-  \\ metis_tac [])
-  |> check_thm;
+  \\ metis_tac []
+QED
+
+val _ = compile_correct |> check_thm;
 
 Theorem type_config_ok:
    env_rel prim_tenv infer$init_config ∧

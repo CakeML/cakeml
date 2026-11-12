@@ -1,0 +1,3 @@
+Translations for the standalone Pancake compiler. The translation branches
+from the CakeML compiler at from_wordProg. All native entry points extend
+pancake_compilerProg.

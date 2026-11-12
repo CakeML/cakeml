@@ -20,6 +20,9 @@ line arguments and a string corresponding to standard input, and produces a
 pair of output strings for standard error and standard output (the latter
 containing the generated machine code if successful).
 
+[compiler_commonScript.sml](compiler_commonScript.sml):
+Shared command-line parsing and output helpers for the compilers.
+
 [dafny](dafny):
 A verified VCG and verified compiler for Dafny.
 

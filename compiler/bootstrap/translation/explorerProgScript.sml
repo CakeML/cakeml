@@ -3,13 +3,13 @@
 *)
 Theory explorerProg[no_sig_docs]
 Ancestors
-  inferProg
+  decProg jsonLang displayLang presLang
 Libs
   preamble ml_translatorLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
-val _ = translation_extends "inferProg";
+val _ = translation_extends "decProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "explorerProg");
 val _ = ml_translatorLib.use_sub_check true;
@@ -67,12 +67,18 @@ val res = translate presLangTheory.clos_op_to_display_def;
 
 val r = translate presLangTheory.num_to_varn_aux_def
 
-val num_to_varn_aux_side = Q.prove(`
-  ∀n. num_to_varn_aux_side n ⇔ T`,
-  recInduct presLangTheory.num_to_varn_aux_ind \\ rw[] \\
-  rw[Once (theorem"num_to_varn_aux_side_def")] \\
-  `n MOD 26 < 26` by simp[] \\ decide_tac)
-  |> update_precondition;
+Theorem num_to_varn_aux_side[local]:
+  ∀n. num_to_varn_aux_side n
+Proof
+  recInduct presLangTheory.num_to_varn_aux_ind
+  \\ rw []
+  \\ qmatch_goalsub_rename_tac `num_to_varn_aux_side index`
+  \\ rw [Once (fetch "-" "num_to_varn_aux_side_def")]
+  \\ `index MOD 26 < 26` by simp []
+  \\ decide_tac
+QED
+
+val _ = update_precondition num_to_varn_aux_side;
 
 val r = translate presLangTheory.num_to_varn_def
 

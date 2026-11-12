@@ -1,0 +1,8 @@
+Native RISC-V64 Pancake compiler.
+
+Unpack `pancake-riscv.tar.gz` and run `make pancake` on RISC-V64 Linux.
+The archive includes assembly, FFI source, a standalone Makefile and this
+README.
+Set `CC` to use a cross compiler. Run `./pancake --help` for compiler options.
+
+In a CakeML checkout, run `Holmake pancake-riscv.tar.gz` to build the archive.
