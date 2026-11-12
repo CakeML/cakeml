@@ -42,19 +42,47 @@ Definition help_string_def:
   help_string = concat
     [«Usage: pancake [OPTIONS] < input_file > output_file\n»;
      «\n»;
-     «Compiles Pancake source to assembly with garbage collection disabled.\n»;
+     «Compiles Pancake source to machine code.\n»;
      «\n»;
-     «--help                 print this help\n»;
-     «--version              print build information\n»;
-     «--target=T             x64, arm8, mips, riscv, or arm7 (default: native)\n»;
-     «--pancake_feature=T    query support for feature T (see pancake/NEWS.md)\n»;
-     «--no_warn              silence warnings\n»;
-     «--main_return=B        return to caller instead of exit (default: false)\n»;
-     «--explore              print intermediate compiler forms\n»;
-     «--reg_alg=N            register allocator (default: 2)\n»;
-     «--jump=B               conditional out-of-stack checks\n»;
-     «--hash_size=N          instruction encoder memoization table size\n»;
-     «--perf_callgraph=B     C-stack shadowing for perf (x64 only)\n»]
+     «OPTIONS:\n»;
+     «\n»;
+     «  --help        print this help message\n»;
+     «  --version     print build information\n»;
+     «\n»;
+     «  --target=T    specifies that compilation should produce code for target\n»;
+     «                T, where T can be one of x64, arm8, mips, riscv, or arm7.\n»;
+     «                The default is the compiler's native architecture.\n»;
+     «\n»;
+     «  --pancake_feature=T   query support for feature T; feature names are\n»;
+     «                documented in pancake/NEWS.md\n»;
+     «\n»;
+     «  --no_warn     silence compiler warnings\n»;
+     «\n»;
+     «  --reg_alg=N   N is a natural number that specifies the register\n»;
+     «                allocation algorithm to use:\n»;
+     «                   0   - simple allocator, no spill heuristics\n»;
+     «                   1   - simple allocator, spill heuristics\n»;
+     «                   2   - IRC allocator, no spill heuristics (default)\n»;
+     «                   3   - IRC allocator, spill heuristics\n»;
+     «                   >=4 - linear scan allocator\n»;
+     «\n»;
+     «  --explore     outputs intermediate forms of the compiled program\n»;
+     «\n»;
+     «  --main_return=B   here B can be either true or false; the default is\n»;
+     «                false; setting this to true causes the main function to\n»;
+     «                return to caller instead of exit; this option is\n»;
+     «                required to use multiple entry points.\n»;
+     «\n»;
+     «ADDITIONAL OPTIONS:\n»;
+     «\n»;
+     «  --jump=B      B can be either true or false; true means conditional\n»;
+     «                jumps are used for out-of-stack checks.\n»;
+     «\n»;
+     «  --hash_size=N   size of the memoization table used by instruction encoder\n»;
+     «\n»;
+     «  --perf_callgraph=B   unverified: emit C-stack shadowing so `perf record\n»;
+     «                --call-graph fp` produces correct call graphs (x64 only);\n»;
+     «                B can be either true or false.\n»]
 End
 
 Definition error_to_str_def:
