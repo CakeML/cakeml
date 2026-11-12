@@ -275,7 +275,7 @@ Theorem mem_load_mem_store:
      mem_loads ss addr addrs memory sctxt = SOME vs ∧
      sctxt = [] ∧ EVERY (is_wf_shape sctxt) ss ∧
      ss = MAP shape_of ws ⇒
-     ∃m. mem_stores addr (FLAT (MAP (λa. flatten a) ws)) addrs memory = SOME m) ∧
+     ∃m. mem_stores addr (FLAT (MAP flatten ws)) addrs memory = SOME m) ∧
   (∀fs (addr:'a word) addrs memory sctxt vfs.
      mem_load_flds fs addr addrs memory sctxt = SOME vfs ∧
      sctxt = [] ∧ T ⇒ T)
@@ -377,8 +377,8 @@ Theorem mem_stores_mem_load_back:
     mem_load (shape_of val) addr addrs m sctxt =
     SOME val) ∧
   (∀vals (addr:'a word) addrs memory m sctxt.
-    mem_stores addr (FLAT (MAP (λa. flatten a) vals)) addrs memory = SOME m ∧
-    LENGTH(FLAT (MAP (λa. flatten a) vals))*w2n(bytes_in_word:'a word) < dimword(:'a) ∧
+    mem_stores addr (FLAT (MAP flatten vals)) addrs memory = SOME m ∧
+    LENGTH(FLAT (MAP flatten vals))*w2n(bytes_in_word:'a word) < dimword(:'a) ∧
     EVERY (is_wf_shape sctxt) (MAP shape_of vals) ∧ sctxt = [] ∧
     good_dimindex(:'a) ⇒
     mem_loads (MAP shape_of vals) addr addrs m sctxt =

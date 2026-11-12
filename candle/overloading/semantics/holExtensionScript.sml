@@ -682,6 +682,7 @@ Proof
   fs[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
   rw[] >> res_tac >>
   TRY(drule_then(qspecl_then [`sigma`] assume_tac) (tyvars_TYPE_SUBST_mono |> REWRITE_RULE [SUBSET_DEF]) >> rfs[] >>
+      qmatch_goalsub_rename_tac `TYPE_SUBST sigma a` >>
       Cases_on `tyvars(TYPE_SUBST sigma a)` >> fs[FORALL_AND_THM] >> NO_TAC) >>
   `set(tyvars(TYPE_SUBST sigma (typeof trm))) = {}` by simp[] >>
   last_x_assum kall_tac >>

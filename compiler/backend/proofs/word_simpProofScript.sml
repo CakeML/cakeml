@@ -347,7 +347,7 @@ QED
 
 Theorem strip_const_thm:
    !xs x s. strip_const xs = SOME x ==>
-     MAP (\a. word_exp s a) xs = MAP (SOME o Word o i2w) x
+     MAP (word_exp s) xs = MAP (SOME o Word o i2w) x
 Proof
   Induct \\ TRY (Cases_on `h`) \\ fs [strip_const_def, word_exp_def] \\ CASE_TAC \\ fs []
 QED
@@ -374,12 +374,12 @@ Proof
   ho_match_mp_tac const_fp_exp_ind \\ rw [const_fp_exp_def]
   >- (CASE_TAC \\ rw [word_exp_def] \\ fs [get_var_def])
   >- (CASE_TAC \\ rw [word_exp_def]
-      \\ `(MAP (\a. word_exp s a)
+      \\ `(MAP (word_exp s)
                  (MAP (\a. const_fp_exp (dimindex (:'a)) a cs) args)) =
-           (MAP (\a. word_exp s a) args)` by
+           (MAP (word_exp s) args)` by
            fs [MAP_MAP_o,MAP_EQ_f]
       \\ fs []
-      \\ `MAP (\a. word_exp s a) args = MAP (SOME o Word o i2w) x` by
+      \\ `MAP (word_exp s) args = MAP (SOME o Word o i2w) x` by
            metis_tac [strip_const_thm]
       \\ fs [the_words_int_thm,int_op_correct]
       \\ CASE_TAC \\ fs [word_exp_def,MAP_MAP_o,o_DEF,int_op_correct,

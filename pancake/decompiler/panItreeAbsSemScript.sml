@@ -2465,7 +2465,7 @@ QED
 Theorem eval_op_impl_let:
   (∃wv. eval s (Op op es) = SOME (ValWord wv)) ⇒
   eval s (Op op es) =
-  let ws = THE (OPT_MMAP (λa. eval s a) es) in
+  let ws = THE (OPT_MMAP (eval s) es) in
     (OPTION_MAP (λw. ValWord w) (word_op op (MAP (λw. case w of ValWord n => n | _ => ARB) ws)))
 Proof
   rw[eval_def]

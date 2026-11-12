@@ -620,7 +620,7 @@ Proof
     >- (drule word_state_rel_get_store >> fs[])
     >- (first_x_assum drule >> rw[] >> PURE_TOP_CASE_TAC >> rw[] >>
         PURE_TOP_CASE_TAC >> fs[] >> fs[mem_load_def, word_state_rel_def])
-    >- (`MAP (λ a . word_exp s a) wexps = MAP (λ a . word_exp s2 a) wexps` by
+    >- (`MAP (word_exp s) wexps = MAP (word_exp s2) wexps` by
             (fs[MAP_EQ_f] >> metis_tac[]) >> fs[])
     >- (ntac 2 $ first_x_assum drule >> rw[])
 QED
@@ -1113,7 +1113,7 @@ Resume word_removal_lemma[Assign]:
       >- (Cases_on `word_exp s e` >> fs[] >> Cases_on `x` >>
           fs[] >>
           fs[mem_load_def] >> metis_tac[domain_get_memory, SUBSET_DEF])
-      >- (Cases_on `the_words (MAP (λa. word_exp s a) l)` >>
+      >- (Cases_on `the_words (MAP (word_exp s) l)` >>
           fs[])
       >- (rename1 ‘Shift _ e₁ e₂’>>
           namedCases_on `word_exp s e₁` ["", "x"] >> fs[] >>
@@ -1140,7 +1140,7 @@ Resume word_removal_lemma[Set]:
       >- (Cases_on `word_exp s e` >> fs[] >>
           Cases_on `x` >> fs[] >>
           fs[mem_load_def] >> metis_tac[domain_get_memory, SUBSET_DEF])
-      >- (Cases_on `the_words (MAP (λa. word_exp s a) l)` >>
+      >- (Cases_on `the_words (MAP (word_exp s) l)` >>
           fs[])
       >- (rename1 ‘Shift _ e₁ e₂’>>
           namedCases_on `word_exp s e₁` ["", "x"] >> fs[] >>

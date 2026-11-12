@@ -904,7 +904,7 @@ Theorem pmatch_v_of_pat:
         v_of_pat envC pat insts wildcards = SOME (v, [], [])) /\
     (!envC s pats vs env_v env_v'.
       pmatch_list envC s pats vs env_v = Match env_v' ==>
-      EVERY (\pat. pat_without_Pref_Pas pat) pats ==>
+      EVERY pat_without_Pref_Pas pats ==>
       ?insts wildcards.
         env_v' = ZIP (pats_bindings pats, REVERSE insts) ++ env_v /\
         v_of_pat_list envC pats insts wildcards = SOME (vs, [], []))

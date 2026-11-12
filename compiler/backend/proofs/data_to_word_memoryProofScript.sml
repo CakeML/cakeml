@@ -3721,6 +3721,7 @@ Proof
      \\ goal_assum $ drule_at Any \\ disj1_tac
      \\ goal_assum drule \\ gvs [])
   >- (fs [MEM_FLAT,MEM_MAP] \\ rveq
+     \\ rename1 ‘MEM ts (v_all_ts a)’
      \\ `MEM a (v_all_vs l')`
         by (drule_then ASSUME_TAC v_all_vs_MEM \\ fs [MEM_v_all_vs])
      \\ drule_then ASSUME_TAC v_all_vs_MEM2 \\ fs []
@@ -3735,6 +3736,7 @@ Proof
      \\ goal_assum $ drule_at Any \\ disj1_tac
      \\ goal_assum drule \\ gvs [])
   >- (fs [MEM_FLAT,MEM_MAP] \\ rveq
+     \\ rename1 ‘MEM ts (v_all_ts a)’
      \\ `MEM a (v_all_vs l)`
         by (drule_then ASSUME_TAC v_all_vs_MEM \\ fs [MEM_v_all_vs])
      \\ drule_then ASSUME_TAC v_all_vs_MEM2 \\ fs []
@@ -3749,6 +3751,7 @@ Proof
      \\ goal_assum $ drule_at Any \\ disj1_tac
      \\ goal_assum drule \\ gvs [])
   >- (fs [MEM_FLAT,MEM_MAP] \\ rveq
+     \\ rename1 ‘MEM ts (v_all_ts a)’
      \\ `MEM a (v_all_vs (l' ++ [c] ++ r))`
         by (drule_then ASSUME_TAC v_all_vs_MEM \\ fs [MEM_v_all_vs])
      \\ drule_then ASSUME_TAC v_all_vs_MEM2 \\ fs []
@@ -3762,6 +3765,7 @@ Proof
      \\ drule_then ASSUME_TAC v_all_vs_ts
      \\ metis_tac [])
   >- (fs [MEM_FLAT,MEM_MAP] \\ rveq
+     \\ rename1 ‘MEM ts (v_all_ts a)’
      \\ drule_then ASSUME_TAC v_all_vs_MEM2 \\ fs []
      \\ `MEM a (v_all_vs [Block n0 n l])` by rw [v_all_vs_def,MEM_v_all_vs]
      \\ `MEM a (v_all_vs [x])`            by metis_tac [v_all_vs_trans]
@@ -3787,6 +3791,7 @@ Proof
      \\ drule_then ASSUME_TAC v_all_vs_ts \\ fs []
      \\ metis_tac [])
   >- (fs [MEM_FLAT,MEM_MAP]
+     \\ rename1 ‘l = v_all_ts a’
      \\ drule_then ASSUME_TAC v_all_vs_MEM2 \\ fs [] \\ rveq
      \\ drule_then ASSUME_TAC v_all_vs_ts \\ fs []
      \\ first_x_assum drule \\ rveq \\ rw []

@@ -192,7 +192,7 @@ QED
 
 Theorem mem_wrap_Old_list_eq[local]:
   (∀e. MEM e args ⇒ wrap_Old_list vs e = wrap_Old (set vs) e) ⇒
-  MAP (λa. wrap_Old_list vs a) args = MAP (λa. wrap_Old (set vs) a) args
+  MAP (wrap_Old_list vs) args = MAP (wrap_Old (set vs)) args
 Proof
   rpt strip_tac
   \\ simp [MAP_MAP_o, o_DEF]
