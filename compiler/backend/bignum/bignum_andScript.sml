@@ -8,6 +8,8 @@ Ancestors
 Libs
   stringLib numLib intLib preamble helperLib set_sep_extLib
 
+(* TODO NEXT Try mw_and_flip_pan with its call *)
+
 (* TODO Check for consistent naming *)
 
 (* TODO
@@ -20,9 +22,13 @@ Libs
 (* TODO Can we prove ⇔ for our step-theorems to make it clearer which ones
      are "safe" (i.e. cannot result in a stuck proof) *)
 
+(* TODO Maybe this should live in list syntax? *)
+fun list_mk_cons tms tm = List.foldr listSyntax.mk_cons tm tms
+
 (** set_sep and word helpers **************************************************)
 
 (* TODO Move somewhere better *)
+(* #bits is a power of two and at least 8 ⇒ byte-addressable memory *)
 Definition byte_dimindex_def:
   byte_dimindex (:α) ⇔ ∃k. dimindex(:α) = 2 ** k ∧ 3 ≤ k
 End
@@ -156,6 +162,27 @@ Theorem single_sub_0w_co[local]:
   co = (dimword (:α) ≤ w2n x + w2n (-1w :α word) + b2n ci)
 Proof
   strip_tac >> gvs [single_sub_def, single_add_def]
+QED
+
+(* TODO move *)
+Theorem el_addr_add:
+  n2w n * bytes_in_word + el_addr a i = el_addr a (i + n)
+Proof
+  simp [el_addr_def, GSYM word_add_n2w, WORD_LEFT_ADD_DISTRIB]
+QED
+
+(* TODO move *)
+Theorem el_addr_sub:
+  n ≤ i ⇒ -n2w n * bytes_in_word + el_addr a i = el_addr a (i - n)
+Proof
+  simp [el_addr_def, n2w_sub, WORD_LEFT_ADD_DISTRIB]
+QED
+
+(* TODO move *)
+Theorem mw_fix_snoc_zero:
+  mw_fix (SNOC 0w xs) = mw_fix xs
+Proof
+  simp [Once mw_fix_def]
 QED
 
 (** Pancake semantics rewrites ************************************************)
@@ -543,6 +570,17 @@ Proof
   simp [evaluate_def]
 QED
 
+Theorem evaluate_Return_no_error:
+  eval s e = SOME value ∧
+  size_of_sh_with_ctxt s.structs (shape_of value) ≤ 32 ∧
+  res = SOME (Return value) ∧
+  s' = empty_locals s
+  ⇒
+  evaluate (Return e, s) = (res, s')
+Proof
+  simp [evaluate_def]
+QED
+
 (** Pancake implementation ****************************************************)
 
 (* Pancake woes
@@ -771,6 +809,7 @@ End
 val mw_fix_pan     = get_field "body" "mw_fix_pan" and_prog
 val mw_and_pan     = get_field "body" "mw_and_pan" and_prog
 val mwi_and_neg_pos_geq_pan = get_field "body" "mwi_and_neg_pos_geq_pan" and_prog
+val mw_and_flip_pan = get_field "body" "mw_and_flip_pan" and_prog
 
 Definition mw_fix_pan_loop_def:
   mw_fix_pan_loop =
@@ -782,12 +821,37 @@ Definition mw_and_pan_loop_def:
     ^(find_term (can $ match_term “panLang$While _ _”) mw_and_pan)
 End
 
+Definition mw_and_pan_body_def:
+  mw_and_pan_body =
+    ^(rhs $ concl $ REWRITE_CONV [GSYM mw_and_pan_loop_def] mw_and_pan)
+End
+
 Definition mwi_and_neg_pos_geq_pan_loop_def:
   mwi_and_neg_pos_geq_pan_loop =
     ^(find_term (can $ match_term “panLang$While _ _”) mwi_and_neg_pos_geq_pan)
 End
 
 (** Correctness ***************************************************************)
+
+(* stack_empty_eq, stack_sing_eq and stack_cons_eq are used in automation to
+   unfold stack. *)
+Theorem stack_empty_eq:
+  stack [] ⇔ T
+Proof
+  simp [stack_def]
+QED
+
+Theorem stack_sing_eq:
+  stack [x] ⇔ x
+Proof
+  simp [stack_def]
+QED
+
+Theorem stack_cons_eq:
+  stack (x::xs) ⇔ x ∧ stack xs
+Proof
+  simp [stack_def]
+QED
 
 Theorem stack_T:
   stack (T::xs) = stack xs
@@ -833,6 +897,7 @@ val WRAP_EXN = wrap_exn "bignum_and";
 fun stackify_imp_th th = let
   val RRULE = REWRITE_RULE
   val ADD_STACK = MATCH_MP stack_mono
+  (* TODO look at this again; we might be able to do it more efficently? *)
   fun FLATTEN_STACK th = th |> RRULE [CONJ_ASSOC] |> RRULE [stack_conj];
   fun ADD_REST th = th |> MATCH_MP add_rest |> RRULE [APPEND]
 in
@@ -928,7 +993,7 @@ val (step_imp_thl: thm list) =
    evaluate_Primitive_AddCarry, evaluate_Seq, eval_Op_BitwiseNot_SOME,
    eval_RField_Var_Local, evaluate_Store_Local_NONE,
    eval_Op_And_SOME, evaluate_Assign_Local, eval_Op_Add_SOME, eval_Op_Sub_SOME,
-   evaluate_Tick_NONE, evaluate_Break]
+   evaluate_Tick_NONE, evaluate_Break, evaluate_Return_no_error]
   |> map stackify_imp_th
 
 (* Given ⊢ A = B, returns A. *)
@@ -1055,9 +1120,49 @@ in
      step_imp_tac stack handle e => raise WRAP_EXN "step_core" e) g ctxt
 end
 
-(* Rewrites stack (T::rest) to stack rest. Fails if the rewrite does not apply. *)
-val head_pop_T : tactic = fn (g as (asl, w)) => fn ctxt =>
-  (CHANGED_TAC (CONV_TAC (STACK_CONV (REWRITE_CONV [stack_T])))) g ctxt
+(* Rewrites stack (T::rest) to stack (rest). *)
+val head_pop_T_conv = STACK_CONV (REWR_CONV stack_T)
+val head_pop_T = CHANGED_TAC (CONV_TAC head_pop_T_conv)
+
+(* Unfolds the stack into a conjunction.
+   Examples:
+   > STACK_UNFOLD_CONV “stack [A ∧ B ∧ C; D; (E ∧ G) ∧ H]”
+   val it = ⊢ ... ⇔ (A ∧ B ∧ C) ∧ D ∧ (E ∧ G) ∧ H: thm
+   > STACK_UNFOLD_CONV “stack ((A ∧ B ∧ C)::xs)”
+   val it = ⊢ ... ⇔ (A ∧ B ∧ C) ∧ stack xs: thm
+ *)
+val STACK_UNFOLD_CONV: conv = let
+  val unfold_empty = REWR_CONV stack_empty_eq
+  val unfold_sing  = REWR_CONV stack_sing_eq
+  val unfold_cons  = REWR_CONV stack_cons_eq
+  fun unfold tm =
+    (unfold_sing ORELSEC
+     (unfold_cons THENC (TRY_CONV (RAND_CONV unfold)))) tm
+in
+  fn tm => (unfold_empty ORELSEC unfold) tm
+    handle HOL_ERR _ => raise ERR "STACK_UNFOLD_CONV" "cannot unfold this shape"
+end
+
+(* Flattens a conjunction in the head of the stack into the stack.
+   Example:
+   > FLATTEN_HEAD_CONV “stack [A ∧ B ∧ C; D; E ∧ G]”
+   val it = ... ⇔ stack [A; B; C; D; E ∧ G]: thm
+   > FLATTEN_HEAD_CONV “stack ((A ∧ B)::xs)”
+   val it = ... ⇔ stack (A::B::xs): thm
+ *)
+fun FLATTEN_HEAD_CONV stack = let
+  fun err msg = raise ERR "FLATTEN_HEAD_CONV" msg
+  fun wrap e = raise WRAP_EXN "FLATTEN_HEAD_CONV" e
+  val stack_xs = dest_stack stack
+    handle HOL_ERR _ => err "not a stack"
+  val (head, tail) = listSyntax.dest_cons stack_xs
+    handle HOL_ERR _ => err "not cons"
+  val new_stack = mk_stack $ list_mk_cons (strip_conj head) tail
+in
+  NORM_EQ (STACK_UNFOLD_CONV THENC Canon.CONJ_CANON_CONV) stack new_stack
+    handle e => wrap e
+end
+val flatten_head = CONV_TAC (STACK_CONV FLATTEN_HEAD_CONV)
 
 (* Rewrites the head of the stack using the assumptions and the passed
    theorem list. *)
@@ -1157,7 +1262,9 @@ val hsimp : thm list -> tactic = let
   val hsimp_core = head_asm_simp (boss_ss())
 in
   fn thl => fn g => fn ctxt =>
-    (hsimp_core thl >> TRY (head_pop_T ORELSE head_unwind)) g ctxt
+    (hsimp_core thl
+     >> flatten_head
+     >> TRY (head_pop_T ORELSE head_unwind)) g ctxt
 end
 
 (* Simplifier used to automatically discharge side-conditions.
@@ -1204,28 +1311,9 @@ val g as (asl, w) = top_goal ();
 
 val _ = max_print_depth := ~1
 
-(* TODO move *)
-Theorem el_addr_add:
-  n2w n * bytes_in_word + el_addr a i = el_addr a (i + n)
-Proof
-  simp [el_addr_def, GSYM word_add_n2w, WORD_LEFT_ADD_DISTRIB]
-QED
+(** mw_fix_pan ****************************************************************)
 
-(* TODO move *)
-Theorem el_addr_sub:
-  n ≤ i ⇒ -n2w n * bytes_in_word + el_addr a i = el_addr a (i - n)
-Proof
-  simp [el_addr_def, n2w_sub, WORD_LEFT_ADD_DISTRIB]
-QED
-
-(* TODO move *)
-Theorem mw_fix_snoc_zero:
-  mw_fix (SNOC 0w xs) = mw_fix xs
-Proof
-  simp [Once mw_fix_def]
-QED
-
-Theorem mw_fix_pan_thm:
+Theorem mw_fix_pan_loop_thm:
   ∀(xs: α word list) rs s x frame.
     mw_fix xs = rs ∧
     LENGTH xs ≤ s.clock ∧  (* LENGTH xs - LENGTH rs would probably be enough *)
@@ -1263,7 +1351,9 @@ Proof
     >> first_assum $ irule_at (Pos last)
     >> simp []
   )
-  >> walk >> hsimp []
+  >> walk
+  >> hsimp []
+  >> walk
   >> gvs [Req0 el_addr_sub]
   >> rename1 ‘el_addr base _’
   >> read_ones_at_auto ‘base’ ‘LENGTH xs’
@@ -1275,6 +1365,12 @@ Proof
   >> Cases_on ‘n’
   >- (
     walk
+    (* TODO the following two todos came because I changed head_pop_T to us
+       REWR_CONV instead of REWRITE_CONV - I guess the implicit rewrites
+       are not applied as often as they used to *)
+    >> hsimp []  (* TODO simplifying a if NONE = NONE then evaluate ... here *)
+    >> walk
+    >> hsimp []  (* TODO simplifying a case NONE of NONE *)
     >> once_rewrite_tac [GSYM mw_fix_pan_loop_def]
     >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
     >> gvs [MAP_SNOC, ones_SNOC]
@@ -1296,7 +1392,9 @@ Proof
   >> simp [FLOOKUP_SIMP]
 QED
 
-Theorem mw_and_pan_thm:
+(** mw_and_pan ****************************************************************)
+
+Theorem mw_and_pan_loop_thm_raw[local]:
   ∀(xs: α word list) ys zs rs s x y z frame.
     mw_and xs ys = zs ∧ LENGTH xs ≤ LENGTH ys ∧
     LENGTH rs = LENGTH xs ∧ LENGTH xs ≤ s.clock ∧
@@ -1328,6 +1426,8 @@ Proof
   >> walk
   (* TODO Can we not prove something like this at the beginning for
        everything? *)
+  (* TODO I wonder whether the theorems involved in this can have their
+       assumptions weakened or conclusions strengthened *)
   >> have ‘SUC (LENGTH xs) < dimword (:α)’
   >- (
     drule_all_then assume_tac byte_dimindex_leq
@@ -1351,6 +1451,8 @@ Proof
   >> SEP_R_TAC >> walk
   >> Cases_on ‘rs’ >> fs [ones_def]
   >> SEP_R_TAC >> walk
+  (* TODO Again a if NONE = NONE/case NONE of NONE => pattern *)
+  >> hsimp [] >> walk >> hsimp [] >> walk >> hsimp [] >> walk >> hsimp []
   (* TODO simp [stack_evaluate] could be a tactic. *)
   >> simp [stack_evaluate, Req0 $ GSYM mw_and_pan_loop_def]
   (* Apply induction hypothesis *)
@@ -1368,7 +1470,54 @@ Proof
   >> fs [state_component_equality, mw_and_def, AC STAR_ASSOC STAR_COMM, ones_def]
 QED
 
-Theorem mwi_and_neg_pos_geq_pan_thm:
+Theorem mw_and_pan_loop_thm[local] =
+  SIMP_RULE bool_ss [] mw_and_pan_loop_thm_raw
+
+Theorem mw_and_pan_thm:
+  ∀(xs: α word list) ys rs s x y z frame.
+    LENGTH xs ≤ LENGTH ys ∧
+    LENGTH rs = LENGTH xs ∧ LENGTH xs ≤ s.clock ∧
+    FLOOKUP s.locals «x_len» = SOME (Val (Word (n2w (LENGTH xs)))) ∧
+    FLOOKUP s.locals «xs» = SOME (Val (Word x)) ∧
+    FLOOKUP s.locals «ys» = SOME (Val (Word y)) ∧
+    FLOOKUP s.locals «zs» = SOME (Val (Word z)) ∧
+    (ones x (MAP Word xs) *
+     ones y (MAP Word ys) *
+     ones z rs *
+     frame) (fun2set (s.memory, s.memaddrs)) ∧
+    byte_dimindex (:α) ∧ 8 < dimindex (:α)
+    ⇒
+    ∃m.
+      evaluate (mw_and_pan_body,s) =
+        (SOME (Return (ValWord (i2w 0))),
+         s with <| memory := m;
+                   locals := FEMPTY;
+                   clock := s.clock - LENGTH xs |>) ∧
+      (ones x (MAP Word xs) *
+       ones y (MAP Word ys) *
+       ones z (MAP Word (mw_and xs ys)) *
+       frame) (fun2set (m, s.memaddrs))
+Proof
+  rw [mw_and_pan_body_def]
+  >> once_rewrite_tac [GSYM stack_evaluate]
+  >> walk
+  (* TODO Automate this instantation; surely smart people have already
+       thought about problems like this *)
+  >> qspecl_then [‘xs’, ‘ys’, ‘rs’, ‘s’, ‘x’, ‘y’, ‘z’, ‘frame’]
+       mp_tac mw_and_pan_loop_thm
+  >> impl_tac >- simp []
+  >> strip_tac
+  >> hsimp []
+  (* TODO again, the walk/hsimp/walk/... pattern *)
+  >> rpt (walk >> hsimp [])
+  (* TODO Maybe we should have something that computes this? *)
+  >> hsimp [size_of_sh_with_ctxt_def]
+  >> simp [stack_def, state_component_equality, empty_locals_def]
+QED
+
+(** mwi_and_neg_pos_geq_pan ***************************************************)
+
+Theorem mwi_and_neg_pos_geq_pan_loop_thm:
   ∀(ys: α word list) xs zs rs s c x y z frame.
     mwi_and_neg_pos_geq c xs ys = zs ∧ LENGTH ys ≤ LENGTH xs ∧
     LENGTH rs = LENGTH ys ∧ LENGTH ys ≤ s.clock ∧
@@ -1415,11 +1564,12 @@ Proof
   >> Cases_on ‘xs’ >> fs [ones_def] >> SEP_R_TAC
   >> walk
   >> hsimp [] >> SEP_R_TAC >> hsimp []
-  >> walk
+  (* TODO again, the walk/hsimp/walk/... pattern *)
+  >> walk >> hsimp [] >> walk
   >> Cases_on ‘rs’ >> gvs []
   >> fs [ones_def] >> SEP_R_TAC >> hsimp []
-  >> step_or_side
-  >> walk
+  (* TODO again, the walk/hsimp/walk/... pattern *)
+  >> rpt (walk >> hsimp [])
   >> simp [stack_evaluate]
   >> simp [Req0 $ GSYM mwi_and_neg_pos_geq_pan_loop_def]
   >> rename1 ‘evaluate (mwi_and_neg_pos_geq_pan_loop, _)’
