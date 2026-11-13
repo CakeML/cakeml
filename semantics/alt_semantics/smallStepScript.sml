@@ -82,12 +82,11 @@ End
 
 Definition application_def:
  (application:op ->(v)sem_env ->'ffi small_store -> (v)list ->(ctxt)list -> 'ffi e_step_result) op env s vs c=
-   (case getOpClass op of
-      FunApp =>
+   if op = Opapp then
       (case do_opapp vs of
           SOME (env,e) => Estep (env, s, Exp e, c)
         | NONE => Eabort Rtype_error)
-     | Force => (
+   else if op = ThunkOp ForceThunk then (
         case vs of
         | [Loc b n] => (
             case dest_thunk [Loc b n] (FST s) of
@@ -98,7 +97,7 @@ Definition application_def:
                 Estep (env, s, Val f,
                        (Capp Opapp [Conv NONE []] () [], env)::(Cforce n, env)::c))
         | _ => Eabort Rtype_error)
-     | PtrEqOp =>
+   else if op = PtrEq then
        (case vs of
           [v1; v2] =>
             (case do_eq v1 v2 of
@@ -109,7 +108,7 @@ Definition application_def:
                    (FST s, FST (SND s), (0 =+ shift_seq 1 (po 0)) po)
                    (Boolv (b ∧ po 0 0)) c)
         | _ => Eabort Rtype_error)
-     | _ =>
+   else
       (case do_app (FST s, FST (SND s)) op vs of
           SOME ((refs',ffi'),r) =>
           let s' = (refs',ffi',SND (SND s)) in
@@ -119,7 +118,6 @@ Definition application_def:
             | Rval v => return env s' v c
           )
         | NONE => Eabort Rtype_error)
-    )
 End
 
 (* apply a context to a value *)

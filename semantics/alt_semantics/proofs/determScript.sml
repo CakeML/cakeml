@@ -28,10 +28,10 @@ Theorem big_exp_determ:
 Proof
   HO_MATCH_MP_TAC evaluate_ind >>
   rw [] >>
-  pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once evaluate_cases, opClass_cases]) >>
+  pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once evaluate_cases]) >>
   fs [] >>
   rw [] >>
-  fs [opClass_cases] >>
+  fs [] >>
   res_tac >>
   fs [] >>
   rw [] >>

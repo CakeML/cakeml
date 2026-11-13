@@ -10,5 +10,5 @@ PARSER_SOURCES = support.cml tokens.cml lexer.cml peg.cml tree.cml \
 candle_boot.cml: gen_candle_boot.sh candle_glue.cml $(PARSER_SOURCES)
 	sh gen_candle_boot.sh $(PARSER_SOURCES) > candle_boot.cml
 
-README_SOURCES = $(wildcard *.cml)
+README_SOURCES = $(wildcard *.cml) candle_boot.cml
 sinclude $(CAKEMLDIR)/developers/readme.mk

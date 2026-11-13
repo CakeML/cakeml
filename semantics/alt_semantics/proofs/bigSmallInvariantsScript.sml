@@ -18,31 +18,31 @@ Inductive evaluate_ctxt:
   (evaluate_list ck env s1 es (s2, Rval vs2) ∧
    do_opapp (REVERSE vs2 ++ [v] ++ vs1) = SOME (env',e) ∧
    (ck ⇒ s2.clock ≠ 0) ∧
-   (opClass op FunApp) ∧
+   (op = Opapp) ∧
    evaluate ck env' (if ck then s2 with clock := s2.clock - 1 else s2) e bv
       ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v bv) ∧
 
   (evaluate_list T env s1 es (s2, Rval vs2) ∧
    do_opapp (REVERSE vs2 ++ [v] ++ vs1) = SOME (env',e) ∧
    s2.clock = 0 ∧
-   (opClass op FunApp)
+   (op = Opapp)
       ⇒ evaluate_ctxt T env s1 (Capp op vs1 () es) v
           (s2, Rerr (Rabort Rtimeout_error))) ∧
 
   (evaluate_list ck env s1 es (s2, Rval vs2) ∧
    (do_opapp (REVERSE vs2 ++ [v] ++ vs1) = NONE) ∧
-   (opClass op FunApp)
+   (op = Opapp)
       ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
           (s2, Rerr (Rabort Rtype_error))) ∧
 
-  (opClass op Simple ∧
+  ((op ≠ Opapp ∧ op ≠ ThunkOp ForceThunk ∧ op ≠ PtrEq ∧ op ≠ Eval) ∧
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
    do_app (s2.refs,s2.ffi) op (REVERSE vs2 ++ [v] ++ vs1) =
     SOME ((new_refs, new_ffi) ,res)
       ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
           (s2 with <| ffi := new_ffi; refs := new_refs |>, res)) ∧
 
-  (opClass op Force ∧
+  (op = ThunkOp ForceThunk ∧
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
    (dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = BadRef ∨
     dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = NotThunk ∨
@@ -51,12 +51,12 @@ Inductive evaluate_ctxt:
     ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
         (s2, Rerr (Rabort Rtype_error))) ∧
 
-  (opClass op Force ∧
+  (op = ThunkOp ForceThunk ∧
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
    dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = IsThunk Evaluated v'
     ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v (s2, Rval v')) ∧
 
-  (opClass op Force ∧
+  (op = ThunkOp ForceThunk ∧
    evaluate_list T env s1 es (s2, Rval vs2) ∧
    dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = IsThunk NotEvaluated f ∧
    do_opapp [f; Conv NONE []] = SOME env_e ∧
@@ -64,7 +64,7 @@ Inductive evaluate_ctxt:
     ⇒ evaluate_ctxt T env s1 (Capp op vs1 () es) v
         (s2, Rerr (Rabort Rtimeout_error))) ∧
 
-  (opClass op Force ∧
+  (op = ThunkOp ForceThunk ∧
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
    dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = IsThunk NotEvaluated f ∧
    do_opapp [f; Conv NONE []] = SOME (env', e) ∧
@@ -73,7 +73,7 @@ Inductive evaluate_ctxt:
     ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
         (s3, Rerr err)) ∧
 
-  (opClass op Force ∧
+  (op = ThunkOp ForceThunk ∧
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
    dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = IsThunk NotEvaluated f ∧
    do_opapp [f; Conv NONE []] = SOME (env', e) ∧
@@ -83,7 +83,7 @@ Inductive evaluate_ctxt:
     ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
         (s3, Rerr (Rabort Rtype_error))) ∧
 
-  (opClass op Force ∧
+  (op = ThunkOp ForceThunk ∧
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
    dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = IsThunk NotEvaluated f ∧
    do_opapp [f; Conv NONE []] = SOME (env', e) ∧
@@ -103,7 +103,7 @@ Inductive evaluate_ctxt:
    store_assign loc (Thunk Evaluated v) s1.refs = SOME refs
     ⇒ evaluate_ctxt ck env s1 (Cforce loc) v (s1 with refs := refs, Rval v)) ∧
 
-  (opClass op PtrEqOp ∧
+  (op = PtrEq ∧
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
    REVERSE vs2 ++ [v] ++ vs1 = [v1; v2] ∧
    do_eq v1 v2 = Eq_val beq
@@ -111,20 +111,20 @@ Inductive evaluate_ctxt:
           (s2 with ptr_eq_oracle := (0 =+ shift_seq 1 (s2.ptr_eq_oracle 0)) s2.ptr_eq_oracle,
            Rval (Boolv (beq ∧ s2.ptr_eq_oracle 0 0)))) ∧
 
-  (opClass op PtrEqOp ∧
+  (op = PtrEq ∧
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
    REVERSE vs2 ++ [v] ++ vs1 = [v1; v2] ∧
    do_eq v1 v2 = Eq_type_error
       ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
           (s2, Rerr (Rabort Rtype_error))) ∧
 
-  (opClass op PtrEqOp ∧
+  (op = PtrEq ∧
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
    LENGTH (REVERSE vs2 ++ [v] ++ vs1) ≠ 2
       ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
           (s2, Rerr (Rabort Rtype_error))) ∧
 
-  ((~opClass op FunApp ∧ ¬ opClass op Force ∧ ¬opClass op PtrEqOp) ∧
+  ((op ≠ Opapp ∧ op ≠ ThunkOp ForceThunk ∧ op ≠ PtrEq) ∧
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
    do_app (s2.refs, s2.ffi) op (REVERSE vs2 ++ [v] ++ vs1) = NONE
       ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v

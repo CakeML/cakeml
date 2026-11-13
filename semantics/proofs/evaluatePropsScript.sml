@@ -22,7 +22,8 @@ Definition no_ptr_eq_def[simp]:
   (no_ptr_eq (Ident n) = T) ∧
   (no_ptr_eq (Fun n e) = T) ∧
   (no_ptr_eq (App op es) =
-    (getOpClass op = Simple ∧ EVERY no_ptr_eq es)) ∧
+    (op ≠ Opapp ∧ op ≠ ThunkOp ForceThunk ∧ op ≠ Eval ∧ op ≠ PtrEq ∧
+     EVERY no_ptr_eq es)) ∧
   (no_ptr_eq (Log op e1 e2) = (no_ptr_eq e1 ∧ no_ptr_eq e2)) ∧
   (no_ptr_eq (If e1 e2 e3) =
     (no_ptr_eq e1 ∧ no_ptr_eq e2 ∧ no_ptr_eq e3)) ∧
@@ -49,8 +50,8 @@ Theorem evaluate_no_ptr_eq:
       env v pes err_v = (st' with ptr_eq_oracle := oracle,res))
 Proof
   ho_match_mp_tac evaluate_ind
-  \\ rw [evaluate_def, Excl "getOpClass_def"]
-  \\ gvs [AllCaseEqs(), ETA_THM, Excl "getOpClass_def"]
+  \\ rw [evaluate_def]
+  \\ gvs [AllCaseEqs(), ETA_THM]
   \\ gvs [do_log_def, do_if_def, AllCaseEqs()]
 QED
 
@@ -397,31 +398,33 @@ Proof
  >- (
   ho_match_mp_tac is_clock_io_mono_bind \\ fs[]
   \\ rpt strip_tac
-  \\ ntac 2 (TOP_CASE_TAC
-            \\ fs [is_clock_io_mono_return, is_clock_io_mono_err])
-  >-  (
-    fs[Cong is_clock_io_mono_cong, do_eval_res_def]
-    \\ ho_match_mp_tac is_clock_io_mono_bind
-    \\ gs[]
-    \\ rpt conj_tac
-    \\ step_tac \\ gs[is_clock_io_mono_def, fix_clock_def])
+  \\ TOP_CASE_TAC \\ fs [is_clock_io_mono_return, is_clock_io_mono_err]
+  \\ Cases_on ‘op = Opapp’ \\ fs []
   >- (
-    TOP_CASE_TAC \\ fs[]
-    \\ rpt (FIRST [CHANGED_TAC (fs[is_clock_io_mono_return, is_clock_io_mono_err,
-                                   is_clock_io_mono_do_app_simple]), CASE_TAC])
+    TOP_CASE_TAC \\ fs[is_clock_io_mono_err]
+    \\ TOP_CASE_TAC \\ fs[]
     \\ ho_match_mp_tac is_clock_io_mono_check \\ gs[] \\ rpt strip_tac
     \\ res_tac \\ gs[dec_inc_clock])
+  \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ fs []
   >- (
     gvs [AllCaseEqs()]
     \\ step_tac
     \\ fs [is_clock_io_mono_def, dec_clock_def]
     \\ gvs [oneline update_thunk_def, oneline dest_thunk_def, store_assign_def,
             AllCaseEqs()])
+  \\ Cases_on ‘op = Eval’ \\ fs []
+  >-  (
+    fs[Cong is_clock_io_mono_cong, do_eval_res_def]
+    \\ ho_match_mp_tac is_clock_io_mono_bind
+    \\ gs[]
+    \\ rpt conj_tac
+    \\ step_tac \\ gs[is_clock_io_mono_def, fix_clock_def])
+  \\ Cases_on ‘op = PtrEq’ \\ fs []
   >- (
     fs [is_clock_io_mono_def]
     \\ rpt (TOP_CASE_TAC \\ fs [])
     \\ gvs [])
-  >- (assume_tac (SIMP_RULE std_ss [] is_clock_io_mono_do_app_simple) \\ fs[]))
+  \\ assume_tac (SIMP_RULE std_ss [] is_clock_io_mono_do_app_simple) \\ fs[])
  >- (step_tac \\ fs[is_clock_io_mono_def])
  >- (step_tac \\ fs[is_clock_io_mono_def])
  \\ step_tac \\ fs[is_clock_io_mono_def]
@@ -808,12 +811,6 @@ Theorem evaluate_case_eqs = LIST_CONJ
   [pair_case_eq, result_case_eq, error_result_case_eq, bool_case_eq,
     option_case_eq, list_case_eq, exp_or_val_case_eq, match_result_case_eq]
 
-Theorem getOpClass_PtrEqOp:
-  getOpClass op = PtrEqOp ⇔ op = PtrEq
-Proof
-  Cases_on ‘op’ \\ rw []
-QED
-
 Theorem evaluate_App_PtrEq:
   evaluate st env (REVERSE es) = (st', Rval vs) ⇒
   evaluate st env [App PtrEq es] =
@@ -875,19 +872,16 @@ Proof
   \\ fs [full_evaluate_def]
   \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac \\ rpt gen_tac
   \\ strip_tac
-  \\ fs [evaluate_case_eqs, dec_clock_def, do_eval_res_def]
   >~ [‘op:op’] >-
-   (Cases_on ‘getOpClass op = Force’ >-
-      (gvs []
-       \\ Cases_on `op` \\ gvs [] \\ Cases_on `t` \\ gvs []
+   (Cases_on ‘op = ThunkOp ForceThunk’ >-
+      (gvs [evaluate_case_eqs, dec_clock_def]
        \\ gvs [AllCaseEqs()]
        \\ imp_res_tac evaluate_next_type_stamp_mono
        \\ imp_res_tac evaluate_next_exn_stamp_mono
        \\ rw []
        \\ fs [build_tdefs_def])
-    \\ Cases_on ‘getOpClass op = PtrEqOp’
-    >- (gvs [getOpClass_PtrEqOp] \\ gvs [AllCaseEqs()])
-    \\ Cases_on ‘getOpClass op’ \\ fs []
+    \\ Cases_on ‘op = PtrEq’
+    >- gvs [evaluate_case_eqs, AllCaseEqs()]
     \\ fs [evaluate_case_eqs, dec_clock_def, do_eval_res_def]
     \\ rveq \\ fs []
     \\ fs [Q.ISPEC `(_, _)` EQ_SYM_EQ]
@@ -1158,12 +1152,12 @@ Proof
   \\ TRY (rename [`Case ([App _ _])`] ORELSE cheat)
   *)
   \\ TRY (rename [`Case ([App _ _])`]
-    \\ Cases_on ‘getOpClass op = Force’ >- (
-      Cases_on `op` \\ gvs[] \\ Cases_on `t` \\ gvs[]
-      \\ gvs[AllCaseEqs(), dec_clock_def])
-    \\ Cases_on ‘getOpClass op = PtrEqOp’
-    >- (gvs [getOpClass_PtrEqOp] \\ gvs [AllCaseEqs()])
-    \\ Cases_on ‘getOpClass op’ \\ gs[]
+    \\ Cases_on ‘op = ThunkOp ForceThunk’ >- (
+      gvs[AllCaseEqs(), dec_clock_def])
+    \\ Cases_on ‘op = PtrEq’
+    >- gvs [AllCaseEqs()]
+    \\ Cases_on ‘op = Opapp’ \\ gs[]
+    \\ Cases_on ‘op = Eval’ \\ gs[]
     \\ rpt (MAP_FIRST (dxrule_then (strip_assume_tac o SIMP_RULE bool_ss []))
       [hd (RES_CANON pair_case_eq), hd (RES_CANON result_case_eq), hd (RES_CANON bool_case_eq)]
     )

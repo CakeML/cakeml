@@ -810,22 +810,16 @@ QED
 
 Resume evaluate_ok[App_Op]:
   strip_tac
-  \\ ‘~ (getOpClass op = EvalOp)’ by (
-    qpat_x_assum ‘op ≠ Eval’ mp_tac \\ rpt (pop_assum kall_tac)
-    \\ Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
-  \\ ‘~ (getOpClass op = FunApp)’ by (
-    qpat_x_assum ‘op ≠ Opapp’ mp_tac \\ rpt (pop_assum kall_tac)
-    \\ Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
   \\ rpt strip_tac
-  \\ gs[evaluate_def, Excl "getOpClass_def"]
-  \\ Cases_on ‘getOpClass op’ \\ gs[Excl "getOpClass_def"]
-  >>~- ([‘getOpClass op = PtrEqOp’],
+  \\ gs[evaluate_def]
+  \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
+  \\ Cases_on ‘op = PtrEq’ \\ gs[]
+  >>~- ([‘do_eq’],
     gvs [CaseEqs ["prod", "result", "list", "eq_result"]]
     \\ first_x_assum drule \\ rw [])
-  >>~ [‘getOpClass op = Force’]
+  >>~ [‘dest_thunk’]
   >- (
-    Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
-    \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
+    full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
     >- (
       drule_all dest_thunk_ok \\ rw [] \\ gvs []
       \\ qpat_x_assum ‘state_ok st2’ mp_tac
@@ -837,8 +831,7 @@ Resume evaluate_ok[App_Op]:
       \\ IF_CASES_TAC \\ gvs [ref_rel_def, v_ok_def])
     >- (drule_all dest_thunk_ok \\ gvs []))
   >- (
-    Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
-    \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
+    full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
     \\ (
       drule_all dest_thunk_ok \\ rw [] \\ gvs []
       \\ imp_res_tac (CONJUNCT1 evaluate_next_type_stamp_mono)
@@ -850,8 +843,7 @@ Resume evaluate_ok[App_Op]:
       \\ gvs [oneline update_thunk_def, AllCaseEqs(), store_assign_def,
               FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO]))
   >- (
-    Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
-    \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
+    full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
     >- (
       gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def]
       \\ qpat_x_assum ‘state_ok st'’ mp_tac
@@ -861,8 +853,7 @@ Resume evaluate_ok[App_Op]:
     \\ gvs [EVERY_EL, v_ok_def, oneline update_thunk_def, AllCaseEqs(),
             store_assign_def])
   >- (
-    Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
-    \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
+    full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
     \\ drule_all dest_thunk_ok \\ gvs [])
   \\ gvs [CaseEqs ["prod", "result", "option"]]
   \\ dxrule_then assume_tac (iffRL EVERY_REVERSE)
