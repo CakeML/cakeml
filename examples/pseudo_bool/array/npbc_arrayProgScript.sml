@@ -3238,65 +3238,17 @@ QED
 Theorem check_lstep_arr_spec = CONJUNCT1 check_lstep_arr_spec_aux
 Theorem check_lsteps_arr_spec = CONJUNCT2 check_lstep_arr_spec_aux
 
+(* TMC *)
 Quote add_cakeml:
-  fun reindex_aux_arr fml ls iacc =
+  fun reindex_arr fml ls =
   case ls of
-    [] => (List.rev iacc)
+    [] => []
   | (i::is) =>
   case Array.lookup fml Empty i of
-    Empty => reindex_aux_arr fml is iacc
+    Empty => reindex_arr fml is
   | _ =>
-      reindex_aux_arr fml is (i::iacc)
+      i :: reindex_arr fml is
 End
-
-Quote add_cakeml:
-  fun reindex_arr fml is =
-    reindex_aux_arr fml is []
-End
-
-Theorem reindex_aux_arr_spec:
-  ∀inds indsv fmlls fmlv iacc iaccv.
-  LIST_REL fslot_TYPE fmlls fmllsv ∧
-  (LIST_TYPE NUM) inds indsv ∧
-  (LIST_TYPE NUM) iacc iaccv
-  ⇒
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "reindex_aux_arr" (get_ml_prog_state()))
-    [fmlv; indsv; iaccv]
-    (ARRAY fmlv fmllsv)
-    (POSTv v.
-      ARRAY fmlv fmllsv *
-      &(LIST_TYPE NUM
-        (reindex_aux fmlls inds iacc) v))
-Proof
-  Induct>>
-  rw[]>>
-  xcf"reindex_aux_arr"(get_ml_prog_state ())>>
-  fs[LIST_TYPE_def]
-  >- (
-    xmatch>>
-    xapp_spec (ListProgTheory.reverse_v_thm |> INST_TYPE [alpha |-> ``:num``])>>
-    xsimpl>>
-    simp[reindex_aux_def,LIST_TYPE_def,PAIR_TYPE_def]>>
-    metis_tac[])>>
-  xmatch>>
-  xlet_auto>- (xcon>>xsimpl)>>
-  xlet_auto>>
-  `fslot_TYPE (any_el h fmlls Empty) v'` by (
-    gvs[]>>
-    irule LIST_REL_fslot_TYPE_any_el>>
-    gvs[SLOT_TYPE_def])>>
-  rw[]>>
-  simp[reindex_aux_def]>>
-  Cases_on`any_el h fmlls Empty`>>gvs[fslot_TYPE_def,SLOT_TYPE_def]
-  >- (
-    xmatch>>
-    xapp>>simp[])>>
-  xmatch>>
-  xlet_autop>>
-  xapp>>
-  fs[LIST_TYPE_def]
-QED
 
 Theorem reindex_arr_spec:
   ∀inds indsv fmlls fmlv.
@@ -3312,13 +3264,31 @@ Theorem reindex_arr_spec:
       &(LIST_TYPE NUM
         (reindex fmlls inds) v))
 Proof
+  Induct>>
   rw[]>>
   xcf"reindex_arr"(get_ml_prog_state ())>>
-  rpt xlet_autop>>
-  xapp>>
-  xsimpl>>
+  fs[LIST_TYPE_def]
+  >- (
+    xmatch>>
+    xcon>>xsimpl>>
+    simp[reindex_def,LIST_TYPE_def])>>
+  xmatch>>
+  xlet_auto>- (xcon>>xsimpl)>>
+  xlet_auto>>
+  `fslot_TYPE (any_el h fmlls Empty) v'` by (
+    gvs[]>>
+    irule LIST_REL_fslot_TYPE_any_el>>
+    gvs[SLOT_TYPE_def])>>
+  rw[]>>
   simp[reindex_def]>>
-  metis_tac[LIST_TYPE_def]
+  Cases_on`any_el h fmlls Empty`>>gvs[fslot_TYPE_def,SLOT_TYPE_def]
+  >- (
+    xmatch>>
+    xapp>>simp[])>>
+  xmatch>>
+  xlet_autop>>
+  xcon>>xsimpl>>
+  simp[LIST_TYPE_def]
 QED
 
 (*
@@ -3541,20 +3511,28 @@ Proof
     wf_slot_def,LESS_EQ_REFL]
 QED
 
+(* TMC *)
 Quote add_cakeml:
-  fun extract_clauses_arr lno s b fml rsubs pfs acc =
-  case pfs of [] => List.rev acc
+  fun extract_clauses_arr lno s b fml rsubs pfs =
+  case pfs of [] => []
   | cpf::pfs =>
     case cpf of
       (None,pf) =>
-        extract_clauses_arr lno s b fml rsubs pfs ((None,pf)::acc)
+        let val h = (None,pf) in
+          h :: extract_clauses_arr lno s b fml rsubs pfs
+        end
     | (Some (Inl n,i),pf) =>
-      let val c = lookup_core_only_err_arr lno b fml n in
-        extract_clauses_arr lno s b fml rsubs pfs ((Some ([not_1(subst_slot s c)],i),pf)::acc)
+      let
+        val c = lookup_core_only_err_arr lno b fml n
+        val h = (Some ([not_1(subst_slot s c)],i),pf)
+      in
+        h :: extract_clauses_arr lno s b fml rsubs pfs
       end
     | (Some (Inr u,i),pf) =>
       if u < Vector.length rsubs then
-        extract_clauses_arr lno s b fml rsubs pfs ((Some (Vector.sub rsubs u,i),pf)::acc)
+        let val h = (Some (Vector.sub rsubs u,i),pf) in
+          h :: extract_clauses_arr lno s b fml rsubs pfs
+        end
       else raise Fail (format_failure lno ("invalid #proofgoal id: " ^ Int.toString u))
 End
 
@@ -3574,30 +3552,29 @@ Overload "check_scope_TYPE" = ``
 
 Theorem extract_clauses_arr_spec:
   ∀pfs pfsv s sv b bv fmlls fmlv fmllsv
-    rsubs rsubsv acc accv lno lnov.
+    rsubs rsubsv lno lnov.
   NUM lno lnov ∧
   subst_TYPE s sv ∧
   BOOL b bv ∧
   VECTOR_TYPE (LIST_TYPE constraint_TYPE) (Vector rsubs) rsubsv ∧
   pfs_TYPE pfs pfsv ∧
-  check_subproof_TYPE acc accv ∧
   LIST_REL fslot_TYPE fmlls fmllsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "extract_clauses_arr" (get_ml_prog_state()))
-    [lnov; sv; bv; fmlv; rsubsv; pfsv; accv]
+    [lnov; sv; bv; fmlv; rsubsv; pfsv]
     (ARRAY fmlv fmllsv)
     (POSTve
       (λv.
         ARRAY fmlv fmllsv *
-        &(case extract_clauses_list s b fmlls rsubs pfs acc of
+        &(case extract_clauses_list s b fmlls rsubs pfs of
             NONE => F
           | SOME res =>
             check_subproof_TYPE res v))
       (λe.
         ARRAY fmlv fmllsv *
         & (Fail_exn e ∧
-          extract_clauses_list s b fmlls rsubs pfs acc = NONE)))
+          extract_clauses_list s b fmlls rsubs pfs = NONE)))
 Proof
   Induct>>
   rw[]>>
@@ -3605,22 +3582,31 @@ Proof
   fs[LIST_TYPE_def]
   >- (
     xmatch>>
-    xapp_spec (ListProgTheory.reverse_v_thm |> INST_TYPE [alpha |-> ``:((npbc list # num) option # lstep list) ``])>>
-    xsimpl>>
-    asm_exists_tac>>rw[]>>
-    simp[extract_clauses_list_def])>>
+    xcon>>xsimpl>>
+    simp[extract_clauses_list_def,LIST_TYPE_def])>>
   xmatch>>
   simp[Once extract_clauses_list_def]>>
   Cases_on`h`>>fs[]>>
   Cases_on`q`>>fs[PAIR_TYPE_def,OPTION_TYPE_def]
   >- (
     xmatch>>
-    rpt xlet_autop>>
-    xapp>>xsimpl>>
-    rpt(asm_exists_tac>>xsimpl)>>
-    first_x_assum (irule_at Any)>>
-    qexistsl_tac[`s`,`(NONE,r)::acc`]>>
-    simp[extract_clauses_list_def]>>
+    xlet_autop>>
+    xlet_autop>>
+    xlet`POSTve
+      (λv. ARRAY fmlv fmllsv *
+        &(case extract_clauses_list s b fmlls rsubs pfs of
+            NONE => F
+          | SOME res => check_subproof_TYPE res v))
+      (λe. ARRAY fmlv fmllsv *
+        &(Fail_exn e ∧ extract_clauses_list s b fmlls rsubs pfs = NONE))`
+    >- (
+      xapp>>xsimpl>>
+      qexists_tac`lno`>>simp[])
+    >- (
+      xsimpl>>
+      simp[extract_clauses_list_def])>>
+    Cases_on`extract_clauses_list s b fmlls rsubs pfs`>>fs[]>>
+    xcon>>xsimpl>>
     simp[LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def])>>
   Cases_on`x`>> Cases_on`q`>>
   fs[PAIR_TYPE_def,SUM_TYPE_def]>>xmatch
@@ -3639,29 +3625,45 @@ Proof
       xapp>>xsimpl>>
       qexistsl_tac[`Stored cs vs d mc sm cb`,`s`]>>
       gvs[fslot_TYPE_def,subst_slot_side])>>
-    rpt xlet_autop>>
-    xapp>>
-    xsimpl>>
-    rpt(asm_exists_tac>>simp[])>>
-    first_x_assum (irule_at Any)>>simp[]>>
-    qmatch_goalsub_abbrev_tac`extract_clauses_list _ _ _ _ _ acc'`>>
-    qexistsl_tac[`s`,`acc'`]>>
-    simp[extract_clauses_list_def]>>
-    simp[LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def,Abbr`acc'`])>>
+    ntac 5 xlet_autop>>
+    xlet`POSTve
+      (λv. ARRAY fmlv fmllsv *
+        &(case extract_clauses_list s b fmlls rsubs pfs of
+            NONE => F
+          | SOME res => check_subproof_TYPE res v))
+      (λe. ARRAY fmlv fmllsv *
+        &(Fail_exn e ∧ extract_clauses_list s b fmlls rsubs pfs = NONE))`
+    >- (
+      xapp>>xsimpl>>
+      qexists_tac`lno`>>simp[])
+    >- (
+      xsimpl>>
+      simp[extract_clauses_list_def])>>
+    Cases_on`extract_clauses_list s b fmlls rsubs pfs`>>fs[]>>
+    xcon>>xsimpl>>
+    simp[LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def])>>
   (* INR *)
   rpt xlet_autop>>
   xif>>simp[mlvectorTheory.length_def]
   >- (
-    rpt xlet_autop>>
-    xapp>>
-    xsimpl>>
-    rpt(asm_exists_tac>>simp[])>>
-    first_x_assum (irule_at Any)>>simp[]>>
-    qmatch_goalsub_abbrev_tac`extract_clauses_list _ _ _ _ _ acc'`>>
-    qexistsl_tac[`s`,`acc'`]>>
-    simp[extract_clauses_list_def]>>
-    simp[LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def,Abbr`acc'`]>>
-    fs[mlvectorTheory.sub_def,mlvectorTheory.length_def])>>
+    ntac 4 xlet_autop>>
+    xlet`POSTve
+      (λv. ARRAY fmlv fmllsv *
+        &(case extract_clauses_list s b fmlls rsubs pfs of
+            NONE => F
+          | SOME res => check_subproof_TYPE res v))
+      (λe. ARRAY fmlv fmllsv *
+        &(Fail_exn e ∧ extract_clauses_list s b fmlls rsubs pfs = NONE))`
+    >- (
+      xapp>>xsimpl>>
+      qexists_tac`lno`>>simp[])
+    >- (
+      xsimpl>>
+      simp[extract_clauses_list_def])>>
+    fs[mlvectorTheory.length_def]>>
+    Cases_on`extract_clauses_list s b fmlls rsubs pfs`>>fs[]>>
+    xcon>>xsimpl>>
+    fs[LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def,mlvectorTheory.sub_def])>>
   rpt xlet_autop>>
   xraise>>
   xsimpl>>
@@ -3700,7 +3702,7 @@ Quote add_cakeml:
         raise Fail (format_failure lno ("invalid scope id"))
     | Some scs =>
     let
-    val cpfs = extract_clauses_arr lno s b fml rsubs pfs [] in
+    val cpfs = extract_clauses_arr lno s b fml rsubs pfs in
       (scs,cpfs)::extract_scopes_arr lno scopes s b fml rsubs rest
     end
 End
@@ -3753,8 +3755,6 @@ Proof
     simp[Fail_exn_def]>>
     metis_tac[])>>
   xmatch>>
-  xlet`POSTv v. ARRAY fmlv fmllsv * &check_subproof_TYPE [] v`
-  >- (xcon>>xsimpl>>simp[LIST_TYPE_def])>>
   xlet_autop
   >- xsimpl>>
   gvs[AllCasePreds()]>>
@@ -5341,18 +5341,6 @@ val res = translate ind_lim_def;
 val res = translate drop_derived_def;
 val res = translate vent_insert_def;
 val res = translate vent_fresh_def;
-val res = translate rebuild_slot_def;
-
-Theorem rebuild_slot_side[local]:
-  ∀k t i cs vs.
-  k ≤ length cs ∧ k ≤ length vs ⇒ rebuild_slot_side t i cs vs k
-Proof
-  Induct>>
-  rw[]>>
-  simp[Once (fetch "-" "rebuild_slot_side_def")]
-QED
-
-val _ = rebuild_slot_side |> update_precondition;
 
 Quote add_cakeml:
   fun fill_slot_arr m ents i cs vs k =
@@ -5530,40 +5518,114 @@ Proof
 QED
 
 Quote add_cakeml:
-  fun rebuild_aux_arr fml t i vw =
-  if vw <= i then t
+  fun rebuild_ents_slot_arr ents i cs vs k =
+  if k = 0 then ents
   else
-    case Array.lookup fml Empty i of
-      Empty => rebuild_aux_arr fml t (i+1) vw
-    | Stored cs vs d mc sm b =>
-      rebuild_aux_arr fml (rebuild_slot t i cs vs (Vector.length vs))
-        (i+1) vw
+    let
+      val k1 = k - 1
+      val x = Unsafe.vsub vs k1
+    in
+      case Array.lookup ents Vnone x of
+        Vrebuild pinds ninds =>
+        let
+          val c = Unsafe.vsub cs k1
+          val e = (if 0 <= c then Vrebuild (i::pinds) ninds
+                   else Vrebuild pinds (i::ninds))
+        in
+          rebuild_ents_slot_arr (Array.updateResize ents Vnone x e) i cs vs k1
+        end
+      | _ => rebuild_ents_slot_arr ents i cs vs k1
+    end
 End
 
-Theorem rebuild_aux_arr_spec:
-  ∀fmlls t i vw tv iv vwv.
-  NUM i iv ∧ NUM vw vwv ∧
-  SPTREE_SPT_TYPE (PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE NUM)) t tv ∧
-  LIST_REL fslot_TYPE fmlls fmllsv
+Theorem rebuild_ents_slot_arr_spec:
+  ∀k kv ents entsv entslsv.
+  NUM i iv ∧ NUM k kv ∧
+  VECTOR_TYPE INT cs csv ∧ VECTOR_TYPE NUM vs vsv ∧
+  k ≤ length cs ∧ k ≤ length vs ∧
+  LIST_REL vimapn_TYPE ents entslsv
   ⇒
   app (p : 'ffi ffi_proj)
-    ^(fetch_v "rebuild_aux_arr" (get_ml_prog_state()))
-    [fmlv; tv; iv; vwv]
-    (ARRAY fmlv fmllsv)
-    (POSTv v.
-      ARRAY fmlv fmllsv *
-      &SPTREE_SPT_TYPE (PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE NUM))
-        (rebuild_aux fmlls t i vw) v)
+    ^(fetch_v "rebuild_ents_slot_arr" (get_ml_prog_state()))
+    [entsv; iv; csv; vsv; kv]
+    (ARRAY entsv entslsv)
+    (POSTv entsv'.
+      SEP_EXISTS entslsv'.
+      ARRAY entsv' entslsv' *
+      &LIST_REL vimapn_TYPE (rebuild_ents_slot ents i cs vs k) entslsv')
 Proof
-  ho_match_mp_tac rebuild_aux_ind>>
+  Induct>>
   rw[]>>
-  xcf "rebuild_aux_arr" (get_ml_prog_state ())>>
-  simp[Once rebuild_aux_def]>>
+  xcf "rebuild_ents_slot_arr" (get_ml_prog_state ())>>
+  simp[Once rebuild_ents_slot_def]>>
+  xlet_autop>>
+  xif>>asm_exists_tac>>simp[]
+  >- (xvar>>xsimpl)>>
+  rpt xlet_autop>>
+  xlet_auto>>
+  qmatch_asmsub_rename_tac`lv = any_el _ entslsv _`>>
+  `vimapn_TYPE (any_el (sub vs k) ents Vnone) lv` by (
+    rw[any_el_ALT]>>
+    gvs[LIST_REL_EL_EQN,VENT_TYPE_def])>>
+  qpat_x_assum`lv = _` SUBST_ALL_TAC>>
+  Cases_on`any_el (sub vs k) ents Vnone`>>
+  gvs[VENT_TYPE_def]>>
+  xmatch
+  >~ [`any_el _ ents Vnone = Vrebuild _ _`]
+  >- (
+    rename1`any_el _ ents Vnone = Vrebuild pinds ninds`>>
+    rpt xlet_autop>>
+    xlet`POSTv ev. ARRAY entsv entslsv *
+      &vimapn_TYPE (if 0 ≤ sub cs k then Vrebuild (i::pinds) ninds
+                    else Vrebuild pinds (i::ninds)) ev`
+    >- (
+      xif>>
+      rpt xlet_autop>>
+      xcon>>xsimpl>>
+      simp[VENT_TYPE_def,LIST_TYPE_def])>>
+    rpt xlet_autop>>
+    xlet_auto>>
+    xapp>>xsimpl>>
+    irule LIST_REL_update_resize>>
+    simp[VENT_TYPE_def])>>
+  xapp>>xsimpl
+QED
+
+Quote add_cakeml:
+  fun rebuild_ents_arr fml ents i vw =
+  if vw <= i then ents
+  else
+    case Array.lookup fml Empty i of
+      Empty => rebuild_ents_arr fml ents (i+1) vw
+    | Stored cs vs d mc sm b =>
+      rebuild_ents_arr fml
+        (rebuild_ents_slot_arr ents i cs vs (Vector.length vs)) (i+1) vw
+End
+
+Theorem rebuild_ents_arr_spec:
+  ∀fmlls ents i vw iv vwv entsv entslsv.
+  NUM i iv ∧ NUM vw vwv ∧
+  LIST_REL fslot_TYPE fmlls fmllsv ∧
+  LIST_REL vimapn_TYPE ents entslsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "rebuild_ents_arr" (get_ml_prog_state()))
+    [fmlv; entsv; iv; vwv]
+    (ARRAY fmlv fmllsv * ARRAY entsv entslsv)
+    (POSTv entsv'.
+      SEP_EXISTS entslsv'.
+      ARRAY fmlv fmllsv * ARRAY entsv' entslsv' *
+      &LIST_REL vimapn_TYPE (rebuild_ents fmlls ents i vw) entslsv')
+Proof
+  ho_match_mp_tac rebuild_ents_ind>>
+  rw[]>>
+  xcf "rebuild_ents_arr" (get_ml_prog_state ())>>
+  simp[Once rebuild_ents_def]>>
   xlet_autop>>
   xif
   >- (xvar>>xsimpl)>>
   xlet_auto >- (xcon>>xsimpl)>>
-  xlet_auto>>
+  xlet_auto >- xsimpl>>
   qmatch_asmsub_rename_tac`sv = any_el i fmllsv _`>>
   `fslot_TYPE (any_el i fmlls Empty) sv` by (
     rw[any_el_ALT]>>
@@ -5573,11 +5635,10 @@ Proof
   >- (
     xmatch>>
     xlet_autop>>
-    xapp>>simp[])>>
+    xapp>>xsimpl)>>
   xmatch>>
   rpt xlet_autop>>
-  xlet_auto >- (xsimpl>>gvs[rebuild_slot_side])>>
-  xapp>>simp[]
+  xapp>>xsimpl
 QED
 
 val res = translate get_inds_rhs_list_def;
@@ -5634,18 +5695,25 @@ QED
 
 Overload "subst_raw_TYPE" = ``LIST_TYPE (PAIR_TYPE NUM (SUM_TYPE BOOL (PBC_LIT_TYPE NUM)))``
 
-Overload "rebuild_TYPE" =
-  ``SPTREE_SPT_TYPE (PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE NUM))``
-
 Quote add_cakeml:
-  fun get_inds_fold_arr fml ls acc ents t =
+  fun get_inds_fold_ents_arr fml ls acc ents rb =
   case ls of
-    [] => (acc, (ents, t))
+    [] => (acc, (ents, rb))
   | ((n,rhs)::xs) =>
     case Array.lookup ents Vnone n of
       Vnone =>
-      get_inds_fold_arr fml xs acc
-        (Array.updateResize ents Vnone n (Vtrack [] [])) t
+      get_inds_fold_ents_arr fml xs acc
+        (Array.updateResize ents Vnone n (Vtrack [] [])) rb
+    | Vinput pinds ninds =>
+      (case do_reindex_rhs_arr fml rhs pinds ninds of
+        (pinds',ninds') =>
+        get_inds_fold_ents_arr fml xs acc
+          (Array.updateResize ents Vnone n (Vrebuild pinds' ninds')) True)
+    | Vrebuild pinds ninds =>
+      (case do_reindex_rhs_arr fml rhs pinds ninds of
+        (pinds',ninds') =>
+        get_inds_fold_ents_arr fml xs acc
+          (Array.updateResize ents Vnone n (Vrebuild pinds' ninds')) True)
     | Vtrack pinds ninds =>
       (case do_reindex_rhs_arr fml rhs pinds ninds of
         (pinds',ninds') =>
@@ -5653,7 +5721,7 @@ Quote add_cakeml:
         val acc' = get_inds_rhs_list rhs pinds' ninds' acc
         val ents' = Array.updateResize ents Vnone n (Vtrack pinds' ninds')
       in
-        get_inds_fold_arr fml xs acc' ents' t
+        get_inds_fold_ents_arr fml xs acc' ents' rb
       end)
     | Vcount k pinds ninds =>
       (case do_reindex_rhs_arr fml rhs pinds ninds of
@@ -5662,38 +5730,34 @@ Quote add_cakeml:
         val acc' = get_inds_rhs_list rhs pinds' ninds' acc
         val ents' = Array.updateResize ents Vnone n (Vtrack pinds' ninds')
       in
-        get_inds_fold_arr fml xs acc' ents' t
+        get_inds_fold_ents_arr fml xs acc' ents' rb
       end)
-    | Vinput pinds ninds =>
-      (case do_reindex_rhs_arr fml rhs pinds ninds of
-        (pinds',ninds') =>
-        get_inds_fold_arr fml xs acc ents (insert_1 n (pinds',ninds') t))
 End
 
-Theorem get_inds_fold_arr_spec:
-  ∀fmlls ls acc ents t lsv accv entsv entslsv tv.
+Theorem get_inds_fold_ents_arr_spec:
+  ∀fmlls ls acc ents rb lsv accv entsv entslsv rbv.
   LIST_REL fslot_TYPE fmlls fmllsv ∧
   subst_raw_TYPE ls lsv ∧
   LIST_TYPE (LIST_TYPE NUM) acc accv ∧
   LIST_REL vimapn_TYPE ents entslsv ∧
-  rebuild_TYPE t tv
+  BOOL rb rbv
   ⇒
   app (p : 'ffi ffi_proj)
-    ^(fetch_v "get_inds_fold_arr" (get_ml_prog_state()))
-    [fmlv; lsv; accv; entsv; tv]
+    ^(fetch_v "get_inds_fold_ents_arr" (get_ml_prog_state()))
+    [fmlv; lsv; accv; entsv; rbv]
     (ARRAY fmlv fmllsv * ARRAY entsv entslsv)
     (POSTv v.
         SEP_EXISTS entsv' entslsv'.
         ARRAY fmlv fmllsv * ARRAY entsv' entslsv' *
         &PAIR_TYPE (LIST_TYPE (LIST_TYPE NUM))
           (PAIR_TYPE (λl v. LIST_REL vimapn_TYPE l entslsv' ∧ v = entsv')
-            rebuild_TYPE)
-          (get_inds_fold fmlls ls acc ents t) v)
+            BOOL)
+          (get_inds_fold_ents fmlls ls acc ents rb) v)
 Proof
-  ho_match_mp_tac get_inds_fold_ind>>
+  ho_match_mp_tac get_inds_fold_ents_ind>>
   rw[]>>
-  xcf "get_inds_fold_arr" (get_ml_prog_state ())>>
-  fs[LIST_TYPE_def,PAIR_TYPE_def,get_inds_fold_def]>>
+  xcf "get_inds_fold_ents_arr" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def,PAIR_TYPE_def,get_inds_fold_ents_def]>>
   xmatch
   >- (rpt xlet_autop>>xcon>>xsimpl)>>
   xlet_autop>>
@@ -5709,24 +5773,7 @@ Proof
     rpt xlet_autop>>
     xapp>>xsimpl>>
     irule LIST_REL_update_resize>>
-    simp[VENT_TYPE_def,LIST_TYPE_def])
-  >~ [`any_el n ents Vnone = Vinput _ _`]
-  >- (
-    rpt xlet_autop>>
-    pairarg_tac>>gvs[PAIR_TYPE_def]>>
-    rename1`do_reindex_rhs fmlls rhs _ _ = (pinds,ninds)`>>
-    xmatch>>
-    rpt xlet_autop>>
-    xlet`POSTv tv1. ARRAY fmlv fmllsv * ARRAY entsv entslsv *
-      &rebuild_TYPE (insert n (pinds,ninds) t) tv1`
-    >- (
-      xapp_spec (INST_TYPE [alpha |-> ``:num list # num list``]
-        (fetch "-" "insert_1_v_thm"))>>
-      xsimpl>>
-      qexistsl_tac[`t`,`(pinds,ninds)`,`n`,
-        `PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE NUM)`]>>
-      gvs[PAIR_TYPE_def])>>
-    xapp>>xsimpl)>>
+    simp[VENT_TYPE_def,LIST_TYPE_def])>>
   rpt xlet_autop>>
   pairarg_tac>>gvs[PAIR_TYPE_def]>>
   xmatch>>
@@ -5737,77 +5784,119 @@ Proof
 QED
 
 Quote add_cakeml:
-  fun get_inds_rebuilt_arr ls t acc ents =
+  fun get_inds_rebuilt_ents_arr ls acc ents =
   case ls of
-    [] => (acc, ents)
+    [] => acc
   | ((n,rhs)::xs) =>
-    case lookup_1 n t of
-      None => get_inds_rebuilt_arr xs t acc ents
-    | Some (pinds,ninds) =>
-      let
-        val acc' = get_inds_rhs_list rhs pinds ninds acc
-        val ents' = Array.updateResize ents Vnone n (Vtrack pinds ninds)
-      in
-        get_inds_rebuilt_arr xs t acc' ents'
-      end
+    case Array.lookup ents Vnone n of
+      Vrebuild pinds ninds =>
+      get_inds_rebuilt_ents_arr xs (get_inds_rhs_list rhs pinds ninds acc) ents
+    | _ => get_inds_rebuilt_ents_arr xs acc ents
 End
 
-Theorem get_inds_rebuilt_arr_spec:
+Theorem get_inds_rebuilt_ents_arr_spec:
   ∀ls acc ents lsv accv entsv entslsv.
   subst_raw_TYPE ls lsv ∧
-  rebuild_TYPE t tv ∧
   LIST_TYPE (LIST_TYPE NUM) acc accv ∧
   LIST_REL vimapn_TYPE ents entslsv
   ⇒
   app (p : 'ffi ffi_proj)
-    ^(fetch_v "get_inds_rebuilt_arr" (get_ml_prog_state()))
-    [lsv; tv; accv; entsv]
+    ^(fetch_v "get_inds_rebuilt_ents_arr" (get_ml_prog_state()))
+    [lsv; accv; entsv]
     (ARRAY entsv entslsv)
     (POSTv v.
-        SEP_EXISTS entsv' entslsv'.
-        ARRAY entsv' entslsv' *
-        &PAIR_TYPE (LIST_TYPE (LIST_TYPE NUM))
-          (λl v. LIST_REL vimapn_TYPE l entslsv' ∧ v = entsv')
-          (get_inds_rebuilt ls t acc ents) v)
+        ARRAY entsv entslsv *
+        &LIST_TYPE (LIST_TYPE NUM) (get_inds_rebuilt_ents ls acc ents) v)
 Proof
   Induct>>
   rw[]>>
-  xcf "get_inds_rebuilt_arr" (get_ml_prog_state ())>>
-  fs[LIST_TYPE_def,get_inds_rebuilt_def]
-  >- (
-    xmatch>>
-    xcon>>xsimpl>>
-    qexistsl_tac[`entsv`,`entslsv`]>>
-    simp[PAIR_TYPE_def]>>
-    xsimpl)>>
+  xcf "get_inds_rebuilt_ents_arr" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def,get_inds_rebuilt_ents_def]
+  >- (xmatch>>xvar>>xsimpl)>>
   PairCases_on`h`>>
   fs[PAIR_TYPE_def]>>
   xmatch>>
   xlet_autop>>
-  simp[get_inds_rebuilt_def]>>
-  Cases_on`lookup h0 t`>>
-  gvs[OPTION_TYPE_def]
-  >- (xmatch>>xapp>>xsimpl)>>
-  rename1`lookup _ _ = SOME pq`>>
-  PairCases_on`pq`>>
-  gvs[PAIR_TYPE_def]>>
+  xlet_auto>>
+  qmatch_asmsub_rename_tac`lv = any_el h0 entslsv _`>>
+  `vimapn_TYPE (any_el h0 ents Vnone) lv` by (
+    rw[any_el_ALT]>>
+    gvs[LIST_REL_EL_EQN,VENT_TYPE_def])>>
+  qpat_x_assum`lv = _` SUBST_ALL_TAC>>
+  simp[get_inds_rebuilt_ents_def]>>
+  Cases_on`any_el h0 ents Vnone`>>
+  gvs[VENT_TYPE_def]>>
   xmatch>>
   rpt xlet_autop>>
+  xapp>>xsimpl
+QED
+
+Quote add_cakeml:
+  fun finish_rebuilt_arr ls ents =
+  case ls of
+    [] => ents
+  | ((n,rhs)::xs) =>
+    case Array.lookup ents Vnone n of
+      Vrebuild pinds ninds =>
+      finish_rebuilt_arr xs (Array.updateResize ents Vnone n (Vtrack pinds ninds))
+    | _ => finish_rebuilt_arr xs ents
+End
+
+Theorem finish_rebuilt_arr_spec:
+  ∀ls ents lsv entsv entslsv.
+  subst_raw_TYPE ls lsv ∧
+  LIST_REL vimapn_TYPE ents entslsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "finish_rebuilt_arr" (get_ml_prog_state()))
+    [lsv; entsv]
+    (ARRAY entsv entslsv)
+    (POSTv entsv'.
+        SEP_EXISTS entslsv'.
+        ARRAY entsv' entslsv' *
+        &LIST_REL vimapn_TYPE (finish_rebuilt ls ents) entslsv')
+Proof
+  Induct>>
+  rw[]>>
+  xcf "finish_rebuilt_arr" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def,finish_rebuilt_def]
+  >- (xmatch>>xvar>>xsimpl)>>
+  PairCases_on`h`>>
+  fs[PAIR_TYPE_def]>>
+  xmatch>>
+  xlet_autop>>
   xlet_auto>>
-  xapp>>xsimpl>>
-  irule LIST_REL_update_resize>>
-  simp[VENT_TYPE_def]
+  qmatch_asmsub_rename_tac`lv = any_el h0 entslsv _`>>
+  `vimapn_TYPE (any_el h0 ents Vnone) lv` by (
+    rw[any_el_ALT]>>
+    gvs[LIST_REL_EL_EQN,VENT_TYPE_def])>>
+  qpat_x_assum`lv = _` SUBST_ALL_TAC>>
+  simp[finish_rebuilt_def]>>
+  Cases_on`any_el h0 ents Vnone`>>
+  gvs[VENT_TYPE_def]>>
+  xmatch
+  >~ [`any_el _ ents Vnone = Vrebuild _ _`]
+  >- (
+    rpt xlet_autop>>
+    xlet_auto>>
+    xapp>>xsimpl>>
+    irule LIST_REL_update_resize>>
+    simp[VENT_TYPE_def])>>
+  xapp>>xsimpl
 QED
 
 Quote add_cakeml:
   fun get_set_indices_arr fml s vimap =
   case vimap of (m,(vw,ents)) =>
-  case get_inds_fold_arr fml s [] ents Ln of (acc,(ents',t)) =>
-  case t of
-    Ln => (merge_all acc, (m,(vw,ents')))
-  | _ =>
-    (case get_inds_rebuilt_arr s (rebuild_aux_arr fml t (m+1) vw) acc ents' of
-      (acc',ents'') => (merge_all acc', (m,(vw,ents''))))
+  case get_inds_fold_ents_arr fml s [] ents False of (acc,(ents',rb)) =>
+  if rb then
+    let
+      val ents'' = rebuild_ents_arr fml ents' (m+1) vw
+      val acc' = get_inds_rebuilt_ents_arr s acc ents''
+    in
+      (merge_all acc', (m,(vw,finish_rebuilt_arr s ents'')))
+    end
+  else (merge_all acc, (m,(vw,ents')))
 End
 
 Theorem get_set_indices_arr_spec:
@@ -5832,52 +5921,27 @@ Proof
   xcf "get_set_indices_arr" (get_ml_prog_state ())>>
   simp[get_set_indices_def]>>
   xmatch>>
-  xlet_auto >- (xcon>>xsimpl)>>
-  xlet_auto >- (xcon>>xsimpl)>>
-  qpat_x_assum`v = _` SUBST_ALL_TAC>>
-  qpat_x_assum`v' = _` SUBST_ALL_TAC>>
-  `rebuild_TYPE LN (Conv (SOME (TypeStamp «Ln» 44)) []) ∧
-   LIST_TYPE (LIST_TYPE NUM) [] (Conv (SOME (TypeStamp «[]» 1)) [])` by
-    simp[fetch "-" "SPTREE_SPT_TYPE_def",LIST_TYPE_def]>>
-  xlet_auto
-  >- (
-    qexists_tac`emp`>>xsimpl>>
-    rw[]>>
-    first_assum (irule_at Any)>>
-    xsimpl)>>
-  `∃acc ents t. get_inds_fold fmlls s [] vimap2 LN = (acc,ents,t)` by
+  rpt xlet_autop>>
+  qmatch_asmsub_rename_tac`nilv = Conv (SOME (TypeStamp «[]» _)) []`>>
+  qmatch_asmsub_rename_tac`fv = Conv (SOME (TypeStamp «False» _)) []`>>
+  `LIST_TYPE (LIST_TYPE NUM) [] nilv ∧ BOOL F fv` by
+    simp[LIST_TYPE_def,BOOL_def,semanticPrimitivesTheory.Boolv_def,
+      semanticPrimitivesTheory.bool_type_num_def]>>
+  xlet`POSTv res. SEP_EXISTS entsv' entslsv'.
+    ARRAY fmlv fmllsv * ARRAY entsv' entslsv' *
+    &PAIR_TYPE (LIST_TYPE (LIST_TYPE NUM))
+      (PAIR_TYPE (λl v. LIST_REL vimapn_TYPE l entslsv' ∧ v = entsv') BOOL)
+      (get_inds_fold_ents fmlls s [] vimap2 F) res`
+  >- (xapp>>simp[])>>
+  `∃acc ents rb. get_inds_fold_ents fmlls s [] vimap2 F = (acc,ents,rb)` by
     metis_tac[PAIR]>>
   gvs[PAIR_TYPE_def]>>
-  qpat_x_assum`rebuild_TYPE LN _` kall_tac>>
   xmatch>>
-  Cases_on`t`>>
-  qpat_assum`rebuild_TYPE _ _`
-    (strip_assume_tac o ONCE_REWRITE_RULE[fetch "-" "SPTREE_SPT_TYPE_def"])>>
-  gvs[]
-  >- (
-    xmatch>>
-    rpt xlet_autop>>
-    xcon>>xsimpl>>
-    simp[VIMAP_TYPE_def,PAIR_TYPE_def]>>
-    first_assum (irule_at Any)>>xsimpl)>>
-  (
-    xmatch>>
-    xlet_autop>>
-    xlet_auto >- xsimpl>>
-    xlet_auto
-    >- (
-      xsimpl>>
-      rw[]>>
-      first_assum (irule_at Any)>>
-      xsimpl)>>
-    qmatch_asmsub_abbrev_tac`get_inds_rebuilt s RB acc ents`>>
-    Cases_on`get_inds_rebuilt s RB acc ents`>>
-    gvs[PAIR_TYPE_def]>>
-    xmatch>>
-    rpt xlet_autop>>
-    xcon>>xsimpl>>
-    simp[VIMAP_TYPE_def,PAIR_TYPE_def]>>
-    first_assum (irule_at Any)>>xsimpl)
+  xif>>
+  rpt xlet_autop>>
+  xcon>>xsimpl>>
+  simp[VIMAP_TYPE_def,PAIR_TYPE_def]>>
+  first_assum (irule_at Any)>>xsimpl
 QED
 
 Overload "vomap_TYPE" = ``STRING_TYPE``
@@ -7912,41 +7976,43 @@ Proof
 QED
 
 Quote add_cakeml:
-  fun all_core_arr fml ls iacc =
+  fun all_core_ok_arr fml ls =
   case ls of
-    [] => Some (List.rev iacc)
+    [] => True
   | (i::is) =>
   case Array.lookup fml Empty i of
-    Empty => all_core_arr fml is iacc
+    Empty => all_core_ok_arr fml is
   | Stored cs vs d mc sm b' =>
-      if b' then all_core_arr fml is (i::iacc)
-      else None
+      if b' then all_core_ok_arr fml is
+      else False
+
+  fun all_core_arr fml ls =
+    if all_core_ok_arr fml ls then Some (reindex_arr fml ls) else None
 End
 
-Theorem all_core_arr_spec:
-  ∀inds indsv fmlls fmlv iacc iaccv.
+Theorem all_core_ok_arr_spec:
+  ∀inds indsv fmlls fmlv.
   LIST_REL fslot_TYPE fmlls fmllsv ∧
-  (LIST_TYPE NUM) inds indsv ∧
-  (LIST_TYPE NUM) iacc iaccv
+  (LIST_TYPE NUM) inds indsv
   ⇒
   app (p : 'ffi ffi_proj)
-    ^(fetch_v "all_core_arr" (get_ml_prog_state()))
-    [fmlv; indsv; iaccv]
+    ^(fetch_v "all_core_ok_arr" (get_ml_prog_state()))
+    [fmlv; indsv]
     (ARRAY fmlv fmllsv)
     (POSTv v.
       ARRAY fmlv fmllsv *
-      &(OPTION_TYPE (LIST_TYPE NUM)
-        (all_core_list fmlls inds iacc) v))
+      &(BOOL
+        (EVERY (λi.
+          any_el i fmlls Empty = Empty ∨
+          core_slot (any_el i fmlls Empty)) inds) v))
 Proof
   Induct>>
   rw[]>>
-  xcf"all_core_arr"(get_ml_prog_state ())>>
+  xcf"all_core_ok_arr"(get_ml_prog_state ())>>
   fs[LIST_TYPE_def]
   >- (
     xmatch>>
-    rpt xlet_autop>>
-    xcon>>xsimpl>>
-    simp[all_core_list_def,LIST_TYPE_def,OPTION_TYPE_def])>>
+    xcon>>xsimpl)>>
   xmatch>>
   xlet_auto>- (xcon>>xsimpl)>>
   xlet_auto>>
@@ -7954,17 +8020,41 @@ Proof
   `fslot_TYPE (any_el h fmlls Empty) sv` by (
     rw[any_el_ALT]>>
     gvs[LIST_REL_EL_EQN,fslot_TYPE_def,wf_slot_def,SLOT_TYPE_def])>>
-  simp[all_core_list_def]>>
   Cases_on`any_el h fmlls Empty`>>
   gvs[fslot_TYPE_def,SLOT_TYPE_def,core_slot_def]
   >- (
     xmatch>>
     xapp>>simp[])>>
   xmatch>>
-  xif>>rpt xlet_autop
+  xif
   >- (
-    xapp>>xsimpl>>
-    simp[LIST_TYPE_def])>>
+    xapp>>xsimpl)>>
+  xcon>>xsimpl
+QED
+
+Theorem all_core_arr_spec:
+  ∀inds indsv fmlls fmlv.
+  LIST_REL fslot_TYPE fmlls fmllsv ∧
+  (LIST_TYPE NUM) inds indsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "all_core_arr" (get_ml_prog_state()))
+    [fmlv; indsv]
+    (ARRAY fmlv fmllsv)
+    (POSTv v.
+      ARRAY fmlv fmllsv *
+      &(OPTION_TYPE (LIST_TYPE NUM)
+        (all_core_list fmlls inds) v))
+Proof
+  rw[]>>
+  xcf"all_core_arr"(get_ml_prog_state ())>>
+  xlet_autop>>
+  simp[all_core_list_def]>>
+  xif
+  >- (
+    xlet_autop>>
+    xcon>>xsimpl>>
+    simp[OPTION_TYPE_def])>>
   xcon>>xsimpl>>
   simp[OPTION_TYPE_def]
 QED
@@ -7984,9 +8074,8 @@ Quote add_cakeml:
     let
     val csubs = change_obj_subgoals (mk_tar_obj b fc) fc'
     val bb = True
-    val e = []
     val cpfs = extract_clauses_arr lno emp_vec bb fml
-      (Vector.fromList csubs) pfs e in
+      (Vector.fromList csubs) pfs in
     case check_subproofs_arr lno cpfs bb fml id id assg st of
        (fml', (id', (assg', st'))) =>
       let val u = rollback_arr fml' id id' in
@@ -8045,23 +8134,23 @@ Proof
     (λv.
       ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
       &(case extract_clauses_list emp_vec T fmlls
-          (change_obj_subgoals (mk_tar_obj b ofc) fc) pfs [] of
+          (change_obj_subgoals (mk_tar_obj b ofc) fc) pfs of
           NONE => F
         | SOME res => check_subproof_TYPE res v))
     (λe.
       ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
       &(Fail_exn e ∧
         extract_clauses_list emp_vec T fmlls
-          (change_obj_subgoals (mk_tar_obj b ofc) fc) pfs [] = NONE))`
+          (change_obj_subgoals (mk_tar_obj b ofc) fc) pfs = NONE))`
   >- (
     xapp>>xsimpl>>
     qexistsl_tac[`emp_vec`,`change_obj_subgoals (mk_tar_obj b ofc) fc`,`pfs`,
-      `fmlls`,`T`,`[]`,`lno`]>>
-    simp[LIST_TYPE_def,fetch "-" "emp_vec_v_thm"]>>
+      `fmlls`,`T`,`lno`]>>
+    simp[fetch "-" "emp_vec_v_thm"]>>
     EVAL_TAC)
   >- (xsimpl>>metis_tac[ARRAY_NUM_ARRAY_refl])>>
   Cases_on`extract_clauses_list emp_vec T fmlls
-    (change_obj_subgoals (mk_tar_obj b ofc) fc) pfs []`>>gvs[]>>
+    (change_obj_subgoals (mk_tar_obj b ofc) fc) pfs`>>gvs[]>>
   rename1`check_subproof_TYPE cpfs _`>>
   xlet`POSTve
     (λv.
@@ -8114,9 +8203,8 @@ Quote add_cakeml:
     let
     val csubs = change_pres_subgoals v c
     val bb = True
-    val e = []
     val cpfs = extract_clauses_arr lno emp_vec bb fml
-      (Vector.fromList csubs) pfs e in
+      (Vector.fromList csubs) pfs in
     case check_subproofs_arr lno cpfs bb fml id id assg st of
        (fml', (id', (assg', st'))) =>
       let val u = rollback_arr fml' id id' in
@@ -8183,23 +8271,23 @@ Proof
     (λv.
       ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
       &(case extract_clauses_list emp_vec T fmlls
-          (change_pres_subgoals vx c) pfs [] of
+          (change_pres_subgoals vx c) pfs of
           NONE => F
         | SOME res => check_subproof_TYPE res v))
     (λe.
       ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
       &(Fail_exn e ∧
         extract_clauses_list emp_vec T fmlls
-          (change_pres_subgoals vx c) pfs [] = NONE))`
+          (change_pres_subgoals vx c) pfs = NONE))`
   >- (
     xapp>>xsimpl>>
     qexistsl_tac[`emp_vec`,`change_pres_subgoals vx c`,`pfs`,
-      `fmlls`,`T`,`[]`,`lno`]>>
-    simp[LIST_TYPE_def,fetch "-" "emp_vec_v_thm"]>>
+      `fmlls`,`T`,`lno`]>>
+    simp[fetch "-" "emp_vec_v_thm"]>>
     EVAL_TAC)
   >- (xsimpl>>metis_tac[ARRAY_NUM_ARRAY_refl])>>
   Cases_on`extract_clauses_list emp_vec T fmlls
-    (change_pres_subgoals vx c) pfs []`>>gvs[]>>
+    (change_pres_subgoals vx c) pfs`>>gvs[]>>
   rename1`check_subproof_TYPE cpfs _`>>
   xlet`POSTve
     (λv.
@@ -9054,7 +9142,7 @@ Quote add_cakeml:
       (list_delete_arr ls fml;
         (fml, (assg, (st, (inds, (vimap, (id, (cfg', ht'))))))))
     else
-      case all_core_arr fml inds [] of None =>
+      case all_core_arr fml inds of None =>
         raise Fail (format_failure lno
         "not all constraints in core")
       | Some inds' =>
@@ -9458,11 +9546,8 @@ Resume check_cstep_arr_spec[Udel]:
     xcon>>xsimpl>>
     gvs[PAIR_TYPE_def]>>
     metis_tac[ARRAY_NUM_ARRAY_refl])>>
-  xlet`POSTv v. ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
-    ARRAY vimapa vimaplsv * ARRAY bksv1 bkslsv1 * &LIST_TYPE NUM [] v`
-  >- (xcon>>xsimpl>>simp[LIST_TYPE_def])>>
   xlet_autop>>
-  Cases_on`all_core_list fmlls inds []`>>
+  Cases_on`all_core_list fmlls inds`>>
   fs[OPTION_TYPE_def]>>
   xmatch
   >- (

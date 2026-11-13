@@ -38,21 +38,6 @@ val _ = strip_numbers_side |> update_precondition;
 
 val r = translate pbcTheory.map_lit_def;
 
-(* TODO: decouple parse_lit from goodChar *)
-(* Character codes are below 256: compared as small integers *)
-val r = translate (goodChar_eq
-  |> REWRITE_RULE [GSYM smallnum_lt_def,GSYM smallnum_le_def,GSYM smallnum_eq_def]);
-
-Theorem goodchar_side[local]:
-  goodchar_side c ⇔ T
-Proof
-  rw[fetch "-" "goodchar_side_def",semanticPrimitivesTheory.index_in_bounds_def]>>
-  assume_tac (Q.SPEC `c` ORD_BOUND)>>
-  intLib.ARITH_TAC
-QED
-
-val _ = goodchar_side |> update_precondition;
-
 Theorem goodChars_small:
   goodChars n str =
   if smallnum_eq_str n 0 str then T
@@ -64,14 +49,18 @@ Proof
   simp[goodChars_def,smallnum_eq_str_def,smallnum_sub_str_def]
 QED
 
-val r = translate_no_ind goodChars_small;
+(* Character codes are below 256: compared as small integers *)
+val r = translate_no_ind (goodChars_small
+  |> REWRITE_RULE [goodChar_eq]
+  |> REWRITE_RULE [GSYM smallnum_lt_def,GSYM smallnum_le_def,GSYM smallnum_eq_def]);
 
 Theorem goodchars_ind_small[local]:
   goodchars_ind
 Proof
   once_rewrite_tac [fetch "-" "goodchars_ind_def"]>>
   rpt strip_tac>>
-  completeInduct_on`v2`>>
+  rename1`P n s`>>
+  completeInduct_on`n`>>
   rpt strip_tac>>
   last_x_assum match_mp_tac>>
   rw[]>>
@@ -87,7 +76,9 @@ Proof
   Induct>>
   rw[Once (fetch "-" "goodchars_side_def")]>>
   gvs[semanticPrimitivesTheory.index_in_bounds_def,smallnum_eq_str_def,
-      smallnum_sub_str_def]
+      smallnum_sub_str_def]>>
+  qspec_then`strsub_unsafe s n` assume_tac ORD_BOUND>>
+  decide_tac
 QED
 
 val r = translate goodString_def;
@@ -169,7 +160,14 @@ val r = translate parse_subst_def;
 
 val r = translate pbcTheory.lit_var_def;
 val r = translate compact_lhs_def;
-val r = translate term_le_def;
+
+Theorem lit_var_case[local]:
+  lit_var l = case l of Pos v => v | Neg v => v
+Proof
+  Cases_on`l`>>simp[]
+QED
+
+val r = translate (term_le_def |> REWRITE_RULE [lit_var_case]);
 val r = translate mk_coeff_def;
 val r = translate normalise_lhs_def;
 
@@ -178,8 +176,39 @@ val r = translate pbcTheory.negate_op_def;
 val r = translate ge_of_def;
 val r = translate pbcTheory.negate_def;
 val r = translate rel_ges_def;
-val r = translate merge_const_def;
-val r = translate merge_terms_def;
+val r = translate (merge_const_def |> REWRITE_RULE [lit_var_case]);
+
+Theorem merge_const_ind_thm[local]:
+  merge_const_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "merge_const_ind_def"]>>
+  rpt gen_tac>>
+  rpt (disch_then strip_assume_tac)>>
+  match_mp_tac merge_const_ind>>
+  rpt strip_tac>>
+  last_x_assum match_mp_tac>>
+  rpt strip_tac>>
+  gvs[GSYM lit_var_case]
+QED
+
+val _ = merge_const_ind_thm |> update_precondition;
+
+val r = translate (merge_terms_def |> REWRITE_RULE [lit_var_case]);
+
+Theorem merge_terms_ind_thm[local]:
+  merge_terms_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "merge_terms_ind_def"]>>
+  rpt gen_tac>>
+  rpt (disch_then strip_assume_tac)>>
+  match_mp_tac merge_terms_ind>>
+  rpt strip_tac>>
+  last_x_assum match_mp_tac>>
+  rpt strip_tac>>
+  gvs[GSYM lit_var_case]
+QED
+
+val _ = merge_terms_ind_thm |> update_precondition;
 val r = translate to_npbc_fast;
 val r = translate to_gnpbc_def;
 val r = translate inject_def;
@@ -261,26 +290,30 @@ val r = translate check_end_def;
 
 val r = translate blanks_def;
 
-val r = translate scan_tok_def;
+val r = translate scan_end_def;
 
-Theorem scan_tok_side[local]:
-  m ≤ 3 ∧ i ≤ j ∧ j ≤ strlen s ⇒ scan_tok_side s m neg acc i j
+Theorem scan_end_side[local]:
+  ∀s n j. n = strlen s ∧ j ≤ n ⇒ scan_end_side s n j
 Proof
-  rw[fetch "-" "scan_tok_side_def",smallnum_eq_def,smallnum_sub_str_def,
-     semanticPrimitivesTheory.index_in_bounds_def]>>
-  intLib.ARITH_TAC
+  ho_match_mp_tac scan_end_ind>>
+  rpt gen_tac>>strip_tac>>
+  rpt strip_tac>>
+  `ORD (strsub s j) < 256` by simp[ORD_BOUND]>>
+  simp[Once (fetch "-" "scan_end_side_def")]>>
+  fs[smallnum_lt_str_def,smallnum_add_str_def,smallnum_eq_def,smallnum_lt_def,
+     semanticPrimitivesTheory.index_in_bounds_def,
+     mlstringTheory.strsub_unsafe_eq_strsub]
 QED
 
-val r = translate scan_toks_def;
+val r = translate num_run_def;
 
-Theorem scan_toks_side[local]:
-  ∀s n m neg acc k i j.
-  n = strlen s ∧ i ≤ j ∧ j ≤ n ∧ m ≤ 3 ∧ k ≤ 9 ∧ (k < 9 ⇒ acc < 10 ** k) ⇒
-  scan_toks_side s n m neg acc k i j
+Theorem num_run_side[local]:
+  ∀s e j acc k.
+  e ≤ strlen s ∧ j ≤ e ∧ k ≤ 9 ∧ (k < 9 ⇒ acc < 10 ** k) ⇒
+  num_run_side s e j acc k
 Proof
-  ho_match_mp_tac scan_toks_ind>>
-  rpt gen_tac>>
-  strip_tac>>
+  ho_match_mp_tac num_run_ind>>
+  rpt gen_tac>>strip_tac>>
   rpt strip_tac>>
   `ORD (strsub s j) < 256` by simp[ORD_BOUND]>>
   `k < 9 ⇒ acc < 10 ** 8` by (
@@ -288,17 +321,53 @@ Proof
     irule LESS_LESS_EQ_TRANS>>
     qexists_tac`10 ** k`>>
     simp[EXP_BASE_LE_MONO])>>
-  simp[Once (fetch "-" "scan_toks_side_def")]>>
-  fs[smallnum_lt_str_def,smallnum_add_str_def,smallnum_sub_str_def,
-     smallnum_eq_def,smallnum_lt_def,smallnum_le_def,smallnum_sub_def,
-     smallnum_add_def,smallnum_mul_def,
+  simp[Once (fetch "-" "num_run_side_def")]>>
+  fs[smallnum_lt_str_def,smallnum_add_str_def,smallnum_le_def,smallnum_lt_def,
+     smallnum_add_def,smallnum_sub_def,smallnum_mul_def,
      semanticPrimitivesTheory.index_in_bounds_def,
-     mlstringTheory.strsub_unsafe_eq_strsub,
-     ml_translatorTheory.FALSE_def,ml_translatorTheory.TRUE_def]>>
+     mlstringTheory.strsub_unsafe_eq_strsub]>>
   rw[]>>
-  fs[scan_tok_side,EXP_ADD]>>
-  rpt (pop_assum kall_tac)>>
-  intLib.ARITH_TAC
+  first_x_assum irule>>
+  rw[EXP_ADD]
+QED
+
+val r = translate tok_val_def;
+
+Theorem tok_val_side[local]:
+  i < e ∧ e ≤ strlen s ⇒ tok_val_side s i e
+Proof
+  rw[fetch "-" "tok_val_side_def"]>>
+  `ORD (strsub s i) < 256 ∧ ORD (strsub s (i + 1)) < 256` by simp[ORD_BOUND]>>
+  fs[smallnum_lt_str_def,smallnum_add_str_def,smallnum_sub_str_def,
+     smallnum_le_def,smallnum_eq_def,smallnum_sub_def,
+     mlstringTheory.strsub_unsafe_eq_strsub]>>
+  irule num_run_side>>
+  simp[]
+QED
+
+val r = translate scan_toks_def;
+
+Theorem scan_toks_side[local]:
+  ∀s n j. n = strlen s ∧ j ≤ n ⇒ scan_toks_side s n j
+Proof
+  ho_match_mp_tac scan_toks_ind>>
+  rpt gen_tac>>strip_tac>>
+  rpt strip_tac>>
+  `ORD (strsub s j) < 256` by simp[ORD_BOUND]>>
+  simp[Once (fetch "-" "scan_toks_side_def")]>>
+  fs[smallnum_lt_str_def,smallnum_add_str_def,smallnum_eq_def,smallnum_lt_def,
+     semanticPrimitivesTheory.index_in_bounds_def,
+     mlstringTheory.strsub_unsafe_eq_strsub]>>
+  strip_tac>>
+  qspecl_then[`s`,`strlen s`,`j + 1`,`scan_end s (strlen s) (j + 1)`] mp_tac
+    scan_end_thm>>
+  simp[]>>
+  strip_tac>>
+  rw[]
+  >>~- ([`tok_val_side _ _ _`], irule tok_val_side>>simp[])
+  >>~- ([`scan_end_side _ _ _`], irule scan_end_side>>simp[])>>
+  first_x_assum irule>>
+  simp[]
 QED
 
 val r = translate toks_scan_toks;
@@ -568,27 +637,14 @@ val r = translate tb_sizes_def;
 val r = translate next_size_aux_def;
 val r = translate next_size_def;
 
-val r = translate read_digits_def;
-
-Theorem read_digits_side[local]:
-  ∀s i n acc. n = strlen s ∧ i ≤ n ⇒ read_digits_side s i n acc
-Proof
-  ho_match_mp_tac read_digits_ind>>
-  rpt strip_tac>>
-  simp[Once (fetch "-" "read_digits_side_def")]>>
-  `ORD (strsub_unsafe s i) < 256` by simp[ORD_BOUND]>>
-  fs[smallnum_lt_str_def,smallnum_add_str_def,smallnum_le_def,
-     smallnum_sub_def,semanticPrimitivesTheory.index_in_bounds_def]
-QED
-
 val r = translate read_nat_def;
 
 Theorem read_nat_side[local]:
   n = strlen s ∧ i ≤ n ⇒ read_nat_side s i n
 Proof
-  rw[fetch "-" "read_nat_side_def",smallnum_lt_str_def,smallnum_add_str_def]>>
-  irule read_digits_side>>
-  simp[]
+  rw[fetch "-" "read_nat_side_def",smallnum_lt_str_def,smallnum_add_str_def]
+  >>~- ([`num_run_side _ _ _ _ _`], irule num_run_side>>simp[])>>
+  fs[integerTheory.INT_NOT_LT]
 QED
 
 val r = translate x_initial_def;

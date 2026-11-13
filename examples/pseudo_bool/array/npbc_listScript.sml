@@ -1129,22 +1129,22 @@ QED
 Finalise fml_rel_check_lstep_list;
 
 Definition extract_clauses_list_def:
-  (extract_clauses_list s b fml rsubs [] acc =
-    SOME (REVERSE acc)) ∧
-  (extract_clauses_list s b fml rsubs (cpf::pfs) acc =
+  (extract_clauses_list s b fml rsubs [] = SOME []) ∧
+  (extract_clauses_list s b fml rsubs (cpf::pfs) =
     case cpf of
       (NONE,pf) =>
-      extract_clauses_list s b fml rsubs pfs ((NONE,pf)::acc)
+      OPTION_MAP (CONS (NONE,pf))
+        (extract_clauses_list s b fml rsubs pfs)
     | (SOME (INL n,i),pf) =>
         (case lookup_core_only_list b fml n of
           Empty => NONE
         | c =>
-          extract_clauses_list s b fml rsubs pfs
-            ((SOME ([not (subst_slot s c)],i),pf)::acc))
+          OPTION_MAP (CONS (SOME ([not (subst_slot s c)],i),pf))
+            (extract_clauses_list s b fml rsubs pfs))
     | (SOME (INR u,i),pf) =>
       if u < LENGTH rsubs then
-        extract_clauses_list s b fml rsubs pfs
-          ((SOME (EL u rsubs,i),pf)::acc)
+        OPTION_MAP (CONS (SOME (EL u rsubs,i),pf))
+          (extract_clauses_list s b fml rsubs pfs)
       else NONE)
 End
 
@@ -1155,7 +1155,7 @@ Definition extract_scopes_list_def:
     s b fml rsubs ((sc,pfs)::rest) =
     case mk_scope scopes sc of NONE => NONE
     | SOME scs =>
-    case extract_clauses_list s b fml rsubs pfs [] of
+    case extract_clauses_list s b fml rsubs pfs of
       NONE => NONE
     | SOME cpfs =>
       case extract_scopes_list scopes s b fml rsubs rest of
@@ -1267,15 +1267,11 @@ Definition check_scopes_list_def:
         check_scopes_list scpfs b rfml mindel id' assg' st')
 End
 
-Definition reindex_aux_def:
-  (reindex_aux fml [] iacc = REVERSE iacc) ∧
-  (reindex_aux fml (i::is) iacc =
-  if any_el i fml Empty = Empty then reindex_aux fml is iacc
-  else reindex_aux fml is (i::iacc))
-End
-
 Definition reindex_def:
-  (reindex fml is = reindex_aux fml is [])
+  (reindex fml [] = []) ∧
+  (reindex fml (i::is) =
+  if any_el i fml Empty = Empty then reindex fml is
+  else i :: reindex fml is)
 End
 
 Definition subst_indexes_def:
@@ -1831,7 +1827,6 @@ End
 
 (* The records from id j renamed under witness w, on side us (side) or vs;
   ts holds the touched ids *)
-(* TMC *)
 Definition fast_rn_def:
   (fast_rn w side ([]:ord_rec list) ts (j:num) = []) ∧
   (fast_rn w side (r::rs) ts j =
@@ -1850,7 +1845,6 @@ Termination
 End
 
 (* As fast_rn on side us, as the one-element lists of the negations *)
-(* TMC *)
 Definition fast_rn_not_def:
   (fast_rn_not w ([]:ord_rec list) ts (j:num) = ([]:npbc list list)) ∧
   (fast_rn_not w (r::rs) ts j =
@@ -1868,7 +1862,6 @@ Termination
 End
 
 (* As fast_rn, as scope hypotheses: the slot of an untouched record *)
-(* TMC *)
 Definition fast_rn_sc_def:
   (fast_rn_sc w side ([]:ord_rec list) ts (j:num) = ([]:sc_hyp list)) ∧
   (fast_rn_sc w side (r::rs) ts j =
@@ -2603,12 +2596,15 @@ QED
   positively and negatively, newest first. The ids up to m (the input
   constraints) are always kept. Until the variable is first read, the
   ids above m are capped: Vcount k counts their k insertions, and Vinput
-  has dropped them. A read variable is tracked uncapped (Vtrack) *)
+  has dropped them. A read variable is tracked uncapped (Vtrack). Vrebuild
+  is a witness variable whose dropped ids are being recovered by the walk
+  in get_set_indices *)
 Datatype:
   vent = Vnone
        | Vtrack (num list) (num list)
        | Vcount num (num list) (num list)
        | Vinput (num list) (num list)
+       | Vrebuild (num list) (num list)
 End
 
 (* The positive and negative lists of an entry *)
@@ -2616,7 +2612,8 @@ Definition vent_lists_def[simp]:
   (vent_lists Vnone = ([],[]):num list # num list) ∧
   (vent_lists (Vtrack pinds ninds) = (pinds,ninds)) ∧
   (vent_lists (Vcount k pinds ninds) = (pinds,ninds)) ∧
-  (vent_lists (Vinput pinds ninds) = (pinds,ninds))
+  (vent_lists (Vinput pinds ninds) = (pinds,ninds)) ∧
+  (vent_lists (Vrebuild pinds ninds) = (pinds,ninds))
 End
 
 (* The index (m, vw, entries): its entries cover the constraints below
@@ -2630,6 +2627,8 @@ Definition vent_mem_def:
   (vent_mem m (Vcount k pinds ninds) pos i =
     MEM i (if pos then pinds else ninds)) ∧
   (vent_mem m (Vinput pinds ninds) pos i =
+    (m < i ∨ MEM i (if pos then pinds else ninds))) ∧
+  (vent_mem m (Vrebuild pinds ninds) pos i =
     (m < i ∨ MEM i (if pos then pinds else ninds)))
 End
 
@@ -2662,7 +2661,9 @@ Definition vent_insert_def:
   (vent_insert m pos i (Vinput pinds ninds) =
     if i ≤ m then
       (if pos then Vinput (i::pinds) ninds else Vinput pinds (i::ninds))
-    else Vinput pinds ninds)
+    else Vinput pinds ninds) ∧
+  (vent_insert m pos i (Vrebuild pinds ninds) =
+    if pos then Vrebuild (i::pinds) ninds else Vrebuild pinds (i::ninds))
 End
 
 (* Inserts id i for the first k terms of the slot cs, vs *)
@@ -2699,36 +2700,36 @@ Definition fill_vimap_def:
   else (m, id, fill_vimap_aux m fml ents vw id)
 End
 
-(* Adds id i to the lists in t of the variables among the first k terms
-  of the slot cs, vs *)
-Definition rebuild_slot_def:
-  rebuild_slot (t:(num list # num list) num_map) (i:num) cs vs k =
-  if k = 0 then t
+(* Adds id i to the entries being rebuilt among the variables of the first
+  k terms of the slot cs, vs *)
+Definition rebuild_ents_slot_def:
+  rebuild_ents_slot (ents:vent list) (i:num) cs vs k =
+  if k = 0 then ents
   else
     let k1 = k - 1 in
     let x = sub_unsafe vs k1 in
-    case sptree$lookup x t of
-      NONE => rebuild_slot t i cs vs k1
-    | SOME (pinds,ninds) =>
-      rebuild_slot
-        (insert x
+    case any_el x ents Vnone of
+      Vrebuild pinds ninds =>
+      rebuild_ents_slot
+        (update_resize ents Vnone
           (if 0 ≤ (sub_unsafe cs k1):int
-           then (i::pinds,ninds) else (pinds,i::ninds)) t)
+           then Vrebuild (i::pinds) ninds else Vrebuild pinds (i::ninds)) x)
         i cs vs k1
+    | _ => rebuild_ents_slot ents i cs vs k1
 End
 
-(* Adds the ids from i up to vw, oldest first *)
-Definition rebuild_aux_def:
-  rebuild_aux fml t (i:num) (vw:num) =
-  if vw ≤ i then t
+(* Adds the ids from i up to vw to the entries being rebuilt, oldest first *)
+Definition rebuild_ents_def:
+  rebuild_ents fml ents (i:num) (vw:num) =
+  if vw ≤ i then ents
   else
-    let t =
+    let ents =
       (case any_el i fml Empty of
-        Empty => t
-      | Stored cs vs d mc sm b => rebuild_slot t i cs vs (length vs)) in
-    rebuild_aux fml t (i+1) vw
+        Empty => ents
+      | Stored cs vs d mc sm b => rebuild_ents_slot ents i cs vs (length vs)) in
+    rebuild_ents fml ents (i+1) vw
 Termination
-  WF_REL_TAC`measure (λ(fml,t,i,vw). vw - i)`
+  WF_REL_TAC`measure (λ(fml,ents,i,vw). vw - i)`
 End
 
 (* The lists read by rhs, added to acc when not empty *)
@@ -2794,34 +2795,49 @@ Definition do_reindex_rhs_def:
     (reindex fml pinds, reindex fml ninds))
 End
 
-(* Reads the witness variables: the read lists are added to acc, and the
-  cleaned lists of the variables whose ids above m were dropped go to t *)
-Definition get_inds_fold_def:
-  (get_inds_fold fml [] acc ents t = (acc,ents,t)) ∧
-  (get_inds_fold fml ((n,rhs)::xs) acc ents t =
+(* Reads the witness variables: the read lists are added to acc; the
+  variables whose ids above m were dropped become Vrebuild with their
+  cleaned lists, and rb records that a walk is needed *)
+Definition get_inds_fold_ents_def:
+  (get_inds_fold_ents fml [] acc ents rb = (acc,ents,rb)) ∧
+  (get_inds_fold_ents fml ((n,rhs)::xs) acc ents rb =
     case any_el n ents Vnone of
       Vnone =>
-      get_inds_fold fml xs acc
-        (update_resize ents Vnone (Vtrack [] []) n) t
+      get_inds_fold_ents fml xs acc
+        (update_resize ents Vnone (Vtrack [] []) n) rb
     | Vinput pinds ninds =>
       let (pinds,ninds) = do_reindex_rhs fml rhs pinds ninds in
-      get_inds_fold fml xs acc ents (insert n (pinds,ninds) t)
+      get_inds_fold_ents fml xs acc
+        (update_resize ents Vnone (Vrebuild pinds ninds) n) T
+    | Vrebuild pinds ninds =>
+      let (pinds,ninds) = do_reindex_rhs fml rhs pinds ninds in
+      get_inds_fold_ents fml xs acc
+        (update_resize ents Vnone (Vrebuild pinds ninds) n) T
     | e =>
       let (pinds,ninds) = vent_lists e in
       let (pinds,ninds) = do_reindex_rhs fml rhs pinds ninds in
-      get_inds_fold fml xs (get_inds_rhs_list rhs pinds ninds acc)
-        (update_resize ents Vnone (Vtrack pinds ninds) n) t)
+      get_inds_fold_ents fml xs (get_inds_rhs_list rhs pinds ninds acc)
+        (update_resize ents Vnone (Vtrack pinds ninds) n) rb)
 End
 
-(* Reads the rebuilt witness variables in t *)
-Definition get_inds_rebuilt_def:
-  (get_inds_rebuilt [] t acc ents = (acc,ents)) ∧
-  (get_inds_rebuilt ((n,rhs)::xs) t acc ents =
-    case sptree$lookup n t of
-      NONE => get_inds_rebuilt xs t acc ents
-    | SOME (pinds,ninds) =>
-      get_inds_rebuilt xs t (get_inds_rhs_list rhs pinds ninds acc)
-        (update_resize ents Vnone (Vtrack pinds ninds) n))
+(* Reads the rebuilt witness variables *)
+Definition get_inds_rebuilt_ents_def:
+  (get_inds_rebuilt_ents [] acc ents = acc) ∧
+  (get_inds_rebuilt_ents ((n,rhs)::xs) acc ents =
+    case any_el n ents Vnone of
+      Vrebuild pinds ninds =>
+      get_inds_rebuilt_ents xs (get_inds_rhs_list rhs pinds ninds acc) ents
+    | _ => get_inds_rebuilt_ents xs acc ents)
+End
+
+(* The rebuilt witness variables become tracked *)
+Definition finish_rebuilt_def:
+  (finish_rebuilt [] ents = ents) ∧
+  (finish_rebuilt ((n,rhs)::xs) ents =
+    case any_el n ents Vnone of
+      Vrebuild pinds ninds =>
+      finish_rebuilt xs (update_resize ents Vnone (Vtrack pinds ninds) n)
+    | _ => finish_rebuilt xs ents)
 End
 
 (* The indices of the constraints the witness s can change, and the index
@@ -2829,11 +2845,12 @@ End
   by one walk of the constraints above m *)
 Definition get_set_indices_def:
   get_set_indices fml s ((m,vw,ents):vimap_ty) =
-  let (acc,ents,t) = get_inds_fold fml s [] ents LN in
+  let (acc,ents,rb) = get_inds_fold_ents fml s [] ents F in
   let (acc,ents) =
-    (case t of
-      LN => (acc,ents)
-    | _ => get_inds_rebuilt s (rebuild_aux fml t (m+1) vw) acc ents) in
+    if rb then
+      let ents = rebuild_ents fml ents (m+1) vw in
+      (get_inds_rebuilt_ents s acc ents, finish_rebuilt s ents)
+    else (acc,ents) in
   (merge_all acc, (m,vw,ents))
 End
 
@@ -2852,7 +2869,8 @@ Definition vent_fresh_def:
   (vent_fresh Vnone ⇔ T) ∧
   (vent_fresh (Vtrack pinds ninds) ⇔ NULL pinds ∧ NULL ninds) ∧
   (vent_fresh (Vcount k pinds ninds) ⇔ NULL pinds ∧ NULL ninds) ∧
-  (vent_fresh (Vinput pinds ninds) ⇔ F)
+  (vent_fresh (Vinput pinds ninds) ⇔ F) ∧
+  (vent_fresh (Vrebuild pinds ninds) ⇔ F)
 End
 
 Definition check_fresh_aux_fml_vimap_def:
@@ -2988,31 +3006,49 @@ Definition check_sstep_list_def:
     | NONE => NONE)
 End
 
-Theorem fml_rel_extract_clauses_list:
+Theorem fml_rel_extract_clauses_list_acc[local]:
   ∀ls s b fml fmlls rsubs acc.
   fml_rel fml fmlls ⇒
   extract_clauses (subst_fun s) b fml rsubs ls acc =
-  extract_clauses_list s b fmlls rsubs ls acc
+  OPTION_MAP (λr. REVERSE acc ++ r)
+    (extract_clauses_list s b fmlls rsubs ls)
 Proof
   Induct>>rw[extract_clauses_def,extract_clauses_list_def]>>
+  first_x_assum (drule_then assume_tac)>>
   PairCases_on`h`>>
   Cases_on`h0`>>
-  simp[extract_clauses_def,extract_clauses_list_def]>>
+  simp[extract_clauses_def,extract_clauses_list_def,OPTION_MAP_COMPOSE,
+    combinTheory.o_DEF]
+  >- rewrite_tac[GSYM APPEND_ASSOC,APPEND]>>
   PairCases_on`x`>>
-  Cases_on`x0`
+  Cases_on`x0`>>
+  simp[]
   >- (
-    gvs[slot_CASE_default]>>
     Cases_on`lookup_core_only b fml x`
     >- (
       `lookup_core_only_list b fmlls x = Empty` by
         metis_tac[fml_rel_lookup_core_only_list]>>
-      gvs[])>>
-    `∃b'. lookup_core_only_list b fmlls x = enc x' b'` by
+      simp[])>>
+    rename1`lookup_core_only b fml x = SOME c`>>
+    `∃b'. lookup_core_only_list b fmlls x = enc c b'` by
       metis_tac[fml_rel_lookup_core_only_list]>>
-    gvs[subst_slot_enc])>>
+    gvs[slot_CASE_default,subst_slot_enc,OPTION_MAP_COMPOSE,
+      combinTheory.o_DEF]>>
+    rewrite_tac[GSYM APPEND_ASSOC,APPEND])>>
+  rw[OPTION_MAP_COMPOSE,combinTheory.o_DEF]>>
+  rewrite_tac[GSYM APPEND_ASSOC,APPEND]
+QED
+
+Theorem fml_rel_extract_clauses_list:
+  ∀ls s b fml fmlls rsubs.
+  fml_rel fml fmlls ⇒
+  extract_clauses (subst_fun s) b fml rsubs ls [] =
+  extract_clauses_list s b fmlls rsubs ls
+Proof
   rw[]>>
-  first_x_assum irule>>
-  simp[]
+  drule fml_rel_extract_clauses_list_acc>>
+  disch_then (qspecl_then[`ls`,`s`,`b`,`rsubs`,`[]`] assume_tac)>>
+  Cases_on`extract_clauses_list s b fmlls rsubs ls`>>gvs[]
 QED
 
 Theorem fml_rel_extract_scopes_list:
@@ -3526,20 +3562,10 @@ Proof
   gvs[rollback_list_delete,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]
 QED
 
-Theorem reindex_aux:
-  ∀inds iacc.
-  reindex_aux fmlls inds iacc =
-  let is = FILTER (λx. any_el x fmlls Empty ≠ Empty) inds in
-  (REVERSE iacc ++ is)
-Proof
-  Induct>>rw[reindex_aux_def]>>
-  Cases_on`any_el h fmlls Empty`>>gvs[]
-QED
-
 Theorem reindex_characterize:
   reindex fmlls inds = FILTER (λx. any_el x fmlls Empty ≠ Empty) inds
 Proof
-  rw[reindex_def,reindex_aux]
+  Induct_on`inds`>>rw[reindex_def]
 QED
 
 (* A hit in the table is a constraint of the formula, wherever the walk
@@ -4059,79 +4085,91 @@ Proof
   every_case_tac>>gvs[reindex_characterize,MEM_FILTER]
 QED
 
-Theorem rebuild_slot_lookup:
-  ∀k t.
-  (lookup x (rebuild_slot t i cs vs k) = NONE ⇔ lookup x t = NONE) ∧
-  ∀p n. lookup x t = SOME (p,n) ⇒
-  ∃p' n'. lookup x (rebuild_slot t i cs vs k) = SOME (p',n') ∧
+Theorem rebuild_ents_slot_thm:
+  ∀k ents.
+  ((∀p n. any_el x ents Vnone ≠ Vrebuild p n) ⇒
+    any_el x (rebuild_ents_slot ents i cs vs k) Vnone = any_el x ents Vnone) ∧
+  ∀p n. any_el x ents Vnone = Vrebuild p n ⇒
+  ∃p' n'. any_el x (rebuild_ents_slot ents i cs vs k) Vnone = Vrebuild p' n' ∧
     (∀j. MEM j p' ⇔ MEM j p ∨
       j = i ∧ ∃l. l < k ∧ sub vs l = x ∧ 0 ≤ sub cs l) ∧
     (∀j. MEM j n' ⇔ MEM j n ∨
       j = i ∧ ∃l. l < k ∧ sub vs l = x ∧ sub cs l < 0)
 Proof
   Induct
-  >- (ONCE_REWRITE_TAC[rebuild_slot_def]>>simp[])>>
-  ONCE_REWRITE_TAC[rebuild_slot_def]>>
+  >- (ONCE_REWRITE_TAC[rebuild_ents_slot_def]>>simp[])>>
+  ONCE_REWRITE_TAC[rebuild_ents_slot_def]>>
   simp[]>>
   gen_tac>>
-  Cases_on`lookup (sub vs k) t`>>simp[]
-  >- (
-    rpt strip_tac>>
-    first_x_assum (qspec_then`t` strip_assume_tac)>>
-    first_x_assum drule>>strip_tac>>
-    qexistsl_tac[`p'`,`n'`]>>simp[]>>
-    `x ≠ sub vs k` by (CCONTR_TAC>>gvs[])>>
-    `∀l. l < SUC k ∧ sub vs l = x ⇔ l < k ∧ sub vs l = x` by (
-      rw[EQ_IMP_THM]>>
-      Cases_on`l = k`>>gvs[])>>
-    metis_tac[])>>
-  rename1`lookup (sub vs k) t = SOME pn`>>
-  PairCases_on`pn`>>simp[]>>
-  qmatch_goalsub_abbrev_tac`rebuild_slot t1 i cs vs k`>>
-  first_x_assum (qspec_then`t1` strip_assume_tac)>>
-  conj_tac
-  >- (
-    simp[Abbr`t1`,lookup_insert]>>
-    Cases_on`x = sub vs k`>>gvs[])>>
-  rpt strip_tac>>
   `∀l. l < SUC k ⇔ l < k ∨ l = k` by simp[]>>
-  Cases_on`x = sub vs k`
+  Cases_on`any_el (sub vs k) ents Vnone`>>simp[]
+  >~ [`any_el (sub vs k) ents Vnone = Vrebuild py ny`]
   >- (
-    gvs[]>>
-    qpat_x_assum`∀p n. lookup _ t1 = SOME (p,n) ⇒ _` (qspecl_then
-        [`if 0 ≤ sub cs k then i::p else p`,
-         `if 0 ≤ sub cs k then n else i::n`] mp_tac)>>
-    impl_tac>- (Cases_on`0 ≤ sub cs k`>>gvs[Abbr`t1`,lookup_insert])>>
+    qmatch_goalsub_abbrev_tac`rebuild_ents_slot ents1 i cs vs k`>>
+    first_x_assum (qspec_then`ents1` strip_assume_tac)>>
+    conj_tac
+    >- (
+      strip_tac>>
+      `x ≠ sub vs k` by (CCONTR_TAC>>gvs[])>>
+      `any_el x ents1 Vnone = any_el x ents Vnone` by
+        simp[Abbr`ents1`,any_el_update_resize]>>
+      qpat_x_assum`(∀p n. any_el x ents1 Vnone ≠ _) ⇒ _` mp_tac>>
+      simp[])>>
+    rpt strip_tac>>
+    Cases_on`x = sub vs k`
+    >- (
+      `any_el x ents1 Vnone =
+        if 0 ≤ sub cs k then Vrebuild (i::p) n else Vrebuild p (i::n)` by
+        gvs[Abbr`ents1`,any_el_update_resize]>>
+      Cases_on`0 ≤ sub cs k`
+      >- (
+        qpat_x_assum`∀p n. any_el x ents1 Vnone = _ ⇒ _`
+          (qspecl_then [`i::p`,`n`] mp_tac)>>
+        impl_tac >- gvs[]>>
+        disch_then (qx_choosel_then [`pp`,`nn`] strip_assume_tac)>>
+        qexistsl_tac[`pp`,`nn`]>>
+        `¬(sub cs k < 0)` by intLib.ARITH_TAC>>
+        simp[RIGHT_AND_OVER_OR,LEFT_AND_OVER_OR,EXISTS_OR_THM]>>
+        metis_tac[])>>
+      qpat_x_assum`∀p n. any_el x ents1 Vnone = _ ⇒ _`
+        (qspecl_then [`p`,`i::n`] mp_tac)>>
+      impl_tac >- gvs[]>>
+      disch_then (qx_choosel_then [`pp`,`nn`] strip_assume_tac)>>
+      qexistsl_tac[`pp`,`nn`]>>
+      `sub cs k < 0` by intLib.ARITH_TAC>>
+      simp[RIGHT_AND_OVER_OR,LEFT_AND_OVER_OR,EXISTS_OR_THM]>>
+      metis_tac[])>>
+    `any_el x ents1 Vnone = any_el x ents Vnone` by
+      simp[Abbr`ents1`,any_el_update_resize]>>
+    qpat_x_assum`∀p n. any_el x ents1 Vnone = _ ⇒ _`
+      (qspecl_then [`p`,`n`] mp_tac)>>
+    impl_tac >- simp[]>>
     disch_then (qx_choosel_then [`pp`,`nn`] strip_assume_tac)>>
     qexistsl_tac[`pp`,`nn`]>>
-    simp[arithmeticTheory.LT,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,EXISTS_OR_THM]>>
-    Cases_on`0 ≤ sub cs k`
-    >- (
-      `¬(sub cs k < 0)` by intLib.ARITH_TAC>>
-      gvs[]>>metis_tac[])>>
-    `sub cs k < 0` by intLib.ARITH_TAC>>
-    gvs[]>>metis_tac[])>>
-  qpat_x_assum`∀p n. lookup _ t1 = SOME (p,n) ⇒ _` (qspecl_then [`p`,`n`] mp_tac)>>
-  impl_tac>- simp[Abbr`t1`,lookup_insert]>>
+    simp[RIGHT_AND_OVER_OR,LEFT_AND_OVER_OR,EXISTS_OR_THM])>>
+  rpt strip_tac>>
+  `x ≠ sub vs k` by (CCONTR_TAC>>gvs[])>>
+  first_x_assum (qspec_then`ents` (drule o CONJUNCT2))>>
   disch_then (qx_choosel_then [`pp`,`nn`] strip_assume_tac)>>
   qexistsl_tac[`pp`,`nn`]>>
-  simp[arithmeticTheory.LT,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR,EXISTS_OR_THM]
+  simp[RIGHT_AND_OVER_OR,LEFT_AND_OVER_OR,EXISTS_OR_THM]
 QED
 
 (* One step of the rebuild walk, on the slot s at index i *)
-Theorem rebuild_slot_dec_lookup:
+Theorem rebuild_ents_slot_dec:
   wf_slot s ⇒
-  ∀x t i.
-  (lookup x (case s of
-      Empty => t
-    | Stored cs vs d mc sm b => rebuild_slot t i cs vs (length vs)) = NONE ⇔
-   lookup x t = NONE) ∧
-  ∀p n. lookup x t = SOME (p,n) ⇒
+  ∀x ents i.
+  ((∀p n. any_el x ents Vnone ≠ Vrebuild p n) ⇒
+    any_el x (case s of
+      Empty => ents
+    | Stored cs vs d mc sm b => rebuild_ents_slot ents i cs vs (length vs))
+      Vnone = any_el x ents Vnone) ∧
+  ∀p n. any_el x ents Vnone = Vrebuild p n ⇒
   ∃p' n'.
-    lookup x (case s of
-      Empty => t
-    | Stored cs vs d mc sm b => rebuild_slot t i cs vs (length vs)) =
-      SOME (p',n') ∧
+    any_el x (case s of
+      Empty => ents
+    | Stored cs vs d mc sm b => rebuild_ents_slot ents i cs vs (length vs))
+      Vnone = Vrebuild p' n' ∧
     (∀j. MEM j p' ⇔ MEM j p ∨ j = i ∧
       ∃c. MEM (c,x) (FST (dec s)) ∧ 0 ≤ c) ∧
     (∀j. MEM j n' ⇔ MEM j n ∨ j = i ∧
@@ -4139,18 +4177,19 @@ Theorem rebuild_slot_dec_lookup:
 Proof
   Cases_on`s`>>rw[wf_slot_def]>>
   simp[EXISTS_MEM_dec_Stored]>>
-  rename1`rebuild_slot t i cs vs`>>
-  mp_tac (Q.SPECL [`length (vs:num vector)`,`t`] rebuild_slot_lookup)>>
+  rename1`rebuild_ents_slot ents i cs vs`>>
+  mp_tac (Q.SPECL [`length (vs:num vector)`,`ents`] rebuild_ents_slot_thm)>>
   simp[]
 QED
 
-Theorem rebuild_aux_lookup:
-  ∀d i t.
+Theorem rebuild_ents_thm:
+  ∀d i ents.
   d = vw - i ∧
   (∀k. wf_slot (any_el k fml Empty)) ⇒
-  (lookup x (rebuild_aux fml t i vw) = NONE ⇔ lookup x t = NONE) ∧
-  ∀p n. lookup x t = SOME (p,n) ⇒
-  ∃p' n'. lookup x (rebuild_aux fml t i vw) = SOME (p',n') ∧
+  ((∀p n. any_el x ents Vnone ≠ Vrebuild p n) ⇒
+    any_el x (rebuild_ents fml ents i vw) Vnone = any_el x ents Vnone) ∧
+  ∀p n. any_el x ents Vnone = Vrebuild p n ⇒
+  ∃p' n'. any_el x (rebuild_ents fml ents i vw) Vnone = Vrebuild p' n' ∧
     (∀j. MEM j p' ⇔ MEM j p ∨ i ≤ j ∧ j < vw ∧
       ∃c. MEM (c,x) (FST (dec (any_el j fml Empty))) ∧ 0 ≤ c) ∧
     (∀j. MEM j n' ⇔ MEM j n ∨ i ≤ j ∧ j < vw ∧
@@ -4158,7 +4197,7 @@ Theorem rebuild_aux_lookup:
 Proof
   completeInduct_on`d`>>
   rpt gen_tac>>strip_tac>>
-  ONCE_REWRITE_TAC[rebuild_aux_def]>>
+  ONCE_REWRITE_TAC[rebuild_ents_def]>>
   IF_CASES_TAC
   >- (
     simp[]>>
@@ -4166,19 +4205,19 @@ Proof
     `¬(i ≤ j ∧ j < vw)` by simp[]>>
     metis_tac[])>>
   simp[]>>
-  qmatch_goalsub_abbrev_tac`rebuild_aux fml t1 (i + 1) vw`>>
+  qmatch_goalsub_abbrev_tac`rebuild_ents fml ents1 (i + 1) vw`>>
   qpat_x_assum`∀m. m < d ⇒ _` (qspec_then`vw - (i + 1)` mp_tac)>>
   simp[]>>
-  disch_then (qspecl_then [`i + 1`,`t1`] mp_tac)>>
+  disch_then (qspecl_then [`i + 1`,`ents1`] mp_tac)>>
   simp[]>>strip_tac>>
   `wf_slot (any_el i fml Empty)` by simp[]>>
-  drule_then (qspecl_then [`x`,`t`,`i`] strip_assume_tac)
-    rebuild_slot_dec_lookup>>
-  gvs[Abbr`t1`]>>
+  drule_then (qspecl_then [`x`,`ents`,`i`] strip_assume_tac)
+    rebuild_ents_slot_dec>>
+  gvs[Abbr`ents1`]>>
   rpt strip_tac>>
-  qpat_x_assum`∀p n. lookup x t = SOME (p,n) ⇒ _` drule>>
+  qpat_x_assum`∀p n. any_el x ents Vnone = _ ⇒ _` drule>>
   disch_then (qx_choosel_then [`p1`,`n1`] strip_assume_tac)>>
-  qpat_x_assum`∀p n. _ = SOME (p,n) ⇒ ∃p' n'. lookup x (rebuild_aux _ _ _ _) = _ ∧ _`
+  qpat_x_assum`∀p n. any_el x (case _ of Empty => _ | _ => _) Vnone = _ ⇒ _`
     drule>>
   disch_then (qx_choosel_then [`p2`,`n2`] strip_assume_tac)>>
   qexistsl_tac[`p2`,`n2`]>>
@@ -4187,255 +4226,217 @@ Proof
   metis_tac[DECIDE``∀i j:num. i ≤ j ⇔ j = i ∨ i + 1 ≤ j``]
 QED
 
-
-Theorem get_inds_fold_thm:
-  ∀fml ls acc ents t acc' ents' t'.
-  get_inds_fold fml ls acc ents t = (acc',ents',t') ⇒
+(* The fold of the read: the read lists of the variables that were not
+  dropped go to acc, and the dropped ones become Vrebuild, keeping their
+  live ids *)
+Theorem get_inds_fold_ents_thm:
+  ∀fml ls acc ents rb acc' ents' rb'.
+  get_inds_fold_ents fml ls acc ents rb = (acc',ents',rb') ⇒
   (∀j. MEM j (FLAT acc) ⇒ MEM j (FLAT acc')) ∧
-  (∀x p0 n0. any_el x ents Vnone = Vinput p0 n0 ⇒
-    any_el x ents' Vnone = Vinput p0 n0) ∧
+  (rb ⇒ rb') ∧
+  (∀x. (∀rhs. ¬MEM (x,rhs) ls) ⇒
+    any_el x ents' Vnone = any_el x ents Vnone) ∧
   (∀x pos j.
     any_el j fml Empty ≠ Empty ∧ vent_mem m (any_el x ents Vnone) pos j ⇒
     vent_mem m (any_el x ents' Vnone) pos j) ∧
-  (∀x. lookup x t ≠ NONE ⇒ lookup x t' ≠ NONE) ∧
-  (∀x. lookup x t' ≠ NONE ⇒ lookup x t ≠ NONE ∨ ∃rhs. MEM (x,rhs) ls) ∧
-  (∀x p n. lookup x t' = SOME (p,n) ⇒
-    lookup x t = SOME (p,n) ∨
-    ∃p0 n0. any_el x ents Vnone = Vinput p0 n0 ∧
-      ∀pos j. any_el j fml Empty ≠ Empty ∧
-        MEM j (if pos then p0 else n0) ⇒ MEM j (if pos then p else n)) ∧
   (∀x rhs. MEM (x,rhs) ls ⇒
-    (∃p0 n0. any_el x ents Vnone = Vinput p0 n0) ∧ lookup x t' ≠ NONE ∨
-    (∀p0 n0. any_el x ents Vnone ≠ Vinput p0 n0) ∧
+    (∃p0 n0.
+      any_el x ents Vnone = Vinput p0 n0 ∨
+      any_el x ents Vnone = Vrebuild p0 n0) ∧
+    rb' ∧ (∃p n. any_el x ents' Vnone = Vrebuild p n) ∨
+    (∀p0 n0.
+      any_el x ents Vnone ≠ Vinput p0 n0 ∧
+      any_el x ents Vnone ≠ Vrebuild p0 n0) ∧
     ∀pos j. any_el j fml Empty ≠ Empty ∧
       vent_mem m (any_el x ents Vnone) pos j ∧ rhs ≠ INL pos ⇒
       MEM j (FLAT acc'))
 Proof
-  ho_match_mp_tac get_inds_fold_ind>>
+  ho_match_mp_tac get_inds_fold_ents_ind>>
   rpt conj_tac
-  >- simp[get_inds_fold_def]>>
+  >- simp[get_inds_fold_ents_def]>>
   rpt gen_tac>>strip_tac>>
   rpt gen_tac>>
-  simp[Once get_inds_fold_def]>>
-  reverse (Cases_on`any_el n ents Vnone`)>>gvs[]
+  simp[Once get_inds_fold_ents_def]>>
+  Cases_on`any_el n ents Vnone`>>gvs[]
   >- (
-    pairarg_tac>>gvs[]>>
     strip_tac>>
-    qpat_x_assum`∀acc' ents' t'. _` drule>>strip_tac>>
-    drule do_reindex_rhs_MEM>>strip_tac>>
+    first_x_assum drule>>strip_tac>>
+    qmatch_asmsub_abbrev_tac`get_inds_fold_ents fml ls acc ents1 rb`>>
+    `∀x pos j. vent_mem m (any_el x ents Vnone) pos j ⇒
+      vent_mem m (any_el x ents1 Vnone) pos j` by (
+      rw[Abbr`ents1`,any_el_update_resize]>>
+      gvs[vent_mem_def])>>
+    `∀x. x ≠ n ⇒ any_el x ents1 Vnone = any_el x ents Vnone` by
+      rw[Abbr`ents1`,any_el_update_resize]>>
     rpt conj_tac
-    >- (
-      gen_tac>>strip_tac>>
-      qpat_x_assum`∀x. lookup x (insert _ _ _) ≠ NONE ⇒ _` irule>>
-      rw[lookup_insert])
+    >- simp[]
     >- (
       rpt strip_tac>>
-      Cases_on`x = n`
-      >- (qexists_tac`rhs`>>simp[])>>
-      qpat_x_assum`∀x. lookup x t' ≠ NONE ⇒ _` drule>>
-      impl_tac>- simp[lookup_insert]>>
-      disch_then (qx_choose_then`r` assume_tac)>>
-      qexists_tac`r`>>simp[])
-    >- (
-      rpt strip_tac>>
-      qpat_x_assum`∀x p n'. lookup x t' = SOME (p,n') ⇒ _` drule>>
-      strip_tac
-      >- (
-        Cases_on`x = n`>>gvs[lookup_insert]>>
-        disj2_tac>>
-        Cases>>rw[])>>
-      disj2_tac>>
-      qpat_x_assum`any_el x ents Vnone = Vinput _ _` (irule_at Any)>>
-      simp[])>>
+      `x ≠ n` by metis_tac[]>>
+      simp[])
+    >- metis_tac[]>>
     rpt gen_tac>>strip_tac
-    >- (
-      gvs[]>>
-      qpat_x_assum`∀x. lookup x (insert _ _ _) ≠ NONE ⇒ _` irule>>
-      simp[lookup_insert])>>
+    >- (disj2_tac>>gvs[vent_mem_def])>>
     qpat_x_assum`∀x rhs. MEM (x,rhs) ls ⇒ _` drule>>
-    disch_then ACCEPT_TAC)
-  >>~- ([`do_reindex_rhs _ _ _ _`],
+    disch_then (DISJ_CASES_THEN2 assume_tac strip_assume_tac)
+    >- (
+      disj1_tac>>
+      `x ≠ n` by (CCONTR_TAC>>gvs[Abbr`ents1`,any_el_update_resize])>>
+      gvs[]>>metis_tac[])>>
+    disj2_tac>>
+    conj_tac
+    >- (Cases_on`x = n`>>gvs[])>>
+    rpt strip_tac>>
+    qpat_x_assum`∀pos j. _ ⇒ MEM j (FLAT acc')` irule>>
+    simp[]>>
+    qexists_tac`pos`>>simp[])
+  >>~- ([`get_inds_rhs_list`],
     pairarg_tac>>gvs[]>>
     strip_tac>>
-    qpat_x_assum`∀acc' ents' t'. _` drule>>strip_tac>>
+    qpat_x_assum`∀acc' ents' rb'. _` drule>>strip_tac>>
     drule do_reindex_rhs_MEM>>strip_tac>>
-    qmatch_asmsub_abbrev_tac`get_inds_fold fml ls acc1 ents1 t`>>
+    qmatch_asmsub_abbrev_tac`get_inds_fold_ents fml ls acc1 ents1 rb`>>
     `∀x pos j. any_el j fml Empty ≠ Empty ∧
       vent_mem m (any_el x ents Vnone) pos j ⇒
       vent_mem m (any_el x ents1 Vnone) pos j` by (
       rw[Abbr`ents1`,any_el_update_resize]>>
       gvs[vent_mem_def]>>
       Cases_on`pos`>>gvs[])>>
-    `∀x p0 n0. any_el x ents1 Vnone = Vinput p0 n0 ⇔
-      any_el x ents Vnone = Vinput p0 n0` by
+    `∀x. x ≠ n ⇒ any_el x ents1 Vnone = any_el x ents Vnone` by
       rw[Abbr`ents1`,any_el_update_resize]>>
     `∀j. MEM j (FLAT acc) ⇒ MEM j (FLAT acc1)` by
       simp[Abbr`acc1`,MEM_FLAT_get_inds_rhs_list]>>
     rpt conj_tac
+    >- metis_tac[]
+    >- simp[]
     >- (
       rpt strip_tac>>
-      qpat_x_assum`∀j. MEM j (FLAT acc1) ⇒ _` irule>>
-      qpat_x_assum`∀j. MEM j (FLAT acc) ⇒ _` irule>>
-      simp[])
-    >- (
-      rpt strip_tac>>
-      qpat_x_assum`∀x p0 n0. any_el x ents1 Vnone = Vinput p0 n0 ⇒ _` irule>>
-      simp[])
-    >- (
-      rpt strip_tac>>
-      qpat_x_assum`∀x pos j. _ ⇒ vent_mem m (any_el x ents' Vnone) pos j` irule>>
-      simp[]>>
-      qpat_x_assum`∀x pos j. _ ⇒ vent_mem m (any_el x ents1 Vnone) pos j` irule>>
-      simp[])
-    >- (
-      rpt strip_tac>>
-      qpat_x_assum`∀x. lookup x t' ≠ NONE ⇒ _` drule_all>>
-      disch_then (qx_choose_then`r` assume_tac)>>
-      qexists_tac`r`>>simp[])
-    >- (
-      rpt strip_tac>>
-      qpat_x_assum`∀x p n'. lookup x t' = SOME (p,n') ⇒ _` drule>>
-      strip_tac>>gvs[])>>
+      `x ≠ n` by metis_tac[]>>
+      metis_tac[])
+    >- metis_tac[]>>
     rpt gen_tac>>strip_tac
     >- (
+      disj2_tac>>
       gvs[]>>
-      rw[]>>
+      rpt strip_tac>>
       qpat_x_assum`∀j. MEM j (FLAT acc1) ⇒ _` irule>>
       simp[Abbr`acc1`,MEM_FLAT_get_inds_rhs_list]>>
       gvs[vent_mem_def]>>
       Cases_on`pos`>>gvs[])>>
     qpat_x_assum`∀x rhs. MEM (x,rhs) ls ⇒ _` drule>>
-    strip_tac
+    disch_then (DISJ_CASES_THEN2 assume_tac strip_assume_tac)
     >- (
       disj1_tac>>
-      qpat_x_assum`any_el x ents1 Vnone = _` mp_tac>>
-      simp[Abbr`ents1`,any_el_update_resize]>>
-      rw[])>>
+      `x ≠ n` by (CCONTR_TAC>>gvs[Abbr`ents1`,any_el_update_resize])>>
+      gvs[]>>metis_tac[])>>
     disj2_tac>>
-    gvs[]>>
+    conj_tac
+    >- (Cases_on`x = n`>>gvs[])>>
     rpt strip_tac>>
-    first_x_assum irule>>
+    qpat_x_assum`∀pos j. _ ⇒ MEM j (FLAT acc')` irule>>
     simp[]>>
-    qexists_tac`pos`>>simp[]>>
-    qpat_x_assum`∀x pos j. _ ⇒ vent_mem m (any_el x ents1 Vnone) pos j` irule>>
-    simp[])
-  >- (
+    qexists_tac`pos`>>simp[])>>
+  (
+    pairarg_tac>>gvs[]>>
     strip_tac>>
-    qpat_x_assum`∀acc' ents' t'. _` drule>>strip_tac>>
-    qmatch_asmsub_abbrev_tac`get_inds_fold fml ls acc ents1 t`>>
-    `∀x pos j. vent_mem m (any_el x ents Vnone) pos j ⇒
+    qpat_x_assum`∀acc' ents' rb'. _` drule>>strip_tac>>
+    drule do_reindex_rhs_MEM>>strip_tac>>
+    qmatch_asmsub_abbrev_tac`get_inds_fold_ents fml ls acc ents1 T`>>
+    `∀x pos j. any_el j fml Empty ≠ Empty ∧
+      vent_mem m (any_el x ents Vnone) pos j ⇒
       vent_mem m (any_el x ents1 Vnone) pos j` by (
       rw[Abbr`ents1`,any_el_update_resize]>>
-      gvs[vent_mem_def])>>
-    `∀x p0 n0. any_el x ents1 Vnone = Vinput p0 n0 ⇔
-      any_el x ents Vnone = Vinput p0 n0` by
+      gvs[vent_mem_def]>>
+      Cases_on`pos`>>gvs[])>>
+    `∀x. x ≠ n ⇒ any_el x ents1 Vnone = any_el x ents Vnone` by
       rw[Abbr`ents1`,any_el_update_resize]>>
     rpt conj_tac
+    >- simp[]
     >- (
       rpt strip_tac>>
-      qpat_x_assum`∀x p0 n0. any_el x ents1 Vnone = Vinput p0 n0 ⇒ _` irule>>
-      simp[])
-    >- (
-      rpt strip_tac>>
-      qpat_x_assum`∀x pos j. _ ⇒ vent_mem m (any_el x ents' Vnone) pos j` irule>>
-      simp[])
-    >- (
-      rpt strip_tac>>
-      qpat_x_assum`∀x. lookup x t' ≠ NONE ⇒ _` drule_all>>
-      disch_then (qx_choose_then`r` assume_tac)>>
-      qexists_tac`r`>>simp[])
-    >- (
-      rpt strip_tac>>
-      qpat_x_assum`∀x p n'. lookup x t' = SOME (p,n') ⇒ _` drule>>
-      strip_tac>>gvs[])>>
+      `x ≠ n` by metis_tac[]>>
+      metis_tac[])
+    >- metis_tac[]>>
     rpt gen_tac>>strip_tac
-    >- gvs[vent_mem_def]>>
+    >- (
+      qpat_x_assum`x = n` SUBST_ALL_TAC>>
+      disj1_tac>>
+      gvs[]>>
+      Cases_on`∃r. MEM (n,r) ls`
+      >- (
+        gvs[]>>
+        qpat_x_assum`∀x rhs'. MEM (x,rhs') ls ⇒ _` drule>>
+        strip_tac>>gvs[Abbr`ents1`,any_el_update_resize]>>
+        metis_tac[])>>
+      `any_el n ents' Vnone = any_el n ents1 Vnone` by metis_tac[]>>
+      gvs[Abbr`ents1`,any_el_update_resize])>>
     qpat_x_assum`∀x rhs. MEM (x,rhs) ls ⇒ _` drule>>
-    strip_tac
+    disch_then (DISJ_CASES_THEN2 assume_tac strip_assume_tac)
     >- (
       disj1_tac>>
-      qpat_x_assum`any_el x ents1 Vnone = _` mp_tac>>
-      simp[Abbr`ents1`,any_el_update_resize]>>
-      rw[])>>
+      Cases_on`x = n`>>gvs[]>>
+      metis_tac[])>>
     disj2_tac>>
-    gvs[]>>
+    `x ≠ n` by (CCONTR_TAC>>gvs[Abbr`ents1`,any_el_update_resize])>>
+    conj_tac
+    >- gvs[]>>
     rpt strip_tac>>
-    first_x_assum irule>>
+    qpat_x_assum`∀pos j. _ ⇒ MEM j (FLAT acc')` irule>>
     simp[]>>
     qexists_tac`pos`>>simp[])
 QED
 
-Theorem get_inds_rebuilt_thm:
-  ∀ls t acc ents acc' ents'.
-  get_inds_rebuilt ls t acc ents = (acc',ents') ⇒
-  (∀j. MEM j (FLAT acc) ⇒ MEM j (FLAT acc')) ∧
-  (∀x. (lookup x t = NONE ∨ ∀rhs. ¬MEM (x,rhs) ls) ⇒
-    any_el x ents' Vnone = any_el x ents Vnone) ∧
-  (∀x rhs p n. MEM (x,rhs) ls ∧ lookup x t = SOME (p,n) ⇒
-    any_el x ents' Vnone = Vtrack p n ∧
+Theorem get_inds_rebuilt_ents_thm:
+  ∀ls acc ents.
+  (∀j. MEM j (FLAT acc) ⇒
+    MEM j (FLAT (get_inds_rebuilt_ents ls acc ents))) ∧
+  ∀x rhs p n. MEM (x,rhs) ls ∧ any_el x ents Vnone = Vrebuild p n ⇒
     ∀pos j. MEM j (if pos then p else n) ∧ rhs ≠ INL pos ⇒
-      MEM j (FLAT acc'))
+      MEM j (FLAT (get_inds_rebuilt_ents ls acc ents))
 Proof
-  ho_match_mp_tac get_inds_rebuilt_ind>>
-  rpt conj_tac
-  >- simp[get_inds_rebuilt_def]>>
-  rpt gen_tac>>strip_tac>>
+  Induct
+  >- simp[get_inds_rebuilt_ents_def]>>
+  Cases>>
+  rename1`(y,r)`>>
   rpt gen_tac>>
-  simp[Once get_inds_rebuilt_def]>>
-  Cases_on`lookup n t`>>gvs[]
+  simp[get_inds_rebuilt_ents_def]>>
+  Cases_on`any_el y ents Vnone`>>simp[]
+  >~ [`any_el y ents Vnone = Vrebuild py ny`]
   >- (
-    strip_tac>>
-    first_x_assum drule>>strip_tac>>
+    first_x_assum (qspecl_then [`get_inds_rhs_list r py ny acc`,`ents`]
+      strip_assume_tac)>>
     conj_tac
     >- (
       rpt strip_tac>>
-      qpat_x_assum`∀x. lookup x t = NONE ∨ _ ⇒ _` irule>>
-      metis_tac[])>>
-    rpt gen_tac>>strip_tac
-    >- gvs[]>>
-    qpat_x_assum`∀x rhs p n. MEM (x,rhs) ls ∧ _ ⇒ _` drule_all>>
-    simp[])>>
-  rename1`lookup n t = SOME pn`>>PairCases_on`pn`>>
-  gvs[]>>
-  strip_tac>>
-  first_x_assum drule>>strip_tac>>
-  rpt conj_tac
-  >- (
-    rw[]>>
-    first_x_assum irule>>
-    simp[MEM_FLAT_get_inds_rhs_list])
-  >- (
-    gen_tac>>strip_tac
+      qpat_x_assum`∀j. MEM j (FLAT (get_inds_rhs_list _ _ _ _)) ⇒ _` irule>>
+      simp[MEM_FLAT_get_inds_rhs_list])>>
+    rpt strip_tac>>gvs[]
     >- (
-      `x ≠ n` by (CCONTR_TAC>>gvs[])>>
-      qpat_x_assum`∀x. lookup x t = NONE ∨ _ ⇒ _` (qspec_then`x` mp_tac)>>
-      simp[any_el_update_resize])>>
-    `x ≠ n` by (
-      CCONTR_TAC>>gvs[]>>
-      first_x_assum (qspec_then`rhs` mp_tac)>>simp[])>>
-    qpat_x_assum`∀x. lookup x t = NONE ∨ _ ⇒ _` (qspec_then`x` mp_tac)>>
-    simp[any_el_update_resize]>>
+      qpat_x_assum`∀j. MEM j (FLAT (get_inds_rhs_list _ _ _ _)) ⇒ _` irule>>
+      simp[MEM_FLAT_get_inds_rhs_list]>>
+      Cases_on`pos`>>gvs[])>>
     metis_tac[])>>
-  rpt gen_tac>>
-  Cases_on`MEM (x,rhs') ls`
-  >- (
-    strip_tac>>
-    qpat_x_assum`∀x rhs p n. MEM (x,rhs) ls ∧ _ ⇒ _` drule_all>>
-    simp[])>>
-  strip_tac>>gvs[]>>
-  conj_tac
-  >- (
-    Cases_on`∃r. MEM (n,r) ls`
-    >- (
-      gvs[]>>
-      qpat_x_assum`∀x rhs p n. MEM (x,rhs) ls ∧ _ ⇒ _` drule_all>>
-      simp[])>>
-    qpat_x_assum`∀x. lookup x t = NONE ∨ _ ⇒ _` (qspec_then`n` mp_tac)>>
-    gvs[any_el_update_resize])>>
-  rw[]>>
-  qpat_x_assum`∀j. MEM j (FLAT (get_inds_rhs_list _ _ _ _)) ⇒ _` irule>>
-  simp[MEM_FLAT_get_inds_rhs_list]>>
-  Cases_on`pos`>>gvs[]
+  rpt strip_tac>>gvs[]>>
+  metis_tac[]
+QED
+
+Theorem finish_rebuilt_thm:
+  ∀ls ents x.
+  any_el x (finish_rebuilt ls ents) Vnone =
+  case any_el x ents Vnone of
+    Vrebuild p n =>
+      if ∃rhs. MEM (x,rhs) ls then Vtrack p n else Vrebuild p n
+  | e => e
+Proof
+  Induct
+  >- (rw[finish_rebuilt_def]>>Cases_on`any_el x ents Vnone`>>simp[])>>
+  Cases>>
+  rename1`(y,r)`>>
+  rw[finish_rebuilt_def]>>
+  Cases_on`any_el y ents Vnone`>>
+  simp[any_el_update_resize]>>
+  Cases_on`x = y`>>gvs[]>>
+  Cases_on`any_el x ents Vnone`>>gvs[EXISTS_OR_THM]
 QED
 
 (* The read is complete for the constraints below the watermark *)
@@ -4460,44 +4461,31 @@ Proof
   gvs[get_set_indices_def]>>
   rpt (pairarg_tac>>gvs[])>>
   simp[MEM_merge_all]>>
-  drule get_inds_fold_thm>>
+  drule get_inds_fold_ents_thm>>
   disch_then (qspec_then`m` strip_assume_tac)>>
-  `(t = LN ⇒ acc' = acc) ∧
-   (t ≠ LN ⇒
-    get_inds_rebuilt s (rebuild_aux fmlls t (m + 1) vw) acc ents' =
-      (acc',ents''))` by (Cases_on`t`>>gvs[])>>
   qpat_x_assum`∀x rhs. MEM (x,rhs) s ⇒ _` drule>>
-  strip_tac
+  disch_then (DISJ_CASES_THEN2 assume_tac strip_assume_tac)
   >- (
-    `t ≠ LN` by (CCONTR_TAC>>gvs[lookup_def])>>
+    `rb ∧ ∃p n. any_el x ents' Vnone = Vrebuild p n` by metis_tac[]>>
     gvs[]>>
-    Cases_on`lookup x t`>>gvs[]>>
-    rename1`lookup x t = SOME pn`>>PairCases_on`pn`>>
-    drule get_inds_rebuilt_thm>>strip_tac>>
-    mp_tac (Q.SPECL [`vw - (m + 1)`,`m + 1`,`t`]
-      (Q.INST [`fml`|->`fmlls`] rebuild_aux_lookup))>>
+    `vent_mem m (Vrebuild p n) (0 ≤ coeff) i` by metis_tac[]>>
+    mp_tac (Q.SPECL [`vw - (m + 1)`,`m + 1`,`ents'`]
+      (Q.INST [`fml`|->`fmlls`] rebuild_ents_thm))>>
     simp[]>>strip_tac>>
-    qpat_x_assum`∀x rhs p n. MEM (x,rhs) s ∧ _ ⇒ _`
-      (qspecl_then [`x`,`rhs`,`p'`,`n'`] mp_tac)>>
-    simp[]>>strip_tac>>
-    first_x_assum (qspec_then`0 ≤ coeff` irule)>>
-    qexists_tac`coeff`>>simp[]>>
-    qpat_x_assum`∀x'' p n. lookup x'' t = SOME (p,n) ⇒ _` drule>>
-    strip_tac>>
+    rename1`any_el x (rebuild_ents _ _ _ _) Vnone = Vrebuild p1 n1`>>
+    qspecl_then [`s`,`acc`,`rebuild_ents fmlls ents' (m + 1) vw`]
+      (mp_tac o CONJUNCT2) get_inds_rebuilt_ents_thm>>
+    disch_then (qspecl_then [`x`,`rhs`,`p1`,`n1`] mp_tac)>>
+    simp[]>>
+    disch_then (qspecl_then [`0 ≤ coeff`,`i`] irule)>>
+    simp[]>>
+    qexists_tac`coeff`>>
     gvs[vent_mem_def]>>
-    Cases_on`m < i`
-    >- (
-      Cases_on`0 ≤ coeff`>>gvs[]>>
-      disj2_tac>>
-      qexists_tac`coeff`>>
-      gvs[integerTheory.INT_NOT_LE])>>
-    gvs[]>>
-    first_x_assum (qspecl_then [`0 ≤ coeff`,`i`] mp_tac)>>
-    Cases_on`0 ≤ coeff`>>gvs[])>>
+    Cases_on`0 ≤ coeff`>>gvs[]>>
+    metis_tac[integerTheory.INT_NOT_LE,DECIDE``∀m i:num. m < i ⇔ m + 1 ≤ i``])>>
   `MEM i (FLAT acc)` by metis_tac[]>>
-  Cases_on`t = LN`>>gvs[]>>
-  drule get_inds_rebuilt_thm>>
-  metis_tac[]
+  Cases_on`rb`>>gvs[]>>
+  metis_tac[get_inds_rebuilt_ents_thm]
 QED
 
 Theorem MEM_get_set_indices_lookup_core_only:
@@ -4547,7 +4535,7 @@ Proof
   `∀k. wf_slot (any_el k fmlls Empty)` by metis_tac[fml_rel_wf_slot]>>
   gvs[get_set_indices_def]>>
   rpt (pairarg_tac>>gvs[])>>
-  drule get_inds_fold_thm>>
+  drule get_inds_fold_ents_thm>>
   disch_then (qspec_then`vimap0` strip_assume_tac)>>
   gvs[vimap_rel_def]>>
   rpt strip_tac>>
@@ -4557,49 +4545,20 @@ Proof
   `vent_mem vimap0 (any_el x ents Vnone) (0 ≤ coeff) i` by (
     qpat_x_assum`∀x pos j. _ ⇒ vent_mem _ (any_el x ents Vnone) pos j` irule>>
     simp[])>>
-  `(t = LN ⇒ ents' = ents) ∧
-   (t ≠ LN ⇒
-    get_inds_rebuilt s (rebuild_aux fmlls t (vimap0 + 1) vimap1) acc ents =
-      (acc',ents'))` by (Cases_on`t`>>gvs[])>>
-  Cases_on`t = LN`>>gvs[]>>
-  drule get_inds_rebuilt_thm>>strip_tac>>
-  Cases_on`lookup x (rebuild_aux fmlls t (vimap0 + 1) vimap1) = NONE ∨
-    ∀rhs. ¬MEM (x,rhs) s`
-  >- (
-    `any_el x ents' Vnone = any_el x ents Vnone` by (
-      qpat_x_assum`∀x. _ ∨ _ ⇒ any_el x ents' Vnone = _` irule>>
-      simp[])>>
-    simp[]>>
-    qpat_x_assum`∀x pos j. _ ⇒ vent_mem _ (any_el x ents Vnone) pos j` irule>>
-    simp[]>>
-    qpat_x_assum`∀i coeff x. _ ⇒ vent_mem _ (any_el x vimap2 Vnone) _ _` irule>>
-    simp[])>>
-  gvs[]>>
-  Cases_on`lookup x (rebuild_aux fmlls t (vimap0 + 1) vimap1)`>>gvs[]>>
-  rename1`_ = SOME pq`>>PairCases_on`pq`>>
-  qpat_x_assum`∀x rhs p n. MEM (x,rhs) s ∧ _ ⇒ _` drule_all>>
-  strip_tac>>
-  simp[vent_mem_def]>>
-  mp_tac (Q.SPECL [`vimap1 - (vimap0 + 1)`,`vimap0 + 1`,`t`]
-    (Q.INST [`fml`|->`fmlls`,`vw`|->`vimap1`] rebuild_aux_lookup))>>
+  Cases_on`rb`>>gvs[]>>
+  `vent_mem vimap0 (any_el x ents Vnone) (0 ≤ coeff) i` by metis_tac[]>>
+  simp[finish_rebuilt_thm]>>
+  mp_tac (Q.SPECL [`vimap1 - (vimap0 + 1)`,`vimap0 + 1`,`ents`]
+    (Q.INST [`fml`|->`fmlls`,`vw`|->`vimap1`] rebuild_ents_thm))>>
   simp[]>>strip_tac>>
-  Cases_on`lookup x t`>>gvs[]>>
-  rename1`lookup x t = SOME ab`>>PairCases_on`ab`>>
-  gvs[]>>
-  qpat_x_assum`∀x p n. lookup x t = SOME (p,n) ⇒ _` drule>>
-  strip_tac>>
-  `vent_mem vimap0 (Vinput p0 n0) (0 ≤ coeff) i` by (
-    qpat_x_assum`any_el x vimap2 Vnone = _` (SUBST1_TAC o SYM)>>
-    qpat_x_assum`∀i coeff x. _ ⇒ vent_mem _ (any_el x vimap2 Vnone) _ _` irule>>
-    simp[])>>
-  gvs[vent_mem_def]
+  Cases_on`any_el x ents Vnone`>>gvs[]
+  >~ [`any_el x ents Vnone = Vrebuild _ _`]
   >- (
+    rename1`any_el x (rebuild_ents _ _ _ _) Vnone = Vrebuild p1 n1`>>
+    IF_CASES_TAC>>
+    gvs[vent_mem_def]>>
     Cases_on`0 ≤ coeff`>>gvs[]>>
-    disj2_tac>>
-    qexists_tac`coeff`>>gvs[integerTheory.INT_NOT_LE])>>
-  qpat_x_assum`∀pos j. _ ∧ MEM j (if pos then p0 else n0) ⇒ _`
-    (qspecl_then [`0 ≤ coeff`,`i`] mp_tac)>>
-  Cases_on`0 ≤ coeff`>>gvs[]
+    metis_tac[integerTheory.INT_NOT_LE,DECIDE``∀m i:num. m < i ⇔ m + 1 ≤ i``])
 QED
 
 (* An empty-listed entry: no constraint below the watermark has it *)
@@ -5382,12 +5341,11 @@ Proof
 QED
 
 Definition all_core_list_def:
-  (all_core_list fml [] iacc = SOME (REVERSE iacc)) ∧
-  (all_core_list fml (i::is) iacc =
-    let s = any_el i fml Empty in
-    if s = Empty then all_core_list fml is iacc
-    else if core_slot s then all_core_list fml is (i::iacc)
-    else NONE)
+  all_core_list fml is =
+    if EVERY (λi.
+      any_el i fml Empty = Empty ∨ core_slot (any_el i fml Empty)) is
+    then SOME (reindex fml is)
+    else NONE
 End
 
 Theorem slot_list_test:
@@ -5403,8 +5361,8 @@ Theorem slot_list_test:
   reindex [c1; Empty; c2] [2;1;0] = [2;0] ∧
   core_from_inds [c1; c2] [1] = SOME [c1; enc ([(-1,2)],1) T] ∧
   core_from_inds [c1; Empty] [1] = NONE ∧
-  all_core_list [c1; Empty; c3] [2;1;0] [] = SOME [2;0] ∧
-  all_core_list [c1; c2] [1;0] [] = NONE ∧
+  all_core_list [c1; Empty; c3] [2;1;0] = SOME [2;0] ∧
+  all_core_list [c1; c2] [1;0] = NONE ∧
   split_goals_pure (mk_map [] [(0,())]) c1 [(0,([(1,1)],1)); (1,([(1,1)],1));
     (2,([(1,2)],1))] [] [] = ([([(1,1)],1)], [([(1,2)],1)])
 Proof
@@ -5466,7 +5424,7 @@ Definition check_change_obj_list_def:
   case obj of NONE => NONE
   | SOME fc =>
     let csubs = change_obj_subgoals (mk_tar_obj b fc) fc' in
-    case extract_clauses_list emp_vec T fml csubs pfs [] of
+    case extract_clauses_list emp_vec T fml csubs pfs of
       NONE => NONE
     | SOME cpfs =>
       (case check_subproofs_list cpfs T fml id id assg st of
@@ -5514,7 +5472,7 @@ Definition check_change_pres_list_def:
   | SOME pres =>
     if pres_only c pres v then
     ( let csubs = change_pres_subgoals v c in
-      case extract_clauses_list emp_vec T fml csubs pfs [] of
+      case extract_clauses_list emp_vec T fml csubs pfs of
         NONE => NONE
       | SOME cpfs =>
       (case check_subproofs_list cpfs T fml id id assg st of
@@ -6214,7 +6172,7 @@ Definition check_cstep_list_def:
       SOME (list_delete_list ls fml, assg, st, inds,
         vimap, id, (pc with chk := F, vomap, cw, po), ht_del fml ls ht)
     else
-    case all_core_list fml inds [] of NONE => NONE
+    case all_core_list fml inds of NONE => NONE
     | SOME inds' =>
       SOME (list_delete_list ls fml, assg, st, inds',
         vimap, id, (pc with chk := F, vomap, cw, po), ht_del fml ls ht))
@@ -6410,37 +6368,25 @@ Proof
   gvs[fml_rel_update_resize]
 QED
 
-Theorem all_core_list_mem[local]:
-  ∀inds fmlls acc inds'.
-    all_core_list fmlls inds acc = SOME inds' ⇒
-    MEM x inds' ⇒ MEM x acc ∨ MEM x inds
-Proof
-  Induct
-  \\ fs [all_core_list_def,AllCaseEqs()]
-  \\ rw [] \\ res_tac \\ gvs []
-QED
-
 Theorem all_core_list_inds:
-  ∀inds acc inds'.
-  all_core_list fmlls inds acc = SOME inds' ⇒
+  all_core_list fmlls inds = SOME inds' ⇒
   let is =
     FILTER (λx. any_el x fmlls Empty ≠ Empty) inds in
-  inds' = REVERSE acc ++ is ∧
+  inds' = is ∧
   EVERY (λx.
     ∀c b. any_el x fmlls Empty = enc c b ⇒ b) is
 Proof
-  Induct>>rw[all_core_list_def]>>
-  gvs[AllCaseEqs()]>>
-  first_x_assum drule>>
-  simp[]>>
+  rw[all_core_list_def,reindex_characterize]>>
+  gvs[EVERY_MEM,MEM_FILTER]>>
   rw[]>>
+  first_x_assum drule>>
   gvs[]
 QED
 
 Theorem fml_rel_all_core:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
-  all_core_list fmlls inds [] = SOME inds' ⇒
+  all_core_list fmlls inds = SOME inds' ⇒
   all_core fml ∧
   ind_rel fmlls inds'
 Proof
@@ -6493,7 +6439,7 @@ QED
 
 Theorem all_core_list_SORTED:
   SORTED $>= inds ∧
-  all_core_list fmlls inds [] = SOME inds' ⇒
+  all_core_list fmlls inds = SOME inds' ⇒
   SORTED $>= inds'
 Proof
   rw[]>>drule all_core_list_inds>>rw[]>>

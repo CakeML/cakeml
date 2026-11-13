@@ -114,20 +114,20 @@ Definition is_sum_def:
   (is_sum _ = F)
 End
 
-(* The operands of a sum, each list in reverse order:
-  IDs, other parts and literals, each with its factor *)
+(* The operands of a sum: IDs, other parts and literals, each with its
+  factor *)
 Definition mk_lincomb_def:
   mk_lincomb (ids,ns,lits) =
-  if NULL ids ∧ NULL ns then Triv (List (REVERSE lits))
+  if NULL ids ∧ NULL ns then Triv (List lits)
   else
-    let ns = if NULL lits then ns else (Triv (List (REVERSE lits)),1)::ns in
-    Lincomb (REVERSE ids) (REVERSE ns)
+    let ns = if NULL lits then ns else ns ++ [(Triv (List lits),1)] in
+    Lincomb ids ns
 End
 
 (* Each maximal sum of Add and Mul nodes becomes one Lincomb *)
 Definition to_triv_def:
   (to_triv (Add l r) =
-    mk_lincomb (to_lin r 1 (to_lin l 1 ([],[],[])))) ∧
+    mk_lincomb (to_lin l 1 (to_lin r 1 ([],[],[])))) ∧
   (to_triv (Mul c k) =
     if is_sum c then mk_lincomb (to_lin c k ([],[],[]))
     else
@@ -141,7 +141,7 @@ Definition to_triv_def:
   (to_triv (Weak c vs) = fuse_weaken vs (to_triv c)) ∧
   (to_triv (Lit l) = Triv (List [(1,l)])) ∧
   (to_triv c = c) ∧
-  (to_lin (Add l r) m acc = to_lin r m (to_lin l m acc)) ∧
+  (to_lin (Add l r) m acc = to_lin l m (to_lin r m acc)) ∧
   (to_lin (Mul c k) m acc = to_lin c (m * k) acc) ∧
   (to_lin (Id n) m acc =
     let (ids,ns,lits) = acc in ((n,m)::ids,ns,lits)) ∧
@@ -256,8 +256,9 @@ Proof
   simp[]
 QED
 
+(* TMC *)
 Definition bal_add_round_def:
-  (bal_add_round (x::y::xs) = add x y :: bal_add_round xs) ∧
+  (bal_add_round (x::y::xs) = let h = add x y in h :: bal_add_round xs) ∧
   (bal_add_round xs = xs)
 End
 

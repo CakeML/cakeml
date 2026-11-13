@@ -168,112 +168,26 @@ Definition toks_def:
   toks s = MAP tokenize (tokens blanks s)
 End
 
-(* One pass over a line computing toks (toks_scan_toks below).
-  The token being read spans s[i..j); m is the scanner state:
-  0 between tokens, 1 after a leading sign (~, - or +), 2 in a run of digits
-  (acc holds their value, neg the sign, k counts them up to 9),
-  3 in a token that is not a number.
-  Arithmetic is on small integers (mlint's smallnum functions): indices with s as the
-  witness, character codes below 256, and the first nine digits of a number,
-  whose value stays below 10 ** 9 < 2 ** 30; later digits use unbounded
-  arithmetic. *)
-Definition scan_tok_def:
-  scan_tok s (m:num) neg (acc:num) i j =
-  if smallnum_eq m 2 then INR (if neg then -&acc else &acc:int)
-  else INL (substring s i (smallnum_sub_str j i s))
-End
+(* Computing toks directly on the line (toks_scan_toks below): scan_toks
+  skips blanks, scan_end finds where each token ends and tok_val converts it.
+  Arithmetic is on small integers (mlint's smallnum functions): indices with s
+  as the witness and character codes below 256. *)
 
-(* TMC *)
-Definition scan_toks_def:
-  scan_toks s n (m:num) neg (acc:num) (k:num) i j =
+(* The end of the token from j: the first blank at or after j, or n if there
+  is none *)
+Definition scan_end_def:
+  scan_end s n (j:num) =
   if smallnum_lt_str j n s then
     let oc = ORD (strsub_unsafe s j) in
-    let j1 = smallnum_add_str j 1 s in
     if ¬smallnum_lt 32 oc ∧
        (smallnum_eq oc 32 ∨ smallnum_eq oc 10 ∨ smallnum_eq oc 9 ∨ smallnum_eq oc 13)
-    then
-      if smallnum_eq m 0 then scan_toks s n 0 F 0 0 j1 j1
-      else
-        let t = scan_tok s m neg acc i j in
-        t :: scan_toks s n 0 F 0 0 j1 j1
-    else if smallnum_eq m 3 then scan_toks s n 3 F 0 0 i j1
-    else if smallnum_eq m 0 then
-      if smallnum_le 48 oc ∧ smallnum_le oc 57 then
-        scan_toks s n 2 F (smallnum_sub oc 48) 1 j j1
-      else if smallnum_eq oc 126 ∨ smallnum_eq oc 45 then
-        scan_toks s n 1 T 0 0 j j1
-      else if smallnum_eq oc 43 then scan_toks s n 1 F 0 0 j j1
-      else scan_toks s n 3 F 0 0 j j1
-    else if smallnum_le 48 oc ∧ smallnum_le oc 57 then
-      if smallnum_lt k 9 then
-        scan_toks s n 2 neg
-          (smallnum_add (smallnum_mul acc 10) (smallnum_sub oc 48))
-          (smallnum_add k 1) i j1
-      else scan_toks s n 2 neg (acc * 10 + smallnum_sub oc 48) k i j1
-    else scan_toks s n 3 F 0 0 i j1
-  else if smallnum_eq m 0 then []
-  else [scan_tok s m neg acc i j]
+    then j
+    else scan_end s n (smallnum_add_str j 1 s)
+  else j
 Termination
-  WF_REL_TAC`measure (λ(s,n,m,neg,acc,k,i,j). n - j)`>>
+  WF_REL_TAC`measure (λ(s,n,j). n - j)`>>
   rw[smallnum_lt_str_def,smallnum_add_str_def]
 End
-
-(* What scan_toks knows about the token s[i..j) it is reading in state m *)
-Definition scan_inv_def:
-  scan_inv s m neg acc k i j ⇔
-    m ≤ (3:num) ∧
-    (m = 0 ⇒ i = j) ∧
-    (m ≠ 0 ⇒ i < j ∧ ∀q. i ≤ q ∧ q < j ⇒ ¬blanks (strsub s q)) ∧
-    (m = 1 ⇒ j = i + 1 ∧ acc = 0 ∧ k = 0 ∧
-      (strsub s i = #"~" ∨ strsub s i = #"-" ∨ strsub s i = #"+") ∧
-      (neg ⇔ strsub s i = #"~" ∨ strsub s i = #"-")) ∧
-    (m = 2 ⇒ ∃p.
-      (p = i ∧ ¬neg ∨
-       p = i + 1 ∧ (strsub s i = #"~" ∨ strsub s i = #"-" ∨ strsub s i = #"+") ∧
-       (neg ⇔ strsub s i = #"~" ∨ strsub s i = #"-")) ∧
-      p < j ∧ (∀q. p ≤ q ∧ q < j ⇒ isDigit (strsub s q)) ∧
-      acc = fromChars_range_unsafe p (j - p) s ∧ k = MIN (j - p) 9) ∧
-    (m = 3 ⇒ ∃q. i ≤ q ∧ q < j ∧ ¬isDigit (strsub s q) ∧
-      (q = i ⇒ strsub s i ≠ #"~" ∧ strsub s i ≠ #"-" ∧ strsub s i ≠ #"+"))
-End
-
-Theorem scan_tok_tokenize[local]:
-  scan_inv s m neg acc k i j ∧ m ≠ 0 ∧ j ≤ strlen s ⇒
-  scan_tok s m neg acc i j = tokenize (substring s i (j - i))
-Proof
-  simp[scan_tok_def,smallnum_eq_def,smallnum_sub_str_def,tokenize_def]>>
-  strip_tac>>
-  IF_CASES_TAC
-  >- (
-    gvs[scan_inv_def]
-    >- (
-      `isDigit (strsub s i)` by simp[]>>
-      `strsub s i ≠ #"~" ∧ strsub s i ≠ #"-" ∧ strsub s i ≠ #"+"` by
-        (rpt strip_tac>>fs[]>>qpat_x_assum `isDigit _` mp_tac>>EVAL_TAC)>>
-      rw[mlintTheory.fromString_def,mlstringTheory.strlen_substring,
-         strsub_substring]>>
-      DEP_REWRITE_TAC [fromChars_substring_SOME]>>
-      simp[])>>
-    rw[mlintTheory.fromString_def,mlstringTheory.strlen_substring,
-       strsub_substring,substring_substring]>>
-    DEP_REWRITE_TAC [fromChars_substring_SOME]>>
-    simp[])>>
-  `fromString (substring s i (j − i)) = NONE` suffices_by simp[]>>
-  Cases_on`m = 1`
-  >- (
-    gvs[scan_inv_def]>>
-    simp[mlintTheory.fromString_def,mlstringTheory.strlen_substring,
-         strsub_substring,mlintTheory.fromChars_def])>>
-  gvs[scan_inv_def]>>
-  `m = 3` by decide_tac>>
-  gvs[]>>
-  rw[mlintTheory.fromString_def,mlstringTheory.strlen_substring,strsub_substring,
-     substring_substring]>>
-  irule fromChars_substring_NONE>>
-  simp[]>>
-  qexists_tac`q`>>
-  gvs[]
-QED
 
 (* TODO: move to stringTheory *)
 Theorem ORD_eq_CHR[local]:
@@ -300,159 +214,210 @@ Proof
   tautLib.TAUT_TAC
 QED
 
-Theorem one_point_range[local]:
-  ((∀q. i ≤ q ∧ q < i + 1 ⇒ P q) ⇔ P i) ∧
-  ((∃q. i ≤ q ∧ q < i + 1 ∧ Q q) ⇔ Q (i:num))
+Theorem scan_end_ge:
+  ∀s n j. j ≤ scan_end s n j
 Proof
-  rw[EQ_IMP_THM]
-  >- (`q = i` by decide_tac>>gvs[])
-  >- (`q = i` by decide_tac>>gvs[])>>
-  qexists_tac`i`>>simp[]
+  ho_match_mp_tac scan_end_ind>>
+  rw[]>>
+  rw[Once scan_end_def]>>
+  fs[smallnum_add_str_def]
 QED
 
-(* TODO: move to mlintTheory *)
-Theorem fromChars_range_unsafe_1[local]:
-  fromChars_range_unsafe l 1 s = ORD (strsub s l) − 48
+Theorem scan_end_thm:
+  ∀s n j e.
+  n = strlen s ∧ j ≤ n ∧ scan_end s n j = e ⇒
+  j ≤ e ∧ e ≤ n ∧ (∀q. j ≤ q ∧ q < e ⇒ ¬blanks (strsub s q)) ∧
+  (e < n ⇒ blanks (strsub s e))
 Proof
-  REWRITE_TAC[ONE,mlintTheory.fromChars_range_unsafe_def,
-              mlintTheory.fromChar_unsafe_def]>>
-  simp[]
-QED
-
-Theorem range_snoc[local]:
-  i ≤ j ⇒
-  ((∀q. i ≤ q ∧ q < j + 1 ⇒ P q) ⇔ (∀q. i ≤ q ∧ q < j ⇒ P q) ∧ P (j:num))
-Proof
-  rw[EQ_IMP_THM]>>
+  ho_match_mp_tac scan_end_ind>>
+  rpt gen_tac>>strip_tac>>
+  rpt gen_tac>>strip_tac>>
+  qpat_x_assum`scan_end _ _ _ = _` mp_tac>>
+  simp[Once scan_end_def]>>
+  fs[smallnum_lt_str_def,smallnum_add_str_def,smallnum_eq_def,smallnum_lt_def,
+     mlstringTheory.strsub_unsafe_eq_strsub,scan_blank,scan_nonblank]>>
+  Cases_on`j < strlen s`>>simp[]>>
+  Cases_on`blanks (strsub s j)`>>simp[]>>
+  strip_tac>>
+  gvs[]>>
+  rw[]>>
   Cases_on`q = j`>>gvs[]
 QED
 
-Theorem scan_inv_2_intro[local]:
-  (p = i ∧ ¬neg ∨
-   p = i + 1 ∧ (strsub s i = #"~" ∨ strsub s i = #"-" ∨ strsub s i = #"+") ∧
-   (neg ⇔ strsub s i = #"~" ∨ strsub s i = #"-")) ∧
-  i < j ∧ (∀q. i ≤ q ∧ q < j ⇒ ¬blanks (strsub s q)) ∧
-  p < j ∧ (∀q. p ≤ q ∧ q < j ⇒ isDigit (strsub s q)) ∧
-  acc = fromChars_range_unsafe p (j - p) s ∧ k = MIN (j - p) 9 ⇒
-  scan_inv s 2 neg acc k i j
-Proof
-  rw[scan_inv_def]
-  >- (qexists_tac`i`>>simp[])>>
-  qexists_tac`i + 1`>>simp[]
-QED
+(* The token s[i..e), i < e; num_run (name_table) reads the digits after the
+  first *)
+Definition tok_val_def:
+  tok_val s i e =
+  let oc = ORD (strsub_unsafe s i) in
+  let j1 = smallnum_add_str i 1 s in
+  if smallnum_le 48 oc ∧ smallnum_le oc 57 then
+    let v = num_run s e j1 (smallnum_sub oc 48) 1 in
+    if v < 0 then INL (substring s i (smallnum_sub_str e i s)) else INR v
+  else if (smallnum_eq oc 126 ∨ smallnum_eq oc 45 ∨ smallnum_eq oc 43) ∧
+          smallnum_lt_str j1 e s then
+    let c2 = ORD (strsub_unsafe s j1) in
+    if smallnum_le 48 c2 ∧ smallnum_le c2 57 then
+      let v = num_run s e (smallnum_add_str j1 1 s) (smallnum_sub c2 48) 1 in
+      if v < 0 then INL (substring s i (smallnum_sub_str e i s))
+      else INR (if smallnum_eq oc 43 then v else -v)
+    else INL (substring s i (smallnum_sub_str e i s))
+  else INL (substring s i (smallnum_sub_str e i s))
+End
 
-Theorem scan_inv_digit[local]:
-  scan_inv s m neg acc k i j ∧ m ≠ 0 ∧ m ≠ 3 ∧ j < strlen s ∧
-  ¬blanks (strsub s j) ∧ 48 ≤ ORD (strsub s j) ∧ ORD (strsub s j) ≤ 57 ⇒
-  scan_inv s 2 neg (10 * acc + ORD (strsub s j) − 48)
-    (if k < 9 then k + 1 else k) i (j + 1)
+Theorem tok_val_thm:
+  i < e ∧ e ≤ strlen s ⇒
+  tok_val s i e = tokenize (substring s i (e − i))
 Proof
   strip_tac>>
-  `i < j ∧ ∀q. i ≤ q ∧ q < j ⇒ ¬blanks (strsub s q)` by fs[scan_inv_def]>>
-  `∃p. (p = i ∧ ¬neg ∨
-        p = i + 1 ∧ (strsub s i = #"~" ∨ strsub s i = #"-" ∨ strsub s i = #"+") ∧
-        (neg ⇔ strsub s i = #"~" ∨ strsub s i = #"-")) ∧
-       p ≤ j ∧ (∀q. p ≤ q ∧ q < j ⇒ isDigit (strsub s q)) ∧
-       acc = fromChars_range_unsafe p (j - p) s ∧ k = MIN (j - p) 9` by (
-    Cases_on`m = 1`
+  simp[tok_val_def,tokenize_def,mlintTheory.fromString_def,
+    mlstringTheory.strlen_substring,strsub_substring,substring_substring,
+    smallnum_le_def,smallnum_eq_def,smallnum_lt_str_def,smallnum_add_str_def,
+    smallnum_sub_def,smallnum_sub_str_def,mlstringTheory.strsub_unsafe_eq_strsub]>>
+  Cases_on`48 ≤ ORD (strsub s i) ∧ ORD (strsub s i) ≤ 57`>>simp[]
+  >- (
+    `strsub s i ≠ #"~" ∧ strsub s i ≠ #"-" ∧ strsub s i ≠ #"+"` by
+      (rpt strip_tac>>fs[])>>
+    qspecl_then[`s`,`e`,`i + 1`,`ORD (strsub s i) − 48`,`1`,`i`] mp_tac
+      num_run_thm>>
+    simp[fromChars_range_unsafe_1]>>
+    strip_tac>>
+    Cases_on`∀q. i + 1 ≤ q ∧ q < e ⇒ isDigit (strsub s q)`>>simp[]
     >- (
-      `j = i + 1 ∧ acc = 0 ∧ k = 0 ∧
-       (strsub s i = #"~" ∨ strsub s i = #"-" ∨ strsub s i = #"+") ∧
-       (neg ⇔ strsub s i = #"~" ∨ strsub s i = #"-")` by fs[scan_inv_def]>>
-      qexists_tac`j`>>
-      simp[mlintTheory.fromChars_range_unsafe_def])>>
-    `m = 2` by fs[scan_inv_def]>>
-    fs[scan_inv_def]>>
-    qexists_tac`p`>>
+      DEP_REWRITE_TAC [fromChars_substring_SOME]>>
+      rw[]>>
+      Cases_on`q = i`>>gvs[isDigit_def])>>
+    gvs[]>>
+    DEP_REWRITE_TAC [fromChars_substring_NONE]>>
+    simp[]>>
+    qexists_tac`q`>>
     simp[])>>
-  irule scan_inv_2_intro>>
-  (
-    conj_tac >- simp[range_snoc]>>
-    conj_tac >- simp[]>>
-    qexists_tac`p`>>
-    simp[range_snoc,fromChars_range_unsafe_snoc,isDigit_def]>>
-    rw[MIN_DEF])
+  simp[ORD_eq_CHR]>>
+  Cases_on`strsub s i = #"~" ∨ strsub s i = #"-" ∨ strsub s i = #"+"`
+  >- (
+    reverse (Cases_on`i + 1 < e`)
+    >- (
+      `e = i + 1` by decide_tac>>
+      gvs[mlintTheory.fromChars_def])>>
+    simp[]>>
+    reverse (Cases_on`48 ≤ ORD (strsub s (i + 1)) ∧ ORD (strsub s (i + 1)) ≤ 57`)
+    >- (
+      `fromChars (e − (i + 1)) (substring s (i + 1) (e − (i + 1))) = NONE` by (
+        irule fromChars_substring_NONE>>
+        simp[]>>
+        qexists_tac`i + 1`>>
+        fs[isDigit_def])>>
+      fs[])>>
+    qspecl_then[`s`,`e`,`i + 2`,`ORD (strsub s (i + 1)) − 48`,`1`,`i + 1`]
+      mp_tac num_run_thm>>
+    simp[fromChars_range_unsafe_1]>>
+    strip_tac>>
+    Cases_on`∀q. i + 2 ≤ q ∧ q < e ⇒ isDigit (strsub s q)`>>simp[]
+    >- (
+      `fromChars (e − (i + 1)) (substring s (i + 1) (e − (i + 1))) =
+       SOME (fromChars_range_unsafe (i + 1) (e − (i + 1)) s)` by (
+        irule fromChars_substring_SOME>>
+        rw[]>>
+        Cases_on`q = i + 1`>>gvs[isDigit_def])>>
+      gvs[])>>
+    `fromChars (e − (i + 1)) (substring s (i + 1) (e − (i + 1))) = NONE` by (
+      irule fromChars_substring_NONE>>
+      gvs[]>>
+      qexists_tac`q`>>
+      simp[])>>
+    gvs[])>>
+  `fromChars (e − i) (substring s i (e − i)) = NONE` by (
+    irule fromChars_substring_NONE>>
+    simp[]>>
+    qexists_tac`i`>>
+    simp[isDigit_def])>>
+  fs[]
 QED
 
-Theorem scan_toks_tokens_alt_aux[local]:
-  ∀s n m neg acc k i j.
-  n = strlen s ∧ j ≤ n ∧ scan_inv s m neg acc k i j ⇒
-  scan_toks s n m neg acc k i j = MAP tokenize (tokens_alt_aux blanks s i j n)
+(* The tokens of s from j *)
+(* TMC *)
+Definition scan_toks_def:
+  scan_toks s n (j:num) =
+  if smallnum_lt_str j n s then
+    let oc = ORD (strsub_unsafe s j) in
+    let j1 = smallnum_add_str j 1 s in
+    if ¬smallnum_lt 32 oc ∧
+       (smallnum_eq oc 32 ∨ smallnum_eq oc 10 ∨ smallnum_eq oc 9 ∨ smallnum_eq oc 13)
+    then scan_toks s n j1
+    else
+      let e = scan_end s n j1 in
+      let t = tok_val s j e in
+        t :: scan_toks s n e
+  else []
+Termination
+  WF_REL_TAC`measure (λ(s,n,j). n - j)`>>
+  rw[smallnum_lt_str_def,smallnum_add_str_def]>>
+  qspecl_then[`s`,`n`,`j + 1`] assume_tac scan_end_ge>>
+  decide_tac
+End
+
+(* tokens_alt_aux reading the token s[i..e) from j onwards *)
+Theorem tokens_alt_aux_tok[local]:
+  ∀j. i ≤ j ∧ j ≤ e ∧ e ≤ strlen s ∧ i < e ∧
+  (∀q. i ≤ q ∧ q < e ⇒ ¬blanks (strsub s q)) ∧
+  (e < strlen s ⇒ blanks (strsub s e)) ⇒
+  tokens_alt_aux blanks s i j (strlen s) =
+  substring s i (e − i) ::
+    (if e < strlen s then tokens_alt_aux blanks s (e + 1) (e + 1) (strlen s)
+     else [])
+Proof
+  completeInduct_on`e - j`>>
+  rpt strip_tac>>
+  simp[Once mlstringTheory.tokens_alt_aux_def]>>
+  Cases_on`j < e`
+  >- (
+    `j < strlen s ∧ ¬blanks (strsub s j)` by simp[]>>
+    simp[]>>
+    first_x_assum (qspec_then`e − (j + 1)` mp_tac)>>
+    simp[]>>
+    disch_then (qspecl_then[`e`,`j + 1`] mp_tac)>>
+    simp[])>>
+  `j = e` by decide_tac>>
+  Cases_on`e < strlen s`>>gvs[]
+QED
+
+Theorem scan_toks_tokens[local]:
+  ∀s n j.
+  n = strlen s ∧ j ≤ n ⇒
+  scan_toks s n j = MAP tokenize (tokens_alt_aux blanks s j j n)
 Proof
   ho_match_mp_tac scan_toks_ind>>
-  rpt gen_tac>>
-  strip_tac>>
+  rpt gen_tac>>strip_tac>>
   rpt strip_tac>>
   simp[Once scan_toks_def,Once mlstringTheory.tokens_alt_aux_def]>>
   fs[smallnum_lt_str_def,smallnum_add_str_def,smallnum_eq_def,smallnum_lt_def,
-     smallnum_le_def,smallnum_sub_def,smallnum_add_def,smallnum_mul_def,
      mlstringTheory.strsub_unsafe_eq_strsub,scan_blank,scan_nonblank]>>
-  reverse (Cases_on`j < strlen s`)
-  >- (
-    `j = strlen s` by decide_tac>>
-    Cases_on`m = 0`
-    >- gvs[scan_inv_def]>>
-    `i ≠ j` by fs[scan_inv_def]>>
-    simp[]>>
-    irule scan_tok_tokenize>>
-    simp[]>>
-    qexists_tac`k`>>
-    gvs[])>>
-  Cases_on`blanks (strsub s j)`
-  >- (
-    Cases_on`m = 0`
-    >- (
-      `i = j` by fs[scan_inv_def]>>
-      gvs[]>>
-      qpat_x_assum `scan_inv s 0 F 0 0 _ _ ⇒ _` irule>>
-      simp[scan_inv_def])>>
-    `i ≠ j` by fs[scan_inv_def]>>
-    gvs[]>>
-    conj_tac
-    >- (
-      irule scan_tok_tokenize>>
-      simp[]>>
-      qexists_tac`k`>>
-      simp[])>>
-    qpat_x_assum `scan_inv s 0 F 0 0 _ _ ⇒ _` irule>>
-    simp[scan_inv_def])>>
-  fs[]>>
-  Cases_on`m = 3`
-  >- (
-    gvs[]>>
-    qpat_x_assum `scan_inv s 3 F 0 0 i (j + 1) ⇒ _` irule>>
-    gvs[scan_inv_def]>>
-    rw[]
-    >- (Cases_on`q' = j`>>gvs[])>>
-    qexists_tac`q`>>
-    simp[])>>
-  Cases_on`m = 0`
-  >- (
-    `i = j` by fs[scan_inv_def]>>
-    gvs[]>>
-    rw[]>>
-    first_x_assum irule>>
-    simp[scan_inv_def,isDigit_def,GSYM ORD_eq_CHR,one_point_range,
-         fromChars_range_unsafe_1])>>
-  qpat_x_assum `m = 3 ⇒ _` kall_tac>>
+  Cases_on`j < strlen s`>>simp[]>>
+  Cases_on`blanks (strsub s j)`>>simp[]>>
+  qabbrev_tac`e = scan_end s (strlen s) (j + 1)`>>
+  qspecl_then[`s`,`strlen s`,`j + 1`,`e`] mp_tac scan_end_thm>>
   simp[]>>
-  rw[]>>
-  first_x_assum irule>>
+  strip_tac>>
+  `tok_val s j e = tokenize (substring s j (e − j))` by
+    (irule tok_val_thm>>simp[])>>
+  qspec_then`j + 1` mp_tac (Q.INST [`i`|->`j`] tokens_alt_aux_tok)>>
+  impl_tac
+  >- (
+    rw[]>>
+    Cases_on`q = j`>>gvs[])>>
+  strip_tac>>
+  `tokens_alt_aux blanks s e e (strlen s) =
+   if e < strlen s then tokens_alt_aux blanks s (e + 1) (e + 1) (strlen s)
+   else []` by
+    (simp[Once mlstringTheory.tokens_alt_aux_def]>>rw[])>>
   simp[]
-  >- (drule_all scan_inv_digit>>simp[])
-  >- (drule_all scan_inv_digit>>simp[])>>
-  `i < j ∧ ∀q. i ≤ q ∧ q < j ⇒ ¬blanks (strsub s q)` by fs[scan_inv_def]>>
-  simp[scan_inv_def,range_snoc]>>
-  qexists_tac`j`>>
-  simp[isDigit_def]
 QED
 
 Theorem toks_scan_toks:
-  toks s = scan_toks s (strlen s) 0 F 0 0 0 0
+  toks s = scan_toks s (strlen s) 0
 Proof
   rw[toks_def,mlstringTheory.tokens_alt]>>
-  irule (GSYM scan_toks_tokens_alt_aux)>>
-  simp[scan_inv_def]
+  irule (GSYM scan_toks_tokens)>>
+  simp[]
 QED
 
 (* OPB parser

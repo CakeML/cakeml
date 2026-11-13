@@ -707,11 +707,13 @@ QED
 
 (* Add the guard literals to a normalised constraint, negated and with the
   degree as coefficient. A normalised LHS has minimum 0, so the degree is
-  exactly the shortfall; a non-positive degree is already satisfied. *)
+  exactly the shortfall; a non-positive degree is already satisfied, and
+  without guard literals the constraint is unchanged. *)
 Definition inject_def:
-  inject (ls,(xs,n)) =
-    if n ≤ 0 then (xs,n)
-    else add (xs,n) (to_npbc (MAP (λl. (n,negate l)) ls,0))
+  inject (ls,c) =
+    let n = SND c in
+    if n ≤ 0 ∨ NULL ls then c
+    else add c (to_npbc (MAP (λl. (n,negate l)) ls,0))
 End
 
 Theorem inject_thm:
@@ -724,7 +726,8 @@ Proof
     `r ≤ &SUM (MAP (eval_term w) q)` by (
       `0 ≤ (&SUM (MAP (eval_term w) q)):int` by simp[]>>
       intLib.ARITH_TAC)>>
-    simp[satisfies_npbc_def])>>
+    simp[satisfies_npbc_def])
+  >- gvs[NULL_EQ]>>
   `∃gs g. to_npbc (MAP (λl. (r,negate l)) ls,0) = (gs,g)` by metis_tac[PAIR]>>
   drule to_npbc_value>>
   disch_then(qspec_then`w` assume_tac)>>

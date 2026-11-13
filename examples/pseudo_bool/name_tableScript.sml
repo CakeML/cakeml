@@ -540,96 +540,111 @@ Proof
   simp[]
 QED
 
-(*
-  Reading the number of a name x<digits> in place. read_nat s i n is
-  fromNatString (substring s i (n - i)) (read_nat_fromNatString).
-*)
-Definition read_digits_def:
-  read_digits s i n (acc:num) =
-  if smallnum_lt_str i n s then
-    let c = ORD (strsub_unsafe s i) in
-    if smallnum_le 48 c ∧ smallnum_le c 57 then
-      read_digits s (smallnum_add_str i 1 s) n (acc * 10 + smallnum_sub c 48)
-    else NONE
-  else SOME acc
+Theorem fromChars_range_unsafe_1:
+  fromChars_range_unsafe p 1 s = ORD (strsub s p) − 48
+Proof
+  REWRITE_TAC[ONE,mlintTheory.fromChars_range_unsafe_def,
+              mlintTheory.fromChar_unsafe_def]>>
+  simp[]
+QED
+
+(* acc extended by the digits s[j..e), as an integer, or -1 if one is not
+  a digit; k counts the digits read so far, up to 9. Arithmetic is on small
+  integers (mlint's smallnum functions): indices with s as the witness,
+  character codes below 256, and the first nine digits of the number, whose
+  value stays below 10 ** 9 < 2 ** 30; later digits use unbounded
+  arithmetic. *)
+Definition num_run_def:
+  num_run s e (j:num) (acc:num) (k:num) =
+  if smallnum_lt_str j e s then
+    let oc = ORD (strsub_unsafe s j) in
+    if smallnum_le 48 oc ∧ smallnum_le oc 57 then
+      if smallnum_lt k 9 then
+        num_run s e (smallnum_add_str j 1 s)
+          (smallnum_add (smallnum_mul acc 10) (smallnum_sub oc 48))
+          (smallnum_add k 1)
+      else num_run s e (smallnum_add_str j 1 s) (acc * 10 + smallnum_sub oc 48) k
+    else (-1:int)
+  else &acc
 Termination
-  WF_REL_TAC`measure (λ(s,i,n,acc). n - i)`>>
+  WF_REL_TAC`measure (λ(s,e,j,acc,k). e - j)`>>
   rw[smallnum_lt_str_def,smallnum_add_str_def]
 End
 
+Theorem num_run_thm:
+  ∀s e j acc k p.
+  p ≤ j ∧ j ≤ e ∧ e ≤ strlen s ∧
+  acc = fromChars_range_unsafe p (j − p) s ⇒
+  num_run s e j acc k =
+  if ∀q. j ≤ q ∧ q < e ⇒ isDigit (strsub s q)
+  then &fromChars_range_unsafe p (e − p) s
+  else -1
+Proof
+  ho_match_mp_tac num_run_ind>>
+  rpt gen_tac>>strip_tac>>
+  rpt gen_tac>>strip_tac>>
+  simp[Once num_run_def]>>
+  fs[smallnum_lt_str_def,smallnum_add_str_def,smallnum_le_def,smallnum_lt_def,
+     smallnum_add_def,smallnum_sub_def,smallnum_mul_def,
+     mlstringTheory.strsub_unsafe_eq_strsub]>>
+  reverse (Cases_on`j < e`)
+  >- (`j = e` by decide_tac>>simp[])>>
+  simp[]>>
+  reverse IF_CASES_TAC
+  >- (
+    rw[]>>
+    first_x_assum (qspec_then`j` mp_tac)>>
+    simp[isDigit_def])>>
+  `ORD (strsub s j) + 10 * fromChars_range_unsafe p (j − p) s − 48 =
+   fromChars_range_unsafe p (j + 1 − p) s` by
+    simp[fromChars_range_unsafe_snoc]>>
+  `(∀q. j ≤ q ∧ q < e ⇒ isDigit (strsub s q)) ⇔
+   (∀q. j + 1 ≤ q ∧ q < e ⇒ isDigit (strsub s q))` by (
+    rw[EQ_IMP_THM]>>
+    Cases_on`q = j`>>gvs[isDigit_def])>>
+  simp[]
+QED
+
+(*
+  Reading the number of a name x<digits> in place. read_nat s 1 (strlen s)
+  is fromNatString (substring s 1 (strlen s - 1)) (read_nat_fromNatString).
+*)
 Definition read_nat_def:
   read_nat s i n =
   if smallnum_lt_str i n s then
     let c = strsub_unsafe s i in
-    let i1 = smallnum_add_str i 1 s in
-    if c = #"+" then
-      (if smallnum_lt_str i1 n s then read_digits s i1 n 0 else NONE)
-    else if c = #"~" ∨ c = #"-" then
-      (if smallnum_lt_str i1 n s then
-        case read_digits s i1 n 0 of
-          SOME m => if m = 0 then SOME 0 else NONE
-        | NONE => NONE
-      else NONE)
-    else read_digits s i n 0
+    let neg = (c = #"~" ∨ c = #"-") in
+    let j = if neg ∨ c = #"+" then smallnum_add_str i 1 s else i in
+    if smallnum_lt_str j n s then
+      let v = num_run s n j 0 0 in
+      if neg then (if v = 0 then SOME 0 else NONE)
+      else if v < 0 then NONE else SOME (Num v)
+    else NONE
   else NONE
 End
 
-(* acc holds the value of the digits read from p *)
-Theorem read_digits_thm:
-  ∀s i n acc p.
-  i ≤ n ∧ n ≤ strlen s ∧ p ≤ i ∧ acc = fromChars_range_unsafe p (i - p) s ⇒
-  read_digits s i n acc =
-  if (∀q. i ≤ q ∧ q < n ⇒ isDigit (strsub s q))
-  then SOME (fromChars_range_unsafe p (n - p) s)
-  else NONE
-Proof
-  ho_match_mp_tac read_digits_ind>>
-  rpt strip_tac>>
-  simp[Once read_digits_def]>>
-  fs[smallnum_lt_str_def,smallnum_add_str_def,smallnum_le_def,
-     smallnum_sub_def,mlstringTheory.strsub_unsafe_eq_strsub]>>
-  reverse (Cases_on`i < n`)>>
-  fs[]
-  >- (
-    `i = n` by decide_tac>>
-    simp[])>>
-  `(∀q. i ≤ q ∧ q < n ⇒ isDigit (strsub s q)) ⇔
-   isDigit (strsub s i) ∧ ∀q. i + 1 ≤ q ∧ q < n ⇒ isDigit (strsub s q)` by (
-    eq_tac>>
-    rw[]>>
-    Cases_on`q = i`>>
-    gvs[])>>
-  pop_assum SUBST1_TAC>>
-  simp[isDigit_def]>>
-  IF_CASES_TAC>>
-  fs[]>>
-  first_x_assum (qspec_then`p` mp_tac)>>
-  simp[fromChars_range_unsafe_snoc,isDigit_def]
-QED
-
-(* On a non-empty suffix, read_digits from 0 is fromChars *)
-Theorem read_digits_fromChars[local]:
+(* On a non-empty suffix, num_run from 0 is fromChars, with -1 for NONE *)
+Theorem num_run_fromChars[local]:
   j < strlen s ⇒
-  read_digits s j (strlen s) 0 =
-  fromChars (strlen s - j) (substring s j (strlen s - j))
+  num_run s (strlen s) j 0 0 =
+  case fromChars (strlen s - j) (substring s j (strlen s - j)) of
+    NONE => -1
+  | SOME m => &m
 Proof
   strip_tac>>
-  `read_digits s j (strlen s) 0 =
-   if (∀q. j ≤ q ∧ q < strlen s ⇒ isDigit (strsub s q))
-   then SOME (fromChars_range_unsafe j (strlen s - j) s)
-   else NONE` by (
-    irule read_digits_thm>>
-    simp[fromChars_range_unsafe_def])>>
-  pop_assum SUBST1_TAC>>
+  qspecl_then[`s`,`strlen s`,`j`,`0`,`0`,`j`] mp_tac num_run_thm>>
+  simp[fromChars_range_unsafe_def]>>
+  disch_then SUBST1_TAC>>
   IF_CASES_TAC
   >- (
     DEP_REWRITE_TAC[fromChars_substring_SOME]>>
     simp[])>>
   fs[]>>
-  simp[Once EQ_SYM_EQ]>>
-  irule fromChars_substring_NONE>>
-  simp[]>>
-  qexists_tac`q`>>
+  `fromChars (strlen s − j) (substring s j (strlen s − j)) = NONE` by (
+    irule fromChars_substring_NONE>>
+    simp[]>>
+    qexists_tac`q`>>
+    simp[])>>
   simp[]
 QED
 
@@ -649,26 +664,24 @@ Proof
    substring s 2 (strlen s - 2)` by
     simp[substring_substring]>>
   simp[]>>
-  Cases_on`strlen s = 2`
-  >- (
-    simp[read_digits_fromChars,fromChars_def]>>
-    rw[]>>
-    Cases_on`fromChars 1 (substring s 1 1)`>>
-    simp[])>>
-  simp[read_digits_fromChars]>>
-  Cases_on`strsub s 1 = #"+"`>>
-  simp[]
-  >- (
-    Cases_on`fromChars (strlen s - 2) (substring s 2 (strlen s - 2))`>>
-    simp[])>>
   Cases_on`strsub s 1 = #"~" ∨ strsub s 1 = #"-"`>>
   simp[]
   >- (
+    Cases_on`strlen s = 2`>>
+    simp[fromChars_def,num_run_fromChars]>>
     Cases_on`fromChars (strlen s - 2) (substring s 2 (strlen s - 2))`>>
     simp[]>>
     rename1`SOME m`>>
     Cases_on`m`>>
     simp[])>>
+  Cases_on`strsub s 1 = #"+"`>>
+  simp[]
+  >- (
+    Cases_on`strlen s = 2`>>
+    simp[fromChars_def,num_run_fromChars]>>
+    Cases_on`fromChars (strlen s - 2) (substring s 2 (strlen s - 2))`>>
+    simp[])>>
+  simp[num_run_fromChars]>>
   Cases_on`fromChars (strlen s - 1) (substring s 1 (strlen s - 1))`>>
   simp[]
 QED
