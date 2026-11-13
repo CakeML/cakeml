@@ -3392,8 +3392,7 @@ Resume arm8_asl_encoder_correct[CmpImmEqual1]:
         >- (
           next_state_tac0 false (fn l => List.nth (l,0)) List.tl
             `l3_env 0n (THE $ NextStateARM8 l3)` >>
-          pop_assum mp_tac >> impl_keep_tac >- (imp_res_tac lem23 >> gvs[]) >>
-          strip_tac >> gvs[] >> impl_tac
+          gvs[] >> impl_tac
           >- (
             gvs[interference_ok_def, arm8_asl_proj_def, arm8_proj_def, arm8_ok_def] >>
             simp[alignmentTheory.aligned_numeric]
@@ -3860,8 +3859,7 @@ Resume arm8_asl_encoder_correct[CmpImmNotEqual1]:
         >- (
           next_state_tac0 false (fn l => List.nth (l,0)) (fn l => [hd l])
             `l3_env 0n (THE $ NextStateARM8 l3)` >>
-          pop_assum mp_tac >> impl_keep_tac >- (imp_res_tac lem23 >> gvs[]) >>
-          strip_tac >> gvs[] >> impl_tac
+          gvs[] >> impl_tac
           >- (
             gvs[interference_ok_def, arm8_asl_proj_def, arm8_proj_def, arm8_ok_def] >>
             simp[alignmentTheory.aligned_numeric]
