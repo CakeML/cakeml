@@ -17,12 +17,24 @@ Libs
 (* TODO Should we give hint when we have something of shape
      x ∈ (dec_clock s).memaddrs as a side condition? *)
 
+(* TODO Can we prove ⇔ for our step-theorems to make it clearer which ones
+     are "safe" (i.e. cannot result in a stuck proof) *)
+
 (** set_sep and word helpers **************************************************)
 
 (* TODO Move somewhere better *)
 Definition byte_dimindex_def:
   byte_dimindex (:α) ⇔ ∃k. dimindex(:α) = 2 ** k ∧ 3 ≤ k
 End
+
+(* TODO Move somewhere better *)
+Theorem byte_dimindex_leq:
+  8 < dimindex (:α) ∧ byte_dimindex (:α) ⇒ 16 ≤ dimindex (:α)
+Proof
+  rw [byte_dimindex_def]
+  >> qpat_x_assum ‘2 ** k = _’ $ SUBST_ALL_TAC o GSYM
+  >> fs []
+QED
 
 (* TODO Move somewhere better *)
 Theorem dimindex_DIV_8_lt_dimword:
@@ -36,6 +48,14 @@ QED
 
 (* TODO Move somewhere better *)
 Theorem one_lt_w2n_bytes_in_word:
+  16 ≤ dimindex (:α) ⇒ 1 < w2n (bytes_in_word: α word)
+Proof
+  simp [bytes_in_word_def, dimindex_DIV_8_lt_dimword, X_LT_DIV]
+QED
+
+(*
+(* TODO Move somewhere better *)
+Theorem one_lt_w2n_bytes_in_word:
   8 < dimindex (:α) ∧ byte_dimindex (:α) ⇒ 1 < w2n (bytes_in_word: α word)
 Proof
   rw [byte_dimindex_def, bytes_in_word_def]
@@ -46,6 +66,7 @@ Proof
   >> DEP_REWRITE_TAC [GSYM EXP_SUB] >> simp []
   >> Cases_on ‘k = 3’ >> gvs []
 QED
+*)
 
 (* TODO Move somewhere better *)
 Theorem dimword_MOD_bytes_in_word:
@@ -336,16 +357,76 @@ Proof
   >> rpt (IF_CASES_TAC >> gvs [])
 QED
 
-Theorem evaluate_While_True_NONE:
-  s.clock ≠ 0 ∧
-  eval s e = SOME (ValWord w) ∧
-  w ≠ 0w ∧
-  evaluate (c, dec_clock s) = (NONE, s₁) ∧
-  evaluate (While e c, s₁) = (NONE, s')
+Theorem evaluate_While_False_NONE:
+  res = NONE ∧
+  s' = s ∧
+  eval s e = SOME (ValWord (i2w i: α word)) ∧
+  i2w i = (0w :α word)
   ⇒
   evaluate (While e c,s) = (NONE, s')
 Proof
   rw [] >> simp [Once evaluate_def]
+QED
+
+Theorem evaluate_While_True:
+  eval s e = SOME (ValWord w) ∧
+  w ≠ (0w :α word) ∧
+  s.clock ≠ 0 ∧
+  evaluate (c, dec_clock s) = (res, s₁) ∧
+  (case res of
+   | SOME Continue => evaluate (While e c, s₁) = (res₁, s₂)
+   | NONE => evaluate (While e c, s₁) = (res₁, s₂)
+   | SOME Break => (NONE, s₁) = (res₁, s₂)
+   | _ => (res, s₁) = (res₁, s₂))
+  ⇒
+  evaluate (While e c,s) = (res₁, s₂)
+Proof
+  rw [] >> simp [Once evaluate_def]
+  >> CASE_TAC >> gvs []
+  >> CASE_TAC >> gvs []
+QED
+
+(*
+Theorem evaluate_While_True_NONE:
+  eval s e = SOME (ValWord w) ∧
+  w ≠ (0w :α word) ∧
+  s.clock ≠ 0 ∧
+  evaluate (c, dec_clock s) = (res, s₁) ∧
+  (case res of
+   | SOME Continue => evaluate (While e c, s₁) = (NONE, s₂)
+   | NONE => evaluate (While e c, s₁) = (NONE, s₂)
+   | SOME Break => s₁ = s₂
+   | _ => F) ∧
+  evaluate (While e c, s₁) = (NONE, s₂)
+  ⇒
+  evaluate (While e c,s) = (NONE, s₂)
+Proof
+  rw [] >> simp [Once evaluate_def]
+  >> CASE_TAC >> gvs []
+  >> CASE_TAC >> gvs []
+QED
+
+Theorem evaluate_While_NONE:
+  0 < s.clock ∧
+  eval s e = SOME (ValWord (i2w i: α word)) ∧
+  (if i2w i = (0w: α word) then s = s₂
+   else
+     evaluate (Seq Tick c, s) = (res, s₁) ∧
+     (case res of
+      | SOME Continue => evaluate (While e c, s₁) = (NONE, s₂)
+      | NONE => evaluate (While e c, s₁) = (NONE, s₂)
+      | SOME Break => s₁ = s₂
+      | _ => F)) ⇒
+  evaluate (While e c,s) = (NONE, s₂)
+Proof
+  simp [Once evaluate_def]
+  >> simp [Once evaluate_def]
+  >> IF_CASES_TAC
+  >> strip_tac >> gvs []
+  >> simp [Once evaluate_def]
+  >> qabbrev_tac ‘hidden = While e c’
+  >> CASE_TAC >> gvs []
+  >> CASE_TAC >> gvs []
 QED
 
 Theorem evaluate_While_NONE:
@@ -364,86 +445,100 @@ Proof
   >> Cases_on ‘s.clock = 0’ >> gvs []
   >> IF_CASES_TAC >> gvs []
 QED
+*)
 
-Theorem evaluate_If_NONE:
+Theorem evaluate_If:
   eval s e = SOME (ValWord (i2w i)) ∧
-  evaluate (If (Const i) c1 c2,s) = (NONE, s')
+  evaluate (If (Const i) c1 c2,s) = (res, s')
   ⇒
-  evaluate (If e c1 c2,s) = (NONE, s')
+  evaluate (If e c1 c2,s) = (res, s')
 Proof
   once_rewrite_tac [evaluate_def]
   >> rw []
 QED
 
-Theorem evaluate_Dec_NONE:
+Theorem evaluate_Dec_no_error:
   (s₂ = s₁ with locals := res_var s₁.locals (v, FLOOKUP s.locals v)) ∧
   eval s e = SOME value ∧
   shape = shape_of value ∧
-  evaluate (prog,s with locals := s.locals |+ (v,value)) = (NONE,s₁)
+  evaluate (prog,s with locals := s.locals |+ (v,value)) = (res,s₁)
   ⇒
-  evaluate (Dec v shape e prog, s) = (NONE, s₂)
+  evaluate (Dec v shape e prog, s) = (res, s₂)
 Proof
   rw [] >> simp [Once evaluate_def]
 QED
 
-Theorem evaluate_Seq_NONE:
-  evaluate (c₁, s) = (NONE, s₁) ∧
-  evaluate (c₂, s₁) = (NONE, s')
+Theorem evaluate_Seq:
+  evaluate (c₁, s) = (res, s₁) ∧
+  (if res = NONE
+   then evaluate (c₂, s₁) = (res₁, s₂)
+   else (res₁, s₂) = (res, s₁))
   ⇒
-  evaluate (Seq c₁ c₂, s) = (NONE, s')
+  evaluate (Seq c₁ c₂, s) = (res₁, s₂)
 Proof
   rw [] >> simp [evaluate_def]
 QED
 
 Theorem evaluate_Store_Local_NONE:
+  res = NONE ∧
   s' = s with memory := s.memory⦇addr ↦ v⦈ ∧
   FLOOKUP s.locals dst = SOME (ValWord addr) ∧
   addr ∈ s.memaddrs ∧
   eval s e = SOME (Val v)
   ⇒
-  evaluate (Store (Var Local dst) e, s) = (NONE, s')
+  evaluate (Store (Var Local dst) e, s) = (res, s')
 Proof
   simp [evaluate_def, flatten_def, mem_stores_def, mem_store_def]
 QED
 
 Theorem evaluate_Assign_Local:
+  res = NONE ∧
   s' = s with locals := s.locals⟨dst ↦ value⟩ ∧
   eval s src = SOME value ∧
   FLOOKUP s.locals dst = SOME old_value ∧
   shape_of value = shape_of old_value
   ⇒
-  evaluate ((Assign Local dst src), s) = (NONE, s')
+  evaluate ((Assign Local dst src), s) = (res, s')
 Proof
   simp [evaluate_def, is_valid_value_def, set_var_def]
 QED
 
 Theorem evaluate_Primitive_AddCarry:
+  res = NONE ∧
   s' =
     s with locals :=
       s.locals⟨
        dst ↦
        (RStruct
-          [ValWord (n2w res : α word);
-           ValWord (if dimword (:α) ≤ res then 1w else 0w)])⟩ ∧
+          [ValWord (n2w add_res : α word);
+           ValWord (if dimword (:α) ≤ add_res then 1w else 0w)])⟩ ∧
   eval s l = SOME (ValWord lv) ∧
   eval s r = SOME (ValWord rv) ∧
   eval s ci = SOME (ValWord civ) ∧
   FLOOKUP s.locals dst = SOME old_value ∧
   shape_of old_value = Comb [One; One] ∧
-  res = w2n lv + w2n rv + (if civ = 0w then 0 else 1)
+  add_res = w2n lv + w2n rv + (if civ = 0w then 0 else 1)
   ⇒
-  evaluate (Primitive dst AddCarry [l; r; ci], s) = (NONE, s')
+  evaluate (Primitive dst AddCarry [l; r; ci], s) = (res, s')
 Proof
   simp [evaluate_def, pan_primop_def, isValWord_def, theValWord_def,
         is_valid_value_def, word_add_carry_def, set_var_def]
 QED
 
 Theorem evaluate_Tick_NONE:
-  s' = dec_clock s
-  ∧
+  res = NONE ∧
+  s' = dec_clock s ∧
   s.clock ≠ 0
   ⇒
-  evaluate (Tick, s) = (NONE, s')
+  evaluate (Tick, s) = (res, s')
+Proof
+  simp [evaluate_def]
+QED
+
+Theorem evaluate_Break:
+  res = SOME Break ∧ s' = s
+  ⇒
+  evaluate (Break, s) = (res, s')
 Proof
   simp [evaluate_def]
 QED
@@ -542,7 +637,7 @@ fun mw_fix_pan(x_len, xs) {
       break;
     } else {
       x_len = x_len - 1;
-      x = x - @biw;
+      xs = xs - @biw;
     }
   }
   return x_len;
@@ -756,7 +851,9 @@ end
    use of the assumptions. *)
 fun add_asms asl thl = map ASSUME asl @ thl
 
-val it = stackify_imp_th evaluate_Dec_NONE
+(*
+val it = stackify_imp_th evaluate_Dec_no_error
+*)
 
 val (stack_tm, mk_stack, dest_stack, is_stack) = syntax_fns1 "stackTest" "stack"
 fun is_stack_cons tm = is_stack tm andalso listSyntax.is_cons (dest_stack tm)
@@ -827,11 +924,11 @@ val _ =
 
 (* Theorems of the form stack (...) ⇒ stack ({evaluate,eval} ...) *)
 val (step_imp_thl: thm list) =
-  [evaluate_Dec_NONE, eval_Load_One_Local_SOME, eval_RStruct_One_One,
-   evaluate_Primitive_AddCarry, evaluate_Seq_NONE, eval_Op_BitwiseNot_SOME,
+  [evaluate_Dec_no_error, eval_Load_One_Local_SOME, eval_RStruct_One_One,
+   evaluate_Primitive_AddCarry, evaluate_Seq, eval_Op_BitwiseNot_SOME,
    eval_RField_Var_Local, evaluate_Store_Local_NONE,
    eval_Op_And_SOME, evaluate_Assign_Local, eval_Op_Add_SOME, eval_Op_Sub_SOME,
-   evaluate_Tick_NONE]
+   evaluate_Tick_NONE, evaluate_Break]
   |> map stackify_imp_th
 
 (* Given ⊢ A = B, returns A. *)
@@ -866,13 +963,17 @@ in irule_at (Pos first_stack) winner end
 
 val step_imp_tac = stack_imp_tac step_imp_thl
 
+(* TODO Some automation that tries to make this choice for us. *)
 (* Unfolds evaluate (While ...) = ... at the head. *)
-val step_While = irule_at (Pos first_stack) (stackify_imp_th evaluate_While_NONE)
+val enter_loop =
+  irule_at (Pos first_stack) (stackify_imp_th evaluate_While_True)
+val skip_loop =
+  irule_at (Pos first_stack) (stackify_imp_th evaluate_While_False_NONE)
 
 (* Reduces evaluate (If ...) = ... at the head to
    evaluate (If (Const ...) ...) = ... . This tactic should not be used on
    If with a Const condition, as it will not lead to progress in the proof. *)
-val step_If = irule_at (Pos first_stack) (stackify_imp_th evaluate_If_NONE)
+val step_If = irule_at (Pos first_stack) (stackify_imp_th evaluate_If)
 
 (* Finds the "redex" of the stack (lhs of wants at the top of the stack) . *)
 fun find_redex tm = let
@@ -888,9 +989,9 @@ end
 Theorem evaluate_If_Const_T:
   (i2w i ≠ (0w :α word) ⇔ T)
   ⇒
-  evaluate (c1, s: (α, γ) state) = (NONE, s')
+  evaluate (c1, s: (α, γ) state) = (res, s')
   ⇒
-  evaluate (If (Const i) c1 c2,s) = (NONE, s')
+  evaluate (If (Const i) c1 c2,s) = (res, s')
 Proof
   simp [evaluate_def]
 QED
@@ -899,9 +1000,9 @@ QED
 Theorem evaluate_If_Const_F:
   (i2w i ≠ (0w :α word) ⇔ F)
   ⇒
-  evaluate (c2, s: (α, γ) state) = (NONE, s')
+  evaluate (c2, s: (α, γ) state) = (res, s')
   ⇒
-  evaluate (If (Const i) c1 c2,s) = (NONE, s')
+  evaluate (If (Const i) c1 c2,s) = (res, s')
 Proof
   simp [evaluate_def]
 QED
@@ -931,9 +1032,8 @@ in
       ]
 end
 
-(* Reduces a goal that contains stack (({evaluate,eval} ... = ...)::...).
-   unfold indicates whether while-loops should be unfolded. *)
-fun step_core unfold : tactic = fn (g as (asl, w)) => fn ctxt => let
+(* Reduces a goal that contains stack (({evaluate,eval} ... = ...)::...). *)
+val step : tactic = fn (g as (asl, w)) => fn ctxt => let
   val stack = find_term is_stack w
     handle HOL_ERR _ => raise ERR "step_core" "could not find stack"
   val (head, _) = listSyntax.dest_cons (rand stack)
@@ -946,9 +1046,7 @@ fun step_core unfold : tactic = fn (g as (asl, w)) => fn ctxt => let
     exists (fn thm => can (match_term (eq_thm_lhs thm)) redex) step_eq_thl
 in
   (if is_evaluate_While redex then
-     if unfold then step_While else
-       raise ERR "step_core"
-         "unfolding while-loops disabled. Hint: use the step tactic."
+     raise ERR "step_core" "Use enter_loop or skip_loop."
    else if is_evaluate_If_Const redex then step_If_Const
    else if is_evaluate_If redex then step_If
    else if matches_eq then
@@ -956,9 +1054,6 @@ in
    else
      step_imp_tac stack handle e => raise WRAP_EXN "step_core" e) g ctxt
 end
-
-(* step tactic for the user. Unfolds while-loops. *)
-val step = step_core true
 
 (* Rewrites stack (T::rest) to stack rest. Fails if the rewrite does not apply. *)
 val head_pop_T : tactic = fn (g as (asl, w)) => fn ctxt =>
@@ -1073,6 +1168,10 @@ val side_simp =
     shape_of_ValWord, shape_of_RStruct_One_One,
     dec_clock_record, panSemTheory.state_accfupds,
     FLOOKUP_UPDATE, (* FLOOKUP_set_var_neq, FLOOKUP_set_var, *) LLOOKUP_def,
+
+    (* TODO Could try adding some of these to get rid of hsimp for something like
+         n2w (SUC (LENGTH ys)) *)
+    (* n2w_11, LESS_MOD, ZERO_MOD, ZERO_LT_dimword, SUC_NOT_ZERO, NOT_CLAUSES   *)
   ]
 
 (* Attempts to prove side-conditions produced by step. Fails if a
@@ -1082,26 +1181,22 @@ val side : tactic = fn g => fn ctxt =>
     handle HOL_ERR _ => raise ERR "side" "failed to discharge side-condition"
 
 (* Tries to apply step or side. *)
-fun step_or_side_core unfold : tactic = fn (g as (_, w)) => fn ctxt => let
+val step_or_side : tactic = fn (g as (_, w)) => fn ctxt => let
   val is_step =
     case total find_redex w of
       NONE => false
     | SOME redex => is_evaluate redex orelse is_eval redex
 in
-  (if is_step then step_core unfold else side) g ctxt
+  (if is_step then step else side) g ctxt
     handle e => raise WRAP_EXN "step_or_side_core" e
 end
-
-(* Tries to apply step or side, including unfolding of loops. *)
-val step_or_side = step_or_side_core true
-    handle e => raise WRAP_EXN "step_or_side" e
 
 (* Apply tactic one or more times. *)
 fun rpt1 tac : tactic = tac >> rpt tac
 
 (* Takes as many steps as possible, except unfold while-loops. *)
 val walk : tactic = fn (g as (asl, w)) => fn ctxt =>
-  (rpt1 (step_or_side_core false)) g ctxt handle e => raise WRAP_EXN "walk" e
+  (rpt1 (step_or_side)) g ctxt handle e => raise WRAP_EXN "walk" e
 
 (*
 val g as (asl, w) = top_goal ();
@@ -1109,22 +1204,44 @@ val g as (asl, w) = top_goal ();
 
 val _ = max_print_depth := ~1
 
+(* TODO move *)
+Theorem el_addr_add:
+  n2w n * bytes_in_word + el_addr a i = el_addr a (i + n)
+Proof
+  simp [el_addr_def, GSYM word_add_n2w, WORD_LEFT_ADD_DISTRIB]
+QED
+
+(* TODO move *)
+Theorem el_addr_sub:
+  n ≤ i ⇒ -n2w n * bytes_in_word + el_addr a i = el_addr a (i - n)
+Proof
+  simp [el_addr_def, n2w_sub, WORD_LEFT_ADD_DISTRIB]
+QED
+
+(* TODO move *)
+Theorem mw_fix_snoc_zero:
+  mw_fix (SNOC 0w xs) = mw_fix xs
+Proof
+  simp [Once mw_fix_def]
+QED
+
 Theorem mw_fix_pan_thm:
   ∀(xs: α word list) rs s x frame.
     mw_fix xs = rs ∧
     LENGTH xs ≤ s.clock ∧  (* LENGTH xs - LENGTH rs would probably be enough *)
     FLOOKUP s.locals «x_len» = SOME (Val (Word (n2w (LENGTH xs)))) ∧
-    FLOOKUP s.locals «xs»    = SOME (Val (Word (el_addr x (LENGTH xs - 1)))) ∧
+    FLOOKUP s.locals «xs»    =
+      SOME (Val (Word (el_addr x (LENGTH xs) - bytes_in_word))) ∧
     (ones x (MAP Word xs) * frame) (fun2set (s.memory, s.memaddrs)) ∧
     byte_dimindex (:α) ∧ 8 < dimindex (:α)
     ⇒
-    ∃m l.
+    ∃m l clk.
       evaluate (mw_fix_pan_loop,s) = (NONE,
         s with <| memory := m;
                   locals := l;
-                  clock := s.clock - LENGTH xs + LENGTH rs |>) ∧
-      FLOOKUP s.locals «x_len» = SOME (Val (Word (n2w (LENGTH rs)))) ∧
-      (ones x (MAP Word rs) * frame) (fun2set (m, s.memaddrs))
+                  clock := clk |>) ∧
+      FLOOKUP l «x_len» = SOME (Val (Word (n2w (LENGTH rs)))) ∧
+      (ones x (MAP Word xs) * frame) (fun2set (m, s.memaddrs))
 Proof
   simp []
   >> Induct using SNOC_INDUCT
@@ -1134,26 +1251,49 @@ Proof
     >> once_rewrite_tac [mw_fix_def] >> simp []
   )
   >> once_rewrite_tac [GSYM stack_evaluate]
-  >> step >> walk
+  >> enter_loop
   >> have ‘SUC (LENGTH xs) < dimword (:α)’
   >- (
-    drule_then mp_tac $
-      INST_TYPE [“:β” |-> “:α word_lab”] ones_leq_dimword
+    drule_all_then assume_tac byte_dimindex_leq
+    >> drule_then mp_tac $
+         INST_TYPE [“:β” |-> “:α word_lab”] ones_leq_dimword
     >> disch_then drule >> simp [] >> strip_tac
     >> drule_all_then assume_tac one_lt_w2n_bytes_in_word
     >> irule_at (Pos hd) LESS_LESS_EQ_TRANS
     >> first_assum $ irule_at (Pos last)
     >> simp []
   )
-  >> walk
-  >> hsimp []
+  >> walk >> hsimp []
+  >> gvs [Req0 el_addr_sub]
   >> rename1 ‘el_addr base _’
   >> read_ones_at_auto ‘base’ ‘LENGTH xs’
   >> have ‘(MAP Word (SNOC x xs))❲LENGTH xs❳ = Word x’
   >- simp [EL_MAP, EL_LENGTH_SNOC]
+  >> walk
   >> Cases_on ‘x’ >> gvs []
   >> walk
-  >> cheat
+  >> Cases_on ‘n’
+  >- (
+    walk
+    >> once_rewrite_tac [GSYM mw_fix_pan_loop_def]
+    >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
+    >> gvs [MAP_SNOC, ones_SNOC]
+    >> last_x_assum $ qspecl_then [‘s'’, ‘base’] mp_tac
+    (* TODO a gadget that takes a theorem and the goal, and tries to
+       instantiate the frame? *)
+    >> simp [Abbr ‘s'’, dec_clock_def, FLOOKUP_SIMP, i2w_one, n2w_SUC]
+    >> strip_tac
+    >> SEP_F_TAC
+    >> strip_tac
+    >> fs [stack_def, state_component_equality, mw_fix_snoc_zero,
+           AC STAR_ASSOC STAR_COMM]
+  )
+  >> walk >> hsimp []
+  >> simp [stack_def, dec_clock_def, state_component_equality]
+  >> qmatch_goalsub_abbrev_tac ‘mw_fix xs'’
+  >> have ‘LENGTH (mw_fix xs') = SUC (LENGTH xs)’
+  >- simp [Abbr ‘xs'’, Once mw_fix_def]
+  >> simp [FLOOKUP_SIMP]
 QED
 
 Theorem mw_and_pan_thm:
@@ -1184,12 +1324,14 @@ Proof
   >- (simp [Once evaluate_def, state_component_equality, mw_and_def])
   (* TODO make this into a tactic and use it everythwere *)
   >> once_rewrite_tac [GSYM stack_evaluate]
-  >> step >> walk
+  >> enter_loop
+  >> walk
   (* TODO Can we not prove something like this at the beginning for
        everything? *)
   >> have ‘SUC (LENGTH xs) < dimword (:α)’
   >- (
-    drule_then mp_tac $
+    drule_all_then assume_tac byte_dimindex_leq
+    >> drule_then mp_tac $
       INST_TYPE [“:β” |-> “:α word_lab”] ones_leq_dimword
     >> disch_then $ qspec_then ‘Word h::MAP Word xs’ assume_tac
     >> SEP_F_TAC >> simp [] >> strip_tac
@@ -1198,9 +1340,9 @@ Proof
     >> first_assum $ irule_at (Pos last)
     >> simp []
   )
+  >> hsimp []
   >> walk
-  (* TODO Should SEP_R_TAC be able to find things in
-       ones x (Word h::MAP Word xs)? *)
+  (* TODO Maybe we should have another tactic that reads the first element? *)
   >> fs [ones_def] >> SEP_R_TAC
   >> walk
   (* TODO SEP_R_TAC without the Cases seems to just do nothing?
@@ -1255,16 +1397,20 @@ Proof
   >- (simp [Once evaluate_def, state_component_equality, i2w_def])
   >> rename1 ‘ones _ (Word h::MAP Word _)’
   >> once_rewrite_tac [GSYM stack_evaluate]
-  >> step >> walk
-  >> ‘SUC (LENGTH ys) < dimword (:α)’ by
-    (drule_then mp_tac $
-       INST_TYPE [“:β” |-> “:α word_lab”] ones_leq_dimword
-     >> disch_then $ qspec_then ‘Word h::MAP Word ys’ assume_tac
-     >> SEP_F_TAC >> simp [] >> strip_tac
-     >> drule_all_then assume_tac one_lt_w2n_bytes_in_word
-     >> irule_at (Pos hd) LESS_LESS_EQ_TRANS
-     >> first_assum $ irule_at (Pos last)
-     >> simp [])
+  >> enter_loop >> walk
+  >> have ‘SUC (LENGTH ys) < dimword (:α)’
+  >- (
+    drule_all_then assume_tac byte_dimindex_leq
+    >> drule_then mp_tac $
+         INST_TYPE [“:β” |-> “:α word_lab”] ones_leq_dimword
+    >> disch_then $ qspec_then ‘Word h::MAP Word ys’ assume_tac
+    >> SEP_F_TAC >> simp [] >> strip_tac
+    >> drule_all_then assume_tac one_lt_w2n_bytes_in_word
+    >> irule_at (Pos hd) LESS_LESS_EQ_TRANS
+    >> first_assum $ irule_at (Pos last)
+    >> simp []
+  )
+  >> hsimp []
   >> walk
   >> Cases_on ‘xs’ >> fs [ones_def] >> SEP_R_TAC
   >> walk
@@ -1274,7 +1420,7 @@ Proof
   >> fs [ones_def] >> SEP_R_TAC >> hsimp []
   >> step_or_side
   >> walk
-  >> rewrite_tac [stack_evaluate]
+  >> simp [stack_evaluate]
   >> simp [Req0 $ GSYM mwi_and_neg_pos_geq_pan_loop_def]
   >> rename1 ‘evaluate (mwi_and_neg_pos_geq_pan_loop, _)’
   >> last_x_assum drule
