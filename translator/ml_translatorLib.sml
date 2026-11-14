@@ -1232,9 +1232,11 @@ fun EqualityType_via_n2typ is_exn_type typ = let
   in SIMP_RULE list_ss [FUN_EQ_THM] thm2 end
 
 fun matching_induction_of typ = let
-    val ind = TypeBase.induction_of typ
+    val ind = TypeBase.set_induction_of typ
     (* TypeBase's induction for a nested type has a single predicate; the
-       callers need one predicate per type, nested instances included *)
+       callers need one predicate per type, nested instances included.
+       operators_of reads the set functions, which the principle returned
+       by induction_of may have had rewritten out of it. *)
     val ind = case Lib.total legacyInduction.operators_of ind of
                 NONE => ind
               | SOME ops => legacyInduction.mutual_induction ops ind

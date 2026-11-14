@@ -330,8 +330,8 @@ Proof
     fs [] >> rveq >>
     fs [panLangTheory.size_of_shape_def, shape_of_def, panLangTheory.is_wf_shape_def] >>
     fs [flatten_def, eval_def, MAP_MAP_o] >>
-    ‘OPT_MMAP (λa. eval t a)
-     (MAP (HD ∘ FST ∘ (λa. compile_exp ct a)) es) =
+    ‘OPT_MMAP (eval t)
+     (MAP (HD ∘ FST ∘ compile_exp ct) es) =
      OPT_MMAP (λa. OPTION_MAP v2word (eval s a)) es’ by (
       ho_match_mp_tac IMP_OPT_MMAP_EQ >>
       fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
@@ -360,7 +360,8 @@ Proof
     fs [] >>
     ‘OPT_MMAP (λa. OPTION_MAP v2word (eval s a)) es =
      SOME (MAP v2word ws)’ by (
-      ho_match_mp_tac opt_mmap_opt_map >> fs []) >>
+      ho_match_mp_tac opt_mmap_opt_map >>
+      CONV_TAC (DEPTH_CONV ETA_CONV) >> fs []) >>
     fs [EVERY_MAP, MAP_MAP_o] >>
     strip_tac >> fs [flatten_def] >>
     rveq >>
@@ -456,6 +457,7 @@ Proof
   >- (imp_res_tac var_exp_load_shape >> gvs[]
      ) >>
   gvs[cexp_heads_eq,cexp_heads_simp_def,MEM_MAP,FORALL_PROD] >>
+  rename1 ‘MEM n (var_cexp (HD (FST (compile_exp ctxt a'))))’ >>
   first_x_assum drule >>
   disch_then drule >>
   disch_then irule >>

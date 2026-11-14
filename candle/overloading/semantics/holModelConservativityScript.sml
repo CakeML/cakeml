@@ -7985,8 +7985,8 @@ Resume interpretation_models_axioms_lemma[type_defn]:
              reverse conj_tac >- simp[Once(Q.prove(‘∀a b. a ≠ [] ⇒ TL(a ++ b) = TL a ++ b’,Cases>>simp[]))] >>
              drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
              Cases_on ‘ctxt1’ >> fs[extends_NIL_CONS_extends]) >>
-        ‘MAP (λa. TYPE_SUBSTf sigma' a) (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred))))) =
-         MAP (λa. TYPE_SUBSTf sigma a) (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred)))))
+        ‘MAP (TYPE_SUBSTf sigma') (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred))))) =
+         MAP (TYPE_SUBSTf sigma) (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred)))))
         ’
           by(rw[MAP_EQ_f,MEM_MAP,PULL_EXISTS,Abbr ‘sigma'’] >>
              rw[] >> spose_not_then kall_tac >> pop_assum mp_tac >> simp[] >>
@@ -8172,7 +8172,7 @@ Resume interpretation_models_axioms_lemma[type_defn]:
           defn_matches rep
             (Fun
                (Tyapp name
-                  (MAP (λa. TYPE_SUBSTf sigma a)
+                  (MAP (TYPE_SUBSTf sigma)
                      (MAP Tyvar
                         (MAP implode
                            (STRING_SORT (MAP explode (tvars pred)))))))
@@ -8814,8 +8814,8 @@ Resume interpretation_models_axioms_lemma[type_defn]:
              reverse conj_tac >- simp[Once(Q.prove(‘∀a b. a ≠ [] ⇒ TL(a ++ b) = TL a ++ b’,Cases>>simp[]))] >>
              drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
              Cases_on ‘ctxt1’ >> fs[extends_NIL_CONS_extends]) >>
-        ‘MAP (λa. TYPE_SUBSTf sigma' a) (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred))))) =
-         MAP (λa. TYPE_SUBSTf sigma a) (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred)))))
+        ‘MAP (TYPE_SUBSTf sigma') (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred))))) =
+         MAP (TYPE_SUBSTf sigma) (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred)))))
         ’
           by(rw[MAP_EQ_f,MEM_MAP,PULL_EXISTS,Abbr ‘sigma'’] >>
              rw[] >> spose_not_then kall_tac >> pop_assum mp_tac >> simp[] >>
@@ -8899,7 +8899,7 @@ Resume interpretation_models_axioms_lemma[type_defn]:
               rpt strip_tac >>
               drule indep_frag_upd_subst_clos_INR_INL >>
               rename1 ‘MEM ty1 (allTypes' _)’ >>
-              ‘MEM ty1 (allTypes' (Fun (Tyapp name (MAP (λa. TYPE_SUBSTf sigma a) (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred)))))))
+              ‘MEM ty1 (allTypes' (Fun (Tyapp name (MAP (TYPE_SUBSTf sigma) (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred)))))))
                                        (TYPE_SUBSTf sigma (domain (typeof pred)))))’
                 by(simp[allTypes'_defn]) >>
               first_x_assum(mp_then (Pos last) mp_tac constants_dependency_TYPE_SUBSTf) >>
@@ -9209,7 +9209,7 @@ Resume interpretation_models_axioms_lemma[type_defn]:
              defn_matches abs
                (Fun (TYPE_SUBSTf sigma (domain (typeof pred)))
                   (Tyapp name
-                     (MAP (λa. TYPE_SUBSTf sigma a)
+                     (MAP (TYPE_SUBSTf sigma)
                         (MAP Tyvar
                            (MAP implode
                               (STRING_SORT (MAP explode (tvars pred))))))))

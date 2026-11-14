@@ -579,7 +579,7 @@ Proof
 QED
 
 Definition max_var_exp_list_def:
-  max_var_exp_list ls = MAX_LIST (MAP (λx. max_var_exp x) ls)
+  max_var_exp_list ls = MAX_LIST (MAP max_var_exp ls)
 End
 
 Theorem max_var_exp_list_thm[local]:
@@ -715,7 +715,7 @@ val _ = cv_auto_trans apply_colour_nummap_key'_eq;
 val _ = cv_auto_trans apply_colour_nummaps_key'_eq;
 
 Definition get_reads_exp_list_def:
-  get_reads_exp_list xs = FLAT (MAP (λa. get_reads_exp a) xs)
+  get_reads_exp_list xs = FLAT (MAP get_reads_exp xs)
 End
 
 Theorem get_reads_exp_list_thm[local]:
@@ -732,7 +732,7 @@ Theorem get_reads_exp_eq =
 
 
 Definition get_live_exps_def:
-  get_live_exps ls = big_union (MAP (λa. get_live_exp a) ls)
+  get_live_exps ls = big_union (MAP get_live_exp ls)
 End
 
 Theorem get_live_exps_thm[local]:
@@ -763,7 +763,7 @@ val _ = cv_trans word_instTheory.is_Lookup_CurrHeap_def;
 val _ = cv_trans word_instTheory.pull_ops_def;
 
 Definition pull_exp_list_def:
-  pull_exp_list ls = MAP (λa. pull_exp a) ls
+  pull_exp_list ls = MAP pull_exp ls
 End
 
 Theorem pull_exp_list_thm[local]:
@@ -779,7 +779,7 @@ Theorem pull_exp_eq =
   |> REWRITE_RULE [GSYM pull_exp_list_def]
 
 Definition flatten_exp_list_def:
-  flatten_exp_list ls = MAP (λa. flatten_exp a) ls
+  flatten_exp_list ls = MAP flatten_exp ls
 End
 
 Theorem flatten_exp_list_thm[local]:
@@ -894,7 +894,7 @@ val _ = word_allocTheory.even_list_def |> cv_auto_trans;
 val _ = word_allocTheory.option_lookup_def |> cv_trans;
 
 Definition ssa_cc_trans_exp_list_def:
-  ssa_cc_trans_exp_list t =  MAP (λa. ssa_cc_trans_exp t a)
+  ssa_cc_trans_exp_list t =  MAP (ssa_cc_trans_exp t)
 End
 
 Theorem list_thm[local]:

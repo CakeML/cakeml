@@ -613,8 +613,8 @@ QED
 
 Theorem opt_mmap_helper_thm[local] =
   Q.SPECL [`es`, `es`] OPT_MMAP_CONG
-    |> Q.ISPEC `\e. eval ((if T then f else I) st) e`
-    |> Q.SPEC `\e. eval st e`
+    |> Q.ISPEC `eval ((if T then f else I) st)`
+    |> Q.SPEC `eval st`
     |> REWRITE_RULE []
     |> Q.GENL [`f`, `st`, `es`]
 
@@ -629,7 +629,8 @@ Proof
     >> metis_tac[]
   )
   >- (
-    first_x_assum irule
+    rename1 ‘MEM n (var_exp (SND y))’
+    >> first_x_assum irule
     >> rpt (pairarg_tac >> gvs[AllCaseEqs()])
     >> fs[UNZIP_MAP]
     >> qrefine `SND y` >> fs[LEFT_EXISTS_AND_THM]

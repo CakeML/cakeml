@@ -467,7 +467,7 @@ Proof
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
        CaseEq "word_lab", option_case_eq] >> rveq >> fs [] >>
-   qsuff_tac ‘OPT_MMAP (λa. eval t a) es = SOME ws’
+   qsuff_tac ‘OPT_MMAP (eval t) es = SOME ws’
    >- fs [] >>
    pop_assum mp_tac >>
    pop_assum kall_tac >>
@@ -516,9 +516,9 @@ Proof
 QED
 
 Theorem OPT_MMAP_eval_some_eq[local]:
-  OPT_MMAP (λa. eval s a) es = SOME vs /\
+  OPT_MMAP (eval s) es = SOME vs /\
   state_rel s t t.code ==>
-  OPT_MMAP (λa. eval t a) es = SOME vs
+  OPT_MMAP (eval t) es = SOME vs
 Proof
   rw []
   \\ gvs [pan_commonPropsTheory.opt_mmap_eq_some,MAP_EQ_EVERY2,LIST_REL_EL_EQN]
@@ -593,7 +593,7 @@ Proof
    fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
        CaseEq "word_lab", option_case_eq] >> rveq >> fs []
    >- (
-    qsuff_tac ‘OPT_MMAP (λa. eval t a) es = NONE’
+    qsuff_tac ‘OPT_MMAP (eval t) es = NONE’
     >- fs [] >>
     pop_assum mp_tac >>
     pop_assum mp_tac >>
@@ -605,7 +605,7 @@ Proof
     fs [] >>
     imp_res_tac compile_eval_correct >>
     fs []) >>
-   qsuff_tac ‘OPT_MMAP (λa. eval t a) es = SOME ws’
+   qsuff_tac ‘OPT_MMAP (eval t) es = SOME ws’
    >- fs [] >>
    pop_assum mp_tac >>
    pop_assum kall_tac >>
@@ -640,7 +640,7 @@ Resume compile_eval_correct_none[Panop]:
   >> simp [eval_def]
   >> TOP_CASE_TAC >> gvs []
   >-
-   (‘OPT_MMAP (λa. eval t a) es = NONE’ suffices_by simp []
+   (‘OPT_MMAP (eval t) es = NONE’ suffices_by simp []
     >> irule OPT_MMAP_NONE'
     >> drule OPT_MMAP_NONE >> strip_tac
     >> last_x_assum drule >> fs []
