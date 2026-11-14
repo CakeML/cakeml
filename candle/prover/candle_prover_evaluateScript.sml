@@ -799,11 +799,10 @@ Proof
 QED
 
 Resume evaluate_v_ok[App_Op]:
-  rw [evaluate_def] \\ Cases_on ‘getOpClass op’ \\ gs[]
-  >~ [‘EvalOp’] >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
-  >~ [‘FunApp’] >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
-  >~ [‘Force’] >- (
-    Cases_on ‘op’ \\ gvs [] \\ Cases_on ‘t’ \\ gvs []
+  rw [evaluate_def]
+  \\ Cases_on ‘op = ThunkOp ForceThunk’
+  >- (
+    gvs []
     \\ qpat_x_assum ‘_ = (s',res)’ mp_tac
     \\ TOP_CASE_TAC \\ gvs []
     \\ last_x_assum drule_all \\ strip_tac
@@ -900,14 +899,15 @@ Resume evaluate_v_ok[App_Op]:
     \\ disch_then drule \\ gvs []
     \\ impl_tac \\ gvs []
     \\ gvs [EVERY_EL])
-  >~ [‘PtrEqOp’] >- (
+  \\ Cases_on ‘op = PtrEq’
+  >- (
     gvs [AllCaseEqs()]
     \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs [state_ok_def]
     \\ rename1 ‘EVERY (v_ok ctxt1)’
     \\ qexists_tac ‘ctxt1’ \\ gs []
     \\ rw [Boolv_def, v_ok_def]
     \\ metis_tac [])
-  >~ [‘Simple’] >- (
+  >- (
     gvs [AllCaseEqs()]
     \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs [state_ok_def]
     \\ rename1 ‘EVERY (v_ok ctxt1)’

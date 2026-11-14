@@ -808,14 +808,17 @@ Proof
   >> xmatch
   >> xlet_autop
   >> namedCases_on ‘preprocess_witness maiger waiger ms’
-       ["waig wreset wnext wsafes wcnstrs wlive wlatches interv"]
+       ["waig wreset wnext wsafes wcnstrs wlive wlatches interv \
+        \wscnts mfcnt wfcnt"]
   >> gvs [PAIR_TYPE_def]
   >> xmatch
+  >> xlet_autop
   >> xlet ‘POSTv v.
        &ERRORMONAD_ERROR_TYPE
           (PAIR_TYPE XAIG_TYPE (PAIR_TYPE XAIG_TYPE (LIST_TYPE NUM)))
           STRING_TYPE
-          (process_and_check maig mreset mnext msafes mcnstrs mlive mlatches
+          (process_and_check maig mreset mnext msafes mcnstrs
+            (pad_mlive mlive wscnts mfcnt wfcnt) mlatches
              mlatch_start mmax_latch waig wreset wlive wlatches) v *
        STDIO fs’
   >- (
@@ -823,7 +826,8 @@ Proof
     >> rpt (first_x_assum $ irule_at Any)
     >> xsimpl)
   >> reverse $ Cases_on
-       ‘process_and_check maig mreset mnext msafes mcnstrs mlive mlatches
+       ‘process_and_check maig mreset mnext msafes mcnstrs
+          (pad_mlive mlive wscnts mfcnt wfcnt) mlatches
           mlatch_start mmax_latch waig wreset wlive wlatches’
   >- (
     qmatch_asmsub_rename_tac ‘error err’
@@ -856,12 +860,17 @@ Proof
              cnf_saved_write_file_files_neq, ALOOKUP_write_file_files_neq]
     (* Showing is_cnf_str *)
     >> rpt (qpat_assum ‘is_cnf_str _ _’ $ irule_at Any)
+    >> drule preprocess_model_outs >> strip_tac
+    >> qpat_x_assum ‘_ = [_ .. _]’ SUBST_ALL_TAC
     (* Showing unsat ⇒ safe + live *)
-    >> drule_then SUBST_ALL_TAC preprocess_model_mlatches
     >> drule process_and_check_return
     >> simp [GSYM encodings_unsat_def]
     >> rw []
-    >> first_x_assum drule >> simp []
+    >> first_x_assum drule >> strip_tac >> simp []
+    (* Showing that padding is sound *)
+    >> have ‘LENGTH mlive ≤ LENGTH wscnts’
+    >- (drule preprocess_witness_outs >> simp [])
+    >> drule_all is_live_pad_mlive >> simp []
   )
   >> xsimpl
 QED

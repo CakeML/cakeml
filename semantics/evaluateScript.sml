@@ -95,8 +95,7 @@ Definition evaluate_def[nocompute]:
   evaluate st env [App op es] =
    (case fix_clock st (evaluate st env (REVERSE es)) of
     (st', Rval vs) =>
-    (case (getOpClass op) of
-      FunApp =>
+    if op = Opapp then
         (case do_opapp (REVERSE vs) of
           SOME (env',e) =>
             if st'.clock = 0 then
@@ -105,7 +104,7 @@ Definition evaluate_def[nocompute]:
               evaluate (dec_clock st') env'  [e]
         | NONE => (st', Rerr (Rabort Rtype_error))
         )
-     | Force =>
+    else if op = ThunkOp ForceThunk then
         (case dest_thunk (REVERSE vs) st'.refs of
          | BadRef => (st', Rerr (Rabort Rtype_error))
          | NotThunk => (st', Rerr (Rabort Rtype_error))
@@ -121,7 +120,7 @@ Definition evaluate_def[nocompute]:
                          | SOME refs => (st2 with refs := refs, Rval vs2))
                     | (st2, Rerr e) => (st2, Rerr e))
              | NONE => (st', Rerr (Rabort Rtype_error))))
-     | EvalOp =>
+    else if op = Eval then
         (case fix_clock st' (do_eval_res (REVERSE vs) st') of
           (st1, Rval (env1, decs)) =>
             if st1.clock = 0 then
@@ -138,7 +137,7 @@ Definition evaluate_def[nocompute]:
               | (st2, Rerr e) => (( st2 with<| eval_state :=
                   (reset_env_generation st'.eval_state st2.eval_state) |>), Rerr e))
         | (st1, Rerr e) => (st1, Rerr e))
-    | PtrEqOp =>
+    else if op = PtrEq then
        (case REVERSE vs of
           [v1; v2] =>
             (case do_eq v1 v2 of
@@ -148,11 +147,11 @@ Definition evaluate_def[nocompute]:
                     (0 =+ shift_seq 1 (st'.ptr_eq_oracle 0)) st'.ptr_eq_oracle,
                   Rval [Boolv (b ∧ st'.ptr_eq_oracle 0 0)]))
         | _ => (st', Rerr (Rabort Rtype_error)))
-    | Simple =>
+    else
         (case do_app (st'.refs,st'.ffi) op (REVERSE vs) of
           NONE => (st', Rerr (Rabort Rtype_error))
         | SOME ((refs,ffi),r) =>
-            (( st' with<| refs := refs; ffi := ffi |>), list_result r)))
+            (( st' with<| refs := refs; ffi := ffi |>), list_result r))
     | res => res)
   ∧
   evaluate st env [Log lop e1 e2] =

@@ -55,23 +55,23 @@ Theorem evaluate_eq_run_eval_list:
 Proof
   ho_match_mp_tac evaluate_ind >>
   rw[evaluate_def,run_eval_def,
-     result_return_def,result_bind_def, Excl"getOpClass_def"] >>
-  gvs [Excl"getOpClass_def"]
-  >~[‘getOpClass op’]
+     result_return_def,result_bind_def] >>
+  gvs []
+  >~[‘op = Opapp’]
   >- (
-    ntac 3 TOP_CASE_TAC >> gs[Excl"getOpClass_def"]
-    >- prove_tac
-    >- prove_tac
+    ntac 2 TOP_CASE_TAC >> gs[] >>
+    Cases_on ‘op = Opapp’ >> gs[] >- prove_tac >>
+    Cases_on ‘op = ThunkOp ForceThunk’ >> gs[]
     >- (
-      qpat_x_assum ‘getOpClass _ = _’ kall_tac >>
       simp[get_store_def] >>
       TOP_CASE_TAC >> gvs[] >- prove_tac >- prove_tac >>
       ntac 2 (TOP_CASE_TAC >> gvs[]) >- prove_tac >>
       ntac 2 (TOP_CASE_TAC >> gvs[dec_clock_def]) >>
       prove_tac
-      )
-    >- prove_tac
-    >- prove_tac
+      ) >>
+    Cases_on ‘op = Eval’ >> gs[] >- prove_tac >>
+    Cases_on ‘op = PtrEq’ >> gs[] >- prove_tac >>
+    prove_tac
     ) >>
   prove_tac
 QED

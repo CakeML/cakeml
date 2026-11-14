@@ -163,6 +163,10 @@ examples/cnf/xlrup
 examples/cnf/xlrup/array
 examples/cnf/xlrup/array/compilation
 examples/cnf/xlrup/array/compilation/proofs
+examples/cnf/lsr
+examples/cnf/lsr/array
+examples/cnf/lsr/array/compilation
+examples/cnf/lsr/array/compilation/proofs
 
 examples/hwmcc_checker
 examples/hwmcc_checker/translation
@@ -236,6 +240,10 @@ compiler/benchmarks/mlton_benchmarks/cakeml
 
 # compiler HOL bootstrap
 compiler/bootstrap/translation
+pancake/translation
+pancake/compilation/x64:pancake-x64.tar.gz
+pancake/compilation/arm8:pancake-arm8.tar.gz
+pancake/compilation/riscv:pancake-riscv.tar.gz
 unverified/sexpr-bootstrap/export
 compiler/bootstrap/compilation/x64:cake-x64.tar.gz
 compiler/bootstrap/compilation/arm8:cake-arm8.tar.gz

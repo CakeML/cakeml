@@ -183,7 +183,7 @@ Proof
 QED
 
 Theorem unsafe_arith_app2[local]:
-  getOpClass oper = Simple /\
+  oper ≠ Opapp /\ oper ≠ ThunkOp ForceThunk /\ oper ≠ Eval /\ oper ≠ PtrEq /\
   (!st h_i h_k.
     SPLIT (st2heap p st) (h_i,h_k) ==> H h_i ==>
     do_app (st.refs,st.ffi) oper [x;y] =
@@ -203,7 +203,7 @@ Proof
 QED
 
 Theorem unsafe_arith_app3[local]:
-  getOpClass oper = Simple /\
+  oper ≠ Opapp /\ oper ≠ ThunkOp ForceThunk /\ oper ≠ Eval /\ oper ≠ PtrEq /\
   (!st h_i h_k.
     SPLIT (st2heap p st) (h_i,h_k) ==> H h_i ==>
     do_app (st.refs,st.ffi) oper [x;y;witness] =

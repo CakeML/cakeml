@@ -19,9 +19,15 @@
 *.S
 
 # Generated tarball
+pancake-*.tar.gz
 cake-arm8.tar.gz
 cake-x64.tar.gz
 config_enc_str.txt
+
+# Generated Candle REPL startup
+candle/parser/candle_boot.cml
+compiler/bootstrap/compilation/x64/candle_boot.cml
+compiler/bootstrap/compilation/arm8/candle_boot.cml
 
 # Developer generated executables
 developers/readme_gen
@@ -99,3 +105,7 @@ compiler/benchmarks/*.html
 icing/examples/output/*/*.sexp.cml
 icing/examples/*_data_prog.txt
 .DS_Store
+
+pancake/compilation/x64/pancake
+pancake/compilation/arm8/pancake
+pancake/compilation/riscv/pancake

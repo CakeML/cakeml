@@ -525,7 +525,7 @@ QED
 Theorem application_thm:
   ∀op env s vs c.
     application op env s vs c =
-    if getOpClass op = FunApp then
+    if op = Opapp then
       case do_opapp vs of
       | NONE => Etype_error
       | SOME (env,e) => Estep (env,s,Exp e,c)
@@ -542,8 +542,7 @@ Theorem application_thm:
             | _ => Etype_error)
         | _ => Etype_error)
       | _ => ARB)
-    else (case getOpClass op of
-    | Force =>
+    else if op = ThunkOp ForceThunk then
       (case vs of
          [Loc b n] => (
             case dest_thunk [Loc b n] (FST s) of
@@ -554,7 +553,7 @@ Theorem application_thm:
                 return env s f
                   ((Capp Opapp [Conv NONE []] [], env)::(Cforce n, env)::c))
         | _ => Etype_error)
-    | PtrEqOp =>
+    else if op = PtrEq then
       (case vs of
          [v1; v2] =>
            (case do_eq v1 v2 of
@@ -564,18 +563,18 @@ Theorem application_thm:
                 return env (FST s, (0 =+ shift_seq 1 (po 0)) po)
                   (Boolv (b ∧ po 0 0)) c)
        | _ => Etype_error)
-    | _ =>
-      case do_app (FST s) op vs of
+    else
+      (case do_app (FST s) op vs of
       | NONE => Etype_error
       | SOME (v1,Rval v') => return env (v1, SND s) v' c
       | SOME (v1,Rraise v) => Estep (env,(v1,SND s),Exn v,c))
 Proof
-  rpt strip_tac >> Cases_on ‘s’ >> Cases_on ‘getOpClass op’ >> gs[] >>
-  TOP_CASE_TAC >> gs[application_def]
-  >- (
-    Cases_on ‘op’ >> gs[application_def] >> every_case_tac >>
-    gs[itree_semanticsTheory.do_app_def] >>
-    every_case_tac >> gs[]) >>
+  rpt strip_tac >> Cases_on ‘s’ >>
+  Cases_on ‘op = Opapp’ >- gs[application_def] >>
+  Cases_on ‘op = ThunkOp ForceThunk’ >- gs[application_def] >>
+  Cases_on ‘op = PtrEq’ >- gs[application_def] >>
+  gs[] >>
+  TOP_CASE_TAC >> gs[application_def] >>
   Cases_on ‘op’ >> gs[application_def] >> every_case_tac >>
   gs[itree_semanticsTheory.do_app_def, thunk_op_def] >>
   pop_assum $ mp_tac >>

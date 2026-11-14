@@ -193,5 +193,8 @@ fun main () =
             then err (cml_root ^ " is not a valid directory.")
             else ()
   in
-    lint_build_directories cml_root handle Fail msg => err msg
+    lint_build_directories cml_root
+    handle Fail msg => err msg
+         (* e.g. OS.SysErr from OS.FileSys.isDir on a dangling symbolic link *)
+         | e => err ("Unexpected exception: " ^ General.exnMessage e)
   end

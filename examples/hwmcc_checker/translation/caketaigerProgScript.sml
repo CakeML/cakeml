@@ -193,7 +193,8 @@ Quote add_cakeml:
       (mlatch_start, mmax_latch)))))))) =>
   case preprocess_witness maiger waiger ms of
     (waig, (wreset, (wnext, (wsafes, (wcnstrs, (wlive, (wlatches,
-      interv))))))) =>
+      (interv, (wscnts, (mfcnt, wfcnt)))))))))) =>
+  let val mlive = pad_mlive mlive wscnts mfcnt wfcnt in
   case ((* print "processing and checking...\n"; *)
         process_and_check
           maig mreset mnext msafes mcnstrs mlive mlatches
@@ -218,6 +219,7 @@ Quote add_cakeml:
       write_stable prefix wxaig wnext wcnstrs wsafes wlive wlatches interv;
       print "SUCCESS\n"
     )
+  end
 End
 
 Quote add_cakeml:

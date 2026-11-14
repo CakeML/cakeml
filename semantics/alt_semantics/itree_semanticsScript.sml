@@ -521,12 +521,11 @@ End
 
 Definition application_def:
   application op env s vs c : estep_result =
-   case getOpClass op of
-     FunApp =>
+   if op = Opapp then
        (case do_opapp vs of
           SOME (env,e) => (Estep (env, s, Exp e, c):estep_result)
         | NONE => Etype_error)
-   | Force =>
+   else if op = ThunkOp ForceThunk then
       (case vs of
          [Loc b n] => (
             case dest_thunk [Loc b n] (FST s) of
@@ -537,7 +536,7 @@ Definition application_def:
                 return env s f
                   ((Capp Opapp [Conv NONE []] [], env)::(Cforce n, env)::c))
         | _ => Etype_error)
-   | PtrEqOp =>
+   else if op = PtrEq then
        (case vs of
           [v1; v2] =>
             (case do_eq v1 v2 of
@@ -547,7 +546,7 @@ Definition application_def:
                  return env (FST s, (0 =+ shift_seq 1 (po 0)) po)
                    (Boolv (b ∧ po 0 0)) c)
         | _ => Etype_error)
-   | _ =>
+   else
        case op of
        | FFI n => (
          case vs of
