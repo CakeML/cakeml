@@ -1515,7 +1515,7 @@ QED
 Theorem get_real_byte_offset_lemma:
    get_var v t = SOME (Word (w:α word)) ∧ good_dimindex (:α) ∧
    arch_width_bits c.arch_width = dimindex (:α) ⇒
-   word_exp t (real_byte_offset c v) = SOME (Word (bytes_in_word + (w >>> 1)))
+   word_exp t (real_byte_offset c v) = SOME (Word (w >>> 1))
 Proof
   rw[real_byte_offset_def,data_to_wordTheory.arch_size,wordSemTheory.get_var_def,bytes_in_word_def]
   \\ eval_tac \\ fs[good_dimindex_def,dimword_def]
@@ -10344,11 +10344,7 @@ Proof[exclude_simps = INT_OF_NUM NUM_EQ0]
   \\ pop_assum (CHANGED_TAC o SUBST_ALL_TAC)
   \\ disch_then kall_tac
   \\ qpat_x_assum`∀i. _ ⇒ mem_load_byte_aux _ _ _ _ = _`(qspec_then`Num i`mp_tac)
-  \\ impl_tac
-  >- (
-    fs[GSYM integerTheory.INT_OF_NUM]
-    \\ REWRITE_TAC[GSYM integerTheory.INT_LT]
-    \\ PROVE_TAC[] )
+  \\ impl_tac >- (Cases_on `i` \\ fs [])
   \\ simp[wordSemTheory.mem_load_byte_aux_def]
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ strip_tac
@@ -10361,11 +10357,7 @@ Proof[exclude_simps = INT_OF_NUM NUM_EQ0]
   \\ simp[]
   \\ match_mp_tac memory_rel_Unit
   \\ first_x_assum(qspecl_then[`Num i`,`w`]mp_tac)
-  \\ impl_tac
-  >- (
-    fs[GSYM integerTheory.INT_OF_NUM]
-    \\ REWRITE_TAC[GSYM integerTheory.INT_LT]
-    \\ PROVE_TAC[] )
+  \\ impl_tac >- (Cases_on `i` \\ fs [])
   \\ simp[theWord_def] \\ strip_tac
   \\ simp[WORD_ALL_BITS]
   \\ drule0 memory_rel_tl \\ simp[] \\ strip_tac
@@ -10467,7 +10459,7 @@ QED
 Theorem get_real_bit_offset_lemma:
   get_var v (t:('a,'c,'ffi) wordSem$state) = SOME (Word w) ∧ good_dimindex (:α) ∧
   arch_width_bits c.arch_width = dimindex(:'a) ⇒
-  word_exp t (real_bit_offset c v) = SOME (Word (bytes_in_word + (w:'a word) ⋙ 4))
+  word_exp t (real_bit_offset c v) = SOME (Word ((w:'a word) ⋙ 4))
 Proof
   rw[real_bit_offset_def,data_to_wordTheory.arch_size,wordSemTheory.get_var_def]
   \\ eval_tac \\ fs[good_dimindex_def,dimword_def,bytes_in_word_def]

@@ -3,15 +3,15 @@
 *)
 Theory from_pancakeProg
 Ancestors
-  ml_translator printingProg std_prelude panLang crepLang
+  ml_translator pancake_parseProg std_prelude panLang crepLang
   pan_simp loopLang loop_to_word pan_to_crep
   loop_call loop_live crep_arith crep_to_loop pan_to_word
   word_to_word backend pan_to_target panPtreeConversion
-  pan_globals crep_inline pan_structs
+  pan_globals crep_inline pan_structs panStatic pan_passes
 Libs
   preamble ml_translatorLib
 
-val _ = translation_extends "printingProg";
+val _ = translation_extends "pancake_parseProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "from_pancakeProg");
 val _ = ml_translatorLib.use_sub_check true;
@@ -69,7 +69,7 @@ Proof
   \\ simp [mul_const_def, pancake_log2_correct]
 QED
 
-val extra_preprocessing = ref [MEMBER_INTRO,MAP,parserProgTheory.OPTION_BIND_THM,option_map_thm];
+val extra_preprocessing = ref [MEMBER_INTRO,MAP,(oneline optionTheory.OPTION_BIND_def),option_map_thm];
 
 fun preprocess def =
 def |> RW (!extra_preprocessing)
@@ -433,7 +433,7 @@ Proof
 QED
 
 val res = panPtreeConversionTheory.conv_Shape_def
-  |> REWRITE_RULE [OPT_MMAP_eq_MAP, parserProgTheory.OPTION_BIND_THM, option_map_thm]
+  |> REWRITE_RULE [OPT_MMAP_eq_MAP, (oneline optionTheory.OPTION_BIND_def), option_map_thm]
   |> SIMP_RULE bool_ss [o_DEF]
   |> translate
 
@@ -478,7 +478,7 @@ val res = translate $ panPtreeConversionTheory.isSubOp_def;
 val res = translate $ panPtreeConversionTheory.conv_panop_def;
 
 val res = panPtreeConversionTheory.conv_Exp_def
-  |> REWRITE_RULE [OPT_MMAP_eq_MAP, parserProgTheory.OPTION_BIND_THM, option_map_thm]
+  |> REWRITE_RULE [OPT_MMAP_eq_MAP, (oneline optionTheory.OPTION_BIND_def), option_map_thm]
   |> SIMP_RULE bool_ss [o_DEF]
   |> time translate_no_ind
 
@@ -486,18 +486,106 @@ Theorem panptreeconversion_conv_arglist_ind[local]:
   panptreeconversion_conv_arglist_ind (:'b)
 Proof
   ONCE_REWRITE_TAC [fetch "-" "panptreeconversion_conv_arglist_ind_def"]
-  >> rpt gen_tac
-  >> disch_then strip_assume_tac
-  >> rpt (qpat_x_assum `!x. _` (assume_named_tac "forall_IH"))
-  >> ho_match_mp_tac panPtreeConversionTheory.conv_Exp_ind
-  >> rpt strip_tac
-  >> rpt (label_x_assum "forall_IH" irule ORELSE label_x_assum "forall_IH" kall_tac)
-  >> simp []
-  >> simp [DISJ_IMP_THM]
-  (* down to only a couple of goals *)
-  >> rw []
-  >> gs []
+  \\ qx_genl_tac [`p_arglist`, `p_fields`, `p_field`, `p_expr`, `p_binop`, `p_panop`, `p_shift`]
+  \\ disch_then strip_assume_tac
+  \\ qpat_x_assum `!v. _ ==> p_arglist v` (assume_named_tac "arglist_step")
+  \\ qpat_x_assum `!v. _ ==> p_fields v` (assume_named_tac "fields_step")
+  \\ qpat_x_assum `!v. _ ==> p_field v` (assume_named_tac "field_step")
+  \\ qpat_x_assum `!v. _ ==> p_expr v` (assume_named_tac "expr_step")
+  \\ qpat_x_assum `!v w. _ ==> p_binop v w` (assume_named_tac "binop_step")
+  \\ qpat_x_assum `!v w. _ ==> p_panop v w` (assume_named_tac "panop_step")
+  \\ qpat_x_assum `!v w. _ ==> p_shift v w` (assume_named_tac "shift_step")
+  \\ ho_match_mp_tac panPtreeConversionTheory.conv_Exp_ind
+  \\ rpt strip_tac
+  >- suspend "ArgList"
+  >- suspend "NmdFieldList"
+  >- suspend "NmdField"
+  >- suspend "ExprNode"
+  >- suspend "ExprLeaf"
+  >- suspend "BinopNil"
+  >- suspend "BinopCons"
+  >- suspend "BinopOne"
+  >- suspend "PanopNil"
+  >- suspend "PanopCons"
+  >- suspend "PanopOne"
+  >- suspend "ShiftNil"
+  >- suspend "ShiftCons"
+  >- suspend "ShiftOne"
 QED
+
+Resume panptreeconversion_conv_arglist_ind[ArgList]:
+  label_x_assum "arglist_step" irule
+  \\ simp []
+QED
+
+Resume panptreeconversion_conv_arglist_ind[NmdFieldList]:
+  label_x_assum "fields_step" irule
+  \\ simp []
+QED
+
+Resume panptreeconversion_conv_arglist_ind[NmdField]:
+  label_x_assum "field_step" irule
+  \\ simp []
+QED
+
+Resume panptreeconversion_conv_arglist_ind[ExprNode]:
+  label_x_assum "expr_step" irule
+  \\ simp []
+  \\ simp [DISJ_IMP_THM]
+QED
+
+Resume panptreeconversion_conv_arglist_ind[ExprLeaf]:
+  label_x_assum "expr_step" irule
+  \\ simp []
+QED
+
+Resume panptreeconversion_conv_arglist_ind[BinopNil]:
+  label_x_assum "binop_step" irule
+  \\ simp []
+QED
+
+Resume panptreeconversion_conv_arglist_ind[BinopCons]:
+  label_x_assum "binop_step" irule
+  \\ gs []
+QED
+
+Resume panptreeconversion_conv_arglist_ind[BinopOne]:
+  label_x_assum "binop_step" irule
+  \\ simp []
+QED
+
+Resume panptreeconversion_conv_arglist_ind[PanopNil]:
+  label_x_assum "panop_step" irule
+  \\ simp []
+QED
+
+Resume panptreeconversion_conv_arglist_ind[PanopCons]:
+  label_x_assum "panop_step" irule
+  \\ simp []
+  \\ rw [] \\ gs []
+QED
+
+Resume panptreeconversion_conv_arglist_ind[PanopOne]:
+  label_x_assum "panop_step" irule
+  \\ simp []
+QED
+
+Resume panptreeconversion_conv_arglist_ind[ShiftNil]:
+  label_x_assum "shift_step" irule
+  \\ simp []
+QED
+
+Resume panptreeconversion_conv_arglist_ind[ShiftCons]:
+  label_x_assum "shift_step" irule
+  \\ simp []
+QED
+
+Resume panptreeconversion_conv_arglist_ind[ShiftOne]:
+  label_x_assum "shift_step" irule
+  \\ simp []
+QED
+
+Finalise panptreeconversion_conv_arglist_ind;
 
 val _ = update_precondition panptreeconversion_conv_arglist_ind;
 
@@ -587,5 +675,105 @@ val res = translate $ panPtreeConversionTheory.localise_topdec_def;
 val res = translate $ panPtreeConversionTheory.localise_topdecs_def;
 
 val res = translate $ panPtreeConversionTheory.parse_topdecs_to_ast_def;
+
+(* move recursion out of OPT_MMAP to aid the translator *)
+val res = panStaticTheory.sh_bd_from_sh_def
+  |> REWRITE_RULE [OPT_MMAP_eq_MAP]
+  |> SIMP_RULE std_ss [o_DEF]
+  |> translate;
+
+val res = translate $ panStaticTheory.sh_bd_from_bd_def;
+val res = translate $ panStaticTheory.sh_bd_has_shape_def;
+val res = translate $ panStaticTheory.sh_bd_eq_shapes_def;
+val res = translate $ panStaticTheory.index_sh_bd_def;
+val res = translate $ panStaticTheory.field_sh_bd_def;
+val res = translate $ panStaticTheory.based_merge_def;
+val res = translate $ panStaticTheory.sh_bd_branch_def;
+val res = translate $ panStaticTheory.branch_loc_inf_def;
+val res = translate $ panStaticTheory.seq_loc_inf_def;
+
+val res = translate $ panStaticTheory.last_to_str_def;
+val res = translate $ panStaticTheory.next_is_reachable_def;
+val res = translate $ panStaticTheory.next_now_unreachable_def;
+val res = translate $ panStaticTheory.reached_warnable_def;
+val res = translate $ panStaticTheory.branch_last_stmt_def;
+val res = translate $ panStaticTheory.seq_last_stmt_def;
+
+val res = translate $ panStaticTheory.get_scope_desc_def;
+val res = translate $ panStaticTheory.get_scope_msg_def;
+val res = translate $ panStaticTheory.get_redec_msg_def;
+val res = translate $ panStaticTheory.get_memop_msg_def;
+val res = translate $ panStaticTheory.get_oparg_msg_def;
+val res = translate $ panStaticTheory.get_unreach_msg_def;
+val res = translate $ panStaticTheory.get_rogue_msg_def;
+val res = translate $ panStaticTheory.get_non_word_msg_def;
+val res = translate $ panStaticTheory.get_shape_mismatch_msg_def;
+val res = translate $ panStaticTheory.get_inline_ignore_msg_def;
+val res = translate $ panStaticTheory.get_implementation_err_msg_def;
+
+val res = translate $ panStaticTheory.first_repeat_def;
+val res = translate $ panStaticTheory.binop_to_str_def;
+val res = translate $ panStaticTheory.panop_to_str_def;
+val res = translate $ panStaticTheory.primop_to_str_def;
+val res = translate $ panStaticTheory.sh_bd_to_str_def;
+
+val res = translate $ panStaticTheory.primitive_idents_def;
+val res = translate $ panStaticTheory.add_primitive_hint_def;
+
+val res = translate $ panStaticTheory.check_fun_name_def;
+val res = translate $ panStaticTheory.check_global_var_def;
+val res = translate $ panStaticTheory.check_local_var_def;
+val res = translate $ panStaticTheory.check_redec_var_def;
+val res = translate $ panStaticTheory.check_exn_name_def;
+val res = translate $ panStaticTheory.check_export_params_def;
+val res = translate $ panStaticTheory.check_operands_def;
+val res = translate $ panStaticTheory.check_primitive_args_def;
+val res = translate $ panStaticTheory.check_func_args_def;
+val res = translate $ panStaticTheory.check_struct_fields_def;
+val res = translate $ panStaticTheory.check_shape_def;
+val res = translate $ panStaticTheory.check_id_shapes_def;
+
+val res = translate $ panStaticTheory.static_check_exp_def;
+val res = translate $ panStaticTheory.static_check_prog_def;
+val res = translate $ panStaticTheory.static_check_progs_def;
+val res = translate $ panStaticTheory.static_check_decls_def;
+val res = translate $ INST_TYPE[alpha|->``:staterr``] $
+  panStaticTheory.static_check_names_def;
+val res = translate $ panStaticTheory.static_check_def;
+
+val _ = res |> hyp |> null orelse
+        failwith ("Unproved side condition in the translation of " ^
+                  "panStaticTheory.static_check_def.");
+
+val r = pan_passesTheory.pan_to_target_all_def
+          |> REWRITE_RULE [NULL_EQ] |> translate;
+
+val r = pan_passesTheory.opsize_to_display_def |> translate;
+val r = pan_passesTheory.insert_es_def |> translate;
+val r = pan_passesTheory.varkind_to_str_def |> translate;
+val r = pan_passesTheory.primop_to_display_def |> translate;
+val r = pan_passesTheory.pan_exp_to_display_def |> translate;
+val r = pan_passesTheory.crep_exp_to_display_def |> translate;
+val r = pan_passesTheory.loop_exp_to_display_def |> translate;
+
+val r = pan_passesTheory.dest_annot_def |> translate;
+val r = pan_passesTheory.pan_seqs_def |> translate;
+val r = pan_passesTheory.crep_seqs_def |> translate;
+val r = pan_passesTheory.loop_seqs_def |> translate;
+val r = pan_passesTheory.pan_prog_to_display_def |> translate;
+val r = pan_passesTheory.crep_prog_to_display_def |> translate;
+val r = pan_passesTheory.loop_prog_to_display_def |> translate;
+val r = pan_passesTheory.pan_fun_to_display_def |> translate;
+val r = pan_passesTheory.crep_fun_to_display_def |> translate;
+val r = pan_passesTheory.loop_fun_to_display_def |> translate;
+val r = pan_passesTheory.pan_to_strs_def |> translate;
+val r = pan_passesTheory.crep_to_strs_def |> translate;
+val r = pan_passesTheory.loop_to_strs_def |> translate;
+val r = pan_passesTheory.any_pan_prog_pp_def |> translate;
+val r = pan_passesTheory.pan_compile_tap_def |> translate;
+
+val _ = r |> hyp |> null orelse
+        failwith ("Unproved side condition in the translation of " ^
+                  "pan_passesTheory.pan_compile_tap_def.");
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);

@@ -163,15 +163,11 @@ Definition real_offset_def:
 End
 
 Definition real_byte_offset_def:
-  real_byte_offset conf r =
-    Op Add [Const (&(arch_bytes conf.arch_width));
-            ShiftN Lsr (Var r) 1]
+  real_byte_offset (conf:data_to_word$config) r = ShiftN Lsr (Var r) 1
 End
 
 Definition real_bit_offset_def:
-  real_bit_offset conf r =
-    Op Add [Const (&(arch_bytes conf.arch_width));
-            ShiftN Lsr (Var r) 4]
+  real_bit_offset (conf:data_to_word$config) r = ShiftN Lsr (Var r) 4
 End
 
 Datatype:
@@ -1382,7 +1378,7 @@ val def = assign_Define `
          (list_Seq [
             Assign 1 (Op Add [real_addr c (adjust_var v1);
                               real_byte_offset c (adjust_var v2)]);
-            Inst (Mem Load8 3 (Addr 1 0));
+            Inst (Mem Load8 3 (Addr 1 (&(arch_bytes c.arch_width))));
             Assign (adjust_var dest) (ShiftN Lsl (Var 3) 1)
           ], l)
       : wordLang$prog # num`;
@@ -1392,7 +1388,7 @@ val def = assign_Define `
     (list_Seq
         [Assign 1 (Op Add [real_addr c (adjust_var v1);
                            real_bit_offset c (adjust_var v2)]);
-         Inst (Mem Load8 3 (Addr 1 0));
+         Inst (Mem Load8 3 (Addr 1 (&(arch_bytes c.arch_width))));
          Assign
            (adjust_var dest)
            (ShiftN Lsl
@@ -1437,7 +1433,7 @@ val def = assign_Define `
           Assign 1 (Op Add [real_addr c (adjust_var v1);
                             real_byte_offset c (adjust_var v2)]);
           Assign 3 (ShiftN Lsr (Var (adjust_var v3)) 1);
-          Inst (Mem Store8 3 (Addr 1 0));
+          Inst (Mem Store8 3 (Addr 1 (&(arch_bytes c.arch_width))));
           Assign (adjust_var dest) Unit], l)
       : wordLang$prog # num`;
 
@@ -1446,12 +1442,12 @@ val def = assign_Define `
     (list_Seq
         [Assign 1 (Op Add [real_addr c (adjust_var v1);
                            real_bit_offset c (adjust_var v2)]);
-         Inst (Mem Load8 3 (Addr 1 0));
+         Inst (Mem Load8 3 (Addr 1 (&(arch_bytes c.arch_width))));
          Assign 5 (Op And [Const 7; ShiftN Lsr (Var (adjust_var v2)) 1]);
          Assign 7 (Op Or [Op And [Var 3; Op Xor [Shift Lsl (Const 1) (Var 5);
                                                  Const (-1)]];
                           Shift Lsl (ShiftN Lsr (Var (adjust_var v3)) 1) (Var 5)]);
-         Inst (Mem Store8 7 (Addr 1 0));
+         Inst (Mem Store8 7 (Addr 1 (&(arch_bytes c.arch_width))));
          Assign (adjust_var dest) Unit], l)
       : wordLang$prog # num`;
 
@@ -1892,13 +1888,6 @@ val def = assign_Define `
             (Call (SOME ([adjust_var dest],adjust_sets (get_names names),Skip,secn,l))
                (SOME FromList_location)
                   [adjust_var v1; adjust_var v2; 1] NONE) :wordLang$prog]),l+1)
-      : wordLang$prog # num`;
-
-val def = assign_Define `
-  assign_LessConstSmall (l:num) (dest:num) i v1 =
-                 (If Less (adjust_var v1) (Imm (&(2 * i)))
-                    (Assign (adjust_var dest) TRUE_CONST)
-                    (Assign (adjust_var dest) FALSE_CONST),l)
       : wordLang$prog # num`;
 
 val def = assign_Define `
@@ -2929,7 +2918,6 @@ Definition assign_def:
     | BlockOp BoolNot => arg1 args (assign_BoolNot l dest) (Skip,l)
     | WordOp (WordTest ws test) => arg2 args (assign_WordTest l dest test) (Skip,l)
     | BlockOp (FromList tag) => arg2 args (assign_FromList c secn l dest names tag) (Skip,l)
-    | IntOp (LessConstSmall i) => arg1 args (assign_LessConstSmall l dest i) (Skip,l)
     | MemOp (BoundsCheckByte leq) =>
         arg2 args (assign_BoundsCheckByte c secn l dest names leq) (Skip,l)
     | MemOp BoundsCheckArray =>

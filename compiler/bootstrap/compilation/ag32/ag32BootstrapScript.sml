@@ -1,5 +1,5 @@
 (*
-  Evaluate the AG32 batch entry point of the fused compiler
+  Evaluate the AG32 batch entry point of the CakeML compiler
   into machine code for ag32, i.e. the Silver ISA.
 *)
 Theory ag32Bootstrap

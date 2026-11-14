@@ -130,7 +130,9 @@ Definition open_compile_env_def:
 End
 
 Definition inline_op_def:
-  inline_op op ⇔ getOpClass op = Simple ∧ op ≠ AallocEmpty ∧ op ≠ Env_id
+  inline_op op ⇔
+    op ≠ Opapp ∧ op ≠ Eval ∧ op ≠ ThunkOp ForceThunk ∧ op ≠ PtrEq ∧
+    op ≠ AallocEmpty ∧ op ≠ Env_id
 End
 
 (* small numeric literals and wrappers around primitives, e.g. + *)

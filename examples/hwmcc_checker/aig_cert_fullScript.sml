@@ -7,9 +7,17 @@ Ancestors
   listRange
   mlint (* for num_to_str *)
   dimacs (* for the DIMACS printer *)
-  xaig aig_parse xaig_cert xaig_cert_encode xaig_to_cnf
+  aig xaig aig_parse xaig_cert xaig_cert_encode xaig_to_cnf
 Libs
   preamble
+
+(** General helper lemmas *****************************************************)
+
+Theorem pad_right_cons[local]:
+  PAD_RIGHT p (SUC n) (x::xs) = x::PAD_RIGHT p n xs
+Proof
+  simp [PAD_RIGHT]
+QED
 
 (** List <-> Set **************************************************************)
 
@@ -108,13 +116,14 @@ Definition preprocess_model_def:
      mlatch_start, mmax_latch)
 End
 
-Theorem preprocess_model_mlatches:
+Theorem preprocess_model_outs:
   preprocess_model maiger =
     (maig, mreset, mnext, msafes, mcnstrs, mlive, mlatches,
      mlatch_start, mmax_latch) ⇒
+  LENGTH mlive = LENGTH maiger.justice ∧
   mlatches = [mlatch_start .. mmax_latch]
 Proof
-  rw [preprocess_model_def]
+  rw [preprocess_model_def] >> simp [LENGTH_MAP]
 QED
 
 Definition parse_witness_def:
@@ -125,16 +134,6 @@ Definition parse_witness_def:
   od
 End
 
-Definition resize_def:
-  resize pad len ls =
-  let len' = LENGTH ls in
-    if len' < len then
-      PAD_RIGHT pad len ls
-    else if len < len' then
-      TAKE len ls
-    else ls
-End
-
 Definition preprocess_witness_def:
   preprocess_witness maiger waiger ms =
   let
@@ -143,11 +142,15 @@ Definition preprocess_witness_def:
     micnt = maiger.counts.inputs;
     mlcnt = maiger.counts.latches;
     mfcnt = maiger.counts.fairness;
-    mjcnt = maiger.counts.justice;
+    (* maiger.counts could *technically* disagree (although not with our
+       parser), which gets in the way when we prove that padding the model is
+       sound. *)
+    mjcnt = LENGTH maiger.justice;
     (* -- witness -- *)
     wcounts = waiger.counts;
     wicnt = wcounts.inputs;
     wlcnt = wcounts.latches;
+    wfcnt = wcounts.fairness;
     wlatch_start = wicnt + 1;
     wmax_latch = wicnt + wlcnt;
     iren = ms.shared_inputs;
@@ -173,14 +176,14 @@ Definition preprocess_witness_def:
       GENLIST (λk. shared_latch_key micnt mlcnt iren lren (wlatch_start + k))
         wlcnt;
     wfair =
-      resize TT mfcnt
+      PAD_RIGHT TT mfcnt
         (MAP (not ∘ shared_lit micnt mlcnt iren lren) waiger.fairness);
-    wjust = resize [] mjcnt waiger.justice;
+    wjust = PAD_RIGHT [] mjcnt waiger.justice;
     wlive =
       MAP2
         (λms ws.
            wfair ++
-           resize TT (LENGTH ms)
+           PAD_RIGHT TT (LENGTH ms)
              (MAP (not ∘ shared_lit micnt mlcnt iren lren) ws))
         maiger.justice wjust;
     interv =
@@ -188,8 +191,104 @@ Definition preprocess_witness_def:
         ms.intervened;
     interv = FLOOKUP interv;
   in
-    (waig, wreset, wnext, wsafes, wcnstrs, wlive, wlatches, interv)
+    (waig, wreset, wnext, wsafes, wcnstrs, wlive, wlatches, interv,
+     (* for padding the model *)
+     MAP LENGTH wlive, mfcnt, wfcnt)
 End
+
+Theorem preprocess_witness_outs:
+  preprocess_witness maiger waiger ms =
+    (waig, wreset, wnext, wsafes, wcnstrs, wlive, wlatches, interv,
+     wscnts, mfcnt, wfcnt)
+  ⇒
+  LENGTH maiger.justice ≤ LENGTH wscnts
+Proof
+  simp [preprocess_witness_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> strip_tac >> gvs []
+  >> simp [PAD_RIGHT]
+QED
+
+(* Pads a list of signals of the model to wscnt with F,
+   making sure that fairness signal line up using mfcnt wfcnt. *)
+Definition pad_msignals_def:
+  pad_msignals msignals wscnt mfcnt wfcnt =
+  let
+    mfair = TAKE mfcnt msignals;
+    mfair = PAD_RIGHT FF wfcnt mfair;
+    mjust = DROP mfcnt msignals;
+  in
+    PAD_RIGHT FF wscnt (mfair ++ mjust)
+End
+
+Theorem mem_pad_msignals[local]:
+  ∀msignals msignal wscnt mfcnt wfcnt.
+    MEM msignal (pad_msignals msignals wscnt mfcnt wfcnt) ⇒
+    MEM msignal msignals ∨ msignal = FF
+Proof
+  Induct >- rw [pad_msignals_def, PAD_RIGHT, MEM_GENLIST]
+  >> rw [pad_msignals_def]
+  >> Cases_on ‘mfcnt’ >> gvs [PAD_RIGHT, MEM_GENLIST]
+  >- (drule MEM_TAKE >> simp [])
+  >> drule MEM_DROP_IMP >> simp []
+QED
+
+(* Pads the model's liveness properties with msignals. *)
+Definition pad_mlive_def:
+  pad_mlive mlive wscnts mfcnt wfcnt =
+  let
+    mlive = PAD_RIGHT [] (LENGTH wscnts) mlive
+  in
+    MAP2 (λms wscnt. pad_msignals ms wscnt mfcnt wfcnt) mlive wscnts
+End
+
+Theorem mem_pad_mlive[local]:
+  ∀mlive msignals mfcnt wfcnt wscnts.
+    LENGTH mlive ≤ LENGTH wscnts ∧
+    MEM msignals mlive ⇒
+    ∃wscnt.
+      MEM (pad_msignals msignals wscnt mfcnt wfcnt)
+          (pad_mlive mlive wscnts mfcnt wfcnt)
+Proof
+  Induct >- rw []
+  >> Cases_on ‘wscnts’
+  >> gvs [pad_mlive_def, pad_right_cons]
+  >> rpt strip_tac >> gvs []
+  >- (rename1 ‘pad_msignals _ wscnt’ >> qexists ‘wscnt’ >> simp [])
+  >> first_x_assum drule_all
+  >> disch_then $ qspecl_then [‘mfcnt’, ‘wfcnt’] mp_tac >> strip_tac
+  >> qexists ‘wscnt’
+  >> simp []
+QED
+
+Theorem is_live_pad_mlive:
+  LENGTH mlive ≤ LENGTH wscnts ∧
+  is_live
+    maig mreset mnext mcnstrs qmaig
+    (IMAGE set (set (qleft_live (pad_mlive mlive wscnts mfcnt wfcnt))))
+    mlatches
+  ⇒
+  is_live
+    maig mreset mnext mcnstrs qmaig
+    (IMAGE set (set (qleft_live mlive))) mlatches
+Proof
+  rw [is_live_def]
+  >> first_x_assum dxrule >> strip_tac
+  >> gvs [qleft_live_def, live_map_base_def, MEM_MAP, PULL_EXISTS]
+  >> drule_all mem_pad_mlive
+  >> disch_then $ qspecl_then [‘mfcnt’, ‘wfcnt’] mp_tac
+  >> strip_tac
+  >> first_x_assum drule >> strip_tac
+  >> drule mem_pad_msignals
+  >> reverse strip_tac
+  >- (
+    gvs [lit_map_base_def, lit_map_def, var_map_def, bvar_map_def, eval_lit_def]
+    >> contr
+    >> intLib.COOPER_TAC
+  )
+  >> asm_exists_tac >> simp []
+  >> asm_exists_tac >> simp []
+QED
 
 (* Checks that dependencies of the model AIG, model properties, etc., are
    contained in the range of model latches. *)

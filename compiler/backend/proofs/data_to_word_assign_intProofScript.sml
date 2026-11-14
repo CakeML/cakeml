@@ -2672,58 +2672,6 @@ Proof
   \\ DECIDE_TAC
 QED
 
-Theorem assign_LessConstSmall:
-   assign c secn l dest (IntOp (LessConstSmall i)) args names =
-      case args of
-      | [v1] => (If Less (adjust_var v1) (Imm (&(2 * i)))
-                  (Assign (adjust_var dest) TRUE_CONST)
-                  (Assign (adjust_var dest) FALSE_CONST),l)
-      | _ => (Skip:wordLang$prog,l)
-Proof
-  fs [assign_def] \\ every_case_tac \\ fs []
-QED
-
-Theorem assign_LessSmallConst[allow_rebind]:
-  (∃i. op = IntOp (LessConstSmall i)) ==> ^assign_thm_goal
-Proof
-  rpt strip_tac
-  \\ gvs [dataLangTheory.op_requires_names_def,
-          dataLangTheory.op_space_reset_def,
-          dataSemTheory.cut_state_opt_def]
-  \\ gvs [do_app,AllCaseEqs(),allowed_op_def,oneline do_int_app_def]
-  \\ fs [assign_def,eq_eval,wordSemTheory.get_store_def]
-  \\ imp_res_tac state_rel_get_vars_IMP
-  \\ gvs [LENGTH_EQ_NUM_compute]
-  \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ gvs [LENGTH_EQ_NUM_compute]
-  \\ last_x_assum mp_tac
-  \\ simp [Once state_rel_thm] \\ strip_tac
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-  \\ drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
-  \\ disch_then drule0 \\ fs [set_var_def]
-  \\ strip_tac
-  \\ `?k. i' = &k` by (Cases_on `i'` \\ fs [] \\ NO_TAC) \\ rveq \\ fs []
-  \\ `small_int (dimindex (:'a)) (&k)` by
-       (fs [small_int_def,good_dimindex_def,dimword_def] \\ NO_TAC)
-  \\ imp_res_tac memory_rel_Number_IMP \\ fs [] \\ rveq \\ fs []
-  \\ fs [assign_LessConstSmall]
-  \\ fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF]
-  \\ fs [eq_eval,WORD_LO_word_0,adjust_var_11]
-  \\ fs [Smallnum_def]
-  \\ `n2w (2 * k) < (n2w (2 * i):'a word) <=> k < i` by
-    (fs [word_lt_n2w,bitTheory.BIT_def,bitTheory.BITS_THM]
-     \\ fs [good_dimindex_def,LESS_DIV_EQ_ZERO,dimword_def] \\ NO_TAC)
-  \\ fs []
-  \\ qpat_abbrev_tac `bool_res <=> k < i`
-  \\ Cases_on `bool_res`
-  \\ fs [state_rel_thm] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
-  \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def,option_le_max_right]
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-  \\ match_mp_tac memory_rel_insert \\ fs []
-  \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
-  \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [])
-QED
-
 Theorem word_exp_insert:
    (m <> n ==>
      (word_exp (t with locals := insert n w t.locals) (real_addr c m) =

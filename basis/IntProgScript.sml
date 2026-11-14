@@ -20,6 +20,8 @@ val _ = trans "-" intSyntax.minus_tm;
 val _ = trans "*" intSyntax.mult_tm;
 val _ = trans "div" intSyntax.div_tm;
 val _ = trans "mod" intSyntax.mod_tm;
+val _ = trans "quot" intSyntax.quot_tm;
+val _ = trans "rem" intSyntax.rem_tm;
 val _ = trans "<" intSyntax.less_tm;
 val _ = trans ">" intSyntax.greater_tm;
 val _ = trans "<=" intSyntax.leq_tm;

@@ -170,7 +170,7 @@ Definition pure_op_def:
   pure_op op ⇔
     case op of
     (* do_arith raises only when dividing an integer by zero *)
-    | Arith a ty => (ty = IntT ⇒ a ≠ Div ∧ a ≠ Mod)
+    | Arith a ty => (case a of Div _ => ty ≠ IntT | Mod _ => ty ≠ IntT | _ => T)
     (* do_conversion raises only in chr *)
     | FromTo ty1 ty2 => ¬(ty1 = IntT ∧ ty2 = CharT)
     | Equality => T

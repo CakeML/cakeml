@@ -9,6 +9,9 @@ Translate arm8-specialised functions to cv equations.
 [backend_cvScript.sml](backend_cvScript.sml):
 Translate non-target-specific backend functions to cv equations.
 
+[backend_riscv_cvScript.sml](backend_riscv_cvScript.sml):
+Translate RISC-V-specialised functions to cv equations.
+
 [backend_word_cvScript.sml](backend_word_cvScript.sml):
 Translate the shared backend for every target.
 
@@ -27,6 +30,9 @@ Functions for in-logic evaluation of the CakeML compiler for ag32.
 
 [eval_cake_compile_arm8Lib.sml](eval_cake_compile_arm8Lib.sml):
 Functions for in-logic evaluation of the CakeML compiler for arm8.
+
+[eval_cake_compile_riscvLib.sml](eval_cake_compile_riscvLib.sml):
+Functions for in-logic evaluation of the CakeML compiler for RISC-V.
 
 [eval_cake_compile_x64Lib.sml](eval_cake_compile_x64Lib.sml):
 Functions for in-logic evaluation of the CakeML compiler for x64.

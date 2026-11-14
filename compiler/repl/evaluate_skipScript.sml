@@ -938,7 +938,10 @@ Proof
   \\ drule v_rel_IMP_check_type_eq
   \\ strip_tac
   \\ rw[OPTREL_def]
-  \\ Cases_on ‘a’ \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
+  \\ Cases_on ‘a’
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [‘Div rnd’]) (Cases_on ‘rnd’)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [‘Mod rnd’]) (Cases_on ‘rnd’)
+  \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
   \\ rw[do_arith_def]
   \\ gvs[check_type_def, CaseEq"list", PULL_EXISTS]
   \\ simp[Once v_rel_cases]
@@ -2193,11 +2196,10 @@ Proof
 QED
 
 Resume evaluate_update[App_Op]:
-  rw [evaluate_def] \\ Cases_on ‘getOpClass op’
-  >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t'’ \\ gs[])
-  >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t'’ \\ gs[])
+  rw [evaluate_def]
+  \\ Cases_on ‘op = ThunkOp ForceThunk’
   >- (
-    Cases_on ‘op’ \\ gvs [] \\ Cases_on ‘t'’ \\ gvs []
+    gvs []
     \\ qpat_x_assum ‘_ = (s1,res)’ mp_tac
     \\ TOP_CASE_TAC \\ gvs []
     \\ reverse TOP_CASE_TAC \\ gvs []
@@ -2275,9 +2277,9 @@ Resume evaluate_update[App_Op]:
       \\ imp_res_tac EVERY2_REVERSE
       \\ drule_all state_rel_update_thunk_SOME \\ rw [] \\ gvs []
       \\ metis_tac [SUBMAP_TRANS]))
+  \\ Cases_on ‘op = PtrEq’
   >- (
-    ‘op = PtrEq’ by (Cases_on ‘op’ \\ gvs [] \\ Cases_on ‘t'’ \\ gvs [])
-    \\ gvs [CaseEqs ["prod", "result"], PULL_EXISTS]
+    gvs [CaseEqs ["prod", "result"], PULL_EXISTS]
     \\ first_x_assum (drule_all_then strip_assume_tac)
     \\ Cases_on ‘res1’ \\ gs []
     >~ [‘res_rel _ _ (Rerr err1) (Rerr err2)’] >- (

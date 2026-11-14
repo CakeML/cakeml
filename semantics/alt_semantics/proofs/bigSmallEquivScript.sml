@@ -43,12 +43,6 @@ Proof
   rw[do_opapp_def] >> ntac 3 (TOP_CASE_TAC >> gvs[])
 QED
 
-Theorem opClass_op_Force[local,simp]:
-  opClass op Force ⇔ op = ThunkOp ForceThunk
-Proof
-  Cases_on ‘op’ >> gvs[opClass_cases]
-QED
-
 Theorem do_app_PtrEq[local,simp]:
   do_app s PtrEq vs = NONE
 Proof
@@ -56,7 +50,6 @@ Proof
 QED
 
 val s = ``s:'ffi state``;
-val _ = temp_delsimps["getOpClass_def"]
 
 Theorem big_exp_to_small_exp:
   (∀ck env ^s e r.
@@ -219,7 +212,7 @@ Proof
      qabbrev_tac‘ctx2 = (Capp Opapp [v] () [],env)’ >>
      ‘e_step_reln^* (env'',s2',Val v,[ctx]) (env,s2',Exp e'',[ctx2])’ by (
        simp[Once RTC_CASES1,e_step_reln_def,e_step_def,continue_def,Abbr‘ctx’,push_def] >>
-       Cases_on ‘op’ >> gs[opClass_cases]) >>
+       Cases_on ‘op’ >> gs[]) >>
      last_x_assum(mp_tac o MATCH_MP e_step_add_ctxt) >>
      disch_then(qspec_then‘[ctx2]’strip_assume_tac) >> full_simp_tac(srw_ss())[] >>
      qmatch_assum_abbrev_tac‘e_step_reln^* b c’ >>
@@ -234,18 +227,16 @@ Proof
      qmatch_abbrev_tac‘e_step_reln^* d f’ >>
      qsuff_tac‘e_step_reln^* c f’ >- metis_tac[transitive_RTC,transitive_def] >>
      unabbrev_all_tac >>
-     simp[Once RTC_CASES1,e_step_reln_def,e_step_def,continue_def,application_thm, getOpClass_def] )
+     simp[Once RTC_CASES1,e_step_reln_def,e_step_def,continue_def,application_thm] )
    >- (
      full_simp_tac(srw_ss())[] >>
      srw_tac[][small_eval_def] >>
-     ‘getOpClass op = FunApp’ by (Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases]) >>
      srw_tac[][Once RTC_CASES1,e_step_reln_def,Once e_step_def,
         application_thm,do_opapp_def] >>
      srw_tac[boolSimps.DNF_ss][] >>
      srw_tac[][Once e_step_def,application_thm,do_opapp_def] >>
      BasicProvers.CASE_TAC
      >- full_simp_tac(srw_ss())[Once small_eval_list_cases] >>
-     qpat_x_assum ‘getOpClass _ = _’ kall_tac >>
      disj2_tac >>
      srw_tac[][push_def] >>
      full_simp_tac(srw_ss())[Once small_eval_list_cases] >>
@@ -266,16 +257,15 @@ Proof
          srw_tac[][continue_def,push_def] ) >>
        strip_tac >>
        ‘e_step_reln^* a d’ by metis_tac[transitive_RTC,transitive_def] >>
-       qunabbrev_tac‘d’ >> Cases_on ‘op’ >> gs[opClass_cases] >>
+       qunabbrev_tac‘d’ >> gs[] >>
        first_assum(match_exists_tac o concl) >>
-       simp[e_step_def,continue_def,application_thm, getOpClass_def] ) >>
+       simp[e_step_def,continue_def,application_thm] ) >>
      imp_res_tac small_eval_opapp_err >> full_simp_tac(srw_ss())[] >>
      first_x_assum(qspec_then‘[]’mp_tac) >> simp[] >>
      disch_then(qspecl_then[‘v’,‘env'’]strip_assume_tac) >>
-     Cases_on ‘op’ >> gs[opClass_cases] >>
+     gs[] >>
      metis_tac[transitive_RTC,transitive_def])
   >- (
-    ‘getOpClass op = Simple’ by (Cases_on ‘op’ >> gs[opClass_cases, getOpClass_def]) >>
     gvs[] >> Cases_on ‘es’ using SNOC_CASES >> gvs[]
     >- (
       gvs[Once small_eval_list_cases, to_small_st_def,
@@ -349,7 +339,7 @@ Proof
     irule_at Any $ cj 2 RTC_RULES >>
     simp[e_step_reln_def, Once e_step_def, push_def] >>
     dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
-    simp[e_step_def, continue_def, application_def, getOpClass_def, to_small_st_def,
+    simp[e_step_def, continue_def, application_def, to_small_st_def,
          dest_thunk_def]
     )
   >- (
@@ -357,7 +347,7 @@ Proof
     >- (
       gvs[Once small_eval_list_cases, dest_thunk_def, to_small_st_def] >>
       simp[small_eval_def] >> irule_at Any RTC_REFL >>
-      simp[e_step_def, application_def, getOpClass_def]
+      simp[e_step_def, application_def]
       ) >>
     Cases_on ‘l’ >> gvs[REVERSE_SNOC]
     >- (
@@ -366,7 +356,7 @@ Proof
       irule_at Any $ cj 2 RTC_RULES >>
       simp[e_step_reln_def, Once e_step_def, push_def] >>
       dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
-      simp[e_step_def, continue_def, application_def, getOpClass_def] >>
+      simp[e_step_def, continue_def, application_def] >>
       gvs[oneline dest_thunk_def, AllCaseEqs(), to_small_st_def]
       ) >>
     last_x_assum mp_tac >> once_rewrite_tac[GSYM APPEND] >>
@@ -378,7 +368,7 @@ Proof
     irule_at Any RTC_RTC >> first_x_assum $ irule_at Any >>
     ntac 2 $ gvs[Once small_eval_list_cases] >>
     dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
-    simp[e_step_def, continue_def, application_def, getOpClass_def] >>
+    simp[e_step_def, continue_def, application_def] >>
     gvs[REVERSE_APPEND, oneline dest_thunk_def, AllCaseEqs(), to_small_st_def]
     )
   >- (
@@ -386,7 +376,7 @@ Proof
     >- (
       gvs[Once small_eval_list_cases, dest_thunk_def, to_small_st_def] >>
       simp[small_eval_def] >> irule_at Any RTC_REFL >>
-      simp[e_step_def, application_def, getOpClass_def]
+      simp[e_step_def, application_def]
       ) >>
     Cases_on ‘l’ >> gvs[REVERSE_SNOC]
     >- (
@@ -396,9 +386,9 @@ Proof
       simp[e_step_reln_def, Once e_step_def, push_def] >>
       irule_at Any $ cj 2 RTC_RULES_RIGHT1 >>
       dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
-      simp[e_step_reln_def, Once e_step_def, continue_def, application_def, getOpClass_def] >>
+      simp[e_step_reln_def, Once e_step_def, continue_def, application_def] >>
       gvs[oneline dest_thunk_def, AllCaseEqs(), to_small_st_def] >>
-      simp[e_step_def, continue_def, application_def, getOpClass_def]
+      simp[e_step_def, continue_def, application_def]
       ) >>
     last_x_assum mp_tac >> once_rewrite_tac[GSYM APPEND] >>
     rewrite_tac[small_eval_list_Rval_APPEND] >> strip_tac >> gvs[] >>
@@ -410,16 +400,16 @@ Proof
     ntac 2 $ gvs[Once small_eval_list_cases] >>
     irule_at Any $ cj 2 RTC_RULES_RIGHT1 >>
     dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
-    simp[e_step_reln_def, Once e_step_def, continue_def, application_def, getOpClass_def] >>
+    simp[e_step_reln_def, Once e_step_def, continue_def, application_def] >>
     gvs[oneline dest_thunk_def, AllCaseEqs(), to_small_st_def] >>
-    simp[e_step_def, continue_def, application_def, getOpClass_def]
+    simp[e_step_def, continue_def, application_def]
     )
   >- (
     gvs[] >> Cases_on ‘es’ using SNOC_CASES
     >- (
       gvs[Once small_eval_list_cases, dest_thunk_def, to_small_st_def] >>
       simp[small_eval_def] >> irule_at Any RTC_REFL >>
-      simp[e_step_def, application_def, getOpClass_def]
+      simp[e_step_def, application_def]
       ) >>
     Cases_on ‘l’ >> gvs[REVERSE_SNOC]
     >- (
@@ -429,7 +419,7 @@ Proof
       simp[e_step_reln_def, Once e_step_def, push_def] >>
       irule_at Any $ cj 2 RTC_RULES_RIGHT1 >>
       dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
-      simp[e_step_reln_def, Once e_step_def, continue_def, application_def, getOpClass_def] >>
+      simp[e_step_reln_def, Once e_step_def, continue_def, application_def] >>
       gvs[oneline dest_thunk_def, AllCaseEqs(), to_small_st_def]
       ) >>
     last_x_assum mp_tac >> once_rewrite_tac[GSYM APPEND] >>
@@ -442,7 +432,7 @@ Proof
     ntac 2 $ gvs[Once small_eval_list_cases] >>
     irule_at Any $ cj 2 RTC_RULES_RIGHT1 >>
     dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
-    simp[e_step_reln_def, Once e_step_def, continue_def, application_def, getOpClass_def] >>
+    simp[e_step_reln_def, Once e_step_def, continue_def, application_def] >>
     gvs[oneline dest_thunk_def, AllCaseEqs(), to_small_st_def]
     )
   >- (
@@ -450,7 +440,7 @@ Proof
     >- (
       gvs[Once small_eval_list_cases, dest_thunk_def, to_small_st_def] >>
       simp[small_eval_def] >> irule_at Any RTC_REFL >>
-      simp[e_step_def, application_def, getOpClass_def]
+      simp[e_step_def, application_def]
       ) >>
     Cases_on ‘l’ >> gvs[REVERSE_SNOC]
     >- (
@@ -463,10 +453,10 @@ Proof
       irule_at Any RTC_RTC >>
       dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
       irule_at Any $ cj 2 RTC_RULES >>
-      simp[e_step_reln_def, Once e_step_def, continue_def, application_def, getOpClass_def] >>
+      simp[e_step_reln_def, Once e_step_def, continue_def, application_def] >>
       gvs[oneline dest_thunk_def, AllCaseEqs(), to_small_st_def] >>
       irule_at Any RTC_SUBSET >>
-      simp[e_step_reln_def, e_step_def, continue_def, application_def, getOpClass_def]
+      simp[e_step_reln_def, e_step_def, continue_def, application_def]
       ) >>
     last_x_assum mp_tac >> once_rewrite_tac[GSYM APPEND] >>
     rewrite_tac[small_eval_list_Rval_APPEND] >> strip_tac >> gvs[] >>
@@ -482,17 +472,17 @@ Proof
     irule_at Any RTC_RTC >>
     dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
     irule_at Any $ cj 2 RTC_RULES >>
-    simp[e_step_reln_def, Once e_step_def, continue_def, application_def, getOpClass_def] >>
+    simp[e_step_reln_def, Once e_step_def, continue_def, application_def] >>
     gvs[REVERSE_APPEND, oneline dest_thunk_def, AllCaseEqs(), to_small_st_def] >>
     irule_at Any RTC_SUBSET >>
-    simp[e_step_reln_def, e_step_def, continue_def, application_def, getOpClass_def]
+    simp[e_step_reln_def, e_step_def, continue_def, application_def]
     )
   >- (
     gvs[] >> Cases_on ‘es’ using SNOC_CASES
     >- (
       gvs[Once small_eval_list_cases, dest_thunk_def, to_small_st_def] >>
       simp[small_eval_def] >> irule_at Any RTC_REFL >>
-      simp[e_step_def, application_def, getOpClass_def]
+      simp[e_step_def, application_def]
       ) >>
     Cases_on ‘l’ >> gvs[REVERSE_SNOC]
     >- (
@@ -503,10 +493,10 @@ Proof
       irule_at Any RTC_RTC >>
       dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
       irule_at Any $ cj 2 RTC_RULES >>
-      simp[e_step_reln_def, Once e_step_def, continue_def, application_def, getOpClass_def] >>
+      simp[e_step_reln_def, Once e_step_def, continue_def, application_def] >>
       gvs[oneline dest_thunk_def, AllCaseEqs(), to_small_st_def] >>
       irule_at Any $ cj 2 RTC_RULES >>
-      simp[e_step_reln_def, Once e_step_def, continue_def, application_def, getOpClass_def] >>
+      simp[e_step_reln_def, Once e_step_def, continue_def, application_def] >>
       gvs[small_eval_def] >>
       dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
       simp[e_step_def, continue_def] >> gvs[update_thunk_def, AllCaseEqs()]
@@ -522,10 +512,10 @@ Proof
     irule_at Any RTC_RTC >>
     dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
     irule_at Any $ cj 2 RTC_RULES >>
-    simp[e_step_reln_def, Once e_step_def, continue_def, application_def, getOpClass_def] >>
+    simp[e_step_reln_def, Once e_step_def, continue_def, application_def] >>
     gvs[oneline dest_thunk_def, AllCaseEqs(), to_small_st_def] >>
     irule_at Any $ cj 2 RTC_RULES >>
-    simp[e_step_reln_def, Once e_step_def, continue_def, application_def, getOpClass_def] >>
+    simp[e_step_reln_def, Once e_step_def, continue_def, application_def] >>
     gvs[small_eval_def] >>
     dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
     simp[e_step_reln_def, Once e_step_def, continue_def] >>
@@ -536,7 +526,7 @@ Proof
     >- (
       gvs[Once small_eval_list_cases, dest_thunk_def, to_small_st_def] >>
       simp[small_eval_def] >> irule_at Any RTC_REFL >>
-      simp[e_step_def, application_def, getOpClass_def]
+      simp[e_step_def, application_def]
       ) >>
     Cases_on ‘l’ >> gvs[REVERSE_SNOC]
     >- (
@@ -547,10 +537,10 @@ Proof
       irule_at Any RTC_RTC >>
       dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
       irule_at Any $ cj 2 RTC_RULES >>
-      simp[e_step_reln_def, Once e_step_def, continue_def, application_def, getOpClass_def] >>
+      simp[e_step_reln_def, Once e_step_def, continue_def, application_def] >>
       gvs[oneline dest_thunk_def, AllCaseEqs(), to_small_st_def] >>
       irule_at Any $ cj 2 RTC_RULES >>
-      simp[e_step_reln_def, Once e_step_def, continue_def, application_def, getOpClass_def] >>
+      simp[e_step_reln_def, Once e_step_def, continue_def, application_def] >>
       gvs[small_eval_def] >>
       irule_at Any $ cj 2 RTC_RULES_RIGHT1 >>
       dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
@@ -568,10 +558,10 @@ Proof
     irule_at Any RTC_RTC >>
     dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
     irule_at Any $ cj 2 RTC_RULES >>
-    simp[e_step_reln_def, Once e_step_def, continue_def, application_def, getOpClass_def] >>
+    simp[e_step_reln_def, Once e_step_def, continue_def, application_def] >>
     gvs[oneline dest_thunk_def, AllCaseEqs(), to_small_st_def] >>
     irule_at Any $ cj 2 RTC_RULES >>
-    simp[e_step_reln_def, Once e_step_def, continue_def, application_def, getOpClass_def] >>
+    simp[e_step_reln_def, Once e_step_def, continue_def, application_def] >>
     gvs[small_eval_def] >>
     irule_at Any $ cj 2 RTC_RULES_RIGHT1 >>
     dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
@@ -579,7 +569,7 @@ Proof
     gvs[update_thunk_def, AllCaseEqs()]
     )
   >~ [‘Boolv (_ ∧ _.ptr_eq_oracle 0 0)’] >- (
-    gvs[opClass_cases] >>
+    gvs[] >>
     qpat_x_assum ‘REVERSE _ = _’ (mp_tac o AP_TERM “REVERSE : v list -> v list”) >>
     simp[REVERSE_DEF] >> strip_tac >> gvs[] >>
     drule small_eval_list_length >> simp[] >> strip_tac >>
@@ -598,15 +588,14 @@ Proof
     dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
     irule_at Any $ cj 2 RTC_RULES >>
     simp[e_step_reln_def, Once e_step_def, continue_def, application_thm,
-         getOpClass_def, to_small_st_def, return_def] >>
+         to_small_st_def, return_def] >>
     irule_at Any RTC_REFL
     )
-  >>~- ([‘small_eval _ _ (App _ _) _ (_, Rerr (Rabort Rtype_error))’],
+  >>~- ([‘small_eval _ _ (App PtrEq _) _ (_, Rerr (Rabort Rtype_error))’],
     gvs[small_eval_def] >> Cases_on ‘es’ using SNOC_CASES >> gvs[]
     >- (
       gvs[Once small_eval_list_cases, to_small_st_def] >>
       irule_at Any RTC_REFL >> simp[e_step_def, application_thm] >>
-      Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases] >>
       rpt (CASE_TAC >> gvs[]) >>
       qpat_x_assum ‘REVERSE _ = _’ (mp_tac o AP_TERM “LENGTH : v list -> num”) >>
       simp[]
@@ -618,7 +607,42 @@ Proof
       simp[e_step_reln_def, Once e_step_def, push_def] >>
       dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
       simp[e_step_def, continue_def, application_thm, to_small_st_def] >>
-      Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases] >>
+      rpt (CASE_TAC >> gvs[]) >>
+      qpat_x_assum ‘REVERSE _ = _’ (mp_tac o AP_TERM “LENGTH : v list -> num”) >>
+      simp[]
+      ) >>
+    last_x_assum mp_tac >> once_rewrite_tac[GSYM APPEND] >>
+    rewrite_tac[small_eval_list_Rval_APPEND] >> rw[] >> gvs[REVERSE_APPEND] >>
+    pop_assum mp_tac >> ntac 2 $ simp[Once small_eval_list_cases] >> rw[] >> gvs[] >>
+    dxrule e_step_to_App_mid >>
+    disch_then $ qspecl_then [‘h’,‘[]’,‘PtrEq’,‘[]’] mp_tac >> rw[] >>
+    irule_at Any $ cj 2 RTC_RULES >>
+    simp[e_step_reln_def, Once e_step_def, push_def, REVERSE_SNOC] >>
+    irule_at Any $ iffRL RTC_CASES_RTC_TWICE >> goal_assum dxrule >>
+    dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
+    simp[e_step_def, continue_def, application_thm, to_small_st_def] >>
+      rpt (CASE_TAC >> gvs[]) >>
+      qpat_x_assum ‘REVERSE _ = _’ (mp_tac o AP_TERM “LENGTH : v list -> num”) >>
+      simp[]
+    )
+  >>~- ([‘small_eval _ _ (App _ _) _ (_, Rerr (Rabort Rtype_error))’],
+    gvs[small_eval_def] >> Cases_on ‘es’ using SNOC_CASES >> gvs[]
+    >- (
+      gvs[Once small_eval_list_cases, to_small_st_def] >>
+      irule_at Any RTC_REFL >> simp[e_step_def, application_thm] >>
+      Cases_on ‘op’ >> gs[] >>
+      rpt (CASE_TAC >> gvs[]) >>
+      qpat_x_assum ‘REVERSE _ = _’ (mp_tac o AP_TERM “LENGTH : v list -> num”) >>
+      simp[]
+      ) >>
+    gvs[REVERSE_SNOC] >> Cases_on ‘l’ >> gvs[]
+    >- (
+      ntac 2 $ gvs[Once small_eval_list_cases] >>
+      irule_at Any $ cj 2 RTC_RULES >>
+      simp[e_step_reln_def, Once e_step_def, push_def] >>
+      dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
+      simp[e_step_def, continue_def, application_thm, to_small_st_def] >>
+      Cases_on ‘op’ >> gs[] >>
       rpt (CASE_TAC >> gvs[]) >>
       qpat_x_assum ‘REVERSE _ = _’ (mp_tac o AP_TERM “LENGTH : v list -> num”) >>
       simp[]
@@ -633,7 +657,7 @@ Proof
     irule_at Any $ iffRL RTC_CASES_RTC_TWICE >> goal_assum dxrule >>
     dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
     simp[e_step_def, continue_def, application_thm, to_small_st_def] >>
-    Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases] >>
+    Cases_on ‘op’ >> gs[] >>
       rpt (CASE_TAC >> gvs[]) >>
       qpat_x_assum ‘REVERSE _ = _’ (mp_tac o AP_TERM “LENGTH : v list -> num”) >>
       simp[]
@@ -905,13 +929,13 @@ Proof
   >- (rpt disj2_tac >> simp[Once evaluate_cases]) >>
   full_simp_tac(srw_ss())[Once evaluate_ctxt_cases, REVERSE_REVERSE, REVERSE_APPEND] >>
   rw[Once evaluate_cases, PULL_EXISTS] >> gvs[]
-  >- (disj1_tac >> simp[SF SFY_ss, opClass_cases])
+  >- (disj1_tac >> simp[SF SFY_ss])
   >- (disj2_tac >> disj1_tac >>
-      simp[Once evaluate_cases, PULL_EXISTS, SF SFY_ss, opClass_cases])
+      simp[Once evaluate_cases, PULL_EXISTS, SF SFY_ss])
   >- (disj2_tac >> disj1_tac >>
-      simp[Once evaluate_cases, PULL_EXISTS, SF SFY_ss, opClass_cases])
-  >- (‘~ opClass op FunApp ∧ ¬ opClass op Force’
-         by (Cases_on ‘op’ >> gs[opClass_cases]) >>
+      simp[Once evaluate_cases, PULL_EXISTS, SF SFY_ss])
+  >- (‘op ≠ Opapp ∧ op ≠ ThunkOp ForceThunk’
+         by (Cases_on ‘op’ >> gs[]) >>
       gs[] >>
       disj1_tac >> irule_at Any EQ_REFL >>
       rpt (goal_assum drule))
@@ -939,15 +963,14 @@ Proof
     irule_at Any EQ_REFL >> simp[SF SFY_ss]
     )
   >- (
-    ntac 2 disj2_tac >> simp[Once evaluate_cases, PULL_EXISTS] >>
     qexistsl_tac [‘v1’, ‘v’, ‘beq’, ‘s2'’] >> simp[SF SFY_ss]
     )
   >- (
-    ntac 5 disj2_tac >> disj1_tac >> simp[Once evaluate_cases, PULL_EXISTS] >>
+    disj1_tac >>
     qexistsl_tac [‘v1’, ‘v’] >> simp[SF SFY_ss]
     )
   >- (
-    ntac 6 disj2_tac >> disj1_tac >> simp[Once evaluate_cases, PULL_EXISTS] >>
+    disj2_tac >> disj1_tac >> simp[Once evaluate_cases, PULL_EXISTS] >>
     qexistsl_tac [‘v’, ‘vs2’, ‘st’] >> simp[]
     )
   >- (
@@ -986,8 +1009,8 @@ Proof
       gvs[application_thm, do_opapp_def, do_app_def, CaseEq"list"]
       >- (
         gvs[AllCaseEqs(), store_alloc_def, return_def] >>
-        simp[Once evaluate_state_cases] >> gvs[Once evaluate_state_cases, getOpClass_def] >>
-        goal_assum $ dxrule_at Any >> ntac 2 $ simp[Once evaluate_cases, opClass_cases] >>
+        simp[Once evaluate_state_cases] >> gvs[Once evaluate_state_cases] >>
+        goal_assum $ dxrule_at Any >> ntac 2 $ simp[Once evaluate_cases] >>
         gvs[AllCaseEqs(), thunk_op_def] >>
         simp[do_app_def, store_alloc_def] >>
         simp[Once evaluate_cases] >>
@@ -1004,26 +1027,16 @@ Proof
     gvs[evaluate_state_cases, evaluate_ctxts_cons, evaluate_ctxt_cases,
         evaluate_ctxts_cons, evaluate_ctxt_cases, ADD1, SF SFY_ss]
     >- (
-      rename1 ‘getOpClass op’ >> Cases_on ‘getOpClass op’ >> gs[] >>
+      qmatch_asmsub_rename_tac ‘if op = Opapp then _ else _’ >>
+      Cases_on ‘op = Opapp’ >> gs[] >>
       once_rewrite_tac[cj 2 evaluate_cases] >> simp[] >>
-      every_case_tac >> gvs[SF DNF_ss, SF SFY_ss]
-      >- (
-        gvs[getOpClass_opClass] >>
-        ‘op ≠ ThunkOp ForceThunk’ by gvs[opClass_cases] >> simp[] >>
-        disj1_tac >> qexists_tac `clk + 1` >> simp[SF SFY_ss]
-        )
-      >- (
-        gvs[getOpClass_opClass] >>
-        ‘op ≠ ThunkOp ForceThunk’ by gvs[opClass_cases] >> simp[] >>
-        first_x_assum $ irule_at Any >> gvs[]
-        )
+      every_case_tac >> gvs[SF DNF_ss, SF SFY_ss] >>
+      disj1_tac >> qexists_tac `clk + 1` >> simp[SF SFY_ss]
       )
     >- (
-      rename1 ‘getOpClass op’ >> Cases_on ‘getOpClass op’ >> gs[]
-      >~ [‘getOpClass op = Force’]
+      qmatch_asmsub_rename_tac ‘if op = Opapp then _ else _’ >>
+      Cases_on ‘op = ThunkOp ForceThunk’ >> gs[]
       >- (
-        ‘¬opClass op FunApp ∧ ¬opClass op Simple ∧ op = ThunkOp ForceThunk’
-          by gvs[getOpClass_opClass, opClass_cases] >>
         simp[SF DNF_ss, GSYM DISJ_ASSOC] >> gvs[AllCaseEqs()]
         >- (
           ntac 3 disj2_tac >> disj1_tac >> simp[Once evaluate_cases, SF SFY_ss]
@@ -1033,28 +1046,26 @@ Proof
         gvs[evaluate_ctxt_cases, oneline update_thunk_def, AllCaseEqs(),
             SF SFY_ss] >>
         gvs[Once $ cj 2 evaluate_cases] >>
-        gvs[opClass_cases] >>
+        gvs[] >>
         Cases_on `b` >> gvs[oneline dest_thunk_def, AllCaseEqs()] >>
         metis_tac[]
         ) >>
       once_rewrite_tac[cj 2 evaluate_cases] >> simp[] >>
       every_case_tac >> gvs[SF DNF_ss, SF SFY_ss] >>
       Cases_on ‘op’ >>
-      gs[do_app_def, getOpClass_def, opClass_cases, AllCaseEqs()] >>
+      gs[do_app_def, AllCaseEqs()] >>
       gvs[evaluate_ctxts_cons] >> gvs[evaluate_ctxt_cases, SF SFY_ss]
       )
     >- (
-      rename1 ‘getOpClass op’ >> Cases_on ‘getOpClass op’ >> gs[]
-      >~ [‘getOpClass op = Force’]
+      qmatch_asmsub_rename_tac ‘if op = Opapp then _ else _’ >>
+      Cases_on ‘op = ThunkOp ForceThunk’ >> gs[]
       >- (
-        ‘¬opClass op FunApp ∧ ¬opClass op Simple ∧ op = ThunkOp ForceThunk’
-          by gvs[getOpClass_opClass, opClass_cases] >>
         simp[SF DNF_ss, GSYM DISJ_ASSOC] >> gvs[AllCaseEqs()]
         ) >>
       once_rewrite_tac[cj 2 evaluate_cases] >> simp[] >>
       every_case_tac >> gvs[SF DNF_ss, SF SFY_ss] >>
       Cases_on ‘op’ >>
-      gs[do_app_def, getOpClass_def, opClass_cases, AllCaseEqs()] >>
+      gs[do_app_def, AllCaseEqs()] >>
       gvs[evaluate_ctxts_cons] >> gvs[evaluate_ctxt_cases, SF SFY_ss]
       )
     >~ [`evaluate_match`]
@@ -1069,7 +1080,7 @@ Proof
   >- (
     gvs[AllCaseEqs()] >>
     gvs[evaluate_state_cases, evaluate_ctxts_cons, evaluate_ctxt_cases,
-        evaluate_ctxts_cons, evaluate_ctxt_cases, ADD1, SF SFY_ss, getOpClass_opClass]
+        evaluate_ctxts_cons, evaluate_ctxt_cases, ADD1, SF SFY_ss]
     )
 QED
 
@@ -1116,30 +1127,30 @@ Proof
         irule_at Any evaluate_ctxts_type_error_matchable >>
         srw_tac[SFY_ss][state_component_equality] >> rpt $ irule_at Any EQ_REFL)
       >- (full_simp_tac(srw_ss())[application_thm] >>
-          rename1 ‘getOpClass op’ >> Cases_on ‘getOpClass op’ >>
-          gs[getOpClass_opClass]
-          >- (Cases_on ‘op’ >> gs[getOpClass_def, to_small_st_def, do_app_def] >>
-              simp[opClass_cases] >> simp[evaluate_list_NIL] >>
+          qmatch_asmsub_rename_tac ‘if op = Opapp then _ else _’ >>
+          Cases_on ‘op = Eval’
+          >- (gvs[to_small_st_def, do_app_def] >>
+              simp[] >> simp[evaluate_list_NIL] >>
               qexists_tac ‘s.clock’ >> gs[state_component_equality] >>
-              gvs[AllCaseEqs()])
+              gvs[AllCaseEqs()]) >>
+          Cases_on ‘op = Opapp’
           >- (
-              gs[AllCaseEqs()] >>
-              ‘~ opClass op Simple’
-                by (Cases_on ‘op’ >> gs[opClass_cases, getOpClass_def]) >>
+              gvs[AllCaseEqs()] >>
               simp[evaluate_list_NIL] >>
               qexists ‘s.clock’ >> gvs[state_component_equality]
-              )
+              ) >>
+          Cases_on ‘op = ThunkOp ForceThunk’
           >- (
+            gvs[] >>
             simp[evaluate_list_NIL, dest_thunk_def] >>
             simp[state_component_equality]
-            )
-          >- (‘op = PtrEq’ by gvs[opClass_cases] >> gvs[] >>
-              qexists_tac ‘s.clock’ >> simp[evaluate_list_NIL])
-          >- (‘~ opClass op FunApp ∧ ¬ opClass op Force’
-                by (Cases_on ‘op’ >> gs[opClass_cases]) >>
-              gs[AllCaseEqs(), evaluate_list_NIL, to_small_st_def, return_def]
-              >- (qexists_tac ‘s.clock’ >> gs[state_component_equality]) >>
-              imp_res_tac do_app_type_error >> gs[])) >>
+            ) >>
+          Cases_on ‘op = PtrEq’
+          >- (gvs[] >>
+              qexists_tac ‘s.clock’ >> simp[evaluate_list_NIL]) >>
+          gs[AllCaseEqs(), evaluate_list_NIL, to_small_st_def, return_def]
+          >- (qexists_tac ‘s.clock’ >> gs[state_component_equality]) >>
+          imp_res_tac do_app_type_error >> gs[]) >>
       metis_tac[do_con_check_build_conv,NOT_SOME_NONE]) >~
   [‘list_CASE _ _ _ = Eabort a’] >- gvs[AllCaseEqs()] >>
   full_simp_tac(srw_ss())[continue_def] >>
@@ -1152,39 +1163,40 @@ Proof
   srw_tac[][PULL_EXISTS] (* 20 *)
   >- (
     full_simp_tac(srw_ss())[application_thm] >>
-    rename1 ‘getOpClass op’ >> Cases_on ‘getOpClass op’ >>
-    gs[getOpClass_opClass] (* 5 *)
-    >- (Cases_on ‘op’ >> gs[getOpClass_def, to_small_st_def, do_app_def] >>
-        rveq >> gs[opClass_cases] >> qexists_tac ‘s.clock’ >>
+    qmatch_asmsub_rename_tac ‘if op = Opapp then _ else _’ >>
+    Cases_on ‘op = Eval’
+    >- (gvs[to_small_st_def, do_app_def] >>
+        qexists_tac ‘s.clock’ >>
         simp[Once evaluate_cases] >>
         irule_at Any evaluate_ctxts_type_error_matchable >>
         gs[state_component_equality] >>
-        gvs[AllCaseEqs()])
-    >- (‘~ opClass op Simple’
-          by (Cases_on ‘op’ >> gs[opClass_cases]) >>
+        gvs[AllCaseEqs()]) >>
+    Cases_on ‘op = Opapp’
+    >- (gvs[] >>
         every_case_tac >> gs[] >>
         qexists_tac ‘s.clock’ >> simp[evaluate_list_NIL] >>
         irule_at Any evaluate_ctxts_type_error_matchable >>
-        gs[state_component_equality])
+        gs[state_component_equality]) >>
+    Cases_on ‘op = ThunkOp ForceThunk’
     >- (
+      gvs[] >>
       simp[evaluate_list_NIL] >>
       irule_at Any evaluate_ctxts_type_error_matchable >>
       gvs[AllCaseEqs(), dest_thunk_def] >>
       gvs[state_component_equality, to_small_st_def]
-      )
-    >- (‘op = PtrEq’ by gvs[opClass_cases] >> gvs[to_small_st_def] >>
+      ) >>
+    Cases_on ‘op = PtrEq’
+    >- (gvs[to_small_st_def] >>
         qexists_tac ‘s.clock’ >> simp[evaluate_list_NIL, SF DNF_ss] >>
         Cases_on ‘l’ >> gvs[evaluate_ctxts_type_error] >>
         Cases_on ‘t'’ >> gvs[evaluate_ctxts_type_error] >>
-        Cases_on ‘do_eq v h’ >> gvs[return_def, evaluate_ctxts_type_error])
-    >- (‘~ opClass op FunApp ∧ ¬opClass op Force’
-          by (Cases_on ‘op’ >> gs[opClass_cases]) >>
-        gs[] >>
-        qexists_tac ‘s.clock’ >> simp[evaluate_list_NIL] >>
-        every_case_tac >> gs[return_def] >> rveq >> gs[to_small_st_def] >>
-        imp_res_tac do_app_type_error >> gs[] >>
-        irule_at Any evaluate_ctxts_type_error_matchable >>
-        gs[state_component_equality])
+        Cases_on ‘do_eq v h’ >> gvs[return_def, evaluate_ctxts_type_error]) >>
+    gs[] >>
+    qexists_tac ‘s.clock’ >> simp[evaluate_list_NIL] >>
+    every_case_tac >> gs[return_def] >> rveq >> gs[to_small_st_def] >>
+    imp_res_tac do_app_type_error >> gs[] >>
+    irule_at Any evaluate_ctxts_type_error_matchable >>
+    gs[state_component_equality]
   ) >>
   srw_tac[][Once evaluate_cases] >>
   full_simp_tac (srw_ss() ++ ARITH_ss) [arithmeticTheory.ADD1,to_small_st_def] >>
@@ -1878,12 +1890,12 @@ Proof
     dxrule $ cj 2 big_exp_to_small_exp >> rw[] >>
     irule_at Any $ cj 2 RTC_rules >>
     simp[e_step_reln_def, e_step_def, push_def, application_thm] >>
-    Cases_on `es` using SNOC_CASES >> gvs[REVERSE_SNOC, GSYM getOpClass_opClass]
+    Cases_on `es` using SNOC_CASES >> gvs[REVERSE_SNOC]
     >- (
       gvs[Once small_eval_list_cases, to_small_res_def] >>
       last_x_assum $ assume_tac o GSYM >> simp[SF SFY_ss]
       ) >>
-    Cases_on ‘op’ >> gs[getOpClass_def, AllCaseEqs()] >>
+    gs[AllCaseEqs()] >>
     gvs[to_small_res_def] >> dxrule e_step_over_App_Opapp >>
     disch_then $ qspecl_then [`env'`,`e`,`[]`] assume_tac >> gvs[] >>
     simp[Once RTC_CASES_RTC_TWICE, SF SFY_ss]
@@ -1893,12 +1905,12 @@ Proof
     dxrule $ cj 2 big_exp_to_small_exp >> rw[] >>
     irule_at Any $ cj 2 RTC_rules >>
     simp[e_step_reln_def, e_step_def, push_def, application_thm] >>
-    Cases_on `es` using SNOC_CASES >> gvs[REVERSE_SNOC, GSYM getOpClass_opClass]
+    Cases_on `es` using SNOC_CASES >> gvs[REVERSE_SNOC]
     >- (
       gvs[Once small_eval_list_cases, to_small_res_def] >>
       last_x_assum $ assume_tac o GSYM >> simp[] >> irule_at Any $ cj 1 RTC_rules
       ) >>
-    Cases_on ‘op’ >> gs[getOpClass_def, AllCaseEqs()] >>
+    gs[AllCaseEqs()] >>
     gvs[to_small_res_def] >> dxrule e_step_over_App_Opapp >>
     disch_then $ qspecl_then [`env'`,`e`,`[]`] assume_tac >> gvs[SF SFY_ss]
     )
@@ -1915,7 +1927,7 @@ Proof
     simp[e_step_reln_def, e_step_def, push_def, application_thm] >>
     irule_at Any $ cj 2 RTC_RULES_RIGHT1 >>
     dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
-    simp[e_step_reln_def, e_step_def, continue_def, application_thm, getOpClass_def] >>
+    simp[e_step_reln_def, e_step_def, continue_def, application_thm] >>
     gvs[dest_thunk_def, to_small_st_def]
     )
   >- ( (* Force *)
@@ -1929,10 +1941,10 @@ Proof
     irule_at Any RTC_RTC >>
     dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
     irule_at Any $ cj 2 RTC_RULES >>
-    simp[e_step_reln_def, e_step_def, continue_def, application_thm, getOpClass_def] >>
+    simp[e_step_reln_def, e_step_def, continue_def, application_thm] >>
     gvs[dest_thunk_def, to_small_st_def] >>
     irule_at Any $ cj 2 RTC_RULES >>
-    simp[e_step_reln_def, e_step_def, continue_def, application_thm, getOpClass_def] >>
+    simp[e_step_reln_def, e_step_def, continue_def, application_thm] >>
     dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any
     )
   >- ( (* App - before application *)
@@ -2356,20 +2368,14 @@ Proof
   >- (
     qspecl_then [‘l0’,‘env’,‘s’] assume_tac big_clocked_list_total >> gvs[] >>
     PairCases_on ‘r’ >> Cases_on ‘r1’ >> gvs[SF SFY_ss] >>
-    rename1 ‘opClass op FunApp’ >> Cases_on ‘opClass op FunApp’ >>
-    gvs[getOpClass_opClass]
+    rename1 ‘op = Opapp’ >> Cases_on ‘op = Opapp’ >>
+    gvs[]
     >- (
       Cases_on ‘do_opapp (REVERSE a ++ [v] ++ l)’ >> gvs[SF SFY_ss] >>
       PairCases_on ‘x’ >> Cases_on ‘r0.clock = 0’ >> gvs[SF SFY_ss] >>
       metis_tac[big_clocked_total]
       ) >>
-    Cases_on ‘opClass op Simple’ >> gvs[]
-    >- (
-      ‘op ≠ ThunkOp ForceThunk’ by (Cases_on ‘op’ >> gvs[opClass_cases]) >> simp[] >>
-      Cases_on ‘do_app (r0.refs,r0.ffi) op (REVERSE a ++ [v] ++ l)’ >> gvs[SF SFY_ss] >>
-      PairCases_on ‘x’ >> gvs[SF SFY_ss]
-      ) >>
-    Cases_on ‘opClass op Force’ >> gvs[]
+    Cases_on ‘op = ThunkOp ForceThunk’ >> gvs[]
     >- (
       rename1 ‘evaluate_list _ _ _ _ (s2,Rval vs2)’ >>
       Cases_on ‘dest_thunk (REVERSE vs2 ++ [v] ++ l) s2.refs’ >> gvs[SF SFY_ss] >>
@@ -2383,7 +2389,7 @@ Proof
       Cases_on ‘res’ >> gvs[SF SFY_ss] >> rename1 ‘Rval v'’ >>
       Cases_on ‘update_thunk (REVERSE vs2 ++ [v] ++ l) s3.refs [v']’ >> gvs[SF SFY_ss]
       ) >>
-    Cases_on ‘opClass op PtrEqOp’ >> gvs[]
+    Cases_on ‘op = PtrEq’ >> gvs[]
     >- (
       Cases_on ‘LENGTH l + (LENGTH a + 1) = 2’ >- (
         ‘LENGTH (REVERSE a ++ [v] ++ l) = 2’ by simp[] >>
@@ -2391,8 +2397,13 @@ Proof
         Cases_on ‘do_eq h h'’ >> metis_tac[]) >>
       metis_tac[]
       ) >>
-    Cases_on ‘op’ >> gs[opClass_cases, do_app_def] >> disj1_tac >>
-    first_x_assum $ irule_at Any >> every_case_tac >> gvs[SF SFY_ss]
+    Cases_on ‘op = Eval’ >> gvs[]
+    >- (
+      gs[do_app_def] >> disj1_tac >>
+      first_x_assum $ irule_at Any >> every_case_tac >> gvs[SF SFY_ss]
+      ) >>
+    Cases_on ‘do_app (r0.refs,r0.ffi) op (REVERSE a ++ [v] ++ l)’ >> gvs[SF SFY_ss] >>
+    PairCases_on ‘x’ >> gvs[SF SFY_ss]
   )
   >- (
     Cases_on ‘dest_thunk [v] s.refs’ >> gvs[] >>

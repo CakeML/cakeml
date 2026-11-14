@@ -3532,7 +3532,7 @@ Proof
 QED
 
 Theorem lift_evaluate_simple[local]:
-  getOpClass op = Simple ∧
+  op ≠ Opapp ∧ op ≠ ThunkOp ForceThunk ∧ op ≠ Eval ∧ op ≠ PtrEq ∧
   lift_state_rel (lift_value_rel C E) D (s:'ffi semanticPrimitives$state) s' ∧
   lift_eval_result_rel (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
     (evaluate s env (REVERSE es)) (evaluate s' env' (REVERSE es')) ⇒
@@ -7259,7 +7259,7 @@ Proof
   >> namedCases_on ‘evaluate s' env' (REVERSE es')’ ["target_state target_result"]
   >> namedCases_on ‘source_result’ ["source_values","source_error"]
   >> namedCases_on ‘target_result’ ["target_values","target_error"]
-  >> gvs [evaluate_def,getOpClass_def,lift_eval_result_rel_def,lift_result_rel_def]
+  >> gvs [evaluate_def,lift_eval_result_rel_def,lift_result_rel_def]
   >> have ‘lift_eval_result_rel R D
         (λ(env1,decs) (env1',decs'). E env1 env1' ∧ P decs decs')
         (do_eval_res (REVERSE source_values) source_state)
@@ -7431,14 +7431,8 @@ Proof
   >> Cases_on ‘op = PtrEq’
   >- (gvs [] >> irule (runtime_inst lift_evaluate_ptr_eq) >> simp [])
   >- (
-    have ‘getOpClass op = Simple’
-    >- (
-      Cases_on ‘op’
-      >> gvs [getOpClass_def] >> qmatch_asmsub_rename_tac ‘thunk_operation ≠ ForceThunk’
-      >> Cases_on ‘thunk_operation’
-      >> gvs [])
-    >> irule (runtime_inst lift_evaluate_simple)
-    >> simp [])
+    irule (runtime_inst lift_evaluate_simple)
+    >> gs [])
 QED
 
 Definition lift_eval_decs_state_rel_def:

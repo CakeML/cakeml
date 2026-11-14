@@ -19809,16 +19809,20 @@ Proof
   \\ Cases_on `witness`
   \\ gvs [smallnum_witness_length_def]
   >- (
-    qmatch_goalsub_rename_tac `1024 * LENGTH entries < dimword (:'a)`
-    \\ drule_all memory_rel_Block_IMP
-    \\ strip_tac
-    \\ Cases_on `entries = []`
-    \\ gvs []
-    \\ qmatch_asmsub_rename_tac
-         `decode_length c (n2w header) = n2w (LENGTH entries)`
-    \\ drule memory_rel_header_length_bound
-    \\ disch_then (qspec_then `n2w header` mp_tac)
-    \\ simp []
+    rename1 `Block n0 0 entries`
+    \\ `1024 * LENGTH entries < dimword (:'a)` by (
+      drule_all memory_rel_Block_IMP
+      \\ strip_tac
+      \\ Cases_on `entries = []`
+      \\ gvs []
+      \\ qmatch_asmsub_rename_tac
+           `decode_length c (n2w header) = n2w (LENGTH entries)`
+      \\ drule memory_rel_header_length_bound
+      \\ disch_then (qspec_then `n2w header` mp_tac)
+      \\ simp []
+      \\ gvs [good_dimindex_def, dimword_def])
+    \\ Cases_on `v_to_list (Block n0 0 entries)` \\ gvs [MAX_DEF]
+    \\ drule_all memory_rel_list_limit
     \\ gvs [good_dimindex_def, dimword_def])
   \\ gvs [AllCaseEqs()]
   >- (

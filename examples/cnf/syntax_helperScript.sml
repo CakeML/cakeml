@@ -949,6 +949,41 @@ Proof
   rw[]
 QED
 
+(* The doubled literals of a binary record from offset i, in file order,
+  up to the value that decodes to 0 *)
+(* TMC *)
+Definition parse_vb_ilits_fwd_def:
+  parse_vb_ilits_fwd (s:mlstring) (i:num) (len:num) =
+  let (v,j) = parse_vb_int s i len in
+  if v ≠ 0 then v :: parse_vb_ilits_fwd s j len else []
+Termination
+  WF_REL_TAC` measure (λ(x,s,i). i-s)`>>
+  rw[]>>
+  drule_then strip_assume_tac parse_vb_int_i>>
+  gvs[]
+End
+
+Theorem parse_vb_ilits_fwd:
+  ∀s i len acc.
+  parse_vb_ilits s i len acc = REVERSE (parse_vb_ilits_fwd s i len) ++ acc
+Proof
+  ho_match_mp_tac parse_vb_ilits_ind>>
+  rw[]>>
+  simp[Once parse_vb_ilits_def,Once parse_vb_ilits_fwd_def]>>
+  pairarg_tac>>
+  rw[]
+QED
+
+Theorem parse_vb_ilits_fwd_nz:
+  ∀s i len. ¬MEM 0 (parse_vb_ilits_fwd s i len)
+Proof
+  ho_match_mp_tac parse_vb_ilits_fwd_ind>>
+  rw[]>>
+  simp[Once parse_vb_ilits_fwd_def]>>
+  pairarg_tac>>
+  rw[]
+QED
+
 (* Other ASCII syntax parsing tools *)
 
 (* Parse nums until the next zero and returns. *)
@@ -975,12 +1010,10 @@ End
   return INR without that char
   otherwise INL or line unchanged *)
 Definition starts_with_def:
-  (starts_with s (first::rest) =
-  if first = s
-  then
-    INR rest
-  else INL (first::rest)) ∧
-  (starts_with s [] = INL [])
+  starts_with s ls =
+  case ls of
+    x::rest => if x = s then INR rest else INL ls
+  | [] => INL ls
 End
 
 (* The RUP hint format in ASCII: (int list) 0 (num list) 0 *)

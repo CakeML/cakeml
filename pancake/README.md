@@ -5,6 +5,9 @@ parts of the CakeML compiler.
 User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
+[compilation](compilation):
+Native builds of the standalone Pancake compiler for x64, ARM8 and RISC-V64.
+
 [crepLangScript.sml](crepLangScript.sml):
 Abstract syntax of Crepe language
 Crepe: instructions are similar to that of
@@ -75,6 +78,9 @@ Compiler from Pancake to machine code
 [pan_to_wordScript.sml](pan_to_wordScript.sml):
 Compiler from pan to word
 
+[pancake_compilerScript.sml](pancake_compilerScript.sml):
+Command-line interface for the standalone Pancake compiler.
+
 [parser](parser):
 The Pancake parser.
 
@@ -89,3 +95,8 @@ Support files for Pancake static checker.
 
 [temp](temp):
 Temporary files
+
+[translation](translation):
+Translations for the standalone Pancake compiler. The translation branches
+from the CakeML compiler at from_wordProg. All native entry points extend
+pancake_compilerProg.

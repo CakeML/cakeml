@@ -24,12 +24,8 @@ Theorem ltree_not_Vis[simp]:
 Proof
   qid_spec_tac ‘t’>>simp[Once SWAP_FORALL_THM]>>
   qid_spec_tac ‘fs’>>simp[Once SWAP_FORALL_THM]>>
-  Induct>>rw[]
-  >- (Cases_on ‘t’>>fs[]>>
-      PairCases_on ‘a’>>simp[]>>
-      CASE_TAC>>simp[]>>
-      CASE_TAC>>simp[])>>
-  Cases_on ‘t’>>fs[FUNPOW_SUC]>>
+  Induct>>rw[FUNPOW_SUC]>>
+  Cases_on ‘t’>>fs[]>>
   PairCases_on ‘a’>>simp[]>>
   CASE_TAC>>simp[]>>
   CASE_TAC>>simp[]
@@ -163,22 +159,10 @@ Theorem div_imp_spin:
   div fs t ⇒ ltree fs t = spin:'a ptree
 Proof
   rw[]>>
-  irule EQ_SYM>>
-  simp[Once itree_bisimulation] >>
-  qexists ‘CURRY {(spin,ltree fs t)|fs,t| div fs t}’>>
-  rw[EXISTS_PROD]>- metis_tac[PAIR]>>
-  TRY (qpat_x_assum ‘_ = spin’ mp_tac >> rw[Once spin]>>NO_TAC)>>
-  last_x_assum kall_tac>>
-  rename1 ‘ltree fs t’ >>
-  Cases_on ‘t’ >>fs[]
-  >- (qpat_x_assum ‘_ = spin’ mp_tac>>simp[Once spin]>>rw[]>>
-      Cases_on ‘fs’>>fs[]>>
-      first_x_assum $ irule_at Any>>simp[])>>
-  PairCases_on ‘a’>>fs[]>>
-  CASE_TAC>>fs[]>>
-  qpat_x_assum ‘_ = spin’ mp_tac>>simp[Once spin]>>
-  Cases_on ‘fs’>>fs[div_def]>>
-  metis_tac[FUNPOW_SUC]
+  irule strip_tau_spin>>
+  gen_tac>>strip_tac>>
+  imp_res_tac strip_tau_FUNPOW>>
+  Cases_on ‘t'’>>gvs[div_def]
 QED
 
 Theorem div_eq_ltree_spin:
@@ -318,32 +302,8 @@ Proof
     fs[GSYM FUNPOW]>>
     fs[FUNPOW_Ret_simp]>>
     ‘n - SUC n' < SUC n’ by simp[]>>
-    res_tac>>gvs[])
+    res_tac>>gvs[])>>
   (* Call / DecCall *)
-  >- (fs[mrec_Call,mrec_DecCall]>>
-      rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
-      qmatch_asmsub_abbrev_tac ‘itree_bind (ltree _ X) _’>>
-      (Cases_on ‘div fs X’>>fs[]
-       >- (imp_res_tac div_imp_spin>>fs[spin_bind]>>
-           qhdtm_x_assum ‘FUNPOW’ mp_tac>>
-           rewrite_tac[Once (Q.SPEC ‘SUC n’ spin_FUNPOW_Tau)]>>
-           rw[]>>fs[FUNPOW_Ret_simp]))>>
-      fs[FUNPOW_Tau_bind]>>
-      fs[mrec_h_handle_call_ret_lemma]>>
-      fs[mrec_h_handle_deccall_ret_lemma]>>
-      (rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
-      fs[GSYM FUNPOW]>>
-      fs[FUNPOW_Ret_simp]>>
-      qmatch_asmsub_abbrev_tac ‘itree_bind (ltree _ Y) _’>>
-      Cases_on ‘div (FST fs, SND (comp_ffi fs X)) Y’>>fs[]>>
-      fs[FUNPOW_Tau_bind]>>gvs[]>>
-      imp_res_tac div_imp_spin>>fs[spin_bind]
-       >- (qhdtm_x_assum ‘FUNPOW’ mp_tac>>
-           rewrite_tac[Once (Q.SPEC ‘SUC (n - SUC n')’ spin_FUNPOW_Tau)]>>
-           rw[]>>fs[FUNPOW_Ret_simp]))>>
-      qhdtm_x_assum ‘FUNPOW’ mp_tac>>
-      rewrite_tac[Once (Q.SPEC ‘SUC (n - SUC n')’ spin_FUNPOW_Tau)]>>
-      rw[]>>fs[FUNPOW_Ret_simp])>>
   (fs[mrec_Call,mrec_DecCall]>>
    rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
    qmatch_asmsub_abbrev_tac ‘itree_bind (ltree _ X) _’>>

@@ -14,7 +14,7 @@ Libs
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
-val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "getOpClass_def"]
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val build_rec_env_merge = flatPropsTheory.build_rec_env_merge;
 
@@ -1332,7 +1332,7 @@ Proof
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, Unitv_def]) >>
   pop_assum mp_tac >>
   Cases_on `op` >>
-  simp [astOp_to_flatOp_def, semanticPrimitivesTheory.getOpClass_def]
+  simp [astOp_to_flatOp_def]
   >~ [‘Aw8ScanEq’] >- (
     rw [semanticPrimitivesPropsTheory.do_app_cases,flatSemTheory.do_app_def]
     \\ gvs [v_rel_eqns,result_rel_cases,v_rel_lems]
@@ -4394,7 +4394,7 @@ Theorem inline_op_props[local]:
   astOp_to_flatOp p ≠ Src (ThunkOp ForceThunk)
 Proof
   rw [inline_op_def] \\ strip_tac
-  \\ gvs [astOp_to_flatOp_def, AllCaseEqs(), semanticPrimitivesTheory.getOpClass_def]
+  \\ gvs [astOp_to_flatOp_def, AllCaseEqs()]
 QED
 
 Theorem dest_inline_SOME[local]:
@@ -4825,7 +4825,7 @@ Resume compile_correct[App]:
   >- (
     (* empty array creation *)
     rpt strip_tac
-    \\ fs [semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.getOpClass_def]
+    \\ fs [semanticPrimitivesTheory.do_app_def]
     \\ every_case_tac \\ fs [] \\ rveq \\ fs []
     >- (
       drule (CONJUNCT1 evaluatePropsTheory.evaluate_length) >>
@@ -4868,7 +4868,7 @@ Resume compile_correct[App]:
   \\ Cases_on `op = Eval`
   >- (
     rpt strip_tac
-    \\ fs [evaluateTheory.do_eval_res_def, semanticPrimitivesTheory.getOpClass_def]
+    \\ fs [evaluateTheory.do_eval_res_def]
     \\ fs [astOp_to_flatOp_def, evaluate_def, compile_exps_reverse,
         evaluate_decs_append, miscTheory.opt_bind_def]
     \\ fs [list_case_eq, option_case_eq, pair_case_eq]
@@ -4959,7 +4959,7 @@ Resume compile_correct[App]:
   \\ Cases_on `op = Opapp`
   >- (
     (* Opapp *)
-    fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, pair_case_eq, option_case_eq, semanticPrimitivesTheory.getOpClass_def] >>
+    fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, pair_case_eq, option_case_eq] >>
     rw [] >>
     rveq >> fs [] >>
     fs [astOp_to_flatOp_def, evaluate_def, compile_exps_reverse] >>
@@ -4992,7 +4992,7 @@ Resume compile_correct[App]:
   )
   \\ Cases_on `op = Env_id`
   >- (
-    fs [option_case_eq, pair_case_eq, result_rel_eqns, semanticPrimitivesTheory.getOpClass_def]
+    fs [option_case_eq, pair_case_eq, result_rel_eqns]
     \\ rw []
     \\ fs [semanticPrimitivesTheory.do_app_def]
     \\ fs [case_eq_thms, semanticPrimitivesTheory.v_case_eq, pair_case_eq]
@@ -5007,17 +5007,8 @@ Resume compile_correct[App]:
     \\ asm_exists_tac \\ fs []
     \\ fs [invariant_def, s_rel_cases]
   ) >>
-  Cases_on ‘getOpClass op’ >> gs[]
+  Cases_on ‘op = ThunkOp ForceThunk’ >> gs[]
   >- (
-    Cases_on ‘op’ >> gs[semanticPrimitivesTheory.getOpClass_def] >>
-    Cases_on ‘t'’ >> gvs[])
-  >- (
-    Cases_on ‘op’ >> gs[semanticPrimitivesTheory.getOpClass_def] >>
-    Cases_on ‘t'’ >> gvs[])
-  >~ [‘getOpClass op = Force’]
-  >- (
-    Cases_on ‘op’ >> gvs[semanticPrimitivesTheory.getOpClass_def] >>
-    Cases_on ‘t'’ >> gvs[] >>
     gvs[AllCaseEqs(), evaluateTheory.dec_clock_def, flatSemTheory.dec_clock_def,
         PULL_EXISTS] >> rw[]
     >- (
@@ -5150,14 +5141,12 @@ Resume compile_correct[App]:
       drule_then irule orac_forward_rel_trans >> gvs[]
     )
   )
-  >~ [‘getOpClass op = PtrEqOp’]
+  >> Cases_on ‘op = PtrEq’ >> gs[]
   >- (
     strip_tac
     \\ gvs [AllCaseEqs()]
     >- (
-      `op = PtrEq` by
-        (Cases_on `op` \\ fs [semanticPrimitivesTheory.getOpClass_def] \\ Cases_on `t'` \\ gvs [])
-      \\ gvs [result_rel_cases]
+      gvs [result_rel_cases]
       \\ fs [evaluate_def, compile_exps_reverse, astOp_to_flatOp_def]
       \\ gvs [listTheory.SWAP_REVERSE_SYM]
       \\ fs [flatSemTheory.do_app_def]
@@ -5168,8 +5157,6 @@ Resume compile_correct[App]:
       \\ fs [v_rel_lems]
       \\ fs [invariant_def, s_rel_cases]
     )
-    \\ `op = PtrEq` by
-         (Cases_on `op` \\ fs [semanticPrimitivesTheory.getOpClass_def] \\ Cases_on `t'` \\ gvs [])
     \\ gvs [result_rel_cases]
     \\ fs [evaluate_def, compile_exps_reverse, astOp_to_flatOp_def]
     \\ gvs [listTheory.SWAP_REVERSE_SYM]
@@ -5196,7 +5183,6 @@ Resume compile_correct[App]:
     rw [astOp_to_flatOp_def] >>
     Cases_on `op` >>
     simp [] >>
-    fs [semanticPrimitivesTheory.getOpClass_def] >>
     Cases_on `t'` >> gvs []) >>
   fs [evaluate_def, compile_exps_reverse] >>
   imp_res_tac do_app_state_unchanged >>
