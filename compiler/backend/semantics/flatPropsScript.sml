@@ -1336,7 +1336,8 @@ Proof
     \\ imp_res_tac semanticPrimitivesPropsTheory.do_arith_check_type
     \\ rename [`check_type ty`]
     \\ Cases_on `ty` using semanticPrimitivesPropsTheory.prim_type_cases
-    \\ gvs[semanticPrimitivesTheory.do_arith_def,CaseEq"list",TypeBase.case_eq_of ``:ast$arith``]
+    \\ gvs[semanticPrimitivesTheory.do_arith_def,CaseEq"list",TypeBase.case_eq_of ``:ast$arith``,
+           TypeBase.case_eq_of ``:ast$div_round``]
     \\ gvs[simple_val_rel_simps,v_to_flat_def]
     >~ [`check_type BoolT (flat_to_v operand)`]
     >- (

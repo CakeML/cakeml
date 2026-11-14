@@ -246,7 +246,6 @@ QED
 
 Resume evaluate_basis_v_ok[App]:
   rw [evaluate_def]
-  \\ Cases_on ‘getOpClass op’
   \\ gvs [CaseEqs ["bool", "option", "prod", "semanticPrimitives$result"], SF SFY_ss]
   \\ rpt (Cases_on ‘op’ \\ gvs [] \\ NO_TAC)
   >- (

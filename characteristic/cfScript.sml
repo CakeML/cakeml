@@ -1443,14 +1443,17 @@ End
 
 Definition app_arith_def:
   app_arith arith i1 i2 H Q =
-    ((if arith = Div \/ arith = Mod then i2 <> 0 else T) /\
-     MEM arith [Add; Sub; Mul; Div; Mod] /\
+    ((if (?r. arith = Div r \/ arith = Mod r) then i2 <> 0 else T) /\
+     MEM arith [Add; Sub; Mul; Div TowardsZero; Div RoundDown;
+                Mod TowardsZero; Mod RoundDown] /\
      H ==>> Q (Val (Litv (IntLit (case arith of
                                   | Add => i1 + i2
                                   | Sub => i1 - i2
                                   | Mul => i1 * i2
-                                  | Div => i1 / i2
-                                  | Mod => i1 % i2
+                                  | Div RoundDown => i1 / i2
+                                  | Mod RoundDown => i1 % i2
+                                  | Div TowardsZero => i1 quot i2
+                                  | Mod TowardsZero => i1 rem i2
                                   | _   => 0)))) /\
      Q =~v> POST_F)
 End

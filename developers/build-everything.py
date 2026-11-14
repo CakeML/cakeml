@@ -30,15 +30,25 @@ parser = argparse.ArgumentParser(description="Run Holmake in multiple directorie
 parser.add_argument('holmake_binary', type=str, help='The Holmake binary to use', nargs='?', default='Holmake')
 parser.add_argument('base_dir', type=str, help='Base directory for directories to run Holmake in', nargs='?', default=base_dir_default)
 parser.add_argument('directory_file', type=str, help='File containing directory names relative to base_dir', nargs='?', default=build_seq_defalut)
+parser.add_argument('-j', '--jobs', type=int, default=4,
+                    help='Holmake workers per directory (default: 4)')
+parser.add_argument('--attempts', type=int, default=3,
+                    help='Maximum build attempts per directory (default: 3)')
+parser.add_argument('--holmake-arg', dest='holmake_args', action='append', default=[],
+                    metavar='ARG', help='Extra Holmake argument; repeat as needed')
 
 args = parser.parse_args()
+for option, value in [('--jobs', args.jobs), ('--attempts', args.attempts)]:
+    if value < 1:
+        parser.error(f'{option} must be at least 1')
 
 # Assign arguments to variables
 holmake_binary = args.holmake_binary
 base_dir = args.base_dir
 directory_file = args.directory_file
 
-max_retries = 3  # Maximum number of retry attempts
+max_retries = args.attempts
+jobs = args.jobs
 failed_directories = []
 
 all_dirs = []
@@ -64,14 +74,13 @@ for idx, line in enumerate(all_dirs):
 
     # Check if the path is a directory
     if os.path.isdir(full_path):
-        jobs = 4 # 1 if "compiler/bootstrap/translation" in str(full_path) else 4
         retries = 0
         success = False
 
         while retries < max_retries and not success:
             try:
                 # Run the Holmake command
-                subprocess.run([holmake_binary, "-k", "-j", str(jobs)], cwd=full_path, check=True)
+                subprocess.run([holmake_binary, "-k", "-j", str(jobs), *args.holmake_args], cwd=full_path, check=True)
                 success = True  # Command succeeded
             except subprocess.CalledProcessError as e:
                 retries += 1
@@ -81,7 +90,8 @@ for idx, line in enumerate(all_dirs):
             # Add directory to the list of failures
             failed_directories.append(full_path)
     else:
-        print(f"Warning: Directory {full_path} does not exist, skipping.")
+        print(f"Error: Directory {full_path} does not exist.")
+        failed_directories.append(full_path)
 
 # Print summary of failures
 if failed_directories:
@@ -92,3 +102,4 @@ else:
     print("\nAll directories processed successfully.")
 
 print("Completed running Holmake for all directories.")
+sys.exit(1 if failed_directories else 0)

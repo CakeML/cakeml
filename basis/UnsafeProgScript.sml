@@ -65,8 +65,8 @@ val () = append_decs
    ``[mk_binop «+» (UnsafeIndexArith Add);
       mk_binop «-» (UnsafeIndexArith Sub);
       mk_binop «*» (UnsafeIndexArith Mul);
-      mk_binop «div» (UnsafeIndexArith Div);
-      mk_binop «mod» (UnsafeIndexArith ast$Mod);
+      mk_binop «div» (UnsafeIndexArith (Div RoundDown));
+      mk_binop «mod» (UnsafeIndexArith (ast$Mod RoundDown));
       mk_binop «<» (UnsafeIndexTest (Compare Lt));
       mk_binop «<=» (UnsafeIndexTest (Compare Leq));
       mk_binop «>» (UnsafeIndexTest (Compare Gt));
@@ -88,11 +88,11 @@ val () = append_decs
             [Var (Short «x»); Var (Short «y»); Var (Short «witness»)]))));
       Dlet NoLocs (Pvar «divWitness»)
         (Fun «x» (Fun «y» (Fun «witness»
-          (App (UnsafeIndexArith Div)
+          (App (UnsafeIndexArith (Div RoundDown))
             [Var (Short «x»); Var (Short «y»); Var (Short «witness»)]))));
       Dlet NoLocs (Pvar «modWitness»)
         (Fun «x» (Fun «y» (Fun «witness»
-          (App (UnsafeIndexArith ast$Mod)
+          (App (UnsafeIndexArith (ast$Mod RoundDown))
             [Var (Short «x»); Var (Short «y»); Var (Short «witness»)]))));
       Dlet NoLocs (Pvar «ltWitness»)
         (Fun «x» (Fun «y» (Fun «witness»

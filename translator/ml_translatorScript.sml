@@ -1055,7 +1055,7 @@ Theorem Eval_INT_DIV:
     Eval env x1 (INT n1) ⇒
     Eval env x2 (INT n2) ⇒
     PRECONDITION (n2 ≠ 0) ⇒
-    Eval env (App (Arith Div IntT) [x1; x2]) (INT (n1 / n2))
+    Eval env (App (Arith (Div RoundDown) IntT) [x1; x2]) (INT (n1 / n2))
 Proof
   rw[Eval_rw,INT_def,PRECONDITION_def]
   \\ Eval2_tac \\ fs [do_app_def, do_arith_def] \\ rw []
@@ -1067,7 +1067,31 @@ Theorem Eval_INT_MOD:
     Eval env x1 (INT n1) ⇒
     Eval env x2 (INT n2) ⇒
     PRECONDITION (n2 ≠ 0) ⇒
-    Eval env (App (Arith Mod IntT) [x1; x2]) (INT (n1 % n2))
+    Eval env (App (Arith (Mod RoundDown) IntT) [x1; x2]) (INT (n1 % n2))
+Proof
+  rw[Eval_rw,INT_def,PRECONDITION_def]
+  \\ Eval2_tac \\ fs [do_app_def, do_arith_def] \\ rw []
+  \\ fs [state_component_equality, check_type_def]
+QED
+
+Theorem Eval_INT_QUOT:
+  ∀n1 n2.
+    Eval env x1 (INT n1) ⇒
+    Eval env x2 (INT n2) ⇒
+    PRECONDITION (n2 ≠ 0) ⇒
+    Eval env (App (Arith (Div TowardsZero) IntT) [x1; x2]) (INT (n1 quot n2))
+Proof
+  rw[Eval_rw,INT_def,PRECONDITION_def]
+  \\ Eval2_tac \\ fs [do_app_def, do_arith_def] \\ rw []
+  \\ fs [state_component_equality, check_type_def]
+QED
+
+Theorem Eval_INT_REM:
+  ∀n1 n2.
+    Eval env x1 (INT n1) ⇒
+    Eval env x2 (INT n2) ⇒
+    PRECONDITION (n2 ≠ 0) ⇒
+    Eval env (App (Arith (Mod TowardsZero) IntT) [x1; x2]) (INT (n1 rem n2))
 Proof
   rw[Eval_rw,INT_def,PRECONDITION_def]
   \\ Eval2_tac \\ fs [do_app_def, do_arith_def] \\ rw []
@@ -2294,7 +2318,7 @@ Theorem Eval_FLOAT_DIV:
   ∀f1 f2.
     Eval env x1 (FLOAT64 f1) ⇒
     Eval env x2 (FLOAT64 f2) ⇒
-    Eval env (App (Arith Div Float64T) [x1; x2]) (FLOAT64 (float64_div f1 f2))
+    Eval env (App (Arith (Div RoundDown) Float64T) [x1; x2]) (FLOAT64 (float64_div f1 f2))
 Proof
   rw[Eval_rw,FLOAT64_def,lift_fp_bop_def]
   \\ Eval2_tac \\ fs [do_app_def] \\ rw []
@@ -3390,7 +3414,7 @@ QED
 local
   val operations =
     [("add", “ast$Add”, false), ("sub", “ast$Sub”, false), ("mul", “ast$Mul”, false),
-     ("div", “ast$Div”, false), ("mod", “ast$Mod”, false),
+     ("div", “ast$Div RoundDown”, false), ("mod", “ast$Mod RoundDown”, false),
      ("lt", “ast$Compare ast$Lt”, true), ("le", “ast$Compare ast$Leq”, true),
      ("gt", “ast$Compare ast$Gt”, true), ("ge", “ast$Compare ast$Geq”, true), ("eq", “ast$Equal”, true)]
   fun derive prefix suffix (name, primitive, is_test) = let

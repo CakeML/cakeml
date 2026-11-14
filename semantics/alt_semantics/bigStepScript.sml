@@ -11,42 +11,6 @@ val _ = numLib.temp_prefer_num();
 (* To get the definition of expression divergence to use in defining definition
  * divergence *)
 
-(* getOpClass as a inductive to make the proofs potentially easier *)
-Inductive opClass:
-(∀ op. opClass (FFI op) Simple) ∧
-(∀ op. op = Equality ∨ op = Opassign ∨
-       op = Opref ∨ op = Aw8alloc ∨ op = Aw8sub ∨ op = Aw8length ∨
-       op = Aw8update ∨ op = CopyStrStr ∨ op = CopyStrAw8 ∨
-       op = CopyAw8Str ∨ op = CopyAw8Aw8 ∨
-       op = CopyVecVec ∨ op = CopyVecArr ∨
-       op = CopyArrVec ∨ op = CopyArrArr ∨
-       op = Implode ∨ op = Explode ∨ op = Strsub ∨ op = Strsub_unsafe ∨
-       op = Aw8ScanEq ∨ op = Aw8ScanNeq ∨
-       op = StrScanEq ∨ op = StrScanNeq ∨ op = Strlen ∨
-       op = Strcat ∨ op = VfromList ∨ op = Vsub ∨ op = Vsub_unsafe ∨
-       op = XorAw8Str_unsafe ∨ (∃test ty. op = Test test ty) ∨
-       (∃a ty. op = Arith a ty) ∨ (∃a. op = UnsafeIndexArith a) ∨
-       (∃test. op = UnsafeIndexTest test) ∨
-       (∃ty1 ty2. op = FromTo ty1 ty2) ∨
-       op = Vlength ∨ op = Aalloc ∨ op = AallocEmpty ∨ op = Asub ∨
-       op = Alength ∨ op = Aupdate ∨ op = Asub_unsafe ∨ op = Aupdate_unsafe ∨
-       op = Aw8sub_unsafe ∨ op = Aw8update_unsafe ∨ op = ListAppend ∨
-       op = Aw8subBit_unsafe ∨ op = Aw8updateBit_unsafe ∨
-       op = Aw8subBit ∨ op = Aw8updateBit ∨
-       op = ConfigGC ∨ op = Env_id ∨ op = Opderef ∨ op = AallocFixed
-       ⇒
-       opClass op Simple) ∧
-(* FunApp *)
-(opClass Opapp FunApp) ∧
-(* Eval *)
-(opClass Eval EvalOp) ∧
-(* PtrEq *)
-(opClass PtrEq PtrEqOp) ∧
-(* Thunks *)
-(opClass (ThunkOp ForceThunk) Force) ∧
-(∀op. op ≠ ForceThunk ⇒ opClass (ThunkOp op) Simple)
-End
-
 (* ------------------------ Big step semantics -------------------------- *)
 
 (* If the first argument is true, the big step semantics counts down how many
@@ -129,7 +93,7 @@ evaluate ck env s (Fun n e) (s, Rval (Closure env n e)))
 (evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
 (do_opapp (REVERSE vs) = SOME (env', e)) /\
 (ck ==> ~ (s2.clock =(( 0 : num)))) /\
-(opClass op FunApp) /\
+(op = Opapp) /\
 evaluate ck env' (if ck then ( s2 with<| clock := (s2.clock -( 1 : num)) |>) else s2) e bv)
 ==>
 evaluate ck env s1 (App op es) bv)
@@ -138,7 +102,7 @@ evaluate ck env s1 (App op es) bv)
 (evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
 (do_opapp (REVERSE vs) = SOME (env', e)) /\
 (s2.clock =( 0 : num)) /\
-(opClass op FunApp) /\
+(op = Opapp) /\
 ck)
 ==>
 evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtimeout_error)))
@@ -146,14 +110,14 @@ evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtimeout_error)))
 /\ (! ck env es vs s1 s2.
 (evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
 (do_opapp (REVERSE vs) = NONE)) /\
-(opClass op FunApp)
+(op = Opapp)
 ==>
 evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
 
 /\ (! ck env op es vs res s1 s2 refs' ffi'.
 (evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
 (do_app (s2.refs,s2.ffi) op (REVERSE vs) = SOME ((refs',ffi'), res)) /\
-(opClass op Simple))
+op ≠ Opapp ∧ op ≠ ThunkOp ForceThunk ∧ op ≠ PtrEq ∧ op ≠ Eval)
 ==>
 evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
 
@@ -161,7 +125,7 @@ evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
 
 (∀ck env op es vs s1 s2.
   evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
-  opClass op Force ∧
+  op = ThunkOp ForceThunk ∧
   dest_thunk (REVERSE vs) s2.refs = BadRef
  ⇒ evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
 
@@ -169,7 +133,7 @@ evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
 
 (∀ck env op es vs s1 s2.
   evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
-  opClass op Force ∧
+  op = ThunkOp ForceThunk ∧
   dest_thunk (REVERSE vs) s2.refs = NotThunk
  ⇒ evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
 
@@ -177,7 +141,7 @@ evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
 
 (∀ck env op es vs s1 s2 f.
   evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
-  opClass op Force ∧
+  op = ThunkOp ForceThunk ∧
   dest_thunk (REVERSE vs) s2.refs = IsThunk NotEvaluated f ∧
   do_opapp [f; Conv NONE []] = NONE
  ⇒ evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
@@ -186,7 +150,7 @@ evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
 
 (∀ck env op es vs v s1 s2.
   evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
-  opClass op Force ∧
+  op = ThunkOp ForceThunk ∧
   dest_thunk (REVERSE vs) s2.refs = IsThunk Evaluated v
  ⇒ evaluate ck env s1 (App op es) (s2, Rval v))
 
@@ -194,7 +158,7 @@ evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
 
 (∀ck env op es vs s1 s2 f env_e.
   evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
-  opClass op Force ∧
+  op = ThunkOp ForceThunk ∧
   dest_thunk (REVERSE vs) s2.refs = IsThunk NotEvaluated f ∧
   do_opapp [f; Conv NONE []] = SOME env_e ∧
   ck ∧ s2.clock = 0
@@ -204,7 +168,7 @@ evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
 
 (∀ck env op es vs s1 s2 f env' e s3 err.
   evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
-  opClass op Force ∧
+  op = ThunkOp ForceThunk ∧
   dest_thunk (REVERSE vs) s2.refs = IsThunk NotEvaluated f ∧
   do_opapp [f; Conv NONE []] = SOME (env', e) ∧
   (ck ⇒ s2.clock ≠ 0) ∧
@@ -215,7 +179,7 @@ evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
 
 (∀ck env op es vs s1 s2 f env' e s3 vs2.
   evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
-  opClass op Force ∧
+  op = ThunkOp ForceThunk ∧
   dest_thunk (REVERSE vs) s2.refs = IsThunk NotEvaluated f ∧
   do_opapp [f; Conv NONE []] = SOME (env', e) ∧
   (ck ⇒ s2.clock ≠ 0) ∧
@@ -227,7 +191,7 @@ evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
 
 (∀ck env op es vs s1 s2 f env' e s3 vs2 refs.
   evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
-  opClass op Force ∧
+  op = ThunkOp ForceThunk ∧
   dest_thunk (REVERSE vs) s2.refs = IsThunk NotEvaluated f ∧
   do_opapp [f; Conv NONE []] = SOME (env', e) ∧
   (ck ⇒ s2.clock ≠ 0) ∧
@@ -238,7 +202,7 @@ evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
 /\ (! ck env op es vs s1 s2.
       evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
       do_app (s2.refs,s2.ffi) op (REVERSE vs) = NONE /\
-      ¬opClass op FunApp ∧ ¬opClass op Force ∧ ¬opClass op PtrEqOp
+      op ≠ Opapp ∧ op ≠ ThunkOp ForceThunk ∧ op ≠ PtrEq
 ==>
       evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
 
@@ -247,7 +211,7 @@ evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
 (* PtrEq: result *)
 (∀ck env op es vs v1 v2 b s1 s2.
   evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
-  opClass op PtrEqOp ∧
+  op = PtrEq ∧
   REVERSE vs = [v1; v2] ∧
   do_eq v1 v2 = Eq_val b
  ⇒ evaluate ck env s1 (App op es)
@@ -259,7 +223,7 @@ evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
 (* PtrEq: do_eq type error *)
 (∀ck env op es vs v1 v2 s1 s2.
   evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
-  opClass op PtrEqOp ∧
+  op = PtrEq ∧
   REVERSE vs = [v1; v2] ∧
   do_eq v1 v2 = Eq_type_error
  ⇒ evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
@@ -269,7 +233,7 @@ evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
 (* PtrEq: arity error *)
 (∀ck env op es vs s1 s2.
   evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
-  opClass op PtrEqOp ∧
+  op = PtrEq ∧
   LENGTH vs ≠ 2
  ⇒ evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
 

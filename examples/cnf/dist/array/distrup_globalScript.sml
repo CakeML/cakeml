@@ -156,7 +156,7 @@ Proof
           rw[OPTREL_SOME] >>
           rw[] >>
           ‘cst.procs |+ (id,NONE) = cst.procs’ suffices_by simp[] >>
-          rw[fmap_eq_flookup,FLOOKUP_UPDATE] >> rw[] >> rw[]))
+          irule FUPDATE_ELIM >> gvs[FLOOKUP_DEF]))
   >~ [‘events_ok _ _ [Lrup _ _ _] (SOME _)’]
   >- (qhdtm_x_assum ‘events_ok’ $ assume_tac o PURE_ONCE_REWRITE_RULE[events_ok_cases] >>
       gvs[events_ok_NIL] >>
@@ -195,7 +195,7 @@ Proof
           rw[OPTREL_SOME] >>
           simp[] >>
           ‘cst.procs |+ (id,NONE) = cst.procs’ suffices_by simp[] >>
-          rw[fmap_eq_flookup,FLOOKUP_UPDATE] >> rw[] >> rw[]))
+          irule FUPDATE_ELIM >> gvs[FLOOKUP_DEF]))
   >~ [‘events_ok _ _ [ValidateUnsat] (SOME _)’]
   >- (qhdtm_x_assum ‘events_ok’ $ assume_tac o PURE_ONCE_REWRITE_RULE[events_ok_cases] >>
       gvs[events_ok_NIL] >>
@@ -214,7 +214,7 @@ Proof
       conj_tac >- rw[] >>
       gvs[check_distrup_list_def] >>
       ‘(cst.procs |+ (id,SOME (fmlls,Clist,b))) = cst.procs’ suffices_by simp[] >>
-      rw[fmap_eq_flookup,FLOOKUP_UPDATE] >> rw[] >> rw[])
+      irule FUPDATE_ELIM >> gvs[FLOOKUP_DEF])
   >~ [‘events_ok _ _ [ValidateUnsat] NONE’]
   >- (qhdtm_x_assum ‘events_ok’ $ assume_tac o PURE_ONCE_REWRITE_RULE[events_ok_cases] >>
       gvs[events_ok_NIL] >>
@@ -241,7 +241,7 @@ Proof
       rw[OPTREL_SOME] >>
       simp[] >>
       ‘cst.procs |+ (id,NONE) = cst.procs’ suffices_by simp[] >>
-      rw[fmap_eq_flookup,FLOOKUP_UPDATE] >> rw[] >> rw[]) >>
+      irule FUPDATE_ELIM >> gvs[FLOOKUP_DEF]) >>
   qhdtm_x_assum ‘events_ok’ $ assume_tac o PURE_ONCE_REWRITE_RULE[events_ok_cases] >>
   gvs[events_ok_NIL] >>
   rw[act_rel_cases,label_rel_cases]
@@ -264,7 +264,7 @@ Proof
       rw[OPTREL_SOME] >>
       simp[] >>
       ‘cst.procs |+ (id,NONE) = cst.procs’ suffices_by simp[] >>
-      rw[fmap_eq_flookup,FLOOKUP_UPDATE] >> rw[] >> rw[])
+      irule FUPDATE_ELIM >> gvs[FLOOKUP_DEF])
 QED
 
 Theorem state_rel_reduce:

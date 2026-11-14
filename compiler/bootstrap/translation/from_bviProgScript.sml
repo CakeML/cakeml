@@ -1,0 +1,135 @@
+(*
+  Translate the backend from BVI to target code.
+*)
+Theory from_bviProg[no_sig_docs]
+Ancestors
+  ml_translator from_dataProg backend[qualified]
+Libs
+  preamble ml_translatorLib
+
+val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
+
+val _ = translation_extends "from_dataProg";
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "from_bviProg");
+
+(* ------------------------------------------------------------------------- *)
+(* Setup                                                                     *)
+(* ------------------------------------------------------------------------- *)
+
+val RW = REWRITE_RULE
+val RW1 = ONCE_REWRITE_RULE
+fun list_dest f tm =
+  let val (x,y) = f tm in list_dest f x @ list_dest f y end
+  handle HOL_ERR _ => [tm];
+val dest_fun_type = dom_rng
+val mk_fun_type = curry op -->;
+fun list_mk_fun_type [ty] = ty
+  | list_mk_fun_type (ty1::tys) =
+      mk_fun_type ty1 (list_mk_fun_type tys)
+  | list_mk_fun_type _ = fail()
+
+val _ = add_preferred_thy "-";
+val _ = add_preferred_thy "termination";
+
+Theorem NOT_NIL_AND_LEMMA[local]:
+  (b <> [] /\ x) = if b = [] then F else x
+Proof
+  Cases_on `b` THEN FULL_SIMP_TAC std_ss []
+QED
+
+val extra_preprocessing = ref [MEMBER_INTRO,MAP];
+
+fun def_of_const tm = let
+  val res = dest_thy_const tm handle HOL_ERR _ =>
+              failwith ("Unable to translate: " ^ term_to_string tm)
+  val name = (#Name res)
+  fun def_from_thy thy name =
+    DB.fetch thy (name ^ "_pmatch") handle HOL_ERR _ =>
+    DB.fetch thy (name ^ "_def") handle HOL_ERR _ =>
+    DB.fetch thy (name ^ "_DEF") handle HOL_ERR _ =>
+    DB.fetch thy name
+  val def = def_from_thy "termination" name handle HOL_ERR _ =>
+            def_from_thy (#Thy res) name handle HOL_ERR _ =>
+            failwith ("Unable to find definition of " ^ name)
+  val def = def |> RW (!extra_preprocessing)
+                |> CONV_RULE (DEPTH_CONV BETA_CONV)
+                (* TODO: This ss messes up defs containing if-then-else
+                with constant branches
+                |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]*)
+                |> REWRITE_RULE [NOT_NIL_AND_LEMMA]
+  in def end
+
+val _ = (find_def_for_const := def_of_const);
+
+val _ = use_long_names:=true;
+
+(* ------------------------------------------------------------------------- *)
+(* bvi_to_data                                                               *)
+(* ------------------------------------------------------------------------- *)
+
+val r = translate bvi_to_dataTheory.op_requires_names_pmatch;
+
+val res = translate bvi_to_dataTheory.compile_def;
+
+Theorem bvi_to_data_compile_ind[local]:
+  bvi_to_data_compile_ind
+Proof
+  once_rewrite_tac [fetch "-" "bvi_to_data_compile_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD, FALSE_def]
+  \\ rename1`_ ($+ xx) _`
+  \\ qsuff_tac`$+ xx = (\i. i + xx)` >> rw[]
+  \\ simp[FUN_EQ_THM]
+QED
+
+val _ = bvi_to_data_compile_ind |> update_precondition;
+
+Theorem bvi_to_data_compile_side[local]:
+  ∀a b c d e. bvi_to_data_compile_side a b c d e ⇔ T
+Proof
+  ho_match_mp_tac bvi_to_dataTheory.compile_ind>>
+  `∀a b c d e f g. bvi_to_data$compile a b c d [e] ≠ (f,[],g)` by
+    (CCONTR_TAC>>fs[]>>
+    imp_res_tac bvi_to_dataTheory.compile_SING_IMP>>
+    fs[])>>
+  rw[]>>
+  simp[Once (fetch "-" "bvi_to_data_compile_side_def")]>>
+  fs[FALSE_def]
+  >~[`Return _`]
+  >- (
+    rw[]>>first_x_assum (fn th => drule (GSYM th))>>
+    rw[]>>
+    rename1`_ ($+ xx) _`>>
+    qsuff_tac`$+ xx = (\i. i + xx)` >> rw[]>>
+    simp[FUN_EQ_THM]) >>
+  metis_tac[]
+QED
+
+val _ = bvi_to_data_compile_side |> update_precondition;
+
+(* TODO:
+ *   - pmatch for bvl_space is broken
+ *)
+val r = translate data_spaceTheory.space_def;
+
+val r = translate bvi_to_dataTheory.compile_exp_def;
+print_find"bvi_to_data_compile_exp_side"
+
+val r = translate bvi_to_dataTheory.compile_prog_def;
+
+(* ------------------------------------------------------------------------- *)
+(* backend                                                                   *)
+(* ------------------------------------------------------------------------- *)
+
+val _ = translate backendTheory.from_bvi_def;
+
+(* ------------------------------------------------------------------------- *)
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
+val _ = ml_translatorLib.clean_on_exit := true;

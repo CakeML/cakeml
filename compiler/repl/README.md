@@ -6,7 +6,7 @@ Canonical forms for the actual registered AST family. Metadata, root
 proofs, recursive families and encoder correspondence share this owner.
 Identities remain parameters; signatures come from the registered module.
 
-[compiler64ReplProofScript.sml](compiler64ReplProofScript.sml):
+[compiler_replProofScript.sml](compiler_replProofScript.sml):
 Verification of the function (called repl) that implements the REPL
 
 [evaluate_initScript.sml](evaluate_initScript.sml):

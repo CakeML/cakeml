@@ -3,13 +3,13 @@
 *)
 Theory x64Prog[no_sig_docs]
 Ancestors
-  evaluate ml_translator from_pancakeProg x64_target x64
+  evaluate ml_translator mipsProg x64_target x64
 Libs
   preamble ml_translatorLib inliningLib
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = translation_extends "from_pancakeProg";
+val _ = translation_extends "mipsProg";
 val _ = ml_translatorLib.use_sub_check true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "x64Prog");
@@ -50,8 +50,6 @@ Theorem v2w_rw[local]:
 Proof
   rw[]>>EVAL_TAC
 QED
-
-val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
 
 Theorem zreg2num_totalnum2zerg[local]:
   Zreg2num (total_num2Zreg n) = if n < 16 then n else 0
@@ -192,11 +190,11 @@ Proof
 QED
 
 Theorem LIST_BIND_rw[local]:
-  list_CASE (LIST_BIND (if P then A else B) f) C D =
+  list_CASE (LIST_BIND (if P then A else B) f) nil_case cons_case =
   if P then
-    list_CASE (LIST_BIND A f) C D
+    list_CASE (LIST_BIND A f) nil_case cons_case
   else
-    list_CASE (LIST_BIND B f) C D
+    list_CASE (LIST_BIND B f) nil_case cons_case
 Proof
   rw[]
 QED

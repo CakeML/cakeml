@@ -79,15 +79,13 @@ Theorem application_rel:
 Proof
   rw[] >>
   drule do_app_rel >> disch_then $ qspecl_then [`vs`,`st`,`ffi`] assume_tac >>
-  Cases_on ‘getOpClass op’
-  >~ [‘getOpClass op = PtrEqOp’] >- (
+  Cases_on ‘op = PtrEq’ >- (
     rw[application_def, cml_application_thm] >>
     every_case_tac >>
     gvs[return_def, smallStepTheory.return_def, step_result_rel_cases]
-    )
-  >- (
-    Cases_on ‘op’ >> gs[getOpClass_def, application_def, cml_application_thm]
-    >- gvs[AllCaseEqs()] >>
+    ) >>
+  Cases_on ‘op = Eval’ >- (
+    gvs[application_def, cml_application_thm] >>
     simp[step_result_rel_cases, AllCaseEqs(), PULL_EXISTS] >>
     Cases_on ‘do_app (st,ffi) Eval vs’ >> gvs[] >>
     Cases_on ‘do_app st Eval vs’ >> gvs[] >>
@@ -95,22 +93,22 @@ Proof
     gvs[result_rel_cases, SF smallstep_ss, SF itree_ss] >>
     gs[do_app_def, semanticPrimitivesTheory.do_app_def] >> every_case_tac >>
     gs[]
-    )
-  >- (
+    ) >>
+  Cases_on ‘op = Opapp’ >- (
     rw[application_def, cml_application_thm] >>
     simp[step_result_rel_cases, AllCaseEqs(), PULL_EXISTS] >>
     Cases_on `do_opapp vs` >> simp[] >>
     PairCases_on `x` >> simp[]
-    )
-  >- (
-    gvs[oneline getOpClass_def, AllCaseEqs()] >>
+    ) >>
+  Cases_on ‘op = ThunkOp ForceThunk’ >- (
+    gvs[] >>
     simp[application_thm, cml_application_thm] >>
     rpt (TOP_CASE_TAC >> gvs[step_result_rel_cases]) >>
     simp[return_def] >> gvs[ctxt_rel_def] >>
     simp[ctxt_frame_rel_cases]
     ) >>
   (
-    rw[application_def, cml_application_thm] >>
+    simp[application_thm, cml_application_thm] >>
     Cases_on `do_app (st,ffi) op vs` >> gvs[] >>
     Cases_on `do_app st op vs` >> gvs[]
     >- gvs[step_result_rel_cases, AllCaseEqs()] >>

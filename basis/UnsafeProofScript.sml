@@ -183,7 +183,7 @@ Proof
 QED
 
 Theorem unsafe_arith_app2[local]:
-  getOpClass oper = Simple /\
+  oper ≠ Opapp /\ oper ≠ ThunkOp ForceThunk /\ oper ≠ Eval /\ oper ≠ PtrEq /\
   (!st h_i h_k.
     SPLIT (st2heap p st) (h_i,h_k) ==> H h_i ==>
     do_app (st.refs,st.ffi) oper [x;y] =
@@ -203,7 +203,7 @@ Proof
 QED
 
 Theorem unsafe_arith_app3[local]:
-  getOpClass oper = Simple /\
+  oper ≠ Opapp /\ oper ≠ ThunkOp ForceThunk /\ oper ≠ Eval /\ oper ≠ PtrEq /\
   (!st h_i h_k.
     SPLIT (st2heap p st) (h_i,h_k) ==> H h_i ==>
     do_app (st.refs,st.ffi) oper [x;y;witness] =
@@ -361,8 +361,8 @@ local
     [("add", "+", ``ast$Add``, ``x + y:int``, false),
      ("sub", "-", ``ast$Sub``, ``x - y:int``, false),
      ("mul", "*", ``ast$Mul``, ``x * y:int``, false),
-     ("div", "div", ``ast$Div``, ``x / y:int``, false),
-     ("mod", "mod", ``ast$Mod``, ``x % y:int``, false),
+     ("div", "div", ``ast$Div RoundDown``, ``x / y:int``, false),
+     ("mod", "mod", ``ast$Mod RoundDown``, ``x % y:int``, false),
      ("lt", "<", ``ast$Compare ast$Lt``, ``x < y:int``, true),
      ("le", "<=", ``ast$Compare ast$Leq``, ``x <= y:int``, true),
      ("gt", ">", ``ast$Compare ast$Gt``, ``x > y:int``, true),

@@ -26,7 +26,6 @@ CFLAGS+=-O2
 LDLIBS+=-lm
 
 ARCH=x64
-WORD_SIZE=64
 
 all: $(ALL)
 
@@ -43,13 +42,13 @@ scheme_compiler$(SUFF): scheme_compiler.S ../../../basis/basis_ffi.c
 	$(CC) -o $@ scheme_compiler.S ../../../basis/basis_ffi.c $(LDLIBS)
 
 cake.S:
-	@if [ ! -f "../../bootstrap/compilation/x64/64/$(@F)" ] ; then $(MAKE) download ; else cp ../../bootstrap/compilation/x64/64/$(@F) $@ ; fi
+	@if [ ! -f "../../bootstrap/compilation/x64/$(@F)" ] ; then $(MAKE) download ; else cp ../../bootstrap/compilation/x64/$(@F) $@ ; fi
 
 download:
 	@echo "$(red)Could not find \`cake.S\`. Downloading the latest version from CakeML's GitHub releases.$(reset)"
-	curl -LO https://github.com/CakeML/cakeml/releases/latest/download/cake-$(ARCH)-$(WORD_SIZE).tar.gz
-	@tar -zxf cake-$(ARCH)-$(WORD_SIZE).tar.gz --strip-components 1 cake-$(ARCH)-$(WORD_SIZE)/cake.S
-	@rm cake-$(ARCH)-$(WORD_SIZE).tar.gz
+	curl -LO https://github.com/CakeML/cakeml/releases/latest/download/cake-$(ARCH).tar.gz
+	@tar -zxf cake-$(ARCH).tar.gz --strip-components 1 cake-$(ARCH)/cake.S
+	@rm cake-$(ARCH).tar.gz
 
 cake$(SUFF): cake.S ../../../basis/basis_ffi.c
 	$(CC) $(CFLAGS) $< ../../../basis/basis_ffi.c $(LOADLIBES) $(EVALFLAG) -o $@ $(LDFLAGS) $(LDLIBS)

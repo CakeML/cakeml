@@ -3,7 +3,8 @@
 *)
 Theory xlrup_arrayFullProg
 Ancestors
-  misc UnsafeProof cnf ccnf ccnf_list ccnf_arrayProg ccnf_parseProg
+  misc UnsafeProof array_ofProof cnf ccnf ccnf_list ccnf_arrayProg
+  ccnf_parseProg
   syntax_helper dimacs xor xlrup xlrup_cnf xlrup_list xlrup_parsing
   xlrup_arrayProg
   basis_ffi
@@ -721,6 +722,16 @@ Proof
   gvs[SUM_TYPE_def,PAIR_TYPE_def]>>
   rename1`parse_cnf_ext_toks _ = SOME (mv,ncl,cfml,xfml)`>>
   xmatch>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet_auto_spec
+    (SOME (Q.ISPEC`OPTION_TYPE strxor_TYPE` ARRAY_OF_alloc_spec |>
+      Q.SPECL [`n`,`nv`,`NONE`]))
+  >- (xsimpl>>simp[OPTION_TYPE_def])>>
+  xlet_auto_spec (SOME (Q.ISPEC`NUM` ARRAY_OF_alloc_spec))
+  >- xsimpl>>
   rpt xlet_autop>>
   xlet`POSTv v.
     STDIO fs *
@@ -732,7 +743,7 @@ Proof
     xsimpl>>
     qmatch_asmsub_rename_tac`_ = Conv NONE [tna; _]`>>
     qexistsl_tac
-      [`emp`,`xfml`,`REPLICATE ncl NONE`,`1`,`[]`,`[]`,`tna`,`mv+1`,`fs`,`f2`,
+      [`emp`,`xfml`,`REPLICATE ncl NONE`,`1`,`[]`,`tna`,`mv+1`,`fs`,`f2`,
        `build_cfml_list 1 (conv_cfml cfml) (2*ncl)`,`b`]>>
     xsimpl>>
     fs[FILENAME_def,validArg_def]>>
@@ -742,7 +753,6 @@ Proof
       irule bnd_clause_conv_cfml>>
       drule parse_cnf_ext_toks_bound>>
       rw[EVERY_MEM]>>res_tac>>simp[])
-    >- metis_tac[LIST_REL_REPLICATE_same,OPTION_TYPE_def]
     >- (simp[PAIR_TYPE_def]>>EVAL_TAC)>>
     rw[]>>
     first_x_assum (irule_at Any)>>
@@ -804,6 +814,16 @@ Proof
   gvs[SUM_TYPE_def,PAIR_TYPE_def]>>
   rename1`parse_cnf_ext_toks _ = SOME (mv,ncl,cfml,xfml)`>>
   xmatch>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet_auto_spec
+    (SOME (Q.ISPEC`OPTION_TYPE strxor_TYPE` ARRAY_OF_alloc_spec |>
+      Q.SPECL [`n`,`nv`,`NONE`]))
+  >- (xsimpl>>simp[OPTION_TYPE_def])>>
+  xlet_auto_spec (SOME (Q.ISPEC`NUM` ARRAY_OF_alloc_spec))
+  >- xsimpl>>
   rpt xlet_autop>>
   xlet`POSTv v.
     SEP_EXISTS k res.
@@ -815,7 +835,7 @@ Proof
     xsimpl>>
     qmatch_asmsub_rename_tac`_ = Conv NONE [tna; _]`>>
     qexistsl_tac
-      [`emp`,`xfml`,`REPLICATE ncl NONE`,`1`,`[]`,`[]`,`tna`,`text`,`mv+1`,
+      [`emp`,`xfml`,`REPLICATE ncl NONE`,`1`,`[]`,`tna`,`text`,`mv+1`,
        `fs`,`build_cfml_list 1 (conv_cfml cfml) (2*ncl)`,`b`]>>
     xsimpl>>
     rpt CONJ_TAC
@@ -824,7 +844,6 @@ Proof
       irule bnd_clause_conv_cfml>>
       drule parse_cnf_ext_toks_bound>>
       rw[EVERY_MEM]>>res_tac>>simp[])
-    >- metis_tac[LIST_REL_REPLICATE_same,OPTION_TYPE_def]
     >- (simp[PAIR_TYPE_def]>>EVAL_TAC)>>
     rpt strip_tac>>
     qmatch_goalsub_rename_tac`STDIO (forwardFD fs 0 kk) ==>> _`>>
