@@ -484,8 +484,7 @@ Proof
   >-
    (fs [CaseEq "option"] >>
     qsuff_tac
-    ‘the_words (MAP (λa. word_exp t a)
-                    (MAP (λa. comp_exp ctxt a) wexps)) = SOME ws’
+    ‘the_words (MAP (word_exp t) (MAP (comp_exp ctxt) wexps)) = SOME ws’
     >- fs [] >>
     ntac 2 (pop_assum mp_tac) >>
     ntac 3 (pop_assum kall_tac) >>
