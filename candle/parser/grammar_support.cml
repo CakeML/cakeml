@@ -15,11 +15,13 @@ structure CandleGrammarSupport = struct
       opt::t::tl => mk_linfix tgt (mkNd tgt [acc,opt,t]) tl
     | _ => acc;
   fun empty v = CandlePeg.Empty v;
-  fun tok p f = CandlePeg.Tok p f;
+  (* A token satisfying p; expected lists what p accepts, for error messages. *)
+  fun tok expected p f = CandlePeg.Tok p f expected;
   fun seq a b f = CandlePeg.Seq a b f;
   fun rpt e f = CandlePeg.Rpt e f;
   fun choicel xs = case xs of
       [] => CandlePeg.Not (empty []) []
+    | [x] => x
     | h::t => CandlePeg.Choice h (choicel t) sumID;
   fun pegf sym f = seq sym (empty []) (fn a => fn b => f a);
   fun seql xs f = pegf
@@ -29,10 +31,13 @@ structure CandleGrammarSupport = struct
     seq rptsym (rpt (seq opsym rptsym append) List.concat)
       (fn a => fn b => case a of
          [] => [] | h::_ => [mk_linfix tgt (mkNd tgt [h]) b]);
-  fun tokeq t = tok (fn x => x = t) mktokLf;
-  fun tokSymP p = tok (fn t => case t of SymbolT s => p s | _ => False) mktokLf;
-  fun tokIdP p = tok (fn t => case t of IdentT s => p s | _ => False) mktokLf;
-  fun tokPragma u = tok (fn t => case t of PragmaT s => True | _ => False) mktokLf;
+  fun tokeq t = tok [describe_token t] (fn x => x = t) mktokLf;
+  fun tokSymP expected p =
+    tok [expected] (fn t => case t of SymbolT s => p s | _ => False) mktokLf;
+  fun tokIdP expected p =
+    tok [expected] (fn t => case t of IdentT s => p s | _ => False) mktokLf;
+  fun tokPragma u =
+    tok ["a CakeML pragma"] (fn t => case t of PragmaT s => True | _ => False) mktokLf;
   fun isInt t = case t of IntT _ => True | _ => False;
   fun isString t = case t of StringT _ => True | _ => False;
   fun isChar t = case t of CharT _ => True | _ => False;

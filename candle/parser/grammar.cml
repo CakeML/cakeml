@@ -70,7 +70,7 @@ structure CandleGrammar = struct
                       tokeq ORELSEC_T, tokeq ORELSE_TCL_T])
             (bindNT NHolInfixOp);
   fun rule_NValueName u : rule =
-       choicel [pegf (tokIdP (identMixed)) (bindNT NValueName),
+       choicel [pegf (tokIdP "an identifier" identMixed) (bindNT NValueName),
                 seql [tokeq LparT, pnt NOperatorName, tokeq RparT]
                      (bindNT NValueName)];
   fun rule_NOperatorName u : rule =
@@ -86,13 +86,13 @@ structure CandleGrammar = struct
                       pnt NAssignOp ])
             (bindNT NOperatorName);
   fun rule_NConstrName u : rule =
-       pegf (tokIdP (identUpperLower)) (bindNT NConstrName);
+       pegf (tokIdP "a constructor name" identUpperLower) (bindNT NConstrName);
   fun rule_NTypeConstrName u : rule =
-       pegf (tokIdP (identLower)) (bindNT NTypeConstrName);
+       pegf (tokIdP "a type name" identLower) (bindNT NTypeConstrName);
   fun rule_NModuleName u : rule =
-       pegf (tokIdP (identUpperLower)) (bindNT NModuleName);
+       pegf (tokIdP "a module name" identUpperLower) (bindNT NModuleName);
   fun rule_NFieldName u : rule =
-       pegf (tokIdP (identLower)) (bindNT NFieldName);
+       pegf (tokIdP "a field name" identLower) (bindNT NFieldName);
   fun rule_NValuePath u : rule =
        seql [try (seql [pnt NModulePath, tokeq DotT] identity), pnt NValueName]
             (bindNT NValuePath);
@@ -128,7 +128,7 @@ structure CandleGrammar = struct
   open CandleGrammar;
   local
   fun rule_NModTypeName u : rule =
-       pegf (tokIdP (fn x => True)) (bindNT NModTypeName);
+       pegf (tokIdP "a module type name" (fn x => True)) (bindNT NModTypeName);
   fun rule_NModTypePath u : rule =
        pegf (choicel [seql [pnt NModuleName, tokeq DotT, pnt NModTypePath] identity,
                       pnt NModTypeName])
@@ -401,12 +401,13 @@ structure CandleGrammar = struct
             (bindNT NEList);
   fun rule_NLiteral u : rule =
        choicel [
-         tok isInt    (fn t => bindNT NLiteral (mktokLf t)),
-         tok isString (fn t => bindNT NLiteral (mktokLf t)),
-         tok isChar   (fn t => bindNT NLiteral (mktokLf t)),
-         tok (fn x => x = TrueT orelse x = FalseT) (fn t => bindNT NLiteral (mktokLf t))];
+         tok ["an integer"] isInt (fn t => bindNT NLiteral (mktokLf t)),
+         tok ["a string"] isString (fn t => bindNT NLiteral (mktokLf t)),
+         tok ["a character"] isChar (fn t => bindNT NLiteral (mktokLf t)),
+         tok [describe_token TrueT, describe_token FalseT]
+             (fn x => x = TrueT orelse x = FalseT) (fn t => bindNT NLiteral (mktokLf t))];
   fun rule_NIdent u : rule =
-       tok isIdent (fn t => bindNT NIdent (mktokLf t));
+       tok ["an identifier"] isIdent (fn t => bindNT NIdent (mktokLf t));
   fun rule_NUpdate u : rule =
        seql [pnt NFieldName, tokeq EqualT, pnt NEIf]
             (bindNT NUpdate);
@@ -433,7 +434,7 @@ structure CandleGrammar = struct
          seql [tokeq BeginT, pnt NExpr, tokeq EndT] (bindNT NEBase)
        ];
   fun rule_NPrefixOp u : rule =
-       pegf (tokSymP (validPrefixSym))
+       pegf (tokSymP "a prefix operator" validPrefixSym)
             (bindNT NPrefixOp);
   fun rule_NEPrefix u : rule =
        seql [try (pnt NPrefixOp), pnt NEBase] (bindNT NEPrefix);
@@ -552,20 +553,20 @@ structure CandleGrammar = struct
              pnt NEUnclosed]
             (bindNT NENeg);
   fun rule_NShiftOp u : rule =
-       pegf (choicel [tokSymP (validShiftOp), tokeq LslT, tokeq LsrT, tokeq AsrT])
+       pegf (choicel [tokSymP "an operator" validShiftOp, tokeq LslT, tokeq LsrT, tokeq AsrT])
             (bindNT NShiftOp);
   fun rule_NEShift u : rule =
        seql [pnt NENeg, try (seql [pnt NShiftOp, pnt NEShift] identity)]
             (bindNT NEShift);
   fun rule_NMultOp u : rule =
        pegf (choicel [tokeq StarT, tokeq ModT, tokeq LandT, tokeq LorT,
-                      tokeq LxorT, tokSymP (validMultOp)])
+                      tokeq LxorT, tokSymP "an operator" validMultOp])
             (bindNT NMultOp);
   fun rule_NEMult u : rule =
        peg_linfix (Inl NEMult) (pnt NEShift) (pnt NMultOp);
   fun rule_NAddOp u : rule =
        pegf (choicel [tokeq PlusT, tokeq MinusT, tokeq MinusFT,
-                      tokSymP (validAddOp)])
+                      tokSymP "an operator" validAddOp])
             (bindNT NAddOp);
   fun rule_NEAdd u : rule =
        peg_linfix (Inl NEAdd) (pnt NEMult) (pnt NAddOp);
@@ -594,14 +595,14 @@ structure CandleGrammar = struct
   open CandleGrammar;
   local
   fun rule_NCatOp u : rule =
-       pegf (tokSymP (validCatOp))
+       pegf (tokSymP "an operator" validCatOp)
             (bindNT NCatOp);
   fun rule_NECat u : rule =
        seql [pnt NECons, try (seql [pnt NCatOp, pnt NECat] identity)]
             (bindNT NECat);
   fun rule_NRelOp u : rule =
        pegf (choicel [tokeq EqualT, tokeq LessT, tokeq GreaterT, tokeq NeqT,
-                      tokSymP (validRelOp)])
+                      tokSymP "an operator" validRelOp])
             (bindNT NRelOp);
   fun rule_NERel u : rule =
        peg_linfix (Inl NERel) (pnt NECat) (pnt NRelOp);
@@ -724,7 +725,7 @@ structure CandleGrammar = struct
   local
   fun rule_NPatLiteral u : rule =
        choicel [pegf (pnt NLiteral) (bindNT NPatLiteral),
-                seql [tokeq MinusT, tok isInt mktokLf]
+                seql [tokeq MinusT, tok ["an integer"] isInt mktokLf]
                      (bindNT NPatLiteral)];
   fun rule_NPBase u : rule =
        pegf (choicel [pnt NPatLiteral, pnt NValueName, pnt NPAny, pnt NPList,
@@ -746,7 +747,8 @@ structure CandleGrammar = struct
        seql [pnt NPCons, rpt (seql [tokeq AsT, pnt NIdent] identity) List.concat]
             (bindNT NPAs);
   fun rule_NPOps u : rule =
-       seql [pnt NPAs, rpt (seql [tok (fn t => t = ColonsT orelse t = CommaT orelse t = BarT)
+       seql [pnt NPAs, rpt (seql [tok (List.map describe_token [ColonsT, CommaT, BarT])
+                                      (fn t => t = ColonsT orelse t = CommaT orelse t = BarT)
                                       mktokLf, pnt NPAs] identity) List.concat]
             (bindNT NPOps);
   fun rule_NPattern u : rule =
@@ -778,8 +780,30 @@ structure CandleGrammar = struct
   val rule_vector =
     Vector.fromList (List.map (fn n => Alist.lookup rule_list (Inl n)) nonterms);
   fun lookup i = Vector.sub rule_vector i;
-  val grammar = (lookup,"Unexpected end-of-file","Unexpected token",
-                 "Expected token, found end-of-file","Not combinator failed");
+  (* What error messages call these nonterminals: what was expected where one
+     of them started is reported as its label. *)
+  val label_list =
+    List.map (fn n => (n,"an expression"))
+      [NExpr, NESeq, NEIf, NEAssign, NEProd, NEHolInfix, NEOr, NEAnd, NERel,
+       NECat, NECons, NEAdd, NEMult, NEShift, NENeg, NEUnclosed, NEApp,
+       NEFunapp, NEConstr, NEAssert, NELazy, NERecProj, NEIndex, NEPrefix,
+       NEBase, NELet, NELetRec, NEMatch, NEFun, NEFunction, NETry, NEWhile,
+       NEFor, NEList, NERecUpdate, NERecCons, NLiteral] @
+    List.map (fn n => (n,"an infix operator"))
+      [NShiftOp, NMultOp, NAddOp, NRelOp, NAndOp, NOrOp, NHolInfixOp, NCatOp,
+       NAssignOp] @
+    List.map (fn n => (n,"a pattern"))
+      [NPatterns, NPattern, NPOps, NPAs, NPCons, NPBase, NPatLiteral, NPAny,
+       NPList, NPPar] @
+    List.map (fn n => (n,"a type"))
+      [NType, NTFun, NTProd, NTConstr, NTBase] @
+    List.map (fn n => (n,"a definition"))
+      [NDefinition, NTopLet, NTopLetRec, NTypeDefinition, NExcDefinition,
+       NModuleDef, NModuleTypeDef, NOpen];
+  val label_vector =
+    Vector.fromList (List.map (fn n => Alist.lookup label_list n) nonterms);
+  fun label i = Vector.sub label_vector i;
+  val grammar = (lookup,label,"any token","Not combinator failed");
   in
   fun parse_nt n tokens = CandlePeg.execute grammar (pnt n) tokens;
   fun parse_tokens tokens = parse_nt NStart tokens;

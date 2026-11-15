@@ -8,17 +8,62 @@ structure CandleFrontEnd = struct
         val errors = List.map (fn (_,l) => l)
           (List.filter (fn (t,_) => t = CandleTokens.LexErrorT) tokens);
     in case errors of [] => Inr tokens | _ => Inl errors end;
-  fun destResult result = case result of
-      CandlePeg.Result (CandlePeg.Success [] x eo) => CandlePeg.Success [] x eo
-    | CandlePeg.Result (CandlePeg.Success ((_,l)::_) _ _) =>
-        CandlePeg.Failure l "Expected to be at EOF"
-    | CandlePeg.Result (CandlePeg.Failure l e) => CandlePeg.Failure l e
-    | _ => CandlePeg.Failure CandleSupport.unknown_loc "Something catastrophic happened";
+  (* Input left over at l: the parse stopped at l, so the furthest failure
+     explains it when it lies at or past l. *)
+  fun leftover l eo = case eo of
+      Some err => if CandleSupport.locsle l (fst err) then err else (l,[])
+    | None => (l,[]);
+  (* ds without repeats, in its order. *)
+  fun distinct_in_order ds =
+    List.foldl (fn d => fn acc => if List.member d acc then acc else acc @ [d]) [] ds;
+  fun alternatives ds = case ds of
+      [] => ""
+    | [d] => d
+    | [d1,d2] => d1 ^ " or " ^ d2
+    | d::rest => d ^ ", " ^ alternatives rest;
+  (* Just past the last token, where an error at the end of the input is
+     reported. *)
+  fun end_loc tokens = case tokens of
+      [] => CandlePeg.eof
+    | _ =>
+        let val p = CandleSupport.next_loc 1 (CandleSupport.locs_end (snd (List.last tokens)))
+        in CandleLocation.Locs p p end;
+  (* The naming rule, when a capitalised identifier breaking it is found where
+     a constructor or module name was expected. *)
+  fun naming_note token expected = case token of
+      Some (CandleTokens.IdentT s) =>
+        if Char.isUpper (String.sub s 0) andalso
+           not (CandleGrammarSupport.identUpperLower s) andalso
+           (List.member "a constructor name" expected orelse
+            List.member "a module name" expected)
+        then " (a constructor or module name is a capital letter followed by" ^
+             " lower-case letters, digits, _ or ', at least one of them a" ^
+             " lower-case letter)"
+        else ""
+    | _ => "";
+  (* The reported error for a failure at l: what was found there and what was
+     expected. *)
+  fun report tokens l expected =
+    let
+      val at_end = l = CandlePeg.eof
+      val token =
+        if at_end then None else Option.map fst (List.find (fn tl => snd tl = l) tokens)
+      val found = case token of
+          Some t => CandleTokens.describe_token t
+        | None => if at_end then "end of input" else "input"
+      val message = "Unexpected " ^ found ^
+        (case expected of [] => "" | _ => "; expected " ^ alternatives expected) ^
+        naming_note token expected
+    in (if at_end then end_loc tokens else l,message) end;
+  fun destResult tokens result = case result of
+      CandlePeg.Result (CandlePeg.Success [] x eo) => Inr x
+    | CandlePeg.Result (CandlePeg.Success ((_,l)::_) _ eo) =>
+        let val err = leftover l eo
+        in Inl (report tokens (fst err) (distinct_in_order (List.rev (snd err)))) end
+    | CandlePeg.Result (CandlePeg.Failure l es) => Inl (report tokens l (distinct_in_order es))
+    | _ => Inl (CandleSupport.unknown_loc,"Something catastrophic happened");
   fun parse_tree input = case run_lexer input of
       Inl (l::_) => Inl (l,"LEXER ERROR")
     | Inl [] => raise Fail "unreachable: empty lexer error list"
-    | Inr tokens =>
-        (case destResult (CandleGrammar.parse_tokens tokens) of
-          CandlePeg.Failure l e => Inl (l,e)
-        | CandlePeg.Success _ x _ => Inr x);
+    | Inr tokens => destResult tokens (CandleGrammar.parse_tokens tokens);
 end;

@@ -144,6 +144,22 @@ structure CandleTokens = struct
     ("ORELSE_TCL", ORELSE_TCL_T)
   ];
   val keyword_map = Map.fromList String.compare keywords;
+  (* How an error message names a token. *)
+  fun describe_token t =
+    let fun quote s = "'" ^ s ^ "'" in
+      case t of
+        IntT i => quote (Int.toString i)
+      | FloatT s => quote s
+      | CharT _ => "a character literal"
+      | StringT _ => "a string literal"
+      | IdentT s => quote s
+      | SymbolT s => quote s
+      | PragmaT _ => "a pragma"
+      | _ =>
+          (case List.find (fn kv => snd kv = t) keywords of
+            Some kv => quote (fst kv)
+          | None => "an unknown token")
+    end;
   fun get_token s =
     if s = "" then LexErrorT else
     case Map.lookup keyword_map s of
