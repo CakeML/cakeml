@@ -3,7 +3,8 @@
 *)
 Theory npbc_parseProg
 Ancestors
-  npbc_check pb_parse name_table npbc_arrayProg pbc_normalise mlint
+  npbc_check pb_parse name_table array_ofProof npbc_arrayProg pbc_normalise
+  mlint
 Libs
   preamble basis
 
@@ -463,24 +464,6 @@ Proof
   metis_tac[]
 QED
 
-Theorem STDIO_INSTREAM_LINES_refl:
-  STDIO A *
-  INSTREAM_LINES c B C D E ==>>
-  STDIO A *
-  INSTREAM_LINES c B C D E
-Proof
-  xsimpl
-QED
-
-Theorem STDIO_INSTREAM_LINES_refl_gc:
-  STDIO A *
-  INSTREAM_LINES c B C D E ==>>
-  STDIO A *
-  INSTREAM_LINES c B C D E * GC
-Proof
-  xsimpl
-QED
-
 val r = translate (parse_hash_num_def |> REWRITE_RULE [strlen_small]
   |> ONCE_REWRITE_RULE [GSYM sub_check_def]);
 
@@ -660,6 +643,14 @@ val _ = x_initial_side |> update_precondition;
 
 val NAME_TABLE_BUCKET_TYPE_def = fetch "-" "NAME_TABLE_BUCKET_TYPE_def";
 
+Theorem ARRAY_OF_NAME_TABLE_BUCKET_HPROP_INJ[hprop_inj]:
+  HPROP_INJ (ARRAY_OF NAME_TABLE_BUCKET_TYPE av xs)
+    (ARRAY_OF NAME_TABLE_BUCKET_TYPE av xs') (xs' = xs)
+Proof
+  irule ARRAY_OF_EqualityType_HPROP_INJ>>
+  simp (eq_lemmas())
+QED
+
 (*
   The table is a reference to its bucket array, a reference to the next
   number, the first number and the limit (res_var). nt_var numbers a name
@@ -668,20 +659,12 @@ val NAME_TABLE_BUCKET_TYPE_def = fetch "-" "NAME_TABLE_BUCKET_TYPE_def";
 *)
 Definition NT_TABLE_def:
   NT_TABLE lim (s:mlstring name_to_num_state) tv =
-    SEP_EXISTS tabr nxtr basev limv av bvs nv bs base.
+    SEP_EXISTS tabr nxtr basev limv av nv bs base.
       &(tv = Conv NONE [tabr; nxtr; basev; limv] ∧
         NUM base basev ∧ OPTION_TYPE NUM lim limv ∧ NUM s.next_num nv ∧
-        LIST_REL NAME_TABLE_BUCKET_TYPE bs bvs ∧ tb_rel bs s ∧
-        base ≤ s.next_num) *
-      REF tabr av * ARRAY av bvs * REF nxtr nv
+        tb_rel bs s ∧ base ≤ s.next_num) *
+      REF tabr av * ARRAY_OF NAME_TABLE_BUCKET_TYPE av bs * REF nxtr nv
 End
-
-Theorem STDIO_INSTREAM_LINES_NT_TABLE_refl_gc:
-  STDIO A * INSTREAM_LINES c B C D E * NT_TABLE lim s tv ==>>
-  STDIO A * INSTREAM_LINES c B C D E * NT_TABLE lim s tv * GC
-Proof
-  xsimpl
-QED
 
 Quote add_cakeml:
   fun nt_new lim n0 = (Ref (Array.array 1021 Bnil), Ref n0, n0, lim)
@@ -701,15 +684,21 @@ Proof
   >- (xref>>xsimpl)>>
   xlet`POSTv bv. &NAME_TABLE_BUCKET_TYPE Bnil bv * REF nxtr nv`
   >- (xcon>>xsimpl>>simp[NAME_TABLE_BUCKET_TYPE_def])>>
-  xlet`POSTv av. ARRAY av (REPLICATE 1021 bv) * REF nxtr nv`
-  >- (xapp>>simp[NUM_def,INT_def]>>xsimpl)>>
-  xlet`POSTv tabr. REF tabr av * ARRAY av (REPLICATE 1021 bv) * REF nxtr nv`
+  xlet`POSTv av.
+    ARRAY_OF NAME_TABLE_BUCKET_TYPE av (REPLICATE 1021 Bnil) * REF nxtr nv`
+  >- (
+    xapp_spec (Q.ISPEC`NAME_TABLE_BUCKET_TYPE` ARRAY_OF_alloc_spec)>>
+    xsimpl>>
+    qexists_tac`Bnil`>>xsimpl)>>
+  xlet`POSTv tabr. REF tabr av *
+    ARRAY_OF NAME_TABLE_BUCKET_TYPE av (REPLICATE 1021 Bnil) * REF nxtr nv`
   >- (xref>>xsimpl)>>
   xcon>>
   simp[NT_TABLE_def]>>
   xsimpl>>
   qexistsl_tac[`REPLICATE 1021 Bnil`,`n`]>>
-  simp[nt_init_def,LIST_REL_REPLICATE_same,tb_rel_init]
+  simp[nt_init_def,tb_rel_init]>>
+  xsimpl
 QED
 
 Quote add_cakeml:
@@ -724,17 +713,17 @@ Quote add_cakeml:
 End
 
 Theorem nt_move_spec:
-  ∀b bv bs2 bvs2 arr2 m2v.
-  NAME_TABLE_BUCKET_TYPE b bv ∧ LIST_REL NAME_TABLE_BUCKET_TYPE bs2 bvs2 ∧
+  ∀b bv bs2 arr2 m2v.
+  NAME_TABLE_BUCKET_TYPE b bv ∧
   bucket_small b ∧ NUM (LENGTH bs2) m2v ∧ 0 < LENGTH bs2 ∧
   LENGTH bs2 < 2 ** 30 ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "nt_move" (get_ml_prog_state()))
     [arr2; m2v; bv]
-    (ARRAY arr2 bvs2)
-    (POSTv u. SEP_EXISTS bvs2'. ARRAY arr2 bvs2' *
-      &(UNIT_TYPE () u ∧
-        LIST_REL NAME_TABLE_BUCKET_TYPE (bucket_move bs2 b) bvs2'))
+    (ARRAY_OF NAME_TABLE_BUCKET_TYPE arr2 bs2)
+    (POSTv u.
+      ARRAY_OF NAME_TABLE_BUCKET_TYPE arr2 (bucket_move bs2 b) *
+      &UNIT_TYPE () u)
 Proof
   Induct>>
   rw[]>>
@@ -743,39 +732,38 @@ Proof
   >- (
     xmatch>>
     xcon>>
-    xsimpl>>
-    simp[bucket_move_def])>>
+    simp[bucket_move_def]>>
+    xsimpl)>>
   rename1`bucket_small (Bnode h w n rest)`>>
   gvs[bucket_small_def]>>
   xmatch>>
-  xlet`POSTv jv. ARRAY arr2 bvs2 * &NUM (h MOD LENGTH bs2) jv`
+  xlet`POSTv jv.
+    ARRAY_OF NAME_TABLE_BUCKET_TYPE arr2 bs2 * &NUM (h MOD LENGTH bs2) jv`
   >- (
     xapp>>
     xsimpl>>
     qexistsl_tac[`LENGTH bs2`,`h`]>>
     simp[bidx_side,bidx_def,smallnum_mod_def])>>
   `h MOD LENGTH bs2 < LENGTH bs2` by simp[]>>
-  imp_res_tac LIST_REL_LENGTH>>
-  xlet`POSTv bv0. ARRAY arr2 bvs2 * &(bv0 = EL (h MOD LENGTH bs2) bvs2)`
+  xlet_auto_spec
+    (SOME (Q.ISPEC`NAME_TABLE_BUCKET_TYPE` ARRAY_OF_unsafe_sub_spec))
+  >- xsimpl>>
+  xlet`POSTv nbv. ARRAY_OF NAME_TABLE_BUCKET_TYPE arr2 bs2 *
+    &NAME_TABLE_BUCKET_TYPE
+      (Bnode h w n (EL (h MOD LENGTH bs2) bs2)) nbv`
   >- (
-    xapp>>
+    xcon>>
     xsimpl>>
-    qexists_tac`h MOD LENGTH bs2`>>
-    gvs[])>>
-  xlet_autop>>
-  xlet`POSTv u. ARRAY arr2 (LUPDATE v (h MOD LENGTH bs2) bvs2)`
-  >- (
-    xapp>>
-    xsimpl>>
-    qexists_tac`h MOD LENGTH bs2`>>
-    gvs[])>>
+    simp[NAME_TABLE_BUCKET_TYPE_def])>>
+  xlet_auto_spec
+    (SOME (Q.ISPEC`NAME_TABLE_BUCKET_TYPE` ARRAY_OF_unsafe_update_spec))
+  >- xsimpl>>
   xapp>>
-  xsimpl>>
-  qexists_tac`LUPDATE (Bnode h w n (EL (h MOD LENGTH bs2) bs2)) (h MOD LENGTH bs2) bs2`>>
+  qexistsl_tac[`emp`,
+    `LUPDATE (Bnode h w n (EL (h MOD LENGTH bs2) bs2))
+       (h MOD LENGTH bs2) bs2`]>>
   simp[bucket_move_def]>>
-  gvs[]>>
-  irule EVERY2_LUPDATE_same>>
-  gvs[NAME_TABLE_BUCKET_TYPE_def,LIST_REL_EL_EQN]
+  xsimpl
 QED
 
 Quote add_cakeml:
@@ -787,60 +775,60 @@ Quote add_cakeml:
 End
 
 Theorem nt_relink_spec:
-  ∀k i iv bs bvs bs2 bvs2 arr arr2 mv m2v.
-  k = LENGTH bs - i ∧ i ≤ LENGTH bs ∧
-  LIST_REL NAME_TABLE_BUCKET_TYPE bs bvs ∧
-  LIST_REL NAME_TABLE_BUCKET_TYPE bs2 bvs2 ∧ EVERY bucket_small bs ∧
+  ∀k i iv bs bs2 arr arr2 mv m2v.
+  k = LENGTH bs - i ∧ i ≤ LENGTH bs ∧ EVERY bucket_small bs ∧
   NUM i iv ∧ NUM (LENGTH bs) mv ∧ NUM (LENGTH bs2) m2v ∧
   0 < LENGTH bs2 ∧ LENGTH bs2 < 2 ** 30 ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "nt_relink" (get_ml_prog_state()))
     [arr; arr2; m2v; iv; mv]
-    (ARRAY arr bvs * ARRAY arr2 bvs2)
-    (POSTv u. SEP_EXISTS bvs2'. ARRAY arr bvs * ARRAY arr2 bvs2' *
-      &(UNIT_TYPE () u ∧
-        LIST_REL NAME_TABLE_BUCKET_TYPE (FOLDL bucket_move bs2 (DROP i bs))
-          bvs2'))
+    (ARRAY_OF NAME_TABLE_BUCKET_TYPE arr bs *
+     ARRAY_OF NAME_TABLE_BUCKET_TYPE arr2 bs2)
+    (POSTv u.
+      ARRAY_OF NAME_TABLE_BUCKET_TYPE arr bs *
+      ARRAY_OF NAME_TABLE_BUCKET_TYPE arr2
+        (FOLDL bucket_move bs2 (DROP i bs)) *
+      &UNIT_TYPE () u)
 Proof
   Induct>>
   rw[]>>
   xcf "nt_relink" (get_ml_prog_state ())>>
-  imp_res_tac LIST_REL_LENGTH>>
-  (xlet_auto_spec (SOME ccnf_arithTheory.num_gt_arr_spec) >- xsimpl)>>
+  (xlet_auto_spec
+     (SOME (Q.ISPEC`NAME_TABLE_BUCKET_TYPE` ccnf_arithTheory.num_gt_arr_spec))
+   >- xsimpl)>>
   xif
   >- (
     qexists_tac`F`>>
     simp[]>>
     xcon>>
-    xsimpl>>
-    simp[DROP_LENGTH_TOO_LONG])>>
+    simp[DROP_LENGTH_TOO_LONG]>>
+    xsimpl)>>
   qexists_tac`T`>>
   simp[]>>
   `i < LENGTH bs` by decide_tac>>
-  xlet`POSTv bv0. ARRAY arr bvs * ARRAY arr2 bvs2 * &(bv0 = EL i bvs)`
+  xlet_auto_spec
+    (SOME (Q.ISPEC`NAME_TABLE_BUCKET_TYPE` ARRAY_OF_unsafe_sub_spec))
+  >- xsimpl>>
+  xlet`POSTv u. ARRAY_OF NAME_TABLE_BUCKET_TYPE arr bs *
+    ARRAY_OF NAME_TABLE_BUCKET_TYPE arr2 (bucket_move bs2 (EL i bs))`
   >- (
     xapp>>
+    qexistsl_tac[`ARRAY_OF NAME_TABLE_BUCKET_TYPE arr bs`,`bs2`,`EL i bs`]>>
     xsimpl>>
-    qexists_tac`i`>>
-    gvs[])>>
-  xlet`POSTv u. SEP_EXISTS bvs3. ARRAY arr bvs * ARRAY arr2 bvs3 *
-         &LIST_REL NAME_TABLE_BUCKET_TYPE (bucket_move bs2 (EL i bs)) bvs3`
-  >- (
-    xapp>>
-    xsimpl>>
-    qexistsl_tac[`bs2`,`EL i bs`]>>
-    gvs[LIST_REL_EL_EQN,EVERY_EL])>>
-  xlet_auto_spec (SOME ccnf_arithTheory.num_add_arr_spec)
+    gvs[EVERY_EL])>>
+  xlet_auto_spec
+    (SOME (Q.ISPEC`NAME_TABLE_BUCKET_TYPE` ccnf_arithTheory.num_add_arr_spec))
   >- (xsimpl>>gvs[])>>
   rename1`NUM (i + 1) iv1`>>
-  last_x_assum (qspecl_then [`i + 1`,`iv1`,`bs`,`bvs`,`bucket_move bs2 (EL i bs)`,
-                             `bvs3`,`arr`,`arr2`,`mv`,`m2v`] mp_tac)>>
+  last_x_assum (qspecl_then [`i + 1`,`iv1`,`bs`,`bucket_move bs2 (EL i bs)`,
+                             `arr`,`arr2`,`mv`,`m2v`] mp_tac)>>
   impl_tac
   >- gvs[LENGTH_bucket_move]>>
   strip_tac>>
   xapp>>
   xsimpl>>
-  simp[DROP_EL_CONS]
+  simp[DROP_EL_CONS]>>
+  xsimpl
 QED
 
 Quote add_cakeml:
@@ -871,17 +859,17 @@ Proof
 QED
 
 Theorem nt_grow_spec:
-  LIST_REL NAME_TABLE_BUCKET_TYPE bs bvs ∧ EVERY bucket_small bs ∧
+  EVERY bucket_small bs ∧
   NUM (LENGTH bs) mv ∧ 0 < LENGTH bs ∧ LENGTH bs < 2 ** 30 ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "nt_grow" (get_ml_prog_state()))
     [tabr; arr; mv]
-    (REF tabr arr * ARRAY arr bvs)
-    (POSTv u. SEP_EXISTS arr' bvs'. REF tabr arr' * ARRAY arr' bvs' *
-      &(UNIT_TYPE () u ∧
-        LIST_REL NAME_TABLE_BUCKET_TYPE
-          (if LENGTH bs < next_size (LENGTH bs)
-           then tb_grow bs (next_size (LENGTH bs)) else bs) bvs'))
+    (REF tabr arr * ARRAY_OF NAME_TABLE_BUCKET_TYPE arr bs)
+    (POSTv u. SEP_EXISTS arr'. REF tabr arr' *
+      ARRAY_OF NAME_TABLE_BUCKET_TYPE arr'
+        (if LENGTH bs < next_size (LENGTH bs)
+         then tb_grow bs (next_size (LENGTH bs)) else bs) *
+      &UNIT_TYPE () u)
 Proof
   rw[]>>
   xcf "nt_grow" (get_ml_prog_state ())>>
@@ -892,22 +880,25 @@ Proof
     qexists_tac`T`>>
     simp[]>>
     `next_size (LENGTH (bs:bucket list)) ≤ 33456139` by metis_tac[next_size_bound]>>
-    xlet`POSTv bv0. &NAME_TABLE_BUCKET_TYPE Bnil bv0 * REF tabr arr * ARRAY arr bvs`
+    xlet`POSTv bv0. &NAME_TABLE_BUCKET_TYPE Bnil bv0 * REF tabr arr *
+      ARRAY_OF NAME_TABLE_BUCKET_TYPE arr bs`
     >- (xcon>>xsimpl>>simp[NAME_TABLE_BUCKET_TYPE_def])>>
-    xlet`POSTv arr2. ARRAY arr2 (REPLICATE (next_size (LENGTH bs)) bv0) *
-           REF tabr arr * ARRAY arr bvs`
+    xlet`POSTv arr2.
+      ARRAY_OF NAME_TABLE_BUCKET_TYPE arr2
+        (REPLICATE (next_size (LENGTH bs)) Bnil) *
+      REF tabr arr * ARRAY_OF NAME_TABLE_BUCKET_TYPE arr bs`
+    >- (
+      xapp_spec (Q.ISPEC`NAME_TABLE_BUCKET_TYPE` ARRAY_OF_alloc_spec)>>
+      qrefinel[`_`,`Bnil`,`next_size (LENGTH bs)`]>>
+      xsimpl)>>
+    xlet`POSTv u. REF tabr arr * ARRAY_OF NAME_TABLE_BUCKET_TYPE arr bs *
+      ARRAY_OF NAME_TABLE_BUCKET_TYPE arr2
+        (tb_grow bs (next_size (LENGTH bs)))`
     >- (
       xapp>>
-      xsimpl>>
-      qexists_tac`next_size (LENGTH bs)`>>
-      simp[])>>
-    xlet`POSTv u. SEP_EXISTS bvs2. REF tabr arr * ARRAY arr bvs * ARRAY arr2 bvs2 *
-           &LIST_REL NAME_TABLE_BUCKET_TYPE (tb_grow bs (next_size (LENGTH bs))) bvs2`
-    >- (
-      xapp>>
-      xsimpl>>
-      qexistsl_tac[`REPLICATE (next_size (LENGTH bs)) Bnil`,`bs`]>>
-      simp[tb_grow_def,LIST_REL_REPLICATE_same])>>
+      qrefinel[`_`,`0`,`REPLICATE (next_size (LENGTH bs)) Bnil`,`bs`]>>
+      simp[tb_grow_def]>>
+      xsimpl)>>
     xapp>>
     xsimpl)>>
   qexists_tac`F`>>
@@ -967,22 +958,19 @@ Proof
 QED
 
 Theorem nt_find_ins_spec:
-  tb_rel bs s ∧ base ≤ s.next_num ∧
-  LIST_REL NAME_TABLE_BUCKET_TYPE bs bvs ∧ NUM s.next_num nv ∧
+  tb_rel bs s ∧ base ≤ s.next_num ∧ NUM s.next_num nv ∧
   NUM base basev ∧ STRING_TYPE v vv ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "nt_find_ins" (get_ml_prog_state()))
     [tabr; nxtr; basev; vv]
-    (REF tabr av * ARRAY av bvs * REF nxtr nv)
-    (POSTv r. SEP_EXISTS n s' av' bvs' bs' nv'.
-      REF tabr av' * ARRAY av' bvs' * REF nxtr nv' *
+    (REF tabr av * ARRAY_OF NAME_TABLE_BUCKET_TYPE av bs * REF nxtr nv)
+    (POSTv r. SEP_EXISTS n s' av' bs' nv'.
+      REF tabr av' * ARRAY_OF NAME_TABLE_BUCKET_TYPE av' bs' * REF nxtr nv' *
       &(name_to_num_var v s = (n,s') ∧ NUM n r ∧
-        tb_rel bs' s' ∧ base ≤ s'.next_num ∧
-        LIST_REL NAME_TABLE_BUCKET_TYPE bs' bvs' ∧ NUM s'.next_num nv'))
+        tb_rel bs' s' ∧ base ≤ s'.next_num ∧ NUM s'.next_num nv'))
 Proof
   rw[]>>
   xcf "nt_find_ins" (get_ml_prog_state ())>>
-  imp_res_tac LIST_REL_LENGTH>>
   drule tb_rel_bucket_small>>
   strip_tac>>
   `0 < LENGTH bs ∧ LENGTH bs < 2 ** 30` by (
@@ -991,29 +979,32 @@ Proof
     gvs[])>>
   qabbrev_tac`i = lz97 v MOD LENGTH bs`>>
   `i < LENGTH bs` by simp[Abbr`i`]>>
-  xlet`POSTv av1. REF tabr av * ARRAY av bvs * REF nxtr nv * &(av1 = av)`
+  xlet`POSTv av1. REF tabr av * ARRAY_OF NAME_TABLE_BUCKET_TYPE av bs *
+    REF nxtr nv * &(av1 = av)`
   >- (xapp>>xsimpl)>>
+  rveq>>
   xlet_autop>>
-  xlet_autop>>
+  xlet`POSTv mv. REF tabr av * ARRAY_OF NAME_TABLE_BUCKET_TYPE av bs *
+    REF nxtr nv * &NUM (LENGTH bs) mv`
+  >- (
+    xapp_spec (Q.ISPEC`NAME_TABLE_BUCKET_TYPE` ARRAY_OF_length_spec)>>
+    qexistsl_tac[`REF tabr av * REF nxtr nv`,`bs`]>>
+    xsimpl)>>
   rename1`NUM (lz97 v) hv`>>
-  rename1`NUM (LENGTH bvs) mv`>>
   assume_tac (Q.INST [`s`|->`v`] lz97_bound)>>
-  xlet`POSTv iv. ARRAY av bvs * REF tabr av * REF nxtr nv * &NUM i iv`
+  xlet`POSTv iv. ARRAY_OF NAME_TABLE_BUCKET_TYPE av bs * REF tabr av *
+    REF nxtr nv * &NUM i iv`
   >- (
     xapp>>
     xsimpl>>
     qexistsl_tac[`LENGTH bs`,`lz97 v`]>>
     gvs[bidx_side,bidx_def,smallnum_mod_def,Abbr`i`])>>
-  xlet`POSTv bv0. ARRAY av bvs * REF tabr av * REF nxtr nv * &(bv0 = EL i bvs)`
-  >- (
-    xapp>>
-    xsimpl>>
-    qexists_tac`i`>>
-    gvs[])>>
-  `NAME_TABLE_BUCKET_TYPE (EL i bs) (EL i bvs) ∧ bucket_small (EL i bs)` by
-    gvs[LIST_REL_EL_EQN,EVERY_EL]>>
-  xlet`POSTv fv. ARRAY av bvs * REF tabr av * REF nxtr nv *
-         &NAME_TABLE_BUCKET_TYPE (bfind (lz97 v) v (EL i bs)) fv`
+  xlet_auto_spec
+    (SOME (Q.ISPEC`NAME_TABLE_BUCKET_TYPE` ARRAY_OF_unsafe_sub_spec))
+  >- xsimpl>>
+  `bucket_small (EL i bs)` by gvs[EVERY_EL]>>
+  xlet`POSTv fv. ARRAY_OF NAME_TABLE_BUCKET_TYPE av bs * REF tabr av *
+    REF nxtr nv * &NAME_TABLE_BUCKET_TYPE (bfind (lz97 v) v (EL i bs)) fv`
   >- (
     xapp>>
     xsimpl>>
@@ -1030,69 +1021,78 @@ Proof
   gvs[NAME_TABLE_BUCKET_TYPE_def]>>
   xmatch
   >- (
-    xlet`POSTv nv1. ARRAY av bvs * REF tabr av * REF nxtr nv * &(nv1 = nv)`
+    xlet`POSTv nv1. ARRAY_OF NAME_TABLE_BUCKET_TYPE av bs * REF tabr av *
+      REF nxtr nv * &(nv1 = nv)`
     >- (xapp>>xsimpl)>>
     xlet_autop>>
     rename1`NUM (s.next_num + 1) nv2`>>
-    xlet`POSTv bnv. ARRAY av bvs * REF tabr av * REF nxtr nv *
-           &NAME_TABLE_BUCKET_TYPE
-             (Bnode (lz97 v) v (s:mlstring name_to_num_state).next_num (EL i bs)) bnv`
-    >- (xcon>>xsimpl>>gvs[NAME_TABLE_BUCKET_TYPE_def])>>
-    xlet`POSTv u. ARRAY av (LUPDATE bnv i bvs) * REF tabr av * REF nxtr nv`
-    >- (
-      xapp>>
-      xsimpl>>
-      qexists_tac`i`>>
-      gvs[])>>
-    xlet`POSTv u. ARRAY av (LUPDATE bnv i bvs) * REF tabr av * REF nxtr nv2`
-    >- (xapp>>xsimpl)>>
     Cases_on`name_to_num_var v s`>>
     rename1`name_to_num_var v s = (n1,s1)`>>
     drule_all tb_rel_insert>>
     strip_tac>>
+    gvs[]>>
+    `LENGTH (tb_insert bs v s.next_num) = LENGTH bs` by
+      simp[tb_insert_def]>>
+    `LUPDATE (Bnode (lz97 v) v s.next_num (EL i bs)) i bs =
+     tb_insert bs v s.next_num` by
+      simp[Abbr`i`,tb_insert_def]>>
+    `EVERY bucket_small (tb_insert bs v s.next_num)` by (
+      irule tb_rel_bucket_small>>
+      qexists_tac`s1`>>
+      simp[])>>
+    xlet`POSTv bnv. ARRAY_OF NAME_TABLE_BUCKET_TYPE av bs * REF tabr av *
+      REF nxtr nv *
+      &NAME_TABLE_BUCKET_TYPE (Bnode (lz97 v) v s.next_num (EL i bs)) bnv`
+    >- (xcon>>xsimpl>>gvs[NAME_TABLE_BUCKET_TYPE_def])>>
+    xlet_auto_spec
+      (SOME (Q.ISPEC`NAME_TABLE_BUCKET_TYPE` ARRAY_OF_unsafe_update_spec))
+    >- xsimpl>>
+    xlet`POSTv u.
+      ARRAY_OF NAME_TABLE_BUCKET_TYPE av (tb_insert bs v s.next_num) *
+      REF tabr av * REF nxtr nv2`
+    >- (xapp>>simp[]>>xsimpl)>>
     xlet_auto
     >- (xsimpl>>simp[fetch "-" "nt_grow_due_side_def"])>>
-    xlet`POSTv u. SEP_EXISTS av' bvs'. REF tabr av' * ARRAY av' bvs' * REF nxtr nv2 *
-           &(∃bs'. tb_rel bs' (s1:mlstring name_to_num_state) ∧
-                   LIST_REL NAME_TABLE_BUCKET_TYPE bs' bvs')`
+    xlet`POSTv u. SEP_EXISTS av' bs'. REF tabr av' *
+      ARRAY_OF NAME_TABLE_BUCKET_TYPE av' bs' * REF nxtr nv2 *
+      &tb_rel bs' (s1:mlstring name_to_num_state)`
     >- (
-      qabbrev_tac`bs1 = tb_insert bs v n1`>>
-      `LIST_REL NAME_TABLE_BUCKET_TYPE bs1 (LUPDATE bnv i bvs)` by (
-        gvs[Abbr`bs1`,Abbr`i`,tb_insert_def]>>
-        irule EVERY2_LUPDATE_same>>
-        simp[])>>
-      `EVERY bucket_small bs1` by metis_tac[tb_rel_bucket_small]>>
-      `LENGTH bs1 = LENGTH bvs` by simp[Abbr`bs1`,tb_insert_def]>>
       xif
       >- (
         xapp>>
+        qrefinel[`_`,`tb_insert bs v s.next_num`]>>
         xsimpl>>
-        qexists_tac`bs1`>>
-        simp[]>>
         rw[]
         >- (
-          qexists_tac`tb_grow bs1 (next_size (LENGTH bvs))`>>
-          simp[]>>
+          qexists_tac
+            `tb_grow (tb_insert bs v s.next_num) (next_size (LENGTH bs))`>>
+          reverse conj_tac
+          >- xsimpl>>
           irule tb_rel_grow>>
           simp[]>>
-          `next_size (LENGTH (bvs:v list)) ≤ 33456139` by metis_tac[next_size_bound]>>
+          `next_size (LENGTH (bs:bucket list)) ≤ 33456139` by
+            metis_tac[next_size_bound]>>
           simp[])>>
-        qexists_tac`bs1`>>
-        simp[])>>
+        qexists_tac`tb_insert bs v s.next_num`>>
+        simp[]>>
+        xsimpl)>>
       xcon>>
       xsimpl>>
-      qexists_tac`bs1`>>
-      simp[])>>
+      qexists_tac`tb_insert bs v s.next_num`>>
+      simp[]>>
+      xsimpl)>>
     xvar>>
     xsimpl>>
     qexists_tac`bs'`>>
-    simp[])>>
+    simp[]>>
+    xsimpl)>>
   drule lookup_index_SOME_name_to_num_var>>
   strip_tac>>
   xvar>>
   xsimpl>>
   qexists_tac`bs`>>
-  simp[]
+  simp[]>>
+  xsimpl
 QED
 
 Quote add_cakeml:
@@ -1131,17 +1131,22 @@ Proof
   >- (
     xapp>>
     xsimpl>>
-    qexistsl_tac[`v`,`s`,`base`,`bs`]>>
+    qrefinel[`_`,`v`,`s`,`bs`,`base`]>>
+    xsimpl>>
     simp[res_var_NONE]>>
     rw[]>>
-    metis_tac[])>>
+    qmatch_goalsub_rename_tac`ARRAY_OF _ _ bs1 ==>> _`>>
+    qexistsl_tac[`bs1`,`base`]>>
+    simp[]>>
+    xsimpl)>>
   xlet_autop>>
   xif
   >- (
     `1 ≤ strlen v ∧ strsub v 0 = #"x"` by gvs[x_initial_thm]>>
     xlet_autop>>
-    xlet`POSTv ov. REF tabr av * ARRAY av bvs * REF nxtr nv *
-           &OPTION_TYPE NUM (fromNatString (substring v 1 (strlen v - 1))) ov`
+    xlet`POSTv ov. REF tabr av * ARRAY_OF NAME_TABLE_BUCKET_TYPE av bs *
+      REF nxtr nv *
+      &OPTION_TYPE NUM (fromNatString (substring v 1 (strlen v - 1))) ov`
     >- (
       xapp>>
       xsimpl>>
@@ -1157,7 +1162,10 @@ Proof
       qexists_tac`s`>>
       simp[res_var_def,Fail_exn_def]>>
       xsimpl>>
-      metis_tac[])>>
+      qexistsl_tac[`bs`,`base`]>>
+      simp[]>>
+      first_assum (irule_at Any)>>
+      xsimpl)>>
     xlet_autop>>
     xif
     >- (
@@ -1166,25 +1174,31 @@ Proof
       qexistsl_tac[`n`,`s`]>>
       simp[res_var_def]>>
       xsimpl>>
-      metis_tac[])>>
+      qexistsl_tac[`bs`,`base`]>>
+      simp[]>>
+      xsimpl)>>
     `res_var (SOME l) v s = SOME (name_to_num_var v s)` by simp[res_var_def]>>
     xapp>>
     xsimpl>>
-    qexistsl_tac[`v`,`s`,`base`,`bs`]>>
-    simp[]>>
-    rw[]>>
+    qrefinel[`_`,`v`,`s`,`bs`,`base`]>>
     xsimpl>>
-    metis_tac[])>>
+    rw[]>>
+    qmatch_goalsub_rename_tac`ARRAY_OF _ _ bs1 ==>> _`>>
+    qexistsl_tac[`bs1`,`base`]>>
+    simp[]>>
+    xsimpl)>>
   `res_var (SOME l) v s = SOME (name_to_num_var v s)` by (
     rw[res_var_def]>>
     gvs[x_initial_thm])>>
   xapp>>
   xsimpl>>
-  qexistsl_tac[`v`,`s`,`base`,`bs`]>>
-  simp[]>>
-  rw[]>>
+  qrefinel[`_`,`v`,`s`,`bs`,`base`]>>
   xsimpl>>
-  metis_tac[]
+  rw[]>>
+  qmatch_goalsub_rename_tac`ARRAY_OF _ _ bs1 ==>> _`>>
+  qexistsl_tac[`bs1`,`base`]>>
+  simp[]>>
+  xsimpl
 QED
 
 (*
@@ -2190,7 +2204,7 @@ Proof
       xapp_spec input_toks_spec>>
       qexistsl_tac[‘NT_TABLE lim s tv’,‘[]’]>>
       xsimpl>>
-      metis_tac[STDIO_INSTREAM_LINES_refl,STDIO_INSTREAM_LINES_refl_gc])>>
+      metis_tac[SEP_IMP_REFL,SEP_IMP_REFL_gc])>>
     fs[OPTION_TYPE_def]>>
     xmatch>>
     rpt xlet_autop>>
@@ -2315,8 +2329,8 @@ Proof
       qexists_tac`lno + 1`>>
       simp[LIST_TYPE_def,forwardFD_o]>>
       rw[]
-      >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+      >- metis_tac[SEP_IMP_REFL_gc]>>
+      metis_tac[SEP_IMP_REFL_gc])
     >- (
       xsimpl>>
       rw[]>>
@@ -2335,7 +2349,7 @@ Proof
       simp[Fail_exn_def,Once parse_lsteps_aux_thm]>>
       fs[check_mark_qed_id_pbc_def]>>
       rw[]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+      metis_tac[SEP_IMP_REFL_gc])>>
     imp_res_tac parse_lsteps_aux_LENGTH>>
     fs[check_mark_qed_id_pbc_def]>>
     rpt xlet_autop>>
@@ -2348,7 +2362,7 @@ Proof
     simp[LIST_TYPE_def,NPBC_CHECK_LSTEP_TYPE_def,forwardFD_o]>>
     rw[]>>
     simp[Once parse_lsteps_aux_thm]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+    metis_tac[SEP_IMP_REFL_gc])>>
   (* every other numbered line is finished by fin_lstep *)
   (
     rveq>>
@@ -2374,9 +2388,9 @@ Proof
     qexists_tac`lno + 1`>>
     simp[LIST_TYPE_def,forwardFD_o]>>
     rw[]
-    >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
+    >- metis_tac[SEP_IMP_REFL_gc]>>
     simp[Once parse_lsteps_aux_thm]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
 QED
 
 Quote add_cakeml:
@@ -2527,8 +2541,8 @@ Proof
     xsimpl>>
     simp[forwardFD_o]>>
     rw[]
-    >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    >- metis_tac[SEP_IMP_REFL_gc]>>
+    metis_tac[SEP_IMP_REFL_gc])
   >- (
     xsimpl>>
     rw[]>>
@@ -2547,7 +2561,7 @@ Proof
       xraise>>
       xsimpl>>
       simp[Fail_exn_def,Once parse_subproof_aux_def]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+      metis_tac[SEP_IMP_REFL_gc])>>
     rpt xlet_autop>>
     xapp>>
     qexistsl_tac[`emp`,`lines2`,`forwardFD fs fd (k + k2)`,`fd`]>>
@@ -2556,7 +2570,7 @@ Proof
     simp[LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def,forwardFD_o]>>
     rw[]>>
     simp[Once parse_subproof_aux_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
 QED
 
 Quote add_cakeml:
@@ -2710,8 +2724,8 @@ Proof
     xsimpl>>
     simp[forwardFD_o]>>
     rw[]
-    >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    >- metis_tac[SEP_IMP_REFL_gc]>>
+    metis_tac[SEP_IMP_REFL_gc])
   >- (
     xsimpl>>
     rw[]>>
@@ -2737,7 +2751,7 @@ Proof
     xraise>>
     xsimpl>>
     simp[Fail_exn_def,Once parse_scope_aux_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+    metis_tac[SEP_IMP_REFL_gc])>>
   rpt xlet_autop>>
   xapp>>
   qexistsl_tac[`emp`,`lines2`,`forwardFD fs fd (k + k2)`,`fd`]>>
@@ -2746,7 +2760,7 @@ Proof
   simp[LIST_TYPE_def,PAIR_TYPE_def,OPTION_TYPE_def,forwardFD_o]>>
   rw[]>>
   simp[Once parse_scope_aux_def]>>
-  metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc]
+  metis_tac[SEP_IMP_REFL_gc]
 QED
 
 Quote add_cakeml:
@@ -3014,10 +3028,10 @@ Proof
     xraise>>
     xsimpl>>
     simp[Fail_exn_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
+    metis_tac[SEP_IMP_REFL_gc])>>
   xvar>>
   xsimpl>>
-  metis_tac[STDIO_INSTREAM_LINES_refl_gc]
+  metis_tac[SEP_IMP_REFL_gc]
 QED
 
 Theorem parse_vars_line_arr_spec:
@@ -3059,14 +3073,10 @@ Proof
   xsimpl
 QED
 
-Theorem line_TYPE_keyword[local]:
-  ∀kw. line_TYPE [INL kw]
-    (Conv (SOME (TypeStamp «::» 1))
-      [Conv (SOME (TypeStamp «Inl» 4)) [Litv (StrLit kw)];
-       Conv (SOME (TypeStamp «[]» 1)) []])
-Proof
-  simp[LIST_TYPE_def,SUM_TYPE_def,STRING_TYPE_def]
-QED
+Theorem line_TYPE_keyword[local] =
+  SIMP_CONV (srw_ss()) [LIST_TYPE_def,SUM_TYPE_def,STRING_TYPE_def]
+    ``line_TYPE [INL kw] v``
+  |> iffRL |> Q.GEN `v` |> SIMP_RULE bool_ss [] |> Q.GEN `kw`;
 
 Overload "vars3_TYPE" = ``
   PAIR_TYPE (LIST_TYPE NUM) (PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE NUM))``
@@ -3111,8 +3121,7 @@ Proof
     xsimpl>>
     rw[]>>
     simp[parse_vars_block_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc,
-              STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   `∃ln1 lns1. lines = ln1::lns1` by (Cases_on`lines`>>fs[])>>
   gvs[]>>
@@ -3136,8 +3145,7 @@ Proof
     xsimpl>>
     rw[]>>
     simp[parse_vars_block_def,forwardFD_o]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc,
-              STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   `∃ln2 lns2. lns1 = ln2::lns2` by (Cases_on`lns1`>>fs[])>>
   gvs[]>>
@@ -3163,8 +3171,7 @@ Proof
     xsimpl>>
     rw[]>>
     simp[parse_vars_block_def,forwardFD_o]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc,
-              STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   `∃ln3 lns3. lns2 = ln3::lns3` by (Cases_on`lns2`>>fs[])>>
   gvs[]>>
@@ -3190,8 +3197,7 @@ Proof
     xsimpl>>
     rw[]>>
     simp[parse_vars_block_def,forwardFD_o]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc,
-              STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   `∃ln4 rest. lns3 = ln4::rest` by (Cases_on`lns3`>>fs[])>>
   gvs[]>>
@@ -3206,7 +3212,7 @@ Proof
     xraise>>
     xsimpl>>
     simp[Fail_exn_def,parse_vars_block_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+    metis_tac[SEP_IMP_REFL_gc])>>
   xlet_autop>>
   xlet`POSTve
     (λv. SEP_EXISTS us us1 s1.
@@ -3338,8 +3344,7 @@ Proof
     xsimpl>>
     rw[]>>
     gvs[parse_vars_block_def,forwardFD_o]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc,
-              STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   `∃ln5 rest1. rest = ln5::rest1` by (Cases_on`rest`>>fs[])>>
   gvs[]>>
@@ -3350,7 +3355,7 @@ Proof
     xraise>>
     xsimpl>>
     simp[Fail_exn_def,parse_vars_block_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+    metis_tac[SEP_IMP_REFL_gc])>>
   rpt xlet_autop>>
   xcon>>
   xsimpl>>
@@ -3407,8 +3412,7 @@ Proof
     xsimpl>>
     rw[]>>
     simp[parse_spec_aux_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc,
-              STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   `∃ln lns. lines = ln::lns` by (Cases_on`lines`>>fs[])>>
   gvs[]>>
@@ -3479,7 +3483,7 @@ Proof
       xraise>>
       xsimpl>>
       fs[Fail_exn_def,Once parse_spec_aux_def]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+      metis_tac[SEP_IMP_REFL_gc])>>
     xlet_autop>>
     xlet`POSTve
       (λv. SEP_EXISTS k2 lines2 pf s3 l3 lno2 rest2.
@@ -3501,9 +3505,9 @@ Proof
       xsimpl>>
       simp[forwardFD_o]>>
       rw[]
-      >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
+      >- metis_tac[SEP_IMP_REFL_gc]>>
       gvs[Once parse_spec_aux_def]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+      metis_tac[SEP_IMP_REFL_gc])
     >- xsimpl>>
     `LENGTH lines2 < LENGTH lns` by (
       gvs[parse_scope_def]>>
@@ -3520,7 +3524,7 @@ Proof
       xraise>>
       xsimpl>>
       fs[Fail_exn_def,Once parse_spec_aux_def]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+      metis_tac[SEP_IMP_REFL_gc])>>
     rpt xlet_autop>>
     qpat_x_assum`∀m. _`(qspec_then`LENGTH lines2` mp_tac)>>
     impl_tac
@@ -3535,9 +3539,9 @@ Proof
     xsimpl>>
     simp[LIST_TYPE_def,PAIR_TYPE_def,forwardFD_o]>>
     rw[]
-    >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
+    >- metis_tac[SEP_IMP_REFL_gc]>>
     gvs[Once parse_spec_aux_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+    metis_tac[SEP_IMP_REFL_gc])>>
   (
     xmatch>>
     assume_tac (Q.SPEC`«spec»` line_TYPE_keyword)>>
@@ -3548,7 +3552,7 @@ Proof
       xraise>>
       xsimpl>>
       fs[Fail_exn_def,Once parse_spec_aux_def]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+      metis_tac[SEP_IMP_REFL_gc])>>
     rpt xlet_autop>>
     xcon>>
     xsimpl>>
@@ -3597,8 +3601,7 @@ Proof
     xsimpl>>
     rw[]>>
     simp[parse_spec_block_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc,
-              STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   `∃ln lns. lines = ln::lns` by (Cases_on`lines`>>fs[])>>
   gvs[]>>
@@ -3632,9 +3635,9 @@ Proof
       xsimpl>>
       simp[LIST_TYPE_def,forwardFD_o]>>
       rw[]
-      >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
+      >- metis_tac[SEP_IMP_REFL_gc]>>
       simp[parse_spec_block_def]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+      metis_tac[SEP_IMP_REFL_gc])
     >- xsimpl>>
     fs[PAIR_TYPE_def]>>
     xmatch>>
@@ -3658,8 +3661,7 @@ Proof
       xsimpl>>
       rw[]>>
       gvs[parse_spec_block_def,forwardFD_o]>>
-      metis_tac[STDIO_INSTREAM_LINES_refl_gc,
-                STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+      metis_tac[SEP_IMP_REFL_gc])
     >- xsimpl>>
     `∃ln2 lns2. lines2 = ln2::lns2` by (Cases_on`lines2`>>fs[])>>
     gvs[]>>
@@ -3673,7 +3675,7 @@ Proof
       xraise>>
       xsimpl>>
       gvs[Fail_exn_def,parse_spec_block_def]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+      metis_tac[SEP_IMP_REFL_gc])>>
     rpt xlet_autop>>
     xcon>>
     xsimpl>>
@@ -3690,7 +3692,7 @@ Proof
     xraise>>
     xsimpl>>
     gvs[Fail_exn_def,parse_spec_block_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+    metis_tac[SEP_IMP_REFL_gc])>>
   rpt xlet_autop>>
   xcon>>
   xsimpl>>
@@ -3742,8 +3744,7 @@ Proof
     xsimpl>>
     rw[]>>
     simp[parse_def_aux_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc,
-              STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   `∃ln lns. lines = ln::lns` by (Cases_on`lines`>>fs[])>>
   gvs[]>>
@@ -3767,7 +3768,7 @@ Proof
     xraise>>
     xsimpl>>
     fs[Fail_exn_def,Once parse_def_aux_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+    metis_tac[SEP_IMP_REFL_gc])>>
   xlet`POSTve
     (λv. SEP_EXISTS c1 s1.
       STDIO (forwardFD fs fd k) *
@@ -3802,7 +3803,7 @@ Proof
     xraise>>
     xsimpl>>
     fs[Fail_exn_def,Once parse_def_aux_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+    metis_tac[SEP_IMP_REFL_gc])>>
   rpt xlet_autop>>
   qpat_x_assum`∀m. _`(qspec_then`LENGTH lns` mp_tac)>>
   impl_tac
@@ -3817,9 +3818,9 @@ Proof
   xsimpl>>
   simp[LIST_TYPE_def,forwardFD_o]>>
   rw[]
-  >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
+  >- metis_tac[SEP_IMP_REFL_gc]>>
   gvs[Once parse_def_aux_def]>>
-  metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc]
+  metis_tac[SEP_IMP_REFL_gc]
 QED
 
 Theorem parse_trans_vars_arr_spec:
@@ -3862,8 +3863,7 @@ Proof
     xsimpl>>
     rw[]>>
     simp[parse_trans_vars_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc,
-              STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   `∃ln1 lns1. lines = ln1::lns1` by (Cases_on`lines`>>fs[])>>
   gvs[]>>
@@ -3887,8 +3887,7 @@ Proof
     xsimpl>>
     rw[]>>
     simp[parse_trans_vars_def,forwardFD_o]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc,
-              STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   `∃ln2 lns2. lns1 = ln2::lns2` by (Cases_on`lns1`>>fs[])>>
   gvs[]>>
@@ -3914,8 +3913,7 @@ Proof
     xsimpl>>
     rw[]>>
     simp[parse_trans_vars_def,forwardFD_o]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc,
-              STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   `∃ln3 lns3. lns2 = ln3::lns3` by (Cases_on`lns2`>>fs[])>>
   gvs[]>>
@@ -3941,8 +3939,7 @@ Proof
     xsimpl>>
     rw[]>>
     simp[parse_trans_vars_def,forwardFD_o]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc,
-              STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   `∃ln4 rest. lns3 = ln4::rest` by (Cases_on`lns3`>>fs[])>>
   gvs[]>>
@@ -3955,7 +3952,7 @@ Proof
     xraise>>
     xsimpl>>
     simp[Fail_exn_def,parse_trans_vars_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+    metis_tac[SEP_IMP_REFL_gc])>>
   xlet_autop>>
   xlet`POSTve
     (λv. SEP_EXISTS ws ws1 s1.
@@ -4055,8 +4052,7 @@ Proof
     xsimpl>>
     rw[]>>
     gvs[parse_trans_vars_def,forwardFD_o]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc,
-              STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   `∃ln5 rest1. rest = ln5::rest1` by (Cases_on`rest`>>fs[])>>
   gvs[]>>
@@ -4084,8 +4080,7 @@ Proof
     xsimpl>>
     rw[]>>
     gvs[parse_trans_vars_def,forwardFD_o]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc,
-              STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   `∃ln6 rest2. rest1 = ln6::rest2` by (Cases_on`rest1`>>fs[])>>
   gvs[]>>
@@ -4129,7 +4124,7 @@ Proof
     xraise>>
     xsimpl>>
     gvs[Fail_exn_def,parse_trans_vars_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+    metis_tac[SEP_IMP_REFL_gc])>>
   rpt xlet_autop>>
   xcon>>
   xsimpl>>
@@ -4179,8 +4174,7 @@ Proof
     xsimpl>>
     rw[]>>
     simp[parse_proof_block_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc,
-              STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   `∃ln lns. lines = ln::lns` by (Cases_on`lines`>>fs[])>>
   gvs[]>>
@@ -4195,7 +4189,7 @@ Proof
     xraise>>
     xsimpl>>
     gvs[Fail_exn_def,parse_proof_block_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+    metis_tac[SEP_IMP_REFL_gc])>>
   xlet_autop>>
   xlet`POSTve
     (λv. SEP_EXISTS k2 lines2 pf s1 l lno2 rest.
@@ -4218,9 +4212,9 @@ Proof
     xsimpl>>
     simp[forwardFD_o]>>
     rw[]
-    >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
+    >- metis_tac[SEP_IMP_REFL_gc]>>
     gvs[parse_proof_block_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   fs[PAIR_TYPE_def]>>
   xmatch>>
@@ -4231,7 +4225,7 @@ Proof
     xraise>>
     xsimpl>>
     gvs[Fail_exn_def,parse_proof_block_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+    metis_tac[SEP_IMP_REFL_gc])>>
   xlet`POSTve
     (λv. SEP_EXISTS k3.
       STDIO (forwardFD fs fd (k + k2 + k3)) *
@@ -4253,8 +4247,7 @@ Proof
     xsimpl>>
     rw[]>>
     gvs[parse_proof_block_def,forwardFD_o]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc,
-              STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   `∃ln2 lns2. lines2 = ln2::lns2` by (Cases_on`lines2`>>fs[])>>
   gvs[]>>
@@ -4265,7 +4258,7 @@ Proof
     xraise>>
     xsimpl>>
     gvs[Fail_exn_def,parse_proof_block_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+    metis_tac[SEP_IMP_REFL_gc])>>
   rpt xlet_autop>>
   xcon>>
   xsimpl>>
@@ -4318,9 +4311,9 @@ Proof
     qexistsl_tac[`emp`,`s`,`lines`,`lim`,`fs`,`fd`,`lno`]>>
     xsimpl>>
     rw[]
-    >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
+    >- metis_tac[SEP_IMP_REFL_gc]>>
     simp[parse_trans_block_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   PairCases_on`vars`>>
   fs[PAIR_TYPE_def]>>
@@ -4350,9 +4343,9 @@ Proof
     xsimpl>>
     simp[forwardFD_o]>>
     rw[]
-    >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
+    >- metis_tac[SEP_IMP_REFL_gc]>>
     gvs[parse_trans_block_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   fs[PAIR_TYPE_def]>>
   xmatch>>
@@ -4404,8 +4397,7 @@ Proof
     xsimpl>>
     rw[]>>
     simp[parse_refl_block_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc,
-              STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   `∃ln lns. lines = ln::lns` by (Cases_on`lines`>>fs[])>>
   gvs[]>>
@@ -4420,7 +4412,7 @@ Proof
     xraise>>
     xsimpl>>
     gvs[Fail_exn_def,parse_refl_block_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+    metis_tac[SEP_IMP_REFL_gc])>>
   rpt xlet_autop>>
   gvs[]>>
   xapp_spec parse_proof_block_arr_spec>>
@@ -4430,7 +4422,7 @@ Proof
   xsimpl>>
   simp[forwardFD_o,parse_refl_block_def]>>
   rw[]>>
-  metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc]
+  metis_tac[SEP_IMP_REFL_gc]
 QED
 
 Quote add_cakeml:
@@ -4509,9 +4501,9 @@ Proof
     qexistsl_tac[`emp`,`s`,`lines`,`lim`,`fs`,`fd`,`lno`]>>
     xsimpl>>
     rw[]
-    >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
+    >- metis_tac[SEP_IMP_REFL_gc]>>
     simp[parse_pre_order_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   fs[PAIR_TYPE_def]>>
   xmatch>>
@@ -4536,9 +4528,9 @@ Proof
     xsimpl>>
     simp[forwardFD_o]>>
     rw[]
-    >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
+    >- metis_tac[SEP_IMP_REFL_gc]>>
     gvs[parse_pre_order_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   fs[PAIR_TYPE_def]>>
   xmatch>>
@@ -4564,9 +4556,9 @@ Proof
     xsimpl>>
     simp[forwardFD_o,LIST_TYPE_def]>>
     rw[]
-    >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
+    >- metis_tac[SEP_IMP_REFL_gc]>>
     gvs[parse_pre_order_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   fs[PAIR_TYPE_def]>>
   xmatch>>
@@ -4595,9 +4587,9 @@ Proof
     xsimpl>>
     simp[forwardFD_o]>>
     rw[]
-    >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
+    >- metis_tac[SEP_IMP_REFL_gc]>>
     gvs[parse_pre_order_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   fs[PAIR_TYPE_def]>>
   xmatch>>
@@ -4623,9 +4615,9 @@ Proof
     xsimpl>>
     simp[forwardFD_o]>>
     rw[]
-    >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
+    >- metis_tac[SEP_IMP_REFL_gc]>>
     gvs[parse_pre_order_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   fs[PAIR_TYPE_def]>>
   xmatch>>
@@ -4650,8 +4642,7 @@ Proof
     xsimpl>>
     rw[]>>
     gvs[parse_pre_order_def,forwardFD_o]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc,
-              STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+    metis_tac[SEP_IMP_REFL_gc])
   >- xsimpl>>
   `∃ln lns. lines5 = ln::lns` by (Cases_on`lines5`>>fs[])>>
   gvs[]>>
@@ -4663,7 +4654,7 @@ Proof
     xraise>>
     xsimpl>>
     gvs[Fail_exn_def,parse_pre_order_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+    metis_tac[SEP_IMP_REFL_gc])>>
   rpt xlet_autop>>
   xcon>>
   xsimpl>>
@@ -4788,7 +4779,7 @@ Proof
       xapp_spec input_toks_spec>>
       qexistsl_tac[`NT_TABLE lim s tv`,`[]`]>>
       xsimpl>>
-      metis_tac[STDIO_INSTREAM_LINES_refl,STDIO_INSTREAM_LINES_refl_gc])>>
+      metis_tac[SEP_IMP_REFL,SEP_IMP_REFL_gc])>>
     fs[OPTION_TYPE_def]>>
     xmatch>>
     rpt xlet_autop>>
@@ -4810,7 +4801,7 @@ Proof
     qexistsl_tac[`NT_TABLE lim s tv`,`ln::lns`,`fs`,`fd`]>>
     xsimpl>>
     simp[toks_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
+    metis_tac[SEP_IMP_REFL_gc])>>
   fs[OPTION_TYPE_def]>>
   xmatch>>
   xlet_autop>>
@@ -4895,8 +4886,8 @@ Proof
       xsimpl>>
       simp[forwardFD_o]>>
       rw[]
-      >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+      >- metis_tac[SEP_IMP_REFL_gc]>>
+      metis_tac[SEP_IMP_REFL_gc])
     >- (
       xsimpl>>
       rw[]>>
@@ -4913,7 +4904,7 @@ Proof
       xraise>>
       xsimpl>>
       gvs[Fail_exn_def]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+      metis_tac[SEP_IMP_REFL_gc])>>
     rpt xlet_autop>>
     xcon>>
     xsimpl>>
@@ -4957,8 +4948,8 @@ Proof
       xsimpl>>
       simp[forwardFD_o]>>
       rw[]
-      >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+      >- metis_tac[SEP_IMP_REFL_gc]>>
+      metis_tac[SEP_IMP_REFL_gc])
     >- (
       xsimpl>>
       rw[]>>
@@ -4975,7 +4966,7 @@ Proof
       xraise>>
       xsimpl>>
       gvs[Fail_exn_def]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+      metis_tac[SEP_IMP_REFL_gc])>>
     rpt xlet_autop>>
     xcon>>
     xsimpl>>
@@ -5019,8 +5010,8 @@ Proof
       xsimpl>>
       simp[forwardFD_o]>>
       rw[]
-      >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+      >- metis_tac[SEP_IMP_REFL_gc]>>
+      metis_tac[SEP_IMP_REFL_gc])
     >- (
       xsimpl>>
       rw[]>>
@@ -5037,7 +5028,7 @@ Proof
       xraise>>
       xsimpl>>
       gvs[Fail_exn_def]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+      metis_tac[SEP_IMP_REFL_gc])>>
     rpt xlet_autop>>
     xcon>>
     xsimpl>>
@@ -5068,8 +5059,8 @@ Proof
       xsimpl>>
       simp[forwardFD_o]>>
       rw[]
-      >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+      >- metis_tac[SEP_IMP_REFL_gc]>>
+      metis_tac[SEP_IMP_REFL_gc])
     >- (
       xsimpl>>
       rw[]>>
@@ -5086,7 +5077,7 @@ Proof
       xraise>>
       xsimpl>>
       gvs[Fail_exn_def]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])>>
+      metis_tac[SEP_IMP_REFL_gc])>>
     rpt xlet_autop>>
     xcon>>
     xsimpl>>
@@ -5126,8 +5117,8 @@ Proof
       xsimpl>>
       simp[forwardFD_o]>>
       rw[]
-      >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+      >- metis_tac[SEP_IMP_REFL_gc]>>
+      metis_tac[SEP_IMP_REFL_gc])
     >- (
       xsimpl>>
       rw[]>>
@@ -5187,8 +5178,8 @@ Proof
       xsimpl>>
       simp[forwardFD_o]>>
       rw[]
-      >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+      >- metis_tac[SEP_IMP_REFL_gc]>>
+      metis_tac[SEP_IMP_REFL_gc])
     >- (
       xsimpl>>
       rw[]>>
@@ -5214,7 +5205,7 @@ Proof
       xraise>>
       xsimpl>>
       gvs[Fail_exn_def]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc]))
+      metis_tac[SEP_IMP_REFL_gc]))
   >~ [`PresHd b x c`]
   >- (
     gvs[]>>
@@ -5251,8 +5242,8 @@ Proof
       xsimpl>>
       simp[forwardFD_o]>>
       rw[]
-      >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc])
+      >- metis_tac[SEP_IMP_REFL_gc]>>
+      metis_tac[SEP_IMP_REFL_gc])
     >- (
       xsimpl>>
       rw[]>>
@@ -5279,7 +5270,7 @@ Proof
       xraise>>
       xsimpl>>
       gvs[Fail_exn_def]>>
-      metis_tac[STDIO_INSTREAM_LINES_NT_TABLE_refl_gc]))>>
+      metis_tac[SEP_IMP_REFL_gc]))>>
   (
     gvs[is_lstep_def]>>
     xlet_autop>>
@@ -5344,64 +5335,49 @@ Termination
   fs[]
 End
 
-Theorem STDIO_INSTREAM_LINES_ARRAY_refl:
-  (STDIO A *
-  INSTREAM_LINES #"\n" B C D E * ARRAY arr arrv ==>>
-  STDIO A *
-  INSTREAM_LINES #"\n" B C D E * ARRAY arr arrv) ∧
-  (STDIO A *
-  INSTREAM_LINES #"\n" B C D E * ARRAY arr arrv ==>>
-  STDIO A *
-  INSTREAM_LINES #"\n" B C D E * ARRAY arr arrv * GC)
-Proof
-  xsimpl
-QED
-
 Theorem check_unsat''_spec:
-  ∀s ss fmlls assg st inds vimap id cfg ht
-    lno lnov fmllsv assgv stv indsv idv cfgv lines fs fmlv vimaplsv
-    vimapa vimapv htv bksv bkslsv.
+  ∀s ss fmlls assg st inds m vw ents id cfg hw a d
+    lno lnov fmlls assgv stv indsv idv cfgv lines fs fmlv
+    vimapa vimapv htv bksv bksls.
   NUM lno lnov ∧
-  LIST_REL fslot_TYPE fmlls fmllsv ∧
   fml_bound fmlls (LENGTH assg) ∧ stamps_ok assg st ∧
   NUM st stv ∧
   (LIST_TYPE NUM) inds indsv ∧
-  VIMAP_TYPE vimaplsv vimapa vimap vimapv ∧
+  VIMAP_TYPE (m,vw,vimapa) vimapv ∧
   NUM id idv ∧
   cfg_TYPE cfg cfgv ∧ SND (SND (SND cfg)) = mk_ord_pre (FST cfg).ord ∧
-  ht_TYPE bksv bkslsv ht htv ∧
+  ht_TYPE (hw,a,d,bksv) htv ∧
   MAP toks lines = ss
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_unsat''" (get_ml_prog_state()))
     [tv; fdv; lnov; fmlv; assgv; stv; indsv; vimapv; idv; cfgv; htv]
     (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs * NT_TABLE lim s tv *
-      ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
-      ARRAY vimapa vimaplsv * ARRAY bksv bkslsv)
+      ARRAY_OF fslot_TYPE fmlv fmlls * ARRAY_OF NUM assgv assg *
+      ARRAY_OF vimapn_TYPE vimapa ents * ARRAY_OF NUM bksv bksls)
     (POSTve
       (λv.
-         SEP_EXISTS k lines' lno' fmlv' fmllsv' bksv' bkslsv' l s' res.
+         SEP_EXISTS k lines' lno' l s' fmlv' fmlls' inds' pc' id'
+             hw' a' d' bksv' bksls'.
          STDIO (forwardFD fs fd k) *
          INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          NT_TABLE lim s' tv *
-         ARRAY fmlv' fmllsv' * ARRAY bksv' bkslsv' *
-         &(
-          parse_and_run lim s ss fmlls assg st inds vimap id cfg ht =
-            SOME (MAP toks lines',l,s',res) ∧
-            PAIR_TYPE NUM (
-            PAIR_TYPE line_TYPE (
-            PAIR_TYPE (λl v.
-              LIST_REL fslot_TYPE l fmllsv' ∧
-              v = fmlv')
-              (PAIR_TYPE (LIST_TYPE NUM)
-                (PAIR_TYPE NPBC_CHECK_PROOF_CONF_TYPE
-                  (PAIR_TYPE NUM (ht_TYPE bksv' bkslsv')))))) (lno',l,res) v))
+         ARRAY_OF fslot_TYPE fmlv' fmlls' * ARRAY_OF NUM bksv' bksls' *
+         &(parse_and_run lim s ss fmlls assg st inds (m,vw,ents) id cfg
+             (hw,a,d,bksls) =
+             SOME (MAP toks lines',l,s',
+               (fmlls',inds',pc',id',(hw',a',d',bksls'))) ∧
+           PAIR_TYPE NUM (PAIR_TYPE line_TYPE (PAIR_TYPE ($=)
+             (PAIR_TYPE (LIST_TYPE NUM) (PAIR_TYPE NPBC_CHECK_PROOF_CONF_TYPE
+               (PAIR_TYPE NUM ht_TYPE)))))
+             (lno',l,fmlv',inds',pc',id',(hw',a',d',bksv')) v))
       (λe.
-         SEP_EXISTS k lines' fmlv' fmllsv' s'.
-           ARRAY fmlv' fmllsv' * NT_TABLE lim s' tv *
+         SEP_EXISTS k lines' fmlv' fmlls' s'.
+           ARRAY_OF fslot_TYPE fmlv' fmlls' * NT_TABLE lim s' tv *
            STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
            &(Fail_exn e ∧
-            parse_and_run lim s ss fmlls assg st inds vimap id cfg ht = NONE)))
+            parse_and_run lim s ss fmlls assg st inds (m,vw,ents) id cfg
+              (hw,a,d,bksls) = NONE)))
 Proof
   completeInduct_on`LENGTH (lines:mlstring list)`>>
   rw[]>>
@@ -5413,12 +5389,12 @@ Proof
        STDIO (forwardFD fs fd k) *
        INSTREAM_LINES #"\n" fd fdv lines1 (forwardFD fs fd k) *
        NT_TABLE lim s1 tv *
-       ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
-       ARRAY vimapa vimaplsv * ARRAY bksv bkslsv *
+       ARRAY_OF fslot_TYPE fmlv fmlls * ARRAY_OF NUM assgv assg *
+       ARRAY_OF vimapn_TYPE vimapa ents * ARRAY_OF NUM bksv bksls *
        &(parse_cstep lim s (MAP toks lines) = SOME (res,s1,MAP toks lines1) ∧
          PAIR_TYPE (SUM_TYPE line_TYPE NPBC_CHECK_CSTEP_TYPE) NUM (res,lno1) v))
-    (λe. SEP_EXISTS k lines' fmlv' fmllsv' s'.
-       ARRAY fmlv' fmllsv' * NT_TABLE lim s' tv *
+    (λe. SEP_EXISTS k lines' fmlv' fmlls' s'.
+       ARRAY_OF fslot_TYPE fmlv' fmlls' * NT_TABLE lim s' tv *
        STDIO (forwardFD fs fd k) *
        INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
        &(Fail_exn e ∧ parse_cstep lim s (MAP toks lines) = NONE))`
@@ -5426,16 +5402,16 @@ Proof
     xapp_spec parse_cstep_spec>>
     xsimpl>>
     qexistsl_tac[
-      `ARRAY fmlv fmllsv * NUM_ARRAY assgv assg *
-       ARRAY vimapa vimaplsv * ARRAY bksv bkslsv`,
+      `ARRAY_OF fslot_TYPE fmlv fmlls * ARRAY_OF NUM assgv assg *
+       ARRAY_OF vimapn_TYPE vimapa ents * ARRAY_OF NUM bksv bksls`,
       `s`,`lines`,`lim`,`fs`,`fd`,`lno`]>>
     xsimpl>>
     rw[]
-    >- metis_tac[STDIO_INSTREAM_LINES_refl_gc]>>
+    >- metis_tac[SEP_IMP_REFL_gc]>>
     qmatch_goalsub_rename_tac
       `STDIO (forwardFD fs fd kk) * INSTREAM_LINES _ fd fdv ll _ *
        NT_TABLE lim ss tv * _ ==>> _`>>
-    qexistsl_tac[`kk`,`ll`,`fmlv`,`fmllsv`,`ss`]>>
+    qexistsl_tac[`kk`,`ll`,`fmlv`,`fmlls`,`ss`]>>
     xsimpl)
   >- (
     xsimpl>>
@@ -5443,47 +5419,52 @@ Proof
     simp[Once parse_and_run_def]>>
     metis_tac[SEP_IMP_REFL])>>
   Cases_on`res`>>
-  fs[PAIR_TYPE_def,SUM_TYPE_def]
+  qpat_x_assum`PAIR_TYPE (SUM_TYPE _ _) _ _ _`
+    (strip_assume_tac o REWRITE_RULE[PAIR_TYPE_def])>>
+  fs[SUM_TYPE_def]
   >- (
     xmatch>>
+    qpat_x_assum`cfg_TYPE _ _`
+      (strip_assume_tac o REWRITE_RULE[PAIR_TYPE_def])>>
+    gvs[]>>
     xmatch>>
     rpt xlet_autop>>
     xcon>>
     xsimpl>>
-    qexistsl_tac[`k`,`lines1`,`lno1`,`fmlv`,`fmllsv`,`bksv`,`bkslsv`]>>
-    simp[PAIR_TYPE_def]>>
-    xsimpl)>>
+    qexistsl_tac[`k`,`lines1`,`lno1`]>>
+    xsimpl>>
+    qexistsl_tac[`fmlv`,`bksv`]>>
+    xsimpl>>
+    gvs[PAIR_TYPE_def])>>
   rename1`parse_cstep _ _ _ = SOME (INR cstep,s1,_)`>>
   xmatch>>
   xlet`POSTve
     (λv'.
-      SEP_EXISTS fmlv' fmllsv' assgv' assg' vimapa' vimaplsv' bksv' bkslsv'.
-      ARRAY fmlv' fmllsv' * NUM_ARRAY assgv' assg' *
-      ARRAY vimapa' vimaplsv' * ARRAY bksv' bkslsv' *
+      SEP_EXISTS fmlv' fmlls' assgv' assg' st' inds' m' vw' vimapa' ents'
+          id' cfg' hw' a' d' bksv' bksls'.
+      ARRAY_OF fslot_TYPE fmlv' fmlls' * ARRAY_OF NUM assgv' assg' *
+      ARRAY_OF vimapn_TYPE vimapa' ents' * ARRAY_OF NUM bksv' bksls' *
       STDIO (forwardFD fs fd k) *
       INSTREAM_LINES #"\n" fd fdv lines1 (forwardFD fs fd k) *
       NT_TABLE lim s1 tv *
-      &case check_cstep_list cstep fmlls assg st inds vimap id
-          (cfg0,cfg1,cfg2,mk_ord_pre cfg0.ord) ht of
-        NONE => F
-      | SOME res =>
-        PAIR_TYPE (λl v. LIST_REL fslot_TYPE l fmllsv' ∧ v = fmlv')
-          (PAIR_TYPE (λl v. l = assg' ∧ v = assgv')
-          (PAIR_TYPE NUM
-          (PAIR_TYPE (LIST_TYPE NUM)
-            (PAIR_TYPE
-              (VIMAP_TYPE vimaplsv' vimapa')
-              (PAIR_TYPE NUM
-                (PAIR_TYPE cfg_TYPE (ht_TYPE bksv' bkslsv'))))))) res v')
+      &(check_cstep_list cstep fmlls assg st inds (m,vw,ents) id
+          (cfg0,cfg1,cfg2,mk_ord_pre cfg0.ord) (hw,a,d,bksls) =
+          SOME (fmlls',assg',st',inds',(m',vw',ents'),id',cfg',
+            (hw',a',d',bksls')) ∧
+        PAIR_TYPE ($=) (PAIR_TYPE ($=) (PAIR_TYPE NUM
+          (PAIR_TYPE (LIST_TYPE NUM) (PAIR_TYPE VIMAP_TYPE
+          (PAIR_TYPE NUM (PAIR_TYPE cfg_TYPE ht_TYPE))))))
+          (fmlv',assgv',st',inds',(m',vw',vimapa'),id',cfg',
+            (hw',a',d',bksv')) v'))
     (λe.
-      SEP_EXISTS fmlv' fmllsv'.
-      ARRAY fmlv' fmllsv' *
+      SEP_EXISTS fmlv' fmlls'.
+      ARRAY_OF fslot_TYPE fmlv' fmlls' *
       STDIO (forwardFD fs fd k) *
       INSTREAM_LINES #"\n" fd fdv lines1 (forwardFD fs fd k) *
       NT_TABLE lim s1 tv *
       &(Fail_exn e ∧
-        check_cstep_list cstep fmlls assg st inds vimap id
-          (cfg0,cfg1,cfg2,mk_ord_pre cfg0.ord) ht = NONE))`
+        check_cstep_list cstep fmlls assg st inds (m,vw,ents) id
+          (cfg0,cfg1,cfg2,mk_ord_pre cfg0.ord) (hw,a,d,bksls) = NONE))`
   >- (
     xapp>>
     xsimpl>>
@@ -5491,35 +5472,29 @@ Proof
       `STDIO (forwardFD fs fd k) *
        INSTREAM_LINES #"\n" fd fdv lines1 (forwardFD fs fd k) *
        NT_TABLE lim s1 tv`,
-      `cfg1`,`vimaplsv`,`vimapa`,`vimap`,`st`,`cfg0`,`inds`,`id`,`ht`,
-      `fmlls`,`cfg2`,`cstep`,`bksv`,`bkslsv`,`assg`,`lno`]>>
+      `vw`,`cfg1`,`vimapa`,`st`,`cfg0`,`m`,`inds`,`id`,`hw`,`fmlls`,`ents`,
+      `d`,`cfg2`,`cstep`,`bksv`,`bksls`,`assg`,`a`,`lno`]>>
     xsimpl>>
     rw[]
-    >- simp[PAIR_TYPE_def]
-    >- (
-      first_assum (irule_at Any)>>
-      xsimpl)>>
-    qmatch_goalsub_rename_tac`ARRAY aa bb * NUM_ARRAY _ _ * _ * _ ==>> _`>>
+    >- (first_assum (irule_at Any)>>xsimpl)>>
+    qmatch_goalsub_rename_tac`ARRAY_OF fslot_TYPE aa bb * ARRAY_OF NUM _ _`>>
     qexistsl_tac[`aa`,`bb`]>>
     xsimpl)
   >- (
     xsimpl>>
     rw[]>>
     fs[Once parse_and_run_def]>>
-    rename1`ARRAY aa bb * STDIO _ * _ * _ ==>> _`>>
+    rename1`ARRAY_OF fslot_TYPE aa bb * STDIO _ * _ * _ ==>> _`>>
     qexistsl_tac[`k`,`lines1`,`aa`,`bb`,`s1`]>>
     xsimpl)>>
-  pop_assum mp_tac>>
-  TOP_CASE_TAC>>
-  simp[]>>
-  strip_tac>>
-  rename1`check_cstep_list _ _ _ _ _ _ _ _ _ = SOME res`>>
-  PairCases_on`res`>>
+  PairCases_on`cfg'`>>
   drule_at (Pos last) npbc_listTheory.fml_bound_check_cstep_list>>
   impl_tac
   >- fs[]>>
   strip_tac>>
-  fs[PAIR_TYPE_def,PULL_EXISTS]>>
+  qpat_x_assum`PAIR_TYPE _ _ (fmlv',_) _`
+    (strip_assume_tac o REWRITE_RULE[PAIR_TYPE_def])>>
+  gvs[]>>
   xmatch>>
   `LENGTH lines1 < LENGTH lines` by (
     drule parse_cstep_LENGTH>>
@@ -5532,13 +5507,15 @@ Proof
   strip_tac>>
   xapp>>
   xsimpl>>
-  qexistsl_tac[`emp`,`vimaplsv'`,`vimapa'`,`(res4,res5,res6)`,`res2`,`s1`,
-               `res3`,`res7`,`(res12,res13,res14,res15)`,`forwardFD fs fd k`,
-               `res0`,`(res8,res9,res10,mk_ord_pre res8.ord)`,`bksv'`,
-               `bkslsv'`,`res1`,`lno1`]>>
+  qrefinel [`emp`,`vw'`,`_`,`st'`,`s1`,`m'`,`inds'`,`id'`,`hw'`,
+    `forwardFD fs fd k`,`fmlls'`,`ents'`,`d'`,`(cfg'0,cfg'1,cfg'2,cfg'3)`,
+    `bksv'`,`bksls'`,`assg'`,`a'`,`lno1`]>>
   xsimpl>>
+  qmatch_goalsub_rename_tac`ARRAY_OF vimapn_TYPE vv ents' ==>> _`>>
+  qexists_tac`vv`>>
   simp[PAIR_TYPE_def]>>
-  rw[]>>
+  rw[]
+  >- xsimpl>>
   simp[forwardFD_o]
   >- (
     qmatch_goalsub_rename_tac
@@ -5551,8 +5528,8 @@ Proof
   simp[Once parse_and_run_def]>>
   fs[]>>
   qmatch_goalsub_rename_tac
-    `ARRAY aa bb * NT_TABLE lim ss tv * STDIO (forwardFD fs fd (k + kk)) *
-     INSTREAM_LINES _ fd fdv ll _ ==>> _`>>
+    `ARRAY_OF fslot_TYPE aa bb * NT_TABLE lim ss tv *
+     STDIO (forwardFD fs fd (k + kk)) * INSTREAM_LINES _ fd fdv ll _ ==>> _`>>
   qexistsl_tac[`k + kk`,`ll`,`aa`,`bb`,`ss`]>>
   xsimpl
 QED
@@ -5565,19 +5542,17 @@ Quote add_cakeml:
 End
 
 Theorem fill_arr_spec:
-  ∀ls lsv arrv arrls arrlsv i iv.
+  ∀ls lsv arrv arrls i iv.
   NUM i iv ∧
-  LIST_TYPE fslot_TYPE ls lsv ∧
-  LIST_REL fslot_TYPE arrls arrlsv
+  LIST_TYPE fslot_TYPE ls lsv
   ⇒
   app (p:'ffi ffi_proj) ^(fetch_v"fill_arr"(get_ml_prog_state()))
   [arrv; iv; lsv]
-  (ARRAY arrv arrlsv)
+  (ARRAY_OF fslot_TYPE arrv arrls)
   (POSTv resv.
-  SEP_EXISTS arrlsv'. ARRAY resv arrlsv' *
-    & LIST_REL fslot_TYPE
-    (FOLDL (λacc (i,v). update_resize acc Empty v i)
-      arrls (enumerate i ls)) arrlsv')
+    ARRAY_OF fslot_TYPE resv
+      (FOLDL (λacc (i,v). update_resize acc Empty v i)
+        arrls (enumerate i ls)))
 Proof
   Induct>>rw[]>>
   xcf "fill_arr" (get_ml_prog_state ())>>
@@ -5585,12 +5560,11 @@ Proof
   xmatch
   >- (xvar>>xsimpl)>>
   rpt xlet_autop>>
-  xlet_auto>>
-  xapp>>fs[]>>
-  match_mp_tac LIST_REL_update_resize>>
-  rw[]>>
-  fs[fslot_TYPE_def]>>
-  EVAL_TAC
+  xlet_auto_spec (SOME (Q.SPECL[`arrls`,`arrv`,`Empty`]
+    (Q.ISPEC`fslot_TYPE` ARRAY_OF_updateResize_spec)))
+  >- (xsimpl>>simp[fslot_TYPE_def,NPBC_SLOT_SLOT_TYPE_def])>>
+  xapp>>
+  simp[]
 QED
 
 Definition rev_enum_def:
@@ -5741,7 +5715,7 @@ Theorem check_output_hconcl_arr_spec:
   obj_TYPE obj objv ∧
   (LIST_TYPE NUM) inds1 inds1v ∧
   NUM id1 id1v ∧
-  ht_TYPE bksv bkslsv ht1 ht1v ∧
+  ht_TYPE (hw,a,d,bksv) ht1v ∧
   obj_TYPE obj1 obj1v ∧
   pres_TYPE pres1 pres1v ∧
   OPTION_TYPE INT bound1 bound1v ∧
@@ -5752,8 +5726,7 @@ Theorem check_output_hconcl_arr_spec:
   pres_TYPE prest prestv ∧
   obj_TYPE objt objtv ∧
   PBC_OUTPUT_TYPE output outputv ∧
-  NPBC_CHECK_HCONCL_TYPE NUM hconcl hconclv ∧
-  LIST_REL fslot_TYPE fmlls fmllsv
+  NPBC_CHECK_HCONCL_TYPE NUM hconcl hconclv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_output_hconcl_arr" (get_ml_prog_state()))
@@ -5761,13 +5734,13 @@ Theorem check_output_hconcl_arr_spec:
       fml1v; inds1v; id1v; ht1v; pres1v; obj1v; bound1v; dbound1v; chk1v;
       enumv; fmltv; prestv; objtv;
       outputv; hconclv]
-    (ARRAY fml1v fmllsv * ARRAY bksv bkslsv)
+    (ARRAY_OF fslot_TYPE fml1v fmlls * ARRAY_OF NUM bksv bksls)
     (POSTv v.
-        ARRAY fml1v fmllsv *
+        ARRAY_OF fslot_TYPE fml1v fmlls *
         &(
         ∃s.
         (OPTION_TYPE STRING_TYPE)
-        (if check_output_list fmlls inds1 id1 ht1 pres1 obj1
+        (if check_output_list fmlls inds1 id1 (hw,a,d,bksls) pres1 obj1
           bound1 dbound1 chk1 fmlt prest objt output ∧
           check_hconcl_list fml obj fmlls obj1
           bound1 dbound1 enum hconcl
@@ -5775,7 +5748,21 @@ Theorem check_output_hconcl_arr_spec:
 Proof
   rw[]>>
   xcf"check_output_hconcl_arr"(get_ml_prog_state ())>>
-  rpt xlet_autop>>
+  xlet`POSTv v1. ARRAY_OF fslot_TYPE fml1v fmlls * ARRAY_OF NUM bksv bksls *
+    &(∃s. OPTION_TYPE STRING_TYPE
+      (if check_hconcl_list fml obj fmlls obj1 bound1 dbound1 enum hconcl
+       then NONE else SOME s) v1)`
+  >- (
+    xapp>>xsimpl>>
+    qexistsl_tac[`ARRAY_OF NUM bksv bksls`,`obj1`,`obj`,`hconcl`,`fmlls`,
+      `fml`,`enum`,`dbound1`,`bound1`]>>
+    xsimpl>>
+    metis_tac[])>>
+  xlet`POSTv v0. ARRAY_OF fslot_TYPE fml1v fmlls *
+    &(∃s. OPTION_TYPE STRING_TYPE
+      (if check_output_list fmlls inds1 id1 (hw,a,d,bksls) pres1 obj1 bound1
+        dbound1 chk1 fmlt prest objt output then NONE else SOME s) v0)`
+  >- (xapp>>xsimpl)>>
   xapp>>xsimpl>>
   first_x_assum (irule_at Any)>>
   first_x_assum (irule_at Any)>>
@@ -5818,7 +5805,7 @@ Theorem run_concl_file_spec:
   LIST_TYPE fslot_TYPE fml fmlv ∧
   (LIST_TYPE NUM) inds1 inds1v ∧
   NUM id1 id1v ∧
-  ht_TYPE bksv bkslsv ht1 ht1v ∧
+  ht_TYPE (hw,a,d,bksv) ht1v ∧
   obj_TYPE obj objv ∧
   obj_TYPE obj1 obj1v ∧
   pres_TYPE pres1 pres1v ∧
@@ -5828,8 +5815,7 @@ Theorem run_concl_file_spec:
   NUM enum enumv ∧
   LIST_TYPE constraint_TYPE fmlt fmltv ∧
   obj_TYPE objt objtv ∧
-  pres_TYPE prest prestv ∧
-  LIST_REL fslot_TYPE fmlls fmllsv
+  pres_TYPE prest prestv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "run_concl_file" (get_ml_prog_state()))
@@ -5837,7 +5823,7 @@ Theorem run_concl_file_spec:
       fmlv; objv; fml1v; inds1v; id1v; ht1v; pres1v; obj1v; bound1v;
       dbound1v; chk1v; enumv; fmltv; prestv; objtv]
     (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs * NT_TABLE lim st tv *
-      ARRAY fml1v fmllsv * ARRAY bksv bkslsv)
+      ARRAY_OF fslot_TYPE fml1v fmlls * ARRAY_OF NUM bksv bksls)
     (POSTve
       (λv.
        SEP_EXISTS res st'.
@@ -5852,7 +5838,7 @@ Theorem run_concl_file_spec:
           ∃hc.
           parse_output_concl s (MAP toks lines) = SOME (output,hc) ∧
           name_hconcl lim hc st = SOME (hconcl,st') ∧
-          check_output_list fmlls inds1 id1 ht1
+          check_output_list fmlls inds1 id1 (hw,a,d,bksls)
             pres1 obj1 bound1 dbound1 chk1 fmlt prest objt output ∧
           check_hconcl_list fml obj fmlls obj1
           bound1 dbound1 enum hconcl
@@ -5868,11 +5854,13 @@ Proof
   xlet`POSTv v.
     STDIO (fastForwardFD fs fd) *
     INSTREAM_LINES #"\n" fd fdv [] (fastForwardFD fs fd) *
-    NT_TABLE lim st tv * ARRAY fml1v fmllsv * ARRAY bksv bkslsv *
+    NT_TABLE lim st tv * ARRAY_OF fslot_TYPE fml1v fmlls *
+    ARRAY_OF NUM bksv bksls *
     &LIST_TYPE STRING_TYPE lines v`
   >- (
     xapp_spec inputLines_spec>>
-    qexists_tac`NT_TABLE lim st tv * ARRAY fml1v fmllsv * ARRAY bksv bkslsv`>>
+    qexists_tac`NT_TABLE lim st tv * ARRAY_OF fslot_TYPE fml1v fmlls *
+      ARRAY_OF NUM bksv bksls`>>
     xsimpl>>
     qexistsl_tac[`lines`,`fs`,`fd`]>>
     xsimpl)>>
@@ -5889,13 +5877,17 @@ Proof
     simp[SUM_TYPE_def]>>
     xsimpl)>>
   PairCases_on`oc`>>
-  fs[PAIR_TYPE_def,OPTION_TYPE_def]>>
+  fs[OPTION_TYPE_def]>>
+  qpat_x_assum`PAIR_TYPE _ _ (oc0,oc1) _`
+    (strip_assume_tac o REWRITE_RULE[PAIR_TYPE_def])>>
+  gvs[]>>
   xmatch>>
   xlet`POSTve
     (λv. SEP_EXISTS hconcl st1.
       STDIO (fastForwardFD fs fd) *
       INSTREAM_LINES #"\n" fd fdv [] (fastForwardFD fs fd) *
-      NT_TABLE lim st1 tv * ARRAY fml1v fmllsv * ARRAY bksv bkslsv *
+      NT_TABLE lim st1 tv * ARRAY_OF fslot_TYPE fml1v fmlls *
+      ARRAY_OF NUM bksv bksls *
       &(name_hconcl lim oc1 st = SOME (hconcl,st1) ∧
         NPBC_CHECK_HCONCL_TYPE NUM hconcl v))
     (λe. SEP_EXISTS st'.
@@ -5908,7 +5900,7 @@ Proof
     qexistsl_tac[
       `STDIO (fastForwardFD fs fd) *
        INSTREAM_LINES #"\n" fd fdv [] (fastForwardFD fs fd) *
-       ARRAY fml1v fmllsv * ARRAY bksv bkslsv`,
+       ARRAY_OF fslot_TYPE fml1v fmlls * ARRAY_OF NUM bksv bksls`,
       `st`,`lim`,`oc1`,`lno`]>>
     xsimpl>>
     rw[]>>
@@ -5916,7 +5908,7 @@ Proof
     qexists_tac`st1`>>
     xsimpl)
   >- xsimpl>>
-  xlet_autop>>
+  xlet_auto >- (qrefinel [`_`,`fmlls`,`bksls`]>>xsimpl)>>
   pop_assum mp_tac>>
   IF_CASES_TAC
   >- (
@@ -6096,47 +6088,76 @@ Proof
     xpull)>>
   fs[]>>
   xcf "check_unsat'" (get_ml_prog_state ())>>
-  rpt xlet_autop>>
-  qmatch_goalsub_abbrev_tac`ARRAY av avs`>>
-  `LIST_REL fslot_TYPE (REPLICATE (2 * (LENGTH fml + 1)) Empty) avs` by (
-    rw[Abbr`avs`,LIST_REL_REPLICATE_same,fslot_TYPE_def]>>
-    EVAL_TAC)>>
-  xlet`POSTv resv.
-    SEP_EXISTS arrlsv'. ARRAY resv arrlsv' *
-      STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs * NT_TABLE lim st tv *
-      &LIST_REL fslot_TYPE
-        (FOLDL (λacc (i,v). update_resize acc Empty v i)
-          (REPLICATE (2 * (LENGTH fml + 1)) Empty)
-          (enumerate 1 (MAP (λc. enc c T) fml)))
-        arrlsv'`
+  xlet_autop>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet`POSTv arrv.
+    ARRAY_OF fslot_TYPE arrv (REPLICATE (2 * (LENGTH fml + 1)) Empty) *
+    STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs * NT_TABLE lim st tv`
   >- (
-    xapp>>
+    xapp_spec (Q.ISPEC`fslot_TYPE` ARRAY_OF_alloc_spec)>>
+    qexistsl_tac[
+      `STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs * NT_TABLE lim st tv`,
+      `Empty`,`2 * (LENGTH fml + 1)`]>>
     xsimpl>>
-    qexistsl_tac[`MAP (λc. enc c T) fml`,
-                 `REPLICATE (2 * (LENGTH fml + 1)) Empty`]>>
-    simp[])>>
-  rpt xlet_autop>>
-  `BOOL T (Conv (SOME (TypeStamp «True» 0)) [])` by EVAL_TAC>>
-  rpt xlet_autop>>
-  qmatch_goalsub_rename_tac
-    `ARRAY bkv [] * ARRAY assgv _ * ARRAY vimapa (REPLICATE _ vnone) *
-     ARRAY fmla _`>>
-  `fml_bound
-    (FOLDL (λacc (i,v). update_resize acc Empty v i)
-      (REPLICATE (2 * (LENGTH fml + 1)) Empty)
-      (enumerate 1 (MAP (λc. enc c T) fml)))
-    (LENGTH (REPLICATE (mx+1) (0:num)))` by (
-    simp[]>>
-    irule npbc_listTheory.bound_FOLDL_update_resize>>
-    simp[])>>
+    simp[fslot_TYPE_def,NPBC_SLOT_SLOT_TYPE_def])>>
+  xlet_autop>>
   qabbrev_tac`fmlls =
     FOLDL (λacc (i,v). update_resize acc Empty v i)
       (REPLICATE (2 * (LENGTH fml + 1)) Empty)
       (enumerate 1 (MAP (λc. enc c T) fml))`>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet`POSTv vimapa.
+    ARRAY_OF vimapn_TYPE vimapa (REPLICATE (mx + 1) Vnone) *
+    ARRAY_OF fslot_TYPE resv fmlls *
+    STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs * NT_TABLE lim st tv`
+  >- (
+    xapp_spec (Q.ISPEC`vimapn_TYPE` ARRAY_OF_alloc_spec)>>
+    qexistsl_tac[`ARRAY_OF fslot_TYPE resv fmlls *
+      STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs * NT_TABLE lim st tv`,
+      `Vnone`,`mx + 1`]>>
+    xsimpl>>
+    simp[npbc_arrayProgTheory.NPBC_LIST_VENT_TYPE_def])>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet`POSTv assgv.
+    ARRAY_OF NUM assgv (REPLICATE (mx + 1) 0) *
+    ARRAY_OF vimapn_TYPE vimapa (REPLICATE (mx + 1) Vnone) *
+    ARRAY_OF fslot_TYPE resv fmlls *
+    STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs * NT_TABLE lim st tv`
+  >- (
+    xapp_spec (Q.ISPEC`NUM` ARRAY_OF_alloc_spec)>>
+    qexistsl_tac[
+      `ARRAY_OF vimapn_TYPE vimapa (REPLICATE (mx + 1) Vnone) *
+       ARRAY_OF fslot_TYPE resv fmlls *
+       STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs * NT_TABLE lim st tv`,
+      `0`,`mx + 1`]>>
+    xsimpl>>
+    simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet_autop>>
+  assume_tac BOOL_True_Conv>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet_auto_spec (SOME (Q.ISPEC`NUM` ARRAY_OF_arrayEmpty_spec))
+  >- xsimpl>>
+  rpt xlet_autop>>
+  `fml_bound fmlls (LENGTH (REPLICATE (mx+1) (0:num)))` by (
+    simp[Abbr`fmlls`]>>
+    irule npbc_listTheory.bound_FOLDL_update_resize>>
+    simp[])>>
   qabbrev_tac`inds = rev_enum_full 1 (MAP (λc. enc c T) fml)`>>
   qabbrev_tac`vomap = mk_vomap_opt obj`>>
   qabbrev_tac`assg = REPLICATE (mx+1) (0:num)`>>
-  qabbrev_tac`vimap1 = (LENGTH fml, 0:num, REPLICATE (mx+1) Vnone)`>>
   xhandle`POSTve
     (λv. SEP_EXISTS k lines' res st'.
        STDIO (forwardFD fs fd k) *
@@ -6158,20 +6179,21 @@ Proof
   >- (
     xlet`POSTve
       (λv.
-       SEP_EXISTS k lines' lno' fmlv' fmllsv' bksv' bkslsv' l s' res.
+       SEP_EXISTS k lines' lno' l s' fmlv' res0 res1 res2 res3
+           res4 res5 res6 bksv' res7.
          STDIO (forwardFD fs fd k) *
          INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
          NT_TABLE lim s' tv *
-         ARRAY fmlv' fmllsv' * ARRAY bksv' bkslsv' *
-         &(parse_and_run lim st (MAP toks lines) fmlls assg 1 inds vimap1
-             (LENGTH fml + 1) (init_conf T pres obj, vomap, 0, NONE) ht_empty =
-             SOME (MAP toks lines',l,s',res) ∧
-           PAIR_TYPE NUM (
-           PAIR_TYPE line_TYPE (
-           PAIR_TYPE (λl v. LIST_REL fslot_TYPE l fmllsv' ∧ v = fmlv')
-             (PAIR_TYPE (LIST_TYPE NUM)
-               (PAIR_TYPE NPBC_CHECK_PROOF_CONF_TYPE
-                 (PAIR_TYPE NUM (ht_TYPE bksv' bkslsv')))))) (lno',l,res) v))
+         ARRAY_OF fslot_TYPE fmlv' res0 * ARRAY_OF NUM bksv' res7 *
+         &(parse_and_run lim st (MAP toks lines) fmlls assg 1 inds
+             (LENGTH fml,0,REPLICATE (mx+1) Vnone) (LENGTH fml + 1)
+             (init_conf T pres obj, vomap, 0, NONE) (0,0,0,[]) =
+             SOME (MAP toks lines',l,s',
+               (res0,res1,res2,res3,(res4,res5,res6,res7))) ∧
+           PAIR_TYPE NUM (PAIR_TYPE line_TYPE (PAIR_TYPE ($=)
+             (PAIR_TYPE (LIST_TYPE NUM) (PAIR_TYPE NPBC_CHECK_PROOF_CONF_TYPE
+               (PAIR_TYPE NUM ht_TYPE)))))
+             (lno',l,fmlv',res1,res2,res3,(res4,res5,res6,bksv')) v))
       (λe.
        SEP_EXISTS k lines' st'.
          STDIO (forwardFD fs fd k) *
@@ -6180,53 +6202,29 @@ Proof
     >- (
       xapp>>
       xsimpl>>
-      qexistsl_tac[`emp`,`REPLICATE (mx+1) vnone`,`vimapa`,`vimap1`,`st`,
-                   `lines`,`lim`,`inds`,`LENGTH fml + 1`,`ht_empty`,`fs`,
-                   `fmlls`,`fd`,`(init_conf T pres obj, vomap, 0, NONE)`,
-                   `bkv`,`[]`,`assg`,`lno`]>>
+      qexistsl_tac[`emp`,`0`,`vimapa`,`st`,`LENGTH fml`,`lines`,`lim`,`inds`,
+        `LENGTH fml + 1`,`0`,`fs`,`fmlls`,`fd`,`REPLICATE (mx+1) Vnone`,`0`,
+        `(init_conf T pres obj, vomap, 0, NONE)`,`av`,`[]`,`assg`,`0`,`lno`]>>
       xsimpl>>
-      conj_tac
-      >- simp[init_conf_def,npbc_listTheory.mk_ord_pre_def]>>
-      conj_tac
-      >- simp[Abbr`assg`,ccnf_dmTheory.stamps_ok_REPLICATE]>>
-      conj_tac
-      >- (
-        simp[PAIR_TYPE_def,Abbr`vomap`]>>
-        simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def,
-             OPTION_TYPE_def])>>
-      conj_tac
-      >- (
-        simp[npbc_arrayProgTheory.VIMAP_TYPE_def,PAIR_TYPE_def,Abbr`vimap1`,
-             LIST_REL_REPLICATE_same]>>
-        simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def]>>
-        EVAL_TAC)>>
-      conj_tac
-      >- (
-        simp[ht_TYPE_def,npbc_slotTheory.ht_empty_def,PAIR_TYPE_def]>>
-        simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def])>>
-      conj_tac
-      >- (
-        simp[ccnf_arithTheory.NUM_ARRAY_def,Abbr`assg`]>>
-        xsimpl>>
-        simp[LIST_REL_REPLICATE_same]>>
-        EVAL_TAC)>>
+      fs[init_conf_def,npbc_listTheory.mk_ord_pre_def,Abbr`assg`,
+        ccnf_dmTheory.stamps_ok_REPLICATE,Abbr`vomap`,PAIR_TYPE_def,
+        ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def,
+        OPTION_TYPE_def]>>
       rw[]
       >- (
         qmatch_goalsub_rename_tac
-          `STDIO (forwardFD fs fd kk) * INSTREAM_LINES _ fd fdv ll _ *
-           ARRAY _ _ * ARRAY _ _ ==>> _`>>
+          `STDIO (forwardFD fs fd kk) * INSTREAM_LINES _ fd fdv ll _`>>
         qexistsl_tac[`kk`,`ll`]>>
         simp[]>>
         rpt (first_assum (irule_at Any))>>
         xsimpl)>>
       qmatch_goalsub_rename_tac
-        `_ * NT_TABLE lim ss tv * STDIO (forwardFD fs fd kk) *
-         INSTREAM_LINES _ fd fdv ll _ ==>> _`>>
+        `ARRAY_OF fslot_TYPE _ _ * NT_TABLE lim ss tv *
+         STDIO (forwardFD fs fd kk) * INSTREAM_LINES _ fd fdv ll _`>>
       qexistsl_tac[`kk`,`ll`,`ss`]>>
       xsimpl)
     >- xsimpl>>
     gvs[]>>
-    PairCases_on`res`>>
     fs[PAIR_TYPE_def]>>
     xmatch>>
     rpt xlet_autop>>
@@ -6254,11 +6252,10 @@ Proof
       xsimpl>>
       fs[get_pres_def,get_obj_def,get_bound_def,get_dbound_def,get_chk_def,
          get_enum_def]>>
-      qexistsl_tac[`emp`,`s'`,`l`,`prest`,`res2.pres`,`objt`,`res2.obj`,`obj`,
-                   `lines'`,`lim`,`res1`,`res3`,`(res4,res5,res6,res7)`,
-                   `forwardFD fs fd k`,`fmlt`,`res0`,`MAP (λc. enc c T) fml`,
-                   `fd`,`res2.enum`,`res2.dbound`,`res2.chk`,`res2.bound`,
-                   `bksv'`,`bkslsv'`,`lno'`]>>
+      qexistsl_tac[`emp`,`s'`,`l`,`prest`,`res2.pres`,`objt`,`res2.obj`,
+        `obj`,`lines'`,`lim`,`res1`,`res3`,`res4`,`forwardFD fs fd k`,`fmlt`,
+        `res0`,`MAP (λc. enc c T) fml`,`fd`,`res2.enum`,`res2.dbound`,`res6`,
+        `res2.chk`,`res2.bound`,`bksv'`,`res7`,`res5`,`lno'`]>>
       xsimpl>>
       `∃k'. fastForwardFD (forwardFD fs fd k) fd =
             forwardFD (forwardFD fs fd k) fd k'` by (
@@ -6266,6 +6263,7 @@ Proof
         simp[fsFFIPropsTheory.get_fd_content_forwardFD])>>
       simp[forwardFD_o]>>
       rw[]
+      >- fs[PAIR_TYPE_def]
       >- (
         qmatch_goalsub_rename_tac`_ * NT_TABLE lim ss tv ==>> _`>>
         qmatch_asmsub_rename_tac`SUM_TYPE _ _ rr _`>>
@@ -6395,11 +6393,11 @@ Proof
     xapp_spec input_toks_spec
     \\ qexists_tac ‘emp’
     \\ xsimpl
-    \\ metis_tac[forwardFD_o,STDIO_INSTREAM_LINES_refl,STDIO_INSTREAM_LINES_refl_gc]
+    \\ metis_tac[forwardFD_o,SEP_IMP_REFL,SEP_IMP_REFL_gc]
     )>>
   xapp>>
   xsimpl>>
-  metis_tac[forwardFD_o,STDIO_INSTREAM_LINES_refl,STDIO_INSTREAM_LINES_refl_gc]
+  metis_tac[forwardFD_o,SEP_IMP_REFL,SEP_IMP_REFL_gc]
 QED
 
 Definition notfound_string_def:
@@ -6509,7 +6507,7 @@ Proof
     xapp>>
     qexists_tac`NT_TABLE lim st tv`>>
     xsimpl>>
-    metis_tac[STDIO_INSTREAM_LINES_refl,STDIO_INSTREAM_LINES_refl_gc,
+    metis_tac[SEP_IMP_REFL,SEP_IMP_REFL_gc,
               STAR_COMM])>>
   qmatch_goalsub_abbrev_tac`INSTREAM_LINES #"\n" fd fdv _ fsss`>>
   reverse (Cases_on`res`)>>

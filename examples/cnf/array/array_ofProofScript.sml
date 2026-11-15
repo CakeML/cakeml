@@ -21,6 +21,24 @@ Proof
   xsimpl
 QED
 
+Theorem SEP_IMP_REFL_gc:
+  p ==>> p * GC
+Proof
+  xsimpl
+QED
+
+(* Every element of the list satisfies what its refinement implies *)
+Theorem ARRAY_OF_EVERY:
+  (∀x v. A x v ⇒ P x) ⇒
+  ARRAY_OF A av xs = ARRAY_OF A av xs * &EVERY P xs
+Proof
+  rw[ARRAY_OF_def,SEP_CLAUSES,GSYM STAR_ASSOC,cond_ELIM]>>
+  `∀vs. LIST_REL A xs vs ∧ EVERY P xs ⇔ LIST_REL A xs vs` by (
+    rw[EQ_IMP_THM,LIST_REL_EL_EQN,EVERY_EL]>>
+    metis_tac[])>>
+  simp[]
+QED
+
 Theorem ARRAY_OF_alloc_spec:
   ∀A n nv x v.
   NUM n nv ∧ A x v ⇒
@@ -32,6 +50,17 @@ Proof
   xapp_spec array_alloc_spec>>xsimpl>>
   qexists_tac`n`>>
   simp[LIST_REL_REPLICATE_same]
+QED
+
+Theorem ARRAY_OF_arrayEmpty_spec:
+  ∀A uv.
+  UNIT_TYPE () uv ⇒
+  app (p:'ffi ffi_proj) Array_arrayEmpty_v
+    [uv]
+    emp (POSTv av. ARRAY_OF A av [])
+Proof
+  rw[ARRAY_OF_def]>>
+  xapp_spec array_alloc_empty_spec>>xsimpl
 QED
 
 Theorem ARRAY_OF_length_spec:
@@ -61,6 +90,23 @@ Proof
   imp_res_tac LIST_REL_LENGTH>>
   xapp_spec array_sub_spec>>xsimpl>>
   qexists_tac`n`>>
+  gvs[LIST_REL_EL_EQN]
+QED
+
+Theorem ARRAY_OF_lookup_spec:
+  ∀A xs av d dv n nv.
+  NUM n nv ∧ A d dv ⇒
+  app (p:'ffi ffi_proj) Array_lookup_v
+    [av; dv; nv]
+    (ARRAY_OF A av xs)
+    (POSTv v. &A (any_el n xs d) v * ARRAY_OF A av xs)
+Proof
+  rw[ARRAY_OF_def]>>
+  xpull>>
+  imp_res_tac LIST_REL_LENGTH>>
+  xapp_spec array_lookup_spec>>xsimpl>>
+  qexists_tac`n`>>
+  rw[any_el_ALT]>>
   gvs[LIST_REL_EL_EQN]
 QED
 
@@ -164,6 +210,24 @@ Proof
   simp[]
 QED
 
+Theorem ARRAY_OF_subvector_spec:
+  ∀A xs av off offv len lenv.
+  NUM off offv ∧ NUM len lenv ∧ off + len ≤ LENGTH xs ⇒
+  app (p:'ffi ffi_proj) Array_subvector_v
+    [av; offv; lenv]
+    (ARRAY_OF A av xs)
+    (POSTv v.
+      &VECTOR_TYPE A (Vector (TAKE len (DROP off xs))) v * ARRAY_OF A av xs)
+Proof
+  rw[ARRAY_OF_def]>>
+  xpull>>
+  imp_res_tac LIST_REL_LENGTH>>
+  xapp_spec array_subvector_spec>>xsimpl>>
+  simp[VECTOR_TYPE_def]>>
+  qexistsl_tac[`off`,`len`]>>
+  simp[LIST_REL_TAKE,LIST_REL_DROP]
+QED
+
 Theorem LIST_REL_unique:
   (∀x y v. A x v ∧ A y v ⇒ x = y) ⇒
   ∀xs ys vs. LIST_REL A xs vs ∧ LIST_REL A ys vs ⇒ xs = ys
@@ -172,6 +236,16 @@ Proof
   Induct>>rw[]>>
   Cases_on`ys`>>gvs[]>>
   metis_tac[]
+QED
+
+Theorem VECTOR_TYPE_inj:
+  (∀x y v. A x v ∧ A y v ⇒ x = y) ⇒
+  ∀x y v. VECTOR_TYPE A x v ∧ VECTOR_TYPE A y v ⇒ x = y
+Proof
+  strip_tac>>
+  Cases>>Cases>>
+  rw[VECTOR_TYPE_def]>>
+  metis_tac[LIST_REL_unique]
 QED
 
 (* For an injective refinement, the array's pointer determines its list *)
@@ -187,6 +261,15 @@ Proof
     `vs' = vs` by metis_tac[cfLetAutoTheory.UNIQUE_ARRAYS]>>
     gvs[]>>
     metis_tac[LIST_REL_unique])>>
+  metis_tac[]
+QED
+
+Theorem ARRAY_OF_EqualityType_HPROP_INJ:
+  EqualityType A ⇒
+  HPROP_INJ (ARRAY_OF A av xs) (ARRAY_OF A av xs') (xs' = xs)
+Proof
+  rw[EqualityType_def]>>
+  irule ARRAY_OF_HPROP_INJ>>
   metis_tac[]
 QED
 

@@ -21,10 +21,8 @@ Theorem ARRAY_OF_vcclause_HPROP_INJ[hprop_inj]:
     (xs' = xs)
 Proof
   irule ARRAY_OF_HPROP_INJ>>
-  Cases>>Cases>>
-  rw[VECTOR_TYPE_def]>>
-  `∀x y v. INT x v ∧ INT y v ⇒ x = y` by simp[INT_def]>>
-  metis_tac[LIST_REL_unique]
+  match_mp_tac VECTOR_TYPE_inj>>
+  simp[INT_def]
 QED
 
 (* TODO: MOVE? *)

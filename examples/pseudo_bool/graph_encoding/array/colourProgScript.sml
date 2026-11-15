@@ -528,13 +528,18 @@ Proof
   Cases_on`anns`>>fs[PAIR_TYPE_def]>>
   xmatch>>
   xlet_autop>>
-  gvs[npbc_arrayProgTheory.OPTION_TYPE_SPLIT]
+  rename1`lazy_full_encode_ann g ob anns`>>
+  Cases_on`lazy_full_encode_ann g ob anns`>>
+  fs[OPTION_TYPE_def]
   >- (
     xmatch>>
     xcon>>xsimpl>>
     qexists_tac`INL «Input OPB not subset of encoding\n»`>>
     simp[SUM_TYPE_def])>>
-  gvs[npbc_arrayProgTheory.PAIR_TYPE_SPLIT]>>
+  rename1`lazy_full_encode_ann _ _ _ = SOME nfml`>>
+  PairCases_on`nfml`>>
+  PairCases_on`ob`>>
+  fs[PAIR_TYPE_def]>>
   xmatch>>
   rpt xlet_autop>>
   xcon>>

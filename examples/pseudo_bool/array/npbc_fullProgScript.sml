@@ -4,6 +4,7 @@
 Theory npbc_fullProg
 Ancestors
   basis_ffi pb_parse pbc_normalise name_table npbc_parseProg mlint
+  array_ofProof
 Libs
   preamble basis
 
@@ -321,7 +322,7 @@ Proof
     xsimpl>>
     rw[]>>
     simp[forwardFD_o]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
+    metis_tac[SEP_IMP_REFL_gc])>>
   xif>>asm_exists_tac>>simp[]>>
   rpt xlet_autop>>
   xcon>>xsimpl>>
@@ -662,7 +663,7 @@ Proof
     qexistsl_tac [`NT_TABLE NONE s tv`,`lines`,`fs`,`fd`]>>
     xsimpl>>
     rw[Abbr`fl`]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
+    metis_tac[SEP_IMP_REFL_gc])>>
   fs[PAIR_TYPE_def]>>
   xmatch>>
   xlet`(POSTv v.
@@ -681,7 +682,7 @@ Proof
     xsimpl>>
     rw[]>>
     fs[forwardFD_o,DROP_DROP_T]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
+    metis_tac[SEP_IMP_REFL_gc])>>
   fs[PAIR_TYPE_def]>>
   xmatch>>
   qmatch_goalsub_abbrev_tac`STDIO fs2`>>
