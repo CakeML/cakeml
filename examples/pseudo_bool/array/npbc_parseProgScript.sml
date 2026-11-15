@@ -4,7 +4,7 @@
 Theory npbc_parseProg
 Ancestors
   npbc_check pb_parse name_table array_ofProof npbc_arrayProg pbc_normalise
-  mlint
+  mlint input_lex input_lexProg
 Libs
   preamble basis
 
@@ -288,136 +288,6 @@ val colon_id_opt_side = Q.prove(
 
 
 val r = translate check_end_def;
-
-val r = translate blanks_def;
-
-val r = translate scan_end_def;
-
-Theorem scan_end_side[local]:
-  ∀s n j. n = strlen s ∧ j ≤ n ⇒ scan_end_side s n j
-Proof
-  ho_match_mp_tac scan_end_ind>>
-  rpt gen_tac>>strip_tac>>
-  rpt strip_tac>>
-  `ORD (strsub s j) < 256` by simp[ORD_BOUND]>>
-  simp[Once (fetch "-" "scan_end_side_def")]>>
-  fs[smallnum_lt_str_def,smallnum_add_str_def,smallnum_eq_def,smallnum_lt_def,
-     semanticPrimitivesTheory.index_in_bounds_def,
-     mlstringTheory.strsub_unsafe_eq_strsub]
-QED
-
-val r = translate num_run_def;
-
-Theorem num_run_side[local]:
-  ∀s e j acc k.
-  e ≤ strlen s ∧ j ≤ e ∧ k ≤ 9 ∧ (k < 9 ⇒ acc < 10 ** k) ⇒
-  num_run_side s e j acc k
-Proof
-  ho_match_mp_tac num_run_ind>>
-  rpt gen_tac>>strip_tac>>
-  rpt strip_tac>>
-  `ORD (strsub s j) < 256` by simp[ORD_BOUND]>>
-  `k < 9 ⇒ acc < 10 ** 8` by (
-    strip_tac>>
-    irule LESS_LESS_EQ_TRANS>>
-    qexists_tac`10 ** k`>>
-    simp[EXP_BASE_LE_MONO])>>
-  simp[Once (fetch "-" "num_run_side_def")]>>
-  fs[smallnum_lt_str_def,smallnum_add_str_def,smallnum_le_def,smallnum_lt_def,
-     smallnum_add_def,smallnum_sub_def,smallnum_mul_def,
-     semanticPrimitivesTheory.index_in_bounds_def,
-     mlstringTheory.strsub_unsafe_eq_strsub]>>
-  rw[]>>
-  first_x_assum irule>>
-  rw[EXP_ADD]
-QED
-
-val r = translate tok_val_def;
-
-Theorem tok_val_side[local]:
-  i < e ∧ e ≤ strlen s ⇒ tok_val_side s i e
-Proof
-  rw[fetch "-" "tok_val_side_def"]>>
-  `ORD (strsub s i) < 256 ∧ ORD (strsub s (i + 1)) < 256` by simp[ORD_BOUND]>>
-  fs[smallnum_lt_str_def,smallnum_add_str_def,smallnum_sub_str_def,
-     smallnum_le_def,smallnum_eq_def,smallnum_sub_def,
-     mlstringTheory.strsub_unsafe_eq_strsub]>>
-  irule num_run_side>>
-  simp[]
-QED
-
-val r = translate scan_toks_def;
-
-Theorem scan_toks_side[local]:
-  ∀s n j. n = strlen s ∧ j ≤ n ⇒ scan_toks_side s n j
-Proof
-  ho_match_mp_tac scan_toks_ind>>
-  rpt gen_tac>>strip_tac>>
-  rpt strip_tac>>
-  `ORD (strsub s j) < 256` by simp[ORD_BOUND]>>
-  simp[Once (fetch "-" "scan_toks_side_def")]>>
-  fs[smallnum_lt_str_def,smallnum_add_str_def,smallnum_eq_def,smallnum_lt_def,
-     semanticPrimitivesTheory.index_in_bounds_def,
-     mlstringTheory.strsub_unsafe_eq_strsub]>>
-  strip_tac>>
-  qspecl_then[`s`,`strlen s`,`j + 1`,`scan_end s (strlen s) (j + 1)`] mp_tac
-    scan_end_thm>>
-  simp[]>>
-  strip_tac>>
-  rw[]
-  >>~- ([`tok_val_side _ _ _`], irule tok_val_side>>simp[])
-  >>~- ([`scan_end_side _ _ _`], irule scan_end_side>>simp[])>>
-  first_x_assum irule>>
-  simp[]
-QED
-
-val r = translate toks_scan_toks;
-
-Theorem toks_side[local]:
-  toks_side s ⇔ T
-Proof
-  rw[fetch "-" "toks_side_def"]>>
-  irule scan_toks_side>>simp[]
-QED
-
-val _ = toks_side |> update_precondition;
-
-Quote add_cakeml:
-  fun input_toks fd =
-    case TextIO.inputLineWith #"\n" fd of
-      None => None
-    | Some l => Some (toks l)
-End
-
-Theorem input_toks_spec:
-  app (p:'ffi ffi_proj) ^(fetch_v "input_toks" (get_ml_prog_state())) [fdv]
-    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
-    (POSTv v.
-      SEP_EXISTS k.
-        STDIO (forwardFD fs fd k) *
-        INSTREAM_LINES #"\n" fd fdv (TL lines) (forwardFD fs fd k) *
-        &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
-          (OPTION_MAP toks (oHD lines)) v)
-Proof
-  xcf "input_toks" (get_ml_prog_state ())>>
-  xlet ‘(POSTv v.
-          SEP_EXISTS k.
-            STDIO (forwardFD fs fd k) *
-            INSTREAM_LINES #"\n" fd fdv (TL lines) (forwardFD fs fd k) *
-            &OPTION_TYPE STRING_TYPE (oHD lines) v)’
-  >- (
-    xapp_spec inputLineWith_spec_lines>>
-    EVAL_TAC)>>
-  Cases_on`lines`>>
-  fs[OPTION_TYPE_def]>>
-  xmatch
-  >- (
-    xcon>>xsimpl>>
-    qexists_tac`k`>>xsimpl)>>
-  xlet_autop>>
-  xcon>>xsimpl>>
-  qexists_tac`k`>>xsimpl
-QED
 
 val r = translate check_mark_qed_id_opt_def;
 val r = translate check_mark_qed_id_def;
@@ -6399,12 +6269,6 @@ Proof
   xsimpl>>
   metis_tac[forwardFD_o,SEP_IMP_REFL,SEP_IMP_REFL_gc]
 QED
-
-Definition notfound_string_def:
-  notfound_string f = concat[«c Input file: »;f;« no such file or directory\n»]
-End
-
-val r = translate notfound_string_def;
 
 Quote add_cakeml:
   fun check_unsat_top b tv fml mx pres obj fmlt prest objt fname =

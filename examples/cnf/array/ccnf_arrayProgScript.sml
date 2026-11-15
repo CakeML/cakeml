@@ -3,7 +3,7 @@
 *)
 Theory ccnf_arrayProg
 Ancestors
-  UnsafeProg UnsafeProof
+  UnsafeProg UnsafeProof input_lexProg
   ccnf ccnf_list ccnf_dm mlint syntax_helper array_ofProof ccnf_arith
 Libs
   preamble basis blastLib
@@ -12,7 +12,7 @@ val _ = hide_environments true;
 
 (* Default inheritance path, means all programs will use
   the unsafe primitives *)
-val _ = translation_extends"UnsafeProg";
+val _ = translation_extends"input_lexProg";
 
 Overload "vcclause_TYPE" = ``VECTOR_TYPE INT``
 

@@ -5,11 +5,11 @@ Theory npbc_arrayProg
 Libs
   preamble basis MapProgLib
 Ancestors
-  UnsafeProg UnsafeProof npbc npbc_slot npbc_list pb_parse array_ofProof
-  ccnf_arith ccnf_dm mlint
+  UnsafeProg UnsafeProof input_lexProg npbc npbc_slot npbc_list pb_parse
+  array_ofProof ccnf_arith ccnf_dm mlint
 
 val _ = hide_environments true;
-val _ = translation_extends"UnsafeProg";
+val _ = translation_extends"input_lexProg";
 
 val _ = MapProgLib.add_fmap_for_cmp miscTheory.TotOrd_num_cmp;
 

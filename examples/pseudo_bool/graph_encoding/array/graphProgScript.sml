@@ -3,7 +3,7 @@
 *)
 Theory graphProg
 Ancestors
-  npbc_parseProg graph_basic
+  npbc_parseProg graph_basic input_lex input_lexProg
 Libs
   preamble basis
 
@@ -22,8 +22,7 @@ val res = translate COUNT_LIST_compute;
 val res = translate not_neighbours_def;
 val res = translate strict_not_neighbours_def;
 
-(* shared parsing LAD and DIMACS
-  TODO: blanks already translated using the copy in pb_parse *)
+(* shared parsing LAD and DIMACS *)
 val _ = translate graph_basicTheory.tokenize_num_def;
 
 (* LAD parser *)
@@ -68,13 +67,6 @@ Quote add_cakeml:
   | Some lines => lad_result f lines)
 End
 
-Theorem blanks_eq[simp]:
-  graph_basic$blanks = pb_parse$blanks
-Proof
-  rw[FUN_EQ_THM]>>
-  simp[pb_parseTheory.blanks_def,blanks_def]
-QED
-
 (* get_graph_lad *)
 Definition get_graph_lad_def:
   get_graph_lad fs f =
@@ -115,7 +107,7 @@ Proof
   >- (
     xapp_spec inputAllTokensFile_spec_specialize >>
     xsimpl>>
-    simp[pb_parseTheory.blanks_def]>>
+    simp[blanks_def]>>
     fs[FILENAME_def,validArg_def,blanks_v_thm]>>
     first_x_assum (irule_at Any)>>
     first_x_assum (irule_at Any)>>
@@ -196,7 +188,7 @@ Proof
   >- (
     xapp_spec inputAllTokensFile_spec_specialize >>
     xsimpl>>
-    simp[pb_parseTheory.blanks_def]>>
+    simp[blanks_def]>>
     fs[FILENAME_def,validArg_def,blanks_v_thm]>>
     first_x_assum (irule_at Any)>>
     first_x_assum (irule_at Any)>>

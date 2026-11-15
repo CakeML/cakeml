@@ -3,7 +3,7 @@
 *)
 Theory ccnf
 Ancestors
-  cnf syntax_helper dimacs mlvector mllist
+  cnf syntax_helper input_lex dimacs mlvector mllist
 Libs
   preamble
 

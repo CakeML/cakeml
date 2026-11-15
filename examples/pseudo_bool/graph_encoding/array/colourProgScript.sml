@@ -4,7 +4,7 @@
 Theory colourProg
 Ancestors
   basis_ffi pbc_normalise graphProg colour graph_basic
-    npbc_parseProg pb_parse
+    npbc_parseProg pb_parse input_lex input_lexProg
 Libs
   preamble basis
 
@@ -60,7 +60,7 @@ val r = translate parse_pbf_ann_def;
 
 Quote add_cakeml:
   fun parse_pbf_full f =
-  (case TextIO.inputAllTokensFile #"\n" f blanks tokenize of
+  (case input_toks_full f of
     None => Inl (notfound_string f)
   | Some lines =>
   (case parse_pbf_ann lines of
@@ -68,15 +68,6 @@ Quote add_cakeml:
   | Some res => Inr res
   ))
 End
-
-val inputAllTokensFile_spec_specialize =
-  inputAllTokensFile_spec
-  |> Q.GEN `f` |> Q.SPEC`blanks`
-  |> Q.GEN `fv` |> Q.SPEC`blanks_v`
-  |> Q.GEN `g` |> Q.ISPEC`tokenize`
-  |> Q.GEN `gv` |> Q.ISPEC`tokenize_v`
-  |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
-  |> REWRITE_RULE [blanks_v_thm,tokenize_v_thm] ;
 
 Definition get_annots_def:
   get_annots fs f =
@@ -113,24 +104,16 @@ Proof
     fs [STDIO_def,IOFS_def,wfFS_def,consistentFS_def]
     \\ xpull \\ metis_tac[]) >>
   xlet`(POSTv sv. &OPTION_TYPE (LIST_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)))
-            (if inFS_fname fs f then
-               SOME(MAP (MAP tokenize o tokens blanks) (all_lines_file fs f))
+            (if inFS_fname fs f then SOME (MAP toks (all_lines_file fs f))
              else NONE) sv * STDIO fs)`
   >- (
-    xapp_spec inputAllTokensFile_spec_specialize >>
+    xapp_spec input_toks_full_spec>>
     xsimpl>>
-    simp[pb_parseTheory.blanks_def]>>
-    fs[FILENAME_def,validArg_def,blanks_v_thm]>>
-    first_x_assum (irule_at Any)>>
-    first_x_assum (irule_at Any)>>
-    first_x_assum (irule_at Any)>>
-    qexists_tac`emp`>>xsimpl)>>
+    fs[FILENAME_def,validArg_def])>>
   simp[get_annots_def]>>
   IF_CASES_TAC>>fs[OPTION_TYPE_def]>>xmatch
   >- (
     xlet_autop>>
-    `toks = (MAP tokenize ∘ tokens blanks)` by
-      rw[FUN_EQ_THM,toks_def]>>
     qmatch_goalsub_abbrev_tac`option_CASE AAA`>>
     Cases_on`AAA`>>
     gvs[OPTION_TYPE_def]
@@ -324,7 +307,7 @@ Proof
   >- (
     xapp_spec inputAllTokensFile_spec_specialize_num >>
     xsimpl>>
-    simp[pb_parseTheory.blanks_def]>>
+    simp[blanks_def]>>
     fs[FILENAME_def,validArg_def,blanks_v_thm]>>
     first_x_assum (irule_at Any)>>
     first_x_assum (irule_at Any)>>

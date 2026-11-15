@@ -20,3 +20,7 @@ This refines the CCNF functions to a fixed-size, list-based implementation.
 
 [ccnf_parseProgScript.sml](ccnf_parseProgScript.sml):
 Adds file-level parsing and formula construction to ccnf_arrayProg
+
+[input_lexProgScript.sml](input_lexProgScript.sml):
+Translation of the input lexer and the DIMACS helpers, and the readers
+that tokenize the lines of an input stream or file
