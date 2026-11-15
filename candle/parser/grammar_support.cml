@@ -18,7 +18,6 @@ structure CandleGrammarSupport = struct
   fun tok p f = CandlePeg.Tok p f;
   fun seq a b f = CandlePeg.Seq a b f;
   fun rpt e f = CandlePeg.Rpt e f;
-  fun pnt n = CandlePeg.Nt (Inl n) identity;
   fun choicel xs = case xs of
       [] => CandlePeg.Not (empty []) []
     | h::t => CandlePeg.Choice h (choicel t) sumID;
@@ -40,27 +39,31 @@ structure CandleGrammarSupport = struct
   fun isIdent t = case t of IdentT _ => True | _ => False;
   fun validCoreOpChar c = Char.contains "$&*+-/=>@^|" c;
   fun validOpChar c = Char.contains "!?%<:." c orelse validCoreOpChar c;
-  fun opName first s = case String.explode s of
-      [] => False | h::t => first h t andalso List.all validOpChar t;
+  (* f applied to the first character of s and the rest of s; False on "". *)
+  fun headTail f s = s <> "" andalso f (String.sub s 0) (String.extract s 1 None);
+  fun opName first s =
+    headTail (fn h => fn t => first h t andalso CandleString.all validOpChar t) s;
   fun validPrefixSym s = opName (fn h => fn t =>
-    h = #"!" orelse h = #"?" orelse (h = #"~" andalso t <> [])) s;
+    h = #"!" orelse h = #"?" orelse (h = #"~" andalso t <> "")) s;
   fun validInfixSym s = opName (fn h => fn t =>
     validCoreOpChar h orelse h = #"%" orelse h = #"<" orelse
-    (h = #"#" andalso t <> [])) s;
+    (h = #"#" andalso t <> "")) s;
   fun validMultOp s = s = "%" orelse s = "/" orelse
-    opName (fn h => fn t => Char.contains "*%/" h andalso t <> []) s;
-  fun validAddOp s = opName (fn h => fn t => Char.contains "+-" h andalso t <> []) s;
-  fun validRelOp s = opName (fn h => fn t => Char.contains "=<>|&$" h andalso t <> []) s;
-  fun validShiftOp s = case String.explode s of
-      #"*" :: #"*" :: t => List.all validOpChar t | _ => False;
-  fun validCatOp s = opName (fn h => fn t => h = #"@" orelse Char.ord h = 94) s;
-  fun idChar p cs = List.all (fn c => p c orelse c = #"_" orelse c = #"'" orelse Char.isDigit c) cs;
-  fun identUpperLower s = case String.explode s of [] => False
-    | h::t => Char.isUpper h andalso idChar Char.isLower t andalso List.exists Char.isLower t;
-  fun identMixed s = case String.explode s of [] => False
-    | h::t => idChar Char.isAlpha t andalso
-        (Char.isLower h orelse h = #"_" orelse
-         (Char.isUpper h andalso (not (List.exists Char.isAlpha t) orelse List.exists Char.isUpper t)));
-  fun identLower s = case String.explode s of [] => False
-    | h::t => (Char.isLower h orelse h = #"_") andalso idChar Char.isAlpha t;
+    opName (fn h => fn t => Char.contains "*%/" h andalso t <> "") s;
+  fun validAddOp s = opName (fn h => fn t => Char.contains "+-" h andalso t <> "") s;
+  fun validRelOp s = opName (fn h => fn t => Char.contains "=<>|&$" h andalso t <> "") s;
+  fun validShiftOp s =
+    String.isPrefix "**" s andalso CandleString.all validOpChar (String.extract s 2 None);
+  fun validCatOp s = opName (fn h => fn t => h = #"@" orelse h = #"^") s;
+  fun idChar p c = p c orelse c = #"_" orelse c = #"'" orelse Char.isDigit c;
+  fun identUpperLower s = headTail (fn h => fn t =>
+    Char.isUpper h andalso CandleString.all (idChar Char.isLower) t andalso
+    CandleString.exists Char.isLower t) s;
+  fun identMixed s = headTail (fn h => fn t =>
+    CandleString.all (idChar Char.isAlpha) t andalso
+    (Char.isLower h orelse h = #"_" orelse
+     (Char.isUpper h andalso
+      (not (CandleString.exists Char.isAlpha t) orelse CandleString.exists Char.isUpper t)))) s;
+  fun identLower s = headTail (fn h => fn t =>
+    (Char.isLower h orelse h = #"_") andalso CandleString.all (idChar Char.isAlpha) t) s;
 end;

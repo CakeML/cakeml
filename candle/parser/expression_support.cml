@@ -11,7 +11,7 @@ structure CandleExpressionSupport = struct
            | _ => Ast.Con (Some id) [e])
         else Ast.Con (Some id) [e]
     | Ast.Short nm =>
-        if member nm ["Abs","Var","Const","Comb","Tyapp","Sequent","Append"] then
+        if List.member nm ["Abs","Var","Const","Comb","Tyapp","Sequent","Append"] then
           (case e of Ast.Con None xs => Ast.Con (Some id) xs
            | _ => Ast.Con (Some id) [e])
         else if nm = "Ref" then Ast.App Ast.Opref [e]

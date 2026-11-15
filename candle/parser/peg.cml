@@ -36,10 +36,10 @@ structure CandlePeg = struct
 
   val eof = CandleLocation.Locs CandleLocation.Eofpt CandleLocation.Eofpt;
   fun sloc input = case input of [] => eof | (_,l)::_ => l;
-  fun maxerr (l1,e1) (l2,e2) =
-    if CandleSupport.locsle l1 l2 then (l2,e2) else (l1,e1);
-  fun ome x y = case (x,y) of
-      (None,_) => y | (_,None) => x | (Some a,Some b) => Some (maxerr a b);
+  fun maxerr a b = if CandleSupport.locsle (fst a) (fst b) then b else a;
+  fun ome eo err = case eo of
+      None => Some err
+    | Some a => if CandleSupport.locsle (fst a) (fst err) then Some err else eo;
   fun poplist_aux acc r = case r of
       Some h::t => poplist_aux (h::acc) t
     | None::t => (acc,t) | [] => (acc,[]);
@@ -53,15 +53,15 @@ structure CandlePeg = struct
       | EV (Any tf) i r eo errs k fk =>
           (case i of
             [] => let val err = (eof,anyEOF)
-                  in loop (AP fk i r (ome eo (Some err)) (err::errs)) end
+                  in loop (AP fk i r (ome eo err) (err::errs)) end
           | h::t => loop (AP k t (Some (tf h)::r) eo errs))
       | EV (Tok p tf) i r eo errs k fk =>
           (case i of
             [] => let val err = (eof,tokEOF)
-                  in loop (AP fk i r (ome eo (Some err)) (err::errs)) end
+                  in loop (AP fk i r (ome eo err) (err::errs)) end
           | (token,l)::t => if p token then loop (AP k t (Some (tf (token,l))::r) eo errs)
-                    else let val err = (sloc i,tokFALSE)
-                         in loop (AP fk i r (ome eo (Some err)) (err::errs)) end)
+                    else let val err = (l,tokFALSE)
+                         in loop (AP fk i r (ome eo err) (err::errs)) end)
       | EV (Nt n tf) i r eo errs k fk =>
           (case rules n of None => Looped
            | Some e => loop (EV e i r eo errs (Appf1 tf k) fk))
@@ -79,15 +79,16 @@ structure CandlePeg = struct
             (RestoreEO eo (ReturnTo i (Some v::r) (DropErr k))))
       | EV (Error e) i r eo errs k fk =>
           let val err = (sloc i,e)
-          in loop (AP fk i r (ome eo (Some err)) (err::errs)) end
+          in loop (AP fk i r (ome eo err) (err::errs)) end
       | AP Done i (Some v::_) eo errs => Result (Success i v eo)
       | AP Failed i r eo ((l,e)::_) => Result (Failure l e)
       | AP (DropErr k) i r eo (_::t) => loop (AP k i r eo t)
       | AP (AddErr l e k) i r eo errs =>
-          loop (AP k i r (ome eo (Some (l,e))) ((l,e)::errs))
+          let val err = (l,e)
+          in loop (AP k i r (ome eo err) (err::errs)) end
       | AP (CmpErrs k) i r eo (e2::e1::rest) => loop (AP k i r eo (maxerr e1 e2::rest))
       | AP (CmpEO eo1 k) i r eo2 (err::rest) =>
-          loop (AP k i r (ome eo1 (Some err)) (err::rest))
+          loop (AP k i r (ome eo1 err) (err::rest))
       | AP (Ksym e k fk) i r eo errs => loop (EV e i r eo errs k fk)
       | AP (Appf1 f k) i (Some v::r) eo errs => loop (AP k i (Some (f v)::r) eo errs)
       | AP (Appf2 f k) i (Some v1::Some v2::r) eo errs =>

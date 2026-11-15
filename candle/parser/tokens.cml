@@ -143,9 +143,10 @@ structure CandleTokens = struct
     ("ORELSEC", ORELSEC_T),
     ("ORELSE_TCL", ORELSE_TCL_T)
   ];
+  val keyword_map = Map.fromList String.compare keywords;
   fun get_token s =
     if s = "" then LexErrorT else
-    case Alist.lookup keywords s of
+    case Map.lookup keyword_map s of
       Some t => t
     | None =>
         let val c = String.sub s 0 in

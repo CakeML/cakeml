@@ -15,54 +15,47 @@ structure CandleSupport = struct
   fun next_line loc =
     case loc of Posn r c => Posn (r + 1) 0 | _ => loc;
   fun locnle a b =
-    case (a,b) of
-      (Unknownpt,_) => True
-    | (_,Eofpt) => True
-    | (Eofpt,_) => False
-    | (_,Unknownpt) => False
-    | (Posn r c,Posn s d) => r < s orelse (r = s andalso c <= d);
-  fun locsle a b =
-    case (a,b) of (Locs p q,Locs r s) => locnle p r;
-  fun merge_locs a b =
-    case (a,b) of (Locs p q,Locs r s) => Locs p s;
+    case a of
+      Unknownpt => True
+    | Eofpt => (case b of Eofpt => True | _ => False)
+    | Posn r c =>
+        (case b of
+          Eofpt => True
+        | Unknownpt => False
+        | Posn s d => r < s orelse (r = s andalso c <= d));
+  fun locs_start l = case l of Locs p _ => p;
+  fun locs_end l = case l of Locs _ q => q;
+  fun locsle a b = locnle (locs_start a) (locs_start b);
+  fun merge_locs a b = Locs (locs_start a) (locs_end b);
   fun merge_list_locs xs =
     case xs of
       [] => unknown_loc
-    | h::rest =>
-        let fun last acc ys =
-          case ys of [] => acc | y::tl => last y tl
-        in merge_locs h (last h rest) end;
+    | h::_ => merge_locs h (List.last xs);
   fun nsub a b = if a < b then 0 else a - b;
-  fun member x xs = List.exists (fn y => x = y) xs;
-  fun char_in chars c = Char.contains chars c;
-  fun prefix xs ys =
-    case xs of
-      [] => True
-    | x::xt =>
-        (case ys of [] => False | y::yt => x = y andalso prefix xt yt);
-  fun take n xs =
-    let fun loop k ys acc =
-      if k <= 0 then List.rev acc else
-      case ys of [] => List.rev acc | h::tl => loop (k - 1) tl (h::acc)
-    in loop n xs [] end;
-  fun drop n xs =
-    if n <= 0 then xs else
-    case xs of [] => [] | _::tl => drop (n - 1) tl;
-  fun take_while p xs =
-    let fun loop ys acc =
-      case ys of
-        [] => (List.rev acc,ys)
-      | h::tl => if p h then loop tl (h::acc) else (List.rev acc,ys)
-    in loop xs [] end;
+  (* The longest prefix of xs whose elements satisfy p, and the rest. *)
+  fun take_while p xs = List.split (fn x => not (p x)) xs;
   fun hex_digit c =
     let val n = Char.ord c in
       if 48 <= n andalso n <= 57 then n - 48 else
       if 65 <= n andalso n <= 70 then n - 55 else
       if 97 <= n andalso n <= 102 then n - 87 else 0
     end;
-  fun isHexDigit c = Char.isDigit c orelse char_in "ABCDEFabcdef" c;
-  fun isOctDigit c = 48 <= Char.ord c andalso Char.ord c <= 55;
+  fun isHexDigit c = Char.contains "0123456789ABCDEFabcdef" c;
+  fun isOctDigit c = Char.contains "01234567" c;
   fun isBinDigit c = c = #"0" orelse c = #"1";
   fun from_digits base cs =
     List.foldl (fn c => fn n => n * base + (hex_digit c) mod base) 0 cs;
+end;
+
+(* Character tests over whole strings, shaped like SML's CharVector.all and
+   CharVector.exists; both stop at the first character that decides. *)
+structure CandleString = struct
+  fun all p s =
+    let val n = String.size s
+        fun loop i = i >= n orelse (p (String.sub s i) andalso loop (i + 1))
+    in loop 0 end;
+  fun exists p s =
+    let val n = String.size s
+        fun loop i = i < n andalso (p (String.sub s i) orelse loop (i + 1))
+    in loop 0 end;
 end;

@@ -129,11 +129,10 @@ structure CandleTypeDeclarations = struct
   fun sort_records (l,vs,n,cs) = (l,vs,n,List.map (fn c => case c of
       Inl plain => Inl plain
     | Inr (cn,fields) => Inr (cn,List.sort (fn (a,_) => fn (b,_) => String.< a b) fields)) cs);
-  fun map_outr f xs = case xs of [] => []
-    | Inl _::rest => map_outr f rest
-    | Inr x::rest => f x::map_outr f rest;
   fun extract_record_defns (l,vs,n,cs) =
-    map_outr (fn (cn,fields) => (l,cn,List.map (fn (f,_) => f) fields)) cs;
+    List.mapPartial (fn c => case c of
+        Inl _ => None
+      | Inr (cn,fields) => Some (l,cn,List.map (fn (f,_) => f) fields)) cs;
   fun strip_record_fields (l,vs,n,cs) = (l,vs,n,List.map (fn c => case c of
       Inl (cn,tys) => (cn,ctor_tup tys)
     | Inr (cn,fields) => (cn,ctor_tup (List.map (fn (_,ty) => ty) fields))) cs);

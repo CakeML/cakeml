@@ -15,7 +15,7 @@ structure CandleExpressions = struct
       let fun err s = Inl (l,s)
           fun unary nt s = case args of [a] => ptree_Expr nt a | _ => err s
           fun dispatch nts bad arity = case args of [a] => bind (nterm_of a) (fn m =>
-            case m of Inl nt => if member nt nts then ptree_Expr nt a else err bad
+            case m of Inl nt => if List.member nt nts then ptree_Expr nt a else err bad
               | _ => err bad) | _ => err arity
           fun binary single left right bad = expr_binary single left right l bad args
           fun rec_update checks c x u = bind (check_tokens checks) (fn _ =>

@@ -36,8 +36,7 @@ structure CandleLexer = struct
               Some (Char.chr (from_digits 16 [a,b]),tl,next_loc 4 loc)
             else None
         | #"o"::a::b::c::tl =>
-            if 48 <= Char.ord a andalso Char.ord a <= 51 andalso
-               isOctDigit b andalso isOctDigit c then
+            if Char.contains "0123" a andalso isOctDigit b andalso isOctDigit c then
               Some (Char.chr (from_digits 8 [a,b,c]),tl,next_loc 5 loc)
             else None
         | a::b::c::tl =>
@@ -82,7 +81,7 @@ structure CandleLexer = struct
           val (digits,rest) = take_while (fn c => c = #"_" orelse ok_digit c) cs;
           val clean = List.filter (fn c => c <> #"_") digits;
           val (suffix,rest2) = case rest of
-              c::tl => if char_in "lLn" c then (1,tl) else (0,rest)
+              c::tl => if Char.contains "lLn" c then (1,tl) else (0,rest)
             | [] => (0,rest);
         in Some (NumberS (to_int clean),
                  CandleLocation.Locs loc (next_loc (nsub (List.length digits + offset + suffix) 1) loc),
@@ -106,8 +105,8 @@ structure CandleLexer = struct
   fun scan_float3 cs =
     case cs of
       x::y::rest =>
-        if not (char_in "eE" x) then None else
-        if char_in "+-" y then
+        if not (Char.contains "eE" x) then None else
+        if Char.contains "+-" y then
           (case rest of
             [] => None
           | c::_ => if not (Char.isDigit c) then None else
@@ -165,22 +164,22 @@ structure CandleLexer = struct
             None => Some (OtherS [c],CandleLocation.Locs loc loc,cs)
           | Some (ErrorS,_,_) => Some (OtherS [c],CandleLocation.Locs loc loc,cs)
           | Some res => Some res)
-        else if prefix [#"*",#")"] input then
-          Some (ErrorS,CandleLocation.Locs loc (next_loc 2 loc),drop 1 cs)
-        else if prefix [#"(",#"*",#"C",#"M",#"L"] input then
-          (case scan_pragma 0 0 (drop 4 cs) loc of
+        else if List.isPrefix [#"*",#")"] input then
+          Some (ErrorS,CandleLocation.Locs loc (next_loc 2 loc),List.drop cs 1)
+        else if List.isPrefix [#"(",#"*",#"C",#"M",#"L"] input then
+          (case scan_pragma 0 0 (List.drop cs 4) loc of
             None => Some (ErrorS,CandleLocation.Locs loc loc,[])
-          | Some (n,loc2,rest) => Some (PragmaS (take n (drop 4 cs)),CandleLocation.Locs loc loc2,rest))
-        else if prefix [#"(",#"*"] input then
-          (case skip_comment (drop 1 cs) 0 (next_loc 2 loc) of
+          | Some (n,loc2,rest) => Some (PragmaS (List.take (List.drop cs 4) n),CandleLocation.Locs loc loc2,rest))
+        else if List.isPrefix [#"(",#"*"] input then
+          (case skip_comment (List.drop cs 1) 0 (next_loc 2 loc) of
             None => Some (ErrorS,CandleLocation.Locs loc (next_loc 2 loc),[])
           | Some (rest,loc2) => next_sym rest loc2)
-        else if char_in "()[]{}," c then Some (OtherS [c],CandleLocation.Locs loc loc,cs)
-        else if char_in "#$&*+-/=>@^|~!?%<:.;" c then
-          let val (s,rest) = take_while (char_in "#$&*+-/=>@^|~!?%<:.;") input
+        else if Char.contains "()[]{}," c then Some (OtherS [c],CandleLocation.Locs loc loc,cs)
+        else if Char.contains "#$&*+-/=>@^|~!?%<:.;" c then
+          let val (s,rest) = take_while (Char.contains "#$&*+-/=>@^|~!?%<:.;") input
           in Some (OtherS s,CandleLocation.Locs loc (next_loc (nsub (List.length s) 1) loc),rest) end
         else if Char.isAlpha c orelse c = #"_" then
-          let val (s,rest) = take_while (fn c => Char.isAlphaNum c orelse char_in "'_" c) input
+          let val (s,rest) = take_while (fn c => Char.isAlphaNum c orelse Char.contains "'_" c) input
           in Some (OtherS s,CandleLocation.Locs loc (next_loc (nsub (List.length s) 1) loc),rest) end
         else Some (ErrorS,CandleLocation.Locs loc loc,cs);
 

@@ -23,8 +23,8 @@ structure CandleNames = struct
   fun ptree_ModTypeName pt = name NModTypeName "Expected modtypename non-terminal"
     "Impossible: nModTypeName" (fn x => x) pt;
   fun op_name l msg allow_symbol table tk =
-    case List.find (fn (t,_) => t = tk) table of
-      Some (_,s) => Inr s
+    case Alist.lookup table tk of
+      Some s => Inr s
     | None => (case tk of SymbolT s => if allow_symbol then Inr s else Inl (l,msg)
                          | _ => Inl (l,msg));
   fun ptree_Op pt = case pt of Lf (_,l) => Inl (l,"Expected operator non-terminal")

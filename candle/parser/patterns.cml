@@ -33,7 +33,7 @@ structure CandlePatterns = struct
                    | _ => Pp_con (Some id) [p])
         else Pp_con (Some id) [p]
     | Ast.Short nm =>
-        if member nm ["Abs","Var","Const","Comb","Tyapp","Sequent","Append"] then
+        if List.member nm ["Abs","Var","Const","Comb","Tyapp","Sequent","Append"] then
           (case p of Pp_any => Pp_con (Some id) [Pp_any,Pp_any]
            | Pp_con None ps => Pp_con (Some id) ps
            | _ => Pp_con (Some id) [p])
@@ -120,7 +120,7 @@ structure CandlePatterns = struct
         (case args of [arg] => bind (nterm_of arg) (fn nt =>
            if nt = Inl NValueName then fmap (fn v => Pp_var v) (ptree_ValueName arg)
            else if nt = Inl NConstr then fmap (fn id => Pp_con (Some id) []) (constr_id l arg)
-           else if member nt [Inl NPatLiteral,Inl NPAny,Inl NPList,Inl NPPar] then ptree_PPattern arg
+           else if List.member nt [Inl NPatLiteral,Inl NPAny,Inl NPList,Inl NPPar] then ptree_PPattern arg
            else Inl (l,"Impossible: nPBase"))
          | _ => Inl (l,"Impossible: nPBase"))
       else if n = Inl NPCons then

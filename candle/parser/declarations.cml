@@ -21,7 +21,6 @@ structure CandleDeclarations = struct
         val upds = List.map (fn f => Ast.Dlet ast_locs (Ast.Pvar (mk_record_update_name f cn))
           (Ast.Fun "" (Ast.Mat (Ast.Ident (Ast.Short "")) [(pat,Ast.Fun f rhs)]))) fs
     in constr::(projs @ upds) end;
-  fun distinct xs = case xs of [] => True | x::rest => not (member x rest) andalso distinct rest;
   fun ptree_TypeDefinition pt = case pt of
       Lf (_,l) => Inl (l,"Expected a type definition non-terminal")
     | Nd (n,l) args => if n <> Inl NTypeDefinition then Inl (l,"Expected a type definition non-terminal")
@@ -36,7 +35,7 @@ structure CandleDeclarations = struct
           in case datas of [] => Inr abs | _ =>
             let val defs = List.map sort_records datas
                 val recs = List.concat (List.map extract_record_defns defs)
-            in if not (List.all (fn (_,_,fs) => distinct fs) recs) then
+            in if not (List.all (fn (_,_,fs) => List.all_distinct fs) recs) then
               Inl (l,"record field names must be distinct")
             else let val recfuns = List.concat (List.map build_rec_funs recs)
                      val defs = List.map strip_record_fields defs

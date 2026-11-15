@@ -26,7 +26,37 @@ structure CandleGrammar = struct
     | NModExpr | NModuleDef | NModuleType | NSemis | NExprItem | NExprItems
     | NDefItem | NShiftOp | NMultOp | NAddOp | NRelOp | NAndOp | NOrOp
     | NCatOp | NPrefixOp | NAssignOp | NPatLiteral | NStart | NCakeMLPragma;
-  type rule = (CandleTokens.token,(nonterm,int) sum,
+  (* Every nonterminal. An Nt node refers to its rule by the nonterminal's
+     position in this list. *)
+  val nonterms = [
+      NEHolInfix, NHolInfixOp, NValuePath, NValueName, NConstr,
+      NConstrName, NTypeConstr, NTypeConstrName, NModulePath, NModuleName,
+      NModTypePath, NModTypeName, NFieldName, NOperatorName, NLiteral,
+      NIdent, NEBase, NEList, NEApp, NEConstr, NEFunapp, NEAssert,
+      NELazy, NEPrefix, NEIndex, NENeg, NEShift, NEMult, NERecProj,
+      NERecUpdate, NERecCons, NEAdd, NECons, NECat, NERel, NEAnd, NEOr,
+      NEProd, NEAssign, NEIf, NESeq, NEMatch, NETry, NEFun, NEFunction,
+      NELet, NELetRec, NEWhile, NEFor, NExpr, NEUnclosed, NArrIdx,
+      NStrIdx, NUpdate, NUpdates, NFieldDec, NFieldDecs, NLetBinding,
+      NLetBindings, NLetRecBinding, NLetRecBindings, NPatternMatch,
+      NPatternMatches, NTypeDefinition, NTypeDef, NTypeDefs, NTypeParams,
+      NTypeInfo, NTypeRepr, NTypeReprs, NConstrDecl, NConstrArgs, NRecord,
+      NExcDefinition, NPAny, NPList, NPPar, NPBase, NPRecFields, NPCons,
+      NPAs, NPOps, NPattern, NPatterns, NTypeList, NTypeLists, NTVar,
+      NTBase, NTConstr, NTProd, NTFun, NType, NSigSpec, NSigItems,
+      NSigItem, NModTypeAssign, NModTypeAsc, NModAscApp, NModAscApps,
+      NValType, NExcType, NModuleTypeDef, NIncludeMod, NOpenMod,
+      NDefinition, NTopLet, NTopLetRec, NModuleItem, NModuleItems, NOpen,
+      NModExpr, NModuleDef, NModuleType, NSemis, NExprItem, NExprItems,
+      NDefItem, NShiftOp, NMultOp, NAddOp, NRelOp, NAndOp, NOrOp,
+      NCatOp, NPrefixOp, NAssignOp, NPatLiteral, NStart, NCakeMLPragma];
+  fun nt_index n =
+    let fun go i ns = case ns of
+          [] => raise Fail "CandleGrammar.nt_index: nonterminal missing from nonterms"
+        | m::rest => if m = n then i else go (i + 1) rest
+    in go 0 nonterms end;
+  fun pnt n = CandlePeg.Nt (nt_index n) identity;
+  type rule = (CandleTokens.token,int,
     (CandleTokens.token,nonterm) CandleTree.tree list,string) CandlePeg.symbol;
 end;
 structure CandleGrammar = struct
@@ -745,138 +775,9 @@ structure CandleGrammar = struct
   open CandleGrammar;
   local
   val rule_list = List.concat [chunk_0 (),chunk_1 (),chunk_2 (),chunk_3 (),chunk_4 (),chunk_5 (),chunk_6 (),chunk_7 (),chunk_8 (),chunk_9 (),chunk_10 ()];
-  val rule_vector = Vector.fromList (List.map (fn (_,e) => e) rule_list);
-  fun lookup name = case name of
-      Inl NCakeMLPragma => Some (Vector.sub rule_vector 0)
-    | Inl NHolInfixOp => Some (Vector.sub rule_vector 1)
-    | Inl NValueName => Some (Vector.sub rule_vector 2)
-    | Inl NOperatorName => Some (Vector.sub rule_vector 3)
-    | Inl NConstrName => Some (Vector.sub rule_vector 4)
-    | Inl NTypeConstrName => Some (Vector.sub rule_vector 5)
-    | Inl NModuleName => Some (Vector.sub rule_vector 6)
-    | Inl NFieldName => Some (Vector.sub rule_vector 7)
-    | Inl NValuePath => Some (Vector.sub rule_vector 8)
-    | Inl NConstr => Some (Vector.sub rule_vector 9)
-    | Inl NTypeConstr => Some (Vector.sub rule_vector 10)
-    | Inl NModulePath => Some (Vector.sub rule_vector 11)
-    | Inl NModTypeName => Some (Vector.sub rule_vector 12)
-    | Inl NModTypePath => Some (Vector.sub rule_vector 13)
-    | Inl NSemis => Some (Vector.sub rule_vector 14)
-    | Inl NExprItems => Some (Vector.sub rule_vector 15)
-    | Inl NExprItem => Some (Vector.sub rule_vector 16)
-    | Inl NDefItem => Some (Vector.sub rule_vector 17)
-    | Inl NModuleItems => Some (Vector.sub rule_vector 18)
-    | Inl NModuleItem => Some (Vector.sub rule_vector 19)
-    | Inl NTopLet => Some (Vector.sub rule_vector 20)
-    | Inl NTopLetRec => Some (Vector.sub rule_vector 21)
-    | Inl NOpen => Some (Vector.sub rule_vector 22)
-    | Inl NModExpr => Some (Vector.sub rule_vector 23)
-    | Inl NModuleDef => Some (Vector.sub rule_vector 24)
-    | Inl NDefinition => Some (Vector.sub rule_vector 25)
-    | Inl NExcType => Some (Vector.sub rule_vector 26)
-    | Inl NValType => Some (Vector.sub rule_vector 27)
-    | Inl NModAscApp => Some (Vector.sub rule_vector 28)
-    | Inl NModAscApps => Some (Vector.sub rule_vector 29)
-    | Inl NModTypeAsc => Some (Vector.sub rule_vector 30)
-    | Inl NModTypeAssign => Some (Vector.sub rule_vector 31)
-    | Inl NOpenMod => Some (Vector.sub rule_vector 32)
-    | Inl NIncludeMod => Some (Vector.sub rule_vector 33)
-    | Inl NSigItem => Some (Vector.sub rule_vector 34)
-    | Inl NSigItems => Some (Vector.sub rule_vector 35)
-    | Inl NSigSpec => Some (Vector.sub rule_vector 36)
-    | Inl NModuleType => Some (Vector.sub rule_vector 37)
-    | Inl NModuleTypeDef => Some (Vector.sub rule_vector 38)
-    | Inl NExcDefinition => Some (Vector.sub rule_vector 39)
-    | Inl NTypeDefinition => Some (Vector.sub rule_vector 40)
-    | Inl NTypeDef => Some (Vector.sub rule_vector 41)
-    | Inl NTypeDefs => Some (Vector.sub rule_vector 42)
-    | Inl NTypeParams => Some (Vector.sub rule_vector 43)
-    | Inl NTypeInfo => Some (Vector.sub rule_vector 44)
-    | Inl NTypeRepr => Some (Vector.sub rule_vector 45)
-    | Inl NTypeReprs => Some (Vector.sub rule_vector 46)
-    | Inl NConstrDecl => Some (Vector.sub rule_vector 47)
-    | Inl NRecord => Some (Vector.sub rule_vector 48)
-    | Inl NFieldDecs => Some (Vector.sub rule_vector 49)
-    | Inl NFieldDec => Some (Vector.sub rule_vector 50)
-    | Inl NConstrArgs => Some (Vector.sub rule_vector 51)
-    | Inl NTypeList => Some (Vector.sub rule_vector 52)
-    | Inl NTypeLists => Some (Vector.sub rule_vector 53)
-    | Inl NTVar => Some (Vector.sub rule_vector 54)
-    | Inl NTBase => Some (Vector.sub rule_vector 55)
-    | Inl NTConstr => Some (Vector.sub rule_vector 56)
-    | Inl NTProd => Some (Vector.sub rule_vector 57)
-    | Inl NTFun => Some (Vector.sub rule_vector 58)
-    | Inl NType => Some (Vector.sub rule_vector 59)
-    | Inl NEList => Some (Vector.sub rule_vector 60)
-    | Inl NLiteral => Some (Vector.sub rule_vector 61)
-    | Inl NIdent => Some (Vector.sub rule_vector 62)
-    | Inl NUpdate => Some (Vector.sub rule_vector 63)
-    | Inl NUpdates => Some (Vector.sub rule_vector 64)
-    | Inl NERecUpdate => Some (Vector.sub rule_vector 65)
-    | Inl NEBase => Some (Vector.sub rule_vector 66)
-    | Inl NPrefixOp => Some (Vector.sub rule_vector 67)
-    | Inl NEPrefix => Some (Vector.sub rule_vector 68)
-    | Inl NArrIdx => Some (Vector.sub rule_vector 69)
-    | Inl NStrIdx => Some (Vector.sub rule_vector 70)
-    | Inl NEIndex => Some (Vector.sub rule_vector 71)
-    | Inl NERecProj => Some (Vector.sub rule_vector 72)
-    | Inl NEAssert => Some (Vector.sub rule_vector 73)
-    | Inl NELazy => Some (Vector.sub rule_vector 74)
-    | Inl NEConstr => Some (Vector.sub rule_vector 75)
-    | Inl NERecCons => Some (Vector.sub rule_vector 76)
-    | Inl NEFunapp => Some (Vector.sub rule_vector 77)
-    | Inl NEApp => Some (Vector.sub rule_vector 78)
-    | Inl NEUnclosed => Some (Vector.sub rule_vector 79)
-    | Inl NELetRec => Some (Vector.sub rule_vector 80)
-    | Inl NELet => Some (Vector.sub rule_vector 81)
-    | Inl NEMatch => Some (Vector.sub rule_vector 82)
-    | Inl NEFun => Some (Vector.sub rule_vector 83)
-    | Inl NEFunction => Some (Vector.sub rule_vector 84)
-    | Inl NETry => Some (Vector.sub rule_vector 85)
-    | Inl NEWhile => Some (Vector.sub rule_vector 86)
-    | Inl NEFor => Some (Vector.sub rule_vector 87)
-    | Inl NENeg => Some (Vector.sub rule_vector 88)
-    | Inl NShiftOp => Some (Vector.sub rule_vector 89)
-    | Inl NEShift => Some (Vector.sub rule_vector 90)
-    | Inl NMultOp => Some (Vector.sub rule_vector 91)
-    | Inl NEMult => Some (Vector.sub rule_vector 92)
-    | Inl NAddOp => Some (Vector.sub rule_vector 93)
-    | Inl NEAdd => Some (Vector.sub rule_vector 94)
-    | Inl NECons => Some (Vector.sub rule_vector 95)
-    | Inl NCatOp => Some (Vector.sub rule_vector 96)
-    | Inl NECat => Some (Vector.sub rule_vector 97)
-    | Inl NRelOp => Some (Vector.sub rule_vector 98)
-    | Inl NERel => Some (Vector.sub rule_vector 99)
-    | Inl NAndOp => Some (Vector.sub rule_vector 100)
-    | Inl NEAnd => Some (Vector.sub rule_vector 101)
-    | Inl NOrOp => Some (Vector.sub rule_vector 102)
-    | Inl NEOr => Some (Vector.sub rule_vector 103)
-    | Inl NEHolInfix => Some (Vector.sub rule_vector 104)
-    | Inl NEProd => Some (Vector.sub rule_vector 105)
-    | Inl NAssignOp => Some (Vector.sub rule_vector 106)
-    | Inl NEAssign => Some (Vector.sub rule_vector 107)
-    | Inl NEIf => Some (Vector.sub rule_vector 108)
-    | Inl NESeq => Some (Vector.sub rule_vector 109)
-    | Inl NExpr => Some (Vector.sub rule_vector 110)
-    | Inl NPatternMatch => Some (Vector.sub rule_vector 111)
-    | Inl NPatternMatches => Some (Vector.sub rule_vector 112)
-    | Inl NLetRecBinding => Some (Vector.sub rule_vector 113)
-    | Inl NLetRecBindings => Some (Vector.sub rule_vector 114)
-    | Inl NLetBinding => Some (Vector.sub rule_vector 115)
-    | Inl NLetBindings => Some (Vector.sub rule_vector 116)
-    | Inl NPAny => Some (Vector.sub rule_vector 117)
-    | Inl NPList => Some (Vector.sub rule_vector 118)
-    | Inl NPPar => Some (Vector.sub rule_vector 119)
-    | Inl NPatLiteral => Some (Vector.sub rule_vector 120)
-    | Inl NPBase => Some (Vector.sub rule_vector 121)
-    | Inl NPRecFields => Some (Vector.sub rule_vector 122)
-    | Inl NPCons => Some (Vector.sub rule_vector 123)
-    | Inl NPAs => Some (Vector.sub rule_vector 124)
-    | Inl NPOps => Some (Vector.sub rule_vector 125)
-    | Inl NPattern => Some (Vector.sub rule_vector 126)
-    | Inl NPatterns => Some (Vector.sub rule_vector 127)
-    | Inl NStart => Some (Vector.sub rule_vector 128)
-    | _ => None;
+  val rule_vector =
+    Vector.fromList (List.map (fn n => Alist.lookup rule_list (Inl n)) nonterms);
+  fun lookup i = Vector.sub rule_vector i;
   val grammar = (lookup,"Unexpected end-of-file","Unexpected token",
                  "Expected token, found end-of-file","Not combinator failed");
   in
