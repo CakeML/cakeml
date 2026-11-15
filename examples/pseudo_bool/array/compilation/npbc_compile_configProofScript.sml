@@ -13,7 +13,8 @@ Theorem x64_backend_config_ok_pb:
   backend_config_ok x64_config x64_config_pb
 Proof
   assume_tac x64_backend_config_ok>>
-  gvs[backend_config_ok_def,x64_config_pb_def]
+  gvs[backend_config_ok_def,x64_config_pb_def,
+      clos_to_bvlTheory.max_app_limit_def]
 QED
 
 Theorem x64_init_ok_pb:
@@ -35,7 +36,8 @@ Theorem arm8_backend_config_ok_pb:
   backend_config_ok arm8_config arm8_config_pb
 Proof
   assume_tac arm8_backend_config_ok>>
-  gvs[backend_config_ok_def,arm8_config_pb_def]
+  gvs[backend_config_ok_def,arm8_config_pb_def,
+      clos_to_bvlTheory.max_app_limit_def]
 QED
 
 Theorem arm8_config_pb_stack_conf:
