@@ -1137,146 +1137,238 @@ Proof
   SIMP_TAC (srw_ss()) [Once term_type_def]
 QED
 
+(* ------------------------------------------------------------------------- *)
+(* vsubst_aux agrees with VSUBST up to alpha-equivalence. Because of the     *)
+(* pointer-equality shortcut in the Abs case, vsubst_aux may skip a renaming *)
+(* that VSUBST performs when the substitution contains shadowed entries.     *)
+(* When the substituted variables are distinct, the two agree exactly.       *)
+(* ------------------------------------------------------------------------- *)
+
+Theorem VARIANT_ACONV[local]:
+  ACONV t1 t2 ⇒ VARIANT t1 x ty = VARIANT t2 x ty
+Proof
+  rw[VARIANT_def]
+  >> qsuff_tac ‘VARIANT_PRIMES t1 x ty = VARIANT_PRIMES t2 x ty’ >- simp[]
+  >> qspecl_then [‘t1’,‘x’,‘ty’] strip_assume_tac VARIANT_PRIMES_def
+  >> qspecl_then [‘t2’,‘x’,‘ty’] strip_assume_tac VARIANT_PRIMES_def
+  >> spose_not_then assume_tac
+  >> ‘VARIANT_PRIMES t1 x ty < VARIANT_PRIMES t2 x ty ∨
+      VARIANT_PRIMES t2 x ty < VARIANT_PRIMES t1 x ty’ by decide_tac
+  >> res_tac >> metis_tac[VFREE_IN_ACONV]
+QED
+
+Theorem ACONV_Comb_cong[local]:
+  ACONV s1 s2 ∧ ACONV t1 t2 ⇒ ACONV (Comb s1 t1) (Comb s2 t2)
+Proof
+  simp[ACONV_def, RACONV]
+QED
+
+Theorem ACONV_Abs_cong[local]:
+  welltyped t1 ∧ welltyped t2 ∧ ACONV t1 t2 ⇒
+  ACONV (Abs (Var x ty) t1) (Abs (Var x ty) t2)
+Proof
+  strip_tac
+  >> ‘welltyped (Abs (Var x ty) t1) ∧ welltyped (Abs (Var x ty) t2)’ by simp[]
+  >> gvs[ACONV_db]
+QED
+
+Theorem dbVSUBST_bind_id[local]:
+  ∀tm ls v n. dbVSUBST ls tm = tm ⇒ dbVSUBST ls (bind v n tm) = bind v n tm
+Proof
+  Induct >> rw[]
+QED
+
+Theorem ALL_DISTINCT_MAP_SND_FILTER[local]:
+  ∀l. ALL_DISTINCT (MAP SND l) ⇒ ALL_DISTINCT (MAP SND (FILTER P l))
+Proof
+  Induct >> rw[] >> gvs[MEM_MAP, MEM_FILTER] >> metis_tac[]
+QED
+
+Theorem REV_ASSOCD_ALL_DISTINCT_MEM[local]:
+  ∀l t x d. ALL_DISTINCT (MAP SND l) ∧ MEM (t,x) l ⇒ REV_ASSOCD x l d = t
+Proof
+  Induct >> simp[FORALL_PROD, REV_ASSOCD] >> rw[] >> gvs[MEM_MAP, EXISTS_PROD]
+QED
+
+Theorem VSUBST_id_REV_ASSOCD[local]:
+  ∀s ilist x ty.
+    VSUBST ilist s = s ∧ VFREE_IN (Var x ty) s ⇒
+    REV_ASSOCD (Var x ty) ilist (Var x ty) = Var x ty
+Proof
+  Induct >> simp[VSUBST_def, VFREE_IN_def]
+  >- metis_tac[]
+  >> rename1 ‘Abs v b’
+  >> qpat_x_assum ‘∀ilist x ty. VSUBST ilist v = v ∧ _ ⇒ _’ kall_tac
+  >> rpt gen_tac
+  >> qabbrev_tac ‘il = FILTER (λ(s',s). s ≠ v) ilist’
+  >> IF_CASES_TAC
+  >- (
+    Cases_on ‘holSyntax$dest_var v’ >> simp[] >> strip_tac
+    >> qpat_x_assum ‘_ = v’ (fn th => gvs[th])
+    >> first_x_assum (qspecl_then [‘(v,v)::il’,‘x’,‘ty’] mp_tac)
+    >> simp[REV_ASSOCD, Abbr‘il’, REV_ASSOCD_FILTER])
+  >> simp[] >> strip_tac
+  >> first_x_assum (qspecl_then [‘il’,‘x’,‘ty’] mp_tac)
+  >> simp[Abbr‘il’, REV_ASSOCD_FILTER]
+QED
+
+Theorem VSUBST_id_no_capture[local]:
+  ∀il v s.
+    ALL_DISTINCT (MAP SND il) ∧
+    (∀t y. MEM (t,y) il ⇒ (∃n ty. y = Var n ty) ∧ y ≠ v) ∧
+    VSUBST il s = s ⇒
+    ¬EXISTS (λ(t,y). VFREE_IN v t ∧ VFREE_IN y s) il
+Proof
+  simp[EVERY_MEM, FORALL_PROD] >> rpt gen_tac >> strip_tac
+  >> CCONTR_TAC >> gvs[]
+  >> first_assum drule >> strip_tac >> gvs[]
+  >> drule_all VSUBST_id_REV_ASSOCD >> strip_tac
+  >> drule_all REV_ASSOCD_ALL_DISTINCT_MEM
+  >> disch_then (qspec_then ‘Var n ty’ assume_tac)
+  >> gvs[VFREE_IN_def]
+QED
+
+Theorem VSUBST_Abs_ACONV_id[local]:
+  ∀s theta x xty.
+    welltyped s ∧
+    (∀t y. MEM (t,y) theta ⇒ ∃n ty. y = Var n ty ∧ t has_type ty) ∧
+    ACONV s (VSUBST (FILTER (λ(t,y). y ≠ Var x xty) theta) s) ⇒
+    ACONV (Abs (Var x xty) s) (VSUBST theta (Abs (Var x xty) s))
+Proof
+  rpt strip_tac
+  >> qabbrev_tac ‘th' = FILTER (λ(t,y). y ≠ Var x xty) theta’
+  >> ‘∀t y. MEM (t,y) th' ⇒ ∃n ty. y = Var n ty ∧ t has_type ty’
+    by (simp[Abbr‘th'’, MEM_FILTER] >> metis_tac[])
+  >> ‘welltyped (VSUBST th' s)’ by (irule VSUBST_WELLTYPED >> metis_tac[])
+  >> ‘welltyped (VSUBST theta (Abs (Var x xty) s))’
+    by (irule VSUBST_WELLTYPED >> simp[] >> metis_tac[])
+  >> ‘db (VSUBST th' s) = dbVSUBST (MAP (λ(x,y). (db x,db y)) th') (db s)’
+    by (irule VSUBST_dbVSUBST >> metis_tac[welltyped_def])
+  >> ‘db (VSUBST theta (Abs (Var x xty) s)) =
+      dbVSUBST (MAP (λ(x,y). (db x,db y)) theta) (db (Abs (Var x xty) s))’
+    by (irule VSUBST_dbVSUBST >> simp[] >> metis_tac[welltyped_def])
+  >> ‘dbVSUBST (MAP (λ(x,y). (db x,db y)) th') (db s) = db s’
+    by metis_tac[ACONV_db]
+  >> ‘welltyped (Abs (Var x xty) s)’ by simp[]
+  >> ‘dbVSUBST (MAP (λ(x,y). (db x,db y)) theta) (bind (x,xty) 0 (db s)) =
+      dbVSUBST (MAP (λ(x,y). (db x,db y)) th') (bind (x,xty) 0 (db s))’
+    by (irule dbVSUBST_frees
+        >> simp[Abbr‘th'’, MAP_db_FILTER_neq, REV_ASSOCD_FILTER, dbVFREE_IN_bind])
+  >> simp[ACONV_db, dbVSUBST_bind_id]
+QED
+
+Theorem vsubst_aux_VSUBST[local]:
+  ∀tm theta.
+    welltyped tm ∧
+    (∀t x. MEM (t,x) theta ⇒ ∃n ty. x = Var n ty ∧ t has_type ty) ⇒
+    welltyped (vsubst_aux theta tm) ∧
+    ACONV (vsubst_aux theta tm) (VSUBST theta tm) ∧
+    (ALL_DISTINCT (MAP SND theta) ⇒ vsubst_aux theta tm = VSUBST theta tm)
+Proof
+  Induct >> rpt gen_tac >> strip_tac
+  >~ [‘Var n ty’]
+  >- (
+    ‘vsubst_aux theta (Var n ty) = REV_ASSOCD (Var n ty) theta (Var n ty)’
+      by simp[Once vsubst_aux_def, rev_assocd_thm]
+    >> simp[VSUBST_def]
+    >> qspecl_then [‘theta’,‘Var n ty’,‘Var n ty’] strip_assume_tac REV_ASSOCD_MEM
+    >> gvs[] >> res_tac >> gvs[] >> metis_tac[welltyped_def])
+  >~ [‘Const n ty’]
+  >- (
+    ‘vsubst_aux theta (Const n ty) = Const n ty’ by simp[Once vsubst_aux_def]
+    >> simp[VSUBST_def])
+  >~ [‘Comb s t’]
+  >- (
+    gvs[]
+    >> first_x_assum (drule_all_then strip_assume_tac)
+    >> first_x_assum (drule_all_then strip_assume_tac)
+    >> ‘vsubst_aux theta (Comb s t) =
+        Comb (vsubst_aux theta s) (vsubst_aux theta t)’
+      by (simp[Once vsubst_aux_def, ptr_eq_def] >> rw[])
+    >> simp[VSUBST_def, ACONV_Comb_cong]
+    >> ‘VSUBST theta s has_type typeof s ∧ VSUBST theta t has_type typeof t’
+      by (conj_tac >> irule VSUBST_HAS_TYPE >> gvs[GSYM WELLTYPED] >> metis_tac[])
+    >> ‘welltyped (VSUBST theta s) ∧ welltyped (VSUBST theta t)’
+      by metis_tac[welltyped_def]
+    >> imp_res_tac WELLTYPED_LEMMA
+    >> imp_res_tac ACONV_TYPE
+    >> gvs[])
+  >~ [‘Abs v s’]
+  >> qpat_x_assum ‘∀theta. welltyped v ∧ _ ⇒ _’ kall_tac
+  >> gvs[]
+  >> rename1 ‘Abs (Var x xty) s’
+  >> ONCE_REWRITE_TAC [vsubst_aux_def]
+  >> simp[VSUBST_def, is_var_def, ptr_eq_def]
+  >> qabbrev_tac ‘th' = FILTER (λ(t,y). y ≠ Var x xty) theta’
+  >> Cases_on ‘th' = []’ >- simp[]
+  >> ‘∀t y. MEM (t,y) th' ⇒ ∃n ty. y = Var n ty ∧ t has_type ty’
+    by (simp[Abbr‘th'’, MEM_FILTER] >> metis_tac[])
+  >> ‘welltyped (VSUBST th' s)’ by (irule VSUBST_WELLTYPED >> metis_tac[])
+  >> first_assum (qspec_then ‘th'’ mp_tac)
+  >> impl_tac >- (simp[] >> metis_tac[])
+  >> strip_tac
+  >> ‘ALL_DISTINCT (MAP SND theta) ⇒ ALL_DISTINCT (MAP SND th')’
+    by simp[Abbr‘th'’, ALL_DISTINCT_MAP_SND_FILTER]
+  >> ‘EXISTS (λ(t,y). vfree_in (Var x xty) t ∧ vfree_in y s) th' ⇔
+      EXISTS (λ(t,y). VFREE_IN (Var x xty) t ∧ VFREE_IN y s) th'’
+    by (simp[EXISTS_MEM, EXISTS_PROD] >> metis_tac[vfree_in_thm])
+  >> Cases_on ‘vsubst_aux th' s = s’
+  >> pop_assum (fn th => REWRITE_TAC [th] >> assume_tac th)
+  >- (
+    qpat_x_assum ‘vsubst_aux th' s = s’
+      (fn th => RULE_ASSUM_TAC (REWRITE_RULE [th]))
+    >> simp[] >> qunabbrev_tac ‘th'’
+    >> qspecl_then [‘s’,‘theta’,‘x’,‘xty’] mp_tac VSUBST_Abs_ACONV_id
+    >> impl_tac >- simp[]
+    >> simp[VSUBST_def] >> rpt strip_tac
+    >> ‘ALL_DISTINCT (MAP SND (FILTER (λ(t,y). y ≠ Var x xty) theta))’ by simp[]
+    >> ‘VSUBST (FILTER (λ(t,y). y ≠ Var x xty) theta) s = s’ by metis_tac[]
+    >> qpat_x_assum ‘_ ⇒ s = _’ kall_tac
+    >> qspecl_then [‘FILTER (λ(t,y). y ≠ Var x xty) theta’,‘Var x xty’,‘s’]
+         mp_tac VSUBST_id_no_capture
+    >> impl_tac >- (simp[MEM_FILTER] >> metis_tac[])
+    >> disch_then (fn th => REWRITE_TAC [th])
+    >> simp[])
+  >> simp[variant_vsubst_thm]
+  >> ‘VARIANT (vsubst_aux th' s) (explode x) xty =
+      VARIANT (VSUBST th' s) (explode x) xty’
+    by metis_tac[VARIANT_ACONV]
+  >> IF_CASES_TAC >> simp[ACONV_Abs_cong]
+  >> qabbrev_tac ‘z = VARIANT (VSUBST th' s) (explode x) xty’
+  >> first_x_assum (qspec_then ‘(Var z xty,Var x xty)::th'’ mp_tac)
+  >> impl_tac >- (simp[] >> metis_tac[has_type_rules])
+  >> strip_tac
+  >> ‘welltyped (VSUBST ((Var z xty,Var x xty)::th') s)’
+    by (irule VSUBST_WELLTYPED >> simp[] >> metis_tac[has_type_rules])
+  >> simp[ACONV_Abs_cong]
+  >> strip_tac >> first_x_assum irule
+  >> simp[MEM_MAP, Abbr‘th'’, MEM_FILTER, FORALL_PROD]
+QED
+
 Theorem vsubst_aux_thm[local]:
   !t tm theta. EVERY (\(t1,t2). TERM defs t1 /\ TERM defs t2 /\
                      (term_type t1 = term_type t2) /\ is_var t2) theta /\
     TERM defs tm /\ STATE defs s /\
     (vsubst_aux theta tm = t) ==>
     TERM defs t /\
-    (t = VSUBST theta tm)
+    ACONV t (VSUBST theta tm) /\
+    (ALL_DISTINCT (MAP SND theta) ==> t = VSUBST theta tm)
 Proof
-  cheat
-  (*
-  SIMP_TAC std_ss [] \\ Induct THEN1
-   (NTAC 4 STRIP_TAC \\ SIMP_TAC (srw_ss()) [Once vsubst_aux_def]
-    \\ SIMP_TAC (srw_ss()) [Once vsubst_aux_def,VSUBST_def]
-    \\ Induct_on `theta` \\ FULL_SIMP_TAC std_ss []
-    \\ ONCE_REWRITE_TAC [rev_assocd_def]
-    \\ FULL_SIMP_TAC (srw_ss()) [EVERY_DEF,REV_ASSOCD]
-    \\ Cases \\ FULL_SIMP_TAC (srw_ss()) [REV_ASSOCD_def]
-    \\ Cases_on `r = Var s' h` \\ FULL_SIMP_TAC std_ss []
-    \\ rw[] \\ fs[] \\ METIS_TAC[])
-  THEN1
-   (NTAC 4 STRIP_TAC \\ SIMP_TAC (srw_ss()) [Once vsubst_aux_def]
-    \\ SIMP_TAC (srw_ss()) [Once vsubst_aux_def,VSUBST_def]
-    \\ SRW_TAC [] [VSUBST_def])
-  THEN1
-   (STRIP_TAC \\ REPEAT (Q.PAT_X_ASSUM `!theta. bbb` (ASSUME_TAC o SPEC_ALL))
-    \\ ONCE_REWRITE_TAC [vsubst_aux_def] \\ SIMP_TAC (srw_ss()) [LET_DEF]
-    \\ FULL_SIMP_TAC std_ss [VSUBST_def,term_11]
-    \\ reverse (REPEAT STRIP_TAC)
-    \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss []
-    \\ FULL_SIMP_TAC std_ss [TERM_def,term_ok_def]
-    \\ SIMP_TAC std_ss [GSYM VSUBST_def]
-    \\ MATCH_MP_TAC VSUBST_WELLTYPED
-    \\ FULL_SIMP_TAC std_ss [MEM_MAP,PULL_EXISTS,FORALL_PROD,EVERY_MEM]
-    \\ REPEAT STRIP_TAC \\ RES_TAC \\ FULL_SIMP_TAC std_ss [is_var_thm]
-    \\ FULL_SIMP_TAC (srw_ss()) [term_11]
-    \\ FULL_SIMP_TAC std_ss [EVAL ``term_type (Var v ty)``]
-    \\ rw[]
-    \\ fs[STATE_def]
-    \\ IMP_RES_TAC (REWRITE_RULE [TERM_def] term_type)
-    \\ METIS_TAC[WELLTYPED,term_ok_welltyped])
-  \\ STRIP_TAC
-  \\ ONCE_REWRITE_TAC [vsubst_aux_def] \\ SIMP_TAC (srw_ss()) [LET_DEF]
-  \\ STRIP_TAC \\ IMP_RES_TAC Abs_Var
-  \\ FULL_SIMP_TAC (srw_ss()) [is_var_def]
-  \\ Cases_on `FILTER (\(t,x). x <> Var s' ty) theta = []`
-  \\ FULL_SIMP_TAC std_ss [] THEN1
-   (SIMP_TAC std_ss [REWRITE_RULE[SELECT_LEMMA]VSUBST_def,LET_THM]
-    \\ sg `(FILTER (\(z,y). y <> Var s' ty) theta) = []` THEN1
-     (POP_ASSUM MP_TAC \\ REPEAT (POP_ASSUM (K ALL_TAC))
-      \\ Induct_on `theta` \\ FULL_SIMP_TAC std_ss [MAP,FILTER]
-      \\ Cases \\ FULL_SIMP_TAC std_ss [MAP,FILTER]
-      \\ Cases_on `r = Var s' ty` \\ FULL_SIMP_TAC std_ss []
-      \\ FULL_SIMP_TAC (srw_ss()) [])
-    \\ FULL_SIMP_TAC (srw_ss()) [VSUBST_EMPTY])
-  \\ reverse (Cases_on `EXISTS (\(t,x). vfree_in (Var s' ty) t /\ vfree_in x tm')
-       (FILTER (\(t,x). x <> Var s' ty) theta)`) THEN1
-   (IMP_RES_TAC TERM \\ IMP_RES_TAC TERM_Var \\ FULL_SIMP_TAC std_ss [] >>
-    simp[TERM_Abs] >>
-    simp[VSUBST_def] >>
-    BasicProvers.CASE_TAC >- (
-      fs[EXISTS_MEM,EVERY_MEM,MEM_FILTER,FORALL_PROD,EXISTS_PROD,MEM_MAP] >>
-      rpt BasicProvers.VAR_EQ_TAC >>
-      qmatch_assum_rename_tac`VFREE_IN (Var x ty) pm` >>
-      qmatch_assum_rename_tac`VFREE_IN qm pm2` >>
-      first_x_assum(qspecl_then[`pm`,`qm`]mp_tac) >>
-      impl_tac >- (
-        simp[] >> spose_not_then STRIP_ASSUME_TAC >> fs[] ) >>
-      strip_tac >- METIS_TAC[vfree_in_thm] >>
-      first_x_assum(qspecl_then[`pm`,`qm`]mp_tac) >>
-      Cases_on`qm`>>simp[]>>strip_tac>>fs[term_type_Var] >>
-      METIS_TAC[vfree_in_thm,TERM] ) >>
-    Q.PAT_ABBREV_TAC`thet = FILTER P theta` >>
-    first_x_assum(qspec_then`thet`mp_tac)>>
-    impl_tac >- (
-      fs[EVERY_MEM,Abbr`thet`,MEM_FILTER,FORALL_PROD]>>
-      rw[]>>METIS_TAC[])>>
-    rw[Abbr`thet`] >>
-    AP_THM_TAC >> AP_TERM_TAC >>
-    simp[rich_listTheory.FILTER_MAP] >>
-    AP_TERM_TAC >>
-    simp[rich_listTheory.FILTER_EQ,FORALL_PROD] >>
-    fs[EVERY_MEM,FORALL_PROD] >>
-    strip_tac >> Cases >> strip_tac >> res_tac >> fs[] >>
-    METIS_TAC[] ) >>
-  simp[] >>
-  `TERM defs (vsubst_aux (FILTER (\(t,x). x <> Var s' ty) theta) tm') /\
-      TYPE defs ty` by
-   (IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss []
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `FILTER (\(t,x). x <> Var s' ty) theta`)
-    \\ FULL_SIMP_TAC std_ss [EVERY_MEM,MEM_FILTER])
-  \\ FULL_SIMP_TAC std_ss [variant_vsubst_thm]
-  \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM (K ALL_TAC)
-  \\ FULL_SIMP_TAC std_ss []
-  \\ `(vsubst_aux (FILTER (\ (t,x). x <> Var s' ty) theta) tm') =
-      (VSUBST
-       (FILTER ( \ (z,y). y <> Var s' ty) theta) tm')` by
-   (Q.PAT_X_ASSUM `!theta.bbb` (MP_TAC o
-        Q.SPEC `FILTER (\(t,x). x <> Var s' ty) theta`)
-    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-     (IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss []
-      \\ FULL_SIMP_TAC std_ss [EVERY_MEM,MEM_FILTER,PULL_EXISTS])
-    \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
-    \\ AP_THM_TAC \\ AP_TERM_TAC
-    \\ Q.PAT_X_ASSUM `EVERY PP xx` MP_TAC
-    \\ Q.SPEC_TAC (`theta`,`xs`) \\ Induct
-    \\ SIMP_TAC std_ss [MEM,FILTER,MAP] \\ Cases
-    \\ FULL_SIMP_TAC std_ss [EVERY_DEF] \\ STRIP_TAC
-    \\ SRW_TAC [] []
-    \\ METIS_TAC [TERM_def])
-  \\ FULL_SIMP_TAC std_ss [TERM_Abs]
-  \\ Q.PAT_ABBREV_TAC `theta1 = (FOO::FILTER (\(t,x). x <> Var s' ty) theta)`
-  \\ Q.PAT_X_ASSUM `!xx.bbb` (MP_TAC o Q.SPEC `theta1`)
-  \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-   (Q.UNABBREV_TAC `theta1` \\ IMP_RES_TAC TERM_Var_SIMP
-    \\ FULL_SIMP_TAC std_ss [EVERY_DEF]
-    \\ FULL_SIMP_TAC (srw_ss()) [EVERY_MEM,MEM_FILTER,PULL_EXISTS]
-    \\ ONCE_REWRITE_TAC [term_type_def] \\ SIMP_TAC (srw_ss()) [])
-  \\ SIMP_TAC std_ss [VSUBST_def,LET_THM]
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ FULL_SIMP_TAC std_ss [SELECT_LEMMA2]
-  \\ reverse BasicProvers.CASE_TAC >- (
-      fs[EXISTS_MEM,EVERY_MEM,MEM_FILTER,FORALL_PROD,EXISTS_PROD,MEM_MAP] >>
-      rpt BasicProvers.VAR_EQ_TAC >>
-      qmatch_assum_rename_tac`vfree_in (Var x ty) pm` >>
-      qmatch_assum_rename_tac`vfree_in qm pm2` >>
-      last_x_assum(qspecl_then[`pm`,`qm`]mp_tac) >> simp[] >>
-      strip_tac >>
-      first_x_assum(qspecl_then[`pm`,`qm`]mp_tac) >>
-      impl_tac >- (
-        conj_tac >- (
-          spose_not_then STRIP_ASSUME_TAC >>
-          Cases_on`qm`>>fs[] >>
-          METIS_TAC[] ) >>
-        METIS_TAC[] ) >>
-      Cases_on`qm`>>fs[] >>
-      METIS_TAC[vfree_in_thm,TERM] ) >>
-  qunabbrev_tac`theta1` >>
-  Q.PAT_ABBREV_TAC`vv = holSyntax$VARIANT A B Z` >>
-  simp[]
-*)
+  rpt gen_tac >> strip_tac
+  >> ‘∀t1 t2. MEM (t1,t2) theta ⇒
+              ∃n ty. t2 = Var n ty ∧ t1 has_type ty ∧ TERM defs t1’
+    by (fs[EVERY_MEM, FORALL_PROD, STATE_def] >> rpt strip_tac
+        >> first_x_assum drule >> strip_tac
+        >> gvs[is_var_thm, term_type_Var]
+        >> imp_res_tac term_type
+        >> gvs[TERM_def] >> metis_tac[term_ok_welltyped, WELLTYPED])
+  >> ‘welltyped tm’ by metis_tac[TERM_def, term_ok_welltyped]
+  >> drule_then (qspec_then ‘theta’ mp_tac) vsubst_aux_VSUBST
+  >> impl_tac >- metis_tac[]
+  >> strip_tac >> gvs[TERM_def]
+  >> irule term_ok_aconv >> simp[]
+  >> qexists_tac ‘VSUBST theta tm’ >> simp[ACONV_SYM]
+  >> irule term_ok_VSUBST >> metis_tac[]
 QED
 
 Theorem forall_thm[local]:
@@ -1342,7 +1434,7 @@ Theorem vsubst_thm:
     TERM defs tm /\ STATE defs s /\
     (vsubst theta tm s = (res, s')) ==>
     (s' = s) /\ !t. (res = M_success t) ==> TERM defs t /\
-    (t = VSUBST  theta tm) /\
+    ACONV t (VSUBST theta tm) /\
     (EVERY (\(p_1,p_2). ?x ty. (p_2 = Var x ty) /\
                                (p_1) has_type ty) theta)
 Proof
@@ -1394,6 +1486,37 @@ Proof
   rw[] >> METIS_TAC [WELLTYPED,term_ok_welltyped]
 QED
 
+Theorem vsubst_aux_NIL[local]:
+  ∀tm. vsubst_aux [] tm = tm
+Proof
+  Induct >> simp[Once vsubst_aux_def, rev_assocd_thm, REV_ASSOCD, ptr_eq_def]
+QED
+
+Theorem vsubst_success_vsubst_aux[local]:
+  vsubst theta tm s = (M_success t, s') ⇒ t = vsubst_aux theta tm
+Proof
+  rw[vsubst_def, st_ex_return_def, st_ex_bind_def, vsubst_aux_NIL]
+  >> gvs[AllCaseEqs(), raise_Failure_def, st_ex_return_def]
+  >> rename1 ‘forall _ theta s = (M_success b, _)’
+  >> Cases_on ‘b’ >> gvs[]
+QED
+
+Theorem vsubst_aux_TERM_ACONV[local]:
+  EVERY (λ(t1,t2). TERM defs t1 ∧ TERM defs t2) theta ∧
+  EVERY (λ(p_1,p_2). ∃x ty. p_2 = Var x ty ∧ p_1 has_type ty) theta ∧
+  TERM defs tm ⇒
+  TERM defs (vsubst_aux theta tm) ∧ ACONV (vsubst_aux theta tm) (VSUBST theta tm)
+Proof
+  strip_tac
+  >> ‘welltyped tm’ by metis_tac[TERM_def, term_ok_welltyped]
+  >> qspecl_then [‘tm’,‘theta’] mp_tac vsubst_aux_VSUBST
+  >> impl_tac >- (fs[EVERY_MEM, FORALL_PROD] >> metis_tac[])
+  >> strip_tac >> simp[TERM_def]
+  >> irule term_ok_aconv >> simp[]
+  >> qexists_tac ‘VSUBST theta tm’ >> simp[ACONV_SYM]
+  >> irule term_ok_VSUBST >> fs[EVERY_MEM, FORALL_PROD, TERM_def] >> metis_tac[]
+QED
+
 Theorem inst_aux_Var:
    inst_aux [] theta (Var v ty) state =
       (M_success (Var v (type_subst theta ty)),state)
@@ -1440,12 +1563,10 @@ Theorem inst_aux_thm:
       | M_failure (Clash v) => (INST_CORE env theta tm = Clash v)
       | _ => F
 Proof
-  cheat
-  (*
   HO_MATCH_MP_TAC inst_aux_ind \\ NTAC 4 STRIP_TAC \\ Cases_on `tm`
   \\ FULL_SIMP_TAC (srw_ss()) []
   THEN1
-   (simp[inst_aux_def,INST_CORE_def,rev_assocd_thm] >>
+   (simp[inst_aux_def,INST_CORE_def,rev_assocd_thm,ptr_eq_def] >>
     `(if type_subst theta t = t then Var m t
       else Var m (type_subst theta t)) = Var m (type_subst theta t)` by METIS_TAC [] >>
     simp[] >> POP_ASSUM (K ALL_TAC)
@@ -1459,7 +1580,7 @@ Proof
     \\ FULL_SIMP_TAC std_ss [TYPE_def,
              EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS] \\ METIS_TAC [])
   THEN1
-   (ONCE_REWRITE_TAC [inst_aux_def] \\ SIMP_TAC (srw_ss()) [LET_DEF,st_ex_return_def]
+   (ONCE_REWRITE_TAC [inst_aux_def] \\ SIMP_TAC (srw_ss()) [LET_DEF,st_ex_return_def,ptr_eq_def]
     \\ NTAC 4 STRIP_TAC
     \\ sg `(res = M_success (Const m (type_subst theta t))) /\ (s = s')`
     THEN1 (Cases_on `type_subst theta t = t` \\ FULL_SIMP_TAC std_ss [])
@@ -1467,7 +1588,7 @@ Proof
     \\ SIMP_TAC std_ss [INST_CORE_def,type_subst])
   THEN1
    (ONCE_REWRITE_TAC [inst_aux_def]
-    \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF,st_ex_return_def,st_ex_bind_def]
+    \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF,st_ex_return_def,st_ex_bind_def,ptr_eq_def]
     \\ NTAC 4 STRIP_TAC \\ Cases_on `inst_aux env theta t s`
     \\ reverse (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
      (Q.PAT_X_ASSUM `M_failure xx = res` (ASSUME_TAC o GSYM)
@@ -1505,7 +1626,7 @@ Proof
   \\ FULL_SIMP_TAC std_ss []
   \\ SIMP_TAC (srw_ss()) [Once inst_aux_def]
   \\ `!ty'. (if ty' = ty then Var v ty else Var v ty') = Var v ty'` by METIS_TAC []
-  \\ FULL_SIMP_TAC std_ss [rev_assocd_thm,REV_ASSOCD,LET_DEF,st_ex_return_def]
+  \\ FULL_SIMP_TAC std_ss [rev_assocd_thm,REV_ASSOCD,LET_DEF,st_ex_return_def,ptr_eq_def]
   \\ SIMP_TAC (srw_ss()) [st_ex_bind_def,otherwise_def,handle_Clash_def,raise_Clash_def]
   \\ Cases_on `inst_aux ((Var v ty,Var v (type_subst theta ty))::env) theta t0 s`
   \\ Q.PAT_X_ASSUM `!x yy.bbb` (K ALL_TAC)
@@ -1602,8 +1723,8 @@ Proof
       (VSUBST [(Var fresh_name (ty),Var v (ty))] (h0))` by
    ((vsubst_aux_thm |> SIMP_RULE std_ss []
      |> Q.SPECL [`tm`,`[Var v ty,Var y ty]`]
-     |> SIMP_RULE std_ss [EVERY_DEF,MAP]
-     |> UNDISCH_ALL |> CONJUNCT2 |> DISCH_ALL |> MP_CANON
+     |> SIMP_RULE std_ss [EVERY_DEF,MAP,ALL_DISTINCT,MEM]
+     |> UNDISCH_ALL |> CONJUNCT2 |> CONJUNCT2 |> DISCH_ALL |> MP_CANON
      |> Q.GEN`s` |> MATCH_MP_TAC)
     \\ first_assum $ irule_at (Pat`STATE`)
     \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC (srw_ss()) [is_var_def]
@@ -1612,7 +1733,6 @@ Proof
   \\ FULL_SIMP_TAC std_ss [IS_RESULT_def,RESULT_def] >>
   BasicProvers.CASE_TAC >> fs[] >>
   BasicProvers.CASE_TAC >> fs[]
-  *)
 QED
 
 Theorem inst_lemma[local]:
@@ -2263,25 +2383,58 @@ Proof
   \\ SIMP_TAC std_ss [holKernelTheory.INST_def,LET_DEF,st_ex_bind_def]
   \\ STRIP_TAC \\ IMP_RES_TAC THM
   \\ Cases_on `image (vsubst theta) l s`
-  \\ MP_TAC (image_lemma |> ISPECL [``(vsubst theta) : term -> term M``,``l : term list``,``s : hol_refs``,``(VSUBST theta) : term -> term``,``defs : update list``])
+  \\ MP_TAC (image_lemma |> ISPECL [``(vsubst theta) : term -> term M``,``l : term list``,``s : hol_refs``,``(vsubst_aux theta) : term -> term``,``defs : update list``])
   \\ FULL_SIMP_TAC std_ss []
   \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
    (fs[EVERY_MEM] >> ntac 2 strip_tac >>
     qx_gen_tac`s9`>>strip_tac >>
     Cases_on`vsubst theta x s9` >>
     imp_res_tac (vsubst_thm |> SIMP_RULE std_ss [EVERY_MEM]) >>
-    METIS_TAC[])
+    METIS_TAC[vsubst_success_vsubst_aux])
   \\ STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [st_ex_return_def]
   \\ Cases_on `vsubst theta t s`
   \\ MP_TAC (vsubst_thm |> Q.INST [`res`|->`q`,`s'`|->`r'`,`tm`|->`t`])
   \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ FULL_SIMP_TAC std_ss [THM_def] >>
-  MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,5)) >>
-  simp[EVERY_MAP,MEM_MAP,PULL_EXISTS] >>
-  fs[EVERY_MEM,FORALL_PROD,TERM_def] >>
-  METIS_TAC[]
+  \\ ‘a' = vsubst_aux theta t’ by metis_tac[vsubst_success_vsubst_aux]
+  \\ gvs[]
+  \\ ‘∀x. TERM defs x ⇒
+          TERM defs (vsubst_aux theta x) ∧
+          ACONV (vsubst_aux theta x) (VSUBST theta x)’
+    by metis_tac[vsubst_aux_TERM_ACONV]
+  \\ ‘(thyof defs, term_image (VSUBST theta) l) |- VSUBST theta t’
+    by (fs[THM_def] >>
+        MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,5)) >>
+        simp[EVERY_MAP,MEM_MAP,PULL_EXISTS] >>
+        fs[EVERY_MEM,FORALL_PROD,TERM_def] >>
+        METIS_TAC[])
+  \\ fs[THM_def]
+  \\ imp_res_tac proves_term_ok \\ fs[]
+  \\ irule proves_ACONV \\ simp[hypset_ok_term_image]
+  \\ conj_tac >- metis_tac[TERM_def, term_ok_welltyped]
+  \\ reverse conj_tac
+  >- (qexistsl_tac [‘VSUBST theta t’, ‘term_image (VSUBST theta) l’]
+      \\ simp[ACONV_SYM, EVERY_MEM, EXISTS_MEM] \\ rpt strip_tac
+      \\ drule MEM_term_image_imp \\ strip_tac \\ gvs[]
+      \\ rename1 ‘MEM y l’
+      \\ ‘∃z. MEM z (term_image (vsubst_aux theta) l) ∧
+              ACONV (vsubst_aux theta y) z’ by metis_tac[MEM_term_image]
+      \\ qexists_tac ‘z’ \\ simp[]
+      \\ ‘TERM defs y’ by fs[EVERY_MEM]
+      \\ metis_tac[ACONV_SYM, ACONV_TRANS])
+  \\ simp[EVERY_MEM] \\ rpt gen_tac \\ strip_tac
+  \\ drule MEM_term_image_imp \\ strip_tac \\ gvs[]
+  \\ rename1 ‘MEM y l’
+  \\ ‘TERM defs y ∧ y has_type Bool’ by fs[EVERY_MEM, TERM_def]
+  \\ first_x_assum drule \\ strip_tac
+  \\ conj_tac >- fs[TERM_def]
+  \\ ‘VSUBST theta y has_type Bool’
+    by (irule VSUBST_HAS_TYPE >> fs[EVERY_MEM, FORALL_PROD] >> metis_tac[])
+  \\ ‘welltyped (vsubst_aux theta y)’ by metis_tac[TERM_def, term_ok_welltyped]
+  \\ ‘welltyped (VSUBST theta y)’ by metis_tac[welltyped_def]
+  \\ imp_res_tac ACONV_TYPE
+  \\ metis_tac[WELLTYPED, WELLTYPED_LEMMA]
 QED
 
 (* ------------------------------------------------------------------------- *)
@@ -2417,6 +2570,13 @@ Theorem LIST_REL_MAP_EQ:
    !r l. LIST_REL (\x y. x = f y) l r ==> (MAP f r = l)
 Proof
   Induct \\ rw []
+QED
+
+Theorem ALL_DISTINCT_MAP_SND_Const_Var[local]:
+  ∀vs. ALL_DISTINCT (MAP FST vs) ⇒
+       ALL_DISTINCT (MAP SND (MAP (λ(s,ty). (Const s ty,Var s ty)) vs))
+Proof
+  Induct >> simp[FORALL_PROD, MEM_MAP, EXISTS_PROD] >> metis_tac[]
 QED
 
 Theorem new_specification_thm:
@@ -2651,7 +2811,11 @@ Proof
       METIS_TAC[] ) >>
     simp[TYPE_def] >>
     fs[TERM_def,term_ok_def]) >>
-  strip_tac >> simp[] >>
+  strip_tac >>
+  `ALL_DISTINCT (MAP SND theta)` by (
+    simp[Abbr`theta`] >> irule ALL_DISTINCT_MAP_SND_Const_Var >>
+    fs[ALL_DISTINCT_APPEND]) >>
+  simp[] >>
   match_mp_tac(List.nth(CONJUNCTS proves_rules,9)) >>
   conj_tac >- (
     fs[STATE_def,CONTEXT_def] >>
