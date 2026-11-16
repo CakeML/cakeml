@@ -3551,7 +3551,7 @@ Theorem evaluate_rewrite_tmc:
   ∀n xs ^s env1 r t opt f s' env2 loc.
     evaluate (xs,env1,s) = (r,t) ∧
     n = (s.clock, list_size exp_size xs) ∧
-    env_rel opt f env1 env2 ∧ EVERY (λx. no_mutcons x) xs ∧
+    env_rel opt f env1 env2 ∧ EVERY no_mutcons xs ∧
     state_rel f s s' ∧
     (opt ⇒ LENGTH xs = 1) ∧
     r ≠ Rerr (Rabort Rtype_error) ⇒
@@ -3715,7 +3715,7 @@ Definition hypothesis_def:
   s''.clock < clock ⇒
   ∀env1' r' t' opt' f' s'³' env2' loc'.
             evaluate (xs',env1',s'') = (r',t') ∧
-            env_rel opt' f' env1' env2' ∧ EVERY (λx. no_mutcons x) xs' ∧
+            env_rel opt' f' env1' env2' ∧ EVERY no_mutcons xs' ∧
             state_rel f' s'' s'³' ∧
             (opt' ⇒ LENGTH xs' = 1) ∧
             r' ≠ Rerr (Rabort Rtype_error) ⇒
@@ -4766,11 +4766,11 @@ Theorem bvi_to_cb_aux_no_mutcons_lemma[local]:
   (∀n loc tag exp cb bs.
      bvi_to_cb_aux_sing n loc tag exp = SOME (bs,cb) ∧
      no_mutcons (Op (BlockOp (Cons tag)) [exp]) ⇒
-     EVERY (λx. no_mutcons x) bs) ∧
+     EVERY no_mutcons bs) ∧
   (∀n loc tag args cb bs.
      bvi_to_cb_aux n loc tag args = SOME (bs,cb) ∧
      no_mutcons (Op (BlockOp (Cons tag)) args) ⇒
-     EVERY (λx. no_mutcons x) bs)
+     EVERY no_mutcons bs)
 Proof
   ho_match_mp_tac bvi_to_cb_aux_ind
   >> rw []
@@ -4801,7 +4801,7 @@ Theorem bvi_to_cb_no_mutcons:
   ∀cb bs n loc x.
     bvi_to_cb n loc x = SOME (bs,cb) ∧
     no_mutcons x ⇒
-    EVERY (λx. no_mutcons x) bs
+    EVERY no_mutcons bs
 Proof
   rw []
   >> reverse $ imp_res_tac bvi_to_cb_cases

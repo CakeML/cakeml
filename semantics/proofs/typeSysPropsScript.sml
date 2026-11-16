@@ -247,7 +247,7 @@ Theorem type_subst_deBruijn_inc_single[local]:
   (s = alist_to_fmap (ZIP (tvs,ts))) ∧
   check_freevars 0 tvs t ⇒
   (deBruijn_inc sk inc (type_subst s t) =
-   type_subst (alist_to_fmap (ZIP (tvs, MAP (\t. deBruijn_inc sk inc t) ts))) t)
+   type_subst (alist_to_fmap (ZIP (tvs, MAP (deBruijn_inc sk inc) ts))) t)
 Proof
   recInduct type_subst_ind >>
  srw_tac[][deBruijn_inc_def, type_subst_def, check_freevars_def]
@@ -272,7 +272,7 @@ Theorem type_subst_deBruijn_inc_list:
   (LENGTH tvs = LENGTH ts) ∧
   EVERY (check_freevars 0 tvs) ts' ⇒
   (MAP (deBruijn_inc sk inc) (MAP (type_subst (alist_to_fmap (ZIP (tvs,ts)))) ts') =
-   MAP (type_subst (alist_to_fmap (ZIP (tvs, MAP (\t. deBruijn_inc sk inc t) ts)))) ts')
+   MAP (type_subst (alist_to_fmap (ZIP (tvs, MAP (deBruijn_inc sk inc) ts)))) ts')
 Proof
  induct_on `ts'` >>
  srw_tac[][] >>
@@ -387,7 +387,7 @@ Theorem type_subst_deBruijn_subst_single[local]:
   check_freevars 0 tvs t ∧
   (s = alist_to_fmap (ZIP (tvs,ts))) ⇒
   (deBruijn_subst inc ts' (type_subst (alist_to_fmap (ZIP (tvs,ts))) t) =
-   type_subst (alist_to_fmap (ZIP (tvs,MAP (\t. deBruijn_subst inc ts' t) ts))) t)
+   type_subst (alist_to_fmap (ZIP (tvs,MAP (deBruijn_subst inc ts') ts))) t)
 Proof
   recInduct type_subst_ind >>
  srw_tac[][deBruijn_subst_def, deBruijn_inc_def, type_subst_def, check_freevars_def]
@@ -405,7 +405,7 @@ Theorem type_subst_deBruijn_subst_list:
   (LENGTH tvs = LENGTH ts) ∧
   EVERY (check_freevars 0 tvs) ts'' ⇒
   (MAP (deBruijn_subst inc ts') (MAP (type_subst (alist_to_fmap (ZIP (tvs,ts)))) ts'') =
-   MAP (type_subst (alist_to_fmap (ZIP (tvs,MAP (\t. deBruijn_subst inc ts' t) ts)))) ts'')
+   MAP (type_subst (alist_to_fmap (ZIP (tvs,MAP (deBruijn_subst inc ts') ts)))) ts'')
 Proof
 induct_on `ts''` >>
 srw_tac[][] >>
@@ -1003,7 +1003,6 @@ Proof
      srw_tac[][]
      >- metis_tac [check_freevars_lem, EVERY_MEM]
      >- metis_tac [type_subst_deBruijn_subst_list, tenv_ctor_ok_lookup])
- >- metis_tac []
  >- (conj_asm1_tac
      >- (match_mp_tac nil_deBruijn_subst >>
          match_mp_tac check_freevars_type_name_subst >>
@@ -1145,8 +1144,6 @@ Proof
  srw_tac[][check_freevars_def, num_tvs_def, type_op_cases,
      tenv_val_ok_def, bind_tvar_def, bind_var_list_def, opt_bind_name_def] >>
  full_simp_tac(srw_ss())[check_freevars_def]
- >- metis_tac [deBruijn_subst_check_freevars]
- >- metis_tac []
  >- (
    fs [lookup_var_def, lookup_varE_def]
    >> every_case_tac
@@ -1330,7 +1327,6 @@ Proof
  >- suspend "Handle"
  >- suspend "ConFreevars"
  >- suspend "Con"
- >- suspend "Tuple"
  >- suspend "Var"
  >- suspend "FunFreevars"
  >- suspend "Fun"
@@ -1396,10 +1392,6 @@ Resume type_e_subst[ConFreevars]:
 QED
 
 Resume type_e_subst[Con]:
-  metis_tac [type_subst_deBruijn_subst_list, tenv_ctor_ok_lookup]
-QED
-
-Resume type_e_subst[Tuple]:
   metis_tac [type_subst_deBruijn_subst_list, tenv_ctor_ok_lookup]
 QED
 
@@ -2353,8 +2345,7 @@ Theorem type_v_freevars:
  !tvs tenvC tenvS v t. type_v tvs tenvC tenvS v t ⇒ check_freevars tvs [] t
 Proof
  ho_match_mp_tac type_v_strongind >>
- srw_tac[][check_freevars_def, tenv_val_ok_def, num_tvs_def, bind_tvar_def, Tchar_def]
- >- metis_tac [] >>
+ srw_tac[][check_freevars_def, tenv_val_ok_def, num_tvs_def, bind_tvar_def, Tchar_def] >>
  res_tac
  >- (
    fs [EVERY2_EVERY, EVERY_MEM]

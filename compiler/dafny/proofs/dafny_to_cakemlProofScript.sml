@@ -4487,7 +4487,7 @@ Theorem map_from_rhs_exp_con_check[local]:
   ∀rhss cml_rhss envc.
     result_mmap from_rhs_exp rhss = INR cml_rhss ∧
     has_cons envc ⇒
-    EVERY (λe. check_exp_constructors envc e) cml_rhss
+    EVERY (check_exp_constructors envc) cml_rhss
 Proof
   Induct
   \\ simp [result_mmap_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
@@ -4496,7 +4496,7 @@ QED
 
 Theorem Seqs_con_check[local]:
   ∀es env.
-    EVERY (λe. check_exp_constructors envc e) es ⇒
+    EVERY (check_exp_constructors envc) es ⇒
     check_exp_constructors envc (Seqs es)
 Proof
   Induct \\ gvs [check_exp_constructors_def, Seqs_def, do_con_check_def]
@@ -4517,7 +4517,7 @@ Theorem map_assign_single_con_check[local]:
   ∀lhss ns ass envc.
     result_mmap2 assign_single lhss (MAP (Var ∘ Short) ns) = INR ass ∧
     has_cons envc ⇒
-    EVERY (λe. check_exp_constructors envc e) ass
+    EVERY (check_exp_constructors envc) ass
 Proof
   Induct \\ Cases_on ‘ns’
   \\ simp [result_mmap2_def, oneline bind_def, CaseEq "sum"] \\ rpt strip_tac
@@ -4526,7 +4526,7 @@ Proof
 QED
 
 Theorem Stuple_con_check[local]:
-  EVERY (λe. check_exp_constructors env_c e) es ⇒
+  EVERY (check_exp_constructors env_c) es ⇒
   check_exp_constructors env_c (Stuple es)
 Proof
   Cases_on ‘LENGTH es = 1’
@@ -4537,7 +4537,7 @@ QED
 
 Theorem par_assign_con_check[local]:
   par_assign lhss cml_rhss = INR cml_body ∧
-  EVERY (λe. check_exp_constructors envc e) cml_rhss ∧
+  EVERY (check_exp_constructors envc) cml_rhss ∧
   has_cons envc ⇒
   check_exp_constructors envc cml_body
 Proof
@@ -4630,7 +4630,7 @@ QED
 
 Theorem MAP_cml_read_var_con_check[local]:
   ∀ns env_c e.
-    EVERY (λe. check_exp_constructors env_c e) (MAP cml_read_var ns)
+    EVERY (check_exp_constructors env_c) (MAP cml_read_var ns)
 Proof
   Induct \\ gvs [check_exp_constructors_def, cml_read_var_def]
 QED

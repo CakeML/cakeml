@@ -4019,7 +4019,7 @@ Theorem bigunion_freevars_subset_vars[local]:
   ∀xs.
     (∀e. MEM e xs ⇒ freevars e ⊆ set (get_vars_exp e)) ⇒
     BIGUNION (set (MAP (λa. freevars a) xs)) ⊆
-    BIGUNION (set (MAP set (MAP (λa. get_vars_exp a) xs)))
+    BIGUNION (set (MAP set (MAP get_vars_exp xs)))
 Proof
   Induct >- (simp [])
   \\ qx_gen_tac ‘x’

@@ -2419,10 +2419,7 @@ Proof
     TOP_CASE_TAC>>rw[]>>
     fs[type_ctor_def]>>
     drule type_es_length>>simp[])
-  >- metis_tac[ETA_AX]
   >- simp[do_con_check_def]
-  >- metis_tac[ETA_AX]
-  >- metis_tac[ETA_AX]
   >- (
     fs [FORALL_PROD, RES_FORALL,EVERY_MEM]>>
     metis_tac[])

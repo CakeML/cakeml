@@ -760,12 +760,13 @@ Proof
     qsuff_tac`mem_load c st = mem_load c cst`>>fs[mem_load_def])
   >-
     (qpat_x_assum`A=SOME res` mp_tac>>TOP_CASE_TAC>>rw[]>>
-    `MAP (\a.word_exp st a) wexps =
-     MAP (\a.word_exp cst a) (MAP (\a. apply_colour_exp f a) wexps)` by
+    `MAP (word_exp st) wexps =
+     MAP (word_exp cst) (MAP (apply_colour_exp f) wexps)` by
       (imp_res_tac the_words_EVERY_IS_SOME>>
       fs[MAP_MAP_o,MAP_EQ_f]>>
       fs[EVERY_MAP,EVERY_MEM]>>
       rw[]>>
+      rename1 ‘word_exp st a = _’>>
       rpt(first_x_assum(qspec_then`a` mp_tac))>>
       rw[IS_SOME_EXISTS]>>
       simp[Once EQ_SYM_EQ]>>
@@ -2740,8 +2741,6 @@ Proof
   fs[SUBSET_DEF,domain_union]>>
   Induct_on`ls`>>rw[]>>
   fs[domain_union,big_union_def]
-  >-
-    metis_tac[]
   >-
     (qexists_tac`get_reads_exp h`>>simp[]>>
     metis_tac[])>>

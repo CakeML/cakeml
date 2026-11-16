@@ -435,8 +435,8 @@ Proof
   recInduct wordSemTheory.word_exp_ind>>rw[wordSemTheory.word_exp_def]>>
   fs[PULL_FORALL]>>fs[Once SWAP_FORALL_THM]>>
   first_x_assum $ qspec_then ‘m’ assume_tac>>gs[]>>
-  ‘the_words (MAP (λa. word_exp (s with memory := m) a) wexps) =
-   the_words (MAP (λa. word_exp s a) wexps)’
+  ‘the_words (MAP (word_exp (s with memory := m)) wexps) =
+   the_words (MAP (word_exp s) wexps)’
     by (Induct_on ‘wexps’>>gs[]>>rpt strip_tac>>gs[]>>
         Cases_on ‘word_exp s h’>>gs[]>>
         gs[wordSemTheory.the_words_def])>>gs[]

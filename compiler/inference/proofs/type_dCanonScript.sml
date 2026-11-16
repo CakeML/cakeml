@@ -668,8 +668,6 @@ Proof
     simp[MAP_MAP_o,o_DEF]>>
     fs[GSYM alist_to_fmap_MAP_values,ZIP_MAP,LAMBDA_PROD])
   >- (
-    fs[good_remap_def,prim_type_nums_def]>>metis_tac[ETA_AX])
-  >- (
     fs[ts_tid_rename_type_name_subst,remap_tenv_def,GSYM check_type_names_ts_tid_rename]>>
     metis_tac[ts_tid_rename_type_name_subst])
   >>
