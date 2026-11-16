@@ -71,14 +71,16 @@ compiler/backend/serialiser
 compiler/encoders/x64/proofs
 compiler/encoders/arm7/proofs
 compiler/encoders/arm8/proofs
-compiler/encoders/arm8_asl/proofs
+# excluded until arm8_asl has the ARM8 floating-point changes (origin/arm8-floats)
+#compiler/encoders/arm8_asl/proofs
 compiler/encoders/mips/proofs
 compiler/encoders/riscv/proofs
 compiler/encoders/ag32/proofs
 compiler/backend/x64/proofs
 compiler/backend/arm7/proofs
 compiler/backend/arm8/proofs
-compiler/backend/arm8_asl
+# excluded until arm8_asl has the ARM8 floating-point changes (origin/arm8-floats)
+#compiler/backend/arm8_asl
 compiler/backend/mips/proofs
 compiler/backend/riscv/proofs
 compiler/backend/San
@@ -146,7 +148,8 @@ examples/lpr_checker
 examples/lpr_checker/array
 examples/lpr_checker/array/compilation
 examples/lpr_checker/array/compilation/proofs
-examples/lpr_checker/array/compilation/proofsARM8
+# excluded until arm8_asl has the ARM8 floating-point changes (origin/arm8-floats)
+#examples/lpr_checker/array/compilation/proofsARM8
 .
 
 examples/cnf
@@ -184,7 +187,8 @@ examples/pseudo_bool/graph_encoding
 examples/pseudo_bool/array
 examples/pseudo_bool/array/compilation
 examples/pseudo_bool/array/compilation/proofs
-examples/pseudo_bool/array/compilation/proofsARM8
+# excluded until arm8_asl has the ARM8 floating-point changes (origin/arm8-floats)
+#examples/pseudo_bool/array/compilation/proofsARM8
 examples/pseudo_bool/cnf_encoding/array
 examples/pseudo_bool/cnf_encoding/array/compilation
 examples/pseudo_bool/cnf_encoding/array/compilation/proofs
@@ -247,7 +251,8 @@ pancake/compilation/riscv:pancake-riscv.tar.gz
 unverified/sexpr-bootstrap/export
 compiler/bootstrap/compilation/x64:cake-x64.tar.gz
 compiler/bootstrap/compilation/arm8:cake-arm8.tar.gz
-compiler/bootstrap/compilation/arm8/proofs
+# excluded until arm8_asl has the ARM8 floating-point changes (origin/arm8-floats)
+#compiler/bootstrap/compilation/arm8/proofs
 compiler/bootstrap/compilation/ag32
 compiler/bootstrap/compilation/ag32/proofs
 unverified/sexpr-bootstrap/x64

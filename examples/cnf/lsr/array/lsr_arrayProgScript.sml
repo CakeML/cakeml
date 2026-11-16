@@ -4,10 +4,10 @@
 Theory lsr_arrayProg
 Ancestors
   misc mllist UnsafeProof ccnf_arith ccnf_arrayProg ccnf_parseProg cnf ccnf
-  ccnf_list syntax_helper sr lsr lsr_list array_ofProof lsr_roundProg mlint
-  mlvector
+  ccnf_list ccnf_dm syntax_helper sr lsr lsr_list array_ofProof lsr_roundProg
+  mlint mlvector
 Libs
-  preamble basis lsr_arrayLib
+  preamble basis
 
 val _ = hide_environments true;
 
@@ -2622,7 +2622,7 @@ Proof
   Cases_on`lines`>>fs[OPTION_TYPE_def]>>xmatch
   >- (
     xcon>>xsimpl>>
-    sep_triv)>>
+    metis_tac[SEP_IMP_REFL_gc,SEP_IMP_REFL,STAR_ASSOC,STAR_COMM])>>
   xlet_autop>>
   Cases_on`parse_lsr_chunk h`>>fs[OPTION_TYPE_def]
   >- (
@@ -2631,13 +2631,13 @@ Proof
     xraise>>xsimpl>>
     gvs[Fail_exn_def]>>
     first_x_assum (irule_at Any)>>
-    sep_triv)>>
+    metis_tac[SEP_IMP_REFL_gc,SEP_IMP_REFL,STAR_ASSOC,STAR_COMM])>>
   rename1`parse_lsr_chunk h = SOME res`>>
   Cases_on`res`>>fs[SUM_TYPE_def]>>xmatch
   >- (
     xcon>>xsimpl>>
     simp[OPTION_TYPE_def]>>
-    sep_triv)>>
+    metis_tac[SEP_IMP_REFL_gc,SEP_IMP_REFL,STAR_ASSOC,STAR_COMM])>>
   rename1`INSTREAM_LINES nulc fd fdv lines`>>
   rename1`parse_lsr_chunk h = SOME (INR idcw)`>>
   PairCases_on`idcw`>>gvs[PAIR_TYPE_def]>>
@@ -2653,7 +2653,7 @@ Proof
     qexistsl_tac [`lines`,`forwardFD fs fd k`,`fd`]>>
     xsimpl>>
     simp[forwardFD_o]>>
-    sep_triv)>>
+    metis_tac[SEP_IMP_REFL_gc,SEP_IMP_REFL,STAR_ASSOC,STAR_COMM])>>
   Cases_on`lines`>>fs[OPTION_TYPE_def]>>
   xmatch
   >- (
@@ -2661,7 +2661,7 @@ Proof
     xraise>>xsimpl>>
     gvs[Fail_exn_def]>>
     first_x_assum (irule_at Any)>>
-    sep_triv)>>
+    metis_tac[SEP_IMP_REFL_gc,SEP_IMP_REFL,STAR_ASSOC,STAR_COMM])>>
   xlet_autop>>
   xcon>>xsimpl>>
   simp[OPTION_TYPE_def,LSR_LSR_TYPE_def]>>
@@ -3041,14 +3041,14 @@ Proof
       qexists_tac`k`>>xsimpl)
     >- (
       xsimpl>>rw[]>>simp[]>>
-      sep_triv)
+      metis_tac[SEP_IMP_REFL_gc,SEP_IMP_REFL,STAR_ASSOC,STAR_COMM])
     >- (
       fs[Fail_exn_def]>>
       xcases>>
       xcon>>xsimpl>>
       simp[PULL_EXISTS]>>
       asm_exists_tac>>simp[]>>
-      sep_triv))>>
+      metis_tac[SEP_IMP_REFL_gc,SEP_IMP_REFL,STAR_ASSOC,STAR_COMM]))>>
   qspecl_then [`lines`,`fmlls`,`REPLICATE n 0`,`1`,`REPLICATE n 0`,
     `REPLICATE (2 * n) 0`,`0`,`REPLICATE (2 * n) 0`,`tp0`]
     strip_assume_tac parse_and_run_file_list_eq>>

@@ -45,9 +45,9 @@ Datatype:
   | Div div_ty constr num      (* Divide by a constant factor *)
   | Minus constr num      (* Subtract from RHS *)
   | Sat constr          (* Saturation *)
-  | Lit (num lit)       (* Literal axiom lit ≥ 0 (superseded by triv but used in parsing) *)
-  | Weak constr (var list)     (* Addition of literal axioms until "var" disappears *)
-  | Triv ((num # num lit) app_list) (* Literal axiom corresponds to [1,l] ≥ 0 *)
+  | Lit ('a lit)       (* Literal axiom lit ≥ 0 (superseded by triv but used in parsing) *)
+  | Weak constr ('a list)     (* Addition of literal axioms until "var" disappears *)
+  | Triv ((num # 'a lit) app_list) (* Literal axiom corresponds to [1,l] ≥ 0 *)
   | Lincomb ((num # num) list) ((constr # num) list)
     (* Sum of the IDs' constraints and of the nested constraints,
        each scaled by its factor *)
@@ -57,7 +57,7 @@ End
 Datatype:
   lstep =
   | Delete (num list) (* Ids to delete *)
-  | Cutting constr    (* Adds a constraint using cutting planes, written in reverse polish notation *)
+  | Cutting (var constr)    (* Adds a constraint using cutting planes, written in reverse polish notation *)
   | Rup npbc (num list) (* Add a constraint by RUP *)
   | Con npbc (lstep list) num
     (* Prove constraint by contradiction, indicated by the id *)
@@ -114,20 +114,20 @@ Definition is_sum_def:
   (is_sum _ = F)
 End
 
-(* The operands of a sum, each list in reverse order:
-  IDs, other parts and literals, each with its factor *)
+(* The operands of a sum: IDs, other parts and literals, each with its
+  factor *)
 Definition mk_lincomb_def:
   mk_lincomb (ids,ns,lits) =
-  if NULL ids ∧ NULL ns then Triv (List (REVERSE lits))
+  if NULL ids ∧ NULL ns then Triv (List lits)
   else
-    let ns = if NULL lits then ns else (Triv (List (REVERSE lits)),1)::ns in
-    Lincomb (REVERSE ids) (REVERSE ns)
+    let ns = if NULL lits then ns else ns ++ [(Triv (List lits),1)] in
+    Lincomb ids ns
 End
 
 (* Each maximal sum of Add and Mul nodes becomes one Lincomb *)
 Definition to_triv_def:
   (to_triv (Add l r) =
-    mk_lincomb (to_lin r 1 (to_lin l 1 ([],[],[])))) ∧
+    mk_lincomb (to_lin l 1 (to_lin r 1 ([],[],[])))) ∧
   (to_triv (Mul c k) =
     if is_sum c then mk_lincomb (to_lin c k ([],[],[]))
     else
@@ -141,7 +141,7 @@ Definition to_triv_def:
   (to_triv (Weak c vs) = fuse_weaken vs (to_triv c)) ∧
   (to_triv (Lit l) = Triv (List [(1,l)])) ∧
   (to_triv c = c) ∧
-  (to_lin (Add l r) m acc = to_lin r m (to_lin l m acc)) ∧
+  (to_lin (Add l r) m acc = to_lin l m (to_lin r m acc)) ∧
   (to_lin (Mul c k) m acc = to_lin c (m * k) acc) ∧
   (to_lin (Id n) m acc =
     let (ids,ns,lits) = acc in ((n,m)::ids,ns,lits)) ∧
@@ -151,8 +151,8 @@ Definition to_triv_def:
     let (ids,ns,lits) = acc in (ids,(to_triv c,m)::ns,lits))
 Termination
   WF_REL_TAC ‘measure (λx. case x of
-    INL c => 2 * constr_size c
-  | INR (c,_,_) => 2 * constr_size c + 1)’
+    INL c => 2 * constr_size (K 0) c
+  | INR (c,_,_) => 2 * constr_size (K 0) c + 1)’
 End
 
 Definition sing_lit_def:
@@ -256,8 +256,9 @@ Proof
   simp[]
 QED
 
+(* TMC *)
 Definition bal_add_round_def:
-  (bal_add_round (x::y::xs) = add x y :: bal_add_round xs) ∧
+  (bal_add_round (x::y::xs) = let h = add x y in h :: bal_add_round xs) ∧
   (bal_add_round xs = xs)
 End
 
@@ -289,6 +290,94 @@ Proof
   Cases_on`xs`>>simp[]>>
   rename1`_::rest`>>
   Cases_on`rest`>>gvs[bal_add_round_eq]
+QED
+
+Theorem bal_bal_round:
+  bal f e (bal_round f xs) = bal f e xs
+Proof
+  Cases_on`xs`>>simp[bal_round_def]>>
+  rename1`_::rest`>>
+  Cases_on`rest`>>simp[bal_round_def]>>
+  simp[SimpRHS,Once bal_def,bal_round_def]
+QED
+
+Theorem MAP_bal_round:
+  ∀f xs.
+  (∀x y. h (f x y) = g (h x) (h y)) ⇒
+  MAP h (bal_round f xs) = bal_round g (MAP h xs)
+Proof
+  ho_match_mp_tac bal_round_ind>>
+  rw[bal_round_def]
+QED
+
+Theorem FOLDR_bal_round:
+  ∀f xs.
+  (∀x y z. f x (f y z) = f (f x y) z) ⇒
+  FOLDR f e (bal_round f xs) = FOLDR f e xs
+Proof
+  ho_match_mp_tac bal_round_ind>>
+  rw[bal_round_def]
+QED
+
+(* A map that turns f into g commutes with the balanced combination *)
+Theorem bal_hom:
+  (∀x y. h (f x y) = g (h x) (h y)) ⇒
+  ∀e xs. h (bal f e xs) = bal g (h e) (MAP h xs)
+Proof
+  strip_tac>>
+  gen_tac>>
+  completeInduct_on`LENGTH xs`>>
+  rw[]>>
+  ONCE_REWRITE_TAC[bal_def]>>
+  Cases_on`xs`>>simp[]>>
+  rename1`x::rest`>>
+  Cases_on`rest`>>simp[]>>
+  rename1`x::y::t`>>
+  first_x_assum (qspec_then`LENGTH (bal_round f (x::y::t))` mp_tac)>>
+  impl_tac >- (irule (CONJUNCT2 (SPEC_ALL LENGTH_bal_round))>>simp[])>>
+  disch_then (qspec_then`bal_round f (x::y::t)` mp_tac)>>
+  drule MAP_bal_round>>
+  simp[]
+QED
+
+(* For an associative f with right unit e, the balanced combination is
+  the fold *)
+Theorem bal_FOLDR:
+  (∀x y z. f x (f y z) = f (f x y) z) ∧ (∀x. f x e = x) ⇒
+  ∀xs. bal f e xs = FOLDR f e xs
+Proof
+  strip_tac>>
+  completeInduct_on`LENGTH xs`>>
+  rw[]>>
+  ONCE_REWRITE_TAC[bal_def]>>
+  Cases_on`xs`>>simp[]>>
+  rename1`x::rest`>>
+  Cases_on`rest`>>simp[]>>
+  rename1`x::y::t`>>
+  first_x_assum (qspec_then`LENGTH (bal_round f (x::y::t))` mp_tac)>>
+  impl_tac >- (irule (CONJUNCT2 (SPEC_ALL LENGTH_bal_round))>>simp[])>>
+  disch_then (qspec_then`bal_round f (x::y::t)` mp_tac)>>
+  drule FOLDR_bal_round>>
+  simp[]
+QED
+
+(* Twice the degree less the sum of the absolute coefficients of a
+  balanced sum is the sum of those of its operands (add_degree_lslack) *)
+Theorem bal_add_degree_lslack:
+  ∀L.
+  2 * SND (bal_add L) - &lslack (FST (bal_add L)) =
+  FOLDR (λc a. 2 * SND c - &lslack (FST c) + a) 0 L
+Proof
+  gen_tac>>
+  qabbrev_tac`h = λc:npbc. 2 * SND c - &lslack (FST c)`>>
+  `∀x y. h (add x y) = h x + h y` by simp[Abbr`h`,add_degree_lslack]>>
+  drule bal_hom>>
+  disch_then (qspecl_then [`([],0)`,`L`] mp_tac)>>
+  `h ([],0) = 0` by simp[Abbr`h`,lslack_def]>>
+  `bal $+ 0 (MAP h L) = FOLDR $+ 0 (MAP h L)` by (
+    irule bal_FOLDR>>
+    simp[integerTheory.INT_ADD_ASSOC])>>
+  simp[GSYM bal_add_eq,FOLDR_MAP]
 QED
 
 (* The IDs' constraints, each scaled by its factor *)
@@ -1153,7 +1242,7 @@ Proof
 QED
 *)
 
-Type subst_raw = ``:(num , bool + num lit) alist``;
+Type subst_raw = ``:('a , bool + 'a lit) alist``;
 
 (*
   The subproof type is complicated and explained as follows:
@@ -1177,7 +1266,7 @@ Type scope = ``:(num option, subproof) alist``;
 Datatype:
   sstep =
   | Lstep lstep (* Id representing a contradiction *)
-  | Red npbc subst_raw scope (num option)
+  | Red npbc (var subst_raw) scope (num option)
 End
 
 Definition list_list_insert_def:
@@ -1193,23 +1282,33 @@ Proof
   \\ rw [lookup_insert]
 QED
 
-Type ord_s = ``:aspo # (num # bool) option vector # (num # bool) option vector
-  # (bool option) vector # unit option vector``;
+Type ord_s = ``:aspo # (num # bool) lmap # (num # bool) lmap
+  # bool lmap # unit lmap``;
+
+Definition mk_as_vec_def:
+  mk_as_vec as = mk_map [] (MAP (\n. n,()) as)
+End
+
+Theorem map_lookup_mk_as_vec:
+  map_lookup (mk_as_vec as) n = ALOOKUP (MAP (\n. n,()) as) n
+Proof
+  simp [mk_as_vec_def, map_lookup_mk_map]
+QED
 
 (* This characterizes the redundancy used in ord_s *)
 Definition good_ord_s_def:
   good_ord_s (((f,g,us,vs,as),xs),us_xs,vs_xs,xsv,asv) <=>
-  us_xs = spt_to_vec (list_list_insert us xs) ∧
-  vs_xs = spt_to_vec (list_list_insert vs xs) ∧
-  xsv = spt_to_vec (fromAList xs) ∧
-  asv = spt_to_vec (fromAList (MAP (\n. n,()) as))
+  us_xs = mk_map [] (ZIP (us,xs)) ∧
+  vs_xs = mk_map [] (ZIP (vs,xs)) ∧
+  xsv = mk_map [] xs ∧
+  asv = mk_as_vec as
 End
 
 Definition dom_subst_def:
   (dom_subst hs w (NONE: ord_s option) = ([],[])) ∧
   (dom_subst hs w (SOME (((f,g,us,vs,as),xs),us_xs,vs_xs,xsv, asv)) =
   let ww = (λn.
-    case vec_lookup us_xs n of
+    case map_lookup us_xs n of
       SOME (v,b) =>
         SOME (
             mk_bit_lit b
@@ -1217,7 +1316,7 @@ Definition dom_subst_def:
                 NONE => INR (Pos v)
               | SOME res => res))
     | NONE =>
-        OPTION_MAP (INR o mk_lit) (vec_lookup vs_xs n)) in
+        OPTION_MAP (INR o mk_lit) (map_lookup vs_xs n)) in
   (MAP (subst ww) f,
     if hs then MAP (subst ww) g else []))
 End
@@ -1342,13 +1441,10 @@ Definition check_scopes_def:
         check_scopes scpfs b fml id')
 End
 
-Type subst = ``:(num # (bool + num lit)) + (bool + num lit) option vector``;
+Type subst = ``:(bool + num lit) lmap``;
 
 Definition subst_fun_def:
-  subst_fun (s:subst) n =
-  case s of
-    INL (m,v) => if n = m then SOME v else NONE
-  | INR s => vec_lookup s n
+  subst_fun (s:subst) n = map_lookup s n
 End
 
 Definition map_opt_def:
@@ -1462,10 +1558,20 @@ Definition mk_core_fml_def:
 End
 
 Definition mk_subst_def:
-  (mk_subst [] = INR (Vector [])) ∧
-  (mk_subst [(n,v)] = INL (n,v)) ∧
-  (mk_subst xs = INR (spt_to_vec (fromAList xs)))
+  mk_subst (rinds:num list) (s:var subst_raw) = (mk_map rinds s : subst)
 End
+
+Theorem subst_fun_mk_subst:
+  subst_fun (mk_subst rinds s) n = ALOOKUP s n
+Proof
+  simp [subst_fun_def, mk_subst_def, map_lookup_mk_map]
+QED
+
+Theorem subst_fun_mk_subst_rinds:
+  ∀r1 r2 s. subst_fun (mk_subst r1 s) = subst_fun (mk_subst r2 s)
+Proof
+  simp [FUN_EQ_THM, subst_fun_mk_subst]
+QED
 
 (* ncs is a list of negated goals;
   check if one of the goals is implied by ¬ extra *)
@@ -1519,14 +1625,14 @@ End
 Definition check_fresh_aux_subst_def:
   check_fresh_aux_subst asv s ⇔
   let mss = filter_map_inr s [] in
-  EVERY (λx. vec_lookup asv x = NONE) mss
+  EVERY (λx. map_lookup asv x = NONE) mss
 End
 
 (* directly check the raw constraint *)
 Definition check_fresh_aux_constr_def:
   check_fresh_aux_constr asv c ⇔
   let mss = MAP SND (FST c) in
-  EVERY (λx. vec_lookup asv x = NONE) mss
+  EVERY (λx. map_lookup asv x = NONE) mss
 End
 
 Definition check_fresh_aspo_def:
@@ -1552,29 +1658,23 @@ QED
 Theorem subst_fun_mk_subst_neq:
   ∀s.
   (∀n. ¬MEM (n,v) s) ⇒
-  subst_fun (mk_subst s) n ≠ SOME v
+  subst_fun (mk_subst rinds s) n ≠ SOME v
 Proof
-  ho_match_mp_tac mk_subst_ind>>
-  rw[mk_subst_def,subst_fun_def]>>
-  CCONTR_TAC>>gvs[]
-  >-
-    gvs[vec_lookup_def,length_def]>>
-  gvs[vec_lookup_num_man_to_vec,lookup_fromAList]>>
-  drule ALOOKUP_MEM>>
-  rw[]
+  rw [subst_fun_mk_subst] \\ CCONTR_TAC \\ gvs []
+  \\ drule ALOOKUP_MEM \\ metis_tac []
 QED
 
 Theorem check_fresh_aux_subst_imp:
   check_fresh_aux_subst asv s ∧
-  asv = spt_to_vec (fromAList (MAP (\n. n,()) as)) ⇒
+  asv = mk_as_vec as ⇒
   ∀n a.
     a ∈ set as ⇒
-    subst_fun (mk_subst s) n ≠ SOME (INR (Pos a)) ∧
-    subst_fun (mk_subst s) n ≠ SOME (INR (Neg a))
+    subst_fun (mk_subst rinds s) n ≠ SOME (INR (Pos a)) ∧
+    subst_fun (mk_subst rinds s) n ≠ SOME (INR (Neg a))
 Proof
   strip_tac>>
   gvs[check_fresh_aux_subst_def,MEM_filter_map_inr,EVERY_MEM]>>
-  gvs[spt_to_vecTheory.vec_lookup_num_man_to_vec,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,PULL_FORALL] >>
+  gvs[map_lookup_mk_as_vec,ALOOKUP_NONE,MEM_MAP,PULL_FORALL] >>
   metis_tac[subst_fun_mk_subst_neq]
 QED
 
@@ -1584,7 +1684,7 @@ Theorem check_fresh_aspo_fresh:
   ⇒
   OPTION_ALL
     (fresh_aux_aspo (core_only_fml (b ∨ tcb) fml) c obj
-       (subst_fun (mk_subst s)) o FST) ord
+       (subst_fun (mk_subst rinds s)) o FST) ord
 Proof
   simp[check_fresh_aspo_def]>>
   every_case_tac>>rw[fresh_aux_aspo_def,fresh_aux_def]
@@ -1595,7 +1695,7 @@ Proof
     metis_tac[SND,PAIR])
   >- (
     gvs[check_fresh_aux_constr_def,good_ord_s_def]>>
-    gvs[spt_to_vecTheory.vec_lookup_num_man_to_vec,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,PULL_FORALL]>>
+    gvs[map_lookup_mk_as_vec,ALOOKUP_NONE,MEM_MAP,PULL_FORALL]>>
     Cases_on`c`>>gvs[EVERY_MEM,npbc_vars_def]>>
     metis_tac[])
   >- (
@@ -1617,7 +1717,7 @@ End
 
 Definition untouched_order_impl_def:
   untouched_order_impl s xsv =
-  EVERY (λ(n,v). vec_lookup xsv n = NONE) s
+  EVERY (λ(n,v). map_lookup xsv n = NONE) s
 End
 
 (* Subgoals that can be skipped, starting from 1
@@ -1648,12 +1748,12 @@ End
   The "hs" flag skips computation of certain checks related to scopes
 *)
 Definition check_red_def:
-  check_red pres (ordsub :ord_s option) obj b tcb fml id c (s: subst_raw )
+  check_red pres (ordsub :ord_s option) obj b tcb fml id c (s: var subst_raw )
     (pfs:scope) idopt =
   if check_pres pres s then
     ( let nc = not c in
       let (fml_not_c,id1) = insert_fml b fml id (not c) in
-      let ss = mk_subst s in
+      let ss = mk_subst [] s in
       let w = subst_fun ss in
       let hs = has_scope pfs in
       let (rsubs,rscopes) = red_subgoals ordsub w c obj hs in
@@ -2185,15 +2285,11 @@ Theorem check_pres_subst_fun:
   ∀s.
   check_pres pres s ⇒
   (∀x. x ∈ pres_set_spt pres ⇒
-    subst_fun (mk_subst s) x = NONE)
+    subst_fun (mk_subst rinds s) x = NONE)
 Proof
   Cases_on`pres`>>
-  gvs[check_pres_def,pres_set_spt_def]>>
-  ho_match_mp_tac mk_subst_ind>>
-  rw[pres_set_spt_def,mk_subst_def,subst_fun_def,check_pres_def,domain_lookup]
-  >-
-    (pop_assum mp_tac>>EVAL_TAC)>>
-  gvs[vec_lookup_num_man_to_vec,lookup_fromAList,EVERY_MEM,ALOOKUP_NONE,MEM_MAP]>>
+  rw[check_pres_def,pres_set_spt_def,subst_fun_mk_subst,ALOOKUP_NONE,MEM_MAP]>>
+  gvs[EVERY_MEM,domain_lookup]>>
   metis_tac[NOT_SOME_NONE]
 QED
 
@@ -2244,8 +2340,8 @@ End
 
 Theorem dom_subst_eq:
   dom_subst hs w (SOME (((f,g,us,vs,as),xs),us_xs,vs_xs,xsv,asv)) = (fs,gs) ∧
-  us_xs = spt_to_vec (list_list_insert us xs) ∧
-  vs_xs = spt_to_vec (list_list_insert vs xs) ∧
+  us_xs = mk_map [] (ZIP (us,xs)) ∧
+  vs_xs = mk_map [] (ZIP (vs,xs)) ∧
   sub_leq =
     (λn.
       case ALOOKUP (ZIP (us,xs)) n of
@@ -2260,7 +2356,7 @@ Theorem dom_subst_eq:
   (hs ⇒ set g ⇂ sub_leq = set gs)
 Proof
   rw[EXTENSION]>>
-  gvs[dom_subst_def,LIST_TO_SET_MAP,lookup_list_list_insert,vec_lookup_num_man_to_vec]
+  gvs[dom_subst_def,LIST_TO_SET_MAP,map_lookup_mk_map]
 QED
 
 Theorem good_aspo_imp_po_of_aspo_refl:
@@ -2351,31 +2447,19 @@ Proof
 QED
 
 Theorem IMP_subst_funs_NONE:
-  ∀s x. ~MEM x (MAP FST s) ⇒ subst_fun (mk_subst s) x = NONE
+  ∀s x. ~MEM x (MAP FST s) ⇒ subst_fun (mk_subst rinds s) x = NONE
 Proof
-  ho_match_mp_tac mk_subst_ind
-  \\ gvs [mk_subst_def,subst_fun_def]
-  \\ gvs [spt_to_vecTheory.vec_lookup_num_man_to_vec,lookup_fromAList]
-  \\ simp [vec_lookup_def,regexp_compilerTheory.length_def]
-  \\ gvs [ALOOKUP_NONE]
+  simp [subst_fun_mk_subst,ALOOKUP_NONE]
 QED
 
 Theorem good_aspo_subst_untouched_order_impl:
   good_aspo_subst ((a,xs),_,_,xsv,asv) ⇒
   (untouched_order_impl s xsv =
-  untouched_order (subst_fun (mk_subst s)) xs)
+  untouched_order (subst_fun (mk_subst rinds s)) xs)
 Proof
   PairCases_on`a`>>rw[good_aspo_subst_def,good_ord_s_def]>>
-  rw[untouched_order_impl_def,untouched_order_def,vec_lookup_num_man_to_vec,lookup_fromAList]>>
-  simp[oneline mk_subst_def]>>
-  every_case_tac>>rw[EVERY_MEM,subst_fun_def]>>
-  simp[FORALL_PROD]
-  >-
-    (pairarg_tac>>simp[]>>EVAL_TAC)
-  >-
-    simp[ALOOKUP_NONE,MEM_MAP,FORALL_PROD]>>
-  simp[vec_lookup_num_man_to_vec,lookup_insert,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,FORALL_PROD]>>
-  pairarg_tac>>simp[]>>
+  rw[untouched_order_impl_def,untouched_order_def,map_lookup_mk_map,
+     subst_fun_mk_subst,ALOOKUP_NONE,EVERY_MEM,FORALL_PROD,MEM_MAP]>>
   metis_tac[]
 QED
 
@@ -2460,7 +2544,7 @@ Proof
   \\ match_mp_tac (GEN_ALL substitution_redundancy_obj_po_spec)
   \\ simp[]
   \\ simp [SF DNF_ss]
-  \\ qexists_tac ‘subst_fun (mk_subst s)’ \\ fs []
+  \\ qexists_tac ‘subst_fun (mk_subst [] s)’ \\ fs []
   \\ gvs[red_subgoals_def]
   \\ pairarg_tac \\ gvs[]
   \\ first_assum $ irule_at Any
@@ -2602,7 +2686,7 @@ Proof
   \\ disch_then (fn th => DEP_REWRITE_TAC[th])
   \\ gvs [GSYM unsat_iff_implies]
   \\ rename1 `cc ∈ _ _ _`
-  \\ Cases_on ‘subst_opt (subst_fun (mk_subst s)) cc’ \\ fs []
+  \\ Cases_on ‘subst_opt (subst_fun (mk_subst [] s)) cc’ \\ fs []
   >- (
     imp_res_tac subst_opt_NONE
     \\ CCONTR_TAC \\ gvs [satisfiable_def,not_thm]
@@ -2614,7 +2698,7 @@ Proof
   \\ strip_tac
   \\ rename1`lookup nn _ = SOME cc`
   \\ rename1`subst_opt _ _ = SOME yy`
-  \\ `MEM (nn,yy) (toAList (map_opt (subst_opt (subst_fun (mk_subst s)))
+  \\ `MEM (nn,yy) (toAList (map_opt (subst_opt (subst_fun (mk_subst [] s)))
                                     (mk_core_fml (b ∨ tcb) fml)))` by
     simp[MEM_toAList,lookup_map_opt]
   \\ drule_all split_goals_checked \\ rw[]
@@ -2881,20 +2965,20 @@ Proof
   metis_tac[good_aspo_imp_po_of_aspo_trans]
 QED
 
-Type assg_raw = ``:((num # bool) list)``;
+Type assg_raw = ``:('a # bool) list``;
 
 Type aord = ``:(npbc list # npbc list # var list # var list # var list)``;
 
-Type specproof = ``:((npbc # subst_raw # scope # (num option)) list)``
+Type specproof = ``:((npbc # var subst_raw # scope # (num option)) list)``
 
 Datatype:
   cstep =
   (* Derivation steps *)
-  | Dom npbc subst_raw scope (num option)
+  | Dom npbc (var subst_raw) scope (num option)
   | Sstep sstep
 
   (* Deletion steps *)
-  | CheckedDelete num subst_raw scope (num option)
+  | CheckedDelete num (var subst_raw) scope (num option)
   | UncheckedDelete (num list)
   | Transfer (num list) (* Move to core *)
 
@@ -2912,7 +2996,7 @@ Datatype:
      (* transitivity proof ws, bs, cs, proof *)
 
   (* Objective steps *)
-  | Obj assg_raw bool (int option)
+  | Obj (var assg_raw) bool (int option)
   | ChangeObj bool ((int # var) list # int) subproof
     (* the bool indicates T (new) or F (diff) mode *)
   | CheckObj ((int # var) list # int)
@@ -2921,7 +3005,7 @@ Datatype:
   (* Preserved set step b=T is add, b=F is remove *)
   | ChangePres bool var npbc subproof
   | CheckPres num_set
-  | Sol assg_raw num_set
+  | Sol (var assg_raw) num_set
 End
 
 Definition hide_def:
@@ -3029,7 +3113,7 @@ Termination
 End
 
 Definition mk_obj_vec_def:
-  mk_obj_vec (wm:((num # bool) list)) =
+  mk_obj_vec (wm:var assg_raw) =
     let wms = sort (λx y. FST x ≤ FST y) wm in
     Vector (to_flat_d F 0 wms)
 End
@@ -3117,7 +3201,7 @@ Proof
 QED
 
 Definition mk_cube_vec_def:
-  mk_cube_vec (wm:(num # bool) list) (free:num_set) =
+  mk_cube_vec (wm:var assg_raw) (free:num_set) =
     let fixed =
       MAP (λ(v,b). (v,if b then 1n else 0)) (toSortedAList (fromAList wm)) in
     let holes = MAP (λ(v,u). (v,2n)) (toSortedAList free) in
@@ -3361,7 +3445,7 @@ QED
 Definition neg_dom_subst_def:
   neg_dom_subst w ((((f,g,us,vs,as),xs),us_xs,vs_xs,xsv):ord_s) =
   let ww = (λn.
-    case vec_lookup vs_xs n of
+    case map_lookup vs_xs n of
       SOME (v,b) =>
         SOME (
             mk_bit_lit b
@@ -3369,7 +3453,7 @@ Definition neg_dom_subst_def:
                 NONE => INR (Pos v)
               | SOME res => res))
     | NONE =>
-        OPTION_MAP (INR o mk_lit) (vec_lookup us_xs n))
+        OPTION_MAP (INR o mk_lit) (map_lookup us_xs n))
   in
     (MAP (subst ww) f, MAP (subst ww) g)
 End
@@ -3504,7 +3588,7 @@ End
 
 Definition check_support_def:
   check_support as s ⇔
-  EVERY (λx. vec_lookup as (FST x) = SOME ()) s
+  EVERY (λx. map_lookup as (FST x) = SOME ()) s
 End
 
 Definition check_spec_aux_def:
@@ -3520,7 +3604,7 @@ End
 
 Definition check_spec_def:
   check_spec (us,vs,as) gspec =
-  let asv = spt_to_vec (fromAList (MAP (\n. n,()) as)) in
+  let asv = mk_as_vec as in
   if check_spec_aux asv (LN,1) gspec
   then SOME asv
   else NONE
@@ -3538,7 +3622,7 @@ End
 Theorem check_spec_aux:
   ∀gspec fml_i.
     check_spec_aux asv fml_i gspec ∧ id_ok (FST fml_i) (SND fml_i) ∧
-    asv = spt_to_vec (fromAList (MAP (\n. n,()) as)) ⇒
+    asv = mk_as_vec as ⇒
     ∀w. satisfies w (core_only_fml F (FST fml_i)) ⇒
         ∃w'.
           (∀x. x ∉ set as ⇒ (w x ⇔ w' x)) ∧
@@ -3587,7 +3671,7 @@ Proof
   \\ conj_tac
   >- (
     rw[]>>
-    gvs [check_support_def,EVERY_MEM,spt_to_vecTheory.vec_lookup_num_man_to_vec,lookup_fromAList] >>
+    gvs [check_support_def,EVERY_MEM,map_lookup_mk_as_vec] >>
     first_x_assum drule>>
     disch_then (SUBST1_TAC o SYM)>>
     first_x_assum irule>>
@@ -3933,13 +4017,12 @@ Definition check_eq_pres_def:
     toSortedAList sp = toSortedAList sp'
 End
 
-Type aord_s = ``:aord # unit option vector``;
+Type aord_s = ``:aord # unit lmap``;
 
 Datatype:
   proof_conf =
     <|
-       id : num (* The next global ID *)
-     ; chk : bool (* the checked deletion flag *)
+       chk : bool (* the checked deletion flag *)
      ; tcb : bool (* the strengthen-to-core flag *)
      ; pres : num_set option (* the preserved set *)
      ; obj : ((int # num) list # int) option (* the objective *)
@@ -3958,7 +4041,7 @@ End
 Definition guard_ord_t_def:
   guard_ord_t (((f,g,us,vs,as),asv):aord_s) xs ⇔
   LENGTH xs = LENGTH us ∧
-  EVERY (λxy. vec_lookup asv (FST xy) = NONE) xs
+  EVERY (λxy. map_lookup asv (FST xy) = NONE) xs
 End
 
 Definition find_scope_1_def:
@@ -3971,9 +4054,9 @@ End
 
 Definition mk_ordsub_def:
   mk_ordsub (((f,g,us,vs,as),asv):aord_s) xs =
-  let us_xs = spt_to_vec (list_list_insert us xs) in
-  let vs_xs = spt_to_vec (list_list_insert vs xs) in
-  let xsv = spt_to_vec (fromAList xs) in
+  let us_xs = mk_map [] (ZIP (us,xs)) in
+  let vs_xs = mk_map [] (ZIP (vs,xs)) in
+  let xsv = mk_map [] xs in
     SOME ((((f,g,us,vs,as), xs), us_xs, vs_xs, xsv, asv):ord_s)
 End
 
@@ -4081,7 +4164,7 @@ QED
 
 Definition check_cstep_def:
   (check_cstep cstep
-    (fml:pbf)
+    (fml:pbf) (id:num)
     (pc : proof_conf) =
   case cstep of
   | Dom c s pfs idopt =>
@@ -4090,8 +4173,8 @@ Definition check_cstep_def:
     | SOME aspo =>
     if check_pres pc.pres s ∧ check_fresh_aspo fml c pc.obj s pc.ord then
     ( let nc = not c in
-      let (fml_not_c,id1) = insert_fml F fml pc.id (not c) in
-      let s = mk_subst s in
+      let (fml_not_c,id1) = insert_fml F fml id (not c) in
+      let s = mk_subst [] s in
       let w = subst_fun s in
       let (dsubs,dscopes,dindex) = dom_subgoals aspo w c pc.obj in
       case extract_scopes dscopes pfs w F fml dsubs of
@@ -4114,13 +4197,13 @@ Definition check_cstep_def:
           | SOME cid =>
             check_contradiction_fml F fml' cid) in
         if check then
-          SOME (insert id' (c,pc.tcb) fml, pc with id := id'+1)
+          SOME (insert id' (c,pc.tcb) fml, id'+1, pc)
         else NONE ))
     else NONE)
   | Sstep sstep =>
-    (case check_sstep sstep pc.pres pc.ord pc.obj pc.tcb fml pc.id of
+    (case check_sstep sstep pc.pres pc.ord pc.obj pc.tcb fml id of
       SOME(fml',id') =>
-        SOME (fml', pc with id := id')
+        SOME (fml', id', pc)
     | NONE => NONE)
   | CheckedDelete n s pfs idopt =>
     if check_tcb_idopt pc.tcb idopt then
@@ -4129,26 +4212,25 @@ Definition check_cstep_def:
       | SOME c =>
         (let nfml = delete n fml in
         case check_red pc.pres pc.ord pc.obj T pc.tcb nfml
-          pc.id c s pfs idopt of
+          id c s pfs idopt of
           SOME id' =>
-          SOME (nfml,
-          pc with <| id := id' |>)
+          SOME (nfml, id', pc)
         | NONE => NONE))
     else NONE
   | UncheckedDelete ls =>
       (* Either no order or all ids are in core *)
       if ¬pc.tcb ∧ pc.ord = NONE ∨
          all_core fml then
-          SOME (FOLDL (λa b. delete b a) fml ls,
+          SOME (FOLDL (λa b. delete b a) fml ls, id,
             pc with chk := F)
       else NONE
   | Transfer ls =>
     (case do_transfer fml ls of
       NONE => NONE
-    | SOME fml' => SOME (fml', pc))
+    | SOME fml' => SOME (fml', id, pc))
   | StrengthenToCore b =>
     SOME (
-      if b then map (λ(c,b). (c,T)) fml else fml,
+      if b then map (λ(c,b). (c,T)) fml else fml, id,
       pc with tcb := b)
   | LoadOrder name xs =>
       (case ALOOKUP pc.orders name of
@@ -4157,14 +4239,14 @@ Definition check_cstep_def:
         if guard_ord_t ord' xs
         then
           SOME (
-            map (λ(c,b). (c,T)) fml,
+            map (λ(c,b). (c,T)) fml, id,
             pc with ord := mk_ordsub ord' xs)
         else NONE)
   | UnloadOrder =>
     (case pc.ord of
       NONE => NONE
     | SOME spo =>
-      SOME (fml, pc with ord := NONE))
+      SOME (fml, id, pc with ord := NONE))
   | StoreOrder name vars gspec f pfsr pfst =>
     (case check_spec vars gspec of NONE => NONE
     | SOME asv =>
@@ -4173,9 +4255,10 @@ Definition check_cstep_def:
       then
         case check_transitivity aord pfst of
           NONE => NONE
-        | SOME id =>
-          if check_reflexivity aord pfsr id then
-            SOME (fml, pc with orders := (name,((aord,asv):aord_s))::pc.orders)
+        | SOME tid =>
+          if check_reflexivity aord pfsr tid then
+            SOME (fml, id,
+              pc with orders := (name,((aord,asv):aord_s))::pc.orders)
           else NONE
       else
         NONE)
@@ -4190,42 +4273,39 @@ Definition check_cstep_def:
         if pc.obj ≠ NONE then
           let c = model_improving pc.obj new in
           SOME (
-            insert pc.id (c,T) fml,
+            insert id (c,T) fml, id+1,
             pc with
-            <| id := pc.id+1;
-               bound := bound';
+            <| bound := bound';
                dbound := dbound' |>)
         else NONE
       else
-        SOME (fml,
+        SOME (fml, id,
           pc with
           <| bound := bound';
              dbound := dbound' |>))
   | ChangeObj b fc' pfs =>
-    (case check_change_obj b fml pc.id pc.obj fc' pfs of
+    (case check_change_obj b fml id pc.obj fc' pfs of
       NONE => NONE
     | SOME (fc',id') =>
-      SOME (fml, pc with <| id := id'; obj := SOME fc' |>))
+      SOME (fml, id', pc with obj := SOME fc'))
   | CheckObj fc' =>
     if check_eq_obj pc.obj fc'
-    then SOME (fml,pc)
+    then SOME (fml,id,pc)
     else NONE
   | AssertObj i => (
       if pc.obj ≠ NONE then
         let c = model_improving pc.obj i in
         let dbound' = update_dbound pc.dbound i in
           SOME (
-            insert pc.id (c,T) fml,
-            pc with
-            <| id := pc.id+1;
-               dbound := dbound' |>)
+            insert id (c,T) fml, id+1,
+            pc with dbound := dbound')
       else NONE
     )
   | ChangePres b v c pfs =>
-    (case check_change_pres b fml pc.id pc.pres v c pfs of
+    (case check_change_pres b fml id pc.pres v c pfs of
       NONE => NONE
     | SOME (pres',id') =>
-      SOME (fml, pc with <| id := id'; pres := SOME pres' |>)
+      SOME (fml, id', pc with pres := SOME pres')
     )
   | Sol w free =>
     (if pc.obj ≠ NONE ∨ ¬pc.chk ∨ ¬free_ok pc.pres free then NONE
@@ -4238,16 +4318,15 @@ Definition check_cstep_def:
       let dbound' = update_dbound pc.dbound 0 in
       let c = model_banning pc.pres free w in
         SOME (
-          insert pc.id (c,T) fml,
+          insert id (c,T) fml, id+1,
           pc with
-          <| id := pc.id+1;
-             bound := bound';
+          <| bound := bound';
              dbound := dbound';
              enum := pc.enum + cube_count free
              |>))
   | CheckPres ls' =>
     if check_eq_pres pc.pres ls'
-    then SOME (fml,pc)
+    then SOME (fml,id,pc)
     else NONE
   )
 End
@@ -4350,7 +4429,7 @@ QED
 
 Definition good_aord_t_def:
   good_aord_t ((f,g,us,vs,as),asv) ⇔
-  asv = spt_to_vec (fromAList (MAP (\n. n,()) as)) ∧
+  asv = mk_as_vec as ∧
   ∀xs.
   guard_ord_t ((f,g,us,vs,as),asv) xs ⇒
   good_aspo ((f,g,us,vs,as),xs)
@@ -4897,14 +4976,14 @@ Proof
 QED
 
 Theorem check_cstep_correct:
-  id_ok fml pc.id ∧
+  id_ok fml id ∧
   OPTION_ALL good_aspo_subst pc.ord ∧
   EVERY (good_aord_t o SND) pc.orders ∧
   valid_conf pc.chk pc.pres (OPTION_MAP FST pc.ord) pc.obj pc.tcb fml ⇒
-  case check_cstep cstep fml pc of NONE => T
-  | SOME (fml',pc') =>
-      pc.id ≤ pc'.id ∧
-      id_ok fml' pc'.id ∧
+  case check_cstep cstep fml id pc of NONE => T
+  | SOME (fml',id',pc') =>
+      id ≤ id' ∧
+      id_ok fml' id' ∧
       valid_conf pc'.chk pc'.pres (OPTION_MAP FST pc'.ord) pc'.obj pc'.tcb fml' ∧
       opt_le pc'.bound pc.bound ∧
       opt_le pc'.dbound pc.dbound ∧
@@ -4955,7 +5034,7 @@ Proof
     rw[]>>
     pairarg_tac>>gvs[]>>
     gvs[insert_fml_def]>>
-    `id_ok (insert pc.id (not p,F) fml) (pc.id + 1)` by
+    `id_ok (insert id (not p,F) fml) (id + 1)` by
       fs[id_ok_def]>>
     drule check_scopes_correct>>
     rename1`check_scopes scpfs`>>
@@ -5001,11 +5080,11 @@ Proof
       fs[]>>
       match_mp_tac (GEN_ALL good_aspo_dominance)>>
       simp[]>>
-      qexists_tac ‘subst_fun (mk_subst l)’>>fs[]>>
+      qexists_tac ‘subst_fun (mk_subst [] l)’>>fs[]>>
       conj_tac >-
        (drule check_fresh_aspo_fresh
         \\ gvs [fresh_aux_aspo_def]
-        \\ disch_then (qspecl_then [‘F’,‘F’] mp_tac)
+        \\ disch_then (qspecl_then [‘F’,‘[]’,‘F’] mp_tac)
         \\ gvs [])>>
       CONJ_TAC >-
         metis_tac[check_pres_subst_fun]>>
@@ -5013,7 +5092,7 @@ Proof
         metis_tac[core_only_fml_T_SUBSET_F]>>
       CONJ_TAC >-
         gvs[sat_obj_po_def]>>
-      `pc.id ∉ domain fml` by fs[id_ok_def]>>
+      `id ∉ domain fml` by fs[id_ok_def]>>
       fs[core_only_fml_F_insert_b]>>
       fs[EVERY_MEM,MEM_MAP,EXISTS_PROD]>>
       gvs[dom_subgoals_def,MEM_enumerate_iff,ADD1,AND_IMP_INTRO,PULL_EXISTS]>>
@@ -5021,7 +5100,7 @@ Proof
         (* core constraints*)
         rw[sat_implies_def,satisfies_def]
         \\ gs[PULL_EXISTS,GSYM range_mk_core_fml,range_def,lookup_mk_core_fml]
-        \\ Cases_on ‘subst_opt (subst_fun (mk_subst l)) x’ \\ fs []
+        \\ Cases_on ‘subst_opt (subst_fun (mk_subst [] l)) x’ \\ fs []
         THEN1 (
           imp_res_tac subst_opt_NONE
           \\ gvs[lookup_core_only_def,AllCaseEqs()]
@@ -5029,7 +5108,7 @@ Proof
           \\ fs [satisfies_def,range_def,PULL_EXISTS]
           \\ metis_tac[])
         \\ rename1`subst_opt _ _ = SOME yy`
-        \\ `MEM (n,yy) (toAList (map_opt (subst_opt (subst_fun (mk_subst l)))
+        \\ `MEM (n,yy) (toAList (map_opt (subst_opt (subst_fun (mk_subst [] l)))
             (mk_core_fml T fml)))` by
             simp[MEM_toAList,lookup_map_opt,lookup_mk_core_fml,lookup_core_only_def]
         \\ drule_all split_goals_checked \\ rw[]
@@ -5059,8 +5138,8 @@ Proof
           gvs[lookup_mk_core_fml]>>
           drule lookup_core_only_T_imp_F>>
           rw[])
-        \\ `subst (subst_fun (mk_subst l)) c =
-            subst (subst_fun (mk_subst l)) x` by
+        \\ `subst (subst_fun (mk_subst [] l)) c =
+            subst (subst_fun (mk_subst [] l)) x` by
           metis_tac[subst_opt_SOME]
         \\ strip_tac \\ gvs []
         >- (
@@ -5071,7 +5150,7 @@ Proof
         \\ gvs [MEM_MAP,EXISTS_PROD]
         \\ first_x_assum drule
         \\ strip_tac
-        \\ gvs [lookup_list_list_insert,good_ord_s_def,vec_lookup_num_man_to_vec])>>
+        \\ gvs [good_ord_s_def,map_lookup_mk_map])>>
       CONJ_TAC >- (
         (* order constraints *)
         fs[core_only_fml_def]>>
@@ -5095,7 +5174,7 @@ Proof
           fs[EL_MAP]>>
           strip_tac>>
           drule unsatisfiable_not_sat_implies>>
-          gvs[lookup_list_list_insert,good_ord_s_def,vec_lookup_num_man_to_vec]>>
+          gvs[good_ord_s_def,map_lookup_mk_map]>>
           gvs [mk_scope_def]>>
           Cases_on ‘scopt’>>gvs []>>
           gvs [extract_scope_val_def]
@@ -5108,7 +5187,7 @@ Proof
           \\ gvs [neg_dom_subst_def]
           \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
           \\ simp[EL_MAP]
-          \\ gvs[lookup_list_list_insert,good_ord_s_def,vec_lookup_num_man_to_vec]
+          \\ gvs[good_ord_s_def,map_lookup_mk_map]
           \\ strip_tac
           \\ match_mp_tac unsatisfiable_not_sat_implies
           \\ irule imp_unsatisfiable
@@ -5138,7 +5217,7 @@ Proof
         \\ first_x_assum drule \\ simp []
         \\ disch_then drule \\ simp []
         \\ gvs[mk_scope_def,AllCaseEqs()]
-        \\ gvs[neg_dom_subst_def,lookup_list_list_insert,good_ord_s_def,vec_lookup_num_man_to_vec,range_insert,dom_subst_def]
+        \\ gvs[neg_dom_subst_def,good_ord_s_def,map_lookup_mk_map,range_insert,dom_subst_def]
         \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
         \\ DEP_REWRITE_TAC [EL_APPEND2] \\ gvs []
         \\ strip_tac
@@ -5176,7 +5255,7 @@ Proof
         \\ gvs [extract_scope_val_def]
         \\ rpt disj2_tac
         \\ pop_assum mp_tac
-        \\ gvs [MEM_MAP,lookup_list_list_insert,good_ord_s_def,vec_lookup_num_man_to_vec])
+        \\ gvs [MEM_MAP,good_ord_s_def,map_lookup_mk_map])
       >- (
           match_mp_tac unsatisfiable_not_sat_implies
           \\ gvs [check_hash_imp_def]
@@ -5251,7 +5330,7 @@ Proof
     fs[check_cstep_def]>>
     rw[]>>
     every_case_tac>>fs[]>>
-    `id_ok (delete n fml) pc.id` by
+    `id_ok (delete n fml) id` by
       (fs[id_ok_def]>>
       metis_tac[SUBSET_DEF])>>
     fs[valid_conf_def]>>
@@ -5586,7 +5665,7 @@ Proof
         fs [FUN_EQ_THM] >> rw [] >>
         ntac 4 (CASE_TAC >> fs [])))
     >- (
-      gvs[EXTENSION,MEM_MAP,vec_lookup_num_man_to_vec,lookup_fromAList,ALOOKUP_NONE,FORALL_PROD]>>
+      gvs[EXTENSION,MEM_MAP,map_lookup_mk_as_vec,ALOOKUP_NONE,FORALL_PROD]>>
       metis_tac[])
     )
   >~[`Obj`] >- (
@@ -5596,7 +5675,7 @@ Proof
     >- (
       (* Adding model improving *)
       gvs[update_bound_def,update_dbound_def]>>
-      `pc.id ∉ domain fml` by fs[id_ok_def]>>
+      `id ∉ domain fml` by fs[id_ok_def]>>
       CONJ_TAC >- fs[id_ok_def]>>
       CONJ_TAC >- (
         fs[valid_conf_def]>>
@@ -5748,7 +5827,7 @@ Proof
     every_case_tac>>fs[]>>
     strip_tac>>
     gvs[update_dbound_def]>>
-    `pc.id ∉ domain fml` by fs[id_ok_def]>>
+    `id ∉ domain fml` by fs[id_ok_def]>>
     CONJ_TAC >- fs[id_ok_def]>>
     CONJ_TAC >- (
       fs[valid_conf_def]>>
@@ -5861,12 +5940,12 @@ Proof
     every_case_tac>>rw[]>>
     metis_tac[INJ_ID])
   >~[`Sol`] >- (
-    rename1 `check_cstep (Sol wm free) fml pc` >>
+    rename1 `check_cstep (Sol wm free) fml id pc` >>
     rw[check_cstep_def,AllCaseEqs()] >>
     gvs[update_bound_def,update_dbound_def] >>
     namedCases_on `check_sol wm free (MAP SND (toAList (mk_core_fml T fml)))`
       ["", "w"] >> simp[] >>
-    `pc.id ∉ domain fml` by fs[id_ok_def] >>
+    `id ∉ domain fml` by fs[id_ok_def] >>
     conj_tac >- fs[id_ok_def] >>
     conj_tac >- (
       fs[valid_conf_def] >>
@@ -5918,11 +5997,11 @@ Proof
 QED
 
 Definition check_csteps_def:
-  (check_csteps [] fml pc = SOME (fml,pc)) ∧
-  (check_csteps (s::ss) fml pc =
-    case check_cstep s fml pc of
-    SOME (fml',pc') =>
-    check_csteps ss fml' pc'
+  (check_csteps [] fml id pc = SOME (fml,id,pc)) ∧
+  (check_csteps (s::ss) fml id pc =
+    case check_cstep s fml id pc of
+    SOME (fml',id',pc') =>
+    check_csteps ss fml' id' pc'
     | NONE => NONE)
 End
 
@@ -6000,15 +6079,15 @@ Proof
 QED
 
 Theorem check_csteps_correct:
-  ∀csteps fml pc fml' pc'.
-  id_ok fml pc.id ∧
+  ∀csteps fml id pc fml' id' pc'.
+  id_ok fml id ∧
   OPTION_ALL good_aspo_subst pc.ord ∧
   EVERY (good_aord_t ∘ SND) pc.orders ∧
   valid_conf pc.chk pc.pres (OPTION_MAP FST pc.ord) pc.obj pc.tcb fml ∧
-  check_csteps csteps fml pc = SOME(fml',pc') ⇒
+  check_csteps csteps fml id pc = SOME(fml',id',pc') ⇒
     hide (
-    pc.id ≤ pc'.id ∧
-    id_ok fml' pc'.id ∧
+    id ≤ id' ∧
+    id_ok fml' id' ∧
     valid_conf pc'.chk pc'.pres (OPTION_MAP FST pc'.ord) pc'.obj pc'.tcb fml' ∧
     opt_le pc'.bound pc.bound ∧
     opt_le pc'.dbound pc.dbound ∧
@@ -6233,9 +6312,9 @@ QED
 Datatype:
   hconcl =
   | HNoConcl
-  | HDSat (assg_raw option)
+  | HDSat ('a assg_raw option)
   | HDUnsat num
-  | HOBounds (int option) (int option) num (assg_raw option)
+  | HOBounds (int option) (int option) num ('a assg_raw option)
   | HEEnum num bool (num option)
 End
 
@@ -6308,10 +6387,9 @@ Definition hconcl_concl_def:
 End
 
 Definition init_conf_def:
-  init_conf id chk pres obj =
+  init_conf chk pres obj =
   <|
-       id := id
-     ; chk := chk
+       chk := chk
      ; tcb := F
      ; obj := obj
      ; pres := pres
@@ -6326,8 +6404,8 @@ End
 Theorem check_csteps_check_hconcl:
   id_ok fml id ∧
   check_csteps csteps
-    fml (init_conf id chk pres obj) =
-    SOME (fml',pc') ∧
+    fml id (init_conf chk pres obj) =
+    SOME (fml',id',pc') ∧
   all_core fml ∧
   set fmlls = core_only_fml T fml ∧
   check_hconcl fmlls obj fml' pc'.obj pc'.bound pc'.dbound pc'.enum hconcl ⇒
@@ -6532,7 +6610,7 @@ QED
 Theorem check_csteps_check_output:
   id_ok fml id ∧
   check_csteps csteps
-    fml (init_conf id chk pres obj) = SOME (fml',pc') ∧
+    fml id (init_conf chk pres obj) = SOME (fml',id',pc') ∧
   all_core fml ∧
   check_output fml' pc'.pres pc'.obj pc'.bound pc'.dbound pc'.chk fmlt prest objt output ⇒
   sem_output

@@ -396,7 +396,6 @@ Proof
     >> rpt (pairarg_tac >> gvs [])
     >> gvs [tree_constructors_Lift,check_exp_constructors_def]
     >- metis_tac [annotate_LENGTH]
-    >- metis_tac []
     >> Cases_on ‘NULL es’ >> gvs []
 QED
 

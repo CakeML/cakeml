@@ -86,7 +86,7 @@ Theorem db_subst_infer_subst_swap:
   t_wfs s ∧
   count (uvar + tvs) ⊆ FDOM s ∧
   (!uv. uv ∈ FDOM s ⇒ check_t n {} (t_walkstar s (Infer_Tuvar uv))) ∧
-  EVERY (\t. check_t tvs (FDOM s) t) ts ⇒
+  EVERY (check_t tvs (FDOM s)) ts ⇒
   (MAP (convert_t o
        t_walkstar s o
        infer_deBruijn_subst (MAP (λn. Infer_Tuvar (uvar + n)) (COUNT_LIST tvs)))

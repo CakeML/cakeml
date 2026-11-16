@@ -2194,7 +2194,7 @@ QED
 
 Theorem esgc_free_decode_dtree:
   esgc_free v_exp /\ esgc_free dflt /\
-  EVERY (\y. esgc_free y) (toList br_spt) ==>
+  EVERY esgc_free (toList br_spt) ==>
   esgc_free (decode_dtree t br_spt v_exp dflt dtree)
 Proof
   Induct_on `dtree`

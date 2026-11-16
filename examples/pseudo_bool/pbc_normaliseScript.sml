@@ -553,6 +553,103 @@ Definition to_npbc_def:
       (lhs'',n-(m'+m'')):npbc
 End
 
+(* to_npbc after the sort, in two passes over the sorted terms: the constant
+  (merges of opposite literals and negative coefficients), and the terms
+  (adjacent terms on one variable merged, zeros dropped). The term being
+  merged is c1 l1. *)
+Definition merge_const_def:
+  (merge_const (c1:int) l1 [] n = n + (if c1 < 0 then c1 else 0)) ∧
+  (merge_const c1 l1 ((c2,l2)::ys) n =
+    if lit_var l1 = lit_var l2 then
+      if l1 = l2 then merge_const (c1 + c2) l1 ys n
+      else merge_const (c1 - c2) l1 ys (n + c2)
+    else merge_const c2 l2 ys (n + (if c1 < 0 then c1 else 0)))
+End
+
+(* TMC *)
+Definition merge_terms_def:
+  (merge_terms (c1:int) l1 [] =
+    if c1 = 0 then [] else [(mk_coeff c1 l1, lit_var l1)]) ∧
+  (merge_terms c1 l1 ((c2,l2)::ys) =
+    if lit_var l1 = lit_var l2 then
+      if l1 = l2 then merge_terms (c1 + c2) l1 ys
+      else merge_terms (c1 - c2) l1 ys
+    else if c1 = 0 then merge_terms c2 l2 ys
+    else
+      let t = (mk_coeff c1 l1, lit_var l1) in
+      t :: merge_terms c2 l2 ys)
+End
+
+Theorem normalise_lhs_acc:
+  ∀xs acc k ys m.
+  normalise_lhs xs [] 0 = (ys,m) ⇒
+  normalise_lhs xs acc k = (REVERSE acc ++ ys, k + m)
+Proof
+  Induct>>
+  simp[normalise_lhs_def]>>
+  PairCases>>
+  rw[normalise_lhs_def]>>
+  Cases_on`normalise_lhs xs [] 0`>>
+  first_x_assum (assume_tac o Q.GENL [`acc`,`k`] o SIMP_RULE std_ss [] o
+    Q.SPECL [`acc`,`k`,`q`,`r`])>>
+  gvs[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem merge_const_add:
+  ∀ys c l n d. merge_const c l ys (n + d) = merge_const c l ys n + d
+Proof
+  Induct
+  >- (rw[merge_const_def]>>intLib.ARITH_TAC)>>
+  PairCases>>
+  rw[merge_const_def]>>
+  rpt (pop_assum kall_tac)>>
+  intLib.ARITH_TAC
+QED
+
+Theorem compact_lhs_normalise_lhs:
+  ∀ys c l n0 zs m.
+  compact_lhs ((c,l)::ys) n0 = (zs,m) ⇒
+  normalise_lhs zs [] 0 = (merge_terms c l ys, merge_const c l ys n0 - m)
+Proof
+  Induct
+  >- (
+    rw[compact_lhs_def,normalise_lhs_def,merge_terms_def,merge_const_def]>>
+    simp[normalise_lhs_def]>>
+    rw[]>>
+    intLib.ARITH_TAC)>>
+  PairCases>>
+  rw[compact_lhs_def,merge_terms_def,merge_const_def]>>
+  Cases_on`compact_lhs ((h0,h1)::ys) n0`>>
+  gvs[]>>
+  first_x_assum drule>>
+  strip_tac>>
+  simp[Once normalise_lhs_def]>>
+  rw[]>>
+  qpat_x_assum `normalise_lhs _ [] 0 = _` (assume_tac o MATCH_MP normalise_lhs_acc)>>
+  gvs[merge_const_add]>>
+  rpt (qpat_x_assum `compact_lhs _ _ = _` kall_tac)>>
+  rpt (qpat_x_assum `∀acc k. _` kall_tac)>>
+  qpat_x_assum `lit_var _ ≠ _` kall_tac>>
+  qpat_x_assum `_ ≠ h1` kall_tac>>
+  intLib.ARITH_TAC
+QED
+
+Theorem to_npbc_fast:
+  to_npbc (lhs,n) =
+  case sort term_le lhs of
+    [] => ([],n)
+  | ((c,l)::ys) => (merge_terms c l ys, n - merge_const c l ys 0)
+Proof
+  simp[to_npbc_def]>>
+  TOP_CASE_TAC
+  >- simp[compact_lhs_def,normalise_lhs_def]>>
+  PairCases_on`h`>>
+  Cases_on`compact_lhs ((h0,h1)::t) 0`>>
+  drule compact_lhs_normalise_lhs>>
+  rw[]
+QED
+
 Theorem to_npbc_value:
   ∀xs n ys d.
   to_npbc (xs,n) = (ys,d) ⇒
@@ -610,11 +707,13 @@ QED
 
 (* Add the guard literals to a normalised constraint, negated and with the
   degree as coefficient. A normalised LHS has minimum 0, so the degree is
-  exactly the shortfall; a non-positive degree is already satisfied. *)
+  exactly the shortfall; a non-positive degree is already satisfied, and
+  without guard literals the constraint is unchanged. *)
 Definition inject_def:
-  inject (ls,(xs,n)) =
-    if n ≤ 0 then (xs,n)
-    else add (xs,n) (to_npbc (MAP (λl. (n,negate l)) ls,0))
+  inject (ls,c) =
+    let n = SND c in
+    if n ≤ 0 ∨ NULL ls then c
+    else add c (to_npbc (MAP (λl. (n,negate l)) ls,0))
 End
 
 Theorem inject_thm:
@@ -627,7 +726,8 @@ Proof
     `r ≤ &SUM (MAP (eval_term w) q)` by (
       `0 ≤ (&SUM (MAP (eval_term w) q)):int` by simp[]>>
       intLib.ARITH_TAC)>>
-    simp[satisfies_npbc_def])>>
+    simp[satisfies_npbc_def])
+  >- gvs[NULL_EQ]>>
   `∃gs g. to_npbc (MAP (λl. (r,negate l)) ls,0) = (gs,g)` by metis_tac[PAIR]>>
   drule to_npbc_value>>
   disch_then(qspec_then`w` assume_tac)>>
@@ -2016,5 +2116,31 @@ Proof
   simp[]>>
   disch_then kall_tac>>
   irule normalise_prob_sem_output>>
+  simp[]
+QED
+
+(* Two problems numbered one after the other, from a well-formed state *)
+Theorem name_norm_prob_2_sem:
+  name_to_num_state_ok s ∧
+  name_norm_prob (pres,obj,fml) s = ((pres',obj',fml'),t) ∧
+  name_norm_prob (prest,objt,fmlt) t = ((prest',objt',fmlt'),u) ⇒
+  (pbc$sem_concl (set fml) obj (pres_set_list pres) concl ⇔
+   npbc$sem_concl (set fml') obj' (pres_set_spt pres') concl) ∧
+  (pbc$sem_output (set fml) obj (pres_set_list pres) bound
+     (set fmlt) objt (pres_set_list prest) output ⇔
+   npbc$sem_output (set fml') obj' (pres_set_spt pres') bound
+     (set fmlt') objt' (pres_set_spt prest') output)
+Proof
+  strip_tac>>
+  drule_all name_to_num_state_ok_name_norm_prob>>
+  strip_tac>>
+  qpat_assum`name_norm_prob (pres,obj,fml) s = _`
+    (mp_then (Pos hd) mp_tac name_norm_prob_sem_concl)>>
+  qpat_assum`name_norm_prob (pres,obj,fml) s = _`
+    (mp_then (Pos hd)
+      (fn th =>
+        qpat_assum`name_norm_prob (prest,objt,fmlt) t = _`
+          (mp_then (Pos hd) mp_tac th))
+      name_norm_prob_sem_output)>>
   simp[]
 QED

@@ -5,9 +5,9 @@
 Theory lsr_roundProg
 Ancestors
   misc mllist UnsafeProof ccnf_arith ccnf_arrayProg ccnf_parseProg cnf ccnf
-  ccnf_list syntax_helper sr lsr lsr_list array_ofProof mlint mlvector
+  ccnf_list ccnf_dm syntax_helper sr lsr lsr_list array_ofProof mlint mlvector
 Libs
-  preamble basis lsr_arrayLib
+  preamble basis
 
 val _ = hide_environments true;
 

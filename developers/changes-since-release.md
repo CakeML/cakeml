@@ -24,6 +24,8 @@ We distribute native Pancake builds as self-contained archives with assembly (x6
 
 A new LSR checker has been added, with some surrounding (beneficial) fallout cleanups in cnf (#1588).
 
+A PB checker has gained substantial optimization passes, with some cleanup fallout to cnf/ (#1595).
+
 ## Build infrastructure
 
 ## Proof engineering and tooling

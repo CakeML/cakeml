@@ -468,8 +468,7 @@ Proof
     \\ Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP
     \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[SUBSET_DEF,FLOOKUP_DEF])
   >- (rename [‘ConsExtend’] >>
-    rw [bv_ok_def]
-    >- fs [EVERY_MEM] >>
+    rw [bv_ok_def] >>
     irule EVERY_TAKE >>
     simp [] >>
     irule EVERY_DROP >>
@@ -4770,12 +4769,8 @@ Proof
       \\ fs [EVERY_MEM] \\ metis_tac [rich_listTheory.MEM_LAST_NOT_NIL])   (* Let: LAST *)
   >- (fs [ETA_THM, EVERY_MAP, EVERY_MEM] \\ rw []
       \\ irule bvi_let_delete_var_no_mutcons \\ res_tac \\ fs [])          (* Let: delete_var *)
-  >- fs [ETA_THM]                                   (* Op *)
   >- (rpt CASE_TAC \\ simp [])                      (* Force *)
-  >- fs [ETA_THM]                                   (* Call args *)
-  >- (Cases_on ‘h’ \\ gvs [])                       (* Call handler *)
-  >- fs [ETA_THM]                                   (* Return *)
-  \\ fs [ETA_THM]                                   (* LetCall args *)
+  \\ Cases_on ‘h’ \\ gvs []                         (* Call handler *)
 QED
 
 Theorem bvi_let_compile_exp_no_mutcons[local]:

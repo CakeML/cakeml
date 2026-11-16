@@ -71,7 +71,7 @@ Proof
     ) >>
     drule OPT_MMAP_ALL_EQ >> gvs[] >>
     disch_tac >>
-    `OPT_MMAP (\a. eval (s with locals := l) a) es = SOME x` by metis_tac[] >> gvs[]) >>
+    pop_assum (assume_tac o SYM) >> gvs[]) >>
   last_x_assum imp_res_tac >> fs[] >>
   every_case_tac >> gs[mem_load_def]
 QED

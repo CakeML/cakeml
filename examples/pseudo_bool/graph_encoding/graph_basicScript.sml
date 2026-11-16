@@ -3,7 +3,7 @@
 *)
 Theory graph_basic
 Ancestors
-  mlint
+  mlint input_lex
 Libs
   preamble
 
@@ -173,11 +173,6 @@ Proof
 QED
 
 (* Parsers *)
-
-(* Everything recognized as a "blank" *)
-Definition blanks_def:
-  blanks (c:char) ⇔ c = #" " ∨ c = #"\n" ∨ c = #"\t" ∨ c = #"\r"
-End
 
 Definition tokenize_num_def:
   tokenize_num (s:mlstring) =
