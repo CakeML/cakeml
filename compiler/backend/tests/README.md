@@ -6,6 +6,11 @@ Tests for the BVI tail recursion pass.
 [clos_op_testScript.sml](clos_op_testScript.sml):
 Tests for ClosLang smart operation construction.
 
+[shift_lit_testScript.sml](shift_lit_testScript.sml):
+End-to-end test that word64 shifts by a literal amount, including calls
+of the Word64 basis wrappers, compile to shifts by a constant in ClosLang.
+This checks that source_lift_consts does not lift the shift amount.
+
 [source_dce_testScript.sml](source_dce_testScript.sml):
 Tests for the source dead-code elimination pass.
 

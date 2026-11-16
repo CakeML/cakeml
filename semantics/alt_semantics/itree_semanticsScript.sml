@@ -117,6 +117,28 @@ Definition do_app_def:
                     SOME (s, Rval (Litv (Word8 (EL n ws))))
           | _ => NONE
         )
+    | (Aw8ScanEq, [Litv (IntLit start); Litv (IntLit end); Litv (Word8 w); Loc _ lnum]) =>
+        (case store_lookup lnum s of
+            SOME (W8array ws) =>
+              if 0 ≤ start ∧ start ≤ &LENGTH ws ∧ 0 ≤ end ∧ end ≤ &LENGTH ws then
+                SOME (s, Rval (Litv (IntLit
+                  (&(if Num end ≤ Num start then Num end else Num start +
+                    LENGTH (FST (SPLITP (\x. x = w)
+                      (DROP (Num start) (TAKE (Num end) ws)))))))))
+              else SOME (s, Rraise sub_exn_v)
+          | _ => NONE
+        )
+    | (Aw8ScanNeq, [Litv (IntLit start); Litv (IntLit end); Litv (Word8 w); Loc _ lnum]) =>
+        (case store_lookup lnum s of
+            SOME (W8array ws) =>
+              if 0 ≤ start ∧ start ≤ &LENGTH ws ∧ 0 ≤ end ∧ end ≤ &LENGTH ws then
+                SOME (s, Rval (Litv (IntLit
+                  (&(if Num end ≤ Num start then Num end else Num start +
+                    LENGTH (FST (SPLITP (\x. x ≠ w)
+                      (DROP (Num start) (TAKE (Num end) ws)))))))))
+              else SOME (s, Rraise sub_exn_v)
+          | _ => NONE
+        )
     | (Aw8length, [Loc _ n]) =>
         (case store_lookup n s of
             SOME (W8array ws) =>
@@ -244,6 +266,50 @@ Definition do_app_def:
           )
       | _ => NONE
       )
+    | (CopyVecVec, [Vectorv vs;Litv(IntLit off);Litv(IntLit len)]) =>
+        SOME (s,
+        (case copy_array (vs,off) len NONE of
+          NONE => Rraise sub_exn_v
+        | SOME cs => Rval (Vectorv cs)
+        ))
+    | (CopyVecArr, [Vectorv vs;Litv(IntLit off);Litv(IntLit len);
+                    Loc _ dst;Litv(IntLit dstoff)]) =>
+        (case store_lookup dst s of
+          SOME (Varray ws) =>
+            (case copy_array (vs,off) len (SOME(ws,dstoff)) of
+              NONE => SOME (s, Rraise sub_exn_v)
+            | SOME cs =>
+              (case store_assign dst (Varray cs) s of
+                SOME s' =>  SOME (s', Rval (Conv NONE []))
+              | _ => NONE
+              )
+            )
+        | _ => NONE
+        )
+    | (CopyArrVec, [Loc _ src;Litv(IntLit off);Litv(IntLit len)]) =>
+      (case store_lookup src s of
+        SOME (Varray ws) =>
+        SOME (s,
+          (case copy_array (ws,off) len NONE of
+            NONE => Rraise sub_exn_v
+          | SOME ws => Rval (Vectorv ws)
+          ))
+      | _ => NONE
+      )
+    | (CopyArrArr, [Loc _ src;Litv(IntLit off);Litv(IntLit len);
+                    Loc _ dst;Litv(IntLit dstoff)]) =>
+      (case (store_lookup src s, store_lookup dst s) of
+        (SOME (Varray ws), SOME (Varray ds)) =>
+          (case copy_array (ws,off) len (SOME(ds,dstoff)) of
+            NONE => SOME (s, Rraise sub_exn_v)
+          | SOME ws =>
+              (case store_assign dst (Varray ws) s of
+                SOME s' => SOME (s', Rval (Conv NONE []))
+              | _ => NONE
+              )
+          )
+      | _ => NONE
+      )
     | (XorAw8Str_unsafe, [Loc _ dst; Litv (StrLit str_arg)]) =>
         (case store_lookup dst s of
           SOME (W8array bs) =>
@@ -281,6 +347,14 @@ Definition do_app_def:
           SOME (s, Rval (Litv (Char (EL (Num i) (explode str)))))
         else
           NONE
+    | (StrScanEq, [Litv (IntLit start); Litv (IntLit end); Litv (Char c); Litv (StrLit str)]) =>
+        if 0 ≤ start ∧ start ≤ &strlen str ∧ 0 ≤ end ∧ end ≤ &strlen str then
+          SOME (s, Rval (Litv (IntLit (&scan_eq (Num start) (Num end) c str))))
+        else SOME (s, Rraise sub_exn_v)
+    | (StrScanNeq, [Litv (IntLit start); Litv (IntLit end); Litv (Char c); Litv (StrLit str)]) =>
+        if 0 ≤ start ∧ start ≤ &strlen str ∧ 0 ≤ end ∧ end ≤ &strlen str then
+          SOME (s, Rval (Litv (IntLit (&scan_neq (Num start) (Num end) c str))))
+        else SOME (s, Rraise sub_exn_v)
     | (Strlen, [Litv (StrLit str)]) =>
         SOME (s, Rval (Litv(IntLit(int_of_num(strlen str)))))
     | (Strcat, [v]) =>
@@ -425,12 +499,14 @@ End
 
 Type "ctxt"[pp] = ``:ctxt_frame # v sem_env``;
 
-Type "small_state"[pp] = ``:v sem_env # v store # exp_val_exn # ctxt list``;
+Type "expr_store"[pp] = ``:v store # (num -> num -> bool)``;
+
+Type "small_state"[pp] = ``:v sem_env # expr_store # exp_val_exn # ctxt list``;
 
 Datatype:
   estep_result = Estep small_state
                | Effi ffiname (word8 list) (word8 list) num
-                        (v sem_env) (v store) (ctxt list)
+                        (v sem_env) expr_store (ctxt list)
                | Edone
                | Etype_error
 End
@@ -445,15 +521,14 @@ End
 
 Definition application_def:
   application op env s vs c : estep_result =
-   case getOpClass op of
-     FunApp =>
+   if op = Opapp then
        (case do_opapp vs of
           SOME (env,e) => (Estep (env, s, Exp e, c):estep_result)
         | NONE => Etype_error)
-   | Force =>
+   else if op = ThunkOp ForceThunk then
       (case vs of
          [Loc b n] => (
-            case dest_thunk [Loc b n] s of
+            case dest_thunk [Loc b n] (FST s) of
             | BadRef => Etype_error
             | NotThunk => Etype_error
             | IsThunk Evaluated v => return env s v c
@@ -461,12 +536,22 @@ Definition application_def:
                 return env s f
                   ((Capp Opapp [Conv NONE []] [], env)::(Cforce n, env)::c))
         | _ => Etype_error)
-   | _ =>
+   else if op = PtrEq then
+       (case vs of
+          [v1; v2] =>
+            (case do_eq v1 v2 of
+               Eq_type_error => Etype_error
+             | Eq_val b =>
+                 let po = SND s in
+                 return env (FST s, (0 =+ shift_seq 1 (po 0)) po)
+                   (Boolv (b ∧ po 0 0)) c)
+        | _ => Etype_error)
+   else
        case op of
        | FFI n => (
          case vs of
            [Litv (StrLit conf); Loc _ lnum] => (
-           case store_lookup lnum s of
+           case store_lookup lnum (FST s) of
              SOME (W8array ws) =>
                if n = «» then Estep (env, s, Val $ Conv NONE [], c)
                else Effi (ExtCall n)
@@ -475,9 +560,9 @@ Definition application_def:
            | _ => Etype_error)
          | _ => Etype_error)
        | _ =>
-           (case do_app s op vs of
+           (case do_app (FST s) op vs of
               SOME (s', Rraise v) => Estep (env, s, Exn v,c)
-              | SOME (s', Rval v) => return env s' v c
+              | SOME (s', Rval v) => return env (s', SND s) v c
               | NONE => Etype_error )
 End
 
@@ -488,11 +573,11 @@ Definition continue_def:
   continue s v ((Capp op vs [], env) :: c) = application op env s (v::vs) c ∧
   continue s v ((Capp op vs (e::es), env) :: c) = push env s e (Capp op (v::vs) es) c ∧
   continue s v ((Cforce n, env) :: c) = (
-    case dest_thunk [v] s of
+    case dest_thunk [v] (FST s) of
     | BadRef => Etype_error
     | NotThunk => (
-        case store_assign n (Thunk Evaluated v) s of
-        | SOME s' => return env s' v c
+        case store_assign n (Thunk Evaluated v) (FST s) of
+        | SOME s' => return env (s', SND s) v c
         | NONE => Etype_error)
     | IsThunk v3 v4 => Etype_error) ∧
   continue s v ((Clog l e, env) :: c) = (
@@ -505,14 +590,14 @@ Definition continue_def:
       SOME e => Estep (env, s, Exp e, c)
     | NONE => Etype_error) ∧
   continue s v ((Cmat_check pes err_v, env) :: c) = (
-    if can_pmatch_all env.c s (MAP FST pes) v then
+    if can_pmatch_all env.c (FST s) (MAP FST pes) v then
       Estep (env, s, Val v, (Cmat pes err_v, env)::c)
     else Etype_error) ∧
   continue s v ((Cmat [] err_v, env) :: c) =
     Estep (env, s, Exn err_v, c) ∧
   continue s v ((Cmat ((p,e)::pes) err_v, env) :: c) = (
     if ALL_DISTINCT (pat_bindings p) then (
-      case pmatch env.c s p v [] of
+      case pmatch env.c (FST s) p v [] of
         Match_type_error => Etype_error
       | No_match => Estep (env, s, Val v, (Cmat pes err_v, env)::c)
       | Match env' =>
@@ -591,6 +676,7 @@ Datatype:
    ; next_type_stamp : num
    ; next_exn_stamp : num
    ; eval_state : eval_state option
+   ; ptr_eq_oracle : num -> num -> bool
    |>
 End
 
@@ -685,13 +771,13 @@ Definition dstep_def:
     else Dtype_error ) ∧
   dstep benv st (ExpVal env (Exn v) [] locs p) c = Draise v ∧
   dstep benv st (ExpVal env ev ec locs p) c =
-    case estep (env, st.refs, ev, ec) of
-    | Estep (env', refs', ev', ec') =>
-        dreturn (st with <| refs := refs'; |>) c (ExpVal env' ev' ec' locs p)
+    case estep (env, (st.refs, st.ptr_eq_oracle), ev, ec) of
+    | Estep (env', (refs',po'), ev', ec') =>
+        dreturn (st with <| refs := refs'; ptr_eq_oracle := po' |>) c (ExpVal env' ev' ec' locs p)
     | Etype_error => Dtype_error
     | Edone => Ddone (* cannot happen *)
-    | Effi s ws1 ws2 n env' refs' ec' =>
-        Dffi (st with refs := refs') (s, ws1, ws2, n, env', ec') locs p c
+    | Effi s ws1 ws2 n env' (refs',po') ec' =>
+        Dffi (st with <| refs := refs'; ptr_eq_oracle := po' |>) (s, ws1, ws2, n, env', ec') locs p c
 End
 
 Definition is_halt_def:
@@ -759,8 +845,8 @@ Definition interp_def:
 End
 
 Definition start_dstate_def:
-  start_dstate : dstate =
-  <| refs := []; next_type_stamp := 2; next_exn_stamp := 4; eval_state := NONE;
+  start_dstate po : dstate =
+  <| refs := []; next_type_stamp := 2; next_exn_stamp := 4; eval_state := NONE; ptr_eq_oracle := po;
   |>
 End
 
@@ -775,8 +861,8 @@ Definition start_env_def:
 End
 
 Definition itree_semantics_def:
-  itree_semantics prog =
-  interp start_env (Dstep start_dstate (Decl (Dlocal [] prog)) [])
+  itree_semantics po prog =
+  interp start_env (Dstep (start_dstate po) (Decl (Dlocal [] prog)) [])
 End
 
 CoInductive safe_itree:

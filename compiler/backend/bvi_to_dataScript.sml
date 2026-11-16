@@ -31,6 +31,7 @@ Theorem op_space_reset_pmatch:
     | BlockOp (ConsExtend _) => T
     | MemOp RefArray => T
     | MemOp (RefByte _) => T
+    | MemOp (CopyWord new_flag) => new_flag
     | MemOp (CopyByte new_flag) => new_flag
     | MemOp ConfigGC => T
     | FFI _ => T
@@ -46,9 +47,11 @@ Theorem op_requires_names_eqn:
     (op_space_reset op ∨ (case op of
                           | FFI n => T
                           | Install => T
+                          | MemOp (CopyWord new_flag) => T
                           | MemOp (CopyByte new_flag) => T
                           | IntOp (Smallnum SmallDiv) => T
                           | IntOp (Smallnum SmallMod) => T
+                          | MemOp (ScanByte neq) => T
                           | MemOp XorByte => T
                           | MemOp (StringCmp b cmp) => T
                           | _ => F))
@@ -61,9 +64,11 @@ Theorem op_requires_names_pmatch:
   (op_space_reset op ∨ (pmatch op of
                         | FFI n => T
                         | Install => T
+                        | MemOp (CopyWord new_flag) => T
                         | MemOp (CopyByte new_flag) => T
                         | IntOp (Smallnum SmallDiv) => T
                         | IntOp (Smallnum SmallMod) => T
+                        | MemOp (ScanByte neq) => T
                         | MemOp XorByte => T
                         | MemOp (StringCmp b cmp) => T
                         | _ => F))
@@ -234,9 +239,10 @@ Definition compile_sing_def:
          let (c2,vs,n2) = compile_list n1 env (v1::live) xs in
            (Seq c1 c2, v1 :: vs, n2))
 Termination
-  WF_REL_TAC ‘measure $ λx. pmatch x of
-                            | INL (n,env,t,l,x) => exp_size x
+  WF_REL_TAC ‘measure $ λx. case x of
+                              INL (n,env,t,l,x) => exp_size x
                             | INR (n,env,l,xs) => list_size exp_size xs’
+  \\ rpt strip_tac
   \\ simp[]
 End
 

@@ -12,14 +12,14 @@ Libs
 
 Theorem big_step_semantics:
   st.eval_state = NONE ⇒ (
-  (semantics_prog st env prog (Terminate outcome io_list) ⇔
+  (semantics_determ st env prog (Terminate outcome io_list) ⇔
     ∃st' res ex env'.
       evaluate_decs F env st prog (st', res) ∧
       st'.ffi.io_events = io_list ∧
       if outcome = Success then
         res = Rval env' ∨ res = Rerr (Rraise ex)
       else ∃f. outcome = FFI_outcome f ∧ res = Rerr (Rabort $ Rffi_error f)) ∧
-   (semantics_prog st env prog (Diverge io_trace) ⇔
+   (semantics_determ st env prog (Diverge io_trace) ⇔
       (∀k. ∃st'.
         evaluate_decs T env (st with clock := k) prog
           (st',Rerr (Rabort Rtimeout_error))) ∧
@@ -27,14 +27,14 @@ Theorem big_step_semantics:
         { fromList s.ffi.io_events |
             ∃k r. evaluate_decs T env (st with clock := k) prog (s,r) }
         io_trace) ∧
-  (semantics_prog st env prog Fail ⇔
+  (semantics_determ st env prog Fail ⇔
     ∃st'.
       evaluate_decs F env st prog (st', Rerr (Rabort Rtype_error)))
   )
 Proof
   strip_tac >> rpt conj_tac
   >- (
-    rw[semantics_prog_def] >> eq_tac >> rw[] >> gvs[]
+    rw[semantics_determ_def] >> eq_tac >> rw[] >> gvs[]
     >- (
       every_case_tac >> gvs[] >>
       gvs[evaluate_prog_with_clock_def] >> pairarg_tac >> gvs[] >>
@@ -49,7 +49,7 @@ Proof
     qexists_tac `c` >> simp[] >> every_case_tac >> gvs[]
     )
   >- (
-    simp[semantics_prog_def, evaluate_prog_with_clock_def] >>
+    simp[semantics_determ_def, evaluate_prog_with_clock_def] >>
     simp[GSYM functional_evaluate_decs] >>
     qmatch_goalsub_abbrev_tac `lprefix_lub foo` >>
     qmatch_goalsub_abbrev_tac `_ ⇔ _ ∧ lprefix_lub bar _` >>
@@ -61,7 +61,7 @@ Proof
     last_x_assum $ qspec_then `k` assume_tac >> gvs[] >> pairarg_tac >> gvs[]
     )
   >- (
-    rw[semantics_prog_def] >> eq_tac >> rw[] >>
+    rw[semantics_determ_def] >> eq_tac >> rw[] >>
     gvs[evaluate_prog_with_clock_def]
     >- (
       pairarg_tac >> gvs[] >>
@@ -79,20 +79,20 @@ QED
 
 Theorem small_step_semantics:
   st.eval_state = NONE ⇒ (
-  (semantics_prog st env prog (Terminate outcome io_list) ⇔
+  (semantics_determ st env prog (Terminate outcome io_list) ⇔
     ∃st' res ex env'.
       small_eval_decs env st prog (st', res) ∧
       st'.ffi.io_events = io_list ∧
       if outcome = Success then
         res = Rval env' ∨ res = Rerr (Rraise ex)
       else ∃f. outcome = FFI_outcome f ∧ res = Rerr (Rabort $ Rffi_error f)) ∧
-  (semantics_prog st env prog (Diverge io_trace) ⇔
+  (semantics_determ st env prog (Diverge io_trace) ⇔
     small_decl_diverges env (st, Decl (Dlocal [] prog), []) ∧
     lprefix_lub
       { fromList (FST s).ffi.io_events |
           (decl_step_reln env)꙳ (st, Decl (Dlocal [] prog), []) s }
       io_trace) ∧
-  (semantics_prog st env prog Fail ⇔
+  (semantics_determ st env prog Fail ⇔
     ∃st'.
       small_eval_decs env st prog (st', Rerr (Rabort Rtype_error)))
   )
@@ -105,7 +105,7 @@ QED
 
 Theorem itree_semantics:
   st.eval_state = NONE ⇒ (
-  (semantics_prog st env prog (Terminate outcome io_list) ⇔
+  (semantics_determ st env prog (Terminate outcome io_list) ⇔
     ∃n io res.
       trace_prefix n (itree_ffi st) (itree_of st env prog) = (io, SOME res) ∧
       io_list = st.ffi.io_events ++ io ∧
@@ -113,13 +113,13 @@ Theorem itree_semantics:
       else ∃s conf ws f.
               outcome = FFI_outcome (Final_event s conf ws f) ∧
               res = FinalFFI (s,conf,ws) f) ∧
-  (semantics_prog st env prog (Diverge io_trace) ⇔
+  (semantics_determ st env prog (Diverge io_trace) ⇔
     (∀n. ∃io. trace_prefix n (itree_ffi st) (itree_of st env prog) = (io, NONE)) ∧
     lprefix_lub
       { fromList (st.ffi.io_events ++ io) | io |
         ∃n res. trace_prefix n (itree_ffi st) (itree_of st env prog) = (io,res) }
       io_trace) ∧
-  (semantics_prog st env prog Fail ⇔
+  (semantics_determ st env prog Fail ⇔
     ∃n io. trace_prefix n (itree_ffi st) (itree_of st env prog) = (io, SOME Error))
   )
 Proof

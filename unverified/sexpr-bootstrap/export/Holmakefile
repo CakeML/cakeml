@@ -1,0 +1,10 @@
+all: $(DEFAULT_TARGETS) README.md cake-sexpr
+.PHONY: all
+
+sinclude $(CAKEMLDIR)/developers/readme.mk
+
+cake-sexpr: *sexprExportScript.sml
+
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
+endif

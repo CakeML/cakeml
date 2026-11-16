@@ -87,7 +87,7 @@ QED
 Theorem ty_esubst_type_ok_id:
   ∀ty σ. type_ok tys ty ∧ DISJOINT (FDOM (FST σ)) (FDOM tys) ⇒ ty_esubst σ ty = ty
 Proof
-  ho_match_mp_tac type_ind >> rw[]
+  ho_match_mp_tac type_induction >> rw[]
   >- simp[ty_esubst_def]
   >> Cases_on ‘l’ >> simp[ty_esubst_def]
   >- (CASE_TAC >> gvs[type_ok_def, FLOOKUP_DEF, IN_DISJOINT] >> metis_tac[])
@@ -146,7 +146,7 @@ Theorem type_ok_ctys_ty_esubst:
     esubsts_ok' thy σ ⇒
     type_ok thy.ctys (ty_esubst σ ty)
 Proof
-  Induct using type_ind >> rw[type_ok_def, ty_esubst_def]
+  Induct >> rw[type_ok_def, ty_esubst_def]
   >> rpt case_tac >> gvs[EVERY_MEM] >> Induct_on ‘l’
   >> rw[type_ok_def, EVERY_MEM] >- metis_tac[]
   >> gvs[MEM_MAP, FORALL_PROD]
@@ -514,7 +514,7 @@ Theorem type_ok_ctys_subset:
     type_ok thy1.ctys ty ⇒
     type_ok thy2.ctys ty
 Proof
-  Induct using type_ind >> rw[type_ok_def]
+  Induct >> rw[type_ok_def]
   >> fs[EVERY_MEM]
   >> drule FLOOKUP_SUBMAP >> simp[]
 QED
@@ -536,7 +536,7 @@ Theorem type_ok_FUPDATE_fresh:
     type_ok tys ty ∧ name ∉ FDOM tys ⇒
     type_ok (tys |+ (name, a)) ty
 Proof
-  ntac 3 gen_tac >> Induct using type_ind >> rw[type_ok_def]
+  ntac 3 gen_tac >> Induct >> rw[type_ok_def]
   >> fs[EVERY_MEM, FLOOKUP_FUPDATE] >> case_tac >> fs[FDOM_FLOOKUP]
 QED
 
@@ -1227,7 +1227,7 @@ Theorem type_ok_basic_types:
     type_ok thy.tys ty ∧ esubsts_ok' thy σ ∧ theory_ok' thy ⇒
     ty_esubst σ ty = ty
 Proof
-  Induct using type_ind >> simp[type_ok_def, ty_esubst_def] >> fs[EVERY_MEM, theory_ok'_def]
+  Induct >> simp[type_ok_def, ty_esubst_def] >> fs[EVERY_MEM, theory_ok'_def]
   >> rw[] >> Cases_on ‘l’ >> rw[ty_esubst_def] >> every_case_tac >> fs[]
   >- (Cases_on ‘σ’ >> fs[esubsts_ok'_def] >> rpt $ dxrule DISJOINT_FLOOKUP
       >> disch_then drule >> simp[] >> pop_assum mp_tac >> fs[FLOOKUP_DEF, SUBSET_DEF])

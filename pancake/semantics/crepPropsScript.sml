@@ -881,8 +881,8 @@ Proof
   >- (
    every_case_tac >> fs [] >>
    fs [mem_load_def]) >>
-  qsuff_tac ‘OPT_MMAP (λa. eval (t with clock := ck) a) es =
-             OPT_MMAP (λa. eval t a) es’ >>
+  qsuff_tac ‘OPT_MMAP (eval (t with clock := ck)) es =
+             OPT_MMAP (eval t) es’ >>
   fs [] >>
   pop_assum mp_tac >>
   qid_spec_tac ‘es’ >>
@@ -1329,8 +1329,5 @@ Definition every_exp_def:
   (every_exp P (BaseAddr) = P BaseAddr) ∧
   (every_exp P (TopAddr) = P TopAddr)
 Termination
-  wf_rel_tac `measure (exp_size o SND)` >>
-  rpt strip_tac >>
-  imp_res_tac MEM_IMP_exp_size >>
-  decide_tac
+  wf_rel_tac `measure (exp_size o SND)`
 End

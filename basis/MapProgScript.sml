@@ -220,13 +220,13 @@ Proof
       ml_translatorTheory.AppReturns_def] \\ rw []
   \\ fs [fmap_update_def]
   \\ last_x_assum drule \\ strip_tac
-  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac \\ fs []
+  \\ first_x_assum $ qspecl_then [‘refs’,‘po’] strip_assume_tac \\ fs []
   \\ first_x_assum $ irule_at Any \\ rw []
   \\ last_x_assum drule \\ strip_tac
-  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac \\ fs []
+  \\ first_x_assum $ qspecl_then [‘refs’,‘po’] strip_assume_tac \\ fs []
   \\ first_x_assum $ irule_at Any \\ rw []
   \\ last_x_assum drule \\ strip_tac
-  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac \\ fs []
+  \\ first_x_assum $ qspecl_then [‘refs’,‘po’] strip_assume_tac \\ fs []
   \\ first_x_assum $ irule_at Any \\ rw []
   \\ first_x_assum $ irule_at Any \\ rw []
   \\ metis_tac [mlmapTheory.insert_thm]
@@ -239,10 +239,10 @@ Proof
   fs [ml_translatorTheory.Arrow_def,FMAP_TYPE_def,
       ml_translatorTheory.AppReturns_def] \\ rw []
   \\ last_x_assum drule \\ strip_tac
-  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac \\ fs []
+  \\ first_x_assum $ qspecl_then [‘refs’,‘po’] strip_assume_tac \\ fs []
   \\ first_x_assum $ irule_at Any \\ rw []
   \\ last_x_assum drule \\ strip_tac
-  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac \\ fs []
+  \\ first_x_assum $ qspecl_then [‘refs’,‘po’] strip_assume_tac \\ fs []
   \\ first_x_assum $ irule_at Any \\ rw []
   \\ first_x_assum $ irule_at Any \\ rw []
   \\ metis_tac [mlmapTheory.delete_thm]
@@ -255,10 +255,10 @@ Proof
   fs [ml_translatorTheory.Arrow_def,FMAP_TYPE_def,
       ml_translatorTheory.AppReturns_def] \\ rw []
   \\ last_x_assum drule \\ strip_tac
-  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac \\ fs []
+  \\ first_x_assum $ qspecl_then [‘refs’,‘po’] strip_assume_tac \\ fs []
   \\ first_x_assum $ irule_at Any \\ rw []
   \\ last_x_assum drule \\ strip_tac
-  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac \\ fs []
+  \\ first_x_assum $ qspecl_then [‘refs’,‘po’] strip_assume_tac \\ fs []
   \\ first_x_assum $ irule_at Any \\ rw []
   \\ first_x_assum $ irule_at Any \\ rw []
   \\ metis_tac [mlmapTheory.union_thm]
@@ -271,10 +271,10 @@ Proof
   fs [ml_translatorTheory.Arrow_def,FMAP_TYPE_def,
       ml_translatorTheory.AppReturns_def] \\ rw []
   \\ last_x_assum drule \\ strip_tac
-  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac \\ fs []
+  \\ first_x_assum $ qspecl_then [‘refs’,‘po’] strip_assume_tac \\ fs []
   \\ first_x_assum $ irule_at Any \\ rw []
   \\ last_x_assum drule \\ strip_tac
-  \\ first_x_assum $ qspec_then ‘refs’ strip_assume_tac \\ fs []
+  \\ first_x_assum $ qspecl_then [‘refs’,‘po’] strip_assume_tac \\ fs []
   \\ first_x_assum $ irule_at Any \\ rw []
   \\ first_x_assum $ irule_at Any \\ rw []
   >~ [‘mlmap$cmp_of (mlmap$diff c m)’]

@@ -11,30 +11,23 @@ Ancestors
 Libs
   preamble
 
-val check_unsat_io_events_def = new_specification("check_unsat_io_events_def",["check_unsat_io_events"],
-  check_unsat_semantics |> Q.GENL[`ext`,`cl`,`fs`]
-  |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
-
-val (check_unsat_sem,check_unsat_output) = check_unsat_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
-val (check_unsat_not_fail,check_unsat_sem_sing) = check_unsat_sem
-  |> SRULE [lpr_array_compiled,ml_progTheory.prog_syntax_ok_semantics]
-  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
-
-val compile_correct_applied =
-  MATCH_MP compile_correct (cj 1 lpr_array_compiled)
-  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
-  |> C MATCH_MP check_unsat_not_fail
-  |> C MATCH_MP x64_backend_config_ok
-  |> REWRITE_RULE[check_unsat_sem_sing,AND_IMP_INTRO]
-  |> REWRITE_RULE[Once (GSYM AND_IMP_INTRO)]
-  |> C MATCH_MP (CONJ(UNDISCH x64_machine_config_ok)(UNDISCH x64_init_ok))
-  |> DISCH(#1(dest_imp(concl x64_init_ok)))
-  |> REWRITE_RULE[AND_IMP_INTRO]
+val check_unsat_terminate = UNDISCH_ALL check_unsat_semantics
+  |> SIMP_RULE bool_ss [RIGHT_EXISTS_AND_THM]
+  |> HO_MATCH_MP ml_progTheory.sem_satisfies_IMP_Terminate
+  |> SRULE [lpr_array_compiled];
 
 Theorem check_unsat_compiled_thm =
-  CONJ compile_correct_applied check_unsat_output
-  |> DISCH_ALL
-  (* |> check_thm *)
+  MATCH_MP compile_correct (cj 1 lpr_array_compiled)
+  |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
+  |> C MATCH_MP (cj 1 check_unsat_terminate)
+  |> C MATCH_MP x64_backend_config_ok
+  |> Q.GEN ‘mc’ |> ISPEC (x64_init_ok |> concl |> rand |> rand) |> UNDISCH_ALL
+  |> MATCH_MP (cj 2 check_unsat_terminate)
+  |> REWRITE_RULE [targetPropsTheory.machine_sem_sing] |> DISCH_ALL
+  |> CONJ (UNDISCH is_x64_machine_config_IMP)
+  |> SRULE [SF CONJ_ss] |> CONJUNCT2 |> DISCH_ALL
+  |> REWRITE_RULE [AND_IMP_INTRO, GSYM CONJ_ASSOC]
+  |> check_thm
 
 (* Prettifying the standard parts of all the theorems *)
 Definition installed_x64_def:
@@ -93,11 +86,11 @@ QED
 
 Theorem machine_code_sound:
   cake_lpr_run cl fs mc ms ⇒
+  ∃io.
   machine_sem mc (basis_ffi ext cl fs) ms ⊆
-    extend_with_resource_limit
-      {Terminate Success (check_unsat_io_events ext cl fs)} ∧
+    extend_with_resource_limit {Terminate Success io} ∧
   ∃out err.
-    extract_fs ext (cl,fs) (check_unsat_io_events ext cl fs) =
+    extract_fs ext (cl,fs) io =
       SOME (add_stdout (add_stderr fs err) out) ∧
   (out ≠ «» ⇒
   if LENGTH cl = 2 then
@@ -147,12 +140,10 @@ Theorem machine_code_sound:
 Proof
   strip_tac>>
   fs[installed_x64_def,check_unsat_code_def,cake_lpr_run_def]>>
-  drule_at (Pos last) check_unsat_compiled_thm>>
-  simp[AND_IMP_INTRO]>>
-  disch_then drule>>
-  disch_then (qspecl_then [`ms`,`mc`,`ext`,`data_sp`,`cbspace`] mp_tac)>>
-  simp[]>>
-  strip_tac>>
+  drule_all check_unsat_compiled_thm>>
+  disch_then (qspec_then `ext` strip_assume_tac)>>
+  goal_assum drule>>
+  qpat_x_assum `result = _` SUBST_ALL_TAC>>
   gvs[]>>
   qexists_tac`out`>>
   qexists_tac`err`>>
@@ -240,6 +231,13 @@ Proof
   EVAL_TAC
 QED
 
+Theorem Terminate_Success_IN_extend:
+  Terminate Success io ∈ extend_with_resource_limit {Terminate Success io'} ⇔
+  io = io'
+Proof
+  rw[extend_with_resource_limit_def]
+QED
+
 Theorem par_check_sound:
   EVERY (λ(cl,fs,mc,ms,i,j).
     cake_lpr_run cl fs mc ms ∧
@@ -254,12 +252,15 @@ Theorem par_check_sound:
   interval_cover 0 (LENGTH pf) (MAP (λ(cl,fs,mc,ms,i,j). (i,j)) nodes)
   ⇒
   EVERY (λ(cl,fs,mc,ms,i,j).
-    machine_sem mc (basis_ffi ext cl fs) ms ⊆
-    extend_with_resource_limit
-      {Terminate Success (check_unsat_io_events ext cl fs)}) nodes ∧
+    ∃io.
+      machine_sem mc (basis_ffi ext cl fs) ms ⊆
+      extend_with_resource_limit
+        {Terminate Success io}) nodes ∧
   (
     EVERY (λ(cl,fs,mc,ms,i,j).
-      extract_fs ext (cl,fs) (check_unsat_io_events ext cl fs) =
+      ∃io.
+      machine_sem mc (basis_ffi ext cl fs) ms = {Terminate Success io} ∧
+      extract_fs ext (cl,fs) io =
         SOME (add_stdout fs
           (success_str (implode (md5 fmlstr)) (implode (md5 pfstr)) (print_rng i j)))
     ) nodes ⇒
@@ -269,11 +270,12 @@ Theorem par_check_sound:
 Proof
   strip_tac>>
   sg `EVERY (λ(cl,fs,mc,ms,i,j).
+  ∃io.
   machine_sem mc (basis_ffi ext cl fs) ms ⊆
     extend_with_resource_limit
-      {Terminate Success (check_unsat_io_events ext cl fs)} ∧
+      {Terminate Success io} ∧
   ∃out err.
-    extract_fs ext (cl,fs) (check_unsat_io_events ext cl fs) =
+    extract_fs ext (cl,fs) io =
       SOME (add_stdout (add_stderr fs err) out) ∧
     (out ≠ «» ⇒
       ∃fml pf.
@@ -288,8 +290,9 @@ Proof
     strip_tac>>
     drule machine_code_sound>> rpt(disch_then drule)>>
     simp[]>>  rpt(disch_then drule)>>
-    rw[]>>
-    first_x_assum (qspec_then `ext` mp_tac)>>rw[]>>asm_exists_tac>>simp[]>>
+    disch_then (qspec_then `ext` strip_assume_tac)>>
+    goal_assum drule>>
+    goal_assum drule>>
     strip_tac>>gvs[])>>
   CONJ_TAC >- (
     pop_assum mp_tac>>match_mp_tac MONO_EVERY>>
@@ -301,7 +304,7 @@ Proof
   impl_tac>-(
     fs[EVERY_MEM,FORALL_PROD,MEM_MAP,EXISTS_PROD,PULL_EXISTS,run_proof_empty]>>
     rw[]>>rpt (first_x_assum drule)>>
-    rw[]>>
+    rw[]>>gvs[Terminate_Success_IN_extend]>>
     gs[SOME_11]>>
     fs[cake_lpr_run_def]>>
     drule STD_streams_stdout>>rw[]>>
@@ -316,14 +319,15 @@ QED
 
 Definition check_successful_def:
   check_successful ext fmlstr pfstr (i:num,j:num) =
-  ∃cl fs mc ms err.
+  ∃cl fs mc ms err io.
     cake_lpr_run cl fs mc ms ∧
     LENGTH cl = 5 ∧
     inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
     file_content fs (EL 1 cl) = SOME fmlstr ∧
     file_content fs (EL 2 cl) = SOME pfstr ∧
     parse_rng_or_check (EL 3 cl) = SOME (INR (i,j)) ∧
-    extract_fs ext (cl,fs) (check_unsat_io_events ext cl fs) =
+    machine_sem mc (basis_ffi ext cl fs) ms = {Terminate Success io} ∧
+    extract_fs ext (cl,fs) io =
       SOME (add_stdout (add_stderr fs err)
         (success_str (implode (md5 fmlstr)) (implode (md5 pfstr)) (print_rng i j)))
 End
@@ -349,6 +353,7 @@ Proof
     fs[cake_lpr_run_def]>>
     drule STD_streams_stdout>>rw[]>>
     first_x_assum (qspec_then `ext` mp_tac)>>rw[]>>
+    gvs[Terminate_Success_IN_extend]>>
     drule add_stdout_inj>>
     disch_then(qspec_then`out` mp_tac)>>
     rw[]>>gvs[stdout_add_stderr,success_str_nonempty])>>
@@ -379,22 +384,24 @@ Definition check_successful_par_def:
   check_successful_par ext fmlstr pfstr =
   ∃outstr.
     (∀out. MEM out outstr ⇒
-    (∃cl fs mc ms err.
+    (∃cl fs mc ms err io.
       cake_lpr_run cl fs mc ms ∧
       LENGTH cl = 5 ∧
       inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
       file_content fs (EL 1 cl) = SOME fmlstr ∧
       file_content fs (EL 2 cl) = SOME pfstr ∧
-      extract_fs ext (cl,fs) (check_unsat_io_events ext cl fs) =
+      machine_sem mc (basis_ffi ext cl fs) ms = {Terminate Success io} ∧
+      extract_fs ext (cl,fs) io =
         SOME (add_stdout (add_stderr fs err) out))) ∧
-    (∃cl fs mc ms.
+    (∃cl fs mc ms io.
       cake_lpr_run cl fs mc ms ∧
       LENGTH cl = 5 ∧
       inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
       file_content fs (EL 1 cl) = SOME fmlstr ∧
       file_content fs (EL 2 cl) = SOME pfstr ∧
       all_lines_file fs (EL 4 cl) = outstr ∧
-      extract_fs ext (cl,fs) (check_unsat_io_events ext cl fs) =
+      machine_sem mc (basis_ffi ext cl fs) ms = {Terminate Success io} ∧
+      extract_fs ext (cl,fs) io =
         SOME (add_stdout fs
           (concat [«s VERIFIED INTERVALS COVER 0-» ; toString (LENGTH (lines_of (strlit pfstr))); «\n»])))
 End
@@ -413,6 +420,7 @@ Proof
   `STD_streams fs` by fs[cake_lpr_run_def]>>
   drule STD_streams_stdout>>rw[]>>
   first_x_assum (qspec_then `ext` mp_tac)>>rw[]>>
+  gvs[Terminate_Success_IN_extend]>>
   drule add_stdout_inj>>
   disch_then drule>>
   simp[stdout_add_stderr]>>
@@ -448,6 +456,7 @@ Proof
   drule machine_code_sound>>
   rpt(disch_then drule)>>simp[]>>
   strip_tac>>first_x_assum (qspec_then `ext` mp_tac)>>rw[]>>fs[]>>
+  gvs[Terminate_Success_IN_extend]>>
   qmatch_asmsub_abbrev_tac`add_stdout (add_stderr fs' _) ss`>>
   `ss = out''` by (
     fs[cake_lpr_run_def]>>

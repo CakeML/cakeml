@@ -20,6 +20,14 @@ Proof
   fs [ml_progTheory.init_env_def] \\ EVAL_TAC
 QED
 
+Theorem semantics_prog_sing[local]:
+  (∀po. semantics_determ (s with ptr_eq_oracle := po) env p b) ⇒
+  (semantics_prog s env p Fail ⇔ b = Fail) ∧ semantics_prog s env p = {b}
+Proof
+  rw [semantics_prog_def, FUN_EQ_THM]
+  \\ metis_tac [semanticsPropsTheory.semantics_determ_deterministic]
+QED
+
 Theorem compile_correct_inst[local] =
   backendProofTheory.compile_correct
   |> Q.GEN ‘ffi’ |> Q.ISPEC ‘scheme_out_oracle’
@@ -43,7 +51,7 @@ Proof
   strip_tac
   \\ dxrule_all scheme_semantics_preservation_value_terminates
   \\ simp [] \\ rpt strip_tac
-  \\ dxrule semanticsPropsTheory.semantics_prog_Terminate_not_Fail
+  \\ dxrule semantics_prog_sing
   \\ strip_tac
   \\ drule_at (Pos last) compile_correct_inst
   \\ disch_then drule
@@ -68,7 +76,7 @@ Proof
   strip_tac
   \\ dxrule_all scheme_semantics_preservation_exception_terminates
   \\ simp [] \\ rpt strip_tac
-  \\ dxrule semanticsPropsTheory.semantics_prog_Terminate_not_Fail
+  \\ dxrule semantics_prog_sing
   \\ strip_tac
   \\ drule_at (Pos last) compile_correct_inst
   \\ disch_then drule
@@ -93,7 +101,7 @@ Proof
   strip_tac
   \\ dxrule_all scheme_semantics_preservation_diverges
   \\ simp [] \\ rpt strip_tac
-  \\ dxrule semanticsPropsTheory.semantics_prog_Diverge_not_Fail
+  \\ dxrule semantics_prog_sing
   \\ strip_tac
   \\ drule_at (Pos last) compile_correct_inst
   \\ disch_then drule

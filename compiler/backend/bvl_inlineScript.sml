@@ -71,12 +71,15 @@ Definition tick_inline_sing_def:
 End
 
 Theorem tick_inline_sing:
-  (∀e. tick_inline cs [e] = [tick_inline_sing cs e]) ∧
-  (∀es. tick_inline_list cs es = tick_inline cs es)
+  (∀(cs:('a # bvl$exp) num_map) e.
+     tick_inline cs [e] = [tick_inline_sing cs e]) ∧
+  (∀(cs:('a # bvl$exp) num_map) es.
+     tick_inline_list cs es = tick_inline cs es)
 Proof
-  Induct \\ gvs [tick_inline_sing_def,tick_inline_def]
-  \\ rw [] \\ every_case_tac
-  \\ Cases_on ‘es’ \\ gvs [tick_inline_sing_def,tick_inline_def]
+  ho_match_mp_tac tick_inline_sing_ind
+  \\ rw [tick_inline_sing_def,tick_inline_def]
+  \\ rpt (TOP_CASE_TAC \\ gvs [])
+  \\ Cases_on ‘es’ \\ gvs [tick_inline_def]
 QED
 
 (* This definition is written to exit as soon as possible. *)
@@ -147,14 +150,14 @@ Definition is_small_sing_def:
 End
 
 Theorem is_small_sing:
-  (∀e n. is_small_aux n [e] = is_small_sing n e) ∧
-  (∀es n. is_small_list n es = is_small_aux n es)
+  (∀n e. is_small_aux n [e] = is_small_sing n e) ∧
+  (∀n es. is_small_list n es = is_small_aux n es)
 Proof
-  Induct \\ gvs [is_small_sing_def,is_small_aux_def] \\ rw []
-  \\ Cases_on ‘es’ \\ gvs [is_small_sing_def,is_small_aux_def]
-  \\ qsuff_tac ‘(∀e. is_small_sing 0 e = 0) ∧
-                (∀e. is_small_list 0 e = 0)’ \\ gvs []
-  \\ Induct \\ gvs [is_small_sing_def]
+  ‘∀e. is_small_aux 0 [e] = 0’ by (Induct \\ gvs [is_small_aux_def])
+  \\ ho_match_mp_tac is_small_sing_ind
+  \\ rw [is_small_sing_def,is_small_aux_def]
+  \\ gvs []
+  \\ Cases_on ‘es’ \\ gvs [is_small_aux_def]
 QED
 
 Definition is_small_def:
@@ -212,11 +215,14 @@ Definition is_rec_sing_def:
 End
 
 Theorem is_rec_sing:
-  (∀e n. is_rec n [e] = is_rec_sing n e) ∧
-  (∀es n. is_rec_list n es = is_rec n es)
+  (∀n e. is_rec n [e] = is_rec_sing n e) ∧
+  (∀n es. is_rec_list n es = is_rec n es)
 Proof
-  Induct \\ gvs [is_rec_sing_def,is_rec_def] \\ rw []
-  \\ Cases_on ‘es’ \\ gvs [is_rec_sing_def,is_rec_def]
+  ho_match_mp_tac is_rec_sing_ind
+  \\ rw [is_rec_sing_def,is_rec_def]
+  >~ [‘_ ⇔ is_rec n (e::es)’]
+  >- (Cases_on ‘es’ \\ gvs [is_rec_def] \\ metis_tac [])
+  \\ metis_tac []
 QED
 
 Definition must_inline_def:
@@ -310,8 +316,9 @@ Theorem remove_ticks_sing:
   (∀e. remove_ticks [e] = [remove_ticks_sing e]) ∧
   (∀es. remove_ticks_list es = remove_ticks es)
 Proof
-  Induct \\ gvs [remove_ticks_sing_def,remove_ticks_def] \\ rw []
-  \\ Cases_on ‘es’ \\ gvs [remove_ticks_sing_def,remove_ticks_def]
+  ho_match_mp_tac remove_ticks_sing_ind
+  \\ rw [remove_ticks_sing_def,remove_ticks_def]
+  \\ Cases_on ‘es’ \\ gvs [remove_ticks_def]
 QED
 
 Theorem LENGTH_remove_ticks[simp]:
@@ -399,9 +406,10 @@ Theorem let_op_one:
   (∀e. let_op [e] = [let_op_one e]) ∧
   (∀es. let_op_list es = let_op es)
 Proof
-  Induct \\ gvs [let_op_one_def,let_op_def] \\ rw []
-  \\ every_case_tac \\ gvs []
-  \\ Cases_on ‘es’ \\ gvs [let_op_one_def,let_op_def]
+  ho_match_mp_tac let_op_one_ind
+  \\ rw [let_op_one_def,let_op_def]
+  \\ rpt (TOP_CASE_TAC \\ gvs [])
+  \\ Cases_on ‘es’ \\ gvs [let_op_def]
 QED
 
 Definition let_op_sing_def:

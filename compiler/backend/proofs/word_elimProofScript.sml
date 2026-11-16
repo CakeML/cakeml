@@ -398,7 +398,9 @@ Definition word_state_rel_def:
         s.stack_limit    = t.stack_limit /\
         s.stack_size     = t.stack_size  /\
         code_rel reachable (s.code) (t.code) ∧
-        domain (find_loc_state t) ⊆ domain (reachable)
+        domain (find_loc_state t) ⊆ domain (reachable) ∧
+        s.ptr_eq_oracle  = t.ptr_eq_oracle ∧
+        s.ptr_eq_rel     = t.ptr_eq_rel
 End
 
 
@@ -606,7 +608,7 @@ Theorem word_state_rel_set_fp_var:
 Proof
   rw[] >> fs[word_state_rel_def] >>
   CONJ_TAC >- (fs[set_fp_var_def]) >>
-  fs[domain_find_loc_state]
+  fs[domain_find_loc_state,set_fp_var_def]
 QED
 
 Theorem word_state_rel_word_exp:
@@ -618,7 +620,7 @@ Proof
     >- (drule word_state_rel_get_store >> fs[])
     >- (first_x_assum drule >> rw[] >> PURE_TOP_CASE_TAC >> rw[] >>
         PURE_TOP_CASE_TAC >> fs[] >> fs[mem_load_def, word_state_rel_def])
-    >- (`MAP (λ a . word_exp s a) wexps = MAP (λ a . word_exp s2 a) wexps` by
+    >- (`MAP (word_exp s) wexps = MAP (word_exp s2) wexps` by
             (fs[MAP_EQ_f] >> metis_tac[]) >> fs[])
     >- (ntac 2 $ first_x_assum drule >> rw[])
 QED
@@ -982,6 +984,7 @@ Proof
   >~ [`StoreConsts`] >- suspend "StoreConsts"
   >~ [`Alloc`] >- suspend "Alloc"
   >~ [`Skip`] >- suspend "Skip"
+  >~ [`PtrEq`] >- suspend "PtrEq"
 QED
 
 Resume word_removal_lemma[Skip]:
@@ -1110,7 +1113,7 @@ Resume word_removal_lemma[Assign]:
       >- (Cases_on `word_exp s e` >> fs[] >> Cases_on `x` >>
           fs[] >>
           fs[mem_load_def] >> metis_tac[domain_get_memory, SUBSET_DEF])
-      >- (Cases_on `the_words (MAP (λa. word_exp s a) l)` >>
+      >- (Cases_on `the_words (MAP (word_exp s) l)` >>
           fs[])
       >- (rename1 ‘Shift _ e₁ e₂’>>
           namedCases_on `word_exp s e₁` ["", "x"] >> fs[] >>
@@ -1137,7 +1140,7 @@ Resume word_removal_lemma[Set]:
       >- (Cases_on `word_exp s e` >> fs[] >>
           Cases_on `x` >> fs[] >>
           fs[mem_load_def] >> metis_tac[domain_get_memory, SUBSET_DEF])
-      >- (Cases_on `the_words (MAP (λa. word_exp s a) l)` >>
+      >- (Cases_on `the_words (MAP (word_exp s) l)` >>
           fs[])
       >- (rename1 ‘Shift _ e₁ e₂’>>
           namedCases_on `word_exp s e₁` ["", "x"] >> fs[] >>
@@ -1585,6 +1588,18 @@ Resume word_removal_lemma[Loop]:
       gvs[wordSemTheory.exit_loop_def, dest_result_loc_def] >>
       Cases_on `x` >>
       gvs[wordSemTheory.exit_loop_def, dest_result_loc_def])
+QED
+
+Resume word_removal_lemma[PtrEq]:
+  simp[wordSemTheory.evaluate_def] >>
+  rpt (TOP_CASE_TAC >> fs[]) >> fs[AllCaseEqs()] >>
+  strip_tac >> rveq >>
+  gvs [dest_result_loc_def,set_var_def] >>
+  fs[word_state_rel_def, domain_find_loc_state, dest_result_loc_def] >>
+  qmatch_goalsub_abbrev_tac `insert dst wv s.locals` >>
+  qspecl_then [`dst`,`wv`,`s.locals`] mp_tac get_locals_insert >>
+  `dest_word_loc wv = NONE` by simp[Abbr`wv`,dest_word_loc_def] >>
+  fs[] >> metis_tac[SUBSET_TRANS]
 QED
 
 Finalise word_removal_lemma;

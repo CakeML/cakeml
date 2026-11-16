@@ -91,8 +91,6 @@ Definition eval_def:
         SOME (Word s.top_addr))
 Termination
   WF_REL_TAC `measure (exp_size o SND)`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-  \\ DECIDE_TAC
 End
 
 Definition get_vars_def:

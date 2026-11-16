@@ -89,6 +89,51 @@ Termination
   WF_REL_TAC ‘measure $ list_size dec_size o SND o SND’
 End
 
+(* The expressions evaluated while initializing declarations must not consult
+   pointer equality. Recursive function bodies are stored as closures. *)
+Definition no_ptr_eq_dec_def[simp]:
+  (no_ptr_eq_dec (Dlet locs p e) = no_ptr_eq e) ∧
+  (no_ptr_eq_dec (Dletrec locs funs) = T) ∧
+  (no_ptr_eq_dec (Dtype locs tds) = T) ∧
+  (no_ptr_eq_dec (Dtabbrev locs tvs tn t) = T) ∧
+  (no_ptr_eq_dec (Dexn locs cn ts) = T) ∧
+  (no_ptr_eq_dec (Denv n) = T) ∧
+  (no_ptr_eq_dec (Dopen locs path) = T) ∧
+  (no_ptr_eq_dec (Dmod mn ds) = EVERY no_ptr_eq_dec ds) ∧
+  (no_ptr_eq_dec (Dlocal lds ds) =
+    (EVERY no_ptr_eq_dec lds ∧ EVERY no_ptr_eq_dec ds))
+End
+
+Theorem evaluate_dec_list_no_ptr_eq:
+  ∀(st:'ffi state) env ds st' res.
+    EVERY no_ptr_eq_dec ds ∧ evaluate_dec_list st env ds = (st',res) ⇒
+    st'.ptr_eq_oracle = st.ptr_eq_oracle ∧
+    ∀oracle. evaluate_dec_list (st with ptr_eq_oracle := oracle) env ds =
+      (st' with ptr_eq_oracle := oracle,res)
+Proof
+  ho_match_mp_tac evaluate_dec_list_ind
+  \\ rw [evaluate_dec_list_def]
+  \\ gvs [AllCaseEqs(),ETA_THM]
+  \\ imp_res_tac evaluate_no_ptr_eq_preserves_oracle
+  \\ imp_res_tac evaluate_no_ptr_eq_with_oracle
+  \\ gvs []
+QED
+
+Theorem evaluate_decs_no_ptr_eq:
+  ∀(st:'ffi state) env ds st' res.
+    EVERY no_ptr_eq_dec ds ∧ evaluate_decs st env ds = (st',res) ⇒
+    st'.ptr_eq_oracle = st.ptr_eq_oracle ∧
+    ∀oracle. evaluate_decs (st with ptr_eq_oracle := oracle) env ds =
+      (st' with ptr_eq_oracle := oracle,res)
+Proof
+  ho_match_mp_tac evaluate_decs_ind
+  \\ rw [evaluate_decs_def]
+  \\ gvs [AllCaseEqs(),ETA_THM]
+  \\ imp_res_tac evaluate_no_ptr_eq_preserves_oracle
+  \\ imp_res_tac evaluate_no_ptr_eq_with_oracle
+  \\ gvs []
+QED
+
 Definition evaluate_dec_list_with_clock_def:
   evaluate_dec_list_with_clock st env k prog =
     let (st',r) =
@@ -96,8 +141,8 @@ Definition evaluate_dec_list_with_clock_def:
     in (st'.ffi,r)
 End
 
-Definition semantics_dec_list_def:
-  (semantics_dec_list st env prog (Terminate outcome io_list) ⇔
+Definition semantics_dec_list_determ_def:
+  (semantics_dec_list_determ st env prog (Terminate outcome io_list) ⇔
     (* there is a clock for which evaluation terminates, either internally or via
        FFI, and the accumulated io events match the given io_list *)
     (?k ffi r.
@@ -108,7 +153,7 @@ Definition semantics_dec_list_def:
        | r => r ≠ Rerr (Rabort Rtimeout_error) ∧ outcome = Success) ∧
       (io_list = ffi.io_events) ∧
       (r ≠ Rerr (Rabort Rtype_error)))) ∧
-  (semantics_dec_list st env prog (Diverge io_trace) ⇔
+  (semantics_dec_list_determ st env prog (Diverge io_trace) ⇔
     (* for all clocks, evaluation times out *)
     (!k. ?ffi.
       (evaluate_dec_list_with_clock st env k prog =
@@ -120,10 +165,17 @@ Definition semantics_dec_list_def:
          (λk. fromList (FST (evaluate_dec_list_with_clock st env k prog)).io_events)
          UNIV)
        io_trace) ∧
-  (semantics_dec_list st env prog Fail ⇔
+  (semantics_dec_list_determ st env prog Fail ⇔
     (* there is a clock for which evaluation produces a runtime type error *)
     ∃k.
       SND(evaluate_dec_list_with_clock st env k prog) = Rerr (Rabort Rtype_error))
+End
+
+Definition semantics_dec_list_def:
+  semantics_dec_list st env prog b ⇔
+    (* the pointer equality oracle is adversarial: a program behaves as it does
+       under some oracle *)
+    ∃po. semantics_dec_list_determ (st with ptr_eq_oracle := po) env prog b
 End
 
 val env_c = “env_c: (mlstring, mlstring, num # stamp) namespace”

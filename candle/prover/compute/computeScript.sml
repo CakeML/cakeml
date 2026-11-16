@@ -173,8 +173,6 @@ Definition const_list_def:
   const_list (If x y z) = const_list x ++ const_list y ++ const_list z ∧
   const_list (Let s x y) = const_list x ++ const_list y ∧
   const_list (App s xs) = (s,LENGTH xs)::FLAT (MAP const_list xs)
-Termination
-  wf_rel_tac ‘measure compute_exp_size’
 End
 
 Definition var_list_def:
@@ -186,8 +184,6 @@ Definition var_list_def:
   var_list (If x y z) = var_list x ++ var_list y ++ var_list z ∧
   var_list (Let s x y) = var_list x ++ FILTER (λn. n ≠ s) (var_list y) ∧
   var_list (App s xs) = FLAT (MAP var_list xs)
-Termination
-  wf_rel_tac ‘measure compute_exp_size’
 End
 
 (* A valid equation is:

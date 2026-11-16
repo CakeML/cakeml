@@ -2649,10 +2649,9 @@ Proof
            \\ drule isSomeData_to_gen_heap_IMP
            \\ simp [])
         (* current heap *)
-        \\ `heap_length (state1.h1 ++ heap_expand state1.n) = heap_length (to_gen_heap_list conf state1.h1 ++ heap_expand state1.n)` by (fs [heap_length_APPEND]
-           \\ fs [heap_expand_def]
-           \\ IF_CASES_TAC \\ fs []
-           \\ fs [heap_length_def,el_length_def])
+        \\ `heap_length (state1.h1 ++ heap_expand state1.n) = heap_length (to_gen_heap_list conf state1.h1 ++ heap_expand state1.n)` by
+           simp_tac std_ss [heap_length_APPEND,heap_length_to_gen_heap_list,
+                            heap_length_heap_expand]
         \\ unabbrev_all_tac
         \\ qpat_x_assum `!i xs l d. i IN FDOM f /\ _ ==> _` drule
         \\ fs [isSomeDataElement_def]

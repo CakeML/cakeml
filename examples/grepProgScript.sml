@@ -456,6 +456,10 @@ val termination_lemma =
        FUPDATE_LIST, option_CASE_FLOOKUP_SIMP]
   |> GEN_ALL;
 
+(* top-level vals must not call functions (no_ptr_eq), so DigitSet is
+   evaluated to a charset literal *)
+val _ = translate (DigitSet_def |> CONV_RULE (RHS_CONV EVAL));
+
 val _ = translate
   (parse_regexp_def |> SRULE [pegexecTheory.peg_exec_def,coreloop_def', rePEG_def,
        FUPDATE_LIST, option_CASE_FLOOKUP_SIMP]);

@@ -11,8 +11,6 @@ Ancestors
 Libs
   preamble
 
-val _ = patternMatchesSyntax.temp_enable_pmatch();
-
 Definition bvi_mk_tick_def:
   bvi_mk_tick n e = FUNPOW bvi$Tick n e
 End
@@ -73,10 +71,10 @@ Definition inline_exp_def:
   (inline_exps cs [] = []) ∧
   (inline_exps cs (x::xs) = inline_exp cs x :: inline_exps cs xs)
 Termination
-  WF_REL_TAC ‘measure $ λx. pmatch x of
+  WF_REL_TAC ‘measure $ λx. case x of
     | INL (_,e) => bvi$exp_size e
-    | INR (_,es) => bvi$exp2_size es’
-  >> rpt strip_tac >> simp [bviTheory.exp_size_def]
+    | INR (_,es) => list_size bvi$exp_size es’
+  >> rpt strip_tac >> simp []
 End
 
 Definition inline_all_def:
@@ -113,10 +111,10 @@ Definition remove_ticks_exp_def:
   (remove_ticks_exps (x::xs) =
      remove_ticks_exp x :: remove_ticks_exps xs)
 Termination
-  WF_REL_TAC ‘measure $ λx. pmatch x of
+  WF_REL_TAC ‘measure $ λx. case x of
     | INL e => bvi$exp_size e
-    | INR es => bvi$exp2_size es’
-  >> rpt strip_tac >> simp [bviTheory.exp_size_def]
+    | INR es => list_size bvi$exp_size es’
+  >> rpt strip_tac >> simp []
 End
 
 Definition compile_inc_def:

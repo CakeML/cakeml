@@ -1314,9 +1314,8 @@ Theorem panprog_induct:
     (∀m m0. P (Annot m m0))
     ⇒ ∀p. P (p : panLang$prog)
 Proof
-  strip_tac >>
-  qspecl_then [‘P’,‘K T’,‘K T’,‘K T’,‘K T’,‘K T’]
-              strip_assume_tac (cj 1 panLangTheory.prog_induction) >>
+  gen_tac >> strip_tac >>
+  ho_match_mp_tac panLangTheory.prog_induction >>
   rw[]
 QED
 
@@ -2466,7 +2465,7 @@ QED
 Theorem eval_op_impl_let:
   (∃wv. eval s (Op op es) = SOME (ValWord wv)) ⇒
   eval s (Op op es) =
-  let ws = THE (OPT_MMAP (λa. eval s a) es) in
+  let ws = THE (OPT_MMAP (eval s) es) in
     (OPTION_MAP (λw. ValWord w) (word_op op (MAP (λw. case w of ValWord n => n | _ => ARB) ws)))
 Proof
   rw[eval_def]

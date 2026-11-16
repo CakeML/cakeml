@@ -46,10 +46,7 @@ Definition compile_exp_def:
   (compile_exp ctxt TopAddr = Op Sub [TopAddr; Const ctxt.max_globals_size]) ∧
   (compile_exp ctxt e = e)
 Termination
-  wf_rel_tac `measure (\e. panLang$exp_size (SND e))` >>
-  rpt strip_tac >>
-  imp_res_tac panLangTheory.MEM_IMP_exp_size >>
-  decide_tac
+  wf_rel_tac `measure (\e. panLang$exp_size (SND e))`
 End
 
 Definition fresh_name_def:

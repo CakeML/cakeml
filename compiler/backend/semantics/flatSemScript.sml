@@ -60,7 +60,10 @@ Datatype:
     ffi     : 'ffi ffi_state;
     globals : (v option) list;
     (* eval or install mode *)
-    eval_config : 'c install_config
+    eval_config : 'c install_config;
+    (* oracle deciding whether a structurally-equal PtrEq answers T, indexed
+       first by install epoch and then by position within that epoch *)
+    ptr_eq_oracle : num -> num -> bool
   |>
 End
 
@@ -332,6 +335,13 @@ Definition do_app_def:
     (case do_eq v1 v2 of
      | Eq_type_error => NONE
      | Eq_val b => SOME (s, Rval (Boolv b)))
+  | (Src PtrEq, [v1; v2]) =>
+    (case do_eq v1 v2 of
+     | Eq_type_error => NONE
+     | Eq_val b =>
+         SOME (s with ptr_eq_oracle :=
+                 (0 =+ shift_seq 1 (s.ptr_eq_oracle 0)) s.ptr_eq_oracle,
+               Rval (Boolv (b ∧ s.ptr_eq_oracle 0 0))))
   | (Src (Test test test_ty), [v1; v2]) =>
     (case do_test test test_ty v1 v2 of
      | Eq_type_error => NONE
@@ -424,6 +434,28 @@ Definition do_app_def:
            else
              SOME (s, Rval (Litv (Word8 (EL n ws))))
      | _ => NONE)
+  | (Src Aw8ScanEq, [Litv (IntLit start); Litv (IntLit end); Litv (Word8 w); Loc _ lnum]) =>
+        (case store_lookup lnum s.refs of
+            SOME (W8array ws) =>
+              if 0 ≤ start ∧ start ≤ &LENGTH ws ∧ 0 ≤ end ∧ end ≤ &LENGTH ws then
+                SOME (s, Rval (Litv (IntLit
+                  (&(if Num end ≤ Num start then Num end else Num start +
+                    LENGTH (FST (SPLITP (\x. x = w)
+                      (DROP (Num start) (TAKE (Num end) ws)))))))))
+              else SOME (s, Rerr (Rraise subscript_exn_v))
+          | _ => NONE
+        )
+  | (Src Aw8ScanNeq, [Litv (IntLit start); Litv (IntLit end); Litv (Word8 w); Loc _ lnum]) =>
+        (case store_lookup lnum s.refs of
+            SOME (W8array ws) =>
+              if 0 ≤ start ∧ start ≤ &LENGTH ws ∧ 0 ≤ end ∧ end ≤ &LENGTH ws then
+                SOME (s, Rval (Litv (IntLit
+                  (&(if Num end ≤ Num start then Num end else Num start +
+                    LENGTH (FST (SPLITP (\x. x ≠ w)
+                      (DROP (Num start) (TAKE (Num end) ws)))))))))
+              else SOME (s, Rerr (Rraise subscript_exn_v))
+          | _ => NONE
+        )
   | (Src Aw8length, [Loc _ n]) =>
     (case store_lookup n s.refs of
      | SOME (W8array ws) =>
@@ -531,6 +563,41 @@ Definition do_app_def:
               SOME s' => SOME (s with refs := s', Rval Unitv)
             | _ => NONE))
     | _ => NONE)
+  | (Src CopyVecVec, [Vectorv vs;Litv(IntLit off);Litv(IntLit len)]) =>
+      SOME (s,
+      (case copy_array (vs,off) len NONE of
+        NONE => Rerr (Rraise subscript_exn_v)
+      | SOME cs => Rval (Vectorv cs)))
+  | (Src CopyVecArr, [Vectorv vs;Litv(IntLit off);Litv(IntLit len);
+                  Loc _ dst;Litv(IntLit dstoff)]) =>
+      (case store_lookup dst s.refs of
+        SOME (Varray ws) =>
+          (case copy_array (vs,off) len (SOME(ws,dstoff)) of
+            NONE => SOME (s, Rerr (Rraise subscript_exn_v))
+          | SOME cs =>
+            (case store_assign dst (Varray cs) s.refs of
+              SOME s' =>  SOME (s with refs := s', Rval Unitv)
+            | _ => NONE))
+      | _ => NONE)
+  | (Src CopyArrVec, [Loc _ src;Litv(IntLit off);Litv(IntLit len)]) =>
+    (case store_lookup src s.refs of
+      SOME (Varray ws) =>
+      SOME (s,
+        (case copy_array (ws,off) len NONE of
+          NONE => Rerr (Rraise subscript_exn_v)
+        | SOME ws => Rval (Vectorv ws)))
+    | _ => NONE)
+  | (Src CopyArrArr, [Loc _ src;Litv(IntLit off);Litv(IntLit len);
+                  Loc _ dst;Litv(IntLit dstoff)]) =>
+    (case (store_lookup src s.refs, store_lookup dst s.refs) of
+      (SOME (Varray ws), SOME (Varray ds)) =>
+        (case copy_array (ws,off) len (SOME(ds,dstoff)) of
+          NONE => SOME (s, Rerr (Rraise subscript_exn_v))
+        | SOME ws =>
+            (case store_assign dst (Varray ws) s.refs of
+              SOME s' => SOME (s with refs := s', Rval Unitv)
+            | _ => NONE))
+    | _ => NONE)
   | (Src XorAw8Str_unsafe, [Loc _ dst; Litv (StrLit str_arg)]) =>
     (case store_lookup dst s.refs of
      | SOME (W8array ds) =>
@@ -562,6 +629,14 @@ Definition do_app_def:
       SOME (s, Rval (Litv (Char (strsub str (Num i)))))
     else
       NONE
+  | (Src StrScanEq, [Litv (IntLit start); Litv (IntLit end); Litv (Char c); Litv (StrLit str)]) =>
+        if 0 ≤ start ∧ start ≤ &strlen str ∧ 0 ≤ end ∧ end ≤ &strlen str then
+          SOME (s, Rval (Litv (IntLit (&scan_eq (Num start) (Num end) c str))))
+        else SOME (s, Rerr (Rraise subscript_exn_v))
+  | (Src StrScanNeq, [Litv (IntLit start); Litv (IntLit end); Litv (Char c); Litv (StrLit str)]) =>
+        if 0 ≤ start ∧ start ≤ &strlen str ∧ 0 ≤ end ∧ end ≤ &strlen str then
+          SOME (s, Rval (Litv (IntLit (&scan_neq (Num start) (Num end) c str))))
+        else SOME (s, Rerr (Rraise subscript_exn_v))
   | (Src Strlen, [Litv (StrLit str)]) =>
     SOME (s, Rval (Litv(IntLit(int_of_num(strlen str)))))
   | (Src Strcat, [v]) =>
@@ -954,7 +1029,8 @@ Definition evaluate_def:
        else if op = Src Eval then
          (case do_eval (REVERSE vs) s.eval_config of
             | SOME (decs, eval_config, retv) =>
-              let s = s with <| eval_config := eval_config |> in
+              let s = s with <| eval_config := eval_config
+                              ; ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle |> in
               if s.clock = 0 then
                 (s, Rerr (Rabort Rtimeout_error))
               else (case evaluate_decs (dec_clock s) decs of
@@ -1085,24 +1161,25 @@ Theorem evaluate_ind[allow_rebind] =
   REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
 
 Definition initial_state_def:
-  initial_state ffi k ec =
+  initial_state ffi k ec pe =
     <| clock       := k
      ; refs        := []
      ; ffi         := ffi
      ; globals     := []
      ; eval_config := ec
+     ; ptr_eq_oracle := pe
      |> :('c,'ffi) flatSem$state
 End
 
 Definition semantics_def:
-  semantics (ec:'c install_config) (ffi:'ffi ffi_state) prog =
-    if ∃k. SND (evaluate_decs (initial_state ffi k ec) prog)
+  semantics (ec:'c install_config) (ffi:'ffi ffi_state) pe prog =
+    if ∃k. SND (evaluate_decs (initial_state ffi k ec pe) prog)
            = SOME (Rabort Rtype_error)
       then Fail
     else
     case some res.
       ∃k s r outcome.
-        evaluate_decs (initial_state ffi k ec) prog = (s,r) ∧
+        evaluate_decs (initial_state ffi k ec pe) prog = (s,r) ∧
         (case r of
          | SOME (Rabort (Rffi_error e)) => outcome = FFI_outcome e
          | SOME (Rabort _) => F
@@ -1113,7 +1190,7 @@ Definition semantics_def:
        Diverge
          (lprefix_lub$build_lprefix_lub
            (IMAGE (λk. fromList
-             (FST (evaluate_decs (initial_state ffi k ec) prog)).ffi.io_events)
+             (FST (evaluate_decs (initial_state ffi k ec pe) prog)).ffi.io_events)
                UNIV))
 End
 

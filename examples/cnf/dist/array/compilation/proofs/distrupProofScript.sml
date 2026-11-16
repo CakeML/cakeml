@@ -10,19 +10,24 @@ Ancestors
 Libs
   preamble
 
-val not_fail = MATCH_MP semantics_prog_Terminate_not_Fail semantics_prog_distrup_prog |> cj 1;
-val sem_sing = MATCH_MP semantics_prog_Terminate_not_Fail semantics_prog_distrup_prog |> cj 2;
+val distrup_terminate = semantics_prog_distrup_prog
+  |> REWRITE_RULE [GSYM (UNDISCH (Q.INST [‘prog’ |-> ‘distrup_prog’]
+                                    ml_progTheory.semantics_dec_list_eq))]
+  |> HO_MATCH_MP ml_progTheory.sem_satisfies_IMP_Terminate
+  |> DISCH_ALL |> SRULE [distrup_array_compiled];
 
-val compile_correct_applied =
+Theorem distrup_compiled_thm =
   MATCH_MP compile_correct (cj 1 distrup_array_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
-  |> Q.GEN ‘ffi’ |> Q.ISPEC ‘custom_ffi (State Step inputs tb)’
-  |> C MATCH_MP not_fail
+  |> C MATCH_MP (cj 1 distrup_terminate)
   |> C MATCH_MP x64_backend_config_ok
-  |> C MATCH_MP (UNDISCH x64_machine_config_ok)
-  |> C MATCH_MP (UNDISCH x64_init_ok)
-  |> DISCH(#1(dest_imp(concl x64_init_ok)))
-  |> REWRITE_RULE[AND_IMP_INTRO, sem_sing]
+  |> Q.GEN ‘mc’ |> ISPEC (x64_init_ok |> concl |> rand |> rand) |> UNDISCH_ALL
+  |> MATCH_MP (cj 2 distrup_terminate)
+  |> REWRITE_RULE [targetPropsTheory.machine_sem_sing] |> DISCH_ALL
+  |> CONJ (UNDISCH is_x64_machine_config_IMP)
+  |> SRULE [SF CONJ_ss] |> CONJUNCT2 |> DISCH_ALL
+  |> REWRITE_RULE [AND_IMP_INTRO, GSYM CONJ_ASSOC]
+  |> check_thm
 
 Definition compiled_code_installed_def:
   compiled_code_installed mc ms ⇔
@@ -44,6 +49,6 @@ Theorem compiled_code_produces_events_ok:
       full_events_ok init_st events
 Proof
   rw [compiled_code_installed_def,FORALL_PROD] >>
-  drule_all compile_correct_applied >>
-  metis_tac [full_events_ok_main_events]
+  drule_all distrup_compiled_thm >>
+  simp []
 QED

@@ -15,6 +15,7 @@ val mlstring_ty = Type.mk_thy_type {Tyop = "mlstring", Thy = "mlstring", Args = 
 val monop = HolKernel.syntax_fns1 "mlstring"
 val binop = HolKernel.syntax_fns2 "mlstring"
 val triop = HolKernel.syntax_fns3 "mlstring"
+val quadop = HolKernel.syntax_fns4 "mlstring"
 val cbinop =
    HolKernel.syntax_fns
      {n = 2, dest = HolKernel.dest_binop, make = Lib.curry Term.mk_comb}
@@ -27,6 +28,8 @@ val (strlit_tm,mk_strlit,dest_strlit,is_strlit) =
 val (explode_tm,mk_explode,dest_explode,is_explode) = monop "explode"
 val (strlen_tm,mk_strlen,dest_strlen,is_strlen) = monop "strlen"
 val (strsub_tm,mk_strsub,dest_strsub,is_strsub) = binop "strsub"
+val (scan_eq_tm,mk_scan_eq,dest_scan_eq,is_scan_eq) = quadop "scan_eq"
+val (scan_neq_tm,mk_scan_neq,dest_scan_neq,is_scan_neq) = quadop "scan_neq"
 val (strcat_tm,mk_strcat,dest_strcat,is_strcat) = binop "strcat"
 val (concat_tm,mk_concat,dest_concat,is_concat) = monop "concat"
 val (substring_tm,mk_substring,dest_substring,is_substring) = triop "substring"

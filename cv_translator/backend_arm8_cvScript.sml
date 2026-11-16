@@ -127,6 +127,7 @@ val _ = cv_trans (INST_TYPE [``:'N`` |-> ``:64``] EncodeBitMaskAux_def);
 val _ = cv_trans (INST_TYPE [``:'N`` |-> ``:64``] EncodeBitMask_def);
 val _ = cv_trans RevOp2num_thm;
 val _ = cv_trans e_data_def;
+val _ = cv_trans e_fp_def;
 val _ = cv_trans SystemHintOp2num_thm;
 val _ = cv_trans MemBarrierOp2num_thm;
 val _ = cv_trans arm8Theory.Encode_def;
@@ -182,7 +183,7 @@ Proof
   \\ rw [] \\ simp [Once pre]
   \\ rw [] \\ gvs []
   \\ last_x_assum irule
-  \\ gvs [wordLangTheory.prog_size_def]
+  \\ gvs []
 QED
 
 val _ = cv_auto_trans (compile_prog_arm8_def |> arch_spec);
@@ -249,7 +250,7 @@ Proof
   \\ rw [] \\ gvs [PULL_FORALL]
   \\ simp [Once pre] \\ rw []
   \\ gvs [] \\ last_x_assum $ irule
-  \\ gvs [wordLangTheory.prog_size_def]
+  \\ gvs []
 QED
 
 val _ = cv_trans (word_alloc_inlogic_arm8_def |> arch_spec);
@@ -263,7 +264,7 @@ Proof
   \\ rw [] \\ simp [Once pre]
   \\ rw [] \\ gvs []
   \\ last_x_assum irule
-  \\ gvs [wordLangTheory.exp_size_def]
+  \\ gvs []
 QED
 
 val pre = cv_trans_pre "" (inst_select_arm8_def |> arch_spec);
@@ -273,7 +274,7 @@ Proof
   gen_tac \\ gen_tac \\ completeInduct_on ‘prog_size v’
   \\ rw [] \\ gvs [PULL_FORALL]
   \\ simp [Once pre] \\ rw []
-  \\ first_x_assum irule \\ gvs [wordLangTheory.prog_size_def]
+  \\ first_x_assum irule \\ gvs []
 QED
 
 val pre = (each_inlogic_arm8_def |> arch_spec) |> cv_trans_pre "";

@@ -111,6 +111,11 @@ End
 
 (* / Constant flattening *)
 
+(* the stubs' smallnum arithmetic is sound for max_app up to this limit *)
+Definition max_app_limit_def:
+  max_app_limit = 1000n
+End
+
 Definition num_added_globals_def:
   num_added_globals = 1n
 End
@@ -274,12 +279,11 @@ Definition partial_app_fn_location_def:
     max_app + tot * (tot - 1) DIV 2 + prev
 End
 
+(* Looks up the label of partial_app_fn_location max_app tot prev in the
+   table stored in global 0, which has one row per tot *)
 Definition partial_app_fn_location_code_def:
   partial_app_fn_location_code max_app tot_exp prev_exp : bvl$exp =
-    Let [tot_exp]
-     (Op (IntOp Add) [prev_exp;
-        Op (IntOp Div) [mk_const 2;
-          Op (IntOp Mult) [Var 0; Op (IntOp Sub) [mk_const 1; Var 0]]]])
+    mk_el (mk_el (Op (GlobOp (Global 0)) []) tot_exp) prev_exp
 End
 
 Definition mk_cl_call_def:
@@ -292,9 +296,10 @@ End
 (* Generic application of a function to n+1 arguments *)
 Definition generate_generic_app_def:
   generate_generic_app max_app n =
-    Let [Op (IntOp Sub) [mk_const (n+1); mk_elem_at (Var (n+1)) 1]] (* The number of arguments remaining - 1 *)
-        (If (Op (IntOp Less) [mk_const 0; Var 0])
-            (* Over application *)
+    Let [Op (IntOp (Smallnum SmallSub)) [mk_const (n+1); mk_elem_at (Var (n+1)) 1]] (* The number of arguments remaining - 1 *)
+        (If (Op (IntOp (Smallnum SmallLess)) [mk_const 0; Var 0])
+            (* Over application; exact applications never get here, so the
+               closure expects fewer than n+1 arguments *)
             (Jump (mk_elem_at (Var (n+2)) 1)
               (GENLIST (\num_args.
                  Let [Call num_args
@@ -303,34 +308,31 @@ Definition generate_generic_app_def:
                             [Var (n + 3)] ++
                             [mk_elem_at (Var (n + 3)) 0])]
                    (mk_cl_call (Var 0) (GENLIST (\n. Var (n + 3)) (n - num_args))))
-               max_app))
+               n))
             (* Partial application *)
             (mk_tick n
             (If (Op (BlockOp (TagEq closure_tag)) [Var (n+2)])
                 (* Partial application of a normal closure *)
                 (Op (BlockOp (Cons partial_app_tag))
                     (REVERSE
-                      (mk_el (Op (GlobOp (Global 0)) [])
-                        (partial_app_fn_location_code max_app
-                          (mk_elem_at (Var (n+2)) 1)
-                          (mk_const n)) ::
+                      (partial_app_fn_location_code max_app
+                         (mk_elem_at (Var (n+2)) 1)
+                         (mk_const n) ::
                        Var 0 ::
                        Var (n + 2) ::
                        GENLIST (\n. Var (n + 1)) (n + 1))))
                 (* Partial application of a partially applied closure *)
-                (Let [Op (IntOp Sub) [mk_const 3; Op (BlockOp LengthBlock) [Var (n+2)]]] (* The number of previous args *)
+                (Let [Op (IntOp (Smallnum SmallSub)) [mk_const 3; Op (BlockOp LengthBlock) [Var (n+2)]]] (* The number of previous args *)
                   (Op (BlockOp (ConsExtend partial_app_tag))
                     (REVERSE
                       (Var (n + 3) ::
                        mk_const 3 ::
                        Var 0 ::
-                       Op (IntOp Add) [Var 0; mk_const (n+4)] ::
-                       mk_el (Op (GlobOp (Global 0)) [])
-                         (partial_app_fn_location_code max_app
-                           (Op (IntOp Add) [Var 0; Op (IntOp Add) [mk_const (n + 1); Var 1]])
-                           (* Shift from Var0 to Var1 because of Let in
-                            * partial_app_fn_location_code *)
-                           (Op (IntOp Add) [Var 1; mk_const n])) ::
+                       Op (IntOp (Smallnum SmallAdd)) [Var 0; mk_const (n+4)] ::
+                       partial_app_fn_location_code max_app
+                         (Op (IntOp (Smallnum SmallAdd))
+                            [Var 0; Op (IntOp (Smallnum SmallAdd)) [mk_const (n + 1); Var 1]])
+                         (Op (IntOp (Smallnum SmallAdd)) [Var 0; mk_const n]) ::
                        Var 1 ::
                        mk_elem_at (Var (n+3)) 2 ::
                        GENLIST (\this_arg. Var (this_arg + 2)) (n + 1))))))))
@@ -378,13 +380,15 @@ Definition init_globals_def:
     (Let
       [Op (GlobOp (SetGlobal partial_app_label_table_loc))
         [Op (BlockOp (Cons tuple_tag))
-          (REVERSE (FLAT
+          (REVERSE
             (GENLIST
               (\tot.
-                GENLIST
-                  (\prev. mk_label (partial_app_fn_location max_app tot prev))
-                  tot)
-              max_app)))]]
+                Op (BlockOp (Cons tuple_tag))
+                  (REVERSE
+                    (GENLIST
+                      (\prev. mk_label (partial_app_fn_location max_app tot prev))
+                      tot)))
+              max_app))]]
       (* Expect the real start of the program in code location 3 *)
       (Call 0 (SOME start_loc) []))
 End
@@ -481,15 +485,8 @@ Definition compile_exps_def:
      let (c1,aux1) = compile_exps max_app xs aux in
        ([Call ticks (SOME (dest + (num_stubs max_app))) c1],aux1))
 Termination
-  WF_REL_TAC `measure (exp3_size o FST o SND)` >>
-   srw_tac [ARITH_ss] [closLangTheory.exp_size_def] >>
-   `!l. closLang$exp3_size (MAP SND l) <= exp1_size l`
-            by (Induct_on `l` >>
-                rw [closLangTheory.exp_size_def] >>
-                PairCases_on `h` >>
-                full_simp_tac (srw_ss()++ARITH_ss) [closLangTheory.exp_size_def]) >>
-  pop_assum (qspec_then `v7` assume_tac) >>
-  decide_tac
+  WF_REL_TAC `measure (list_size exp_size o FST o SND)` >>
+  srw_tac [ARITH_ss] [list_size_pair_size_MAP_FST_SND]
 End
 
 val compile_exps_ind = theorem"compile_exps_ind";
@@ -574,12 +571,8 @@ Definition compile_exp_sing_def:
        (c1 :: c2, aux2))
 Termination
   WF_REL_TAC `measure $ λx. pmatch x of INL (_,e,_) => exp_size e
-                                    | INR (_,es,_) => exp3_size es` >>
-  srw_tac [ARITH_ss] [closLangTheory.exp_size_def] >>
-  `!l. closLang$exp3_size (MAP SND l) <= exp1_size l` by (
-    Induct_on `l` >> rw [closLangTheory.exp_size_def] >>
-    PairCases_on `h` >> full_simp_tac (srw_ss()++ARITH_ss) [closLangTheory.exp_size_def]) >>
-  pop_assum (qspec_then `v7` assume_tac) >> decide_tac
+                                    | INR (_,es,_) => list_size exp_size es` >>
+  srw_tac [ARITH_ss] [list_size_pair_size_MAP_FST_SND]
 End
 
 Theorem compile_exp_sing_eq:
@@ -629,10 +622,8 @@ Definition get_src_names_def:
        case loc_opt of NONE => l1
                        | SOME n => add_src_names n names l1)
 Termination
-  WF_REL_TAC ‘measure (closLang$exp3_size o FST)’ \\ rw []
-  \\ qsuff_tac ‘exp3_size (MAP SND funs) <= exp1_size funs’ \\ fs []
-  \\ Induct_on ‘funs’ \\ fs [closLangTheory.exp_size_def]
-  \\ fs [FORALL_PROD,closLangTheory.exp_size_def]
+  WF_REL_TAC ‘measure (list_size closLang$exp_size o FST)’
+  \\ srw_tac [ARITH_ss] [list_size_pair_size_MAP_FST_SND]
 End
 
 Definition get_src_names_sing_def:
@@ -662,11 +653,8 @@ Definition get_src_names_sing_def:
   get_src_names_list (x::xs) l = get_src_names_list xs (get_src_names_sing x l)
 Termination
   WF_REL_TAC ‘measure $ λx. pmatch x of INL (e,_) => closLang$exp_size e
-                                    | INR (es,_) => closLang$exp3_size es’
-  \\ rw [closLangTheory.exp_size_def]
-  \\ qsuff_tac ‘exp3_size (MAP SND funs) <= exp1_size funs’ \\ fs []
-  \\ Induct_on ‘funs’ \\ fs [closLangTheory.exp_size_def]
-  \\ fs [FORALL_PROD,closLangTheory.exp_size_def]
+                                    | INR (es,_) => list_size closLang$exp_size es’
+  \\ srw_tac [ARITH_ss] [list_size_pair_size_MAP_FST_SND]
 End
 
 Theorem get_src_names_sing_eq:

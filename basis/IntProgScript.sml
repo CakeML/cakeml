@@ -20,6 +20,8 @@ val _ = trans "-" intSyntax.minus_tm;
 val _ = trans "*" intSyntax.mult_tm;
 val _ = trans "div" intSyntax.div_tm;
 val _ = trans "mod" intSyntax.mod_tm;
+val _ = trans "quot" intSyntax.quot_tm;
+val _ = trans "rem" intSyntax.rem_tm;
 val _ = trans "<" intSyntax.less_tm;
 val _ = trans ">" intSyntax.greater_tm;
 val _ = trans "<=" intSyntax.leq_tm;
@@ -174,6 +176,7 @@ Proof
   \\ first_assum $ irule_at Any
   \\ rw [] \\ last_x_assum drule
   \\ disch_then (qspec_then ‘refs''’ strip_assume_tac) \\ fs []
+  \\ first_x_assum (qspec_then ‘po''’ strip_assume_tac)
   \\ first_assum $ irule_at Any
   \\ fs [int_gcd_def,num_gcd_eq_gcd]
 QED
@@ -196,6 +199,7 @@ Proof
   \\ first_assum $ irule_at Any
   \\ rw [] \\ last_x_assum drule
   \\ disch_then (qspec_then ‘refs''’ strip_assume_tac) \\ fs []
+  \\ first_x_assum (qspec_then ‘po''’ strip_assume_tac)
   \\ first_assum $ irule_at Any
   \\ fs [int_cmp_def, num_cmp_thm]
 QED

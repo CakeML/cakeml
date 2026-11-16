@@ -95,8 +95,31 @@ Correctness proof for data_space
 [data_to_wordProofScript.sml](data_to_wordProofScript.sml):
 Correctness proof for data_to_word
 
-[data_to_word_assignProofScript.sml](data_to_word_assignProofScript.sml):
-Part of the correctness proof for data_to_word
+[data_to_word_assign_blockProofScript.sml](data_to_word_assign_blockProofScript.sml):
+Part of the correctness proof for data_to_word: assign for BlockOp
+
+[data_to_word_assign_commonProofScript.sml](data_to_word_assign_commonProofScript.sml):
+Part of the correctness proof for data_to_word: lemmas shared by
+the assign proofs
+
+[data_to_word_assign_globProofScript.sml](data_to_word_assign_globProofScript.sml):
+Part of the correctness proof for data_to_word: assign for GlobOp
+
+[data_to_word_assign_intProofScript.sml](data_to_word_assign_intProofScript.sml):
+Part of the correctness proof for data_to_word: assign for IntOp
+
+[data_to_word_assign_memProofScript.sml](data_to_word_assign_memProofScript.sml):
+Part of the correctness proof for data_to_word: assign for MemOp
+
+[data_to_word_assign_miscProofScript.sml](data_to_word_assign_miscProofScript.sml):
+Part of the correctness proof for data_to_word: assign for Label,
+FFI and Install
+
+[data_to_word_assign_thunkProofScript.sml](data_to_word_assign_thunkProofScript.sml):
+Part of the correctness proof for data_to_word: assign for ThunkOp
+
+[data_to_word_assign_wordProofScript.sml](data_to_word_assign_wordProofScript.sml):
+Part of the correctness proof for data_to_word: assign for WordOp
 
 [data_to_word_bignumProofScript.sml](data_to_word_bignumProofScript.sml):
 Part of the correctness proof for data_to_word
@@ -106,6 +129,9 @@ Part of the correctness proof for data_to_word
 
 [data_to_word_memoryProofScript.sml](data_to_word_memoryProofScript.sml):
 Part of the correctness proof for data_to_word
+
+[data_to_word_syntaxProofScript.sml](data_to_word_syntaxProofScript.sml):
+Syntactic properties of the code produced by data_to_word
 
 [experimentalLib.sml](experimentalLib.sml):
 Some proof tools, mostly quite experimental, used in some of

@@ -41,7 +41,9 @@ Theorem compile_state_const[simp]:
    (compile_state clk c s).locals_size = s.locals_size /\
    (compile_state clk c s).stack_size = s.stack_size /\
    (compile_state clk c s).stack_max = s.stack_max /\
-   (compile_state clk c s).stack_limit = s.stack_limit
+   (compile_state clk c s).stack_limit = s.stack_limit /\
+   (compile_state clk c s).ptr_eq_oracle = s.ptr_eq_oracle ∧
+   (compile_state clk c s).ptr_eq_rel = s.ptr_eq_rel
 Proof
   EVAL_TAC
 QED
@@ -310,7 +312,8 @@ Proof
       sh_mem_load16_def,sh_mem_store16_def,
       sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def,
       oneline sh_mem_set_var_def,AllCaseEqs()] \\
-   simp[compile_state_def,state_component_equality,FUN_EQ_THM,map_union,map_fromAList,map_insert] ) \\
+   simp[compile_state_def,state_component_equality,FUN_EQ_THM,map_union,map_fromAList,map_insert] )
+  >- (
   TOP_CASE_TAC \\ fs[] \\
   TOP_CASE_TAC \\ fs[] \\
   qpat_x_assum`_ = (res,rst)`mp_tac \\
@@ -358,7 +361,7 @@ Proof
     \\ `sa = sb` by (
       unabbrev_all_tac
       \\ simp[dec_clock_def]
-      \\ simp[state_component_equality] )
+      \\ simp[state_component_equality,compile_state_def] )
     \\ rw[]
     \\ fs[compile_state_def] )
   >- (
@@ -368,7 +371,7 @@ Proof
       \\ qexists_tac`clk` \\ fs[]
       \\ qmatch_goalsub_abbrev_tac`remove_must_terminate _,sa`
       \\ qmatch_asmsub_abbrev_tac`remove_must_terminate _,sb`
-      \\ `sa = sb` by ( unabbrev_all_tac \\ simp[state_component_equality] )
+      \\ `sa = sb` by ( unabbrev_all_tac \\ simp[state_component_equality,compile_state_def] )
       \\ rw[] )
     \\ split_pair_case_tac \\ fs[] \\ rveq \\ fs[]
     \\ pop_assum mp_tac \\ simp[Once case_eq_thms]
@@ -386,7 +389,7 @@ Proof
     \\ `sa = sb` by (
       unabbrev_all_tac
       \\ simp[dec_clock_def]
-      \\ simp[state_component_equality] )
+      \\ simp[state_component_equality,compile_state_def] )
     \\ rw[]
     \\ fs[compile_state_def] )
   \\ strip_tac \\ rveq \\ fs[]
@@ -394,8 +397,12 @@ Proof
   \\ qexists_tac`clk` \\ fs[]
   \\ qmatch_goalsub_abbrev_tac`remove_must_terminate _,sa`
   \\ qmatch_asmsub_abbrev_tac`remove_must_terminate _,sb`
-  \\ `sa = sb` by ( unabbrev_all_tac \\ simp[state_component_equality] )
-  \\ rw[]
+  \\ `sa = sb` by ( unabbrev_all_tac \\ simp[state_component_equality,compile_state_def] )
+  \\ rw[])
+  (* PtrEq *)
+  \\ qexists_tac`0`
+  \\ gvs[AllCaseEqs()]
+  \\ gvs[compile_state_def,set_var_def,state_component_equality]
 QED
 
 Resume word_remove_correct[Loop]:

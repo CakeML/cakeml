@@ -76,14 +76,6 @@ Proof
   Cases_on ‘x’ \\ gvs []
 QED
 
-(* size *)
-Theorem list_exp_size_snd:
-  list_size (λx. exp_size (SND x)) vars =
-  list_size (λx. exp_size x) (MAP SND vars)
-Proof
-  Induct_on ‘vars’ \\ gvs []
-QED
-
 (* Pushing and popping locals *)
 
 Theorem push_locals_cons:

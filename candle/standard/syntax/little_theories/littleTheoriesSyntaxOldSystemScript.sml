@@ -1014,7 +1014,7 @@ QED
 Theorem monomorphic_type_subst:
   ∀ty i. is_monomorphic ty ⇒ TYPE_SUBST i ty = ty
 Proof
-  Induct_on ‘ty’ using type_ind >> rw[TYPE_SUBST_def] >> gvs[tyvars_def]
+  Induct_on ‘ty’ >> rw[TYPE_SUBST_def] >> gvs[tyvars_def]
   >> gvs[EVERY_MEM]
   >> Induct_on ‘l’ >> rw[]
 QED
@@ -1050,21 +1050,17 @@ Theorem esubsts_ok_type_ok:
     type_ok (tysof sig) (ty_esubst σ ty)
 Proof
   Cases_on ‘σ’ >> rw[esubsts_ok_def]
-  >> Induct_on ‘ty’ using type_ind
+  >> Induct_on ‘ty’
   >> rw[ty_esubst_def]
-  >> Induct_on ‘l’
-  >> rw[ty_esubst_def]
-  >- (case_tac >> simp[type_ok_def] >> case_tac >> last_x_assum $ qspec_then ‘m’ mp_tac
-      >> rw[FDOM_FLOOKUP] >> fs[type_ok_def] >> rev_drule $ iffLR FLOOKUP_FAPPLY >> rw[]
-      >> metis_tac[])
-  >> gvs[type_ok_def, EVERY_MEM, MEM_MAP] >> rw[]
-  >> case_tac >> rw[type_ok_def, EVERY_MEM, MEM_MAP]
-  >- (first_x_assum drule >> fs[])
-  >> case_tac >> last_x_assum $ qspec_then ‘m’ mp_tac
+  >> case_tac
+  >- (fs[type_ok_def] >> rw[EVERY_MEM, MEM_MAP] >> fs[EVERY_MEM])
+  >> case_tac
+  >> qpat_x_assum ‘∀tynm. tynm ∈ FDOM q ⇒ _’ (qspec_then ‘m’ mp_tac)
   >> rw[FDOM_FLOOKUP] >> fs[type_ok_def] >> rev_drule $ iffLR FLOOKUP_FAPPLY >> rw[]
   >> irule type_ok_TYPE_SUBST >> conj_tac >> rw[EVERY_MEM, MEM_MAP]
-  >> gvs[FLOOKUP_FAPPLY, MEM_ZIP, EL_MAP, MEM_EL] >> Cases_on ‘n’
-  >> simp[EL_MAP] >> last_x_assum irule >> qexists ‘n'’ >> simp[]
+  >> gvs[MEM_ZIP, EL_MAP]
+  >> first_x_assum irule
+  >> fs[EVERY_EL, EL_MEM]
 QED
 
 Theorem REV_ASSOCD_MAP:
@@ -1092,7 +1088,7 @@ Theorem TYPE_SUBST_ZIP_compose:
     TYPE_SUBST s (TYPE_SUBST (ZIP (vals, MAP Tyvar params)) body) =
     TYPE_SUBST (ZIP (MAP (TYPE_SUBST s) vals, MAP Tyvar params)) body
 Proof
-  Induct using type_ind
+  Induct
   >- (rw[tyvars_def, TYPE_SUBST_def]
       >> ‘MEM m params’ by gvs[SUBSET_DEF]
       >> ntac 2 (pop_assum mp_tac)
@@ -1114,7 +1110,7 @@ Theorem ty_esubst_TYPE_SUBST_comm:
     ty_esubst σ (TYPE_SUBST i ty) =
     TYPE_SUBST (MAP (λ(v,k). (ty_esubst σ v,k)) i) (ty_esubst σ ty)
 Proof
-  Induct_on ‘ty’ using type_ind
+  Induct_on ‘ty’
   >- (rw[ty_esubst_def, TYPE_SUBST_def, REV_ASSOCD_MAP]
       >> Cases_on ‘REV_ASSOCD (Tyvar m) i (Tyvar m) = Tyvar m’
       >> simp[ty_esubst_def]
@@ -1557,7 +1553,7 @@ QED
 Theorem type_ok_weakening:
   ∀ty. type_ok ts1 ty ⇒ type_ok (ts1 ⊌ ts2) ty
 Proof
-  Induct_on ‘ty’ using type_ind >> gvs[type_ok_def, FLOOKUP_FUNION, EVERY_MEM]
+  Induct_on ‘ty’ >> gvs[type_ok_def, FLOOKUP_FUNION, EVERY_MEM]
 QED
 
 Theorem term_ok_weakening:
@@ -1657,7 +1653,7 @@ Theorem ty_esubst_type_ok_alt:
     esubsts_ok sig σ ⇒
     type_ok (tysof sig) (ty_esubst σ ty)
 Proof
-  Induct_on ‘ty’ using type_ind >> rw[ctys_def]
+  Induct_on ‘ty’ >> rw[ctys_def]
   >> Cases_on ‘σ’
   >> rw[type_ok_def, ty_esubst_def]
   >> gvs[EVERY_MEM]
@@ -2442,7 +2438,7 @@ QED
 Theorem ty_esubst_no_tycons:
   ∀ty σ. DISJOINT (tycons ty) (FDOM (FST σ)) ⇒ ty_esubst σ ty = ty
 Proof
-  Induct_on ‘ty’ using type_ind >> rw[ty_esubst_def, tycons_def]
+  Induct_on ‘ty’ >> rw[ty_esubst_def, tycons_def]
   >> CASE_TAC >> gvs[DISJOINT_SYM, DISJOINT_ALT]
   >> rpt case_tac >> fs[EVERY_MEM]
   >- (irule $ iffRL MAP_EQ_ID >> rw[] >> first_assum irule >> metis_tac[])
@@ -2454,7 +2450,7 @@ Theorem tycons_TYPE_SUBST:
     tycons (TYPE_SUBST i ty) ⊆
            tycons ty ∪ BIGUNION (IMAGE (tycons ∘ FST) (set i))
 Proof
-  Induct using type_ind >> rw[tycons_def, TYPE_SUBST_def]
+  Induct >> rw[tycons_def, TYPE_SUBST_def]
   >- (Induct_on ‘i’ >> rw[REV_ASSOCD_def, tycons_def]
       >> PairCases_on ‘h’ >> rw[REV_ASSOCD]
       >> gvs[SUBSET_DEF])
@@ -2465,7 +2461,7 @@ Theorem ty_esubst_idempotent:
   ∀ty. esubsts_ok sig σ ⇒ ty_esubst σ (ty_esubst σ ty) = ty_esubst σ ty
 Proof
   rpt strip_tac >> irule ty_esubst_no_tycons >> Cases_on ‘σ’
-  >> fs[esubsts_ok_def] >> Induct_on ‘ty’ using type_ind
+  >> fs[esubsts_ok_def] >> Induct_on ‘ty’
   >> rw[ty_esubst_def, tycons_def] >> rpt case_tac
   >> rw[ty_esubst_def, tycons_def] >> gvs[FDOM_FLOOKUP, MEM_MAP, EVERY_MEM]
   >> last_x_assum $ qspec_then ‘m’ mp_tac >> simp[] >> strip_tac >> gvs[]
@@ -2618,7 +2614,7 @@ val dbrws = [dbINST_def, db_esubst_def, db_esubst_tm_def, db_esubst_ty_def,
 Theorem type_ok_TYPE_SUBST_inv:
   ∀ty tys i. type_ok tys (TYPE_SUBST i ty) ⇒ type_ok tys ty
 Proof
-  Induct using type_ind
+  Induct
   >> rw[type_ok_def, TYPE_SUBST_def, EVERY_MAP, EVERY_MEM]
   >> gvs[EVERY_MEM]
   >> metis_tac[]

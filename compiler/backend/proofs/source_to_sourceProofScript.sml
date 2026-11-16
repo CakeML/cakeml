@@ -12,21 +12,21 @@ Libs
 Theorem compile_semantics:
   env.v = nsEmpty ∧
   (∀x. s.eval_state = SOME x ⇒ ∃ev. x = EvalDecs ev) ∧
-  ¬semantics_prog s env prog Fail ∧
-  semantics_prog s env prog outcome ⇒
-    semantics_prog s env (compile prog) outcome
+  ¬semantics_determ s env prog Fail ∧
+  semantics_determ s env prog outcome ⇒
+    semantics_determ s env (compile prog) outcome
 Proof
   rw [source_to_sourceTheory.compile_def]
   >> ‘outcome ≠ Fail’ by metis_tac []
   >> drule_all source_dceProofTheory.compile_semantics
   >> strip_tac
-  >> ‘¬semantics_prog s env (source_dce$compile_decs prog) Fail’ by
-       metis_tac [semantics_prog_deterministic]
+  >> ‘¬semantics_determ s env (source_dce$compile_decs prog) Fail’ by
+       metis_tac [semantics_determ_deterministic]
   >> drule_all source_letProofTheory.compile_semantics
   >> strip_tac
   >> irule source_lift_constsProofTheory.compile_semantics
   >> simp []
-  >> metis_tac [semantics_prog_deterministic]
+  >> metis_tac [semantics_determ_deterministic]
 QED
 
 Theorem is_insert_oracle_adjust:
@@ -70,9 +70,9 @@ Theorem compile_semantics_oracle:
   source_evalProof$is_insert_oracle
     (ci:'config source_evalProof$compiler_instance) f
     (s:'ffi semanticPrimitives$state).eval_state ∧
-  ¬ semantics_prog s env prog Fail ∧
-  semantics_prog s env prog outcome ⇒
-  semantics_prog (s with eval_state updated_by
+  ¬ semantics_determ s env prog Fail ∧
+  semantics_determ s env prog outcome ⇒
+  semantics_determ (s with eval_state updated_by
             source_evalProof$adjust_oracle ci (source_to_source$inc_compile ∘ f))
         env prog outcome
 Proof
@@ -81,9 +81,9 @@ Proof
   >> ‘outcome ≠ Fail’ by metis_tac []
   >> drule_all source_letProofTheory.compile_semantics_oracle
   >> strip_tac
-  >> ‘¬semantics_prog (s with eval_state updated_by
+  >> ‘¬semantics_determ (s with eval_state updated_by
         source_evalProof$adjust_oracle ci (source_let$compile_decs ∘ f))
-        env prog Fail’ by metis_tac [semantics_prog_deterministic]
+        env prog Fail’ by metis_tac [semantics_determ_deterministic]
   >> sg ‘source_evalProof$is_insert_oracle ci (source_let$compile_decs ∘ f)
         (s with eval_state updated_by
           source_evalProof$adjust_oracle ci (source_let$compile_decs ∘ f)).eval_state’

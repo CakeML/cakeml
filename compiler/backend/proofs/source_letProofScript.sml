@@ -155,19 +155,19 @@ Proof
 QED
 
 Theorem compile_semantics:
-  ¬semantics_prog s env prog Fail ∧
-  semantics_prog s env prog outcome ⇒
-    semantics_prog s env (compile_decs prog) outcome
+  ¬semantics_determ s env prog Fail ∧
+  semantics_determ s env prog outcome ⇒
+    semantics_determ s env (compile_decs prog) outcome
 Proof
   Cases_on ‘outcome’ \\ gs [SF CONJ_ss]
   >~ [‘Terminate outcome tr’] >- (
-    rw [semantics_prog_def]
+    rw [semantics_determ_def]
     \\ gs [evaluate_prog_with_clock_def]
     \\ pairarg_tac \\ gvs []
     \\ drule_all_then assume_tac compile_decs_correct
     \\ qexists_tac ‘k’ \\ simp [])
   >~ [‘Diverge tr’] >- (
-    rw [semantics_prog_def]
+    rw [semantics_determ_def]
     >- (
       first_x_assum (qspec_then ‘k’ strip_assume_tac)
       \\ gs [evaluate_prog_with_clock_def]
@@ -188,9 +188,9 @@ QED
 Theorem compile_semantics_oracle:
   ∀f.
   source_evalProof$is_insert_oracle ci f s.eval_state ∧
-  ¬ semantics_prog s env prog Fail ∧
-  semantics_prog s env prog outcome ⇒
-  semantics_prog (s with eval_state updated_by
+  ¬ semantics_determ s env prog Fail ∧
+  semantics_determ s env prog outcome ⇒
+  semantics_determ (s with eval_state updated_by
             source_evalProof$adjust_oracle ci (compile_decs ∘ f))
         env prog outcome
 Proof

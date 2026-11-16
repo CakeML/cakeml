@@ -22,17 +22,19 @@ QED
 (* -- *)
 
 Theorem wordcount_stdin_semantics_raw[local]:
-  ∃io_events.
-    semantics_prog (init_state (basis_ffi no_ext [«wordcount»] (stdin_fs input))) init_env
-      wordcount_prog (Terminate Success io_events) ∧
-    (extract_fs no_ext ([«wordcount»],stdin_fs input) io_events =
-       SOME (add_stdout (fastForwardFD (stdin_fs input) 0)
-              (concat
-                [mlint$toString (&LENGTH (TOKENS isSpace input)); « »;
-                 mlint$toString (&LENGTH (splitlines input)); «\n»])))
+  sem_satisfies
+    (semantics_dec_list
+       (init_state (basis_ffi no_ext [«wordcount»] (stdin_fs input)))
+       init_env wordcount_prog)
+    (λb. ∃io_events.
+       b = Terminate Success io_events ∧
+       extract_fs no_ext ([«wordcount»],stdin_fs input) io_events =
+         SOME (add_stdout (fastForwardFD (stdin_fs input) 0)
+                (concat
+                  [mlint$toString (&LENGTH (TOKENS isSpace input)); « »;
+                   mlint$toString (&LENGTH (splitlines input)); «\n»])))
 Proof
-  simp [wordcount_compiled, GSYM ml_progTheory.prog_syntax_ok_semantics]
-  \\ match_mp_tac (GEN_ALL wordcount_semantics)
+  match_mp_tac (GEN_ALL wordcount_semantics)
   \\ simp[wordcount_precond_def, CommandLineProofTheory.wfcl_def, clFFITheory.validArg_def]
   \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
   \\ simp[stdin_fs_def, TextIOProofTheory.stdin_content_def]
@@ -41,17 +43,9 @@ QED
 Theorem wordcount_stdin_semantics =
   SIMP_RULE std_ss[int_toString_num] wordcount_stdin_semantics_raw
 
-val wordcount_io_events_def =
-  new_specification("wordcount_io_events_def",["wordcount_io_events"],
-  wordcount_stdin_semantics
-  |> Q.GENL[`input`]
-  |> SIMP_RULE std_ss [GSYM RIGHT_EXISTS_IMP_THM]
-  |> SIMP_RULE std_ss [SKOLEM_THM]);
-
-val (wordcount_sem,wordcount_output) = wordcount_io_events_def |> SPEC_ALL |> CONJ_PAIR
-val (wordcount_not_fail,wordcount_sem_sing) = wordcount_sem
-  |> SRULE [wordcount_compiled,ml_progTheory.prog_syntax_ok_semantics]
-  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
+val wordcount_terminate = wordcount_stdin_semantics
+  |> HO_MATCH_MP ml_progTheory.sem_satisfies_IMP_Terminate
+  |> SRULE [wordcount_compiled];
 
 val ffinames_to_string_list_def = backendTheory.ffinames_to_string_list_def;
 
@@ -109,9 +103,9 @@ Theorem wordcount_compile_correct_applied =
   MATCH_MP compile_correct (cj 1 wordcount_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,
                          GSYM AND_IMP_INTRO]
-  |> C MATCH_MP wordcount_not_fail
+  |> C MATCH_MP (cj 1 wordcount_terminate)
   |> C MATCH_MP ag32_backend_config_ok
-  |> REWRITE_RULE[wordcount_sem_sing,AND_IMP_INTRO]
+  |> REWRITE_RULE[AND_IMP_INTRO]
   |> REWRITE_RULE[Once (GSYM AND_IMP_INTRO)]
   |> C MATCH_MP (CONJ(UNDISCH ag32_machine_config_ok)(UNDISCH ag32_init_ok))
   |> DISCH(#1(dest_imp(concl ag32_init_ok)))
@@ -165,16 +159,16 @@ Theorem wordcount_machine_sem =
        |> Q.SPEC `[«wordcount»]`
        |> SIMP_RULE(srw_ss())[cline_size_def]
        |> UNDISCH)
+  |> MATCH_MP (cj 2 wordcount_terminate)
+  |> REWRITE_RULE [targetPropsTheory.machine_sem_sing]
   |> DISCH_ALL
 
 Theorem wordcount_extract_writes_stdout:
-   (extract_writes 1 (MAP get_output_io_event (wordcount_io_events input)) =
-    explode (
-      concat [toString (LENGTH (TOKENS isSpace input)); « »;
-              toString (LENGTH (splitlines input)); «\n»]))
+   extract_fs no_ext ([«wordcount»],stdin_fs input) io =
+     SOME (add_stdout (fastForwardFD (stdin_fs input) 0) out) ⇒
+   (extract_writes 1 (MAP get_output_io_event io) = explode out)
 Proof
-  qspec_then`input`mp_tac(GEN_ALL(DISCH_ALL wordcount_output))
-  \\ DEP_REWRITE_TAC[TextIOProofTheory.add_stdout_fastForwardFD]
+  DEP_REWRITE_TAC[TextIOProofTheory.add_stdout_fastForwardFD]
   \\ simp[STD_streams_stdin_fs]
   \\ simp[TextIOProofTheory.add_stdo_def]
   \\ SELECT_ELIM_TAC
@@ -211,19 +205,26 @@ Theorem wordcount_ag32_next:
    LENGTH inp ≤ stdin_size ∧
    is_ag32_init_state (init_memory code data (extcalls info.lab_conf.ffi_names) ([«wordcount»],inp)) ms0
   ⇒
-   ∃k1. ∀k. k1 ≤ k ⇒
-     let ms = FUNPOW Next k ms0 in
-     let outs = MAP (get_ag32_io_event) ms.io_events in
-       (ms.PC = (wordcount_machine_config).halt_pc) ∧
-       (get_mem_word ms.MEM ms.PC = Encode (Jump (fAdd,0w,Imm 0w))) ∧
-       outs ≼ MAP get_output_io_event (wordcount_io_events inp) ∧
-       ((ms.R (n2w (wordcount_machine_config).ptr_reg) = 0w) ⇒
-        (outs = MAP get_output_io_event (wordcount_io_events inp)))
+   ∃io.
+     extract_writes 1 (MAP get_output_io_event io) =
+       explode (concat [toString (LENGTH (TOKENS isSpace inp)); « »;
+                        toString (LENGTH (splitlines inp)); «\n»]) ∧
+     ∃k1. ∀k. k1 ≤ k ⇒
+       let ms = FUNPOW Next k ms0 in
+       let outs = MAP (get_ag32_io_event) ms.io_events in
+         (ms.PC = (wordcount_machine_config).halt_pc) ∧
+         (get_mem_word ms.MEM ms.PC = Encode (Jump (fAdd,0w,Imm 0w))) ∧
+         outs ≼ MAP get_output_io_event io ∧
+         ((ms.R (n2w (wordcount_machine_config).ptr_reg) = 0w) ⇒
+          (outs = MAP get_output_io_event io))
 Proof
   strip_tac
   \\ drule (GEN_ALL wordcount_machine_sem)
   \\ disch_then drule
   \\ strip_tac
+  \\ first_x_assum (qspec_then ‘inp’ strip_assume_tac)
+  \\ qexists_tac ‘io_events’
+  \\ conj_tac >- (drule wordcount_extract_writes_stdout \\ simp [])
   \\ irule ag32_next
   \\ conj_tac >- (simp[ffi_names,extcalls_def] \\ EVAL_TAC)
   \\ conj_tac >- (simp[ffi_names,extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC)

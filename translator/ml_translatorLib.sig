@@ -138,7 +138,7 @@ sig
     val mutual_to_single_line_def    : Context.t -> thm -> thm list * thm option
     val remove_pair_abs              : Context.t -> thm -> thm
     val get_preprocessor_rws         : unit -> thm list
-    val AUTO_ETA_EXPAND_CONV         : conv
+    val AUTO_ETA_EXPAND_CONV         : (term * int) list -> conv
     val find_ind_thm                 : thm -> thm
 
     val auto_prove                   : Context.t -> string -> term * tactic -> thm

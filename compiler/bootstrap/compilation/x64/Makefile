@@ -51,25 +51,24 @@ cake$(SUFF): cake.S basis_ffi.c
 	$(CC) $(CFLAGS) $< basis_ffi.c $(LOADLIBES) $(EVALFLAG) -o $@ $(LDFLAGS) $(LDLIBS)
 endif
 
-# The sexpr files used in the example rules below are included in the
-# 64-bit compiler release packages.
+# The compiler S-expression used below is included in the release packages.
 
 # *UNVERIFIED* build with GC and stage tracing; regenerating the .S will take
 # about five minutes
 
-cake_verbose$(SUFF): cake-sexpr-64 basis_ffi.c cake$(SUFF)
+cake_verbose$(SUFF): cake-sexpr basis_ffi.c cake$(SUFF)
 	CML_STACK_SIZE=1000 CML_HEAP_SIZE=6000 $(PREF)cake$(SUFF) --sexp=true --exclude_prelude=true --skip_type_inference=true --emit_empty_ffi=true --reg_alg=0 < $< > $<.S
 	$(CC) $(CFLAGS) -DDEBUG_FFI -o $@ $<.S basis_ffi.c $(LDFLAGS) $(LDLIBS)
 
-# *UNVERIFIED* build of the compiler supporting 32-bit targets
+# *UNVERIFIED* build of the fused compiler
 
-cake_unverified32$(SUFF): cake-sexpr-32 basis_ffi.c cake$(SUFF)
+cake_unverified$(SUFF): cake-sexpr basis_ffi.c cake$(SUFF)
 	CML_STACK_SIZE=1000 CML_HEAP_SIZE=6000 $(PREF)cake$(SUFF) --sexp=true --exclude_prelude=true --skip_type_inference=true --reg_alg=0 < $< > $<.S
 	$(CC) $(CFLAGS) -o $@ $<.S basis_ffi.c $(LDFLAGS) $(LDLIBS)
 
 # Example of cross-compiling the compiler itself
 RISCV_CC ?= riscv64-unknown-linux-gnu-cc
-cake_riscv_host: cake-sexpr-64 basis_ffi.c cake$(SUFF)
+cake_riscv_host: cake-sexpr basis_ffi.c cake$(SUFF)
 	CML_STACK_SIZE=1000 CML_HEAP_SIZE=6000 $(PREF)cake$(SUFF) --sexp=true --exclude_prelude=true --skip_type_inference=true --target=riscv --reg_alg=0 < $< > $<.riscv.S
 	$(RISCV_CC) $(CFLAGS) -o $@ $<.riscv.S basis_ffi.c $(LDFLAGS) $(LDLIBS)
 

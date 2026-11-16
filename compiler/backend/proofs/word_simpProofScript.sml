@@ -347,7 +347,7 @@ QED
 
 Theorem strip_const_thm:
    !xs x s. strip_const xs = SOME x ==>
-     MAP (\a. word_exp s a) xs = MAP (SOME o Word o i2w) x
+     MAP (word_exp s) xs = MAP (SOME o Word o i2w) x
 Proof
   Induct \\ TRY (Cases_on `h`) \\ fs [strip_const_def, word_exp_def] \\ CASE_TAC \\ fs []
 QED
@@ -374,12 +374,12 @@ Proof
   ho_match_mp_tac const_fp_exp_ind \\ rw [const_fp_exp_def]
   >- (CASE_TAC \\ rw [word_exp_def] \\ fs [get_var_def])
   >- (CASE_TAC \\ rw [word_exp_def]
-      \\ `(MAP (\a. word_exp s a)
+      \\ `(MAP (word_exp s)
                  (MAP (\a. const_fp_exp (dimindex (:'a)) a cs) args)) =
-           (MAP (\a. word_exp s a) args)` by
+           (MAP (word_exp s) args)` by
            fs [MAP_MAP_o,MAP_EQ_f]
       \\ fs []
-      \\ `MAP (\a. word_exp s a) args = MAP (SOME o Word o i2w) x` by
+      \\ `MAP (word_exp s) args = MAP (SOME o Word o i2w) x` by
            metis_tac [strip_const_thm]
       \\ fs [the_words_int_thm,int_op_correct]
       \\ CASE_TAC \\ fs [word_exp_def,MAP_MAP_o,o_DEF,int_op_correct,
@@ -523,6 +523,23 @@ Theorem get_var_imm_cs_imp_get_var_imm:
               get_var_imm x s = SOME (Word (i2w y))
 Proof
   rw [] \\ Cases_on `x` \\ fs [get_var_imm_cs_def, get_var_imm_def]
+QED
+
+Theorem evaluate_const_fp_if_args:
+  (∀v w. lookup v cs = SOME w ⇒ get_var v s = SOME (Word (i2w w))) ∧
+  const_fp_if_args cmp lhs rhs cs = (lhs',rhs') ⇒
+  ∀p1 p2. evaluate (If cmp lhs' rhs' p1 p2, s) = evaluate (If cmp lhs rhs p1 p2, s)
+Proof
+  rw [const_fp_if_args_def, AllCaseEqs()]
+  >~ [`get_var_imm_cs rhs cs = SOME c`]
+  >- (drule_all get_var_imm_cs_imp_get_var_imm
+      \\ simp [evaluate_def, get_var_imm_def])
+  \\ Cases_on `cmp` \\ gvs [cmp_symmetric_def]
+  \\ `get_var lhs s = SOME (Word (i2w c))` by (first_assum irule \\ simp [])
+  \\ simp [evaluate_def, get_var_imm_def]
+  \\ Cases_on `get_var lhs' s` \\ simp []
+  \\ rename1 `word_cmp _ v (Word _)`
+  \\ Cases_on `v` \\ simp [word_cmp_def, EQ_SYM_EQ]
 QED
 
 (* Helpful lemmas about locals *)
@@ -1201,7 +1218,9 @@ Proof
     fs [int_cmp_correct] \\ Cases_on `word_cmp cmp (i2w x:'a word) (i2w x')` \\ fs [] \\ res_tac \\ rw [])
 
     \\ (* Otherwise *)
-    (rpt (pairarg_tac \\ fs []) \\ every_case_tac \\ rw [evaluate_def] \\
+    (rpt (pairarg_tac \\ fs []) \\ rveq \\
+    drule_all_then (rewrite_tac o single) evaluate_const_fp_if_args \\
+    every_case_tac \\ rw [evaluate_def] \\
     res_tac \\ fs [lookup_inter_eq] \\ every_case_tac \\ rw []))
 
   >- (** Call **)
@@ -1319,6 +1338,8 @@ Proof
       get_var_def,lookup_insert,lookup_delete] \\
     metis_tac[SIMP_RULE(srw_ss())[get_var_def]const_fp_exp_word_exp] )
 
+  >~ [`PtrEq`] >- suspend "PtrEq"
+
   >- (** Skip **)
   (fs [const_fp_loop_def] \\ rw [evaluate_def] \\ fs [])
 
@@ -1338,6 +1359,14 @@ Resume evaluate_const_fp_loop[Loop]:
   \\ irule evaluate_Loop_body_cong_gc
   \\ qexists_tac `gc_fun_const_ok` \\ rw []
   \\ Cases_on `evaluate (p, v)` \\ res_tac
+QED
+
+Resume evaluate_const_fp_loop[PtrEq]:
+  rpt gen_tac \\ strip_tac \\
+  gvs[const_fp_loop_def] \\
+  gvs[evaluate_def,AllCaseEqs()] \\
+  rw[] \\
+  gvs[get_var_def,set_var_def,lookup_insert,lookup_delete]
 QED
 
 Finalise evaluate_const_fp_loop;

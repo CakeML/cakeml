@@ -139,9 +139,7 @@ Proof
          eval_list_rel_def |> ONCE_REWRITE_RULE [CONJ_COMM],
          eval_match_rel_def |> ONCE_REWRITE_RULE [CONJ_COMM]]
   \\ fs [evaluate_def,pair_case_eq,result_case_eq,PULL_EXISTS,
-         bool_case_eq,option_case_eq,state_component_equality,
-         Excl "getOpClass_def"]
-  \\ TRY (rename1 ‘getOpClass op’ \\ Cases_on `getOpClass op` \\ fs[])
+         bool_case_eq,option_case_eq,state_component_equality]
   \\ rpt strip_tac \\ fs []
   \\ rveq \\ fs [BOTTOM_UP_OPT_def] \\ fs [evaluate_def]
   \\ TRY (first_x_assum match_mp_tac) \\ fs [evaluate_def]
@@ -158,24 +156,6 @@ Proof
              by fs [state_component_equality]
     \\ first_x_assum drule \\ simp [] \\ strip_tac
     \\ asm_exists_tac \\ fs [])
-  THEN1 (* App Eval *)
-   (
-    fs [evaluateTheory.do_eval_res_def]
-    \\ fs [list_case_eq,option_case_eq,bool_case_eq,pair_case_eq,result_case_eq]
-    \\ rveq \\ fs [PULL_EXISTS]
-    \\ `? st_x ck_x. st' = (st_x with clock := ck_x) /\ st_x.clock = s.clock`
-      by (qexists_tac `st' with clock := s.clock` \\ simp [state_component_equality])
-    \\ fs []
-    \\ first_x_assum drule
-    \\ rw []
-    \\ dxrule_then (qspec_then `ck_x` mp_tac) evaluate_add_to_clock
-    \\ rw []
-    \\ asm_exists_tac
-    \\ simp []
-    \\ dxrule_then (qspec_then `ck2` mp_tac) evaluate_decs_add_to_clock
-    \\ rw [evaluateTheory.dec_clock_def])
-  THEN1
-   (fs [error_result_case_eq])
   THEN1 (* App Opapp *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
@@ -205,6 +185,33 @@ Proof
     \\ qpat_x_assum `evaluate _ env' _ = _` assume_tac
     \\ drule evaluate_add_to_clock \\ rw []
     \\ metis_tac [])
+  THEN1 (* App Eval *)
+   (
+    fs [evaluateTheory.do_eval_res_def]
+    \\ fs [list_case_eq,option_case_eq,bool_case_eq,pair_case_eq,result_case_eq]
+    \\ rveq \\ fs [PULL_EXISTS]
+    \\ `? st_x ck_x. st' = (st_x with clock := ck_x) /\ st_x.clock = s.clock`
+      by (qexists_tac `st' with clock := s.clock` \\ simp [state_component_equality])
+    \\ fs []
+    \\ first_x_assum drule
+    \\ rw []
+    \\ dxrule_then (qspec_then `ck_x` mp_tac) evaluate_add_to_clock
+    \\ rw []
+    \\ asm_exists_tac
+    \\ simp []
+    \\ dxrule_then (qspec_then `ck2` mp_tac) evaluate_decs_add_to_clock
+    \\ rw [evaluateTheory.dec_clock_def])
+  THEN1
+   (fs [error_result_case_eq])
+  THEN1 (* App PtrEq *)
+   (rename1 `_ = (st1,Rval vs)`
+    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
+          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
+             by fs [state_component_equality]
+    \\ first_x_assum drule \\ simp [] \\ strip_tac
+    \\ asm_exists_tac \\ fs []
+    \\ gvs [AllCaseEqs()]
+    \\ gvs [state_component_equality])
   THEN1 (* App Simple *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
@@ -428,9 +435,10 @@ Theorem Eval_OPTIMISE:
    Eval env exp P ==> Eval env (OPTIMISE exp) P
 Proof
   simp [Eval_def] \\ rpt strip_tac
-  \\ first_x_assum(qspec_then`refs`strip_assume_tac)
+  \\ first_x_assum(qspecl_then[`refs`,`po`]strip_assume_tac)
   \\ qexists_tac `res` \\ fs [OPTIMISE_def]
   \\ qexists_tac`refs'`
+  \\ qexists_tac`po'`
   \\ match_mp_tac (MP_CANON BOTTOM_UP_OPT_THM) \\ fs []
   \\ metis_tac [BOTTOM_UP_OPT_THM,opt_sub_add_thm,let_id_thm,abs2let_thm]
 QED

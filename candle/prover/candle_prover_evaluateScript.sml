@@ -328,6 +328,61 @@ Theorem do_app_ok:
         | _ => T
 Proof
   strip_tac
+  \\ Cases_on `op = CopyVecVec`
+  >- (
+    gvs [do_app_cases,v_ok_def]
+    \\ qexists_tac `st`
+    \\ gs [SF SFY_ss]
+    \\ qpat_x_assum `copy_array _ _ _ = SOME _`
+         (mp_then Any (qspec_then `v_ok ctxt` mp_tac) EVERY_copy_array)
+    \\ gs [SF SFY_ss])
+  \\ Cases_on `op = CopyVecArr`
+  >- (
+    gvs [do_app_cases,v_ok_def]
+    \\ qexists_tac `st`
+    \\ gs [SF SFY_ss]
+    \\ imp_res_tac ref_ok_array_lookup
+    \\ qpat_assum `copy_array _ _ _ = SOME _`
+         (mp_then Any (qspec_then `v_ok ctxt` mp_tac) EVERY_copy_array)
+    \\ simp []
+    \\ strip_tac
+    \\ gvs [store_assign_def]
+    \\ conj_tac >- (
+      rw []
+      \\ irule kernel_loc_ok_LUPDATE1
+      \\ gs []
+      \\ strip_tac
+      \\ gvs [])
+    \\ rw [oEL_LUPDATE,AllCaseEqs()]
+    \\ gs [ref_ok_def,SF SFY_ss])
+  \\ Cases_on `op = CopyArrVec`
+  >- (
+    gvs [do_app_cases,v_ok_def]
+    \\ imp_res_tac ref_ok_array_lookup
+    \\ qexists_tac `st`
+    \\ gs [SF SFY_ss]
+    \\ qpat_x_assum `copy_array _ _ _ = SOME _`
+         (mp_then Any (qspec_then `v_ok ctxt` mp_tac) EVERY_copy_array)
+    \\ gs [SF SFY_ss])
+  \\ Cases_on `op = CopyArrArr`
+  >- (
+    gvs [do_app_cases,v_ok_def]
+    \\ qexists_tac `st`
+    \\ gs [SF SFY_ss]
+    \\ imp_res_tac ref_ok_array_lookup
+    \\ qpat_assum `copy_array _ _ _ = SOME _`
+         (mp_then Any (qspec_then `v_ok ctxt` mp_tac) EVERY_copy_array)
+    \\ simp []
+    \\ strip_tac
+    \\ gvs [store_assign_def]
+    \\ conj_tac >- (
+      rw []
+      \\ irule kernel_loc_ok_LUPDATE1
+      \\ gs []
+      \\ strip_tac
+      \\ gvs [])
+    \\ rw [oEL_LUPDATE,AllCaseEqs()]
+    \\ gs [ref_ok_def,SF SFY_ss])
   \\ Cases_on ‘(∃a. op = UnsafeIndexArith a) ∨ ∃t. op = UnsafeIndexTest t’
   >- (
     gvs [do_app_cases, do_unsafe_index_arith_def,
@@ -521,9 +576,10 @@ Proof
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
-  \\ Cases_on ‘op = Strlen’ \\ gs []
+  \\ Cases_on ‘op = Strlen ∨ op = StrScanEq ∨ op = StrScanNeq’
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
+    pop_assum strip_assume_tac \\ gs []
+    \\ rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘op = Strsub’ \\ gs []
@@ -598,9 +654,10 @@ Proof
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
-  \\ Cases_on ‘op = Aw8length’ \\ gs []
+  \\ Cases_on ‘op = Aw8length ∨ op = Aw8ScanEq ∨ op = Aw8ScanNeq’
   >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
+    pop_assum strip_assume_tac \\ gs []
+    \\ rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘op = Aw8alloc’ \\ gs []
@@ -641,7 +698,7 @@ Proof
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ Cases_on ‘a’ \\ Cases_on ‘ty’ using prim_type_cases
-    \\ gvs[do_arith_def,CaseEq"list",CaseEq"bool"]
+    \\ gvs[do_arith_def,CaseEq"list",CaseEq"bool",CaseEq"div_round"]
     \\ simp [Boolv_def]
     \\ rw [v_ok_def]
     \\ first_x_assum irule
@@ -697,6 +754,8 @@ Proof
     \\ rpt strip_tac \\ gs [])
   \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
   >- (rw [do_app_cases] \\ gs [thunk_op_def, AllCaseEqs()])
+  \\ Cases_on ‘op = PtrEq’ \\ gs []
+  >- simp [do_app_def]
   \\ Cases_on ‘op’ \\ gs []
   \\ qmatch_goalsub_rename_tac `ThunkOp thunk_primitive`
   \\ Cases_on `thunk_primitive` \\ gs []
@@ -740,11 +799,10 @@ Proof
 QED
 
 Resume evaluate_v_ok[App_Op]:
-  rw [evaluate_def] \\ Cases_on ‘getOpClass op’ \\ gs[]
-  >~ [‘EvalOp’] >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
-  >~ [‘FunApp’] >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
-  >~ [‘Force’] >- (
-    Cases_on ‘op’ \\ gvs [] \\ Cases_on ‘t’ \\ gvs []
+  rw [evaluate_def]
+  \\ Cases_on ‘op = ThunkOp ForceThunk’
+  >- (
+    gvs []
     \\ qpat_x_assum ‘_ = (s',res)’ mp_tac
     \\ TOP_CASE_TAC \\ gvs []
     \\ last_x_assum drule_all \\ strip_tac
@@ -841,7 +899,15 @@ Resume evaluate_v_ok[App_Op]:
     \\ disch_then drule \\ gvs []
     \\ impl_tac \\ gvs []
     \\ gvs [EVERY_EL])
-  >~ [‘Simple’] >- (
+  \\ Cases_on ‘op = PtrEq’
+  >- (
+    gvs [AllCaseEqs()]
+    \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs [state_ok_def]
+    \\ rename1 ‘EVERY (v_ok ctxt1)’
+    \\ qexists_tac ‘ctxt1’ \\ gs []
+    \\ rw [Boolv_def, v_ok_def]
+    \\ metis_tac [])
+  >- (
     gvs [AllCaseEqs()]
     \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs [state_ok_def]
     \\ rename1 ‘EVERY (v_ok ctxt1)’

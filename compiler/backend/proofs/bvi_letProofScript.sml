@@ -143,12 +143,6 @@ Proof
   metis_tac []
 QED
 
-Theorem exp_size_APPEND:
-   !xs ys. exp2_size (xs ++ ys) = exp2_size xs + exp2_size ys
-Proof
-  Induct \\ fs [bviTheory.exp_size_def]
-QED
-
 Theorem env_rel_MAP:
    !ax env1 env2 d a.
       env_rel ax d env1 env2 ==>
@@ -190,7 +184,6 @@ Proof
   \\ Cases_on `xs` \\ fs[compile_def,evaluate_def]
   \\ reverse (Cases_on `t`) \\ fs []
   >- suspend "CONS"
-  \\ fs [bviTheory.exp_size_def]
   \\ qpat_x_assum `!x._` mp_tac
   \\ once_rewrite_tac [IMP_COMM]
   \\ fs [GSYM CONJ_ASSOC]
@@ -252,7 +245,7 @@ Resume evaluate_env_rel[RaiseTick]:
   (rw [] \\ fs [evaluate_def] \\ every_case_tac \\ fs [] \\ rveq \\ fs []
    \\ fs [compile_def,evaluate_def,compile_HD_SING]
    \\ first_x_assum drule \\ fs [] \\ disch_then drule
-   \\ rpt (impl_tac THEN1 fs [bviTheory.exp_size_def] \\ strip_tac \\ fs [])
+   \\ rpt (impl_tac THEN1 fs [] \\ strip_tac \\ fs [])
    \\ fs [compile_def,evaluate_def,compile_HD_SING])
 QED
 
@@ -263,10 +256,10 @@ Resume evaluate_env_rel[If]:
    \\ TRY (first_x_assum drule \\ fs [] \\ rw [])
    \\ TRY (qpat_x_assum `!x._` drule)
    \\ TRY (qpat_x_assum `!x._` drule)
-   \\ rpt (impl_tac THEN1 fs [bviTheory.exp_size_def] \\ strip_tac \\ fs [])
+   \\ rpt (impl_tac THEN1 fs [] \\ strip_tac \\ fs [])
    \\ fs [compile_def,evaluate_def,compile_HD_SING]
    \\ rw [] \\ pop_assum drule
-   \\ rpt (impl_tac THEN1 fs [bviTheory.exp_size_def] \\ strip_tac \\ fs []))
+   \\ rpt (impl_tac THEN1 fs [] \\ strip_tac \\ fs []))
 QED
 
 Resume evaluate_env_rel[Call]:
@@ -292,7 +285,7 @@ Resume evaluate_env_rel[Call]:
    \\ ‘env_rel (0::ax) d (v::env1) (v::env2)’ by fs [env_rel_def,v_rel_def,LLOOKUP_def]
    \\ ‘list_size exp_size [x] <
          ts + (exp_size x + (list_size exp_size args + (option_size (λx. x) dest + 3)))’
-        by simp [list_size_def]
+        by simp []
    \\ res_tac \\ gvs [])
 QED
 
@@ -356,8 +349,8 @@ Resume evaluate_env_rel[Let]:
    THEN1
     (imp_res_tac (METIS_PROVE [SNOC_CASES] ``m <> [] ==> ?x y. m = SNOC x y``)
      \\ rveq \\ full_simp_tac std_ss [FRONT_SNOC,LAST_SNOC,LENGTH_SNOC,ADD1]
-     \\ fs [evaluate_SNOC,evaluate_def,bviTheory.exp_size_def]
-     \\ fs [SNOC_APPEND,exp_size_APPEND,bviTheory.exp_size_def]
+     \\ fs [evaluate_SNOC,evaluate_def]
+     \\ fs [SNOC_APPEND,list_size_append]
      \\ Cases_on `evaluate (y,env1,s1)` \\ fs []
      \\ first_assum $ drule_at $ Pos $ el 2 \\ gvs []
      \\ disch_then drule
@@ -382,7 +375,7 @@ Resume evaluate_env_rel[Let]:
    THEN1 (drule evaluate_delete_var_Rerr \\ fs [])
    \\ fs [] \\ drule evaluate_delete_var_Rval
    \\ rpt (disch_then drule) \\ strip_tac \\ fs [] \\ fs [AND_IMP_INTRO]
-   \\ first_x_assum match_mp_tac \\ fs [bviTheory.exp_size_def]
+   \\ first_x_assum match_mp_tac \\ fs []
    \\ asm_exists_tac \\ fs [])
 QED
 

@@ -1,1 +1,1 @@
-../../../bootstrap/compilation/x64/64/Makefile
+../../../bootstrap/compilation/x64/Makefile

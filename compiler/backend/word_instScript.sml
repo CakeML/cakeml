@@ -170,9 +170,6 @@ Definition flatten_exp_def:
   (flatten_exp exp = exp)
 Termination
   WF_REL_TAC `measure exp_size`
-   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-   \\ fs[exp_size_def]
-   \\ TRY (DECIDE_TAC)
 End
 
 
@@ -292,9 +289,6 @@ Definition inst_select_exp_def:
   (inst_select_exp bits _ _ _ _ = Skip)
 Termination
   WF_REL_TAC `measure (exp_size o SND o SND o SND o SND)`
-   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-   \\ fs[exp_size_def]
-   \\ TRY (DECIDE_TAC)
 End
 
 Theorem inst_select_exp_pmatch:

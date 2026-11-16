@@ -68,20 +68,6 @@ val EqType_PT_rule = EqualityType_rule [] ``:(tokens$token,MMLnonT,location$locs
 
 val _ = translate (def_of_const ``validAddSym``);
 
-Theorem locnle:
-  locnle x y =
-    case (x,y) of
-    | (UNKNOWNpt,_) => T
-    | (_,EOFpt) => T
-    | (POSN x1 x2,POSN y1 y2) => ((x1 < y1) ∨ (x1 = y1) ∧ (x2 ≤ y2))
-    | _ => F
-Proof
-  Cases_on ‘x’ \\ Cases_on ‘y’ \\ fs []
-  \\ fs [locationTheory.locnle_def] \\ EVAL_TAC \\ fs []
-QED
-
-val _ = translate locnle;
-
 Theorem validaddsym_side_lemma[local]:
   ∀x. validaddsym_side x = T
 Proof
@@ -104,8 +90,6 @@ Theorem monad_unitbind_assert:
 Proof
   Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []
 QED
-
-val _ = translate grammarTheory.ptree_head_def
 
 (* parsing: ptree converstion *)
 
@@ -228,6 +212,24 @@ Theorem option_CASE_FLOOKUP_SIMP:
 Proof
   rw [] \\ gvs [FLOOKUP_SIMP]
 QED
+
+(* add_Dlet only accepts top-level vals whose code does not call functions
+   (no_ptr_eq), so the PEG constants are translated with their combinators
+   unfolded into pegsym constructors and lambdas *)
+
+Theorem tokeq_eta[local]:
+  tokeq t = tok (λx. t = x) mktokLf
+Proof
+  simp [tokeq_def, FUN_EQ_THM]
+QED
+
+val _ = map (translate o REWRITE_RULE [o_DEF, tokeq_eta, tokSymP_def, pnt_def,
+                                      pegf_def, seql_def, choicel_def,
+                                      peg_linfix_def, FOLDR, OPTION_BIND_THM,
+                                      monad_unitbind_assert, IN_INSERT,
+                                      NOT_IN_EMPTY])
+  [peg_UQConstructorName_def, peg_TypeDec_def, peg_V_def, peg_longV_def,
+   peg_EbaseParen_def, peg_StructName_def];
 
 Definition peg_cml_rules_def:
   peg_cml_rules n fk k tf3 errs eo r i =

@@ -672,28 +672,30 @@ Theorem expand_thm[local]:
      (pmatch_list refs qs vs = PMatchSuccess ==>
       pmatch_list refs ps vs = PMatchSuccess))
 Proof
-  ho_match_mp_tac pattern_semanticsTheory.pat_induction \\ rpt conj_tac
-  >- (* Any *) fs [expand_def]
-  >- (* Cons *)
-   (rw [expand_def] \\ imp_res_tac LENGTH_expand_list
-    \\ Cases_on ‘v’ \\ fs [pmatch_def]
-    \\ Cases_on ‘o'’ \\ Cases_on ‘o''’ \\ fs [pmatch_def]
-    \\ TRY (Cases_on ‘x’) \\ fs [pmatch_def]
-    \\ rw [] \\ rfs [] \\ res_tac \\ fs [])
+  ho_match_mp_tac expand_ind \\ simp [expand_def] \\ rpt conj_tac
   >- (* Or: both branches must be free of type failures, and once that
-           is known the induction hypotheses apply directly *)
-   (rpt gen_tac \\ strip_tac \\ rpt gen_tac \\ strip_tac
-    \\ ‘pmatch refs p v <> PTypeFailure /\ pmatch refs p' v <> PTypeFailure’ by
+           is known the induction hypotheses apply directly *) (
+    qx_genl_tac [‘p1’, ‘p2’] \\ rpt strip_tac
+    \\ ‘pmatch refs p1 v <> PTypeFailure /\ pmatch refs p2 v <> PTypeFailure’ by
          (qpat_x_assum ‘pmatch refs (Or _ _) _ <> _’ mp_tac
           \\ fs [pmatch_def] \\ every_case_tac \\ fs [])
     \\ fs [expand_def] \\ res_tac \\ fs [pmatch_def]
-    \\ Cases_on ‘pmatch refs p v’ \\ Cases_on ‘pmatch refs p' v’ \\ fs [])
-  >- (* Lit *) fs [expand_def]
-  >- (* Ref *)
-   (fs [expand_def] \\ rw []
+    \\ Cases_on ‘pmatch refs p1 v’ \\ Cases_on ‘pmatch refs p2 v’ \\ fs [])
+  >- (* Ref *) (
+    fs [expand_def] \\ rw []
     \\ Cases_on ‘v’ \\ fs [pmatch_def]
-    \\ Cases_on ‘FLOOKUP refs n’ \\ fs [pmatch_def] \\ res_tac \\ fs [])
-  >- (* [] *) fs [expand_def]
+    \\ rename1 ‘FLOOKUP refs r’
+    \\ Cases_on ‘FLOOKUP refs r’ \\ fs [pmatch_def] \\ res_tac \\ fs [])
+  >- (* Cons *) (
+    qx_genl_tac [‘copt’, ‘pargs’] \\ strip_tac
+    \\ ‘copt = NONE ∨ ∃tag sibs. copt = SOME (tag,sibs)’
+      by metis_tac [pairTheory.pair_CASES, optionTheory.option_CASES]
+    \\ gvs []
+    \\ rw [expand_def] \\ imp_res_tac LENGTH_expand_list
+    \\ Cases_on ‘v’ \\ fs [pmatch_def]
+    \\ qmatch_goalsub_rename_tac ‘Term topt targs’
+    \\ Cases_on ‘topt’ \\ fs [pmatch_def]
+    \\ rw [] \\ rfs [] \\ res_tac \\ fs [])
   \\ (* p::ps *)
   fs [expand_def] \\ rw []
   \\ Cases_on ‘vs’ \\ fs [] \\ res_tac \\ fs []

@@ -312,6 +312,18 @@ Proof
   \\ rw [] \\ gvs [CaseEqs ["option", "list"]]
 QED
 
+Theorem perms_ok_array_lookup[local]:
+  (∀n. n < LENGTH refs /\ RefMention n IN ps ==>
+       perms_ok_ref ps (EL n refs)) /\
+  RefMention pointer IN ps /\
+  store_lookup pointer refs = SOME (Varray values) ==>
+  EVERY (perms_ok ps) values
+Proof
+  rw [store_lookup_def]
+  \\ qpat_x_assum `!n. _` (qspec_then `pointer` mp_tac)
+  \\ simp [perms_ok_ref_def]
+QED
+
 Theorem do_app_perms:
   do_app (refs, ffi) op vs = SOME ((refs1,ffi1),res) ∧
   op ≠ Opapp ∧
@@ -342,6 +354,39 @@ Theorem do_app_perms:
     | Rerr (Rabort err) => T
 Proof
   strip_tac
+  \\ Cases_on `op = CopyVecVec`
+  >- (
+    gvs [do_app_cases,perms_ok_def]
+    \\ qpat_x_assum `copy_array _ _ _ = SOME _`
+         (mp_then Any (qspec_then `perms_ok ps` mp_tac) EVERY_copy_array)
+    \\ simp [])
+  \\ Cases_on `op = CopyVecArr`
+  >- (
+    gvs [do_app_cases,perms_ok_def]
+    \\ imp_res_tac perms_ok_array_lookup
+    \\ qpat_assum `copy_array _ _ _ = SOME _`
+         (mp_then Any (qspec_then `perms_ok ps` mp_tac) EVERY_copy_array)
+    \\ simp []
+    \\ strip_tac
+    \\ gvs [store_assign_def]
+    \\ rw [EL_LUPDATE,perms_ok_ref_def])
+  \\ Cases_on `op = CopyArrVec`
+  >- (
+    gvs [do_app_cases,perms_ok_def]
+    \\ imp_res_tac perms_ok_array_lookup
+    \\ qpat_x_assum `copy_array _ _ _ = SOME _`
+         (mp_then Any (qspec_then `perms_ok ps` mp_tac) EVERY_copy_array)
+    \\ simp [])
+  \\ Cases_on `op = CopyArrArr`
+  >- (
+    gvs [do_app_cases,perms_ok_def]
+    \\ imp_res_tac perms_ok_array_lookup
+    \\ qpat_assum `copy_array _ _ _ = SOME _`
+         (mp_then Any (qspec_then `perms_ok ps` mp_tac) EVERY_copy_array)
+    \\ simp []
+    \\ strip_tac
+    \\ gvs [store_assign_def]
+    \\ rw [EL_LUPDATE,perms_ok_ref_def])
   \\ qpat_x_assum ‘do_app _ _ _ = _’ mp_tac
   \\ Cases_on ‘op = Env_id’ \\ gs []
   >- (
@@ -467,9 +512,10 @@ Proof
   >- (
     rw [do_app_cases] \\ gs []
     \\ simp [perms_ok_def])
-  \\ Cases_on ‘op = Strlen’ \\ gs []
+  \\ Cases_on ‘op = Strlen ∨ op = StrScanEq ∨ op = StrScanNeq’
   >- (
-    rw [do_app_cases] \\ gs []
+    pop_assum strip_assume_tac \\ gs []
+    \\ rw [do_app_cases] \\ gs []
     \\ simp [perms_ok_def])
   \\ Cases_on ‘op = Strsub’ \\ gs []
   >- (
@@ -522,9 +568,10 @@ Proof
   >- (
     rw [do_app_cases] \\ gs []
     \\ simp [perms_ok_def])
-  \\ Cases_on ‘op = Aw8length’ \\ gs []
+  \\ Cases_on ‘op = Aw8length ∨ op = Aw8ScanEq ∨ op = Aw8ScanNeq’
   >- (
-    rw [do_app_cases] \\ gs []
+    pop_assum strip_assume_tac \\ gs []
+    \\ rw [do_app_cases] \\ gs []
     \\ simp [perms_ok_def])
   \\ Cases_on ‘op = Aw8alloc’ \\ gs []
   >- (
@@ -546,7 +593,7 @@ Proof
   >- (
     rw [do_app_cases]
     \\ Cases_on ‘a’ \\ Cases_on ‘ty’ using prim_type_cases
-    \\ gvs [do_arith_def, CaseEq"list",CaseEq"sum"]
+    \\ gvs [do_arith_def, CaseEq"list",CaseEq"sum",CaseEq"div_round"]
     \\ simp [Boolv_def]
     \\ rw [perms_ok_def])
   \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ \\ gs []
@@ -588,6 +635,8 @@ Proof
     \\ rw [EL_LUPDATE, perms_ok_ref_def])
   \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
   >- (rw [do_app_cases] \\ gvs [thunk_op_def, AllCaseEqs()])
+  \\ Cases_on ‘op = PtrEq’ \\ gs[]
+  >- simp [do_app_def]
   \\ Cases_on ‘∃arith. op = UnsafeIndexArith arith’ \\ gs []
   >- (
     rw [do_app_cases] >>
@@ -740,7 +789,7 @@ Proof
   >~ [‘Fun n e’] >- (
     gvs [evaluate_def, perms_ok_env_def, perms_ok_def, SF SFY_ss])
   >~ [‘App op xs’] >- (
-    Cases_on ‘getOpClass op = Force’ \\ gvs []
+    Cases_on ‘op = ThunkOp ForceThunk’ \\ gvs []
     >- (
       gvs [AllCaseEqs()] \\ gvs [evaluate_def] \\ gvs [AllCaseEqs()]
       \\ gvs [perms_ok_env_BIGUNION, MEM_MAP, PULL_EXISTS, EVERY_MEM]
@@ -870,11 +919,12 @@ Proof
     \\ ‘EVERY (λx. perms_ok_env ps (freevars x) env) es’
       by gs [EVERY_perms_ok_env_BIGUNION, SF ETA_ss]
     \\ Cases_on ‘op = Eval’ \\ gs []
-    \\ Cases_on ‘getOpClass op’ \\ gs[]
-    >~ [‘EvalOp’] >- (Cases_on ‘op’ \\ gs[])
-    >~ [‘FunApp’] >- (Cases_on ‘op’ \\ gs[])
-    >~ [‘Force’] >- (Cases_on ‘op’ \\ gs[])
-    >~ [‘Simple’] >- (
+    \\ Cases_on ‘op = PtrEq’ \\ gs[]
+    >- (
+      gvs [AllCaseEqs()]
+      \\ gvs [perms_ok_state_def, Boolv_def]
+      \\ rw [perms_ok_def])
+    >- (
       gvs [CaseEqs ["result", "prod", "bool", "option"]]
       \\ drule_then (qspec_then ‘ps’ mp_tac) do_app_perms
       \\ impl_tac

@@ -218,9 +218,41 @@ Definition make_name_def:
     constant_prefix ^ implode (REPLICATE n #"_")
 End
 
+(* Names of the basis wrappers for word shifts, e.g. Word64.<< *)
+Definition is_shift_name_def:
+  is_shift_name (Short (s:mlstring)) = MEM s [«<<»; «>>»; «~>>»] ∧
+  is_shift_name (Long (m:mlstring) x) = is_shift_name x
+End
+
+Definition is_word64_lit_def:
+  is_word64_lit (Lit l) = (case l of Word64 _ => T | _ => F) ∧
+  is_word64_lit _ = F
+End
+
+(* a shift wrapper applied to its first argument *)
+Definition is_shift_call_def:
+  is_shift_call (App op es) =
+    (op = Opapp ∧ case es of [Var f; _] => is_shift_name f | _ => F) ∧
+  is_shift_call _ = F
+End
+
+(* A word64 shift by a literal amount, either as the primitive or as a fully
+   applied call of a basis wrapper. The literal must stay in place so that
+   later passes can compile it to a shift by a constant. *)
+Definition is_lit_shift_def:
+  is_lit_shift op es ⇔
+    case es of
+    | [e1; e2] =>
+        is_word64_lit e2 ∧
+        (MEM op [Arith (Shift Lsl) (WordT W64); Arith (Shift Lsr) (WordT W64);
+                 Arith (Shift Asr) (WordT W64); Arith (Shift Ror) (WordT W64)] ∨
+         op = Opapp ∧ is_shift_call e1)
+    | _ => F
+End
+
 Definition allow_lift_def:
   allow_lift op (es:exp list) ⇔
-    op ≠ Equality
+    op ≠ Equality ∧ ¬is_lit_shift op es
     (* TODO: make also flag Opapp of Var (Short "=") *)
 End
 

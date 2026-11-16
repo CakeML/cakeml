@@ -318,7 +318,7 @@ Theorem const_enc_aux_thm[cv_inline,local]:
   closLang_const_enc' = const_enc_aux ∧
   MAP closLang_const_enc' = const_enc_aux_list
 Proof
-  gvs [FUN_EQ_THM] \\ Induct
+  gvs [FUN_EQ_THM] \\ ho_match_mp_tac const_enc_aux_ind
   \\ gvs [const_enc_aux_def,backend_enc_decTheory.closLang_const_enc'_def,
           num_tree_enc_decTheory.list_enc'_def,SF ETA_ss]
 QED
@@ -346,7 +346,7 @@ Theorem bvl_exp_enc_aux_thm[cv_inline,local]:
   bvl_exp_enc' = bvl_exp_enc_aux ∧
   MAP bvl_exp_enc' = bvl_exp_enc_aux_list
 Proof
-  gvs [FUN_EQ_THM] \\ Induct
+  gvs [FUN_EQ_THM] \\ ho_match_mp_tac bvl_exp_enc_aux_ind
   \\ gvs [bvl_exp_enc_aux_def,backend_enc_decTheory.bvl_exp_enc'_def,
           num_tree_enc_decTheory.list_enc'_def,SF ETA_ss]
 QED
@@ -453,7 +453,7 @@ Theorem val_approx_enc_aux_thm[cv_inline,local]:
   clos_known_val_approx_enc' = val_approx_enc_aux ∧
   MAP clos_known_val_approx_enc' = val_approx_enc_aux_list
 Proof
-  gvs [FUN_EQ_THM] \\ Induct
+  gvs [FUN_EQ_THM] \\ ho_match_mp_tac val_approx_enc_aux_ind
   \\ gvs [val_approx_enc_aux_def,backend_enc_decTheory.clos_known_val_approx_enc'_def,
           num_tree_enc_decTheory.list_enc'_def,SF ETA_ss]
 QED
@@ -579,7 +579,7 @@ Proof
 QED
 
 Definition max_var_exp_list_def:
-  max_var_exp_list ls = MAX_LIST (MAP (λx. max_var_exp x) ls)
+  max_var_exp_list ls = MAX_LIST (MAP max_var_exp ls)
 End
 
 Theorem max_var_exp_list_thm[local]:
@@ -715,7 +715,7 @@ val _ = cv_auto_trans apply_colour_nummap_key'_eq;
 val _ = cv_auto_trans apply_colour_nummaps_key'_eq;
 
 Definition get_reads_exp_list_def:
-  get_reads_exp_list xs = FLAT (MAP (λa. get_reads_exp a) xs)
+  get_reads_exp_list xs = FLAT (MAP get_reads_exp xs)
 End
 
 Theorem get_reads_exp_list_thm[local]:
@@ -732,7 +732,7 @@ Theorem get_reads_exp_eq =
 
 
 Definition get_live_exps_def:
-  get_live_exps ls = big_union (MAP (λa. get_live_exp a) ls)
+  get_live_exps ls = big_union (MAP get_live_exp ls)
 End
 
 Theorem get_live_exps_thm[local]:
@@ -753,14 +753,17 @@ Theorem word_alloc_get_live_exp_pre[cv_pre]:
   (∀v:wordLang$exp. word_alloc_get_live_exp_pre v) ∧
   (∀v:wordLang$exp list. get_live_exps_pre v)
 Proof
-  ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
+  qsuff_tac ‘∀v:wordLang$exp. word_alloc_get_live_exp_pre v’
+  >- (strip_tac \\ gvs [] \\ Induct \\ gvs [Once pre])
+  \\ ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
+  \\ Induct_on ‘l’ \\ rw [] \\ simp [Once pre] \\ gvs []
 QED
 
 val _ = cv_trans word_instTheory.is_Lookup_CurrHeap_def;
 val _ = cv_trans word_instTheory.pull_ops_def;
 
 Definition pull_exp_list_def:
-  pull_exp_list ls = MAP (λa. pull_exp a) ls
+  pull_exp_list ls = MAP pull_exp ls
 End
 
 Theorem pull_exp_list_thm[local]:
@@ -776,7 +779,7 @@ Theorem pull_exp_eq =
   |> REWRITE_RULE [GSYM pull_exp_list_def]
 
 Definition flatten_exp_list_def:
-  flatten_exp_list ls = MAP (λa. flatten_exp a) ls
+  flatten_exp_list ls = MAP flatten_exp ls
 End
 
 Theorem flatten_exp_list_thm[local]:
@@ -891,7 +894,7 @@ val _ = word_allocTheory.even_list_def |> cv_auto_trans;
 val _ = word_allocTheory.option_lookup_def |> cv_trans;
 
 Definition ssa_cc_trans_exp_list_def:
-  ssa_cc_trans_exp_list t =  MAP (λa. ssa_cc_trans_exp t a)
+  ssa_cc_trans_exp_list t =  MAP (ssa_cc_trans_exp t)
 End
 
 Theorem list_thm[local]:

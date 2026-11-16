@@ -112,7 +112,7 @@ Definition compute_wordfreq_output_def:
     MAP format_output (toAscList (FOLDL insert_line empty input_lines))
 End
 
-val res = translate empty_def;
+val res = translate (empty_def |> SRULE [mlmapTheory.empty_def, balanced_mapTheory.empty_def]);
 val res = translate compute_wordfreq_output_def;
 
 (* Main wordfreq implementation *)

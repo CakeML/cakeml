@@ -16,10 +16,10 @@ Libs
 val _  = (max_print_depth := 30);
 
 Theorem scheme_init_evaluate_dec:
-  ! ffi . ∃ ck1 ck2.
-    evaluate_decs (init_state ffi with clock := ck1) init_env
-      scheme_init =
-    (scheme_to_cake_env_st_1 ffi with clock := ck2,
+  ! ffi po . ∃ ck1 ck2.
+    evaluate_decs (init_state ffi with <| ptr_eq_oracle := po; clock := ck1 |>)
+      init_env scheme_init =
+    (scheme_to_cake_env_st_1 (ffi,po) with clock := ck2,
      Rval scheme_to_cake_env_env_13)
 Proof
   `IS_SOME (check_cons_dec_list init_env.c scheme_init)`
@@ -179,20 +179,20 @@ Definition scheme_out_oracle_def:
 End
 
 Theorem scheme_semantics_preservation_value_terminates:
-  ∀ prog cml_prog v st env .
+  ∀ prog cml_prog v st env po .
     scheme_semantics_prog prog (STerminate v) /\
     static_scope_check prog = INR prog /\
     codegen prog = INR cml_prog
     ==>
-    semantics_prog (init_state scheme_out_oracle) init_env cml_prog
-                   (Terminate Success [v_to_string v])
+    semantics_determ (init_state scheme_out_oracle with ptr_eq_oracle := po)
+                     init_env cml_prog (Terminate Success [v_to_string v])
 Proof
-  simp[semantics_prog_def, scheme_semantics_prog_def]
+  simp[semantics_determ_def, scheme_semantics_prog_def]
   >> simp[static_scope_check_def]
   >> simp_tac std_ss [codegen_def]
   >> simp[evaluate_prog_with_clock_def]
   >> rpt strip_tac
-  >> qspec_then `scheme_out_oracle` assume_tac scheme_init_evaluate_dec
+  >> qspecl_then [`scheme_out_oracle`,`po`] assume_tac scheme_init_evaluate_dec
   >> gvs[]
   >> qrefine `ck1 + k`
   >> gvs[scheme_init_def]
@@ -232,7 +232,7 @@ Proof
   >> gvs[Once cps_rel_cases]
   >> qmatch_goalsub_abbrev_tac `evaluate _ newenv [_]`
   >> first_x_assum $ qspecl_then
-       [`scheme_to_cake_env_st_1 scheme_out_oracle`, `newenv`] assume_tac
+       [`scheme_to_cake_env_st_1 (scheme_out_oracle,po)`, `newenv`] assume_tac
   >> unabbrev_all_tac
   >> gvs[scheme_init_st_defs]
   >> gvs[scheme_env_sub, scheme_runtime_funs_def, basis_scheme_env]
@@ -284,20 +284,20 @@ Proof
 QED
 
 Theorem scheme_semantics_preservation_exception_terminates:
-  ∀ prog cml_prog s st env .
+  ∀ prog cml_prog s st env po .
     scheme_semantics_prog prog (SError s) /\
     static_scope_check prog = INR prog /\
     codegen prog = INR cml_prog
     ==>
-    semantics_prog (init_state scheme_out_oracle) init_env cml_prog
-                   (Terminate Success [IO_event (ExtCall «scheme_out») (MAP (n2w o ORD) (explode s)) []])
+    semantics_determ (init_state scheme_out_oracle with ptr_eq_oracle := po)
+                     init_env cml_prog (Terminate Success [IO_event (ExtCall «scheme_out») (MAP (n2w o ORD) (explode s)) []])
 Proof
-  simp[semantics_prog_def, scheme_semantics_prog_def]
+  simp[semantics_determ_def, scheme_semantics_prog_def]
   >> simp[static_scope_check_def]
   >> simp_tac std_ss [codegen_def]
   >> simp[evaluate_prog_with_clock_def]
   >> rpt strip_tac
-  >> qspec_then `scheme_out_oracle` assume_tac scheme_init_evaluate_dec
+  >> qspecl_then [`scheme_out_oracle`,`po`] assume_tac scheme_init_evaluate_dec
   >> gvs[]
   >> qrefine `ck1 + k`
   >> gvs[scheme_init_def]
@@ -337,7 +337,7 @@ Proof
   >> gvs[Once cps_rel_cases]
   >> qmatch_goalsub_abbrev_tac `evaluate _ newenv [_]`
   >> first_x_assum $ qspecl_then
-       [`scheme_to_cake_env_st_1 scheme_out_oracle`, `newenv`] assume_tac
+       [`scheme_to_cake_env_st_1 (scheme_out_oracle,po)`, `newenv`] assume_tac
   >> unabbrev_all_tac
   >> gvs[scheme_init_st_defs]
   >> gvs[scheme_env_sub, scheme_runtime_funs_def, basis_scheme_env]
@@ -432,7 +432,7 @@ Proof
 QED
 
 Theorem scheme_semantics_preservation_diverges_lemma:
-  ∀ prog cml_prog v st env .
+  ∀ prog cml_prog v st env po .
     scheme_semantics_prog prog (SDiverge) /\
     static_scope_check prog = INR prog /\
     codegen prog = INR cml_prog
@@ -440,16 +440,17 @@ Theorem scheme_semantics_preservation_diverges_lemma:
     ∀k.
       ∃ffi.
         evaluate_prog_with_clock
-          (init_state scheme_out_oracle) init_env k cml_prog
+          (init_state scheme_out_oracle with ptr_eq_oracle := po) init_env k
+          cml_prog
         =
         (ffi, Rerr (Rabort Rtimeout_error)) ∧ ffi.io_events = []
 Proof
-  simp[semantics_prog_def, scheme_semantics_prog_def]
+  simp[semantics_determ_def, scheme_semantics_prog_def]
   >> simp[static_scope_check_def]
   >> simp_tac std_ss [codegen_def]
   >> simp[evaluate_prog_with_clock_def]
   >> rpt strip_tac
-  >> qspec_then `scheme_out_oracle` assume_tac scheme_init_evaluate_dec
+  >> qspecl_then [`scheme_out_oracle`,`po`] assume_tac scheme_init_evaluate_dec
   >> gvs[]
   >> reverse $ Induct_on `ck1 <= k` using TRUE_AND_IMP_FALSE_IND
   >> rpt strip_tac
@@ -501,7 +502,7 @@ Proof
   >> gvs[Once cps_rel_cases]
   >> qmatch_goalsub_abbrev_tac `evaluate _ newenv [_]`
   >> first_x_assum $ qspecl_then
-       [`scheme_to_cake_env_st_1 scheme_out_oracle`, `newenv`] assume_tac
+       [`scheme_to_cake_env_st_1 (scheme_out_oracle,po)`, `newenv`] assume_tac
   >> unabbrev_all_tac
   >> gvs[scheme_init_st_defs]
   >> gvs[scheme_env_sub, scheme_runtime_funs_def, basis_scheme_env]
@@ -518,22 +519,22 @@ Proof
 QED
 
 Theorem scheme_semantics_preservation_diverges:
-  ∀ prog cml_prog v st env .
+  ∀ prog cml_prog v st env po .
     scheme_semantics_prog prog (SDiverge) /\
     static_scope_check prog = INR prog /\
     codegen prog = INR cml_prog
     ==>
-    semantics_prog (init_state scheme_out_oracle) init_env cml_prog
-                   (Diverge [||])
+    semantics_determ (init_state scheme_out_oracle with ptr_eq_oracle := po)
+                     init_env cml_prog (Diverge [||])
 Proof
   rpt strip_tac
   \\ dxrule_all scheme_semantics_preservation_diverges_lemma
   \\ simp [] \\ strip_tac
-  \\ simp [semantics_prog_def]
+  \\ simp [semantics_determ_def]
   \\ conj_tac >- metis_tac []
   \\ irule lprefix_lub_LNIL \\ simp [EXTENSION] \\ rw []
   \\ ho_match_mp_tac div_lnil_lemma \\ rw []
-  \\ last_x_assum $ qspec_then ‘k’ strip_assume_tac \\ fs []
+  \\ last_x_assum $ qspecl_then [‘po’,‘k’] strip_assume_tac \\ fs []
 QED
 
 Theorem imp_semantics_prog:
@@ -541,7 +542,8 @@ Theorem imp_semantics_prog:
   st1.ffi.io_events = out ⇒
   semantics_prog st env p (Terminate Success out)
 Proof
-  fs [semantics_prog_def,evaluate_prog_with_clock_def] \\ rw []
+  fs [semantics_prog_def,semantics_determ_def,evaluate_prog_with_clock_def]
+  \\ rw [] \\ qexists_tac ‘st.ptr_eq_oracle’
   \\ qexists_tac ‘ck’ \\ simp []
 QED
 

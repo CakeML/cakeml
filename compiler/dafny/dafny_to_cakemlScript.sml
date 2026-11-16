@@ -153,7 +153,7 @@ Definition from_bin_op_def:
     let neg_cml_e₁ = App (Arith Sub IntT) [Lit (IntLit 0); Var (Short n_e₁)] in
     let cml_e₁_abs = If (App (Test (Compare Lt) IntT) [Var (Short n_e₁); Lit (IntLit 0)])
                         (neg_cml_e₁) (Var (Short n_e₁)) in
-      Let (SOME n_e₁) cml_e₁ (App (Arith Mod IntT) [cml_e₀; cml_e₁_abs])) ∧
+      Let (SOME n_e₁) cml_e₁ (App (Arith (Mod RoundDown) IntT) [cml_e₀; cml_e₁_abs])) ∧
   from_bin_op Div cml_e₀ cml_e₁ =
   (* Make sure that cml_e₁ is evaluated before the rest of the computation as
      the semantics demand *)
@@ -162,14 +162,9 @@ Definition from_bin_op_def:
   let neg_cml_e₁ = App (Arith Sub IntT) [Lit (IntLit 0); Var (Short n_e₁)] in
     Let (SOME n_e₁) cml_e₁
         (If (App (Test (Compare Lt) IntT) [Lit (IntLit 0); Var (Short n_e₁)])
-            (App (Arith Div IntT) [cml_e₀; Var (Short n_e₁)])
+            (App (Arith (Div RoundDown) IntT) [cml_e₀; Var (Short n_e₁)])
             (App (Arith Sub IntT)
-                 [Lit (IntLit 0); App (Arith Div IntT) [cml_e₀; neg_cml_e₁]]))
-Termination
-  wf_rel_tac ‘measure (λx. case x of
-                           | (Neq, _, _) => bin_op_size Neq + 1
-                           | (Imp, _, _) => bin_op_size Imp + 1
-                           | (bop, _, _) => bin_op_size bop)’
+                 [Lit (IntLit 0); App (Arith (Div RoundDown) IntT) [cml_e₀; neg_cml_e₁]]))
 End
 
 Definition from_lit_def:
@@ -330,10 +325,10 @@ Definition cml_nat_to_string_body_def:
   let arg = Var (Short cml_nat_to_string_param) in
   let n_lt_10 = App (Test (Compare Lt) IntT) [arg; Lit (IntLit 10)] in
   let arg_to_string = App Opapp [Var (Short cml_dec_to_string_name); arg] in
-  let n_div_10 = App (Arith Div IntT) [arg; Lit (IntLit 10)] in
+  let n_div_10 = App (Arith (Div RoundDown) IntT) [arg; Lit (IntLit 10)] in
   let n_div_10_to_string =
     App Opapp [Var (Short cml_nat_to_string_name); n_div_10] in
-  let n_mod_10 = App (Arith Mod IntT) [arg; Lit (IntLit 10)] in
+  let n_mod_10 = App (Arith (Mod RoundDown) IntT) [arg; Lit (IntLit 10)] in
   let n_mod_10_to_string =
     App Opapp [Var (Short cml_dec_to_string_name); n_mod_10] in
     If n_lt_10

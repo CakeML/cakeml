@@ -13,7 +13,7 @@ val EVAL_STATE_CONV = ((STRIP_QUANT_CONV o RAND_CONV o RAND_CONV o RAND_CONV) EV
 
 Theorem kernel_init_thm:
    ∃refs. !p.
-      (HOL_STORE refs * GC) (st2heap (p : 'ffi ffi_proj) (candle_init_state ffi)) ∧
+      (HOL_STORE refs * GC) (st2heap (p : 'ffi ffi_proj) (candle_init_state (ffi,po))) ∧
       STATE init_ctxt refs
 Proof
   `?refs.
@@ -23,7 +23,7 @@ Proof
     refs.the_context = init_context` by srw_tac[QI_ss][]
   \\ qexists_tac `refs`
   \\ STRIP_TAC
-  \\ SIMP_TAC (srw_ss()) [EVAL ``candle_init_state ffi``]
+  \\ SIMP_TAC (srw_ss()) [EVAL ``candle_init_state (ffi,po)``]
   \\ reverse CONJ_TAC
   THEN1 (rw[STATE_def] \\ EVAL_TAC \\ fs[])
   \\ ASSUME_TAC (CONV_RULE

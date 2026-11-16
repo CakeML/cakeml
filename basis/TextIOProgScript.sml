@@ -434,11 +434,11 @@ val _ = ml_prog_update open_local_block;
 
 Quote add_cakeml:
   fun find_surplus c surplus readat writeat =
-  if readat = writeat then None
-  else
-    if Char.fromByte (Word8Array.sub surplus readat) = c
-    then Some (readat)
-    else find_surplus c surplus (readat + 1) writeat;
+    let
+      val i = Word8Array.scanEq readat writeat (Word8.fromChar c) surplus
+    in
+      if i = writeat then None else Some i
+    end;
 End
 
 Quote add_cakeml:

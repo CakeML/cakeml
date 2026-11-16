@@ -1,0 +1,8 @@
+Native ARM8 Pancake compiler.
+
+Unpack `pancake-arm8.tar.gz` and run `make pancake` on ARM8 Linux.
+The archive includes assembly, FFI source, a standalone Makefile and this
+README.
+Set `CC` to use a cross compiler. Run `./pancake --help` for compiler options.
+
+In a CakeML checkout, run `Holmake pancake-arm8.tar.gz` to build the archive.

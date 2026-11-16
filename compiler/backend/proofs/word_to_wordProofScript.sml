@@ -290,6 +290,7 @@ Proof
   >~[`DataBufferWrite`] >- suspend "DataBufferWrite"
   >~[`FFI`]             >- suspend "FFI"
   >~[`ShareInst`]       >- suspend "ShareInst"
+  >~[`PtrEq`]           >- suspend "PtrEq"
 QED
 
 Resume compile_single_correct[Skip]:
@@ -838,6 +839,10 @@ Resume compile_single_correct[ShareInst]:
     fs[state_component_equality,set_var_def,flush_state_def])
 QED
 
+Resume compile_single_correct[PtrEq]:
+  fs[evaluate_def,state_component_equality] >> every_case_tac >> fs[]
+QED
+
 Finalise compile_single_correct;
 
 Theorem compile_word_to_word_thm:
@@ -1134,6 +1139,7 @@ Proof
   >~[`DataBufferWrite`] >- suspend "ni_DataBufferWrite"
   >~[`FFI`]             >- suspend "ni_FFI"
   >~[`ShareInst`]       >- suspend "ni_ShareInst"
+  >~[`PtrEq`]           >- suspend "ni_PtrEq"
 QED
 
 Resume no_install_no_alloc_compile_single_correct[ni_Skip]:
@@ -1673,6 +1679,12 @@ Resume no_install_no_alloc_compile_single_correct[ni_Call]:
     fs[word_allocProofTheory.word_state_eq_rel_def,state_component_equality])
   >>
   qexists_tac`perm''`>> fs[dec_clock_def]
+QED
+
+Resume no_install_no_alloc_compile_single_correct[ni_PtrEq]:
+  fs[no_alloc_def, no_install_def] >>
+  fs[evaluate_def, state_component_equality] >>
+  every_case_tac >> fs[]
 QED
 
 Finalise no_install_no_alloc_compile_single_correct;

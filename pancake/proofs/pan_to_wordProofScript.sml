@@ -1012,8 +1012,7 @@ Proof
      impl_keep_tac >-
       (gvs[EVERY_MEM,MEM_MAP,PULL_EXISTS] \\
        metis_tac[FST,SND,PAIR]) \\
-     reverse $ rw[]
-     >- metis_tac[ETA_AX] \\
+     rw[] \\
      gvs[crepPropsTheory.cexp_heads_simp_def,pan_to_crepProofTheory.cexp_heads_eq]) \\
   gvs[EVERY_MEM,PULL_FORALL] \\
   gvs[EVERY_MAP,MEM_MAP,PULL_FORALL] \\
@@ -1326,7 +1325,7 @@ Theorem every_inst_ok_less_shape_val:
   (∀e. every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2) (shape_val e)) ∧
   (∀es. EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (shape_vals es))
 Proof
-  Induct >>
+  ho_match_mp_tac panLangTheory.shape_val_ind >>
   rw[panLangTheory.shape_val_def,panPropsTheory.every_exp_def] >>
   gvs[EVERY_MEM]
 QED

@@ -671,6 +671,7 @@ val _=add_astPP ("eqrealprint", ``App Equality [x;y]``,genPrint (infixrealPrint 
 (*For example, these should take lists of 1 element*)
 val _=add_astPP ("refrealprint", ``App Opref x``,genPrint (prefixargsPrint "ref"))
 val _=add_astPP ("derefrealprint", ``App Opderef x``,genPrint (prefixargsPrint "!"))
+val _=add_astPP ("ptreqprint", ``App PtrEq x``,genPrint (prefixargsPrint "ptr_eq"))
 
 val _=add_astPP ("W64toIntprint", ``App (WordToInt W64) x``,genPrint (prefixargsPrint "W64toInt"))
 val _=add_astPP ("W8toIntprint", ``App (WordToInt W8) x``,genPrint (prefixargsPrint "W8toInt"))
@@ -701,6 +702,8 @@ val _=add_astPP ("addrealprint", ``App (Opn Plus) [x;y]``,genPrint (infixrealPri
 
 (*Word8Array curried, not checking arity*)
 val _=add_astPP ("w8allocrealprint", ``App (Aw8alloc) ls``,genPrint (prefixargsPrint "Word8Array.array"));
+val _=add_astPP ("Aw8ScanEqrealprint", ``App Aw8ScanEq ls``,genPrint (prefixargsPrint "Word8Array.scanEq"));
+val _=add_astPP ("Aw8ScanNeqrealprint", ``App Aw8ScanNeq ls``,genPrint (prefixargsPrint "Word8Array.scanNeq"));
 val _=add_astPP ("w8subrealprint", ``App (Aw8sub) ls``,genPrint (prefixargsPrint "Word8Array.sub"));
 val _=add_astPP ("w8lengthrealprint", ``App (Aw8length) ls``,genPrint (prefixargsPrint "Word8Array.length"));
 val _=add_astPP ("w8updaterealprint", ``App (Aw8update) ls``,genPrint (prefixargsPrint "Word8Array.update"));
@@ -736,6 +739,8 @@ val _=add_astPP ("charchrrealprint", ``App Chr ls``,genPrint (prefixargsPrint "C
 val _=add_astPP ("stringimploderealprint", ``App Implode ls``,genPrint (prefixargsPrint "String.implode"));
 (*Confusing name??*)
 val _=add_astPP ("stringstrlenrealprint", ``App Strlen ls``,genPrint (prefixargsPrint "String.size"));
+val _=add_astPP ("StrScanEqrealprint", ``App StrScanEq ls``,genPrint (prefixargsPrint "String.scanEq"));
+val _=add_astPP ("StrScanNeqrealprint", ``App StrScanNeq ls``,genPrint (prefixargsPrint "String.scanNeq"));
 val _=add_astPP ("stringstrsubrealprint", ``App Strsub ls``,genPrint (prefixargsPrint "String.sub"));
 val _=add_astPP ("stringconcatsubrealprint", ``App Strcat ls``,genPrint (prefixargsPrint "String.concat"));
 

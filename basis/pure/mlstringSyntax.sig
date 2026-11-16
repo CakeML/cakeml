@@ -10,6 +10,8 @@ sig
   val strlen_tm           : term
   val mlstring_case_tm    : term
   val strsub_tm           : term
+  val scan_eq_tm          : term
+  val scan_neq_tm         : term
   val strcat_tm           : term
   val concat_tm           : term
   val substring_tm        : term
@@ -20,6 +22,8 @@ sig
   val mk_strlen           : term -> term
   val mk_mlstring_case    : term -> term
   val mk_strsub           : term * term -> term
+  val mk_scan_eq          : term * term * term * term -> term
+  val mk_scan_neq         : term * term * term * term -> term
   val mk_strcat           : term * term -> term
   val mk_concat           : term -> term
   val mk_substring        : term * term * term -> term
@@ -30,6 +34,8 @@ sig
   val dest_strlen         : term -> term
   val dest_mlstring_case  : term -> term * term
   val dest_strsub         : term -> term * term
+  val dest_scan_eq        : term -> term * term * term * term
+  val dest_scan_neq       : term -> term * term * term * term
   val dest_strcat         : term -> term * term
   val dest_concat         : term -> term
   val dest_substring      : term -> term * term * term
@@ -40,6 +46,8 @@ sig
   val is_strlen           : term -> bool
   val is_mlstring_case    : term -> bool
   val is_strsub           : term -> bool
+  val is_scan_eq          : term -> bool
+  val is_scan_neq         : term -> bool
   val is_strcat           : term -> bool
   val is_concat           : term -> bool
   val is_substring        : term -> bool

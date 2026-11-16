@@ -102,7 +102,7 @@ QED
 Theorem init_ctxt_no_ground:
   !ty. ty ∈ ground_types (sigof init_ctxt) ∩ nonbuiltin_types ==> F'
 Proof
-  ho_match_mp_tac type_ind >> rpt strip_tac
+  ho_match_mp_tac type_induction >> rpt strip_tac
   >- fs[ground_types_def,tyvars_def]
   >> fs[ground_types_def,init_ctxt_def,tyvars_def]
   >> imp_res_tac FOLDR_LIST_UNION_empty'

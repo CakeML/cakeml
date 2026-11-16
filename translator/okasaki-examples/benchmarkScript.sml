@@ -73,7 +73,7 @@ val r = translate use_queue_def;
 Definition run_queue_def:
 run_queue ⇔ head (use_queue 1000 empty)
 End
-val r = translate run_queue_def;
+val r = translate (run_queue_def |> CONV_RULE (RHS_CONV EVAL));
 
 
 (* Copied from SplayHeapScript *)
@@ -208,5 +208,5 @@ val r = translate use_heap_def;
 Definition run_heap:
 run_heap ⇔ find_min (use_heap 1000 empty')
 End
-val r = translate run_heap;
+val r = translate (run_heap |> CONV_RULE (RHS_CONV EVAL));
 

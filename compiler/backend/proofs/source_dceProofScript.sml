@@ -58,7 +58,6 @@ Termination
   wf_rel_tac ‘measure (λx. case x of
                            | INL s => long_names_size (SND s) + 1
                            | INR l => long_names_size l)’
-  \\ simp [list_size_def, basicSizeTheory.pair_size_def]
 End
 
 Theorem names_set_empty_names[local,simp]:
@@ -290,6 +289,7 @@ Definition state_rel_def:
          store_lookup loc1 s1.refs = SOME sv1 ∧
          store_lookup loc2 s2.refs = SOME sv2 ∧
          sv_rel (v_rel f) sv1 sv2) ∧
+    s1.ptr_eq_oracle = s2.ptr_eq_oracle ∧
     s1.clock = s2.clock ∧
     s1.ffi = s2.ffi ∧
     s1.next_type_stamp = s2.next_type_stamp ∧
@@ -809,7 +809,7 @@ Proof
   gvs [semanticPrimitivesTheory.state_component_equality]
 QED
 
-(* thunks, for the Force class of App; the BadRef outcome cannot arise for
+(* thunks, for forcing in App; the BadRef outcome cannot arise for
    related values, since v_rel only relates locations that state_rel maps *)
 Theorem state_rel_dest_thunk[local]:
   state_rel f s1 s2 ∧ LIST_REL (v_rel f) vs ws ⇒
@@ -942,6 +942,80 @@ Theorem do_app_v_rel[local]:
 Proof
   strip_tac
   \\ ‘INJ (FAPPLY f) (FDOM f) UNIV’ by gvs [state_rel_def]
+  \\ Cases_on `op = CopyVecVec`
+  >- (
+    gvs [semanticPrimitivesPropsTheory.do_app_cases, v_rel_simps]
+    \\ qexists_tac `f`
+    \\ gvs [state_with_id, v_rel_refl]
+    \\ rename1 `LIST_REL (v_rel f) copy_source copy_target`
+    \\ qmatch_asmsub_rename_tac `copy_array (copy_source,copy_offset) copy_length NONE`
+    \\ `OPTREL (LIST_REL (v_rel f))
+         (copy_array (copy_source,copy_offset) copy_length NONE)
+         (copy_array (copy_target,copy_offset) copy_length NONE)` by (
+      irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def, v_rel_simps, v_rel_refl])
+  \\ Cases_on `op = CopyVecArr`
+  >- (
+    gvs [semanticPrimitivesPropsTheory.do_app_cases, v_rel_simps]
+    \\ qexists_tac `f`
+    \\ gvs [state_with_id, v_rel_refl]
+    \\ imp_res_tac state_rel_store_lookup_type
+    \\ gvs []
+    \\ qmatch_asmsub_rename_tac
+         `copy_array (copy_source,copy_offset) copy_length
+            (SOME (copy_destination,copy_destination_offset))`
+    \\ rename1 `LIST_REL (v_rel f) copy_source copy_target`
+    \\ rename1 `LIST_REL (v_rel f) copy_destination copy_target_destination`
+    \\ `OPTREL (LIST_REL (v_rel f))
+         (copy_array (copy_source,copy_offset) copy_length
+            (SOME (copy_destination,copy_destination_offset)))
+         (copy_array (copy_target,copy_offset) copy_length
+            (SOME (copy_target_destination,copy_destination_offset)))` by (
+      irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def, state_with_id, v_rel_refl]
+    \\ irule state_rel_assign
+    \\ qpat_assum `store_assign _ _ s1.refs = SOME _` $ irule_at Any
+    \\ gvs [])
+  \\ Cases_on `op = CopyArrVec`
+  >- (
+    gvs [semanticPrimitivesPropsTheory.do_app_cases, v_rel_simps]
+    \\ qexists_tac `f`
+    \\ gvs [state_with_id, v_rel_refl]
+    \\ imp_res_tac state_rel_store_lookup_type
+    \\ gvs []
+    \\ rename1 `LIST_REL (v_rel f) copy_source copy_target`
+    \\ qmatch_asmsub_rename_tac `copy_array (copy_source,copy_offset) copy_length NONE`
+    \\ `OPTREL (LIST_REL (v_rel f))
+         (copy_array (copy_source,copy_offset) copy_length NONE)
+         (copy_array (copy_target,copy_offset) copy_length NONE)` by (
+      irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def, v_rel_simps, v_rel_refl])
+  \\ Cases_on `op = CopyArrArr`
+  >- (
+    gvs [semanticPrimitivesPropsTheory.do_app_cases, v_rel_simps]
+    \\ qexists_tac `f`
+    \\ gvs [state_with_id, v_rel_refl]
+    \\ imp_res_tac state_rel_store_lookup_type
+    \\ gvs []
+    \\ qmatch_asmsub_rename_tac
+         `copy_array (copy_source,copy_offset) copy_length
+            (SOME (copy_destination,copy_destination_offset))`
+    \\ rename1 `LIST_REL (v_rel f) copy_source copy_target`
+    \\ rename1 `LIST_REL (v_rel f) copy_destination copy_target_destination`
+    \\ `OPTREL (LIST_REL (v_rel f))
+         (copy_array (copy_source,copy_offset) copy_length
+            (SOME (copy_destination,copy_destination_offset)))
+         (copy_array (copy_target,copy_offset) copy_length
+            (SOME (copy_target_destination,copy_destination_offset)))` by (
+      irule semanticPrimitivesPropsTheory.LIST_REL_copy_array
+      \\ simp [OPTREL_def])
+    \\ gvs [OPTREL_def, state_with_id, v_rel_refl]
+    \\ irule state_rel_assign
+    \\ qpat_assum `store_assign _ _ s1.refs = SOME _` $ irule_at Any
+    \\ gvs [])
   \\ Cases_on ‘(∃a. op = UnsafeIndexArith a) ∨ ∃t. op = UnsafeIndexTest t’
   >- (
     gvs [semanticPrimitivesPropsTheory.do_app_cases,
@@ -1183,8 +1257,7 @@ Resume evaluate_v_rel[App]:
   rename [‘evaluate s1 env1 [App op es] = (s2,r2)’]
   \\ qpat_x_assum ‘evaluate s1 env1 [App op es] = (s2,r2)’ mp_tac
   \\ rewrite_tac [evaluate_def]
-  \\ Cases_on ‘evaluate s1 env1 (REVERSE es)’
-  \\ qabbrev_tac ‘cl = getOpClass’ \\ gvs []
+  \\ Cases_on ‘evaluate s1 env1 (REVERSE es)’ \\ gvs []
   \\ strip_tac
   \\ Cases_on ‘r = Rerr (Rabort Rtype_error)’ \\ gvs []
   \\ first_x_assum drule
@@ -1201,8 +1274,7 @@ Resume evaluate_v_rel[App]:
   >- (pop_assum $ irule_at Any \\ gvs [])
   \\ Cases_on ‘op = Eval’
   >-
-   (gvs [Abbr‘cl’]
-    \\ gvs [do_eval_res_def]
+   (gvs [do_eval_res_def]
     \\ qsuff_tac ‘do_eval (REVERSE a) q.eval_state = NONE’
     >- (strip_tac \\ gvs [])
     \\ simp [do_eval_def, AllCaseEqs(), PULL_EXISTS]
@@ -1221,12 +1293,8 @@ Resume evaluate_v_rel[App]:
              ‘state_rel g t1 t2’, ‘LIST_REL (v_rel g) xs ys’]
   \\ ‘LIST_REL (v_rel g) (REVERSE xs) (REVERSE ys)’ by gvs [LIST_REL_REVERSE_EQ]
   \\ ‘t1.clock = t2.clock’ by gvs [state_rel_def]
-  \\ Cases_on ‘cl op’ \\ gvs []
-  (* EvalOp is only reachable for op = Eval, which is done above *)
-  >-
-   (qpat_x_assum ‘cl op = EvalOp’ mp_tac \\ gvs [Abbr‘cl’]
-    \\ Cases_on ‘op’ \\ gvs [] \\ rw [])
   (* function application *)
+  \\ Cases_on ‘op = Opapp’ \\ gvs []
   >-
    (gvs [AllCaseEqs()]
     \\ rename [‘do_opapp (REVERSE xs) = SOME (envA,e)’]
@@ -1243,6 +1311,7 @@ Resume evaluate_v_rel[App]:
     \\ first_assum $ irule_at Any
     \\ imp_res_tac SUBMAP_TRANS \\ gvs [])
   (* forcing a thunk *)
+  \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gvs []
   >-
    (‘LIST_REL (v_rel g) (REVERSE xs) (REVERSE ys)’ by gvs [LIST_REL_REVERSE_EQ]
     \\ drule_all state_rel_dest_thunk \\ strip_tac
@@ -1269,6 +1338,19 @@ Resume evaluate_v_rel[App]:
       \\ gvs [] \\ first_assum $ irule_at Any \\ gvs []
       \\ imp_res_tac SUBMAP_TRANS \\ gvs [])
     \\ first_assum $ irule_at Any \\ imp_res_tac SUBMAP_TRANS \\ gvs [])
+  (* pointer equality preserves the relation and advances both oracles *)
+  \\ Cases_on ‘op = PtrEq’ \\ gvs []
+  >-
+   (gvs [AllCaseEqs()]
+    \\ qpat_x_assum ‘REVERSE xs = _’
+         (mp_tac o REWRITE_RULE [REVERSE_REVERSE, REVERSE_DEF] o
+          AP_TERM “REVERSE : v list -> v list”)
+    \\ strip_tac
+    \\ gvs [LIST_REL_CONS1]
+    \\ ‘INJ (FAPPLY g) (FDOM g) UNIV’ by gvs [state_rel_def]
+    \\ imp_res_tac (cj 1 v_rel_do_eq)
+    \\ qexists_tac ‘g’
+    \\ gvs [state_rel_def, REVERSE_DEF])
   (* the simple operations *)
   \\ gvs [AllCaseEqs()]
   \\ ‘LIST_REL (v_rel g) (REVERSE xs) (REVERSE ys)’ by gvs [LIST_REL_REVERSE_EQ]
@@ -1434,6 +1516,7 @@ Finalise evaluate_v_rel[local]
 
 Definition pure_st_def:
   pure_st (s:'ffi semanticPrimitives$state) s' ⇔
+    s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
     s'.clock = s.clock ∧ s'.ffi = s.ffi ∧
     s'.next_type_stamp = s.next_type_stamp ∧
     s'.next_exn_stamp = s.next_exn_stamp ∧
@@ -1556,7 +1639,7 @@ Proof
   ho_match_mp_tac evaluate_ind \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_then strip_assume_tac)
   >~ [‘App op es’]
-  >- (‘getOpClass op = Simple’ by
+  >- (‘op ≠ Opapp ∧ op ≠ ThunkOp ForceThunk ∧ op ≠ Eval ∧ op ≠ PtrEq’ by
         (Cases_on ‘op’
          \\ gvs [pure_exp_def, pure_op_def, alloc_app_def, alloc_op_def]
          \\ Cases_on ‘t’
@@ -1584,16 +1667,16 @@ Proof
 QED
 
 Theorem prune_pat_bindings[local]:
-  (∀p used.
+  (∀used p.
      set (pat_bindings (prune_pat used p)) ⊆ set (pat_bindings p) ∧
      (ALL_DISTINCT (pat_bindings p) ⇒
       ALL_DISTINCT (pat_bindings (prune_pat used p)))) ∧
-  (∀ps used.
+  (∀used ps.
      set (pats_bindings (prune_pat_list used ps)) ⊆ set (pats_bindings ps) ∧
      (ALL_DISTINCT (pats_bindings ps) ⇒
       ALL_DISTINCT (pats_bindings (prune_pat_list used ps))))
 Proof
-  ho_match_mp_tac astTheory.pat_induction
+  ho_match_mp_tac prune_pat_ind
   \\ rpt conj_tac \\ rpt gen_tac \\ rpt strip_tac
   \\ gvs [prune_pat_def, astTheory.pat_bindings_def, ALL_DISTINCT_APPEND]
   \\ rw [] \\ gvs [prune_pat_def, astTheory.pat_bindings_def,
@@ -2669,19 +2752,19 @@ Theorem dce_decs_semantics[local]:
   dce_decs empty_names prog = (res,x) ∧
   ¬has_Denv_decs (append res) ∧ open_free_decs prog ∧
   (∀x. s.eval_state = SOME x ⇒ ∃ev. x = EvalDecs ev) ∧
-  ¬semantics_prog s env prog Fail ∧
-  semantics_prog s env prog outcome ⇒
-    semantics_prog s env (append res) outcome
+  ¬semantics_determ s env prog Fail ∧
+  semantics_determ s env prog outcome ⇒
+    semantics_determ s env (append res) outcome
 Proof
   Cases_on ‘outcome’ \\ fs [SF CONJ_ss]
   >~ [‘Terminate x y’] >-
-   (rw [semantics_prog_def]
+   (rw [semantics_determ_def]
     \\ drule_all evaluate_prog_with_clock_correct
     \\ strip_tac
     \\ first_x_assum $ irule_at Any
     \\ Cases_on ‘r’ \\ gvs [result_rel_def]
     \\ Cases_on ‘e’ \\ gvs [exc_rel_def])
-  \\ rw [semantics_prog_def]
+  \\ rw [semantics_determ_def]
   >-
    (first_x_assum $ qspec_then ‘k’ strip_assume_tac
     \\ drule evaluate_prog_with_clock_correct \\ gvs [])
@@ -2699,9 +2782,9 @@ QED
 Theorem compile_semantics:
   env.v = nsEmpty ∧
   (∀x. s.eval_state = SOME x ⇒ ∃ev. x = EvalDecs ev) ∧
-  ¬semantics_prog s env prog Fail ∧
-  semantics_prog s env prog outcome ⇒
-    semantics_prog s env (source_dce$compile_decs prog) outcome
+  ¬semantics_determ s env prog Fail ∧
+  semantics_determ s env prog outcome ⇒
+    semantics_determ s env (source_dce$compile_decs prog) outcome
 Proof
   rw [source_dceTheory.compile_decs_def]
   \\ Cases_on ‘dce_decs empty_names prog’

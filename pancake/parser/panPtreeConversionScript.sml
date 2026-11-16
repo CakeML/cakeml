@@ -35,7 +35,6 @@ End
 Overload "'"[local] = ``λf a. OPTION_BIND a f``
 
 Overload ptree_size[local] = ``parsetree_size (K 0) (K 0) (K 0)``;
-Overload ptree1_size[local] = ``parsetree1_size (K 0) (K 0) (K 0)``;
 
 Definition tokcheck_def:
   tokcheck pt expected =
@@ -516,14 +515,6 @@ Proof
   IF_CASES_TAC>>gs[list_size_def]
 QED
 
-Theorem list_size_MEM:
-  ∀xs x. MEM x xs ⇒ f x ≤ list_size f xs
-Proof
-  Induct>>rw[]>>gs[list_size_def]>>
-  last_x_assum (qspec_then ‘x’ assume_tac)>>
-  gs[]
-QED
-
 Definition parsetree_locs_def:
   parsetree_locs tree = (case tree of
     | Nd (_, Locs p1 p2) _ => (p1, p2)
@@ -714,7 +705,7 @@ Termination
     gs[])
   >- (
     ‘ptree_size (LAST ts) ≤ list_size ptree_size ts’
-      by (irule list_size_MEM>>
+      by (irule MEM_list_size>>
           gs[LAST_EL, MEM_EL]>>
           qexists_tac ‘PRE (LENGTH ts)’>>gs[]>>
           Cases_on ‘ts’>>gs[])>>

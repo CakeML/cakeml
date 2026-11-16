@@ -21,7 +21,18 @@ val () = append_decs
       mk_unop «length» Alength;
       Dlet NoLocs (Pvar «update»)
        (Fun «x» (Fun «y» (Fun «z»
-         (App Aupdate [Var (Short «x»); Var (Short «y»); Var (Short «z»)])))) ]``;
+         (App Aupdate [Var (Short «x»); Var (Short «y»); Var (Short «z»)]))));
+      Dlet NoLocs (Pvar «copySlice»)
+        (Fun «src» (Fun «srcoff» (Fun «len» (Fun «dst» (Fun «dstoff»
+        (App CopyArrArr [Var (Short «src»);Var (Short «srcoff»);Var (Short «len»);
+                         Var (Short «dst»);Var (Short «dstoff»)]))))));
+      Dlet NoLocs (Pvar «copyVecSlice»)
+        (Fun «src» (Fun «srcoff» (Fun «len» (Fun «dst» (Fun «dstoff»
+        (App CopyVecArr [Var (Short «src»);Var (Short «srcoff»);Var (Short «len»);
+                         Var (Short «dst»);Var (Short «dstoff»)]))))));
+      Dlet NoLocs (Pvar «subvector»)
+        (Fun «src» (Fun «srcoff» (Fun «len»
+        (App CopyArrVec [Var (Short «src»);Var (Short «srcoff»);Var (Short «len»)])))) ]``;
 
 Quote add_cakeml:
   fun fromList l =
@@ -49,36 +60,14 @@ Quote add_cakeml:
     end
 End
 
-val _ = ml_prog_update open_local_block;
-
-Quote add_cakeml:
-  fun copy_aux src dst di max n =
-    if n = max
-      then ()
-    else (update dst di (sub src n); copy_aux src dst (di + 1) max (n + 1))
-End
-
-val _ = ml_prog_update open_local_in_block;
-
 Quote add_cakeml:
   fun copy src dst di =
-    copy_aux src dst di (length src) 0
+    copySlice src 0 (length src) dst di
 End
-
-val _ = ml_prog_update open_local_block;
-
-Quote add_cakeml:
-  fun copyVec_aux src dst di max n =
-    if n = max
-        then ()
-    else (update dst (di + n) (Vector.sub src n); copyVec_aux src dst di max (n + 1))
-End
-
-val _ = ml_prog_update open_local_in_block;
 
 Quote add_cakeml:
   fun copyVec src dst di =
-    copyVec_aux src dst di (Vector.length src) 0
+    copyVecSlice src 0 (Vector.length src) dst di
 End
 
 val _ = ml_prog_update open_local_block;

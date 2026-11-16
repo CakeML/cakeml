@@ -84,7 +84,8 @@ End
 
 Inductive step_result_rel:
   (ctxt_rel cs1 cs2 ⇒
-    step_result_rel (Estep (env, st, ev, cs1)) (Estep (env, (st, ffi), ev, cs2))) ∧
+    step_result_rel (Estep (env, (st,po), ev, cs1))
+      (Estep (env, (st,ffi,po), ev, cs2))) ∧
   step_result_rel Edone Estuck ∧
   step_result_rel Etype_error (Eabort Rtype_error)
 End
@@ -96,7 +97,8 @@ Definition dstate_rel_def:
     dst.refs = st.refs ∧
     dst.next_type_stamp = st.next_type_stamp ∧
     dst.next_exn_stamp = st.next_exn_stamp ∧
-    dst.eval_state = st.eval_state
+    dst.eval_state = st.eval_state ∧
+    dst.ptr_eq_oracle = st.ptr_eq_oracle
 End
 
 Inductive deval_rel:
@@ -144,7 +146,7 @@ Definition is_Dffi_def:
 End
 
 Definition get_ffi_def:
-  get_ffi (Estep (env, (st, ffi), ev, cs)) = SOME ffi ∧
+  get_ffi (Estep (env, (st, ffi, po), ev, cs)) = SOME ffi ∧
   get_ffi _ = NONE
 End
 
@@ -523,7 +525,7 @@ QED
 Theorem application_thm:
   ∀op env s vs c.
     application op env s vs c =
-    if getOpClass op = FunApp then
+    if op = Opapp then
       case do_opapp vs of
       | NONE => Etype_error
       | SOME (env,e) => Estep (env,s,Exp e,c)
@@ -531,7 +533,7 @@ Theorem application_thm:
       case op of FFI n => (
         case vs of
           [Litv (StrLit conf); Loc b lnum] => (
-            case store_lookup lnum s of
+            case store_lookup lnum (FST s) of
               SOME (W8array ws) =>
                 if n = «» then Estep (env, s, Val $ Conv NONE [], c)
                 else Effi (ExtCall n)
@@ -540,11 +542,10 @@ Theorem application_thm:
             | _ => Etype_error)
         | _ => Etype_error)
       | _ => ARB)
-    else (case getOpClass op of
-    | Force =>
+    else if op = ThunkOp ForceThunk then
       (case vs of
          [Loc b n] => (
-            case dest_thunk [Loc b n] s of
+            case dest_thunk [Loc b n] (FST s) of
             | BadRef => Etype_error
             | NotThunk => Etype_error
             | IsThunk Evaluated v => return env s v c
@@ -552,18 +553,28 @@ Theorem application_thm:
                 return env s f
                   ((Capp Opapp [Conv NONE []] [], env)::(Cforce n, env)::c))
         | _ => Etype_error)
-    | _ =>
-      case do_app s op vs of
+    else if op = PtrEq then
+      (case vs of
+         [v1; v2] =>
+           (case do_eq v1 v2 of
+              Eq_type_error => Etype_error
+            | Eq_val b =>
+                let po = SND s in
+                return env (FST s, (0 =+ shift_seq 1 (po 0)) po)
+                  (Boolv (b ∧ po 0 0)) c)
+       | _ => Etype_error)
+    else
+      (case do_app (FST s) op vs of
       | NONE => Etype_error
-      | SOME (v1,Rval v') => return env v1 v' c
-      | SOME (v1,Rraise v) => Estep (env,v1,Exn v,c))
+      | SOME (v1,Rval v') => return env (v1, SND s) v' c
+      | SOME (v1,Rraise v) => Estep (env,(v1,SND s),Exn v,c))
 Proof
-  rpt strip_tac >> Cases_on ‘getOpClass op’ >> gs[] >>
-  TOP_CASE_TAC >> gs[application_def]
-  >- (
-    Cases_on ‘op’ >> gs[application_def] >> every_case_tac >>
-    gs[itree_semanticsTheory.do_app_def] >>
-    every_case_tac >> gs[]) >>
+  rpt strip_tac >> Cases_on ‘s’ >>
+  Cases_on ‘op = Opapp’ >- gs[application_def] >>
+  Cases_on ‘op = ThunkOp ForceThunk’ >- gs[application_def] >>
+  Cases_on ‘op = PtrEq’ >- gs[application_def] >>
+  gs[] >>
+  TOP_CASE_TAC >> gs[application_def] >>
   Cases_on ‘op’ >> gs[application_def] >> every_case_tac >>
   gs[itree_semanticsTheory.do_app_def, thunk_op_def] >>
   pop_assum $ mp_tac >>

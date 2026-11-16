@@ -376,6 +376,14 @@ Proof
       stamp_rel_cases, state_ok_def, state_rel_def]
 QED
 
+Theorem ok_with_ptr_eq_oracle[local,simp]:
+  (state_ok (s with ptr_eq_oracle := p) ⇔ state_ok s) ∧
+  (env_ok (s with ptr_eq_oracle := p) env ⇔ env_ok s env) ∧
+  (v_ok (s with ptr_eq_oracle := p) v ⇔ v_ok s v)
+Proof
+  rw [state_ok_def, state_rel_def, env_ok_def, v_ok_def]
+QED
+
 Theorem v_ok_Boolv[simp]:
   state_ok s ⇒ v_ok s (Boolv b)
 Proof
@@ -590,9 +598,10 @@ Proof
   \\ Cases_on ‘op = Strcat’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
-  \\ Cases_on ‘op = Strlen’ \\ gs []
+  \\ Cases_on ‘op = Strlen ∨ op = StrScanEq ∨ op = StrScanNeq’
   >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
+    pop_assum strip_assume_tac \\ gs []
+    \\ gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
   \\ Cases_on ‘op = Strsub’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
@@ -632,6 +641,31 @@ Proof
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def, copy_array_def, store_assign_def])
+  \\ Cases_on ‘op = CopyVecVec ∨ op = CopyArrVec’
+  >- (
+    pop_assum strip_assume_tac
+    \\ gvs [do_app_cases, v_ok_thm, with_same_refs_and_ffi, store_lookup_def]
+    \\ irule semanticPrimitivesPropsTheory.EVERY_copy_array
+    \\ qpat_assum ‘copy_array _ _ _ = _’ (irule_at Any) \\ simp []
+    \\ drule_then assume_tac state_ok_refs_ok
+    \\ fs [EVERY_EL] \\ first_x_assum drule \\ rw [ref_ok_thm, EVERY_EL])
+  \\ Cases_on ‘op = CopyVecArr ∨ op = CopyArrArr’
+  >- (
+    pop_assum strip_assume_tac
+    \\ gvs [do_app_cases, v_ok_thm, with_same_refs_and_ffi, store_lookup_def,
+            store_assign_def]
+    \\ ‘∀n vs. n < LENGTH s.refs ∧ EL n s.refs = Varray vs ⇒
+               EVERY (v_ok s) vs’ by (
+      rw [] \\ drule_then assume_tac state_ok_refs_ok
+      \\ fs [EVERY_EL] \\ first_x_assum drule \\ rw [ref_ok_thm, EVERY_EL])
+    \\ res_tac
+    \\ qmatch_asmsub_rename_tac ‘copy_array _ _ _ = SOME copy_result’
+    \\ ‘ref_ok s (Varray copy_result)’ by (
+      simp [ref_ok_thm]
+      \\ irule semanticPrimitivesPropsTheory.EVERY_copy_array
+      \\ qpat_assum ‘copy_array _ _ _ = _’ (irule_at Any) \\ simp [])
+    \\ gs [state_ok_def, state_rel_def, EL_LUPDATE, FLOOKUP_FUN_FMAP, ref_ok_def]
+    \\ rw [])
   \\ Cases_on ‘op = Aw8update’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
@@ -642,9 +676,10 @@ Proof
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def, copy_array_def, store_assign_def])
-  \\ Cases_on ‘op = Aw8length’ \\ gs []
+  \\ Cases_on ‘op = Aw8length ∨ op = Aw8ScanEq ∨ op = Aw8ScanNeq’
   >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
+    pop_assum strip_assume_tac \\ gs []
+    \\ gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def, copy_array_def, store_assign_def])
   \\ Cases_on ‘op = Aw8alloc’ \\ gs []
   >- (
@@ -679,7 +714,7 @@ Proof
          store_lookup_def, copy_array_def, store_assign_def,
          CaseEq"sum"]
     \\ Cases_on ‘a’ \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
-    \\ gvs[do_arith_def,CaseEq"list",v_ok_thm] )
+    \\ gvs[do_arith_def,CaseEq"list",CaseEq"div_round",v_ok_thm] )
   \\ Cases_on ‘op = Opderef’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
@@ -735,6 +770,8 @@ Proof
     \\ rw [v_rel_def, EL_LUPDATE, ref_rel_def])
   \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
   >- gvs [do_app_def, AllCaseEqs(), thunk_op_def]
+  \\ Cases_on ‘op = PtrEq’ \\ gs []
+  >- gvs [do_app_def]
   \\ Cases_on ‘op’ \\ gs []
   \\ qmatch_asmsub_rename_tac `ThunkOp thunk_primitive`
   \\ Cases_on `thunk_primitive` \\ gs []
@@ -773,17 +810,16 @@ QED
 
 Resume evaluate_ok[App_Op]:
   strip_tac
-  \\ ‘~ (getOpClass op = EvalOp)’ by (
-    Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
-  \\ ‘~ (getOpClass op = FunApp)’ by (
-    Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
   \\ rpt strip_tac
-  \\ gs[evaluate_def, Excl "getOpClass_def"]
-  \\ Cases_on ‘getOpClass op’ \\ gs[Excl "getOpClass_def"]
-  >>~ [‘getOpClass op = Force’]
+  \\ gs[evaluate_def]
+  \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
+  \\ Cases_on ‘op = PtrEq’ \\ gs[]
+  >>~- ([‘do_eq’],
+    gvs [CaseEqs ["prod", "result", "list", "eq_result"]]
+    \\ first_x_assum drule \\ rw [])
+  >>~ [‘dest_thunk’]
   >- (
-    Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
-    \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
+    full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
     >- (
       drule_all dest_thunk_ok \\ rw [] \\ gvs []
       \\ qpat_x_assum ‘state_ok st2’ mp_tac
@@ -795,8 +831,7 @@ Resume evaluate_ok[App_Op]:
       \\ IF_CASES_TAC \\ gvs [ref_rel_def, v_ok_def])
     >- (drule_all dest_thunk_ok \\ gvs []))
   >- (
-    Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
-    \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
+    full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
     \\ (
       drule_all dest_thunk_ok \\ rw [] \\ gvs []
       \\ imp_res_tac (CONJUNCT1 evaluate_next_type_stamp_mono)
@@ -808,8 +843,7 @@ Resume evaluate_ok[App_Op]:
       \\ gvs [oneline update_thunk_def, AllCaseEqs(), store_assign_def,
               FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO]))
   >- (
-    Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
-    \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
+    full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
     >- (
       gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def]
       \\ qpat_x_assum ‘state_ok st'’ mp_tac
@@ -819,8 +853,7 @@ Resume evaluate_ok[App_Op]:
     \\ gvs [EVERY_EL, v_ok_def, oneline update_thunk_def, AllCaseEqs(),
             store_assign_def])
   >- (
-    Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
-    \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
+    full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
     \\ drule_all dest_thunk_ok \\ gvs [])
   \\ gvs [CaseEqs ["prod", "result", "option"]]
   \\ dxrule_then assume_tac (iffRL EVERY_REVERSE)

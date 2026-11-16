@@ -330,4 +330,3 @@ Proof
   rw [data_safe_def,bind_def]
   \\ rw [] \\ fs [data_safe_def]
 QED
-

@@ -1241,3 +1241,63 @@ Theorem test6[local]: (* functions inside constant data are lifted separately *)
 Proof
   EVAL_TAC
 QED
+
+(*
+  The literal shift amount of a word64 shift stays in place, so that
+  flat_to_clos can compile it to a shift by a constant.
+*)
+Theorem test_word64_shift_amount_not_lifted[local]:
+  comp
+    (Dlet NoLocs (Pvar «shl»)
+      (Fun «w»
+        (App (Arith (Shift Lsl) (WordT W64))
+          [Var (Short «w»); Lit (Word64 3w)])))
+  =
+    (Dlet NoLocs (Pvar «shl»)
+      (Fun «w»
+        (App (Arith (Shift Lsl) (WordT W64))
+          [Var (Short «w»); Lit (Word64 3w)])))
+Proof
+  EVAL_TAC
+QED
+
+(*
+  The same holds for calls of the basis wrappers, e.g. Word64.>> w 3w, which
+  source_to_flat inlines to the primitive shift.
+*)
+Theorem test_word64_shift_wrapper_amount_not_lifted[local]:
+  comp
+    (Dlet NoLocs (Pvar «shr»)
+      (Fun «w»
+        (App Opapp
+          [App Opapp [Var (Long «Word64» (Short «>>»)); Var (Short «w»)];
+           Lit (Word64 3w)])))
+  =
+    (Dlet NoLocs (Pvar «shr»)
+      (Fun «w»
+        (App Opapp
+          [App Opapp [Var (Long «Word64» (Short «>>»)); Var (Short «w»)];
+           Lit (Word64 3w)])))
+Proof
+  EVAL_TAC
+QED
+
+(*
+  Word64 literals that are not shift amounts are still lifted.
+*)
+Theorem test_word64_non_shift_literal_lifted[local]:
+  comp
+    (Dlet NoLocs (Pvar «add»)
+      (Fun «w»
+        (App (Arith Add (WordT W64))
+          [Var (Short «w»); Lit (Word64 3w)])))
+  =
+    (Dlocal
+      [Dlet NoLocs (Pvar «constant_») (Lit (Word64 3w))]
+      [Dlet NoLocs (Pvar «add»)
+        (Fun «w»
+          (App (Arith Add (WordT W64))
+            [Var (Short «w»); Var (Short «constant_»)]))])
+Proof
+  EVAL_TAC
+QED

@@ -98,17 +98,12 @@ Proof
   gvs [Once type_v_cases, Ttup_def]
 QED
 
-Theorem v_size_less_fields_size:
-  !fields field. MEM field fields ==> v_size field < v1_size fields
-Proof
-  Induct >> rw [v_size_def] >> res_tac >> decide_tac
-QED
-
 Theorem v_size_less_constructor:
   !field fields stamp.
     MEM field fields ==> v_size field < v_size (Conv stamp fields)
 Proof
-  rpt strip_tac >> drule v_size_less_fields_size >> simp [v_size_def]
+  rpt strip_tac >> drule miscTheory.MEM_list_size_lt >>
+  disch_then $ qspec_then ‘v_size’ mp_tac >> simp []
 QED
 
 Theorem type_rep_complete_below_pair:

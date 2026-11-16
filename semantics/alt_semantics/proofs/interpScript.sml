@@ -134,16 +134,6 @@ Proof
   fs []
 QED
 
-val _ = temp_delsimps["getOpClass_def"]
-
-Theorem getOpClass_opClass:
-  (getOpClass op = FunApp ⇔ opClass op FunApp) ∧
-  (getOpClass op = Simple ⇔ opClass op Simple) ∧
-  (getOpClass op = Force ⇔ opClass op Force)
-Proof
-  Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases, AllCaseEqs()]
-QED
-
 Theorem run_eval_def:
   (!^st env l.
     run_eval env (Lit l)
@@ -199,15 +189,14 @@ Theorem run_eval_def:
      do
        vs <- run_eval_list env (REVERSE es);
        ^st <- get_store;
-       (case getOpClass op of
-        | FunApp =>
+       (if op = Opapp then
             (case do_opapp (REVERSE vs) of
              | NONE => raise (Rabort Rtype_error)
              | SOME (env', e3) =>
                  do () <- dec_clock;
                     run_eval env' e3
                  od)
-        | Force =>
+        else if op = ThunkOp ForceThunk then
             (case dest_thunk (REVERSE vs) st.refs of
              | BadRef => raise (Rabort Rtype_error)
              | NotThunk => raise (Rabort Rtype_error)
@@ -226,14 +215,26 @@ Theorem run_eval_def:
                      od)
                   od
                 | NONE => raise (Rabort Rtype_error))
-        | Simple =>
+        else if op = Eval then
+            raise (Rabort Rtype_error)
+        else if op = PtrEq then
+            (case REVERSE vs of
+               [v1; v2] =>
+                 (case do_eq v1 v2 of
+                    Eq_type_error => raise (Rabort Rtype_error)
+                  | Eq_val b =>
+                      do () <- set_store (st with ptr_eq_oracle :=
+                                 (0 =+ shift_seq 1 (st.ptr_eq_oracle 0)) st.ptr_eq_oracle);
+                         return (Boolv (b ∧ st.ptr_eq_oracle 0 0))
+                      od)
+             | _ => raise (Rabort Rtype_error))
+        else
             (case do_app (st.refs,st.ffi) op (REVERSE vs) of
              | NONE => raise (Rabort Rtype_error)
              | SOME ((refs',ffi'),res) =>
               do () <- set_store (st with <| refs := refs'; ffi := ffi' |>);
                  combin$C return res
-              od)
-        | _ => raise (Rabort Rtype_error))
+              od))
      od) ∧
   (!env lop e1 e2.
      run_eval env (Log lop e1 e2)
@@ -336,45 +337,54 @@ Proof
       fs [GSYM evaluate_run_eval] >>
       metis_tac [])
   >- (rw [dec_clock_def] >>
-      Cases_on ‘getOpClass op = FunApp’ >> gs[]
-      >- (every_case_tac >>
-          rw [] >>
-          fs [remove_lambda_pair, getOpClass_opClass] >>
-          rw [] >>
-          every_case_tac >>
-          fs [GSYM evaluate_run_eval_list] >>
-          rw [] >>
-          rw [] >> fs[state_transformerTheory.UNIT_DEF] >>
-          metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec]) >>
-      Cases_on ‘getOpClass op = Force’ >> gvs[]
+      Cases_on ‘op = Opapp’ >> gs[]
       >- (
-        gvs[getOpClass_opClass] >>
-        ‘¬opClass op FunApp ∧ ¬opClass op Simple’ by (Cases_on ‘op’ >> gvs[opClass_cases]) >>
+        every_case_tac >>
+        rw [] >>
+        fs [remove_lambda_pair] >>
+        rw [] >>
+        every_case_tac >>
+        fs [GSYM evaluate_run_eval_list] >>
+        rw [] >>
+        rw [] >> fs[state_transformerTheory.UNIT_DEF] >>
+        metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec]) >>
+      Cases_on ‘op = ThunkOp ForceThunk’ >> gvs[]
+      >- (
         simp[] >>
         every_case_tac >> gvs[GSYM evaluate_run_eval_list, GSYM evaluate_run_eval] >>
-        gvs[LESS_OR_EQ] >> metis_tac[]
-        ) >>
-      Cases_on ‘getOpClass op = Simple’ >> gs[]
-      >- (‘~ opClass op FunApp ∧ ¬opClass op Force’ by
-            (Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases,AllCaseEqs()]) >>
-          gs[getOpClass_opClass] >>
-          every_case_tac >>
-          rw [] >>
-          fs [remove_lambda_pair] >>
-          rw [] >>
-          every_case_tac >>
-          fs [GSYM evaluate_run_eval_list] >>
-          rw [] >>
-          rw [] >> fs[state_transformerTheory.UNIT_DEF] >>
-          metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec]) >>
-      ‘getOpClass op = EvalOp’
-        by (Cases_on ‘op’ >> gs[opClass_cases, getOpClass_def,AllCaseEqs()]) >> gs[] >>
-      ‘~ opClass op FunApp’ by
-        (Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases,AllCaseEqs()]) >>
-      gs[] >> every_case_tac >> gs[remove_lambda_pair] >>
+        gvs[LESS_OR_EQ] >> metis_tac[]) >>
+      Cases_on ‘op = Eval’ >> gvs[]
+      >- (
+        every_case_tac >> gs[remove_lambda_pair] >>
+        fs [GSYM evaluate_run_eval_list] >>
+        gs[do_app_def] >>
+        disj1_tac >> first_x_assum $ irule_at Any >> every_case_tac >> gs[]) >>
+      Cases_on ‘op = PtrEq’ >> gvs[]
+      >- (
+        every_case_tac >>
+        rw [] >>
+        fs [remove_lambda_pair] >>
+        rw [] >>
+        every_case_tac >>
+        fs [GSYM evaluate_run_eval_list] >>
+        rw [] >>
+        rw [] >> fs[state_transformerTheory.UNIT_DEF]
+        >>~- ([‘REVERSE l = [x; y] (* a *)’],
+              metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec]) >>
+        disj2_tac >> disj1_tac >>
+        first_assum $ irule_at Any >>
+        rpt (qpat_x_assum ‘REVERSE _ = _’
+               (mp_tac o AP_TERM “LENGTH : v list -> num”)) >>
+        simp[]) >>
+      every_case_tac >>
+      rw [] >>
+      fs [remove_lambda_pair] >>
+      rw [] >>
+      every_case_tac >>
       fs [GSYM evaluate_run_eval_list] >>
-      Cases_on ‘op’ >> gs[opClass_cases, getOpClass_def] >> gs[do_app_def]
-      >> disj1_tac >> first_x_assum $ irule_at Any >> every_case_tac >> gs[])
+      rw [] >>
+      rw [] >> fs[state_transformerTheory.UNIT_DEF] >>
+      metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec])
   >- (every_case_tac >>
       rw [] >>
       fs [remove_lambda_pair, GSYM evaluate_run_eval] >>
@@ -479,14 +489,14 @@ Definition run_eval_dec_def:
 End
 
 Theorem run_eval_decs_spec:
-  (!d (st:'a state) env st' r.
+  (!env (st:'a state) d st' r.
      (run_eval_dec env st d = (st', r)) ⇒
      evaluate_dec T env st d (st', r)) ∧
-  (!ds env (st:'a state) st'  r.
+  (!env (st:'a state) ds st'  r.
      (run_eval_decs env st ds = (st',r)) ⇒
      evaluate_decs T env st ds (st',r))
 Proof
-  ho_match_mp_tac astTheory.dec_induction >>
+  ho_match_mp_tac run_eval_dec_ind >>
   rw [] >>
   simp [Once evaluate_dec_cases] >>
   fs [run_eval_dec_def] >>
