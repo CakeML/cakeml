@@ -3,44 +3,9 @@
 *)
 Theory syntax_helper
 Ancestors
-  misc cnf mlint mlstring mllist
+  misc cnf mlint mlstring mllist input_lex
 Libs
   preamble
-
-(* Generic mlstring facts, belonging upstream in mlstringTheory *)
-
-Theorem EL_explode:
-  EL n (explode s) = strsub s n
-Proof
-  Cases_on`s`>>simp[]
-QED
-
-Theorem strsub_implode:
-  strsub (implode s) n = EL n s
-Proof
-  fs[strsub_def]
-QED
-
-(***
-  Parsing helpers for top-level formulas being read from files.
-  These should be defined as cleanly as possible.
-***)
-
-(* Everything recognized as a "blank" *)
-Definition blanks_def:
-  blanks (c:char) ⇔ c = #" " ∨ c = #"\n" ∨ c = #"\t" ∨ c = #"\r"
-End
-
-Definition tokenize_def:
-  tokenize (s:mlstring) =
-  case mlint$fromString s of
-    NONE => INL s
-  | SOME i => INR i
-End
-
-Definition toks_def:
-  toks s = MAP tokenize (tokens blanks s)
-End
 
 (* The concrete formats number variables from 1, reserving 0 as the clause
   terminator. var_lit is polymorphic, so the type is pinned here. *)
@@ -205,25 +170,6 @@ Proof
   metis_tac[MEM_canon_clause]
 QED
 
-(* Parse ints until the next zero and returns. *)
-Definition parse_until_zero_aux_def:
-  (parse_until_zero_aux [] acc = NONE) ∧
-  (parse_until_zero_aux (x::xs) acc =
-    case x of
-      INL _ => NONE
-    | INR l =>
-    if l = 0:int then
-      SOME (REVERSE acc, xs)
-    else
-      parse_until_zero_aux xs (l::acc)
-  )
-End
-
-Definition parse_until_zero_def:
-  parse_until_zero ls =
-    parse_until_zero_aux ls []
-End
-
 (* Force literals to be in maxvar *)
 Definition check_maxvar_def:
   check_maxvar maxvar ls =
@@ -250,29 +196,6 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem parse_until_zero_aux_nz:
-  ∀ls acc c rest.
-  parse_until_zero_aux ls acc = SOME (c,rest) ∧
-  EVERY (λi. i ≠ 0) acc ⇒
-  EVERY (λi. i ≠ 0) c
-Proof
-  Induct>>
-  rw[parse_until_zero_aux_def]>>
-  gvs[AllCaseEqs()]>>
-  first_x_assum match_mp_tac>>
-  last_x_assum (irule_at Any)>>
-  simp[]
-QED
-
-Theorem parse_until_zero_nz:
-  parse_until_zero ls = SOME (c,rest) ⇒
-  EVERY (λi. i ≠ 0) c
-Proof
-  rw[parse_until_zero_def]>>
-  drule parse_until_zero_aux_nz>>
-  simp[]
-QED
-
 Theorem parse_lits_nz_lit:
   parse_lits maxvar ls = SOME c ⇒
   EVERY nz_lit c
@@ -283,104 +206,6 @@ Proof
   simp[EVERY_MAP,EVERY_MEM]>>
   metis_tac[nz_lit_mk_lit]
 QED
-
-(* Lines to keep: comments start with a single "c", and blank lines
-  tokenize to the empty list. *)
-Definition keep_line_def:
-  (keep_line (INL c::cs) ⇔ (c ≠ «c»)) ∧
-  (keep_line [] ⇔ F) ∧
-  (keep_line _ = T)
-End
-
-(***
-  DIMACS file parsing.
-
-  The body parser is parameterised by a line parser so that formats
-  extending DIMACS (e.g. with XOR or BNN lines) reuse the same
-  header handling, comment stripping and length check. Such formats
-  parse each line into a sum type and partition the result.
-***)
-
-Definition parse_header_line_def:
-  parse_header_line ls =
-  case ls of
-    [p; cnf; vars; numls] =>
-    if p = INL «p» ∧ cnf = INL «cnf»
-    then
-      case (vars, numls)
-      of
-        (INR v,INR c) => if v ≥ 0 ∧ c ≥ 0 then SOME (Num v,Num c) else NONE
-      | _ => NONE
-    else NONE
-  | _ => NONE
-End
-
-(* Produces the parsed lines in the order they are read *)
-Definition parse_body_gen_def:
-  (parse_body_gen pl maxvar [] acc = SOME (REVERSE acc)) ∧
-  (parse_body_gen pl maxvar (s::ss) acc =
-    case pl maxvar s of
-      NONE => NONE
-    | SOME c => parse_body_gen pl maxvar ss (c::acc)
-  )
-End
-
-Theorem LENGTH_parse_body_gen:
-  ∀ss pl mv acc res.
-  parse_body_gen pl mv ss acc = SOME res ⇒
-  LENGTH res = LENGTH ss + LENGTH acc
-Proof
-  Induct>>fs[parse_body_gen_def]>>
-  rw[]>>every_case_tac>>fs[]>>
-  first_x_assum drule>>
-  simp[]
-QED
-
-(* Any property guaranteed by the line parser lifts to the whole body *)
-Theorem parse_body_gen_EVERY:
-  ∀ss pl mv acc res.
-  parse_body_gen pl mv ss acc = SOME res ∧
-  EVERY P acc ∧
-  (∀s c. pl mv s = SOME c ⇒ P c) ⇒
-  EVERY P res
-Proof
-  Induct>>fs[parse_body_gen_def]>>
-  rw[]>>every_case_tac>>fs[]>>
-  first_x_assum irule>>
-  first_x_assum (irule_at Any)>>
-  simp[]>>
-  metis_tac[]
-QED
-
-(* A body parses to exactly the lines the line parser accepts *)
-Theorem parse_body_gen_LIST_REL:
-  ∀ss acc res.
-  LIST_REL (λs c. pl mv s = SOME c) ss res ⇒
-  parse_body_gen pl mv ss acc = SOME (REVERSE acc ++ res)
-Proof
-  Induct>>rw[parse_body_gen_def]>>
-  gvs[]>>
-  first_x_assum drule>>
-  simp[]
-QED
-
-(* Strip comments, read the header, parse the body and check the
-  declared line count. *)
-Definition parse_dimacs_toks_gen_def:
-  parse_dimacs_toks_gen pl tokss =
-  let kept = FILTER keep_line tokss in
-  case kept of
-    s::ss =>
-      (case parse_header_line s of
-        SOME (vars,numls) =>
-          if LENGTH ss = numls then
-            (case parse_body_gen pl vars ss [] of
-              NONE => NONE
-            | SOME acc => SOME (vars,numls,acc))
-          else NONE
-      | NONE => NONE)
-  | [] => NONE
-End
 
 (***
   Printing helpers.
@@ -682,38 +507,6 @@ Proof
   simp[]
 QED
 
-
-(***
-  Less restrictive helpers for print/parse.
-  This is mainly for implementing proof parsers in ASCII.
-***)
-
-Definition fromString_unsafe_def:
-  fromString_unsafe str =
-    if strlen str = 0
-    then 0i
-    else if strsub_unsafe str 0 = #"-"
-      then ~&fromChars_unsafe (strlen str - 1)
-                              (substring str 1 (strlen str - 1))
-      else &fromChars_unsafe (strlen str) str
-End
-
-Definition is_int_def:
-  is_int c ⇔
-  (#"0" ≤ c ∧ c ≤ #"9") ∨ c = #"-"
-End
-
-(* Tokenizes as an integer if first character is numeric or "-" *)
-Definition tokenize_fast_def:
-  tokenize_fast (s:mlstring) =
-  if strlen s = 0 then INL s
-  else if is_int (strsub_unsafe s 0) then INR (fromString_unsafe s)
-  else INL s
-End
-
-Definition toks_fast_def:
-  toks_fast s = MAP tokenize_fast (tokens blanks s)
-End
 
 (***
   Binary format parser

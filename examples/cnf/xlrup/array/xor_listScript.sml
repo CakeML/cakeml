@@ -6,7 +6,7 @@
 *)
 Theory xor_list
 Ancestors
-  xor syntax_helper mlstring
+  xor syntax_helper input_lex mlstring
 Libs
   preamble
 

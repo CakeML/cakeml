@@ -3,65 +3,24 @@
 *)
 Theory cnfProg
 Ancestors
-  basis_ffi cnf syntax_helper dimacs cnf_to_pb npbc_parseProg
+  basis_ffi cnf syntax_helper dimacs cnf_to_pb npbc_parseProg input_lex
+  input_lexProg
 Libs
   preamble basis cfLib basisFunctionsLib
 
 val _ = translation_extends "npbc_parseProg";
-(* TODO: COPIED from lpr_arrayFullProgScript.sml *)
-Theorem fastForwardFD_ADELKEY_same[simp]:
-   forwardFD fs fd n with infds updated_by ADELKEY fd =
-   fs with infds updated_by ADELKEY fd
-Proof
-  fs [forwardFD_def, IO_fs_component_equality]
-QED
-
-(* npbc_parseProg already translated pb_parse's own blanks/tokenize, so
-  syntax_helper's get the _1 suffix here *)
-val _ = translate syntax_helperTheory.blanks_def;
-val _ = translate syntax_helperTheory.tokenize_def;
-
-val blanks_1_v_thm = theorem "blanks_1_v_thm";
-val tokenize_1_v_thm = theorem "tokenize_1_v_thm";
-
-val _ = translate parse_header_line_def;
-
-val parse_header_line_side = Q.prove(`
-   ∀x. parse_header_line_side x= T`,
-  rw[definition"parse_header_line_side_def"]>>
-  intLib.ARITH_TAC)
-  |> update_precondition;
 
 val _ = translate var_lit_def;
 val _ = translate mk_lit_def;
-val _ = translate parse_until_zero_aux_def;
-val _ = translate parse_until_zero_def;
 val _ = translate check_maxvar_def;
 val _ = translate parse_lits_def;
-val _ = translate keep_line_def;
 
 Overload "CFML_TYPE" = ``LIST_TYPE (LIST_TYPE (CNF_LIT_TYPE NUM))``
-
-Definition format_dimacs_failure_def:
-  format_dimacs_failure (lno:num) s =
-  «c DIMACS parse failed at line: » ^ toString lno ^ «. Reason: » ^ s ^ «\n»
-End
-
-val _ = translate format_dimacs_failure_def;
-
-val inputLineTokens_specialize =
-  inputLineTokens_spec_lines
-  |> Q.GEN `f` |> Q.SPEC`syntax_helper$blanks`
-  |> Q.GEN `fv` |> Q.SPEC`blanks_1_v`
-  |> Q.GEN `g` |> Q.ISPEC`syntax_helper$tokenize`
-  |> Q.GEN `gv` |> Q.ISPEC`tokenize_1_v`
-  |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
-  |> SIMP_RULE std_ss [blanks_1_v_thm,tokenize_1_v_thm,blanks_def] ;
 
 (* The DIMACS body is read one line at a time, tokenizing during input *)
 Quote add_cakeml:
   fun parse_dimacs_body_arr lno maxvar fd acc =
-  case TextIO.inputLineTokens #"\n" fd blanks_1 tokenize_1 of
+  case input_toks fd of
     None => Inr (List.rev acc)
   | Some l =>
     if keep_line l then
@@ -87,7 +46,7 @@ Theorem parse_dimacs_body_arr_spec:
       (∃err.
       SUM_TYPE STRING_TYPE CFML_TYPE
         (case parse_body_gen parse_lits maxvar
-          (FILTER keep_line (MAP syntax_helper$toks lines)) acc of
+          (FILTER keep_line (MAP toks lines)) acc of
           NONE => INL err
         | SOME x => INR x) v) *
       SEP_EXISTS k lines'.
@@ -104,7 +63,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     >- (
-      xapp_spec inputLineTokens_specialize>>
+      xapp_spec input_toks_spec>>
       qexistsl_tac [`emp`,‘[]’,‘fs’]>>
       qexists_tac ‘fd’>>xsimpl>>fs [])>>
     gvs[OPTION_TYPE_def]>>
@@ -120,13 +79,12 @@ Proof
               STDIO (forwardFD fs fd k) *
               INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
               & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
-                  (SOME (syntax_helper$toks h)) v)’
+                  (SOME (toks h)) v)’
   >- (
-    xapp_spec inputLineTokens_specialize>>
+    xapp_spec input_toks_spec>>
     qexistsl_tac [`emp`,‘h::lines’,‘fs’]>>
     qexists_tac ‘fd’>>xsimpl>>fs []>>
-    rw []>>qexists_tac ‘x’>>xsimpl>>
-    simp[syntax_helperTheory.toks_def])>>
+    rw []>>qexists_tac ‘x’>>xsimpl)>>
   gvs[OPTION_TYPE_def]>>
   xmatch>>fs []>>
   xlet_autop>>
@@ -146,7 +104,7 @@ Proof
   xif>> asm_exists_tac>>simp[]>>
   xlet_autop>>
   simp[parse_body_gen_def]>>
-  Cases_on`parse_lits maxvar (syntax_helper$toks h)`>>
+  Cases_on`parse_lits maxvar (toks h)`>>
   fs[OPTION_TYPE_def]
   >- (
     xmatch>>
@@ -156,7 +114,7 @@ Proof
     qexists_tac`k`>> qexists_tac`lines`>>xsimpl>>
     simp[SUM_TYPE_def]>>
     metis_tac[])>>
-  rename1`parse_lits maxvar (syntax_helper$toks h) = SOME cl`>>
+  rename1`parse_lits maxvar (toks h) = SOME cl`>>
   xmatch>>
   xlet_autop>>
   xlet_autop>>
@@ -176,7 +134,7 @@ QED
 
 Quote add_cakeml:
   fun parse_dimacs_toks_arr lno fd =
-  case TextIO.inputLineTokens #"\n" fd blanks_1 tokenize_1 of
+  case input_toks fd of
     None => Inl (format_dimacs_failure lno "failed to find header")
   | Some l =>
     if keep_line l then
@@ -204,7 +162,7 @@ Theorem parse_dimacs_toks_arr_spec:
     (POSTv v.
       & (∃err. SUM_TYPE STRING_TYPE
         (PAIR_TYPE NUM (PAIR_TYPE NUM CFML_TYPE))
-      (case parse_cnf_toks (MAP syntax_helper$toks lines) of
+      (case parse_cnf_toks (MAP toks lines) of
         NONE => INL err
       | SOME x => INR x) v) *
       SEP_EXISTS k lines'.
@@ -221,7 +179,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     >- (
-      xapp_spec inputLineTokens_specialize>>
+      xapp_spec input_toks_spec>>
       qexistsl_tac [`emp`,‘[]’,‘fs’]>>
       qexists_tac ‘fd’>>xsimpl>>fs [])>>
     gvs [OPTION_TYPE_def]>>
@@ -237,13 +195,13 @@ Proof
           SEP_EXISTS k.
               STDIO (forwardFD fs fd k) *
               INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
-              & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (syntax_helper$toks h)) v)’
+              & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
+                  (SOME (toks h)) v)’
   >- (
-    xapp_spec inputLineTokens_specialize>>
+    xapp_spec input_toks_spec>>
     qexistsl_tac [`emp`,‘h::lines’,‘fs’]>>
     qexists_tac ‘fd’>>xsimpl>>fs []>>
-    rw []>>qexists_tac ‘x’>>xsimpl>>
-    simp[syntax_helperTheory.toks_def])>>
+    rw []>>qexists_tac ‘x’>>xsimpl)>>
   gvs [OPTION_TYPE_def]>>
   xmatch>>fs []>>
   xlet_autop>>
@@ -265,7 +223,7 @@ Proof
     metis_tac[])>>
   xif>> asm_exists_tac>>simp[]>>
   xlet_autop>>
-  Cases_on`parse_header_line (syntax_helper$toks h)`>>fs[OPTION_TYPE_def]
+  Cases_on`parse_header_line (toks h)`>>fs[OPTION_TYPE_def]
   >- (
     xmatch>>
     xlet_autop>>
@@ -275,14 +233,14 @@ Proof
     simp[SUM_TYPE_def]>>
     metis_tac[])>>
   xmatch>>
-  rename1`parse_header_line (syntax_helper$toks h) = SOME hdr`>>
+  rename1`parse_header_line (toks h) = SOME hdr`>>
   PairCases_on`hdr`>>fs[PAIR_TYPE_def]>>
   xmatch>>
   xlet_autop>>
   xlet `(POSTv v.
       & (∃err. SUM_TYPE STRING_TYPE CFML_TYPE
       (case parse_body_gen parse_lits hdr0
-        (FILTER keep_line (MAP syntax_helper$toks lines)) [] of
+        (FILTER keep_line (MAP toks lines)) [] of
         NONE => INL err
       | SOME x => INR x) v) *
       SEP_EXISTS k lines'.
@@ -352,7 +310,7 @@ Theorem parse_dimacs_full_spec:
     (POSTv v.
     & (∃err. (SUM_TYPE STRING_TYPE (PAIR_TYPE NUM (PAIR_TYPE NUM CFML_TYPE))
     (if inFS_fname fs f then
-    (case parse_cnf_toks (MAP syntax_helper$toks (all_lines_file fs f)) of
+    (case parse_cnf_toks (MAP toks (all_lines_file fs f)) of
       NONE => INL err
     | SOME x => INR x)
     else INL err) v)) * STDIO fs)
@@ -386,7 +344,7 @@ Proof
   qmatch_goalsub_abbrev_tac`INSTREAM_LINES _ fdd fddv lines fss`>>
   xlet`(POSTv v.
       & (∃err. SUM_TYPE STRING_TYPE (PAIR_TYPE NUM (PAIR_TYPE NUM CFML_TYPE))
-      (case parse_cnf_toks (MAP syntax_helper$toks lines) of
+      (case parse_cnf_toks (MAP toks lines) of
         NONE => INL err
       | SOME x => INR x) v) *
       SEP_EXISTS k lines'.
@@ -502,40 +460,6 @@ Proof
   simp[get_fml_def,parse_cnf_def]
 QED
 
-(* NOTE: Reuse infrastructure from pbc_normalise *)
-
-(* Variables x1 ... xl maps to 1 ... l respectively
-  everything else uses the mapping *)
-Definition plainLim_nf_def:
-  plainLim_nf l s nhm =
-  if strlen s ≥ 1 ∧ strsub_unsafe s 0 = #"x" then
-    case mlint$fromNatString (substring s 1 (strlen s - 1)) of
-      NONE => NONE
-    | SOME n =>
-      if n ≤ l then SOME (n,nhm)
-      else SOME(name_to_num_var s nhm)
-  else
-    SOME(name_to_num_var s nhm)
-End
-
-val res = translate plainLim_nf_def;
-
-val res = translate pbc_normaliseTheory.mk_map_def;
-val res = translate pbc_normaliseTheory.name_to_num_var_def;
-
-Definition cnf_init_state_def:
-  cnf_init_state n =
-  <| to_num := LN; to_str := LN; hash_fun := hash_str; cmp_name := compare; next_num := n+1 |>
-End
-
-Definition plainLim_ns_def:
-  plainLim_ns n = (plainLim_nf n,
-    cnf_init_state n)
-End
-
-val res = translate cnf_init_state_def;
-val res = translate plainLim_ns_def;
-
 Definition UNSAT_string_def:
   UNSAT_string = «s VERIFIED UNSAT\n»
 End
@@ -575,10 +499,12 @@ Quote add_cakeml:
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (fml,(nv,nc)) =>
-    let val n = None in
+    let val n = None
+        val tv = nt_new (Some nv) (nv + 1) in
+    case enc_list_mv fml [] 0 of (fmls,mx) =>
     (case
       ores_to_string (
-        check_unsat_top False (plainlim_ns nv) (enc_list fml) n n [] n n f2) of
+        check_unsat_top False tv fmls mx n n [] n n f2) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s)
     end
@@ -612,7 +538,7 @@ Proof
   xcf "check_unsat_2" (get_ml_prog_state ())>>
   reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
   xlet_autop>>
-  Cases_on`res`
+  namedCases_on`res`["err","parsed"]
   >- (
     fs[SUM_TYPE_def]>>
     xmatch>>
@@ -621,71 +547,87 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`x`>>
+    qexists_tac`err`>>
     xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
   fs[SUM_TYPE_def]>>
-  PairCases_on`y`>>
+  PairCases_on`parsed`>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>
-  ntac 4 xlet_autop>>
-  xlet`POSTv v. STDIO fs * &BOOL F v`
-  >-
-    (xcon>>xsimpl)>>
-  xlet`POSTv v.
-    STDIO fs *
-    SEP_EXISTS res.
-     &(
-        SUM_TYPE STRING_TYPE
-         (PAIR_TYPE PBC_OUTPUT_TYPE
-           (PAIR_TYPE (OPTION_TYPE INT) PBC_CONCL_TYPE))
-          res v ∧
-        case res of
-         INR (output,bound,concl) =>
-           sem_concl (set (fml_to_pbf fml)) NONE {} concl
-        | INL l => T)`
+  rpt xlet_autop>>
+  xlet`POSTv tv.
+    STDIO fs * NT_TABLE (SOME parsed1) (nt_init (parsed1 + 1)) tv`
   >- (
-    `LIST_TYPE fslot_TYPE (MAP (λc. enc c T) (fml_to_pbf fml)) v''` by
-      gvs[npbc_arrayProgTheory.LIST_TYPE_fslot_TYPE,
-        npbc_parseProgTheory.enc_list_def,EVERY_MAP]>>
-    drule_at (Pos (el 2)) check_unsat_top_spec>>
-    disch_then drule>>
-    strip_tac>>
     xapp>>
     xsimpl>>
-    fs[FILENAME_def,validArg_def,OPTION_TYPE_def]>>
-    rpt (first_x_assum (irule_at Any))>>
-    qexists_tac`NONE`>>qexists_tac`NONE`>>
-    qexists_tac`NONE`>>qexists_tac`NONE`>>
-    qexists_tac`[]`>>
-    xsimpl>>
-    simp[OPTION_TYPE_def,LIST_TYPE_def]>>
-    rw[]>> asm_exists_tac>>simp[]>>
-    every_case_tac>>fs[npbcTheory.pres_set_spt_def])>>
+    qexistsl_tac[`parsed1 + 1`,`SOME parsed1`]>>
+    simp[OPTION_TYPE_def]>>
+    xsimpl)>>
   xlet_autop>>
-  Cases_on`ores_to_string res`>>fs[SUM_TYPE_def]>>
+  xlet`POSTv v.
+    STDIO fs * NT_TABLE (SOME parsed1) (nt_init (parsed1 + 1)) tv *
+    &PAIR_TYPE (LIST_TYPE NPBC_SLOT_SLOT_TYPE) NUM
+      (enc_list_mv (fml_to_pbf fml) [] 0) v`
+  >- (
+    xapp>>
+    xsimpl>>
+    qexistsl_tac[`[]`,`fml_to_pbf fml`]>>
+    simp[LIST_TYPE_def])>>
+  qspec_then`fml_to_pbf fml` assume_tac
+    (Q.GEN`fml` (Q.INST [`mx`|->`0`] npbc_parseProgTheory.max_var_list_bound))>>
+  gvs[npbc_parseProgTheory.enc_list_mv_thm,PAIR_TYPE_def]>>
+  xmatch>>
+  ntac 2 xlet_autop>>
+  xlet`POSTv v.
+    STDIO fs *
+    SEP_EXISTS res st'.
+    NT_TABLE (SOME parsed1) st' tv *
+    &(SUM_TYPE STRING_TYPE
+        (PAIR_TYPE PBC_OUTPUT_TYPE
+          (PAIR_TYPE (OPTION_TYPE INT) PBC_CONCL_TYPE)) res v ∧
+      case res of
+        INR (output,bound,concl) =>
+        sem_concl (set (fml_to_pbf fml)) NONE {} concl
+      | INL l => T)`
+  >- (
+    xapp_spec check_unsat_top_spec>>
+    xsimpl>>
+    qexistsl_tac[`emp`,`nt_init (parsed1 + 1)`,`NONE`,`NONE`,`NONE`,`NONE`,
+                 `SOME parsed1`,`fs`,`[]`,`fml_to_pbf fml`,`F`,`f2`,
+                 `max_var_list (fml_to_pbf fml) 0`]>>
+    xsimpl>>
+    gvs[npbc_parseProgTheory.enc_list_def,
+        npbc_arrayProgTheory.LIST_TYPE_fslot_TYPE,EVERY_MAP,FILENAME_def,
+        validArg_def,OPTION_TYPE_def,LIST_TYPE_def]>>
+    rw[]>>
+    qexistsl_tac[`x`,`x'`]>>
+    xsimpl>>
+    rpt (TOP_CASE_TAC>>gvs[npbcTheory.pres_set_spt_def]))>>
+  xlet_autop>>
+  namedCases_on`ores_to_string res`["oerr","ostr"]>>
+  fs[SUM_TYPE_def]>>
   xmatch
   >- (
-    xapp_spec output_stderr_spec \\ xsimpl>>
-    asm_exists_tac>>xsimpl>>
-    qexists_tac`emp`>>xsimpl>>
-    qexists_tac`fs`>>xsimpl>>
+    xapp_spec output_stderr_spec>>
+    xsimpl>>
+    qexistsl_tac[`NT_TABLE (SOME parsed1) st' tv`,`oerr`,`fs`]>>
+    xsimpl>>
     rw[]>>
-    qexists_tac`«»`>>
-    simp[]>>
-    qexists_tac`x`>>
-    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    qexistsl_tac[`«»`,`oerr`]>>
+    fs[STD_streams_add_stderr,STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
-  xapp>>asm_exists_tac>>xsimpl>>
-  qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
+  xapp>>
+  xsimpl>>
+  qexistsl_tac[`NT_TABLE (SOME parsed1) st' tv`,`ostr`,`fs`]>>
+  xsimpl>>
   rw[]>>
-  qexists_tac`y`>>
-  qexists_tac`«»`>>
+  qexistsl_tac[`ostr`,`«»`]>>
   simp[STD_streams_stderr,add_stdo_nil]>>
-  reverse CONJ_TAC>- xsimpl>>
+  xsimpl>>
   rw[]>>
-  every_case_tac>>fs[ores_to_string_def,SUM_TYPE_def]>>
+  every_case_tac>>
+  fs[ores_to_string_def,SUM_TYPE_def]>>
   gvs[AllCaseEqs(),npbc_checkTheory.hconcl_concl_def,npbcTheory.sem_concl_def]
   >- (
     DISJ2_TAC>>

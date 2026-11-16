@@ -3,7 +3,7 @@
 *)
 Theory xlrup_cnf
 Ancestors
-  misc cnf ccnf dimacs syntax_helper xor mlstring mlint
+  misc cnf ccnf dimacs syntax_helper input_lex xor mlstring mlint
 Libs
   preamble
 

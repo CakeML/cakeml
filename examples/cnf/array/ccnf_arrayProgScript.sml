@@ -3,8 +3,8 @@
 *)
 Theory ccnf_arrayProg
 Ancestors
-  UnsafeProg UnsafeProof
-  ccnf ccnf_list mlint syntax_helper array_ofProof ccnf_arith
+  UnsafeProg UnsafeProof input_lexProg
+  ccnf ccnf_list ccnf_dm mlint syntax_helper array_ofProof ccnf_arith
 Libs
   preamble basis blastLib
 
@@ -12,7 +12,7 @@ val _ = hide_environments true;
 
 (* Default inheritance path, means all programs will use
   the unsafe primitives *)
-val _ = translation_extends"UnsafeProg";
+val _ = translation_extends"input_lexProg";
 
 Overload "vcclause_TYPE" = ``VECTOR_TYPE INT``
 
@@ -21,10 +21,8 @@ Theorem ARRAY_OF_vcclause_HPROP_INJ[hprop_inj]:
     (xs' = xs)
 Proof
   irule ARRAY_OF_HPROP_INJ>>
-  Cases>>Cases>>
-  rw[VECTOR_TYPE_def]>>
-  `∀x y v. INT x v ∧ INT y v ⇒ x = y` by simp[INT_def]>>
-  metis_tac[LIST_REL_unique]
+  match_mp_tac VECTOR_TYPE_inj>>
+  simp[INT_def]
 QED
 
 (* TODO: MOVE? *)
