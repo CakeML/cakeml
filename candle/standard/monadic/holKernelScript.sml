@@ -7,7 +7,7 @@ Theory holKernel
 Libs
   preamble ml_monadBaseLib
 Ancestors
-  mlstring mllist holSyntaxExtra ml_monadBase
+  mlstring mllist ml_translator holSyntaxExtra ml_monadBase
 
 val _ = patternMatchesSyntax.temp_enable_pmatch();
 val _ = monadsyntax.temp_add_monadsyntax()
@@ -273,18 +273,17 @@ Definition rev_assocd_def:
 End
 
 Definition type_subst_def:
-  type_subst i ty =
-    case ty of
-      Tyapp tycon args =>
-         let args' = MAP (type_subst i) args in
-         if args' = args then ty else Tyapp tycon args'
-    | _ => rev_assocd ty i ty
-Termination
-  WF_REL_TAC `measure (type_size o SND)` THEN Induct_on `args`
-  THEN FULL_SIMP_TAC (srw_ss()) [type_size_def]
-  THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC
-  THEN REPEAT (POP_ASSUM (MP_TAC o SPEC_ALL)) THEN REPEAT STRIP_TAC
-  THEN DECIDE_TAC
+  (type_subst i ty =
+     case ty of
+       Tyapp tycon args =>
+          let args' = qmap_type_subst i args in
+          if ptr_eq args' args then ty else Tyapp tycon args'
+     | _ => rev_assocd ty i ty) ∧
+  (qmap_type_subst i l =
+     case l of
+     | h::t => let h' = type_subst i h and t' = qmap_type_subst i t in
+               if ptr_eq h' h ∧ ptr_eq t' t then l else h'::t'
+     | _ => l)
 End
 
 (*
@@ -633,13 +632,12 @@ Definition vsubst_aux_def:
     | Const _ _ => tm
     | Comb s t => let s' = vsubst_aux ilist s in
                   let t' = vsubst_aux ilist t in
-                    Comb s' t'
+                    if ptr_eq s' s ∧ ptr_eq t' t then tm else Comb s' t'
     | Abs v s  => if ~is_var v then tm else
                   let ilist' = FILTER (\(t,x). x <> v) ilist in
                   if ilist' = [] then tm else
                   let s' = vsubst_aux ilist' s in
-                  (* if s' = s then tm else --- commented out becuase it doesn't
-                                             seem to fit Harrison's formalisation *)
+                  if ptr_eq s' s then tm else
                   if EXISTS (\(t,x). vfree_in v t /\ vfree_in x s) ilist'
                   then let v' = variant [s'] v in
                          Abs v' (vsubst_aux ((v',v)::ilist') s)
@@ -741,20 +739,21 @@ Definition inst_aux_def:
   (inst_aux (env:(term # term) list) tyin tm) =
     case tm of
       Var n ty   => let ty' = type_subst tyin ty in
-                    let tm' = if ty' = ty then tm else Var n ty' in
+                    let tm' = if ptr_eq ty' ty then tm else Var n ty' in
                     if rev_assocd tm' env tm = tm then return tm'
                     else raise_clash tm'
     | Const c ty => let ty' = type_subst tyin ty in
-                    if ty' = ty then return tm else return (Const c ty')
+                    if ptr_eq ty' ty then return tm else return (Const c ty')
     | Comb f x   => do f' <- inst_aux env tyin f ;
                        x' <- inst_aux env tyin x ;
-                       if (f = f') /\ (x = x') then return tm
-                                               else return (Comb f' x') od
+                       if (ptr_eq f f') ∧ (ptr_eq x x')
+                       then return tm
+                       else return (Comb f' x') od
     | Abs y t    => do (y':term) <- inst_aux [] tyin y ;
                        env' <- return ((y,y')::env) ;
                        handle_clash
                         (do t' <- inst_aux env' tyin t ;
-                            if (y = y') /\ (t = t')
+                            if ptr_eq y y' ∧ ptr_eq t t'
                               then return tm
                               else return (Abs y' t') od)
                         (\w'.
