@@ -12,6 +12,8 @@ The integer division and modulus primitives now take a rounding mode (#1583). In
 
 ## Compiler backend and runtime
 
+The CakeML compiler now supports compilation of floating-point operartions also for the Arm8 target (#1596).
+
 ## Pancake
 
 The Pancake compiler is now a standalone `pancake` executable, replacing `cake --pancake` (#1589). This splits the bootstrap translation into one CakeML path and one Pancake path. They share all translations up to from_wordProg. Command-line parsing helpers are shared between the two compilers.
