@@ -29,8 +29,8 @@ QED
 
 Theorem OPTION_TYPE_SPLIT:
   OPTION_TYPE a x v ⇔
-  (x = NONE ∧ v = Conv (SOME (TypeStamp «None» 2)) []) ∨
-  (∃y vv. x = SOME y ∧ v = Conv (SOME (TypeStamp «Some» 2)) [vv] ∧ a y vv)
+  (x = NONE ∧ v = Conv (SOME (TypeStamp «None» 2 0)) []) ∨
+  (∃y vv. x = SOME y ∧ v = Conv (SOME (TypeStamp «Some» 2 1)) [vv] ∧ a y vv)
 Proof
   Cases_on`x`>>rw[OPTION_TYPE_def]
 QED

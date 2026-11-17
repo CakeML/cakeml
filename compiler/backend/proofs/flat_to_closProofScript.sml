@@ -64,6 +64,20 @@ Proof
   \\ first_x_assum (qspec_then `SUC n` mp_tac) \\ fs []
 QED
 
+Theorem encode_ctor_tag_simps[local,simp]:
+  encode_ctor_tag tag NONE = backend_common$runtime_exn_tag tag /\
+  encode_ctor_tag nil_tag (SOME ty) = nil_tag /\
+  encode_ctor_tag cons_tag (SOME ty) = cons_tag /\
+  encode_ctor_tag true_tag (SOME ty) = true_tag /\
+  encode_ctor_tag false_tag (SOME ty) = false_tag /\
+  encode_ctor_tag (if b then 1 else 0) (SOME ty) = if b then 1 else 0
+Proof
+  Cases_on `b` >>
+  simp [encode_ctor_tag_def, backend_commonTheory.nil_tag_def,
+        backend_commonTheory.cons_tag_def, backend_commonTheory.true_tag_def,
+        backend_commonTheory.false_tag_def, backend_commonTheory.runtime_ctor_tag_def]
+QED
+
 Inductive v_rel:
   (!n b. v_rel (Loc b n) (RefPtr b n)) /\
   (!i. v_rel (Litv (IntLit i)) (Number i)) /\
@@ -73,7 +87,7 @@ Inductive v_rel:
   (!w. v_rel (Litv (Word64 w)) (Word64 w)) /\
   (!f. v_rel (Litv (Float64 f)) (Word64 f)) /\
   (!vs ws. LIST_REL v_rel vs ws ==> v_rel (Conv NONE vs) (Block 0 ws)) /\
-  (!vs ws t r. LIST_REL v_rel vs ws ==> v_rel (Conv (SOME (t,r)) vs) (Block t ws)) /\
+  (!vs ws t r. LIST_REL v_rel vs ws ==> v_rel (Conv (SOME (t,r)) vs) (Block (encode_ctor_tag t r) ws)) /\
   (!vs ws. LIST_REL v_rel vs ws ==> v_rel (Vectorv vs) (Block 0 ws)) /\
   (!env m db.
     (!n x. ALOOKUP env.v n = SOME x ==>
@@ -748,16 +762,16 @@ Theorem evaluate_compile_trunc_div[local]:
   evaluate (xs,db,t) = (Rval ws,t1) ∧ 2 ≤ LENGTH ws ∧ k = LENGTH ws - 2 ∧
   EL k ws = Number y ∧ EL (k + 1) ws = Number x ⇒
   evaluate ([compile_trunc_div tt is_div k xs],db,t) =
-    if y = 0 then (Rerr (Rraise (Block div_tag [])),t1)
+    if y = 0 then (Rerr (Rraise (Block (backend_common$runtime_exn_tag div_tag) [])),t1)
     else (Rval [Number (if is_div then x quot y else x rem y)],t1)
 Proof
   rpt strip_tac \\ gvs []
   \\ simp [compile_trunc_div_def, compile_quot_def, compile_rem_def,
            compile_sign_differs_def, evaluate_def, do_app_def, do_int_app_def,
-           do_eq_def, EL_APPEND2, EL_APPEND1]
+           do_cmp_def, compare_int_eq_zero, EL_APPEND2, EL_APPEND1]
   \\ IF_CASES_TAC \\ simp []
   \\ Cases_on `is_div`
-  \\ simp [evaluate_def, do_app_def, do_int_app_def, do_eq_def, EL_APPEND2,
+  \\ simp [evaluate_def, do_app_def, do_int_app_def, do_cmp_def, compare_int_eq_zero, EL_APPEND2,
            EL_APPEND1, rich_listTheory.EL_CONS]
   \\ simp [int_quot_rem_by_div_mod]
   \\ rw [] \\ gvs [Boolv_def, integerTheory.int_ge, integerTheory.INT_ADD_COMM]
@@ -1042,7 +1056,7 @@ Theorem evaluate_CopyWord_checked_new:
   evaluate ([CopyWord_checked trace source_array T],
     Number len::Number off::source::env,s) =
   if off < 0 \/ len < 0 \/ source_length < off + len then
-    (Rerr (Rraise (Block subscript_tag [])),s)
+    (Rerr (Rraise (Block (backend_common$runtime_exn_tag subscript_tag) [])),s)
   else
     evaluate ([Op trace (MemOp (CopyWord T))
       [Var trace 0; Var trace 1; Var trace 2]],
@@ -1065,7 +1079,7 @@ Theorem evaluate_CopyWord_checked_write:
       Number len::Number off::source::env,s) =
   if off < 0 \/ len < 0 \/ source_length < off + len \/
      dstoff < 0 \/ &(LENGTH destination_values) < dstoff + len then
-    (Rerr (Rraise (Block subscript_tag [])),s)
+    (Rerr (Rraise (Block (backend_common$runtime_exn_tag subscript_tag) [])),s)
   else
     evaluate ([Op trace (MemOp (CopyWord F))
       [Var trace 0; Var trace 1; Var trace 2; Var trace 3; Var trace 4]],
@@ -1391,45 +1405,48 @@ Proof
     \\ IF_CASES_TAC \\ fs [])
 QED
 
-Theorem MAP_n2w_o_ORD_11[local]:
-  ∀l1 l2. MAP ((n2w: num -> word8) ∘ ORD) l1 = MAP (n2w ∘ ORD) l2 ⇔ l1 = l2
+Theorem do_cmp_v_rel[local]:
+  (!v1 v2 x1 x2 n.
+    v_rel v1 x1 /\ v_rel v2 x2 /\ do_cmp v1 v2 = Cmp_val n ==>
+    do_cmp x1 x2 = Cmp_val n) /\
+  (!v1 v2 x1 x2 n.
+    LIST_REL v_rel v1 x1 /\ LIST_REL v_rel v2 x2 /\
+    do_cmp_list v1 v2 = Cmp_val n ==>
+    do_cmp_list x1 x2 = Cmp_val n)
 Proof
-  Induct \\ Cases_on ‘l2’ \\ fs [ORD_BOUND,ORD_11]
-QED
-
-Theorem do_eq_v_rel[local]:
-  (!v1 v2 x1 x2 b.
-    v_rel v1 x1 /\ v_rel v2 x2 /\ do_eq v1 v2 = Eq_val b ==>
-    do_eq x1 x2 = Eq_val b) /\
-  (!v1 v2 x1 x2 b.
-    LIST_REL v_rel v1 x1 /\ LIST_REL v_rel v2 x2 /\ do_eq_list v1 v2 = Eq_val b ==>
-    do_eq_list x1 x2 = Eq_val b)
-Proof
-  ho_match_mp_tac flatSemTheory.do_eq_ind \\ rw []
-  \\ fs [v_rel_def,flatSemTheory.do_eq_def,bool_case_eq] \\ rveq \\ fs []
-  \\ imp_res_tac LIST_REL_LENGTH
-  THEN1
-   (rename [`lit_same_type l1 l2`]
-    \\ Cases_on `l1` \\ Cases_on `l2` \\ fs [lit_same_type_def,v_rel_def]
-    \\ fs [do_eq_def] \\ rveq \\ fs [ORD_11]
-    \\ simp [MAP_n2w_o_ORD_11])
-  \\ TRY (fs [do_eq_def] \\ rveq \\ fs [v_rel_def] \\ NO_TAC)
-  \\ rveq \\ fs [ctor_same_type_def]
-  \\ fs [CaseEq"eq_result",bool_case_eq] \\ rveq \\ fs []
-  \\ fs [do_eq_def]
+  ho_match_mp_tac flatSemTheory.do_cmp_ind >> rw [] >>
+  fs [v_rel_def, flatSemTheory.do_cmp_def, bool_case_eq] >> rveq >> fs [] >>
+  imp_res_tac LIST_REL_LENGTH
+  >~ [`compare_lit l1 l2 = Cmp_val n`] >- (
+    qmatch_asmsub_rename_tac `compare_lit left_literal right_literal` >>
+    Cases_on `left_literal` >> Cases_on `right_literal` >>
+    gvs [compare_lit_def, v_rel_def, closSemTheory.do_cmp_def,
+         backend_commonTheory.bytes_to_mlstring_explode])
+  >~ [`do_cmp_list (_::_) (_::_) = Cmp_val _`] >- (
+    Cases_on `flatSem$do_cmp v1 v2` >> fs [] >>
+    rpt (FULL_CASE_TAC >> gvs []) >>
+    res_tac >> simp [CONJUNCT2 closSemTheory.do_cmp_def])
+  >> fs [ctor_same_type_def, closSemTheory.do_cmp_def, encode_ctor_tag_eq,
+         is_exn_tag_encode, EVAL ``backend_common$is_exn_tag 0``] >>
+  imp_res_tac LIST_REL_NULL >> gvs [NULL_LENGTH] >>
+  qmatch_goalsub_rename_tac `encode_ctor_tag _ type_id` >>
+  Cases_on `type_id` >>
+  gvs [encode_ctor_tag_def, compare_int_def, backend_commonTheory.runtime_ctor_tag_lt]
 QED
 
 Theorem op_eq_gc:
   op = Src PtrEq \/
   op = Src ConfigGC \/
-  op = Src Equality ==>
+  op = Src Equality \/
+  op = Src PolyCompare ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
-  >- (gvs [flatSemTheory.do_app_def, AllCaseEqs(), SWAP_REVERSE_SYM]
-      \\ fs [compile_op_def, evaluate_def, do_app_def]
-      \\ imp_res_tac do_eq_v_rel \\ fs []
-      \\ fs [state_rel_def])
+  >- (
+    gvs [flatSemTheory.do_app_def, AllCaseEqs(), SWAP_REVERSE_SYM]
+    \\ fs [compile_op_def, evaluate_def, do_app_def]
+    \\ imp_res_tac do_cmp_v_rel \\ fs []
+    \\ fs [state_rel_def])
   \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
          CaseEq "ast$lit",store_assign_def,option_case_eq]
   \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
@@ -1437,9 +1454,9 @@ Proof
   THEN1
    (ntac 2 (pop_assum mp_tac) \\ once_rewrite_tac [v_rel_cases] \\ fs []
     \\ rw [] \\ fs [compile_op_def,evaluate_def,do_app_def,Unit_def] \\ EVAL_TAC)
-  \\ fs [CaseEq"eq_result"] \\ rveq \\ fs []
+  \\ fs [CaseEq"cmp_result"] \\ rveq \\ fs []
   \\ fs [compile_op_def,evaluate_def,do_app_def]
-  \\ imp_res_tac do_eq_v_rel \\ fs []
+  \\ imp_res_tac do_cmp_v_rel \\ fs [v_rel_def]
 QED
 
 Theorem v_rel_v_to_char_list:
@@ -1803,7 +1820,7 @@ Proof
     gvs [flatSemTheory.flat_to_v_def, semanticPrimitivesTheory.the_Litv_IntLit_def,
          v_rel_def, SWAP_REVERSE_SYM] >>
     simp [compile_op_def, compile_arith_def, evaluate_def, do_app_def,
-          do_int_app_def, do_eq_def, div_exn_v_def, v_rel_def] >>
+          do_int_app_def, do_cmp_def, compare_int_eq_zero, div_exn_v_def, v_rel_def] >>
     drule evaluate_compile_trunc_div >> simp []) >>
   Cases_on `ty` using prim_type_cases >>
   gvs [semanticPrimitivesTheory.do_arith_def, AllCaseEqs(),
@@ -1822,7 +1839,7 @@ Proof
        closSemTheory.Boolv_def, backend_commonTheory.true_tag_def,
        backend_commonTheory.false_tag_def] >>
   simp [compile_op_def, compile_arith_def, evaluate_compile_shift, evaluate_def,
-        do_app_def, do_int_app_def, do_word_app_def, do_eq_def,
+        do_app_def, do_int_app_def, do_word_app_def, do_cmp_def, compare_int_eq_zero,
         flatSemTheory.v_to_flat_def, v_rel_def] >>
   simp [flatSemTheory.Boolv_def, semanticPrimitivesTheory.Boolv_def,
         closSemTheory.Boolv_def, backend_commonTheory.true_tag_def,
@@ -2036,17 +2053,18 @@ Proof
             closSemTheory.do_app_def,imp_cmp_eq_num_cmp,
             w2n_lt |> INST_TYPE [alpha|->“:8”] |> SRULE [],
             closSemTheory.do_word_app_def])
-  >-
-   (Cases_on ‘ty’ using prim_type_cases
-    \\ gvs [flatSemTheory.check_type_def,
-            flatSemTheory.do_eq_def,flatSemTheory.Boolv_def,AllCaseEqs()]
-    \\ gvs [closSemTheory.evaluate_def,
-            closSemTheory.do_app_def,
-            closSemTheory.Boolv_def]
-    \\ fs [Once v_rel_cases]
-    \\ gvs [closSemTheory.do_eq_def,ORD_BOUND,MAP_n2w_ORD_eq,
-            w2n_lt |> INST_TYPE [alpha|->“:8”] |> SRULE [],
-            closSemTheory.do_word_app_def,closSemTheory.Boolv_def,ORD_11])
+  >- (
+    imp_res_tac do_cmp_v_rel >>
+    Cases_on `ty` using prim_type_cases >>
+    gvs [closSemTheory.evaluate_def, closSemTheory.do_app_def] >>
+    gvs [flatSemTheory.check_type_def, v_rel_def, flatSemTheory.do_cmp_def,
+         compare_lit_def, compare_int_eq_zero, flatSemTheory.Boolv_def,
+         closSemTheory.do_cmp_def, ORD_BOUND, closSemTheory.do_word_app_def,
+         closSemTheory.Boolv_def, ORD_11,
+         w2n_lt |> INST_TYPE [alpha |-> ``:8``] |> SRULE []] >>
+    gvs [ctor_same_type_def, backend_commonTheory.true_tag_def,
+         backend_commonTheory.false_tag_def, compare_int_eq_zero,
+         EVAL ``backend_common$is_exn_tag 0``, EVAL ``backend_common$is_exn_tag 1``])
   \\ gvs [flatSemTheory.check_type_def]
   \\ fs [Once v_rel_cases] \\ gvs [the_Litv_Float64_def]
   \\ gvs [closSemTheory.evaluate_def,closSemTheory.do_word_app_def,
@@ -2088,7 +2106,7 @@ Theorem evaluate_compile_smallnum_arith_exn[local]:
   do_arith a IntT [Litv (IntLit i1); Litv (IntLit i2)] = SOME (INL exn) /\
   index_in_bounds bound i1 /\ index_in_bounds bound i2 ==>
   evaluate ([compile_smallnum_arith tt a xs],db,t) =
-    (Rerr (Rraise (Block div_tag [])),t1)
+    (Rerr (Rraise (Block (backend_common$runtime_exn_tag div_tag) [])),t1)
 Proof
   rpt strip_tac
   \\ gvs [oneline backendPropsTheory.unsafe_index_bound_def, AllCaseEqs()]

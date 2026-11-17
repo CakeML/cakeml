@@ -23,13 +23,14 @@ Definition part_space_req_def:
     (if Num (ABS i) < 2**29 then 0 else num_size (Num (ABS i))) ∧
   part_space_req (Str s) = strlen s DIV 4 + 2 ∧
   part_space_req (Con t ns) =
-    let l = LENGTH ns in if l = 0n then 0 else l+1
+    let l = LENGTH ns in if l = 0n /\ ~is_exn_tag t then 0 else l+1
 End
 
 Definition op_space_req_def:
   (op_space_req (MemOp Ref) l = l + 1) /\
   (op_space_req (MemOp (MutCons tag k)) l = l+1) /\
-  (op_space_req (BlockOp (Cons _)) l = if l = 0n then 0 else l+1) /\
+  (op_space_req (BlockOp (Cons tag)) l =
+    if l = 0n /\ ~is_exn_tag tag then 0 else l+1) /\
   (op_space_req (BlockOp (Build parts)) l = SUM (MAP part_space_req parts)) /\
   (op_space_req (WordOp (WordOpw W64 _)) _ = 3) /\
   (op_space_req (WordOp (WordShift W64 _ _)) _ = 3) /\

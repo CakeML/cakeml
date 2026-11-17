@@ -4102,10 +4102,10 @@ Proof
           cfmlls xfmlls (tnls,tnn) def Clist 1 lines
       of
         NONE => resv =
-          Conv (SOME (TypeStamp «Inl» 4)) [v0] ∧ ∃s. STRING_TYPE s v0
+          Conv (SOME (TypeStamp «Inl» 4 0)) [v0] ∧ ∃s. STRING_TYPE s v0
       | SOME res =>
         res = (cfmlls',xfmlls') ∧
-        resv = Conv (SOME (TypeStamp «Inr» 4)) [Conv NONE [cfmlv'; xfmlv']])`
+        resv = Conv (SOME (TypeStamp «Inr» 4 1)) [Conv NONE [cfmlv'; xfmlv']])`
   >- (
     TOP_CASE_TAC
     >- (
@@ -4176,7 +4176,7 @@ Proof
         SEP_EXISTS v1 v2 k rest.
          STDIO (forwardFD fs fd k) *
          INSTREAM_LINES c0 fd isv rest (forwardFD fs fd k) *
-         &(v = Conv (SOME (TypeStamp «Inr» 4)) [Conv NONE [v1; v2]]) *
+         &(v = Conv (SOME (TypeStamp «Inr» 4 1)) [Conv NONE [v1; v2]]) *
          (SEP_EXISTS cfmlls' xfmlls' tnav' tnls'.
            ARRAY_OF vcclause_TYPE v1 cfmlls' *
            ARRAY_OF (OPTION_TYPE strxor_TYPE) v2 xfmlls' *

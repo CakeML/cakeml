@@ -110,20 +110,20 @@ val input_catalogue_entries = map (fn (mn,td) => let
       val value_th = EVAL ``nsLookup repl_prog_env.c ^name``
       val (arity,stamp) = value_th |> concl |> rand
         |> optionSyntax.dest_some |> pairSyntax.dest_pair
-      val (stamp_name,stamp_num) = semanticPrimitivesSyntax.dest_TypeStamp stamp
+      val (stamp_name,stamp_num,stamp_pos) = semanticPrimitivesSyntax.dest_TypeStamp stamp
       val _ = if aconv params tvs andalso aconv ctor_type_id type_id andalso
         aconv stamp_name cn andalso
         numSyntax.int_of_term arity = length (fst (listSyntax.dest_list fields))
         then () else failwith "Input constructor registration/lookup mismatch"
-      in pairSyntax.list_mk_pair [cn,stamp_num,params,field_types] end)
+      in pairSyntax.list_mk_pair [cn,stamp_num,stamp_pos,params,field_types] end)
   val signature_set = pred_setSyntax.prim_mk_set
-    (signatures, ``:mlstring # num # mlstring list # typeSystem$t list``)
+    (signatures, ``:mlstring # num # num # mlstring list # typeSystem$t list``)
   in pairSyntax.mk_pair (type_id,signature_set) end) input_type_groups;
 
 Definition repl_input_catalogue_entries_def:
   repl_input_catalogue_entries =
     ^(listSyntax.mk_list (input_catalogue_entries,
-      ``:num # (mlstring # num # mlstring list # typeSystem$t list) set``))
+      ``:num # (mlstring # num # num # mlstring list # typeSystem$t list) set``))
 End
 
 Definition repl_input_catalogue_def:

@@ -44,6 +44,7 @@ Definition op_space_reset_def:
   (op_space_reset (IntOp Greater) = T) /\
   (op_space_reset (IntOp GreaterEq) = T) /\
   (op_space_reset (BlockOp Equal) = T) /\
+  (op_space_reset (BlockOp PolyCompare) = T) /\
   (op_space_reset (BlockOp ListAppend) = T) /\
   (op_space_reset (BlockOp (FromList _)) = T) /\
   (op_space_reset (MemOp RefArray) = T) /\

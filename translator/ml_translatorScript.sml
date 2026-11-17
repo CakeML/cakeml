@@ -520,7 +520,7 @@ QED
 Theorem EqualityType_from_ONTO:
    (!a. ?r. (a = num2a r) ∧ r < (N : num))
     ==> (!TY stamps stn. (GENLIST (\n v. TY (num2a n) v) N
-                = MAP (\st v. v = Conv (SOME (TypeStamp st stn)) []) stamps)
+                = MAPi (\pos st v. v = Conv (SOME (TypeStamp st stn pos)) []) stamps)
         ==> ALL_DISTINCT stamps
         ==> EqualityType TY)
 Proof
@@ -532,7 +532,7 @@ Proof
   \\ fs []
   \\ FIRST_X_ASSUM (fn a => MP_TAC (LIST_CONJ [Q.AP_TERM `LENGTH` a,
         Q.AP_TERM `EL r` a, Q.AP_TERM `EL r'` a]))
-  \\ fs [EL_MAP, satTheory.AND_IMP, FUN_EQ_THM, no_closures_def,
+  \\ fs [EL_MAPi, satTheory.AND_IMP, FUN_EQ_THM, no_closures_def,
         types_match_def, ctor_same_type_def, listTheory.EL_ALL_DISTINCT_EL_EQ,
         same_type_def]
   \\ metis_tac (map TypeBase.one_one_of [``:stamp``, ``:'a option``, ``: v``])
@@ -2535,10 +2535,10 @@ QED
 Definition LIST_TYPE_def:
   (LIST_TYPE a (x_2::x_1) v <=>
      ?v2_1 v2_2.
-       v = Conv (SOME (TypeStamp «::» 1)) [v2_1; v2_2] /\
+       v = Conv (SOME (TypeStamp «::» 1 1)) [v2_1; v2_2] /\
        a x_2 v2_1 /\ LIST_TYPE a x_1 v2_2) /\
   (LIST_TYPE a [] v <=>
-     v = Conv (SOME (TypeStamp «[]» 1)) [])
+     v = Conv (SOME (TypeStamp «[]» 1 0)) [])
 End
 
 Theorem LIST_TYPE_SIMP' = Q.prove(
@@ -2570,8 +2570,8 @@ Proof
 QED
 
 Definition LIST_v_def:
-  LIST_v a_v [] = Conv (SOME (TypeStamp «[]» 1)) [] /\
-  LIST_v a_v (x :: xs) = Conv (SOME (TypeStamp «::» 1)) [a_v x; LIST_v a_v xs]
+  LIST_v a_v [] = Conv (SOME (TypeStamp «[]» 1 0)) [] /\
+  LIST_v a_v (x :: xs) = Conv (SOME (TypeStamp «::» 1 1)) [a_v x; LIST_v a_v xs]
 End
 
 Theorem IsTypeRep_LIST:
@@ -3059,8 +3059,8 @@ Theorem Eval_HOL_STRING_APPEND:
    !env x1 x2 s1 s2 n.
       Eval env x1 (HOL_STRING_TYPE s1) ==>
       Eval env x2 (HOL_STRING_TYPE s2) ==>
-      lookup_cons (Short «::») env = SOME (2,TypeStamp «::» 1) /\
-      lookup_cons (Short «[]») env = SOME (0,TypeStamp «[]» 1) ==>
+      lookup_cons (Short «::») env = SOME (2,TypeStamp «::» 1 1) /\
+      lookup_cons (Short «[]») env = SOME (0,TypeStamp «[]» 1 0) ==>
       Eval env
         (App Strcat [Con (SOME (Short «::»))
                     [x1; Con (SOME (Short «::»))
@@ -3089,8 +3089,8 @@ Theorem Eval_HOL_STRING_CONS:
    !env x1 x2 c s n.
       Eval env x1 (CHAR c) ==>
       Eval env x2 (HOL_STRING_TYPE s) ==>
-      lookup_cons (Short «::») env = SOME (2,TypeStamp «::» 1) /\
-      lookup_cons (Short «[]») env = SOME (0,TypeStamp «[]» 1) ==>
+      lookup_cons (Short «::») env = SOME (2,TypeStamp «::» 1 1) /\
+      lookup_cons (Short «[]») env = SOME (0,TypeStamp «[]» 1 0) ==>
       Eval env
         (App Strcat [Con (SOME (Short «::»))
                     [App Implode [Con (SOME (Short «::»))

@@ -379,6 +379,7 @@ fun add_Dtype loc tds_tm = ML_code_upd "add_Dtype"
             [write_tdefs_def,MAP,FLAT,FOLDR,REVERSE_DEF,
                 write_conses_def,LENGTH,
                 semanticPrimitivesTheory.build_constrs_def,
+                indexedListsTheory.MAPi_def,combinTheory.o_DEF,
                 APPEND,namespaceTheory.mk_id_def])]
 
 (*

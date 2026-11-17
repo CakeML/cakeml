@@ -4362,8 +4362,8 @@ QED
 
 Theorem evaluate_Success_CONS[local]:
   evaluate s env [e] = (s', Rval [v]) ==>
-  lookup_cons (Short «M_success») env = SOME (1,TypeStamp «M_success» exc_stamp) ==>
-  evaluate s env [Con (SOME (Short «M_success»)) [e]] = (s', Rval [Conv (SOME (TypeStamp «M_success» exc_stamp)) [v]])
+  lookup_cons (Short «M_success») env = SOME (1,TypeStamp «M_success» exc_stamp 0) ==>
+  evaluate s env [Con (SOME (Short «M_success»)) [e]] = (s', Rval [Conv (SOME (TypeStamp «M_success» exc_stamp 0)) [v]])
 Proof
   rw[]
   \\ rw[evaluate_def]
@@ -4376,7 +4376,7 @@ QED
 
 Theorem evaluate_Success_CONS_err[local]:
   evaluate s env [e] = (s', Rerr v) ==>
-  lookup_cons (Short «M_success») env = SOME (1,TypeStamp «M_success» exc_stamp) ==>
+  lookup_cons (Short «M_success») env = SOME (1,TypeStamp «M_success» exc_stamp 0) ==>
   evaluate s env [Con (SOME (Short «M_success»)) [e]] = (s', Rerr v)
 Proof
   rw[]
@@ -4391,18 +4391,18 @@ QED
 (* It is not possible to use register_type here... *)
 Definition EXC_TYPE_aux_def:
        (EXC_TYPE_aux stamp a b (M_failure x_2) v ⇔
-        ∃v2_1. v = Conv (SOME (TypeStamp «M_failure» stamp)) [v2_1]
+        ∃v2_1. v = Conv (SOME (TypeStamp «M_failure» stamp 1)) [v2_1]
                         ∧ b x_2 v2_1) ∧
        (EXC_TYPE_aux stamp a b (M_success x_1) v ⇔
-        ∃v1_1. v = Conv (SOME (TypeStamp «M_success» stamp)) [v1_1]
+        ∃v1_1. v = Conv (SOME (TypeStamp «M_success» stamp 0)) [v1_1]
                         ∧ a x_1 v1_1)
 End
 
 Theorem EvalM_to_EvalSt:
   ∀exc_stamp TYPE EXN_TYPE x exp H init_state env.
     EvalM T env init_state exp (MONAD TYPE EXN_TYPE x) H ⇒
-    lookup_cons (Short «M_success») env = SOME (1, TypeStamp «M_success» exc_stamp) ⇒
-    lookup_cons (Short «M_failure») env = SOME (1, TypeStamp «M_failure» exc_stamp) ⇒
+    lookup_cons (Short «M_success») env = SOME (1, TypeStamp «M_success» exc_stamp 0) ⇒
+    lookup_cons (Short «M_failure») env = SOME (1, TypeStamp «M_failure» exc_stamp 1) ⇒
     EvalSt env init_state
       (handle_all (Con (SOME (Short «M_success»)) [exp]) «M_failure»)
       (EXC_TYPE_aux exc_stamp TYPE EXN_TYPE (run x init_state)) H
@@ -4437,7 +4437,7 @@ Proof
   \\ Cases_on `q` \\ fs[]
   \\ LAST_ASSUM IMP_RES_TAC
   \\ qexists_tac `s2`
-  \\ qexists_tac `Conv (SOME (TypeStamp «M_failure» exc_stamp)) [a]`
+  \\ qexists_tac `Conv (SOME (TypeStamp «M_failure» exc_stamp 1)) [a]`
   \\ qexists_tac `r`
   \\ qexists_tac `ck`
   \\ rw[handle_all_def]

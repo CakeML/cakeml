@@ -368,7 +368,8 @@ Proof
   \\ rw [] \\ irule con_check_eqv_nsAppend \\ gvs []
   \\ gvs [alist_to_ns_def]
   \\ simp [Once con_check_eqv_def,build_constrs_def]
-  \\ Induct_on ‘p_2’ \\ gvs [FORALL_PROD]
+  \\ rw [LIST_REL_EL_EQN,EL_MAPi]
+  \\ rpt (pairarg_tac \\ gvs [])
 QED
 
 Theorem evaluate_dec_list_eq_evaluate_decs:

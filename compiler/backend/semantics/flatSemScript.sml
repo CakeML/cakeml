@@ -109,50 +109,36 @@ Definition ctor_same_type_def:
   (ctor_same_type _ _ ⇔ F)
 End
 
-Definition do_eq_def:
-  (do_eq (Litv l1) (Litv l2) =
-   if lit_same_type l1 l2 then Eq_val (l1 = l2)
-   else Eq_type_error)
-  ∧
-  (do_eq (Loc b1 l1) (Loc b2 l2) =
-    (if b1 ∧ b2 then Eq_val (l1 = l2) else Eq_type_error))
-  ∧
-  (do_eq (Conv cn1 vs1) (Conv cn2 vs2) =
-   if (cn1 = cn2) ∧ (LENGTH vs1 = LENGTH vs2) then
-     do_eq_list vs1 vs2
-   else if ctor_same_type cn1 cn2 then
-     Eq_val F
-   else
-     Eq_type_error)
-  ∧
-  (do_eq (Vectorv vs1) (Vectorv vs2) =
-   if LENGTH vs1 = LENGTH vs2 then
-     do_eq_list vs1 vs2
-   else
-     Eq_val F)
-  ∧
-  (do_eq (Closure _ _ _) (Closure _ _ _) = Eq_val T)
-  ∧
-  (do_eq (Closure _ _ _) (Recclosure _ _ _) = Eq_val T)
-  ∧
-  (do_eq (Recclosure _ _ _) (Closure _ _ _) = Eq_val T)
-  ∧
-  (do_eq (Recclosure _ _ _) (Recclosure _ _ _) = Eq_val T)
-  ∧
-  (do_eq _ _ = Eq_type_error)
-  ∧
-  (do_eq_list [] [] = Eq_val T)
-  ∧
-  (do_eq_list (v1::vs1) (v2::vs2) =
-   (case do_eq v1 v2 of
-    | Eq_type_error => Eq_type_error
-    | Eq_val r =>
-      if r then
-        do_eq_list vs1 vs2
-      else
-        Eq_val F))
-  ∧
-  (do_eq_list _ _ = Eq_val F)
+Definition do_cmp_def:
+  do_cmp (Litv l1) (Litv l2) = compare_lit l1 l2 ∧
+  do_cmp (Loc b1 l1) (Loc b2 l2) =
+    (if b1 ∧ b2 then Cmp_val (if l1 = l2 then 0 else 1) else Cmp_type_error) ∧
+  do_cmp (Conv cn1 vs1) (Conv cn2 vs2) =
+    (if ¬ctor_same_type cn1 cn2 then Cmp_type_error
+     else if cn1 = cn2 ∧ LENGTH vs1 = LENGTH vs2 then do_cmp_list vs1 vs2
+     else if ctor_same_type cn1 (SOME (0,NONE)) then Cmp_val 1
+     else if cn1 = cn2 then Cmp_val (compare_int (&LENGTH vs1) (&LENGTH vs2))
+     else if NULL vs1 ∧ ¬NULL vs2 then Cmp_val (-1)
+     else if ¬NULL vs1 ∧ NULL vs2 then Cmp_val 1
+     else case (cn1,cn2) of
+       (SOME (tag1,_), SOME (tag2,_)) =>
+         Cmp_val (compare_int (&tag1) (&tag2))
+     | _ => Cmp_type_error) ∧
+  do_cmp (Vectorv vs1) (Vectorv vs2) =
+    (if LENGTH vs1 = LENGTH vs2 then do_cmp_list vs1 vs2
+     else Cmp_val (compare_int (&LENGTH vs1) (&LENGTH vs2))) ∧
+  do_cmp (Closure _ _ _) (Closure _ _ _) = Cmp_val 0 ∧
+  do_cmp (Closure _ _ _) (Recclosure _ _ _) = Cmp_val 0 ∧
+  do_cmp (Recclosure _ _ _) (Closure _ _ _) = Cmp_val 0 ∧
+  do_cmp (Recclosure _ _ _) (Recclosure _ _ _) = Cmp_val 0 ∧
+  do_cmp _ _ = Cmp_type_error ∧
+  do_cmp_list [] [] = Cmp_val 0 ∧
+  do_cmp_list [] (_::ys) = Cmp_val (-1) ∧
+  do_cmp_list (_::xs) [] = Cmp_val 1 ∧
+  do_cmp_list (x::xs) (y::ys) =
+    (case do_cmp x y of
+       Cmp_type_error => Cmp_type_error
+     | Cmp_val n => if n = 0 then do_cmp_list xs ys else Cmp_val n)
 End
 
 (* Do an application *)
@@ -253,7 +239,9 @@ Definition do_test_def:
     (if check_type ty v1 ∧ check_type ty v2 then
        (if ty = Float64T
         then Eq_val (fp64_equal (the_Litv_Float64 v1) (the_Litv_Float64 v2))
-        else do_eq v1 v2)
+        else case do_cmp v1 v2 of
+          Cmp_type_error => Eq_type_error
+        | Cmp_val n => Eq_val (n = 0))
      else Eq_type_error) ∧
   do_test (Compare cmp) ty v1 v2 =
     (case (ty, dest_Litv v1, dest_Litv v2) of
@@ -332,16 +320,20 @@ Definition do_app_def:
   do_app s op (vs:flatSem$v list) =
   case (op, vs) of
   | (Src Equality, [v1; v2]) =>
-    (case do_eq v1 v2 of
-     | Eq_type_error => NONE
-     | Eq_val b => SOME (s, Rval (Boolv b)))
+    (case do_cmp v1 v2 of
+     | Cmp_type_error => NONE
+     | Cmp_val n => SOME (s, Rval (Boolv (n = 0))))
+  | (Src PolyCompare, [v1; v2]) =>
+    (case do_cmp v1 v2 of
+     | Cmp_type_error => NONE
+     | Cmp_val n => SOME (s, Rval (Litv (IntLit n))))
   | (Src PtrEq, [v1; v2]) =>
-    (case do_eq v1 v2 of
-     | Eq_type_error => NONE
-     | Eq_val b =>
+    (case do_cmp v1 v2 of
+     | Cmp_type_error => NONE
+     | Cmp_val n =>
          SOME (s with ptr_eq_oracle :=
                  (0 =+ shift_seq 1 (s.ptr_eq_oracle 0)) s.ptr_eq_oracle,
-               Rval (Boolv (b ∧ s.ptr_eq_oracle 0 0))))
+               Rval (Boolv (n = 0 ∧ s.ptr_eq_oracle 0 0))))
   | (Src (Test test test_ty), [v1; v2]) =>
     (case do_test test test_ty v1 v2 of
      | Eq_type_error => NONE
@@ -781,8 +773,8 @@ Definition do_app_def:
       SOME (s, Rval (THE (EL n s.globals)))
     else
       NONE
-  | (TagLenEq n l, [Conv (SOME (tag,_)) xs]) =>
-    SOME (s, Rval (Boolv (tag = n /\ LENGTH xs = l)))
+  | (TagLenEq n l, [Conv (SOME (tag,ty)) xs]) =>
+    SOME (s, Rval (Boolv (encode_ctor_tag tag ty = n /\ LENGTH xs = l)))
   | (LenEq l, [Conv _ xs]) =>
     SOME (s, Rval (Boolv (LENGTH xs = l)))
   | (El n, [Conv _ vs]) =>
@@ -1117,7 +1109,7 @@ End
 
 val eqs = LIST_CONJ (map TypeBase.case_eq_of
   [``:op``, ``:'a list``, ``:'a option``, ``:v``, ``:'a store_v``, ``:lit``,
-   ``:eq_result``, ``:word_size``, ``:('a,'b) result``, ``:'a ffi_result``,
+   ``:eq_result``, ``:cmp_result``, ``:word_size``, ``:('a,'b) result``, ``:'a ffi_result``,
    ``:'a error_result``])
 
 Theorem case_eq_thms =
@@ -1195,5 +1187,5 @@ Definition semantics_def:
 End
 
 val _ = map (can delete_const)
-  ["do_eq_UNION_aux","do_eq_UNION",
+  ["do_cmp_UNION_aux","do_cmp_UNION",
    "pmatch_UNION_aux","pmatch_UNION"];

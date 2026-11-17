@@ -4,13 +4,19 @@ Changes since release v3671:
 
 The integer division and modulus primitives now take a rounding mode (#1583). Instead of `Div`, one now gets to choose between `Div RoundDown` and `Div TowardsZero`. Same for `Mod`. These are ignored for floats.
 
+A new primitive `PolyCompare` implements polymorphic comparison. It agrees with `=` on type errors and on when it returns zero, and orders constructors by their position in the datatype. It is not antisymmetric on distinct references or exceptions. `TypeStamp` now takes the constructor position as a third argument.
+
 ## Basis library
+
+A new top-level `compare : 'a -> 'a -> int` exposes `PolyCompare`.
 
 ### Int
 
 `Int.quot` and `Int.rem` have been added (#1583). They implement integer division and modulus rounding towards zero. Previously existing `Int.div` and `Int.mod` round down.
 
 ## Compiler backend and runtime
+
+In wordLang, the `Equal` stub now computes a three-way comparison, which both `=` and `PolyCompare` call.
 
 ## Pancake
 

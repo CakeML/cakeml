@@ -1520,8 +1520,8 @@ Proof
     \\ imp_res_tac THM_TYPE_def
     \\ rveq
     \\ simp[pmatch_def]
-    \\ qmatch_goalsub_abbrev_tac`TypeStamp «Sequent» sn`
-    \\ `nsLookup cenv.c (Short«Sequent») = SOME (2, TypeStamp «Sequent» sn)`
+    \\ qmatch_goalsub_abbrev_tac`TypeStamp «Sequent» sn 0`
+    \\ `nsLookup cenv.c (Short«Sequent») = SOME (2, TypeStamp «Sequent» sn 0)`
     by (
       unabbrev_all_tac
       \\ CONV_TAC ml_progLib.nsLookup_conv \\ simp[]
