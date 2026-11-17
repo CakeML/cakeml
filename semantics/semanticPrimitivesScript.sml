@@ -316,7 +316,8 @@ Definition check_exp_constructors_def:
   check_exp_constructors envc (Open path e) =
     (case nsOpen path envc of
        NONE => F
-     | SOME opened => check_exp_constructors (nsAppend opened envc) e)
+     | SOME opened => check_exp_constructors (nsAppend opened envc) e) ∧
+  check_exp_constructors envc (Assert e sa) = check_exp_constructors envc e
 End
 
 Theorem check_exp_constructors_open:
@@ -877,6 +878,38 @@ Definition check_type_def:
   check_type (WordT W8) v = (∃w. v = Litv (Word8 w)) ∧
   check_type (WordT W64) v = (∃w. v = Litv (Word64 w)) ∧
   check_type Float64T v = (∃w. v = Litv (Float64 w))
+End
+
+(* The arity of a constructor; unknown constructors get 0, which does not
+   matter since a pattern with an unknown constructor is a type error. *)
+Definition con_arity_def:
+  con_arity envC cn =
+    case nsLookup envC cn of
+    | NONE => 0
+    | SOME (n:num,stamp:stamp) => n
+End
+
+(* Checks a shape assertion; a false result means a type error. ConsA behaves
+   like matching against the constructor pattern applied to wildcards,
+   followed by a catch-all wildcard; such patterns never inspect the store. *)
+Definition check_shape_def:
+  check_shape envC AnyA v = T ∧
+  check_shape envC (PrimA ty) v = check_type ty v ∧
+  check_shape envC (ConsA cn) v =
+    (pmatch envC [] (Pcon (SOME cn) (REPLICATE (con_arity envC cn) Pany)) v [] ≠
+     Match_type_error) ∧
+  check_shape envC (TupleA sas) v =
+    (case v of
+     | Conv NONE vs => check_shapes envC sas vs
+     | _ => F) ∧
+  check_shape envC (ListA sa) v =
+    (case v_to_list v of
+     | NONE => F
+     | SOME vs => EVERY (check_shape envC sa) vs) ∧
+  check_shapes envC [] [] = T ∧
+  check_shapes envC (sa::sas) (v::vs) =
+    (check_shape envC sa v ∧ check_shapes envC sas vs) ∧
+  check_shapes envC _ _ = F
 End
 
 Definition dest_Litv_def[simp]:

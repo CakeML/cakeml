@@ -389,6 +389,104 @@ Proof
       metis_tac [])
 QED
 
+Theorem sub_completion_infer_shape[local]:
+  (!l ienv sa t st1 st2 n ts2 s.
+    infer_shape l ienv sa t st1 = (M_success (), st2) ∧
+    sub_completion n st2.next_uvar st2.subst ts2 s
+    ⇒
+    ?ts1. sub_completion n st1.next_uvar st1.subst (ts1 ++ ts2) s) ∧
+  (!l ienv sas ts st1 st2 n ts2 s.
+    infer_shapes l ienv sas ts st1 = (M_success (), st2) ∧
+    sub_completion n st2.next_uvar st2.subst ts2 s
+    ⇒
+    ?ts1. sub_completion n st1.next_uvar st1.subst (ts1 ++ ts2) s)
+Proof
+  rw [sub_completion_def, pure_add_constraints_append] >>
+  imp_res_tac infer_shape_constraints >>
+  imp_res_tac infer_shape_next_uvar_mono >>
+  first_assum (irule_at Any) >> simp [] >>
+  full_simp_tac (srw_ss()++ARITH_ss) [SUBSET_DEF]
+QED
+
+Theorem infer_shape_sound:
+  (!l ienv sa t st st' tenv tvs extra_constraints s.
+    infer_shape l ienv sa t st = (M_success (), st') ∧
+    t_wfs st.subst ∧
+    tenv_ctor_ok tenv.c ∧
+    ienv.inf_c = tenv.c ∧
+    ienv.inf_t = tenv.t ∧
+    tenv_abbrev_ok tenv.t ∧
+    sub_completion tvs st'.next_uvar st'.subst extra_constraints s
+    ⇒
+    type_shape tvs tenv sa (convert_t (t_walkstar s t))) ∧
+  (!l ienv sas ts st st' tenv tvs extra_constraints s.
+    infer_shapes l ienv sas ts st = (M_success (), st') ∧
+    t_wfs st.subst ∧
+    tenv_ctor_ok tenv.c ∧
+    ienv.inf_c = tenv.c ∧
+    ienv.inf_t = tenv.t ∧
+    tenv_abbrev_ok tenv.t ∧
+    sub_completion tvs st'.next_uvar st'.subst extra_constraints s
+    ⇒
+    type_shapes tvs tenv sas (MAP (convert_t o t_walkstar s) ts))
+Proof
+  ho_match_mp_tac infer_shape_ind >>
+  rw [infer_shape_def, success_eqns, remove_pair_lem, type_shape_def]
+  >- (
+    fs [] >>
+    imp_res_tac t_unify_apply >>
+    imp_res_tac t_unify_wfs >>
+    imp_res_tac sub_completion_apply >>
+    imp_res_tac sub_completion_wfs >>
+    fs [t_walkstar_eqn1, convert_t_def, t_of_t_num_of])
+  >- (
+    rename1 `infer_p _ _ _ st = (M_success pres, st1)` >>
+    PairCases_on `pres` >> fs [] >>
+    `t_wfs st1.subst` by metis_tac [infer_p_wfs] >>
+    imp_res_tac t_unify_apply >> imp_res_tac t_unify_wfs >>
+    imp_res_tac sub_completion_apply >>
+    imp_res_tac sub_completion_unify2 >>
+    drule (cj 1 infer_p_sound) >>
+    disch_then (qspecl_then [`tenv`, `tvs`, `(t,pres0)::extra_constraints`, `s`]
+                  mp_tac) >>
+    simp [] >> strip_tac >>
+    qexistsl_tac [`ienv_con_arity ienv cn`, `convert_env s pres1`] >> fs [])
+  >- (
+    imp_res_tac t_unify_wfs >> imp_res_tac t_unify_apply >>
+    drule (cj 2 sub_completion_infer_shape) >> disch_then drule >>
+    strip_tac >> fs [] >>
+    imp_res_tac sub_completion_apply >>
+    imp_res_tac sub_completion_wfs >>
+    first_x_assum drule >>
+    disch_then (qspecl_then [`tenv`, `tvs`, `extra_constraints`, `s`] mp_tac) >>
+    simp [] >> strip_tac >>
+    gvs [t_walkstar_eqn1, convert_t_def, MAP_MAP_o])
+  >- (
+    imp_res_tac t_unify_wfs >> imp_res_tac t_unify_apply >>
+    drule (cj 1 sub_completion_infer_shape) >> disch_then drule >>
+    strip_tac >> fs [] >>
+    imp_res_tac sub_completion_apply >>
+    imp_res_tac sub_completion_wfs >>
+    first_x_assum drule >>
+    disch_then (qspecl_then [`tenv`, `tvs`, `extra_constraints`, `s`] mp_tac) >>
+    simp [] >> strip_tac >>
+    gvs [t_walkstar_eqn1, convert_t_def])
+  >- (
+    rename1 `infer_shape _ _ _ _ st = (M_success (), st1)` >>
+    drule (cj 2 sub_completion_infer_shape) >> disch_then drule >> strip_tac >>
+    qpat_x_assum `∀st st' tenv tvs extra_constraints s.
+                    infer_shape _ _ _ _ _ = _ ∧ _ ⇒ _` drule >>
+    disch_then (qspecl_then [`tenv`, `tvs`, `ts1 ++ extra_constraints`, `s`]
+                  mp_tac) >>
+    simp []) >>
+  rename1 `infer_shape _ _ _ _ st = (M_success (), st1)` >>
+  imp_res_tac (cj 1 infer_shape_wfs) >>
+  qpat_x_assum `∀st st' tenv tvs extra_constraints s.
+                  infer_shapes _ _ _ _ _ = _ ∧ _ ⇒ _` drule >>
+  disch_then (qspecl_then [`tenv`, `tvs`, `extra_constraints`, `s`] mp_tac) >>
+  simp []
+QED
+
 Theorem letrec_lemma[local]:
   !funs funs_ts s st.
   (MAP (λn. convert_t (t_walkstar s (Infer_Tuvar (st.next_uvar + n)))) (COUNT_LIST (LENGTH funs)) =
@@ -612,6 +710,20 @@ Proof
       by metis_tac [env_rel_sound_open]
     >> simp [Once type_e_cases]
     >> metis_tac [num_tvs_tveMask])
+  >~ [`type_e _ _ (Assert _ _) _`] >- (
+    simp [Once type_e_cases] >>
+    rename1 `infer_e _ _ _ st = (M_success t, st1)` >>
+    drule (cj 1 sub_completion_infer_shape) >> disch_then drule >> strip_tac >>
+    conj_tac
+    >- (first_x_assum drule >>
+        disch_then (qspecl_then [`tenv`, `tenvE`, `ts1 ++ extra_constraints`, `s`]
+                      mp_tac) >>
+        simp []) >>
+    drule (cj 1 infer_shape_sound) >>
+    disch_then (qspecl_then [`tenv`, `num_tvs tenvE`, `extra_constraints`, `s`]
+                  mp_tac) >>
+    impl_tac >- (fs [env_rel_sound_def, ienv_ok_def] >> metis_tac [infer_e_wfs]) >>
+    simp [])
   >> rw [check_t_def] >>
   fs [check_t_def] >>
   ONCE_REWRITE_TAC [type_e_cases] >>

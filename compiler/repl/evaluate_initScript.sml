@@ -191,6 +191,7 @@ Proof
   >~ [`ast$Let`] >- suspend "Let"
   >~ [`Letrec`] >- suspend "Letrec"
   >~ [`Tannot`] >- suspend "Tannot"
+  >~ [`Assert`] >- suspend "Assert"
   >~ [`Lannot`] >- suspend "Lannot"
   >~ [`Open`] >- suspend "Open"
   >~ [`[] : (pat # exp) list`] >- suspend "pmatch_Nil"
@@ -1015,6 +1016,11 @@ QED
 
 Resume evaluate_ok[Tannot]:
   rw [evaluate_def]
+QED
+
+Resume evaluate_ok[Assert]:
+  rw [evaluate_def]
+  \\ gvs [CaseEqs ["prod", "result", "list", "bool"]]
 QED
 
 Resume evaluate_ok[Lannot]:

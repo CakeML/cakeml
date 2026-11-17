@@ -167,6 +167,9 @@ Definition annotate_exp_def:
        (Lift (Handle e pes) fvs F (a::bs),MAX n n',fvs)) ∧
   (annotate_exp t (Tannot e _) = annotate_exp t e) ∧
   (annotate_exp t (Lannot e _) = annotate_exp t e) ∧
+  (annotate_exp t (Assert e sa) =
+     let (a,n,fvs) = annotate_exp t e in
+       (Lift (Assert e sa) fvs F [a],n,fvs)) ∧
   (annotate_exp t (Open path e) =
      (Lift (Open path e) str_empty F [],0,str_empty)) ∧
   (annotate_exps t [] = ([],0,str_empty)) ∧
@@ -377,6 +380,8 @@ Definition lift_exp_def:
   (lower_exp mode bound ren st (Lift (Raise e) fvs value [a]) =
      let (e,st) = lift_exp mode bound ren st a in
        (Raise e,st)) ∧
+  (lower_exp mode bound ren st (Lift (Assert e sa) fvs value [a]) =
+     lift_exp mode bound ren st a) ∧
   (lower_exp mode bound ren st (Lift (Mat e pes) fvs value (a::bs)) =
      let (e,st) = lift_exp mode bound ren st a in
      let (pes,st) = lift_pes mode bound ren st (MAP FST pes) bs in

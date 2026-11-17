@@ -739,6 +739,7 @@ Definition FV_def[simp]:
   (FV (Letrec defs b) = FV_defs defs ∪ FV b DIFF set (MAP (Short o FST) defs)) ∧
   (FV (Tannot e t) = FV e) ∧
   (FV (Lannot e l) = FV e) ∧
+  (FV (Assert e sa) = FV e) ∧
   (FV_list [] = {}) ∧
   (FV_list (e::es) = FV e ∪ FV_list es) ∧
   (FV_pes [] = {}) ∧
@@ -2106,4 +2107,14 @@ Proof
         index_witness_length_def,index_in_bounds_def,do_test_def,
         check_type_def,do_eq_def,lit_same_type_def]
   >> EVAL_TAC
+QED
+
+Theorem pmatch_Pcon_con_arity:
+  pmatch envC st (Pcon (SOME cn) ps) v ws ≠ Match_type_error ⇒
+  con_arity envC cn = LENGTH ps
+Proof
+  rw [con_arity_def] >>
+  Cases_on ‘nsLookup envC cn’ >> Cases_on ‘v’ >> gvs [pmatch_def] >>
+  Cases_on ‘o'’ >> gvs [pmatch_def, AllCaseEqs()] >>
+  PairCases_on ‘x’ >> gvs []
 QED

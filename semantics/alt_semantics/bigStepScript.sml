@@ -345,6 +345,23 @@ open_dec_env path env = NONE
 ==>
 evaluate ck env s (Open path e) (s, Rerr (Rabort Rtype_error)))
 
+/\ (! ck env e sa v s1 s2.
+(evaluate ck env s1 e (s2, Rval v) /\
+check_shape env.c sa v)
+==>
+evaluate ck env s1 (Assert e sa) (s2, Rval v))
+
+/\ (! ck env e sa v s1 s2.
+(evaluate ck env s1 e (s2, Rval v) /\
+~ (check_shape env.c sa v))
+==>
+evaluate ck env s1 (Assert e sa) (s2, Rerr (Rabort Rtype_error)))
+
+/\ (! ck env e sa err s s'.
+(evaluate ck env s e (s', Rerr err))
+==>
+evaluate ck env s (Assert e sa) (s', Rerr err))
+
 /\ (! ck env s.
 T
 ==>

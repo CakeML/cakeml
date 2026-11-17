@@ -149,6 +149,18 @@ Proof
   \\ metis_tac[]
 QED
 
+Theorem type_shape_tenv_equiv:
+  (∀tvs tenv1 sa t.
+     type_shape tvs tenv1 sa t ⇒
+     ∀tenv2. tenv_equiv tenv1 tenv2 ⇒ type_shape tvs tenv2 sa t) ∧
+  (∀tvs tenv1 sas ts.
+     type_shapes tvs tenv1 sas ts ⇒
+     ∀tenv2. tenv_equiv tenv1 tenv2 ⇒ type_shapes tvs tenv2 sas ts)
+Proof
+  ho_match_mp_tac type_shape_ind >> rw [type_shape_def] >>
+  metis_tac [type_p_tenv_equiv]
+QED
+
 Theorem type_e_tenv_equiv:
    (∀tenv1 bvs e t.
      type_e tenv1 bvs e t ⇒
@@ -177,6 +189,7 @@ Proof
     >> qpat_x_assum `!target. tenv_equiv _ target ==> _` irule
     >> irule tenv_equiv_extend_dec_tenv
     >> simp [])
+  >~ [`type_shape`] >- metis_tac [type_shape_tenv_equiv]
   \\ fs[RES_FORALL, FORALL_PROD] \\ rw[]
   \\ res_tac
   \\ imp_res_tac type_p_tenv_equiv
@@ -756,6 +769,24 @@ Proof
   fs[MAP_EQ_f]
 QED
 
+Theorem type_shape_ts_tid_rename[local]:
+  good_remap f ⇒
+  (∀tvs tenv sa t.
+     type_shape tvs tenv sa t ⇒
+     type_shape tvs (remap_tenv f tenv) sa (ts_tid_rename f t)) ∧
+  (∀tvs tenv sas ts.
+     type_shapes tvs tenv sas ts ⇒
+     type_shapes tvs (remap_tenv f tenv) sas (MAP (ts_tid_rename f) ts))
+Proof
+  strip_tac >> ho_match_mp_tac type_shape_ind >>
+  rw [type_shape_def, ts_tid_rename_def]
+  >- (fs [good_remap_def, prim_type_nums_def] >>
+      simp [t_of_t_num_of, ts_tid_rename_def] >>
+      Cases_on `ty` >> simp [] >> Cases_on `w` >> simp [])
+  >- metis_tac [type_p_ts_tid_rename] >>
+  fs [good_remap_def, prim_type_nums_def, ts_tid_rename_def]
+QED
+
 Theorem type_e_ts_tid_rename:
     good_remap f ⇒
   (∀tenv tenvE e t.
@@ -793,6 +824,7 @@ Proof
   >- suspend "Letrec"
   >- suspend "Tannot"
   >- suspend "Open"
+  >- suspend "Assert"
   >- suspend "FunCons"
 QED
 
@@ -917,6 +949,10 @@ Resume type_e_ts_tid_rename[Open]:
   >- metis_tac [remap_tenv_open_tenv]
   >> fs [remap_tenv_extend_dec_tenv, remap_tenvE_tveMask,
          remap_tenv_def, nsLookup_nsMap, IS_SOME_MAP]
+QED
+
+Resume type_e_ts_tid_rename[Assert]:
+  metis_tac [type_shape_ts_tid_rename]
 QED
 
 Resume type_e_ts_tid_rename[FunCons]:

@@ -200,6 +200,20 @@ Datatype:
   locs = NoLocs | Locs (int # int) (int # int)
 End
 
+(* Shape assertions: checks on the shape of a value that can only fail with
+   a type error. ListA is the only check that walks a recursive structure. *)
+Datatype:
+  shape_assert =
+    AnyA
+  | PrimA prim_type
+  (* Equivalent to a match against the constructor (applied to as many
+     wildcards as its arity) followed by a catch-all wildcard. *)
+  | ConsA ((modN, conN) id)
+  | TupleA (shape_assert list)
+  (* Checks that the value is a list and each element has the given shape. *)
+  | ListA shape_assert
+End
+
 (* Expressions *)
 Datatype:
  exp =
@@ -233,6 +247,9 @@ Datatype:
   | Lannot exp locs
   (* Open one non-empty module path for the lexical scope of the body. *)
   | Open (modN list) exp
+  (* Evaluates the expression and checks the shape of the resulting value.
+     Can only fail with a type error, so compilers can treat it as just exp. *)
+  | Assert exp shape_assert
 End
 
 Overload Var = “Ident”
@@ -324,7 +341,9 @@ Definition every_exp_def[simp]:
   (every_exp p (Letrec funs e) ⇔
              p (Letrec funs e) ∧ every_exp p e ∧ EVERY (λ(n,v,e). every_exp p e) funs) ∧
   (every_exp p (Open path e) ⇔
-             p (Open path e) ∧ every_exp p e)
+             p (Open path e) ∧ every_exp p e) ∧
+  (every_exp p (Assert e sa) ⇔
+             p (Assert e sa) ∧ every_exp p e)
 End
 
 Definition Seqs_def:

@@ -3519,6 +3519,81 @@ fun is_float_literal tm =
       List.all (wordsSyntax.is_word_literal o #2) alist
     end handle HOL_ERR _ => false
 
+(* Runtime shape assertions: assert_shape sa x is translated to Assert exp sa.
+   The side condition, that the refinement invariant of x guarantees the shape,
+   is proved by recursion on the shape for AnyA, PrimA, TupleA (pairs) and
+   ListA over the basic refinement invariants. *)
+val assert_shape_tm = prim_mk_const {Thy = "ml_translator", Name = "assert_shape"}
+
+fun is_assert_shape tm = let
+  val (f, args) = strip_comb tm
+  in same_const f assert_shape_tm andalso length args = 2 end
+  handle HOL_ERR _ => false
+
+val check_shape_base_lemmas =
+  [check_shape_AnyA, INT_check_shape, NUM_check_shape, BOOL_check_shape,
+   CHAR_check_shape, STRING_TYPE_check_shape]
+
+fun id_name tm =
+  if is_comb tm andalso is_comb (rator tm) then id_name (rand tm) (* Long *)
+  else rand tm (* Short *)
+
+(* returns a theorem !x v. inv x v ==> check_shape c dsa v, where dsa is sa
+   with constructor names replaced by the translator's constructor names; the
+   theorem may have lookup_cons hypotheses, like translated constructors *)
+fun prove_check_shape c inv sa = let
+  val (f, args) = strip_comb sa
+  val name = fst (dest_const f) handle HOL_ERR _ => ""
+  in
+    if name = "ListA" then let
+      val (th, dsa) = prove_check_shape c (rand inv) (hd args)
+      in (MATCH_MP LIST_TYPE_check_shape th, mk_comb (f, dsa)) end
+    else if name = "TupleA" then let
+      val (sas, sa_ty) = listSyntax.dest_list (hd args)
+      val (_, invs) = strip_comb inv
+      val _ = (length sas = 2 andalso length invs = 2) orelse failwith "TupleA"
+      val (th1, dsa1) = prove_check_shape c (el 1 invs) (el 1 sas)
+      val (th2, dsa2) = prove_check_shape c (el 2 invs) (el 2 sas)
+      in (MATCH_MP (MATCH_MP PAIR_TYPE_check_shape th1) th2,
+          mk_comb (f, listSyntax.mk_list ([dsa1, dsa2], sa_ty))) end
+    else if name = "ConsA" then let
+      val cn = el 1 args
+      val cname = id_name cn
+      val ty = fst (dom_rng (type_of inv))
+      val (_, inv_def, conses, _) = lookup_type_thms ty
+      val assums = conses
+        |> map (fn (_, th) => list_dest dest_conj (fst (dest_imp (concl th))))
+        |> List.concat |> filter is_eq
+      (* the CakeML name may differ from the HOL constructor's name, which
+         the translator records in the name of the constructor variable *)
+      val hol_suffix = "%%" ^ mlstringSyntax.dest_mlstring cname ^ "%%"
+      fun matches tm = let
+        val (_, stamp) = pairSyntax.dest_pair (rand (rhs tm))
+        val (sname, _) = dest_TypeStamp stamp
+        val vname = fst (dest_var (tm |> lhs |> rator |> rand))
+                    handle HOL_ERR _ => ""
+        in aconv sname cname orelse String.isSuffix hol_suffix vname end
+        handle HOL_ERR _ => false
+      val assum = first matches assums
+      val cv = assum |> lhs |> rator |> rand
+      val dsa = mk_comb (f, cv)
+      val goal = ``!x v. ^inv x v ==> check_shape ^c ^dsa v``
+      val th = TAC_PROOF (([assum], goal),
+        rpt strip_tac
+        \\ fs [lookup_cons_def]
+        \\ irule check_shape_ConsA
+        \\ first_assum (irule_at Any)
+        \\ Cases_on `x` \\ fs [inv_def]
+        \\ simp [semanticPrimitivesTheory.same_type_def,
+                 semanticPrimitivesTheory.same_ctor_def])
+      in (th, dsa) end
+    else let
+      val goal = ``!x v. ^inv x v ==> check_shape ^c ^sa v``
+      in (TAC_PROOF (([], goal), METIS_TAC check_shape_base_lemmas), sa) end
+  end handle HOL_ERR _ =>
+    failwith ("assert_shape: unable to prove that the refinement invariant " ^
+              term_to_string inv ^ " guarantees the shape " ^ term_to_string sa)
+
 fun hol2deep ctxt tm =
   (* variables *)
   if is_var tm then let
@@ -3560,6 +3635,16 @@ fun hol2deep ctxt tm =
   if (Feq tm) then Eval_Val_BOOL_F else
   if (tm ~~ TRUE) then Eval_Val_BOOL_TRUE else
   if (tm ~~ FALSE) then Eval_Val_BOOL_FALSE else
+  (* runtime shape assertion *)
+  if is_assert_shape tm then let
+    val (_, args) = strip_comb tm
+    val sa = el 1 args
+    val x = el 2 args
+    val th = hol2deep ctxt x
+    val inv = concl th |> rand |> rator
+    val (side, _) = prove_check_shape ``(^env_tm).c`` inv sa
+    val result = MATCH_MP (SPEC sa Eval_Assert) (CONJ th (SPEC x side))
+    in check_inv "assert_shape" tm result end else
   (* data-type constructor *)
   inst_cons_thm tm (hol2deep ctxt) handle HOL_ERR _ =>
   (* data-type pattern-matching *)

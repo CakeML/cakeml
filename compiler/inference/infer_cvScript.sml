@@ -192,6 +192,8 @@ val res = cv_trans (check_type_definition_expand |> SRULE [GSYM MAP_MAP_o])
 
 val infer_p_pre = cv_auto_trans_pre "" infer_p_expand;
 
+val infer_shape_pre = cv_auto_trans_pre "" infer_shape_expand;
+
 val constrain_op_pre = cv_trans_pre "" constrain_op_expand;
 
 val _ = cv_trans nsBind_def;
@@ -356,6 +358,17 @@ Proof
   \\ res_tac \\ gvs []
 QED
 
+Theorem IMP_infer_shape_pre:
+  (∀l ienv sa t s. t_wfs s.subst ⇒ infer_shape_pre l ienv sa t s) ∧
+  (∀l ienv sas ts s. t_wfs s.subst ⇒ infer_shapes_pre l ienv sas ts s)
+Proof
+  ho_match_mp_tac infer_shape_ind \\ rw [] \\ simp [Once infer_shape_pre]
+  \\ gvs [add_constraint_pre_eq, IMP_infer_p_pre] \\ rw []
+  \\ gvs [n_fresh_uvar_success, fresh_uvar_def]
+  \\ imp_res_tac infer_p_wfs \\ imp_res_tac infer_shape_wfs
+  \\ rpt (dxrule add_constraint_wfs \\ rpt strip_tac) \\ gvs []
+QED
+
 Theorem IMP_constrain_op_pre:
   t_wfs s.subst ⇒ constrain_op_pre l op ts s
 Proof
@@ -383,7 +396,7 @@ Proof
   \\ rpt (CASE_TAC \\ gvs (TypeBase.updates_of “:inf_env” @
                         TypeBase.updates_of “:loc_err_info”))
   \\ imp_res_tac type_name_check_sub_success \\ gvs []
-  \\ gvs [type_name_check_subst_success,IMP_infer_p_pre]
+  \\ gvs [type_name_check_subst_success,IMP_infer_p_pre,IMP_infer_shape_pre]
   \\ imp_res_tac infer_p_wfs
   \\ gvs [alist_to_ns_def, LAMBDA_PROD]
   \\ irule IMP_constrain_op_pre \\ gvs []

@@ -66,7 +66,7 @@ val r = compute_thms_def |> EVAL_RULE |> translate;
 
 val r = m_translate dest_binary_PMATCH;
 
-val r = check [‘ths’] compute_init_def |> translate;
+val r = assert_check [‘ths’] compute_init_def |> translate;
 
 val r = m_translate check_var_def;
 
@@ -126,10 +126,10 @@ val r = m_translate compute_execTheory.exec_def
 
 val _ = ml_prog_update open_local_in_block;
 
-val r = check [‘ths’,‘tm’] compute_add_def |> m_translate;
+val r = assert_check [‘ths’,‘tm’] compute_add_def |> m_translate;
 val r = compute_def
         |> SIMP_RULE(srw_ss()) [combinTheory.C_DEF]
-        |> check [‘ths’,‘ceqs’,‘tm’]
+        |> assert_check [‘ths’,‘ceqs’,‘tm’]
         |> m_translate;
 
 val _ = ml_prog_update close_local_blocks;

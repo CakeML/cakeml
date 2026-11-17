@@ -4558,6 +4558,7 @@ Proof
   >~ [‘Case [Let _ _ _]’] >- suspend "Let"
   >~ [‘Case [Letrec _ _]’] >- suspend "Letrec"
   >~ [`Case [Open _ _]`] >- suspend "Open"
+  >~ [‘Case [Assert _ _]’] >- suspend "Assert"
   >~ [‘Case ((_, _) :: _)’] >- suspend "pattern"
   >~ [‘Case ([] : ast$dec list)’] >- suspend "empty_decs"
   >~ [‘Case ((_ :: _ :: _) : ast$dec list)’] >- suspend "cons_decs"
@@ -4572,6 +4573,13 @@ Proof
   >~ [‘Case [Dlocal _ _]’] >- suspend "Dlocal"
   \\ qexists_tac `genv`
   \\ simp [subglobals_refl]
+QED
+
+Resume compile_correct[Assert]:
+  gvs [AllCaseEqs()]
+  \\ first_x_assum drule_all
+  \\ disch_then (qspec_then ‘t’ strip_assume_tac)
+  \\ first_assum (irule_at Any) \\ simp []
 QED
 
 Resume compile_correct[Open]:

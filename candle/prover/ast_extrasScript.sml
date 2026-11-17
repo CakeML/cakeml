@@ -53,6 +53,9 @@ Definition every_exp_def[simp]:
   (every_exp f (Open path e) <=>
     f (Open path e) /\
     every_exp f e) /\
+  (every_exp f (Assert e sa) <=>
+    f (Assert e sa) /\
+    every_exp f e) /\
   (every_exp f e <=> f e)
 Termination
   WF_REL_TAC `measure (exp_size o SND)`
@@ -134,6 +137,7 @@ Definition freevars_def[simp]:
        (freevars x DIFF set (MAP (Short o FST) f))) ∧
   freevars (Tannot x t) = freevars x ∧
   freevars (Lannot x l) = freevars x ∧
+  freevars (Assert x sa) = freevars x ∧
   (* An open can supply a binding or leave a fallback binding visible.
      Prefix qualified identifiers too: opened submodules shadow modules. *)
   freevars (Open path x) =

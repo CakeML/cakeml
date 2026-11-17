@@ -922,6 +922,42 @@ Proof
   unabbrev_all_tac >> fs []
 QED
 
+(* The arity of a constructor in the inference environment *)
+Definition ienv_con_arity_def:
+  ienv_con_arity ienv cn =
+    case nsLookup ienv.inf_c cn of
+    | NONE => 0
+    | SOME (tvs,ts,tn) => LENGTH ts
+End
+
+(* Constrain t so that the shape assertion is satisfied by values of type t *)
+Definition infer_shape_def:
+  (infer_shape l ienv AnyA t = return ()) ∧
+  (infer_shape l ienv (PrimA ty) t =
+    add_constraint l t (Infer_Tapp [] (t_num_of ty))) ∧
+  (infer_shape l ienv (ConsA cn) t =
+    do (t', bindings) <-
+         infer_p l ienv (Pcon (SOME cn) (REPLICATE (ienv_con_arity ienv cn) Pany));
+       add_constraint l t t'
+    od) ∧
+  (infer_shape l ienv (TupleA sas) t =
+    do ts <- n_fresh_uvar (LENGTH sas);
+       () <- add_constraint l t (Infer_Tapp ts Ttup_num);
+       infer_shapes l ienv sas ts
+    od) ∧
+  (infer_shape l ienv (ListA sa) t =
+    do t1 <- fresh_uvar;
+       () <- add_constraint l t (Infer_Tapp [t1] Tlist_num);
+       infer_shape l ienv sa t1
+    od) ∧
+  (infer_shapes l ienv [] [] = return ()) ∧
+  (infer_shapes l ienv (sa::sas) (t::ts) =
+    do () <- infer_shape l ienv sa t;
+       infer_shapes l ienv sas ts
+    od) ∧
+  (infer_shapes l ienv _ _ = failwith l «Shape assertion arity mismatch»)
+End
+
 Definition extend_dec_ienv_def:
   extend_dec_ienv ienv' ienv =
      <| inf_v := nsAppend ienv'.inf_v ienv.inf_v;
@@ -1098,6 +1134,11 @@ Definition infer_e_def:
     do opened <- infer_open l path ienv;
        infer_e l (extend_dec_ienv opened ienv) e
     od) ∧
+  (infer_e l ienv (Assert e sa) =
+    do t <- infer_e l ienv e;
+       () <- infer_shape l ienv sa t;
+       return t
+    od) ∧
   (infer_es l ienv [] =
     return []) ∧
   (infer_es l ienv (e::es) =
@@ -1147,6 +1188,11 @@ Theorem infer_e_expand = infer_e_def
   |> SRULE [st_ex_bind_pair]
   |> SRULE [st_ex_bind_def,st_ex_ignore_bind_def,FUN_EQ_THM_state,st_ex_return_def,
             failwith_def,option_case_rand,COND_RATOR];
+
+Theorem infer_shape_expand = infer_shape_def
+  |> SRULE [st_ex_bind_pair]
+  |> SRULE [st_ex_bind_def,st_ex_ignore_bind_def,FUN_EQ_THM_state,st_ex_return_def,
+            failwith_def];
 
 Definition lift_ienv_def:
   lift_ienv mn ienv =

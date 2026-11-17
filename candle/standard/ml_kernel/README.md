@@ -27,3 +27,6 @@ prover soundness proofs.
 
 [runtime_checkScript.sml](runtime_checkScript.sml):
 Theorems and definitions to support adding runtime type checking annotations.
+
+[runtime_check_testScript.sml](runtime_check_testScript.sml):
+Tests for the Assert-based runtime checks of runtime_checkLib.

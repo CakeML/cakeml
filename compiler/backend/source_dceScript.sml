@@ -121,6 +121,8 @@ Definition free_vars_def:
     free_vars locals acc e ∧
   free_vars locals acc (Lannot e l) =
     free_vars locals acc e ∧
+  free_vars locals acc (Assert e sa) =
+    free_vars locals acc e ∧
   (* programs containing Open are not transformed, see compile_decs *)
   free_vars locals acc (Open path e) =
     free_vars locals acc e ∧
@@ -250,6 +252,7 @@ Definition pure_exp_def:
   pure_exp (Tannot e t) = pure_exp e ∧
   pure_exp (Lannot e l) = pure_exp e ∧
   pure_exp (Open path e) = F ∧
+  pure_exp (Assert e sa) = F ∧
   pure_exp_list [] = T ∧
   pure_exp_list (e::es) = (pure_exp e ∧ pure_exp_list es) ∧
   pure_exp_pes [] = T ∧

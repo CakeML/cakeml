@@ -208,6 +208,7 @@ Proof
     rename1 `LIST_REL _ rest1 rest2` >>
     Cases_on `c1` >> gvs[SF itree_ss, ctxt_frame_rel_cases] >>
     gvs[GSYM ctxt_frame_rel_cases, get_ffi_def]
+    >~ [`check_shape`] >- (EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases])
     >- (
       reverse CASE_TAC >>
       gvs[PULL_EXISTS, EXISTS_PROD, get_ffi_def, SF itree_ss]

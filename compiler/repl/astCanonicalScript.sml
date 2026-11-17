@@ -450,6 +450,53 @@ Proof
   metis_tac [AST_T_TYPE_def]
 QED
 
+Theorem type_rep_complete_shape_assert:
+  ctMap_ok ctMap /\ ctMap_has_lists ctMap /\
+  ~MEM (identities «shape_assert») prim_type_nums /\
+  ast_canonical_primitive_types (ast_canonical_tenvT base identities) /\
+  nsLookup (ast_canonical_tenvT base identities) (Short «list») =
+    SOME ([list_parameter],Tlist (Tvar list_parameter)) /\
+  datatype_signature ctMap (identities «shape_assert») =
+    ast_canonical_signature (ast_canonical_tenvT base identities) «shape_assert» /\
+  type_rep_complete tvs ctMap tenvS (Tapp [] (identities «prim_type»))
+    PRIM_TYPE_TYPE /\
+  type_rep_complete tvs ctMap tenvS
+    (Tapp [Tstring;Tstring] (identities «id»))
+    (ID_TYPE STRING_TYPE STRING_TYPE) ==>
+  type_rep_complete tvs ctMap tenvS (Tapp [] (identities «shape_assert»))
+    SHAPE_ASSERT_TYPE
+Proof
+  strip_tac >> imp_res_tac ast_canonical_primitive_fields >>
+  imp_res_tac type_rep_complete_primitives >>
+  rewrite_tac [type_rep_complete_def] >> qx_gen_tac `value` >>
+  measureInduct_on `v_size value` >> strip_tac >>
+  `type_rep_complete_below (v_size value) tvs ctMap tenvS
+    (Tapp [] (identities «shape_assert»)) SHAPE_ASSERT_TYPE` by (
+      rw [type_rep_complete_below_def] >>
+      qpat_x_assum `!child. v_size child < _ ==> _` irule >> simp []) >>
+  `type_rep_complete_below (v_size value) tvs ctMap tenvS
+    (Tlist (Tapp [] (identities «shape_assert»))) (LIST_TYPE SHAPE_ASSERT_TYPE)` by (
+      irule type_rep_complete_below_list >> simp []) >>
+  drule_all type_v_datatype_signature >>
+  disch_then (qx_choosel_then
+    [`ctor_name`,`runtime_index`,`ctor_fields`,`ctor_params`,`ctor_types`]
+    strip_assume_tac) >>
+  `EVERY (\field. v_size field < v_size value) ctor_fields` by (
+    rewrite_tac [EVERY_MEM] >> qx_gen_tac `field_value` >> strip_tac >>
+    qpat_x_assum `value = Conv _ _` (fn theorem => PURE_REWRITE_TAC [theorem]) >>
+    BETA_TAC >> irule v_size_less_constructor >> simp []) >>
+  gvs [ast_canonical_signatures, type_name_subst_def,
+    ast_canonical_type_lookups, type_subst_def, LIST_REL_CONS2,
+    FUPDATE_LIST_THM, FLOOKUP_UPDATE, Tlist_def, Tstring_def] >>
+  qpat_x_assum `!child. v_size child < _ ==> _` kall_tac >>
+  fs [type_rep_complete_below_def, type_rep_complete_def] >> res_tac >>
+  fs [] >>
+  qpat_x_assum `datatype_signature _ _ = _` kall_tac >>
+  POP_ASSUM_LIST (fn assumptions => MAP_EVERY assume_tac
+    (filter (not o is_forall o concl) assumptions)) >>
+  metis_tac [SHAPE_ASSERT_TYPE_def]
+QED
+
 Theorem type_rep_complete_pat:
   ctMap_ok ctMap /\ ctMap_has_lists ctMap /\
   ~MEM (identities «pat») prim_type_nums /\ ~MEM option_id prim_type_nums /\
@@ -535,6 +582,8 @@ Theorem type_rep_complete_exp:
   type_rep_complete tvs ctMap tenvS (Tapp [] (identities «op»)) OP_TYPE /\
   type_rep_complete tvs ctMap tenvS (Tapp [] (identities «lop»)) LOP_TYPE /\
   type_rep_complete tvs ctMap tenvS (Tapp [] (identities «locs»)) LOCS_TYPE /\
+  type_rep_complete tvs ctMap tenvS (Tapp [] (identities «shape_assert»))
+    SHAPE_ASSERT_TYPE /\
   type_rep_complete tvs ctMap tenvS
     (Tapp [Tstring;Tstring] (identities «id»))
     (ID_TYPE STRING_TYPE STRING_TYPE) ==>
@@ -721,6 +770,7 @@ val family_proofs =
    type_rep_complete_prim_type,type_rep_complete_arith,type_rep_complete_thunk_op,
    type_rep_complete_test,type_rep_complete_op,type_rep_complete_locs,
    type_rep_complete_id,type_rep_complete_ast_t,type_rep_complete_pat,
+   type_rep_complete_shape_assert,
    type_rep_complete_exp,type_rep_complete_dec];
 
 val family_roots = map (fn group => let
@@ -844,6 +894,9 @@ Proof
     mp_tac (SPEC_ALL type_rep_complete_ast_t) >> simp []) >>
   `type_rep_complete tvs ctMap tenvS (Tapp [] (identities «pat»)) PAT_TYPE` by (
     mp_tac (SPEC_ALL type_rep_complete_pat) >> simp []) >>
+  `type_rep_complete tvs ctMap tenvS (Tapp [] (identities «shape_assert»))
+    SHAPE_ASSERT_TYPE` by (
+      mp_tac (SPEC_ALL type_rep_complete_shape_assert) >> simp []) >>
   `type_rep_complete tvs ctMap tenvS (Tapp [] (identities «exp»)) EXP_TYPE` by (
     mp_tac (SPEC_ALL type_rep_complete_exp) >> simp []) >>
   `type_rep_complete tvs ctMap tenvS (Tapp [] (identities «dec»)) DEC_TYPE` by (
@@ -1036,6 +1089,26 @@ Proof
     v_rel_def,OPTREL_def]
 QED
 
+Theorem ast_shape_encoder_self[local]:
+  (!stamp. MEM stamp ast_canonical_representation_stamps ==>
+    stamp_rel ft fe stamp stamp) ==>
+  (!sa. v_rel fr ft fe (SHAPE_ASSERT_v sa) (SHAPE_ASSERT_v sa)) /\
+  (!sas. v_rel fr ft fe (SHAPE_ASSERT_v_aux_1 sas) (SHAPE_ASSERT_v_aux_1 sas))
+Proof
+  strip_tac >>
+  mp_tac (SPEC_ALL ast_leaf_encoders_self) >> simp [] >> strip_tac >>
+  ‘!identifier. v_rel fr ft fe (ID_v STRING_v STRING_v identifier)
+    (ID_v STRING_v STRING_v identifier)’ by (
+      match_mp_tac ast_identifier_encoder_self >> simp [STRING_v_def,v_rel_def]) >>
+  ‘stamp_rel ft fe (TypeStamp «[]» list_type_num) (TypeStamp «[]» list_type_num) /\
+    stamp_rel ft fe (TypeStamp «::» list_type_num) (TypeStamp «::» list_type_num)’ by (
+      fs [ast_canonical_representation_stamps_def,list_type_num_def]) >>
+  ho_match_mp_tac SHAPE_ASSERT_v_ind >> rw [] >>
+  simp [Once SHAPE_ASSERT_v_def] >>
+  fs [Once SHAPE_ASSERT_v_def,ast_canonical_representation_stamps_def,
+    v_rel_def,OPTREL_def]
+QED
+
 Theorem ast_expression_encoder_self[local]:
   (!stamp. MEM stamp ast_canonical_representation_stamps ==>
     stamp_rel ft fe stamp stamp) ==>
@@ -1053,6 +1126,7 @@ Proof
   mp_tac (SPEC_ALL ast_literal_encoder_self) >> simp [] >> strip_tac >>
   mp_tac (SPEC_ALL ast_type_encoder_self) >> simp [] >> strip_tac >>
   mp_tac (SPEC_ALL ast_pattern_encoder_self) >> simp [] >> strip_tac >>
+  mp_tac (SPEC_ALL ast_shape_encoder_self) >> simp [] >> strip_tac >>
   ‘!identifier. v_rel fr ft fe (ID_v STRING_v STRING_v identifier)
     (ID_v STRING_v STRING_v identifier)’ by (
       match_mp_tac ast_identifier_encoder_self >> simp [STRING_v_def,v_rel_def]) >>

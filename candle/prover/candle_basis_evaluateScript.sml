@@ -51,7 +51,8 @@ Theorem simple_exp_simps[simp] =
     “simple_exp (Letrec f x)”,
     “simple_exp (Tannot e t)”,
     “simple_exp (Lannot e l)”,
-    ``simple_exp (Open path e)``]
+    ``simple_exp (Open path e)``,
+    “simple_exp (Assert e sa)”]
   |> map (SIMP_CONV (srw_ss()) [simple_exp_def])
   |> map (SIMP_RULE (srw_ss()) [GSYM simple_exp_def, SF ETA_ss])
   |> LIST_CONJ;

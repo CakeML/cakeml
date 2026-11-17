@@ -33,6 +33,7 @@ Datatype:
   | Ccon (((modN, conN)id)option) (v list) unit (exp list)
   | Ctannot unit ast_t
   | Clannot unit locs
+  | Cassert unit shape_assert
 End
 
 Type ctxt = ``: ctxt_frame # v sem_env``
@@ -187,6 +188,11 @@ Definition continue_def:
         return env s v c
     | (Clannot ()  l, env) :: c =>
         return env s v c
+    | (Cassert ()  sa, env) :: c =>
+        if check_shape env.c sa v then
+          return env s v c
+        else
+          Eabort Rtype_error
   )))
 End
 
@@ -247,6 +253,7 @@ Definition e_step_def:
                        s, Exp e, c)
           | Tannot e t => push env s e (Ctannot ()  t) c
           | Lannot e l => push env s e (Clannot ()  l) c
+          | Assert e sa => push env s e (Cassert ()  sa) c
           | Open path e =>
               (case open_dec_env path env of
                  NONE => Eabort Rtype_error

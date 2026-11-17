@@ -7,49 +7,32 @@ structure runtime_checkLib :> runtime_checkLib = struct
 
 open HolKernel boolLib bossLib BasicProvers mlstringTheory runtime_checkTheory;
 
-fun mlstring_check s =
-  “mlstring$strlen ^s”;
+(* Runtime checks are inserted as assert_shape, which the translator turns
+   into an Assert expression (see ml_translatorLib) that consumes no clock. *)
 
-fun type_check ty =
-  “case ^ty of Tyvar _ => () | _ => abc” |> subst [“abc:unit”|->“()”];
+fun shape_of_type ty =
+  if ty = “:mlstring” then “PrimA StrT” else
+  if ty = “:type” then “ConsA (Short «Tyvar»)” else
+  if ty = “:term” then “ConsA (Short «Const»)” else
+  if ty = “:thm” then “ConsA (Short «Sequent»)” else
+  case total listSyntax.dest_list_type ty of
+    SOME ety => mk_comb (“ListA”, shape_of_type ety)
+  | NONE =>
+    case total pairSyntax.dest_prod ty of
+      SOME (a, b) =>
+        mk_comb (“TupleA”,
+                 listSyntax.mk_list ([shape_of_type a, shape_of_type b],
+                                     “:shape_assert”))
+    | NONE => failwith ("shape_of_type: " ^ type_to_string ty)
 
-fun term_check tm =
-  “case ^tm of Const _ _ => () | _ => abc” |> subst [“abc:unit”|->“()”];
-
-fun thm_check th =
-  “case ^th of Sequent _ _ => ()”;
-
-fun ty_list_check ty = “check_ty ^ty”;
-fun tm_list_check tm = “check_tm ^tm”;
-fun thm_list_check th = “check_thm ^th”;
-fun ty_ty_list_check tyty = “check_ty_ty ^tyty”;
-fun tm_tm_list_check tmtm = “check_tm_tm ^tmtm”;
-
-fun guess_check tm =
-  if type_of tm = “:mlstring” then mlstring_check else
-  if type_of tm = “:type” then type_check else
-  if type_of tm = “:term” then term_check else
-  if type_of tm = “:thm” then thm_check else
-  if type_of tm = “:type list” then ty_list_check else
-  if type_of tm = “:term list” then tm_list_check else
-  if type_of tm = “:thm list” then thm_list_check else
-  if type_of tm = “:(type # type) list” then ty_ty_list_check else
-  if type_of tm = “:(term # term) list” then tm_tm_list_check else fail()
-
-fun add_type_check v f def = let
-  val def = SPEC_ALL def
-  val tm = f v
-  in MATCH_MP pure_seq_intro def |> ISPEC tm end
-
-fun check [] def = SPEC_ALL def
-  | check (v::vs) def =
+fun assert_check [] def = SPEC_ALL def
+  | assert_check (v::vs) def =
     let
-      val def = check vs def
+      val def = assert_check vs def
       val tm = Parse.parse_in_context (free_vars (concl def)) v
-      val f = guess_check tm
-      val def = add_type_check tm f def
-    in def end
-
+      val sa = shape_of_type (type_of tm)
+      val chk = “ml_translator$assert_shape ^sa ^tm”
+    in MATCH_MP pure_seq_intro def |> ISPEC chk end
 
 end
 

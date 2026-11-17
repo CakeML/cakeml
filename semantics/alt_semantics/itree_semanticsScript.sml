@@ -495,6 +495,7 @@ Datatype:
              | Ccon (((modN, conN) id) option) (v list) (exp list)
              | Ctannot ast_t
              | Clannot locs
+             | Cassert shape_assert
 End
 
 Type "ctxt"[pp] = ``:ctxt_frame # v sem_env``;
@@ -617,7 +618,10 @@ Definition continue_def:
       push env s e (Ccon n (v::vs) es) c
     else Etype_error ) ∧
   continue s v ((Ctannot t, env) :: c) = return env s v c ∧
-  continue s v ((Clannot l, env) :: c) = return env s v c
+  continue s v ((Clannot l, env) :: c) = return env s v c ∧
+  continue s v ((Cassert sa, env) :: c) = (
+    if check_shape env.c sa v then return env s v c
+    else Etype_error)
 End
 
 Definition exn_continue_def:
@@ -659,6 +663,7 @@ Definition estep_def:
     else Estep (env with <| v := build_rec_env funs env env.v |>, s, Exp e, c)) ∧
   estep (env, s, Exp $ Tannot e t, c) = push env s e (Ctannot t) c ∧
   estep (env, s, Exp $ Lannot e l, c) = push env s e (Clannot l) c ∧
+  estep (env, s, Exp $ Assert e sa, c) = push env s e (Cassert sa) c ∧
   estep (env, s, Exp $ Open path e, c) = (
     case open_dec_env path env of
       NONE => Etype_error
