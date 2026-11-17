@@ -4,11 +4,11 @@ Changes since release v3671:
 
 The integer division and modulus primitives now take a rounding mode (#1583). Instead of `Div`, one now gets to choose between `Div RoundDown` and `Div TowardsZero`. Same for `Mod`. These are ignored for floats.
 
-A new primitive `PolyCompare` implements polymorphic comparison. It agrees with `=` on type errors and on when it returns zero, and orders constructors by their position in the datatype. It is not antisymmetric on distinct references or exceptions. `TypeStamp` now takes the constructor position as a third argument.
+A new primitive `PolyCompare` implements polymorphic comparison (#1598). It agrees with `=` on type errors and on when it returns zero, and orders constructors by their position in the datatype. It is not antisymmetric on distinct references or exceptions. `TypeStamp` now takes the constructor position as a third argument.
 
 ## Basis library
 
-A new top-level `compare : 'a -> 'a -> int` exposes `PolyCompare`.
+A new top-level `compare : 'a -> 'a -> int` exposes `PolyCompare` (#1598).
 
 ### Int
 
@@ -16,7 +16,7 @@ A new top-level `compare : 'a -> 'a -> int` exposes `PolyCompare`.
 
 ## Compiler backend and runtime
 
-In wordLang, the `Equal` stub now computes a three-way comparison, which both `=` and `PolyCompare` call.
+In wordLang, the `Equal` stub now computes a three-way comparison, which both `=` and `PolyCompare` call (#1598).
 
 ## Pancake
 
