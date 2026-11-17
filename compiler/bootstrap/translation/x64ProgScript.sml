@@ -286,7 +286,8 @@ i)))`` (rand o rator o rator o rand o rand) (map (csethm 2 o fconv o
 bconv) x64_enc1_4_aux)]
 
 (* FP *)
-val fp_defaults = [encode_sse_def,xmm_mem_to_rm_def,encode_sse_binop_def]
+val fp_defaults = [encode_sse_def,xmm_mem_to_rm_def,encode_sse_binop_def,
+                   x64_fix_nan_ast_def]
 
 val x64_enc1_5_aux = el 5 x64_enc1s |> SIMP_RULE (srw_ss() ++
   DatatypeSimps.expand_type_quants_ss [``:fp``]) (defaults @
