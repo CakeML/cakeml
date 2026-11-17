@@ -88,6 +88,10 @@ Translate the compiler's parser.
 [printingProgScript.sml](printingProgScript.sml):
 Translate the pretty printing functions for the REPL
 
+[proofs](proofs):
+Proofs about the translated compiler programs, including the shared
+CakeML and Candle read-eval-print loop (REPL).
+
 [reg_allocProgScript.sml](reg_allocProgScript.sml):
 Translate the compiler's register allocator.
 

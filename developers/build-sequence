@@ -244,6 +244,7 @@ compiler/benchmarks/mlton_benchmarks/cakeml
 
 # compiler HOL bootstrap
 compiler/bootstrap/translation
+compiler/bootstrap/translation/proofs
 pancake/translation
 pancake/compilation/x64:pancake-x64.tar.gz
 pancake/compilation/arm8:pancake-arm8.tar.gz
