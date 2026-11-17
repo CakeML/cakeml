@@ -575,27 +575,27 @@ Definition inst_def:
     | FP (FPSqrt d1 d2) =>
       (case get_fp_var d2 s of
       | SOME f =>
-        SOME (set_fp_var d1 (fp64_sqrt roundTiesToEven f) s)
+        SOME (set_fp_var d1 (fpSem$fix_NaN (fp64_sqrt roundTiesToEven f)) s)
       | _ => NONE)
     | FP (FPAdd d1 d2 d3) =>
       (case (get_fp_var d2 s,get_fp_var d3 s) of
       | (SOME f1,SOME f2) =>
-        SOME (set_fp_var d1 (fp64_add roundTiesToEven f1 f2) s)
+        SOME (set_fp_var d1 (fpSem$fix_NaN (fp64_add roundTiesToEven f1 f2)) s)
       | _ => NONE)
     | FP (FPSub d1 d2 d3) =>
       (case (get_fp_var d2 s,get_fp_var d3 s) of
       | (SOME f1,SOME f2) =>
-        SOME (set_fp_var d1 (fp64_sub roundTiesToEven f1 f2) s)
+        SOME (set_fp_var d1 (fpSem$fix_NaN (fp64_sub roundTiesToEven f1 f2)) s)
       | _ => NONE)
     | FP (FPMul d1 d2 d3) =>
       (case (get_fp_var d2 s,get_fp_var d3 s) of
       | (SOME f1,SOME f2) =>
-        SOME (set_fp_var d1 (fp64_mul roundTiesToEven f1 f2) s)
+        SOME (set_fp_var d1 (fpSem$fix_NaN (fp64_mul roundTiesToEven f1 f2)) s)
       | _ => NONE)
     | FP (FPDiv d1 d2 d3) =>
       (case (get_fp_var d2 s,get_fp_var d3 s) of
       | (SOME f1,SOME f2) =>
-        SOME (set_fp_var d1 (fp64_div roundTiesToEven f1 f2) s)
+        SOME (set_fp_var d1 (fpSem$fix_NaN (fp64_div roundTiesToEven f1 f2)) s)
       | _ => NONE)
     | FP (FPFma d1 d2 d3) =>
       (case (get_fp_var d1 s, get_fp_var d2 s, get_fp_var d3 s) of

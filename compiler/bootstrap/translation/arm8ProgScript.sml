@@ -246,7 +246,14 @@ val arm8_enc1_4 = reconstruct_case
   ``arm8_enc (Inst (Mem m n (Addr n' i)))``
   (rand o rator o rator o rand o rand) arm8_enc1_4_aux];
 
-val arm8_enc1_5 = el 5 arm8_enc1s
+val arm8_enc1_5_aux = el 5 arm8_enc1s
+  |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss
+                [``:fp``]) (arm8_fix_nan_ast_def :: e_fp_def :: defaults)
+  |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+  |> CONJUNCTS
+
+val arm8_enc1_5 = reconstruct_case ``arm8_enc (Inst (FP f))``
+  (rand o rand o rand) arm8_enc1_5_aux
 
 val arm8_simp1 = reconstruct_case ``arm8_enc (Inst i)``
   (rand o rand) [arm8_enc1_1,arm8_enc1_2,arm8_enc1_3,arm8_enc1_4,arm8_enc1_5]
