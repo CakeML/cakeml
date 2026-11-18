@@ -36,6 +36,10 @@ doubling functions, including using references (no arrays, no exceptions).
 An example showing how to use the monadic translator to translate
 monadic functions using IO primitives from the basis library.
 
+[monadic_ptr_eqScript.sml](monadic_ptr_eqScript.sml):
+Examples of pointer equality in a global-state monad, translated with
+ml_monad_oracleLib and evaluated under different source oracles.
+
 [poly_array_sortProgScript.sml](poly_array_sortProgScript.sml):
 An example showing how to use the monadic translator to translate polymorphic
 monadic array quicksort, including exceptions.
