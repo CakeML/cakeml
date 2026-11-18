@@ -55,6 +55,7 @@ val _ = cv_trans total_num2Zreg;
 val _ = cv_trans x64_targetTheory.x64_sh_def;
 val _ = cv_trans x64_targetTheory.x64_cmp_def;
 val _ = cv_trans x64_targetTheory.x64_bop_def;
+val _ = cv_trans x64_targetTheory.x64_fix_nan_ast_def;
 val _ = cv_trans x64_targetTheory.x64_ast_def;
 
 val _ = cv_trans x64Theory.e_imm8_def;

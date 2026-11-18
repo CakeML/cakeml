@@ -1,8 +1,2 @@
 # the exercises are not supposed to build until one solves them
 tutorial/problems
-# depend on the ARM8 floating-point changes to arm8_asl (origin/arm8-floats)
-compiler/encoders/arm8_asl/proofs
-compiler/backend/arm8_asl
-compiler/bootstrap/compilation/arm8/proofs
-examples/lpr_checker/array/compilation/proofsARM8
-examples/pseudo_bool/array/compilation/proofsARM8

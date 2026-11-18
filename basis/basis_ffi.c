@@ -630,6 +630,31 @@ void ffiraw_socket_close(unsigned char *c, long clen, unsigned char *a, long ale
     a[0] = 0;
   }
 }
+#else
+/* The bootstrapped compiler references these FFIs on every target, even
+ * when no socket operations are used. This socket implementation is Linux
+ * only; report the normal FFI error status on unsupported hosts. */
+#define CML_UNSUPPORTED_SOCKET(name) \
+  void ffi##name(unsigned char *c, long clen, unsigned char *a, long alen) { \
+    (void)c; (void)clen; \
+    assert(alen >= 1); \
+    a[0] = 1; \
+  }
+CML_UNSUPPORTED_SOCKET(unix_socket_listen)
+CML_UNSUPPORTED_SOCKET(unix_socket_accept)
+CML_UNSUPPORTED_SOCKET(unix_socket_read)
+CML_UNSUPPORTED_SOCKET(unix_socket_write)
+CML_UNSUPPORTED_SOCKET(raw_socket_create)
+CML_UNSUPPORTED_SOCKET(get_interface_index)
+CML_UNSUPPORTED_SOCKET(get_interface_mtu)
+CML_UNSUPPORTED_SOCKET(raw_socket_bind)
+CML_UNSUPPORTED_SOCKET(raw_socket_recv)
+CML_UNSUPPORTED_SOCKET(raw_socket_send)
+CML_UNSUPPORTED_SOCKET(raw_socket_sendto)
+CML_UNSUPPORTED_SOCKET(raw_socket_poll)
+CML_UNSUPPORTED_SOCKET(set_socket_buffer_size)
+CML_UNSUPPORTED_SOCKET(raw_socket_close)
+#undef CML_UNSUPPORTED_SOCKET
 #endif
 
 /* Interactive evaluation: Interrupt and Candle kernel FFIs */
