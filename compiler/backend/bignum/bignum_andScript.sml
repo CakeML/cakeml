@@ -196,13 +196,13 @@ QED
 
 (** misc **********************************************************************)
 
-Theorem FLOOKUP_res_var_neq[local,simp]:
+Theorem FLOOKUP_res_var_neq[local]:
   n' ≠ n ⇒ FLOOKUP (res_var s (n, opt)) n' = FLOOKUP s n'
 Proof
   Cases_on ‘opt’ >> rw [res_var_def, FLOOKUP_SIMP, DOMSUB_FLOOKUP_NEQ]
 QED
 
-Theorem FLOOKUP_res_var[simp]:
+Theorem FLOOKUP_res_var:
   FLOOKUP (res_var s (n, NONE))   n = NONE ∧
   FLOOKUP (res_var s (n, SOME v)) n = SOME v
 Proof
@@ -210,33 +210,33 @@ Proof
 QED
 
 (*
-Theorem FLOOKUP_set_var_neq[local,simp]:
+Theorem FLOOKUP_set_var_neq[local]:
   n' ≠ n ⇒ FLOOKUP (set_var n value s).locals n' = FLOOKUP s.locals n'
 Proof
   simp [set_var_def, FLOOKUP_SIMP]
 QED
 
-Theorem FLOOKUP_set_var[simp]:
+Theorem FLOOKUP_set_var:
   FLOOKUP (set_var n value s).locals n = SOME value
 Proof
   simp [set_var_def, FLOOKUP_SIMP]
 QED
 *)
 
-Theorem shape_of_ValWord[simp]:
+Theorem shape_of_ValWord:
   shape_of (ValWord x) = One
 Proof
   simp [shape_of_def]
 QED
 
-Theorem shape_of_RStruct_One_One[simp]:
+Theorem shape_of_RStruct_One_One:
   shape_of (RStruct [ValWord x; ValWord y]) = Comb [One; One]
 Proof
   simp [shape_of_def]
 QED
 
 (*
-Theorem set_var_record[simp]:
+Theorem set_var_record:
   (set_var v value s).clock = s.clock ∧
   (set_var v value s).memaddrs = s.memaddrs ∧
   (set_var v value s).memory = s.memory ∧
@@ -254,7 +254,7 @@ Proof
 QED
 *)
 
-Theorem dec_clock_record[simp]:
+Theorem dec_clock_record:
   (dec_clock s).locals = s.locals ∧
   (dec_clock s).memaddrs = s.memaddrs ∧
   (dec_clock s).memory = s.memory
@@ -264,7 +264,7 @@ QED
 
 (** eval **********************************************************************)
 
-Theorem eval_Const[simp]:
+Theorem eval_Const:
   eval s (Const i) = SOME (ValWord (i2w i))
 Proof
   simp [eval_def]
@@ -280,7 +280,7 @@ Proof
   simp [eval_def]
 QED
 
-Theorem eval_Var_Local[simp]:
+Theorem eval_Var_Local:
   eval s (Var Local n) = FLOOKUP s.locals n
 Proof
   simp [eval_def]
@@ -295,7 +295,7 @@ Proof
   simp [eval_def, LLOOKUP_THM]
 QED
 
-Theorem eval_BytesInWord[simp]:
+Theorem eval_BytesInWord:
   eval s BytesInWord = SOME (ValWord bytes_in_word)
 Proof
   simp [eval_def]
@@ -371,19 +371,19 @@ QED
 
 (** evaluate ******************************************************************)
 
-Theorem evaluate_Annot[simp]:
+Theorem evaluate_Annot:
   evaluate (Annot s₁ s₂, s) = (NONE, s)
 Proof
   simp [evaluate_def]
 QED
 
-Theorem evaluate_Seq_Annot_Left[simp]:
+Theorem evaluate_Seq_Annot_Left:
   evaluate (Seq (Annot s₁ s₂) c, s) = evaluate (c, s)
 Proof
   simp [evaluate_def]
 QED
 
-Theorem evaluate_Seq_Annot_Right[simp]:
+Theorem evaluate_Seq_Annot_Right:
   evaluate (Seq c (Annot s₁ s₂), s) = evaluate (c, s)
 Proof
   simp [evaluate_def]
@@ -392,7 +392,7 @@ Proof
 QED
 
 
-Theorem evaluate_Seq_assoc[simp]:
+Theorem evaluate_Seq_assoc:
   evaluate (Seq (Seq s₁ s₂) (Seq s₃ s₄), s) =
   evaluate (Seq s₁ (Seq s₂ (Seq s₃ s₄)), s)
 Proof
@@ -498,8 +498,7 @@ Theorem evaluate_If:
   ⇒
   evaluate (If e c1 c2,s) = (res, s')
 Proof
-  once_rewrite_tac [evaluate_def]
-  >> rw []
+  once_rewrite_tac [evaluate_def] >> simp [eval_Const]
 QED
 
 Theorem evaluate_Dec_no_error:
@@ -533,7 +532,8 @@ Theorem evaluate_Store_Local_NONE:
   ⇒
   evaluate (Store (Var Local dst) e, s) = (res, s')
 Proof
-  simp [evaluate_def, flatten_def, mem_stores_def, mem_store_def]
+  simp [evaluate_def, flatten_def, mem_stores_def, mem_store_def,
+        eval_Var_Local]
 QED
 
 Theorem evaluate_Assign_Local:
@@ -567,7 +567,8 @@ Theorem evaluate_Primitive_AddCarry:
   evaluate (Primitive dst AddCarry [l; r; ci], s) = (res, s')
 Proof
   simp [evaluate_def, pan_primop_def, isValWord_def, theValWord_def,
-        is_valid_value_def, word_add_carry_def, set_var_def]
+        is_valid_value_def, word_add_carry_def, set_var_def,
+        shape_of_RStruct_One_One]
 QED
 
 Theorem evaluate_Tick_NONE:
@@ -1135,7 +1136,7 @@ Theorem evaluate_If_Const_T:
   ⇒
   evaluate (If (Const i) c1 c2,s) = (res, s')
 Proof
-  simp [evaluate_def]
+  simp [evaluate_def, eval_Const]
 QED
 
 (* For use in step_If_Const *)
@@ -1146,7 +1147,7 @@ Theorem evaluate_If_Const_F:
   ⇒
   evaluate (If (Const i) c1 c2,s) = (res, s')
 Proof
-  simp [evaluate_def]
+  simp [evaluate_def, eval_Const]
 QED
 
 (* Given a head of the form  evaluate (If (Const w) ...) = ..., tries to
@@ -1427,7 +1428,7 @@ Proof
   >> Induct using SNOC_INDUCT
   >> rw [mw_fix_pan_loop_def]
   >- (
-    simp [Once evaluate_def, state_component_equality]
+    simp [Once evaluate_def, state_component_equality, eval_Var_Local]
     >> once_rewrite_tac [mw_fix_def] >> simp []
   )
   >> once_rewrite_tac [GSYM stack_evaluate]
@@ -1456,20 +1457,18 @@ Proof
   >> walk
   >> Cases_on ‘n’
   >- (
-    walk
     (* TODO the following two todos came because I changed head_pop_T to us
        REWR_CONV instead of REWRITE_CONV - I guess the implicit rewrites
        are not applied as often as they used to *)
-    >> hsimp []  (* TODO simplifying a if NONE = NONE then evaluate ... here *)
-    >> walk
-    >> hsimp []  (* TODO simplifying a case NONE of NONE *)
+    rpt (walk >> hsimp [])
     >> once_rewrite_tac [GSYM mw_fix_pan_loop_def]
     >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
     >> gvs [MAP_SNOC, ones_SNOC]
     >> last_x_assum $ qspecl_then [‘s'’, ‘base’] mp_tac
     (* TODO a gadget that takes a theorem and the goal, and tries to
        instantiate the frame? *)
-    >> simp [Abbr ‘s'’, dec_clock_def, FLOOKUP_SIMP, i2w_one, n2w_SUC]
+    >> simp [Abbr ‘s'’, dec_clock_def, FLOOKUP_SIMP, i2w_one, n2w_SUC,
+             FLOOKUP_res_var_neq]
     >> strip_tac
     >> SEP_F_TAC
     >> strip_tac
@@ -1481,7 +1480,7 @@ Proof
   >> qmatch_goalsub_abbrev_tac ‘mw_fix xs'’
   >> have ‘LENGTH (mw_fix xs') = SUC (LENGTH xs)’
   >- simp [Abbr ‘xs'’, Once mw_fix_def]
-  >> simp [FLOOKUP_SIMP]
+  >> simp [FLOOKUP_res_var_neq, FLOOKUP_SIMP]
 QED
 
 (** mw_and_pan ****************************************************************)
@@ -1511,7 +1510,7 @@ Theorem mw_and_pan_loop_thm_raw[local]:
        frame) (fun2set (m, s.memaddrs))
 Proof
   simp [] >> Induct >> rw [mw_and_pan_loop_def]
-  >- (simp [Once evaluate_def, state_component_equality, mw_and_def])
+  >- (simp [Once evaluate_def, state_component_equality, mw_and_def, eval_Var_Local])
   (* TODO make this into a tactic and use it everythwere *)
   >> once_rewrite_tac [GSYM stack_evaluate]
   >> enter_loop
@@ -1535,16 +1534,16 @@ Proof
   >> hsimp []
   >> walk
   (* TODO Maybe we should have another tactic that reads the first element? *)
-  >> fs [ones_def] >> SEP_R_TAC
+  >> fs [ones_def, dec_clock_record] >> SEP_R_TAC
   >> walk
   (* TODO SEP_R_TAC without the Cases seems to just do nothing?
        Maybe it should fail instead, and give a hint?  *)
-  >> Cases_on ‘ys’ >> fs [ones_def]
+  >> Cases_on ‘ys’ >> fs [ones_def, dec_clock_record]
   >> SEP_R_TAC >> walk
-  >> Cases_on ‘rs’ >> fs [ones_def]
-  >> SEP_R_TAC >> walk
+  >> Cases_on ‘rs’ >> fs [ones_def, dec_clock_record]
+  >> SEP_R_TAC
   (* TODO Again a if NONE = NONE/case NONE of NONE => pattern *)
-  >> hsimp [] >> walk >> hsimp [] >> walk >> hsimp [] >> walk >> hsimp []
+  >> rpt (walk >> hsimp [])
   (* TODO simp [stack_evaluate] could be a tactic. *)
   >> simp [stack_evaluate, Req0 $ GSYM mw_and_pan_loop_def]
   (* Apply induction hypothesis *)
@@ -1555,7 +1554,7 @@ Proof
   (* TODO If I remember correctly, the qabbrev_tac is required here because
        SEP_W_TAC don't handle records gracefully? *)
   >> qabbrev_tac ‘memory = s.memory’ >> SEP_W_TAC >> simp [Abbr ‘memory’]
-  >> simp [FLOOKUP_SIMP, i2w_one, n2w_SUC, dec_clock_def]
+  >> simp [FLOOKUP_SIMP, i2w_one, n2w_SUC, dec_clock_def, FLOOKUP_res_var_neq]
   >> strip_tac >> SEP_F_TAC
   >> disch_then $ qx_choosel_then [‘m’, ‘l’] assume_tac
   >> qexistsl [‘m’, ‘l’]
@@ -1603,7 +1602,7 @@ Proof
   (* TODO again, the walk/hsimp/walk/... pattern *)
   >> rpt (walk >> hsimp [])
   (* TODO Maybe we should have something that computes this? *)
-  >> hsimp [size_of_sh_with_ctxt_def]
+  >> hsimp [size_of_sh_with_ctxt_def, i2w_0, shape_of_ValWord]
   >> simp [stack_def, state_component_equality, empty_locals_def]
 QED
 
@@ -1677,7 +1676,7 @@ Proof
     (* TODO again, the walk/hsimp/walk/... pattern *)
     >> rpt (walk >> hsimp [])
     (* TODO Maybe we should have something that computes this? *)
-    >> hsimp [size_of_sh_with_ctxt_def]
+    >> hsimp [size_of_sh_with_ctxt_def, shape_of_ValWord]
     >> gvs [Abbr ‘s'’, stack_def, state_component_equality, empty_locals_def,
             mw_and_flip_def, dec_clock_def, LENGTH_mw_and, MIN_DEF]
   )
@@ -1689,7 +1688,7 @@ Proof
   >> strip_tac
   (* TODO again, the walk/hsimp/walk/... pattern *)
   >> rpt (walk >> hsimp [])
-  >> hsimp [size_of_sh_with_ctxt_def]
+  >> hsimp [size_of_sh_with_ctxt_def, shape_of_ValWord]
   >> gvs [Abbr ‘s'’, stack_def, state_component_equality, empty_locals_def,
           mw_and_flip_def, dec_clock_def, LENGTH_mw_and, MIN_DEF,
           AC STAR_ASSOC STAR_COMM]
@@ -1723,7 +1722,7 @@ Theorem mwi_and_neg_pos_geq_pan_loop_thm:
        frame) (fun2set (m, s.memaddrs))
 Proof
   simp [] >> Induct >> rw [mwi_and_neg_pos_geq_pan_loop_def]
-  >- (simp [Once evaluate_def, state_component_equality, i2w_def])
+  >- (simp [Once evaluate_def, state_component_equality, i2w_def, eval_Var_Local])
   >> rename1 ‘ones _ (Word h::MAP Word _)’
   >> once_rewrite_tac [GSYM stack_evaluate]
   >> enter_loop >> walk
@@ -1741,13 +1740,14 @@ Proof
   )
   >> hsimp []
   >> walk
-  >> Cases_on ‘xs’ >> fs [ones_def] >> SEP_R_TAC
+  >> Cases_on ‘xs’ >> fs [ones_def, dec_clock_record] >> SEP_R_TAC
   >> walk
-  >> hsimp [] >> SEP_R_TAC >> hsimp []
+  >> hsimp [dec_clock_record]
+  >> SEP_R_TAC
   (* TODO again, the walk/hsimp/walk/... pattern *)
-  >> walk >> hsimp [] >> walk
+  >> rpt (walk >> hsimp [])
   >> Cases_on ‘rs’ >> gvs []
-  >> fs [ones_def] >> SEP_R_TAC >> hsimp []
+  >> fs [ones_def, dec_clock_record] >> SEP_R_TAC >> hsimp []
   (* TODO again, the walk/hsimp/walk/... pattern *)
   >> rpt (walk >> hsimp [])
   >> simp [stack_evaluate]
@@ -1761,7 +1761,7 @@ Proof
   >> qabbrev_tac ‘memory = s.memory’
   >> SEP_W_TAC
   >> simp [Abbr ‘memory’]
-  >> fs [GSYM b2w_ite, dec_clock_def, FLOOKUP_SIMP, i2w_one, n2w_SUC]
+  >> fs [GSYM b2w_ite, dec_clock_def, FLOOKUP_SIMP, i2w_one, n2w_SUC, FLOOKUP_res_var_neq]
   >> qmatch_goalsub_abbrev_tac ‘b2w (dimword (:α) ≤ r)’
   >> disch_then $ qspec_then ‘dimword (:α) ≤ r’ mp_tac
   >> simp []
