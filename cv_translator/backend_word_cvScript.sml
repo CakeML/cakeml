@@ -539,9 +539,16 @@ Theorem inline = [data_to_wordTheory.Unit_def,
                   backend_commonTheory.word_shift_def,
                   data_to_wordTheory.list_Seq_def] |> LIST_CONJ;
 
+(* Equal_code binds local functions with let, which cv_trans cannot handle *)
+fun defines_Equal_code th =
+  th |> concl |> strip_forall |> snd |> lhs |> strip_comb |> fst
+     |> same_const “data_to_word$Equal_code”
+  handle HOL_ERR _ => false;
+
 val assigns =
   code_defs @ (data_to_wordTheory.all_assign_defs |> CONJUNCTS)
-  |> map (SRULE [inline]) |> rev;
+  |> map (fn th => if defines_Equal_code th then SRULE [inline, LET_THM] th
+                   else SRULE [inline] th) |> rev;
 
 val problem_count = assigns
   |> mapi (fn i => fn th => (i+1,th))

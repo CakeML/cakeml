@@ -54,9 +54,9 @@ Type ctMap = ``:(stamp, (tvarN list # t list # type_ident)) fmap``
  * complete entry, including parameter order and resolved argument types. *)
 Definition datatype_signature_def:
   datatype_signature (ctMap:ctMap) ti =
-    {entry | ?cn n tvs ts.
-      entry = (cn,n,tvs,ts) /\
-      FLOOKUP ctMap (TypeStamp cn n) = SOME (tvs,ts,ti)}
+    {entry | ?cn n pos tvs ts.
+      entry = (cn,n,pos,tvs,ts) /\
+      FLOOKUP ctMap (TypeStamp cn n pos) = SOME (tvs,ts,ti)}
 End
 
 Definition preserves_datatype_signatures_def:
@@ -66,8 +66,8 @@ Definition preserves_datatype_signatures_def:
 End
 
 Theorem datatype_signature_member:
-  (cn,n,tvs,ts) IN datatype_signature ctMap ti <=>
-  FLOOKUP ctMap (TypeStamp cn n) = SOME (tvs,ts,ti)
+  (cn,n,pos,tvs,ts) IN datatype_signature ctMap ti <=>
+  FLOOKUP ctMap (TypeStamp cn n pos) = SOME (tvs,ts,ti)
 Proof
   simp [datatype_signature_def]
 QED
@@ -96,15 +96,15 @@ QED
 
 Theorem preserves_datatype_signatures_fresh:
   ctMap SUBMAP ctMap' /\
-  (!cn n tvs ts ti.
-    FLOOKUP ctMap' (TypeStamp cn n) = SOME (tvs,ts,ti) /\
-    FLOOKUP ctMap (TypeStamp cn n) = NONE ==> ti IN tids) ==>
+  (!cn n pos tvs ts ti.
+    FLOOKUP ctMap' (TypeStamp cn n pos) = SOME (tvs,ts,ti) /\
+    FLOOKUP ctMap (TypeStamp cn n pos) = NONE ==> ti IN tids) ==>
   preserves_datatype_signatures tids ctMap ctMap'
 Proof
   rw [preserves_datatype_signatures_def, pred_setTheory.EXTENSION,
       pairTheory.FORALL_PROD, datatype_signature_member] >>
-  rename1 `FLOOKUP ctMap' (TypeStamp cn n) = SOME (tvs,ts,ti)` >>
-  Cases_on `FLOOKUP ctMap (TypeStamp cn n)`
+  rename1 `FLOOKUP ctMap' (TypeStamp cn n pos) = SOME (tvs,ts,ti)` >>
+  Cases_on `FLOOKUP ctMap (TypeStamp cn n pos)`
   >- (
     simp [] >>
     metis_tac []) >>
@@ -113,15 +113,15 @@ QED
 
 Theorem preserves_datatype_signatures_funion:
   ctMap SUBMAP (FUNION added ctMap) /\
-  (!cn n tvs ts ti.
-    FLOOKUP added (TypeStamp cn n) = SOME (tvs,ts,ti) ==> ti IN tids) ==>
+  (!cn n pos tvs ts ti.
+    FLOOKUP added (TypeStamp cn n pos) = SOME (tvs,ts,ti) ==> ti IN tids) ==>
   preserves_datatype_signatures tids ctMap (FUNION added ctMap)
 Proof
   strip_tac >>
   irule preserves_datatype_signatures_fresh >>
   simp [] >>
   rw [finite_mapTheory.FLOOKUP_FUNION] >>
-  Cases_on `FLOOKUP added (TypeStamp cn n)` >> gvs [] >> res_tac
+  Cases_on `FLOOKUP added (TypeStamp cn n pos)` >> gvs [] >> res_tac
 QED
 
 Theorem preserves_datatype_signatures_exn:
@@ -134,7 +134,7 @@ QED
 
 Theorem datatype_signature_empty:
   datatype_signature ctMap ti = EMPTY <=>
-  !cn n tvs ts. FLOOKUP ctMap (TypeStamp cn n) <> SOME (tvs,ts,ti)
+  !cn n pos tvs ts. FLOOKUP ctMap (TypeStamp cn n pos) <> SOME (tvs,ts,ti)
 Proof
   simp [pred_setTheory.EXTENSION, pairTheory.FORALL_PROD,
         datatype_signature_member]
@@ -147,8 +147,8 @@ Proof
   rw [datatype_signature_empty, pred_setTheory.EXTENSION,
       pairTheory.FORALL_PROD, datatype_signature_member,
       finite_mapTheory.FLOOKUP_FUNION] >>
-  rename1 `FLOOKUP added (TypeStamp cn n) = SOME (tvs,ts,ti)` >>
-  Cases_on `FLOOKUP added (TypeStamp cn n)` >> simp []
+  rename1 `FLOOKUP added (TypeStamp cn n pos) = SOME (tvs,ts,ti)` >>
+  Cases_on `FLOOKUP added (TypeStamp cn n pos)` >> simp []
 QED
 
 Definition ctMap_ok_def:
@@ -159,7 +159,7 @@ Definition ctMap_ok_def:
     (!ex tvs ts ti. FLOOKUP ctMap (ExnStamp ex) = SOME (tvs, ts, ti) ⇒
       tvs = [] ∧ ti = Texn_num) ∧
     (* Primitive, non-constructor types are not mapped *)
-    (!cn x tvs ts ti. FLOOKUP ctMap (TypeStamp cn x) = SOME (tvs, ts, ti) ⇒
+    (!cn x pos tvs ts ti. FLOOKUP ctMap (TypeStamp cn x pos) = SOME (tvs, ts, ti) ⇒
       ~MEM ti prim_type_nums) ∧
     (* If type identities are equal then the stamps are from the same type *)
     (!stamp1 tvs1 ts1 ti stamp2 tvs2 ts2.
@@ -283,18 +283,20 @@ End
 (* The global constructor type environment has the list primitives in it *)
 Definition ctMap_has_lists_def:
   ctMap_has_lists ctMap ⇔
-    FLOOKUP ctMap (TypeStamp «[]» list_type_num) = SOME ([«'a»],[],Tlist_num) ∧
-    FLOOKUP ctMap (TypeStamp «::» list_type_num) =
+    FLOOKUP ctMap (TypeStamp «[]» list_type_num 0) = SOME ([«'a»],[],Tlist_num) ∧
+    FLOOKUP ctMap (TypeStamp «::» list_type_num 1) =
       SOME ([«'a»],[Tvar «'a»; Tlist (Tvar «'a»)],Tlist_num) ∧
-    (!cn. cn ≠ «::» ∧ cn ≠ «[]» ⇒ FLOOKUP ctMap (TypeStamp cn list_type_num) = NONE)
+    (!cn pos. (cn,pos) ≠ («::»,1) ∧ (cn,pos) ≠ («[]»,0) ⇒
+      FLOOKUP ctMap (TypeStamp cn list_type_num pos) = NONE)
 End
 
 (* The global constructor type environment has the bool primitives in it *)
 Definition ctMap_has_bools_def:
   ctMap_has_bools ctMap ⇔
-    FLOOKUP ctMap (TypeStamp «True» bool_type_num) = SOME ([],[],Tbool_num) ∧
-    FLOOKUP ctMap (TypeStamp «False» bool_type_num) = SOME ([],[],Tbool_num) ∧
-    (!cn. cn ≠ «True» ∧ cn ≠ «False» ⇒ FLOOKUP ctMap (TypeStamp cn bool_type_num) = NONE)
+    FLOOKUP ctMap (TypeStamp «True» bool_type_num 1) = SOME ([],[],Tbool_num) ∧
+    FLOOKUP ctMap (TypeStamp «False» bool_type_num 0) = SOME ([],[],Tbool_num) ∧
+    (!cn pos. (cn,pos) ≠ («True»,1) ∧ (cn,pos) ≠ («False»,0) ⇒
+      FLOOKUP ctMap (TypeStamp cn bool_type_num pos) = NONE)
 End
 
 Definition good_ctMap_def:
@@ -331,8 +333,8 @@ End
 Definition consistent_ctMap_def:
   consistent_ctMap st type_ids ctMap ⇔
     (DISJOINT type_ids (FRANGE ((SND o SND) o_f ctMap))) ∧
-    !cn id.
-      (TypeStamp cn id ∈ FDOM ctMap ⇒ id < st.next_type_stamp) ∧
+    !cn id pos.
+      (TypeStamp cn id pos ∈ FDOM ctMap ⇒ id < st.next_type_stamp) ∧
       (ExnStamp id ∈ FDOM ctMap ⇒ id < st.next_exn_stamp)
 End
 
@@ -391,8 +393,8 @@ QED
 
 Theorem constructor_type_stamp_index:
   ctMap_ok ctMap /\
-  FLOOKUP ctMap (TypeStamp anchor index) = SOME (ctor_params,ctor_fields,ti) /\
-  FLOOKUP ctMap (TypeStamp cn n) = SOME (other_params,other_fields,ti) ==>
+  FLOOKUP ctMap (TypeStamp anchor index anchor_pos) = SOME (ctor_params,ctor_fields,ti) /\
+  FLOOKUP ctMap (TypeStamp cn n pos) = SOME (other_params,other_fields,ti) ==>
   n = index
 Proof
   rw [ctMap_ok_def] >> res_tac >> fs [same_type_def]

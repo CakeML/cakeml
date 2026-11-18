@@ -214,7 +214,7 @@ QED
 
 Overload eval_res_stamp[local] =
   (COMPILER_MAINPROG_EVAL_RES_TYPE_def
-   |> concl |> find_term (can (match_term “TypeStamp _ _”)) |> rand);
+   |> concl |> find_term (can (match_term “TypeStamp _ _ _”)) |> rator |> rand);
 
 Theorem evaluate_eval:
   ∀(st:'ffi semanticPrimitives$state).
@@ -240,7 +240,7 @@ Theorem evaluate_eval:
       evaluate st env [App Opapp [Var (Short eval_str); Var (Short arg_str)]] = (s1,res) ∧
       (res ≠ Rerr (Rabort Rtimeout_error) ⇒
        res = Rval
-             [Conv (SOME (TypeStamp «Compile_error» eval_res_stamp))
+             [Conv (SOME (TypeStamp «Compile_error» eval_res_stamp 0))
                    [Litv (StrLit msg)]] ∧
        s1 = st with <|clock := st.clock − ck; refs := st.refs ++ junk;
                       ptr_eq_oracle := po|> ∨
@@ -250,7 +250,7 @@ Theorem evaluate_eval:
                             <|clock := st.clock − ck1; refs := st.refs ++ junk;
                               eval_state := NONE; ptr_eq_oracle := po|>) env1 decs = (st7,Rerr (Rraise exn)) ∧
           BACKEND_CONFIG_TYPE s2 s2_v ∧
-          res = Rval [Conv (SOME (TypeStamp «Eval_exn» eval_res_stamp))
+          res = Rval [Conv (SOME (TypeStamp «Eval_exn» eval_res_stamp 2))
                            [exn; Conv NONE [s2_v; Litv (IntLit (&next_gen + 1))]]] ∧
           s1 = st7 with <| clock := st7.clock - ck2 ;
                            eval_state := SOME (EvalDecs
@@ -261,7 +261,7 @@ Theorem evaluate_eval:
                             <|clock := st.clock − ck1; refs := st.refs ++ junk;
                               eval_state := NONE; ptr_eq_oracle := po|>) env1 decs = (st7,Rval env2) ∧
           BACKEND_CONFIG_TYPE s2 s2_v ∧
-          res = Rval [Conv (SOME (TypeStamp «Eval_result» eval_res_stamp))
+          res = Rval [Conv (SOME (TypeStamp «Eval_result» eval_res_stamp 1))
                            [Conv NONE
                                  [Env (extend_dec_env env2 env1) (next_gen1,0);
                                   Litv (IntLit (&next_gen))];
@@ -507,13 +507,15 @@ Overload repl_input_name[local] =
 Overload repl_input_case[local] =
   repl_input_body;
 
-Overload repl_input_inl_stamp[local] =
-  (find_term semanticPrimitivesSyntax.is_TypeStamp
-    (concl (CONJUNCT2 std_preludeTheory.SUM_TYPE_def)));
+fun sum_type_stamp constructor =
+  std_preludeTheory.SUM_TYPE_def |> CONJUNCTS
+  |> first (fn th => th |> SPEC_ALL |> concl |> lhs |> rator |> rand
+                        |> strip_comb |> fst |> same_const constructor)
+  |> concl |> find_term semanticPrimitivesSyntax.is_TypeStamp;
 
-Overload repl_input_inr_stamp[local] =
-  (find_term semanticPrimitivesSyntax.is_TypeStamp
-    (concl (CONJUNCT1 std_preludeTheory.SUM_TYPE_def)));
+Overload repl_input_inl_stamp[local] = (sum_type_stamp ``INL``);
+
+Overload repl_input_inr_stamp[local] = (sum_type_stamp ``INR``);
 
 Overload repl_error_location[local] =
   (repl_moduleProgTheory.errorMessage_def |> CONJUNCT2 |> concl |> rhs

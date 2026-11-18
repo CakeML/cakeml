@@ -309,9 +309,13 @@ Theorem mlv_always_conv:
   ! v mlv .
     ml_v_vals v mlv
     ==>
-    ? cons type vs .
-      mlv = Conv (SOME (TypeStamp cons type)) vs /\
-      TypeStamp «SBool» type = scheme_typestamp «SBool»
+    ? cons type pos vs .
+      mlv = Conv (SOME (TypeStamp cons type pos)) vs /\
+      (? sbool_pos . TypeStamp «SBool» type sbool_pos = scheme_typestamp «SBool») /\
+      (cons = «SNum» ==> TypeStamp cons type pos = scheme_typestamp «SNum») /\
+      (cons = «SBool» ==> TypeStamp cons type pos = scheme_typestamp «SBool») /\
+      (cons = «PairP» ==> TypeStamp cons type pos = scheme_typestamp «PairP») /\
+      (cons = «Null» ==> TypeStamp cons type pos = scheme_typestamp «Null»)
 Proof
   rpt strip_tac
   >> gvs[Once ml_v_vals_cases]

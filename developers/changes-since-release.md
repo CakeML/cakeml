@@ -6,7 +6,11 @@ The integer division and modulus primitives now take a rounding mode (#1583). In
 
 The semantics of floating-point operations in the source has been made more well defined in case of NaN results: all floating-point operations resulting in a NaN now return a specific NaN, the all-ones NaN (-1w:word64).
 
+A new primitive `PolyCompare` implements polymorphic comparison (#1598). It agrees with `=` on type errors and on when it returns zero, and orders constructors by their position in the datatype. It is not antisymmetric on distinct references or exceptions. `TypeStamp` now takes the constructor position as a third argument.
+
 ## Basis library
+
+A new top-level `compare : 'a -> 'a -> int` exposes `PolyCompare` (#1598).
 
 ### Int
 
@@ -15,6 +19,8 @@ The semantics of floating-point operations in the source has been made more well
 ## Compiler backend and runtime
 
 The CakeML compiler now supports compilation of floating-point operartions also for the Arm8 target (#1596).
+
+In wordLang, the `Equal` stub now computes a three-way comparison, which both `=` and `PolyCompare` call (#1598).
 
 ## Pancake
 

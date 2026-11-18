@@ -100,8 +100,8 @@ End
 
 Definition has_list_cons_def:
   has_list_cons env ⇔
-    nsLookup env.c (Short «[]») = SOME (0, TypeStamp «[]» list_type_num) ∧
-    nsLookup env.c (Short «::») = SOME (2, TypeStamp «::» list_type_num)
+    nsLookup env.c (Short «[]») = SOME (0, TypeStamp «[]» list_type_num 0) ∧
+    nsLookup env.c (Short «::») = SOME (2, TypeStamp «::» list_type_num 1)
 End
 
 Theorem cml_dec_to_string_correct:
@@ -350,8 +350,8 @@ End
 
 Definition has_cons_def:
   has_cons (envc: cml_envc) ⇔
-    nsLookup envc (Short «True») = SOME (0, TypeStamp «True» 0) ∧
-    nsLookup envc (Short «False») = SOME (0, TypeStamp «False» 0) ∧
+    nsLookup envc (Short «True») = SOME (0, TypeStamp «True» 0 1) ∧
+    nsLookup envc (Short «False») = SOME (0, TypeStamp «False» 0 0) ∧
     nsLookup envc (Short «Return») = SOME (0, ret_stamp)
 End
 
@@ -4773,10 +4773,10 @@ QED
 
 Definition has_basic_cons_def:
   has_basic_cons env ⇔
-    nsLookup env.c (Short «True») = SOME (0, TypeStamp «True» 0) ∧
-    nsLookup env.c (Short «False») = SOME (0, TypeStamp «False» 0) ∧
-    nsLookup env.c (Short «[]») = SOME (0, TypeStamp «[]» list_type_num) ∧
-    nsLookup env.c (Short «::») = SOME (2, TypeStamp «::» list_type_num)
+    nsLookup env.c (Short «True») = SOME (0, TypeStamp «True» 0 1) ∧
+    nsLookup env.c (Short «False») = SOME (0, TypeStamp «False» 0 0) ∧
+    nsLookup env.c (Short «[]») = SOME (0, TypeStamp «[]» list_type_num 0) ∧
+    nsLookup env.c (Short «::») = SOME (2, TypeStamp «::» list_type_num 1)
 End
 
 Theorem correct_from_program:

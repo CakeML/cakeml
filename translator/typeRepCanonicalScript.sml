@@ -54,9 +54,9 @@ QED
 Theorem type_v_datatype_signature:
   ctMap_ok ctMap /\ ~MEM ti prim_type_nums /\
   type_v tvs ctMap tenvS value (Tapp args ti) ==>
-  ?cn stamp fields params field_types.
-    value = Conv (SOME (TypeStamp cn stamp)) fields /\
-    (cn,stamp,params,field_types) IN datatype_signature ctMap ti /\
+  ?cn stamp pos fields params field_types.
+    value = Conv (SOME (TypeStamp cn stamp pos)) fields /\
+    (cn,stamp,pos,params,field_types) IN datatype_signature ctMap ti /\
     EVERY (check_freevars tvs []) args /\ LENGTH params = LENGTH args /\
     LIST_REL (type_v tvs ctMap tenvS) fields
       (MAP (type_subst (FEMPTY |++ REVERSE (ZIP (params,args)))) field_types)
@@ -65,7 +65,7 @@ Proof
   disch_then (qx_choose_then `runtime_stamp` mp_tac) >>
   disch_then (qx_choosel_then [`ctor_fields`,`ctor_params`,`ctor_types`]
     strip_assume_tac) >>
-  namedCases_on `runtime_stamp` ["name index","exception_index"] >>
+  namedCases_on `runtime_stamp` ["name index position","exception_index"] >>
   simp [datatype_signature_member] >>
   qpat_x_assum `ctMap_ok _`
     (mp_tac o CONJUNCT1 o CONJUNCT2 o REWRITE_RULE [ctMap_ok_def]) >>
@@ -165,22 +165,22 @@ QED
    entries with the right parameter arity, as required by constructor typing. *)
 Definition instantiated_datatype_signature_def:
   instantiated_datatype_signature args ctMap ti =
-    {entry | ?cn index params fields.
-      entry = (TypeStamp cn index,
+    {entry | ?cn index pos params fields.
+      entry = (TypeStamp cn index pos,
         MAP (type_subst (FEMPTY |++ REVERSE (ZIP (params,args)))) fields) /\
       LENGTH params = LENGTH args /\
-      (cn,index,params,fields) IN datatype_signature ctMap ti}
+      (cn,index,pos,params,fields) IN datatype_signature ctMap ti}
 End
 
 Theorem instantiated_datatype_signature_member:
   !stamp field_types.
     (stamp,field_types) IN instantiated_datatype_signature args ctMap ti <=>
-    ?cn index params fields.
-      stamp = TypeStamp cn index /\
+    ?cn index pos params fields.
+      stamp = TypeStamp cn index pos /\
       field_types =
         MAP (type_subst (FEMPTY |++ REVERSE (ZIP (params,args)))) fields /\
       LENGTH params = LENGTH args /\
-      (cn,index,params,fields) IN datatype_signature ctMap ti
+      (cn,index,pos,params,fields) IN datatype_signature ctMap ti
 Proof
   simp [instantiated_datatype_signature_def, CONJ_ASSOC]
 QED

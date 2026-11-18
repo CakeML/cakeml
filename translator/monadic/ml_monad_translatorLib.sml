@@ -1398,12 +1398,13 @@ local
       fun get_inr_el tm = let
         val exp2 = tm |> rand
         val vars = tm |> rator |> rand |> rand |> rand
-        (*val cname = tm |> rator |> rand |> rator |> rand |> rand |> rand*)
         val cvar = tm |> rator |> rand |> rator |> rand |> rand
-        val cname = cvar |> dest_var |> fst |> lookup_cons_name |> fst
-        val stamp = inv_def |> concl |> find_term
-                      (fn tm => aconv (tm |> rator |> rand) cname
-                                handle HOL_ERR _ => false)
+        val clause = CONJUNCTS inv_def |> first (fn th =>
+          th |> SPEC_ALL |> concl |> lhs |> rator |> rand |> repeat rator
+             |> mk_cons_name |> (fn name => name = fst (dest_var cvar)))
+        val stamp = find_term (fn tm =>
+          semanticPrimitivesSyntax.is_TypeStamp tm orelse
+          semanticPrimitivesSyntax.is_ExnStamp tm) (concl clause)
         in list_mk_pair [cvar, vars, exp2, stamp] end
       val rw1_tm = goal |> rand |> rand |> rand |> rand |> rator
                         |> rator |> rand |> rand
@@ -3856,7 +3857,7 @@ fun m_translate_run def =
     val EXC_TYPE_stamp = concl EXC_TYPE_def |> list_dest dest_conj |> List.hd
                       |> strip_forall |> snd |> rhs |> strip_exists |> snd
                       |> dest_conj |> fst |> rhs |> rator |> rand |> rand
-                      |> rand
+                      |> semanticPrimitivesSyntax.dest_TypeStamp |> #2
     val ctxt = Context.snapshot()
     val EXC_TYPE_RW =
       let

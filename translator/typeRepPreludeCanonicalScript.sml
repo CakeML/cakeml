@@ -8,14 +8,17 @@ Ancestors
 Libs
   preamble semanticPrimitivesSyntax[qualified]
 
-val option_some_stamp = find_term semanticPrimitivesSyntax.is_TypeStamp
-  (concl (CONJUNCT1 OPTION_TYPE_def));
-val option_none_stamp = find_term semanticPrimitivesSyntax.is_TypeStamp
-  (concl (CONJUNCT2 OPTION_TYPE_def));
-val sum_right_stamp = find_term semanticPrimitivesSyntax.is_TypeStamp
-  (concl (CONJUNCT1 SUM_TYPE_def));
-val sum_left_stamp = find_term semanticPrimitivesSyntax.is_TypeStamp
-  (concl (CONJUNCT2 SUM_TYPE_def));
+fun representation_stamp constructor def = let
+  fun matches th =
+    th |> SPEC_ALL |> concl |> lhs |> rator |> rand |> strip_comb |> fst
+       |> same_const constructor
+  val clause = first matches (CONJUNCTS def)
+  in find_term semanticPrimitivesSyntax.is_TypeStamp (concl clause) end;
+
+val option_some_stamp = representation_stamp ``SOME`` OPTION_TYPE_def;
+val option_none_stamp = representation_stamp ``NONE`` OPTION_TYPE_def;
+val sum_right_stamp = representation_stamp ``INR`` SUM_TYPE_def;
+val sum_left_stamp = representation_stamp ``INL`` SUM_TYPE_def;
 
 Definition option_rep_signature_def:
   option_rep_signature element_ty =

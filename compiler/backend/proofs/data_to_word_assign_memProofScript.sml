@@ -5843,10 +5843,12 @@ Proof
     qpat_x_assum `memory_rel _ _ _ _ _ _ copy_final_memory _ ((Block _ _ _,_)::_)` mp_tac
     >> LABEL_ASSUM "copy_words_length" mp_tac
     >> LABEL_ASSUM "copy_values_slice" mp_tac
+    >> LABEL_ASSUM "copy_values_length" mp_tac
+    >> qpat_x_assum `copy_count ≠ 0` mp_tac
     >> qpat_x_assum `s.tstamps = SOME copy_new_timestamp` mp_tac
     >> qpat_x_assum `copy_free + bytes_in_word * n2w (copy_count + 1) = _` mp_tac
     >> rpt (pop_assum kall_tac)
-    >> simp [])
+    >> Cases_on `copy_result_values` >> simp [])
   >> qpat_x_assum `memory_rel _ _ _ _ 0 _ copy_final_memory _ ((Block _ _ _,_)::_)`
        (assume_named_tac "copy_result_heap")
   >> `∀copy_index copy_value.
@@ -10570,6 +10572,8 @@ Proof
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ simp []
   \\ irule IMP_memory_rel_Cons_empty \\ simp []
+  \\ conj_tac
+  >- rw [oneline multiwordTheory.b2n_def, is_exn_tag_def]
   \\ imp_res_tac memory_rel_tl \\ fs []
   \\ conj_tac
   >-
@@ -10623,6 +10627,8 @@ Proof
   \\ strip_tac \\ clean_tac
   \\ imp_res_tac memory_rel_tl
   \\ gvs [oneline dest_Boolv_def, AllCaseEqs()]
+  \\ qmatch_asmsub_rename_tac `get_var _ s.locals = SOME (Block _ boolean_tag [])`
+  \\ `¬is_exn_tag boolean_tag` by (fs [is_exn_tag_def] \\ decide_tac)
   \\ drule memory_rel_Block_IMP \\ simp [] \\ strip_tac \\ gvs []
   \\ ntac 3 (qhdtm_x_assum`memory_rel` kall_tac)
   \\ qpat_x_assum`get_var _ _ = SOME (Word(Smallnum _))`assume_tac

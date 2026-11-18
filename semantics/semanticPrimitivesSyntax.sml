@@ -56,10 +56,10 @@ structure semanticPrimitivesSyntax = struct
   (* two-argument functions *)
   val (Conv_tm,mk_Conv,dest_Conv,is_Conv) = s "Conv";
   val (Loc_tm,mk_Loc,dest_Loc,is_Loc) = s "Loc";
-  val (TypeStamp_tm,mk_TypeStamp,dest_TypeStamp,is_TypeStamp) = s "TypeStamp";
   end
   local val s = HolKernel.syntax_fns3 "semanticPrimitives" in
   (* three-argument functions *)
+  val (TypeStamp_tm,mk_TypeStamp,dest_TypeStamp,is_TypeStamp) = s "TypeStamp";
   val (Closure_tm,mk_Closure,dest_Closure,is_Closure) = s "Closure";
   val (Recclosure_tm,mk_Recclosure,dest_Recclosure,is_Recclosure) = s "Recclosure";
   end

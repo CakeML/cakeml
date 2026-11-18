@@ -605,6 +605,7 @@ End
 
 Definition op_to_string_def:
   (op_to_string Equality = («Equality», 2)) ∧
+  (op_to_string PolyCompare = («PolyCompare», 2)) ∧
   (op_to_string PtrEq = («PtrEq», 2)) ∧
   (op_to_string (Arith a ty) =
      («Arith»,
@@ -745,6 +746,10 @@ constrain_op l op ts s =
    | (Equality, [t1;t2]) =>
        do () <- add_constraint l t1 t2;
           return (Infer_Tapp [] Tbool_num)
+       od s
+   | (PolyCompare, [t1;t2]) =>
+       do () <- add_constraint l t1 t2;
+          return (Infer_Tapp [] Tint_num)
        od s
    | (PtrEq, [t1;t2]) =>
        do () <- add_constraint l t1 t2;
