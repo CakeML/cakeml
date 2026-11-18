@@ -185,6 +185,13 @@ Proof
   simp [Once mw_fix_def]
 QED
 
+(* TODO Move? *)
+Theorem LENGTH_mw_and:
+  ∀xs ys. LENGTH (mw_and xs ys) = MIN (LENGTH xs) (LENGTH ys)
+Proof
+  recInduct mw_and_ind >> rw [mw_and_def, MIN_DEF]
+QED
+
 (** Pancake semantics rewrites ************************************************)
 
 (** misc **********************************************************************)
@@ -342,6 +349,16 @@ Proof
   simp [eval_def, asmTheory.word_cmp_def]
 QED
 
+Theorem eval_Cmp_NotLower_SOME:
+  eval s e₁ = SOME (ValWord v₁) ∧
+  eval s e₂ = SOME (ValWord v₂) ∧
+  (w = if v₂ ≤₊ v₁ then 1w else 0w)
+  ⇒
+  eval s (Cmp NotLower e₁ e₂) = SOME (ValWord w)
+Proof
+  simp [eval_def, asmTheory.word_cmp_def, WORD_NOT_LOWER]
+QED
+
 Theorem eval_Load_One_Local_SOME:
   r = (Val (s.memory v)) ∧
   FLOOKUP s.locals n = SOME (ValWord v) ∧
@@ -475,7 +492,8 @@ QED
 *)
 
 Theorem evaluate_If:
-  eval s e = SOME (ValWord (i2w i)) ∧
+  eval s e = SOME (ValWord w) ∧
+  w = i2w i ∧
   evaluate (If (Const i) c1 c2,s) = (res, s')
   ⇒
   evaluate (If e c1 c2,s) = (res, s')
@@ -554,7 +572,7 @@ QED
 
 Theorem evaluate_Tick_NONE:
   res = NONE ∧
-  s' = dec_clock s ∧
+  s' = dec_clock s ∧  (* NOTE we are using this form for easier matching of the rules *)
   s.clock ≠ 0
   ⇒
   evaluate (Tick, s) = (res, s')
@@ -580,6 +598,51 @@ Theorem evaluate_Return_no_error:
 Proof
   simp [evaluate_def]
 QED
+
+(* TODO Generalize to arbitrary number of arguments *)
+(* TODO Generalize to deal with exception handler (SOME) *)
+Theorem evaluate_StandAloneCall_NONE_4:
+  eval s arg₀ = SOME argv₀ ∧
+  eval s arg₁ = SOME argv₁ ∧
+  eval s arg₂ = SOME argv₂ ∧
+  eval s arg₃ = SOME argv₃ ∧
+  lookup_code s.code fname [argv₀; argv₁; argv₂; argv₃] =
+    SOME (prog, newlocals, return_sh) ∧
+  s.clock ≠ 0 ∧
+  evaluate (prog, (dec_clock s) with locals:= newlocals) = (res₁, s₁) ∧
+  (case res₁ of
+   | SOME (Return retv) =>
+       if shape_of retv ≠ return_sh
+       then res = SOME Error ∧ s' = s₁
+       else res = NONE ∧ s' = (s₁ with locals := s.locals)
+   | SOME (Exception _ _) =>
+       res = res₁ ∧ s' = empty_locals s₁
+   | NONE => res = SOME Error ∧ s' = s₁
+   | SOME Break => res = SOME Error ∧ s' = s₁
+   | SOME Continue => res = SOME Error ∧ s' = s₁
+   | _ => res = res₁ ∧ s' = empty_locals s₁)
+  ⇒
+  evaluate (StandAloneCall NONE fname [arg₀; arg₁; arg₂; arg₃], s) = (res, s')
+Proof
+  rw [evaluate_def]
+  >> CASE_TAC >> gvs []
+  >> CASE_TAC >> gvs []
+  >> IF_CASES_TAC >> gvs []
+QED
+
+(** lookup_code ***************************************************************)
+
+Theorem lookup_code_SOME:
+  FLOOKUP code fname = SOME (vshapes, prog, rshape) ∧
+  ALL_DISTINCT (MAP FST vshapes) ∧
+  LIST_REL (\vshape arg. SND vshape = shape_of arg) vshapes args ∧
+  res = SOME (prog, FEMPTY |++ ZIP (MAP FST vshapes,args), rshape)
+  ⇒
+  lookup_code code fname args = res
+Proof
+  simp [lookup_code_def]
+QED
+
 
 (** Pancake implementation ****************************************************)
 
@@ -667,40 +730,40 @@ fun copy(to, from, num) {
   return 0;
 }
 
-(* Assumes x points to the end *)
-fun mw_fix_pan(x_len, xs) {
-  while x_len {
+(* Assumes xs points to the end *)
+fun mw_fix_pan(xs_len, xs) {
+  while xs_len {
     var t1 = lds 1 xs;
     if t1 {
       break;
     } else {
-      x_len = x_len - 1;
+      xs_len = xs_len - 1;
       xs = xs - @biw;
     }
   }
-  return x_len;
+  return xs_len;
 }
 
-fun mw_and_pan(x_len, xs, ys, zs) {
-  while x_len {
+fun mw_and_pan(xs_len, xs, ys, zs) {
+  while xs_len {
     var x = lds 1 xs;
     var y = lds 1 ys;
     st zs, x & y;
     xs = xs + @biw;
     ys = ys + @biw;
     zs = zs + @biw;
-    x_len = x_len - 1;
+    xs_len = xs_len - 1;
   }
   return 0;
 }
 
-fun mw_and_flip_pan(x_len, x, y_len, y, z) {
-  if x_len <= y_len { mw_and_pan(x_len, x, y, z); return x_len; }
-  else { mw_and_pan(y_len, y, x, z); return y_len; }
+fun mw_and_flip_pan(xs_len, xs, ys_len, ys, zs) {
+  if xs_len <=+ ys_len { mw_and_pan(xs_len, xs, ys, zs); return xs_len; }
+  else { mw_and_pan(ys_len, ys, xs, zs); return ys_len; }
 }
 
-fun mwi_and_neg_pos_geq_pan(c, xs, y_len, ys, zs) {
-  while y_len {
+fun mwi_and_neg_pos_geq_pan(c, xs, ys_len, ys, zs) {
+  while ys_len {
     var x = lds 1 xs;
     var y = lds 1 ys;
     var {1,1} y1c1 = __add_with_carry__(y, -1, c);
@@ -710,14 +773,14 @@ fun mwi_and_neg_pos_geq_pan(c, xs, y_len, ys, zs) {
     xs = xs + @biw;
     ys = ys + @biw;
     zs = zs + @biw;
-    y_len = y_len - 1;
+    ys_len = ys_len - 1;
   }
   return 0;
 }
 
-fun mwi_and_neg_pos_lt(c, x_len, xs, y_len, ys, zs) {
-  var diff = y_len - x_len;
-  while x_len {
+fun mwi_and_neg_pos_lt(c, xs_len, xs, ys_len, ys, zs) {
+  var diff = ys_len - xs_len;
+  while xs_len {
     var x = lds 1 xs;
     var y = lds 1 ys;
     var {1,1} x1c1 = __add_with_carry__(x, -1, c);
@@ -727,13 +790,13 @@ fun mwi_and_neg_pos_lt(c, x_len, xs, y_len, ys, zs) {
     xs = xs + @biw;
     ys = ys + @biw;
     zs = zs + @biw;
-    x_len = x_len - 1;
+    xs_len = xs_len - 1;
   }
-  return copy(y, x, diff);
+  return copy(zs, ys, diff);
 }
 
-fun mwi_and_neg_neg(c, d, e, x_len, xs, y_len, ys, zs) {
-  while x_len {
+fun mwi_and_neg_neg(c, d, e, xs_len, xs, ys_len, ys, zs) {
+  while xs_len {
     var x = lds 1 xs;
     var y = lds 1 ys;
     var {1,1} x1c1 = __add_with_carry__(x, -1, c);
@@ -746,10 +809,10 @@ fun mwi_and_neg_neg(c, d, e, x_len, xs, y_len, ys, zs) {
     xs = xs + @biw;
     ys = ys + @biw;
     zs = zs + @biw;
-    x_len = x_len - 1;
-    y_len = y_len - 1;
+    xs_len = xs_len - 1;
+    ys_len = ys_len - 1;
   }
-  while y_len {
+  while ys_len {
     var y = lds 1 ys;
     var {1,1} y1d1 = __add_with_carry__(y, -1, d);
     var {1,1} z1e1 = __add_with_carry__(y1d1.1, 0, e);
@@ -758,47 +821,47 @@ fun mwi_and_neg_neg(c, d, e, x_len, xs, y_len, ys, zs) {
     e = z1e1.2;
     ys = ys + @biw;
     zs = zs + @biw;
-    y_len = y_len - 1;
+    ys_len = ys_len - 1;
   }
   if e { st zs, 1; } else { st zs, 0; }
 }
 
-fun mwi_and_fused_pan(s, x_len, x, t, y_len, y, z) {
+fun mwi_and_fused_pan(s, xs_len, xs, t, ys_len, ys, zs) {
   if s {
     if t {
-      if x_len <= y_len {
-        var t1 = mwi_and_neg_neg_pan(0, 0, 1, x, y_len, y, z);
+      if xs_len <= ys_len {
+        var t1 = mwi_and_neg_neg_pan(0, 0, 1, xs, ys_len, ys, zs);
       } else {
-        var t1 = mwi_and_neg_neg_pan(0, 0, 1, y, x_len, x, z);
+        var t1 = mwi_and_neg_neg_pan(0, 0, 1, ys, xs_len, xs, zs);
       }
-      var z_len = mw_fix_pan(t1, z);
-      return <1, z_len>;
+      var zs_len = mw_fix_pan(t1, zs);
+      return <1, zs_len>;
     } else {
-      if x_len < y_len {
-        mwi_and_neg_pos_lt_pan(0, x, x_len, y, y_len, z);
-        var t1 = y_len;
+      if xs_len < ys_len {
+        mwi_and_neg_pos_lt_pan(0, xs, xs_len, ys, ys_len, zs);
+        var t1 = ys_len;
       } else {
-        mwi_and_neg_pos_geq_pan(0, y, x_len, x, z);
-        var t1 = y_len;
+        mwi_and_neg_pos_geq_pan(0, ys, xs_len, xs, zs);
+        var t1 = ys_len;
       }
-      var z_len = mw_fix_pan(t1, z);
-      return <0, z_len>;
+      var zs_len = mw_fix_pan(t1, zs);
+      return <0, zs_len>;
     }
   } else {
     if t {
-      if y_len < x_len {
-        mwi_and_neg_pos_lt_pan(0, y_len, y, x_len, x, z);
-        var t1 = y_len;
+      if ys_len < xs_len {
+        mwi_and_neg_pos_lt_pan(0, ys_len, ys, xs_len, xs, zs);
+        var t1 = ys_len;
       } else {
-        mwi_and_neg_pos_geq_pan(0, x, y_len, y, z);
-        var t1 = x_len;
+        mwi_and_neg_pos_geq_pan(0, xs, ys_len, ys, zs);
+        var t1 = xs_len;
       }
-      var z_len = mw_fix_pan(t1, z);
-      return <0, z_len>;
+      var zs_len = mw_fix_pan(t1, zs);
+      return <0, zs_len>;
     } else {
-      var t1 = mw_and_flip_pan(x_len, x, y_len, y, z);
-      var z_len = mw_fix_pan(t1, z);
-      return <0, z_len>;
+      var t1 = mw_and_flip_pan(xs_len, xs, ys_len, ys, zs);
+      var zs_len = mw_fix_pan(t1, zs);
+      return <0, zs_len>;
     }
   }
 }
@@ -806,30 +869,41 @@ End
 
 (* TODO Run the Pancake static analyzer here *)
 
-val mw_fix_pan     = get_field "body" "mw_fix_pan" and_prog
-val mw_and_pan     = get_field "body" "mw_and_pan" and_prog
-val mwi_and_neg_pos_geq_pan = get_field "body" "mwi_and_neg_pos_geq_pan" and_prog
-val mw_and_flip_pan = get_field "body" "mw_and_flip_pan" and_prog
+fun get_params name = get_field "params" name and_prog
+fun get_body name   = get_field "body" name and_prog
+fun get_return name = get_field "return" name and_prog
+
+val mw_fix_pan_body              = get_body "mw_fix_pan"
+val mw_and_pan_body              = get_body "mw_and_pan"
+val mwi_and_neg_pos_geq_pan_body = get_body "mwi_and_neg_pos_geq_pan"
+val mw_and_flip_pan_body         = get_body "mw_and_flip_pan"
 
 Definition mw_fix_pan_loop_def:
   mw_fix_pan_loop =
-    ^(find_term (can $ match_term “panLang$While _ _”) mw_fix_pan)
+    ^(find_term (can $ match_term “panLang$While _ _”) mw_fix_pan_body)
 End
 
 Definition mw_and_pan_loop_def:
   mw_and_pan_loop =
-    ^(find_term (can $ match_term “panLang$While _ _”) mw_and_pan)
+    ^(find_term (can $ match_term “panLang$While _ _”) mw_and_pan_body)
 End
 
 Definition mw_and_pan_body_def:
   mw_and_pan_body =
-    ^(rhs $ concl $ REWRITE_CONV [GSYM mw_and_pan_loop_def] mw_and_pan)
+    ^(rhs $ concl $ REWRITE_CONV [GSYM mw_and_pan_loop_def] mw_and_pan_body)
+End
+
+Definition mw_and_flip_pan_body_def:
+  mw_and_flip_pan_body = ^(mw_and_flip_pan_body)
 End
 
 Definition mwi_and_neg_pos_geq_pan_loop_def:
   mwi_and_neg_pos_geq_pan_loop =
-    ^(find_term (can $ match_term “panLang$While _ _”) mwi_and_neg_pos_geq_pan)
+    ^(find_term (can $ match_term “panLang$While _ _”) mwi_and_neg_pos_geq_pan_body)
 End
+
+val mw_and_pan_code =
+  list_mk_pair [get_params "mw_and_pan", “mw_and_pan_body”, get_return "mw_and_pan"]
 
 (** Correctness ***************************************************************)
 
@@ -987,13 +1061,16 @@ val _ =
   if not (all (is_eq o concl) step_eq_thl) then
     raise ERR "assertion failure" "non-equality found in step_eq_thl"
 
-(* Theorems of the form stack (...) ⇒ stack ({evaluate,eval} ...) *)
+(* Theorems of the form
+   stack (...) ⇒ stack ({evaluate,eval,lookup_code} ...) *)
 val (step_imp_thl: thm list) =
   [evaluate_Dec_no_error, eval_Load_One_Local_SOME, eval_RStruct_One_One,
    evaluate_Primitive_AddCarry, evaluate_Seq, eval_Op_BitwiseNot_SOME,
+   eval_Cmp_NotLower_SOME,
    eval_RField_Var_Local, evaluate_Store_Local_NONE,
    eval_Op_And_SOME, evaluate_Assign_Local, eval_Op_Add_SOME, eval_Op_Sub_SOME,
-   evaluate_Tick_NONE, evaluate_Break, evaluate_Return_no_error]
+   evaluate_Tick_NONE, evaluate_Break, evaluate_Return_no_error,
+   evaluate_StandAloneCall_NONE_4, lookup_code_SOME]
   |> map stackify_imp_th
 
 (* Given ⊢ A = B, returns A. *)
@@ -1079,7 +1156,7 @@ val step_If_Const : tactic = fn (g as (asl, w)) => fn ctxt => let
   val word_ty = state_alpha $ el 2 $ snd $ dest_type $ type_of redex
   val cond = mk_i2w_neq_0w word_ty (dest_evaluate_If_Const redex)
     handle e => raise WRAP_EXN "step_If_Const" e
-  val thl = [i2w_pos, n2w_11, LESS_MOD, ZERO_MOD, ZERO_LT_dimword]
+  val thl = [i2w_pos, n2w_11, LESS_MOD, ZERO_MOD, ZERO_LT_dimword, ONE_LT_dimword]
   val reduced_th = QCONV (SIMP_CONV arith_ss (add_asms asl thl)) cond
   val reduced = rhs $ concl $ reduced_th
 in
@@ -1097,7 +1174,8 @@ in
       ]
 end
 
-(* Reduces a goal that contains stack (({evaluate,eval} ... = ...)::...). *)
+(* Reduces a goal that contains
+  stack (({evaluate,eval,lookup_code} ... = ...)::...). *)
 val step : tactic = fn (g as (asl, w)) => fn ctxt => let
   val stack = find_term is_stack w
     handle HOL_ERR _ => raise ERR "step_core" "could not find stack"
@@ -1275,19 +1353,32 @@ val side_simp =
     shape_of_ValWord, shape_of_RStruct_One_One,
     dec_clock_record, panSemTheory.state_accfupds,
     FLOOKUP_UPDATE, (* FLOOKUP_set_var_neq, FLOOKUP_set_var, *) LLOOKUP_def,
-
+    (* ALL_DISTINCT
+         (MAP FST [(«xs_len»,One); («xs»,One); («ys»,One); («zs»,One)]) *)
+    MAP, ALL_DISTINCT, MEM,
+    (* LIST_REL (λvshape arg. SND vshape = shape_of arg)
+               [(«xs_len»,One); («xs»,One); («ys»,One); («zs»,One)]
+               [ValWord (n2w (LENGTH xs)); ValWord x; ValWord y; ValWord z] *)
+    LIST_REL_def,
     (* TODO Could try adding some of these to get rid of hsimp for something like
          n2w (SUC (LENGTH ys)) *)
     (* n2w_11, LESS_MOD, ZERO_MOD, ZERO_LT_dimword, SUC_NOT_ZERO, NOT_CLAUSES   *)
+    word_ls_n2w
   ]
 
 (* Attempts to prove side-conditions produced by step. Fails if a
    side-condition cannot be discharged. *)
 val side : tactic = fn g => fn ctxt =>
-  (side_simp >> TRY side_imp_tac >> (head_pop_T ORELSE head_unwind)) g ctxt
+  (side_simp
+   >> flatten_head
+   >> TRY side_imp_tac
+   >> (head_pop_T ORELSE head_unwind)) g ctxt
     handle HOL_ERR _ => raise ERR "side" "failed to discharge side-condition"
 
 (* Tries to apply step or side. *)
+val step_or_side : tactic = fn (g as (_, w)) => fn ctxt =>
+  ((step ORELSE side) g ctxt) handle e => raise WRAP_EXN "step_or_side_core" e
+(*
 val step_or_side : tactic = fn (g as (_, w)) => fn ctxt => let
   val is_step =
     case total find_redex w of
@@ -1297,6 +1388,7 @@ in
   (if is_step then step else side) g ctxt
     handle e => raise WRAP_EXN "step_or_side_core" e
 end
+*)
 
 (* Apply tactic one or more times. *)
 fun rpt1 tac : tactic = tac >> rpt tac
@@ -1317,7 +1409,7 @@ Theorem mw_fix_pan_loop_thm:
   ∀(xs: α word list) rs s x frame.
     mw_fix xs = rs ∧
     LENGTH xs ≤ s.clock ∧  (* LENGTH xs - LENGTH rs would probably be enough *)
-    FLOOKUP s.locals «x_len» = SOME (Val (Word (n2w (LENGTH xs)))) ∧
+    FLOOKUP s.locals «xs_len» = SOME (Val (Word (n2w (LENGTH xs)))) ∧
     FLOOKUP s.locals «xs»    =
       SOME (Val (Word (el_addr x (LENGTH xs) - bytes_in_word))) ∧
     (ones x (MAP Word xs) * frame) (fun2set (s.memory, s.memaddrs)) ∧
@@ -1328,7 +1420,7 @@ Theorem mw_fix_pan_loop_thm:
         s with <| memory := m;
                   locals := l;
                   clock := clk |>) ∧
-      FLOOKUP l «x_len» = SOME (Val (Word (n2w (LENGTH rs)))) ∧
+      FLOOKUP l «xs_len» = SOME (Val (Word (n2w (LENGTH rs)))) ∧
       (ones x (MAP Word xs) * frame) (fun2set (m, s.memaddrs))
 Proof
   simp []
@@ -1398,7 +1490,7 @@ Theorem mw_and_pan_loop_thm_raw[local]:
   ∀(xs: α word list) ys zs rs s x y z frame.
     mw_and xs ys = zs ∧ LENGTH xs ≤ LENGTH ys ∧
     LENGTH rs = LENGTH xs ∧ LENGTH xs ≤ s.clock ∧
-    FLOOKUP s.locals «x_len» = SOME (Val (Word (n2w (LENGTH xs)))) ∧
+    FLOOKUP s.locals «xs_len» = SOME (Val (Word (n2w (LENGTH xs)))) ∧
     FLOOKUP s.locals «xs» = SOME (Val (Word x)) ∧
     FLOOKUP s.locals «ys» = SOME (Val (Word y)) ∧
     FLOOKUP s.locals «zs» = SOME (Val (Word z)) ∧
@@ -1477,7 +1569,7 @@ Theorem mw_and_pan_thm:
   ∀(xs: α word list) ys rs s x y z frame.
     LENGTH xs ≤ LENGTH ys ∧
     LENGTH rs = LENGTH xs ∧ LENGTH xs ≤ s.clock ∧
-    FLOOKUP s.locals «x_len» = SOME (Val (Word (n2w (LENGTH xs)))) ∧
+    FLOOKUP s.locals «xs_len» = SOME (Val (Word (n2w (LENGTH xs)))) ∧
     FLOOKUP s.locals «xs» = SOME (Val (Word x)) ∧
     FLOOKUP s.locals «ys» = SOME (Val (Word y)) ∧
     FLOOKUP s.locals «zs» = SOME (Val (Word z)) ∧
@@ -1515,13 +1607,101 @@ Proof
   >> simp [stack_def, state_component_equality, empty_locals_def]
 QED
 
+(** mwi_and_flip_pan **********************************************************)
+
+Theorem mw_and_flip_pan_thm:
+  ∀(xs: α word list) ys rs s x y z frame.
+    LENGTH xs + 1 ≤ s.clock ∧ LENGTH ys + 1 ≤ s.clock ∧
+    LENGTH rs = MIN (LENGTH xs) (LENGTH ys) ∧
+    FLOOKUP s.code «mw_and_pan» = SOME ^mw_and_pan_code ∧
+    FLOOKUP s.locals «xs_len» = SOME (Val (Word (n2w (LENGTH xs)))) ∧
+    FLOOKUP s.locals «xs» = SOME (Val (Word x)) ∧
+    FLOOKUP s.locals «ys_len» = SOME (Val (Word (n2w (LENGTH ys)))) ∧
+    FLOOKUP s.locals «ys» = SOME (Val (Word y)) ∧
+    FLOOKUP s.locals «zs» = SOME (Val (Word z)) ∧
+    (ones x (MAP Word xs) *
+     ones y (MAP Word ys) *
+     ones z rs *
+     frame) (fun2set (s.memory, s.memaddrs)) ∧
+    byte_dimindex (:α) ∧ 8 < dimindex (:α)
+    ⇒
+    ∃m l clk.
+      evaluate (mw_and_flip_pan_body,s) =
+        (SOME (Return (ValWord (n2w (LENGTH (mw_and_flip xs ys))))),
+         s with <| memory := m;
+                   locals := l;
+                   clock := clk |>) ∧
+      (ones x (MAP Word xs) *
+       ones y (MAP Word ys) *
+       ones z (MAP Word (mw_and_flip xs ys)) *
+       frame) (fun2set (m, s.memaddrs))
+Proof
+  rpt strip_tac
+  >> have ‘LENGTH xs < dimword (:α)’
+  >- (
+    drule_all_then assume_tac byte_dimindex_leq
+    >> drule_then mp_tac $
+      INST_TYPE [“:β” |-> “:α word_lab”] ones_leq_dimword
+    >> disch_then $ qspec_then ‘MAP Word xs’ assume_tac
+    >> SEP_F_TAC >> simp [] >> strip_tac
+    >> drule_all_then assume_tac one_lt_w2n_bytes_in_word
+    >> Cases_on ‘LENGTH xs = 0’ >- simp []
+    >> irule_at (Pos hd) LESS_LESS_EQ_TRANS
+    >> first_assum $ irule_at (Pos last)
+    >> simp []
+  )
+  >> have ‘LENGTH ys < dimword (:α)’
+  >- (
+    drule_all_then assume_tac byte_dimindex_leq
+    >> drule_then mp_tac $
+      INST_TYPE [“:β” |-> “:α word_lab”] ones_leq_dimword
+    >> disch_then $ qspec_then ‘MAP Word ys’ assume_tac
+    >> SEP_F_TAC >> simp [] >> strip_tac
+    >> drule_all_then assume_tac one_lt_w2n_bytes_in_word
+    >> Cases_on ‘LENGTH ys = 0’ >- simp []
+    >> irule_at (Pos hd) LESS_LESS_EQ_TRANS
+    >> first_assum $ irule_at (Pos last)
+    >> simp []
+  )
+  >> once_rewrite_tac [GSYM stack_evaluate]
+  >> simp [mw_and_flip_pan_body_def]
+  >> walk
+  >> IF_CASES_TAC >> walk
+  >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
+  >- (
+    (* TODO would be nice if the instantiation could be done automatically *)
+    qspecl_then [‘xs’, ‘ys’, ‘rs’, ‘s'’, ‘x’, ‘y’, ‘z’, ‘frame’] mp_tac mw_and_pan_thm
+    >> impl_tac
+    >- simp [Abbr ‘s'’, flookup_fupdate_list, dec_clock_def, MIN_DEF]
+    >> strip_tac
+    (* TODO again, the walk/hsimp/walk/... pattern *)
+    >> rpt (walk >> hsimp [])
+    (* TODO Maybe we should have something that computes this? *)
+    >> hsimp [size_of_sh_with_ctxt_def]
+    >> gvs [Abbr ‘s'’, stack_def, state_component_equality, empty_locals_def,
+            mw_and_flip_def, dec_clock_def, LENGTH_mw_and, MIN_DEF]
+  )
+  (* TODO would be nice if the instantiation could be done automatically *)
+  >> qspecl_then [‘ys’, ‘xs’, ‘rs’, ‘s'’, ‘y’, ‘x’, ‘z’, ‘frame’] mp_tac mw_and_pan_thm
+  >> impl_tac
+  >- fs [Abbr ‘s'’, flookup_fupdate_list, dec_clock_def, MIN_DEF,
+         AC STAR_ASSOC STAR_COMM]
+  >> strip_tac
+  (* TODO again, the walk/hsimp/walk/... pattern *)
+  >> rpt (walk >> hsimp [])
+  >> hsimp [size_of_sh_with_ctxt_def]
+  >> gvs [Abbr ‘s'’, stack_def, state_component_equality, empty_locals_def,
+          mw_and_flip_def, dec_clock_def, LENGTH_mw_and, MIN_DEF,
+          AC STAR_ASSOC STAR_COMM]
+QED
+
 (** mwi_and_neg_pos_geq_pan ***************************************************)
 
 Theorem mwi_and_neg_pos_geq_pan_loop_thm:
   ∀(ys: α word list) xs zs rs s c x y z frame.
     mwi_and_neg_pos_geq c xs ys = zs ∧ LENGTH ys ≤ LENGTH xs ∧
     LENGTH rs = LENGTH ys ∧ LENGTH ys ≤ s.clock ∧
-    FLOOKUP s.locals «y_len» = SOME (Val (Word (n2w (LENGTH ys)))) ∧
+    FLOOKUP s.locals «ys_len» = SOME (Val (Word (n2w (LENGTH ys)))) ∧
     FLOOKUP s.locals «c» = SOME (Val (Word (b2w c))) ∧
     FLOOKUP s.locals «xs» = SOME (Val (Word x)) ∧
     FLOOKUP s.locals «ys» = SOME (Val (Word y)) ∧
