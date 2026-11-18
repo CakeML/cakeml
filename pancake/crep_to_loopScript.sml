@@ -192,11 +192,11 @@ Definition compile_def:
            let rns = rt_vars ctxt.vars rts (ctxt.vmax + 1);
                en  = ctxt.vmax + 1;
                pe  = case hdl of
-                  | NONE => (* Raise en *) NONE
+                  | NONE => NONE
                   | SOME (eid, ep) =>
                     let cpe = compile ctxt l ep in
                       SOME (en, (If NotEqual en (Imm eid) (Raise en) (Seq Tick cpe) l), Skip, l)
-           in (SOME (rns, l), (* SOME (en, pe, Skip, l) *) pe)
+           in (SOME (rns, l), pe)
    in
       nested_seq (p ++ MAP2 Assign nargs les ++ [Call rt1 (SOME dest) nargs rt2])) /\
   (compile ctxt l (ExtCall f ptr1 len1 ptr2 len2) =
