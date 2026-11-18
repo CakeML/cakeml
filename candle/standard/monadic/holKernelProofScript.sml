@@ -1137,6 +1137,13 @@ Proof
   SIMP_TAC (srw_ss()) [Once term_type_def]
 QED
 
+Theorem ptr_eq_term_cond[local]:
+  ((if ptr_eq s' s ∧ ptr_eq t' t then Comb s t else Comb s' t') = Comb s' t') ∧
+  ((if ptr_eq s' s then Abs v s else Abs v s') = Abs v s')
+Proof
+  rw [ptr_eq_def] >> gvs []
+QED
+
 Theorem vsubst_aux_thm[local]:
   !t tm theta. EVERY (\(t1,t2). TERM defs t1 /\ TERM defs t2 /\
                      (term_type t1 = term_type t2) /\ is_var t2) theta /\
@@ -1145,8 +1152,6 @@ Theorem vsubst_aux_thm[local]:
     TERM defs t /\
     (t = VSUBST theta tm)
 Proof
-  cheat
-  (*
   SIMP_TAC std_ss [] \\ Induct THEN1
    (NTAC 4 STRIP_TAC \\ SIMP_TAC (srw_ss()) [Once vsubst_aux_def]
     \\ SIMP_TAC (srw_ss()) [Once vsubst_aux_def,VSUBST_def]
@@ -1162,7 +1167,7 @@ Proof
     \\ SRW_TAC [] [VSUBST_def])
   THEN1
    (STRIP_TAC \\ REPEAT (Q.PAT_X_ASSUM `!theta. bbb` (ASSUME_TAC o SPEC_ALL))
-    \\ ONCE_REWRITE_TAC [vsubst_aux_def] \\ SIMP_TAC (srw_ss()) [LET_DEF]
+    \\ ONCE_REWRITE_TAC [vsubst_aux_def] \\ SIMP_TAC (srw_ss()) [LET_DEF,ptr_eq_term_cond]
     \\ FULL_SIMP_TAC std_ss [VSUBST_def,term_11]
     \\ reverse (REPEAT STRIP_TAC)
     \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss []
@@ -1178,7 +1183,7 @@ Proof
     \\ IMP_RES_TAC (REWRITE_RULE [TERM_def] term_type)
     \\ METIS_TAC[WELLTYPED,term_ok_welltyped])
   \\ STRIP_TAC
-  \\ ONCE_REWRITE_TAC [vsubst_aux_def] \\ SIMP_TAC (srw_ss()) [LET_DEF]
+  \\ ONCE_REWRITE_TAC [vsubst_aux_def] \\ SIMP_TAC (srw_ss()) [LET_DEF,ptr_eq_term_cond]
   \\ STRIP_TAC \\ IMP_RES_TAC Abs_Var
   \\ FULL_SIMP_TAC (srw_ss()) [is_var_def]
   \\ Cases_on `FILTER (\(t,x). x <> Var s' ty) theta = []`
@@ -1276,7 +1281,6 @@ Proof
   qunabbrev_tac`theta1` >>
   Q.PAT_ABBREV_TAC`vv = holSyntax$VARIANT A B Z` >>
   simp[]
-*)
 QED
 
 Theorem forall_thm[local]:
@@ -1440,12 +1444,10 @@ Theorem inst_aux_thm:
       | M_failure (Clash v) => (INST_CORE env theta tm = Clash v)
       | _ => F
 Proof
-  cheat
-  (*
   HO_MATCH_MP_TAC inst_aux_ind \\ NTAC 4 STRIP_TAC \\ Cases_on `tm`
   \\ FULL_SIMP_TAC (srw_ss()) []
   THEN1
-   (simp[inst_aux_def,INST_CORE_def,rev_assocd_thm] >>
+   (simp[inst_aux_def,ptr_eq_def,INST_CORE_def,rev_assocd_thm] >>
     `(if type_subst theta t = t then Var m t
       else Var m (type_subst theta t)) = Var m (type_subst theta t)` by METIS_TAC [] >>
     simp[] >> POP_ASSUM (K ALL_TAC)
@@ -1459,7 +1461,8 @@ Proof
     \\ FULL_SIMP_TAC std_ss [TYPE_def,
              EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS] \\ METIS_TAC [])
   THEN1
-   (ONCE_REWRITE_TAC [inst_aux_def] \\ SIMP_TAC (srw_ss()) [LET_DEF,st_ex_return_def]
+   (ONCE_REWRITE_TAC [inst_aux_def]
+    \\ SIMP_TAC (srw_ss()) [LET_DEF,st_ex_return_def,ptr_eq_def]
     \\ NTAC 4 STRIP_TAC
     \\ sg `(res = M_success (Const m (type_subst theta t))) /\ (s = s')`
     THEN1 (Cases_on `type_subst theta t = t` \\ FULL_SIMP_TAC std_ss [])
@@ -1467,7 +1470,8 @@ Proof
     \\ SIMP_TAC std_ss [INST_CORE_def,type_subst])
   THEN1
    (ONCE_REWRITE_TAC [inst_aux_def]
-    \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF,st_ex_return_def,st_ex_bind_def]
+    \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF,st_ex_return_def,st_ex_bind_def,
+                                 ptr_eq_def]
     \\ NTAC 4 STRIP_TAC \\ Cases_on `inst_aux env theta t s`
     \\ reverse (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
      (Q.PAT_X_ASSUM `M_failure xx = res` (ASSUME_TAC o GSYM)
@@ -1498,12 +1502,12 @@ Proof
       \\ FULL_SIMP_TAC (srw_ss()) [IS_CLASH_def]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `r`)
       \\ FULL_SIMP_TAC (srw_ss()) [IS_CLASH_def,RESULT_def,LET_THM]))
-  \\ SIMP_TAC (srw_ss()) [Once inst_aux_def]
+  \\ SIMP_TAC (srw_ss()) [Once inst_aux_def,ptr_eq_def]
   \\ SIMP_TAC std_ss [GSYM AND_IMP_INTRO] \\ NTAC 7 STRIP_TAC
   \\ IMP_RES_TAC Abs_Var
   \\ Q.MATCH_ASSUM_RENAME_TAC `h = Var v ty`
   \\ FULL_SIMP_TAC std_ss []
-  \\ SIMP_TAC (srw_ss()) [Once inst_aux_def]
+  \\ SIMP_TAC (srw_ss()) [Once inst_aux_def,ptr_eq_def]
   \\ `!ty'. (if ty' = ty then Var v ty else Var v ty') = Var v ty'` by METIS_TAC []
   \\ FULL_SIMP_TAC std_ss [rev_assocd_thm,REV_ASSOCD,LET_DEF,st_ex_return_def]
   \\ SIMP_TAC (srw_ss()) [st_ex_bind_def,otherwise_def,handle_Clash_def,raise_Clash_def]
@@ -1612,7 +1616,6 @@ Proof
   \\ FULL_SIMP_TAC std_ss [IS_RESULT_def,RESULT_def] >>
   BasicProvers.CASE_TAC >> fs[] >>
   BasicProvers.CASE_TAC >> fs[]
-  *)
 QED
 
 Theorem inst_lemma[local]:
