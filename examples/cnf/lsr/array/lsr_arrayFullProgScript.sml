@@ -554,8 +554,8 @@ Definition reads_stdin_def:
 End
 
 Theorem BOOL_T_F_eq[local]:
-  (BOOL T v ⇔ v = Conv (SOME (TypeStamp «True» 0)) []) ∧
-  (BOOL F v ⇔ v = Conv (SOME (TypeStamp «False» 0)) [])
+  (BOOL T v ⇔ v = Conv (SOME (TypeStamp «True» 0 1)) []) ∧
+  (BOOL F v ⇔ v = Conv (SOME (TypeStamp «False» 0 0)) [])
 Proof
   simp[BOOL_def,semanticPrimitivesTheory.Boolv_def,
     semanticPrimitivesTheory.bool_type_num_def]
@@ -580,7 +580,7 @@ Proof
   >- (fs [TextIOProofTheory.STDIO_def]>>xpull)>>
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def]>>xpull)>>
   rpt xlet_autop>>
-  qmatch_asmsub_rename_tac`bv = Conv (SOME (TypeStamp «False» 0)) []`>>
+  qmatch_asmsub_rename_tac`bv = Conv (SOME (TypeStamp «False» 0 0)) []`>>
   `BOOL F bv` by simp[BOOL_T_F_eq]>>
   xlet`POSTv v. COMMANDLINE cl * STDIO fs *
     &PAIR_TYPE (OPTION_TYPE BOOL) (LIST_TYPE STRING_TYPE)

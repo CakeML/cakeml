@@ -2984,17 +2984,17 @@ Proof
       &(case parse_and_run_file_list lines fmlls (REPLICATE n 0) 1
                (REPLICATE n 0) (REPLICATE (2 * n) 0) 0 (REPLICATE (2 * n) 0) tp0 of
           NONE =>
-            resv = Conv (SOME (TypeStamp «Inl» 4)) [v0] ∧ ∃s. STRING_TYPE s v0
+            resv = Conv (SOME (TypeStamp «Inl» 4 0)) [v0] ∧ ∃s. STRING_TYPE s v0
         | SOME res =>
             res = fmlls' ∧
-            resv = Conv (SOME (TypeStamp «Inr» 4)) [fmlv'])`
+            resv = Conv (SOME (TypeStamp «Inr» 4 1)) [fmlv'])`
   >- (
     xhandle`POSTve
       (λv. SEP_EXISTS k fmlv' fmlls'.
         STDIO (forwardFD fs fd k) *
         INSTREAM_LINES nulc fd isv [] (forwardFD fs fd k) *
         ARRAY_OF vcclause_TYPE fmlv' fmlls' *
-        &(v = Conv (SOME (TypeStamp «Inr» 4)) [fmlv'] ∧
+        &(v = Conv (SOME (TypeStamp «Inr» 4 1)) [fmlv'] ∧
           parse_and_run_file_list lines fmlls (REPLICATE n 0) 1
             (REPLICATE n 0) (REPLICATE (2 * n) 0) 0 (REPLICATE (2 * n) 0) tp0 =
           SOME fmlls'))

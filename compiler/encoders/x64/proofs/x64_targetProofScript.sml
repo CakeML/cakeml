@@ -564,6 +564,18 @@ Proof
   \\ CASE_TAC
 QED
 
+Theorem fp64_compare_self[local,simp]:
+  !value. fp64_compare value value =
+    if fp64_isNan value then UN else EQ
+Proof
+  gen_tac
+  \\ namedCases_on `float_value (fp64_to_float value)` ["number", "", ""]
+  \\ simp [machine_ieeeTheory.fp64_compare_def,
+           machine_ieeeTheory.fp64_isNan_def,
+           binary_ieeeTheory.float_is_nan_def,
+           binary_ieeeTheory.float_compare_def]
+QED
+
 Theorem fp_to_int_lem[local]:
   !i w : word32.
       (w2i w = i) ==> -0x80000000 <= i /\ i <= 0x7FFFFFFF
@@ -604,7 +616,8 @@ val encode_rwts =
    let
       open x64Theory
    in
-      [x64_enc_def, x64_ast_def, x64_bop_def, x64_cmp_def, x64_sh_def,
+      [x64_enc_def, x64_ast_def, x64_fix_nan_ast_def,
+       x64_bop_def, x64_cmp_def, x64_sh_def,
        x64_encode_def, encode_def, encode_sse_def, encode_sse_binop_def,
        xmm_mem_to_rm_def, e_gen_rm_reg_def,
        e_ModRM_def, e_opsize_def, rex_prefix_def, e_opc_def, e_rm_imm8_def,
@@ -1427,23 +1440,71 @@ Resume x64_encoder_correct[FPNeg]:
 QED
 
 Resume x64_encoder_correct[FPSqrt]:
-  print_tac "FPSqrt" \\ next_tac []
+  rename1 `FPSqrt dst src`
+  \\ `src < 8` by fs [x64_asm_ok]
+  \\ Cases_on `fp64_isNan (fp64_sqrt roundTiesToEven
+                 ((63 >< 0) (ms.XMM_REG (n2w src))))`
+  >- (
+    next_tac_prefix [4, 4, 6]
+    \\ rfs [Zreg2num_num2Zreg_8, fpSemTheory.fix_NaN_def])
+  \\ next_tac_prefix [4, 4, ~6]
+  \\ rfs [Zreg2num_num2Zreg_8, fpSemTheory.fix_NaN_def]
 QED
 
 Resume x64_encoder_correct[FPAdd]:
-  print_tac "FPAdd" \\ next_tac []
+  rename1 `FPAdd dst left src`
+  \\ `left = dst /\ dst < 8 /\ src < 8` by fs [x64_asm_ok]
+  \\ qpat_x_assum `left = dst` SUBST_ALL_TAC
+  \\ Cases_on `fp64_isNan (fp64_add roundTiesToEven
+                 ((63 >< 0) (ms.XMM_REG (n2w dst)))
+                 ((63 >< 0) (ms.XMM_REG (n2w src))))`
+  >- (
+    next_tac_prefix [4, 4, 6]
+    \\ rfs [Zreg2num_num2Zreg_8, fpSemTheory.fix_NaN_def])
+  \\ next_tac_prefix [4, 4, ~6]
+  \\ rfs [Zreg2num_num2Zreg_8, fpSemTheory.fix_NaN_def]
 QED
 
 Resume x64_encoder_correct[FPSub]:
-  print_tac "FPSub" \\ next_tac []
+  rename1 `FPSub dst left src`
+  \\ `left = dst /\ dst < 8 /\ src < 8` by fs [x64_asm_ok]
+  \\ qpat_x_assum `left = dst` SUBST_ALL_TAC
+  \\ Cases_on `fp64_isNan (fp64_sub roundTiesToEven
+                 ((63 >< 0) (ms.XMM_REG (n2w dst)))
+                 ((63 >< 0) (ms.XMM_REG (n2w src))))`
+  >- (
+    next_tac_prefix [4, 4, 6]
+    \\ rfs [Zreg2num_num2Zreg_8, fpSemTheory.fix_NaN_def])
+  \\ next_tac_prefix [4, 4, ~6]
+  \\ rfs [Zreg2num_num2Zreg_8, fpSemTheory.fix_NaN_def]
 QED
 
 Resume x64_encoder_correct[FPMul]:
-  print_tac "FPMul" \\ next_tac []
+  rename1 `FPMul dst left src`
+  \\ `left = dst /\ dst < 8 /\ src < 8` by fs [x64_asm_ok]
+  \\ qpat_x_assum `left = dst` SUBST_ALL_TAC
+  \\ Cases_on `fp64_isNan (fp64_mul roundTiesToEven
+                 ((63 >< 0) (ms.XMM_REG (n2w dst)))
+                 ((63 >< 0) (ms.XMM_REG (n2w src))))`
+  >- (
+    next_tac_prefix [4, 4, 6]
+    \\ rfs [Zreg2num_num2Zreg_8, fpSemTheory.fix_NaN_def])
+  \\ next_tac_prefix [4, 4, ~6]
+  \\ rfs [Zreg2num_num2Zreg_8, fpSemTheory.fix_NaN_def]
 QED
 
 Resume x64_encoder_correct[FPDiv]:
-  print_tac "FPDiv" \\ next_tac []
+  rename1 `FPDiv dst left src`
+  \\ `left = dst /\ dst < 8 /\ src < 8` by fs [x64_asm_ok]
+  \\ qpat_x_assum `left = dst` SUBST_ALL_TAC
+  \\ Cases_on `fp64_isNan (fp64_div roundTiesToEven
+                 ((63 >< 0) (ms.XMM_REG (n2w dst)))
+                 ((63 >< 0) (ms.XMM_REG (n2w src))))`
+  >- (
+    next_tac_prefix [4, 4, 6]
+    \\ rfs [Zreg2num_num2Zreg_8, fpSemTheory.fix_NaN_def])
+  \\ next_tac_prefix [4, 4, ~6]
+  \\ rfs [Zreg2num_num2Zreg_8, fpSemTheory.fix_NaN_def]
 QED
 
 Resume x64_encoder_correct[FPFma]:

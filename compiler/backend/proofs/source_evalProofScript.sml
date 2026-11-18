@@ -490,6 +490,29 @@ Proof
   metis_tac [integerTheory.INT_OF_NUM]
 QED
 
+Theorem do_compare:
+  (!x y x' y' n.
+    do_compare x y = Cmp_val n ∧ v_rel es x x' ∧ v_rel es y y' ⇒
+    do_compare x' y' = Cmp_val n) ∧
+  (!xs ys xs' ys' n.
+    do_compare_list xs ys = Cmp_val n ∧
+    LIST_REL (v_rel es) xs xs' ∧ LIST_REL (v_rel es) ys ys' ⇒
+    do_compare_list xs' ys' = Cmp_val n)
+Proof
+  ho_match_mp_tac do_compare_ind >>
+  rw [do_compare_def] >>
+  imp_res_tac LIST_REL_LENGTH >>
+  fs [do_compare_def] >>
+  fs [NULL_LENGTH] >> rveq >> fs [LIST_REL_EL_EQN] >>
+  rpt (IF_CASES_TAC >> fs []) >>
+  imp_res_tac v_to_env_id_SOME >> rveq >>
+  fs [do_compare_def, nat_to_v_def, compare_lit_def, compare_int_def,
+      ctor_same_type_def] >>
+  rpt (IF_CASES_TAC >> fs []) >>
+  fs [AllCaseEqs()] >>
+  res_tac >> fs [SF SFY_ss]
+QED
+
 Theorem do_eq:
   (! x y x' y' b. do_eq x y = Eq_val b /\
   v_rel es x x' /\
@@ -890,6 +913,8 @@ Proof
         EVERY2_refl, MEM_MAP, PULL_EXISTS]
   >>> SELECT_LT_THEN (Q.PAT_ASSUM `do_eq _ _ = _` (K ALL_TAC))
         (drule_then imp_res_tac (CONJUNCT1 do_eq))
+  >>> SELECT_LT_THEN (Q.PAT_ASSUM `do_compare _ _ = Cmp_val _` (K ALL_TAC))
+        (drule_then imp_res_tac (CONJUNCT1 do_compare))
   >>> SELECT_LT_THEN (Q.PAT_ASSUM `store_lookup _ _ = _` (K ALL_TAC))
         (drule_then imp_res_tac store_lookup)
   >>> SELECT_LT_THEN (Q.PAT_ASSUM `v_to_char_list _ = _` (K ALL_TAC))

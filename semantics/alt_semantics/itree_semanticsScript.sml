@@ -42,6 +42,10 @@ Definition do_app_def:
             Eq_type_error => NONE
           | Eq_val b => SOME (s, Rval (Boolv b))
         )
+    | (PolyCompare, [v1; v2]) =>
+        (case do_compare v1 v2 of
+            Cmp_type_error => NONE
+          | Cmp_val result => SOME (s, Rval (Litv (IntLit result))))
     | (Arith a ty, vs) =>
         (if EVERY (check_type ty) vs then
            (case do_arith a ty vs of
@@ -853,8 +857,8 @@ End
 Definition start_env_def:
   start_env : v sem_env =
   <|v := Bind [] [];
-    c := Bind [(«::»,2,TypeStamp «::» 1); («[]»,0,TypeStamp «[]» 1);
-               («True»,0,TypeStamp «True» 0); («False»,0,TypeStamp «False» 0);
+    c := Bind [(«::»,2,TypeStamp «::» 1 1); («[]»,0,TypeStamp «[]» 1 0);
+               («True»,0,TypeStamp «True» 0 1); («False»,0,TypeStamp «False» 0 0);
                («Subscript»,0,ExnStamp 3); («Div»,0,ExnStamp 2);
                («Chr»,0,ExnStamp 1); («Bind»,0,ExnStamp 0)] []
   |>

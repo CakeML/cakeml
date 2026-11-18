@@ -993,7 +993,7 @@ Proof
   \\ drule LESS_EQ_LENGTH \\ strip_tac \\ gvs [TAKE_LENGTH_APPEND]
 QED
 
-Overload TypeStamp_InstreamBuffered = “TypeStamp «InstreamBuffered» 35”;
+Overload TypeStamp_InstreamBuffered = “TypeStamp «InstreamBuffered» 35 0”;
 
 Definition INSTREAM_BUFFERED_def:
   INSTREAM_BUFFERED bactive is =

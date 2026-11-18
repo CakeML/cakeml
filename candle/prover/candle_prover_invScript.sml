@@ -90,7 +90,7 @@ Inductive v_ok:
 [~Conv:]
   (∀ctxt opt vs.
      EVERY (v_ok ctxt) vs ∧
-     (∀tag x. opt = SOME (TypeStamp tag x) ⇒ x ∉ kernel_types) ⇒
+     (∀tag x pos. opt = SOME (TypeStamp tag x pos) ⇒ x ∉ kernel_types) ⇒
        v_ok ctxt (Conv opt vs))
 [~Closure:]
   (∀ctxt env n x.
@@ -119,8 +119,8 @@ Inductive v_ok:
        v_ok ctxt (Env env ns))
 [env_ok:]
   (∀ctxt env.
-     (∀id len tag tn.
-        nsLookup env.c id = SOME (len, TypeStamp tag tn) ∧
+     (∀id len tag tn pos.
+        nsLookup env.c id = SOME (len, TypeStamp tag tn pos) ∧
         tn ∈ kernel_types ⇒
           id_to_n id ∈ kernel_ctors) ∧
      (∀n v. nsLookup env.v n = SOME v ⇒ v_ok ctxt v) ⇒
@@ -143,7 +143,7 @@ QED
 
 Theorem kernel_vals_Conv:
   kernel_vals ctxt (Conv (SOME stamp) vs) ⇒
-    ∃tag m. stamp = TypeStamp tag m ∧ m ∈ kernel_types
+    ∃tag m pos. stamp = TypeStamp tag m pos ∧ m ∈ kernel_types
 Proof
   rw [Once v_ok_cases] \\ gs [do_partial_app_def, CaseEqs ["exp", "v"]]
   \\ irule inferred_Conv \\ gs [SF SFY_ss]
@@ -294,7 +294,7 @@ QED
 Theorem env_ok_write_cons:
   env_ok ctxt env ∧
   (t ∈ kernel_types ⇒ nm ∈ kernel_ctors) ⇒
-    env_ok ctxt (write_cons nm (n, TypeStamp s t) env)
+    env_ok ctxt (write_cons nm (n, TypeStamp s t pos) env)
 Proof
   simp [env_ok_def, ml_progTheory.write_cons_def, SF SFY_ss]
   \\ strip_tac
@@ -384,7 +384,7 @@ Proof
 QED
 
 Theorem v_ok_Cons:
-  v_ok ctxt (Conv (SOME (TypeStamp «::» 1)) [x; y]) ⇔ v_ok ctxt x ∧ v_ok ctxt y
+  v_ok ctxt (Conv (SOME (TypeStamp «::» 1 1)) [x; y]) ⇔ v_ok ctxt x ∧ v_ok ctxt y
 Proof
   simp [Once v_ok_cases] \\ fs [kernel_types_def]
   \\ eq_tac \\ rw [] \\ rw []

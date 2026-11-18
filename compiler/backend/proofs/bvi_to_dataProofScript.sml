@@ -422,26 +422,39 @@ Proof
   Induct \\ rw [list_to_v_def,bvlSemTheory.list_to_v_def,data_to_bvi_v_def]
 QED
 
-(* `data_to_bvi_v` preservers `do_eq` *)
-Theorem data_to_bvi_do_eq:
+(* `data_to_bvi_v` preserves `do_cmp` *)
+Theorem data_to_bvi_do_cmp:
    (∀t v1 v2 r.
      (∀n. FLOOKUP r n = lookup n (map data_to_bvi_ref t))
-     ⇒ do_eq r (data_to_bvi_v v1) (data_to_bvi_v v2) =
-       do_eq t v1 v2) ∧
+     ⇒ do_cmp r (data_to_bvi_v v1) (data_to_bvi_v v2) =
+       do_cmp t v1 v2) ∧
    (∀t l1 l2 r.
      (∀n. FLOOKUP r n = lookup n (map data_to_bvi_ref t))
-     ⇒ do_eq_list r (MAP data_to_bvi_v l1) (MAP data_to_bvi_v l2) =
-       do_eq_list t l1 l2)
+     ⇒ do_cmp_list r (MAP data_to_bvi_v l1) (MAP data_to_bvi_v l2) =
+       do_cmp_list t l1 l2)
 Proof
-  ho_match_mp_tac do_eq_ind
-  \\ rw [do_eq_def,bvlSemTheory.do_eq_def,data_to_bvi_v_def]
-  \\ fs [ backend_commonTheory.closure_tag_def
-        , backend_commonTheory.partial_app_tag_def
-        , isClos_def,bvlSemTheory.isClos_def,isClos_def
-        , FLOOKUP_o_f]
-  >- (every_case_tac \\ fs [data_to_bvi_ref_def,lookup_map])
-  \\ Cases_on ‘do_eq t v1 v2’ \\ gvs []
-  \\ rename1 ‘Eq_val b’ \\ Cases_on ‘b’ \\ gvs []
+  ho_match_mp_tac dataSemTheory.do_cmp_ind \\ rpt strip_tac
+  \\ gvs [data_to_bvi_v_def, Excl "do_cmp_def"]
+  >~ [‘dataSem$do_cmp _ (RefPtr _ _) (RefPtr _ _)’] >- (
+    simp [Once do_cmp_def, Once bvlSemTheory.do_cmp_def, lookup_map]
+    \\ rpt (TOP_CASE_TAC \\ gvs [data_to_bvi_ref_def]))
+  >~ [‘dataSem$do_cmp _ (Block _ _ _) (Block _ _ _)’] >- (
+    pure_rewrite_tac [do_cmp_def, bvlSemTheory.do_cmp_def]
+    \\ full_simp_tac bool_ss
+         [isClos_def, bvlSemTheory.isClos_def, LENGTH_MAP, GSYM NULL_EQ, NULL_LENGTH]
+    \\ rpt (IF_CASES_TAC \\ full_simp_tac bool_ss [])
+    \\ first_x_assum irule \\ gvs [Excl "do_cmp_def"])
+  >~ [‘dataSem$do_cmp_list _ (_::_) (_::_)’] >- (
+    qmatch_goalsub_rename_tac
+      ‘dataSem$do_cmp_list t (left_head::left_tail) (right_head::right_tail)’
+    \\ qpat_x_assum ‘∀refs. _ ⇒ bvlSem$do_cmp _ _ _ = _’ drule_all
+    \\ strip_tac
+    \\ pure_rewrite_tac
+         [do_cmp_def |> CONJUNCT2, bvlSemTheory.do_cmp_def |> CONJUNCT2]
+    \\ namedCases_on ‘dataSem$do_cmp t left_head right_head’ ["head_cmp", ""]
+    \\ gvs [Excl "do_cmp_def"]
+    \\ IF_CASES_TAC \\ gvs [Excl "do_cmp_def"])
+  \\ simp [dataSemTheory.do_cmp_def]
 QED
 
 Theorem data_to_bvi_v_list_to_v_APPEND:
@@ -696,6 +709,20 @@ Proof
   \\ rfs[state_rel_def]
   \\ drule_then assume_tac refs_rel_LEAST_eq
   \\ gvs[FLOOKUP_UPDATE,lookup_map,lookup_insert]
+  >~ [‘this_is_case (BlockOp Equal)’] >- (
+    fsrw_tac [DNF_ss] []
+    \\ drule_then assume_tac
+         (data_to_bvi_do_cmp |> SIMP_RULE std_ss [lookup_map] |> CONJUNCT1)
+    \\ fs [])
+  >~ [‘this_is_case (BlockOp PolyCompare)’] >- (
+    drule_then assume_tac
+      (data_to_bvi_do_cmp |> SIMP_RULE std_ss [lookup_map] |> CONJUNCT1)
+    \\ fs [])
+  >~ [‘this_is_case (BlockOp PtrEqual)’] >- (
+    fsrw_tac [DNF_ss] []
+    \\ drule_then assume_tac
+         (data_to_bvi_do_cmp |> SIMP_RULE std_ss [lookup_map] |> CONJUNCT1)
+    \\ fs [])
   >-(rename1 `MemOp Ref` >> rw[])
   >-(rename1 `MemOp Update` >> rw[] >> fs[LUPDATE_MAP])
   >-(rename1 `MemOp El` >> rw[] >> fs[EL_MAP])
@@ -725,16 +752,6 @@ Proof
      drule_then (assume_tac) data_to_bvi_v_list_to_v_APPEND >>
      simp[data_to_bvi_v_list_to_v_Nil] >>
      Cases_on `t.tstamps` >> fs[])
-  >-(rename1 `BlockOp (Equal)` >> fsrw_tac[DNF_ss][] >>
-     drule_then (assume_tac)
-                 (data_to_bvi_do_eq |> SIMP_RULE std_ss [lookup_map]
-                                      |> CONJUNCTS |> hd) >>
-     fs[])
-  >-(rename1 `BlockOp (PtrEqual)` >> fsrw_tac[DNF_ss][] >>
-     drule_then (assume_tac)
-                 (data_to_bvi_do_eq |> SIMP_RULE std_ss [lookup_map]
-                                      |> CONJUNCTS |> hd) >>
-     fs[])
   >- (rename1 ‘Build parts’
      \\ ‘domain t.code = domain r.code’ by fs [code_rel_def]
      \\ pairarg_tac \\ gvs [PULL_EXISTS]

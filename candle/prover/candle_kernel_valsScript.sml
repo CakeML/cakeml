@@ -138,9 +138,18 @@ Definition kernel_perms_def:
 End
 
 fun get_constructors th =
-  th |> concl |> find_terms (can $ match_term “TypeStamp _ _”)
-     |> map (rand o rator)
+  th |> concl |> find_terms (can $ match_term ``TypeStamp _ _ _``)
+     |> map (rand o rator o rator)
      |> pred_setSyntax.mk_set;
+
+fun get_constructor_positions th =
+  th |> concl |> find_terms (can $ match_term ``TypeStamp _ _ _``)
+     |> map (fn tm => pairSyntax.mk_pair (rand (rator (rator tm)), rand tm))
+     |> pred_setSyntax.mk_set;
+
+Overload type_ctor_positions[local] = (get_constructor_positions TYPE_TYPE_def);
+Overload term_ctor_positions[local] = (get_constructor_positions TERM_TYPE_def);
+Overload thm_ctor_positions[local] = (get_constructor_positions THM_TYPE_def);
 
 Overload type_ctors_set[local] = (get_constructors TYPE_TYPE_def);
 Overload term_ctors_set[local] = (get_constructors TERM_TYPE_def);
@@ -153,7 +162,7 @@ Definition kernel_ctors_def:
 End
 
 fun get_typestamp_num th =
-  th |> concl |> find_term (can $ match_term “TypeStamp _ _”) |> rand;
+  th |> concl |> find_term (can $ match_term ``TypeStamp _ _ _``) |> rator |> rand;
 
 Overload type_stamp_n = (get_typestamp_num TYPE_TYPE_def);
 Overload term_stamp_n = (get_typestamp_num TERM_TYPE_def);
@@ -221,20 +230,20 @@ End
 
 Definition TYPE_TYPE_HEAD_def:
   TYPE_TYPE_HEAD v ⇔
-    ∃s vs. v = Conv (SOME (TypeStamp s type_stamp_n)) vs ∧
-           s ∈ type_ctors_set
+    ∃s pos vs. v = Conv (SOME (TypeStamp s type_stamp_n pos)) vs ∧
+               (s,pos) ∈ type_ctor_positions
 End
 
 Definition TERM_TYPE_HEAD_def:
   TERM_TYPE_HEAD v ⇔
-    ∃s vs. v = Conv (SOME (TypeStamp s term_stamp_n)) vs ∧
-           s ∈ term_ctors_set
+    ∃s pos vs. v = Conv (SOME (TypeStamp s term_stamp_n pos)) vs ∧
+               (s,pos) ∈ term_ctor_positions
 End
 
 Definition THM_TYPE_HEAD_def:
   THM_TYPE_HEAD v ⇔
-    ∃s vs. v = Conv (SOME (TypeStamp s thm_stamp_n)) vs ∧
-           s ∈ thm_ctors_set
+    ∃s pos vs. v = Conv (SOME (TypeStamp s thm_stamp_n pos)) vs ∧
+               (s,pos) ∈ thm_ctor_positions
 End
 
 Theorem THM_TYPE_HEAD_def[allow_rebind] = SIMP_RULE list_ss [] THM_TYPE_HEAD_def;
@@ -390,8 +399,8 @@ Theorem evaluate_ty_check:
        (Mat (Var (Short v))
           [(Pcon (SOME (Short «Tyvar»)) [Pvar a1], Con NONE []);
            (Pcon (SOME (Short «Tyapp»)) [Pvar a3; Pvar a4], Con NONE [])]) ee] = (s',res) ∧
-  nsLookup env.c (Short «Tyvar») = SOME (1,TypeStamp «Tyvar» type_stamp_n) ∧
-  nsLookup env.c (Short «Tyapp») = SOME (2,TypeStamp «Tyapp» type_stamp_n) ∧
+  nsLookup env.c (Short «Tyvar») = SOME (1,TypeStamp «Tyvar» type_stamp_n 0) ∧
+  nsLookup env.c (Short «Tyapp») = SOME (2,TypeStamp «Tyapp» type_stamp_n 1) ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨ TYPE_TYPE_HEAD w ∧ evaluate ^s env [ee] = (s',res)
 Proof
@@ -417,10 +426,10 @@ Theorem evaluate_tm_check:
            (Pcon (SOME (Short «Const»)) [Pvar a3; Pvar a4], Con NONE []);
            (Pcon (SOME (Short «Comb»))  [Pvar a5; Pvar a6], Con NONE []);
            (Pcon (SOME (Short «Abs»))   [Pvar a7; Pvar a8], Con NONE [])]) ee] = (s',res) ∧
-  nsLookup env.c (Short «Var»)   = SOME (2,TypeStamp «Var» term_stamp_n) ∧
-  nsLookup env.c (Short «Const») = SOME (2,TypeStamp «Const» term_stamp_n) ∧
-  nsLookup env.c (Short «Comb»)  = SOME (2,TypeStamp «Comb» term_stamp_n) ∧
-  nsLookup env.c (Short «Abs»)   = SOME (2,TypeStamp «Abs» term_stamp_n) ∧
+  nsLookup env.c (Short «Var»)   = SOME (2,TypeStamp «Var» term_stamp_n 0) ∧
+  nsLookup env.c (Short «Const») = SOME (2,TypeStamp «Const» term_stamp_n 1) ∧
+  nsLookup env.c (Short «Comb»)  = SOME (2,TypeStamp «Comb» term_stamp_n 2) ∧
+  nsLookup env.c (Short «Abs»)   = SOME (2,TypeStamp «Abs» term_stamp_n 3) ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨ TERM_TYPE_HEAD w ∧ evaluate ^s env [ee] = (s',res)
 Proof
@@ -444,7 +453,7 @@ Theorem evaluate_thm_check:
       (Mat (Var (Short v))
         [(Pcon (SOME (Short «Sequent»)) [Pvar a1; Pvar a2], Con NONE [])]) ee] =
     (s',res) ∧
-  nsLookup env.c (Short «Sequent») = SOME (2,TypeStamp «Sequent» thm_stamp_n) ∧
+  nsLookup env.c (Short «Sequent») = SOME (2,TypeStamp «Sequent» thm_stamp_n 0) ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨ THM_TYPE_HEAD w ∧ evaluate ^s env [ee] = (s',res)
 Proof
@@ -483,7 +492,7 @@ Theorem evaluate_mat_thm:
   evaluate ^s env
     [Mat (Var (Short v))
        [(Pcon (SOME (Short «Sequent»)) [Pvar a1; Pvar a2], ee)]] = (s',res) ∧
-  nsLookup env.c (Short «Sequent») = SOME (2,TypeStamp «Sequent» thm_stamp_n) ∧
+  nsLookup env.c (Short «Sequent») = SOME (2,TypeStamp «Sequent» thm_stamp_n 0) ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨
   ∃v1 v2.
@@ -1620,13 +1629,13 @@ Proof
 QED
 
 Theorem list_not_TERM_TYPE[simp]:
-  ¬TERM_TYPE tm (Conv (SOME (TypeStamp nm list_type_num)) vs)
+  ¬TERM_TYPE tm (Conv (SOME (TypeStamp nm list_type_num pos)) vs)
 Proof
   Cases_on ‘tm’ \\ rw [TERM_TYPE_def] \\ gs [list_type_num_def]
 QED
 
 Theorem list_not_THM_TYPE[simp]:
-  ¬THM_TYPE th (Conv (SOME (TypeStamp nm list_type_num)) vs)
+  ¬THM_TYPE th (Conv (SOME (TypeStamp nm list_type_num pos)) vs)
 Proof
   Cases_on ‘th’ \\ rw [THM_TYPE_def] \\ gs [list_type_num_def]
 QED
@@ -1670,7 +1679,7 @@ QED
 
 Theorem inferred_Conv:
   inferred ctxt (Conv (SOME stamp) vs) ⇒
-    ∃tag m. stamp = TypeStamp tag m ∧ m ∈ kernel_types
+    ∃tag m pos. stamp = TypeStamp tag m pos ∧ m ∈ kernel_types
 Proof
   rw [Once inferred_cases, kernel_types_def]
   >- (

@@ -695,9 +695,10 @@ Proof
     \\ irule v_rel_update
     \\ first_assum (irule_at Any)
     \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
-  \\ Cases_on ‘op = Equality’ \\ gs []
+  \\ Cases_on `op = Equality ∨ op = PolyCompare`
   >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
+    pop_assum strip_assume_tac
+    \\ gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def, copy_array_def, store_assign_def])
   \\ Cases_on ‘∃test ty. op = Test test ty’ \\ gs []
   >- (

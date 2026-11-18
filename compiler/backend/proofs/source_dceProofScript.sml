@@ -661,6 +661,34 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem v_rel_do_compare[local]:
+  (∀x1 y1 x2 y2.
+     v_rel f x1 x2 ∧ v_rel f y1 y2 ∧ INJ (FAPPLY f) (FDOM f) UNIV ⇒
+     do_compare x1 y1 = do_compare x2 y2) ∧
+  (∀x1 y1 x2 y2.
+     LIST_REL (v_rel f) x1 x2 ∧ LIST_REL (v_rel f) y1 y2 ∧
+     INJ (FAPPLY f) (FDOM f) UNIV ⇒
+     do_compare_list x1 y1 = do_compare_list x2 y2)
+Proof
+  ho_match_mp_tac do_compare_ind \\ rpt strip_tac
+  \\ gvs [v_rel_simps]
+  \\ gvs [do_compare_def]
+  >~ [‘FLOOKUP _ _ = SOME _’] >- (
+    rw [] \\ gvs [INJ_DEF, FLOOKUP_DEF])
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ full_simp_tac bool_ss [GSYM NULL_EQ, NULL_LENGTH]
+  \\ gvs [Excl "do_compare_def"]
+  >~ [‘do_compare _ _’] >- (
+    qpat_x_assum ‘∀x2 y2. _’ drule_all
+    \\ disch_then (fn th => pure_rewrite_tac [GSYM th])
+    \\ namedCases_on ‘do_compare x1 y1’ ["head_cmp", ""]
+    \\ gvs [Excl "do_compare_def"]
+    \\ IF_CASES_TAC \\ gvs [Excl "do_compare_def"]
+    \\ metis_tac [])
+  \\ rw [] \\ gvs [Excl "do_compare_def"]
+  \\ metis_tac []
+QED
+
 Theorem v_rel_v_to_list[local]:
   ∀x1 x2. v_rel f x1 x2 ⇒
           OPTREL (LIST_REL (v_rel f)) (v_to_list x1) (v_to_list x2)
@@ -1054,12 +1082,12 @@ Proof
       \\ gvs [])
     \\ irule state_rel_alloc_fresh \\ gvs [])
   (* equality and the comparisons *)
-  \\ Cases_on ‘op = Equality ∨ ∃t ty. op = Test t ty’
+  \\ Cases_on ‘op = Equality ∨ op = PolyCompare ∨ ∃t ty. op = Test t ty’
   >-
    (gvs [semanticPrimitivesPropsTheory.do_app_cases, v_rel_simps]
     \\ qexists_tac ‘f’ \\ gvs [state_with_id, v_rel_refl]
     \\ imp_res_tac v_rel_do_test
-    \\ metis_tac [cj 1 v_rel_do_eq])
+    \\ metis_tac [cj 1 v_rel_do_eq, cj 1 v_rel_do_compare])
   (* arithmetic and conversions: the arguments are literals, hence equal *)
   \\ Cases_on ‘(∃a ty. op = Arith a ty) ∨ ∃ty1 ty2. op = FromTo ty1 ty2’
   >-

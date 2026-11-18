@@ -453,10 +453,10 @@ Ast.pp_word_size: Ast.word_size -> PrettyPrinter.pp_data
 Ast.pp_prim_type: Ast.prim_type -> PrettyPrinter.pp_data
 Ast.pp_div_round: Ast.div_round -> PrettyPrinter.pp_data
 Ast.pp_arith: Ast.arith -> PrettyPrinter.pp_data
-Ast.pp_thunk_mode: Ast.thunk_mode -> PrettyPrinter.pp_data
-Ast.pp_thunk_op: Ast.thunk_op -> PrettyPrinter.pp_data
 Ast.pp_opb: Ast.opb -> PrettyPrinter.pp_data
 Ast.pp_test: Ast.test -> PrettyPrinter.pp_data
+Ast.pp_thunk_mode: Ast.thunk_mode -> PrettyPrinter.pp_data
+Ast.pp_thunk_op: Ast.thunk_op -> PrettyPrinter.pp_data
 Ast.pp_op: Ast.op -> PrettyPrinter.pp_data
 Ast.pp_locs: Ast.locs -> PrettyPrinter.pp_data
 Ast.pp_exp: Ast.exp -> PrettyPrinter.pp_data
@@ -562,6 +562,7 @@ mod: int -> int -> int
 not: bool -> bool
 <>: 'a -> 'a -> bool
 ^: string -> string -> string
+compare: 'a -> 'a -> int
 :=: 'a ref -> 'a -> unit
 !: 'a ref -> 'a
 pp_exn: 'a -> PrettyPrinter.pp_data

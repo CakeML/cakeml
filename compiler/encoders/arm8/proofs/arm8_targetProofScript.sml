@@ -441,6 +441,98 @@ Proof
            integer_wordTheory.i2w_w2i, integer_wordTheory.i2w_minus_1]
 QED
 
+(* FCMP's NZCV flags implement ordered IEEE comparisons, including NaNs. *)
+Theorem FPCompare64_tests:
+  !a b.
+    ((FPCompare64 (a,b)) ' 3 <=> fp64_lessThan a b) /\
+    (~((FPCompare64 (a,b)) ' 1) \/ (FPCompare64 (a,b)) ' 2 <=>
+      fp64_lessEqual a b) /\
+    ((FPCompare64 (a,b)) ' 2 <=> fp64_equal a b)
+Proof
+  qx_genl_tac [`a`, `b`]
+  \\ namedCases_on `float_value (fp64_to_float a)` ["left_value", "", ""]
+  \\ namedCases_on `float_value (fp64_to_float b)` ["right_value", "", ""]
+  \\ rw [arm8Theory.FPCompare64_def,
+         machine_ieeeTheory.fp64_isNan_def,
+         machine_ieeeTheory.fp64_lessThan_def,
+         machine_ieeeTheory.fp64_lessEqual_def,
+         machine_ieeeTheory.fp64_equal_def,
+         binary_ieeeTheory.float_is_nan_def,
+         binary_ieeeTheory.float_less_than_def,
+         binary_ieeeTheory.float_less_equal_def,
+         binary_ieeeTheory.float_equal_def,
+         binary_ieeeTheory.float_compare_def]
+  \\ fs []
+QED
+
+Theorem fp64_with_flags_results:
+  (!m a. SND (fp64_sqrt_with_flags m a) = fp64_sqrt m a) /\
+  (!m a b. SND (fp64_add_with_flags m a b) = fp64_add m a b) /\
+  (!m a b. SND (fp64_sub_with_flags m a b) = fp64_sub m a b) /\
+  (!m a b. SND (fp64_mul_with_flags m a b) = fp64_mul m a b) /\
+  (!m a b. SND (fp64_div_with_flags m a b) = fp64_div m a b)
+Proof
+  simp [pairTheory.SND_PAIR_MAP,
+        machine_ieeeTheory.fp64_sqrt_def,
+        machine_ieeeTheory.fp64_sqrt_with_flags_def,
+        machine_ieeeTheory.fp64_add_def,
+        machine_ieeeTheory.fp64_add_with_flags_def,
+        machine_ieeeTheory.fp64_sub_def,
+        machine_ieeeTheory.fp64_sub_with_flags_def,
+        machine_ieeeTheory.fp64_mul_def,
+        machine_ieeeTheory.fp64_mul_with_flags_def,
+        machine_ieeeTheory.fp64_div_def,
+        machine_ieeeTheory.fp64_div_with_flags_def]
+QED
+
+Theorem word32_transfers:
+  (!w:word32. (w2w (w2w w : word64) : word32) = w) /\
+  (!w:word64. (w2w w : word32) = (31 >< 0) w)
+Proof
+  conj_tac \\ blastLib.BBLAST_TAC
+QED
+
+Theorem FPCompare64_self[local]:
+  !value. FPCompare64 (value, value) =
+    if fp64_isNan value then 3w else 6w
+Proof
+  qx_gen_tac `value`
+  \\ namedCases_on `float_value (fp64_to_float value)` ["number", "", ""]
+  \\ simp [arm8Theory.FPCompare64_def,
+           machine_ieeeTheory.fp64_isNan_def,
+           machine_ieeeTheory.fp64_equal_def,
+           binary_ieeeTheory.float_is_nan_def,
+           binary_ieeeTheory.float_equal_def,
+           binary_ieeeTheory.float_compare_def]
+QED
+
+Theorem fp64_nan_bits[local]:
+  (fp64_isNan w <=>
+     (62 >< 52) w = (-1w : 11 word) /\ (51 >< 0) w <> (0w : 52 word)) /\
+  (fp64_isSignallingNan w <=> fp64_isNan w /\ ~word_bit 51 w)
+Proof
+  conj_tac
+  >- (
+    simp [machine_ieeeTheory.fp64_isNan_def, binary_ieeeTheory.float_is_nan_def,
+          binary_ieeeTheory.float_value_def, machine_ieeeTheory.fp64_to_float_def]
+    \\ Cases_on `(62 >< 52) w = (-1w : 11 word)`
+    \\ Cases_on `(51 >< 0) w = (0w : 52 word)` \\ simp [])
+  \\ simp [machine_ieeeTheory.fp64_isSignallingNan_def,
+           machine_ieeeTheory.fp64_isNan_def,
+           binary_ieeeTheory.float_is_signalling_def,
+           machine_ieeeTheory.fp64_to_float_def, wordsTheory.word_msb_def,
+           wordsTheory.word_extract_def]
+  \\ blastLib.BBLAST_TAC
+QED
+
+Theorem FPNaNResult_nan:
+  (fp64_isNan (FPNaNResult (r, a, b, c)) <=> fp64_isNan r) /\
+  (~fp64_isNan r ==> FPNaNResult (r, a, b, c) = r) /\
+  ~fp64_isSignallingNan (FPNaNResult (r, a, b, c))
+Proof
+  rw [arm8Theory.FPNaNResult_def, fp64_nan_bits] \\ blastLib.FULL_BBLAST_TAC
+QED
+
 Theorem arm8_encoder_correct:
     encoder_correct arm8_target
 Proof
@@ -466,6 +558,216 @@ Resume arm8_encoder_correct[Inst]:
   >- suspend "Arith"
   >- suspend "Mem"
   >- suspend "FP"
+QED
+
+Resume arm8_encoder_correct[FP]:
+  rename1 `asm$FP operation`
+  \\ namedCases_on `operation`
+       ["dst left right", "dst left right", "dst left right",
+        "dst src", "dst src", "dst src",
+        "dst left right", "dst left right", "dst left right", "dst left right",
+        "dst left right", "dst src", "dst unused src", "dst src unused",
+        "dst src", "dst src"]
+  >- suspend "FPLess"
+  >- suspend "FPLessEqual"
+  >- suspend "FPEqual"
+  >- suspend "FPAbs"
+  >- suspend "FPNeg"
+  >- suspend "FPSqrt"
+  >- suspend "FPAdd"
+  >- suspend "FPSub"
+  >- suspend "FPMul"
+  >- suspend "FPDiv"
+  >- suspend "FPFma"
+  >- suspend "FPMov"
+  >- suspend "FPMovToReg"
+  >- suspend "FPMovFromReg"
+  >- suspend "FPToInt"
+  >- suspend "FPFromInt"
+QED
+
+val fp_cmp_tac =
+  next_tac `1`
+  \\ enc_rwts_tac
+  \\ asmLib.split_bytes_in_memory_tac 4
+  \\ next_state_tac01
+  \\ `ms.FPCR = 0w` by
+    fs [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_ok_def]
+  \\ fs []
+  \\ next_state_tac1 filter_reg_31
+  \\ state_tac [FPCompare64_tests]
+  \\ qspecl_then [`ms.FP_REG (n2w left)`, `ms.FP_REG (n2w right)`]
+       strip_assume_tac FPCompare64_tests
+  \\ gvs [];
+
+Resume arm8_encoder_correct[FPLess]:
+  fp_cmp_tac
+QED
+
+Resume arm8_encoder_correct[FPLessEqual]:
+  fp_cmp_tac
+QED
+
+Resume arm8_encoder_correct[FPEqual]:
+  fp_cmp_tac
+QED
+
+Resume arm8_encoder_correct[FPAbs]:
+  rename1 `FPAbs dst src`
+  \\ next_tac `0`
+  \\ enc_rwts_tac
+  \\ next_state_tac01
+  \\ state_tac []
+QED
+
+Resume arm8_encoder_correct[FPNeg]:
+  rename1 `FPNeg dst src`
+  \\ next_tac `0`
+  \\ enc_rwts_tac
+  \\ next_state_tac01
+  \\ state_tac []
+QED
+
+fun fp_arith_tac nan_test =
+  `ms.FPCR = 0w` by
+    fs [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_ok_def]
+  \\ Cases_on nan_test
+  >- (
+    next_tac `4`
+    \\ enc_rwts_tac
+    \\ asmLib.split_bytes_in_memory_tac 4
+    \\ next_state_tac01
+    \\ asmLib.split_bytes_in_memory_tac 4
+    \\ next_state_tacN (`4w`, 1) filter_reg_31
+    \\ fs [fp64_with_flags_results, FPCompare64_self, FPNaNResult_nan]
+    \\ asmLib.split_bytes_in_memory_tac 4
+    \\ next_state_tacN (`8w`, 1) (fn steps => [hd steps])
+    \\ asmLib.split_bytes_in_memory_tac 4
+    \\ next_state_tacN (`12w`, 1) filter_reg_31
+    \\ next_state_tacN (`16w`, 0) filter_reg_31
+    \\ state_tac [fp64_with_flags_results, FPCompare64_self, FPNaNResult_nan,
+                  fpSemTheory.fix_NaN_def])
+  \\ drule (CONJUNCT1 (CONJUNCT2 FPNaNResult_nan)) \\ strip_tac
+  \\ next_tac `2`
+  \\ enc_rwts_tac
+  \\ asmLib.split_bytes_in_memory_tac 4
+  \\ next_state_tac01
+  \\ asmLib.split_bytes_in_memory_tac 4
+  \\ next_state_tacN (`4w`, 1) filter_reg_31
+  \\ fs [fp64_with_flags_results, FPCompare64_self, FPNaNResult_nan]
+  \\ asmLib.split_bytes_in_memory_tac 4
+  \\ next_state_tacN (`8w`, 1) List.tl
+  \\ asmLib.split_bytes_in_memory_tac 4
+  \\ fs []
+  \\ imp_res_tac (Q.SPEC `12w` bytes_in_memory_thm2)
+  \\ imp_res_tac (Q.SPEC `16w` bytes_in_memory_thm2)
+  \\ state_tac [fp64_with_flags_results, FPCompare64_self, FPNaNResult_nan,
+                fpSemTheory.fix_NaN_def];
+
+Resume arm8_encoder_correct[FPSqrt]:
+  rename1 `FPSqrt dst src`
+  \\ fp_arith_tac
+       `fp64_isNan (fp64_sqrt roundTiesToEven (ms.FP_REG (n2w src)))`
+QED
+
+Resume arm8_encoder_correct[FPAdd]:
+  rename1 `FPAdd dst left right`
+  \\ fp_arith_tac
+       `fp64_isNan (fp64_add roundTiesToEven (ms.FP_REG (n2w left))
+                                           (ms.FP_REG (n2w right)))`
+QED
+
+Resume arm8_encoder_correct[FPSub]:
+  rename1 `FPSub dst left right`
+  \\ fp_arith_tac
+       `fp64_isNan (fp64_sub roundTiesToEven (ms.FP_REG (n2w left))
+                                           (ms.FP_REG (n2w right)))`
+QED
+
+Resume arm8_encoder_correct[FPMul]:
+  rename1 `FPMul dst left right`
+  \\ fp_arith_tac
+       `fp64_isNan (fp64_mul roundTiesToEven (ms.FP_REG (n2w left))
+                                           (ms.FP_REG (n2w right)))`
+QED
+
+Resume arm8_encoder_correct[FPDiv]:
+  rename1 `FPDiv dst left right`
+  \\ fp_arith_tac
+       `fp64_isNan (fp64_div roundTiesToEven (ms.FP_REG (n2w left))
+                                           (ms.FP_REG (n2w right)))`
+QED
+
+Resume arm8_encoder_correct[FPFma]:
+  fs [arm8_asm_ok]
+QED
+
+Resume arm8_encoder_correct[FPMov]:
+  rename1 `FPMov dst src`
+  \\ next_tac `0`
+  \\ enc_rwts_tac
+  \\ next_state_tac01
+  \\ state_tac []
+QED
+
+Resume arm8_encoder_correct[FPMovToReg]:
+  rename1 `FPMovToReg dst unused src`
+  \\ next_tac `0`
+  \\ enc_rwts_tac
+  \\ next_state_tac01
+  \\ state_tac []
+QED
+
+Resume arm8_encoder_correct[FPMovFromReg]:
+  rename1 `FPMovFromReg dst src unused`
+  \\ next_tac `0`
+  \\ enc_rwts_tac
+  \\ next_state_tac01
+  \\ state_tac []
+QED
+
+Resume arm8_encoder_correct[FPToInt]:
+  rename1 `FPToInt dst src`
+  \\ Cases_on `fp64_to_int roundTiesToEven (s1.fp_regs src)`
+  \\ fs asmLib.asm_rwts
+  \\ rename1 `fp64_to_int roundTiesToEven _ = SOME value`
+  \\ next_tac `1`
+  \\ enc_rwts_tac
+  \\ `-2147483648 <= value /\ value <= 2147483647` by (
+    qspec_then `i2w value : word32` mp_tac integer_wordTheory.w2i_le
+    \\ qspec_then `i2w value : word32` mp_tac integer_wordTheory.w2i_ge
+    \\ fs [])
+  \\ `ms.FPCR = 0w` by
+    fs [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_ok_def]
+  \\ `fp64_to_int roundTiesToEven (ms.FP_REG (n2w src)) = SOME value` by
+    fs [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config]
+  \\ asmLib.split_bytes_in_memory_tac 4
+  \\ next_state_tac01
+  \\ fs []
+  \\ `~(value < -2147483648) /\ ~(value > 2147483647)` by intLib.ARITH_TAC
+  \\ fs []
+  \\ next_state_tac1 filter_reg_31
+  \\ state_tac [CONJUNCT1 word32_transfers]
+QED
+
+Resume arm8_encoder_correct[FPFromInt]:
+  rename1 `FPFromInt dst src`
+  \\ next_tac `1`
+  \\ enc_rwts_tac
+  \\ asmLib.split_bytes_in_memory_tac 4
+  \\ next_state_tac01
+  \\ `ms.FPCR = 0w` by
+    fs [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_ok_def]
+  \\ fs []
+  \\ next_state_tac1 filter_reg_31
+  \\ state_tac []
+  \\ fs [CONJUNCT1 word32_transfers, CONJUNCT2 word32_transfers]
+  \\ simp [machine_ieeeTheory.int_to_fp64_def,
+           machine_ieeeTheory.real_to_fp64_def,
+           binary_ieeeTheory.real_to_float_def,
+           binary_ieeeTheory.round_roundTiesToEven_is_plus_zero,
+           machine_ieeeTheory.float_to_fp64_def,
+           binary_ieeeTheory.float_plus_zero_def]
 QED
 
 Resume arm8_encoder_correct[Skip]:
@@ -856,12 +1158,6 @@ Resume arm8_encoder_correct[Store32]:
                    ]
                ]
   \\ mem_finish_tac
-QED
-
-Resume arm8_encoder_correct[FP]:
-  print_tac "FP"
-         \\ Cases_on `f`
-         \\ enc_rwts_tac
 QED
 
 Theorem aligned_i2w[local]:
