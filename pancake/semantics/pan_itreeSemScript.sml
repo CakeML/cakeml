@@ -457,10 +457,7 @@ End
 Definition h_prog_return_def:
   h_prog_return e ^s =
   Ret (INR (case (eval s e) of
-            | SOME value =>
-                if size_of_sh_with_ctxt s.structs (shape_of value) <= 32
-                then (SOME (Return value),empty_locals s)
-                else (SOME Error,s)
+            | SOME value => (SOME (Return value),empty_locals s)
             | _ => (SOME Error,s)))
 End
 
@@ -1364,10 +1361,7 @@ Theorem mrec_Return:
   mrec h_prog (h_prog (Return e,s)) =
   Ret (INR (case eval s e of
               NONE => (SOME Error,s)
-            | SOME v =>
-                if size_of_sh_with_ctxt s.structs (shape_of v) ≤ 32 then
-                  (SOME (Return v), empty_locals s)
-                else (SOME Error,s)))
+            | SOME v => (SOME (Return v), empty_locals s)))
 Proof
   simp[h_prog_def,h_prog_return_def]
 QED

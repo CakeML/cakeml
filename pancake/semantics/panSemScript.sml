@@ -638,10 +638,7 @@ Definition evaluate_def:
      | _ => (SOME Error,s)) /\
   (evaluate (Return e,s) =
     case (eval s e) of
-      | SOME value =>
-         if size_of_sh_with_ctxt s.structs (shape_of value) <= 32
-         then (SOME (Return value),empty_locals s)
-         else (SOME Error,s)
+      | SOME value => (SOME (Return value),empty_locals s)
       | _ => (SOME Error,s)) /\
   (evaluate (Raise eid e,s) =
     case (FLOOKUP s.eshapes eid, eval s e) of

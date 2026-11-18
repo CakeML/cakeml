@@ -1591,15 +1591,10 @@ Proof
     \\ imp_res_tac compile_exps_out_rel
     \\ simp []
     \\ gvs [CaseEq "prod", CaseEq "option", assigned_vars_def]
-    \\ conj_tac >- (
-      fs [rt_vars_def]
-      \\ TOP_CASE_TAC \\ fs []
-      \\ CCONTR_TAC \\ imp_res_tac panPropsTheory.OPT_MMAP_MEM_IMP \\ gs[]
-      \\ pop_assum imp_res_tac \\ gs[]
-    )
-    >- (
-      rpt (TOP_CASE_TAC \\ fs [assigned_vars_def])
-    )
+    \\ fs [rt_vars_def]
+    \\ TOP_CASE_TAC \\ fs []
+    \\ CCONTR_TAC \\ imp_res_tac panPropsTheory.OPT_MMAP_MEM_IMP \\ gs[]
+    \\ pop_assum imp_res_tac \\ gs[]
   )
   >- (
     fs [assigned_vars_def, compile_def]
@@ -3473,7 +3468,130 @@ Resume ncompile_correct[Call]:
     \\ fs [code_rel_def, state_rel_def]
   )
   >- (
-    (* general call case *)
+    (* Call case, without an exception handler at crep *)
+    (* A better proof might merge this with the Call case with exception handler *)
+    drule all_distinct_ctxt_lookup_all_distinct
+    \\ disch_then $ qspecl_then [`ctxt.vmax + 1`, `ctxt`] mp_tac \\ impl_tac
+    >- fs[locals_rel_def]
+    \\ rw []
+    \\ qmatch_goalsub_abbrev_tac ‘domain l SUBSET rhs’
+    \\ reverse (qsuff_tac `domain l SUBSET rhs`)
+    >- (
+      fs [Abbr `rhs`]
+      \\ imp_res_tac compile_exps_out_rel
+      \\ irule SUBSET_TRANS
+      \\ drule_then (irule_at Any) cut_sets_union_domain_subset
+      \\ imp_res_tac locals_rel_intro
+      \\ metis_tac [SUBSET_TRANS, SUBSET_UNION]
+    )
+    \\ strip_tac \\ simp []
+    (* cases by inner result *)
+    \\ gvs [CaseEq "prod", CaseEq "crepSem$result"]
+    >- (
+      (* TimeOut *)
+      GEN_EXISTS_TAC "ck''" `ck'`
+      \\ fs [empty_locals_def, ctxt_fc_def] \\ fs [code_rel_def, state_rel_def]
+    )
+    >- (
+      (* This could have been done simpler or merged with the other Call case *)
+      Cases_on `LENGTH retvs ≠ LENGTH rts` \\ gs[CaseEq "option", CaseEq "prod", rt_vars_def]
+      \\ drule $ INST_TYPE [alpha |-> alpha, beta |-> beta, gamma |-> beta] opt_mmap_rhss_locals_rel
+      \\ disch_then rev_drule
+      \\ disch_tac \\ gs[cut_res_def, cut_state_def]
+      \\ QUANT_TAC [("ck''", `ck'`, [])] \\ fs[evaluate_def, set_vars_def]
+      \\ gvs[cut_res_def, cut_state_def]
+      \\ qunabbrev_tac `rhs` \\ fs[]
+      \\ conj_tac
+      >- fs[state_rel_def]
+      \\ conj_tac
+      >- fs[code_rel_def, ctxt_fc_def]
+      \\ fs[locals_rel_def, domain_inter]
+      \\ DEP_REWRITE_TAC [domain_alist_insert]
+      \\ conj_tac
+      >- fs[LENGTH_MAP]
+      \\ fs[domain_inter]
+      \\ DEP_REWRITE_TAC [domain_alist_insert]
+      \\ conj_tac
+      >- (
+        fs[gen_temps_def, LENGTH_GENLIST, LENGTH_MAP]
+        \\ imp_res_tac compile_exps_out_rel
+        \\ imp_res_tac opt_mmap_length_eq \\ fs[]
+      )
+      \\ fs[SUBSET_INTER2]
+      \\ rpt strip_tac
+      \\ Cases_on `MEM vname rts`
+      >- (
+        fs[MEM_EL]
+        \\ imp_res_tac opt_mmap_el \\ fs[]
+        \\ conj_tac
+        >- (
+          qpat_x_assum `EVERY _ _` $ assume_tac o SRULE[EVERY_MEM, MEM_EL]
+          \\ pop_assum $ qspec_then `EL n nrhss` mp_tac \\ impl_tac \\ fs[]
+          \\ qrefine `n` \\ fs[]
+        )
+        \\ qpat_x_assum `FLOOKUP (_ |++ _) _ = SOME _` mp_tac
+        \\ DEP_REWRITE_TAC [update_eq_zip_flookup] \\ fs[]
+        \\ disch_tac \\ fs[]
+        \\ qpat_x_assum `!_ _. FLOOKUP s.locals _ = SOME _ ⇒ ∃_. _ ∧ _ ∧ lookup _ st.locals = _` imp_res_tac \\ gvs[]
+        \\ simp[lookup_inter, CaseEq "option", lookup_alist_insert_any]
+        \\ disj2_tac
+        \\ qspecl_then [`ZIP (nrhss, MAP wlab_wloc retvs)`, `n`] mp_tac ALOOKUP_ALL_DISTINCT_EL \\ impl_tac
+        >- (
+          DEP_REWRITE_TAC [hd $ RES_CANON LENGTH_ZIP]
+          \\ fs[LENGTH_MAP]
+          \\ DEP_REWRITE_TAC [hd $ RES_CANON MAP_ZIP] \\ fs[]
+        )
+        \\ DEP_REWRITE_TAC [EL_ZIP]
+        \\ conj_tac >- fs[LENGTH_MAP]
+        \\ fs[EL_MAP]
+      )
+      \\ qpat_x_assum `FLOOKUP (_ |++ _) _ = SOME _` mp_tac
+      \\ DEP_REWRITE_TAC [flookup_fupdate_zip_not_mem] \\ fs[]
+      \\ disch_tac \\ res_tac
+      \\ qrefine `n'` \\ simp[lookup_inter, CaseEq "option", lookup_alist_insert_any]
+      \\ fs[domain_lookup]
+      \\ DEP_REWRITE_TAC [ALOOKUP_ZIP_FAIL]
+      \\ conj_tac
+      >- (fs[LENGTH_MAP, gen_temps_def, LENGTH_GENLIST] \\ imp_res_tac opt_mmap_length_eq \\ fs[])
+      \\ gvs[]
+      \\ disj1_tac
+      \\ conj_tac
+      >- (
+        imp_res_tac panPropsTheory.OPT_MMAP_MEM_IMP (* this should be in pan_common *)
+        \\ ntac 3 $ pop_assum kall_tac
+        \\ CCONTR_TAC \\ fs[]
+        \\ first_x_assum drule
+        \\ disch_tac \\ fs[]
+        \\ qpat_x_assum `distinct_vars ctxt.vars` assume_tac
+        \\ pop_assum $ assume_tac o SRULE [distinct_vars_def]
+        \\ pop_assum  dxrule_all \\ disch_tac \\ gvs[]
+      )
+      \\ disj1_tac \\ gvs[gen_temps_def]
+      \\ CCONTR_TAC \\ fs[MEM_GENLIST]
+      \\ qpat_x_assum `ctxt_max ctxt.vmax ctxt.vars` $ assume_tac o SRULE[ctxt_max_def]
+      \\ imp_res_tac compile_exps_out_rel
+      \\ fs[GSYM ADD1] \\ res_tac \\ fs[]
+    )
+    >- (
+      (* Exception *)
+      GEN_EXISTS_TAC "ck''" `ck'`
+      \\ simp [evaluate_def, set_var_def, cut_res_def, call_env_def]
+      \\ gvs []
+      \\ simp [empty_locals_def]
+      \\ fs [state_rel_def, ctxt_fc_def]
+      \\ fs [code_rel_def]
+    )
+    >- (
+      GEN_EXISTS_TAC "ck''" `ck'`
+      \\ simp [cut_res_def]
+      \\ gvs []
+      \\ fs [state_rel_def, empty_locals_def, ctxt_fc_def]
+      \\ fs [code_rel_def]
+      \\ gvs[]
+    )
+  )
+  >- (
+    (* Call case that with a return handler at Crep *)
     drule all_distinct_ctxt_lookup_all_distinct
     \\ disch_then $ qspecl_then [`ctxt.vmax + 1`, `ctxt`] mp_tac \\ impl_tac
     >- fs[locals_rel_def]
@@ -3605,17 +3723,8 @@ Resume ncompile_correct[Call]:
       \\ fs[GSYM ADD1] \\ res_tac \\ fs[]
     )
     >- (
-      (* handle case, which is really three cases *)
+      (* handle case, which is really two cases *)
       fs [CaseEq "option", CaseEq "prod", CaseEq "bool"]
-      >- (
-        (* no handler, direct return *)
-        GEN_EXISTS_TAC "ck''" `ck'`
-        \\ simp [evaluate_def, set_var_def, cut_res_def, call_env_def]
-        \\ gvs []
-        \\ simp [empty_locals_def]
-        \\ fs [state_rel_def, ctxt_fc_def]
-        \\ fs [code_rel_def]
-      )
       >- (
         (* caught handler *)
         gvs []
