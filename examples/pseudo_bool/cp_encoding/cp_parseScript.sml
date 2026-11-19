@@ -963,9 +963,23 @@ Definition sexp_disjunctive_body_def:
       (do
          Xs <- sexp_varc_list xs_e;
          Ws <- sexp_varc_list ws_e;
-         return (Scheduling (Disjunctive Xs Ws strct))
+         return (Scheduling
+           (Disjunctive Xs Ws (REPLICATE (LENGTH Xs) (INR 1)) strct))
        od)
     | _ => fail («disjunctive expects 2 args: (x1 ... xn) (w1 ... wn)\n»)
+End
+
+Definition sexp_disjunctive_optional_body_def:
+  sexp_disjunctive_optional_body strct rest =
+    case rest of
+      [xs_e; ws_e; ps_e] =>
+      (do
+         Xs <- sexp_varc_list xs_e;
+         Ws <- sexp_varc_list ws_e;
+         Ps <- sexp_varc_list ps_e;
+         return (Scheduling (Disjunctive Xs Ws Ps strct))
+       od)
+    | _ => fail («disjunctive_optional expects 3 args: (x1 ... xn) (w1 ... wn) (p1 ... pn)\n»)
 End
 
 Definition sexp_disjunctive2d_body_def:
@@ -977,9 +991,25 @@ Definition sexp_disjunctive2d_body_def:
          Ys <- sexp_varc_list ys_e;
          Ws <- sexp_varc_list ws_e;
          Hs <- sexp_varc_list hs_e;
-         return (Scheduling (Disjunctive2D Xs Ys Ws Hs strct))
+         return (Scheduling
+           (Disjunctive2D Xs Ys Ws Hs (REPLICATE (LENGTH Xs) (INR 1)) strct))
        od)
     | _ => fail («disjunctive2d expects 4 args: (x1 ... xn) (y1 ... yn) (w1 ... wn) (h1 ... hn)\n»)
+End
+
+Definition sexp_disjunctive2d_optional_body_def:
+  sexp_disjunctive2d_optional_body strct rest =
+    case rest of
+      [xs_e; ys_e; ws_e; hs_e; ps_e] =>
+      (do
+         Xs <- sexp_varc_list xs_e;
+         Ys <- sexp_varc_list ys_e;
+         Ws <- sexp_varc_list ws_e;
+         Hs <- sexp_varc_list hs_e;
+         Ps <- sexp_varc_list ps_e;
+         return (Scheduling (Disjunctive2D Xs Ys Ws Hs Ps strct))
+       od)
+    | _ => fail («disjunctive2d_optional expects 5 args: (x1 ... xn) (y1 ... yn) (w1 ... wn) (h1 ... hn) (p1 ... pn)\n»)
 End
 
 Definition sexp_cumulative_body_def:
@@ -991,18 +1021,44 @@ Definition sexp_cumulative_body_def:
          Ws <- sexp_varc_list ws_e;
          Hs <- sexp_varc_list hs_e;
          cap <- sexp_varc cap_e;
-         return (Scheduling (Cumulative Xs Ws Hs cap))
+         return (Scheduling
+           (Cumulative Xs Ws Hs (REPLICATE (LENGTH Xs) (INR 1)) cap))
        od)
     | _ => fail («cumulative expects 4 args: (x1 ... xn) (w1 ... wn) (h1 ... hn) cap\n»)
+End
+
+Definition sexp_cumulative_optional_body_def:
+  sexp_cumulative_optional_body rest =
+    case rest of
+      [xs_e; ws_e; hs_e; ps_e; cap_e] =>
+      (do
+         Xs <- sexp_varc_list xs_e;
+         Ws <- sexp_varc_list ws_e;
+         Hs <- sexp_varc_list hs_e;
+         Ps <- sexp_varc_list ps_e;
+         cap <- sexp_varc cap_e;
+         return (Scheduling (Cumulative Xs Ws Hs Ps cap))
+       od)
+    | _ => fail («cumulative_optional expects 5 args: (x1 ... xn) (w1 ... wn) (h1 ... hn) (p1 ... pn) cap\n»)
 End
 
 Definition sexp_scheduling_dispatch_def:
   sexp_scheduling_dispatch ctype rest =
     if ctype = «disjunctive»               then SOME (sexp_disjunctive_body F rest)
     else if ctype = «disjunctive_strict»   then SOME (sexp_disjunctive_body T rest)
+    else if ctype = «disjunctive_optional» then
+      SOME (sexp_disjunctive_optional_body F rest)
+    else if ctype = «disjunctive_strict_optional» then
+      SOME (sexp_disjunctive_optional_body T rest)
     else if ctype = «disjunctive2d»        then SOME (sexp_disjunctive2d_body F rest)
     else if ctype = «disjunctive2d_strict» then SOME (sexp_disjunctive2d_body T rest)
+    else if ctype = «disjunctive2d_optional» then
+      SOME (sexp_disjunctive2d_optional_body F rest)
+    else if ctype = «disjunctive2d_strict_optional» then
+      SOME (sexp_disjunctive2d_optional_body T rest)
     else if ctype = «cumulative»           then SOME (sexp_cumulative_body rest)
+    else if ctype = «cumulative_optional» then
+      SOME (sexp_cumulative_optional_body rest)
     else NONE
 End
 
@@ -1430,24 +1486,51 @@ Theorem test_scheduling:
   sexp_constraint_dispatch («disjunctive»)
     (fromStringL («((A B C) (W1 2 1))»)) =
     INR (Scheduling (Disjunctive [INL «A»; INL «B»; INL «C»]
-           [INL «W1»; INR 2; INR 1] F)) ∧
+           [INL «W1»; INR 2; INR 1] [INR 1; INR 1; INR 1] F)) ∧
   (* disjunctive_strict sets the strict flag *)
   sexp_constraint_dispatch («disjunctive_strict»)
     (fromStringL («((A B) (1 1))»)) =
-    INR (Scheduling (Disjunctive [INL «A»; INL «B»] [INR 1; INR 1] T)) ∧
+    INR (Scheduling (Disjunctive [INL «A»; INL «B»] [INR 1; INR 1]
+           [INR 1; INR 1] T)) ∧
+  (* disjunctive_optional: presences (P 1 0) *)
+  sexp_constraint_dispatch («disjunctive_optional»)
+    (fromStringL («((A B C) (W1 2 1) (P 1 0))»)) =
+    INR (Scheduling (Disjunctive [INL «A»; INL «B»; INL «C»]
+           [INL «W1»; INR 2; INR 1] [INL «P»; INR 1; INR 0] F)) ∧
+  (* disjunctive_strict_optional sets the strict flag *)
+  sexp_constraint_dispatch («disjunctive_strict_optional»)
+    (fromStringL («((A B) (1 0) (P Q))»)) =
+    INR (Scheduling (Disjunctive [INL «A»; INL «B»] [INR 1; INR 0]
+           [INL «P»; INL «Q»] T)) ∧
   (* disjunctive2d, non-strict: x,y positions and w,h sizes *)
   sexp_constraint_dispatch («disjunctive2d»)
     (fromStringL («((A B) (C D) (2 2) (3 1))»)) =
     INR (Scheduling (Disjunctive2D [INL «A»; INL «B»] [INL «C»; INL «D»]
-           [INR 2; INR 2] [INR 3; INR 1] F)) ∧
+           [INR 2; INR 2] [INR 3; INR 1] [INR 1; INR 1] F)) ∧
   (* disjunctive2d_strict *)
   sexp_constraint_dispatch («disjunctive2d_strict»)
     (fromStringL («((A) (B) (1) (1))»)) =
-    INR (Scheduling (Disjunctive2D [INL «A»] [INL «B»] [INR 1] [INR 1] T)) ∧
+    INR (Scheduling (Disjunctive2D [INL «A»] [INL «B»] [INR 1] [INR 1]
+           [INR 1] T)) ∧
+  (* disjunctive2d_optional: presences (P 0) *)
+  sexp_constraint_dispatch («disjunctive2d_optional»)
+    (fromStringL («((A B) (C D) (W 2) (1 H) (P 0))»)) =
+    INR (Scheduling (Disjunctive2D [INL «A»; INL «B»] [INL «C»; INL «D»]
+           [INL «W»; INR 2] [INR 1; INL «H»] [INL «P»; INR 0] F)) ∧
+  (* disjunctive2d_strict_optional sets the strict flag *)
+  sexp_constraint_dispatch («disjunctive2d_strict_optional»)
+    (fromStringL («((A) (B) (0) (1) (P))»)) =
+    INR (Scheduling (Disjunctive2D [INL «A»] [INL «B»] [INR 0] [INR 1]
+           [INL «P»] T)) ∧
   (* cumulative: tasks (A), widths (1), heights (1), capacity 5 *)
   sexp_constraint_dispatch («cumulative»)
     (fromStringL («((A) (1) (1) 5)»)) =
-    INR (Scheduling (Cumulative [INL «A»] [INR 1] [INR 1] (INR 5)))
+    INR (Scheduling (Cumulative [INL «A»] [INR 1] [INR 1] [INR 1] (INR 5))) ∧
+  (* cumulative_optional: presences (P 1), variable capacity C *)
+  sexp_constraint_dispatch («cumulative_optional»)
+    (fromStringL («((A B) (2 L) (1 H) (P 1) C)»)) =
+    INR (Scheduling (Cumulative [INL «A»; INL «B»] [INR 2; INL «L»]
+           [INR 1; INL «H»] [INL «P»; INR 1] (INL «C»)))
 Proof
   EVAL_TAC
 QED

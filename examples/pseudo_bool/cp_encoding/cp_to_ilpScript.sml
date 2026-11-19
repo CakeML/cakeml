@@ -232,14 +232,14 @@ Definition reify_flag_def:
       else (* ann = SOME («inc») *)
         (∀j. j < HD ids ⇒ varc wi (EL j Xs) = varc wi (EL j Ys)) ∧
         varc wi (EL (HD ids) Xs) < varc wi (EL (HD ids) Ys)
-    | SOME (Scheduling (Disjunctive xs ws strct)) =>
+    | SOME (Scheduling (Disjunctive xs ws ps strct)) =>
       if ann = SOME («bf»)
       then (* before: task (EL 0 ids) finishes at/before task (EL 1 ids) starts *)
         varc wi (EL (EL 0 ids) xs) + varc wi (EL (EL 0 ids) ws) ≤
         varc wi (EL (EL 1 ids) xs)
       else (* ann = SOME («zw») : task (HD ids) has zero width *)
         varc wi (EL (HD ids) ws) ≤ 0
-    | SOME (Scheduling (Disjunctive2D xs ys ws hs strct)) =>
+    | SOME (Scheduling (Disjunctive2D xs ys ws hs ps strct)) =>
       if ann = SOME («bx»)
       then (* before on x: task (EL 0 ids) left of task (EL 1 ids) *)
         varc wi (EL (EL 0 ids) xs) + varc wi (EL (EL 0 ids) ws) ≤
@@ -281,23 +281,24 @@ Definition reify_flag_def:
     (case ALOOKUP cs name of
     | SOME (Counting (NValue Xs Y)) =>
       MEM (HD vs) $ MAP (varc wi) Xs
-    | SOME (Scheduling (Cumulative xs ws hs cap)) =>
+    | SOME (Scheduling (Cumulative xs ws hs ps cap)) =>
       (* cumulative flags are indexed by a task pair (i,j), j the checkpoint:
          «sb»: task i starts no later than task j;
          «sa»: task i has not finished when task j starts;
-         «sact»: task i is running when task j starts;
-         «scc»: running ∧ bit (EL 2 vs) of task i's height;
-         «sccs»: running ∧ task i's height is negative *)
+         «sact»: task i is present and running when task j starts;
+         «scc»: present and running ∧ bit (EL 2 vs) of task i's height;
+         «sccs»: present and running ∧ task i's height is negative *)
       let i = Num (EL 0 vs); j = Num (EL 1 vs) in
       let bef = (varc wi (EL i xs) ≤ varc wi (EL j xs)) in
       let aft = (varc wi (EL i xs) + varc wi (EL i ws) ≥ varc wi (EL j xs) + 1) in
+      let pres = (varc wi (EL i ps) = 1) in
       if ann = SOME («sb») then bef
       else if ann = SOME («sa») then aft
-      else if ann = SOME («sact») then bef ∧ aft
+      else if ann = SOME («sact») then bef ∧ aft ∧ pres
       else if ann = SOME («scc») then
-        bef ∧ aft ∧ int_bit (Num (EL 2 vs)) (varc wi (EL i hs))
+        bef ∧ aft ∧ pres ∧ int_bit (Num (EL 2 vs)) (varc wi (EL i hs))
       else (* ann = SOME («sccs») *)
-        bef ∧ aft ∧ varc wi (EL i hs) < 0
+        bef ∧ aft ∧ pres ∧ varc wi (EL i hs) < 0
     | SOME (Sorting (Sort Xs Ys)) =>
       (* «pos»: bit (EL 1 vs) of the proof-only stable rank of element (EL 0 vs) *)
       let i = Num (EL 0 vs); b = Num (EL 1 vs) in
@@ -1558,6 +1559,28 @@ Proof
   Induct_on ‘ls’>>
   rw[iSUM_def]>>
   intLib.ARITH_TAC
+QED
+
+Theorem LENGTH_FILTER_two:
+  ∀l. 2 ≤ LENGTH (FILTER P l) ⇔
+  ∃i j. i < LENGTH l ∧ j < LENGTH l ∧ i ≠ j ∧ P (EL i l) ∧ P (EL j l)
+Proof
+  Induct>>rw[]
+  >- (
+    `2 ≤ SUC (LENGTH (FILTER P l)) ⇔ ∃k. k < LENGTH l ∧ P (EL k l)`
+      by (`2 ≤ SUC (LENGTH (FILTER P l)) ⇔ FILTER P l ≠ []`
+            by (Cases_on`FILTER P l`>>simp[])>>
+          simp[FILTER_EQ_NIL,NOT_EVERY,EXISTS_MEM,MEM_EL,PULL_EXISTS]>>
+          metis_tac[])>>
+    simp[]>>eq_tac>>rw[]
+    >- (qexistsl_tac[`0`,`SUC k`]>>simp[])>>
+    Cases_on`i`>>gvs[]
+    >- (Cases_on`j`>>gvs[]>>metis_tac[])>>
+    metis_tac[])>>
+  eq_tac>>rw[]
+  >- (qexistsl_tac[`SUC i`,`SUC j`]>>simp[])>>
+  Cases_on`i`>>Cases_on`j`>>gvs[]>>
+  metis_tac[]
 QED
 
 Theorem iSUM_MAP_b2i_bound:

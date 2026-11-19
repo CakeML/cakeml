@@ -1297,28 +1297,6 @@ Proof
   Induct_on`xs`>>rw[iSUM_def]>>intLib.ARITH_TAC
 QED
 
-Theorem LENGTH_FILTER_two[local]:
-  ∀l. 2 ≤ LENGTH (FILTER P l) ⇔
-  ∃i j. i < LENGTH l ∧ j < LENGTH l ∧ i ≠ j ∧ P (EL i l) ∧ P (EL j l)
-Proof
-  Induct>>rw[]
-  >- (
-    `2 ≤ SUC (LENGTH (FILTER P l)) ⇔ ∃k. k < LENGTH l ∧ P (EL k l)`
-      by (`2 ≤ SUC (LENGTH (FILTER P l)) ⇔ FILTER P l ≠ []`
-            by (Cases_on`FILTER P l`>>simp[])>>
-          simp[FILTER_EQ_NIL,NOT_EVERY,EXISTS_MEM,MEM_EL,PULL_EXISTS]>>
-          metis_tac[])>>
-    simp[]>>eq_tac>>rw[]
-    >- (qexistsl_tac[`0`,`SUC k`]>>simp[])>>
-    Cases_on`i`>>gvs[]
-    >- (Cases_on`j`>>gvs[]>>metis_tac[])>>
-    metis_tac[])>>
-  eq_tac>>rw[]
-  >- (qexistsl_tac[`SUC i`,`SUC j`]>>simp[])>>
-  Cases_on`i`>>Cases_on`j`>>gvs[]>>
-  metis_tac[]
-QED
-
 Theorem mindist_at_filter[local]:
   mindist_ctx bnd Xs D wi (dt,xps,sites,pm,dps,levels) ∧
   mindist_faith bnd Xs Z D wi wb name (dt,xps,sites,pm,dps,levels) ∧

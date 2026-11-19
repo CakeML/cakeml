@@ -285,20 +285,23 @@ End
 
 Datatype:
   scheduling_constr =
-    (* Disjunctive Xs Ws strct :
-      tasks Xs[i] with width Ws[i], placed on a line with no overlaps.
-       strct keeps zero-length tasks; otherwise they are dropped. *)
-    Disjunctive ('a varc list) ('a varc list) bool
-    (* Disjunctive2D Xs Ys Ws Hs strct :
-      tasks (Xs[i],Ys[i]) with rectangle Ws[i] by Hs[i]
+    (* Disjunctive Xs Ws Ps strct :
+      tasks Xs[i] with width Ws[i] and presence Ps[i], placed on a
+      line with no overlaps. strct keeps zero-length tasks;
+      otherwise they are dropped. *)
+    Disjunctive ('a varc list) ('a varc list) ('a varc list) bool
+    (* Disjunctive2D Xs Ys Ws Hs Ps strct :
+      tasks (Xs[i],Ys[i]) with rectangle Ws[i] by Hs[i] and presence Ps[i]
       strct keeps degenerate (zero-area) tasks/rectangles.
       Additionally, the 2D case supports general-valued Ws, Hs *)
   | Disjunctive2D ('a varc list) ('a varc list)
-                  ('a varc list) ('a varc list) bool
-    (* Cumulative Xs Ws Hs cap :
-      tasks Xs[i] width width Ws[i] and height Hs[i].
+                  ('a varc list) ('a varc list)
+                  ('a varc list) bool
+    (* Cumulative Xs Ws Hs Ps cap :
+      tasks Xs[i] with width Ws[i] and height Hs[i] and presence Ps[i].
       Height at each time point must not exceed cap *)
-  | Cumulative ('a varc list) ('a varc list) ('a varc list) ('a varc)
+  | Cumulative ('a varc list) ('a varc list) ('a varc list)
+               ('a varc list) ('a varc)
 End
 
 Datatype:
@@ -1046,16 +1049,22 @@ End
 
     xs[i] ≤ t < xs[i] + ws[i]
 
-    These must be pairwise disjoint for i ≠ j.
+    These must be pairwise disjoint for i ≠ j such that Ps[i] = Ps[j] = 1,
+    where Ps are the respective presences that must be 0 or 1;
+    tasks with Ps[i] = 0 are ignored.
 
     In strict mode, 0-length tasks cannot lie inside another interval. *)
 Definition disjunctive_sem_def:
-  disjunctive_sem Xs Ws strct w ⇔
+  disjunctive_sem Xs Ws Ps strct w ⇔
   let xs = MAP (varc w) Xs in
   let ws = MAP (varc w) Ws in
+  let ps = MAP (varc w) Ps in
   LENGTH xs = LENGTH ws ∧
+  LENGTH xs = LENGTH ps ∧
+  EVERY (λp. p = 0 ∨ p = 1) ps ∧
   ∀i j.
     i < LENGTH xs ∧ j < LENGTH xs ∧ i ≠ j ∧
+    EL i ps = 1 ∧ EL j ps = 1 ∧
     (strct ∨ (EL i ws > 0 ∧ EL j ws > 0)) ⇒
     EL i xs + EL i ws ≤ EL j xs ∨
     EL j xs + EL j ws ≤ EL i xs
@@ -1064,21 +1073,25 @@ End
 (* Disjunctive 2D:
     For each i, the active rectangle is:
 
-    xs[i] ≤ tx < varc w xs[i] + ws[i]
-    ys[i] ≤ ty < varc w ys[i] + hs[i]
+    xs[i] ≤ tx < xs[i] + ws[i]
+    ys[i] ≤ ty < ys[i] + hs[i]
 
-    Same overlap requirements on area and strict flag. *)
+    Same overlap requirements on area, presence and strict flag. *)
 Definition disjunctive2d_sem_def:
-  disjunctive2d_sem Xs Ys Ws Hs strct w ⇔
+  disjunctive2d_sem Xs Ys Ws Hs Ps strct w ⇔
   let xs = MAP (varc w) Xs in
   let ys = MAP (varc w) Ys in
   let ws = MAP (varc w) Ws in
   let hs = MAP (varc w) Hs in
+  let ps = MAP (varc w) Ps in
   LENGTH xs = LENGTH ys ∧
   LENGTH xs = LENGTH ws ∧
   LENGTH xs = LENGTH hs ∧
+  LENGTH xs = LENGTH ps ∧
+  EVERY (λp. p = 0 ∨ p = 1) ps ∧
   ∀i j.
     i < LENGTH xs ∧ j < LENGTH xs ∧ i ≠ j ∧
+    EL i ps = 1 ∧ EL j ps = 1 ∧
     (strct ∨
       (EL i ws > 0 ∧ EL j ws > 0 ∧
        EL i hs > 0 ∧ EL j hs > 0)) ⇒
@@ -1090,29 +1103,34 @@ End
 
 (* Cumulative:
   For each time point t,
-    the sum of hs[i] for active tasks (xs[i] ≤ t < xs[i] + ws[i])
-    is ≤ cap
+    the sum of hs[i] for tasks that are present (Ps[i] = 1) and
+    active (xs[i] ≤ t < xs[i] + ws[i]) is ≤ cap
 
   Well-formedness good default: heights and capacity must be
   non-negative (a negative demand/capacity makes the constraint
-  infeasible, matching gcs which rejects these at validation).
+  infeasible, matching gcs which rejects these at validation),
+  presences must be either 0 or 1.
+  Absent tasks (Ps[i] = 0) don't contribute to the total load.
   Durations need no guard: a non-positive ws[i] yields an empty
   occupancy interval, so the task is simply never active. *)
 Definition cumulative_sem_def:
-  cumulative_sem Xs Ws Hs cap w ⇔
+  cumulative_sem Xs Ws Hs Ps cap w ⇔
   let xs = MAP (varc w) Xs in
   let ws = MAP (varc w) Ws in
   let hs = MAP (varc w) Hs in
+  let ps = MAP (varc w) Ps in
   let cap = varc w cap in
   LENGTH xs = LENGTH ws ∧
   LENGTH xs = LENGTH hs ∧
+  LENGTH xs = LENGTH ps ∧
   EVERY (λh. 0 ≤ h) hs ∧
+  EVERY (λp. p = 0 ∨ p = 1) ps ∧
   0 ≤ cap ∧
   ∀t.
     iSUM
       (GENLIST
         (λi.
-          if EL i xs ≤ t ∧ t < EL i xs + EL i ws
+          if EL i xs ≤ t ∧ t < EL i xs + EL i ws ∧ EL i ps = 1
           then EL i hs
           else 0
         ) (LENGTH xs)) ≤ cap
@@ -1121,12 +1139,12 @@ End
 Definition scheduling_constr_sem_def:
   scheduling_constr_sem c w ⇔
   case c of
-    Disjunctive Xs Ws strct =>
-      disjunctive_sem Xs Ws strct w
-  | Disjunctive2D Xs Ys Ws Hs strct =>
-      disjunctive2d_sem Xs Ys Ws Hs strct w
-  | Cumulative Xs Ws Hs cap =>
-      cumulative_sem Xs Ws Hs cap w
+    Disjunctive Xs Ws Ps strct =>
+      disjunctive_sem Xs Ws Ps strct w
+  | Disjunctive2D Xs Ys Ws Hs Ps strct =>
+      disjunctive2d_sem Xs Ys Ws Hs Ps strct w
+  | Cumulative Xs Ws Hs Ps cap =>
+      cumulative_sem Xs Ws Hs Ps cap w
 End
 
 (***

@@ -74,39 +74,45 @@ Proof
     intLib.ARITH_TAC)
 QED
 
-(* zero-links: for every variable-size task, zero(i) ⇔ sz_i ≤ 0.
-   Constant sizes get no zero flag (the comparison is decided statically). *)
+(* zero-links: for every possibly-active variable-size task,
+   zero(i) ⇔ sz_i ≤ 0.
+
+   The task list ts = ZIP (sz, inactive) carries, per task, its size and
+   static-inactivity flag. Constant sizes get no zero flag (the comparison
+   is decided statically). *)
 Definition mk_zero_links_def:
-  mk_zero_links bnd name ann sz =
-  flat_app (MAPi (λi s.
+  mk_zero_links bnd name ann ts =
+  flat_app (MAPi (λi (s,inact).
     case s of
       INL v =>
+        if inact then Nil
+        else
           cbimply_var bnd (disj_zero name ann i)
             (mk_le s (INR 0))
-    | INR c => Nil) sz)
+    | INR c => Nil) ts)
 End
 
 Theorem mk_zero_links_sem:
   valid_assignment bnd wi ⇒
   (EVERY (λx. iconstraint_sem x (wi,wb))
-    (abstr (mk_zero_links bnd name ann sz)) ⇔
-  ∀i v. i < LENGTH sz ∧ EL i sz = INL v ⇒
-    (wb (disj_zero name ann i) ⇔ varc wi (EL i sz) ≤ 0))
+    (abstr (mk_zero_links bnd name ann ts)) ⇔
+  ∀i v. i < LENGTH ts ∧ EL i ts = (INL v,F) ⇒
+    (wb (disj_zero name ann i) ⇔ wi v ≤ 0))
 Proof
   strip_tac>>
-  simp[mk_zero_links_def, EVERY_FLAT]>>
+  simp[mk_zero_links_def,EVERY_FLAT]>>
   simp[Once EVERY_MEM,MEM_MAPi,PULL_EXISTS,o_DEF]>>
   eq_tac>>rw[]
   >- (
     first_x_assum drule>>
     simp[varc_def]>>
     disch_then sym_sub_tac>>
-    intLib.ARITH_TAC)
-  >- (
-    TOP_CASE_TAC>>gvs[varc_def]>>
-    first_x_assum drule_all>>
-    disch_then (fn th => simp[th])>>
-    intLib.ARITH_TAC)
+    intLib.ARITH_TAC)>>
+  pairarg_tac>>gvs[]>>
+  TOP_CASE_TAC>>rw[]>>gvs[varc_def]>>
+  first_x_assum drule_all>>
+  disch_then (fn th => simp[th])>>
+  intLib.ARITH_TAC
 QED
 
 (* separation clauses: for every pair i<j of possibly-active tasks,
@@ -171,266 +177,548 @@ Definition zsize_lit_def:
   case s of INL v => [Pos (disj_zero name ann k)] | INR c => []
 End
 
+(* Presence of a task:
+   - a constant 1: always present, so no literal;
+   - any other constant: the task is dropped (0 is absent; any other value is
+     refuted by the range rows);
+   - a variable P: a literal on P's value joins the encoding — Disjunctive's
+     separation clauses take the absence literal [P = 0], Cumulative's sact
+     flags the presence literal [P = 1]. *)
+Definition pres_inactive_def:
+  pres_inactive P = case P of INR c => c ≠ 1 | INL v => F
+End
+
+(* The literal [P = v] of a variable presence P, where v = 1 if b and v = 0
+   otherwise: the bit P[b0] (b) or its negation ~P[b0] (¬b) when P is
+   declared 0..1, otherwise the atom [P = v]; none for a constant. *)
+Definition val_lit_def:
+  val_lit bnd b P =
+  case P of
+    INL v =>
+      if bnd v = (0,1) then [if b then Pos (INL (Bit v 0)) else Neg (INL (Bit v 0))]
+      else [Pos (INL (Eq P (if b then 1 else 0)))]
+  | INR c => []
+End
+
+Theorem val_lit_sem:
+  valid_assignment bnd wi ∧ bit_faithful bnd wi wb ∧
+  (∀v. P = INL v ∧ bnd v ≠ (0,1) ⇒
+    (wb (INL (Eq P (if b then 1 else 0))) ⇔ wi v = if b then 1 else 0)) ⇒
+  ((∃l. MEM l (val_lit bnd b P) ∧ lit wb l) ⇔
+   ∃v. P = INL v ∧ wi v = if b then 1 else 0)
+Proof
+  strip_tac>>
+  Cases_on`P`>>simp[val_lit_def]>>
+  rw[lit_def]>>
+  gvs[bit_faithful_def,valid_assignment_def]>>
+  qpat_x_assum`∀x lb ub. _`(drule_then strip_assume_tac)>>
+  qpat_x_assum`∀X. _`(qspec_then`x`mp_tac)>>
+  simp[bit_width_def,EVAL``bits_of_int 1``]>>
+  strip_tac>>
+  `wi x = 0 ∨ wi x = 1` by intLib.ARITH_TAC>>
+  simp[EVAL``int_bit 0 0``,EVAL``int_bit 0 1``]
+QED
+
+(* a presence that is not a constant other than 1 is present iff its
+   presence literal (if any) holds *)
+Theorem val_lit_T_every:
+  valid_assignment bnd wi ∧ bit_faithful bnd wi wb ∧ ¬pres_inactive P ∧
+  (∀v. P = INL v ∧ bnd v ≠ (0,1) ⇒ (wb (INL (Eq P 1)) ⇔ wi v = 1)) ⇒
+  (EVERY (lit wb) (val_lit bnd T P) ⇔ varc wi P = 1)
+Proof
+  strip_tac>>
+  drule_all (PURE_REWRITE_RULE [COND_CLAUSES] (Q.INST [`b`|->`T`] val_lit_sem))>>
+  Cases_on`P`>>gvs[val_lit_def,pres_inactive_def,varc_def]>>
+  rw[]
+QED
+
+Theorem LENGTH_val_lit[simp]:
+  LENGTH (val_lit bnd b P) ≤ 1
+Proof
+  Cases_on`P`>>rw[val_lit_def]
+QED
+
+Theorem NULL_val_lit[simp]:
+  NULL (val_lit bnd b P) ⇔ ¬ISL P
+Proof
+  Cases_on`P`>>rw[val_lit_def]
+QED
+
+(* the [P = v] atom used by val_lit, defined by full_eq rows *)
+Definition val_eq_def:
+  val_eq bnd b P =
+  case P of
+    INL v => if bnd v = (0,1) then [] else [(P,if b then 1 else 0:int)]
+  | INR c => []
+End
+
+(* range rows 0 ≤ P ≤ 1 for each presence, omitted when its declared bounds
+   imply them *)
+Definition mk_pres_range_def:
+  mk_pres_range bnd name Ps =
+  flat_app (MAPi (λk P.
+    Append
+      (cmk_lb bnd (mk_name name («p_» ^ toString k ^ «_ge0»)) P 0)
+      (cmk_ub bnd (mk_name name («p_» ^ toString k ^ «_le1»)) P 1)) Ps)
+End
+
+Theorem mk_pres_range_sem:
+  valid_assignment bnd wi ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (mk_pres_range bnd name Ps)) ⇔
+   EVERY (λp. p = 0 ∨ p = 1) (MAP (varc wi) Ps))
+Proof
+  strip_tac>>
+  simp[mk_pres_range_def,EVERY_FLAT]>>
+  simp[Once EVERY_MEM,MEM_MAPi,PULL_EXISTS,o_DEF,cmk_lb_sem,cmk_ub_sem]>>
+  simp[EVERY_EL,EL_MAP,
+    intLib.ARITH_PROVE``0 ≤ (p:int) ∧ p ≤ 1 ⇔ p = 0 ∨ p = 1``]
+QED
+
 (* Disjunctive *)
+
+(* per task: the escape literals of its separation clauses (zero width in
+   non-strict mode; absence) and whether it is statically inactive *)
+Definition disj_task_info_def:
+  disj_task_info bnd name strct Ws Ps =
+  MAPi (λk (W,P).
+    ((if strct then [] else zsize_lit name «zw» k W) ++ val_lit bnd F P,
+     pres_inactive P ∨ (¬strct ∧ zsize_inactive W))) (ZIP (Ws,Ps))
+End
+
+Theorem LENGTH_disj_task_info[simp]:
+  LENGTH (disj_task_info bnd name strct Ws Ps) = MIN (LENGTH Ws) (LENGTH Ps)
+Proof
+  simp[disj_task_info_def,LENGTH_ZIP_MIN]
+QED
+
+(* a present task that can conflict is not statically inactive *)
+Theorem disj_task_active:
+  k < LENGTH Ws ∧ LENGTH Ps = LENGTH Ws ∧
+  varc wi (EL k Ps) = 1 ∧ (strct ∨ varc wi (EL k Ws) > 0) ⇒
+  ¬SND (EL k (disj_task_info bnd name strct Ws Ps))
+Proof
+  rw[disj_task_info_def,EL_MAPi,EL_ZIP]>>
+  Cases_on`EL k Ps`>>Cases_on`EL k Ws`>>
+  gvs[pres_inactive_def,zsize_inactive_def,varc_def,
+    integerTheory.INT_NOT_LE,integerTheory.int_gt]
+QED
+
+(* the [P = 0] atoms of the possibly-active tasks *)
+Definition disj_pres_eqs_def:
+  disj_pres_eqs bnd Ps ti =
+  FLAT (MAP (λ(P,(l,inact)). if inact then [] else val_eq bnd F P) (ZIP (Ps,ti)))
+End
+
+Theorem MEM_disj_pres_eqs:
+  LENGTH ti = LENGTH Ps ⇒
+  (MEM e (disj_pres_eqs bnd Ps ti) ⇔
+   ∃k. k < LENGTH Ps ∧ ¬SND (EL k ti) ∧ MEM e (val_eq bnd F (EL k Ps)))
+Proof
+  rw[disj_pres_eqs_def,MEM_FLAT,MEM_MAP,MEM_ZIP,PULL_EXISTS,pairTheory.UNCURRY]>>
+  simp[COND_RAND]
+QED
+
+(* given the zero-width and [P = 0] rows, the escape literals of an active
+   task hold iff it is absent or (non-strict) has zero width *)
+Theorem disj_task_esc:
+  valid_assignment bnd wi ∧ bit_faithful bnd wi wb ∧
+  k < LENGTH Ws ∧ LENGTH Ps = LENGTH Ws ∧
+  ¬SND (EL k (disj_task_info bnd name strct Ws Ps)) ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr
+      (if strct then List []
+       else
+         mk_zero_links bnd name «zw»
+           (ZIP (Ws,MAP SND (disj_task_info bnd name strct Ws Ps))))) ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (FLAT (MAP (λ(X,v). encode_full_eq bnd X v)
+      (disj_pres_eqs bnd Ps (disj_task_info bnd name strct Ws Ps)))) ⇒
+  ((∃l. MEM l (FST (EL k (disj_task_info bnd name strct Ws Ps))) ∧ lit wb l) ⇔
+   varc wi (EL k Ps) = 0 ∨ ¬strct ∧ varc wi (EL k Ws) ≤ 0)
+Proof
+  strip_tac>>
+  drule_then (drule_then assume_tac) encode_full_eqs_sem_2>>
+  `∀v. EL k Ps = INL v ∧ bnd v ≠ (0,1) ⇒
+     (wb (INL (Eq (EL k Ps) 0)) ⇔ wi v = 0)` by (
+    rw[]>>
+    first_x_assum (qspecl_then[`INL v`,`0`]mp_tac)>>
+    impl_tac >- (
+      simp[MEM_disj_pres_eqs]>>
+      qexists_tac`k`>>
+      simp[val_eq_def])>>
+    simp[varc_INL])>>
+  `¬strct ⇒ ∀v. EL k Ws = INL v ⇒ (wb (disj_zero name «zw» k) ⇔ wi v ≤ 0)` by (
+    rw[]>>
+    gvs[mk_zero_links_sem]>>
+    first_x_assum irule>>
+    simp[EL_ZIP,EL_MAP])>>
+  drule_all (PURE_REWRITE_RULE [COND_CLAUSES] (Q.INST [`b`|->`F`] val_lit_sem))>>
+  gvs[disj_task_info_def,EL_MAPi,EL_ZIP]>>
+  strip_tac>>
+  simp[RIGHT_AND_OVER_OR,EXISTS_OR_THM]>>
+  Cases_on`EL k Ps`>>Cases_on`EL k Ws`>>
+  gvs[pres_inactive_def,zsize_inactive_def,zsize_lit_def,varc_def,lit_def]>>
+  Cases_on`strct`>>gvs[lit_def,DISJ_COMM]
+QED
+
+Definition cencode_disjunctive_rows_def:
+  cencode_disjunctive_rows bnd Xs Ws strct name ti =
+  let inactive = MAP SND ti in
+  Append (mk_before_links bnd name «bf» (ZIP (ZIP (Xs,Ws),inactive)))
+    (Append
+      (if strct then List []
+       else mk_zero_links bnd name «zw» (ZIP (Ws,inactive)))
+      (mk_sep_clauses name [«bf»] ti))
+End
+
+(* Fewer than two possibly-active tasks: only the presence range rows. *)
 Definition cencode_disjunctive_def:
-  cencode_disjunctive bnd Xs Ws strct name =
-  if LENGTH Xs ≠ LENGTH Ws then cfalse_constr
+  cencode_disjunctive bnd Xs Ws Ps strct name ec =
+  if LENGTH Xs ≠ LENGTH Ws ∨ LENGTH Xs ≠ LENGTH Ps then (cfalse_constr,ec)
   else
-    let task_info =
-      if strct then MAP (λs. ([],F)) Ws
-      else MAPi (λk s. (zsize_lit name «zw» k s, zsize_inactive s)) Ws in
-    Append (mk_before_links bnd name «bf»
-      (ZIP (ZIP (Xs,Ws), (MAP SND task_info))))
-    (Append (if strct then List [] else mk_zero_links bnd name «zw» Ws)
-      (mk_sep_clauses name [«bf»] task_info))
+    let ti = disj_task_info bnd name strct Ws Ps in
+    let rng = mk_pres_range bnd name Ps in
+    if LENGTH (FILTER (λt. ¬SND t) ti) < 2 then (rng,ec)
+    else
+      let (eqs,ec') = cencode_full_eqs bnd (disj_pres_eqs bnd Ps ti) ec in
+      (Append rng
+        (Append eqs (cencode_disjunctive_rows bnd Xs Ws strct name ti)),
+       ec')
 End
 
 Definition encode_disjunctive_def:
-  encode_disjunctive bnd Xs Ws strct name =
-  abstr (cencode_disjunctive bnd Xs Ws strct name)
+  encode_disjunctive bnd Xs Ws Ps strct name =
+  if LENGTH Xs ≠ LENGTH Ws ∨ LENGTH Xs ≠ LENGTH Ps then abstr cfalse_constr
+  else
+    let ti = disj_task_info bnd name strct Ws Ps in
+    abstr (mk_pres_range bnd name Ps) ++
+    if LENGTH (FILTER (λt. ¬SND t) ti) < 2 then []
+    else
+      FLAT (MAP (λ(X,v). encode_full_eq bnd X v) (disj_pres_eqs bnd Ps ti)) ++
+      abstr (cencode_disjunctive_rows bnd Xs Ws strct name ti)
 End
 
 Theorem cencode_disjunctive_sem:
   valid_assignment bnd wi ∧
-  cencode_disjunctive bnd Xs Ws strct name = es ⇒
-  enc_rel wi es (encode_disjunctive bnd Xs Ws strct name) ec ec
+  cencode_disjunctive bnd Xs Ws Ps strct name ec = (es,ec') ⇒
+  enc_rel wi es (encode_disjunctive bnd Xs Ws Ps strct name) ec ec'
 Proof
-  rw[encode_disjunctive_def]
+  rw[cencode_disjunctive_def,encode_disjunctive_def]>>
+  pairarg_tac>>gvs[]>>
+  PURE_REWRITE_TAC[GSYM APPEND_ASSOC]>>
+  irule enc_rel_Append>>
+  irule_at Any enc_rel_abstr>>
+  irule enc_rel_Append>>
+  irule_at (Pos last) enc_rel_abstr>>
+  irule enc_rel_cencode_full_eqs>>
+  simp[]
 QED
 
 Theorem encode_disjunctive_sem_1:
   valid_assignment bnd wi ∧
-  ALOOKUP cs name = SOME (Scheduling (Disjunctive Xs Ws strct)) ∧
-  disjunctive_sem Xs Ws strct wi ⇒
+  ALOOKUP cs name = SOME (Scheduling (Disjunctive Xs Ws Ps strct)) ∧
+  disjunctive_sem Xs Ws Ps strct wi ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (encode_disjunctive bnd Xs Ws strct name)
+    (encode_disjunctive bnd Xs Ws Ps strct name)
 Proof
-  rw[]>>
-  simp[encode_disjunctive_def,cencode_disjunctive_def]>>
-  IF_CASES_TAC >- fs[disjunctive_sem_def]>>
-  gvs[]>>
-  CONJ_TAC >- (
-    CONJ_TAC >- (
-      (* before-links *)
-      simp[mk_before_links_sem]>>
-      rw[EL_ZIP]>>
-      gvs[reify_avar_def,reify_flag_def])>>
-    (* zero-links *)
-    rw[mk_zero_links_sem]>>
+  rw[encode_disjunctive_def]>>
+  gvs[disjunctive_sem_def,mk_pres_range_sem,encode_full_eqs_reify]>>
+  simp[cencode_disjunctive_rows_def]>>
+  PURE_REWRITE_TAC[GSYM CONJ_ASSOC]>>
+  conj_tac
+  >- (
+    simp[mk_before_links_sem]>>
+    rw[EL_ZIP,EL_MAP]>>
     gvs[reify_avar_def,reify_flag_def])>>
-  simp[mk_sep_clauses_sem]>>
-  fs[disjunctive_sem_def]>>
-  Cases_on`strct`
-  >- ( (* strict: every pair active, no zero escapes *)
-    rw[]>>
-    rpt(pairarg_tac>>gvs[])>>
-    rw[]>>gvs[EL_MAP]>>
-    first_x_assum drule_all>>
-    simp[reify_avar_def,reify_flag_def])>>
-  (* non-strict: active pair ⇒ before order; inactive pair ⇒ the
-     offending task is a variable whose zero-escape flag is set *)
+  CONJ_ASM1_TAC
+  >- (
+    rw[mk_zero_links_sem]>>
+    gvs[EL_ZIP,EL_MAP,reify_avar_def,reify_flag_def,varc_def])>>
+  simp[mk_sep_clauses_sem,UNCURRY,RIGHT_AND_OVER_OR,EXISTS_OR_THM]>>
   rw[]>>
-  gvs[]>>
-  first_x_assum (drule_at (Pos (el 3)))>>
-  rw[]>>
-  gvs[zsize_inactive_def,AllCasePreds(),zsize_lit_def,EL_MAP]>>
-  every_case_tac>>
-  gvs[reify_avar_def,reify_flag_def,SF DNF_ss, varc_INR]>>
+  DEP_REWRITE_TAC[disj_task_esc]>>
+  simp[reify_avar_def,reify_flag_def,reify_reif_def,encode_full_eqs_reify]>>
+  gvs[EVERY_EL,EL_MAP]>>
+  qpat_x_assum`∀i j. _`(qspecl_then[`i`,`j`]mp_tac)>>
+  qpat_assum`∀n. n < LENGTH Ps ⇒ _`(qspec_then`i`mp_tac)>>
+  qpat_x_assum`∀n. n < LENGTH Ps ⇒ _`(qspec_then`j`mp_tac)>>
+  Cases_on`strct`>>simp[EL_MAP]>>
   intLib.ARITH_TAC
 QED
 
 Theorem encode_disjunctive_sem_2:
   valid_assignment bnd wi ∧
+  bit_faithful bnd wi wb ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_disjunctive bnd Xs Ws strct name) ⇒
-  disjunctive_sem Xs Ws strct wi
+    (encode_disjunctive bnd Xs Ws Ps strct name) ⇒
+  disjunctive_sem Xs Ws Ps strct wi
 Proof
   strip_tac>>
-  `LENGTH Xs = LENGTH Ws` by (
+  `LENGTH Xs = LENGTH Ws ∧ LENGTH Xs = LENGTH Ps` by (
     CCONTR_TAC>>
-    gvs[encode_disjunctive_def,cencode_disjunctive_def,cfalse_constr_def])>>
-  gvs[encode_disjunctive_def,cencode_disjunctive_def]>>
-  Cases_on`strct`>>
+    gvs[encode_disjunctive_def,cfalse_constr_def])>>
+  gvs[encode_disjunctive_def,mk_pres_range_sem]>>
   simp[disjunctive_sem_def]>>
-  rw[]>>gvs[EL_MAP]
-  >- ( (* strict: separation gives a before-order directly *)
-    gvs[mk_sep_clauses_sem]>>
-    first_x_assum drule_all>>
-    gvs[mk_before_links_sem]>>
-    first_assum drule_all>>
-    pop_assum (assume_tac o GSYM)>>
-    first_x_assum drule_all>>
-    simp[EL_ZIP,EL_MAP])>>
-  (* non-strict: both widths positive ⇒ neither inactive, zero-escapes ruled
-     out by the zero-links, so the separation gives a before-order *)
-  gvs[mk_sep_clauses_sem,mk_zero_links_sem,mk_before_links_sem]>>
-  `¬zsize_inactive (EL i Ws) ∧ ¬zsize_inactive (EL j Ws)` by (
-    Cases_on`EL i Ws`>>Cases_on`EL j Ws`>>
-    gvs[zsize_inactive_def,varc_def]>>intLib.ARITH_TAC)>>
-  qpat_x_assum`∀i' j'. _ ⇒ (λ((p_i,s_i),inact_i). _) _`(fn th =>
-    mp_tac (Q.SPECL[`i`,`j`]th) >> mp_tac (Q.SPECL[`j`,`i`]th))>>
-  simp[EL_ZIP,EL_MAPi,LENGTH_ZIP,LENGTH_MAPi]>>
-  ntac 2 strip_tac>>
-  qpat_x_assum`∀i' j'. _ ⇒ _ ⇒ _ ∨ ∃l. _`drule_all>>
-  disch_then strip_assume_tac
-  >- metis_tac[]
-  >- metis_tac[]
-  >> (* zero-escape literal set ⇒ zero flag ⇒ width ≤ 0, contradicting >0 *)
-  gvs[zsize_lit_def]>>
-  every_case_tac>>gvs[lit_def]>>
-  first_x_assum (drule_at (Pat`_ = INL _`))>>
-  gvs[varc_def]>>intLib.ARITH_TAC
+  rw[]>>
+  gvs[EL_MAP]>>
+  qmatch_asmsub_abbrev_tac`FILTER _ ti`>>
+  `¬SND (EL i ti) ∧ ¬SND (EL j ti) ∧ LENGTH ti = LENGTH Ws` by (
+    simp[Abbr`ti`]>>
+    metis_tac[disj_task_active])>>
+  `¬(LENGTH (FILTER (λt. ¬SND t) ti) < 2)` by (
+    simp[NOT_LESS,LENGTH_FILTER_two]>>
+    metis_tac[])>>
+  qunabbrev_tac`ti`>>
+  gvs[cencode_disjunctive_rows_def,mk_before_links_sem,mk_sep_clauses_sem,
+    UNCURRY,EL_ZIP,EL_MAP]>>
+  qpat_x_assum`∀i j. _ ⇒ _ ⇒ _ ∨ ∃l. _`(qspecl_then[`i`,`j`]mp_tac)>>
+  simp[RIGHT_AND_OVER_OR,EXISTS_OR_THM]>>
+  DEP_REWRITE_TAC[disj_task_esc]>>
+  rw[]>>
+  intLib.ARITH_TAC
 QED
 
 (* Disjunctive2D *)
+
+(* a size that can never be positive: its declared upper bound is ≤ 0 *)
+Definition zsize_ub_inactive_def:
+  zsize_ub_inactive bnd s ⇔ SND (varc_bnd bnd s) ≤ 0
+End
+
+(* per rectangle: the escape literals of its separation clauses (zero width
+   and zero height in non-strict mode; absence) and whether it is statically
+   inactive *)
+Definition disj2d_task_info_def:
+  disj2d_task_info bnd name strct Ws Hs Ps =
+  MAPi (λk (W,H,P).
+    ((if strct then []
+      else zsize_lit name «zw» k W ++ zsize_lit name «zh» k H) ++
+     val_lit bnd F P,
+     pres_inactive P ∨
+     (¬strct ∧ (zsize_ub_inactive bnd W ∨ zsize_ub_inactive bnd H))))
+    (ZIP (Ws,ZIP (Hs,Ps)))
+End
+
+Theorem LENGTH_disj2d_task_info[simp]:
+  LENGTH (disj2d_task_info bnd name strct Ws Hs Ps) =
+  MIN (LENGTH Ws) (MIN (LENGTH Hs) (LENGTH Ps))
+Proof
+  simp[disj2d_task_info_def,LENGTH_ZIP_MIN]
+QED
+
+(* a present rectangle that can conflict is not statically inactive *)
+Theorem disj2d_task_active:
+  valid_assignment bnd wi ∧
+  k < LENGTH Ws ∧ LENGTH Hs = LENGTH Ws ∧ LENGTH Ps = LENGTH Ws ∧
+  varc wi (EL k Ps) = 1 ∧
+  (strct ∨ varc wi (EL k Ws) > 0 ∧ varc wi (EL k Hs) > 0) ⇒
+  ¬SND (EL k (disj2d_task_info bnd name strct Ws Hs Ps))
+Proof
+  strip_tac>>
+  drule_then (qspec_then`EL k Ws`assume_tac) varc_bnd_valid>>
+  drule_then (qspec_then`EL k Hs`assume_tac) varc_bnd_valid>>
+  simp[disj2d_task_info_def,EL_MAPi,EL_ZIP,zsize_ub_inactive_def]>>
+  Cases_on`EL k Ps`>>gvs[pres_inactive_def,varc_def]>>
+  disj2_tac>>
+  intLib.ARITH_TAC
+QED
+
+(* given the zero-size and [P = 0] rows, the escape literals of an active
+   rectangle hold iff it is absent or (non-strict) has a zero size *)
+Theorem disj2d_task_esc:
+  valid_assignment bnd wi ∧ bit_faithful bnd wi wb ∧
+  k < LENGTH Ws ∧ LENGTH Hs = LENGTH Ws ∧ LENGTH Ps = LENGTH Ws ∧
+  ¬SND (EL k (disj2d_task_info bnd name strct Ws Hs Ps)) ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr
+      (if strct then List []
+       else
+         Append
+           (mk_zero_links bnd name «zw»
+             (ZIP (Ws,MAP SND (disj2d_task_info bnd name strct Ws Hs Ps))))
+           (mk_zero_links bnd name «zh»
+             (ZIP (Hs,MAP SND (disj2d_task_info bnd name strct Ws Hs Ps)))))) ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (FLAT (MAP (λ(X,v). encode_full_eq bnd X v)
+      (disj_pres_eqs bnd Ps (disj2d_task_info bnd name strct Ws Hs Ps)))) ⇒
+  ((∃l. MEM l (FST (EL k (disj2d_task_info bnd name strct Ws Hs Ps))) ∧
+     lit wb l) ⇔
+   varc wi (EL k Ps) = 0 ∨
+   ¬strct ∧ (varc wi (EL k Ws) ≤ 0 ∨ varc wi (EL k Hs) ≤ 0))
+Proof
+  strip_tac>>
+  drule_then (drule_then assume_tac) encode_full_eqs_sem_2>>
+  `∀v. EL k Ps = INL v ∧ bnd v ≠ (0,1) ⇒
+     (wb (INL (Eq (EL k Ps) 0)) ⇔ wi v = 0)` by (
+    rw[]>>
+    first_x_assum (qspecl_then[`INL v`,`0`]mp_tac)>>
+    impl_tac >- (
+      simp[MEM_disj_pres_eqs]>>
+      qexists_tac`k`>>
+      simp[val_eq_def])>>
+    simp[varc_INL])>>
+  `¬strct ⇒
+   (∀v. EL k Ws = INL v ⇒ (wb (disj_zero name «zw» k) ⇔ wi v ≤ 0)) ∧
+   (∀v. EL k Hs = INL v ⇒ (wb (disj_zero name «zh» k) ⇔ wi v ≤ 0))` by (
+    rw[]>>
+    gvs[mk_zero_links_sem]>>
+    first_x_assum irule>>
+    simp[EL_ZIP,EL_MAP])>>
+  drule_all (PURE_REWRITE_RULE [COND_CLAUSES] (Q.INST [`b`|->`F`] val_lit_sem))>>
+  rpt (qpat_x_assum`EVERY _ _`kall_tac)>>
+  qpat_x_assum`∀X v. _`kall_tac>>
+  gvs[disj2d_task_info_def,EL_MAPi,EL_ZIP]>>
+  strip_tac>>
+  simp[RIGHT_AND_OVER_OR,EXISTS_OR_THM]>>
+  Cases_on`EL k Ps`>>Cases_on`EL k Ws`>>Cases_on`EL k Hs`>>
+  gvs[pres_inactive_def,zsize_ub_inactive_def,varc_bnd_def,zsize_lit_def,
+    varc_def,lit_def]>>
+  Cases_on`strct`>>
+  gvs[lit_def,RIGHT_AND_OVER_OR,EXISTS_OR_THM,AC DISJ_ASSOC DISJ_COMM]
+QED
+
+Definition cencode_disjunctive2d_rows_def:
+  cencode_disjunctive2d_rows bnd Xs Ys Ws Hs strct name ti =
+  let inactive = MAP SND ti in
+  Append (mk_before_links bnd name «bx» (ZIP (ZIP (Xs,Ws),inactive)))
+    (Append (mk_before_links bnd name «by» (ZIP (ZIP (Ys,Hs),inactive)))
+      (Append
+        (if strct then List []
+         else
+           Append (mk_zero_links bnd name «zw» (ZIP (Ws,inactive)))
+             (mk_zero_links bnd name «zh» (ZIP (Hs,inactive))))
+        (mk_sep_clauses name [«bx»;«by»] ti)))
+End
+
+(* Fewer than two possibly-active rectangles: only the presence range rows. *)
 Definition cencode_disjunctive2d_def:
-  cencode_disjunctive2d bnd Xs Ys Ws Hs strct name =
+  cencode_disjunctive2d bnd Xs Ys Ws Hs Ps strct name ec =
   let n = LENGTH Xs in
-  if n ≠ LENGTH Ys ∨ n ≠ LENGTH Ws ∨ n ≠ LENGTH Hs
-  then cfalse_constr
+  if n ≠ LENGTH Ys ∨ n ≠ LENGTH Ws ∨ n ≠ LENGTH Hs ∨ n ≠ LENGTH Ps
+  then (cfalse_constr,ec)
   else
-    let task_info =
-      if strct then MAP (λs. ([],F)) Ws
-      else MAPi (λk wh.
-         (zsize_lit name «zw» k (FST wh) ++ zsize_lit name «zh» k (SND wh),
-          zsize_inactive (FST wh) ∨ zsize_inactive (SND wh))) (ZIP (Ws,Hs)) in
-    let inactive = MAP SND task_info in
-    Append (mk_before_links bnd name «bx»
-        (ZIP (ZIP (Xs,Ws), inactive)))
-    (Append (mk_before_links bnd name «by»
-          (ZIP (ZIP (Ys,Hs), inactive)))
-    (Append (if strct then List [] else mk_zero_links bnd name «zw» Ws)
-    (Append (if strct then List [] else mk_zero_links bnd name «zh» Hs)
-      (mk_sep_clauses name [«bx»;«by»] task_info))))
+    let ti = disj2d_task_info bnd name strct Ws Hs Ps in
+    let rng = mk_pres_range bnd name Ps in
+    if LENGTH (FILTER (λt. ¬SND t) ti) < 2 then (rng,ec)
+    else
+      let (eqs,ec') = cencode_full_eqs bnd (disj_pres_eqs bnd Ps ti) ec in
+      (Append rng
+        (Append eqs (cencode_disjunctive2d_rows bnd Xs Ys Ws Hs strct name ti)),
+       ec')
 End
 
 Definition encode_disjunctive2d_def:
-  encode_disjunctive2d bnd Xs Ys Ws Hs strct name =
-  abstr (cencode_disjunctive2d bnd Xs Ys Ws Hs strct name)
+  encode_disjunctive2d bnd Xs Ys Ws Hs Ps strct name =
+  let n = LENGTH Xs in
+  if n ≠ LENGTH Ys ∨ n ≠ LENGTH Ws ∨ n ≠ LENGTH Hs ∨ n ≠ LENGTH Ps
+  then abstr cfalse_constr
+  else
+    let ti = disj2d_task_info bnd name strct Ws Hs Ps in
+    abstr (mk_pres_range bnd name Ps) ++
+    if LENGTH (FILTER (λt. ¬SND t) ti) < 2 then []
+    else
+      FLAT (MAP (λ(X,v). encode_full_eq bnd X v) (disj_pres_eqs bnd Ps ti)) ++
+      abstr (cencode_disjunctive2d_rows bnd Xs Ys Ws Hs strct name ti)
 End
 
 Theorem cencode_disjunctive2d_sem:
   valid_assignment bnd wi ∧
-  cencode_disjunctive2d bnd Xs Ys Ws Hs strct name = es ⇒
-  enc_rel wi es (encode_disjunctive2d bnd Xs Ys Ws Hs strct name) ec ec
+  cencode_disjunctive2d bnd Xs Ys Ws Hs Ps strct name ec = (es,ec') ⇒
+  enc_rel wi es (encode_disjunctive2d bnd Xs Ys Ws Hs Ps strct name) ec ec'
 Proof
-  rw[encode_disjunctive2d_def]
+  rw[cencode_disjunctive2d_def,encode_disjunctive2d_def]>>
+  pairarg_tac>>gvs[]>>
+  PURE_REWRITE_TAC[GSYM APPEND_ASSOC]>>
+  irule enc_rel_Append>>
+  irule_at Any enc_rel_abstr>>
+  irule enc_rel_Append>>
+  irule_at (Pos last) enc_rel_abstr>>
+  irule enc_rel_cencode_full_eqs>>
+  simp[]
 QED
 
 Theorem encode_disjunctive2d_sem_1:
   valid_assignment bnd wi ∧
-  ALOOKUP cs name = SOME (Scheduling (Disjunctive2D Xs Ys Ws Hs strct)) ∧
-  disjunctive2d_sem Xs Ys Ws Hs strct wi ⇒
+  ALOOKUP cs name = SOME (Scheduling (Disjunctive2D Xs Ys Ws Hs Ps strct)) ∧
+  disjunctive2d_sem Xs Ys Ws Hs Ps strct wi ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (encode_disjunctive2d bnd Xs Ys Ws Hs strct name)
+    (encode_disjunctive2d bnd Xs Ys Ws Hs Ps strct name)
 Proof
+  rw[encode_disjunctive2d_def]>>
+  gvs[disjunctive2d_sem_def,mk_pres_range_sem,encode_full_eqs_reify]>>
+  simp[cencode_disjunctive2d_rows_def]>>
+  PURE_REWRITE_TAC[GSYM CONJ_ASSOC]>>
+  conj_tac
+  >- (
+    simp[mk_before_links_sem]>>
+    rw[EL_ZIP,EL_MAP]>>
+    gvs[reify_avar_def,reify_flag_def])>>
+  conj_tac
+  >- (
+    simp[mk_before_links_sem]>>
+    rw[EL_ZIP,EL_MAP]>>
+    gvs[reify_avar_def,reify_flag_def])>>
+  CONJ_ASM1_TAC
+  >- (
+    rw[mk_zero_links_sem]>>
+    gvs[EL_ZIP,EL_MAP,reify_avar_def,reify_flag_def,varc_def])>>
+  simp[mk_sep_clauses_sem,UNCURRY,RIGHT_AND_OVER_OR,EXISTS_OR_THM]>>
   rw[]>>
-  `LENGTH Xs = LENGTH Ys ∧ LENGTH Ys = LENGTH Ws ∧ LENGTH Ws = LENGTH Hs` by
-    fs[disjunctive2d_sem_def]>>
-  simp[encode_disjunctive2d_def,cencode_disjunctive2d_def]>>
-  gvs[append_thm,EVERY_APPEND]>>
-  rpt conj_tac
-  >- ( (* before-links x *)
-    simp[mk_before_links_sem]>>
-    rw[EL_ZIP]>>
-    gvs[reify_avar_def,reify_flag_def])
-  >- ( (* before-links y *)
-    simp[mk_before_links_sem]>>
-    rw[EL_ZIP]>>
-    gvs[reify_avar_def,reify_flag_def])
-  >- ( (* zero-links w *)
-    rw[mk_zero_links_sem]>>
-    gvs[reify_avar_def,reify_flag_def])
-  >- ( (* zero-links h *)
-    rw[mk_zero_links_sem]>>
-    gvs[reify_avar_def,reify_flag_def])
-  >- ( (* separation clauses *)
-    simp[mk_sep_clauses_sem]>>
-    fs[disjunctive2d_sem_def]>>
-    Cases_on`strct`
-    >- ( (* strict: every pair active, no zero escapes *)
-      rw[]>>
-      gvs[EL_MAP,reify_avar_def,reify_flag_def,RIGHT_AND_OVER_OR,EXISTS_OR_THM]>>
-      qpat_x_assum`∀i j. _ ⇒ _`(qspecl_then[`i`,`j`]mp_tac)>>
-      simp[EL_MAP]>>intLib.ARITH_TAC)>>
-    (* non-strict *)
-    rw[]>>
-    `i < LENGTH Ws ∧ j < LENGTH Ws` by gvs[LENGTH_MAPi,LENGTH_ZIP]>>
-    `EL i (ZIP (Ws,Hs)) = (EL i Ws,EL i Hs) ∧
-     EL j (ZIP (Ws,Hs)) = (EL j Ws,EL j Hs)` by (conj_tac>>irule EL_ZIP>>gvs[])>>
-    gvs[EL_MAPi]>>
-    qpat_x_assum`∀i j. _ ⇒ _`(qspecl_then[`i`,`j`]mp_tac)>>
-    simp[EL_MAP]>>
-    Cases_on`EL i Ws`>>Cases_on`EL j Ws`>>
-    Cases_on`EL i Hs`>>Cases_on`EL j Hs`>>
-    gvs[zsize_inactive_def,zsize_lit_def,reify_avar_def,reify_flag_def,
-      lit_def,varc_INR,SF DNF_ss]>>
-    intLib.ARITH_TAC)
+  DEP_REWRITE_TAC[disj2d_task_esc]>>
+  simp[reify_avar_def,reify_flag_def,reify_reif_def,encode_full_eqs_reify]>>
+  gvs[EVERY_EL,EL_MAP]>>
+  qpat_x_assum`∀i j. _`(qspecl_then[`i`,`j`]mp_tac)>>
+  qpat_assum`∀n. n < LENGTH Ps ⇒ _`(qspec_then`i`mp_tac)>>
+  qpat_x_assum`∀n. n < LENGTH Ps ⇒ _`(qspec_then`j`mp_tac)>>
+  Cases_on`strct`>>simp[EL_MAP]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem encode_disjunctive2d_sem_2:
   valid_assignment bnd wi ∧
+  bit_faithful bnd wi wb ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_disjunctive2d bnd Xs Ys Ws Hs strct name) ⇒
-  disjunctive2d_sem Xs Ys Ws Hs strct wi
+    (encode_disjunctive2d bnd Xs Ys Ws Hs Ps strct name) ⇒
+  disjunctive2d_sem Xs Ys Ws Hs Ps strct wi
 Proof
   strip_tac>>
-  `LENGTH Xs = LENGTH Ys ∧ LENGTH Xs = LENGTH Ws ∧ LENGTH Xs = LENGTH Hs` by (
+  `LENGTH Xs = LENGTH Ys ∧ LENGTH Xs = LENGTH Ws ∧ LENGTH Xs = LENGTH Hs ∧
+   LENGTH Xs = LENGTH Ps` by (
     CCONTR_TAC>>
-    gvs[encode_disjunctive2d_def,cencode_disjunctive2d_def,cfalse_constr_def])>>
-  gvs[encode_disjunctive2d_def,cencode_disjunctive2d_def]>>
-  gvs[append_thm,EVERY_APPEND]>>
-  Cases_on`strct`>>
-  gvs[mk_before_links_sem,mk_zero_links_sem,mk_sep_clauses_sem,
-    LENGTH_MAPi,LENGTH_ZIP]>>
+    gvs[encode_disjunctive2d_def,cfalse_constr_def])>>
+  gvs[encode_disjunctive2d_def,mk_pres_range_sem]>>
   simp[disjunctive2d_sem_def]>>
-  rw[]>>gvs[EL_MAP]
-  >- ( (* strict: separation gives a before-order on some axis *)
-    qpat_x_assum`∀i' j'. _ ⇒ (λ((p_i,s_i),inact_i). _) _`(fn th =>
-      mp_tac (Q.SPECL[`i`,`j`]th) >> mp_tac (Q.SPECL[`j`,`i`]th))>>
-    qpat_x_assum`∀i' j'. _ ⇒ (λ((p_i,s_i),inact_i). _) _`(fn th =>
-      mp_tac (Q.SPECL[`i`,`j`]th) >> mp_tac (Q.SPECL[`j`,`i`]th))>>
-    simp[EL_ZIP,EL_MAP,LENGTH_ZIP,LENGTH_MAP]>>
-    ntac 4 strip_tac>>
-    qpat_x_assum`∀i' j'. _ ⇒ ∃a. _`drule_all>>
-    disch_then strip_assume_tac>>gvs[]>>
+  rw[]>>
+  gvs[EL_MAP]>>
+  qmatch_asmsub_abbrev_tac`FILTER _ ti`>>
+  `¬SND (EL i ti) ∧ ¬SND (EL j ti) ∧ LENGTH ti = LENGTH Ws` by (
+    simp[Abbr`ti`]>>
+    metis_tac[disj2d_task_active])>>
+  `¬(LENGTH (FILTER (λt. ¬SND t) ti) < 2)` by (
+    simp[NOT_LESS,LENGTH_FILTER_two]>>
     metis_tac[])>>
-  (* non-strict: positive area ⇒ neither inactive, zero-escapes ruled out *)
-  `¬zsize_inactive (EL i Ws) ∧ ¬zsize_inactive (EL j Ws) ∧
-   ¬zsize_inactive (EL i Hs) ∧ ¬zsize_inactive (EL j Hs)` by (
-    Cases_on`EL i Ws`>>Cases_on`EL j Ws`>>
-    Cases_on`EL i Hs`>>Cases_on`EL j Hs`>>
-    gvs[zsize_inactive_def,varc_def]>>intLib.ARITH_TAC)>>
-  qpat_x_assum`∀i' j'. _ ⇒ (λ((p_i,s_i),inact_i). _) _`(fn th =>
-    mp_tac (Q.SPECL[`i`,`j`]th) >> mp_tac (Q.SPECL[`j`,`i`]th))>>
-  qpat_x_assum`∀i' j'. _ ⇒ (λ((p_i,s_i),inact_i). _) _`(fn th =>
-    mp_tac (Q.SPECL[`i`,`j`]th) >> mp_tac (Q.SPECL[`j`,`i`]th))>>
-  simp[EL_ZIP,EL_MAPi,EL_MAP,LENGTH_ZIP,LENGTH_MAPi]>>
-  ntac 4 strip_tac>>
-  qpat_x_assum`∀i' j'. _ ⇒ _ ⇒ _ ∨ ∃l. _`(qspecl_then[`i`,`j`]mp_tac)>>
-  simp[EL_ZIP,EL_MAPi,EL_MAP,LENGTH_ZIP,LENGTH_MAPi]>>
-  disch_then strip_assume_tac
-  >- metis_tac[]
-  >- metis_tac[]
-  >- metis_tac[]
-  >- metis_tac[]
-  >> (* zero-escape literal set ⇒ zero flag ⇒ width/height ≤ 0, contra >0 *)
-  gvs[zsize_lit_def]>>
-  every_case_tac>>gvs[lit_def]>>
-  first_x_assum (drule_at (Pat`_ = INL _`))>>
-  gvs[varc_def]>>intLib.ARITH_TAC
+  qunabbrev_tac`ti`>>
+  gvs[cencode_disjunctive2d_rows_def,mk_before_links_sem,mk_sep_clauses_sem,
+    UNCURRY,EL_ZIP,EL_MAP]>>
+  qpat_x_assum`∀i j. _ ⇒ _ ⇒ _ ∨ ∃l. _`(qspecl_then[`i`,`j`]mp_tac)>>
+  simp[RIGHT_AND_OVER_OR,EXISTS_OR_THM]>>
+  DEP_REWRITE_TAC[disj2d_task_esc]>>
+  rw[]>>
+  intLib.ARITH_TAC
 QED
 
 (* Cumulative: start-checkpoint encoding.  For every ordered pair (i,j) of
    active tasks, i ≠ j, three fully reified flags pin
-     sb(i,j) ⇔ s_i ≤ s_j,   sa(i,j) ⇔ s_i + l_i ≥ s_j + 1,   sact(i,j) ⇔ sb ∧ sa
-   so sact(i,j) holds exactly when task i is running when task j starts, and
-   one row per active task j bounds the load at its start by the capacity.
-   A task whose length or height has a non-positive upper bound never runs
-   with positive height; it contributes nothing and gets no flags.  A task of
-   constant length is running at its own start, so its own height goes to the
-   row's right-hand side (constant) or integer side (variable); a task of
-   variable length gets the diagonal flag sact(j,j) ⇔ l_j ≥ 1 instead.
+     sb(i,j) ⇔ s_i ≤ s_j,   sa(i,j) ⇔ s_i + l_i ≥ s_j + 1,
+     sact(i,j) ⇔ sb ∧ sa ∧ [P_i = 1]
+   so sact(i,j) holds exactly when task i is present and running when task j
+   starts, and one row per active task j bounds the load at its start by the
+   capacity.  A task whose length or height has a non-positive upper bound, or
+   whose presence is a constant other than 1, never loads the resource; it
+   contributes nothing and gets no flags.  A task of constant length and
+   constant presence is running at its own start, so its own height goes to
+   the row's right-hand side (constant) or integer side (variable); otherwise
+   the task gets the diagonal flag sact(j,j) ⇔ l_j ≥ 1 ∧ [P_j = 1] instead.
    A variable height h_i is summed bit by bit through
      scc(i,j,k) ⇔ sact(i,j) ∧ bit_k(h_i)     and     sccs(i,j) ⇔ sact(i,j) ∧ sign(h_i)
    over the Bit/Sign literals of h_i itself.  Heights and capacity are pinned
@@ -453,19 +741,61 @@ Definition cumul_sccs_def[simp]:
 End
 
 Definition cumul_task_active_def:
-  cumul_task_active bnd w h ⇔
-  0 < SND (varc_bnd bnd w) ∧ 0 < SND (varc_bnd bnd h)
+  cumul_task_active bnd w h p ⇔
+  0 < SND (varc_bnd bnd w) ∧ 0 < SND (varc_bnd bnd h) ∧ ¬pres_inactive p
 End
 
-(* pair flags for contributor i and checkpoint j, i ≠ j *)
+(* pair flags for contributor i and checkpoint j, i ≠ j; pl is i's presence
+   literal (none for a constant presence) *)
 Definition cumul_pair_def:
-  cumul_pair bnd name i x_i w_i j x_j =
+  cumul_pair bnd name i x_i w_i pl j x_j =
   Append (cbimply_var bnd (cumul_sb name i j) (mk_le x_i x_j))
   (Append (cbimply_var bnd (cumul_sa name i j)
             (mk_lin_constraint_ge [(1,x_i);(1,w_i);(-1,x_j)] 1))
     (cbimply_var bnd (cumul_sact name i j)
-      ([],[(1,Pos (cumul_sb name i j));(1,Pos (cumul_sa name i j))],2)))
+      ([],[(1,Pos (cumul_sb name i j));(1,Pos (cumul_sa name i j))] ++
+          MAP (λl. (1,l)) pl,
+       2 + &LENGTH pl)))
 End
+
+(* the diagonal flag sact(j,j) ⇔ l_j ≥ 1 ∧ [P_j = 1]; pl is j's presence
+   literal.  A variable length: l_j + ub(l_j)·[P_j = 1] ≥ 1 + ub(l_j) (just
+   l_j ≥ 1 without a presence literal); a constant length (≥ 1 for an active
+   task): [P_j = 1] ≥ 1, and no flag without a presence literal. *)
+Definition cumul_diag_def:
+  cumul_diag bnd name j w_j pl =
+  case w_j of
+    INL wv =>
+      (let ub = SND (bnd wv) in
+       cbimply_var bnd (cumul_sact name j j)
+         ([(1,wv)],MAP (λl. (ub,l)) pl,1 + ub * &LENGTH pl))
+  | INR c =>
+      if NULL pl then Nil
+      else
+        cbimply_var bnd (cumul_sact name j j)
+          ([],MAP (λl. (1,l)) pl,&LENGTH pl)
+End
+
+(* the diagonal rows pin sact(j,j) to "running at its own start and present"
+   whenever they define it *)
+Theorem cumul_diag_sem:
+  valid_assignment bnd wi ∧ LENGTH pl ≤ 1 ∧ 0 < SND (varc_bnd bnd w) ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (cumul_diag bnd name j w pl)) ⇔
+   (ISL w ∨ ¬NULL pl ⇒
+    (wb (cumul_sact name j j) ⇔ 1 ≤ varc wi w ∧ EVERY (lit wb) pl)))
+Proof
+  strip_tac>>
+  drule_then (qspec_then`w`strip_assume_tac) varc_bnd_valid>>
+  `pl = [] ∨ ∃l. pl = [l]` by (Cases_on`pl`>>gvs[]>>Cases_on`t`>>gvs[])>>
+  gvs[]>>
+  Cases_on`w`>>
+  gvs[cumul_diag_def,varc_bnd_def,varc_def,iconstraint_sem_def,
+    eval_ilin_term_def,iSUM_def,lit_def]>>
+  Cases_on`wb (INR (name,Values [&j; &j] (SOME «sact»)))`>>
+  Cases_on`lit wb l`>>
+  gvs[pbc_encodeTheory.b2i_alt]>>
+  intLib.ARITH_TAC
+QED
 
 (* the bit width of a height (unused for a constant) *)
 Definition cumul_hw_def:
@@ -475,19 +805,23 @@ Definition cumul_hw_def:
   | INR c => (F,0n)
 End
 
-(* the active tasks from index k on, as (i,x,w,h,cumul_hw bnd h) *)
+(* the active tasks from index k on, as (i,x,w,h,p,cumul_hw bnd h) *)
 Definition cumul_active_def:
   (cumul_active bnd (k:num) [] = []) ∧
-  (cumul_active bnd k ((x,w,h)::ts) =
+  (cumul_active bnd k ((x,w,h,p)::ts) =
     let rest = cumul_active bnd (k + 1) ts in
-    if cumul_task_active bnd w h then (k,x,w,h,cumul_hw bnd h)::rest else rest)
+    if cumul_task_active bnd w h p
+    then (k,x,w,h,p,cumul_hw bnd h)::rest
+    else rest)
 End
 
 Theorem FLAT_MAP_cumul_active:
   ∀ts k f.
   FLAT (MAP f (cumul_active bnd k ts)) =
-  FLAT (MAPi (λi (x,w,h).
-    if cumul_task_active bnd w h then f (i + k,x,w,h,cumul_hw bnd h) else []) ts)
+  FLAT (MAPi (λi (x,w,h,p).
+    if cumul_task_active bnd w h p
+    then f (i + k,x,w,h,p,cumul_hw bnd h)
+    else []) ts)
 Proof
   Induct>>simp[cumul_active_def]>>
   qx_gen_tac`t`>>PairCases_on`t`>>rpt gen_tac>>
@@ -528,13 +862,15 @@ Definition cumul_gate_def:
 End
 
 (* checkpoint row of active task j:  Σ_i contrib(i,j) + own height ≤ cap,
-   over the active tasks act *)
+   over the active tasks act; j's own height is unconditional when j has no
+   diagonal flag (constant length, constant presence) *)
 Definition cumul_scap_row_def:
-  cumul_scap_row name act cap j w_j h_j =
-  let loadbs = FLAT (MAP (λ(i,x,w,h,hw).
-      if i ≠ j ∨ ISL w then cumul_contrib name i j h hw else []) act) in
+  cumul_scap_row name act cap j w_j h_j p_j =
+  let loadbs = FLAT (MAP (λ(i,x,w,h,p,hw).
+      if i ≠ j ∨ ISL w ∨ ISL p then cumul_contrib name i j h hw else [])
+      act) in
   let (dis,dfix) =
-      if ISL w_j then ([],0i)
+      if ISL w_j ∨ ISL p_j then ([],0i)
       else (case h_j of INL hv => ([(-1i,hv)],0i) | INR c => ([],c)) in
   let (cis,rhs) =
       (case cap of INL v => ([(1i,v)],dfix) | INR c => ([],dfix - c)) in
@@ -546,14 +882,14 @@ End
 Definition cumul_nonneg_def:
   cumul_nonneg bnd name tasks cap =
   Append (cmk_lb bnd (mk_name name «cap_ge0») cap 0)
-    (flat_app (MAPi (λi (x,w,h).
+    (flat_app (MAPi (λi (x,w,h,p).
        cmk_lb bnd (mk_name name («h_» ^ toString i ^ «_ge0»)) h 0) tasks))
 End
 
 Theorem cumul_nonneg_sem:
   valid_assignment bnd wi ⇒
   (EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (cumul_nonneg bnd name tasks cap)) ⇔
-   0 ≤ varc wi cap ∧ EVERY (λ(x,w,h). 0 ≤ varc wi h) tasks)
+   0 ≤ varc wi cap ∧ EVERY (λ(x,w,h,p). 0 ≤ varc wi h) tasks)
 Proof
   strip_tac>>
   simp[cumul_nonneg_def,append_thm,cmk_lb_sem,EVERY_FLAT]>>
@@ -562,91 +898,150 @@ Proof
   simp[EVERY_EL]
 QED
 
+(* the flag and checkpoint rows over the tasks (x,w,h,p) *)
+Definition cencode_cumulative_rows_def:
+  cencode_cumulative_rows bnd name tasks cap =
+  let act = cumul_active bnd 0 tasks in
+  Append (cumul_nonneg bnd name tasks cap)
+  (flat_app (MAP (λ(j,x_j,w_j,h_j,p_j,hw_j).
+     Append
+       (flat_app (MAP (λ(i,x_i,w_i,h_i,p_i,hw_i).
+          if i = j then
+            (if ISL w_j ∨ ISL p_j then
+               Append (cumul_diag bnd name j w_j (val_lit bnd T p_j))
+                 (cumul_gate bnd name j j h_j hw_j)
+             else Nil)
+          else
+            Append (cumul_pair bnd name i x_i w_i (val_lit bnd T p_i) j x_j)
+                   (cumul_gate bnd name i j h_i hw_i)) act))
+       (cumul_scap_row name act cap j w_j h_j p_j)) act))
+End
+
+(* the [P = 1] atoms of the active tasks *)
+Definition cumul_pres_eqs_def:
+  cumul_pres_eqs bnd tasks =
+  FLAT (MAP (λ(x,w,h,p).
+    if cumul_task_active bnd w h p then val_eq bnd T p else []) tasks)
+End
+
+Theorem MEM_cumul_pres_eqs:
+  MEM e (cumul_pres_eqs bnd tasks) ⇔
+  ∃x w h p. MEM (x,w,h,p) tasks ∧ cumul_task_active bnd w h p ∧
+    MEM e (val_eq bnd T p)
+Proof
+  simp[cumul_pres_eqs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS,pairTheory.EXISTS_PROD]>>
+  simp[COND_RAND]
+QED
+
 Definition cencode_cumulative_def:
-  cencode_cumulative bnd Xs Ws Hs cap name =
-  if LENGTH Xs ≠ LENGTH Ws ∨ LENGTH Xs ≠ LENGTH Hs then cfalse_constr
+  cencode_cumulative bnd Xs Ws Hs Ps cap name ec =
+  if LENGTH Xs ≠ LENGTH Ws ∨ LENGTH Xs ≠ LENGTH Hs ∨ LENGTH Xs ≠ LENGTH Ps
+  then (cfalse_constr,ec)
   else
-    let tasks = ZIP (Xs, ZIP (Ws, Hs)) in
-    let act = cumul_active bnd 0 tasks in
-    Append (cumul_nonneg bnd name tasks cap)
-    (flat_app (MAP (λ(j,x_j,w_j,h_j,hw_j).
-       Append
-         (flat_app (MAP (λ(i,x_i,w_i,h_i,hw_i).
-            if i = j then
-              (if ISL w_j then
-                 Append
-                   (cbimply_var bnd (cumul_sact name j j)
-                      (mk_constraint_one_ge 1 w_j 1))
-                   (cumul_gate bnd name j j h_j hw_j)
-               else Nil)
-            else
-              Append (cumul_pair bnd name i x_i w_i j x_j)
-                     (cumul_gate bnd name i j h_i hw_i)) act))
-         (cumul_scap_row name act cap j w_j h_j)) act))
+    let tasks = ZIP (Xs,ZIP (Ws,ZIP (Hs,Ps))) in
+    let (eqs,ec') = cencode_full_eqs bnd (cumul_pres_eqs bnd tasks) ec in
+    (Append (mk_pres_range bnd name Ps)
+      (Append eqs (cencode_cumulative_rows bnd name tasks cap)),
+     ec')
 End
 
 (* every task pair, skipping the inactive ones *)
-Theorem cencode_cumulative_ACTIVE:
-  append (cencode_cumulative bnd Xs Ws Hs cap name) =
+Theorem cencode_cumulative_rows_ACTIVE:
+  append (cencode_cumulative_rows bnd name tasks cap) =
   append (
-  if LENGTH Xs ≠ LENGTH Ws ∨ LENGTH Xs ≠ LENGTH Hs then cfalse_constr
-  else
-    let tasks = ZIP (Xs, ZIP (Ws, Hs)) in
     Append (cumul_nonneg bnd name tasks cap)
-    (flat_app (MAPi (λj (x_j,w_j,h_j).
-       if ¬cumul_task_active bnd w_j h_j then Nil
+    (flat_app (MAPi (λj (x_j,w_j,h_j,p_j).
+       if ¬cumul_task_active bnd w_j h_j p_j then Nil
        else
          Append
-           (flat_app (MAPi (λi (x_i,w_i,h_i).
-              if ¬cumul_task_active bnd w_i h_i then Nil
+           (flat_app (MAPi (λi (x_i,w_i,h_i,p_i).
+              if ¬cumul_task_active bnd w_i h_i p_i then Nil
               else if i = j then
-                (if ISL w_j then
-                   Append
-                     (cbimply_var bnd (cumul_sact name j j)
-                        (mk_constraint_one_ge 1 w_j 1))
+                (if ISL w_j ∨ ISL p_j then
+                   Append (cumul_diag bnd name j w_j (val_lit bnd T p_j))
                      (cumul_gate bnd name j j h_j (cumul_hw bnd h_j))
                  else Nil)
               else
-                Append (cumul_pair bnd name i x_i w_i j x_j)
-                       (cumul_gate bnd name i j h_i (cumul_hw bnd h_i))) tasks))
-           (cumul_scap_row name (cumul_active bnd 0 tasks) cap j w_j h_j)) tasks)))
+                Append
+                  (cumul_pair bnd name i x_i w_i (val_lit bnd T p_i) j x_j)
+                  (cumul_gate bnd name i j h_i (cumul_hw bnd h_i))) tasks))
+           (cumul_scap_row name (cumul_active bnd 0 tasks) cap j w_j h_j p_j))
+       tasks)))
 Proof
-  rw[cencode_cumulative_def,append_thm,append_flat_app,MAP_MAP_o,
+  rw[cencode_cumulative_rows_def,append_thm,append_flat_app,MAP_MAP_o,
      FLAT_MAP_cumul_active,indexedListsTheory.MAP_MAPi]>>
   AP_TERM_TAC>>irule indexedListsTheory.MAPi_CONG>>simp[]>>
   qx_genl_tac[`t`,`j`]>>strip_tac>>PairCases_on`t`>>
-  rw[append_thm,append_flat_app,indexedListsTheory.MAP_MAPi]>>
-  AP_TERM_TAC>>irule indexedListsTheory.MAPi_CONG>>simp[]>>
+  simp[append_thm,append_flat_app,indexedListsTheory.MAP_MAPi]>>
+  IF_CASES_TAC>>simp[append_thm,append_flat_app,indexedListsTheory.MAP_MAPi]>>
+  AP_TERM_TAC>>
+  irule indexedListsTheory.MAPi_CONG>>simp[]>>
   qx_genl_tac[`s`,`i`]>>strip_tac>>PairCases_on`s`>>
   rw[append_thm]
 QED
 
 Definition encode_cumulative_def:
-  encode_cumulative bnd Xs Ws Hs cap name =
-  abstr (cencode_cumulative bnd Xs Ws Hs cap name)
+  encode_cumulative bnd Xs Ws Hs Ps cap name =
+  if LENGTH Xs ≠ LENGTH Ws ∨ LENGTH Xs ≠ LENGTH Hs ∨ LENGTH Xs ≠ LENGTH Ps
+  then abstr cfalse_constr
+  else
+    let tasks = ZIP (Xs,ZIP (Ws,ZIP (Hs,Ps))) in
+    abstr (mk_pres_range bnd name Ps) ++
+    FLAT (MAP (λ(X,v). encode_full_eq bnd X v) (cumul_pres_eqs bnd tasks)) ++
+    abstr (cencode_cumulative_rows bnd name tasks cap)
 End
 
 Theorem cencode_cumulative_sem:
   valid_assignment bnd wi ∧
-  cencode_cumulative bnd Xs Ws Hs cap name = es ⇒
-  enc_rel wi es (encode_cumulative bnd Xs Ws Hs cap name) ec ec
+  cencode_cumulative bnd Xs Ws Hs Ps cap name ec = (es,ec') ⇒
+  enc_rel wi es (encode_cumulative bnd Xs Ws Hs Ps cap name) ec ec'
 Proof
-  rw[encode_cumulative_def]
+  rw[cencode_cumulative_def,encode_cumulative_def]>>
+  pairarg_tac>>gvs[]>>
+  PURE_REWRITE_TAC[GSYM APPEND_ASSOC]>>
+  irule enc_rel_Append>>
+  irule_at Any enc_rel_abstr>>
+  irule enc_rel_Append>>
+  irule_at (Pos last) enc_rel_abstr>>
+  irule enc_rel_cencode_full_eqs>>
+  simp[]
+QED
+
+(* a sum of literals with coefficient 1 is at most their number, and reaches
+   it exactly when every literal holds *)
+Theorem eval_lin_term_ones:
+  ∀ls. eval_lin_term wb (MAP (λl. (1,l)) ls) ≤ &LENGTH ls ∧
+    (&LENGTH ls ≤ eval_lin_term wb (MAP (λl. (1,l)) ls) ⇔ EVERY (lit wb) ls)
+Proof
+  Induct>>rw[]>>
+  Cases_on`lit wb h`>>
+  gvs[integerTheory.INT,
+    intLib.ARITH_PROVE``∀a b:int. a + 1 ≤ 1 + b ⇔ a ≤ b``]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem cumul_pair_sem:
   valid_assignment bnd wi ⇒
   (EVERY (λx. iconstraint_sem x (wi,wb))
-     (abstr (cumul_pair bnd name i x_i w_i j x_j)) ⇔
+     (abstr (cumul_pair bnd name i x_i w_i pl j x_j)) ⇔
    (wb (cumul_sb name i j) ⇔ varc wi x_i ≤ varc wi x_j) ∧
    (wb (cumul_sa name i j) ⇔ varc wi x_i + varc wi w_i ≥ varc wi x_j + 1) ∧
-   (wb (cumul_sact name i j) ⇔ wb (cumul_sb name i j) ∧ wb (cumul_sa name i j)))
+   (wb (cumul_sact name i j) ⇔
+      wb (cumul_sb name i j) ∧ wb (cumul_sa name i j) ∧ EVERY (lit wb) pl))
 Proof
   strip_tac>>
   simp[cumul_pair_def,append_thm,abstr_cbimply_var,EVERY_REVERSE,bimply_bit_sem,
        lit_def,eval_iclin_term_def,iSUM_def]>>
   simp[intLib.ARITH_PROVE ``∀a b:int. a + -1 * b ≥ 0 ⇔ b ≤ a``,
        intLib.ARITH_PROVE ``∀a b c:int. a + (b + -1 * c) ≥ 1 ⇔ a + b ≥ c + 1``]>>
+  `∀a b. b2i a + (b2i b + eval_lin_term wb (MAP (λl. (1,l)) pl)) ≥
+     2 + &LENGTH pl ⇔
+   a ∧ b ∧ &LENGTH pl ≤ eval_lin_term wb (MAP (λl. (1,l)) pl)` by (
+    qspec_then`pl`(assume_tac o CONJUNCT1) eval_lin_term_ones>>
+    rw[]>>Cases_on`a`>>Cases_on`b`>>simp[pbc_encodeTheory.b2i_alt]>>
+    intLib.ARITH_TAC)>>
+  qspec_then`pl`strip_assume_tac eval_lin_term_ones>>
+  simp[]>>
   metis_tac[]
 QED
 
@@ -693,12 +1088,13 @@ QED
 (* under reify_avar the load term is the height of a running task, else 0 *)
 Theorem cumul_contrib_reify:
   valid_assignment bnd wi ∧
-  ALOOKUP cs (name:mlstring) = SOME (Scheduling (Cumulative Xs Ws Hs cap)) ∧
+  ALOOKUP cs (name:mlstring) = SOME (Scheduling (Cumulative Xs Ws Hs Ps cap)) ∧
   i < LENGTH Xs ∧ j < LENGTH Xs ⇒
   eval_lin_term (reify_avar cs wi)
     (cumul_contrib name i j (EL i Hs) (cumul_hw bnd (EL i Hs))) =
   if varc wi (EL i Xs) ≤ varc wi (EL j Xs) ∧
-     varc wi (EL i Xs) + varc wi (EL i Ws) ≥ varc wi (EL j Xs) + 1
+     varc wi (EL i Xs) + varc wi (EL i Ws) ≥ varc wi (EL j Xs) + 1 ∧
+     varc wi (EL i Ps) = 1
   then varc wi (EL i Hs) else 0
 Proof
   strip_tac>>
@@ -716,15 +1112,16 @@ Proof
     Cases_on`comp`>>
     gvs[pos_num_num_of_bits,reify_avar_def,reify_reif_def,reify_flag_def,
         integerTheory.NUM_OF_INT]>>
+    Cases_on`varc wi (EL i Ps) = 1`>>gvs[num_of_bits_GENLIST_F]>>
     IF_CASES_TAC>>gvs[num_of_bits_GENLIST_F])>>
   rw[varc_def]
 QED
 
 Theorem eval_lin_term_FLAT_MAPi_if[local]:
   ∀ls g P. eval_lin_term wb
-    (FLAT (MAPi (λi (x,w,h). if P i x w h then g i x w h else []) ls)) =
-  iSUM (MAPi (λi (x,w,h).
-    if P i x w h then eval_lin_term wb (g i x w h) else 0) ls)
+    (FLAT (MAPi (λi (x,w,h,p). if P i x w h p then g i x w h p else []) ls)) =
+  iSUM (MAPi (λi (x,w,h,p).
+    if P i x w h p then eval_lin_term wb (g i x w h p) else 0) ls)
 Proof
   Induct
   >- rw[eval_lin_term_def,iSUM_def,indexedListsTheory.MAPi_def]>>
@@ -736,21 +1133,22 @@ QED
 
 Theorem cumul_scap_row_sem:
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (abstr (cumul_scap_row name (cumul_active bnd 0 tasks) cap j w_j h_j)) ⇔
-  iSUM (MAPi (λi (x,w,h).
-    if cumul_task_active bnd w h ∧ (i ≠ j ∨ ISL w)
+    (abstr (cumul_scap_row name (cumul_active bnd 0 tasks) cap j w_j h_j p_j)) ⇔
+  iSUM (MAPi (λi (x,w,h,p).
+    if cumul_task_active bnd w h p ∧ (i ≠ j ∨ ISL w ∨ ISL p)
     then eval_lin_term wb (cumul_contrib name i j h (cumul_hw bnd h)) else 0) tasks) +
-  (if ISL w_j then 0 else varc wi h_j) ≤ varc wi cap
+  (if ISL w_j ∨ ISL p_j then 0 else varc wi h_j) ≤ varc wi cap
 Proof
   `∀B X. eval_lin_term wb (if B then X else []) =
      if B then eval_lin_term wb X else 0` by rw[eval_lin_term_NIL]>>
   `∀A B (e:int). (if A then if B then e else 0 else 0) = if A ∧ B then e else 0` by
     (Cases_on`A`>>simp[])>>
   simp[cumul_scap_row_def,FLAT_MAP_cumul_active]>>
-  Cases_on`cap`>>Cases_on`w_j`>>Cases_on`h_j`>>
+  Cases_on`cap`>>Cases_on`w_j`>>Cases_on`h_j`>>Cases_on`p_j`>>
   gvs[iconstraint_sem_def,eval_ilin_term_def,iSUM_def,varc_def,
       eval_lin_term_FLAT_MAPi_if]>>
   rpt (pop_assum kall_tac)>>
+  qmatch_goalsub_abbrev_tac`iSUM ld`>>
   intLib.ARITH_TAC
 QED
 
@@ -832,7 +1230,7 @@ QED
 (* under reify_avar every gate, pair and diagonal row holds *)
 Theorem cumul_gate_reify:
   valid_assignment bnd wi ∧
-  ALOOKUP cs (name:mlstring) = SOME (Scheduling (Cumulative Xs Ws Hs cap)) ∧
+  ALOOKUP cs (name:mlstring) = SOME (Scheduling (Cumulative Xs Ws Hs Ps cap)) ∧
   i < LENGTH Xs ∧ j < LENGTH Xs ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (abstr (cumul_gate bnd name i j (EL i Hs) (cumul_hw bnd (EL i Hs))))
@@ -851,47 +1249,57 @@ QED
 
 Theorem cumul_pair_reify:
   valid_assignment bnd wi ∧
-  ALOOKUP cs (name:mlstring) = SOME (Scheduling (Cumulative Xs Ws Hs cap)) ∧
-  i < LENGTH Xs ∧ j < LENGTH Xs ⇒
+  ALOOKUP cs (name:mlstring) = SOME (Scheduling (Cumulative Xs Ws Hs Ps cap)) ∧
+  i < LENGTH Xs ∧ j < LENGTH Xs ∧ ¬pres_inactive (EL i Ps) ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (abstr (cumul_pair bnd name i (EL i Xs) (EL i Ws) j (EL j Xs)))
+    (abstr (cumul_pair bnd name i (EL i Xs) (EL i Ws)
+       (val_lit bnd T (EL i Ps)) j (EL j Xs)))
 Proof
   strip_tac>>
-  simp[cumul_pair_sem,reify_avar_def,reify_flag_def,integerTheory.NUM_OF_INT]
+  simp[cumul_pair_sem]>>
+  DEP_REWRITE_TAC[val_lit_T_every]>>
+  simp[reify_avar_def,reify_reif_def,reify_flag_def,integerTheory.NUM_OF_INT,
+    varc_INL]
 QED
 
 Theorem cumul_diag_reify:
   valid_assignment bnd wi ∧
-  ALOOKUP cs (name:mlstring) = SOME (Scheduling (Cumulative Xs Ws Hs cap)) ∧
-  j < LENGTH Xs ⇒
+  ALOOKUP cs (name:mlstring) = SOME (Scheduling (Cumulative Xs Ws Hs Ps cap)) ∧
+  j < LENGTH Xs ∧ j < LENGTH Ws ∧ j < LENGTH Hs ∧ j < LENGTH Ps ∧
+  cumul_task_active bnd (EL j Ws) (EL j Hs) (EL j Ps) ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (abstr (cbimply_var bnd (INR (name,Values [&j; &j] (SOME «sact»)))
-             (mk_constraint_one_ge 1 (EL j Ws) 1)))
+    (abstr (cumul_diag bnd name j (EL j Ws) (val_lit bnd T (EL j Ps))))
 Proof
   strip_tac>>
-  simp[abstr_cbimply_var,EVERY_REVERSE,bimply_bit_sem,lit_def,reify_avar_def,
-       reify_flag_def,integerTheory.NUM_OF_INT]>>
-  rpt (pop_assum kall_tac)>>
+  gvs[cumul_task_active_def]>>
+  DEP_REWRITE_TAC[cumul_diag_sem]>>
+  simp[]>>
+  DEP_REWRITE_TAC[val_lit_T_every]>>
+  simp[reify_avar_def,reify_reif_def,reify_flag_def,integerTheory.NUM_OF_INT,
+    varc_INL]>>
+  rw[]>>
   intLib.ARITH_TAC
 QED
 
 (* a task that cannot be active never loads the resource *)
 Theorem cumul_inactive_zero:
-  valid_assignment bnd wi ∧ ¬cumul_task_active bnd w h ∧ 0 ≤ varc wi h ⇒
-  (if varc wi x ≤ t ∧ t < varc wi x + varc wi w then varc wi h else 0) = 0
+  valid_assignment bnd wi ∧ ¬cumul_task_active bnd w h p ∧ 0 ≤ varc wi h ⇒
+  (if varc wi x ≤ t ∧ t < varc wi x + varc wi w ∧ varc wi p = 1
+   then varc wi h else 0) = 0
 Proof
   strip_tac>>
   `varc wi w ≤ SND (varc_bnd bnd w) ∧ varc wi h ≤ SND (varc_bnd bnd h)` by
     metis_tac[varc_bnd_valid]>>
   gvs[cumul_task_active_def]>>rw[]>>
+  Cases_on`p`>>gvs[pres_inactive_def,varc_def]>>
   rpt (qpat_x_assum`valid_assignment _ _`kall_tac)>>
   intLib.ARITH_TAC
 QED
 
-Theorem MAPi_ZIP3_GENLIST[local]:
-  LENGTH Xs = LENGTH Ws ∧ LENGTH Xs = LENGTH Hs ⇒
-  MAPi f (ZIP (Xs,ZIP (Ws,Hs))) =
-  GENLIST (λi. f i (EL i Xs,EL i Ws,EL i Hs)) (LENGTH Xs)
+Theorem MAPi_ZIP4_GENLIST[local]:
+  LENGTH Xs = LENGTH Ws ∧ LENGTH Xs = LENGTH Hs ∧ LENGTH Xs = LENGTH Ps ⇒
+  MAPi f (ZIP (Xs,ZIP (Ws,ZIP (Hs,Ps)))) =
+  GENLIST (λi. f i (EL i Xs,EL i Ws,EL i Hs,EL i Ps)) (LENGTH Xs)
 Proof
   rw[]>>irule LIST_EQ>>simp[LENGTH_MAPi,LENGTH_ZIP,EL_MAPi,EL_ZIP]
 QED
@@ -920,20 +1328,23 @@ QED
 
 Theorem encode_cumulative_sem_1:
   valid_assignment bnd wi ∧
-  ALOOKUP cs name = SOME (Scheduling (Cumulative Xs Ws Hs cap)) ∧
-  cumulative_sem Xs Ws Hs cap wi ⇒
+  ALOOKUP cs name = SOME (Scheduling (Cumulative Xs Ws Hs Ps cap)) ∧
+  cumulative_sem Xs Ws Hs Ps cap wi ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (encode_cumulative bnd Xs Ws Hs cap name)
+    (encode_cumulative bnd Xs Ws Hs Ps cap name)
 Proof
   rw[]>>
-  `LENGTH Xs = LENGTH Ws ∧ LENGTH Xs = LENGTH Hs` by fs[cumulative_sem_def]>>
-  simp[encode_cumulative_def,cencode_cumulative_ACTIVE,append_thm,EVERY_APPEND]>>
+  `LENGTH Xs = LENGTH Ws ∧ LENGTH Xs = LENGTH Hs ∧ LENGTH Xs = LENGTH Ps` by
+    fs[cumulative_sem_def]>>
+  simp[encode_cumulative_def,mk_pres_range_sem,encode_full_eqs_reify]>>
+  conj_tac >- fs[cumulative_sem_def]>>
+  simp[cencode_cumulative_rows_ACTIVE,append_thm,EVERY_APPEND]>>
   conj_tac
   >- (
     simp[cumul_nonneg_sem]>>
     fs[cumulative_sem_def,EVERY_EL,EL_MAP]>>
     simp[EVERY_EL,LENGTH_ZIP,EL_ZIP,EL_MAP])>>
-  simp[abstr_flat_app,MAPi_ZIP3_GENLIST,MAP_GENLIST,EVERY_FLAT,EVERY_GENLIST,
+  simp[abstr_flat_app,MAPi_ZIP4_GENLIST,MAP_GENLIST,EVERY_FLAT,EVERY_GENLIST,
        combinTheory.o_DEF]>>
   qx_gen_tac`j`>>strip_tac>>
   IF_CASES_TAC>>simp[append_thm]>>
@@ -941,11 +1352,10 @@ Proof
   >- (
     simp[MAP_GENLIST,combinTheory.o_DEF,EVERY_FLAT,EVERY_GENLIST]>>
     rw[append_thm,EVERY_APPEND]>>
-    simp[cumul_pair_reify,cumul_gate_reify]>>
-    simp[reify_avar_def,reify_flag_def,integerTheory.NUM_OF_INT]>>
-    rpt (pop_assum kall_tac)>>intLib.ARITH_TAC)>>
-  simp[cumul_scap_row_sem,MAPi_ZIP3_GENLIST]>>
-  qpat_x_assum`cumulative_sem _ _ _ _ _`mp_tac>>
+    metis_tac[cumul_gate_reify,cumul_diag_reify,cumul_pair_reify,
+      cumul_task_active_def])>>
+  simp[cumul_scap_row_sem,MAPi_ZIP4_GENLIST]>>
+  qpat_x_assum`cumulative_sem _ _ _ _ _ _`mp_tac>>
   simp[cumulative_sem_def]>>strip_tac>>
   first_x_assum(qspec_then`varc wi (EL j Xs)`mp_tac)>>
   simp[EL_MAP]>>strip_tac>>
@@ -953,29 +1363,13 @@ Proof
   first_x_assum (irule_at Any)>>
   irule iSUM_GENLIST_le_add>>
   qexists`j`>>
-  simp[EL_MAP]>>
   `∀i. i < LENGTH Hs ⇒ 0 ≤ varc wi (EL i Hs)` by gvs[EVERY_EL,EL_MAP]>>
-  simp[cumul_contrib_reify,
-       intLib.ARITH_PROVE ``∀a b t:int. (a + b ≥ t + 1) ⇔ (t < a + b)``]>>
-  conj_tac
-  >- (
-    rw[]>>simp[]>>
-    `eval_lin_term (reify_avar cs wi)
-       (cumul_contrib name i j (EL i Hs) (cumul_hw bnd (EL i Hs))) =
-     if varc wi (EL i Xs) ≤ varc wi (EL j Xs) ∧
-        varc wi (EL i Xs) + varc wi (EL i Ws) ≥ varc wi (EL j Xs) + 1
-     then varc wi (EL i Hs) else 0` by (irule cumul_contrib_reify>>simp[])>>
-    pop_assum SUBST1_TAC>>
-    simp[intLib.ARITH_PROVE ``∀a b t:int. (a + b ≥ t + 1) ⇔ (t < a + b)``]>>
-    rw[])>>
-  Cases_on`EL j Ws`>>gvs[cumul_task_active_def,varc_bnd_def,varc_def]>>
-  `eval_lin_term (reify_avar cs wi)
-     (cumul_contrib name j j (EL j Hs) (cumul_hw bnd (EL j Hs))) =
-   if varc wi (EL j Xs) ≤ varc wi (EL j Xs) ∧
-      varc wi (EL j Xs) + varc wi (EL j Ws) ≥ varc wi (EL j Xs) + 1
-   then varc wi (EL j Hs) else 0` by (irule cumul_contrib_reify>>simp[])>>
-  pop_assum SUBST1_TAC>>
-  simp[varc_def,intLib.ARITH_PROVE ``∀a b t:int. (a + b ≥ t + 1) ⇔ (t < a + b)``]
+  drule_then (drule_then assume_tac) cumul_contrib_reify>>
+  simp[EL_MAP,
+    intLib.ARITH_PROVE ``∀a b t:int. (a + b ≥ t + 1) ⇔ (t < a + b)``]>>
+  rw[]>>gvs[]>>
+  Cases_on`EL j Ws`>>Cases_on`EL j Ps`>>
+  gvs[cumul_task_active_def,pres_inactive_def,varc_bnd_def,varc_def]
 QED
 
 Theorem iSUM_GENLIST_add_le[local]:
@@ -1002,29 +1396,48 @@ QED
 Theorem encode_cumulative_sem_2:
   valid_assignment bnd wi ∧ bit_faithful bnd wi wb ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_cumulative bnd Xs Ws Hs cap name) ⇒
-  cumulative_sem Xs Ws Hs cap wi
+    (encode_cumulative bnd Xs Ws Hs Ps cap name) ⇒
+  cumulative_sem Xs Ws Hs Ps cap wi
 Proof
   strip_tac>>
-  `LENGTH Xs = LENGTH Ws ∧ LENGTH Xs = LENGTH Hs` by
-    (CCONTR_TAC>>gvs[encode_cumulative_def,cencode_cumulative_def,cfalse_constr_def])>>
-  gvs[encode_cumulative_def,cencode_cumulative_ACTIVE,append_thm,EVERY_APPEND]>>
-  `0 ≤ varc wi cap ∧ EVERY (λ(x,w,h). 0 ≤ varc wi h) (ZIP (Xs,ZIP (Ws,Hs)))` by
-    (qpat_x_assum`EVERY _ (abstr (cumul_nonneg _ _ _ _))`mp_tac>>simp[cumul_nonneg_sem])>>
+  `LENGTH Xs = LENGTH Ws ∧ LENGTH Xs = LENGTH Hs ∧ LENGTH Xs = LENGTH Ps` by
+    (CCONTR_TAC>>gvs[encode_cumulative_def,cfalse_constr_def])>>
+  gvs[encode_cumulative_def,cencode_cumulative_rows_ACTIVE,append_thm,
+      EVERY_APPEND,mk_pres_range_sem]>>
+  drule_then (drule_then assume_tac) encode_full_eqs_sem_2>>
+  `0 ≤ varc wi cap ∧
+   EVERY (λ(x,w,h,p). 0 ≤ varc wi h) (ZIP (Xs,ZIP (Ws,ZIP (Hs,Ps))))` by
+    (qpat_x_assum`EVERY _ (abstr (cumul_nonneg _ _ _ _))`mp_tac>>
+     simp[cumul_nonneg_sem])>>
   `∀j. j < LENGTH Hs ⇒ 0 ≤ varc wi (EL j Hs)` by
     (gvs[EVERY_EL,LENGTH_ZIP]>>rw[]>>first_x_assum drule>>simp[EL_ZIP])>>
-  `∀j. j < LENGTH Hs ∧ cumul_task_active bnd (EL j Ws) (EL j Hs) ⇒
+  `∀i. i < LENGTH Ps ∧ cumul_task_active bnd (EL i Ws) (EL i Hs) (EL i Ps) ⇒
+     (EVERY (lit wb) (val_lit bnd T (EL i Ps)) ⇔ varc wi (EL i Ps) = 1)` by (
+    rw[]>>
+    irule val_lit_T_every>>
+    simp[]>>
+    reverse conj_tac >- fs[cumul_task_active_def]>>
+    rw[]>>
+    first_x_assum (qspecl_then[`INL v`,`1`]mp_tac)>>
+    impl_tac >- (
+      simp[MEM_cumul_pres_eqs]>>
+      qexistsl_tac[`EL i Xs`,`EL i Ws`,`EL i Hs`,`EL i Ps`]>>
+      simp[val_eq_def,MEM_EL]>>
+      qexists_tac`i`>>simp[EL_ZIP])>>
+    simp[varc_INL])>>
+  `∀j. j < LENGTH Hs ∧ cumul_task_active bnd (EL j Ws) (EL j Hs) (EL j Ps) ⇒
      iSUM (GENLIST (λi.
-       if EL i (MAP (varc wi) Xs) ≤ EL j (MAP (varc wi) Xs) ∧
-          EL j (MAP (varc wi) Xs) <
-            EL i (MAP (varc wi) Xs) + EL i (MAP (varc wi) Ws)
-       then EL i (MAP (varc wi) Hs) else 0) (LENGTH Hs)) ≤ varc wi cap` by (
+       if varc wi (EL i Xs) ≤ varc wi (EL j Xs) ∧
+          varc wi (EL j Xs) < varc wi (EL i Xs) + varc wi (EL i Ws) ∧
+          varc wi (EL i Ps) = 1
+       then varc wi (EL i Hs) else 0) (LENGTH Hs)) ≤ varc wi cap` by (
     qpat_x_assum`EVERY _ (FLAT (MAPi _ _))`mp_tac>>
-    simp[MAPi_ZIP3_GENLIST,MAP_GENLIST,EVERY_FLAT,EVERY_GENLIST,combinTheory.o_DEF]>>
+    simp[MAPi_ZIP4_GENLIST,MAP_GENLIST,EVERY_FLAT,EVERY_GENLIST,
+         combinTheory.o_DEF]>>
     strip_tac>>
     rw[]>>
     qpat_x_assum`∀j. j < _ ⇒ EVERY _ _`(qspec_then`j`mp_tac)>>
-    simp[append_thm,EVERY_APPEND,cumul_scap_row_sem,MAPi_ZIP3_GENLIST]>>
+    simp[append_thm,EVERY_APPEND,cumul_scap_row_sem,MAPi_ZIP4_GENLIST]>>
     strip_tac>>
     irule integerTheory.INT_LE_TRANS>>
     qpat_x_assum`iSUM _ + _ ≤ _`(fn th => irule_at Any th)>>
@@ -1038,74 +1451,102 @@ Proof
     >- (
       qx_gen_tac`i`>>strip_tac>>
       `0 ≤ varc wi (EL i Hs)` by simp[]>>
-      qpat_x_assum`∀i. i < _ ⇒ EVERY _ _`(qspec_then`i`mp_tac)>>
+      qpat_x_assum`∀i'. i' < _ ⇒ EVERY _ _`(qspec_then`i`mp_tac)>>
       simp[]>>
-      Cases_on`cumul_task_active bnd (EL i Ws) (EL i Hs)`>>simp[]
+      Cases_on`cumul_task_active bnd (EL i Ws) (EL i Hs) (EL i Ps)`>>simp[]
       >- (
         simp[cumul_pair_sem]>>strip_tac>>
         drule_all cumul_gate_sem>>
         simp[intLib.ARITH_PROVE ``∀a b t:int. (a + b ≥ t + 1) ⇔ (t < a + b)``])>>
-      `(if varc wi (EL i Xs) ≤ varc wi (EL j Xs) ∧
-           varc wi (EL j Xs) < varc wi (EL i Xs) + varc wi (EL i Ws)
-        then varc wi (EL i Hs) else 0) = 0` by
-        (irule cumul_inactive_zero>>first_assum (irule_at Any)>>simp[])>>
+      sg`(if varc wi (EL i Xs) ≤ varc wi (EL j Xs) ∧
+           varc wi (EL j Xs) < varc wi (EL i Xs) + varc wi (EL i Ws) ∧
+           varc wi (EL i Ps) = 1
+        then varc wi (EL i Hs) else 0) = 0`
+      >- (
+        irule cumul_inactive_zero>>
+        simp[]>>
+        qexists_tac`bnd`>>
+        simp[])>>
       simp[])>>
-    first_x_assum(qspec_then`j`mp_tac)>>simp[]>>
-    Cases_on`ISL (EL j Ws)`>>
-    simp[append_thm,EVERY_APPEND,abstr_cbimply_var,EVERY_REVERSE,bimply_bit_sem,
-         lit_def]
+    qpat_x_assum`∀i'. i' < _ ⇒ EVERY _ _`(qspec_then`j`mp_tac)>>
+    simp[]>>
+    Cases_on`ISL (EL j Ws) ∨ ISL (EL j Ps)`>>simp[]
     >- (
-      strip_tac>>drule_all cumul_gate_sem>>simp[]>>rw[]>>
-      `varc wi (EL j Ws) ≥ 1` by
-        (qpat_x_assum`0 < varc wi (EL j Ws)`mp_tac>>rpt (pop_assum kall_tac)>>
-         intLib.ARITH_TAC)>>
-      gvs[])>>
-    rw[])>>
+      simp[append_thm,EVERY_APPEND]>>strip_tac>>
+      drule_all cumul_gate_sem>>strip_tac>>
+      `0 < SND (varc_bnd bnd (EL j Ws))` by fs[cumul_task_active_def]>>
+      qpat_x_assum`EVERY _ (abstr (cumul_diag _ _ _ _ _))`mp_tac>>
+      DEP_REWRITE_TAC[cumul_diag_sem]>>
+      simp[intLib.ARITH_PROVE ``∀x:int. 1 ≤ x ⇔ 0 < x``])>>
+    Cases_on`EL j Ws`>>Cases_on`EL j Ps`>>
+    gvs[cumul_task_active_def,pres_inactive_def,varc_bnd_def,varc_def])>>
   simp[cumulative_sem_def]>>
-  conj_tac >- simp[EVERY_EL,EL_MAP]>>
-  qx_gen_tac`t`>>
-  qmatch_goalsub_abbrev_tac`iSUM ls ≤ _`>>
-  Cases_on`iSUM ls ≤ 0`
-  >- (irule integerTheory.INT_LE_TRANS>>qexists`0`>>simp[])>>
-  gvs[integerTheory.INT_NOT_LE,Abbr`ls`]>>
-  drule_at Any cumul_load_at_start>>
-  simp[]>>
-  impl_tac >- simp[EVERY_EL,EL_MAP]>>
+  conj_tac >- simp[EVERY_MAP,EVERY_EL]>>
+  simp[Cong GENLIST_CONG,EL_MAP]>>
+  `∀s. GENLIST (λi.
+         if varc wi (EL i Xs) ≤ s ∧ s < varc wi (EL i Xs) + varc wi (EL i Ws) ∧
+            varc wi (EL i Ps) = 1
+         then varc wi (EL i Hs) else 0) (LENGTH Hs) =
+       GENLIST (λi.
+         if EL i (MAP (varc wi) Xs) ≤ s ∧
+            s < EL i (MAP (varc wi) Xs) + EL i (MAP (varc wi) Ws)
+         then EL i (GENLIST (λi. if varc wi (EL i Ps) = 1 then varc wi (EL i Hs)
+                                 else 0) (LENGTH Hs))
+         else 0) (LENGTH Hs)` by (
+    rw[GENLIST_FUN_EQ,EL_MAP]>>
+    Cases_on`varc wi (EL i Ps) = 1`>>simp[])>>
+  pop_assum (fn eq =>
+    qpat_x_assum`∀j. _ ∧ _ ⇒ iSUM _ ≤ _`(assume_tac o REWRITE_RULE[eq])>>
+    REWRITE_TAC[eq])>>
+  gen_tac>>
+  qmatch_goalsub_abbrev_tac`iSUM ld ≤ _`>>
+  Cases_on`iSUM ld ≤ 0`
+  >- (
+    irule integerTheory.INT_LE_TRANS>>
+    qexists`0`>>
+    simp[])>>
+  qunabbrev_tac`ld`>>
+  qspecl_then [`MAP (varc wi) Xs`,`MAP (varc wi) Ws`,
+    `GENLIST (λi. if varc wi (EL i Ps) = 1 then varc wi (EL i Hs) else 0)
+       (LENGTH Hs)`,`LENGTH Hs`]
+    mp_tac (Q.GENL [`ss`,`ls`,`hs`,`n`] cumul_load_at_start)>>
+  impl_tac
+  >- (
+    fs[integerTheory.INT_NOT_LE,EVERY_GENLIST]>>
+    rw[])>>
   strip_tac>>
-  irule integerTheory.INT_LE_TRANS>>
-  first_x_assum (irule_at Any)>>
-  first_x_assum irule>>
-  simp[cumul_task_active_def]>>
-  `varc wi (EL j Ws) ≤ SND (varc_bnd bnd (EL j Ws)) ∧
-   varc wi (EL j Hs) ≤ SND (varc_bnd bnd (EL j Hs))` by metis_tac[varc_bnd_valid]>>
   gvs[EL_MAP]>>
-  ntac 2 (pop_assum mp_tac)>>
-  qpat_x_assum`0 < varc wi (EL j Ws)`mp_tac>>
-  qpat_x_assum`0 < varc wi (EL j Hs)`mp_tac>>
-  rpt (pop_assum kall_tac)>>
-  intLib.ARITH_TAC
+  Cases_on`varc wi (EL j Ps) = 1`>>gvs[]>>
+  irule integerTheory.INT_LE_TRANS>>
+  first_assum (irule_at Any)>>
+  qpat_x_assum`∀j. _ ∧ _ ⇒ iSUM _ ≤ _`irule>>
+  simp[cumul_task_active_def]>>
+  rpt conj_tac
+  >- metis_tac[varc_bnd_valid,integerTheory.INT_LTE_TRANS]
+  >- metis_tac[varc_bnd_valid,integerTheory.INT_LTE_TRANS]>>
+  Cases_on`EL j Ps`>>gvs[pres_inactive_def,varc_def]
 QED
 
 Definition encode_scheduling_constr_def:
   encode_scheduling_constr bnd c name =
   case c of
-    Disjunctive Xs Ws strct =>
-      encode_disjunctive bnd Xs Ws strct name
-  | Disjunctive2D Xs Ys Ws Hs strct =>
-      encode_disjunctive2d bnd Xs Ys Ws Hs strct name
-  | Cumulative Xs Ws Hs cap =>
-      encode_cumulative bnd Xs Ws Hs cap name
+    Disjunctive Xs Ws Ps strct =>
+      encode_disjunctive bnd Xs Ws Ps strct name
+  | Disjunctive2D Xs Ys Ws Hs Ps strct =>
+      encode_disjunctive2d bnd Xs Ys Ws Hs Ps strct name
+  | Cumulative Xs Ws Hs Ps cap =>
+      encode_cumulative bnd Xs Ws Hs Ps cap name
 End
 
 Definition cencode_scheduling_constr_def:
   cencode_scheduling_constr bnd c name ec =
   case c of
-    Disjunctive Xs Ws strct =>
-      (cencode_disjunctive bnd Xs Ws strct name, ec)
-  | Disjunctive2D Xs Ys Ws Hs strct =>
-      (cencode_disjunctive2d bnd Xs Ys Ws Hs strct name, ec)
-  | Cumulative Xs Ws Hs cap =>
-      (cencode_cumulative bnd Xs Ws Hs cap name, ec)
+    Disjunctive Xs Ws Ps strct =>
+      cencode_disjunctive bnd Xs Ws Ps strct name ec
+  | Disjunctive2D Xs Ys Ws Hs Ps strct =>
+      cencode_disjunctive2d bnd Xs Ys Ws Hs Ps strct name ec
+  | Cumulative Xs Ws Hs Ps cap =>
+      cencode_cumulative bnd Xs Ws Hs Ps cap name ec
 End
 
 Theorem encode_scheduling_constr_sem_1:

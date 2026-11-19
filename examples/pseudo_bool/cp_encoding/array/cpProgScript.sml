@@ -49,6 +49,7 @@ val res = translate OUTR;
 val res = translate MIN_DEF;
 val res = translate TAKE_def;
 val res = translate DROP_def;
+val res = translate REPLICATE;
 val res = translate indexedListsTheory.MAPi_ACC_def;
 val res = translate indexedListsTheory.MAPi_compute;
 
@@ -239,8 +240,11 @@ val _ = check_side res;
 
 (* scheduling *)
 val res = translate sexp_disjunctive_body_def;
+val res = translate sexp_disjunctive_optional_body_def;
 val res = translate sexp_disjunctive2d_body_def;
+val res = translate sexp_disjunctive2d_optional_body_def;
 val res = translate sexp_cumulative_body_def;
+val res = translate sexp_cumulative_optional_body_def;
 val res = translate sexp_scheduling_dispatch_def;
 
 val _ = check_side res;
@@ -660,7 +664,6 @@ val res = translate cp_to_ilp_extensionalTheory.cencode_smart_table_def;
 
 (* regular *)
 
-val res = translate REPLICATE;
 val res = translate cp_to_ilp_extensionalTheory.node_tabs_def;
 val res = translate cp_to_ilp_extensionalTheory.edge_lookup_def;
 val res = translate (cp_to_ilp_extensionalTheory.edge_map_def
@@ -862,7 +865,17 @@ val res = translate cp_to_ilp_schedulingTheory.zsize_lit_def;
 val res = translate cp_to_ilp_schedulingTheory.mk_before_links_def;
 val res = translate cp_to_ilp_schedulingTheory.mk_zero_links_def;
 val res = translate cp_to_ilp_schedulingTheory.mk_sep_clauses_def;
+val res = translate cp_to_ilp_schedulingTheory.pres_inactive_def;
+val res = translate cp_to_ilp_schedulingTheory.val_lit_def;
+val res = translate cp_to_ilp_schedulingTheory.val_eq_def;
+val res = translate cp_to_ilp_schedulingTheory.mk_pres_range_def;
+val res = translate cp_to_ilp_schedulingTheory.disj_task_info_def;
+val res = translate cp_to_ilp_schedulingTheory.disj_pres_eqs_def;
+val res = translate cp_to_ilp_schedulingTheory.cencode_disjunctive_rows_def;
 val res = translate cp_to_ilp_schedulingTheory.cencode_disjunctive_def;
+val res = translate cp_to_ilp_schedulingTheory.zsize_ub_inactive_def;
+val res = translate cp_to_ilp_schedulingTheory.disj2d_task_info_def;
+val res = translate cp_to_ilp_schedulingTheory.cencode_disjunctive2d_rows_def;
 val res = translate cp_to_ilp_schedulingTheory.cencode_disjunctive2d_def;
 
 (* cumulative *)
@@ -875,10 +888,13 @@ val res = translate cp_to_ilp_schedulingTheory.cumul_task_active_def;
 val res = translate cp_to_ilp_schedulingTheory.cumul_hw_def;
 val res = translate cp_to_ilp_schedulingTheory.cumul_active_def;
 val res = translate cp_to_ilp_schedulingTheory.cumul_pair_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_diag_def;
 val res = translate cp_to_ilp_schedulingTheory.cumul_contrib_def;
 val res = translate cp_to_ilp_schedulingTheory.cumul_gate_def;
 val res = translate cp_to_ilp_schedulingTheory.cumul_scap_row_def;
 val res = translate cp_to_ilp_schedulingTheory.cumul_nonneg_def;
+val res = translate cp_to_ilp_schedulingTheory.cencode_cumulative_rows_def;
+val res = translate cp_to_ilp_schedulingTheory.cumul_pres_eqs_def;
 val res = translate cp_to_ilp_schedulingTheory.cencode_cumulative_def;
 
 val res = translate cp_to_ilp_schedulingTheory.cencode_scheduling_constr_def;
