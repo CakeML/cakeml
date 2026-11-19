@@ -148,10 +148,29 @@ Proof
   simp [i2w_def]
 QED
 
+Theorem b2w_11:
+  b2w x = b2w y ⇔ x = y
+Proof
+  simp [b2w_ite] >> every_case_tac >> simp []
+QED
+
+Theorem b2n_ite:
+  (if b then 0 else 1) = b2n ¬b
+Proof
+  IF_CASES_TAC >> simp [b2n_def]
+QED
+
+(* TODO This seems worse than b2w_ite *)
 Theorem b2w_b2n:
   (if b2w b = 0w then 0n else 1) = b2n b
 Proof
   Cases_on ‘b’ >> simp [b2w_def, b2n_def]
+QED
+
+Theorem n2w_b2n:
+  n2w (b2n x) = b2w x
+Proof
+  Cases_on ‘x’ >> simp [b2n_def, b2w_def]
 QED
 
 Theorem WORD_NEG1_MUL_NOT:
@@ -312,6 +331,16 @@ Theorem eval_Op_And_SOME:
   eval s x₂ = SOME (ValWord v₂)
   ⇒
   eval s (Op And [x₁; x₂]) = SOME r
+Proof
+  simp [eval_def, word_op_def]
+QED
+
+Theorem eval_Op_Or_SOME:
+  r = ValWord (v₁ || v₂) ∧
+  eval s x₁ = SOME (ValWord v₁) ∧
+  eval s x₂ = SOME (ValWord v₂)
+  ⇒
+  eval s (Op Or [x₁; x₂]) = SOME r
 Proof
   simp [eval_def, word_op_def]
 QED
@@ -807,11 +836,11 @@ fun mwi_and_neg_neg_pan(c, d, e, xs_len, xs, ys_len, ys, zs) {
     var y = lds 1 ys;
     var {1,1} x1c1 = __add_with_carry__(x, -1, c);
     var {1,1} y1d1 = __add_with_carry__(y, -1, d);
-    var {1,1} z1e1 = __add_with_carry__(x1c1.1 | y1d1.1, 0, e);
-    st zs, z1e1.1;
-    c = x1c1.2;
-    d = y1d1.2;
-    e = z1e1.2;
+    var {1,1} z1e1 = __add_with_carry__(x1c1.0 | y1d1.0, 0, e);
+    st zs, z1e1.0;
+    c = x1c1.1;
+    d = y1d1.1;
+    e = z1e1.1;
     xs = xs + @biw;
     ys = ys + @biw;
     zs = zs + @biw;
@@ -821,10 +850,10 @@ fun mwi_and_neg_neg_pan(c, d, e, xs_len, xs, ys_len, ys, zs) {
   while ys_len {
     var y = lds 1 ys;
     var {1,1} y1d1 = __add_with_carry__(y, -1, d);
-    var {1,1} z1e1 = __add_with_carry__(y1d1.1, 0, e);
-    st zs, z1e1.1;
-    d = y1d1.2;
-    e = z1e1.2;
+    var {1,1} z1e1 = __add_with_carry__(y1d1.0, 0, e);
+    st zs, z1e1.0;
+    d = y1d1.1;
+    e = z1e1.1;
     ys = ys + @biw;
     zs = zs + @biw;
     ys_len = ys_len - 1;
@@ -1113,7 +1142,8 @@ val (step_imp_thl: thm list) =
    evaluate_Primitive_AddCarry, evaluate_Seq, eval_Op_BitwiseNot_SOME,
    eval_Cmp_NotLower_SOME,
    eval_RField_Var_Local, evaluate_Store_Local_NONE,
-   eval_Op_And_SOME, evaluate_Assign_Local, eval_Op_Add_SOME, eval_Op_Sub_SOME,
+   eval_Op_And_SOME, eval_Op_Or_SOME,
+   evaluate_Assign_Local, eval_Op_Add_SOME, eval_Op_Sub_SOME,
    evaluate_Tick_NONE, evaluate_Break, evaluate_Return_no_error,
    evaluate_StandAloneCall_NONE_4, lookup_code_SOME]
   |> map stackify_imp_th
@@ -1221,7 +1251,7 @@ end
 
 (* Reduces a goal that contains
   stack (({evaluate,eval,lookup_code} ... = ...)::...). *)
-val step : tactic = fn (g as (asl, w)) => fn ctxt => let
+val step_core : tactic = fn (g as (asl, w)) => fn ctxt => let
   val stack = find_term is_stack w
     handle HOL_ERR _ => raise ERR "step_core" "could not find stack"
   val (head, _) = listSyntax.dest_cons (rand stack)
@@ -1422,7 +1452,7 @@ val side : tactic = fn g => fn ctxt =>
 
 (* Tries to apply step or side. *)
 val step_or_side : tactic = fn (g as (_, w)) => fn ctxt =>
-  ((step ORELSE side) g ctxt)
+  ((step_core ORELSE side) g ctxt)
     handle HOL_ERR _ =>
       raise ERR "step_or_side"
         "Failed to take a step or to discharge a side condition; try step or side."
@@ -1914,6 +1944,48 @@ Proof
   >> enter_loop
   >> walk >> hsimp []
   >> walk
+  >> hsimp [dec_clock_record]
+  >> fs [ones_def]
+  >> SEP_R_TAC
+  >> walk
+  >> hsimp [dec_clock_record]
+  >> Cases_on ‘ys’ >> fs [ones_def]
+  >> SEP_R_TAC
+  >> rpt (walk >> hsimp [])
+  >> hsimp [dec_clock_record]
+  >> Cases_on ‘rs’ >> fs [ones_def]
+  >> SEP_R_TAC
+  >> rpt (walk >> hsimp [])
+  >> simp [GSYM mwi_and_neg_neg_pan_loop0_def]
+  >> last_x_assum drule
+  >> disch_then drule
+  >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
+  >> disch_then $ qspec_then ‘s'’ mp_tac
+  >> simp [Abbr ‘s'’, FLOOKUP_res_var_neq, FLOOKUP_SIMP]
+  >> simp [dec_clock_def, GSYM b2w_ite, b2w_11, WORD_NEG1_MUL_NOT, i2w_one,
+           n2w_SUC]
+  >> simp [i2w_0, i2w_minus_1, b2w_b2n, GSYM word_add_n2w, n2w_b2n]
+  >> qabbrev_tac ‘memory = s.memory’
+  >> SEP_W_TAC
+  >> simp [Abbr ‘memory’]
+  >> strip_tac
+  >> SEP_F_TAC
+  >> strip_tac
+  >> simp [stack_def, state_component_equality, mwi_and_neg_neg_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> rename1 ‘single_add (x₂ ‖ y₂) 0w e = (z₂,e₁)’
+  >> rename1 ‘single_sub h' 0w d = (y₂,d₁)’
+  >> qpat_x_assum ‘single_sub _ _ _ = _’ mp_tac
+  >> rename1 ‘single_sub h 0w c = (x₂,c₁)’
+  >> strip_tac
+  >> qmatch_asmsub_abbrev_tac ‘mwi_and_neg_neg (_ ≤ x₂') (_ ≤ z₂') (_ ≤ y₂')’
+(*
+  >> have ‘x₂' = x₂ ∧ y₂' = y₂ ∧ z₂' = z₂ ∧ c₁ = (dimword (:α) ≤ x₂) ∧
+           d₁ = (dimword (:α) ≤ y₂) ∧ e₁ = (dimword (:α) ≤ z₂)’
+  >> simp [i2w_minus_1, , , b2n_ite, ]
+  >> simp [Abbr ‘r’, i2w_minus_1, w2n_minus1, b2w_b2n, GSYM word_add_n2w,
+           GSYM b2w_def, WORD_NEG1_MUL_NOT]
+*)
   >> cheat
 QED
 
