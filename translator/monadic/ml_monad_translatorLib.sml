@@ -1231,17 +1231,17 @@ fun check_inv name tm result =
                  else tm2
   in
     if aconv tm2' tm then result
-    else (
+    else let val old = HOLFlags.get_bflag Parse.show_types in (
       check_inv_fail := tm;
-      show_types_verbosely := true;
+      HOLFlags.set_bflag (Parse.show_types, true);
       print ("\n\nhol2deep failed at '" ^ name ^ "'\n\ntarget:\n\n");
       print_term tm;
       print "\n\nbut derived:\n\n";
       print_term tm2;
       print "\n\n\n";
-      show_types_verbosely := false;
+      HOLFlags.set_bflag (Parse.show_types, old);
       failwith("checkinv")
-    ) end;
+    ) end end;
 (* end of adaptation *)
 
 fun inst_ro th1 th2 =

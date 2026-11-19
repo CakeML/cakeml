@@ -3375,13 +3375,14 @@ fun check_inv name tm result = let
   val tm2 = result |> concl |> rand |> rand
   in if aconv tm2 tm then result else let
     val _ = (check_inv_fail := tm)
-    val _ = (show_types_verbosely := true)
+    val old = HOLFlags.get_bflag Parse.show_types
+    val _ = (HOLFlags.set_bflag (Parse.show_types, true))
     val _ = print ("\n\nhol2deep failed at '" ^ name ^ "'\n\ntarget:\n\n")
     val _ = print_term tm
     val _ = print "\n\nbut derived:\n\n"
     val _ = print_term tm2
     val _ = print "\n\n\n"
-    val _ = (show_types_verbosely := false)
+    val _ = (HOLFlags.set_bflag (Parse.show_types, old))
     in failwith("checkinv") end end
 
 fun MY_MATCH_MP th1 th2 = let

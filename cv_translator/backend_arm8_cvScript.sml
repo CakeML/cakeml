@@ -130,7 +130,6 @@ val _ = cv_trans e_data_def;
 val _ = cv_trans e_fp_def;
 val _ = cv_trans SystemHintOp2num_thm;
 val _ = cv_trans MemBarrierOp2num_thm;
-val _ = cv_trans e_fp_def;
 val _ = cv_trans arm8Theory.Encode_def;
 val _ = cv_trans arm8_encode_def;
 

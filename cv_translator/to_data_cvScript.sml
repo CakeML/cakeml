@@ -1558,8 +1558,6 @@ QED
 
 val _ = cv_trans $ GSYM $ cj 2 get_size_aux_sc_alt_thm
 
-val _ = cv_trans $ GSYM $ cj 2 get_size_aux_sc_alt_thm
-
 val _ = cv_trans clos_knownTheory.get_size_sc_def
 
 Definition free_alt_def:
