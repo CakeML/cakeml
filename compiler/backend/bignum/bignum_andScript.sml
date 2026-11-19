@@ -8,6 +8,7 @@ Ancestors
 Libs
   stringLib numLib intLib preamble helperLib set_sep_extLib
 
+(* Next: I feel like we want to run some sort of simp before our tactics *)
 (* TODO Check for consistent naming *)
 
 (* TODO
@@ -800,7 +801,7 @@ fun mwi_and_neg_pos_lt(c, xs_len, xs, ys_len, ys, zs) {
   return copy(zs, ys, diff);
 }
 
-fun mwi_and_neg_neg(c, d, e, xs_len, xs, ys_len, ys, zs) {
+fun mwi_and_neg_neg_pan(c, d, e, xs_len, xs, ys_len, ys, zs) {
   while xs_len {
     var x = lds 1 xs;
     var y = lds 1 ys;
@@ -878,44 +879,76 @@ fun get_params name = get_field "params" name and_prog
 fun get_body name   = get_field "body" name and_prog
 fun get_return name = get_field "return" name and_prog
 
+fun fold_back snippets body =
+  body |> REWRITE_CONV (map GSYM snippets) |> concl |> rhs
+
+fun get_loops name =
+  rev $ find_terms (can $ match_term “panLang$While _ _”) $ get_body name
+
 val mw_fix_pan_body              = get_body "mw_fix_pan"
 val mw_and_pan_body              = get_body "mw_and_pan"
 val mwi_and_neg_pos_geq_pan_body = get_body "mwi_and_neg_pos_geq_pan"
 val mw_and_flip_pan_body         = get_body "mw_and_flip_pan"
+val mwi_and_neg_neg_pan_body     = get_body "mwi_and_neg_neg_pan"
+
+(** mw_fix_pan ****************************************************************)
 
 Definition mw_fix_pan_loop_def:
-  mw_fix_pan_loop =
-    ^(find_term (can $ match_term “panLang$While _ _”) mw_fix_pan_body)
+  mw_fix_pan_loop = ^(List.nth (get_loops "mw_fix_pan", 0))
 End
 
+(** mw_and_pan ****************************************************************)
+
 Definition mw_and_pan_loop_def:
-  mw_and_pan_loop =
-    ^(find_term (can $ match_term “panLang$While _ _”) mw_and_pan_body)
+  mw_and_pan_loop = ^(List.nth (get_loops "mw_and_pan", 0))
 End
 
 Definition mw_and_pan_body_def:
-  mw_and_pan_body =
-    ^(rhs $ concl $ REWRITE_CONV [GSYM mw_and_pan_loop_def] mw_and_pan_body)
+  mw_and_pan_body = ^(fold_back [mw_and_pan_loop_def] mw_and_pan_body)
 End
+
+val mw_and_pan_code =
+  list_mk_pair [
+      get_params "mw_and_pan",
+      “mw_and_pan_body”,
+      get_return "mw_and_pan"
+    ]
+
+(** mw_and_flip_pan ***********************************************************)
 
 Definition mw_and_flip_pan_body_def:
   mw_and_flip_pan_body = ^(mw_and_flip_pan_body)
 End
 
+(** mwi_and_neg_pos_geq_pan ***************************************************)
+
 Definition mwi_and_neg_pos_geq_pan_loop_def:
   mwi_and_neg_pos_geq_pan_loop =
-    ^(find_term (can $ match_term “panLang$While _ _”) mwi_and_neg_pos_geq_pan_body)
+    ^(List.nth (get_loops "mwi_and_neg_pos_geq_pan", 0))
 End
 
 Definition mwi_and_neg_pos_geq_pan_body_def:
   mwi_and_neg_pos_geq_pan_body =
-    ^(rhs $ concl $
-        REWRITE_CONV [GSYM mwi_and_neg_pos_geq_pan_loop_def]
-          mwi_and_neg_pos_geq_pan_body)
+    ^(fold_back [mwi_and_neg_pos_geq_pan_loop_def] mwi_and_neg_pos_geq_pan_body)
 End
 
-val mw_and_pan_code =
-  list_mk_pair [get_params "mw_and_pan", “mw_and_pan_body”, get_return "mw_and_pan"]
+(** mwi_and_neg_neg_pan *******************************************************)
+
+Definition mwi_and_neg_neg_pan_loop0_def:
+  mwi_and_neg_neg_pan_loop0 =
+    ^(List.nth (get_loops "mwi_and_neg_neg_pan", 0))
+End
+
+Definition mwi_and_neg_neg_pan_loop1_def:
+  mwi_and_neg_neg_pan_loop1 =
+    ^(List.nth (get_loops "mwi_and_neg_neg_pan", 1))
+End
+
+Definition mwi_and_neg_neg_pan_body_def:
+  mwi_and_neg_neg_pan_body =
+    ^(fold_back [mwi_and_neg_neg_pan_loop0_def, mwi_and_neg_neg_pan_loop1_def]
+        mwi_and_neg_neg_pan_body)
+End
 
 (** Correctness ***************************************************************)
 
@@ -1389,7 +1422,10 @@ val side : tactic = fn g => fn ctxt =>
 
 (* Tries to apply step or side. *)
 val step_or_side : tactic = fn (g as (_, w)) => fn ctxt =>
-  ((step ORELSE side) g ctxt) handle e => raise WRAP_EXN "step_or_side_core" e
+  ((step ORELSE side) g ctxt)
+    handle HOL_ERR _ =>
+      raise ERR "step_or_side"
+        "Failed to take a step or to discharge a side condition; try step or side."
 (*
 val step_or_side : tactic = fn (g as (_, w)) => fn ctxt => let
   val is_step =
@@ -1413,7 +1449,7 @@ val walk : tactic = fn (g as (asl, w)) => fn ctxt =>
 val g as (asl, w) = top_goal ();
 *)
 
-val _ = max_print_depth := ~1
+val _ = max_print_depth := 14
 
 (** mw_fix_pan ****************************************************************)
 
@@ -1825,3 +1861,61 @@ Proof
   >> simp [shape_of_ValWord, size_of_sh_with_ctxt_def, stack_def,
            state_component_equality, empty_locals_def]
 QED
+
+(** mwi_and_neg_neg_pan *******************************************************)
+
+Theorem mwi_and_neg_neg_pan_loop0_thm_raw[local]:
+  ∀(xs: α word list) ys zs rs rs' s c d e x y z len_written frame.
+    LENGTH xs ≤ LENGTH ys ∧
+    LENGTH xs ≤ LENGTH rs ∧
+    LENGTH xs ≤ s.clock ∧
+    rs' =
+      MAP Word (TAKE (LENGTH xs) (mwi_and_neg_neg c d e xs ys)) ++
+      DROP (LENGTH xs) rs ∧
+    FLOOKUP s.locals «c» = SOME (Val (Word (b2w c))) ∧
+    FLOOKUP s.locals «d» = SOME (Val (Word (b2w d))) ∧
+    FLOOKUP s.locals «e» = SOME (Val (Word (b2w e))) ∧
+    FLOOKUP s.locals «xs_len» = SOME (Val (Word (n2w (LENGTH xs)))) ∧
+    FLOOKUP s.locals «xs» = SOME (Val (Word x)) ∧
+    FLOOKUP s.locals «ys_len» = SOME (Val (Word (n2w (LENGTH ys)))) ∧
+    FLOOKUP s.locals «ys» = SOME (Val (Word y)) ∧
+    FLOOKUP s.locals «zs» = SOME (Val (Word z)) ∧
+    (ones x (MAP Word xs) *
+     ones y (MAP Word ys) *
+     ones z rs *
+     frame) (fun2set (s.memory, s.memaddrs)) ∧
+    byte_dimindex (:α) ∧ 8 < dimindex (:α)
+    ⇒
+    ∃m l.
+      evaluate (mwi_and_neg_neg_pan_loop0,s) = (NONE,
+        s with <| memory := m;
+                  locals := l;
+                  clock := s.clock - LENGTH xs |>) ∧
+      (ones x (MAP Word xs) *
+       ones y (MAP Word ys) *
+       ones z rs' *
+       frame) (fun2set (m, s.memaddrs))
+Proof
+  simp [] >> Induct >> rw [mwi_and_neg_neg_pan_loop0_def]
+  >- rw [Once evaluate_def, eval_Var_Local, state_component_equality]
+  >> once_rewrite_tac [GSYM stack_evaluate]
+  >> have ‘SUC (LENGTH xs) < dimword (:α)’
+  >- (
+    drule_all_then assume_tac byte_dimindex_leq
+    >> drule_then mp_tac $
+         INST_TYPE [“:β” |-> “:α word_lab”] ones_leq_dimword
+    >> disch_then $ qspec_then ‘Word h::MAP Word xs’ assume_tac
+    >> SEP_F_TAC >> simp [] >> strip_tac
+    >> drule_all_then assume_tac one_lt_w2n_bytes_in_word
+    >> irule_at (Pos hd) LESS_LESS_EQ_TRANS
+    >> first_assum $ irule_at (Pos last)
+    >> simp []
+  )
+  >> enter_loop
+  >> walk >> hsimp []
+  >> walk
+  >> cheat
+QED
+
+Theorem mwi_and_neg_neg_pan_loop0_thm[local] =
+  SIMP_RULE bool_ss [] mwi_and_neg_neg_pan_loop0_thm_raw
