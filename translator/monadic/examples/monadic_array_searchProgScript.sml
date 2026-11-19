@@ -10,7 +10,7 @@ Ancestors
 
 val _ = set_up_monadic_translator ();
 
-fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
+fun allowing_rebind f = HOLFlags.trace ("Theory.allow_rebinds", 1) f
 
 (* Create the data type to handle the array. *)
 Datatype:

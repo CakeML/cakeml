@@ -46,7 +46,7 @@ Overload failwith = ``raise_Fail``
 val _ = start_translation config;
 
 (* TESTS *)
-val _ = set_trace "assumptions" 1;
+val _ = HOLFlags.set_trace "PP.show_assums" 1;
 val _ = Globals.max_print_depth := 40;
 
 Definition pf_def:

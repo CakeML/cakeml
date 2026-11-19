@@ -13,7 +13,7 @@ Libs
 
 val _ = translation_extends "sat_encodersProg";
 
-val _ = show_assums := true;
+val _ = HOLFlags.set_bflag (Parse.show_assums, true);
 
 (* Graph coloring *)
 val res = translate vertex_to_equation_def;

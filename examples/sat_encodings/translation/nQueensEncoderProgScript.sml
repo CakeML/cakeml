@@ -13,7 +13,7 @@ Libs
 
 val _ = translation_extends "sat_encodersProg";
 
-val _ = show_assums := true;
+val _ = HOLFlags.set_bflag (Parse.show_assums, true);
 
 val res = translate every_at_most_one_def;
 val res = translate get_rows_def;

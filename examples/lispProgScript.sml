@@ -10,7 +10,7 @@ Ancestors
 
 val _ = translation_extends "basisProg";
 
-val _ = show_assums := true;
+val _ = HOLFlags.set_bflag (Parse.show_assums, true);
 
 (* --- functions from source_valuesTheory --- *)
 

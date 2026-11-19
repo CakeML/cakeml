@@ -18,7 +18,7 @@ Libs
 
 
 
-val _ = set_trace "notify type variable guesses" 0;
+val _ = HOLFlags.set_trace "Parse.notify_on_tyvar_guess" 0;
 
 
 (* Extension of itreeTauTheory *)

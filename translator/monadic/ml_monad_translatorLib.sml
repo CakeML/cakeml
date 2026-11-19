@@ -2495,10 +2495,7 @@ in
                     |> dest_thy_const
     val _ = print ("\nERROR: Unable to prove induction for "^name^"\n")
     val _ = print ("\n")
-    val t = (!show_types)
-    val _ = (show_types := true)
-    val _ = print_term goal
-    val _ = (show_types := t)
+    val _ = HOLFlags.with_bflags [(Parse.show_types, true)] print_term goal
     val line_length = 53
     val _ = map print (break_line_at line_length "\n  "
       ("This induction goal has been left as an assumption on the theorem "^

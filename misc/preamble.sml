@@ -63,7 +63,7 @@ fun add_option_monadsyntax() =
   end
 end
 
-val _ = set_trace"Goalstack.print_goal_at_top"0 handle HOL_ERR _ => set_trace"goalstack print goal at top"0
+val _ = HOLFlags.set_trace "Goalstack.print_goal_at_top" 0
 
 (* treat the given eq_tms (list of equations) as rewrite thereoms,
    return the resulting term, note we can't return a theorem because

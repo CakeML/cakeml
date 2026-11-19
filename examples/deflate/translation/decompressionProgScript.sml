@@ -10,7 +10,7 @@ Libs
 
 val _ = translation_extends "lispProg";
 
-val _ = show_assums := true;
+val _ = HOLFlags.set_bflag (Parse.show_assums, true);
 
 val res = translate TAKE;
 val res = translate DROP;
