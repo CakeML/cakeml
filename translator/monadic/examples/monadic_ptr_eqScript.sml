@@ -15,9 +15,6 @@ Datatype:
   ptr_state = <| oracle : num -> bool; count : num |>
 End
 
-Overload same_ptr =
-  “Mptr_eq ptr_state_oracle (λoracle s. s with oracle := oracle)”
-
 Theorem ptr_oracle_accessors:
   ORACLE_ACCESSORS ptr_state_oracle (λoracle s. s with oracle := oracle)
     ((λs. emp):ptr_state -> hprop, p:'ffi ffi_proj)
@@ -25,6 +22,7 @@ Proof
   simp [ORACLE_ACCESSORS_def]
 QED
 
+(* This also introduces the same_ptr overload used below *)
 val _ = start_oracle_translation ptr_oracle_accessors;
 val _ = ml_translatorLib.register_type “:bool # bool”;
 val _ = ml_translatorLib.register_type “:num list”;

@@ -10,7 +10,16 @@ struct
 
   val accessors_ref : thm option ref = ref NONE
 
-  fun start_oracle_translation accessors = accessors_ref := SOME accessors
+  fun start_oracle_translation accessors = let
+    val (get,put) = case strip_comb (concl accessors) of
+                      (_, [get, put, _]) => (get, put)
+                    | _ => raise mk_HOL_ERR "ml_monad_oracleLib"
+                             "start_oracle_translation"
+                             "Expected an ORACLE_ACCESSORS theorem"
+  in
+    accessors_ref := SOME accessors;
+    Parse.temp_overload_on ("same_ptr", list_mk_icomb (Mptr_eq_tm, [get, put]))
+  end
 
   fun accessors () =
     case !accessors_ref of

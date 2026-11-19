@@ -10,7 +10,8 @@ signature ml_monad_oracleLib =
 sig
   include Abbrev
 
-  (* Set the ORACLE_ACCESSORS theorem used by all translations below *)
+  (* Set the ORACLE_ACCESSORS theorem used by all translations below, and
+     overload same_ptr to Mptr_eq with its getter and setter *)
   val start_oracle_translation : thm -> unit
 
   (* Translate Mptr_eq, st_ex_return, st_ex_bind and if on variables *)
