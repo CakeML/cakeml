@@ -39,7 +39,6 @@ End
 
 val adjust_bv_ind = theorem"adjust_bv_ind";
 
-
 Theorem adjust_bv_Unit[simp]:
    adjust_bv x Unit = Unit
 Proof
@@ -468,8 +467,7 @@ Proof
     \\ Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP
     \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[SUBSET_DEF,FLOOKUP_DEF])
   >- (rename [‘ConsExtend’] >>
-    rw [bv_ok_def]
-    >- fs [EVERY_MEM] >>
+    rw [bv_ok_def] >>
     irule EVERY_TAKE >>
     simp [] >>
     irule EVERY_DROP >>
@@ -1340,43 +1338,54 @@ Proof
   \\ simp []
 QED
 
-Theorem do_eq_adjust_lemma[local]:
-  (!refs x1 x2 b.
-              refs = r.refs /\
-              do_eq refs x1 x2 = Eq_val b /\ state_rel b2 r t2 /\
-              bv_ok r.refs x1 /\ bv_ok r.refs x2 ==>
-              do_eq t2.refs (adjust_bv b2 x1) (adjust_bv b2 x2) = Eq_val b) /\
-   (!refs x1 x2 b.
-              refs = r.refs /\
-              do_eq_list refs x1 x2 = Eq_val b /\ state_rel b2 r t2 /\
-              EVERY (bv_ok r.refs) x1 /\ EVERY (bv_ok r.refs) x2 ==>
-              do_eq_list t2.refs (MAP (adjust_bv b2) x1) (MAP (adjust_bv b2) x2) = Eq_val b)
+Theorem do_cmp_adjust_lemma[local]:
+  (∀refs x1 x2.
+     refs = r.refs ∧ state_rel b2 r t2 ∧
+     bv_ok r.refs x1 ∧ bv_ok r.refs x2 ⇒
+     do_cmp t2.refs (adjust_bv b2 x1) (adjust_bv b2 x2) = do_cmp refs x1 x2) ∧
+  (∀refs xs ys.
+     refs = r.refs ∧ state_rel b2 r t2 ∧
+     EVERY (bv_ok r.refs) xs ∧ EVERY (bv_ok r.refs) ys ⇒
+     do_cmp_list t2.refs (MAP (adjust_bv b2) xs) (MAP (adjust_bv b2) ys) =
+     do_cmp_list refs xs ys)
 Proof
-  ho_match_mp_tac do_eq_ind \\ rw [] \\ fs [adjust_bv_def]
-  THEN1 (
-    fs[bv_ok_def]
-    \\ Cases_on`FLOOKUP r.refs n2` >- fs[FLOOKUP_DEF]
-    \\ Cases_on`FLOOKUP r.refs n1` >- fs[FLOOKUP_DEF] \\ fs[]
-    \\ fs[state_rel_def]
-    \\ last_assum(qspec_then`n2`mp_tac)
-    \\ last_x_assum(qspec_then`n1`mp_tac)
-    \\ simp[]
-    \\ every_case_tac \\ fs[]
-    \\ fs[INJ_DEF]
-    \\ metis_tac[])
-  \\ fs [isClos_def] \\ rfs []
-  \\ fs [bv_ok_def] \\ rfs []
-  \\ rpt (pop_assum mp_tac)
-  \\ CONV_TAC (DEPTH_CONV ETA_CONV)
-  \\ rw [] \\ every_case_tac \\ fs []
+  ho_match_mp_tac do_cmp_ind \\ rpt strip_tac
+  \\ gvs [adjust_bv_def, bv_ok_def, Excl "do_cmp_def"]
+  >~ [‘do_cmp _ (RefPtr _ _) (RefPtr _ _)’] >- (
+    qmatch_goalsub_rename_tac
+      ‘do_cmp r.refs (RefPtr left_flag left_ptr) (RefPtr right_flag right_ptr)’
+    \\ fs [state_rel_def, Excl "do_cmp_def"]
+    \\ ‘b2 left_ptr = b2 right_ptr ⇔ left_ptr = right_ptr’ by metis_tac [INJ_DEF]
+    \\ qpat_x_assum ‘∀k. case FLOOKUP r.refs k of NONE => _ | SOME value => _’
+         (fn th => assume_tac (Q.SPEC ‘left_ptr’ th) \\ mp_tac (Q.SPEC ‘right_ptr’ th))
+    \\ namedCases_on ‘FLOOKUP r.refs left_ptr’ ["", "left_ref"]
+    >- gvs [FLOOKUP_DEF]
+    \\ gvs [Excl "do_cmp_def"]
+    \\ namedCases_on ‘FLOOKUP r.refs right_ptr’ ["", "right_ref"]
+    >- gvs [FLOOKUP_DEF]
+    \\ gvs [Excl "do_cmp_def"]
+    \\ Cases_on ‘left_ref’ \\ Cases_on ‘right_ref’ \\ gvs []
+    \\ rpt (TOP_CASE_TAC \\ gvs []))
+  >~ [‘do_cmp _ (Block _ _) (Block _ _)’] >- (
+    pure_rewrite_tac [do_cmp_def]
+    \\ gvs [isClos_def, ETA_AX, Excl "do_cmp_def"]
+    \\ rpt (IF_CASES_TAC \\ gvs [isClos_def, Excl "do_cmp_def"])
+    \\ CONV_TAC (DEPTH_CONV ETA_CONV)
+    \\ first_x_assum irule \\ fs [SF ETA_ss, Excl "do_cmp_def"])
+  >~ [‘do_cmp_list _ (_::_) (_::_)’] >- (
+    pure_rewrite_tac [do_cmp_def |> CONJUNCT2]
+    \\ namedCases_on ‘do_cmp r.refs x1 x2’ ["head_cmp", ""]
+    \\ gvs [Excl "do_cmp_def"]
+    \\ IF_CASES_TAC \\ gvs [Excl "do_cmp_def"])
+  \\ simp []
 QED
 
-Theorem do_eq_adjust[local]:
-  do_eq r.refs x1 x2 = Eq_val b /\ state_rel b2 r t2 /\
-   bv_ok r.refs x1 /\ bv_ok r.refs x2 ==>
-   do_eq t2.refs (adjust_bv b2 x1) (adjust_bv b2 x2) = Eq_val b
+Theorem do_cmp_adjust[local]:
+  do_cmp r.refs x1 x2 = Cmp_val result ∧ state_rel b2 r t2 ∧
+  bv_ok r.refs x1 ∧ bv_ok r.refs x2 ⇒
+  do_cmp t2.refs (adjust_bv b2 x1) (adjust_bv b2 x2) = Cmp_val result
 Proof
-  metis_tac [do_eq_adjust_lemma]
+  metis_tac [do_cmp_adjust_lemma]
 QED
 
 Theorem list_to_v_adjust:
@@ -1599,19 +1608,20 @@ Proof
     \\ qpat_x_assum ‘FLOOKUP r.refs p2 = _’ mp_tac
     \\ simp_tac (srw_ss()) [] \\ gvs []
     \\ metis_tac [])
-  \\ Cases_on `op = BlockOp Equal` \\ fs [] THEN1 (
+  \\ Cases_on ‘op = BlockOp Equal ∨ op = BlockOp PolyCompare’
+  >- (
+    fs [] \\ strip_tac
+    \\ gvs [AllCaseEqs(), PULL_EXISTS, SWAP_REVERSE_SYM]
+    \\ drule_all do_cmp_adjust \\ strip_tac
+    \\ simp [bvlSemTheory.do_app_def, bvi_to_bvl_def, adjust_bv_def]
+    \\ fs [state_rel_def, bvl_to_bvi_def, bvi_to_bvl_def])
+  \\ fs []
+  \\ Cases_on ‘op = BlockOp PtrEqual’ \\ fs []
+  >- (
     strip_tac
-    \\ `?x1 x2. REVERSE a = [x1;x2]` by (every_case_tac \\ fs [] \\ NO_TAC)
-    \\ fs [] \\ Cases_on `do_eq s5.refs x1 x2` \\ fs [] \\ rw []
-    \\ fs [bvlSemTheory.do_app_def]
-    \\ drule do_eq_adjust \\ fs []
-    \\ fs [SWAP_REVERSE_SYM]
-    \\ fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def])
-  \\ Cases_on `op = BlockOp PtrEqual` \\ fs [] THEN1
-   (strip_tac
-    \\ `t2.ptr_eq_oracle = s5.ptr_eq_oracle` by fs [state_rel_def]
+    \\ ‘t2.ptr_eq_oracle = s5.ptr_eq_oracle’ by fs [state_rel_def]
     \\ gvs [AllCaseEqs(), SWAP_REVERSE_SYM]
-    \\ drule do_eq_adjust \\ fs []
+    \\ drule do_cmp_adjust \\ fs []
     \\ fs [bvlSemTheory.do_app_def, bvi_to_bvl_def]
     \\ fs [state_rel_def, bvl_to_bvi_def, bvi_to_bvl_def])
   \\ Cases_on `op = MemOp BoundsCheckArray` THEN1 (
@@ -2136,7 +2146,6 @@ THEN1 (fs [EVERY_MEM] \\ res_tac \\ fs [nss_lemma])
   \\ rw [] \\ fs []
   \\ asm_exists_tac \\ fs []
 QED
-
 
 Theorem compile_inc_next:
    bvl_to_bvi$compile_inc next1 prog1 = (next2,prog2) ==>
@@ -3455,7 +3464,6 @@ Resume compile_exps_correct[Op]:
     \\ fs [] \\ strip_tac \\ fs [MAP_REVERSE]
 QED
 
-
 Resume compile_exps_correct[NIL]:
   REPEAT STRIP_TAC
   \\ full_simp_tac(srw_ss())[bEval_def,compile_exps_def,
@@ -4107,7 +4115,6 @@ Resume compile_exps_correct[Call]:
       (imp_res_tac bvi_letProofTheory.evaluate_compile_exp \\ fs[]
       \\ Cases_on`e` \\ full_simp_tac(srw_ss())[])
 QED
-
 
 Finalise compile_exps_correct;
 
@@ -4770,12 +4777,8 @@ Proof
       \\ fs [EVERY_MEM] \\ metis_tac [rich_listTheory.MEM_LAST_NOT_NIL])   (* Let: LAST *)
   >- (fs [ETA_THM, EVERY_MAP, EVERY_MEM] \\ rw []
       \\ irule bvi_let_delete_var_no_mutcons \\ res_tac \\ fs [])          (* Let: delete_var *)
-  >- fs [ETA_THM]                                   (* Op *)
   >- (rpt CASE_TAC \\ simp [])                      (* Force *)
-  >- fs [ETA_THM]                                   (* Call args *)
-  >- (Cases_on ‘h’ \\ gvs [])                       (* Call handler *)
-  >- fs [ETA_THM]                                   (* Return *)
-  \\ fs [ETA_THM]                                   (* LetCall args *)
+  \\ Cases_on ‘h’ \\ gvs []                         (* Call handler *)
 QED
 
 Theorem bvi_let_compile_exp_no_mutcons[local]:
@@ -5332,7 +5335,6 @@ Proof
   \\ rpt(qpat_x_assum`in_ns _ _`mp_tac) \\ EVAL_TAC \\ rw[]
 QED
 
-
 Theorem compile_distinct_names:
     bvl_to_bvi$compile n0 c p2 = (k,p3,l,bl,n1,n2,n3) /\
    ALL_DISTINCT (MAP FST p2) /\
@@ -5408,7 +5410,6 @@ Proof
   \\ disch_then drule \\ strip_tac
   \\ fs[EVERY_MEM, backend_commonTheory.data_num_stubs_def, backend_commonTheory.bvl_num_stubs_def]
 QED
-
 
 Theorem ALL_DISTINCT_MAP_FST_SND_full_co:
    ALL_DISTINCT (MAP FST (SND (co n))) ∧
@@ -5491,7 +5492,6 @@ Proof
       \\ rw[] \\ fs[] \\ rfs[])
   \\ simp[]
 QED
-
 
 Theorem destLet_code_labels:
    destLet x = (y,z) ⇒

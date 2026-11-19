@@ -80,18 +80,18 @@ fun check1 tm var =
   (If t (Op t (MemOp (BoundsCheckByte T)) [^(var 1); ^(var 0)])
   (If t (Op t (MemOp (BoundsCheckByte T))
           [Op t (IntOp (Smallnum SmallAdd)) [^(var 0); ^(var 2); ^(var 1)]; ^(var 0)]) ^tm
-  (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
-  (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
-  (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))``;
+  (Raise t (Op t (BlockOp (Cons (runtime_exn_tag subscript_tag))) [])))
+  (Raise t (Op t (BlockOp (Cons (runtime_exn_tag subscript_tag))) [])))
+  (Raise t (Op t (BlockOp (Cons (runtime_exn_tag subscript_tag))) [])))``;
 
 val checkT = check1
   ``(closLang$Op t (MemOp (CopyByte T)) [Var t 0; Var t 1; Var t 2])`` (var_fun 2);
 
 val checkF = check1
-``(If t (Op t (IntOp Less) [Op t (IntOp (Const 0)) []; Var t 0]) (Raise t (Op t (BlockOp (Cons subscript_tag)) []))
+``(If t (Op t (IntOp Less) [Op t (IntOp (Const 0)) []; Var t 0]) (Raise t (Op t (BlockOp (Cons (runtime_exn_tag subscript_tag))) []))
   (If t (Op t (MemOp (BoundsCheckByte T)) [Op t (IntOp Add) [Var t 2; Var t 0]; Var t 1])
      (Op t (MemOp (CopyByte F)) [Var t 0; Var t 1; Var t 2; Var t 3; Var t 4])
-     (Raise t (Op t (BlockOp (Cons subscript_tag)) []))))`` (var_fun 4);
+     (Raise t (Op t (BlockOp (Cons (runtime_exn_tag subscript_tag))) []))))`` (var_fun 4);
 
 Definition CopyByteStr_def:
   CopyByteStr t = ^checkT
@@ -107,14 +107,14 @@ Definition compile_scan_def:
       (If t (Op t (MemOp (BoundsCheckByte T)) [Var t 3; Var t 0])
         (If t (Op t (MemOp (BoundsCheckByte T)) [Var t 2; Var t 0])
           (Op t (MemOp (ScanByte neq)) [Var t 0; Var t 1; Var t 2; Var t 3])
-          (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
-        (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+          (Raise t (Op t (BlockOp (Cons (runtime_exn_tag subscript_tag))) [])))
+        (Raise t (Op t (BlockOp (Cons (runtime_exn_tag subscript_tag))) [])))
 End
 
 Definition CopyWord_checked_def:
   CopyWord_checked t src_array alloc_new =
     let src_len = if src_array then MemOp Length else BlockOp LengthBlock in
-    let fail = Raise t (Op t (BlockOp (Cons subscript_tag)) []) in
+    let fail = Raise t (Op t (BlockOp (Cons (runtime_exn_tag subscript_tag))) []) in
     let finish =
       if alloc_new then
         Op t (MemOp (CopyWord T)) [Var t 0; Var t 1; Var t 2]
@@ -183,7 +183,7 @@ Definition compile_trunc_div_def:
   compile_trunc_div t is_div k xs =
     Let t xs
       (If t (Op t (BlockOp Equal) [Var t k; Op t (IntOp (Const 0)) []])
-         (Raise t (Op t (BlockOp (Cons div_tag)) []))
+         (Raise t (Op t (BlockOp (Cons (runtime_exn_tag div_tag))) []))
          (if is_div then compile_quot t k else compile_rem t k))
 End
 
@@ -195,10 +195,10 @@ Definition compile_arith_def:
                | Sub => Op t (IntOp Sub) xs
                | Mul => Op t (IntOp Mult) xs
                | Div RoundDown => Let t xs (If t (Op t (BlockOp Equal) [Var t 0; Op t (IntOp (Const 0)) []])
-                                   (Raise t (Op t (BlockOp (Cons div_tag)) []))
+                                   (Raise t (Op t (BlockOp (Cons (runtime_exn_tag div_tag))) []))
                                    (Op t (IntOp closLang$Div) [Var t 0; Var t 1]))
                | Mod RoundDown => Let t xs (If t (Op t (BlockOp Equal) [Var t 0; Op t (IntOp (Const 0)) []])
-                                   (Raise t (Op t (BlockOp (Cons div_tag)) []))
+                                   (Raise t (Op t (BlockOp (Cons (runtime_exn_tag div_tag))) []))
                                    (Op t (IntOp closLang$Mod) [Var t 0; Var t 1]))
                | Div TowardsZero => compile_trunc_div t T 0 xs
                | Mod TowardsZero => compile_trunc_div t F 0 xs
@@ -232,7 +232,7 @@ Definition compile_smallnum_div_def:
         (if LENGTH xs = 3 then
            [Var t 0; Op t (IntOp (Const 0)) []; Var t 1]
          else [Var t 0; Op t (IntOp (Const 0)) []]))
-        (Raise t (Op t (BlockOp (Cons div_tag)) []))
+        (Raise t (Op t (BlockOp (Cons (runtime_exn_tag div_tag))) []))
         (Op t (IntOp (Smallnum smallop))
           (GENLIST (Var t) (LENGTH xs))))
 End
@@ -281,6 +281,7 @@ Definition compile_op_def:
     | Src Opref => Op t (MemOp Ref) xs
     | Src ConfigGC => Op t (MemOp ConfigGC) xs
     | Src Equality => Op t (BlockOp Equal) xs
+    | Src PolyCompare => Op t (BlockOp closLang$PolyCompare) xs
     | Src PtrEq => Op t (BlockOp PtrEqual) xs
     | Src (FFI n) => Op t (FFI n) xs
     | Src ListAppend => Op t (BlockOp ListAppend) xs
@@ -325,22 +326,22 @@ Definition compile_op_def:
     | Src Aw8length => Op t (MemOp LengthByte) xs
     | Src AallocFixed => Op t (MemOp Ref) xs
     | Src Aalloc => Let t xs (If t (Op t (IntOp Less) [Op t (IntOp (Const 0)) []; Var t 1])
-                               (Raise t (Op t (BlockOp (Cons subscript_tag)) []))
+                               (Raise t (Op t (BlockOp (Cons (runtime_exn_tag subscript_tag))) []))
                                (Op t (MemOp RefArray) [Var t 0; Var t 1]))
     | Src Aw8alloc => Let t xs (If t (Op t (IntOp Less) [Op t (IntOp (Const 0)) []; Var t 1])
-                                 (Raise t (Op t (BlockOp (Cons subscript_tag)) []))
+                                 (Raise t (Op t (BlockOp (Cons (runtime_exn_tag subscript_tag))) []))
                                  (Op t (MemOp (RefByte F)) [Var t 0; Var t 1]))
     | Src Vsub => Let t xs (If t (Op t (BlockOp BoundsCheckBlock) [Var t 0; Var t 1])
                              (Op t (MemOp El) [Var t 0; Var t 1])
-                             (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+                             (Raise t (Op t (BlockOp (Cons (runtime_exn_tag subscript_tag))) [])))
     | Src Vsub_unsafe => Op t (MemOp El) xs
     | Src Asub => Let t xs (If t (Op t (MemOp BoundsCheckArray) [Var t 0; Var t 1])
                              (Op t (MemOp El) [Var t 0; Var t 1])
-                             (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+                             (Raise t (Op t (BlockOp (Cons (runtime_exn_tag subscript_tag))) [])))
     | Src Asub_unsafe => Op t (MemOp El) xs
     | Src Aupdate => Let t xs (If t (Op t (MemOp BoundsCheckArray) [Var t 1; Var t 2])
                                 (Op t (MemOp Update) [Var t 0; Var t 1; Var t 2])
-                                (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+                                (Raise t (Op t (BlockOp (Cons (runtime_exn_tag subscript_tag))) [])))
     | Src Aupdate_unsafe => Op t (MemOp Update) xs
     | Src Aw8ScanEq => compile_scan t F xs
     | Src Aw8ScanNeq => compile_scan t T xs
@@ -348,23 +349,23 @@ Definition compile_op_def:
     | Src StrScanNeq => compile_scan t T xs
     | Src Aw8sub => Let t xs (If t (Op t (MemOp (BoundsCheckByte F)) [Var t 0; Var t 1])
                                (Op t (MemOp DerefByte) [Var t 0; Var t 1])
-                               (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+                               (Raise t (Op t (BlockOp (Cons (runtime_exn_tag subscript_tag))) [])))
     | Src Aw8sub_unsafe => Op t (MemOp DerefByte) xs
     | Src Aw8update => Let t xs (If t (Op t (MemOp (BoundsCheckByte F)) [Var t 1; Var t 2])
                                   (Op t (MemOp UpdateByte) [Var t 0; Var t 1; Var t 2])
-                                  (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+                                  (Raise t (Op t (BlockOp (Cons (runtime_exn_tag subscript_tag))) [])))
     | Src Aw8update_unsafe => Op t (MemOp UpdateByte) xs
     | Src Aw8subBit => Let t xs (If t (Op t (MemOp BoundsCheckBit) [Var t 0; Var t 1])
                                   (Op t (MemOp DerefBit) [Var t 0; Var t 1])
-                                  (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+                                  (Raise t (Op t (BlockOp (Cons (runtime_exn_tag subscript_tag))) [])))
     | Src Aw8updateBit => Let t xs (If t (Op t (MemOp BoundsCheckBit) [Var t 1; Var t 2])
                                      (Op t (MemOp UpdateBit) [Var t 0; Var t 1; Var t 2])
-                                     (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+                                     (Raise t (Op t (BlockOp (Cons (runtime_exn_tag subscript_tag))) [])))
     | Src Aw8subBit_unsafe => Op t (MemOp DerefBit) xs
     | Src Aw8updateBit_unsafe => Op t (MemOp UpdateBit) xs
     | Src Strsub => Let t xs (If t (Op t (MemOp (BoundsCheckByte F)) [Var t 0; Var t 1])
                                (Op t (MemOp DerefByteVec) [Var t 0; Var t 1])
-                               (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+                               (Raise t (Op t (BlockOp (Cons (runtime_exn_tag subscript_tag))) [])))
     | Src Strsub_unsafe => Op t (MemOp DerefByteVec) xs
     | Src Eval => Op t Install xs
     | Src (ThunkOp op) => Op t (ThunkOp op) xs
@@ -384,9 +385,9 @@ Definition compile_op_def:
                      (Op t (IntOp Mod) [Op None (IntOp (Const 256)) []; Var t 0])))
     | Src (FromTo IntT (WordT W64)) => Op t (WordOp WordFromInt) xs
     | Src (FromTo IntT CharT) => Let t xs (If t (Op t (IntOp Less) [Op None (IntOp (Const 0)) []; Var t 0])
-                        (Raise t (Op t (BlockOp (Cons chr_tag)) []))
+                        (Raise t (Op t (BlockOp (Cons (runtime_exn_tag chr_tag))) []))
                         (If t (Op t (IntOp Less) [Var t 0; Op None (IntOp (Const 255)) []])
-                          (Raise t (Op t (BlockOp (Cons chr_tag)) []))
+                          (Raise t (Op t (BlockOp (Cons (runtime_exn_tag chr_tag))) []))
                           (Var t 0)))
     | Src (FromTo Float64T (WordT W64)) => Let None xs (Var None 0)
     | Src (FromTo (WordT W64) Float64T) => Let None xs (Var None 0)
@@ -465,7 +466,7 @@ Definition compile_def:
   (compile m [Lit t l] = [compile_lit t l]) /\
   (compile m [Var_local t v] = [Var t (findi (SOME v) m)]) /\
   (compile m [Con t n es] =
-     let tag = (case n of SOME (t,_) => t | _ => 0) in
+     let tag = (case n of SOME (t,ty) => encode_ctor_tag t ty | _ => 0) in
        [SmartCons t tag (compile m (REVERSE es))]) /\
   (compile m [App t op es] =
      case dest_nop op es of

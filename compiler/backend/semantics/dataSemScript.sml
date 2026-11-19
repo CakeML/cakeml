@@ -130,7 +130,8 @@ Definition size_of_def:
      | SOME (MutBlock tg fin ls c rs) =>
          let (n,refs,seen) = size_of lims (ls ++ [c] ++ rs) (delete r refs) seen in
            (n + LENGTH ls + LENGTH rs + 2, refs, seen)) /\
-  (size_of lims [Block ts tag []]) refs seen = (0, refs, seen) /\
+  (size_of lims [Block ts tag []]) refs seen =
+     (if is_exn_tag tag then 1 else 0, refs, seen) /\
   (size_of lims [Block ts tag vs] refs seen =
      if IS_SOME (sptree$lookup ts seen) then (0, refs, seen) else
        let (n,refs,seen) = size_of lims vs refs (insert ts () seen) in
@@ -310,7 +311,9 @@ Definition eq_code_stack_max_def:
       (sptree$lookup Equal_location tsz)
       (OPTION_MAP2 MAX
         (lookup Equal1_location tsz)
-        (lookup Compare1_location tsz)))
+        (OPTION_MAP2 MAX
+          (lookup Compare_location tsz)
+          (lookup Compare1_location tsz))))
 End
 
 Definition stack_consumed_def:
@@ -388,6 +391,8 @@ Definition stack_consumed_def:
       OPTION_MAP2 MAX (lookup Mul_location sfs)
         (max_depth sfs AnyArith_call_tree)) /\
   (stack_consumed sfs lims (BlockOp Equal) [v1;v2] =
+   (eq_code_stack_max (MIN (vs_depth v1 + 1) (vs_depth v2 + 1)) sfs)) /\
+  (stack_consumed sfs lims (BlockOp PolyCompare) [v1;v2] =
    (eq_code_stack_max (MIN (vs_depth v1 + 1) (vs_depth v2 + 1)) sfs)) /\
   (stack_consumed sfs lims (IntOp Sub) [Number n1; Number n2] =
     if small_num lims.arch_64_bit n1 /\
@@ -481,40 +486,42 @@ Definition isClos_def:
   isClos t1 l1 = (((t1 = closure_tag) \/ (t1 = partial_app_tag)) /\ l1 <> [])
 End
 
-Definition do_eq_def[simp]:
-  (do_eq _ (CodePtr _) _ = Eq_type_error) ∧
-  (do_eq _ _ (CodePtr _) = Eq_type_error) ∧
-  (do_eq _ (Number n1) (Number n2) = (Eq_val (n1 = n2))) ∧
-  (do_eq _ (Number _) _ = Eq_type_error) ∧
-  (do_eq _ _ (Number _) = Eq_type_error) ∧
-  (do_eq _ (Word64 w1) (Word64 w2) = (Eq_val (w1 = w2))) ∧
-  (do_eq _ (Word64 _) _ = Eq_type_error) ∧
-  (do_eq _ _ (Word64 _) = Eq_type_error) ∧
-  (do_eq refs (RefPtr b1 n1) (RefPtr b2 n2) =
+Definition do_cmp_def[simp]:
+  (do_cmp _ (CodePtr _) _ = Cmp_type_error) ∧
+  (do_cmp _ _ (CodePtr _) = Cmp_type_error) ∧
+  (do_cmp _ (Number n1) (Number n2) = Cmp_val (compare_int n1 n2)) ∧
+  (do_cmp _ (Number _) _ = Cmp_type_error) ∧
+  (do_cmp _ _ (Number _) = Cmp_type_error) ∧
+  (do_cmp _ (Word64 w1) (Word64 w2) = Cmp_val (compare_int (&w2n w1) (&w2n w2))) ∧
+  (do_cmp _ (Word64 _) _ = Cmp_type_error) ∧
+  (do_cmp _ _ (Word64 _) = Cmp_type_error) ∧
+  (do_cmp refs (RefPtr b1 n1) (RefPtr b2 n2) =
     if b1 ∧ b2 then
-     (case (sptree$lookup n1 refs, sptree$lookup n2 refs) of
-        (SOME (ByteArray T bs1), SOME (ByteArray T bs2))
-          => Eq_val (bs1 = bs2)
-      | (SOME (ByteArray T bs1), _) => Eq_type_error
-      | (_, SOME (ByteArray T bs2)) => Eq_type_error
-      | _ => Eq_val (n1 = n2))
-    else Eq_type_error) ∧
-  (do_eq _ (RefPtr _ _) _ = Eq_type_error) ∧
-  (do_eq _ _ (RefPtr _ _) = Eq_type_error) ∧
-  (* TODO: How time-stamps impact equality between blocks? *)
-  (do_eq refs (Block _ t1 l1) (Block _ t2 l2) =
-   if isClos t1 l1 \/ isClos t2 l2
-   then if isClos t1 l1 /\ isClos t2 l2 then Eq_val T else Eq_type_error
-   else if (t1 = t2) ∧ (LENGTH l1 = LENGTH l2)
-        then do_eq_list refs l1 l2
-        else Eq_val F) ∧
-  (do_eq_list _ [] [] = Eq_val T) ∧
-  (do_eq_list refs (v1::vs1) (v2::vs2) =
-   case do_eq refs v1 v2 of
-   | Eq_val T => do_eq_list refs vs1 vs2
-   | Eq_val F => Eq_val F
-   | bad => bad) ∧
-  (do_eq_list _ _ _ = Eq_val F)
+      (case (sptree$lookup n1 refs, sptree$lookup n2 refs) of
+         (SOME (ByteArray T bs1), SOME (ByteArray T bs2)) =>
+           compare_lit (StrLit (bytes_to_mlstring bs1)) (StrLit (bytes_to_mlstring bs2))
+       | (SOME (ByteArray T bs1), _) => Cmp_type_error
+       | (_, SOME (ByteArray T bs2)) => Cmp_type_error
+       | _ => Cmp_val (if n1 = n2 then 0 else 1))
+    else Cmp_type_error) ∧
+  (do_cmp _ (RefPtr _ _) _ = Cmp_type_error) ∧
+  (do_cmp _ _ (RefPtr _ _) = Cmp_type_error) ∧
+  (do_cmp refs (Block _ t1 l1) (Block _ t2 l2) =
+    if isClos t1 l1 ∨ isClos t2 l2 then
+      if isClos t1 l1 ∧ isClos t2 l2 then Cmp_val 0 else Cmp_type_error
+    else if t1 = t2 ∧ LENGTH l1 = LENGTH l2 then do_cmp_list refs l1 l2
+    else if is_exn_tag t1 then Cmp_val 1
+    else if t1 = t2 then Cmp_val (compare_int (&LENGTH l1) (&LENGTH l2))
+    else if NULL l1 ∧ ¬NULL l2 then Cmp_val (-1)
+    else if ¬NULL l1 ∧ NULL l2 then Cmp_val 1
+    else Cmp_val (compare_int (&t1) (&t2))) ∧
+  (do_cmp_list _ [] [] = Cmp_val 0) ∧
+  (do_cmp_list _ [] (_::ys) = Cmp_val (-1)) ∧
+  (do_cmp_list _ (_::xs) [] = Cmp_val 1) ∧
+  (do_cmp_list refs (v1::vs1) (v2::vs2) =
+    case do_cmp refs v1 v2 of
+      Cmp_val n => if n = 0 then do_cmp_list refs vs1 vs2 else Cmp_val n
+    | bad => bad)
 End
 
 Overload Error[local] =
@@ -561,7 +568,7 @@ Definition with_fresh_ts_def:
 End
 
 Definition lim_safe_part_def[simp]:
-  (lim_safe_part lims (Con tag xs) ⇔ if xs = []
+  (lim_safe_part lims (Con tag xs) ⇔ if xs = [] /\ ~is_exn_tag tag
                              then tag < 2 ** (arch_size lims) DIV 16
                              else
                                LENGTH xs < 2 ** lims.length_limit /\
@@ -583,7 +590,7 @@ End
 
 Definition lim_safe_def[simp]:
   (lim_safe lims (BlockOp (Cons tag)) xs =
-    if xs = []
+    if xs = [] /\ ~is_exn_tag tag
     then tag < 2 ** (arch_size lims) DIV 16
     else
       LENGTH xs < 2 ** lims.length_limit /\
@@ -1173,14 +1180,18 @@ Definition do_app_aux_def:
                         | _ => Error)
                      | _ => Error)
          | _ => Error)
+    | (BlockOp PolyCompare,[x1;x2]) =>
+        (case do_cmp s.refs x1 x2 of
+         | Cmp_val n => Rval (Number n, s)
+         | _ => Error)
     | (BlockOp Equal,[x1;x2]) =>
-        (case do_eq s.refs x1 x2 of
-         | Eq_val b => Rval (Boolv b, s)
+        (case do_cmp s.refs x1 x2 of
+         | Cmp_val n => Rval (Boolv (n = 0), s)
          | _ => Error)
     | (BlockOp PtrEqual,[x1;x2]) =>
-        (case do_eq s.refs x1 x2 of
-         | Eq_val b =>
-             Rval (Boolv (b ∧ s.ptr_eq_oracle 0 0),
+        (case do_cmp s.refs x1 x2 of
+         | Cmp_val n =>
+             Rval (Boolv (n = 0 ∧ s.ptr_eq_oracle 0 0),
                    s with ptr_eq_oracle :=
                      (0 =+ shift_seq 1 (s.ptr_eq_oracle 0)) s.ptr_eq_oracle)
          | _ => Error)
@@ -1655,7 +1666,7 @@ Theorem case_eq_thms =
    bool_case_eq::
    (List.map TypeBase.case_eq_of
              [``:'a list``, ``:'a option``, ``:closLang$op``, ``:v``, ``:'a ref``,
-              ``:word_size``, ``:eq_result``, ``:'a ffi_result``]))
+              ``:word_size``, ``:cmp_result``, ``:'a ffi_result``]))
   |> LIST_CONJ
 
 Theorem do_stack_clock:

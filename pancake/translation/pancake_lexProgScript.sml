@@ -3,11 +3,11 @@
 *)
 Theory pancake_lexProg[no_sig_docs]
 Ancestors
-  panLexer location parserProg ml_translator
+  panLexer location from_wordProg ml_translator
 Libs
   preamble ml_translatorLib
 
-val _ = translation_extends "parserProg";
+val _ = translation_extends "from_wordProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "pancake_lexProg");
 
@@ -64,7 +64,7 @@ Theorem unhex_alt_1_side[local]:
   ∀x. unhex_alt_1_side x
 Proof
   simp[Once (fetch "-" "unhex_alt_1_side_def"),
-       Once (fetch "lexerProg" "unhex_side_def"),
+       Once (fetch "from_wordProg" "unhex_side_def"),
        isHexDigit_def]>>
   Cases>>
   fs[ORD_CHR]>>
@@ -77,15 +77,9 @@ val _ = update_precondition unhex_alt_1_side;
 Theorem num_from_dec_string_alt_1_side[local]:
   ∀x. num_from_dec_string_alt_1_side x
 Proof
-  simp[Once (fetch"-""num_from_dec_string_alt_1_side_def")]>>
-  strip_tac>>CONJ_TAC
-  >-
-    simp[Once (fetch"lexerProg""s2n_side_def"), (fetch "lexerProg" "l2n_side")]
-  >>
-    simp[Once (fetch"-""unhex_alt_1_side_def"),Once (fetch"lexerProg""unhex_side_def"),isDigit_def,isHexDigit_def]>>Cases>>
-    fs[ORD_CHR]>>
-    strip_tac>>
-    fs[]
+  simp [Once (fetch "-" "num_from_dec_string_alt_1_side_def"),
+        Once (fetch "from_wordProg" "s2n_side_def"),
+        hol_baseProgTheory.l2n_side,unhex_alt_1_side]
 QED
 
 val _ = update_precondition num_from_dec_string_alt_1_side;
@@ -102,19 +96,19 @@ QED
 
 val _ = update_precondition next_atom_side;
 
-Theorem next_token_1_side[local]:
-  ∀x y. next_token_1_side x y
+Theorem next_token_side[local]:
+  ∀x y. next_token_side x y
 Proof
-  simp [Once (fetch "-" "next_token_1_side_def"), next_atom_side]
+  simp [Once (fetch "-" "next_token_side_def"), next_atom_side]
 QED
 
-val _ = update_precondition next_token_1_side;
+val _ = update_precondition next_token_side;
 
 Theorem pancake_lex_aux_side[local]:
   ∀s n. pancake_lex_aux_side s n
 Proof
   ho_match_mp_tac pancake_lex_aux_ind>>rw[]>>
-  simp [Once (fetch "-" "pancake_lex_aux_side_def"), next_token_1_side]
+  simp [Once (fetch "-" "pancake_lex_aux_side_def"), next_token_side]
 QED
 
 val _ = update_precondition pancake_lex_aux_side;

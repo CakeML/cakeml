@@ -43,7 +43,8 @@ End
 
 Definition arm8_asl_regs_ok_def:
   arm8_asl_regs_ok asl ⇔
-    LENGTH (R_ref.read_from asl.regstate) = 32
+    LENGTH (R_ref.read_from asl.regstate) = 32 ∧
+    LENGTH (Z_ref.read_from asl.regstate) = 32
 End
 
 Definition arm8_asl_ok_def:
@@ -54,6 +55,7 @@ Definition arm8_asl_ok_def:
     ¬word_bit 37 (TCR_EL1_ref.read_from asl.regstate) ∧ (* ¬TCR_EL1.TBI0 *)
     ¬word_bit 38 (TCR_EL1_ref.read_from asl.regstate) ∧ (* ¬TCR_EL1.TBI1 *)
     aligned 2 (PC_ref.read_from asl.regstate) ∧ (* aligned 2 PC *)
+    FPCR_ref.read_from asl.regstate = 0w ∧
     arm8_asl_mem_ok asl ∧ arm8_asl_regs_ok asl ∧
 
     ¬(highest_el_aarch32_ref.read_from asl.regstate) ∧
@@ -68,7 +70,11 @@ Definition arm8_asl_ok_def:
     ¬word_bit 51 (TCR_EL1_ref.read_from asl.regstate) ∧
     ¬word_bit 52 (TCR_EL1_ref.read_from asl.regstate) ∧
     ¬word_bit 29 (TCR_EL2_ref.read_from asl.regstate) ∧
-    ¬word_bit 29 (TCR_EL3_ref.read_from asl.regstate)
+    ¬word_bit 29 (TCR_EL3_ref.read_from asl.regstate) ∧
+    word_bit 20 (CPACR_EL1_ref.read_from asl.regstate) ∧
+    word_bit 21 (CPACR_EL1_ref.read_from asl.regstate) ∧
+    ¬word_bit 10 (CPTR_EL2_ref.read_from asl.regstate) ∧
+    ¬word_bit 10 (CPTR_EL3_ref.read_from asl.regstate)
 End
 
 (********** Target record **********)
@@ -79,6 +85,8 @@ Definition arm8_asl_proj_def:
     SCTLR_EL1_ref.read_from asl.regstate,
     TCR_EL1_ref.read_from asl.regstate,
     R_ref.read_from asl.regstate,
+    MAP (w2w : 2048 word -> word64) (Z_ref.read_from asl.regstate),
+    FPCR_ref.read_from asl.regstate,
     fun2set ($' asl.memstate o w2n, mem),
     PC_ref.read_from asl.regstate,
       ¬(highest_el_aarch32_ref.read_from asl.regstate) ∧
@@ -93,7 +101,11 @@ Definition arm8_asl_proj_def:
       ¬word_bit 51 (TCR_EL1_ref.read_from asl.regstate) ∧
       ¬word_bit 52 (TCR_EL1_ref.read_from asl.regstate) ∧
       ¬word_bit 29 (TCR_EL2_ref.read_from asl.regstate) ∧
-      ¬word_bit 29 (TCR_EL3_ref.read_from asl.regstate),
+      ¬word_bit 29 (TCR_EL3_ref.read_from asl.regstate) ∧
+      word_bit 20 (CPACR_EL1_ref.read_from asl.regstate) ∧
+      word_bit 21 (CPACR_EL1_ref.read_from asl.regstate) ∧
+      ¬word_bit 10 (CPTR_EL2_ref.read_from asl.regstate) ∧
+      ¬word_bit 10 (CPTR_EL3_ref.read_from asl.regstate),
     arm8_asl_mem_ok asl,
     arm8_asl_regs_ok asl
     )
@@ -105,6 +117,8 @@ Definition arm8_asl_target_def:
      ; config := arm8_config
      ; get_pc := (λasl. PC_ref.read_from asl.regstate)
      ; get_reg := (λasl n. EL n $ R_ref.read_from asl.regstate)
+     ; get_fp_reg :=
+          (λasl n. w2w (EL n (Z_ref.read_from asl.regstate)))
      ; get_byte :=
           (λasl a:word64.  (v2w : bool list -> word8)
             (MAP (THE o bool_of_bitU) $ asl.memstate ' (w2n a)))

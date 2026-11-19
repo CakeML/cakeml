@@ -69,53 +69,9 @@ val _ = translate (next_sym_alt_def |> REWRITE_RULE [GSYM sub_check_def]);
 val _ = translate (next_token_def |> SIMP_RULE std_ss [next_sym_eq])
 
 val _ = translate lexer_fun_aux_def
-val _ = translate lexer_fun_def
+val res = translate lexer_fun_def;
 
-Theorem l2n_side = hol_baseProgTheory.l2n_side;
-
-val num_from_dec_string_alt_side = Q.prove(`
-  ∀x. num_from_dec_string_alt_side x ⇔ T`,
-  simp[Once (fetch"-""num_from_dec_string_alt_side_def")]>>
-  strip_tac>>CONJ_TAC
-  >-
-    simp[Once (fetch"-""s2n_side_def"),l2n_side]
-  >>
-    simp[Once (fetch"-""unhex_alt_side_def"),Once (fetch"-""unhex_side_def"),isDigit_def,isHexDigit_def]>>Cases>>
-    fs[ORD_CHR]>>
-    strip_tac>>
-    fs[]) |> update_precondition;
-
-val num_from_hex_string_alt_side = Q.prove(`
-  ∀x. num_from_hex_string_alt_side x ⇔ T`,
-  simp[Once (fetch"-""num_from_hex_string_alt_side_def")]>>
-  strip_tac>>CONJ_TAC
-  >-
-    simp[Once (fetch"-""s2n_side_def"),l2n_side]
-  >>
-    simp[Once (fetch"-""unhex_alt_side_def"),Once (fetch"-""unhex_side_def"),isDigit_def,isHexDigit_def]>>Cases>>
-    fs[ORD_CHR]>>
-    strip_tac>>
-    fs[]) |> update_precondition;
-
-Theorem next_sym_alt_side[local]:
-  ∀x l. next_sym_alt_side x l ⇔ T
-Proof
-  ho_match_mp_tac next_sym_alt_ind>>rw[]>>
-  simp[Once (fetch"-""next_sym_alt_side_def"),num_from_dec_string_alt_side,num_from_hex_string_alt_side]>>
-  rw[]>>
-  fs[FALSE_def,sub_check_def]
-QED
-
-val lexer_fun_aux_side = Q.prove(`
-  ∀x l. lexer_fun_aux_side x l ⇔ T`,
-  ho_match_mp_tac lexer_fun_aux_ind>>rw[]>>
-  simp[Once (fetch"-""lexer_fun_aux_side_def"),
-       Once (fetch"-""next_token_side_def"),next_sym_alt_side])
-  |> update_precondition
-
-val lexer_fun_side = Q.prove(`
-  ∀x. lexer_fun_side x ⇔ T`,
-  EVAL_TAC>>fs[lexer_fun_aux_side]) |> update_precondition
+val _ = null (hyp res) orelse failwith "Unproved lexer side condition";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

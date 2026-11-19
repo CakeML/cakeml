@@ -575,7 +575,7 @@ QED
 
 (* A weight, then a list of literals terminated by 0.
   The comment convention differs from DIMACS CNF: any token starting with
-  "c" opens a comment, so syntax_helper's keep_line does not apply here. *)
+  "c" opens a comment, so keep_line does not apply here. *)
 Definition parse_wclause_def:
   parse_wclause ls =
   case ls of [] => NONE
@@ -606,7 +606,7 @@ End
 
 Definition parse_wcnf_def:
   parse_wcnf strs =
-  let tokss = MAP syntax_helper$toks strs in
+  let tokss = MAP toks strs in
   parse_wcnf_toks tokss []
 End
 

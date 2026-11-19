@@ -795,7 +795,7 @@ Proof
     fs [loopSemTheory.eval_def, wlab_wloc_def] >>
     qsuff_tac ‘∃ck st.
                  evaluate (nested_seq p,t with clock := ck + t.clock) = (NONE,st) ∧
-                 the_words (MAP (λa. eval st a) les) =
+                 the_words (MAP (eval st) les) =
                  SOME ((MAP (λw. case w of Word n =>  n) ws)) /\
                  state_rel s st ∧ mem_rel s.memory st.memory s.memaddrs ∧
                  globals_rel s.globals st.globals ∧

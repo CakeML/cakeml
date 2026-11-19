@@ -20,8 +20,8 @@ Theorem pmatch_v_ok:
   (∀envC s p v ws env.
     pmatch envC s p v ws = Match env ∧
     v_ok ctxt v ∧
-    (∀n len tag m.
-      nsLookup envC n = SOME (len,TypeStamp tag m) ∧
+    (∀n len tag m pos.
+      nsLookup envC n = SOME (len,TypeStamp tag m pos) ∧
       m ∈ kernel_types ⇒
         id_to_n n ∈ kernel_ctors) ∧
     (∀loc r. loc ∉ kernel_locs ∧ LLOOKUP s loc = SOME r ⇒ ref_ok ctxt r) ∧
@@ -30,8 +30,8 @@ Theorem pmatch_v_ok:
   (∀envC s ps vs ws env.
     pmatch_list envC s ps vs ws = Match env ∧
     EVERY (v_ok ctxt) vs ∧
-    (∀n len tag m.
-      nsLookup envC n = SOME (len,TypeStamp tag m) ∧
+    (∀n len tag m pos.
+      nsLookup envC n = SOME (len,TypeStamp tag m pos) ∧
       m ∈ kernel_types ⇒
         id_to_n n ∈ kernel_ctors) ∧
     (∀loc r. loc ∉ kernel_locs ∧ LLOOKUP s loc = SOME r ⇒ ref_ok ctxt r) ∧
@@ -70,7 +70,7 @@ Proof
   >- (
     last_x_assum
       (qspecl_then
-        [`mk_id (path ++ id_to_mods id) (id_to_n id)`, `len`, `tag`, `tn`]
+        [`mk_id (path ++ id_to_mods id) (id_to_n id)`, `len`, `tag`, `tn`, `pos`]
         mp_tac)
     \\ simp [])
   \\ first_x_assum
@@ -78,6 +78,20 @@ Proof
       [`mk_id (path ++ id_to_mods n) (id_to_n n)`, `v`]
       mp_tac)
   \\ gs []
+QED
+
+Theorem build_tdefs_stamp_bounds:
+  ∀m tds n len tag ty pos.
+    nsLookup (build_tdefs m tds) n = SOME (len, TypeStamp tag ty pos) ⇒
+      m ≤ ty ∧ ty < m + LENGTH tds
+Proof
+  ho_match_mp_tac build_tdefs_ind
+  \\ simp [build_tdefs_def, nsLookup_nsAppend_some,
+           nsLookup_alist_to_ns_some, SF SFY_ss]
+  \\ rw [] \\ gs [SF SFY_ss]
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ gvs [build_constrs_def, MEM_MAPi, EXISTS_PROD, ELIM_UNCURRY]
+  \\ res_tac \\ gs []
 QED
 
 local
@@ -328,6 +342,10 @@ Theorem do_app_ok:
         | _ => T
 Proof
   strip_tac
+  \\ Cases_on `op = PolyCompare` \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_def]
+    \\ qexists_tac `st` \\ gs [SF SFY_ss])
   \\ Cases_on `op = CopyVecVec`
   >- (
     gvs [do_app_cases,v_ok_def]
@@ -799,11 +817,10 @@ Proof
 QED
 
 Resume evaluate_v_ok[App_Op]:
-  rw [evaluate_def] \\ Cases_on ‘getOpClass op’ \\ gs[]
-  >~ [‘EvalOp’] >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
-  >~ [‘FunApp’] >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
-  >~ [‘Force’] >- (
-    Cases_on ‘op’ \\ gvs [] \\ Cases_on ‘t’ \\ gvs []
+  rw [evaluate_def]
+  \\ Cases_on ‘op = ThunkOp ForceThunk’
+  >- (
+    gvs []
     \\ qpat_x_assum ‘_ = (s',res)’ mp_tac
     \\ TOP_CASE_TAC \\ gvs []
     \\ last_x_assum drule_all \\ strip_tac
@@ -900,14 +917,15 @@ Resume evaluate_v_ok[App_Op]:
     \\ disch_then drule \\ gvs []
     \\ impl_tac \\ gvs []
     \\ gvs [EVERY_EL])
-  >~ [‘PtrEqOp’] >- (
+  \\ Cases_on ‘op = PtrEq’
+  >- (
     gvs [AllCaseEqs()]
     \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs [state_ok_def]
     \\ rename1 ‘EVERY (v_ok ctxt1)’
     \\ qexists_tac ‘ctxt1’ \\ gs []
     \\ rw [Boolv_def, v_ok_def]
     \\ metis_tac [])
-  >~ [‘Simple’] >- (
+  >- (
     gvs [AllCaseEqs()]
     \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs [state_ok_def]
     \\ rename1 ‘EVERY (v_ok ctxt1)’
@@ -1189,18 +1207,10 @@ Resume evaluate_v_ok[decs_Dtype]:
   \\ gs [extend_dec_env_def, build_tdefs_def, env_ok_def,
          nsLookup_nsAppend_some, nsLookup_alist_to_ns_some, SF SFY_ss]
   \\ rw [] \\ gs [SF SFY_ss]
-  \\ ‘∀m tds n l t k.
-        nsLookup (build_tdefs m tds) n = SOME (l, TypeStamp t k) ⇒
-          m ≤ k’
-    by (ho_match_mp_tac build_tdefs_ind
-        \\ simp [build_tdefs_def, nsLookup_nsAppend_some,
-                 nsLookup_alist_to_ns_some, SF SFY_ss]
-        \\ rw [] \\ gs [SF SFY_ss]
-        >- (
-          first_x_assum drule
-          \\ gs [])
-        \\ drule_then assume_tac ALOOKUP_MEM
-        \\ gs [build_constrs_def, MEM_MAP, EXISTS_PROD])
+  \\ `∀m tds n l t k pos.
+        nsLookup (build_tdefs m tds) n = SOME (l, TypeStamp t k pos) ⇒
+          m ≤ k`
+    by metis_tac [build_tdefs_stamp_bounds]
   \\ first_x_assum (drule_then assume_tac)
   \\ first_x_assum drule_all \\ gs []
 QED

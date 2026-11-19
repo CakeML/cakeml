@@ -1290,35 +1290,50 @@ Proof
   >> simp [Once v_rel_cases]
 QED
 
-Theorem do_eq_v_rel:
+Theorem do_cmp_v_rel:
   (∀refs x1 x2 t_refs y1 y2.
      v_rel f x1 y1 ∧ v_rel f x2 y2 ∧ state_ref_rel f refs t_refs ∧ fmap_inj f ⇒
-     do_eq refs x1 x2 = do_eq t_refs y1 y2) ∧
+     do_cmp refs x1 x2 = do_cmp t_refs y1 y2) ∧
   (∀refs x1s x2s t_refs y1s y2s.
      LIST_REL (v_rel f) x1s y1s ∧ LIST_REL (v_rel f) x2s y2s ∧
      state_ref_rel f refs t_refs ∧ fmap_inj f ⇒
-     do_eq_list refs x1s x2s = do_eq_list t_refs y1s y2s)
+     do_cmp_list refs x1s x2s = do_cmp_list t_refs y1s y2s)
 Proof
-  ho_match_mp_tac bvlSemTheory.do_eq_ind >> rw []
-  >> gvs [v_rel_cases, bvlSemTheory.isClos_def]
-  >> imp_res_tac LIST_REL_LENGTH >> gvs []
-  >> imp_res_tac state_ref_rel_lookup >> gvs [ref_rel_cases]
-  >> rw [] >> gvs []
-  >> TRY (qspecl_then [‘f’,‘n1’,‘m’,‘n2’,‘m'’] mp_tac fmap_inj_flookup_eq
-          >> impl_tac >- gvs [] >> strip_tac >> gvs [])
-  >> TRY (qspecl_then [‘f’,‘n’,‘m’,‘n'’,‘m'’] mp_tac fmap_inj_flookup_eq
-          >> impl_tac >- gvs [] >> strip_tac >> gvs [])
-  >> rw [] >> gvs []
-  >> TRY (first_x_assum irule >> gvs [])
-  >> qmatch_goalsub_abbrev_tac ‘do_eq_list t_refs aa bb’
-  >> ‘do_eq_list refs xs xs' = do_eq_list t_refs aa bb’ by
-       (last_x_assum (qspecl_then [‘t_refs’, ‘Block n aa’, ‘Block n bb’] mp_tac)
-        >> impl_tac >- gvs [Abbr ‘aa’, Abbr ‘bb’]
-        >> simp [bvlSemTheory.do_eq_def, bvlSemTheory.isClos_def])
-  >> gvs []
-  >> Cases_on ‘do_eq_list t_refs aa bb’ >> gvs []
-  >> Cases_on ‘b’ >> gvs []
-  >> first_x_assum irule >> gvs []
+  ho_match_mp_tac bvlSemTheory.do_cmp_ind >> rpt strip_tac
+  >> gvs [Excl "do_cmp_def"]
+  >~ [‘do_cmp_list refs (_::_) (_::_)’] >- (
+    qmatch_goalsub_rename_tac
+      ‘do_cmp_list t_refs (target_head_left::target_tail_left)
+         (target_head_right::target_tail_right)’
+    >> qpat_x_assum ‘∀target_refs target_left target_right. _’ drule_all
+    >> strip_tac
+    >> simp [Once bvlSemTheory.do_cmp_def]
+    >> namedCases_on ‘do_cmp t_refs target_head_left target_head_right’
+         ["head_cmp", ""]
+    >> gvs [Excl "do_cmp_def"]
+    >> IF_CASES_TAC >> gvs [Excl "do_cmp_def"]
+    >> first_x_assum irule >> gvs [Excl "do_cmp_def"])
+  >~ [‘do_cmp refs (RefPtr _ _) (RefPtr _ _)’] >- (
+    gvs [v_rel_cases, Excl "do_cmp_def"]
+    >> qmatch_goalsub_rename_tac
+         ‘do_cmp refs (RefPtr left_flag source_left) (RefPtr right_flag source_right)’
+    >> qmatch_goalsub_rename_tac
+         ‘do_cmp t_refs (RefPtr _ target_left) (RefPtr _ target_right)’
+    >> qspecl_then [‘f’,‘source_left’,‘target_left’,‘source_right’,‘target_right’]
+         mp_tac fmap_inj_flookup_eq
+    >> impl_tac >- gvs [Excl "do_cmp_def"]
+    >> strip_tac
+    >> imp_res_tac state_ref_rel_lookup
+    >> gvs [ref_rel_cases, Excl "do_cmp_def"]
+    >> gvs [Once bvlSemTheory.do_cmp_def])
+  >~ [‘do_cmp refs (Block _ _) (Block _ _)’] >- (
+    gvs [v_rel_cases, Excl "do_cmp_def"]
+    >> imp_res_tac LIST_REL_LENGTH
+    >> pure_rewrite_tac [bvlSemTheory.do_cmp_def]
+    >> full_simp_tac bool_ss [bvlSemTheory.isClos_def, GSYM NULL_EQ, NULL_LENGTH]
+    >> rpt (IF_CASES_TAC >> full_simp_tac bool_ss [])
+    >> first_x_assum irule >> gvs [Excl "do_cmp_def"])
+  >> gvs [v_rel_cases]
 QED
 
 Theorem do_word_app_v_rel:
@@ -2141,12 +2156,12 @@ val block_listappend_tac =
   >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> irule list_to_v_v_rel >> irule EVERY2_APPEND_suff >> gvs [];
 
-(* Equal: structural equality preserved by the renaming (uses do_eq_v_rel). *)
+(* Equality and PolyCompare are preserved by reference renaming. *)
 val block_equal_tac =
   qexists ‘f’
   >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
   >> ‘fmap_inj f’ by gvs [state_rel_def]
-  >> qspecl_then [‘s.refs’,‘x1'’,‘x2'’,‘s'.refs’,‘y’,‘y'’] mp_tac (cj 1 do_eq_v_rel)
+  >> qspecl_then [‘s.refs’,‘x1'’,‘x2'’,‘s'.refs’,‘y’,‘y'’] mp_tac (cj 1 do_cmp_v_rel)
   >> impl_tac >- gvs []
   >> strip_tac
   >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, holes_still_not_finalised_refl]
@@ -2156,7 +2171,7 @@ val block_ptr_equal_tac =
   qexists ‘f’
   >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
   >> ‘fmap_inj f ∧ s'.ptr_eq_oracle = s.ptr_eq_oracle’ by gvs [state_rel_def]
-  >> imp_res_tac (cj 1 do_eq_v_rel)
+  >> imp_res_tac (cj 1 do_cmp_v_rel)
   >> gvs [bvi_to_bvl_def, bvl_to_bvi_def, only_fresh_refl,
           holes_unchanged_except_refl, holes_still_not_finalised_refl]
   >> gvs [state_rel_def]
@@ -3551,7 +3566,7 @@ Theorem evaluate_rewrite_tmc:
   ∀n xs ^s env1 r t opt f s' env2 loc.
     evaluate (xs,env1,s) = (r,t) ∧
     n = (s.clock, list_size exp_size xs) ∧
-    env_rel opt f env1 env2 ∧ EVERY (λx. no_mutcons x) xs ∧
+    env_rel opt f env1 env2 ∧ EVERY no_mutcons xs ∧
     state_rel f s s' ∧
     (opt ⇒ LENGTH xs = 1) ∧
     r ≠ Rerr (Rabort Rtype_error) ⇒
@@ -3715,7 +3730,7 @@ Definition hypothesis_def:
   s''.clock < clock ⇒
   ∀env1' r' t' opt' f' s'³' env2' loc'.
             evaluate (xs',env1',s'') = (r',t') ∧
-            env_rel opt' f' env1' env2' ∧ EVERY (λx. no_mutcons x) xs' ∧
+            env_rel opt' f' env1' env2' ∧ EVERY no_mutcons xs' ∧
             state_rel f' s'' s'³' ∧
             (opt' ⇒ LENGTH xs' = 1) ∧
             r' ≠ Rerr (Rabort Rtype_error) ⇒
@@ -4766,11 +4781,11 @@ Theorem bvi_to_cb_aux_no_mutcons_lemma[local]:
   (∀n loc tag exp cb bs.
      bvi_to_cb_aux_sing n loc tag exp = SOME (bs,cb) ∧
      no_mutcons (Op (BlockOp (Cons tag)) [exp]) ⇒
-     EVERY (λx. no_mutcons x) bs) ∧
+     EVERY no_mutcons bs) ∧
   (∀n loc tag args cb bs.
      bvi_to_cb_aux n loc tag args = SOME (bs,cb) ∧
      no_mutcons (Op (BlockOp (Cons tag)) args) ⇒
-     EVERY (λx. no_mutcons x) bs)
+     EVERY no_mutcons bs)
 Proof
   ho_match_mp_tac bvi_to_cb_aux_ind
   >> rw []
@@ -4801,7 +4816,7 @@ Theorem bvi_to_cb_no_mutcons:
   ∀cb bs n loc x.
     bvi_to_cb n loc x = SOME (bs,cb) ∧
     no_mutcons x ⇒
-    EVERY (λx. no_mutcons x) bs
+    EVERY no_mutcons bs
 Proof
   rw []
   >> reverse $ imp_res_tac bvi_to_cb_cases

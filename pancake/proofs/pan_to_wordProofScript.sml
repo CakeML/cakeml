@@ -1012,8 +1012,7 @@ Proof
      impl_keep_tac >-
       (gvs[EVERY_MEM,MEM_MAP,PULL_EXISTS] \\
        metis_tac[FST,SND,PAIR]) \\
-     reverse $ rw[]
-     >- metis_tac[ETA_AX] \\
+     rw[] \\
      gvs[crepPropsTheory.cexp_heads_simp_def,pan_to_crepProofTheory.cexp_heads_eq]) \\
   gvs[EVERY_MEM,PULL_FORALL] \\
   gvs[EVERY_MAP,MEM_MAP,PULL_FORALL] \\

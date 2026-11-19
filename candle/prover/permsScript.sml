@@ -579,6 +579,9 @@ Proof
     \\ gvs [store_alloc_def, perms_ok_def, SUBSET_DEF, PULL_EXISTS]
     \\ rw [EL_APPEND_EQN]
     \\ gs [NOT_LESS, LESS_OR_EQ, perms_ok_ref_def])
+  \\ Cases_on `op = PolyCompare` \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [perms_ok_def])
   \\ Cases_on ‘op = Equality’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
@@ -789,7 +792,7 @@ Proof
   >~ [‘Fun n e’] >- (
     gvs [evaluate_def, perms_ok_env_def, perms_ok_def, SF SFY_ss])
   >~ [‘App op xs’] >- (
-    Cases_on ‘getOpClass op = Force’ \\ gvs []
+    Cases_on ‘op = ThunkOp ForceThunk’ \\ gvs []
     >- (
       gvs [AllCaseEqs()] \\ gvs [evaluate_def] \\ gvs [AllCaseEqs()]
       \\ gvs [perms_ok_env_BIGUNION, MEM_MAP, PULL_EXISTS, EVERY_MEM]
@@ -919,15 +922,12 @@ Proof
     \\ ‘EVERY (λx. perms_ok_env ps (freevars x) env) es’
       by gs [EVERY_perms_ok_env_BIGUNION, SF ETA_ss]
     \\ Cases_on ‘op = Eval’ \\ gs []
-    \\ Cases_on ‘getOpClass op’ \\ gs[]
-    >~ [‘EvalOp’] >- (Cases_on ‘op’ \\ gs[])
-    >~ [‘FunApp’] >- (Cases_on ‘op’ \\ gs[])
-    >~ [‘Force’] >- (Cases_on ‘op’ \\ gs[])
-    >~ [‘PtrEqOp’] >- (
+    \\ Cases_on ‘op = PtrEq’ \\ gs[]
+    >- (
       gvs [AllCaseEqs()]
       \\ gvs [perms_ok_state_def, Boolv_def]
       \\ rw [perms_ok_def])
-    >~ [‘Simple’] >- (
+    >- (
       gvs [CaseEqs ["result", "prod", "bool", "option"]]
       \\ drule_then (qspec_then ‘ps’ mp_tac) do_app_perms
       \\ impl_tac

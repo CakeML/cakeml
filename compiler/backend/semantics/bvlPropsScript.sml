@@ -32,7 +32,7 @@ Proof
 QED
 
 val case_eq_thms = LIST_CONJ
-  (CaseEq "eq_result" :: CaseEq "const_part" :: CaseEq "word_size" ::
+  (CaseEq "cmp_result" :: CaseEq "const_part" :: CaseEq "word_size" ::
    CaseEq "result" :: CaseEq "error_result" ::
    map TypeBase.case_eq_of
   [``:v``, ``:'a ref``, ``:'a option``, ``:'a list``, ``:'a + 'b``,

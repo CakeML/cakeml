@@ -485,7 +485,7 @@ Proof
 QED
 
 Theorem type_size_TYPE_SUBST':
-  !s l1. SUM (MAP type_size' l1) <= SUM (MAP type_size' (MAP (λa. TYPE_SUBST s a) l1))
+  !s l1. SUM (MAP type_size' l1) <= SUM (MAP type_size' (MAP (TYPE_SUBST s) l1))
 Proof
   rw[]
   >> qspec_then `Tyapp m l1` mp_tac type_size_TYPE_SUBST
@@ -505,7 +505,7 @@ Proof
 QED
 
 Theorem TYPE_SUBST_EL:
-  !l i n. n < LENGTH l ==> TYPE_SUBST i (EL n l) = EL n (MAP (λa. TYPE_SUBST i a) l)
+  !l i n. n < LENGTH l ==> TYPE_SUBST i (EL n l) = EL n (MAP (TYPE_SUBST i) l)
 Proof
   Induct
   >> fs[]
@@ -2276,7 +2276,7 @@ Proof
     >> qexists_tac `l`
     >> fs[]
   )
-  >> Cases_on `EVERY (λa. type_ok (tysof ctxt) a) l`
+  >> Cases_on `EVERY (type_ok (tysof ctxt)) l`
   >- fs[]
   >> disj2_tac
   >> fs[EXISTS_MEM, EVERY_MEM]
@@ -5231,6 +5231,7 @@ Proof
   >> Cases_on `~MEM n (tyvars y)`
   >> fs[]
   >> strip_tac
+  >> rename1 ‘y = TYPE_SUBST _ a’
   >> Cases_on `~MEM a tys`
   >> fs[]
   >> first_x_assum drule
@@ -5259,6 +5260,7 @@ Proof
     >> fs[tyvars_def]
   )
   >> fs[tyvars_def,MEM_FOLDR_LIST_UNION,MEM_MAP,EVERY_MEM,MEM_MAP]
+  >> rename1 ‘y = TYPE_SUBST _ a'’
   >> first_x_assum (qspecl_then [`a'`] mp_tac)
   >> rw[]
   >> first_x_assum (qspecl_then [`subst`,`m'`,`n`,`a`] assume_tac)
@@ -9671,6 +9673,7 @@ Proof
   )
   >> rw[EVERY_MEM]
   >> fs[MAP_diff]
+  >> rename1 ‘MEM a' l’
   >> last_x_assum (qspec_then `a'` assume_tac)
   >> rfs[]
   >> first_x_assum (qspecl_then [`sigma`,`a`,`b`] assume_tac)
@@ -10635,7 +10638,7 @@ Proof
   >> Cases_on `h`
   >> Cases_on `q = m /\ r < LENGTH l`
   >- (
-    qspecl_then [`m`,`MAP (λx. TYPE_SUBST s x) l`,`t`,`r`] assume_tac is_subtype_leaf_EL
+    qspecl_then [`m`,`MAP (TYPE_SUBST s) l`,`t`,`r`] assume_tac is_subtype_leaf_EL
     >> rfs[LENGTH_MAP]
     >> imp_res_tac MEM_EL
     >> fs[PULL_FORALL]
@@ -13025,6 +13028,7 @@ Proof
   rw[MEM_MAP,PULL_EXISTS] >>
   rfs[] >>
   fs[MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+  rename1 ‘_ ≤ MAX_SET (IMAGE _ (IMAGE _ (IMAGE _ (set (tyvars a')))))’ >>
   last_x_assum(qspec_then `a'` mp_tac) >>
   rw[] >>
   fs[] >>

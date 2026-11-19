@@ -1689,12 +1689,12 @@ End
 Theorem check_top_NONE:
   NUM lno lnov ∧
   DISTRUP_DISTRUP_TYPE inst instv ∧
-  stv = Conv (SOME (TypeStamp «None» 2)) [] ⇒
+  stv = Conv (SOME (TypeStamp «None» 2 0)) [] ⇒
   app (p:'ffi ffi_proj) check_top_v [lnov; instv; stv]
       (emp)
       (POSTv res.
         &(res =
-          Conv NONE [Conv (SOME (TypeStamp «None» 2)) [];
+          Conv NONE [Conv (SOME (TypeStamp «None» 2 0)) [];
             Litv (StrLit «»)]))
 Proof
   rw[]>>
@@ -1710,7 +1710,7 @@ Theorem check_top_SOME:
   DISTRUP_DISTRUP_TYPE inst instv ∧
   dm_ok fmlls Clist b ∧
   stv =
-    Conv (SOME (TypeStamp «Some» 2))
+    Conv (SOME (TypeStamp «Some» 2 1))
       [Conv NONE [fmlv; Carrv; bv]] ⇒
   app (p:'ffi ffi_proj) check_top_v [lnov; instv; stv]
       (ARRAY_OF vcclause_TYPE fmlv fmlls *
@@ -1721,13 +1721,13 @@ Theorem check_top_SOME:
            STRING_TYPE msg v2) *
          case check_distrup_list inst fmlls Clist b of
            NONE =>
-            &(v1 = Conv (SOME (TypeStamp «None» 2)) [])
+            &(v1 = Conv (SOME (TypeStamp «None» 2 0)) [])
          | SOME (fmlls', Clist', b') =>
             SEP_EXISTS v11 v12 v13.
             ARRAY_OF vcclause_TYPE v11 fmlls' *
             ARRAY_OF NUM v12 Clist' *
             &(
-              v1 = Conv (SOME (TypeStamp «Some» 2))
+              v1 = Conv (SOME (TypeStamp «Some» 2 1))
                 [Conv NONE [v11;v12;v13]] ∧
               NUM b' v13
             )
@@ -1739,7 +1739,7 @@ Proof
   xhandle`POSTve
     (λv. SEP_EXISTS v1 v2 v3 fmlls' Clist' b'.
       ARRAY_OF vcclause_TYPE v1 fmlls' * ARRAY_OF NUM v2 Clist' *
-      &(v = Conv NONE [Conv (SOME (TypeStamp «Some» 2)) [Conv NONE [v1; v2; v3]];
+      &(v = Conv NONE [Conv (SOME (TypeStamp «Some» 2 1)) [Conv NONE [v1; v2; v3]];
           Litv (StrLit «»)] ∧
         NUM b' v3 ∧
         check_distrup_list inst fmlls Clist b = SOME (fmlls',Clist',b')))
@@ -1775,7 +1775,7 @@ End
 Theorem loop_NONE:
   ∀inputs lno lnov events aevents step_arr step_arrv buf_arr buf_arrv stv.
     NUM lno lnov ∧
-    stv = Conv (SOME (TypeStamp «None» 2)) [] ∧
+    stv = Conv (SOME (TypeStamp «None» 2 0)) [] ∧
     events_ok st events aevents NONE ∧
     LENGTH step_arr = 17 ⇒
     app (p:'ffi ffi_proj) loop_v [step_arrv; buf_arrv; stv; lnov]
@@ -1963,7 +1963,7 @@ Theorem loop_SOME:
     dm_ok fmlls Clist b ∧
     events_ok st events aevents (SOME (fmlls, Clist, b)) ∧
     stv =
-      Conv (SOME (TypeStamp «Some» 2))
+      Conv (SOME (TypeStamp «Some» 2 1))
         [Conv NONE [fmlv; Carrv; bv]] ⇒
     LENGTH step_arr = 17 ⇒
     app (p:'ffi ffi_proj) loop_v [step_arrv; buf_arrv; stv; lnov]

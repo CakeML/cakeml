@@ -10,7 +10,6 @@ Ancestors
 Libs
   preamble experimentalLib
 
-val _ = temp_delsimps ["getOpClass_def"]
 
 (* The things the translator is expected to produce from the
    compiler definition etc. *)
@@ -491,6 +490,29 @@ Proof
   metis_tac [integerTheory.INT_OF_NUM]
 QED
 
+Theorem do_compare:
+  (!x y x' y' n.
+    do_compare x y = Cmp_val n ∧ v_rel es x x' ∧ v_rel es y y' ⇒
+    do_compare x' y' = Cmp_val n) ∧
+  (!xs ys xs' ys' n.
+    do_compare_list xs ys = Cmp_val n ∧
+    LIST_REL (v_rel es) xs xs' ∧ LIST_REL (v_rel es) ys ys' ⇒
+    do_compare_list xs' ys' = Cmp_val n)
+Proof
+  ho_match_mp_tac do_compare_ind >>
+  rw [do_compare_def] >>
+  imp_res_tac LIST_REL_LENGTH >>
+  fs [do_compare_def] >>
+  fs [NULL_LENGTH] >> rveq >> fs [LIST_REL_EL_EQN] >>
+  rpt (IF_CASES_TAC >> fs []) >>
+  imp_res_tac v_to_env_id_SOME >> rveq >>
+  fs [do_compare_def, nat_to_v_def, compare_lit_def, compare_int_def,
+      ctor_same_type_def] >>
+  rpt (IF_CASES_TAC >> fs []) >>
+  fs [AllCaseEqs()] >>
+  res_tac >> fs [SF SFY_ss]
+QED
+
 Theorem do_eq:
   (! x y x' y' b. do_eq x y = Eq_val b /\
   v_rel es x x' /\
@@ -891,6 +913,8 @@ Proof
         EVERY2_refl, MEM_MAP, PULL_EXISTS]
   >>> SELECT_LT_THEN (Q.PAT_ASSUM `do_eq _ _ = _` (K ALL_TAC))
         (drule_then imp_res_tac (CONJUNCT1 do_eq))
+  >>> SELECT_LT_THEN (Q.PAT_ASSUM `do_compare _ _ = Cmp_val _` (K ALL_TAC))
+        (drule_then imp_res_tac (CONJUNCT1 do_compare))
   >>> SELECT_LT_THEN (Q.PAT_ASSUM `store_lookup _ _ = _` (K ALL_TAC))
         (drule_then imp_res_tac store_lookup)
   >>> SELECT_LT_THEN (Q.PAT_ASSUM `v_to_char_list _ = _` (K ALL_TAC))
@@ -1296,7 +1320,7 @@ Resume eval_simulation[App]:
   rw []
   \\ reverse (fs [pair_case_eq, result_case_eq] \\ rveq \\ fs [])
   \\ insts_tac
-  \\ Cases_on `getOpClass op`
+  \\ Cases_on ‘op = Eval’
   >- (
     fs [do_eval_res_def, evaluate_def, do_con_check_def]
     \\ fs [option_case_eq, pair_case_eq] \\ rveq \\ fs []
@@ -1325,6 +1349,7 @@ Resume eval_simulation[App]:
     \\ first_x_assum drule \\ impl_tac
     \\ rw [] \\ insts_tac
   )
+  \\ Cases_on ‘op = Opapp’
   >- (
     rveq \\ fs []
     \\ imp_res_tac s_rel_clock
@@ -1344,7 +1369,7 @@ Resume eval_simulation[App]:
     \\ simp [LIST_REL_MAP1, SIMP_RULE (bool_ss ++ ETA_ss) [] LIST_REL_MAP2]
     \\ simp [ELIM_UNCURRY, EVERY2_refl]
   )
-  >~ [`getOpClass op = Force`]
+  \\ Cases_on ‘op = ThunkOp ForceThunk’
   >- (
     gvs [AllCaseEqs(), dec_clock_def]
     >- (
@@ -1469,7 +1494,7 @@ Resume eval_simulation[App]:
         )
       )
     )
-  >~ [`getOpClass op = PtrEqOp`]
+  \\ Cases_on ‘op = PtrEq’
   >- (
     gvs [AllCaseEqs(), listTheory.SWAP_REVERSE_SYM]
     \\ imp_res_tac do_eq
@@ -1877,14 +1902,17 @@ Proof
   \\ fs []
   \\ simp [record_forward_refl]
   >- (
-    Cases_on ‘getOpClass op’ \\ fs[]
-    >~ [`getOpClass op = Force`] >- (
+    Cases_on ‘op = ThunkOp ForceThunk’ \\ fs[]
+    >- (
       full_simp_tac bool_ss [do_eval_res_def, bool_case_eq, pair_case_eq,
           option_case_eq, result_case_eq, dec_clock_def]
       \\ rveq \\ full_simp_tac bool_ss [PAIR_EQ]
       \\ gvs [AllCaseEqs()]
       \\ imp_res_tac record_forward_trans_sym)
-    >~ [`getOpClass op = PtrEqOp`] >- (gvs [AllCaseEqs()] \\ res_tac \\ fs [])
+    \\ Cases_on ‘op = PtrEq’ \\ fs[]
+    >- (gvs [AllCaseEqs()] \\ res_tac \\ fs [])
+    \\ Cases_on ‘op = Opapp’ \\ fs[]
+    \\ Cases_on ‘op = Eval’ \\ fs[]
     \\ full_simp_tac bool_ss [do_eval_res_def, bool_case_eq, pair_case_eq,
         option_case_eq, result_case_eq, dec_clock_def]
     \\ rveq \\ full_simp_tac bool_ss [PAIR_EQ]
@@ -1992,7 +2020,23 @@ QED
 Resume insert_oracle_correct[App]:
   rw []
   \\ fs [pair_case_eq, result_case_eq] \\ rveq \\ fs []
-  \\ fs [bool_case_eq] \\ rveq \\ fs [] \\ Cases_on ‘getOpClass op’ \\ gs[]
+  \\ fs [bool_case_eq] \\ rveq \\ fs []
+  >- (
+    (* Opapp *)
+    eval_cases_tac
+    \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ] \\ rveq \\ fs []
+    \\ fs [dec_clock_def]
+    \\ imp_res_simp_tac evaluate_is_record_forward
+    \\ agrees_impl_tac
+    \\ simp []
+  )
+  >- (
+    gvs [AllCaseEqs(), dec_clock_def]
+    \\ eval_cases_tac
+    \\ imp_res_simp_tac evaluate_is_record_forward
+    \\ imp_res_simp_tac insert_declare_env
+    \\ agrees_impl_tac
+    \\ simp [])
   >- (
     (* Eval *)
     fs [do_eval_res_def, Q.ISPEC `(a, b)` EQ_SYM_EQ, pair_case_eq]
@@ -2017,23 +2061,7 @@ Resume insert_oracle_correct[App]:
     \\ agrees_impl_tac
     \\ simp [reset_env_generation_orac_eqs]
   )
-  >- (
-    (* Opapp *)
-    eval_cases_tac
-    \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ] \\ rveq \\ fs []
-    \\ fs [dec_clock_def]
-    \\ imp_res_simp_tac evaluate_is_record_forward
-    \\ agrees_impl_tac
-    \\ simp []
-  )
-  >~ [`getOpClass op = Force`] >- (
-    gvs [AllCaseEqs(), dec_clock_def]
-    \\ eval_cases_tac
-    \\ imp_res_simp_tac evaluate_is_record_forward
-    \\ imp_res_simp_tac insert_declare_env
-    \\ agrees_impl_tac
-    \\ simp [])
-  >~ [`getOpClass op = PtrEqOp`] >- gvs [AllCaseEqs()]
+  >- gvs [AllCaseEqs()]
   \\ eval_cases_tac
   \\ gs[]
 QED
@@ -2129,7 +2157,6 @@ Proof
   \\ rveq \\ fs []
   \\ simp [record_forward_refl]
   \\ fs [do_eval_res_def]
-  \\ TRY( rename1 ‘getOpClass op’ \\ Cases_on ‘getOpClass op’)
   \\ eval_cases_tac
   \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, dec_clock_def]
   \\ rveq \\ fs []
@@ -2146,7 +2173,7 @@ Proof
             \\ drule_then irule record_forward_trans)
         \\ NO_TAC)
   \\ simp [combine_dec_result_def]
-  >>~ [`getOpClass op = Force`]
+  >>~ [`dest_thunk`]
   >- (
     gvs [AllCaseEqs(), dec_clock_def]
     \\ drule_then (drule_then assume_tac) less_sub_1_cases \\ gvs []
@@ -2480,7 +2507,7 @@ Resume evaluate_ptr_eq_prefix[App]:
   \\ first_x_assum drule \\ strip_tac
   \\ gvs []
   >- (
-    Cases_on `getOpClass op` \\ gvs []
+    Cases_on ‘op = Eval’ \\ gvs []
     >- (
       imp_res_tac ptr_eq_lockstep_simps
       \\ imp_res_tac evaluate_is_record_forward
@@ -2499,6 +2526,7 @@ Resume evaluate_ptr_eq_prefix[App]:
       \\ irule ptr_eq_lockstep_eval_state
       \\ simp [reset_env_generation_orac_eqs]
     )
+    \\ Cases_on ‘op = Opapp’ \\ gvs []
     >- (
       imp_res_tac ptr_eq_lockstep_simps
       \\ imp_res_tac ptr_eq_lockstep_dec_clock
@@ -2507,6 +2535,7 @@ Resume evaluate_ptr_eq_prefix[App]:
       \\ gvs [EVAL ``(dec_clock x).eval_state``]
       \\ first_x_assum drule \\ strip_tac \\ gvs []
     )
+    \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gvs []
     >- (
       imp_res_tac ptr_eq_lockstep_simps
       \\ imp_res_tac ptr_eq_lockstep_dec_clock
@@ -2514,6 +2543,7 @@ Resume evaluate_ptr_eq_prefix[App]:
       \\ gvs [AllCaseEqs(), EVAL ``(dec_clock x).eval_state``]
       \\ first_x_assum drule \\ strip_tac \\ gvs [ptr_eq_lockstep_alt]
     )
+    \\ Cases_on ‘op = PtrEq’ \\ gvs []
     >- (
       imp_res_tac ptr_eq_lockstep_simps
       \\ imp_res_tac ptr_eq_lockstep_ptr_eq
@@ -3329,13 +3359,12 @@ Proof
   >~ [`Case [App _ _]`] >- (
     rpt (gen_tac ORELSE disch_tac)
     \\ (fs [pair_case_eq, result_case_eq] \\ rveq \\ fs [])
-    \\ reverse (Cases_on `getOpClass op = EvalOp`)
+    \\ reverse (Cases_on `op = Eval`)
     >- (
-      fs [semanticPrimitivesTheory.op_class_case_eq]
-      \\ fs [bool_case_eq, Q.ISPEC `(a, b)` EQ_SYM_EQ]
+      fs [bool_case_eq, Q.ISPEC `(a, b)` EQ_SYM_EQ]
       \\ gvs []
-      >~ [`getOpClass op = Force`] >- gvs [AllCaseEqs(), dec_clock_def]
-      >~ [`getOpClass op = PtrEqOp`] >- gvs [AllCaseEqs()]
+      >~ [`dest_thunk`] >- gvs [AllCaseEqs(), dec_clock_def]
+      >~ [`do_eq`] >- gvs [AllCaseEqs()]
       \\ fs [option_case_eq, pair_case_eq, bool_case_eq, result_case_eq]
       \\ insts_tac
       \\ fs [dec_clock_def]

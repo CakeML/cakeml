@@ -8,32 +8,13 @@ Ancestors
 
 val _ = numLib.temp_prefer_num();
 
-(* Define operator classes, that allow to group their behavior later *)
-Datatype:
- op_class =
-    EvalOp (* Eval primitive *)
-  | FunApp (* function application *)
-  | Force (* forcing a thunk *)
-  | PtrEqOp (* pointer equality *)
-  | Simple (* arithmetic operation, no finite-precision/reals *)
-End
-
-Definition getOpClass_def[simp]:
- getOpClass op =
- case op of
-  | Opapp => FunApp
-  | Eval => EvalOp
-  | ThunkOp t => (if t = ForceThunk then Force else Simple)
-  | PtrEq => PtrEqOp
-  | _ => Simple
-End
-
 (* Constructors and exceptions need unique identities, which we represent by stamps. *)
 Datatype:
  stamp =
-  (* Each type gets a unique number, and the constructor name must be unique
-     inside of the type *)
-    TypeStamp conN num
+  (* Arguments: constructor name, unique type number, and zero-based constructor
+     position in the datatype definition (needed for polymorphic compare).
+     Constructor names must be unique within the type. *)
+    TypeStamp conN num num
   | ExnStamp num
 End
 
@@ -377,7 +358,7 @@ Datatype:
 End
 
 Definition same_type_def:
-  (same_type (TypeStamp v0 n1) (TypeStamp v1 n2) ⇔ n1 = n2) ∧
+  (same_type (TypeStamp v0 n1 pos1) (TypeStamp v1 n2 pos2) ⇔ n1 = n2) ∧
   (same_type (ExnStamp v2) (ExnStamp v3) ⇔ T) ∧
   (same_type _ _ ⇔ F)
 End
@@ -396,8 +377,8 @@ End
 
 Definition Boolv_def:
   Boolv b =
-    if b then Conv (SOME (TypeStamp «True» bool_type_num)) []
-         else Conv (SOME (TypeStamp «False» bool_type_num)) []
+    if b then Conv (SOME (TypeStamp «True» bool_type_num 1)) []
+         else Conv (SOME (TypeStamp «False» bool_type_num 0)) []
 End
 
 (* A big-step pattern matcher.  If the value matches the pattern, return an
@@ -512,6 +493,143 @@ Termination
   >> Cases_on ‘compress_bool v1’ >> gs[Boolv_def, listTheory.list_size_def]
 End
 
+Datatype:
+  cmp_result =
+     Cmp_val int
+   | Cmp_type_error
+End
+
+Definition compare_int_def:
+  compare_int (i:int) j = if i < j then -1 else if j < i then 1 else 0
+End
+
+Definition compare_lit_def:
+  compare_lit (IntLit i) (IntLit j) = Cmp_val (compare_int i j) ∧
+  compare_lit (Char c) (Char d) = Cmp_val (compare_int (&ORD c) (&ORD d)) ∧
+  compare_lit (StrLit s) (StrLit t) =
+    Cmp_val (if mlstring_lt s t then -1 else if mlstring_lt t s then 1 else 0) ∧
+  compare_lit (Word8 w) (Word8 v) = Cmp_val (compare_int (&w2n w) (&w2n v)) ∧
+  compare_lit (Word64 w) (Word64 v) = Cmp_val (compare_int (&w2n w) (&w2n v)) ∧
+  compare_lit (Float64 w) (Float64 v) = Cmp_val (compare_int (&w2n w) (&w2n v)) ∧
+  compare_lit _ _ = Cmp_type_error
+End
+
+(* Called only after checking that the constructors belong to the same type. *)
+Definition compare_stamp_def:
+  compare_stamp (SOME (TypeStamp cn1 ty1 pos1)) (SOME (TypeStamp cn2 ty2 pos2)) =
+    (if ty1 ≠ ty2 then Cmp_type_error
+     else Cmp_val (if pos1 = pos2 ∧ cn1 ≠ cn2 then 1
+                   else compare_int (&pos1) (&pos2))) ∧
+  compare_stamp (SOME (ExnStamp n1)) (SOME (ExnStamp n2)) =
+    Cmp_val (if n1 = n2 then 0 else 1) ∧
+  compare_stamp NONE NONE = Cmp_val 0 ∧
+  compare_stamp _ _ = Cmp_type_error
+End
+
+(* The checks and short-circuiting follow do_eq. Locations return 0 when equal
+   and 1 otherwise, without exposing their allocation order. All closures
+   compare equal. Environments compare their identifiers lexicographically. *)
+Definition do_compare_def:
+  do_compare (Litv l1) (Litv l2) = compare_lit l1 l2 ∧
+  do_compare (Loc b1 l1) (Loc b2 l2) =
+    (if b1 ∧ b2 then Cmp_val (if l1 = l2 then 0 else 1) else Cmp_type_error) ∧
+  do_compare (Conv cn1 vs1) (Conv cn2 vs2) =
+    (if ¬ctor_same_type cn1 cn2 then Cmp_type_error
+     else if cn1 = cn2 then
+       if LENGTH vs1 = LENGTH vs2 then do_compare_list vs1 vs2
+       else Cmp_val (compare_int (&LENGTH vs1) (&LENGTH vs2))
+     else if ctor_same_type cn1 (SOME (ExnStamp 0)) then Cmp_val 1
+     else if NULL vs1 ∧ ¬NULL vs2 then Cmp_val (-1)
+     else if ¬NULL vs1 ∧ NULL vs2 then Cmp_val 1
+     else compare_stamp cn1 cn2) ∧
+  do_compare (Vectorv vs1) (Vectorv vs2) =
+    (if LENGTH vs1 = LENGTH vs2 then do_compare_list vs1 vs2
+     else Cmp_val (compare_int (&LENGTH vs1) (&LENGTH vs2))) ∧
+  do_compare (Closure env1 n1 e1) (Closure env2 n2 e2) = Cmp_val 0 ∧
+  do_compare (Closure env1 n1 e1) (Recclosure env2 funs2 n2) = Cmp_val 0 ∧
+  do_compare (Recclosure env1 funs1 n1) (Closure env2 n2 e2) = Cmp_val 0 ∧
+  do_compare (Recclosure env1 funs1 n1) (Recclosure env2 funs2 n2) = Cmp_val 0 ∧
+  do_compare (Env env1 (gen1,id1)) (Env env2 (gen2,id2)) =
+    Cmp_val (if gen1 = gen2 then compare_int (&id1) (&id2)
+             else compare_int (&gen1) (&gen2)) ∧
+  do_compare _ _ = Cmp_type_error ∧
+  do_compare_list [] [] = Cmp_val 0 ∧
+  do_compare_list [] (_::ys) = Cmp_val (-1) ∧
+  do_compare_list (_::xs) [] = Cmp_val 1 ∧
+  do_compare_list (x::xs) (y::ys) =
+    (case do_compare x y of
+       Cmp_val n => if n = 0 then do_compare_list xs ys else Cmp_val n
+     | Cmp_type_error => Cmp_type_error)
+Termination
+  WF_REL_TAC `inv_image $< (λx. case x of INL (v1,v2) => v_size v1
+                                        | INR (vs1,vs2) => list_size v_size vs1)`
+End
+
+Theorem compare_int_eq_zero:
+  compare_int i j = 0 ⇔ i = j
+Proof
+  rw [compare_int_def] >> intLib.ARITH_TAC
+QED
+
+Theorem compare_lit_eq:
+  ∀l1 l2.
+    (case compare_lit l1 l2 of
+       Cmp_val n => Eq_val (n = 0)
+     | Cmp_type_error => Eq_type_error) =
+    if lit_same_type l1 l2 then Eq_val (l1 = l2) else Eq_type_error
+Proof
+  Cases >> Cases >>
+  simp [compare_lit_def, lit_same_type_def, compare_int_eq_zero, stringTheory.ORD_11] >>
+  rw [] >> metis_tac [mlstring_lt_nonrefl, mlstring_lt_cases]
+QED
+
+Theorem compare_stamp_eq[local]:
+  ∀cn1 cn2.
+    (case compare_stamp cn1 cn2 of
+       Cmp_val n => Eq_val (n = 0)
+     | Cmp_type_error => Eq_type_error) =
+    if ctor_same_type cn1 cn2 then Eq_val (cn1 = cn2) else Eq_type_error
+Proof
+  Cases >> Cases >> simp [ctor_same_type_def, compare_stamp_def] >>
+  rename1 `compare_stamp (SOME stamp1) (SOME stamp2)` >>
+  Cases_on `stamp1` >> Cases_on `stamp2` >>
+  simp [compare_stamp_def, same_type_def, compare_int_eq_zero] >>
+  rw [] >> simp [compare_int_eq_zero] >> metis_tac []
+QED
+
+Theorem do_compare_eq:
+  (∀v1 v2.
+    (case do_compare v1 v2 of
+       Cmp_val n => Eq_val (n = 0)
+     | Cmp_type_error => Eq_type_error) = do_eq v1 v2) ∧
+  (∀vs1 vs2.
+    (case do_compare_list vs1 vs2 of
+       Cmp_val n => Eq_val (n = 0)
+     | Cmp_type_error => Eq_type_error) = do_eq_list vs1 vs2)
+Proof
+  `∀cn. ctor_same_type cn cn` by (
+    qx_gen_tac `cn` >> Cases_on `cn` >> simp [ctor_same_type_def] >>
+    rename1 `same_type stamp stamp` >> Cases_on `stamp` >> simp [same_type_def]) >>
+  ho_match_mp_tac do_compare_ind >>
+  simp [do_compare_def, do_eq_def, compare_lit_eq, compare_stamp_eq,
+        compare_int_eq_zero] >>
+  rw [] >>
+  fs [compare_int_eq_zero, compare_stamp_eq]
+  >~ [`¬ctor_same_type cn cn`] >- metis_tac [] >>
+  Cases_on `do_compare v1 v2` >> gvs [] >>
+  IF_CASES_TAC >> gvs []
+QED
+
+Theorem do_compare_eq_iff:
+  ∀v1 v2.
+    (do_eq v1 v2 = Eq_type_error ⇔ do_compare v1 v2 = Cmp_type_error) ∧
+    (do_eq v1 v2 = Eq_val T ⇔ do_compare v1 v2 = Cmp_val 0)
+Proof
+  qx_genl_tac [`v1`,`v2`] >>
+  mp_tac (GSYM (Q.SPECL [`v1`,`v2`] (CONJUNCT1 do_compare_eq))) >>
+  Cases_on `do_compare v1 v2` >> rw []
+QED
+
 (* Do an application *)
 Definition do_opapp_def:
   do_opapp vs =
@@ -531,24 +649,24 @@ End
 (* If a value represents a list, get that list. Otherwise return Nothing *)
 Definition v_to_list_def:
   v_to_list (Conv (SOME stamp) []) =
-    (if stamp = TypeStamp «[]» list_type_num then SOME [] else NONE) ∧
+    (if stamp = TypeStamp «[]» list_type_num 0 then SOME [] else NONE) ∧
   v_to_list (Conv (SOME stamp) [v1; v2]) =
-    (if stamp = TypeStamp «::» list_type_num then
+    (if stamp = TypeStamp «::» list_type_num 1 then
        case v_to_list v2 of NONE => NONE | SOME vs => SOME (v1::vs)
      else NONE) ∧
   v_to_list _ = NONE
 End
 
 Definition list_to_v_def:
-  list_to_v [] = Conv (SOME (TypeStamp «[]» list_type_num)) [] ∧
-  list_to_v (x::xs) = Conv (SOME (TypeStamp «::» list_type_num)) [x; list_to_v xs]
+  list_to_v [] = Conv (SOME (TypeStamp «[]» list_type_num 0)) [] ∧
+  list_to_v (x::xs) = Conv (SOME (TypeStamp «::» list_type_num 1)) [x; list_to_v xs]
 End
 
 Definition v_to_char_list_def:
   v_to_char_list (Conv (SOME stamp) []) =
-    (if stamp = TypeStamp «[]» list_type_num then SOME "" else NONE) ∧
+    (if stamp = TypeStamp «[]» list_type_num 0 then SOME "" else NONE) ∧
   v_to_char_list (Conv (SOME stamp) [Litv (Char c); v]) =
-    (if stamp = TypeStamp «::» list_type_num then
+    (if stamp = TypeStamp «::» list_type_num 1 then
        case v_to_char_list v of NONE => NONE | SOME cs => SOME (STRING c cs)
      else NONE) ∧
   v_to_char_list _ = NONE
@@ -562,17 +680,17 @@ Definition vs_to_string_def:
 End
 
 Definition maybe_to_v_def:
-  maybe_to_v NONE = Conv (SOME (TypeStamp «None» option_type_num)) [] ∧
-  maybe_to_v (SOME v) = Conv (SOME (TypeStamp «Some» option_type_num)) [v]
+  maybe_to_v NONE = Conv (SOME (TypeStamp «None» option_type_num 0)) [] ∧
+  maybe_to_v (SOME v) = Conv (SOME (TypeStamp «Some» option_type_num 1)) [v]
 End
 
 Definition v_to_id_def:
   v_to_id (Conv (SOME stamp) [Litv (StrLit s)]) =
-     (if stamp = TypeStamp «Short» id_type_num then
+     (if stamp = TypeStamp «Short» id_type_num 0 then
         SOME (Short s)
       else NONE) ∧
   v_to_id (Conv (SOME stamp) [Litv (StrLit s); v]) =
-     (if stamp = TypeStamp «Long» id_type_num then
+     (if stamp = TypeStamp «Long» id_type_num 1 then
         case v_to_id v of NONE => NONE | SOME id => SOME (Long s id)
       else NONE) ∧
   v_to_id _ = NONE
@@ -979,12 +1097,12 @@ Definition do_arith_def:
      case (a, MAP the_Litv_Float64 vals) of
      | (Absolute, [v1])   => SOME (INR $ Litv $ Float64 $ fp64_abs v1)
      | (Neg,  [v1])       => SOME (INR $ Litv $ Float64 $ fp64_negate v1)
-     | (Sqrt, [v1])       => SOME (INR $ Litv $ Float64 $ fp64_sqrt roundTiesToEven v1)
-     | (Add,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_add roundTiesToEven v1 v2)
-     | (Sub,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_sub roundTiesToEven v1 v2)
-     | (Mul,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_mul roundTiesToEven v1 v2)
-     | (Div _, [v1;v2])   => SOME (INR $ Litv $ Float64 $ fp64_div roundTiesToEven v1 v2)
-     | (FMA,  [v1;v2;v3]) => SOME (INR $ Litv $ Float64 $ fp64_mul_add roundTiesToEven v2 v3 v1)
+     | (Sqrt, [v1])       => SOME (INR $ Litv $ Float64 $ fix_NaN $ fp64_sqrt roundTiesToEven v1)
+     | (Add,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fix_NaN $ fp64_add roundTiesToEven v1 v2)
+     | (Sub,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fix_NaN $ fp64_sub roundTiesToEven v1 v2)
+     | (Mul,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fix_NaN $ fp64_mul roundTiesToEven v1 v2)
+     | (Div _, [v1;v2])   => SOME (INR $ Litv $ Float64 $ fix_NaN $ fp64_div roundTiesToEven v1 v2)
+     | (FMA,  [v1;v2;v3]) => SOME (INR $ Litv $ Float64 $ fix_NaN $ fp64_mul_add roundTiesToEven v2 v3 v1)
      | _ => NONE) ∧
   (do_arith a IntT vals =
      case (a, MAP the_Litv_IntLit vals) of
@@ -1129,6 +1247,11 @@ Definition do_app_def:
         (case do_eq v1 v2 of
             Eq_type_error => NONE
           | Eq_val b => SOME ((s,t), Rval (Boolv b))
+        )
+    | (PolyCompare, [v1; v2]) =>
+        (case do_compare v1 v2 of
+            Cmp_type_error => NONE
+          | Cmp_val n => SOME ((s,t), Rval (Litv (IntLit n)))
         )
     | (Opassign, [Loc b lnum; v]) =>
         (case store_assign lnum (Refv v) s of
@@ -1599,7 +1722,7 @@ End
 
 Definition build_constrs_def:
   build_constrs stamp condefs =
-    MAP (λ(conN,ts). (conN,LENGTH ts,TypeStamp conN stamp)) condefs
+    MAPi (λpos (conN,ts). (conN,LENGTH ts,TypeStamp conN stamp pos)) condefs
 End
 
 (* Build a constructor environment for the type definition tds *)

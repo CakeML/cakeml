@@ -6,9 +6,6 @@ Canonical forms for the actual registered AST family. Metadata, root
 proofs, recursive families and encoder correspondence share this owner.
 Identities remain parameters; signatures come from the registered module.
 
-[compiler_replProofScript.sml](compiler_replProofScript.sml):
-Verification of the function (called repl) that implements the REPL
-
 [evaluate_initScript.sml](evaluate_initScript.sml):
 Lemma used in repl_typesTheory: that evaluate_skip's invariant
 holds at initialisation.

@@ -113,7 +113,7 @@ QED
 Theorem map_eval:
   ∀ xs w.
     MAP w xs =
-    MAP (λ y. eval_pseudoBool w y) (MAP (λ x. PLit (Pos x)) xs)
+    MAP (eval_pseudoBool w) (MAP (λ x. PLit (Pos x)) xs)
 Proof
   Induct >> rw[]
   >> rw[eval_pseudoBool_def, cnfTheory.satisfies_lit_def]

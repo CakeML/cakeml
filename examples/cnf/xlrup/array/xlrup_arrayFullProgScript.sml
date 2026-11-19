@@ -6,7 +6,7 @@ Ancestors
   misc UnsafeProof array_ofProof cnf ccnf ccnf_list ccnf_arrayProg
   ccnf_parseProg
   syntax_helper dimacs xor xlrup xlrup_cnf xlrup_list xlrup_parsing
-  xlrup_arrayProg
+  xlrup_arrayProg input_lex input_lexProg
   basis_ffi
 Libs
   preamble basis
@@ -25,7 +25,7 @@ Overload "EXT_TYPE" = ``LIST_TYPE XLRUP_CNF_CNF_EXT_TYPE``
 
 Quote add_cakeml:
   fun parse_body_arr lno maxvar fd acc =
-  case TextIO.inputLineTokens #"\n" fd blanks tokenize of
+  case input_toks fd of
     None => Inr (List.rev acc)
   | Some l =>
     if keep_line l then
@@ -68,7 +68,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     >- (
-      xapp_spec inputLineTokens_specialize>>
+      xapp_spec input_toks_spec>>
       qexists_tac `emp`>>
       qexists_tac ‘[]’>>
       qexists_tac ‘fs’>>
@@ -87,13 +87,12 @@ Proof
               INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
               & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks h)) v)’
   >- (
-    xapp_spec inputLineTokens_specialize>>
+    xapp_spec input_toks_spec>>
     qexists_tac `emp`>>
     qexists_tac ‘h::lines’>>
     qexists_tac ‘fs’>>
     qexists_tac ‘fd’>>xsimpl>>fs []>>
-    rw []>>qexists_tac ‘x’>>xsimpl>>
-    simp[toks_def])>>
+    rw []>>qexists_tac ‘x’>>xsimpl)>>
   gvs[OPTION_TYPE_def]>>
   xmatch>>fs []>>
   xlet_autop>>
@@ -145,7 +144,7 @@ QED
 
 Quote add_cakeml:
   fun parse_cnf_ext_toks_arr lno fd =
-  case TextIO.inputLineTokens #"\n" fd blanks tokenize of
+  case input_toks fd of
     None => Inl (format_dimacs_failure lno "failed to find header")
   | Some l =>
     if keep_line l then
@@ -192,7 +191,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     >- (
-      xapp_spec inputLineTokens_specialize>>
+      xapp_spec input_toks_spec>>
       qexists_tac `emp`>>
       qexists_tac ‘[]’>>
       qexists_tac ‘fs’>>
@@ -212,13 +211,12 @@ Proof
               INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
               & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks h)) v)’
   >- (
-    xapp_spec inputLineTokens_specialize>>
+    xapp_spec input_toks_spec>>
     qexists_tac `emp`>>
     qexists_tac ‘h::lines’>>
     qexists_tac ‘fs’>>
     qexists_tac ‘fd’>>xsimpl>>fs []>>
-    rw []>>qexists_tac ‘x’>>xsimpl>>
-    simp[toks_def])>>
+    rw []>>qexists_tac ‘x’>>xsimpl)>>
   gvs [OPTION_TYPE_def]>>
   xmatch>>fs []>>
   xlet_autop>>
@@ -896,8 +894,8 @@ Definition reads_stdin_def:
 End
 
 Theorem BOOL_T_F_eq[local]:
-  (BOOL T v ⇔ v = Conv (SOME (TypeStamp «True» 0)) []) ∧
-  (BOOL F v ⇔ v = Conv (SOME (TypeStamp «False» 0)) [])
+  (BOOL T v ⇔ v = Conv (SOME (TypeStamp «True» 0 1)) []) ∧
+  (BOOL F v ⇔ v = Conv (SOME (TypeStamp «False» 0 0)) [])
 Proof
   simp[BOOL_def,semanticPrimitivesTheory.Boolv_def,
     semanticPrimitivesTheory.bool_type_num_def]

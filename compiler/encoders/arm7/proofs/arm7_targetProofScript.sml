@@ -532,7 +532,7 @@ val encode_rwts =
    let
       open armTheory
    in
-      [arm7_enc_def, arm7_bop_def, arm7_sh_def, arm7_cmp_def,
+      [arm7_enc_def, arm7_fix_nan_def, arm7_bop_def, arm7_sh_def, arm7_cmp_def,
        arm7_encode_def, arm7_encode1_def, arm7_encode_fail_def, encode_def, arm7_vfp_cmp_def,
        e_branch_def, e_data_def, e_load_def, e_store_def, e_vfp_def,
        e_multiply_def, EncodeImmShift_def, EncodeImmShift_def,
@@ -647,7 +647,7 @@ local
                                     [set_sepTheory.fun2set_eq]
                                     (Q.SPECL [`^t`, `^tm`] th))
                               \\ assume_tac th)
-                         \\ fs [DISCH_ALL arm_stepTheory.R_x_not_pc,
+                         \\ gvs [DISCH_ALL arm_stepTheory.R_x_not_pc,
                                 combinTheory.UPDATE_APPLY]),
                      etm)
                  end
@@ -916,16 +916,16 @@ Proof
     [GSYM listTheory.LENGTH_NIL, length_arm7_encode1, length_arm7_encode]
 QED
 
-val arm7_encoding = Q.prove (
-   `!i. let l = arm7_enc i in (LENGTH l MOD 4 = 0) /\ l <> []`,
-   strip_tac
-   \\ asmLib.asm_cases_tac `i`
-   \\ simp [arm7_enc_def, arm7_cmp_def, arm7_vfp_cmp_def, arm7_encode_fail_def,
-            length_arm7_encode1, length_arm7_encode]
-   \\ REPEAT CASE_TAC
-   \\ rw [length_arm7_encode, length_arm7_encode1, arm7_encode_not_nil]
-   )
-   |> SIMP_RULE (bool_ss++boolSimps.LET_ss) []
+Theorem arm7_encoding[local]:
+  !i. LENGTH (arm7_enc i) MOD 4 = 0 /\ arm7_enc i <> []
+Proof
+  strip_tac
+  \\ asmLib.asm_cases_tac `i`
+  \\ simp [arm7_enc_def, arm7_fix_nan_def, arm7_cmp_def, arm7_vfp_cmp_def, arm7_encode_fail_def,
+           length_arm7_encode1, length_arm7_encode]
+  \\ REPEAT CASE_TAC
+  \\ rw [length_arm7_encode, length_arm7_encode1, arm7_encode_not_nil]
+QED
 
 Theorem i2w_32_signed[local]:
   -2147483648 ≤ i ∧ i ≤ 2147483647 ⇒ w2i (i2w i : word32) = i
@@ -1332,28 +1332,210 @@ Resume arm7_encoder_correct[FPNeg]:
   print_tac "FPNeg"  \\ next_tac
 QED
 
+fun fp_arith_tac nan_test =
+  Cases_on nan_test
+  \\ Q.PAT_ABBREV_TAC `instr = arm7_enc _`
+  \\ pop_assum mp_tac
+  \\ NO_STRIP_FULL_SIMP_TAC (srw_ss() ++ boolSimps.LET_ss) enc_rwts
+  \\ strip_tac
+  \\ qunabbrev_tac `instr`
+  \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()) []
+  \\ qexists_tac `6`
+  \\ simp_tac (srw_ss() ++ boolSimps.CONJ_ss)
+       [asmPropsTheory.asserts_eval, asmPropsTheory.asserts2_eval, reg_mode_eq,
+        asmPropsTheory.interference_ok_def, arm7_proj_def]
+  \\ qx_gen_tac `env`
+  \\ strip_tac
+  \\ NTAC 6 (split_bytes_in_memory_tac 4)
+  \\ NTAC 3 (next_state_tac_by_conditions [true])
+  \\ NTAC 4 next_state_tac
+  \\ NTAC 28 (qpat_x_assum `ms.MEM _ = _` kall_tac)
+  \\ `!reg. reg < 31 ==> (n2w reg : word5) <> 31w` by (
+    qx_gen_tac `reg`
+    \\ strip_tac
+    \\ `reg < 32` by decide_tac
+    \\ simp [wordsTheory.n2w_11])
+  \\ asm_simp_tac (srw_ss())
+       [asmPropsTheory.sym_target_state_rel, arm7_target_def,
+        asmPropsTheory.all_pcs, arm7_ok_def, arm7_config,
+        combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
+        alignmentTheory.align_aligned, set_sepTheory.fun2set_eq,
+        integer_wordTheory.overflow_add, fp_to_int_lem2,
+        arm_stepTheory.UpdateSingleOfDouble_def,
+        arm_stepTheory.SingleOfDouble_def,
+        SIMP_RULE (srw_ss()) [] integer_wordTheory.overflow_sub,
+        fpSemTheory.fix_NaN_def]
+  \\ qpat_x_assum `target_state_rel arm7_target s1 ms`
+    (strip_assume_tac o SIMP_RULE (srw_ss())
+       [asmPropsTheory.sym_target_state_rel, arm7_target_def, arm7_config,
+        arm7_ok_def, set_sepTheory.fun2set_eq])
+  \\ asm_simp_tac (srw_ss() ++ wordsLib.WORD_EXTRACT_ss)
+       [DISCH_ALL arm_stepTheory.R_x_not_pc, combinTheory.APPLY_UPDATE_THM,
+        arm_stepTheory.R_mode_11, updateTheory.APPLY_UPDATE_ID]
+  \\ `!index current reg.
+     current.CPSR.M = ms.CPSR.M ==>
+     (env index current).REG (R_mode ms.CPSR.M (n2w reg)) =
+     current.REG (R_mode ms.CPSR.M (n2w reg))` by (
+    qx_gen_tac `index` \\ qx_gen_tac `current` \\ qx_gen_tac `reg`
+    \\ disch_then (fn mode =>
+      qpat_assum `!i:num state:arm_state. (env i state).CPSR = state.CPSR /\ _` (fn th =>
+        strip_assume_tac
+          (SIMP_RULE (srw_ss()) [mode] (SPECL [``index:num``, ``current:arm_state``] th))))
+    \\ simp [EVAL ``(-1w : word64)``])
+  \\ `!index current address.
+       address IN s1.mem_domain ==>
+       (env index current).MEM address = current.MEM address` by (
+    qx_gen_tac `index` \\ qx_gen_tac `current` \\ qx_gen_tac `address`
+    \\ strip_tac
+    \\ qpat_assum `!i:num state:arm_state. (env i state).CPSR = state.CPSR /\ _`
+         (qspecl_then [`index`, `current`]
+            (strip_assume_tac o SIMP_RULE (srw_ss()) [set_sepTheory.fun2set_eq]))
+    \\ simp [EVAL ``(-1w : word64)``])
+  \\ asm_simp_tac (srw_ss() ++ wordsLib.WORD_EXTRACT_ss)
+       [DISCH_ALL arm_stepTheory.R_x_not_pc, combinTheory.APPLY_UPDATE_THM,
+        arm_stepTheory.R_mode_11, updateTheory.APPLY_UPDATE_ID]
+  \\ rpt strip_tac
+  \\ asm_simp_tac (srw_ss() ++ wordsLib.WORD_EXTRACT_ss)
+       [DISCH_ALL arm_stepTheory.R_x_not_pc, combinTheory.APPLY_UPDATE_THM,
+        arm_stepTheory.R_mode_11, updateTheory.APPLY_UPDATE_ID]
+  \\ rename1 `dst = reg`
+  \\ `dst < 32 /\ reg < 32` by decide_tac
+  \\ simp [EVAL ``(-1w : word64)``];
+
 Resume arm7_encoder_correct[FPSqrt]:
-  print_tac "FPSqrt" \\ next_tac
+  rename1 `FPSqrt dst src`
+  \\ `dst < 31 /\ src < 31` by fs [arm7_asm_ok]
+  \\ `fp64_isNan (fp64_sqrt roundTiesToEven (ms.FP.REG (n2w src))) =
+         fp64_isNan (fp64_sqrt roundTiesToEven (s1.fp_regs src)) /\
+       fp64_equal (fp64_sqrt roundTiesToEven (ms.FP.REG (n2w src)))
+                  (fp64_sqrt roundTiesToEven (ms.FP.REG (n2w src))) =
+         ~fp64_isNan (fp64_sqrt roundTiesToEven (s1.fp_regs src))` by (
+    `ms.FP.REG (n2w src) = s1.fp_regs src` by
+      fs [asmPropsTheory.target_state_rel_def, arm7_target_def, arm7_config]
+    \\ simp [machine_ieeeTheory.fp64_equal_def, machine_ieeeTheory.fp64_isNan_def,
+             binary_ieeeTheory.float_is_nan_impl])
+  \\ fp_arith_tac
+       `fp64_isNan (fp64_sqrt roundTiesToEven (s1.fp_regs src))`
 QED
 
 Resume arm7_encoder_correct[FPAdd]:
-  print_tac "FPAdd"  \\ next_tac
+  rename1 `FPAdd dst left right`
+  \\ `dst < 31 /\ left < 31 /\ right < 31` by fs [arm7_asm_ok]
+  \\ `fp64_isNan
+         (fp64_add roundTiesToEven (ms.FP.REG (n2w left))
+                                  (ms.FP.REG (n2w right))) =
+       fp64_isNan (fp64_add roundTiesToEven (s1.fp_regs left) (s1.fp_regs right)) /\
+       fp64_equal
+         (fp64_add roundTiesToEven (ms.FP.REG (n2w left))
+                                  (ms.FP.REG (n2w right)))
+         (fp64_add roundTiesToEven (ms.FP.REG (n2w left))
+                                  (ms.FP.REG (n2w right))) =
+       ~fp64_isNan (fp64_add roundTiesToEven (s1.fp_regs left) (s1.fp_regs right))` by (
+    `ms.FP.REG (n2w left) = s1.fp_regs left /\
+     ms.FP.REG (n2w right) = s1.fp_regs right` by
+      fs [asmPropsTheory.target_state_rel_def, arm7_target_def, arm7_config]
+    \\ simp [machine_ieeeTheory.fp64_equal_def, machine_ieeeTheory.fp64_isNan_def,
+             binary_ieeeTheory.float_is_nan_impl])
+  \\ fp_arith_tac
+       `fp64_isNan (fp64_add roundTiesToEven (s1.fp_regs left) (s1.fp_regs right))`
 QED
 
 Resume arm7_encoder_correct[FPSub]:
-  print_tac "FPSub"  \\ next_tac
+  rename1 `FPSub dst left right`
+  \\ `dst < 31 /\ left < 31 /\ right < 31` by fs [arm7_asm_ok]
+  \\ `fp64_isNan
+         (fp64_sub roundTiesToEven (ms.FP.REG (n2w left))
+                                  (ms.FP.REG (n2w right))) =
+       fp64_isNan (fp64_sub roundTiesToEven (s1.fp_regs left) (s1.fp_regs right)) /\
+       fp64_equal
+         (fp64_sub roundTiesToEven (ms.FP.REG (n2w left))
+                                  (ms.FP.REG (n2w right)))
+         (fp64_sub roundTiesToEven (ms.FP.REG (n2w left))
+                                  (ms.FP.REG (n2w right))) =
+       ~fp64_isNan (fp64_sub roundTiesToEven (s1.fp_regs left) (s1.fp_regs right))` by (
+    `ms.FP.REG (n2w left) = s1.fp_regs left /\
+     ms.FP.REG (n2w right) = s1.fp_regs right` by
+      fs [asmPropsTheory.target_state_rel_def, arm7_target_def, arm7_config]
+    \\ simp [machine_ieeeTheory.fp64_equal_def, machine_ieeeTheory.fp64_isNan_def,
+             binary_ieeeTheory.float_is_nan_impl])
+  \\ fp_arith_tac
+       `fp64_isNan (fp64_sub roundTiesToEven (s1.fp_regs left) (s1.fp_regs right))`
 QED
 
 Resume arm7_encoder_correct[FPMul]:
-  print_tac "FPMul"  \\ next_tac
+  rename1 `FPMul dst left right`
+  \\ `dst < 31 /\ left < 31 /\ right < 31` by fs [arm7_asm_ok]
+  \\ `fp64_isNan
+         (fp64_mul roundTiesToEven (ms.FP.REG (n2w left))
+                                  (ms.FP.REG (n2w right))) =
+       fp64_isNan (fp64_mul roundTiesToEven (s1.fp_regs left) (s1.fp_regs right)) /\
+       fp64_equal
+         (fp64_mul roundTiesToEven (ms.FP.REG (n2w left))
+                                  (ms.FP.REG (n2w right)))
+         (fp64_mul roundTiesToEven (ms.FP.REG (n2w left))
+                                  (ms.FP.REG (n2w right))) =
+       ~fp64_isNan (fp64_mul roundTiesToEven (s1.fp_regs left) (s1.fp_regs right))` by (
+    `ms.FP.REG (n2w left) = s1.fp_regs left /\
+     ms.FP.REG (n2w right) = s1.fp_regs right` by
+      fs [asmPropsTheory.target_state_rel_def, arm7_target_def, arm7_config]
+    \\ simp [machine_ieeeTheory.fp64_equal_def, machine_ieeeTheory.fp64_isNan_def,
+             binary_ieeeTheory.float_is_nan_impl])
+  \\ fp_arith_tac
+       `fp64_isNan (fp64_mul roundTiesToEven (s1.fp_regs left) (s1.fp_regs right))`
 QED
 
 Resume arm7_encoder_correct[FPDiv]:
-  print_tac "FPDiv"  \\ next_tac
+  rename1 `FPDiv dst left right`
+  \\ `dst < 31 /\ left < 31 /\ right < 31` by fs [arm7_asm_ok]
+  \\ `fp64_isNan
+         (fp64_div roundTiesToEven (ms.FP.REG (n2w left))
+                                  (ms.FP.REG (n2w right))) =
+       fp64_isNan (fp64_div roundTiesToEven (s1.fp_regs left) (s1.fp_regs right)) /\
+       fp64_equal
+         (fp64_div roundTiesToEven (ms.FP.REG (n2w left))
+                                  (ms.FP.REG (n2w right)))
+         (fp64_div roundTiesToEven (ms.FP.REG (n2w left))
+                                  (ms.FP.REG (n2w right))) =
+       ~fp64_isNan (fp64_div roundTiesToEven (s1.fp_regs left) (s1.fp_regs right))` by (
+    `ms.FP.REG (n2w left) = s1.fp_regs left /\
+     ms.FP.REG (n2w right) = s1.fp_regs right` by
+      fs [asmPropsTheory.target_state_rel_def, arm7_target_def, arm7_config]
+    \\ simp [machine_ieeeTheory.fp64_equal_def, machine_ieeeTheory.fp64_isNan_def,
+             binary_ieeeTheory.float_is_nan_impl])
+  \\ fp_arith_tac
+       `fp64_isNan (fp64_div roundTiesToEven (s1.fp_regs left) (s1.fp_regs right))`
 QED
 
 Resume arm7_encoder_correct[FPFma]:
-  print_tac "FPFma"  \\ next_tac
+  rename1 `FPFma dst left right`
+  \\ `dst < 31 /\ left < 31 /\ right < 31` by fs [arm7_asm_ok]
+  \\ `fp64_isNan
+         (fp64_mul_add roundTiesToEven (ms.FP.REG (n2w left))
+                                      (ms.FP.REG (n2w right))
+                                      (ms.FP.REG (n2w dst))) =
+       fp64_isNan
+         (fp64_mul_add roundTiesToEven (s1.fp_regs left) (s1.fp_regs right)
+                                      (s1.fp_regs dst)) /\
+       fp64_equal
+         (fp64_mul_add roundTiesToEven (ms.FP.REG (n2w left))
+                                      (ms.FP.REG (n2w right))
+                                      (ms.FP.REG (n2w dst)))
+         (fp64_mul_add roundTiesToEven (ms.FP.REG (n2w left))
+                                      (ms.FP.REG (n2w right))
+                                      (ms.FP.REG (n2w dst))) =
+       ~fp64_isNan
+         (fp64_mul_add roundTiesToEven (s1.fp_regs left) (s1.fp_regs right)
+                                      (s1.fp_regs dst))` by (
+    `ms.FP.REG (n2w left) = s1.fp_regs left /\
+     ms.FP.REG (n2w right) = s1.fp_regs right /\
+     ms.FP.REG (n2w dst) = s1.fp_regs dst` by
+      fs [asmPropsTheory.target_state_rel_def, arm7_target_def, arm7_config]
+    \\ simp [machine_ieeeTheory.fp64_equal_def, machine_ieeeTheory.fp64_isNan_def,
+             binary_ieeeTheory.float_is_nan_impl])
+  \\ fp_arith_tac
+       `fp64_isNan (fp64_mul_add roundTiesToEven (s1.fp_regs left)
+                                               (s1.fp_regs right)
+                                               (s1.fp_regs dst))`
 QED
 
 Resume arm7_encoder_correct[FPMov]:
@@ -1369,28 +1551,33 @@ Resume arm7_encoder_correct[FPMovFromReg]:
 QED
 
 Resume arm7_encoder_correct[FPToInt]:
-  print_tac "FPToInt"
-             \\ Cases_on `fp64_to_int roundTiesToEven (s1.fp_regs n0)`
-             >- next_tac
-             \\ rename1 `fp64_to_int roundTiesToEven _ = SOME i`
-             \\ Cases_on `w2i (i2w i : word32) = i`
-             >- (
-                 imp_res_tac fp_to_int_lem
-                 \\ assume_tac (GSYM bitTheory.BIT0_ODD)
-                 \\ Cases_on `BIT 0 n`
-                 \\ next_tac
-                )
-             \\ Cases_on `ODD n`
-             \\ next_tac
-             \\ imp_res_tac fp_to_int_lem2
+  rename1 `FPToInt dst src`
+  \\ namedCases_on `fp64_to_int roundTiesToEven (s1.fp_regs src)` ["", "i"]
+  >- fs enc_rwts
+  \\ `dst < 31 /\ src < 31` by fs [arm7_asm_ok]
+  \\ `dst DIV 2 < 31` by simp [arithmeticTheory.DIV_LT_X]
+  \\ namedCases_on `w2i (i2w i : word32) = i` ["", ""]
+  >- (
+    `fp64_to_int roundTiesToEven (ms.FP.REG (n2w src)) = SOME i` by (
+      `ms.FP.REG (n2w src) = s1.fp_regs src` by
+        fs [asmPropsTheory.target_state_rel_def, arm7_target_def, arm7_config]
+      \\ simp [])
+    \\ `dst < 32 /\ src < 32` by decide_tac
+    \\ imp_res_tac fp_to_int_lem
+    \\ assume_tac (GSYM bitTheory.BIT0_ODD)
+    \\ namedCases_on `BIT 0 dst` ["", ""]
+    \\ next_tac)
+  \\ namedCases_on `ODD dst` ["", ""]
+  \\ fs enc_rwts
 QED
 
 Resume arm7_encoder_correct[FPFromInt]:
-  print_tac "FPFromInt"
-             \\ assume_tac (GSYM bitTheory.BIT0_ODD)
-             \\ wordsLib.Cases_on_word_value
-                  `(4 >< 4) (n2w n : word5) : word1` (* low or hi *)
-             \\ next_tac
+  rename1 `FPFromInt dst src`
+  \\ `src < 31` by fs [arm7_asm_ok]
+  \\ `src DIV 2 < 31` by simp [arithmeticTheory.DIV_LT_X]
+  \\ assume_tac (GSYM bitTheory.BIT0_ODD)
+  \\ wordsLib.Cases_on_word_value `(4 >< 4) (n2w dst : word5) : word1`
+  \\ next_tac
 QED
 
 Resume arm7_encoder_correct[Jump]:

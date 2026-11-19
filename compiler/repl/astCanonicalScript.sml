@@ -35,29 +35,29 @@ val canonical_stamped_groups = ListPair.map (fn (group,rep_def) => let
       |> strip_exists |> snd
     val conv = find_term semanticPrimitivesSyntax.is_Conv body
     val (stamp,values) = semanticPrimitivesSyntax.dest_Conv conv
-    val (cn,index) = stamp |> optionSyntax.dest_some
+    val (cn,index,pos) = stamp |> optionSyntax.dest_some
       |> semanticPrimitivesSyntax.dest_TypeStamp
     val arity = values |> listSyntax.dest_list |> fst |> length
-    in (cn,index,arity) end)
+    in (cn,index,pos,arity) end)
   val _ = if length representation_ctors = length declarations andalso
-      length (mk_set (map (fn (cn,_,_) => mlstringSyntax.dest_mlstring cn)
+      length (mk_set (map (fn (cn,_,_,_) => mlstringSyntax.dest_mlstring cn)
         representation_ctors)) =
         length representation_ctors then ()
     else failwith "AST declaration/representation constructor coverage mismatch"
   val stamped_ctors = map (fn (cn,fields) => let
-    val (_,index,arity) = List.find (fn (name,_,_) => aconv name cn)
+    val (_,index,pos,arity) = List.find (fn (name,_,_,_) => aconv name cn)
       representation_ctors |> valOf
     val _ = if arity = length (fst (listSyntax.dest_list fields)) then ()
       else failwith "AST declaration/representation constructor arity mismatch"
-    in pairSyntax.list_mk_pair [cn,index,fields] end) declarations
+    in pairSyntax.list_mk_pair [cn,index,pos,fields] end) declarations
   in pairSyntax.mk_pair (name,pairSyntax.mk_pair (params,
-    listSyntax.mk_list (stamped_ctors,``:mlstring # num # ast_t list``))) end)
+    listSyntax.mk_list (stamped_ctors,``:mlstring # num # num # ast_t list``))) end)
   (canonical_type_groups,canonical_representation_defs);
 
 Definition ast_canonical_stamped_declarations_def:
   ast_canonical_stamped_declarations =
     ^(listSyntax.mk_list (canonical_stamped_groups,
-      ``:mlstring # mlstring list # (mlstring # num # ast_t list) list``))
+      ``:mlstring # mlstring list # (mlstring # num # num # ast_t list) list``))
 End
 
 Definition ast_canonical_type_groups_def:
@@ -83,8 +83,8 @@ Definition ast_canonical_signature_def:
     case ALOOKUP ast_canonical_stamped_declarations name of
       NONE => {}
     | SOME (params,ctors) =>
-        set (MAP (\(cn,index,fields).
-          (cn,index,params,MAP (type_name_subst tenvT) fields)) ctors)
+        set (MAP (\(cn,index,pos,fields).
+          (cn,index,pos,params,MAP (type_name_subst tenvT) fields)) ctors)
 End
 
 (* Record the representation dependencies actually occurring in registered
@@ -432,7 +432,7 @@ Proof
       irule type_rep_complete_below_list >> simp []) >>
   drule_all type_v_datatype_signature >>
   disch_then (qx_choosel_then
-    [`ctor_name`,`runtime_index`,`ctor_fields`,`ctor_params`,`ctor_types`]
+    [`ctor_name`,`runtime_index`,`ctor_pos`,`ctor_fields`,`ctor_params`,`ctor_types`]
     strip_assume_tac) >>
   `EVERY (\field. v_size field < v_size value) ctor_fields` by (
     rewrite_tac [EVERY_MEM] >> qx_gen_tac `field_value` >> strip_tac >>
@@ -488,7 +488,7 @@ Proof
       irule type_rep_complete_implies_below >> fs [Tstring_def]) >>
   drule_all type_v_datatype_signature >>
   disch_then (qx_choosel_then
-    [`ctor_name`,`runtime_index`,`ctor_fields`,`ctor_params`,`ctor_types`]
+    [`ctor_name`,`runtime_index`,`ctor_pos`,`ctor_fields`,`ctor_params`,`ctor_types`]
     strip_assume_tac) >>
   `EVERY (\field. v_size field < v_size value) ctor_fields` by (
     rewrite_tac [EVERY_MEM] >> qx_gen_tac `field_value` >> strip_tac >>
@@ -588,7 +588,7 @@ Proof
       irule type_rep_complete_below_option >> fs [Tstring_def]) >>
   drule_all type_v_datatype_signature >>
   disch_then (qx_choosel_then
-    [`ctor_name`,`runtime_index`,`ctor_fields`,`ctor_params`,`ctor_types`]
+    [`ctor_name`,`runtime_index`,`ctor_pos`,`ctor_fields`,`ctor_params`,`ctor_types`]
     strip_assume_tac) >>
   `EVERY (\field. v_size field < v_size value) ctor_fields` by (
     rewrite_tac [EVERY_MEM] >> qx_gen_tac `field_value` >> strip_tac >>
@@ -691,7 +691,7 @@ Proof
           irule type_rep_complete_below_list >> fs [Tstring_def,Tlist_def,Ttup_def]) >>
   drule_all type_v_datatype_signature >>
   disch_then (qx_choosel_then
-    [`ctor_name`,`runtime_index`,`ctor_fields`,`ctor_params`,`ctor_types`]
+    [`ctor_name`,`runtime_index`,`ctor_pos`,`ctor_fields`,`ctor_params`,`ctor_types`]
     strip_assume_tac) >>
   `EVERY (\field. v_size field < v_size value) ctor_fields` by (
     rewrite_tac [EVERY_MEM] >> qx_gen_tac `field_value` >> strip_tac >>
@@ -896,8 +896,8 @@ Definition ast_canonical_representation_stamps_def:
 End
 
 Theorem ast_encoder_list_self[local]:
-  stamp_rel ft fe (TypeStamp «[]» list_type_num) (TypeStamp «[]» list_type_num) /\
-  stamp_rel ft fe (TypeStamp «::» list_type_num) (TypeStamp «::» list_type_num) /\
+  stamp_rel ft fe (TypeStamp «[]» list_type_num 0) (TypeStamp «[]» list_type_num 0) /\
+  stamp_rel ft fe (TypeStamp «::» list_type_num 1) (TypeStamp «::» list_type_num 1) /\
   (!item. v_rel fr ft fe (element_v item) (element_v item)) ==>
   !items. v_rel fr ft fe (LIST_v element_v items) (LIST_v element_v items)
 Proof
@@ -1083,8 +1083,8 @@ Proof
   mp_tac (SPEC_ALL ast_type_encoder_self) >> simp [] >> strip_tac >>
   mp_tac (SPEC_ALL ast_pattern_encoder_self) >> simp [] >> strip_tac >>
   mp_tac (SPEC_ALL ast_expression_encoder_self) >> simp [] >> strip_tac >>
-  ‘stamp_rel ft fe (TypeStamp «[]» list_type_num) (TypeStamp «[]» list_type_num) /\
-    stamp_rel ft fe (TypeStamp «::» list_type_num) (TypeStamp «::» list_type_num)’ by (
+  ‘stamp_rel ft fe (TypeStamp «[]» list_type_num 0) (TypeStamp «[]» list_type_num 0) /\
+    stamp_rel ft fe (TypeStamp «::» list_type_num 1) (TypeStamp «::» list_type_num 1)’ by (
       fs [ast_canonical_representation_stamps_def,list_type_num_def]) >>
   ho_match_mp_tac DEC_v_ind >> rw [] >>
   simp [Once DEC_v_def] >>

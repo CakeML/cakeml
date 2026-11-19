@@ -36,7 +36,7 @@ Definition approx_of_def:
      | SOME (MutBlock tg fin ls c rs) =>
          approx_of lims (ls ++ [c] ++ rs) (delete r refs) +
          LENGTH ls + LENGTH rs + 2) /\
-  (approx_of lims [Block ts tag []] refs = 0) /\
+  (approx_of lims [Block ts tag []] refs = if is_exn_tag tag then 1 else 0) /\
   (approx_of lims [Block ts tag vs] refs =
     approx_of lims vs refs + LENGTH vs + 1)
 Termination
@@ -266,7 +266,9 @@ fun cases_on_op_fs q = Cases_on q \\ full_simp_tac(srw_ss()) []
   >>> SELECT_LT_THEN (Q.RENAME_TAC [‘BlockOp b_’]) (Cases_on `b_`)
   >>> SELECT_LT_THEN (Q.RENAME_TAC [‘GlobOp g_’]) (Cases_on `g_`)
   >>> SELECT_LT_THEN (Q.RENAME_TAC [‘MemOp m_’]) (Cases_on `m_`)
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [‘ThunkOp t_’]) (Cases_on `t_`);
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [‘ThunkOp t_’]) (Cases_on `t_`)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [`BlockOp (Cons constructor_tag)`])
+        (Cases_on `is_exn_tag constructor_tag`);
 
 (*fs[] is slower than full_simp_tac(srw_ss())[]*)
 Theorem do_app_with_stack[local]:
@@ -286,7 +288,7 @@ Proof
       bool_case_eq,Once do_app_def,do_stack_def,do_space_def,
       with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
       ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+      semanticPrimitivesTheory.cmp_result_case_eq,astTheory.word_size_case_eq,
       pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,UNCURRY_EQ]
     \\ rveq \\ full_simp_tac(srw_ss()) []
   \\ full_simp_tac(srw_ss())[allowed_op_def]
@@ -314,7 +316,7 @@ Proof
         bool_case_eq,do_app_def,do_stack_def,do_space_def,
         with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
         ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-        semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+        semanticPrimitivesTheory.cmp_result_case_eq,astTheory.word_size_case_eq,
         pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,UNCURRY_EQ]
     \\ rveq \\ full_simp_tac(srw_ss()) [])
   \\ full_simp_tac(srw_ss())[allowed_op_def]
@@ -335,7 +337,7 @@ Proof
       bool_case_eq,do_app_def,do_stack_def,do_space_def,
       with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
       ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+      semanticPrimitivesTheory.cmp_result_case_eq,astTheory.word_size_case_eq,
       pair_case_eq,consume_space_def,check_lim_def]
     \\ rveq \\ full_simp_tac(srw_ss()) [] \\ rw [])
 QED
@@ -353,7 +355,7 @@ Proof
       bool_case_eq,do_app_def,do_stack_def,do_space_def,
       with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
       ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+      semanticPrimitivesTheory.cmp_result_case_eq,astTheory.word_size_case_eq,
       pair_case_eq,consume_space_def,check_lim_def,UNCURRY_EQ]
     \\ rveq \\ fs [] \\ rw [])
 QED
@@ -377,7 +379,7 @@ Proof
       bool_case_eq,do_app_def,do_stack_def,do_space_def,
       with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
       ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+      semanticPrimitivesTheory.cmp_result_case_eq,astTheory.word_size_case_eq,
       pair_case_eq,consume_space_def,check_lim_def,UNCURRY_EQ]
     \\ rveq \\ full_simp_tac(srw_ss()) [])
   \\ full_simp_tac(srw_ss()) [allowed_op_def]
@@ -501,7 +503,7 @@ val do_app_swap_tac =
               , check_lim_def]
   \\ TRY (full_simp_tac(srw_ss())[LET_DEF,UNCURRY_EQ,list_case_eq,option_case_eq,v_case_eq,bool_case_eq,bvlSemTheory.ref_case_eq
         , ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq, state_component_equality
-        , semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,pair_case_eq
+        , semanticPrimitivesTheory.cmp_result_case_eq,astTheory.word_size_case_eq,pair_case_eq
         , limits_component_equality,stack_consumed_def]
           \\ full_simp_tac(srw_ss())  [data_spaceTheory.op_space_req_def,stack_consumed_def]
           \\ rev_full_simp_tac(srw_ss())[data_spaceTheory.op_space_req_def]
@@ -682,7 +684,7 @@ val full_cases = fs [ list_case_eq,option_case_eq
                           , bvlSemTheory.ref_case_eq
                           , ffiTheory.ffi_result_case_eq
                           , ffiTheory.oracle_result_case_eq
-                          , semanticPrimitivesTheory.eq_result_case_eq
+                          , semanticPrimitivesTheory.cmp_result_case_eq
                           , astTheory.word_size_case_eq
                           , pair_case_eq];
 
@@ -1924,7 +1926,7 @@ Proof
       with_fresh_ts_def,bvlSemTheory.ref_case_eq,
       space_consumed_with_clock_ptr_eq_oracle,
       ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+      semanticPrimitivesTheory.cmp_result_case_eq,astTheory.word_size_case_eq,
       astTheory.thunk_mode_case_eq,closLangTheory.const_part_case_eq,
       pair_case_eq,consume_space_def,size_of_heap_with_clock_ptr_eq_oracle,
       size_of_heap_args_with_clock_ptr_eq_oracle,check_lim_def]
@@ -2183,7 +2185,7 @@ Proof
               bool_case_eq,ffiTheory.call_FFI_def,
               with_fresh_ts_def,bvlSemTheory.ref_case_eq,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+              semanticPrimitivesTheory.cmp_result_case_eq,astTheory.word_size_case_eq,
               pair_case_eq,consume_space_def,check_lim_def] >>
   rveq >> fs [])
 QED
@@ -2375,7 +2377,7 @@ Proof
       bool_case_eq,do_app_def,do_stack_def,do_space_def,
       with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
       ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,check_lim_def,
-      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+      semanticPrimitivesTheory.cmp_result_case_eq,astTheory.word_size_case_eq,
       pair_case_eq,consume_space_def,op_space_reset_def,data_spaceTheory.op_space_req_def,
       UNCURRY_EQ]
   \\ rw [] \\ fs [state_component_equality] \\ rw []
@@ -3021,7 +3023,7 @@ Proof
   rw[do_app_def,do_stack_def,do_space_def,do_app_aux_def,do_install_def,with_fresh_ts_def,
      check_lim_def,
      CaseEq "bool",CaseEq"option",CaseEq"list",CaseEq"prod",CaseEq"closLang$op",
-     CaseEq "v",CaseEq"ref",CaseEq"ffi_result",CaseEq"eq_result",CaseEq"word_size",
+     CaseEq "v",CaseEq"ref",CaseEq"ffi_result",CaseEq"cmp_result",CaseEq"word_size",
      ELIM_UNCURRY,consume_space_def] >> rw[option_le_max_right,AllCaseEqs()]
   \\ gvs [AllCaseEqs()] \\ rw[option_le_max_right]
 QED
@@ -3119,7 +3121,7 @@ Proof
      bool_case_eq,do_app_def,do_stack_def,do_space_def,
      with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,stack_consumed_def,
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,space_consumed_def,
-     semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+     semanticPrimitivesTheory.cmp_result_case_eq,astTheory.word_size_case_eq,
      pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
      CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,size_of_heap_args_def,
      CaseEq "const_part",
@@ -3159,13 +3161,17 @@ Proof
   rename1 `cc_co_only_diff s1 s2` >>
   qpat_x_assum `cc_co_only_diff s_space t_space` kall_tac >>
   rpt(qpat_x_assum `do_space _ _ _ = _` kall_tac) >>
-  cases_on_op_fs `op` \\ fs [] >>
+  cases_on_op_fs `op` \\ fs []
+  >~ [`IntOp`] >- (
+    rename1 `IntOp intop`
+    \\ Cases_on `intop`
+    \\ gvs [do_app_aux_def, cc_co_only_diff_def, AllCaseEqs()]) >>
   full_simp_tac(srw_ss())[LET_THM,do_app_aux_def,cc_co_only_diff_def,do_app_def,list_case_eq,option_case_eq,v_case_eq,
      CaseEq "sum", CaseEq "const_part", CaseEq "thunk_mode", closLangTheory.int_op_case_eq,
      bool_case_eq,do_app_def,do_stack_def,do_space_def,
      with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-     semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+     semanticPrimitivesTheory.cmp_result_case_eq,astTheory.word_size_case_eq,
      pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
      CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,size_of_heap_args_def,
      stack_to_vs_def] >>
@@ -3419,7 +3425,7 @@ Proof
      bool_case_eq,do_app_def,do_stack_def,do_space_def,
      with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-     semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+     semanticPrimitivesTheory.cmp_result_case_eq,astTheory.word_size_case_eq,
      pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
      CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def,
      stack_consumed_def

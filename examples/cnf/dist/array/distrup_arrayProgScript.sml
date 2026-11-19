@@ -5,7 +5,7 @@ Theory distrup_arrayProg
 Libs
   preamble basis
 Ancestors
-  array_ofProof ccnf_arith ccnf_arrayProg distrup distrup_list HashtableProof
+  array_ofProof ccnf_arith ccnf_dm ccnf_arrayProg distrup distrup_list HashtableProof
 
 val _ = hide_environments true;
 

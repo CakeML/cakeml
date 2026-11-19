@@ -4,6 +4,17 @@ Pancake Changelog
 User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
+Nov 12th 2026
+-------------------
+
+### Standalone Pancake compiler
+
+Pancake now has its own compiler executable. Use `./pancake` instead
+of `./cake --pancake` to compile Pancake programs. Native builds are
+available for x64, ARM8 and RISC-V. The default output target is the
+native architecture. Use `--target=T` to select another target. Each
+executable supports all Pancake targets (x64, arm8, mips, riscv, arm7).
+
 
 Oct 5th 2026
 -------------------

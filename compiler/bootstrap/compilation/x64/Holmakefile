@@ -1,14 +1,19 @@
 ARCH = x64
-INCLUDES = $(CAKEMLDIR)/unverified/sexpr-bootstrap/export
+INCLUDES = $(CAKEMLDIR)/unverified/sexpr-bootstrap/export $(CAKEMLDIR)/candle/parser
 all: $(DEFAULT_TARGETS) README.md cake-$(ARCH).tar.gz test-hello-cake test-candle-records test-repl-input
 .PHONY: all test-hello-cake test-candle-records test-repl-input
 
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) \
+                 $(wildcard *Syntax.sml) candle_boot.cml
 sinclude $(CAKEMLDIR)/developers/readme.mk
 
 cake.S: *$(ARCH)BootstrapScript.sml
 config_enc_str.txt: *$(ARCH)BootstrapScript.sml
 
 cake-sexpr: $(CAKEMLDIR)/unverified/sexpr-bootstrap/export/cake-sexpr
+	$(CP) $< $@
+
+candle_boot.cml: $(CAKEMLDIR)/candle/parser/candle_boot.cml
 	$(CP) $< $@
 
 cake: cake.S basis_ffi.c Makefile
@@ -34,7 +39,7 @@ test-repl-input: cake config_enc_str.txt repl_input.cml repl_boot.cml
 cake-$(ARCH).tar.gz: cake.S basis_ffi.c Makefile hello.cml how-to.md cake-sexpr config_enc_str.txt candle_boot.cml candle_boot.ml repl_boot.cml
 	tar -chzf $@ --transform='s|^|cake-$(ARCH)/|' cake.S basis_ffi.c Makefile hello.cml how-to.md cake-sexpr config_enc_str.txt candle_boot.cml candle_boot.ml repl_boot.cml
 
-EXTRA_CLEANS = cake.S cake-$(ARCH).tar.gz cake test-hello.cake output expected_output repl_input.out
+EXTRA_CLEANS = cake.S cake-$(ARCH).tar.gz cake test-hello.cake output expected_output repl_input.out candle_boot.cml
 
 ifdef POLY
 HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap

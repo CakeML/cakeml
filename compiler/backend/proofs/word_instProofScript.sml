@@ -217,7 +217,7 @@ QED
 
 Theorem EVERY_is_const_word_exp[local]:
   ∀ls. EVERY is_const ls ⇒
-  EVERY IS_SOME (MAP (λa. word_exp s a) ls)
+  EVERY IS_SOME (MAP (word_exp s) ls)
 Proof
   Induct>>srw_tac[][]>>Cases_on`h`>>full_simp_tac(srw_ss())[is_const_def,word_exp_def]
 QED
@@ -230,7 +230,7 @@ Theorem all_consts_simp[local]:
   SOME (Word (i2w (THE (int_op op (MAP rm_const ls)))))
 Proof
   rw []
-  \\ `MAP (λa. word_exp s a) ls = MAP (SOME o Word o i2w) (MAP rm_const ls)` by
+  \\ `MAP (word_exp s) ls = MAP (SOME o Word o i2w) (MAP rm_const ls)` by
     (rw [MAP_MAP_o,MAP_EQ_f] \\ fs [EVERY_MEM] \\ res_tac
      \\ rename1 `word_exp s e = _` \\ Cases_on `e`
      \\ fs [is_const_def,word_exp_def,rm_const_def])

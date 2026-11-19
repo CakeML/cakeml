@@ -78,7 +78,7 @@ QED
 Theorem sum_bools_map:
   ∀ h w.
     sum_bools
-    (MAP (λa. eval_pseudoBool w a)
+    (MAP (eval_pseudoBool w)
      (MAP (λy. PLit (Pos y)) h)) =
     sum_bools (MAP w h)
 Proof

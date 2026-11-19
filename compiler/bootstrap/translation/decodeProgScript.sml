@@ -3,12 +3,12 @@
 *)
 Theory decodeProg[no_sig_docs]
 Ancestors
-  num_list_enc_dec num_tree_enc_dec backend_enc_dec explorerProg
+  num_list_enc_dec num_tree_enc_dec backend_enc_dec inferProg
   ml_translator
 Libs
   preamble basisFunctionsLib ml_translatorLib cfLib
 
-val _ = translation_extends "explorerProg";
+val _ = translation_extends "inferProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "decodeProg");
 val _ = ml_translatorLib.use_sub_check true;

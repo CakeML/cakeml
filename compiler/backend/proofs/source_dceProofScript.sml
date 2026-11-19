@@ -661,6 +661,34 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem v_rel_do_compare[local]:
+  (∀x1 y1 x2 y2.
+     v_rel f x1 x2 ∧ v_rel f y1 y2 ∧ INJ (FAPPLY f) (FDOM f) UNIV ⇒
+     do_compare x1 y1 = do_compare x2 y2) ∧
+  (∀x1 y1 x2 y2.
+     LIST_REL (v_rel f) x1 x2 ∧ LIST_REL (v_rel f) y1 y2 ∧
+     INJ (FAPPLY f) (FDOM f) UNIV ⇒
+     do_compare_list x1 y1 = do_compare_list x2 y2)
+Proof
+  ho_match_mp_tac do_compare_ind \\ rpt strip_tac
+  \\ gvs [v_rel_simps]
+  \\ gvs [do_compare_def]
+  >~ [‘FLOOKUP _ _ = SOME _’] >- (
+    rw [] \\ gvs [INJ_DEF, FLOOKUP_DEF])
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ full_simp_tac bool_ss [GSYM NULL_EQ, NULL_LENGTH]
+  \\ gvs [Excl "do_compare_def"]
+  >~ [‘do_compare _ _’] >- (
+    qpat_x_assum ‘∀x2 y2. _’ drule_all
+    \\ disch_then (fn th => pure_rewrite_tac [GSYM th])
+    \\ namedCases_on ‘do_compare x1 y1’ ["head_cmp", ""]
+    \\ gvs [Excl "do_compare_def"]
+    \\ IF_CASES_TAC \\ gvs [Excl "do_compare_def"]
+    \\ metis_tac [])
+  \\ rw [] \\ gvs [Excl "do_compare_def"]
+  \\ metis_tac []
+QED
+
 Theorem v_rel_v_to_list[local]:
   ∀x1 x2. v_rel f x1 x2 ⇒
           OPTREL (LIST_REL (v_rel f)) (v_to_list x1) (v_to_list x2)
@@ -809,7 +837,7 @@ Proof
   gvs [semanticPrimitivesTheory.state_component_equality]
 QED
 
-(* thunks, for the Force class of App; the BadRef outcome cannot arise for
+(* thunks, for forcing in App; the BadRef outcome cannot arise for
    related values, since v_rel only relates locations that state_rel maps *)
 Theorem state_rel_dest_thunk[local]:
   state_rel f s1 s2 ∧ LIST_REL (v_rel f) vs ws ⇒
@@ -1054,12 +1082,12 @@ Proof
       \\ gvs [])
     \\ irule state_rel_alloc_fresh \\ gvs [])
   (* equality and the comparisons *)
-  \\ Cases_on ‘op = Equality ∨ ∃t ty. op = Test t ty’
+  \\ Cases_on ‘op = Equality ∨ op = PolyCompare ∨ ∃t ty. op = Test t ty’
   >-
    (gvs [semanticPrimitivesPropsTheory.do_app_cases, v_rel_simps]
     \\ qexists_tac ‘f’ \\ gvs [state_with_id, v_rel_refl]
     \\ imp_res_tac v_rel_do_test
-    \\ metis_tac [cj 1 v_rel_do_eq])
+    \\ metis_tac [cj 1 v_rel_do_eq, cj 1 v_rel_do_compare])
   (* arithmetic and conversions: the arguments are literals, hence equal *)
   \\ Cases_on ‘(∃a ty. op = Arith a ty) ∨ ∃ty1 ty2. op = FromTo ty1 ty2’
   >-
@@ -1257,8 +1285,7 @@ Resume evaluate_v_rel[App]:
   rename [‘evaluate s1 env1 [App op es] = (s2,r2)’]
   \\ qpat_x_assum ‘evaluate s1 env1 [App op es] = (s2,r2)’ mp_tac
   \\ rewrite_tac [evaluate_def]
-  \\ Cases_on ‘evaluate s1 env1 (REVERSE es)’
-  \\ qabbrev_tac ‘cl = getOpClass’ \\ gvs []
+  \\ Cases_on ‘evaluate s1 env1 (REVERSE es)’ \\ gvs []
   \\ strip_tac
   \\ Cases_on ‘r = Rerr (Rabort Rtype_error)’ \\ gvs []
   \\ first_x_assum drule
@@ -1275,8 +1302,7 @@ Resume evaluate_v_rel[App]:
   >- (pop_assum $ irule_at Any \\ gvs [])
   \\ Cases_on ‘op = Eval’
   >-
-   (gvs [Abbr‘cl’]
-    \\ gvs [do_eval_res_def]
+   (gvs [do_eval_res_def]
     \\ qsuff_tac ‘do_eval (REVERSE a) q.eval_state = NONE’
     >- (strip_tac \\ gvs [])
     \\ simp [do_eval_def, AllCaseEqs(), PULL_EXISTS]
@@ -1295,12 +1321,8 @@ Resume evaluate_v_rel[App]:
              ‘state_rel g t1 t2’, ‘LIST_REL (v_rel g) xs ys’]
   \\ ‘LIST_REL (v_rel g) (REVERSE xs) (REVERSE ys)’ by gvs [LIST_REL_REVERSE_EQ]
   \\ ‘t1.clock = t2.clock’ by gvs [state_rel_def]
-  \\ Cases_on ‘cl op’ \\ gvs []
-  (* EvalOp is only reachable for op = Eval, which is done above *)
-  >-
-   (qpat_x_assum ‘cl op = EvalOp’ mp_tac \\ gvs [Abbr‘cl’]
-    \\ Cases_on ‘op’ \\ gvs [] \\ rw [])
   (* function application *)
+  \\ Cases_on ‘op = Opapp’ \\ gvs []
   >-
    (gvs [AllCaseEqs()]
     \\ rename [‘do_opapp (REVERSE xs) = SOME (envA,e)’]
@@ -1317,6 +1339,7 @@ Resume evaluate_v_rel[App]:
     \\ first_assum $ irule_at Any
     \\ imp_res_tac SUBMAP_TRANS \\ gvs [])
   (* forcing a thunk *)
+  \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gvs []
   >-
    (‘LIST_REL (v_rel g) (REVERSE xs) (REVERSE ys)’ by gvs [LIST_REL_REVERSE_EQ]
     \\ drule_all state_rel_dest_thunk \\ strip_tac
@@ -1344,6 +1367,7 @@ Resume evaluate_v_rel[App]:
       \\ imp_res_tac SUBMAP_TRANS \\ gvs [])
     \\ first_assum $ irule_at Any \\ imp_res_tac SUBMAP_TRANS \\ gvs [])
   (* pointer equality preserves the relation and advances both oracles *)
+  \\ Cases_on ‘op = PtrEq’ \\ gvs []
   >-
    (gvs [AllCaseEqs()]
     \\ qpat_x_assum ‘REVERSE xs = _’
@@ -1643,7 +1667,7 @@ Proof
   ho_match_mp_tac evaluate_ind \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_then strip_assume_tac)
   >~ [‘App op es’]
-  >- (‘getOpClass op = Simple’ by
+  >- (‘op ≠ Opapp ∧ op ≠ ThunkOp ForceThunk ∧ op ≠ Eval ∧ op ≠ PtrEq’ by
         (Cases_on ‘op’
          \\ gvs [pure_exp_def, pure_op_def, alloc_app_def, alloc_op_def]
          \\ Cases_on ‘t’

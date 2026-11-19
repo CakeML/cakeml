@@ -20,9 +20,9 @@ Proof
 QED
 
 Inductive stamp_rel:
-  (∀ft fe n m1 m2.
+  (∀ft fe n m1 m2 pos.
     FLOOKUP ft m1 = SOME m2 ⇒
-    stamp_rel ft fe (TypeStamp n m1) (TypeStamp n m2))
+    stamp_rel ft fe (TypeStamp n m1 pos) (TypeStamp n m2 pos))
   ∧
   (∀ft fe m1 m2.
     FLOOKUP fe m1 = SOME m2 ⇒
@@ -121,6 +121,8 @@ Definition state_rel_def:
     INJ ($' fr) (FDOM fr) (count (LENGTH t.refs)) ∧
     INJ ($' ft) (FDOM ft) (count t.next_type_stamp) ∧
     INJ ($' fe) (FDOM fe) (count t.next_exn_stamp) ∧
+    (∀n1 n2. n1 ∈ FDOM fe ∧ n2 ∈ FDOM fe ⇒
+      (fe ' n1 < fe ' n2 ⇔ n1 < n2)) ∧
     FDOM fr = count (LENGTH s.refs) ∧
     FDOM ft = count s.next_type_stamp ∧
     FDOM fe = count s.next_exn_stamp ∧
@@ -768,7 +770,8 @@ Proof
   \\ gs [CaseEq "option"]
   \\ Cases_on ‘m1 = list_type_num ∧ n = «::»’ \\ gvs []
   >- (
-    first_x_assum (drule_all_then assume_tac)
+    Cases_on `pos = 1` \\ gvs []
+    \\ first_x_assum (drule_all_then assume_tac)
     \\ gs [])
   \\ Cases_on ‘m1 = list_type_num’ \\ gs [] \\ rw []
   \\ gs [INJ_DEF]
@@ -822,21 +825,13 @@ Theorem v_rel_v_to_char_list:
 Proof
   ho_match_mp_tac v_to_char_list_ind \\ gs []
   \\ rw [] \\ gvs [v_rel_def, v_to_char_list_def]
-  \\ TRY (gs[v_rel_cases] \\ NO_TAC)
-  \\ gvs [CaseEq "bool", OPTREL_def, stamp_rel_cases]
-  \\ gs [v_to_char_list_def]
   >- (
-    Cases_on ‘m1 = list_type_num’ \\ gs []
-    \\ rpt strip_tac \\ gvs []
-    \\ gs [INJ_DEF, flookup_thm])
-  \\ gs [CaseEq "option"]
-  \\ Cases_on ‘m1 = list_type_num ∧ n = «::»’ \\ gvs []
+    gvs [OPTREL_def, stamp_rel_cases, v_to_char_list_def, flookup_thm]
+    \\ rw [] \\ gvs [INJ_DEF])
   >- (
-    first_x_assum (drule_all_then assume_tac)
-    \\ simp[AllCaseEqs()]
-    \\ metis_tac[option_nchotomy])
-  \\ Cases_on ‘m1 = list_type_num’ \\ gs [] \\ rw []
-  \\ gs [INJ_DEF, flookup_thm]
+    gvs [OPTREL_def, stamp_rel_cases, v_to_char_list_def, flookup_thm]
+    \\ rw [] \\ gvs [INJ_DEF] \\ res_tac \\ gvs [])
+  \\ gvs [OPTREL_def, stamp_rel_cases, v_to_char_list_def]
 QED
 
 Theorem v_to_list_list_to_v:
@@ -879,6 +874,42 @@ Proof
   \\ gvs [ctor_same_type_def, same_type_def, stamp_rel_cases, flookup_thm]
   \\ rpt CASE_TAC \\ gvs[]
   \\ metis_tac[INJ_DEF]
+QED
+
+Theorem v_rel_do_compare:
+  (∀x1 y1 x2 y2.
+     v_rel fr ft fe x1 x2 ∧
+     v_rel fr ft fe y1 y2 ∧
+     FLOOKUP ft bool_type_num = SOME bool_type_num ∧
+     INJ ($' fr) (FDOM fr) (count rs) ∧
+     INJ ($' ft) (FDOM ft) (count ns) ∧
+     INJ ($' fe) (FDOM fe) (count ms) ∧
+     (∀n1 n2. n1 ∈ FDOM fe ∧ n2 ∈ FDOM fe ⇒
+       (fe ' n1 < fe ' n2 ⇔ n1 < n2)) ⇒
+     do_compare x1 y1 = do_compare x2 y2) ∧
+  (∀x1 y1 x2 y2.
+     LIST_REL (v_rel fr ft fe) x1 x2 ∧
+     LIST_REL (v_rel fr ft fe) y1 y2 ∧
+     FLOOKUP ft bool_type_num = SOME bool_type_num ∧
+     INJ ($' fr) (FDOM fr) (count rs) ∧
+     INJ ($' ft) (FDOM ft) (count ns) ∧
+     INJ ($' fe) (FDOM fe) (count ms) ∧
+     (∀n1 n2. n1 ∈ FDOM fe ∧ n2 ∈ FDOM fe ⇒
+       (fe ' n1 < fe ' n2 ⇔ n1 < n2)) ⇒
+     do_compare_list x1 y1 = do_compare_list x2 y2)
+Proof
+  ho_match_mp_tac do_compare_ind \\ rw []
+  \\ gvs [v_rel_def, do_compare_def, OPTREL_def]
+  \\ imp_res_tac LIST_REL_LENGTH \\ gs []
+  \\ gvs [ctor_same_type_def, same_type_def, stamp_rel_cases, flookup_thm,
+          compare_stamp_def, NULL_LENGTH]
+  \\ gvs [compare_int_def]
+  \\ rw [] \\ res_tac \\ gvs []
+  >~ [`do_compare _ _`] >- (
+    qmatch_goalsub_rename_tac `do_compare left right`
+    \\ Cases_on `do_compare left right` \\ gvs []
+    \\ rw [] \\ res_tac \\ gvs [])
+  \\ metis_tac [INJ_DEF]
 QED
 
 Theorem v_rel_IMP_check_type_eq[local]:
@@ -1926,6 +1957,20 @@ Proof
     \\ first_assum (irule_at Any) \\ rw []
     \\ irule v_rel_update
     \\ first_assum (irule_at (Pat ‘v_rel’)) \\ gs [])
+  \\ Cases_on `op = PolyCompare` \\ gs []
+  >- (
+    qexistsl_tac [`fr`, `ft`, `fe`] \\ simp []
+    \\ gvs [do_app_def, CaseEq "list"]
+    \\ qmatch_goalsub_rename_tac `do_compare left right`
+    \\ qmatch_asmsub_rename_tac `v_rel fr ft fe left left1`
+    \\ qmatch_asmsub_rename_tac `v_rel fr ft fe right right1`
+    \\ `do_compare left right = do_compare left1 right1` by (
+      irule (CONJUNCT1 v_rel_do_compare)
+      \\ qexistsl_tac [`fe`, `fr`, `ft`, `t.next_exn_stamp`,
+                      `t.next_type_stamp`, `LENGTH t.refs`]
+      \\ gvs [state_rel_def])
+    \\ gvs [] \\ Cases_on `do_compare left1 right1` \\ gvs []
+    \\ qexistsl_tac [`s`, `t`] \\ gvs [v_rel_def])
   \\ Cases_on ‘op = Equality’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
@@ -2196,11 +2241,10 @@ Proof
 QED
 
 Resume evaluate_update[App_Op]:
-  rw [evaluate_def] \\ Cases_on ‘getOpClass op’
-  >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t'’ \\ gs[])
-  >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t'’ \\ gs[])
+  rw [evaluate_def]
+  \\ Cases_on ‘op = ThunkOp ForceThunk’
   >- (
-    Cases_on ‘op’ \\ gvs [] \\ Cases_on ‘t'’ \\ gvs []
+    gvs []
     \\ qpat_x_assum ‘_ = (s1,res)’ mp_tac
     \\ TOP_CASE_TAC \\ gvs []
     \\ reverse TOP_CASE_TAC \\ gvs []
@@ -2278,9 +2322,9 @@ Resume evaluate_update[App_Op]:
       \\ imp_res_tac EVERY2_REVERSE
       \\ drule_all state_rel_update_thunk_SOME \\ rw [] \\ gvs []
       \\ metis_tac [SUBMAP_TRANS]))
+  \\ Cases_on ‘op = PtrEq’
   >- (
-    ‘op = PtrEq’ by (Cases_on ‘op’ \\ gvs [] \\ Cases_on ‘t'’ \\ gvs [])
-    \\ gvs [CaseEqs ["prod", "result"], PULL_EXISTS]
+    gvs [CaseEqs ["prod", "result"], PULL_EXISTS]
     \\ first_x_assum (drule_all_then strip_assume_tac)
     \\ Cases_on ‘res1’ \\ gs []
     >~ [‘res_rel _ _ (Rerr err1) (Rerr err2)’] >- (
@@ -2663,7 +2707,7 @@ Proof
     \\ res_tac \\ fs [])
   \\ once_rewrite_tac [ADD_COMM] \\ simp [count_add]
   \\ qx_gen_tac ‘m’ \\ strip_tac
-  \\ last_x_assum drule \\ rw []
+  \\ qpat_x_assum `∀n. _ ⇒ _ ∧ ref_rel _ _ _` drule \\ rw []
   \\ irule ref_rel_mono
   \\ first_assum (irule_at Any) \\ rw []
   \\ irule v_rel_update
@@ -2689,9 +2733,17 @@ Proof
     \\ rw [INJ_IFF, FUNION_DEF]
     \\ rw [FUN_FMAP_DEF] \\ gs [CaseEq "bool"]
     \\ res_tac \\ fs [])
+  \\ conj_tac
+  >- (
+    qpat_x_assum `INJ ($' fe) _ _` mp_tac
+    \\ qpat_x_assum `∀n1 n2. _` mp_tac
+    \\ rpt (pop_assum kall_tac)
+    \\ rw [INJ_DEF, FUN_FMAP_DEF]
+    \\ res_tac \\ fs []
+    \\ simp [FUN_FMAP_DEF, SF SFY_ss])
   \\ once_rewrite_tac [ADD_COMM] \\ simp [count_add]
   \\ qx_gen_tac ‘m’ \\ strip_tac
-  \\ last_x_assum drule \\ rw []
+  \\ qpat_x_assum `∀n. _ ⇒ _ ∧ ref_rel _ _ _` drule \\ rw []
   \\ irule ref_rel_mono
   \\ first_assum (irule_at Any) \\ rw []
   \\ irule v_rel_update

@@ -1017,31 +1017,39 @@ Definition simple_state_rel_def:
         ==> sr (s with ptr_eq_oracle := pe) (t with ptr_eq_oracle := pe))
 End
 
-Theorem simple_do_eq_thm_ind:
+Theorem LIST_REL_NULL:
+  LIST_REL R xs ys ⇒ (NULL xs ⇔ NULL ys)
+Proof
+  strip_tac >> imp_res_tac LIST_REL_LENGTH >> asm_simp_tac bool_ss [NULL_LENGTH]
+QED
+
+Theorem simple_do_cmp_thm_ind:
   (!x1 y1 x2 y2 b. simple_val_rel vr /\
-  do_eq x1 y1 = Eq_val b /\
+  do_cmp x1 y1 = Cmp_val b /\
   vr x1 x2 /\ vr y1 y2
   ==>
-  do_eq x2 y2 = Eq_val b) /\
+  do_cmp x2 y2 = Cmp_val b) /\
   (!x1 y1 x2 y2 b. simple_val_rel vr /\
-  do_eq_list x1 y1 = Eq_val b /\
+  do_cmp_list x1 y1 = Cmp_val b /\
   LIST_REL vr x1 x2 /\ LIST_REL vr y1 y2
   ==>
-  do_eq_list x2 y2 = Eq_val b)
+  do_cmp_list x2 y2 = Cmp_val b)
 Proof
-  ho_match_mp_tac do_eq_ind
-  \\ simp [PULL_EXISTS, do_eq_def, bool_case_eq, CaseEq "eq_result"]
+  ho_match_mp_tac do_cmp_ind
+  \\ simp [PULL_EXISTS, do_cmp_def, bool_case_eq, CaseEq "cmp_result"]
   \\ rw []
-  \\ fs [Q.ISPEC `Eq_val v` EQ_SYM_EQ]
-  \\ rfs [do_eq_def]
+  \\ fs [Q.ISPEC `Cmp_val v` EQ_SYM_EQ]
+  \\ rfs [do_cmp_def]
   \\ imp_res_tac LIST_REL_LENGTH
   \\ fs []
   \\ imp_res_tac simple_val_rel_isClosure
   \\ fs []
-  \\ fs [isClosure_def, do_eq_def]
+  \\ fs [isClosure_def, do_cmp_def]
+  \\ imp_res_tac LIST_REL_NULL
+  \\ full_simp_tac bool_ss []
 QED
 
-Theorem simple_do_eq_thm = simple_do_eq_thm_ind |> CONJUNCTS |> hd
+Theorem simple_do_cmp_thm = simple_do_cmp_thm_ind |> CONJUNCTS |> hd
 
 Theorem simple_state_rel_store_assign:
   simple_state_rel vr sr /\
@@ -1373,7 +1381,9 @@ Proof
     \\ Cases_on `test`
     \\ gvs [AllCaseEqs(),flatSemTheory.do_test_def,PULL_EXISTS]
     \\ gvs [oneline dest_Litv_def, AllCaseEqs()]
-    \\ gvs [check_type_def,Boolv_def])
+    \\ gvs [check_type_def,Boolv_def]
+    \\ qmatch_asmsub_rename_tac `Cmp_val comparison_result = do_cmp _ _`
+    \\ qexists_tac `comparison_result` \\ simp [])
   >~ [`Src (ThunkOp _)`] >- (
     rpt strip_tac \\ gvs [do_app_def,AllCaseEqs(),SF DNF_ss]
     \\ rpt (pairarg_tac \\ gvs [])
@@ -1528,7 +1538,7 @@ Proof
   >~ [`Src PtrEq`] >- (
     rpt strip_tac
     \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]
-    \\ imp_res_tac simple_do_eq_thm
+    \\ imp_res_tac simple_do_cmp_thm
     \\ `s1.ptr_eq_oracle = s2.ptr_eq_oracle` by fs [simple_state_rel_def]
     \\ gvs [Boolv_def, simple_val_rel_simps]
     \\ fs [simple_state_rel_def]
@@ -1537,8 +1547,8 @@ Proof
   \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ imp_res_tac LIST_REL_LENGTH
-  >>> SELECT_LT_THEN (Q.RENAME_TAC [`do_eq _ _ = Eq_val _`])
-        (drule_then (drule_then imp_res_tac) simple_do_eq_thm)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [`do_cmp _ _ = Cmp_val _`])
+        (drule_then (drule_then imp_res_tac) simple_do_cmp_thm)
   >>> SELECT_LT_THEN (Q.RENAME_TAC [`store_lookup _ _ = SOME _`])
         (drule_then (drule_then imp_res_tac) simple_state_rel_store_lookup)
   >>> SELECT_LT_THEN (Q.RENAME_TAC [`store_assign _ _ _ = SOME _`])
