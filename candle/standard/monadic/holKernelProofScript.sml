@@ -631,8 +631,8 @@ Theorem alphavars_thm[local]:
       EVERY (\(v1,v2). TERM defs v1 /\ TERM defs v2) env ==>
       (alphavars env tm1 tm2 = ALPHAVARS env (tm1, tm2))
 Proof
-  Induct \\ SIMP_TAC (srw_ss()) [Once alphavars_def,ALPHAVARS_def]
-  \\ Cases \\ FULL_SIMP_TAC (srw_ss()) []
+  Induct >- simp [alphavars_def, ALPHAVARS_def]
+  \\ Cases \\ simp [alphavars_def, ALPHAVARS_def]
   \\ METIS_TAC []
 QED
 
@@ -2180,12 +2180,12 @@ QED
 
 Theorem image_lemma[local]:
   ∀f l s g defs res s'.
-      (image f l s = (res,s')) ∧ STATE defs s ⇒
+      (term_image f l s = (res,s')) ∧ STATE defs s ⇒
       EVERY (λx. ∀s. STATE defs s ⇒
                      ((f x s = (M_success (g x),s)))) l ⇒
       (s' = s) ∧ (res = M_success (term_image g l))
 Proof
-  gen_tac >> Induct >> simp[Once image_def] >- (
+  gen_tac >> Induct >> simp[Once term_image_def] >- (
     simp[st_ex_return_def,Once term_image_def] ) >>
   simp[st_ex_bind_def] >> rpt gen_tac >>
   ntac 2 strip_tac >>
@@ -2208,7 +2208,7 @@ Proof
   Cases_on `th1` \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ SIMP_TAC std_ss [INST_TYPE_def,LET_DEF,st_ex_bind_def]
   \\ STRIP_TAC \\ IMP_RES_TAC THM
-  \\ Cases_on `image (inst theta) l s`
+  \\ Cases_on `term_image (inst theta) l s`
   \\ MP_TAC (image_lemma |> ISPECL [``(inst theta) : term -> term M``, ``l : term list``, ``s : hol_refs``, ``(INST theta) : term -> term``, ``defs : update list``])
   \\ FULL_SIMP_TAC std_ss []
   \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
@@ -2235,13 +2235,13 @@ QED
 
 Theorem image_lemma[local]:
   ∀f l s g defs res s'.
-      (image f l s = (res,s')) ∧ STATE defs s ⇒
+      (term_image f l s = (res,s')) ∧ STATE defs s ⇒
       EVERY (λx. ∀s. STATE defs s ⇒
                      ∃r s'. ((f x s = (r,s))) ∧
                             (∀t. (r = M_success t) ⇒ (t = g x))) l ⇒
       (s' = s) ∧ ∀ts. (res = M_success ts) ⇒ (ts = term_image g l)
 Proof
-  gen_tac >> Induct >> simp[Once image_def] >- (
+  gen_tac >> Induct >> simp[Once term_image_def] >- (
     simp[st_ex_return_def,Once term_image_def] ) >>
   simp[st_ex_bind_def] >> rpt gen_tac >>
   ntac 2 strip_tac >>
@@ -2265,7 +2265,7 @@ Proof
   Cases_on `th1` \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ SIMP_TAC std_ss [holKernelTheory.INST_def,LET_DEF,st_ex_bind_def]
   \\ STRIP_TAC \\ IMP_RES_TAC THM
-  \\ Cases_on `image (vsubst theta) l s`
+  \\ Cases_on `term_image (vsubst theta) l s`
   \\ MP_TAC (image_lemma |> ISPECL [``(vsubst theta) : term -> term M``,``l : term list``,``s : hol_refs``,``(VSUBST theta) : term -> term``,``defs : update list``])
   \\ FULL_SIMP_TAC std_ss []
   \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
@@ -3111,9 +3111,9 @@ QED
 Theorem image_clash_thm:
    !f l s.
     (!x s. f x s <> (M_failure (Clash tm),refs)) ==>
-    image f l s <> (M_failure (Clash tm),refs)
+    term_image f l s <> (M_failure (Clash tm),refs)
 Proof
-  recInduct image_ind \\ rw [] \\ once_rewrite_tac [image_def]
+  recInduct term_image_ind \\ rw [] \\ once_rewrite_tac [term_image_def]
   \\ rw [st_ex_bind_def, st_ex_return_def, raise_Failure_def]
   \\ every_case_tac \\ fs [] \\ metis_tac []
 QED
@@ -3571,7 +3571,7 @@ QED
 Theorem INST_TYPE_not_clash[simp]:
    INST_TYPE x y z <> (M_failure (Clash tm),refs)
 Proof
-  Cases_on `y` \\ fs [INST_TYPE_def, Once image_def]
+  Cases_on `y` \\ fs [INST_TYPE_def, Once term_image_def]
   \\ fs [st_ex_bind_def, st_ex_return_def]
   \\ every_case_tac \\ fs []
   \\ CCONTR_TAC \\ fs [] \\ rw [] \\ fs [image_clash_thm]

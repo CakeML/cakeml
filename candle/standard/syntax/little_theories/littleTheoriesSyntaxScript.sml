@@ -389,32 +389,32 @@ Inductive proves':
 [~DEDUCT_ANTISYM:]
   ((thy, es1, h1) |-' c1 ∧
    (thy, es2, h2) |-' c2
-   ⇒ (thy, es1 ∪ es2, term_union (term_remove c2 h1)
-                                 (term_remove c1 h2))
+   ⇒ (thy, es1 ∪ es2, TERM_UNION (TERM_REMOVE c2 h1)
+                                 (TERM_REMOVE c1 h2))
      |-' c1 === c2)
 
 [~EQ_MP:]
   ((thy, es1, h1) |-' p === q ∧
    (thy, es2, h2) |-' p' ∧ ACONV p p'
-   ⇒ (thy, es1 ∪ es2, term_union h1 h2) |-' q)
+   ⇒ (thy, es1 ∪ es2, TERM_UNION h1 h2) |-' q)
 
 [~INST:]
   ((∀s s'. MEM (s',s) ilist ⇒
            ∃x ty. (s = Var x ty) ∧ s' has_type ty
                   ∧ term_ok' thy s') ∧
    (thy, es, h) |-' c
-   ⇒ (thy, es, term_image (VSUBST ilist) h) |-' VSUBST ilist c)
+   ⇒ (thy, es, TERM_IMAGE (VSUBST ilist) h) |-' VSUBST ilist c)
 
 [~INST_TYPE:]
   ((EVERY (type_ok thy.ctys) (MAP FST tyin)) ∧
    (thy, es, h) |-' c
-   ⇒ (thy, es, term_image (INST tyin) h) |-' INST tyin c)
+   ⇒ (thy, es, TERM_IMAGE (INST tyin) h) |-' INST tyin c)
 
 [~MK_COMB:]
   ((thy, es1, h1) |-' l1 === r1 ∧
    (thy, es2, h2) |-' l2 === r2 ∧
    welltyped(Comb l1 l2)
-   ⇒ (thy, es1 ∪ es2, term_union h1 h2) |-' Comb l1 l2 === Comb r1 r2)
+   ⇒ (thy, es1 ∪ es2, TERM_UNION h1 h2) |-' Comb l1 l2 === Comb r1 r2)
 
 [~REFL:]
   (theory_ok' thy ∧ term_ok' thy t
@@ -435,7 +435,7 @@ Inductive proves':
    axioms_ok thy thy.axs ∧
    axioms_ok thy thy.eaxs ∧
    (∀ax. ax ∈ es ⇒ no_var_collapse σ ax)
-   ⇒ (esubst_thy σ thy, IMAGE (esubst σ []) es, term_image (esubst σ []) h) |-'
+   ⇒ (esubst_thy σ thy, IMAGE (esubst σ []) es, TERM_IMAGE (esubst σ []) h) |-'
      esubst σ (FLAT (MAP tm_names h)) c)
 
 [~elim_axioms:]
@@ -548,32 +548,32 @@ Inductive nproves:
 [~DEDUCT_ANTISYM:]
   ((thy, h1, n) |n- c1 ∧
    (thy, h2, m) |n- c2
-   ⇒ (thy, term_union (term_remove c2 h1)
-                      (term_remove c1 h2),
+   ⇒ (thy, TERM_UNION (TERM_REMOVE c2 h1)
+                      (TERM_REMOVE c1 h2),
       n + m + 1)
    |n- c1 === c2)
 
 [~EQ_MP:]
   ((thy, h1, n) |n- p === q ∧
    (thy, h2, m) |n- p' ∧ ACONV p p'
-   ⇒ (thy, term_union h1 h2, n + m + 1) |n- q)
+   ⇒ (thy, TERM_UNION h1 h2, n + m + 1) |n- q)
 
 [~INST:]
   ((∀s s'. MEM (s',s) ilist ⇒
              ∃x ty. (s = Var x ty) ∧ s' has_type ty ∧ term_ok (sigof thy) s') ∧
    (thy, h, n) |n- c
-   ⇒ (thy, term_image (VSUBST ilist) h, n + 1) |n- VSUBST ilist c)
+   ⇒ (thy, TERM_IMAGE (VSUBST ilist) h, n + 1) |n- VSUBST ilist c)
 
 [~INST_TYPE:]
   ((EVERY (type_ok (tysof thy)) (MAP FST tyin)) ∧
    (thy, h, n) |n- c
-   ⇒ (thy, term_image (INST tyin) h, n + 1) |n- INST tyin c)
+   ⇒ (thy, TERM_IMAGE (INST tyin) h, n + 1) |n- INST tyin c)
 
 [~MK_COMB:]
   ((thy, h1, n) |n- l1 === r1 ∧
    (thy, h2, m) |n- l2 === r2 ∧
    welltyped(Comb l1 l2)
-   ⇒ (thy, term_union h1 h2, n + m + 1) |n- Comb l1 l2 === Comb r1 r2)
+   ⇒ (thy, TERM_UNION h1 h2, n + m + 1) |n- Comb l1 l2 === Comb r1 r2)
 
 [~REFL:]
   (theory_ok thy ∧ term_ok (sigof thy) t

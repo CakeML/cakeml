@@ -21,20 +21,20 @@ Theorem binary_inference_rule:
            termsem (tmsof thy) i v p2 = True ⇒
            termsem (tmsof thy) i v q = True) ∧
     (thy,h1) |= p1 ∧ (thy,h2) |= p2
-    ⇒ (thy, term_union h1 h2) |= q
+    ⇒ (thy, TERM_UNION h1 h2) |= q
 Proof
   strip_tac >>
   rpt gen_tac >> strip_tac >>
-  fs[entails_def,EVERY_term_union] >> rw[] >>
+  fs[entails_def,EVERY_TERM_UNION] >> rw[] >>
   rpt (first_x_assum(qspec_then`i`mp_tac)>>rw[]) >>
-  fs[satisfies_def,EVERY_term_union] >> rw[] >>
+  fs[satisfies_def,EVERY_TERM_UNION] >> rw[] >>
   first_x_assum match_mp_tac >>
   conj_tac >- ( rw[is_structure_def] >> Cases_on`thy` >> fs[models_def,theory_ok_def] ) >>
   rw[] >> first_x_assum match_mp_tac >> rw[] >>
   fs[EVERY_MEM] >> rw[] >>
   qmatch_assum_abbrev_tac`MEM t h` >>
-  qspecl_then[`h1`,`h2`,`t`]mp_tac MEM_term_union >> simp[] >> strip_tac >>
-  metis_tac[MEM_term_union_imp,termsem_aconv,term_ok_welltyped]
+  qspecl_then[`h1`,`h2`,`t`]mp_tac MEM_TERM_UNION >> simp[] >> strip_tac >>
+  metis_tac[MEM_TERM_UNION_imp,termsem_aconv,term_ok_welltyped]
 QED
 
 Theorem ABS_correct:
@@ -126,8 +126,8 @@ Theorem DEDUCT_ANTISYM_correct:
     ∀thy h1 p1 h2 p2.
       (thy,h1) |= p1 ∧ (thy,h2) |= p2 ⇒
       (thy,
-       term_union (term_remove p2 h1)
-                  (term_remove p1 h2))
+       TERM_UNION (TERM_REMOVE p2 h1)
+                  (TERM_REMOVE p1 h2))
       |= p1 === p2
 Proof
   rw[] >> fs[entails_def] >>
@@ -135,16 +135,16 @@ Proof
   conj_asm1_tac >- (
     simp[term_ok_equation] >>
     imp_res_tac WELLTYPED_LEMMA >> simp[] >>
-    match_mp_tac EVERY_term_union >>
+    match_mp_tac EVERY_TERM_UNION >>
     rpt conj_tac >>
-    match_mp_tac EVERY_term_remove >>
+    match_mp_tac EVERY_TERM_REMOVE >>
     fs[EVERY_MEM] ) >>
   conj_asm1_tac >- (
     simp[EQUATION_HAS_TYPE_BOOL] >>
     imp_res_tac WELLTYPED_LEMMA >> simp[WELLTYPED] >>
-    match_mp_tac EVERY_term_union >>
+    match_mp_tac EVERY_TERM_UNION >>
     rpt conj_tac >>
-    match_mp_tac EVERY_term_remove >>
+    match_mp_tac EVERY_TERM_REMOVE >>
     fs[EVERY_MEM] ) >>
   rw[satisfies_def] >>
   `is_structure (sigof thy) i v` by (
@@ -158,15 +158,15 @@ Proof
   pop_assum kall_tac >>
   ntac 2 (pop_assum mp_tac) >>
   `∀x y ls. hypset_ok ls ⇒
-    (MEM x (term_remove y ls) ⇔ ¬ACONV y x ∧ MEM x ls)` by
-      metis_tac[MEM_term_remove,MEM_term_remove_imp] >>
+    (MEM x (TERM_REMOVE y ls) ⇔ ¬ACONV y x ∧ MEM x ls)` by
+      metis_tac[MEM_TERM_REMOVE,MEM_TERM_REMOVE_imp] >>
   qmatch_abbrev_tac`(a ⇒ b) ⇒ (c ⇒ d) ⇒ e` >>
   `d ⇒ a` by (
     unabbrev_all_tac >> rw[] >>
-    metis_tac[MEM_term_union,termsem_aconv,welltyped_def,hypset_ok_term_remove] ) >>
+    metis_tac[MEM_TERM_UNION,termsem_aconv,welltyped_def,hypset_ok_TERM_REMOVE] ) >>
   `b ⇒ c` by (
     unabbrev_all_tac >> rw[] >>
-    metis_tac[MEM_term_union,termsem_aconv,welltyped_def,hypset_ok_term_remove] ) >>
+    metis_tac[MEM_TERM_UNION,termsem_aconv,welltyped_def,hypset_ok_TERM_REMOVE] ) >>
   `termsem (tmsof (sigof thy)) i v p1 <: boolset ∧
    termsem (tmsof (sigof thy)) i v p2 <: boolset` by (
     fs[is_structure_def] >>
@@ -181,7 +181,7 @@ Theorem EQ_MP_correct:
    is_set_theory ^mem ⇒
     ∀thy h1 h2 p q p'.
       (thy,h1) |= p === q ∧ (thy,h2) |= p' ∧ ACONV p p' ⇒
-      (thy,term_union h1 h2) |= q
+      (thy,TERM_UNION h1 h2) |= q
 Proof
   rw[] >>
   match_mp_tac (UNDISCH binary_inference_rule) >>
@@ -201,13 +201,13 @@ Theorem INST_correct:
       (∀s s'. MEM (s',s) ilist ⇒
               ∃x ty. (s = Var x ty) ∧ s' has_type ty ∧ term_ok (sigof thy) s') ∧
       (thy, h) |= c
-    ⇒ (thy, term_image (VSUBST ilist) h) |= VSUBST ilist c
+    ⇒ (thy, TERM_IMAGE (VSUBST ilist) h) |= VSUBST ilist c
 Proof
   rw[entails_def,EVERY_MEM,satisfies_def] >>
-  TRY ( imp_res_tac MEM_term_image_imp >> rw[] ) >>
+  TRY ( imp_res_tac MEM_TERM_IMAGE_imp >> rw[] ) >>
   TRY ( match_mp_tac term_ok_VSUBST >> metis_tac[] ) >>
   TRY ( match_mp_tac VSUBST_HAS_TYPE >> metis_tac[] ) >>
-  TRY ( match_mp_tac hypset_ok_term_image >> rw[] ) >>
+  TRY ( match_mp_tac hypset_ok_TERM_IMAGE >> rw[] ) >>
   qspecl_then[`c`,`ilist`]mp_tac termsem_VSUBST >>
   impl_tac >- metis_tac[welltyped_def] >>
   disch_then(qspecl_then[`tmsof(sigof thy)`,`i`,`v`]SUBST1_TAC) >>
@@ -226,10 +226,10 @@ Proof
     rw[is_valuation_def,is_term_valuation_def] >>
     fs[models_def] >> metis_tac[is_std_interpretation_is_type] ) >>
   gen_tac >> strip_tac >>
-  qspecl_then[`h`,`VSUBST ilist`,`t`]mp_tac MEM_term_image >>
+  qspecl_then[`h`,`VSUBST ilist`,`t`]mp_tac MEM_TERM_IMAGE >>
   impl_tac >- rw[] >> strip_tac >>
   first_x_assum(fn th => first_assum (CHANGED_TAC o SUBST1_TAC o SYM o MATCH_MP th)) >>
-  metis_tac[MEM_term_image_imp,termsem_VSUBST,welltyped_def,VSUBST_WELLTYPED,termsem_aconv]
+  metis_tac[MEM_TERM_IMAGE_imp,termsem_VSUBST,welltyped_def,VSUBST_WELLTYPED,termsem_aconv]
 QED
 
 Theorem INST_TYPE_correct:
@@ -237,11 +237,11 @@ Theorem INST_TYPE_correct:
     ∀thy h c.
       EVERY (type_ok (tysof thy)) (MAP FST tyin) ∧
       (thy, h) |= c
-    ⇒ (thy, term_image (INST tyin) h) |= INST tyin c
+    ⇒ (thy, TERM_IMAGE (INST tyin) h) |= INST tyin c
 Proof
   rw[entails_def,EVERY_MAP,EVERY_MEM,satisfies_def] >>
-  TRY ( match_mp_tac hypset_ok_term_image >> rw[] ) >>
-  TRY ( imp_res_tac MEM_term_image_imp >> rw[] ) >>
+  TRY ( match_mp_tac hypset_ok_TERM_IMAGE >> rw[] ) >>
+  TRY ( imp_res_tac MEM_TERM_IMAGE_imp >> rw[] ) >>
   TRY ( match_mp_tac term_ok_INST >> fs[EVERY_MAP,EVERY_MEM] >> metis_tac[] ) >>
   TRY ( match_mp_tac INST_HAS_TYPE >> metis_tac[TYPE_SUBST_Bool] ) >>
   qspecl_then[`sigof thy`,`c`,`tyin`]mp_tac termsem_INST >> simp[] >>
@@ -262,10 +262,10 @@ Proof
     simp[Once (typesem_TYPE_SUBST |> SIMP_RULE(srw_ss())[] |> GSYM)] >>
     metis_tac[type_ok_TYPE_SUBST |> SIMP_RULE(srw_ss())[EVERY_MAP,EVERY_MEM]]) >>
   gen_tac >> strip_tac >>
-  qspecl_then[`h`,`INST tyin`,`t`]mp_tac MEM_term_image >>
+  qspecl_then[`h`,`INST tyin`,`t`]mp_tac MEM_TERM_IMAGE >>
   impl_tac >- rw[] >> strip_tac >>
   first_x_assum(fn th => first_assum (CHANGED_TAC o SUBST1_TAC o SYM o MATCH_MP th)) >>
-  metis_tac[MEM_term_image_imp,SIMP_RULE(srw_ss())[]termsem_INST,
+  metis_tac[MEM_TERM_IMAGE_imp,SIMP_RULE(srw_ss())[]termsem_INST,
             welltyped_def,INST_WELLTYPED,termsem_aconv]
 QED
 
@@ -274,7 +274,7 @@ Theorem MK_COMB_correct:
     ∀thy h1 h2 l1 r1 l2 r2.
       (thy,h1) |= l1 === r1 ∧ (thy,h2) |= l2 === r2 ∧
       welltyped (Comb l1 l2)
-      ⇒ (thy,term_union h1 h2) |= Comb l1 l2 === Comb r1 r2
+      ⇒ (thy,TERM_UNION h1 h2) |= Comb l1 l2 === Comb r1 r2
 Proof
   rw[] >>
   match_mp_tac (UNDISCH binary_inference_rule) >>

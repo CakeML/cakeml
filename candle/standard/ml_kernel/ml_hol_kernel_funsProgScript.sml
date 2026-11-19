@@ -394,7 +394,7 @@ val def = holKernelPmatchTheory.type_of_def |> m_translate; (* PMATCH *)
 val _ = (next_ml_names := ["type_of"]);
 
 val def = can_def |> m_translate;
-val def = image_def |> m_translate;
+val def = term_image_def |> m_translate;
 
 val _ = ml_prog_update open_local_in_block;
 

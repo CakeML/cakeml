@@ -349,38 +349,22 @@ Definition type_of_def:
     | _ => failwith «match»
 End
 
-(*
-  let aconv =
-    let rec alphavars env tm1 tm2 =
-      match env with
-        [] -> tm1 = tm2
-      | (t1,t2)::oenv ->
-            (t1 = tm1 & t2 = tm2) or
-            (t1 <> tm1 & t2 <> tm2 & alphavars oenv tm1 tm2) in
-    let rec raconv env tm1 tm2 =
-      (tm1 == tm2 & env = []) or
-      match (tm1,tm2) with
-        Var(_,_),Var(_,_) -> alphavars env tm1 tm2
-      | Const(_,_),Const(_,_) -> tm1 = tm2
-      | Comb(s1,t1),Comb(s2,t2) -> raconv env s1 s2 & raconv env t1 t2
-      | Abs(Var(_,ty1) as x1,t1),Abs(Var(_,ty2) as x2,t2) ->
-                ty1 = ty2 & raconv ((x1,x2)::env) t1 t2
-      | _ -> false in
-    fun tm1 tm2 -> raconv [] tm1 tm2
-*)
+
+(* alphavars and raconv do not appear to be part of HOL Light's fusion.ml
+   (anymore?). My understanding is that they are equality versions of the
+   ternary comparisons ordav and orda, respectively. *)
 
 Definition alphavars_def:
-  alphavars env tm1 tm2 =
-    case env of
-      [] => (tm1 = tm2)
-    | (t1,t2)::oenv =>
-      if t1 = tm1 then t2 = tm2
-      else if t2 = tm2 then F
-      else alphavars oenv tm1 tm2
+  (alphavars [] x1 x2 ⇔ x1 = x2) ∧
+  (alphavars ((t1,t2)::env) x1 x2 ⇔
+     if x1 = t1 then x2 = t2
+     else if x2 = t2 then F
+     else alphavars env x1 x2)
 End
 
 Definition raconv_def:
   raconv env tm1 tm2 =
+    if ptr_eq tm1 tm2 ∧ EVERY (λ(x,y). x = y) env then T else
     case (tm1,tm2) of
       (Var _ _, Var _ _) => alphavars env tm1 tm2
     | (Const _ _, Const _ _) => (tm1 = tm2)
@@ -867,6 +851,69 @@ Definition is_eq_def:
 End
 
 (*
+  let rec orda env tm1 tm2 =
+    if tm1 == tm2 && forall (fun (x,y) -> x = y) env then 0 else
+    match (tm1,tm2) with
+      Var(x1,ty1),Var(x2,ty2) -> ordav env tm1 tm2
+    | Const(x1,ty1),Const(x2,ty2) -> compare tm1 tm2
+    | Comb(s1,t1),Comb(s2,t2) ->
+          let c = orda env s1 s2 in if c <> 0 then c else orda env t1 t2
+    | Abs(Var(_,ty1) as x1,t1),Abs(Var(_,ty2) as x2,t2) ->
+          let c = compare ty1 ty2 in
+          if c <> 0 then c else orda ((x1,x2)::env) t1 t2
+    | Const(_,_),_ -> -1
+    | _,Const(_,_) -> 1
+    | Var(_,_),_ -> -1
+    | _,Var(_,_) -> 1
+    | Comb(_,_),_ -> -1
+    | _,Comb(_,_) -> 1
+*)
+
+Definition orda_def:
+  orda env t1 t2 =
+    if ptr_eq t1 t2 ∧ EVERY (λ(x,y). x = y) env then EQUAL else
+      case (t1,t2) of
+      | (Var _ _, Var _ _) => ordav env t1 t2
+      | (Const _ _, Const _ _) => term_cmp t1 t2
+      | (Comb s1 t1, Comb s2 t2) =>
+        (let c = orda env s1 s2 in
+           if c ≠ EQUAL then c else orda env t1 t2)
+      | (Abs s1 t1, Abs s2 t2) =>
+        (let c = type_cmp (typeof s1) (typeof s2) in
+           if c ≠ EQUAL then c else orda ((s1,s2)::env) t1 t2)
+      | (Var _ _, _) => LESS
+      | (_, Var _ _) => GREATER
+      | (Const _ _, _) => LESS
+      | (_, Const _ _) => GREATER
+      | (Comb _ _, _) => LESS
+      | (_, Comb _ _) => GREATER
+End
+
+Definition term_union_def:
+  term_union l1 l2 =
+    case (l1,l2) of
+    | ([],l2) => l2
+    | (l1,[]) => l1
+    | (h1::t1,h2::t2) =>
+      let c = orda [] h1 h2 in
+      if c = EQUAL then h1::(term_union t1 t2)
+      else if c = LESS then h1::(term_union t1 l2)
+      else h2::(term_union l1 t2)
+End
+
+Definition term_remove_def:
+  term_remove t l =
+  case l of
+  | [] => l
+  | (s::ss) =>
+    let c = orda [] t s in
+    if c = GREATER then
+      (let ss' = term_remove t ss in
+       if ptr_eq ss' ss then l else s::ss')
+    else if c = EQUAL then ss else l
+End
+
+(*
   let dest_thm (Sequent(asl,c)) = (asl,c)
 
   let hyp (Sequent(asl,c)) = asl
@@ -1062,13 +1109,13 @@ Definition DEDUCT_ANTISYM_RULE_def:
          return (Sequent (term_union asl1' asl2') eq) od
 End
 
-Definition image_def:
-  image f l =
+Definition term_image_def:
+  term_image f l =
   case l of
     [] => return l
   | (h::t) => do h' <- f h ;
-                 t' <- image f t ;
-                 return ( if (h' = h) ∧ (t' = t) then l
+                 t' <- term_image f t ;
+                 return ( if ptr_eq h' h ∧ ptr_eq t' t then l
                           else term_union [h'] t' ) od
 End
 
@@ -1081,7 +1128,7 @@ End
 Definition INST_TYPE_def:
   INST_TYPE theta (Sequent asl c) =
     let inst_fun = inst theta in
-      do l <- image inst_fun asl ;
+      do l <- term_image inst_fun asl ;
          x <- inst_fun c ;
          return (Sequent l x) od
 End
@@ -1095,7 +1142,7 @@ End
 Definition INST_def:
   INST theta (Sequent asl c) =
     let inst_fun = vsubst theta in
-      do l <- image inst_fun asl ;
+      do l <- term_image inst_fun asl ;
          x <- inst_fun c ;
          return (Sequent l x) od
 End

@@ -364,7 +364,7 @@ Theorem proves_esubst_drop_thy:
   axioms_ok thy thy.axs ∧
   (∀ax. ax ∈ es ⇒ no_var_collapse σ ax) ⇒
   (drop_thy (IMAGE (esubst σ []) es) (esubst_thy σ thy),
-   term_image (esubst σ []) h) |- esubst σ (FLAT (MAP tm_names h)) c
+   TERM_IMAGE (esubst σ []) h) |- esubst σ (FLAT (MAP tm_names h)) c
 Proof
   rw[drop_thy] >> drule_at (Pat ‘_ |- _’) proves_substitutable
   >> disch_then $ qspec_then ‘σ’ mp_tac >> impl_tac

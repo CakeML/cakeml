@@ -152,24 +152,23 @@ Definition ordav_def:
     else ordav env x1 x2)
 End
 
-Definition orda_def:
-  orda env t1 t2 =
-    if t1 = t2 ∧ env = [] then EQUAL else
-      case (t1,t2) of
-      | (Var _ _, Var _ _) => ordav env t1 t2
-      | (Const _ _, Const _ _) => term_cmp t1 t2
-      | (Comb s1 t1, Comb s2 t2) =>
-        (let c = orda env s1 s2 in
-           if c ≠ EQUAL then c else orda env t1 t2)
-      | (Abs s1 t1, Abs s2 t2) =>
-        (let c = type_cmp (typeof s1) (typeof s2) in
-           if c ≠ EQUAL then c else orda ((s1,s2)::env) t1 t2)
-      | (Var _ _, _) => LESS
-      | (_, Var _ _) => GREATER
-      | (Const _ _, _) => LESS
-      | (_, Const _ _) => GREATER
-      | (Comb _ _, _) => LESS
-      | (_, Comb _ _) => GREATER
+Definition ORDA_def:
+  ORDA env t1 t2 =
+    case (t1,t2) of
+    | (Var _ _, Var _ _) => ordav env t1 t2
+    | (Const _ _, Const _ _) => term_cmp t1 t2
+    | (Comb s1 t1, Comb s2 t2) =>
+      (let c = ORDA env s1 s2 in
+         if c ≠ EQUAL then c else ORDA env t1 t2)
+    | (Abs s1 t1, Abs s2 t2) =>
+      (let c = type_cmp (typeof s1) (typeof s2) in
+         if c ≠ EQUAL then c else ORDA ((s1,s2)::env) t1 t2)
+    | (Var _ _, _) => LESS
+    | (_, Var _ _) => GREATER
+    | (Const _ _, _) => LESS
+    | (_, Const _ _) => GREATER
+    | (Comb _ _, _) => LESS
+    | (_, Comb _ _) => GREATER
 End
 
 (*
@@ -182,39 +181,33 @@ End
                          else if c < 0 then h1::(term_union t1 l2)
                          else h2::(term_union l1 t2)
 *)
-Definition term_union_def:
-  term_union l1 l2 =
+Definition TERM_UNION_def:
+  TERM_UNION l1 l2 =
     case (l1,l2) of
     | ([],l2) => l2
     | (l1,[]) => l1
     | (h1::t1,h2::t2) =>
-      let c = orda [] h1 h2 in
-      if c = EQUAL then h1::(term_union t1 t2)
-      else if c = LESS then h1::(term_union t1 l2)
-      else h2::(term_union (h1::t1) t2)
+      let c = ORDA [] h1 h2 in
+      if c = EQUAL then h1::(TERM_UNION t1 t2)
+      else if c = LESS then h1::(TERM_UNION t1 l2)
+      else h2::(TERM_UNION (h1::t1) t2)
 End
 
-Definition term_remove_def:
-  term_remove t l =
+Definition TERM_REMOVE_def:
+  TERM_REMOVE t l =
   case l of
   | [] => l
   | (s::ss) =>
-    let c = orda [] t s in
-    if c = GREATER then
-      let ss' = term_remove t ss in
-      if ss' = ss then l else s::ss'
+    let c = ORDA [] t s in
+    if c = GREATER then s::TERM_REMOVE t ss
     else if c = EQUAL then ss else l
 End
 
-Definition term_image_def:
-  term_image f l =
+Definition TERM_IMAGE_def:
+  TERM_IMAGE f l =
   case l of
   | [] => l
-  | (h::t) =>
-    let h' = f h in
-    let t' = term_image f t in
-    if h' = h ∧ t' = t then l
-    else term_union [h'] t'
+  | (h::t) => TERM_UNION [f h] (TERM_IMAGE f t)
 End
 
 (* Whether a variables (or constant) occurs free in a term. *)
@@ -461,7 +454,7 @@ End
    are strictly sorted up to alpha-equivalence *)
 
 Definition alpha_lt_def:
-  alpha_lt t1 t2 ⇔ orda [] t1 t2 = LESS
+  alpha_lt t1 t2 ⇔ ORDA [] t1 t2 = LESS
 End
 
 Definition hypset_ok_def:
@@ -515,31 +508,31 @@ Inductive proves:
 [~DEDUCT_ANTISYM:]
   ((thy, h1) |- c1 ∧
    (thy, h2) |- c2
-   ⇒ (thy, term_union (term_remove c2 h1)
-                      (term_remove c1 h2))
+   ⇒ (thy, TERM_UNION (TERM_REMOVE c2 h1)
+                      (TERM_REMOVE c1 h2))
            |- c1 === c2)
 
 [~EQ_MP:]
   ((thy, h1) |- p === q ∧
    (thy, h2) |- p' ∧ ACONV p p'
-   ⇒ (thy, term_union h1 h2) |- q)
+   ⇒ (thy, TERM_UNION h1 h2) |- q)
 
 [~INST:]
   ((∀s s'. MEM (s',s) ilist ⇒
              ∃x ty. (s = Var x ty) ∧ s' has_type ty ∧ term_ok (sigof thy) s') ∧
    (thy, h) |- c
-   ⇒ (thy, term_image (VSUBST ilist) h) |- VSUBST ilist c)
+   ⇒ (thy, TERM_IMAGE (VSUBST ilist) h) |- VSUBST ilist c)
 
 [~INST_TYPE:]
   ((EVERY (type_ok (tysof thy)) (MAP FST tyin)) ∧
    (thy, h) |- c
-   ⇒ (thy, term_image (INST tyin) h) |- INST tyin c)
+   ⇒ (thy, TERM_IMAGE (INST tyin) h) |- INST tyin c)
 
 [~MK_COMB:]
   ((thy, h1) |- l1 === r1 ∧
    (thy, h2) |- l2 === r2 ∧
    welltyped(Comb l1 l2)
-   ⇒ (thy, term_union h1 h2) |- Comb l1 l2 === Comb r1 r2)
+   ⇒ (thy, TERM_UNION h1 h2) |- Comb l1 l2 === Comb r1 r2)
 
 [~REFL:]
   (theory_ok thy ∧ term_ok (sigof thy) t
