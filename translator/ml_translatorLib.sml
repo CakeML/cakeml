@@ -3424,7 +3424,12 @@ fun is_word_literal tm =
   else false
 
 val Num_ABS_pat = Eval_Num_ABS |> concl |> rand |> rand |> rand
-val PtrEq_if_pat = Eval_PtrEq |> concl |> rand |> rand |> rand |> rand
+val PtrEq_pat = Eval_PtrEq |> concl |> rand |> rand |> rand |> rand
+                         |> dest_cond |> #1
+
+fun starts_with_ptr_eq tm =
+  if is_conj tm then starts_with_ptr_eq (fst (dest_conj tm))
+  else can (match_term PtrEq_pat) tm
 
 val int_of_num_o_pat = Eval_int_of_num_o |> concl |> rand |> rand |> rand
 val o_int_of_num_pat = Eval_o_int_of_num |> concl |> rand |> rand |> rand
@@ -3698,16 +3703,25 @@ fun hol2deep ctxt tm =
     val th = MATCH_MP Eval_Or (LIST_CONJ [D th1, D th2])
     val result = UNDISCH th
     in check_inv "or" tm result end else
-  (* if ptr_eq x y then t1 else t2: the side condition x = y ⇒ t1 = t2 is
-     proved by simp if possible, otherwise it becomes a precondition *)
-  if can (match_term PtrEq_if_pat) tm then let
+  (* if ptr_eq x y /\ ... then t1 else t2: the side condition
+     guard ==> t1 = t2 is proved by simp if possible, otherwise it becomes
+     a precondition *)
+  if is_cond tm andalso starts_with_ptr_eq (#1 (dest_cond tm)) then let
     val (c,t1,t2) = dest_cond tm
-    val th1 = hol2deep ctxt (rand (rator c))
-    val th2 = hol2deep ctxt (rand c)
+    fun guard tm =
+      if can (match_term PtrEq_pat) tm then let
+        val th1 = hol2deep ctxt (rand (rator tm))
+        val th2 = hol2deep ctxt (rand tm)
+      in MATCH_MP Eval_PtrEq_test (CONJ th1 th2) |> UNDISCH end
+      else if is_conj tm then let
+        val (left,right) = dest_conj tm
+      in MATCH_MP Eval_And_guard (CONJ (guard left) (guard right)) end
+      else MATCH_MP Eval_Bool_guard (hol2deep ctxt tm)
+    val th1 = guard c
     val th3 = hol2deep ctxt t1
     val th4 = hol2deep ctxt t2
-    val th = MATCH_MP Eval_PtrEq (LIST_CONJ [th1,th2,th3,th4])
-             |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO] |> UNDISCH
+    val th = MATCH_MP Eval_PtrEq_If (LIST_CONJ [th1,th3,th4])
+      |> CONV_RULE ((RATOR_CONV o RAND_CONV) (REWRITE_CONV [ptr_eq_def]))
     val side = th |> concl |> dest_imp |> fst
     val result = MP th (EQT_ELIM (SIMP_CONV (srw_ss()) [] side))
       handle HOL_ERR _ =>
