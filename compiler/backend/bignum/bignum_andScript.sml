@@ -8,8 +8,6 @@ Ancestors
 Libs
   stringLib numLib intLib preamble helperLib set_sep_extLib
 
-(* TODO NEXT Try mw_and_flip_pan with its call *)
-
 (* TODO Check for consistent naming *)
 
 (* TODO
@@ -21,6 +19,12 @@ Libs
 
 (* TODO Can we prove ⇔ for our step-theorems to make it clearer which ones
      are "safe" (i.e. cannot result in a stuck proof) *)
+
+(* TODO Write a custom Pancake frontend:
+   - annotations
+   - labels
+   - should generate both AST and theorem statements
+ *)
 
 (* TODO Maybe this should live in list syntax? *)
 fun list_mk_cons tms tm = List.foldr listSyntax.mk_cons tm tms
@@ -903,6 +907,13 @@ Definition mwi_and_neg_pos_geq_pan_loop_def:
     ^(find_term (can $ match_term “panLang$While _ _”) mwi_and_neg_pos_geq_pan_body)
 End
 
+Definition mwi_and_neg_pos_geq_pan_body_def:
+  mwi_and_neg_pos_geq_pan_body =
+    ^(rhs $ concl $
+        REWRITE_CONV [GSYM mwi_and_neg_pos_geq_pan_loop_def]
+          mwi_and_neg_pos_geq_pan_body)
+End
+
 val mw_and_pan_code =
   list_mk_pair [get_params "mw_and_pan", “mw_and_pan_body”, get_return "mw_and_pan"]
 
@@ -1698,8 +1709,7 @@ QED
 
 Theorem mwi_and_neg_pos_geq_pan_loop_thm:
   ∀(ys: α word list) xs zs rs s c x y z frame.
-    mwi_and_neg_pos_geq c xs ys = zs ∧ LENGTH ys ≤ LENGTH xs ∧
-    LENGTH rs = LENGTH ys ∧ LENGTH ys ≤ s.clock ∧
+    LENGTH ys ≤ LENGTH xs ∧ LENGTH rs = LENGTH ys ∧ LENGTH ys ≤ s.clock ∧
     FLOOKUP s.locals «ys_len» = SOME (Val (Word (n2w (LENGTH ys)))) ∧
     FLOOKUP s.locals «c» = SOME (Val (Word (b2w c))) ∧
     FLOOKUP s.locals «xs» = SOME (Val (Word x)) ∧
@@ -1718,7 +1728,7 @@ Theorem mwi_and_neg_pos_geq_pan_loop_thm:
                   clock := s.clock - LENGTH ys |>) ∧
       (ones x (MAP Word xs) *
        ones y (MAP Word ys) *
-       ones z (MAP Word zs) *
+       ones z (MAP Word (mwi_and_neg_pos_geq c xs ys)) *
        frame) (fun2set (m, s.memaddrs))
 Proof
   simp [] >> Induct >> rw [mwi_and_neg_pos_geq_pan_loop_def]
@@ -1778,4 +1788,40 @@ Proof
              GSYM b2w_def, WORD_NEG1_MUL_NOT]
   )
   >> fs [ones_def, AC STAR_ASSOC STAR_COMM, n2w_SUC, state_component_equality]
+QED
+
+Theorem mwi_and_neg_pos_geq_pan_body_thm:
+  ∀(ys: α word list) xs zs rs s c x y z frame.
+    LENGTH ys ≤ LENGTH xs ∧ LENGTH rs = LENGTH ys ∧ LENGTH ys ≤ s.clock ∧
+    FLOOKUP s.locals «ys_len» = SOME (Val (Word (n2w (LENGTH ys)))) ∧
+    FLOOKUP s.locals «c» = SOME (Val (Word (b2w c))) ∧
+    FLOOKUP s.locals «xs» = SOME (Val (Word x)) ∧
+    FLOOKUP s.locals «ys» = SOME (Val (Word y)) ∧
+    FLOOKUP s.locals «zs» = SOME (Val (Word z)) ∧
+    (ones x (MAP Word xs) *
+     ones y (MAP Word ys) *
+     ones z rs *
+     frame) (fun2set (s.memory, s.memaddrs)) ∧
+    byte_dimindex (:α) ∧ 8 < dimindex (:α)
+    ⇒
+    ∃m l.
+      evaluate (mwi_and_neg_pos_geq_pan_body,s) = (
+        SOME (Return (ValWord (i2w 0))),
+        s with <| memory := m;
+                  locals := FEMPTY;
+                  clock := s.clock - LENGTH ys |>) ∧
+      (ones x (MAP Word xs) *
+       ones y (MAP Word ys) *
+       ones z (MAP Word (mwi_and_neg_pos_geq c xs ys)) *
+       frame) (fun2set (m, s.memaddrs))
+Proof
+  rw [mwi_and_neg_pos_geq_pan_body_def]
+  >> once_rewrite_tac [GSYM stack_evaluate]
+  >> walk
+  >> qspecl_then [‘ys’, ‘xs’, ‘zs’, ‘rs’, ‘s’, ‘c’, ‘x’, ‘y’, ‘z’, ‘frame’]
+                 mp_tac mwi_and_neg_pos_geq_pan_loop_thm
+  >> simp [] >> strip_tac >> simp []
+  >> rpt (walk >> hsimp [])
+  >> simp [shape_of_ValWord, size_of_sh_with_ctxt_def, stack_def,
+           state_component_equality, empty_locals_def]
 QED
