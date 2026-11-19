@@ -74,12 +74,8 @@ Proof
     intLib.ARITH_TAC)
 QED
 
-(* zero-links: for every possibly-active variable-size task,
-   zero(i) ⇔ sz_i ≤ 0.
-
-   The task list ts = ZIP (sz, inactive) carries, per task, its size and
-   static-inactivity flag. Constant sizes get no zero flag (the comparison
-   is decided statically). *)
+(* zero-links: zero(i) ⇔ sz_i ≤ 0 for each possibly-active variable-size
+   task; ts pairs each size with its static-inactivity flag *)
 Definition mk_zero_links_def:
   mk_zero_links bnd name ann ts =
   flat_app (MAPi (λi (s,inact).
@@ -177,20 +173,13 @@ Definition zsize_lit_def:
   case s of INL v => [Pos (disj_zero name ann k)] | INR c => []
 End
 
-(* Presence of a task:
-   - a constant 1: always present, so no literal;
-   - any other constant: the task is dropped (0 is absent; any other value is
-     refuted by the range rows);
-   - a variable P: a literal on P's value joins the encoding — Disjunctive's
-     separation clauses take the absence literal [P = 0], Cumulative's sact
-     flags the presence literal [P = 1]. *)
+(* a constant presence other than 1 drops its task *)
 Definition pres_inactive_def:
   pres_inactive P = case P of INR c => c ≠ 1 | INL v => F
 End
 
-(* The literal [P = v] of a variable presence P, where v = 1 if b and v = 0
-   otherwise: the bit P[b0] (b) or its negation ~P[b0] (¬b) when P is
-   declared 0..1, otherwise the atom [P = v]; none for a constant. *)
+(* [P = 1] (b) or [P = 0] (¬b) of a variable presence: P[b0] or ~P[b0] if P
+   is declared 0..1, else the Eq atom; none for a constant *)
 Definition val_lit_def:
   val_lit bnd b P =
   case P of
@@ -219,8 +208,7 @@ Proof
   simp[EVAL``int_bit 0 0``,EVAL``int_bit 0 1``]
 QED
 
-(* a presence that is not a constant other than 1 is present iff its
-   presence literal (if any) holds *)
+(* for a presence that does not drop its task, [P = 1] holds iff P = 1 *)
 Theorem val_lit_T_every:
   valid_assignment bnd wi ∧ bit_faithful bnd wi wb ∧ ¬pres_inactive P ∧
   (∀v. P = INL v ∧ bnd v ≠ (0,1) ⇒ (wb (INL (Eq P 1)) ⇔ wi v = 1)) ⇒
@@ -252,8 +240,7 @@ Definition val_eq_def:
   | INR c => []
 End
 
-(* range rows 0 ≤ P ≤ 1 for each presence, omitted when its declared bounds
-   imply them *)
+(* range rows 0 ≤ P ≤ 1, omitted when the declared bounds imply them *)
 Definition mk_pres_range_def:
   mk_pres_range bnd name Ps =
   flat_app (MAPi (λk P.
@@ -276,8 +263,8 @@ QED
 
 (* Disjunctive *)
 
-(* per task: the escape literals of its separation clauses (zero width in
-   non-strict mode; absence) and whether it is statically inactive *)
+(* per task: its escape literals (zero width if non-strict; absence) and
+   whether it is statically inactive *)
 Definition disj_task_info_def:
   disj_task_info bnd name strct Ws Ps =
   MAPi (λk (W,P).
@@ -318,8 +305,8 @@ Proof
   simp[COND_RAND]
 QED
 
-(* given the zero-width and [P = 0] rows, the escape literals of an active
-   task hold iff it is absent or (non-strict) has zero width *)
+(* given its zero-width and [P = 0] rows, an active task escapes iff it is
+   absent or (non-strict) has zero width *)
 Theorem disj_task_esc:
   valid_assignment bnd wi ∧ bit_faithful bnd wi wb ∧
   k < LENGTH Ws ∧ LENGTH Ps = LENGTH Ws ∧
@@ -485,9 +472,8 @@ Definition zsize_ub_inactive_def:
   zsize_ub_inactive bnd s ⇔ SND (varc_bnd bnd s) ≤ 0
 End
 
-(* per rectangle: the escape literals of its separation clauses (zero width
-   and zero height in non-strict mode; absence) and whether it is statically
-   inactive *)
+(* per rectangle: its escape literals (zero width/height if non-strict;
+   absence) and whether it is statically inactive *)
 Definition disj2d_task_info_def:
   disj2d_task_info bnd name strct Ws Hs Ps =
   MAPi (λk (W,H,P).
@@ -523,8 +509,8 @@ Proof
   intLib.ARITH_TAC
 QED
 
-(* given the zero-size and [P = 0] rows, the escape literals of an active
-   rectangle hold iff it is absent or (non-strict) has a zero size *)
+(* given its zero-size and [P = 0] rows, an active rectangle escapes iff it
+   is absent or (non-strict) has a zero size *)
 Theorem disj2d_task_esc:
   valid_assignment bnd wi ∧ bit_faithful bnd wi wb ∧
   k < LENGTH Ws ∧ LENGTH Hs = LENGTH Ws ∧ LENGTH Ps = LENGTH Ws ∧
@@ -707,22 +693,9 @@ Proof
   intLib.ARITH_TAC
 QED
 
-(* Cumulative: start-checkpoint encoding.  For every ordered pair (i,j) of
-   active tasks, i ≠ j, three fully reified flags pin
-     sb(i,j) ⇔ s_i ≤ s_j,   sa(i,j) ⇔ s_i + l_i ≥ s_j + 1,
-     sact(i,j) ⇔ sb ∧ sa ∧ [P_i = 1]
-   so sact(i,j) holds exactly when task i is present and running when task j
-   starts, and one row per active task j bounds the load at its start by the
-   capacity.  A task whose length or height has a non-positive upper bound, or
-   whose presence is a constant other than 1, never loads the resource; it
-   contributes nothing and gets no flags.  A task of constant length and
-   constant presence is running at its own start, so its own height goes to
-   the row's right-hand side (constant) or integer side (variable); otherwise
-   the task gets the diagonal flag sact(j,j) ⇔ l_j ≥ 1 ∧ [P_j = 1] instead.
-   A variable height h_i is summed bit by bit through
-     scc(i,j,k) ⇔ sact(i,j) ∧ bit_k(h_i)     and     sccs(i,j) ⇔ sact(i,j) ∧ sign(h_i)
-   over the Bit/Sign literals of h_i itself.  Heights and capacity are pinned
-   ≥ 0. *)
+(* Cumulative: per active task j, one row bounds the load at j's start by cap;
+   sact(i,j) ⇔ s_i ≤ s_j < s_i + l_i ∧ [P_i = 1] (i present and running then)
+   gates i's height, bit by bit for a variable height *)
 
 Definition cumul_sb_def[simp]:
   cumul_sb name i j = INR (name, Values [&i; &j] (SOME «sb»))
@@ -740,13 +713,13 @@ Definition cumul_sccs_def[simp]:
   cumul_sccs name i j = INR (name, Values [&i; &j] (SOME «sccs»))
 End
 
+(* a task that may load the resource *)
 Definition cumul_task_active_def:
   cumul_task_active bnd w h p ⇔
   0 < SND (varc_bnd bnd w) ∧ 0 < SND (varc_bnd bnd h) ∧ ¬pres_inactive p
 End
 
-(* pair flags for contributor i and checkpoint j, i ≠ j; pl is i's presence
-   literal (none for a constant presence) *)
+(* sb, sa and sact for i ≠ j; pl is i's presence literal *)
 Definition cumul_pair_def:
   cumul_pair bnd name i x_i w_i pl j x_j =
   Append (cbimply_var bnd (cumul_sb name i j) (mk_le x_i x_j))
@@ -758,10 +731,8 @@ Definition cumul_pair_def:
        2 + &LENGTH pl)))
 End
 
-(* the diagonal flag sact(j,j) ⇔ l_j ≥ 1 ∧ [P_j = 1]; pl is j's presence
-   literal.  A variable length: l_j + ub(l_j)·[P_j = 1] ≥ 1 + ub(l_j) (just
-   l_j ≥ 1 without a presence literal); a constant length (≥ 1 for an active
-   task): [P_j = 1] ≥ 1, and no flag without a presence literal. *)
+(* sact(j,j) ⇔ l_j ≥ 1 ∧ [P_j = 1]; pl is j's presence literal (no flag for a
+   constant length without one) *)
 Definition cumul_diag_def:
   cumul_diag bnd name j w_j pl =
   case w_j of
@@ -776,8 +747,7 @@ Definition cumul_diag_def:
           ([],MAP (λl. (1,l)) pl,&LENGTH pl)
 End
 
-(* the diagonal rows pin sact(j,j) to "running at its own start and present"
-   whenever they define it *)
+(* the diagonal rows, when emitted, pin sact(j,j) *)
 Theorem cumul_diag_sem:
   valid_assignment bnd wi ∧ LENGTH pl ≤ 1 ∧ 0 < SND (varc_bnd bnd w) ⇒
   (EVERY (λx. iconstraint_sem x (wi,wb)) (abstr (cumul_diag bnd name j w pl)) ⇔
@@ -861,9 +831,8 @@ Definition cumul_gate_def:
        else Nil)
 End
 
-(* checkpoint row of active task j:  Σ_i contrib(i,j) + own height ≤ cap,
-   over the active tasks act; j's own height is unconditional when j has no
-   diagonal flag (constant length, constant presence) *)
+(* checkpoint row of j: Σ_i contrib(i,j) ≤ cap over act, with j's own height
+   unconditional when j has no diagonal flag *)
 Definition cumul_scap_row_def:
   cumul_scap_row name act cap j w_j h_j p_j =
   let loadbs = FLAT (MAP (λ(i,x,w,h,p,hw).
@@ -878,7 +847,7 @@ Definition cumul_scap_row_def:
          (cis ++ dis, flip_coeffs loadbs, rhs))]
 End
 
-(* capacity ≥ 0 and each height ≥ 0; rows the declared bounds imply are omitted *)
+(* cap ≥ 0 and each height ≥ 0, omitted when the declared bounds imply them *)
 Definition cumul_nonneg_def:
   cumul_nonneg bnd name tasks cap =
   Append (cmk_lb bnd (mk_name name «cap_ge0») cap 0)
@@ -1007,8 +976,7 @@ Proof
   simp[]
 QED
 
-(* a sum of literals with coefficient 1 is at most their number, and reaches
-   it exactly when every literal holds *)
+(* a unit-coefficient literal sum is at most their number, equal iff all hold *)
 Theorem eval_lin_term_ones:
   ∀ls. eval_lin_term wb (MAP (λl. (1,l)) ls) ≤ &LENGTH ls ∧
     (&LENGTH ls ≤ eval_lin_term wb (MAP (λl. (1,l)) ls) ⇔ EVERY (lit wb) ls)
