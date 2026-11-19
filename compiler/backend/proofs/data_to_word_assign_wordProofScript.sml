@@ -104,7 +104,7 @@ Theorem evaluate_WriteWord64:
    shift_length c < dimindex(:α) ∧
    src ≠ 1 ∧ 1 < sp ∧
    dimindex(:α) = 64 ∧
-   encode_header c 3 1 = SOME header ∧
+   encode_header c word64_tag 1 = SOME header ∧
    (∀n. IS_SOME (lookup n sl) ⇒ IS_SOME (lookup (adjust_var n) t.locals))
    ==>
    ∃nf m' locals' v.
@@ -162,7 +162,7 @@ Theorem evaluate_WriteWord64_on_32:
    shift_length c < dimindex(:α) ∧
    src1 ≠ 1 ∧ src2 ≠ 1 ∧ 2 < sp ∧
    dimindex(:α) = 32 ∧
-   encode_header c 3 2 = SOME header ∧
+   encode_header c word64_tag 2 = SOME header ∧
    (∀n. IS_SOME (lookup n sl) ⇒ IS_SOME (lookup (adjust_var n) t.locals))
    ==>
    ∃nf m' locals' v.
@@ -468,6 +468,19 @@ val _=augment_srw_ss[rewrites[i2w_int_or,i2w_mod_pow2,compiler_ptr_bits_i2w]];
 
 val _ = augment_srw_ss [rewrites [arch_width_eq32, arch_bytes_scaled_word]];
 
+Theorem encode_header_word64_tag_NOT_NONE[local]:
+  good_dimindex (:'a) ∧ arch_width_bits c.arch_width = dimindex (:'a) ∧
+  c.len_size + 9 < dimindex (:'a) ∧ 1 < c.len_size ∧ n ≤ 2 ⇒
+  encode_header c word64_tag n ≠ (NONE:num option)
+Proof
+  strip_tac >>
+  `n < 2 ** c.len_size` by (
+    irule LESS_LESS_EQ_TRANS >> qexists_tac `2 ** 2` >>
+    simp [EXP_BASE_LE_MONO]) >>
+  rw [encode_header_def, word64_tag_def] >>
+  gvs [good_dimindex_def]
+QED
+
 Theorem assign_WordFromWord:
    (?b. op = WordOp (WordFromWord b)) ==> ^assign_thm_goal
 Proof
@@ -554,25 +567,30 @@ Proof
       \\ Cases_on `w` \\ fs [dimword_def]
       \\ once_rewrite_tac [MULT_COMM] \\ fs [MULT_DIV]))
   \\ rveq \\ fs []
-  >- (conj_tac >-
-        (imp_res_tac consume_space_stack_max >> simp[option_le_max_right] >>
-         metis_tac[option_le_trans]) >>
-      strip_tac >> spose_not_then strip_assume_tac >>
-      fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
-          memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
-      rveq >> rfs[] >>
-      `2 <= 30 - c.len_size` by simp[] >>
-      dxrule_then (strip_assume_tac o GSYM) LESS_EQ_ADD_EXISTS >>
-      fs[EXP_ADD] >> assume_tac bitTheory.TWOEXP_NOT_ZERO >>
-      pop_assum(qspec_then `p` assume_tac) >>
-      Cases_on `2 ** p` >> fs[])
-  >- (conj_tac >-
-        (imp_res_tac consume_space_stack_max >> simp[option_le_max_right] >>
-         metis_tac[option_le_trans]) >>
-      strip_tac >> spose_not_then strip_assume_tac >>
-      fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
-         memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
-      rveq >> rfs[])
+  >- (
+    conj_tac
+    >- (
+      imp_res_tac consume_space_stack_max
+      \\ simp [option_le_max_right]
+      \\ metis_tac [option_le_trans])
+    \\ strip_tac \\ spose_not_then strip_assume_tac
+    \\ qpat_x_assum `encode_header _ _ _ = NONE` mp_tac
+    \\ simp_tac bool_ss [] \\ irule encode_header_word64_tag_NOT_NONE
+    \\ fs [state_rel_def, heap_in_memory_store_def]
+    \\ imp_res_tac memory_rel_len_size
+    \\ rw [] \\ gvs [good_dimindex_def, consume_space_def, limits_inv_def])
+  >- (
+    conj_tac
+    >- (
+      imp_res_tac consume_space_stack_max
+      \\ simp [option_le_max_right]
+      \\ metis_tac [option_le_trans])
+    \\ strip_tac \\ spose_not_then strip_assume_tac
+    \\ qpat_x_assum `encode_header _ _ _ = NONE` mp_tac
+    \\ simp_tac bool_ss [] \\ irule encode_header_word64_tag_NOT_NONE
+    \\ fs [state_rel_def, heap_in_memory_store_def]
+    \\ imp_res_tac memory_rel_len_size
+    \\ rw [] \\ gvs [good_dimindex_def, consume_space_def, limits_inv_def])
   THEN1
    (assume_tac (GEN_ALL evaluate_WriteWord64_on_32)
     \\ SEP_I_TAC "evaluate"
@@ -616,6 +634,7 @@ Proof
     \\ qexists_tac`s.space - 2` \\ fs[]
    )
 QED
+
 
 Theorem assign_WordToInt:
    op = WordOp WordToInt ==> ^assign_thm_goal
@@ -973,13 +992,18 @@ Proof[exclude_simps = INT_OF_NUM NUM_EQ0]
   \\ fs[wordSemTheory.get_vars_def]
   \\ every_case_tac \\ fs[] \\ clean_tac
   \\ simp[assign_def]
-  \\ BasicProvers.TOP_CASE_TAC >-
-    (simp[]>>
-     conj_tac >- metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max,option_le_max_right] >>
-     strip_tac >> spose_not_then strip_assume_tac >>
-     fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
-        memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
-     rveq >> rfs[])
+  \\ BasicProvers.TOP_CASE_TAC
+  >- (
+    simp []
+    \\ conj_tac
+    >- metis_tac [backendPropsTheory.option_le_trans,
+                  consume_space_stack_max, option_le_max_right]
+    \\ strip_tac \\ spose_not_then strip_assume_tac
+    \\ qpat_x_assum `encode_header _ _ _ = NONE` mp_tac
+    \\ simp_tac bool_ss [] \\ irule encode_header_word64_tag_NOT_NONE
+    \\ fs [state_rel_def, heap_in_memory_store_def]
+    \\ imp_res_tac memory_rel_len_size
+    \\ rw [] \\ gvs [good_dimindex_def, consume_space_def, limits_inv_def])
   \\ reverse BasicProvers.TOP_CASE_TAC >- suspend "word32"
   \\ simp[Once wordSemTheory.evaluate_def]
   \\ simp[Once wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def]
@@ -1861,10 +1885,10 @@ QED
 
 Theorem IMP_encode_header_NOT_NONE:
   arch_width_bits c.arch_width = dimindex (:'a) ∧
-  dimindex (:'a) = 32 ∧ 1 < c.len_size ∧ 1 < 30 − c.len_size ⇒
-  encode_header c 3 2 ≠ (NONE:num option)
+  dimindex (:'a) = 32 ∧ 1 < c.len_size ∧ 3 < 30 − c.len_size ⇒
+  encode_header c word64_tag 2 ≠ (NONE:num option)
 Proof
-  gvs [encode_header_def,dimword_def]
+  gvs [encode_header_def, word64_tag_def, dimword_def]
 QED
 
 Theorem assign_WordOpW64:
@@ -1900,16 +1924,15 @@ Proof
   \\ simp [assign_WordOp64(*assign_def*)]
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] >-
    (TOP_CASE_TAC \\ fs []
-    >- (conj_tac >- metis_tac[backendPropsTheory.option_le_trans,consume_space_stack_max] >>
-        strip_tac >> spose_not_then strip_assume_tac >>
-        fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
-           memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
-        rveq >> rfs[] >>
-        `2 <= 62 - c.len_size` by simp[] >>
-        dxrule_then (strip_assume_tac o GSYM) LESS_EQ_ADD_EXISTS >>
-        fs[EXP_ADD] >> assume_tac bitTheory.TWOEXP_NOT_ZERO >>
-        pop_assum(qspec_then `p` assume_tac) >>
-        Cases_on `2 ** p` >> fs[])
+    >- (
+      conj_tac
+      >- metis_tac [backendPropsTheory.option_le_trans, consume_space_stack_max]
+      \\ strip_tac \\ spose_not_then strip_assume_tac
+      \\ qpat_x_assum `encode_header _ _ _ = NONE` mp_tac
+      \\ simp_tac bool_ss [] \\ irule encode_header_word64_tag_NOT_NONE
+      \\ fs [state_rel_def, heap_in_memory_store_def]
+      \\ imp_res_tac memory_rel_len_size
+      \\ rw [] \\ gvs [good_dimindex_def, consume_space_def, limits_inv_def])
     \\ clean_tac
     \\ eval_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
@@ -2401,35 +2424,18 @@ Proof
   \\ clean_tac
   \\ simp[assign_def]
   \\ TOP_CASE_TAC \\ fs[]
-  >-
-    (conj_tac >-
-      (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,
-                                    consume_space_stack_max,option_le_max_right])
-     \\ ‘good_dimindex (:'a)’ by gvs [state_rel_thm]
-     \\ qsuff_tac ‘F’ >- rewrite_tac []
-     \\ fs [state_rel_thm]
-     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-     \\ rpt_drule0 (memory_rel_get_vars_IMP |> Q.GEN ‘n’ |> Q.SPEC ‘[xx]’ |> SRULE [])
-     \\ CCONTR_TAC \\ gvs []
-     \\ dxrule memory_rel_Word64_IMP
-     \\ strip_tac \\ rfs []
-     \\ gvs [good_dimindex_def,limits_inv_def,
-             memory_rel_def,heap_in_memory_store_def,consume_space_def]
-     \\ qpat_x_assum ‘encode_header _ _ _ = NONE’ mp_tac
-     \\ rewrite_tac []
-     >-
-      (irule IMP_encode_header_NOT_NONE
-       \\ gvs [good_dimindex_def,limits_inv_def,state_rel_def,
-               memory_rel_def,heap_in_memory_store_def,consume_space_def]
-       \\ CCONTR_TAC
-       \\ ‘c.len_size = 1’ by decide_tac
-       \\ qpat_x_assum ‘decode_length _ _ = 2w’ mp_tac
-       \\ simp [decode_length_def,make_header_def]
-       \\ EVAL_TAC \\ simp [dimword_def]
-       \\ EVAL_TAC \\ simp [dimword_def])
-     \\ gvs [encode_header_def,dimword_def]
-     \\ irule_at Any LESS_LESS_EQ_TRANS
-     \\ qexists_tac ‘2 ** 2’ \\ gvs [])
+  >- (
+    conj_tac
+    >- (
+      fs [state_rel_def]
+      \\ metis_tac [backendPropsTheory.option_le_trans,
+                    consume_space_stack_max, option_le_max_right])
+    \\ strip_tac \\ spose_not_then strip_assume_tac
+    \\ qpat_x_assum `encode_header _ _ _ = NONE` mp_tac
+    \\ simp_tac bool_ss [] \\ irule encode_header_word64_tag_NOT_NONE
+    \\ fs [state_rel_def, heap_in_memory_store_def]
+    \\ imp_res_tac memory_rel_len_size
+    \\ rw [] \\ gvs [good_dimindex_def, consume_space_def, limits_inv_def])
   \\ TOP_CASE_TAC \\ fs[]
   THEN1 (* dimindex (:'a) = 64 *)
    (
@@ -2911,34 +2917,18 @@ Proof
   \\ clean_tac
   \\ simp[assign_def]
   \\ TOP_CASE_TAC \\ fs[]
-  >- (conj_tac >-
-       (fs[state_rel_def]>>metis_tac[backendPropsTheory.option_le_trans,
-                                     consume_space_stack_max,option_le_max_right])
-      \\ ‘good_dimindex (:'a)’ by gvs [state_rel_thm]
-      \\ qsuff_tac ‘F’ >- rewrite_tac []
-      \\ fs [state_rel_thm]
-      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-      \\ rpt_drule0 (memory_rel_get_vars_IMP |> Q.GEN ‘n’ |> Q.SPEC ‘[xx;yy]’ |> SRULE [])
-      \\ CCONTR_TAC \\ gvs []
-      \\ dxrule memory_rel_Word64_IMP
-      \\ strip_tac \\ rfs []
-      \\ gvs [good_dimindex_def,limits_inv_def,
-              memory_rel_def,heap_in_memory_store_def,consume_space_def]
-      \\ qpat_x_assum ‘encode_header _ _ _ = NONE’ mp_tac
-      \\ rewrite_tac []
-      >-
-       (irule IMP_encode_header_NOT_NONE
-        \\ gvs [good_dimindex_def,limits_inv_def,state_rel_def,
-                memory_rel_def,heap_in_memory_store_def,consume_space_def]
-        \\ CCONTR_TAC
-        \\ ‘c.len_size = 1’ by decide_tac
-        \\ qpat_x_assum ‘decode_length _ _ = 2w’ mp_tac
-        \\ simp [decode_length_def,make_header_def]
-        \\ EVAL_TAC \\ simp [dimword_def]
-        \\ EVAL_TAC \\ simp [dimword_def])
-      \\ gvs [encode_header_def,dimword_def]
-      \\ irule_at Any LESS_LESS_EQ_TRANS
-      \\ qexists_tac ‘2 ** 2’ \\ gvs [])
+  >- (
+    conj_tac
+    >- (
+      fs [state_rel_def]
+      \\ metis_tac [backendPropsTheory.option_le_trans,
+                    consume_space_stack_max, option_le_max_right])
+    \\ strip_tac \\ spose_not_then strip_assume_tac
+    \\ qpat_x_assum `encode_header _ _ _ = NONE` mp_tac
+    \\ simp_tac bool_ss [] \\ irule encode_header_word64_tag_NOT_NONE
+    \\ fs [state_rel_def, heap_in_memory_store_def]
+    \\ imp_res_tac memory_rel_len_size
+    \\ rw [] \\ gvs [good_dimindex_def, consume_space_def, limits_inv_def])
   \\ IF_CASES_TAC
   >- (`dimindex (:'a) = 32` by fs [state_rel_def,good_dimindex_def]
       \\ fs [] \\ clean_tac
@@ -3244,7 +3234,7 @@ Proof
                               consume_space_stack_max,option_le_max_right]
         \\ qsuff_tac ‘F’ >- rewrite_tac []
         \\ pop_assum mp_tac
-        \\ simp [encode_header_def,dimword_def]
+        \\ simp [encode_header_def,word64_tag_def,dimword_def]
         \\ irule_at Any LESS_LESS_EQ_TRANS
         \\ qexists_tac ‘2 ** 2’ \\ simp []
         \\ gvs [state_rel_thm,limits_inv_def,memory_rel_def,heap_in_memory_store_def])
@@ -3295,7 +3285,7 @@ Proof
                            consume_space_stack_max,option_le_max_right]
      \\ qsuff_tac ‘F’ >- rewrite_tac []
      \\ qpat_x_assum ‘encode_header _ _ _ = NONE’ mp_tac
-     \\ gvs [encode_header_def,dimword_def]
+     \\ gvs [encode_header_def,word64_tag_def,dimword_def]
      \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
      \\ irule_at Any LESS_LESS_EQ_TRANS
      \\ qexists_tac ‘2 ** 2’ \\ gvs []
@@ -3405,7 +3395,7 @@ Proof
                               consume_space_stack_max,option_le_max_right]
         \\ qsuff_tac ‘F’ >- rewrite_tac []
         \\ pop_assum mp_tac
-        \\ simp [encode_header_def,dimword_def]
+        \\ simp [encode_header_def,word64_tag_def,dimword_def]
         \\ irule_at Any LESS_LESS_EQ_TRANS
         \\ qexists_tac ‘2 ** 2’ \\ simp []
         \\ gvs [state_rel_thm,limits_inv_def,memory_rel_def,heap_in_memory_store_def])
@@ -3450,7 +3440,7 @@ Proof
                            consume_space_stack_max,option_le_max_right]
      \\ qsuff_tac ‘F’ >- rewrite_tac []
      \\ qpat_x_assum ‘encode_header _ _ _ = NONE’ mp_tac
-     \\ gvs [encode_header_def,dimword_def]
+     \\ gvs [encode_header_def,word64_tag_def,dimword_def]
      \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
      \\ irule_at Any LESS_LESS_EQ_TRANS
      \\ qexists_tac ‘2 ** 2’ \\ gvs []
@@ -3545,7 +3535,7 @@ Proof
                               consume_space_stack_max,option_le_max_right]
         \\ qsuff_tac ‘F’ >- rewrite_tac []
         \\ pop_assum mp_tac
-        \\ simp [encode_header_def,dimword_def]
+        \\ simp [encode_header_def,word64_tag_def,dimword_def]
         \\ irule_at Any LESS_LESS_EQ_TRANS
         \\ qexists_tac ‘2 ** 2’ \\ simp []
         \\ gvs [state_rel_thm,limits_inv_def,memory_rel_def,heap_in_memory_store_def])
@@ -3583,7 +3573,7 @@ Proof
                            consume_space_stack_max,option_le_max_right]
      \\ qsuff_tac ‘F’ >- rewrite_tac []
      \\ qpat_x_assum ‘encode_header _ _ _ = NONE’ mp_tac
-     \\ gvs [encode_header_def,dimword_def]
+     \\ gvs [encode_header_def,word64_tag_def,dimword_def]
      \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
      \\ irule_at Any LESS_LESS_EQ_TRANS
      \\ qexists_tac ‘2 ** 2’ \\ gvs []

@@ -881,7 +881,7 @@ Definition naive_pattern_match_clocked_def:
   naive_pattern_match_clocked (SUC ck) t ((Pas p i, v) :: mats) =
     naive_pattern_match_clocked ck t ((p, v) :: mats) /\
   naive_pattern_match_clocked (SUC ck) t ((Pcon (SOME stmp) ps, v) :: mats) =
-    SmartIf t (App t (TagLenEq (FST stmp) (LENGTH ps)) [v])
+    SmartIf t (App t (TagLenEq (encode_ctor_tag (FST stmp) (OPTION_MAP FST (SND stmp))) (LENGTH ps)) [v])
       (naive_pattern_match_clocked ck t (MAPi (\i p. (p, App t (El i) [v])) ps ++ mats))
       (Bool t F)
   /\
@@ -928,8 +928,11 @@ Definition encode_pat_alt_def:
   encode_pat_alt (Plit l) = Lit l /\
   encode_pat_alt (Pvar _) = Any /\
   encode_pat_alt (flatLang$Pcon stmp ps) = Cons
-    (case stmp of NONE => NONE | SOME (i, NONE) => SOME (i, NONE)
-        | SOME (i, SOME (ty, ctors)) => SOME (i, SOME ctors))
+    (case stmp of NONE => NONE
+      | SOME (i, NONE) => SOME (encode_ctor_tag i NONE, NONE)
+      | SOME (i, SOME (ty, ctors)) =>
+          SOME (encode_ctor_tag i (SOME ty),
+            SOME (MAP (\(tag,arity). (encode_ctor_tag tag (SOME ty),arity)) ctors)))
     (encode_pats_alt ps) /\
   encode_pat_alt (Pas p v) = encode_pat_alt p /\
   encode_pat_alt (Pref p) = Ref (encode_pat_alt p) ∧
@@ -1155,7 +1158,7 @@ Definition flat_to_clos_compile_alt_def:
   (flat_to_clos_compile_alt m (Lit t l) = (compile_lit t l)) /\
   (flat_to_clos_compile_alt m (Var_local t v) = (Var t (findi (SOME v) m))) /\
   (flat_to_clos_compile_alt m (Con t n es) =
-     let tag = (case n of SOME (t,_) => t | _ => 0) in
+     let tag = (case n of SOME (t,ty) => encode_ctor_tag t ty | _ => 0) in
        (SmartCons t tag (flat_to_clos_compile_alts m (REVERSE es)))) /\
   (flat_to_clos_compile_alt m (App t op es) =
      case dest_nop op es of

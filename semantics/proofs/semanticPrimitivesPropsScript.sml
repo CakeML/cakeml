@@ -250,7 +250,7 @@ QED
 
 val eqs = LIST_CONJ (map TypeBase.case_eq_of
   [``:op``, ``:'a list``, ``:'a option``, ``:v``, ``:'a store_v``, ``:lit``,
-   ``:eq_result``, ``:word_size``])
+   ``:eq_result``, ``:cmp_result``, ``:word_size``])
 
 Theorem pair_case_eq[local]:
   pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
@@ -1350,6 +1350,25 @@ Proof
   >> simp []
 QED
 
+Theorem simple_val_rel_do_compare:
+  simple_val_rel vr ⇒
+  (∀v w v' w'. vr v' v ∧ vr w' w ⇒ do_compare v w = do_compare v' w') ∧
+  (∀vs ws vs' ws'. LIST_REL vr vs' vs ∧ LIST_REL vr ws' ws ⇒
+    do_compare_list vs ws = do_compare_list vs' ws')
+Proof
+  strip_tac >> ho_match_mp_tac do_compare_ind >> rw [] >>
+  gvs [simple_val_rel_cases,LIST_REL_CONS2,is_clos_iff,do_compare_def] >>
+  imp_res_tac LIST_REL_LENGTH >> gvs []
+  >~ [`ctor_same_type _ _`] >- (
+    asm_simp_tac bool_ss [NULL_LENGTH] >>
+    rpt (IF_CASES_TAC >> simp []) >> metis_tac [])
+  >~ [`do_compare _ _`] >- (
+    qpat_x_assum `∀_ _. _` drule_all >> disch_then (assume_tac o GSYM) >>
+    Cases_on `do_compare v w` >> gvs [] >>
+    IF_CASES_TAC >> gvs []) >>
+  IF_CASES_TAC >> simp [] >> metis_tac []
+QED
+
 Theorem simple_val_rel_do_app_rev_NONE:
   simple_val_rel vr ∧
   LIST_REL (sv_rel vr) s t ∧
@@ -1366,6 +1385,13 @@ Proof
   simp[do_app_def]>>
   imp_res_tac LIST_REL_store_lookup>>
   gvs[sv_rel_cases,store_alloc_def]
+  >~ [`do_compare`] >- (
+    simp [AllCaseEqs()] >>
+    qmatch_goalsub_rename_tac `do_compare left right` >>
+    qmatch_asmsub_rename_tac `do_compare target_left target_right = _` >>
+    drule (cj 1 simple_val_rel_do_compare) >>
+    disch_then (qspecl_then [`target_left`,`target_right`,`left`,`right`] mp_tac) >>
+    simp [])
   >>~- ([`copy_array _ _ (SOME _) (* sg *)`],
     drule_all LIST_REL_copy_array_SOME
     >> disch_then (qx_choose_then `copied` strip_assume_tac)
@@ -1530,6 +1556,15 @@ Proof
   gvs[sv_rel_cases,store_alloc_def,simple_val_rel_rewrites,
       simple_val_rel_list_to_v,result_rel_Rval2]>>
   imp_res_tac LIST_REL_LENGTH>>gvs[]
+  >~ [`do_compare`] >- (
+    qmatch_goalsub_rename_tac `do_compare left right` >>
+    qmatch_asmsub_rename_tac `do_compare original_left original_right = Cmp_val result` >>
+    `do_compare left right = Cmp_val result` by (
+      drule (cj 1 simple_val_rel_do_compare) >>
+      disch_then (qspecl_then [`original_left`,`original_right`,`left`,`right`]
+        mp_tac) >>
+      simp []) >>
+    simp [simple_val_rel_rewrites])
   >>~- ([`copy_array _ _ NONE (* sg *)`,
          `copy_array _ _ NONE = NONE`],
     gvs [copy_array_def,AllCaseEqs(),sub_exn_v_def,simple_val_rel_rewrites])
@@ -1697,6 +1732,21 @@ Proof
   metis_tac [shape_val_rel_do_eq]
 QED
 
+Theorem shape_val_rel_do_compare:
+  shape_val_rel vr ⇒
+  (∀v w v' w'. vr v v' ∧ vr w w' ⇒ do_compare v' w' = do_compare v w) ∧
+  (∀vs ws vs' ws'. LIST_REL vr vs vs' ∧ LIST_REL vr ws ws' ⇒
+    do_compare_list vs' ws' = do_compare_list vs ws)
+Proof
+  strip_tac >> ho_match_mp_tac do_compare_ind >> rw [] >>
+  imp_res_tac shape_val_rel_cases >>
+  gvs [is_clos_iff,do_compare_def,LIST_REL_CONS1] >>
+  imp_res_tac LIST_REL_LENGTH >> gvs [] >>
+  asm_simp_tac bool_ss [NULL_LENGTH] >>
+  Cases_on `do_compare v w` >> simp [] >>
+  IF_CASES_TAC >> simp []
+QED
+
 Theorem shape_val_rel_do_test:
   shape_val_rel vr ∧ vr v v' ∧ vr w w' ∧ do_test t ty v w = Eq_val b ⇒
   do_test t ty v' w' = Eq_val b
@@ -1844,6 +1894,15 @@ Proof
   >> gvs [sv_rel_cases]
   >> imp_res_tac LIST_REL_LENGTH
   >> simp [do_app_def]
+  >~ [`do_compare`] >- (
+    qmatch_goalsub_rename_tac `do_compare left right` >>
+    qmatch_asmsub_rename_tac `do_compare original_left original_right = Cmp_val result` >>
+    `do_compare left right = Cmp_val result` by (
+      drule (cj 1 shape_val_rel_do_compare) >>
+      disch_then (qspecl_then [`original_left`,`original_right`,`left`,`right`]
+        mp_tac) >>
+      simp []) >>
+    simp [])
   >~ [`do_unsafe_index_arith`] >- (
     drule_all shape_val_rel_unsafe_index_ops
     >> disch_tac >> fs []

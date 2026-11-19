@@ -411,7 +411,7 @@ Definition alloc_tags1_def:
   (alloc_tags1 ((cn, ts) :: ctors) =
     let (ns, cids, tag_list) = alloc_tags1 ctors in
     let arity = LENGTH ts in
-    let (tag, new_cids) = lookup_inc arity cids in
+    let (tag, new_cids) = lookup_inc (if arity = 0 then 0 else 1) cids in
       (nsBind cn tag ns, new_cids, (tag, arity) :: tag_list))
 End
 

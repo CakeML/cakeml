@@ -46,6 +46,7 @@ structure astSyntax = struct
   val CopyStrAw8 = prim_mk_const{Thy="ast",Name="CopyStrAw8"};
   val CopyStrStr = prim_mk_const{Thy="ast",Name="CopyStrStr"};
   val Equality = prim_mk_const{Thy="ast",Name="Equality"};
+  val PolyCompare = prim_mk_const{Thy="ast",Name="PolyCompare"};
   val Geq = prim_mk_const{Thy="ast",Name="Geq"};
   val Gt = prim_mk_const{Thy="ast",Name="Gt"};
   val Implode = prim_mk_const{Thy="ast",Name="Implode"};

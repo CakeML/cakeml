@@ -129,12 +129,12 @@ Proof
 QED
 
 Theorem no_kernel_types_open_dec_env[local]:
-  (∀id len tag tn.
-    nsLookup env.c id = SOME (len, TypeStamp tag tn) ⇒
+  (∀id len tag tn pos.
+    nsLookup env.c id = SOME (len, TypeStamp tag tn pos) ⇒
     tn ∉ kernel_types) ∧
   open_dec_env path env = SOME opened ⇒
-  ∀id len tag tn.
-    nsLookup opened.c id = SOME (len, TypeStamp tag tn) ⇒
+  ∀id len tag tn pos.
+    nsLookup opened.c id = SOME (len, TypeStamp tag tn pos) ⇒
     tn ∉ kernel_types
 Proof
   rw [open_dec_env_def]
@@ -142,7 +142,7 @@ Proof
   \\ imp_res_tac nsLookup_after_nsOpen
   \\ first_x_assum
     (qspecl_then
-      [`mk_id (path ++ id_to_mods id) (id_to_n id)`, `len`, `tag`, `tn`]
+      [`mk_id (path ++ id_to_mods id) (id_to_n id)`, `len`, `tag`, `tn`, `pos`]
       mp_tac)
   \\ gs []
 QED
@@ -154,8 +154,8 @@ local
       ‘λs env xs. ∀res s' ctxt.
         evaluate s env xs = (s', res) ∧
         post_state_ok s' ∧
-        (∀id len tag tn.
-           nsLookup env.c id = SOME (len, TypeStamp tag tn) ⇒
+        (∀id len tag tn pos.
+           nsLookup env.c id = SOME (len, TypeStamp tag tn pos) ⇒
              tn ∉ kernel_types) ∧
         env_ok ctxt env ∧
         EVERY simple_exp xs ⇒
@@ -167,8 +167,8 @@ local
       ‘λs env ds. ∀res s' ctxt.
         evaluate_decs s env ds = (s', res) ∧
         post_state_ok s' ∧
-        (∀id len tag tn.
-           nsLookup env.c id = SOME (len, TypeStamp tag tn) ⇒
+        (∀id len tag tn pos.
+           nsLookup env.c id = SOME (len, TypeStamp tag tn pos) ⇒
              tn ∉ kernel_types) ∧
         env_ok ctxt env ∧
         EVERY simple_dec ds ∧
@@ -176,9 +176,9 @@ local
             case res of
               Rval env1 =>
                 env_ok ctxt (extend_dec_env env1 env) ∧
-                (∀id len tag tn.
+                (∀id len tag tn pos.
                    nsLookup (extend_dec_env env1 env).c id =
-                   SOME (len, TypeStamp tag tn) ⇒
+                   SOME (len, TypeStamp tag tn pos) ⇒
                      tn ∉ kernel_types)
             | Rerr (Rraise v) => v_ok ctxt v
             | _ => T’]
@@ -320,22 +320,11 @@ Resume evaluate_basis_v_ok[decs_Dtype]:
   \\ gs [post_state_ok_def, env_ok_def, extend_dec_env_def,
          nsLookup_nsAppend_some, nsLookup_alist_to_ns_some, SF SFY_ss]
   \\ rw [] \\ gs [SF SFY_ss]
-  \\ ‘∀m tds n l t k.
-        nsLookup (build_tdefs m tds) n = SOME (l, TypeStamp t k) ⇒
+  \\ `∀m tds n l t k pos.
+        nsLookup (build_tdefs m tds) n = SOME (l, TypeStamp t k pos) ⇒
           m ≤ k ∧
-          k < m + LENGTH tds’
-    by (ho_match_mp_tac build_tdefs_ind
-        \\ simp [build_tdefs_def, nsLookup_nsAppend_some,
-                 nsLookup_alist_to_ns_some, SF SFY_ss]
-        \\ rw [] \\ gs [SF SFY_ss]
-        >- (
-          first_x_assum drule
-          \\ gs [])
-        >- (
-          first_x_assum drule
-          \\ gs [])
-        \\ drule_then assume_tac ALOOKUP_MEM
-        \\ gs [build_constrs_def, MEM_MAP, EXISTS_PROD])
+          k < m + LENGTH tds`
+    by metis_tac [build_tdefs_stamp_bounds]
   >~ [‘id_to_n id ∈ kernel_ctors’] >- (
     first_x_assum (drule_then assume_tac)
     \\ first_x_assum (drule_then assume_tac) \\ gs [])

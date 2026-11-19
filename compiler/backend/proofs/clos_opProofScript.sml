@@ -7,7 +7,6 @@ Ancestors
 Libs
   preamble
 
-
 Theorem list_split3[local]:
   ∀P. P [] ∧ (∀x y z zs. P (x::y::z::zs)) ∧ (∀x. P [x]) ∧ (∀x y. P [x; y]) ⇒
       ∀xs. P xs
@@ -64,6 +63,18 @@ Proof
   \\ Cases_on ‘b’ \\ fs [dest_Cons_def]
 QED
 
+Theorem bytes_to_mlstring_eq[local]:
+  bytes_to_mlstring bytes = text ⇔ bytes = MAP (n2w o ORD) (explode text)
+Proof
+  eq_tac
+  >- (
+    disch_then (mp_tac o Q.AP_TERM
+      ‘λs:mlstring. MAP (n2w o ORD) (explode s) : word8 list’)
+    \\ simp [backend_commonTheory.bytes_to_mlstring_def, MAP_MAP_o,
+             combinTheory.o_DEF, ORD_CHR, wordsTheory.w2n_lt])
+  \\ rw [] \\ simp [backend_commonTheory.bytes_to_mlstring_explode]
+QED
+
 Theorem eq_direct_thm:
   ∀x y env s res s1 t z.
     evaluate ([Op t (BlockOp Equal) [x; y]],env,s) = (res,s1) ∧
@@ -73,54 +84,44 @@ Theorem eq_direct_thm:
 Proof
   rpt gen_tac \\ fs [eq_direct_def]
   \\ reverse (Cases_on ‘eq_direct_const x y’) \\ fs []
-  THEN1
-   (gvs [eq_direct_const_def,AllCaseEqs(),dest_Op_Nil_thm,dest_Const_thm]
-    \\ fs [evaluate_def,do_app_def,do_int_app_def]
-    THEN1
-     (Cases_on ‘evaluate ([x],env,s)’ \\ fs [] \\ Cases_on ‘q’ \\ fs []
-      \\ rw [] \\ fs [evaluate_def]
-      \\ imp_res_tac evaluate_SING \\ gvs []
-      \\ Cases_on ‘r1’ \\ gvs [do_eq_def,do_app_def])
-    THEN1
-     (Cases_on ‘evaluate ([y],env,s)’ \\ fs [] \\ Cases_on ‘q’ \\ fs []
-      \\ rw [] \\ fs [evaluate_def]
-      \\ imp_res_tac evaluate_SING \\ gvs []
-      \\ Cases_on ‘r1’ \\ gvs [do_eq_def,do_app_def]
-      \\ rw [] \\ eq_tac \\ rw [])
-    \\ EVAL_TAC \\ rw [] \\ fs [] \\ EVAL_TAC)
-  \\ reverse (Cases_on ‘eq_direct_constant x y’) \\ fs []
-  THEN1
-   (gvs [eq_direct_constant_def,AllCaseEqs(),dest_Op_Nil_thm,dest_Constant_thm]
+  >- (
+    gvs [eq_direct_const_def, AllCaseEqs(), dest_Op_Nil_thm, dest_Const_thm]
+    \\ fs [evaluate_def, do_app_def, do_int_app_def]
     \\ rw []
-    \\ fs [evaluate_def,do_app_def] \\ rw []
-    \\ gvs [AllCaseEqs(),PULL_EXISTS,make_const_def,do_eq_def]
-    \\ fs [do_eq_def] \\ rw [evaluate_MakeBool]
+    \\ gvs [evaluate_def, do_app_def, do_cmp_def, evaluate_MakeBool,
+            semanticPrimitivesTheory.compare_int_eq_zero]
+    >~ [‘(left_num:int) = right_num ⇔ right_num = left_num’] >- (eq_tac \\ rw [])
+    \\ qmatch_goalsub_rename_tac ‘evaluate ([other_exp],env,s)’
+    \\ namedCases_on ‘evaluate ([other_exp],env,s)’ ["other_result other_state"]
+    \\ namedCases_on ‘other_result’ ["other_values", "other_error"]
+    \\ gvs [do_cmp_def]
+    \\ drule evaluate_SING
+    \\ disch_then (qx_choose_then ‘other_value’ assume_tac)
+    \\ gvs []
+    \\ Cases_on ‘other_value’
+    \\ gvs [do_cmp_def, semanticPrimitivesTheory.compare_int_eq_zero]
+    \\ eq_tac \\ fs [])
+  \\ reverse (Cases_on ‘eq_direct_constant x y’) \\ fs []
+  >- (
+    gvs [eq_direct_constant_def, AllCaseEqs(), dest_Op_Nil_thm, dest_Constant_thm]
+    \\ rw []
+    \\ fs [evaluate_def, do_app_def] \\ rw []
+    \\ gvs [AllCaseEqs(), PULL_EXISTS, make_const_def, do_cmp_def,
+            semanticPrimitivesTheory.compare_int_eq_zero,
+            semanticPrimitivesTheory.compare_lit_def,
+            backend_commonTheory.bytes_to_mlstring_explode]
     \\ imp_res_tac evaluate_SING \\ gvs []
-    \\ TRY (eq_tac \\ fs [] \\ NO_TAC)
-    \\ once_rewrite_tac [EQ_SYM_EQ]
-    \\ rename [‘MAP _ _ = MAP _ _ ⇔ t1 = t2’]
-    \\ Cases_on ‘t1’
-    \\ Cases_on ‘t2’ \\ fs []
-    \\ pop_assum kall_tac
-    \\ qid_spec_tac ‘s’
-    \\ qid_spec_tac ‘s'’
-    \\ Induct \\ Cases_on ‘s’ \\ fs []
-    \\ fs [ORD_BOUND,ORD_11])
+    \\ rw [evaluate_MakeBool]
+    \\ gvs [GSYM bytes_to_mlstring_eq]
+    \\ metis_tac [mlstringTheory.mlstring_lt_nonrefl, mlstringTheory.mlstring_lt_cases])
   \\ reverse (Cases_on ‘eq_direct_nil x y’) \\ fs []
-  THEN1
-   (gvs [eq_direct_nil_def,AllCaseEqs(),dest_Op_Nil_thm,dest_Cons_thm]
-    \\ fs [evaluate_def,do_app_def]
-    THEN1
-     (Cases_on ‘evaluate ([x],env,s)’ \\ fs [] \\ Cases_on ‘q’ \\ fs []
-      \\ rw [] \\ fs [evaluate_def]
-      \\ imp_res_tac evaluate_SING \\ gvs [AllCaseEqs()]
-      \\ gvs[do_eq_def,AllCaseEqs(),do_app_def])
-    THEN1
-     (Cases_on ‘evaluate ([y],env,s)’ \\ fs [] \\ Cases_on ‘q’ \\ fs []
-      \\ rw [] \\ fs [evaluate_def]
-      \\ imp_res_tac evaluate_SING \\ gvs [AllCaseEqs()]
-      \\ gvs[do_eq_def,AllCaseEqs(),do_app_def])
-    \\ EVAL_TAC \\ rw [] \\ fs [] \\ EVAL_TAC)
+  >- (
+    gvs [eq_direct_nil_def, AllCaseEqs(), dest_Op_Nil_thm, dest_Cons_thm]
+    \\ fs [evaluate_def, do_app_def]
+    \\ rw []
+    \\ gvs [evaluate_def, do_app_def, do_cmp_def, evaluate_MakeBool,
+            semanticPrimitivesTheory.compare_int_eq_zero, AllCaseEqs()]
+    \\ imp_res_tac evaluate_SING \\ gvs [])
   \\ fs []
 QED
 
@@ -460,9 +461,131 @@ Proof
   simp [Once simple_exp_cases,EVERY_EL]
 QED
 
+(* Boolean projection for equality-only optimizations. *)
+Overload eq_cmp[local] =
+  “λx y. case do_cmp x y of Cmp_val n => Eq_val (n = 0) | _ => Eq_type_error”
+Overload eq_cmp_list[local] =
+  “λxs ys. case do_cmp_list xs ys of Cmp_val n => Eq_val (n = 0) | _ => Eq_type_error”
+
+Theorem eq_cmp_def[local]:
+  (eq_cmp x y =
+     case x of
+     | Number i =>
+         (case y of
+          | Number j => Eq_val (i = j)
+          | _ => Eq_type_error)
+     | Word64 v =>
+         (case y of
+          | Word64 w => Eq_val (v = w)
+          | _ => Eq_type_error)
+     | Block t1 xs =>
+         (case y of
+          | Block t2 ys => if (t1 = t2) /\ (LENGTH xs = LENGTH ys) then
+                             eq_cmp_list xs ys
+                           else Eq_val F
+          | _ => Eq_type_error)
+     | ByteVector cs =>
+         (case y of
+          | ByteVector ds => Eq_val (cs = ds)
+          | _ => Eq_type_error)
+     | RefPtr bi i =>
+         (case y of
+          | RefPtr bj j => (if bi ∧ bj then Eq_val (i = j) else Eq_type_error)
+          | _ => Eq_type_error)
+     | _ =>
+         (case y of
+          | Number _ => Eq_type_error
+          | Word64 _ => Eq_type_error
+          | Block _ _ => Eq_type_error
+          | ByteVector _ => Eq_type_error
+          | RefPtr _ _ => Eq_type_error
+          | _ => Eq_val T)) ∧
+  (eq_cmp_list [] [] = Eq_val T) ∧
+  (eq_cmp_list (x::xs) (y::ys) =
+    case eq_cmp x y of Eq_val T => eq_cmp_list xs ys | res => res) ∧
+  (eq_cmp_list [] (y::ys) = Eq_val F) ∧
+  (eq_cmp_list (x::xs) [] = Eq_val F)
+Proof
+  conj_tac
+  >- (
+    Cases_on ‘x’ \\ Cases_on ‘y’
+    \\ simp [Once do_cmp_def, semanticPrimitivesTheory.compare_int_eq_zero,
+             semanticPrimitivesTheory.compare_lit_eq,
+             semanticPrimitivesTheory.lit_same_type_def]
+    \\ rw [] \\ gvs [semanticPrimitivesTheory.compare_int_eq_zero]
+    \\ metis_tac [bytes_to_mlstring_eq])
+  \\ Cases_on ‘do_cmp x y’
+  \\ simp [do_cmp_def |> CONJUNCT2]
+  \\ IF_CASES_TAC \\ simp []
+QED
+
+Theorem eq_cmp_sym[local]:
+  (∀x y. eq_cmp x y = eq_cmp y x) ∧
+  (∀xs ys. eq_cmp_list xs ys = eq_cmp_list ys xs)
+Proof
+  ACCEPT_TAC do_cmp_eq_sym
+QED
+
+Theorem do_app_Equal[local]:
+  do_app (BlockOp Equal) args s =
+    case args of
+      [x;y] =>
+        (case eq_cmp x y of
+           Eq_val b => Rval (Boolv b,s)
+         | Eq_type_error => Rerr (Rabort Rtype_error))
+    | _ => Rerr (Rabort Rtype_error)
+Proof
+  rpt TOP_CASE_TAC \\ fs [do_app_def]
+  \\ rpt (TOP_CASE_TAC \\ gvs [])
+QED
+
+Theorem eq_cmp_singleton[local]:
+  eq_cmp_list [x] [y] = eq_cmp x y
+Proof
+  namedCases_on ‘eq_cmp x y’ ["equal", ""]
+  \\ simp [eq_cmp_def |> CONJUNCT2]
+  \\ Cases_on ‘equal’ \\ simp []
+QED
+
+Theorem evaluate_Equal[local]:
+  evaluate ([left_exp; right_exp],env,s) = (Rval [left_value; right_value],s) ∧
+  eq_cmp left_value right_value = Eq_val equal ⇒
+  evaluate ([Op tra (BlockOp Equal) [left_exp; right_exp]],env,s) =
+    (Rval [Boolv equal],s)
+Proof
+  strip_tac
+  \\ simp [Once evaluate_def, do_app_Equal]
+  \\ simp [Once eq_cmp_sym]
+QED
+
+Theorem evaluate_simple_pair[local]:
+  simple_exp left_exp ∧ simple_exp right_exp ∧
+  evaluate ([left_exp; right_exp],env,s) = (Rval [left_value; right_value],s) ⇒
+  evaluate ([left_exp],env,s) = (Rval [left_value],s) ∧
+  evaluate ([right_exp],env,s) = (Rval [right_value],s)
+Proof
+  strip_tac
+  \\ imp_res_tac simple_exp_pure
+  \\ gvs [evaluate_def, AllCaseEqs()]
+  \\ imp_res_tac evaluate_pure \\ gvs []
+  \\ imp_res_tac evaluate_SING \\ gvs []
+QED
+
+Theorem evaluate_simple_pair_swap[local]:
+  simple_exp left_exp ∧ simple_exp right_exp ∧
+  evaluate ([left_exp; right_exp],env,s) = (Rval [left_value; right_value],s) ⇒
+  evaluate ([right_exp; left_exp],env,s) = (Rval [right_value; left_value],s)
+Proof
+  strip_tac
+  \\ imp_res_tac simple_exp_pure
+  \\ gvs [evaluate_def, AllCaseEqs()]
+  \\ imp_res_tac evaluate_pure \\ gvs []
+  \\ imp_res_tac evaluate_SING \\ gvs []
+QED
+
 Theorem eq_pure_thm:
   evaluate ([x1; y1],env1,r) = (Rval [h1; h2],r) ∧ simple_exp x1 ∧ simple_exp y1 ∧
-  do_eq h1 h2 = Eq_val b ⇒
+  eq_cmp h1 h2 = Eq_val b ⇒
   evaluate ([eq_pure x1 y1],env1,r) = (Rval [Boolv b],r)
 Proof
   fs [eq_pure_def]
@@ -470,152 +593,166 @@ Proof
       ∀xs hs b.
         LIST_REL (λ(x1,y1) (h1,h2). evaluate ([x1; y1],env1,r) = (Rval [h1; h2],r) ∧
                                     simple_exp x1 ∧ simple_exp y1) xs hs ∧
-        do_eq_list (MAP FST hs) (MAP SND hs) = Eq_val b ∧
+        eq_cmp_list (MAP FST hs) (MAP SND hs) = Eq_val b ∧
         EVERY simple_exp (append (eq_pure_list xs)) ⇒
         evaluate ([ConjList (append (eq_pure_list xs))],env1,r) = (Rval [Boolv b],r)’
-  THEN1
-   (disch_then (qspecl_then [‘[(x1,y1)]’,‘[(h1,h2)]’,‘b’] mp_tac)
-    \\ rw [] \\ gvs[do_eq_def |> CONJUNCT2]
+  >- (
+    disch_then (qspecl_then [‘[(x1,y1)]’,‘[(h1,h2)]’,‘b’] mp_tac)
+    \\ rw [] \\ gvs [eq_cmp_def |> CONJUNCT2]
     \\ Cases_on ‘b’ \\ gvs []
     \\ last_x_assum irule
     \\ irule simple_exp_eq_pure_list \\ fs [])
   \\ ho_match_mp_tac eq_pure_list_ind
   \\ rpt strip_tac
-  THEN1 (gvs [do_eq_def |> CONJUNCT2] \\ EVAL_TAC)
-  THEN1
-   (simp [Once eq_pure_list_def]
-    \\ reverse (Cases_on ‘eq_direct x y’) \\ gvs [UNCURRY]
-    THEN1
-     (qspecl_then [‘x’,‘y’,‘env1’,‘r’] mp_tac eq_direct_thm
-      \\ simp [Once evaluate_def,do_app_def]
-      \\ simp [Once do_eq_sym] \\ fs [do_eq_def |> CONJUNCT2]
-      \\ Cases_on ‘do_eq (FST y') (SND y')’ \\ fs [ConjList_def]
-      \\ Cases_on ‘b'’ \\ fs [])
-    \\ Cases_on ‘dest_Op dest_Cons x’ \\ fs []
-    \\ Cases_on ‘dest_Op dest_Cons y’ \\ fs []
-    THEN1
-     (simp [Once evaluate_def,do_app_def,ConjList_def]
-      \\ simp [Once do_eq_sym] \\ fs [do_eq_def |> CONJUNCT2]
-      \\ Cases_on ‘do_eq (FST y') (SND y')’ \\ fs [ConjList_def]
-      \\ Cases_on ‘b'’ \\ fs [])
-    THEN1
-     (gvs [PULL_EXISTS] \\ last_x_assum irule
-      \\ fs [evaluate_def,PULL_EXISTS]
-      \\ gvs [AllCaseEqs()]
-      \\ imp_res_tac simple_exp_pure
-      \\ imp_res_tac evaluate_pure \\ gvs []
-      \\ imp_res_tac evaluate_SING \\ gvs []
-      \\ simp [Once do_eq_def]
-      \\ simp [Once do_eq_sym]
-      \\ fs [EXISTS_PROD]
-      \\ conj_tac
-      THEN1
-       (qpat_x_assum ‘do_eq_list _ _ = _’ mp_tac
-        \\ simp [Once do_eq_def])
-      \\ irule simple_exp_eq_pure_list \\ fs [])
-    THEN1 (
-      PairCases_on ‘x'’ \\ fs []
-      \\ qpat_x_assum ‘EVERY _ _’ mp_tac
-      \\ simp [Once eq_pure_list_def]
-      \\ qpat_x_assum ‘_ = NONE’ kall_tac
-      \\ strip_tac
-      \\ gvs [dest_Op_thm,dest_Cons_thm]
-      \\ qpat_x_assum ‘evaluate _ = _’ mp_tac
-      \\ ‘∃tt. evaluate ([Op tra (BlockOp (Cons x'0)) x'1],env1,r) = tt’ by fs []
-      \\ PairCases_on ‘tt’ \\ fs []
-      \\ drule evaluate_pure
-      \\ pop_assum mp_tac
-      \\ imp_res_tac simple_exp_pure \\ fs []
-      \\ simp [evaluate_def]
-      \\ simp [evaluate_def,AllCaseEqs(),do_app_def]
-      \\ rw [] \\ fs []
-      \\ Cases_on ‘y'’ \\ gvs []
-      \\ Cases_on ‘r'’ \\ fs [do_eq_def]
-      \\ Cases_on ‘x'0 = n ⇒ LENGTH vs ≠ LENGTH l’
-      THEN1
-       (‘~b’ by gvs [AllCaseEqs()] \\ gvs []
-        \\ irule evaluate_ConjList_F
-        \\ imp_res_tac evaluate_IMP_LENGTH
-        \\ fs [evaluate_def,do_app_def] \\ rw[] \\ gvs [])
-      \\ irule evaluate_ConjList_T
-      \\ conj_tac
-      THEN1
-       (imp_res_tac evaluate_IMP_LENGTH
-        \\ fs [evaluate_def,do_app_def] \\ rw[] \\ gvs [])
-      \\ last_x_assum irule
-      \\ Cases_on ‘x'0 = n’ \\ gvs []
-      \\ ‘do_eq_list (REVERSE vs) l = Eq_val b’ by gvs [AllCaseEqs()] \\ gvs []
-      \\ qexists_tac ‘ZIP (REVERSE vs, l)’ \\ gvs [MAP_ZIP]
-      \\ imp_res_tac evaluate_IMP_LENGTH
-      \\ fs [LIST_REL_EL_EQN,listTheory.EL_ZIP]
-      \\ strip_tac \\ rename [‘i < LENGTH l’]
-      \\ simp [evaluate_def,AllCaseEqs(),PULL_EXISTS]
-      \\ fs [pure_def,SF ETA_ss] \\ strip_tac
-      \\ fs [EL_REVERSE,PRE_SUB1]
-      \\ ‘LENGTH x'1 − (i + 1) < LENGTH x'1’ by fs []
-      \\ drule_all evaluate_EL \\ fs []
-      \\ strip_tac \\ fs [do_app_def]
-      \\ conj_tac
-      THEN1 (irule simpl_exp_Cons_EL \\ fs [] \\ metis_tac [])
-      \\ simp [Once simple_exp_cases])
-    \\ PairCases_on ‘x'’
-    \\ PairCases_on ‘x''’
-    \\ gvs [dest_Op_thm]
-    \\ IF_CASES_TAC
-    THEN1
-     (EVAL_TAC \\ Cases_on ‘b’ \\ gvs [dest_Cons_thm]
-      \\ Cases_on ‘y'’
-      \\ gvs [evaluate_def,AllCaseEqs(),do_app_def]
-      \\ qpat_x_assum ‘do_eq_list _ _ = _’ mp_tac
-      \\ fs [do_eq_def]
-      \\ rw [] \\ fs [] \\ imp_res_tac evaluate_IMP_LENGTH \\ gvs [])
-    \\ last_x_assum irule
-    \\ Cases_on ‘x''0 = x'0’ \\ gvs []
-    \\ conj_tac
-    THEN1
-     (irule simple_exp_eq_pure_list
-      \\ gvs [dest_Cons_thm]
-      \\ qpat_x_assum ‘simple_exp _’ mp_tac \\ simp [Once simple_exp_cases]
-      \\ qpat_x_assum ‘simple_exp _’ mp_tac \\ simp [Once simple_exp_cases]
-      \\ rw [] \\ gvs []
-      \\ fs [EVERY_EL,MEM_MAPi,PULL_EXISTS,MEM_ZIP,EL_ZIP,EL_REVERSE])
-    \\ gvs [dest_Cons_thm]
-    \\ rename [‘[FST a; SND a]’]
-    \\ PairCases_on ‘a’ \\ fs []
-    \\ qpat_x_assum ‘EVERY _ _’ kall_tac
-    \\ qpat_x_assum ‘evaluate _ = _’ mp_tac
-    \\ fs [evaluate_def,do_app_def,AllCaseEqs(),PULL_EXISTS]
-    \\ rename [‘LENGTH b1 = LENGTH b2’] \\ rw []
-    \\ qpat_x_assum ‘do_eq_list _ _ = _’ mp_tac
-    \\ imp_res_tac evaluate_IMP_LENGTH \\ gvs []
-    \\ gvs [do_eq_def]
-    \\ strip_tac
-    \\ ‘do_eq_list (REVERSE vs') (REVERSE vs) = Eq_val b’ by gvs [AllCaseEqs()]
-    \\ pop_assum mp_tac \\ pop_assum kall_tac \\ strip_tac
-    \\ qexists_tac ‘ZIP (REVERSE vs',REVERSE vs)’
-    \\ fs [LIST_REL_EL_EQN,listTheory.EL_ZIP,MAP_ZIP]
-    \\ strip_tac \\ rename [‘i < LENGTH l’]
-    \\ imp_res_tac simple_exp_pure
-    \\ fs [pure_def,SF ETA_ss] \\ strip_tac
-    \\ fs [EL_REVERSE,PRE_SUB1]
-    \\ imp_res_tac evaluate_pure \\ rgs [] \\ gvs []
-    \\ ‘LENGTH b1 − (i + 1) < LENGTH b1’ by fs []
-    \\ drule_all evaluate_EL \\ fs [] \\ disch_then kall_tac
-    \\ ‘LENGTH b2 − (i + 1) < LENGTH b2’ by fs []
-    \\ drule_all evaluate_EL \\ fs [] \\ disch_then kall_tac
-    \\ conj_tac
-    \\ irule simpl_exp_Cons_EL \\ fs [] \\ metis_tac [])
-  \\ gvs [PULL_EXISTS,FORALL_PROD,UNCURRY,do_eq_def |> CONJUNCT2]
-  \\ simp [Once eq_pure_list_def]
-  \\ pop_assum mp_tac
-  \\ simp [Once eq_pure_list_def] \\ rw []
-  \\ Cases_on ‘do_eq (FST y) (SND y)’ \\ fs []
-  \\ reverse (Cases_on ‘b'’) \\ gvs []
-  \\ imp_res_tac simple_exp_pure_every
-  \\ last_x_assum drule
-  \\ Cases_on ‘do_eq (FST y') (SND y')’ \\ fs [] \\ rw []
-  \\ fs [evaluate_ConjList_append_F,evaluate_ConjList_append_T]
+  >- suspend "Empty"
+  >- suspend "Pair"
+  >- suspend "Append"
 QED
+
+Resume eq_pure_thm[Empty]:
+  gvs [eq_cmp_def |> CONJUNCT2] \\ EVAL_TAC
+QED
+
+Resume eq_pure_thm[Pair]:
+  qmatch_goalsub_rename_tac ‘eq_pure_list [(left_exp,right_exp)]’
+  \\ simp [Once eq_pure_list_def]
+  \\ namedCases_on ‘eq_direct left_exp right_exp’ ["", "direct_exp"]
+  \\ gvs [UNCURRY]
+  >~ [‘eq_direct _ _ = SOME _’] >- (
+    fs [ConjList_def, eq_cmp_singleton]
+    \\ drule_all (evaluate_Equal |> Q.INST [‘tra’ |-> ‘None’])
+    \\ disch_then (mp_then (Pos hd) mp_tac eq_direct_thm)
+    \\ simp [])
+  \\ namedCases_on ‘dest_Op dest_Cons left_exp’ ["", "left_ctor"]
+  >- (
+    namedCases_on ‘dest_Op dest_Cons right_exp’ ["", "right_ctor"]
+    \\ gvs [UNCURRY]
+    >- (
+      fs [ConjList_def, eq_cmp_singleton]
+      \\ drule_all (evaluate_Equal |> Q.INST [‘tra’ |-> ‘None’])
+      \\ simp [])
+    \\ qmatch_asmsub_rename_tac
+         ‘evaluate ([left_exp; right_exp],env1,r) =
+            (Rval [FST head_values; SND head_values],r)’
+    \\ fs [eq_cmp_singleton]
+    \\ drule_all evaluate_simple_pair_swap \\ strip_tac
+    \\ qpat_x_assum ‘∀values result. _’
+         (qspecl_then [‘[(SND head_values,FST head_values)]’,‘b’] mp_tac)
+    \\ impl_tac
+    >- (
+      simp [eq_cmp_singleton, Once eq_cmp_sym]
+      \\ irule simple_exp_eq_pure_list \\ fs [])
+    \\ simp [])
+  \\ namedCases_on ‘dest_Op dest_Cons right_exp’ ["", "right_ctor"]
+  \\ gvs [UNCURRY]
+  >- (
+    namedCases_on ‘left_ctor’ ["left_tag left_args"]
+    \\ qmatch_asmsub_rename_tac
+         ‘evaluate ([left_exp; right_exp],env1,r) =
+            (Rval [FST head_values; SND head_values],r)’
+    \\ namedCases_on ‘head_values’ ["left_value right_value"] \\ gvs []
+    \\ drule_all evaluate_simple_pair \\ strip_tac
+    \\ qpat_x_assum ‘EVERY simple_exp (append (eq_pure_list [_]))’ mp_tac
+    \\ simp [Once eq_pure_list_def] \\ strip_tac
+    \\ gvs [dest_Op_thm, dest_Cons_thm, eq_cmp_singleton]
+    \\ qpat_x_assum ‘evaluate ([Op _ (BlockOp (Cons _)) _],_,_) = _’ mp_tac
+    \\ simp [evaluate_def, do_app_def, AllCaseEqs()]
+    \\ strip_tac
+    \\ imp_res_tac simple_exp_pure
+    \\ imp_res_tac evaluate_pure \\ gvs []
+    \\ qmatch_asmsub_rename_tac ‘evaluate (left_args,env1,r) = (Rval left_values,r)’
+    \\ namedCases_on ‘right_value’
+         ["right_num", "right_word", "right_tag right_values", "right_bytes",
+          "right_mutable right_ptr", "right_closure", "right_rec_closure"]
+    \\ gvs [eq_cmp_def |> CONJUNCT1]
+    \\ imp_res_tac evaluate_IMP_LENGTH
+    \\ reverse (Cases_on ‘left_tag = right_tag ∧ LENGTH left_values = LENGTH right_values’)
+    >- (
+      gvs [] \\ irule evaluate_ConjList_F
+      \\ simp [evaluate_def, do_app_def] \\ gvs [])
+    \\ gvs []
+    \\ irule evaluate_ConjList_T
+    \\ conj_tac
+    >- simp [evaluate_def, do_app_def]
+    \\ qpat_x_assum ‘∀values result. _’ irule
+    \\ qexists_tac ‘ZIP (REVERSE left_values,right_values)’
+    \\ simp [MAP_ZIP, LIST_REL_EL_EQN, EL_ZIP]
+    \\ qx_gen_tac ‘field_index’ \\ strip_tac
+    \\ fs [EL_REVERSE, PRE_SUB1, pure_def, SF ETA_ss]
+    \\ ‘LENGTH left_args − (field_index + 1) < LENGTH left_args’ by fs []
+    \\ drule_all evaluate_EL \\ simp [] \\ strip_tac
+    \\ simp [evaluate_def, do_app_def]
+    \\ conj_tac
+    >- (irule simpl_exp_Cons_EL \\ fs [] \\ metis_tac [])
+    \\ simp [Once simple_exp_cases])
+  \\ namedCases_on ‘left_ctor’ ["left_tag left_args"]
+  \\ namedCases_on ‘right_ctor’ ["right_tag right_args"]
+  \\ qmatch_asmsub_rename_tac
+       ‘evaluate ([left_exp; right_exp],env1,r) =
+          (Rval [FST head_values; SND head_values],r)’
+  \\ namedCases_on ‘head_values’ ["left_value right_value"] \\ gvs []
+  \\ drule_all evaluate_simple_pair \\ strip_tac
+  \\ gvs [dest_Op_thm, dest_Cons_thm, eq_cmp_singleton]
+  \\ qpat_x_assum ‘evaluate ([Op _ (BlockOp (Cons left_tag)) left_args],_,_) = _’ mp_tac
+  \\ simp [evaluate_def, do_app_def, AllCaseEqs()] \\ strip_tac
+  \\ qpat_x_assum ‘evaluate ([Op _ (BlockOp (Cons right_tag)) right_args],_,_) = _’ mp_tac
+  \\ simp [evaluate_def, do_app_def, AllCaseEqs()] \\ strip_tac
+  \\ imp_res_tac simple_exp_pure
+  \\ imp_res_tac evaluate_pure \\ gvs []
+  \\ qmatch_asmsub_rename_tac ‘evaluate (left_args,env1,r) = (Rval left_values,r)’
+  \\ qmatch_asmsub_rename_tac ‘evaluate (right_args,env1,r) = (Rval right_values,r)’
+  \\ imp_res_tac evaluate_IMP_LENGTH
+  \\ gvs [eq_cmp_def |> CONJUNCT1]
+  \\ IF_CASES_TAC
+  >- (
+    gvs [AllCaseEqs(), evaluate_MakeBool, ConjList_def]
+    \\ Cases_on ‘left_tag = right_tag’ \\ gvs [])
+  \\ gvs []
+  \\ qpat_x_assum ‘EVERY simple_exp (append (eq_pure_list [_]))’ mp_tac
+  \\ simp [Once eq_pure_list_def, dest_Op_def, dest_Cons_def] \\ strip_tac
+  \\ qpat_x_assum ‘∀values result. _’ irule
+  \\ simp []
+  \\ qexists_tac ‘ZIP (REVERSE left_values,REVERSE right_values)’
+  \\ simp [MAP_ZIP, LIST_REL_EL_EQN, EL_ZIP]
+  \\ qx_gen_tac ‘field_index’ \\ strip_tac
+  \\ fs [EL_REVERSE, PRE_SUB1, pure_def, SF ETA_ss]
+  \\ qpat_x_assum ‘evaluate (left_args,env1,r) = _’
+       (mp_then (Pos hd)
+         (qspec_then ‘LENGTH left_args − (field_index + 1)’ mp_tac) evaluate_EL)
+  \\ simp [] \\ strip_tac
+  \\ qpat_x_assum ‘evaluate (right_args,env1,r) = _’
+       (mp_then (Pos hd)
+         (qspec_then ‘LENGTH right_args − (field_index + 1)’ mp_tac) evaluate_EL)
+  \\ simp [] \\ strip_tac
+  \\ simp [evaluate_def]
+  \\ conj_tac
+  >- (irule simpl_exp_Cons_EL \\ fs [] \\ metis_tac [])
+  \\ irule simpl_exp_Cons_EL \\ fs [] \\ metis_tac []
+QED
+
+Resume eq_pure_thm[Append]:
+  qmatch_goalsub_rename_tac ‘eq_pure_list (head_pair::second_pair::more_pairs)’
+  \\ gvs [PULL_EXISTS, FORALL_PROD, UNCURRY, eq_cmp_def |> CONJUNCT2]
+  \\ pure_once_rewrite_tac [eq_pure_list_def]
+  \\ qpat_x_assum ‘EVERY simple_exp (append (eq_pure_list (_::_::_)))’ mp_tac
+  \\ simp [Once eq_pure_list_def] \\ strip_tac
+  \\ qmatch_asmsub_rename_tac
+       ‘evaluate ([FST head_pair; SND head_pair],env1,r) =
+          (Rval [FST head_values; SND head_values],r)’
+  \\ qmatch_asmsub_rename_tac ‘LIST_REL _ more_pairs tail_values’
+  \\ namedCases_on ‘eq_cmp (FST head_values) (SND head_values)’ ["head_equal", ""]
+  \\ gvs []
+  \\ Cases_on ‘head_equal’ \\ gvs []
+  \\ imp_res_tac simple_exp_pure_every
+  >~ [‘evaluate _ = (Rval [Boolv F],_) (* g *)’] >- (
+    irule evaluate_ConjList_append_F \\ gvs [])
+  \\ fs [evaluate_ConjList_append_T]
+  \\ qpat_x_assum ‘∀result values. _’
+       (qspecl_then [‘b’,‘tail_values’] mp_tac)
+  \\ gvs []
+QED
+
+Finalise eq_pure_thm;
 
 Theorem SmartOp_thm:
   evaluate ([Op t op xs], env, s) = (res,s1) ∧ res ≠ Rerr (Rabort Rtype_error) ⇒
@@ -667,7 +804,7 @@ Proof
     \\ Cases_on ‘l’ \\ gvs []
     \\ gvs [int_op_def,AllCaseEqs(),MakeInt_def]
     \\ gvs [evaluate_def,AllCaseEqs(),do_app_def,do_int_app_def,evaluate_MakeBool]
-    \\ gvs [do_eq_def] \\ intLib.COOPER_TAC)
+    \\ gvs [do_cmp_def, semanticPrimitivesTheory.compare_int_eq_zero] \\ intLib.COOPER_TAC)
   \\ last_x_assum mp_tac
   \\ simp [eq_op_def,GSYM AND_IMP_INTRO]
   \\ disch_then kall_tac \\ fs [AllCaseEqs()]
@@ -678,21 +815,21 @@ Proof
   \\ simp [Once evaluate_def]
   \\ last_x_assum mp_tac
   \\ simp [Once evaluate_def]
-  \\ Cases_on ‘evaluate ([x; y],env,s)’ \\ fs []
+  \\ namedCases_on ‘evaluate ([x; y],env,s)’ ["operand_result operand_state"] \\ fs []
   \\ strip_tac \\ disch_then drule
   \\ strip_tac
   \\ simp [Once evaluate_def]
-  \\ reverse (Cases_on ‘q’) \\ gvs []
+  \\ reverse (namedCases_on ‘operand_result’ ["operand_values", "operand_error"]) \\ gvs []
   \\ CASE_TAC \\ fs []
   \\ imp_res_tac evaluate_IMP_LENGTH
-  \\ gvs [LENGTH_EQ_NUM_compute,do_app_def]
-  \\ rename [‘do_eq h1 h2’]
-  \\ reverse (Cases_on ‘do_eq h1 h2’) \\ gvs []
+  \\ gvs [LENGTH_EQ_NUM_compute,do_app_Equal]
+  \\ rename [‘eq_cmp h1 h2’]
+  \\ reverse (Cases_on ‘eq_cmp h1 h2’) \\ gvs []
   \\ imp_res_tac lift_exps_length \\ gvs []
-  \\ first_x_assum (qspecl_then [‘env’,‘r’] assume_tac)
+  \\ first_x_assum (qspecl_then [‘env’,‘operand_state’] assume_tac)
   \\ irule eq_pure_thm \\ fs []
   \\ imp_res_tac lift_exps_simple_exp \\ fs []
-  \\ simp [Once do_eq_sym]
+  \\ simp [Once eq_cmp_sym]
 QED
 
 Inductive red_rel:

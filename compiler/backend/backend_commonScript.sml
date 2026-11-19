@@ -86,6 +86,44 @@ Definition tuple_tag_def:
   tuple_tag = 0
 End
 
+(* Tags below 10 are unchanged; even tags from 10 distinguish exceptions. *)
+Definition runtime_ctor_tag_def:
+  runtime_ctor_tag (tag:num) = if tag < 10 then tag else 2 * (tag - 10) + 11
+End
+
+Definition runtime_exn_tag_def:
+  runtime_exn_tag (tag:num) = 2 * tag + 10
+End
+
+Definition is_exn_tag_def:
+  is_exn_tag (tag:num) ⇔ 10 ≤ tag ∧ tag MOD 2 = 0
+End
+
+Theorem runtime_ctor_tag_lt:
+  runtime_ctor_tag tag1 < runtime_ctor_tag tag2 ⇔ tag1 < tag2
+Proof
+  rw [runtime_ctor_tag_def] >> decide_tac
+QED
+
+Theorem runtime_ctor_tag_eq:
+  runtime_ctor_tag tag1 = runtime_ctor_tag tag2 ⇔ tag1 = tag2
+Proof
+  rw [runtime_ctor_tag_def] >> decide_tac
+QED
+
+Theorem is_exn_tag_ctor:
+  ¬is_exn_tag (runtime_ctor_tag tag)
+Proof
+  rw [is_exn_tag_def, runtime_ctor_tag_def, MOD_MULTIPLE_ZERO] >> decide_tac
+QED
+
+Theorem is_exn_tag_exn:
+  is_exn_tag (runtime_exn_tag tag)
+Proof
+  simp [is_exn_tag_def, runtime_exn_tag_def] >>
+  once_rewrite_tac [MULT_COMM] >> simp [MOD_TIMES]
+QED
+
 Definition closure_tag_def:
   closure_tag = 30:num
 End
@@ -95,6 +133,19 @@ End
 Definition clos_tag_shift_def:
   clos_tag_shift tag = if tag < 30 then tag:num else tag+2
 End
+
+Theorem clos_tag_shift_lt:
+  clos_tag_shift tag1 < clos_tag_shift tag2 ⇔ tag1 < tag2
+Proof
+  rw [clos_tag_shift_def] >> decide_tac
+QED
+
+Theorem is_exn_tag_shift:
+  is_exn_tag (clos_tag_shift tag) ⇔ is_exn_tag tag
+Proof
+  rw [clos_tag_shift_def, is_exn_tag_def] >>
+  once_rewrite_tac [GSYM MOD_PLUS] >> simp [] >> decide_tac
+QED
 
 (* Trace of an expression through the compiler, for exploring transformations *)
 Datatype:

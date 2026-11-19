@@ -894,8 +894,8 @@ Definition reads_stdin_def:
 End
 
 Theorem BOOL_T_F_eq[local]:
-  (BOOL T v ⇔ v = Conv (SOME (TypeStamp «True» 0)) []) ∧
-  (BOOL F v ⇔ v = Conv (SOME (TypeStamp «False» 0)) [])
+  (BOOL T v ⇔ v = Conv (SOME (TypeStamp «True» 0 1)) []) ∧
+  (BOOL F v ⇔ v = Conv (SOME (TypeStamp «False» 0 0)) [])
 Proof
   simp[BOOL_def,semanticPrimitivesTheory.Boolv_def,
     semanticPrimitivesTheory.bool_type_num_def]

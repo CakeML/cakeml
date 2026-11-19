@@ -138,8 +138,8 @@ Definition kernel_perms_def:
 End
 
 fun get_constructors th =
-  th |> concl |> find_terms (can $ match_term “TypeStamp _ _”)
-     |> map (rand o rator)
+  th |> concl |> find_terms (can $ match_term ``TypeStamp _ _ _``)
+     |> map (rand o rator o rator)
      |> pred_setSyntax.mk_set;
 
 Overload type_ctors_set[local] = (get_constructors TYPE_TYPE_def);
@@ -153,7 +153,7 @@ Definition kernel_ctors_def:
 End
 
 fun get_typestamp_num th =
-  th |> concl |> find_term (can $ match_term “TypeStamp _ _”) |> rand;
+  th |> concl |> find_term (can $ match_term ``TypeStamp _ _ _``) |> rator |> rand;
 
 Overload type_stamp_n = (get_typestamp_num TYPE_TYPE_def);
 Overload term_stamp_n = (get_typestamp_num TERM_TYPE_def);
@@ -221,17 +221,17 @@ End
 
 Definition TYPE_TYPE_HEAD_def:
   TYPE_TYPE_HEAD v ⇔
-    ∃s vs. v = Conv (SOME (TypeStamp s type_stamp_n)) vs
+    ∃s pos vs. v = Conv (SOME (TypeStamp s type_stamp_n pos)) vs
 End
 
 Definition TERM_TYPE_HEAD_def:
   TERM_TYPE_HEAD v ⇔
-    ∃s vs. v = Conv (SOME (TypeStamp s term_stamp_n)) vs
+    ∃s pos vs. v = Conv (SOME (TypeStamp s term_stamp_n pos)) vs
 End
 
 Definition THM_TYPE_HEAD_def:
   THM_TYPE_HEAD v ⇔
-    ∃s vs. v = Conv (SOME (TypeStamp s thm_stamp_n)) vs
+    ∃s pos vs. v = Conv (SOME (TypeStamp s thm_stamp_n pos)) vs
 End
 
 
@@ -387,7 +387,7 @@ Theorem evaluate_mat_thm:
   evaluate ^s env
     [Mat (Var (Short v))
        [(Pcon (SOME (Short «Sequent»)) [Pvar a1; Pvar a2], ee)]] = (s',res) ∧
-  nsLookup env.c (Short «Sequent») = SOME (2,TypeStamp «Sequent» thm_stamp_n) ∧
+  nsLookup env.c (Short «Sequent») = SOME (2,TypeStamp «Sequent» thm_stamp_n 0) ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨
   ∃v1 v2.
@@ -420,8 +420,8 @@ Proof
 QED
 
 Theorem check_shape_ConsA_HEAD[local]:
-  nsLookup c n = SOME (l,TypeStamp cn tn) ∧ check_shape c (ConsA n) w ⇒
-  ∃s vs. w = Conv (SOME (TypeStamp s tn)) vs
+  nsLookup c n = SOME (l,TypeStamp cn tn p) ∧ check_shape c (ConsA n) w ⇒
+  ∃s q vs. w = Conv (SOME (TypeStamp s tn q)) vs
 Proof
   rw [check_shape_def, con_arity_def]
   \\ Cases_on ‘w’ \\ gvs [pmatch_def]
@@ -466,11 +466,11 @@ QED
 
 Theorem check_shape_heads[local]:
   (check_shape c (PrimA StrT) w ⇒ STRING_TYPE_HEAD w) ∧
-  (nsLookup c (Short «Tyvar») = SOME (1,TypeStamp «Tyvar» type_stamp_n) ⇒
+  (nsLookup c (Short «Tyvar») = SOME (1,TypeStamp «Tyvar» type_stamp_n 0) ⇒
    ∀w. check_shape c (ConsA (Short «Tyvar»)) w ⇒ TYPE_TYPE_HEAD w) ∧
-  (nsLookup c (Short «Const») = SOME (2,TypeStamp «Const» term_stamp_n) ⇒
+  (nsLookup c (Short «Const») = SOME (2,TypeStamp «Const» term_stamp_n 1) ⇒
    ∀w. check_shape c (ConsA (Short «Const»)) w ⇒ TERM_TYPE_HEAD w) ∧
-  (nsLookup c (Short «Sequent») = SOME (2,TypeStamp «Sequent» thm_stamp_n) ⇒
+  (nsLookup c (Short «Sequent») = SOME (2,TypeStamp «Sequent» thm_stamp_n 0) ⇒
    ∀w. check_shape c (ConsA (Short «Sequent»)) w ⇒ THM_TYPE_HEAD w)
 Proof
   rw [TYPE_TYPE_HEAD_def, TERM_TYPE_HEAD_def, THM_TYPE_HEAD_def]
@@ -496,7 +496,7 @@ Theorem evaluate_ty_assert:
   evaluate ^s env
     [Let NONE (Assert (Var (Short v)) (ConsA (Short «Tyvar»))) ee] =
     (s',res) ∧
-  nsLookup env.c (Short «Tyvar») = SOME (1,TypeStamp «Tyvar» type_stamp_n) ∧
+  nsLookup env.c (Short «Tyvar») = SOME (1,TypeStamp «Tyvar» type_stamp_n 0) ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨ TYPE_TYPE_HEAD w ∧ evaluate ^s env [ee] = (s',res)
 Proof
@@ -507,7 +507,7 @@ Theorem evaluate_tm_assert:
   evaluate ^s env
     [Let NONE (Assert (Var (Short v)) (ConsA (Short «Const»))) ee] =
     (s',res) ∧
-  nsLookup env.c (Short «Const») = SOME (2,TypeStamp «Const» term_stamp_n) ∧
+  nsLookup env.c (Short «Const») = SOME (2,TypeStamp «Const» term_stamp_n 1) ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨ TERM_TYPE_HEAD w ∧ evaluate ^s env [ee] = (s',res)
 Proof
@@ -518,7 +518,7 @@ Theorem evaluate_thm_assert:
   evaluate ^s env
     [Let NONE (Assert (Var (Short v)) (ConsA (Short «Sequent»))) ee] =
     (s',res) ∧
-  nsLookup env.c (Short «Sequent») = SOME (2,TypeStamp «Sequent» thm_stamp_n) ∧
+  nsLookup env.c (Short «Sequent») = SOME (2,TypeStamp «Sequent» thm_stamp_n 0) ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨ THM_TYPE_HEAD w ∧ evaluate ^s env [ee] = (s',res)
 Proof
@@ -529,7 +529,7 @@ Theorem evaluate_ty_list_assert:
   evaluate ^s env
     [Let NONE (Assert (Var (Short v)) (ListA (ConsA (Short «Tyvar»)))) ee] =
     (s',res) ∧
-  nsLookup env.c (Short «Tyvar») = SOME (1,TypeStamp «Tyvar» type_stamp_n) ∧
+  nsLookup env.c (Short «Tyvar») = SOME (1,TypeStamp «Tyvar» type_stamp_n 0) ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨
   LIST_TYPE_HEAD TYPE_TYPE_HEAD w ∧ evaluate ^s env [ee] = (s',res)
@@ -542,7 +542,7 @@ Theorem evaluate_tm_list_assert:
   evaluate ^s env
     [Let NONE (Assert (Var (Short v)) (ListA (ConsA (Short «Const»)))) ee] =
     (s',res) ∧
-  nsLookup env.c (Short «Const») = SOME (2,TypeStamp «Const» term_stamp_n) ∧
+  nsLookup env.c (Short «Const») = SOME (2,TypeStamp «Const» term_stamp_n 1) ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨
   LIST_TYPE_HEAD TERM_TYPE_HEAD w ∧ evaluate ^s env [ee] = (s',res)
@@ -555,7 +555,7 @@ Theorem evaluate_thm_list_assert:
   evaluate ^s env
     [Let NONE (Assert (Var (Short v)) (ListA (ConsA (Short «Sequent»)))) ee] =
     (s',res) ∧
-  nsLookup env.c (Short «Sequent») = SOME (2,TypeStamp «Sequent» thm_stamp_n) ∧
+  nsLookup env.c (Short «Sequent») = SOME (2,TypeStamp «Sequent» thm_stamp_n 0) ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨
   LIST_TYPE_HEAD THM_TYPE_HEAD w ∧ evaluate ^s env [ee] = (s',res)
@@ -569,7 +569,7 @@ Theorem evaluate_ty_ty_list_assert:
     [Let NONE (Assert (Var (Short v))
        (ListA (TupleA [ConsA (Short «Tyvar»); ConsA (Short «Tyvar»)]))) ee] =
     (s',res) ∧
-  nsLookup env.c (Short «Tyvar») = SOME (1,TypeStamp «Tyvar» type_stamp_n) ∧
+  nsLookup env.c (Short «Tyvar») = SOME (1,TypeStamp «Tyvar» type_stamp_n 0) ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨
   LIST_TYPE_HEAD (PAIR_TYPE_HEAD TYPE_TYPE_HEAD TYPE_TYPE_HEAD) w ∧
@@ -585,7 +585,7 @@ Theorem evaluate_tm_tm_list_assert:
     [Let NONE (Assert (Var (Short v))
        (ListA (TupleA [ConsA (Short «Const»); ConsA (Short «Const»)]))) ee] =
     (s',res) ∧
-  nsLookup env.c (Short «Const») = SOME (2,TypeStamp «Const» term_stamp_n) ∧
+  nsLookup env.c (Short «Const») = SOME (2,TypeStamp «Const» term_stamp_n 1) ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨
   LIST_TYPE_HEAD (PAIR_TYPE_HEAD TERM_TYPE_HEAD TERM_TYPE_HEAD) w ∧
@@ -1225,13 +1225,13 @@ Proof
 QED
 
 Theorem list_not_TERM_TYPE[simp]:
-  ¬TERM_TYPE tm (Conv (SOME (TypeStamp nm list_type_num)) vs)
+  ¬TERM_TYPE tm (Conv (SOME (TypeStamp nm list_type_num pos)) vs)
 Proof
   Cases_on ‘tm’ \\ rw [TERM_TYPE_def] \\ gs [list_type_num_def]
 QED
 
 Theorem list_not_THM_TYPE[simp]:
-  ¬THM_TYPE th (Conv (SOME (TypeStamp nm list_type_num)) vs)
+  ¬THM_TYPE th (Conv (SOME (TypeStamp nm list_type_num pos)) vs)
 Proof
   Cases_on ‘th’ \\ rw [THM_TYPE_def] \\ gs [list_type_num_def]
 QED
@@ -1275,7 +1275,7 @@ QED
 
 Theorem inferred_Conv:
   inferred ctxt (Conv (SOME stamp) vs) ⇒
-    ∃tag m. stamp = TypeStamp tag m ∧ m ∈ kernel_types
+    ∃tag m pos. stamp = TypeStamp tag m pos ∧ m ∈ kernel_types
 Proof
   rw [Once inferred_cases, kernel_types_def]
   >- (

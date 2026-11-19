@@ -368,21 +368,21 @@ Theorem mk_single_app_F_unchanged =
 
 Definition mk_inr_res_def:
   (mk_inr_res(Rval vs) =
-   Rval(MAP (λv. Conv (SOME (TypeStamp «Inr» 4)) [v]) vs)
+   Rval(MAP (λv. Conv (SOME (TypeStamp «Inr» 4 1)) [v]) vs)
   ) /\
   (mk_inr_res res = res)
 End
 
 Definition mk_inl_res_def:
   (mk_inl_res(Rval vs) =
-   Rval(MAP (λv. Conv (SOME (TypeStamp «Inl» 4)) [v]) vs)
+   Rval(MAP (λv. Conv (SOME (TypeStamp «Inl» 4 0)) [v]) vs)
   ) /\
   (mk_inl_res res = res)
 End
 
 Definition dest_inr_v_def:
-  (dest_inr_v (Conv (SOME (TypeStamp txt n)) [v]) =
-   if txt = «Inr» /\ n = 4 then
+  (dest_inr_v (Conv (SOME (TypeStamp txt n pos)) [v]) =
+   if txt = «Inr» /\ n = 4 /\ pos = 1 then
      SOME v
    else
      NONE) /\
@@ -390,8 +390,8 @@ Definition dest_inr_v_def:
 End
 
 Definition dest_inl_v_def:
-  (dest_inl_v (Conv (SOME (TypeStamp txt n)) [v]) =
-   if txt = «Inl» /\ n = 4 then
+  (dest_inl_v (Conv (SOME (TypeStamp txt n pos)) [v]) =
+   if txt = «Inl» /\ n = 4 /\ pos = 0 then
      SOME v
    else
      NONE) /\
@@ -399,14 +399,14 @@ Definition dest_inl_v_def:
 End
 
 Theorem dest_inr_v_IMP:
-  !e1 v. dest_inr_v e1 = SOME v ==> e1 = Conv (SOME (TypeStamp «Inr» 4)) [v]
+  !e1 v. dest_inr_v e1 = SOME v ==> e1 = Conv (SOME (TypeStamp «Inr» 4 1)) [v]
 Proof
   ho_match_mp_tac (fetch "-" "dest_inr_v_ind") >>
   rw[dest_inr_v_def]
 QED
 
 Theorem dest_inl_v_IMP:
-  !e1 v. dest_inl_v e1 = SOME v ==> e1 = Conv (SOME (TypeStamp «Inl» 4)) [v]
+  !e1 v. dest_inl_v e1 = SOME v ==> e1 = Conv (SOME (TypeStamp «Inl» 4 0)) [v]
 Proof
   ho_match_mp_tac (fetch "-" "dest_inl_v_ind") >>
   rw[dest_inl_v_def]
@@ -415,7 +415,7 @@ QED
 Theorem evaluate_inl:
     do_con_check env.c (SOME (Short «Inl»)) 1 = T /\
     (!v. build_conv env.c (SOME (Short «Inl»)) [v] =
-           SOME(Conv (SOME (TypeStamp «Inl» 4)) [v]))
+           SOME(Conv (SOME (TypeStamp «Inl» 4 0)) [v]))
     ==> evaluate st env [mk_inl e] =
         case evaluate st env [e] of
             (st,Rval v) => (st,mk_inl_res(Rval v))
@@ -443,7 +443,7 @@ QED
 Theorem evaluate_IMP_inl:
     do_con_check env.c (SOME (Short «Inl»)) 1 = T /\
     (!v. build_conv env.c (SOME (Short «Inl»)) [v] =
-           SOME(Conv (SOME (TypeStamp «Inl» 4)) [v])) /\
+           SOME(Conv (SOME (TypeStamp «Inl» 4 0)) [v])) /\
     evaluate st env [e] = (st',res)
     ==> evaluate st env [mk_inl e] = (st',mk_inl_res res)
 Proof
@@ -457,7 +457,7 @@ QED
 Theorem evaluate_inr:
     do_con_check env.c (SOME (Short «Inr»)) 1 = T /\
     (!v. build_conv env.c (SOME (Short «Inr»)) [v] =
-           SOME(Conv (SOME (TypeStamp «Inr» 4)) [v]))
+           SOME(Conv (SOME (TypeStamp «Inr» 4 1)) [v]))
     ==> evaluate st env [mk_inr e] =
         case evaluate st env [e] of
             (st,Rval v) => (st,mk_inr_res(Rval v))
@@ -473,7 +473,7 @@ QED
 Theorem evaluate_IMP_inr:
     do_con_check env.c (SOME (Short «Inr»)) 1 = T /\
     (!v. build_conv env.c (SOME (Short «Inr»)) [v] =
-           SOME(Conv (SOME (TypeStamp «Inr» 4)) [v])) /\
+           SOME(Conv (SOME (TypeStamp «Inr» 4 1)) [v])) /\
     evaluate ^st env [e] = (st',res)
     ==> evaluate st env [mk_inr e] = (st',mk_inr_res res)
 Proof
@@ -497,7 +497,7 @@ Theorem mk_single_app_NONE_evaluate[local]:
   (!^st env es es'. mk_single_apps NONE T es = SOME es'
     /\ do_con_check env.c (SOME (Short «Inr»)) 1 = T
     /\ (!v. build_conv env.c (SOME (Short «Inr»)) [v] =
-           SOME(Conv (SOME (TypeStamp «Inr» 4)) [v]))
+           SOME(Conv (SOME (TypeStamp «Inr» 4 1)) [v]))
     ==> evaluate st env es'
         = case evaluate st env es of
            (st',res) => (st', mk_inr_res res)
@@ -505,7 +505,7 @@ Theorem mk_single_app_NONE_evaluate[local]:
    (!^st env v pes err_v pes'. mk_single_appps NONE T pes = SOME pes'
     /\ do_con_check env.c (SOME (Short «Inr»)) 1 = T
     /\ (!v. build_conv env.c (SOME (Short «Inr»)) [v] =
-           SOME(Conv (SOME (TypeStamp «Inr» 4)) [v]))
+           SOME(Conv (SOME (TypeStamp «Inr» 4 1)) [v]))
     ==> evaluate_match st env v pes' err_v
         = case evaluate_match st env v pes err_v of
            (st',res) => (st', mk_inr_res res)
@@ -655,7 +655,7 @@ Theorem mk_single_app_NONE_evaluate_single[local]:
   (!^st env e e'. mk_single_app NONE T e = SOME e'
     /\ do_con_check env.c (SOME (Short «Inr»)) 1
     /\ (!v. build_conv env.c (SOME (Short «Inr»)) [v] =
-           SOME(Conv (SOME (TypeStamp «Inr» 4)) [v]))
+           SOME(Conv (SOME (TypeStamp «Inr» 4 1)) [v]))
     ==> evaluate st env [e']
         = case evaluate st env [e] of
            (st',res) => (st', mk_inr_res res)
@@ -707,20 +707,20 @@ Theorem mk_single_app_evaluate[local]:
   (!^st env es es' fname fv. mk_single_apps (SOME fname) T es = SOME es'
     /\ do_con_check env.c (SOME (Short «Inr»)) 1 = T
     /\ (!v. build_conv env.c (SOME (Short «Inr»)) [v] =
-           SOME(Conv (SOME (TypeStamp «Inr» 4)) [v]))
+           SOME(Conv (SOME (TypeStamp «Inr» 4 1)) [v]))
     /\ do_con_check env.c (SOME (Short «Inl»)) 1 = T
     /\ (!v. build_conv env.c (SOME (Short «Inl»)) [v] =
-           SOME(Conv (SOME (TypeStamp «Inl» 4)) [v]))
+           SOME(Conv (SOME (TypeStamp «Inl» 4 0)) [v]))
     /\ nsLookup env.v (Short fname) = SOME fv
     ==> partially_evaluates_to fv env st (ZIP(es',es))
    ) /\
    (!^st env v pes err_v pes' fname fv. mk_single_appps (SOME fname) T pes = SOME pes'
     /\ do_con_check env.c (SOME (Short «Inr»)) 1 = T
     /\ (!v. build_conv env.c (SOME (Short «Inr»)) [v] =
-           SOME(Conv (SOME (TypeStamp «Inr» 4)) [v]))
+           SOME(Conv (SOME (TypeStamp «Inr» 4 1)) [v]))
     /\ do_con_check env.c (SOME (Short «Inl»)) 1 = T
     /\ (!v. build_conv env.c (SOME (Short «Inl»)) [v] =
-           SOME(Conv (SOME (TypeStamp «Inl» 4)) [v]))
+           SOME(Conv (SOME (TypeStamp «Inl» 4 0)) [v]))
     /\ nsLookup env.v (Short fname) = SOME fv
     ==> partially_evaluates_to_match fv v err_v env st (pes',pes)
    )
@@ -992,10 +992,10 @@ Theorem mk_single_app_evaluate_single:
   !^st env e e' fname fv. mk_single_app (SOME fname) T e = SOME e'
     /\ do_con_check env.c (SOME (Short «Inr»)) 1 = T
     /\ (!v. build_conv env.c (SOME (Short «Inr»)) [v] =
-           SOME(Conv (SOME (TypeStamp «Inr» 4)) [v]))
+           SOME(Conv (SOME (TypeStamp «Inr» 4 1)) [v]))
     /\ do_con_check env.c (SOME (Short «Inl»)) 1 = T
     /\ (!v. build_conv env.c (SOME (Short «Inl»)) [v] =
-           SOME(Conv (SOME (TypeStamp «Inl» 4)) [v]))
+           SOME(Conv (SOME (TypeStamp «Inl» 4 0)) [v]))
     /\ nsLookup env.v (Short fname) = SOME fv
     ==> partially_evaluates_to fv env st [(e',e)]
 Proof
@@ -1011,12 +1011,12 @@ Theorem evaluate_tailrec_ind_lemma[local]:
    do_con_check env.c (SOME (Short «Inr»)) 1 /\
    (∀v.
         build_conv env.c (SOME (Short «Inr»)) [v] =
-        SOME (Conv (SOME (TypeStamp «Inr» 4)) [v])) /\
+        SOME (Conv (SOME (TypeStamp «Inr» 4 1)) [v])) /\
    do_con_check env.c (SOME (Short «Inl»)) 1 /\
    res <> Rerr(Rabort(Rtimeout_error)) /\
    (∀v.
         build_conv env.c (SOME (Short «Inl»)) [v] =
-        SOME (Conv (SOME (TypeStamp «Inl» 4)) [v])) /\
+        SOME (Conv (SOME (TypeStamp «Inl» 4 0)) [v])) /\
    fname <> farg /\
    evaluate_ck ck ^st
      (env with
@@ -1167,12 +1167,12 @@ Theorem evaluate_tailrec_lemma[local]:
    do_con_check env.c (SOME (Short «Inr»)) 1 /\
    (∀v.
         build_conv env.c (SOME (Short «Inr»)) [v] =
-        SOME (Conv (SOME (TypeStamp «Inr» 4)) [v])) /\
+        SOME (Conv (SOME (TypeStamp «Inr» 4 1)) [v])) /\
    do_con_check env.c (SOME (Short «Inl»)) 1 /\
    res <> Rerr(Rabort(Rtimeout_error)) /\
    (∀v.
         build_conv env.c (SOME (Short «Inl»)) [v] =
-        SOME (Conv (SOME (TypeStamp «Inl» 4)) [v])) /\
+        SOME (Conv (SOME (TypeStamp «Inl» 4 0)) [v])) /\
    fname <> farg /\
    evaluate_ck ck ^st
       (env with
@@ -1227,11 +1227,11 @@ Theorem mk_single_app_unroll_lemma[local]:
     do_con_check env.c (SOME (Short «Inr»)) 1 /\
     (∀v.
       build_conv env.c (SOME (Short «Inr»)) [v] =
-     SOME (Conv (SOME (TypeStamp «Inr» 4)) [v])) /\
+     SOME (Conv (SOME (TypeStamp «Inr» 4 1)) [v])) /\
     do_con_check env.c (SOME (Short «Inl»)) 1 /\
     (∀v.
       build_conv env.c (SOME (Short «Inl»)) [v] =
-     SOME (Conv (SOME (TypeStamp «Inl» 4)) [v])) /\
+     SOME (Conv (SOME (TypeStamp «Inl» 4 0)) [v])) /\
     fname ≠ farg
     ==>
     evaluate (^st with clock := ck1 + ck2 + 1)
@@ -1268,11 +1268,11 @@ Theorem evaluate_tailrec_diverge_lemma[local]:
    do_con_check env.c (SOME (Short «Inr»)) 1 /\
    (∀v.
         build_conv env.c (SOME (Short «Inr»)) [v] =
-        SOME (Conv (SOME (TypeStamp «Inr» 4)) [v])) /\
+        SOME (Conv (SOME (TypeStamp «Inr» 4 1)) [v])) /\
    do_con_check env.c (SOME (Short «Inl»)) 1 /\
    (∀v.
         build_conv env.c (SOME (Short «Inl»)) [v] =
-        SOME (Conv (SOME (TypeStamp «Inl» 4)) [v])) /\
+        SOME (Conv (SOME (TypeStamp «Inl» 4 0)) [v])) /\
    fname <> farg /\
    (!ck. ?st'. evaluate_ck ck ^st
      (env with
@@ -1437,11 +1437,11 @@ Theorem evaluate_tailrec_div_ind_lemma[local]:
    do_con_check env.c (SOME (Short «Inr»)) 1 /\
    (∀v.
         build_conv env.c (SOME (Short «Inr»)) [v] =
-        SOME (Conv (SOME (TypeStamp «Inr» 4)) [v])) /\
+        SOME (Conv (SOME (TypeStamp «Inr» 4 1)) [v])) /\
    do_con_check env.c (SOME (Short «Inl»)) 1 /\
    (∀v.
         build_conv env.c (SOME (Short «Inl»)) [v] =
-        SOME (Conv (SOME (TypeStamp «Inl» 4)) [v])) /\
+        SOME (Conv (SOME (TypeStamp «Inl» 4 0)) [v])) /\
    fname <> farg /\
    ck > 0 /\
    evaluate_ck ck ^st
@@ -1579,11 +1579,11 @@ Theorem evaluate_tailrec_div_ind_lemma2[local]:
    do_con_check env.c (SOME (Short «Inr»)) 1 /\
    (∀v.
         build_conv env.c (SOME (Short «Inr»)) [v] =
-        SOME (Conv (SOME (TypeStamp «Inr» 4)) [v])) /\
+        SOME (Conv (SOME (TypeStamp «Inr» 4 1)) [v])) /\
    do_con_check env.c (SOME (Short «Inl»)) 1 /\
    (∀v.
         build_conv env.c (SOME (Short «Inl»)) [v] =
-        SOME (Conv (SOME (TypeStamp «Inl» 4)) [v])) /\
+        SOME (Conv (SOME (TypeStamp «Inl» 4 0)) [v])) /\
    fname <> farg /\
    evaluate_ck ck ^st
          (env with
@@ -1730,10 +1730,10 @@ Theorem mk_tailrec_closure_sound_basic:
    !fv env . mk_tailrec_closure(Recclosure env [(fname,farg,fbody)] fname) = SOME fv
    /\ do_con_check env.c (SOME (Short «Inr»)) 1
    /\ (!v. build_conv env.c (SOME (Short «Inr»)) [v] =
-           SOME(Conv (SOME (TypeStamp «Inr» 4)) [v]))
+           SOME(Conv (SOME (TypeStamp «Inr» 4 1)) [v]))
    /\ do_con_check env.c (SOME (Short «Inl»)) 1
    /\ (!v. build_conv env.c (SOME (Short «Inl»)) [v] =
-          SOME(Conv (SOME (TypeStamp «Inl» 4)) [v]))
+          SOME(Conv (SOME (TypeStamp «Inl» 4 0)) [v]))
    /\ fname <> farg
    /\ app_basic (p:'ffi ffi_proj) fv x H Q
    ==> app_basic p (Recclosure env [(fname,farg,fbody)] fname) x H Q
@@ -1848,10 +1848,10 @@ Theorem mk_tailrec_closure_sound:
    !fv env . mk_tailrec_closure(Recclosure env [(fname,farg,fbody)] fname) = SOME fv
    /\ do_con_check env.c (SOME (Short «Inr»)) 1
    /\ (!v. build_conv env.c (SOME (Short «Inr»)) [v] =
-           SOME(Conv (SOME (TypeStamp «Inr» 4)) [v]))
+           SOME(Conv (SOME (TypeStamp «Inr» 4 1)) [v]))
    /\ do_con_check env.c (SOME (Short «Inl»)) 1
    /\ (!v. build_conv env.c (SOME (Short «Inl»)) [v] =
-          SOME(Conv (SOME (TypeStamp «Inl» 4)) [v]))
+          SOME(Conv (SOME (TypeStamp «Inl» 4 0)) [v]))
    /\ fname <> farg
    /\ app p fv [x] H Q
    ==> app p (Recclosure env [(fname,farg,fbody)] fname) [x] H Q
@@ -2249,20 +2249,20 @@ QED
 
 Theorem IMP_app_POSTd_old:
     mk_stepfun_closure env fname farg fbody = SOME stepv /\
-    nsLookup env.c (Short «Inr») = SOME (1,TypeStamp «Inr» 4) /\
-    nsLookup env.c (Short «Inl») = SOME (1,TypeStamp «Inl» 4) /\
+    nsLookup env.c (Short «Inr») = SOME (1,TypeStamp «Inr» 4 1) /\
+    nsLookup env.c (Short «Inl») = SOME (1,TypeStamp «Inl» 4 0) /\
     do_con_check env.c (SOME (Short «Inr»)) 1 ∧
     (∀v. build_conv env.c (SOME (Short «Inr»)) [v] =
-         SOME (Conv (SOME (TypeStamp «Inr» 4)) [v])) ∧
+         SOME (Conv (SOME (TypeStamp «Inr» 4 1)) [v])) ∧
     do_con_check env.c (SOME (Short «Inl»)) 1 ∧
     (∀v. build_conv env.c (SOME (Short «Inl»)) [v] =
-         SOME (Conv (SOME (TypeStamp «Inl» 4)) [v])) ∧ fname ≠ farg ∧
+         SOME (Conv (SOME (TypeStamp «Inl» 4 0)) [v])) ∧ fname ≠ farg ∧
     (∃Hs events vs io.
          vs 0 = xv ∧ H ==>> Hs 0 * one (FFI_full (events 0)) ∧
          (∀i.
               app p stepv [vs i] (Hs i * one (FFI_full (events i)))
                 (POSTv v'.
-                     &(v' = Conv (SOME (TypeStamp «Inl» 4))
+                     &(v' = Conv (SOME (TypeStamp «Inl» 4 0))
                               [vs (SUC i)]) *
                    Hs (SUC i) * one (FFI_full (events (SUC i))))) ∧
          lprefix_lub (IMAGE (fromList ∘ events) univ(:num)) io ∧ Q io) ⇒

@@ -57,45 +57,52 @@ Definition Boolv_def:
   (Boolv b = Block (if b then true_tag else false_tag) [])
 End
 
-Definition do_eq_def:
-  (do_eq x y =
+Definition do_cmp_def:
+  (do_cmp x y =
      case x of
      | Number i =>
          (case y of
-          | Number j => Eq_val (i = j)
-          | _ => Eq_type_error)
+          | Number j => Cmp_val (compare_int i j)
+          | _ => Cmp_type_error)
      | Word64 v =>
          (case y of
-          | Word64 w => Eq_val (v = w)
-          | _ => Eq_type_error)
+          | Word64 w => Cmp_val (compare_int (&w2n v) (&w2n w))
+          | _ => Cmp_type_error)
      | Block t1 xs =>
          (case y of
-          | Block t2 ys => if (t1 = t2) /\ (LENGTH xs = LENGTH ys) then
-                             do_eq_list xs ys
-                           else Eq_val F
-          | _ => Eq_type_error)
+          | Block t2 ys =>
+              if t1 = t2 ∧ LENGTH xs = LENGTH ys then do_cmp_list xs ys
+              else if is_exn_tag t1 then Cmp_val 1
+              else if t1 = t2 then Cmp_val (compare_int (&LENGTH xs) (&LENGTH ys))
+              else if NULL xs ∧ ¬NULL ys then Cmp_val (-1)
+              else if ¬NULL xs ∧ NULL ys then Cmp_val 1
+              else Cmp_val (compare_int (&t1) (&t2))
+          | _ => Cmp_type_error)
      | ByteVector cs =>
          (case y of
-          | ByteVector ds => Eq_val (cs = ds)
-          | _ => Eq_type_error)
+          | ByteVector ds =>
+              compare_lit (StrLit (bytes_to_mlstring cs)) (StrLit (bytes_to_mlstring ds))
+          | _ => Cmp_type_error)
      | RefPtr bi i =>
          (case y of
-          | RefPtr bj j => (if bi ∧ bj then Eq_val (i = j) else Eq_type_error)
-          | _ => Eq_type_error)
+          | RefPtr bj j =>
+              if bi ∧ bj then Cmp_val (if i = j then 0 else 1) else Cmp_type_error
+          | _ => Cmp_type_error)
      | _ =>
          (case y of
-          | Number _ => Eq_type_error
-          | Word64 _ => Eq_type_error
-          | Block _ _ => Eq_type_error
-          | ByteVector _ => Eq_type_error
-          | RefPtr _ _ => Eq_type_error
-          | _ => Eq_val T)) /\
-  (do_eq_list [] [] = Eq_val T) /\
-  (do_eq_list (x::xs) (y::ys) =
-     case do_eq x y of
-     | Eq_val T => do_eq_list xs ys
-     | res => res) /\
-  (do_eq_list _ _ = Eq_val F)
+          | Number _ => Cmp_type_error
+          | Word64 _ => Cmp_type_error
+          | Block _ _ => Cmp_type_error
+          | ByteVector _ => Cmp_type_error
+          | RefPtr _ _ => Cmp_type_error
+          | _ => Cmp_val 0)) ∧
+  (do_cmp_list [] [] = Cmp_val 0) ∧
+  (do_cmp_list [] (_::ys) = Cmp_val (-1)) ∧
+  (do_cmp_list (_::xs) [] = Cmp_val 1) ∧
+  (do_cmp_list (x::xs) (y::ys) =
+     case do_cmp x y of
+     | Cmp_val n => if n = 0 then do_cmp_list xs ys else Cmp_val n
+     | res => res)
 End
 
 Definition v_to_list_def:
@@ -546,14 +553,18 @@ Definition do_app_def:
                      | ByteVector j => Rval (Boolv (j = MAP (n2w ∘ ORD) (explode i)), s)
                      | _ => Error)
          | _ => Error)
+    | (BlockOp PolyCompare,[x1;x2]) =>
+        (case do_cmp x1 x2 of
+         | Cmp_val n => Rval (Number n, s)
+         | _ => Error)
     | (BlockOp Equal,[x1;x2]) =>
-        (case do_eq x1 x2 of
-         | Eq_val b => Rval (Boolv b, s)
+        (case do_cmp x1 x2 of
+         | Cmp_val n => Rval (Boolv (n = 0), s)
          | _ => Error)
     | (BlockOp PtrEqual,[x1;x2]) =>
-        (case do_eq x1 x2 of
-         | Eq_val b =>
-             Rval (Boolv (b ∧ s.ptr_eq_oracle 0 0),
+        (case do_cmp x1 x2 of
+         | Cmp_val n =>
+             Rval (Boolv (n = 0 ∧ s.ptr_eq_oracle 0 0),
                    s with ptr_eq_oracle :=
                      (0 =+ shift_seq 1 (s.ptr_eq_oracle 0)) s.ptr_eq_oracle)
          | _ => Error)
@@ -761,7 +772,7 @@ Theorem case_eq_thms = LIST_CONJ (
   closLangTheory.mem_op_case_eq ::
   astTheory.thunk_op_case_eq :: map CaseEq
   ["list","option","v","ref",
-   "result","error_result","eq_result","app_kind","word_size"]);
+   "result","error_result","cmp_result","app_kind","word_size"]);
 
 Theorem do_install_clock:
    do_install vs s = (Rval e,s') ⇒ 0 < s.clock ∧ s'.clock = s.clock-1

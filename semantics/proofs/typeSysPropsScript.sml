@@ -1817,8 +1817,8 @@ Definition type_def_to_ctMap_def:
   (type_def_to_ctMap tenvT next_stamp ((tvs,tn,ctors)::tds) (id::ids) =
     type_def_to_ctMap tenvT (next_stamp + 1) tds ids ++
     REVERSE
-      (MAP (\(cn,ts).
-        (TypeStamp cn next_stamp, (tvs, MAP (type_name_subst tenvT) ts, id)))
+      (MAPi (\pos (cn,ts).
+        (TypeStamp cn next_stamp pos, (tvs, MAP (type_name_subst tenvT) ts, id)))
         ctors))
 End
 
@@ -1827,14 +1827,14 @@ Theorem mem_type_def_to_ctMap:
     MEM (stamp,x) (type_def_to_ctMap tenvT next tds ids) ∧
     LENGTH tds = LENGTH ids
     ⇒
-    ?cn i. stamp = TypeStamp cn i ∧ next ≤ i ∧ i < next + LENGTH tds
+    ?cn i pos. stamp = TypeStamp cn i pos ∧ next ≤ i ∧ i < next + LENGTH tds
 Proof
   ho_match_mp_tac (theorem "type_def_to_ctMap_ind") >>
   rw [type_def_to_ctMap_def] >>
   fs [] >>
   res_tac >>
   rw [] >>
-  fs [MEM_MAP] >>
+  fs [MEM_MAPi] >>
   pairarg_tac >>
   fs []
 QED
@@ -1924,7 +1924,7 @@ Proof
   every_case_tac >>
   fs [ALOOKUP_NONE] >>
   drule ALOOKUP_MEM >>
-  rw [MEM_MAP] >>
+  rw [MEM_MAPi] >>
   pairarg_tac >>
   fs []
 QED
@@ -1941,7 +1941,7 @@ Proof
   irule preserves_datatype_signatures_funion >>
   simp [] >>
   rw [flookup_fupdate_list] >>
-  Cases_on `ALOOKUP (type_def_to_ctMap tenvT next tds tids) (TypeStamp cn n)` >>
+  Cases_on `ALOOKUP (type_def_to_ctMap tenvT next tds tids) (TypeStamp cn n pos)` >>
   gvs [] >>
   drule_all type_def_to_ctMap_mem >> simp []
 QED
@@ -1960,7 +1960,7 @@ Proof
   rpt gen_tac >> strip_tac >>
   `ti IN FRANGE ((SND o SND) o_f ctMap)` by (
     simp [IN_FRANGE_FLOOKUP, FLOOKUP_o_f] >>
-    qexists_tac `TypeStamp cn n` >> simp []) >>
+    qexists_tac `TypeStamp cn n pos` >> simp []) >>
   fs [IN_DISJOINT] >> metis_tac []
 QED
 
@@ -1990,51 +1990,14 @@ Proof
   irule ctMap_ok_merge_imp >>
   simp [] >> conj_tac
   >- (
-    simp [ctMap_ok_def, flookup_fupdate_list, FEVERY_ALL_FLOOKUP] >>
-    rpt conj_tac >>
-    rpt gen_tac >>
-    rpt DISCH_TAC
-    >- (
-      every_case_tac >>
-      fs [] >>
-      imp_res_tac ALOOKUP_MEM >>
-      fs [EVERY_MEM, MEM_MAP] >>
-      pairarg_tac >>
-      fs [] >>
-      pairarg_tac >>
-      fs [] >>
-      rw [] >>
-      first_x_assum drule >>
-      rw [] >>
-      fs [MEM_MAP] >>
-      rw [] >>
-      irule check_freevars_type_name_subst >>
-      simp [])
-    >- (
-      every_case_tac >>
-      fs [] >>
-      imp_res_tac ALOOKUP_MEM >>
-      fs [EVERY_MEM, MEM_MAP] >>
-      pairarg_tac >>
-      fs [])
-    >- (
-      every_case_tac >>
-      fs [] >>
-      imp_res_tac ALOOKUP_MEM >>
-      fs [EVERY_MEM, MEM_MAP] >>
-      pairarg_tac >>
-      fs [] >>
-      rw [])
-    >- (
-      every_case_tac >>
-      fs [] >>
-      rw [] >>
-      imp_res_tac ALOOKUP_MEM >>
-      fs [MEM_MAP] >>
-      pairarg_tac >>
-      fs [] >>
-      pairarg_tac >>
-      fs [semanticPrimitivesTheory.same_type_def]))
+    rw [ctMap_ok_def,FEVERY_ALL_FLOOKUP,flookup_fupdate_list] >>
+    gvs [AllCaseEqs()] >> imp_res_tac ALOOKUP_MEM >>
+    fs [MEM_MAPi] >> rpt (pairarg_tac >> gvs []) >>
+    gvs [semanticPrimitivesTheory.same_type_def] >>
+    imp_res_tac EL_MEM >> fs [EVERY_MEM] >>
+    rw [MEM_MAP] >> gvs [] >>
+    irule check_freevars_type_name_subst >> simp [] >>
+    qpat_x_assum `∀e. MEM e ctors ⇒ _` drule >> simp [])
   >- (
     rw [DISJOINT_DEF, EXTENSION, flookup_fupdate_list, FRANGE_FLOOKUP, FLOOKUP_o_f] >>
     CCONTR_TAC >>
@@ -2044,7 +2007,7 @@ Proof
     rw [] >>
     imp_res_tac type_def_to_ctMap_mem >>
     imp_res_tac ALOOKUP_MEM >>
-    fs [MEM_MAP] >>
+    fs [MEM_MAPi] >>
     pairarg_tac >>
     fs [])
 QED

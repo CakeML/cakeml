@@ -468,6 +468,7 @@ Definition type_op_def:
    case (op,ts) of
       (Opapp, [t1; t2]) => t1 = Tfn t2 t
     | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tbool)
+    | (PolyCompare, [t1; t2]) => (t1 = t2) /\ (t = Tint)
     | (PtrEq, [t1; t2]) => (t1 = t2) /\ (t = Tbool)
     | (Arith a ty, ts) => EVERY (λarg. arg = t_of ty) ts /\ (t = t_of ty) /\
                           supported_arith a ty = SOME (LENGTH ts)
