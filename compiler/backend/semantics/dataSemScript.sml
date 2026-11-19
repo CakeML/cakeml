@@ -62,6 +62,7 @@ Datatype:
      ; refs        : v ref num_map
      ; compile     : 'c -> (num # num # dataLang$prog # metadata) list -> (mlstring # word64 list # 'c) option
      ; clock       : num
+     ; arch_width  : asm$arch_width
      ; code        : (num # dataLang$prog # metadata) num_map
      ; ffi         : 'ffi ffi_state
      ; space       : num
@@ -805,9 +806,6 @@ Definition do_int_app_def:
   do_int_app (LessEq) [Number n1;Number n2] = SOME (Boolv (n1 <= n2)) /\
   do_int_app (Greater) [Number n1;Number n2] = SOME (Boolv (n1 > n2)) /\
   do_int_app (GreaterEq) [Number n1;Number n2] = SOME (Boolv (n1 >= n2)) /\
-  do_int_app (Smallnum op) [Number i; Number j] =
-    OPTION_MAP (\r. case r of INL n => Number n | INR b => Boolv b)
-      (backendProps$bounded_smallnum_app NONE op i j) /\
   do_int_app (op:closLang$int_op) (vs:dataSem$v list) = NONE
 End
 
@@ -1225,6 +1223,11 @@ Definition do_app_aux_def:
          | SOME (v,refs',ts') =>
              Rval (v, s with <| refs := refs' ; tstamps := ts' |>)
          | NONE => Error)
+    | (IntOp (Smallnum smallop), [Number i; Number j]) =>
+        (case backendProps$arch_smallnum_app s.arch_width smallop i j of
+         | NONE => Error
+         | SOME (INL n) => Rval (Number n,s)
+         | SOME (INR b) => Rval (Boolv b,s))
     | (IntOp (Smallnum smallop), [Number i; Number j; witness]) =>
         (case smallnum_witness_length s.refs witness of
            NONE => Error
@@ -1233,6 +1236,8 @@ Definition do_app_aux_def:
                NONE => Error
              | SOME (INL n) => Rval (Number n,s)
              | SOME (INR b) => Rval (Boolv b,s))
+    | (IntOp IsSmallnum, [Number i]) =>
+        Rval (Boolv (is_smallnum s.arch_width i),s)
     | (IntOp intop, vs) =>
         (case do_int_app intop vs of
         | SOME res => Rval (res ,s)
@@ -1742,7 +1747,7 @@ Theorem evaluate_ind[allow_rebind] =
 (* observational semantics *)
 
 Definition initial_state_def:
-  initial_state ffi code coracle cc pe stamps lims ss k = <|
+  initial_state ffi code coracle cc pe aw stamps lims ss k = <|
     locals := LN
   ; locals_size := SOME 0
   ; stack := []
@@ -1751,6 +1756,7 @@ Definition initial_state_def:
   ; handler := 0
   ; refs := LN
   ; clock := k
+  ; arch_width := aw
   ; code := code
   ; compile := cc
   ; compile_oracle := coracle
@@ -1766,9 +1772,9 @@ Definition initial_state_def:
 End
 
 Definition semantics_def:
-  semantics init_ffi code coracle cc pe lims ss start  =
+  semantics init_ffi code coracle cc pe aw lims ss start  =
   let p = Call NONE (SOME start) [] NONE in
-  let init = initial_state init_ffi code coracle cc pe T lims ss in
+  let init = initial_state init_ffi code coracle cc pe aw T lims ss in
     if ∃k. case FST(evaluate (p,init k)) of
              | SOME (Rerr e) => e ≠ Rabort Rtimeout_error /\ (!f. e ≠ Rabort(Rffi_error f))
              | NONE => T | _ => F
@@ -1793,7 +1799,8 @@ Definition data_lang_safe_for_space_def:
   data_lang_safe_for_space init_ffi pe code (lims:dataSem$limits) (ss:num num_map) start =
     !ck.
       let p = Call NONE (SOME start) [] NONE in
-      let init = initial_state init_ffi code ARB ARB pe T lims ss in
+      let init = initial_state init_ffi code ARB ARB pe
+        (if lims.arch_64_bit then Arch64 else Arch32) T lims ss in
       let (res,s) = dataSem$evaluate (p,(init ck): (unit,'ffi) dataSem$state) in
         s.safe_for_space
 End
