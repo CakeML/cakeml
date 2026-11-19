@@ -836,6 +836,7 @@ val res = translate cp_to_ilp_miscTheory.mindist_psites_def;
 val res = translate miscTheory.lookup_any_def;
 val res = translate cp_to_ilp_miscTheory.mindist_pos_map_def;
 val res = translate sptreeTheory.fromList_def;
+val res = translate sptreeTheory.list_insert_def;
 val res = translate cp_to_ilp_miscTheory.mindist_dtab_def;
 val res = translate cp_to_ilp_miscTheory.mindist_dist_def;
 val res = translate cp_to_ilp_miscTheory.mindist_dpairs_def;
