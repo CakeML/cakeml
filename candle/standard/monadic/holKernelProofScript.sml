@@ -642,22 +642,29 @@ Theorem raconv_thm[local]:
       EVERY (\(v1,v2). TERM defs v1 /\ TERM defs v2) env ==>
       (raconv env tm1 tm2 = RACONV env (tm1, tm2))
 Proof
-  Induct THEN1
-   (Cases_on `tm2` >> simp[Once raconv_def, Once RACONV] >> rw[] >>
+  Induct
+  \\ rpt gen_tac \\ strip_tac
+  \\ once_rewrite_tac [raconv_def]
+  \\ (IF_CASES_TAC
+      >- (gvs [ptr_eq_def] \\ irule RACONV_REFL
+          \\ gvs [EVERY_MEM, FORALL_PROD]))
+  \\ pop_assum kall_tac
+  THEN1
+   (Cases_on `tm2` >> simp[Once RACONV] >> rw[] >>
     IMP_RES_TAC alphavars_thm)
   THEN1
-   (Cases_on `tm2` \\ SIMP_TAC (srw_ss()) [Once raconv_def,RACONV]
+   (Cases_on `tm2` \\ SIMP_TAC (srw_ss()) [RACONV]
     \\ SRW_TAC [] [RACONV,domain_def]
     \\ IMP_RES_TAC TERM
     \\ IMP_RES_TAC Abs_Var
     \\ FULL_SIMP_TAC (srw_ss()) [RACONV,domain_def])
   THEN1
-   (Cases_on `tm2` \\ SIMP_TAC (srw_ss()) [Once raconv_def,RACONV]
+   (Cases_on `tm2` \\ SIMP_TAC (srw_ss()) [RACONV]
     \\ SRW_TAC [] [RACONV] \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss []
     \\ imp_res_tac Abs_Var \\ simp[RACONV])
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC Abs_Var
+  \\ IMP_RES_TAC Abs_Var
   \\ FULL_SIMP_TAC std_ss []
-  \\ Cases_on `tm2` \\ SIMP_TAC (srw_ss()) [Once raconv_def,RACONV]
+  \\ Cases_on `tm2` \\ SIMP_TAC (srw_ss()) [RACONV]
   \\ IMP_RES_TAC Abs_Var
   \\ SRW_TAC [] [RACONV]
   \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss []
@@ -679,6 +686,42 @@ Proof
   \\ IMP_RES_TAC (raconv_thm |> Q.SPECL [`t1`,`t2`,`[]`]
        |> SIMP_RULE std_ss [EVERY_DEF,MAP])
   \\ FULL_SIMP_TAC std_ss []
+QED
+
+Theorem ORDA_REFL[local]:
+  ∀env t. EVERY (λ(x,y). x = y) env ⇒ ORDA env t t = EQUAL
+Proof
+  rw [GSYM RACONV_eq_ORDA] \\ irule RACONV_REFL
+  \\ gvs [EVERY_MEM, FORALL_PROD]
+QED
+
+Theorem orda_eq_ORDA:
+  ∀env t1 t2. orda env t1 t2 = ORDA env t1 t2
+Proof
+  ho_match_mp_tac orda_ind \\ rw []
+  \\ once_rewrite_tac [orda_def]
+  \\ IF_CASES_TAC >- gvs [ptr_eq_def, ORDA_REFL]
+  \\ CONV_TAC (RAND_CONV (ONCE_REWRITE_CONV [ORDA_def]))
+  \\ every_case_tac \\ gvs []
+QED
+
+Theorem term_union_eq_TERM_UNION:
+  ∀l1 l2. term_union l1 l2 = TERM_UNION l1 l2
+Proof
+  ho_match_mp_tac term_union_ind \\ rw []
+  \\ once_rewrite_tac [term_union_def]
+  \\ CONV_TAC (RAND_CONV (ONCE_REWRITE_CONV [TERM_UNION_def]))
+  \\ every_case_tac \\ gvs [orda_eq_ORDA]
+QED
+
+Theorem term_remove_eq_TERM_REMOVE:
+  ∀t l. term_remove t l = TERM_REMOVE t l
+Proof
+  ho_match_mp_tac term_remove_ind \\ rw []
+  \\ once_rewrite_tac [term_remove_def]
+  \\ CONV_TAC (RAND_CONV (ONCE_REWRITE_CONV [TERM_REMOVE_def]))
+  \\ every_case_tac \\ gvs [orda_eq_ORDA, ptr_eq_def]
+  \\ rw [] \\ gvs []
 QED
 
 Theorem is_term_thm:
@@ -1832,7 +1875,7 @@ Proof
   \\ MP_TAC (aconv_thm |> Q.SPECL [`m1`,`m2`] |> SIMP_RULE std_ss [])
   \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC >>
   rpt(qpat_x_assum`H |- C`mp_tac) >>
-  imp_res_tac term_union_thm >> simp[] >>
+  simp[term_union_eq_TERM_UNION] >>
   `CONTEXT defs` by fs[STATE_def] >>
   imp_res_tac term_type >>
   rpt (BasicProvers.VAR_EQ_TAC) >>
@@ -1869,7 +1912,8 @@ Theorem PROVE_HYP_thm:
    (s' = s) ∧ ∀th. (res = M_success th) ⇒ THM defs th
 Proof
   Cases_on`th1`>>Cases_on`th2`>>rw[EQ_SYM_EQ]>>
-  fs[PROVE_HYP_def,st_ex_return_def,THM_def]>>
+  fs[PROVE_HYP_def,st_ex_return_def,THM_def,
+     term_union_eq_TERM_UNION,term_remove_eq_TERM_REMOVE]>>
   match_mp_tac proveHyp >> rw[]
 QED
 
@@ -1903,15 +1947,15 @@ QED
 Theorem hypset_ok_list_to_hypset[simp]:
    ∀ls a. hypset_ok a ⇒ hypset_ok (list_to_hypset ls a)
 Proof
-  Induct >> simp[list_to_hypset_def]
+  Induct >> simp[list_to_hypset_def,term_union_eq_TERM_UNION]
 QED
 
 Theorem MEM_list_to_hypset_imp:
    ∀ls a. MEM x (list_to_hypset ls a) ⇒ MEM x ls ∨ MEM x a
 Proof
   Induct >> rw[list_to_hypset_def] >>
-  res_tac >> simp[] >>
-  imp_res_tac MEM_term_union_imp >> fs[]
+  res_tac >> fs[term_union_eq_TERM_UNION] >>
+  imp_res_tac MEM_TERM_UNION_imp >> fs[]
 QED
 
 Theorem ALPHA_THM_thm:
@@ -1999,7 +2043,7 @@ Proof
   \\ strip_tac
   \\ Cases_on ‘res'’ \\ fs []
   (* close the remaining goal with the MK_COMB derivation rule *)
-  \\ fs [THM_def]
+  \\ fs [THM_def, term_union_eq_TERM_UNION]
   \\ qspecl_then [‘defs’,‘Comb f1 x1’] mp_tac term_type
   \\ (impl_tac >- simp []) \\ strip_tac
   \\ qpat_x_assum ‘term_type (Comb f1 x1) = _’ (fn th => rewrite_tac [th])
@@ -2138,7 +2182,7 @@ Proof
         (Comb (Comb (Const «=» h1) t1) t2))`
   \\ FULL_SIMP_TAC std_ss [THM_def]
   >> rpt(qpat_x_assum`H |- C`mp_tac) >>
-  imp_res_tac term_union_thm >> simp[] >>
+  simp[term_union_eq_TERM_UNION] >>
   `CONTEXT defs` by fs[STATE_def] >>
   imp_res_tac term_type >>
   rpt (BasicProvers.VAR_EQ_TAC) >>
@@ -2163,13 +2207,14 @@ Proof
   \\ impl_tac >- (imp_res_tac THM_term_ok_bool >> gvs [])
   \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
   \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [st_ex_return_def]
-  \\ FULL_SIMP_TAC std_ss [THM_def]
+  \\ FULL_SIMP_TAC std_ss [THM_def, term_union_eq_TERM_UNION,
+                            term_remove_eq_TERM_REMOVE]
   >> simp[] >>
   rpt (BasicProvers.VAR_EQ_TAC) >>
-  `EVERY (TERM defs) (term_remove t' l) ∧
-   EVERY (TERM defs) (term_remove t l')` by (
+  `EVERY (TERM defs) (TERM_REMOVE t' l) ∧
+   EVERY (TERM defs) (TERM_REMOVE t l')` by (
     conj_tac >>
-    MATCH_MP_TAC EVERY_term_remove >>
+    MATCH_MP_TAC EVERY_TERM_REMOVE >>
     simp[]) >>
   `CONTEXT defs` by fs[STATE_def] >>
   imp_res_tac term_type >>
@@ -2178,25 +2223,35 @@ Proof
   simp[]
 QED
 
+Theorem TERM_UNION_sing_cons[local]:
+  hypset_ok (h::t) ⇒ TERM_UNION [h] t = h::t
+Proof
+  rw [hypset_ok_cons]
+  \\ qspecl_then [‘[]’,‘h’,‘t’] mp_tac TERM_UNION_insert
+  \\ gvs [EVERY_MEM]
+QED
+
 Theorem image_lemma[local]:
   ∀f l s g defs res s'.
-      (term_image f l s = (res,s')) ∧ STATE defs s ⇒
+      (term_image f l s = (res,s')) ∧ STATE defs s ∧ hypset_ok l ⇒
       EVERY (λx. ∀s. STATE defs s ⇒
                      ((f x s = (M_success (g x),s)))) l ⇒
-      (s' = s) ∧ (res = M_success (term_image g l))
+      (s' = s) ∧ (res = M_success (TERM_IMAGE g l))
 Proof
   gen_tac >> Induct >> simp[Once term_image_def] >- (
-    simp[st_ex_return_def,Once term_image_def] ) >>
+    simp[st_ex_return_def] ) >>
   simp[st_ex_bind_def] >> rpt gen_tac >>
   ntac 2 strip_tac >>
   first_x_assum(qspec_then`s`mp_tac) >> simp[] >> strip_tac >> fs[] >>
-  simp[Once term_image_def] >>
+  simp[Once TERM_IMAGE_def] >>
   qpat_x_assum`X = (res,Z)`mp_tac >>
   BasicProvers.CASE_TAC >>
   BasicProvers.CASE_TAC >>
   simp[st_ex_return_def] >> strip_tac >>
   rpt BasicProvers.VAR_EQ_TAC >>
-  simp[] >> res_tac >> fs[]
+  imp_res_tac TERM_UNION_sing_cons >>
+  fs[hypset_ok_cons] >> res_tac >> fs[] >>
+  rw[ptr_eq_def, term_union_eq_TERM_UNION] >> gvs[]
 QED
 
 Theorem INST_TYPE_thm:
@@ -2208,6 +2263,7 @@ Proof
   Cases_on `th1` \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ SIMP_TAC std_ss [INST_TYPE_def,LET_DEF,st_ex_bind_def]
   \\ STRIP_TAC \\ IMP_RES_TAC THM
+  \\ `hypset_ok l` by (fs [THM_def] \\ imp_res_tac proves_term_ok \\ fs [])
   \\ Cases_on `term_image (inst theta) l s`
   \\ MP_TAC (image_lemma |> ISPECL [``(inst theta) : term -> term M``, ``l : term list``, ``s : hol_refs``, ``(INST theta) : term -> term``, ``defs : update list``])
   \\ FULL_SIMP_TAC std_ss []
@@ -2235,25 +2291,27 @@ QED
 
 Theorem image_lemma[local]:
   ∀f l s g defs res s'.
-      (term_image f l s = (res,s')) ∧ STATE defs s ⇒
+      (term_image f l s = (res,s')) ∧ STATE defs s ∧ hypset_ok l ⇒
       EVERY (λx. ∀s. STATE defs s ⇒
                      ∃r s'. ((f x s = (r,s))) ∧
                             (∀t. (r = M_success t) ⇒ (t = g x))) l ⇒
-      (s' = s) ∧ ∀ts. (res = M_success ts) ⇒ (ts = term_image g l)
+      (s' = s) ∧ ∀ts. (res = M_success ts) ⇒ (ts = TERM_IMAGE g l)
 Proof
   gen_tac >> Induct >> simp[Once term_image_def] >- (
-    simp[st_ex_return_def,Once term_image_def] ) >>
+    simp[st_ex_return_def] ) >>
   simp[st_ex_bind_def] >> rpt gen_tac >>
   ntac 2 strip_tac >>
   first_x_assum(qspec_then`s`mp_tac) >> simp[] >> strip_tac >> fs[] >>
   reverse(Cases_on`r`)>>fs[]>-(rw[]) >>
-  simp[Once term_image_def] >>
+  simp[Once TERM_IMAGE_def] >>
   qpat_x_assum`X = (res,Z)`mp_tac >>
   BasicProvers.CASE_TAC >>
   BasicProvers.CASE_TAC >>
   simp[st_ex_return_def] >> strip_tac >>
   rpt BasicProvers.VAR_EQ_TAC >>
-  simp[] >> res_tac >> fs[]
+  imp_res_tac TERM_UNION_sing_cons >>
+  fs[hypset_ok_cons] >> res_tac >> fs[] >>
+  rw[ptr_eq_def, term_union_eq_TERM_UNION] >> gvs[]
 QED
 
 Theorem INST_thm:
@@ -2265,6 +2323,7 @@ Proof
   Cases_on `th1` \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ SIMP_TAC std_ss [holKernelTheory.INST_def,LET_DEF,st_ex_bind_def]
   \\ STRIP_TAC \\ IMP_RES_TAC THM
+  \\ `hypset_ok l` by (fs [THM_def] \\ imp_res_tac proves_term_ok \\ fs [])
   \\ Cases_on `term_image (vsubst theta) l s`
   \\ MP_TAC (image_lemma |> ISPECL [``(vsubst theta) : term -> term M``,``l : term list``,``s : hol_refs``,``(VSUBST theta) : term -> term``,``defs : update list``])
   \\ FULL_SIMP_TAC std_ss []

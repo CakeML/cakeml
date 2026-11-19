@@ -759,23 +759,28 @@ Proof
   rw[]
 QED
 
+Theorem TotOrd_flip_ord[local]:
+  ∀c. TotOrd c ⇒ ∀x y. flip_ord (c x y) = c y x
+Proof
+  rw [TotOrd] >> Cases_on `c x y` >>
+  metis_tac [invert_comparison_def, cpn_nchotomy, cpn_distinct]
+QED
+
 Theorem ORDA_sym:
    ∀env t1 t2. flip_ord (ORDA env t1 t2) = ORDA (MAP (λ(x,y). (y,x)) env) t2 t1
 Proof
-  cheat
-  (*
-  ho_match_mp_tac ORDA_ind >>
-  rpt gen_tac >> rpt strip_tac >>
-  ONCE_REWRITE_TAC[ORDA_def] >>
-  IF_CASES_TAC >- rw[] >>
-  qmatch_assum_abbrev_tac`¬p` >> fs[] >>
-  IF_CASES_TAC >- fs[Abbr`p`] >>
-  BasicProvers.CASE_TAC >>
-  BasicProvers.CASE_TAC >> simp[ordav_sym] >>
-  rw[] >> fs[] >>
-  metis_tac[invert_comparison_def,TotOrd_type_cmp,TotOrd_term_cmp,
-            TotOrd,cpn_nchotomy,cpn_distinct]
-  *)
+  ho_match_mp_tac ORDA_ind >> rpt gen_tac >> strip_tac >>
+  Cases_on `t1` >> Cases_on `t2` >> fs [] >>
+  once_rewrite_tac [ORDA_def] >> simp [ordav_sym]
+  >- simp [MATCH_MP TotOrd_flip_ord TotOrd_term_cmp]
+  >- (qpat_x_assum `flip_ord (ORDA _ _ _) = _` (rewrite_tac o single o GSYM) >>
+      IF_CASES_TAC >> gvs [])
+  >> rename1 `type_cmp (typeof s1) (typeof s2)` >>
+  `flip_ord (type_cmp (typeof s1) (typeof s2)) =
+   type_cmp (typeof s2) (typeof s1)`
+    by simp [MATCH_MP TotOrd_flip_ord TotOrd_type_cmp] >>
+  Cases_on `type_cmp (typeof s1) (typeof s2)` >>
+  Cases_on `type_cmp (typeof s2) (typeof s1)` >> gvs []
 QED
 
 Theorem antisymmetric_alpha_lt:
@@ -805,11 +810,35 @@ Proof
   metis_tac[cpn_nchotomy,cpn_distinct]
 QED
 
-Theorem undo_zip_map_fst[local]:
-  p::ZIP(MAP FST l1,MAP SND l2) =
-    ZIP (MAP FST ((FST p,v2)::l1), MAP SND ((v2,SND p)::l2))
+Theorem ORDA_Comb_Comb[local]:
+  ORDA env (Comb a b) (Comb c e) =
+    if ORDA env a c ≠ EQUAL then ORDA env a c else ORDA env b e
 Proof
-  Cases_on`p`>>rw[]
+  CONV_TAC (LHS_CONV (ONCE_REWRITE_CONV [ORDA_def])) >> simp[]
+QED
+
+Theorem ORDA_Abs_Abs[local]:
+  ORDA env (Abs a b) (Abs c e) =
+    if type_cmp (typeof a) (typeof c) ≠ EQUAL then type_cmp (typeof a) (typeof c)
+    else ORDA ((a,c)::env) b e
+Proof
+  CONV_TAC (LHS_CONV (ONCE_REWRITE_CONV [ORDA_def])) >> simp[]
+QED
+
+Theorem ORDA_EQUAL_trans[local]:
+  ∀env1 t1 t2 env2 t3.
+    ORDA env1 t1 t2 = EQUAL ∧ ORDA env2 t2 t3 = EQUAL ∧
+    MAP SND env1 = MAP FST env2 ⇒
+    ORDA (ZIP (MAP FST env1, MAP SND env2)) t1 t3 = EQUAL
+Proof
+  rw[GSYM RACONV_eq_ORDA] >>
+  qspecl_then[`env1`,`t1,t2`]mp_tac RACONV_TRANS >>
+  simp[] >>
+  disch_then(qspecl_then[`MAP SND env2`,`t3`]mp_tac) >>
+  simp[] >>
+  impl_tac >- (
+    fs[LIST_EQ_REWRITE,ZIP_MAP,MAP_MAP_o,combinTheory.o_DEF] ) >>
+  simp[]
 QED
 
 Theorem ORDA_lx_trans[local]:
@@ -821,27 +850,17 @@ Theorem ORDA_lx_trans[local]:
       (ORDA env1 t1 t2 = LESS ∨ ORDA env2 t2 t3 = LESS ⇒
        ORDA (ZIP (MAP FST env1, MAP SND env2)) t1 t3 = LESS)
 Proof
-  cheat
-  (*
   completeInduct_on`term_size t1 + term_size t2 + term_size t3` >>
   rpt gen_tac >> strip_tac >>
   BasicProvers.VAR_EQ_TAC >>
+  qpat_x_assum`∀m. _`
+    (assume_tac o SIMP_RULE std_ss [PULL_FORALL, AND_IMP_INTRO]) >>
   rpt gen_tac >> strip_tac >>
   conj_asm2_tac >- (
-    qmatch_assum_abbrev_tac`p ⇒ q` >>
-    Cases_on`p=T` >- ( fs[Abbr`q`] ) >>
-    fs[Abbr`p`] >>
-    `ORDA env1 t1 t2 = EQUAL ∧
-     ORDA env2 t2 t3 = EQUAL` by
-    metis_tac[cpn_nchotomy,cpn_distinct] >>
-    fs[GSYM RACONV_eq_ORDA] >>
-    qspecl_then[`env1`,`t1,t2`]mp_tac RACONV_TRANS >>
-    simp[] >>
-    disch_then(qspecl_then[`MAP SND env2`,`t3`]mp_tac) >>
-    simp[] >>
-    impl_tac >- (
-      fs[LIST_EQ_REWRITE,ZIP_MAP,MAP_MAP_o,combinTheory.o_DEF] ) >>
-    simp[RACONV_eq_ORDA] ) >>
+    Cases_on`ORDA env1 t1 t2 = LESS ∨ ORDA env2 t2 t3 = LESS` >- gvs[] >>
+    `ORDA env1 t1 t2 = EQUAL ∧ ORDA env2 t2 t3 = EQUAL` by
+      metis_tac[cpn_nchotomy,cpn_distinct] >>
+    drule_all ORDA_EQUAL_trans >> simp[] ) >>
   qmatch_abbrev_tac`d ⇒ X` >> strip_tac >>
   qunabbrev_tac`X` >>
   ONCE_REWRITE_TAC[ORDA_def] >> simp[] >>
@@ -865,58 +884,21 @@ Proof
     Cases_on`t2`>>TRY(fs[Once ORDA_def]>>NO_TAC)>>
     qmatch_assum_rename_tac`ORDA env1 (Comb t1 t2) (Comb t3 t4) ≠ GREATER` >>
     qmatch_assum_rename_tac`ORDA env2 (Comb t3 t4) (Comb t5 t6) ≠ GREATER` >>
-    fs[Q.SPECL[`env`,`Comb a b`,`Comb c d`]ORDA_def,LET_THM] >>
-    rpt(qpat_x_assum`X ≠ GREATER` mp_tac) >>
-    qpat_x_assum`d`mp_tac >>
-    simp[Abbr`d`] >> rw[] >> fs[] >> rw[] >>
-    fsrw_tac[DNF_ss][] >>
-    let
-      val tac =
-      first_x_assum(fn th =>
-        match_mp_tac (MP_CANON th) >>
-        simp[term_size_def] >>
-        FIRST (map (fn q =>
-          qexists_tac q >> simp[] >>
-          (fn g as (asl,w) => (Cases_on`^(lhs w)`>>fs[]) g) >>
-          NO_TAC)
-        [`t1`,`t2`,`t3`,`t4`,`t5`,`t6`]))
-    in
-      TRY tac >>
-      TRY (
-        (qsuff_tac`F`>-rw[])>>
-        qpat_x_assum`ORDA (ZIP P) X Y = Z` mp_tac >> simp[] >>
-        (fn g as (asl,w) => (qsuff_tac`^(lhs (rand w)) = LESS`>-rw[])g)>>
-        tac ) >>
-      (qsuff_tac`F`>-rw[])>>
-      qpat_x_assum`ORDA (ZIP P) X Y ≠ Z` mp_tac >> simp[] >>
-      fs[GSYM RACONV_eq_ORDA] >>
-      imp_res_tac RACONV_TRANS >> fs[] >>
-      first_x_assum(match_mp_tac o MP_CANON) >>
-      simp[ZIP_MAP,MAP_MAP_o,combinTheory.o_DEF] >>
-      fs[LIST_EQ_REWRITE]
-    end) >>
+    fs[ORDA_Comb_Comb, Abbr`d`] >>
+    first_assum (qspecl_then [`t1`,`t3`,`t5`,`env1`,`env2`] mp_tac) >>
+    first_x_assum (qspecl_then [`t2`,`t4`,`t6`,`env1`,`env2`] mp_tac) >>
+    qspecl_then [`env1`,`t1`,`t3`,`env2`,`t5`] mp_tac ORDA_EQUAL_trans >>
+    simp[] >> rpt strip_tac >>
+    Cases_on `ORDA env1 t1 t3` >> Cases_on `ORDA env2 t3 t5` >> gvs[]) >>
   Cases_on`t2`>>TRY(fs[Once ORDA_def]>>NO_TAC)>>
   qmatch_assum_rename_tac`ORDA env1 (Abs v1 t1) (Abs v2 t2) ≠ GREATER` >>
   qmatch_assum_rename_tac`ORDA env2 (Abs v2 t2) (Abs v3 t3) ≠ GREATER` >>
-  fs[Q.SPECL[`env`,`Abs a b`,`Abs c d`]ORDA_def,LET_THM] >>
-  mp_tac TotOrd_type_cmp >>
-  simp[TotOrd] >> strip_tac >> fs[] >>
-  rpt(qpat_x_assum`X ≠ GREATER` mp_tac) >>
-  qpat_x_assum`d`mp_tac >>
-  simp[Abbr`d`] >> rw[] >> fs[] >> rw[] >>
-  TRY (
-    fsrw_tac[DNF_ss][] >>
-    REWRITE_TAC[undo_zip_map_fst] >>
-    first_x_assum(fn th =>
-      match_mp_tac (MP_CANON th) >>
-      simp[term_size_def] >>
-      FIRST (map (fn q =>
-        qexists_tac q >> simp[] >>
-        (fn g as (asl,w) => (Cases_on`^(lhs w)`>>fs[]) g) >>
-        NO_TAC)
-      [`t1`,`t2`,`t3`,`t4`,`t5`,`t6`]))) >>
-  metis_tac[cpn_nchotomy,cpn_distinct]
-*)
+  fs[ORDA_Abs_Abs, Abbr`d`] >>
+  first_x_assum
+    (qspecl_then [`t1`,`t2`,`t3`,`(v1,v2)::env1`,`(v2,v3)::env2`] mp_tac) >>
+  mp_tac TotOrd_type_cmp >> simp[TotOrd] >> rpt strip_tac >>
+  Cases_on `typeof v1 = typeof v2` >> Cases_on `typeof v2 = typeof v3` >> gvs[] >>
+  rw[] >> metis_tac[cpn_nchotomy,cpn_distinct]
 QED
 
 Theorem transitive_alpha_lt:
