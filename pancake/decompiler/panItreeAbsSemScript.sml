@@ -706,10 +706,6 @@ QED
 
 Theorem itree_semantics_Return_with_pre:
   (∃v. eval s e = SOME v) ⇒
-  (let
-     v = THE (eval s e)
-   in
-     size_of_sh_with_ctxt s.structs (shape_of v) ≤ 32) ⇒
   itree_semantics (Return e,s) =
   let v = THE (eval s e) in
     Ret (INR ((SOME (Return v), empty_locals s)))
