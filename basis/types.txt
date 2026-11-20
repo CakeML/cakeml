@@ -459,6 +459,7 @@ Ast.pp_thunk_mode: Ast.thunk_mode -> PrettyPrinter.pp_data
 Ast.pp_thunk_op: Ast.thunk_op -> PrettyPrinter.pp_data
 Ast.pp_op: Ast.op -> PrettyPrinter.pp_data
 Ast.pp_locs: Ast.locs -> PrettyPrinter.pp_data
+Ast.pp_shape_assert: Ast.shape_assert -> PrettyPrinter.pp_data
 Ast.pp_exp: Ast.exp -> PrettyPrinter.pp_data
 Ast.pp_dec: Ast.dec -> PrettyPrinter.pp_data
 AstSexp.from_option: ('a -> Sexp.sexp) -> 'a option -> Sexp.sexp
@@ -481,6 +482,8 @@ AstSexp.from_pats: Ast.pat list -> Sexp.sexp list
 AstSexp.from_pat: Ast.pat -> Sexp.sexp
 AstSexp.from_lop: Ast.lop -> Sexp.sexp
 AstSexp.from_locs: Ast.locs -> Sexp.sexp
+AstSexp.from_shapes: Ast.shape_assert list -> Sexp.sexp list
+AstSexp.from_shape: Ast.shape_assert -> Sexp.sexp
 AstSexp.from_funs: (string * (string * Ast.exp)) list -> Sexp.sexp list
 AstSexp.from_pes: (Ast.pat * Ast.exp) list -> Sexp.sexp list
 AstSexp.from_exps: Ast.exp list -> Sexp.sexp list
@@ -514,6 +517,8 @@ AstSexp.to_pats: Sexp.sexp list -> Ast.pat list option
 AstSexp.to_pat: Sexp.sexp -> Ast.pat option
 AstSexp.to_lop: Sexp.sexp -> Ast.lop option
 AstSexp.to_locs: Sexp.sexp -> Ast.locs option
+AstSexp.to_shapes: Sexp.sexp list -> Ast.shape_assert list option
+AstSexp.to_shape: Sexp.sexp -> Ast.shape_assert option
 AstSexp.opt_mmap: ('a -> 'b option) -> 'a list -> 'b list option
 AstSexp.to_funs: Sexp.sexp list -> (string * (string * Ast.exp)) list option
 AstSexp.to_pes: Sexp.sexp list -> (Ast.pat * Ast.exp) list option

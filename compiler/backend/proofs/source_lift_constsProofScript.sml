@@ -94,6 +94,19 @@ Proof
   >> simp [tree_exp_def,cj 15 evaluate_def,cj 16 evaluate_def] >> metis_tac []
 QED
 
+(* Assert is erased early: the code produced for Assert e sa is exactly the
+   code produced for e. *)
+Theorem lift_exp_Assert:
+  annotate_exp t (Assert e sa) = (tree,limit,captures) ⇒
+  lift_exp mode bound ren st tree =
+    lift_exp mode bound ren st (FST (annotate_exp t e)) ∧
+  lower_exp mode bound ren st tree =
+    lift_exp mode bound ren st (FST (annotate_exp t e))
+Proof
+  simp [Once annotate_exp_def] >> pairarg_tac >> rw []
+  >> simp [cj 1 lift_exp_def, cj 12 lift_exp_def]
+QED
+
 Theorem annotate_exp_reannotate[local]:
   ∀e t tree limit captures.
     annotate_exp t e = (tree,limit,captures) ⇒
@@ -510,6 +523,7 @@ Definition exp_names_def:
   exp_names (Tannot e ty) = exp_names e ∧
   exp_names (Lannot e loc) = exp_names e ∧
   exp_names (Open path e) = exp_names e ∧
+  exp_names (Assert e sa) = exp_names e ∧
   exp_names_exps [] = {} ∧
   exp_names_exps (e::es) = exp_names e ∪ exp_names_exps es ∧
   exp_names_pes [] = {} ∧
@@ -544,7 +558,8 @@ Theorem no_Open_thm[local]:
      no_Open e ∧ EVERY (λ(f,x,e). no_Open e) funs) ∧
   (no_Open (Tannot e t) ⇔ no_Open e) ∧
   (no_Open (Lannot e a) ⇔ no_Open e) ∧
-  (no_Open (Open path e) ⇔ F)
+  (no_Open (Open path e) ⇔ F) ∧
+  (no_Open (Assert e sa) ⇔ no_Open e)
 Proof
   ‘no_Open = every_exp (λx. ¬is_Open x)’
     by simp [FUN_EQ_THM,source_dceTheory.no_Open_def]
@@ -737,6 +752,7 @@ Definition exp_free_names_def:
   exp_free_names (Tannot e ty) = exp_free_names e ∧
   exp_free_names (Lannot e loc) = exp_free_names e ∧
   exp_free_names (Open path e) = exp_free_names e ∧
+  exp_free_names (Assert e sa) = exp_free_names e ∧
   exp_free_names_exps [] = {} ∧
   exp_free_names_exps (e::es) = exp_free_names e ∪ exp_free_names_exps es ∧
   exp_free_names_pes [] = {} ∧
@@ -1227,6 +1243,41 @@ Proof
       (case v_to_list target_tail of NONE => NONE | SOME vs => SOME (target_head::vs))’
   >> qpat_x_assum ‘∀v'. _’ (qspec_then ‘target_tail’ mp_tac) >> simp []
   >> Cases_on ‘v_to_list source_tail’ >> Cases_on ‘v_to_list target_tail’ >> simp []
+QED
+
+Theorem pmatch_list_REPLICATE_Pany[local]:
+  ∀n vs env.
+    pmatch_list envC st (REPLICATE n Pany) vs env =
+    if LENGTH vs = n then Match env else Match_type_error
+Proof
+  Induct >> Cases_on ‘vs’ >> rw [pmatch_def]
+QED
+
+Theorem lift_value_rel_check_shape[local]:
+  (∀c sa x y.
+     lift_value_rel C E x y ∧ check_shape c sa x ⇒ check_shape c sa y) ∧
+  (∀c sas xs ys.
+     LIST_REL (lift_value_rel C E) xs ys ∧ check_shapes c sas xs ⇒
+     check_shapes c sas ys)
+Proof
+  ho_match_mp_tac check_shape_ind >> rw [check_shape_def]
+  >- (
+    Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
+    >> Cases_on ‘x’ >> gvs [check_type_def, Boolv_def, lift_value_rel_cases_l])
+  >- (
+    Cases_on ‘x’ >> gvs [pmatch_def, lift_value_rel_cases_l]
+    >> rename [‘Conv oo _’] >> Cases_on ‘oo’
+    >> gvs [pmatch_def, AllCaseEqs(), pmatch_list_REPLICATE_Pany]
+    >> imp_res_tac LIST_REL_LENGTH >> gvs [] >> metis_tac [])
+  >- (
+    Cases_on ‘x’ >> gvs [lift_value_rel_cases_l]
+    >> Cases_on ‘o'’ >> gvs [SF SFY_ss])
+  >- (
+    imp_res_tac lift_value_rel_v_to_list
+    >> Cases_on ‘v_to_list x’ >> gvs [OPTREL_def]
+    >> gvs [EVERY_MEM, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, SF SFY_ss]
+    >> metis_tac [])
+  >> gvs [check_shape_def, SF SFY_ss]
 QED
 
 Definition lift_thunk_result_rel_def:
@@ -3734,6 +3785,18 @@ Proof
           lift_result_rel_def]
 QED
 
+Theorem lift_evaluate_assert_refinement[local]:
+  lift_eval_refinement R D (LIST_REL R)
+    (evaluate s env [e]) (evaluate s' env' [e']) ⇒
+  lift_eval_refinement R D (LIST_REL R)
+    (evaluate s env [Assert e sa]) (evaluate s' env' [e'])
+Proof
+  strip_tac >> drule lift_eval_refinement_single >> rw []
+  >> gvs [evaluate_def,lift_eval_refinement_def,lift_eval_result_rel_def,
+          lift_result_rel_def]
+  >> rw [lift_eval_result_rel_def,lift_result_rel_def]
+QED
+
 Theorem lift_evaluate_let_refinement[local]:
   lift_eval_refinement R D (LIST_REL R)
     (evaluate (s:'ffi semanticPrimitives$state) source [rhs])
@@ -3893,7 +3956,7 @@ Theorem lift_annotated_literal[local]:
 Proof
   strip_tac
   >> gvs [annotate_exp_def] >> Cases_on ‘mode = LiftValues ∧ ¬is_trivial (Lit lit)’
-  >> gvs [cj 1 lift_exp_def,cj 17 lift_exp_def,
+  >> gvs [cj 1 lift_exp_def,cj 18 lift_exp_def,
           str_empty_def,maps_disjoint_def,is_Fun_def]
 QED
 
@@ -4662,7 +4725,7 @@ Theorem lower_exp_exps[local]:
     ∃x. lift_exps mode bound ren st [a] = ([x],st') ∧ r = Raise x)
 Proof
   simp [cj 7 lift_exp_def,cj 8 lift_exp_def,cj 10 lift_exp_def,cj 11 lift_exp_def,
-        cj 36 lift_exp_def,cj 37 lift_exp_def]
+        cj 39 lift_exp_def,cj 40 lift_exp_def]
   >> rpt (pairarg_tac >> gvs [])
 QED
 
@@ -5290,6 +5353,21 @@ Proof
   >> first_x_assum irule >> simp []
 QED
 
+Theorem lift_exp_sim_assert[local]:
+  lift_exp_sim (:'ffi) clock D e ⇒ lift_exp_sim (:'ffi) clock D (Assert e sa)
+Proof
+  strip_tac >> rewrite_tac [lift_exp_sim_def] >> rpt gen_tac
+  >> strip_tac >> qpat_x_assum ‘annotate_exp [] (Assert _ _) = _’
+       (mp_tac o SRULE [annotate_exp_def])
+  >> namedCases_on ‘annotate_exp [] e’ ["body child_limit child_captures"] >> strip_tac
+  >> gvs [] >> fs [cj 1 lift_exp_def,cj 12 lift_exp_def]
+  >> gvs [exp_names_def,no_Open_thm,check_exp_constructors_def]
+  >> drule_all lift_exp_sim_lift >> disch_then (qx_choose_then ‘final’ strip_assume_tac)
+  >> qexists_tac ‘final’ >> simp [exp_free_names_def] >> rpt gen_tac >> strip_tac
+  >> first_x_assum drule >> rw [] >> irule lift_evaluate_assert_refinement
+  >> first_x_assum irule >> simp []
+QED
+
 Theorem lift_exp_sim_handle_mat[local]:
   (∀p x. MEM (p,x) pes ⇒ lift_exp_sim (:'ffi) clock D x) ∧
   lift_exp_sim (:'ffi) clock D e ⇒
@@ -5301,7 +5379,7 @@ Proof
   >> namedCases_on ‘annotate_exp [] e’ ["t1 l1 c1"]
   >> namedCases_on ‘annotate_pes [] pes’ ["bs l2 c2"] >> qpat_x_assum ‘_ ∨ _’ mp_tac
   >> gvs [annotate_exp_def,cj 1 lift_exp_def] >> strip_tac
-  >> fs [cj 12 lift_exp_def,cj 13 lift_exp_def]
+  >> fs [cj 13 lift_exp_def,cj 14 lift_exp_def]
   >> namedCases_on ‘lift_exp mode bound ren (n,ds,used) t1’ ["r1 n2 ds2 u2"]
   >> namedCases_on ‘lift_pes mode bound ren (n2,ds2,u2) (MAP FST pes) bs’ ["rs n3 ds3 u3"]
   >> gvs [exp_names_def,no_Open_thm,check_exp_constructors_def]
@@ -5875,7 +5953,7 @@ Proof
       >> have ‘lift_pes mode bound ren (middle_n,middle_ds,middle_used)
             (MAP FST [(Pvar name,body)]) [body_tree] =
             ([(Pvar name,compiled_body)],final_n,final_ds,final_used)’
-      >- simp [cj 38 lift_exp_def,cj 40 lift_exp_def,pat_bindings_def,bind_all_def,
+      >- simp [cj 41 lift_exp_def,cj 43 lift_exp_def,pat_bindings_def,bind_all_def,
               delete_all_def]
       >> drule_at (Pos last) lift_exp_pes_sim
       >> disch_then (qspecl_then [‘clock’,‘D’,‘rhs’,‘rhs_tree’,‘rhs_limit’,‘rhs_captures’,
@@ -5914,7 +5992,7 @@ Proof
     >> simp [annotate_exp_def,cj 16 evaluate_def,exp_names_def,no_Open_thm,
          check_exp_constructors_def])
   >~ [‘Open _ _’] >- simp [lift_exp_sim_def,no_Open_thm]
-  >> metis_tac [lift_exp_sim_raise,lift_exp_sim_handle_mat,lift_exp_sim_lit,lift_exp_sim_con,
+  >> metis_tac [lift_exp_sim_raise,lift_exp_sim_assert,lift_exp_sim_handle_mat,lift_exp_sim_lit,lift_exp_sim_con,
        lift_exp_sim_var,lift_exp_sim_fun,lift_exp_sim_app,lift_exp_sim_log,lift_exp_sim_if,
        lift_exp_sim_let,lift_exp_sim_letrec]
 QED
@@ -6764,6 +6842,18 @@ Proof
     >> gvs [OPTREL_def,cj 17 evaluate_def]
     >> qpat_x_assum ‘∀s s' env env'. _ ⇒ _’ irule >> simp []
     >> irule lift_runtime_env_extend >> simp [])
+  >- (
+    qx_genl_tac [‘e’,‘sa’] >> strip_tac
+    >> qx_genl_tac [‘s’,‘s'’,‘env’,‘env'’] >> strip_tac
+    >> ‘env.c = env'.c’ by fs [lift_runtime_env_def]
+    >> first_x_assum drule_all >> strip_tac
+    >> drule lift_eval_refinement_single >> rw []
+    >> gvs [evaluate_def,lift_eval_refinement_def,lift_eval_result_rel_def,
+            lift_result_rel_def]
+    >> Cases_on ‘check_shape env'.c sa v’ >> simp []
+    >> ‘check_shape env'.c sa v'’
+      by metis_tac [runtime_inst (cj 1 lift_value_rel_check_shape)]
+    >> simp [lift_eval_result_rel_def,lift_result_rel_def])
 QED
 
 Theorem lift_evaluate_dlet_refinement[local]:

@@ -180,7 +180,14 @@ Inductive evaluate_ctxt:
 
   evaluate_ctxt ck env s (Ctannot () t) v (s, Rval v) ∧
 
-  evaluate_ctxt ck env s (Clannot () l) v (s, Rval v)
+  evaluate_ctxt ck env s (Clannot () l) v (s, Rval v) ∧
+
+  (check_shape env.c sa v
+     ⇒ evaluate_ctxt ck env s (Cassert () sa) v (s, Rval v)) ∧
+
+  (¬check_shape env.c sa v
+     ⇒ evaluate_ctxt ck env s (Cassert () sa) v
+         (s, Rerr (Rabort Rtype_error)))
 End
 
 Inductive evaluate_ctxts:

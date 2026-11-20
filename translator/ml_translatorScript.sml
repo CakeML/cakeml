@@ -3721,6 +3721,97 @@ Proof
 QED
 
 
+(* Runtime shape assertions: assert_shape is the identity at the HOL level and
+   is translated to the Assert expression. The side condition of Eval_Assert
+   says that the refinement invariant guarantees the shape; the lemmas below
+   discharge it for common refinement invariants. *)
+
+Definition assert_shape_def:
+  assert_shape (sa:shape_assert) x = x
+End
+
+(* The checked (deep) shape dsa may differ from the HOL-level argument sa,
+   e.g. when constructor names are replaced by the translator's names. *)
+Theorem Eval_Assert:
+  ∀sa.
+    Eval env exp (a x) ∧ (∀v. a x v ⇒ check_shape env.c dsa v) ⇒
+    Eval env (Assert exp dsa) (a (assert_shape sa x))
+Proof
+  rw [Eval_def, eval_rel_def, assert_shape_def] >>
+  first_x_assum (qspecl_then [`refs`, `po`] strip_assume_tac) >>
+  qexistsl_tac [`res`, `refs'`, `po'`] >> simp [evaluate_def] >>
+  qexistsl_tac [`ck1`, `ck2`] >> simp []
+QED
+
+Theorem check_shape_AnyA:
+  check_shape c AnyA v
+Proof
+  simp [check_shape_def]
+QED
+
+Theorem INT_check_shape:
+  INT i v ⇒ check_shape c (PrimA IntT) v
+Proof
+  simp [INT_def, check_shape_def, check_type_def]
+QED
+
+Theorem NUM_check_shape:
+  NUM n v ⇒ check_shape c (PrimA IntT) v
+Proof
+  simp [NUM_def, INT_def, check_shape_def, check_type_def]
+QED
+
+Theorem BOOL_check_shape:
+  BOOL b v ⇒ check_shape c (PrimA BoolT) v
+Proof
+  Cases_on `b` >> simp [BOOL_def, check_shape_def, check_type_def]
+QED
+
+Theorem CHAR_check_shape:
+  CHAR ch v ⇒ check_shape c (PrimA CharT) v
+Proof
+  simp [CHAR_def, check_shape_def, check_type_def]
+QED
+
+Theorem STRING_TYPE_check_shape:
+  STRING_TYPE str v ⇒ check_shape c (PrimA StrT) v
+Proof
+  simp [STRING_TYPE_def, check_shape_def, check_type_def]
+QED
+
+Theorem LIST_TYPE_check_shape:
+  (∀x v. a x v ⇒ check_shape c sa v) ⇒
+  ∀l v. LIST_TYPE a l v ⇒ check_shape c (ListA sa) v
+Proof
+  strip_tac >> Induct >> rw [LIST_TYPE_def] >>
+  simp [check_shape_def, v_to_list_def, list_type_num_def] >>
+  qpat_x_assum `∀v. LIST_TYPE _ _ v ⇒ _` drule >>
+  simp [check_shape_def] >>
+  CASE_TAC >> simp [] >> metis_tac []
+QED
+
+Theorem PAIR_TYPE_check_shape:
+  (∀x v. a x v ⇒ check_shape c sa v) ⇒
+  (∀y v. b y v ⇒ check_shape c sb v) ⇒
+  ∀p v. PAIR_TYPE a b p v ⇒ check_shape c (TupleA [sa; sb]) v
+Proof
+  rpt strip_tac >> PairCases_on `p` >> fs [PAIR_TYPE_def] >>
+  simp [check_shape_def] >> metis_tac []
+QED
+
+(* A constructor of the right type passes ConsA, whichever constructor it is *)
+Theorem check_shape_ConsA:
+  nsLookup c cn = SOME (n, stamp) ∧
+  v = Conv (SOME stamp') vs ∧ same_type stamp stamp' ∧
+  (same_ctor stamp stamp' ⇒ LENGTH vs = n) ⇒
+  check_shape c (ConsA cn) v
+Proof
+  `∀m vs. LENGTH vs = m ⇒ pmatch_list c [] (REPLICATE m Pany) vs [] = Match []`
+    by (Induct >> Cases >> rw [pmatch_def]) >>
+  rw [check_shape_def, con_arity_def, pmatch_def] >> rw []
+QED
+
+
 (* a few misc. lemmas that help the automation *)
 
 Theorem IMP_PreImp:
@@ -4040,6 +4131,7 @@ Definition no_change_refs_def:
   no_change_refs (Con _ es) = EVERY no_change_refs es /\
   no_change_refs (Tannot e _) = no_change_refs e /\
   no_change_refs (Lannot e _) = no_change_refs e /\
+  no_change_refs (Assert e _) = no_change_refs e /\
   no_change_refs (Mat e pats) =
     (no_change_refs e /\ EVERY no_change_refs (MAP SND pats)) /\
   no_change_refs (App oper es) = ((case oper of

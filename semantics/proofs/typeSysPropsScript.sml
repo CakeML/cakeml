@@ -1268,6 +1268,26 @@ Proof
   >> fs [EVERY_MEM, deBruijn_subst_t_of]
 QED
 
+Theorem type_shape_subst:
+  (∀n tenv sa t. type_shape n tenv sa t ⇒
+     ∀inc tvs targs.
+       tenv_abbrev_ok tenv.t ∧ tenv_ctor_ok tenv.c ∧
+       n = inc + LENGTH targs ∧ EVERY (check_freevars tvs []) targs ⇒
+       type_shape (inc + tvs) tenv sa
+         (deBruijn_subst inc (MAP (deBruijn_inc 0 inc) targs) t)) ∧
+  (∀n tenv sas ts. type_shapes n tenv sas ts ⇒
+     ∀inc tvs targs.
+       tenv_abbrev_ok tenv.t ∧ tenv_ctor_ok tenv.c ∧
+       n = inc + LENGTH targs ∧ EVERY (check_freevars tvs []) targs ⇒
+       type_shapes (inc + tvs) tenv sas
+         (MAP (deBruijn_subst inc (MAP (deBruijn_inc 0 inc) targs)) ts))
+Proof
+  ho_match_mp_tac type_shape_ind >>
+  rw [type_shape_def, deBruijn_subst_t_of]
+  >- (drule (CONJUNCT1 type_p_subst) >> rw [] >> metis_tac []) >>
+  rw [deBruijn_subst_def] >> first_x_assum irule >> simp []
+QED
+
 Theorem type_e_subst:
  (!tenv tenvE e t. type_e tenv tenvE e t ⇒
     !tenvE1 targs tvs targs' tenvE2.
@@ -1323,6 +1343,8 @@ Proof
      num_tvs_db_merge, num_tvs_deBruijn_subst_tenvE, tenv_val_ok_def, Tchar_def]
  >~ [`open_tenv path tenv = SOME opened`]
  >- suspend "Open"
+ >~ [`type_shape`]
+ >- (irule (CONJUNCT1 type_shape_subst) >> simp [])
  >- suspend "Raise"
  >- suspend "Handle"
  >- suspend "ConFreevars"

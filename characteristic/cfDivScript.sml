@@ -219,6 +219,8 @@ Definition mk_single_app_def:
       opened scope, which may shadow both constructors and fname. *)
    (mk_single_app fname allow_fname (Open path e) =
     SOME (if allow_fname then mk_inr (Open path e) else Open path e)) /\
+   (mk_single_app fname allow_fname (Assert e sa) =
+    SOME (if allow_fname then mk_inr (Assert e sa) else Assert e sa)) /\
    (mk_single_app fname allow_fname (Let NONE e1 e2) =
     do
       e1 <- mk_single_app fname F e1;
@@ -515,6 +517,11 @@ Proof
     >> simp [evaluate_inr]
     >> every_case_tac
     >> simp [mk_inr_res_def])
+  >~ [`evaluate _ _ [Assert _ _]`] >- (
+    gvs [mk_single_app_def]
+    >> simp [evaluate_inr]
+    >> every_case_tac
+    >> simp [mk_inr_res_def])
   >> PURE_TOP_CASE_TAC
   (* Nil *)
   >- (fs[mk_single_app_def] >> rveq >> fs[evaluate_def,mk_inr_res_def])
@@ -725,6 +732,18 @@ Proof
       `evaluate start_state base_env [mk_inr (Open open_path body)]`
     >> simp [evaluate_inr]
     >> Cases_on `evaluate start_state base_env [Open open_path body]`
+    >> simp []
+    >> CASE_TAC
+    >> gvs [mk_inr_res_def]
+    >> drule evaluatePropsTheory.evaluate_sing
+    >> strip_tac
+    >> gvs [dest_inr_v_def])
+  >~ [`mk_single_apps _ _ [Assert _ _]`] >- (
+    gvs [mk_single_app_def, partially_evaluates_to_def]
+    >> qmatch_goalsub_rename_tac
+      `evaluate start_state base_env [mk_inr (Assert body sa)]`
+    >> simp [evaluate_inr]
+    >> Cases_on `evaluate start_state base_env [Assert body sa]`
     >> simp []
     >> CASE_TAC
     >> gvs [mk_inr_res_def]
@@ -2388,6 +2407,8 @@ Definition make_single_app_def:
    (* Leave calls inside Open and their lexical lookup scope unchanged. *)
    (make_single_app fname allow_fname (Open path e) =
     SOME (if allow_fname then then_tyerr (Open path e) else Open path e)) /\
+   (make_single_app fname allow_fname (Assert e sa) =
+    SOME (if allow_fname then then_tyerr (Assert e sa) else Assert e sa)) /\
    (make_single_app fname allow_fname (Let NONE e1 e2) =
     do
       e1 <- make_single_app fname F e1;
@@ -2743,6 +2764,16 @@ Proof
     >> qmatch_goalsub_rename_tac
       `evaluate start_state base_env [Open open_path body]`
     >> namedCases_on `evaluate start_state base_env [Open open_path body]`
+      ["final_state result"]
+    >> namedCases_on `result` ["values", "error"]
+    >> simp [mk_tyerr_res_def]
+    >> every_case_tac
+    >> simp [])
+  >~ [`make_single_app _ _ (Assert _ _)`] >- (
+    rw [make_single_app_def, part_evaluates_to_def]
+    >> qmatch_goalsub_rename_tac
+      `evaluate start_state base_env [Assert body sa]`
+    >> namedCases_on `evaluate start_state base_env [Assert body sa]`
       ["final_state result"]
     >> namedCases_on `result` ["values", "error"]
     >> simp [mk_tyerr_res_def]

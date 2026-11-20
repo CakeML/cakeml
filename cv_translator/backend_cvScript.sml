@@ -43,6 +43,7 @@ Definition collect_conses_def:
      collect_conses (collect_conses p e2) e1) ∧
   (collect_conses p (Tannot e a) = collect_conses p e) ∧
   (collect_conses p (Lannot e a) = collect_conses p e) ∧
+  (collect_conses p (Assert e sa) = collect_conses p e) ∧
   (collect_conses p (Open path e) = OpenCheck path (collect_conses [] e)::p) ∧
   (collect_conses p (Letrec funs e) =
      collect_conses_list3 (collect_conses p e) funs) ∧

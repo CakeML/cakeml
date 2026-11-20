@@ -346,6 +346,21 @@ Proof
  metis_tac [check_freevars_add, EVERY_MEM, eLookupC_weak]
 QED
 
+Theorem type_shape_weakening:
+  (∀tvs tenv sa t. type_shape tvs tenv sa t ⇒
+     ∀tenv' tvs'.
+       tvs' ≥ tvs ∧ tenv'.t = tenv.t ∧ weak_tenv tenv' tenv ⇒
+       type_shape tvs' tenv' sa t) ∧
+  (∀tvs tenv sas ts. type_shapes tvs tenv sas ts ⇒
+     ∀tenv' tvs'.
+       tvs' ≥ tvs ∧ tenv'.t = tenv.t ∧ weak_tenv tenv' tenv ⇒
+       type_shapes tvs' tenv' sas ts)
+Proof
+  ho_match_mp_tac type_shape_ind >>
+  rw [type_shape_def] >>
+  metis_tac [type_p_weakening]
+QED
+
 Theorem type_e_weakening_lem[local]:
   (!tenv tenvE e t. type_e tenv tenvE e t ⇒
     ∀tenv' tenvE'. weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_e tenv' tenvE' e t) ∧
@@ -372,7 +387,12 @@ Proof
       irule weak_extend_same_domain >> simp []) >>
     fs [weak_def] >>
     irule weak_tenvE_mask >>
-    simp [IS_SOME_EQ_NOT_NONE]) >>
+    simp [IS_SOME_EQ_NOT_NONE])
+  >~ [`type_e _ _ (Assert _ _) _`] >- (
+    simp [Once type_e_cases] >>
+    drule (CONJUNCT1 type_shape_weakening) >>
+    disch_then irule >>
+    fs [weak_tenvE_def]) >>
  rw [Once type_e_cases]
  >- metis_tac [weak_tenvE_freevars]
  >- (fs [RES_FORALL] >>

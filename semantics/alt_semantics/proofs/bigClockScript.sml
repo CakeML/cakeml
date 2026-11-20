@@ -682,8 +682,15 @@ Proof
       `exp_size e' < exp_size (Letrec l e')`
              by srw_tac [ARITH_ss] [exp_size_def] >>
       metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, with_clock_clock])
-  >> rename1 `exp_size (Open path body)`
-  >> Cases_on `open_dec_env path env` >> simp []
+  >- (rename1 `exp_size (Open path body)` >>
+      Cases_on `open_dec_env path env` >> simp [])
+  >> rename1 `Assert body sa`
+  >> `exp_size body < exp_size (Assert body sa)` by simp [exp_size_def]
+  >> `?s1 r1. evaluate T env (s with clock := count') body (s1,r1)`
+       by metis_tac []
+  >> Cases_on `r1`
+  >- (Cases_on `check_shape env.c sa a` >> metis_tac [])
+  >> metis_tac []
 QED
 
 Theorem big_clocked_total:

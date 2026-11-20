@@ -33,7 +33,8 @@ Definition no_ptr_eq_def[simp]:
   (no_ptr_eq (Letrec funs e) = no_ptr_eq e) ∧
   (no_ptr_eq (Tannot e t) = no_ptr_eq e) ∧
   (no_ptr_eq (Lannot e l) = no_ptr_eq e) ∧
-  (no_ptr_eq (Open path e) = no_ptr_eq e)
+  (no_ptr_eq (Open path e) = no_ptr_eq e) ∧
+  (no_ptr_eq (Assert e sa) = no_ptr_eq e)
 End
 
 Theorem evaluate_no_ptr_eq:

@@ -413,6 +413,14 @@ Proof
   small_eval_step_tac
 QED
 
+Theorem small_eval_assert:
+  !env s e1 sa c r.
+    small_eval env s (Assert e1 sa) c r =
+    small_eval env s e1 ((Cassert () sa,env)::c) r
+Proof
+  small_eval_step_tac
+QED
+
 Inductive small_eval_list:
   (!env s. small_eval_list env s [] (s, Rval [])) ∧
   (!s1 env e es v vs s2 s3 env'.

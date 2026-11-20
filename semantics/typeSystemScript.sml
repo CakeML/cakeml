@@ -695,6 +695,23 @@ type_ps tvs tenv ps ts bindings')
 type_ps tvs tenv (p::ps) (t::ts) (bindings'++bindings))
 End
 
+(* A shape assertion that a well-typed value of type t always satisfies *)
+Definition type_shape_def:
+  type_shape tvs tenv AnyA t = T ∧
+  type_shape tvs tenv (PrimA ty) t = (t = t_of ty) ∧
+  type_shape tvs tenv (ConsA cn) t =
+    (∃n bindings.
+       type_p tvs tenv (Pcon (SOME cn) (REPLICATE n Pany)) t bindings) ∧
+  type_shape tvs tenv (TupleA sas) t =
+    (∃ts. t = Ttup ts ∧ type_shapes tvs tenv sas ts) ∧
+  type_shape tvs tenv (ListA sa) t =
+    (∃t1. t = Tlist t1 ∧ type_shape tvs tenv sa t1) ∧
+  type_shapes tvs tenv [] [] = T ∧
+  type_shapes tvs tenv (sa::sas) (t::ts) =
+    (type_shape tvs tenv sa t ∧ type_shapes tvs tenv sas ts) ∧
+  type_shapes tvs tenv _ _ = F
+End
+
 Inductive type_e:
 (! tenv tenvE n.
 T
@@ -837,6 +854,12 @@ type_e (extend_dec_tenv opened tenv)
   (tveMask (\n. IS_SOME (nsLookup opened.v (Short n))) tenvE) e t)
 ==>
 type_e tenv tenvE (Open path e) t)
+
+/\ (! tenv tenvE e sa t.
+(type_e tenv tenvE e t /\
+type_shape (num_tvs tenvE) tenv sa t)
+==>
+type_e tenv tenvE (Assert e sa) t)
 
 /\ (! tenv tenvE.
 T

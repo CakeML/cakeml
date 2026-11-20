@@ -50,6 +50,7 @@ val r = translate ast_sexpTheory.from_ast_t_def
 val r = translate ast_sexpTheory.from_pat_def
 val r = translate ast_sexpTheory.from_lop_def
 val r = translate ast_sexpTheory.from_locs_def
+val r = translate ast_sexpTheory.from_shape_def
 val r = translate ast_sexpTheory.from_exp_def
 val r = translate ast_sexpTheory.from_ctor_def
 val r = translate ast_sexpTheory.from_tdef_def
@@ -80,6 +81,7 @@ val r = translate (ast_sexpTheory.to_ast_t_def |> apply_rewrites)
 val r = translate (ast_sexpTheory.to_pat_def |> apply_rewrites)
 val r = translate ast_sexpTheory.to_lop_def
 val r = translate (ast_sexpTheory.to_locs_def |> apply_rewrites)
+val r = translate (ast_sexpTheory.to_shape_def |> apply_rewrites)
 
 val r = translate (listTheory.OPT_MMAP_def |> apply_rewrites)
 val r = translate (ast_sexpTheory.to_exp_def |> apply_rewrites)  (* a bit slow *)

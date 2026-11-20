@@ -1230,6 +1230,39 @@ Proof
   \\ gvs [env_rel_nsAll2, PULL_EXISTS]
 QED
 
+Theorem pmatch_list_REPLICATE_Pany[local]:
+  ∀n vs env.
+    pmatch_list envC st (REPLICATE n Pany) vs env =
+    if LENGTH vs = n then Match env else Match_type_error
+Proof
+  Induct >> Cases_on `vs` >> rw [pmatch_def]
+QED
+
+Theorem v_rel_check_shape[local]:
+  (∀c sa x y. v_rel es x y ∧ check_shape c sa x ⇒ check_shape c sa y) ∧
+  (∀c sas xs ys.
+     LIST_REL (v_rel es) xs ys ∧ check_shapes c sas xs ⇒ check_shapes c sas ys)
+Proof
+  ho_match_mp_tac check_shape_ind \\ rw [check_shape_def]
+  >- (
+    Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
+    \\ Cases_on ‘x’ \\ gvs [check_type_def, Boolv_def])
+  >- (
+    Cases_on ‘x’ \\ gvs [pmatch_def]
+    \\ rename [‘Conv oo _’] \\ Cases_on ‘oo’
+    \\ gvs [pmatch_def, AllCaseEqs(), pmatch_list_REPLICATE_Pany]
+    \\ imp_res_tac LIST_REL_LENGTH \\ gvs [] \\ metis_tac [])
+  >- (
+    Cases_on ‘x’ \\ gvs []
+    \\ Cases_on ‘o'’ \\ gvs [SF SFY_ss])
+  >- (
+    Cases_on ‘v_to_list x’ \\ gvs []
+    \\ drule_all v_to_list \\ rw []
+    \\ gvs [EVERY_MEM, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, SF SFY_ss]
+    \\ metis_tac [])
+  \\ gvs [check_shape_def, SF SFY_ss]
+QED
+
 Theorem eval_simulation:
   (! ^s env exps s' res es t env'.
   evaluate s env exps = (s', res) /\
@@ -1293,6 +1326,7 @@ Proof
   >~ [`Case (_, [Dtype _ _])`] >- suspend "Dtype"
   >~ [`Case (_, [Dexn _ _ _])`] >- suspend "Dexn"
   >~ [`Case (_, [Dlocal _ _])`] >- suspend "Dlocal"
+  >~ [`Case ([Assert _ _])`] >- suspend "Assert"
   \\ rpt disch_tac
   \\ insts_tac
   \\ TRY (
@@ -1552,6 +1586,14 @@ Resume eval_simulation[Denv]:
     \\ simp [EL_LUPDATE]
     \\ rw [EL_APPEND_EQN]
   )
+QED
+
+Resume eval_simulation[Assert]:
+  rpt disch_tac
+  \\ eval_cases_tac
+  \\ first_x_assum drule_all \\ strip_tac \\ gvs []
+  \\ imp_res_tac env_rel_imp_c
+  \\ metis_tac [v_rel_check_shape]
 QED
 
 Resume eval_simulation[Open]:
@@ -2429,6 +2471,7 @@ Proof
   >- suspend "Tannot"
   >- suspend "Lannot"
   >- suspend "Open"
+  >- suspend "Assert"
   >- suspend "match_cons"
   >- suspend "dec_cons"
   >- suspend "Dlet"
@@ -2654,6 +2697,11 @@ QED
 Resume evaluate_ptr_eq_prefix[Open]:
   Cases_on `open_dec_env path env` \\ gvs []
   \\ last_x_assum drule \\ simp []
+QED
+
+Resume evaluate_ptr_eq_prefix[Assert]:
+  gvs [AllCaseEqs()]
+  \\ last_x_assum drule_all \\ rw [] \\ gvs []
 QED
 
 Resume evaluate_ptr_eq_prefix[match_cons]:
