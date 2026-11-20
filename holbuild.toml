@@ -1,5 +1,5 @@
 [holbuild]
-minimum_version = "0.11.7"
+minimum_version = "0.14.78"
 
 [project]
 name = "cakeml-compiler"
