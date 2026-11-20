@@ -154,12 +154,37 @@ Correctness proof for lab_filter
 [lab_to_targetProofScript.sml](lab_to_targetProofScript.sml):
 Correctness proof for lab_to_target
 
+[source_adjust_decsProofScript.sml](source_adjust_decsProofScript.sml):
+In evalSem's EvalDecs mode, the declarations given to Eval are decoded
+by the EvalDecs state and checked against its compiler. This theory
+shows that a source-to-source compiler can be moved from the compiler
+of the EvalDecs state into its decoding of declarations: the program
+behaves the same if the decoded declarations are compiled before they
+are evaluated, as long as the compiler checks the same thing. The
+compiled declarations may need extra clock to run. This does not
+apply in the EvalOracle, EvalRun and EvalPending modes.
+
 [source_dceProofScript.sml](source_dceProofScript.sml):
 Correctness for the source_dce pass.
 
-[source_evalProofScript.sml](source_evalProofScript.sml):
-Proofs that the eval mode of the source semantics can
-be switched to one that includes an oracle.
+[source_eval_initProofScript.sml](source_eval_initProofScript.sml):
+Correctness for the source_eval_init pass, which runs within evalSem
+before source_to_source. The input program runs in the EvalPending
+mode, and the compiled program runs in the EvalDecs mode.
+
+[source_eval_oracleProofScript.sml](source_eval_oracleProofScript.sml):
+Proofs that, in evalSem, the eval mode of the semantics can be
+switched to one that includes an oracle.
+
+[source_eval_semProofScript.sml](source_eval_semProofScript.sml):
+Moves programs from the source semantics to evalSem. A source eval
+state corresponds to an evalSem state in EvalPending mode: a
+one-argument call to Eval initialises Eval in both semantics, and a
+two-argument call, which the source semantics resolves with its eval
+oracle, is resolved in evalSem by running the compiler (or fails when
+Eval has not been initialised). Choosing the eval oracle that answers
+as the compiler makes the two semantics agree. Without an eval state,
+a program means the same in both semantics.
 
 [source_letProofScript.sml](source_letProofScript.sml):
 Correctness for the source_let pass.
@@ -171,7 +196,8 @@ Correctness for the source_lift_consts pass.
 Correctness proof for source_to_flat
 
 [source_to_sourceProofScript.sml](source_to_sourceProofScript.sml):
-Proof of correctness for source_to_source.
+Proof of correctness for source_to_source. The proofs are about
+evalSem in EvalDecs mode.
 
 [stack_allocProofScript.sml](stack_allocProofScript.sml):
 Correctness proof for stack_alloc

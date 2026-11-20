@@ -257,9 +257,8 @@ QED
 
 Definition eval_state_ok_def:
   eval_state_ok NONE = T ∧
-  eval_state_ok (SOME (EvalDecs s)) =
-    (∀v ds. s.decode_decs v = SOME ds ⇒ EVERY safe_dec ds) ∧
-  eval_state_ok _ = F
+  eval_state_ok (SOME (s:source_eval_state)) =
+    (∀v ds. s.decode_decs v = SOME ds ⇒ EVERY safe_dec ds)
 End
 
 Definition state_ok_def:

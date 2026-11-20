@@ -148,7 +148,7 @@ Theorem semantics_compiler_ag32_prog:
     (semantics_dec_list
       (init_state (basis_ffi ext cl fs) with
        eval_state :=
-         SOME (EvalDecs (eval_state_var with env_id_counter := (0,0,1))))
+         SOME (eval_state_var with env_id_counter := (0,0,1)))
       init_env compiler_ag32_prog)
     (λbehaviour.
        ∃io_events.

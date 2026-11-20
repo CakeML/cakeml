@@ -93,11 +93,25 @@ Inductive repl_types:
      FLOOKUP slots loc = SOME ty ∧ trusted_input_value catalogue ty value ∧
      store_assign loc (Refv value) s.refs = SOME new_store ⇒
      repl_types catalogue slots b (ffi,rs) (types,s with refs := new_store,env))
-[repl_types_oracle:]
-  (∀ffi rs types (s:'ffi semanticPrimitives$state) env po b.
+[repl_types_oracles:]
+  (∀ffi rs types (s:'ffi semanticPrimitives$state) env po eo b.
      repl_types catalogue slots b (ffi,rs) (types,s,env) ⇒
-     repl_types catalogue slots b (ffi,rs) (types,s with ptr_eq_oracle := po,env))
+     repl_types catalogue slots b (ffi,rs)
+       (types,s with <| ptr_eq_oracle := po; eval_oracle := eo |>,env))
 End
+
+Theorem repl_types_oracle:
+  ∀ffi rs types (s:'ffi semanticPrimitives$state) env po b.
+    repl_types catalogue slots b (ffi,rs) (types,s,env) ⇒
+    repl_types catalogue slots b (ffi,rs) (types,s with ptr_eq_oracle := po,env)
+Proof
+  rpt strip_tac
+  \\ drule_then (qspecl_then [‘po’,‘s.eval_oracle’] mp_tac) repl_types_oracles
+  \\ ‘s with <| ptr_eq_oracle := po; eval_oracle := s.eval_oracle |> =
+      s with ptr_eq_oracle := po’
+    by simp [semanticPrimitivesTheory.state_component_equality]
+  \\ simp []
+QED
 
 (* Mirror definitions for repl_types using the type system directly *)
 Definition to_type_TS_def:
@@ -164,9 +178,10 @@ Inductive repl_types_TS:
      store_assign loc (Refv value) s.refs = SOME new_store ⇒
      repl_types_TS catalogue slots (ffi,rs) (tids,tenv,s with refs := new_store,env))
 [repl_types_TS_oracle:]
-  (∀ffi rs tids tenv (s:'ffi semanticPrimitives$state) env po.
+  (∀ffi rs tids tenv (s:'ffi semanticPrimitives$state) env po eo.
      repl_types_TS catalogue slots (ffi,rs) (tids,tenv,s,env) ⇒
-     repl_types_TS catalogue slots (ffi,rs) (tids,tenv,s with ptr_eq_oracle := po,env))
+     repl_types_TS catalogue slots (ffi,rs)
+       (tids,tenv,s with <| ptr_eq_oracle := po; eval_oracle := eo |>,env))
 End
 
 Theorem init_config_tenv_to_ienv:
@@ -374,7 +389,7 @@ QED
 
 Theorem input_typing_witnesses_oracle[local]:
   input_typing_witnesses catalogue slots tids tenv
-    (st with ptr_eq_oracle := po) env ctMap tenvS <=>
+    (st with <| ptr_eq_oracle := po; eval_oracle := eo |>) env ctMap tenvS <=>
   input_typing_witnesses catalogue slots tids tenv
     (st:'ffi semanticPrimitives$state) env ctMap tenvS
 Proof
@@ -546,7 +561,7 @@ Proof
     metis_tac [repl_types_TS_trusted_assign])
   >~ [`MEM (_,Str,_) _`] >- (
     metis_tac [repl_types_TS_str_assign])
-  >~ [`_ with ptr_eq_oracle := _`] >- (
+  >~ [`_ with <| ptr_eq_oracle := _; eval_oracle := _ |>`] >- (
     metis_tac [repl_types_TS_oracle]) >>
   qmatch_asmsub_rename_tac
     `infertype_prog_inc previous_types _ = M_success updated_types` >>
@@ -613,9 +628,10 @@ Proof
        (next_st.next_type_stamp - st.next_type_stamp);
      next_exn_stamp := st.next_exn_stamp +
        (next_st.next_exn_stamp - st.next_exn_stamp)|>)
-     with ptr_eq_oracle := next_st.ptr_eq_oracle` by (
+     with <| ptr_eq_oracle := next_st.ptr_eq_oracle;
+             eval_oracle := next_st.eval_oracle |>` by (
          fs [semanticPrimitivesTheory.state_component_equality]) >>
-  pop_assum SUBST1_TAC >> irule repl_types_oracle >>
+  pop_assum SUBST1_TAC >> irule repl_types_oracles >>
   irule repl_types_skip >> simp []
 QED
 
@@ -710,9 +726,10 @@ Resume repl_types_set_clock[TrustedAssign]:
 QED
 
 Resume repl_types_set_clock[Oracle]:
-  ‘s with <|clock := ck; ptr_eq_oracle := po|> =
-   (s with clock := ck) with ptr_eq_oracle := po’ by simp [] >>
-  pop_assum SUBST1_TAC >> irule repl_types_oracle >> simp []
+  ‘s with <|clock := ck; ptr_eq_oracle := po; eval_oracle := eo|> =
+   (s with clock := ck) with <|ptr_eq_oracle := po; eval_oracle := eo|>’
+    by simp [] >>
+  pop_assum SUBST1_TAC >> irule repl_types_oracles >> simp []
 QED
 
 Finalise repl_types_set_clock;
@@ -886,9 +903,9 @@ QED
 
 Resume repl_types_T_F[Oracle]:
   gvs [] >>
-  qexistsl_tac [‘clean with ptr_eq_oracle := po’,‘clean_env’,
-    ‘fr’,‘ft’,‘fe’,‘l’] >>
-  gvs [state_rel_def] >> irule repl_types_oracle >> simp []
+  qexistsl_tac [‘clean with <|ptr_eq_oracle := po; eval_oracle := eo|>’,
+    ‘clean_env’,‘fr’,‘ft’,‘fe’,‘l’] >>
+  gvs [state_rel_def] >> irule repl_types_oracles >> simp []
 QED
 
 Finalise repl_types_T_F;

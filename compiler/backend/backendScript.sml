@@ -5,7 +5,7 @@
 *)
 Theory backend
 Ancestors
-  source_to_source source_to_flat flat_to_clos clos_to_bvl
+  source_eval_init source_to_source source_to_flat flat_to_clos clos_to_bvl
   bvl_to_bvi bvi_to_data data_to_word word_to_stack stack_to_lab
   lab_to_target word_to_word presLang
   primTypes[qualified]
@@ -42,6 +42,7 @@ End
 
 Definition compile_def:
   compile asm_conf c p =
+    let p = source_eval_init$compile_decs p in
     let p = source_to_source$compile p in
     let _ = empty_ffi «finished: source_to_source» in
     let (c',p) = source_to_flat$compile c.source_conf p in
@@ -79,6 +80,7 @@ End
 
 Definition to_flat_def:
   to_flat c p =
+    let p = source_eval_init$compile_decs p in
     let p = source_to_source$compile p in
     let (c',p) = source_to_flat$compile c.source_conf p in
     let c = c with source_conf := c' in
@@ -280,6 +282,7 @@ End
 
 Definition from_source_def:
   from_source asm_conf c p =
+  let p = source_eval_init$compile_decs p in
   let p = source_to_source$compile p in
   let (c',p) = source_to_flat$compile c.source_conf p in
   let c = c with source_conf := c' in
@@ -556,6 +559,7 @@ Definition compile_inc_progs_def:
   compile_inc_progs k asm_conf c p_tup =
     let (env_id,p) = p_tup in
     let ps = empty_progs with <| env_id := env_id; source_prog := p |> in
+    let p = source_eval_init$inc_compile_decs p in
     let p = source_to_source$inc_compile p in
     let (c',p) = source_to_flat$inc_compile env_id c.source_conf p in
     let ps = ps with <| flat_prog := keep_progs k p |> in
@@ -621,6 +625,7 @@ QED
 
 Theorem compile_inc_progs_for_eval_eq:
   compile_inc_progs_for_eval asm_conf (env_id,c,p) =
+    let p = source_eval_init$inc_compile_decs p in
     let p = source_to_source$inc_compile p in
     let (c',p) = source_to_flat$inc_compile env_id c.source_conf p in
     let _ = empty_ffi «finished: source_to_flat» in

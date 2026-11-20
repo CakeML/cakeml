@@ -21,7 +21,6 @@ val the_regexp = "through\^@";
 
 val _ = translation_extends"MapProg";
 
-
 val regexp_compilation_results as {certificate, aux, ...}
   = regexpLib.gen_dfa regexpLib.HOL (Regexp_Type.fromString the_regexp);
 
@@ -29,7 +28,6 @@ Theorem matcher_certificate =
   certificate
       |> valOf
       |> CONV_RULE(QUANT_CONV(LHS_CONV (REWRITE_CONV [MAP])))
-
 
 (*---------------------------------------------------------------------------*)
 (* Define a named matcher function                                           *)
@@ -1487,6 +1485,41 @@ Proof
   fs[evaluate_ck_def]
 QED
 
+(* without an eval state, the eval oracle does not affect the semantics *)
+Theorem evaluate_prog_with_clock_eval_oracle[local]:
+  s.eval_state = NONE ⇒
+  evaluate_prog_with_clock (s with eval_oracle := eo) env k p =
+  evaluate_prog_with_clock s env k p
+Proof
+  rw [semanticsTheory.evaluate_prog_with_clock_def]
+  \\ Cases_on ‘evaluate_decs (s with clock := k) env p’
+  \\ drule (cj 3 evaluatePropsTheory.eval_no_eval_oracle)
+  \\ simp []
+  \\ disch_then (qspec_then ‘eo’ mp_tac)
+  \\ ‘s with <|eval_oracle := eo; clock := k|> =
+      s with <|clock := k; eval_oracle := eo|>’
+    by simp [semanticPrimitivesTheory.state_component_equality]
+  \\ simp []
+QED
+
+Theorem semantics_determ_drop_eval_oracle[local]:
+  semantics_determ (s with <|ffi := f; ptr_eq_oracle := po; eval_oracle := eo|>)
+    env p b ∧ s.eval_state = NONE ⇒
+  semantics_determ (s with <|ffi := f; ptr_eq_oracle := po|>) env p b
+Proof
+  strip_tac
+  \\ ‘s with <|ffi := f; ptr_eq_oracle := po; eval_oracle := eo|> =
+      (s with <|ffi := f; ptr_eq_oracle := po|>) with eval_oracle := eo’
+    by simp [semanticPrimitivesTheory.state_component_equality]
+  \\ qpat_x_assum ‘semantics_determ _ _ _ _’ mp_tac
+  \\ pop_assum SUBST1_TAC
+  \\ qmatch_goalsub_abbrev_tac ‘semantics_determ (s1 with eval_oracle := _)’
+  \\ ‘s1.eval_state = NONE’ by simp [Abbr ‘s1’]
+  \\ Cases_on ‘b’
+  \\ simp [semanticsTheory.semantics_determ_def,
+           evaluate_prog_with_clock_eval_oracle]
+QED
+
 Theorem semantics_diverge_filter:
    every ($>= 256 o LENGTH) inl
    /\ every (null_terminated_w) inl
@@ -1496,6 +1529,8 @@ Theorem semantics_diverge_filter:
 Proof
   rpt strip_tac
   >> fs [semanticsTheory.semantics_prog_def]
+  >> drule semantics_determ_drop_eval_oracle >> impl_tac >- EVAL_TAC
+  >> strip_tac
   >> `LLENGTH inl = NONE`
       by(CCONTR_TAC >> fs[GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]
          >> metis_tac[forward_matching_lines_ffidiv_semantics,ffiTheory.behaviour_distinct,
@@ -1518,6 +1553,8 @@ Theorem semantics_finite_filter:
 Proof
   rpt strip_tac
   >> fs [semanticsTheory.semantics_prog_def]
+  >> drule semantics_determ_drop_eval_oracle >> impl_tac >- EVAL_TAC
+  >> strip_tac
   >> `?n. LLENGTH inl = SOME n`
       by(simp[GSYM IS_SOME_EXISTS] >> CCONTR_TAC
          >> fs[]
