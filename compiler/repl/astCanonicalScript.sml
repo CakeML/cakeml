@@ -5,8 +5,8 @@
 *)
 Theory astCanonical
 Ancestors
-  AstProg typeRepCanonical typeRepPreludeCanonical typeSoundInvariants
-  typeSystem semanticPrimitives namespace ml_translator std_prelude ast evaluate_skip
+  AstProg typeRepCanonical typeRepPreludeCanonical
+  typeSystem semanticPrimitives ml_translator std_prelude evaluate_skip
 Libs
   preamble ml_translatorLib astSyntax[qualified]
   semanticPrimitivesSyntax[qualified] mlstringSyntax[qualified]
@@ -479,7 +479,7 @@ Proof
       irule type_rep_complete_below_list >> simp []) >>
   drule_all type_v_datatype_signature >>
   disch_then (qx_choosel_then
-    [`ctor_name`,`runtime_index`,`ctor_fields`,`ctor_params`,`ctor_types`]
+    [`ctor_name`,`runtime_index`,`ctor_pos`,`ctor_fields`,`ctor_params`,`ctor_types`]
     strip_assume_tac) >>
   `EVERY (\field. v_size field < v_size value) ctor_fields` by (
     rewrite_tac [EVERY_MEM] >> qx_gen_tac `field_value` >> strip_tac >>
