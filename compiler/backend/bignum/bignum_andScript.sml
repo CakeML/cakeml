@@ -11,6 +11,8 @@ Libs
 (* Next: I feel like we want to run some sort of simp before our tactics *)
 (* TODO Check for consistent naming *)
 
+(* TODO Look into how to set up a printer for stack _::...*)
+
 (* TODO
    Refactor tactics; should be stepable (i.e. modular and composed of things),
    and have good error messages. *)
@@ -148,6 +150,9 @@ Proof
   simp [i2w_def]
 QED
 
+(* TODO We have a lot of these conversion lemmas; could we avoid some of them
+     if we stick to some form? *)
+
 Theorem b2w_11:
   b2w x = b2w y ⇔ x = y
 Proof
@@ -163,6 +168,12 @@ QED
 (* TODO This seems worse than b2w_ite *)
 Theorem b2w_b2n:
   (if b2w b = 0w then 0n else 1) = b2n b
+Proof
+  Cases_on ‘b’ >> simp [b2w_def, b2n_def]
+QED
+
+Theorem w2n_b2w:
+  w2n (b2w b) = b2n b
 Proof
   Cases_on ‘b’ >> simp [b2w_def, b2n_def]
 QED
@@ -186,6 +197,15 @@ Theorem single_sub_0w_co[local]:
   co = (dimword (:α) ≤ w2n x + w2n (-1w :α word) + b2n ci)
 Proof
   strip_tac >> gvs [single_sub_def, single_add_def]
+QED
+
+Theorem single_add_0w_co[local]:
+  single_add (x: α word) 0w ci = (r, co)
+  ⇒
+  r = (x + b2w ci) ∧
+  co = (dimword (:α) ≤ w2n x + b2n ci)
+Proof
+  strip_tac >> gvs [single_add_def]
 QED
 
 (* TODO move *)
@@ -436,10 +456,10 @@ Proof
 QED
 
 Theorem evaluate_While_False_NONE:
+  eval s e = SOME (ValWord w) ∧
+  w = (0w :α word) ∧
   res = NONE ∧
-  s' = s ∧
-  eval s e = SOME (ValWord (i2w i: α word)) ∧
-  i2w i = (0w :α word)
+  s' = s
   ⇒
   evaluate (While e c,s) = (NONE, s')
 Proof
@@ -1894,14 +1914,10 @@ QED
 
 (** mwi_and_neg_neg_pan *******************************************************)
 
-Theorem mwi_and_neg_neg_pan_loop0_thm_raw[local]:
-  ∀(xs: α word list) ys zs rs rs' s c d e x y z len_written frame.
-    LENGTH xs ≤ LENGTH ys ∧
-    LENGTH xs ≤ LENGTH rs ∧
+Theorem mwi_and_neg_neg_pan_loop0_thm[local]:
+  ∀(xs: α word list) ys zs rs rs' s c d e x y z frame.
+    LENGTH rs = LENGTH xs ∧ LENGTH xs ≤ LENGTH ys ∧
     LENGTH xs ≤ s.clock ∧
-    rs' =
-      MAP Word (TAKE (LENGTH xs) (mwi_and_neg_neg c d e xs ys)) ++
-      DROP (LENGTH xs) rs ∧
     FLOOKUP s.locals «c» = SOME (Val (Word (b2w c))) ∧
     FLOOKUP s.locals «d» = SOME (Val (Word (b2w d))) ∧
     FLOOKUP s.locals «e» = SOME (Val (Word (b2w e))) ∧
@@ -1923,7 +1939,7 @@ Theorem mwi_and_neg_neg_pan_loop0_thm_raw[local]:
                   clock := s.clock - LENGTH xs |>) ∧
       (ones x (MAP Word xs) *
        ones y (MAP Word ys) *
-       ones z rs' *
+       ones z (MAP Word (TAKE (LENGTH xs) (mwi_and_neg_neg c d e xs ys))) *
        frame) (fun2set (m, s.memaddrs))
 Proof
   simp [] >> Induct >> rw [mwi_and_neg_neg_pan_loop0_def]
@@ -1962,9 +1978,10 @@ Proof
   >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
   >> disch_then $ qspec_then ‘s'’ mp_tac
   >> simp [Abbr ‘s'’, FLOOKUP_res_var_neq, FLOOKUP_SIMP]
-  >> simp [dec_clock_def, GSYM b2w_ite, b2w_11, WORD_NEG1_MUL_NOT, i2w_one,
-           n2w_SUC]
-  >> simp [i2w_0, i2w_minus_1, b2w_b2n, GSYM word_add_n2w, n2w_b2n]
+  >> simp [dec_clock_def, i2w_minus_1, GSYM b2w_ite, b2w_11, WORD_NEG1_MUL_NOT,
+           n2w_SUC, i2w_one]
+  >> simp [i2w_0, GSYM word_add_n2w, b2w_b2n, n2w_b2n, i2w_minus_1]
+  >> qmatch_goalsub_abbrev_tac ‘s.memory⦇z ↦ Word zv⦈’
   >> qabbrev_tac ‘memory = s.memory’
   >> SEP_W_TAC
   >> simp [Abbr ‘memory’]
@@ -1978,16 +1995,129 @@ Proof
   >> qpat_x_assum ‘single_sub _ _ _ = _’ mp_tac
   >> rename1 ‘single_sub h 0w c = (x₂,c₁)’
   >> strip_tac
-  >> qmatch_asmsub_abbrev_tac ‘mwi_and_neg_neg (_ ≤ x₂') (_ ≤ z₂') (_ ≤ y₂')’
-(*
-  >> have ‘x₂' = x₂ ∧ y₂' = y₂ ∧ z₂' = z₂ ∧ c₁ = (dimword (:α) ≤ x₂) ∧
-           d₁ = (dimword (:α) ≤ y₂) ∧ e₁ = (dimword (:α) ≤ z₂)’
-  >> simp [i2w_minus_1, , , b2n_ite, ]
-  >> simp [Abbr ‘r’, i2w_minus_1, w2n_minus1, b2w_b2n, GSYM word_add_n2w,
-           GSYM b2w_def, WORD_NEG1_MUL_NOT]
-*)
-  >> cheat
+  >> qmatch_asmsub_abbrev_tac ‘mwi_and_neg_neg c₁' d₁' e₁'’
+  >> have ‘z₂ = zv ∧ c₁' = c₁ ∧ d₁' = d₁ ∧ e₁' = e₁’
+  >- (
+    imp_res_tac single_add_0w_co
+    >> imp_res_tac single_sub_0w_co
+    >> unabbrev_all_tac >> fs []
+  )
+  >> gvs [AC STAR_ASSOC STAR_COMM, ones_def]
 QED
 
-Theorem mwi_and_neg_neg_pan_loop0_thm[local] =
-  SIMP_RULE bool_ss [] mwi_and_neg_neg_pan_loop0_thm_raw
+Theorem mwi_and_neg_neg_pan_loop1_thm[local]:
+  ∀(ys: α word list) s xs zs rs rs' d e x y z frame.
+    LENGTH rs = LENGTH ys ∧ LENGTH ys ≤ s.clock ∧
+    FLOOKUP s.locals «d» = SOME (Val (Word (b2w d))) ∧
+    FLOOKUP s.locals «e» = SOME (Val (Word (b2w e))) ∧
+    FLOOKUP s.locals «ys_len» = SOME (Val (Word (n2w (LENGTH ys)))) ∧
+    FLOOKUP s.locals «ys» = SOME (Val (Word y)) ∧
+    FLOOKUP s.locals «zs» = SOME (Val (Word z)) ∧
+    (ones y (MAP Word ys) *
+     ones z rs *
+     frame) (fun2set (s.memory, s.memaddrs)) ∧
+    byte_dimindex (:α) ∧ 8 < dimindex (:α)
+    ⇒
+    ∃m l.
+      evaluate (mwi_and_neg_neg_pan_loop1,s) = (NONE,
+        s with <| memory := m;
+                  locals := l;
+                  clock := s.clock - LENGTH ys |>) ∧
+      (ones y (MAP Word ys) *
+       ones z (MAP Word (TAKE (LENGTH ys) (mwi_and_neg_neg c d e [] ys))) *
+       frame) (fun2set (m, s.memaddrs))
+Proof
+  simp [] >> Induct >> rw [mwi_and_neg_neg_pan_loop1_def]
+  >- (simp [Once evaluate_def, eval_Var_Local, state_component_equality])
+  >> once_rewrite_tac [GSYM stack_evaluate]
+  >> have ‘SUC (LENGTH ys) < dimword (:α)’
+  >- (
+    drule_all_then assume_tac byte_dimindex_leq
+    >> drule_then mp_tac $
+         INST_TYPE [“:β” |-> “:α word_lab”] ones_leq_dimword
+    >> disch_then $ qspec_then ‘Word h::MAP Word ys’ assume_tac
+    >> SEP_F_TAC >> simp [] >> strip_tac
+    >> drule_all_then assume_tac one_lt_w2n_bytes_in_word
+    >> irule_at (Pos hd) LESS_LESS_EQ_TRANS
+    >> first_assum $ irule_at (Pos last)
+    >> simp []
+  )
+  >> enter_loop
+  >> walk >> hsimp []
+  >> walk
+  >> hsimp [dec_clock_record]
+  >> fs [ones_def]
+  >> SEP_R_TAC
+  >> rpt (walk >> hsimp [])
+  >> hsimp [dec_clock_record]
+  >> Cases_on ‘rs’ >> fs [ones_def]
+  >> SEP_R_TAC
+  >> rpt (walk >> hsimp [])
+  >> simp [GSYM mwi_and_neg_neg_pan_loop1_def]
+  >> last_x_assum drule
+  >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
+  >> disch_then $ qspec_then ‘s'’ mp_tac
+  >> simp [Abbr ‘s'’, FLOOKUP_res_var_neq, FLOOKUP_SIMP]
+  >> simp [dec_clock_def, i2w_minus_1, GSYM b2w_ite, b2w_11, WORD_NEG1_MUL_NOT,
+           n2w_SUC, i2w_one]
+  >> qmatch_goalsub_abbrev_tac ‘s.memory⦇z ↦ Word zv⦈’
+  >> qabbrev_tac ‘memory = s.memory’
+  >> SEP_W_TAC
+  >> simp [Abbr ‘memory’]
+  >> strip_tac
+  >> SEP_F_TAC
+  >> strip_tac
+  >> simp [stack_def, state_component_equality, mwi_and_neg_neg_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> rename1 ‘single_sub h 0w d = (y₂,d₁)’
+  >> rename1 ‘single_add y₂ 0w e = (z',e₁)’
+  >> qmatch_asmsub_abbrev_tac ‘mwi_and_neg_neg _ d₁' e₁'’
+  >> have ‘z' = zv ∧ d₁' = d₁ ∧ e₁' = e₁’
+  >- (
+    imp_res_tac single_add_0w_co
+    >> imp_res_tac single_sub_0w_co
+    >> unabbrev_all_tac
+    >> gvs [i2w_0, b2w_b2n, GSYM word_add_n2w, n2w_b2n, n2w_mod]
+    >> have ‘h + b2w d + -1w = n2w (b2n d + (w2n h + w2n (-1w :α word)))’
+    >- simp [GSYM word_add_n2w, n2w_b2n]
+    >> simp []
+  )
+  >> gvs [AC STAR_ASSOC STAR_COMM, ones_def]
+QED
+
+Theorem mwi_and_neg_neg_pan_body_thm[local]:
+  ∀(xs: α word list) ys zs rs rs' s c d e x y z frame.
+    LENGTH rs = LENGTH xs + LENGTH ys + 1 ∧
+    LENGTH xs ≤ LENGTH ys ∧
+    LENGTH xs + LENGTH ys ≤ s.clock ∧
+    FLOOKUP s.locals «c» = SOME (Val (Word (b2w c))) ∧
+    FLOOKUP s.locals «d» = SOME (Val (Word (b2w d))) ∧
+    FLOOKUP s.locals «e» = SOME (Val (Word (b2w e))) ∧
+    FLOOKUP s.locals «xs_len» = SOME (Val (Word (n2w (LENGTH xs)))) ∧
+    FLOOKUP s.locals «xs» = SOME (Val (Word x)) ∧
+    FLOOKUP s.locals «ys_len» = SOME (Val (Word (n2w (LENGTH ys)))) ∧
+    FLOOKUP s.locals «ys» = SOME (Val (Word y)) ∧
+    FLOOKUP s.locals «zs» = SOME (Val (Word z)) ∧
+    (ones x (MAP Word xs) *
+     ones y (MAP Word ys) *
+     ones z rs *
+     frame) (fun2set (s.memory, s.memaddrs)) ∧
+    byte_dimindex (:α) ∧ 8 < dimindex (:α)
+    ⇒
+    ∃m l.
+      evaluate (mwi_and_neg_neg_pan_body,s) = (NONE,
+        s with <| memory := m;
+                  locals := l;
+                  clock := s.clock - LENGTH xs |>) ∧
+      (ones x (MAP Word xs) *
+       ones y (MAP Word ys) *
+       ones z (MAP Word (mwi_and_neg_neg c d e xs ys)) *
+       frame) (fun2set (m, s.memaddrs))
+Proof
+  rw [mwi_and_neg_neg_pan_body_def]
+  >> once_rewrite_tac [GSYM stack_evaluate]
+  >> walk
+  (* split_ones_at ‘z’ ‘LENGTH xs’ *)
+  (* mwi_and_neg_neg_pan_loop0_thm *)
+  >> cheat
+QED
