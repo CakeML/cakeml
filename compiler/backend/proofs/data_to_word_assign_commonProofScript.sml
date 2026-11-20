@@ -614,7 +614,7 @@ Proof
 QED
 
 Theorem arch_bytes_word:
-  arch_width_bits c.arch_width = dimindex (:'a) ==>
+  arch_width_bits (c:data_to_word$config).arch_width = dimindex (:'a) ==>
   n2w (arch_bytes c.arch_width) = (bytes_in_word:'a word)
 Proof
   Cases_on `c.arch_width`
@@ -1469,7 +1469,7 @@ Proof
 QED
 
 Theorem arch_bytes_scaled_word:
-   arch_width_bits c.arch_width = dimindex(:'a) ==>
+   arch_width_bits (c:data_to_word$config).arch_width = dimindex(:'a) ==>
    n2w (n * arch_bytes c.arch_width) = (n2w n * bytes_in_word:'a word)
 Proof
   rpt strip_tac \\ simp [GSYM word_mul_n2w]

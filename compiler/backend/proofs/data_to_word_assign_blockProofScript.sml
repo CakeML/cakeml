@@ -1819,6 +1819,7 @@ Proof
     \\ strip_tac
     \\ fs [dataSemTheory.state_component_equality]
     \\ rveq \\ fs [] \\ rfs []
+    \\ conj_tac >- simp [dataSemTheory.do_stack_def]
     \\ conj_tac >- metis_tac [option_le_add_indv]
     \\ conj_tac >- metis_tac [backendPropsTheory.option_le_trans]
     \\ fs [data_to_word_memoryProofTheory.BlockNil_def,
@@ -2171,7 +2172,7 @@ Theorem do_app_FromList_eq[local]:
   s'.locals = s.locals /\ s'.stack = s.stack /\ s'.limits = s.limits /\
   s'.stack_frame_sizes = s.stack_frame_sizes /\ s'.locals_size = s.locals_size /\
   s'.global = s.global /\ s'.compile = s.compile /\ s'.compile_oracle = s.compile_oracle /\
-  s'.clock = s.clock /\
+  s'.clock = s.clock /\ s'.arch_width = s.arch_width /\
   s'.tstamps = (if ys = [] then s.tstamps else OPTION_MAP SUC s.tstamps)
 Proof
   strip_tac \\ Cases_on ‘ys’
@@ -2479,6 +2480,7 @@ Proof
         \\ strip_tac \\ gvs [])
   \\ ‘x.code = s.code ∧ x.stack = s.stack ∧ x.locals_size = s.locals_size ∧
       x.stack_frame_sizes = s.stack_frame_sizes ∧ x.limits = s.limits ∧
+      x.arch_width = s.arch_width ∧
       x.tstamps = s.tstamps ∧ x.global = s.global ∧ x.refs = s.refs ∧
       x.stack_max = s.stack_max ∧ x.ffi = s.ffi ∧ x.handler = s.handler ∧
       x.clock = s.clock ∧ x.compile = s.compile ∧ x.compile_oracle = s.compile_oracle’ by
@@ -3413,7 +3415,7 @@ QED
 
 Theorem compiler_i2mw_words[local]:
 
- arch_width_bits c.arch_width = dimindex(:'a) ==>
+ arch_width_bits (c:data_to_word$config).arch_width = dimindex(:'a) ==>
  (if c.arch_width = Arch32 then
    (let (sign,ws) = (i2mw i:bool # word32 list) in (sign,MAP w2i ws))
   else (let (sign,ws) = (i2mw i:bool # word64 list) in (sign,MAP w2i ws))) =
@@ -3428,7 +3430,7 @@ QED
 Theorem compiler_i2mw_words_thm[local]:
 
  (i2mw i:bool # 'a word list) = (sign,ws) /\
- arch_width_bits c.arch_width = dimindex(:'a) ==>
+ arch_width_bits (c:data_to_word$config).arch_width = dimindex(:'a) ==>
  (if c.arch_width = Arch32 then
    (let (sign,ws) = (i2mw i:bool # word32 list) in (sign,MAP w2i ws))
   else (let (sign,ws) = (i2mw i:bool # word64 list) in (sign,MAP w2i ws))) =
@@ -3716,7 +3718,7 @@ Proof
 QED
 
 Theorem Equal_code_byte_loop[local]:
-  ∀fuel c a1 a2 r1 r2 len (t:('a,'c,'ffi) wordSem$state) x1 x2 l1 l2.
+  ∀fuel (c:data_to_word$config) a1 a2 r1 r2 len (t:('a,'c,'ffi) wordSem$state) x1 x2 l1 l2.
     word_str_cmp_loop a1 a2 r1 r2 len t.mdomain t.memory t.be fuel = SOME (x1,x2) ∧
     fuel ≤ t.clock ∧ good_dimindex (:'a) ∧
     arch_width_bits c.arch_width = dimindex (:'a) ∧

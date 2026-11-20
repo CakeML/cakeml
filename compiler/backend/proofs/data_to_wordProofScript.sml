@@ -28,7 +28,7 @@ val _ = augment_srw_ss [rewrites [integer_wordTheory.i2w_pos, integer_wordTheory
   data_to_wordTheory.make_cons_ptr_def]]
 
 Theorem arch_bytes_word[local]:
-  arch_width_bits c.arch_width = dimindex (:'a) ==>
+  arch_width_bits (c:data_to_word$config).arch_width = dimindex (:'a) ==>
   n2w (arch_bytes c.arch_width) = (bytes_in_word:'a word)
 Proof
   Cases_on `c.arch_width`
@@ -1429,10 +1429,10 @@ QED
 (* observational semantics preservation *)
 
 Theorem compile_semantics_lemma:
-   state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc po T lims t.stack_size t.clock) (t:('a,'c,'ffi) wordSem$state) /\ fs = t.stack_size /\
-   semantics ffi (fromAList prog) co cc po lims fs start <> Fail ==>
+   state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc po aw T lims t.stack_size t.clock) (t:('a,'c,'ffi) wordSem$state) /\ fs = t.stack_size /\
+   semantics ffi (fromAList prog) co cc po aw lims fs start <> Fail ==>
    semantics t start IN
-     extend_with_resource_limit { semantics ffi (fromAList prog) co cc po lims fs start }
+     extend_with_resource_limit { semantics ffi (fromAList prog) co cc po aw lims fs start }
 Proof
   simp[GSYM AND_IMP_INTRO] >> ntac 2 strip_tac >> rveq >>
   simp[dataSemTheory.semantics_def] >>
@@ -1652,12 +1652,22 @@ Proof
   simp[EL_APPEND1]
 QED
 
+Theorem state_rel_ext_arch_width[local]:
+  state_rel_ext c l1 l2 s (t:('a,'c,'ffi) wordSem$state) ==>
+  s.arch_width = if s.limits.arch_64_bit then Arch64 else Arch32
+Proof
+  rw [state_rel_ext_def]
+  \\ fs [state_rel_thm,limits_inv_def]
+  \\ Cases_on `s.arch_width`
+  \\ fs [asmTheory.arch_width_bits_def]
+QED
+
 Theorem compile_semantics_precise_lemma:
-   state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc po T lims t.stack_size t.clock) (t:('a,'c,'ffi) wordSem$state) /\ fs = t.stack_size /\
+   state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc po aw T lims t.stack_size t.clock) (t:('a,'c,'ffi) wordSem$state) /\ fs = t.stack_size /\
    data_lang_safe_for_space ffi po (fromAList prog) lims fs start /\ conf.gc_kind <> None /\
-   semantics ffi (fromAList prog) co cc po lims fs start <> Fail ==>
+   semantics ffi (fromAList prog) co cc po aw lims fs start <> Fail ==>
    semantics t start IN
-     extend_with_resource_limit' T { semantics ffi (fromAList prog) co cc po lims fs start }
+     extend_with_resource_limit' T { semantics ffi (fromAList prog) co cc po aw lims fs start }
 Proof
   simp[GSYM AND_IMP_INTRO] >> ntac 3 strip_tac >> rveq >>
   simp[dataSemTheory.semantics_def] >>
@@ -1708,10 +1718,11 @@ Proof
         \\ disch_then (qspec_then `k` mp_tac)
         \\ pairarg_tac \\ fs [] \\ strip_tac
         \\ `?s. dataSem$evaluate (Call NONE (SOME start) [] NONE,
-               initial_state ffi (fromAList prog) co cc po T lims t.stack_size k) =
+               initial_state ffi (fromAList prog) co cc po aw T lims t.stack_size k) =
                  (res,s) /\ cc_co_only_diff s' s` by
              (match_mp_tac evaluate_cc_co_only_diff
               \\ asm_exists_tac \\ fs []
+              \\ imp_res_tac state_rel_ext_arch_width
               \\ fs [cc_co_only_diff_def,initial_state_def])
         \\ fs [] \\ rveq \\ fs [cc_co_only_diff_def]) >>
       fs [] >> rfs [] >>
@@ -1762,10 +1773,10 @@ Proof
   conj_tac >-
    (fs [] \\ rpt strip_tac
     \\ Cases_on `evaluate (Call NONE (SOME start) [] NONE,
-                    initial_state ffi (fromAList prog) co cc po T lims
+                    initial_state ffi (fromAList prog) co cc po aw T lims
                       t.stack_size k)`
     \\ `state_rel_ext conf 1 0
-          (initial_state ffi (fromAList prog) co cc po T lims t.stack_size
+          (initial_state ffi (fromAList prog) co cc po aw T lims t.stack_size
              k) (t with clock := k)` by
      (drule state_rel_ext_with_clock
       \\ disch_then (qspec_then `k` mp_tac) \\ fs [initial_state_def])
@@ -1782,10 +1793,11 @@ Proof
         \\ disch_then (qspec_then `k` mp_tac)
         \\ pairarg_tac \\ fs [] \\ strip_tac
         \\ `?s'. dataSem$evaluate (Call NONE (SOME start) [] NONE,
-               initial_state ffi (fromAList prog) co cc po T lims t.stack_size k) =
+               initial_state ffi (fromAList prog) co cc po aw T lims t.stack_size k) =
                  (res,s') /\ cc_co_only_diff s s'` by
              (match_mp_tac evaluate_cc_co_only_diff
               \\ asm_exists_tac \\ fs []
+              \\ imp_res_tac state_rel_ext_arch_width
               \\ fs [cc_co_only_diff_def,initial_state_def])
         \\ fs [] \\ rveq \\ fs [cc_co_only_diff_def])
     \\ fs [] \\ strip_tac \\ fs [] \\ rfs []
@@ -1881,11 +1893,11 @@ Proof
 QED
 
 Theorem compile_semantics_precise:
-   state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc po T lims t.stack_size t.clock) (t:('a,'c,'ffi) wordSem$state) /\
+   state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc po aw T lims t.stack_size t.clock) (t:('a,'c,'ffi) wordSem$state) /\
    fs = t.stack_size /\ conf.gc_kind <> None /\
-   semantics ffi (fromAList prog) co cc po lims fs start <> Fail /\
+   semantics ffi (fromAList prog) co cc po aw lims fs start <> Fail /\
    data_lang_safe_for_space ffi po (fromAList prog) lims fs start ==>
-   semantics t start = semantics ffi (fromAList prog) co cc po lims fs start
+   semantics t start = semantics ffi (fromAList prog) co cc po aw lims fs start
 Proof
   rw [] \\ drule compile_semantics_precise_lemma \\ fs []
   \\ disch_then drule \\ fs [extend_with_resource_limit'_def]
@@ -1930,20 +1942,20 @@ Theorem compile_semantics_oracle:
             (MAP (λp. full_compile_single (dimindex (:α)) tt kk aa coo (p,NONE)) progs))) ∧
   fs = t.stack_size ∧
   t.ptr_eq_rel = word_ptr_eq c ∧ t.ptr_eq_oracle = SOME po ∧
-  Fail ≠ semantics t.ffi (fromAList prog) co cc po zero_limits fs start ⇒
+  Fail ≠ semantics t.ffi (fromAList prog) co cc po c.arch_width zero_limits fs start ⇒
   (data_lang_safe_for_space t.ffi po (fromAList prog) (get_limits c t) fs start /\
    c.gc_kind <> None ⇒ word_lang_safe_for_space t start) ∧
   semantics t start ∈
   extend_with_resource_limit'
     (data_lang_safe_for_space t.ffi po (fromAList prog) (get_limits c t) fs
        start /\ c.gc_kind <> None)
-    {semantics t.ffi (fromAList prog) co cc po zero_limits fs start}
+    {semantics t.ffi (fromAList prog) co cc po c.arch_width zero_limits fs start}
 Proof
   strip_tac
   \\ `state_rel_ext c 1 0
         (initial_state t.ffi (fromAList prog) co
         (λcfg. OPTION_MAP (bytes_to_mlstring ## MAP upper_w2w ## I) ∘ tcc cfg ∘
-                 MAP (compile_part c)) po T (get_limits c t) t.stack_size t.clock) t` by
+                 MAP (compile_part c)) po c.arch_width T (get_limits c t) t.stack_size t.clock) t` by
    (fs[state_rel_ext_def]>>rw[]>>
     fs[code_rel_ext_def]>>
     qexists_tac`t with <|code := x1; termdep := 2; compile_oracle := tco; compile := tcc |>`>>
@@ -2003,10 +2015,11 @@ Proof
   \\ drule state_rel_ext_with_clock
   \\ disch_then (qspec_then `k` assume_tac) \\ fs []
   \\ `?t1. dataSem$evaluate (Call NONE (SOME start) [] NONE,
-             initial_state t.ffi (fromAList prog) co cc po T (get_limits c t) fs k) =
+             initial_state t.ffi (fromAList prog) co cc po c.arch_width T (get_limits c t) fs k) =
            (res',t1) /\ cc_co_only_diff s t1` by
    (match_mp_tac evaluate_cc_co_only_diff
     \\ asm_exists_tac \\ fs []
+    \\ imp_res_tac state_rel_ext_arch_width
     \\ fs [cc_co_only_diff_def,initial_state_def])
   \\ drule compile_correct
   \\ simp [GSYM PULL_FORALL,GSYM AND_IMP_INTRO]
@@ -2015,7 +2028,7 @@ Proof
     \\ once_rewrite_tac [EQ_SYM_EQ] \\ rfs []
     \\ once_rewrite_tac [semantics_zero_limits]
     \\ qpat_x_assum `cc = _` (assume_tac o GSYM) \\ fs []
-    \\ qsuff_tac `semantics t.ffi (fromAList prog) co cc po (get_limits c t) fs start = Fail`
+    \\ qsuff_tac `semantics t.ffi (fromAList prog) co cc po c.arch_width (get_limits c t) fs start = Fail`
     THEN1 (once_rewrite_tac [semantics_zero_limits] \\ fs [])
     \\ simp [semantics_def,CaseEq"bool"] \\ rveq
     \\ disj1_tac \\ qexists_tac `k` \\ rfs [])
@@ -2073,14 +2086,14 @@ Theorem compile_semantics:
             (MAP (λp. full_compile_single (dimindex (:α)) tt kk aa coo (p,NONE)) progs))) ∧
   fs = t.stack_size ∧
   t.ptr_eq_rel = word_ptr_eq c ∧ t.ptr_eq_oracle = NONE ∧
-  Fail ≠ semantics t.ffi (fromAList prog) co cc po zero_limits fs start ⇒
+  Fail ≠ semantics t.ffi (fromAList prog) co cc po c.arch_width zero_limits fs start ⇒
   (data_lang_safe_for_space t.ffi po (fromAList prog) (get_limits c t) fs start /\
    c.gc_kind <> None ⇒ word_lang_safe_for_space t start) ∧
   semantics t start ∈
   extend_with_resource_limit'
     (data_lang_safe_for_space t.ffi po (fromAList prog) (get_limits c t) fs
        start /\ c.gc_kind <> None)
-    {semantics t.ffi (fromAList prog) co cc po zero_limits fs start}
+    {semantics t.ffi (fromAList prog) co cc po c.arch_width zero_limits fs start}
 Proof
   strip_tac
   \\ `semantics (t with ptr_eq_oracle := SOME po) start = semantics t start` by

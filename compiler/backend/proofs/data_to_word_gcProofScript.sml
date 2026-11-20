@@ -4630,6 +4630,7 @@ Definition state_rel_thm:
     (* I/O, clock and handler are the same, GC is fixed, code is compiled *)
     (t.ffi = s.ffi) /\
     (t.clock = s.clock) /\
+    (arch_width_bits s.arch_width = dimindex (:'a)) /\
     (t.handler = s.handler) /\
     (t.gc_fun = word_gc_fun c) /\
     code_rel c s.code t.code /\
@@ -4765,7 +4766,7 @@ Theorem state_rel_init:
     lim.has_fp_tops = c.has_fp_tern /\
     conf_ok (dimindex (:'a)) c /\
     init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ==>
-    state_rel c l1 l2 (initial_state ffi code co cc pe T lim t.stack_size t.clock)
+    state_rel c l1 l2 (initial_state ffi code co cc pe c.arch_width T lim t.stack_size t.clock)
                       (t:('a,'c,'ffi) state) NONE []
 Proof
   simp_tac std_ss [word_list_exists_ADD,conf_ok_def,init_store_ok_def]

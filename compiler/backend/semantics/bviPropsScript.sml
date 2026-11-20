@@ -10,21 +10,22 @@ Libs
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 Theorem initial_state_simp[simp]:
-   (initial_state f c co cc pe k).code = c ∧
-   (initial_state f c co cc pe k).ffi = f ∧
-   (initial_state f c co cc pe k).clock = k ∧
-   (initial_state f c co cc pe k).compile = cc ∧
-   (initial_state f c co cc pe k).compile_oracle = co ∧
-   (initial_state f c co cc pe k).refs = FEMPTY ∧
-   (initial_state f c co cc pe k).global = NONE ∧
-   (initial_state f c co cc pe k).ptr_eq_oracle = pe
+   (initial_state f c co cc pe aw k).code = c ∧
+   (initial_state f c co cc pe aw k).ffi = f ∧
+   (initial_state f c co cc pe aw k).clock = k ∧
+   (initial_state f c co cc pe aw k).arch_width = aw ∧
+   (initial_state f c co cc pe aw k).compile = cc ∧
+   (initial_state f c co cc pe aw k).compile_oracle = co ∧
+   (initial_state f c co cc pe aw k).refs = FEMPTY ∧
+   (initial_state f c co cc pe aw k).global = NONE ∧
+   (initial_state f c co cc pe aw k).ptr_eq_oracle = pe
 Proof
    srw_tac[][initial_state_def]
 QED
 
 Theorem initial_state_with_simp[simp]:
-   initial_state f c co cc pe k with clock := k1 = initial_state f c co cc pe k1 ∧
-   initial_state f c co cc pe k with code := c1 = initial_state f c1 co cc pe k
+   initial_state f c co cc pe aw k with clock := k1 = initial_state f c co cc pe aw k1 ∧
+   initial_state f c co cc pe aw k with code := c1 = initial_state f c1 co cc pe aw k
 Proof
   EVAL_TAC
 QED
@@ -749,7 +750,7 @@ Definition adj_orac_def:
     <| refs := s.refs; clock := s.clock; global := s.global;
        code := s.code; ffi := s.ffi; compile := cc;
        compile_oracle := (f ## I) o s.compile_oracle;
-       ptr_eq_oracle := s.ptr_eq_oracle |>
+       arch_width := s.arch_width; ptr_eq_oracle := s.ptr_eq_oracle |>
 End
 
 Definition adj_orac_ok_def:
@@ -760,6 +761,7 @@ End
 
 Theorem adj_orac_simps[local]:
   (adj_orac cc f s).clock = s.clock ∧
+  (adj_orac cc f s).arch_width = s.arch_width ∧
   (adj_orac cc f s).code = s.code ∧
   (adj_orac cc f s).refs = s.refs ∧
   (adj_orac cc f s).global = s.global ∧
@@ -784,19 +786,19 @@ Theorem do_app_cfg_swap:
       do_app op args
         (t with <| refs := s.refs; clock := s.clock;
                    global := s.global; ffi := s.ffi;
-                   ptr_eq_oracle := s.ptr_eq_oracle |>) =
+                   arch_width := s.arch_width; ptr_eq_oracle := s.ptr_eq_oracle |>) =
       Rval
         (value,
          t with <| refs := s1.refs; clock := s1.clock;
                    global := s1.global; ffi := s1.ffi;
-                   ptr_eq_oracle := s1.ptr_eq_oracle |>)) ∧
+                   arch_width := s1.arch_width; ptr_eq_oracle := s1.ptr_eq_oracle |>)) ∧
      (do_app op args s = Rerr error ∧
       (domain t.code ⊆ domain s.code ∨
        error ≠ Rabort Rtype_error) ⇒
       do_app op args
         (t with <| refs := s.refs; clock := s.clock;
                    global := s.global; ffi := s.ffi;
-                   ptr_eq_oracle := s.ptr_eq_oracle |>) =
+                   arch_width := s.arch_width; ptr_eq_oracle := s.ptr_eq_oracle |>) =
       Rerr error))
 Proof
   strip_tac
@@ -824,7 +826,7 @@ Proof
                 <| refs := s.refs |+ (global_ptr,
                      ValueArray (LUPDATE new_value set_index global_values));
                    clock := s1.clock; global := s1.global; ffi := s1.ffi;
-                   ptr_eq_oracle := s1.ptr_eq_oracle |>)`
+                   arch_width := s1.arch_width; ptr_eq_oracle := s1.ptr_eq_oracle |>)`
   \\ conj_tac
   >- (qexists_tac `global_ptr` \\ gvs [])
   \\ disj2_tac
@@ -839,10 +841,10 @@ Theorem do_app_cfg_swap_Rval[local]:
     do_app op args
       (t with <| refs := s.refs; clock := s.clock;
                  global := s.global; ffi := s.ffi;
-                 ptr_eq_oracle := s.ptr_eq_oracle |>) =
+                 arch_width := s.arch_width; ptr_eq_oracle := s.ptr_eq_oracle |>) =
     Rval (value, t with <| refs := s1.refs; clock := s1.clock;
                            global := s1.global; ffi := s1.ffi;
-                           ptr_eq_oracle := s1.ptr_eq_oracle |>)
+                           arch_width := s1.arch_width; ptr_eq_oracle := s1.ptr_eq_oracle |>)
 Proof
   metis_tac [do_app_cfg_swap, SUBSET_REFL]
 QED
@@ -854,7 +856,7 @@ Theorem do_app_cfg_swap_Rerr[local]:
     do_app op args
       (t with <| refs := s.refs; clock := s.clock;
                  global := s.global; ffi := s.ffi;
-                 ptr_eq_oracle := s.ptr_eq_oracle |>) = Rerr error
+                 arch_width := s.arch_width; ptr_eq_oracle := s.ptr_eq_oracle |>) = Rerr error
 Proof
   metis_tac [do_app_cfg_swap, SUBSET_REFL]
 QED
@@ -901,7 +903,7 @@ Proof
   >-
    (`(adj_orac cc f s) with <| refs := s.refs; clock := s.clock;
         global := s.global; ffi := s.ffi;
-        ptr_eq_oracle := s.ptr_eq_oracle |> = adj_orac cc f s`
+        arch_width := s.arch_width; ptr_eq_oracle := s.ptr_eq_oracle |> = adj_orac cc f s`
        by gvs [adj_orac_def, state_component_equality]
     \\ `domain s.code = domain (adj_orac cc f s).code` by gvs [adj_orac_def]
     \\ conj_tac \\ rpt gen_tac \\ strip_tac
@@ -954,8 +956,8 @@ Proof
 QED
 
 Theorem adj_orac_initial_state[local]:
-  adj_orac cc SND (initial_state ffi code co (state_cc (CURRY I) cc) pe k) =
-  initial_state ffi code (state_co (CURRY I) co) cc pe k
+  adj_orac cc SND (initial_state ffi code co (state_cc (CURRY I) cc) pe aw k) =
+  initial_state ffi code (state_co (CURRY I) co) cc pe aw k
 Proof
   rw [adj_orac_def, initial_state_def, state_component_equality,
       state_co_def, FUN_EQ_THM]
@@ -963,7 +965,7 @@ Proof
 QED
 
 Theorem adj_orac_ok_initial_state[local]:
-  adj_orac_ok cc SND (initial_state ffi code co (state_cc (CURRY I) cc) pe k)
+  adj_orac_ok cc SND (initial_state ffi code co (state_cc (CURRY I) cc) pe aw k)
 Proof
   rw [adj_orac_ok_def, initial_state_def, state_cc_def]
   \\ PairCases_on `x` \\ gvs []
@@ -972,14 +974,14 @@ Proof
 QED
 
 Theorem evaluate_CURRY_I[local]:
-  evaluate (es,env,initial_state ffi code co (state_cc (CURRY I) cc) pe k) = (r,s) ∧
+  evaluate (es,env,initial_state ffi code co (state_cc (CURRY I) cc) pe aw k) = (r,s) ∧
   r ≠ Rerr (Rabort Rtype_error) ⇒
   ∃s2.
-    evaluate (es,env,initial_state ffi code (state_co (CURRY I) co) cc pe k) =
+    evaluate (es,env,initial_state ffi code (state_co (CURRY I) co) cc pe aw k) =
       (r,s2) ∧ s2.ffi = s.ffi
 Proof
   strip_tac
-  \\ `adj_orac_ok cc SND (initial_state ffi code co (state_cc (CURRY I) cc) pe k)`
+  \\ `adj_orac_ok cc SND (initial_state ffi code co (state_cc (CURRY I) cc) pe aw k)`
         by simp [adj_orac_ok_initial_state]
   \\ drule_all evaluate_adj_orac
   \\ strip_tac
@@ -987,9 +989,9 @@ Proof
 QED
 
 Theorem semantics_CURRY_I:
-  semantics ffi code co (state_cc (CURRY I) cc) pe start ≠ ffi$Fail ⇒
-  semantics ffi code co (state_cc (CURRY I) cc) pe start =
-  semantics ffi code (state_co (CURRY I) co) cc pe start
+  semantics ffi code co (state_cc (CURRY I) cc) pe aw start ≠ ffi$Fail ⇒
+  semantics ffi code co (state_cc (CURRY I) cc) pe aw start =
+  semantics ffi code (state_co (CURRY I) co) cc pe aw start
 Proof
   strip_tac
   \\ simp [Ntimes semantics_def 2]
@@ -1046,10 +1048,10 @@ Proof
   \\ strip_tac \\ IF_CASES_TAC \\ fs []
   >-
    (Cases_on `evaluate ([Call 0 (SOME start) [] NONE],[],
-                        initial_state ffi code co (state_cc (CURRY I) cc) pe k)`
+                        initial_state ffi code co (state_cc (CURRY I) cc) pe aw k)`
     \\ drule (GEN_ALL evaluate_CURRY_I)
     \\ impl_tac
-    >- (qpat_x_assum `∀k e. FST (evaluate (_,_,initial_state _ _ co _ _ _)) ≠ _ ∨ _`
+    >- (qpat_x_assum `∀k e. FST (evaluate (_,_,initial_state _ _ co _ _ _ _)) ≠ _ ∨ _`
           (qspecl_then [`k`,`Rabort Rtype_error`] mp_tac) \\ fs [])
     \\ strip_tac \\ gvs []
     \\ qpat_x_assum `∀k e. FST _ ≠ _ ∨ _` (qspecl_then [`k`,`e`] mp_tac) \\ fs [])
@@ -1058,10 +1060,10 @@ Proof
   >-
    (spose_not_then assume_tac \\ rw []
     \\ Cases_on `evaluate ([Call 0 (SOME start) [] NONE],[],
-                           initial_state ffi code co (state_cc (CURRY I) cc) pe k)`
+                           initial_state ffi code co (state_cc (CURRY I) cc) pe aw k)`
     \\ drule (GEN_ALL evaluate_CURRY_I)
     \\ impl_tac
-    >- (qpat_x_assum `∀k e. FST (evaluate (_,_,initial_state _ _ co _ _ _)) ≠ _ ∨ _`
+    >- (qpat_x_assum `∀k e. FST (evaluate (_,_,initial_state _ _ co _ _ _ _)) ≠ _ ∨ _`
           (qspecl_then [`k`,`Rabort Rtype_error`] mp_tac) \\ fs [])
     \\ strip_tac \\ gvs []
     \\ metis_tac [])
@@ -1093,10 +1095,10 @@ Proof
   \\ simp [LNTH_fromList, PULL_EXISTS, GSYM FORALL_AND_THM]
   \\ rpt gen_tac \\ rveq
   \\ Cases_on `evaluate ([Call 0 (SOME start) [] NONE],[],
-                         initial_state ffi code co (state_cc (CURRY I) cc) pe k)`
+                         initial_state ffi code co (state_cc (CURRY I) cc) pe aw k)`
   \\ drule (GEN_ALL evaluate_CURRY_I)
   \\ impl_tac
-  >- (qpat_x_assum `∀k e. FST (evaluate (_,_,initial_state _ _ co _ _ _)) ≠ _ ∨ _`
+  >- (qpat_x_assum `∀k e. FST (evaluate (_,_,initial_state _ _ co _ _ _ _)) ≠ _ ∨ _`
         (qspecl_then [`k`,`Rabort Rtype_error`] mp_tac) \\ fs [])
   \\ strip_tac
   \\ conj_tac \\ rw []

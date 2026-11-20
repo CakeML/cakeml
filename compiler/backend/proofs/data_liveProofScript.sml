@@ -18,9 +18,16 @@ Proof
   Cases \\ SRW_TAC [] [] \\ METIS_TAC []
 QED
 
+Theorem do_stack_arch_width[simp,local]:
+  (do_stack op args s).arch_width = s.arch_width
+Proof
+  simp [do_stack_def]
+QED
+
 Definition state_rel_def:
   state_rel (s1:('a,'ffi) dataSem$state) (t1:('a,'ffi) dataSem$state) (live:num_set) <=>
     s1.code = t1.code /\ s1.clock = t1.clock /\ s1.space = t1.space /\
+    s1.arch_width = t1.arch_width /\
     s1.ffi = t1.ffi /\ s1.refs = t1.refs /\ s1.global = t1.global /\
     s1.handler = t1.handler /\ (LENGTH s1.stack = LENGTH t1.stack) /\
     s1.compile = t1.compile /\ s1.compile_oracle = t1.compile_oracle /\
