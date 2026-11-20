@@ -654,7 +654,7 @@ Definition clos_op_to_display_def:
     | IntOp LessEq => String «LessEq»
     | IntOp Greater => String «Greater»
     | IntOp GreaterEq => String «GreaterEq»
-    | IntOp IsSmallnum => String «IsSmallnum»
+    | IntOp (IsSmallnum b) => Item NONE «IsSmallnum» [bool_to_display b]
     | IntOp (Smallnum SmallAdd) => String «SmallAdd»
     | IntOp (Smallnum SmallSub) => String «SmallSub»
     | IntOp (Smallnum SmallMult) => String «SmallMult»

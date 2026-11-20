@@ -33,6 +33,27 @@ Proof
   simp [is_smallnum_def, small_int_def]
 QED
 
+Theorem smallnum_ror_test[local]:
+  good_dimindex (:'a) ==>
+  (((w:'a word) #>> (dimindex (:'a) - 1)) && 3w = 0w <=>
+   ~w ' 0 /\ ~word_msb w)
+Proof
+  rw [good_dimindex_def]
+  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_msb_def,word_ror_def]
+  \\ simp [word_index]
+QED
+
+Theorem smallnum_msb[local]:
+  good_dimindex (:'a) /\ small_int (dimindex (:'a)) i ==>
+  (word_msb (Smallnum i : 'a word) <=> i < 0)
+Proof
+  strip_tac
+  \\ simp [word_msb_neg, GSYM integer_wordTheory.w2i_lt_0]
+  \\ `w2i (Smallnum i : 'a word) = 2 * i` by simp [small_int_w2i_Smallnum]
+  \\ simp []
+  \\ intLib.COOPER_TAC
+QED
+
 Theorem inst_IDiv_Smallnum[local]:
   good_dimindex (:'a) /\ small_int (dimindex (:'a)) i /\
   small_int (dimindex (:'a)) j /\ j <> 0 /\
@@ -731,7 +752,7 @@ val eval_tac = imp_res_tac state_rel_arch_width
   \\ fs [GSYM word_mul_n2w];
 
 Theorem assign_IsSmallnum:
-  op = IntOp IsSmallnum ==> ^assign_thm_goal
+  op = IntOp (IsSmallnum allow_neg) ==> ^assign_thm_goal
 Proof
   rpt strip_tac
   \\ gvs [dataLangTheory.op_requires_names_def,
@@ -754,13 +775,24 @@ Proof
        `get_vars [adjust_var arg] t = SOME [Word w]`
   \\ fs [get_vars_SOME_IFF_data, get_vars_SOME_IFF,
          is_smallnum_small_int, allowed_op_def]
+  \\ `small_int (dimindex (:'a)) i ==> (word_msb w <=> i < 0)` by (
+    strip_tac
+    \\ imp_res_tac memory_rel_Number_IMP
+    \\ gvs [smallnum_msb])
+  \\ `dimindex (:'a) - 1 < dimword (:'a)` by (
+    assume_tac (INST_TYPE [alpha |-> ``:'a``] dimindex_lt_dimword)
+    \\ decide_tac)
+  \\ Cases_on `allow_neg`
   \\ simp [assign_def, wordSemTheory.evaluate_def,
            wordSemTheory.get_var_imm_def, asmTheory.word_cmp_def]
-  \\ ONCE_REWRITE_TAC [WORD_AND_COMM]
-  \\ simp [word_and_one_eq_0_iff]
-  \\ Cases_on `small_int (dimindex (:'a)) i`
   \\ eval_tac
-  \\ fs [lookup_insert, adjust_var_11] \\ rw [] \\ fs []
+  \\ fs [lookup_insert, asmTheory.word_cmp_def, DIMINDEX_GT_0]
+  \\ ONCE_REWRITE_TAC [WORD_AND_COMM]
+  \\ simp [word_and_one_eq_0_iff, smallnum_ror_test]
+  \\ Cases_on `small_int (dimindex (:'a)) i`
+  \\ Cases_on `0 <= i`
+  \\ fs [lookup_insert, adjust_var_11, GSYM integerTheory.INT_NOT_LT]
+  \\ rw [] \\ fs [lookup_insert, adjust_var_11]
   \\ simp [inter_insert_ODD_adjust_set, option_le_max_right]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ match_mp_tac memory_rel_insert \\ fs []

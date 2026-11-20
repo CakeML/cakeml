@@ -89,9 +89,10 @@ Definition do_app_aux_def:
          | NONE => NONE
          | SOME (INL n) => SOME (SOME (Number n,s))
          | SOME (INR b) => SOME (SOME (Boolv b,s)))
-    | (IntOp IsSmallnum,xs) =>
+    | (IntOp (IsSmallnum allow_neg),xs) =>
         (case xs of
-         | [Number i] => SOME (SOME (Boolv (is_smallnum s.arch_width i),s))
+         | [Number i] => SOME (SOME
+             (Boolv (is_smallnum s.arch_width i /\ (allow_neg \/ 0 <= i)),s))
          | _ => NONE)
     | (IntOp (Const i),xs) =>
       if small_enough_int i /\ NULL xs then

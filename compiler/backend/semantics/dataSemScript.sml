@@ -1236,8 +1236,8 @@ Definition do_app_aux_def:
                NONE => Error
              | SOME (INL n) => Rval (Number n,s)
              | SOME (INR b) => Rval (Boolv b,s))
-    | (IntOp IsSmallnum, [Number i]) =>
-        Rval (Boolv (is_smallnum s.arch_width i),s)
+    | (IntOp (IsSmallnum allow_neg), [Number i]) =>
+        Rval (Boolv (is_smallnum s.arch_width i /\ (allow_neg \/ 0 <= i)),s)
     | (IntOp intop, vs) =>
         (case do_int_app intop vs of
         | SOME res => Rval (res ,s)
