@@ -7,11 +7,15 @@ version = "0.1.1"
 
 [build]
 roots = ["compiler/proofs/compilerProofScript.sml"]
-exclude = ["candle",
+exclude = ["candle/overloading",
            "compiler/benchmarks",
-           "compiler/bootstrap",
+           "compiler/bootstrap/compilation/ag32",
+           "compiler/bootstrap/compilation/arm8",
            "translator/other-examples",
-           "unverified",
+           "unverified/front-end",
+           "unverified/hol-light-syntax",
+           "unverified/ocaml-syntax",
+           "unverified/sexpr-bootstrap",
            "tutorial",
            "examples"]
 
@@ -28,6 +32,39 @@ manifest = "holextra.manifest.toml"
 [build.theory_tactic_timeouts]
 "pancake/semantics/pan_itreePropsScript.sml" = 10.0
 "pancake/proofs/pan_itreeEquivProofScript.sml" = 60.0
+"candle/prover/candle_prover_semanticsScript.sml" = 11.0
+"candle/prover/candle_prover_evaluateScript.sml" = 18.0
+"candle/prover/candle_kernel_funsScript.sml" = 9.0
+"candle/prover/compute/computeProofScript.sml" = 16.0
+"candle/prover/compute/compute_syntaxProofScript.sml" = 15.0
+"candle/prover/candle_kernel_permsScript.sml" = 8.0
+"compiler/encoders/x64/proofs/x64_targetProofScript.sml" = 50.0
+"compiler/bootstrap/translation/proofs/compiler_replProofScript.sml" = 180.0
+"compiler/bootstrap/translation/from_flatProgScript.sml" = 60.0
+"compiler/bootstrap/translation/from_cakeProgScript.sml" = 10.0
+"compiler/bootstrap/translation/parserProgScript.sml" = 10.0
+"compiler/bootstrap/translation/inferProgScript.sml" = 10.0
+"compiler/bootstrap/translation/compiler_mainProgScript.sml" = 60.0
+"compiler/bootstrap/translation/compiler_x64ProgScript.sml" = 115.0
+"compiler/bootstrap/compilation/x64/proofs/replProofScript.sml" = 115.0
+"compiler/bootstrap/compilation/x64/proofs/x64BootstrapProofScript.sml" = 285.0
+"candle/standard/monadic/holKernelProofScript.sml" = 10.0
+"candle/standard/monadic/holKernelPmatchScript.sml" = 10.0
+"candle/prover/permsScript.sml" = 10.0
+"candle/prover/compute/compute_pmatchScript.sml" = 10.0
+"candle/standard/ml_kernel/ml_hol_kernel_funsProgScript.sml" = 10.0
+"candle/prover/candle_kernel_valsScript.sml" = 60.0
+"basis/basis_ffiScript.sml" = 60.0
+"cv_translator/to_data_cvScript.sml" = 10.0
+"cv_translator/backend_cvScript.sml" = 10.0
+"compiler/repl/evaluate_skipScript.sml" = 60.0
+"compiler/repl/evaluate_initScript.sml" = 60.0
+"compiler/repl/repl_typesScript.sml" = 10.0
+"compiler/repl/repl_decs_allowedScript.sml" = 10.0
+"compiler/repl/astCanonicalScript.sml" = 60.0
+"compiler/repl/repl_initScript.sml" = 60.0
+"compiler/repl/repl_inputInitScript.sml" = 60.0
+"compiler/repl/repl_inputRepresentationScript.sml" = 60.0
 "compiler/backend/data_liveScript.sml" = 5.0
 "pancake/parser/panPEGScript.sml" = 20.0
 "compiler/backend/word_removeScript.sml" = 10.0
@@ -144,3 +181,13 @@ extra_deps = ["pancake/NEWS.md"]
 # This theory records the current build date and tool versions.
 [actions.compilerTheory]
 impure = true
+
+# Load the translator codec before the program theories, as the basis heap does.
+[actions.explorerProgTheory]
+loads = ["basisFunctionsLib"]
+
+[actions.printingProgTheory]
+loads = ["basisFunctionsLib"]
+
+[actions.candle_prover_semanticsTheory]
+loads = ["basisFunctionsLib"]
