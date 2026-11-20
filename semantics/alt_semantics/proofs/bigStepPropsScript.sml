@@ -15,17 +15,20 @@ Theorem evaluate_no_new_types_exns:
      evaluate ck env st e r ⇒
      st.next_type_stamp = (FST r).next_type_stamp ∧
      st.next_exn_stamp = (FST r).next_exn_stamp ∧
-     st.eval_state = (FST r).eval_state) ∧
+     st.eval_state = (FST r).eval_state ∧
+     st.eval_oracle = (FST r).eval_oracle) ∧
   (∀ck env ^st es r.
      evaluate_list ck env st es r ⇒
      st.next_type_stamp = (FST r).next_type_stamp ∧
      st.next_exn_stamp = (FST r).next_exn_stamp ∧
-     st.eval_state = (FST r).eval_state) ∧
+     st.eval_state = (FST r).eval_state ∧
+     st.eval_oracle = (FST r).eval_oracle) ∧
   (∀ck env ^st v pes err_v r.
      evaluate_match ck env st v pes err_v r ⇒
      st.next_type_stamp = (FST r).next_type_stamp ∧
      st.next_exn_stamp = (FST r).next_exn_stamp ∧
-     st.eval_state = (FST r).eval_state)
+     st.eval_state = (FST r).eval_state ∧
+     st.eval_oracle = (FST r).eval_oracle)
 Proof
   ho_match_mp_tac bigStepTheory.evaluate_ind >>
   srw_tac[][]

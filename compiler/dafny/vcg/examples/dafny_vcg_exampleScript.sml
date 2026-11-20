@@ -583,7 +583,8 @@ Proof
       <| clock := 42;  (* clock shouldn't matter *)
          refs := refs ++ [Refv v] ++ [Refv (Litv (IntLit 0))];
          ffi := initial_ffi_state ARB (); next_type_stamp := 0;
-         next_exn_stamp := 0; eval_state := NONE; ptr_eq_oracle := po|>’
+         next_exn_stamp := 0; eval_state := NONE; ptr_eq_oracle := po;
+         eval_oracle := K (F,K (K (K 0)))|>’
   \\ ‘∃l s.
         ALOOKUP s.locals «v0» = SOME (SOME (IntV n)) ∧
         state_ok s [] [(«v1»,IntT)] ∧ ¬MEM «v2» (MAP FST s.locals) ∧
@@ -646,6 +647,12 @@ Proof
      \\ impl_tac >- (EVAL_TAC)
      \\ simp [nsOptBind_def])
   \\ simp [INT_def]
+  \\ ‘t'.eval_oracle = K (F,K (K (K 0)))’ by
+    (qpat_x_assum ‘evaluate _ _ _ = (t',_)’ assume_tac
+     \\ drule (CONJUNCT1 evaluatePropsTheory.eval_no_eval_oracle)
+     \\ simp []
+     \\ disch_then (qspec_then ‘K (F,K (K (K 0)))’ mp_tac)
+     \\ simp [semanticPrimitivesTheory.state_component_equality])
   \\ qexistsl [‘DROP (LENGTH refs) t'.refs’, ‘t'.ptr_eq_oracle’, ‘t'.clock’]
   \\ simp [semanticPrimitivesTheory.state_component_equality]
   \\ gvs [cml_state_preserved_def]

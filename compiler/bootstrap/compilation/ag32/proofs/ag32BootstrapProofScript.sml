@@ -5,7 +5,7 @@ Theory ag32BootstrapProof
 Ancestors
   repl_decs_allowed semanticsProps backendProof ag32_configProof
   ag32_machine_config ag32_memoryProof ag32_basis_ffiProof
-  ag32_ffi_codeProof compiler_ag32Prog ag32Bootstrap
+  ag32_ffi_codeProof compiler_ag32Prog ag32Bootstrap compiler_replProof
 Libs
   preamble
 
@@ -36,16 +36,24 @@ End
 Theorem compiler_instance_lemma[local]:
   INJ compiler_instance.config_v 𝕌(:backend$config) 𝕌(:semanticPrimitives$v) ∧
   compiler_instance.init_state = cake_config ∧
-  compiler_instance.compiler_fun = compile_inc_progs_for_eval ag32_config
+  compiler_instance.compiler_fun = compile_inc_progs_for_eval ag32_config ∧
+  (∀cfg. data_v (compiler_instance.config_v cfg))
 Proof
-  fs [compiler_instance_def]
+  fs [compiler_instance_def,data_v_BACKEND_CONFIG_v]
+QED
+
+val ffi_ty = type_of “basis_ffi ext cl fs” |> dest_type |> snd |> hd;
+
+Theorem mk_src_eval_state_env_id_counter[local]:
+  mk_src_eval_state ci (:'ffi) with env_id_counter := (0,0,1) =
+  mk_src_eval_state ci (:'ffi)
+Proof
+  simp [mk_src_eval_state_def,semanticPrimitivesTheory.source_eval_state_component_equality]
 QED
 
 val cake_terminate = semantics_compiler_ag32_prog
-  |> Q.INST[‘eval_state_var’|->‘the_EvalDecs (mk_init_eval_state compiler_instance)’]
-  |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_init_eval_state_def,the_EvalDecs_def]
-  |> SIMP_RULE (srw_ss()) [GSYM source_evalProofTheory.mk_init_eval_state_def
-                           |> SIMP_RULE (srw_ss()) []]
+  |> Q.INST[‘eval_state_var’|->‘mk_src_eval_state compiler_instance (:^(ty_antiq ffi_ty))’]
+  |> REWRITE_RULE [mk_src_eval_state_env_id_counter]
   |> Q.INST [`ext`|->`no_ext`]
   |> UNDISCH_ALL
   |> HO_MATCH_MP ml_progTheory.sem_satisfies_IMP_Terminate

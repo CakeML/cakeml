@@ -247,8 +247,9 @@ QED
 
 (* Every pointer oracle terminates, but its trace and witnesses may differ. *)
 Theorem semantics_dec_list_all_terminate[local]:
-  (∀po. ∃outcome io.
-    semantics_dec_list_determ (st with ptr_eq_oracle := po) env prog
+  (∀po eo. ∃outcome io.
+    semantics_dec_list_determ
+      (st with <| ptr_eq_oracle := po; eval_oracle := eo |>) env prog
       (Terminate outcome io) ∧ R (Terminate outcome io)) ⇒
   semantics_dec_list st env prog ≠ ∅ ∧
   ∀behavior. semantics_dec_list st env prog behavior ⇒ R behavior
@@ -274,10 +275,12 @@ Proof
   rpt strip_tac
   \\ simp [semanticsPropsTheory.sem_satisfies_def, IN_DEF]
   \\ ho_match_mp_tac semantics_dec_list_all_terminate
-  \\ gen_tac
-  \\ ‘Decls env1 (st1 with ptr_eq_oracle := po) prog env2
-             (st2 with ptr_eq_oracle := po)’ by metis_tac [Decls_with_oracle]
-  \\ ‘SPLIT (st2heap (proj1,proj2) (st2 with ptr_eq_oracle := po)) (h1,h2)’
+  \\ rpt gen_tac
+  \\ ‘Decls env1 (st1 with <| ptr_eq_oracle := po; eval_oracle := eo |>) prog env2
+             (st2 with <| ptr_eq_oracle := po; eval_oracle := eo |>)’
+    by metis_tac [Decls_with_oracles]
+  \\ ‘SPLIT (st2heap (proj1,proj2)
+          (st2 with <| ptr_eq_oracle := po; eval_oracle := eo |>)) (h1,h2)’
        by fs [cfStoreTheory.st2heap_def]
   \\ drule_all (GEN_ALL call_main_thm2_determ)
   \\ simp [] \\ strip_tac
@@ -302,10 +305,12 @@ Proof
   rpt strip_tac
   \\ simp [semanticsPropsTheory.sem_satisfies_def, IN_DEF]
   \\ ho_match_mp_tac semantics_dec_list_all_terminate
-  \\ gen_tac
-  \\ ‘Decls env1 (st1 with ptr_eq_oracle := po) prog env2
-             (st2 with ptr_eq_oracle := po)’ by metis_tac [Decls_with_oracle]
-  \\ ‘SPLIT (st2heap (proj1,proj2) (st2 with ptr_eq_oracle := po)) (h1,h2)’
+  \\ rpt gen_tac
+  \\ ‘Decls env1 (st1 with <| ptr_eq_oracle := po; eval_oracle := eo |>) prog env2
+             (st2 with <| ptr_eq_oracle := po; eval_oracle := eo |>)’
+    by metis_tac [Decls_with_oracles]
+  \\ ‘SPLIT (st2heap (proj1,proj2)
+          (st2 with <| ptr_eq_oracle := po; eval_oracle := eo |>)) (h1,h2)’
        by fs [cfStoreTheory.st2heap_def]
   \\ drule_all (GEN_ALL call_main_thm2_ffidiv_determ)
   \\ simp [] \\ strip_tac

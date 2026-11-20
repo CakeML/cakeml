@@ -3,10 +3,10 @@
 *)
 Theory source_to_flatProof
 Ancestors
-  source_to_flat flatProps namespaceProps semantics
+  source_to_flat flatProps namespaceProps evalSem evalSemProps[qualified]
   semanticPrimitivesProps lprefix_lub[qualified]
   backend_common[qualified] misc[qualified] backendProps
-  source_evalProof
+  source_eval_oracleProof
   semanticPrimitives flatLang flatSem
   flat_ticksProof[qualified] flat_patternProof[qualified]
 Libs
@@ -2798,7 +2798,7 @@ Definition orac_rel_def:
     | (_, NONE) => T
     | (SOME dec, SOME (EvalOracle s)) => (
     ? s_compiler.
-    s.custom_do_eval = source_evalProof$do_eval_oracle s_compiler g /\
+    s.custom_do_eval = source_eval_oracleProof$do_eval_oracle s_compiler g /\
     orac_rel_inner dec s s_compiler g flat_eval
       )
     | _ => F)
@@ -3068,14 +3068,14 @@ Proof
   \\ drule_then drule (pmatch |> CONJUNCT1)
   \\ rpt (disch_then drule)
   \\ disch_then (qsubterm_then `pmatch _ _ _ _` mp_tac)
-  \\ simp [semanticPrimitivesTheory.state_component_equality, v_rel_rules]
+  \\ simp [evalSemTheory.state_component_equality, v_rel_rules]
   \\ rw []
   \\ imp_res_tac match_result_rel_imp \\ fs [match_result_rel_def]
   \\ TOP_CASE_TAC \\ fs []
 QED
 
 val s = mk_var("s",
-  ``evaluate$evaluate`` |> type_of |> strip_fun |> #1 |> el 1
+  ``evalSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 1
   |> type_subst[alpha |-> ``:'ffi``]);
 
 Theorem invariant_globals:
@@ -3102,7 +3102,7 @@ Theorem invariant_dec_clock:
    st1.clock = st2.clock ∧
    invariant interp g gen genv env (dec_clock st1) (dec_clock st2)
 Proof
-  simp [invariant_def, dec_clock_def, evaluateTheory.dec_clock_def]
+  simp [invariant_def, dec_clock_def, evalSemTheory.dec_clock_def]
   \\ simp [s_rel_cases]
 QED
 
@@ -3274,7 +3274,7 @@ Proof
   \\ imp_res_tac env_all_rel_global_env_inv
   \\ `?res. pmatch env.c st.refs p v [] = res` by simp []
   \\ drule_then drule (CONJUNCT1 pmatch)
-  \\ simp [semanticPrimitivesTheory.state_component_equality]
+  \\ simp [evalSemTheory.state_component_equality]
   \\ disch_then irule
   \\ simp [v_rel_eqns]
   \\ fs [env_all_rel_cases]
@@ -3904,13 +3904,13 @@ Theorem do_eval:
     | _ => F
   )
 Proof
-  rw [semanticPrimitivesTheory.do_eval_def, do_eval_def]
+  rw [evalSemTheory.do_eval_def, do_eval_def]
   \\ fs [case_eq_thms, invariant_def]
   \\ rfs [CaseEq "eval_state"]
   \\ imp_res_tac orac_rel_SOME_eval
   \\ fs [orac_rel_def]
   \\ rveq \\ fs []
-  \\ fs [source_evalProofTheory.do_eval_oracle_def]
+  \\ fs [source_eval_oracleProofTheory.do_eval_oracle_def]
   \\ fs [case_eq_thms] \\ rveq \\ fs []
   \\ rpt (pairarg_tac \\ fs [])
   \\ fs [case_eq_thms, pair_case_eq]
@@ -4103,7 +4103,7 @@ Proof
     fs [src_orac_step_invs_def, orac_forward_rel_def] \\ rfs []
   )
   \\ fs [orac_forward_rel_def, eval_state_call_rel_def]
-  \\ fs [reset_env_generation_def]
+  \\ fs [evalSemTheory.reset_env_generation_def]
   \\ rfs [src_orac_next_cfg_def]
   \\ rw []
   \\ TRY (fs [src_orac_env_invs_def, src_orac_next_cfg_def, s_rel_cases, fin_idx_match_def]
@@ -4633,12 +4633,12 @@ Theorem evaluate_exp_info[local]:
   evaluate s env [e] = (s', Rval [x]) ⇒ glob_info_rel (exp_info e) x
 Proof
   rw [exp_info_def] \\ every_case_tac
-  \\ gvs [evaluateTheory.evaluate_def] \\ metis_tac []
+  \\ gvs [evalSemTheory.evaluate_def] \\ metis_tac []
 QED
 
 Theorem compile_correct:
   (∀ ^s env es s' r genv comp_map env_i1 ^s_i1 es_i1 t gen idxs.
-    evaluate$evaluate s env es = (s', r) ∧
+    evalSem$evaluate s env es = (s', r) ∧
     invariant interp g gen genv idxs s s_i1 ∧
     env_all_rel genv comp_map env env_i1 ∧
     env_gen_rel gen s.eval_state ∧
@@ -4659,7 +4659,7 @@ Theorem compile_correct:
   ) ∧
   (∀ ^s env v pes err_v genv comp_map s' r env_i1 ^s_i1 v_i1 pes_i1
          err_v_i1 t gen idxs.
-    evaluate$evaluate_match s env v pes err_v = (s', r) ∧
+    evalSem$evaluate_match s env v pes err_v = (s', r) ∧
     invariant interp g gen genv idxs s s_i1 ∧
     env_all_rel genv comp_map env env_i1 ∧
     v_rel genv v v_i1 ∧
@@ -4683,7 +4683,7 @@ Theorem compile_correct:
   ) ∧
   (∀ ^s env ds s' r path t idx end_idx os comp_map ^s_i1 idx'
         comp_map' ds_i1 t' genv gen gen'.
-    evaluate$evaluate_decs s env ds = (s',r) ∧
+    evalSem$evaluate_decs s env ds = (s',r) ∧
     invariant interp g gen genv (idx, end_idx, os) s s_i1 ∧
     source_to_flat$compile_decs path t idx comp_map gen ds =
         (t', idx', comp_map', gen', ds_i1) ∧
@@ -4719,8 +4719,8 @@ Theorem compile_correct:
         result_rel (\a b (c:'a). T) genv' (Rerr err) (Rerr err_i1))
   )
 Proof
-  ho_match_mp_tac (name_ind_cases [] evaluateTheory.full_evaluate_ind)
-  \\ rw [evaluateTheory.full_evaluate_def, flat_evaluate_def,
+  ho_match_mp_tac (name_ind_cases [] evalSemTheory.full_evaluate_ind)
+  \\ rw [evalSemTheory.full_evaluate_def, flat_evaluate_def,
     compile_exp_def, compile_decs_def]
   \\ imp_res_tac invariant_IMP_s_rel
   \\ fs [result_rel_eqns, v_rel_eqns_non_global]
@@ -4805,7 +4805,7 @@ Resume compile_correct[Raise]:
   \\ impl_tac >- (CCONTR_TAC \\ fs [])
   \\ rw []
   \\ fs [result_rel_cases] \\ rveq \\ fs [] \\ rveq \\ fs []
-  \\ imp_res_tac evaluatePropsTheory.evaluate_sing
+  \\ imp_res_tac evalSemPropsTheory.evaluate_sing
   \\ imp_res_tac evaluate_sing
   \\ rveq \\ fs []
   \\ asm_exists_tac \\ simp []
@@ -4862,7 +4862,7 @@ Resume compile_correct[Con]:
   \\ fs [option_case_eq, pair_case_eq] \\ rveq \\ fs []
   \\ goal_assum (qsubterm_then `s_rel _ _ _` mp_tac)
   \\ simp [v_rel_eqns, result_rel_eqns]
-  \\ imp_res_tac evaluatePropsTheory.evaluate_length
+  \\ imp_res_tac evalSemPropsTheory.evaluate_length
   \\ fs []
   \\ metis_tac [FLOOKUP_SUBMAP]
 QED
@@ -4930,7 +4930,7 @@ Proof
   \\ rfs []
   \\ rveq \\ fs []
   \\ simp [store_v_same_type_def, LUPDATE_def]
-  \\ fs [declare_env_def, option_case_eq, src_orac_invs_def]
+  \\ fs [evalSemTheory.declare_env_def, option_case_eq, src_orac_invs_def]
   \\ every_case_tac \\ fs []
   \\ rveq \\ fs []
   \\ TRY (imp_res_tac step_1 \\ fs [env_gen_rel_def] \\ NO_TAC)
@@ -5007,7 +5007,7 @@ Resume compile_correct[App]:
     \\ fs [semanticPrimitivesTheory.do_app_def]
     \\ every_case_tac \\ fs [] \\ rveq \\ fs []
     >- (
-      drule (CONJUNCT1 evaluatePropsTheory.evaluate_length) >>
+      drule (CONJUNCT1 evalSemPropsTheory.evaluate_length) >>
       rw [] >>
       fs [LENGTH_EQ_NUM_compute] >>
       rveq >> fs [] >>
@@ -5047,7 +5047,16 @@ Resume compile_correct[App]:
   \\ Cases_on `op = Eval`
   >- (
     rpt strip_tac
-    \\ fs [evaluateTheory.do_eval_res_def]
+    \\ ‘(∀r. st'.eval_state ≠ SOME (EvalRun r)) ∧
+        (∀r. st'.eval_state ≠ SOME (EvalPending r))’
+      by (rpt strip_tac \\ gvs [env_gen_rel_def])
+    \\ ‘∀vs. do_eval_init vs st'.eval_state (:'ffi) = NONE’
+      by (rw [evalSemTheory.do_eval_init_def] \\ every_case_tac \\ gvs [])
+    \\ ‘(∀vs. do_eval_fail vs st'.eval_state = NONE) ∧
+        ∀x. eval_result st'.eval_state x = x’
+      by (rw [evalSemTheory.do_eval_fail_def, evalSemTheory.eval_result_def]
+          \\ every_case_tac \\ gvs [])
+    \\ fs [evalSemPropsTheory.do_eval_res_not_EvalRun]
     \\ fs [astOp_to_flatOp_def, evaluate_def, compile_exps_reverse,
         evaluate_decs_append, miscTheory.opt_bind_def]
     \\ fs [list_case_eq, option_case_eq, pair_case_eq]
@@ -5074,7 +5083,7 @@ Resume compile_correct[App]:
     \\ rveq \\ fs []
     \\ simp [glob_alloc_def, evaluate_def, do_app_def, Unitv_def]
     \\ first_x_assum (qsubterm_then `compile_decs _ _ _ _ _ _` mp_tac)
-    \\ fs [dec_clock_def, evaluateTheory.dec_clock_def]
+    \\ fs [dec_clock_def, evalSemTheory.dec_clock_def]
     \\ rfs []
     \\ disch_then drule
     \\ simp [idx_prev_refl]
@@ -5163,10 +5172,10 @@ Resume compile_correct[App]:
         env_gen_rel gen2 (dec_clock st').eval_state ⇒ _`
       mp_tac >>
     disch_then (drule_then drule) >>
-    simp [evaluateTheory.dec_clock_def, dec_clock_def] >>
+    simp [evalSemTheory.dec_clock_def, dec_clock_def] >>
     disch_then (qsubterm_then `evaluate _ _ _` mp_tac) >>
     rw [] >>
-    fs [evaluateTheory.dec_clock_def, dec_clock_def] >>
+    fs [evalSemTheory.dec_clock_def, dec_clock_def] >>
     metis_tac (SUBSET_TRANS :: trans_thms)
   )
   \\ Cases_on `op = Env_id`
@@ -5188,7 +5197,7 @@ Resume compile_correct[App]:
   ) >>
   Cases_on ‘op = ThunkOp ForceThunk’ >> gs[]
   >- (
-    gvs[AllCaseEqs(), evaluateTheory.dec_clock_def, flatSemTheory.dec_clock_def,
+    gvs[AllCaseEqs(), evalSemTheory.dec_clock_def, flatSemTheory.dec_clock_def,
         PULL_EXISTS] >> rw[]
     >- (
       gvs[astOp_to_flatOp_def, evaluate_def, compile_exps_reverse,
@@ -5247,7 +5256,7 @@ Resume compile_correct[App]:
       drule do_opapp >> simp[PULL_EXISTS] >>
       disch_then drule >> simp[Once v_rel_cases] >> strip_tac >> gvs[] >>
       dxrule invariant_dec_clock >> strip_tac >>
-      gvs[evaluateTheory.dec_clock_def, flatSemTheory.dec_clock_def] >>
+      gvs[evalSemTheory.dec_clock_def, flatSemTheory.dec_clock_def] >>
       qmatch_asmsub_rename_tac `do_opapp _ = SOME (_,compile_exp force_trace _ _)` >>
       last_x_assum drule_all >>
       disch_then (qspec_then `force_trace` assume_tac) >> gvs[] >>
@@ -5287,7 +5296,7 @@ Resume compile_correct[App]:
         gvs[s_rel_cases, LIST_REL_EL_EQN] >>
         rw[EL_LUPDATE] >> simp[Once sv_rel_cases])
       >- (
-        gvs[evaluateTheory.dec_clock_def] >>
+        gvs[evalSemTheory.dec_clock_def] >>
         drule_then irule orac_forward_rel_trans >> gvs[])
     )
     >- (
@@ -5309,7 +5318,7 @@ Resume compile_correct[App]:
       drule do_opapp >> simp[PULL_EXISTS] >>
       disch_then drule >> simp[Once v_rel_cases] >> strip_tac >> gvs[] >>
       dxrule invariant_dec_clock >> strip_tac >>
-      gvs[evaluateTheory.dec_clock_def, flatSemTheory.dec_clock_def] >>
+      gvs[evalSemTheory.dec_clock_def, flatSemTheory.dec_clock_def] >>
       qmatch_asmsub_rename_tac `do_opapp _ = SOME (_,compile_exp force_trace _ _)` >>
       last_x_assum drule_all >>
       disch_then (qspec_then `force_trace` assume_tac) >> gvs[] >>
@@ -5399,7 +5408,7 @@ Resume compile_correct[Log]:
     every_case_tac >>
     simp [evaluate_def]
   ) >>
-  imp_res_tac evaluatePropsTheory.evaluate_sing >>
+  imp_res_tac evalSemPropsTheory.evaluate_sing >>
   reverse (fs [option_case_eq, exp_or_val_case_eq, result_rel_eqns])
   >- (
     rveq >> fs [] >>
@@ -5455,7 +5464,7 @@ Resume compile_correct[If]:
   disch_then (drule_then (drule_then drule)) >>
   disch_then (qspec_then ‘t’ mp_tac) >>
   rw [] >>
-  imp_res_tac evaluatePropsTheory.evaluate_sing >>
+  imp_res_tac evalSemPropsTheory.evaluate_sing >>
   goal_assum (qsubterm_then `invariant _ _ _ _` mp_tac) >>
   fs [semanticPrimitivesTheory.do_if_def, bool_case_eq] >> rveq >> fs [] >>
   fs [invariant_def, do_if_def] >>
@@ -5480,7 +5489,7 @@ Resume compile_correct[Mat]:
   \\ imp_res_tac result_rel_imp \\ fs [] \\ rveq \\ fs [result_rel_eqns]
   \\ TRY (asm_exists_tac \\ simp [])
   \\ fs [bool_case_eq, Q.ISPEC `(a, b)` EQ_SYM_EQ]
-  \\ imp_res_tac evaluatePropsTheory.evaluate_sing
+  \\ imp_res_tac evalSemPropsTheory.evaluate_sing
   \\ fs [] \\ rveq \\ fs []
   \\ drule_then drule env_all_rel_weak
   \\ rw []
@@ -5729,7 +5738,7 @@ Resume compile_correct[Dlet]:
     PairCases_on ‘p_’ >> gvs [] >>
     pop_assum mp_tac >>
     simp [simple_dlet_def, AllCaseEqs()] >>
-    strip_tac >> gvs [evaluateTheory.evaluate_def] >>
+    strip_tac >> gvs [evalSemTheory.evaluate_def] >>
     qpat_x_assum ‘_ = (s',r)’ mp_tac >>
     simp [AllCaseEqs(),semanticPrimitivesTheory.pmatch_def] >>
     strip_tac >> gvs [] >>
@@ -5933,13 +5942,18 @@ QED
 Resume compile_correct[Denv]:
   rw []
   \\ fs [option_case_eq, pair_case_eq]
-  \\ fs [declare_env_def, option_case_eq, CaseEq "eval_state"]
+  \\ fs [evalSemTheory.declare_env_def, option_case_eq, CaseEq "eval_state"]
   \\ rveq \\ fs []
-  >- (
+  >>~- ([‘EvalDecs’],
     (* incorrect eval state type *)
     fs [invariant_def, orac_rel_def]
-    \\ rfs []
-  )
+    \\ rfs [])
+  >>~- ([‘EvalRun’],
+    fs [invariant_def, orac_rel_def]
+    \\ rfs [])
+  >>~- ([‘EvalPending’],
+    fs [invariant_def, orac_rel_def]
+    \\ rfs [])
   \\ simp [evaluate_def, do_app_def, env_id_tuple_def]
   \\ rfs [invariant_def, fin_idx_match_def, src_orac_invs_def]
   \\ drule_then strip_assume_tac step_1
@@ -6174,6 +6188,8 @@ Finalise compile_correct;
 Definition init_eval_state_ok_def:
   (init_eval_state_ok NONE = T) /\
   (init_eval_state_ok (SOME (EvalDecs _)) = F) /\
+  (init_eval_state_ok (SOME (EvalRun _)) = F) /\
+  (init_eval_state_ok (SOME (EvalPending _)) = F) /\
   (init_eval_state_ok (SOME (EvalOracle s)) <=>
     s.generation = 0 /\ s.envs = [[]])
 End
@@ -6528,7 +6544,7 @@ Proof
   \\ qx_genl_tac[`k1`,`k2`]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[]
-  \\ metis_tac[evaluatePropsTheory.evaluate_decs_ffi_mono_clock,
+  \\ metis_tac[evalSemPropsTheory.evaluate_decs_ffi_mono_clock,
                evaluatePropsTheory.io_events_mono_def,
                LESS_EQ_CASES,FST]
 QED

@@ -1257,7 +1257,8 @@ Theorem small_big_exp_equiv:
  !env s e s' r.
    small_eval env (to_small_st s) e [] (to_small_st s',  r) ∧
    s.clock = s'.clock ∧ s.next_type_stamp = s'.next_type_stamp ∧
-   s.next_exn_stamp = s'.next_exn_stamp ∧ s.eval_state = s'.eval_state
+   s.next_exn_stamp = s'.next_exn_stamp ∧ s.eval_state = s'.eval_state ∧
+   s.eval_oracle = s'.eval_oracle
    ⇔
    evaluate F env s e (s',r)
 Proof
