@@ -13,5 +13,27 @@ members = [
   "examples/machine-code/hoare-triple",
   "examples/l3-machine-code"
 ]
-exclude = ["examples/l3-machine-code/monadic-arm"]
+exclude = ["examples/l3-machine-code/monadic-arm",
+           "examples/l3-machine-code/arm8/asl-equiv/armv8.6-asl-snapshot"]
 exclude_globs = ["*/selftest.sml"]
+
+[actions.MutableMap16]
+loads = ["Ptree", "Map", "MutableMapFunctor"]
+
+[actions.FP32]
+loads = ["FP"]
+
+[actions.FP64]
+loads = ["FP"]
+
+[actions.arm]
+loads = ["assemblerLib", "MutableMap16"]
+
+[actions.arm8]
+loads = ["assemblerLib", "MutableMap16"]
+
+[actions.mips]
+loads = ["assemblerLib", "MutableMap16"]
+
+[actions.x64]
+loads = ["assemblerLib", "MutableMap16"]

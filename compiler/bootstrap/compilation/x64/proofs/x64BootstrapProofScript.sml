@@ -270,7 +270,7 @@ Proof
   \\ rewrite_tac [LENGTH]
   \\ once_rewrite_tac [compiler_x64_prog_def]
   \\ PURE_REWRITE_TAC [rich_listTheory.DROP]
-  \\ conj_tac >- EVAL_TAC
+  \\ conj_tac >- (rewrite_tac [APPEND,locationTheory.unknown_loc_def,MAP] \\ REFL_TAC)
   \\ rewrite_tac [APPEND,locationTheory.unknown_loc_def,EVERY_DEF]
   \\ rpt conj_tac
   \\ tac
