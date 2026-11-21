@@ -20,6 +20,14 @@ by the monadic translator.
 [ml_monadStoreScript.sml](ml_monadStoreScript.sml):
 This file defines theorems and lemmas used in the ml_monadStoreLib
 
+[ml_monad_oracleLib.sml](ml_monad_oracleLib.sml):
+Opt-in translation of pointer equality for global-state monads, where a
+logical oracle in the user's state models the source PtrEq oracle.
+See examples/monadic_ptr_eqScript.sml.
+
+[ml_monad_oracleScript.sml](ml_monad_oracleScript.sml):
+Oracle-aware specifications for the state-and-exception monad.
+
 [ml_monad_translatorBaseScript.sml](ml_monad_translatorBaseScript.sml):
 Assertions about references and arrays are defined. Lemmas for these
 are proved, including reasoning in separation logic.

@@ -1155,4 +1155,58 @@ End
 val _ = check_precondition ptr_eq_pre_test_def
   “λ(x:num) (y:num). x ≠ y”;
 
+(* Conjunctions of pointer tests need no precondition when the branches
+   agree under the whole guard *)
+Definition ptr_eq_pair_fast_def:
+  ptr_eq_pair_fast (xs:num list) ys x y =
+    if ptr_eq xs ys ∧ ptr_eq (x + 1:num) (y + 1)
+    then (xs,x + 1) else (ys,y + 1)
+End
+
+Definition ptr_eq_guard_fast_def:
+  ptr_eq_guard_fast (xs:num list) ys ready =
+    if ptr_eq xs ys ∧ ready then T else xs = ys ∧ ready
+End
+
+Definition ptr_eq_many_guard_fast_def:
+  ptr_eq_many_guard_fast (xs:num list) ys (zs:num list) ws (n:num) m ready =
+    if ptr_eq xs ys ∧ ptr_eq zs ws ∧ ptr_eq n m ∧ ready
+    then (xs,zs,n) else (ys,ws,m)
+End
+
+(* Nested conjunctions in the guard *)
+Definition ptr_eq_grouped_guard_fast_def:
+  ptr_eq_grouped_guard_fast (x:num) y (z:num) w (n:num) m =
+    if (ptr_eq x y ∧ ptr_eq z w) ∧ (n <= m ∧ m <= n)
+    then T else x = y ∧ z = w ∧ (n <= m ∧ m <= n)
+End
+
+val _ = List.app (fn (def,ptr_count,and_count) => let
+  val th = translate def
+  val name = def |> SPEC_ALL |> concl |> lhs |> strip_comb |> fst
+                 |> dest_const |> fst
+  val code = fetch "-" (name ^ "_v_def") |> concl |> rhs
+  val pointers = find_terms (can (match_term “App PtrEq args”)) code
+  val conjunctions =
+    find_terms (can (match_term “Log Andalso left right”)) code
+  in
+    null (hyp th) orelse failwith (name ^ " retained a precondition");
+    length pointers = ptr_count orelse
+      failwith (name ^ " lost a source PtrEq operation");
+    length conjunctions >= and_count orelse
+      failwith (name ^ " lost short-circuit conjunctions");
+    ()
+  end)
+  [(ptr_eq_pair_fast_def,2,1), (ptr_eq_guard_fast_def,1,1),
+   (ptr_eq_many_guard_fast_def,3,3), (ptr_eq_grouped_guard_fast_def,2,3)];
+
+(* Otherwise a precondition for the whole guard remains *)
+Definition ptr_eq_conj_pre_test_def:
+  ptr_eq_conj_pre_test (x:num) y (z:num) w ready =
+    if ptr_eq x y ∧ ptr_eq z w ∧ ready then x else x + 1
+End
+
+val _ = check_precondition ptr_eq_conj_pre_test_def
+  “λ(x:num) y (z:num) w ready. x = y ∧ z = w ⇒ ¬ready”;
+
 end;
