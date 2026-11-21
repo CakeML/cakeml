@@ -67,6 +67,79 @@ val ex1 = ‘
 
 val treeEx1 = check_success $ parse_pancake ex1;
 
+(** else-if: an else may be followed directly by another conditional. A
+    chain parses to the nested conditionals it abbreviates; we compare the
+    two after erasing the source-location annotations, which differ. *)
+local
+  fun is_annot t =
+    case strip_comb t of
+      (c, [_, _]) => same_const c “panLang$Annot”
+    | _ => false
+  fun erase_locs th =
+    let
+      val t = rhs (concl th)
+      val locs = op_mk_set aconv (map rand (find_terms is_annot t))
+    in
+      subst (map (fn l => l |-> “strlit ""”) locs) t
+    end
+in
+  fun same_parse (a, b) = aconv (erase_locs a) (erase_locs b)
+end
+
+val ex1_else_if = ‘
+  fun cond() {
+    if x < 1 { y = 1; } else if x < 2 { y = 2; } else { y = 3; }
+  }’;
+
+val ex1_else_nested = ‘
+  fun cond() {
+    if x < 1 { y = 1; } else { if x < 2 { y = 2; } else { y = 3; } }
+  }’;
+
+val treeEx1_else_if = check_success $ parse_pancake ex1_else_if;
+val treeEx1_else_nested = check_success $ parse_pancake ex1_else_nested;
+val _ = assert same_parse (treeEx1_else_if, treeEx1_else_nested);
+
+(** The comparison is not vacuous: a nested program that differs in one
+    constant is a different parse. *)
+val ex1_else_nested_differs = ‘
+  fun cond() {
+    if x < 1 { y = 1; } else { if x < 2 { y = 2; } else { y = 4; } }
+  }’;
+
+val _ = assert (not o same_parse)
+  (treeEx1_else_if, check_success $ parse_pancake ex1_else_nested_differs);
+
+(** Without a final else, the last conditional in the chain has none. *)
+val ex1_else_if_open = ‘
+  fun cond() {
+    if x < 1 { y = 1; } else if x < 2 { y = 2; }
+  }’;
+
+val ex1_else_nested_open = ‘
+  fun cond() {
+    if x < 1 { y = 1; } else { if x < 2 { y = 2; } }
+  }’;
+
+val _ = assert same_parse
+  (check_success $ parse_pancake ex1_else_if_open,
+   check_success $ parse_pancake ex1_else_nested_open);
+
+(** An else-if still needs its condition and its braces. *)
+val ex1_else_if_nocond = ‘
+  fun cond() {
+    if x < 1 { y = 1; } else if { y = 2; }
+  }’;
+
+val _ = check_failure $ parse_pancake ex1_else_if_nocond;
+
+val ex1_else_if_nobrace = ‘
+  fun cond() {
+    if x < 1 { y = 1; } else if x < 2 y = 2;
+  }’;
+
+val _ = check_failure $ parse_pancake ex1_else_if_nobrace;
+
 (** We also have a selection of boolean operators and we can call
     functions. A struct value encloses expressions within chevrons
     (‘<>’). *)
