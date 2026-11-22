@@ -83,3 +83,51 @@ val _ = translate miller_rabin_1_def;
 
 val _ = translate miller_rabin_def;
 
+(* discharging the preconditions *)
+
+Theorem exp_mod_step_side[local]:
+  ∀b n k acc. k ≠ 0 ⇒ exp_mod_step_side b n k acc
+Proof
+  ho_match_mp_tac expModTheory.exp_mod_step_ind \\ rpt strip_tac
+  \\ once_rewrite_tac [fetch "-" "exp_mod_step_side_def"]
+  \\ Cases_on ‘k’ \\ Cases_on ‘n’ \\ gvs []
+QED
+
+Theorem witness_tail_side[local]:
+  ∀r n a. 0 < n ⇒ witness_tail_side n a r
+Proof
+  Induct \\ once_rewrite_tac [fetch "-" "witness_tail_side_def"] \\ gvs []
+QED
+
+Theorem witness_side[local]:
+  ∀n a. 0 < n ⇒ witness_side n a
+Proof
+  rw [fetch "-" "witness_side_def", fetch "-" "exp_mod_binary_side_def",
+      exp_mod_step_side, witness_tail_side]
+QED
+
+Theorem prob_uniform_cut_side[local]:
+  ∀t n s. 0 < n ⇒ prob_uniform_cut_side t n s
+Proof
+  Induct \\ once_rewrite_tac [fetch "-" "prob_uniform_cut_side_def"]
+  \\ Cases_on ‘n’ \\ gvs [] \\ rpt (pairarg_tac \\ gvs [])
+QED
+
+Theorem miller_rabin_1_side[local]:
+  ∀n s. miller_rabin_1_side n s ⇔ T
+Proof
+  rw [fetch "-" "miller_rabin_1_side_def"]
+  \\ ‘n ≠ 0’ by (strip_tac \\ gvs [])
+  \\ gvs [witness_side, prob_uniform_cut_side]
+QED
+
+val _ = update_precondition miller_rabin_1_side;
+
+Theorem miller_rabin_side[local]:
+  ∀n s. miller_rabin_side n s ⇔ T
+Proof
+  rw [fetch "-" "miller_rabin_side_def", miller_rabin_1_side]
+QED
+
+val _ = update_precondition miller_rabin_side;
+
