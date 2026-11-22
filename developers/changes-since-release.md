@@ -24,6 +24,8 @@ The CakeML compiler now supports compilation of floating-point operartions also 
 
 In wordLang, the `Equal` stub now computes a three-way comparison, which both `=` and `PolyCompare` call (#1598).
 
+BVI and DataLang now have a new `IsSmallnum` primitive (#1605). BVI now carries the architecture width in its state to give semantics to `IsSmallnum`.
+
 A new first pass `source_eval_init` implements the new one- and two-argument `Eval` calls in terms of the old six-argument `Eval`, and the backend source_to_source passes are now proved against a new intermediate semantics, `evalSem`.
 
 The REPL's only target-specific step is now installing the compiler in `Eval` and the rest of its proof is shared between targets.
@@ -45,5 +47,11 @@ A PB checker has gained substantial optimization passes, with some cleanup fallo
 ## Build infrastructure
 
 ## Proof engineering and tooling
+
+The translator now accepts `if ptr_eq x1 y1 /\ ptr_eq x2 y2 /\ ... then t1 else t2`, i.e. conjunctions of pointer-equality tests (with an optional boolean suffix) as the guard. The side condition that both branches agree is only needed under the whole guard (#1603).
+
+The monadic translator has a new opt-in library, `ml_monad_oracleLib`, for pointer equality (`Mptr_eq`) in global-state monads. A logical oracle field in the user's state models the source `PtrEq` oracle (#1603).
+
+CF now supports `PtrEq` (#1603).
 
 ## Miscellaneous

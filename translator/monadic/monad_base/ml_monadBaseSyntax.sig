@@ -37,6 +37,11 @@ sig
     val dest_st_ex_return       : term -> term
     val is_st_ex_return         : term -> bool
 
+    val Mptr_eq_tm              : term
+    val mk_Mptr_eq              : term * term * term * term -> term
+    val dest_Mptr_eq            : term -> term * term * term * term
+    val is_Mptr_eq              : term -> bool
+
     val otherwise_tm    : term
     val mk_otherwise    : term * term -> term
     val dest_otherwise  : term -> term * term

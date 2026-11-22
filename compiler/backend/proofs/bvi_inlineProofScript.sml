@@ -507,6 +507,7 @@ Definition in_state_rel_def:
     t.clock = s.clock ∧
     t.global = s.global ∧
     t.ffi = s.ffi ∧
+    t.arch_width = s.arch_width ∧
     t.ptr_eq_oracle = s.ptr_eq_oracle ∧
     t.compile_oracle = in_co s.compile_oracle ∧
     subspt (FST (FST (s.compile_oracle 0))) (md_off t.code) ∧
@@ -605,12 +606,12 @@ Theorem do_app_state_swap_Rval[local]:
     do_app op args
       (t with <| refs := s.refs; clock := s.clock;
                  global := s.global; ffi := s.ffi;
-                 ptr_eq_oracle := s.ptr_eq_oracle |>) =
+                 arch_width := s.arch_width; ptr_eq_oracle := s.ptr_eq_oracle |>) =
     Rval
       (value,
        t with <| refs := source_state.refs; clock := source_state.clock;
                   global := source_state.global; ffi := source_state.ffi;
-                  ptr_eq_oracle := source_state.ptr_eq_oracle |>)
+                  arch_width := source_state.arch_width; ptr_eq_oracle := source_state.ptr_eq_oracle |>)
 Proof
   rpt strip_tac
   >> metis_tac [do_app_state_swap]
@@ -625,7 +626,7 @@ Theorem do_app_state_swap_Rerr[local]:
     do_app op args
       (t with <| refs := s.refs; clock := s.clock;
                  global := s.global; ffi := s.ffi;
-                 ptr_eq_oracle := s.ptr_eq_oracle |>) = Rerr error
+                 arch_width := s.arch_width; ptr_eq_oracle := s.ptr_eq_oracle |>) = Rerr error
 Proof
   rpt strip_tac
   >> metis_tac [do_app_state_swap]
@@ -742,7 +743,7 @@ Proof
   >> Cases_on `op = Install`
   >- gvs [do_app_def, in_state_rel_do_install]
   >> `t1 with <| refs := s1.refs; clock := s1.clock; global := s1.global;
-                 ffi := s1.ffi; ptr_eq_oracle := s1.ptr_eq_oracle |> = t1`
+                 ffi := s1.ffi; arch_width := s1.arch_width; ptr_eq_oracle := s1.ptr_eq_oracle |> = t1`
        by gvs [in_state_rel_def, state_component_equality]
   >> `domain s1.code ⊆ domain t1.code ∧ domain t1.code ⊆ domain s1.code`
        by gvs [in_state_rel_def]
@@ -1196,6 +1197,7 @@ Definition remove_state_rel_def:
   remove_state_rel (s:('c,'ffi) bviSem$state)
       (t:('c,'ffi) bviSem$state) ⇔
     t.refs = s.refs ∧ t.clock = s.clock ∧ t.global = s.global ∧ t.ffi = s.ffi ∧
+    t.arch_width = s.arch_width ∧
     t.ptr_eq_oracle = s.ptr_eq_oracle ∧
     t.code = map (I ## remove_ticks_exp ## I) s.code ∧
     t.compile_oracle = remove_ticks_co ∘ s.compile_oracle ∧
@@ -1288,7 +1290,7 @@ Proof
   >> Cases_on `op = Install`
   >- gvs [do_app_def, remove_state_rel_do_install]
   >> `t with <| refs := s.refs; clock := s.clock; global := s.global;
-                ffi := s.ffi; ptr_eq_oracle := s.ptr_eq_oracle |> = t`
+                ffi := s.ffi; arch_width := s.arch_width; ptr_eq_oracle := s.ptr_eq_oracle |> = t`
        by gvs [remove_state_rel_def, state_component_equality]
   >> `domain s.code ⊆ domain t.code ∧ domain t.code ⊆ domain s.code`
        by gvs [remove_state_rel_def, domain_map]
@@ -1758,8 +1760,8 @@ Theorem inline_initial_state_rel[local]:
   FST (FST (co 0)) = cs1 ∧
   ALL_DISTINCT (MAP FST prog) ⇒
   in_state_rel
-    (initial_state ffi (fromAList prog) co (state_cc inline_all cc) pe clk)
-    (initial_state ffi (fromAList prog1) (state_co inline_all co) cc pe clk)
+    (initial_state ffi (fromAList prog) co (state_cc inline_all cc) pe aw clk)
+    (initial_state ffi (fromAList prog1) (state_co inline_all co) cc pe aw clk)
 Proof
   rpt strip_tac
   >> `MAP FST prog1 = MAP FST prog`
@@ -1782,12 +1784,12 @@ Theorem evaluate_inline_compile[local]:
   FST (FST (co 0)) = cs1 ∧
   ALL_DISTINCT (MAP FST prog) ∧
   evaluate ([Call 0 (SOME start) [] NONE],[],
-    initial_state ffi (fromAList prog) co (state_cc inline_all cc) pe k) =
+    initial_state ffi (fromAList prog) co (state_cc inline_all cc) pe aw k) =
       (r,s) ∧
   r ≠ Rerr (Rabort Rtype_error) ⇒
   ∃s2.
     evaluate ([Call 0 (SOME start) [] NONE],[],
-      initial_state ffi (fromAList prog1) (state_co inline_all co) cc pe k) =
+      initial_state ffi (fromAList prog1) (state_co inline_all co) cc pe aw k) =
         (r,s2) ∧
     in_state_rel s s2
 Proof
@@ -1798,9 +1800,9 @@ Proof
   >> strip_tac
   >> qspecl_then
        [`[Call 0 (SOME start) [] NONE]`,`[]`,
-        `initial_state ffi (fromAList prog) co (state_cc inline_all cc) pe k`,
+        `initial_state ffi (fromAList prog) co (state_cc inline_all cc) pe aw k`,
         `r`,`s`,
-        `initial_state ffi (fromAList prog1) (state_co inline_all co) cc pe k`,
+        `initial_state ffi (fromAList prog1) (state_co inline_all co) cc pe aw k`,
         `[Call 0 (SOME start) [] NONE]`] mp_tac evaluate_inline
   >> fs [exp_rel_refl]
 QED
@@ -1809,10 +1811,10 @@ Theorem evaluate_remove_ticks_compile[local]:
   ∀prog co ffi cc k start r s.
   evaluate ([Call 0 (SOME start) [] NONE],[],
     initial_state ffi (fromAList (clean_prog prog))
-      (remove_ticks_co ∘ co) cc pe k) = (r,s) ⇒
+      (remove_ticks_co ∘ co) cc pe aw k) = (r,s) ⇒
   ∃ck s2.
     evaluate ([Call 0 (SOME start) [] NONE],[],
-      initial_state ffi (fromAList prog) co (remove_ticks_cc cc) pe (k + ck)) =
+      initial_state ffi (fromAList prog) co (remove_ticks_cc cc) pe aw (k + ck)) =
         (r,s2) ∧
     s2.ffi = s.ffi
 Proof
@@ -1820,8 +1822,8 @@ Proof
   >> qspecl_then
        [`k`,`[Call 0 (SOME start) [] NONE]`,`[]`,
         `initial_state ffi (fromAList (clean_prog prog))
-           (remove_ticks_co ∘ co) cc pe k`,
-        `initial_state ffi (fromAList prog) co (remove_ticks_cc cc) pe k`,
+           (remove_ticks_co ∘ co) cc pe aw k`,
+        `initial_state ffi (fromAList prog) co (remove_ticks_cc cc) pe aw k`,
         `r`,`s`] mp_tac evaluate_remove_ticks
   >> fs [remove_ticks_exp_def, remove_state_rel_def, initial_state_def]
   >> disch_then (qx_choosel_then [`extra`,`s2`] strip_assume_tac)
@@ -1831,13 +1833,13 @@ QED
 
 Theorem semantics_not_Fail_cond[local]:
   ∀ffi code co cc start.
-    semantics ffi code co cc pe start ≠ Fail ⇒
+    semantics ffi code co cc pe aw start ≠ Fail ⇒
     ¬∃j e. FST (evaluate ([Call 0 (SOME start) [] NONE],[],
-      initial_state ffi code co cc pe j)) = Rerr e ∧
+      initial_state ffi code co cc pe aw j)) = Rerr e ∧
       e ≠ Rabort Rtimeout_error ∧ ∀f. e ≠ Rabort (Rffi_error f)
 Proof
   rpt strip_tac
-  >> qpat_x_assum `semantics _ _ _ _ _ _ ≠ Fail` mp_tac
+  >> qpat_x_assum `semantics _ _ _ _ _ _ _ ≠ Fail` mp_tac
   >> simp [semantics_def]
   >> IF_CASES_TAC
   >- simp []
@@ -1848,9 +1850,9 @@ QED
 
 Theorem semantics_error_cases[local]:
   ∀ffi code co cc start.
-    semantics ffi code co cc pe start ≠ Fail ⇒
+    semantics ffi code co cc pe aw start ≠ Fail ⇒
     ∀j e t. evaluate ([Call 0 (SOME start) [] NONE],[],
-      initial_state ffi code co cc pe j) = (Rerr e,t) ⇒
+      initial_state ffi code co cc pe aw j) = (Rerr e,t) ⇒
       e = Rabort Rtimeout_error ∨ ∃f. e = Rabort (Rffi_error f)
 Proof
   rpt strip_tac
@@ -1863,20 +1865,20 @@ QED
 Theorem semantics_terminate_unique[local]:
   ∀ffi code co cc start k1 r1 t1 k2 r2 t2.
     evaluate ([Call 0 (SOME start) [] NONE],[],
-      initial_state ffi code co cc pe k1) = (r1,t1) ∧
+      initial_state ffi code co cc pe aw k1) = (r1,t1) ∧
     evaluate ([Call 0 (SOME start) [] NONE],[],
-      initial_state ffi code co cc pe k2) = (r2,t2) ∧
+      initial_state ffi code co cc pe aw k2) = (r2,t2) ∧
     r1 ≠ Rerr (Rabort Rtimeout_error) ∧
     r2 ≠ Rerr (Rabort Rtimeout_error) ⇒
     r1 = r2 ∧ t1.ffi = t2.ffi
 Proof
   rpt gen_tac
   >> strip_tac
-  >> qpat_assum `evaluate (_,_,initial_state _ _ _ _ _ k1) = _` assume_tac
+  >> qpat_assum `evaluate (_,_,initial_state _ _ _ _ _ _ k1) = _` assume_tac
   >> drule evaluate_add_clock
   >> fs [inc_clock_def]
   >> disch_then (qspec_then `k2` assume_tac)
-  >> qpat_assum `evaluate (_,_,initial_state _ _ _ _ _ k2) = _` assume_tac
+  >> qpat_assum `evaluate (_,_,initial_state _ _ _ _ _ _ k2) = _` assume_tac
   >> drule evaluate_add_clock
   >> fs [inc_clock_def]
   >> disch_then (qspec_then `k1` assume_tac)
@@ -1885,9 +1887,9 @@ QED
 
 Theorem semantics_no_type_error[local]:
   ∀ffi code co cc start.
-    semantics ffi code co cc pe start ≠ Fail ⇒
+    semantics ffi code co cc pe aw start ≠ Fail ⇒
     ∀j. FST (evaluate ([Call 0 (SOME start) [] NONE],[],
-      initial_state ffi code co cc pe j)) ≠ Rerr (Rabort Rtype_error)
+      initial_state ffi code co cc pe aw j)) ≠ Rerr (Rabort Rtype_error)
 Proof
   rpt strip_tac
   >> drule semantics_not_Fail_cond
@@ -1903,14 +1905,14 @@ Theorem evaluate_compile_prog[local]:
   ALL_DISTINCT (MAP FST prog) ∧
   (∀j. FST (evaluate ([Call 0 (SOME start) [] NONE],[],
          initial_state ffi (fromAList prog) co
-           (state_cc compile_inc cc) pe j)) ≠ Rerr (Rabort Rtype_error)) ∧
+           (state_cc compile_inc cc) pe aw j)) ≠ Rerr (Rabort Rtype_error)) ∧
   evaluate ([Call 0 (SOME start) [] NONE],[],
-    initial_state ffi (fromAList prog1) (state_co compile_inc co) cc pe k) =
+    initial_state ffi (fromAList prog1) (state_co compile_inc co) cc pe aw k) =
       (r,s) ⇒
   ∃ck s2.
     evaluate ([Call 0 (SOME start) [] NONE],[],
       initial_state ffi (fromAList prog) co
-        (state_cc compile_inc cc) pe (k + ck)) = (r,s2) ∧
+        (state_cc compile_inc cc) pe aw (k + ck)) = (r,s2) ∧
     s2.ffi = s.ffi
 Proof
   rpt strip_tac
@@ -1925,7 +1927,7 @@ Proof
   >> namedCases_on
        `evaluate ([Call 0 (SOME start) [] NONE],[],
           initial_state ffi (fromAList prog) co
-            (state_cc inline_all (remove_ticks_cc cc)) pe (k + ck))`
+            (state_cc inline_all (remove_ticks_cc cc)) pe aw (k + ck))`
        ["src_res src_st"]
   >> `src_res ≠ Rerr (Rabort Rtype_error)`
        by (qpat_x_assum `∀j. FST _ ≠ _` (qspec_then `k + ck` mp_tac)
@@ -1943,9 +1945,9 @@ Theorem compile_prog_semantics:
   compile_prog prog = (cs1,prog1) ∧
   FST (FST (co 0)) = cs1 ∧
   ALL_DISTINCT (MAP FST prog) ⇒
-  semantics ffi (fromAList prog) co (state_cc compile_inc cc) pe start ≠ Fail ⇒
-  semantics ffi (fromAList prog1) (state_co compile_inc co) cc pe start =
-  semantics ffi (fromAList prog) co (state_cc compile_inc cc) pe start
+  semantics ffi (fromAList prog) co (state_cc compile_inc cc) pe aw start ≠ Fail ⇒
+  semantics ffi (fromAList prog1) (state_co compile_inc co) cc pe aw start =
+  semantics ffi (fromAList prog) co (state_cc compile_inc cc) pe aw start
 Proof
   rpt strip_tac
   >> imp_res_tac semantics_no_type_error
@@ -1953,22 +1955,22 @@ Proof
   >> `∀k r s.
         evaluate ([Call 0 (SOME start) [] NONE],[],
           initial_state ffi (fromAList prog1)
-            (state_co compile_inc co) cc pe k) = (r,s) ⇒
+            (state_co compile_inc co) cc pe aw k) = (r,s) ⇒
         ∃ck s2.
           evaluate ([Call 0 (SOME start) [] NONE],[],
             initial_state ffi (fromAList prog) co
-              (state_cc compile_inc cc) pe (k + ck)) = (r,s2) ∧ s2.ffi = s.ffi`
+              (state_cc compile_inc cc) pe aw (k + ck)) = (r,s2) ∧ s2.ffi = s.ffi`
        by (rpt strip_tac >> drule_all evaluate_compile_prog >> simp [])
   >> simp [Once semantics_def]
   >> IF_CASES_TAC
   >- (fs []
       >> namedCases_on `evaluate ([Call 0 (SOME start) [] NONE],[],
-           initial_state ffi (fromAList prog1) (state_co compile_inc co) cc pe k)`
+           initial_state ffi (fromAList prog1) (state_co compile_inc co) cc pe aw k)`
            ["tgt_res tgt_st"]
       >> fs []
       >> `∃ck s2. evaluate ([Call 0 (SOME start) [] NONE],[],
             initial_state ffi (fromAList prog) co
-              (state_cc compile_inc cc) pe (k + ck)) = (Rerr e,s2) ∧
+              (state_cc compile_inc cc) pe aw (k + ck)) = (Rerr e,s2) ∧
             s2.ffi = tgt_st.ffi`
            by (qpat_assum `∀k r s. _`
                  (qspecl_then [`k`,`Rerr e`,`tgt_st`] mp_tac)
@@ -1983,7 +1985,7 @@ Proof
       >> rveq
       >> `∃ck s2. evaluate ([Call 0 (SOME start) [] NONE],[],
             initial_state ffi (fromAList prog) co
-              (state_cc compile_inc cc) pe (k + ck)) = (r,s2) ∧ s2.ffi = s.ffi`
+              (state_cc compile_inc cc) pe aw (k + ck)) = (r,s2) ∧ s2.ffi = s.ffi`
            by (qpat_assum `∀k r s. _` (qspecl_then [`k`,`r`,`s`] mp_tac)
                >> fs [])
       >> fs []
@@ -1992,7 +1994,7 @@ Proof
       >- (qpat_x_assum `∃j e. _` mp_tac
           >> qpat_x_assum
                `∀j e. FST (evaluate (_,_,
-                  initial_state _ _ _ (state_cc compile_inc cc) _ _)) ≠ _ ∨ _` mp_tac
+                  initial_state _ _ _ (state_cc compile_inc cc) _ _ _)) ≠ _ ∨ _` mp_tac
           >> rpt (pop_assum kall_tac)
           >> simp []
           >> metis_tac [])
@@ -2006,10 +2008,10 @@ Proof
           >> `r ≠ Rerr (Rabort Rtimeout_error) ∧
               alt_res ≠ Rerr (Rabort Rtimeout_error)`
                by (rpt conj_tac >> strip_tac >> gvs [])
-          >> qpat_assum `evaluate (_,_,initial_state _ _ _ _ _ (ck + k)) = _`
+          >> qpat_assum `evaluate (_,_,initial_state _ _ _ _ _ _ (ck + k)) = _`
                assume_tac
           >> drule semantics_terminate_unique
-          >> qpat_assum `evaluate (_,_,initial_state _ _ _ _ _ alt_clk) = _`
+          >> qpat_assum `evaluate (_,_,initial_state _ _ _ _ _ _ alt_clk) = _`
                assume_tac
           >> disch_then drule
           >> fs []
@@ -2028,12 +2030,12 @@ Proof
       >> `r ≠ Rerr (Rabort Rtimeout_error)` by (strip_tac >> gvs [])
       >> namedCases_on `evaluate ([Call 0 (SOME start) [] NONE],[],
            initial_state ffi (fromAList prog1)
-             (state_co compile_inc co) cc pe k)` ["tgt_res tgt_st"]
+             (state_co compile_inc co) cc pe aw k)` ["tgt_res tgt_st"]
       >> qpat_x_assum `∀k r s. _` (qspecl_then [`k`,`tgt_res`,`tgt_st`] mp_tac)
       >> fs []
       >> strip_tac
       >> qpat_x_assum `evaluate (_,_,
-           initial_state _ (fromAList prog) _ _ _ k) = _` assume_tac
+           initial_state _ (fromAList prog) _ _ _ _ k) = _` assume_tac
       >> drule evaluate_add_clock
       >> fs [inc_clock_def, initial_state_def]
       >> disch_then (qspec_then `ck` assume_tac)
@@ -2065,7 +2067,7 @@ Proof
   >> rpt gen_tac
   >> namedCases_on `evaluate ([Call 0 (SOME start) [] NONE],[],
        initial_state ffi (fromAList prog1)
-         (state_co compile_inc co) cc pe k)` ["tgt_res tgt_st"]
+         (state_co compile_inc co) cc pe aw k)` ["tgt_res tgt_st"]
   >> qpat_x_assum `∀k r s. _` (qspecl_then [`k`,`tgt_res`,`tgt_st`] mp_tac)
   >> fs []
   >> strip_tac

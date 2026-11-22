@@ -74,7 +74,7 @@ val _ = augment_srw_ss [rewrites [compiler_Smallnum_i2w]];
 
 Theorem arch_bytes_offset[local]:
 
- arch_width_bits c.arch_width = dimindex(:'a) ==>
+ arch_width_bits (c:data_to_word$config).arch_width = dimindex(:'a) ==>
  (a + n2w(arch_bytes c.arch_width * (n+1)) + p:'a word) =
  a + p + bytes_in_word + bytes_in_word * n2w n
 Proof

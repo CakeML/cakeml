@@ -558,6 +558,14 @@ val monad_eqs = LIST_CONJ
 Theorem monad_eqs =
   monad_eqs
 
+(* Pointer equality reads and advances an oracle field of the state, which
+   models the source PtrEq oracle.  A choice is consumed even when x <> y. *)
+Definition Mptr_eq_def:
+  Mptr_eq (get_oracle : 's -> num -> bool) set_oracle x y : ('s,bool,'e) M =
+    \s. (M_success (x = y /\ get_oracle s 0),
+         set_oracle (\n. get_oracle s (SUC n)) s)
+End
+
 (* Run *)
 Definition run_def:
   run (x : ('a, 'b, 'c) M) state = FST (x state)

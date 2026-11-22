@@ -110,22 +110,23 @@ Proof
 QED
 
 Theorem initial_state_simp[simp]:
-  (initial_state f c co cc pe ts l ss k).clock = k ∧
-  (initial_state f c co cc pe ts l ss k).locals = LN ∧
-  (initial_state f c co cc pe ts l ss k).code = c ∧
-  (initial_state f c co cc pe ts l ss k).ffi = f ∧
-  (initial_state f c co cc pe ts l ss k).compile_oracle = co ∧
-  (initial_state f c co cc pe ts l ss k).compile = cc ∧
-  (initial_state f c co cc pe ts l ss k).stack = [] ∧
-  (initial_state f c co cc pe ts l ss k).peak_heap_length = 0
+  (initial_state f c co cc pe aw ts l ss k).clock = k ∧
+  (initial_state f c co cc pe aw ts l ss k).arch_width = aw ∧
+  (initial_state f c co cc pe aw ts l ss k).locals = LN ∧
+  (initial_state f c co cc pe aw ts l ss k).code = c ∧
+  (initial_state f c co cc pe aw ts l ss k).ffi = f ∧
+  (initial_state f c co cc pe aw ts l ss k).compile_oracle = co ∧
+  (initial_state f c co cc pe aw ts l ss k).compile = cc ∧
+  (initial_state f c co cc pe aw ts l ss k).stack = [] ∧
+  (initial_state f c co cc pe aw ts l ss k).peak_heap_length = 0
 Proof
   srw_tac[][initial_state_def]
 QED
 
 Theorem initial_state_with_simp[simp]:
-   (initial_state f c co cc pe ts l ss k with clock := k' = initial_state f c co cc pe ts l ss k') ∧
-   (initial_state f c co cc pe ts l ss k with stack := [] = initial_state f c co cc pe ts l ss k) ∧
-   (initial_state f c co cc pe ts l ss k with locals := LN = initial_state f c co cc pe ts l ss k)
+   (initial_state f c co cc pe aw ts l ss k with clock := k' = initial_state f c co cc pe aw ts l ss k') ∧
+   (initial_state f c co cc pe aw ts l ss k with stack := [] = initial_state f c co cc pe aw ts l ss k) ∧
+   (initial_state f c co cc pe aw ts l ss k with locals := LN = initial_state f c co cc pe aw ts l ss k)
 Proof
   srw_tac[][initial_state_def]
 QED
@@ -2272,7 +2273,7 @@ Proof
 QED
 
 Theorem semantics_Div_IMP_LPREFIX:
-  semantics ffi prog co cc pe lim ss start = Diverge l ==> LPREFIX (fromList ffi.io_events) l
+  semantics ffi prog co cc pe aw lim ss start = Diverge l ==> LPREFIX (fromList ffi.io_events) l
 Proof
   simp[semantics_def]
   \\ IF_CASES_TAC \\ fs[]
@@ -2300,7 +2301,7 @@ Proof
 QED
 
 Theorem semantics_Term_IMP_PREFIX:
-  semantics ffi prog co cc pe lim ss start = Terminate tt l ==> ffi.io_events ≼ l
+  semantics ffi prog co cc pe aw lim ss start = Terminate tt l ==> ffi.io_events ≼ l
 Proof
   simp[semantics_def] \\ IF_CASES_TAC \\ fs[]
   \\ DEEP_INTRO_TAC some_intro \\ fs[] \\ rw[]
@@ -2309,10 +2310,10 @@ QED
 
 Theorem Resource_limit_hit_implements_semantics:
   implements {Terminate Resource_limit_hit ffi.io_events}
-       {semantics ffi (fromAList prog) co cc pe lim ss start}
+       {semantics ffi (fromAList prog) co cc pe aw lim ss start}
 Proof
   fs [implements_def,extend_with_resource_limit_def]
-  \\ Cases_on `semantics ffi (fromAList prog) co cc pe lim ss start` \\ fs []
+  \\ Cases_on `semantics ffi (fromAList prog) co cc pe aw lim ss start` \\ fs []
   \\ imp_res_tac semantics_Div_IMP_LPREFIX \\ fs []
   \\ imp_res_tac semantics_Term_IMP_PREFIX \\ fs []
 QED
@@ -2981,8 +2982,8 @@ Proof
 QED
 
 Theorem semantics_zero_limits:
-  dataSem$semantics ffi code co cc pe lim ss start =
-  dataSem$semantics ffi code co cc pe zero_limits LN start
+  dataSem$semantics ffi code co cc pe aw lim ss start =
+  dataSem$semantics ffi code co cc pe aw zero_limits LN start
 Proof
   rw[semantics_def,initial_state_def] >>
   fs[Once evaluate_zero_limits_FST, Once evaluate_stack_frame_sizes_FST,
@@ -3090,6 +3091,7 @@ Definition cc_co_only_diff_def:
     s.handler = t.handler /\
     s.refs = t.refs /\
     s.clock = t.clock /\
+    s.arch_width = t.arch_width /\
     s.code = t.code /\
     s.ffi = t.ffi /\
     s.space = t.space /\

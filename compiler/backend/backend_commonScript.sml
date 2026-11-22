@@ -9,6 +9,12 @@ Ancestors
 Libs
   preamble
 
+Definition is_smallnum_def:
+  is_smallnum aw i <=>
+    -&(2 ** arch_width_bits aw DIV 4) <= i /\
+    i < &(2 ** arch_width_bits aw DIV 4):int
+End
+
 Datatype:
   smallnum_op = SmallAdd | SmallSub | SmallMult | SmallDiv | SmallMod
               | SmallLess | SmallLessEq | SmallGreater | SmallGreaterEq

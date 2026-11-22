@@ -1967,6 +1967,19 @@ val def = assign_Define `
       : wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_IsSmallnum aw allow_neg (l:num) (dest:num) v =
+    ((if allow_neg then
+        If Test (adjust_var v) (Imm 1)
+          (Assign (adjust_var dest) TRUE_CONST)
+          (Assign (adjust_var dest) FALSE_CONST)
+      else
+        Seq (Assign 1 (ShiftN Ror (Var (adjust_var v)) (arch_width_bits aw - 1)))
+          (If Test 1 (Imm 3)
+            (Assign (adjust_var dest) TRUE_CONST)
+            (Assign (adjust_var dest) FALSE_CONST))),l)
+      : wordLang$prog # num`;
+
+val def = assign_Define `
   assign_BoolNot (l:num) (dest:num) v1 =
                  (Assign (adjust_var dest)
                     (Op Xor [Var (adjust_var v1); Const 2]),l)
@@ -2956,6 +2969,8 @@ Definition assign_def:
     (args:num list) (names:num_set option) =
     case op of
     | IntOp (Const i) => assign_Const i l dest
+    | IntOp (IsSmallnum allow_neg) =>
+        arg1 args (assign_IsSmallnum c.arch_width allow_neg l dest) (Skip,l)
     | IntOp (closLang$Smallnum smallop) =>
         (case args of
          | [v1; v2] => assign_Smallnum c secn smallop l dest names v1 v2

@@ -133,7 +133,7 @@ fun cf_get_precondition t = rand (rator t)
 (* xx *)
 val cf_defs =
   [cf_lit_def, cf_con_def, cf_var_def, cf_let_def, cf_arith_def,
-   cf_int_cmp_def,
+   cf_int_cmp_def, cf_ptr_eq_def,
    cf_app_def, cf_fun_def, cf_fun_rec_def, cf_ref_def, cf_assign_def,
    cf_deref_def, cf_aalloc_def, cf_asub_def, cf_alength_def, cf_aupdate_def,
    cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def, cf_aw8update_def,

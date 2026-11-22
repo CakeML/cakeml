@@ -769,6 +769,54 @@ Proof
   \\ irule Eval_PtrEq_guard \\ qexists_tac ‘a’ \\ simp []
 QED
 
+(* Guards that may give false negatives, composable with andalso *)
+Theorem Eval_PtrEq_test:
+  Eval env x1 (a y1) /\ Eval env x2 (a y2) ==>
+  EqualityType a ==>
+  Eval env (App PtrEq [x1;x2])
+    (\v. ?c. v = Boolv c /\ (c ==> ptr_eq y1 y2))
+Proof
+  rewrite_tac [ptr_eq_def]
+  \\ MATCH_ACCEPT_TAC Eval_PtrEq_guard
+QED
+
+Theorem Eval_Bool_guard:
+  Eval env e (BOOL p) ==>
+  Eval env e (\v. ?c. v = Boolv c /\ (c ==> p))
+Proof
+  rw [Eval_def, BOOL_def]
+  \\ first_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
+  \\ asm_exists_tac \\ simp []
+QED
+
+Theorem Eval_And_guard:
+  Eval env e1 (\v. ?c. v = Boolv c /\ (c ==> p)) /\
+  Eval env e2 (\v. ?c. v = Boolv c /\ (c ==> q)) ==>
+  Eval env (Log Andalso e1 e2)
+    (\v. ?c. v = Boolv c /\ (c ==> p /\ q))
+Proof
+  rw [Eval_rw]
+  \\ last_x_assum assume_tac
+  \\ Eval2_tac
+  \\ qmatch_asmsub_rename_tac `guard_value ==> p`
+  \\ Cases_on `guard_value`
+  \\ fs [EVAL ``do_log Andalso (Boolv T) e2``,
+         EVAL ``do_log Andalso (Boolv F) e2``, state_component_equality]
+  \\ qexists_tac `F` \\ simp [EVAL ``Boolv F``]
+QED
+
+Theorem Eval_PtrEq_If:
+  Eval env e (\v. ?c. v = Boolv c /\ (c ==> p)) /\
+  Eval env e1 (b t1) /\ Eval env e2 (b t2) ==>
+  (p ==> t1 = t2) ==>
+  Eval env (If e e1 e2) (b (if p then t1 else t2))
+Proof
+  rpt strip_tac
+  \\ irule Eval_If_guard
+  \\ qexistsl_tac [`\c. c ==> p`,`t1`,`t2`]
+  \\ simp []
+QED
+
 (* booleans *)
 
 Theorem Eval_Or:

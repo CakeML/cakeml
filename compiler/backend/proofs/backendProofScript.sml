@@ -845,7 +845,7 @@ Theorem bvl_to_bvi_compile_semantics2:
   bvlSem$semantics ffi0 (fromAList prog) co (bvl_to_bviProof$full_cc c cc)
     pe start ≠ Fail ⇒
   bviSem$semantics ffi0 (fromAList prog') (bvl_to_bviProof$full_co c co)
-    cc pe start' =
+    cc pe aw start' =
   bvlSem$semantics (ffi0 : 'ffi ffi_state) (fromAList prog)
     co (bvl_to_bviProof$full_cc c cc) pe start
 Proof
@@ -4075,7 +4075,7 @@ Theorem flat_to_data_semantics:
   {dataSem$semantics ffi (fromAList (SND (to_data c prog)))
      (cake_orac (:'a) asm_conf c' syn (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
         (λps. ps.data_prog))
-     (backend_from_data_tuple_cc (:'a) asm_conf c) po dataProps$zero_limits LN
+     (backend_from_data_tuple_cc (:'a) asm_conf c) po c.data_conf.arch_width dataProps$zero_limits LN
      InitGlobals_location}
 Proof
   strip_tac
@@ -4164,7 +4164,8 @@ Proof
   )
   \\ simp [Abbr `co`]
   \\ drule_then (fn t => simp [t]) bvl_to_bvi_orac_eq
-  \\ disch_then (strip_assume_tac o SYM) \\ fs []
+  \\ disch_then (qspec_then `c.data_conf.arch_width` (strip_assume_tac o SYM))
+  \\ fs []
   \\ qunabbrev_tac `cc`
   \\ rpt (qsubpat_x_assum kall_tac `patSem$semantics`)
   \\ (bvi_to_dataProofTheory.compile_prog_semantics
@@ -4272,13 +4273,13 @@ Proof
         {dataSem$semantics ffi (fromAList (SND (to_data c prog)))
            (cake_orac (:'a) mc.target.config c' (Syn po)
               (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.data_prog))
-           (backend_from_data_tuple_cc (:'a) mc.target.config c) po dataProps$zero_limits LN
+           (backend_from_data_tuple_cc (:'a) mc.target.config c) po c.data_conf.arch_width dataProps$zero_limits LN
            InitGlobals_location}` by
     (gen_tac \\ irule flat_to_data_semantics \\ simp [backend_config_ok_def])
   \\ `∀po. dataSem$semantics ffi (fromAList (SND (to_data c prog)))
            (cake_orac (:'a) mc.target.config c' (Syn po)
               (SND ∘ SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.data_prog))
-           (backend_from_data_tuple_cc (:'a) mc.target.config c) po dataProps$zero_limits LN
+           (backend_from_data_tuple_cc (:'a) mc.target.config c) po c.data_conf.arch_width dataProps$zero_limits LN
            InitGlobals_location ≠ Fail` by
     (gen_tac
      \\ qpat_x_assum `∀po. ¬evalSem$semantics_determ _ _ _ Fail` (qspec_then `po` mp_tac)
@@ -4758,6 +4759,7 @@ Resume compile_correct_evalSem[lab_target]:
 QED
 
 Resume compile_correct_evalSem[stack_init]:
+  `c4_data_conf.arch_width = c.data_conf.arch_width` by simp [Abbr `c4_data_conf`] \\
   drule full_make_init_semantics2 \\
 
   impl_tac >- (
@@ -4999,7 +5001,7 @@ Resume compile_correct_evalSem[stack_init]:
     \\ strip_tac \\ fs []
         \\ qpat_x_assum `∀po. _ ≠ Fail` (qspec_then `po` assume_tac)
     \\ once_rewrite_tac [dataPropsTheory.semantics_zero_limits]
-    \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ orac1 foo1 _ _ _ _ ≠ Fail`
+    \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ orac1 foo1 _ _ _ _ _ ≠ Fail`
     \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ orac2 foo2`
     \\ `foo1 = foo2 /\ orac1 = orac2` suffices_by metis_tac []
     \\ simp[Abbr`foo1`,Abbr`foo2`,Abbr`orac1`,Abbr`orac2`,FUN_EQ_THM,
