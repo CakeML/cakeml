@@ -161,6 +161,7 @@ Definition state_rel_def:
   state_rel f s (t:('a,'ffi) bviSem$state) ⇔
     state_ref_rel f s.refs t.refs ∧
     t.clock = s.clock ∧
+    t.arch_width = s.arch_width ∧
     OPTREL (λp p'. FLOOKUP f p = SOME p') s.global t.global ∧
     t.ffi = s.ffi ∧
     t.compile_oracle = state_co compile_each s.compile_oracle ∧
@@ -1627,6 +1628,7 @@ QED
 
 Resume do_app_op_rel[IntOp]:
   `state_ref_rel f s.refs s'.refs` by fs [state_rel_def]
+  \\ `s'.arch_width = s.arch_width` by fs [state_rel_def]
   \\ Cases_on `i`
   \\ gvs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def,
           oneline bvlSemTheory.do_int_app_def, AllCaseEqs(), v_rel_atomic,
@@ -2231,7 +2233,7 @@ Resume do_app_op_rel[Install]:
   >> gvs []
   >> `s'.compile_oracle = state_co compile_each s.compile_oracle ∧
       s.compile = state_cc compile_each s'.compile ∧
-      s'.clock = s.clock ∧
+      s'.clock = s.clock ∧ s'.arch_width = s.arch_width ∧
       OPTREL (λp p'. FLOOKUP f p = SOME p') s.global s'.global ∧
       s'.ffi = s.ffi ∧ code_rel s.code s'.code ∧
       namespace_rel s.code s'.code ∧ fmap_inj f ∧
@@ -6513,13 +6515,13 @@ Theorem evaluate_compile_each:
    (∀n. MEM n (MAP FST (SND (compile_each next prog))) ∧ in_ns_3 n ⇒ n < FST (FST (co 0))) ∧
    evaluate ([Call 0 (SOME start) [] NONE], [],
              initial_state ffi0 (fromAList prog) co
-                 (state_cc compile_each cc) pe k) = (r, s) ∧
+                 (state_cc compile_each cc) pe aw k) = (r, s) ∧
    r ≠ Rerr (Rabort Rtype_error) ⇒
    ∃f s2 r2.
      evaluate
       ([Call 0 (SOME start) [] NONE], [],
         initial_state ffi0 (fromAList (SND (compile_each next prog)))
-            (state_co compile_each co) cc pe k)
+            (state_co compile_each co) cc pe aw k)
      = (r2, s2) ∧
      result_rel (LIST_REL (v_rel f)) (eor_rel f) r r2 ∧
      state_rel f s s2
@@ -6572,9 +6574,9 @@ Theorem compile_each_semantics:
   (∀k n cfg prog. co k = ((n,cfg),prog) ⇒ input_condition n prog) ∧
   (∀k. MEM k (MAP FST prog2) ∧ in_ns_3 k ⇒ k < FST(FST (co 0))) ∧
   SND (compile_each n prog) = prog2 ∧
-  semantics ffi (fromAList prog) co (state_cc compile_each cc) pe start ≠ ffi$Fail ⇒
-  semantics ffi (fromAList prog) co (state_cc compile_each cc) pe start =
-  semantics ffi (fromAList prog2) (state_co compile_each co) cc pe start
+  semantics ffi (fromAList prog) co (state_cc compile_each cc) pe aw start ≠ ffi$Fail ⇒
+  semantics ffi (fromAList prog) co (state_cc compile_each cc) pe aw start =
+  semantics ffi (fromAList prog2) (state_co compile_each co) cc pe aw start
 Proof
   simp [GSYM AND_IMP_INTRO]
   >> ntac 4 strip_tac
@@ -6721,8 +6723,8 @@ Proof
   >> rpt gen_tac >> rveq
   >> drule (GEN_ALL evaluate_compile_each)
   >> rpt(disch_then drule)
-  >> disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["start","k","ffi0","cc","pe"])))
-  >> disch_then (qspecl_then [`start`,`k`,`ffi`,`cc`,`pe`] mp_tac)
+  >> disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["start","k","ffi0","cc","pe","aw"])))
+  >> disch_then (qspecl_then [`start`,`k`,`ffi`,`cc`,`pe`,`aw`] mp_tac)
   >> qmatch_goalsub_abbrev_tac`p = (_,_)`
   >> Cases_on`p` >> pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])
   >> simp []
@@ -6743,10 +6745,10 @@ Theorem compile_prog_semantics:
   (∀k n cfg prog. co k = ((n,cfg),prog) ⇒ input_condition n prog) ∧
   (∀k. MEM k (MAP FST prog2) ∧ in_ns_3 k ⇒ k < FST(FST (co 0))) ∧
   SND (compile_prog b n prog) = prog2 ∧
-  semantics ffi (fromAList prog) co (state_cc (compile_prog b) cc) pe start ≠
+  semantics ffi (fromAList prog) co (state_cc (compile_prog b) cc) pe aw start ≠
     ffi$Fail ⇒
-  semantics ffi (fromAList prog) co (state_cc (compile_prog b) cc) pe start =
-  semantics ffi (fromAList prog2) (state_co (compile_prog b) co) cc pe start
+  semantics ffi (fromAList prog) co (state_cc (compile_prog b) cc) pe aw start =
+  semantics ffi (fromAList prog2) (state_co (compile_prog b) co) cc pe aw start
 Proof
   Cases_on `b`
   >-

@@ -21,6 +21,7 @@ Datatype:
   state =
     <| refs    : num |-> bvlSem$v ref
      ; clock   : num
+     ; arch_width : asm$arch_width
      ; global  : num option
      ; compile : 'c -> (num # num # bvi$exp # metadata) list -> (mlstring # word64 list # 'c) option
      ; compile_oracle : num -> 'c # (num # num # bvi$exp # metadata) list
@@ -83,6 +84,16 @@ val s = ``(s:('c,'ffi) bviSem$state)``;
 Definition do_app_aux_def:
   do_app_aux op (vs:bvlSem$v list) ^s =
     case (op,vs) of
+    | (IntOp (Smallnum smallop),[Number i; Number j]) =>
+        (case backendProps$arch_smallnum_app s.arch_width smallop i j of
+         | NONE => NONE
+         | SOME (INL n) => SOME (SOME (Number n,s))
+         | SOME (INR b) => SOME (SOME (Boolv b,s)))
+    | (IntOp (IsSmallnum allow_neg),xs) =>
+        (case xs of
+         | [Number i] => SOME (SOME
+             (Boolv (is_smallnum s.arch_width i /\ (allow_neg \/ 0 <= i)),s))
+         | _ => NONE)
     | (IntOp (Const i),xs) =>
       if small_enough_int i /\ NULL xs then
         SOME (SOME (Number i, s))
@@ -400,8 +411,9 @@ Theorem evaluate_ind[allow_rebind] =
 (* observational semantics *)
 
 Definition initial_state_def:
-  initial_state ffi code co cc pe k = <|
+  initial_state ffi code co cc pe aw k = <|
     clock := k;
+    arch_width := aw;
     ffi := ffi;
     code := code;
     compile := cc;
@@ -412,9 +424,9 @@ Definition initial_state_def:
 End
 
 Definition semantics_def:
-  semantics init_ffi code co cc pe start =
+  semantics init_ffi code co cc pe aw start =
   let es = [bvi$Call 0 (SOME start) [] NONE] in
-  let init = initial_state init_ffi code co cc pe in
+  let init = initial_state init_ffi code co cc pe aw in
     if ∃k e. FST (evaluate (es,[],init k)) = Rerr e ∧ e ≠ Rabort Rtimeout_error
        ∧ (!f. e ≠ Rabort (Rffi_error f))
       then Fail

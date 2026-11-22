@@ -37,6 +37,7 @@ Datatype:
      | LessEq             (* <= over the integers *)
      | Greater            (* > over the integers *)
      | GreaterEq          (* >= over the integers *)
+     | IsSmallnum bool    (* fits in a tagged integer; T permits negatives *)
      | Smallnum smallnum_op
 End
 

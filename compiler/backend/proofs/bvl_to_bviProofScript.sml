@@ -1654,6 +1654,8 @@ Proof
     \\ gvs []
     \\ simp [bEvalOp_def, adjust_bv_def, bvlSemTheory.do_int_app_def]
     \\ simp [bvl_to_bvi_id]
+    \\ imp_res_tac bounded_smallnum_app_arch
+    \\ Cases_on `a = []` \\ gvs []
     \\ imp_res_tac smallnum_witness_length_adjust
     \\ simp [bvl_to_bvi_id])
   >~ [`WordOp`]
@@ -4181,6 +4183,7 @@ Theorem bvi_stubs_evaluate:
             ; clock := k
             ; compile := cc
             ; compile_oracle := co
+            ; arch_width := aw
             ; code := fromAList (stubs start kk ++ code)
             ; ptr_eq_oracle := pe;
               refs := FEMPTY |+
@@ -4188,7 +4191,7 @@ Theorem bvi_stubs_evaluate:
                   REPLICATE ((MIN (MAX kk 1) InitGlobals_max) - 1) (Number 0))) |>
                 :('c,'ffi) bviSem$state in
       evaluate ([Call 0 (SOME InitGlobals_location) [] NONE],[],
-        initial_state ffi0 (fromAList (stubs start kk ++ code)) co cc pe (k+1)) =
+        initial_state ffi0 (fromAList (stubs start kk ++ code)) co cc pe aw (k+1)) =
    let (r,s) = evaluate ([Call 0 (SOME start) [] NONE],[],t0) in
      ((case r of Rerr(Rraise (Exn v)) => Rval [v] | _ => r), s)
 Proof
@@ -4310,7 +4313,7 @@ Theorem compile_prog_evaluate:
    ⇒
    ∃ck b2 s2.
    evaluate ([Call 0 (SOME start') [] NONE],[],
-             initial_state ffi0 (fromAList prog') (state_co compile_inc co) cc pe (k+ck)) =
+             initial_state ffi0 (fromAList prog') (state_co compile_inc co) cc pe aw (k+ck)) =
      (map_result (MAP (adjust_bv b2)) (λv. Exn (adjust_bv b2 v))
        (case r of Rerr(Rraise v) => Rval [v] | _ => r),s2) ∧
    state_rel b2 s (s2:('c,'ffi) bviSem$state)
@@ -4443,7 +4446,7 @@ Proof
   qexists_tac`ck+1` >>
   `0 < ck + k` by simp[] >>
   drule (GEN_ALL bvi_stubs_evaluate) >>
-  disch_then (qspecl_then [`state_co compile_inc co`,`cc`,`kk`] mp_tac) >>
+  disch_then (qspecl_then [`state_co compile_inc co`,`cc`,`aw`,`kk`] mp_tac) >>
   `num_stubs ≤ num_stubs + nss * start` by fs[] >>
   disch_then drule >>
   disch_then(qspecl_then[`ffi0`,`append code`,`pe`]mp_tac) >>
@@ -4463,7 +4466,7 @@ Theorem compile_prog_semantics:
    n' ≤ FST (FST ((co:num -> (num # 'c) # (num # num # bvl$exp # metadata) list) 0)) ∧
    semantics (ffi0:'ffi ffi_state) (fromAList prog) co (state_cc compile_inc cc) pe start ≠ Fail
    ⇒
-   semantics ffi0 (fromAList prog') (state_co compile_inc co) cc pe start' =
+   semantics ffi0 (fromAList prog') (state_co compile_inc co) cc pe aw start' =
    semantics ffi0 (fromAList prog) co (state_cc compile_inc cc) pe start
 Proof
   simp[GSYM AND_IMP_INTRO] >> ntac 5 strip_tac >>
@@ -4484,7 +4487,7 @@ Proof
       drule (GEN_ALL compile_prog_evaluate) >>
       disch_then drule >>
       impl_tac >- ( full_simp_tac(srw_ss())[] >> METIS_TAC[FST] ) >>
-      strip_tac >>
+      disch_then (qspec_then `aw` strip_assume_tac) >>
       strip_tac >>
       first_x_assum(qspec_then`SUC ck`mp_tac) >>
       simp[inc_clock_def] >>
@@ -4515,7 +4518,7 @@ Proof
       drule(GEN_ALL compile_prog_evaluate) >>
       disch_then dxrule >> simp[] >>
       impl_tac >- (CCONTR_TAC >> fs[] >> metis_tac[FST]) >>
-      strip_tac >>
+      disch_then (qspec_then `aw` strip_assume_tac) >>
       dxrule bviPropsTheory.evaluate_add_clock >>
       disch_then(qspec_then `k'` mp_tac) >>
       impl_tac >- rpt(PURE_FULL_CASE_TAC >> fs[]) >>
@@ -4535,7 +4538,7 @@ Proof
     disch_then drule >> simp[] >>
     impl_tac >- (
       metis_tac[FST] ) >>
-    strip_tac >>
+    disch_then (qspec_then `aw` strip_assume_tac) >>
     asm_exists_tac >> fs[] >>
     Cases_on `q` >> fs[] >> Cases_on `e` >> fs[]
     >> TOP_CASE_TAC >> fs[]
@@ -4555,6 +4558,7 @@ Proof
     pop_assum(assume_tac o SYM) >>
     drule (GEN_ALL compile_prog_evaluate) >>
     disch_then drule >> simp[] >>
+    qexists_tac `aw` >>
     conj_tac >- (
       Cases_on`k`>>simp[] >>
       full_simp_tac(srw_ss())[bviSemTheory.evaluate_def] >>
@@ -4584,7 +4588,7 @@ Proof
     drule (GEN_ALL compile_prog_evaluate) >>
     disch_then drule >>
     impl_tac >- full_simp_tac(srw_ss())[] >>
-    strip_tac >>
+    disch_then (qspec_then `aw` strip_assume_tac) >>
     qpat_x_assum `evaluate _ = (r,s)` assume_tac >>
     drule bviPropsTheory.evaluate_add_clock >>
     disch_then(qspec_then `SUC ck` mp_tac) >>
@@ -4626,7 +4630,7 @@ Proof
   rpt gen_tac >>
   drule (GEN_ALL compile_prog_evaluate) >>
   fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
-  disch_then(qspecl_then[`pe`,`k`,`ffi0`,`co`,`cc`]mp_tac)>>simp[]>>
+  disch_then(qspecl_then[`pe`,`k`,`ffi0`,`co`,`cc`,`aw`]mp_tac)>>simp[]>>
   Cases_on`k=0`>>simp[]>-(
     full_simp_tac(srw_ss())[bviSemTheory.evaluate_def,bvlSemTheory.evaluate_def]>>
     every_case_tac >> full_simp_tac(srw_ss())[] >>
@@ -5059,7 +5063,7 @@ Theorem compile_semantics:
    ALL_DISTINCT (MAP FST prog) ==>
    semantics (ffi0:'ffi ffi_state) (fromAList prog) co (full_cc c cc) pe start ≠ Fail
    ⇒
-   semantics ffi0 (fromAList prog') (full_co c co) cc pe start' =
+   semantics ffi0 (fromAList prog') (full_co c co) cc pe aw start' =
    semantics ffi0 (fromAList prog) co (full_cc c cc) pe start
 Proof
   rw [full_cc_def,full_co_def]
@@ -5070,7 +5074,7 @@ Proof
   \\ disch_then (assume_tac o GSYM) \\ fs []
   \\ drule (compile_prog_semantics |> REWRITE_RULE [CONJ_ASSOC]
             |> ONCE_REWRITE_RULE [CONJ_COMM] |> Q.GENL [`n`,`n'`,`start'`,`prog'`])
-  \\ disch_then (qspec_then `0` mp_tac) \\ fs []
+  \\ disch_then (qspecl_then [`aw`,`0`] mp_tac) \\ fs []
   \\ impl_tac
   THEN1
    (fs [state_co_def,UNCURRY]
@@ -5088,7 +5092,7 @@ Proof
   (* conclusion branch: thread the bvi_tmc pass through *)
   THEN1
    (disch_then (assume_tac o GSYM) \\ fs []
-    \\ qpat_x_assum `bviSem$semantics _ (fromAList code') _ _ _ _ = _`
+    \\ qpat_x_assum `bviSem$semantics _ (fromAList code') _ _ _ _ _ = _`
          (assume_tac o GSYM) \\ fs[]
     \\ drule (bvi_tmcProofTheory.compile_prog_semantics
               |> REWRITE_RULE [CONJ_ASSOC]
