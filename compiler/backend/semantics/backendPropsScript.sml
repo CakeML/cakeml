@@ -42,6 +42,38 @@ Definition bounded_smallnum_app_def:
     else NONE
 End
 
+Definition arch_smallnum_app_def:
+  arch_smallnum_app aw op i j =
+    if backend_common$is_smallnum aw i /\
+       backend_common$is_smallnum aw j then
+      (case smallnum_app op i j of
+       | NONE => NONE
+       | SOME (INL n) => if backend_common$is_smallnum aw n
+                         then SOME (INL n) else NONE
+       | SOME (INR b) => SOME (INR b))
+    else NONE
+End
+
+Theorem index_in_bounds_NONE_is_smallnum:
+  semanticPrimitives$index_in_bounds NONE i ==>
+  backend_common$is_smallnum aw i
+Proof
+  Cases_on `aw`
+  \\ simp [semanticPrimitivesTheory.index_in_bounds_def,
+           backend_commonTheory.is_smallnum_def, asmTheory.arch_width_bits_def]
+  \\ intLib.COOPER_TAC
+QED
+
+Theorem bounded_smallnum_app_arch:
+  bounded_smallnum_app NONE op i j = SOME r ==>
+  arch_smallnum_app aw op i j = SOME r
+Proof
+  rw [bounded_smallnum_app_def, arch_smallnum_app_def]
+  \\ gvs [AllCaseEqs()]
+  \\ imp_res_tac index_in_bounds_NONE_is_smallnum
+  \\ gvs []
+QED
+
 Theorem index_in_bounds_mono:
   len <= len' /\ semanticPrimitives$index_in_bounds (SOME len) i ==>
   semanticPrimitives$index_in_bounds (SOME len') i

@@ -753,7 +753,7 @@ Proof
 QED
 
 Theorem ScanByte_constants[local]:
-  ∀c. arch_width_bits c.arch_width = dimindex (:'a) ⇒
+  ∀c:data_to_word$config. arch_width_bits c.arch_width = dimindex (:'a) ⇒
     arch_bytes c.arch_width = dimindex (:'a) DIV 8 ∧
     i2w (if arch_bytes c.arch_width = 4 then 0x01010101 else 0x0101010101010101) =
       (word_of_byte 1w:'a word) ∧
@@ -1111,7 +1111,7 @@ Proof
 QED
 
 Theorem ScanByte_alignment_test[local]:
-  ∀c (pointer:'a word).
+  ∀(c:data_to_word$config) (pointer:'a word).
     arch_width_bits c.arch_width = dimindex (:'a) ⇒
     (pointer && i2w (&arch_bytes c.arch_width - 1) = 0w ⇔ byte_aligned pointer)
 Proof
@@ -1122,7 +1122,7 @@ Proof
 QED
 
 Theorem ScanByte_broadcast[local]:
-  ∀c (w:'a word).
+  ∀(c:data_to_word$config) (w:'a word).
     arch_width_bits c.arch_width = dimindex (:'a) ⇒
     let p = w ‖ (w ≪ 8) in
     let q = p ‖ (p ≪ 16) in
@@ -1169,7 +1169,7 @@ Proof
 QED
 
 Theorem evaluate_ScanByte_broadcast[local]:
-  ∀c (w:'a word) (t:('a,'c,'ffi) wordSem$state) next.
+  ∀(c:data_to_word$config) (w:'a word) (t:('a,'c,'ffi) wordSem$state) next.
     arch_width_bits c.arch_width = dimindex (:'a) ∧
     get_var 2 t = SOME (Word w) ⇒
     evaluate
@@ -2034,9 +2034,9 @@ Proof
    c.len_size + 9 < dimindex (:α)` by
     fs [memory_rel_def,heap_in_memory_store_def]
   \\ unabbrev_all_tac \\ fs [make_byte_header_def,bytes_in_word_def]
+  \\ qpat_x_assum `arch_width_bits c.arch_width = dimindex (:α)` mp_tac
   \\ Cases_on `c.arch_width`
   \\ Cases_on `fl`
-  \\ qpat_x_assum `arch_width_bits _ = dimindex (:α)` mp_tac
   \\ qpat_x_assum `c.len_size + 9 < dimindex (:α)` mp_tac
   \\ rpt (pop_assum kall_tac)
   \\ simp[asmTheory.arch_width_bits_def]
@@ -2185,6 +2185,7 @@ Proof
   \\ fs[make_ptr_def,WORD_MUL_LSL]
   \\ strip_tac
   \\ fs[CaseEq"list",pop_env_def,CaseEq"stack",is_env_def] >> rveq >> fs[] >> rfs[]
+  \\ conj_tac >- simp [do_stack_def]
   \\ conj_asm1_tac >- (
      drule wordPropsTheory.evaluate_stack_max_le
      \\ fs [wordSemTheory.state_fn_updates]
@@ -7256,7 +7257,7 @@ Proof
        `copy_array (source_bytes,source_offset) copy_length NONE = SOME copied_bytes`
   \\ `good_dimindex (:'a)` by fs [state_rel_thm]
   \\ drule state_rel_arch_width \\ disch_tac
-  \\ `s1.refs = s.refs` by (
+  \\ `s1.refs = s.refs /\ s1.arch_width = s.arch_width` by (
     qpat_x_assum `pop_env s = SOME s1` mp_tac
     \\ simp [dataSemTheory.pop_env_def,AllCaseEqs()]
     \\ rpt strip_tac \\ gvs [])

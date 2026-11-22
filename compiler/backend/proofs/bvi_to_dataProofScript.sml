@@ -64,10 +64,29 @@ Definition data_to_bvi_ref_def[simp]:
     MutBlock tg fin (MAP data_to_bvi_v ls) (data_to_bvi_v c) (MAP data_to_bvi_v rs)
 End
 
+Theorem do_stack_arch_width[simp,local]:
+  (do_stack op args s).arch_width = s.arch_width
+Proof
+  simp [do_stack_def]
+QED
+
+Theorem FUNPOW_dec_clock_arch_width[simp,local]:
+  (FUNPOW dataSem$dec_clock n s).arch_width = s.arch_width
+Proof
+  Induct_on `n` \\ simp [FUNPOW_SUC, dataSemTheory.dec_clock_def]
+QED
+
+Theorem push_env_arch_width[simp,local]:
+  (push_env env handler s).arch_width = s.arch_width
+Proof
+  Cases_on `handler` \\ simp [push_env_def]
+QED
+
 (* State relation *)
 Definition state_rel_def:
   state_rel (s:('c,'ffi) bviSem$state) (t:('c,'ffi) dataSem$state) <=>
     (s.clock = t.clock) /\
+    (s.arch_width = t.arch_width) /\
     code_rel s.code t.code /\
     (t.compile_oracle = ((I ## bvi_to_data$compile_prog) o s.compile_oracle)) /\
     (s.compile = (λcfg prog. t.compile cfg (bvi_to_data$compile_prog prog))) /\
@@ -644,6 +663,7 @@ Proof
            bvlSemTheory.do_app_def,
            oneline bvlSemTheory.do_int_app_def]
     \\ rw [AllCaseEqs()]
+    \\ `r.arch_width = t.arch_width` by fs [state_rel_def]
     \\ gvs [NULL_EQ_NIL, MAP_EQ_CONS]
     \\ simp [do_app_aux_def, do_int_app_def, bvl_to_bvi_id]
     \\ drule smallnum_witness_length_eq
@@ -3152,11 +3172,12 @@ QED
 
 Theorem compile_prog_evaluate:
    evaluate ([Call 0 (SOME start) [] NONE],[],
-     initial_state ffi0 (fromAList prog) co (λcfg prog. cc cfg (compile_prog prog)) pe k) = (r,s) ∧
+     initial_state ffi0 (fromAList prog) co (λcfg prog. cc cfg (compile_prog prog)) pe
+       aw k) = (r,s) ∧
    r ≠ Rerr (Rabort Rtype_error) ∧ (∀x. r ≠ Rerr (Rraise x))
    ⇒  ∃r2 s2.
        evaluate (Call NONE (SOME start) [] NONE,
-         initial_state ffi0 (fromAList (compile_prog prog)) ((I ## compile_prog) o co) cc pe T lims ss k) = (SOME r2,s2) ∧
+         initial_state ffi0 (fromAList (compile_prog prog)) ((I ## compile_prog) o co) cc pe aw T lims ss k) = (SOME r2,s2) ∧
          state_rel s s2 ∧ data_to_bvi_result r2 = r
 Proof
   srw_tac[][]
@@ -3178,13 +3199,15 @@ QED
 Theorem compile_prog_semantics:
   semantics (ffi0:'ffi ffi_state)
             (fromAList prog) co
-            (λcfg prog. cc cfg (compile_prog prog)) pe start ≠ Fail
+            (λcfg prog. cc cfg (compile_prog prog)) pe
+              aw start ≠ Fail
   ⇒ semantics ffi0
               (fromAList (compile_prog prog))
-              ((I ## compile_prog) o co) cc pe lim ss start =
+              ((I ## compile_prog) o co) cc pe aw lim ss start =
     semantics ffi0
               (fromAList prog) co
-              (λcfg prog. cc cfg (compile_prog prog)) pe start
+              (λcfg prog. cc cfg (compile_prog prog)) pe
+              aw start
 Proof
   simp[bviSemTheory.semantics_def]
   \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[]

@@ -27,6 +27,33 @@ val _ = temp_delsimps ["fromAList_def", "domain_union",
                        "sptree.insert_notEmpty", "sptree.isEmpty_union"]
 val _ = diminish_srw_ss ["ABBREV"]
 
+Theorem is_smallnum_small_int[local]:
+  is_smallnum aw i <=> small_int (arch_width_bits aw) i
+Proof
+  simp [is_smallnum_def, small_int_def]
+QED
+
+Theorem smallnum_ror_test[local]:
+  good_dimindex (:'a) ==>
+  (((w:'a word) #>> (dimindex (:'a) - 1)) && 3w = 0w <=>
+   ~w ' 0 /\ ~word_msb w)
+Proof
+  rw [good_dimindex_def]
+  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_msb_def,word_ror_def]
+  \\ simp [word_index]
+QED
+
+Theorem smallnum_msb[local]:
+  good_dimindex (:'a) /\ small_int (dimindex (:'a)) i ==>
+  (word_msb (Smallnum i : 'a word) <=> i < 0)
+Proof
+  strip_tac
+  \\ simp [word_msb_neg, GSYM integer_wordTheory.w2i_lt_0]
+  \\ `w2i (Smallnum i : 'a word) = 2 * i` by simp [small_int_w2i_Smallnum]
+  \\ simp []
+  \\ intLib.COOPER_TAC
+QED
+
 Theorem inst_IDiv_Smallnum[local]:
   good_dimindex (:'a) /\ small_int (dimindex (:'a)) i /\
   small_int (dimindex (:'a)) j /\ j <> 0 /\
@@ -724,6 +751,54 @@ val eval_tac = imp_res_tac state_rel_arch_width
   \\ imp_res_tac memory_rel_arch_width \\ eval_tac
   \\ fs [GSYM word_mul_n2w];
 
+Theorem assign_IsSmallnum:
+  op = IntOp (IsSmallnum allow_neg) ==> ^assign_thm_goal
+Proof
+  rpt strip_tac
+  \\ gvs [dataLangTheory.op_requires_names_def,
+          dataLangTheory.op_space_reset_def,
+          dataSemTheory.cut_state_opt_def]
+  \\ fs [do_app]
+  \\ gvs [AllCaseEqs(), do_int_app_def]
+  \\ qmatch_asmsub_rename_tac `get_vars args s.locals = SOME [Number i]`
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ imp_res_tac get_vars_IMP_LENGTH
+  \\ fs [LENGTH_EQ_1] \\ clean_tac
+  \\ fs [get_var_def]
+  \\ fs [state_rel_thm] \\ eval_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ strip_tac
+  \\ rpt_drule0 memory_rel_any_Number_IMP
+  \\ strip_tac \\ gvs []
+  \\ qmatch_asmsub_rename_tac
+       `get_vars [adjust_var arg] t = SOME [Word w]`
+  \\ fs [get_vars_SOME_IFF_data, get_vars_SOME_IFF,
+         is_smallnum_small_int, allowed_op_def]
+  \\ `small_int (dimindex (:'a)) i ==> (word_msb w <=> i < 0)` by (
+    strip_tac
+    \\ imp_res_tac memory_rel_Number_IMP
+    \\ gvs [smallnum_msb])
+  \\ `dimindex (:'a) - 1 < dimword (:'a)` by (
+    assume_tac (INST_TYPE [alpha |-> ``:'a``] dimindex_lt_dimword)
+    \\ decide_tac)
+  \\ Cases_on `allow_neg`
+  \\ simp [assign_def, wordSemTheory.evaluate_def,
+           wordSemTheory.get_var_imm_def, asmTheory.word_cmp_def]
+  \\ eval_tac
+  \\ fs [lookup_insert, asmTheory.word_cmp_def, DIMINDEX_GT_0]
+  \\ ONCE_REWRITE_TAC [WORD_AND_COMM]
+  \\ simp [word_and_one_eq_0_iff, smallnum_ror_test]
+  \\ Cases_on `small_int (dimindex (:'a)) i`
+  \\ Cases_on `0 <= i`
+  \\ fs [lookup_insert, adjust_var_11, GSYM integerTheory.INT_NOT_LT]
+  \\ rw [] \\ fs [lookup_insert, adjust_var_11]
+  \\ simp [inter_insert_ODD_adjust_set, option_le_max_right]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs []
+  \\ match_mp_tac memory_rel_Boolv \\ fs []
+QED
+
 Theorem SmallnumDivCall_state_rel[local]:
   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) NONE locs /\
   ~c.has_idiv /\ t.termdep <> 0 /\
@@ -875,7 +950,8 @@ Proof
          gvs [th,dataSemTheory.do_app_def,dataSemTheory.do_space_def,
            data_spaceTheory.op_space_req_def,dataLangTheory.op_space_reset_def,
            dataSemTheory.do_app_aux_def,oneline do_int_app_def,
-           backendPropsTheory.bounded_smallnum_app_def,AllCaseEqs()])
+           backendPropsTheory.bounded_smallnum_app_def,
+           backendPropsTheory.arch_smallnum_app_def,AllCaseEqs()])
     \\ qmatch_asmsub_rename_tac
          `get_vars args s.locals = SOME (Number left::Number right::_)`
     \\ drule_all state_rel_get_vars_IMP
@@ -898,7 +974,7 @@ Proof
     \\ qmatch_goalsub_abbrev_tac `set_var dest (Number arith_result) _`
     \\ `small_int (dimindex (:'a)) left /\ small_int (dimindex (:'a)) right /\
          small_int (dimindex (:'a)) arith_result` by (
-      fs [Abbr `arith_result`]
+      fs [Abbr `arith_result`, is_smallnum_small_int, dataSemTheory.do_stack_def]
       \\ metis_tac [index_in_bounds_NONE_small_int,
                     memory_rel_index_in_bounds_small_int])
     \\ `left_word = Word (Smallnum left) /\ right_word = Word (Smallnum right)` by
@@ -915,7 +991,7 @@ Proof
   \\ drule state_rel_arch_width \\ strip_tac
   \\ gvs [do_app,oneline do_int_app_def,AllCaseEqs()]
   \\ qmatch_asmsub_rename_tac
-       `bounded_smallnum_app _ smallop left right = SOME _`
+       `get_vars args s.locals = SOME (Number left::Number right::_)`
   \\ drule_all state_rel_get_vars_IMP
   \\ disch_then (qx_choose_then `word_args` strip_assume_tac)
   \\ qpat_assum `state_rel c l1 l2 s t NONE locs`
@@ -933,7 +1009,9 @@ Proof
        (assume_tac o MATCH_MP memory_rel_tail)
   \\ qpat_assum `memory_rel _ _ _ _ _ _ _ _ ((Number right,_)::_)`
        (assume_tac o MATCH_MP memory_rel_tail)
-  \\ gvs [backendPropsTheory.bounded_smallnum_app_def,AllCaseEqs()]
+  \\ gvs [backendPropsTheory.bounded_smallnum_app_def,
+          backendPropsTheory.arch_smallnum_app_def,
+          is_smallnum_small_int,AllCaseEqs()]
   \\ `small_int (dimindex (:'a)) left /\ small_int (dimindex (:'a)) right` by
        metis_tac [index_in_bounds_NONE_small_int,memory_rel_index_in_bounds_small_int]
   \\ `left_word = Word (Smallnum left) /\ right_word = Word (Smallnum right)` by
@@ -967,8 +1045,7 @@ Proof
   \\ simp [Abbr `result_value`,Abbr `result_word`]
   >- (
     irule IMP_memory_rel_Number \\ simp []
-    \\ asm_simp_tac std_ss [GSYM APPEND_ASSOC]
-    \\ irule index_in_bounds_NONE_small_int \\ simp [])
+    \\ asm_simp_tac std_ss [GSYM APPEND_ASSOC])
   >- (
     irule memory_rel_Boolv
     \\ asm_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -1061,6 +1138,8 @@ Proof
   \\ drule_all state_rel_cut_state_opt_SOME \\ strip_tac
   \\ drule state_rel_IMP_arch_64_bit \\ strip_tac
   \\ fs [do_app,oneline do_int_app_def] \\ gvs [AllCaseEqs()]
+  \\ qmatch_asmsub_rename_tac
+       `get_vars args s.locals = SOME [Number n1; Number n2]`
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
   \\ fs [get_var_def]
   \\ qpat_x_assum `state_rel c l1 l2 s t NONE locs` (fn th => NTAC 2 (mp_tac th))

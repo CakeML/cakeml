@@ -22,6 +22,8 @@ The CakeML compiler now supports compilation of floating-point operartions also 
 
 In wordLang, the `Equal` stub now computes a three-way comparison, which both `=` and `PolyCompare` call (#1598).
 
+BVI and DataLang now have a new `IsSmallnum` primitive (#1605). BVI now carries the architecture width in its state to give semantics to `IsSmallnum`.
+
 ## Pancake
 
 The Pancake compiler is now a standalone `pancake` executable, replacing `cake --pancake` (#1589). This splits the bootstrap translation into one CakeML path and one Pancake path. They share all translations up to from_wordProg. Command-line parsing helpers are shared between the two compilers.
