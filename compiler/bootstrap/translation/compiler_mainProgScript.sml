@@ -120,29 +120,41 @@ val _ = update_precondition semanticprimitives_ws_to_chars_side;
 val _ = next_ml_names := ["compiler_for_eval"];
 val r = translate compiler_for_eval_alt;
 
+(* the two primitive uses of Eval: a one-argument call that installs the
+   compiler (its state and a closure implementing it), and a two-argument
+   call that evaluates declarations in an environment and returns the new
+   environment paired with an error message ("" on success) *)
 val _ = append_prog
-  ``[Dlet (Locs (1,2) (2,21)) (Pvar «eval_prim»)
+  ``[Dlet (Locs (1,2) (2,21)) (Pvar «eval_init_prim»)
+      (Fun «x» (App Eval [Var (Short «x»)]));
+     Dlet (Locs (1,2) (2,21)) (Pvar «eval_prim»)
       (Fun «x» (Mat (Var (Short «x»))
-        [(Pcon NONE [Pvar «env»; Pvar «s1»; Pvar «decs»;
-                     Pvar «s2»; Pvar «bs»; Pvar «ws»],
-          App Eval [Var (Short «env»); Var (Short «s1»); Var (Short «decs»);
-                    Var (Short «s2»); Var (Short «bs»); Var (Short «ws»)])]))]``;
+        [(Pcon NONE [Pvar «env»; Pvar «decs»],
+          App Eval [Var (Short «env»); Var (Short «decs»)])]))]``;
 
 Datatype:
-  eval_res = Compile_error 'a | Eval_result 'b 'c | Eval_exn 'd 'e
+  eval_res = Compile_error 'a | Eval_result 'b | Eval_exn 'c
 End
 
-val _ = register_type ``:('a,'b,'c,'d,'e) eval_res``;
+val _ = register_type ``:('a,'b,'c) eval_res``;
+
+(* the compiler closure given to Eval: it signals failure by raising Bind *)
+Quote add_cakeml:
+  fun compiler_fun host (id, st, decs) =
+    case compiler_for_eval host (id,(st,decs)) of
+      None => raise Bind
+    | Some (st2,(bs,ws)) => (st2,bs,ws)
+End
 
 Quote add_cakeml:
-  fun eval (host, ((s1,next_gen), (env,id), decs)) =
-    case compiler_for_eval host ((id,0),(s1,decs)) of
-      None => Compile_error "ERROR: failed to compile input\n"
-    | Some (s2,(bs,ws)) =>
-        let
-          val new_env = eval_prim (env,s1,decs,s2,bs,ws)
-        in Eval_result (new_env,next_gen) (s2,next_gen+1) end
-        handle e => Eval_exn e (s2,next_gen+1)
+  fun eval (env, decs) =
+    let
+      val (new_env, msg) = eval_prim (env, decs)
+    in
+      if msg = "" then Eval_result new_env
+      else Compile_error "ERROR: failed to compile input\n"
+    end
+    handle e => Eval_exn e
 End
 
 Quote exn_msg_dec = cakeml:
@@ -188,17 +200,16 @@ val _ = next_ml_names := ["check_and_tweak"];
 val r = translate repl_check_and_tweakTheory.check_and_tweak_def;
 
 Quote add_cakeml:
-  fun repl (host, parse, types, conf, env, decs, input_str) =
+  fun repl (parse, types, env, decs, input_str) =
   case check_and_tweak (decs, (types, input_str)) of
-    Inl msg => repl (host, parse, types, conf, env, report_error msg, "")
+    Inl msg => repl (parse, types, env, report_error msg, "")
   | Inr (safe_decs, new_types) =>
-      case eval (host, (conf, env, safe_decs)) of
+      case eval (env, safe_decs) of
         Compile_error msg =>
-          repl (host, parse, types, conf, env, report_error msg, "")
-      | Eval_exn e new_conf =>
-          repl (host, parse, roll_back (types, new_types), new_conf, env,
-                report_exn e, "")
-      | Eval_result new_env new_conf =>
+          repl (parse, types, env, report_error msg, "")
+      | Eval_exn e =>
+          repl (parse, roll_back (types, new_types), env, report_exn e, "")
+      | Eval_result new_env =>
           if !Repl.isEOF then () else
             let
               val (parsed_input, new_input) =
@@ -208,11 +219,9 @@ Quote add_cakeml:
             in
               case parsed_input of
                 Inl msg =>
-                  repl (host, parse, new_types, new_conf, new_env,
-                        report_error msg, "")
+                  repl (parse, new_types, new_env, report_error msg, "")
               | Inr new_decs =>
-                  repl (host, parse, new_types, new_conf, new_env,
-                        new_decs, new_input)
+                  repl (parse, new_types, new_env, new_decs, new_input)
             end
 End
 
@@ -237,27 +246,29 @@ val _ = next_ml_names := ["boot_marker"];
 val r = translate (boot_marker_def |> REWRITE_RULE [MEMBER_INTRO]);
 
 Quote add_cakeml:
-  fun start_repl (host,cl,s1) =
+  fun start_repl cl =
     let
       val parse = parse_cakeml_syntax
       val types = init_types
-      val conf = (s1,1)
-      val env = (repl_init_env, 0)
+      val env = repl_init_env
       val decs = []
       val input_str = ""
       val _ = Repl.nextInput := Inl (boot_marker cl)
     in
-      repl (host, parse, types, conf, env, decs, input_str)
+      repl (parse, types, env, decs, input_str)
     end
 End
 
+(* the only target-specific step of the REPL: installing the compiler for
+   the host in Eval *)
 Quote add_cakeml:
   fun run_interactive_repl (host,cl) =
     let
       val cs = Repl.charsFrom "config_enc_str.txt"
       val s1 = decodeProg.decode_backend_config cs
+      val _ = eval_init_prim (s1, compiler_fun host)
     in
-      start_repl (host,cl,s1)
+      start_repl cl
     end
 End
 

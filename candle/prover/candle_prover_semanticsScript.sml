@@ -449,6 +449,7 @@ Proof
     \\ assume_tac candle_prog_thm
     \\ dxrule_then (qspec_then ‘es’ mp_tac) Decls_set_eval_state
     \\ rw [Once init_state_def]
+    \\ qpat_x_assum ‘Decls _ _ _ _ _’ (assume_tac o Q.INST [‘po'’ |-> ‘po’] o MATCH_MP Decls_with_oracles)
     \\ gvs [evaluate_decs_append, CaseEqs ["prod", "semanticPrimitives$result"]]
     >- (
       drule_all Decls_IMP_Prog \\ strip_tac
@@ -502,6 +503,7 @@ Proof
     \\ assume_tac candle_prog_thm
     \\ dxrule_then (qspec_then ‘es’ mp_tac) Decls_set_eval_state
     \\ rw [Once init_state_def]
+    \\ qpat_x_assum ‘Decls _ _ _ _ _’ (assume_tac o Q.INST [‘po'’ |-> ‘po’] o MATCH_MP Decls_with_oracles)
     \\ drule_all Decls_IMP_Prog \\ strip_tac
     \\ gs [ml_progTheory.Prog_def]
     \\ gvs [evaluate_decs_append, CaseEqs ["semanticPrimitives$result", "prod"], combine_dec_result_def]
@@ -525,7 +527,7 @@ Proof
     \\ ‘k ≤ ck1’
       by (dxrule_then drule evaluatePropsTheory.evaluate_decs_clock_determ
           \\ rw [])
-    \\ drule_then (qspecl_then [‘init_state ffi with <|eval_state := es; ptr_eq_oracle := po|>’,
+    \\ drule_then (qspecl_then [‘init_state ffi with <|eval_state := es; ptr_eq_oracle := po; eval_oracle := eo|>’,
                                  ‘init_env’,‘candle_code’]
                   mp_tac)
                   evaluate_decs_ffi_mono_clock

@@ -230,11 +230,12 @@ QED
 Theorem repl_types_repl_prog:
   Prog init_env
     (init_state (basis_ffi ext cl fs) with
-     <|eval_state := SOME (EvalDecs (s with env_id_counter := ns));
-       ptr_eq_oracle := po|>) xs env st ∧
+     <|eval_state := SOME (s with env_id_counter := ns);
+       ptr_eq_oracle := po; eval_oracle := eo|>) xs env st ∧
   evaluate_decs
     (init_state (basis_ffi ext cl fs) with
-     <|clock := ck; eval_state := SOME (EvalDecs s); ptr_eq_oracle := po|>)
+     <|clock := ck; eval_state := SOME s; ptr_eq_oracle := po;
+       eval_oracle := eo|>)
     init_env (xs ++ ys) =
   (s1,res) ∧ s.env_id_counter = ns ∧ repl_prog ≼ xs ∧
   prog_syntax_ok repl_prog ∧
@@ -276,10 +277,11 @@ Proof
   rpt strip_tac
   \\ gvs [evaluate_decs_append,merge_env_intro]
   \\ ‘(s with env_id_counter := s.env_id_counter) = s’ by
-      fs [semanticPrimitivesTheory.eval_decs_state_component_equality]
+      fs [semanticPrimitivesTheory.source_eval_state_component_equality]
   \\ fs [] \\ pop_assum kall_tac
   \\ qabbrev_tac ‘st4 = init_state (basis_ffi ext cl fs) with
-                        <|eval_state := SOME (EvalDecs s); ptr_eq_oracle := po|>’
+                        <|eval_state := SOME s; ptr_eq_oracle := po;
+                          eval_oracle := eo|>’
   \\ qpat_x_assum ‘Prog init_env st4 _ _ _’ mp_tac
   \\ simp [Once Prog_def] \\ strip_tac
   \\ qmatch_asmsub_rename_tac

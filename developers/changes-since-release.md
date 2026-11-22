@@ -8,6 +8,8 @@ The semantics of floating-point operations in the source has been made more well
 
 A new primitive `PolyCompare` implements polymorphic comparison (#1598). It agrees with `=` on type errors and on when it returns zero, and orders constructors by their position in the datatype. It is not antisymmetric on distinct references or exceptions. `TypeStamp` now takes the constructor position as a third argument.
 
+The `Eval` primitive no longer exposes the compiler or its state: a one-argument `Eval` call initialises it with the compiler, and a two-argument call `Eval (env,decs)` either succeeds or returns `Compiler error`, as decided by a new eval oracle (#1604).
+
 ## Basis library
 
 A new top-level `compare : 'a -> 'a -> int` exposes `PolyCompare` (#1598).
@@ -23,6 +25,10 @@ The CakeML compiler now supports compilation of floating-point operartions also 
 In wordLang, the `Equal` stub now computes a three-way comparison, which both `=` and `PolyCompare` call (#1598).
 
 BVI and DataLang now have a new `IsSmallnum` primitive (#1605). BVI now carries the architecture width in its state to give semantics to `IsSmallnum`.
+
+A new first pass `source_eval_init` implements the new one- and two-argument `Eval` calls in terms of the old six-argument `Eval`, and the backend source_to_source passes are now proved against a new intermediate semantics, `evalSem` (#1604).
+
+The REPL's only target-specific step is now installing the compiler in `Eval` and the rest of its proof is shared between targets (#1604).
 
 ## Pancake
 

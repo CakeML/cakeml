@@ -35,9 +35,19 @@ End
 Theorem compiler_instance_lemma[local]:
   INJ compiler_instance.config_v 𝕌(:backend$config) 𝕌(:semanticPrimitives$v) ∧
   compiler_instance.init_state = info ∧
-  compiler_instance.compiler_fun = compile_inc_progs_for_eval arm8_config
+  compiler_instance.compiler_fun = compile_inc_progs_for_eval arm8_config ∧
+  (∀cfg. data_v (compiler_instance.config_v cfg))
 Proof
-  fs [compiler_instance_def]
+  fs [compiler_instance_def,data_v_BACKEND_CONFIG_v]
+QED
+
+val ffi_ty = type_of “basis_ffi ext cl fs” |> dest_type |> snd |> hd;
+
+Theorem mk_src_eval_state_env_id_counter[local]:
+  mk_src_eval_state ci (:'ffi) with env_id_counter := (0,0,1) =
+  mk_src_eval_state ci (:'ffi)
+Proof
+  simp [mk_src_eval_state_def,semanticPrimitivesTheory.source_eval_state_component_equality]
 QED
 
 Theorem backend_config_ok_init_conf:
@@ -55,10 +65,8 @@ Proof
 QED
 
 val cake_terminate = semantics_compiler_arm8_prog
-  |> Q.INST[‘eval_state_var’|->‘the_EvalDecs (mk_init_eval_state compiler_instance)’]
-  |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_init_eval_state_def,the_EvalDecs_def]
-  |> SIMP_RULE (srw_ss()) [GSYM source_evalProofTheory.mk_init_eval_state_def
-                           |> SIMP_RULE (srw_ss()) []]
+  |> Q.INST[‘eval_state_var’|->‘mk_src_eval_state compiler_instance (:^(ty_antiq ffi_ty))’]
+  |> REWRITE_RULE [mk_src_eval_state_env_id_counter]
   |> UNDISCH_ALL
   |> HO_MATCH_MP ml_progTheory.sem_satisfies_IMP_Terminate
   |> SRULE [compiler_compiled];
@@ -103,17 +111,16 @@ Proof
   fs [FUN_EQ_THM,FORALL_PROD]
 QED
 
-Theorem mk_init_eval_state_lemma =
-  “mk_init_eval_state compiler_instance”
-  |> SIMP_CONV (srw_ss()) [compiler_instance_def,
-       source_evalProofTheory.mk_init_eval_state_def]
+Theorem mk_src_eval_state_lemma =
+  “mk_src_eval_state compiler_instance (:^(ty_antiq ffi_ty))”
+  |> SIMP_CONV (srw_ss()) [compiler_instance_def,mk_src_eval_state_def]
   |> ONCE_REWRITE_RULE [mk_compiler_fun_from_ci_tuple]
-  |> SIMP_RULE (srw_ss()) [source_evalProofTheory.mk_compiler_fun_from_ci_def,
+  |> SIMP_RULE (srw_ss()) [source_eval_oracleProofTheory.mk_compiler_fun_from_ci_def,
         GSYM compiler_replProofTheory.compiler_inst_def];
 
 Overload init_eval_state_for =
   “λext cl fs. (init_state (basis_ffi ext cl fs) with
-        eval_state := SOME (mk_init_eval_state compiler_instance))”
+        eval_state := SOME (mk_src_eval_state compiler_instance (:^(ty_antiq ffi_ty))))”
 
 Theorem candle_soundness:
   res ∈ semantics_prog (init_eval_state_for ext cl fs) init_env (candle_code ++ prog) ∧
@@ -125,19 +132,40 @@ Proof
   \\ drule_then irule events_of_semantics_with_eval_state
   \\ fs [IN_DEF]
   \\ simp [basis_ffiTheory.basis_ffi_def]
-  \\ fs [candle_prover_invTheory.eval_state_ok_def,mk_init_eval_state_lemma]
-  \\ fs [source_evalProofTheory.v_rel_abs]
+  \\ fs [candle_prover_invTheory.eval_state_ok_def,mk_src_eval_state_lemma]
+  \\ fs [source_eval_oracleProofTheory.v_rel_abs]
   \\ rpt gen_tac
   \\ DEEP_INTRO_TAC some_intro
   \\ fs [repl_decs_allowedTheory.decs_allowed_def,IN_DEF]
 QED
 
+Theorem compiler_fun_cl_closure_arm8[local] =
+  compiler_fun_cl_closure
+  |> Q.INST [‘host’|->‘HostArm8’,
+             ‘host_v’|->‘COMPILER_MAINPROG_COMPILER_HOST_v HostArm8’,
+             ‘cfg0’|->‘info’]
+  |> INST_TYPE [“:'ffi” |-> ffi_ty]
+  |> C MATCH_MP (prove (
+       “COMPILER_MAINPROG_COMPILER_HOST_TYPE HostArm8
+          (COMPILER_MAINPROG_COMPILER_HOST_v HostArm8)”,
+       simp [compiler_mainProgTheory.COMPILER_MAINPROG_COMPILER_HOST_TYPE_def,
+             compiler_mainProgTheory.COMPILER_MAINPROG_COMPILER_HOST_v_def]))
+  |> REWRITE_RULE [compiler_mainProgTheory.host_config_def];
+
+Theorem mk_src_eval_state_fields[local] =
+  map (SIMP_CONV (srw_ss()) [mk_src_eval_state_lemma])
+    [“(mk_src_eval_state compiler_instance (:^(ty_antiq ffi_ty))).initialised”,
+     “(mk_src_eval_state compiler_instance (:^(ty_antiq ffi_ty))).init_ok”,
+     “(mk_src_eval_state compiler_instance (:^(ty_antiq ffi_ty))).decode_decs”,
+     “(mk_src_eval_state compiler_instance (:^(ty_antiq ffi_ty))).env_id_counter”]
+  |> LIST_CONJ;
+
 Theorem repl_not_fail =
   semantics_prog_compiler_arm8_prog
-  |> Q.GEN ‘s’ |> ISPEC (mk_init_eval_state_lemma |> concl |> rand |> rand)
-  |> REWRITE_RULE [GSYM mk_init_eval_state_lemma]
-  |> SIMP_RULE (srw_ss()) [IN_DEF]
+  |> Q.GEN ‘s’
+  |> ISPEC “mk_src_eval_state compiler_instance (:^(ty_antiq ffi_ty))”
   |> Q.GEN ‘conf’ |> Q.SPEC ‘info’
+  |> SIMP_RULE (srw_ss()) [IN_DEF,mk_src_eval_state_fields,compiler_fun_cl_closure_arm8]
   |> REWRITE_RULE [GSYM (SIMP_CONV (srw_ss()) [] “hasFreeFD fs”)];
 
 Overload basis_init_ok =

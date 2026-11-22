@@ -187,22 +187,46 @@ Proof
     \\ metis_tac [])
   THEN1 (* App Eval *)
    (
-    fs [evaluateTheory.do_eval_res_def]
-    \\ fs [list_case_eq,option_case_eq,bool_case_eq,pair_case_eq,result_case_eq]
-    \\ rveq \\ fs [PULL_EXISTS]
-    \\ `? st_x ck_x. st' = (st_x with clock := ck_x) /\ st_x.clock = s.clock`
-      by (qexists_tac `st' with clock := s.clock` \\ simp [state_component_equality])
-    \\ fs []
-    \\ first_x_assum drule
-    \\ rw []
-    \\ dxrule_then (qspec_then `ck_x` mp_tac) evaluate_add_to_clock
-    \\ rw []
-    \\ asm_exists_tac
-    \\ simp []
-    \\ dxrule_then (qspec_then `ck2` mp_tac) evaluate_decs_add_to_clock
-    \\ rw [evaluateTheory.dec_clock_def])
-  THEN1
-   (fs [error_result_case_eq])
+    qpat_x_assum `!s' s1' r env' ck1' ck2. evaluate _ _ (REVERSE xs) = _ /\ _ ==> _`
+      (qspecl_then [`s`,`st' with clock := s.clock`,`vs`,`env`,`ck1`,`st'.clock`] mp_tac)
+    \\ impl_tac >- gvs [state_component_equality]
+    \\ strip_tac
+    \\ `evaluate (s with clock := ck1) env [App Eval xs] = (s1 with clock := ck2, Rval [r])`
+      by simp [evaluate_def]
+    \\ rename1 `evaluate (s with clock := ck3) env (BOTTOM_UP_OPT_LIST f _) = _`
+    \\ qpat_x_assum `evaluate (s with clock := ck3) _ _ = _` assume_tac
+    \\ rename1 `(st' with <|clock := ck4; clock := _|>,_)`
+    \\ `evaluate (s with clock := ck1 + ck4) env [App Eval xs] =
+        (s1 with clock := ck2 + ck4, Rval [r])`
+      by (qpat_x_assum `evaluate _ _ [App Eval xs] = _` assume_tac
+          \\ drule evaluate_add_to_clock \\ simp [])
+    \\ `evaluate (s with clock := ck1 + ck4) env (REVERSE xs) =
+        (st' with clock := st'.clock + ck4, Rval vs)`
+      by (qpat_x_assum `evaluate (s with clock := ck1) env (REVERSE xs) = _` assume_tac
+          \\ drule evaluate_add_to_clock \\ simp [])
+    \\ `evaluate (s with clock := ck3 + st'.clock) env (BOTTOM_UP_OPT_LIST f (REVERSE xs)) =
+        (st' with clock := st'.clock + ck4, Rval vs)`
+      by (qpat_x_assum `evaluate (s with clock := ck3) _ _ = _` assume_tac
+          \\ drule evaluate_add_to_clock \\ simp [])
+    \\ qexists_tac `ck3 + st'.clock`
+    \\ qpat_x_assum `evaluate (s with clock := ck1 + ck4) env [_] = _` mp_tac
+    \\ simp [evaluate_def]
+    \\ strip_tac
+    \\ qexists_tac `ck2 + ck4`
+    \\ Cases_on `do_eval_res (REVERSE vs) (st' with clock := ck4 + st'.clock)`
+    \\ rename1 `(_, res)`
+    \\ Cases_on `res` \\ gvs [])
+  THEN1 (* App Eval, init *)
+   (
+    qpat_x_assum `!s' s1' r env' ck1' ck2. evaluate _ _ (REVERSE xs) = _ /\ _ ==> _`
+      (qspecl_then [`s`,`st' with clock := s.clock`,`vs`,`env`,`ck1`,`st'.clock`] mp_tac)
+    \\ impl_tac >- gvs [state_component_equality]
+    \\ strip_tac
+    \\ first_x_assum (irule_at Any)
+    \\ gvs []
+    \\ qexists_tac `ck2` \\ disj2_tac
+    \\ qpat_x_assum `SOME _ = _` (assume_tac o GSYM)
+    \\ simp [])
   THEN1 (* App PtrEq *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =

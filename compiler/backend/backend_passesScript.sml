@@ -25,6 +25,8 @@ Definition to_flat_all_def:
   to_flat_all (c:config) p =
     let ps = [] in
     let ps = ps ++ [(«original source code»,Source p)] in
+    let p = source_eval_init$compile_decs p in
+    let ps = ps ++ [(«after source_eval_init»,Source p)] in
     let p = source_dce$compile_decs p in
     let ps = ps ++ [(«after source_dce»,Source p)] in
     let p = source_let$compile_decs p in
@@ -481,7 +483,7 @@ Proof
 QED
 
 Theorem number_of_passes:
-  LENGTH (FST (to_target_all asm_conf c p)) = 43
+  LENGTH (FST (to_target_all asm_conf c p)) = 44
 Proof
   fs [to_target_all_def] \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [to_lab_all_def] \\ rpt (pairarg_tac \\ gvs [])

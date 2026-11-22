@@ -209,49 +209,32 @@ Definition store_assign_def:
     else NONE
 End
 
-(* Compiler checker for Eval. The current design requires the compiler
-   to be run (as regular code within the semantics) before Eval is called,
-   and these config parameters specify how to interpret the declarations to
-   be evaluated and check that the compiler was run correctly.
-
-   Before attempting build a state of this type, find out about
-   mk_init_eval_state in source_evalProof.
-*)
-Type compiler_args = ``: ((num # num) # v # dec list)``
-Type compiler_fun = ``: compiler_args ->
-     (v # mlstring # word64 list)option``
-
+(* The eval state of the source semantics. A one-argument call
+   Eval (st,cl) initialises Eval: it is accepted once, when init_ok st cl
+   holds, and cl is kept as closure. The compiler proofs instantiate
+   init_ok so that cl must implement the compiler and st must be its
+   initial state. A two-argument call Eval (env,decs) succeeds or fails as
+   decided by the eval oracle of the state (see below), where failure
+   covers both a compiler that rejects decs and a missing initialisation.
+   On success, it evaluates decs in env and returns the pair
+   (Env env' id', ""), where env' is the resulting environment, and the
+   call is added to history. On failure, it returns
+   (Env env id, "Compiler error") without evaluating anything, but it
+   may consume entries of the pointer equality oracle (the compiled code
+   runs the compiler closure, which may use pointer equality). *)
 Datatype:
- eval_decs_state =
+  source_eval_state =
   <|
-    compiler : compiler_fun ;
-    (* state must be encoded as v somehow *)
-    compiler_state : v ;
+    decode_decs : v -> (dec list) option ;
     env_id_counter : (num # num # num) ;
-    (* decs must also be encoded as v *)
-    decode_decs : v ->  ( dec list)option
+    init_ok : v -> v -> bool ;
+    initialised : bool ;
+    (* the compiler closure given at initialisation *)
+    closure : v ;
+    (* the env id and declarations of every successful two-argument
+       call to Eval, oldest first *)
+    history : ((num # num) # v) list
   |>
-End
-
-(* Alternative mode for Eval including an oracle.
-   This is only for use in the compiler proof. *)
-Type eval_oracle_fun = ``: num -> compiler_args``
-
-Datatype:
- eval_oracle_state =
-  <|
-    oracle : eval_oracle_fun ;
-    custom_do_eval : v list -> eval_oracle_fun ->
-         ((num # num) # eval_oracle_fun # dec list)option ;
-    envs : ( ( v sem_env)list) list ;
-    generation : num
-  |>
-End
-
-Datatype:
-  eval_state =
-     EvalDecs eval_decs_state
-   | EvalOracle eval_oracle_state
 End
 
 Datatype:
@@ -261,12 +244,21 @@ Datatype:
    ; ffi : 'ffi ffi_state
    ; next_type_stamp : num
    ; next_exn_stamp : num
-   ; eval_state :  eval_state option
+   ; eval_state : source_eval_state option
    (* oracle deciding whether each successive PtrEq returns the result of
       structural equality (T) or is attenuated to false (F); indexed first by
-      install epoch, which advances at every Eval, and then by position
-      within that epoch *)
+      install epoch, which advances at every successful Eval, and then by
+      position within that epoch. *)
    ; ptr_eq_oracle : num -> num -> bool
+   (* oracle deciding whether a two-argument call to Eval succeeds (T) or
+      fails (F), given whether Eval has been initialised, the history of
+      successful calls and the env id and declarations of this call. Like
+      a compiler, it gives the same answer to the same call. It also gives
+      the number of pointer equality oracle entries that a failing call
+      consumes, as a function of the compiler closure, the store and the
+      pointer equality oracle. *)
+   ; eval_oracle : bool # ((num # num) # v) list # ((num # num) # v) ->
+                   bool # (v -> v store -> (num -> num -> bool) -> num)
    |>
 End
 
@@ -730,120 +722,80 @@ Definition v_to_mlstring_def:
     | _ => NONE
 End
 
-Definition lookup_env_def:
-  lookup_env s (i,j) =
-    case oEL i s.envs of NONE => NONE | SOME gen_envs => oEL j gen_envs
-End
-
-Definition add_decs_generation_def:
-  add_decs_generation s =
-    case s.env_id_counter of
-      (cur_gen,next_id,next_gen) =>
-        s with env_id_counter := (next_gen,0,next_gen + 1)
-End
-
-Definition add_env_generation_def:
-  add_env_generation s =
-    s with <|generation := LENGTH s.envs; envs := s.envs ⧺ [[]]|>
-End
-
 Definition declare_env_def:
-  declare_env es env =
+  declare_env (es:source_eval_state option) env =
     case es of
     | NONE => NONE
-    | SOME (EvalDecs s) =>
+    | SOME s =>
       (case s.env_id_counter of
          (cur_gen,next_id,next_gen) =>
            SOME
              (Env env (cur_gen,next_id),
               SOME
-                (EvalDecs
-                   (s with
-                    env_id_counter := (cur_gen,next_id + 1,next_gen)))))
-    | SOME (EvalOracle s') =>
-      case oEL s'.generation s'.envs of
-      | NONE => NONE
-      | SOME gen_envs =>
-        SOME
-          (Conv NONE [nat_to_v s'.generation; nat_to_v (LENGTH gen_envs)],
-           SOME
-             (EvalOracle
-                (s' with
-                 envs := LUPDATE (gen_envs ⧺ [env]) s'.generation s'.envs)))
+                (s with
+                 env_id_counter := (cur_gen,next_id + 1,next_gen))))
 End
 
-(* Concrete, or first-order values, which do not contain code closures and
-   are unchanged by many compiler phases. *)
-Definition concrete_v_def:
-  (concrete_v v ⇔
+(* values that contain neither code nor references *)
+Definition data_v_def:
+  (data_v v ⇔
      case v of
-     | Loc _ _ => T
      | Litv _ => T
-     | Conv v_ vs => concrete_v_list vs
-     | Vectorv vs => concrete_v_list vs
+     | Conv v_ vs => data_v_list vs
+     | Vectorv vs => data_v_list vs
      | _ => F) ∧
-  (concrete_v_list [] ⇔ T) ∧
-  (concrete_v_list (v::vs) ⇔ concrete_v v ∧ concrete_v_list vs)
+  (data_v_list [] ⇔ T) ∧
+  (data_v_list (v::vs) ⇔ data_v v ∧ data_v_list vs)
 Termination
   WF_REL_TAC `measure (λx. case x of INL v => v_size v
                                    | INR vs => list_size v_size vs)`
 End
 
-Definition compiler_agrees_def:
-  compiler_agrees (f:((num#num)#v#(dec)list ->(v#mlstring#(word64)list)option))
-      args (st_v,bs_v,ws_v) ⇔
-    case (f args,args,v_to_mlstring bs_v,v_to_word64_list ws_v) of
-    | (SOME (st,c_bs,c_ws),(v16,prev_st_v,_),SOME bs,SOME ws) =>
-        st = st_v ∧ c_bs = bs ∧ c_ws = ws ∧ concrete_v st_v ∧
-        concrete_v prev_st_v
-    | _ => F
+(* get the declarations to be evaluated by a two-argument call to Eval *)
+Definition do_eval_def:
+  do_eval vs (es:source_eval_state option) =
+    case es of
+    | NONE => NONE
+    | SOME s =>
+      case vs of
+      | [Env env id; decs_v] =>
+        (case s.decode_decs decs_v of
+           NONE => NONE
+         | SOME decs =>
+           if data_v decs_v then
+             (case s.env_id_counter of
+                (cur_gen,next_id,next_gen) =>
+                  SOME (env,decs,
+                        SOME (s with <| env_id_counter :=
+                                          (next_gen,0,next_gen + 1);
+                                        history :=
+                                          s.history ++ [(id,decs_v)] |>)))
+           else NONE)
+      | _ => NONE
 End
 
-(* get the declarations to be evaluated in the various Eval semantics *)
-Definition do_eval_def:
-  do_eval vs es =
-    case (es,vs) of
-    | (SOME (EvalDecs s),[Env env id; st_v; decs_v; st_v2; bs_v; ws_v]) =>
-      (case s.decode_decs decs_v of
-         NONE => NONE
-       | SOME decs =>
-         if
-           st_v = s.compiler_state ∧ concrete_v decs_v ∧
-           compiler_agrees s.compiler (id,st_v,decs) (st_v2,bs_v,ws_v)
-         then
-           SOME
-             (env,decs,
-              SOME
-                (EvalDecs
-                   (add_decs_generation (s with compiler_state := st_v2))))
-         else NONE)
-    | (SOME (EvalOracle s'),vs) =>
-      (case s'.custom_do_eval vs s'.oracle of
-         NONE => NONE
-       | SOME (env_id,oracle,decs) =>
-           case lookup_env s' env_id of
-             NONE => NONE
-           | SOME env =>
-               SOME
-               (env,decs,
-                SOME
-                (EvalOracle (add_env_generation (s' with oracle := oracle)))))
-    | _ => NONE
+(* a one-argument call to Eval initialises Eval *)
+Definition do_eval_init_def:
+  do_eval_init vs (es:source_eval_state option) =
+    case es of
+    | NONE => NONE
+    | SOME s =>
+      case vs of
+      | [Conv NONE [st_v; cl]] =>
+          if ¬s.initialised ∧ s.init_ok st_v cl
+          then SOME (s with <| initialised := T; closure := cl |>) else NONE
+      | _ => NONE
 End
 
 (* conclude an Eval generation *)
 
 Definition reset_env_generation_def:
-  reset_env_generation prior_es es =
+  reset_env_generation (prior_es:source_eval_state option) es =
     case (prior_es,es) of
-    | (SOME (EvalDecs prior_s'),SOME (EvalDecs s')) =>
+    | (SOME prior_s',SOME s') =>
       (case (prior_s'.env_id_counter,s'.env_id_counter) of
          ((cur_gen,next_id,v5),v6,v8,next_gen) =>
-           SOME
-             (EvalDecs
-                (s' with env_id_counter := (cur_gen,next_id,next_gen))))
-    | (SOME (EvalOracle prior_s),SOME (EvalOracle s)) =>
-      SOME (EvalOracle (s with generation := prior_s.generation))
+           SOME (s' with env_id_counter := (cur_gen,next_id,next_gen)))
     | _ => es
 End
 

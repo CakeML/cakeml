@@ -31,7 +31,8 @@ Definition empty_state_def:
     next_type_stamp := 0;
     next_exn_stamp := 0;
     eval_state := NONE;
-    ptr_eq_oracle := K (K F)|>
+    ptr_eq_oracle := K (K F);
+    eval_oracle := K (F,K (K (K 0)))|>
 End
 
 Definition build_state_def:

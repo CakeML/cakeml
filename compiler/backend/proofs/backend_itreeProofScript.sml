@@ -312,11 +312,11 @@ Theorem oracle_IMP_itree_preservation:
   (∀f:(((ffi_outcome + word8 list) list) ffi_state).
     ffi_respects_convention (inr P) (f.oracle, f.ffi_state) ⇒
     ∃po.
-      Fail ∉ semantics_determ (s with <| ffi := f; ptr_eq_oracle := po |>)
+      Fail ∉ semantics$semantics_determ (s with <| ffi := f; ptr_eq_oracle := po |>)
                env prog ∧
       machine_sem (mc:(α,β,γ) machine_config) f ms ⊆
         extend_with_resource_limit' safe_for_space
-          (semantics_determ (s with <| ffi := f; ptr_eq_oracle := po |>)
+          (semantics$semantics_determ (s with <| ffi := f; ptr_eq_oracle := po |>)
              env prog))
   ⇒ ∀xs. EVERY (inr P) xs ⇒
          ∃po. same_up_to_oom safe_for_space
@@ -615,12 +615,12 @@ Proof
   irule oracle_IMP_itree_preservation >> simp[extend_with_resource_limit'_def] >>
   conj_tac >- simp[prim_sem_env_eq] >>
   qexists_tac `P` >> simp[] >> gen_tac >> strip_tac >>
-  `∀po. Fail ∉ semantics_determ
+  `∀po eo. Fail ∉ semantics$semantics_determ
           (FST (THE (prim_sem_env
                        (ARB:((ffi_outcome + word8 list) list) ffi_state))) with
-             <|ffi := f; ptr_eq_oracle := po|>) start_env prog` by (
-    gen_tac >> simp[IN_DEF] >>
-    qmatch_goalsub_abbrev_tac `semantics_determ st0` >>
+             <|ffi := f; ptr_eq_oracle := po; eval_oracle := eo|>) start_env prog` by (
+    rpt gen_tac >> simp[IN_DEF] >>
+    qmatch_goalsub_abbrev_tac `semantics$semantics_determ st0` >>
     `st0.eval_state = NONE` by simp[Abbr `st0`, prim_sem_env_eq] >>
     drule $ cj 3 itree_semantics >>
     disch_then $ qspecl_then [`prog`,`start_env`] assume_tac >> simp[] >>
@@ -636,8 +636,9 @@ Proof
           |> Q.INST [‘ffi’ |-> ‘f’]) >>
   simp[] >> impl_tac
   >- (
-    simp[semanticsTheory.semantics_prog_def] >> gen_tac >>
-    first_x_assum (qspec_then `po` mp_tac) >> simp[IN_DEF, prim_sem_env_eq]
+    simp[semanticsTheory.semantics_prog_def] >> rpt gen_tac >>
+    first_x_assum (qspecl_then [`po`,`eo`] mp_tac) >>
+    simp[IN_DEF, prim_sem_env_eq]
     ) >>
   strip_tac >> qexists_tac `po` >> gvs[IN_DEF, prim_sem_env_eq]
 QED
