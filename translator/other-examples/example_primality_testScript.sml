@@ -55,7 +55,10 @@ val _ = translate log2_def;
 val factor_twos_def = find_def ``factor_twos``;
 val _ = translate factor_twos_def;
 
-val def = find_def ``modexp``;
+val def = find_def ``exp_mod_step``;
+val _ = translate def;
+
+val def = find_def ``exp_mod_binary``;
 val _ = translate def;
 
 val witness_tail_def = find_def ``witness_tail``;
