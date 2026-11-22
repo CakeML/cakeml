@@ -73,9 +73,10 @@ End
 
 Definition semantics_prog_def:
   semantics_prog st env prog b ⇔
-    (* the pointer equality oracle is adversarial: a program behaves as it does
-       under some oracle *)
-    ∃po. semantics_determ (st with ptr_eq_oracle := po) env prog b
+    (* the pointer equality and eval oracles are adversarial: a program
+       behaves as it does under some oracles *)
+    ∃po eo. semantics_determ (st with <| ptr_eq_oracle := po;
+                                         eval_oracle := eo |>) env prog b
 End
 
 Datatype:

@@ -543,7 +543,7 @@ Theorem imp_semantics_prog:
   semantics_prog st env p (Terminate Success out)
 Proof
   fs [semantics_prog_def,semantics_determ_def,evaluate_prog_with_clock_def]
-  \\ rw [] \\ qexists_tac ‘st.ptr_eq_oracle’
+  \\ rw [] \\ qexistsl_tac [‘st.ptr_eq_oracle’,‘st.eval_oracle’]
   \\ qexists_tac ‘ck’ \\ simp []
 QED
 

@@ -288,7 +288,7 @@ QED
 Theorem do_eval_state_none:
   s.eval_state = NONE ⇒
     do_eval_res vs s =
-      (s, (Rerr (Rabort Rtype_error) : (v sem_env # dec list, v) result))
+      (s, (Rerr (Rabort Rtype_error) : (v + v sem_env # dec list, v) result))
 Proof
   rw [do_eval_res_def, do_eval_def]
 QED
@@ -315,7 +315,7 @@ Resume evaluate_ok[App_Eval]:
     rw [] \\ gs [])
   \\ drule_then assume_tac state_ok_eval_state
   \\ drule_then assume_tac do_eval_state_none
-  \\ simp []
+  \\ simp [evaluatePropsTheory.do_eval_NONE]
 QED
 
 Theorem v_ok_v_to_list:

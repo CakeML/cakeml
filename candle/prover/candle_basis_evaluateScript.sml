@@ -342,7 +342,7 @@ Resume evaluate_basis_v_ok[decs_Denv]:
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["option", "prod"]]
   \\ gs [env_ok_def, extend_dec_env_def, SF SFY_ss]
-  \\ gvs [declare_env_def, CaseEqs ["option", "eval_state", "prod"]]
+  \\ gvs [declare_env_def, CaseEqs ["option", "prod"]]
   \\ fs [eval_state_ok_def,SF SFY_ss]
   \\ Cases \\ simp [ml_progTheory.nsLookup_nsBind_compute]
   \\ rw [] \\ gs [v_ok_def, env_ok_def, nat_to_v_def, SF SFY_ss]

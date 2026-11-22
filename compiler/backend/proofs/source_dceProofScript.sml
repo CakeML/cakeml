@@ -3,9 +3,9 @@
 *)
 Theory source_dceProof
 Ancestors
-  source_dce evaluate evaluateProps semanticPrimitives
-  semanticPrimitivesProps semantics ast
-  source_evalProof namespace
+  source_dce evaluateProps[qualified] semanticPrimitives
+  semanticPrimitivesProps ast evalSem evalSemProps
+  namespace
 Libs
   preamble
 
@@ -832,11 +832,11 @@ Proof
 QED
 
 Theorem state_with_id[local]:
-  ((s:'ffi semanticPrimitives$state) with refs := s.refs = s) ∧
-  ((s:'ffi semanticPrimitives$state) with <|refs := r; ffi := s.ffi|> =
+  ((s:'ffi evalSem$state) with refs := s.refs = s) ∧
+  ((s:'ffi evalSem$state) with <|refs := r; ffi := s.ffi|> =
    s with refs := r)
 Proof
-  gvs [semanticPrimitivesTheory.state_component_equality]
+  gvs [evalSemTheory.state_component_equality]
 QED
 
 (* thunks, for forcing in App; the BadRef outcome cannot arise for
@@ -1173,8 +1173,22 @@ Proof
   \\ gvs [check_shape_def, SF SFY_ss]
 QED
 
+(* the input program is never in the EvalRun or EvalPending mode *)
+Theorem state_rel_eval_state[local]:
+  state_rel f (s1:'ffi evalSem$state) s2 ⇒
+  (∀r. s1.eval_state ≠ SOME (EvalRun r)) ∧
+  (∀r. s1.eval_state ≠ SOME (EvalPending r)) ∧
+  (∀vs. do_eval_init vs s1.eval_state (:'ffi) = NONE) ∧
+  (∀vs. do_eval_fail vs s1.eval_state = NONE) ∧
+  ∀x. eval_result s1.eval_state x = x
+Proof
+  rw [state_rel_def] \\ Cases_on ‘s1.eval_state’
+  \\ gvs [do_eval_init_def, do_eval_fail_def, eval_result_def]
+  \\ every_case_tac
+QED
+
 Theorem evaluate_v_rel[local]:
-  (∀(s1:'ffi semanticPrimitives$state) env1 es s1' res1.
+  (∀(s1:'ffi evalSem$state) env1 es s1' res1.
      evaluate s1 env1 es = (s1',res1) ∧
      res1 ≠ Rerr (Rabort Rtype_error) ⇒
      ∀f s2 env2.
@@ -1184,7 +1198,7 @@ Theorem evaluate_v_rel[local]:
          evaluate s2 env2 es = (s2',res2) ∧ f ⊑ f' ∧
          state_rel f' s1' s2' ∧
          result_rel (LIST_REL (v_rel f')) (v_rel f') res1 res2) ∧
-  (∀(s1:'ffi semanticPrimitives$state) env1 v1 pes err_v1 s1' res1.
+  (∀(s1:'ffi evalSem$state) env1 v1 pes err_v1 s1' res1.
      evaluate_match s1 env1 v1 pes err_v1 = (s1',res1) ∧
      res1 ≠ Rerr (Rabort Rtype_error) ⇒
      ∀f s2 env2 v2 err_v2.
@@ -1242,7 +1256,7 @@ Resume evaluate_v_rel[cons]:
   >- (drule_then irule env_rel_mono \\ simp [fvs_def]
       \\ simp [SUBSET_DEF])
   \\ strip_tac \\ gvs []
-  \\ imp_res_tac evaluatePropsTheory.evaluate_sing \\ gvs []
+  \\ imp_res_tac evalSemPropsTheory.evaluate_sing \\ gvs []
   \\ gvs [AllCaseEqs()]
   \\ qpat_x_assum ‘state_rel _ _ _’ $ irule_at Any
   \\ gvs [] \\ imp_res_tac SUBMAP_TRANS \\ simp []
@@ -1338,7 +1352,8 @@ Resume evaluate_v_rel[App]:
   >- (pop_assum $ irule_at Any \\ gvs [])
   \\ Cases_on ‘op = Eval’
   >-
-   (gvs [do_eval_res_def]
+   (imp_res_tac state_rel_eval_state
+    \\ gvs [do_eval_res_not_EvalRun]
     \\ qsuff_tac ‘do_eval (REVERSE a) q.eval_state = NONE’
     >- (strip_tac \\ gvs [])
     \\ simp [do_eval_def, AllCaseEqs(), PULL_EXISTS]
@@ -1370,7 +1385,7 @@ Resume evaluate_v_rel[App]:
     >- (first_assum $ irule_at Any \\ gvs [])
     \\ ‘state_rel g (dec_clock t1) (dec_clock t2) ∧
         env_rel g (fvs_list [e]) envA envB’ by
-         gvs [state_rel_def, evaluateTheory.dec_clock_def, fvs_def]
+         gvs [state_rel_def, evalSemTheory.dec_clock_def, fvs_def]
     \\ last_x_assum drule_all \\ strip_tac \\ gvs []
     \\ first_assum $ irule_at Any
     \\ imp_res_tac SUBMAP_TRANS \\ gvs [])
@@ -1391,7 +1406,7 @@ Resume evaluate_v_rel[App]:
     >- (first_assum $ irule_at Any \\ gvs [])
     \\ ‘state_rel g (dec_clock t1) (dec_clock t2) ∧
         env_rel g (fvs_list [e]) envA envB’ by
-         gvs [state_rel_def, evaluateTheory.dec_clock_def, fvs_def]
+         gvs [state_rel_def, evalSemTheory.dec_clock_def, fvs_def]
     \\ last_x_assum drule_all \\ strip_tac \\ gvs []
     >-
      (rename [‘state_rel h u1 u2’]
@@ -1422,7 +1437,7 @@ Resume evaluate_v_rel[App]:
   \\ strip_tac \\ gvs []
   \\ first_assum $ irule_at Any
   \\ imp_res_tac SUBMAP_TRANS \\ gvs []
-  \\ rename [‘list_result res1’] \\ Cases_on ‘res1’ \\ gvs [list_result_def]
+  \\ rename [‘list_result res1’] \\ Cases_on ‘res1’ \\ gvs [evaluateTheory.list_result_def]
 QED
 
 Resume evaluate_v_rel[Log]:
@@ -1436,7 +1451,7 @@ Resume evaluate_v_rel[Log]:
   \\ strip_tac \\ fs []
   \\ reverse $ Cases_on ‘r1’ \\ gvs [CaseEq"prod", PULL_EXISTS]
   >- (pop_assum $ irule_at Any \\ simp [])
-  \\ imp_res_tac evaluatePropsTheory.evaluate_sing \\ gvs []
+  \\ imp_res_tac evalSemPropsTheory.evaluate_sing \\ gvs []
   \\ ‘v = v''’ by (qpat_x_assum ‘_ = (s1',res1)’ mp_tac
                    \\ rw [do_log_def, AllCaseEqs()] \\ gvs [])
   \\ gvs []
@@ -1464,7 +1479,7 @@ Resume evaluate_v_rel[If]:
   \\ strip_tac \\ fs []
   \\ reverse $ Cases_on ‘r1’ \\ gvs [CaseEq"prod", PULL_EXISTS]
   >- (pop_assum $ irule_at Any \\ simp [])
-  \\ imp_res_tac evaluatePropsTheory.evaluate_sing \\ gvs []
+  \\ imp_res_tac evalSemPropsTheory.evaluate_sing \\ gvs []
   \\ ‘v = v''’ by (qpat_x_assum ‘_ = (s1',res1)’ mp_tac
                    \\ rw [do_if_def, AllCaseEqs()] \\ gvs [])
   \\ gvs []
@@ -1586,7 +1601,7 @@ Finalise evaluate_v_rel[local]
 (* evaluation of a pure expression only extends the store *)
 
 Definition pure_st_def:
-  pure_st (s:'ffi semanticPrimitives$state) s' ⇔
+  pure_st (s:'ffi evalSem$state) s' ⇔
     s'.ptr_eq_oracle = s.ptr_eq_oracle ∧
     s'.clock = s.clock ∧ s'.ffi = s.ffi ∧
     s'.next_type_stamp = s.next_type_stamp ∧
@@ -1697,11 +1712,11 @@ Proof
 QED
 
 Theorem pure_exp_evaluate[local]:
-  (∀(s:'ffi semanticPrimitives$state) env es s' res.
+  (∀(s:'ffi evalSem$state) env es s' res.
      evaluate s env es = (s',res) ∧ pure_exp_list es ∧
      res ≠ Rerr (Rabort Rtype_error) ⇒
      (∃vs. res = Rval vs) ∧ pure_st s s') ∧
-  (∀(s:'ffi semanticPrimitives$state) env v pes err_v s' res.
+  (∀(s:'ffi evalSem$state) env v pes err_v s' res.
      evaluate_match s env v pes err_v = (s',res) ∧ pure_exp_pes pes ∧
      EXISTS total_pat (MAP FST pes) ∧
      res ≠ Rerr (Rabort Rtype_error) ⇒
@@ -2011,7 +2026,7 @@ QED
 
 (* a name only leaves the used set when the declarations bind it *)
 Theorem dce_decs_binds[local]:
-  ∀(s1:'ffi semanticPrimitives$state) env1 ds s1' new1 used ds1 used1.
+  ∀(s1:'ffi evalSem$state) env1 ds s1' new1 used ds1 used1.
     evaluate_decs s1 env1 ds = (s1',Rval new1) ∧
     dce_decs used ds = (ds1,used1) ⇒
     ∀n. Short n ∈ names_set used ∧ nsLookup new1.v (Short n) = NONE ⇒
@@ -2083,7 +2098,7 @@ QED
 (* declarations that the pass drops leave the state essentially unchanged,
    introduce no constructors, and bind no name that is used later *)
 Theorem dce_decs_dropped[local]:
-  ∀(s1:'ffi semanticPrimitives$state) env1 ds s1' res1 used ds1 used1.
+  ∀(s1:'ffi evalSem$state) env1 ds s1' res1 used ds1 used1.
     evaluate_decs s1 env1 ds = (s1',res1) ∧ res1 ≠ Rerr (Rabort Rtype_error) ∧
     dce_decs used ds = (ds1,used1) ∧ append ds1 = [] ⇒
     pure_st s1 s1' ∧
@@ -2391,7 +2406,7 @@ Proof
 QED
 
 Theorem evaluate_decs_v_rel[local]:
-  ∀(s1:'ffi semanticPrimitives$state) env1 ds s1' res1.
+  ∀(s1:'ffi evalSem$state) env1 ds s1' res1.
     evaluate_decs s1 env1 ds = (s1',res1) ∧
     res1 ≠ Rerr (Rabort Rtype_error) ⇒
     ∀f s2 env2 used ds1 used1.

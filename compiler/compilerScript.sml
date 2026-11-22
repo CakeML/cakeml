@@ -11,6 +11,9 @@ Ancestors
 Libs
   preamble
 
+(* prelude is a variable name below, not source_eval_init$prelude *)
+val _ = hide "prelude";
+
 val help_string = (* beginning of --help string *) ‘
 
 Usage:  cake [OPTIONS] < input_file > output_file

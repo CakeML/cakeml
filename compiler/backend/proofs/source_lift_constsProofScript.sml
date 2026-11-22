@@ -3,8 +3,8 @@
 *)
 Theory source_lift_constsProof
 Ancestors
-  source_lift_consts ast finite_map mlstring evaluate semanticPrimitives semantics
-  namespaceProps semanticPrimitivesProps evaluateProps source_evalProof
+  source_lift_consts ast finite_map mlstring evaluateProps[qualified] semanticPrimitives
+  namespaceProps semanticPrimitivesProps evalSem evalSemProps source_adjust_decsProof
 Libs
   preamble
 
@@ -86,7 +86,7 @@ QED
 Theorem annotate_exp_evaluate[local]:
   ∀e t tree limit captures.
     annotate_exp t e = (tree,limit,captures) ⇒
-    ∀(s:'ffi semanticPrimitives$state) env.
+    ∀(s:'ffi evalSem$state) env.
       evaluate s env [tree_exp tree] = evaluate s env [e]
 Proof
   Induct_on ‘e’
@@ -1081,7 +1081,7 @@ Proof
 QED
 
 Definition lift_decs_env_def:
-  (lift_decs_env (s:'ffi semanticPrimitives$state) [] env target ⇔
+  (lift_decs_env (s:'ffi evalSem$state) [] env target ⇔
     target = env) ∧
   (lift_decs_env s (d::ds) env target ⇔
     ∃delta.
@@ -1102,7 +1102,7 @@ Proof
 QED
 
 Theorem make_local_evaluates[local]:
-  lift_decs_env (s:'ffi semanticPrimitives$state) (REVERSE ds) env target ⇒
+  lift_decs_env (s:'ffi evalSem$state) (REVERSE ds) env target ⇒
   evaluate_decs s env [make_local ds d] = evaluate_decs s target [d]
 Proof
   strip_tac
@@ -1114,7 +1114,7 @@ Proof
 QED
 
 Definition lift_state_rel_def:
-  lift_state_rel R D (s:'ffi semanticPrimitives$state) s' ⇔
+  lift_state_rel R D (s:'ffi evalSem$state) s' ⇔
     s.clock = s'.clock ∧ s.ffi = s'.ffi ∧
     s.ptr_eq_oracle = s'.ptr_eq_oracle ∧
     s.next_type_stamp = s'.next_type_stamp ∧
@@ -1477,7 +1477,11 @@ Proof
 QED
 
 Theorem lift_do_eval_res[local]:
-  lift_state_rel R D (s:'ffi semanticPrimitives$state) s' ∧
+  lift_state_rel R D (s:'ffi evalSem$state) s' ∧
+  (∀r. s.eval_state ≠ SOME (EvalRun r)) ∧
+  (∀r. s'.eval_state ≠ SOME (EvalRun r)) ∧
+  (∀r. s.eval_state ≠ SOME (EvalPending r)) ∧
+  (∀r. s'.eval_state ≠ SOME (EvalPending r)) ∧
   OPTREL (λ(env,decs,es) (env',decs',es').
     E env env' ∧ P decs decs' ∧ D es es')
     (do_eval vs s.eval_state) (do_eval vs' s'.eval_state) ⇒
@@ -1488,7 +1492,7 @@ Proof
   strip_tac
   >> namedCases_on ‘do_eval vs s.eval_state’ ["","source_eval"]
   >> namedCases_on ‘do_eval vs' s'.eval_state’ ["","target_eval"]
-  >> gvs [do_eval_res_def,lift_eval_result_rel_def,lift_result_rel_def]
+  >> gvs [do_eval_res_not_EvalRun,lift_eval_result_rel_def,lift_result_rel_def]
   >> PairCases_on ‘source_eval’ >> PairCases_on ‘target_eval’
   >> gvs [lift_eval_result_rel_def,lift_result_rel_def,lift_state_rel_def]
 QED
@@ -1507,11 +1511,11 @@ End
 
 Theorem lift_pure_value_evaluates[local]:
   ∀env e v. lift_pure_value env e v ⇒
-  ∀s:'ffi semanticPrimitives$state. evaluate s env [e] = (s,Rval [v])
+  ∀s:'ffi evalSem$state. evaluate s env [e] = (s,Rval [v])
 Proof
   ho_match_mp_tac lift_pure_value_ind >> rpt conj_tac >> rpt gen_tac
   >> simp [Once evaluate_def] >> strip_tac
-  >> have ‘∀s:'ffi semanticPrimitives$state.
+  >> have ‘∀s:'ffi evalSem$state.
         evaluate s env (REVERSE es) = (s,Rval (REVERSE vs))’
   >- (irule evaluate_known_value_list >> simp [LIST_REL_REVERSE])
   >> simp []
@@ -1532,7 +1536,7 @@ End
 
 Theorem lift_global_decs_evaluates[local]:
   ∀ds env target. lift_global_decs ds env target ⇒
-  ∀s:'ffi semanticPrimitives$state. lift_decs_env s ds env target
+  ∀s:'ffi evalSem$state. lift_decs_env s ds env target
 Proof
   ho_match_mp_tac lift_global_decs_ind >> rpt conj_tac >> rpt gen_tac
   >> simp [Once lift_decs_env_def] >> strip_tac
@@ -1993,7 +1997,7 @@ QED
 
 Theorem lift_runtime_state_refl[local]:
   D s.eval_state s.eval_state ⇒
-  lift_state_rel lift_runtime_rel D (s:'ffi semanticPrimitives$state) s
+  lift_state_rel lift_runtime_rel D (s:'ffi evalSem$state) s
 Proof
   rw [lift_state_rel_def]
   >> irule LIST_REL_refl >> simp [lift_runtime_store_refl]
@@ -3019,7 +3023,7 @@ QED
 Theorem lift_eval_result_rel_mono[local]:
   (∀value value'. success_rel value value' ⇒ success_rel' value value') ∧
   lift_eval_result_rel R D success_rel
-    (source_eval:'ffi semanticPrimitives$state # ('a,v) result) target_eval ⇒
+    (source_eval:'ffi evalSem$state # ('a,v) result) target_eval ⇒
   lift_eval_result_rel R D success_rel' source_eval target_eval
 Proof
   rpt strip_tac >> PairCases_on ‘source_eval’ >> PairCases_on ‘target_eval’
@@ -3583,7 +3587,7 @@ QED
 
 Theorem lift_evaluate_simple[local]:
   op ≠ Opapp ∧ op ≠ ThunkOp ForceThunk ∧ op ≠ Eval ∧ op ≠ PtrEq ∧
-  lift_state_rel (lift_value_rel C E) D (s:'ffi semanticPrimitives$state) s' ∧
+  lift_state_rel (lift_value_rel C E) D (s:'ffi evalSem$state) s' ∧
   lift_eval_result_rel (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
     (evaluate s env (REVERSE es)) (evaluate s' env' (REVERSE es')) ⇒
   lift_eval_refinement (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
@@ -3602,14 +3606,14 @@ Proof
   >> disch_then (qspecl_then [‘REVERSE vs'’,‘lift_value_rel C E’,‘t'.refs’] mp_tac)
   >> gvs [lift_value_rel_shape,LIST_REL_REVERSE_EQ,lift_state_rel_def]
   >> strip_tac >> simp [lift_eval_result_rel_def,lift_state_rel_def]
-  >> Cases_on ‘result2’ >> gvs [list_result_def,lift_result_rel_cases]
+  >> Cases_on ‘result2’ >> gvs [evaluateTheory.list_result_def,lift_result_rel_cases]
   >> rename1 ‘exc_rel _ err _’ >> Cases_on ‘err’
   >> gvs [exc_rel_raise1,exc_rel_type_error1]
 QED
 
 Theorem lift_evaluate_ptr_eq[local]:
   lift_eval_result_rel (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
-    (evaluate (s:'ffi semanticPrimitives$state) env (REVERSE es))
+    (evaluate (s:'ffi evalSem$state) env (REVERSE es))
     (evaluate s' env' (REVERSE es')) ⇒
   lift_eval_refinement (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
     (evaluate s env [App PtrEq es]) (evaluate s' env' [App PtrEq es'])
@@ -3645,9 +3649,9 @@ QED
 
 Theorem lift_evaluate_append_refinement[local]:
   lift_eval_refinement R D (LIST_REL R)
-    (evaluate (s:'ffi semanticPrimitives$state) env xs)
+    (evaluate (s:'ffi evalSem$state) env xs)
     (evaluate s' env' xs') ∧
-  (∀(t:'ffi semanticPrimitives$state) t'.
+  (∀(t:'ffi evalSem$state) t'.
     t.clock ≤ s.clock ∧ lift_state_rel R D t t' ⇒
     lift_eval_refinement R D (LIST_REL R)
       (evaluate t env ys) (evaluate t' env' ys')) ⇒
@@ -3668,11 +3672,11 @@ QED
 
 Theorem lift_evaluate_list_refinement[local]:
   LIST_REL (λe e'.
-    ∀(t:'ffi semanticPrimitives$state) t'.
+    ∀(t:'ffi evalSem$state) t'.
       t.clock ≤ clock ∧ lift_state_rel R D t t' ⇒
       lift_eval_refinement R D (LIST_REL R)
         (evaluate t env [e]) (evaluate t' env' [e'])) es es' ⇒
-  ∀(s:'ffi semanticPrimitives$state) s'.
+  ∀(s:'ffi evalSem$state) s'.
     s.clock ≤ clock ∧ lift_state_rel R D s s' ⇒
     lift_eval_refinement R D (LIST_REL R)
       (evaluate s env es) (evaluate s' env' es')
@@ -3691,7 +3695,7 @@ QED
 
 Theorem lift_eval_refinement_single[local]:
   lift_eval_refinement R D (LIST_REL R)
-    (evaluate (s:'ffi semanticPrimitives$state) env [e]) (evaluate s' env' [e']) ⇒
+    (evaluate (s:'ffi evalSem$state) env [e]) (evaluate s' env' [e']) ⇒
   ∃t r t' r'.
     evaluate s env [e] = (t,r) ∧ evaluate s' env' [e'] = (t',r') ∧
     t.clock ≤ s.clock ∧
@@ -3755,7 +3759,7 @@ QED
 
 Theorem lift_evaluate_con_refinement[local]:
   env.c = env'.c ∧ LENGTH es = LENGTH es' ∧
-  lift_state_rel (lift_value_rel C E) D (s:'ffi semanticPrimitives$state) s' ∧
+  lift_state_rel (lift_value_rel C E) D (s:'ffi evalSem$state) s' ∧
   lift_eval_refinement (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
     (evaluate s env (REVERSE es)) (evaluate s' env' (REVERSE es')) ⇒
   lift_eval_refinement (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
@@ -3799,9 +3803,9 @@ QED
 
 Theorem lift_evaluate_let_refinement[local]:
   lift_eval_refinement R D (LIST_REL R)
-    (evaluate (s:'ffi semanticPrimitives$state) source [rhs])
+    (evaluate (s:'ffi evalSem$state) source [rhs])
     (evaluate s' target [rhs']) ∧
-  (∀(t:'ffi semanticPrimitives$state) t' value value'.
+  (∀(t:'ffi evalSem$state) t' value value'.
     t.clock ≤ s.clock ∧ lift_state_rel R D t t' ∧ R value value' ⇒
     lift_eval_refinement R D (LIST_REL R)
       (evaluate t (source with v := nsOptBind name value source.v) [body])
@@ -3818,9 +3822,9 @@ QED
 Theorem lift_evaluate_handle_refinement[local]:
   env.c = env'.c ∧ MAP FST pes = MAP FST pes' ∧
   lift_eval_refinement (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
-    (evaluate (s:'ffi semanticPrimitives$state) env [e])
+    (evaluate (s:'ffi evalSem$state) env [e])
     (evaluate s' env' [e']) ∧
-  (∀(t:'ffi semanticPrimitives$state) t' v v'.
+  (∀(t:'ffi evalSem$state) t' v v'.
     t.clock ≤ s.clock ∧ lift_state_rel (lift_value_rel C E) D t t' ∧
     lift_value_rel C E v v' ⇒
     lift_eval_refinement (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
@@ -3838,9 +3842,9 @@ Proof
 QED
 
 Theorem lift_evaluate_match_list_refinement[local]:
-  ∀pes pes' (s:'ffi semanticPrimitives$state) s' v v' err err'.
+  ∀pes pes' (s:'ffi evalSem$state) s' v v' err err'.
     LIST_REL (λ(p,e) (p',e'). p = p' ∧
-      ∀(t:'ffi semanticPrimitives$state) t' bindings bindings'.
+      ∀(t:'ffi evalSem$state) t' bindings bindings'.
         t.clock ≤ s.clock ∧ MAP FST bindings = pat_bindings p ∧
         lift_state_rel (lift_value_rel C E) D t t' ∧
         LIST_REL (λa b. FST a = FST b ∧ lift_value_rel C E (SND a) (SND b))
@@ -3877,9 +3881,9 @@ QED
 Theorem lift_evaluate_mat_refinement[local]:
   env.c = env'.c ∧ MAP FST pes = MAP FST pes' ∧
   lift_eval_refinement (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
-    (evaluate (s:'ffi semanticPrimitives$state) env [e])
+    (evaluate (s:'ffi evalSem$state) env [e])
     (evaluate s' env' [e']) ∧
-  (∀(t:'ffi semanticPrimitives$state) t' v v'.
+  (∀(t:'ffi evalSem$state) t' v v'.
     t.clock ≤ s.clock ∧ lift_state_rel (lift_value_rel C E) D t t' ∧
     lift_value_rel C E v v' ⇒
     lift_eval_refinement (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
@@ -3899,12 +3903,12 @@ QED
 
 Theorem lift_evaluate_if_refinement[local]:
   lift_eval_refinement (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
-    (evaluate (s:'ffi semanticPrimitives$state) env [e1]) (evaluate s' env' [e1']) ∧
-  (∀(t:'ffi semanticPrimitives$state) t'.
+    (evaluate (s:'ffi evalSem$state) env [e1]) (evaluate s' env' [e1']) ∧
+  (∀(t:'ffi evalSem$state) t'.
     t.clock ≤ s.clock ∧ lift_state_rel (lift_value_rel C E) D t t' ⇒
     lift_eval_refinement (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
       (evaluate t env [e2]) (evaluate t' env' [e2'])) ∧
-  (∀(t:'ffi semanticPrimitives$state) t'.
+  (∀(t:'ffi evalSem$state) t'.
     t.clock ≤ s.clock ∧ lift_state_rel (lift_value_rel C E) D t t' ⇒
     lift_eval_refinement (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
       (evaluate t env [e3]) (evaluate t' env' [e3'])) ⇒
@@ -3921,9 +3925,9 @@ QED
 
 Theorem lift_evaluate_log_refinement[local]:
   lift_eval_refinement (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
-    (evaluate (s:'ffi semanticPrimitives$state) env [e1])
+    (evaluate (s:'ffi evalSem$state) env [e1])
     (evaluate s' env' [e1']) ∧
-  (∀(t:'ffi semanticPrimitives$state) t'.
+  (∀(t:'ffi evalSem$state) t'.
     t.clock ≤ s.clock ∧ lift_state_rel (lift_value_rel C E) D t t' ⇒
     lift_eval_refinement (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
       (evaluate t env [e2]) (evaluate t' env' [e2'])) ⇒
@@ -4206,7 +4210,7 @@ QED
 
 Definition lift_app_sim_def:
   lift_app_sim (:'ffi) clock D ⇔
-    ∀op es es' (s:'ffi semanticPrimitives$state) s' env env'.
+    ∀op es es' (s:'ffi evalSem$state) s' env env'.
       s.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D s s' ∧
       lift_eval_refinement lift_runtime_rel D (LIST_REL lift_runtime_rel)
         (evaluate s env (REVERSE es)) (evaluate s' env' (REVERSE es')) ⇒
@@ -4229,7 +4233,7 @@ Definition lift_exp_sim_def:
         ∀source locals.
           lift_scope lift_runtime_rel captures bound ren (n,ds,used) source initial locals ⇒
           lift_scope lift_runtime_rel captures bound ren (n1,ds1,used1) source final locals ∧
-          ∀(s:'ffi semanticPrimitives$state) s' target.
+          ∀(s:'ffi evalSem$state) s' target.
             s.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D s s' ∧
             target.c = final.c ∧
             (∀id. (∀name. id = Short name ⇒ name ∈ exp_free_names compiled) ⇒
@@ -4266,7 +4270,7 @@ Theorem lift_bound_exp_simulation[local]:
         lift_scope lift_runtime_rel captures (bind_all names bound) (delete_all names ren)
           (n1,ds1,used1) (source with v := nsBindList bindings source.v) final
           (bindings' ++ locals) ∧
-        ∀(s:'ffi semanticPrimitives$state) s' target.
+        ∀(s:'ffi evalSem$state) s' target.
           s.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D s s' ∧ target.c = final.c ∧
           (∀id. (∀name. id = Short name ⇒ name ∈ exp_free_names compiled) ⇒
             nsLookup target.v id = nsLookup
@@ -4343,7 +4347,7 @@ QED
 
 Theorem lift_runtime_evaluate_match_refinement[local]:
   LIST_REL (λ(pattern,body) (pattern',body'). pattern = pattern' ∧
-    ∀(t:'ffi semanticPrimitives$state) t' bindings bindings'.
+    ∀(t:'ffi evalSem$state) t' bindings bindings'.
       t.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D t t' ∧
       MAP FST bindings = pat_bindings pattern ∧
       LIST_REL (λ(x,v) (y,w). x = y ∧ lift_runtime_rel v w) bindings bindings' ⇒
@@ -4351,7 +4355,7 @@ Theorem lift_runtime_evaluate_match_refinement[local]:
         (evaluate t (source with v := nsBindList bindings source.v) [body])
         (evaluate t' (target with v := nsBindList bindings' target.v) [body']))
     pes compiled ∧
-  (s:'ffi semanticPrimitives$state).clock ≤ clock ∧ source.c = target.c ∧
+  (s:'ffi evalSem$state).clock ≤ clock ∧ source.c = target.c ∧
   lift_state_rel lift_runtime_rel D s s' ∧
   lift_runtime_rel value value' ∧ lift_runtime_rel err err' ⇒
   lift_eval_refinement lift_runtime_rel D (LIST_REL lift_runtime_rel)
@@ -4392,7 +4396,7 @@ Theorem lift_pes_simulation[local]:
             (∀id. (∀name. id = Short name ⇒ name ∈ exp_free_names_pes compiled) ⇒
               nsLookup target.v id = nsLookup (nsBindList locals final.v) id) ⇒
             LIST_REL (λ(pattern,body) (pattern',body'). pattern = pattern' ∧
-              ∀(state:'ffi semanticPrimitives$state) state' bindings bindings'.
+              ∀(state:'ffi evalSem$state) state' bindings bindings'.
                 state.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D state state' ∧
                 MAP FST bindings = pat_bindings pattern ∧
                 LIST_REL (λ(x,v) (y,w). x = y ∧ lift_runtime_rel v w) bindings bindings' ⇒
@@ -4541,7 +4545,7 @@ Theorem lift_sim_head[local]:
           target.c = final2.c ∧
           (∀id. (∀name. id = Short name ⇒ name ∈ exp_free_names r1) ⇒
             nsLookup target.v id = nsLookup (nsBindList locals final2.v) id) ⇒
-          ∀(s:'ffi semanticPrimitives$state) s'.
+          ∀(s:'ffi evalSem$state) s'.
             s.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D s s' ⇒
             lift_eval_refinement lift_runtime_rel D (LIST_REL lift_runtime_rel)
               (evaluate s source [e]) (evaluate s' target [r1])
@@ -4590,7 +4594,7 @@ Theorem lift_exps_sim[local]:
           target.c = final.c ∧
           (∀id. (∀name. id = Short name ⇒ name ∈ exp_free_names_exps compiled) ⇒
             nsLookup target.v id = nsLookup (nsBindList locals final.v) id) ⇒
-          LIST_REL (λe c. ∀(s:'ffi semanticPrimitives$state) s'.
+          LIST_REL (λe c. ∀(s:'ffi evalSem$state) s'.
             s.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D s s' ⇒
             lift_eval_refinement lift_runtime_rel D (LIST_REL lift_runtime_rel)
               (evaluate s source [e]) (evaluate s' target [c])) es compiled
@@ -4649,12 +4653,12 @@ Theorem lift_exp_pes_sim[local]:
         (∀id. (∀name. id = Short name ⇒
             name ∈ exp_free_names r1 ∨ name ∈ exp_free_names_pes rs) ⇒
           nsLookup target.v id = nsLookup (nsBindList locals final.v) id) ⇒
-        (∀(s:'ffi semanticPrimitives$state) s'.
+        (∀(s:'ffi evalSem$state) s'.
           s.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D s s' ⇒
           lift_eval_refinement lift_runtime_rel D (LIST_REL lift_runtime_rel)
             (evaluate s source [e]) (evaluate s' target [r1])) ∧
         LIST_REL (λ(pattern,body) (pattern',body'). pattern = pattern' ∧
-          ∀(state:'ffi semanticPrimitives$state) state' bindings bindings'.
+          ∀(state:'ffi evalSem$state) state' bindings bindings'.
             state.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D state state' ∧
             MAP FST bindings = pat_bindings pattern ∧
             LIST_REL (λ(x,v) (y,w). x = y ∧ lift_runtime_rel v w) bindings bindings' ⇒
@@ -4699,7 +4703,7 @@ Theorem lift_exps_simulation[local]:
       ∀source locals.
         lift_scope lift_runtime_rel captures bound ren (n,ds,used) source initial locals ⇒
         lift_scope lift_runtime_rel captures bound ren (n1,ds1,used1) source final locals ∧
-        ∀(s:'ffi semanticPrimitives$state) s' target.
+        ∀(s:'ffi evalSem$state) s' target.
           s.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D s s' ∧
           target.c = final.c ∧
           (∀id. (∀name. id = Short name ⇒ name ∈ exp_free_names_exps compiled) ⇒
@@ -4741,7 +4745,7 @@ Theorem lift_emit_value_sim[local]:
       ∀target.
         (∀id. (∀name. id = Short name ⇒ name ∈ exp_free_names compiled) ⇒
           nsLookup target.v id = nsLookup (nsBindList locals final.v) id) ⇒
-        ∀s:'ffi semanticPrimitives$state. evaluate s target [compiled] = (s,Rval [v])
+        ∀s:'ffi evalSem$state. evaluate s target [compiled] = (s,Rval [v])
 Proof
   strip_tac
   >> imp_res_tac emit_value_extends >> drule_all emit_value_decs_avoid >> disch_tac
@@ -6039,7 +6043,7 @@ Theorem lower_let_simulation[local]:
       (compiled,out_n,ds,used) ⇒
     ∃final.
       lift_global_decs (REVERSE ds) target final ∧
-      ∀(s:'ffi semanticPrimitives$state) s'.
+      ∀(s:'ffi evalSem$state) s'.
         s.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D s s' ⇒
         lift_eval_refinement lift_runtime_rel D (LIST_REL lift_runtime_rel)
           (evaluate s source [e]) (evaluate s' final [compiled])
@@ -6071,11 +6075,11 @@ QED
 
 Theorem lift_evaluate_app_refinement[local]:
   lift_eval_result_rel (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
-    (evaluate (s:'ffi semanticPrimitives$state) env (REVERSE es))
+    (evaluate (s:'ffi evalSem$state) env (REVERSE es))
     (evaluate s' env' (REVERSE es')) ∧
   (∀f f' arg arg'. C f f' ∧ lift_value_rel C E arg arg' ⇒
     OPTREL (λ(body_env,body) (body_env',body').
-      ∀(t:'ffi semanticPrimitives$state) t'.
+      ∀(t:'ffi evalSem$state) t'.
         t.clock < s.clock ∧ lift_state_rel (lift_value_rel C E) D t t' ⇒
         lift_eval_refinement (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
           (evaluate t body_env [body]) (evaluate t' body_env' [body']))
@@ -6109,11 +6113,11 @@ QED
 
 Theorem lift_evaluate_force_refinement[local]:
   lift_eval_result_rel (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
-    (evaluate (s:'ffi semanticPrimitives$state) env (REVERSE es))
+    (evaluate (s:'ffi evalSem$state) env (REVERSE es))
     (evaluate s' env' (REVERSE es')) ∧
   (∀f f' arg arg'. C f f' ∧ lift_value_rel C E arg arg' ⇒
     OPTREL (λ(body_env,body) (body_env',body').
-      ∀(t:'ffi semanticPrimitives$state) t'.
+      ∀(t:'ffi evalSem$state) t'.
         t.clock < s.clock ∧ lift_state_rel (lift_value_rel C E) D t t' ⇒
         lift_eval_refinement (lift_value_rel C E) D (LIST_REL (lift_value_rel C E))
           (evaluate t body_env [body]) (evaluate t' body_env' [body']))
@@ -6183,8 +6187,8 @@ QED
    ------------------------------------------------------------------------ *)
 
 Definition lift_body_refinement_def:
-  lift_body_refinement D (caller:'ffi semanticPrimitives$state) source body target body' ⇔
-    ∀(s:'ffi semanticPrimitives$state) s'.
+  lift_body_refinement D (caller:'ffi evalSem$state) source body target body' ⇔
+    ∀(s:'ffi evalSem$state) s'.
       s.clock < caller.clock ∧ lift_state_rel lift_runtime_rel D s s' ⇒
       lift_eval_refinement lift_runtime_rel D (LIST_REL lift_runtime_rel)
         (evaluate s source [body]) (evaluate s' target [body'])
@@ -6193,7 +6197,7 @@ End
 Theorem lift_evaluate_runtime_call_refinement[local]:
   (op = Opapp ∨ op = ThunkOp ForceThunk) ∧
   lift_eval_result_rel lift_runtime_rel D (LIST_REL lift_runtime_rel)
-    (evaluate (s:'ffi semanticPrimitives$state) env (REVERSE es))
+    (evaluate (s:'ffi evalSem$state) env (REVERSE es))
     (evaluate s' env' (REVERSE es')) ∧
   (∀source arg body target body' value value'.
     lift_function_certificate lift_runtime_rel source arg body target body' ∧
@@ -6214,7 +6218,7 @@ Theorem lift_evaluate_runtime_call_refinement[local]:
     (evaluate s env [App op es]) (evaluate s' env' [App op es'])
 Proof
   disch_then (CONJUNCTS_THEN2 assume_tac strip_assume_tac)
-  >> mp_tac (Q.INST [‘P’ |-> ‘lift_body_refinement D (s:'ffi semanticPrimitives$state)’]
+  >> mp_tac (Q.INST [‘P’ |-> ‘lift_body_refinement D (s:'ffi evalSem$state)’]
        (SPEC_ALL lift_runtime_rel_opapp))
   >> simp [] >> impl_tac
   >- (
@@ -6234,7 +6238,7 @@ QED
 
 Theorem lift_function_certificate_body_refinement[local]:
   lift_app_sim (:'ffi) clock D ⇒
-  ∀source arg body target body' value value' (caller:'ffi semanticPrimitives$state).
+  ∀source arg body target body' value value' (caller:'ffi evalSem$state).
     caller.clock ≤ clock + 1 ∧
     lift_function_certificate lift_runtime_rel source arg body target body' ∧
     lift_runtime_rel value value' ⇒
@@ -6563,7 +6567,7 @@ QED
 Theorem lift_rec_certificate_body_refinement[local]:
   lift_app_sim (:'ffi) clock D ⇒
   ∀source funs target funs' ren name name' arg body body' value value'
-    (caller:'ffi semanticPrimitives$state).
+    (caller:'ffi evalSem$state).
     caller.clock ≤ clock + 1 ∧
     lift_rec_certificate lift_runtime_rel source funs target funs' ren ∧
     rename_var ren (Short name) = (Short name':(mlstring,mlstring) id) ∧
@@ -6714,12 +6718,12 @@ QED
 
 Theorem lift_evaluate_runtime_match_refinement[local]:
   (∀pattern body. MEM (pattern,body) pes ⇒
-    ∀(t:'ffi semanticPrimitives$state) t' source target.
+    ∀(t:'ffi evalSem$state) t' source target.
       t.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D t t' ∧
       lift_runtime_env lift_runtime_rel source target ⇒
       lift_eval_refinement lift_runtime_rel D (LIST_REL lift_runtime_rel)
         (evaluate t source [body]) (evaluate t' target [body])) ∧
-  (s:'ffi semanticPrimitives$state).clock ≤ clock ∧
+  (s:'ffi evalSem$state).clock ≤ clock ∧
   lift_state_rel lift_runtime_rel D s s' ∧
   lift_runtime_env lift_runtime_rel env env' ∧
   lift_runtime_rel value value' ∧ lift_runtime_rel err err' ⇒
@@ -6743,7 +6747,7 @@ QED
 
 Theorem lift_evaluate_runtime_same_refinement[local]:
   lift_app_sim (:'ffi) clock D ⇒
-  ∀e (s:'ffi semanticPrimitives$state) s' env env'.
+  ∀e (s:'ffi evalSem$state) s' env env'.
     s.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D s s' ∧
     lift_runtime_env lift_runtime_rel env env' ⇒
     lift_eval_refinement lift_runtime_rel D (LIST_REL lift_runtime_rel)
@@ -6860,7 +6864,7 @@ Theorem lift_evaluate_dlet_refinement[local]:
   env.c = env'.c ∧
   (check_exp_constructors env.c body ⇒ check_exp_constructors env'.c body') ∧
   lift_eval_refinement lift_runtime_rel D (LIST_REL lift_runtime_rel)
-    (evaluate (s:'ffi semanticPrimitives$state) env [body])
+    (evaluate (s:'ffi evalSem$state) env [body])
     (evaluate s' env' [body']) ⇒
   lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
     (evaluate_decs s env [Dlet locs pattern body])
@@ -6882,7 +6886,7 @@ QED
 
 Theorem lift_evaluate_dmod_refinement[local]:
   lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
-    (evaluate_decs (s:'ffi semanticPrimitives$state) env ds)
+    (evaluate_decs (s:'ffi evalSem$state) env ds)
     (evaluate_decs s' env' ds') ⇒
   lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
     (evaluate_decs s env [Dmod name ds]) (evaluate_decs s' env' [Dmod name ds'])
@@ -6895,9 +6899,9 @@ QED
 Theorem lift_evaluate_dlocal_refinement[local]:
   lift_runtime_env lift_runtime_rel env env' ∧
   lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
-    (evaluate_decs (s:'ffi semanticPrimitives$state) env ds1)
+    (evaluate_decs (s:'ffi evalSem$state) env ds1)
     (evaluate_decs s' env' ds1') ∧
-  (∀t delta (t':'ffi semanticPrimitives$state) e'.
+  (∀t delta (t':'ffi evalSem$state) e'.
     evaluate_decs s env ds1 = (t,Rval delta) ∧
     t.clock ≤ s.clock ∧ lift_state_rel lift_runtime_rel D t t' ∧
     lift_runtime_env lift_runtime_rel (delta +++ env) e' ⇒
@@ -6917,9 +6921,9 @@ QED
 Theorem lift_evaluate_decs_cons_refinement[local]:
   lift_runtime_env lift_runtime_rel env env' ∧
   lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
-    (evaluate_decs (s:'ffi semanticPrimitives$state) env [d])
+    (evaluate_decs (s:'ffi evalSem$state) env [d])
     (evaluate_decs s' env' [d']) ∧
-  (∀t delta (t':'ffi semanticPrimitives$state) e'.
+  (∀t delta (t':'ffi evalSem$state) e'.
     evaluate_decs s env [d] = (t,Rval delta) ∧
     t.clock ≤ s.clock ∧ lift_state_rel lift_runtime_rel D t t' ∧
     lift_runtime_env lift_runtime_rel (delta +++ env) e' ⇒
@@ -6956,7 +6960,7 @@ Theorem lift_evaluate_denv_refinement[local]:
   lift_declare_env_rel D ∧ lift_state_rel lift_runtime_rel D s s' ∧
   lift_runtime_env lift_runtime_rel env env' ⇒
   lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
-    (evaluate_decs (s:'ffi semanticPrimitives$state) env [Denv name])
+    (evaluate_decs (s:'ffi evalSem$state) env [Denv name])
     (evaluate_decs s' env' [Denv name])
 Proof
   rw [lift_declare_env_rel_def] >> ‘D s.eval_state s'.eval_state’ by fs [lift_state_rel_def]
@@ -6970,7 +6974,7 @@ QED
 Theorem lift_evaluate_dopen_refinement[local]:
   lift_state_rel lift_runtime_rel D s s' ∧ lift_runtime_env lift_runtime_rel env env' ⇒
   lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
-    (evaluate_decs (s:'ffi semanticPrimitives$state) env [Dopen locs path])
+    (evaluate_decs (s:'ffi evalSem$state) env [Dopen locs path])
     (evaluate_decs s' env' [Dopen locs path])
 Proof
   strip_tac >> drule lift_runtime_env_open >> disch_then (qspec_then ‘path’ assume_tac)
@@ -6980,13 +6984,13 @@ Proof
 QED
 
 Theorem lift_evaluate_decs_runtime_same_refinement[local]:
-  (∀e (s:'ffi semanticPrimitives$state) s' env env'.
+  (∀e (s:'ffi evalSem$state) s' env env'.
     s.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D s s' ∧
     lift_runtime_env lift_runtime_rel env env' ⇒
     lift_eval_refinement lift_runtime_rel D (LIST_REL lift_runtime_rel)
       (evaluate s env [e]) (evaluate s' env' [e])) ∧
   lift_declare_env_rel D ⇒
-  ∀(s:'ffi semanticPrimitives$state) env ds s' env'.
+  ∀(s:'ffi evalSem$state) env ds s' env'.
     s.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D s s' ∧
     lift_runtime_env lift_runtime_rel env env' ⇒
     lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
@@ -7042,7 +7046,7 @@ QED
 Theorem lift_eval_refinement_mono[local]:
   (∀value value'. success_rel value value' ⇒ success_rel' value value') ∧
   lift_eval_refinement R D success_rel
-    (source_eval:'ffi semanticPrimitives$state # ('a,v) result) target_eval ⇒
+    (source_eval:'ffi evalSem$state # ('a,v) result) target_eval ⇒
   lift_eval_refinement R D success_rel' source_eval target_eval
 Proof
   rw [lift_eval_refinement_def] >> simp []
@@ -7052,7 +7056,7 @@ QED
 
 Theorem compile_dlet_refinement[local]:
   lift_app_sim (:'ffi) clock D ⇒
-  ∀locs pattern body source target (s:'ffi semanticPrimitives$state) s'.
+  ∀locs pattern body source target (s:'ffi evalSem$state) s'.
     s.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D s s' ∧
     lift_runtime_env lift_runtime_rel source target ⇒
     lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
@@ -7164,7 +7168,7 @@ Proof
 QED
 
 Theorem lift_evaluate_dletrec_refinement[local]:
-  lift_state_rel lift_runtime_rel D (s:'ffi semanticPrimitives$state) s' ∧
+  lift_state_rel lift_runtime_rel D (s:'ffi evalSem$state) s' ∧
   lift_rec_certificate lift_runtime_rel source funs target funs' FEMPTY ⇒
   lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
     (evaluate_decs s source [Dletrec locs funs])
@@ -7192,7 +7196,7 @@ QED
 
 Theorem compile_dletrec_refinement[local]:
   lift_app_sim (:'ffi) clock D ⇒
-  ∀locs funs source target (s:'ffi semanticPrimitives$state) s'.
+  ∀locs funs source target (s:'ffi evalSem$state) s'.
     s.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D s s' ∧
     lift_runtime_env lift_runtime_rel source target ⇒
     lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
@@ -7263,7 +7267,7 @@ QED
 
 Theorem compile_decs_refinement[local]:
   lift_app_sim (:'ffi) clock D ∧ lift_declare_env_rel D ⇒
-  ∀(s:'ffi semanticPrimitives$state) env ds s' env'.
+  ∀(s:'ffi evalSem$state) env ds s' env'.
     s.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D s s' ∧
     lift_runtime_env lift_runtime_rel env env' ⇒
     lift_eval_refinement lift_runtime_rel D (lift_runtime_env lift_runtime_rel)
@@ -7314,16 +7318,38 @@ Proof
   >> simp []
 QED
 
+(* related eval states are never in the EvalPending or EvalRun mode, so a
+   call to Eval never initialises Eval and never fails *)
+Definition lift_no_init_def:
+  lift_no_init D ⇔
+    ∀es es'. D es es' ⇒
+      (∀r. es ≠ SOME (EvalPending r)) ∧ (∀r. es' ≠ SOME (EvalPending r)) ∧
+      (∀r. es ≠ SOME (EvalRun r)) ∧ (∀r. es' ≠ SOME (EvalRun r))
+End
+
+Theorem do_eval_init_not_EvalPending[local]:
+  (∀r. es ≠ SOME (EvalPending r)) ⇒ do_eval_init vs es (:'ffi) = NONE
+Proof
+  rw [do_eval_init_def] \\ every_case_tac \\ gvs []
+QED
+
+Theorem do_eval_fail_not_EvalPending[local]:
+  (∀r. es ≠ SOME (EvalPending r)) ∧ (∀r. es ≠ SOME (EvalRun r)) ⇒
+  do_eval_fail vs es = NONE ∧ eval_result es x = x
+Proof
+  rw [do_eval_fail_def, eval_result_def] \\ every_case_tac \\ gvs []
+QED
+
 Theorem lift_evaluate_eval_decs_refinement[local]:
   lift_eval_result_rel R D (LIST_REL R)
-    (evaluate (s:'ffi semanticPrimitives$state) env (REVERSE es))
+    (evaluate (s:'ffi evalSem$state) env (REVERSE es))
     (evaluate s' env' (REVERSE es')) ∧
-  (∀(t:'ffi semanticPrimitives$state) t' vs vs'.
+  (∀(t:'ffi evalSem$state) t' vs vs'.
     lift_state_rel R D t t' ∧ LIST_REL R vs vs' ⇒
     lift_eval_result_rel R D
       (λ(env1,decs) (env1',decs'). E env1 env1' ∧ P decs decs')
       (do_eval_res vs t) (do_eval_res vs' t')) ∧
-  (∀(t:'ffi semanticPrimitives$state) t' env1 env1' decs decs'.
+  (∀(t:'ffi evalSem$state) t' env1 env1' decs decs'.
     t.clock < s.clock ∧ lift_state_rel R D t t' ∧ E env1 env1' ∧ P decs decs' ⇒
     lift_eval_refinement R D
       (λdelta delta'.
@@ -7337,7 +7363,8 @@ Theorem lift_evaluate_eval_decs_refinement[local]:
   (∀prior prior' current current'.
     D prior prior' ∧ D current current' ⇒
     D (reset_env_generation prior current)
-      (reset_env_generation prior' current')) ⇒
+      (reset_env_generation prior' current')) ∧
+  lift_no_init D ⇒
   lift_eval_refinement R D (LIST_REL R)
     (evaluate s env [App Eval es]) (evaluate s' env' [App Eval es'])
 Proof
@@ -7349,21 +7376,30 @@ Proof
   >> namedCases_on ‘source_result’ ["source_values","source_error"]
   >> namedCases_on ‘target_result’ ["target_values","target_error"]
   >> gvs [evaluate_def,lift_eval_result_rel_def,lift_result_rel_def]
+  >> ‘do_eval_init (REVERSE source_values) source_state.eval_state (:'ffi) = NONE ∧
+      do_eval_init (REVERSE target_values) target_state.eval_state (:'ffi) = NONE ∧
+      do_eval_fail (REVERSE source_values) source_state.eval_state = NONE ∧
+      do_eval_fail (REVERSE target_values) target_state.eval_state = NONE ∧
+      (∀x. eval_result source_state.eval_state x = x) ∧
+      (∀x. eval_result target_state.eval_state x = x)’
+    by (fs [lift_no_init_def, lift_state_rel_def] \\ res_tac
+        \\ simp [do_eval_init_not_EvalPending, do_eval_fail_not_EvalPending])
+  >> gvs []
   >> have ‘lift_eval_result_rel R D
         (λ(env1,decs) (env1',decs'). E env1 env1' ∧ P decs decs')
         (do_eval_res (REVERSE source_values) source_state)
         (do_eval_res (REVERSE target_values) target_state)’
   >- (qpat_x_assum ‘∀t t' vs vs'. _’ irule >> simp [LIST_REL_REVERSE])
   >> namedCases_on ‘(do_eval_res (REVERSE source_values) source_state :
-         'ffi semanticPrimitives$state # (v sem_env # dec list,v) result)’
-       ["source_eval_state source_eval_result"]
-  >> have ‘source_eval_state.clock = source_state.clock’
+         'ffi evalSem$state # (v sem_env # dec list,v) result)’
+       ["src_eval_state source_eval_result"]
+  >> have ‘src_eval_state.clock = source_state.clock’
   >- (
     qpat_assum ‘do_eval_res _ source_state = _’
       (mp_tac o Q.AP_TERM ‘λresult. (FST result).clock’)
     >> simp [do_eval_res_clock])
   >> namedCases_on ‘(do_eval_res (REVERSE target_values) target_state :
-         'ffi semanticPrimitives$state # (v sem_env # dec list,v) result)’
+         'ffi evalSem$state # (v sem_env # dec list,v) result)’
        ["target_eval_state target_eval_result"]
   >> namedCases_on ‘source_eval_result’ ["source_eval_payload","source_eval_error"]
   >> namedCases_on ‘target_eval_result’ ["target_eval_payload","target_eval_error"]
@@ -7371,20 +7407,20 @@ Proof
   >- (
     namedCases_on ‘source_eval_payload’ ["source_eval_env source_decs"]
     >> namedCases_on ‘target_eval_payload’ ["target_eval_env target_decs"] >> gvs []
-    >> ‘source_eval_state.clock = target_eval_state.clock’ by fs [lift_state_rel_def]
-    >> Cases_on ‘source_eval_state.clock = 0’
+    >> ‘src_eval_state.clock = target_eval_state.clock’ by fs [lift_state_rel_def]
+    >> Cases_on ‘src_eval_state.clock = 0’
     >> gvs [lift_eval_result_rel_def,lift_result_rel_def]
     >> have ‘lift_eval_refinement R D
           (λdelta delta'. E (extend_dec_env delta source_eval_env)
                              (extend_dec_env delta' target_eval_env))
-          (evaluate_decs (dec_clock source_eval_state) source_eval_env source_decs)
+          (evaluate_decs (dec_clock src_eval_state) source_eval_env source_decs)
           (evaluate_decs (dec_clock target_eval_state) target_eval_env target_decs)’
     >- (
       qpat_x_assum ‘∀t t' env1 env1' decs decs'. _’ irule
       >> simp [lift_state_rel_dec_clock,dec_clock_def]
       >> decide_tac)
     >> namedCases_on
-         ‘evaluate_decs (dec_clock source_eval_state) source_eval_env source_decs’
+         ‘evaluate_decs (dec_clock src_eval_state) source_eval_env source_decs’
          ["source_decs_state source_decs_result"]
     >> namedCases_on
          ‘evaluate_decs (dec_clock target_eval_state) target_eval_env target_decs’
@@ -7427,7 +7463,7 @@ QED
 
 Theorem lift_evaluate_decs_compiled_refinement[local]:
   lift_app_sim (:'ffi) clock D ∧ lift_declare_env_rel D ⇒
-  ∀decs decs' (s:'ffi semanticPrimitives$state) s' env env'.
+  ∀decs decs' (s:'ffi evalSem$state) s' env env'.
     s.clock ≤ clock ∧ lift_state_rel lift_runtime_rel D s s' ∧
     lift_runtime_env lift_runtime_rel env env' ∧
     (decs' = decs ∨ decs' = compile_decs decs) ⇒
@@ -7449,7 +7485,7 @@ QED
 
 Theorem lift_evaluate_runtime_compiled_app_refinement[local]:
   (∀decs decs'. P decs decs' ⇒ decs' = decs ∨ decs' = compile_decs decs) ∧
-  (∀(t:'ffi semanticPrimitives$state) t' vs vs'.
+  (∀(t:'ffi evalSem$state) t' vs vs'.
     lift_state_rel lift_runtime_rel D t t' ∧ LIST_REL lift_runtime_rel vs vs' ⇒
     lift_eval_result_rel lift_runtime_rel D
       (λ(env,decs) (env',decs').
@@ -7459,7 +7495,8 @@ Theorem lift_evaluate_runtime_compiled_app_refinement[local]:
   (∀prior prior' current current'.
     D prior prior' ∧ D current current' ⇒
     D (reset_env_generation prior current)
-      (reset_env_generation prior' current')) ⇒
+      (reset_env_generation prior' current')) ∧
+  lift_no_init D ⇒
   ∀clock. lift_app_sim (:'ffi) clock D
 Proof
   strip_tac
@@ -7505,7 +7542,7 @@ Proof
     >> qpat_x_assum ‘∀m. m < clock ⇒ _’ (qspec_then ‘t.clock’ mp_tac) >> simp []
     >> strip_tac >> irule lift_eval_refinement_mono
     >> qexists_tac ‘lift_runtime_env lift_runtime_rel’ >> simp [lift_runtime_env_extend]
-    >> mp_tac (Q.INST [‘clock’ |-> ‘(t:'ffi semanticPrimitives$state).clock’]
+    >> mp_tac (Q.INST [‘clock’ |-> ‘(t:'ffi evalSem$state).clock’]
          (SPEC_ALL lift_evaluate_decs_compiled_refinement))
     >> impl_tac
     >- simp [lift_declare_env_rel_def]
@@ -7528,6 +7565,12 @@ Definition lift_eval_decs_state_rel_def:
   lift_eval_decs_state_rel es es' ⇔
     es = es' ∧ (∀x. es = SOME x ⇒ ∃ev. x = EvalDecs ev)
 End
+
+Theorem lift_eval_decs_state_rel_no_init[local]:
+  lift_no_init lift_eval_decs_state_rel
+Proof
+  rw [lift_no_init_def, lift_eval_decs_state_rel_def] \\ CCONTR_TAC \\ gvs []
+QED
 
 Theorem lift_eval_decs_state_rel_reset[local]:
   lift_eval_decs_state_rel prior prior' ∧
@@ -7576,7 +7619,7 @@ Proof
   >> namedCases_on ‘do_eval vs (SOME (EvalDecs eval_decs))’ ["","source_payload"]
   >> namedCases_on ‘do_eval vs' (SOME (EvalDecs eval_decs))’ ["","target_payload"]
   >> gvs [OPTREL_def]
-  >> namedCases_on ‘source_payload’ ["source_env source_decs source_eval_state"]
+  >> namedCases_on ‘source_payload’ ["source_env source_decs src_eval_state"]
   >> namedCases_on ‘target_payload’ ["target_env target_decs target_eval_state"]
   >> gvs []
   >> ‘lift_eval_decs_state_rel (SOME (EvalDecs eval_decs))
@@ -7587,13 +7630,18 @@ QED
 
 Theorem lift_eval_decs_state_rel_do_eval_res[local]:
   lift_state_rel lift_runtime_rel lift_eval_decs_state_rel
-    (s:'ffi semanticPrimitives$state) s' ∧ LIST_REL lift_runtime_rel vs vs' ⇒
+    (s:'ffi evalSem$state) s' ∧ LIST_REL lift_runtime_rel vs vs' ⇒
   lift_eval_result_rel lift_runtime_rel lift_eval_decs_state_rel
     (λ(env,decs) (env',decs').
       lift_runtime_env lift_runtime_rel env env' ∧ decs = decs')
     (do_eval_res vs s) (do_eval_res vs' s')
 Proof
   strip_tac
+  >> ‘(∀r. s.eval_state ≠ SOME (EvalRun r)) ∧
+      (∀r. s'.eval_state ≠ SOME (EvalRun r)) ∧
+      (∀r. s.eval_state ≠ SOME (EvalPending r)) ∧
+      (∀r. s'.eval_state ≠ SOME (EvalPending r))’
+    by (rpt strip_tac \\ gvs [lift_state_rel_def, lift_eval_decs_state_rel_def])
   >> irule lift_do_eval_res >> simp [] >> irule lift_eval_decs_state_rel_do_eval
   >> fs [lift_state_rel_def]
 QED
@@ -7604,12 +7652,13 @@ Proof
   match_mp_tac (Q.INST [‘P’ |-> ‘λd d'. d = d'’]
     lift_evaluate_runtime_compiled_app_refinement)
   >> simp [lift_eval_decs_state_rel_do_eval_res,
-       lift_eval_decs_state_rel_declare_env,lift_eval_decs_state_rel_reset]
+       lift_eval_decs_state_rel_declare_env,lift_eval_decs_state_rel_reset,
+       lift_eval_decs_state_rel_no_init]
 QED
 
 Theorem lift_semantics_determ_refinement[local]:
   (∀clock. lift_eval_result_rel R D E
-    (evaluate_decs ((s:'ffi semanticPrimitives$state) with clock := clock) env prog)
+    (evaluate_decs ((s:'ffi evalSem$state) with clock := clock) env prog)
     (evaluate_decs (s' with clock := clock) env' prog')) ⇒
   semantics_determ s env prog outcome ⇒ semantics_determ s' env' prog' outcome
 Proof
@@ -7645,7 +7694,7 @@ QED
 
 Theorem lift_semantics_compiled[local]:
   (∀clock. lift_app_sim (:'ffi) clock D) ∧ lift_declare_env_rel D ∧
-  lift_state_rel lift_runtime_rel D (s:'ffi semanticPrimitives$state) s' ∧
+  lift_state_rel lift_runtime_rel D (s:'ffi evalSem$state) s' ∧
   lift_runtime_env lift_runtime_rel env env' ∧
   (prog' = prog ∨ prog' = compile_decs prog) ∧
   ¬semantics_determ s env prog Fail ∧ semantics_determ s env prog outcome ⇒
@@ -7666,7 +7715,7 @@ Proof
 QED
 
 Theorem compile_semantics:
-  (∀x. (s:'ffi semanticPrimitives$state).eval_state = SOME x ⇒ ∃ev. x = EvalDecs ev) ∧
+  (∀x. (s:'ffi evalSem$state).eval_state = SOME x ⇒ ∃ev. x = EvalDecs ev) ∧
   ¬semantics_determ s env prog Fail ∧ semantics_determ s env prog outcome ⇒
   semantics_determ s env (compile_decs prog) outcome
 Proof
@@ -7678,274 +7727,107 @@ Proof
 QED
 
 (* ------------------------------------------------------------------------
-   Eval oracle
+   Compiling the declarations given to Eval
    ------------------------------------------------------------------------ *)
 
-Definition lift_oracle_state_rel_def:
-  lift_oracle_state_rel source_callback target_callback es es' ⇔
-    case (es,es') of
-      (NONE,NONE) => T
-    | (SOME (EvalDecs ed),SOME (EvalDecs ed')) => ed = ed'
-    | (SOME (EvalOracle os),SOME (EvalOracle os')) =>
-        os.oracle = os'.oracle ∧ os.generation = os'.generation ∧
-        os.custom_do_eval = source_callback ∧
-        os'.custom_do_eval = target_callback ∧
-        LIST_REL (LIST_REL (lift_runtime_env lift_runtime_rel)) os.envs os'.envs
-    | _ => F
+Definition lift_adjust_decs_rel_def:
+  lift_adjust_decs_rel C es es' ⇔
+    es' = OPTION_MAP (adjust_es compile_decs C) es ∧
+    decs_factor_es compile_decs C es
 End
 
-Theorem lift_oracle_state_rel_reset[local]:
-  lift_oracle_state_rel source_callback target_callback prior prior' ∧
-  lift_oracle_state_rel source_callback target_callback current current' ⇒
-  lift_oracle_state_rel source_callback target_callback (reset_env_generation prior current)
+Theorem lift_adjust_decs_rel_no_init[local]:
+  lift_no_init (lift_adjust_decs_rel C)
+Proof
+  rw [lift_no_init_def, lift_adjust_decs_rel_def]
+  \\ drule decs_factor_es_not_EvalRun \\ simp []
+QED
+
+Theorem lift_adjust_decs_rel_reset[local]:
+  lift_adjust_decs_rel C prior prior' ∧
+  lift_adjust_decs_rel C current current' ⇒
+  lift_adjust_decs_rel C (reset_env_generation prior current)
     (reset_env_generation prior' current')
 Proof
-  namedCases_on ‘prior’ ["","source_prior"]
-  >> namedCases_on ‘prior'’ ["","target_prior"]
-  >> namedCases_on ‘current’ ["","source_current"]
-  >> namedCases_on ‘current'’ ["","target_current"]
-  >> gvs [lift_oracle_state_rel_def,reset_env_generation_def,AllCaseEqs()]
-  >> namedCases_on ‘source_prior’ ["source_prior_decs","source_prior_oracle"]
-  >> namedCases_on ‘target_prior’ ["target_prior_decs","target_prior_oracle"]
-  >> namedCases_on ‘source_current’ ["source_current_decs","source_current_oracle"]
-  >> namedCases_on ‘target_current’ ["target_current_decs","target_current_oracle"]
-  >> gvs [AllCaseEqs()] >> namedCases_on ‘target_prior_decs.env_id_counter’
-       ["prior_generation prior_id prior_next"]
-  >> namedCases_on ‘target_current_decs.env_id_counter’
-       ["current_generation current_id current_next"]
-  >> simp []
+  rw [lift_adjust_decs_rel_def, reset_env_generation_adjust_decs,
+      decs_factor_reset_env_generation]
 QED
 
-Theorem lift_lookup_env_refinement[local]:
-  LIST_REL (LIST_REL E) source.envs target.envs ⇒
-  OPTREL E (lookup_env source env_id) (lookup_env target env_id)
+Theorem lift_adjust_decs_rel_declare_env[local]:
+  lift_declare_env_rel (lift_adjust_decs_rel C)
 Proof
-  strip_tac
-  >> namedCases_on ‘env_id’ ["generation index"] >> drule LIST_REL_oEL
-  >> disch_then (qspec_then ‘generation’ mp_tac)
-  >> namedCases_on ‘oEL generation source.envs’ ["","source_envs"]
-  >> namedCases_on ‘oEL generation target.envs’ ["","target_envs"]
-  >> gvs [lookup_env_def] >> strip_tac >> irule LIST_REL_oEL >> simp []
+  rw [lift_declare_env_rel_def, lift_adjust_decs_rel_def,
+      declare_env_adjust_decs]
+  >> namedCases_on ‘eval_state’ ["","e"]
+  >- simp [declare_env_def]
+  >> Cases_on ‘e’
+  >> gvs [decs_factor_es_def]
+  >> rename1 ‘decs_factor _ _ eds’
+  >> simp [declare_env_def]
+  >> Cases_on ‘eds.env_id_counter’
+  >> rename1 ‘_ = (gen,rest)’
+  >> PairCases_on ‘rest’
+  >> gvs [lift_runtime_rel_cases_l, decs_factor_es_def, decs_factor_def]
 QED
 
-Theorem lift_oracle_state_rel_add_generation[local]:
-  lift_oracle_state_rel source_callback target_callback
-    (SOME (EvalOracle source)) (SOME (EvalOracle target)) ⇒
-  lift_oracle_state_rel source_callback target_callback
-    (SOME (EvalOracle (add_env_generation (source with oracle := next_oracle))))
-    (SOME (EvalOracle (add_env_generation (target with oracle := next_oracle))))
-Proof
-  rw [lift_oracle_state_rel_def,add_env_generation_def]
-  >> imp_res_tac LIST_REL_LENGTH >> simp [LIST_REL_APPEND]
-QED
-
-Theorem lift_oracle_state_rel_declare_oracle[local]:
-  lift_oracle_state_rel source_callback target_callback
-    (SOME (EvalOracle source)) (SOME (EvalOracle target)) ∧
-  lift_runtime_env lift_runtime_rel env env' ⇒
-  OPTREL (λ(value,next_state) (value',next_state').
-    lift_runtime_rel value value' ∧
-    lift_oracle_state_rel source_callback target_callback next_state next_state')
-    (declare_env (SOME (EvalOracle source)) env)
-    (declare_env (SOME (EvalOracle target)) env')
-Proof
-  strip_tac
-  >> gvs [lift_oracle_state_rel_def,declare_env_def] >> drule LIST_REL_oEL
-  >> disch_then (qspec_then ‘target.generation’ mp_tac)
-  >> namedCases_on ‘oEL target.generation source.envs’ ["","source_envs"]
-  >> namedCases_on ‘oEL target.generation target.envs’ ["","target_envs"] >> gvs []
-  >> strip_tac >> imp_res_tac LIST_REL_LENGTH >> simp [lift_runtime_rel_refl]
-  >> irule LIST_REL_LUPDATE_same >> simp [LIST_REL_APPEND]
-QED
-
-Theorem lift_oracle_state_rel_declare_env[local]:
-  lift_declare_env_rel (lift_oracle_state_rel source_callback target_callback)
-Proof
-  rewrite_tac [lift_declare_env_rel_def] >> qx_genl_tac [‘es’,‘es'’,‘env’,‘env'’]
-  >> strip_tac >> namedCases_on ‘es’ ["","source_mode"] >> namedCases_on ‘es'’ ["","target_mode"]
-  >> gvs [lift_oracle_state_rel_def,declare_env_def]
-  >> namedCases_on ‘source_mode’ ["source_decs","source_oracle"]
-  >> namedCases_on ‘target_mode’ ["target_decs","target_oracle"] >> gvs []
-  >- (
-    namedCases_on ‘source_decs.env_id_counter’ ["generation next_id next_generation"]
-    >> simp [lift_runtime_rel_cases_l])
-  >> irule (SRULE
-       [lift_oracle_state_rel_def,declare_env_def]
-       lift_oracle_state_rel_declare_oracle)
-  >> simp []
-QED
-
-Theorem lift_oracle_state_rel_do_eval_oracle[local]:
-  (∀vs vs' oracle.
-    LIST_REL lift_runtime_rel vs vs' ⇒
-    OPTREL (λ(env_id,oracle,decs) (env_id',oracle',decs').
-      env_id = env_id' ∧ oracle = oracle' ∧ P decs decs')
-      (source_callback vs oracle) (target_callback vs' oracle)) ∧
-  lift_oracle_state_rel source_callback target_callback
-    (SOME (EvalOracle source)) (SOME (EvalOracle target)) ∧
-  LIST_REL lift_runtime_rel vs vs' ⇒
+Theorem lift_adjust_decs_rel_do_eval[local]:
+  lift_adjust_decs_rel C es es' ∧ LIST_REL lift_runtime_rel vs vs' ⇒
   OPTREL (λ(env,decs,next_state) (env',decs',next_state').
-    lift_runtime_env lift_runtime_rel env env' ∧ P decs decs' ∧
-    lift_oracle_state_rel source_callback target_callback next_state next_state')
-    (do_eval vs (SOME (EvalOracle source)))
-    (do_eval vs' (SOME (EvalOracle target)))
-Proof
-  strip_tac
-  >> qpat_assum ‘lift_oracle_state_rel _ _ _ _’
-       (mp_tac o SRULE [lift_oracle_state_rel_def])
-  >> strip_tac >> qpat_x_assum ‘∀vs vs' oracle. _’
-       (qspecl_then [‘vs’,‘vs'’,‘target.oracle’] mp_tac)
-  >> simp [] >> namedCases_on ‘source_callback vs target.oracle’ ["","source_result"]
-  >> namedCases_on ‘target_callback vs' target.oracle’ ["","target_result"]
-  >> gvs [do_eval_def] >> PairCases_on ‘source_result’
-  >> PairCases_on ‘target_result’ >> gvs [] >> strip_tac >> gvs []
-  >> qmatch_goalsub_rename_tac ‘lookup_env source (generation,index)’
-  >> qmatch_goalsub_rename_tac ‘source with oracle := next_oracle’
-  >> drule lift_lookup_env_refinement
-  >> disch_then (qspec_then ‘(generation,index)’ mp_tac)
-  >> namedCases_on ‘lookup_env source (generation,index)’ ["","source_env"]
-  >> namedCases_on ‘lookup_env target (generation,index)’ ["","target_env"] >> gvs []
-  >> strip_tac >> simp [] >> irule lift_oracle_state_rel_add_generation >> simp []
-QED
-
-Theorem lift_eval_decs_oracle_state_rel[local]:
-  lift_eval_decs_state_rel es es' ⇒
-  lift_oracle_state_rel source_callback target_callback es es'
-Proof
-  rw [lift_eval_decs_state_rel_def]
-  >> namedCases_on ‘es’ ["","eval_mode"] >> gvs [lift_oracle_state_rel_def]
-QED
-
-Theorem lift_oracle_state_rel_do_eval[local]:
-  (∀decs. P decs decs) ∧
-  (∀vs vs' oracle.
-    LIST_REL lift_runtime_rel vs vs' ⇒
-    OPTREL (λ(env_id,oracle,decs) (env_id',oracle',decs').
-      env_id = env_id' ∧ oracle = oracle' ∧ P decs decs')
-      (source_callback vs oracle) (target_callback vs' oracle)) ∧
-  lift_oracle_state_rel source_callback target_callback es es' ∧
-  LIST_REL lift_runtime_rel vs vs' ⇒
-  OPTREL (λ(env,decs,next_state) (env',decs',next_state').
-    lift_runtime_env lift_runtime_rel env env' ∧ P decs decs' ∧
-    lift_oracle_state_rel source_callback target_callback next_state next_state')
+    lift_runtime_env lift_runtime_rel env env' ∧ decs' = compile_decs decs ∧
+    lift_adjust_decs_rel C next_state next_state')
     (do_eval vs es) (do_eval vs' es')
 Proof
-  strip_tac
-  >> namedCases_on ‘es’ ["","source_mode"] >> namedCases_on ‘es'’ ["","target_mode"]
-  >> gvs [lift_oracle_state_rel_def]
+  rw [lift_adjust_decs_rel_def]
+  >> gvs [do_eval_adjust_decs]
+  >> namedCases_on ‘es’ ["","e"]
   >- simp [do_eval_def]
-  >> namedCases_on ‘source_mode’ ["source_decs","source_oracle"]
-  >> namedCases_on ‘target_mode’ ["target_decs","target_oracle"] >> gvs []
-  >- (
-    ‘lift_eval_decs_state_rel (SOME (EvalDecs source_decs))
-       (SOME (EvalDecs source_decs))’ by simp [lift_eval_decs_state_rel_def]
-    >> drule_all lift_eval_decs_state_rel_do_eval
-    >> namedCases_on ‘do_eval vs (SOME (EvalDecs source_decs))’ ["","source_payload"]
-    >> namedCases_on ‘do_eval vs' (SOME (EvalDecs source_decs))’ ["","target_payload"]
-    >> gvs [OPTREL_def]
-    >> namedCases_on ‘source_payload’ ["source_env source_declarations source_state"]
-    >> namedCases_on ‘target_payload’ ["target_env target_declarations target_state"]
-    >> gvs [] >> strip_tac >> simp []
-    >> irule (SRULE [lift_oracle_state_rel_def]
-         lift_eval_decs_oracle_state_rel)
-    >> simp [])
-  >> irule (SRULE [lift_oracle_state_rel_def]
-    lift_oracle_state_rel_do_eval_oracle)
+  >> Cases_on ‘e’
+  >> gvs [decs_factor_es_def]
+  >> rename1 ‘decs_factor _ _ eds’
+  >> drule (runtime_inst lift_value_rel_do_eval_decs)
+  >> disch_then (qspec_then ‘eds’ mp_tac)
+  >> namedCases_on ‘do_eval vs (SOME (EvalDecs eds))’ ["","p1"]
+  >> namedCases_on ‘do_eval vs' (SOME (EvalDecs eds))’ ["","p2"]
   >> simp []
+  >> PairCases_on ‘p1’
+  >> PairCases_on ‘p2’
+  >> rw []
+  >> drule (INST_TYPE [alpha |-> “:dec list”] do_eval_decs_factor)
+  >> disch_then irule
+  >> simp [decs_factor_es_def]
 QED
 
-Theorem lift_oracle_state_rel_do_eval_res[local]:
-  (∀decs. P decs decs) ∧
-  (∀vs vs' oracle.
-    LIST_REL lift_runtime_rel vs vs' ⇒
-    OPTREL (λ(env_id,oracle,decs) (env_id',oracle',decs').
-      env_id = env_id' ∧ oracle = oracle' ∧ P decs decs')
-      (source_callback vs oracle) (target_callback vs' oracle)) ∧
-  lift_state_rel lift_runtime_rel
-    (lift_oracle_state_rel source_callback target_callback)
-    (s:'ffi semanticPrimitives$state) s' ∧
-  LIST_REL lift_runtime_rel vs vs' ⇒
-  lift_eval_result_rel lift_runtime_rel
-    (lift_oracle_state_rel source_callback target_callback)
-    (λ(env,decs) (env',decs').
-      lift_runtime_env lift_runtime_rel env env' ∧ P decs decs')
-    (do_eval_res vs s) (do_eval_res vs' s')
-Proof
-  strip_tac
-  >> irule lift_do_eval_res >> simp [] >> irule lift_oracle_state_rel_do_eval
-  >> gvs [lift_state_rel_def]
-QED
-
-Theorem lift_oracle_compiler_arguments[local]:
-  lift_runtime_rel value value' ⇒
-  v_to_mlstring value = v_to_mlstring value' ∧
-  v_to_word64_list value = v_to_word64_list value'
-Proof
-  rw [lift_runtime_rel_unfold]
-  >> metis_tac [lift_value_rel_compiler_literals,lift_value_rel_compiler_words]
-QED
-
-Theorem do_eval_oracle_shape[local]:
-  do_eval_oracle compiler g vs orac = SOME r ⇒
-  ∃a b c d e h. vs = [a; b; c; d; e; h]
-Proof
-  rw [do_eval_oracle_def,AllCaseEqs()] >> simp []
-QED
-
-Theorem lift_do_eval_oracle[local]:
-  LIST_REL lift_runtime_rel vs vs' ⇒
-  OPTREL (λ(env_id,orac,decs) (env_id',orac',decs').
-    env_id = env_id' ∧ orac = orac' ∧ decs' = compile_decs decs)
-    (do_eval_oracle compiler f vs orac)
-    (do_eval_oracle compiler (compile_decs ∘ f) vs' orac)
-Proof
-  strip_tac
-  >> Cases_on ‘∃a b c d e h. vs = [a; b; c; d; e; h]’
-  >- (
-    gvs [LIST_REL_CONS1] >> imp_res_tac lift_oracle_compiler_arguments
-    >> simp [do_eval_oracle_def] >> pairarg_tac >> simp []
-    >> rpt CASE_TAC >> simp [])
-  >> Cases_on ‘do_eval_oracle compiler f vs orac’
-  >- (
-    Cases_on ‘do_eval_oracle compiler (compile_decs ∘ f) vs' orac’ >> simp []
-    >> drule do_eval_oracle_shape >> strip_tac >> gvs [LIST_REL_CONS2])
-  >> drule do_eval_oracle_shape >> metis_tac []
-QED
-
-Theorem lift_adjust_oracle_state_rel[local]:
-  is_insert_oracle ci f es ⇒
-  lift_oracle_state_rel
-    (do_eval_oracle (mk_compiler_fun_from_ci ci) f)
-    (do_eval_oracle (mk_compiler_fun_from_ci ci) (compile_decs ∘ f))
-    es (adjust_oracle ci (compile_decs ∘ f) es)
-Proof
-  rewrite_tac [is_insert_oracle_def]
-  >> disch_then (qx_choosel_then [‘initial_state’,‘shift’,‘orac’] strip_assume_tac)
-  >> namedCases_on ‘initial_state’ ["","initial_mode"]
-  >> gvs [insert_gen_oracle_def,adjust_oracle_def,lift_oracle_state_rel_def]
-  >> Cases_on ‘initial_mode’ >> gvs [LIST_REL_refl,lift_runtime_env_refl]
-QED
-
-Theorem compile_semantics_oracle:
-  ∀f.
-  is_insert_oracle ci f s.eval_state ∧
+Theorem compile_semantics_decs:
+  decs_factor_st compile_decs C (s:'ffi evalSem$state) ∧
   ¬ semantics_determ s env prog Fail ∧
   semantics_determ s env prog outcome ⇒
   semantics_determ (s with eval_state updated_by
-            adjust_oracle ci (compile_decs ∘ f))
-        env prog outcome
+                      OPTION_MAP (adjust_es compile_decs C))
+    env prog outcome
 Proof
-  rpt strip_tac >> irule lift_semantics_compiled
-  >> qexistsl_tac [‘lift_oracle_state_rel (do_eval_oracle (mk_compiler_fun_from_ci ci) f)
-       (do_eval_oracle (mk_compiler_fun_from_ci ci) (compile_decs ∘ f))’,‘env’,‘prog’,‘s’]
-  >> simp [lift_state_rel_def,lift_adjust_oracle_state_rel,LIST_REL_refl,
-       lift_runtime_store_refl,lift_runtime_env_refl,lift_oracle_state_rel_declare_env]
+  rpt strip_tac
+  >> ‘lift_adjust_decs_rel C s.eval_state
+        (OPTION_MAP (adjust_es compile_decs C) s.eval_state)’
+    by gvs [lift_adjust_decs_rel_def, decs_factor_st_def]
+  >> irule lift_semantics_compiled
+  >> qexistsl_tac [‘lift_adjust_decs_rel C’,‘env’,‘prog’,‘s’]
+  >> simp [lift_state_rel_def,LIST_REL_refl,lift_runtime_store_refl,
+           lift_runtime_env_refl,lift_adjust_decs_rel_declare_env]
   >> gen_tac >> irule lift_evaluate_runtime_compiled_app_refinement
-  >> simp [lift_oracle_state_rel_declare_env,lift_oracle_state_rel_reset]
-  >> qexists_tac ‘λdecs decs'. decs' = decs ∨ decs' = compile_decs decs’
-  >> conj_tac >- simp [] >> rpt strip_tac
-  >> irule (Q.INST [‘P’ |-> ‘λdecs decs'. decs' = decs ∨ decs' = compile_decs decs’]
-       lift_oracle_state_rel_do_eval_res)
-  >> simp [] >> rpt strip_tac >> irule OPTREL_MONO
-  >> irule_at Any lift_do_eval_oracle >> simp [FORALL_PROD]
+  >> simp [lift_adjust_decs_rel_declare_env,lift_adjust_decs_rel_reset,
+           lift_adjust_decs_rel_no_init]
+  >> qexists_tac ‘λdecs decs'. decs' = compile_decs decs’
+  >> conj_tac >- simp []
+  >> rpt strip_tac
+  >> ‘(∀r. t.eval_state ≠ SOME (EvalRun r)) ∧
+      (∀r. t'.eval_state ≠ SOME (EvalRun r)) ∧
+      (∀r. t.eval_state ≠ SOME (EvalPending r)) ∧
+      (∀r. t'.eval_state ≠ SOME (EvalPending r))’
+    by (gvs [lift_state_rel_def, lift_adjust_decs_rel_def]
+        \\ drule decs_factor_es_not_EvalRun \\ simp [])
+  >> irule lift_do_eval_res >> simp []
+  >> irule OPTREL_MONO >> irule_at Any lift_adjust_decs_rel_do_eval
+  >> gvs [lift_state_rel_def, FORALL_PROD]
+  >> qexists_tac ‘C’
+  >> simp []
 QED

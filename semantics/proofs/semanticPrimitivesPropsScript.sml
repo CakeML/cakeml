@@ -779,24 +779,6 @@ Proof
   simp [nat_to_v_def]
 QED
 
-Theorem concrete_v_list[simp]:
-  !xs. concrete_v_list xs = EVERY concrete_v xs
-Proof
-  Induct \\ simp [concrete_v_def]
-QED
-
-Theorem concrete_v_simps[simp]:
-  (concrete_v (Litv l) = T) /\
-  (concrete_v (Loc b n) = T) /\
-  (concrete_v (Conv stmp xs) = EVERY concrete_v xs) /\
-  (concrete_v (Vectorv xs) = EVERY concrete_v xs) /\
-  (concrete_v (Env id e) = F) /\
-  (concrete_v (Closure e2 nm x) = F) /\
-  (concrete_v (Recclosure e3 funs nm2) = F)
-Proof
-  simp [concrete_v_def]
-QED
-
 Theorem prim_type_cases:
   ∀ty.
     ty = BoolT ∨
@@ -2070,18 +2052,6 @@ Theorem build_rec_env_nsBindList_names:
   nsBindList (MAP (λname. (name,Recclosure env funs name)) (MAP FST funs)) base
 Proof
   simp [build_rec_env_nsBindList,MAP_MAP_o,o_DEF,ELIM_UNCURRY]
-QED
-
-Theorem compiler_agrees_concrete:
-  compiler_agrees compiler (id,previous,decs) (compiler_value,bytes,words) ⇒
-  concrete_v previous ∧ concrete_v compiler_value
-Proof
-  namedCases_on ‘compiler (id,previous,decs)’ ["","compiled"]
-  >> simp [compiler_agrees_def]
-  >> PairCases_on ‘compiled’
-  >> namedCases_on ‘v_to_mlstring bytes’ ["","compiled_bytes"]
-  >> namedCases_on ‘v_to_word64_list words’ ["","compiled_words"]
-  >> simp [compiler_agrees_def]
 QED
 
 Theorem store_assign_OPTREL_sv_rel:

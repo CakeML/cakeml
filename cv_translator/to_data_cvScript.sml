@@ -540,6 +540,181 @@ Proof
   \\ rw [] \\ rw [Once pre]
 QED
 
+(* source_eval_init *)
+
+(* cv_trans cannot translate character patterns *)
+Theorem sei_rename_alt[local]:
+  source_eval_init$rename n =
+    if (case explode n of [] => F | c::_ => c = #"$")
+    then implode (#"$" :: explode n) else n
+Proof
+  rw [source_eval_initTheory.rename_def] \\ every_case_tac \\ gvs []
+QED
+
+val _ = cv_trans sei_rename_alt;
+val _ = cv_trans source_eval_initTheory.rename_id_def;
+
+Definition sei_compile_pat_alt_def:
+  sei_compile_pat_alt Pany = Pany ∧
+  sei_compile_pat_alt (Pvar n) = Pvar (source_eval_init$rename n) ∧
+  sei_compile_pat_alt (Plit l) = Plit l ∧
+  sei_compile_pat_alt (Pcon cn ps) = Pcon cn (sei_compile_pats_alt ps) ∧
+  sei_compile_pat_alt (Pref p) = Pref (sei_compile_pat_alt p) ∧
+  sei_compile_pat_alt (Pas p n) =
+    Pas (sei_compile_pat_alt p) (source_eval_init$rename n) ∧
+  sei_compile_pat_alt (Ptannot p t) = Ptannot (sei_compile_pat_alt p) t ∧
+  sei_compile_pats_alt [] = [] ∧
+  sei_compile_pats_alt (p::ps) =
+    sei_compile_pat_alt p :: sei_compile_pats_alt ps
+End
+
+Theorem sei_compile_pat_alt_thm:
+  (∀p. sei_compile_pat_alt p = source_eval_init$compile_pat p) ∧
+  (∀ps. sei_compile_pats_alt ps = MAP source_eval_init$compile_pat ps)
+Proof
+  ho_match_mp_tac sei_compile_pat_alt_ind
+  \\ rw [sei_compile_pat_alt_def, source_eval_initTheory.compile_pat_def]
+QED
+
+val _ = cv_trans sei_compile_pat_alt_def;
+
+Definition sei_rename_opt_def:
+  sei_rename_opt NONE = NONE ∧
+  sei_rename_opt (SOME n) = SOME (source_eval_init$rename n)
+End
+
+Theorem sei_rename_opt_thm[local]:
+  sei_rename_opt xo = OPTION_MAP source_eval_init$rename xo
+Proof
+  Cases_on ‘xo’ \\ simp [sei_rename_opt_def]
+QED
+
+val _ = cv_trans sei_rename_opt_def;
+
+Definition sei_is_eval_def:
+  sei_is_eval op = (case op of Eval => T | _ => F)
+End
+
+Definition sei_app_def:
+  sei_app op ces =
+    if sei_is_eval op then
+      (case ces of
+       | [c] => App Opapp [Var (Short «$init»); c]
+       | [c1; c2] => App Opapp [Var (Short «$eval»); Con NONE [c1; c2]]
+       | _ => App op ces)
+    else App op ces
+End
+
+Theorem sei_is_eval_thm[local]:
+  sei_is_eval op ⇔ op = Eval
+Proof
+  Cases_on ‘op’ \\ simp [sei_is_eval_def]
+QED
+
+val _ = cv_trans sei_is_eval_def;
+val _ = cv_trans sei_app_def;
+
+Definition sei_compile_exp_alt_def:
+  sei_compile_exp_alt (Raise e) = Raise (sei_compile_exp_alt e) ∧
+  sei_compile_exp_alt (Handle e pes) =
+    Handle (sei_compile_exp_alt e) (sei_compile_pes_alt pes) ∧
+  sei_compile_exp_alt (ast$Lit l) = ast$Lit l ∧
+  sei_compile_exp_alt (Con cn es) = Con cn (sei_compile_exps_alt es) ∧
+  sei_compile_exp_alt (Var id) = Var (source_eval_init$rename_id id) ∧
+  sei_compile_exp_alt (Fun n e) =
+    Fun (source_eval_init$rename n) (sei_compile_exp_alt e) ∧
+  sei_compile_exp_alt (App op es) = sei_app op (sei_compile_exps_alt es) ∧
+  sei_compile_exp_alt (Log lop e1 e2) =
+    Log lop (sei_compile_exp_alt e1) (sei_compile_exp_alt e2) ∧
+  sei_compile_exp_alt (If e1 e2 e3) =
+    If (sei_compile_exp_alt e1) (sei_compile_exp_alt e2)
+       (sei_compile_exp_alt e3) ∧
+  sei_compile_exp_alt (Mat e pes) =
+    Mat (sei_compile_exp_alt e) (sei_compile_pes_alt pes) ∧
+  sei_compile_exp_alt (Let xo e1 e2) =
+    Let (sei_rename_opt xo) (sei_compile_exp_alt e1)
+        (sei_compile_exp_alt e2) ∧
+  sei_compile_exp_alt (Letrec funs e) =
+    Letrec (sei_compile_funs_alt funs) (sei_compile_exp_alt e) ∧
+  sei_compile_exp_alt (Tannot e t) = sei_compile_exp_alt e ∧
+  sei_compile_exp_alt (Lannot e l) = sei_compile_exp_alt e ∧
+  sei_compile_exp_alt (Open path e) = Open path (sei_compile_exp_alt e) ∧
+  sei_compile_exps_alt [] = [] ∧
+  sei_compile_exps_alt (e::es) =
+    sei_compile_exp_alt e :: sei_compile_exps_alt es ∧
+  sei_compile_pes_alt [] = [] ∧
+  sei_compile_pes_alt ((p,e)::pes) =
+    (source_eval_init$compile_pat p, sei_compile_exp_alt e) ::
+    sei_compile_pes_alt pes ∧
+  sei_compile_funs_alt [] = [] ∧
+  sei_compile_funs_alt ((f,x,e)::funs) =
+    (source_eval_init$rename f, source_eval_init$rename x,
+     sei_compile_exp_alt e) :: sei_compile_funs_alt funs
+Termination
+  wf_rel_tac ‘measure (λx. case x of
+                           | INL e => exp_size e
+                           | INR (INL es) => list_size exp_size es
+                           | INR (INR (INL pes)) =>
+                               list_size (pair_size pat_size exp_size) pes
+                           | INR (INR (INR funs)) =>
+                               list_size (pair_size mlstring_size
+                                 (pair_size mlstring_size exp_size)) funs)’
+End
+
+Theorem sei_compile_exp_alt_thm:
+  (∀e. sei_compile_exp_alt e = source_eval_init$compile_exp e) ∧
+  (∀es. sei_compile_exps_alt es = MAP source_eval_init$compile_exp es) ∧
+  (∀pes. sei_compile_pes_alt pes =
+         MAP (λ(p,e). (source_eval_init$compile_pat p,
+                       source_eval_init$compile_exp e)) pes) ∧
+  (∀funs. sei_compile_funs_alt funs =
+          MAP (λ(f,x,e). (source_eval_init$rename f, source_eval_init$rename x,
+                          source_eval_init$compile_exp e)) funs)
+Proof
+  ho_match_mp_tac sei_compile_exp_alt_ind
+  \\ rw [sei_compile_exp_alt_def, source_eval_initTheory.compile_exp_def,
+         sei_rename_opt_thm, sei_app_def, sei_is_eval_thm]
+  \\ every_case_tac \\ gvs []
+QED
+
+val _ = cv_trans (sei_compile_exp_alt_def
+                  |> REWRITE_RULE [GSYM (cj 1 sei_compile_pat_alt_thm)]);
+
+Definition sei_compile_dec_alt_def:
+  sei_compile_dec_alt (Dlet locs p e) =
+    Dlet locs (sei_compile_pat_alt p) (sei_compile_exp_alt e) ∧
+  sei_compile_dec_alt (Dletrec locs funs) =
+    Dletrec locs (sei_compile_funs_alt funs) ∧
+  sei_compile_dec_alt (Dtype locs tds) = Dtype locs tds ∧
+  sei_compile_dec_alt (Dtabbrev locs tvs tn t) = Dtabbrev locs tvs tn t ∧
+  sei_compile_dec_alt (Dexn locs cn ts) = Dexn locs cn ts ∧
+  sei_compile_dec_alt (Dmod mn ds) = Dmod mn (sei_compile_decs_alt ds) ∧
+  sei_compile_dec_alt (Dlocal lds ds) =
+    Dlocal (sei_compile_decs_alt lds) (sei_compile_decs_alt ds) ∧
+  sei_compile_dec_alt (Denv n) = Denv (source_eval_init$rename n) ∧
+  sei_compile_dec_alt (Dopen locs path) = Dopen locs path ∧
+  sei_compile_decs_alt [] = [] ∧
+  sei_compile_decs_alt (d::ds) = sei_compile_dec_alt d :: sei_compile_decs_alt ds
+End
+
+Theorem sei_compile_dec_alt_thm:
+  (∀d. sei_compile_dec_alt d = source_eval_init$compile_dec d) ∧
+  (∀ds. sei_compile_decs_alt ds = MAP source_eval_init$compile_dec ds)
+Proof
+  ho_match_mp_tac sei_compile_dec_alt_ind
+  \\ rw [sei_compile_dec_alt_def, source_eval_initTheory.compile_dec_def,
+         sei_compile_pat_alt_thm, sei_compile_exp_alt_thm]
+QED
+
+val _ = cv_trans sei_compile_dec_alt_def;
+
+val _ = cv_trans source_eval_initTheory.init_body_def;
+val _ = cv_trans source_eval_initTheory.eval_fail_def;
+val _ = cv_trans source_eval_initTheory.eval_body_def;
+val _ = cv_trans source_eval_initTheory.prelude_def;
+val _ = cv_trans (source_eval_initTheory.compile_decs_def
+                  |> REWRITE_RULE [GSYM (cj 2 sei_compile_dec_alt_thm)]);
+
 (* source_to_source *)
 
 val _ = cv_trans source_to_sourceTheory.compile_def;

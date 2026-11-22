@@ -684,7 +684,7 @@ Datatype:
   <| refs  : v store
    ; next_type_stamp : num
    ; next_exn_stamp : num
-   ; eval_state : eval_state option
+   ; eval_state : source_eval_state option
    ; ptr_eq_oracle : num -> num -> bool
    |>
 End

@@ -5,6 +5,7 @@ Theory from_cakeProg[no_sig_docs]
 Ancestors
   ml_translator from_flatProg source_to_flat[qualified]
   source_to_source[qualified] source_lift_consts[qualified] backend[qualified]
+  source_eval_init[qualified]
 Libs
   preamble ml_translatorLib
 
@@ -290,6 +291,29 @@ val res = translate source_to_sourceTheory.inc_compile_def;
 
 val _ = (length (hyp res) = 0)
         orelse failwith "Unproved side condition: source_to_source_inc_compile";
+
+(* ------------------------------------------------------------------------- *)
+(* source_eval_init                                                          *)
+(* ------------------------------------------------------------------------- *)
+
+val res = translate source_eval_initTheory.rename_def;
+val res = translate source_eval_initTheory.rename_id_def;
+val res = translate source_eval_initTheory.compile_pat_def;
+val res = translate source_eval_initTheory.compile_exp_def;
+val res = translate source_eval_initTheory.compile_dec_def;
+val res = translate source_eval_initTheory.init_body_def;
+val res = translate source_eval_initTheory.eval_fail_def;
+val res = translate source_eval_initTheory.eval_body_def;
+val res = translate source_eval_initTheory.prelude_def;
+val res = translate source_eval_initTheory.compile_decs_def;
+
+val _ = (length (hyp res) = 0)
+        orelse failwith "Unproved side condition: source_eval_init_compile_decs";
+
+val res = translate source_eval_initTheory.inc_compile_decs_def;
+
+val _ = (length (hyp res) = 0)
+        orelse failwith "Unproved side condition: source_eval_init_inc_compile_decs";
 
 (* ------------------------------------------------------------------------- *)
 (* flat_pattern                                                              *)

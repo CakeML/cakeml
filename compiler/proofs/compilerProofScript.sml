@@ -12,6 +12,9 @@ Libs
 
 val _ = diminish_srw_ss ["ABBREV"]
 
+(* prelude is a variable name below, not source_eval_init$prelude *)
+val _ = hide "prelude";
+
 Definition config_ok_def:
   config_ok (cc:compiler$config) mc ⇔
     env_rel prim_tenv cc.inferencer_config ∧

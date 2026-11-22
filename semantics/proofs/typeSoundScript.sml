@@ -3205,7 +3205,8 @@ Proof
  rw []
  >> CCONTR_TAC
  >> fs [semantics_prog_def, semantics_determ_def]
- >> Cases_on `evaluate_prog_with_clock (st with ptr_eq_oracle := po) env k tops`
+ >> Cases_on `evaluate_prog_with_clock
+                (st with <| ptr_eq_oracle := po; eval_oracle := eo |>) env k tops`
  >> fs []
  >> rw []
  >> fs [evaluate_prog_with_clock_def]

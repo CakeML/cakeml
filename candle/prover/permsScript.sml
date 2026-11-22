@@ -1060,7 +1060,7 @@ Proof
     gvs [evaluate_decs_def]
     \\ simp [perms_ok_env_def])
   >~ [‘Denv n’] >- (
-    gvs [evaluate_decs_def, CaseEqs ["prod", "result", "eval_state", "option"],
+    gvs [evaluate_decs_def, CaseEqs ["prod", "result", "option"],
          perms_ok_env_def, declare_env_def, perms_ok_def, nat_to_v_def,
          perms_ok_state_def, SF SFY_ss])
   >~ [‘Dexn locs cn ts’] >- (

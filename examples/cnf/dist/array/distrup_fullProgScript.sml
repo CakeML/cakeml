@@ -2498,6 +2498,43 @@ Proof
   gvs [main_res]
 QED
 
+(* without an eval state, the eval oracle does not affect the semantics *)
+Theorem evaluate_prog_with_clock_eval_oracle[local]:
+  s.eval_state = NONE ⇒
+  evaluate_prog_with_clock (s with eval_oracle := eo) env k p =
+  evaluate_prog_with_clock s env k p
+Proof
+  rw [semanticsTheory.evaluate_prog_with_clock_def]
+  \\ Cases_on ‘evaluate_decs (s with clock := k) env p’
+  \\ drule (cj 3 evaluatePropsTheory.eval_no_eval_oracle)
+  \\ simp []
+  \\ disch_then (qspec_then ‘eo’ mp_tac)
+  \\ ‘s with <|eval_oracle := eo; clock := k|> =
+      s with <|clock := k; eval_oracle := eo|>’
+    by simp [semanticPrimitivesTheory.state_component_equality]
+  \\ simp []
+QED
+
+Theorem semantics_determ_distrup_prog_eo[local]:
+  semantics_determ
+    (init_state (custom_ffi (State Step inputs tb)) with
+       <|ptr_eq_oracle := po; eval_oracle := eo|>)
+    init_env distrup_prog
+    (Terminate Success (main_events po tb inputs))
+Proof
+  ‘init_state (custom_ffi (State Step inputs tb)) with
+     <|ptr_eq_oracle := po; eval_oracle := eo|> =
+   (init_state (custom_ffi (State Step inputs tb)) with ptr_eq_oracle := po)
+     with eval_oracle := eo’
+    by simp [semanticPrimitivesTheory.state_component_equality]
+  \\ pop_assum SUBST1_TAC
+  \\ qmatch_goalsub_abbrev_tac ‘semantics_determ (s1 with eval_oracle := _)’
+  \\ ‘s1.eval_state = NONE’ by (unabbrev_all_tac \\ EVAL_TAC)
+  \\ mp_tac semantics_determ_distrup_prog
+  \\ simp [semanticsTheory.semantics_determ_def,
+           evaluate_prog_with_clock_eval_oracle, Abbr ‘s1’]
+QED
+
 Theorem semantics_prog_distrup_prog:
   sem_satisfies
     (semantics_prog (init_state (custom_ffi (State Step inputs tb))) init_env
@@ -2506,9 +2543,9 @@ Theorem semantics_prog_distrup_prog:
 Proof
   simp [semanticsPropsTheory.sem_satisfies_def, semanticsTheory.semantics_prog_def,
         EXTENSION, IN_DEF] >>
-  conj_tac >- metis_tac [semantics_determ_distrup_prog] >>
+  conj_tac >- metis_tac [semantics_determ_distrup_prog_eo] >>
   rw [] >>
   drule_then (qspec_then ‘Terminate Success (main_events po tb inputs)’ mp_tac)
     semanticsPropsTheory.semantics_determ_deterministic >>
-  simp [semantics_determ_distrup_prog, full_events_ok_main_events]
+  simp [semantics_determ_distrup_prog_eo, full_events_ok_main_events]
 QED
