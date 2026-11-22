@@ -8,7 +8,7 @@ Theory ml_hol_kernel_funsProg
 Ancestors
   ml_translator ml_pmatch patternMatches ast evaluate
   semanticPrimitives ml_prog evaluate set_sep cf cfStore
-  cfHeapsBase ml_monadBase ml_monad_translator holKernel
+  cfHeapsBase ml_monadBase ml_monad_translator ml_monad_oracle holKernel
   basisProg
   holAxiomsSyntax (* for setting up the context *)
   runtime_check (* Adds runtime type checks *)
@@ -115,6 +115,17 @@ val (monad_parameters, store_translation, exn_specs) =
                                               []
                                               NONE
                                               NONE;
+
+(* The oracle field is not part of the store, so same_ptr can be translated
+   with ml_monad_oracleLib (not yet used by any kernel function) *)
+Theorem hol_refs_oracle_accessors:
+  ORACLE_ACCESSORS hol_refs_oracle (λoracle s. s with oracle := oracle)
+    (HOL_STORE, p:'ffi ffi_proj)
+Proof
+  simp [ORACLE_ACCESSORS_def, definition "HOL_STORE_def"]
+QED
+
+val _ = ml_monad_oracleLib.start_oracle_translation hol_refs_oracle_accessors;
 
 (* Translate type-checking code from checkTheory *)
 
