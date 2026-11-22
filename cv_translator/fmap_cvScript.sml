@@ -96,7 +96,6 @@ QED
 
 (* update *)
 
-val _ = cv_trans char_lt_def;
 val _ = cv_trans string_lt_def;
 
 Definition str_insert_def:

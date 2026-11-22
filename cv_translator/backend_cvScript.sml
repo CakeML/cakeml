@@ -10,7 +10,10 @@ Ancestors
 
 val _ = cv_memLib.use_long_names := true;
 
-val _ = cv_trans backend_commonTheory.empty_metadata_def;
+(* infer_cv and to_data_cv both translate these namespace functions *)
+val _ = app (fn s => cv_transLib.cv_rep_delete ("infer_cv.cv_" ^ s ^ "_thm"))
+  ["nsSing", "alist_to_ns", "nsOpen", "nsLookupMod", "nsBind", "nsLift",
+   "nsAppend", "nsLookup"];
 
 (* Deduplicate constructor uses within a scope, retaining local-open boundaries.
    An open is checked even when its body contains no constructor uses. *)
@@ -219,7 +222,6 @@ val _ = cv_auto_trans lab_to_targetTheory.prog_to_bytes_def;
 val _ = cv_auto_trans lab_to_targetTheory.zero_labs_acc_exist_def;
 val _ = cv_auto_trans lab_to_targetTheory.find_ffi_names_def;
 val _ = TypeBase.accessors_of “:lab_to_target$config” |> map cv_trans;
-val _ = TypeBase.accessors_of “:environment” |> map cv_trans;
 val _ = cv_trans (lab_to_targetTheory.get_memop_info_def
                     |> INST_TYPE [alpha|->“:8”]);
 
@@ -528,7 +530,6 @@ val _ = word_to_stackTheory.perf_rsp_def |> cv_trans;
 val _ = word_to_stackTheory.handler_slots_def |> cv_trans;
 val _ = cv_trans word_instTheory.three_to_two_reg_def;
 val _ = cv_trans word_instTheory.three_to_two_reg_prog_def;
-val _ = cv_trans GREATER_DEF;
 
 val _ = cv_trans stack_to_labTheory.find_lab_def;
 val _ = cv_trans stack_to_labTheory.negate_def;
