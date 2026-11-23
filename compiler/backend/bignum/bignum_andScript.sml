@@ -66,8 +66,63 @@ Definition mwi_and_neg_neg'_def:
      (c₁, d₁, e₁, rs₁, ys')  = mwi_and_neg_neg_loop0 c d e xs ys;
      (d₂, e₂, rs) = mwi_and_neg_neg_loop1 d₁ e₁ ys';
    in
-     if e₂ then rs ++ [1w] else rs)
+     if e₂ then rs₁ ++ rs ++ [1w] else rs₁ ++ rs)
 End
+
+Theorem mwi_and_neg_neg_loop1_eq:
+  ∀d e ys.
+    mwi_and_neg_neg_loop1 d e ys =
+    let
+      (ys₁, d') = mw_sub ys [] d;
+      (zs, e') = mw_add ys₁ (MAP (K 0w) ys₁) e
+    in
+      (d', e', zs)
+Proof
+  recInduct mwi_and_neg_neg_loop1_ind >> rw []
+  >> gvs [mwi_and_neg_neg_loop1_def, mw_sub_def, mw_add_def]
+  >> rpt (pairarg_tac >> gvs [mw_add_def])
+QED
+
+Theorem mwi_and_neg_neg_loop0_eq:
+  ∀c d e xs ys.
+    (let
+       (c₁, d₁, e₁, rs₁, ys') = mwi_and_neg_neg_loop0 c d e xs ys;
+       (d₂, e₂, rs₂) = mwi_and_neg_neg_loop1 d₁ e₁ ys'
+     in
+       (rs₁ ++ rs₂, e₂))
+    =
+    let
+      xs₂ = (let (xs₁,c') = mw_sub xs [] c in MAP $¬ xs₁);
+      ys₂ = (let (ys₁,d') = mw_sub ys [] d in MAP $¬ ys₁);
+      zs = mw_and_keep xs₂ ys₂
+    in
+      mw_add (MAP $¬ zs) (MAP (K 0w) zs) e
+Proof
+  recInduct mwi_and_neg_neg_loop0_ind >> rw []
+  >> gvs [mwi_and_neg_neg_loop0_def, mwi_and_neg_neg_loop1_eq,
+          mw_sub_def, mw_add_def, mw_and_keep_def, mw_and_keep_nil_left,
+          MAP_word1_comp_word1_comp]
+  >> rpt (pairarg_tac >> gvs [mw_add_def, mw_and_keep_def,
+                              mw_and_keep_nil_left, MAP_word1_comp_word1_comp,
+                              MAP_MAP_o, combinTheory.K_o_THM])
+QED
+
+Theorem mwi_and_neg_neg'_eq:
+  ∀c d e xs ys.
+    mwi_and_neg_neg' c d e xs ys =
+    let
+      xs₂ = (let (xs₁,c') = mw_sub xs [] c in MAP $¬ xs₁);
+      ys₂ = (let (ys₁,d') = mw_sub ys [] d in MAP $¬ ys₁);
+      zs = mw_and_keep xs₂ ys₂;
+      (zs₁, e') = mw_add (MAP $¬ zs) (MAP (K 0w) zs) e
+    in
+      if e' then zs₁ ++ [1w] else zs₁
+Proof
+  rpt gen_tac
+  >> qspecl_then [‘c’, ‘d’, ‘e’, ‘xs’, ‘ys’] mp_tac mwi_and_neg_neg_loop0_eq
+  >> simp [mwi_and_neg_neg'_def]
+  >> rpt (pairarg_tac >> gvs [])
+QED
 
 Theorem mwi_and_neg_neg'_thm:
   (if LENGTH xs ≤ LENGTH ys
@@ -76,7 +131,10 @@ Theorem mwi_and_neg_neg'_thm:
   =
   (mw_int_of_bits (mw_and_keep_flip (mw_bits_of_int xs) (mw_bits_of_int ys)))
 Proof
-  cheat
+  simp [mw_and_keep_flip_def, LENGTH_mw_bits_of_int, COND_RAND]
+  >> IF_CASES_TAC
+  >> simp [mwi_and_neg_neg'_eq, mw_int_of_bits_def, mw_bits_of_int_def]
+  >> rpt (pairarg_tac >> gvs [])
 QED
 
 (** set_sep and word helpers **************************************************)
