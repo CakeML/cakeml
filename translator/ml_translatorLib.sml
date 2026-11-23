@@ -1225,11 +1225,11 @@ fun EqualityType_via_n2typ is_exn_type typ = let
     val stamp_list = map (hd o snd o strip_comb) stamps
       |> (fn xs => listSyntax.mk_list (xs, type_of (hd xs)))
     val thm2 = SPEC stamp_list thm
-        |> (if is_exn_type then I else SPEC (rand (hd stamps)))
+        |> (if is_exn_type then I else SPEC (#2 (dest_TypeStamp (hd stamps))))
         |> CONV_RULE (ONCE_DEPTH_CONV (REWR_CONV genlist_eq))
         |> CONV_RULE (DEPTH_CONV mlstr_all_distinct_conv)
         |> CONV_RULE (DEPTH_CONV num_all_distinct_conv)
-  in SIMP_RULE list_ss [FUN_EQ_THM] thm2 end
+  in SIMP_RULE list_ss [FUN_EQ_THM, indexedListsTheory.MAPi_def] thm2 end
 
 fun matching_induction_of typ = let
     val ind = TypeBase.set_induction_of typ
@@ -1503,7 +1503,8 @@ fun define_ref_inv ctxt is_exn_type tys = let
   val tmp_v_var = genvar v_ty
   val real_v_var = mk_var("v",v_ty)
   fun mk_lhs (name,ty,case_th) = let
-    val xs = map rand (find_terms is_eq (concl case_th))
+    (* find_terms visits constructors in reverse definition order. *)
+    val xs = rev (map rand (find_terms is_eq (concl case_th)))
     val ty = type_of (hd (SPEC_ALL case_th |> concl |> free_vars))
     val vars = List.rev (type_vars ty)
     val ss = map get_type_inv vars
@@ -1526,8 +1527,8 @@ fun define_ref_inv ctxt is_exn_type tys = let
   val stamp = if is_exn_type then get_next_exn_stamp (get_ml_prog_state ())
                              else get_next_type_stamp (get_ml_prog_state ())
   fun get_def_tm () = let
-    fun mk_lines ml_ty_name lhs ty [] input stamp = []
-      | mk_lines ml_ty_name lhs ty (x::xs) input stamp = let
+    fun mk_lines ml_ty_name lhs ty [] input stamp pos = []
+      | mk_lines ml_ty_name lhs ty (x::xs) input stamp pos = let
       val k = length xs + 1
       val cons_name = (repeat rator x |> dest_const |> fst)
       val tag = Lib.assoc cons_name cons_tags
@@ -1562,7 +1563,8 @@ fun define_ref_inv ctxt is_exn_type tys = let
                           |> attach_name tag |> optionSyntax.mk_some)
                    else
                      semanticPrimitivesSyntax.mk_TypeStamp
-                       (str,numSyntax.term_of_int stamp) |> optionSyntax.mk_some
+                       (str,numSyntax.term_of_int stamp,numSyntax.term_of_int pos)
+                       |> optionSyntax.mk_some
       val tm = mk_conj(mk_eq(tmp_v_var,
                              mk_Conv(tag_tm, vs)),tm)
       val tm = list_mk_exists (map (fn (_,z) => z) vars, tm)
@@ -1571,13 +1573,13 @@ fun define_ref_inv ctxt is_exn_type tys = let
       val ws = free_vars x
       in tm :: mk_lines ml_ty_name lhs ty xs input
                  (if is_exn_type andalso not (is_primitive_exception tag)
-                  then stamp+1 else stamp) end
+                  then stamp+1 else stamp) (pos+1) end
 (*
 val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
 *)
     fun mk_all_lines [] stamp = []
       | mk_all_lines ((ml_ty_name,xs,ty,lhs,input)::ys) stamp =
-          mk_lines ml_ty_name lhs ty xs input stamp @
+          mk_lines ml_ty_name lhs ty xs input stamp 0 @
           mk_all_lines ys (if is_exn_type then stamp+length xs else stamp+1)
     val zs = mk_all_lines ys stamp
     val def_tm = list_mk_conj zs
@@ -1759,7 +1761,7 @@ val th = inv_defs |> map #2 |> hd
           ys |> hd |> fst |> type_of |> type2t |> rand
              |> repeat (snd o dest_Long) |> rand
       val ys = map (fn (x,y) => (if is_exn_type then y |> rand  |> rand
-                                 else y |> rator |> rand,
+                                 else #1 (dest_TypeStamp y),
                                  x |> dest_args |> map (type2t o type_of))) ys
       fun mk_line (x,y) = pairSyntax.mk_pair(x,
                            listSyntax.mk_list(y,astSyntax.ast_t_ty))
@@ -1790,7 +1792,7 @@ val th = inv_defs |> map #2 |> hd
   fun mk_assum tm =
     if not is_exn_type then let
       val x = find_term is_TypeStamp (rhs tm)
-      val (n,k) = dest_TypeStamp x
+      val (n,_,_) = dest_TypeStamp x
       val l = tm |> dest_eq |> fst |> rator |> rand |> list_dest dest_comb
                  |> tl |> length |> numSyntax.term_of_int
       val ctor = tm |> dest_eq |> fst |> rator |> rand |> repeat rator
@@ -3422,7 +3424,12 @@ fun is_word_literal tm =
   else false
 
 val Num_ABS_pat = Eval_Num_ABS |> concl |> rand |> rand |> rand
-val PtrEq_if_pat = Eval_PtrEq |> concl |> rand |> rand |> rand |> rand
+val PtrEq_pat = Eval_PtrEq |> concl |> rand |> rand |> rand |> rand
+                         |> dest_cond |> #1
+
+fun starts_with_ptr_eq tm =
+  if is_conj tm then starts_with_ptr_eq (fst (dest_conj tm))
+  else can (match_term PtrEq_pat) tm
 
 val int_of_num_o_pat = Eval_int_of_num_o |> concl |> rand |> rand |> rand
 val o_int_of_num_pat = Eval_o_int_of_num |> concl |> rand |> rand |> rand
@@ -3696,16 +3703,25 @@ fun hol2deep ctxt tm =
     val th = MATCH_MP Eval_Or (LIST_CONJ [D th1, D th2])
     val result = UNDISCH th
     in check_inv "or" tm result end else
-  (* if ptr_eq x y then t1 else t2: the side condition x = y ⇒ t1 = t2 is
-     proved by simp if possible, otherwise it becomes a precondition *)
-  if can (match_term PtrEq_if_pat) tm then let
+  (* if ptr_eq x y /\ ... then t1 else t2: the side condition
+     guard ==> t1 = t2 is proved by simp if possible, otherwise it becomes
+     a precondition *)
+  if is_cond tm andalso starts_with_ptr_eq (#1 (dest_cond tm)) then let
     val (c,t1,t2) = dest_cond tm
-    val th1 = hol2deep ctxt (rand (rator c))
-    val th2 = hol2deep ctxt (rand c)
+    fun guard tm =
+      if can (match_term PtrEq_pat) tm then let
+        val th1 = hol2deep ctxt (rand (rator tm))
+        val th2 = hol2deep ctxt (rand tm)
+      in MATCH_MP Eval_PtrEq_test (CONJ th1 th2) |> UNDISCH end
+      else if is_conj tm then let
+        val (left,right) = dest_conj tm
+      in MATCH_MP Eval_And_guard (CONJ (guard left) (guard right)) end
+      else MATCH_MP Eval_Bool_guard (hol2deep ctxt tm)
+    val th1 = guard c
     val th3 = hol2deep ctxt t1
     val th4 = hol2deep ctxt t2
-    val th = MATCH_MP Eval_PtrEq (LIST_CONJ [th1,th2,th3,th4])
-             |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO] |> UNDISCH
+    val th = MATCH_MP Eval_PtrEq_If (LIST_CONJ [th1,th3,th4])
+      |> CONV_RULE ((RATOR_CONV o RAND_CONV) (REWRITE_CONV [ptr_eq_def]))
     val side = th |> concl |> dest_imp |> fst
     val result = MP th (EQT_ELIM (SIMP_CONV (srw_ss()) [] side))
       handle HOL_ERR _ =>

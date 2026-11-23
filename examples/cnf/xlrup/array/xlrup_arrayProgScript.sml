@@ -4,8 +4,8 @@
 Theory xlrup_arrayProg
 Ancestors
   misc mllist UnsafeProof array_ofProof ccnf_arith ccnf_arrayProg ccnf_parseProg
-  cnf ccnf ccnf_list syntax_helper xor xor_list xlrup_cnf xlrup xlrup_list
-  xlrup_parsing
+  cnf ccnf ccnf_list ccnf_dm syntax_helper xor xor_list xlrup_cnf xlrup xlrup_list
+  xlrup_parsing input_lex input_lexProg
   mlint mlvector sptree
 Libs
   preamble basis blastLib
@@ -3242,8 +3242,8 @@ Finalise check_xlrup_arr_spec;
 
 (*** Parsing.
 
-  blanks, tokenize_fast, is_int, fromString_unsafe, parse_until_zero(_nn),
-  starts_with and mk_lit are already translated in ccnf_parseProg. ***)
+  toks and parse_until_zero are already translated in input_lexProg, and
+  parse_until_zero_nn, starts_with and mk_lit in ccnf_parseProg. ***)
 
 val _ = translate parse_rup_def;
 val _ = translate parse_until_c_zero_nn_def;
@@ -3397,7 +3397,7 @@ QED
 
 Quote add_cakeml:
   fun check_unsat'' fd lno xm cfml xfml tn def carr b sc =
-    case TextIO.inputLineTokens #"\n" fd blanks tokenize_fast of
+    case input_toks fd of
       None => (cfml, xfml)
     | Some l =>
     case parse_and_run_arr lno xm cfml xfml tn def carr b sc l of
@@ -3409,7 +3409,7 @@ Definition parse_and_run_file_list_def:
   (parse_and_run_file_list [] xm cfml xfml tn def Clist b =
     SOME (cfml, xfml)) ∧
   (parse_and_run_file_list (x::xs) xm cfml xfml tn def Clist b =
-    case parse_and_run_list xm cfml xfml tn def Clist b (toks_fast x) of
+    case parse_and_run_list xm cfml xfml tn def Clist b (toks x) of
       NONE => NONE
     | SOME (cfml', xfml', tn', def', Clist', b') =>
     parse_and_run_file_list xs xm cfml' xfml' tn' def' Clist' b')
@@ -3428,21 +3428,9 @@ Proof
   fs[parse_and_run_list_def,parse_xlrups_def,parse_and_run_file_list_def,
     check_xlrups_list_def]>>
   rw[]>>
-  every_case_tac>>fs[toks_fast_def]>>
+  every_case_tac>>fs[]>>
   simp[check_xlrups_list_def]
 QED
-
-val blanks_v_thm = fetch "ccnf_parseProg" "blanks_v_thm";
-val tokenize_fast_v_thm = fetch "ccnf_parseProg" "tokenize_fast_v_thm";
-
-val inputLineTokens_fast_specialize =
-  inputLineTokens_spec_lines
-  |> Q.GEN `f` |> Q.SPEC`blanks`
-  |> Q.GEN `fv` |> Q.SPEC`blanks_v`
-  |> Q.GEN `g` |> Q.ISPEC`tokenize_fast`
-  |> Q.GEN `gv` |> Q.ISPEC`tokenize_fast_v`
-  |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
-  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_fast_v_thm,blanks_def] ;
 
 Theorem check_unsat''_spec:
   !lines fs cfmlv cfmlls xfmlv xfmlls
@@ -3502,7 +3490,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     >- (
-      xapp_spec inputLineTokens_fast_specialize>>
+      xapp_spec input_toks_spec>>
       qexists_tac ‘ARRAY_OF vcclause_TYPE cfmlv cfmlls *
         ARRAY_OF (OPTION_TYPE strxor_TYPE) xfmlv xfmlls *
         ARRAY_OF NUM tnav tnls * ARRAY_OF NUM Carrv Clist * W8ARRAY scv zs’>>
@@ -3526,17 +3514,17 @@ Proof
                 ARRAY_OF NUM Carrv Clist * W8ARRAY scv zs *
                 STDIO (forwardFD fs fd k) *
                 INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
-                & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast h)) v)’
+                & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
+                    (SOME (toks h)) v)’
     >- (
-      xapp_spec inputLineTokens_fast_specialize>>
+      xapp_spec input_toks_spec>>
       qexists_tac ‘ARRAY_OF vcclause_TYPE cfmlv cfmlls *
         ARRAY_OF (OPTION_TYPE strxor_TYPE) xfmlv xfmlls *
         ARRAY_OF NUM tnav tnls * ARRAY_OF NUM Carrv Clist * W8ARRAY scv zs’>>
       qexists_tac ‘h::lines’>>
       qexists_tac ‘fs’>>
       qexists_tac ‘fd’>>xsimpl>>fs []>>
-      rw []>>qexists_tac ‘x’>>xsimpl>>
-      simp[toks_fast_def])>>
+      rw []>>qexists_tac ‘x’>>xsimpl)>>
   fs [std_preludeTheory.OPTION_TYPE_def]>>rveq>>fs []>>
   xmatch>>fs []>>
   xlet_auto
@@ -4114,10 +4102,10 @@ Proof
           cfmlls xfmlls (tnls,tnn) def Clist 1 lines
       of
         NONE => resv =
-          Conv (SOME (TypeStamp «Inl» 4)) [v0] ∧ ∃s. STRING_TYPE s v0
+          Conv (SOME (TypeStamp «Inl» 4 0)) [v0] ∧ ∃s. STRING_TYPE s v0
       | SOME res =>
         res = (cfmlls',xfmlls') ∧
-        resv = Conv (SOME (TypeStamp «Inr» 4)) [Conv NONE [cfmlv'; xfmlv']])`
+        resv = Conv (SOME (TypeStamp «Inr» 4 1)) [Conv NONE [cfmlv'; xfmlv']])`
   >- (
     TOP_CASE_TAC
     >- (
@@ -4188,7 +4176,7 @@ Proof
         SEP_EXISTS v1 v2 k rest.
          STDIO (forwardFD fs fd k) *
          INSTREAM_LINES c0 fd isv rest (forwardFD fs fd k) *
-         &(v = Conv (SOME (TypeStamp «Inr» 4)) [Conv NONE [v1; v2]]) *
+         &(v = Conv (SOME (TypeStamp «Inr» 4 1)) [Conv NONE [v1; v2]]) *
          (SEP_EXISTS cfmlls' xfmlls' tnav' tnls'.
            ARRAY_OF vcclause_TYPE v1 cfmlls' *
            ARRAY_OF (OPTION_TYPE strxor_TYPE) v2 xfmlls' *

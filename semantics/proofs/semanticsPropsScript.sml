@@ -78,7 +78,10 @@ Theorem semantics_determ_SUBSET_semantics_prog:
    semantics_determ (s with ptr_eq_oracle := po) e p ⊆ semantics_prog s e p
 Proof
   rw [SUBSET_DEF, IN_DEF, semantics_prog_def]
-  >> metis_tac []
+  >> qexistsl_tac [‘po’,‘s.eval_oracle’]
+  >> ‘s with <| ptr_eq_oracle := po; eval_oracle := s.eval_oracle |> =
+      s with ptr_eq_oracle := po’ by simp [state_component_equality]
+  >> simp []
 QED
 
 Theorem with_clock_ffi[local]:

@@ -104,6 +104,42 @@ Definition no_ptr_eq_dec_def[simp]:
     (EVERY no_ptr_eq_dec lds ∧ EVERY no_ptr_eq_dec ds))
 End
 
+(* code without PtrEq, Eval and function calls does not consult either
+   oracle *)
+Theorem evaluate_no_ptr_eq_oracles[local]:
+  (∀(st:'ffi state) env es st' res.
+    EVERY no_ptr_eq es ∧ evaluate st env es = (st',res) ⇒
+    ∀po eo. evaluate (st with <| ptr_eq_oracle := po; eval_oracle := eo |>)
+              env es =
+            (st' with <| ptr_eq_oracle := po; eval_oracle := eo |>,res)) ∧
+  (∀(st:'ffi state) env v pes err_v st' res.
+    EVERY (λ(p,e). no_ptr_eq e) pes ∧
+    evaluate_match st env v pes err_v = (st',res) ⇒
+    ∀po eo. evaluate_match
+              (st with <| ptr_eq_oracle := po; eval_oracle := eo |>)
+              env v pes err_v =
+            (st' with <| ptr_eq_oracle := po; eval_oracle := eo |>,res))
+Proof
+  ho_match_mp_tac evaluate_ind
+  \\ rw [evaluate_def]
+  \\ gvs [AllCaseEqs(), ETA_THM]
+  \\ gvs [do_log_def, do_if_def, AllCaseEqs()]
+QED
+
+Theorem evaluate_dec_list_no_ptr_eq_oracles:
+  ∀(st:'ffi state) env ds st' res.
+    EVERY no_ptr_eq_dec ds ∧ evaluate_dec_list st env ds = (st',res) ⇒
+    ∀po eo. evaluate_dec_list
+              (st with <| ptr_eq_oracle := po; eval_oracle := eo |>) env ds =
+            (st' with <| ptr_eq_oracle := po; eval_oracle := eo |>,res)
+Proof
+  ho_match_mp_tac evaluate_dec_list_ind
+  \\ rw [evaluate_dec_list_def]
+  \\ gvs [AllCaseEqs(),ETA_THM]
+  \\ imp_res_tac (cj 1 evaluate_no_ptr_eq_oracles |> SIMP_RULE std_ss [PULL_FORALL] |> Q.SPECL [`st`,`env`,`[e]`])
+  \\ gvs []
+QED
+
 Theorem evaluate_dec_list_no_ptr_eq:
   ∀(st:'ffi state) env ds st' res.
     EVERY no_ptr_eq_dec ds ∧ evaluate_dec_list st env ds = (st',res) ⇒
@@ -173,9 +209,10 @@ End
 
 Definition semantics_dec_list_def:
   semantics_dec_list st env prog b ⇔
-    (* the pointer equality oracle is adversarial: a program behaves as it does
-       under some oracle *)
-    ∃po. semantics_dec_list_determ (st with ptr_eq_oracle := po) env prog b
+    (* the pointer equality and eval oracles are adversarial: a program
+       behaves as it does under some oracles *)
+    ∃po eo. semantics_dec_list_determ
+              (st with <| ptr_eq_oracle := po; eval_oracle := eo |>) env prog b
 End
 
 val env_c = “env_c: (mlstring, mlstring, num # stamp) namespace”
@@ -368,7 +405,8 @@ Proof
   \\ rw [] \\ irule con_check_eqv_nsAppend \\ gvs []
   \\ gvs [alist_to_ns_def]
   \\ simp [Once con_check_eqv_def,build_constrs_def]
-  \\ Induct_on ‘p_2’ \\ gvs [FORALL_PROD]
+  \\ rw [LIST_REL_EL_EQN,EL_MAPi]
+  \\ rpt (pairarg_tac \\ gvs [])
 QED
 
 Theorem evaluate_dec_list_eq_evaluate_decs:

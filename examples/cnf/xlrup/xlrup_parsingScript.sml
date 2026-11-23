@@ -3,7 +3,7 @@
 *)
 Theory xlrup_parsing
 Ancestors
-  cnf ccnf syntax_helper xor xlrup_cnf xlrup mlint mlvector
+  cnf ccnf syntax_helper input_lex xor xlrup_cnf xlrup mlint mlvector
 Libs
   preamble
 
@@ -228,7 +228,7 @@ QED
 Definition parse_xlrups_def:
   (parse_xlrups [] = SOME []) ∧
   (parse_xlrups (l::ls) =
-    case parse_xlrup (toks_fast l) of
+    case parse_xlrup (toks l) of
       NONE => NONE
     | SOME step =>
       (case parse_xlrups ls of

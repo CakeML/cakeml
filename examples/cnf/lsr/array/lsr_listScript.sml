@@ -3,7 +3,7 @@
 *)
 Theory lsr_list
 Ancestors
-  cnf ccnf ccnf_list syntax_helper sr lsr mlstring mlvector
+  cnf ccnf ccnf_list ccnf_dm syntax_helper sr lsr mlstring mlvector
 Libs
   preamble
 

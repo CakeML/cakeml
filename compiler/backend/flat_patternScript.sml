@@ -158,8 +158,11 @@ Definition encode_pat_def:
   encode_pat (Plit l) = Lit l /\
   encode_pat (Pvar _) = Any /\
   encode_pat (flatLang$Pcon stmp ps) = Cons
-    (case stmp of NONE => NONE | SOME (i, NONE) => SOME (i, NONE)
-        | SOME (i, SOME (ty, ctors)) => SOME (i, SOME ctors))
+    (case stmp of NONE => NONE
+      | SOME (i, NONE) => SOME (encode_ctor_tag i NONE, NONE)
+      | SOME (i, SOME (ty, ctors)) =>
+          SOME (encode_ctor_tag i (SOME ty),
+            SOME (MAP (\(tag,arity). (encode_ctor_tag tag (SOME ty),arity)) ctors)))
     (MAP encode_pat ps) /\
   encode_pat (Pas p v) = encode_pat p /\
   encode_pat (Pref p) = Ref (encode_pat p)
@@ -177,7 +180,7 @@ Definition naive_pattern_match_def:
   naive_pattern_match t ((Pas p i, v) :: mats) =
     naive_pattern_match t ((p, v) :: mats) /\
   naive_pattern_match t ((Pcon (SOME stmp) ps, v) :: mats) =
-    SmartIf t (App t (TagLenEq (FST stmp) (LENGTH ps)) [v])
+    SmartIf t (App t (TagLenEq (encode_ctor_tag (FST stmp) (OPTION_MAP FST (SND stmp))) (LENGTH ps)) [v])
       (naive_pattern_match t (MAPi (\i p. (p, App t (El i) [v])) ps ++ mats))
       (Bool t F)
   /\

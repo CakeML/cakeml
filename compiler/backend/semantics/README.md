@@ -34,6 +34,14 @@ The formal semantics of dataLang
 [data_monadScript.sml](data_monadScript.sml):
 Define a monad to make dataLang ASTs nicer to work with
 
+[evalSemPropsScript.sml](evalSemPropsScript.sml):
+Properties of evalSem. These are counterparts of properties of the
+source semantics (evaluateProps, semanticsProps).
+
+[evalSemScript.sml](evalSemScript.sml):
+A copy of the source semantics where Eval is not nondeterministic but
+follows one of the EvalPending, EvalRun, EvalDecs and EvalOracle modes
+
 [flatPropsScript.sml](flatPropsScript.sml):
 Properties about flatLang and its semantics
 

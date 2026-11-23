@@ -90,7 +90,8 @@ Proof
     EXTENSION, pairTheory.FORALL_PROD, type_subst_def, FUPDATE_LIST,
     finite_mapTheory.FLOOKUP_UPDATE] >>
   simp [LEFT_AND_OVER_OR, EXISTS_OR_THM, type_subst_def,
-    finite_mapTheory.FLOOKUP_UPDATE]
+    finite_mapTheory.FLOOKUP_UPDATE] >>
+  metis_tac [DISJ_COMM]
 QED
 
 Theorem repl_input_sum_signature:
@@ -183,9 +184,11 @@ Proof
 QED
 
 (* Concrete source injection and original initialization locations. *)
-val input_source_stamp = find_term semanticPrimitivesSyntax.is_TypeStamp
-  (concl (CONJUNCT2 SUM_TYPE_def));
-val (input_source_name,input_source_number) =
+val input_source_stamp = SUM_TYPE_def |> CONJUNCTS
+  |> first (fn th => th |> SPEC_ALL |> concl |> lhs |> rator |> rand
+                        |> strip_comb |> fst |> same_const ``INL``)
+  |> concl |> find_term semanticPrimitivesSyntax.is_TypeStamp;
+val (input_source_name,input_source_number,input_source_pos) =
   semanticPrimitivesSyntax.dest_TypeStamp input_source_stamp;
 val input_source_ctor_lookup = EVAL
   ``nsLookup (ienv_to_tenv (FST repl_prog_types)).c
@@ -233,7 +236,7 @@ End
 Theorem repl_source_signature_member:
   ?signature.
       FLOOKUP repl_input_catalogue repl_sum_type_id = SOME signature /\
-      (^input_source_name,^input_source_number,
+      (^input_source_name,^input_source_number,^input_source_pos,
        ^input_source_params,^input_source_fields) IN signature
 Proof
   qexists_tac `^input_source_signature` >> EVAL_TAC
@@ -344,15 +347,15 @@ Theorem repl_input_representation_stamps_protected:
 Proof
   irule SUBSET_TRANS >>
   qexists_tac `BIGUNION (set (MAP
-    (\(ti,signature). IMAGE (\(cn,n,tvs,ts). TypeStamp cn n) signature)
+    (\(ti,signature). IMAGE (\(cn,n,pos,tvs,ts). TypeStamp cn n pos) signature)
     repl_input_catalogue_entries))` >> conj_tac
   >- (
     EVAL_TAC >> simp [LIST_TO_SET,BIGUNION_INSERT] >> simp [SUBSET_DEF]) >>
   rw [SUBSET_DEF,IN_BIGUNION,MEM_MAP,EXISTS_PROD,IN_IMAGE] >>
   qmatch_asmsub_rename_tac `MEM (type_id,signature) repl_input_catalogue_entries` >>
   fs [IN_IMAGE,EXISTS_PROD] >>
-  qmatch_goalsub_rename_tac `TypeStamp ctor_name stamp_num IN catalogue_stamps _` >>
-  qmatch_asmsub_rename_tac `(ctor_name,stamp_num,params,field_types) IN signature` >>
+  qmatch_goalsub_rename_tac `TypeStamp ctor_name stamp_num stamp_pos IN catalogue_stamps _` >>
+  qmatch_asmsub_rename_tac `(ctor_name,stamp_num,stamp_pos,params,field_types) IN signature` >>
   `ALOOKUP (REVERSE repl_input_catalogue_entries) type_id = SOME signature` by (
     irule alistTheory.ALOOKUP_ALL_DISTINCT_MEM >>
     simp [MAP_REVERSE,repl_input_catalogue_keys_distinct]) >>

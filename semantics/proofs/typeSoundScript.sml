@@ -152,15 +152,16 @@ Proof
   srw_tac[][Once type_v_cases] >>
   full_simp_tac(srw_ss())[] >>
   imp_res_tac type_funs_Tfn >>
-  fs [] >>
-  TRY (fs [type_num_defs] >> NO_TAC) >>
-  `?cn. stamp = TypeStamp cn list_type_num`
+  fs []
+  >>~- ([`Tlist_num = _`], fs [type_num_defs]) >>
+  `?cn pos. stamp = TypeStamp cn list_type_num pos`
     by (
     fs [ctMap_ok_def, ctMap_has_lists_def] >>
     metis_tac [same_type_def, stamp_nchotomy]) >>
   rw [] >>
-  full_simp_tac(srw_ss())[ctMap_has_lists_def] >>
-  `cn = «::» ∨ cn = «[]»` by metis_tac [NOT_SOME_NONE] >>
+  qpat_assum `ctMap_has_lists _`
+    (strip_assume_tac o SIMP_RULE (srw_ss()) [ctMap_has_lists_def]) >>
+  `(cn,pos) = («::»,1) ∨ (cn,pos) = («[]»,0)` by metis_tac [NOT_SOME_NONE] >>
   srw_tac[][] >>
   full_simp_tac(srw_ss())[] >>
   srw_tac[][] >>
@@ -193,7 +194,8 @@ Theorem ctor_canonical_values_thm:
   (type_v tvs ctMap tenvS v (Tapp ts ti) ∧
    ctMap_ok ctMap ∧
    FLOOKUP ctMap stamp = SOME (tvs',ts',ti) ⇒
-   (?cn n vs. same_type stamp (TypeStamp cn n) ∧ v = Conv (SOME (TypeStamp cn n)) vs) ∨
+   (?cn n pos vs. same_type stamp (TypeStamp cn n pos) ∧
+     v = Conv (SOME (TypeStamp cn n pos)) vs) ∨
    (?n vs. same_type stamp (ExnStamp n) ∧ v = Conv (SOME (ExnStamp n)) vs))
 Proof
   rw []
@@ -202,7 +204,7 @@ Proof
   full_simp_tac std_ss [ctMap_has_bools_def, Boolv_def, type_num_defs, ctMap_ok_def] >>
   imp_res_tac type_funs_Tfn
   >- (
-    `stamp = TypeStamp «True» bool_type_num ∨ stamp = TypeStamp «False» bool_type_num`
+    `stamp = TypeStamp «True» bool_type_num 1 ∨ stamp = TypeStamp «False» bool_type_num 0`
        by metis_tac [NOT_SOME_NONE, same_type_def, stamp_nchotomy] >>
     var_eq_tac >>
     rpt (qpat_x_assum `LIST_REL _ _ _` mp_tac) >>
@@ -768,6 +770,14 @@ Proof
     \\ simp [store_type_extension_refl,do_app_def,type_v_exn,sub_exn_v_def,
              Once type_v_cases]
   ) >~
+  [`PolyCompare`]
+  >- (
+    qmatch_goalsub_rename_tac `do_app _ PolyCompare [left;right]` >>
+    `do_compare left right ≠ Cmp_type_error` by
+      metis_tac [do_compare_eq_iff,eq_same_type] >>
+    Cases_on `do_compare left right` >> gvs [] >>
+    qexists_tac `tenvS` >>
+    simp [do_app_def,store_type_extension_refl,Once type_v_cases]) >~
   [‘Equality’]
   >- (rw [do_app_cases, PULL_EXISTS] >>
       metis_tac [Tbool_def, type_v_Boolv, store_type_extension_refl,
@@ -2295,14 +2305,14 @@ Proof
   rw []
   >- (
     simp [REVERSE_APPEND] >>
-    first_x_assum (qspecl_then [`next + 1`, `ctMap |++ MAP (λ(cn,ts). (TypeStamp cn next,tvs,MAP (type_name_subst tenvT) ts,id)) ctors`] assume_tac) >>
+    first_x_assum (qspecl_then [`next + 1`, `ctMap |++ MAPi (λpos (cn,ts). (TypeStamp cn next pos,tvs,MAP (type_name_subst tenvT) ts,id)) ctors`] assume_tac) >>
     irule (GEN_ALL nsAll2_mono) >>
     qexists_tac `
       type_ctor
            (ctMap |++
-            MAP
-              (λ(cn,ts).
-                 (TypeStamp cn next,tvs,MAP (type_name_subst tenvT) ts,
+            MAPi
+              (λpos (cn,ts).
+                 (TypeStamp cn next pos,tvs,MAP (type_name_subst tenvT) ts,
                   id)) ctors |++
             REVERSE (type_def_to_ctMap tenvT (next + 1) tds tids))` >>
     rw [] >>
@@ -2313,44 +2323,23 @@ Proof
     every_case_tac >>
     fs [REVERSE_APPEND, ALOOKUP_APPEND] >>
     rw [])
-  >- (
-    irule nsAll2_alist_to_ns >>
-    irule EVERY2_REVERSE >>
-    simp [build_constrs_def, EVERY2_MAP] >>
-    irule EVERY2_refl >>
-    rw [] >>
-    rpt (pairarg_tac >> fs []) >>
-    rw [type_ctor_def, flookup_fupdate_list, ALOOKUP_APPEND] >>
-    CASE_TAC
-    >- (
-      simp [] >>
-      qmatch_goalsub_abbrev_tac `ALOOKUP (REVERSE l) _` >>
-      `ALL_DISTINCT (MAP FST l)`
-      by (
-        rw [Abbr `l`, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
-        qpat_x_assum `ALL_DISTINCT _` mp_tac >>
-        rpt (pop_assum kall_tac) >>
-        induct_on `ctors` >>
-        rw [] >>
-        fs [MEM_MAP] >>
-        rw [] >>
-        rpt (pairarg_tac >> fs []) >>
-        metis_tac [FST]) >>
-      simp [alookup_distinct_reverse] >>
-      unabbrev_all_tac >>
-      induct_on `ctors` >>
-      rw [] >>
-      rw [] >>
-      fs [] >>
-      rpt (pairarg_tac >> fs []) >>
-      rw [] >>
-      fs [MEM_MAP] >>
-      metis_tac [FST])
-    >- (
-      drule ALOOKUP_MEM >>
-      rw [] >>
-      drule mem_type_def_to_ctMap >>
-      rw []))
+  >> irule nsAll2_alist_to_ns >>
+  irule EVERY2_REVERSE >>
+  qmatch_goalsub_abbrev_tac `REVERSE (_ ++ REVERSE entries)` >>
+  `ALL_DISTINCT (MAP FST entries)` by (
+    rw [Abbr `entries`,EL_ALL_DISTINCT_EL_EQ,EL_MAP,EL_MAPi] >>
+    rpt (pairarg_tac >> gvs []) >>
+    eq_tac >> rw [] >> gvs []) >>
+  rw [build_constrs_def,LIST_REL_EL_EQN,EL_MAP,EL_MAPi] >>
+  rpt (pairarg_tac >> gvs []) >>
+  rw [type_ctor_def,flookup_fupdate_list,REVERSE_APPEND,ALOOKUP_APPEND] >>
+  qmatch_asmsub_rename_tac `EL position ctors = (name,types)` >>
+  qspecl_then [`entries`,`position`] mp_tac ALOOKUP_ALL_DISTINCT_EL >>
+  simp [Abbr `entries`,EL_MAPi] >> strip_tac >>
+  simp [alookup_distinct_reverse] >>
+  CASE_TAC >> simp [] >>
+  drule ALOOKUP_MEM >> strip_tac >>
+  drule mem_type_def_to_ctMap >> simp []
 QED
 
 Theorem type_sound_invariant_union[local]:
@@ -2472,16 +2461,16 @@ Proof
   strip_tac >>
   simp [] >>
   qmatch_assum_abbrev_tac `check_ctor_tenv new_tabbrev _` >>
-  `!cn1 cn2 tid.
-    FLOOKUP ctMap (TypeStamp cn1 tid) <> NONE ==>
+  `!cn1 cn2 tid pos1 pos2.
+    FLOOKUP ctMap (TypeStamp cn1 tid pos1) <> NONE ==>
     ALOOKUP (type_def_to_ctMap new_tabbrev st.next_type_stamp tds type_identities)
-      (TypeStamp cn2 tid) = NONE` by (
+      (TypeStamp cn2 tid pos2) = NONE` by (
     fs [consistent_ctMap_def] >>
     rw [ALOOKUP_NONE] >>
     `tid < st.next_type_stamp` by metis_tac [FDOM_FLOOKUP, option_nchotomy] >>
     CCONTR_TAC >>
     fs [MEM_MAP] >>
-    rename1 `TypeStamp cn2 tid = FST entry` >>
+    rename1 `TypeStamp cn2 tid pos2 = FST entry` >>
     PairCases_on `entry` >>
     imp_res_tac mem_type_def_to_ctMap >>
     rfs [] >> rw [] >> decide_tac) >>
@@ -2540,30 +2529,33 @@ Proof
       simp [] >> metis_tac [])
     >- (
       fs [ctMap_has_bools_def] >>
-      `!cn. ALOOKUP
+      `!cn pos. ALOOKUP
         (type_def_to_ctMap new_tabbrev st.next_type_stamp tds type_identities)
-        (TypeStamp cn bool_type_num) = NONE` by (
-        gen_tac >>
-        qpat_x_assum `!cn1 cn2 tid. FLOOKUP _ (TypeStamp cn1 tid) <> NONE ==> _`
-          (qspecl_then [`«True»`, `cn`, `bool_type_num`] mp_tac) >> simp []) >>
-      simp [FLOOKUP_FUNION, flookup_fupdate_list])
+        (TypeStamp cn bool_type_num pos) = NONE` by (
+        rpt gen_tac >>
+        qpat_x_assum `!cn1 cn2 tid pos1 pos2. FLOOKUP _ (TypeStamp cn1 tid pos1) <> NONE ==> _`
+          (qspecl_then [`«True»`, `cn`, `bool_type_num`, `1`, `pos`] mp_tac) >> simp []) >>
+      simp [FLOOKUP_FUNION, flookup_fupdate_list] >>
+      qpat_x_assum `∀cn pos. _ ⇒ FLOOKUP ctMap (TypeStamp cn bool_type_num pos) = NONE` ACCEPT_TAC)
     >- (
       fs [ctMap_has_exns_def, weakCT_def] >>
       imp_res_tac FLOOKUP_SUBMAP >> simp [])
-    >> fs [ctMap_has_lists_def] >>
-    `!cn. ALOOKUP
-      (type_def_to_ctMap new_tabbrev st.next_type_stamp tds type_identities)
-      (TypeStamp cn list_type_num) = NONE` by (
-      gen_tac >>
-      qpat_x_assum `!cn1 cn2 tid. FLOOKUP _ (TypeStamp cn1 tid) <> NONE ==> _`
-        (qspecl_then [`«[]»`, `cn`, `list_type_num`] mp_tac) >> simp []) >>
-    simp [FLOOKUP_FUNION, flookup_fupdate_list]) >>
+    >- (
+      fs [ctMap_has_lists_def] >>
+      `!cn pos. ALOOKUP
+        (type_def_to_ctMap new_tabbrev st.next_type_stamp tds type_identities)
+        (TypeStamp cn list_type_num pos) = NONE` by (
+        rpt gen_tac >>
+        qpat_x_assum `!cn1 cn2 tid pos1 pos2. FLOOKUP _ (TypeStamp cn1 tid pos1) <> NONE ==> _`
+          (qspecl_then [`«[]»`, `cn`, `list_type_num`, `0`, `pos`] mp_tac) >> simp []) >>
+      simp [FLOOKUP_FUNION, flookup_fupdate_list] >>
+      qpat_x_assum `∀cn pos. _ ⇒ FLOOKUP ctMap (TypeStamp cn list_type_num pos) = NONE` ACCEPT_TAC)) >>
   conj_tac
   >- (
     fs [consistent_ctMap_def] >>
     rw [FDOM_FUPDATE_LIST, MEM_MAP]
     >- (
-      rename1 `TypeStamp _ _ = FST entry` >>
+      rename1 `TypeStamp _ _ _ = FST entry` >>
       PairCases_on `entry` >> fs [] >>
       drule mem_type_def_to_ctMap >> simp [] >> strip_tac >> gvs [])
     >- (
@@ -2917,7 +2909,8 @@ Resume decs_type_sound_no_check[Exception]:
         fs [prim_type_nums_def, same_type_def]))
     >- (
       simp [ctMap_has_bools_def, FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
-      metis_tac [ctMap_has_bools_def])
+      qpat_x_assum `ctMap_has_bools ctMap`
+        (ACCEPT_TAC o SIMP_RULE (srw_ss()) [ctMap_has_bools_def]))
     >- (
       simp [ctMap_has_exns_def, FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
       rw [] >>
@@ -2927,7 +2920,8 @@ Resume decs_type_sound_no_check[Exception]:
       fs [])
     >- (
       simp [ctMap_has_lists_def, FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
-      metis_tac [ctMap_has_lists_def, Tlist_def]))
+      qpat_x_assum `ctMap_has_lists ctMap`
+        (ACCEPT_TAC o SIMP_RULE (srw_ss()) [ctMap_has_lists_def])))
   >> conj_tac
   >- (
     fs [consistent_ctMap_def] >>
@@ -3114,7 +3108,8 @@ Proof
  rw []
  >> CCONTR_TAC
  >> fs [semantics_prog_def, semantics_determ_def]
- >> Cases_on `evaluate_prog_with_clock (st with ptr_eq_oracle := po) env k tops`
+ >> Cases_on `evaluate_prog_with_clock
+                (st with <| ptr_eq_oracle := po; eval_oracle := eo |>) env k tops`
  >> fs []
  >> rw []
  >> fs [evaluate_prog_with_clock_def]

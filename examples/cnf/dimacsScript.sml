@@ -3,7 +3,7 @@
 *)
 Theory dimacs
 Ancestors
-  misc cnf syntax_helper mlstring mlint
+  misc cnf syntax_helper input_lex mlstring mlint
 Libs
   preamble
 
@@ -11,8 +11,8 @@ Libs
   the meaning of CNF DIMACS files.
 
   Clauses, literals and their semantics are inherited from cnf; the DIMACS
-  header, comment stripping, literal print/parse and body engine from
-  syntax_helper. *)
+  header, comment stripping and body engine from input_lex; literal
+  print/parse from syntax_helper. *)
 
 (***
   A parser and printer for CNF in CakeML

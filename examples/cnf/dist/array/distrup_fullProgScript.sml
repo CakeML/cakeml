@@ -1689,12 +1689,12 @@ End
 Theorem check_top_NONE:
   NUM lno lnov ∧
   DISTRUP_DISTRUP_TYPE inst instv ∧
-  stv = Conv (SOME (TypeStamp «None» 2)) [] ⇒
+  stv = Conv (SOME (TypeStamp «None» 2 0)) [] ⇒
   app (p:'ffi ffi_proj) check_top_v [lnov; instv; stv]
       (emp)
       (POSTv res.
         &(res =
-          Conv NONE [Conv (SOME (TypeStamp «None» 2)) [];
+          Conv NONE [Conv (SOME (TypeStamp «None» 2 0)) [];
             Litv (StrLit «»)]))
 Proof
   rw[]>>
@@ -1710,7 +1710,7 @@ Theorem check_top_SOME:
   DISTRUP_DISTRUP_TYPE inst instv ∧
   dm_ok fmlls Clist b ∧
   stv =
-    Conv (SOME (TypeStamp «Some» 2))
+    Conv (SOME (TypeStamp «Some» 2 1))
       [Conv NONE [fmlv; Carrv; bv]] ⇒
   app (p:'ffi ffi_proj) check_top_v [lnov; instv; stv]
       (ARRAY_OF vcclause_TYPE fmlv fmlls *
@@ -1721,13 +1721,13 @@ Theorem check_top_SOME:
            STRING_TYPE msg v2) *
          case check_distrup_list inst fmlls Clist b of
            NONE =>
-            &(v1 = Conv (SOME (TypeStamp «None» 2)) [])
+            &(v1 = Conv (SOME (TypeStamp «None» 2 0)) [])
          | SOME (fmlls', Clist', b') =>
             SEP_EXISTS v11 v12 v13.
             ARRAY_OF vcclause_TYPE v11 fmlls' *
             ARRAY_OF NUM v12 Clist' *
             &(
-              v1 = Conv (SOME (TypeStamp «Some» 2))
+              v1 = Conv (SOME (TypeStamp «Some» 2 1))
                 [Conv NONE [v11;v12;v13]] ∧
               NUM b' v13
             )
@@ -1739,7 +1739,7 @@ Proof
   xhandle`POSTve
     (λv. SEP_EXISTS v1 v2 v3 fmlls' Clist' b'.
       ARRAY_OF vcclause_TYPE v1 fmlls' * ARRAY_OF NUM v2 Clist' *
-      &(v = Conv NONE [Conv (SOME (TypeStamp «Some» 2)) [Conv NONE [v1; v2; v3]];
+      &(v = Conv NONE [Conv (SOME (TypeStamp «Some» 2 1)) [Conv NONE [v1; v2; v3]];
           Litv (StrLit «»)] ∧
         NUM b' v3 ∧
         check_distrup_list inst fmlls Clist b = SOME (fmlls',Clist',b')))
@@ -1775,7 +1775,7 @@ End
 Theorem loop_NONE:
   ∀inputs lno lnov events aevents step_arr step_arrv buf_arr buf_arrv stv.
     NUM lno lnov ∧
-    stv = Conv (SOME (TypeStamp «None» 2)) [] ∧
+    stv = Conv (SOME (TypeStamp «None» 2 0)) [] ∧
     events_ok st events aevents NONE ∧
     LENGTH step_arr = 17 ⇒
     app (p:'ffi ffi_proj) loop_v [step_arrv; buf_arrv; stv; lnov]
@@ -1963,7 +1963,7 @@ Theorem loop_SOME:
     dm_ok fmlls Clist b ∧
     events_ok st events aevents (SOME (fmlls, Clist, b)) ∧
     stv =
-      Conv (SOME (TypeStamp «Some» 2))
+      Conv (SOME (TypeStamp «Some» 2 1))
         [Conv NONE [fmlv; Carrv; bv]] ⇒
     LENGTH step_arr = 17 ⇒
     app (p:'ffi ffi_proj) loop_v [step_arrv; buf_arrv; stv; lnov]
@@ -2498,6 +2498,43 @@ Proof
   gvs [main_res]
 QED
 
+(* without an eval state, the eval oracle does not affect the semantics *)
+Theorem evaluate_prog_with_clock_eval_oracle[local]:
+  s.eval_state = NONE ⇒
+  evaluate_prog_with_clock (s with eval_oracle := eo) env k p =
+  evaluate_prog_with_clock s env k p
+Proof
+  rw [semanticsTheory.evaluate_prog_with_clock_def]
+  \\ Cases_on ‘evaluate_decs (s with clock := k) env p’
+  \\ drule (cj 3 evaluatePropsTheory.eval_no_eval_oracle)
+  \\ simp []
+  \\ disch_then (qspec_then ‘eo’ mp_tac)
+  \\ ‘s with <|eval_oracle := eo; clock := k|> =
+      s with <|clock := k; eval_oracle := eo|>’
+    by simp [semanticPrimitivesTheory.state_component_equality]
+  \\ simp []
+QED
+
+Theorem semantics_determ_distrup_prog_eo[local]:
+  semantics_determ
+    (init_state (custom_ffi (State Step inputs tb)) with
+       <|ptr_eq_oracle := po; eval_oracle := eo|>)
+    init_env distrup_prog
+    (Terminate Success (main_events po tb inputs))
+Proof
+  ‘init_state (custom_ffi (State Step inputs tb)) with
+     <|ptr_eq_oracle := po; eval_oracle := eo|> =
+   (init_state (custom_ffi (State Step inputs tb)) with ptr_eq_oracle := po)
+     with eval_oracle := eo’
+    by simp [semanticPrimitivesTheory.state_component_equality]
+  \\ pop_assum SUBST1_TAC
+  \\ qmatch_goalsub_abbrev_tac ‘semantics_determ (s1 with eval_oracle := _)’
+  \\ ‘s1.eval_state = NONE’ by (unabbrev_all_tac \\ EVAL_TAC)
+  \\ mp_tac semantics_determ_distrup_prog
+  \\ simp [semanticsTheory.semantics_determ_def,
+           evaluate_prog_with_clock_eval_oracle, Abbr ‘s1’]
+QED
+
 Theorem semantics_prog_distrup_prog:
   sem_satisfies
     (semantics_prog (init_state (custom_ffi (State Step inputs tb))) init_env
@@ -2506,9 +2543,9 @@ Theorem semantics_prog_distrup_prog:
 Proof
   simp [semanticsPropsTheory.sem_satisfies_def, semanticsTheory.semantics_prog_def,
         EXTENSION, IN_DEF] >>
-  conj_tac >- metis_tac [semantics_determ_distrup_prog] >>
+  conj_tac >- metis_tac [semantics_determ_distrup_prog_eo] >>
   rw [] >>
   drule_then (qspec_then ‘Terminate Success (main_events po tb inputs)’ mp_tac)
     semanticsPropsTheory.semantics_determ_deterministic >>
-  simp [semantics_determ_distrup_prog, full_events_ok_main_events]
+  simp [semantics_determ_distrup_prog_eo, full_events_ok_main_events]
 QED

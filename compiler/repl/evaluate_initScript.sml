@@ -287,7 +287,7 @@ QED
 Theorem do_eval_state_none:
   s.eval_state = NONE ⇒
     do_eval_res vs s =
-      (s, (Rerr (Rabort Rtype_error) : (v sem_env # dec list, v) result))
+      (s, (Rerr (Rabort Rtype_error) : (v + v sem_env # dec list, v) result))
 Proof
   rw [do_eval_res_def, do_eval_def]
 QED
@@ -314,7 +314,7 @@ Resume evaluate_ok[App_Eval]:
     rw [] \\ gs [])
   \\ drule_then assume_tac state_ok_eval_state
   \\ drule_then assume_tac do_eval_state_none
-  \\ simp []
+  \\ simp [evaluatePropsTheory.do_eval_NONE]
 QED
 
 Theorem v_ok_v_to_list:
@@ -695,9 +695,10 @@ Proof
     \\ irule v_rel_update
     \\ first_assum (irule_at Any)
     \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
-  \\ Cases_on ‘op = Equality’ \\ gs []
+  \\ Cases_on `op = Equality ∨ op = PolyCompare`
   >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
+    pop_assum strip_assume_tac
+    \\ gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def, copy_array_def, store_assign_def])
   \\ Cases_on ‘∃test ty. op = Test test ty’ \\ gs []
   >- (

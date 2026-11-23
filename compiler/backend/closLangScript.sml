@@ -37,6 +37,7 @@ Datatype:
      | LessEq             (* <= over the integers *)
      | Greater            (* > over the integers *)
      | GreaterEq          (* >= over the integers *)
+     | IsSmallnum bool    (* fits in a tagged integer; T permits negatives *)
      | Smallnum smallnum_op
 End
 
@@ -75,6 +76,7 @@ Datatype:
      | ListAppend        (* appends two lists *)
      | Constant const    (* produces a constant value *)
      | Equal             (* structural equality *)
+     | PolyCompare       (* polymorphic comparison *)
      | PtrEqual          (* pointer equality: true implies structural equality,
                             but may spuriously return false; consumes one bit
                             of the state's ptr_eq_oracle on every answer *)

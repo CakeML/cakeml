@@ -28,6 +28,8 @@ structure ml_monadBaseSyntax :> ml_monadBaseSyntax = struct
   val (st_ex_return_tm, mk_st_ex_return, dest_st_ex_return,
        is_st_ex_return) =
     s1 "st_ex_return";
+  val (Mptr_eq_tm, mk_Mptr_eq, dest_Mptr_eq, is_Mptr_eq) =
+    HolKernel.syntax_fns4 "ml_monadBase" "Mptr_eq";
   val (otherwise_tm, mk_otherwise, dest_otherwise, is_otherwise) =
     s2 "otherwise";
   val (run_tm, mk_run, dest_run, is_run) =

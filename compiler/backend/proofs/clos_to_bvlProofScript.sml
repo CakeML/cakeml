@@ -26,7 +26,6 @@ val _ = temp_bring_to_front_overload"compile_exps"{Name="compile_exps",Thy="clos
 
 val EVERY2_GENLIST = LIST_REL_GENLIST |> EQ_IMP_RULE |> snd |> Q.GEN`l`
 
-
 Theorem EVERY_ZIP_GENLIST[local]:
   !xs.
       (!i. i < LENGTH xs ==> P (EL i xs,f i)) ==>
@@ -757,16 +756,20 @@ Theorem evaluate_mk_cl_call[local]:
                     | x => x)
             | x => x
 Proof
-  srw_tac[][Once mk_cl_call_def, evaluate_def, do_app_def, do_int_app_def,do_eq_def, generic_app_fn_location_def] >>
+  srw_tac[][Once mk_cl_call_def, evaluate_def, do_app_def, do_int_app_def,
+            do_cmp_def, semanticPrimitivesTheory.compare_int_eq_zero,
+            generic_app_fn_location_def] >>
   full_simp_tac(srw_ss())[ADD1] >>
   Cases_on `n = &(LENGTH args − 1)` >>
-  srw_tac[][evaluate_APPEND, evaluate_def, do_app_def, do_int_app_def, do_eq_def, find_code_def, FRONT_APPEND] >>
+  srw_tac[][evaluate_APPEND, evaluate_def, do_app_def, do_int_app_def,
+            do_cmp_def, semanticPrimitivesTheory.compare_int_eq_zero,
+            find_code_def, FRONT_APPEND] >>
   simp [] >>
   imp_res_tac bvlPropsTheory.evaluate_IMP_LENGTH >>
   rev_full_simp_tac (srw_ss()++ARITH_ss) [] >>
   `LENGTH args <> 0` by simp[] >>
   `LENGTH args' - 1 + 1 = LENGTH args'` by decide_tac >>
-  TRY(fs[] \\ NO_TAC) \\
+  fs [] >>
   `lookup p (dec_clock 1 s).code = SOME (n+2,exp,md)` by srw_tac[][] >>
   imp_res_tac evaluate_generic_app_full >>
   srw_tac[][] >>
@@ -1467,75 +1470,109 @@ Proof
 QED
 
 Theorem not_isClos[simp]:
-   ~isClos (if n < ^(closure_tag_def |> concl |> rand) then n else (n + 2)) ys
+   ~isClos (clos_tag_shift n) ys
 Proof
   EVAL_TAC \\ rw []
 QED
 
-Theorem do_eq[local]:
+Theorem clos_tag_shift_eq[local]:
+  clos_tag_shift left_tag = clos_tag_shift right_tag ⇔ left_tag = right_tag
+Proof
+  rw [clos_tag_shift_def] \\ decide_tac
+QED
+
+Theorem compare_int_clos_tag_shift[local]:
+  compare_int (&clos_tag_shift left_tag) (&clos_tag_shift right_tag) =
+  compare_int (&left_tag) (&right_tag)
+Proof
+  simp [semanticPrimitivesTheory.compare_int_def, clos_tag_shift_lt]
+QED
+
+Theorem do_cmp[local]:
   INJ ($' f) (FDOM f) (FRANGE f) ∧
    (∀x y bs. FLOOKUP f x = SOME y ⇒ FLOOKUP r y ≠ SOME (ByteArray T bs)) ⇒
     (∀x y x1 y1.
            v_rel max_app f r c x x1 ∧
            v_rel max_app f r c y y1 ⇒
-           do_eq x y = do_eq r x1 y1) ∧
+           do_cmp x y = do_cmp r x1 y1) ∧
     (∀x y x1 y1.
            LIST_REL (v_rel max_app f r c) x x1 ∧
            LIST_REL (v_rel max_app f r c) y y1 ⇒
-           do_eq_list x y = do_eq_list r x1 y1)
+           do_cmp_list x y = do_cmp_list r x1 y1)
 Proof
-  strip_tac >>
-  HO_MATCH_MP_TAC closSemTheory.do_eq_ind >>
-  srw_tac[][]
-  >- (srw_tac[][closSemTheory.do_eq_def] >>
-      Cases_on `x` >>
-      fs[v_rel_SIMP] >> fs[add_args_def] >> srw_tac[][] >>
-      Cases_on `y` >>
-      fs[v_rel_SIMP] >> fs[add_args_def] >> srw_tac[][] >>
-      rev_full_simp_tac(srw_ss())[] >>
-      imp_res_tac LIST_REL_LENGTH >>
-      full_simp_tac(srw_ss())[closure_tag_def,partial_app_tag_def,clos_tag_shift_def] >>
-      BasicProvers.EVERY_CASE_TAC >>
-      rev_full_simp_tac (srw_ss()++ARITH_ss) [] >>
-      full_simp_tac(srw_ss())[INJ_DEF, FLOOKUP_DEF] >>
-      fs [bvlSemTheory.isClos_def,closure_tag_def,partial_app_tag_def] >>
-      metis_tac [])
-  >- full_simp_tac(srw_ss())[closSemTheory.do_eq_def]
-  >- (res_tac >>
-      srw_tac[][closSemTheory.do_eq_def] >>
-      Cases_on `do_eq x y` >>
-      full_simp_tac(srw_ss())[] >>
-      qpat_x_assum `X = do_eq _ y'' y'''` (mp_tac o GSYM) >>
-      srw_tac[][])
-  >- full_simp_tac(srw_ss())[closSemTheory.do_eq_def]
-  >- full_simp_tac(srw_ss())[closSemTheory.do_eq_def]
+  strip_tac
+  \\ ho_match_mp_tac closSemTheory.do_cmp_ind
+  \\ rpt strip_tac \\ gvs [Excl "do_cmp_def"]
+  >- (
+    qmatch_goalsub_rename_tac ‘closSem$do_cmp source_left source_right’
+    \\ namedCases_on ‘source_left’
+      ["left_num", "left_word", "left_tag left_fields", "left_bytes", "left_flag left_ptr",
+       "left_loc left_args left_env left_arity left_body",
+       "left_loc left_args left_env left_bodies left_index"]
+    \\ namedCases_on ‘source_right’
+         ["right_num", "right_word", "right_tag right_fields", "right_bytes",
+          "right_flag right_ptr", "right_loc right_args right_env right_arity right_body",
+          "right_loc right_args right_env right_bodies right_index"]
+    \\ gvs [v_rel_SIMP, add_args_def, closSemTheory.do_cmp_def]
+    \\ gvs [bvlSemTheory.isClos_def, closure_tag_def, partial_app_tag_def]
+    >~ [‘do_cmp_list left_fields right_fields’] >- (
+      imp_res_tac LIST_REL_LENGTH
+      \\ full_simp_tac bool_ss
+           [clos_tag_shift_eq, is_exn_tag_shift, compare_int_clos_tag_shift,
+            GSYM NULL_EQ, NULL_LENGTH]
+      \\ IF_CASES_TAC \\ gvs [Excl "do_cmp_def"])
+    >>~- ([‘Cmp_type_error = _ (* g *)’],
+      rpt (TOP_CASE_TAC \\ gvs []) \\ metis_tac [])
+    \\ qmatch_asmsub_rename_tac ‘FLOOKUP f left_ptr = SOME target_left’
+    \\ qmatch_asmsub_rename_tac ‘FLOOKUP f right_ptr = SOME target_right’
+    \\ ‘target_left = target_right ⇔ left_ptr = right_ptr’ by
+         (fs [INJ_DEF, FLOOKUP_DEF] \\ metis_tac [])
+    \\ rpt (TOP_CASE_TAC \\ gvs []) \\ metis_tac [])
+  >~ [‘closSem$do_cmp_list (_::_) (_::_)’] >- (
+    qmatch_goalsub_rename_tac
+      ‘closSem$do_cmp_list (left_head::left_tail) (right_head::right_tail)’
+    \\ qpat_x_assum ‘∀x1 y1. v_rel _ _ _ _ _ _ ∧ _ ⇒ _’ drule_all
+    \\ disch_then (assume_tac o GSYM)
+    \\ pure_rewrite_tac
+         [closSemTheory.do_cmp_def |> CONJUNCT2, bvlSemTheory.do_cmp_def |> CONJUNCT2]
+    \\ namedCases_on ‘closSem$do_cmp left_head right_head’ ["head_cmp", ""]
+    \\ gvs [semanticPrimitivesTheory.cmp_result_case_def,
+            semanticPrimitivesTheory.cmp_result_11, Excl "do_cmp_def"]
+    \\ IF_CASES_TAC \\ gvs [semanticPrimitivesTheory.cmp_result_case_def,
+            semanticPrimitivesTheory.cmp_result_11, Excl "do_cmp_def"])
+  \\ simp [closSemTheory.do_cmp_def |> CONJUNCT2]
 QED
 
-val r = mk_var("r",``:num |-> 'a ref``);
-
-Theorem do_eq_sym[local]:
-  (∀^r x y. do_eq r x y = do_eq r y x) ∧
-   (∀^r x y. do_eq_list r x y = do_eq_list r y x)
+Theorem do_cmp_state_rel[local]:
+  state_rel f source target ∧
+  v_rel source.max_app f target.refs target.code left target_left ∧
+  v_rel source.max_app f target.refs target.code right target_right ⇒
+  closSem$do_cmp left right = bvlSem$do_cmp target.refs target_left target_right
 Proof
-  ho_match_mp_tac do_eq_ind >> simp[] >>
-  conj_tac >- ( ntac 2 gen_tac >> Cases >> srw_tac[][] ) >>
-  conj_tac >- METIS_TAC[] >>
-  conj_tac >- METIS_TAC[] >>
-  conj_tac >- ( rw[] \\ every_case_tac \\ fs[] \\ metis_tac[] ) \\
-  conj_tac >- (
-    rpt gen_tac >> strip_tac >>
-    IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
-    srw_tac[][] >> full_simp_tac(srw_ss())[] ) >>
-  srw_tac[][] >> every_case_tac >> fs[]
+  strip_tac
+  \\ ‘INJ ($' f) (FDOM f) (FRANGE f) ∧
+        (∀x y bs. FLOOKUP f x = SOME y ⇒
+                  FLOOKUP target.refs y ≠ SOME (ByteArray T bs))’ by
+       (fs [state_rel_def] \\ metis_tac [])
+  \\ metadata_drule (do_cmp |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |>
+                       Q.GEN ‘c’ |> Q.ISPEC ‘target.code’ |> GEN_ALL)
+  \\ disch_then metadata_drule \\ strip_tac \\ metis_tac []
 QED
 
-Theorem do_eq_list_T_every:
-   ∀vs1 vs2. do_eq_list r vs1 vs2 = Eq_val T ⇔ LIST_REL (λv1 v2. do_eq r v1 v2 = Eq_val T) vs1 vs2
+Theorem do_cmp_list_zero_every:
+  ∀vs1 vs2.
+    do_cmp_list r vs1 vs2 = Cmp_val 0 ⇔
+    LIST_REL (λv1 v2. do_cmp r v1 v2 = Cmp_val 0) vs1 vs2
 Proof
-  Induct \\ simp[do_eq_def]
-  \\ Cases_on`vs2`\\ simp[do_eq_def]
-  \\ srw_tac[][]
-  \\ every_case_tac \\  full_simp_tac(srw_ss())[]
+  Induct
+  \\ namedCases_on ‘vs2’ ["", "right_head right_tail"]
+  \\ simp [do_cmp_def, semanticPrimitivesTheory.cmp_result_11]
+  \\ qx_gen_tac ‘left_head’
+  \\ namedCases_on ‘do_cmp r left_head right_head’ ["head_cmp", ""]
+  \\ simp [semanticPrimitivesTheory.cmp_result_case_def,
+           semanticPrimitivesTheory.cmp_result_11,
+           semanticPrimitivesTheory.cmp_result_distinct]
+  \\ rw []
 QED
 
 Theorem list_to_v_v_rel:
@@ -1628,34 +1665,31 @@ Proof
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac
      \\ gvs [bvlSemTheory.do_app_def,v_rel_SIMP])
   \\ Cases_on `op = Install` THEN1 fs[closSemTheory.do_app_def]
-  \\ Cases_on `op = BlockOp Equal` THEN1 (
-    srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def,
-                            bvlSemTheory.do_eq_def]
-    \\ `?x1 x2 y1 y2. xs = [x1;x2] /\ ys = [y1;y2]` by
-          (every_case_tac \\ fs [] \\ NO_TAC) \\ fs []
-    \\ namedCases_on `do_eq x1 x2` ["equal_result", ""] \\ fs [] \\ rveq
-    \\ `INJ ($' f) (FDOM f) (FRANGE f) ∧
-        (∀x y bs. FLOOKUP f x = SOME y ⇒ FLOOKUP t1.refs y ≠ SOME (ByteArray T bs))`
-    by (fs [state_rel_def] \\ metis_tac[])
-    \\ metadata_drule (do_eq |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |>
-                Q.GEN `c` |> Q.ISPEC `t1.code` |> GEN_ALL)
-    \\ disch_then metadata_drule
-    \\ strip_tac
-    \\ `do_eq t1.refs y1 y2 = Eq_val equal_result` by metis_tac [] \\ fs [])
-  \\ Cases_on `op = BlockOp PtrEqual` THEN1
-   (srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def]
-    \\ gvs [AllCaseEqs()]
-    \\ `INJ ($' f) (FDOM f) (FRANGE f) ∧
-        (∀x y bs. FLOOKUP f x = SOME y ⇒
-                  FLOOKUP t1.refs y ≠ SOME (ByteArray T bs))`
-          by (fs [state_rel_def] \\ metis_tac[])
-    \\ metadata_drule (do_eq |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |>
-                Q.GEN `c` |> Q.ISPEC `t1.code` |> GEN_ALL)
-    \\ disch_then metadata_drule \\ strip_tac
-    \\ gvs []
+  \\ Cases_on ‘op = BlockOp Equal ∨ op = BlockOp PolyCompare’
+  >- (
+    gvs [] \\ rpt strip_tac
+    \\ gvs [closSemTheory.do_app_def, AllCaseEqs()]
+    \\ qmatch_asmsub_rename_tac
+         ‘closSem$do_cmp source_left source_right = Cmp_val compare_result’
+    \\ qmatch_goalsub_rename_tac ‘bvlSem$do_app _ [target_left; target_right] t1’
+    \\ ‘bvlSem$do_cmp t1.refs target_left target_right = Cmp_val compare_result’ by
+         metis_tac [do_cmp_state_rel]
+    \\ simp [bvlSemTheory.do_app_def, semanticPrimitivesTheory.cmp_result_case_def,
+             v_rel_SIMP])
+  \\ Cases_on ‘op = BlockOp PtrEqual’
+  >- (
+    gvs [] \\ rpt strip_tac
+    \\ gvs [closSemTheory.do_app_def, AllCaseEqs()]
+    \\ qmatch_asmsub_rename_tac
+         ‘closSem$do_cmp source_left source_right = Cmp_val compare_result’
+    \\ qmatch_goalsub_rename_tac ‘bvlSem$do_app _ [target_left; target_right] t1’
+    \\ ‘bvlSem$do_cmp t1.refs target_left target_right = Cmp_val compare_result’ by
+         metis_tac [do_cmp_state_rel]
+    \\ ‘t1.ptr_eq_oracle = s1.ptr_eq_oracle’ by fs [state_rel_def]
+    \\ simp [bvlSemTheory.do_app_def, semanticPrimitivesTheory.cmp_result_case_def,
+             v_rel_SIMP]
     \\ fs [state_rel_def]
-    \\ res_tac \\ gvs []
-    \\ first_assum ACCEPT_TAC)
+    \\ qpat_x_assum ‘∀x y bs. FLOOKUP f x = SOME y ⇒ _’ ACCEPT_TAC)
   \\ Cases_on `op = MemOp ToListByte` THEN1 (
     fs [closSemTheory.do_app_def,AllCaseEqs(),PULL_EXISTS]
     \\ rw [] \\ gvs [v_rel_SIMP,bvlSemTheory.do_app_def]
@@ -1689,7 +1723,7 @@ Proof
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []) >>
   Cases_on `op = MemOp El`
   >- (
-    fs [closSemTheory.do_app_def,bvlSemTheory.do_app_def,bvlSemTheory.do_eq_def] >>
+    fs [closSemTheory.do_app_def,bvlSemTheory.do_app_def,bvlSemTheory.do_cmp_def] >>
     namedCases_on `xs` ["", "array_value remaining_args"] >>
     full_simp_tac(srw_ss())[v_rel_SIMP] >>
     Cases_on `array_value` >> fs [] >>
@@ -1750,7 +1784,7 @@ Proof
    rw[AllCaseEqs()] >> gvs[v_rel_SIMP] >>
    simp[bvlSemTheory.do_app_def,bvlSemTheory.do_word_app_def])
   \\ srw_tac [] [closSemTheory.do_app_def,
-    bvlSemTheory.do_app_def, bvlSemTheory.do_eq_def]
+    bvlSemTheory.do_app_def, bvlSemTheory.do_cmp_def]
   >>~- ([`Global`],
     imp_res_tac state_rel_globals >>
     gvs [AllCaseEqs()] >>
@@ -2847,31 +2881,23 @@ Proof
   srw_tac [ARITH_ss] [EL_TAKE, EL_REVERSE, EL_DROP, PRE_SUB1]
 QED
 
-val mk_call_simp2 = Q.prove(
-  `!n args stuff stuff' v t.
-    n ≤ LENGTH args ∧ LENGTH stuff' ≠ 0
-    ⇒
-    evaluate ([mk_cl_call (Var n) (GENLIST Var n)], (TAKE n args) ++ [v] ++ stuff, t)
-    =
-    evaluate ([mk_cl_call (Var 0) (GENLIST (\n. Var (n+1)) n)], v::(args++stuff'), t)`,
-  strip_tac >>
-  simp [mk_cl_call_def, bEval_def, bEvalOp_def, do_int_app_def, el_take_append] >>
-  Cases_on `v` >>
-  simp [] >>
-  srw_tac[][] >>
-  TRY (rename [`FLOOKUP t.refs rrr`] \\ Cases_on `FLOOKUP t.refs rrr` \\ fs []
-       \\ Cases_on `x`\\ fs [] \\ IF_CASES_TAC \\ fs []) >>
-  srw_tac[][] >>
-  Cases_on`EL 1 l`>>simp[do_eq_def]>>
-  simp[bEval_APPEND] >>
-  rename [`TAKE n args ++ [xxx] ++ stuff`] >>
-  qspecl_then [`0`, `TAKE n args ++ [xxx] ++ stuff`, `n`]mp_tac evaluate_genlist_vars >>
-  qspecl_then [`1`, `xxx::(args ++ stuff')`, `n`]mp_tac evaluate_genlist_vars >>
-  srw_tac [ARITH_ss] [ETA_THM, bEval_def, bEvalOp_def, do_int_app_def,el_take_append] >>
-  srw_tac[][] >>
-  `n+1 ≤ SUC (LENGTH args + LENGTH stuff')` by decide_tac >>
-  srw_tac [ARITH_ss] [TAKE_APPEND1, TAKE_TAKE, EL_CONS])
-  |> INST_TYPE[alpha|->``:'c``,beta|->``:'ffi``];
+Theorem mk_call_simp2[local]:
+  ∀n args stuff stuff' v (t:('c,'ffi) bvlSem$state).
+    n ≤ LENGTH args ∧ LENGTH stuff' ≠ 0 ⇒
+    evaluate ([mk_cl_call (Var n) (GENLIST Var n)], TAKE n args ++ [v] ++ stuff, t) =
+    evaluate ([mk_cl_call (Var 0) (GENLIST (λn. Var (n + 1)) n)],
+              v::(args ++ stuff'), t)
+Proof
+  rpt strip_tac
+  \\ qspecl_then [‘0’, ‘TAKE n args ++ [v] ++ stuff’, ‘n’] mp_tac
+       (evaluate_genlist_vars |> INST_TYPE [alpha |-> ``:'c``, beta |-> ``:'ffi``])
+  \\ qspecl_then [‘1’, ‘v::(args ++ stuff')’, ‘n’] mp_tac
+       (evaluate_genlist_vars |> INST_TYPE [alpha |-> ``:'c``, beta |-> ``:'ffi``])
+  \\ srw_tac [ARITH_ss] [ETA_THM, TAKE_APPEND1, TAKE_TAKE, EL_CONS]
+  \\ simp [mk_cl_call_def, bEval_def, bEvalOp_def, do_int_app_def, el_take_append]
+  \\ simp [bEval_APPEND]
+  \\ simp [bEval_def, bEvalOp_def, el_take_append]
+QED
 
 Theorem no_partial_args[local]:
   num_remaining_args func = SOME x ∧
@@ -2891,7 +2917,6 @@ Proof
 QED
 
 val s1 = ``s1:('c,'ffi) closSem$state``;
-
 
 val env_rel_ind = theorem"env_rel_ind";
 
@@ -5815,7 +5840,6 @@ Proof
     metis_tac [])
 )))
 QED
-
 
 (* more correctness properties *)
 

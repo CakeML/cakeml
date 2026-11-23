@@ -11,9 +11,10 @@ val _ = numLib.temp_prefer_num();
 (* Constructors and exceptions need unique identities, which we represent by stamps. *)
 Datatype:
  stamp =
-  (* Each type gets a unique number, and the constructor name must be unique
-     inside of the type *)
-    TypeStamp conN num
+  (* Arguments: constructor name, unique type number, and zero-based constructor
+     position in the datatype definition (needed for polymorphic compare).
+     Constructor names must be unique within the type. *)
+    TypeStamp conN num num
   | ExnStamp num
 End
 
@@ -208,49 +209,32 @@ Definition store_assign_def:
     else NONE
 End
 
-(* Compiler checker for Eval. The current design requires the compiler
-   to be run (as regular code within the semantics) before Eval is called,
-   and these config parameters specify how to interpret the declarations to
-   be evaluated and check that the compiler was run correctly.
-
-   Before attempting build a state of this type, find out about
-   mk_init_eval_state in source_evalProof.
-*)
-Type compiler_args = ``: ((num # num) # v # dec list)``
-Type compiler_fun = ``: compiler_args ->
-     (v # mlstring # word64 list)option``
-
+(* The eval state of the source semantics. A one-argument call
+   Eval (st,cl) initialises Eval: it is accepted once, when init_ok st cl
+   holds, and cl is kept as closure. The compiler proofs instantiate
+   init_ok so that cl must implement the compiler and st must be its
+   initial state. A two-argument call Eval (env,decs) succeeds or fails as
+   decided by the eval oracle of the state (see below), where failure
+   covers both a compiler that rejects decs and a missing initialisation.
+   On success, it evaluates decs in env and returns the pair
+   (Env env' id', ""), where env' is the resulting environment, and the
+   call is added to history. On failure, it returns
+   (Env env id, "Compiler error") without evaluating anything, but it
+   may consume entries of the pointer equality oracle (the compiled code
+   runs the compiler closure, which may use pointer equality). *)
 Datatype:
- eval_decs_state =
+  source_eval_state =
   <|
-    compiler : compiler_fun ;
-    (* state must be encoded as v somehow *)
-    compiler_state : v ;
+    decode_decs : v -> (dec list) option ;
     env_id_counter : (num # num # num) ;
-    (* decs must also be encoded as v *)
-    decode_decs : v ->  ( dec list)option
+    init_ok : v -> v -> bool ;
+    initialised : bool ;
+    (* the compiler closure given at initialisation *)
+    closure : v ;
+    (* the env id and declarations of every successful two-argument
+       call to Eval, oldest first *)
+    history : ((num # num) # v) list
   |>
-End
-
-(* Alternative mode for Eval including an oracle.
-   This is only for use in the compiler proof. *)
-Type eval_oracle_fun = ``: num -> compiler_args``
-
-Datatype:
- eval_oracle_state =
-  <|
-    oracle : eval_oracle_fun ;
-    custom_do_eval : v list -> eval_oracle_fun ->
-         ((num # num) # eval_oracle_fun # dec list)option ;
-    envs : ( ( v sem_env)list) list ;
-    generation : num
-  |>
-End
-
-Datatype:
-  eval_state =
-     EvalDecs eval_decs_state
-   | EvalOracle eval_oracle_state
 End
 
 Datatype:
@@ -260,12 +244,21 @@ Datatype:
    ; ffi : 'ffi ffi_state
    ; next_type_stamp : num
    ; next_exn_stamp : num
-   ; eval_state :  eval_state option
+   ; eval_state : source_eval_state option
    (* oracle deciding whether each successive PtrEq returns the result of
       structural equality (T) or is attenuated to false (F); indexed first by
-      install epoch, which advances at every Eval, and then by position
-      within that epoch *)
+      install epoch, which advances at every successful Eval, and then by
+      position within that epoch. *)
    ; ptr_eq_oracle : num -> num -> bool
+   (* oracle deciding whether a two-argument call to Eval succeeds (T) or
+      fails (F), given whether Eval has been initialised, the history of
+      successful calls and the env id and declarations of this call. Like
+      a compiler, it gives the same answer to the same call. It also gives
+      the number of pointer equality oracle entries that a failing call
+      consumes, as a function of the compiler closure, the store and the
+      pointer equality oracle. *)
+   ; eval_oracle : bool # ((num # num) # v) list # ((num # num) # v) ->
+                   bool # (v -> v store -> (num -> num -> bool) -> num)
    |>
 End
 
@@ -357,7 +350,7 @@ Datatype:
 End
 
 Definition same_type_def:
-  (same_type (TypeStamp v0 n1) (TypeStamp v1 n2) ⇔ n1 = n2) ∧
+  (same_type (TypeStamp v0 n1 pos1) (TypeStamp v1 n2 pos2) ⇔ n1 = n2) ∧
   (same_type (ExnStamp v2) (ExnStamp v3) ⇔ T) ∧
   (same_type _ _ ⇔ F)
 End
@@ -376,8 +369,8 @@ End
 
 Definition Boolv_def:
   Boolv b =
-    if b then Conv (SOME (TypeStamp «True» bool_type_num)) []
-         else Conv (SOME (TypeStamp «False» bool_type_num)) []
+    if b then Conv (SOME (TypeStamp «True» bool_type_num 1)) []
+         else Conv (SOME (TypeStamp «False» bool_type_num 0)) []
 End
 
 (* A big-step pattern matcher.  If the value matches the pattern, return an
@@ -492,6 +485,143 @@ Termination
   >> Cases_on ‘compress_bool v1’ >> gs[Boolv_def, listTheory.list_size_def]
 End
 
+Datatype:
+  cmp_result =
+     Cmp_val int
+   | Cmp_type_error
+End
+
+Definition compare_int_def:
+  compare_int (i:int) j = if i < j then -1 else if j < i then 1 else 0
+End
+
+Definition compare_lit_def:
+  compare_lit (IntLit i) (IntLit j) = Cmp_val (compare_int i j) ∧
+  compare_lit (Char c) (Char d) = Cmp_val (compare_int (&ORD c) (&ORD d)) ∧
+  compare_lit (StrLit s) (StrLit t) =
+    Cmp_val (if mlstring_lt s t then -1 else if mlstring_lt t s then 1 else 0) ∧
+  compare_lit (Word8 w) (Word8 v) = Cmp_val (compare_int (&w2n w) (&w2n v)) ∧
+  compare_lit (Word64 w) (Word64 v) = Cmp_val (compare_int (&w2n w) (&w2n v)) ∧
+  compare_lit (Float64 w) (Float64 v) = Cmp_val (compare_int (&w2n w) (&w2n v)) ∧
+  compare_lit _ _ = Cmp_type_error
+End
+
+(* Called only after checking that the constructors belong to the same type. *)
+Definition compare_stamp_def:
+  compare_stamp (SOME (TypeStamp cn1 ty1 pos1)) (SOME (TypeStamp cn2 ty2 pos2)) =
+    (if ty1 ≠ ty2 then Cmp_type_error
+     else Cmp_val (if pos1 = pos2 ∧ cn1 ≠ cn2 then 1
+                   else compare_int (&pos1) (&pos2))) ∧
+  compare_stamp (SOME (ExnStamp n1)) (SOME (ExnStamp n2)) =
+    Cmp_val (if n1 = n2 then 0 else 1) ∧
+  compare_stamp NONE NONE = Cmp_val 0 ∧
+  compare_stamp _ _ = Cmp_type_error
+End
+
+(* The checks and short-circuiting follow do_eq. Locations return 0 when equal
+   and 1 otherwise, without exposing their allocation order. All closures
+   compare equal. Environments compare their identifiers lexicographically. *)
+Definition do_compare_def:
+  do_compare (Litv l1) (Litv l2) = compare_lit l1 l2 ∧
+  do_compare (Loc b1 l1) (Loc b2 l2) =
+    (if b1 ∧ b2 then Cmp_val (if l1 = l2 then 0 else 1) else Cmp_type_error) ∧
+  do_compare (Conv cn1 vs1) (Conv cn2 vs2) =
+    (if ¬ctor_same_type cn1 cn2 then Cmp_type_error
+     else if cn1 = cn2 then
+       if LENGTH vs1 = LENGTH vs2 then do_compare_list vs1 vs2
+       else Cmp_val (compare_int (&LENGTH vs1) (&LENGTH vs2))
+     else if ctor_same_type cn1 (SOME (ExnStamp 0)) then Cmp_val 1
+     else if NULL vs1 ∧ ¬NULL vs2 then Cmp_val (-1)
+     else if ¬NULL vs1 ∧ NULL vs2 then Cmp_val 1
+     else compare_stamp cn1 cn2) ∧
+  do_compare (Vectorv vs1) (Vectorv vs2) =
+    (if LENGTH vs1 = LENGTH vs2 then do_compare_list vs1 vs2
+     else Cmp_val (compare_int (&LENGTH vs1) (&LENGTH vs2))) ∧
+  do_compare (Closure env1 n1 e1) (Closure env2 n2 e2) = Cmp_val 0 ∧
+  do_compare (Closure env1 n1 e1) (Recclosure env2 funs2 n2) = Cmp_val 0 ∧
+  do_compare (Recclosure env1 funs1 n1) (Closure env2 n2 e2) = Cmp_val 0 ∧
+  do_compare (Recclosure env1 funs1 n1) (Recclosure env2 funs2 n2) = Cmp_val 0 ∧
+  do_compare (Env env1 (gen1,id1)) (Env env2 (gen2,id2)) =
+    Cmp_val (if gen1 = gen2 then compare_int (&id1) (&id2)
+             else compare_int (&gen1) (&gen2)) ∧
+  do_compare _ _ = Cmp_type_error ∧
+  do_compare_list [] [] = Cmp_val 0 ∧
+  do_compare_list [] (_::ys) = Cmp_val (-1) ∧
+  do_compare_list (_::xs) [] = Cmp_val 1 ∧
+  do_compare_list (x::xs) (y::ys) =
+    (case do_compare x y of
+       Cmp_val n => if n = 0 then do_compare_list xs ys else Cmp_val n
+     | Cmp_type_error => Cmp_type_error)
+Termination
+  WF_REL_TAC `inv_image $< (λx. case x of INL (v1,v2) => v_size v1
+                                        | INR (vs1,vs2) => list_size v_size vs1)`
+End
+
+Theorem compare_int_eq_zero:
+  compare_int i j = 0 ⇔ i = j
+Proof
+  rw [compare_int_def] >> intLib.ARITH_TAC
+QED
+
+Theorem compare_lit_eq:
+  ∀l1 l2.
+    (case compare_lit l1 l2 of
+       Cmp_val n => Eq_val (n = 0)
+     | Cmp_type_error => Eq_type_error) =
+    if lit_same_type l1 l2 then Eq_val (l1 = l2) else Eq_type_error
+Proof
+  Cases >> Cases >>
+  simp [compare_lit_def, lit_same_type_def, compare_int_eq_zero, stringTheory.ORD_11] >>
+  rw [] >> metis_tac [mlstring_lt_nonrefl, mlstring_lt_cases]
+QED
+
+Theorem compare_stamp_eq[local]:
+  ∀cn1 cn2.
+    (case compare_stamp cn1 cn2 of
+       Cmp_val n => Eq_val (n = 0)
+     | Cmp_type_error => Eq_type_error) =
+    if ctor_same_type cn1 cn2 then Eq_val (cn1 = cn2) else Eq_type_error
+Proof
+  Cases >> Cases >> simp [ctor_same_type_def, compare_stamp_def] >>
+  rename1 `compare_stamp (SOME stamp1) (SOME stamp2)` >>
+  Cases_on `stamp1` >> Cases_on `stamp2` >>
+  simp [compare_stamp_def, same_type_def, compare_int_eq_zero] >>
+  rw [] >> simp [compare_int_eq_zero] >> metis_tac []
+QED
+
+Theorem do_compare_eq:
+  (∀v1 v2.
+    (case do_compare v1 v2 of
+       Cmp_val n => Eq_val (n = 0)
+     | Cmp_type_error => Eq_type_error) = do_eq v1 v2) ∧
+  (∀vs1 vs2.
+    (case do_compare_list vs1 vs2 of
+       Cmp_val n => Eq_val (n = 0)
+     | Cmp_type_error => Eq_type_error) = do_eq_list vs1 vs2)
+Proof
+  `∀cn. ctor_same_type cn cn` by (
+    qx_gen_tac `cn` >> Cases_on `cn` >> simp [ctor_same_type_def] >>
+    rename1 `same_type stamp stamp` >> Cases_on `stamp` >> simp [same_type_def]) >>
+  ho_match_mp_tac do_compare_ind >>
+  simp [do_compare_def, do_eq_def, compare_lit_eq, compare_stamp_eq,
+        compare_int_eq_zero] >>
+  rw [] >>
+  fs [compare_int_eq_zero, compare_stamp_eq]
+  >~ [`¬ctor_same_type cn cn`] >- metis_tac [] >>
+  Cases_on `do_compare v1 v2` >> gvs [] >>
+  IF_CASES_TAC >> gvs []
+QED
+
+Theorem do_compare_eq_iff:
+  ∀v1 v2.
+    (do_eq v1 v2 = Eq_type_error ⇔ do_compare v1 v2 = Cmp_type_error) ∧
+    (do_eq v1 v2 = Eq_val T ⇔ do_compare v1 v2 = Cmp_val 0)
+Proof
+  qx_genl_tac [`v1`,`v2`] >>
+  mp_tac (GSYM (Q.SPECL [`v1`,`v2`] (CONJUNCT1 do_compare_eq))) >>
+  Cases_on `do_compare v1 v2` >> rw []
+QED
+
 (* Do an application *)
 Definition do_opapp_def:
   do_opapp vs =
@@ -511,24 +641,24 @@ End
 (* If a value represents a list, get that list. Otherwise return Nothing *)
 Definition v_to_list_def:
   v_to_list (Conv (SOME stamp) []) =
-    (if stamp = TypeStamp «[]» list_type_num then SOME [] else NONE) ∧
+    (if stamp = TypeStamp «[]» list_type_num 0 then SOME [] else NONE) ∧
   v_to_list (Conv (SOME stamp) [v1; v2]) =
-    (if stamp = TypeStamp «::» list_type_num then
+    (if stamp = TypeStamp «::» list_type_num 1 then
        case v_to_list v2 of NONE => NONE | SOME vs => SOME (v1::vs)
      else NONE) ∧
   v_to_list _ = NONE
 End
 
 Definition list_to_v_def:
-  list_to_v [] = Conv (SOME (TypeStamp «[]» list_type_num)) [] ∧
-  list_to_v (x::xs) = Conv (SOME (TypeStamp «::» list_type_num)) [x; list_to_v xs]
+  list_to_v [] = Conv (SOME (TypeStamp «[]» list_type_num 0)) [] ∧
+  list_to_v (x::xs) = Conv (SOME (TypeStamp «::» list_type_num 1)) [x; list_to_v xs]
 End
 
 Definition v_to_char_list_def:
   v_to_char_list (Conv (SOME stamp) []) =
-    (if stamp = TypeStamp «[]» list_type_num then SOME "" else NONE) ∧
+    (if stamp = TypeStamp «[]» list_type_num 0 then SOME "" else NONE) ∧
   v_to_char_list (Conv (SOME stamp) [Litv (Char c); v]) =
-    (if stamp = TypeStamp «::» list_type_num then
+    (if stamp = TypeStamp «::» list_type_num 1 then
        case v_to_char_list v of NONE => NONE | SOME cs => SOME (STRING c cs)
      else NONE) ∧
   v_to_char_list _ = NONE
@@ -542,17 +672,17 @@ Definition vs_to_string_def:
 End
 
 Definition maybe_to_v_def:
-  maybe_to_v NONE = Conv (SOME (TypeStamp «None» option_type_num)) [] ∧
-  maybe_to_v (SOME v) = Conv (SOME (TypeStamp «Some» option_type_num)) [v]
+  maybe_to_v NONE = Conv (SOME (TypeStamp «None» option_type_num 0)) [] ∧
+  maybe_to_v (SOME v) = Conv (SOME (TypeStamp «Some» option_type_num 1)) [v]
 End
 
 Definition v_to_id_def:
   v_to_id (Conv (SOME stamp) [Litv (StrLit s)]) =
-     (if stamp = TypeStamp «Short» id_type_num then
+     (if stamp = TypeStamp «Short» id_type_num 0 then
         SOME (Short s)
       else NONE) ∧
   v_to_id (Conv (SOME stamp) [Litv (StrLit s); v]) =
-     (if stamp = TypeStamp «Long» id_type_num then
+     (if stamp = TypeStamp «Long» id_type_num 1 then
         case v_to_id v of NONE => NONE | SOME id => SOME (Long s id)
       else NONE) ∧
   v_to_id _ = NONE
@@ -592,120 +722,80 @@ Definition v_to_mlstring_def:
     | _ => NONE
 End
 
-Definition lookup_env_def:
-  lookup_env s (i,j) =
-    case oEL i s.envs of NONE => NONE | SOME gen_envs => oEL j gen_envs
-End
-
-Definition add_decs_generation_def:
-  add_decs_generation s =
-    case s.env_id_counter of
-      (cur_gen,next_id,next_gen) =>
-        s with env_id_counter := (next_gen,0,next_gen + 1)
-End
-
-Definition add_env_generation_def:
-  add_env_generation s =
-    s with <|generation := LENGTH s.envs; envs := s.envs ⧺ [[]]|>
-End
-
 Definition declare_env_def:
-  declare_env es env =
+  declare_env (es:source_eval_state option) env =
     case es of
     | NONE => NONE
-    | SOME (EvalDecs s) =>
+    | SOME s =>
       (case s.env_id_counter of
          (cur_gen,next_id,next_gen) =>
            SOME
              (Env env (cur_gen,next_id),
               SOME
-                (EvalDecs
-                   (s with
-                    env_id_counter := (cur_gen,next_id + 1,next_gen)))))
-    | SOME (EvalOracle s') =>
-      case oEL s'.generation s'.envs of
-      | NONE => NONE
-      | SOME gen_envs =>
-        SOME
-          (Conv NONE [nat_to_v s'.generation; nat_to_v (LENGTH gen_envs)],
-           SOME
-             (EvalOracle
-                (s' with
-                 envs := LUPDATE (gen_envs ⧺ [env]) s'.generation s'.envs)))
+                (s with
+                 env_id_counter := (cur_gen,next_id + 1,next_gen))))
 End
 
-(* Concrete, or first-order values, which do not contain code closures and
-   are unchanged by many compiler phases. *)
-Definition concrete_v_def:
-  (concrete_v v ⇔
+(* values that contain neither code nor references *)
+Definition data_v_def:
+  (data_v v ⇔
      case v of
-     | Loc _ _ => T
      | Litv _ => T
-     | Conv v_ vs => concrete_v_list vs
-     | Vectorv vs => concrete_v_list vs
+     | Conv v_ vs => data_v_list vs
+     | Vectorv vs => data_v_list vs
      | _ => F) ∧
-  (concrete_v_list [] ⇔ T) ∧
-  (concrete_v_list (v::vs) ⇔ concrete_v v ∧ concrete_v_list vs)
+  (data_v_list [] ⇔ T) ∧
+  (data_v_list (v::vs) ⇔ data_v v ∧ data_v_list vs)
 Termination
   WF_REL_TAC `measure (λx. case x of INL v => v_size v
                                    | INR vs => list_size v_size vs)`
 End
 
-Definition compiler_agrees_def:
-  compiler_agrees (f:((num#num)#v#(dec)list ->(v#mlstring#(word64)list)option))
-      args (st_v,bs_v,ws_v) ⇔
-    case (f args,args,v_to_mlstring bs_v,v_to_word64_list ws_v) of
-    | (SOME (st,c_bs,c_ws),(v16,prev_st_v,_),SOME bs,SOME ws) =>
-        st = st_v ∧ c_bs = bs ∧ c_ws = ws ∧ concrete_v st_v ∧
-        concrete_v prev_st_v
-    | _ => F
+(* get the declarations to be evaluated by a two-argument call to Eval *)
+Definition do_eval_def:
+  do_eval vs (es:source_eval_state option) =
+    case es of
+    | NONE => NONE
+    | SOME s =>
+      case vs of
+      | [Env env id; decs_v] =>
+        (case s.decode_decs decs_v of
+           NONE => NONE
+         | SOME decs =>
+           if data_v decs_v then
+             (case s.env_id_counter of
+                (cur_gen,next_id,next_gen) =>
+                  SOME (env,decs,
+                        SOME (s with <| env_id_counter :=
+                                          (next_gen,0,next_gen + 1);
+                                        history :=
+                                          s.history ++ [(id,decs_v)] |>)))
+           else NONE)
+      | _ => NONE
 End
 
-(* get the declarations to be evaluated in the various Eval semantics *)
-Definition do_eval_def:
-  do_eval vs es =
-    case (es,vs) of
-    | (SOME (EvalDecs s),[Env env id; st_v; decs_v; st_v2; bs_v; ws_v]) =>
-      (case s.decode_decs decs_v of
-         NONE => NONE
-       | SOME decs =>
-         if
-           st_v = s.compiler_state ∧ concrete_v decs_v ∧
-           compiler_agrees s.compiler (id,st_v,decs) (st_v2,bs_v,ws_v)
-         then
-           SOME
-             (env,decs,
-              SOME
-                (EvalDecs
-                   (add_decs_generation (s with compiler_state := st_v2))))
-         else NONE)
-    | (SOME (EvalOracle s'),vs) =>
-      (case s'.custom_do_eval vs s'.oracle of
-         NONE => NONE
-       | SOME (env_id,oracle,decs) =>
-           case lookup_env s' env_id of
-             NONE => NONE
-           | SOME env =>
-               SOME
-               (env,decs,
-                SOME
-                (EvalOracle (add_env_generation (s' with oracle := oracle)))))
-    | _ => NONE
+(* a one-argument call to Eval initialises Eval *)
+Definition do_eval_init_def:
+  do_eval_init vs (es:source_eval_state option) =
+    case es of
+    | NONE => NONE
+    | SOME s =>
+      case vs of
+      | [Conv NONE [st_v; cl]] =>
+          if ¬s.initialised ∧ s.init_ok st_v cl
+          then SOME (s with <| initialised := T; closure := cl |>) else NONE
+      | _ => NONE
 End
 
 (* conclude an Eval generation *)
 
 Definition reset_env_generation_def:
-  reset_env_generation prior_es es =
+  reset_env_generation (prior_es:source_eval_state option) es =
     case (prior_es,es) of
-    | (SOME (EvalDecs prior_s'),SOME (EvalDecs s')) =>
+    | (SOME prior_s',SOME s') =>
       (case (prior_s'.env_id_counter,s'.env_id_counter) of
          ((cur_gen,next_id,v5),v6,v8,next_gen) =>
-           SOME
-             (EvalDecs
-                (s' with env_id_counter := (cur_gen,next_id,next_gen))))
-    | (SOME (EvalOracle prior_s),SOME (EvalOracle s)) =>
-      SOME (EvalOracle (s with generation := prior_s.generation))
+           SOME (s' with env_id_counter := (cur_gen,next_id,next_gen)))
     | _ => es
 End
 
@@ -959,12 +1049,12 @@ Definition do_arith_def:
      case (a, MAP the_Litv_Float64 vals) of
      | (Absolute, [v1])   => SOME (INR $ Litv $ Float64 $ fp64_abs v1)
      | (Neg,  [v1])       => SOME (INR $ Litv $ Float64 $ fp64_negate v1)
-     | (Sqrt, [v1])       => SOME (INR $ Litv $ Float64 $ fp64_sqrt roundTiesToEven v1)
-     | (Add,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_add roundTiesToEven v1 v2)
-     | (Sub,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_sub roundTiesToEven v1 v2)
-     | (Mul,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_mul roundTiesToEven v1 v2)
-     | (Div _, [v1;v2])   => SOME (INR $ Litv $ Float64 $ fp64_div roundTiesToEven v1 v2)
-     | (FMA,  [v1;v2;v3]) => SOME (INR $ Litv $ Float64 $ fp64_mul_add roundTiesToEven v2 v3 v1)
+     | (Sqrt, [v1])       => SOME (INR $ Litv $ Float64 $ fix_NaN $ fp64_sqrt roundTiesToEven v1)
+     | (Add,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fix_NaN $ fp64_add roundTiesToEven v1 v2)
+     | (Sub,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fix_NaN $ fp64_sub roundTiesToEven v1 v2)
+     | (Mul,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fix_NaN $ fp64_mul roundTiesToEven v1 v2)
+     | (Div _, [v1;v2])   => SOME (INR $ Litv $ Float64 $ fix_NaN $ fp64_div roundTiesToEven v1 v2)
+     | (FMA,  [v1;v2;v3]) => SOME (INR $ Litv $ Float64 $ fix_NaN $ fp64_mul_add roundTiesToEven v2 v3 v1)
      | _ => NONE) ∧
   (do_arith a IntT vals =
      case (a, MAP the_Litv_IntLit vals) of
@@ -1109,6 +1199,11 @@ Definition do_app_def:
         (case do_eq v1 v2 of
             Eq_type_error => NONE
           | Eq_val b => SOME ((s,t), Rval (Boolv b))
+        )
+    | (PolyCompare, [v1; v2]) =>
+        (case do_compare v1 v2 of
+            Cmp_type_error => NONE
+          | Cmp_val n => SOME ((s,t), Rval (Litv (IntLit n)))
         )
     | (Opassign, [Loc b lnum; v]) =>
         (case store_assign lnum (Refv v) s of
@@ -1579,7 +1674,7 @@ End
 
 Definition build_constrs_def:
   build_constrs stamp condefs =
-    MAP (λ(conN,ts). (conN,LENGTH ts,TypeStamp conN stamp)) condefs
+    MAPi (λpos (conN,ts). (conN,LENGTH ts,TypeStamp conN stamp pos)) condefs
 End
 
 (* Build a constructor environment for the type definition tds *)

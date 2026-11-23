@@ -20,8 +20,8 @@ Theorem pmatch_v_ok:
   (∀envC s p v ws env.
     pmatch envC s p v ws = Match env ∧
     v_ok ctxt v ∧
-    (∀n len tag m.
-      nsLookup envC n = SOME (len,TypeStamp tag m) ∧
+    (∀n len tag m pos.
+      nsLookup envC n = SOME (len,TypeStamp tag m pos) ∧
       m ∈ kernel_types ⇒
         id_to_n n ∈ kernel_ctors) ∧
     (∀loc r. loc ∉ kernel_locs ∧ LLOOKUP s loc = SOME r ⇒ ref_ok ctxt r) ∧
@@ -30,8 +30,8 @@ Theorem pmatch_v_ok:
   (∀envC s ps vs ws env.
     pmatch_list envC s ps vs ws = Match env ∧
     EVERY (v_ok ctxt) vs ∧
-    (∀n len tag m.
-      nsLookup envC n = SOME (len,TypeStamp tag m) ∧
+    (∀n len tag m pos.
+      nsLookup envC n = SOME (len,TypeStamp tag m pos) ∧
       m ∈ kernel_types ⇒
         id_to_n n ∈ kernel_ctors) ∧
     (∀loc r. loc ∉ kernel_locs ∧ LLOOKUP s loc = SOME r ⇒ ref_ok ctxt r) ∧
@@ -70,7 +70,7 @@ Proof
   >- (
     last_x_assum
       (qspecl_then
-        [`mk_id (path ++ id_to_mods id) (id_to_n id)`, `len`, `tag`, `tn`]
+        [`mk_id (path ++ id_to_mods id) (id_to_n id)`, `len`, `tag`, `tn`, `pos`]
         mp_tac)
     \\ simp [])
   \\ first_x_assum
@@ -78,6 +78,20 @@ Proof
       [`mk_id (path ++ id_to_mods n) (id_to_n n)`, `v`]
       mp_tac)
   \\ gs []
+QED
+
+Theorem build_tdefs_stamp_bounds:
+  ∀m tds n len tag ty pos.
+    nsLookup (build_tdefs m tds) n = SOME (len, TypeStamp tag ty pos) ⇒
+      m ≤ ty ∧ ty < m + LENGTH tds
+Proof
+  ho_match_mp_tac build_tdefs_ind
+  \\ simp [build_tdefs_def, nsLookup_nsAppend_some,
+           nsLookup_alist_to_ns_some, SF SFY_ss]
+  \\ rw [] \\ gs [SF SFY_ss]
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ gvs [build_constrs_def, MEM_MAPi, EXISTS_PROD, ELIM_UNCURRY]
+  \\ res_tac \\ gs []
 QED
 
 local
@@ -273,13 +287,21 @@ Resume evaluate_v_ok[App_Eval]:
     \\ NO_TAC)
   \\ rename [‘state_ok ctxt1 st1’]
   \\ ‘eval_state_ok st1.eval_state’ by fs [state_ok_def]
+  >~ [‘do_eval_init _ _ = SOME _’] >- (
+    qexists_tac ‘ctxt1’ \\ simp [v_ok_def]
+    \\ gvs [do_eval_init_def, AllCaseEqs(), state_ok_def, eval_state_ok_def]
+    \\ metis_tac [])
+  >~ [‘¬FST _’] >- (
+    qexists_tac ‘ctxt1’
+    \\ gvs [state_ok_def, SWAP_REVERSE_SYM, v_ok_def]
+    \\ metis_tac [])
   \\ gvs [do_eval_def,AllCaseEqs(),eval_state_ok_def,
           declare_env_def,SF SFY_ss,SWAP_REVERSE_SYM]
   \\ last_x_assum (qspec_then ‘ctxt1’ mp_tac)
   \\ (impl_tac >-
    (fs [] \\ qpat_x_assum ‘v_ok ctxt1 (Env env' id)’ mp_tac
     \\ fs [candle_prover_invTheory.v_ok_def,kernel_vals_Env]
-    \\ fs [state_ok_def,dec_clock_def,eval_state_ok_def,add_decs_generation_def]
+    \\ fs [state_ok_def,dec_clock_def,eval_state_ok_def]
     \\ every_case_tac \\ fs [SF SFY_ss] \\ metis_tac []))
   \\ strip_tac
   \\ fs [state_ok_def,reset_env_generation_def,LEFT_EXISTS_AND_THM]
@@ -328,6 +350,10 @@ Theorem do_app_ok:
         | _ => T
 Proof
   strip_tac
+  \\ Cases_on `op = PolyCompare` \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_def]
+    \\ qexists_tac `st` \\ gs [SF SFY_ss])
   \\ Cases_on `op = CopyVecVec`
   >- (
     gvs [do_app_cases,v_ok_def]
@@ -1189,18 +1215,10 @@ Resume evaluate_v_ok[decs_Dtype]:
   \\ gs [extend_dec_env_def, build_tdefs_def, env_ok_def,
          nsLookup_nsAppend_some, nsLookup_alist_to_ns_some, SF SFY_ss]
   \\ rw [] \\ gs [SF SFY_ss]
-  \\ ‘∀m tds n l t k.
-        nsLookup (build_tdefs m tds) n = SOME (l, TypeStamp t k) ⇒
-          m ≤ k’
-    by (ho_match_mp_tac build_tdefs_ind
-        \\ simp [build_tdefs_def, nsLookup_nsAppend_some,
-                 nsLookup_alist_to_ns_some, SF SFY_ss]
-        \\ rw [] \\ gs [SF SFY_ss]
-        >- (
-          first_x_assum drule
-          \\ gs [])
-        \\ drule_then assume_tac ALOOKUP_MEM
-        \\ gs [build_constrs_def, MEM_MAP, EXISTS_PROD])
+  \\ `∀m tds n l t k pos.
+        nsLookup (build_tdefs m tds) n = SOME (l, TypeStamp t k pos) ⇒
+          m ≤ k`
+    by metis_tac [build_tdefs_stamp_bounds]
   \\ first_x_assum (drule_then assume_tac)
   \\ first_x_assum drule_all \\ gs []
 QED
@@ -1217,7 +1235,7 @@ Resume evaluate_v_ok[decs_Denv]:
   \\ gs [state_ok_def]
   \\ first_assum (irule_at Any) \\ gs []
   \\ gs [env_ok_def, extend_dec_env_def, SF SFY_ss]
-  \\ gvs [declare_env_def, CaseEqs ["option", "eval_state", "prod"]]
+  \\ gvs [declare_env_def, CaseEqs ["option", "prod"]]
   \\ fs [eval_state_ok_def,SF SFY_ss]
   \\ Cases \\ simp [ml_progTheory.nsLookup_nsBind_compute]
   \\ rw [] \\ gs [v_ok_def, env_ok_def, nat_to_v_def, SF SFY_ss]

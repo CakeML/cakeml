@@ -464,9 +464,9 @@ Proof
       ARRAY_OF vcclause_TYPE fmlv' fmlls' *
       &(
       case parse_and_run_file_list lines fmlls Clist 1 of
-        NONE => resv = Conv (SOME (TypeStamp «Inl» 4)) [v0] ∧ ∃s. STRING_TYPE s v0
+        NONE => resv = Conv (SOME (TypeStamp «Inl» 4 0)) [v0] ∧ ∃s. STRING_TYPE s v0
       | SOME fmlls'' =>
-        resv = Conv (SOME (TypeStamp «Inr» 4)) [fmlv'] ∧
+        resv = Conv (SOME (TypeStamp «Inr» 4 1)) [fmlv'] ∧
         fmlls'' = fmlls'
       )`
   >- (
@@ -475,7 +475,7 @@ Proof
         STDIO (forwardFD fss (nextFD fs) k) *
         INSTREAM_LINES nulc (nextFD fs) is [] (forwardFD fss (nextFD fs) k) *
         ARRAY_OF vcclause_TYPE fmlv' fmlls' *
-        &(v = Conv (SOME (TypeStamp «Inr» 4)) [fmlv'] ∧
+        &(v = Conv (SOME (TypeStamp «Inr» 4 1)) [fmlv'] ∧
           parse_and_run_file_list lines fmlls Clist 1 = SOME fmlls'))
       (λe. SEP_EXISTS k fmlv' fmlls' lines'.
         STDIO (forwardFD fss (nextFD fs) k) *

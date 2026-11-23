@@ -10,7 +10,7 @@ Libs
   preamble
 
 Type datatype_catalogue =
-  ``:(type_ident, (conN # num # tvarN list # t list) set) fmap``
+  ``:(type_ident, (conN # num # num # tvarN list # t list) set) fmap``
 
 Type input_slots = ``:(num, t) fmap``
 
@@ -22,9 +22,9 @@ End
 
 Definition catalogue_stamps_def:
   catalogue_stamps (catalogue:datatype_catalogue) =
-    {TypeStamp cn n | ?ti signature tvs ts.
+    {TypeStamp cn n pos | ?ti signature tvs ts.
       FLOOKUP catalogue ti = SOME signature /\
-      (cn,n,tvs,ts) IN signature}
+      (cn,n,pos,tvs,ts) IN signature}
 End
 
 Definition input_slots_hold_def:
@@ -35,7 +35,7 @@ End
 
 Definition input_metadata_bounds_def:
   input_metadata_bounds catalogue slots (st:'ffi semanticPrimitives$state) <=>
-    (!cn n. TypeStamp cn n IN catalogue_stamps catalogue ==>
+    (!cn n pos. TypeStamp cn n pos IN catalogue_stamps catalogue ==>
       n < st.next_type_stamp) /\
     (!loc. loc IN FDOM slots ==> loc < LENGTH st.refs)
 End
@@ -60,7 +60,7 @@ End
    unchanged by reference/exception renaming that fixes protected type stamps. *)
 Definition input_stamp_fix_def:
   input_stamp_fix catalogue ft <=>
-    !cn n. TypeStamp cn n IN catalogue_stamps catalogue ==>
+    !cn n pos. TypeStamp cn n pos IN catalogue_stamps catalogue ==>
       FLOOKUP ft n = SOME n
 End
 
@@ -87,10 +87,10 @@ Proof
 QED
 
 Theorem catalogue_stamps_member:
-  TypeStamp cn n IN catalogue_stamps catalogue <=>
+  TypeStamp cn n pos IN catalogue_stamps catalogue <=>
   ?ti signature tvs ts.
     FLOOKUP catalogue ti = SOME signature /\
-    (cn,n,tvs,ts) IN signature
+    (cn,n,pos,tvs,ts) IN signature
 Proof
   simp [catalogue_stamps_def]
 QED
@@ -98,8 +98,8 @@ QED
 Theorem catalogue_matches_lookup:
   catalogue_matches catalogue ctMap /\
   FLOOKUP catalogue ti = SOME signature ==>
-  (FLOOKUP ctMap (TypeStamp cn n) = SOME (tvs,ts,ti) <=>
-   (cn,n,tvs,ts) IN signature)
+  (FLOOKUP ctMap (TypeStamp cn n pos) = SOME (tvs,ts,ti) <=>
+   (cn,n,pos,tvs,ts) IN signature)
 Proof
   rw [catalogue_matches_def, GSYM datatype_signature_member] >> metis_tac []
 QED

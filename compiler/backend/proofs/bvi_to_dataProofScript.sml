@@ -64,10 +64,29 @@ Definition data_to_bvi_ref_def[simp]:
     MutBlock tg fin (MAP data_to_bvi_v ls) (data_to_bvi_v c) (MAP data_to_bvi_v rs)
 End
 
+Theorem do_stack_arch_width[simp,local]:
+  (do_stack op args s).arch_width = s.arch_width
+Proof
+  simp [do_stack_def]
+QED
+
+Theorem FUNPOW_dec_clock_arch_width[simp,local]:
+  (FUNPOW dataSem$dec_clock n s).arch_width = s.arch_width
+Proof
+  Induct_on `n` \\ simp [FUNPOW_SUC, dataSemTheory.dec_clock_def]
+QED
+
+Theorem push_env_arch_width[simp,local]:
+  (push_env env handler s).arch_width = s.arch_width
+Proof
+  Cases_on `handler` \\ simp [push_env_def]
+QED
+
 (* State relation *)
 Definition state_rel_def:
   state_rel (s:('c,'ffi) bviSem$state) (t:('c,'ffi) dataSem$state) <=>
     (s.clock = t.clock) /\
+    (s.arch_width = t.arch_width) /\
     code_rel s.code t.code /\
     (t.compile_oracle = ((I ## bvi_to_data$compile_prog) o s.compile_oracle)) /\
     (s.compile = (λcfg prog. t.compile cfg (bvi_to_data$compile_prog prog))) /\
@@ -422,26 +441,39 @@ Proof
   Induct \\ rw [list_to_v_def,bvlSemTheory.list_to_v_def,data_to_bvi_v_def]
 QED
 
-(* `data_to_bvi_v` preservers `do_eq` *)
-Theorem data_to_bvi_do_eq:
+(* `data_to_bvi_v` preserves `do_cmp` *)
+Theorem data_to_bvi_do_cmp:
    (∀t v1 v2 r.
      (∀n. FLOOKUP r n = lookup n (map data_to_bvi_ref t))
-     ⇒ do_eq r (data_to_bvi_v v1) (data_to_bvi_v v2) =
-       do_eq t v1 v2) ∧
+     ⇒ do_cmp r (data_to_bvi_v v1) (data_to_bvi_v v2) =
+       do_cmp t v1 v2) ∧
    (∀t l1 l2 r.
      (∀n. FLOOKUP r n = lookup n (map data_to_bvi_ref t))
-     ⇒ do_eq_list r (MAP data_to_bvi_v l1) (MAP data_to_bvi_v l2) =
-       do_eq_list t l1 l2)
+     ⇒ do_cmp_list r (MAP data_to_bvi_v l1) (MAP data_to_bvi_v l2) =
+       do_cmp_list t l1 l2)
 Proof
-  ho_match_mp_tac do_eq_ind
-  \\ rw [do_eq_def,bvlSemTheory.do_eq_def,data_to_bvi_v_def]
-  \\ fs [ backend_commonTheory.closure_tag_def
-        , backend_commonTheory.partial_app_tag_def
-        , isClos_def,bvlSemTheory.isClos_def,isClos_def
-        , FLOOKUP_o_f]
-  >- (every_case_tac \\ fs [data_to_bvi_ref_def,lookup_map])
-  \\ Cases_on ‘do_eq t v1 v2’ \\ gvs []
-  \\ rename1 ‘Eq_val b’ \\ Cases_on ‘b’ \\ gvs []
+  ho_match_mp_tac dataSemTheory.do_cmp_ind \\ rpt strip_tac
+  \\ gvs [data_to_bvi_v_def, Excl "do_cmp_def"]
+  >~ [‘dataSem$do_cmp _ (RefPtr _ _) (RefPtr _ _)’] >- (
+    simp [Once do_cmp_def, Once bvlSemTheory.do_cmp_def, lookup_map]
+    \\ rpt (TOP_CASE_TAC \\ gvs [data_to_bvi_ref_def]))
+  >~ [‘dataSem$do_cmp _ (Block _ _ _) (Block _ _ _)’] >- (
+    pure_rewrite_tac [do_cmp_def, bvlSemTheory.do_cmp_def]
+    \\ full_simp_tac bool_ss
+         [isClos_def, bvlSemTheory.isClos_def, LENGTH_MAP, GSYM NULL_EQ, NULL_LENGTH]
+    \\ rpt (IF_CASES_TAC \\ full_simp_tac bool_ss [])
+    \\ first_x_assum irule \\ gvs [Excl "do_cmp_def"])
+  >~ [‘dataSem$do_cmp_list _ (_::_) (_::_)’] >- (
+    qmatch_goalsub_rename_tac
+      ‘dataSem$do_cmp_list t (left_head::left_tail) (right_head::right_tail)’
+    \\ qpat_x_assum ‘∀refs. _ ⇒ bvlSem$do_cmp _ _ _ = _’ drule_all
+    \\ strip_tac
+    \\ pure_rewrite_tac
+         [do_cmp_def |> CONJUNCT2, bvlSemTheory.do_cmp_def |> CONJUNCT2]
+    \\ namedCases_on ‘dataSem$do_cmp t left_head right_head’ ["head_cmp", ""]
+    \\ gvs [Excl "do_cmp_def"]
+    \\ IF_CASES_TAC \\ gvs [Excl "do_cmp_def"])
+  \\ simp [dataSemTheory.do_cmp_def]
 QED
 
 Theorem data_to_bvi_v_list_to_v_APPEND:
@@ -631,6 +663,7 @@ Proof
            bvlSemTheory.do_app_def,
            oneline bvlSemTheory.do_int_app_def]
     \\ rw [AllCaseEqs()]
+    \\ `r.arch_width = t.arch_width` by fs [state_rel_def]
     \\ gvs [NULL_EQ_NIL, MAP_EQ_CONS]
     \\ simp [do_app_aux_def, do_int_app_def, bvl_to_bvi_id]
     \\ drule smallnum_witness_length_eq
@@ -696,6 +729,20 @@ Proof
   \\ rfs[state_rel_def]
   \\ drule_then assume_tac refs_rel_LEAST_eq
   \\ gvs[FLOOKUP_UPDATE,lookup_map,lookup_insert]
+  >~ [‘this_is_case (BlockOp Equal)’] >- (
+    fsrw_tac [DNF_ss] []
+    \\ drule_then assume_tac
+         (data_to_bvi_do_cmp |> SIMP_RULE std_ss [lookup_map] |> CONJUNCT1)
+    \\ fs [])
+  >~ [‘this_is_case (BlockOp PolyCompare)’] >- (
+    drule_then assume_tac
+      (data_to_bvi_do_cmp |> SIMP_RULE std_ss [lookup_map] |> CONJUNCT1)
+    \\ fs [])
+  >~ [‘this_is_case (BlockOp PtrEqual)’] >- (
+    fsrw_tac [DNF_ss] []
+    \\ drule_then assume_tac
+         (data_to_bvi_do_cmp |> SIMP_RULE std_ss [lookup_map] |> CONJUNCT1)
+    \\ fs [])
   >-(rename1 `MemOp Ref` >> rw[])
   >-(rename1 `MemOp Update` >> rw[] >> fs[LUPDATE_MAP])
   >-(rename1 `MemOp El` >> rw[] >> fs[EL_MAP])
@@ -725,16 +772,6 @@ Proof
      drule_then (assume_tac) data_to_bvi_v_list_to_v_APPEND >>
      simp[data_to_bvi_v_list_to_v_Nil] >>
      Cases_on `t.tstamps` >> fs[])
-  >-(rename1 `BlockOp (Equal)` >> fsrw_tac[DNF_ss][] >>
-     drule_then (assume_tac)
-                 (data_to_bvi_do_eq |> SIMP_RULE std_ss [lookup_map]
-                                      |> CONJUNCTS |> hd) >>
-     fs[])
-  >-(rename1 `BlockOp (PtrEqual)` >> fsrw_tac[DNF_ss][] >>
-     drule_then (assume_tac)
-                 (data_to_bvi_do_eq |> SIMP_RULE std_ss [lookup_map]
-                                      |> CONJUNCTS |> hd) >>
-     fs[])
   >- (rename1 ‘Build parts’
      \\ ‘domain t.code = domain r.code’ by fs [code_rel_def]
      \\ pairarg_tac \\ gvs [PULL_EXISTS]
@@ -3135,11 +3172,12 @@ QED
 
 Theorem compile_prog_evaluate:
    evaluate ([Call 0 (SOME start) [] NONE],[],
-     initial_state ffi0 (fromAList prog) co (λcfg prog. cc cfg (compile_prog prog)) pe k) = (r,s) ∧
+     initial_state ffi0 (fromAList prog) co (λcfg prog. cc cfg (compile_prog prog)) pe
+       aw k) = (r,s) ∧
    r ≠ Rerr (Rabort Rtype_error) ∧ (∀x. r ≠ Rerr (Rraise x))
    ⇒  ∃r2 s2.
        evaluate (Call NONE (SOME start) [] NONE,
-         initial_state ffi0 (fromAList (compile_prog prog)) ((I ## compile_prog) o co) cc pe T lims ss k) = (SOME r2,s2) ∧
+         initial_state ffi0 (fromAList (compile_prog prog)) ((I ## compile_prog) o co) cc pe aw T lims ss k) = (SOME r2,s2) ∧
          state_rel s s2 ∧ data_to_bvi_result r2 = r
 Proof
   srw_tac[][]
@@ -3161,13 +3199,15 @@ QED
 Theorem compile_prog_semantics:
   semantics (ffi0:'ffi ffi_state)
             (fromAList prog) co
-            (λcfg prog. cc cfg (compile_prog prog)) pe start ≠ Fail
+            (λcfg prog. cc cfg (compile_prog prog)) pe
+              aw start ≠ Fail
   ⇒ semantics ffi0
               (fromAList (compile_prog prog))
-              ((I ## compile_prog) o co) cc pe lim ss start =
+              ((I ## compile_prog) o co) cc pe aw lim ss start =
     semantics ffi0
               (fromAList prog) co
-              (λcfg prog. cc cfg (compile_prog prog)) pe start
+              (λcfg prog. cc cfg (compile_prog prog)) pe
+              aw start
 Proof
   simp[bviSemTheory.semantics_def]
   \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[]

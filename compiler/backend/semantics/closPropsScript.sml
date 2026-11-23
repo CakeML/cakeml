@@ -535,31 +535,39 @@ Proof
   EVAL_TAC>>srw_tac[][]
 QED
 
-Theorem do_eq_sym:
-  (∀x y. do_eq x y = do_eq y x) ∧
-  (∀x y. do_eq_list x y = do_eq_list y x)
+Theorem do_cmp_eq_sym:
+  (∀x y.
+    (case do_cmp x y of Cmp_val n => Eq_val (n = 0) | _ => Eq_type_error) =
+    (case do_cmp y x of Cmp_val n => Eq_val (n = 0) | _ => Eq_type_error)) ∧
+  (∀x y.
+    (case do_cmp_list x y of Cmp_val n => Eq_val (n = 0) | _ => Eq_type_error) =
+    (case do_cmp_list y x of Cmp_val n => Eq_val (n = 0) | _ => Eq_type_error))
 Proof
-  ho_match_mp_tac do_eq_ind \\ rw []
-  THEN1
-   (once_rewrite_tac [do_eq_def]
-    \\ Cases_on ‘x’ \\ Cases_on ‘y’ \\ gvs []
-    \\ rw [] \\ gvs [] \\ eq_tac \\ rw [])
-  \\ once_rewrite_tac [do_eq_def]
-  \\ asm_rewrite_tac []
-  \\ rpt (CASE_TAC \\ fs [])
+  ho_match_mp_tac do_cmp_ind >> rw []
+  >>~- ([`do_cmp_list [] _`], simp [do_cmp_def])
+  >~ [`do_cmp_list (_::_) (_::_)`] >- (
+    qmatch_goalsub_rename_tac `do_cmp_list (left::_) (right::_)` >>
+    once_rewrite_tac [do_cmp_def] >> simp [] >>
+    Cases_on `do_cmp left right` >> Cases_on `do_cmp right left` >> fs [] >>
+    rpt (IF_CASES_TAC >> gvs []) >> fs []) >>
+  Cases_on `x` >> Cases_on `y` >> once_rewrite_tac [do_cmp_def] >>
+  simp [semanticPrimitivesTheory.compare_int_eq_zero,
+        semanticPrimitivesTheory.compare_lit_eq] >>
+  simp [EQ_SYM_EQ, CONJ_COMM, semanticPrimitivesTheory.lit_same_type_def] >>
+  rpt (IF_CASES_TAC >> gvs [semanticPrimitivesTheory.compare_int_eq_zero]) >> fs []
 QED
 
-Theorem do_eq_list_rel:
+Theorem do_cmp_list_rel:
    ∀l1 l2 l3 l4.
      LENGTH l1 = LENGTH l2 ∧ LENGTH l3 = LENGTH l4 ∧
-     LIST_REL (λp1 p2. UNCURRY do_eq p1 = UNCURRY do_eq p2) (ZIP(l1,l2)) (ZIP(l3,l4)) ⇒
-     closSem$do_eq_list l1 l2 = do_eq_list l3 l4
+     LIST_REL (λp1 p2. UNCURRY do_cmp p1 = UNCURRY do_cmp p2) (ZIP(l1,l2)) (ZIP(l3,l4)) ⇒
+     closSem$do_cmp_list l1 l2 = do_cmp_list l3 l4
 Proof
    Induct >> simp[LENGTH_NIL_SYM] >- (
      simp[GSYM AND_IMP_INTRO, ZIP_EQ_NIL] ) >>
    gen_tac >> Cases >> simp[PULL_EXISTS] >>
    Cases >> simp[LENGTH_NIL_SYM] >>
-   Cases >> simp[CONJUNCT2 do_eq_def] >>
+   Cases >> simp[CONJUNCT2 do_cmp_def] >>
    strip_tac >> BasicProvers.CASE_TAC >> srw_tac[][]
 QED
 
@@ -1491,7 +1499,7 @@ QED
 val case_eq_thms = pair_case_eq::bool_case_eq::list_case_eq::option_case_eq::map TypeBase.case_eq_of
   [``:'a ffi_result``, ``:v``, ``:'a ref``, ``:closLang$op``, ``:closLang$mem_op``,
    ``:closLang$int_op``, ``:closLang$word_op``, ``:closLang$block_op``, ``:closLang$glob_op``,
-   ``:word_size``, ``:eq_result``, ``:('a,'b) result``, ``:'a error_result``, ``:app_kind``]
+   ``:word_size``, ``:cmp_result``, ``:('a,'b) result``, ``:'a error_result``, ``:app_kind``]
   |> LIST_CONJ;
 
 Theorem do_app_ffi_error_IMP:
@@ -2121,26 +2129,28 @@ Proof
   \\ rw [] \\ fs [case_eq_thms]
 QED
 
-Theorem v_rel_do_eq[local]:
+Theorem v_rel_do_cmp[local]:
     simple_val_rel vr ==>
     (!y1 y2 x1 x2.
       vr x1 y1 /\ vr x2 y2 ==>
-      do_eq x1 x2 = do_eq y1 y2) /\
+      do_cmp x1 x2 = do_cmp y1 y2) /\
     (!y1 y2 x1 x2.
       LIST_REL vr x1 y1 /\ LIST_REL vr x2 y2 ==>
-      do_eq_list x1 x2 = do_eq_list y1 y2)
+      do_cmp_list x1 x2 = do_cmp_list y1 y2)
 Proof
   strip_tac \\ fs [simple_val_rel_def]
-  \\ ho_match_mp_tac do_eq_ind \\ rw []
-  THEN1
-   (Cases_on `y1` \\ fs [] \\ rfs [] \\ rveq \\ fs []
-    \\ Cases_on `y2` \\ rfs [do_eq_def]
-    \\ res_tac \\ fs [isClos_cases]
-    \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
-  \\ once_rewrite_tac [do_eq_def]
-  \\ fs [case_eq_thms]
-  \\ Cases_on `do_eq y1 y2` \\ fs []
-  \\ Cases_on `b` \\ fs []
+  \\ ho_match_mp_tac do_cmp_ind \\ rw []
+  >~ [`do_cmp_list [] _`] >- simp [do_cmp_def]
+  >~ [`do_cmp_list _ []`] >- simp [do_cmp_def]
+  >~ [`do_cmp_list (_::_) (_::_)`] >- (
+    once_rewrite_tac [do_cmp_def] \\ fs []
+    \\ Cases_on `do_cmp y1 y2` \\ fs []
+    \\ rpt (IF_CASES_TAC \\ gvs []) \\ fs [])
+  \\ Cases_on `y1` \\ fs [] \\ rfs [] \\ rveq \\ fs []
+  \\ Cases_on `y2` \\ rfs [do_cmp_def]
+  \\ res_tac \\ fs [isClos_cases]
+  \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+  \\ full_simp_tac bool_ss [NULL_LENGTH]
 QED
 
 Theorem simple_state_rel_FLOOKUP_refs_IMP:
@@ -2371,6 +2381,8 @@ Proof
   >- suspend "FromList"
   \\ Cases_on `?n. opp = GlobOp (Global n)`
   >- suspend "Global"
+  \\ Cases_on `opp = BlockOp PolyCompare`
+  >- suspend "PolyCompare"
   \\ Cases_on `opp = BlockOp Equal`
   >- suspend "Equal"
   \\ Cases_on `opp = BlockOp PtrEqual`
@@ -2587,12 +2599,20 @@ Resume simple_val_rel_do_app_rev[Global]:
   \\ res_tac \\ fs[isClos_cases]
 QED
 
+Resume simple_val_rel_do_app_rev[PolyCompare]:
+  Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+  \\ rw[Once do_app_def,AllCaseEqs(),PULL_EXISTS]
+  \\ drule_then strip_assume_tac $ iffLR simple_val_rel_alt
+  \\ fs[] \\ rveq \\ simp[do_app_def]
+  \\ imp_res_tac v_rel_do_cmp \\ fs []
+QED
+
 Resume simple_val_rel_do_app_rev[Equal]:
   Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
   \\ rw[Once do_app_def,AllCaseEqs(),PULL_EXISTS]
   \\ drule_then strip_assume_tac $ iffLR simple_val_rel_alt
   \\ fs[] \\ rveq \\ simp[do_app_def]
-  \\ imp_res_tac v_rel_do_eq \\ fs []
+  \\ imp_res_tac v_rel_do_cmp \\ fs []
 QED
 
 Resume simple_val_rel_do_app_rev[PtrEqual]:
@@ -2600,7 +2620,7 @@ Resume simple_val_rel_do_app_rev[PtrEqual]:
   \\ rw[Once do_app_def,AllCaseEqs(),PULL_EXISTS]
   \\ drule_then strip_assume_tac $ iffLR simple_val_rel_alt
   \\ fs[] \\ rveq \\ simp[do_app_def]
-  \\ imp_res_tac v_rel_do_eq \\ fs []
+  \\ imp_res_tac v_rel_do_cmp \\ fs []
   \\ `s.ptr_eq_oracle = t.ptr_eq_oracle` by fs [simple_state_rel_def]
   \\ drule simple_val_rel_Boolv \\ strip_tac \\ fs []
   \\ fs [simple_state_rel_def]

@@ -334,7 +334,7 @@ local
     in
       INST [“nm:mlstring”|->n] (MATCH_MP (MATCH_MP write_th th1) th2)
     end
-  and prove_write_cons tm = (* write_cons n (TypeStamp s t) env *)
+  and prove_write_cons tm = (* write_cons n (arity, TypeStamp name type_id pos) env *)
     let
       val (wcns, env) = dest_comb tm
       val (wcn, s) = dest_comb wcns
@@ -342,8 +342,7 @@ local
       val _ = same_const wc write_cons_term orelse
               failwith "not write_cons"
       val m = dest_pair s |> #1
-      val t = dest_pair s |> #2 |> rand
-      val nm = dest_pair s |> #2 |> rator |> rand
+      val (nm,t,pos) = dest_pair s |> #2 |> semanticPrimitivesSyntax.dest_TypeStamp
       val sg1 = mk_env_ok env
       val th1 = env_ok_conv sg1
       val goal =
@@ -351,8 +350,9 @@ local
                 pred_setSyntax.mk_in (nm, kernel_ctors_term))
       val th2 = SIMP_CONV list_ss [kernel_types_def, kernel_ctors_def] goal
       val th3 =
-        INST [“n:num”|->m, “s:mlstring”|->nm, “t:num”|->t, “nm:mlstring”|->n]
-             (MATCH_MP write_cons_th th1)
+        MATCH_MP
+          (INST [``n:num``|->m, ``s:mlstring``|->nm, ``t:num``|->t,
+                 ``pos:num``|->pos, ``nm:mlstring``|->n] write_cons_th) th1
     in
       MATCH_MP th3 (EQT_ELIM th2)
     end
@@ -449,6 +449,7 @@ Proof
     \\ assume_tac candle_prog_thm
     \\ dxrule_then (qspec_then ‘es’ mp_tac) Decls_set_eval_state
     \\ rw [Once init_state_def]
+    \\ qpat_x_assum ‘Decls _ _ _ _ _’ (assume_tac o Q.INST [‘po'’ |-> ‘po’] o MATCH_MP Decls_with_oracles)
     \\ gvs [evaluate_decs_append, CaseEqs ["prod", "semanticPrimitives$result"]]
     >- (
       drule_all Decls_IMP_Prog \\ strip_tac
@@ -502,6 +503,7 @@ Proof
     \\ assume_tac candle_prog_thm
     \\ dxrule_then (qspec_then ‘es’ mp_tac) Decls_set_eval_state
     \\ rw [Once init_state_def]
+    \\ qpat_x_assum ‘Decls _ _ _ _ _’ (assume_tac o Q.INST [‘po'’ |-> ‘po’] o MATCH_MP Decls_with_oracles)
     \\ drule_all Decls_IMP_Prog \\ strip_tac
     \\ gs [ml_progTheory.Prog_def]
     \\ gvs [evaluate_decs_append, CaseEqs ["semanticPrimitives$result", "prod"], combine_dec_result_def]
@@ -525,7 +527,7 @@ Proof
     \\ ‘k ≤ ck1’
       by (dxrule_then drule evaluatePropsTheory.evaluate_decs_clock_determ
           \\ rw [])
-    \\ drule_then (qspecl_then [‘init_state ffi with <|eval_state := es; ptr_eq_oracle := po|>’,
+    \\ drule_then (qspecl_then [‘init_state ffi with <|eval_state := es; ptr_eq_oracle := po; eval_oracle := eo|>’,
                                  ‘init_env’,‘candle_code’]
                   mp_tac)
                   evaluate_decs_ffi_mono_clock

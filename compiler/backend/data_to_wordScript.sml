@@ -73,6 +73,12 @@ Definition BignumHalt_def:
   BignumHalt r = If Test r (Imm 1) Skip GiveUp
 End
 
+(* Word64 and Float64 share this tag; on 32-bit targets their payload
+   stores the high word first, unlike the payload of a positive bignum. *)
+Definition word64_tag_def:
+  word64_tag = 11n
+End
+
 Definition make_header_def:
   make_header conf (tag:num) (len:num) =
     let l = arch_width_bits conf.arch_width - conf.len_size in
@@ -497,18 +503,20 @@ Definition FromList_code_def:
   FromList_code c =
     let limit = MIN (2 ** c.len_size) ((2 ** arch_width_bits c.arch_width) DIV 16) in
     let h = ShiftN Lsl (Var 2) ((arch_width_bits c.arch_width) - c.len_size - 1) in
-      If Equal 2 (Imm 0)
-        (list_Seq [Assign 6 (ShiftN Lsr (Var 6) 3);
-                   Return 0 [6]])
-        (list_Seq
-          [BignumHalt 2;
+    let immediate = list_Seq [Assign 6 (ShiftN Lsr (Var 6) 3); Return 0 [6]] in
+      list_Seq
+          [(* Register 6 contains 16 * tag; even tags from 10 are exceptions. *)
+           If Equal 2 (Imm 0)
+             (If Lower 6 (Imm 160) immediate
+               (If Test 6 (Imm 16) Skip immediate)) Skip;
+           BignumHalt 2;
            Assign 1 (Var 2); AllocVar c limit (fromList [();();()]);
            Assign 1 (Lookup NextFree);
            Assign 5 (Op Or [h; Const 3; Var 6]);
            Assign 7 (ShiftN Lsr (Var 2) 1);
            Assign 9 (ShiftN Lsr (Var 6) 4);
            Make_ptr_bits_code c 9 7 3;
-           Call NONE (SOME FromList1_location) [0;1;4;2;3;5] NONE]):wordLang$prog
+           Call NONE (SOME FromList1_location) [0;1;4;2;3;5] NONE]:wordLang$prog
 End
 
 Definition FromList1_code_def:
@@ -823,40 +831,95 @@ End
 
 Definition Equal_code_def:
   (Equal_code c:wordLang$prog) =
+    (* Return 0, 1 or 2 for less, equal or greater, respectively. *)
+    let answer n = Seq (Assign 2 (Const n)) (Return 0 [2]) in
+    let cmp test left right =
+      If Equal left (Reg right) (answer 1)
+        (If test left (Reg right) (answer 0) (answer 2)) in
+    let bytes = &(arch_bytes c.arch_width) in
+    let len_shift = arch_width_bits c.arch_width - c.len_size in
+    let byte_names = list_insert [0;6;8;10;20;40] LN in
     list_Seq [
-      If Equal 2 (Reg 4)
-        (Seq (Assign 2 (Const 1)) (Return 0 [2])) Skip;
-      Assign 1 (Op And [Var 2; Var 4]);
-      If Test 1 (Imm 1)
-        (Seq (Assign 2 (Const 0)) (Return 0 [2])) Skip;
+      If Equal 2 (Reg 4) (answer 1) Skip;
+      Assign 1 (Op Or [Var 2; Var 4]);
+      If Test 1 (Imm 1) (cmp Less 2 4) Skip;
+      If Test 2 (Imm 1)
+        (list_Seq [
+          Assign 1 (Load (real_addr c 4));
+          If Test 1 (Imm 12)
+            (list_Seq [
+              Assign 6 (ShiftN Lsr (Var 1) len_shift);
+              If Equal 6 (Imm 0)
+                (list_Seq [
+                  Assign 6 (ShiftN Lsr (Var 2) 1);
+                  Assign 8 (ShiftN Lsr (Op And [Var 1; Const (tag_mask c)]) 4);
+                  cmp Lower 6 8])
+                (answer 0)])
+            (Call NONE (SOME Compare_location) [0;2;4] NONE)]) Skip;
+      If Test 4 (Imm 1)
+        (list_Seq [
+          Assign 1 (Load (real_addr c 2));
+          If Test 1 (Imm 12) (answer 2)
+            (Call NONE (SOME Compare_location) [0;2;4] NONE)]) Skip;
       Assign 20 (real_addr c 2);
       Assign 40 (real_addr c 4);
       Assign 21 (Load (Var 20));
       Assign 41 (Load (Var 40));
-      If Test 21 (Imm 0b1100) (list_Seq
-          [Assign 1 (Op And [Var 21; Const (int_or (tag_mask c) 2)]);
-           If Equal 1 (Imm (&(16 * closure_tag + 2)))
-             (Seq (Assign 2 (Const 1)) (Return 0 [2])) Skip;
-           If Equal 1 (Imm (&(16 * partial_app_tag + 2)))
-             (Seq (Assign 2 (Const 1)) (Return 0 [2])) Skip;
-           If Equal 21 (Reg 41)
-             Skip (Seq (Assign 2 (Const 0)) (Return 0 [2]));
-           Assign 6 (ShiftVar (arch_width_bits c.arch_width) Lsr 21 (((arch_width_bits c.arch_width) − c.len_size)));
-           Assign 20 (Op Add [Var 20; Const (& (arch_bytes c.arch_width))]);
-           Assign 40 (Op Add [Var 40; Const (& (arch_bytes c.arch_width))]);
-           Call NONE (SOME Equal1_location) [0;6;20;40] NONE])
-        Skip;
-      If Equal 21 (Reg 41) Skip
-        (Seq (Assign 2 (Const 0)) (Return 0 [2]));
-      If Test 21 (Imm 4)
-        (Seq (Assign 2 (Const 0)) (Return 0 [2])) Skip;
-      Assign 1 (Op And [Var 21; Const 24]);
-      If Equal 1 (Imm 16)
-        (Seq (Assign 2 (Const 0)) (Return 0 [2])) Skip;
-      Assign 6 (ShiftVar (arch_width_bits c.arch_width) Lsr 21 (((arch_width_bits c.arch_width) − c.len_size)));
-      Assign 2 (Op Add [Var 20; ShiftVar (arch_width_bits c.arch_width) Lsl 6 (arch_shift c.arch_width)]);
-      Assign 4 (Op Add [Var 40; ShiftVar (arch_width_bits c.arch_width) Lsl 6 (arch_shift c.arch_width)]);
-      Call NONE (SOME Compare1_location) [0;6;2;4] NONE]
+      If Test 21 (Imm 12)
+        (list_Seq [
+          Assign 6 (ShiftN Lsr (Var 21) len_shift);
+          If Equal 6 (Imm 0) Skip
+            (list_Seq [
+              Assign 1 (Op And [Var 21; Const (int_or (tag_mask c) 2)]);
+              If Equal 1 (Imm (&(16 * closure_tag + 2))) (answer 1) Skip;
+              If Equal 1 (Imm (&(16 * partial_app_tag + 2))) (answer 1) Skip]);
+          Assign 8 (ShiftN Lsr (Var 41) len_shift);
+          If Equal 21 (Reg 41)
+            (list_Seq [
+              Assign 20 (Op Add [Var 20; Const bytes]);
+              Assign 40 (Op Add [Var 40; Const bytes]);
+              Call NONE (SOME Equal1_location) [0;6;20;40] NONE]) Skip;
+          Assign 23 (ShiftN Lsr (Op And [Var 21; Const (tag_mask c)]) 4);
+          Assign 43 (ShiftN Lsr (Op And [Var 41; Const (tag_mask c)]) 4);
+          If Lower 23 (Imm 10) Skip
+            (If Test 23 (Imm 1) (answer 2) Skip);
+          If Equal 23 (Reg 43) (cmp Lower 6 8) Skip;
+          If Equal 6 (Imm 0) (answer 0) Skip;
+          If Equal 8 (Imm 0) (answer 2) Skip;
+          cmp Lower 23 43]) Skip;
+      (* Distinct mutable references compare as greater in either direction. *)
+      If Test 21 (Imm 4) (answer 2) Skip;
+      If Test 21 (Imm 8)
+        (list_Seq [
+          If NotTest 21 (Imm 16) (answer 2) Skip;
+          Assign 6 (ShiftN Lsr (Var 21) (len_shift - arch_shift c.arch_width));
+          Assign 8 (ShiftN Lsr (Var 41) (len_shift - arch_shift c.arch_width));
+          Assign 10 (Var 6);
+          If Lower 8 (Reg 6) (Assign 10 (Var 8)) Skip;
+          Assign 20 (Op Add [Var 20; Const bytes]);
+          Assign 40 (Op Add [Var 40; Const bytes]);
+          Loop byte_names
+            (If Equal 10 (Imm bytes) (cmp Lower 6 8)
+              (list_Seq [
+                Inst (Mem Load8 1 (Addr 20 0));
+                Inst (Mem Load8 3 (Addr 40 0));
+                If Equal 1 (Reg 3) Skip (cmp Lower 1 3);
+                Assign 20 (Op Add [Var 20; Const 1]);
+                Assign 40 (Op Add [Var 40; Const 1]);
+                Assign 10 (Op Sub [Var 10; Const 1])])) byte_names]) Skip;
+      Assign 1 (Op And [Var 21; Const (tag_mask c)]);
+      If Equal 1 (Imm (&(4 * word64_tag)))
+        (list_Seq [
+          Assign 1 (Load (Op Add [Var 20; Const bytes]));
+          Assign 3 (Load (Op Add [Var 40; Const bytes]));
+          If Equal 1 (Reg 3) Skip (cmp Lower 1 3);
+          (if c.arch_width = Arch32 then
+             list_Seq [
+               Assign 1 (Load (Op Add [Var 20; Const (2 * bytes)]));
+               Assign 3 (Load (Op Add [Var 40; Const (2 * bytes)]))]
+           else Skip);
+          cmp Lower 1 3]) Skip;
+      Call NONE (SOME Compare_location) [0;2;4] NONE]
 End
 
 Definition LongDiv_code_def:
@@ -1465,7 +1528,7 @@ val def = assign_Define `
 
 val def = assign_Define `
   assign_Cons (c:data_to_word$config) (l:num) (dest:num) tag args =
-                  if LENGTH args = 0 then
+                  if LENGTH args = 0 /\ ~is_exn_tag tag then
                     if tag < (2 ** arch_width_bits c.arch_width) DIV 4 then (* intentionally 4 rather than 2 to avoid
                                                          bignums when converting tag to int *)
                       (Assign (adjust_var dest) (Const (& (2 * tag))),l)
@@ -1572,7 +1635,7 @@ Definition part_to_words_def:
             | SOME hd => SOME ((T,make_ptr c offset 0 (LENGTH ws)),
                                (F,&hd)::MAP (λw. (F,w)) ws)) ∧
   part_to_words c m (closLang$Con t ns) (offset:int) =
-    (if NULL ns then
+    (if NULL ns /\ ~is_exn_tag t then
        if t < 2 ** arch_width_bits c.arch_width DIV 4
        then SOME ((F,&(2 * t)),[]) else NONE
      else
@@ -1586,7 +1649,7 @@ Definition part_to_words_def:
     (let ws = (if c.arch_width = Arch32
                then [&(w2n w DIV 2 ** 32); &(w2n w MOD 2 ** 32)]
                else [&(w2n w)]) in
-       case encode_header c 3 (LENGTH ws) of
+       case encode_header c word64_tag (LENGTH ws) of
        | NONE => NONE
        | SOME hd => SOME ((T,make_ptr c offset 0 (LENGTH ws)),
                           (F,&hd)::MAP (λw. (F,w)) ws)) ∧
@@ -1904,6 +1967,19 @@ val def = assign_Define `
       : wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_IsSmallnum aw allow_neg (l:num) (dest:num) v =
+    ((if allow_neg then
+        If Test (adjust_var v) (Imm 1)
+          (Assign (adjust_var dest) TRUE_CONST)
+          (Assign (adjust_var dest) FALSE_CONST)
+      else
+        Seq (Assign 1 (ShiftN Ror (Var (adjust_var v)) (arch_width_bits aw - 1)))
+          (If Test 1 (Imm 3)
+            (Assign (adjust_var dest) TRUE_CONST)
+            (Assign (adjust_var dest) FALSE_CONST))),l)
+      : wordLang$prog # num`;
+
+val def = assign_Define `
   assign_BoolNot (l:num) (dest:num) v1 =
                  (Assign (adjust_var dest)
                     (Op Xor [Var (adjust_var v1); Const 2]),l)
@@ -2004,6 +2080,16 @@ val def = assign_Define `
       : wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_PolyCompare (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
+        (list_Seq [
+           MustTerminate
+             (Call (SOME ([1],adjust_sets (get_names names),Skip,secn,l))
+               (SOME Equal_location) [adjust_var v1;adjust_var v2] NONE);
+           Assign (adjust_var dest) (ShiftN Lsl (Op Sub [Var 1;Const 1]) 1)],l+1)
+      : wordLang$prog # num`;
+
+val def = assign_Define `
   assign_Less (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
         (list_Seq [Assign 1 (Var (adjust_var v1));
@@ -2074,7 +2160,7 @@ val def = assign_Define `
 val def = assign_Define `
   assign_TagLenEq (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) tag len v1 =
-                        (if len = 0 then
+                        (if len = 0 /\ ~is_exn_tag tag then
                            if tag < (2 ** arch_width_bits c.arch_width) DIV 4 then
                              (If Equal (adjust_var v1) (Imm (&(2 * tag)))
                                 (Assign (adjust_var dest) TRUE_CONST)
@@ -2106,9 +2192,14 @@ val def = assign_Define `
   assign_LenEq (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) len v1 =
                         (if len = 0 then
-                           (If Test (adjust_var v1) (Imm 1)
-                              (Assign (adjust_var dest) TRUE_CONST)
-                              (Assign (adjust_var dest) FALSE_CONST),l)
+                           (list_Seq [
+                              Assign 1 (Const 0);
+                              If Test (adjust_var v1) (Imm 1) Skip
+                                (Assign 1 (ShiftN Lsr (Load (real_addr c (adjust_var v1)))
+                                  (arch_width_bits c.arch_width - c.len_size)));
+                              If Equal 1 (Imm 0)
+                                (Assign (adjust_var dest) TRUE_CONST)
+                                (Assign (adjust_var dest) FALSE_CONST)],l)
                          else if len < 2 ** c.len_bits - 1 then
                            (Seq
                              (Assign 1 (Op And
@@ -2389,7 +2480,7 @@ val def = assign_Define `
   assign_WordOpW64 opw (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
        (if (arch_width_bits c.arch_width) = 64 then
-         (case encode_header c 3 1 of
+         (case encode_header c word64_tag 1 of
           | NONE => (GiveUp,l)
           | SOME header =>
                 (Seq (Assign 3
@@ -2409,7 +2500,7 @@ val def = assign_Define `
                                 Const (& (arch_bytes c.arch_width))])]))
                    (WriteWord64 c header dest 3),l))
         else
-         (case encode_header c 3 2 of
+         (case encode_header c word64_tag 2 of
           | NONE => (GiveUp,l)
           | SOME header =>
             (list_Seq [
@@ -2454,7 +2545,7 @@ val def = assign_Define `
   assign_WordShiftW64 sh n (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 =
          let len = if (arch_width_bits c.arch_width) < 64 then 2 else 1 in
-         (case encode_header c 3 len of
+         (case encode_header c word64_tag len of
           | NONE => (GiveUp,l)
           | SOME header =>
             (if len = 1 then
@@ -2484,7 +2575,7 @@ val def = assign_Define `
 val def = assign_Define `
   assign_WordShiftVarW64 sh (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
-         ((case encode_header c 3 (if (arch_width_bits c.arch_width) < 64 then 2 else 1) of
+         ((case encode_header c word64_tag (if (arch_width_bits c.arch_width) < 64 then 2 else 1) of
           | NONE => GiveUp
           | SOME header =>
             if (arch_width_bits c.arch_width) < 64 then
@@ -2518,7 +2609,7 @@ val def = assign_Define `
           (let
              len = if (arch_width_bits c.arch_width) < 64 then 2 else 1
            in
-             case encode_header c 3 len of
+             case encode_header c word64_tag len of
                NONE => (GiveUp,l)
              | SOME header =>
                 (if len = 1 then
@@ -2534,7 +2625,7 @@ val def = assign_Define `
   assign_WordFromInt (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 =
         let len = if (arch_width_bits c.arch_width) < 64 then 2 else 1 in
-        (case encode_header c 3 len of
+        (case encode_header c word64_tag len of
          | NONE => (GiveUp,l)
          | SOME header =>
            (if len = 1 then
@@ -2729,7 +2820,7 @@ val def = assign_Define `
               (l:num) (dest:num) (names:num_set option) v1 v2 v3 =
        (if ~c.has_fp_ops \/ ~c.has_fp_tern then (GiveUp,l) else
         if (arch_width_bits c.arch_width) = 64 then
-         (case encode_header c 3 1 of
+         (case encode_header c word64_tag 1 of
           | NONE => (GiveUp,l)
           | SOME header =>
             (list_Seq [
@@ -2746,7 +2837,7 @@ val def = assign_Define `
                Inst (FP (FPMovToReg 3 5 0));
                WriteWord64 c header dest 3],l))
         else
-         (case encode_header c 3 2 of
+         (case encode_header c word64_tag 2 of
           | NONE => (GiveUp,l)
           | SOME header =>
             (list_Seq [
@@ -2772,7 +2863,7 @@ val def = assign_Define `
              (l:num) (dest:num) (names:num_set option) v1 v2 =
        (if ~c.has_fp_ops then (GiveUp,l) else
         if (arch_width_bits c.arch_width) = 64 then
-         (case encode_header c 3 1 of
+         (case encode_header c word64_tag 1 of
           | NONE => (GiveUp,l)
           | SOME header =>
             (list_Seq [
@@ -2786,7 +2877,7 @@ val def = assign_Define `
                Inst (FP (FPMovToReg 3 5 0));
                WriteWord64 c header dest 3],l))
         else
-         (case encode_header c 3 2 of
+         (case encode_header c word64_tag 2 of
           | NONE => (GiveUp,l)
           | SOME header =>
             (list_Seq [
@@ -2808,7 +2899,7 @@ val def = assign_Define `
              (l:num) (dest:num) (names:num_set option) v1 =
        (if ~c.has_fp_ops then (GiveUp,l) else
         if (arch_width_bits c.arch_width) = 64 then
-         (case encode_header c 3 1 of
+         (case encode_header c word64_tag 1 of
           | NONE => (GiveUp,l)
           | SOME header =>
             (list_Seq [
@@ -2819,7 +2910,7 @@ val def = assign_Define `
                Inst (FP (FPMovToReg 3 5 1));
                WriteWord64 c header dest 3],l))
         else
-         (case encode_header c 3 2 of
+         (case encode_header c word64_tag 2 of
           | NONE => (GiveUp,l)
           | SOME header =>
             (list_Seq [
@@ -2878,6 +2969,8 @@ Definition assign_def:
     (args:num list) (names:num_set option) =
     case op of
     | IntOp (Const i) => assign_Const i l dest
+    | IntOp (IsSmallnum allow_neg) =>
+        arg1 args (assign_IsSmallnum c.arch_width allow_neg l dest) (Skip,l)
     | IntOp (closLang$Smallnum smallop) =>
         (case args of
          | [v1; v2] => assign_Smallnum c secn smallop l dest names v1 v2
@@ -2927,6 +3020,7 @@ Definition assign_def:
     | BlockOp BoundsCheckBlock =>
         arg2 args (assign_BoundsCheckBlock c secn l dest names) (Skip,l)
     | BlockOp Equal => arg2 args (assign_Equal c secn l dest names) (Skip,l)
+    | BlockOp PolyCompare => arg2 args (assign_PolyCompare c secn l dest names) (Skip,l)
     | IntOp Less => arg2 args (assign_Less c secn l dest names) (Skip,l)
     | IntOp LessEq => arg2 args (assign_LessEq c secn l dest names) (Skip,l)
     | BlockOp LengthBlock => arg1 args (assign_LengthBlock c secn l dest names) (Skip,l)
