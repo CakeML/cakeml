@@ -701,3 +701,35 @@ Theorem Arrow_eq_app_basic:
 Proof
   metis_tac[GEN_ALL Arrow_IMP_app_basic, GEN_ALL app_basic_IMP_Arrow]
 QED
+
+(* A curried function of two arguments with a specification that needs
+  and leaves no heap refines its pure counterpart *)
+Theorem app2_IMP_Arrow:
+  curried (p:'ffi ffi_proj) 2 f ∧
+  (∀x xv y yv.
+    a x xv ∧ b y yv ⇒
+    app p f [xv; yv] emp (POSTv v. &c (g x y) v)) ⇒
+  Arrow a (Arrow b c) g f
+Proof
+  rw[]>>
+  irule (INST_TYPE [beta |-> ``:'ffi``] app_basic_IMP_Arrow)>>
+  qexists_tac`p`>>
+  rw[]>>
+  fs[Once curried_def]>>
+  first_x_assum (qspec_then`v1` assume_tac)>>
+  irule app_basic_weaken>>
+  first_x_assum (irule_at Any)>>
+  Cases>>
+  simp[POSTv_def,cond_def]>>
+  strip_tac>>
+  irule (INST_TYPE [beta |-> ``:'ffi``] app_basic_IMP_Arrow)>>
+  qexists_tac`p`>>
+  rw[]>>
+  rename1`b y yv`>>
+  `app p f [v1; yv] emp (POSTv v. &c (g x y) v)` by
+    (qpat_x_assum`∀x xv y yv. _ ⇒ _` irule>>simp[])>>
+  qpat_x_assum`∀xs H Q. _`
+    (qspecl_then [`[yv]`,`emp`,`POSTv v. &c (g x y) v`] mp_tac)>>
+  simp[]>>
+  simp[Once app_def]
+QED

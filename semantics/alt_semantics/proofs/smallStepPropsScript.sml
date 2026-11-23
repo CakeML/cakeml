@@ -711,27 +711,27 @@ Theorem small_eval_app_err:
 Proof
   ho_match_mp_tac small_eval_list_ind >> simp[] >> srw_tac[][] >>
   srw_tac[boolSimps.DNF_ss][Once RTC_CASES1,e_step_reln_def] >- (
-    srw_tac[][Once e_step_def,continue_def,application_thm,return_def] >>
-    BasicProvers.CASE_TAC >>
+    srw_tac[][Once e_step_def,continue_def,application_thm,return_def]
+    >~ [‘Capp (ThunkOp ForceThunk) _ _ _’]
+    >- (Cases_on ‘v1’ >> Cases_on ‘v0’ >> gvs[])
+    >~ [‘Capp PtrEq _ _ _’]
+    >- (Cases_on ‘v0’ >> gvs[] >> Cases_on ‘t’ >> gvs[]) >>
     BasicProvers.CASE_TAC >>
     Cases_on`s` >> fs[do_app_cases] >> rw[] >> fs[]
     >>> SELECT_LT_THEN (Q.RENAME_TAC [`do_app _ _ _ = SOME app_result`])
           (PairCases_on `app_result`) >>
     gvs[CaseEq"prod",CaseEq"result",CaseEq"error_result",
         do_app_cases,PULL_EXISTS]
-    >~ [‘Capp PtrEq _ _ _’] >- (Cases_on ‘t’ >> gvs[])
     >~ [`do_arith a p`] >- (
       Cases_on`a` \\ Cases_on ‘p’ using prim_type_cases
       \\ gvs[do_arith_def, CaseEq"list"] ) >>
     (* ThunkOp *)
-    namedCases_on ‘v0’ ["", "hd tl"] >> gvs[]
-    >- (Cases_on`v1` \\ simp[])
-    >> Cases_on ‘tl’ >> gvs[] >>
+    namedCases_on ‘v0’ ["", "hd tl"] >> gvs[] >>
+    Cases_on ‘tl’ >> gvs[] >>
     simp[do_app_def] >>
-    qmatch_goalsub_rename_tac `thunk_op _ thunk_operation _` >>
+    qmatch_asmsub_rename_tac `thunk_op _ thunk_operation _` >>
     gvs[oneline thunk_op_def, AllCaseEqs()] >>
-    Cases_on `thunk_operation` \\ gvs[]
-    >- (Cases_on`v1` \\ simp[]) ) >>
+    Cases_on `thunk_operation` \\ gvs[]) >>
   disj2_tac >>
   srw_tac[][Once e_step_def,continue_def,push_def] >>
   imp_res_tac e_step_add_ctxt >>
@@ -783,7 +783,7 @@ Proof
   >- (
     disj1_tac >>
     simp[Once e_step_def, continue_def, application_thm] >>
-    Cases_on ‘op’ >> gvs[getOpClass_def, do_app_long_args]
+    Cases_on ‘op’ >> gvs[do_app_long_args]
     >- (Cases_on ‘v0’ >> gvs[] >> Cases_on ‘t’ >> gvs[]) >>
     IF_CASES_TAC >> gvs[] >> Cases_on `v0` >> gvs[] >>
     Cases_on ‘v1’ >> gvs[]
@@ -798,8 +798,6 @@ Proof
   impl_tac >- simp[] >>
   metis_tac[transitive_RTC,transitive_def]
 QED
-
-val _ = temp_delsimps ["getOpClass_def"]
 
 Theorem step_e_not_timeout:
   e_step (env',s3,e',c') = Eabort a ⇒ a ≠ Rtimeout_error
@@ -1016,8 +1014,7 @@ Proof
     disch_then $ qspec_then `[Capp Opapp vs () [],env]` assume_tac >>
     simp[Once RTC_CASES_RTC_TWICE] >> goal_assum drule >>
     irule $ cj 2 RTC_rules >>
-    simp[e_step_reln_def, e_step_def, continue_def, application_thm,
-         semanticPrimitivesTheory.getOpClass_def]
+    simp[e_step_reln_def, e_step_def, continue_def, application_thm]
     ) >>
   qmatch_goalsub_abbrev_tac `Capp _ _ _ l` >>
   `l ≠ []` by (unabbrev_all_tac >> gvs[]) >> qpat_x_assum `Abbrev _` kall_tac >>
@@ -1032,8 +1029,7 @@ Proof
   disch_then $ qspec_then `[Capp Opapp (REVERSE lvs ++ vs) () [],env]` assume_tac >>
   simp[Once RTC_CASES_RTC_TWICE] >> goal_assum dxrule >>
   irule $ cj 2 RTC_rules >> gvs[REVERSE_APPEND] >>
-  simp[e_step_reln_def, e_step_def, continue_def, application_thm,
-       semanticPrimitivesTheory.getOpClass_def]
+  simp[e_step_reln_def, e_step_def, continue_def, application_thm]
 QED
 
 (**********
@@ -1767,7 +1763,7 @@ Proof
   (
     strip_tac >> Cases_on `∀s. op ≠ FFI s` >> gvs[]
     >- (drule_all application_ffi_unchanged >> gvs[]) >>
-    gvs[application_def, do_app_def, call_FFI_def, semanticPrimitivesTheory.getOpClass_def] >>
+    gvs[application_def, do_app_def, call_FFI_def] >>
     every_case_tac >> gvs[return_def, store_lookup_def, store_assign_def]
   ) >>
   fs[combinTheory.o_DEF]
@@ -1810,7 +1806,7 @@ Proof
   every_case_tac >> gvs[Abbr `foo`, state_component_equality] >> rw[] >> gvs[] >>
   gvs[e_step_def, continue_def, application_thm, do_app_def, call_FFI_def,
       return_def, store_assign_def, store_lookup_def, store_v_same_type_def,
-      semanticPrimitivesTheory.getOpClass_def, combinTheory.o_DEF]
+      combinTheory.o_DEF]
 QED
 
 Theorem io_events_mono_e_step:

@@ -2,24 +2,56 @@ Changes since release v3671:
 
 ## Source language and front‑end
 
-The integer division and modulus primitives now take a rounding mode. Instead of `Div`, one now gets to choose between `Div RoundDown` and `Div TowardsZero`. Same for `Mod`. These are ignored for floats.
+The integer division and modulus primitives now take a rounding mode (#1583). Instead of `Div`, one now gets to choose between `Div RoundDown` and `Div TowardsZero`. Same for `Mod`. These are ignored for floats.
+
+The semantics of floating-point operations in the source has been made more well defined in case of NaN results: all floating-point operations resulting in a NaN now return a specific NaN, the all-ones NaN (-1w:word64).
+
+A new primitive `PolyCompare` implements polymorphic comparison (#1598). It agrees with `=` on type errors and on when it returns zero, and orders constructors by their position in the datatype. It is not antisymmetric on distinct references or exceptions. `TypeStamp` now takes the constructor position as a third argument.
+
+The `Eval` primitive no longer exposes the compiler or its state: a one-argument `Eval` call initialises it with the compiler, and a two-argument call `Eval (env,decs)` either succeeds or returns `Compiler error`, as decided by a new eval oracle (#1604).
 
 ## Basis library
 
+A new top-level `compare : 'a -> 'a -> int` exposes `PolyCompare` (#1598).
+
 ### Int
 
-`Int.quot` and `Int.rem` have been added. They implement integer division and modulus rounding towards zero. Previously existing `Int.div` and `Int.mod` round down.
+`Int.quot` and `Int.rem` have been added (#1583). They implement integer division and modulus rounding towards zero. Previously existing `Int.div` and `Int.mod` round down.
 
 ## Compiler backend and runtime
 
+The CakeML compiler now supports compilation of floating-point operartions also for the Arm8 target (#1596).
+
+In wordLang, the `Equal` stub now computes a three-way comparison, which both `=` and `PolyCompare` call (#1598).
+
+BVI and DataLang now have a new `IsSmallnum` primitive (#1605). BVI now carries the architecture width in its state to give semantics to `IsSmallnum`.
+
+A new first pass `source_eval_init` implements the new one- and two-argument `Eval` calls in terms of the old six-argument `Eval`, and the backend source_to_source passes are now proved against a new intermediate semantics, `evalSem` (#1604).
+
+The REPL's only target-specific step is now installing the compiler in `Eval` and the rest of its proof is shared between targets (#1604).
+
 ## Pancake
+
+The Pancake compiler is now a standalone `pancake` executable, replacing `cake --pancake` (#1589). This splits the bootstrap translation into one CakeML path and one Pancake path. They share all translations up to from_wordProg. Command-line parsing helpers are shared between the two compilers.
+
+We distribute native Pancake builds as self-contained archives with assembly (x64, Arm8 and RISC-V), FFI source and a Makefile for building the executable.
 
 ## Candle
 
 ## Examples
 
+A new LSR checker has been added, with some surrounding (beneficial) fallout cleanups in cnf (#1588).
+
+A PB checker has gained substantial optimization passes, with some cleanup fallout to cnf/ (#1595).
+
 ## Build infrastructure
 
 ## Proof engineering and tooling
+
+The translator now accepts `if ptr_eq x1 y1 /\ ptr_eq x2 y2 /\ ... then t1 else t2`, i.e. conjunctions of pointer-equality tests (with an optional boolean suffix) as the guard. The side condition that both branches agree is only needed under the whole guard (#1603).
+
+The monadic translator has a new opt-in library, `ml_monad_oracleLib`, for pointer equality (`Mptr_eq`) in global-state monads. A logical oracle field in the user's state models the source `PtrEq` oracle (#1603).
+
+CF now supports `PtrEq` (#1603).
 
 ## Miscellaneous

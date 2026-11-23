@@ -89,6 +89,37 @@ Definition bool_id_def:
   bool_id = 0n
 End
 
+Definition encode_ctor_tag_def:
+  encode_ctor_tag (tag:num) (ty:num option) =
+    case ty of
+      NONE => runtime_exn_tag tag
+    | SOME id => runtime_ctor_tag tag
+End
+
+Theorem encode_ctor_tag_eq:
+  encode_ctor_tag tag1 ty1 = encode_ctor_tag tag2 ty2 ⇔
+  tag1 = tag2 ∧ (ty1 = NONE ⇔ ty2 = NONE)
+Proof
+  Cases_on `ty1` >> Cases_on `ty2` >>
+  rw [encode_ctor_tag_def, runtime_ctor_tag_def, runtime_exn_tag_def] >>
+  strip_tac >> pop_assum (mp_tac o Q.AP_TERM `\n:num. n MOD 2`) >>
+  once_rewrite_tac [GSYM MOD_PLUS] >> simp [MOD_MULTIPLE_ZERO]
+QED
+
+Theorem is_exn_tag_encode:
+  is_exn_tag (encode_ctor_tag tag ty) ⇔ ty = NONE
+Proof
+  Cases_on `ty` >> simp [encode_ctor_tag_def, is_exn_tag_ctor, is_exn_tag_exn]
+QED
+
+Theorem encode_ctor_tag_small[simp]:
+  encode_ctor_tag 0 (SOME ty) = 0 ∧
+  encode_ctor_tag 1 (SOME ty) = 1 ∧
+  encode_ctor_tag 2 (SOME ty) = 2
+Proof
+  EVAL_TAC
+QED
+
 Definition Bool_def:
   Bool t b = Con t (SOME (backend_common$bool_to_tag b, SOME bool_id)) []
 End

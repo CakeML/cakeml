@@ -881,8 +881,8 @@ Proof
   >- (
    every_case_tac >> fs [] >>
    fs [mem_load_def]) >>
-  qsuff_tac ‘OPT_MMAP (λa. eval (t with clock := ck) a) es =
-             OPT_MMAP (λa. eval t a) es’ >>
+  qsuff_tac ‘OPT_MMAP (eval (t with clock := ck)) es =
+             OPT_MMAP (eval t) es’ >>
   fs [] >>
   pop_assum mp_tac >>
   qid_spec_tac ‘es’ >>

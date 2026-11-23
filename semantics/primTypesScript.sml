@@ -33,6 +33,7 @@ Definition prim_sem_env_def:
   add_to_sem_env
   (<|clock := 0; ffi := ffi; refs := []; next_type_stamp := 0;
      next_exn_stamp := 0; eval_state := NONE; ptr_eq_oracle := (K (K F));
+     eval_oracle := K (F,K (K (K 0)));
    |>,
    <|v := nsEmpty; c := nsEmpty|>) prim_types_program
 End

@@ -1,0 +1,14 @@
+(*
+This file records the current dependency order between the
+translations for the Pancake compiler
+*)
+
+from_word (from CakeML compiler)
+pancake_lex
+pancake_parse
+from_pancake
+pancake_compiler
+--- (all native entry points extend pancake_compiler)
+pancake_compiler_x64
+pancake_compiler_arm8
+pancake_compiler_riscv

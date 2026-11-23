@@ -3,14 +3,14 @@
 *)
 Theory from_labProg[no_sig_docs]
 Ancestors
-  evaluate ml_translator decProg std_prelude lab_filter lab_to_target
+  evaluate ml_translator explorerProg std_prelude lab_filter lab_to_target
   asm monadic_enc monadic_enc64 backend[qualified]
 Libs
   preamble ml_translatorLib ml_monad_translatorLib
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = translation_extends "decProg";
+val _ = translation_extends "explorerProg";
 val _ = ml_translatorLib.use_sub_check true;
 
 (* Monadic runners share these top-level result constructors. *)

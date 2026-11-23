@@ -362,6 +362,18 @@ Proof
   \\ gvs []
 QED
 
+Theorem Decls_with_oracles:
+  Decls env s1 ds env2 s2 ⇒
+  Decls env (s1 with <| ptr_eq_oracle := po; eval_oracle := eo |>) ds env2
+            (s2 with <| ptr_eq_oracle := po; eval_oracle := eo |>)
+Proof
+  rw [Decls_def]
+  \\ drule_all evaluate_dec_list_no_ptr_eq_oracles
+  \\ disch_then (qspecl_then [‘po’,‘eo’] assume_tac)
+  \\ qexists_tac ‘ck1’ \\ qexists_tac ‘ck2’
+  \\ gvs []
+QED
+
 Theorem Prog_preserves_oracle:
   Prog env s1 ds env2 s2 ⇒ s1.ptr_eq_oracle = s2.ptr_eq_oracle
 Proof
@@ -914,7 +926,7 @@ Proof
   \\ irule (SIMP_RULE std_ss [LET_THM] ML_code_Dlet_var) \\ fs []
   \\ qexists_tac `s2`
   \\ fs [eval_rel_def,evaluate_def,state_component_equality,AllCaseEqs(),
-         do_app_def,store_alloc_def, getOpClass_def]
+         do_app_def,store_alloc_def]
 QED
 
 (* appending an environment *)

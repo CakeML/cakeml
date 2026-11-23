@@ -250,6 +250,7 @@ Definition op_to_display_def:
                          [test_to_display test;
                           prim_type_to_display ty]
   | Equality => empty_item «Equality»
+  | PolyCompare => empty_item «PolyCompare»
   | PtrEq => empty_item «PtrEq»
   | Opapp => empty_item «Opapp»
   | Opassign => empty_item «Opassign»
@@ -608,6 +609,7 @@ Definition clos_op_to_display_def:
     | BlockOp ListAppend => String «ListAppend»
     | BlockOp (Constant c) => Item NONE «Constant» [const_to_display c]
     | BlockOp Equal => String «Equal»
+    | BlockOp PolyCompare => String «PolyCompare»
     | BlockOp PtrEqual => String «PtrEqual»
     | BlockOp (EqualConst c) => Item NONE «EqualConst» [const_part_to_display c]
     | BlockOp (Build bs) => Item NONE «Build» (MAP const_part_to_display bs)
@@ -652,6 +654,7 @@ Definition clos_op_to_display_def:
     | IntOp LessEq => String «LessEq»
     | IntOp Greater => String «Greater»
     | IntOp GreaterEq => String «GreaterEq»
+    | IntOp (IsSmallnum b) => Item NONE «IsSmallnum» [bool_to_display b]
     | IntOp (Smallnum SmallAdd) => String «SmallAdd»
     | IntOp (Smallnum SmallSub) => String «SmallSub»
     | IntOp (Smallnum SmallMult) => String «SmallMult»

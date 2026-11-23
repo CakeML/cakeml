@@ -1337,7 +1337,7 @@ Proof
   \\ fs [is_ref_header_alt,word_index,word_bit_n2w,
          header_bit_low,byte_header_bit_low,header_tag_bits,
          isMutTag_def,good_dimindex_def]
-  \\ fs [BIT1_4,ODD_MULT]
+  \\ fs [BIT1_4,ODD_MULT,data_to_wordTheory.word64_tag_def]
   \\ Cases_on `b` \\ fs [bitTheory.BIT_DEF]
 QED
 
@@ -4630,6 +4630,7 @@ Definition state_rel_thm:
     (* I/O, clock and handler are the same, GC is fixed, code is compiled *)
     (t.ffi = s.ffi) /\
     (t.clock = s.clock) /\
+    (arch_width_bits s.arch_width = dimindex (:'a)) /\
     (t.handler = s.handler) /\
     (t.gc_fun = word_gc_fun c) /\
     code_rel c s.code t.code /\
@@ -4661,7 +4662,7 @@ Definition state_rel_thm:
 End
 
 (* the word state runs the data state's pointer-equality oracle, attenuated by
-   the do_eq-equivalent heap relation *)
+   the comparison-zero heap relation *)
 Definition ptr_eq_link_def:
   ptr_eq_link c (s:('c,'ffi) dataSem$state) (t:('a,'c,'ffi) wordSem$state) ⇔
     t.ptr_eq_rel = word_ptr_eq c ∧ t.ptr_eq_oracle = SOME s.ptr_eq_oracle
@@ -4765,7 +4766,7 @@ Theorem state_rel_init:
     lim.has_fp_tops = c.has_fp_tern /\
     conf_ok (dimindex (:'a)) c /\
     init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ==>
-    state_rel c l1 l2 (initial_state ffi code co cc pe T lim t.stack_size t.clock)
+    state_rel c l1 l2 (initial_state ffi code co cc pe c.arch_width T lim t.stack_size t.clock)
                       (t:('a,'c,'ffi) state) NONE []
 Proof
   simp_tac std_ss [word_list_exists_ADD,conf_ok_def,init_store_ok_def]
@@ -4886,7 +4887,8 @@ Proof
   \\ full_simp_tac(srw_ss())[abs_ml_inv_def,bc_stack_ref_inv_def]
   \\ pop_assum (fn th => full_simp_tac(srw_ss())[GSYM th])
   \\ full_simp_tac(srw_ss())[Boolv_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[v_inv_def] \\ full_simp_tac(srw_ss())[word_addr_def]
-  \\ full_simp_tac(srw_ss())[word_addr_def]
+  \\ full_simp_tac(srw_ss())[word_addr_def, backend_commonTheory.bool_to_tag_def,
+       backend_commonTheory.true_tag_def, backend_commonTheory.false_tag_def, backend_commonTheory.is_exn_tag_def]
   \\ EVAL_TAC \\ full_simp_tac(srw_ss())[good_dimindex_def,dimword_def]
 QED
 
@@ -4915,6 +4917,9 @@ Proof
   \\ Cases_on `x` \\ fs [isBool_def]
   \\ Cases_on `l` \\ fs [isBool_def,v_inv_def,word_addr_def]
   \\ rveq
+  \\ full_simp_tac(srw_ss())[word_addr_def, backend_commonTheory.bool_to_tag_def,
+       backend_commonTheory.true_tag_def, backend_commonTheory.false_tag_def,
+       backend_commonTheory.is_exn_tag_def]
   \\ EVAL_TAC \\ full_simp_tac(srw_ss())[good_dimindex_def,dimword_def]
 QED
 
@@ -5958,7 +5963,7 @@ Proof
   \\ fs[bc_stack_ref_inv_def]
   \\ fs[v_inv_def]
   \\ qhdtm_x_assum`COND`mp_tac
-  \\ IF_CASES_TAC \\ simp[word_addr_def]
+  \\ rpt IF_CASES_TAC \\ simp[word_addr_def]
   \\ strip_tac \\ rveq
   \\ simp[word_addr_def]
 QED
@@ -7015,7 +7020,8 @@ End
 
 Theorem size_of_Block[local]:
   size_of lims [Block ts tag vs] refs seen =
-  if vs = [] \/ IS_SOME (lookup ts seen) then (0,refs,seen)
+  if vs = [] then ((if is_exn_tag tag then 1 else 0),refs,seen)
+  else if IS_SOME (lookup ts seen) then (0,refs,seen)
   else let (n,refs',seen') = size_of lims vs refs (insert ts () seen)
        in (n + LENGTH vs + 1,refs',seen')
 Proof
@@ -7228,9 +7234,16 @@ Proof
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ once_rewrite_tac [traverse_heap_cases]
     \\ rpt disj2_tac \\ fs [])
-  >~ [‘Block ts tag []’] >-
-   (fs [size_of_def] \\ rveq
+  >~ [‘Block ts tag []’] >- (
+    Cases_on `is_exn_tag tag`
+    \\ fs [size_of_def] \\ rveq
     \\ fs [v_inv_def] \\ rveq \\ fs []
+    >- (
+      qmatch_asmsub_rename_tac `heap_lookup exception_ptr heap = SOME _`
+      \\ qexists_tac `exception_ptr :: p1`
+      \\ fs [lookup_len_def, BlockRep_def, el_length_def, SUBSET_DEF]
+      \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
+      \\ once_rewrite_tac [traverse_heap_cases] \\ fs [])
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
     \\ qexists_tac `p1` \\ fs [])
   \\ rename [‘size_of lims [Block ts tag (z0::zs0)]’]

@@ -26,6 +26,7 @@ Theorem op_space_reset_pmatch:
     | IntOp Greater => T
     | IntOp GreaterEq => T
     | BlockOp Equal => T
+    | BlockOp PolyCompare => T
     | BlockOp ListAppend => T
     | BlockOp (FromList _) => T
     | BlockOp (ConsExtend _) => T

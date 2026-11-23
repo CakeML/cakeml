@@ -283,6 +283,13 @@ This is a source-to-source transformation that removes declarations
 that bind values that are never used and whose evaluation cannot have
 any externally observable effect on the state.
 
+[source_eval_initScript.sml](source_eval_initScript.sml):
+A pass within evalSem that runs before source_to_source. The input
+program uses Eval in the EvalPending style: a one-argument call to Eval
+provides the compiler state and a closure implementing the compiler,
+and subsequent two-argument calls give only an environment and the
+declarations. The output program uses Eval in the EvalDecs style.
+
 [source_letScript.sml](source_letScript.sml):
 This is a source-to-source transformation that lifts Let/Letrec expressions
 that sit at the top of Dlet:s into their own Dlet/Dletrec:s.

@@ -67,15 +67,16 @@ QED
 
 (* Closed signatures are computed a constructor at a time from fresh entries. *)
 Theorem input_signature_fresh_constructor:
-  FLOOKUP ctMap (TypeStamp cn n) = NONE ==>
-  datatype_signature (ctMap |+ (TypeStamp cn n,(ctor_params,ctor_fields,ti))) other =
+  FLOOKUP ctMap (TypeStamp cn n pos) = NONE ==>
+  datatype_signature (ctMap |+ (TypeStamp cn n pos,(ctor_params,ctor_fields,ti))) other =
   datatype_signature ctMap other UNION
-    (if ti = other then {(cn,n,ctor_params,ctor_fields)} else {})
+    (if ti = other then {(cn,n,pos,ctor_params,ctor_fields)} else {})
 Proof
   rw [EXTENSION, FORALL_PROD,
     typeSoundInvariantsTheory.datatype_signature_member, FLOOKUP_UPDATE] >>
-  qmatch_goalsub_rename_tac `TypeStamp inspected_name inspected_index` >>
+  qmatch_goalsub_rename_tac `TypeStamp inspected_name inspected_index inspected_pos` >>
   Cases_on `cn = inspected_name` >> Cases_on `n = inspected_index` >>
+  Cases_on `pos = inspected_pos` >>
   gvs [] >> metis_tac [EQ_SYM_EQ]
 QED
 
@@ -89,11 +90,11 @@ fun input_allocation_signature_rules map_tm =
   if finite_mapSyntax.is_fempty map_tm then [] else let
     val (previous,entry) = finite_mapSyntax.dest_fupdate map_tm
     val (stamp,value) = pairSyntax.dest_pair entry
-    val (name,index) = semanticPrimitivesSyntax.dest_TypeStamp stamp
+    val (name,index,pos) = semanticPrimitivesSyntax.dest_TypeStamp stamp
     val [params,field_types,identity] = pairSyntax.strip_pair value
     val fresh = EVAL ``FLOOKUP ^previous ^stamp = NONE`` |> EQT_ELIM
     val rule = input_signature_fresh_constructor |> Q.INST
-      [`ctMap` |-> `^previous`, `cn` |-> `^name`, `n` |-> `^index`,
+      [`ctMap` |-> `^previous`, `cn` |-> `^name`, `n` |-> `^index`, `pos` |-> `^pos`,
        `ctor_params` |-> `^params`, `ctor_fields` |-> `^field_types`,
        `ti` |-> `^identity`]
       |> (fn th => MATCH_MP th fresh)
@@ -102,26 +103,28 @@ fun input_allocation_signature_rules map_tm =
 Theorem input_primitive_signatures:
   good_ctMap ctMap ==>
   datatype_signature ctMap Tbool_num =
-    {(«True»,bool_type_num,[],[]); («False»,bool_type_num,[],[])} /\
+    {(«True»,bool_type_num,1,[],[]); («False»,bool_type_num,0,[],[])} /\
   datatype_signature ctMap Tlist_num =
-    {(«[]»,list_type_num,[«'a»],[]);
-     («::»,list_type_num,[«'a»],[Tvar «'a»; Tlist (Tvar «'a»)])}
+    {(«[]»,list_type_num,0,[«'a»],[]);
+     («::»,list_type_num,1,[«'a»],[Tvar «'a»; Tlist (Tvar «'a»)])}
 Proof
   rw [typeSoundInvariantsTheory.good_ctMap_def, EXTENSION, FORALL_PROD,
     typeSoundInvariantsTheory.datatype_signature_member]
-  >~ [`FLOOKUP _ (TypeStamp _ _) = SOME (_,_,Tbool_num)`] >- (
+  >~ [`FLOOKUP _ (TypeStamp _ _ _) = SOME (_,_,Tbool_num)`] >- (
     qmatch_goalsub_rename_tac
-      `FLOOKUP ctMap (TypeStamp cn n) = SOME (ctor_params,ctor_fields,Tbool_num)` >>
+      `FLOOKUP ctMap (TypeStamp cn n pos) = SOME (ctor_params,ctor_fields,Tbool_num)` >>
     fs [typeSoundInvariantsTheory.ctMap_has_bools_def] >>
     eq_tac >> rw [] >> fs [] >>
     `n = bool_type_num` by metis_tac [typeSoundInvariantsTheory.constructor_type_stamp_index] >>
-    gvs [] >> Cases_on `cn = «True»` >> Cases_on `cn = «False»` >> gvs []) >>
+    gvs [] >> Cases_on `(cn,pos) = («True»,1)` >>
+    Cases_on `(cn,pos) = («False»,0)` >> gvs []) >>
   qmatch_goalsub_rename_tac
-    `FLOOKUP ctMap (TypeStamp cn n) = SOME (ctor_params,ctor_fields,Tlist_num)` >>
+    `FLOOKUP ctMap (TypeStamp cn n pos) = SOME (ctor_params,ctor_fields,Tlist_num)` >>
   fs [typeSoundInvariantsTheory.ctMap_has_lists_def] >>
   eq_tac >> rw [] >> fs [] >>
   `n = list_type_num` by metis_tac [typeSoundInvariantsTheory.constructor_type_stamp_index] >>
-  gvs [] >> Cases_on `cn = «[]»` >> Cases_on `cn = «::»` >> gvs []
+  gvs [] >> Cases_on `(cn,pos) = («[]»,0)` >>
+  Cases_on `(cn,pos) = («::»,1)` >> gvs []
 QED
 
 Definition input_primitive_catalogue_def:

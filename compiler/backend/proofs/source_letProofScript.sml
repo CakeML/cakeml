@@ -3,9 +3,8 @@
  *)
 Theory source_letProof
 Ancestors
-  source_let evaluate evaluateProps semanticPrimitives
-  semanticPrimitivesProps semantics ast
-  source_evalProof
+  source_let semanticPrimitives semanticPrimitivesProps ast
+  evalSem evalSemProps source_adjust_decsProof
 Libs
   preamble
 
@@ -185,18 +184,17 @@ Proof
     \\ drule_at_then (Pos (el 2)) drule_all compile_decs_correct \\ rw [])
 QED
 
-Theorem compile_semantics_oracle:
-  ∀f.
-  source_evalProof$is_insert_oracle ci f s.eval_state ∧
+Theorem compile_semantics_decs:
+  decs_factor_st compile_decs C s ∧
   ¬ semantics_determ s env prog Fail ∧
   semantics_determ s env prog outcome ⇒
   semantics_determ (s with eval_state updated_by
-            source_evalProof$adjust_oracle ci (compile_decs ∘ f))
-        env prog outcome
+                      OPTION_MAP (adjust_es compile_decs C))
+    env prog outcome
 Proof
   rw []
-  \\ irule adjust_oracle_semantics_prog
-  \\ rw []
-  \\ irule compile_decs_correct
-  \\ simp []
+  \\ irule adjust_decs_semantics_prog
+  \\ rpt conj_tac
+  >- MATCH_ACCEPT_TAC (MATCH_MP decs_exact_clock compile_decs_correct)
+  \\ fs []
 QED

@@ -18,25 +18,19 @@ Proof
                locationTheory.unknown_loc_def]
 QED
 
-Theorem BACKEND_CONFIG_TYPE_v[local]:
-  BACKEND_CONFIG_TYPE conf u ⇒
-  u = BACKEND_CONFIG_v conf
-Proof
-  rw [] \\ imp_res_tac BACKEND_CONFIG_IMP \\ fs []
-QED
-
 val ffi_inst = type_of “basis_ffi _ _ _” |> dest_type |> snd |> hd
 
 Theorem evaluate_decs_compiler_arm8_prog:
-  s.compiler = compiler_inst arm8_config ∧
+  ¬s.initialised ∧
+  s.init_ok (BACKEND_CONFIG_v conf)
+    (compiler_fun_cl (COMPILER_MAINPROG_COMPILER_HOST_v HostArm8)) ∧
   s.decode_decs = v_fun_abs decs_allowed (LIST_v DEC_v) ∧
   s.env_id_counter = (0,0,1) ∧ prog_syntax_ok compiler_arm8_prog ∧
   has_repl_flag (TL cl) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-  s.compiler_state = BACKEND_CONFIG_v conf ∧
   file_content fs «config_enc_str.txt» = SOME (encode_backend_config conf) ∧
   evaluate_decs (init_state (basis_ffi ext cl fs) with
-                            <| clock := ck; eval_state := (SOME (EvalDecs s));
-                               ptr_eq_oracle := po |>)
+                            <| clock := ck; eval_state := SOME s;
+                               ptr_eq_oracle := po; eval_oracle := eo |>)
       init_env compiler_arm8_prog = (s1,res) ⇒
   res ≠ Rerr (Rabort Rtype_error)
 Proof
@@ -49,7 +43,8 @@ Proof
   \\ assume_tac (Decls_FRONT_compiler_arm8_prog
        |> REWRITE_RULE [ml_progTheory.ML_code_env_def]
        |> Q.GEN ‘ffi’ |> Q.ISPEC ‘basis_ffi ext cl fs’
-       |> Q.INST [‘eval_state_var’|->‘s’])
+       |> Q.INST [‘eval_state_var’|->‘s’]
+       |> MATCH_MP ml_progTheory.Decls_with_oracles |> Q.INST [‘po'’ |-> ‘po’])
   \\ dxrule ml_progTheory.Decls_IMP_Prog
   \\ ‘prog_syntax_ok (FRONT compiler_arm8_prog)’ by (
     irule ml_progTheory.prog_syntax_ok_isPREFIX
@@ -60,7 +55,9 @@ Proof
     irule ml_progTheory.prog_syntax_ok_isPREFIX
     \\ irule_at Any repl_prog_isPREFIX \\ fs [])
   \\ impl_tac >- fs [] \\ strip_tac
-  \\ drule (repl_types_repl_prog |> Q.INST [`entry_cost` |-> `3`])
+  \\ qpat_x_assum ‘Prog _ _ _ _ _’ (assume_tac o SIMP_RULE (srw_ss()) [])
+  \\ drule (repl_types_repl_prog |> Q.INST [`entry_cost` |-> `3`]
+             |> SIMP_RULE (srw_ss()) [])
   \\ disch_then drule
   \\ disch_then (qspec_then ‘encode_backend_config conf’ mp_tac)
   \\ impl_tac >- (
@@ -93,147 +90,43 @@ Proof
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
   \\ simp [do_con_check_def,build_conv_def]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ simp [evaluate_App_Opapp,evaluate_Var]
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ rewrite_tac [main_host_v_def,EVAL
-       ``semanticPrimitives$do_opapp [Recclosure env [(n,u,e)] n; arg]``]
-  \\ simp []
-  \\ IF_CASES_TAC >- (rw [] \\ fs [combine_dec_result_def])
-  \\ simp [dec_clock_def,Once evaluate_def,evaluate_Var,
-           namespaceTheory.nsOptBind_def]
-  \\ simp [Once evaluate_def,can_pmatch_all_def,pmatch_def]
-  \\ simp [astTheory.pat_bindings_def]
-  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
-           namespaceTheory.nsOptBind_def,evaluate_Lit]
-  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
-           namespaceTheory.nsOptBind_def,evaluate_Lit]
-  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
-           namespaceTheory.nsOptBind_def,evaluate_Lit]
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ IF_CASES_TAC >- (rw [] \\ fs [combine_dec_result_def])
-  (* evaluate e_cl *)
-  \\ fs [dec_clock_def]
-  \\ qabbrev_tac ‘ev = (EvalDecs (s with env_id_counter := (0,1,1)))’
-  \\ drule (evaluatePropsTheory.eval_no_eval_simulation |> CONJUNCTS |> hd)
-  \\ disch_then (qspec_then ‘SOME ev’ mp_tac)
-  \\ impl_tac >- (fs [] \\ Cases_on ‘res_cl’ \\ fs [combine_dec_result_def])
-  \\ strip_tac \\ fs []
-  \\ Cases_on ‘res_cl = Rerr (Rabort Rtimeout_error)’
-  >- (rw [] \\ fs [combine_dec_result_def])
-  \\ fs []
-  (* call compiler_has_repl_flag *)
-  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
-           namespaceTheory.nsOptBind_def,evaluate_Lit]
-  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
-           namespaceTheory.nsOptBind_def,evaluate_Lit]
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ assume_tac compiler_mainprog_has_repl_flag_v_thm
-  \\ drule_all (Arrow_IMP |> INST_TYPE [“:'ffi”|->ffi_inst])
-  \\ disch_then (qspec_then `(dec_clock (s_cl with eval_state := SOME ev))`
-       (qx_choosel_then [`flag_env`,`flag_exp`,`junk`,`flag_value`,
-                        `ck`,`flag_state`,`flag_res`,`flag_po`] strip_assume_tac))
-  \\ fs []
-  \\ IF_CASES_TAC >- (rw[] \\ fs [combine_dec_result_def])
-  \\ fs []
-  \\ Cases_on `flag_res = Rerr (Rabort Rtimeout_error)`
-  >- (rw [] \\ fs [combine_dec_result_def])
-  \\ gvs []
-  (* if *)
-  \\ gvs [BOOL_def]
-  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
-           namespaceTheory.nsOptBind_def,evaluate_Lit,do_if_def]
-  \\ fs [dec_clock_def]
-  (* call run_interactive_repl *)
-  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
-           namespaceTheory.nsOptBind_def,evaluate_Lit]
-  \\ simp [evaluate_App_Opapp,evaluate_Var]
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  \\ rewrite_tac [run_interactive_repl_v_def,EVAL “semanticPrimitives$do_opapp
-       [Recclosure env [(n, u, e)] n; cl_v]”] \\ simp []
-  \\ IF_CASES_TAC >- (fs [] \\ rw [] \\ fs [combine_dec_result_def])
-  \\ fs [dec_clock_def]
-  \\ simp [Once evaluate_def,evaluate_Var,namespaceTheory.nsOptBind_def]
-  \\ simp [Once evaluate_def,can_pmatch_all_def,pmatch_def,
-           astTheory.pat_bindings_def]
-  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
-           namespaceTheory.nsOptBind_def,evaluate_Lit]
-  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
-           namespaceTheory.nsOptBind_def,evaluate_Lit]
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [dec_clock_def]
-  (* charsFrom *)
-  \\ first_x_assum (qspecl_then [`ck`,`junk`,`flag_po`]
-       (qx_choosel_then [`env_pr`,`e_pr`,`res_pr`,`s_pr`] strip_assume_tac))
-  \\ simp []
-  \\ IF_CASES_TAC >- (fs [] \\ rw [] \\ fs [combine_dec_result_def])
-  \\ drule (evaluatePropsTheory.eval_no_eval_simulation |> CONJUNCTS |> hd)
-  \\ disch_then (qspec_then ‘SOME ev’ mp_tac)
-  \\ impl_tac >- (fs [] \\ Cases_on ‘res_pr’ \\ fs [combine_dec_result_def])
-  \\ strip_tac \\ fs []
-  \\ Cases_on ‘res_pr = Rerr (Rabort Rtimeout_error)’
-  >- (rw [] \\ fs [combine_dec_result_def])
-  \\ fs []
-  (* decode_backend_config *)
-  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
-           namespaceTheory.nsOptBind_def,evaluate_Lit]
-  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
-           namespaceTheory.nsOptBind_def,evaluate_Lit]
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [dec_clock_def]
-  \\ assume_tac decodeProgTheory.decode_backend_config_v_thm
-  \\ drule_all (Arrow_IMP |> INST_TYPE [“:'ffi”|->ffi_inst])
-  \\ disch_then (qspec_then `s_pr with <|clock := s_pr.clock − 1;
-                                        eval_state := SOME ev|>`
-       (qx_choosel_then [`decode_env`,`decode_exp`,`decode_junk`,`decode_value`,
-                        `decode_cost`,`decode_state`,`decode_res`,`decode_po`] strip_assume_tac))
-  \\ fs []
-  \\ IF_CASES_TAC >- (rw[] \\ fs [combine_dec_result_def])
-  \\ fs []
-  \\ Cases_on `decode_res = Rerr (Rabort Rtimeout_error)`
-  >- (rw [] \\ fs [combine_dec_result_def])
-  \\ gvs []
-  (* start_repl *)
-  \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
-           namespaceTheory.nsOptBind_def,evaluate_Lit]
-  \\ qmatch_goalsub_abbrev_tac ‘evaluate st8 env8’
-  \\ qspecl_then
-       [‘st8’,‘env8’,‘Short «start_repl»’,‘Short « v0»’,‘basis_ffi ext cl fs’,‘TL cl’] mp_tac
-    (evaluate_start_repl
-     |> Q.INST [`host` |-> `HostArm8`,
-                `host_v` |-> `COMPILER_MAINPROG_COMPILER_HOST_v HostArm8`]
-     |> Q.GENL [`st`,`env`,`start_repl_str`,`arg_str`,`ffi`,`cl`,`s1`,`s`])
-  \\ simp [Abbr`st8`,Abbr`env8`,Abbr`ev`,host_config_def,
-           COMPILER_MAINPROG_COMPILER_HOST_TYPE_def,
-           COMPILER_MAINPROG_COMPILER_HOST_v_def]
-  \\ fs [backend_enc_decTheory.encode_backend_config_thm]
-  \\ drule BACKEND_CONFIG_TYPE_v \\ strip_tac
-  \\ gvs []
-  \\ disch_then drule
-  \\ gvs []
+  (* main_host (HostArm8, u) *)
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate$evaluate st8 env8 [App Opapp [Var mh; Var av]]’
+  \\ Cases_on ‘evaluate$evaluate st8 env8 [App Opapp [Var mh; Var av]]’
+  \\ rename1 ‘_ = (st9,res9)’
+  \\ mp_tac (Q.INST [‘st’|->‘st8’,‘env’|->‘env8’,‘main_host_str’|->‘mh’,
+                     ‘arg_str’|->‘av’,‘st1’|->‘st9’,‘res’|->‘res9’,
+                     ‘host’|->‘HostArm8’,
+                     ‘host_v’|->‘COMPILER_MAINPROG_COMPILER_HOST_v HostArm8’,
+                     ‘cl’|->‘TL cl’,‘ffi’|->‘basis_ffi ext cl fs’,
+                     ‘s’|->‘s with env_id_counter := (0,1,1)’]
+                (INST_TYPE [“:'ffi”|->ffi_inst] evaluate_main_host))
   \\ impl_tac
   >- (
-    CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [dec_clock_def]
-    \\ drule_then irule repl_types_skip_alt \\ simp [])
-  \\ strip_tac \\ simp []
-  \\ rename [‘res9 ≠ Rerr (Rabort Rtype_error)’]
-  \\ Cases_on ‘res9 = Rerr (Rabort Rtype_error)’ >- fs [combine_dec_result_def]
-  \\ fs []
-  \\ reverse (Cases_on ‘res9’) \\ fs [] >- (rw [] \\ fs [combine_dec_result_def])
-  \\ simp [pmatch_def] \\ rw [combine_dec_result_def] \\ fs []
+    simp [Abbr ‘st8’,Abbr ‘env8’,Abbr ‘mh’,Abbr ‘av’,
+          COMPILER_MAINPROG_COMPILER_HOST_TYPE_def,
+          COMPILER_MAINPROG_COMPILER_HOST_v_def]
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv)
+    \\ gvs [COMPILER_MAINPROG_COMPILER_HOST_v_def])
+  \\ rw [] \\ gvs []
+  \\ Cases_on ‘res9’ \\ gvs [pmatch_def,combine_dec_result_def]
 QED
 
 Theorem semantics_prog_compiler_arm8_prog:
-  s.compiler = compiler_inst arm8_config ∧
+  ¬s.initialised ∧
+  s.init_ok (BACKEND_CONFIG_v conf)
+    (compiler_fun_cl (COMPILER_MAINPROG_COMPILER_HOST_v HostArm8)) ∧
   s.decode_decs = v_fun_abs decs_allowed (LIST_v DEC_v) ∧
   s.env_id_counter = (0,0,1) ∧ has_repl_flag (TL cl) ∧ wfcl cl ∧ wfFS fs ∧
   STD_streams fs ∧ hasFreeFD fs ∧ prog_syntax_ok compiler_arm8_prog ∧
-  s.compiler_state = BACKEND_CONFIG_v conf ∧
   file_content fs «config_enc_str.txt» = SOME (encode_backend_config conf) ⇒
   Fail ∉ semantics_prog
-           (init_state (basis_ffi ext cl fs) with eval_state := SOME (EvalDecs s))
+           (init_state (basis_ffi ext cl fs) with eval_state := SOME s)
            init_env compiler_arm8_prog
 Proof
   fs [IN_DEF,semanticsTheory.semantics_prog_def,
       semanticsTheory.semantics_determ_def] \\ rpt strip_tac
-  \\ mp_tac (Q.GENL [‘ck’,‘res’,‘s1’,‘po’] evaluate_decs_compiler_arm8_prog) \\ fs []
+  \\ mp_tac (Q.GENL [‘ck’,‘res’,‘s1’,‘po’,‘eo’] evaluate_decs_compiler_arm8_prog) \\ fs []
   \\ fs [semanticsTheory.evaluate_prog_with_clock_def]
   \\ pairarg_tac \\ gvs []
   \\ qexists_tac ‘k’ \\ fs []

@@ -42,6 +42,10 @@ Definition do_app_def:
             Eq_type_error => NONE
           | Eq_val b => SOME (s, Rval (Boolv b))
         )
+    | (PolyCompare, [v1; v2]) =>
+        (case do_compare v1 v2 of
+            Cmp_type_error => NONE
+          | Cmp_val result => SOME (s, Rval (Litv (IntLit result))))
     | (Arith a ty, vs) =>
         (if EVERY (check_type ty) vs then
            (case do_arith a ty vs of
@@ -521,12 +525,11 @@ End
 
 Definition application_def:
   application op env s vs c : estep_result =
-   case getOpClass op of
-     FunApp =>
+   if op = Opapp then
        (case do_opapp vs of
           SOME (env,e) => (Estep (env, s, Exp e, c):estep_result)
         | NONE => Etype_error)
-   | Force =>
+   else if op = ThunkOp ForceThunk then
       (case vs of
          [Loc b n] => (
             case dest_thunk [Loc b n] (FST s) of
@@ -537,7 +540,7 @@ Definition application_def:
                 return env s f
                   ((Capp Opapp [Conv NONE []] [], env)::(Cforce n, env)::c))
         | _ => Etype_error)
-   | PtrEqOp =>
+   else if op = PtrEq then
        (case vs of
           [v1; v2] =>
             (case do_eq v1 v2 of
@@ -547,7 +550,7 @@ Definition application_def:
                  return env (FST s, (0 =+ shift_seq 1 (po 0)) po)
                    (Boolv (b ∧ po 0 0)) c)
         | _ => Etype_error)
-   | _ =>
+   else
        case op of
        | FFI n => (
          case vs of
@@ -676,7 +679,7 @@ Datatype:
   <| refs  : v store
    ; next_type_stamp : num
    ; next_exn_stamp : num
-   ; eval_state : eval_state option
+   ; eval_state : source_eval_state option
    ; ptr_eq_oracle : num -> num -> bool
    |>
 End
@@ -854,8 +857,8 @@ End
 Definition start_env_def:
   start_env : v sem_env =
   <|v := Bind [] [];
-    c := Bind [(«::»,2,TypeStamp «::» 1); («[]»,0,TypeStamp «[]» 1);
-               («True»,0,TypeStamp «True» 0); («False»,0,TypeStamp «False» 0);
+    c := Bind [(«::»,2,TypeStamp «::» 1 1); («[]»,0,TypeStamp «[]» 1 0);
+               («True»,0,TypeStamp «True» 0 1); («False»,0,TypeStamp «False» 0 0);
                («Subscript»,0,ExnStamp 3); («Div»,0,ExnStamp 2);
                («Chr»,0,ExnStamp 1); («Bind»,0,ExnStamp 0)] []
   |>

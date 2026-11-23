@@ -15,29 +15,23 @@ Theorem evaluate_no_new_types_exns:
      evaluate ck env st e r ⇒
      st.next_type_stamp = (FST r).next_type_stamp ∧
      st.next_exn_stamp = (FST r).next_exn_stamp ∧
-     st.eval_state = (FST r).eval_state) ∧
+     st.eval_state = (FST r).eval_state ∧
+     st.eval_oracle = (FST r).eval_oracle) ∧
   (∀ck env ^st es r.
      evaluate_list ck env st es r ⇒
      st.next_type_stamp = (FST r).next_type_stamp ∧
      st.next_exn_stamp = (FST r).next_exn_stamp ∧
-     st.eval_state = (FST r).eval_state) ∧
+     st.eval_state = (FST r).eval_state ∧
+     st.eval_oracle = (FST r).eval_oracle) ∧
   (∀ck env ^st v pes err_v r.
      evaluate_match ck env st v pes err_v r ⇒
      st.next_type_stamp = (FST r).next_type_stamp ∧
      st.next_exn_stamp = (FST r).next_exn_stamp ∧
-     st.eval_state = (FST r).eval_state)
+     st.eval_state = (FST r).eval_state ∧
+     st.eval_oracle = (FST r).eval_oracle)
 Proof
   ho_match_mp_tac bigStepTheory.evaluate_ind >>
   srw_tac[][]
-QED
-
-Theorem opClass_11[simp]:
-  (opClass op Simple ⇒ ¬opClass op Force ∧ ¬opClass op FunApp ∧ ¬opClass op PtrEqOp) ∧
-  (opClass op Force ⇒ ¬opClass op Simple ∧ ¬opClass op FunApp ∧ ¬opClass op PtrEqOp) ∧
-  (opClass op FunApp ⇒ ¬opClass op Simple ∧ ¬opClass op Force ∧ ¬opClass op PtrEqOp) ∧
-  (opClass op PtrEqOp ⇒ ¬opClass op Simple ∧ ¬opClass op Force ∧ ¬opClass op FunApp)
-Proof
-  Cases_on ‘op’ >> gvs[opClass_cases]
 QED
 
 Theorem evaluate_ignores_types_exns_eval:

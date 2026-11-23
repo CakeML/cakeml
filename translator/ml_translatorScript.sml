@@ -31,7 +31,8 @@ Definition empty_state_def:
     next_type_stamp := 0;
     next_exn_stamp := 0;
     eval_state := NONE;
-    ptr_eq_oracle := K (K F)|>
+    ptr_eq_oracle := K (K F);
+    eval_oracle := K (F,K (K (K 0)))|>
 End
 
 Definition build_state_def:
@@ -520,7 +521,7 @@ QED
 Theorem EqualityType_from_ONTO:
    (!a. ?r. (a = num2a r) ∧ r < (N : num))
     ==> (!TY stamps stn. (GENLIST (\n v. TY (num2a n) v) N
-                = MAP (\st v. v = Conv (SOME (TypeStamp st stn)) []) stamps)
+                = MAPi (\pos st v. v = Conv (SOME (TypeStamp st stn pos)) []) stamps)
         ==> ALL_DISTINCT stamps
         ==> EqualityType TY)
 Proof
@@ -532,7 +533,7 @@ Proof
   \\ fs []
   \\ FIRST_X_ASSUM (fn a => MP_TAC (LIST_CONJ [Q.AP_TERM `LENGTH` a,
         Q.AP_TERM `EL r` a, Q.AP_TERM `EL r'` a]))
-  \\ fs [EL_MAP, satTheory.AND_IMP, FUN_EQ_THM, no_closures_def,
+  \\ fs [EL_MAPi, satTheory.AND_IMP, FUN_EQ_THM, no_closures_def,
         types_match_def, ctor_same_type_def, listTheory.EL_ALL_DISTINCT_EL_EQ,
         same_type_def]
   \\ metis_tac (map TypeBase.one_one_of [``:stamp``, ``:'a option``, ``: v``])
@@ -766,6 +767,54 @@ Proof
   \\ simp []
   \\ conj_tac >- (rw [ptr_eq_def] \\ gvs [])
   \\ irule Eval_PtrEq_guard \\ qexists_tac ‘a’ \\ simp []
+QED
+
+(* Guards that may give false negatives, composable with andalso *)
+Theorem Eval_PtrEq_test:
+  Eval env x1 (a y1) /\ Eval env x2 (a y2) ==>
+  EqualityType a ==>
+  Eval env (App PtrEq [x1;x2])
+    (\v. ?c. v = Boolv c /\ (c ==> ptr_eq y1 y2))
+Proof
+  rewrite_tac [ptr_eq_def]
+  \\ MATCH_ACCEPT_TAC Eval_PtrEq_guard
+QED
+
+Theorem Eval_Bool_guard:
+  Eval env e (BOOL p) ==>
+  Eval env e (\v. ?c. v = Boolv c /\ (c ==> p))
+Proof
+  rw [Eval_def, BOOL_def]
+  \\ first_x_assum (qspecl_then [`refs`,`po`] strip_assume_tac)
+  \\ asm_exists_tac \\ simp []
+QED
+
+Theorem Eval_And_guard:
+  Eval env e1 (\v. ?c. v = Boolv c /\ (c ==> p)) /\
+  Eval env e2 (\v. ?c. v = Boolv c /\ (c ==> q)) ==>
+  Eval env (Log Andalso e1 e2)
+    (\v. ?c. v = Boolv c /\ (c ==> p /\ q))
+Proof
+  rw [Eval_rw]
+  \\ last_x_assum assume_tac
+  \\ Eval2_tac
+  \\ qmatch_asmsub_rename_tac `guard_value ==> p`
+  \\ Cases_on `guard_value`
+  \\ fs [EVAL ``do_log Andalso (Boolv T) e2``,
+         EVAL ``do_log Andalso (Boolv F) e2``, state_component_equality]
+  \\ qexists_tac `F` \\ simp [EVAL ``Boolv F``]
+QED
+
+Theorem Eval_PtrEq_If:
+  Eval env e (\v. ?c. v = Boolv c /\ (c ==> p)) /\
+  Eval env e1 (b t1) /\ Eval env e2 (b t2) ==>
+  (p ==> t1 = t2) ==>
+  Eval env (If e e1 e2) (b (if p then t1 else t2))
+Proof
+  rpt strip_tac
+  \\ irule Eval_If_guard
+  \\ qexistsl_tac [`\c. c ==> p`,`t1`,`t2`]
+  \\ simp []
 QED
 
 (* booleans *)
@@ -2194,9 +2243,13 @@ Definition lift_fp_top_def:
                              (float_to_fp64 f3))
 End
 
+Definition float64_fix_NaN_def:
+  float64_fix_NaN (f:(52,11)float) = fp64_to_float (fix_NaN (float_to_fp64 f))
+End
+
 Definition float64_fma_def:
   float64_fma (f1:(52,11)float) f2 f3 =
-  SND (float_mul_add roundTiesToEven f1 f2 f3)
+  float64_fix_NaN (SND (float_mul_add roundTiesToEven f1 f2 f3))
 End
 
 Theorem Eval_FLOAT_FMA:
@@ -2222,7 +2275,7 @@ Proof
   \\ fs[] \\ qexists_tac `ck1 + ck1' + ck1''` \\ fs[]
   \\ fs[empty_state_def, do_app_def, state_component_equality]
   \\ fs [check_type_def,do_arith_def]
-  \\ fs [fpfma_def, lift_fp_top_def, GSYM float64_fma_def,
+  \\ fs [fpfma_def, lift_fp_top_def, float64_fma_def, float64_fix_NaN_def,
          fp64_to_float_float_to_fp64, fp64_mul_add_def]
 QED
 
@@ -2236,9 +2289,10 @@ Definition float64_add_def:
 End
 
 Theorem float64_add_thm:
-  float64_add f1 f2 = SND (float_add roundTiesToEven f1 f2)
+  float64_add f1 f2 = float64_fix_NaN (SND (float_add roundTiesToEven f1 f2))
 Proof
   simp[float64_add_def, lift_fp_bop_def, fp_bop_comp_def, fp64_add_def,
+       float64_fix_NaN_def,
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
@@ -2247,9 +2301,10 @@ Definition float64_sub_def:
 End
 
 Theorem float64_sub_thm:
-  float64_sub f1 f2 = SND (float_sub roundTiesToEven f1 f2)
+  float64_sub f1 f2 = float64_fix_NaN (SND (float_sub roundTiesToEven f1 f2))
 Proof
   simp[float64_sub_def, lift_fp_bop_def, fp_bop_comp_def, fp64_sub_def,
+       float64_fix_NaN_def,
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
@@ -2258,9 +2313,10 @@ Definition float64_mul_def:
 End
 
 Theorem float64_mul_thm:
-  float64_mul f1 f2 = SND (float_mul roundTiesToEven f1 f2)
+  float64_mul f1 f2 = float64_fix_NaN (SND (float_mul roundTiesToEven f1 f2))
 Proof
   simp[float64_mul_def, lift_fp_bop_def, fp_bop_comp_def, fp64_mul_def,
+       float64_fix_NaN_def,
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
@@ -2269,9 +2325,10 @@ Definition float64_div_def:
 End
 
 Theorem float64_div_thm:
-  float64_div f1 f2 = SND (float_div roundTiesToEven f1 f2)
+  float64_div f1 f2 = float64_fix_NaN (SND (float_div roundTiesToEven f1 f2))
 Proof
   simp[float64_div_def, lift_fp_bop_def, fp_bop_comp_def, fp64_div_def,
+       float64_fix_NaN_def,
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
@@ -2460,9 +2517,10 @@ Definition float64_sqrt_def:
 End
 
 Theorem float64_sqrt_thm:
-  float64_sqrt f1 = SND (float_sqrt roundTiesToEven f1)
+  float64_sqrt f1 = float64_fix_NaN (SND (float_sqrt roundTiesToEven f1))
 Proof
   simp[float64_sqrt_def, lift_fp_uop_def, fp_uop_comp_def, fp64_sqrt_def,
+       float64_fix_NaN_def,
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
@@ -2535,10 +2593,10 @@ QED
 Definition LIST_TYPE_def:
   (LIST_TYPE a (x_2::x_1) v <=>
      ?v2_1 v2_2.
-       v = Conv (SOME (TypeStamp «::» 1)) [v2_1; v2_2] /\
+       v = Conv (SOME (TypeStamp «::» 1 1)) [v2_1; v2_2] /\
        a x_2 v2_1 /\ LIST_TYPE a x_1 v2_2) /\
   (LIST_TYPE a [] v <=>
-     v = Conv (SOME (TypeStamp «[]» 1)) [])
+     v = Conv (SOME (TypeStamp «[]» 1 0)) [])
 End
 
 Theorem LIST_TYPE_SIMP' = Q.prove(
@@ -2570,8 +2628,8 @@ Proof
 QED
 
 Definition LIST_v_def:
-  LIST_v a_v [] = Conv (SOME (TypeStamp «[]» 1)) [] /\
-  LIST_v a_v (x :: xs) = Conv (SOME (TypeStamp «::» 1)) [a_v x; LIST_v a_v xs]
+  LIST_v a_v [] = Conv (SOME (TypeStamp «[]» 1 0)) [] /\
+  LIST_v a_v (x :: xs) = Conv (SOME (TypeStamp «::» 1 1)) [a_v x; LIST_v a_v xs]
 End
 
 Theorem IsTypeRep_LIST:
@@ -3059,8 +3117,8 @@ Theorem Eval_HOL_STRING_APPEND:
    !env x1 x2 s1 s2 n.
       Eval env x1 (HOL_STRING_TYPE s1) ==>
       Eval env x2 (HOL_STRING_TYPE s2) ==>
-      lookup_cons (Short «::») env = SOME (2,TypeStamp «::» 1) /\
-      lookup_cons (Short «[]») env = SOME (0,TypeStamp «[]» 1) ==>
+      lookup_cons (Short «::») env = SOME (2,TypeStamp «::» 1 1) /\
+      lookup_cons (Short «[]») env = SOME (0,TypeStamp «[]» 1 0) ==>
       Eval env
         (App Strcat [Con (SOME (Short «::»))
                     [x1; Con (SOME (Short «::»))
@@ -3089,8 +3147,8 @@ Theorem Eval_HOL_STRING_CONS:
    !env x1 x2 c s n.
       Eval env x1 (CHAR c) ==>
       Eval env x2 (HOL_STRING_TYPE s) ==>
-      lookup_cons (Short «::») env = SOME (2,TypeStamp «::» 1) /\
-      lookup_cons (Short «[]») env = SOME (0,TypeStamp «[]» 1) ==>
+      lookup_cons (Short «::») env = SOME (2,TypeStamp «::» 1 1) /\
+      lookup_cons (Short «[]») env = SOME (0,TypeStamp «[]» 1 0) ==>
       Eval env
         (App Strcat [Con (SOME (Short «::»))
                     [App Implode [Con (SOME (Short «::»))

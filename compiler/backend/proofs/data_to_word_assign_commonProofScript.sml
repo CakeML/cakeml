@@ -614,7 +614,7 @@ Proof
 QED
 
 Theorem arch_bytes_word:
-  arch_width_bits c.arch_width = dimindex (:'a) ==>
+  arch_width_bits (c:data_to_word$config).arch_width = dimindex (:'a) ==>
   n2w (arch_bytes c.arch_width) = (bytes_in_word:'a word)
 Proof
   Cases_on `c.arch_width`
@@ -853,7 +853,9 @@ QED
 Theorem size_of_cons_seen_Block:
   ∀lims vs refs seen ts tag l.
    MEM (Block ts tag l) vs ==>
-   size_of lims (Block ts tag l::vs) refs seen = size_of lims vs refs seen
+   size_of lims (Block ts tag l::vs) refs seen =
+   let (n,refs1,seen1) = size_of lims vs refs seen in
+     (n + (if l = [] ∧ is_exn_tag tag then 1 else 0),refs1,seen1)
 Proof
   Cases_on `vs` >> rpt strip_tac
   >- fs[] >>
@@ -1467,7 +1469,7 @@ Proof
 QED
 
 Theorem arch_bytes_scaled_word:
-   arch_width_bits c.arch_width = dimindex(:'a) ==>
+   arch_width_bits (c:data_to_word$config).arch_width = dimindex(:'a) ==>
    n2w (n * arch_bytes c.arch_width) = (n2w n * bytes_in_word:'a word)
 Proof
   rpt strip_tac \\ simp [GSYM word_mul_n2w]
@@ -1854,6 +1856,149 @@ Proof
   \\ Cases_on `l` \\ fs []
   \\ Cases_on `n` \\ fs [ADD1,GSYM word_add_n2w]
   \\ fs[option_le_max_right]
+QED
+
+Theorem word_exp_insert:
+   (m <> n ==>
+     (word_exp (t with locals := insert n w t.locals) (real_addr c m) =
+      word_exp t (real_addr c m))) /\
+    (~(m IN {n;n1}) ==>
+     (word_exp (t with locals := insert n w (insert n1 w1 t.locals)) (real_addr c m) =
+      word_exp t (real_addr c m)))
+Proof
+  fs [wordSemTheory.word_exp_def,real_addr_def,wordSemTheory.get_store_def]
+  \\ rpt (IF_CASES_TAC \\ fs [])
+  \\ fs [wordSemTheory.word_exp_def,real_addr_def,
+         wordSemTheory.get_store_def,
+         wordSemTheory.get_var_def] \\ fs [lookup_insert]
+QED
+
+(* Numeric comparison shared by integer and polymorphic comparison. *)
+Theorem decode_length_half_bound[local]:
+  c.len_size < dimindex (:'a) ⇒
+  2 * w2n (decode_length c (header:'a word)) < dimword (:'a)
+Proof
+  strip_tac
+  \\ simp [decode_length_def,w2n_lsr]
+  \\ irule LESS_EQ_LESS_TRANS
+  \\ qexists_tac `w2n header`
+  \\ simp [w2n_lt]
+  \\ irule LESS_EQ_TRANS
+  \\ qexists_tac `(w2n header DIV 2 ** (dimindex (:'a) - c.len_size)) *
+                   2 ** (dimindex (:'a) - c.len_size)`
+  \\ reverse conj_tac
+  >- simp [GSYM X_LE_DIV]
+  \\ CONV_TAC (LAND_CONV (REWR_CONV MULT_COMM))
+  \\ simp [LE_MULT_LCANCEL]
+QED
+
+Theorem Compare_code_word_num_cmp:
+  word_num_cmp c t.store t.mdomain t.memory left_word right_word = SOME answer ∧
+  (¬word_bit 0 left_word ⇒ word_bit 0 right_word) ∧
+  arch_width_bits c.arch_width = dimindex (:'a) ∧
+  shift_length c < dimindex (:'a) ∧
+  c.len_size ≠ 0 ∧ c.len_size < dimindex (:'a) ∧
+  (∃md. lookup Compare1_location t.code = SOME (4,Compare1_code c,md)) ∧
+  get_var 0 (t:('a,'c,'ffi) wordSem$state) = SOME (Loc l1 l2) ∧
+  get_var 2 t = SOME (Word left_word) ∧
+  get_var 4 t = SOME (Word right_word) ∧
+  dimword (:'a) ≤ t.clock ∧ good_dimindex (:'a) ⇒
+  ∃ck smx.
+    evaluate (Compare_code c,t) =
+      (SOME (Result (Loc l1 l2) [Word answer]),
+       t with <| clock := ck; locals := LN; locals_size := SOME 0;
+                 stack_max := smx |>) ∧
+    option_le smx (OPTION_MAP2 MAX t.stack_max
+      (OPTION_MAP2 $+ (stack_size t.stack)
+        (lookup Compare1_location t.stack_size))) ∧
+    t.clock < dimword (:'a) + ck
+Proof
+  strip_tac
+  \\ Cases_on `word_bit 0 left_word`
+  \\ Cases_on `word_bit 0 right_word` \\ fs []
+  >- (
+    fs [word_num_cmp_def, word_header_def, CaseEq "option",
+        CaseEq "word_loc", CaseEq "prod"]
+    \\ gvs []
+    \\ qmatch_asmsub_rename_tac `get_real_addr c t.store left_word = SOME left_addr`
+    \\ qmatch_asmsub_rename_tac `get_real_addr c t.store right_word = SOME right_addr`
+    \\ qmatch_asmsub_rename_tac `t.memory left_addr = Word left_header`
+    \\ qmatch_asmsub_rename_tac `t.memory right_addr = Word right_header`
+    \\ rpt_drule0 (get_real_addr_lemma |> Q.INST [`v` |-> `2`]) \\ rw []
+    \\ rpt_drule0 (get_real_addr_lemma |> Q.INST [`v` |-> `4`]) \\ rw []
+    \\ Cases_on `left_header = right_header` \\ fs []
+    >- (
+      `shift (dimindex (:'a)) ≠ 0 ∧ shift (dimindex (:'a)) < dimindex (:'a)` by
+        fs [good_dimindex_def, backend_commonTheory.word_shift_def]
+      \\ `(dimindex (:'a) - c.len_size) MOD dimword (:'a) =
+           dimindex (:'a) - c.len_size ∧
+           shift (dimindex (:'a)) MOD dimword (:'a) = shift (dimindex (:'a)) ∧
+           dimindex (:'a) - c.len_size < dimindex (:'a)` by
+        fs [good_dimindex_def, dimword_def, backend_commonTheory.word_shift_def]
+      \\ qmatch_asmsub_rename_tac `t.memory left_addr = Word common_header`
+      \\ `w2n (decode_length c common_header) + 1 < dimword (:'a)` by (
+        `2 * w2n (decode_length c common_header) < dimword (:'a)` by (
+          match_mp_tac decode_length_half_bound \\ fs [])
+        \\ fs [good_dimindex_def,dimword_def]
+        \\ rfs [] \\ decide_tac)
+      \\ gvs [AllCaseEqs()]
+      \\ qmatch_asmsub_rename_tac
+           `word_cmp_loop (decode_length c common_header) _ _ _ _ = SOME answer`
+      \\ fs [Compare_code_def, list_Seq_def]
+      \\ eval_tac
+      \\ gvs [wordSemTheory.get_var_imm_def, asmTheory.word_cmp_def,
+              lookup_insert, wordSemTheory.call_env_def, fromList2_def,
+              wordSemTheory.state_component_equality, word_bit_test,
+              word_exp_insert, wordSemTheory.get_vars_def,
+              wordSemTheory.get_var_def, wordSemTheory.bad_dest_args_def,
+              wordSemTheory.add_ret_loc_def, wordSemTheory.find_code_def,
+              GSYM decode_length_def]
+      \\ (
+        fs [bytes_in_word_mul_eq_shift, wordSemTheory.dec_clock_def]
+        \\ qmatch_goalsub_abbrev_tac `evaluate (Compare1_code c,loop_state)`
+        \\ drule0 Compare1_code_thm
+        \\ disch_then (qspecl_then [`c`,`loop_state`] mp_tac)
+        \\ impl_tac >- (
+          simp [Abbr `loop_state`, wordSemTheory.get_var_def, lookup_insert]
+          \\ Cases_on `decode_length c common_header` \\ fs [])
+        \\ disch_then (qx_choosel_then [`final_clock`,`final_stack`] strip_assume_tac)
+        \\ qexists_tac `final_clock` \\ qexists_tac `final_stack`
+        \\ fs [wordSemTheory.bad_fun_return_def, Abbr `loop_state`,
+               wordSemTheory.state_component_equality, option_le_max_right]
+        \\ Cases_on `decode_length c common_header` \\ fs [] \\ decide_tac))
+    \\ `(dimindex (:'a) - c.len_size) MOD dimword (:'a) =
+       dimindex (:'a) - c.len_size ∧
+     dimindex (:'a) - c.len_size < dimindex (:'a)` by
+      fs [good_dimindex_def, dimword_def]
+    \\ qexists_tac `t.clock` \\ qexists_tac `t.stack_max`
+    \\ gvs [AllCaseEqs()]
+    \\ fs [Compare_code_def, list_Seq_def]
+    \\ eval_tac
+    \\ gvs [wordSemTheory.get_var_imm_def, asmTheory.word_cmp_def,
+           wordSemTheory.get_var_def, wordSemTheory.get_vars_def,
+           lookup_insert, wordSemTheory.call_env_def, fromList2_def,
+           wordSemTheory.state_component_equality, word_bit_test,
+           wordSemTheory.flush_state_def, option_le_max_right,
+           word_exp_insert, GSYM decode_length_def])
+  >- (
+    gvs [word_num_cmp_def, word_header_def, AllCaseEqs()]
+    \\ rpt_drule0 (get_real_addr_lemma |> Q.INST [`v` |-> `2`]) \\ rw []
+    \\ fs [Compare_code_def, list_Seq_def]
+    \\ eval_tac
+    \\ fs [wordSemTheory.get_var_imm_def, asmTheory.word_cmp_def,
+           wordSemTheory.get_var_def, wordSemTheory.get_vars_def,
+           lookup_insert, wordSemTheory.call_env_def, fromList2_def,
+           wordSemTheory.state_component_equality, word_bit_test,
+           wordSemTheory.flush_state_def, option_le_max_right])
+  \\ gvs [word_num_cmp_def, word_header_def, AllCaseEqs()]
+  \\ rpt_drule0 (get_real_addr_lemma |> Q.INST [`v` |-> `4`]) \\ rw []
+  \\ fs [Compare_code_def, list_Seq_def]
+  \\ eval_tac
+  \\ fs [wordSemTheory.get_var_imm_def, asmTheory.word_cmp_def,
+         wordSemTheory.get_var_def, wordSemTheory.get_vars_def,
+         lookup_insert, wordSemTheory.call_env_def, fromList2_def,
+         wordSemTheory.state_component_equality, word_bit_test,
+         wordSemTheory.flush_state_def, option_le_max_right]
 QED
 
 Theorem word_cmp_Less_word_cmp_res:

@@ -3,14 +3,14 @@
 *)
 Theory inferProg[no_sig_docs]
 Ancestors
-  ml_monadBase parserProg pancake_parseProg infer ml_translator semanticPrimitives
+  ml_monadBase parserProg infer ml_translator semanticPrimitives
   inferProps
 Libs
   preamble ml_translatorLib
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = translation_extends "pancake_parseProg";
+val _ = translation_extends "parserProg";
 val _ = ml_translatorLib.use_sub_check true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "inferProg");

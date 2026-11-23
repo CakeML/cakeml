@@ -3,7 +3,7 @@
 *)
 Theory graphProg
 Ancestors
-  npbc_parseProg graph_basic
+  npbc_parseProg graph_basic input_lex input_lexProg
 Libs
   preamble basis
 
@@ -22,8 +22,7 @@ val res = translate COUNT_LIST_compute;
 val res = translate not_neighbours_def;
 val res = translate strict_not_neighbours_def;
 
-(* shared parsing LAD and DIMACS
-  TODO: blanks already translated using the copy in pb_parse *)
+(* shared parsing LAD and DIMACS *)
 val _ = translate graph_basicTheory.tokenize_num_def;
 
 (* LAD parser *)
@@ -49,25 +48,24 @@ End
 
 val r = translate noparse_string_def;
 
+(* The graph parsed from the tokens of a LAD file f, or the error *)
+Definition lad_result_def:
+  lad_result f (lines:(mlstring + num) list list) =
+  case parse_lad_toks lines of
+    NONE => INL (noparse_string f «LAD»)
+  | SOME x =>
+    if check_good_graph x then INR x
+    else INL («c Input graph » ^ f ^ « fails undirectedness check\n»)
+End
+
+val r = translate lad_result_def;
+
 Quote add_cakeml:
   fun parse_lad f =
   (case TextIO.inputAllTokensFile #"\n" f blanks tokenize_num of
     None => Inl (notfound_string f)
-  | Some lines =>
-  (case parse_lad_toks lines of
-    None => Inl (noparse_string f "LAD")
-  | Some x =>
-    if check_good_graph x then
-      Inr x
-    else Inl ("c Input graph " ^ f ^ " fails undirectedness check\n")))
+  | Some lines => lad_result f lines)
 End
-
-Theorem blanks_eq[simp]:
-  graph_basic$blanks = pb_parse$blanks
-Proof
-  rw[FUN_EQ_THM]>>
-  simp[pb_parseTheory.blanks_def,blanks_def]
-QED
 
 (* get_graph_lad *)
 Definition get_graph_lad_def:
@@ -109,7 +107,7 @@ Proof
   >- (
     xapp_spec inputAllTokensFile_spec_specialize >>
     xsimpl>>
-    simp[pb_parseTheory.blanks_def]>>
+    simp[blanks_def]>>
     fs[FILENAME_def,validArg_def,blanks_v_thm]>>
     first_x_assum (irule_at Any)>>
     first_x_assum (irule_at Any)>>
@@ -121,26 +119,16 @@ Proof
     xlet_autop>>
     xcon>>xsimpl>>
     simp[SUM_TYPE_def]>>metis_tac[])>>
-  xlet_autop>>
   `toks_num = (MAP tokenize_num ∘ tokens blanks)` by
     metis_tac[toks_num_def,ETA_AX,o_DEF]>>
+  xapp>>xsimpl>>
+  first_assum (irule_at Any)>>
+  first_assum (irule_at Any)>>
+  rw[lad_result_def]>>
   Cases_on`parse_lad (all_lines_file fs f)`>>
-  gvs[parse_lad_def,OPTION_TYPE_def]
-  >- (
-    xmatch >>
-    xlet_autop>>
-    xcon>>xsimpl>>
-    simp[SUM_TYPE_def]>>metis_tac[])>>
-  xmatch>>
-  xlet_autop>>
-  fs[check_good_graph_iff]>>
-  xif
-  >- (
-    xcon>>xsimpl>>
-    simp[SUM_TYPE_def])>>
-  rpt xlet_autop>>
-  xcon>>xsimpl>>
-  simp[SUM_TYPE_def]>>
+  gvs[parse_lad_def,check_good_graph_iff]>>
+  rw[]>>
+  gvs[SUM_TYPE_def]>>
   metis_tac[]
 QED
 
@@ -200,7 +188,7 @@ Proof
   >- (
     xapp_spec inputAllTokensFile_spec_specialize >>
     xsimpl>>
-    simp[pb_parseTheory.blanks_def]>>
+    simp[blanks_def]>>
     fs[FILENAME_def,validArg_def,blanks_v_thm]>>
     first_x_assum (irule_at Any)>>
     first_x_assum (irule_at Any)>>

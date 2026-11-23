@@ -69,6 +69,14 @@ Definition x64_cmp_def:
    (x64_cmp NotTest  = Z_NE)
 End
 
+(* PCMPEQQ on one register produces all ones and occupies five bytes. *)
+Definition x64_fix_nan_ast_def:
+  x64_fix_nan_ast dst =
+    [SSE (COMISD (n2w dst, xr dst));
+     Zjcc (Z_NP, 5w);
+     SSE (PCMPEQQ (n2w dst, xr dst))]
+End
+
 Definition x64_ast_def:
    (x64_ast (Inst Skip) = [Znop(1)]) /\
    (x64_ast (Inst (Const r i)) =
@@ -163,15 +171,16 @@ Definition x64_ast_def:
      [SSE (PCMPEQQ (n2w d1, xr d1));
       SSE (PSLLQ_imm (n2w d1, 63w));
       SSE (logic_PD (sse_xor, n2w d1, xr d2))]) /\
-   (x64_ast (Inst (FP (FPSqrt d1 d2))) = [SSE (SQRTSD (n2w d1, xr d2))]) /\
+   (x64_ast (Inst (FP (FPSqrt d1 d2))) =
+     SSE (SQRTSD (n2w d1, xr d2)) :: x64_fix_nan_ast d1) /\
    (x64_ast (Inst (FP (FPAdd d1 _ d2))) =
-     [SSE (bin_SD (sse_add, n2w d1, xr d2))]) /\
+     SSE (bin_SD (sse_add, n2w d1, xr d2)) :: x64_fix_nan_ast d1) /\
    (x64_ast (Inst (FP (FPSub d1 _ d2))) =
-     [SSE (bin_SD (sse_sub, n2w d1, xr d2))]) /\
+     SSE (bin_SD (sse_sub, n2w d1, xr d2)) :: x64_fix_nan_ast d1) /\
    (x64_ast (Inst (FP (FPMul d1 _ d2))) =
-     [SSE (bin_SD (sse_mul, n2w d1, xr d2))]) /\
+     SSE (bin_SD (sse_mul, n2w d1, xr d2)) :: x64_fix_nan_ast d1) /\
    (x64_ast (Inst (FP (FPDiv d1 _ d2))) =
-     [SSE (bin_SD (sse_div, n2w d1, xr d2))]) /\
+     SSE (bin_SD (sse_div, n2w d1, xr d2)) :: x64_fix_nan_ast d1) /\
    (x64_ast (Inst (FP (FPFma _ _ _))) =
     [Znop(1)]) /\
    (x64_ast (Inst (FP (FPMovToReg r1 r2 d))) =

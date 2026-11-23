@@ -28,10 +28,10 @@ Proof
       (div_stamp, ([],[],Texn_num));
       (chr_stamp, ([],[],Texn_num));
       (subscript_stamp, ([],[],Texn_num));
-      (TypeStamp «[]» list_type_num, ([«'a»],[],Tlist_num));
-      (TypeStamp «::» list_type_num, ([«'a»],[Tvar «'a»; Tlist (Tvar «'a»)], Tlist_num));
-      (TypeStamp «True» bool_type_num, ([],[], Tbool_num));
-      (TypeStamp «False» bool_type_num, ([],[], Tbool_num))]` >>
+      (TypeStamp «[]» list_type_num 0, ([«'a»],[],Tlist_num));
+      (TypeStamp «::» list_type_num 1, ([«'a»],[Tvar «'a»; Tlist (Tvar «'a»)], Tlist_num));
+      (TypeStamp «True» bool_type_num 1, ([],[], Tbool_num));
+      (TypeStamp «False» bool_type_num 0, ([],[], Tbool_num))]` >>
   rw []
   >- (
     simp [tenv_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def]>>

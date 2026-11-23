@@ -71,8 +71,8 @@ Theorem semantics_compiler_x64_prog:
   sem_satisfies
     (semantics_dec_list
       (init_state (basis_ffi ext cl fs) with
-       eval_state := SOME (EvalDecs
-         (eval_state_var with env_id_counter := (0,0,1))))
+       eval_state := SOME
+         (eval_state_var with env_id_counter := (0,0,1)))
       init_env compiler_x64_prog)
     (\behaviour.
        ?io_events.

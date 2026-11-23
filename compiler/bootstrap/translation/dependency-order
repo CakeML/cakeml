@@ -17,6 +17,7 @@ riscv
 mips
 x64
 decProg
+explorer
 from_lab
 from_stack
 reg_alloc
@@ -29,14 +30,10 @@ from_flat
 from_cake
 lexer
 parser
-pancake_lex
-pancake_parse
 infer
-explorer
 decode
 basis_def
 printing
-from_pancake
 compiler_common
 --- (the native AG32 batch entry point extends compiler_common)
 compiler_ag32

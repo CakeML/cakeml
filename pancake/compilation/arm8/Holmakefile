@@ -1,0 +1,19 @@
+ARCH = arm8
+all: $(DEFAULT_TARGETS) README.md pancake-$(ARCH).tar.gz
+.PHONY: all
+
+sinclude $(CAKEMLDIR)/developers/readme.mk
+
+pancake.S: *pancake_arm8BootstrapScript.sml
+
+pancake: pancake.S basis_ffi.c Makefile
+	make pancake
+
+pancake-$(ARCH).tar.gz: pancake.S basis_ffi.c Makefile README.md
+	tar -chzf $@ --transform='s|^|pancake-$(ARCH)/|' pancake.S basis_ffi.c Makefile README.md
+
+EXTRA_CLEANS = pancake.S pancake pancake-$(ARCH).tar.gz
+
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
+endif

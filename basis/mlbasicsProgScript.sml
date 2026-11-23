@@ -59,7 +59,8 @@ val _ = trans "<>" ``\x1 x2. x1 <> (x2:'a)``;
 val _ = trans "^" mlstringSyntax.strcat_tm;
 
 val _ = append_prog
-  ``[mk_binop «:=» Opassign;
+  ``[mk_binop «compare» PolyCompare;
+     mk_binop «:=» Opassign;
      mk_unop «!» Opderef
   (* mk_unop «ref» Opref *)]``
 

@@ -40,14 +40,21 @@ End
   The context is the global theory context tracked by the inference system, and
   subsumes the above references. But we use them instead for efficiency (and to
   be close to HOL Light).
+
+  The oracle field is not a reference: it is the logical model of the source
+  pointer-equality oracle, used by same_ptr (see ml_monad_oracleLib).
 *)
 
 Datatype:
   hol_refs = <| the_type_constants : (mlstring # num) list ;
                 the_term_constants : (mlstring # type) list ;
                 the_axioms : thm list ;
-                the_context : update list |>
+                the_context : update list ;
+                oracle : num -> bool |>
 End
+
+Overload same_ptr =
+  “Mptr_eq hol_refs_oracle (λoracle s. s with oracle := oracle)”
 
 (* the state-exception monad *)
 

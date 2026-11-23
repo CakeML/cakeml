@@ -1972,7 +1972,7 @@ Proof
   >- (
     xapp>>xsimpl>>
     qexists_tac`emp`>>xsimpl>>
-    `BOOL T (Conv (SOME (TypeStamp «True» 0)) [])` by EVAL_TAC>>
+    `BOOL T (Conv (SOME (TypeStamp «True» 0 1)) [])` by EVAL_TAC>>
     rpt (asm_exists_tac>>simp[])>>
     qexists_tac`FEMPTY`>>xsimpl)>>
   xapp>>

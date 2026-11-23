@@ -968,13 +968,25 @@ QED
 Definition encode_val_def:
   encode_val (Litv l) = Litv l /\
   encode_val (Conv stmp xs) = Term
-    (case stmp of NONE => NONE | SOME (i, _) => SOME i)
+    (case stmp of NONE => NONE | SOME (i, ty) => SOME (encode_ctor_tag i ty))
     (MAP encode_val xs) /\
   encode_val (Loc _ n) = RefPtr n /\
   encode_val others = Other
 Termination
   WF_REL_TAC `measure v_size`
 End
+
+Theorem do_app_Equality_Litv[local]:
+  do_app s (Src Equality) [Litv l1; Litv l2] =
+    if lit_same_type l1 l2 then SOME (s, Rval (Boolv (l1 = l2))) else NONE
+Proof
+  mp_tac (Q.SPECL [`semanticPrimitives$Litv l1`, `semanticPrimitives$Litv l2`]
+    (CONJUNCT1 semanticPrimitivesTheory.do_compare_eq)) >>
+  simp [semanticPrimitivesTheory.do_compare_def, semanticPrimitivesTheory.do_eq_def] >>
+  Cases_on `compare_lit l1 l2` >>
+  simp [do_app_def, do_cmp_def] >>
+  IF_CASES_TAC >> simp []
+QED
 
 Theorem decode_test_simulation:
   dt_test test enc_v = SOME b /\
@@ -989,7 +1001,8 @@ Proof
   \\ rw []
   \\ fs [dt_test_def]
   \\ fs [decode_test_def, pure_eval_to_def, evaluate_def]
-  \\ simp [do_app_def, do_eq_def, lit_same_type_sym]
+  \\ simp [do_app_Equality_Litv]
+  \\ simp [do_app_def, lit_same_type_sym]
   \\ rw [Boolv_def]
 QED
 
@@ -1052,8 +1065,8 @@ Theorem fold_Boolv = GSYM (LIST_CONJ [
   Boolv_def |> REWRITE_RULE [GSYM backend_commonTheory.bool_to_tag_def],
   backend_commonTheory.bool_to_tag_def])
 
-Theorem do_eq_Boolv:
-  do_eq (Boolv x) (Boolv y) = Eq_val (x = y)
+Theorem do_cmp_Boolv:
+  do_cmp (Boolv x) (Boolv y) = Cmp_val (if x = y then 0 else if x then 1 else -1)
 Proof
   EVAL_TAC \\ EVERY_CASE_TAC \\ fs []
 QED
@@ -1104,7 +1117,7 @@ Proof
   \\ fs [pure_eval_to_def, evaluate_def, option_case_eq]
   \\ rw []
   \\ simp [evaluate_SmartIf]
-  \\ fs [Bool_def, evaluate_def, fold_Boolv, do_app_def, do_eq_Boolv,
+  \\ fs [Bool_def, evaluate_def, fold_Boolv, do_app_def, do_cmp_Boolv,
         do_if_Boolv, bool_case_eq]
   \\ drule decode_test_simulation
   \\ fs [pure_eval_to_def]
@@ -1149,6 +1162,20 @@ Proof
   \\ IF_CASES_TAC \\ gs []
 QED
 
+Theorem encode_ctor_pmatch[local]:
+  pmatch_stamps_ok stamp stamp' (LENGTH ps) (LENGTH vs) ⇒
+  pattern_semantics$pmatch refs (encode_pat (Pcon stamp ps))
+    (encode_val (Conv stamp' vs)) =
+  if OPTION_MAP FST stamp = OPTION_MAP FST stamp' ∧ LENGTH ps = LENGTH vs
+  then pattern_semantics$pmatch_list refs (MAP encode_pat ps) (MAP encode_val vs)
+  else PMatchFailure
+Proof
+  rw [pmatch_stamps_ok_cases] >>
+  gvs [encode_pat_def, encode_val_def, pattern_semanticsTheory.pmatch_def,
+       encode_ctor_tag_eq, is_sibling_def, MEM_MAP, EXISTS_PROD,
+       Q.ISPEC `encode_val` ETA_THM]
+QED
+
 Theorem encode_pat_match_simulation:
   (! ^s pat v pre_bindings res.
   flatSem$pmatch s pat v pre_bindings = res /\
@@ -1165,33 +1192,20 @@ Theorem encode_pat_match_simulation:
     (MAP encode_val vs) =
   (if res = No_match then PMatchFailure else PMatchSuccess))
 Proof
-  ho_match_mp_tac flatSemTheory.pmatch_ind
-  \\ rpt strip_tac
-  \\ fs [encode_pat_def, encode_val_def,
-    Q.ISPEC `encode_val` ETA_THM, Q.ISPEC `encode_pat` ETA_THM]
-  \\ fs [flatSemTheory.pmatch_def, pattern_semanticsTheory.pmatch_def]
-  \\ TRY (fs [bool_case_eq] \\ rveq \\ fs [] \\ NO_TAC)
+  ho_match_mp_tac flatSemTheory.pmatch_ind >> rpt strip_tac >>
+  fs [encode_pat_def, encode_val_def,
+      Q.ISPEC `encode_val` ETA_THM, Q.ISPEC `encode_pat` ETA_THM] >>
+  fs [flatSemTheory.pmatch_def, pattern_semanticsTheory.pmatch_def] >>
+  fs [bool_case_eq] >> rveq >> fs [] >>
+  fs [encode_ctor_pmatch |> REWRITE_RULE [encode_pat_def, encode_val_def,
+        Q.ISPEC `encode_val` ETA_THM]]
   >- (
-    (* conses *)
-    fs [Q.GEN `t1` bool_case_eq |> Q.ISPEC `Match_type_error`] \\  fs []
-    \\ gvs [pmatch_stamps_ok_cases]
-    \\ fs [AllCaseEqs()] \\ rveq \\ fs []
-    \\ simp [pattern_semanticsTheory.pmatch_def, is_sibling_def]
-    \\ rfs []
-    \\ every_case_tac \\ fs []
-  )
-  >- (
-    (* refs *)
-    fs [case_eq_thms]
-    \\ rveq \\ fs []
-    \\ fs [FLOOKUP_encode_refs, store_lookup_def, EVERY_EL]
-    \\ first_x_assum drule
-    \\ simp []
-  )
-  >- (
-    fs [CaseEq "match_result"]
-    \\ rveq \\ fs []
-  )
+    fs [case_eq_thms] >> rveq >> fs [] >>
+    fs [FLOOKUP_encode_refs, store_lookup_def, EVERY_EL] >> gvs [] >>
+    Cases_on `EL lnum s.refs` >> gvs []) >>
+  Cases_on `flatSem$pmatch s pat v pre_bindings` >>
+  gvs [CaseEq "match_result"] >>
+  Cases_on `flatSem$pmatch_list s ps vs pre_bindings` >> gvs []
 QED
 
 Theorem pmatch_rows_encode:
@@ -1247,7 +1261,7 @@ Proof
   >- (
     (* lit eq *)
     Cases_on `y` \\ fs [flatSemTheory.pmatch_def]
-    \\ fs [do_app_def, do_eq_def]
+    \\ fs [do_app_Equality_Litv]
     \\ rw []
     \\ fs [lit_same_type_sym, do_if_Boolv]
     \\ EVERY_CASE_TAC \\ fs []
@@ -1285,15 +1299,15 @@ Proof
     \\ fs [markerTheory.Abbrev_def]
     \\ fs [pmatch_stamps_ok_cases]
     \\ rveq \\ fs []
-    \\ simp [do_app_def]
+    \\ simp [do_app_def, encode_ctor_tag_eq]
     \\ simp [do_if_Boolv]
-    \\ rw [] \\ fs [] \\ simp [evaluate_def, fold_Boolv]
-    \\ TRY (EVERY_CASE_TAC \\ fs [] \\ NO_TAC)
-    \\ first_x_assum (qspecl_then [`l ++ ys`, `bindings`] mp_tac)
-    \\ simp [flatPropsTheory.pmatch_list_append, o_DEF]
-    \\ simp [listTheory.LIST_REL_APPEND_EQ]
-    \\ simp [LIST_REL_EL_EQN, pure_eval_to_def, evaluate_def, do_app_def]
-  )
+    \\ rw [] \\ fs [] \\ simp [evaluate_def, fold_Boolv] >>
+    qmatch_asmsub_rename_tac `Conv _ field_values` >>
+    Cases_on `flatSem$pmatch_list s (MAP FST mats) ys bindings` >> fs [] >>
+    first_x_assum (qspecl_then [`field_values ++ ys`, `bindings`] mp_tac) >>
+    simp [flatPropsTheory.pmatch_list_append, o_DEF] >>
+    simp [listTheory.LIST_REL_APPEND_EQ] >>
+    simp [LIST_REL_EL_EQN, pure_eval_to_def, evaluate_def, do_app_def])
   >- (
     (* ref *)
     Cases_on `y` \\ fs [flatSemTheory.pmatch_def]
@@ -2194,7 +2208,7 @@ QED
 
 Theorem esgc_free_decode_dtree:
   esgc_free v_exp /\ esgc_free dflt /\
-  EVERY (\y. esgc_free y) (toList br_spt) ==>
+  EVERY esgc_free (toList br_spt) ==>
   esgc_free (decode_dtree t br_spt v_exp dflt dtree)
 Proof
   Induct_on `dtree`

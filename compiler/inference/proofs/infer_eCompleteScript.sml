@@ -949,6 +949,7 @@ Proof
   impl_tac>>rw[] >> RULE_ASSUM_TAC flip_converts
 
   >~ [`is_case Equality`] >- suspend "Equality"
+  >~ [`is_case PolyCompare`] >- suspend "PolyCompare"
   >~ [`is_case PtrEq`] >- suspend "PtrEq"
   >~ [`is_case Opapp`] >- suspend "Apply"
   >~ [`is_case Opassign`] >- suspend "Assign"
@@ -970,6 +971,12 @@ Proof
 QED
 
 Resume constrain_op_complete[Equality]:
+  unconversion_tac
+  >> qmatch_goalsub_abbrev_tac `pure_add_constraints st.subst ls _`
+  >> pac_tac
+QED
+
+Resume constrain_op_complete[PolyCompare]:
   unconversion_tac
   >> qmatch_goalsub_abbrev_tac `pure_add_constraints st.subst ls _`
   >> pac_tac

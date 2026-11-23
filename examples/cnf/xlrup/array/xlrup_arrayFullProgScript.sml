@@ -3,9 +3,10 @@
 *)
 Theory xlrup_arrayFullProg
 Ancestors
-  misc UnsafeProof cnf ccnf ccnf_list ccnf_arrayProg ccnf_parseProg
+  misc UnsafeProof array_ofProof cnf ccnf ccnf_list ccnf_arrayProg
+  ccnf_parseProg
   syntax_helper dimacs xor xlrup xlrup_cnf xlrup_list xlrup_parsing
-  xlrup_arrayProg
+  xlrup_arrayProg input_lex input_lexProg
   basis_ffi
 Libs
   preamble basis
@@ -24,7 +25,7 @@ Overload "EXT_TYPE" = ``LIST_TYPE XLRUP_CNF_CNF_EXT_TYPE``
 
 Quote add_cakeml:
   fun parse_body_arr lno maxvar fd acc =
-  case TextIO.inputLineTokens #"\n" fd blanks tokenize of
+  case input_toks fd of
     None => Inr (List.rev acc)
   | Some l =>
     if keep_line l then
@@ -67,7 +68,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     >- (
-      xapp_spec inputLineTokens_specialize>>
+      xapp_spec input_toks_spec>>
       qexists_tac `emp`>>
       qexists_tac ‘[]’>>
       qexists_tac ‘fs’>>
@@ -86,13 +87,12 @@ Proof
               INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
               & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks h)) v)’
   >- (
-    xapp_spec inputLineTokens_specialize>>
+    xapp_spec input_toks_spec>>
     qexists_tac `emp`>>
     qexists_tac ‘h::lines’>>
     qexists_tac ‘fs’>>
     qexists_tac ‘fd’>>xsimpl>>fs []>>
-    rw []>>qexists_tac ‘x’>>xsimpl>>
-    simp[toks_def])>>
+    rw []>>qexists_tac ‘x’>>xsimpl)>>
   gvs[OPTION_TYPE_def]>>
   xmatch>>fs []>>
   xlet_autop>>
@@ -144,7 +144,7 @@ QED
 
 Quote add_cakeml:
   fun parse_cnf_ext_toks_arr lno fd =
-  case TextIO.inputLineTokens #"\n" fd blanks tokenize of
+  case input_toks fd of
     None => Inl (format_dimacs_failure lno "failed to find header")
   | Some l =>
     if keep_line l then
@@ -191,7 +191,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     >- (
-      xapp_spec inputLineTokens_specialize>>
+      xapp_spec input_toks_spec>>
       qexists_tac `emp`>>
       qexists_tac ‘[]’>>
       qexists_tac ‘fs’>>
@@ -211,13 +211,12 @@ Proof
               INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
               & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks h)) v)’
   >- (
-    xapp_spec inputLineTokens_specialize>>
+    xapp_spec input_toks_spec>>
     qexists_tac `emp`>>
     qexists_tac ‘h::lines’>>
     qexists_tac ‘fs’>>
     qexists_tac ‘fd’>>xsimpl>>fs []>>
-    rw []>>qexists_tac ‘x’>>xsimpl>>
-    simp[toks_def])>>
+    rw []>>qexists_tac ‘x’>>xsimpl)>>
   gvs [OPTION_TYPE_def]>>
   xmatch>>fs []>>
   xlet_autop>>
@@ -721,6 +720,16 @@ Proof
   gvs[SUM_TYPE_def,PAIR_TYPE_def]>>
   rename1`parse_cnf_ext_toks _ = SOME (mv,ncl,cfml,xfml)`>>
   xmatch>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet_auto_spec
+    (SOME (Q.ISPEC`OPTION_TYPE strxor_TYPE` ARRAY_OF_alloc_spec |>
+      Q.SPECL [`n`,`nv`,`NONE`]))
+  >- (xsimpl>>simp[OPTION_TYPE_def])>>
+  xlet_auto_spec (SOME (Q.ISPEC`NUM` ARRAY_OF_alloc_spec))
+  >- xsimpl>>
   rpt xlet_autop>>
   xlet`POSTv v.
     STDIO fs *
@@ -732,7 +741,7 @@ Proof
     xsimpl>>
     qmatch_asmsub_rename_tac`_ = Conv NONE [tna; _]`>>
     qexistsl_tac
-      [`emp`,`xfml`,`REPLICATE ncl NONE`,`1`,`[]`,`[]`,`tna`,`mv+1`,`fs`,`f2`,
+      [`emp`,`xfml`,`REPLICATE ncl NONE`,`1`,`[]`,`tna`,`mv+1`,`fs`,`f2`,
        `build_cfml_list 1 (conv_cfml cfml) (2*ncl)`,`b`]>>
     xsimpl>>
     fs[FILENAME_def,validArg_def]>>
@@ -742,7 +751,6 @@ Proof
       irule bnd_clause_conv_cfml>>
       drule parse_cnf_ext_toks_bound>>
       rw[EVERY_MEM]>>res_tac>>simp[])
-    >- metis_tac[LIST_REL_REPLICATE_same,OPTION_TYPE_def]
     >- (simp[PAIR_TYPE_def]>>EVAL_TAC)>>
     rw[]>>
     first_x_assum (irule_at Any)>>
@@ -804,6 +812,16 @@ Proof
   gvs[SUM_TYPE_def,PAIR_TYPE_def]>>
   rename1`parse_cnf_ext_toks _ = SOME (mv,ncl,cfml,xfml)`>>
   xmatch>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet_autop>>
+  xlet_auto_spec
+    (SOME (Q.ISPEC`OPTION_TYPE strxor_TYPE` ARRAY_OF_alloc_spec |>
+      Q.SPECL [`n`,`nv`,`NONE`]))
+  >- (xsimpl>>simp[OPTION_TYPE_def])>>
+  xlet_auto_spec (SOME (Q.ISPEC`NUM` ARRAY_OF_alloc_spec))
+  >- xsimpl>>
   rpt xlet_autop>>
   xlet`POSTv v.
     SEP_EXISTS k res.
@@ -815,7 +833,7 @@ Proof
     xsimpl>>
     qmatch_asmsub_rename_tac`_ = Conv NONE [tna; _]`>>
     qexistsl_tac
-      [`emp`,`xfml`,`REPLICATE ncl NONE`,`1`,`[]`,`[]`,`tna`,`text`,`mv+1`,
+      [`emp`,`xfml`,`REPLICATE ncl NONE`,`1`,`[]`,`tna`,`text`,`mv+1`,
        `fs`,`build_cfml_list 1 (conv_cfml cfml) (2*ncl)`,`b`]>>
     xsimpl>>
     rpt CONJ_TAC
@@ -824,7 +842,6 @@ Proof
       irule bnd_clause_conv_cfml>>
       drule parse_cnf_ext_toks_bound>>
       rw[EVERY_MEM]>>res_tac>>simp[])
-    >- metis_tac[LIST_REL_REPLICATE_same,OPTION_TYPE_def]
     >- (simp[PAIR_TYPE_def]>>EVAL_TAC)>>
     rpt strip_tac>>
     qmatch_goalsub_rename_tac`STDIO (forwardFD fs 0 kk) ==>> _`>>
@@ -877,8 +894,8 @@ Definition reads_stdin_def:
 End
 
 Theorem BOOL_T_F_eq[local]:
-  (BOOL T v ⇔ v = Conv (SOME (TypeStamp «True» 0)) []) ∧
-  (BOOL F v ⇔ v = Conv (SOME (TypeStamp «False» 0)) [])
+  (BOOL T v ⇔ v = Conv (SOME (TypeStamp «True» 0 1)) []) ∧
+  (BOOL F v ⇔ v = Conv (SOME (TypeStamp «False» 0 0)) [])
 Proof
   simp[BOOL_def,semanticPrimitivesTheory.Boolv_def,
     semanticPrimitivesTheory.bool_type_num_def]

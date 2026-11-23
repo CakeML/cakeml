@@ -130,7 +130,9 @@ Definition open_compile_env_def:
 End
 
 Definition inline_op_def:
-  inline_op op ⇔ getOpClass op = Simple ∧ op ≠ AallocEmpty ∧ op ≠ Env_id
+  inline_op op ⇔
+    op ≠ Opapp ∧ op ≠ Eval ∧ op ≠ ThunkOp ForceThunk ∧ op ≠ PtrEq ∧
+    op ≠ AallocEmpty ∧ op ≠ Env_id
 End
 
 (* small numeric literals and wrappers around primitives, e.g. + *)
@@ -407,7 +409,7 @@ Definition alloc_tags1_def:
   (alloc_tags1 ((cn, ts) :: ctors) =
     let (ns, cids, tag_list) = alloc_tags1 ctors in
     let arity = LENGTH ts in
-    let (tag, new_cids) = lookup_inc arity cids in
+    let (tag, new_cids) = lookup_inc (if arity = 0 then 0 else 1) cids in
       (nsBind cn tag ns, new_cids, (tag, arity) :: tag_list))
 End
 

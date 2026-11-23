@@ -3,7 +3,7 @@
 *)
 Theory compiler_mainProg[no_sig_docs]
 Ancestors
-  compiler_commonProg compiler export ml_translator
+  compiler_commonProg compiler compiler_common export ml_translator
   basis_ffi[qualified]
 Libs
   preamble ml_translatorLib cfLib basis
@@ -41,8 +41,8 @@ Theorem host_args_arm8_default:
   parse_target (host_args HostArm8 cl) =
     INL (arm8_backend_config,arm8_export,arm8_config)
 Proof
-  simp [host_args_def, compilerTheory.parse_target_def,
-        compilerTheory.find_str_def]
+  simp [host_args_def, compiler_commonTheory.parse_target_def,
+        compiler_commonTheory.find_str_def]
   >> simp [EVAL “isPrefix «--target=» «--target=arm8»”,
            EVAL “extract «--target=arm8» 9 NONE”]
 QED
@@ -120,29 +120,41 @@ val _ = update_precondition semanticprimitives_ws_to_chars_side;
 val _ = next_ml_names := ["compiler_for_eval"];
 val r = translate compiler_for_eval_alt;
 
+(* the two primitive uses of Eval: a one-argument call that installs the
+   compiler (its state and a closure implementing it), and a two-argument
+   call that evaluates declarations in an environment and returns the new
+   environment paired with an error message ("" on success) *)
 val _ = append_prog
-  ``[Dlet (Locs (1,2) (2,21)) (Pvar «eval_prim»)
+  ``[Dlet (Locs (1,2) (2,21)) (Pvar «eval_init_prim»)
+      (Fun «x» (App Eval [Var (Short «x»)]));
+     Dlet (Locs (1,2) (2,21)) (Pvar «eval_prim»)
       (Fun «x» (Mat (Var (Short «x»))
-        [(Pcon NONE [Pvar «env»; Pvar «s1»; Pvar «decs»;
-                     Pvar «s2»; Pvar «bs»; Pvar «ws»],
-          App Eval [Var (Short «env»); Var (Short «s1»); Var (Short «decs»);
-                    Var (Short «s2»); Var (Short «bs»); Var (Short «ws»)])]))]``;
+        [(Pcon NONE [Pvar «env»; Pvar «decs»],
+          App Eval [Var (Short «env»); Var (Short «decs»)])]))]``;
 
 Datatype:
-  eval_res = Compile_error 'a | Eval_result 'b 'c | Eval_exn 'd 'e
+  eval_res = Compile_error 'a | Eval_result 'b | Eval_exn 'c
 End
 
-val _ = register_type ``:('a,'b,'c,'d,'e) eval_res``;
+val _ = register_type ``:('a,'b,'c) eval_res``;
+
+(* the compiler closure given to Eval: it signals failure by raising Bind *)
+Quote add_cakeml:
+  fun compiler_fun host (id, st, decs) =
+    case compiler_for_eval host (id,(st,decs)) of
+      None => raise Bind
+    | Some (st2,(bs,ws)) => (st2,bs,ws)
+End
 
 Quote add_cakeml:
-  fun eval (host, ((s1,next_gen), (env,id), decs)) =
-    case compiler_for_eval host ((id,0),(s1,decs)) of
-      None => Compile_error "ERROR: failed to compile input\n"
-    | Some (s2,(bs,ws)) =>
-        let
-          val new_env = eval_prim (env,s1,decs,s2,bs,ws)
-        in Eval_result (new_env,next_gen) (s2,next_gen+1) end
-        handle e => Eval_exn e (s2,next_gen+1)
+  fun eval (env, decs) =
+    let
+      val (new_env, msg) = eval_prim (env, decs)
+    in
+      if msg = "" then Eval_result new_env
+      else Compile_error "ERROR: failed to compile input\n"
+    end
+    handle e => Eval_exn e
 End
 
 Quote exn_msg_dec = cakeml:
@@ -188,17 +200,16 @@ val _ = next_ml_names := ["check_and_tweak"];
 val r = translate repl_check_and_tweakTheory.check_and_tweak_def;
 
 Quote add_cakeml:
-  fun repl (host, parse, types, conf, env, decs, input_str) =
+  fun repl (parse, types, env, decs, input_str) =
   case check_and_tweak (decs, (types, input_str)) of
-    Inl msg => repl (host, parse, types, conf, env, report_error msg, "")
+    Inl msg => repl (parse, types, env, report_error msg, "")
   | Inr (safe_decs, new_types) =>
-      case eval (host, (conf, env, safe_decs)) of
+      case eval (env, safe_decs) of
         Compile_error msg =>
-          repl (host, parse, types, conf, env, report_error msg, "")
-      | Eval_exn e new_conf =>
-          repl (host, parse, roll_back (types, new_types), new_conf, env,
-                report_exn e, "")
-      | Eval_result new_env new_conf =>
+          repl (parse, types, env, report_error msg, "")
+      | Eval_exn e =>
+          repl (parse, roll_back (types, new_types), env, report_exn e, "")
+      | Eval_result new_env =>
           if !Repl.isEOF then () else
             let
               val (parsed_input, new_input) =
@@ -208,11 +219,9 @@ Quote add_cakeml:
             in
               case parsed_input of
                 Inl msg =>
-                  repl (host, parse, new_types, new_conf, new_env,
-                        report_error msg, "")
+                  repl (parse, new_types, new_env, report_error msg, "")
               | Inr new_decs =>
-                  repl (host, parse, new_types, new_conf, new_env,
-                        new_decs, new_input)
+                  repl (parse, new_types, new_env, new_decs, new_input)
             end
 End
 
@@ -237,27 +246,29 @@ val _ = next_ml_names := ["boot_marker"];
 val r = translate (boot_marker_def |> REWRITE_RULE [MEMBER_INTRO]);
 
 Quote add_cakeml:
-  fun start_repl (host,cl,s1) =
+  fun start_repl cl =
     let
       val parse = parse_cakeml_syntax
       val types = init_types
-      val conf = (s1,1)
-      val env = (repl_init_env, 0)
+      val env = repl_init_env
       val decs = []
       val input_str = ""
       val _ = Repl.nextInput := Inl (boot_marker cl)
     in
-      repl (host, parse, types, conf, env, decs, input_str)
+      repl (parse, types, env, decs, input_str)
     end
 End
 
+(* the only target-specific step of the REPL: installing the compiler for
+   the host in Eval *)
 Quote add_cakeml:
   fun run_interactive_repl (host,cl) =
     let
       val cs = Repl.charsFrom "config_enc_str.txt"
       val s1 = decodeProg.decode_backend_config cs
+      val _ = eval_init_prim (s1, compiler_fun host)
     in
-      start_repl (host,cl,s1)
+      start_repl cl
     end
 End
 
@@ -267,7 +278,6 @@ End
 
 val _ = next_ml_names := ["compiler_has_repl_flag"];
 val r = translate (has_repl_flag_def |> REWRITE_RULE [MEMBER_INTRO]);
-val r = translate (has_pancake_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO]);
 
 Definition full_compile_host_def:
   full_compile_host host cl inp fs =
@@ -276,16 +286,8 @@ Definition full_compile_host_def:
   else if has_version_flag cl then
     add_stdout fs current_build_info_str
   else
-    case parse_pancake_feature cl of
-      SOME rest => add_stdout fs $ print_bool $ news$query_news rest
-    | NONE =>
-        let (out, err) =
-            if has_pancake_flag cl then
-              compile_pancake_main (host_args host cl) inp
-            else
-              compile_main (host_args host cl) inp
-        in
-          add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err
+    let (out, err) = compile_main (host_args host cl) inp in
+      add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err
 End
 
 Theorem full_compile_host_x64:
@@ -301,26 +303,15 @@ Quote add_cakeml:
   in
     if compiler_has_repl_flag cl then
       run_interactive_repl (host,cl)
-    else if compiler_has_help_flag cl then
+    else if compiler_common_has_help_flag cl then
       print compiler_help_string
-    else if compiler_has_version_flag cl then
+    else if compiler_common_has_version_flag cl then
       print compiler_current_build_info_str
     else
-      case compiler_parse_pancake_feature cl of
-        Some rest => print (compiler_print_bool (news_query_news rest))
-      | None =>
-          let val compile_cl = host_args host cl in
-            if compiler_has_pancake_flag cl then
-              case compiler_compile_pancake_main compile_cl
-                     (String.explode (TextIO.inputAll (TextIO.openStdIn ()))) of
-                (c,e) => (print_app_list c; TextIO.output TextIO.stdErr e;
-                           compiler_commonprog_nonzero_exit_code_for_error_msg e)
-            else
-              case compiler_compile_main compile_cl
-                     (String.explode (TextIO.inputAll (TextIO.openStdIn ()))) of
-                (c,e) => (print_app_list c; TextIO.output TextIO.stdErr e;
-                           compiler_commonprog_nonzero_exit_code_for_error_msg e)
-          end
+      case compiler_compile_main (host_args host cl)
+             (String.explode (TextIO.inputAll (TextIO.openStdIn ()))) of
+        (c,e) => (print_app_list c; TextIO.output TextIO.stdErr e;
+                   compiler_commonprog_nonzero_exit_code_for_error_msg e)
   end
 End
 
@@ -388,55 +379,40 @@ Proof
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac `fs`
     \\ xsimpl)
-  \\ xlet_auto >- xsimpl
-  \\ gvs [oneline std_preludeTheory.OPTION_TYPE_def]
-  \\ reverse PURE_FULL_CASE_TAC
+  \\ rename1 `stdin fs source_input stdin_position`
+  \\ `stdin_content fs = SOME source_input /\ stdin_position = 0` by (
+    gvs [stdin_def,get_fd_content_def]
+    \\ fs [stdin_content_def,IS_SOME_EXISTS])
   \\ gvs []
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto_spec (SOME openStdIn_spec_str) >- xsimpl
+  \\ xlet `POSTv v. &STRING_TYPE (implode source_input) v *
+                   STDIO (fastForwardFD fs 0) * COMMANDLINE cl`
   >- (
-    xmatch
-    \\ xlet_auto >- xsimpl
-    \\ xlet_auto >- xsimpl
-    \\ simp [full_compile_host_def]
-    \\ xapp
-    \\ first_assum $ irule_at $ Pos hd
-    \\ qexists_tac `fs`
+    xapp
+    \\ qexistsl_tac [`COMMANDLINE cl`,`source_input`,`fs`,`0`]
+    \\ fs [STD_streams_get_mode]
     \\ xsimpl)
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ namedCases_on `compiler$compile_main (host_args host (TL cl)) source_input`
+       ["compiler_output compiler_diagnostics"]
+  \\ gvs [full_compile_host_def,ml_translatorTheory.PAIR_TYPE_def]
   \\ xmatch
   \\ xlet_auto >- xsimpl
-  \\ xlet_auto >- xsimpl
-  \\ xif
-  \\ (
-    xlet_auto >- (xcon \\ xsimpl)
-    \\ rename [`stdin fs inp pos`]
-    \\ `stdin_content fs = SOME inp /\ pos = 0` by (
-      gvs [stdin_def,get_fd_content_def]
-      \\ fs [stdin_content_def,IS_SOME_EXISTS])
-    \\ gvs []
-    \\ xlet_auto_spec (SOME openStdIn_spec_str) >- xsimpl
-    \\ xlet `POSTv v. &STRING_TYPE (implode inp) v *
-                    STDIO (fastForwardFD fs 0) * COMMANDLINE cl`
-    >- (
-      xapp
-      \\ qexistsl [`COMMANDLINE cl`, `inp`, `fs`, `0`]
-      \\ xsimpl)
-    \\ xlet_auto >- xsimpl
-    \\ xlet_auto >- xsimpl
-    \\ fs [full_compile_host_def]
-    \\ pairarg_tac
-    \\ fs [ml_translatorTheory.PAIR_TYPE_def]
-    \\ gvs [CaseEq "bool"]
-    \\ xmatch
-    \\ xlet_auto >- xsimpl
-    \\ qmatch_goalsub_abbrev_tac `STDIO output_fs`
-    \\ xlet `POSTv uv. &UNIT_TYPE () uv *
-                      STDIO (add_stderr output_fs err) * COMMANDLINE cl`
-    >- (
-      xapp_spec output_stderr_spec \\ xsimpl
-      \\ qexists_tac `COMMANDLINE cl`
-      \\ asm_exists_tac \\ xsimpl
-      \\ qexists_tac `output_fs` \\ xsimpl)
-    \\ xapp
-    \\ asm_exists_tac \\ simp [] \\ xsimpl)
+  \\ qmatch_goalsub_abbrev_tac `STDIO output_fs`
+  \\ xlet `POSTv uv. &UNIT_TYPE () uv *
+                   STDIO (add_stderr output_fs compiler_diagnostics) *
+                   COMMANDLINE cl`
+  >- (
+    xapp_spec output_stderr_spec
+    \\ xsimpl
+    \\ qexists_tac `COMMANDLINE cl`
+    \\ asm_exists_tac \\ xsimpl
+    \\ qexists_tac `output_fs` \\ xsimpl)
+  \\ xapp
+  \\ asm_exists_tac \\ simp [] \\ xsimpl
 QED
 
 Theorem full_compile_host_with_numchars:
@@ -445,6 +421,5 @@ Theorem full_compile_host_with_numchars:
 Proof
   rw [full_compile_host_def,UNCURRY,fastForwardFD_with_numchars,
       add_stdo_with_numchars]
-  \\ Cases_on `parse_pancake_feature cl`
-  \\ simp []
+
 QED

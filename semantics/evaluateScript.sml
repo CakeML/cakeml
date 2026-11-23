@@ -20,14 +20,37 @@ Definition dec_clock_def:
   dec_clock s = (s with clock := s.clock − 1)
 End
 
+(* consume k entries of the current epoch of the pointer equality oracle *)
+Definition skip_ptr_eq_def:
+  skip_ptr_eq (k:num) (po:num -> num -> bool) = (0 =+ shift_seq k (po 0)) po
+End
+
+(* a two-argument call to Eval: the eval oracle decides whether it
+   succeeds, returning INR of the environment and declarations to evaluate
+   and starting a new epoch of the pointer equality oracle, or fails,
+   returning INL of the result value and consuming the number of pointer
+   equality oracle entries that the eval oracle gives *)
 Definition do_eval_res_def:
-  do_eval_res vs s =
+  do_eval_res vs (s:'ffi state) :
+    'ffi state # (v + v sem_env # dec list, v) result =
     case do_eval vs s.eval_state of
     | NONE => (s,Rerr (Rabort Rtype_error))
     | SOME (env1,decs,es1) =>
-        (s with <| eval_state := es1
-                 ; ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle |>,
-         Rval (env1,decs))
+      case (s.eval_state,vs) of
+      | (SOME es,[Env env id; decs_v]) =>
+        if FST (s.eval_oracle (es.initialised,es.history,(id,decs_v))) then
+          (s with <| eval_state := es1
+                   ; ptr_eq_oracle := shift_seq 1 s.ptr_eq_oracle |>,
+           Rval (INR (env1,decs)))
+        else
+          (s with ptr_eq_oracle :=
+             skip_ptr_eq
+               (SND (s.eval_oracle (es.initialised,es.history,(id,decs_v)))
+                  es.closure s.refs s.ptr_eq_oracle)
+               s.ptr_eq_oracle,
+           Rval (INL (Conv NONE [Env env id;
+                                 Litv (StrLit «Compiler error»)])))
+      | _ => (s,Rerr (Rabort Rtype_error))
 End
 
 (* list_result is equivalent to map_result (\v. [v]) I, where map_result is
@@ -95,8 +118,7 @@ Definition evaluate_def[nocompute]:
   evaluate st env [App op es] =
    (case fix_clock st (evaluate st env (REVERSE es)) of
     (st', Rval vs) =>
-    (case (getOpClass op) of
-      FunApp =>
+    if op = Opapp then
         (case do_opapp (REVERSE vs) of
           SOME (env',e) =>
             if st'.clock = 0 then
@@ -105,7 +127,7 @@ Definition evaluate_def[nocompute]:
               evaluate (dec_clock st') env'  [e]
         | NONE => (st', Rerr (Rabort Rtype_error))
         )
-     | Force =>
+    else if op = ThunkOp ForceThunk then
         (case dest_thunk (REVERSE vs) st'.refs of
          | BadRef => (st', Rerr (Rabort Rtype_error))
          | NotThunk => (st', Rerr (Rabort Rtype_error))
@@ -121,9 +143,13 @@ Definition evaluate_def[nocompute]:
                          | SOME refs => (st2 with refs := refs, Rval vs2))
                     | (st2, Rerr e) => (st2, Rerr e))
              | NONE => (st', Rerr (Rabort Rtype_error))))
-     | EvalOp =>
+    else if op = Eval then
+      (case do_eval_init (REVERSE vs) st'.eval_state of
+       | SOME es => (st' with eval_state := SOME es, Rval [Conv NONE []])
+       | NONE =>
         (case fix_clock st' (do_eval_res (REVERSE vs) st') of
-          (st1, Rval (env1, decs)) =>
+          (st1, Rval (INL v)) => (st1, Rval [v])
+        | (st1, Rval (INR (env1, decs))) =>
             if st1.clock = 0 then
               (st1, Rerr (Rabort Rtimeout_error))
             else
@@ -132,13 +158,14 @@ Definition evaluate_def[nocompute]:
                 (st2, Rval env2) => (case declare_env st2.eval_state
                   (extend_dec_env env2 env1) of
                   SOME (x, es2) => (( st2 with<| eval_state :=
-                    (reset_env_generation st'.eval_state es2) |>), Rval [x])
+                    (reset_env_generation st'.eval_state es2) |>),
+                    Rval [Conv NONE [x; Litv (StrLit «»)]])
                 | NONE => (st2, Rerr (Rabort Rtype_error)))
               | (st2, Rerr (Rabort a)) => (st2, Rerr (Rabort a))
               | (st2, Rerr e) => (( st2 with<| eval_state :=
                   (reset_env_generation st'.eval_state st2.eval_state) |>), Rerr e))
-        | (st1, Rerr e) => (st1, Rerr e))
-    | PtrEqOp =>
+        | (st1, Rerr e) => (st1, Rerr e)))
+    else if op = PtrEq then
        (case REVERSE vs of
           [v1; v2] =>
             (case do_eq v1 v2 of
@@ -148,11 +175,11 @@ Definition evaluate_def[nocompute]:
                     (0 =+ shift_seq 1 (st'.ptr_eq_oracle 0)) st'.ptr_eq_oracle,
                   Rval [Boolv (b ∧ st'.ptr_eq_oracle 0 0)]))
         | _ => (st', Rerr (Rabort Rtype_error)))
-    | Simple =>
+    else
         (case do_app (st'.refs,st'.ffi) op (REVERSE vs) of
           NONE => (st', Rerr (Rabort Rtype_error))
         | SOME ((refs,ffi),r) =>
-            (( st' with<| refs := refs; ffi := ffi |>), list_result r)))
+            (( st' with<| refs := refs; ffi := ffi |>), list_result r))
     | res => res)
   ∧
   evaluate st env [Log lop e1 e2] =

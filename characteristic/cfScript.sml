@@ -904,7 +904,7 @@ Theorem pmatch_v_of_pat:
         v_of_pat envC pat insts wildcards = SOME (v, [], [])) /\
     (!envC s pats vs env_v env_v'.
       pmatch_list envC s pats vs env_v = Match env_v' ==>
-      EVERY (\pat. pat_without_Pref_Pas pat) pats ==>
+      EVERY pat_without_Pref_Pas pats ==>
       ?insts wildcards.
         env_v' = ZIP (pats_bindings pats, REVERSE insts) ++ env_v /\
         v_of_pat_list envC pats insts wildcards = SOME (vs, [], []))
@@ -1470,6 +1470,32 @@ Definition app_equality_def:
      H ==>> Q (Val (Boolv (v1 = v2))))
 End
 
+(* Pointer equality may return false even when the values are equal. *)
+Definition app_ptr_eq_def:
+  app_ptr_eq v1 v2 H Q =
+    (no_closures v1 /\ no_closures v2 /\
+     types_match v1 v2 /\
+     !b. (b ==> v1 = v2) ==>
+         H ==>> Q (Val (Boolv b)))
+End
+
+Theorem app_ptr_eq_cases:
+  app_ptr_eq v1 v2 H Q <=>
+    no_closures v1 /\ no_closures v2 /\ types_match v1 v2 /\
+    (H ==>> Q (Val (Boolv F))) /\
+    (v1 = v2 ==> H ==>> Q (Val (Boolv T)))
+Proof
+  simp [app_ptr_eq_def, FORALL_BOOL, AC CONJ_ASSOC CONJ_COMM]
+QED
+
+Theorem app_ptr_eq_spec:
+  no_closures v1 /\ no_closures v2 /\ types_match v1 v2 ==>
+  app_ptr_eq v1 v2 H
+    (POSTv v. H * &(?b. v = Boolv b /\ (b ==> v1 = v2)))
+Proof
+  rw [app_ptr_eq_def] >> simp [Boolv_11, SEP_CLAUSES, SEP_IMP_REFL]
+QED
+
 Definition cf_lit_def:
   cf_lit l = \env: v sem_env. local (\H Q.
     H ==>> Q (Val (Litv l)))
@@ -1519,6 +1545,14 @@ Definition cf_equality_def:
       exp2v env x1 = SOME v1 /\
       exp2v env x2 = SOME v2 /\
       app_equality v1 v2 H Q)
+End
+
+Definition cf_ptr_eq_def:
+  cf_ptr_eq x1 x2 = \env. local (\H Q.
+    ?v1 v2.
+      exp2v env x1 = SOME v1 /\
+      exp2v env x2 = SOME v2 /\
+      app_ptr_eq v1 v2 H Q)
 End
 
 Definition cf_app_def:
@@ -1862,6 +1896,10 @@ Definition cf_def:
           (case args of
             | [x1; x2] => cf_int_cmp cmp x1 x2
             | _ => cf_bottom)
+        | PtrEq =>
+          (case args of
+            | [x1; x2] => cf_ptr_eq x1 x2
+            | _ => cf_bottom)
         | Equality =>
           (case args of
             | [x1; x2] => cf_equality x1 x2
@@ -2032,6 +2070,7 @@ val cf_defs = [
   cf_arith_def,
   cf_int_cmp_def,
   cf_equality_def,
+  cf_ptr_eq_def,
   cf_aalloc_def,
   cf_aalloc_empty_def,
   cf_asub_def,
@@ -3032,6 +3071,15 @@ Resume cf_sound[App]:
    \\ fs [do_app_def, app_fptoword_def, check_type_def, do_conversion_def]
    \\ fs [SEP_IMP_def]
    \\ fs [state_component_equality])
+  >~ [`App PtrEq`] >- (
+    rename1 `SPLIT (st2heap p st) (owned,frame)` \\
+    Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
+    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+    cf_exp2v_evaluate_tac `st` \\ fs [app_ptr_eq_def] \\
+    progress (fst (CONJ_PAIR type_match_implies_do_eq_succeeds)) \\ fs [] \\
+    qexists_tac `owned` \\ qexists_tac `{}` \\
+    fs [st2heap_def, SPLIT3_def, SEP_IMP_def] \\ fs [SPLIT_def]
+  )
   >~ [‘App Equality’] >- (
     rename [`Equality`] \\
     Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\

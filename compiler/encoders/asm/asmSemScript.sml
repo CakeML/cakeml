@@ -3,7 +3,7 @@
 *)
 Theory asmSem
 Ancestors
-  asm machine_ieee
+  asm machine_ieee fpSem
   misc (* for bytes_in_memory *)
 
 (* -- semantics of ASM program -- *)
@@ -141,22 +141,22 @@ Definition fp_upd_def:
   (fp_upd (FPAbs d1 d2) s = upd_fp_reg d1 (fp64_abs (read_fp_reg d2 s)) s) /\
   (fp_upd (FPNeg d1 d2) s = upd_fp_reg d1 (fp64_negate (read_fp_reg d2 s)) s) /\
   (fp_upd (FPSqrt d1 d2) s =
-     upd_fp_reg d1 (fp64_sqrt roundTiesToEven (read_fp_reg d2 s)) s) /\
+     upd_fp_reg d1 (fix_NaN (fp64_sqrt roundTiesToEven (read_fp_reg d2 s))) s) /\
   (fp_upd (FPAdd d1 d2 d3) s =
      upd_fp_reg d1
-       (fp64_add roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s)) s) /\
+       (fix_NaN (fp64_add roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s))) s) /\
   (fp_upd (FPSub d1 d2 d3) s =
      upd_fp_reg d1
-       (fp64_sub roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s)) s) /\
+       (fix_NaN (fp64_sub roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s))) s) /\
   (fp_upd (FPMul d1 d2 d3) s =
      upd_fp_reg d1
-       (fp64_mul roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s)) s) /\
+       (fix_NaN (fp64_mul roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s))) s) /\
   (fp_upd (FPDiv d1 d2 d3) s =
      upd_fp_reg d1
-       (fp64_div roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s)) s) /\
+       (fix_NaN (fp64_div roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s))) s) /\
   (fp_upd (FPFma d1 d2 d3) s =
      upd_fp_reg d1
-       (fp64_mul_add roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s) (read_fp_reg d1 s)) s) /\
+       (fix_NaN (fp64_mul_add roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s) (read_fp_reg d1 s))) s) /\
   (fp_upd (FPMovToReg r1 r2 d) (s : 'a asm_state) =
      if dimindex(:'a) = 64 then
        upd_reg r1 (w2w (read_fp_reg d s)) s

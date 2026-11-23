@@ -3,7 +3,7 @@
 *)
 Theory npbc_list
 Ancestors
-  npbc_check npbc_slot
+  npbc_check npbc_slot ccnf_dm
 Libs
   preamble
 
@@ -16,13 +16,6 @@ Proof
   every_case_tac>>fs[]
 QED
 
-(* returns the stored slot itself *)
-Definition lookup_core_only_list_def:
-  lookup_core_only_list b fml n =
-  let s = any_el n fml Empty in
-  if ¬b ∨ core_slot s then s else Empty
-End
-
 Definition lookup_core_only_dec_def:
   lookup_core_only_dec b fml n =
   case lookup_core_only_list b fml n of
@@ -30,56 +23,59 @@ Definition lookup_core_only_dec_def:
   | s => SOME (dec s)
 End
 
-Definition lookup_lincomb_list_def:
-  (lookup_lincomb_list b fml [] = SOME []) ∧
-  (lookup_lincomb_list b fml ((n,k)::ids) =
-    case lookup_core_only_dec b fml n of
-      NONE => NONE
-    | SOME c =>
-      case lookup_lincomb_list b fml ids of
+(* The stored operands of a linear combination, as slots with factors *)
+Definition lookup_lincomb_slots_def:
+  (lookup_lincomb_slots b fml [] = SOME []) ∧
+  (lookup_lincomb_slots b fml ((n,k:num)::ids) =
+    case lookup_core_only_list b fml n of
+      Empty => NONE
+    | s =>
+      case lookup_lincomb_slots b fml ids of
         NONE => NONE
-      | SOME cs => SOME (multiply c k :: cs))
+      | SOME sks => SOME ((s,k) :: sks))
 End
 
 (* TODO: optimize this using arrays instead of lists
   alternative:
     collapse all adds into one big list before normalizing
 *)
+(* vb is the length of the assignment, which bounds the variables of the
+  stored constraints; it selects only how a Lincomb is evaluated *)
 Definition check_cutting_list_def:
-  (check_cutting_list b (fml: slot list) (Id n) =
+  (check_cutting_list b (vb:num) (fml: slot list) (Id n) =
     lookup_core_only_dec b fml n) ∧
-  (check_cutting_list b fml (Add c1 c2) =
-    OPTION_MAP2 add (check_cutting_list b fml c1) (check_cutting_list b fml c2)) ∧
-  (check_cutting_list b fml (Mul c k) =
-       OPTION_MAP (λc. multiply c k) (check_cutting_list b fml c)) ∧
-  (check_cutting_list b fml (Div dty c k) =
+  (check_cutting_list b vb fml (Add c1 c2) =
+    OPTION_MAP2 add (check_cutting_list b vb fml c1) (check_cutting_list b vb fml c2)) ∧
+  (check_cutting_list b vb fml (Mul c k) =
+       OPTION_MAP (λc. multiply c k) (check_cutting_list b vb fml c)) ∧
+  (check_cutting_list b vb fml (Div dty c k) =
     if k ≠ 0 then
-      OPTION_MAP (λc. do_divide dty c k) (check_cutting_list b fml c)
+      OPTION_MAP (λc. do_divide dty c k) (check_cutting_list b vb fml c)
     else NONE) ∧
-  (check_cutting_list b fml (Minus c k) =
-       OPTION_MAP (λc. minus c k) (check_cutting_list b fml c)) ∧
-  (check_cutting_list b fml (Sat c) =
-    OPTION_MAP saturate (check_cutting_list b fml c)) ∧
-  (check_cutting_list b fml (Lit l) =
+  (check_cutting_list b vb fml (Minus c k) =
+       OPTION_MAP (λc. minus c k) (check_cutting_list b vb fml c)) ∧
+  (check_cutting_list b vb fml (Sat c) =
+    OPTION_MAP saturate (check_cutting_list b vb fml c)) ∧
+  (check_cutting_list b vb fml (Lit l) =
     case l of
       Pos v => SOME ([(1,v)],0)
     | Neg v => SOME ([(-1,v)],0)) ∧
-  (check_cutting_list b fml (Triv ls) = SOME (clean_triv ls)) ∧
-  (check_cutting_list b fml (Weak c var) =
-    OPTION_MAP (λc. weaken_sorted c var) (check_cutting_list b fml c)) ∧
-  (check_cutting_list b fml (Lincomb ids ns) =
-    case lookup_lincomb_list b fml ids of
+  (check_cutting_list b vb fml (Triv ls) = SOME (clean_triv ls)) ∧
+  (check_cutting_list b vb fml (Weak c var) =
+    OPTION_MAP (λc. weaken_sorted c var) (check_cutting_list b vb fml c)) ∧
+  (check_cutting_list b vb fml (Lincomb ids ns) =
+    case lookup_lincomb_slots b fml ids of
       NONE => NONE
-    | SOME ics =>
-      case check_cutting_list_nest b fml ns of
+    | SOME sks =>
+      case check_cutting_list_nest b vb fml ns of
         NONE => NONE
-      | SOME ncs => SOME (bal_add (bal_add ics :: ncs))) ∧
-  (check_cutting_list_nest b fml [] = SOME []) ∧
-  (check_cutting_list_nest b fml ((c,k)::ns) =
-    case check_cutting_list b fml c of
+      | SOME ncs => SOME (lincomb_eval vb sks ncs)) ∧
+  (check_cutting_list_nest b vb fml [] = SOME []) ∧
+  (check_cutting_list_nest b vb fml ((c,k)::ns) =
+    case check_cutting_list b vb fml c of
       NONE => NONE
     | SOME c =>
-      case check_cutting_list_nest b fml ns of
+      case check_cutting_list_nest b vb fml ns of
         NONE => NONE
       | SOME cs => SOME (multiply c k :: cs))
 End
@@ -215,7 +211,7 @@ Definition check_lstep_list_def:
       else
         NONE
   | Cutting constr =>
-    (case check_cutting_list b fml (to_triv constr) of
+    (case check_cutting_list b (LENGTH assg) fml (to_triv constr) of
       NONE => NONE
     | SOME c =>
       SOME (fml, SOME(c,b), id, assg, st))
@@ -519,7 +515,7 @@ Theorem fml_rel_lookup_core_only:
     Empty => NONE
   | s => SOME (dec s)
 Proof
-  rw[fml_rel_def,lookup_core_only_def,lookup_core_only_list_def]>>
+  rw[fml_rel_def,lookup_core_only_def,lookup_core_only_list_def,core_only_def]>>
   first_x_assum (qspec_then`n` assume_tac)>>
   Cases_on`lookup n fml`>>
   gvs[enc_opt_def]>>
@@ -538,7 +534,7 @@ Theorem fml_rel_lookup_core_only_enc:
 Proof
   rw[fml_rel_def]>>
   qpat_x_assum`_ ≠ Empty` mp_tac>>
-  simp[lookup_core_only_list_def,lookup_core_only_def]>>
+  simp[lookup_core_only_list_def,core_only_def,lookup_core_only_def]>>
   Cases_on`lookup n fml`>>
   simp[enc_opt_def]>>
   rename1`lookup n fml = SOME p`>>
@@ -589,6 +585,14 @@ Proof
   gvs[enc_opt_def]
 QED
 
+Theorem fml_rel_wf_slot:
+  fml_rel fml fmlls ⇒ wf_slot (any_el n fmlls Empty)
+Proof
+  rw[fml_rel_def]>>
+  Cases_on`lookup n fml`>>simp[enc_opt_def,wf_slot_def]>>
+  rename1`SOME p`>>PairCases_on`p`>>simp[enc_opt_def]
+QED
+
 Theorem fml_rel_lookup_core_only_dec:
   fml_rel fml fmlls ⇒
   lookup_core_only_dec b fmlls n = lookup_core_only b fml n
@@ -598,35 +602,64 @@ Proof
   simp[]
 QED
 
-Theorem fml_rel_lookup_lincomb:
+Theorem fml_rel_lookup_lincomb_slots:
   ∀ids.
   fml_rel fml fmlls ⇒
-  lookup_lincomb_list b fmlls ids = lookup_lincomb b fml ids
+  OPTION_MAP (MAP (λ(s,k). multiply (dec s) k))
+    (lookup_lincomb_slots b fmlls ids) = lookup_lincomb b fml ids
 Proof
   Induct>>
-  simp[FORALL_PROD,lookup_lincomb_list_def,lookup_lincomb_def]>>
+  simp[FORALL_PROD,lookup_lincomb_slots_def,lookup_lincomb_def]>>
   rw[]>>
   drule fml_rel_lookup_core_only_dec>>
-  simp[]
+  disch_then (simp o single o GSYM)>>
+  simp[lookup_core_only_dec_def]>>
+  TOP_CASE_TAC>>simp[]>>
+  gvs[]>>
+  Cases_on`lookup_lincomb_slots b fmlls ids`>>gvs[]>>
+  qpat_x_assum`SOME _ = lookup_lincomb _ _ _` (simp o single o GSYM)
+QED
+
+(* The looked-up slots are entries of the formula *)
+Theorem lookup_lincomb_slots_EVERY:
+  ∀ids sks.
+  (∀n. P (any_el n fmlls Empty)) ∧
+  lookup_lincomb_slots b fmlls ids = SOME sks ⇒
+  EVERY (λ(s,k). P s) sks
+Proof
+  Induct>>
+  simp[lookup_lincomb_slots_def,FORALL_PROD,AllCaseEqs()]>>
+  rw[]>>
+  gvs[]>>
+  qpat_x_assum`lookup_core_only_list _ _ _ = _` mp_tac>>
+  rw[lookup_core_only_list_def,core_only_def]>>
+  metis_tac[]
 QED
 
 Theorem fml_rel_check_cutting_mutual[local]:
-  (∀b fmlls p.
+  (∀b vb fmlls p.
     fml_rel fml fmlls ⇒
-    check_cutting_list b fmlls p = check_cutting b fml p) ∧
-  (∀b fmlls ns.
+    check_cutting_list b vb fmlls p = check_cutting b fml p) ∧
+  (∀b vb fmlls ns.
     fml_rel fml fmlls ⇒
-    check_cutting_list_nest b fmlls ns = check_cutting_nest b fml ns)
+    check_cutting_list_nest b vb fmlls ns = check_cutting_nest b fml ns)
 Proof
   ho_match_mp_tac check_cutting_list_ind>>
   rw[check_cutting_list_def,check_cutting_def]
   >~[`lookup_core_only_dec`]
   >- metis_tac[fml_rel_lookup_core_only_dec]
-  >~[`lookup_lincomb_list`]
+  >~[`lookup_lincomb_slots`]
   >- (
-    drule_then assume_tac fml_rel_lookup_lincomb>>
-    gvs[]>>
-    TOP_CASE_TAC>>gvs[])
+    drule_then (qspecl_then [`b`,`ids`] assume_tac)
+      fml_rel_lookup_lincomb_slots>>
+    Cases_on`lookup_lincomb_slots b fmlls ids`>>gvs[]>>
+    rename1`lookup_lincomb_slots _ _ _ = SOME sks`>>
+    qpat_x_assum`SOME _ = lookup_lincomb _ _ _` (simp o single o GSYM)>>
+    `EVERY (λ(s,k). wf_slot s) sks` by (
+      irule lookup_lincomb_slots_EVERY>>
+      metis_tac[fml_rel_wf_slot])>>
+    TOP_CASE_TAC>>
+    simp[lincomb_eval_eq,lincomb_slow_def])
   >~[`multiply`]
   >- (TOP_CASE_TAC>>gvs[])
 QED
@@ -634,7 +667,7 @@ QED
 Theorem fml_rel_check_cutting:
   ∀p.
   fml_rel fml fmlls ⇒
-  check_cutting_list b fmlls p = check_cutting b fml p
+  check_cutting_list b vb fmlls p = check_cutting b fml p
 Proof
   metis_tac[fml_rel_check_cutting_mutual]
 QED
@@ -794,7 +827,7 @@ Theorem lookup_core_only_list_cases:
   lookup_core_only_list b fmlls n = Empty ∨
   lookup_core_only_list b fmlls n = any_el n fmlls Empty
 Proof
-  rw[lookup_core_only_list_def]
+  rw[lookup_core_only_list_def,core_only_def]
 QED
 
 Theorem get_rup_constraint_list_enc:
@@ -1096,22 +1129,22 @@ QED
 Finalise fml_rel_check_lstep_list;
 
 Definition extract_clauses_list_def:
-  (extract_clauses_list s b fml rsubs [] acc =
-    SOME (REVERSE acc)) ∧
-  (extract_clauses_list s b fml rsubs (cpf::pfs) acc =
+  (extract_clauses_list s b fml rsubs [] = SOME []) ∧
+  (extract_clauses_list s b fml rsubs (cpf::pfs) =
     case cpf of
       (NONE,pf) =>
-      extract_clauses_list s b fml rsubs pfs ((NONE,pf)::acc)
+      OPTION_MAP (CONS (NONE,pf))
+        (extract_clauses_list s b fml rsubs pfs)
     | (SOME (INL n,i),pf) =>
         (case lookup_core_only_list b fml n of
           Empty => NONE
         | c =>
-          extract_clauses_list s b fml rsubs pfs
-            ((SOME ([not (subst_slot s c)],i),pf)::acc))
+          OPTION_MAP (CONS (SOME ([not (subst_slot s c)],i),pf))
+            (extract_clauses_list s b fml rsubs pfs))
     | (SOME (INR u,i),pf) =>
       if u < LENGTH rsubs then
-        extract_clauses_list s b fml rsubs pfs
-          ((SOME (EL u rsubs,i),pf)::acc)
+        OPTION_MAP (CONS (SOME (EL u rsubs,i),pf))
+          (extract_clauses_list s b fml rsubs pfs)
       else NONE)
 End
 
@@ -1122,7 +1155,7 @@ Definition extract_scopes_list_def:
     s b fml rsubs ((sc,pfs)::rest) =
     case mk_scope scopes sc of NONE => NONE
     | SOME scs =>
-    case extract_clauses_list s b fml rsubs pfs [] of
+    case extract_clauses_list s b fml rsubs pfs of
       NONE => NONE
     | SOME cpfs =>
       case extract_scopes_list scopes s b fml rsubs rest of
@@ -1162,6 +1195,58 @@ Definition check_subproofs_list_def:
       | _ => NONE)
 End
 
+(* A scope hypothesis: a constraint, or its slot with its largest
+  variable *)
+Type sc_hyp = ``:npbc + (slot # num)``
+
+Definition sc_hyp_dec_def[simp]:
+  (sc_hyp_dec (INL c) = c) ∧
+  (sc_hyp_dec (INR (s,mv)) = dec s)
+End
+
+(* A slot hypothesis is an encoding with its largest variable *)
+Definition sc_hyp_ok_def[simp]:
+  (sc_hyp_ok (INL c) ⇔ T) ∧
+  (sc_hyp_ok (INR (s,mv)) ⇔ ∃c. s = enc c F ∧ mv = max_var (FST c))
+End
+
+Definition dec_scopes_def:
+  dec_scopes (pfs:(sc_hyp list option # 'a) list) =
+    MAP (λ(scopt,pf). (OPTION_MAP (MAP sc_hyp_dec) scopt, pf)) pfs
+End
+
+Definition scopes_ok_def:
+  scopes_ok (pfs:(sc_hyp list option # 'a) list) ⇔
+    EVERY (λ(scopt,pf). ∀sc. scopt = SOME sc ⇒ EVERY sc_hyp_ok sc) pfs
+End
+
+(* The slot a scope hypothesis is stored as, core iff b, with its largest
+  variable *)
+Definition sc_slot_def:
+  (sc_slot b (INL c) = enc_mv c b) ∧
+  (sc_slot b (INR (s,mv)) = (set_core_slot s b, mv:num))
+End
+
+Theorem sc_slot_enc:
+  sc_hyp_ok h ⇒
+  sc_slot b h = (enc (sc_hyp_dec h) b, max_var (FST (sc_hyp_dec h)))
+Proof
+  Cases_on`h`>>simp[sc_slot_def,enc_mv_enc]>>
+  rename1`INR p`>>PairCases_on`p`>>
+  rw[sc_slot_def]>>
+  simp[]
+QED
+
+(* Inserts scope hypotheses, as core iff b *)
+Definition list_insert_sc_list_def:
+  (list_insert_sc_list ([]:sc_hyp list) b id fml assg st =
+    (id,fml,assg,st)) ∧
+  (list_insert_sc_list (h::hs) b id fml assg st =
+    let (s,mv) = sc_slot b h in
+    let (fml',id',assg',st') = store_slot fml s mv id assg st in
+    list_insert_sc_list hs b id' fml' assg' st')
+End
+
 Definition check_scopes_list_def:
   (check_scopes_list [] b fml mindel id assg st =
     SOME (fml,id,assg,st)) ∧
@@ -1173,8 +1258,8 @@ Definition check_scopes_list_def:
           NONE => NONE
         | SOME (fml',id',assg',st') =>
             check_scopes_list scpfs b fml' mindel id' assg' st')
-    | SOME sc =>
-    let (cid,cfml,assg,st) = list_insert_fml_list sc b id fml assg st in
+    | SOME (sc:sc_hyp list) =>
+    let (cid,cfml,assg,st) = list_insert_sc_list sc b id fml assg st in
     case check_subproofs_list pf b cfml id cid assg st of
       NONE => NONE
     | SOME (fml',id',assg',st') =>
@@ -1182,27 +1267,11 @@ Definition check_scopes_list_def:
         check_scopes_list scpfs b rfml mindel id' assg' st')
 End
 
-Definition reindex_aux_def:
-  (reindex_aux fml [] iacc = REVERSE iacc) ∧
-  (reindex_aux fml (i::is) iacc =
-  if any_el i fml Empty = Empty then reindex_aux fml is iacc
-  else reindex_aux fml is (i::iacc))
-End
-
 Definition reindex_def:
-  (reindex fml is = reindex_aux fml is [])
-End
-
-Definition revalue_aux_def:
-  (revalue_aux b fml [] vacc = vacc) ∧
-  (revalue_aux b fml (i::is) vacc =
-  case lookup_core_only_list b fml i of
-    Empty => revalue_aux b fml is vacc
-  | s => revalue_aux b fml is (s::vacc))
-End
-
-Definition revalue_def:
-  (revalue b fml is = revalue_aux b fml is [])
+  (reindex fml [] = []) ∧
+  (reindex fml (i::is) =
+  if any_el i fml Empty = Empty then reindex fml is
+  else i :: reindex fml is)
 End
 
 Definition subst_indexes_def:
@@ -1217,7 +1286,7 @@ End
    --- enables faster checked deletion
    No scoping and no proofgoals used *)
 Definition red_fast_def:
-  red_fast s idopt pfs = (
+  red_fast idopt pfs = (
     case idopt of
       NONE => NONE
     | SOME id =>(
@@ -1227,150 +1296,130 @@ Definition red_fast_def:
       | _ => NONE))
 End
 
-(* inds is just passed through here *)
+(* inds and the table ht are just passed through here *)
 Definition check_red_list_fast_def:
-  check_red_list_fast b fml inds id fc mv pf cid vimap assg st =
+  check_red_list_fast b fml inds id fc mv pf cid vimap assg st ht =
   let (fml_not_c,id1,assg,st) = store_slot fml (not_slot fc b) mv id assg st in
   case check_lsteps_list pf b fml_not_c id id1 assg st of
     NONE => NONE
   | SOME (fml', id',assg',st') =>
   if check_contradiction_fml_list b fml' cid then
     let rfml = rollback fml' id id' in
-      SOME (rfml,inds,vimap,id',assg',st')
+      SOME (rfml,inds,vimap,id',assg',st',ht)
   else
     NONE
 End
 
-(* The proved goals, and the goals neither proved nor implied by extra *)
+(* The INL ids proved by a list of proofs, as keys of a list, and the INR
+  ids, as a set *)
+Definition extract_pids_list_def:
+  (extract_pids_list [] (l:(num # unit) list) r = (l,r)) ∧
+  (extract_pids_list (cpf::pfs) l r =
+  case FST cpf of
+    NONE => extract_pids_list pfs l r
+  | SOME (i,n) =>
+    (case i of
+      INL i => extract_pids_list pfs ((i,())::l) r
+    | INR i => extract_pids_list pfs l (insert i () r)))
+End
+
+Definition extract_scoped_pids_list_def:
+  (extract_scoped_pids_list [] l r = (l,r)) ∧
+  (extract_scoped_pids_list ((scopt,pf)::scpfs) l r =
+  if extract_scope_val scopt
+  then
+      let (l,r) = extract_pids_list pf l r in
+        extract_scoped_pids_list scpfs l r
+  else extract_scoped_pids_list scpfs l r)
+End
+
+(* The proved goals, and the goals neither proved nor implied by extra,
+  in one pass; both in reverse order *)
 Definition split_goals_pure_def:
-  split_goals_pure (proved:num_set) extra
-    (goals:(num # (int # num) list # int) list) =
-  let (lp,lf) =
-    PARTITION (λ(i,c). sptree$lookup i proved ≠ NONE) goals in
-  (lp, FILTER (λc. ¬imp_slot extra c) (MAP SND lf))
+  (split_goals_pure (proved:unit lmap) extra [] lp lf = (lp,lf)) ∧
+  (split_goals_pure proved extra
+    ((i,c)::(goals:(num # (int # num) list # int) list)) lp lf =
+    if map_lookup proved i ≠ NONE then
+      split_goals_pure proved extra goals (c::lp) lf
+    else if imp_slot extra c then
+      split_goals_pure proved extra goals lp lf
+    else
+      split_goals_pure proved extra goals lp (c::lf))
 End
 
-(* The fmlls argument should be delayed and avoided
-  as much as possible *)
+(* The goals proved by the subproofs pids, and the others that extra does
+  not imply *)
+Definition split_goals_pids_def:
+  split_goals_pids (pids:(num # unit) list) extra goals =
+  split_goals_pure (mk_map [] pids) extra goals [] []
+End
+
+(* Every goal matches a slot (core only, if b) of fml in the table tbl, or
+  is one of the proved goals lp *)
+Definition ht_goals_def:
+  (ht_goals b fml lp tbl [] ⇔ T) ∧
+  (ht_goals b fml lp tbl (c::cs) ⇔
+    (ht_probe b fml c (hash_constraint c) tbl ∨ mem_constraint c lp) ∧
+    ht_goals b fml lp tbl cs)
+End
+
+(* The goals neither proved nor implied by extra are looked up in the
+  table, which is filled first; pids are the proved ids and base is the
+  first id of the step *)
 Definition split_goals_hash_def:
-  split_goals_hash fmlls extra (proved:num_set)
+  split_goals_hash b fml inds base ht extra (pids:(num # unit) list)
     (goals:(num # (int # num) list # int) list) =
-  let (lp,lf) = split_goals_pure proved extra goals in
-  lf = [] ∨
-  let hs =
-    mk_hashset_slot fmlls
-      (mk_hashset_slot (MAP (λ(i,c). enc c T) lp) (REPLICATE splim [])) in
-  EVERY (λc. in_hashset_slot c hs) lf
+  let (lp,lf) = split_goals_pids pids extra goals in
+  if NULL lf then (T,ht)
+  else
+    let ht = ht_fill fml inds base ht in
+    let (hw,a,d,tbl) = ht in
+    (ht_goals b fml lp tbl lf, ht)
 End
 
-Theorem split_goals_hash_eq:
-  split_goals_hash fmlls extra proved goals ⇔
-  let (lp,lf) =
-    PARTITION (λ(i,c). lookup i proved ≠ NONE) goals in
-  let lf = FILTER (λc. ¬imp_slot extra c) (MAP SND lf) in
-  let proved = MAP (λ(i,c). enc c T) lp in
-  let hs =
-    mk_hashset_slot fmlls (mk_hashset_slot proved (REPLICATE splim [])) in
-  EVERY (λc. in_hashset_slot c hs) lf
+Theorem split_goals_hash_test:
+  let fml = [Empty; enc ([(2,1);(-3,4)],5) T; enc ([(1,1)],1) F] in
+  let extra = enc ([(1,7)],1) T in
+  let proved = [(5n,())] in
+  let gp = ([(1,9)],1) in
+  let run b gs = split_goals_hash b fml [2;1] 3 ht_empty extra proved gs in
+  (* a goal in the database: core only when b *)
+  FST (run F [(5,gp); (6,([(2,1);(-3,4)],5)); (7,([(1,1)],1))]) ∧
+  ¬FST (run T [(5,gp); (6,([(2,1);(-3,4)],5)); (7,([(1,1)],1))]) ∧
+  (* a goal equal to a proved goal, outside or inside the database *)
+  FST (run T [(5,gp); (8,gp); (6,([(2,1);(-3,4)],5))]) ∧
+  FST (run F [(5,([(1,1)],1)); (7,([(1,1)],1))]) ∧
+  ¬FST (run F [(8,gp)]) ∧
+  (* a goal implied by extra *)
+  FST (run F [(9,([(1,7)],1))]) ∧
+  FST (split_goals_hash F fml [2;1] 3 ht_empty extra [] [(9,([(1,7)],1))]) ∧
+  (* nothing to look up: the table is not filled *)
+  run F [(5,gp); (9,([(1,7)],1))] = (T,ht_empty) ∧
+  FST (SND (run F [(6,([(2,1);(-3,4)],5))])) = 3
 Proof
-  simp[split_goals_hash_def,split_goals_pure_def]>>
-  Cases_on`PARTITION (λ(i,c). lookup i proved ≠ NONE) goals`>>
-  simp[]>>
-  qmatch_goalsub_abbrev_tac`l = [] ∨ _`>>
-  Cases_on`l`>>simp[]
-QED
-
-(* Adds the stored constraints at inds (core only, if b) to the hash table,
-  without collecting them in a list first *)
-Definition mk_hashset_core_def:
-  (mk_hashset_core b fml [] hs = hs) ∧
-  (mk_hashset_core b fml (i::is) hs =
-    case lookup_core_only_list b fml i of
-      Empty => mk_hashset_core b fml is hs
-    | s =>
-      mk_hashset_core b fml is
-        (LUPDATE (s::EL (hash_slot s) hs) (hash_slot s) hs))
-End
-
-Theorem LENGTH_mk_hashset_core:
-  ∀inds hs. LENGTH (mk_hashset_core b fml inds hs) = LENGTH hs
-Proof
-  Induct>>
-  rw[mk_hashset_core_def,slot_CASE_default]
-QED
-
-Theorem MEM_EL_mk_hashset_slot:
-  ∀ss hs k x.
-  LENGTH hs = splim ∧ k < splim ⇒
-  (MEM x (EL k (mk_hashset_slot ss hs)) ⇔
-    MEM x (EL k hs) ∨ (MEM x ss ∧ hash_slot x = k))
-Proof
-  Induct>>
-  rw[mk_hashset_slot_def]>>
-  `hash_slot h < splim` by simp[hash_slot_thm,hash_constraint_lt_splim]>>
-  simp[EL_LUPDATE]>>
-  rw[]>>
-  metis_tac[]
-QED
-
-Theorem MEM_EL_mk_hashset_core:
-  ∀inds hs k x.
-  LENGTH hs = splim ∧ k < splim ⇒
-  (MEM x (EL k (mk_hashset_core b fml inds hs)) ⇔
-    MEM x (EL k hs) ∨
-    (∃i. MEM i inds ∧ lookup_core_only_list b fml i = x ∧ x ≠ Empty ∧
-      hash_slot x = k))
-Proof
-  Induct>>
-  rw[mk_hashset_core_def,slot_CASE_default]
-  >- metis_tac[]>>
-  qmatch_goalsub_abbrev_tac`LUPDATE _ (hash_slot s)`>>
-  `hash_slot s < splim` by simp[hash_slot_thm,hash_constraint_lt_splim]>>
-  simp[EL_LUPDATE]>>
-  rw[]>>
-  metis_tac[]
-QED
-
-Theorem MEM_revalue_aux:
-  ∀inds vacc x.
-  MEM x (revalue_aux b fml inds vacc) ⇔
-    MEM x vacc ∨
-    (∃i. MEM i inds ∧ lookup_core_only_list b fml i = x ∧ x ≠ Empty)
-Proof
-  Induct>>
-  rw[revalue_aux_def,slot_CASE_default]>>
-  metis_tac[]
-QED
-
-Theorem in_hashset_slot_mk_hashset_core:
-  LENGTH hs = splim ⇒
-  (in_hashset_slot c (mk_hashset_core b fml inds hs) ⇔
-    in_hashset_slot c (mk_hashset_slot (revalue b fml inds) hs))
-Proof
-  rw[in_hashset_slot_def,mem_slots_EXISTS,EXISTS_MEM,revalue_def]>>
-  `hash_constraint c < splim` by simp[hash_constraint_lt_splim]>>
-  simp[MEM_EL_mk_hashset_slot,MEM_EL_mk_hashset_core,MEM_revalue_aux]>>
-  metis_tac[]
+  EVAL_TAC
 QED
 
 Definition red_cond_check_def:
-  red_cond_check b fml inds extra pfs
-    (rsubs:((int # num) list # int) list list) goals skipped ⇔
-  let (l,r) = extract_scoped_pids pfs LN LN in
-  check_hash_goals_slot extra skipped r rsubs ∧
-  split_goals_hash (revalue b fml inds) extra l goals
+  red_cond_check b fml inds base ht extra pfs
+    (rsubs:((int # num) list # int) list list) goals skipped =
+  let (l,r) = extract_scoped_pids_list pfs [] LN in
+  if check_hash_goals_slot extra skipped r rsubs then
+    split_goals_hash b fml inds base ht extra l goals
+  else (F,ht)
 End
 
 (* Not meant to be executed, mainly just abbrevation... *)
 Definition do_red_check_def:
-  do_red_check idopt b tcb fml inds
+  do_red_check idopt b tcb fml inds base ht
     s rfml rinds extra pfs rsubs skipped cond =
   case idopt of NONE =>
     let goals = subst_indexes s (b ∨ tcb) rfml rinds in
-      cond ∧
-      red_cond_check b rfml inds extra pfs rsubs goals skipped
+      if cond then
+        red_cond_check b rfml inds base ht extra pfs rsubs goals skipped
+      else (F,ht)
   | SOME cid =>
-     check_contradiction_fml_list b fml cid
+     (check_contradiction_fml_list b fml cid, ht)
 End
 
 Definition add_listsLR_def:
@@ -1640,81 +1689,1099 @@ Proof
   metis_tac[PAIR]
 QED
 
-(* Fast substitution for obj_constraint if it is in vomap *)
+(* Fast substitution for obj_constraint: trivial unless the witness
+  (raw form sr) maps an objective variable (in vomap) *)
 Definition fast_obj_constraint_def:
-  fast_obj_constraint s l vomap =
-  case s of
-    INR v =>
-    if length v = 0 then ([],0)
-    else full_obj_single (subst_fun s) l
-  | INL (n,_) =>
-    if n < strlen vomap
+  fast_obj_constraint s sr l vomap =
+  if EVERY (λ(n,v). strlen vomap ≤ n ∨ strsub_unsafe vomap n = ^zw) sr
+  then ([],0)
+  else full_obj_single (subst_fun s) l
+End
+
+(* The order precomputed at its load.
+
+  A record of an order constraint c: c renamed with the empty witness (each
+  formal of us and vs replaced by its literal of xs), its negation, the
+  terms of c on the formals of us and of vs as
+  (coefficient, problem variable, sign bit), and the renamed constraint
+  encoded as a non-core slot with its largest variable.
+
+  The precomputed order: the records of f and of g, the length of f, and
+  for us and for vs, a map from a problem variable to the ids (f's records
+  first, then g's) of the records with a term on a formal mapped to it *)
+Type ord_rec = ``:npbc # npbc # (int # num # bool) list #
+  (int # num # bool) list # (slot # num)``
+
+Type ord_pre = ``:ord_rec list # ord_rec list # num #
+  num list lmap # num list lmap``
+
+Definition ord_ww0_def:
+  ord_ww0 us_xs vs_xs n =
+    case map_lookup us_xs n of
+      SOME (v,b) => SOME (INR (mk_lit (v,b)))
+    | NONE => OPTION_MAP (INR o mk_lit) (map_lookup vs_xs n)
+End
+
+(* The terms of l on the keys of m, as (coefficient, variable, sign bit) *)
+Definition formal_terms_def:
+  (formal_terms (m:(num # bool) lmap) [] acc = acc) ∧
+  (formal_terms m ((c:int,n)::l) acc =
+    case map_lookup m n of
+      NONE => formal_terms m l acc
+    | SOME (v,b) => formal_terms m l ((c,v,b)::acc))
+End
+
+Definition mk_ord_rec_def:
+  mk_ord_rec us_xs vs_xs (c:npbc) =
+  let c0 = subst (ord_ww0 us_xs vs_xs) c in
+  ((c0, not c0, formal_terms us_xs (FST c) [], formal_terms vs_xs (FST c) [],
+    enc_mv c0 F):ord_rec)
+End
+
+(* Adds id j to the entry of each variable of l *)
+Definition ord_index_aux_def:
+  (ord_index_aux (t:num list num_map) (j:num) [] = t) ∧
+  (ord_index_aux t j (((c:int),v,(b:bool))::l) =
+    ord_index_aux
+      (insert v (case lookup v t of NONE => [j] | SOME js => j::js) t) j l)
+End
+
+Definition ord_index_def:
+  (ord_index side t j ([]:ord_rec list) = t) ∧
+  (ord_index side t j ((c0,ncs,uts,vts,sl)::rs) =
+    ord_index side (ord_index_aux t j (if side then uts else vts)) (j+1) rs)
+End
+
+Definition compact_terms_def:
+  (compact_terms ([]:(int # num) list) ⇔ T) ∧
+  (compact_terms [x] ⇔ FST x ≠ 0) ∧
+  (compact_terms (x::y::l) ⇔
+    FST x ≠ 0 ∧ SND x < SND y ∧ compact_terms (y::l))
+End
+
+(* The precomputed order, when every constraint is compact and no formal
+  is in both us and vs *)
+Definition mk_ord_pre_def:
+  mk_ord_pre (ord:ord_s option) =
+  case ord of NONE => NONE
+  | SOME (((f,g,us,vs,as),xs),us_xs,vs_xs,xsv,asv) =>
+    if EVERY (compact_terms o FST) f ∧ EVERY (compact_terms o FST) g ∧
+      EVERY (λn. map_lookup us_xs n = NONE) vs
     then
-      if strsub_unsafe vomap n = ^zw then
-        ([],0)
-      else
-        full_obj_single (subst_fun s) l
-    else ([],0)
+      let frs = MAP (mk_ord_rec us_xs vs_xs) f in
+      let grs = MAP (mk_ord_rec us_xs vs_xs) g in
+      let rs = frs ++ grs in
+      SOME ((frs, grs, LENGTH f,
+        mk_map [] (toAList (ord_index T LN 0 rs)),
+        mk_map [] (toAList (ord_index F LN 0 rs))):ord_pre)
+    else NONE
+End
+
+(* The ids of the records with a term on a variable of the witness, in
+  increasing order, possibly repeated *)
+Definition ord_touched_aux_def:
+  (ord_touched_aux (idx:num list lmap) ([]:var subst_raw) acc = acc) ∧
+  (ord_touched_aux idx ((v,x)::sr) acc =
+    case map_lookup idx v of
+      NONE => ord_touched_aux idx sr acc
+    | SOME ids => ord_touched_aux idx sr (ids ++ acc))
+End
+
+Definition ord_touched_def:
+  ord_touched idx sr = mllist$sort (λx y. x ≤ y) (ord_touched_aux idx sr [])
+End
+
+(* The change, under witness w, of the renamed terms l of a record: a
+  constraint (dts, k) with dts not normalised *)
+Definition delta_terms_def:
+  (delta_terms w [] dts (k:int) = (dts,k)) ∧
+  (delta_terms w ((c,v,b)::l) dts k =
+    case w v of
+      NONE => delta_terms w l dts k
+    | SOME res =>
+      let dts = (if b then -c else c, v)::dts in
+      let k = k + ABS c in
+      case mk_bit_lit b res of
+        INL b' => delta_terms w l dts (if is_Pos c = b' then k - ABS c else k)
+      | INR (Pos n) => delta_terms w l ((c,n)::dts) k
+      | INR (Neg n) => delta_terms w l ((-c,n)::dts) k)
+End
+
+(* A renamed constraint corrected by the witness *)
+Definition touched_rec_def:
+  touched_rec w (c0:npbc) l =
+  let (dts,k) = delta_terms w l [] 0 in
+  let (sorted,k2) = clean_up dts in
+  add c0 (sorted, k - k2)
+End
+
+(* The negation of a renamed constraint corrected by the witness, from the
+  negation nc0 of the renamed constraint *)
+Definition touched_not_def:
+  touched_not w (nc0:npbc) l =
+  let (dts,k) = delta_terms w l [] 0 in
+  let (sorted,k2) = clean_up dts in
+  let (nds,r) = not (sorted, k - k2) in
+  add nc0 (nds, r - 1)
+End
+
+(* The records from id j renamed under witness w, on side us (side) or vs;
+  ts holds the touched ids *)
+Definition fast_rn_def:
+  (fast_rn w side ([]:ord_rec list) ts (j:num) = []) ∧
+  (fast_rn w side (r::rs) ts j =
+    case ts of
+      [] => FST r :: fast_rn w side rs [] (j+1)
+    | (t::ts') =>
+      if t < j then fast_rn w side (r::rs) ts' j
+      else if t = j then
+        (case r of (c0,ncs,uts,vts,sl) =>
+          touched_rec w c0 (if side then uts else vts) ::
+          fast_rn w side rs ts' (j+1))
+      else FST r :: fast_rn w side rs ts (j+1))
+Termination
+  WF_REL_TAC`measure (λ(w,side,rs,ts,j). LENGTH rs + LENGTH ts)`
+  \\ rw []
+End
+
+(* As fast_rn on side us, as the one-element lists of the negations *)
+Definition fast_rn_not_def:
+  (fast_rn_not w ([]:ord_rec list) ts (j:num) = ([]:npbc list list)) ∧
+  (fast_rn_not w (r::rs) ts j =
+    case ts of
+      [] => [FST (SND r)] :: fast_rn_not w rs [] (j+1)
+    | (t::ts') =>
+      if t < j then fast_rn_not w (r::rs) ts' j
+      else if t = j then
+        (case r of (c0,nc0,uts,vts,sl) =>
+          [touched_not w nc0 uts] :: fast_rn_not w rs ts' (j+1))
+      else [FST (SND r)] :: fast_rn_not w rs ts (j+1))
+Termination
+  WF_REL_TAC`measure (λ(w,rs,ts,j). LENGTH rs + LENGTH ts)`
+  \\ rw []
+End
+
+(* As fast_rn, as scope hypotheses: the slot of an untouched record *)
+Definition fast_rn_sc_def:
+  (fast_rn_sc w side ([]:ord_rec list) ts (j:num) = ([]:sc_hyp list)) ∧
+  (fast_rn_sc w side (r::rs) ts j =
+    case ts of
+      [] => INR (SND (SND (SND (SND r)))) :: fast_rn_sc w side rs [] (j+1)
+    | (t::ts') =>
+      if t < j then fast_rn_sc w side (r::rs) ts' j
+      else if t = j then
+        (case r of (c0,ncs,uts,vts,sl) =>
+          INL (touched_rec w c0 (if side then uts else vts)) ::
+          fast_rn_sc w side rs ts' (j+1))
+      else INR (SND (SND (SND (SND r)))) :: fast_rn_sc w side rs ts (j+1))
+Termination
+  WF_REL_TAC`measure (λ(w,side,rs,ts,j). LENGTH rs + LENGTH ts)`
+  \\ rw []
+End
+
+(* The negated f subgoals and the g scope hypotheses of dom_subst *)
+Definition dom_subst_fast_def:
+  dom_subst_fast hs w sr ((frs,grs,nf,uidx,vidx):ord_pre) =
+  let ts = ord_touched uidx sr in
+  (fast_rn_not w frs ts 0, if hs then fast_rn_sc w T grs ts nf else [])
+End
+
+Definition neg_dom_subst_fast_def:
+  neg_dom_subst_fast w sr ((frs,grs,nf,uidx,vidx):ord_pre) =
+  let ts = ord_touched vidx sr in
+  (fast_rn w F frs ts 0, fast_rn_sc w F grs ts nf)
+End
+
+(* dom_subst as negated f subgoals and scope hypotheses, from the
+  precomputed order po when present *)
+Definition dom_subst_list_def:
+  dom_subst_list hs w sr ord (po:ord_pre option) =
+  case po of
+    NONE =>
+      let (fs,gs) = dom_subst hs w ord in
+      (MAP (λc. [not c]) fs, MAP INL gs : sc_hyp list)
+  | SOME p => dom_subst_fast hs w sr p
 End
 
 Definition fast_red_subgoals_def:
-  fast_red_subgoals ord s def obj vomap hs =
+  fast_red_subgoals ord po s sr def obj vomap hs =
   let cobj =
     case obj of NONE => []
-    | SOME l => [[not (fast_obj_constraint s l vomap)]] in
+    | SOME l => [[not (fast_obj_constraint s sr l vomap)]] in
   let w = subst_fun s in
-  let (fs,gs) = dom_subst hs w ord in
+  let (nfs,gs) = dom_subst_list hs w sr ord po in
   let c0 = subst_slot s def in
-  ([not c0]::(MAP (λc. [not c]) fs) ++ cobj, [gs])
+  ([not c0]::nfs ++ cobj, [gs])
 End
 
+(* dom_subgoals, from the precomputed order po when present *)
+Definition dom_subgoals_list_def:
+  dom_subgoals_list (aspo:ord_s) (po:ord_pre option) s sr obj =
+  let w = subst_fun s in
+  let (nfs,gs) = dom_subst_list T w sr (SOME aspo) po in
+  let (fs',gs') =
+    (case po of
+      NONE =>
+        let (fs',gs') = neg_dom_subst w aspo in
+        (fs', MAP INL gs' : sc_hyp list)
+    | SOME p => neg_dom_subst_fast w sr p) in
+  let cobj =
+    case obj of NONE => []
+    | SOME l => [[not (obj_constraint w l)]] in
+  (nfs ++ fs' :: cobj, [gs; gs'], LENGTH nfs)
+End
+
+(* The precomputed order renames as dom_subst and neg_dom_subst do; xs
+  repeats variable 10, and a witness may repeat a key or miss the order *)
+Theorem dom_subst_fast_test:
+  let f = [([(4,1);(2,2);(1,3);(-4,4);(-2,5);(-1,6)],0); ([(3,1);(1,7)],1)] in
+  let g = [([(1,2);(-1,5)],0); ([(2,3);(1,7)],1)] in
+  let xs = [(10,T);(11,F);(10,T)] in
+  let ord = mk_ordsub ((f,g,[1;2;3],[4;5;6],[7]), mk_as_vec [7]) xs in
+  let po = mk_ord_pre ord in
+  let dec_nfs = λ(nfs,gs). (nfs, MAP sc_hyp_dec gs) in
+  let dec_gs = λ(fs,gs). (fs, MAP sc_hyp_dec gs) in
+  let neg_fs = λ(fs,gs). (MAP (λc. [not c]) fs, gs) in
+  let chk sr =
+    let w = subst_fun (mk_subst [] sr) in
+    dec_nfs (dom_subst_list T w sr ord po) = neg_fs (dom_subst T w ord) ∧
+    dec_gs (neg_dom_subst_fast w sr (THE po)) = neg_dom_subst w (THE ord) in
+  IS_SOME po ∧
+  chk [] ∧ chk [(10,INL T)] ∧ chk [(11,INR (Pos 12))] ∧
+  chk [(10,INR (Neg 11)); (11,INL F)] ∧ chk [(10,INL T); (10,INL F)] ∧
+  chk [(20,INL T)] ∧ chk [(11,INR (Neg 10)); (10,INR (Pos 11))] ∧
+  chk [(10,INR (Neg 7))] ∧ chk [(10,INR (Pos 7)); (11,INR (Pos 10))] ∧
+  (* a formal in both us and vs: no precomputation *)
+  mk_ord_pre (mk_ordsub ((f,g,[1;2;3],[3;5;6],[7]), mk_as_vec [7]) xs) = NONE
+Proof
+  EVAL_TAC
+QED
+
+(* The maps of a loaded order are built from its formals and xs, as
+  mk_ordsub builds them *)
+Definition ord_maps_ok_def:
+  ord_maps_ok ((((f,g,us,vs,as),xs),us_xs,vs_xs,xsv,asv):ord_s) ⇔
+  us_xs = mk_map [] (ZIP (us,xs)) ∧
+  vs_xs = mk_map [] (ZIP (vs,xs))
+End
+
+Theorem compact_terms_thm:
+  ∀l. compact_terms l ⇔
+    SORTED $< (MAP SND l) ∧ EVERY (λc. c ≠ 0) (MAP FST l)
+Proof
+  recInduct compact_terms_ind
+  \\ rw[compact_terms_def]
+  \\ eq_tac \\ rw[]
+QED
+
+(* The renaming of dom_subst (m1 = us_xs, m2 = vs_xs) and of neg_dom_subst
+  (m1 = vs_xs, m2 = us_xs) under witness w *)
+Definition ord_ww_def:
+  ord_ww (m1:(num # bool) lmap) (m2:(num # bool) lmap) w =
+    λn.
+    case map_lookup m1 n of
+      SOME (v,b) =>
+        SOME (mk_bit_lit b
+          (case w v of NONE => INR (Pos v) | SOME res => res))
+    | NONE => OPTION_MAP (INR o mk_lit) (map_lookup m2 n)
+End
+
+Theorem dom_subst_ord_ww:
+  dom_subst hs w (SOME (((f,g,us,vs,as),xs),us_xs,vs_xs,xsv,asv)) =
+  (MAP (subst (ord_ww us_xs vs_xs w)) f,
+   if hs then MAP (subst (ord_ww us_xs vs_xs w)) g else [])
+Proof
+  simp[dom_subst_def, ord_ww_def]
+QED
+
+Theorem neg_dom_subst_ord_ww:
+  neg_dom_subst w (((f,g,us,vs,as),xs),us_xs,vs_xs,xsv,asv) =
+  (MAP (subst (ord_ww vs_xs us_xs w)) f, MAP (subst (ord_ww vs_xs us_xs w)) g)
+Proof
+  simp[neg_dom_subst_def, ord_ww_def]
+QED
+
+Theorem ord_ww0_ord_ww:
+  ord_ww0 m1 m2 = ord_ww m1 m2 (K NONE)
+Proof
+  simp[FUN_EQ_THM, ord_ww0_def, ord_ww_def]
+  \\ qx_gen_tac ‘n’ \\ Cases_on ‘map_lookup m1 n’ \\ simp[]
+  \\ rename1 ‘SOME p’ \\ PairCases_on ‘p’
+  \\ simp[npbcTheory.mk_bit_lit_def]
+QED
+
+Theorem ord_ww_swap:
+  (∀n. map_lookup m1 n = NONE ∨ map_lookup m2 n = NONE) ⇒
+  ord_ww m1 m2 (K NONE) = ord_ww m2 m1 (K NONE)
+Proof
+  strip_tac \\ simp[FUN_EQ_THM, ord_ww_def]
+  \\ qx_gen_tac ‘n’
+  \\ ‘map_lookup m1 n = NONE ∨ map_lookup m2 n = NONE’ by simp[]
+  \\ Cases_on ‘map_lookup m1 n’ \\ Cases_on ‘map_lookup m2 n’ \\ gvs[]
+  \\ qmatch_asmsub_rename_tac ‘_ = SOME q’ \\ PairCases_on ‘q’
+  \\ simp[npbcTheory.mk_bit_lit_def]
+QED
+
+Theorem formal_terms_acc:
+  ∀l acc. formal_terms m l acc = formal_terms m l [] ++ acc
+Proof
+  Induct >- simp[formal_terms_def]
+  \\ rpt strip_tac \\ rename1 ‘formal_terms m (t::l) acc’
+  \\ PairCases_on ‘t’
+  \\ qpat_x_assum ‘∀acc. _’ (fn ih =>
+    simp[formal_terms_def] \\ Cases_on ‘map_lookup m t1’ \\ simp[]
+    >- (once_rewrite_tac [ih] \\ simp[])
+    \\ qmatch_asmsub_rename_tac ‘_ = SOME q’ \\ PairCases_on ‘q’ \\ simp[]
+    \\ once_rewrite_tac [ih] \\ simp[])
+QED
+
+Theorem formal_terms_nonzero:
+  ∀l acc.
+  EVERY (λc. c ≠ 0) (MAP FST l) ∧ EVERY (λ(c,v,b). c ≠ 0) acc ⇒
+  EVERY (λ(c,v,b). c ≠ 0) (formal_terms m l acc)
+Proof
+  Induct >- simp[formal_terms_def]
+  \\ rpt strip_tac \\ rename1 ‘formal_terms m (t::l) acc’
+  \\ PairCases_on ‘t’ \\ gvs[formal_terms_def]
+  \\ Cases_on ‘map_lookup m t1’ \\ simp[]
+  \\ qmatch_asmsub_rename_tac ‘_ = SOME q’ \\ PairCases_on ‘q’ \\ simp[]
+QED
+
+Theorem delta_terms_APPEND:
+  ∀l1 l2 dts k.
+  delta_terms w (l1 ++ l2) dts k =
+  UNCURRY (delta_terms w l2) (delta_terms w l1 dts k)
+Proof
+  Induct \\ simp[delta_terms_def, FORALL_PROD]
+  \\ rw[] \\ every_case_tac \\ simp[]
+QED
+
+Theorem delta_terms_untouched:
+  ∀l dts k.
+  EVERY (λ(c,v,b). w v = NONE) l ⇒ delta_terms w l dts k = (dts,k)
+Proof
+  Induct \\ simp[delta_terms_def, FORALL_PROD]
+QED
+
+Theorem delta_terms_nonzero:
+  ∀l dts k dts' k'.
+  delta_terms w l dts k = (dts',k') ∧
+  EVERY (λ(c,v,b). c ≠ 0) l ∧ EVERY (λc. c ≠ 0) (MAP FST dts) ⇒
+  EVERY (λc. c ≠ 0) (MAP FST dts')
+Proof
+  Induct \\ simp[delta_terms_def, FORALL_PROD]
+  \\ rw[] \\ every_case_tac \\ gvs[]
+  \\ first_x_assum drule \\ simp[]
+QED
+
+(* The change made by the witness to a term on a formal *)
+Theorem delta_one:
+  map_lookup m1 x = SOME (v,b) ∧
+  delta_terms w [(c,v,b)] d k = (d',k') ⇒
+  &SUM (MAP (eval_term w') d') − k' =
+  &SUM (MAP (eval_term w') d) − k +
+  (&eval_term (assign (ord_ww m1 m2 w) w') (c,x) −
+   &eval_term (assign (ord_ww m1 m2 (K NONE)) w') (c,x))
+Proof
+  strip_tac
+  \\ gvs[delta_terms_def, npbcTheory.assign_def, ord_ww_def]
+  \\ Cases_on ‘w v’ \\ gvs[delta_terms_def]
+  \\ qmatch_asmsub_rename_tac ‘w v = SOME res’
+  \\ Cases_on ‘res’
+  >- (
+    rename1 ‘INL bb’
+    \\ strip_assume_tac (Q.SPEC ‘c’ integerTheory.INT_NUM_CASES)
+    \\ gvs[npbcTheory.mk_bit_lit_def, npbcTheory.mk_lit_def]
+    \\ Cases_on ‘b’ \\ Cases_on ‘bb’ \\ Cases_on ‘w' v’
+    \\ gvs[] \\ intLib.ARITH_TAC)
+  \\ rename1 ‘INR l’ \\ Cases_on ‘l’
+  >- (
+    rename1 ‘INR (Pos n)’
+    \\ strip_assume_tac (Q.SPEC ‘c’ integerTheory.INT_NUM_CASES)
+    \\ gvs[npbcTheory.mk_bit_lit_def, npbcTheory.mk_lit_def]
+    \\ Cases_on ‘b’ \\ Cases_on ‘w' v’ \\ Cases_on ‘w' n’
+    \\ gvs[npbcTheory.mk_lit_def] \\ intLib.ARITH_TAC)
+  \\ rename1 ‘INR (Neg n)’
+  \\ strip_assume_tac (Q.SPEC ‘c’ integerTheory.INT_NUM_CASES)
+  \\ gvs[npbcTheory.mk_bit_lit_def, npbcTheory.mk_lit_def]
+  \\ Cases_on ‘b’ \\ Cases_on ‘w' v’ \\ Cases_on ‘w' n’
+  \\ gvs[npbcTheory.mk_lit_def] \\ intLib.ARITH_TAC
+QED
+
+(* The change made by the witness to the terms of l *)
+Theorem delta_formal_terms:
+  ∀l dts k dts' k'.
+  delta_terms w (formal_terms m1 l []) dts k = (dts',k') ⇒
+  &SUM (MAP (eval_term w') dts') − k' =
+  &SUM (MAP (eval_term w') dts) − k +
+  (&SUM (MAP (eval_term (assign (ord_ww m1 m2 w) w')) l) −
+   &SUM (MAP (eval_term (assign (ord_ww m1 m2 (K NONE)) w')) l))
+Proof
+  Induct >- simp[formal_terms_def, delta_terms_def]
+  \\ rpt strip_tac \\ rename1 ‘formal_terms m1 (t::l) []’
+  \\ PairCases_on ‘t’
+  \\ gvs[formal_terms_def]
+  \\ Cases_on ‘map_lookup m1 t1’ \\ gvs[]
+  >- (
+    ‘assign (ord_ww m1 m2 w) w' t1 = assign (ord_ww m1 m2 (K NONE)) w' t1’ by
+      simp[npbcTheory.assign_def, ord_ww_def]
+    \\ pop_assum SUBST1_TAC
+    \\ first_x_assum drule
+    \\ qmatch_goalsub_abbrev_tac ‘&(_ + h) − &(_ + h)’
+    \\ rpt (pop_assum kall_tac) \\ intLib.ARITH_TAC)
+  \\ qmatch_asmsub_rename_tac ‘map_lookup m1 t1 = SOME q’ \\ PairCases_on ‘q’
+  \\ gvs[]
+  \\ qpat_x_assum ‘delta_terms _ _ _ _ = _’ mp_tac
+  \\ once_rewrite_tac [formal_terms_acc]
+  \\ simp[delta_terms_APPEND]
+  \\ Cases_on ‘delta_terms w (formal_terms m1 l []) dts k’ \\ simp[]
+  \\ strip_tac
+  \\ first_x_assum drule
+  \\ drule_all delta_one
+  \\ disch_then (qspecl_then [‘w'’,‘m2’] mp_tac)
+  \\ simp[]
+  \\ qabbrev_tac ‘EA = Num (ABS t0) *
+      if t0 < 0 then 1 − b2n (assign (ord_ww m1 m2 w) w' t1)
+      else b2n (assign (ord_ww m1 m2 w) w' t1)’
+  \\ qabbrev_tac ‘EB = Num (ABS t0) *
+      if t0 < 0 then 1 − b2n (assign (ord_ww m1 m2 (K NONE)) w' t1)
+      else b2n (assign (ord_ww m1 m2 (K NONE)) w' t1)’
+  \\ rpt (pop_assum kall_tac) \\ intLib.ARITH_TAC
+QED
+
+(* A record's renamed constraint and its negation, corrected by the
+  witness, are the constraint and its negation renamed under the witness *)
+Theorem touched_rec_thm:
+  compact c ⇒
+  touched_rec w (subst (ord_ww m1 m2 (K NONE)) c)
+    (formal_terms m1 (FST c) []) = subst (ord_ww m1 m2 w) c ∧
+  touched_not w (not (subst (ord_ww m1 m2 (K NONE)) c))
+    (formal_terms m1 (FST c) []) = not (subst (ord_ww m1 m2 w) c)
+Proof
+  strip_tac
+  \\ Cases_on ‘delta_terms w (formal_terms m1 (FST c) []) [] 0’
+  \\ rename1 ‘_ = (dts,k)’
+  \\ Cases_on ‘clean_up dts’ \\ rename1 ‘clean_up dts = (srt,k2)’
+  \\ ‘EVERY (λc. c ≠ 0) (MAP FST dts)’ by (
+    drule delta_terms_nonzero \\ disch_then irule \\ simp[]
+    \\ irule formal_terms_nonzero \\ Cases_on ‘c’ \\ gvs[])
+  \\ ‘compact (srt, k − k2)’ by (
+    drule_all npbcTheory.clean_up_sorted \\ simp[])
+  \\ drule delta_formal_terms \\ strip_tac
+  \\ drule_then assume_tac npbcTheory.clean_up_thm
+  \\ simp[touched_rec_def, touched_not_def]
+  \\ conj_tac
+  >- (
+    irule npbcTheory.compact_unique
+    \\ simp[npbcTheory.compact_add, npbcTheory.compact_subst,
+      npbcTheory.add_val, npbcTheory.subst_val]
+    \\ qx_gen_tac ‘u’
+    \\ qpat_x_assum ‘∀w' m2. _’ (qspecl_then [‘u’,‘m2’] mp_tac)
+    \\ qpat_x_assum ‘∀w. _ = _ + k2’ (qspec_then ‘u’ mp_tac)
+    \\ rpt (pop_assum kall_tac) \\ simp[] \\ intLib.ARITH_TAC)
+  \\ Cases_on ‘not (srt,k − k2)’ \\ rename1 ‘_ = (nds,r)’ \\ simp[]
+  \\ ‘compact (nds,r − 1)’ by (
+    ‘compact (nds,r)’ by metis_tac[npbcTheory.compact_not]
+    \\ gvs[])
+  \\ irule npbcTheory.compact_unique
+  \\ simp[npbcTheory.compact_add, npbcTheory.compact_subst,
+    npbcTheory.compact_not, npbcTheory.add_val, npbcTheory.not_val,
+    npbcTheory.subst_val]
+  \\ qx_gen_tac ‘u’
+  \\ mp_tac (Q.INST [‘w:num->bool’ |-> ‘u’, ‘c’ |-> ‘(srt,k − k2)’]
+    npbcTheory.not_val)
+  \\ qpat_x_assum ‘∀w' m2. _’ (qspecl_then [‘u’,‘m2’] mp_tac)
+  \\ qpat_x_assum ‘∀w. _ = _ + k2’ (qspec_then ‘u’ mp_tac)
+  \\ qpat_x_assum ‘not _ = _’ (simp o single)
+  \\ ‘&SUM (MAP (eval_term u) (FST (subst (ord_ww m1 m2 w) c))) −
+      SND (subst (ord_ww m1 m2 w) c) =
+      &SUM (MAP (eval_term (assign (ord_ww m1 m2 w) u)) (FST c)) − SND c’ by
+    simp[npbcTheory.subst_val]
+  \\ pop_assum mp_tac
+  \\ ‘&SUM (MAP (eval_term u) (FST (subst (ord_ww m1 m2 (K NONE)) c))) −
+      SND (subst (ord_ww m1 m2 (K NONE)) c) =
+      &SUM (MAP (eval_term (assign (ord_ww m1 m2 (K NONE)) u)) (FST c)) −
+      SND c’ by
+    simp[npbcTheory.subst_val]
+  \\ pop_assum mp_tac
+  \\ rpt (pop_assum kall_tac) \\ intLib.ARITH_TAC
+QED
+
+Theorem untouched_rec_thm:
+  compact c ∧ EVERY (λ(c,v,b). w v = NONE) (formal_terms m1 (FST c) []) ⇒
+  subst (ord_ww m1 m2 (K NONE)) c = subst (ord_ww m1 m2 w) c
+Proof
+  strip_tac
+  \\ ‘touched_rec w (subst (ord_ww m1 m2 (K NONE)) c)
+        (formal_terms m1 (FST c) []) = subst (ord_ww m1 m2 w) c’ by
+    simp[touched_rec_thm]
+  \\ pop_assum (SUBST1_TAC o SYM)
+  \\ simp[touched_rec_def, delta_terms_untouched, npbcTheory.clean_up_def,
+    npbcTheory.add_empty]
+QED
+
+Theorem fast_rn_MAPi:
+  ∀w side rs ts j.
+  SORTED $<= ts ⇒
+  fast_rn w side rs ts j =
+  MAPi (λi r. if MEM (i + j) ts then
+      (case r of (c0,ncs,uts,vts,sl) =>
+        touched_rec w c0 (if side then uts else vts))
+    else FST r) rs
+Proof
+  recInduct fast_rn_ind \\ rpt strip_tac
+  >- simp[fast_rn_def]
+  \\ Cases_on ‘ts’
+  >- (gvs[] \\ simp[Once fast_rn_def, combinTheory.o_DEF, ADD1])
+  \\ rename1 ‘SORTED _ (x::xs)’
+  \\ ‘transitive ($<= : num -> num -> bool)’ by
+    simp[relationTheory.transitive_def]
+  \\ ‘SORTED $<= xs ∧ ∀y. MEM y xs ⇒ x ≤ y’ by
+    gvs[sortingTheory.SORTED_EQ]
+  \\ gvs[]
+  \\ simp[Once fast_rn_def, combinTheory.o_DEF, ADD1]
+  \\ Cases_on ‘x < j’ \\ gvs[]
+  \\ Cases_on ‘x = j’ \\ gvs[]
+  >- (
+    PairCases_on ‘r’ \\ gvs[]
+    \\ AP_THM_TAC \\ AP_TERM_TAC
+    \\ simp[FUN_EQ_THM] \\ qx_gen_tac ‘i’
+    \\ ‘j + (i + 1) = i + (j + 1)’ by decide_tac
+    \\ pop_assum SUBST1_TAC \\ simp[])
+  \\ ‘¬MEM j xs’ by (strip_tac \\ res_tac \\ decide_tac)
+  \\ simp[]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ simp[FUN_EQ_THM] \\ qx_gen_tac ‘i’
+  \\ ‘j + (i + 1) = i + (j + 1)’ by decide_tac
+  \\ pop_assum SUBST1_TAC \\ simp[]
+QED
+
+Theorem fast_rn_not_MAPi:
+  ∀w rs ts j.
+  SORTED $<= ts ⇒
+  fast_rn_not w rs ts j =
+  MAPi (λi r. if MEM (i + j) ts then
+      (case r of (c0,nc0,uts,vts,sl) => [touched_not w nc0 uts])
+    else [FST (SND r)]) rs
+Proof
+  recInduct fast_rn_not_ind \\ rpt strip_tac
+  >- simp[fast_rn_not_def]
+  \\ Cases_on ‘ts’
+  >- (gvs[] \\ simp[Once fast_rn_not_def, combinTheory.o_DEF, ADD1])
+  \\ rename1 ‘SORTED _ (x::xs)’
+  \\ ‘transitive ($<= : num -> num -> bool)’ by
+    simp[relationTheory.transitive_def]
+  \\ ‘SORTED $<= xs ∧ ∀y. MEM y xs ⇒ x ≤ y’ by
+    gvs[sortingTheory.SORTED_EQ]
+  \\ gvs[]
+  \\ simp[Once fast_rn_not_def, combinTheory.o_DEF, ADD1]
+  \\ Cases_on ‘x < j’ \\ gvs[]
+  \\ Cases_on ‘x = j’ \\ gvs[]
+  >- (
+    PairCases_on ‘r’ \\ gvs[]
+    \\ AP_THM_TAC \\ AP_TERM_TAC
+    \\ simp[FUN_EQ_THM] \\ qx_gen_tac ‘i’
+    \\ ‘j + (i + 1) = i + (j + 1)’ by decide_tac
+    \\ pop_assum SUBST1_TAC \\ simp[])
+  \\ ‘¬MEM j xs’ by (strip_tac \\ res_tac \\ decide_tac)
+  \\ simp[]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ simp[FUN_EQ_THM] \\ qx_gen_tac ‘i’
+  \\ ‘j + (i + 1) = i + (j + 1)’ by decide_tac
+  \\ pop_assum SUBST1_TAC \\ simp[]
+QED
+
+Theorem fast_rn_sc_MAPi:
+  ∀w side rs ts j.
+  SORTED $<= ts ⇒
+  fast_rn_sc w side rs ts j =
+  MAPi (λi r. if MEM (i + j) ts then
+      (case r of (c0,ncs,uts,vts,sl) =>
+        INL (touched_rec w c0 (if side then uts else vts)))
+    else INR (SND (SND (SND (SND r))))) rs
+Proof
+  recInduct fast_rn_sc_ind \\ rpt strip_tac
+  >- simp[fast_rn_sc_def]
+  \\ Cases_on ‘ts’
+  >- (gvs[] \\ simp[Once fast_rn_sc_def, combinTheory.o_DEF, ADD1])
+  \\ rename1 ‘SORTED _ (x::xs)’
+  \\ ‘transitive ($<= : num -> num -> bool)’ by
+    simp[relationTheory.transitive_def]
+  \\ ‘SORTED $<= xs ∧ ∀y. MEM y xs ⇒ x ≤ y’ by
+    gvs[sortingTheory.SORTED_EQ]
+  \\ gvs[]
+  \\ simp[Once fast_rn_sc_def, combinTheory.o_DEF, ADD1]
+  \\ Cases_on ‘x < j’ \\ gvs[]
+  \\ Cases_on ‘x = j’ \\ gvs[]
+  >- (
+    PairCases_on ‘r’ \\ gvs[]
+    \\ AP_THM_TAC \\ AP_TERM_TAC
+    \\ simp[FUN_EQ_THM] \\ qx_gen_tac ‘i’
+    \\ ‘j + (i + 1) = i + (j + 1)’ by decide_tac
+    \\ pop_assum SUBST1_TAC \\ simp[])
+  \\ ‘¬MEM j xs’ by (strip_tac \\ res_tac \\ decide_tac)
+  \\ simp[]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ simp[FUN_EQ_THM] \\ qx_gen_tac ‘i’
+  \\ ‘j + (i + 1) = i + (j + 1)’ by decide_tac
+  \\ pop_assum SUBST1_TAC \\ simp[]
+QED
+
+Theorem ord_touched_SORTED:
+  SORTED $<= (ord_touched idx sr)
+Proof
+  simp[ord_touched_def]
+  \\ mp_tac (Q.ISPECL [‘λx y:num. x ≤ y’, ‘ord_touched_aux idx sr []’]
+    mllistTheory.sort_SORTED)
+  \\ simp[relationTheory.transitive_def, relationTheory.total_def]
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ simp[]
+QED
+
+Theorem MEM_ord_index_aux:
+  ∀l t.
+  MEM i (case lookup v (ord_index_aux t j l) of NONE => [] | SOME ids => ids) ⇔
+  MEM i (case lookup v t of NONE => [] | SOME ids => ids) ∨
+  (i = j ∧ ∃c b. MEM (c,v,b) l)
+Proof
+  Induct >- simp[ord_index_aux_def]
+  \\ rpt strip_tac \\ rename1 ‘ord_index_aux t j (h::l)’
+  \\ PairCases_on ‘h’ \\ simp[ord_index_aux_def, lookup_insert]
+  \\ Cases_on ‘v = h1’ \\ gvs[]
+  \\ Cases_on ‘lookup h1 t’ \\ gvs[]
+  \\ metis_tac[]
+QED
+
+Theorem MEM_ord_index:
+  ∀rs t j.
+  MEM i (case lookup v (ord_index side t j rs) of NONE => [] | SOME ids => ids) ⇔
+  MEM i (case lookup v t of NONE => [] | SOME ids => ids) ∨
+  ∃k c b. k < LENGTH rs ∧ i = j + k ∧
+    MEM (c,v,b)
+      (case EL k rs of (c0,ncs,uts,vts,sl) => if side then uts else vts)
+Proof
+  Induct >- simp[ord_index_def]
+  \\ rpt strip_tac \\ rename1 ‘ord_index side t j (r::rs)’
+  \\ PairCases_on ‘r’
+  \\ simp[ord_index_def, MEM_ord_index_aux, arithmeticTheory.LT_SUC,
+    LEFT_AND_OVER_OR, RIGHT_AND_OVER_OR, EXISTS_OR_THM, PULL_EXISTS]
+  \\ simp[ADD1]
+  \\ metis_tac[]
+QED
+
+Theorem MEM_ord_touched_aux[local]:
+  ∀sr acc.
+  MEM j (ord_touched_aux idx sr acc) ⇔
+  MEM j acc ∨ ∃v x ids. MEM (v,x) sr ∧ map_lookup idx v = SOME ids ∧ MEM j ids
+Proof
+  Induct >- simp[ord_touched_aux_def]
+  \\ rpt strip_tac \\ rename1 ‘ord_touched_aux idx (h::sr) acc’
+  \\ PairCases_on ‘h’ \\ simp[ord_touched_aux_def]
+  \\ Cases_on ‘map_lookup idx h0’
+  \\ simp[RIGHT_AND_OVER_OR, EXISTS_OR_THM]
+  \\ simp[AC DISJ_ASSOC DISJ_COMM]
+QED
+
+(* Every record with a term on a variable that the witness maps is
+  touched *)
+Theorem ord_touched_complete:
+  (∀v. (w:num -> (bool + num lit) option) v ≠ NONE ⇒ MEM v (MAP FST sr)) ∧
+  k < LENGTH rs ∧
+  MEM (c,v,b)
+    (case EL k rs of (c0,ncs,uts,vts,sl) => if side then uts else vts) ∧
+  w v ≠ NONE ⇒
+  MEM k (ord_touched (mk_map [] (toAList (ord_index side LN 0 rs))) sr)
+Proof
+  strip_tac
+  \\ simp[ord_touched_def, mllistTheory.sort_MEM, MEM_ord_touched_aux,
+    spt_to_vecTheory.map_lookup_mk_map, ALOOKUP_toAList]
+  \\ ‘MEM k (case lookup v (ord_index side LN 0 rs) of
+       NONE => [] | SOME ids => ids)’ by (
+    simp[MEM_ord_index] \\ qexistsl_tac [‘c’,‘b’] \\ simp[])
+  \\ ‘MEM v (MAP FST sr)’ by metis_tac[]
+  \\ gvs[MEM_MAP, EXISTS_PROD]
+  \\ Cases_on ‘lookup v (ord_index side LN 0 rs)’ \\ gvs[]
+  \\ metis_tac[]
+QED
+
+(* A record, touched (t) or not, renames its constraint and its negation
+  as ord_ww does, if every record with a term on a mapped variable is
+  touched *)
+Theorem ord_rec_elem:
+  compact c ∧
+  (EXISTS (λ(c,v,b). w v ≠ NONE) (formal_terms m1 (FST c) []) ⇒ t) ⇒
+  (if t then
+     touched_rec w (subst (ord_ww m1 m2 (K NONE)) c)
+       (formal_terms m1 (FST c) [])
+   else subst (ord_ww m1 m2 (K NONE)) c) = subst (ord_ww m1 m2 w) c ∧
+  (if t then
+     touched_not w (not (subst (ord_ww m1 m2 (K NONE)) c))
+       (formal_terms m1 (FST c) [])
+   else not (subst (ord_ww m1 m2 (K NONE)) c)) =
+    not (subst (ord_ww m1 m2 w) c)
+Proof
+  strip_tac \\ Cases_on ‘t’ \\ simp[touched_rec_thm]
+  \\ ‘subst (ord_ww m1 m2 (K NONE)) c = subst (ord_ww m1 m2 w) c’ by (
+    irule untouched_rec_thm
+    \\ gvs[EXISTS_MEM, EVERY_MEM, FORALL_PROD] \\ metis_tac[])
+  \\ simp[]
+QED
+
+(* The records of cs, with ids from off, renamed on side us (side) or vs,
+  where m1 is that side's map *)
+Theorem fast_rn_elems[local]:
+  ∀cs off m1 m2 side us_xs vs_xs w ts.
+  (∀i. i < LENGTH cs ⇒
+     compact (EL i cs) ∧
+     (EXISTS (λ(c,v,b). w v ≠ NONE) (formal_terms m1 (FST (EL i cs)) []) ⇒
+      MEM (i + off) ts)) ∧
+  ord_ww0 us_xs vs_xs = ord_ww m1 m2 (K NONE) ∧
+  m1 = (if side then us_xs else vs_xs) ⇒
+  MAPi (λi r. if MEM (i + off) ts then
+      (case r of (c0,ncs,uts,vts,sl) =>
+        touched_rec w c0 (if side then uts else vts))
+    else FST r) (MAP (mk_ord_rec us_xs vs_xs) cs) =
+    MAP (subst (ord_ww m1 m2 w)) cs ∧
+  (side ⇒
+    MAPi (λi r. if MEM (i + off) ts then
+        (case r of (c0,nc0,uts,vts,sl) => [touched_not w nc0 uts])
+      else [FST (SND r)]) (MAP (mk_ord_rec us_xs vs_xs) cs) =
+    MAP (λc. [not (subst (ord_ww m1 m2 w) c)]) cs) ∧
+  MAP sc_hyp_dec (MAPi (λi r. if MEM (i + off) ts then
+      (case r of (c0,ncs,uts,vts,sl) =>
+        INL (touched_rec w c0 (if side then uts else vts)))
+    else INR (SND (SND (SND (SND r))))) (MAP (mk_ord_rec us_xs vs_xs) cs)) =
+    MAP (subst (ord_ww m1 m2 w)) cs ∧
+  EVERY sc_hyp_ok (MAPi (λi r. if MEM (i + off) ts then
+      (case r of (c0,ncs,uts,vts,sl) =>
+        INL (touched_rec w c0 (if side then uts else vts)))
+    else INR (SND (SND (SND (SND r))))) (MAP (mk_ord_rec us_xs vs_xs) cs))
+Proof
+  rpt gen_tac \\ strip_tac
+  \\ Cases_on ‘side’ \\ gvs[]
+  \\ rpt conj_tac
+  \\ simp[LIST_EQ_REWRITE, EL_MAPi, EL_MAP, mk_ord_rec_def, EVERY_EL]
+  \\ rpt strip_tac
+  \\ first_x_assum drule \\ strip_tac
+  \\ drule_all ord_rec_elem \\ strip_tac
+  \\ rw[] \\ gvs[enc_mv_enc]
+  \\ metis_tac[]
+QED
+
+(* The records of f and g renamed on side us (side) or vs; the vs side
+  needs the keys of us_xs and vs_xs to be disjoint *)
+Theorem fast_rn_ok:
+  ∀f g side us_xs vs_xs w sr.
+  EVERY (compact_terms o FST) f ∧ EVERY (compact_terms o FST) g ∧
+  (side ∨ ∀n. map_lookup us_xs n = NONE ∨ map_lookup vs_xs n = NONE) ∧
+  (∀v. w v ≠ NONE ⇒ MEM v (MAP FST sr)) ⇒
+  let m1 = (if side then us_xs else vs_xs) in
+  let m2 = (if side then vs_xs else us_xs) in
+  let frs = MAP (mk_ord_rec us_xs vs_xs) f in
+  let grs = MAP (mk_ord_rec us_xs vs_xs) g in
+  let ts =
+    ord_touched (mk_map [] (toAList (ord_index side LN 0 (frs ++ grs)))) sr in
+  fast_rn w side frs ts 0 = MAP (subst (ord_ww m1 m2 w)) f ∧
+  (side ⇒
+    fast_rn_not w frs ts 0 = MAP (λc. [not (subst (ord_ww m1 m2 w) c)]) f) ∧
+  MAP sc_hyp_dec (fast_rn_sc w side grs ts (LENGTH f)) =
+    MAP (subst (ord_ww m1 m2 w)) g ∧
+  EVERY sc_hyp_ok (fast_rn_sc w side grs ts (LENGTH f))
+Proof
+  rpt gen_tac \\ disch_then (map_every assume_tac o CONJUNCTS)
+  \\ qabbrev_tac ‘m1 = if side then us_xs else vs_xs’
+  \\ qabbrev_tac ‘m2 = if side then vs_xs else us_xs’
+  \\ qabbrev_tac ‘rs = MAP (mk_ord_rec us_xs vs_xs) f ++
+                        MAP (mk_ord_rec us_xs vs_xs) g’
+  \\ qabbrev_tac
+    ‘ts = ord_touched (mk_map [] (toAList (ord_index side LN 0 rs))) sr’
+  \\ simp[]
+  \\ ‘ord_ww0 us_xs vs_xs = ord_ww m1 m2 (K NONE)’ by (
+    simp[Abbr ‘m1’, Abbr ‘m2’]
+    \\ rw[ord_ww0_ord_ww] \\ gvs[] \\ irule ord_ww_swap \\ simp[])
+  \\ ‘SORTED $<= ts’ by simp[Abbr ‘ts’, ord_touched_SORTED]
+  \\ sg ‘∀k. k < LENGTH rs ∧
+        EXISTS (λ(c,v,b). w v ≠ NONE)
+          (case EL k rs of (c0,ncs,uts,vts,sl) => if side then uts else vts) ⇒
+        MEM k ts’
+  >- (
+    qunabbrev_tac ‘ts’ \\ rpt strip_tac
+    \\ gvs[EXISTS_MEM]
+    \\ rename1 ‘MEM e _’ \\ PairCases_on ‘e’ \\ gvs[]
+    \\ irule ord_touched_complete
+    \\ simp[] \\ metis_tac[])
+  \\ qspecl_then [‘f’,‘0’,‘m1’,‘m2’,‘side’,‘us_xs’,‘vs_xs’,‘w’,‘ts’]
+    mp_tac fast_rn_elems
+  \\ impl_tac
+  >- (
+    rpt conj_tac
+    >- (
+      rpt gen_tac \\ strip_tac
+      \\ ‘compact_terms (FST (EL i f))’ by gvs[EVERY_EL]
+      \\ conj_tac >- (Cases_on ‘EL i f’ \\ gvs[compact_terms_thm])
+      \\ strip_tac
+      \\ qpat_x_assum ‘∀k. _’ (qspec_then ‘i’ mp_tac)
+      \\ simp[Abbr ‘rs’, EL_APPEND1, EL_MAP, mk_ord_rec_def]
+      \\ disch_then irule
+      \\ gvs[Abbr ‘m1’] \\ Cases_on ‘side’ \\ gvs[])
+    >- simp[]
+    \\ simp[Abbr ‘m1’])
+  \\ qspecl_then [‘g’,‘LENGTH f’,‘m1’,‘m2’,‘side’,‘us_xs’,‘vs_xs’,‘w’,‘ts’]
+    mp_tac fast_rn_elems
+  \\ impl_tac
+  >- (
+    rpt conj_tac
+    >- (
+      rpt gen_tac \\ strip_tac
+      \\ ‘compact_terms (FST (EL i g))’ by gvs[EVERY_EL]
+      \\ conj_tac >- (Cases_on ‘EL i g’ \\ gvs[compact_terms_thm])
+      \\ strip_tac
+      \\ qpat_x_assum ‘∀k. _’ (qspec_then ‘i + LENGTH f’ mp_tac)
+      \\ simp[Abbr ‘rs’, EL_APPEND2, EL_MAP, mk_ord_rec_def]
+      \\ disch_then irule
+      \\ gvs[Abbr ‘m1’] \\ Cases_on ‘side’ \\ gvs[])
+    >- simp[]
+    \\ simp[Abbr ‘m1’])
+  \\ simp[fast_rn_MAPi, fast_rn_not_MAPi, fast_rn_sc_MAPi]
+QED
+
+Theorem dom_subst_list_thm:
+  po = mk_ord_pre ord ∧ (∀v. w v ≠ NONE ⇒ MEM v (MAP FST sr)) ⇒
+  (λ(nfs,gs). (nfs, MAP sc_hyp_dec gs)) (dom_subst_list hs w sr ord po) =
+  (λ(fs,gs). (MAP (λc. [not c]) fs, gs)) (dom_subst hs w ord) ∧
+  EVERY sc_hyp_ok (SND (dom_subst_list hs w sr ord po))
+Proof
+  strip_tac \\ gvs[]
+  \\ Cases_on ‘mk_ord_pre ord’ \\ simp[dom_subst_list_def]
+  >- (
+    Cases_on ‘dom_subst hs w ord’
+    \\ simp[MAP_MAP_o, combinTheory.o_DEF, EVERY_MAP])
+  \\ Cases_on ‘ord’ \\ gvs[mk_ord_pre_def]
+  \\ rename1 ‘SOME aspo’ \\ PairCases_on ‘aspo’
+  \\ gvs[mk_ord_pre_def, AllCaseEqs()]
+  \\ simp[dom_subst_fast_def, dom_subst_ord_ww]
+  \\ qspecl_then [‘aspo0’,‘aspo1’,‘T’,‘aspo6’,‘aspo7’,‘w’,‘sr’]
+    mp_tac fast_rn_ok
+  \\ rw[MAP_MAP_o, combinTheory.o_DEF]
+QED
+
+Theorem ALOOKUP_ZIP_MEM[local]:
+  ∀l1 l2. ALOOKUP (ZIP (l1,l2)) n = SOME y ⇒ MEM n l1
+Proof
+  Induct \\ Cases_on ‘l2’ \\ rw[ZIP_def] \\ metis_tac[]
+QED
+
+Theorem neg_dom_subst_fast_thm:
+  mk_ord_pre (SOME aspo) = SOME p ∧ ord_maps_ok aspo ∧
+  (∀v. w v ≠ NONE ⇒ MEM v (MAP FST sr)) ⇒
+  (λ(fs,gs). (fs, MAP sc_hyp_dec gs)) (neg_dom_subst_fast w sr p) =
+  neg_dom_subst w aspo ∧
+  EVERY sc_hyp_ok (SND (neg_dom_subst_fast w sr p))
+Proof
+  strip_tac
+  \\ PairCases_on ‘aspo’
+  \\ gvs[mk_ord_pre_def, AllCaseEqs(), ord_maps_ok_def]
+  \\ simp[neg_dom_subst_fast_def, neg_dom_subst_ord_ww]
+  \\ ‘∀n. map_lookup (mk_map [] (ZIP (aspo2,aspo5))) n = NONE ∨
+       map_lookup (mk_map [] (ZIP (aspo3,aspo5))) n = NONE’ by (
+    rw[spt_to_vecTheory.map_lookup_mk_map]
+    \\ Cases_on ‘ALOOKUP (ZIP (aspo3,aspo5)) n’ \\ simp[]
+    \\ drule ALOOKUP_ZIP_MEM \\ strip_tac
+    \\ gvs[EVERY_MEM, spt_to_vecTheory.map_lookup_mk_map])
+  \\ qspecl_then [‘aspo0’,‘aspo1’,‘F’,‘mk_map [] (ZIP (aspo2,aspo5))’,
+      ‘mk_map [] (ZIP (aspo3,aspo5))’,‘w’,‘sr’] mp_tac fast_rn_ok
+  \\ simp[]
+QED
+
 (* Per variable: the indices of the constraints where it occurs
-  positively and negatively; Vcount also counts the insertions
-  (tracking stops at ind_lim), Voverflow keeps no indices *)
+  positively and negatively, newest first. The ids up to m (the input
+  constraints) are always kept. Until the variable is first read, the
+  ids above m are capped: Vcount k counts their k insertions, and Vinput
+  has dropped them. A read variable is tracked uncapped (Vtrack). Vrebuild
+  is a witness variable whose dropped ids are being recovered by the walk
+  in get_set_indices *)
 Datatype:
   vent = Vnone
        | Vtrack (num list) (num list)
        | Vcount num (num list) (num list)
-       | Voverflow
+       | Vinput (num list) (num list)
+       | Vrebuild (num list) (num list)
 End
 
-Type vimap_ty = ``:vent list``;
+(* The positive and negative lists of an entry *)
+Definition vent_lists_def[simp]:
+  (vent_lists Vnone = ([],[]):num list # num list) ∧
+  (vent_lists (Vtrack pinds ninds) = (pinds,ninds)) ∧
+  (vent_lists (Vcount k pinds ninds) = (pinds,ninds)) ∧
+  (vent_lists (Vinput pinds ninds) = (pinds,ninds)) ∧
+  (vent_lists (Vrebuild pinds ninds) = (pinds,ninds))
+End
+
+(* The index (m, vw, entries): its entries cover the constraints below
+  the watermark vw *)
+Type vimap_ty = ``:num # num # vent list``;
 
 Definition vent_mem_def:
-  (vent_mem Vnone pos i = F) ∧
-  (vent_mem (Vtrack pinds ninds) pos i =
+  (vent_mem (m:num) Vnone pos i = F) ∧
+  (vent_mem m (Vtrack pinds ninds) pos i =
     MEM (i:num) (if pos then pinds else ninds)) ∧
-  (vent_mem (Vcount k pinds ninds) pos i =
+  (vent_mem m (Vcount k pinds ninds) pos i =
     MEM i (if pos then pinds else ninds)) ∧
-  (vent_mem Voverflow pos i = T)
+  (vent_mem m (Vinput pinds ninds) pos i =
+    (m < i ∨ MEM i (if pos then pinds else ninds))) ∧
+  (vent_mem m (Vrebuild pinds ninds) pos i =
+    (m < i ∨ MEM i (if pos then pinds else ninds)))
 End
 
-(* TODO: a technical optimization we can do here
-  is to stop checking after we hit n > x, because
-  the constraints should be sorted *)
-Definition restore_aux_def:
-  (restore_aux x fml [] lacc racc =
-    (REVERSE lacc, REVERSE racc)) ∧
-  (restore_aux x fml (i::is) lacc racc =
-  case any_el i fml Empty of
-    Empty => restore_aux x fml is lacc racc
-  | s =>
-    let (p,q) = restore_slot x s in
-    restore_aux x fml is
-      (if p then i::lacc else lacc)
-      (if q then i::racc else racc))
+Definition ind_lim_def:
+  ind_lim = 10n
 End
 
-Definition restore_def:
-  (restore x fml is = restore_aux x fml is [] [])
+(* Drops the ids above m from the front of a list *)
+Definition drop_derived_def:
+  (drop_derived (m:num) [] = []) ∧
+  (drop_derived m (i::is) =
+    if m < i then drop_derived m is else i::is)
 End
 
-Definition get_inds_rhs_def:
-  get_inds_rhs rhs pinds ninds t =
+(* The entry after inserting id i, where the variable occurs positively
+  iff pos *)
+Definition vent_insert_def:
+  (vent_insert m pos i Vnone =
+    let k = if i ≤ m then 0 else 1 in
+    if pos then Vcount k [i] [] else Vcount k [] [i]) ∧
+  (vent_insert m pos i (Vtrack pinds ninds) =
+    if pos then Vtrack (i::pinds) ninds else Vtrack pinds (i::ninds)) ∧
+  (vent_insert m pos i (Vcount k pinds ninds) =
+    if i ≤ m then
+      (if pos then Vcount k (i::pinds) ninds else Vcount k pinds (i::ninds))
+    else if ind_lim ≤ k then
+      Vinput (drop_derived m pinds) (drop_derived m ninds)
+    else if pos then Vcount (k+1) (i::pinds) ninds
+    else Vcount (k+1) pinds (i::ninds)) ∧
+  (vent_insert m pos i (Vinput pinds ninds) =
+    if i ≤ m then
+      (if pos then Vinput (i::pinds) ninds else Vinput pinds (i::ninds))
+    else Vinput pinds ninds) ∧
+  (vent_insert m pos i (Vrebuild pinds ninds) =
+    if pos then Vrebuild (i::pinds) ninds else Vrebuild pinds (i::ninds))
+End
+
+(* Inserts id i for the first k terms of the slot cs, vs *)
+Definition fill_slot_def:
+  fill_slot m (ents:vent list) i cs vs k =
+  if k = 0 then ents
+  else
+    let k1 = k - 1 in
+    let x = sub_unsafe vs k1 in
+    fill_slot m
+      (update_resize ents Vnone
+        (vent_insert m (0 ≤ (sub_unsafe cs k1):int) i
+          (any_el x ents Vnone)) x)
+      i cs vs k1
+End
+
+Definition fill_vimap_aux_def:
+  fill_vimap_aux m fml ents (i:num) (id:num) =
+  if id ≤ i then ents
+  else
+    let ents =
+      (case any_el i fml Empty of
+        Empty => ents
+      | Stored cs vs d mc sm b => fill_slot m ents i cs vs (length vs)) in
+    fill_vimap_aux m fml ents (i+1) id
+Termination
+  WF_REL_TAC`measure (λ(m,fml,ents,i,id). id - i)`
+End
+
+(* Indexes the constraints from the watermark up to id *)
+Definition fill_vimap_def:
+  fill_vimap fml id ((m,vw,ents):vimap_ty) =
+  if id ≤ vw then (m,vw,ents)
+  else (m, id, fill_vimap_aux m fml ents vw id)
+End
+
+(* Adds id i to the entries being rebuilt among the variables of the first
+  k terms of the slot cs, vs *)
+Definition rebuild_ents_slot_def:
+  rebuild_ents_slot (ents:vent list) (i:num) cs vs k =
+  if k = 0 then ents
+  else
+    let k1 = k - 1 in
+    let x = sub_unsafe vs k1 in
+    case any_el x ents Vnone of
+      Vrebuild pinds ninds =>
+      rebuild_ents_slot
+        (update_resize ents Vnone
+          (if 0 ≤ (sub_unsafe cs k1):int
+           then Vrebuild (i::pinds) ninds else Vrebuild pinds (i::ninds)) x)
+        i cs vs k1
+    | _ => rebuild_ents_slot ents i cs vs k1
+End
+
+(* Adds the ids from i up to vw to the entries being rebuilt, oldest first *)
+Definition rebuild_ents_def:
+  rebuild_ents fml ents (i:num) (vw:num) =
+  if vw ≤ i then ents
+  else
+    let ents =
+      (case any_el i fml Empty of
+        Empty => ents
+      | Stored cs vs d mc sm b => rebuild_ents_slot ents i cs vs (length vs)) in
+    rebuild_ents fml ents (i+1) vw
+Termination
+  WF_REL_TAC`measure (λ(fml,ents,i,vw). vw - i)`
+End
+
+(* The lists read by rhs, added to acc when not empty *)
+Definition get_inds_rhs_list_def:
+  get_inds_rhs_list rhs (pinds:num list) ninds acc =
   (case rhs of
     INL b =>
-      list_insert (if b then ninds else pinds) t
-  | _ => list_insert pinds (list_insert ninds t))
+      let l = if b then ninds else pinds in
+      if NULL l then acc else l::acc
+  | _ =>
+      let acc = if NULL ninds then acc else ninds::acc in
+      if NULL pinds then acc else pinds::acc)
+End
+
+(* The union of two lists *)
+(* TMC *)
+Definition merge_desc_def:
+  (merge_desc [] ys = ys) ∧
+  (merge_desc xs [] = xs) ∧
+  (merge_desc (x::xs) (y::ys) =
+    if x = y then x :: merge_desc xs ys
+    else if (y:num) < x then x :: merge_desc xs (y::ys)
+    else y :: merge_desc (x::xs) ys)
+End
+
+(* Merges the lists in adjacent pairs *)
+(* TMC *)
+Definition merge_pairs_def:
+  (merge_pairs (l1::l2::ls) =
+    let l = merge_desc l1 l2 in
+    l :: merge_pairs ls) ∧
+  (merge_pairs ls = ls)
+End
+
+Theorem LENGTH_merge_pairs:
+  ∀ls. LENGTH (merge_pairs ls) ≤ LENGTH ls ∧
+    (2 ≤ LENGTH ls ⇒ LENGTH (merge_pairs ls) < LENGTH ls)
+Proof
+  ho_match_mp_tac merge_pairs_ind>>
+  rw[merge_pairs_def]
+QED
+
+(* The union of the lists, by rounds of pairwise merges *)
+Definition merge_all_def:
+  (merge_all [] = []) ∧
+  (merge_all [l] = (l:num list)) ∧
+  (merge_all ls = merge_all (merge_pairs ls))
+Termination
+  WF_REL_TAC`measure LENGTH`>>
+  rpt strip_tac>>
+  irule (CONJUNCT2 (SPEC_ALL LENGTH_merge_pairs))>>
+  simp[]
 End
 
 Definition do_reindex_rhs_def:
@@ -1728,83 +2795,87 @@ Definition do_reindex_rhs_def:
     (reindex fml pinds, reindex fml ninds))
 End
 
-Definition check_get_inds_rhs_def:
-  (check_get_inds_rhs vimap [] = T) ∧
-  (check_get_inds_rhs vimap ((n,rhs)::xs) =
-    (case any_el n vimap Vnone of
-      Voverflow => F
-    | _ => check_get_inds_rhs vimap xs))
+(* Reads the witness variables: the read lists are added to acc; the
+  variables whose ids above m were dropped become Vrebuild with their
+  cleaned lists, and rb records that a walk is needed *)
+Definition get_inds_fold_ents_def:
+  (get_inds_fold_ents fml [] acc ents rb = (acc,ents,rb)) ∧
+  (get_inds_fold_ents fml ((n,rhs)::xs) acc ents rb =
+    case any_el n ents Vnone of
+      Vnone =>
+      get_inds_fold_ents fml xs acc
+        (update_resize ents Vnone (Vtrack [] []) n) rb
+    | Vinput pinds ninds =>
+      let (pinds,ninds) = do_reindex_rhs fml rhs pinds ninds in
+      get_inds_fold_ents fml xs acc
+        (update_resize ents Vnone (Vrebuild pinds ninds) n) T
+    | Vrebuild pinds ninds =>
+      let (pinds,ninds) = do_reindex_rhs fml rhs pinds ninds in
+      get_inds_fold_ents fml xs acc
+        (update_resize ents Vnone (Vrebuild pinds ninds) n) T
+    | e =>
+      let (pinds,ninds) = vent_lists e in
+      let (pinds,ninds) = do_reindex_rhs fml rhs pinds ninds in
+      get_inds_fold_ents fml xs (get_inds_rhs_list rhs pinds ninds acc)
+        (update_resize ents Vnone (Vtrack pinds ninds) n) rb)
 End
 
-Definition fold_get_inds_rhs_def:
-  (fold_get_inds_rhs fml [] t vimap = (t,vimap)) ∧
-  (fold_get_inds_rhs fml ((n,rhs)::xs) t vimap =
-    (case any_el n vimap Vnone of
-      Vnone => fold_get_inds_rhs fml xs t vimap
-    | Vtrack pinds ninds =>
-      let (pinds,ninds) = do_reindex_rhs fml rhs pinds ninds in
-      let t = get_inds_rhs rhs pinds ninds t in
-      fold_get_inds_rhs fml xs t
-        (update_resize vimap Vnone (Vtrack pinds ninds) n)
-    | Vcount k pinds ninds =>
-      let (pinds,ninds) = do_reindex_rhs fml rhs pinds ninds in
-      let t = get_inds_rhs rhs pinds ninds t in
-      fold_get_inds_rhs fml xs t
-        (update_resize vimap Vnone (Vtrack pinds ninds) n)
-    | Voverflow => (t,vimap)))
+(* Reads the rebuilt witness variables *)
+Definition get_inds_rebuilt_ents_def:
+  (get_inds_rebuilt_ents [] acc ents = acc) ∧
+  (get_inds_rebuilt_ents ((n,rhs)::xs) acc ents =
+    case any_el n ents Vnone of
+      Vrebuild pinds ninds =>
+      get_inds_rebuilt_ents xs (get_inds_rhs_list rhs pinds ninds acc) ents
+    | _ => get_inds_rebuilt_ents xs acc ents)
 End
 
-(* (indices in goal, overall indices, vimap) *)
+(* The rebuilt witness variables become tracked *)
+Definition finish_rebuilt_def:
+  (finish_rebuilt [] ents = ents) ∧
+  (finish_rebuilt ((n,rhs)::xs) ents =
+    case any_el n ents Vnone of
+      Vrebuild pinds ninds =>
+      finish_rebuilt xs (update_resize ents Vnone (Vtrack pinds ninds) n)
+    | _ => finish_rebuilt xs ents)
+End
+
+(* The indices of the constraints the witness s can change, and the index
+  after the read; the variables whose ids above m were dropped are rebuilt
+  by one walk of the constraints above m *)
 Definition get_set_indices_def:
-  get_set_indices fml inds s (vimap:vimap_ty) =
-  case s of
-    [] => ([], inds ,vimap)
-  | [(n,rhs)] =>
-    (case any_el n vimap Vnone of
-      Vnone => ([], inds, vimap)
-    | Vtrack pinds ninds =>
-      let (pinds,ninds) = do_reindex_rhs fml rhs pinds ninds in
-      let t = get_inds_rhs rhs pinds ninds LN in
-      let rinds = MAP FST (toAList t) in
-      (rinds, inds,
-        update_resize vimap Vnone (Vtrack pinds ninds) n)
-    | Vcount k pinds ninds =>
-      let (pinds,ninds) = do_reindex_rhs fml rhs pinds ninds in
-      let t = get_inds_rhs rhs pinds ninds LN in
-      let rinds = MAP FST (toAList t) in
-      (rinds, inds,
-        update_resize vimap Vnone (Vtrack pinds ninds) n)
-    | Voverflow =>
-      let (pinds,ninds) = restore n fml inds in
-      let t = get_inds_rhs rhs pinds ninds LN in
-      let rinds = MAP FST (toAList t) in
-      (rinds, inds,
-        update_resize vimap Vnone (Vtrack pinds ninds) n))
-  | _ =>
-    if check_get_inds_rhs vimap s
-    then
-      let (t,vimap) = fold_get_inds_rhs fml s LN vimap in
-      let rinds = MAP FST (toAList t) in
-        (rinds, inds, vimap)
-    else
-      let rinds = reindex fml inds in
-        (rinds, rinds, vimap)
+  get_set_indices fml s ((m,vw,ents):vimap_ty) =
+  let (acc,ents,rb) = get_inds_fold_ents fml s [] ents F in
+  let (acc,ents) =
+    if rb then
+      let ents = rebuild_ents fml ents (m+1) vw in
+      (get_inds_rebuilt_ents s acc ents, finish_rebuilt s ents)
+    else (acc,ents) in
+  (merge_all acc, (m,vw,ents))
 End
 
-(* We use a hard-coded limit on the reverse mapping, i.e.,
-  we store vars -> indices until the length of indices exceeds the limit.
+(* Whether a step reads the index: its witness is not empty, or it checks
+  that the auxiliary variables of the order are fresh *)
+Definition reads_vimap_def:
+  reads_vimap (s:var subst_raw) fresh (ord:ord_s option) ⇔
+    ¬NULL s ∨
+    fresh ∧
+    (case ord of NONE => F
+    | SOME (((f,g,us,vs,as),xs),us_xs,vs_xs,xsv,asv) => ¬NULL as)
+End
 
-  however, we will ignore this limit for:
-  1. fresh variables that are introduced in a proof
-  2. any variable that is ever used in a witness (and we restore the mapping)
-*)
-Definition ind_lim_def:
-  ind_lim = 10n
+(* The variable occurs in no constraint below the watermark *)
+Definition vent_fresh_def:
+  (vent_fresh Vnone ⇔ T) ∧
+  (vent_fresh (Vtrack pinds ninds) ⇔ NULL pinds ∧ NULL ninds) ∧
+  (vent_fresh (Vcount k pinds ninds) ⇔ NULL pinds ∧ NULL ninds) ∧
+  (vent_fresh (Vinput pinds ninds) ⇔ F) ∧
+  (vent_fresh (Vrebuild pinds ninds) ⇔ F)
 End
 
 Definition check_fresh_aux_fml_vimap_def:
-  check_fresh_aux_fml_vimap as vimap ⇔
-  EVERY (λx. any_el x vimap Vnone = Vnone) as
+  check_fresh_aux_fml_vimap as ((m,vw,ents):vimap_ty) ⇔
+  EVERY (λx. vent_fresh (any_el x ents Vnone)) as
 End
 
 Definition check_fresh_aux_obj_vomap_def:
@@ -1825,7 +2896,7 @@ End
 (* The part of check_fresh_aspo_list that does not read vimap, and the
   auxiliary variables to check against vimap *)
 Definition mk_get_ord_def:
-  mk_get_ord fc (s:subst_raw) (ord:ord_s option) vomap =
+  mk_get_ord fc (s:var subst_raw) (ord:ord_s option) vomap =
   case ord of NONE => SOME (INL ())
   | SOME (((f,g,us,vs,as),xs),us_xs,vs_xs,xsv,asv) =>
     if
@@ -1851,18 +2922,23 @@ QED
 
 (* The fast path allows for faster checked deletion *)
 Definition check_red_list_def:
-  check_red_list pres ord obj b tcb fml inds id fc mv s
-    (pfs:scope) idopt vimap vomap assg st =
+  check_red_list pres ord po obj b tcb fml inds id fc mv s
+    (pfs:scope) idopt vimap vomap assg st ht =
   if check_pres pres s
   then
-  let ss = mk_subst s in
-  case red_fast ss idopt pfs of
+  case red_fast idopt pfs of
     NONE => (
-    let (rinds,inds',vimap') = get_set_indices fml inds s vimap in
+    let hs = has_scope pfs in
+    let (untouched,skipped) = skip_ord_subgoal s ord in
+    let fresh = (hs ∨ ¬ untouched) in
+    let vimap =
+      if reads_vimap s fresh ord then fill_vimap fml id vimap
+      else vimap in
+    let (rinds,vimap') = get_set_indices fml s vimap in
+    let ss = mk_subst rinds s in
     let nfc = not_slot fc b in
     let (fml_not_c,id1,assg,st) = store_slot fml nfc mv id assg st in
-    let hs = has_scope pfs in
-    let (rsubs,rscopes) = fast_red_subgoals ord ss fc obj vomap hs in
+    let (rsubs,rscopes) = fast_red_subgoals ord po ss s fc obj vomap hs in
     case extract_scopes_list rscopes ss b fml rsubs pfs of
       NONE => NONE
     | SOME cpfs =>
@@ -1871,137 +2947,135 @@ Definition check_red_list_def:
          NONE => NONE
       |  SOME(fml', id', assg', st') =>
         let rfml = rollback fml' id id' in
-        let (untouched,skipped) = skip_ord_subgoal s ord in
-        if
-          do_red_check idopt b tcb fml' inds'
+        let (res,ht') =
+          do_red_check idopt b tcb fml' inds id ht
             ss rfml rinds nfc pfs rsubs skipped
-          (hs ∨ ¬ untouched ⇒
-            check_fresh_aspo_list fc s ord vimap' vomap)
-        then
-          SOME (rfml,inds',vimap',id',assg',st')
+          (fresh ⇒
+            check_fresh_aspo_list fc s ord vimap' vomap) in
+        if res then
+          SOME (rfml,inds,vimap',id',assg',st',ht')
         else NONE))
   | SOME (pf,cid) =>
-    check_red_list_fast b fml inds id fc mv pf cid vimap assg st
+    check_red_list_fast b fml inds id fc mv pf cid vimap assg st ht
   else NONE
 End
 
-(* fresh flag controls if, when we see a new var,
-  whether to track it forever or not.
-  Also, we only start resetting once fresh is set
-    (i.e., when actually running a proof) *)
-Definition opt_cons_def:
-  (opt_cons fresh (i:int) (v:num) Vnone =
-    if fresh then
-      (if 0 ≤ i then Vtrack [v] [] else Vtrack [] [v])
-    else
-      (if 0 ≤ i then Vcount 1 [v] [] else Vcount 1 [] [v])) ∧
-  (opt_cons fresh i v (Vtrack pinds ninds) =
-    if 0 ≤ i then Vtrack (v::pinds) ninds else Vtrack pinds (v::ninds)) ∧
-  (opt_cons fresh i v (Vcount n pinds ninds) =
-    if ind_lim ≤ n ∧ fresh
-    then
-      Voverflow
-    else if 0 ≤ i then Vcount (n+1) (v::pinds) ninds
-    else Vcount (n+1) pinds (v::ninds)) ∧
-  (opt_cons fresh i v Voverflow = Voverflow)
-End
-
-(* vimap covers every variable of the slot: the updates are unchecked *)
-Definition update_vimap_slot_aux_def:
-  update_vimap_slot_aux fresh (vimap:vimap_ty) v cs vs i =
-  if i = 0 then vimap
-  else
-    let i1 = i - 1 in
-    let n = sub_unsafe vs i1 in
-    update_vimap_slot_aux fresh
-      (LUPDATE (opt_cons fresh (sub_unsafe cs i1) v (EL n vimap)) n vimap)
-      v cs vs i1
-End
-
-(* m is the slot's largest variable: vimap is resized once to cover it *)
-Definition update_vimap_slot_def:
-  (update_vimap_slot fresh vimap v m Empty = vimap) ∧
-  (update_vimap_slot fresh vimap v m (Stored cs vs d mc sm b) =
-    let vimap =
-      if m < LENGTH vimap then vimap
-      else update_resize vimap Vnone Vnone m in
-    update_vimap_slot_aux fresh vimap v cs vs (length vs))
-End
-
-(* Stores slot s, whose largest variable is mv, at index id and indexes it *)
+(* Stores slot s, whose largest variable is mv, at index id *)
 Definition store_ind_def:
-  store_ind fml s mv id inds vimap assg st =
+  store_ind fml s mv id inds assg st =
     let (fml',id',assg',st') = store_slot fml s mv id assg st in
-    (fml', sorted_insert id inds, update_vimap_slot T vimap id mv s,
-      id', assg', st')
+    (fml', sorted_insert id inds, id', assg', st')
 End
 
 Definition opt_update_inds_def:
-  (opt_update_inds fml NONE id inds vimap assg st =
-    (fml,inds,vimap,id,assg,st)) ∧
-  (opt_update_inds fml (SOME (c,b)) id inds vimap assg st =
+  (opt_update_inds fml NONE id inds assg st =
+    (fml,inds,id,assg,st)) ∧
+  (opt_update_inds fml (SOME (c,b)) id inds assg st =
     let (s,mv) = enc_mv c b in
-    store_ind fml s mv id inds vimap assg st)
+    store_ind fml s mv id inds assg st)
+End
+
+(* The table before a top-level lstep: its deletions are counted *)
+Definition ht_lstep_def:
+  ht_lstep fml lstep ht =
+  case lstep of
+    Delete ls => ht_del fml ls ht
+  | _ => ht
 End
 
 Definition check_sstep_list_def:
-  (check_sstep_list (sstep:sstep) pres ord obj tcb
+  (check_sstep_list (sstep:sstep) pres ord po obj tcb
     (fml: slot list) (inds:num list) (id:num)
-    vimap vomap assg st =
+    vimap vomap assg st ht =
   case sstep of
   | Lstep lstep =>
     (case check_lstep_list lstep F fml 0 id assg st of
       NONE => NONE
     | SOME (rfml,c,id',assg',st') =>
-      SOME (opt_update_inds rfml c id' inds vimap assg' st'))
+      let (fml',inds',id'',assg'',st'') =
+        opt_update_inds rfml c id' inds assg' st' in
+      SOME (fml',inds',vimap,id'',assg'',st'',ht_lstep fml lstep ht))
   | Red c s pfs idopt =>
     let (fc,mv) = enc_mv c tcb in
-    case check_red_list pres ord obj F tcb fml inds id fc mv s pfs
-      idopt vimap vomap assg st of
-      SOME (rfml,rinds,vimap',id',assg',st') =>
-      SOME (store_ind rfml fc mv id' rinds vimap' assg' st')
+    case check_red_list pres ord po obj F tcb fml inds id fc mv s pfs
+      idopt vimap vomap assg st ht of
+      SOME (rfml,rinds,vimap',id',assg',st',ht') =>
+      let (fml'',inds'',id'',assg'',st'') =
+        store_ind rfml fc mv id' rinds assg' st' in
+      SOME (fml'',inds'',vimap',id'',assg'',st'',ht')
     | NONE => NONE)
 End
 
-Theorem fml_rel_extract_clauses_list:
+Theorem fml_rel_extract_clauses_list_acc[local]:
   ∀ls s b fml fmlls rsubs acc.
   fml_rel fml fmlls ⇒
   extract_clauses (subst_fun s) b fml rsubs ls acc =
-  extract_clauses_list s b fmlls rsubs ls acc
+  OPTION_MAP (λr. REVERSE acc ++ r)
+    (extract_clauses_list s b fmlls rsubs ls)
 Proof
   Induct>>rw[extract_clauses_def,extract_clauses_list_def]>>
+  first_x_assum (drule_then assume_tac)>>
   PairCases_on`h`>>
   Cases_on`h0`>>
-  simp[extract_clauses_def,extract_clauses_list_def]>>
+  simp[extract_clauses_def,extract_clauses_list_def,OPTION_MAP_COMPOSE,
+    combinTheory.o_DEF]
+  >- rewrite_tac[GSYM APPEND_ASSOC,APPEND]>>
   PairCases_on`x`>>
-  Cases_on`x0`
+  Cases_on`x0`>>
+  simp[]
   >- (
-    gvs[slot_CASE_default]>>
     Cases_on`lookup_core_only b fml x`
     >- (
       `lookup_core_only_list b fmlls x = Empty` by
         metis_tac[fml_rel_lookup_core_only_list]>>
-      gvs[])>>
-    `∃b'. lookup_core_only_list b fmlls x = enc x' b'` by
+      simp[])>>
+    rename1`lookup_core_only b fml x = SOME c`>>
+    `∃b'. lookup_core_only_list b fmlls x = enc c b'` by
       metis_tac[fml_rel_lookup_core_only_list]>>
-    gvs[subst_slot_enc])>>
+    gvs[slot_CASE_default,subst_slot_enc,OPTION_MAP_COMPOSE,
+      combinTheory.o_DEF]>>
+    rewrite_tac[GSYM APPEND_ASSOC,APPEND])>>
+  rw[OPTION_MAP_COMPOSE,combinTheory.o_DEF]>>
+  rewrite_tac[GSYM APPEND_ASSOC,APPEND]
+QED
+
+Theorem fml_rel_extract_clauses_list:
+  ∀ls s b fml fmlls rsubs.
+  fml_rel fml fmlls ⇒
+  extract_clauses (subst_fun s) b fml rsubs ls [] =
+  extract_clauses_list s b fmlls rsubs ls
+Proof
   rw[]>>
-  first_x_assum irule>>
-  simp[]
+  drule fml_rel_extract_clauses_list_acc>>
+  disch_then (qspecl_then[`ls`,`s`,`b`,`rsubs`,`[]`] assume_tac)>>
+  Cases_on`extract_clauses_list s b fmlls rsubs ls`>>gvs[]
 QED
 
 Theorem fml_rel_extract_scopes_list:
   ∀ls s b fml fmlls rsubs.
   fml_rel fml fmlls ⇒
-  extract_scopes scopes ls (subst_fun s) b fml rsubs =
-  extract_scopes_list scopes s b fmlls rsubs ls
+  extract_scopes (MAP (MAP sc_hyp_dec) scopes) ls (subst_fun s) b fml rsubs =
+  OPTION_MAP dec_scopes (extract_scopes_list scopes s b fmlls rsubs ls)
 Proof
   Induct>>rw[]
-  >- simp[extract_scopes_def,extract_scopes_list_def]>>
-  Cases_on`h`>> simp[extract_scopes_def,extract_scopes_list_def]>>
-  TOP_CASE_TAC>>simp[]>>
+  >- simp[extract_scopes_def,extract_scopes_list_def,dec_scopes_def]>>
+  Cases_on`h`>> simp[extract_scopes_def,extract_scopes_list_def,mk_scope_def]>>
+  first_x_assum (drule_then assume_tac)>>
   DEP_REWRITE_TAC [fml_rel_extract_clauses_list]>> simp[]>>
-  metis_tac[]
+  Cases_on`q`>> simp[EL_MAP]>>
+  every_case_tac>> gvs[dec_scopes_def]
+QED
+
+Theorem scopes_ok_extract_scopes_list:
+  ∀ls cpfs.
+  EVERY (EVERY sc_hyp_ok) scopes ∧
+  extract_scopes_list scopes s b fmlls rsubs ls = SOME cpfs ⇒
+  scopes_ok cpfs
+Proof
+  Induct>>rw[extract_scopes_list_def,scopes_ok_def]>>
+  rename1`extract_scopes_list _ _ _ _ _ (h::_)`>>
+  PairCases_on`h`>>gvs[extract_scopes_list_def,AllCaseEqs(),mk_scope_def]>>
+  gvs[scopes_ok_def,EVERY_EL]
 QED
 
 (* Index list must lazily overapproximate the
@@ -2164,6 +3238,68 @@ Proof
   gvs[any_el_update_resize]
 QED
 
+(* Scope hypotheses whose slots are encodings are inserted as their
+  decoded constraints *)
+Theorem list_insert_sc_list_eq:
+  ∀hs b id fmlls assg st.
+  EVERY sc_hyp_ok hs ⇒
+  list_insert_sc_list hs b id fmlls assg st =
+  list_insert_fml_list (MAP sc_hyp_dec hs) b id fmlls assg st
+Proof
+  Induct>>rw[list_insert_sc_list_def,list_insert_fml_list_def]>>
+  gvs[sc_slot_enc,store_slot_enc]
+QED
+
+(* Each scope hypothesis is stored at the next id *)
+Theorem store_slot_step[local]:
+  store_slot fml s mv id assg st = (fml',id',assg',st') ⇒
+  fml' = update_resize fml Empty s id ∧ id' = id + 1
+Proof
+  rw[store_slot_def]>>
+  pairarg_tac>>gvs[]
+QED
+
+Theorem list_insert_sc_list_id:
+  ∀cs b id fmlls assg st cid cfmlls assg' st'.
+  list_insert_sc_list cs b id fmlls assg st =
+    (cid,cfmlls,assg',st') ⇒
+  id ≤ cid
+Proof
+  Induct>>rw[list_insert_sc_list_def]>>
+  rpt (pairarg_tac>>gvs[])>>
+  drule store_slot_step>>strip_tac>>gvs[]>>
+  first_x_assum drule>>
+  simp[]
+QED
+
+Theorem list_insert_sc_list_id_upper:
+  ∀cs b id fmlls assg st cid cfmlls assg' st'.
+  list_insert_sc_list cs b id fmlls assg st =
+    (cid,cfmlls,assg',st') ∧
+  (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ⇒
+  (∀n. n ≥ cid ⇒ any_el n cfmlls Empty = Empty)
+Proof
+  Induct>>rw[list_insert_sc_list_def]
+  >- gvs[]>>
+  rpt (pairarg_tac>>gvs[])>>
+  drule store_slot_step>>strip_tac>>gvs[]>>
+  first_x_assum drule>>
+  simp[any_el_update_resize]
+QED
+
+Theorem list_insert_sc_list_mindel:
+  ∀cs b id fmlls assg st cid cfmlls assg' st'.
+  list_insert_sc_list cs b id fmlls assg st =
+    (cid,cfmlls,assg',st') ⇒
+  (∀n. n < id ⇒ any_el n cfmlls Empty = any_el n fmlls Empty)
+Proof
+  Induct>>rw[list_insert_sc_list_def]>>
+  rpt (pairarg_tac>>gvs[])>>
+  drule store_slot_step>>strip_tac>>gvs[]>>
+  first_x_assum drule>>
+  simp[any_el_update_resize]
+QED
+
 Theorem fml_rel_check_subproofs_list:
   ∀pfs b fmlls mindel id assg st fmlls' id' assg' st' fml.
     fml_rel fml fmlls ∧ rup_inv fmlls assg st ∧
@@ -2301,16 +3437,16 @@ Theorem fml_rel_check_scopes_list:
   ∀pfs b fmlls mindel id assg st fmlls' id' assg' st' fml.
     fml_rel fml fmlls ∧ rup_inv fmlls assg st ∧
     (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
-    mindel ≤ id ∧
+    mindel ≤ id ∧ scopes_ok pfs ∧
     check_scopes_list pfs b fmlls mindel id assg st =
       SOME (fmlls', id', assg', st') ⇒
     ∃fml'.
-      check_scopes pfs b fml id =
+      check_scopes (dec_scopes pfs) b fml id =
         SOME (fml',id') ∧
       fml_rel fml' fmlls' ∧ rup_inv fmlls' assg' st'
 Proof
   ho_match_mp_tac check_scopes_list_ind>>rw[]>>
-  fs[check_scopes_def,check_scopes_list_def]>>
+  fs[check_scopes_def,check_scopes_list_def,dec_scopes_def,scopes_ok_def]>>
   gvs[AllCaseEqs()]
   >- (
     drule_all fml_rel_check_subproofs_list>>
@@ -2321,7 +3457,7 @@ Proof
     drule check_subproofs_list_id_upper>>
     simp[])>>
   rpt (pairarg_tac>>gvs[])>>
-  gvs[AllCaseEqs()]>>
+  gvs[AllCaseEqs(),list_insert_sc_list_eq]>>
   rename1`list_insert_fml_list _ _ _ _ _ _ = (cid1,cfmlls,assg1,st1)`>>
   rename1`check_subproofs_list _ _ _ _ _ _ _ = SOME (fml2,id2,assg2,st2)`>>
   drule_all fml_rel_list_insert_fml_list>>
@@ -2361,7 +3497,7 @@ Proof
   rpt(pairarg_tac>>fs[])>>
   gvs[AllCaseEqs()]>>
   imp_res_tac check_subproofs_list_id>>
-  imp_res_tac list_insert_fml_list_id>>
+  imp_res_tac list_insert_sc_list_id>>
   gvs[]
 QED
 
@@ -2393,8 +3529,8 @@ Proof
   qpat_x_assum`_ ⇒ _` (irule_at Any)>>
   simp[rollback_list_delete,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
   rw[]>>
-  qpat_x_assum`list_insert_fml_list _ _ _ _ _ _ = _` assume_tac>>
-  drule list_insert_fml_list_id_upper>>
+  qpat_x_assum`list_insert_sc_list _ _ _ _ _ _ = _` assume_tac>>
+  drule list_insert_sc_list_id_upper>>
   simp[]>>
   strip_tac>>
   qpat_x_assum`check_subproofs_list _ _ _ _ _ _ _ = _` assume_tac>>
@@ -2419,52 +3555,42 @@ Proof
   rpt(pairarg_tac>>fs[])>>
   gvs[AllCaseEqs()]>>
   drule check_subproofs_list_mindel>> fs[]>>
-  drule (list_insert_fml_list_mindel)>>fs[]>>
+  drule (list_insert_sc_list_mindel)>>fs[]>>
   rw[]>>
-  drule (list_insert_fml_list_id)>>
+  drule (list_insert_sc_list_id)>>
   drule check_subproofs_list_id>>rw[]>>
   gvs[rollback_list_delete,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]
-QED
-
-Theorem reindex_aux:
-  ∀inds iacc.
-  reindex_aux fmlls inds iacc =
-  let is = FILTER (λx. any_el x fmlls Empty ≠ Empty) inds in
-  (REVERSE iacc ++ is)
-Proof
-  Induct>>rw[reindex_aux_def]>>
-  Cases_on`any_el h fmlls Empty`>>gvs[]
 QED
 
 Theorem reindex_characterize:
   reindex fmlls inds = FILTER (λx. any_el x fmlls Empty ≠ Empty) inds
 Proof
-  rw[reindex_def,reindex_aux]
+  Induct_on`inds`>>rw[reindex_def]
 QED
 
-Theorem revalue_aux_SUBSET:
-  ∀inds vacc.
+(* A hit in the table is a constraint of the formula, wherever the walk
+  starts *)
+Theorem ht_mem_core_only_fml:
+  ∀b fmlls c tbl j fuel.
   fml_rel fml fmlls ∧
-  EVERY (λs. ∃c b'. s = enc c b' ∧ c ∈ core_only_fml b fml) vacc ⇒
-  EVERY (λs. ∃c b'. s = enc c b' ∧ c ∈ core_only_fml b fml)
-    (revalue_aux b fmlls inds vacc)
+  ht_mem b fmlls c tbl j fuel ⇒
+  c ∈ core_only_fml b fml
 Proof
-  Induct>>rw[revalue_aux_def,slot_CASE_default]>>
-  first_x_assum irule>>simp[]>>
+  ho_match_mp_tac ht_mem_ind>>
+  rpt gen_tac>>
+  strip_tac>>
+  simp[Once ht_mem_def,eq_stored_def]>>
+  rw[]>>
+  gvs[]>>
+  rename1`lookup_core_only_list b fmlls i`>>
+  Cases_on`lookup_core_only_list b fmlls i`>>
+  gvs[]>>
+  `lookup_core_only_list b fmlls i ≠ Empty` by simp[]>>
   drule_all fml_rel_lookup_core_only_enc>>
   rw[]>>
-  first_assum (irule_at Any)>>
-  gvs[lookup_core_only_def,core_only_fml_def,AllCaseEqs()]>>
+  gvs[eq_slot_enc,lookup_core_only_def,core_only_fml_def,AllCaseEqs()]>>
   rw[]>>
   metis_tac[]
-QED
-
-Theorem revalue_SUBSET:
-  fml_rel fml fmlls ==>
-  EVERY (λs. ∃c b'. s = enc c b' ∧ c ∈ core_only_fml b fml)
-    (revalue b fmlls inds)
-Proof
-  rw[revalue_def,revalue_aux_SUBSET]
 QED
 
 Theorem SORTED_reindex:
@@ -2572,34 +3698,115 @@ Proof
   metis_tac[]
 QED
 
-Theorem split_goals_hash_imp_split_goals:
-  EVERY (λs. ∃c b. s = enc c b ∧ c ∈ range fml) fmlls ∧
-  split_goals_hash fmlls (enc nc b0) proved goals ⇒
+(* The spec's goal check, one goal at a time *)
+Theorem split_goals_MEM:
+  (∀i c. MEM (i,c) goals ∧ lookup i proved = NONE ⇒
+    c ∈ range fml ∨ imp nc c ∨ ∃j. MEM (j,c) goals ∧ lookup j proved ≠ NONE) ⇒
   split_goals fml nc proved goals
 Proof
-  rw[split_goals_def,split_goals_hash_eq]>>
-  pairarg_tac>>fs[]>>
-  fs[EVERY_FILTER,EVERY_MAP,imp_slot_enc]>>
-  qpat_x_assum`EVERY _ lf`mp_tac>> match_mp_tac MONO_EVERY>>
-  simp[FORALL_PROD, METIS_PROVE []``(¬P ⇒ Q) ⇔ P ∨ Q``]>>
-  rw[]
-  >- fs[]>>
-  qpat_x_assum`in_hashset_slot _ _`
-    (mp_then (Pos last) mp_tac in_hashset_slot_mk_hashset_slot)>>
-  simp[LENGTH_mk_hashset_slot]>>
-  strip_tac
-  >- (
-    gvs[EVERY_MEM]>>
-    first_x_assum drule>>
-    rw[]>>
-    gvs[eq_slot_enc])>>
-  drule_at (Pos last) in_hashset_slot_mk_hashset_slot>>
+  rw[split_goals_def,PARTITION_DEF]>>
+  pairarg_tac>>rw[]>>
+  qpat_x_assum`_ = (_,_)` (ASSUME_TAC o SYM)>>
+  drule PARTs_HAVE_PROP>>
+  drule PART_MEM>>
+  rw[]>>
+  fs[EVERY_MEM,FORALL_PROD]>>rw[]>>
+  fs[MEM_MAP,EXISTS_PROD,mem_constraint_thm]>>
+  metis_tac[]
+QED
+
+Theorem MEM_split_goals_pure:
+  ∀goals lp lf lp' lf'.
+  split_goals_pure proved extra goals lp lf = (lp',lf') ⇒
+  (∀c. MEM c lp' ⇔ MEM c lp ∨
+    ∃i. MEM (i,c) goals ∧ map_lookup proved i ≠ NONE) ∧
+  (∀c. MEM c lf' ⇔ MEM c lf ∨
+    ∃i. MEM (i,c) goals ∧ map_lookup proved i = NONE ∧ ¬imp_slot extra c)
+Proof
+  Induct>>
+  simp[split_goals_pure_def,FORALL_PROD]>>
+  rw[]>>
+  first_x_assum drule>>
+  rw[]>>
+  metis_tac[]
+QED
+
+Theorem ht_goals_EVERY:
+  ∀cs.
+  ht_goals b fml lp tbl cs ⇔
+  EVERY (λc. ht_probe b fml c (hash_constraint c) tbl ∨ mem_constraint c lp) cs
+Proof
+  Induct>>
+  rw[ht_goals_def]
+QED
+
+(* The INL proved ids as keys of a list, and the INR ones as a set, are
+  extract_pids's *)
+Theorem extract_pids_list_thm:
+  ∀pf l r l1.
+  (∀i. lookup i l1 = NONE ⇔ ALOOKUP l i = NONE) ⇒
+  SND (extract_pids_list pf l r) = SND (extract_pids pf l1 r) ∧
+  ∀i. lookup i (FST (extract_pids pf l1 r)) = NONE ⇔
+      ALOOKUP (FST (extract_pids_list pf l r)) i = NONE
+Proof
+  Induct >- simp[extract_pids_list_def,extract_pids_def]>>
+  rpt gen_tac>>strip_tac>>
+  rename1`extract_pids_list (cpf::pf) l r`>>
+  simp[extract_pids_list_def,extract_pids_def]>>
+  Cases_on`FST cpf`>>simp[]>>
+  rename1`SOME p`>>PairCases_on`p`>>Cases_on`p0`>>simp[]>>
+  first_x_assum irule>>
+  rw[lookup_insert]>>
+  metis_tac[]
+QED
+
+Theorem extract_scoped_pids_list_thm:
+  ∀pfs l r l1.
+  (∀i. lookup i l1 = NONE ⇔ ALOOKUP l i = NONE) ⇒
+  SND (extract_scoped_pids_list pfs l r) = SND (extract_scoped_pids pfs l1 r) ∧
+  ∀i. lookup i (FST (extract_scoped_pids pfs l1 r)) = NONE ⇔
+      ALOOKUP (FST (extract_scoped_pids_list pfs l r)) i = NONE
+Proof
+  Induct >- simp[extract_scoped_pids_list_def,extract_scoped_pids_def]>>
+  rpt gen_tac>>strip_tac>>
+  rename1`extract_scoped_pids_list (h::pfs) l r`>>PairCases_on`h`>>
+  simp[extract_scoped_pids_list_def,extract_scoped_pids_def]>>
+  Cases_on`extract_scope_val h0`>>simp[]>>
+  qspecl_then [`h1`,`l`,`r`,`l1`] mp_tac extract_pids_list_thm>>
   simp[]>>
+  Cases_on`extract_pids_list h1 l r`>>Cases_on`extract_pids h1 l1 r`>>
+  rw[]
+QED
+
+Theorem split_goals_hash_imp_split_goals:
+  fml_rel fml fmlls ∧
+  split_goals_hash b fmlls inds base ht (enc nc b0) pids goals = (T,ht') ∧
+  (∀i. lookup i proved ≠ NONE ⇔ ALOOKUP pids i ≠ NONE) ⇒
+  split_goals (mk_core_fml b fml) nc proved goals
+Proof
+  rw[split_goals_hash_def,split_goals_pids_def]>>
+  pairarg_tac>>gvs[]>>
+  irule split_goals_MEM>>
+  drule MEM_split_goals_pure>>
+  rw[spt_to_vecTheory.map_lookup_mk_map]>>
+  Cases_on`imp_slot (enc nc b0) c`
+  >- gvs[imp_slot_enc]>>
+  `MEM c lf` by metis_tac[]>>
+  `¬NULL lf` by (Cases_on`lf`>>gvs[])>>
+  qpat_x_assum`(if _ then _ else _) = _` mp_tac>>
+  simp[]>>
+  qabbrev_tac`HT = ht_fill fmlls inds base ht`>>
+  PairCases_on`HT`>>
+  simp[ht_goals_EVERY,EVERY_MEM]>>
+  strip_tac>>
+  first_x_assum (qspec_then`c` mp_tac)>>
+  impl_tac >- metis_tac[]>>
   strip_tac
   >- (
-    gvs[MEM_MAP,eq_slot_enc,mem_constraint_thm,EXISTS_PROD]>>
-    metis_tac[])>>
-  gvs[in_hashset_slot_def,mem_slots_def,EL_REPLICATE,hash_constraint_lt_splim]
+    disj1_tac>>
+    simp[range_mk_core_fml]>>
+    metis_tac[ht_mem_core_only_fml,ht_probe_def])>>
+  metis_tac[mem_constraint_thm]
 QED
 
 Theorem lookup_core_only_list_list_delete_list:
@@ -2610,7 +3817,7 @@ Theorem lookup_core_only_list_list_delete_list:
   else
     lookup_core_only_list b fml n
 Proof
-  rw[lookup_core_only_list_def,any_el_list_delete_list]>>
+  rw[lookup_core_only_list_def,core_only_def,any_el_list_delete_list]>>
   gvs[]
 QED
 
@@ -2640,11 +3847,13 @@ Proof
   gvs[] >> metis_tac[NOT_EVERY]
 QED
 
+(* Every occurrence in a constraint below the watermark is indexed *)
 Definition vimap_rel_def:
-  vimap_rel fmlls (vimap:vimap_ty) ⇔
+  vimap_rel fmlls ((m,vw,ents):vimap_ty) ⇔
   ∀i coeff x.
+    i < vw ∧
     MEM (coeff:int,x) (FST (dec (any_el i fmlls Empty))) ⇒
-    vent_mem (any_el x vimap Vnone) (0 ≤ coeff) i
+    vent_mem m (any_el x ents Vnone) (0 ≤ coeff) i
 End
 
 Theorem subst_opt_aux_MEM:
@@ -2680,218 +3889,612 @@ Proof
   metis_tac[subst_opt_aux_MEM]
 QED
 
-Theorem mk_subst_cases:
-  mk_subst s =
-  case s of
-  | [] => INR (Vector [])
-  | [(n,v)] => INL (n,v)
-  | _ => INR (spt_to_vec (fromAList s))
-Proof
-  every_case_tac>>fs[mk_subst_def]
-QED
-
-Theorem restore_aux:
-  ∀inds lacc racc.
-  restore_aux x fmlls inds lacc racc =
-  let lis = FILTER (λn.
-      cond_pos x (FST (dec (any_el n fmlls Empty)))) inds in
-  let ris = FILTER (λn.
-      cond_neg x (FST (dec (any_el n fmlls Empty)))) inds in
-  (REVERSE lacc ++ lis,REVERSE racc ++ ris)
-Proof
-  Induct>>rw[restore_aux_def]>>
-  `cond_pos x [] = F ∧ cond_neg x [] = F` by simp[cond_pos_def,cond_neg_def]>>
-  Cases_on`any_el h fmlls Empty`>>
-  gvs[restore_slot_thm]>>
-  rw[]
-QED
-
-Theorem restore_characterize:
-  restore x fmlls inds =
-  (
-  FILTER (λn.
-      cond_pos x (FST (dec (any_el n fmlls Empty)))) inds,
-  FILTER (λn.
-      cond_neg x (FST (dec (any_el n fmlls Empty)))) inds)
-Proof
-  rw[restore_def,restore_aux]
-QED
-
 Theorem vec_lookup_empty[simp]:
   vec_lookup (Vector []) x = NONE
 Proof
   EVAL_TAC
 QED
 
-Theorem domain_get_inds_rhs_pinds_reindex:
-  any_el i fml Empty ≠ Empty ∧
-  MEM i pinds ∧ rhs ≠ (INL T):bool + num lit ⇒
-  i ∈ domain (get_inds_rhs rhs (reindex fml pinds) ninds t)
+Theorem MEM_dec_Stored:
+  length cs = length vs ⇒
+  (MEM (c,x) (FST (dec (Stored cs vs d mc sm b))) ⇔
+    ∃l. l < length vs ∧ c = sub cs l ∧ x = sub vs l)
 Proof
-  rw[get_inds_rhs_def]>>
-  every_case_tac>>gvs[domain_list_insert]>>
-  rw[reindex_characterize,MEM_FILTER]
+  rw[dec_def,dec_terms_GENLIST,MEM_GENLIST]>>
+  metis_tac[]
 QED
 
-Theorem domain_get_inds_rhs_ninds_reindex:
-  any_el i fml Empty ≠ Empty ∧
-  MEM i ninds ∧ rhs ≠ (INL F):bool + num lit ⇒
-  i ∈ domain (get_inds_rhs rhs pinds (reindex fml ninds) t)
+Theorem EXISTS_MEM_dec_Stored:
+  length cs = length vs ⇒
+  ((∃c. MEM (c,x) (FST (dec (Stored cs vs d mc sm b))) ∧ P c) ⇔
+   ∃l. l < length vs ∧ sub vs l = x ∧ P (sub cs l))
 Proof
-  rw[get_inds_rhs_def]>>
-  every_case_tac>>gvs[domain_list_insert]>>
-  rw[reindex_characterize,MEM_FILTER]
+  rw[MEM_dec_Stored]>>
+  metis_tac[]
 QED
 
-Theorem check_get_inds_rhs_not_overflow:
-  ∀vimap ls.
-  check_get_inds_rhs vimap ls ∧
-  MEM (n,rhs) ls ⇒
-  any_el n vimap Vnone ≠ Voverflow
+Theorem MEM_drop_derived:
+  ∀l. MEM j (drop_derived m l) ⇒ MEM j l
 Proof
-  ho_match_mp_tac check_get_inds_rhs_ind>>
-  rw[check_get_inds_rhs_def]>>
-  gvs[AllCasePreds()]
+  Induct>>rw[drop_derived_def]>>gvs[]
 QED
 
-Theorem get_inds_rhs_acc:
-  i ∈ domain t ⇒
-  i ∈ domain (get_inds_rhs rhs pinds ninds t)
+Theorem MEM_drop_derived_input:
+  ∀l. j ≤ m ∧ MEM j l ⇒ MEM j (drop_derived m l)
 Proof
-  rw[get_inds_rhs_def]>>
-  every_case_tac>>gvs[domain_list_insert]
+  Induct>>rw[drop_derived_def]>>gvs[]
 QED
 
-Theorem fold_get_inds_rhs_acc:
-  ∀fml ls t vimap t' vimap'.
-  fold_get_inds_rhs fml ls t vimap = (t',vimap') ∧
-  i ∈ domain t ⇒ i ∈ domain t'
+Theorem vent_mem_vent_insert:
+  vent_mem m e pos j ⇒ vent_mem m (vent_insert m pos' i e) pos j
 Proof
-  ho_match_mp_tac fold_get_inds_rhs_ind>>
-  rw[]
-  >- gvs[fold_get_inds_rhs_def]>>
-  gvs[fold_get_inds_rhs_def,AllCaseEqs(),UNCURRY_EQ,get_inds_rhs_acc]
+  Cases_on`e`>>rw[vent_insert_def,vent_mem_def]>>gvs[]>>
+  Cases_on`m < j`>>gvs[NOT_LESS]>>
+  metis_tac[MEM_drop_derived_input]
 QED
 
-Theorem fold_get_inds_rhs_MEM:
-  ∀fml ls t vimap t' vimap'.
-  fold_get_inds_rhs fml ls t vimap = (t',vimap') ∧
-  (∀n rhs.
-    MEM (n,rhs) ls ⇒
-    any_el n vimap Vnone ≠ Voverflow) ∧
-  any_el i fml Empty ≠ Empty ∧
-  vent_mem (any_el x vimap Vnone) pos i ∧
-  MEM (x,rhs) ls ⇒
-  (rhs ≠ INL T ∧ pos ⇒ i ∈ domain t') ∧
-  (rhs ≠ (INL F):bool + num lit ∧ ¬pos ⇒ i ∈ domain t')
+Theorem vent_mem_vent_insert_self:
+  vent_mem m (vent_insert m pos i e) pos i
 Proof
-  ho_match_mp_tac fold_get_inds_rhs_ind>>
-  conj_tac>- rw[]>>
+  Cases_on`e`>>rw[vent_insert_def,vent_mem_def]
+QED
+
+Theorem fill_slot_vent_mem:
+  ∀k ents.
+  (∀x pos j.
+    vent_mem m (any_el x ents Vnone) pos j ⇒
+    vent_mem m (any_el x (fill_slot m ents i cs vs k) Vnone) pos j) ∧
+  (∀l. l < k ⇒
+    vent_mem m (any_el (sub vs l) (fill_slot m ents i cs vs k) Vnone)
+      (0 ≤ sub cs l) i)
+Proof
+  Induct>>
+  ONCE_REWRITE_TAC[fill_slot_def]>>
+  simp[]>>
   rpt gen_tac>>
-  strip_tac>>
-  rpt gen_tac>>
-  SIMP_TAC list_ss []>>
-  strip_tac>>
-  rveq
-  >- (
-    ntac 3 (last_x_assum kall_tac)>>
-    `any_el n vimap Vnone ≠ Voverflow` by metis_tac[]>>
-    Cases_on`any_el n vimap Vnone`>>
-    gvs[vent_mem_def,fold_get_inds_rhs_def,UNCURRY_EQ]>>
-    rw[]>>
-    drule_then irule fold_get_inds_rhs_acc>>
-    gvs[do_reindex_rhs_def,AllCaseEqs()]>>
-    drule domain_get_inds_rhs_ninds_reindex>>
-    drule domain_get_inds_rhs_pinds_reindex>>
-    rw[])>>
-  `any_el n vimap Vnone ≠ Voverflow` by metis_tac[]>>
-  Cases_on`any_el n vimap Vnone`>>
-  gvs[fold_get_inds_rhs_def,UNCURRY_EQ]
+  qmatch_goalsub_abbrev_tac`fill_slot m ents1 i cs vs k`>>
+  `∀y pos j. vent_mem m (any_el y ents Vnone) pos j ⇒
+    vent_mem m (any_el y ents1 Vnone) pos j` by (
+    rw[Abbr`ents1`,any_el_update_resize]>>
+    metis_tac[vent_mem_vent_insert])>>
+  `vent_mem m (any_el (sub vs k) ents1 Vnone) (0 ≤ sub cs k) i` by
+    simp[Abbr`ents1`,any_el_update_resize,vent_mem_vent_insert_self]>>
+  rw[]>>
+  Cases_on`l = k`
   >- metis_tac[]>>
-  (
-    first_x_assum irule>>
-    rw[any_el_update_resize]
-    >- metis_tac[]>>
-    Cases_on`pos`>>
-    gvs[vent_mem_def,do_reindex_rhs_def,AllCaseEqs(),reindex_characterize,
-      MEM_FILTER])
+  `l < k` by simp[]>>
+  metis_tac[]
 QED
 
-Theorem MEM_get_set_indices_mk_subst:
+Theorem fill_vimap_aux_vent_mem:
+  ∀n i ents.
+  n = id - i ∧
+  (∀k. wf_slot (any_el k fml Empty)) ⇒
+  (∀x pos j.
+    vent_mem m (any_el x ents Vnone) pos j ⇒
+    vent_mem m (any_el x (fill_vimap_aux m fml ents i id) Vnone) pos j) ∧
+  (∀k coeff y.
+    i ≤ k ∧ k < id ∧ MEM (coeff,y) (FST (dec (any_el k fml Empty))) ⇒
+    vent_mem m (any_el y (fill_vimap_aux m fml ents i id) Vnone)
+      (0 ≤ coeff) k)
+Proof
+  completeInduct_on`n`>>
+  rpt gen_tac>>strip_tac>>
+  ONCE_REWRITE_TAC[fill_vimap_aux_def]>>
+  IF_CASES_TAC>- (rw[]>>gvs[])>>
+  simp[]>>
+  qmatch_goalsub_abbrev_tac`fill_vimap_aux m fml ents1 (i + 1) id`>>
+  qpat_x_assum`∀m'. m' < n ⇒ _` (qspec_then`id - (i + 1)` mp_tac)>>
+  impl_tac>- simp[]>>
+  disch_then (qspecl_then [`i + 1`,`ents1`] mp_tac)>>
+  impl_tac>- simp[]>>
+  strip_tac>>
+  `∀y pos j. vent_mem m (any_el y ents Vnone) pos j ⇒
+    vent_mem m (any_el y ents1 Vnone) pos j` by (
+    rw[Abbr`ents1`]>>
+    TOP_CASE_TAC>>gvs[fill_slot_vent_mem])>>
+  `∀coeff y. MEM (coeff,y) (FST (dec (any_el i fml Empty))) ⇒
+    vent_mem m (any_el y ents1 Vnone) (0 ≤ coeff) i` by (
+    `wf_slot (any_el i fml Empty)` by simp[]>>
+    rw[Abbr`ents1`]>>
+    Cases_on`any_el i fml Empty`>>gvs[wf_slot_def,MEM_dec_Stored]>>
+    metis_tac[fill_slot_vent_mem])>>
+  rw[]>>
+  Cases_on`k = i`>>gvs[]
+QED
+
+(* The index after a store at or above the watermark *)
+Theorem vimap_rel_update_resize:
+  vimap_rel fml vimap ∧ FST (SND vimap) ≤ n ⇒
+  vimap_rel (update_resize fml Empty s n) vimap
+Proof
+  PairCases_on`vimap`>>
+  rw[vimap_rel_def,any_el_update_resize]>>
+  gvs[]
+QED
+
+(* After the fill, the index covers every constraint below id *)
+Theorem vimap_rel_fill_vimap:
+  fml_rel fml fmlls ∧
   vimap_rel fmlls vimap ∧
-  ind_rel fmlls inds ∧
+  fill_vimap fmlls id vimap = vimap' ⇒
+  vimap_rel fmlls vimap' ∧
+  FST vimap' = FST vimap ∧
+  FST (SND vimap') = MAX id (FST (SND vimap))
+Proof
+  PairCases_on`vimap`>>
+  rw[fill_vimap_def]>>
+  gvs[MAX_DEF]>>
+  `∀k. wf_slot (any_el k fmlls Empty)` by metis_tac[fml_rel_wf_slot]>>
+  gvs[vimap_rel_def]>>
+  rw[]>>
+  mp_tac (Q.SPECL [`id - vimap1`,`vimap1`,`vimap2`]
+    (Q.INST [`m`|->`vimap0`,`fml`|->`fmlls`] fill_vimap_aux_vent_mem))>>
+  simp[]>>
+  strip_tac>>
+  Cases_on`i < vimap1`
+  >- metis_tac[]>>
+  first_x_assum irule>>
+  simp[]>>
+  metis_tac[]
+QED
+
+(* The union of two lists *)
+Theorem MEM_merge_desc:
+  ∀xs ys. MEM i (merge_desc xs ys) ⇔ MEM i xs ∨ MEM i ys
+Proof
+  ho_match_mp_tac merge_desc_ind>>
+  rw[merge_desc_def]>>
+  metis_tac[]
+QED
+
+Theorem MEM_FLAT_merge_pairs:
+  ∀ls. MEM i (FLAT (merge_pairs ls)) ⇔ MEM i (FLAT ls)
+Proof
+  ho_match_mp_tac merge_pairs_ind>>
+  rw[merge_pairs_def,MEM_merge_desc]>>
+  metis_tac[]
+QED
+
+Theorem MEM_merge_all:
+  ∀ls. MEM i (merge_all ls) ⇔ MEM i (FLAT ls)
+Proof
+  ho_match_mp_tac merge_all_ind>>
+  rw[merge_all_def]>>
+  gvs[MEM_FLAT_merge_pairs]
+QED
+
+Theorem MEM_FLAT_get_inds_rhs_list:
+  MEM i (FLAT (get_inds_rhs_list rhs pinds ninds acc)) ⇔
+  MEM i (FLAT acc) ∨
+  (rhs ≠ INL T ∧ MEM i pinds) ∨ (rhs ≠ INL F ∧ MEM i ninds)
+Proof
+  rw[get_inds_rhs_list_def]>>
+  every_case_tac>>gvs[NULL_EQ]>>
+  metis_tac[MEM]
+QED
+
+(* Cleaning keeps exactly the live indices *)
+Theorem do_reindex_rhs_MEM:
+  do_reindex_rhs fml rhs p n = (p',n') ⇒
+  (∀j. MEM j p' ⇒ MEM j p) ∧ (∀j. MEM j n' ⇒ MEM j n) ∧
+  (∀j. any_el j fml Empty ≠ Empty ∧ MEM j p ⇒ MEM j p') ∧
+  (∀j. any_el j fml Empty ≠ Empty ∧ MEM j n ⇒ MEM j n')
+Proof
+  rw[do_reindex_rhs_def]>>
+  every_case_tac>>gvs[reindex_characterize,MEM_FILTER]
+QED
+
+Theorem rebuild_ents_slot_thm:
+  ∀k ents.
+  ((∀p n. any_el x ents Vnone ≠ Vrebuild p n) ⇒
+    any_el x (rebuild_ents_slot ents i cs vs k) Vnone = any_el x ents Vnone) ∧
+  ∀p n. any_el x ents Vnone = Vrebuild p n ⇒
+  ∃p' n'. any_el x (rebuild_ents_slot ents i cs vs k) Vnone = Vrebuild p' n' ∧
+    (∀j. MEM j p' ⇔ MEM j p ∨
+      j = i ∧ ∃l. l < k ∧ sub vs l = x ∧ 0 ≤ sub cs l) ∧
+    (∀j. MEM j n' ⇔ MEM j n ∨
+      j = i ∧ ∃l. l < k ∧ sub vs l = x ∧ sub cs l < 0)
+Proof
+  Induct
+  >- (ONCE_REWRITE_TAC[rebuild_ents_slot_def]>>simp[])>>
+  ONCE_REWRITE_TAC[rebuild_ents_slot_def]>>
+  simp[]>>
+  gen_tac>>
+  `∀l. l < SUC k ⇔ l < k ∨ l = k` by simp[]>>
+  Cases_on`any_el (sub vs k) ents Vnone`>>simp[]
+  >~ [`any_el (sub vs k) ents Vnone = Vrebuild py ny`]
+  >- (
+    qmatch_goalsub_abbrev_tac`rebuild_ents_slot ents1 i cs vs k`>>
+    first_x_assum (qspec_then`ents1` strip_assume_tac)>>
+    conj_tac
+    >- (
+      strip_tac>>
+      `x ≠ sub vs k` by (CCONTR_TAC>>gvs[])>>
+      `any_el x ents1 Vnone = any_el x ents Vnone` by
+        simp[Abbr`ents1`,any_el_update_resize]>>
+      qpat_x_assum`(∀p n. any_el x ents1 Vnone ≠ _) ⇒ _` mp_tac>>
+      simp[])>>
+    rpt strip_tac>>
+    Cases_on`x = sub vs k`
+    >- (
+      `any_el x ents1 Vnone =
+        if 0 ≤ sub cs k then Vrebuild (i::p) n else Vrebuild p (i::n)` by
+        gvs[Abbr`ents1`,any_el_update_resize]>>
+      Cases_on`0 ≤ sub cs k`
+      >- (
+        qpat_x_assum`∀p n. any_el x ents1 Vnone = _ ⇒ _`
+          (qspecl_then [`i::p`,`n`] mp_tac)>>
+        impl_tac >- gvs[]>>
+        disch_then (qx_choosel_then [`pp`,`nn`] strip_assume_tac)>>
+        qexistsl_tac[`pp`,`nn`]>>
+        `¬(sub cs k < 0)` by intLib.ARITH_TAC>>
+        simp[RIGHT_AND_OVER_OR,LEFT_AND_OVER_OR,EXISTS_OR_THM]>>
+        metis_tac[])>>
+      qpat_x_assum`∀p n. any_el x ents1 Vnone = _ ⇒ _`
+        (qspecl_then [`p`,`i::n`] mp_tac)>>
+      impl_tac >- gvs[]>>
+      disch_then (qx_choosel_then [`pp`,`nn`] strip_assume_tac)>>
+      qexistsl_tac[`pp`,`nn`]>>
+      `sub cs k < 0` by intLib.ARITH_TAC>>
+      simp[RIGHT_AND_OVER_OR,LEFT_AND_OVER_OR,EXISTS_OR_THM]>>
+      metis_tac[])>>
+    `any_el x ents1 Vnone = any_el x ents Vnone` by
+      simp[Abbr`ents1`,any_el_update_resize]>>
+    qpat_x_assum`∀p n. any_el x ents1 Vnone = _ ⇒ _`
+      (qspecl_then [`p`,`n`] mp_tac)>>
+    impl_tac >- simp[]>>
+    disch_then (qx_choosel_then [`pp`,`nn`] strip_assume_tac)>>
+    qexistsl_tac[`pp`,`nn`]>>
+    simp[RIGHT_AND_OVER_OR,LEFT_AND_OVER_OR,EXISTS_OR_THM])>>
+  rpt strip_tac>>
+  `x ≠ sub vs k` by (CCONTR_TAC>>gvs[])>>
+  first_x_assum (qspec_then`ents` (drule o CONJUNCT2))>>
+  disch_then (qx_choosel_then [`pp`,`nn`] strip_assume_tac)>>
+  qexistsl_tac[`pp`,`nn`]>>
+  simp[RIGHT_AND_OVER_OR,LEFT_AND_OVER_OR,EXISTS_OR_THM]
+QED
+
+(* One step of the rebuild walk, on the slot s at index i *)
+Theorem rebuild_ents_slot_dec:
+  wf_slot s ⇒
+  ∀x ents i.
+  ((∀p n. any_el x ents Vnone ≠ Vrebuild p n) ⇒
+    any_el x (case s of
+      Empty => ents
+    | Stored cs vs d mc sm b => rebuild_ents_slot ents i cs vs (length vs))
+      Vnone = any_el x ents Vnone) ∧
+  ∀p n. any_el x ents Vnone = Vrebuild p n ⇒
+  ∃p' n'.
+    any_el x (case s of
+      Empty => ents
+    | Stored cs vs d mc sm b => rebuild_ents_slot ents i cs vs (length vs))
+      Vnone = Vrebuild p' n' ∧
+    (∀j. MEM j p' ⇔ MEM j p ∨ j = i ∧
+      ∃c. MEM (c,x) (FST (dec s)) ∧ 0 ≤ c) ∧
+    (∀j. MEM j n' ⇔ MEM j n ∨ j = i ∧
+      ∃c. MEM (c,x) (FST (dec s)) ∧ c < 0)
+Proof
+  Cases_on`s`>>rw[wf_slot_def]>>
+  simp[EXISTS_MEM_dec_Stored]>>
+  rename1`rebuild_ents_slot ents i cs vs`>>
+  mp_tac (Q.SPECL [`length (vs:num vector)`,`ents`] rebuild_ents_slot_thm)>>
+  simp[]
+QED
+
+Theorem rebuild_ents_thm:
+  ∀d i ents.
+  d = vw - i ∧
+  (∀k. wf_slot (any_el k fml Empty)) ⇒
+  ((∀p n. any_el x ents Vnone ≠ Vrebuild p n) ⇒
+    any_el x (rebuild_ents fml ents i vw) Vnone = any_el x ents Vnone) ∧
+  ∀p n. any_el x ents Vnone = Vrebuild p n ⇒
+  ∃p' n'. any_el x (rebuild_ents fml ents i vw) Vnone = Vrebuild p' n' ∧
+    (∀j. MEM j p' ⇔ MEM j p ∨ i ≤ j ∧ j < vw ∧
+      ∃c. MEM (c,x) (FST (dec (any_el j fml Empty))) ∧ 0 ≤ c) ∧
+    (∀j. MEM j n' ⇔ MEM j n ∨ i ≤ j ∧ j < vw ∧
+      ∃c. MEM (c,x) (FST (dec (any_el j fml Empty))) ∧ c < 0)
+Proof
+  completeInduct_on`d`>>
+  rpt gen_tac>>strip_tac>>
+  ONCE_REWRITE_TAC[rebuild_ents_def]>>
+  IF_CASES_TAC
+  >- (
+    simp[]>>
+    rpt strip_tac>>
+    `¬(i ≤ j ∧ j < vw)` by simp[]>>
+    metis_tac[])>>
+  simp[]>>
+  qmatch_goalsub_abbrev_tac`rebuild_ents fml ents1 (i + 1) vw`>>
+  qpat_x_assum`∀m. m < d ⇒ _` (qspec_then`vw - (i + 1)` mp_tac)>>
+  simp[]>>
+  disch_then (qspecl_then [`i + 1`,`ents1`] mp_tac)>>
+  simp[]>>strip_tac>>
+  `wf_slot (any_el i fml Empty)` by simp[]>>
+  drule_then (qspecl_then [`x`,`ents`,`i`] strip_assume_tac)
+    rebuild_ents_slot_dec>>
+  gvs[Abbr`ents1`]>>
+  rpt strip_tac>>
+  qpat_x_assum`∀p n. any_el x ents Vnone = _ ⇒ _` drule>>
+  disch_then (qx_choosel_then [`p1`,`n1`] strip_assume_tac)>>
+  qpat_x_assum`∀p n. any_el x (case _ of Empty => _ | _ => _) Vnone = _ ⇒ _`
+    drule>>
+  disch_then (qx_choosel_then [`p2`,`n2`] strip_assume_tac)>>
+  qexistsl_tac[`p2`,`n2`]>>
+  simp[]>>
+  rw[]>>eq_tac>>rw[]>>gvs[]>>
+  metis_tac[DECIDE``∀i j:num. i ≤ j ⇔ j = i ∨ i + 1 ≤ j``]
+QED
+
+(* The fold of the read: the read lists of the variables that were not
+  dropped go to acc, and the dropped ones become Vrebuild, keeping their
+  live ids *)
+Theorem get_inds_fold_ents_thm:
+  ∀fml ls acc ents rb acc' ents' rb'.
+  get_inds_fold_ents fml ls acc ents rb = (acc',ents',rb') ⇒
+  (∀j. MEM j (FLAT acc) ⇒ MEM j (FLAT acc')) ∧
+  (rb ⇒ rb') ∧
+  (∀x. (∀rhs. ¬MEM (x,rhs) ls) ⇒
+    any_el x ents' Vnone = any_el x ents Vnone) ∧
+  (∀x pos j.
+    any_el j fml Empty ≠ Empty ∧ vent_mem m (any_el x ents Vnone) pos j ⇒
+    vent_mem m (any_el x ents' Vnone) pos j) ∧
+  (∀x rhs. MEM (x,rhs) ls ⇒
+    (∃p0 n0.
+      any_el x ents Vnone = Vinput p0 n0 ∨
+      any_el x ents Vnone = Vrebuild p0 n0) ∧
+    rb' ∧ (∃p n. any_el x ents' Vnone = Vrebuild p n) ∨
+    (∀p0 n0.
+      any_el x ents Vnone ≠ Vinput p0 n0 ∧
+      any_el x ents Vnone ≠ Vrebuild p0 n0) ∧
+    ∀pos j. any_el j fml Empty ≠ Empty ∧
+      vent_mem m (any_el x ents Vnone) pos j ∧ rhs ≠ INL pos ⇒
+      MEM j (FLAT acc'))
+Proof
+  ho_match_mp_tac get_inds_fold_ents_ind>>
+  rpt conj_tac
+  >- simp[get_inds_fold_ents_def]>>
+  rpt gen_tac>>strip_tac>>
+  rpt gen_tac>>
+  simp[Once get_inds_fold_ents_def]>>
+  Cases_on`any_el n ents Vnone`>>gvs[]
+  >- (
+    strip_tac>>
+    first_x_assum drule>>strip_tac>>
+    qmatch_asmsub_abbrev_tac`get_inds_fold_ents fml ls acc ents1 rb`>>
+    `∀x pos j. vent_mem m (any_el x ents Vnone) pos j ⇒
+      vent_mem m (any_el x ents1 Vnone) pos j` by (
+      rw[Abbr`ents1`,any_el_update_resize]>>
+      gvs[vent_mem_def])>>
+    `∀x. x ≠ n ⇒ any_el x ents1 Vnone = any_el x ents Vnone` by
+      rw[Abbr`ents1`,any_el_update_resize]>>
+    rpt conj_tac
+    >- simp[]
+    >- (
+      rpt strip_tac>>
+      `x ≠ n` by metis_tac[]>>
+      simp[])
+    >- metis_tac[]>>
+    rpt gen_tac>>strip_tac
+    >- (disj2_tac>>gvs[vent_mem_def])>>
+    qpat_x_assum`∀x rhs. MEM (x,rhs) ls ⇒ _` drule>>
+    disch_then (DISJ_CASES_THEN2 assume_tac strip_assume_tac)
+    >- (
+      disj1_tac>>
+      `x ≠ n` by (CCONTR_TAC>>gvs[Abbr`ents1`,any_el_update_resize])>>
+      gvs[]>>metis_tac[])>>
+    disj2_tac>>
+    conj_tac
+    >- (Cases_on`x = n`>>gvs[])>>
+    rpt strip_tac>>
+    qpat_x_assum`∀pos j. _ ⇒ MEM j (FLAT acc')` irule>>
+    simp[]>>
+    qexists_tac`pos`>>simp[])
+  >>~- ([`get_inds_rhs_list`],
+    pairarg_tac>>gvs[]>>
+    strip_tac>>
+    qpat_x_assum`∀acc' ents' rb'. _` drule>>strip_tac>>
+    drule do_reindex_rhs_MEM>>strip_tac>>
+    qmatch_asmsub_abbrev_tac`get_inds_fold_ents fml ls acc1 ents1 rb`>>
+    `∀x pos j. any_el j fml Empty ≠ Empty ∧
+      vent_mem m (any_el x ents Vnone) pos j ⇒
+      vent_mem m (any_el x ents1 Vnone) pos j` by (
+      rw[Abbr`ents1`,any_el_update_resize]>>
+      gvs[vent_mem_def]>>
+      Cases_on`pos`>>gvs[])>>
+    `∀x. x ≠ n ⇒ any_el x ents1 Vnone = any_el x ents Vnone` by
+      rw[Abbr`ents1`,any_el_update_resize]>>
+    `∀j. MEM j (FLAT acc) ⇒ MEM j (FLAT acc1)` by
+      simp[Abbr`acc1`,MEM_FLAT_get_inds_rhs_list]>>
+    rpt conj_tac
+    >- metis_tac[]
+    >- simp[]
+    >- (
+      rpt strip_tac>>
+      `x ≠ n` by metis_tac[]>>
+      metis_tac[])
+    >- metis_tac[]>>
+    rpt gen_tac>>strip_tac
+    >- (
+      disj2_tac>>
+      gvs[]>>
+      rpt strip_tac>>
+      qpat_x_assum`∀j. MEM j (FLAT acc1) ⇒ _` irule>>
+      simp[Abbr`acc1`,MEM_FLAT_get_inds_rhs_list]>>
+      gvs[vent_mem_def]>>
+      Cases_on`pos`>>gvs[])>>
+    qpat_x_assum`∀x rhs. MEM (x,rhs) ls ⇒ _` drule>>
+    disch_then (DISJ_CASES_THEN2 assume_tac strip_assume_tac)
+    >- (
+      disj1_tac>>
+      `x ≠ n` by (CCONTR_TAC>>gvs[Abbr`ents1`,any_el_update_resize])>>
+      gvs[]>>metis_tac[])>>
+    disj2_tac>>
+    conj_tac
+    >- (Cases_on`x = n`>>gvs[])>>
+    rpt strip_tac>>
+    qpat_x_assum`∀pos j. _ ⇒ MEM j (FLAT acc')` irule>>
+    simp[]>>
+    qexists_tac`pos`>>simp[])>>
+  (
+    pairarg_tac>>gvs[]>>
+    strip_tac>>
+    qpat_x_assum`∀acc' ents' rb'. _` drule>>strip_tac>>
+    drule do_reindex_rhs_MEM>>strip_tac>>
+    qmatch_asmsub_abbrev_tac`get_inds_fold_ents fml ls acc ents1 T`>>
+    `∀x pos j. any_el j fml Empty ≠ Empty ∧
+      vent_mem m (any_el x ents Vnone) pos j ⇒
+      vent_mem m (any_el x ents1 Vnone) pos j` by (
+      rw[Abbr`ents1`,any_el_update_resize]>>
+      gvs[vent_mem_def]>>
+      Cases_on`pos`>>gvs[])>>
+    `∀x. x ≠ n ⇒ any_el x ents1 Vnone = any_el x ents Vnone` by
+      rw[Abbr`ents1`,any_el_update_resize]>>
+    rpt conj_tac
+    >- simp[]
+    >- (
+      rpt strip_tac>>
+      `x ≠ n` by metis_tac[]>>
+      metis_tac[])
+    >- metis_tac[]>>
+    rpt gen_tac>>strip_tac
+    >- (
+      qpat_x_assum`x = n` SUBST_ALL_TAC>>
+      disj1_tac>>
+      gvs[]>>
+      Cases_on`∃r. MEM (n,r) ls`
+      >- (
+        gvs[]>>
+        qpat_x_assum`∀x rhs'. MEM (x,rhs') ls ⇒ _` drule>>
+        strip_tac>>gvs[Abbr`ents1`,any_el_update_resize]>>
+        metis_tac[])>>
+      `any_el n ents' Vnone = any_el n ents1 Vnone` by metis_tac[]>>
+      gvs[Abbr`ents1`,any_el_update_resize])>>
+    qpat_x_assum`∀x rhs. MEM (x,rhs) ls ⇒ _` drule>>
+    disch_then (DISJ_CASES_THEN2 assume_tac strip_assume_tac)
+    >- (
+      disj1_tac>>
+      Cases_on`x = n`>>gvs[]>>
+      metis_tac[])>>
+    disj2_tac>>
+    `x ≠ n` by (CCONTR_TAC>>gvs[Abbr`ents1`,any_el_update_resize])>>
+    conj_tac
+    >- gvs[]>>
+    rpt strip_tac>>
+    qpat_x_assum`∀pos j. _ ⇒ MEM j (FLAT acc')` irule>>
+    simp[]>>
+    qexists_tac`pos`>>simp[])
+QED
+
+Theorem get_inds_rebuilt_ents_thm:
+  ∀ls acc ents.
+  (∀j. MEM j (FLAT acc) ⇒
+    MEM j (FLAT (get_inds_rebuilt_ents ls acc ents))) ∧
+  ∀x rhs p n. MEM (x,rhs) ls ∧ any_el x ents Vnone = Vrebuild p n ⇒
+    ∀pos j. MEM j (if pos then p else n) ∧ rhs ≠ INL pos ⇒
+      MEM j (FLAT (get_inds_rebuilt_ents ls acc ents))
+Proof
+  Induct
+  >- simp[get_inds_rebuilt_ents_def]>>
+  Cases>>
+  rename1`(y,r)`>>
+  rpt gen_tac>>
+  simp[get_inds_rebuilt_ents_def]>>
+  Cases_on`any_el y ents Vnone`>>simp[]
+  >~ [`any_el y ents Vnone = Vrebuild py ny`]
+  >- (
+    first_x_assum (qspecl_then [`get_inds_rhs_list r py ny acc`,`ents`]
+      strip_assume_tac)>>
+    conj_tac
+    >- (
+      rpt strip_tac>>
+      qpat_x_assum`∀j. MEM j (FLAT (get_inds_rhs_list _ _ _ _)) ⇒ _` irule>>
+      simp[MEM_FLAT_get_inds_rhs_list])>>
+    rpt strip_tac>>gvs[]
+    >- (
+      qpat_x_assum`∀j. MEM j (FLAT (get_inds_rhs_list _ _ _ _)) ⇒ _` irule>>
+      simp[MEM_FLAT_get_inds_rhs_list]>>
+      Cases_on`pos`>>gvs[])>>
+    metis_tac[])>>
+  rpt strip_tac>>gvs[]>>
+  metis_tac[]
+QED
+
+Theorem finish_rebuilt_thm:
+  ∀ls ents x.
+  any_el x (finish_rebuilt ls ents) Vnone =
+  case any_el x ents Vnone of
+    Vrebuild p n =>
+      if ∃rhs. MEM (x,rhs) ls then Vtrack p n else Vrebuild p n
+  | e => e
+Proof
+  Induct
+  >- (rw[finish_rebuilt_def]>>Cases_on`any_el x ents Vnone`>>simp[])>>
+  Cases>>
+  rename1`(y,r)`>>
+  rw[finish_rebuilt_def]>>
+  Cases_on`any_el y ents Vnone`>>
+  simp[any_el_update_resize]>>
+  Cases_on`x = y`>>gvs[]>>
+  Cases_on`any_el x ents Vnone`>>gvs[EXISTS_OR_THM]
+QED
+
+(* The read is complete for the constraints below the watermark *)
+Theorem MEM_get_set_indices_mk_subst:
+  fml_rel fml fmlls ∧
+  vimap_rel fmlls (m,vw,ents) ∧
+  i < vw ∧
   any_el i fmlls Empty ≠ Empty ∧
-  IS_SOME (subst_opt (subst_fun (mk_subst s)) (dec (any_el i fmlls Empty))) ∧
-  get_set_indices fmlls inds s vimap = (rinds, inds',vimap')
+  IS_SOME (subst_opt (subst_fun (mk_subst r s)) (dec (any_el i fmlls Empty))) ∧
+  get_set_indices fmlls s (m,vw,ents) = (rinds, vimap')
   ⇒
   MEM i rinds
 Proof
-  strip_tac>>
-  gvs[get_set_indices_def,AllCaseEqs(),mk_subst_def,UNCURRY_EQ,toAList_domain]
+  rw[]>>
+  `∀k. wf_slot (any_el k fmlls Empty)` by metis_tac[fml_rel_wf_slot]>>
+  drule IS_SOME_subst_opt>>strip_tac>>
+  gvs[subst_fun_mk_subst,IS_SOME_EXISTS]>>
+  rename1`ALOOKUP s x = SOME rhs`>>
+  drule ALOOKUP_MEM>>strip_tac>>
+  `vent_mem m (any_el x ents Vnone) (0 ≤ coeff) i` by
+    metis_tac[vimap_rel_def]>>
+  gvs[get_set_indices_def]>>
+  rpt (pairarg_tac>>gvs[])>>
+  simp[MEM_merge_all]>>
+  drule get_inds_fold_ents_thm>>
+  disch_then (qspec_then`m` strip_assume_tac)>>
+  qpat_x_assum`∀x rhs. MEM (x,rhs) s ⇒ _` drule>>
+  disch_then (DISJ_CASES_THEN2 assume_tac strip_assume_tac)
   >- (
-    drule IS_SOME_subst_opt>>strip_tac>>
-    gvs[subst_fun_def,IS_SOME_EXISTS,vimap_rel_def])
-  >- (
-    drule IS_SOME_subst_opt>>strip_tac>>
-    gvs[subst_fun_def,IS_SOME_EXISTS,vimap_rel_def]>>
-    first_x_assum drule>>simp[vent_mem_def])
-  >- (
-    drule IS_SOME_subst_opt>>strip_tac>>
-    gvs[subst_fun_def,IS_SOME_EXISTS,vimap_rel_def]>>
-    first_x_assum drule>>simp[vent_mem_def]>>
-    strip_tac>>
-    gvs[AllCasePreds(),do_reindex_rhs_def,AllCaseEqs()]>>
-    drule domain_get_inds_rhs_ninds_reindex>>
-    drule domain_get_inds_rhs_pinds_reindex>>
-    Cases_on`0 ≤ coeff`>>gvs[])
-  >- (
-    drule IS_SOME_subst_opt>>strip_tac>>
-    gvs[subst_fun_def,IS_SOME_EXISTS,vimap_rel_def]>>
-    first_x_assum drule>>simp[vent_mem_def]>>
-    strip_tac>>
-    gvs[AllCasePreds(),do_reindex_rhs_def,AllCaseEqs()]>>
-    drule domain_get_inds_rhs_ninds_reindex>>
-    drule domain_get_inds_rhs_pinds_reindex>>
-    Cases_on`0 ≤ coeff`>>gvs[])
-  >- (
-    drule IS_SOME_subst_opt>>strip_tac>>
-    gvs[subst_fun_def,IS_SOME_EXISTS]>>
-    gvs[get_inds_rhs_def]>>
-    Cases_on`rhs`>>
-    rw[]>>
-    gvs[restore_characterize,MEM_FILTER,IS_SOME_EXISTS,ind_rel_def,PULL_EXISTS,domain_list_insert]>>
-    rw[cond_pos_def,cond_neg_def,EXISTS_MEM]
-    >- (
-      first_x_assum (irule_at Any)>>simp[]>>
-      intLib.ARITH_TAC)
-    >- (first_x_assum (irule_at Any)>>simp[])
-    >- (Cases_on`0 ≤ coeff`
-      >- (DISJ1_TAC >> first_x_assum (irule_at Any)>>simp[])
-      >- (DISJ2_TAC >> first_x_assum (irule_at Any)>>simp[]>>
-        intLib.ARITH_TAC)))
-  >- (
-    qmatch_asmsub_abbrev_tac`fold_get_inds_rhs _ ls LN _`>>
-    drule IS_SOME_subst_opt>>strip_tac>>
-    gvs[subst_fun_def,spt_to_vecTheory.vec_lookup_num_man_to_vec,lookup_fromAList,IS_SOME_EXISTS]>>
-    rename1`ALOOKUP _ x = SOME rhs`>>
-    drule ALOOKUP_MEM>> strip_tac>>
-    `vent_mem (any_el x vimap Vnone) (0 ≤ coeff) i` by
-      metis_tac[vimap_rel_def]>>
-    `∀n rhs. MEM (n,rhs) ls ⇒ any_el n vimap Vnone ≠ Voverflow` by
-      metis_tac[check_get_inds_rhs_not_overflow]>>
-    drule_all fold_get_inds_rhs_MEM>>
-    Cases_on`0 ≤ coeff`>>gvs[])>>
-  gvs[reindex_characterize,MEM_FILTER]>>
-  gvs[ind_rel_def]
+    `rb ∧ ∃p n. any_el x ents' Vnone = Vrebuild p n` by metis_tac[]>>
+    gvs[]>>
+    `vent_mem m (Vrebuild p n) (0 ≤ coeff) i` by metis_tac[]>>
+    mp_tac (Q.SPECL [`vw - (m + 1)`,`m + 1`,`ents'`]
+      (Q.INST [`fml`|->`fmlls`] rebuild_ents_thm))>>
+    simp[]>>strip_tac>>
+    rename1`any_el x (rebuild_ents _ _ _ _) Vnone = Vrebuild p1 n1`>>
+    qspecl_then [`s`,`acc`,`rebuild_ents fmlls ents' (m + 1) vw`]
+      (mp_tac o CONJUNCT2) get_inds_rebuilt_ents_thm>>
+    disch_then (qspecl_then [`x`,`rhs`,`p1`,`n1`] mp_tac)>>
+    simp[]>>
+    disch_then (qspecl_then [`0 ≤ coeff`,`i`] irule)>>
+    simp[]>>
+    qexists_tac`coeff`>>
+    gvs[vent_mem_def]>>
+    Cases_on`0 ≤ coeff`>>gvs[]>>
+    metis_tac[integerTheory.INT_NOT_LE,DECIDE``∀m i:num. m < i ⇔ m + 1 ≤ i``])>>
+  `MEM i (FLAT acc)` by metis_tac[]>>
+  Cases_on`rb`>>gvs[]>>
+  metis_tac[get_inds_rebuilt_ents_thm]
 QED
 
 Theorem MEM_get_set_indices_lookup_core_only:
   fml_rel fml fmlls ∧
-  vimap_rel fmlls vimap ∧
-  ind_rel fmlls inds ∧
+  vimap_rel fmlls (m,vw,ents) ∧
+  i < vw ∧
   lookup_core_only b fml i = SOME x ∧
-  IS_SOME (subst_opt (subst_fun (mk_subst s)) x) ∧
-  get_set_indices fmlls inds s vimap = (rinds, inds',vimap')
+  IS_SOME (subst_opt (subst_fun (mk_subst r s)) x) ∧
+  get_set_indices fmlls s (m,vw,ents) = (rinds, vimap')
   ⇒
   MEM i rinds
 Proof
@@ -2903,7 +4506,7 @@ Proof
     rw[fml_rel_def]>>
     simp[enc_opt_def])>>
   irule MEM_get_set_indices_mk_subst>>
-  qexistsl_tac[`fmlls`,`inds`,`inds'`,`s`,`vimap`,`vimap'`]>>
+  qexistsl_tac[`ents`,`fml`,`fmlls`,`m`,`r`,`s`,`vimap'`,`vw`]>>
   simp[dec_enc,enc_NOT_Empty]
 QED
 
@@ -2913,81 +4516,64 @@ Theorem fml_rel_fml_rel_vimap_rel:
   fml_rel fml fmlls' ⇒
   vimap_rel fmlls' vimap
 Proof
-  rw[fml_rel_def,vimap_rel_def]>>
-  rw[]>>
-  first_x_assum(qspec_then `i` mp_tac)>>
-  last_x_assum(qspec_then `i` mp_tac)>>
-  last_x_assum(qspec_then `i` mp_tac)>>
-  rw[any_el_ALT]>>gvs[]>>
-  metis_tac[]
-QED
-
-Theorem ind_rel_get_set_indices:
-  get_set_indices fmlls inds s vimap = (rinds,inds',vimap') ∧
-  ind_rel fmlls inds ⇒
-  ind_rel fmlls inds'
-Proof
-  rw[get_set_indices_def] >>
-  gvs[AllCaseEqs(),UNCURRY_EQ]>>
-  metis_tac[ind_rel_reindex]
-QED
-
-Theorem vimap_rel_do_reindex:
-  vimap_rel fmlls vimap ∧
-  (any_el n vimap Vnone = Vtrack pinds ninds ∨
-   any_el n vimap Vnone = Vcount k pinds ninds) ∧
-  do_reindex_rhs fmlls rhs pinds ninds = (pinds',ninds') ⇒
-  vimap_rel fmlls
-    (update_resize vimap Vnone (Vtrack pinds' ninds') n)
-Proof
-  rw[]>>gvs[do_reindex_rhs_def,AllCaseEqs()]>>
-  fs[vimap_rel_def,any_el_update_resize]>>rw[]>>
-  first_x_assum drule_all>>
-  imp_res_tac MEM_dec_NOT_Empty>>
-  rw[vent_mem_def,reindex_characterize]>>
-  gvs[vent_mem_def,MEM_FILTER]
-QED
-
-Theorem vimap_rel_restore:
-  vimap_rel fmlls vimap ∧
-  restore n fmlls inds = (pinds', ninds') ∧
-  ind_rel fmlls inds ⇒
-  vimap_rel fmlls
-    (update_resize vimap Vnone (Vtrack pinds' ninds') n)
-Proof
-  rw[restore_characterize,AllCaseEqs()]>>
-  fs[vimap_rel_def,any_el_update_resize]>>rw[]>>
-  first_x_assum drule_all>>
-  rw[]>>gvs[vent_mem_def,MEM_FILTER,AllCasePreds()]>>
-  rw[cond_pos_def,cond_neg_def,EXISTS_MEM,MEM_FILTER]>>
-  imp_res_tac MEM_dec_NOT_Empty>>
-  gvs[ind_rel_def]>>
-  first_x_assum (irule_at Any)>>gvs[]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem vimap_rel_fold_get_inds_rhs:
-  ∀fmlls ls acc vimap rinds vimap'.
-  fold_get_inds_rhs fmlls ls acc vimap = (rinds,vimap') ∧
-  vimap_rel fmlls vimap ⇒
-  vimap_rel fmlls vimap'
-Proof
-  ho_match_mp_tac fold_get_inds_rhs_ind>>
-  rw[fold_get_inds_rhs_def]>>
-  gvs[AllCaseEqs(),UNCURRY_EQ]>>
+  PairCases_on`vimap`>>
+  rw[vimap_rel_def]>>
+  `any_el i fmlls' Empty = any_el i fmlls Empty` by gvs[fml_rel_def]>>
   first_x_assum irule>>
-  metis_tac[vimap_rel_do_reindex]
+  gvs[]
 QED
 
 Theorem vimap_rel_get_set_indices:
-  get_set_indices fmlls inds s vimap = (rinds,inds',vimap') ∧
-  vimap_rel fmlls vimap ∧
-  ind_rel fmlls inds ⇒
-  vimap_rel fmlls vimap'
+  fml_rel fml fmlls ∧
+  get_set_indices fmlls s vimap = (rinds,vimap') ∧
+  vimap_rel fmlls vimap ⇒
+  vimap_rel fmlls vimap' ∧
+  FST vimap' = FST vimap ∧ FST (SND vimap') = FST (SND vimap)
 Proof
-  rw[get_set_indices_def] >>
-  gvs[AllCaseEqs(),UNCURRY_EQ]>>
-  metis_tac[vimap_rel_do_reindex,vimap_rel_restore,vimap_rel_fold_get_inds_rhs]
+  PairCases_on`vimap`>>
+  strip_tac>>
+  `∀k. wf_slot (any_el k fmlls Empty)` by metis_tac[fml_rel_wf_slot]>>
+  gvs[get_set_indices_def]>>
+  rpt (pairarg_tac>>gvs[])>>
+  drule get_inds_fold_ents_thm>>
+  disch_then (qspec_then`vimap0` strip_assume_tac)>>
+  gvs[vimap_rel_def]>>
+  rpt strip_tac>>
+  `any_el i fmlls Empty ≠ Empty` by metis_tac[MEM_dec_NOT_Empty]>>
+  `vent_mem vimap0 (any_el x vimap2 Vnone) (0 ≤ coeff) i` by
+    (first_x_assum irule>>simp[])>>
+  `vent_mem vimap0 (any_el x ents Vnone) (0 ≤ coeff) i` by (
+    qpat_x_assum`∀x pos j. _ ⇒ vent_mem _ (any_el x ents Vnone) pos j` irule>>
+    simp[])>>
+  Cases_on`rb`>>gvs[]>>
+  `vent_mem vimap0 (any_el x ents Vnone) (0 ≤ coeff) i` by metis_tac[]>>
+  simp[finish_rebuilt_thm]>>
+  mp_tac (Q.SPECL [`vimap1 - (vimap0 + 1)`,`vimap0 + 1`,`ents`]
+    (Q.INST [`fml`|->`fmlls`,`vw`|->`vimap1`] rebuild_ents_thm))>>
+  simp[]>>strip_tac>>
+  Cases_on`any_el x ents Vnone`>>gvs[]
+  >~ [`any_el x ents Vnone = Vrebuild _ _`]
+  >- (
+    rename1`any_el x (rebuild_ents _ _ _ _) Vnone = Vrebuild p1 n1`>>
+    IF_CASES_TAC>>
+    gvs[vent_mem_def]>>
+    Cases_on`0 ≤ coeff`>>gvs[]>>
+    metis_tac[integerTheory.INT_NOT_LE,DECIDE``∀m i:num. m < i ⇔ m + 1 ≤ i``])
+QED
+
+(* An empty-listed entry: no constraint below the watermark has it *)
+Theorem vimap_rel_vent_fresh:
+  vimap_rel fmlls (m,vw,ents) ∧
+  vent_fresh (any_el x ents Vnone) ∧
+  i < vw ∧
+  MEM (coeff,x) (FST (dec (any_el i fmlls Empty))) ⇒
+  F
+Proof
+  strip_tac>>
+  gvs[vimap_rel_def]>>
+  first_x_assum drule_all>>
+  Cases_on`any_el x ents Vnone`>>
+  gvs[vent_fresh_def,vent_mem_def,NULL_EQ]
 QED
 
 Definition vomap_rel_def:
@@ -2998,6 +4584,15 @@ Definition vomap_rel_def:
     ∀x.
     MEM x (MAP SND (FST l)) <=>
     x < strlen ls ∧ strsub ls x ≠ ^zw
+End
+
+(* po is the precomputation of the loaded order ord, whose maps are built
+  by mk_ordsub. OPTION_ALL ord_maps_ok ord duplicates part of the
+  invariant OPTION_ALL good_aspo_subst pc.ord that npbc_check proves for
+  check_cstep (check_cstep_correct); it is carried again here because
+  that theorem's other hypotheses are not available at this level *)
+Definition po_rel_def:
+  po_rel ord po ⇔ po = mk_ord_pre ord ∧ OPTION_ALL ord_maps_ok ord
 End
 
 Theorem add_lists_map_negate_coeff:
@@ -3033,53 +4628,91 @@ QED
 
 Theorem vomap_rel_fast_obj_constraint:
   vomap_rel (SOME l) vomap ⇒
-  fast_obj_constraint s l vomap =
-  obj_constraint (subst_fun s) l
+  fast_obj_constraint (mk_subst r sr) sr l vomap =
+  obj_constraint (subst_fun (mk_subst r sr)) l
 Proof
   rw[fast_obj_constraint_def,obj_constraint_rewrite,
      mlstringTheory.strsub_unsafe_eq_strsub]>>
   every_case_tac>>
   Cases_on`l`>>
-  fs[npbcTheory.obj_constraint_def,subst_fun_def]>>
+  fs[npbcTheory.obj_constraint_def,subst_fun_mk_subst]>>
   rpt (pairarg_tac>>fs[])>>
   pop_assum mp_tac>>
   DEP_REWRITE_TAC[add_lists_map_negate_coeff]>>rw[]>>
   pop_assum mp_tac>>
   DEP_REWRITE_TAC[subst_lhs_id]>>
   fs[vomap_rel_def]>>
-  simp[EVERY_MAP,LAMBDA_PROD,subst_fun_def]>>
+  simp[EVERY_MAP,LAMBDA_PROD,subst_fun_mk_subst]>>
   gvs[EVERY_MEM]>>
   rw[]>>pairarg_tac>>
-  fs[EXTENSION,MEM_MAP,domain_lookup,spt_to_vecTheory.vec_lookup_def]>>
-  metis_tac[option_CLAUSES,SND,PAIR]
+  fs[EXTENSION,MEM_MAP,domain_lookup,ALOOKUP_NONE]>>
+  qx_gen_tac`pr`>> rpt strip_tac>>
+  qpat_x_assum`∀x. _ ⇔ _` (qspec_then`FST pr` mp_tac)>>
+  qpat_x_assum`∀e. MEM e sr ⇒ _` (drule_then mp_tac)>>
+  Cases_on`pr`>>gvs[]>>
+  rw[]>>gvs[EXISTS_PROD]>>
+  metis_tac[]
 QED
 
 Theorem vomap_rel_fast_red_subgoals:
-  vomap_rel obj vomap ⇒
-  fast_red_subgoals ord s (enc def b) obj vomap hs =
-  red_subgoals ord (subst_fun s) def obj hs
+  vomap_rel obj vomap ∧ po = mk_ord_pre ord ∧
+  fast_red_subgoals ord po (mk_subst r sr) sr (enc def b) obj vomap hs =
+    (rsubs,rscopes) ⇒
+  red_subgoals ord (subst_fun (mk_subst r sr)) def obj hs =
+    (rsubs, MAP (MAP sc_hyp_dec) rscopes)
 Proof
+  strip_tac>>
+  mp_tac (Q.INST [‘po’ |-> ‘mk_ord_pre ord’,
+    ‘w’ |-> ‘subst_fun (mk_subst r sr)’] dom_subst_list_thm)>>
+  impl_tac
+  >- rw[subst_fun_mk_subst,ALOOKUP_NONE]>>
+  qpat_x_assum`fast_red_subgoals _ _ _ _ _ _ _ _ = _` mp_tac>>
   rw[fast_red_subgoals_def,red_subgoals_def,subst_slot_enc]>>
-  every_case_tac>>fs[]>>
+  Cases_on`dom_subst_list hs (subst_fun (mk_subst r sr)) sr ord (mk_ord_pre ord)`>>
+  Cases_on`dom_subst hs (subst_fun (mk_subst r sr)) ord`>>
+  rw[]>>
+  every_case_tac>>gvs[]>>
   metis_tac[vomap_rel_fast_obj_constraint]
+QED
+
+Theorem fast_red_subgoals_scopes_ok:
+  po = mk_ord_pre ord ∧
+  fast_red_subgoals ord po (mk_subst r sr) sr def obj vomap hs =
+    (rsubs,rscopes) ⇒
+  EVERY (EVERY sc_hyp_ok) rscopes
+Proof
+  strip_tac>>
+  mp_tac (Q.INST [‘po’ |-> ‘mk_ord_pre ord’,
+    ‘w’ |-> ‘subst_fun (mk_subst r sr)’] dom_subst_list_thm)>>
+  simp[subst_fun_mk_subst,ALOOKUP_NONE]>>
+  gvs[fast_red_subgoals_def]>>
+  rpt (pairarg_tac>>gvs[])
 QED
 
 Theorem vimap_rel_check_fresh_aux_fml_vimap:
   fml_rel fml fmlls ∧
   vimap_rel fmlls vimap ∧
+  (∀n. n ≥ FST (SND vimap) ⇒ any_el n fmlls Empty = Empty) ∧
   check_fresh_aux_fml_vimap as vimap ⇒
   check_fresh_aux_fml as fml
 Proof
+  PairCases_on`vimap`>>
   rw[check_fresh_aux_fml_vimap_def,check_fresh_aux_fml_def]>>
   pop_assum mp_tac>>
   match_mp_tac EVERY_MONOTONIC>>
-  gvs[vimap_rel_def,fml_rel_def]>>rw[]>>
+  rw[]>>
   CCONTR_TAC>>
   gvs[range_def,MEM_MAP]>>
   rename1`MEM y _`>>
   PairCases_on`c`>> PairCases_on`y`>>
-  first_x_assum (qspecl_then [`n`,`y0`,`y1`] mp_tac)>>
-  gvs[enc_opt_def,dec_enc,vent_mem_def]
+  `any_el n fmlls Empty = enc (c0,c1) c2` by gvs[fml_rel_def,enc_opt_def]>>
+  `n < vimap1` by (
+    CCONTR_TAC>>
+    first_x_assum (qspec_then`n` mp_tac)>>
+    simp[enc_NOT_Empty])>>
+  drule vimap_rel_vent_fresh>>
+  disch_then (qspecl_then [`y1`,`n`,`y0`] mp_tac)>>
+  gvs[dec_enc]
 QED
 
 Theorem vomap_rel_check_fresh_aux_obj_vomap:
@@ -3097,32 +4730,101 @@ Proof
   gvs[]
 QED
 
+(* The index is filled up to id whenever the freshness check reads it *)
 Theorem vimap_rel_vomap_rel_check_fresh_aspo_list:
   fml_rel fml fmlls ∧
   vimap_rel fmlls vimap ∧
+  (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
+  (reads_vimap s T ord ⇒ FST (SND vimap) = id) ∧
   vomap_rel obj vomap ∧
   check_fresh_aspo_list (enc c b) s ord vimap vomap ⇒
   check_fresh_aspo fml c obj s ord
 Proof
-  rw[check_fresh_aspo_list_def,check_fresh_aspo_def,
-    check_fresh_aux_constr_slot_enc]>>
-  gvs[AllCasePreds()]>>
-  metis_tac[vomap_rel_check_fresh_aux_obj_vomap,vimap_rel_check_fresh_aux_fml_vimap]
+  strip_tac>>
+  Cases_on`reads_vimap s T ord`
+  >- (
+    gvs[check_fresh_aspo_list_def,check_fresh_aspo_def,
+      check_fresh_aux_constr_slot_enc,AllCasePreds()]>>
+    metis_tac[vomap_rel_check_fresh_aux_obj_vomap,
+      vimap_rel_check_fresh_aux_fml_vimap])>>
+  gvs[reads_vimap_def,check_fresh_aspo_list_def,check_fresh_aspo_def,
+    AllCasePreds(),check_fresh_aux_constr_slot_enc,NULL_EQ,
+    check_fresh_aux_fml_def,check_fresh_aux_obj_def]>>
+  Cases_on`obj`>>simp[]
+QED
+
+(* The fill and the read at the start of a step *)
+Theorem fill_get_set_indices:
+  fml_rel fml fmlls ∧ vimap_rel fmlls vimap ∧ FST (SND vimap) ≤ id ∧
+  (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
+  get_set_indices fmlls s
+    (if reads_vimap s fresh ord then fill_vimap fmlls id vimap else vimap) =
+    (rinds,vimap') ⇒
+  vimap_rel fmlls vimap' ∧ FST (SND vimap') ≤ id ∧
+  (reads_vimap s fresh ord ⇒ FST (SND vimap') = id) ∧
+  ∀i x b r.
+    lookup_core_only b fml i = SOME x ∧
+    IS_SOME (subst_opt (subst_fun (mk_subst r s)) x) ⇒
+    MEM i rinds
+Proof
+  strip_tac>>
+  Cases_on`reads_vimap s fresh ord`>>gvs[]
+  >- (
+    `∃m vw ents. fill_vimap fmlls id vimap = (m,vw,ents)` by metis_tac[PAIR]>>
+    drule_all vimap_rel_fill_vimap>>
+    strip_tac>>gvs[MAX_DEF]>>
+    drule_all vimap_rel_get_set_indices>>
+    strip_tac>>simp[]>>
+    rpt strip_tac>>
+    irule MEM_get_set_indices_lookup_core_only>>
+    qexistsl_tac[`b`,`ents`,`fml`,`fmlls`,`FST vimap`,`r`,`s`,`vimap'`,`id`,`x`]>>
+    simp[]>>
+    gvs[lookup_core_only_def,AllCaseEqs()]>>
+    CCONTR_TAC>>
+    qpat_x_assum`∀n. n ≥ id ⇒ _` (qspec_then`i` mp_tac)>>
+    gvs[fml_rel_def,enc_opt_def,enc_NOT_Empty])>>
+  drule_all vimap_rel_get_set_indices>>
+  strip_tac>>simp[]>>
+  gvs[reads_vimap_def,NULL_EQ]>>
+  rpt strip_tac>>
+  drule IS_SOME_subst_opt>>
+  simp[subst_fun_mk_subst]
+QED
+
+(* The freshness check on the index filled at the start of a step *)
+Theorem fill_check_fresh_aspo_list:
+  fml_rel fml fmlls ∧ vimap_rel fmlls vimap ∧ FST (SND vimap) ≤ id ∧
+  (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
+  vomap_rel obj vomap ∧
+  check_fresh_aspo_list (enc c b) s ord
+    (if reads_vimap s T ord then fill_vimap fmlls id vimap else vimap)
+    vomap ⇒
+  check_fresh_aspo fml c obj s ord
+Proof
+  strip_tac>>
+  irule vimap_rel_vomap_rel_check_fresh_aspo_list>>
+  qexistsl_tac[`b`,`fmlls`,`id`,
+    `if reads_vimap s T ord then fill_vimap fmlls id vimap else vimap`,
+    `vomap`]>>
+  rw[]>>
+  qspecl_then [`vimap`,`id`,`fmlls`,`fml`,`fill_vimap fmlls id vimap`] mp_tac
+    (Q.GENL [`vimap`,`id`,`fmlls`,`fml`,`vimap'`] vimap_rel_fill_vimap)>>
+  simp[MAX_DEF]
 QED
 
 Theorem fml_rel_check_red_list:
   fml_rel fml fmlls ∧ rup_inv fmlls assg st ∧
   ind_rel fmlls inds ∧
-  vimap_rel fmlls vimap ∧
-  vomap_rel obj vomap ∧
+  vimap_rel fmlls vimap ∧ FST (SND vimap) ≤ id ∧
+  vomap_rel obj vomap ∧ po = mk_ord_pre ord ∧
   (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
-  check_red_list pres ord obj b tcb fmlls inds id (enc c b0) (max_var (FST c)) s pfs
-    idopt vimap vomap assg st =
-    SOME (fmlls', inds', vimap', id', assg', st') ⇒
+  check_red_list pres ord po obj b tcb fmlls inds id (enc c b0) (max_var (FST c)) s pfs
+    idopt vimap vomap assg st ht =
+    SOME (fmlls', inds', vimap', id', assg', st', ht') ⇒
     check_red pres ord obj b tcb fml id c s pfs idopt = SOME id' ∧
     fml_rel fml fmlls' ∧ rup_inv fmlls' assg' st' ∧
     ind_rel fmlls' inds' ∧
-    vimap_rel fmlls' vimap' ∧
+    vimap_rel fmlls' vimap' ∧ FST (SND vimap') ≤ id' ∧
     (∀n. n ≥ id' ⇒ any_el n fmlls' Empty = Empty) ∧
     id ≤ id'
 Proof
@@ -3130,13 +4832,18 @@ Proof
   fs[check_red_list_def,not_slot_enc,store_slot_enc,max_var_not]>>
   gvs[AllCaseEqs()]
   >- (
-    gvs[vomap_rel_fast_red_subgoals]>>
-    pairarg_tac>>fs[]>>
-    pairarg_tac>>fs[]>>
-    pairarg_tac>>fs[]>>
+    rpt (pairarg_tac>>fs[])>>
     gvs[AllCaseEqs()]>>
+    drule_at (Pos last) vomap_rel_fast_red_subgoals>>
+    simp[]>>strip_tac>>
+    drule_at (Pos last) fast_red_subgoals_scopes_ok>>
+    simp[]>>strip_tac>>
+    drule_all fill_get_set_indices>>
+    strip_tac>>
     simp[check_red_def]>>
+    qspecl_then [`[]`,`rinds`,`s`] SUBST_ALL_TAC subst_fun_mk_subst_rinds>> simp[]>>
     DEP_REWRITE_TAC [fml_rel_extract_scopes_list]>> simp[]>>
+    drule_all scopes_ok_extract_scopes_list>> strip_tac>>
     drule_all rup_inv_opt_update>> strip_tac>>
     drule_all fml_rel_opt_update>> strip_tac>>
     gvs[opt_update_SOME]>>
@@ -3151,28 +4858,33 @@ Proof
     drule check_scopes_list_id>>
     drule check_scopes_list_id_upper>>
     drule check_scopes_list_mindel>>
-    drule_all vimap_rel_get_set_indices>>
     simp[any_el_update_resize]>>
-    ntac 4 strip_tac>>
+    ntac 3 strip_tac>>
     pairarg_tac>>gvs[AllCaseEqs()]>>
+    qmatch_asmsub_abbrev_tac`UNCURRY _ DRC = SOME _`>>
+    PairCases_on`DRC`>>
+    gvs[markerTheory.Abbrev_def]>>
     `fml_rel fml (rollback fml' id id')` by (
       match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
     CONJ_TAC >- (
       gvs[do_red_check_def,red_cond_check_def,AllCaseEqs(),insert_fml_def,
-        check_hash_goals_slot_enc]>>
-      TOP_CASE_TAC>>fs[]
+        check_hash_goals_slot_enc]
       >- (
-        rpt (pairarg_tac>>fs[])>>
-        CONJ_TAC >-
-          metis_tac[vimap_rel_vomap_rel_check_fresh_aspo_list]>>
-        (drule_at Any) split_goals_hash_imp_split_goals>>
-        disch_then (qspec_then`mk_core_fml b fml` mp_tac)>>
-        impl_tac >- (
-          simp[range_mk_core_fml]>>
-          gvs[get_set_indices_def] >>
-          every_case_tac>> gvs[]>>
-          match_mp_tac revalue_SUBSET>>
-          metis_tac[])>>
+        Cases_on`extract_scoped_pids_list pfs [] LN`>>
+        rename1`extract_scoped_pids_list pfs [] LN = (pl,pr)`>>
+        qspecl_then [`pfs`,`[]`,`LN`,`LN`] mp_tac
+          extract_scoped_pids_list_thm>>
+        simp[]>>strip_tac>>gvs[]>>
+        CONJ_TAC >- (
+          disch_tac>>
+          gvs[]>>
+          metis_tac[vimap_rel_vomap_rel_check_fresh_aspo_list])>>
+        Cases_on`check_hash_goals c skipped pr rsubs`>>
+        gvs[]>>
+        drule_at (Pos (el 2)) split_goals_hash_imp_split_goals>>
+        disch_then drule>>
+        disch_then (qspec_then`l` mp_tac)>>
+        impl_tac >- simp[]>>
         match_mp_tac split_goals_same_goals>>
         simp[EXTENSION,FORALL_PROD]>>
         rw[]>>eq_tac>>rw[]
@@ -3181,7 +4893,7 @@ Proof
           irule MEM_subst_indexes>>
           first_assum (irule_at Any)>>
           simp[]>>
-          metis_tac[MEM_get_set_indices_lookup_core_only,IS_SOME_EXISTS])>>
+          metis_tac[IS_SOME_EXISTS])>>
         drule_at (Pos last) subst_indexes_MEM>>
         disch_then drule>>
         rw[]>>
@@ -3193,8 +4905,7 @@ Proof
       metis_tac[rup_inv_rollback])>>
     CONJ_TAC >- (
       match_mp_tac ind_rel_rollback_2>>
-      simp[] >>
-      metis_tac[ind_rel_get_set_indices])>>
+      simp[])>>
     CONJ_TAC >- (
       metis_tac[fml_rel_fml_rel_vimap_rel])>>
     simp[rollback_list_delete,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
@@ -3247,11 +4958,10 @@ QED
 
 Theorem store_ind_enc:
   mv = max_var (FST c) ⇒
-  (store_ind fml (enc c b) mv id inds vimap assg st =
-    (fml',inds',vimap',id',assg',st') ⇔
+  (store_ind fml (enc c b) mv id inds assg st =
+    (fml',inds',id',assg',st') ⇔
   opt_update fml (SOME (c,b)) id assg st = (fml',id',assg',st') ∧
-  inds' = sorted_insert id inds ∧
-  vimap' = update_vimap_slot T vimap id mv (enc c b))
+  inds' = sorted_insert id inds)
 Proof
   rw[store_ind_def,opt_update_def,enc_mv_enc]>>
   pairarg_tac>>simp[]>>
@@ -3259,8 +4969,8 @@ Proof
 QED
 
 Theorem opt_update_inds_opt_update:
-  opt_update_inds fml c id inds vimap assg st =
-    (fml',inds',vimap',id',assg',st') ⇒
+  opt_update_inds fml c id inds assg st =
+    (fml',inds',id',assg',st') ⇒
   opt_update fml c id assg st = (fml',id',assg',st')
 Proof
   Cases_on`c`>>simp[opt_update_inds_def]>>
@@ -3287,8 +4997,8 @@ QED
 
 Theorem opt_update_inds_SORTED:
   SORTED $>= inds ∧
-  opt_update_inds fml c id inds vimap assg st =
-    (fml',inds',vimap',id',assg',st') ⇒
+  opt_update_inds fml c id inds assg st =
+    (fml',inds',id',assg',st') ⇒
   SORTED $>= inds'
 Proof
   Cases_on`c`>>strip_tac>>gvs[opt_update_inds_def]>>
@@ -3299,8 +5009,8 @@ QED
 
 Theorem opt_update_inds_ind_rel:
   ind_rel fml inds ∧
-  opt_update_inds fml c id inds vimap assg st =
-    (fml',inds',vimap',id',assg',st') ⇒
+  opt_update_inds fml c id inds assg st =
+    (fml',inds',id',assg',st') ⇒
   ind_rel fml' inds'
 Proof
   Cases_on`c`>>strip_tac>>gvs[opt_update_inds_def]>>
@@ -3316,6 +5026,7 @@ Theorem vimap_rel_check_lstep_list:
     SOME (fmlls',x,y,z,w) ⇒
   vimap_rel fmlls' vimap
 Proof
+  PairCases_on`vimap`>>
   rw[] \\ fs[vimap_rel_def] \\ rw[] >>
   imp_res_tac MEM_dec_NOT_Empty>>
   drule (CONJUNCT1 check_lstep_list_id_del)>>
@@ -3329,170 +5040,58 @@ Proof
   gvs[]
 QED
 
-Theorem vent_mem_opt_cons:
-  vent_mem e pos j ⇒ vent_mem (opt_cons fresh c v e) pos j
-Proof
-  Cases_on`e`>>
-  rw[opt_cons_def,vent_mem_def]>>
-  gvs[]
-QED
-
-Theorem vent_mem_opt_cons_new:
-  vent_mem (opt_cons fresh c v e) (0 ≤ c) v
-Proof
-  Cases_on`e`>>
-  rw[opt_cons_def,vent_mem_def]>>
-  rw[vent_mem_def]
-QED
-
-Theorem any_el_LUPDATE:
-  any_el i (LUPDATE v n ls) d =
-  if i = n ∧ n < LENGTH ls then v else any_el i ls d
-Proof
-  rw[any_el_ALT,EL_LUPDATE]>>
-  gvs[]
-QED
-
-Theorem LENGTH_update_vimap_slot_aux:
-  ∀fresh vimap v cs vs i.
-  LENGTH (update_vimap_slot_aux fresh vimap v cs vs i) = LENGTH vimap
-Proof
-  ho_match_mp_tac update_vimap_slot_aux_ind>>
-  rw[]>>
-  rw[Once update_vimap_slot_aux_def]
-QED
-
-Theorem vent_mem_update_vimap_slot_aux:
-  ∀fresh vimap v cs vs i.
-  (∀k. k < i ⇒ sub vs k < LENGTH vimap) ⇒
-  (∀x pos j.
-    vent_mem (any_el x vimap Vnone) pos j ⇒
-    vent_mem (any_el x (update_vimap_slot_aux fresh vimap v cs vs i) Vnone)
-      pos j) ∧
-  (∀k. k < i ⇒
-    vent_mem
-      (any_el (sub vs k) (update_vimap_slot_aux fresh vimap v cs vs i) Vnone)
-      (0 ≤ sub cs k) v)
-Proof
-  ho_match_mp_tac update_vimap_slot_aux_ind>>
-  rpt gen_tac>>strip_tac>>strip_tac>>
-  ONCE_REWRITE_TAC[update_vimap_slot_aux_def]>>
-  IF_CASES_TAC
-  >- simp[]>>
-  simp[]>>
-  first_x_assum (qspecl_then [`i-1`,`sub vs (i-1)`] mp_tac)>>
-  simp[]>>
-  qmatch_goalsub_abbrev_tac`update_vimap_slot_aux _ vimap1 _ _ _ _`>>
-  `sub vs (i-1) < LENGTH vimap` by simp[]>>
-  `∀x pos j. vent_mem (any_el x vimap Vnone) pos j ⇒
-    vent_mem (any_el x vimap1 Vnone) pos j` by (
-    rw[Abbr`vimap1`,any_el_LUPDATE]>>
-    gvs[any_el_ALT]>>
-    metis_tac[vent_mem_opt_cons])>>
-  `vent_mem (any_el (sub vs (i-1)) vimap1 Vnone) (0 ≤ sub cs (i-1)) v` by
-    simp[Abbr`vimap1`,any_el_LUPDATE,vent_mem_opt_cons_new]>>
-  rw[]>>
-  Cases_on`k = i - 1`
-  >- metis_tac[]>>
-  `k < i - 1` by simp[]>>
-  metis_tac[]
-QED
-
-Theorem vent_mem_update_vimap_slot:
-  max_var (FST c) ≤ m ⇒
-  (vent_mem (any_el x vimap Vnone) pos j ⇒
-    vent_mem (any_el x (update_vimap_slot fresh vimap v m (enc c b)) Vnone)
-      pos j) ∧
-  (MEM (coeff,y) (FST c) ⇒
-    vent_mem (any_el y (update_vimap_slot fresh vimap v m (enc c b)) Vnone)
-      (0 ≤ coeff) v)
-Proof
-  PairCases_on`c`>>
-  simp[update_vimap_slot_def,enc_def,mlvectorTheory.length_def]>>
-  strip_tac>>
-  qmatch_goalsub_abbrev_tac`update_vimap_slot_aux _ vimap1 _ _ _ _`>>
-  `∀x. any_el x vimap1 Vnone = any_el x vimap Vnone` by (
-    rw[Abbr`vimap1`,any_el_update_resize]>>
-    IF_CASES_TAC>>gvs[any_el_ALT])>>
-  `∀k. k < LENGTH c0 ⇒ sub (Vector (MAP SND c0)) k < LENGTH vimap1` by (
-    rw[mlvectorTheory.sub_def,EL_MAP]>>
-    `SND (EL k c0) < max_var c0 + 1` by (
-      qspec_then`c0` assume_tac max_var_bound>>
-      gvs[EVERY_EL]>>
-      first_x_assum drule>>
-      pairarg_tac>>simp[])>>
-    rw[Abbr`vimap1`,update_resize_def])>>
-  drule vent_mem_update_vimap_slot_aux>>
-  disch_then (qspecl_then [`fresh`,`v`,`Vector (MAP FST c0)`]
-    strip_assume_tac)>>
-  rw[]>>
-  gvs[MEM_EL]>>
-  first_x_assum (qspec_then`n` mp_tac)>>
-  simp[mlvectorTheory.sub_def,EL_MAP]>>
-  qpat_x_assum`_ = EL _ _` (assume_tac o SYM)>>
-  gvs[]
-QED
-
-Theorem vimap_rel_update_resize_update_vimap_slot:
-  vimap_rel fml vimap ∧ max_var (FST c) ≤ m ⇒
-  vimap_rel (update_resize fml Empty (enc c b) n)
-    (update_vimap_slot fresh vimap n m (enc c b'))
-Proof
-  rw[vimap_rel_def,any_el_update_resize]>>
-  Cases_on`i = n`>>gvs[dec_enc]>>
-  metis_tac[vent_mem_update_vimap_slot]
-QED
-
 Theorem opt_update_inds_vimap_rel:
-  vimap_rel fml vimap ∧
-  opt_update_inds fml c id inds vimap assg st =
-    (fml',inds',vimap',id',assg',st') ⇒
-  vimap_rel fml' vimap'
+  vimap_rel fml vimap ∧ FST (SND vimap) ≤ id ∧
+  opt_update_inds fml c id inds assg st =
+    (fml',inds',id',assg',st') ⇒
+  vimap_rel fml' vimap
 Proof
   Cases_on`c`>>strip_tac>>gvs[opt_update_inds_def]>>
   rename1`SOME cc`>>PairCases_on`cc`>>
   gvs[opt_update_inds_def,enc_mv_enc,store_ind_enc,opt_update_SOME]>>
-  simp[vimap_rel_update_resize_update_vimap_slot]
+  simp[vimap_rel_update_resize]
 QED
 
 Theorem store_rels:
   fml_rel fml fmlls ∧ rup_inv fmlls assg st ∧ ind_rel fmlls inds ∧
-  vimap_rel fmlls vimap ∧
+  vimap_rel fmlls vimap ∧ FST (SND vimap) ≤ id ∧
   (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
   grow_assg assg st (max_var (FST c) + 1) = (assg',st') ⇒
   fml_rel (insert id (c,b) fml) (update_resize fmlls Empty (enc c b) id) ∧
   rup_inv (update_resize fmlls Empty (enc c b) id) assg' st' ∧
   ind_rel (update_resize fmlls Empty (enc c b) id) (sorted_insert id inds) ∧
-  vimap_rel (update_resize fmlls Empty (enc c b) id)
-    (update_vimap_slot T vimap id (max_var (FST c)) (enc c b)) ∧
+  vimap_rel (update_resize fmlls Empty (enc c b) id) vimap ∧
   (∀n. n ≥ id + 1 ⇒
     any_el n (update_resize fmlls Empty (enc c b) id) Empty = Empty)
 Proof
   rw[fml_rel_update_resize,ind_rel_update_resize_sorted_insert,
-    vimap_rel_update_resize_update_vimap_slot,any_el_update_resize]>>
+    vimap_rel_update_resize,any_el_update_resize]>>
   metis_tac[rup_inv_update_resize_grow]
 QED
 
 Theorem fml_rel_check_sstep_list:
-  ∀sstep pres ord obj fmlls inds id assg st fmlls' id' inds' assg' st' fml.
+  ∀sstep pres ord obj fmlls inds id assg st fmlls' id' inds' assg' st' fml
+    ht ht'.
     fml_rel fml fmlls ∧ rup_inv fmlls assg st ∧
     ind_rel fmlls inds ∧
-    vimap_rel fmlls vimap ∧
-    vomap_rel obj vomap ∧
+    vimap_rel fmlls vimap ∧ FST (SND vimap) ≤ id ∧
+    vomap_rel obj vomap ∧ po = mk_ord_pre ord ∧
     (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
-    check_sstep_list sstep pres ord obj tcb fmlls inds id vimap vomap assg st =
-      SOME (fmlls',inds',vimap',id',assg',st') ⇒
+    check_sstep_list sstep pres ord po obj tcb fmlls inds id vimap vomap assg st
+      ht =
+      SOME (fmlls',inds',vimap',id',assg',st',ht') ⇒
     ∃fml'.
       check_sstep sstep pres ord obj tcb fml id = SOME(fml',id') ∧
       fml_rel fml' fmlls' ∧ rup_inv fmlls' assg' st' ∧
       ind_rel fmlls' inds' ∧
-      vimap_rel fmlls' vimap' ∧
+      vimap_rel fmlls' vimap' ∧ FST (SND vimap') ≤ id' ∧
       (∀n. n ≥ id' ⇒ any_el n fmlls' Empty = Empty) ∧
       id ≤ id'
 Proof
   Cases>>rw[]>>fs[check_sstep_list_def,check_sstep_def]
   >- (
     gvs[AllCaseEqs()]>>
+    pairarg_tac>>gvs[]>>
     `0 ≤ id` by fs[]>>
     imp_res_tac opt_update_inds_opt_update>>
     drule (CONJUNCT1 fml_rel_check_lstep_list)>>
@@ -3500,35 +5099,42 @@ Proof
     rw[]>>simp[]>>
     CONJ_TAC >-
       metis_tac[opt_update_inds_ind_rel,ind_rel_check_lstep_list]>>
-    CONJ_TAC >-
-      metis_tac[opt_update_inds_vimap_rel,vimap_rel_check_lstep_list]>>
+    `id ≤ id'' ∧ id'' ≤ id'` by
+      metis_tac[check_lstep_list_id,opt_update_id]>>
+    `vimap_rel rfml vimap` by metis_tac[vimap_rel_check_lstep_list]>>
+    `FST (SND vimap) ≤ id''` by decide_tac>>
+    `vimap_rel fml' vimap` by metis_tac[opt_update_inds_vimap_rel]>>
+    simp[]>>
     drule (CONJUNCT1 check_lstep_list_id_upper)>>
     drule opt_update_id_upper>>
-    drule opt_update_id>>
-    drule (CONJUNCT1 check_lstep_list_id)>>
-    simp[]>>rw[])>>
+    simp[])>>
   rpt (pairarg_tac>>gvs[])>>
   gvs[AllCaseEqs(),insert_fml_def,enc_mv_enc,store_ind_enc]>>
-  drule_all fml_rel_check_red_list>>
-  strip_tac>>
+  drule_at (Pos last) fml_rel_check_red_list>>
+  disch_then (qspec_then`fml` mp_tac)>>
+  simp[]>>strip_tac>>
   gvs[opt_update_SOME]>>
+  qmatch_asmsub_abbrev_tac`UNCURRY _ SI = SOME _`>>
+  PairCases_on`SI`>>
+  qpat_x_assum`Abbrev _`
+    (assume_tac o GSYM o REWRITE_RULE[markerTheory.Abbrev_def])>>
+  gvs[store_ind_enc,opt_update_SOME]>>
   drule_all store_rels>>
   simp[]
 QED
 
 Definition do_dom_check_def:
-  do_dom_check idopt fml rfml inds goals extra pfs dsubs dindex =
+  do_dom_check idopt fml rfml inds base ht goals extra pfs dsubs dindex =
   case idopt of NONE =>
-    let (l,r) = extract_scoped_pids pfs LN LN in
+    let (l,r) = extract_scoped_pids_list pfs [] LN in
     if
       find_scope_1 dindex pfs ∧
       check_hash_goals_slot extra [dindex] r dsubs
     then
-      let fmlls = revalue F rfml inds in
-      split_goals_hash fmlls extra l goals
-    else F
+      split_goals_hash F rfml inds base ht extra l goals
+    else (F,ht)
   | SOME cid =>
-     check_contradiction_fml_list F fml cid
+     (check_contradiction_fml_list F fml cid, ht)
 End
 
 (* maybe memory ... *)
@@ -3598,13 +5204,148 @@ Proof
   gvs[]
 QED
 
-Definition all_core_list_def:
-  (all_core_list fml [] iacc = SOME (REVERSE iacc)) ∧
-  (all_core_list fml (i::is) iacc =
+(* core_from_inds, leaving slots that are already core untouched *)
+Definition core_from_inds_skip_def:
+  (core_from_inds_skip fml [] = SOME fml) ∧
+  (core_from_inds_skip fml (i::is) =
     let s = any_el i fml Empty in
-    if s = Empty then all_core_list fml is iacc
-    else if core_slot s then all_core_list fml is (i::iacc)
-    else NONE)
+    if s = Empty then NONE
+    else if core_slot s then core_from_inds_skip fml is
+    else core_from_inds_skip (update_resize fml Empty (set_core_slot s T) i) is)
+End
+
+Theorem core_from_inds_skip_eq:
+  ∀is fml.
+  core_from_inds_skip fml is = core_from_inds fml is
+Proof
+  Induct>>rw[core_from_inds_skip_def,core_from_inds_def]>>
+  `update_resize fml Empty (set_core_slot (any_el h fml Empty) T) h = fml` by (
+    Cases_on`any_el h fml Empty`>>
+    gvs[core_slot_def,set_core_slot_def]>>
+    gvs[update_resize_def,any_el_ALT,AllCaseEqs()]>>
+    metis_tac[LUPDATE_SAME])>>
+  simp[]
+QED
+
+(* every stored slot below w is core *)
+Definition core_below_def:
+  core_below w fmlls ⇔
+  ∀n. n < w ∧ any_el n fmlls Empty ≠ Empty ⇒ core_slot (any_el n fmlls Empty)
+End
+
+Theorem core_below_0[simp]:
+  core_below 0 fmlls
+Proof
+  simp[core_below_def]
+QED
+
+(* flag the stored slots in [w, id) as core, within the length of fml *)
+Definition core_from_range_def:
+  core_from_range fml w id =
+  if w < id ∧ w < LENGTH fml then
+    let s = any_el w fml Empty in
+    if s = Empty ∨ core_slot s then core_from_range fml (w + 1) id
+    else core_from_range (update_resize fml Empty (set_core_slot s T) w) (w + 1) id
+  else fml
+Termination
+  WF_REL_TAC`measure (λ(fml,w,id). id - w)`
+End
+
+Theorem any_el_core_from_range:
+  ∀fml w id n.
+  any_el n (core_from_range fml w id) Empty =
+  if w ≤ n ∧ n < id then set_core_slot (any_el n fml Empty) T
+  else any_el n fml Empty
+Proof
+  ho_match_mp_tac core_from_range_ind>>
+  rpt strip_tac>>
+  simp[Once core_from_range_def]>>
+  reverse IF_CASES_TAC
+  >- (
+    rw[]>>
+    `LENGTH fml ≤ n` by gvs[]>>
+    gvs[any_el_ALT,set_core_slot_def])>>
+  IF_CASES_TAC>>
+  gvs[any_el_update_resize]>>
+  Cases_on`n = w`>>gvs[]
+  >~ [`any_el n fml Empty = set_core_slot (any_el n fml Empty) T`]
+  >- (Cases_on`any_el n fml Empty`>>gvs[set_core_slot_def,core_slot_def])>>
+  `w + 1 ≤ n ⇔ w ≤ n` by decide_tac>>
+  simp[]
+QED
+
+Theorem any_el_core_from_range_Empty:
+  any_el n (core_from_range fmlls w id) Empty = Empty ⇔
+  any_el n fmlls Empty = Empty
+Proof
+  rw[any_el_core_from_range]
+QED
+
+Theorem core_below_core_from_range:
+  core_below w fmlls ⇒
+  core_below id (core_from_range fmlls w id)
+Proof
+  rw[core_below_def,any_el_core_from_range]>>
+  Cases_on`w ≤ n`>>gvs[]
+  >- (Cases_on`any_el n fmlls Empty`>>gvs[set_core_slot_def,core_slot_def])>>
+  first_x_assum irule>>
+  simp[]
+QED
+
+(* core_below w is kept by any change that, below w, only deletes *)
+Theorem core_below_frame:
+  core_below w fmlls ∧
+  (∀n. n < w ∧ any_el n fmlls' Empty ≠ Empty ⇒
+    any_el n fmlls Empty = any_el n fmlls' Empty) ⇒
+  core_below w fmlls'
+Proof
+  rw[core_below_def]>>
+  metis_tac[]
+QED
+
+Theorem core_below_core_from_inds:
+  ∀l fmlls fmlls'.
+  core_below w fmlls ∧
+  core_from_inds fmlls l = SOME fmlls' ⇒
+  core_below w fmlls'
+Proof
+  Induct>>rw[core_from_inds_def]>>gvs[AllCaseEqs()]>>
+  last_x_assum irule>>
+  pop_assum $ irule_at Any>>
+  gvs[core_below_def,any_el_update_resize]>>
+  rw[]>>
+  Cases_on`any_el h fmlls Empty`>>gvs[set_core_slot_def,core_slot_def]
+QED
+
+(* With every slot at or above id Empty, flagging [w, id) makes every
+  constraint core *)
+Theorem fml_rel_core_from_range:
+  fml_rel fml fmlls ∧
+  (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
+  core_below w fmlls ⇒
+  fml_rel (map (λ(c,b). (c,T)) fml) (core_from_range fmlls w id)
+Proof
+  rw[fml_rel_def,any_el_core_from_range,lookup_map]>>
+  Cases_on`lookup x fml`>>gvs[enc_opt_def]>>
+  rename1`lookup x fml = SOME p`>>PairCases_on`p`>>
+  gvs[enc_opt_def]>>
+  rw[]>>
+  Cases_on`x < id`
+  >- (
+    `any_el x fmlls Empty = enc (p0,p1) p2` by simp[enc_opt_def]>>
+    gvs[core_below_def]>>
+    first_x_assum (qspec_then`x` mp_tac)>>
+    simp[enc_NOT_Empty])>>
+  first_x_assum (qspec_then`x` mp_tac)>>
+  simp[]
+QED
+
+Definition all_core_list_def:
+  all_core_list fml is =
+    if EVERY (λi.
+      any_el i fml Empty = Empty ∨ core_slot (any_el i fml Empty)) is
+    then SOME (reindex fml is)
+    else NONE
 End
 
 Theorem slot_list_test:
@@ -3620,19 +5361,56 @@ Theorem slot_list_test:
   reindex [c1; Empty; c2] [2;1;0] = [2;0] ∧
   core_from_inds [c1; c2] [1] = SOME [c1; enc ([(-1,2)],1) T] ∧
   core_from_inds [c1; Empty] [1] = NONE ∧
-  all_core_list [c1; Empty; c3] [2;1;0] [] = SOME [2;0] ∧
-  all_core_list [c1; c2] [1;0] [] = NONE ∧
-  opt_cons T (-1) 3 Vnone = Vtrack [] [3] ∧
-  opt_cons F 1 3 (Vcount 9 [] []) = Vcount 10 [3] [] ∧
-  opt_cons T 1 3 (Vcount 10 [] []) = Voverflow ∧
-  split_goals_pure (insert 0 () LN) c1 [(0,([(1,1)],1)); (1,([(1,1)],1));
-    (2,([(1,2)],1))] = ([(0,([(1,1)],1))], [([(1,2)],1)])
+  all_core_list [c1; Empty; c3] [2;1;0] = SOME [2;0] ∧
+  all_core_list [c1; c2] [1;0] = NONE ∧
+  split_goals_pure (mk_map [] [(0,())]) c1 [(0,([(1,1)],1)); (1,([(1,1)],1));
+    (2,([(1,2)],1))] [] [] = ([([(1,1)],1)], [([(1,2)],1)])
+Proof
+  EVAL_TAC
+QED
+
+(* Variable 1 occurs positively in the 13 constraints, 2 of them input *)
+Theorem vimap_test:
+  let c = enc ([(1,1)],1) T in
+  let fml = Empty :: REPLICATE 13 c in
+  let vi = fill_vimap fml 14 (2,0,[]) in
+  let r = get_set_indices fml [(1,INL F)] vi in
+  let fml2 = LUPDATE Empty 5 fml in
+  let r2 = get_set_indices fml2 [(1,INL F)] (SND r) in
+  let r3 = get_set_indices fml [(7,INL F)] vi in
+  let fml4 = SNOC (enc ([(1,1);(-1,2)],1) T) fml in
+  let vi4 = fill_vimap fml4 15 vi in
+  let r4 = get_set_indices fml4 [(1,INL F);(2,INL T)] vi4 in
+  let vi5 = fill_vimap fml 14 (0,0,[]) in
+  any_el 1 (SND (SND vi)) Vnone = Vinput [2;1] [] ∧
+  any_el 1 (SND (SND (fill_vimap fml 14 (12,0,[])))) Vnone =
+    Vcount 1 (REVERSE (GENLIST SUC 13)) [] ∧
+  fill_vimap fml 10 vi = vi ∧
+  any_el 1 (SND (SND (SND r))) Vnone = Vtrack (REVERSE (GENLIST SUC 13)) [] ∧
+  QSORT $<= (FST r) = GENLIST SUC 13 ∧
+  any_el 1 (SND (SND (SND r2))) Vnone =
+    Vtrack (FILTER (λx. x ≠ 5) (REVERSE (GENLIST SUC 13))) [] ∧
+  QSORT $<= (FST r2) = FILTER (λx. x ≠ 5) (GENLIST SUC 13) ∧
+  FST r3 = [] ∧ any_el 7 (SND (SND (SND r3))) Vnone = Vtrack [] [] ∧
+  check_fresh_aux_fml_vimap [3;7] (SND r3) ∧
+  ¬check_fresh_aux_fml_vimap [1] vi ∧
+  any_el 2 (SND (SND vi4)) Vnone = Vcount 1 [] [14] ∧
+  any_el 1 (SND (SND (SND r4))) Vnone = Vtrack (REVERSE (GENLIST SUC 14)) [] ∧
+  any_el 2 (SND (SND (SND r4))) Vnone = Vtrack [] [14] ∧
+  QSORT $<= (FST r4) = GENLIST SUC 14 ∧
+  any_el 1 (SND (SND vi5)) Vnone = Vinput [] [] ∧
+  QSORT $<= (FST (get_set_indices fml [(1,INL F)] vi5)) = GENLIST SUC 13 ∧
+  FST r4 = REVERSE (GENLIST SUC 14) ∧
+  merge_all [] = [] ∧
+  merge_all [[3;1]] = [3;1] ∧
+  merge_all [[5;3;1];[4;3]] = [5;4;3;1] ∧
+  merge_all [[5;3;1];[4;3];[6;1];[2];[9;5]] = [9;6;5;4;3;2;1]
 Proof
   EVAL_TAC
 QED
 
 Definition emp_vec_def:
-  emp_vec = INR (Vector [])
+  emp_vec = (Sorted (Vector []) : subst)
 End
 
 Definition do_change_check_def:
@@ -3646,7 +5424,7 @@ Definition check_change_obj_list_def:
   case obj of NONE => NONE
   | SOME fc =>
     let csubs = change_obj_subgoals (mk_tar_obj b fc) fc' in
-    case extract_clauses_list emp_vec T fml csubs pfs [] of
+    case extract_clauses_list emp_vec T fml csubs pfs of
       NONE => NONE
     | SOME cpfs =>
       (case check_subproofs_list cpfs T fml id id assg st of
@@ -3694,7 +5472,7 @@ Definition check_change_pres_list_def:
   | SOME pres =>
     if pres_only c pres v then
     ( let csubs = change_pres_subgoals v c in
-      case extract_clauses_list emp_vec T fml csubs pfs [] of
+      case extract_clauses_list emp_vec T fml csubs pfs of
         NONE => NONE
       | SOME cpfs =>
       (case check_subproofs_list cpfs T fml id id assg st of
@@ -3707,66 +5485,420 @@ Definition check_change_pres_list_def:
     else NONE
 End
 
-Definition check_spec_aux_list_def:
-  (check_spec_aux_list asv fml inds id [] vimap assg st = T) ∧
-  (check_spec_aux_list asv fml inds id (((c,s,pfs,idopt)::gs):specproof) vimap assg st =
-  if check_support asv s then
-    let (fc,mv) = enc_mv c F in
-    case check_red_list (NONE:num_set option) (NONE:ord_s option) NONE F F
-      fml inds id fc mv s pfs idopt vimap «» assg st of
-        NONE => F
-      | SOME (fml',inds',vimap',id',assg',st') =>
-        let (fml'',inds'',vimap'',id'',assg'',st'') =
-          store_ind fml' fc mv id' inds' vimap' assg' st' in
-        check_spec_aux_list asv fml'' inds'' id'' gs vimap'' assg'' st''
-  else F)
-End
+(* The invariants of the assignment between steps, which the unchecked
+  operations of the RUP passes rely on: every variable of every stored
+  constraint stays below its length, and the stamps stay bounded
+  (stamps_ok) *)
 
-Theorem fml_rel_check_spec_aux_list:
-  ∀gs fml fmlls inds vimap id assg st.
-  fml_rel fml fmlls ∧ rup_inv fmlls assg st ∧
-  ind_rel fmlls inds ∧
-  vimap_rel fmlls vimap ∧
-  (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
-  check_spec_aux_list as fmlls inds id gs vimap assg st ⇒
-  check_spec_aux as (fml,id) gs
+Theorem fml_bound_store_slot:
+  fml_bound fmlls (LENGTH assg) ∧ slot_bound s (mv + 1) ∧
+  store_slot fmlls s mv id assg st = (fmlls',id',assg',st') ⇒
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
 Proof
-  Induct>>rw[check_spec_aux_def,check_spec_aux_list_def]>>
-  `?c s pfs idopt. h = (c,s,pfs,idopt)` by metis_tac[PAIR]>>
-  gvs[check_spec_aux_def,check_spec_aux_list_def,AllCasePreds()]>>
+  rpt strip_tac>>
+  gvs[store_slot_def]>>
+  pairarg_tac>>gvs[]>>
+  drule grow_assg_LENGTH>>
+  rw[]
+  >- (
+    irule bound_update_resize>>
+    metis_tac[bound_mono,slot_bound_mono])>>
+  metis_tac[stamps_ok_grow_assg]
+QED
+
+Theorem fml_bound_opt_update:
+  fml_bound fmlls (LENGTH assg) ∧
+  opt_update fmlls c id assg st = (fmlls',id',assg',st') ⇒
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
+Proof
+  Cases_on`c`
+  >- (rw[]>>gvs[])>>
+  rename1`SOME cb`>>
+  Cases_on`cb`>>
+  rpt strip_tac>>
+  gvs[opt_update_def,enc_mv_enc]>>
+  drule_at (Pos last) fml_bound_store_slot>>
+  simp[slot_bound_enc_max_var]
+QED
+
+Theorem check_rup_loop_list_LENGTH:
+  ∀ns assg res assg' pre.
+  check_rup_loop_list b nc fmlls assg st ns = (res,assg',pre) ⇒
+  LENGTH assg' = LENGTH assg
+Proof
+  Induct>>
+  simp[check_rup_loop_list_def]>>
+  rpt gen_tac>>
+  TOP_CASE_TAC>>
+  simp[]>>
+  rpt (pairarg_tac>>simp[])>>
+  rw[]>>
+  metis_tac[LENGTH_update_assg_slot,FST,SND]
+QED
+
+Theorem check_rup_list_LENGTH:
+  check_rup_list b nc sz fmlls assg st ns = (res,assg',st',pre) ⇒
+  LENGTH assg ≤ LENGTH assg' ∧ sz ≤ LENGTH assg'
+Proof
+  rw[check_rup_list_def]>>
   rpt (pairarg_tac>>gvs[])>>
-  gvs[enc_mv_enc]>>
-  drule_at (Pos last) fml_rel_check_red_list>>
-  simp[vomap_rel_def]>>
-  disch_then drule>>
+  imp_res_tac check_rup_loop_list_LENGTH>>
+  imp_res_tac reset_dm_list_LENGTH>>
+  simp[]
+QED
+
+Theorem stamps_ok_check_rup_loop_list:
+  ∀ns assg res assg' pre.
+  stamps_ok assg st ∧
+  check_rup_loop_list b nc fmlls assg st ns = (res,assg',pre) ⇒
+  stamps_ok assg' st
+Proof
+  Induct>>
+  simp[check_rup_loop_list_def]>>
+  rpt gen_tac>>
+  TOP_CASE_TAC>>
+  simp[]>>
+  rpt (pairarg_tac>>simp[])>>
+  rw[]>>
+  metis_tac[stamps_ok_update_assg_slot,FST,SND]
+QED
+
+Theorem stamps_ok_check_rup_list:
+  stamps_ok assg st ∧
+  check_rup_list b nc sz fmlls assg st ns = (res,assg',st',pre) ⇒
+  stamps_ok assg' st'
+Proof
+  rw[check_rup_list_def]>>
+  rpt (pairarg_tac>>gvs[])>>
+  metis_tac[stamps_ok_reset_dm_list,stamps_ok_check_rup_loop_list]
+QED
+
+Theorem check_rup_loop_list_pre:
+  ∀ns assg res assg' pre.
+  EVERY wf_slot fmlls ∧ fml_bound fmlls (LENGTH assg) ∧
+  wf_slot nc ∧ slot_bound nc (LENGTH assg) ∧
+  check_rup_loop_list b nc fmlls assg st ns = (res,assg',pre) ⇒
+  pre
+Proof
+  Induct>>
+  simp[check_rup_loop_list_def]>>
+  rpt gen_tac>>
   strip_tac>>
-  gvs[store_ind_enc,opt_update_SOME,insert_fml_def]>>
-  drule_all store_rels>> strip_tac>>
-  first_x_assum irule>>
-  first_x_assum (irule_at (Pos last))>>
+  qmatch_asmsub_abbrev_tac`get_rup_constraint_list b fmlls n nc`>>
+  `wf_slot (get_rup_constraint_list b fmlls n nc) ∧
+   slot_bound (get_rup_constraint_list b fmlls n nc) (LENGTH assg)` by (
+    rw[get_rup_constraint_list_def]>>
+    qspecl_then [`b`,`fmlls`,`n`] strip_assume_tac lookup_core_only_list_cases>>
+    gvs[fml_bound_def,wf_slot_def,slot_bound_def]>>
+    gvs[EVERY_EL,any_el_ALT]>>
+    rw[wf_slot_def])>>
+  Cases_on`get_rup_constraint_list b fmlls n nc`>>
+  gvs[]>>
+  rpt (pairarg_tac>>gvs[])>>
+  rename1`update_assg_slot assg st s0 = (dn,assg1,p1)`>>
+  `p1 ∧ LENGTH assg1 = LENGTH assg` by
+    metis_tac[update_assg_slot_pre,LENGTH_update_assg_slot,FST,SND]>>
+  Cases_on`dn`>>gvs[]>>
+  last_x_assum (qspec_then`assg1` mp_tac)>>
+  simp[]
+QED
+
+Theorem check_rup_list_pre:
+  EVERY wf_slot fmlls ∧ fml_bound fmlls (LENGTH assg) ∧
+  wf_slot nc ∧ slot_bound nc sz ∧
+  check_rup_list b nc sz fmlls assg st ns = (res,assg',st',pre) ⇒
+  pre
+Proof
+  rw[check_rup_list_def]>>
+  rpt (pairarg_tac>>gvs[])>>
+  drule_at (Pos last) check_rup_loop_list_pre>>
+  disch_then irule>>
+  imp_res_tac reset_dm_list_LENGTH>>
+  metis_tac[bound_mono,slot_bound_mono]
+QED
+
+Theorem fml_bound_check_lstep_list:
+  (∀lstep b fmlls mindel id assg st fmlls' c id' assg' st'.
+    fml_bound fmlls (LENGTH assg) ∧
+    check_lstep_list lstep b fmlls mindel id assg st =
+      SOME (fmlls',c,id',assg',st') ⇒
+    fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+    (stamps_ok assg st ⇒ stamps_ok assg' st')) ∧
+  (∀lsteps b fmlls mindel id assg st fmlls' id' assg' st'.
+    fml_bound fmlls (LENGTH assg) ∧
+    check_lsteps_list lsteps b fmlls mindel id assg st =
+      SOME (fmlls',id',assg',st') ⇒
+    fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+    (stamps_ok assg st ⇒ stamps_ok assg' st'))
+Proof
+  ho_match_mp_tac check_lstep_list_ind>>
+  rpt conj_tac>>
+  rpt gen_tac>>
+  strip_tac>>
+  rpt gen_tac>>
+  strip_tac
+  >- (
+    qpat_x_assum`check_lstep_list _ _ _ _ _ _ _ = _` mp_tac>>
+    simp[Once check_lstep_list_def]>>
+    Cases_on`lstep`>>
+    simp[AllCaseEqs()]>>
+    strip_tac>>
+    rpt (pairarg_tac>>gvs[])>>
+    gvs[bound_list_delete_list,AllCaseEqs()]
+    >~ [`check_rup_list`]
+    >- (
+      drule check_rup_list_LENGTH>>
+      metis_tac[bound_mono,stamps_ok_check_rup_list])>>
+    drule_all fml_bound_opt_update>>
+    strip_tac>>
+    first_x_assum drule_all>>
+    simp[bound_rollback])
+  >- gvs[check_lstep_list_def]
+  >- gvs[check_lstep_list_def]>>
+  qpat_x_assum`check_lsteps_list _ _ _ _ _ _ _ = _` mp_tac>>
+  simp[Once check_lstep_list_def,AllCaseEqs()]>>
+  strip_tac>>
+  pairarg_tac>>gvs[]>>
+  drule_all fml_bound_opt_update>>
+  strip_tac>>
   gvs[]
 QED
 
+Theorem fml_bound_list_insert_fml_list:
+  ∀cs b id fmlls assg st id' fmlls' assg' st'.
+  fml_bound fmlls (LENGTH assg) ∧
+  list_insert_fml_list cs b id fmlls assg st = (id',fmlls',assg',st') ⇒
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
+Proof
+  Induct>>
+  simp[list_insert_fml_list_def]>>
+  rpt gen_tac>>
+  strip_tac>>
+  pairarg_tac>>gvs[]>>
+  drule_all fml_bound_opt_update>>
+  strip_tac>>
+  first_x_assum drule_all>>
+  gvs[]
+QED
+
+Theorem fml_bound_check_subproofs_list:
+  ∀pfs b fmlls mindel id assg st fmlls' id' assg' st'.
+  fml_bound fmlls (LENGTH assg) ∧
+  check_subproofs_list pfs b fmlls mindel id assg st =
+    SOME (fmlls',id',assg',st') ⇒
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
+Proof
+  ho_match_mp_tac check_subproofs_list_ind>>
+  simp[check_subproofs_list_def]>>
+  rpt strip_tac>>
+  gvs[AllCaseEqs()]>>
+  rpt (pairarg_tac>>gvs[AllCaseEqs()])>>
+  imp_res_tac fml_bound_list_insert_fml_list>>
+  imp_res_tac (CONJUNCT2 fml_bound_check_lstep_list)>>
+  imp_res_tac bound_rollback>>
+  gvs[]
+QED
+
+Theorem fml_bound_list_insert_sc_list:
+  ∀cs b id fmlls assg st id' fmlls' assg' st'.
+  fml_bound fmlls (LENGTH assg) ∧ EVERY sc_hyp_ok cs ∧
+  list_insert_sc_list cs b id fmlls assg st = (id',fmlls',assg',st') ⇒
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
+Proof
+  rpt strip_tac>>
+  gvs[list_insert_sc_list_eq]>>
+  drule_all fml_bound_list_insert_fml_list>>
+  simp[]
+QED
+
+Theorem fml_bound_check_scopes_list:
+  ∀pfs b fmlls mindel id assg st fmlls' id' assg' st'.
+  fml_bound fmlls (LENGTH assg) ∧ scopes_ok pfs ∧
+  check_scopes_list pfs b fmlls mindel id assg st =
+    SOME (fmlls',id',assg',st') ⇒
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
+Proof
+  ho_match_mp_tac check_scopes_list_ind>>
+  simp[check_scopes_list_def,scopes_ok_def]>>
+  rpt strip_tac>>
+  gvs[AllCaseEqs()]>>
+  rpt (pairarg_tac>>gvs[AllCaseEqs()])>>
+  imp_res_tac fml_bound_list_insert_sc_list>>
+  imp_res_tac fml_bound_check_subproofs_list>>
+  imp_res_tac bound_rollback>>
+  gvs[scopes_ok_def]
+QED
+
+Theorem fml_bound_check_red_list_fast:
+  fml_bound fmlls (LENGTH assg) ∧ slot_bound fc (mv + 1) ∧
+  check_red_list_fast b fmlls inds id fc mv pf cid vimap assg st ht =
+    SOME (fmlls',inds',vimap',id',assg',st',ht') ⇒
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
+Proof
+  strip_tac>>
+  gvs[check_red_list_fast_def]>>
+  pairarg_tac>>gvs[AllCaseEqs()]>>
+  drule_at (Pos last) fml_bound_store_slot>>
+  gvs[]>>
+  strip_tac>>
+  imp_res_tac (CONJUNCT2 fml_bound_check_lstep_list)>>
+  gvs[bound_rollback]
+QED
+
+Theorem fml_bound_check_red_list:
+  fml_bound fmlls (LENGTH assg) ∧ slot_bound fc (mv + 1) ∧
+  po = mk_ord_pre ord ∧
+  check_red_list pres ord po obj b tcb fmlls inds id fc mv s pfs idopt
+    vimap vomap assg st ht =
+    SOME (fmlls',inds',vimap',id',assg',st',ht') ⇒
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
+Proof
+  strip_tac>>
+  gvs[check_red_list_def,AllCaseEqs()]
+  >- (
+    rpt (pairarg_tac>>gvs[AllCaseEqs()])>>
+    drule_at (Pos last) fast_red_subgoals_scopes_ok>>
+    simp[]>>strip_tac>>
+    drule_all scopes_ok_extract_scopes_list>>strip_tac>>
+    drule_at (Pos last) fml_bound_store_slot>>
+    gvs[]>>
+    strip_tac>>
+    imp_res_tac fml_bound_check_scopes_list>>
+    gvs[bound_rollback])>>
+  drule_all fml_bound_check_red_list_fast>>
+  simp[]
+QED
+
+Definition check_spec_aux_list_def:
+  (check_spec_aux_list asv fml inds id [] vimap assg st ht = SOME (assg,st)) ∧
+  (check_spec_aux_list asv fml inds id (((c,s,pfs,idopt)::gs):specproof) vimap assg st ht =
+  if check_support asv s then
+    let (fc,mv) = enc_mv c F in
+    case check_red_list (NONE:num_set option) (NONE:ord_s option) NONE NONE
+      F F fml inds id fc mv s pfs idopt vimap «» assg st ht of
+        NONE => NONE
+      | SOME (fml',inds',vimap',id',assg',st',ht') =>
+        let (fml'',inds'',id'',assg'',st'') =
+          store_ind fml' fc mv id' inds' assg' st' in
+        check_spec_aux_list asv fml'' inds'' id'' gs vimap' assg'' st'' ht'
+  else NONE)
+End
+
+Theorem fml_rel_check_spec_aux_list:
+  ∀gs fml fmlls inds vimap id assg st ht.
+  fml_rel fml fmlls ∧ rup_inv fmlls assg st ∧
+  ind_rel fmlls inds ∧
+  vimap_rel fmlls vimap ∧ FST (SND vimap) ≤ id ∧
+  (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
+  check_spec_aux_list as fmlls inds id gs vimap assg st ht = SOME (assg',st') ⇒
+  check_spec_aux as (fml,id) gs ∧
+  ∃dm. dm_rel dm assg' st'
+Proof
+  Induct
+  >- (
+    rw[check_spec_aux_def,check_spec_aux_list_def]>>
+    gvs[rup_inv_def]>>
+    metis_tac[])>>
+  rpt gen_tac>>strip_tac>>
+  `?c s pfs idopt. h = (c,s,pfs,idopt)` by metis_tac[PAIR]>>
+  gvs[check_spec_aux_def,check_spec_aux_list_def,AllCaseEqs()]>>
+  rpt (pairarg_tac>>gvs[AllCaseEqs()])>>
+  gvs[enc_mv_enc]>>
+  drule_at (Pos last) fml_rel_check_red_list>>
+  simp[vomap_rel_def,mk_ord_pre_def]>>
+  disch_then drule>>
+  strip_tac>>
+  gvs[store_ind_enc,opt_update_SOME,insert_fml_def]>>
+  drule_all store_rels>>
+  disch_then (qspec_then`F` strip_assume_tac)>>
+  `FST (SND vimap') ≤ id' + 1` by decide_tac>>
+  first_x_assum drule_all>>
+  simp[]
+QED
+
+Theorem check_spec_aux_list_LENGTH:
+  ∀gs fmlls inds vimap id assg st ht.
+  fml_bound fmlls (LENGTH assg) ∧
+  check_spec_aux_list as fmlls inds id gs vimap assg st ht = SOME (assg',st') ⇒
+  LENGTH assg ≤ LENGTH assg' ∧ (stamps_ok assg st ⇒ stamps_ok assg' st')
+Proof
+  Induct>>
+  rw[check_spec_aux_list_def]>>
+  `?c s pfs idopt. h = (c,s,pfs,idopt)` by metis_tac[PAIR]>>
+  gvs[check_spec_aux_list_def,AllCaseEqs()]>>
+  rpt (pairarg_tac>>gvs[AllCaseEqs()])>>
+  gvs[enc_mv_enc]>>
+  drule_at (Pos last) fml_bound_check_red_list>>
+  simp[slot_bound_enc_max_var,mk_ord_pre_def]>>
+  strip_tac>>
+  gvs[store_ind_enc]>>
+  drule_all fml_bound_opt_update>>
+  strip_tac>>
+  first_x_assum drule_all>>
+  strip_tac>>
+  simp[]>>
+  metis_tac[]
+QED
+
+(* The largest variable of the specification's constraints, at least mv *)
+Definition spec_max_var_def:
+  (spec_max_var ([]:specproof) mv = mv:num) ∧
+  (spec_max_var ((c,rest)::gs) mv =
+    let (s,m,mv',n) = sum_max_abs (FST c) 0 0 mv 0 in
+    spec_max_var gs mv')
+End
+
+(* The specification is checked on its own formula and index, with the
+  assignment array of the main proof; the index starts sized to the
+  specification's variables *)
 Definition check_spec_list_def:
-  check_spec_list (us,vs,as) gs =
-    let asv = spt_to_vec (fromAList (MAP (\n. n,()) as)) in
-    if check_spec_aux_list asv [] [] 1 gs [] [] 1 then
-      SOME asv
-    else NONE
+  check_spec_list (us,vs,as) gs assg st =
+    let asv = mk_as_vec as in
+    let mv = spec_max_var gs 0 in
+    case check_spec_aux_list asv [] [] 1 gs (0,0,REPLICATE (mv+1) Vnone)
+      assg st ht_empty of
+      NONE => NONE
+    | SOME (assg',st') => SOME (asv,assg',st')
 End
 
 Theorem fml_rel_check_spec_list:
-  check_spec_list vars gs = SOME asv ⇒
-  check_spec vars gs = SOME asv
+  check_spec_list vars gs assg st = SOME (asv,assg',st') ∧
+  (∃dm. dm_rel dm assg st) ⇒
+  check_spec vars gs = SOME asv ∧
+  ∃dm. dm_rel dm assg' st'
 Proof
-  PairCases_on`vars`>>rw[check_spec_list_def,check_spec_def]>>
+  PairCases_on`vars`>>
+  simp[check_spec_list_def,check_spec_def,AllCaseEqs()]>>
+  disch_then strip_assume_tac>>gvs[]>>
   drule_at (Pos last) fml_rel_check_spec_aux_list>>
+  disch_then (qspec_then`LN` mp_tac)>>
+  impl_tac >- (
+    rw[rup_inv_def,fml_bound_def]>>
+    EVAL_TAC>>
+    simp[lookup_def,enc_opt_def]>>
+    metis_tac[dm_rel_def])>>
+  simp[]
+QED
+
+Theorem check_spec_list_LENGTH:
+  check_spec_list vars gs assg st = SOME (asv,assg',st') ⇒
+  LENGTH assg ≤ LENGTH assg' ∧ (stamps_ok assg st ⇒ stamps_ok assg' st')
+Proof
+  PairCases_on`vars`>>
+  simp[check_spec_list_def,AllCaseEqs()]>>
+  strip_tac>>gvs[]>>
+  drule_at (Pos last) check_spec_aux_list_LENGTH>>
   disch_then irule>>
-  rw[rup_inv_def,fml_bound_def]
-  >~ [`dm_rel`] >- (
-    qexists_tac`FEMPTY`>>
-    metis_tac[dm_rel_FEMPTY_REPLICATE,REPLICATE])>>
-  EVAL_TAC>>simp[]
+  simp[fml_bound_def,any_el_ALT]>>
+  EVAL_TAC
 QED
 
 Definition insert_distinct_def:
@@ -3956,52 +6088,46 @@ Proof
 QED
 
 Definition check_storeorder_def:
-  check_storeorder vars gspec f pfst pfsr =
-  case check_spec_list vars gspec of NONE => NONE
-  | SOME asv =>
+  check_storeorder vars gspec f pfst pfsr assg st =
+  case check_spec_list vars gspec assg st of NONE => NONE
+  | SOME (asv,assg',st') =>
     let aord = mk_aord vars f gspec in
     if check_good_aord aord
     then
       case check_transitivity aord pfst of
         NONE => NONE
       | SOME id =>
-        if check_reflexivity aord pfsr id then SOME (aord,asv)
+        if check_reflexivity aord pfsr id then SOME ((aord,asv),assg',st')
         else NONE
     else NONE
 End
 
-(* make a list of variables (which are partially tracked) permanently tracked *)
-Definition mk_perm_def:
-  (mk_perm (vimap:vimap_ty) [] = vimap) ∧
-  (mk_perm (vimap:vimap_ty) (n::ns) =
-    (case any_el n vimap Vnone of
-    | Vcount k pinds ninds =>
-      mk_perm
-        (update_resize vimap Vnone (Vtrack pinds ninds) n) ns
-    | _ => mk_perm vimap ns))
-End
-
+(* The configuration (pc, vomap, cw, po) changes only in the configuration
+  steps; every stored slot below the watermark cw is core, and po is the
+  precomputed loaded order. The table ht
+  changes only in the goal checks and the deletions *)
 Definition check_cstep_list_def:
-  check_cstep_list cstep fml assg st inds vimap vomap pc =
+  check_cstep_list cstep fml assg st inds vimap id (pc,vomap,cw,po) ht =
   case cstep of
     Dom c s pfs idopt =>
     (case pc.ord of
       NONE => NONE
     | SOME spo =>
     let (fc,nfc,mv) = neg_pos_slot c pc.tcb F in
+    let vimap =
+      if reads_vimap s T pc.ord then fill_vimap fml id vimap
+      else vimap in
     if check_pres pc.pres s ∧
       check_fresh_aspo_list fc s pc.ord vimap vomap then
-    ( let id = pc.id in
-      let (rinds,inds',vimap') = get_set_indices fml inds s vimap in
-      let s = mk_subst s in
-      let w = subst_fun s in
+    ( let (rinds,vimap') = get_set_indices fml s vimap in
+      let ss = mk_subst rinds s in
       let goals =
         case idopt of
-          NONE => subst_indexes s T fml rinds
+          NONE => subst_indexes ss T fml rinds
         | SOME _ => [] in
       let (fml_not_c,id1,assg1,st1) = store_slot fml nfc mv id assg st in
-      let (dsubs,dscopes,dindex) = dom_subgoals spo w c pc.obj in
-      case extract_scopes_list dscopes s F fml dsubs pfs of
+      let (dsubs,dscopes,dindex) = dom_subgoals_list spo po ss s pc.obj in
+      case extract_scopes_list dscopes ss F fml dsubs pfs of
         NONE => NONE
       | SOME cpfs =>
         (case check_scopes_list cpfs F
@@ -4009,18 +6135,21 @@ Definition check_cstep_list_def:
           NONE => NONE
         | SOME (fml',id',assg',st') =>
           let rfml = rollback fml' id id' in
-          if do_dom_check idopt fml' rfml inds' goals nfc pfs dsubs dindex then
-            let (fml'',inds'',vimap'',id'',assg'',st'') =
-              store_ind rfml fc mv id' inds' vimap' assg' st' in
-            SOME(fml'', assg'', st'', inds'', vimap'', vomap,
-              pc with id := id'')
+          let (res,ht') =
+            do_dom_check idopt fml' rfml inds id ht goals nfc pfs dsubs
+              dindex in
+          if res then
+            let (fml'',inds'',id'',assg'',st'') =
+              store_ind rfml fc mv id' inds assg' st' in
+            SOME(fml'', assg'', st'', inds'', vimap', id'', (pc,vomap,cw,po),
+              ht')
           else NONE))
     else NONE)
   | Sstep sstep =>
-    (case check_sstep_list sstep pc.pres pc.ord pc.obj pc.tcb
-      fml inds pc.id vimap vomap assg st of
-      SOME(fml',inds',vimap',id',assg',st') =>
-        SOME(fml',assg',st', inds', vimap', vomap, pc with id := id')
+    (case check_sstep_list sstep pc.pres pc.ord po pc.obj pc.tcb
+      fml inds id vimap vomap assg st ht of
+      SOME(fml',inds',vimap',id',assg',st',ht') =>
+        SOME(fml',assg',st', inds', vimap', id', (pc,vomap,cw,po), ht')
     | NONE => NONE)
   | CheckedDelete n s pfs idopt => (
     if check_tcb_idopt pc.tcb idopt then
@@ -4029,11 +6158,11 @@ Definition check_cstep_list_def:
       | fc =>
           (let nfml = delete_list n fml in
           let mv = slot_max_var fc in
-          case check_red_list pc.pres pc.ord pc.obj T pc.tcb
-            nfml inds pc.id fc mv s pfs idopt vimap vomap assg st of
-            SOME (ncf',inds',vimap',id',assg',st') =>
-            SOME (ncf',assg',st', inds',
-              vimap', vomap, pc with <| id := id' |>)
+          case check_red_list pc.pres pc.ord po pc.obj T pc.tcb
+            nfml inds id fc mv s pfs idopt vimap vomap assg st
+            (ht_del fml [n] ht) of
+            SOME (ncf',inds',vimap',id',assg',st',ht') =>
+            SOME (ncf',assg',st', inds', vimap', id', (pc,vomap,cw,po), ht')
           | NONE => NONE) )
     else NONE)
   | UncheckedDelete ls => (
@@ -4041,47 +6170,44 @@ Definition check_cstep_list_def:
     if ¬pc.tcb ∧ pc.ord = NONE
     then
       SOME (list_delete_list ls fml, assg, st, inds,
-        vimap, vomap, pc with chk := F)
+        vimap, id, (pc with chk := F, vomap, cw, po), ht_del fml ls ht)
     else
-    case all_core_list fml inds [] of NONE => NONE
+    case all_core_list fml inds of NONE => NONE
     | SOME inds' =>
       SOME (list_delete_list ls fml, assg, st, inds',
-        vimap, vomap, pc with chk := F))
+        vimap, id, (pc with chk := F, vomap, cw, po), ht_del fml ls ht))
   | Transfer ls =>
     (case core_from_inds fml ls of NONE => NONE
     | SOME fml' =>
-      SOME (fml', assg, st, inds, vimap, vomap, pc))
+      SOME (fml', assg, st, inds, vimap, id, (pc,vomap,cw,po), ht))
   | StrengthenToCore b =>
-    (let inds' = reindex fml inds in
-    let pc' = pc with tcb := b in
+    (let pc' = pc with tcb := b in
     if b
     then
-      (case core_from_inds fml inds' of NONE => NONE
-      | SOME fml' =>
-        SOME (fml',assg,st,inds', vimap, vomap, pc'))
+      SOME (core_from_range fml cw id, assg, st, inds, vimap, id,
+        (pc', vomap, id, po), ht)
     else
-      SOME (fml,assg,st,inds',vimap, vomap, pc'))
+      SOME (fml, assg, st, inds, vimap, id, (pc', vomap, cw, po), ht))
   | LoadOrder nn xs =>
-    (let inds' = reindex fml inds in
-      case ALOOKUP pc.orders nn of NONE => NONE
-      | SOME ord' =>
-        if guard_ord_t ord' xs then
-          case core_from_inds fml inds' of NONE => NONE
-          | SOME fml' =>
-          SOME (fml',assg,st, inds',
-            mk_perm vimap (MAP FST xs),vomap,pc with ord := mk_ordsub ord' xs)
-        else NONE)
+    (case ALOOKUP pc.orders nn of NONE => NONE
+    | SOME ord' =>
+      if guard_ord_t ord' xs then
+        let ord = mk_ordsub ord' xs in
+        SOME (core_from_range fml cw id, assg, st, inds,
+          vimap, id,
+          (pc with ord := ord, vomap, id, mk_ord_pre ord), ht)
+      else NONE)
   | UnloadOrder =>
     (case pc.ord of NONE => NONE
     | SOME spo =>
         SOME (fml, assg, st, inds,
-          vimap, vomap, pc with ord := NONE))
+          vimap, id, (pc with ord := NONE, vomap, cw, NONE), ht))
   | StoreOrder nn vars gspec f pfsr pfst =>
-    (case check_storeorder vars gspec f pfst pfsr of NONE => NONE
-    | SOME aord =>
-      SOME (fml, assg, st, inds,
-        vimap, vomap,
-        pc with orders := (nn ,aord)::pc.orders))
+    (case check_storeorder vars gspec f pfst pfsr assg st of NONE => NONE
+    | SOME (aord,assg',st') =>
+      SOME (fml, assg', st', inds,
+        vimap, id,
+        (pc with orders := (nn ,aord)::pc.orders, vomap, cw, po), ht))
   | Obj w mi bopt => (
     case check_obj_core pc.obj w fml inds bopt of
       NONE => NONE
@@ -4093,56 +6219,53 @@ Definition check_cstep_list_def:
         if pc.obj ≠ NONE then
           let c = model_improving pc.obj new in
           let (s,mv) = enc_mv c T in
-          let (fml',inds',vimap',id',assg',st') =
-            store_ind fml s mv pc.id rinds vimap assg st in
+          let (fml',inds',id',assg',st') =
+            store_ind fml s mv id rinds assg st in
           SOME (
-            fml', assg', st', inds', vimap', vomap,
-            pc with
-            <| id := id';
-               bound := bound';
-               dbound := dbound' |>)
+            fml', assg', st', inds', vimap, id',
+            (pc with
+            <| bound := bound';
+               dbound := dbound' |>, vomap, cw, po), ht)
         else NONE
       else
-        SOME (fml, assg, st, rinds, vimap, vomap,
-          pc with
+        SOME (fml, assg, st, rinds, vimap, id,
+          (pc with
           <| bound := bound';
-             dbound := dbound' |>))
+             dbound := dbound' |>, vomap, cw, po), ht))
   | ChangeObj b fc' pfs =>
-    (case check_change_obj_list b fml pc.id pc.obj
+    (case check_change_obj_list b fml id pc.obj
         fc' pfs assg st of
       NONE => NONE
     | SOME (fml',fc',id',assg',st') =>
       SOME (
         fml', assg', st', inds,
-        vimap, mk_vomap (strlen vomap) fc',
-        pc with <| id:=id'; obj:=SOME fc' |>))
+        vimap, id',
+        (pc with obj:=SOME fc', mk_vomap (strlen vomap) fc', cw, po), ht))
   | CheckObj fc' =>
     if check_eq_obj pc.obj fc'
-    then SOME (fml, assg, st, inds, vimap, vomap, pc)
+    then SOME (fml, assg, st, inds, vimap, id, (pc,vomap,cw,po), ht)
     else NONE
   | AssertObj i => (
       if pc.obj ≠ NONE then
         let c = model_improving pc.obj i in
         let dbound' = update_dbound pc.dbound i in
         let (s,mv) = enc_mv c T in
-        let (fml',inds',vimap',id',assg',st') =
-          store_ind fml s mv pc.id inds vimap assg st in
+        let (fml',inds',id',assg',st') =
+          store_ind fml s mv id inds assg st in
           SOME (
-            fml', assg', st', inds', vimap', vomap,
-            pc with
-            <| id := id';
-               dbound := dbound' |>)
+            fml', assg', st', inds', vimap, id',
+            (pc with dbound := dbound', vomap, cw, po), ht)
       else NONE
     )
   | ChangePres b v c pfs =>
-    (case check_change_pres_list b fml pc.id pc.pres
+    (case check_change_pres_list b fml id pc.pres
         v c pfs assg st of
       NONE => NONE
     | SOME (fml',pres',id',assg',st') =>
       SOME (
         fml', assg', st', inds,
-        vimap, vomap,
-        pc with <| id:=id'; pres:=SOME pres' |>))
+        vimap, id',
+        (pc with pres:=SOME pres', vomap, cw, po), ht))
   | Sol w free =>
     (if pc.obj ≠ NONE ∨ ¬pc.chk ∨ ¬free_ok pc.pres free then NONE
     else
@@ -4154,18 +6277,17 @@ Definition check_cstep_list_def:
       let dbound' = update_dbound pc.dbound 0 in
       let c = model_banning pc.pres free w in
       let (s,mv) = enc_mv c T in
-      let (fml',inds',vimap',id',assg',st') =
-        store_ind fml s mv pc.id rinds vimap assg st in
+      let (fml',inds',id',assg',st') =
+        store_ind fml s mv id rinds assg st in
         SOME (
-          fml', assg', st', inds', vimap', vomap,
-          pc with
-          <| id := id';
-             bound := bound';
+          fml', assg', st', inds', vimap, id',
+          (pc with
+          <| bound := bound';
              dbound := dbound';
-             enum := pc.enum + cube_count free |>))
+             enum := pc.enum + cube_count free |>, vomap, cw, po), ht))
   | CheckPres ls' =>
     if check_eq_pres pc.pres ls'
-    then SOME (fml, assg, st, inds, vimap, vomap, pc)
+    then SOME (fml, assg, st, inds, vimap, id, (pc,vomap,cw,po), ht)
     else NONE
 End
 
@@ -4211,7 +6333,7 @@ Theorem ind_rel_lookup_core_only_list:
   lookup_core_only_list b fmlls x ≠ Empty ⇒
   MEM x rinds
 Proof
-  rw[ind_rel_def,lookup_core_only_list_def]>>
+  rw[ind_rel_def,lookup_core_only_list_def,core_only_def]>>
   gvs[AllCaseEqs()]
 QED
 
@@ -4246,37 +6368,25 @@ Proof
   gvs[fml_rel_update_resize]
 QED
 
-Theorem all_core_list_mem[local]:
-  ∀inds fmlls acc inds'.
-    all_core_list fmlls inds acc = SOME inds' ⇒
-    MEM x inds' ⇒ MEM x acc ∨ MEM x inds
-Proof
-  Induct
-  \\ fs [all_core_list_def,AllCaseEqs()]
-  \\ rw [] \\ res_tac \\ gvs []
-QED
-
 Theorem all_core_list_inds:
-  ∀inds acc inds'.
-  all_core_list fmlls inds acc = SOME inds' ⇒
+  all_core_list fmlls inds = SOME inds' ⇒
   let is =
     FILTER (λx. any_el x fmlls Empty ≠ Empty) inds in
-  inds' = REVERSE acc ++ is ∧
+  inds' = is ∧
   EVERY (λx.
     ∀c b. any_el x fmlls Empty = enc c b ⇒ b) is
 Proof
-  Induct>>rw[all_core_list_def]>>
-  gvs[AllCaseEqs()]>>
-  first_x_assum drule>>
-  simp[]>>
+  rw[all_core_list_def,reindex_characterize]>>
+  gvs[EVERY_MEM,MEM_FILTER]>>
   rw[]>>
+  first_x_assum drule>>
   gvs[]
 QED
 
 Theorem fml_rel_all_core:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
-  all_core_list fmlls inds [] = SOME inds' ⇒
+  all_core_list fmlls inds = SOME inds' ⇒
   all_core fml ∧
   ind_rel fmlls inds'
 Proof
@@ -4322,13 +6432,14 @@ Theorem vimap_rel_list_delete_list:
   vimap_rel fmlls vimap ==>
   vimap_rel (list_delete_list l fmlls) vimap
 Proof
+  PairCases_on`vimap`>>
   rw[vimap_rel_def,any_el_list_delete_list]>>
   Cases_on`MEM i l`>>gvs[]
 QED
 
 Theorem all_core_list_SORTED:
   SORTED $>= inds ∧
-  all_core_list fmlls inds [] = SOME inds' ⇒
+  all_core_list fmlls inds = SOME inds' ⇒
   SORTED $>= inds'
 Proof
   rw[]>>drule all_core_list_inds>>rw[]>>
@@ -4342,7 +6453,8 @@ Theorem vimap_rel_core_from_inds:
   core_from_inds fmlls l = SOME fmlls' ⇒
   vimap_rel fmlls' vimap
 Proof
-  Induct \\ rw[core_from_inds_def] \\ gvs []
+  PairCases_on`vimap`
+  \\ Induct \\ rw[core_from_inds_def] \\ gvs []
   \\ gvs [AllCaseEqs()]
   \\ last_x_assum irule
   \\ pop_assum $ irule_at Any
@@ -4385,69 +6497,149 @@ Proof
   \\ gvs[fml_bound_def]
 QED
 
-Theorem fml_rel_core_from_inds_reindex:
-  fml_rel fml fmlls ∧ ind_rel fmlls inds ∧
-  core_from_inds fmlls (reindex fmlls inds) = SOME fmlls' ⇒
-  fml_rel (map (λ(c,b). (c,T)) fml) fmlls'
+Theorem vimap_rel_core_from_range:
+  vimap_rel fmlls vimap ⇒
+  vimap_rel (core_from_range fmlls w id) vimap
 Proof
-  rw[]>>
-  drule_all any_el_core_from_inds>> strip_tac>>
-  rw[fml_rel_def,lookup_map]>>
-  Cases_on`lookup x fml`>>gvs[]>>
-  rename1`lookup x fml = SOME p`>>Cases_on`p`>>
-  gvs[reindex_characterize,MEM_FILTER]>>
-  `any_el x fmlls Empty = enc q r` by (
-    qpat_x_assum`fml_rel fml fmlls` mp_tac>>
-    rw[fml_rel_def]>>
-    simp[enc_opt_def])>>
-  gvs[ind_rel_def,enc_NOT_Empty]
+  PairCases_on`vimap`>>
+  rw[vimap_rel_def,any_el_core_from_range]>>
+  first_x_assum irule>>
+  pop_assum mp_tac>>
+  rw[]
 QED
 
-Theorem vimap_rel_mk_perm:
-  ∀ls vimap.
-  vimap_rel fmlls vimap ⇒
-  vimap_rel fmlls (mk_perm vimap ls)
+Theorem ind_rel_core_from_range:
+  ind_rel fmlls inds ⇒
+  ind_rel (core_from_range fmlls w id) inds
 Proof
-  Induct>>rw[mk_perm_def]>>
-  every_case_tac>>gvs[]>>
-  first_x_assum irule>>
-  gvs[vimap_rel_def]>>rw[]>>
-  first_x_assum drule_all>>
-  gvs[any_el_update_resize]>>rw[]>>
-  gvs[vent_mem_def]
+  simp[ind_rel_def,any_el_core_from_range_Empty]
+QED
+
+Theorem rup_inv_core_from_range:
+  rup_inv fmlls assg st ⇒
+  rup_inv (core_from_range fmlls w id) assg st
+Proof
+  rw[rup_inv_def,fml_bound_def,any_el_core_from_range]>>
+  rw[]>>
+  metis_tac[]
+QED
+
+Theorem ord_maps_ok_mk_ordsub:
+  OPTION_ALL ord_maps_ok (mk_ordsub a xs)
+Proof
+  PairCases_on`a`>>simp[mk_ordsub_def,ord_maps_ok_def]
+QED
+
+Theorem fast_rn_sc_ok:
+  ∀w side rs ts j.
+  EVERY (λr. ∃c. r = mk_ord_rec m1 m2 c) rs ⇒
+  EVERY sc_hyp_ok (fast_rn_sc w side rs ts j)
+Proof
+  recInduct fast_rn_sc_ind>>rw[]>>
+  simp[Once fast_rn_sc_def]>>
+  every_case_tac>>gvs[mk_ord_rec_def,enc_mv_enc]>>
+  metis_tac[]
+QED
+
+Theorem dom_subgoals_list_scopes_ok:
+  po = mk_ord_pre (SOME aspo) ∧
+  dom_subgoals_list aspo po s sr obj = (dsubs,dscopes,dindex) ⇒
+  EVERY (EVERY sc_hyp_ok) dscopes
+Proof
+  strip_tac>>
+  qpat_x_assum`dom_subgoals_list _ _ _ _ _ = _` mp_tac>>
+  simp[dom_subgoals_list_def]>>
+  Cases_on`mk_ord_pre (SOME aspo)`>>
+  simp[dom_subst_list_def]
+  >- (
+    Cases_on`dom_subst T (subst_fun s) (SOME aspo)`>>
+    Cases_on`neg_dom_subst (subst_fun s) aspo`>>
+    rw[]>>
+    simp[EVERY_MAP])>>
+  PairCases_on`aspo`>>
+  gvs[mk_ord_pre_def,AllCaseEqs(),dom_subst_fast_def,neg_dom_subst_fast_def]>>
+  rw[]>>
+  simp[]>>rw[]>>
+  irule fast_rn_sc_ok>>
+  simp[EVERY_MAP,EVERY_MEM]>>
+  metis_tac[]
+QED
+
+Theorem dom_subgoals_list_thm:
+  po_rel (SOME aspo) po ∧
+  dom_subgoals_list aspo po (mk_subst r sr) sr obj = (dsubs,dscopes,dindex) ⇒
+  dom_subgoals aspo (subst_fun (mk_subst r sr)) def obj =
+    (dsubs, MAP (MAP sc_hyp_dec) dscopes, dindex)
+Proof
+  strip_tac>>
+  gvs[po_rel_def]>>
+  mp_tac (Q.INST [‘po’ |-> ‘mk_ord_pre (SOME aspo)’, ‘ord’ |-> ‘SOME aspo’,
+    ‘hs’ |-> ‘T’, ‘w’ |-> ‘subst_fun (mk_subst r sr)’] dom_subst_list_thm)>>
+  impl_tac >- rw[subst_fun_mk_subst,ALOOKUP_NONE]>>
+  qpat_x_assum`dom_subgoals_list _ _ _ _ _ = _` mp_tac>>
+  simp[dom_subgoals_list_def,dom_subgoals_def]>>
+  Cases_on`dom_subst_list T (subst_fun (mk_subst r sr)) sr (SOME aspo)
+    (mk_ord_pre (SOME aspo))`>>
+  Cases_on`dom_subst T (subst_fun (mk_subst r sr)) (SOME aspo)`>>
+  simp[]>>
+  Cases_on`neg_dom_subst (subst_fun (mk_subst r sr)) aspo`>>
+  Cases_on`mk_ord_pre (SOME aspo)`>>simp[]
+  >- (
+    rw[]>>
+    simp[MAP_MAP_o,combinTheory.o_DEF,EVERY_MAP])>>
+  qmatch_asmsub_rename_tac`mk_ord_pre (SOME aspo) = SOME p`>>
+  mp_tac (Q.INST [‘w’ |-> ‘subst_fun (mk_subst r sr)’] neg_dom_subst_fast_thm)>>
+  impl_tac >- rw[subst_fun_mk_subst,ALOOKUP_NONE]>>
+  Cases_on`neg_dom_subst_fast (subst_fun (mk_subst r sr)) sr p`>>
+  rw[]>>
+  simp[]
 QED
 
 Theorem fml_rel_check_cstep_list:
   fml_rel fml fmlls ∧ rup_inv fmlls assg st ∧
   ind_rel fmlls inds ∧
-  vimap_rel fmlls vimap ∧
-  vomap_rel pc.obj vomap ∧
-  (∀n. n ≥ pc.id ⇒ any_el n fmlls Empty = Empty) ∧
-  check_cstep_list cstep fmlls assg st inds vimap vomap pc =
-    SOME (fmlls',assg',st',inds',vimap',vomap',pc') ⇒
+  vimap_rel fmlls vimap ∧ FST (SND vimap) ≤ id ∧
+  vomap_rel pc.obj vomap ∧ po_rel pc.ord po ∧
+  (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
+  core_below cw fmlls ∧
+  check_cstep_list cstep fmlls assg st inds vimap id (pc,vomap,cw,po) ht =
+    SOME (fmlls',assg',st',inds',vimap',id',(pc',vomap',cw',po'),ht') ⇒
   ∃fml'.
-    check_cstep cstep fml pc = SOME (fml', pc') ∧
+    check_cstep cstep fml id pc = SOME (fml', id', pc') ∧
     fml_rel fml' fmlls' ∧ rup_inv fmlls' assg' st' ∧
     ind_rel fmlls' inds' ∧
-    vimap_rel fmlls' vimap' ∧
-    vomap_rel pc'.obj vomap' ∧
-    (∀n. n ≥ pc'.id ⇒ any_el n fmlls' Empty = Empty) ∧
-    pc.id ≤ pc'.id
+    vimap_rel fmlls' vimap' ∧ FST (SND vimap') ≤ id' ∧
+    vomap_rel pc'.obj vomap' ∧ po_rel pc'.ord po' ∧
+    (∀n. n ≥ id' ⇒ any_el n fmlls' Empty = Empty) ∧
+    id ≤ id'
 Proof
-  Cases_on`cstep`>>rw[]
+  Cases_on`cstep`>>rw[po_rel_def]
   >~ [‘Dom’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
     rpt(pairarg_tac>>gvs[])>>
     gvs[AllCaseEqs(),neg_pos_slot_enc,store_slot_enc,max_var_not]>>
-    drule_all vimap_rel_vomap_rel_check_fresh_aspo_list >>
-    disch_then $ irule_at Any >>
+    qmatch_asmsub_abbrev_tac`UNCURRY _ DDC = SOME _`>>
+    PairCases_on`DDC`>>
+    qpat_x_assum`Abbrev _`
+      (assume_tac o GSYM o REWRITE_RULE[markerTheory.Abbrev_def])>>
+    gvs[]>>
+    `dom_subgoals spo (subst_fun (mk_subst rinds l)) p pc.obj =
+       (dsubs',MAP (MAP sc_hyp_dec) dscopes',dindex')` by (
+      irule dom_subgoals_list_thm>>simp[po_rel_def])>>
+    drule_at (Pos last) dom_subgoals_list_scopes_ok>>
+    simp[]>>strip_tac>>
+    drule_all fill_get_set_indices>> strip_tac>>
+    qspecl_then [`[]`,`rinds`,`l`] SUBST_ALL_TAC subst_fun_mk_subst_rinds>> gvs[]>>
+    drule_all fill_check_fresh_aspo_list>>
+    disch_then $ irule_at Any>>
     DEP_REWRITE_TAC[fml_rel_extract_scopes_list]>>
     simp[PULL_EXISTS]>>
+    drule_all scopes_ok_extract_scopes_list>> strip_tac>>
     qpat_x_assum`opt_update fmlls _ _ _ _ = _` assume_tac>>
     drule_all rup_inv_opt_update>> strip_tac>>
     gvs[opt_update_SOME]>>
     drule_at (Pos last) fml_rel_check_scopes_list >>
-    disch_then(qspec_then`insert pc.id (not p,F) fml` mp_tac)>>
+    disch_then(qspec_then`insert id (not p,F) fml` mp_tac)>>
     impl_tac >- (
       fs[fml_rel_update_resize,any_el_update_resize])>>
     strip_tac>>simp[]>>
@@ -4458,18 +6650,27 @@ Proof
     ntac 3 strip_tac>>
     pairarg_tac>>
     gvs[insert_fml_def,store_ind_enc,opt_update_SOME]>>
-    `fml_rel fml (rollback fml' pc.id id')` by (
+    qmatch_asmsub_rename_tac`check_scopes_list _ _ _ _ _ _ _ = SOME (_,id1,_,_)`>>
+    `fml_rel fml (rollback fml' id id1)` by (
       match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
     CONJ_TAC >- (
-      fs[do_dom_check_def,check_hash_goals_slot_enc]>>
-      every_case_tac>>fs[]
+      qmatch_asmsub_rename_tac
+        `do_dom_check dopt _ _ _ _ _ _ (enc (not dc) F) dpfs _ _ = _`>>
+      qmatch_asmsub_rename_tac`extract_scoped_pids _ LN LN = (dl,dr)`>>
+      Cases_on`dopt`>>
+      gvs[do_dom_check_def,check_hash_goals_slot_enc]
       >- (
-        (drule_at Any) split_goals_hash_imp_split_goals>>
-        disch_then(qspec_then `mk_core_fml F fml` mp_tac)>>
-        impl_tac >- (
-          simp[range_mk_core_fml]>>
-          match_mp_tac revalue_SUBSET>>
-          simp[])>>
+        Cases_on`extract_scoped_pids_list dpfs [] LN`>>
+        rename1`extract_scoped_pids_list dpfs [] LN = (pl,pr)`>>
+        qspecl_then [`dpfs`,`[]`,`LN`,`LN`] mp_tac
+          extract_scoped_pids_list_thm>>
+        simp[]>>strip_tac>>gvs[]>>
+        Cases_on`find_scope_1 dindex dpfs ∧ check_hash_goals dc [dindex] dr dsubs`>>
+        gvs[]>>
+        drule_at (Pos (el 2)) split_goals_hash_imp_split_goals>>
+        disch_then drule>>
+        disch_then (qspec_then`dl` mp_tac)>>
+        impl_tac >- simp[]>>
         match_mp_tac split_goals_same_goals>>
         simp[EXTENSION,FORALL_PROD]>>
         rw[]>>eq_tac>>rw[]
@@ -4478,30 +6679,30 @@ Proof
           irule MEM_subst_indexes>>
           qpat_assum`fml_rel fml fmlls` (irule_at Any)>>
           simp[]>>
-          metis_tac[MEM_get_set_indices_lookup_core_only,IS_SOME_EXISTS])>>
+          metis_tac[IS_SOME_EXISTS])>>
         qpat_x_assum`fml_rel fml fmlls` assume_tac>>
         drule_at (Pos last) subst_indexes_MEM>>
         disch_then drule>>
         rw[]>>
         gvs[MEM_toAList,lookup_map_opt,lookup_mk_core_fml])>>
       metis_tac[fml_rel_check_contradiction_fml])>>
-    `rup_inv (rollback fml' pc.id id') assg'' st''` by
+    `rup_inv (rollback fml' id id1) assg'' st''` by
       metis_tac[rup_inv_rollback]>>
-    `ind_rel (rollback fml' pc.id id') inds''` by (
+    `ind_rel (rollback fml' id id1) inds` by (
       match_mp_tac ind_rel_rollback_2>>
-      fs[]>>
-      metis_tac[ind_rel_get_set_indices])>>
-    `vimap_rel (rollback fml' pc.id id') vimap''` by (
-      match_mp_tac fml_rel_fml_rel_vimap_rel>>fs[]>>
-      metis_tac[vimap_rel_get_set_indices])>>
-    `∀n. n ≥ id' ⇒ any_el n (rollback fml' pc.id id') Empty = Empty` by
+      fs[])>>
+    `vimap_rel (rollback fml' id id1) vimap'` by
+      metis_tac[fml_rel_fml_rel_vimap_rel]>>
+    `FST (SND vimap') ≤ id1` by decide_tac>>
+    `∀n. n ≥ id1 ⇒ any_el n (rollback fml' id id1) Empty = Empty` by
       simp[rollback_list_delete,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
     drule_all store_rels>>
     simp[])
   >~ [‘Sstep’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
-    drule_all fml_rel_check_sstep_list>>
-    rw[]>>simp[])
+    drule_at (Pos last) fml_rel_check_sstep_list>>
+    disch_then (qspec_then`fml` mp_tac)>>
+    simp[]>>rw[]>>simp[])
   >~ [‘CheckedDelete’] >- (
     gvs[check_cstep_list_def,slot_CASE_default,AllCaseEqs(),check_cstep_def]>>
     drule_all fml_rel_lookup_core_only_enc>> strip_tac>> gvs[]>>
@@ -4548,28 +6749,33 @@ Proof
     metis_tac[any_el_core_from_inds_Empty])
   >~ [‘StrengthenToCore’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
-    drule_all ind_rel_reindex>> strip_tac>>
     rw[]
-    >~ [`fml_rel (map _ _)`] >- metis_tac[fml_rel_core_from_inds_reindex]
-    >~ [`rup_inv`] >- metis_tac[rup_inv_core_from_inds]
-    >~ [`ind_rel`] >- metis_tac[ind_rel_core_from_inds]
-    >~ [`vimap_rel`] >- metis_tac[vimap_rel_core_from_inds]>>
-    metis_tac[any_el_core_from_inds_Empty])
+    >~ [`fml_rel (map _ _)`] >- metis_tac[fml_rel_core_from_range]
+    >~ [`rup_inv`] >- metis_tac[rup_inv_core_from_range]
+    >~ [`ind_rel`] >- metis_tac[ind_rel_core_from_range]
+    >~ [`vimap_rel`] >- metis_tac[vimap_rel_core_from_range]>>
+    metis_tac[any_el_core_from_range_Empty])
   >~ [‘LoadOrder’] >- (
-    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
-    drule_all ind_rel_reindex>> strip_tac>>
+    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def,ord_maps_ok_mk_ordsub]>>
     rw[]
-    >~ [`fml_rel (map _ _)`] >- metis_tac[fml_rel_core_from_inds_reindex]
-    >~ [`rup_inv`] >- metis_tac[rup_inv_core_from_inds]
-    >~ [`ind_rel`] >- metis_tac[ind_rel_core_from_inds]
+    >~ [`fml_rel (map _ _)`] >- metis_tac[fml_rel_core_from_range]
+    >~ [`rup_inv`] >- metis_tac[rup_inv_core_from_range]
+    >~ [`ind_rel`] >- metis_tac[ind_rel_core_from_range]
     >~ [`vimap_rel`] >-
-      metis_tac[vimap_rel_core_from_inds,vimap_rel_mk_perm]>>
-    metis_tac[any_el_core_from_inds_Empty])
+      metis_tac[vimap_rel_core_from_range]>>
+    metis_tac[any_el_core_from_range_Empty])
   >~ [‘UnloadOrder’] >- (
-    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def])
+    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def,mk_ord_pre_def])
   >~ [‘StoreOrder’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def,check_storeorder_def]>>
-    metis_tac[fml_rel_check_spec_list])
+    gvs[rup_inv_def]>>
+    drule fml_rel_check_spec_list>>
+    impl_tac >- metis_tac[]>>
+    strip_tac>>
+    drule check_spec_list_LENGTH>>
+    strip_tac>>
+    gvs[]>>
+    metis_tac[bound_mono])
   >~ [‘Obj’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def,
       check_obj_core_thm,check_obj_slots_thm]>>
@@ -4591,7 +6797,7 @@ Proof
       EVAL_TAC>>rw[])>>
     strip_tac>>
     rfs[]>>
-    `pc.id ≤ pc.id` by fs[]>>
+    `id ≤ id` by fs[]>>
     drule_all fml_rel_check_subproofs_list>>
     fs[do_change_check_def]>>
     pairarg_tac>>fs[]>>
@@ -4609,12 +6815,13 @@ Proof
       metis_tac[ind_rel_reindex])>>
     CONJ_TAC >-
       metis_tac[fml_rel_fml_rel_vimap_rel]>>
+    CONJ_TAC >- fs[]>>
     CONJ_TAC >-
       metis_tac[vomap_rel_mk_vomap]>>
     simp[rollback_list_delete,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
     rw[])
   >~ [‘CheckObj’] >- (
-    fs[check_cstep_def,check_cstep_list_def])
+    gvs[check_cstep_def,check_cstep_list_def,AllCaseEqs()])
   >~ [‘AssertObj’] >- (
     gvs[check_cstep_def,check_cstep_list_def]>>
     rpt (pairarg_tac>>gvs[])>>
@@ -4632,7 +6839,7 @@ Proof
       EVAL_TAC>>rw[])>>
     strip_tac>>
     rfs[]>>
-    `pc.id ≤ pc.id` by fs[]>>
+    `id ≤ id` by fs[]>>
     drule_all fml_rel_check_subproofs_list>>
     fs[do_change_check_def]>>
     pairarg_tac>>fs[]>>
@@ -4653,7 +6860,7 @@ Proof
     simp[rollback_list_delete,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
     rw[])
   >~ [‘CheckPres’] >- (
-    fs[check_cstep_def,check_cstep_list_def])
+    gvs[check_cstep_def,check_cstep_list_def,AllCaseEqs()])
   >~ [‘Sol’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def,
       check_sol_core_thm,check_sol_slots_thm]>>
@@ -4666,35 +6873,258 @@ Proof
     simp[])
 QED
 
+Theorem store_ind_id:
+  store_ind fmlls s mv id inds assg st =
+    (fmlls',inds',id',assg',st') ⇒
+  id ≤ id'
+Proof
+  rw[store_ind_def,store_slot_def]>>
+  rpt (pairarg_tac>>gvs[])
+QED
+
+Theorem check_red_list_id:
+  check_red_list pres ord po obj b tcb fmlls inds id fc mv s pfs idopt
+    vimap vomap assg st ht =
+    SOME (fmlls',inds',vimap',id',assg',st',ht') ⇒
+  id ≤ id'
+Proof
+  strip_tac>>
+  gvs[check_red_list_def,check_red_list_fast_def,AllCaseEqs()]>>
+  rpt (pairarg_tac>>gvs[AllCaseEqs()])>>
+  gvs[store_slot_def]>>
+  rpt (pairarg_tac>>gvs[])
+  >- (
+    drule check_scopes_list_id>>
+    simp[])>>
+  drule (CONJUNCT2 check_lstep_list_id)>>
+  simp[]
+QED
+
+Theorem check_change_obj_list_id:
+  check_change_obj_list b fmlls id obj fc' pfs assg st =
+    SOME (fmlls',fc'',id',assg',st') ⇒
+  id ≤ id'
+Proof
+  rw[check_change_obj_list_def,AllCaseEqs()]>>
+  drule check_subproofs_list_id>>
+  simp[]
+QED
+
+Theorem check_change_pres_list_id:
+  check_change_pres_list b fmlls id pres v c pfs assg st =
+    SOME (fmlls',pres',id',assg',st') ⇒
+  id ≤ id'
+Proof
+  rw[check_change_pres_list_def,AllCaseEqs()]>>
+  drule check_subproofs_list_id>>
+  simp[]
+QED
+
+Theorem check_sstep_list_id:
+  check_sstep_list sstep pres ord po obj tcb fmlls inds id vimap vomap assg st
+    ht =
+    SOME (fmlls',inds',vimap',id',assg',st',ht') ⇒
+  id ≤ id'
+Proof
+  strip_tac>>
+  gvs[check_sstep_list_def,AllCaseEqs()]>>
+  rpt (pairarg_tac>>gvs[])
+  >- (
+    imp_res_tac opt_update_inds_opt_update>>
+    imp_res_tac opt_update_id>>
+    imp_res_tac (CONJUNCT1 check_lstep_list_id)>>
+    simp[])>>
+  gvs[AllCaseEqs()]>>
+  pairarg_tac>>gvs[]>>
+  imp_res_tac store_ind_id>>
+  imp_res_tac check_red_list_id>>
+  simp[]
+QED
+
+(* ids below id are unchanged *)
+Theorem store_ind_mindel:
+  store_ind fmlls s mv id inds assg st =
+    (fmlls',inds',id',assg',st') ∧
+  n < id ⇒
+  any_el n fmlls Empty = any_el n fmlls' Empty
+Proof
+  rw[store_ind_def,store_slot_def]>>
+  rpt (pairarg_tac>>gvs[])>>
+  rw[any_el_update_resize]
+QED
+
+Theorem check_red_list_mindel:
+  check_red_list pres ord po obj b tcb fmlls inds id fc mv s pfs idopt
+    vimap vomap assg st ht =
+    SOME (fmlls',inds',vimap',id',assg',st',ht') ∧
+  n < id ⇒
+  any_el n fmlls Empty = any_el n fmlls' Empty
+Proof
+  strip_tac>>
+  gvs[check_red_list_def,check_red_list_fast_def,AllCaseEqs()]>>
+  rpt (pairarg_tac>>gvs[AllCaseEqs()])>>
+  gvs[store_slot_def]>>
+  rpt (pairarg_tac>>gvs[])
+  >- (
+    drule check_scopes_list_mindel>>
+    drule check_scopes_list_id>>
+    rw[any_el_rollback]>>
+    first_x_assum (qspec_then`n` mp_tac)>>
+    simp[any_el_update_resize])>>
+  drule (CONJUNCT2 check_lstep_list_mindel)>>
+  drule (CONJUNCT2 check_lstep_list_id)>>
+  rw[any_el_rollback]>>
+  first_x_assum (qspec_then`n` mp_tac)>>
+  simp[any_el_update_resize]
+QED
+
+Theorem check_change_obj_list_mindel:
+  check_change_obj_list b fmlls id obj fc' pfs assg st =
+    SOME (fmlls',fc'',id',assg',st') ∧
+  n < id ⇒
+  any_el n fmlls Empty = any_el n fmlls' Empty
+Proof
+  rw[check_change_obj_list_def,AllCaseEqs()]>>
+  drule check_subproofs_list_mindel>>
+  drule check_subproofs_list_id>>
+  rw[any_el_rollback]
+QED
+
+Theorem check_change_pres_list_mindel:
+  check_change_pres_list b fmlls id pres v c pfs assg st =
+    SOME (fmlls',pres',id',assg',st') ∧
+  n < id ⇒
+  any_el n fmlls Empty = any_el n fmlls' Empty
+Proof
+  rw[check_change_pres_list_def,AllCaseEqs()]>>
+  drule check_subproofs_list_mindel>>
+  drule check_subproofs_list_id>>
+  rw[any_el_rollback]
+QED
+
+(* ids below id are only deleted *)
+Theorem check_sstep_list_id_del:
+  check_sstep_list sstep pres ord po obj tcb fmlls inds id vimap vomap assg st
+    ht =
+    SOME (fmlls',inds',vimap',id',assg',st',ht') ∧
+  n < id ∧
+  any_el n fmlls' Empty ≠ Empty ⇒
+  any_el n fmlls Empty = any_el n fmlls' Empty
+Proof
+  strip_tac>>
+  gvs[check_sstep_list_def,AllCaseEqs()]>>
+  rpt (pairarg_tac>>gvs[])
+  >- (
+    qmatch_asmsub_rename_tac`opt_update_inds _ _ id1 _ _ _ = _`>>
+    imp_res_tac opt_update_inds_opt_update>>
+    drule (CONJUNCT1 check_lstep_list_id)>>
+    strip_tac>>
+    `n < id1` by decide_tac>>
+    metis_tac[opt_update_mindel,check_lstep_list_id_del])>>
+  gvs[AllCaseEqs()]>>
+  pairarg_tac>>gvs[]>>
+  qmatch_asmsub_rename_tac`store_ind _ _ _ id1 _ _ _ = _`>>
+  drule check_red_list_id>>
+  strip_tac>>
+  `n < id1` by decide_tac>>
+  metis_tac[check_red_list_mindel,store_ind_mindel]
+QED
+
+Theorem core_below_check_cstep_list:
+  core_below cw fmlls ∧ cw ≤ id ∧
+  check_cstep_list cstep fmlls assg st inds vimap id (pc,vomap,cw,po) ht =
+    SOME (fmlls',assg',st',inds',vimap',id',(pc',vomap',cw',po'),ht') ⇒
+  core_below cw' fmlls' ∧ cw' ≤ id'
+Proof
+  Cases_on`cstep`>>
+  strip_tac>>
+  gvs[check_cstep_list_def,AllCaseEqs()]>>
+  rpt (pairarg_tac>>gvs[AllCaseEqs()])
+  >~ [`check_scopes_list`] >- (
+    qmatch_asmsub_rename_tac`check_scopes_list _ _ _ _ _ _ _ = SOME (_,id2,_,_)`>>
+    drule store_ind_mindel>>
+    drule store_ind_id>>
+    drule check_scopes_list_mindel>>
+    drule check_scopes_list_id>>
+    gvs[store_slot_def]>>
+    rpt (pairarg_tac>>gvs[])>>
+    rw[]>>
+    irule core_below_frame>>
+    first_assum (irule_at Any)>>
+    rw[]>>
+    `n < id ∧ n < id2` by decide_tac>>
+    qpat_x_assum`∀n. n < id2 ⇒ _` (qspec_then`n` mp_tac)>>
+    qpat_x_assum`∀n. n < id ⇒ _` (qspec_then`n` mp_tac)>>
+    simp[any_el_rollback,any_el_update_resize])
+  >~ [`check_sstep_list`] >- (
+    drule check_sstep_list_id_del>>
+    drule check_sstep_list_id>>
+    rw[]>>
+    irule core_below_frame>>
+    first_assum (irule_at Any)>>
+    rw[])
+  >~ [`check_red_list`] >- (
+    qmatch_asmsub_rename_tac`lookup_core_only_list T fmlls del`>>
+    drule check_red_list_mindel>>
+    drule check_red_list_id>>
+    rw[]>>
+    irule core_below_frame>>
+    first_assum (irule_at Any)>>
+    rw[]>>
+    rename1`m < cw`>>
+    `m < id` by decide_tac>>
+    `delete_list del fmlls = list_delete_list [del] fmlls` by
+      simp[list_delete_list_def]>>
+    gvs[any_el_list_delete_list]>>
+    qpat_x_assum`∀n. n < id ⇒ _` (qspec_then`m` mp_tac)>>
+    rw[])
+  >>~- ([`list_delete_list`],
+    irule core_below_frame>>
+    first_assum (irule_at Any)>>
+    rw[any_el_list_delete_list])
+  >~ [`core_from_inds`] >- metis_tac[core_below_core_from_inds]
+  >>~- ([`core_from_range`], metis_tac[core_below_core_from_range])>>
+  imp_res_tac store_ind_mindel>>
+  imp_res_tac store_ind_id>>
+  imp_res_tac check_change_obj_list_mindel>>
+  imp_res_tac check_change_obj_list_id>>
+  imp_res_tac check_change_pres_list_mindel>>
+  imp_res_tac check_change_pres_list_id>>
+  rw[]>>
+  irule core_below_frame>>
+  first_assum (irule_at Any)>>
+  rw[]
+QED
 
 Definition check_csteps_list_def:
-  (check_csteps_list [] fml assg st inds vimap vomap pc =
-    SOME (fml, assg, st, inds, vimap, vomap, pc)) ∧
-  (check_csteps_list (c::cs) fml assg st inds vimap vomap pc =
-    case check_cstep_list c fml assg st inds vimap vomap pc of
+  (check_csteps_list [] fml assg st inds vimap id cfg ht =
+    SOME (fml, assg, st, inds, vimap, id, cfg, ht)) ∧
+  (check_csteps_list (c::cs) fml assg st inds vimap id cfg ht =
+    case check_cstep_list c fml assg st inds vimap id cfg ht of
       NONE => NONE
-    | SOME(fml', assg', st', inds', vimap', vomap', pc') =>
-      check_csteps_list cs fml' assg' st' inds' vimap' vomap' pc')
+    | SOME(fml', assg', st', inds', vimap', id', cfg', ht') =>
+      check_csteps_list cs fml' assg' st' inds' vimap' id' cfg' ht')
 End
 
 Theorem fml_rel_check_csteps_list:
-  ∀csteps fml fmlls assg st inds vimap vomap pc
-    fmlls' assg' st' inds' vimap' vomap' pc'.
+  ∀csteps fml fmlls assg st inds vimap id pc vomap cw po ht
+    fmlls' assg' st' inds' vimap' id' pc' vomap' cw' po' ht'.
   fml_rel fml fmlls ∧ rup_inv fmlls assg st ∧
   ind_rel fmlls inds ∧
-  vimap_rel fmlls vimap ∧
-  vomap_rel pc.obj vomap ∧
-  (∀n. n ≥ pc.id ⇒ any_el n fmlls Empty = Empty) ∧
-  check_csteps_list csteps fmlls assg st inds vimap vomap pc =
-    SOME (fmlls', assg', st', inds', vimap', vomap', pc') ⇒
+  vimap_rel fmlls vimap ∧ FST (SND vimap) ≤ id ∧
+  vomap_rel pc.obj vomap ∧ po_rel pc.ord po ∧
+  (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
+  core_below cw fmlls ∧ cw ≤ id ∧
+  check_csteps_list csteps fmlls assg st inds vimap id (pc,vomap,cw,po) ht =
+    SOME (fmlls', assg', st', inds', vimap', id', (pc',vomap',cw',po'), ht') ⇒
   ∃fml'.
-    check_csteps csteps fml pc = SOME (fml', pc') ∧
+    check_csteps csteps fml id pc = SOME (fml', id', pc') ∧
     fml_rel fml' fmlls' ∧ rup_inv fmlls' assg' st' ∧
     ind_rel fmlls' inds' ∧
-    vimap_rel fmlls' vimap' ∧
-    vomap_rel pc'.obj vomap' ∧
-    (∀n. n ≥ pc'.id ⇒ any_el n fmlls' Empty = Empty) ∧
-    pc.id ≤ pc'.id
+    vimap_rel fmlls' vimap' ∧ FST (SND vimap') ≤ id' ∧
+    vomap_rel pc'.obj vomap' ∧ po_rel pc'.ord po' ∧
+    (∀n. n ≥ id' ⇒ any_el n fmlls' Empty = Empty) ∧
+    id ≤ id'
 Proof
   Induct>>simp[]
   >- (
@@ -4702,256 +7132,20 @@ Proof
     metis_tac[])>>
   rw[]>>
   gvs[check_csteps_list_def,check_csteps_def,AllCaseEqs()]>>
+  PairCases_on`cfg'`>>
   drule_all fml_rel_check_cstep_list>>
+  drule_all core_below_check_cstep_list>>
   rw[]>>simp[]>>
   first_x_assum drule_all>>
   rw[]>>simp[]
 QED
 
-(* The bound on the assignment: every variable of every stored constraint
-  stays below its length, which the unchecked reads of the RUP passes
-  rely on *)
-
-Theorem fml_bound_store_slot:
-  fml_bound fmlls (LENGTH assg) ∧ slot_bound s (mv + 1) ∧
-  store_slot fmlls s mv id assg st = (fmlls',id',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
-Proof
-  rpt strip_tac>>
-  gvs[store_slot_def]>>
-  pairarg_tac>>gvs[]>>
-  drule grow_assg_LENGTH>>
-  rw[]>>
-  irule bound_update_resize>>
-  metis_tac[bound_mono,slot_bound_mono]
-QED
-
-Theorem fml_bound_opt_update:
-  fml_bound fmlls (LENGTH assg) ∧
-  opt_update fmlls c id assg st = (fmlls',id',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
-Proof
-  Cases_on`c`
-  >- (rw[]>>gvs[])>>
-  rename1`SOME cb`>>
-  Cases_on`cb`>>
-  rpt strip_tac>>
-  gvs[opt_update_def,enc_mv_enc]>>
-  drule_at (Pos last) fml_bound_store_slot>>
-  simp[slot_bound_enc_max_var]
-QED
-
-Theorem check_rup_loop_list_LENGTH:
-  ∀ns assg res assg' pre.
-  check_rup_loop_list b nc fmlls assg st ns = (res,assg',pre) ⇒
-  LENGTH assg' = LENGTH assg
-Proof
-  Induct>>
-  simp[check_rup_loop_list_def]>>
-  rpt gen_tac>>
-  TOP_CASE_TAC>>
-  simp[]>>
-  rpt (pairarg_tac>>simp[])>>
-  rw[]>>
-  metis_tac[LENGTH_update_assg_slot,FST,SND]
-QED
-
-Theorem check_rup_list_LENGTH:
-  check_rup_list b nc sz fmlls assg st ns = (res,assg',st',pre) ⇒
-  LENGTH assg ≤ LENGTH assg' ∧ sz ≤ LENGTH assg'
-Proof
-  rw[check_rup_list_def]>>
-  rpt (pairarg_tac>>gvs[])>>
-  imp_res_tac check_rup_loop_list_LENGTH>>
-  imp_res_tac reset_dm_list_LENGTH>>
-  imp_res_tac reset_dm_list_sz>>
-  simp[]
-QED
-
-Theorem check_rup_loop_list_pre:
-  ∀ns assg res assg' pre.
-  EVERY wf_slot fmlls ∧ fml_bound fmlls (LENGTH assg) ∧
-  wf_slot nc ∧ slot_bound nc (LENGTH assg) ∧
-  check_rup_loop_list b nc fmlls assg st ns = (res,assg',pre) ⇒
-  pre
-Proof
-  Induct>>
-  simp[check_rup_loop_list_def]>>
-  rpt gen_tac>>
-  strip_tac>>
-  qmatch_asmsub_abbrev_tac`get_rup_constraint_list b fmlls n nc`>>
-  `wf_slot (get_rup_constraint_list b fmlls n nc) ∧
-   slot_bound (get_rup_constraint_list b fmlls n nc) (LENGTH assg)` by (
-    rw[get_rup_constraint_list_def]>>
-    qspecl_then [`b`,`fmlls`,`n`] strip_assume_tac lookup_core_only_list_cases>>
-    gvs[fml_bound_def,wf_slot_def,slot_bound_def]>>
-    gvs[EVERY_EL,any_el_ALT]>>
-    rw[wf_slot_def])>>
-  Cases_on`get_rup_constraint_list b fmlls n nc`>>
-  gvs[]>>
-  rpt (pairarg_tac>>gvs[])>>
-  rename1`update_assg_slot assg st s0 = (dn,assg1,p1)`>>
-  `p1 ∧ LENGTH assg1 = LENGTH assg` by
-    metis_tac[update_assg_slot_pre,LENGTH_update_assg_slot,FST,SND]>>
-  Cases_on`dn`>>gvs[]>>
-  last_x_assum (qspec_then`assg1` mp_tac)>>
-  simp[]
-QED
-
-Theorem check_rup_list_pre:
-  EVERY wf_slot fmlls ∧ fml_bound fmlls (LENGTH assg) ∧
-  wf_slot nc ∧ slot_bound nc sz ∧
-  check_rup_list b nc sz fmlls assg st ns = (res,assg',st',pre) ⇒
-  pre
-Proof
-  rw[check_rup_list_def]>>
-  rpt (pairarg_tac>>gvs[])>>
-  drule_at (Pos last) check_rup_loop_list_pre>>
-  disch_then irule>>
-  imp_res_tac reset_dm_list_LENGTH>>
-  imp_res_tac reset_dm_list_sz>>
-  metis_tac[bound_mono,slot_bound_mono]
-QED
-
-Theorem fml_bound_check_lstep_list:
-  (∀lstep b fmlls mindel id assg st fmlls' c id' assg' st'.
-    fml_bound fmlls (LENGTH assg) ∧
-    check_lstep_list lstep b fmlls mindel id assg st =
-      SOME (fmlls',c,id',assg',st') ⇒
-    fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg') ∧
-  (∀lsteps b fmlls mindel id assg st fmlls' id' assg' st'.
-    fml_bound fmlls (LENGTH assg) ∧
-    check_lsteps_list lsteps b fmlls mindel id assg st =
-      SOME (fmlls',id',assg',st') ⇒
-    fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg')
-Proof
-  ho_match_mp_tac check_lstep_list_ind>>
-  rpt conj_tac>>
-  rpt gen_tac>>
-  strip_tac>>
-  rpt gen_tac>>
-  strip_tac
-  >- (
-    qpat_x_assum`check_lstep_list _ _ _ _ _ _ _ = _` mp_tac>>
-    simp[Once check_lstep_list_def]>>
-    Cases_on`lstep`>>
-    simp[AllCaseEqs()]>>
-    strip_tac>>
-    rpt (pairarg_tac>>gvs[])>>
-    gvs[bound_list_delete_list,AllCaseEqs()]
-    >~ [`check_rup_list`]
-    >- (
-      drule check_rup_list_LENGTH>>
-      metis_tac[bound_mono])>>
-    drule_all fml_bound_opt_update>>
-    strip_tac>>
-    first_x_assum drule_all>>
-    simp[bound_rollback])
-  >- gvs[check_lstep_list_def]
-  >- gvs[check_lstep_list_def]>>
-  qpat_x_assum`check_lsteps_list _ _ _ _ _ _ _ = _` mp_tac>>
-  simp[Once check_lstep_list_def,AllCaseEqs()]>>
-  strip_tac>>
-  pairarg_tac>>gvs[]>>
-  drule_all fml_bound_opt_update>>
-  strip_tac>>
-  gvs[]
-QED
-
-Theorem fml_bound_list_insert_fml_list:
-  ∀cs b id fmlls assg st id' fmlls' assg' st'.
-  fml_bound fmlls (LENGTH assg) ∧
-  list_insert_fml_list cs b id fmlls assg st = (id',fmlls',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
-Proof
-  Induct>>
-  simp[list_insert_fml_list_def]>>
-  rpt gen_tac>>
-  strip_tac>>
-  pairarg_tac>>gvs[]>>
-  drule_all fml_bound_opt_update>>
-  strip_tac>>
-  first_x_assum drule_all>>
-  gvs[]
-QED
-
-Theorem fml_bound_check_subproofs_list:
-  ∀pfs b fmlls mindel id assg st fmlls' id' assg' st'.
-  fml_bound fmlls (LENGTH assg) ∧
-  check_subproofs_list pfs b fmlls mindel id assg st =
-    SOME (fmlls',id',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
-Proof
-  ho_match_mp_tac check_subproofs_list_ind>>
-  simp[check_subproofs_list_def]>>
-  rpt strip_tac>>
-  gvs[AllCaseEqs()]>>
-  rpt (pairarg_tac>>gvs[AllCaseEqs()])>>
-  imp_res_tac fml_bound_list_insert_fml_list>>
-  imp_res_tac (CONJUNCT2 fml_bound_check_lstep_list)>>
-  imp_res_tac bound_rollback>>
-  gvs[]
-QED
-
-Theorem fml_bound_check_scopes_list:
-  ∀pfs b fmlls mindel id assg st fmlls' id' assg' st'.
-  fml_bound fmlls (LENGTH assg) ∧
-  check_scopes_list pfs b fmlls mindel id assg st =
-    SOME (fmlls',id',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
-Proof
-  ho_match_mp_tac check_scopes_list_ind>>
-  simp[check_scopes_list_def]>>
-  rpt strip_tac>>
-  gvs[AllCaseEqs()]>>
-  rpt (pairarg_tac>>gvs[AllCaseEqs()])>>
-  imp_res_tac fml_bound_list_insert_fml_list>>
-  imp_res_tac fml_bound_check_subproofs_list>>
-  imp_res_tac bound_rollback>>
-  gvs[]
-QED
-
-Theorem fml_bound_check_red_list_fast:
-  fml_bound fmlls (LENGTH assg) ∧ slot_bound fc (mv + 1) ∧
-  check_red_list_fast b fmlls inds id fc mv pf cid vimap assg st =
-    SOME (fmlls',inds',vimap',id',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
-Proof
-  strip_tac>>
-  gvs[check_red_list_fast_def]>>
-  pairarg_tac>>gvs[AllCaseEqs()]>>
-  drule_at (Pos last) fml_bound_store_slot>>
-  gvs[]>>
-  strip_tac>>
-  imp_res_tac (CONJUNCT2 fml_bound_check_lstep_list)>>
-  gvs[bound_rollback]
-QED
-
-Theorem fml_bound_check_red_list:
-  fml_bound fmlls (LENGTH assg) ∧ slot_bound fc (mv + 1) ∧
-  check_red_list pres ord obj b tcb fmlls inds id fc mv s pfs idopt
-    vimap vomap assg st =
-    SOME (fmlls',inds',vimap',id',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
-Proof
-  strip_tac>>
-  gvs[check_red_list_def,AllCaseEqs()]
-  >- (
-    rpt (pairarg_tac>>gvs[AllCaseEqs()])>>
-    drule_at (Pos last) fml_bound_store_slot>>
-    gvs[]>>
-    strip_tac>>
-    imp_res_tac fml_bound_check_scopes_list>>
-    gvs[bound_rollback])>>
-  drule_all fml_bound_check_red_list_fast>>
-  simp[]
-QED
-
 Theorem fml_bound_store_ind:
   fml_bound fmlls (LENGTH assg) ∧ slot_bound s (mv + 1) ∧
-  store_ind fmlls s mv id inds vimap assg st =
-    (fmlls',inds',vimap',id',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
+  store_ind fmlls s mv id inds assg st =
+    (fmlls',inds',id',assg',st') ⇒
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
 Proof
   strip_tac>>
   gvs[store_ind_def]>>
@@ -4962,9 +7156,10 @@ QED
 
 Theorem fml_bound_opt_update_inds:
   fml_bound fmlls (LENGTH assg) ∧
-  opt_update_inds fmlls c id inds vimap assg st =
-    (fmlls',inds',vimap',id',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
+  opt_update_inds fmlls c id inds assg st =
+    (fmlls',inds',id',assg',st') ⇒
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
 Proof
   Cases_on`c`
   >- (rw[opt_update_inds_def]>>gvs[opt_update_inds_def])>>
@@ -4977,19 +7172,23 @@ Proof
 QED
 
 Theorem fml_bound_check_sstep_list:
-  fml_bound fmlls (LENGTH assg) ∧
-  check_sstep_list sstep pres ord obj tcb fmlls inds id vimap vomap assg st =
-    SOME (fmlls',inds',vimap',id',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
+  fml_bound fmlls (LENGTH assg) ∧ po = mk_ord_pre ord ∧
+  check_sstep_list sstep pres ord po obj tcb fmlls inds id vimap vomap assg st
+    ht =
+    SOME (fmlls',inds',vimap',id',assg',st',ht') ⇒
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
 Proof
   strip_tac>>
   gvs[check_sstep_list_def,AllCaseEqs()]
   >- (
+    pairarg_tac>>gvs[]>>
     drule_all (CONJUNCT1 fml_bound_check_lstep_list)>>
     strip_tac>>
     drule_all fml_bound_opt_update_inds>>
     simp[])>>
   pairarg_tac>>gvs[AllCaseEqs(),enc_mv_enc]>>
+  pairarg_tac>>gvs[]>>
   drule_at (Pos last) fml_bound_check_red_list>>
   simp[slot_bound_enc_max_var]>>
   strip_tac>>
@@ -5001,7 +7200,8 @@ Theorem fml_bound_check_change_obj_list:
   fml_bound fmlls (LENGTH assg) ∧
   check_change_obj_list b fmlls id obj fc' pfs assg st =
     SOME (fmlls',fc'',id',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
 Proof
   rw[check_change_obj_list_def,AllCaseEqs()]>>
   imp_res_tac fml_bound_check_subproofs_list>>
@@ -5012,7 +7212,8 @@ Theorem fml_bound_check_change_pres_list:
   fml_bound fmlls (LENGTH assg) ∧
   check_change_pres_list b fmlls id pres v c pfs assg st =
     SOME (fmlls',pres',id',assg',st') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st')
 Proof
   rw[check_change_pres_list_def,AllCaseEqs()]>>
   imp_res_tac fml_bound_check_subproofs_list>>
@@ -5034,11 +7235,21 @@ Proof
   gvs[fml_bound_def]
 QED
 
+Theorem fml_bound_core_from_range:
+  fml_bound fmlls n ⇒
+  fml_bound (core_from_range fmlls w id) n
+Proof
+  rw[fml_bound_def,any_el_core_from_range]>>
+  rw[]
+QED
+
 Theorem fml_bound_check_cstep_list:
-  fml_bound fmlls (LENGTH assg) ∧
-  check_cstep_list cstep fmlls assg st inds vimap vomap pc =
-    SOME (fmlls',assg',st',inds',vimap',vomap',pc') ⇒
-  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg'
+  fml_bound fmlls (LENGTH assg) ∧ po = mk_ord_pre pc.ord ∧
+  check_cstep_list cstep fmlls assg st inds vimap id (pc,vomap,cw,po) ht =
+    SOME (fmlls',assg',st',inds',vimap',id',(pc',vomap',cw',po'),ht') ⇒
+  fml_bound fmlls' (LENGTH assg') ∧ LENGTH assg ≤ LENGTH assg' ∧
+  (stamps_ok assg st ⇒ stamps_ok assg' st') ∧
+  po' = mk_ord_pre pc'.ord
 Proof
   Cases_on`cstep`>>
   strip_tac>>
@@ -5046,9 +7257,12 @@ Proof
   rpt (pairarg_tac>>gvs[])>>
   gvs[AllCaseEqs(),neg_pos_slot_enc,enc_mv_enc]>>
   rpt (pairarg_tac>>gvs[])
-  >~ [`dom_subgoals`] >- (
+  >~ [`dom_subgoals_list`] >- (
     `slot_bound (enc (not p) F) (max_var (FST p) + 1)` by
       metis_tac[slot_bound_enc_max_var,max_var_not]>>
+    drule_at (Pos last) dom_subgoals_list_scopes_ok>>
+    simp[]>>strip_tac>>
+    drule_all scopes_ok_extract_scopes_list>>strip_tac>>
     drule_all fml_bound_store_slot>>
     strip_tac>>
     drule_all fml_bound_check_scopes_list>>
@@ -5056,17 +7270,21 @@ Proof
     drule_at (Pos last) fml_bound_store_ind>>
     gvs[bound_rollback,slot_bound_enc_max_var])
   >~ [`check_sstep_list`] >- (
-    drule_all fml_bound_check_sstep_list>>
+    drule_at (Pos last) fml_bound_check_sstep_list>>
     simp[])
   >~ [`check_red_list`] >- (
     drule_at (Pos last) fml_bound_check_red_list>>
     disch_then irule>>
     simp[slot_bound_slot_max_var]>>
-    metis_tac[bound_list_delete_list,list_delete_list_def])>>
+    metis_tac[bound_list_delete_list,list_delete_list_def])
+  >~ [`check_storeorder`] >- (
+    gvs[check_storeorder_def,AllCaseEqs()]>>
+    drule check_spec_list_LENGTH>>
+    metis_tac[bound_mono])>>
   imp_res_tac fml_bound_core_from_inds>>
   imp_res_tac fml_bound_check_change_obj_list>>
   imp_res_tac fml_bound_check_change_pres_list>>
-  gvs[bound_list_delete_list]>>
+  gvs[bound_list_delete_list,fml_bound_core_from_range,mk_ord_pre_def]>>
   drule_at (Pos last) fml_bound_store_ind>>
   gvs[slot_bound_enc_max_var]
 QED
@@ -5308,46 +7526,6 @@ Definition mk_vomap_opt_def:
   (mk_vomap_opt (SOME fc) = mk_vomap (LENGTH (FST fc)) fc)
 End
 
-(* For initial setup. Do not track vars; also returns the largest
-  variable seen *)
-Definition mk_vimap_def:
-  (mk_vimap vimap (mx:num) [] = (vimap,mx)) ∧
-  (mk_vimap vimap mx ((i,s)::efmls) =
-    let m = slot_max_var s in
-    mk_vimap (update_vimap_slot F vimap i m s)
-      (if mx < m then m else mx) efmls)
-End
-
-Theorem vimap_rel_mk_vimap:
-  ∀l k fmlls vimap mx.
-  vimap_rel fmlls vimap ⇒
-  vimap_rel
-    (FOLDL (λacc (i,v). update_resize acc Empty (enc v b) i) fmlls
-      (enumerate k l))
-    (FST (mk_vimap vimap mx (enumerate k (MAP (λc. enc c b) l))))
-Proof
-  Induct>>rw[miscTheory.enumerate_def,mk_vimap_def]>>
-  first_x_assum irule>>
-  irule vimap_rel_update_resize_update_vimap_slot>>
-  simp[]
-QED
-
-(* the returned maximum bounds the variables of the model *)
-Theorem mk_vimap_bound:
-  ∀l k vimap mx.
-  mx ≤ SND (mk_vimap vimap mx (enumerate k (MAP (λc. enc c b) l))) ∧
-  EVERY (λc. slot_bound (enc c b')
-    (SND (mk_vimap vimap mx (enumerate k (MAP (λc. enc c b) l))) + 1)) l
-Proof
-  Induct>>rw[miscTheory.enumerate_def,mk_vimap_def]>>
-  qmatch_goalsub_abbrev_tac`SND (mk_vimap vimap1 mx1 _)`>>
-  first_x_assum (qspecl_then [`k+1`,`vimap1`,`mx1`] strip_assume_tac)>>
-  gvs[Abbr`mx1`]>>
-  irule slot_bound_mono>>
-  irule_at Any slot_bound_enc_max_var>>
-  simp[]
-QED
-
 Theorem init_state_rels:
   fmls = MAP (λc. enc c T) fml ∧
   EVERY (λs. slot_bound s (LENGTH assg)) fmls ∧
@@ -5355,16 +7533,17 @@ Theorem init_state_rels:
   fmlls = FOLDL (λacc (i,v). update_resize acc Empty v i)
       (REPLICATE m Empty) (enumerate 1 fmls) ∧
   inds = REVERSE (MAP FST (enumerate 1 fmls)) ∧
-  vimap = FST (mk_vimap (REPLICATE k Vnone) 0 (enumerate 1 fmls)) ∧
+  vimap = (LENGTH fml, 0, ents) ∧
   vomap = mk_vomap_opt obj ∧
-  pc = init_conf (LENGTH fml + 1) chk pres obj ⇒
+  id = LENGTH fml + 1 ∧
+  pc = init_conf chk pres obj ⇒
   fml_rel (build_fml T 1 fml) fmlls ∧
   ind_rel fmlls inds ∧
-  vimap_rel fmlls vimap ∧
+  vimap_rel fmlls vimap ∧ FST (SND vimap) ≤ id ∧
   vomap_rel pc.obj vomap ∧
-  (∀n. n ≥ pc.id ⇒ any_el n fmlls Empty = Empty) ∧
+  (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
   rup_inv fmlls assg st ∧
-  id_ok (build_fml T 1 fml) pc.id ∧
+  id_ok (build_fml T 1 fml) id ∧
   all_core (build_fml T 1 fml)
 Proof
   strip_tac>>
@@ -5372,10 +7551,7 @@ Proof
   rpt conj_tac
   >- simp[fml_rel_FOLDL_update_resize]
   >- simp[ind_rel_FOLDL_update_resize]
-  >- (
-    rw[FOLDL_enumerate_MAP]>>
-    irule vimap_rel_mk_vimap>>
-    rw[vimap_rel_def,any_el_ALT,EL_REPLICATE])
+  >- simp[vimap_rel_def]
   >- (
     simp[init_conf_def]>>
     Cases_on`obj`>- EVAL_TAC>>
@@ -5401,25 +7577,28 @@ Theorem check_csteps_list_concl:
       (REPLICATE m Empty) (enumerate 1 fmls))
     assg st
     (REVERSE (MAP FST (enumerate 1 fmls)))
-    (FST (mk_vimap (REPLICATE k Vnone) 0 (enumerate 1 fmls)))
-    (mk_vomap_opt obj)
-    (init_conf (LENGTH fml + 1) chk pres obj) =
-    SOME(fmlls',assg',st',inds',vimap',vomap',pc') ∧
+    (LENGTH fml, 0, ents)
+    (LENGTH fml + 1)
+    (init_conf chk pres obj, mk_vomap_opt obj, 0, NONE) ht =
+    SOME(fmlls',assg',st',inds',vimap',id',(pc',vomap',cw',po'),ht') ∧
   check_hconcl_list fmls obj fmlls'
     pc'.obj pc'.bound pc'.dbound pc'.enum hconcl ⇒
   sem_concl (set fml) obj (pres_set_spt pres) (hconcl_concl hconcl)
 Proof
   strip_tac>>
   qmatch_asmsub_abbrev_tac`check_csteps_list cs fmlls assg st
-    inds vimap vomap pc = _`>>
+    inds vimap id (pc,vomap,_) _ = _`>>
   `fml_rel (build_fml T 1 fml) fmlls ∧ ind_rel fmlls inds ∧
-   vimap_rel fmlls vimap ∧ vomap_rel pc.obj vomap ∧
-   (∀n. n ≥ pc.id ⇒ any_el n fmlls Empty = Empty) ∧
+   vimap_rel fmlls vimap ∧ FST (SND vimap) ≤ id ∧ vomap_rel pc.obj vomap ∧
+   (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
    rup_inv fmlls assg st ∧
-   id_ok (build_fml T 1 fml) pc.id ∧ all_core (build_fml T 1 fml)` by (
+   id_ok (build_fml T 1 fml) id ∧ all_core (build_fml T 1 fml)` by (
     irule init_state_rels>>
-    simp[Abbr`fmlls`,Abbr`inds`,Abbr`vimap`,Abbr`vomap`,Abbr`pc`]>>
+    simp[Abbr`fmlls`,Abbr`inds`,Abbr`vimap`,Abbr`vomap`,Abbr`pc`,Abbr`id`]>>
     metis_tac[])>>
+  `core_below 0 fmlls ∧ 0 ≤ id` by simp[]>>
+  `po_rel pc.ord NONE` by
+    simp[Abbr`pc`,init_conf_def,po_rel_def,mk_ord_pre_def]>>
   drule_all fml_rel_check_csteps_list>>
   rw[]>>
   drule check_csteps_check_hconcl>>
@@ -5430,33 +7609,36 @@ Proof
   metis_tac[]
 QED
 
+(* The table is filled up to the id counter id; each output slot must match
+  a core slot in it (the output is in the core), and every core slot below
+  id must be marked by a matching output slot (the core is in the output) *)
 Definition check_output_list_def:
-  (check_output_list fml inds
+  (check_output_list fml inds id ht
     pres obj bound dbound chk fml' pres' obj' NoOutput = T) ∧
-  (check_output_list fml inds
+  (check_output_list fml inds id ht
     pres obj bound dbound chk fml' pres' obj' Derivable =
-    let cls = MAP SND (core_fmlls fml inds) in
-      dbound = NONE ∧ fml_include_slots cls fml') ∧
-  (check_output_list fml inds
+    let (hw,a,d,bks) = ht_fill fml inds id ht in
+      dbound = NONE ∧ ht_include fml bks fml') ∧
+  (check_output_list fml inds id ht
     pres obj bound dbound chk fml' pres' obj' Equisatisfiable =
-    let cls = MAP SND (core_fmlls fml inds) in
+    let (hw,a,d,bks) = ht_fill fml inds id ht in
       dbound = NONE ∧ bound = NONE ∧
       chk ∧
-      fml_include_slots cls fml' ∧
-      fml_include_slots fml' cls) ∧
-  (check_output_list fml inds
+      ht_include fml bks fml' ∧
+      all_marked fml (ht_marks fml bks fml' (REPLICATE id F)) id) ∧
+  (check_output_list fml inds id ht
     pres obj bound dbound chk fml' pres' obj' Equioptimal =
-    let cls = MAP SND (core_fmlls fml inds) in
+    let (hw,a,d,bks) = ht_fill fml inds id ht in
       chk ∧ opt_le bound dbound ∧
-      fml_include_slots cls fml' ∧
-      fml_include_slots fml' cls ∧
+      ht_include fml bks fml' ∧
+      all_marked fml (ht_marks fml bks fml' (REPLICATE id F)) id ∧
       opt_eq_obj obj obj') ∧
-  (check_output_list fml inds
+  (check_output_list fml inds id ht
     pres obj bound dbound chk fml' pres' obj' Equisolvable =
-    let cls = MAP SND (core_fmlls fml inds) in
+    let (hw,a,d,bks) = ht_fill fml inds id ht in
       chk ∧ opt_le bound dbound ∧
-      fml_include_slots cls fml' ∧
-      fml_include_slots fml' cls ∧
+      ht_include fml bks fml' ∧
+      all_marked fml (ht_marks fml bks fml' (REPLICATE id F)) id ∧
       opt_eq_obj_opt obj obj' ∧
       opt_eq_pres pres pres')
 End
@@ -5470,25 +7652,131 @@ Proof
   rw[fml_include_def,EVERY_MEM]
 QED
 
+(* Output check against the table *)
+
+Theorem LENGTH_ht_mark:
+  ∀fmlls c tbl j fuel mk. LENGTH (ht_mark fmlls c tbl j fuel mk) = LENGTH mk
+Proof
+  ho_match_mp_tac ht_mark_ind>>
+  rw[]>>
+  rw[Once ht_mark_def]>>
+  TOP_CASE_TAC>>
+  rw[]
+QED
+
+Theorem EL_ht_mark:
+  ∀fmlls c tbl j fuel mk k.
+  k < LENGTH mk ∧ EL k (ht_mark fmlls c tbl j fuel mk) ⇒
+  EL k mk ∨
+  (lookup_core_only_list T fmlls k ≠ Empty ∧
+    eq_slot c (lookup_core_only_list T fmlls k))
+Proof
+  ho_match_mp_tac ht_mark_ind>>
+  rpt gen_tac>>
+  strip_tac>>
+  rpt gen_tac>>
+  simp[Once ht_mark_def]>>
+  rw[]>>
+  gvs[]>>
+  first_x_assum (drule_at (Pos last))>>
+  rw[EL_LUPDATE]>>
+  gvs[eq_stored_thm]
+QED
+
+Theorem LENGTH_ht_marks:
+  ∀cs mk. LENGTH (ht_marks fmlls tbl cs mk) = LENGTH mk
+Proof
+  Induct>>
+  rw[ht_marks_def,LENGTH_ht_mark]
+QED
+
+Theorem EL_ht_marks:
+  ∀cs mk j.
+  j < LENGTH mk ∧ EL j (ht_marks fmlls tbl cs mk) ⇒
+  EL j mk ∨
+  ∃c. MEM c cs ∧ lookup_core_only_list T fmlls j ≠ Empty ∧
+    eq_slot c (lookup_core_only_list T fmlls j)
+Proof
+  Induct>>
+  rw[ht_marks_def]>>
+  first_x_assum (drule_at (Pos last))>>
+  simp[LENGTH_ht_mark]>>
+  strip_tac
+  >- (
+    drule_at (Pos last) EL_ht_mark>>
+    rw[]>>
+    metis_tac[])>>
+  metis_tac[]
+QED
+
+Theorem all_marked_EL:
+  ∀n j.
+  all_marked fmlls mk n ∧ j < n ∧
+  lookup_core_only_list T fmlls j ≠ Empty ⇒
+  EL j mk
+Proof
+  Induct>>
+  rw[Once all_marked_def]>>
+  Cases_on`j = n`>>
+  gvs[]
+QED
+
+(* The output constraints are core constraints of the formula *)
+Theorem ht_include_fml_include:
+  fml_rel fml fmlls ∧
+  ht_include fmlls tbl fmlt ⇒
+  fml_include (MAP SND (toAList (mk_core_fml T fml))) fmlt
+Proof
+  rw[ht_include_def,fml_include_def,EVERY_MEM,ht_probe_def]>>
+  first_x_assum drule>>
+  strip_tac>>
+  drule_all ht_mem_core_only_fml>>
+  rw[GSYM range_mk_core_fml,range_def,MEM_MAP,EXISTS_PROD,MEM_toAList]>>
+  Cases_on`c`>>
+  metis_tac[]
+QED
+
+(* Every core constraint of the formula is an output constraint *)
+Theorem all_marked_fml_include:
+  fml_rel fml fmlls ∧
+  (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
+  all_marked fmlls (ht_marks fmlls tbl fmlt (REPLICATE id F)) id ⇒
+  fml_include fmlt (MAP SND (toAList (mk_core_fml T fml)))
+Proof
+  rw[fml_include_def,EVERY_MAP,EVERY_MEM,MEM_MAP,FORALL_PROD,MEM_toAList,
+    lookup_mk_core_fml]>>
+  rename1`lookup_core_only T fml n = SOME c`>>
+  drule_all (cj 2 fml_rel_lookup_core_only_list)>>
+  strip_tac>>
+  `n < id` by (
+    CCONTR_TAC>>
+    gvs[lookup_core_only_list_def,core_only_def,NOT_LESS,GREATER_EQ]>>
+    first_x_assum drule>>
+    strip_tac>>
+    gvs[core_slot_def])>>
+  drule all_marked_EL>>
+  disch_then (qspec_then`n` mp_tac)>>
+  gvs[]>>
+  strip_tac>>
+  drule_at (Pos last) EL_ht_marks>>
+  simp[LENGTH_REPLICATE,EL_REPLICATE]>>
+  strip_tac>>
+  gvs[eq_slot_enc]
+QED
+
 Theorem fml_rel_check_output_list:
   fml_rel fml' fmlls' ∧
-  ind_rel fmlls' inds' ∧
-  check_output_list fmlls' inds' pres obj bound dbound chk
-    (MAP (λc. enc c T) fmlt) prest objt output ⇒
+  (∀n. n ≥ id' ⇒ any_el n fmlls' Empty = Empty) ∧
+  check_output_list fmlls' inds' id' ht' pres obj bound dbound chk
+    fmlt prest objt output ⇒
   check_output fml' pres obj bound dbound chk fmlt prest objt output
 Proof
   rw[]>>
-  drule_all core_fmlls_mk_core_fml>> strip_tac>>
-  `EVERY (λs. s ≠ Empty) (MAP SND (core_fmlls fmlls' inds'))` by
-    simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,MEM_core_fmlls]>>
-  `EVERY (λs. s ≠ Empty) (MAP (λc. enc c T) fmlt)` by
-    simp[EVERY_MAP]>>
-  `MAP dec (MAP (λc. enc c T) fmlt) = fmlt` by
-    simp[MAP_MAP_o,o_DEF]>>
   Cases_on`output`>>
-  fs[check_output_list_def,check_output_def]>>rw[]>>
-  imp_res_tac fml_include_slots_thm>>gvs[]>>
-  metis_tac[fml_include_set]
+  gvs[check_output_list_def,check_output_def]>>
+  pairarg_tac>>
+  gvs[]>>
+  metis_tac[ht_include_fml_include,all_marked_fml_include]
 QED
 
 Theorem check_csteps_list_output:
@@ -5500,26 +7788,28 @@ Theorem check_csteps_list_output:
       (REPLICATE m Empty) (enumerate 1 fmls))
     assg st
     (REVERSE (MAP FST (enumerate 1 fmls)))
-    (FST (mk_vimap (REPLICATE k Vnone) 0 (enumerate 1 fmls)))
-    (mk_vomap_opt obj)
-    (init_conf (LENGTH fml + 1) chk pres obj) =
-    SOME(fmlls',assg',st',inds',vimap',vomap',pc') ∧
-  fmlts = MAP (λc. enc c T) fmlt ∧
-  check_output_list fmlls' inds'
-    pc'.pres pc'.obj pc'.bound pc'.dbound pc'.chk fmlts prest objt output ⇒
+    (LENGTH fml, 0, ents)
+    (LENGTH fml + 1)
+    (init_conf chk pres obj, mk_vomap_opt obj, 0, NONE) ht =
+    SOME(fmlls',assg',st',inds',vimap',id',(pc',vomap',cw',po'),ht') ∧
+  check_output_list fmlls' inds' id' ht'
+    pc'.pres pc'.obj pc'.bound pc'.dbound pc'.chk fmlt prest objt output ⇒
   sem_output (set fml) obj (pres_set_spt pres) pc'.bound (set fmlt) objt (pres_set_spt prest) output
 Proof
   strip_tac>>
   qmatch_asmsub_abbrev_tac`check_csteps_list cs fmlls assg st
-    inds vimap vomap pc = _`>>
+    inds vimap id (pc,vomap,_) _ = _`>>
   `fml_rel (build_fml T 1 fml) fmlls ∧ ind_rel fmlls inds ∧
-   vimap_rel fmlls vimap ∧ vomap_rel pc.obj vomap ∧
-   (∀n. n ≥ pc.id ⇒ any_el n fmlls Empty = Empty) ∧
+   vimap_rel fmlls vimap ∧ FST (SND vimap) ≤ id ∧ vomap_rel pc.obj vomap ∧
+   (∀n. n ≥ id ⇒ any_el n fmlls Empty = Empty) ∧
    rup_inv fmlls assg st ∧
-   id_ok (build_fml T 1 fml) pc.id ∧ all_core (build_fml T 1 fml)` by (
+   id_ok (build_fml T 1 fml) id ∧ all_core (build_fml T 1 fml)` by (
     irule init_state_rels>>
-    simp[Abbr`fmlls`,Abbr`inds`,Abbr`vimap`,Abbr`vomap`,Abbr`pc`]>>
+    simp[Abbr`fmlls`,Abbr`inds`,Abbr`vimap`,Abbr`vomap`,Abbr`pc`,Abbr`id`]>>
     metis_tac[])>>
+  `core_below 0 fmlls ∧ 0 ≤ id` by simp[]>>
+  `po_rel pc.ord NONE` by
+    simp[Abbr`pc`,init_conf_def,po_rel_def,mk_ord_pre_def]>>
   drule_all fml_rel_check_csteps_list>>
   rw[]>>
   drule check_csteps_check_output>>
