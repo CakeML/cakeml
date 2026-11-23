@@ -32,6 +32,53 @@ Libs
 (* TODO Maybe this should live in list syntax? *)
 fun list_mk_cons tms tm = List.foldr listSyntax.mk_cons tm tms
 
+(** Specification *************************************************************)
+
+(* TODO Move fused versions from multiword_ext to here? *)
+
+Definition mwi_and_neg_neg_loop0_def:
+  (mwi_and_neg_neg_loop0 c d e (x₁::xs) (y₁::ys) =
+   let
+     (x₂, c₁) = single_sub x₁ 0w c;
+     (y₂, d₁) = single_sub y₁ 0w d;
+     z₁ = x₂ || y₂;
+     (z₂, e₁) = single_add z₁ 0w e;
+     (c', d', e', rs, ys') = mwi_and_neg_neg_loop0 c₁ d₁ e₁ xs ys;
+   in
+     (c', d', e', z₂::rs, ys')) ∧
+  mwi_and_neg_neg_loop0 c d e _ ys = (c, d, e, [], ys)
+End
+
+Definition mwi_and_neg_neg_loop1_def:
+  (mwi_and_neg_neg_loop1 d e (y₁::ys) =
+   let
+     (y₂, d₁) = single_sub y₁ 0w d;
+     (z, e₁) = single_add y₂ 0w e;
+     (d', e', rs) = mwi_and_neg_neg_loop1 d₁ e₁ ys;
+   in
+     (d', e', z::rs)) ∧
+  mwi_and_neg_neg_loop1 d e _ = (d, e, [])
+End
+
+Definition mwi_and_neg_neg'_def:
+  (mwi_and_neg_neg' c d e xs ys =
+   let
+     (c₁, d₁, e₁, rs₁, ys')  = mwi_and_neg_neg_loop0 c d e xs ys;
+     (d₂, e₂, rs) = mwi_and_neg_neg_loop1 d₁ e₁ ys';
+   in
+     if e₂ then rs ++ [1w] else rs)
+End
+
+Theorem mwi_and_neg_neg'_thm:
+  (if LENGTH xs ≤ LENGTH ys
+   then mwi_and_neg_neg' F F T xs ys
+   else mwi_and_neg_neg' F F T ys xs)
+  =
+  (mw_int_of_bits (mw_and_keep_flip (mw_bits_of_int xs) (mw_bits_of_int ys)))
+Proof
+  cheat
+QED
+
 (** set_sep and word helpers **************************************************)
 
 (* TODO Move somewhere better *)
@@ -1504,7 +1551,7 @@ val _ = max_print_depth := 14
 (** mw_fix_pan ****************************************************************)
 
 Theorem mw_fix_pan_loop_thm:
-  ∀(xs: α word list) rs s x frame.
+  ∀(xs: α word list) rs (s: (α, 'ffi) state) x frame.
     mw_fix xs = rs ∧
     LENGTH xs ≤ s.clock ∧  (* LENGTH xs - LENGTH rs would probably be enough *)
     FLOOKUP s.locals «xs_len» = SOME (Val (Word (n2w (LENGTH xs)))) ∧
@@ -1582,8 +1629,9 @@ QED
 
 (** mw_and_pan ****************************************************************)
 
+(* TODO do we need to have the raw version? *)
 Theorem mw_and_pan_loop_thm_raw[local]:
-  ∀(xs: α word list) ys zs rs s x y z frame.
+  ∀(xs: α word list) ys zs rs (s: (α, 'ffi) state) x y z frame.
     mw_and xs ys = zs ∧ LENGTH xs ≤ LENGTH ys ∧
     LENGTH rs = LENGTH xs ∧ LENGTH xs ≤ s.clock ∧
     FLOOKUP s.locals «xs_len» = SOME (Val (Word (n2w (LENGTH xs)))) ∧
@@ -1662,7 +1710,7 @@ Theorem mw_and_pan_loop_thm[local] =
   SIMP_RULE bool_ss [] mw_and_pan_loop_thm_raw
 
 Theorem mw_and_pan_thm:
-  ∀(xs: α word list) ys rs s x y z frame.
+  ∀(xs: α word list) ys rs (s: (α, 'ffi) state) x y z frame.
     LENGTH xs ≤ LENGTH ys ∧
     LENGTH rs = LENGTH xs ∧ LENGTH xs ≤ s.clock ∧
     FLOOKUP s.locals «xs_len» = SOME (Val (Word (n2w (LENGTH xs)))) ∧
@@ -1706,7 +1754,7 @@ QED
 (** mwi_and_flip_pan **********************************************************)
 
 Theorem mw_and_flip_pan_thm:
-  ∀(xs: α word list) ys rs s x y z frame.
+  ∀(xs: α word list) ys rs (s: (α, 'ffi) state) x y z frame.
     LENGTH xs + 1 ≤ s.clock ∧ LENGTH ys + 1 ≤ s.clock ∧
     LENGTH rs = MIN (LENGTH xs) (LENGTH ys) ∧
     FLOOKUP s.code «mw_and_pan» = SOME ^mw_and_pan_code ∧
@@ -1794,7 +1842,7 @@ QED
 (** mwi_and_neg_pos_geq_pan ***************************************************)
 
 Theorem mwi_and_neg_pos_geq_pan_loop_thm:
-  ∀(ys: α word list) xs zs rs s c x y z frame.
+  ∀(ys: α word list) xs zs rs (s: (α, 'ffi) state) c x y z frame.
     LENGTH ys ≤ LENGTH xs ∧ LENGTH rs = LENGTH ys ∧ LENGTH ys ≤ s.clock ∧
     FLOOKUP s.locals «ys_len» = SOME (Val (Word (n2w (LENGTH ys)))) ∧
     FLOOKUP s.locals «c» = SOME (Val (Word (b2w c))) ∧
@@ -1877,7 +1925,7 @@ Proof
 QED
 
 Theorem mwi_and_neg_pos_geq_pan_body_thm:
-  ∀(ys: α word list) xs zs rs s c x y z frame.
+  ∀(ys: α word list) xs zs rs (s: (α, 'ffi) state) c x y z frame.
     LENGTH ys ≤ LENGTH xs ∧ LENGTH rs = LENGTH ys ∧ LENGTH ys ≤ s.clock ∧
     FLOOKUP s.locals «ys_len» = SOME (Val (Word (n2w (LENGTH ys)))) ∧
     FLOOKUP s.locals «c» = SOME (Val (Word (b2w c))) ∧
@@ -1915,7 +1963,7 @@ QED
 (** mwi_and_neg_neg_pan *******************************************************)
 
 Theorem mwi_and_neg_neg_pan_loop0_thm[local]:
-  ∀(xs: α word list) ys zs rs rs' s c d e x y z frame.
+  ∀(xs: α word list) ys rs (s: (α, 'ffi) state) c d e x y z frame.
     LENGTH rs = LENGTH xs ∧ LENGTH xs ≤ LENGTH ys ∧
     LENGTH xs ≤ s.clock ∧
     FLOOKUP s.locals «c» = SOME (Val (Word (b2w c))) ∧
@@ -2006,7 +2054,7 @@ Proof
 QED
 
 Theorem mwi_and_neg_neg_pan_loop1_thm[local]:
-  ∀(ys: α word list) s xs zs rs rs' d e x y z frame.
+  ∀(ys: α word list) rs (s: (α, 'ffi) state) d e x y z frame.
     LENGTH rs = LENGTH ys ∧ LENGTH ys ≤ s.clock ∧
     FLOOKUP s.locals «d» = SOME (Val (Word (b2w d))) ∧
     FLOOKUP s.locals «e» = SOME (Val (Word (b2w e))) ∧
@@ -2086,7 +2134,7 @@ Proof
 QED
 
 Theorem mwi_and_neg_neg_pan_body_thm[local]:
-  ∀(xs: α word list) ys zs rs rs' s c d e x y z frame.
+  ∀(xs: α word list) ys zs rs (s: (α, 'ffi) state) c d e x y z frame.
     LENGTH rs = LENGTH xs + LENGTH ys + 1 ∧
     LENGTH xs ≤ LENGTH ys ∧
     LENGTH xs + LENGTH ys ≤ s.clock ∧
@@ -2118,6 +2166,31 @@ Proof
   >> once_rewrite_tac [GSYM stack_evaluate]
   >> walk
   >> split_ones_at ‘z’ ‘LENGTH xs’
+  >> qspecl_then
+       [‘xs’, ‘ys’, ‘TAKE (LENGTH xs) rs’, ‘s’, ‘c’, ‘d’, ‘e’, ‘x’, ‘y’, ‘z’]
+       mp_tac mwi_and_neg_neg_pan_loop0_thm
+  >> simp []
+  >> strip_tac >> SEP_F_TAC
+  (* TODO Something like SEP_X_F_TAC *)
+  >> pop_assum kall_tac
+  >> strip_tac
+  >> hsimp []
+  >> rpt (walk >> hsimp [])
+  >> split_ones_at ‘el_addr z (LENGTH xs)’ ‘LENGTH ys’
+  >> qmatch_asmsub_abbrev_tac ‘ones (el_addr z _) rs'’
+  >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
+  >> qspecl_then
+       [‘ys’, ‘rs'’, ‘s'’, ‘d’, ‘e’, ‘x’, ‘y’, ‘z’]
+       mp_tac mwi_and_neg_neg_pan_loop1_thm
+  (* TODO better SEP_F_TAC *)
+  >> simp [Abbr ‘rs'’, Abbr ‘s'’]
+
+  >> fs []
+
+
+  >> simp []
+  >> strip_tac >> SEP_F_TAC
+
   (* mwi_and_neg_neg_pan_loop0_thm *)
   >> cheat
 QED
