@@ -639,6 +639,7 @@ Definition sei_compile_exp_alt_def:
   sei_compile_exp_alt (Tannot e t) = sei_compile_exp_alt e ∧
   sei_compile_exp_alt (Lannot e l) = sei_compile_exp_alt e ∧
   sei_compile_exp_alt (Open path e) = Open path (sei_compile_exp_alt e) ∧
+  sei_compile_exp_alt (Assert e sa) = Assert (sei_compile_exp_alt e) sa ∧
   sei_compile_exps_alt [] = [] ∧
   sei_compile_exps_alt (e::es) =
     sei_compile_exp_alt e :: sei_compile_exps_alt es ∧
