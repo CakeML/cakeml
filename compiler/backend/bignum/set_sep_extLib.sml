@@ -47,6 +47,10 @@ fun dest_star_fun2set tm = let
   val (f, df)  = dest_pair (dest_fun2set f2s)
 in (strip_star p, f, df) end
 
+(* Returns the domain type of f in a term of the form
+   (... * ...) (fun2set (f, _)). *)
+fun star_fun2set_dom_ty tm = #1 (dom_rng $ type_of $ #2 (dest_star_fun2set tm))
+
 (******************************************************************************)
 
 (* Returns the bag intersection of its arguments. *)
@@ -97,6 +101,17 @@ fun PULL_STAR_CONV (group: bool) to_pull tm = let
   val to_pull' = if group then [list_mk_star to_pull] else to_pull
 in REARRANGE_STAR_CONV (K (rest @ to_pull')) tm end
 
+(* TODO Useful in HOL? *)
+(* Applies rule to th; fails if the result has the same hypotheses and
+   conclusion (up to alpha-conversion) as th. *)
+fun CHANGED_RULE (rule: thm -> thm) th = let
+  val th' = rule th
+in
+  if aconv (concl th') (concl th) andalso HOLset.equal (hypset th', hypset th)
+  then raise ERR "CHANGED_RULE" "no change"
+  else th'
+end
+
 (******************************************************************************)
 
 
@@ -111,6 +126,65 @@ in
                \(prefix with _ to allow): " ^
               String.concatWith ", " (map term_to_string new_fvs))
 end
+
+(* Returns the unique element of xs satisfying P; fails if there are zero or
+   multiple such elements. what describes the element in error messages. *)
+fun find_unique what P xs = let
+  fun err msg = raise ERR "find_unique" msg
+in
+  case filter P xs of
+      [x] => x
+    | []  => err ("could not find " ^ what)
+    | _   => err ("found multiple " ^ what)
+end
+
+(* Finds “ones base _” in (... * ...) (fun2set (_, _)); fails if there are zero
+   or multiple instances. *)
+fun find_ones_in_fun2set f2s base = let
+  val what = "ones with base " ^ term_to_string base ^ " in fun2set"
+  fun is_ones_base tm = is_ones tm andalso aconv (#1 (dest_ones tm)) base
+in
+  find_unique what is_ones_base (#1 (dest_star_fun2set f2s))
+  handle HOL_ERR herr => raise ERR "find_ones_in_fun2set" (message_of herr)
+end
+
+(*
+val qa = ‘z’
+val qi = ‘LENGTH xs’
+val (g as (asl ,w)) = top_goal ()
+val c = Context.snapshot ()
+*)
+(* Splits ones starting at qa, at position qi. *)
+fun split_ones_at (qa: term quotation) (qi: term quotation) : tactic
+  =
+  fn (g as (asl, w)) => fn c => let
+  fun err msg = raise ERR "split_ones_at" msg
+  val fvsl = free_varsl (w::asl)
+  (* Parse index as number *)
+  val tmi = typed_parse_in_context_in c numSyntax.num fvsl qi
+    handle HOL_ERR herr =>
+      err ("failed to parse index as num: " ^ message_of herr)
+  val _ = check_no_new_fvs err "the index" fvsl tmi
+  (* Find (... * ...) (fun2set (_, _)) in assumptions *)
+  val f2s = find_unique "fun2set in assumptions" (can dest_star_fun2set) asl
+  (* Parse base as word *)
+  val dom_ty = star_fun2set_dom_ty f2s
+  val tma = typed_parse_in_context_in c dom_ty fvsl qa
+    handle HOL_ERR herr => err (
+      "failed to parse base as " ^ type_to_string dom_ty ^ ": " ^
+       message_of herr)
+  val _ = check_no_new_fvs err "the base" fvsl tma
+  (* Instantiate theorem we will rewrite f2s with *)
+  val (ox, oxs) = dest_ones $ find_ones_in_fun2set f2s tma
+  val thm = ISPECL [tmi, ox, oxs] ones_TAKE_DROP
+in
+  UNDISCH_THEN f2s (assume_tac o CHANGED_RULE (SUBS [thm])) g c
+end
+handle e as HOL_ERR herr =>
+  if IS_ERR "split_ones_at" herr
+  then raise e
+  else raise WRAP "split_ones_at" e
+
 
 (*
 val discharge = NONE
@@ -138,31 +212,16 @@ fun read_ones_at_core
       err ("failed to parse index as num: " ^ message_of herr)
   val _ = check_no_new_fvs err "the index" fvsl tmi
   (* Find (... * ...) (fun2set (_, _)) in assumptions *)
-  val f2s =
-    case filter (can dest_star_fun2set) asl of
-      [f2s] => f2s
-    | []    => err "could not find fun2set"
-    | _     => err "multiple fun2set in assumptions are currently unsupported"
-  val dom_ty = #1 (dom_rng $ type_of $ #2 (dest_star_fun2set f2s))
+  val f2s = find_unique "fun2set in assumptions" (can dest_star_fun2set) asl
+  val dom_ty = star_fun2set_dom_ty f2s
   (* Parse base as word *)
   val tma = typed_parse_in_context_in c dom_ty fvsl qa
     handle HOL_ERR herr => err (
       "failed to parse base as " ^ type_to_string dom_ty ^ ": " ^
        message_of herr)
   val _ = check_no_new_fvs err "the base" fvsl tma
-  (* Find ‘ones <qa> _’ in f2s *)
-  fun is_ones_tma tm = is_ones tm andalso aconv (#1 (dest_ones tm)) tma
-  val ones =
-    case filter is_ones_tma (#1 (dest_star_fun2set f2s)) of
-      [ones] => ones
-    | []     =>
-        err $ concat
-          ["could not find ones with base ", term_to_string tma, " in fun2set"]
-    | _      =>
-        err $ concat
-          ["multiple matches for ones with base ", term_to_string tma,
-           " are currently unsupported"]
   (* Instantiate read_el_addr *)
+  val ones = find_ones_in_fun2set f2s tma
   val pulled =
     CONV_RULE (SEP_FUN2SET_CONV (PULL_STAR_CONV false [ones])) (ASSUME f2s)
   val read_i = SPEC tmi $ MATCH_MP read_el_addr pulled

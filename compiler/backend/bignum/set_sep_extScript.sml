@@ -3,7 +3,7 @@
 *)
 Theory set_sep_ext
 Ancestors
-  arithmetic pred_set rich_list byte words set_sep
+  arithmetic pred_set list rich_list byte words set_sep
 Libs
   helperLib
 
@@ -38,6 +38,22 @@ Proof
 QED
 
 Theorem ones_TAKE_DROP:
+  ∀n x xs.
+    ones (x: α word) (xs: β list) =
+    ones x (TAKE n xs) *
+    ones (el_addr x n) (DROP n xs)
+Proof
+  rpt strip_tac
+  >> have ‘xs = TAKE n xs ++ DROP n xs’
+  >- simp []
+  >> pop_assum SUBST_ALL_TAC
+  >> simp [ones_append, LENGTH_TAKE_EQ, el_addr_def]
+  >> IF_CASES_TAC >> simp []
+  >> have ‘DROP n xs = []’
+  >> simp [ones_def]
+QED
+
+Theorem ones_TAKE_EL_DROP:
   i < LENGTH xs ⇒
   ones x xs =
   ones x (TAKE i xs) *
@@ -58,6 +74,7 @@ Proof
   simp [SNOC_APPEND, ones_append, ones_def, SEP_CLAUSES]
 QED
 
+(* TODO This could perhaps do with a better name? *)
 Theorem read_el_addr:
   ∀frame x xs f d i.
     (frame * ones (x: α word) (xs: β list)) (fun2set (f, d)) ⇒
@@ -66,7 +83,7 @@ Theorem read_el_addr:
 Proof
   rpt gen_tac
   >> ntac 2 strip_tac
-  >> drule $ INST_TYPE [“:α” |-> “:β”, “:β” |-> “:α”] ones_TAKE_DROP
+  >> drule $ INST_TYPE [“:α” |-> “:β”, “:β” |-> “:α”] ones_TAKE_EL_DROP
   >> disch_then $ qspec_then ‘x’ assume_tac>> fs []
   >> SEP_R_TAC
   >> simp []

@@ -2117,7 +2117,7 @@ Proof
   rw [mwi_and_neg_neg_pan_body_def]
   >> once_rewrite_tac [GSYM stack_evaluate]
   >> walk
-  (* split_ones_at ‘z’ ‘LENGTH xs’ *)
+  >> split_ones_at ‘z’ ‘LENGTH xs’
   (* mwi_and_neg_neg_pan_loop0_thm *)
   >> cheat
 QED
