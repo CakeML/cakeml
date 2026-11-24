@@ -34,8 +34,8 @@ fun list_mk_cons tms tm = List.foldr listSyntax.mk_cons tm tms
 
 (** Specification *************************************************************)
 
-(* TODO Move fused versions from multiword_ext to here? *)
-
+(* Implements mwi_and for two negative numbers in a single pass,
+   following the structure of the Pancake program with its two loops. *)
 Definition mwi_and_neg_neg_loop0_def:
   (mwi_and_neg_neg_loop0 c d e (x₁::xs) (y₁::ys) =
    let
@@ -54,20 +54,67 @@ Definition mwi_and_neg_neg_loop1_def:
    let
      (y₂, d₁) = single_sub y₁ 0w d;
      (z, e₁) = single_add y₂ 0w e;
-     (d', e', rs) = mwi_and_neg_neg_loop1 d₁ e₁ ys;
+     (e', rs) = mwi_and_neg_neg_loop1 d₁ e₁ ys;
    in
-     (d', e', z::rs)) ∧
-  mwi_and_neg_neg_loop1 d e _ = (d, e, [])
+     (e', z::rs)) ∧
+  mwi_and_neg_neg_loop1 d e _ = (e, [])
 End
 
-Definition mwi_and_neg_neg'_def:
-  (mwi_and_neg_neg' c d e xs ys =
+Definition mwi_and_neg_neg_def:
+  (mwi_and_neg_neg c d e xs ys =
    let
      (c₁, d₁, e₁, rs₁, ys')  = mwi_and_neg_neg_loop0 c d e xs ys;
-     (d₂, e₂, rs) = mwi_and_neg_neg_loop1 d₁ e₁ ys';
+     (e₂, rs) = mwi_and_neg_neg_loop1 d₁ e₁ ys';
    in
      if e₂ then rs₁ ++ rs ++ [1w] else rs₁ ++ rs)
 End
+
+(* Implements mwi_and for cases where x is negative, y is positive and
+   LENGTH x >= LENGTH y in a single pass. *)
+Definition mwi_and_neg_pos_geq_def:
+  (mwi_and_neg_pos_geq c (x::xs) (y₁::ys) =
+   let
+     (y₂,c₁) = single_sub y₁ 0w c;
+     z = x && ¬y₂;
+   in
+     z::mwi_and_neg_pos_geq c₁ xs ys) ∧
+  (mwi_and_neg_pos_geq _ _ _ = [])
+End
+
+(* Implements mwi_and for cases where x is negative, y is positive and
+   LENGTH x < LENGTH y in a single pass. *)
+Definition mwi_and_neg_pos_lt_def:
+  (mwi_and_neg_pos_lt c (x₁::xs) (y::ys) =
+   let
+     (x₂,c₁) = single_sub x₁ 0w c;
+     x₃ = ¬x₂;
+     z = x₃ && y;
+   in
+     z::mwi_and_neg_pos_lt c₁ xs ys) ∧
+  (mwi_and_neg_pos_lt _ xs ys = ys)
+End
+
+(* Implements mwi_and with a single pass. Also removes the recursion present in
+   mwi_and by inlining. *)
+Definition mwi_and_fused_def:
+  mwi_and_fused (s, xs) (t, ys) =
+  if ¬(s ∨ t) then
+    (F, mw_fix (mw_and_flip xs ys))
+  else if s ∧ ~t then
+    (F, mw_fix (if LENGTH xs < LENGTH ys
+                then mwi_and_neg_pos_lt F xs ys
+                else mwi_and_neg_pos_geq F ys xs))
+  else if ~s ∧ t then
+    (F, mw_fix (if LENGTH ys < LENGTH xs
+                then mwi_and_neg_pos_lt F ys xs
+                else mwi_and_neg_pos_geq F xs ys))
+  else
+    (T, mw_fix (if LENGTH xs ≤ LENGTH ys
+                then mwi_and_neg_neg F F T xs ys
+                else mwi_and_neg_neg F F T ys xs))
+End
+
+(** equivalence of specs to mwi_and *******************************************)
 
 Theorem mwi_and_neg_neg_loop1_eq:
   ∀d e ys.
@@ -76,7 +123,7 @@ Theorem mwi_and_neg_neg_loop1_eq:
       (ys₁, d') = mw_sub ys [] d;
       (zs, e') = mw_add ys₁ (MAP (K 0w) ys₁) e
     in
-      (d', e', zs)
+      (e', zs)
 Proof
   recInduct mwi_and_neg_neg_loop1_ind >> rw []
   >> gvs [mwi_and_neg_neg_loop1_def, mw_sub_def, mw_add_def]
@@ -87,7 +134,7 @@ Theorem mwi_and_neg_neg_loop0_eq:
   ∀c d e xs ys.
     (let
        (c₁, d₁, e₁, rs₁, ys') = mwi_and_neg_neg_loop0 c d e xs ys;
-       (d₂, e₂, rs₂) = mwi_and_neg_neg_loop1 d₁ e₁ ys'
+       (e₂, rs₂) = mwi_and_neg_neg_loop1 d₁ e₁ ys'
      in
        (rs₁ ++ rs₂, e₂))
     =
@@ -107,9 +154,9 @@ Proof
                               MAP_MAP_o, combinTheory.K_o_THM])
 QED
 
-Theorem mwi_and_neg_neg'_eq:
+Theorem mwi_and_neg_neg_eq:
   ∀c d e xs ys.
-    mwi_and_neg_neg' c d e xs ys =
+    mwi_and_neg_neg c d e xs ys =
     let
       xs₂ = (let (xs₁,c') = mw_sub xs [] c in MAP $¬ xs₁);
       ys₂ = (let (ys₁,d') = mw_sub ys [] d in MAP $¬ ys₁);
@@ -120,21 +167,70 @@ Theorem mwi_and_neg_neg'_eq:
 Proof
   rpt gen_tac
   >> qspecl_then [‘c’, ‘d’, ‘e’, ‘xs’, ‘ys’] mp_tac mwi_and_neg_neg_loop0_eq
-  >> simp [mwi_and_neg_neg'_def]
+  >> simp [mwi_and_neg_neg_def]
   >> rpt (pairarg_tac >> gvs [])
 QED
 
-Theorem mwi_and_neg_neg'_thm:
+Theorem mwi_and_neg_neg_thm:
   (if LENGTH xs ≤ LENGTH ys
-   then mwi_and_neg_neg' F F T xs ys
-   else mwi_and_neg_neg' F F T ys xs)
+   then mwi_and_neg_neg F F T xs ys
+   else mwi_and_neg_neg F F T ys xs)
   =
   (mw_int_of_bits (mw_and_keep_flip (mw_bits_of_int xs) (mw_bits_of_int ys)))
 Proof
   simp [mw_and_keep_flip_def, LENGTH_mw_bits_of_int, COND_RAND]
   >> IF_CASES_TAC
-  >> simp [mwi_and_neg_neg'_eq, mw_int_of_bits_def, mw_bits_of_int_def]
+  >> simp [mwi_and_neg_neg_eq, mw_int_of_bits_def, mw_bits_of_int_def]
   >> rpt (pairarg_tac >> gvs [])
+QED
+
+Theorem mwi_and_neg_pos_geq_eq:
+  ∀c xs ys.
+    mwi_and_neg_pos_geq c xs ys =
+    mw_and xs (let (ys',c') = mw_sub ys [] c in MAP $¬ ys')
+Proof
+  recInduct mwi_and_neg_pos_geq_ind >> rw []
+  >> gvs [mwi_and_neg_pos_geq_def, mw_sub_def, mw_and_nil_left,
+          mw_and_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> gvs [mw_and_def]
+QED
+
+Theorem mwi_and_neg_pos_geq_thm:
+  mwi_and_neg_pos_geq F xs ys = mw_and xs (mw_bits_of_int ys)
+Proof
+  simp [mw_bits_of_int_def, mwi_and_neg_pos_geq_eq]
+QED
+
+Theorem mwi_and_neg_pos_lt_eq:
+  ∀c xs ys.
+    mwi_and_neg_pos_lt c xs ys =
+    mw_and_keep (let (xs',c') = mw_sub xs [] c in MAP $¬ xs') ys
+Proof
+  recInduct mwi_and_neg_pos_lt_ind >> rw []
+  >> gvs [mwi_and_neg_pos_lt_def, mw_sub_def, mw_and_keep_nil_left,
+          mw_and_keep_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> Cases_on ‘c’
+  >> gvs [single_sub_def, single_add_def, mw_and_keep_def]
+QED
+
+Theorem mwi_and_neg_pos_lt_thm:
+  mwi_and_neg_pos_lt F xs ys = mw_and_keep (mw_bits_of_int xs) ys
+Proof
+  simp [mw_bits_of_int_def, mwi_and_neg_pos_lt_eq]
+QED
+
+Theorem mwi_and_fused_thm:
+  mwi_and_fused x y = mwi_and x y
+Proof
+  PairCases_on ‘x’ >> PairCases_on ‘y’
+  >> simp [Ntimes mwi_and_def 2]
+  >> simp [mwi_and_fused_def]
+  >> IF_CASES_TAC >- simp []
+  >> IF_CASES_TAC >- simp [mwi_and_neg_pos_lt_thm, mwi_and_neg_pos_geq_thm]
+  >> IF_CASES_TAC >- simp [mwi_and_neg_pos_lt_thm, mwi_and_neg_pos_geq_thm]
+  >> simp [mwi_and_neg_neg_thm]
 QED
 
 (** set_sep and word helpers **************************************************)
@@ -1900,7 +1996,7 @@ QED
 (** mwi_and_neg_pos_geq_pan ***************************************************)
 
 Theorem mwi_and_neg_pos_geq_pan_loop_thm:
-  ∀(ys: α word list) xs zs rs (s: (α, 'ffi) state) c x y z frame.
+  ∀(ys: α word list) xs rs (s: (α, 'ffi) state) c x y z frame.
     LENGTH ys ≤ LENGTH xs ∧ LENGTH rs = LENGTH ys ∧ LENGTH ys ≤ s.clock ∧
     FLOOKUP s.locals «ys_len» = SOME (Val (Word (n2w (LENGTH ys)))) ∧
     FLOOKUP s.locals «c» = SOME (Val (Word (b2w c))) ∧
@@ -1924,7 +2020,10 @@ Theorem mwi_and_neg_pos_geq_pan_loop_thm:
        frame) (fun2set (m, s.memaddrs))
 Proof
   simp [] >> Induct >> rw [mwi_and_neg_pos_geq_pan_loop_def]
-  >- (simp [Once evaluate_def, state_component_equality, i2w_def, eval_Var_Local])
+  >- (
+    simp [Once evaluate_def, state_component_equality, i2w_def, eval_Var_Local]
+    >> Cases_on ‘xs’ >> fs [mwi_and_neg_pos_geq_def]
+  )
   >> rename1 ‘ones _ (Word h::MAP Word _)’
   >> once_rewrite_tac [GSYM stack_evaluate]
   >> enter_loop >> walk
@@ -1983,7 +2082,7 @@ Proof
 QED
 
 Theorem mwi_and_neg_pos_geq_pan_body_thm:
-  ∀(ys: α word list) xs zs rs (s: (α, 'ffi) state) c x y z frame.
+  ∀(ys: α word list) xs rs (s: (α, 'ffi) state) c x y z frame.
     LENGTH ys ≤ LENGTH xs ∧ LENGTH rs = LENGTH ys ∧ LENGTH ys ≤ s.clock ∧
     FLOOKUP s.locals «ys_len» = SOME (Val (Word (n2w (LENGTH ys)))) ∧
     FLOOKUP s.locals «c» = SOME (Val (Word (b2w c))) ∧
@@ -2010,7 +2109,7 @@ Proof
   rw [mwi_and_neg_pos_geq_pan_body_def]
   >> once_rewrite_tac [GSYM stack_evaluate]
   >> walk
-  >> qspecl_then [‘ys’, ‘xs’, ‘zs’, ‘rs’, ‘s’, ‘c’, ‘x’, ‘y’, ‘z’, ‘frame’]
+  >> qspecl_then [‘ys’, ‘xs’, ‘rs’, ‘s’, ‘c’, ‘x’, ‘y’, ‘z’, ‘frame’]
                  mp_tac mwi_and_neg_pos_geq_pan_loop_thm
   >> simp [] >> strip_tac >> simp []
   >> rpt (walk >> hsimp [])
@@ -2021,7 +2120,8 @@ QED
 (** mwi_and_neg_neg_pan *******************************************************)
 
 Theorem mwi_and_neg_neg_pan_loop0_thm[local]:
-  ∀(xs: α word list) ys rs (s: (α, 'ffi) state) c d e x y z frame.
+  ∀(xs: α word list) ys rs (s: (α, 'ffi) state) c d e x y z c' d' e' rs' ys' frame.
+    mwi_and_neg_neg_loop0 c d e xs ys = (c', d', e', rs', ys') ∧
     LENGTH rs = LENGTH xs ∧ LENGTH xs ≤ LENGTH ys ∧
     LENGTH xs ≤ s.clock ∧
     FLOOKUP s.locals «c» = SOME (Val (Word (b2w c))) ∧
@@ -2043,13 +2143,19 @@ Theorem mwi_and_neg_neg_pan_loop0_thm[local]:
         s with <| memory := m;
                   locals := l;
                   clock := s.clock - LENGTH xs |>) ∧
+      FLOOKUP l «c» = SOME (Val (Word (b2w c'))) ∧
+      FLOOKUP l «d» = SOME (Val (Word (b2w d'))) ∧
+      FLOOKUP l «e» = SOME (Val (Word (b2w e'))) ∧
+      FLOOKUP l «ys_len» = SOME (Val (Word (n2w (LENGTH ys')))) ∧
       (ones x (MAP Word xs) *
        ones y (MAP Word ys) *
-       ones z (MAP Word (TAKE (LENGTH xs) (mwi_and_neg_neg c d e xs ys))) *
+       ones z (MAP Word rs') *
        frame) (fun2set (m, s.memaddrs))
 Proof
-  simp [] >> Induct >> rw [mwi_and_neg_neg_pan_loop0_def]
-  >- rw [Once evaluate_def, eval_Var_Local, state_component_equality]
+  Induct
+  >> rw [mwi_and_neg_neg_pan_loop0_def]
+  >- gvs [Once evaluate_def, eval_Var_Local, state_component_equality,
+          mwi_and_neg_neg_loop0_def]
   >> once_rewrite_tac [GSYM stack_evaluate]
   >> have ‘SUC (LENGTH xs) < dimword (:α)’
   >- (
@@ -2079,6 +2185,8 @@ Proof
   >> SEP_R_TAC
   >> rpt (walk >> hsimp [])
   >> simp [GSYM mwi_and_neg_neg_pan_loop0_def]
+  >> gvs [mwi_and_neg_neg_loop0_def]
+  >> rpt (pairarg_tac >> gvs [])
   >> last_x_assum drule
   >> disch_then drule
   >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
@@ -2093,27 +2201,28 @@ Proof
   >> simp [Abbr ‘memory’]
   >> strip_tac
   >> SEP_F_TAC
-  >> strip_tac
-  >> simp [stack_def, state_component_equality, mwi_and_neg_neg_def]
-  >> rpt (pairarg_tac >> gvs [])
   >> rename1 ‘single_add (x₂ ‖ y₂) 0w e = (z₂,e₁)’
   >> rename1 ‘single_sub h' 0w d = (y₂,d₁)’
   >> qpat_x_assum ‘single_sub _ _ _ = _’ mp_tac
   >> rename1 ‘single_sub h 0w c = (x₂,c₁)’
   >> strip_tac
-  >> qmatch_asmsub_abbrev_tac ‘mwi_and_neg_neg c₁' d₁' e₁'’
+  >> qmatch_goalsub_abbrev_tac ‘(c₁' ⇔ c₁)’
+  >> qmatch_goalsub_abbrev_tac ‘(d₁' ⇔ d₁)’
+  >> qmatch_goalsub_abbrev_tac ‘(e₁' ⇔ e₁)’
   >> have ‘z₂ = zv ∧ c₁' = c₁ ∧ d₁' = d₁ ∧ e₁' = e₁’
   >- (
     imp_res_tac single_add_0w_co
     >> imp_res_tac single_sub_0w_co
     >> unabbrev_all_tac >> fs []
   )
-  >> gvs [AC STAR_ASSOC STAR_COMM, ones_def]
+  >> strip_tac
+  >> gvs [stack_def, state_component_equality, AC STAR_ASSOC STAR_COMM, ones_def]
 QED
 
 Theorem mwi_and_neg_neg_pan_loop1_thm[local]:
-  ∀(ys: α word list) rs (s: (α, 'ffi) state) d e x y z frame.
+  ∀(ys: α word list) rs (s: (α, 'ffi) state) d e y z e' rs' frame.
     LENGTH rs = LENGTH ys ∧ LENGTH ys ≤ s.clock ∧
+    mwi_and_neg_neg_loop1 d e ys = (e', rs') ∧
     FLOOKUP s.locals «d» = SOME (Val (Word (b2w d))) ∧
     FLOOKUP s.locals «e» = SOME (Val (Word (b2w e))) ∧
     FLOOKUP s.locals «ys_len» = SOME (Val (Word (n2w (LENGTH ys)))) ∧
@@ -2129,12 +2238,15 @@ Theorem mwi_and_neg_neg_pan_loop1_thm[local]:
         s with <| memory := m;
                   locals := l;
                   clock := s.clock - LENGTH ys |>) ∧
+      FLOOKUP l «e» = SOME (Val (Word (b2w e'))) ∧
       (ones y (MAP Word ys) *
-       ones z (MAP Word (TAKE (LENGTH ys) (mwi_and_neg_neg c d e [] ys))) *
+       ones z (MAP Word rs') *
        frame) (fun2set (m, s.memaddrs))
 Proof
-  simp [] >> Induct >> rw [mwi_and_neg_neg_pan_loop1_def]
-  >- (simp [Once evaluate_def, eval_Var_Local, state_component_equality])
+  Induct
+  >> rw [mwi_and_neg_neg_pan_loop1_def]
+  >- fs [Once evaluate_def, eval_Var_Local, state_component_equality,
+         mwi_and_neg_neg_loop1_def]
   >> once_rewrite_tac [GSYM stack_evaluate]
   >> have ‘SUC (LENGTH ys) < dimword (:α)’
   >- (
@@ -2160,6 +2272,8 @@ Proof
   >> SEP_R_TAC
   >> rpt (walk >> hsimp [])
   >> simp [GSYM mwi_and_neg_neg_pan_loop1_def]
+  >> gvs [mwi_and_neg_neg_loop1_def]
+  >> rpt (pairarg_tac >> gvs [])
   >> last_x_assum drule
   >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
   >> disch_then $ qspec_then ‘s'’ mp_tac
@@ -2170,14 +2284,9 @@ Proof
   >> qabbrev_tac ‘memory = s.memory’
   >> SEP_W_TAC
   >> simp [Abbr ‘memory’]
-  >> strip_tac
-  >> SEP_F_TAC
-  >> strip_tac
-  >> simp [stack_def, state_component_equality, mwi_and_neg_neg_def]
-  >> rpt (pairarg_tac >> gvs [])
+  >> qmatch_goalsub_abbrev_tac ‘mwi_and_neg_neg_loop1 d₁' e₁' _’
   >> rename1 ‘single_sub h 0w d = (y₂,d₁)’
   >> rename1 ‘single_add y₂ 0w e = (z',e₁)’
-  >> qmatch_asmsub_abbrev_tac ‘mwi_and_neg_neg _ d₁' e₁'’
   >> have ‘z' = zv ∧ d₁' = d₁ ∧ e₁' = e₁’
   >- (
     imp_res_tac single_add_0w_co
@@ -2188,7 +2297,12 @@ Proof
     >- simp [GSYM word_add_n2w, n2w_b2n]
     >> simp []
   )
-  >> gvs [AC STAR_ASSOC STAR_COMM, ones_def]
+  >> gvs []
+  >> strip_tac
+  >> SEP_F_TAC
+  >> strip_tac
+  >> fs [stack_def, state_component_equality, AC STAR_ASSOC STAR_COMM,
+         ones_def]
 QED
 
 Theorem mwi_and_neg_neg_pan_body_thm[local]:
@@ -2220,7 +2334,12 @@ Theorem mwi_and_neg_neg_pan_body_thm[local]:
        ones z (MAP Word (mwi_and_neg_neg c d e xs ys)) *
        frame) (fun2set (m, s.memaddrs))
 Proof
-  rw [mwi_and_neg_neg_pan_body_def]
+  cheat
+  (*
+  rw [mwi_and_neg_neg_pan_body_def, mwi_and_neg_neg_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> rename1 ‘mwi_and_neg_neg_loop0 c d e xs ys = (c₁,d₁,e₁,rs₁,ys')’
+  >> rename1 ‘mwi_and_neg_neg_loop1 d₁ e₁ ys' = (e₂,rs')’
   >> once_rewrite_tac [GSYM stack_evaluate]
   >> walk
   >> split_ones_at ‘z’ ‘LENGTH xs’
@@ -2234,21 +2353,19 @@ Proof
   >> strip_tac
   >> hsimp []
   >> rpt (walk >> hsimp [])
-  >> split_ones_at ‘el_addr z (LENGTH xs)’ ‘LENGTH ys’
-  >> qmatch_asmsub_abbrev_tac ‘ones (el_addr z _) rs'’
+  >> split_ones_at ‘y’ ‘LENGTH ys - LENGTH ys'’
+  >> qmatch_asmsub_abbrev_tac ‘ones y₁ (DROP _ _)’
+  >> split_ones_at ‘z₁’ ‘LENGTH ys'’
+  >> qmatch_asmsub_abbrev_tac ‘ones z₁ (DROP _ _)’
+  >> qmatch_asmsub_abbrev_tac ‘ones z₁ rs₂’
   >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
   >> qspecl_then
-       [‘ys’, ‘rs'’, ‘s'’, ‘d’, ‘e’, ‘x’, ‘y’, ‘z’]
+       [‘ys'’, ‘rs₂’, ‘s'’, ‘d₁’, ‘e₁’, ‘y’, ‘z₁’]
        mp_tac mwi_and_neg_neg_pan_loop1_thm
-  (* TODO better SEP_F_TAC *)
-  >> simp [Abbr ‘rs'’, Abbr ‘s'’]
-
-  >> fs []
-
-
   >> simp []
   >> strip_tac >> SEP_F_TAC
-
+  (* TODO better SEP_F_TAC *)
+  >> simp [Abbr ‘rs₂’, Abbr ‘s'’]
   (* mwi_and_neg_neg_pan_loop0_thm *)
-  >> cheat
+  *)
 QED
