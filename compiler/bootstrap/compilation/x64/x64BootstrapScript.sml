@@ -7,6 +7,9 @@ Ancestors
 Libs
   preamble eval_cake_compile_x64Lib
 
+fun holbuild_extra_outputs (_ : string list) = ();
+val () = holbuild_extra_outputs ["cake.S", "config_enc_str.txt"];
+
 Definition init_conf_def:
   init_conf =
     x64_config$x64_backend_config with
