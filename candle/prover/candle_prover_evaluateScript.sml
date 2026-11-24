@@ -173,6 +173,7 @@ Proof
   >~ [`Tannot`] >- suspend "Tannot"
   >~ [`Lannot`] >- suspend "Lannot"
   >~ [`Open`] >- suspend "Open"
+  >~ [`Assert`] >- suspend "Assert"
   >~ [`[] : (pat # exp) list`] >- suspend "pmatch_Nil"
   >~ [`_::_ : (pat # exp) list`] >- suspend "pmatch_Cons"
   >~ [`[]:dec list`] >- suspend "decs_Nil"
@@ -1117,6 +1118,13 @@ Resume evaluate_v_ok[Open]:
   \\ imp_res_tac env_ok_open_dec_env
   \\ first_x_assum irule
   \\ gs [env_ok_extend_dec_env]
+QED
+
+Resume evaluate_v_ok[Assert]:
+  rw [evaluate_def]
+  \\ gvs [CaseEqs ["prod", "semanticPrimitives$result", "bool"]]
+  \\ first_x_assum (drule_all_then strip_assume_tac)
+  \\ gs [state_ok_def] \\ metis_tac []
 QED
 
 Resume evaluate_v_ok[pmatch_Nil]:

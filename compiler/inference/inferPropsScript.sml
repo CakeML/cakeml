@@ -838,6 +838,56 @@ fs [] >>
 prove_tac [pure_add_constraints_append, pure_add_constraints_def, type_name_check_subst_state]
 QED
 
+Theorem t_of_t_num_of:
+  t_of ty = Tapp [] (t_num_of ty)
+Proof
+  Cases_on `ty` >> simp [Tbool_def, Tint_def, Tchar_def, Tstring_def,
+                         Tdouble_def] >>
+  Cases_on `w` >> simp [Tword8_def, Tword64_def]
+QED
+
+Theorem infer_shape_constraints:
+ (!l ienv sa t st st'.
+    (infer_shape l ienv sa t st = (M_success (), st'))
+    ⇒
+    (?ts. pure_add_constraints st.subst ts st'.subst)) ∧
+ (!l ienv sas ts st st'.
+    (infer_shapes l ienv sas ts st = (M_success (), st'))
+    ⇒
+    (?ts'. pure_add_constraints st.subst ts' st'.subst))
+Proof
+  ho_match_mp_tac infer_shape_ind >>
+  rw [infer_shape_def, success_eqns, remove_pair_lem] >>~-
+  ([‘∃y. pure_add_constraints x y x’],
+   irule_at Any (iffRL (cj 1 pure_add_constraints_def)) >> simp[])
+  >- (
+    rename1 `t_unify st.subst t t'` >>
+    qexists_tac `[(t, t')]` >> simp [pure_add_constraints_def])
+  >- (
+    rename1 `infer_p _ _ _ st = (M_success pres, st1)` >>
+    PairCases_on `pres` >>
+    drule (cj 1 infer_p_constraints) >> strip_tac >>
+    irule_at Any (iffRL pure_add_constraints_append) >>
+    first_assum (irule_at Any) >>
+    irule_at Any (iffRL (cj 2 pure_add_constraints_def)) >>
+    fs [] >> first_assum (irule_at Any) >>
+    irule_at Any (iffRL (cj 1 pure_add_constraints_def)) >> simp [])
+  >- (
+    first_x_assum drule >> strip_tac >> fs [] >>
+    irule_at Any (iffRL (cj 2 pure_add_constraints_def)) >>
+    first_assum (irule_at Any) >>
+    first_assum (irule_at Any))
+  >- (
+    first_x_assum drule >> strip_tac >> fs [] >>
+    irule_at Any (iffRL (cj 2 pure_add_constraints_def)) >>
+    first_assum (irule_at Any) >>
+    first_assum (irule_at Any)) >>
+  rpt (first_x_assum drule >> strip_tac) >>
+  irule_at Any (iffRL pure_add_constraints_append) >>
+  first_assum (irule_at Any) >>
+  first_assum (irule_at Any)
+QED
+
 Theorem infer_e_constraints:
  (!l ienv e st st' t.
     (infer_e l ienv e st = (M_success t, st'))
@@ -864,6 +914,10 @@ Proof
    irule_at Any (iffRL (cj 1 pure_add_constraints_def)) >> simp[]) >>
   rpt (first_x_assum $ drule_then strip_assume_tac) >> simp[] >>
   gvs[success_eqns]
+  >~ [‘infer_shape’]
+  >- (drule (cj 1 infer_shape_constraints) >> strip_tac >>
+      irule_at Any (iffRL pure_add_constraints_append) >>
+      first_assum (irule_at Any) >> first_assum (irule_at Any))
   >~ [‘t_unify s2.subst t1 (FST v) = SOME s’]
   >- (Cases_on ‘v’ >> gvs[] >>
       prove_tac [pure_add_constraints_append, pure_add_constraints_def,
@@ -915,6 +969,22 @@ metis_tac [DECIDE ``!(x:num) y z. x ≤ y ⇒ x ≤ y + z``,
            arithmeticTheory.LESS_EQ_TRANS]
 QED
 
+Theorem infer_shape_next_uvar_mono:
+ (!l ienv sa t st st'.
+    (infer_shape l ienv sa t st = (M_success (), st'))
+    ⇒
+    st.next_uvar ≤ st'.next_uvar) ∧
+ (!l ienv sas ts st st'.
+    (infer_shapes l ienv sas ts st = (M_success (), st'))
+    ⇒
+    st.next_uvar ≤ st'.next_uvar)
+Proof
+  ho_match_mp_tac infer_shape_ind >>
+  rw [infer_shape_def, success_eqns, remove_pair_lem] >>
+  res_tac >> fs [] >>
+  metis_tac [infer_p_next_uvar_mono, pair_CASES]
+QED
+
 Theorem infer_e_next_uvar_mono:
  (!l ienv e st st' t.
     (infer_e l ienv e st = (M_success t, st'))
@@ -940,7 +1010,8 @@ res_tac >>
 fs [] >>
 every_case_tac >> TRY (Cases_on `uop:fp_uop`) >>
 fs [success_eqns]>>
-metis_tac [infer_p_next_uvar_mono, arithmeticTheory.LESS_EQ_TRANS,
+metis_tac [infer_p_next_uvar_mono, infer_shape_next_uvar_mono,
+           arithmeticTheory.LESS_EQ_TRANS,
            pair_CASES,type_name_check_subst_state,
            DECIDE ``!(x:num) y. x ≤ x + y``,
            DECIDE ``!(x:num) y. x + 1 ≤ y ⇒ x ≤ y``,
@@ -968,6 +1039,29 @@ res_tac >>
 fs []
 >- prove_tac [pure_add_constraints_wfs]
 >- metis_tac [t_unify_wfs, type_name_check_subst_state]
+QED
+
+Theorem infer_shape_wfs:
+ (!l ienv sa t st st'.
+    infer_shape l ienv sa t st = (M_success (), st') ∧
+    t_wfs st.subst
+    ⇒
+    t_wfs st'.subst) ∧
+ (!l ienv sas ts st st'.
+    infer_shapes l ienv sas ts st = (M_success (), st') ∧
+    t_wfs st.subst
+    ⇒
+    t_wfs st'.subst)
+Proof
+  ho_match_mp_tac infer_shape_ind >>
+  rw [infer_shape_def, success_eqns, remove_pair_lem]
+  >~ [`infer_p`] >- (
+    rename1 `infer_p _ _ _ _ = (M_success pres, _)` >>
+    PairCases_on `pres` >>
+    imp_res_tac (cj 1 infer_p_wfs) >>
+    fs [] >> imp_res_tac t_unify_wfs) >>
+  imp_res_tac t_unify_wfs >>
+  res_tac >> fs []
 QED
 
 Theorem infer_e_wfs:
@@ -1002,6 +1096,7 @@ imp_res_tac pure_add_constraints_wfs >>
 fs [] >>
 TRY (cases_on `v'`) >>
 imp_res_tac infer_p_wfs >>
+imp_res_tac infer_shape_wfs >>
 fs [] >>
 every_case_tac >> TRY (cases_on `uop:fp_uop`) >>
 fs [success_eqns] >>
@@ -1743,6 +1838,10 @@ Proof
  fsrw_tac[] [EVERY_MAP, check_t_def, check_t_infer_db_subst]
  >~ [`open_ienv path ienv = SOME opened`]
  >- metis_tac [ienv_val_ok_open_extend]
+ >~ [`infer_shape`]
+ >- (imp_res_tac infer_shape_next_uvar_mono >>
+     res_tac >>
+     metis_tac [check_t_more4])
  >- metis_tac [check_t_more4]
  >- (fs [ienv_val_ok_def] >>
      imp_res_tac nsLookup_nsAll >>
@@ -1979,6 +2078,69 @@ Proof
   metis_tac []
 QED
 
+Theorem infer_shape_check_s:
+ (!l ienv sa t st st' tvs.
+  infer_shape l ienv sa t st = (M_success (), st') ∧
+  t_wfs st.subst ∧
+  tenv_ctor_ok ienv.inf_c ∧
+  tenv_abbrev_ok ienv.inf_t ∧
+  check_t tvs (count st.next_uvar) t ∧
+  check_s tvs (count st.next_uvar) st.subst
+  ⇒
+  check_s tvs (count st'.next_uvar) st'.subst) ∧
+ (!l ienv sas ts st st' tvs.
+  infer_shapes l ienv sas ts st = (M_success (), st') ∧
+  t_wfs st.subst ∧
+  tenv_ctor_ok ienv.inf_c ∧
+  tenv_abbrev_ok ienv.inf_t ∧
+  EVERY (check_t tvs (count st.next_uvar)) ts ∧
+  check_s tvs (count st.next_uvar) st.subst
+  ⇒
+  check_s tvs (count st'.next_uvar) st'.subst)
+Proof
+  ho_match_mp_tac infer_shape_ind >>
+  rw [infer_shape_def, success_eqns, remove_pair_lem]
+  >- simp []
+  >- (
+    fs [] >>
+    irule t_unify_check_s >> qpat_assum `t_unify _ _ _ = _` (irule_at Any) >>
+    simp [check_t_def])
+  >- (
+    rename1 `infer_p _ _ _ st = (M_success pres, st1)` >>
+    PairCases_on `pres` >> fs [] >>
+    drule (cj 1 infer_p_check_s) >>
+    disch_then (qspec_then `tvs` mp_tac) >> impl_tac >- simp [] >> strip_tac >>
+    drule (cj 1 infer_p_check_t) >> strip_tac >>
+    drule (cj 1 infer_p_next_uvar_mono) >> strip_tac >>
+    imp_res_tac (cj 1 infer_p_wfs) >>
+    irule t_unify_check_s >> qpat_assum `t_unify _ _ _ = _` (irule_at Any) >> simp [] >>
+    metis_tac [check_t_more4, check_t_more2, arithmeticTheory.ADD_0])
+  >- (
+    first_x_assum irule >> qpat_assum `infer_shapes _ _ _ _ _ = _` (irule_at Any) >> simp [] >>
+    imp_res_tac t_unify_wfs >>
+    simp [EVERY_MAP, check_t_def, EVERY_MEM, MEM_COUNT_LIST] >>
+    irule t_unify_check_s >> qpat_assum `t_unify _ _ _ = _` (irule_at Any) >>
+    simp [check_t_def, EVERY_MAP, EVERY_MEM, MEM_COUNT_LIST] >>
+    metis_tac [check_s_more2, check_t_more4, DECIDE ``x ≤ y + x:num``])
+  >- (
+    first_x_assum irule >> qpat_assum `infer_shape _ _ _ _ _ = _` (irule_at Any) >> simp [] >>
+    imp_res_tac t_unify_wfs >>
+    simp [check_t_def] >>
+    irule t_unify_check_s >> qpat_assum `t_unify _ _ _ = _` (irule_at Any) >>
+    simp [check_t_def] >>
+    metis_tac [check_s_more2, check_t_more4, DECIDE ``x ≤ x + 1:num``])
+  >- simp [] >>
+  rename1 `infer_shape _ _ _ _ st = (M_success (), st1)` >>
+  qpat_x_assum `∀st st' tvs. infer_shape _ _ _ _ _ = _ ∧ _ ⇒ _`
+    (drule_then (qspec_then `tvs` mp_tac)) >>
+  simp [] >> strip_tac >>
+  imp_res_tac (cj 1 infer_shape_wfs) >>
+  imp_res_tac (cj 1 infer_shape_next_uvar_mono) >>
+  qpat_x_assum `∀st st' tvs. infer_shapes _ _ _ _ _ = _ ∧ _ ⇒ _` irule >>
+  qpat_assum `infer_shapes _ _ _ _ _ = _` (irule_at Any) >> simp [] >>
+  fs [EVERY_MEM] >> metis_tac [check_t_more4]
+QED
+
 Theorem infer_e_check_s:
  (!l ienv e st st' t tvs.
     infer_e l ienv e st = (M_success t, st') ∧
@@ -2016,6 +2178,15 @@ Proof
  >> rw []
  >~ [`open_ienv path ienv = SOME opened`]
  >- metis_tac [ienv_ok_open_ienv, ienv_ok_extend_dec_ienv]
+ >~ [`infer_shape`] >- (
+    rename1 `infer_e _ _ _ st = (M_success t, st1)` >>
+    first_x_assum drule >> disch_then (qspec_then `tvs` mp_tac) >>
+    simp [] >> strip_tac >>
+    drule (cj 1 infer_e_wfs) >> simp [] >> strip_tac >>
+    drule (cj 1 infer_e_check_t) >> impl_tac >- fs [ienv_ok_def] >> strip_tac >>
+    drule (cj 1 infer_shape_check_s) >> disch_then irule >>
+    fs [ienv_ok_def] >>
+    metis_tac [check_t_more2, arithmeticTheory.ADD_0])
  >- (
    drule (CONJUNCT1 infer_e_wfs)
    >> rw []
@@ -3153,6 +3324,22 @@ Proof
   fs []
 QED
 
+Theorem infer_shape_next_id_const:
+ (!l ienv sa t st st'.
+    (infer_shape l ienv sa t st = (M_success (), st'))
+    ⇒
+    st.next_id = st'.next_id) ∧
+ (!l ienv sas ts st st'.
+    (infer_shapes l ienv sas ts st = (M_success (), st'))
+    ⇒
+    st.next_id = st'.next_id)
+Proof
+  ho_match_mp_tac infer_shape_ind >>
+  rw [infer_shape_def, success_eqns, remove_pair_lem] >>
+  res_tac >> fs [] >>
+  metis_tac [infer_p_next_id_const, pair_CASES]
+QED
+
 Theorem infer_e_next_id_const:
  (!l ienv e st st' t.
     (infer_e l ienv e st = (M_success t, st'))
@@ -3180,7 +3367,7 @@ res_tac >>
 fs [] >>
 every_case_tac >> TRY (Cases_on `uop`) >>
 fs [success_eqns] >>
-metis_tac [infer_p_next_id_const,pair_CASES]
+metis_tac [infer_p_next_id_const,infer_shape_next_id_const,pair_CASES]
 QED
 
 Theorem infer_d_next_id_mono:
@@ -3824,6 +4011,66 @@ Proof
   \\ Cases_on`x` \\ Cases_on ‘p’ using semanticPrimitivesPropsTheory.prim_type_cases \\ gvs[supported_test_def]
 QED
 
+Theorem infer_shape_inf_set_tids:
+  (!l ienv sa t st st'.
+    infer_shape l ienv sa t st = (M_success (), st') ⇒
+    prim_tids T tids ∧ inf_set_tids_ienv tids ienv ∧
+    inf_set_tids_subst tids st.subst ∧ t_wfs st.subst ∧
+    inf_set_tids_subset tids t
+    ⇒
+    inf_set_tids_subst tids st'.subst) ∧
+  (!l ienv sas ts st st'.
+    infer_shapes l ienv sas ts st = (M_success (), st') ⇒
+    prim_tids T tids ∧ inf_set_tids_ienv tids ienv ∧
+    inf_set_tids_subst tids st.subst ∧ t_wfs st.subst ∧
+    EVERY (inf_set_tids_subset tids) ts
+    ⇒
+    inf_set_tids_subst tids st'.subst)
+Proof
+  ho_match_mp_tac infer_shape_ind >>
+  rw [infer_shape_def, success_eqns, remove_pair_lem]
+  >- (
+    fs [] >>
+    irule (cj 1 t_unify_set_tids) >>
+    qpat_assum `t_unify _ _ _ = _` (irule_at Any) >>
+    simp [inf_set_tids_subset_def, inf_set_tids_def] >>
+    Cases_on `ty` using semanticPrimitivesPropsTheory.prim_type_cases >>
+    fs [prim_tids_def, prim_type_nums_def])
+  >- (
+    rename1 `infer_p _ _ _ st = (M_success pres, st1)` >>
+    PairCases_on `pres` >> fs [] >>
+    drule (cj 1 infer_p_inf_set_tids) >> simp [] >> strip_tac >>
+    imp_res_tac (cj 1 infer_p_wfs) >>
+    irule (cj 1 t_unify_set_tids) >>
+    qpat_assum `t_unify _ _ _ = _` (irule_at Any) >>
+    simp [])
+  >- (
+    first_x_assum irule >>
+    qpat_assum `infer_shapes _ _ _ _ _ = _` (irule_at Any) >> simp [] >>
+    imp_res_tac t_unify_wfs >>
+    simp [EVERY_MAP, inf_set_tids_subset_def, inf_set_tids_def] >>
+    irule (cj 1 t_unify_set_tids) >>
+    qpat_assum `t_unify _ _ _ = _` (irule_at Any) >>
+    simp [inf_set_tids_subset_def, inf_set_tids_def, MAP_MAP_o, o_DEF] >>
+    fs [prim_tids_def, prim_type_nums_def] >>
+    simp [BIGUNION_SUBSET, MEM_MAP, PULL_EXISTS])
+  >- (
+    first_x_assum irule >>
+    qpat_assum `infer_shape _ _ _ _ _ = _` (irule_at Any) >> simp [] >>
+    imp_res_tac t_unify_wfs >>
+    simp [inf_set_tids_subset_def, inf_set_tids_def] >>
+    irule (cj 1 t_unify_set_tids) >>
+    qpat_assum `t_unify _ _ _ = _` (irule_at Any) >>
+    simp [inf_set_tids_subset_def, inf_set_tids_def] >>
+    fs [prim_tids_def]) >>
+  rename1 `infer_shape _ _ _ _ st = (M_success (), st1)` >>
+  qpat_x_assum `∀st st'. infer_shape _ _ _ _ _ = _ ⇒ _` drule >>
+  simp [] >> strip_tac >>
+  imp_res_tac (cj 1 infer_shape_wfs) >>
+  qpat_x_assum `∀st st'. infer_shapes _ _ _ _ _ = _ ⇒ _` irule >>
+  qpat_assum `infer_shapes _ _ _ _ _ = _` (irule_at Any) >> simp []
+QED
+
 Theorem infer_e_inf_set_tids:
   (!l cenv p st t st'.
     (infer_e l cenv p st = (M_success t, st'))
@@ -3871,6 +4118,11 @@ Proof
     >> simp []
     >> irule inf_set_tids_ienv_extend_dec_ienv
     >> metis_tac [inf_set_tids_ienv_open_ienv])
+  >~ [`infer_shape`] >- (
+    rename1 `infer_e l cenv p st = (M_success t, st1)` >>
+    first_x_assum drule >> simp [hide_def] >> strip_tac >>
+    drule (cj 1 infer_e_wfs) >> simp [] >> strip_tac >>
+    drule (cj 1 infer_shape_inf_set_tids) >> simp [])
   >> fs[inf_set_tids_subset_def,inf_set_tids_def]>>
   TRY(fs[prim_tids_def,prim_type_nums_def,hide_def]>> NO_TAC)>>
   rpt(first_x_assum drule) >> rw[] >>

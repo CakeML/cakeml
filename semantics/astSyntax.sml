@@ -104,6 +104,7 @@ structure astSyntax = struct
   local val s = HolKernel.syntax_fns2 "ast" in
   (* two-argument functions *)
   val (App_tm,mk_App,dest_App,is_App) = s "App";
+  val (Assert_tm,mk_Assert,dest_Assert,is_Assert) = s "Assert";
   val (Atapp_tm,mk_Atapp,dest_Atapp,is_Atapp) = s "Atapp";
   val (Atfun_tm,mk_Atfun,dest_Atfun,is_Atfun) = s "Atfun";
   val (Con_tm,mk_Con,dest_Con,is_Con) = s "Con";

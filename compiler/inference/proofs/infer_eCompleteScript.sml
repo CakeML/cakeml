@@ -1280,6 +1280,45 @@ Proof
     fs[EVERY_MAP,EVERY_MEM]>>metis_tac[]
 QED
 
+(* A single constraint that already holds in the completion can be added *)
+Theorem add_constraint_complete[local]:
+  t_wfs st.subst ∧
+  sub_completion n st.next_uvar st.subst constraints s ∧
+  FDOM s = count st.next_uvar ∧
+  t_walkstar s t1 = t_walkstar s t2
+  ⇒
+  ∃s2 s' constraints'.
+    add_constraint l t1 t2 st = (M_success (), st with subst := s2) ∧
+    sub_completion n st.next_uvar s2 constraints' s' ∧
+    FDOM s2 ⊆ count st.next_uvar ∧
+    FDOM s' = count st.next_uvar ∧
+    t_compat s s' ∧
+    (∀t. t_walkstar s' t = t_walkstar s t)
+Proof
+  rw [sub_completion_def, add_constraint_success] >>
+  `t_wfs s` by metis_tac [pure_add_constraints_wfs] >>
+  `pure_add_constraints s [(t1,t2)] s`
+    by (irule pure_add_constraints_ignore >> simp []) >>
+  `pure_add_constraints st.subst (constraints ++ [(t1,t2)]) s`
+    by (simp [pure_add_constraints_append] >> metis_tac []) >>
+  drule_all pure_add_constraints_swap >> strip_tac >>
+  fs [pure_add_constraints_def] >>
+  qexistsl_tac [`s2`, `si`, `constraints`] >> simp [] >>
+  `∀uv. uv ∈ FDOM s ⇒ check_t n ∅ (t_walkstar s (Infer_Tuvar uv))`
+    by (rw [] >> gvs []) >>
+  drule_all t_compat_bi_ground >> strip_tac >>
+  `t_wfs s2` by metis_tac [t_unify_wfs] >>
+  drule_all pure_add_constraints_success >> strip_tac >>
+  fs [] >> metis_tac []
+QED
+
+Theorem t_compat_ground_walkstar[local]:
+  t_compat s s' ∧ check_t n {} (t_walkstar s h) ⇒
+  t_walkstar s' h = t_walkstar s h
+Proof
+  rw [t_compat_def] >> metis_tac [t_walkstar_no_vars]
+QED
+
 Theorem infer_p_complete:
   (!tvs tenv p t tenvE.
   type_p tvs tenv p t tenvE
@@ -1584,6 +1623,271 @@ Proof
   rw[]>>
   first_x_assum(qspecl_then[`count n`,`s`,`tvs`,`t`] mp_tac)>>
   impl_tac>>fs[]
+QED
+
+Theorem n_fresh_uvar_eq[local]:
+  n_fresh_uvar n st =
+    (M_success (MAP (λk. Infer_Tuvar (st.next_uvar + k)) (COUNT_LIST n)),
+     st with next_uvar := st.next_uvar + n)
+Proof
+  simp [n_fresh_uvar_success]
+QED
+
+Theorem type_shapes_length[local]:
+  ∀sas ts. type_shapes tvs tenv sas ts ⇒ LENGTH ts = LENGTH sas
+Proof
+  Induct >> Cases_on `ts` >> rw [type_shape_def]
+QED
+
+Theorem infer_shape_complete:
+  (!tvs tenv sa t.
+    type_shape tvs tenv sa t
+    ⇒
+    !l ienv st constraints s t'.
+      tenv_ctor_ok tenv.c ∧
+      ienv.inf_c = tenv.c ∧
+      ienv.inf_t = tenv.t ∧
+      tenv_abbrev_ok tenv.t ∧
+      t_wfs st.subst ∧
+      sub_completion tvs st.next_uvar st.subst constraints s ∧
+      FDOM st.subst ⊆ count st.next_uvar ∧
+      FDOM s = count st.next_uvar ∧
+      check_t 0 (count st.next_uvar) t' ∧
+      t = convert_t (t_walkstar s t')
+      ⇒
+      ?st' s' constraints'.
+        infer_shape l ienv sa t' st = (M_success (), st') ∧
+        sub_completion tvs st'.next_uvar st'.subst constraints' s' ∧
+        FDOM st'.subst ⊆ count st'.next_uvar ∧
+        FDOM s' = count st'.next_uvar ∧
+        t_compat s s') ∧
+  (!tvs tenv sas ts.
+    type_shapes tvs tenv sas ts
+    ⇒
+    !l ienv st constraints s ts'.
+      tenv_ctor_ok tenv.c ∧
+      ienv.inf_c = tenv.c ∧
+      ienv.inf_t = tenv.t ∧
+      tenv_abbrev_ok tenv.t ∧
+      t_wfs st.subst ∧
+      sub_completion tvs st.next_uvar st.subst constraints s ∧
+      FDOM st.subst ⊆ count st.next_uvar ∧
+      FDOM s = count st.next_uvar ∧
+      EVERY (check_t 0 (count st.next_uvar)) ts' ∧
+      ts = MAP (convert_t o t_walkstar s) ts'
+      ⇒
+      ?st' s' constraints'.
+        infer_shapes l ienv sas ts' st = (M_success (), st') ∧
+        sub_completion tvs st'.next_uvar st'.subst constraints' s' ∧
+        FDOM st'.subst ⊆ count st'.next_uvar ∧
+        FDOM s' = count st'.next_uvar ∧
+        t_compat s s')
+Proof
+  ho_match_mp_tac type_shape_ind >>
+  rw [type_shape_def, infer_shape_def, ml_monadBaseTheory.st_ex_bind_def,
+      ml_monadBaseTheory.st_ex_return_def,
+      ml_monadBaseTheory.st_ex_ignore_bind_def]
+  >- (imp_res_tac sub_completion_wfs >> metis_tac [t_compat_refl])
+  >- (
+    `t_wfs s` by metis_tac [sub_completion_wfs] >>
+    `check_t tvs {} (t_walkstar s t')`
+      by (irule sub_completion_completes >> fs [sub_completion_def]) >>
+    `t_walkstar s t' = t_walkstar s (Infer_Tapp [] (t_num_of ty))`
+      by (qpat_x_assum `t_of _ = _` (assume_tac o SYM o Q.AP_TERM `unconvert_t`) >>
+          imp_res_tac check_t_empty_unconvert_convert_id >>
+          fs [t_of_t_num_of, unconvert_t_def, t_walkstar_eqn1]) >>
+    qpat_x_assum `t_walkstar s t' = _`
+      (mp_then (Pos last) mp_tac add_constraint_complete) >>
+    simp [] >>
+    disch_then (qspecl_then [`st`, `tvs`, `l`, `constraints`] mp_tac) >>
+    simp [] >> strip_tac >>
+    qexistsl_tac [`st with subst := s2`, `s'`, `constraints'`] >> simp [])
+  >- (
+    `ienv_con_arity ienv cn = n`
+      by (qpat_x_assum `type_p _ _ _ _ _` mp_tac >>
+          rw [Once type_p_cases] >> imp_res_tac type_ps_length >>
+          gvs [ienv_con_arity_def]) >>
+    pop_assum SUBST1_TAC >>
+    drule (cj 1 infer_p_complete) >>
+    disch_then (qspecl_then [`l`, `s`, `ienv`, `st`, `constraints`] mp_tac) >>
+    simp [] >> strip_tac >>
+    rename1 `infer_p _ _ _ st = (M_success (pt, pbs), st1)` >>
+    rename1 `t_compat s s1` >>
+    simp [] >>
+    `t_wfs st1.subst` by metis_tac [infer_p_wfs] >>
+    `t_wfs s ∧ t_wfs s1` by metis_tac [sub_completion_wfs] >>
+    `check_t tvs {} (t_walkstar s t')`
+      by (irule sub_completion_completes >> fs [sub_completion_def]) >>
+    `check_t 0 (count st1.next_uvar) pt` by metis_tac [infer_p_check_t] >>
+    `check_t tvs {} (t_walkstar s1 pt)`
+      by (irule sub_completion_completes >> fs [sub_completion_def]) >>
+    `t_walkstar s1 t' = t_walkstar s t'`
+      by metis_tac [t_compat_ground_walkstar] >>
+    `t_walkstar s1 t' = t_walkstar s1 pt`
+      by metis_tac [check_t_empty_unconvert_convert_id] >>
+    qpat_x_assum `t_walkstar s1 t' = t_walkstar s1 pt`
+      (mp_then (Pos last) mp_tac add_constraint_complete) >>
+    simp [] >>
+    disch_then (qspecl_then [`st1`, `tvs`, `l`, `constraints'`] mp_tac) >>
+    simp [] >> strip_tac >>
+    qexistsl_tac [`st1 with subst := s2`, `s'`, `constraints''`] >> simp [] >>
+    metis_tac [t_compat_trans])
+  >- (
+    rename1 `type_shapes tvs tenv sas cts` >>
+    `t_wfs s` by metis_tac [sub_completion_wfs] >>
+    `check_t tvs {} (t_walkstar s t')`
+      by (irule sub_completion_completes >> fs [sub_completion_def]) >>
+    `LENGTH cts = LENGTH sas` by metis_tac [type_shapes_length] >>
+    `t_walkstar s t' = Infer_Tapp (MAP unconvert_t cts) Ttup_num`
+      by (qpat_x_assum `convert_t _ = Tapp _ _`
+            (assume_tac o Q.AP_TERM `unconvert_t`) >>
+          imp_res_tac check_t_empty_unconvert_convert_id >>
+          fs [unconvert_t_def]) >>
+    `EVERY (check_freevars tvs []) cts`
+      by (imp_res_tac check_t_to_check_freevars >>
+          rfs [check_freevars_def, EVERY_MEM]) >>
+    Q.SPECL_THEN [`st`, `constraints`, `s`, `cts`, `tvs`] mp_tac
+      extend_multi_props >>
+    impl_tac >- fs [sub_completion_def] >>
+    simp [LET_THM] >>
+    qmatch_goalsub_abbrev_tac `pure_add_constraints s new_cs s1` >>
+    strip_tac >>
+    simp [n_fresh_uvar_eq] >>
+    qmatch_goalsub_abbrev_tac `Infer_Tapp uvs Ttup_num` >>
+    `MAP (t_walkstar s1) uvs = MAP unconvert_t cts`
+      by (simp [Abbr `uvs`, LIST_EQ_REWRITE, EL_MAP, LENGTH_COUNT_LIST,
+                EL_COUNT_LIST] >>
+          rw [] >> res_tac >> gvs [EL_MAP]) >>
+    `t_walkstar s1 t' = t_walkstar s1 (Infer_Tapp uvs Ttup_num)`
+      by (`t_walkstar s1 t' = t_walkstar s t'`
+            by metis_tac [submap_t_walkstar_replace] >>
+          simp [t_walkstar_eqn1]) >>
+    `sub_completion tvs (LENGTH sas + st.next_uvar) st.subst
+       (constraints ++ new_cs) s1` by simp [sub_completion_def] >>
+    qpat_x_assum `t_walkstar s1 t' = _`
+      (mp_then (Pos last) mp_tac add_constraint_complete) >>
+    simp [] >>
+    disch_then (qspecl_then [`st with next_uvar := LENGTH sas + st.next_uvar`,
+                             `tvs`, `l`, `constraints ++ new_cs`] mp_tac) >>
+    simp [] >> strip_tac >>
+    simp [] >>
+    `t_wfs s2`
+      by (qpat_x_assum `add_constraint _ _ _ _ = _`
+            (strip_assume_tac o SIMP_RULE (srw_ss()) [add_constraint_success]) >>
+          drule_all t_unify_wfs >>
+          qpat_x_assum `_ with <| next_uvar := _; subst := _ |> = _`
+            (strip_assume_tac o
+             SIMP_RULE (srw_ss()) [inferTheory.infer_st_component_equality]) >>
+          simp []) >>
+    `t_walkstar s' = t_walkstar s1`
+      by (simp_tac std_ss [FUN_EQ_THM] >> first_assum ACCEPT_TAC) >>
+    `MAP convert_t (MAP unconvert_t cts) = cts`
+      by (qpat_x_assum `EVERY (check_freevars _ _) cts` mp_tac >>
+          rpt (pop_assum kall_tac) >>
+          simp [MAP_MAP_o, combinTheory.o_DEF, MAP_EQ_ID, EVERY_MEM] >>
+          metis_tac [check_freevars_empty_convert_unconvert_id]) >>
+    `EVERY (check_t 0 (count (LENGTH sas + st.next_uvar))) uvs`
+      by (qpat_x_assum `Abbrev (uvs = _)` mp_tac >>
+          rpt (pop_assum kall_tac) >>
+          simp [markerTheory.Abbrev_def, EVERY_MEM, MEM_MAP, PULL_EXISTS,
+                MEM_COUNT_LIST, check_t_def]) >>
+    `MAP (convert_t o t_walkstar s') uvs = cts`
+      by (REWRITE_TAC [GSYM MAP_MAP_o] >>
+          qpat_assum `t_walkstar s' = _` SUBST1_TAC >>
+          qpat_assum `MAP (t_walkstar s1) uvs = _` SUBST1_TAC >>
+          first_assum ACCEPT_TAC) >>
+    qpat_x_assum `∀ts. type_shapes _ _ _ ts ⇒ _` drule >>
+    disch_then (qspecl_then
+      [`l`, `ienv`,
+       `st with <|next_uvar := LENGTH sas + st.next_uvar; subst := s2|>`,
+       `constraints'`, `s'`, `uvs`] mp_tac) >>
+    simp [] >> strip_tac >>
+    qexistsl_tac [`st'`, `s''`, `constraints''`] >> simp [] >>
+    `t_compat s s1` by (irule SUBMAP_t_compat >> simp []) >>
+    `t_compat s s'` by (irule t_compat_trans >> qexists_tac `s1` >> simp []) >>
+    irule t_compat_trans >> qexists_tac `s'` >> simp [])
+  >- (
+    rename1 `type_shape tvs tenv sa et` >>
+    `t_wfs s` by metis_tac [sub_completion_wfs] >>
+    `check_t tvs {} (t_walkstar s t')`
+      by (irule sub_completion_completes >> fs [sub_completion_def]) >>
+    `t_walkstar s t' = Infer_Tapp [unconvert_t et] Tlist_num`
+      by (qpat_x_assum `convert_t _ = Tapp _ _`
+            (assume_tac o Q.AP_TERM `unconvert_t`) >>
+          imp_res_tac check_t_empty_unconvert_convert_id >>
+          fs [unconvert_t_def]) >>
+    `check_freevars tvs [] et`
+      by (imp_res_tac check_t_to_check_freevars >> rfs [check_freevars_def]) >>
+    Q.SPECL_THEN [`et`, `st`, `s`, `tvs`, `constraints`] mp_tac
+      (GEN_ALL extend_one_props) >>
+    impl_tac >- fs [sub_completion_def] >>
+    simp [LET_THM] >>
+    qmatch_goalsub_abbrev_tac `pure_add_constraints st.subst cs1 s1` >>
+    strip_tac >>
+    simp [fresh_uvar_def] >>
+    `t_walkstar s1 t' = t_walkstar s1 (Infer_Tapp [Infer_Tuvar st.next_uvar] Tlist_num)`
+      by (`t_walkstar s1 t' = t_walkstar s t'`
+            by metis_tac [submap_t_walkstar_replace] >>
+          simp [t_walkstar_eqn1]) >>
+    `sub_completion tvs (st.next_uvar + 1) st.subst cs1 s1`
+      by simp [sub_completion_def] >>
+    qpat_x_assum `t_walkstar s1 t' = _`
+      (mp_then (Pos last) mp_tac add_constraint_complete) >>
+    simp [] >>
+    disch_then (qspecl_then [`st with next_uvar := st.next_uvar + 1`,
+                             `tvs`, `l`, `cs1`] mp_tac) >>
+    simp [] >> strip_tac >>
+    simp [] >>
+    `t_wfs s2`
+      by (qpat_x_assum `add_constraint _ _ _ _ = _`
+            (strip_assume_tac o SIMP_RULE (srw_ss()) [add_constraint_success]) >>
+          drule_all t_unify_wfs >>
+          qpat_x_assum `_ with <| next_uvar := _; subst := _ |> = _`
+            (strip_assume_tac o
+             SIMP_RULE (srw_ss()) [inferTheory.infer_st_component_equality]) >>
+          simp []) >>
+    `t_walkstar s' = t_walkstar s1`
+      by (simp_tac std_ss [FUN_EQ_THM] >> first_assum ACCEPT_TAC) >>
+    `convert_t (unconvert_t et) = et`
+      by (qpat_x_assum `check_freevars _ _ et` mp_tac >>
+          rpt (pop_assum kall_tac) >>
+          metis_tac [check_freevars_empty_convert_unconvert_id]) >>
+    qpat_x_assum `∀t. type_shape _ _ _ t ⇒ _` drule >>
+    disch_then (qspecl_then
+      [`l`, `ienv`,
+       `st with <|next_uvar := st.next_uvar + 1; subst := s2|>`,
+       `constraints'`, `s'`, `Infer_Tuvar st.next_uvar`] mp_tac) >>
+    simp [check_t_def] >> strip_tac >>
+    qexistsl_tac [`st'`, `s''`, `constraints''`] >> simp [] >>
+    `t_compat s s1` by (irule SUBMAP_t_compat >> simp []) >>
+    `t_compat s s'` by (irule t_compat_trans >> qexists_tac `s1` >> simp []) >>
+    irule t_compat_trans >> qexists_tac `s'` >> simp [])
+  >- (imp_res_tac sub_completion_wfs >> metis_tac [t_compat_refl]) >>
+  namedCases_on `ts'` ["", "t1 ts1"] >> fs [] >>
+  simp [infer_shape_def, ml_monadBaseTheory.st_ex_bind_def,
+        ml_monadBaseTheory.st_ex_ignore_bind_def] >>
+  `t_wfs s` by metis_tac [sub_completion_wfs] >>
+  qpat_x_assum `∀a b c d e (f:infer_t). _`
+    (qspecl_then [`l`, `ienv`, `st`, `constraints`, `s`, `t1`] mp_tac) >>
+  simp [] >> strip_tac >>
+  rename1 `infer_shape _ _ _ _ st = (M_success (), st1)` >>
+  rename1 `t_compat s s1` >>
+  simp [] >>
+  `t_wfs st1.subst` by metis_tac [infer_shape_wfs] >>
+  `st.next_uvar ≤ st1.next_uvar` by metis_tac [infer_shape_next_uvar_mono] >>
+  `EVERY (check_t 0 (count st1.next_uvar)) ts1`
+    by (fs [EVERY_MEM] >> metis_tac [check_t_more4]) >>
+  `MAP (convert_t o t_walkstar s1) ts1 = MAP (convert_t o t_walkstar s) ts1`
+    by (rw [MAP_EQ_f] >>
+        `check_t 0 (count st.next_uvar) e` by fs [EVERY_MEM] >>
+        `check_t tvs {} (t_walkstar s e)`
+          by (irule sub_completion_completes >> fs [sub_completion_def]) >>
+        metis_tac [t_compat_ground_walkstar]) >>
+  qpat_x_assum `∀a b c d e (f:infer_t list). _`
+    (qspecl_then [`l`, `ienv`, `st1`, `constraints'`, `s1`, `ts1`] mp_tac) >>
+  simp [] >> strip_tac >>
+  qexistsl_tac [`st'`, `s'`, `constraints''`] >> simp [] >>
+  irule t_compat_trans >> qexists_tac `s1` >> simp []
 QED
 
 Theorem lookup_var_bind_var_list[local]:
@@ -1967,6 +2271,26 @@ Proof
          strip_assume_tac)
     >> qexistsl_tac [`inferred_ty`, `final_st`, `final_subst`, `final_constraints`]
     >> simp [])
+  >~ [`type_shape`] >- (
+    first_x_assum (qspecl_then [`loc`, `s`, `ienv`, `st`, `constraints`] mp_tac) >>
+    simp [] >> strip_tac >>
+    rename1 `infer_e loc ienv e st = (M_success et, st1)` >>
+    rename1 `t_compat s s1` >>
+    drule (cj 1 infer_shape_complete) >>
+    disch_then (qspecl_then [`loc`, `ienv`, `st1`, `constraints'`, `s1`, `et`]
+                  mp_tac) >>
+    impl_tac
+    >- (fs [env_rel_complete_def, ienv_ok_def] >>
+        metis_tac [infer_e_wfs, infer_e_check_t]) >>
+    strip_tac >>
+    `t_compat s s'` by (irule t_compat_trans >> qexists_tac `s1` >> simp []) >>
+    `check_t 0 (count st1.next_uvar) et`
+      by (fs [ienv_ok_def] >> metis_tac [infer_e_check_t]) >>
+    `t_wfs s1` by metis_tac [t_compat_def] >>
+    `check_t (num_tvs tenvE) {} (t_walkstar s1 et)`
+      by (irule sub_completion_completes >> fs [sub_completion_def]) >>
+    qexistsl_tac [`et`, `st'`, `s'`, `constraints''`] >> simp [] >>
+    metis_tac [t_compat_ground_walkstar])
   (*Easy cases*) >~
   [‘Tapp [] Tint_num = _’]
   >- (qexists_tac `s` >>

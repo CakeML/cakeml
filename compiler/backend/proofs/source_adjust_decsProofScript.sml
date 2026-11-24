@@ -275,6 +275,7 @@ Proof
   >~ [‘evalSem$evaluate _ _ [Tannot _ _] = _’] >- suspend "Tannot"
   >~ [‘evalSem$evaluate _ _ [Lannot _ _] = _’] >- suspend "Lannot"
   >~ [‘evalSem$evaluate _ _ [Open _ _] = _’] >- suspend "Open"
+  >~ [‘evalSem$evaluate _ _ [Assert _ _] = _’] >- suspend "Assert"
   >~ [‘evalSem$evaluate_match _ _ _ [] _ = _’] >- suspend "match_nil"
   >~ [‘evalSem$evaluate_match _ _ _ ((_,_)::_) _ = _’] >- suspend "match_cons"
   >~ [‘evalSem$evaluate_decs _ _ [] = _’] >- suspend "decs_nil"
@@ -635,6 +636,12 @@ Resume adjust_decs_evaluate[Lannot]:
 QED
 
 Resume adjust_decs_evaluate[Open]:
+  gvs [full_evaluate_def, AllCaseEqs()]
+  \\ qexists_tac ‘ck’
+  \\ gvs []
+QED
+
+Resume adjust_decs_evaluate[Assert]:
   gvs [full_evaluate_def, AllCaseEqs()]
   \\ qexists_tac ‘ck’
   \\ gvs []

@@ -49,6 +49,7 @@ Definition no_Open_alt_def:
   no_Open_alt (Tannot e t) = no_Open_alt e ∧
   no_Open_alt (Lannot e l) = no_Open_alt e ∧
   no_Open_alt (Open path e) = F ∧
+  no_Open_alt (Assert e sa) = no_Open_alt e ∧
   no_Open_list [] = T ∧
   no_Open_list (e::es) = (no_Open_alt e ∧ no_Open_list es) ∧
   no_Open_pes [] = T ∧
@@ -146,6 +147,7 @@ Definition free_vars_alt_def:
   free_vars_alt locals acc (Tannot e t) = free_vars_alt locals acc e ∧
   free_vars_alt locals acc (Lannot e l) = free_vars_alt locals acc e ∧
   free_vars_alt locals acc (Open path e) = free_vars_alt locals acc e ∧
+  free_vars_alt locals acc (Assert e sa) = free_vars_alt locals acc e ∧
   free_vars_alt_list locals acc [] = acc ∧
   free_vars_alt_list locals acc (e::es) =
     free_vars_alt_list locals (free_vars_alt locals acc e) es ∧
@@ -383,6 +385,9 @@ Definition lower_alt_def:
      let (e,st) = lift_finish (lift_now mode bound a)
                     (lower_alt (pick_mode mode bound a) bound ren st a) in
        (Raise e,st)) ∧
+  (lower_alt mode bound ren st (Lift (Assert e sa) fvs value [a]) =
+     lift_finish (lift_now mode bound a)
+       (lower_alt (pick_mode mode bound a) bound ren st a)) ∧
   (lower_alt mode bound ren st (Lift (Mat e pes) fvs value (a::bs)) =
      let (e,st) = lift_finish (lift_now mode bound a)
                     (lower_alt (pick_mode mode bound a) bound ren st a) in
@@ -634,6 +639,7 @@ Definition sei_compile_exp_alt_def:
   sei_compile_exp_alt (Tannot e t) = sei_compile_exp_alt e ∧
   sei_compile_exp_alt (Lannot e l) = sei_compile_exp_alt e ∧
   sei_compile_exp_alt (Open path e) = Open path (sei_compile_exp_alt e) ∧
+  sei_compile_exp_alt (Assert e sa) = Assert (sei_compile_exp_alt e) sa ∧
   sei_compile_exps_alt [] = [] ∧
   sei_compile_exps_alt (e::es) =
     sei_compile_exp_alt e :: sei_compile_exps_alt es ∧

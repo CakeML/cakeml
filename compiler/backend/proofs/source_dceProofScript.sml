@@ -27,6 +27,7 @@ Definition fvs_def:
   fvs (Tannot e t) = fvs e ∧
   fvs (Lannot e l) = fvs e ∧
   fvs (Open path e) = fvs e ∧
+  fvs (Assert e sa) = fvs e ∧
   fvs_list [] = {} ∧
   fvs_list (e::es) = fvs e ∪ fvs_list es ∧
   fvs_pes [] = {} ∧
@@ -212,7 +213,8 @@ Theorem no_Open_thm[local,simp]:
      no_Open e ∧ EVERY (λ(f,x,e). no_Open e) funs) ∧
   (no_Open (Tannot e t) ⇔ no_Open e) ∧
   (no_Open (Lannot e a) ⇔ no_Open e) ∧
-  (no_Open (Open path e) ⇔ F)
+  (no_Open (Open path e) ⇔ F) ∧
+  (no_Open (Assert e sa) ⇔ no_Open e)
 Proof
   ‘no_Open = every_exp (λx. ¬is_Open x)’ by simp [FUN_EQ_THM, no_Open_def]
   \\ simp [is_Open_def, SF ETA_ss]
@@ -1138,6 +1140,39 @@ Proof
   \\ gvs [LIST_REL_EL_EQN, EL_LUPDATE] \\ rw [] \\ gvs []
 QED
 
+Theorem pmatch_list_REPLICATE_Pany[local]:
+  ∀n vs env.
+    pmatch_list envC st (REPLICATE n Pany) vs env =
+    if LENGTH vs = n then Match env else Match_type_error
+Proof
+  Induct >> Cases_on `vs` >> rw [pmatch_def]
+QED
+
+Theorem v_rel_check_shape[local]:
+  (∀c sa x y. v_rel f x y ∧ check_shape c sa x ⇒ check_shape c sa y) ∧
+  (∀c sas xs ys.
+     LIST_REL (v_rel f) xs ys ∧ check_shapes c sas xs ⇒ check_shapes c sas ys)
+Proof
+  ho_match_mp_tac check_shape_ind \\ rw [check_shape_def]
+  >- (
+    Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
+    \\ Cases_on ‘x’ \\ gvs [check_type_def, Boolv_def, v_rel_simps])
+  >- (
+    Cases_on ‘x’ \\ gvs [pmatch_def, v_rel_simps]
+    \\ rename [‘Conv oo _’] \\ Cases_on ‘oo’
+    \\ gvs [pmatch_def, AllCaseEqs(), pmatch_list_REPLICATE_Pany]
+    \\ imp_res_tac LIST_REL_LENGTH \\ gvs [] \\ metis_tac [])
+  >- (
+    Cases_on ‘x’ \\ gvs [v_rel_simps]
+    \\ Cases_on ‘o'’ \\ gvs [SF SFY_ss])
+  >- (
+    imp_res_tac v_rel_v_to_list
+    \\ Cases_on ‘v_to_list x’ \\ gvs [OPTREL_def]
+    \\ gvs [EVERY_MEM, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, SF SFY_ss]
+    \\ metis_tac [])
+  \\ gvs [check_shape_def, SF SFY_ss]
+QED
+
 (* the input program is never in the EvalRun or EvalPending mode *)
 Theorem state_rel_eval_state[local]:
   state_rel f (s1:'ffi evalSem$state) s2 ⇒
@@ -1194,6 +1229,7 @@ Proof
   >~ [‘Tannot e t’]                     >- suspend "Tannot"
   >~ [‘Lannot e l’]                     >- suspend "Lannot"
   >~ [‘Open path e’]                    >- gvs []
+  >~ [‘Assert e sa’]                    >- suspend "Assert"
   >~ [‘evaluate_match _ _ _ [] _’]      >- suspend "match_empty"
   >~ [‘evaluate_match _ _ _ ((p,e)::pes) _’] >- suspend "match_cons"
 QED
@@ -1523,6 +1559,13 @@ QED
 
 Resume evaluate_v_rel[Tannot]:
   gvs [evaluate_def, fvs_def] \\ last_x_assum irule \\ gvs [fvs_def]
+QED
+
+Resume evaluate_v_rel[Assert]:
+  gvs [evaluate_def, AllCaseEqs (), fvs_def]
+  \\ last_x_assum drule_all \\ strip_tac \\ gvs []
+  \\ imp_res_tac evaluate_sing \\ gvs [env_rel_def]
+  \\ metis_tac [v_rel_check_shape]
 QED
 
 Resume evaluate_v_rel[Lannot]:

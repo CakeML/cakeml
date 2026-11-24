@@ -58,7 +58,8 @@ Theorem perms_ok_exp_thm[simp] =
    “perms_ok_exp ps (Letrec f x)”,
    “perms_ok_exp ps (Tannot x t)”,
    “perms_ok_exp ps (Lannot x l)”,
-   “perms_ok_exp ps (Open path x)”]
+   “perms_ok_exp ps (Open path x)”,
+   “perms_ok_exp ps (Assert x sa)”]
   |> map (SIMP_CONV (srw_ss()) [perms_ok_exp_def])
   |> map (SIMP_RULE (srw_ss()) [GSYM perms_ok_exp_def, SF ETA_ss])
   |> LIST_CONJ;
@@ -990,6 +991,8 @@ Proof
     gvs [evaluate_def, CaseEqs ["result", "prod"]])
   >~ [‘Lannot x l’] >- (
     gvs [evaluate_def, CaseEqs ["result", "prod"]])
+  >~ [‘Assert x sa’] >- (
+    gvs [evaluate_def, CaseEqs ["result", "prod", "bool"]])
   >~ [‘[]’] >- (
     gvs [evaluate_def])
   >~ [‘_::_’] >- (

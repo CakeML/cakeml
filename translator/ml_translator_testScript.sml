@@ -1155,6 +1155,47 @@ End
 val _ = check_precondition ptr_eq_pre_test_def
   “λ(x:num) (y:num). x ≠ y”;
 
+(* assert_shape: translated to an Assert expression, with the shape side
+   condition discharged from the refinement invariant *)
+Definition assert_shape_test_def:
+  assert_shape_test (xs:(mlstring # num) list) =
+    LENGTH (assert_shape (ListA (TupleA [PrimA StrT; PrimA IntT])) xs)
+End
+
+val assert_shape_test_translation = translate assert_shape_test_def;
+val _ = null (hyp assert_shape_test_translation) orelse
+        failwith "assert_shape retained a hypothesis";
+val _ = can (find_term (can (match_term “Assert e sa”)))
+          (fetch "-" "assert_shape_test_v_def" |> concl |> rhs) orelse
+        failwith "assert_shape was not translated to Assert";
+
+(* ConsA uses the translator's constructor names and lookup_cons facts *)
+Datatype:
+  shape_test = ShapeTestA num | ShapeTestB mlstring num
+End
+
+Definition assert_cons_test_def:
+  assert_cons_test (x:shape_test) =
+    assert_shape (ConsA (Short «ShapeTestA»)) x
+End
+
+Definition assert_cons_list_test_def:
+  assert_cons_list_test (ys:shape_test list) =
+    LENGTH (assert_shape (ListA (ConsA (Short «ShapeTestB»))) ys)
+End
+
+fun check_assert_cons def name = let
+  val th = translate def
+  val _ = null (hyp th) orelse
+          failwith "assert_shape with ConsA retained a hypothesis"
+  val _ = can (find_term (can (match_term “Assert e sa”)))
+            (fetch "-" (name ^ "_v_def") |> concl |> rhs) orelse
+          failwith "assert_shape with ConsA was not translated to Assert"
+  in th end;
+
+val _ = check_assert_cons assert_cons_test_def "assert_cons_test";
+val _ = check_assert_cons assert_cons_list_test_def "assert_cons_list_test";
+
 (* Conjunctions of pointer tests need no precondition when the branches
    agree under the whole guard *)
 Definition ptr_eq_pair_fast_def:

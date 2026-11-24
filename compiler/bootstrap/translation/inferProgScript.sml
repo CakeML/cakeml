@@ -517,6 +517,28 @@ Proof
   metis_tac[infer_p_wfs,PAIR]
 QED
 
+val _ = translate (infer_def ``ienv_con_arity``);
+
+val res = translate (infer_def ``infer_shape``);
+
+val infer_shape_side_def = theorem "infer_shape_side_def";
+
+Theorem infer_shape_side_thm:
+  (!l ienv sa t st. t_wfs st.subst ⇒ infer_shape_side l ienv sa t st) ∧
+  (!l ienv sas ts st. t_wfs st.subst ⇒ infer_shapes_side l ienv sas ts st)
+Proof
+  ho_match_mp_tac inferTheory.infer_shape_ind >> rw [] >>
+  rw [Once infer_shape_side_def] >>
+  gvs [add_constraint_side_thm, infer_p_side_thm, n_fresh_uvar_success,
+       fresh_uvar_def]
+  >~ [`infer_p`] >- (
+    rename1 `infer_p _ _ _ _ = (M_success pr, _)` >> PairCases_on `pr` >>
+    imp_res_tac infer_p_wfs >> gvs [add_constraint_side_thm]) >>
+  imp_res_tac (cj 1 infer_shape_wfs) >>
+  gvs [add_constraint_success] >>
+  imp_res_tac unifyTheory.t_unify_wfs >> gvs []
+QED
+
 val infer_e_lemma = infer_def ``infer_e``;
 
 val inter_e_lemma1 = prove(
@@ -563,7 +585,7 @@ Proof
   TRY (irule add_constraints_side_thm) >>
   TRY (imp_res_tac infer_e_wfs >>
        imp_res_tac unifyTheory.t_unify_wfs >>
-       rw [] >>
+       rw [infer_shape_side_thm] >>
        NO_TAC)
   THEN1 (every_case_tac \\ fs[] \\ imp_res_tac infer_e_wfs >>
          imp_res_tac unifyTheory.t_unify_wfs >>

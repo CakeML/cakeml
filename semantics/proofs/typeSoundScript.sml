@@ -1625,6 +1625,79 @@ Proof
   conj_tac >> irule nsAll2_nsAppend >> simp []
 QED
 
+Theorem pmatch_list_REPLICATE_Pany[local]:
+  ∀n vs env.
+    pmatch_list envC st (REPLICATE n Pany) vs env =
+    if LENGTH vs = n then Match env else Match_type_error
+Proof
+  Induct >> Cases_on `vs` >> rw [pmatch_def]
+QED
+
+Theorem pmatch_ConsA_store[local]:
+  pmatch envC st (Pcon (SOME cn) (REPLICATE n Pany)) v [] =
+  pmatch envC [] (Pcon (SOME cn) (REPLICATE n Pany)) v []
+Proof
+  Cases_on `v` >> simp [pmatch_def] >>
+  rename1 `Conv stamp_opt vs` >>
+  Cases_on `stamp_opt` >> simp [pmatch_def] >>
+  simp [pmatch_list_REPLICATE_Pany]
+QED
+
+Theorem type_v_t_of_check_type[local]:
+  type_v tvs ctMap tenvS v (t_of ty) ∧ ctMap_ok ctMap ∧ ctMap_has_bools ctMap ⇒
+  check_type ty v
+Proof
+  Cases_on `ty` using semanticPrimitivesPropsTheory.prim_type_cases >>
+  PURE_REWRITE_TAC [t_of_def, check_type_def] >>
+  strip_tac >>
+  imp_res_tac prim_canonical_values_thm >>
+  imp_res_tac ctor_canonical_values_thm >>
+  gvs []
+QED
+
+Theorem shape_type_sound:
+  (∀tvs tenv sa t. type_shape tvs tenv sa t ⇒
+     ∀cenv ctMap tenvS st v.
+       ctMap_ok ctMap ∧ ctMap_has_bools ctMap ∧ ctMap_has_lists ctMap ∧
+       nsAll2 (type_ctor ctMap) cenv tenv.c ∧ type_s ctMap st tenvS ∧
+       type_v tvs ctMap tenvS v t ⇒
+       check_shape cenv sa v) ∧
+  (∀tvs tenv sas ts. type_shapes tvs tenv sas ts ⇒
+     ∀cenv ctMap tenvS st vs.
+       ctMap_ok ctMap ∧ ctMap_has_bools ctMap ∧ ctMap_has_lists ctMap ∧
+       nsAll2 (type_ctor ctMap) cenv tenv.c ∧ type_s ctMap st tenvS ∧
+       LIST_REL (type_v tvs ctMap tenvS) vs ts ⇒
+       check_shapes cenv sas vs)
+Proof
+  ho_match_mp_tac type_shape_ind >>
+  rw [type_shape_def, check_shape_def]
+  >- metis_tac [type_v_t_of_check_type]
+  >- (
+    drule (CONJUNCT1 pat_type_sound) >>
+    rpt (disch_then drule) >>
+    disch_then (qspecl_then [`[]`, `[]`] mp_tac) >>
+    rw [] >>
+    `pmatch cenv [] (Pcon (SOME cn) (REPLICATE n Pany)) v [] ≠
+     Match_type_error`
+      by metis_tac [pmatch_ConsA_store, match_result_distinct] >>
+    imp_res_tac pmatch_Pcon_con_arity >> gvs [])
+  >- (
+    `type_v tvs ctMap tenvS v (Ttup ts)` by simp [Ttup_def] >>
+    imp_res_tac prim_canonical_values_thm >>
+    gvs [] >>
+    qpat_x_assum `type_v _ _ _ (Conv NONE _) _` mp_tac >>
+    simp [Once type_v_cases] >>
+    metis_tac [])
+  >- (
+    `type_v tvs ctMap tenvS v (Tlist t1)` by simp [Tlist_def] >>
+    drule (cj 2 ctor_canonical_values_thm) >>
+    rw [] >>
+    fs [EVERY_MEM] >>
+    metis_tac []) >>
+  simp [check_shape_def] >>
+  metis_tac []
+QED
+
 Theorem exp_type_sound:
   (!(s:'ffi semanticPrimitives$state) env es r s' tenv tenvE ts tvs tenvS.
     evaluate s env es = (s', r) ∧
@@ -1690,6 +1763,29 @@ Proof
         `tveMask (λn. IS_SOME (nsLookup typed_open.v (Short n))) tenvE`,
         `[result_ty]`, `tvs`, `tenvS`] mp_tac) >>
    simp [num_tvs_tveMask, tenv_val_exp_ok_tveMask])
+ >~ [`type_e _ _ (Assert _ _) _`] >- (
+   rename1 `type_e _ _ (Assert e sa) result_ty` >>
+   qpat_x_assum `type_e _ _ (Assert _ _) _` mp_tac >>
+   simp [Once type_e_cases] >> strip_tac >>
+   `tvs = 0` by fs [is_value_def] >>
+   gvs [bind_tvar_def] >>
+   Cases_on `evaluate s env [e]` >>
+   rename1 `evaluate s env [e] = (s1, r1)` >>
+   first_x_assum
+     (qspecl_then [`r1`, `s1`, `tenv`, `tenvE`, `[result_ty]`, `0`, `tenvS`]
+        mp_tac) >>
+   simp [] >> strip_tac >>
+   Cases_on `r1` >> gvs []
+   >- (
+     rename1 `evaluate s env [e] = (s1, Rval [result_v])` >>
+     `check_shape env.c sa result_v` by (
+       drule (CONJUNCT1 shape_type_sound) >>
+       disch_then irule >>
+       fs [type_all_env_def] >>
+       metis_tac []) >>
+     gvs [] >>
+     metis_tac []) >>
+   metis_tac [])
  >- metis_tac [store_type_extension_refl]
  >- (
    split_pair_case_tac
@@ -2238,6 +2334,7 @@ Proof
    >> pop_assum (qspec_then `(p,e)` mp_tac)
    >> simp [])
 QED
+
 
 val let_tac =
   rw []

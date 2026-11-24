@@ -564,6 +564,13 @@ Definition evaluate_def[nocompute]:
        NONE => (st,Rerr (Rabort Rtype_error))
      | SOME opened => evaluate st (extend_dec_env opened env) [e])
   ∧
+  evaluate st env [Assert e sa] =
+    (case evaluate st env [e] of
+       (st',Rval v) =>
+         if check_shape env.c sa (HD v) then (st',Rval v)
+         else (st',Rerr (Rabort Rtype_error))
+     | (st',Rerr err) => (st',Rerr err))
+  ∧
   evaluate_match st env v [] err_v = (st,Rerr (Rraise err_v))
   ∧
   evaluate_match st env v ((p,e)::pes) err_v =

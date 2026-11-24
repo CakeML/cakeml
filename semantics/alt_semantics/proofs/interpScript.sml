@@ -289,6 +289,13 @@ Theorem run_eval_def:
      case open_dec_env path env of
        NONE => raise (Rabort Rtype_error)
      | SOME opened => run_eval (extend_dec_env opened env) e) ∧
+  (!env e sa.
+     run_eval env (Assert e sa)
+     =
+     do v <- run_eval env e;
+        if check_shape env.c sa v then return v
+        else raise (Rabort Rtype_error)
+     od) ∧
   (!env.
      run_eval_list env []
      =
@@ -322,6 +329,13 @@ Proof
   rw [Once evaluate_cases]
   >~ [`open_dec_env _ _`] >- (
     Cases_on `open_dec_env path env` >> simp [evaluate_run_eval])
+  >~ [`check_shape`] >- (
+    rename1 `run_eval env e st` >>
+    Cases_on `run_eval env e st` >>
+    rename1 `run_eval env e st = (st1, res)` >>
+    `evaluate T env st e (st1, res)` by simp [evaluate_run_eval] >>
+    Cases_on `res` >> rw [] >>
+    metis_tac [])
   >- (every_case_tac >>
       fs [GSYM evaluate_run_eval] >>
       metis_tac [run_eval_spec])

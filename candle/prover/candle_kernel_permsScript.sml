@@ -169,30 +169,6 @@ Proof
   rw[perms_ok_def, map_1_v_def, perms_ok_env_def, astTheory.pat_bindings_def]
 QED
 
-Theorem perms_ok_check_tm_v[simp]:
-  perms_ok ps check_tm_v
-Proof
-  rw[perms_ok_def, check_tm_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-QED
-
-Theorem perms_ok_check_thm_v[simp]:
-  perms_ok ps check_thm_v
-Proof
-  rw[perms_ok_def, check_thm_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-QED
-
-Theorem perms_ok_check_tm_tm_v[simp]:
-  perms_ok ps check_tm_tm_v
-Proof
-  rw[perms_ok_def, check_tm_tm_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-QED
-
-Theorem perms_ok_check_ty_ty_v[simp]:
-  perms_ok ps check_ty_ty_v
-Proof
-  rw[perms_ok_def, check_ty_ty_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-QED
-
 Theorem perms_ok_vfree_in_v[simp]:
   perms_ok ps vfree_in_v
 Proof
@@ -291,12 +267,6 @@ Theorem perms_ok_is_vartype_v[simp]:
   perms_ok ps is_vartype_v
 Proof
   rw[perms_ok_def, is_vartype_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
-QED
-
-Theorem perms_ok_check_ty_v[simp]:
-  perms_ok ps check_ty_v
-Proof
-  rw[perms_ok_def, check_ty_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
 QED
 
 Theorem perms_ok_rev_assocd_v[simp]:

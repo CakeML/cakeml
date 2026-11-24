@@ -220,6 +220,16 @@ Definition from_locs_def:
      Expr [Atom «Locs»; from_int_pair p1; from_int_pair p2])
 End
 
+Definition from_shape_def:
+  (from_shape AnyA         = Atom «AnyA») ∧
+  (from_shape (PrimA ty)   = Expr [Atom «PrimA»; from_prim_type ty]) ∧
+  (from_shape (ConsA i)    = Expr [Atom «ConsA»; from_id i]) ∧
+  (from_shape (TupleA sas) = Expr [Atom «TupleA»; Expr (from_shapes sas)]) ∧
+  (from_shape (ListA sa)   = Expr [Atom «ListA»; from_shape sa]) ∧
+  (from_shapes []          = []) ∧
+  (from_shapes (sa::sas)   = from_shape sa :: from_shapes sas)
+End
+
 Definition from_exp_def:
   (from_exp (Raise e)       = Expr [Atom «Raise»; from_exp e]) ∧
   (from_exp (Handle e pes)  =
@@ -245,6 +255,7 @@ Definition from_exp_def:
   (from_exp (Lannot e l)    = Expr [Atom «Lannot»; from_exp e; from_locs l]) ∧
   (from_exp (Open ms e)     =
      Expr [Atom «Open»; Expr (MAP Atom ms); from_exp e]) ∧
+  (from_exp (Assert e sa)   = Expr [Atom «Assert»; from_exp e; from_shape sa]) ∧
   (from_exps []             = []) ∧
   (from_exps (e::es)        = from_exp e :: from_exps es) ∧
   (from_pes []              = []) ∧
@@ -787,6 +798,54 @@ Definition to_locs_def:
    od)
 End
 
+Definition to_shape_def:
+  (to_shape (Atom s) = if s = «AnyA» then return AnyA else fail) ∧
+  (to_shape sexp =
+   do
+     (tag, args) <- dest_tagged sexp;
+     if tag = «PrimA» ∧ LENGTH args = 1 then
+       do
+         ty <- to_prim_type (nth args 0);
+         return (PrimA ty)
+       od
+     else if tag = «ConsA» ∧ LENGTH args = 1 then
+       do
+         i <- to_id (nth args 0);
+         return (ConsA i)
+       od
+     else if tag = «TupleA» ∧ LENGTH args = 1 then
+       do
+         ls <- dest_expr (nth args 0);
+         sas <- to_shapes ls;
+         return (TupleA sas)
+       od
+     else if tag = «ListA» ∧ LENGTH args = 1 then
+       do
+         sa <- to_shape (nth args 0);
+         return (ListA sa)
+       od
+     else fail
+   od) ∧
+  (to_shapes [] = return []) ∧
+  (to_shapes (s::ss) =
+   do
+     sa <- to_shape s;
+     sas <- to_shapes ss;
+     return (sa::sas)
+   od)
+Termination
+  wf_rel_tac ‘measure (λx. case x of
+                            | INL s => sexp_size s
+                            | INR ss => list_size sexp_size ss)’
+  >> rw []
+  >> imp_res_tac dest_tagged_sexp_size
+  >> imp_res_tac dest_expr_sexp_size
+  >> gvs [nth_def, EL_MEM, HD_MEM]
+  >> irule LESS_TRANS
+  >> first_assum $ irule_at (Pos hd)
+  >> simp [HD_MEM]
+End
+
 Definition to_exp_def:
   (to_exp sexp =
    do
@@ -886,6 +945,12 @@ Definition to_exp_def:
          ms <- OPT_MMAP dest_atom ls;
          e <- to_exp (nth args 1);
          return (Open ms e)
+       od
+     else if tag = «Assert» ∧ LENGTH args = 2 then
+       do
+         e <- to_exp (nth args 0);
+         sa <- to_shape (nth args 1);
+         return (Assert e sa)
        od
      else fail
    od) ∧
@@ -1211,6 +1276,16 @@ Proof
   >> simp [from_locs_def, to_locs_def, dest_tagged_def, to_from_int_pair_ok, nth_def]
 QED
 
+Theorem to_from_shape_ok:
+  (∀sa. to_shape (from_shape sa) = SOME sa) ∧
+  (∀sas. to_shapes (from_shapes sas) = SOME sas)
+Proof
+  ho_match_mp_tac from_shape_ind
+  >> rpt strip_tac
+  >> simp [from_shape_def, Once to_shape_def, dest_tagged_def, dest_atom_def,
+           dest_expr_def, to_from_id_ok, to_from_prim_type_ok, nth_def]
+QED
+
 Theorem to_from_exp_ok:
   (∀e. to_exp (from_exp e) = SOME e) ∧
   (∀es. to_exps (from_exps es) = SOME es) ∧
@@ -1222,7 +1297,7 @@ Proof
   >> simp [from_exp_def, Once to_exp_def, dest_tagged_def,
            dest_expr_def, dest_atom_def, to_from_id_ok, to_from_lit_ok,
            to_from_op_ok, to_from_lop_ok, to_from_ast_t_ok, to_from_locs_ok,
-           to_from_pat_ok, nth_def]
+           to_from_pat_ok, to_from_shape_ok, nth_def]
   >- (irule to_from_option_some >> simp [to_from_id_ok])
   >- (irule to_from_option_some >> simp [dest_atom_def])
   >> irule opt_mmap_map_some >> simp [dest_atom_def]

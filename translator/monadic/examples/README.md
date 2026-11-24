@@ -9,6 +9,10 @@ references, arrays and exceptions.
 An example showing how to use the monadic translator with
 references, arrays and exceptions.
 
+[assert_shapeProgScript.sml](assert_shapeProgScript.sml):
+A test showing that the monadic translator turns assert_shape checks
+(placed with pure_seq) into Assert expressions.
+
 [exceptionProgScript.sml](exceptionProgScript.sml):
 An example showing how to use the monadic translator to translate
 monadic functions using exceptions (no references, no arrays).

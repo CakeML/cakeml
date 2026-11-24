@@ -72,7 +72,8 @@ Definition compile_exp_def:
            (compile_exp e) ∧
   compile_exp (Tannot e t) = compile_exp e ∧
   compile_exp (Lannot e l) = compile_exp e ∧
-  compile_exp (Open path e) = Open path (compile_exp e)
+  compile_exp (Open path e) = Open path (compile_exp e) ∧
+  compile_exp (Assert e sa) = Assert (compile_exp e) sa
 Termination
   WF_REL_TAC ‘measure exp_size’
   \\ rw [exp_size_def]

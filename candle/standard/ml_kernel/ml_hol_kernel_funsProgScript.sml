@@ -127,14 +127,6 @@ QED
 
 val _ = ml_monad_oracleLib.start_oracle_translation hol_refs_oracle_accessors;
 
-(* Translate type-checking code from checkTheory *)
-
-val res = translate check_ty_def;
-val res = translate check_tm_def;
-val res = translate check_thm_def;
-val res = translate check_ty_ty_def;
-val res = translate check_tm_tm_def;
-
 (**************************************************************************************************)
 (**************************************************************************************************)
 (* --- perform translation --- *)
@@ -168,9 +160,9 @@ val res = translate holSyntaxExtraTheory.union_def;
 
 val _ = ml_prog_update open_local_in_block;
 
-val res = translate (check [‘v’] mk_vartype_def);
-val res = translate (check [‘t’] is_type_def);
-val res = translate (check [‘t’] is_vartype_def);
+val res = translate (assert_check [‘v’] mk_vartype_def);
+val res = translate (assert_check [‘t’] is_type_def);
+val res = translate (assert_check [‘t’] is_vartype_def);
 
 val _ = ml_prog_update open_local_block;
 
@@ -185,22 +177,22 @@ val _ = (next_ml_names := ["type_subst"]);
 
 val _ = ml_prog_update open_local_in_block;
 
-val res = translate (check [‘i’,‘ty’] call_type_subst_def);
+val res = translate (assert_check [‘i’,‘ty’] call_type_subst_def);
 
 val _ = ml_prog_update open_local_block;
 
 val res = translate alphavars_def;
 val res = translate holKernelPmatchTheory.raconv_def;
 
-val res = translate (check [‘tm1’,‘tm2’] aconv_def);
+val res = translate (assert_check [‘tm1’,‘tm2’] aconv_def);
 
 val _ = ml_prog_update open_local_in_block;
 
-val res = translate (check [‘x’] holKernelPmatchTheory.is_var_def);
-val res = translate (check [‘x’] holKernelPmatchTheory.is_const_def);
-val res = translate (check [‘x’] holKernelPmatchTheory.is_abs_def);
-val res = translate (check [‘x’] holKernelPmatchTheory.is_comb_def);
-val res = translate (check [‘v’,‘ty’] mk_var_def);
+val res = translate (assert_check [‘x’] holKernelPmatchTheory.is_var_def);
+val res = translate (assert_check [‘x’] holKernelPmatchTheory.is_const_def);
+val res = translate (assert_check [‘x’] holKernelPmatchTheory.is_abs_def);
+val res = translate (assert_check [‘x’] holKernelPmatchTheory.is_comb_def);
+val res = translate (assert_check [‘v’,‘ty’] mk_var_def);
 
 val _ = ml_prog_update open_local_block;
 
@@ -250,17 +242,17 @@ val res = translate vsubst_aux_def;
 
 val _ = ml_prog_update open_local_in_block;
 
-val res = translate (check [‘v’,‘tm’] call_vfree_in_def);
-val res = translate (check [‘acc’,‘tm’] call_freesin_def);
-val res = translate (check [‘tm’] call_frees_def);
-val res = translate (check [‘tml’] freesl_def);
-val res = translate (check [‘x’] call_tyvars_def);
-val res = translate (check [‘tm’] call_type_vars_in_term_def);
-val res = translate (check [‘avoid’,‘v’] call_variant_def);
+val res = translate (assert_check [‘v’,‘tm’] call_vfree_in_def);
+val res = translate (assert_check [‘acc’,‘tm’] call_freesin_def);
+val res = translate (assert_check [‘tm’] call_frees_def);
+val res = translate (assert_check [‘tml’] freesl_def);
+val res = translate (assert_check [‘x’] call_tyvars_def);
+val res = translate (assert_check [‘tm’] call_type_vars_in_term_def);
+val res = translate (assert_check [‘avoid’,‘v’] call_variant_def);
 
 val _ = ml_prog_update open_local_block;
 
-val res = translate (check [‘tm’ ]holKernelPmatchTheory.is_eq_def);
+val res = translate (assert_check [‘tm’ ]holKernelPmatchTheory.is_eq_def);
 
 val _ = ml_prog_update open_local_in_block;
 
@@ -362,7 +354,7 @@ Theorem term_cmp_ind =
   (fetch "-" "term_compare_ind") |> RW [GSYM term_cmp_thm]
 val res = translate (term_compare_def |> RW [GSYM term_cmp_thm]);
 
-val res = translate (check [‘ty’] holKernelPmatchTheory.codomain_def);
+val res = translate (assert_check [‘ty’] holKernelPmatchTheory.codomain_def);
 val res = translate holSyntaxTheory.typeof_def;
 val res = translate holSyntaxTheory.ordav_def;
 val res = translate holSyntaxTheory.orda_def;
@@ -376,24 +368,24 @@ val def = holKernelTheory.forall_def (* rec *) |> m_translate;
 
 val _ = ml_prog_update open_local_in_block;
 
-val def = dest_type_def |> check [‘t’] |> m_translate;
-val def = dest_vartype_def |> check [‘t’] |> m_translate;
-val def = holKernelPmatchTheory.dest_var_def |> check [‘tm’] |> m_translate;
-val def = holKernelPmatchTheory.dest_const_def |> check [‘tm’] |> m_translate;
-val def = holKernelPmatchTheory.dest_comb_def |> check [‘tm’] |> m_translate;
-val def = holKernelPmatchTheory.dest_abs_def |> check [‘tm’] |> m_translate;
-val def = holKernelPmatchTheory.rator_def |> check [‘tm’] |> m_translate;
-val def = holKernelPmatchTheory.rand_def |> check [‘tm’] |> m_translate;
-val def = holKernelPmatchTheory.dest_eq_def |> check [‘tm’] |> m_translate;
+val def = dest_type_def |> assert_check [‘t’] |> m_translate;
+val def = dest_vartype_def |> assert_check [‘t’] |> m_translate;
+val def = holKernelPmatchTheory.dest_var_def |> assert_check [‘tm’] |> m_translate;
+val def = holKernelPmatchTheory.dest_const_def |> assert_check [‘tm’] |> m_translate;
+val def = holKernelPmatchTheory.dest_comb_def |> assert_check [‘tm’] |> m_translate;
+val def = holKernelPmatchTheory.dest_abs_def |> assert_check [‘tm’] |> m_translate;
+val def = holKernelPmatchTheory.rator_def |> assert_check [‘tm’] |> m_translate;
+val def = holKernelPmatchTheory.rand_def |> assert_check [‘tm’] |> m_translate;
+val def = holKernelPmatchTheory.dest_eq_def |> assert_check [‘tm’] |> m_translate;
 
-val def = holKernelPmatchTheory.mk_abs_def |> check [‘bvar’,‘bod’] |> m_translate;
-val def = get_type_arity_def |> check [‘s’] |> m_translate;
-val def = mk_type_def |> check [‘tyop’,‘args’] |> m_translate;
+val def = holKernelPmatchTheory.mk_abs_def |> assert_check [‘bvar’,‘bod’] |> m_translate;
+val def = get_type_arity_def |> assert_check [‘s’] |> m_translate;
+val def = mk_type_def |> assert_check [‘tyop’,‘args’] |> m_translate;
 
 val _ = ml_prog_update open_local_block;
 
 val def = bool_ty_def |> translate;
-val def = mk_fun_ty_def |> check [‘ty1’,‘ty2’] |> translate;
+val def = mk_fun_ty_def |> assert_check [‘ty1’,‘ty2’] |> translate;
 val def = aty_def |> translate;
 val def = bty_def |> translate;
 
@@ -409,10 +401,10 @@ val def = image_def |> m_translate;
 
 val _ = ml_prog_update open_local_in_block;
 
-val res = m_translate (check [‘tm’] call_type_of_def);
-val def = get_const_type_def |> check [‘s’] |> m_translate;
-val def = holKernelPmatchTheory.mk_comb_def |> check [‘f’,‘a’] |> m_translate;
-val def = mk_const_def |> Q.SPEC ‘n’ |> check [‘n’,‘theta’] |> m_translate;
+val res = m_translate (assert_check [‘tm’] call_type_of_def);
+val def = get_const_type_def |> assert_check [‘s’] |> m_translate;
+val def = holKernelPmatchTheory.mk_comb_def |> assert_check [‘f’,‘a’] |> m_translate;
+val def = mk_const_def |> Q.SPEC ‘n’ |> assert_check [‘n’,‘theta’] |> m_translate;
 
 val _ = ml_prog_update open_local_block;
 
@@ -452,7 +444,7 @@ val def = add_def_def |> m_translate
 
 val _ = ml_prog_update open_local_in_block;
 
-val def = new_constant_def |> Q.SPEC ‘n’ |> check [‘n’,‘ty’] |> m_translate
+val def = new_constant_def |> Q.SPEC ‘n’ |> assert_check [‘n’,‘ty’] |> m_translate
 
 val _ = ml_prog_update open_local_block;
 
@@ -470,14 +462,14 @@ val def = new_type_def |> m_translate
 val _ = ml_prog_update open_local_in_block;
 
 val _ = next_ml_names := ["new_type"];
-val def = call_new_type_def |> check [‘n’] |> m_translate
+val def = call_new_type_def |> assert_check [‘n’] |> m_translate
 
 val _ = next_ml_names := ["EQ_MP", "ASSUME"];
 val def = holKernelPmatchTheory.EQ_MP_def |> m_translate
-val def = ASSUME_def |> check [‘tm’] |> m_translate
+val def = ASSUME_def |> assert_check [‘tm’] |> m_translate
 
-val def = new_axiom_def |> check [‘tm’] |> m_translate
-val def = vsubst_def |> check [‘theta’,‘tm’] |> m_translate
+val def = new_axiom_def |> assert_check [‘tm’] |> m_translate
+val def = vsubst_def |> assert_check [‘theta’,‘tm’] |> m_translate
 
 val _ = ml_prog_update open_local_block;
 
@@ -485,19 +477,19 @@ val def = inst_aux_def (* rec *) |> m_translate
 
 val _ = ml_prog_update open_local_in_block;
 
-val def = inst_def |> check [‘tyin’,‘tm’] |> m_translate
+val def = inst_def |> assert_check [‘tyin’,‘tm’] |> m_translate
 
 val _ = ml_prog_update open_local_block;
 
-val def = safe_mk_eq_def |> check [‘l’,‘r’] |> m_translate
-val def = mk_eq_def |> check [‘l’,‘r’] |> m_translate
+val def = safe_mk_eq_def |> assert_check [‘l’,‘r’] |> m_translate
+val def = mk_eq_def |> assert_check [‘l’,‘r’] |> m_translate
 val def = list_to_hypset_def |> translate
 
 val _ = ml_prog_update open_local_in_block;
 
 val _ = next_ml_names :=
   ["REFL", "TRANS", "MK_COMB", "ABS", "BETA"];
-val def = REFL_def |> check [‘tm’] |> m_translate
+val def = REFL_def |> assert_check [‘tm’] |> m_translate
 val def = holKernelPmatchTheory.TRANS_def |> m_translate
 
 val MK_COMB_lemma = prove(
@@ -507,23 +499,23 @@ val MK_COMB_lemma = prove(
   |> CONV_RULE (RAND_CONV (SIMP_CONV std_ss [holKernelPmatchTheory.MK_COMB_def]));
 val def = MK_COMB_lemma |> m_translate
 
-val def = holKernelPmatchTheory.ABS_def |> check [‘v’] |> m_translate
+val def = holKernelPmatchTheory.ABS_def |> assert_check [‘v’] |> m_translate
 (* workaround contamination of translator's guts by DoubleProg.abs *)
 Overload abs_v = “abs_1_v”
 Theorem abs_v_def = DB.fetch "-" "abs_1_v_def"
 Theorem abs_v_thm = DB.fetch "-" "abs_1_v_thm"
 
-val def = holKernelPmatchTheory.BETA_def |> check [‘tm’] |> m_translate
+val def = holKernelPmatchTheory.BETA_def |> assert_check [‘tm’] |> m_translate
 
 val _ = next_ml_names := ["DEDUCT_ANTISYM_RULE"];
 val def = DEDUCT_ANTISYM_RULE_def |> m_translate
 val def = new_specification_def |> m_translate
-val def = new_basic_definition_def |> check [‘tm’] |> m_translate
+val def = new_basic_definition_def |> assert_check [‘tm’] |> m_translate
 
 val _ = next_ml_names := ["INST_TYPE", "INST"];
-val def = (INST_TYPE_def |> SIMP_RULE std_ss [LET_DEF]) |> check [‘theta’] |> m_translate
-val def = (INST_def |> SIMP_RULE std_ss [LET_DEF]) |> check [‘theta’] |> m_translate
-val def = new_basic_type_definition_def |> check [‘tyname’,‘absname’,‘repname’]  |> m_translate
+val def = (INST_TYPE_def |> SIMP_RULE std_ss [LET_DEF]) |> assert_check [‘theta’] |> m_translate
+val def = (INST_def |> SIMP_RULE std_ss [LET_DEF]) |> assert_check [‘theta’] |> m_translate
+val def = new_basic_type_definition_def |> assert_check [‘tyname’,‘absname’,‘repname’]  |> m_translate
 
 val _ = ml_prog_update open_local_block;
 

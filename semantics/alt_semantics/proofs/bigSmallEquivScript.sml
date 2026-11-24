@@ -64,7 +64,22 @@ Theorem big_exp_to_small_exp:
 Proof
    ho_match_mp_tac evaluate_ind >>
    srw_tac[][small_eval_log, small_eval_if, small_eval_match, small_eval_lannot,
-             small_eval_handle, small_eval_let, small_eval_letrec, small_eval_tannot, to_small_res_def, small_eval_raise]
+             small_eval_handle, small_eval_let, small_eval_letrec, small_eval_tannot, to_small_res_def, small_eval_raise,
+             small_eval_assert]
+   >~ [`small_eval _ _ _ [(Cassert () _, _)] (_, Rval _)`] >- (
+     fs [small_eval_def] >>
+     simp [Once RTC_CASES2] >>
+     drule e_step_add_ctxt >> simp [] >> disch_then $ irule_at Any >>
+     simp [e_step_reln_def, e_step_def, continue_def, return_def])
+   >~ [`¬check_shape _ _ _`] >- (
+     fs [small_eval_def] >>
+     drule e_step_add_ctxt >> simp [] >> disch_then $ irule_at Any >>
+     simp [e_step_def, continue_def])
+   >~ [`small_eval _ _ _ [(Cassert () _, _)] _`] >- (
+     `small_eval env (to_small_st s) e ([] ++ [(Cassert () sa,env)])
+        (to_small_st s', Rerr err)`
+       by (match_mp_tac small_eval_err_add_ctxt >> fs []) >>
+     fs [])
    >~ [`open_dec_env _ _ = SOME _`] >- (
      fs [] >> irule small_eval_prefix >>
      qexistsl_tac [`[]`, `e`, `extend_dec_env opened env`, `to_small_st s`] >>
@@ -1851,6 +1866,9 @@ Proof
   >~ [`open_dec_env _ _ = SOME _`] >- (
     irule_at Any $ cj 2 RTC_rules >>
     simp [e_step_reln_def, e_step_def, SF SFY_ss])
+  >~ [`Exp (Assert _ _)`] >- (
+    irule_at Any $ cj 2 RTC_rules >> simp[e_step_reln_def, e_step_def, push_def] >>
+    dxrule e_step_add_ctxt >> simp[SF SFY_ss])
   >- ( (* Raise *)
     irule_at Any $ cj 2 RTC_rules >>
     simp[e_step_reln_def, e_step_def, push_def] >>

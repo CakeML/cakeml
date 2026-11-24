@@ -495,6 +495,7 @@ Proof
   >~ [`Tannot`] >- suspend "Tannot"
   >~ [`Lannot`] >- suspend "Lannot"
   >~ [`ast$Open`] >- suspend "Open"
+  >~ [`Assert`] >- suspend "Assert"
   >~ [`[] : (pat # exp) list`] >- suspend "pmatch_Nil"
   >~ [`_::_ : (pat # exp) list`] >- suspend "pmatch_Cons"
   >~ [`[]:dec list`] >- suspend "decs_Nil"
@@ -776,6 +777,88 @@ Proof
   \\ Cases_on ‘m1 = list_type_num’ \\ gs [] \\ rw []
   \\ gs [INJ_DEF]
 QED
+
+Theorem pmatch_list_REPLICATE_Pany[local]:
+  ∀n vs env.
+    pmatch_list envC st (REPLICATE n Pany) vs env =
+    if LENGTH vs = n then Match env else Match_type_error
+Proof
+  Induct >> Cases_on `vs` >> rw [pmatch_def]
+QED
+
+Theorem pmatch_ConsA_store[local]:
+  pmatch envC st (Pcon (SOME cn) (REPLICATE n Pany)) v [] =
+  pmatch envC [] (Pcon (SOME cn) (REPLICATE n Pany)) v []
+Proof
+  Cases_on `v` >> simp [pmatch_def] >>
+  rename1 `Conv stamp_opt vs` >>
+  Cases_on `stamp_opt` >> simp [pmatch_def] >>
+  simp [pmatch_list_REPLICATE_Pany]
+QED
+
+Theorem check_shape_update[local]:
+  state_rel l fr ft fe s t ⇒
+  (∀c sa x c' y. ctor_rel ft fe c c' ∧ v_rel fr ft fe x y ⇒
+     (check_shape c sa x ⇔ check_shape c' sa y)) ∧
+  (∀c sas xs c' ys. ctor_rel ft fe c c' ∧ LIST_REL (v_rel fr ft fe) xs ys ⇒
+     (check_shapes c sas xs ⇔ check_shapes c' sas ys))
+Proof
+  strip_tac \\ ho_match_mp_tac check_shape_ind
+  \\ rpt conj_tac \\ rpt gen_tac \\ rpt strip_tac
+  >~ [‘PrimA’] >- (
+    Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
+    \\ Cases_on ‘x’
+    \\ gvs [check_shape_def, check_type_def, Boolv_def, v_rel_def]
+    \\ ‘l' = [] ⇔ ys = []’ by (Cases_on ‘l'’ \\ Cases_on ‘ys’ \\ gvs [])
+    \\ Cases_on ‘o'’ \\ Cases_on ‘t2’ \\ gvs [OPTREL_def, stamp_rel_cases]
+    \\ ‘m1 = bool_type_num ⇔ m2 = bool_type_num’ suffices_by metis_tac []
+    \\ fs [state_rel_def]
+    \\ qpat_x_assum ‘INJ ($' ft) _ (count t.next_type_stamp)’ mp_tac
+    \\ qpat_x_assum ‘FLOOKUP ft bool_type_num = _’ mp_tac
+    \\ qpat_x_assum ‘FLOOKUP ft m1 = _’ mp_tac
+    \\ simp [INJ_DEF, FLOOKUP_DEF] \\ metis_tac [])
+  >~ [‘ConsA’] >- (
+    ‘con_arity c' cn = con_arity c cn’
+      by (fs [ctor_rel_def, con_arity_def]
+          \\ Cases_on ‘nsLookup c cn’
+          >- (drule_then (qspec_then ‘cn’ mp_tac) nsAll2_nsLookup_none
+              \\ simp [])
+          \\ drule_all nsAll2_nsLookup1 \\ strip_tac
+          \\ rename1 ‘nsLookup c cn = SOME p1’
+          \\ PairCases_on ‘p1’ \\ PairCases_on ‘v2’ \\ gvs [])
+    \\ rw [check_shape_def]
+    \\ qmatch_goalsub_abbrev_tac ‘pmatch _ _ pp _ _’
+    \\ ‘pmatch c [] pp x [] = pmatch c s.refs pp x []’
+      by simp [Abbr ‘pp’, pmatch_ConsA_store]
+    \\ ‘pmatch c' [] pp y [] = pmatch c' t.refs pp y []’
+      by simp [Abbr ‘pp’, pmatch_ConsA_store]
+    \\ ntac 2 (pop_assum SUBST1_TAC)
+    \\ qspecl_then [‘c’,‘s.refs’,‘pp’,‘x’,‘[]’,‘pmatch c s.refs pp x []’] mp_tac
+         (CONJUNCT1 pmatch_update)
+    \\ impl_tac >- simp []
+    \\ disch_then (qspecl_then [‘c'’,‘t.refs’,‘y’,‘[]’,‘pmatch c' t.refs pp y []’,
+                                ‘count t.next_type_stamp’,‘count t.next_exn_stamp’] mp_tac)
+    \\ impl_tac >- fs [state_rel_def]
+    \\ Cases_on ‘pmatch c s.refs pp x []’ \\ Cases_on ‘pmatch c' t.refs pp y []’
+    \\ simp [])
+  >~ [‘TupleA’] >- (
+    rw [check_shape_def]
+    \\ Cases_on ‘x’ \\ gvs [v_rel_def]
+    \\ Cases_on ‘o'’ \\ gvs [OPTREL_def])
+  >~ [‘ListA’] >- (
+    rw [check_shape_def]
+    \\ ‘list_type_num < t.next_type_stamp’
+      by (fs [state_rel_def]
+          \\ qpat_x_assum ‘INJ ($' ft) _ (count t.next_type_stamp)’ mp_tac
+          \\ qpat_x_assum ‘FLOOKUP ft list_type_num = _’ mp_tac
+          \\ simp [INJ_DEF, FLOOKUP_DEF] \\ metis_tac [])
+    \\ ‘OPTREL (LIST_REL (v_rel fr ft fe)) (v_to_list x) (v_to_list y)’
+      by (irule v_rel_v_to_list \\ fs [state_rel_def] \\ metis_tac [])
+    \\ Cases_on ‘v_to_list x’ \\ Cases_on ‘v_to_list y’ \\ fs [OPTREL_def]
+    \\ fs [EVERY_MEM, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS] \\ metis_tac [])
+  \\ gvs [check_shape_def] \\ metis_tac []
+QED
+
 
 Theorem v_rel_vs_to_string:
   ∀x1 res1 x2 res2.
@@ -2545,6 +2628,22 @@ QED
 
 Resume evaluate_update[Tannot]:
   rw [evaluate_def]
+QED
+
+Resume evaluate_update[Assert]:
+  rw [evaluate_def] \\ gs []
+  \\ gvs [CaseEqs ["result", "prod", "bool"], PULL_EXISTS]
+  \\ first_x_assum (drule_all_then strip_assume_tac)
+  \\ Cases_on ‘res1’ \\ gs []
+  \\ imp_res_tac evaluate_sing \\ gvs []
+  \\ qexistsl_tac [‘fr1’,‘ft1’,‘fe1’] \\ gs []
+  \\ ‘ctor_rel ft1 fe1 env.c env1.c’
+    by (irule ctor_rel_update \\ gs [env_rel_def] \\ metis_tac [])
+  \\ qpat_assum ‘state_rel l fr1 ft1 fe1 _ _’
+       (strip_assume_tac o MATCH_MP check_shape_update)
+  \\ ‘check_shape env.c sa v'' ⇔ check_shape env1.c sa v'’
+    by (first_x_assum irule \\ simp [])
+  \\ gvs []
 QED
 
 Resume evaluate_update[Lannot]:

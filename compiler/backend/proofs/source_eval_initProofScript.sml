@@ -2090,6 +2090,39 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem pmatch_list_REPLICATE_Pany[local]:
+  ∀n vs env.
+    pmatch_list envC st (REPLICATE n Pany) vs env =
+    if LENGTH vs = n then Match env else Match_type_error
+Proof
+  Induct >> Cases_on `vs` >> rw [pmatch_def]
+QED
+
+Theorem v_rel_check_shape[local]:
+  (∀c sa x y. v_rel fr pe x y ∧ check_shape c sa x ⇒ check_shape c sa y) ∧
+  (∀c sas xs ys.
+     LIST_REL (v_rel fr pe) xs ys ∧ check_shapes c sas xs ⇒
+     check_shapes c sas ys)
+Proof
+  ho_match_mp_tac check_shape_ind \\ rw [check_shape_def]
+  >- metis_tac [v_rel_check_type]
+  >- (
+    Cases_on ‘x’ \\ gvs [pmatch_def, v_rel_def]
+    \\ rename [‘Conv oo _’] \\ Cases_on ‘oo’
+    \\ gvs [pmatch_def, AllCaseEqs(), pmatch_list_REPLICATE_Pany]
+    \\ imp_res_tac LIST_REL_LENGTH \\ gvs [] \\ metis_tac [])
+  >- (
+    Cases_on ‘x’ \\ gvs [v_rel_def]
+    \\ rename [‘case oo of NONE => _ | SOME _ => _’]
+    \\ Cases_on ‘oo’ \\ gvs [SF SFY_ss])
+  >- (
+    imp_res_tac v_rel_v_to_list
+    \\ Cases_on ‘v_to_list x’ \\ gvs []
+    \\ gvs [EVERY_MEM, LIST_REL_EL_EQN, MEM_EL, PULL_EXISTS, SF SFY_ss]
+    \\ metis_tac [])
+  \\ gvs [check_shape_def, SF SFY_ss]
+QED
+
 (* the case for Eval needs the simulation for programs without an eval
    state, which is the instance of this theorem where H is false *)
 Theorem compile_evaluate_lemma:
@@ -2147,6 +2180,7 @@ Proof
   >~ [‘evalSem$evaluate _ _ [Tannot _ _] = _’] >- suspend "Tannot"
   >~ [‘evalSem$evaluate _ _ [Lannot _ _] = _’] >- suspend "Lannot"
   >~ [‘evalSem$evaluate _ _ [Open _ _] = _’] >- suspend "Open"
+  >~ [‘evalSem$evaluate _ _ [Assert _ _] = _’] >- suspend "Assert"
   >~ [‘evalSem$evaluate_match _ _ _ [] _ = _’] >- suspend "match_nil"
   >~ [‘evalSem$evaluate_match _ _ _ ((_,_)::_) _ = _’] >- suspend "match_cons"
   >~ [‘evalSem$evaluate_decs _ _ [] = _’] >- suspend "decs_nil"
@@ -2574,6 +2608,16 @@ Resume compile_evaluate_lemma[Open]:
   \\ drule_all env_rel_extend_dec_env \\ strip_tac
   \\ first_x_assum drule_all \\ strip_tac
   \\ qexistsl_tac [‘ck’,‘fr1’] \\ simp [full_evaluate_def]
+QED
+
+Resume compile_evaluate_lemma[Assert]:
+  gvs [full_evaluate_def, compile_exp_def, AllCaseEqs()]
+  \\ first_x_assum drule_all \\ strip_tac
+  \\ qexistsl_tac [‘ck’,‘fr1’] \\ gvs []
+  >- (
+    imp_res_tac evaluate_sing \\ gvs [env_rel_def]
+    \\ drule_all (cj 1 v_rel_check_shape) \\ simp [])
+  \\ Cases_on ‘r1’ \\ gvs []
 QED
 
 Resume compile_evaluate_lemma[match_nil]:
