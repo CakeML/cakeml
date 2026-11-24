@@ -36,6 +36,7 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 | Stand-alone function call | `FNAME(ARGS);`, `try FNAME(ARGS) catch ENAME => EVAR { HANDLER }` | When handling exceptions, `EVAR` should be an in-scope variable matching the value shape of `ENAME` |
 | Function return | `return EXP;`, `return FNAME(ARGS);` | |
 | Exception throw | `throw ENAME EXP;` | |
+| Loop control | `break;`, `continue;` | |
 | FFI function call | `@FNAME(PTR1, LEN1, PTR2, LEN2);` | `PTR1` should be the array of function inputs and `LEN1` its length; `PTR2` and `LEN2` are similarly for function outputs. Should be declared as `ffiFNAME` in C file |
 | Memory store | `st ADDR, VAR;`, `st8 ADDR, VAR;`, `st32 ADDR, VAR;` | |
 | Shared memory store | `!stw ADDR, VAR;`, `!st8 ADDR, VAR;`, `!st32 ADDR, VAR;` | |
