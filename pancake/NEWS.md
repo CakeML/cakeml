@@ -20,9 +20,6 @@ conditionals no longer needs a nested block for each alternative:
       y = 3;
     }
 
-This parses to the same program as writing the inner `if` inside an
-`else { ... }` block.
-
 <sub>Feature enabled: `elseif`</sub>
 
 Nov 12th 2026
