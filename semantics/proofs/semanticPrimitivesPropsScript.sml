@@ -290,6 +290,14 @@ Proof
   eq_tac \\ rw [] \\ fs []
 QED
 
+Theorem do_opapp_Recclosure_singleton:
+  do_opapp [Recclosure rho [(f,x,b)] f; v] =
+  SOME (rho with v := nsBind x v
+    (build_rec_env [(f,x,b)] rho rho.v), b)
+Proof
+  simp[do_opapp_def, find_recfun_def]
+QED
+
 Theorem do_app_NONE_ffi:
    do_app (refs,ffi) op args = NONE ⇒
    do_app (refs,ffi') op args = NONE
