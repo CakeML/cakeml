@@ -93,7 +93,7 @@ fun chltprinter _ _ sysp _ gs d t =
 
 val _ = enable_astPP()
 
-val _ = set_trace "pp_avoids_symbol_merges" 0
+val _ = HOLFlags.set_trace "PP.avoid_symbol_merges" 0
 
 val f = TextIO.openOut("kernel_ml.txt")
 

@@ -143,7 +143,6 @@ val _ = stack_allocTheory.SetNewTrigger_def |> cv_trans;
 val _ = stack_allocTheory.word_gc_code_def |> cv_trans;
 val _ = stack_allocTheory.stubs_def |> cv_auto_trans;
 val _ = stack_allocTheory.stub_names_def |> cv_auto_trans;
-val _ = stack_allocTheory.next_lab_def |> cv_trans;
 
 val pre = stack_allocTheory.comp_def |> cv_trans_pre "";
 Theorem stack_alloc_comp_pre[cv_pre,local]:
@@ -529,6 +528,8 @@ val _ = data_to_wordTheory.ScanByte_code_def |> SRULE [LET_THM] |> cv_trans;
 
 val code_defs =
   DB.find "_code_def" |> map fst |> filter (fn s => fst s = "data_to_word") |> map snd
+  |> filter (fn s => not (mem s ["Maxout_bits_code_def", "Make_ptr_bits_code_def",
+                                 "ScanByte_tail_code_def", "ScanByte_code_def"]))
   |> map (fetch "data_to_word");
 
 Theorem inline = [data_to_wordTheory.Unit_def,

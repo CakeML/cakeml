@@ -13,7 +13,7 @@ Libs
 
 val _ = translation_extends "sat_encodersProg";
 
-val _ = show_assums := true;
+val _ = HOLFlags.set_bflag (Parse.show_assums, true);
 
 Definition from_v_to_num_def:
   from_v_to_num (Num n) = n ∧

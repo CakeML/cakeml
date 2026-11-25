@@ -14,7 +14,7 @@ val _ = wordsLib.guess_lengths();
 val _ = wordsLib.output_words_as_hex();
 
 (*
-val _ = set_trace "Goalstack.howmany_printed_subgoals" 1;
+val _ = HOLFlags.set_trace "Goalstack.howmany_printed_subgoals" 1;
 *)
 
 (********** Lemmas **********)

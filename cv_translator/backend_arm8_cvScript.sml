@@ -56,7 +56,6 @@ Theorem cv_inline_v2w_Ones[cv_inline,local] = v2w_Ones;
 
 val _ = cv_trans (bitstringTheory.replicate_def |> SRULE [GSYM REPLICATE_GENLIST]);
 val _ = cv_trans (Ones_def |> SRULE [PAD_LEFT, GSYM REPLICATE_GENLIST]);
-val _ = cv_trans cv_primTheory.v2n_custom_def;
 val _ = cv_trans (INST_TYPE [``:'N`` |-> ``:32``] Replicate_def);
 val _ = cv_trans (INST_TYPE [``:'N`` |-> ``:64``] Replicate_def);
 val _ = cv_auto_trans (INST_TYPE [``:'M`` |-> ``:32``] DecodeBitMasks_def);
@@ -130,7 +129,6 @@ val _ = cv_trans e_data_def;
 val _ = cv_trans e_fp_def;
 val _ = cv_trans SystemHintOp2num_thm;
 val _ = cv_trans MemBarrierOp2num_thm;
-val _ = cv_trans e_fp_def;
 val _ = cv_trans arm8Theory.Encode_def;
 val _ = cv_trans arm8_encode_def;
 

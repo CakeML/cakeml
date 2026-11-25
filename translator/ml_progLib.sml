@@ -9,7 +9,7 @@ open preamble;
 open ml_progTheory astSyntax packLib alist_treeLib comparisonTheory;
 local open mlstringSyntax in end;
 
-fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
+fun allowing_rebind f = HOLFlags.trace ("Theory.allow_rebinds", 1) f
 
 (* state *)
 

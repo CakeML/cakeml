@@ -13,7 +13,7 @@ Libs
 
 val _ = translation_extends "sat_encodersProg";
 
-val _ = show_assums := true;
+val _ = HOLFlags.set_bflag (Parse.show_assums, true);
 
 (* numberSudoku *)
 val res = translate ns_filled_cells_to_numBoolRange_inner_def;

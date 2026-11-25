@@ -12,7 +12,7 @@ Ancestors
 
 val _ = translation_extends "lispProg";
 
-val _ = show_assums := true;
+val _ = HOLFlags.set_bflag (Parse.show_assums, true);
 
 (* Standard functions *)
 val res = translate (nub_def |> REWRITE_RULE [MEMBER_INTRO]);

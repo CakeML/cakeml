@@ -21,7 +21,7 @@ val ERR = mk_HOL_ERR "ml_translatorLib";
 val RW = REWRITE_RULE;
 val RW1 = ONCE_REWRITE_RULE;
 
-fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
+fun allowing_rebind f = HOLFlags.trace ("Theory.allow_rebinds", 1) f
 
 local
 
@@ -782,13 +782,13 @@ fun dest_args tm =
   let val (x,y) = dest_comb tm in dest_args x @ [y] end
   handle HOL_ERR _ => []
 
-fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
+fun allowing_rebind f = HOLFlags.trace ("Theory.allow_rebinds", 1) f
 
 val quietDefine = (* quiet version of Define -- by Anthony Fox *)
   Lib.with_flag (Feedback.emit_WARNING, false) $
   Lib.with_flag (Feedback.emit_ERR, false) $
   Lib.with_flag (Feedback.emit_MESG, false) $
-  Feedback.trace ("Definition.auto Defn.tgoal", 0) $
+  HOLFlags.trace ("Definition.auto_tgoal", 0) $
   allowing_rebind $
     TotalDefn.Define
 
@@ -3375,13 +3375,14 @@ fun check_inv name tm result = let
   val tm2 = result |> concl |> rand |> rand
   in if aconv tm2 tm then result else let
     val _ = (check_inv_fail := tm)
-    val _ = (show_types_verbosely := true)
+    val old = HOLFlags.get_bflag Parse.show_types
+    val _ = (HOLFlags.set_bflag (Parse.show_types, true))
     val _ = print ("\n\nhol2deep failed at '" ^ name ^ "'\n\ntarget:\n\n")
     val _ = print_term tm
     val _ = print "\n\nbut derived:\n\n"
     val _ = print_term tm2
     val _ = print "\n\n\n"
-    val _ = (show_types_verbosely := false)
+    val _ = (HOLFlags.set_bflag (Parse.show_types, old))
     in failwith("checkinv") end end
 
 fun MY_MATCH_MP th1 th2 = let

@@ -7,7 +7,7 @@ Ancestors
 Libs
   preamble
 
-fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f;
+fun allowing_rebind f = HOLFlags.trace ("Theory.allow_rebinds", 1) f;
 
 (* automation *)
 

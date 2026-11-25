@@ -44,7 +44,7 @@ fun write_cv_char_list_to_file filename cv_char_list_tm = let
   val _ = loop cv_char_list_tm
   in TextIO.closeOut f end;
 
-fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f;
+fun allowing_rebind f = HOLFlags.trace ("Theory.allow_rebinds", 1) f;
 
 exception EarlyReturn;
 
@@ -57,7 +57,7 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
   val { default_config_def, to_livesets_def, compile_cake_explore_def
       , compile_cake_def, compile_cake_imp, cv_export_def } = arch
   fun define_abbrev name tm =
-    Feedback.trace ("Theory.allow_rebinds", 1)
+    HOLFlags.trace ("Theory.allow_rebinds", 1)
       (mk_abbrev (prefix ^ name)) tm
   val conf = conf_def |> concl |> lhs
   val c = conf_def |> CONV_RULE (RAND_CONV EVAL)
@@ -204,7 +204,7 @@ fun eval_cake_compile_explore_with_conf arch prefix conf_def prog_def filename =
 fun eval_cake_compile_explore arch prefix =
   eval_cake_compile_explore_with_conf arch prefix (#default_config_def arch);
 
-val _ = Feedback.set_trace "TheoryPP.include_html_docs" 0;
+val _ = HOLFlags.set_trace "TheoryPP.include_html_docs" 0;
 
 (* --- for debugging ---
    val _ = (max_print_depth := 15);
