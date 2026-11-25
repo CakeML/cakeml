@@ -8,7 +8,8 @@ Ancestors
 Libs
   stringLib numLib intLib preamble helperLib set_sep_extLib
 
-(* Next: I feel like we want to run some sort of simp before our tactics *)
+(* TODO Use el_addr where possible (e.g. ones append) *)
+(* TODO I feel like we want to run some sort of simp before our tactics *)
 (* TODO Check for consistent naming *)
 
 (* TODO Look into how to set up a printer for stack _::...*)
@@ -410,10 +411,38 @@ Proof
 QED
 
 (* TODO move *)
+(*
 Theorem el_addr_add:
   n2w n * bytes_in_word + el_addr a i = el_addr a (i + n)
 Proof
   simp [el_addr_def, GSYM word_add_n2w, WORD_LEFT_ADD_DISTRIB]
+QED
+*)
+
+Theorem el_addr_0:
+  el_addr z 0 = z
+Proof
+  simp [el_addr_def]
+QED
+
+Theorem el_addr_SUC:
+  el_addr a (SUC i) = el_addr (a + bytes_in_word) i
+Proof
+  simp [el_addr_def, ADD1, GSYM word_add_n2w, WORD_LEFT_ADD_DISTRIB]
+QED
+
+Theorem el_addr_el_addr:
+  el_addr (el_addr a i) j = el_addr a (i + j)
+Proof
+  simp [el_addr_def, GSYM word_add_n2w, WORD_LEFT_ADD_DISTRIB]
+QED
+
+(* Allows us to treat reading at a specific location as reading the first
+   element as that location. *)
+Theorem el_addr_intro:
+  el_addr a i = el_addr (el_addr a i) 0
+Proof
+  simp [el_addr_el_addr]
 QED
 
 (* TODO move *)
@@ -1551,6 +1580,14 @@ fun head_asm_simp ss thl : tactic = fn (g as (asl, w)) => fn ctxt =>
   CONV_TAC (STACK_HEAD_CONV (SIMP_CONV ss (add_asms asl thl))) g ctxt
 
 
+(* These feel yucky... *)
+
+Theorem b2w_i2w_eq:
+  &b2n b = i ⇒ b2w b = i2w i
+Proof
+  Cases_on ‘b’ >> rw [i2w_def, b2w_def]
+QED
+
 Theorem n2w_i2w_eq:
   &n = i ⇒ n2w n = i2w i
 Proof
@@ -1558,7 +1595,7 @@ Proof
 QED
 
 (* Theorems of the form stack (...) ⇒ stack (...) for reducing side conditions. *)
-val (side_imp_thl: thm list) = [n2w_i2w_eq] |> map stackify_imp_th
+val (side_imp_thl: thm list) = [n2w_i2w_eq, b2w_i2w_eq] |> map stackify_imp_th
 
 val side_imp_tac : tactic = let
   val side_imp_tac_core = stack_imp_tac side_imp_thl
@@ -2147,6 +2184,8 @@ Theorem mwi_and_neg_neg_pan_loop0_thm[local]:
       FLOOKUP l «d» = SOME (Val (Word (b2w d'))) ∧
       FLOOKUP l «e» = SOME (Val (Word (b2w e'))) ∧
       FLOOKUP l «ys_len» = SOME (Val (Word (n2w (LENGTH ys')))) ∧
+      FLOOKUP l «ys» = SOME (Val (Word (el_addr y (LENGTH xs)))) ∧
+      FLOOKUP l «zs» = SOME (Val (Word (el_addr z (LENGTH xs)))) ∧
       (ones x (MAP Word xs) *
        ones y (MAP Word ys) *
        ones z (MAP Word rs') *
@@ -2155,7 +2194,7 @@ Proof
   Induct
   >> rw [mwi_and_neg_neg_pan_loop0_def]
   >- gvs [Once evaluate_def, eval_Var_Local, state_component_equality,
-          mwi_and_neg_neg_loop0_def]
+          mwi_and_neg_neg_loop0_def, el_addr_0]
   >> once_rewrite_tac [GSYM stack_evaluate]
   >> have ‘SUC (LENGTH xs) < dimword (:α)’
   >- (
@@ -2216,7 +2255,8 @@ Proof
     >> unabbrev_all_tac >> fs []
   )
   >> strip_tac
-  >> gvs [stack_def, state_component_equality, AC STAR_ASSOC STAR_COMM, ones_def]
+  >> gvs [stack_def, state_component_equality, AC STAR_ASSOC STAR_COMM,
+          ones_def, el_addr_SUC]
 QED
 
 Theorem mwi_and_neg_neg_pan_loop1_thm[local]:
@@ -2239,6 +2279,7 @@ Theorem mwi_and_neg_neg_pan_loop1_thm[local]:
                   locals := l;
                   clock := s.clock - LENGTH ys |>) ∧
       FLOOKUP l «e» = SOME (Val (Word (b2w e'))) ∧
+      FLOOKUP l «zs» = SOME (Val (Word (el_addr z (LENGTH ys)))) ∧
       (ones y (MAP Word ys) *
        ones z (MAP Word rs') *
        frame) (fun2set (m, s.memaddrs))
@@ -2246,7 +2287,7 @@ Proof
   Induct
   >> rw [mwi_and_neg_neg_pan_loop1_def]
   >- fs [Once evaluate_def, eval_Var_Local, state_component_equality,
-         mwi_and_neg_neg_loop1_def]
+         mwi_and_neg_neg_loop1_def, el_addr_0]
   >> once_rewrite_tac [GSYM stack_evaluate]
   >> have ‘SUC (LENGTH ys) < dimword (:α)’
   >- (
@@ -2302,7 +2343,7 @@ Proof
   >> SEP_F_TAC
   >> strip_tac
   >> fs [stack_def, state_component_equality, AC STAR_ASSOC STAR_COMM,
-         ones_def]
+         ones_def, el_addr_SUC]
 QED
 
 Theorem mwi_and_neg_neg_pan_body_thm[local]:
@@ -2324,48 +2365,63 @@ Theorem mwi_and_neg_neg_pan_body_thm[local]:
      frame) (fun2set (s.memory, s.memaddrs)) ∧
     byte_dimindex (:α) ∧ 8 < dimindex (:α)
     ⇒
-    ∃m l.
+    ∃m l clk.
       evaluate (mwi_and_neg_neg_pan_body,s) = (NONE,
         s with <| memory := m;
                   locals := l;
-                  clock := s.clock - LENGTH xs |>) ∧
+                  clock := clk |>) ∧
       (ones x (MAP Word xs) *
        ones y (MAP Word ys) *
        ones z (MAP Word (mwi_and_neg_neg c d e xs ys)) *
        frame) (fun2set (m, s.memaddrs))
 Proof
-  cheat
-  (*
   rw [mwi_and_neg_neg_pan_body_def, mwi_and_neg_neg_def]
   >> rpt (pairarg_tac >> gvs [])
   >> rename1 ‘mwi_and_neg_neg_loop0 c d e xs ys = (c₁,d₁,e₁,rs₁,ys')’
   >> rename1 ‘mwi_and_neg_neg_loop1 d₁ e₁ ys' = (e₂,rs')’
   >> once_rewrite_tac [GSYM stack_evaluate]
   >> walk
+  (* TODO Can we have a nicer interface with a split tactic that takes a list
+     of indices? *)
+  >> split_ones_at ‘z’ ‘LENGTH xs + (LENGTH ys − LENGTH xs)’
   >> split_ones_at ‘z’ ‘LENGTH xs’
+  >> gvs [TAKE_TAKE, DROP_TAKE, MAP_TAKE]
   >> qspecl_then
        [‘xs’, ‘ys’, ‘TAKE (LENGTH xs) rs’, ‘s’, ‘c’, ‘d’, ‘e’, ‘x’, ‘y’, ‘z’]
        mp_tac mwi_and_neg_neg_pan_loop0_thm
   >> simp []
   >> strip_tac >> SEP_F_TAC
   (* TODO Something like SEP_X_F_TAC *)
-  >> pop_assum kall_tac
+  >> qpat_x_assum ‘_ (fun2set _)’ kall_tac
   >> strip_tac
   >> hsimp []
   >> rpt (walk >> hsimp [])
-  >> split_ones_at ‘y’ ‘LENGTH ys - LENGTH ys'’
-  >> qmatch_asmsub_abbrev_tac ‘ones y₁ (DROP _ _)’
-  >> split_ones_at ‘z₁’ ‘LENGTH ys'’
-  >> qmatch_asmsub_abbrev_tac ‘ones z₁ (DROP _ _)’
-  >> qmatch_asmsub_abbrev_tac ‘ones z₁ rs₂’
+  >> split_ones_at ‘y’ ‘LENGTH xs’
   >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
+  >> gvs [GSYM MAP_DROP]
+  >> have ‘ys' = (DROP (LENGTH xs) ys)’
+  >- cheat
   >> qspecl_then
-       [‘ys'’, ‘rs₂’, ‘s'’, ‘d₁’, ‘e₁’, ‘y’, ‘z₁’]
+       [‘ys'’, ‘TAKE (LENGTH ys - LENGTH xs) (DROP (LENGTH xs) rs)’,
+        ‘s'’, ‘d₁’, ‘e₁’, ‘el_addr y (LENGTH xs)’, ‘el_addr z (LENGTH xs)’]
        mp_tac mwi_and_neg_neg_pan_loop1_thm
-  >> simp []
+  >> simp [Abbr ‘s'’]
   >> strip_tac >> SEP_F_TAC
-  (* TODO better SEP_F_TAC *)
-  >> simp [Abbr ‘rs₂’, Abbr ‘s'’]
-  (* mwi_and_neg_neg_pan_loop0_thm *)
-  *)
+  (* TODO Something like SEP_X_F_TAC *)
+  >> qpat_x_assum ‘_ (fun2set _)’ kall_tac
+  >> strip_tac
+  >> hsimp []
+  >> rpt (walk >> hsimp [])
+  >> Cases_on ‘e₂’
+  >> hsimp [b2n_def]
+  >> walk
+  >> hsimp [state_component_equality]
+  >> walk
+  >> hsimp [FLOOKUP_SIMP]
+  >> hsimp [el_addr_el_addr]
+  >> (read_ones_at ‘el_addr z (LENGTH ys)’ ‘0’ >- simp [])
+  >> hsimp [Once el_addr_intro]
+  >> walk
+  >> simp [stack_def]
+  >> cheat
 QED
