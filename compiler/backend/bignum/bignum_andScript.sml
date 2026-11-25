@@ -33,6 +33,13 @@ Libs
 (* TODO Maybe this should live in list syntax? *)
 fun list_mk_cons tms tm = List.foldr listSyntax.mk_cons tm tms
 
+(* TODO move *)
+Theorem mw_fix_snoc_zero:
+  mw_fix (SNOC 0w xs) = mw_fix xs
+Proof
+  simp [Once mw_fix_def]
+QED
+
 (** Specification *************************************************************)
 
 (* Implements mwi_and for two negative numbers in a single pass,
@@ -67,7 +74,7 @@ Definition mwi_and_neg_neg_def:
      (c₁, d₁, e₁, rs₁, ys')  = mwi_and_neg_neg_loop0 c d e xs ys;
      (e₂, rs) = mwi_and_neg_neg_loop1 d₁ e₁ ys';
    in
-     if e₂ then rs₁ ++ rs ++ [1w] else rs₁ ++ rs)
+     if e₂ then rs₁ ++ rs ++ [1w] else rs₁ ++ rs ++ [0w])
 End
 
 (* Implements mwi_and for cases where x is negative, y is positive and
@@ -164,7 +171,7 @@ Theorem mwi_and_neg_neg_eq:
       zs = mw_and_keep xs₂ ys₂;
       (zs₁, e') = mw_add (MAP $¬ zs) (MAP (K 0w) zs) e
     in
-      if e' then zs₁ ++ [1w] else zs₁
+      if e' then zs₁ ++ [1w] else zs₁ ++ [0w]
 Proof
   rpt gen_tac
   >> qspecl_then [‘c’, ‘d’, ‘e’, ‘xs’, ‘ys’] mp_tac mwi_and_neg_neg_loop0_eq
@@ -173,16 +180,20 @@ Proof
 QED
 
 Theorem mwi_and_neg_neg_thm:
-  (if LENGTH xs ≤ LENGTH ys
-   then mwi_and_neg_neg F F T xs ys
-   else mwi_and_neg_neg F F T ys xs)
+  mw_fix
+    (if LENGTH xs ≤ LENGTH ys
+     then mwi_and_neg_neg F F T xs ys
+     else mwi_and_neg_neg F F T ys xs)
   =
-  (mw_int_of_bits (mw_and_keep_flip (mw_bits_of_int xs) (mw_bits_of_int ys)))
+  mw_fix
+    (mw_int_of_bits (mw_and_keep_flip (mw_bits_of_int xs) (mw_bits_of_int ys)))
 Proof
   simp [mw_and_keep_flip_def, LENGTH_mw_bits_of_int, COND_RAND]
   >> IF_CASES_TAC
   >> simp [mwi_and_neg_neg_eq, mw_int_of_bits_def, mw_bits_of_int_def]
   >> rpt (pairarg_tac >> gvs [])
+  >> IF_CASES_TAC >> simp []
+  >> simp [GSYM SNOC_APPEND, mw_fix_snoc_zero]
 QED
 
 Theorem mwi_and_neg_pos_geq_eq:
@@ -231,6 +242,7 @@ Proof
   >> IF_CASES_TAC >- simp []
   >> IF_CASES_TAC >- simp [mwi_and_neg_pos_lt_thm, mwi_and_neg_pos_geq_thm]
   >> IF_CASES_TAC >- simp [mwi_and_neg_pos_lt_thm, mwi_and_neg_pos_geq_thm]
+  >> simp []
   >> simp [mwi_and_neg_neg_thm]
 QED
 
@@ -330,7 +342,7 @@ Proof
   >> Cases_on ‘zs’ >> gvs [ones_append, ones_def]
   >> Cases_on ‘ys’ >> gvs [ones_def]
   >> qpat_x_assum ‘dimword _ DIV _ = _’ $ assume_tac o GSYM
-  >> fs []
+  >> fs [el_addr_def]
   >> qmatch_asmsub_abbrev_tac ‘one (a + more, _)’
   >> ‘a ≠ a + more’ by SEP_NEQ_TAC
   >> ‘more = 0w’ by
@@ -450,13 +462,6 @@ Theorem el_addr_sub:
   n ≤ i ⇒ -n2w n * bytes_in_word + el_addr a i = el_addr a (i - n)
 Proof
   simp [el_addr_def, n2w_sub, WORD_LEFT_ADD_DISTRIB]
-QED
-
-(* TODO move *)
-Theorem mw_fix_snoc_zero:
-  mw_fix (SNOC 0w xs) = mw_fix xs
-Proof
-  simp [Once mw_fix_def]
 QED
 
 (* TODO Move? *)
@@ -2346,11 +2351,32 @@ Proof
          ones_def, el_addr_SUC]
 QED
 
+Theorem mwi_and_neg_neg_loop0_imp[local]:
+  ∀c d e xs ys c' d' e' rs ys'.
+    mwi_and_neg_neg_loop0 c d e xs ys = (c',d',e',rs,ys') ∧
+    LENGTH xs ≤ LENGTH ys ⇒
+    ys' = DROP (LENGTH xs) ys ∧ LENGTH rs = LENGTH xs
+Proof  (* a bit slow *)
+  recInduct mwi_and_neg_neg_loop0_ind
+  >> rpt strip_tac
+  >> gvs [mwi_and_neg_neg_loop0_def]
+  >> rpt (pairarg_tac >> gvs [])
+QED
+
+Theorem mwi_and_neg_neg_loop1_imp[local]:
+  ∀d e ys e' rs.
+    mwi_and_neg_neg_loop1 d e ys = (e',rs) ⇒ LENGTH rs = LENGTH ys
+Proof
+  recInduct mwi_and_neg_neg_loop1_ind
+  >> rw [mwi_and_neg_neg_loop1_def]
+  >> rpt (pairarg_tac >> gvs [])
+QED
+
 Theorem mwi_and_neg_neg_pan_body_thm[local]:
   ∀(xs: α word list) ys zs rs (s: (α, 'ffi) state) c d e x y z frame.
-    LENGTH rs = LENGTH xs + LENGTH ys + 1 ∧
+    LENGTH rs = LENGTH ys + 1 ∧
     LENGTH xs ≤ LENGTH ys ∧
-    LENGTH xs + LENGTH ys ≤ s.clock ∧
+    LENGTH ys ≤ s.clock ∧
     FLOOKUP s.locals «c» = SOME (Val (Word (b2w c))) ∧
     FLOOKUP s.locals «d» = SOME (Val (Word (b2w d))) ∧
     FLOOKUP s.locals «e» = SOME (Val (Word (b2w e))) ∧
@@ -2379,33 +2405,40 @@ Proof
   >> rpt (pairarg_tac >> gvs [])
   >> rename1 ‘mwi_and_neg_neg_loop0 c d e xs ys = (c₁,d₁,e₁,rs₁,ys')’
   >> rename1 ‘mwi_and_neg_neg_loop1 d₁ e₁ ys' = (e₂,rs')’
+  >> have ‘∃zs₁ zs₂ zv.
+       rs = zs₁ ++ zs₂ ++ [zv] ∧
+       LENGTH zs₁ = LENGTH xs ∧ LENGTH zs₂ = LENGTH ys'’
+  >- (
+    drule_all_then assume_tac mwi_and_neg_neg_loop0_imp
+    >> qexistsl [‘TAKE (LENGTH xs) (FRONT rs)’, ‘DROP (LENGTH xs) (FRONT rs)’,
+                 ‘LAST rs’]
+    >> Cases_on ‘rs = []’ >- gvs []
+    >> gvs [LENGTH_FRONT, APPEND_FRONT_LAST]
+  )
+  >> gvs [ones_append]
   >> once_rewrite_tac [GSYM stack_evaluate]
   >> walk
-  (* TODO Can we have a nicer interface with a split tactic that takes a list
-     of indices? *)
-  >> split_ones_at ‘z’ ‘LENGTH xs + (LENGTH ys − LENGTH xs)’
-  >> split_ones_at ‘z’ ‘LENGTH xs’
-  >> gvs [TAKE_TAKE, DROP_TAKE, MAP_TAKE]
-  >> qspecl_then
-       [‘xs’, ‘ys’, ‘TAKE (LENGTH xs) rs’, ‘s’, ‘c’, ‘d’, ‘e’, ‘x’, ‘y’, ‘z’]
+  >> qspecl_then [‘xs’, ‘ys’, ‘zs₁’, ‘s’, ‘c’, ‘d’, ‘e’, ‘x’, ‘y’, ‘z’]
        mp_tac mwi_and_neg_neg_pan_loop0_thm
-  >> simp []
+  >> simp [ones_append, LENGTH_TAKE]
   >> strip_tac >> SEP_F_TAC
   (* TODO Something like SEP_X_F_TAC *)
   >> qpat_x_assum ‘_ (fun2set _)’ kall_tac
   >> strip_tac
   >> hsimp []
   >> rpt (walk >> hsimp [])
-  >> split_ones_at ‘y’ ‘LENGTH xs’
   >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
-  >> gvs [GSYM MAP_DROP]
-  >> have ‘ys' = (DROP (LENGTH xs) ys)’
-  >- cheat
   >> qspecl_then
-       [‘ys'’, ‘TAKE (LENGTH ys - LENGTH xs) (DROP (LENGTH xs) rs)’,
+       [‘ys'’, ‘zs₂’,
         ‘s'’, ‘d₁’, ‘e₁’, ‘el_addr y (LENGTH xs)’, ‘el_addr z (LENGTH xs)’]
        mp_tac mwi_and_neg_neg_pan_loop1_thm
+  >> drule mwi_and_neg_neg_loop0_imp
+  >> impl_tac >- simp []
+  >> strip_tac >> gvs []
+  >> drule_all_then assume_tac mwi_and_neg_neg_loop1_imp
   >> simp [Abbr ‘s'’]
+  >> qspecl_then [‘LENGTH xs’, ‘y’, ‘MAP Word ys’] assume_tac ones_TAKE_DROP
+  >> gvs [MAP_DROP]
   >> strip_tac >> SEP_F_TAC
   (* TODO Something like SEP_X_F_TAC *)
   >> qpat_x_assum ‘_ (fun2set _)’ kall_tac
@@ -2418,10 +2451,11 @@ Proof
   >> hsimp [state_component_equality]
   >> walk
   >> hsimp [FLOOKUP_SIMP]
-  >> hsimp [el_addr_el_addr]
-  >> (read_ones_at ‘el_addr z (LENGTH ys)’ ‘0’ >- simp [])
-  >> hsimp [Once el_addr_intro]
+  >> gvs [el_addr_el_addr, ones_append, ones_def]
+  >> SEP_R_TAC
   >> walk
   >> simp [stack_def]
-  >> cheat
+  (* TODO Something like SEP_X_W_TAC *)
+  >> SEP_W_TAC
+  >> gvs [AC STAR_ASSOC STAR_COMM, i2w_one, i2w_0]
 QED

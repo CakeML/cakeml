@@ -29,10 +29,10 @@ End
 Theorem ones_append:
   ∀xs ys a.
     ones a (xs ++ ys) =
-    ones a xs * ones (a + n2w (LENGTH xs) * bytes_in_word) ys
+    ones a xs * ones (el_addr a (LENGTH xs)) ys
 Proof
   Induct
-  >> rw [ones_def, SEP_CLAUSES]
+  >> rw [ones_def, el_addr_def, SEP_CLAUSES]
   >> simp [ADD1, WORD_LEFT_ADD_DISTRIB, GSYM word_add_n2w]
   >> fs [AC STAR_ASSOC STAR_COMM]
 QED
@@ -47,7 +47,7 @@ Proof
   >> have ‘xs = TAKE n xs ++ DROP n xs’
   >- simp []
   >> pop_assum SUBST_ALL_TAC
-  >> simp [ones_append, LENGTH_TAKE_EQ, el_addr_def]
+  >> simp [ones_append, LENGTH_TAKE_EQ]
   >> IF_CASES_TAC >> simp []
   >> have ‘DROP n xs = []’
   >> simp [ones_def]
@@ -64,12 +64,12 @@ Proof
   >> have ‘xs = TAKE i xs ++ [xs❲i❳] ++ DROP (SUC i) xs’
   >- simp [TAKE_DROP_SUC]
   >> qpat_assum ‘xs = _’ (CONV_TAC o LHS_CONV o ONCE_REWRITE_CONV o single)
-  >> simp [ones_append, ones_def, SEP_CLAUSES, el_addr_def]
+  >> simp [ones_append, ones_def, SEP_CLAUSES]
 QED
 
 Theorem ones_SNOC:
   ones a (SNOC x xs) =
-  ones a xs * one (a + n2w (LENGTH xs) * bytes_in_word, x)
+  ones a xs * one (el_addr a (LENGTH xs), x)
 Proof
   simp [SNOC_APPEND, ones_append, ones_def, SEP_CLAUSES]
 QED

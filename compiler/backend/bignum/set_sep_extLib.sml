@@ -149,44 +149,6 @@ in
 end
 
 (*
-val qa = ‘z’
-val qi = ‘LENGTH xs’
-val (g as (asl ,w)) = top_goal ()
-val c = Context.snapshot ()
-*)
-(* Splits ones starting at qa, at position qi. *)
-fun split_ones_at (qa: term quotation) (qi: term quotation) : tactic
-  =
-  fn (g as (asl, w)) => fn c => let
-  fun err msg = raise ERR "split_ones_at" msg
-  val fvsl = free_varsl (w::asl)
-  (* Parse index as number *)
-  val tmi = typed_parse_in_context_in c numSyntax.num fvsl qi
-    handle HOL_ERR herr =>
-      err ("failed to parse index as num: " ^ message_of herr)
-  val _ = check_no_new_fvs err "the index" fvsl tmi
-  (* Find (... * ...) (fun2set (_, _)) in assumptions *)
-  val f2s = find_unique "fun2set in assumptions" (can dest_star_fun2set) asl
-  (* Parse base as word *)
-  val dom_ty = star_fun2set_dom_ty f2s
-  val tma = typed_parse_in_context_in c dom_ty fvsl qa
-    handle HOL_ERR herr => err (
-      "failed to parse base as " ^ type_to_string dom_ty ^ ": " ^
-       message_of herr)
-  val _ = check_no_new_fvs err "the base" fvsl tma
-  (* Instantiate theorem we will rewrite f2s with *)
-  val (ox, oxs) = dest_ones $ find_ones_in_fun2set f2s tma
-  val thm = ISPECL [tmi, ox, oxs] ones_TAKE_DROP
-in
-  UNDISCH_THEN f2s (assume_tac o CHANGED_RULE (SUBS [thm])) g c
-end
-handle e as HOL_ERR herr =>
-  if IS_ERR "split_ones_at" herr
-  then raise e
-  else raise WRAP "split_ones_at" e
-
-
-(*
 val discharge = NONE
 val qa = ‘base’
 val qi = ‘LENGTH xs’
