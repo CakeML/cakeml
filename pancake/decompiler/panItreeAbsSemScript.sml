@@ -698,10 +698,7 @@ Theorem itree_semantics_Return:
   itree_semantics (Return e,s) =
     Ret (INR (case eval s e of
                 NONE => (SOME Error,s)
-              | SOME v =>
-                  if size_of_sh_with_ctxt s.structs (shape_of v) ≤ 32 then
-                    (SOME (Return v), empty_locals s)
-                  else (SOME Error,s)))
+              | SOME v => (SOME (Return v), empty_locals s)))
 Proof
   PURE_REWRITE_TAC[itree_semantics_def, o_DEF] \\ BETA_TAC
   \\ simp[h_prog_def, h_prog_return_def]
@@ -709,10 +706,6 @@ QED
 
 Theorem itree_semantics_Return_with_pre:
   (∃v. eval s e = SOME v) ⇒
-  (let
-     v = THE (eval s e)
-   in
-     size_of_sh_with_ctxt s.structs (shape_of v) ≤ 32) ⇒
   itree_semantics (Return e,s) =
   let v = THE (eval s e) in
     Ret (INR ((SOME (Return v), empty_locals s)))
