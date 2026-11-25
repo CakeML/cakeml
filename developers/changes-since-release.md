@@ -34,6 +34,8 @@ The REPL's only target-specific step is now installing the compiler in `Eval` an
 
 ## Pancake
 
+An `else` may now be followed directly by another `if` (#1607). An `else if` chain parses to the nested conditionals it abbreviates.
+
 The Pancake compiler is now a standalone `pancake` executable, replacing `cake --pancake` (#1589). This splits the bootstrap translation into one CakeML path and one Pancake path. They share all translations up to from_wordProg. Command-line parsing helpers are shared between the two compilers.
 
 We distribute native Pancake builds as self-contained archives with assembly (x64, Arm8 and RISC-V), FFI source and a Makefile for building the executable.

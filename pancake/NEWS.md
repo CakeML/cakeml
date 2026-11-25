@@ -4,6 +4,24 @@ Pancake Changelog
 User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
+xxx xxxth 2026
+-------------------
+
+### else if
+
+An `else` can now be followed directly by another `if`, so a chain of
+conditionals no longer needs a nested block for each alternative:
+
+    if x < 1 {
+      y = 1;
+    } else if x < 2 {
+      y = 2;
+    } else {
+      y = 3;
+    }
+
+<sub>Feature enabled: `elseif`</sub>
+
 Nov 12th 2026
 -------------------
 

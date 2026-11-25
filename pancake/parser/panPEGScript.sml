@@ -238,8 +238,10 @@ Definition pancake_peg_def[nocompute]:
                                (mksubtree Store32NT));
         (INL IfNT, seql [consume_kw IfK; mknt ExpNT; consume_tok LCurT;
                          try_ProgNT;
-                         try_default (seql [consume_kw ElseK; consume_tok LCurT;
-                                    try_ProgNT] I) (KeywordT SkipK)]
+                         try_default (seql [consume_kw ElseK;
+                                            choicel [mknt IfNT;
+                                                     seql [consume_tok LCurT; try_ProgNT] I]] I)
+                                     (KeywordT SkipK)]
                         (mksubtree IfNT));
         (INL WhileNT, seql [consume_kw WhileK; mknt ExpNT;
                             consume_tok LCurT; try_ProgNT] (mksubtree WhileNT));

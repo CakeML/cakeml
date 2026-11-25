@@ -67,6 +67,21 @@ val ex1 = ‘
 
 val treeEx1 = check_success $ parse_pancake ex1;
 
+(** An else may be followed directly by another conditional. *)
+val ex1_else_if = ‘
+  fun cond() {
+    if x < 1 { y = 1; } else if x < 2 { y = 2; } else { y = 3; }
+  }’;
+
+val treeEx1_else_if = check_success $ parse_pancake ex1_else_if;
+
+val ex1_else_if_open = ‘
+  fun cond() {
+    if x < 1 { y = 1; } else if x < 2 { y = 2; }
+  }’;
+
+val treeEx1_else_if_open = check_success $ parse_pancake ex1_else_if_open;
+
 (** We also have a selection of boolean operators and we can call
     functions. A struct value encloses expressions within chevrons
     (‘<>’). *)
