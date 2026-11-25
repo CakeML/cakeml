@@ -336,12 +336,15 @@ let scan nextChar peekChar =
       "#use",   T_use;
       "needs",  T_needs;
       "loads",  T_loads;
+      "loadt",  T_loads;
     ] in
     fun s -> match Alist.lookup keywords s with
              | None -> T_other s
              | Some tok -> tok in
+  (* An opening parenthesis is not a symbol character: it may start a comment,
+     so a run of symbol characters has to end before it. *)
   let is_symbol =
-    let symchars = String.explode "#$&*+-/=>@^|~!?%<:.()[]{}," in
+    let symchars = String.explode "#$&*+-/=>@^|~!?%<:.)[]{}," in
     fun c -> List.exists (fun x -> x = c) symchars in
   let is_alpha c =
     Char.(<=) 'a' c && Char.(<=) c 'z' ||
@@ -705,6 +708,12 @@ let () =
             (match popLoad () with
              | Some (fname, rest) -> (
                print ("- Finished loading " ^ fname ^ "\n");
+               if level <> 0 then
+                 begin
+                   print ("REPL error: " ^ fname ^ " ends inside an" ^
+                          " unclosed begin, struct or sig.\n");
+                   raise Repl_error
+                 end;
                if List.null rest then userInput := true)
              | None -> failwith "candle_boot.ml: scan - should be unreachable");
             scan level
@@ -723,7 +732,9 @@ let () =
             match tok with
             | Lexer.T_begin | Lexer.T_struct | Lexer.T_sig ->
                 scan (level + 1)
-            | Lexer.T_end -> scan (level - 1)
+            (* An end with nothing to close stays at level 0, so that the
+               phrase still ends at its ;; and the parser reports the end. *)
+            | Lexer.T_end -> scan (if level = 0 then 0 else level - 1)
             | Lexer.T_semis when level = 0 ->
                 prompt := !prompt1;
                 hasContent := false;

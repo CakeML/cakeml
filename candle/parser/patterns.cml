@@ -33,6 +33,8 @@ structure CandlePatterns = struct
                    | _ => Pp_con (Some id) [p])
         else Pp_con (Some id) [p]
     | Ast.Short nm =>
+        (* OCaml's Match_failure is CakeML's Bind, which takes no argument. *)
+        if nm = "Match_failure" then Pp_con (Some (Ast.Short "Bind")) [] else
         if member nm ["Abs","Var","Const","Comb","Tyapp","Sequent","Append"] then
           (case p of Pp_any => Pp_con (Some id) [Pp_any,Pp_any]
            | Pp_con None ps => Pp_con (Some id) ps
