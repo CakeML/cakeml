@@ -54,6 +54,12 @@ A PB checker has gained substantial optimization passes, with some cleanup fallo
 
 ## Build infrastructure
 
+Added `buildInfoLib.sml`, which can be used to get build information
+(version, commit hashes, commit dates, git tags) for CakeML, HOL4 and Poly/ML.
+Changes in the build information cause files that depend on it to become out-of-date.
+This behavior can be overridden by setting the environment variable
+`CML_FREEZE_BUILD_INFO`.
+
 ## Proof engineering and tooling
 
 The translator now accepts `if ptr_eq x1 y1 /\ ptr_eq x2 y2 /\ ... then t1 else t2`, i.e. conjunctions of pointer-equality tests (with an optional boolean suffix) as the guard. The side condition that both branches agree is only needed under the whole guard (#1603).
@@ -63,3 +69,16 @@ The monadic translator has a new opt-in library, `ml_monad_oracleLib`, for point
 CF now supports `PtrEq` (#1603).
 
 ## Miscellaneous
+
+The format for printing build/version info for binaries has been changed.
+Output of `cake --version`:
+```
+The CakeML compiler
+
+Version details:
+Commit date: 2026-10-26 03:01:43 UTC
+
+CakeML: 239aca184c1321d6f5fcfb8b923b91af20558d2f
+HOL4:   652d1f0aad5cd537ed1e5d470ba3444e70ba470e (trindemossen-2-v9)
+PolyML: Poly/ML 5.9.2 Release
+```

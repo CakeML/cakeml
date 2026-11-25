@@ -9,7 +9,7 @@ Ancestors
   compiler_common cmlParse infer backend_passes mlint basisProg
   mlsexp ast_sexp
 Libs
-  preamble
+  preamble buildInfoLib
 
 (* prelude is a variable name below, not source_eval_init$prelude *)
 val _ = hide "prelude";
@@ -110,27 +110,8 @@ Optimisations can be configured using the following advanced options.
 
 (* == Build info =========================================================== *)
 
-val current_version_tm = mlstring_from_proc "git" ["rev-parse", "HEAD"]
-(*"*)
-val poly_version_tm = mlstring_from_proc "poly" ["-v"]
-val hol_version_tm = mlstring_from_proc "git" ["-C", Globals.HOLDIR, "rev-parse", "HEAD"]
-
-val date_str = Date.toString (Date.fromTimeUniv (Time.now ())) ^ " UTC\n"
-val date_tm = Term `strlit^(stringSyntax.fromMLstring date_str)`
-
-val current_build_info_str_tm = EVAL ``
-    let commit = print_option «CakeML:» ^current_version_tm in
-    let hol    = print_option «HOL4:  » ^hol_version_tm in
-    let poly   = print_option «PolyML:» ^poly_version_tm in
-      concat
-        [ «The CakeML compiler\n\n»
-        ; «Version details:\n»
-        ; ^date_tm; «\n»
-        ; commit; hol; poly ]``
-  |> concl |> rhs
-
 Definition current_build_info_str_def:
-  current_build_info_str = ^current_build_info_str_tm
+  current_build_info_str = ^(build_info_tm (SOME "The CakeML compiler"))
 End
 
 (* ========================================================================= *)
