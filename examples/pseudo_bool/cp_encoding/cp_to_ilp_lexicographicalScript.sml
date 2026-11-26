@@ -511,32 +511,6 @@ Definition encode_lex_def:
   | _ => abstr cfalse_constr
 End
 
-Theorem row_gt_irref:
-  ∀xs. ¬row_gt xs xs
-Proof
-  Induct>>rw[row_gt_def]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem row_gt_neq:
-  ∀xs ys.
-    xs ≠ ys ⇒
-      (row_gt xs ys ⇔ ¬row_gt ys xs)
-Proof
-  ho_match_mp_tac row_gt_ind>>
-  rw[row_gt_def]
-  >- (
-    eq_tac>>rw[]>>gvs[integerTheory.INT_GT]>>
-    CCONTR_TAC>>gvs[]
-    >- (
-      last_x_assum kall_tac>>
-      last_x_assum kall_tac>>
-      intLib.ARITH_TAC)>>
-    last_x_assum kall_tac>>
-    intLib.ARITH_TAC)>>
-  Cases_on`ys`>>rw[row_gt_def]
-QED
-
 Theorem row_gte_flip:
   row_gte xs ys b ⇔
   ¬row_gte ys xs (¬b)

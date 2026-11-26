@@ -415,6 +415,22 @@ Definition lexop_val_def[simp]:
   | LessThan => x < y
 End
 
+(* The comparison that holds exactly when the given one fails;
+  the <cmp>_not keywords parse to it *)
+Definition negate_lexop_def:
+  negate_lexop GreaterEqual = LessThan ∧
+  negate_lexop GreaterThan = LessEqual ∧
+  negate_lexop LessEqual = GreaterThan ∧
+  negate_lexop LessThan = GreaterEqual
+End
+
+Theorem lexop_val_negate:
+  lexop_val (negate_lexop c) x y ⇔ ¬lexop_val c x y
+Proof
+  Cases_on`c`>>simp[negate_lexop_def]>>
+  intLib.ARITH_TAC
+QED
+
 Definition cmpop_val_def:
   cmpop_val cmp x (y:int) =
   case cmp of
@@ -448,6 +464,14 @@ Definition cmpop_sem_def:
   in
     reify_sem Zr w (cmpop_val cmp x y)
 End
+
+(* <cmp>_not, <cmp>_not_if, <cmp>_not_iff: the reified negation *)
+Theorem cmpop_sem_negate:
+  cmpop_sem Zr (Lexop (negate_lexop c)) X Y w ⇔
+  reify_sem Zr w (¬cmpop_sem NONE (Lexop c) X Y w)
+Proof
+  simp[cmpop_sem_def,cmpop_val_def,lexop_val_negate,reify_sem_def]
+QED
 
 Definition prim_constr_sem_def:
   prim_constr_sem c w ⇔
@@ -572,6 +596,14 @@ Definition lin_sem_def:
     (eval_iclin_term w cXs)
     (varc w Y))
 End
+
+(* lin_<cmp>_not, lin_<cmp>_not_if, lin_<cmp>_not_iff: the reified negation *)
+Theorem lin_sem_negate:
+  lin_sem Zr (Lexop (negate_lexop c)) cXs Y w ⇔
+  reify_sem Zr w (¬lin_sem NONE (Lexop c) cXs Y w)
+Proof
+  simp[lin_sem_def,cmpop_val_def,lexop_val_negate,reify_sem_def]
+QED
 
 Definition linear_constr_sem_def:
   linear_constr_sem c w ⇔
@@ -902,6 +934,32 @@ Proof
     fs[LIST_EQ])
 QED
 
+Theorem row_gt_irref:
+  ∀xs. ¬row_gt xs xs
+Proof
+  Induct>>rw[row_gt_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem row_gt_neq:
+  ∀xs ys.
+    xs ≠ ys ⇒
+      (row_gt xs ys ⇔ ¬row_gt ys xs)
+Proof
+  ho_match_mp_tac row_gt_ind>>
+  rw[row_gt_def]
+  >- (
+    eq_tac>>rw[]>>gvs[integerTheory.INT_GT]>>
+    CCONTR_TAC>>gvs[]
+    >- (
+      last_x_assum kall_tac>>
+      last_x_assum kall_tac>>
+      intLib.ARITH_TAC)>>
+    last_x_assum kall_tac>>
+    intLib.ARITH_TAC)>>
+  Cases_on`ys`>>rw[row_gt_def]
+QED
+
 Definition lex_sem_def:
   lex_sem Zr cmp Xs Ys w ⇔
   let xs = MAP (varc w) Xs in
@@ -912,6 +970,16 @@ Definition lex_sem_def:
   | LessThan => reify_sem Zr w (row_gt ys xs)
   | LessEqual => reify_sem Zr w (row_gt ys xs ∨ xs = ys)
 End
+
+(* lex_<cmp>_not, lex_<cmp>_not_if, lex_<cmp>_not_iff: the reified negation *)
+Theorem lex_sem_negate:
+  lex_sem Zr (negate_lexop c) Xs Ys w ⇔
+  reify_sem Zr w (¬lex_sem NONE c Xs Ys w)
+Proof
+  Cases_on`c`>>simp[lex_sem_def,negate_lexop_def]>>
+  AP_TERM_TAC>>simp[reify_sem_def]>>
+  metis_tac[row_gt_irref,row_gt_neq]
+QED
 
 (* For a value v_j to occur, then all preceding v_i must occur strictly before
   it. Note that duplicate values are automatically blocked. *)

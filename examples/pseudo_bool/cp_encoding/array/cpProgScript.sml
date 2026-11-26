@@ -89,6 +89,18 @@ val res = translate sexp_varc_list_def;
 val res = translate sexp_int_def;
 val res = translate sexp_int_list_def;
 
+val res = translate sexp_lexop_base_kw_def;
+val res = translate strip_not_suffix_def;
+
+Theorem strip_not_suffix_side:
+  strip_not_suffix_side ms ⇔ T
+Proof
+  EVAL_TAC>>rw[]
+QED
+
+val _ = update_precondition strip_not_suffix_side;
+
+val res = translate cpTheory.negate_lexop_def;
 val res = translate sexp_lexop_kw_def;
 val res = translate sexp_cmpop_kw_def;
 val res = translate sexp_lexop_sym_def;

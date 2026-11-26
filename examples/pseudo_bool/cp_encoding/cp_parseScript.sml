@@ -87,13 +87,30 @@ Definition sexp_int_list_def:
     sexp_list_of («expected s-expression list of integers\n») sexp_int e
 End
 
-Definition sexp_lexop_kw_def:
-  sexp_lexop_kw s =
+Definition sexp_lexop_base_kw_def:
+  sexp_lexop_base_kw s =
        if s = «greater_equal» then SOME GreaterEqual
   else if s = «greater_than»  then SOME GreaterThan
   else if s = «less_equal»    then SOME LessEqual
   else if s = «less_than»     then SOME LessThan
   else NONE
+End
+
+(* Returns (stem, T) for a keyword ending in _not, else (ms, F) *)
+Definition strip_not_suffix_def:
+  strip_not_suffix (ms:mlstring) =
+    if isSuffix («_not») ms
+    then (substring ms 0 (strlen ms - strlen («_not»)), T)
+    else (ms, F)
+End
+
+(* <cmp> or <cmp>_not; the latter is the negated comparison *)
+Definition sexp_lexop_kw_def:
+  sexp_lexop_kw s =
+    case strip_not_suffix s of (stem, neg) =>
+    case sexp_lexop_base_kw stem of
+      NONE => NONE
+    | SOME lop => SOME (if neg then negate_lexop lop else lop)
 End
 
 Definition sexp_cmpop_kw_def:
@@ -235,8 +252,10 @@ Definition sexp_nlop_body_def:
 End
 
 (* Comparison prim with optional reification: strip _if/_iff, parse stem as
-   cmpop. Since prim_dispatch is the last branch in the top-level dispatch,
-   an unrecognised stem means the constraint name is simply unsupported. *)
+   cmpop (<cmp>_not, <cmp>_not_if, <cmp>_not_iff are the negated
+   comparison). Since prim_dispatch is the last branch in the top-level
+   dispatch, an unrecognised stem means the constraint name is simply
+   unsupported. *)
 Definition sexp_cmpop_body_def:
   sexp_cmpop_body ctype rest =
     case strip_reif_suffix ctype of (stem, reif_flag) =>
@@ -273,7 +292,8 @@ Definition sexp_prim_dispatch_def:
       else sexp_cmpop_body ctype rest
 End
 
-(* Linear: stems prefixed with "lin_", embedded comparison keyword, optional reif. *)
+(* Linear: stems prefixed with "lin_", embedded comparison keyword (or its
+   _not form, the negated comparison), optional reif. *)
 Definition sexp_iclin_pairs_def:
   (sexp_iclin_pairs [] = return []) ∧
   (sexp_iclin_pairs [_] =
@@ -314,8 +334,9 @@ Definition sexp_linear_dispatch_def:
     od
 End
 
-(* Lex: stems of the form lex_<cmp>, with optional reif suffix (_if/_iff).
-   Reified variants peel a leading cond tuple, then two varc lists. *)
+(* Lex: stems of the form lex_<cmp> or lex_<cmp>_not (the negated
+   comparison), with optional reif suffix (_if/_iff). Reified variants peel
+   a leading cond tuple, then two varc lists. *)
 Definition sexp_lex_dispatch_def:
   sexp_lex_dispatch cmp_kw rest =
   case strip_reif_suffix cmp_kw of (stem, reif_flag) =>
@@ -1346,7 +1367,18 @@ Theorem test_linear:
     (INR
      (Linear
         (Lin (SOME (INR (INL «zz»,Equal,5))) (Lexop GreaterEqual)
-           [(1,INL «A»); (2,INL «B»)] (INR 5))))
+           [(1,INL «A»); (2,INL «B»)] (INR 5)))) ∧
+  sexp_constraint_dispatch («lin_less_equal_not»)
+    (fromStringL («((1 A -1 B) 1)»)) =
+    INR (Linear (Lin NONE (Lexop GreaterThan)
+      [(1,INL «A»); (-1,INL «B»)] (INR 1))) ∧
+  sexp_constraint_dispatch («lin_less_equal_not_if»)
+    (fromStringL («((zz = 1) (1 A -1 B) 1)»)) =
+    INR (Linear (Lin (SOME (INL (INL «zz»,Equal,1))) (Lexop GreaterThan)
+      [(1,INL «A»); (-1,INL «B»)] (INR 1))) ∧
+  sexp_constraint_dispatch («lin_equals_not»)
+    (fromStringL («((1 A) 1)»)) =
+    INL («unknown linear comparison: equals_not\n»)
 Proof
   EVAL_TAC
 QED
@@ -1365,6 +1397,15 @@ Theorem test_lex:
     (fromStringL («((zz = 5) (A B) (C D))»)) =
     INR (Lexicographical
       (Lex (SOME (INR (INL «zz»,Equal,5))) LessEqual
+        [INL «A»; INL «B»] [INL «C»; INL «D»])) ∧
+  sexp_constraint_dispatch («lex_less_than_not»)
+    (fromStringL («((A B C) (D E))»)) =
+    INR (Lexicographical
+      (Lex NONE GreaterEqual [INL «A»; INL «B»; INL «C»] [INL «D»; INL «E»])) ∧
+  sexp_constraint_dispatch («lex_greater_equal_not_if»)
+    (fromStringL («((zz = 1) (A B) (C D))»)) =
+    INR (Lexicographical
+      (Lex (SOME (INL (INL «zz»,Equal,1))) LessThan
         [INL «A»; INL «B»] [INL «C»; INL «D»]))
 Proof
   EVAL_TAC
@@ -1770,6 +1811,22 @@ Theorem test_prim:
     (fromStringL («((zz = 5) X Y)»)) =
     INR (Prim (Cmpop (SOME (INR (INL «zz»,Equal,5)))
                      (Lexop LessEqual) (INL «X») (INL «Y»))) ∧
+  (* negated (_not, _not_if, _not_iff): the opposite comparison *)
+  sexp_constraint_dispatch («less_than_not»)
+    (fromStringL («(X Y)»)) =
+    INR (Prim (Cmpop NONE (Lexop GreaterEqual) (INL «X») (INL «Y»))) ∧
+  sexp_constraint_dispatch («greater_than_not_if»)
+    (fromStringL («((zz = 1) X 3)»)) =
+    INR (Prim (Cmpop (SOME (INL (INL «zz»,Equal,1)))
+                     (Lexop LessEqual) (INL «X») (INR 3))) ∧
+  sexp_constraint_dispatch («less_equal_not_iff»)
+    (fromStringL («((zz = 1) X Y)»)) =
+    INR (Prim (Cmpop (SOME (INR (INL «zz»,Equal,1)))
+                     (Lexop GreaterThan) (INL «X») (INL «Y»))) ∧
+  (* equality has no _not form *)
+  sexp_constraint_dispatch («equals_not»)
+    (fromStringL («(X Y)»)) =
+    INL («unsupported constraint: equals_not\n») ∧
   (* fallback: unrecognised ctype *)
   sexp_constraint_dispatch («weird»)
     (fromStringL («(X Y)»)) =
