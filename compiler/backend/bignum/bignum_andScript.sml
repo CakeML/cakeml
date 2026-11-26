@@ -12,6 +12,8 @@ Libs
 (* TODO I feel like we want to run some sort of simp before our tactics *)
 (* TODO Check for consistent naming *)
 
+(* TODO Fix the variable naming scheme in theorems *)
+
 (* TODO Look into how to set up a printer for stack _::...*)
 
 (* TODO
@@ -91,15 +93,21 @@ End
 
 (* Implements mwi_and for cases where x is negative, y is positive and
    LENGTH x < LENGTH y in a single pass. *)
-Definition mwi_and_neg_pos_lt_def:
-  (mwi_and_neg_pos_lt c (x₁::xs) (y::ys) =
+Definition mwi_and_neg_pos_lt_loop_def:
+  (mwi_and_neg_pos_lt_loop c (x₁::xs) (y::ys) =
    let
      (x₂,c₁) = single_sub x₁ 0w c;
      x₃ = ¬x₂;
      z = x₃ && y;
+     (rs, ys') = mwi_and_neg_pos_lt_loop c₁ xs ys
    in
-     z::mwi_and_neg_pos_lt c₁ xs ys) ∧
-  (mwi_and_neg_pos_lt _ xs ys = ys)
+     (z::rs, ys')) ∧
+  (mwi_and_neg_pos_lt_loop _ xs ys = ([], ys))
+End
+
+Definition mwi_and_neg_pos_lt_def:
+  mwi_and_neg_pos_lt c xs ys =
+    (let (rs,ys') = mwi_and_neg_pos_lt_loop c xs ys in rs ++ ys')
 End
 
 (* Implements mwi_and with a single pass. Also removes the recursion present in
@@ -215,12 +223,12 @@ Proof
 QED
 
 Theorem mwi_and_neg_pos_lt_eq:
-  ∀c xs ys.
-    mwi_and_neg_pos_lt c xs ys =
-    mw_and_keep (let (xs',c') = mw_sub xs [] c in MAP $¬ xs') ys
+  ∀c xs ys rs ys'.
+    mwi_and_neg_pos_lt_loop c xs ys = (rs, ys') ⇒
+    mw_and_keep (let (xs',c') = mw_sub xs [] c in MAP $¬ xs') ys = rs ++ ys'
 Proof
-  recInduct mwi_and_neg_pos_lt_ind >> rw []
-  >> gvs [mwi_and_neg_pos_lt_def, mw_sub_def, mw_and_keep_nil_left,
+  recInduct mwi_and_neg_pos_lt_loop_ind >> rw []
+  >> gvs [mwi_and_neg_pos_lt_loop_def, mw_sub_def, mw_and_keep_nil_left,
           mw_and_keep_def]
   >> rpt (pairarg_tac >> gvs [])
   >> Cases_on ‘c’
@@ -230,7 +238,10 @@ QED
 Theorem mwi_and_neg_pos_lt_thm:
   mwi_and_neg_pos_lt F xs ys = mw_and_keep (mw_bits_of_int xs) ys
 Proof
-  simp [mw_bits_of_int_def, mwi_and_neg_pos_lt_eq]
+  simp [mwi_and_neg_pos_lt_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> drule_all_then assume_tac mwi_and_neg_pos_lt_eq
+  >> fs [mw_bits_of_int_def]
 QED
 
 Theorem mwi_and_fused_thm:
@@ -1068,21 +1079,21 @@ fun mwi_and_neg_pos_geq_pan(c, xs, ys_len, ys, zs) {
   return 0;
 }
 
-fun mwi_and_neg_pos_lt(c, xs_len, xs, ys_len, ys, zs) {
-  var diff = ys_len - xs_len;
+fun mwi_and_neg_pos_lt_pan(c, xs_len, xs, ys_len, ys, zs) {
   while xs_len {
     var x = lds 1 xs;
     var y = lds 1 ys;
     var {1,1} x1c1 = __add_with_carry__(x, -1, c);
-    var x2 = x1c1.1 ^ -1;
+    var x2 = x1c1.0 ^ -1;
     st zs, x2 & y;
-    c = y1c1.1;
+    c = x1c1.1;
     xs = xs + @biw;
     ys = ys + @biw;
     zs = zs + @biw;
     xs_len = xs_len - 1;
+    ys_len = ys_len - 1;
   }
-  return copy(zs, ys, diff);
+  return copy(zs, ys, ys_len - xs_len);
 }
 
 fun mwi_and_neg_neg_pan(c, d, e, xs_len, xs, ys_len, ys, zs) {
@@ -1174,6 +1185,7 @@ val mw_and_pan_body              = get_body "mw_and_pan"
 val mwi_and_neg_pos_geq_pan_body = get_body "mwi_and_neg_pos_geq_pan"
 val mw_and_flip_pan_body         = get_body "mw_and_flip_pan"
 val mwi_and_neg_neg_pan_body     = get_body "mwi_and_neg_neg_pan"
+val mwi_and_neg_pos_lt_pan_body  = get_body "mwi_and_neg_pos_lt_pan"
 
 (** mw_fix_pan ****************************************************************)
 
@@ -1232,6 +1244,19 @@ Definition mwi_and_neg_neg_pan_body_def:
   mwi_and_neg_neg_pan_body =
     ^(fold_back [mwi_and_neg_neg_pan_loop0_def, mwi_and_neg_neg_pan_loop1_def]
         mwi_and_neg_neg_pan_body)
+End
+
+(** mwi_and_neg_pos_lt_pan ****************************************************)
+
+Definition mwi_and_neg_pos_lt_pan_loop_def:
+  mwi_and_neg_pos_lt_pan_loop =
+    ^(List.nth (get_loops "mwi_and_neg_pos_lt_pan", 0))
+End
+
+Definition mwi_and_neg_pos_lt_pan_body_def:
+  mwi_and_neg_pos_lt_pan_body =
+    ^(fold_back [mwi_and_neg_pos_lt_pan_loop_def]
+        mwi_and_neg_pos_lt_pan_body)
 End
 
 (** Correctness ***************************************************************)
@@ -2458,4 +2483,104 @@ Proof
   (* TODO Something like SEP_X_W_TAC *)
   >> SEP_W_TAC
   >> gvs [AC STAR_ASSOC STAR_COMM, i2w_one, i2w_0]
+QED
+
+(** mwi_and_neg_pos_lt ********************************************************)
+
+Theorem mwi_and_neg_pos_lt_loop_imp[local]:
+  ∀c xs ys zs ys'.
+    mwi_and_neg_pos_lt_loop c xs ys = (zs, ys') ∧ LENGTH xs ≤ LENGTH ys  ⇒
+    LENGTH ys' = LENGTH ys - LENGTH xs
+Proof
+  recInduct mwi_and_neg_pos_lt_loop_ind
+  >> rw [mwi_and_neg_pos_lt_loop_def]
+  >> rpt (pairarg_tac >> gvs [mwi_and_neg_pos_lt_loop_def])
+QED
+
+Theorem mwi_and_neg_pos_lt_pan_loop_thm[local]:
+  ∀(xs: α word list) ys rs (s: (α, 'ffi) state) c x y z zs ys' frame.
+    LENGTH xs ≤ LENGTH ys ∧
+    LENGTH rs = LENGTH xs ∧ LENGTH xs ≤ s.clock ∧
+    mwi_and_neg_pos_lt_loop c xs ys = (zs, ys') ∧
+    FLOOKUP s.locals «c» = SOME (Val (Word (b2w c))) ∧
+    FLOOKUP s.locals «xs_len» = SOME (Val (Word (n2w (LENGTH xs)))) ∧
+    FLOOKUP s.locals «xs» = SOME (Val (Word x)) ∧
+    FLOOKUP s.locals «ys_len» = SOME (Val (Word (n2w (LENGTH ys)))) ∧
+    FLOOKUP s.locals «ys» = SOME (Val (Word y)) ∧
+    FLOOKUP s.locals «zs» = SOME (Val (Word z)) ∧
+    (ones x (MAP Word xs) *
+     ones y (MAP Word ys) *
+     ones z rs *
+     frame) (fun2set (s.memory, s.memaddrs)) ∧
+    byte_dimindex (:α) ∧ 8 < dimindex (:α)
+    ⇒
+    ∃m l.
+      evaluate (mwi_and_neg_pos_lt_pan_loop,s) = (NONE,
+         s with <| memory := m;
+                   locals := l;
+                   clock := s.clock - LENGTH xs |>) ∧
+      FLOOKUP l «ys_len» = SOME (Val (Word (n2w (LENGTH ys')))) ∧
+      FLOOKUP l «ys» = SOME (Val (Word (el_addr y (LENGTH ys - LENGTH ys')))) ∧
+      (ones x (MAP Word xs) *
+       ones y (MAP Word ys) *
+       ones z (MAP Word zs) *
+       frame) (fun2set (m, s.memaddrs))
+Proof
+  Induct >> rw [mwi_and_neg_pos_lt_loop_def]
+  >- (simp [mwi_and_neg_pos_lt_pan_loop_def, Once evaluate_def, eval_Var_Local,
+            state_component_equality, el_addr_0])
+  >> once_rewrite_tac [GSYM stack_evaluate]
+  >> hsimp [mwi_and_neg_pos_lt_pan_loop_def]
+ >> have ‘SUC (LENGTH xs) < dimword (:α)’
+  >- (
+    drule_all_then assume_tac byte_dimindex_leq
+    >> drule_then mp_tac $
+         INST_TYPE [“:β” |-> “:α word_lab”] ones_leq_dimword
+    >> disch_then $ qspec_then ‘Word h::MAP Word xs’ assume_tac
+    >> SEP_F_TAC >> simp [] >> strip_tac
+    >> drule_all_then assume_tac one_lt_w2n_bytes_in_word
+    >> irule_at (Pos hd) LESS_LESS_EQ_TRANS
+    >> first_assum $ irule_at (Pos last)
+    >> simp []
+  )
+  >> enter_loop
+  >> walk
+  >> hsimp []
+  >> walk
+  >> hsimp [dec_clock_record]
+  >> fs [ones_def] >> SEP_R_TAC
+  >> walk
+  >> hsimp [dec_clock_record]
+  >> Cases_on ‘ys’ >> fs [ones_def] >> SEP_R_TAC
+  >> rpt (walk >> hsimp [])
+  >> hsimp [dec_clock_record]
+  >> Cases_on ‘rs’ >> fs [ones_def] >> SEP_R_TAC
+  >> rpt (walk >> hsimp [])
+  >> once_rewrite_tac [GSYM mwi_and_neg_pos_lt_pan_loop_def]
+  >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
+  >> fs [mwi_and_neg_pos_lt_loop_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> rename1 ‘single_sub h 0w c = (x₂,c₁)’
+  >> last_x_assum drule
+  >> disch_then drule
+  >> disch_then $ qspecl_then [‘s'’, ‘c₁’] mp_tac
+  >> simp [Abbr ‘s'’, FLOOKUP_res_var_neq, FLOOKUP_SIMP]
+  >> simp [dec_clock_def, i2w_minus_1, GSYM b2w_ite, b2w_11, n2w_SUC, i2w_one]
+  >> qmatch_goalsub_abbrev_tac ‘(c₁' ⇔ c₁)’
+  >> qmatch_goalsub_abbrev_tac ‘s.memory⦇z ↦ Word zv⦈’
+  >> qmatch_goalsub_abbrev_tac ‘ones _ (Word zv'::_)’
+  >> qabbrev_tac ‘memory = s.memory’
+  >> SEP_W_TAC
+  >> simp [Abbr ‘memory’]
+  >> have ‘(c₁' ⇔ c₁) ∧ (zv' = zv)’
+  >- (
+    imp_res_tac single_sub_0w_co
+    >> unabbrev_all_tac
+    >> gvs [b2w_b2n, GSYM word_add_n2w, n2w_b2n, WORD_NEG1_MUL_NOT]
+  )
+  >> simp []
+  >> strip_tac >> SEP_F_TAC >> strip_tac
+  >> drule_all_then assume_tac mwi_and_neg_pos_lt_loop_imp
+  >> simp [stack_def, state_component_equality, ones_def, ADD1, GSYM el_addr_SUC]
+  >> fs [AC STAR_ASSOC STAR_COMM]
 QED
