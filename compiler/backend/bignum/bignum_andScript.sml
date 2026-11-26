@@ -8,6 +8,8 @@ Ancestors
 Libs
   stringLib numLib intLib preamble helperLib set_sep_extLib
 
+(* TODO Ask LLM for general improvements once we have finished *)
+(* TODO Probably want to turn most theorems into local *)
 (* TODO Use el_addr where possible (e.g. ones append) *)
 (* TODO I feel like we want to run some sort of simp before our tactics *)
 (* TODO Check for consistent naming *)
@@ -931,6 +933,35 @@ Proof
   >> IF_CASES_TAC >> gvs []
 QED
 
+(* TODO Generalize to arbitrary number of arguments *)
+Theorem evaluate_TailCall_NONE_3:
+  eval s arg₀ = SOME argv₀ ∧
+  eval s arg₁ = SOME argv₁ ∧
+  eval s arg₂ = SOME argv₂ ∧
+  lookup_code s.code fname [argv₀; argv₁; argv₂] =
+    SOME (prog, newlocals, return_sh) ∧
+  s.clock ≠ 0 ∧
+  evaluate (prog, (dec_clock s) with locals:= newlocals) = (res₁, s₁) ∧
+  (case res₁ of
+   | SOME (Return retv) =>
+       if shape_of retv ≠ return_sh
+       then res = SOME Error ∧ s' = s₁
+       else res = res₁ ∧ s' = empty_locals s₁
+   | SOME (Exception _ _) =>
+       res = res₁ ∧ s' = empty_locals s₁
+   | NONE => res = SOME Error ∧ s' = s₁
+   | SOME Break => res = SOME Error ∧ s' = s₁
+   | SOME Continue => res = SOME Error ∧ s' = s₁
+   | _ => res = res₁ ∧ s' = empty_locals s₁)
+  ⇒
+  evaluate (TailCall fname [arg₀; arg₁; arg₂], s) = (res, s')
+Proof
+  rw [evaluate_def]
+  >> CASE_TAC >> gvs []
+  >> CASE_TAC >> gvs []
+  >> IF_CASES_TAC >> gvs []
+QED
+
 (** lookup_code ***************************************************************)
 
 Theorem lookup_code_SOME:
@@ -1020,7 +1051,7 @@ End
 (* TODO go through Pancake code and see whether it could be improved with
    additions to Pancake *)
 Quote and_prog = parse_pancake:
-fun copy(to, from, num) {
+fun copy_words(to, from, num) {
   while num {
     var tmp = lds 1 from;
     st to, tmp;
@@ -1093,7 +1124,7 @@ fun mwi_and_neg_pos_lt_pan(c, xs_len, xs, ys_len, ys, zs) {
     xs_len = xs_len - 1;
     ys_len = ys_len - 1;
   }
-  return copy(zs, ys, ys_len - xs_len);
+  return copy_words(zs, ys, ys_len);
 }
 
 fun mwi_and_neg_neg_pan(c, d, e, xs_len, xs, ys_len, ys, zs) {
@@ -1174,18 +1205,38 @@ fun get_params name = get_field "params" name and_prog
 fun get_body name   = get_field "body" name and_prog
 fun get_return name = get_field "return" name and_prog
 
+fun get_code (name: string) (body: term) =
+  list_mk_pair [
+      get_params name,
+      body,
+      get_return name
+    ]
+
 fun fold_back snippets body =
   body |> REWRITE_CONV (map GSYM snippets) |> concl |> rhs
 
 fun get_loops name =
   rev $ find_terms (can $ match_term “panLang$While _ _”) $ get_body name
 
+val copy_words_body              = get_body "copy_words"
 val mw_fix_pan_body              = get_body "mw_fix_pan"
 val mw_and_pan_body              = get_body "mw_and_pan"
 val mwi_and_neg_pos_geq_pan_body = get_body "mwi_and_neg_pos_geq_pan"
 val mw_and_flip_pan_body         = get_body "mw_and_flip_pan"
 val mwi_and_neg_neg_pan_body     = get_body "mwi_and_neg_neg_pan"
 val mwi_and_neg_pos_lt_pan_body  = get_body "mwi_and_neg_pos_lt_pan"
+
+(** mw_fix_pan ****************************************************************)
+
+Definition copy_words_loop_def:
+  copy_words_loop = ^(List.nth (get_loops "copy_words", 0))
+End
+
+Definition copy_words_body_def:
+  copy_words_body = ^(fold_back [copy_words_loop_def] copy_words_body)
+End
+
+val copy_words_code = get_code "copy_words" “copy_words_body”
 
 (** mw_fix_pan ****************************************************************)
 
@@ -1203,12 +1254,7 @@ Definition mw_and_pan_body_def:
   mw_and_pan_body = ^(fold_back [mw_and_pan_loop_def] mw_and_pan_body)
 End
 
-val mw_and_pan_code =
-  list_mk_pair [
-      get_params "mw_and_pan",
-      “mw_and_pan_body”,
-      get_return "mw_and_pan"
-    ]
+val mw_and_pan_code = get_code "mw_and_pan" “mw_and_pan_body”
 
 (** mw_and_flip_pan ***********************************************************)
 
@@ -1425,7 +1471,7 @@ val (step_imp_thl: thm list) =
    eval_Op_And_SOME, eval_Op_Or_SOME,
    evaluate_Assign_Local, eval_Op_Add_SOME, eval_Op_Sub_SOME,
    evaluate_Tick_NONE, evaluate_Break, evaluate_Return_no_error,
-   evaluate_StandAloneCall_NONE_4, lookup_code_SOME]
+   evaluate_StandAloneCall_NONE_4, evaluate_TailCall_NONE_3, lookup_code_SOME]
   |> map stackify_imp_th
 
 (* Given ⊢ A = B, returns A. *)
@@ -1461,6 +1507,7 @@ in irule_at (Pos first_stack) winner end
 val step_imp_tac = stack_imp_tac step_imp_thl
 
 (* TODO Some automation that tries to make this choice for us. *)
+(* TODO Better error in case someone forgot to set up stack. *)
 (* Unfolds evaluate (While ...) = ... at the head. *)
 val enter_loop =
   irule_at (Pos first_stack) (stackify_imp_th evaluate_While_True)
@@ -2462,6 +2509,8 @@ Proof
   >> strip_tac >> gvs []
   >> drule_all_then assume_tac mwi_and_neg_neg_loop1_imp
   >> simp [Abbr ‘s'’]
+  (* TODO Is it worth it to write a tactic that automatically finds the
+     current value of the list? *)
   >> qspecl_then [‘LENGTH xs’, ‘y’, ‘MAP Word ys’] assume_tac ones_TAKE_DROP
   >> gvs [MAP_DROP]
   >> strip_tac >> SEP_F_TAC
@@ -2483,6 +2532,101 @@ Proof
   (* TODO Something like SEP_X_W_TAC *)
   >> SEP_W_TAC
   >> gvs [AC STAR_ASSOC STAR_COMM, i2w_one, i2w_0]
+QED
+
+(** copy_words ****************************************************************)
+
+Theorem copy_words_loop_thm[local]:
+  ∀rs xs (s: (α, 'ffi) state) z x frame.
+    LENGTH rs ≤ LENGTH xs ∧ LENGTH xs ≤ s.clock ∧
+    FLOOKUP s.locals «to» = SOME (Val (Word z)) ∧
+    FLOOKUP s.locals «from» = SOME (Val (Word x)) ∧
+    FLOOKUP s.locals «num» = SOME (Val (Word (n2w (LENGTH rs)))) ∧
+    (ones z rs * ones x (MAP Word xs) * frame)
+      (fun2set (s.memory, s.memaddrs)) ∧
+    byte_dimindex (:α) ∧ 8 < dimindex (:α)
+    ⇒
+    ∃m l.
+      evaluate (copy_words_loop,s) = (NONE,
+         s with <| memory := m;
+                   locals := l;
+                   clock := s.clock - (LENGTH rs) |>) ∧
+      (ones z (TAKE (LENGTH rs) (MAP Word xs)) * ones x (MAP Word xs) * frame)
+        (fun2set (m, s.memaddrs))
+Proof
+  Induct >> rw [copy_words_loop_def]
+  >- (simp [Once evaluate_def, eval_Var_Local, state_component_equality])
+  >> once_rewrite_tac [GSYM stack_evaluate]
+  >> enter_loop
+  >> walk
+  >> have ‘SUC (LENGTH rs) < dimword (:α)’
+  >- (
+    drule_all_then assume_tac byte_dimindex_leq
+    >> drule_then mp_tac $
+         INST_TYPE [“:β” |-> “:α word_lab”] ones_leq_dimword
+    >> disch_then $ qspec_then ‘h::rs’ assume_tac
+    >> SEP_F_TAC >> simp [] >> strip_tac
+    >> drule_all_then assume_tac one_lt_w2n_bytes_in_word
+    >> irule_at (Pos hd) LESS_LESS_EQ_TRANS
+    >> first_assum $ irule_at (Pos last)
+    >> simp []
+  )
+  >> hsimp []
+  >> walk
+  (* TODO instead of dec_clock_def, can we add something specific to a simp
+     that runs while walking *)
+  >> hsimp [dec_clock_def]
+  >> Cases_on ‘xs’ >> fs [ones_def]
+  >> SEP_R_TAC >> simp []
+  >> walk
+  >> hsimp [dec_clock_def]
+  >> SEP_R_TAC >> simp []
+  >> rpt (walk >> hsimp [])
+  >> simp [GSYM copy_words_loop_def]
+  >> first_x_assum drule
+  >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
+  >> disch_then $ qspec_then ‘s'’ mp_tac
+  >> simp [Abbr ‘s'’, dec_clock_def, FLOOKUP_res_var_neq, FLOOKUP_SIMP, n2w_SUC]
+  >> simp [WORD_NEG1_MUL_NOT, i2w_one]
+  >> qabbrev_tac ‘memory = s.memory’
+  >> SEP_W_TAC
+  >> simp [Abbr ‘memory’]
+  >> strip_tac >> SEP_F_TAC
+  >> strip_tac
+  >> simp [state_component_equality, stack_def]
+  >> fs [AC STAR_ASSOC STAR_COMM]
+QED
+
+Theorem copy_words_body_thm[local]:
+  ∀xs rs (s: (α, 'ffi) state) z x frame.
+    LENGTH rs ≤ LENGTH xs ∧ LENGTH xs ≤ s.clock ∧
+    FLOOKUP s.locals «to» = SOME (Val (Word z)) ∧
+    FLOOKUP s.locals «from» = SOME (Val (Word x)) ∧
+    FLOOKUP s.locals «num» = SOME (Val (Word (n2w (LENGTH rs)))) ∧
+    (ones z rs * ones x (MAP Word xs) * frame)
+      (fun2set (s.memory, s.memaddrs)) ∧
+    byte_dimindex (:α) ∧ 8 < dimindex (:α)
+    ⇒
+    ∃m l.
+      evaluate (copy_words_body,s) = (
+        SOME (Return (ValWord (i2w 0))),
+         s with <| memory := m;
+                   locals := FEMPTY;
+                   clock := s.clock - LENGTH rs |>) ∧
+      (ones z (TAKE (LENGTH rs) (MAP Word xs)) * ones x (MAP Word xs) * frame)
+        (fun2set (m, s.memaddrs))
+Proof
+  rw [copy_words_body_def]
+  >> once_rewrite_tac [GSYM stack_evaluate]
+  >> walk
+  >> drule copy_words_loop_thm
+  >> disch_then drule
+  >> simp []
+  >> strip_tac >> SEP_F_TAC >> simp []
+  >> strip_tac >> simp []
+  >> rpt (walk >> hsimp [])
+  >> simp [i2w_0, shape_of_ValWord, size_of_sh_with_ctxt_def, stack_def,
+           state_component_equality, empty_locals_def]
 QED
 
 (** mwi_and_neg_pos_lt ********************************************************)
@@ -2520,7 +2664,8 @@ Theorem mwi_and_neg_pos_lt_pan_loop_thm[local]:
                    locals := l;
                    clock := s.clock - LENGTH xs |>) ∧
       FLOOKUP l «ys_len» = SOME (Val (Word (n2w (LENGTH ys')))) ∧
-      FLOOKUP l «ys» = SOME (Val (Word (el_addr y (LENGTH ys - LENGTH ys')))) ∧
+      FLOOKUP l «ys» = SOME (Val (Word (el_addr y (LENGTH xs)))) ∧
+      FLOOKUP l «zs» = SOME (Val (Word (el_addr z (LENGTH xs)))) ∧
       (ones x (MAP Word xs) *
        ones y (MAP Word ys) *
        ones z (MAP Word zs) *
@@ -2531,7 +2676,7 @@ Proof
             state_component_equality, el_addr_0])
   >> once_rewrite_tac [GSYM stack_evaluate]
   >> hsimp [mwi_and_neg_pos_lt_pan_loop_def]
- >> have ‘SUC (LENGTH xs) < dimword (:α)’
+  >> have ‘SUC (LENGTH xs) < dimword (:α)’
   >- (
     drule_all_then assume_tac byte_dimindex_leq
     >> drule_then mp_tac $
@@ -2583,4 +2728,59 @@ Proof
   >> drule_all_then assume_tac mwi_and_neg_pos_lt_loop_imp
   >> simp [stack_def, state_component_equality, ones_def, ADD1, GSYM el_addr_SUC]
   >> fs [AC STAR_ASSOC STAR_COMM]
+QED
+
+Theorem mwi_and_neg_pos_lt_pan_body_thm[local]:
+  ∀(xs: α word list) ys rs (s: (α, 'ffi) state) c x y z zs ys' frame.
+    LENGTH xs ≤ LENGTH ys ∧
+    LENGTH rs = LENGTH ys ∧ LENGTH rs + 1 ≤ s.clock ∧
+    FLOOKUP s.code «copy_words» = SOME ^copy_words_code ∧
+    FLOOKUP s.locals «c» = SOME (Val (Word (b2w c))) ∧
+    FLOOKUP s.locals «xs_len» = SOME (Val (Word (n2w (LENGTH xs)))) ∧
+    FLOOKUP s.locals «xs» = SOME (Val (Word x)) ∧
+    FLOOKUP s.locals «ys_len» = SOME (Val (Word (n2w (LENGTH ys)))) ∧
+    FLOOKUP s.locals «ys» = SOME (Val (Word y)) ∧
+    FLOOKUP s.locals «zs» = SOME (Val (Word z)) ∧
+    (ones x (MAP Word xs) *
+     ones y (MAP Word ys) *
+     ones z rs *
+     frame) (fun2set (s.memory, s.memaddrs)) ∧
+    byte_dimindex (:α) ∧ 8 < dimindex (:α)
+    ⇒
+    ∃m l.
+      evaluate (mwi_and_neg_pos_lt_pan_body,s) = (NONE,
+         s with <| memory := m;
+                   locals := l;
+                   clock := s.clock - LENGTH xs |>) ∧
+      (ones x (MAP Word xs) *
+       ones y (MAP Word ys) *
+       ones z (MAP Word (mwi_and_neg_pos_lt c xs ys)) *
+       frame) (fun2set (m, s.memaddrs))
+Proof
+  rw [mwi_and_neg_pos_lt_pan_body_def, mwi_and_neg_pos_lt_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> have ‘∃zs₁ zs₂.
+       rs = zs₁ ++ zs₂ ∧ LENGTH zs₁ = LENGTH xs ∧
+       LENGTH zs₂ = LENGTH ys - LENGTH xs’
+  >- (irule_at Any $ GSYM TAKE_DROP >> qexists ‘LENGTH xs’ >> simp [])
+  >> gvs [ones_append]
+  >> once_rewrite_tac [GSYM stack_evaluate]
+  >> walk
+  >> qspecl_then [‘LENGTH xs’, ‘y’, ‘MAP Word ys’] assume_tac ones_TAKE_DROP
+  >> gvs [MAP_DROP]
+  >> qspecl_then [‘xs’, ‘ys’, ‘zs₁’, ‘s’ ,‘c’, ‘x’, ‘y’, ‘z’]
+       mp_tac mwi_and_neg_pos_lt_pan_loop_thm
+  >> simp []
+  >> strip_tac >> SEP_F_TAC
+  >> strip_tac >> simp []
+  >> rpt (walk >> hsimp [])
+  >> hsimp []
+  >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
+  >> fs [GSYM MAP_DROP]
+  >> qspecl_then
+     [‘DROP (LENGTH xs) ys’, ‘zs₂’, ‘s'’, ‘el_addr z (LENGTH xs)’,
+      ‘el_addr y (LENGTH xs)’]
+     mp_tac copy_words_body_thm
+  >> simp [Abbr ‘s'’, dec_clock_def, FLOOKUP_SIMP, FUPDATE_LIST_THM]
+  >> cheat
 QED
