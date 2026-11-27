@@ -8,13 +8,13 @@ Libs
   preamble
 
 Definition v2word_def:
-  v2word (ValWord v) = Word v
+  v2word (ValWord v) = v
 End
 
 Theorem shape_of_val:
   shape_of (Val x) = One
 Proof
-  Cases_on `x` \\ simp [shape_of_def]
+  simp [shape_of_def]
 QED
 
 val structs_nil_v = EVAL ``(TAKE 0 s.structs)`` |> concl |> rhs
@@ -192,11 +192,11 @@ Proof
 QED
 
 Theorem mem_loads_some_shape_eq:
-  (∀sh adr dm (m: 'a word -> 'a word_lab) stcs v.
+  (∀sh adr dm (m: 'a word -> 'a word) stcs v.
   mem_load sh adr dm m stcs = SOME v ==> shape_of v = sh) /\
-  (∀shs adr dm (m: 'a word -> 'a word_lab) stcs vs.
+  (∀shs adr dm (m: 'a word -> 'a word) stcs vs.
    mem_loads shs adr dm m stcs = SOME vs ==> MAP shape_of vs = shs) /\
-  (∀flds adr dm (m: 'a word -> 'a word_lab) stcs vs.
+  (∀flds adr dm (m: 'a word -> 'a word) stcs vs.
    mem_load_flds flds adr dm m stcs = SOME vs ==>
     MAP (shape_of o SND) vs = MAP SND flds)
 Proof
@@ -210,7 +210,7 @@ Proof
 QED
 
 Theorem mem_load_some_shape_eq:
-  ∀sh adr dm (m: 'a word -> 'a word_lab) stcs v.
+  ∀sh adr dm (m: 'a word -> 'a word) stcs v.
   mem_load sh adr dm m stcs = SOME v ==>
   shape_of v = sh
 Proof
@@ -1095,27 +1095,6 @@ Theorem OPT_MMAP_update_locals_not_vars_eval_eq:
 Proof
   strip_tac >> Induct_on ‘es’ >>
   rw[update_locals_not_vars_eval_eq]
-QED
-
-Theorem write_bytearray_update_byte:
-  ∀bytes ad ad' m adrs be.
-    byte_aligned ad ∧
-    (∃w. m ad = Word w) ⇒
-    ∃w.
-      write_bytearray ad' bytes m adrs be
-                      ad = Word w
-Proof
-  Induct >>
-  rw [] >>
-  gs [panSemTheory.write_bytearray_def] >>
-  TOP_CASE_TAC >> gs [] >>
-  gs [mem_store_byte_def] >>
-  every_case_tac >> gs [] >>
-  rveq >> gs [] >>
-  gs [byte_align_aligned] >>
-  fs [APPLY_UPDATE_THM] >>
-  every_case_tac >> gs [] >>
-  fs [APPLY_UPDATE_THM]
 QED
 
 Theorem read_write_bytearray_lemma:

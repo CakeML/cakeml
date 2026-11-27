@@ -27,13 +27,13 @@ Definition crep_state_def:
 End
 
 Definition wloc_wlab_def:
-  wloc_wlab (wordSem$Word w) = panSem$Word w
+  wloc_wlab (wordSem$Word w) = w
 End
 
 Theorem wloc_wlab_wlab_wloc[simp]:
   wloc_wlab(wlab_wloc w) = w
 Proof
-  Cases_on ‘w’ >> rw[wlab_wloc_def,wloc_wlab_def]
+  rw[wlab_wloc_def,wloc_wlab_def]
 QED
 
 Definition no_labels_def:

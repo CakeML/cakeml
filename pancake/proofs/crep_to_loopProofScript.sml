@@ -44,7 +44,7 @@ End
 *)
 
 Definition wlab_wloc_def:
-  (wlab_wloc (panSem$Word w) = wordSem$Word w)
+  wlab_wloc (w:'a word) = wordSem$Word w
 End
 
 Definition mem_rel_def:
@@ -100,7 +100,7 @@ Definition distinct_vars_def:
 End
 
 Definition locals_rel_def:
-  locals_rel ctxt (l:sptree$num_set) (s_locals:num |-> 'a word_lab) t_locals <=>
+  locals_rel ctxt (l:sptree$num_set) (s_locals:num |-> 'a word) t_locals <=>
   distinct_vars ctxt.vars /\ ctxt_max ctxt.vmax ctxt.vars /\ domain l ⊆ domain t_locals /\
   ∀vname v.
     FLOOKUP s_locals vname = SOME v ==>
@@ -175,7 +175,7 @@ Proof
 QED
 
 Theorem locals_rel_intro:
-  locals_rel ctxt l (s_locals:num |-> 'a word_lab) t_locals ==>
+  locals_rel ctxt l (s_locals:num |-> 'a word) t_locals ==>
    distinct_vars ctxt.vars /\ ctxt_max ctxt.vmax ctxt.vars /\ domain l ⊆ domain t_locals /\
    ∀vname v.
     FLOOKUP s_locals vname = SOME v ==>
@@ -264,7 +264,7 @@ Proof
     w h = NONE’ suffices_by fs [] >>
    fs [panSemTheory.mem_store_byte_def,
        wordSemTheory.mem_store_byte_aux_def,
-       CaseEq "word_lab", CaseEq "option"]
+       CaseEq "option"]
    >- (TOP_CASE_TAC >> fs []) >>
    first_x_assum drule >>
    disch_then (qspecl_then [‘w+1w’, ‘dm’, ‘be’] mp_tac) >>
@@ -278,7 +278,7 @@ Proof
    rw [] >> fs [wlab_wloc_def]) >>
   fs [panSemTheory.mem_store_byte_def,
       wordSemTheory.mem_store_byte_aux_def,
-      CaseEq "word_lab", CaseEq "option"] >>
+      CaseEq "option"] >>
   rveq >>
   first_x_assum drule >>
   disch_then (qspecl_then [‘w+1w’, ‘be’] mp_tac) >>
@@ -796,7 +796,7 @@ Proof
     qsuff_tac ‘∃ck st.
                  evaluate (nested_seq p,t with clock := ck + t.clock) = (NONE,st) ∧
                  the_words (MAP (eval st) les) =
-                 SOME ((MAP (λw. case w of Word n =>  n) ws)) /\
+                 SOME ws /\
                  state_rel s st ∧ mem_rel s.memory st.memory s.memaddrs ∧
                  globals_rel s.globals st.globals ∧
                  code_rel ctxt s.code st.code ∧ locals_rel ctxt l' s.locals st.locals’
@@ -847,7 +847,7 @@ Proof
     qexists_tac ‘ck + ck'’ >>
     qexists_tac ‘st'’ >>
     fs [] >>
-    cases_on ‘h'’ >> fs [] >>
+    rename1 ‘eval s h = SOME c’ >>
     fs [wordSemTheory.the_words_def] >>
     ‘eval st' le = eval st le’ suffices_by fs [wlab_wloc_def] >>
     imp_res_tac compile_exps_out_rel >>
@@ -936,8 +936,8 @@ Proof
        metis_tac[]) >>
      strip_tac >>
      simp[evaluate_def,nested_seq_def,eval_def,loop_arith_def,set_var_def,lookup_insert] >>
-     rename1 ‘eval(st' with locals := insert tmp' (wlab_wloc (Word ww)) st'.locals) lee’ >>
-     ‘∀w. eval (set_var tmp' (wlab_wloc w) st') lee
+     rename1 ‘eval(st' with locals := insert tmp' (Word ww) st'.locals) lee’ >>
+     ‘∀w. eval (set_var tmp' (Word w) st') lee
           =
           eval st' lee
      ’
@@ -981,7 +981,6 @@ Proof
   >~ [‘eval s (Load e)’] >-
    (fs [crepSemTheory.eval_def] >>
     TOP_CASE_TAC >> fs [] >>
-    TOP_CASE_TAC >> fs [] >>
     rw [] >>
     fs [compile_exp_def] >>
     pairarg_tac >> fs [] >> rveq >>
@@ -991,11 +990,11 @@ Proof
     fs [loopSemTheory.eval_def, wlab_wloc_def] >>
     fs [crepSemTheory.mem_load_def, loopSemTheory.mem_load_def] >> rveq >>
     imp_res_tac state_rel_intro >>
-    gvs[mem_rel_def])
+    gvs[mem_rel_def, wlab_wloc_def])
   >>~ [‘eval s (LoadByte e)’,‘eval s (Load32 e)’]
   >- (fs [crepSemTheory.eval_def] >>
       TOP_CASE_TAC >> fs [] >>
-      TOP_CASE_TAC >> fs [] >>
+      rename1 ‘eval s e = SOME c’ >>
       TOP_CASE_TAC >> fs [] >>
       rw [] >>
       fs [compile_exp_def] >>
@@ -1011,7 +1010,7 @@ Proof
       pop_assum kall_tac >>
       fs [nested_seq_def, loopSemTheory.evaluate_def] >>
       fs [set_var_def, wlab_wloc_def] >>
-      fs [panSemTheory.mem_load_byte_def, CaseEq "word_lab",
+      fs [panSemTheory.mem_load_byte_def,
           wordSemTheory.mem_load_byte_aux_def,
           panSemTheory.mem_load_32_alt, wordSemTheory.mem_load_32_alt] >>
       drule mem_rel_intro >> strip_tac >>
@@ -1034,7 +1033,7 @@ Proof
       first_x_assum drule >> fs [])
   >- (fs [crepSemTheory.eval_def] >>
       TOP_CASE_TAC >> fs [] >>
-      TOP_CASE_TAC >> fs [] >>
+      rename1 ‘eval s e = SOME c’ >>
       TOP_CASE_TAC >> fs [] >>
       rw [] >>
       fs [compile_exp_def] >>
@@ -1050,7 +1049,7 @@ Proof
       pop_assum kall_tac >>
       fs [nested_seq_def, loopSemTheory.evaluate_def] >>
       fs [set_var_def, wlab_wloc_def] >>
-      fs [panSemTheory.mem_load_byte_def, CaseEq "word_lab",
+      fs [panSemTheory.mem_load_byte_def,
           wordSemTheory.mem_load_byte_aux_def,
           panSemTheory.mem_load_32_alt, wordSemTheory.mem_load_32_alt] >>
       drule mem_rel_intro >>
@@ -1082,7 +1081,7 @@ Proof
     fs [state_component_equality])
   >~ [‘Shift’] >-
    (rw [] >>
-    fs [crepSemTheory.eval_def, CaseEq "option", CaseEq "word_lab",
+    fs [crepSemTheory.eval_def, CaseEq "option",
         compile_exp_def] >>
     rpt(pairarg_tac >> gvs []) >>
     first_x_assum drule_all >>
@@ -1126,7 +1125,7 @@ Proof
     simp[wlab_wloc_def])
   >~ [‘Cmp’] >-
    (rw [] >>
-    fs [crepSemTheory.eval_def, CaseEq "option", CaseEq "word_lab"] >>
+    fs [crepSemTheory.eval_def, CaseEq "option"] >>
     rveq >> fs [compile_exp_def] >>
     pairarg_tac >> fs [] >>
     pairarg_tac >> fs [] >>
@@ -1780,7 +1779,7 @@ Resume ncompile_correct[Store]:
   strip_tac >> pop_assum kall_tac >>
   fs [nested_seq_def, evaluate_def, set_var_def] >>
   fs [wlab_wloc_def] >>
-  ‘eval (st' with locals := insert stmp (wlab_wloc w) st'.locals) dle =
+  ‘eval (st' with locals := insert stmp (Word w) st'.locals) dle =
    SOME (Word adr)’ by (
     qpat_x_assum ‘evaluate (nested_seq dp,_ with clock := ck + _) = _’ assume_tac >>
     drule nested_seq_pure_evaluation >>
@@ -1836,7 +1835,8 @@ Resume ncompile_correct[Store]:
    metis_tac []) >>
   drule mem_rel_intro >>
   rw [mem_rel_def] >>
-  rw [APPLY_UPDATE_THM]
+  rw [APPLY_UPDATE_THM] >>
+  gvs [wlab_wloc_def]
 QED
 
 Resume ncompile_correct[Store32]:
@@ -1924,7 +1924,7 @@ Resume ncompile_correct[Store32]:
   fs [wordSemTheory.mem_store_32_alt, panSemTheory.mem_store_32_alt,
       AllCaseEqs ()] >>
   rveq >> fs [lookup_insert] >>
-  ‘st'.memory (byte_align adr) = Word v’ by (
+  ‘st'.memory (byte_align adr) = Word (s.memory (byte_align adr))’ by (
     gvs[mem_rel_def] >> res_tac >>
     metis_tac[wlab_wloc_def]) >>
   fs [state_rel_def] >>
@@ -2033,7 +2033,7 @@ Resume ncompile_correct[StoreByte]:
   fs [wordSemTheory.mem_store_byte_aux_def, panSemTheory.mem_store_byte_def,
       AllCaseEqs ()] >>
   rveq >> fs [lookup_insert] >>
-  ‘st'.memory (byte_align adr) = Word v’ by (
+  ‘st'.memory (byte_align adr) = Word (s.memory (byte_align adr))’ by (
     gvs[mem_rel_def] >>
     metis_tac [wlab_wloc_def]) >>
   fs [state_rel_def] >>
@@ -2091,7 +2091,7 @@ QED
 Resume ncompile_correct[ShMem]:
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
-      compile_def,CaseEq"option",CaseEq"word_lab"] >> rveq >>
+      compile_def,CaseEq"option"] >> rveq >>
   cases_on ‘FLOOKUP s.locals v’>>fs[]>>
   pairarg_tac >> fs [] >>
   TOP_CASE_TAC >> fs [] >-
@@ -2185,7 +2185,7 @@ Resume ncompile_correct[ShMem]:
         \\ first_x_assum $ qspecl_then [‘v’, ‘vname’, ‘n'’] assume_tac
         \\ gvs [])
      \\ fs [])
-   >- (fs[CaseEq"word_lab",CaseEq"word_loc",CaseEq"bool",
+   >- (fs[CaseEq"word_loc",CaseEq"bool",
           CaseEq"ffi_result"]>>
        rveq>>fs[]>>gvs[wlab_wloc_def]>>
        ‘subspt l l'’ by (
@@ -2194,7 +2194,7 @@ Resume ncompile_correct[ShMem]:
          rveq >> metis_tac [subspt_trans]) >>
        match_mp_tac locals_rel_cutset_prop >>
        metis_tac [])
-   >- (fs[CaseEq"word_lab",CaseEq"word_loc",CaseEq"bool",
+   >- (fs[CaseEq"word_loc",CaseEq"bool",
           CaseEq"ffi_result"]>>
        rveq>>fs[]>>gvs[wlab_wloc_def]>>
        ‘subspt l l'’ by (
@@ -2203,7 +2203,7 @@ Resume ncompile_correct[ShMem]:
          rveq >> metis_tac [subspt_trans]) >>
        match_mp_tac locals_rel_cutset_prop >>
        metis_tac [])
-   >- (fs[CaseEq"word_lab",CaseEq"word_loc",CaseEq"bool",
+   >- (fs[CaseEq"word_loc",CaseEq"bool",
           CaseEq"ffi_result"]>>
        rveq>>fs[]>>gvs[wlab_wloc_def]>>
        ‘subspt l l'’ by (
@@ -2212,7 +2212,7 @@ Resume ncompile_correct[ShMem]:
          rveq >> metis_tac [subspt_trans]) >>
        match_mp_tac locals_rel_cutset_prop >>
        metis_tac [])
-   >- (fs[CaseEq"word_lab",CaseEq"word_loc",CaseEq"bool",
+   >- (fs[CaseEq"word_loc",CaseEq"bool",
           CaseEq"ffi_result"]>>
        rveq>>fs[]>>gvs[wlab_wloc_def]>>
        ‘subspt l l'’ by (
@@ -2320,22 +2320,16 @@ Proof
 QED
 
 Theorem crep_primop_loop_primop[local]:
-  ∀pop ws (res_ws : 'a word_lab list).
+  ∀pop ws (res_ws : 'a word list).
     crep_primop pop ws = SOME res_ws ⇒
     loop_primop pop (MAP wlab_wloc ws) = SOME (MAP wlab_wloc res_ws)
 Proof
   Cases >>
   fs [crepSemTheory.crep_primop_def, loopSemTheory.loop_primop_def,
       AllCaseEqs ()] >>
-  rw []
-  >- (gvs [EVERY_MAP, EVERY_MEM] >> Cases >>
-      simp [wlab_wloc_def, panSemTheory.isWord_def,
-            wordSemTheory.isWord_def]) >>
-  gvs [LENGTH_EQ_NUM_compute, PULL_EXISTS] >>
-  qmatch_asmsub_rename_tac
-    ‘word_add_carry (theWord l) (theWord r) (theWord ci)’ >>
-  Cases_on ‘l’ >> Cases_on ‘r’ >> Cases_on ‘ci’ >>
-  gvs [wlab_wloc_def, panSemTheory.theWord_def, wordSemTheory.theWord_def] >>
+  rw [] >>
+  gvs [LENGTH_EQ_NUM_compute, PULL_EXISTS, wlab_wloc_def,
+       wordSemTheory.isWord_def, wordSemTheory.theWord_def] >>
   pairarg_tac >> gvs [wlab_wloc_def]
 QED
 
@@ -2702,7 +2696,7 @@ Resume ncompile_correct[While]:
   qpat_x_assum ‘evaluate (While e c,s) = (res,s1)’ mp_tac >>
   once_rewrite_tac [crepSemTheory.evaluate_def] >>
   TOP_CASE_TAC >> fs [] >>
-  TOP_CASE_TAC >> fs [] >>
+  rename1 ‘eval s e = SOME c'’ >>
   reverse TOP_CASE_TAC >> fs []
   >- (
    (* False case *)
@@ -2796,7 +2790,7 @@ Resume ncompile_correct[While]:
   pairarg_tac >> fs [] >>
   ‘t.clock <> 0’ by fs [state_rel_def] >>
   ‘domain l ⊆ domain t.locals’ by fs [locals_rel_def] >>
-  ‘eval (dec_clock s) e = SOME (Word c')’ by (
+  ‘eval (dec_clock s) e = SOME c'’ by (
     fs [crepSemTheory.dec_clock_def] >>
     fs [crepPropsTheory.eval_upd_clock_eq]) >>
   fs [compile_def] >>
@@ -3038,9 +3032,9 @@ Resume ncompile_correct[While]:
   ) >>
   strip_tac >>
   fs [] >> rfs [] >>
-  last_x_assum (qspecl_then
-                [‘st with locals := insert tmp (Word c') st.locals’,
-                 ‘ctxt’, ‘l’] mp_tac) >>
+  qpat_x_assum ‘∀t ctxt l. state_rel (s with clock := _) _ ∧ _ ⇒ _’
+    (qspecl_then [‘st with locals := insert tmp (Word c') st.locals’,
+                  ‘ctxt’, ‘l’] mp_tac) >>
   impl_tac
   >- (
    fs [state_rel_def] >>
@@ -3227,7 +3221,7 @@ Proof
     metis_tac [EL_ZIP, FST, SND, LENGTH_MAP]) >>
   fs [] >> pop_assum kall_tac >>
   ‘n < LENGTH args’ by fs [] >>
-  drule (INST_TYPE [``:'a``|->``:'a word_lab``,
+  drule (INST_TYPE [``:'a``|->``:'a word``,
                     ``:'b``|->``:'a word_loc``] EL_MAP) >>
   disch_then (qspec_then ‘wlab_wloc’ assume_tac) >>
   fs [] >>
@@ -3346,7 +3340,7 @@ QED
 Resume ncompile_correct[Call]:
   rw []
   \\ fs [crepSemTheory.evaluate_def,
-       CaseEq "option", CaseEq "word_lab",CaseEq "prod"]
+       CaseEq "option",CaseEq "prod"]
   \\ rveq \\ fs []
   \\ fs [compile_def]
   \\ rpt (pairarg_tac \\ fs [])

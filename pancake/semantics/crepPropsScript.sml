@@ -61,21 +61,21 @@ Proof
 QED
 
 Theorem mem_loads_flat_rel:
-  (∀sh adr dm (m: 'a word -> 'a word_lab) stcs v.
+  (∀sh adr dm (m: 'a word -> 'a word) stcs v.
        mem_load sh adr dm m stcs = SOME v ∧ is_wf_shape_nil sh ⇒
        ∀(s :(α, β) state) n.
            n < LENGTH (flatten v) ⇒
            dm = s.memaddrs ⇒
            m = s.memory ⇒
            mem_load (adr + bytes_in_word * n2w n) s = SOME (EL n (flatten v))) ∧
-  (∀shs adr dm (m: 'a word -> 'a word_lab) stcs v.
+  (∀shs adr dm (m: 'a word -> 'a word) stcs v.
        mem_loads shs adr dm m stcs = SOME v ∧ EVERY is_wf_shape_nil shs ⇒
        ∀(s :(α, β) state) n.
            n < LENGTH (FLAT (MAP flatten v)) ⇒
            dm = s.memaddrs ⇒
            m = s.memory ⇒
            mem_load (adr + bytes_in_word * n2w n) s = SOME (EL n (FLAT (MAP flatten v)))) ∧
-  (∀flds adr dm (m: 'a word -> 'a word_lab) stcs vs.
+  (∀flds adr dm (m: 'a word -> 'a word) stcs vs.
        mem_load_flds flds adr dm m stcs = SOME vs ⇒
        T)
 Proof
@@ -103,7 +103,7 @@ QED
 
 Theorem mem_load_flat_rel:
   ∀sh adr s v n.
-  panSem$mem_load sh adr s.memaddrs (s.memory: 'a word -> 'a word_lab) stcs = SOME v ∧
+  panSem$mem_load sh adr s.memaddrs (s.memory: 'a word -> 'a word) stcs = SOME v ∧
   n < LENGTH (flatten v) /\
   is_wf_shape_nil sh ==>
   crepSem$mem_load (adr + bytes_in_word * n2w (LENGTH (TAKE n (flatten v)))) s =
@@ -143,18 +143,18 @@ Proof
   >- fs [eval_def, var_cexp_def, FLOOKUP_UPDATE]
   >- (
    rpt strip_tac >> fs [var_cexp_def] >>
-   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
+   fs [eval_def, CaseEq "option"] >>
    rveq >> fs [mem_load_def]
    )
   >- (
    rpt gen_tac >>
    strip_tac >> fs [var_cexp_def] >>
-   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
+   fs [eval_def, CaseEq "option"] >>
    rveq >> fs [mem_load_def])
   >- (
    rpt gen_tac >>
    strip_tac >> fs [var_cexp_def] >>
-   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
+   fs [eval_def, CaseEq "option"] >>
    rveq >> fs [mem_load_def])
   >- fs [var_cexp_def, eval_def, CaseEq "option"]
   >- (
@@ -189,7 +189,7 @@ Proof
    metis_tac[]) >>
   rpt gen_tac >>
   rpt strip_tac >> fs [var_cexp_def, ETA_AX] >>
-  fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
+  fs [eval_def, CaseEq "option"] >>
   rveq >> metis_tac []
 QED
 
@@ -514,7 +514,7 @@ Theorem evaluate_seq_stores_mem_state_rel:
    mem_stores (addr+i2w a) vs s.memaddrs s.memory = SOME m /\
    evaluate (nested_seq (stores aw (Var ad) (MAP Var es) a),
              s with locals := s.locals |++
-               ((ad,Word addr)::ZIP (es,vs))) = (res,t) ==>
+               ((ad,addr)::ZIP (es,vs))) = (res,t) ==>
    res = NONE ∧ t.memory = m ∧
    t.memaddrs = s.memaddrs ∧
    t.sh_memaddrs = s.sh_memaddrs ∧ (t.be ⇔ s.be) /\
@@ -535,9 +535,9 @@ Proof
       drule MAP_ZIP >>
       strip_tac >> fs []) >>
    drule FUPDATE_FUPDATE_LIST_COMMUTES >>
-   disch_then (qspecl_then [‘h'’, ‘s.locals |+ (ad,Word addr)’] assume_tac) >>
+   disch_then (qspecl_then [‘h'’, ‘s.locals |+ (ad,addr)’] assume_tac) >>
    fs [FLOOKUP_UPDATE]) >>
-  ‘lc |++ ((ad,Word addr)::ZIP (es,t')) = lc’ by (
+  ‘lc |++ ((ad,addr)::ZIP (es,t')) = lc’ by (
     fs [Abbr ‘lc’] >> metis_tac [fm_multi_update]) >>
   fs [stores_def] >>
   FULL_CASE_TAC >> fs []
@@ -545,14 +545,14 @@ Proof
     fs [integer_wordTheory.i2w_pos] >>
     fs [nested_seq_def, evaluate_def] >>
     pairarg_tac >> fs [] >>
-    ‘eval (s with locals := lc) (Var ad) = SOME (Word addr)’ by (
+    ‘eval (s with locals := lc) (Var ad) = SOME addr’ by (
       fs [Abbr ‘lc’, eval_def] >>
       fs [Once FUPDATE_LIST_THM] >>
       ‘~MEM ad (MAP FST ((h,h')::ZIP (es,t')))’ by (
         drule MAP_ZIP >>
         strip_tac >> fs []) >>
       drule FUPDATE_FUPDATE_LIST_COMMUTES >>
-      disch_then (qspecl_then [‘Word addr’, ‘s.locals’] assume_tac) >>
+      disch_then (qspecl_then [‘addr’, ‘s.locals’] assume_tac) >>
       fs [FLOOKUP_UPDATE]) >> fs [] >>
     rfs [] >> rveq >> fs [] >>
     last_x_assum (qspecl_then [‘t'’, ‘aw’, ‘ad’, ‘&(arch_bytes aw)’] mp_tac) >>
@@ -562,14 +562,14 @@ Proof
   ) >>
   fs [nested_seq_def, evaluate_def] >>
   pairarg_tac >> fs [] >>
-  ‘eval (s with locals := lc) (Op Add [Var ad; Const a]) = SOME (Word (addr+i2w a))’ by (
+  ‘eval (s with locals := lc) (Op Add [Var ad; Const a]) = SOME (addr+i2w a)’ by (
     fs [eval_def, OPT_MMAP_def, Abbr ‘lc’] >>
     fs [Once FUPDATE_LIST_THM] >>
     ‘~MEM ad (MAP FST ((h,h')::ZIP (es,t')))’ by (
       drule MAP_ZIP >>
       strip_tac >> fs []) >>
     drule FUPDATE_FUPDATE_LIST_COMMUTES >>
-    disch_then (qspecl_then [‘Word addr’, ‘s.locals’] assume_tac) >>
+    disch_then (qspecl_then [‘addr’, ‘s.locals’] assume_tac) >>
     fs [FLOOKUP_UPDATE, wordSemTheory.word_op_def]) >> fs [] >>
    rfs [] >> rveq >> fs [] >>
    pop_assum kall_tac >>
@@ -665,17 +665,17 @@ Proof
   >- (
    rpt gen_tac >>
    strip_tac >> fs [exps_def] >>
-   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
+   fs [eval_def, CaseEq "option"] >>
    rveq >> fs [mem_load_def] >> rveq >> metis_tac [])
   >- (
    rpt gen_tac >>
    strip_tac >> fs [exps_def] >>
-   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
+   fs [eval_def, CaseEq "option"] >>
    rveq >> fs [mem_load_def] >> rveq >> metis_tac [])
   >- (
    rpt gen_tac >>
    strip_tac >> fs [exps_def] >>
-   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
+   fs [eval_def, CaseEq "option"] >>
    rveq >> metis_tac [])
   >- fs [exps_def, eval_def, CaseEq "option"]
   >- (
@@ -699,7 +699,7 @@ Proof
    metis_tac[EL_MEM]) >>
   rpt gen_tac >>
   rpt strip_tac >> fs [exps_def, ETA_AX] >>
-  fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
+  fs [eval_def, CaseEq "option"] >>
   rveq >> metis_tac []
 QED
 
@@ -930,7 +930,6 @@ Proof
   TOP_CASE_TAC >> fs [] >>
   TOP_CASE_TAC >> fs [] >>
   TOP_CASE_TAC >> fs [] >>
-  TOP_CASE_TAC >> fs [] >>
   pairarg_tac >> fs [] >>
   pairarg_tac >> fs [] >> rveq >> fs [] >>
   TOP_CASE_TAC >> fs [] >> rveq >> fs []
@@ -938,6 +937,9 @@ Proof
    strip_tac >> fs [] >>
    TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
    fs [dec_clock_def] >>
+   qpat_x_assum ‘∀ck'. _’ (qspec_then ‘ck’ mp_tac) >>
+   ‘ck + (s.clock − 1) = ck + s.clock − 1’ by decide_tac >>
+   pop_assum SUBST1_TAC >> strip_tac >> fs [] >>
    last_x_assum (qspec_then ‘ck’ mp_tac) >>
    fs []) >>
   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
@@ -1001,7 +1003,6 @@ Proof
     once_rewrite_tac [evaluate_def] >>
     TOP_CASE_TAC >> fs [] >>
     TOP_CASE_TAC >> fs [] >>
-    TOP_CASE_TAC >> fs [] >>
     TOP_CASE_TAC >> fs [empty_locals_def]
     >- (strip_tac >> rveq >> fs []) >>
     pairarg_tac >> fs [] >>
@@ -1045,7 +1046,7 @@ Proof
   >~ [‘While’]
   >- (once_rewrite_tac [evaluate_def] >>
       TOP_CASE_TAC >> fs [eval_upd_clock_eq] >>
-      TOP_CASE_TAC >> fs [] >>
+      rename1 ‘eval s e = SOME w’ >>
       TOP_CASE_TAC >> fs [] >>
       TOP_CASE_TAC >> fs [empty_locals_def]
       >- (

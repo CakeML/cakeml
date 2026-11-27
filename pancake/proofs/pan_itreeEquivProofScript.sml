@@ -1740,7 +1740,7 @@ Proof
     TRY (qrefine ‘SUC n’>>simp[FUNPOW_SUC]>>fs[]>>
          res_tac>>
          pop_assum kall_tac>>
-         first_x_assum $ qspecl_then [‘s'’,‘k’,‘ffi’] assume_tac>>
+         first_x_assum $ qspecl_then [‘s'’,‘ffi’,‘k’] assume_tac>>
          rfs[]>>fs[FUNPOW_Tau_bind]>>NO_TAC)>>
     gvs[]>>metis_tac[FUNPOW])
   >~[‘While’]>-
