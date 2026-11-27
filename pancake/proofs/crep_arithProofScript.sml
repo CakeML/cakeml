@@ -16,8 +16,8 @@ QED
 
 Theorem eval_mul_const:
   arch_width_bits aw = dimindex(:'a) /\
-  eval (s:('a,'ffi) crepSem$state) exp = SOME (Word w) ==>
-  eval s (mul_const aw exp c) = SOME (Word (w * i2w c))
+  eval (s:('a,'ffi) crepSem$state) exp = SOME w ==>
+  eval s (mul_const aw exp c) = SOME (w * i2w c)
 Proof
   strip_tac >>
   simp [mul_const_def, GSYM dimword_def,
@@ -70,7 +70,7 @@ Proof
   \\ rw []
   \\ fs [simp_exp_def]
   \\ imp_res_tac (IS_SOME_EXISTS |> REWRITE_RULE [IS_SOME_EQ_NOT_NONE])
-  \\ fs [eval_def, CaseEq "option", CaseEq "word_lab"]
+  \\ fs [eval_def, CaseEq "option"]
   \\ fs [FLOOKUP_FMAP_MAP2, mem_load_def]
   >~ [`Case (Op _ _)`]
   >- (
@@ -150,7 +150,7 @@ Proof
   >~ [`Case (While _ _)`]
   >~ [`Case (Call _ _ _)`]
   >- (
-    fs [evaluate_def, UNCURRY_eq_pair, CaseEq "option", CaseEq "word_lab", CaseEq "prod"]
+    fs [evaluate_def, UNCURRY_eq_pair, CaseEq "option", CaseEq "prod"]
     \\ imp_res_tac simp_exp_correct
     \\ simp [OPT_MMAP_MAP_o]
     \\ drule_then (irule_at Any) OPT_MMAP_EQ_SOME_MONO

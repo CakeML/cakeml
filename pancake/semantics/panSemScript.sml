@@ -13,35 +13,21 @@ Libs
   preamble blastLib
 
 
-(* TODO: rename or remove *)
 Datatype:
-  word_lab = Word ('a word)
-End
-
-Datatype:
-  v = Val ('a word_lab)
+  v = Val ('a word)
     | RStruct (v list)
     | NStruct stcname ((fldname # v) list)
 End
 
-Overload ValWord  = “\w. Val (Word w)”
-
-Definition isWord_def:
-  isWord (Word _) = T ∧
-  isWord _        = F
-End
-
-Definition theWord_def:
-  theWord (Word w) = w
-End
+Overload ValWord  = “\w. Val w”
 
 Definition isValWord_def:
-  isValWord (ValWord _) = T ∧
-  isValWord _           = F
+  isValWord (Val _) = T ∧
+  isValWord _       = F
 End
 
 Definition theValWord_def:
-  theValWord (ValWord w) = w
+  theValWord (Val w) = w
 End
 
 Datatype:
@@ -52,7 +38,7 @@ Datatype:
      ; code        : funname |-> ((varname # shape) list # (panLang$prog) # shape)
                      (* arguments (with shape), body, return shape *)
      ; eshapes     : eid |-> shape
-     ; memory      : 'a word -> 'a word_lab
+     ; memory      : 'a word -> 'a word
      ; memaddrs    : ('a word) set
      ; sh_memaddrs    : ('a word) set
      ; clock       : num
@@ -86,8 +72,7 @@ End
 
 Definition mem_load_byte_def:
   mem_load_byte m dm be w =
-  case m (byte_align w) of
-    | Word v =>
+  let v = m (byte_align w) in
        if byte_align w IN dm
        then SOME (get_byte w v be) else NONE
 End
@@ -96,8 +81,7 @@ Definition mem_load_32_def:
   mem_load_32 m dm be (w:'a word) =
   if aligned 2 w
   then
-    case m (byte_align w) of
-    | Word v =>
+    let v = m (byte_align w) in
         if byte_align w IN dm
         then SOME (word_of_bytes be (0w:word32)
           [get_byte w v be; get_byte (w + 1w) v be;
@@ -110,8 +94,7 @@ Theorem mem_load_32_alt:
   mem_load_32 m dm be (w:'a word) =
   if aligned 2 w
   then
-    case m (byte_align w) of
-    | Word v =>
+    let v = m (byte_align w) in
         if byte_align w IN dm
         then
           let b0 = get_byte w v be in
@@ -136,7 +119,7 @@ Proof
 QED
 
 Definition mem_load_def:
-  (mem_load sh addr dm (m: 'a word -> 'a word_lab) stcs =
+  (mem_load sh addr dm (m: 'a word -> 'a word) stcs =
    case sh of
    | One =>
      if addr IN dm
@@ -300,10 +283,9 @@ End
 (* TODISC: why NONE is returned here on write failure *)
 Definition mem_store_byte_def:
   mem_store_byte m dm be w b =
-  case m (byte_align w) of
-   | Word v =>
+  let v = m (byte_align w) in
      if byte_align w IN dm
-     then SOME ((byte_align w =+ Word (set_byte w b v be)) m)
+     then SOME ((byte_align w =+ set_byte w b v be) m)
      else NONE
 End
 
@@ -329,15 +311,14 @@ Definition mem_store_32_def:
   mem_store_32 m dm be (w:'a word) (hw:word32) =
   if aligned 2 w
   then
-    case m (byte_align w) of
-    | Word v =>
+    let v = m (byte_align w) in
         if byte_align w IN dm
         then
           let v0 = set_byte w (get_byte (0w:word32) hw be) v be in
           let v1 = set_byte (w + 1w) (get_byte 1w hw be) v0 be in
           let v2 = set_byte (w + 2w) (get_byte 2w hw be) v1 be in
           let v3 = set_byte (w + 3w) (get_byte 3w hw be) v2 be in
-            SOME ((byte_align w =+ Word v3) m)
+            SOME ((byte_align w =+ v3) m)
         else NONE
   else NONE
 End
@@ -346,8 +327,7 @@ Theorem mem_store_32_alt:
   mem_store_32 m dm be (w:'a word) (hw:word32) =
   if aligned 2 w
   then
-    case m (byte_align w) of
-    | Word v =>
+    let v = m (byte_align w) in
         if byte_align w IN dm
         then
           if be
@@ -356,13 +336,13 @@ Theorem mem_store_32_alt:
             let v1 = set_byte (w + 1w) (w2w (hw ⋙  16)) v0 be in
             let v2 = set_byte (w + 2w) (w2w (hw ⋙  8)) v1 be in
             let v3 = set_byte (w + 3w) (w2w hw) v2 be in
-              SOME ((byte_align w =+ Word v3) m)
+              SOME ((byte_align w =+ v3) m)
           else
             let v0 = set_byte w (w2w hw) v be in
             let v1 = set_byte (w + 1w) (w2w (hw ⋙  8)) v0 be in
             let v2 = set_byte (w + 2w) (w2w (hw ⋙  16)) v1 be in
             let v3 = set_byte (w + 3w) (w2w (hw ⋙  24)) v2 be in
-              SOME ((byte_align w =+ Word v3) m)
+              SOME ((byte_align w =+ v3) m)
         else NONE
   else NONE
 Proof
@@ -372,7 +352,7 @@ Proof
 QED
 
 Definition mem_store_def:
-  mem_store (addr:'a word) (w:'a word_lab) dm m =
+  mem_store (addr:'a word) (w:'a word) dm m =
     if addr IN dm then
     SOME ((addr =+ w) m)
     else NONE

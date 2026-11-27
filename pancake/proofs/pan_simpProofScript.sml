@@ -256,7 +256,6 @@ Resume ret_to_tail_correct[While]:
   TOP_CASE_TAC >> fs [] >>
   TOP_CASE_TAC >> fs [] >>
   TOP_CASE_TAC >> fs [] >>
-  TOP_CASE_TAC >> fs [] >>
   drule evaluate_while_no_error_imp >>
   disch_then (qspec_then ‘c’ mp_tac) >>
   rw [] >> fs [] >>
@@ -447,26 +446,25 @@ Proof
   >- (
    rename [‘eval s (Load sh e)’] >>
    rpt gen_tac >> strip_tac >>
-   fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
-       CaseEq "word_lab"] >> rveq >> fs [] >>
+   fs [panSemTheory.eval_def, option_case_eq, v_case_eq] >> rveq >> fs [] >>
    fs [state_rel_def, state_component_equality])
   >- (
    rename [‘eval s (Load32 e)’] >>
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
-       CaseEq "word_lab", option_case_eq] >> rveq >> fs [] >>
+       option_case_eq] >> rveq >> fs [] >>
    fs [state_rel_def, state_component_equality])
   >- (
    rename [‘eval s (LoadByte e)’] >>
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
-       CaseEq "word_lab", option_case_eq] >> rveq >> fs [] >>
+       option_case_eq] >> rveq >> fs [] >>
    fs [state_rel_def, state_component_equality])
   >- (
    rename [‘eval s (Op op es)’] >>
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def, option_case_eq, v_case_eq,
-       CaseEq "word_lab", option_case_eq] >> rveq >> fs [] >>
+       option_case_eq] >> rveq >> fs [] >>
    qsuff_tac ‘OPT_MMAP (eval t) es = SOME ws’
    >- fs [] >>
    pop_assum mp_tac >>
@@ -488,11 +486,11 @@ Proof
   >- (
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def] >>
-   fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
+   fs [option_case_eq, v_case_eq] >> rveq >>
    fs []) >>
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.eval_def] >>
-  fs [option_case_eq, v_case_eq, word_lab_case_eq] >> rveq >>
+  fs [option_case_eq, v_case_eq] >> rveq >>
   fs [state_rel_def, state_component_equality]
 QED
 
@@ -876,7 +874,6 @@ Resume compile_correct[While]:
   once_rewrite_tac [evaluate_def] >>
   TOP_CASE_TAC >> fs [] >>
   TOP_CASE_TAC >> fs [] >>
-  TOP_CASE_TAC >> fs [] >>
   TOP_CASE_TAC >> fs []
   >- (
    TOP_CASE_TAC >> fs [] >>
@@ -895,7 +892,8 @@ Resume compile_correct[While]:
    fs [] >>
    cases_on ‘q’ >> fs [] >> rveq >> fs [] >>
    TRY (cases_on ‘x’ >> fs [] >> rveq >> fs []) >> (
-   last_x_assum (qspec_then ‘dec_clock t’ mp_tac) >>
+   qpat_x_assum ‘∀t'. _ ⇒ ∃t1. evaluate (c,t') = _ ∧ _’
+     (qspec_then ‘dec_clock t’ mp_tac) >>
    impl_tac
    >- fs [dec_clock_def, state_rel_def, state_component_equality] >>
    strip_tac >> fs [])) >>

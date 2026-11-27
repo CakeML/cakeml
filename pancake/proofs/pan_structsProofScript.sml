@@ -739,7 +739,7 @@ Proof
   )
   >~ [`Load`]
   >- (
-    gvs [eval_def, option_case_eq, v_case_eq, word_lab_case_eq, compile_exp_def,
+    gvs [eval_def, option_case_eq, v_case_eq, compile_exp_def,
         is_wf_shape_v_def, convert_v_def]
     >> simp [convert_s_def, is_wf_shape_compile_shape]
     >> drule mem_load_conversion_inst
@@ -1066,7 +1066,7 @@ Proof
     >> strip_tac
     >> gs [option_case_eq]
     >> drule_then drule compile_exp_correct
-    >> gvs [v_case_eq, word_lab_case_eq, convert_v_def, bool_case_eq,
+    >> gvs [v_case_eq, convert_v_def, bool_case_eq,
         convert_s_def, empty_locals_def, FMAP_MAP2_FEMPTY, UNCURRY_EQ,
         dec_clock_def, FEVERY_FEMPTY, convert_res_def, is_cont_res_def,
         res_vs_def]
@@ -1267,7 +1267,7 @@ Proof
   >~ [`ShMemLoad`]
   >- (
     gvs [evaluate_def, option_case_eq, pair_case_eq, bool_case_eq, v_case_eq,
-        word_lab_case_eq, flatten_convert_v]
+        flatten_convert_v]
     >> imp_res_tac compile_exp_correct
     >> simp [convert_v_def, convert_s_def, convert_res_def]
     >> fs [lookup_kvar_def, varkind_case_eq, FLOOKUP_FMAP_MAP2, convert_v_def]
@@ -1296,7 +1296,7 @@ Proof
   )
   >~ [`If`]
   >- (
-    gvs [evaluate_def, option_case_eq, v_case_eq, word_lab_case_eq]
+    gvs [evaluate_def, option_case_eq, v_case_eq]
     >> imp_res_tac compile_exp_correct
     >> imp_res_tac evaluate_is_wf_shape_invariant
     >> imp_res_tac evaluate_structs_code_inv
@@ -1306,7 +1306,7 @@ Proof
   )
   >~ [`Return`]
   >- (
-    gvs [evaluate_def, option_case_eq, v_case_eq, word_lab_case_eq, bool_case_eq]
+    gvs [evaluate_def, option_case_eq, v_case_eq, bool_case_eq]
     >> imp_res_tac compile_exp_correct
     >> simp [convert_v_def, convert_s_def, flatten_convert_v, convert_res_def,
         empty_locals_def, FMAP_MAP2_FEMPTY, FEVERY_FEMPTY, is_cont_res_def,
@@ -1318,7 +1318,7 @@ Proof
   )
   >~ [`Raise`]
   >- (
-    gvs [evaluate_def, option_case_eq, v_case_eq, word_lab_case_eq, bool_case_eq]
+    gvs [evaluate_def, option_case_eq, v_case_eq, bool_case_eq]
     >> imp_res_tac compile_exp_correct
     >> simp [convert_v_def, convert_s_def, flatten_convert_v, convert_res_def,
         empty_locals_def, FMAP_MAP2_FEMPTY, FEVERY_FEMPTY, is_cont_res_def,
@@ -1330,12 +1330,12 @@ Proof
   )
   >~ [`Tick`]
   >- (
-    gvs [evaluate_def, option_case_eq, v_case_eq, word_lab_case_eq, bool_case_eq]
+    gvs [evaluate_def, option_case_eq, v_case_eq, bool_case_eq]
     >> simp [convert_res_def, convert_s_def, empty_locals_def, FMAP_MAP2_FEMPTY,
         FEVERY_FEMPTY, is_cont_res_def, dec_clock_def, res_vs_def]
   )
   >> gvs [evaluate_def, option_case_eq, pair_case_eq, bool_case_eq, v_case_eq,
-        word_lab_case_eq, flatten_convert_v, sh_mem_store_def,
+        flatten_convert_v, sh_mem_store_def,
         ffiTheory.ffi_result_case_eq, is_cont_res_def]
   >> rw []
   >> imp_res_tac compile_exp_correct

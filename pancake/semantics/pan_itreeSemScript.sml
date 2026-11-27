@@ -19,7 +19,7 @@ Datatype:
      ; code        : funname |-> ((varname # shape) list # (panLang$prog) # shape)
                      (* arguments (with shape), body, return shape *)
      ; eshapes     : eid |-> shape
-     ; memory      : 'a word -> 'a word_lab
+     ; memory      : 'a word -> 'a word
      ; memaddrs    : ('a word) set
      ; sh_memaddrs    : ('a word) set
      ; be          : bool

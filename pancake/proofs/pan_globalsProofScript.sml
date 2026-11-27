@@ -389,7 +389,6 @@ Proof
     Induct >>
     rw[flatten_def,shape_of_def,mem_stores_def,AllCaseEqs(),
        mem_store_def,mem_load_def,is_wf_shape_def]
-    >- (rw[Once $ oneline shape_of_def] >> PURE_CASE_TAC >> simp[])
     >- rw[UPDATE_APPLY] >>
     rpt (pop_assum mp_tac) >>
     map_every qid_spec_tac [‘m’,‘memory'’,‘addr’] >>
@@ -739,7 +738,8 @@ Resume compile_correct[StoreByte]:
   rw[evaluate_def,compile_def,AllCaseEqs(),UNCURRY_eq_pair,SF DNF_ss, mem_store_byte_def,
      good_res_def] >>
   imp_res_tac compile_exp_correct >>
-  ‘s.be = t.be’ by gvs[state_rel_def] >>
+  ‘s.be = t.be ∧ t.memory (byte_align adr) = s.memory (byte_align adr)’
+    by gvs[state_rel_def] >>
   simp[] >>
   irule_at (Pos last) state_rel_memory_update >>
   simp[] >>
@@ -1743,7 +1743,7 @@ Proof
       simp[fperm_def] >>
       PURE_ONCE_REWRITE_TAC[evaluate_def] >>
       simp[eval_upd_code_eq] >>
-      ntac 3 (PURE_TOP_CASE_TAC >> simp[]) >>
+      ntac 2 (PURE_TOP_CASE_TAC >> simp[]) >>
       IF_CASES_TAC >> simp[] >>
       IF_CASES_TAC >> simp[empty_locals_def] >>
       gvs[] >>
